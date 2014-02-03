@@ -1,0 +1,14 @@
+#!/usr/bin/env ruby
+
+require 'tempfile'
+
+if ARGV.length != 1
+  STDERR.puts "Usage: #{$0} notes.mid"
+  exit 1
+end
+mid = ARGV[0]
+
+txt = Tempfile.new ['fixresolution', '.txt']
+txt.close
+`midiscript "#{mid}" "#{txt.path}"`
+`midiscript "#{txt.path}" "#{mid}" -r 480`

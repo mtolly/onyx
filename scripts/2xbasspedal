@@ -27,7 +27,7 @@ end
 
 source_str.gsub!(drums_regex, '')
 
-out_tmp = Tempfile.new ['2xbaspedal', '.txt']
+out_tmp = Tempfile.new ['2xbasspedal', '.txt']
 out_tmp.print(source_str + drums_trk)
 out_tmp.close
-`midiscript "#{out_tmp.path}" "#{out}" -r 480`
+`midiscript "#{out_tmp.path}" "#{out}"`
