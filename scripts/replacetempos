@@ -31,4 +31,4 @@ source_str.gsub!(tempo_regex, '')
 out_tmp = Tempfile.new ['replacetempos', '.txt']
 out_tmp.print(tempo_trk + source_str)
 out_tmp.close
-`midiscript "#{out_tmp.path}" "#{out}"`
+`midiscript "#{out_tmp.path}" "#{out}" -r 480`
