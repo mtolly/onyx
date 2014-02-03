@@ -14,7 +14,7 @@ gen/jammit/1p/notes.mid: notes.mid
 
 gen/album/1p/notes.mid: notes.mid tempo-album.mid
 	mkdir -p $(@D)
-	../../scripts/replacetempos $^ $@
+	../../scripts/replacetempos $+ $@
 
 gen/%/2p/notes.mid: gen/%/1p/notes.mid
 	mkdir -p $(@D)
@@ -42,7 +42,7 @@ gen/album/%/drums.wav: gen/album/%/song.wav
 
 gen/%/audio.ogg: gen/%/drums.wav gen/%/song.wav
 	mkdir -p $(@D)
-	sox --combine merge $^ $@
+	sox --combine merge $+ $@
 
 %.mogg: %.ogg
 	ogg2mogg $< $@
