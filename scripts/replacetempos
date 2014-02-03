@@ -1,0 +1,34 @@
+#!/usr/bin/env ruby
+
+require 'tempfile'
+
+if ARGV.length != 3
+  STDERR.puts "Usage: #{$0} source.mid tempo.mid out.mid"
+  exit 1
+end
+source = ARGV[0]
+tempo = ARGV[1]
+out = ARGV[2]
+
+source_str, tempo_str = [source, tempo].map do |mid|
+  txt = Tempfile.new ['replacetempos', '.txt']
+  txt.close
+  `midiscript "#{mid}" "#{txt.path}"`
+  File.read txt
+end
+
+tempo_regex = / tempo .*? \{ .*? \} /mx
+
+if md = tempo_str.match(tempo_regex)
+  tempo_trk = md[0]
+else
+  STDERR.puts "Warning: no tempo track found in #{tempo}"
+  tempo_trk = ''
+end
+
+source_str.gsub!(tempo_regex, '')
+
+out_tmp = Tempfile.new ['replacetempos', '.txt']
+out_tmp.print(tempo_trk + source_str)
+out_tmp.close
+`midiscript "#{out_tmp.path}" "#{out}" -r 480`

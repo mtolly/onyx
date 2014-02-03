@@ -1,0 +1,33 @@
+#!/usr/bin/env ruby
+
+require 'tempfile'
+
+if ARGV.length != 2
+  STDERR.puts "Usage: #{$0} source.mid out.mid"
+  exit 1
+end
+source = ARGV[0]
+out = ARGV[1]
+
+source_txt = Tempfile.new ['2xbasspedal', '.txt']
+source_txt.close
+`midiscript "#{source}" "#{source_txt.path}"`
+source_str = File.read source_txt
+
+drums_regex = / \"PART [ ] DRUMS\" .*? \{ .*? \} /mx
+leftkick_regex = / \b (on|off) \s+ (95) \b /mx
+
+if md = source_str.match(drums_regex)
+  drums_trk = md[0]
+  drums_trk.gsub!(leftkick_regex) { |evt| "#{$1} 96" }
+else
+  STDERR.puts "Warning: no drums track found in #{source}"
+  drums_trk = ''
+end
+
+source_str.gsub!(drums_regex, '')
+
+out_tmp = Tempfile.new ['2xbaspedal', '.txt']
+out_tmp.print(source_str + drums_trk)
+out_tmp.close
+`midiscript "#{out_tmp.path}" "#{out}" -r 480`
