@@ -1,6 +1,7 @@
 title = Take the Time
 artist = Dream Theater
 package = takethetime
+album-pad = 0.680
 
 clean:
 	rm -rf gen
@@ -32,11 +33,13 @@ gen/jammit/%/drums.wav:
 
 gen/album/%/song.wav: audio-album.*
 	mkdir -p $(@D)
-	sox $< $@ pad 0.680
+	sox $< $@ pad $(album-pad)
 
 gen/album/%/drums.wav: gen/album/%/song.wav
 	mkdir -p $(@D)
-	sox $< $@ pad 1 trim 0 1 # silence with correct channel number and sample rate
+	sox $< $@ pad 1 trim 0 1
+
+# TODO: countin
 
 # Audio merge
 
@@ -79,7 +82,3 @@ gen/%/package.con: \
 		gen/%/package/songs/$(package)/$(package).mogg \
 		gen/%/package/songs/$(package)/gen/$(package)_keep.png_xbox
 	rb3pkg -p "$(artist): $(title)" -d "Version: $*" -f gen/$*/package $@
-
-#gen/timed/song.wav: gen/timed/nodrums.wav countin.wav
-#	mkdir -p $(@D)
-#	sox --combine mix -v 1 $< -v 1 countin.wav $@

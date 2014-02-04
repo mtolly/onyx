@@ -1,6 +1,7 @@
 title = Surrounded
 artist = Dream Theater
 package = surrounded
+album-pad = 3.471
 
 clean:
 	rm -rf gen
@@ -30,13 +31,13 @@ gen/jammit/%/drums.wav:
 	mkdir -p $(@D)
 	jammittools -t "$(title)" -r "$(artist)" -y d -a $@
 
-#gen/album/%/song.wav: audio-album.*
-#	mkdir -p $(@D)
-#	sox $< $@ pad ???
+gen/album/%/song.wav: audio-album.*
+	mkdir -p $(@D)
+	sox $< $@ pad $(album-pad)
 
 gen/album/%/drums.wav: gen/album/%/song.wav
 	mkdir -p $(@D)
-	sox $< $@ pad 1 trim 0 1 # silence with correct channel number and sample rate
+	sox $< $@ pad 1 trim 0 1
 
 # Audio merge
 

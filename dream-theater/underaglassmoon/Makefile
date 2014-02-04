@@ -1,11 +1,16 @@
 title = Under a Glass Moon
 artist = Dream Theater
 package = underaglassmoon
+jammit-pad = 1.704
+album-pad = 3.051
 
 clean:
 	rm -rf gen
 
 # MIDI
+
+# TODO: 1p
+# TODO: tempo-album
 
 gen/jammit/2p/notes.mid: notes.mid
 	mkdir -p $(@D)
@@ -23,15 +28,17 @@ gen/jammit/%/drums-untimed.wav:
 	jammittools -t "$(title)" -r "$(artist)" -y d -a $@
 
 gen/jammit/%.wav: gen/jammit/%-untimed.wav
-	sox $< $@ pad 1.704
+	sox $< $@ pad $(jammit-pad)
 
-#gen/album/%/song.wav: audio-album.*
-#	mkdir -p $(@D)
-#	sox $< $@ pad ???
+gen/album/%/song.wav: audio-album.*
+	mkdir -p $(@D)
+	sox $< $@ pad $(album-pad)
 
 gen/album/%/drums.wav: gen/album/%/song.wav
 	mkdir -p $(@D)
-	sox $< $@ pad 1 trim 0 1 # silence with correct channel number and sample rate
+	sox $< $@ pad 1 trim 0 1
+
+# TODO: countin
 
 # Audio merge
 

@@ -1,6 +1,8 @@
 title = Celestial Terrestrial Commuters
 artist = Mahavishnu Orchestra
 package = celestialcommuters
+jammit-pad = 3.649
+album-pad = 4.381
 
 clean:
 	rm -rf gen
@@ -31,15 +33,15 @@ gen/jammit/%/drums-untimed.wav:
 	jammittools -t "$(title)" -r "$(artist)" -y d -a $@
 
 gen/jammit/%.wav: gen/jammit/%-untimed.wav
-	sox $< $@ pad 3.649
+	sox $< $@ pad $(jammit-pad)
 
 gen/album/%/song.wav: audio-album.*
 	mkdir -p $(@D)
-	sox $< $@ pad 4.381
+	sox $< $@ pad $(album-pad)
 
 gen/album/%/drums.wav: gen/album/%/song.wav
 	mkdir -p $(@D)
-	sox $< $@ pad 1 trim 0 1 # silence with correct channel number and sample rate
+	sox $< $@ pad 1 trim 0 1
 
 gen/%/song-countin.wav: gen/%/song.wav countin.wav
 	mkdir -p $(@D)

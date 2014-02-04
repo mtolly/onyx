@@ -1,11 +1,16 @@
 title = Learning to Live
 artist = Dream Theater
 package = learningtolive
+jammit-pad = 0.222
+album-pad = 3.348
 
 clean:
 	rm -rf gen
 
 # MIDI
+
+# TODO: 1p
+# TODO: tempo-album
 
 gen/jammit/2p/notes.mid: notes.mid
 	mkdir -p $(@D)
@@ -23,15 +28,15 @@ gen/jammit/%/drums-untimed.wav:
 	jammittools -t "$(title)" -r "$(artist)" -y d -a $@
 
 gen/jammit/%.wav: gen/jammit/%-untimed.wav
-	sox $< $@ pad 0.222
+	sox $< $@ pad $(jammit-pad)
 
 gen/album/%/song.wav: audio-album.*
 	mkdir -p $(@D)
-	sox $< $@ pad 3.348
+	sox $< $@ pad $(album-pad)
 
 gen/album/%/drums.wav: gen/album/%/song.wav
 	mkdir -p $(@D)
-	sox $< $@ pad 1 trim 0 1 # silence with correct channel number and sample rate
+	sox $< $@ pad 1 trim 0 1
 
 gen/%/song-countin.wav: gen/%/song.wav countin.wav
 	sox --combine mix -v 1 $+ $@

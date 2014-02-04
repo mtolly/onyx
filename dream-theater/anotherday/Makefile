@@ -1,11 +1,14 @@
 title = Another Day
 artist = Dream Theater
 package = anotherday
+album-pad = 3.109
 
 clean:
 	rm -rf gen
 
 # MIDI
+
+# TODO: 1p
 
 gen/jammit/2p/notes.mid: notes.mid
 	mkdir -p $(@D)
@@ -28,11 +31,11 @@ gen/jammit/%/drums.wav:
 
 gen/album/%/song.wav: audio-album.*
 	mkdir -p $(@D)
-	sox $< $@ pad 3.109
+	sox $< $@ pad $(album-pad)
 
 gen/album/%/drums.wav: gen/album/%/song.wav
 	mkdir -p $(@D)
-	sox $< $@ pad 1 trim 0 1 # silence with correct channel number and sample rate
+	sox $< $@ pad 1 trim 0 1
 
 gen/%/song-countin.wav: gen/%/song.wav countin.wav
 	mkdir -p $(@D)
