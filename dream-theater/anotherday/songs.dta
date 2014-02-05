@@ -1,9 +1,9 @@
-(anotherday
+(<PACKAGE>
    (name "Another Day")
    (artist "Dream Theater")
    (master 1)
    (song
-      (name "songs/anotherday/anotherday")
+      (name "songs/<PACKAGE>/<PACKAGE>")
       (tracks_count (2 0 0 0 0 2))
       (tracks
          (
@@ -24,7 +24,7 @@
    (song_scroll_speed 2300)
    (bank "sfx/tambourine_bank.milo")
    (anim_tempo 64)
-   (song_length 264787)
+   (song_length <LENGTH>)
    (preview 59000 89000)
    (rank
       (drum 250)
@@ -43,7 +43,7 @@
    (year_released 1991)
    (rating 4)
    (sub_genre subgenre_prog)
-   (song_id anotherday)
+   (song_id <PACKAGE>)
    (tuning_offset_cents 0.00)
    (guide_pitch_volume -3.00)
    (game_origin ugc_plus)

@@ -54,9 +54,15 @@ gen/%/cover.png_xbox: ../../covers/images-and-words.*
 	mkdir -p $(@D)
 	rb3albumart $< $@
 
+# Metadata
+
+gen/%/songs.dta: notes.mid songs.dta
+	mkdir -p $(@D)
+	../../scripts/dtafill $(package) $+ $@
+
 # Folder assembly
 
-gen/%/package/songs/songs.dta: songs.dta
+gen/%/package/songs/songs.dta: gen/%/songs.dta
 	mkdir -p $(@D)
 	cp $< $@
 
