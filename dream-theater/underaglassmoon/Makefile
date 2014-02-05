@@ -35,7 +35,6 @@ gen/album/%/song.wav: audio-album.*
 	sox $< $@ pad $(album-pad)
 
 gen/album/%/drums.wav: gen/album/%/song.wav
-	mkdir -p $(@D)
 	sox $< $@ pad 1 trim 0 1
 
 # TODO: countin
@@ -43,7 +42,6 @@ gen/album/%/drums.wav: gen/album/%/song.wav
 # Audio merge
 
 gen/%/audio.ogg: gen/%/drums.wav gen/%/song.wav
-	mkdir -p $(@D)
 	sox --combine merge $+ $@
 
 %.mogg: %.ogg

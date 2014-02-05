@@ -13,9 +13,11 @@ gen/jammit/1p/notes.mid: notes.mid
 	cp $< $@
 	../../scripts/fixresolution $@
 
-gen/album/1p/notes.mid: notes.mid tempo-album.mid
-	mkdir -p $(@D)
-	../../scripts/replacetempos $+ $@
+# TODO: tempo-album.mid
+
+#gen/album/1p/notes.mid: notes.mid tempo-album.mid
+#	mkdir -p $(@D)
+#	../../scripts/replacetempos $+ $@
 
 gen/%/2p/notes.mid: gen/%/1p/notes.mid
 	mkdir -p $(@D)
@@ -36,13 +38,11 @@ gen/album/%/song.wav: audio-album.*
 	sox $< $@ pad $(album-pad)
 
 gen/album/%/drums.wav: gen/album/%/song.wav
-	mkdir -p $(@D)
 	sox $< $@ pad 1 trim 0 1
 
 # Audio merge
 
 gen/%/audio.ogg: gen/%/drums.wav gen/%/song.wav
-	mkdir -p $(@D)
 	sox --combine merge $+ $@
 
 %.mogg: %.ogg

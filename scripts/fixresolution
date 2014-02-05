@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+# fixresolution : simply ensure that a midi has the RB3 resolution of 480.
+
 require 'tempfile'
 
 if ARGV.length != 1

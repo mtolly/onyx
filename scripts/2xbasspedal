@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+# 2xbasspedal : move notes on pitch 95 in "PART DRUMS" to pitch 96.
+
 require 'tempfile'
 
 if ARGV.length != 2

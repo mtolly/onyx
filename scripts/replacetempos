@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+# replacetempos : replace one midi's tempo track with that of another.
+
 require 'tempfile'
 
 if ARGV.length != 3
