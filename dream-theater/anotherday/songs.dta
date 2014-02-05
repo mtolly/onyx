@@ -48,9 +48,6 @@
    (guide_pitch_volume -3.00)
    (game_origin ugc_plus)
    (encoding latin1)
-   (
-      album_name
-      "Images and Words"
-   )
+   (album_name "Images and Words")
    (album_track_number 2)
 )
