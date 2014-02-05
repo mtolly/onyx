@@ -1,0 +1,34 @@
+#!/usr/bin/env ruby
+
+# dtafill : autofill certain values in a songs.dta metadata file.
+
+require 'tempfile'
+
+if ARGV.length != 4
+  STDERR.puts "Usage: #{$0} packagename notes.mid in.dta out.dta"
+  exit 1
+end
+pkg = ARGV[0]
+mid = ARGV[1]
+fin = ARGV[2]
+fout = ARGV[3]
+
+txt = Tempfile.new ['dtafill', '.txt']
+txt.close
+`midiscript -s "#{mid}" "#{txt.path}"`
+str = File.read txt
+
+sin = File.read fin
+
+end_regex = / (\d+ \. \d+)s: [^;]*? "\[end\]" /mx
+if md = str.match(end_regex)
+  song_length = md[1].to_f
+else
+  STDERR.puts 'Could not find [end] event'
+  exit 1
+end
+
+sin.gsub!('<LENGTH>', (song_length * 1000).floor.to_s)
+sin.gsub!('<PACKAGE>', pkg)
+
+File.write(fout, sin)

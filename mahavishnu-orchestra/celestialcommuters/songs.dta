@@ -1,5 +1,5 @@
 (
-   'celestialcommuters'
+   <PACKAGE>
    (
       'name'
       "Celestial Terrestrial Commuters"
@@ -13,7 +13,7 @@
       'song'
       (
          'name'
-         "songs/celestialcommuters/celestialcommuters"
+         "songs/<PACKAGE>/<PACKAGE>"
       )
       (
          'tracks_count'
@@ -62,7 +62,7 @@
       "sfx/tambourine_bank.milo"
    )
    ('anim_tempo' 32)
-   ('song_length' 181741)
+   ('song_length' <LENGTH>)
    ('preview' 37000 67000)
    (
       'rank'
@@ -82,7 +82,7 @@
    ('year_released' 1973)
    ('rating' 4)
    ('sub_genre' 'subgenre_fusion')
-   ('song_id' celestialcommuters)
+   ('song_id' <PACKAGE>)
    ('tuning_offset_cents' 0.00)
    ('guide_pitch_volume' -3.00)
    ('game_origin' 'ugc_plus')
