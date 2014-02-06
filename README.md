@@ -39,7 +39,12 @@ continually being fleshed out.
 * `audio-{name of audio source}.{ext}` is the filename under which you should
   supply your copy of an song's audio.
 
-* `songs.dta` is the RB3 metadata file for the song.
+* `songs.dta` is a template for the RB3 metadata file. It has a few missing
+  pieces which are filled in during the build process:
+
+  * `<PACKAGE>` comes from a variable in the Makefile.
+
+  * `<LENGTH>` is calculated from the location of the `[end]` event in the MIDI.
 
 ## Requirements
 
