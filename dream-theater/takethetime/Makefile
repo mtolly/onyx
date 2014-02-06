@@ -38,11 +38,16 @@ gen/album/%/song.wav: audio-album.*
 gen/album/%/drums.wav: gen/album/%/song.wav
 	sox $< $@ pad 1 trim 0 1
 
-# TODO: countin
+gen/%/countin.wav: gen/%/notes.mid ../../sound/hihat-foot.wav
+	../../scripts/countin $+ $@
+
+gen/%/song-countin.wav: gen/%/song.wav gen/%/countin.wav
+	sox --combine mix -v 1 $+ $@
 
 # Audio merge
 
-gen/%/audio.ogg: gen/%/drums.wav gen/%/song.wav
+gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
+	mkdir -p $(@D)
 	sox --combine merge $+ $@
 
 %.mogg: %.ogg
