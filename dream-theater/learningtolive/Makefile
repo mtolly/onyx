@@ -51,7 +51,6 @@ gen/%/song-countin.wav: gen/%/song.wav gen/%/countin.wav
 # Audio merge
 
 gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
-	mkdir -p $(@D)
 	sox --combine merge $+ $@
 
 %.mogg: %.ogg
