@@ -48,26 +48,48 @@ continually being fleshed out.
 
 ## Requirements
 
-If you are on Windows, install:
+* .NET Framework or [Mono](http://www.mono-project.com):
+  .NET v2.0, I think?
+* [Ruby](https://www.ruby-lang.org):
+  I've tested 1.9.3 and 2.0 but other versions might work
+* [GNU Make](http://www.gnu.org/software/make/):
+  Windows binaries [here](http://gnuwin32.sourceforge.net/packages/make.htm)
+* [ImageMagick](http://www.imagemagick.org):
+  you need a recent version with DirectDraw Surface write support
+* [SoX](http://sox.sourceforge.net/):
+  if you want MP3 support you may need a separate decoder package
 
-* MinGW and MSYS
-* .NET Framework 2.0
-* Ruby: any of 1.8.x, 1.9.x, or 2.0.x should work
-* GNU Make
-* Binaries of my tools: `ogg2mogg`, `rb3albumart`, `rb3pkg`, `midiscript`,
-  and `jammittools` (if you want to use Jammit audio)
-* ImageMagick: you need a recent version with DirectDraw Surface write support
-* SoX, and possibly a separate MP3 support package if you want to use MP3 audio
+For Windows:
 
-If you are not on Windows, you can either:
+* [MinGW and MSYS](http://www.mingw.org/):
+  [Cygwin](http://www.cygwin.com/) may also work, but is untested
 
-* Install Wine, and set up "wine foo.exe" helper scripts for my tools
+For Linux and Mac:
 
-Or, if you feel like building the tools yourself:
+* [Wine](http://www.winehq.org/)
 
-* Wine (one of the tools uses `MagmaCompiler.exe`)
-* The Haskell Platform (or, GHC, `cabal-install`, Alex, Happy)
-* A .NET compiler: I use Mono but Visual Studio should work with tweaks
+On Windows, just download binaries of my tools:
+
+* [`ogg2mogg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/ogg2mogg_standalone_v0.1_win32.zip)
+* [`rb3albumart`](https://github.com/mtolly/rb3tools/raw/master/rb3albumart/rb3albumart)
+* [`rb3pkg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/rb3pkg_v0.1_dotnet.zip)
+* `midiscript`
+* [`jammittools`](https://github.com/mtolly/jammittools/releases/download/v0.1/jammittools_v0.1_win32.zip)
+  if you want to use audio from
+  [Jammit](http://www.jammit.com/)
+
+On Linux/Mac, a simple option is to set up Wine/Mono helper scripts for the
+above Windows binaries. `ogg2mogg.exe`, `midiscript.exe`, and `jammittools.exe`
+are Win32 binaries, so you might have an `ogg2mogg` script which simply has:
+
+    #!/bin/bash
+    wine /path/to/ogg2mogg.exe
+
+`rb3pkg` is a .NET binary, so simply replace `wine` with `mono` above.
+`rb3albumart` is a Ruby script, so it can be run unmodified.
+
+The other option for the Win32 binaries is to compile them yourself. This is
+easy to do -- see the `rb3tools` and `jammittools` pages for build information.
 
 ## Building a package
 
