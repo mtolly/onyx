@@ -9,19 +9,18 @@ clean:
 
 # MIDI
 
-gen/jammit/2p/notes.mid: notes.mid
+gen/jammit/1p/notes.mid: notes.mid
 	mkdir -p $(@D)
 	cp $< $@
 	../../scripts/fixresolution $@
 
-gen/album/2p/notes.mid: notes.mid tempo-album.mid
+gen/album/1p/notes.mid: notes.mid tempo-album.mid
 	mkdir -p $(@D)
 	../../scripts/replacetempos $+ $@
 
-# TODO: 1p
-#gen/%/2p/notes.mid: gen/%/1p/notes.mid
-#	mkdir -p $(@D)
-#	../../scripts/2xbasspedal $< $@
+gen/%/2p/notes.mid: gen/%/1p/notes.mid
+	mkdir -p $(@D)
+	../../scripts/2xbasspedal $< $@
 
 # Audio parts
 
