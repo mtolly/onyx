@@ -14,10 +14,9 @@ gen/jammit/2p/notes.mid: notes.mid
 	cp $< $@
 	../../scripts/fixresolution $@
 
-# TODO: tempo-album.mid
-#gen/album/2p/notes.mid: notes.mid tempo-album.mid
-#	mkdir -p $(@D)
-#	../../scripts/replacetempos $+ $@
+gen/album/2p/notes.mid: notes.mid tempo-album.mid
+	mkdir -p $(@D)
+	../../scripts/replacetempos $+ $@
 
 # TODO: 1p
 #gen/%/2p/notes.mid: gen/%/1p/notes.mid
