@@ -8,6 +8,7 @@ Instruments:
 
 Supported audio:
 
+  * `album` (Images and Words)
   * `jammit`
 
 Supported drum pedals:
