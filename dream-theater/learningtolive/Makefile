@@ -1,6 +1,7 @@
 title = Learning to Live
 artist = Dream Theater
 package = learningtolive
+cover-name = images-and-words
 jammit-pad = 0.222
 album-pad = 3.348
 
@@ -58,7 +59,7 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Album art
 
-gen/%/cover.png_xbox: ../../covers/images-and-words.*
+gen/%/cover.png_xbox: ../../covers/$(cover-name).*
 	mkdir -p $(@D)
 	rb3albumart $< $@
 

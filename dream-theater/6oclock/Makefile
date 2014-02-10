@@ -1,6 +1,7 @@
 title = 6:00
 artist = Dream Theater
 package = 6oclock
+cover-name = awake
 jammit-pad = 1.039
 album-pad = 3.103
 
@@ -58,7 +59,7 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Album art
 
-gen/%/cover.png_xbox: ../../covers/awake.*
+gen/%/cover.png_xbox: ../../covers/$(cover-name).*
 	mkdir -p $(@D)
 	rb3albumart $< $@
 

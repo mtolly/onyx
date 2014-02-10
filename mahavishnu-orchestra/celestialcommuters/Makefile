@@ -1,6 +1,7 @@
 title = Celestial Terrestrial Commuters
 artist = Mahavishnu Orchestra
 package = celestialcommuters
+cover-name = birds-of-fire
 jammit-pad = 3.649
 album-pad = 4.381
 
@@ -58,7 +59,7 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Album art
 
-gen/%/cover.png_xbox: ../../covers/birds-of-fire.*
+gen/%/cover.png_xbox: ../../covers/$(cover-name).*
 	mkdir -p $(@D)
 	rb3albumart $< $@
 

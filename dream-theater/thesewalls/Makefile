@@ -1,6 +1,7 @@
 title = These Walls
 artist = Dream Theater
 package = thesewalls
+cover-name = octavarium
 jammit-unpad = 11.711
 album-unpad = 19.991
 
@@ -54,7 +55,7 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Album art
 
-gen/%/cover.png_xbox: ../../covers/octavarium.*
+gen/%/cover.png_xbox: ../../covers/$(cover-name).*
 	mkdir -p $(@D)
 	rb3albumart $< $@
 

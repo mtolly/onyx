@@ -1,6 +1,7 @@
 title = Under a Glass Moon
 artist = Dream Theater
 package = underaglassmoon
+cover-name = images-and-words
 jammit-pad = 1.704
 album-pad = 3.051
 
@@ -58,7 +59,7 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Album art
 
-gen/%/cover.png_xbox: ../../covers/images-and-words.*
+gen/%/cover.png_xbox: ../../covers/$(cover-name).*
 	mkdir -p $(@D)
 	rb3albumart $< $@
 

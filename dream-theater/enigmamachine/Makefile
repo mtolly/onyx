@@ -1,6 +1,7 @@
 title = Enigma Machine
 artist = Dream Theater
 package = enigmamachine
+cover-name = dream-theater
 album-pad = 2.483
 
 clean:
@@ -42,7 +43,7 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Album art
 
-gen/%/cover.png_xbox: ../../covers/dream-theater.*
+gen/%/cover.png_xbox: ../../covers/$(cover-name).*
 	mkdir -p $(@D)
 	rb3albumart $< $@
 

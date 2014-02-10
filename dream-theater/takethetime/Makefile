@@ -1,6 +1,7 @@
 title = Take the Time
 artist = Dream Theater
 package = takethetime
+cover-name = images-and-words
 album-pad = 0.680
 
 clean:
@@ -54,7 +55,7 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Album art
 
-gen/%/cover.png_xbox: ../../covers/images-and-words.*
+gen/%/cover.png_xbox: ../../covers/$(cover-name).*
 	mkdir -p $(@D)
 	rb3albumart $< $@
 
