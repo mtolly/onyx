@@ -8,6 +8,7 @@ Instruments:
 
 Supported audio:
 
+  * `album` (Birds of Fire)
   * `jammit`
 
 Supported drum pedals:
