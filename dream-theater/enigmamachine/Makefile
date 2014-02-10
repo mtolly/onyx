@@ -21,7 +21,7 @@ gen/%/2p/notes.mid: gen/%/1p/notes.mid
 
 gen/album/%/song.wav: audio-album.*
 	mkdir -p $(@D)
-	sox $< $@ pad $(album-pad) rate 44100
+	sox $< $@ pad $(album-pad) rate 44100 channels 2
 
 gen/album/%/drums.wav: gen/album/%/song.wav
 	sox $< $@ pad 1 trim 0 1
