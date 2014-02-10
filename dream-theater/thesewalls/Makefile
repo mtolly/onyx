@@ -54,7 +54,7 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Album art
 
-gen/%/cover.png_xbox: ../../covers/images-and-words.*
+gen/%/cover.png_xbox: ../../covers/octavarium.*
 	mkdir -p $(@D)
 	rb3albumart $< $@
 
