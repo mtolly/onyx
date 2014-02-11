@@ -1,0 +1,92 @@
+title = Moonlight
+artist = Bad Salad
+package = moonlight
+cover-name = puzzled
+pledgemusic-unpad = 0.326
+#album-pad = ???
+
+clean:
+	rm -rf gen
+
+# MIDI
+
+gen/%/1p/notes.mid: notes.mid
+	mkdir -p $(@D)
+	cp $< $@
+	../../scripts/fixresolution $@
+
+gen/%/2p/notes.mid: gen/%/1p/notes.mid
+	mkdir -p $(@D)
+	../../scripts/2xbasspedal $< $@
+
+# Audio parts
+
+gen/pledgemusic/%/drums.wav: BadSalad-Puzzled-2-Moonlight-Stem-Drums.*
+	mkdir -p $(@D)
+	sox -v 0.6 $< $@ trim $(pledgemusic-unpad)
+
+gen/pledgemusic/%/song.wav: \
+		BadSalad-Puzzled-2-Moonlight-Stem-Bass.* \
+		BadSalad-Puzzled-2-Moonlight-Stem-Guitars.* \
+		BadSalad-Puzzled-2-Moonlight-Stem-Keyboards.* \
+		BadSalad-Puzzled-2-Moonlight-Stem-Vocals.*
+	mkdir -p $(@D)
+	sox --combine mix \
+		-v 0.6 BadSalad-Puzzled-2-Moonlight-Stem-Bass.* \
+		-v 0.6 BadSalad-Puzzled-2-Moonlight-Stem-Guitars.* \
+		-v 0.6 BadSalad-Puzzled-2-Moonlight-Stem-Keyboards.* \
+		-v 0.6 BadSalad-Puzzled-2-Moonlight-Stem-Vocals.* \
+		$@ trim $(pledgemusic-unpad)
+
+gen/%/countin.wav: gen/%/notes.mid ../../sound/hihat-foot.wav
+	../../scripts/countin $+ $@
+
+gen/%/song-countin.wav: gen/%/song.wav gen/%/countin.wav
+	sox --combine mix -v 1 $+ $@
+
+# Audio merge
+
+gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
+	sox --combine merge $+ $@
+
+%.mogg: %.ogg
+	ogg2mogg $< $@
+
+# Album art
+
+gen/%/cover.png_xbox: ../../covers/$(cover-name).*
+	mkdir -p $(@D)
+	rb3albumart $< $@
+
+# Metadata
+
+gen/%/songs.dta: notes.mid songs.dta
+	mkdir -p $(@D)
+	../../scripts/dtafill $(package) $+ $@
+
+# Folder assembly
+
+gen/%/package/songs/songs.dta: gen/%/songs.dta
+	mkdir -p $(@D)
+	cp $< $@
+
+gen/%/package/songs/$(package)/$(package).mid: gen/%/notes.mid
+	mkdir -p $(@D)
+	cp $< $@
+
+gen/%/package/songs/$(package)/$(package).mogg: gen/%/audio.mogg
+	mkdir -p $(@D)
+	cp $< $@
+
+gen/%/package/songs/$(package)/gen/$(package)_keep.png_xbox: gen/%/cover.png_xbox
+	mkdir -p $(@D)
+	cp $< $@
+
+# Make the package!
+
+gen/%/package.con: \
+		gen/%/package/songs/songs.dta \
+		gen/%/package/songs/$(package)/$(package).mid \
+		gen/%/package/songs/$(package)/$(package).mogg \
+		gen/%/package/songs/$(package)/gen/$(package)_keep.png_xbox
+	rb3pkg -p "$(artist): $(title)" -d "Version: $*" -f gen/$*/package $@
