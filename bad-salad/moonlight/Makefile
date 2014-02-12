@@ -3,7 +3,7 @@ artist = Bad Salad
 package = moonlight
 cover-name = puzzled
 pledgemusic-unpad = 0.326
-#album-pad = ???
+album-pad = 3.572
 
 clean:
 	rm -rf gen
@@ -37,6 +37,13 @@ gen/pledgemusic/%/song.wav: \
 		-v 0.6 BadSalad-Puzzled-2-Moonlight-Stem-Keyboards.* \
 		-v 0.6 BadSalad-Puzzled-2-Moonlight-Stem-Vocals.* \
 		$@ trim $(pledgemusic-unpad)
+
+gen/album/%/song.wav: audio-album.*
+	mkdir -p $(@D)
+	sox $< $@ pad $(album-pad) rate 44100 channels 2
+
+gen/album/%/drums.wav: gen/album/%/song.wav
+	sox $< $@ pad 1 trim 0 1
 
 gen/%/countin.wav: gen/%/notes.mid ../../sound/hihat-foot.wav
 	../../scripts/countin $+ $@
