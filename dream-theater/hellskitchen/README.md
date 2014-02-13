@@ -12,4 +12,4 @@ Supported audio:
 
 Supported drum pedals:
 
-  * `2p`
+  * `1p`/`2p` (identical)
