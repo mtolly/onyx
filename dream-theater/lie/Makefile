@@ -3,7 +3,7 @@ artist = Dream Theater
 package = dtlie
 cover-name = awake
 jammit-pad = 2.613
-album-pad = 4.927
+album-pad = 4.918
 album-fadein = 0.172
 
 clean:
