@@ -9,7 +9,7 @@ must supply your own audio. You can either:
 * Use my toolchain, detailed below, to automatically build everything into a
   finished Xbox 360 CON package, using standard Unix command-line tools.
 
-Most songs are not buildable yet -- I am in the process of setting up the build
+Some songs are not buildable yet -- I am in the process of setting up the build
 process for each one, so check back for updates. These instructions are also
 continually being fleshed out.
 
@@ -73,7 +73,7 @@ On Windows, just download binaries of my tools:
 * [`ogg2mogg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/ogg2mogg_standalone_v0.1_win32.zip)
 * [`rb3albumart`](https://github.com/mtolly/rb3tools/raw/master/rb3albumart/rb3albumart)
 * [`rb3pkg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/rb3pkg_v0.1_dotnet.zip)
-* `midiscript`
+* `midiscript` (New version required! Coming soon)
 * [`jammittools`](https://github.com/mtolly/jammittools/releases/download/v0.1/jammittools_v0.1_win32.zip)
   if you want to use audio from
   [Jammit](http://www.jammit.com/)
