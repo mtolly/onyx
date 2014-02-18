@@ -10,10 +10,12 @@ if ARGV.length < 2
 end
 fin, fout, *soxfx = ARGV
 
+soxfx_str = soxfx.map(&:inspect).join(' ')
+
 if fin !~ /mp3$/i
-  `sox "#{fin}" "#{fout}" #{soxfx.join(' ')}`
+  `sox "#{fin}" "#{fout}" #{soxfx_str}`
 elsif soxfx.empty? and fout =~ /wav$/i
   `lame --quiet --decode "#{fin}" "#{fout}"`
 else
-  `lame --quiet --decode "#{fin}" - | sox - "#{fout}"`
+  `lame --quiet --decode "#{fin}" - | sox - "#{fout}" #{soxfx_str}`
 end
