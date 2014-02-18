@@ -8,13 +8,9 @@ if ARGV.length != 2
   STDERR.puts "Usage: #{$0} source.mid out.mid"
   exit 1
 end
-source = ARGV[0]
-out = ARGV[1]
+source, out = ARGV
 
-source_txt = Tempfile.new ['2xbasspedal', '.txt']
-source_txt.close
-`midiscript "#{source}" "#{source_txt.path}"`
-source_str = File.read source_txt
+source_str = `midiscript "#{source}" -`
 
 drums_regex = / \"PART [ ] DRUMS\" .*? \{ .*? \} /mx
 leftkick_regex = / \b (on|off) \s+ (95) \b /mx

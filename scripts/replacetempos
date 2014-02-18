@@ -8,9 +8,7 @@ if ARGV.length != 3
   STDERR.puts "Usage: #{$0} source.mid tempo.mid out.mid"
   exit 1
 end
-source = ARGV[0]
-tempo = ARGV[1]
-out = ARGV[2]
+source, tempo, out = ARGV
 
 source_str, tempo_str = [source, tempo].map do |mid|
   txt = Tempfile.new ['replacetempos', '.txt']

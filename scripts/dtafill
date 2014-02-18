@@ -2,21 +2,13 @@
 
 # dtafill : autofill certain values in a songs.dta metadata file.
 
-require 'tempfile'
-
 if ARGV.length != 4
   STDERR.puts "Usage: #{$0} packagename notes.mid in.dta out.dta"
   exit 1
 end
-pkg = ARGV[0]
-mid = ARGV[1]
-fin = ARGV[2]
-fout = ARGV[3]
+pkg, mid, fin, fout = ARGV
 
-txt = Tempfile.new ['dtafill', '.txt']
-txt.close
-`midiscript -s "#{mid}" "#{txt.path}"`
-str = File.read txt
+str = `midiscript -s "#{mid}" -`
 
 sin = File.read fin
 

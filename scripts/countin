@@ -4,21 +4,15 @@
 # of the sound clip at every position where there is a text event "countin_here"
 # in the midi.
 
-require 'tempfile'
 require 'tmpdir'
 
 if ARGV.length != 3
   STDERR.puts "Usage: #{$0} source.mid sound.wav out.wav"
   exit 1
 end
-mid = ARGV[0]
-wav = ARGV[1]
-out = ARGV[2]
+mid, wav, out = ARGV
 
-txt = Tempfile.new ['countin', '.txt']
-txt.close
-`midiscript -s "#{mid}" "#{txt.path}"`
-str = File.read txt
+str = `midiscript -s "#{mid}" -`
 
 countin_regex = / \b (\d+ \. \d+) s: [^;]*? text \s+ "countin_here" /mx
 secs = str.scan(countin_regex).map { |grps| grps[0] }
