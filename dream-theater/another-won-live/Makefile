@@ -24,7 +24,7 @@ gen/%/2p/notes.mid: gen/%/1p/notes.mid
 
 gen/album/%/song.wav: audio-album.*
 	mkdir -p $(@D)
-	sox $< $@ \
+	../../scripts/audioconvert $< $@ \
 		fade t $(album-fadein) 0 $(album-fadeout) \
 		pad $(album-pad) \
 		rate 44100 \

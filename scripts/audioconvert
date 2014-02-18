@@ -1,0 +1,19 @@
+#!/usr/bin/env ruby
+
+# audioconvert : use sox and lame to convert audio to WAV.
+# because sox does not respect lame mp3 padding.
+# this also removes the need to install the sox mp3 handler.
+
+if ARGV.length < 2
+  STDERR.puts "Usage: #{$0} in.foo out.wav [sox-effects]"
+  exit 1
+end
+fin, fout, *soxfx = ARGV
+
+if fin !~ /mp3$/i
+  `sox "#{fin}" "#{fout}" #{soxfx.join(' ')}`
+elsif soxfx.empty? and fout =~ /wav$/i
+  `lame --quiet --decode "#{fin}" "#{fout}"`
+else
+  `lame --quiet --decode "#{fin}" - | sox - "#{fout}"`
+end

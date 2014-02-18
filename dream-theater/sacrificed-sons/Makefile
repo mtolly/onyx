@@ -35,7 +35,11 @@ gen/jammit/%.wav: gen/jammit/%-untimed.wav
 
 gen/album/%/song.wav: audio-album.*
 	mkdir -p $(@D)
-	sox $< $@ trim $(album-trim) fade t $(fadein) rate 44100 channels 2
+	../../scripts/audioconvert $< $@ \
+		trim $(album-trim) \
+		fade t $(fadein) \
+		rate 44100 \
+		channels 2
 
 gen/album/%/drums.wav: gen/album/%/song.wav
 	sox $< $@ pad 1 trim 0 1

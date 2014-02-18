@@ -56,8 +56,8 @@ continually being fleshed out.
   Windows binaries [here](http://gnuwin32.sourceforge.net/packages/make.htm)
 * [ImageMagick](http://www.imagemagick.org):
   you need a recent version with DirectDraw Surface write support
-* [SoX](http://sox.sourceforge.net/):
-  if you want MP3 support you may need a separate decoder package
+* [SoX](http://sox.sourceforge.net/)
+* [LAME](http://lame.sourceforge.net/) if you want to supply MP3 audio
 
 For Windows:
 
