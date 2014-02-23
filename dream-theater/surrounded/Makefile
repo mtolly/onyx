@@ -2,7 +2,7 @@ title = Surrounded
 artist = Dream Theater
 package = surrounded
 cover-name = images-and-words
-album-pad = 3.471
+album-pad = 3.490
 
 clean:
 	rm -rf gen
