@@ -3,7 +3,7 @@ artist = Dream Theater
 package = scarred
 cover-name = awake
 jammit-pad = 2.580
-#album-pad = ???
+album-pad = 4.946
 
 clean:
 	rm -rf gen
