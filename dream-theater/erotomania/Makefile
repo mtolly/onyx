@@ -3,7 +3,7 @@ artist = Dream Theater
 package = erotomania
 cover-name = awake
 jammit-pad = 1.193
-#album-pad = ???
+album-pad = 2.960
 
 clean:
 	rm -rf gen
