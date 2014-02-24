@@ -1,6 +1,6 @@
-This is my collection of songs I have authored for use in Rock Band 3 and other
-similar rhythm games. The charts are provided in a "source" format, where you
-must supply your own audio. You can either:
+This is a collection of songs I have authored for use in Rock Band 3 and other
+similar rhythm games, mostly for drums. The charts are provided in a "source"
+format, where you must supply your own audio. You can either:
 
 * Manually piece together the MIDI and audio, and then use something like
   Harmonix's Magma, or C3's Magma, to create the song package. You can take a
@@ -73,8 +73,8 @@ On Windows, just download binaries of my tools:
 * [`ogg2mogg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/ogg2mogg_standalone_v0.1_win32.zip)
 * [`rb3albumart`](https://github.com/mtolly/rb3tools/raw/master/rb3albumart/rb3albumart)
 * [`rb3pkg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/rb3pkg_v0.1_dotnet.zip)
-* `midiscript` (New version required! Coming soon)
-* [`jammittools`](https://github.com/mtolly/jammittools/releases/download/v0.1/jammittools_v0.1_win32.zip)
+* [`midiscript`](https://github.com/mtolly/midiscript/releases/download/v0.1.1/midiscript_v0.1.1_win32.zip)
+* [`jammittools`](https://github.com/mtolly/jammittools/releases/download/v0.1.1/jammittools_v0.1.1_win32.zip)
   if you want to use audio from
   [Jammit](http://www.jammit.com/)
 
