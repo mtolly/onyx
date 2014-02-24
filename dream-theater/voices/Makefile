@@ -1,4 +1,5 @@
-title = A Mind Beside Itself II. Voices
+title = Voices
+jammit-title = A Mind Beside Itself II. Voices
 artist = Dream Theater
 package = voices
 cover-name = awake
@@ -31,11 +32,11 @@ gen/%/2p/notes.mid: gen/%/1p/notes.mid
 
 gen/jammit/%/song-untimed.wav:
 	mkdir -p $(@D)
-	jammittools -T "$(title)" -R "$(artist)" -y D -a $@
+	jammittools -T "$(jammit-title)" -R "$(artist)" -y D -a $@
 
 gen/jammit/%/drums-untimed.wav:
 	mkdir -p $(@D)
-	jammittools -T "$(title)" -R "$(artist)" -y d -a $@
+	jammittools -T "$(jammit-title)" -R "$(artist)" -y d -a $@
 
 gen/jammit/%.wav: gen/jammit/%-untimed.wav
 	sox $< $@ trim $(jammit-1-trim) fade t $(jammit-2-fadein) pad $(jammit-3-pad)
