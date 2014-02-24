@@ -8,6 +8,7 @@ Instruments:
 
 Supported audio:
 
+  * `album` (Awake)
   * `jammit`
 
 Supported drum pedals:

@@ -6,7 +6,8 @@ jammit-1-trim = 3.183
 jammit-2-fadein = 0.477
 jammit-3-pad = 2.877
 # without 3 steps, trim = 1-trim - 3-pad
-#album-pad = ???
+album-1-fadein = 0.538
+album-2-pad = 2.893
 
 clean:
 	rm -rf gen
@@ -41,7 +42,11 @@ gen/jammit/%.wav: gen/jammit/%-untimed.wav
 
 gen/album/%/song.wav: audio-album.*
 	mkdir -p $(@D)
-	../../scripts/audioconvert $< $@ pad $(album-pad) rate 44100 channels 2
+	../../scripts/audioconvert $< $@ \
+		fade t $(album-1-fadein) \
+		pad $(album-2-pad) \
+		rate 44100 \
+		channels 2
 
 gen/album/%/drums.wav: gen/album/%/song.wav
 	sox $< $@ pad 1 trim 0 1
