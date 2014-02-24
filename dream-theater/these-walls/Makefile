@@ -2,8 +2,8 @@ title = These Walls
 artist = Dream Theater
 package = thesewalls
 cover-name = octavarium
-jammit-unpad = 11.711
-album-unpad = 19.991
+jammit-trim = 11.711
+album-trim = 19.991
 
 clean:
 	rm -rf gen
@@ -30,11 +30,11 @@ gen/jammit/%/drums-untimed.wav:
 	jammittools -t "$(title)" -r "$(artist)" -y d -a $@
 
 gen/jammit/%.wav: gen/jammit/%-untimed.wav
-	sox $< $@ trim $(jammit-unpad)
+	sox $< $@ trim $(jammit-trim)
 
 gen/album/%/song.wav: audio-album.*
 	mkdir -p $(@D)
-	../../scripts/audioconvert $< $@ trim $(album-unpad) rate 44100 channels 2
+	../../scripts/audioconvert $< $@ trim $(album-trim) rate 44100 channels 2
 
 gen/album/%/drums.wav: gen/album/%/song.wav
 	sox $< $@ pad 1 trim 0 1

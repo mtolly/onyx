@@ -1,8 +1,8 @@
 title = Metropolis Pt. 1
 artist = Dream Theater
-package = takethetime
+package = metropolispt1
 cover-name = images-and-words
-#album-pad = ???
+album-trim = 0.379
 
 clean:
 	rm -rf gen
@@ -34,7 +34,7 @@ gen/jammit/%/drums.wav:
 
 gen/album/%/song.wav: audio-album.*
 	mkdir -p $(@D)
-	../../scripts/audioconvert $< $@ pad $(album-pad) rate 44100 channels 2
+	../../scripts/audioconvert $< $@ trim $(album-trim) rate 44100 channels 2
 
 gen/album/%/drums.wav: gen/album/%/song.wav
 	sox $< $@ pad 1 trim 0 1
