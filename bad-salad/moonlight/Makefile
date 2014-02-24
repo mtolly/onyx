@@ -66,7 +66,7 @@ gen/%/cover.png_xbox: ../../covers/$(cover-name).*
 
 # Metadata
 
-gen/%/songs.dta: notes.mid songs.dta
+gen/%/songs.dta: gen/%/notes.mid songs.dta
 	mkdir -p $(@D)
 	../../scripts/dtafill $(package) $+ $@
 
