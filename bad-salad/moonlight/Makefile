@@ -2,7 +2,8 @@ title = Moonlight
 artist = Bad Salad
 package = moonlight
 cover-name = puzzled
-pledgemusic-unpad = 0.326
+pledgemusic-trim = 0.326
+pledgemusic-multiply = 0.6
 album-pad = 3.572
 
 clean:
@@ -21,22 +22,20 @@ gen/%/2p/notes.mid: gen/%/1p/notes.mid
 
 # Audio parts
 
-gen/pledgemusic/%/drums.wav: BadSalad-Puzzled-2-Moonlight-Stem-Drums.*
+gen/pledgemusic/%/drums-untimed.wav: BadSalad-Puzzled-2-Moonlight-Stem-Drums.*
 	mkdir -p $(@D)
-	sox -v 0.6 $< $@ trim $(pledgemusic-unpad)
+	sox -v $(pledgemusic-multiply) $< $@
 
-gen/pledgemusic/%/song.wav: \
+gen/pledgemusic/%/song-untimed.wav: \
 		BadSalad-Puzzled-2-Moonlight-Stem-Bass.* \
 		BadSalad-Puzzled-2-Moonlight-Stem-Guitars.* \
 		BadSalad-Puzzled-2-Moonlight-Stem-Keyboards.* \
 		BadSalad-Puzzled-2-Moonlight-Stem-Vocals.*
 	mkdir -p $(@D)
-	sox --combine mix \
-		-v 0.6 BadSalad-Puzzled-2-Moonlight-Stem-Bass.* \
-		-v 0.6 BadSalad-Puzzled-2-Moonlight-Stem-Guitars.* \
-		-v 0.6 BadSalad-Puzzled-2-Moonlight-Stem-Keyboards.* \
-		-v 0.6 BadSalad-Puzzled-2-Moonlight-Stem-Vocals.* \
-		$@ trim $(pledgemusic-unpad)
+	sox --combine mix $(addprefix -v $(pledgemusic-multiply) ,$+) $@
+
+gen/pledgemusic/%.wav: gen/pledgemusic/%-untimed.wav
+	sox $< $@ trim $(pledgemusic-trim)
 
 gen/album/%/song.wav: audio-album.*
 	mkdir -p $(@D)
