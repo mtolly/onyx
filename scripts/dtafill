@@ -2,25 +2,65 @@
 
 # dtafill : autofill certain values in a songs.dta metadata file.
 
-if ARGV.length != 4
-  STDERR.puts "Usage: #{$0} packagename notes.mid in.dta out.dta"
+require 'getoptlong'
+
+midi = title = artist = package = nil
+
+opt_list = [
+  [ '--midi'   , '-m', GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--title'  , '-t', GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--artist' , '-a', GetoptLong::REQUIRED_ARGUMENT ],
+  [ '--package', '-p', GetoptLong::REQUIRED_ARGUMENT ],
+]
+
+opts = GetoptLong.new(*opt_list)
+opts.each do |opt, arg|
+  eval "#{opt[2..-1]} = #{arg.inspect}"
+end
+
+if ARGV.length != 2 or opts.error?
+  STDERR.puts "Usage: #{$0} [options] in.dta out.dta"
+  opt_list.each do |o|
+    STDERR.puts "  #{o[0]} (#{o[1]})"
+  end
   exit 1
 end
-pkg, mid, fin, fout = ARGV
-
-str = `midiscript -s "#{mid}" -`
+fin, fout = ARGV
 
 sin = File.read fin
 
-end_regex = / (\d+ \. \d+)s: [^;]*? "\[end\]" /mx
-if md = str.match(end_regex)
-  song_length = md[1].to_f
-else
-  STDERR.puts 'Could not find [end] event'
-  exit 1
-end
+# simple substitutions
 
-sin.gsub!('<LENGTH>', (song_length * 1000).floor.to_s)
-sin.gsub!('<PACKAGE>', pkg)
+sin.gsub!('<TITLE>'  , title  ) if title
+sin.gsub!('<ARTIST>' , artist ) if artist
+sin.gsub!('<PACKAGE>', package) if package
+
+# midi stuff
+
+if midi
+  str = `midiscript -s "#{midi}" -`
+
+  def find_event(secs, str)
+    regex = / (\d+ \. \d+)s: [^;]*? "#{Regexp.escape(str)}" /mx
+    if md = secs.match(regex)
+      return md[1].to_f
+    else
+      STDERR.puts "Could not find event: #{str}"
+      exit 1
+    end
+  end
+
+  if sin.include?('<LENGTH>')
+    song_length = find_event(str, '[end]')
+    sin.gsub!('<LENGTH>', (song_length * 1000).floor.to_s)
+  end
+
+  if sin.include?('<PREVIEW-START>')
+    preview_start = find_event(str, 'preview_here') - 0.25
+    preview_end = preview_start + 30
+    sin.gsub!('<PREVIEW-START>', (preview_start * 1000).floor.to_s)
+    sin.gsub!('<PREVIEW-END>'  , (preview_end   * 1000).floor.to_s)
+  end
+end
 
 File.write(fout, sin)

@@ -67,7 +67,7 @@ gen/%/cover.png_xbox: ../../covers/$(cover-name).*
 
 gen/%/songs.dta: gen/%/notes.mid songs.dta
 	mkdir -p $(@D)
-	../../scripts/dtafill $(package) $+ $@
+	../../scripts/dtafill -p $(package) -m $+ $@
 
 # Folder assembly
 
