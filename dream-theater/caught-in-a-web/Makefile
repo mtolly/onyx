@@ -3,7 +3,7 @@ artist = Dream Theater
 package = caughtinaweb
 cover-name = awake
 jammit-pad = 2.780
-#album-pad = ???
+album-pad = 4.151
 
 clean:
 	rm -rf gen
