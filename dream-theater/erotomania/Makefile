@@ -1,4 +1,4 @@
-title = Erotomania
+title = A Mind Beside Itself I. Erotomania
 artist = Dream Theater
 package = erotomania
 cover-name = awake
@@ -27,11 +27,11 @@ gen/%/2p/notes.mid: gen/%/1p/notes.mid
 
 gen/jammit/%/song-untimed.wav:
 	mkdir -p $(@D)
-	jammittools -t "$(title)" -r "$(artist)" -y D -a $@
+	jammittools -T "$(title)" -R "$(artist)" -y D -a $@
 
 gen/jammit/%/drums-untimed.wav:
 	mkdir -p $(@D)
-	jammittools -t "$(title)" -r "$(artist)" -y d -a $@
+	jammittools -T "$(title)" -R "$(artist)" -y d -a $@
 
 gen/jammit/%.wav: gen/jammit/%-untimed.wav
 	sox $< $@ pad $(jammit-pad)

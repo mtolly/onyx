@@ -26,11 +26,11 @@ gen/%/2p/notes.mid: gen/%/1p/notes.mid
 
 gen/jammit/%/song.wav:
 	mkdir -p $(@D)
-	jammittools -t "$(title)" -r "$(artist)" -y D -a $@
+	jammittools -T "$(title)" -R "$(artist)" -y D -a $@
 
 gen/jammit/%/drums.wav:
 	mkdir -p $(@D)
-	jammittools -t "$(title)" -r "$(artist)" -y d -a $@
+	jammittools -T "$(title)" -R "$(artist)" -y d -a $@
 
 gen/album/%/song.wav: audio-album.*
 	mkdir -p $(@D)
