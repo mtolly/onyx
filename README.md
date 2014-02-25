@@ -96,7 +96,7 @@ easy to do -- see the `rb3tools` and `jammittools` pages for build information.
 In the song directory, first create `audio-album.ogg` or something similar if
 you need to supply audio. Then run:
 
-    make gen/{audio source}/{1p or 2p}/package.con
+    make gen/{audio source}/{1p or 2p}/rb3.con
 
 to build your Xbox 360 CON file.
 

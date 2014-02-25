@@ -55,27 +55,27 @@ gen/%/songs.dta: gen/%/notes.mid songs.dta
 
 # Folder assembly
 
-gen/%/package/songs/songs.dta: gen/%/songs.dta
+gen/%/rb3/songs/songs.dta: gen/%/songs.dta
 	mkdir -p $(@D)
 	cp $< $@
 
-gen/%/package/songs/$(package)/$(package).mid: gen/%/notes.mid
+gen/%/rb3/songs/$(package)/$(package).mid: gen/%/notes.mid
 	mkdir -p $(@D)
 	cp $< $@
 
-gen/%/package/songs/$(package)/$(package).mogg: gen/%/audio.mogg
+gen/%/rb3/songs/$(package)/$(package).mogg: gen/%/audio.mogg
 	mkdir -p $(@D)
 	cp $< $@
 
-gen/%/package/songs/$(package)/gen/$(package)_keep.png_xbox: gen/%/cover.png_xbox
+gen/%/rb3/songs/$(package)/gen/$(package)_keep.png_xbox: gen/%/cover.png_xbox
 	mkdir -p $(@D)
 	cp $< $@
 
 # Make the package!
 
-gen/%/package.con: \
-		gen/%/package/songs/songs.dta \
-		gen/%/package/songs/$(package)/$(package).mid \
-		gen/%/package/songs/$(package)/$(package).mogg \
-		gen/%/package/songs/$(package)/gen/$(package)_keep.png_xbox
-	rb3pkg -p "$(artist): $(title)" -d "Version: $*" -f gen/$*/package $@
+gen/%/rb3.con: \
+		gen/%/rb3/songs/songs.dta \
+		gen/%/rb3/songs/$(package)/$(package).mid \
+		gen/%/rb3/songs/$(package)/$(package).mogg \
+		gen/%/rb3/songs/$(package)/gen/$(package)_keep.png_xbox
+	rb3pkg -p "$(artist): $(title)" -d "Version: $*" -f gen/$*/rb3 $@
