@@ -2,7 +2,9 @@ title = Hell's Kitchen
 artist = Dream Theater
 package = hellskitchen
 cover-name = falling-into-infinity
-#album-pad = ???
+this-pad = 5.051
+next-take = 5.696
+next-fadeout = 4.500
 
 clean:
 	rm -rf gen
@@ -32,9 +34,19 @@ gen/jammit/%/drums.wav:
 	mkdir -p $(@D)
 	jammittools -T "$(title)" -R "$(artist)" -y d -a $@
 
-gen/album/%/song.wav: audio-album.*
+gen/album/%/this.wav: audio-this.*
 	mkdir -p $(@D)
-	../../scripts/audioconvert $< $@ pad $(album-pad) rate 44100 channels 2
+	../../scripts/audioconvert $< $@ pad $(this-pad) rate 44100 channels 2
+
+gen/album/%/next.wav: audio-next.*
+	mkdir -p $(@D)
+	../../scripts/audioconvert $< $@ \
+		fade t 0 $(next-take) $(next-fadeout) \
+		rate 44100 \
+		channels 2
+
+gen/album/%/song.wav: gen/album/%/this.wav gen/album/%/next.wav
+	sox --combine concatenate $+ $@
 
 gen/album/%/drums.wav: gen/album/%/song.wav
 	sox $< $@ pad 1 trim 0 1
