@@ -17,17 +17,21 @@ str = `midiscript -s "#{mid}" -`
 countin_regex = / \b (\d+ \. \d+) s: [^;]*? text \s+ "countin_here" /mx
 secs = str.scan(countin_regex).map { |grps| grps[0] }
 
-if secs.length < 2
-  STDERR.puts "Must have at least 2 countin hits, found #{secs.length}"
-  exit 1
+case secs.length
+when 0
+  STDERR.puts "Warning: no countin events found in #{mid}"
+  `sox "#{wav}" "#{out}" pad 1 trim 0 1`
+when 1
+  `sox "#{wav}" "#{out}" pad #{secs[0]}`
+else
+  Dir.mktmpdir do |d|
+    files = []
+    secs.each do |sec|
+      file = "#{d}/#{sec}.wav"
+      `sox "#{wav}" "#{file}" pad #{sec}`
+      files << file
+    end
+    `sox --combine mix -v 1 #{files.map(&:inspect).join(' ')} "#{out}"`
+  end
 end
 
-Dir.mktmpdir do |d|
-  files = []
-  secs.each do |sec|
-    file = "#{d}/#{sec}.wav"
-    `sox "#{wav}" "#{file}" pad #{sec}`
-    files << file
-  end
-  `sox --combine mix -v 1 #{files.map(&:inspect).join(' ')} "#{out}"`
-end
