@@ -11,18 +11,7 @@ clean:
 
 # MIDI
 
-gen/jammit/1p/notes.mid: notes.mid
-	mkdir -p $(@D)
-	cp $< $@
-	../../scripts/fixresolution $@
-
-gen/album/1p/notes.mid: notes.mid tempo-album.mid
-	mkdir -p $(@D)
-	../../scripts/replacetempos $+ $@
-
-gen/%/2p/notes.mid: gen/%/1p/notes.mid
-	mkdir -p $(@D)
-	../../scripts/2xbasspedal $< $@
+include ../../make/midi-two-tempos.mk
 
 # Audio parts
 
@@ -51,11 +40,7 @@ gen/album/%/song.wav: gen/album/%/this.wav gen/album/%/next.wav
 gen/album/%/drums.wav: gen/album/%/song.wav
 	sox $< $@ pad 1 trim 0 1
 
-gen/%/countin.wav: gen/%/notes.mid ../../sound/hihat-foot.wav
-	../../scripts/countin $+ $@
-
-gen/%/song-countin.wav: gen/%/song.wav gen/%/countin.wav
-	sox --combine mix -v 1 $+ $@
+include ../../make/countin.mk
 
 # Audio merge
 
