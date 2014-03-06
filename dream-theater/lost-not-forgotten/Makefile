@@ -10,33 +10,12 @@ clean:
 
 # MIDI
 
-gen/album/1p/notes.mid: notes.mid
-	mkdir -p $(@D)
-	cp $< $@
-	../../scripts/fixresolution $@
-
-gen/%/2p/notes.mid: gen/%/1p/notes.mid
-	mkdir -p $(@D)
-	../../scripts/2xbasspedal $< $@
+include ../../make/midi-one-tempo.mk
 
 # Audio parts
 
-gen/album/%/song.wav: audio-album.*
-	mkdir -p $(@D)
-	../../scripts/audioconvert $< $@ \
-		trim $(album-trim) \
-		fade t $(album-fadein) \
-		rate 44100 \
-		channels 2
-
-gen/album/%/drums.wav: gen/album/%/song.wav
-	sox $< $@ pad 1 trim 0 1
-
-gen/%/countin.wav: gen/%/notes.mid ../../sound/hihat-foot.wav
-	../../scripts/countin $+ $@
-
-gen/%/song-countin.wav: gen/%/song.wav gen/%/countin.wav
-	sox --combine mix -v 1 $+ $@
+include ../../make/album-drums.mk
+include ../../make/countin.mk
 
 # Audio merge
 

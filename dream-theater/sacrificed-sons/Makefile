@@ -5,50 +5,21 @@ cover-name = octavarium
 jammit-trim = 46.526
 album-trim = 45.914
 fadein = 6.866
+jammit-fadein = $(fadein)
+album-fadein  = $(fadein)
 
 clean:
 	rm -rf gen
 
 # MIDI
 
-gen/%/1p/notes.mid: notes.mid
-	mkdir -p $(@D)
-	cp $< $@
-	../../scripts/fixresolution $@
-
-gen/%/2p/notes.mid: gen/%/1p/notes.mid
-	mkdir -p $(@D)
-	../../scripts/2xbasspedal $< $@
+include ../../make/midi-one-tempo.mk
 
 # Audio parts
 
-gen/jammit/%/song-untimed.wav:
-	mkdir -p $(@D)
-	jammittools -T "$(title)" -R "$(artist)" -y D -a $@
-
-gen/jammit/%/drums-untimed.wav:
-	mkdir -p $(@D)
-	jammittools -T "$(title)" -R "$(artist)" -y d -a $@
-
-gen/jammit/%.wav: gen/jammit/%-untimed.wav
-	sox $< $@ trim $(jammit-trim) fade t $(fadein)
-
-gen/album/%/song.wav: audio-album.*
-	mkdir -p $(@D)
-	../../scripts/audioconvert $< $@ \
-		trim $(album-trim) \
-		fade t $(fadein) \
-		rate 44100 \
-		channels 2
-
-gen/album/%/drums.wav: gen/album/%/song.wav
-	sox $< $@ pad 1 trim 0 1
-
-gen/%/countin.wav: gen/%/notes.mid ../../sound/hihat-foot.wav
-	../../scripts/countin $+ $@
-
-gen/%/song-countin.wav: gen/%/song.wav gen/%/countin.wav
-	sox --combine mix -v 1 $+ $@
+include ../../make/jammit-drums.mk
+include ../../make/album-drums.mk
+include ../../make/countin.mk
 
 # Audio merge
 
