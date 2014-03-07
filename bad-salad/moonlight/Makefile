@@ -4,7 +4,7 @@ package = moonlight
 cover-name = puzzled
 pledgemusic-trim = 0.326
 pledgemusic-multiply = 0.6
-album-pad = 3.572
+album-pad = 3.631
 
 clean:
 	rm -rf gen
