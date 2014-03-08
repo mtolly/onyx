@@ -1,7 +1,7 @@
 title = Blind Faith
-artist = Dream Theater
 package = blindfaith
 cover-name = six-degrees-of-inner-turbulence
+number = 2
 album-1-trim = 10.991
 album-2-fadein = 5.673
 album-3-cutoff = 9:58.000
@@ -37,9 +37,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

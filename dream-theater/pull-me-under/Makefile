@@ -1,7 +1,7 @@
 title = Pull Me Under
-artist = Dream Theater
 package = pullmeunder
 cover-name = images-and-words
+number = 1
 jammit-pad = 2.314
 hit-pad = 4.340
 album-pad = 4.317
@@ -35,9 +35,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

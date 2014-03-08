@@ -1,7 +1,7 @@
 title = Metropolis Pt. 1
-artist = Dream Theater
 package = metropolispt1
 cover-name = images-and-words
+number = 5
 album-trim = 0.379
 
 clean:
@@ -23,9 +23,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

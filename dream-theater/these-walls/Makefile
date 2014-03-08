@@ -1,7 +1,7 @@
 title = These Walls
-artist = Dream Theater
 package = thesewalls
 cover-name = octavarium
+number = 3
 jammit-trim = 11.711
 album-trim = 19.991
 
@@ -25,9 +25,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

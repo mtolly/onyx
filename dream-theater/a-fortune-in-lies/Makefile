@@ -1,7 +1,7 @@
 title = A Fortune in Lies
-artist = Dream Theater
 package = afortuneinlies
 cover-name = when-dream-and-day-unite
+number = 1
 album-pad = 1.724
 
 clean:
@@ -23,9 +23,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

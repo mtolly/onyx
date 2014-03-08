@@ -1,7 +1,7 @@
 title = Sacrificed Sons
-artist = Dream Theater
 package = sacrificedsons
 cover-name = octavarium
+number = 7
 jammit-trim = 46.526
 album-trim = 45.914
 fadein = 6.866
@@ -28,9 +28,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

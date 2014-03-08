@@ -1,7 +1,7 @@
 title = Another Won (Live)
-artist = Dream Theater
 package = anotherwonlive
 cover-name = score
+number = 3
 album-pad = 1.808
 album-fadein = 1.051
 album-fadeout = 5.656
@@ -25,9 +25,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

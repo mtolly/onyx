@@ -1,6 +1,6 @@
-album = Awake
+album = A Dramatic Turn of Events
 artist = Dream Theater
-year = 1994
+year = 2011
 genre = metal
 subgenre = subgenre_prog
 gender = male

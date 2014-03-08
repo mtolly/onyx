@@ -1,7 +1,7 @@
 title = Moonlight
-artist = Bad Salad
 package = moonlight
 cover-name = puzzled
+number = 2
 pledgemusic-trim = 0.326
 pledgemusic-multiply = 0.6
 album-pad = 3.631
@@ -40,9 +40,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

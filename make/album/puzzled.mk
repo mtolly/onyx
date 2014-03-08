@@ -1,6 +1,6 @@
-album = Awake
-artist = Dream Theater
-year = 1994
+album = Puzzled
+artist = Bad Salad
+year = 2013
 genre = metal
 subgenre = subgenre_prog
 gender = male

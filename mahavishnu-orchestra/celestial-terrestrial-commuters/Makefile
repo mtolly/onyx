@@ -1,7 +1,7 @@
 title = Celestial Terrestrial Commuters
-artist = Mahavishnu Orchestra
 package = celestialcommuters
 cover-name = birds-of-fire
+number = 3
 jammit-pad = 3.649
 album-pad = 4.381
 
@@ -25,9 +25,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

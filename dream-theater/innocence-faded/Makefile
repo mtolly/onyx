@@ -1,7 +1,7 @@
 title = Innocence Faded
-artist = Dream Theater
 package = innocencefaded
 cover-name = awake
+number = 3
 album-pad = 3.255
 
 clean:
@@ -24,9 +24,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

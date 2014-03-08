@@ -1,7 +1,7 @@
 title = Hell's Kitchen
-artist = Dream Theater
 package = hellskitchen
 cover-name = falling-into-infinity
+number = 6
 this-pad = 5.051
 next-take = 5.696
 next-fadeout = 4.500
@@ -49,9 +49,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

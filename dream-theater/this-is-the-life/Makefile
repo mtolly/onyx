@@ -1,7 +1,7 @@
 title = This Is the Life
-artist = Dream Theater
 package = thisisthelife
 cover-name = a-dramatic-turn-of-events
+number = 4
 album-pad = 3.066
 
 clean:
@@ -23,9 +23,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

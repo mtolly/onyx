@@ -1,9 +1,9 @@
 title = Afterlife
-artist = Dream Theater
 package = dtafterlife
 # package name "afterlife" doesn't work
 # probably conflicts with RB3 disc files relating to A7X afterlife
 cover-name = when-dream-and-day-unite
+number = 6
 this-pad = 2.704
 next-take = 10.383
 next-fadeout = 1.357
@@ -43,9 +43,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

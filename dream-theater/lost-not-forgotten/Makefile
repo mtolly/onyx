@@ -1,7 +1,7 @@
 title = Lost Not Forgotten
-artist = Dream Theater
 package = lostnotforgotten
 cover-name = a-dramatic-turn-of-events
+number = 3
 album-trim = 7.088
 album-fadein = 3.088
 
@@ -24,9 +24,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

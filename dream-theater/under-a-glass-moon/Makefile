@@ -1,7 +1,7 @@
 title = Under a Glass Moon
-artist = Dream Theater
 package = underaglassmoon
 cover-name = images-and-words
+number = 6
 jammit-pad = 1.704
 album-pad = 3.051
 
@@ -25,9 +25,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

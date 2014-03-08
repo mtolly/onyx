@@ -1,7 +1,7 @@
 title = Never Enough
-artist = Dream Theater
 package = neverenough
 cover-name = octavarium
+number = 6
 jammit-pad = 1.920
 album-pad = 3.707
 
@@ -25,9 +25,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

@@ -1,7 +1,7 @@
 title = In the Presence of Enemies, Pt. 1
-artist = Dream Theater
 package = itpoept1
 cover-name = systematic-chaos
+number = 1
 album-pad = 4.637
 album-take = 8:57.302
 album-fadeout = 2.75
@@ -35,9 +35,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 

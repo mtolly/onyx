@@ -1,8 +1,8 @@
 title = Voices
 jammit-title = A Mind Beside Itself II. Voices
-artist = Dream Theater
 package = voices
 cover-name = awake
+number = 5
 jammit-trim = 3.183
 jammit-fadein = 0.477
 jammit-pad = 2.877
@@ -29,9 +29,8 @@ gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 
 # Metadata
 
-gen/%/songs.dta: gen/%/notes.mid songs.dta
-	mkdir -p $(@D)
-	../../scripts/dtafill -p $(package) -m $+ $@
+include ../../make/album/$(cover-name).mk
+include ../../make/dta-drums.mk
 
 # Rock Band 3
 
