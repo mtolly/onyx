@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+
+if ARGV.length != 1
+  STDERR.puts "Usage: #{$0} in.mid"
+  exit 1
+end
+mid = ARGV[0]
+
+secs_file = `midiscript -s #{mid} -`
+event = '[end]'
+regex = / (\d+ \. \d+)s: [^;]*? "#{Regexp.escape(event)}" /mx
+
+secs_file.match(regex) do |md|
+  puts (md[1].to_f * 1000).floor
+  exit 0
+end
+STDERR.puts "#{event} not found in #{mid}"
+exit 1
