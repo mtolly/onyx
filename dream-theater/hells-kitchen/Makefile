@@ -15,13 +15,7 @@ include ../../make/midi-two-tempos.mk
 
 # Audio parts
 
-gen/jammit/%/song.wav:
-	mkdir -p $(@D)
-	jammittools -T "$(title)" -R "$(artist)" -y D -a $@
-
-gen/jammit/%/drums.wav:
-	mkdir -p $(@D)
-	jammittools -T "$(title)" -R "$(artist)" -y d -a $@
+include ../../make/jammit-drums.mk
 
 gen/album/%/this.wav: audio-this.*
 	mkdir -p $(@D)
