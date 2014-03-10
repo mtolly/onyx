@@ -2,9 +2,9 @@ title = Hell's Kitchen
 package = hellskitchen
 cover-name = falling-into-infinity
 number = 6
-this-pad = 5.051
-next-take = 5.696
-next-fadeout = 4.500
+album-pad = 5.051
+next-cutoff = 5.696
+album-fadeout = 4.500
 
 clean:
 	rm -rf gen
@@ -16,24 +16,7 @@ include ../../make/midi-two-tempos.mk
 # Audio parts
 
 include ../../make/jammit-drums.mk
-
-gen/album/%/this.wav: audio-this.*
-	mkdir -p $(@D)
-	../../scripts/audioconvert $< $@ pad $(this-pad) rate 44100 channels 2
-
-gen/album/%/next.wav: audio-next.*
-	mkdir -p $(@D)
-	../../scripts/audioconvert $< $@ \
-		fade t 0 $(next-take) $(next-fadeout) \
-		rate 44100 \
-		channels 2
-
-gen/album/%/song.wav: gen/album/%/this.wav gen/album/%/next.wav
-	sox --combine concatenate $+ $@
-
-gen/album/%/drums.wav: gen/album/%/song.wav
-	sox $< $@ pad 1 trim 0 1
-
+include ../../make/album-double.mk
 include ../../make/countin.mk
 
 # Audio merge
