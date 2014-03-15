@@ -1,0 +1,39 @@
+#!/usr/bin/env ruby
+
+# remove any events I added which Magma would complain about.
+# note that RB3 itself doesn't care about extra/unrecognized events.
+
+require 'tempfile'
+
+if ARGV.length != 1
+  STDERR.puts "Usage: #{$0} file.mid"
+  exit 1
+end
+mid = ARGV[0]
+
+txt = `midiscript "#{mid}" -`
+
+drums_regex = / \"PART [ ] DRUMS\" .*? \{ .*? \} /mx
+leftkick_regex = /(ch \d+ )?(on|off) 95 v \d+/
+
+txt.gsub!(drums_regex) do |drums|
+  n = 0
+  drums.gsub!(leftkick_regex) do |evt|
+    n += 1
+    '{}'
+  end
+  STDERR.puts "Removed #{n} left kick drum events for Magma."
+  drums
+end
+
+countin_regex = / \"countin\" .*? \{ .*? \} /mx
+
+txt.gsub!(countin_regex) do
+  STDERR.puts "Removed countin track for Magma."
+  ''
+end
+
+out_tmp = Tempfile.new ['magma-clean', '.txt']
+out_tmp.print(txt)
+out_tmp.close
+`midiscript "#{out_tmp.path}" "#{mid}" -r 480`
