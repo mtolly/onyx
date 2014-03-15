@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 
-`mkdir -p cons`
+require 'fileutils'
+FileUtils::mkdir_p 'cons'
+
 cons = `ls */*/gen/*/*/rb3.con`.split "\n"
 cons.each do |con|
   con.match(/ \/ ([^\/]+) \/ gen \/ /x) do |md|
