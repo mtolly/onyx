@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-# fixresolution : simply ensure that a midi has the RB3 resolution of 480.
+# ensure that a midi has the RB3 required resolution of 480.
 
 require 'tempfile'
 
@@ -10,7 +10,7 @@ if ARGV.length != 1
 end
 mid = ARGV[0]
 
-txt = Tempfile.new ['fixresolution', '.txt']
+txt = Tempfile.new ['fix-resolution', '.txt']
 txt.close
 `midiscript "#{mid}" "#{txt.path}"`
 `midiscript "#{txt.path}" "#{mid}" -r 480`

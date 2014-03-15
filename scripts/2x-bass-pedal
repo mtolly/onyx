@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-# 2xbasspedal : move notes on pitch 95 in "PART DRUMS" to pitch 96.
+# move notes on pitch 95 in "PART DRUMS" to pitch 96.
 
 require 'tempfile'
 
@@ -25,7 +25,7 @@ end
 
 source_str.gsub!(drums_regex, '')
 
-out_tmp = Tempfile.new ['2xbasspedal', '.txt']
+out_tmp = Tempfile.new ['2x-bass-pedal', '.txt']
 out_tmp.print(source_str + drums_trk)
 out_tmp.close
 `midiscript "#{out_tmp.path}" "#{out}" -r 480`

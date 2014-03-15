@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+# print the time in seconds (as a decimal) of the [end] RB3 event.
+
 if ARGV.length != 1
   STDERR.puts "Usage: #{$0} in.mid"
   exit 1

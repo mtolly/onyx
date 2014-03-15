@@ -7,7 +7,7 @@ album-fadeout ?= 0
 
 gen/album/%/song-untimed.wav: audio-album.*
 	mkdir -p $(@D)
-	../../scripts/audioconvert $< $@ rate 44100 channels 2
+	../../scripts/audio-convert $< $@ rate 44100 channels 2
 
 gen/album/%.wav: gen/album/%-untimed.wav
 	sox $< $@ \

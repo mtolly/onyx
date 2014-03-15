@@ -1,5 +1,8 @@
 #!/usr/bin/env ruby
 
+# meant to be ran from the repository root.
+# copies all generated con files to a new folder, named by song.
+
 require 'fileutils'
 FileUtils::mkdir_p 'cons'
 

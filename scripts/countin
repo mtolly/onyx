@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-# countin : given a midi and a sound clip, make a new file which has a copy
+# given a midi and a sound clip, make a new file which has a copy
 # of the sound clip at every position where there is a text event "countin_here"
 # in the midi.
 

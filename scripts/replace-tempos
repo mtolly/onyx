@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-# replacetempos : replace one midi's tempo track with that of another.
+# replace one midi's tempo track with that of another.
 
 require 'tempfile'
 
@@ -11,7 +11,7 @@ end
 source, tempo, out = ARGV
 
 source_str, tempo_str = [source, tempo].map do |mid|
-  txt = Tempfile.new ['replacetempos', '.txt']
+  txt = Tempfile.new ['replace-tempos', '.txt']
   txt.close
   `midiscript "#{mid}" "#{txt.path}"`
   File.read txt
@@ -28,7 +28,7 @@ end
 
 source_str.gsub!(tempo_regex, '')
 
-out_tmp = Tempfile.new ['replacetempos', '.txt']
+out_tmp = Tempfile.new ['replace-tempos', '.txt']
 out_tmp.print(tempo_trk + source_str)
 out_tmp.close
 `midiscript "#{out_tmp.path}" "#{out}" -r 480`

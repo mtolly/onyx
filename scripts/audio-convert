@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-# audioconvert : use sox and lame to convert audio to WAV.
+# use sox and lame to convert audio to WAV,
 # because sox does not respect lame mp3 padding.
 # this also removes the need to install the sox mp3 handler.
 

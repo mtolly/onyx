@@ -8,11 +8,11 @@ next-cutoff   ?= 0
 
 gen/album/%/this.wav: audio-this.*
 	mkdir -p $(@D)
-	../../scripts/audioconvert $< $@ rate 44100 channels 2
+	../../scripts/audio-convert $< $@ rate 44100 channels 2
 
 gen/album/%/next.wav: audio-next.*
 	mkdir -p $(@D)
-	../../scripts/audioconvert $< $@ rate 44100 channels 2 trim 0 $(next-cutoff)
+	../../scripts/audio-convert $< $@ rate 44100 channels 2 trim 0 $(next-cutoff)
 
 gen/album/%/song-untimed.wav: gen/album/%/this.wav gen/album/%/next.wav
 	mkdir -p $(@D)
