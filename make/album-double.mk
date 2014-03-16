@@ -6,15 +6,15 @@ album-cutoff  ?= 0
 album-fadeout ?= 0
 next-cutoff   ?= 0
 
-gen/album/%/this.wav: audio-this.*
+gen/album/%p/this.wav: audio-this.*
 	mkdir -p $(@D)
 	../../scripts/audio-convert $< $@ rate 44100 channels 2
 
-gen/album/%/next.wav: audio-next.*
+gen/album/%p/next.wav: audio-next.*
 	mkdir -p $(@D)
 	../../scripts/audio-convert $< $@ rate 44100 channels 2 trim 0 $(next-cutoff)
 
-gen/album/%/song-untimed.wav: gen/album/%/this.wav gen/album/%/next.wav
+gen/album/%p/song-untimed.wav: gen/album/%p/this.wav gen/album/%p/next.wav
 	mkdir -p $(@D)
 	sox --combine concatenate $+ $@
 
@@ -25,5 +25,5 @@ gen/album/%.wav: gen/album/%-untimed.wav
 		pad $(album-pad) \
 		fade t 0 $(album-cutoff) $(album-fadeout)
 
-gen/album/%/drums.wav: gen/album/%/song.wav
+gen/album/%p/drums.wav: gen/album/%p/song.wav
 	sox $< $@ pad 1 trim 0 1

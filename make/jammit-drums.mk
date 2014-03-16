@@ -8,11 +8,11 @@ jammit-trim   ?= 0
 jammit-fadein ?= 0
 jammit-pad    ?= 0
 
-gen/jammit/%/song-untimed.wav:
+gen/jammit/%p/song-untimed.wav:
 	mkdir -p $(@D)
 	jammittools -T "$(jammit-title)" -R "$(jammit-artist)" -y D -a $@
 
-gen/jammit/%/drums-untimed.wav:
+gen/jammit/%p/drums-untimed.wav:
 	mkdir -p $(@D)
 	jammittools -T "$(jammit-title)" -R "$(jammit-artist)" -y d -a $@
 

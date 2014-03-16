@@ -3,7 +3,7 @@ preview-end ?= `echo "$(preview-start) + 30000" | bc`
 rank-drum ?= 1
 rank-band ?= 1
 
-gen/%/songs.dta: ../../dta/drums.dta gen/%/notes.mid
+gen/%p/songs.dta: ../../dta/drums.dta gen/%p/notes.mid
 	cat $< \
 		| sed "s/<TITLE>/$(title)/g" \
 		| sed "s/<ARTIST>/$(artist)/g" \

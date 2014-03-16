@@ -1,21 +1,21 @@
-gen/%/magma/drums.wav: gen/%/drums.wav
+gen/%p/magma/drums.wav: gen/%p/drums.wav
 	mkdir -p $(@D)
 	cp $< $@
 
-gen/%/magma/song-countin.wav: gen/%/song-countin.wav
+gen/%p/magma/song-countin.wav: gen/%p/song-countin.wav
 	mkdir -p $(@D)
 	cp $< $@
 
-gen/%/magma/cover.bmp: ../../covers/$(cover-name).*
+gen/%p/magma/cover.bmp: ../../covers/$(cover-name).*
 	mkdir -p $(@D)
 	convert $< -resize 256x256\! $@
 
-gen/%/magma/notes.mid: gen/%/notes.mid
+gen/%p/magma/notes.mid: gen/%p/notes.mid
 	mkdir -p $(@D)
 	cp $< $@
 	../../scripts/magma-clean $@
 
-gen/%/magma/$(package).rbproj: ../../dta/magma-drums.dta
+gen/%p/magma/$(package).rbproj: ../../dta/magma-drums.dta
 	mkdir -p $(@D)
 	cat $< \
 		| sed "s/<TITLE>/$(title)/g" \
@@ -30,10 +30,10 @@ gen/%/magma/$(package).rbproj: ../../dta/magma-drums.dta
 		| sed "s/<NUMBER>/$(number)/g" \
 		> $@
 
-gen/%/magma.rba: \
-		gen/%/magma/$(package).rbproj \
-		gen/%/magma/notes.mid \
-		gen/%/magma/cover.bmp \
-		gen/%/magma/song-countin.wav \
-		gen/%/magma/drums.wav
+gen/%p/magma.rba: \
+		gen/%p/magma/$(package).rbproj \
+		gen/%p/magma/notes.mid \
+		gen/%p/magma/cover.bmp \
+		gen/%p/magma/song-countin.wav \
+		gen/%p/magma/drums.wav
 	magmyx -c3 $< $@
