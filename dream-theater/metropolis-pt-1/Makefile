@@ -15,10 +15,11 @@ include ../../make/midi-two-tempos.mk
 
 include ../../make/jammit-drums.mk
 include ../../make/album-drums.mk
+include ../../make/countin.mk
 
 # Audio merge
 
-gen/%/audio.ogg: gen/%/drums.wav gen/%/song.wav
+gen/%/audio.ogg: gen/%/drums.wav gen/%/song-countin.wav
 	sox --combine merge $+ $@
 
 # Metadata

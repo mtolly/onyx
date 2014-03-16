@@ -16,6 +16,7 @@ gen/%/magma/notes.mid: gen/%/notes.mid
 	../../scripts/magma-clean $@
 
 gen/%/magma/$(package).rbproj: ../../dta/magma-drums.dta
+	mkdir -p $(@D)
 	cat $< \
 		| sed "s/<TITLE>/$(title)/g" \
 		| sed "s/<ARTIST>/$(artist)/g" \
@@ -28,3 +29,11 @@ gen/%/magma/$(package).rbproj: ../../dta/magma-drums.dta
 		| sed "s/<ALBUM>/$(album)/g" \
 		| sed "s/<NUMBER>/$(number)/g" \
 		> $@
+
+gen/%/magma.rba: \
+		gen/%/magma/$(package).rbproj \
+		gen/%/magma/notes.mid \
+		gen/%/magma/cover.bmp \
+		gen/%/magma/song-countin.wav \
+		gen/%/magma/drums.wav
+	magmyx -c3 $< $@
