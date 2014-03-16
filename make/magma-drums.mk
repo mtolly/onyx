@@ -13,6 +13,7 @@ gen/%/magma/cover.bmp: ../../covers/$(cover-name).*
 gen/%/magma/notes.mid: gen/%/notes.mid
 	mkdir -p $(@D)
 	cp $< $@
+	../../scripts/magma-clean $@
 
 gen/%/magma/$(package).rbproj: ../../dta/magma-drums.dta
 	cat $< \

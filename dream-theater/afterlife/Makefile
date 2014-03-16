@@ -33,3 +33,7 @@ include ../../make/dta-drums.mk
 # Rock Band 3
 
 include ../../make/rb3.mk
+
+# Magma
+
+include ../../make/magma-drums.mk
