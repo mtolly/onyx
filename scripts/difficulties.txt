@@ -1,0 +1,64 @@
+drums:
+124 1 dot
+151 2 dots
+178 3 dots
+242 4 dots
+345 5 dots
+448 devils
+
+vox:
+132 1 dot
+175 2 dots
+218 3 dots
+279 4 dots
+353 5 dots
+427 devils
+
+bass:
+135 1 dot
+181 2 dots
+228 3 dots
+293 4 dots
+364 5 dots
+436 devils
+
+gtr:
+139 1 dot
+176 2 dots
+221 3 dots
+267 4 dots
+333 5 dots
+409 devils
+
+real gtr:
+150 1 dot
+205 2 dots
+264 3 dots
+323 4 dots
+382 5 dots
+442 devils
+
+real bass:
+150 1 dot
+208 2 dots
+267 3 dots
+325 4 dots
+384 5 dots
+442 devils
+
+keys and real keys:
+153 1 dot
+211 2 dots
+269 3 dots
+327 4 dots
+385 5 dots
+443 devils
+
+band:
+1 warmup
+163 apprentice
+215 solid
+243 moderate
+267 challenging
+292 nightmare
+345 impossible
