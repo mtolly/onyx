@@ -7,16 +7,29 @@
 # some small amount is subtracted from the preview_start so you can actually
 # hear the point at which the preview_start event is placed.
 
-if ARGV.length != 1
-  STDERR.puts "Usage: #{$0} notes.mid"
+def print_usage
+  STDERR.puts "Usage: #{$0} notes.mid [start|both]"
   exit 1
 end
-mid = ARGV[0]
+print_usage unless (1..2).include?(ARGV.length)
+mid, mode = ARGV
+mode ||= 'both'
+case mode
+when 'start'
+  compute_end = false
+when 'both'
+  compute_end = true
+else
+  STDERR.puts "Unrecognized mode #{mode}"
+  print_usage
+end
 
 starts = `"#{File.dirname(__FILE__)}/find-text" "preview_start" #{mid}`
 starts = starts.strip.split(/\s+/)
-ends = `"#{File.dirname(__FILE__)}/find-text" "preview_end" #{mid}`
-ends = ends.strip.split(/\s+/)
+if compute_end
+  ends = `"#{File.dirname(__FILE__)}/find-text" "preview_end" #{mid}`
+  ends = ends.strip.split(/\s+/)
+end
 
 if starts.empty?
   pstart = 0
@@ -25,11 +38,19 @@ else
   pstart = starts[0].to_f
 end
 
-if ends.empty?
-  pend = pstart + 30
-else
-  puts "Warning: multiple preview_end events found" if ends.length > 1
-  pend = ends[0].to_f
+if compute_end
+  if ends.empty?
+    pend = pstart + 30
+  else
+    puts "Warning: multiple preview_end events found" if ends.length > 1
+    pend = ends[0].to_f
+  end
 end
 
-puts "#{(pstart * 1000).floor} #{(pend * 1000).floor}"
+pstart = (pstart * 1000).floor
+if compute_end
+  pend = (pend * 1000).floor
+  puts "#{pstart} #{pend}"
+else
+  puts "#{pstart}"
+end

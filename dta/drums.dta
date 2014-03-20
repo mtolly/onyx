@@ -25,7 +25,7 @@
    (bank "sfx/tambourine_bank.milo")
    (anim_tempo kTempoMedium)
    (song_length <LENGTH>)
-   (preview <PREVIEW_START> <PREVIEW_END>)
+   (preview <PREVIEW_BOUNDS>)
    (rank
       (drum <RANK_DRUM>)
       (guitar 0)

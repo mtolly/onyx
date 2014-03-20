@@ -15,13 +15,13 @@ gen/%p/magma/notes.mid: gen/%p/notes.mid
 	cp $< $@
 	../../scripts/magma-clean $@
 
-gen/%p/magma/$(package).rbproj: ../../dta/magma-drums.dta
+gen/%p/magma/$(package).rbproj: ../../dta/magma-drums.dta gen/%p/notes.mid
 	mkdir -p $(@D)
 	cat $< \
 		| sed "s/<TITLE>/$(title)/g" \
 		| sed "s/<ARTIST>/$(artist)/g" \
 		| sed "s/<PACKAGE>/$(package)/g" \
-		| sed "s/<PREVIEW_START>/$(preview-start)/g" \
+		| sed "s/<PREVIEW_START>/`../../scripts/preview-bounds $(word 2,$+) start`/g" \
 		| sed "s/<GENRE>/$(genre)/g" \
 		| sed "s/<GENDER>/$(gender)/g" \
 		| sed "s/<YEAR>/$(year)/g" \
