@@ -47,6 +47,7 @@ if compute_end
   end
 end
 
+pstart = [0, pstart - 0.6].max
 pstart = (pstart * 1000).floor
 if compute_end
   pend = (pend * 1000).floor
