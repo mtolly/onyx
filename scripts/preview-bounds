@@ -32,7 +32,10 @@ if compute_end
 end
 
 if starts.empty?
-  pstart = 0
+  pstart = `"#{File.dirname(__FILE__)}/find-text" "[prc_chorus_1]" #{mid}`.to_f
+  if pstart == 0
+    pstart = `"#{File.dirname(__FILE__)}/find-text" "[prc_chorus]" #{mid}`.to_f
+  end
 else
   puts "Warning: multiple preview_start events found" if starts.length > 1
   pstart = starts[0].to_f
