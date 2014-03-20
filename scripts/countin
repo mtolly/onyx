@@ -12,10 +12,8 @@ if ARGV.length != 3
 end
 mid, wav, out = ARGV
 
-str = `midiscript -s "#{mid}" -`
-
-countin_regex = / \b (\d+ \. \d+) s: [^;]*? text \s+ "countin_here" /mx
-secs = str.scan(countin_regex).map { |grps| grps[0] }
+secs = `"#{File.dirname(__FILE__)}/find-text" "countin_here" #{mid}`
+secs = secs.strip.split(/\s+/)
 
 case secs.length
 when 0
