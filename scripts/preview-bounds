@@ -1,0 +1,35 @@
+#!/usr/bin/env ruby
+
+# prints two values in milliseconds for the start and end of a song preview.
+# these are determined by preview_start and preview_end events in the midi.
+# if preview_start is omitted, it defaults to 0.
+# if preview_end is omitted, it defaults to 30 seconds after the start.
+# some small amount is subtracted from the preview_start so you can actually
+# hear the point at which the preview_start event is placed.
+
+if ARGV.length != 1
+  STDERR.puts "Usage: #{$0} notes.mid"
+  exit 1
+end
+mid = ARGV[0]
+
+starts = `"#{File.dirname(__FILE__)}/find-text" "preview_start" #{mid}`
+starts = starts.strip.split(/\s+/)
+ends = `"#{File.dirname(__FILE__)}/find-text" "preview_end" #{mid}`
+ends = ends.strip.split(/\s+/)
+
+if starts.empty?
+  pstart = 0
+else
+  puts "Warning: multiple preview_start events found" if starts.length > 1
+  pstart = starts[0].to_f
+end
+
+if ends.empty?
+  pend = pstart + 30
+else
+  puts "Warning: multiple preview_end events found" if ends.length > 1
+  pend = ends[0].to_f
+end
+
+puts "#{(pstart * 1000).floor} #{(pend * 1000).floor}"

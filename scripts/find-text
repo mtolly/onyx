@@ -14,7 +14,7 @@ escaped = Regexp.escape(search)
 regex = / \b (\d+ \. \d+) s: [^;]*? text \s+ "#{escaped}" /mx
 secs = str.scan(regex).map { |grps| grps[0] }
 if secs.empty?
-  STDERR.puts "Warning: no matches for event #{search}"
+  STDERR.puts "Warning: no matches for event #{search} in #{mid}"
 else
   secs.each { |s| puts s }
 end
