@@ -1,0 +1,9 @@
+Timing: done. Now using Jammit stems with 1.039s of silence in front.
+Expert+ pro drums: done.
+Expert basic guitar: done, needs to be tweaked to stems.
+Expert basic bass: done, needs to be tweaked to stems.
+Expert pro keys: done, needs to be tweaked to stems.
+Expert basic keys: in progress.
+Expert pro guitar: in progress. May need to be tweaked to stems.
+Solo & harmony vocals: done. Should check timing with stems.
+Practice sections: done.
