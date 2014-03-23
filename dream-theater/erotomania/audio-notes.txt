@@ -1,0 +1,28 @@
+bass, drums, gtr1, gtr2, keys1 are the original jammit tracks.
+song-noisy is: nodrums + invert(bass, gtr1, gtr2, keys1).
+song-cleaned is a noise removal applied to song-noisy.
+
+gtr1-backing and gtr1-play are split from gtr1.
+gtr2-backing and gtr2-play are split from gtr2.
+gtr3-play, keys2-backing, keys2-play, and perc-gtr3-backing
+  are split from song-cleaned.
+
+gtr1 split: 4,559,565 to 4,560,964 (fade)
+gtr1 split: 5,254,511 to 5,255,385 (fade)
+
+gtr1 split: 9,064,594 to 9,065,287 (fade)
+gtr1 split: 9,968,908 to 9,970,423 (fade)
+
+keys2 split: 15,237,998 (hard)
+
+keys1-lastverseamped is keys1, with the last "verse" part amplified 6 dB.
+This brings it to about the same volume as the other verses.
+
+backing is all the backing tracks put together.
+gtr-play is gtr{1, 2, 3}-play.
+keys-play is keys1-lastverseamped and keys2-play.
+
+Take bass, drums, gtr-play, keys-play, and backing.
+Add 1.194 seconds to the beginning of each.
+Combine countin with backing.
+Done!

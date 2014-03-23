@@ -1,0 +1,4 @@
+Timing: done. Now using jammit stems with 2.614s of silence in front.
+Expert+ pro drums: done.
+Expert basic guitar: done, but needs to be reworked in several places.
+Practice sections: done.
