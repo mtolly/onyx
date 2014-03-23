@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+
+mids = `ls */*/notes.mid`.split "\n"
+mids.each do |mid|
+  str = `strings #{mid} | grep prc_`.strip
+  puts mid if str.empty?
+end
