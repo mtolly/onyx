@@ -1,0 +1,73 @@
+DONE
+Expert (pro) drums
+Hard drums
+Medium drums
+Easy drums
+Expert bass
+Hard bass
+Medium bass
+Easy bass
+Expert keys
+Hard keys
+Medium keys
+Easy keys
+Expert guitar
+Hard guitar
+Expert pro keys
+Practice sections
+Overdrive
+Drum fills
+Drum animations/moods
+Crowd moods
+Lighting
+
+NOT DONE
+Medium guitar
+Easy guitar
+Hard pro keys
+Medium pro keys
+Easy pro keys
+Bass animations/moods
+Guitar animations/moods
+Keys animations/moods (currently just copied from X pro keys)
+Camera
+
+Drums overdrive:
+m3
+m8
+m33
+m50
+m68
+m104
+
+Guitar overdrive:
+m12
+m35
+m66
+m91
+m105
+m109
+
+Bass overdrive:
+m15
+m31
+m63
+m91
+m75
+m103
+m111
+
+Keys overdrive:
+m4
+m9
+m14
+m32
+m67
+m108
+
+Unison:
+m22
+m44
+m58
+m84 (except bass)
+m96
