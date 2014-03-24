@@ -18,3 +18,7 @@ Supported drum pedals:
 
   * `1p`
   * `2p`
+
+Notes:
+
+  * Chart confidence: *high*.

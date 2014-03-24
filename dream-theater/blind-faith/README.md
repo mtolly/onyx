@@ -14,3 +14,8 @@ Supported drum pedals:
 
   * `1p`
   * `2p`
+
+Notes:
+
+  * Chart confidence: *medium*. No stems, and cymbals in some sections are hard
+    to differentiate.

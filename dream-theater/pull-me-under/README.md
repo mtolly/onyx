@@ -19,5 +19,7 @@ Supported drum pedals:
 
 Notes:
 
-  * `jammit` audio is missing many kick drum hits. I may try to find a way to
+  * Chart confidence: *high*. Charted to Jammit stems and 2007 remaster.
+
+  * Jammit's audio is missing many kick drum hits. I may try to find a way to
     readd them at some point.

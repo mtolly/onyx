@@ -14,3 +14,7 @@ Supported drum pedals:
 
   * `1p`
   * `2p`
+
+Notes:
+
+  * Chart confidence: *medium-high*. Written to Portnoy's DVD.
