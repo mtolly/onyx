@@ -9,6 +9,8 @@ readmes.each do |readme|
   pedals = []
   audio << 'album' if str.include?('`album`')
   audio << 'jammit' if str.include?('`jammit`')
+  audio << 'hit' if str.include?('`hit`')
+  audio << 'pledgemusic' if str.include?('`pledgemusic`')
   pedals << '1p' if str.include?('`1p`')
   pedals << '2p' if str.include?('`2p`')
   makes = []
@@ -20,7 +22,7 @@ readmes.each do |readme|
         "gen/#{a}/#{p}/magma/notes.mid",
         "gen/#{a}/#{p}/magma/cover.bmp",
       ]
-      if a == 'album'
+      if ['album', 'hit'].include? a
         makes += [
           "gen/#{a}/#{p}/magma/drums.wav",
         ]
