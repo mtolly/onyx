@@ -1,0 +1,33 @@
+#!/usr/bin/env ruby
+
+readmes = `ls */*/README.md`.split "\n"
+#readmes = ['dream-theater/6-00/README.md']
+readmes.each do |readme|
+  folder = File.dirname(readme)
+  str = File.read(readme)
+  audio = []
+  pedals = []
+  audio << 'album' if str.include?('`album`')
+  audio << 'jammit' if str.include?('`jammit`')
+  pedals << '1p' if str.include?('`1p`')
+  pedals << '2p' if str.include?('`2p`')
+  makes = []
+  audio.each do |a|
+    pedals.each do |p|
+      makes += [
+        "gen/#{a}/#{p}/countin.wav",
+        "gen/#{a}/#{p}/magma/magma.rbproj",
+        "gen/#{a}/#{p}/magma/notes.mid",
+        "gen/#{a}/#{p}/magma/cover.bmp",
+      ]
+      if a == 'album'
+        makes += [
+          "gen/#{a}/#{p}/magma/drums.wav",
+        ]
+      end
+    end
+  end
+  Dir.chdir(folder) do
+    system("make", *makes)
+  end
+end

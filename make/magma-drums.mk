@@ -15,7 +15,7 @@ gen/%p/magma/notes.mid: gen/%p/notes.mid
 	cp $< $@
 	../../scripts/magma-clean $@
 
-gen/%p/magma/$(package).rbproj: ../../dta/magma-drums.dta gen/%p/notes.mid
+gen/%p/magma/magma.rbproj: ../../dta/magma-drums.dta gen/%p/notes.mid
 	mkdir -p $(@D)
 	cat $< \
 		| sed "s/<TITLE>/$(title)/g" \
@@ -31,7 +31,7 @@ gen/%p/magma/$(package).rbproj: ../../dta/magma-drums.dta gen/%p/notes.mid
 		> $@
 
 gen/%p/magma.rba: \
-		gen/%p/magma/$(package).rbproj \
+		gen/%p/magma/magma.rbproj \
 		gen/%p/magma/notes.mid \
 		gen/%p/magma/cover.bmp \
 		gen/%p/magma/song-countin.wav \

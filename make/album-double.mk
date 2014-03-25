@@ -25,5 +25,5 @@ gen/album/%.wav: gen/album/%-untimed.wav
 		pad $(album-pad) \
 		fade t 0 $(album-cutoff) $(album-fadeout)
 
-gen/album/%p/drums.wav: gen/album/%p/song.wav
-	sox $< $@ pad 1 trim 0 1
+gen/album/%p/drums.wav:
+	sox -n -b 16 $@ rate 44100 channels 2 trim 0 1

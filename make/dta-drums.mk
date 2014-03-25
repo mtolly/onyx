@@ -4,6 +4,7 @@ rank-band ?= 1
 gen/%p/songs.dta: ../../dta/drums.dta gen/%p/notes.mid
 	cat $< \
 		| sed "s/<TITLE>/$(title)/g" \
+		# | sed "s/<TITLE>/$(title) ($(subst /,\/,$*p))/g" \
 		| sed "s/<ARTIST>/$(artist)/g" \
 		| sed "s/<PACKAGE>/$(package)/g" \
 		| sed "s/<LENGTH>/`../../scripts/song-length $(word 2,$+)`/g" \
