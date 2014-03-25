@@ -14,12 +14,12 @@ complex build process.
 
   3. The file `Makefile` contains numbers for how to modify your audio.
     Use [Audacity][] to pad, fade, or trim the audio as necessary, and also mix
-    it with the file `gen/countin.wav` from the song folder.
+    it with the file `gen/album/Xp/countin.wav` from the song folder, where
+    `X` is the number of kick pedals you'd like, 1 or 2.
 
 [Audacity]: http://audacity.sourceforge.net/
 
-  4. Save the audio to the path `gen/album/Xp/magma/song-countin.wav`, where
-    `X` is either 1 or 2 for the number of kick pedals.
+  4. Save the audio to the path `gen/album/Xp/magma/song-countin.wav`.
 
   5. Compile the Magma project `gen/album/Xp/magma/magma.rbproj` using either
     Harmonix's Magma, or [C3's Magma][c3magma]. If the song is over 10 minutes,
