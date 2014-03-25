@@ -1,52 +1,41 @@
 This is a collection of songs I have authored for use in Rock Band 3 and other
 similar rhythm games, mostly for drums. The charts are provided in a "source"
-format, where you must supply your own audio. You can either:
+format, where you must supply your own audio. It is recommended that you use a
+pre-built release package, but instructions are also included to use a more
+complex build process.
 
-* Manually piece together the MIDI and audio, and then use something like
-  Harmonix's Magma, or C3's Magma, to create the song package. You can take a
-  peek at the song's Makefile to get the exact audio offset needed.
+## Easy method: supply album audio, compile with Magma
 
-* Use my toolchain, detailed below, to automatically build everything into a
-  finished Xbox 360 CON package, using standard Unix command-line tools.
+  1. Download the [latest release][releases] archive.
 
-Some songs are not buildable yet -- I am in the process of setting up the build
-process for each one, so check back for updates. These instructions are also
-continually being fleshed out.
+[releases]: https://github.com/mtolly/onyxite-customs/releases
 
-## Song format
+  2. In the extracted files, find the folder for the song you want.
 
-* `notes.mid` is the authored chart. I have added some events which Magma may
-  complain about if you do not move or remove them:
+  3. The file `Makefile` contains numbers for how to modify your audio.
+    Use [Audacity][] to pad, fade, or trim the audio as necessary, and also mix
+    it with the file `gen/countin.wav` from the song folder.
 
-  * For 2x Bass Pedal drums, I use notes on pitch 95 for left kick drum notes
-    which only show up on 2x. (96 is the normal Expert kick drum pitch.) When
-    you use my scripts to create a 2x package, it then moves these notes up to
-    96.
+[Audacity]: http://audacity.sourceforge.net/
 
-  * Countin audio is generated with a track named "countin" and text events
-    named "countin_here".
+  4. Save the audio to the path `gen/album/Xp/magma/song-countin.wav`, where
+    `X` is either 1 or 2 for the number of kick pedals.
 
-* `tempo-{name of audio source}.mid` is a MIDI file with only a tempo track.
-  For songs that support Jammit audio, if the Jammit audio requires a different
-  tempo track from the original CD audio (usually for older songs recorded on
-  tape), then `notes.mid` will have the Jammit tempos, and `tempo-album.mid`
-  will have the original CD audio. You can manually replace the tempo track by
-  first importing `notes.mid` into Reaper, then dragging in `tempo-album.mid`
-  and checking only the "merge tempo track" box, not the "make new tracks" box.
+  5. Compile the Magma project `gen/album/Xp/magma/magma.rbproj` using either
+    Harmonix's Magma, or [C3's Magma][c3magma]. If the song is over 10 minutes,
+    C3's is required. Note that you may have to click once in the
+    "destination" box (the `.rba` path) before compiling.
 
-* `Makefile` details the commands needed to build the complete song package.
+[c3magma]: http://www.pksage.com/ccc/forums/viewtopic.php?f=12&t=381
 
-* `audio-{name of audio source}.{ext}` is the filename under which you should
-  supply your copy of an song's audio.
+  6. Optionally, convert your RBA file to an Xbox 360 CON package with
+    [RB3Maker][].
 
-* `songs.dta` is a template for the RB3 metadata file. It has a few missing
-  pieces which are filled in during the build process:
+[RB3Maker]: http://rockband.scorehero.com/forum/viewtopic.php?t=34542
 
-  * `<PACKAGE>` comes from a variable in the Makefile.
+## Full build process
 
-  * `<LENGTH>` is calculated from the location of the `[end]` event in the MIDI.
-
-## Requirements
+Required:
 
 * .NET Framework or [Mono](http://www.mono-project.com):
   .NET v2.0, I think?
@@ -90,8 +79,6 @@ are Win32 binaries, so you might have an `ogg2mogg` script which simply has:
 
 The other option for the Win32 binaries is to compile them yourself. This is
 easy to do -- see the `rb3tools` and `jammittools` pages for build information.
-
-## Building a package
 
 In the song directory, first create `audio-album.ogg` or something similar if
 you need to supply audio. Then run:
