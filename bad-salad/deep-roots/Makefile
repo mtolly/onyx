@@ -15,20 +15,17 @@ include ../../make/midi-one-tempo.mk
 
 # Audio parts
 
-gen/pledgemusic/%/drums-untimed.wav: $(stem-prefix)Drums.*
+gen/pledgemusic/%/drums.wav: $(stem-prefix)Drums.*
 	mkdir -p $(@D)
 	sox -v $(pledgemusic-multiply) $< $@
 
-gen/pledgemusic/%/song-untimed.wav: \
+gen/pledgemusic/%/song.wav: \
 		$(stem-prefix)Bass.* \
 		$(stem-prefix)Guitars.* \
 		$(stem-prefix)Keyboards.* \
 		$(stem-prefix)Vocals.*
 	mkdir -p $(@D)
 	sox --combine mix $(addprefix -v $(pledgemusic-multiply) ,$+) $@
-
-gen/pledgemusic/%.wav: gen/pledgemusic/%-untimed.wav
-	sox $< $@ trim $(pledgemusic-trim)
 
 include ../../make/album-drums.mk
 include ../../make/countin.mk
