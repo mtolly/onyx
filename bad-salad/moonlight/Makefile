@@ -5,17 +5,21 @@ number = 2
 pledgemusic-trim = 0.326
 pledgemusic-multiply = 0.6
 album-pad = 3.631
+stem-prefix = BadSalad-Puzzled-2-Moonlight-Stem-
 
 include ../../make/config/drums.mk
 
-gen/pledgemusic/%/drums-untimed.wav: BadSalad-Puzzled-2-Moonlight-Stem-Drums.*
+gen/pledgemusic/%/drums-untimed.wav: $(stem-prefix)Drums.*
 	mkdir -p $(@D)
 	sox -v $(pledgemusic-multiply) $< $@
 
 gen/pledgemusic/%/song-untimed.wav: \
-		BadSalad-Puzzled-2-Moonlight-Stem-Bass.* \
-		BadSalad-Puzzled-2-Moonlight-Stem-Guitars.* \
-		BadSalad-Puzzled-2-Moonlight-Stem-Keyboards.* \
-		BadSalad-Puzzled-2-Moonlight-Stem-Vocals.*
+		$(stem-prefix)Bass.* \
+		$(stem-prefix)Guitars.* \
+		$(stem-prefix)Keyboards.* \
+		$(stem-prefix)Vocals.*
 	mkdir -p $(@D)
 	sox --combine mix $(addprefix -v $(pledgemusic-multiply) ,$+) $@
+
+gen/pledgemusic/%.wav: gen/pledgemusic/%-untimed.wav
+	sox $< $@ trim $(pledgemusic-trim)
