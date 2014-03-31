@@ -1,4 +1,5 @@
-title = Metropolis Pt. 1
+title = Metropolis, Pt. 1: The Miracle and the Sleeper
+jammit-title = Metropolis Pt. 1
 package = metropolispt1
 cover-name = images-and-words
 number = 5

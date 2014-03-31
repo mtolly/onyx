@@ -91,7 +91,7 @@ gen/%p/fof/song.ini: ../../template/fof-drums.ini
 gen/%p/fof-all:
 	make \
 		gen/$*p/fof/notes.mid \
-	  gen/$*p/fof/album.png \
-	  gen/$*p/fof/drums.ogg \
-	  gen/$*p/fof/song.ogg \
-	  gen/$*p/fof/song.ini
+		gen/$*p/fof/album.png \
+		gen/$*p/fof/drums.ogg \
+		gen/$*p/fof/song.ogg \
+		gen/$*p/fof/song.ini
