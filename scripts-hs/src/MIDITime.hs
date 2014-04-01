@@ -1,12 +1,13 @@
-module MIDITempo where
+module MIDITime where
 
+import Data.Ratio (denominator)
+
+import qualified Data.EventList.Absolute.TimeBody as ATB
+import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.Map as Map
 import qualified Numeric.NonNegative.Wrapper as NN
 import qualified Sound.MIDI.File.Event as E
 import qualified Sound.MIDI.File.Event.Meta as Meta
-import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Data.EventList.Absolute.TimeBody as ATB
-import Data.Ratio (denominator)
-import qualified Data.Map as Map
 
 type Resolution = NN.Int
 type Ticks      = NN.Integer
