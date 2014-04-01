@@ -1,16 +1,2 @@
-#!/usr/bin/env ruby
-
-# ensure that a midi has the RB3 required resolution of 480.
-
-require 'tempfile'
-
-if ARGV.length != 1
-  STDERR.puts "Usage: #{$0} notes.mid"
-  exit 1
-end
-mid = ARGV[0]
-
-txt = Tempfile.new ['fix-resolution', '.txt']
-txt.close
-`midiscript "#{mid}" "#{txt.path}"`
-`midiscript "#{txt.path}" "#{mid}" -r 480`
+#!/bin/bash
+`dirname $0`/../scripts-hs/dist/build/onyxite-customs/onyxite-customs fix-resolution "$@"

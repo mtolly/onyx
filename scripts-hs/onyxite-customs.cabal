@@ -16,6 +16,9 @@ Executable onyxite-customs
                     , midi         == 0.2.*
                     , event-list   == 0.1.*
                     , containers   == 0.5.*
+                    , process      == 1.2.*
+                    , temporary    == 1.2.*
+                    , filepath     == 1.3.*
   Ghc-Options:      -Wall
 
 Source-Repository head

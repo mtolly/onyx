@@ -39,7 +39,7 @@ tempoMap = rtbToMap . go 0 2 where
     Just ((db, x), rtb') -> case x of
       E.MetaEvent (Meta.SetTempo uspb) -> let
         bps' = 1000000 / fromIntegral uspb
-        in RTB.cons db (s', bps) $ go s' bps' rtb'
+        in RTB.cons db (s', bps') $ go s' bps' rtb'
       _ -> go s' bps rtb'
       where s' = s + db / bps
 

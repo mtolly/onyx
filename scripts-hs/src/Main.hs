@@ -1,9 +1,13 @@
 module Main where
 
-import Data.List (partition)
+import Control.Applicative ((<$>))
+import Control.Monad (forM)
+import Data.Fixed (Milli)
+import Data.List (partition, sort)
 import Data.Maybe (listToMaybe, mapMaybe)
 import System.Environment (getArgs, getProgName)
 
+import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import qualified Sound.MIDI.File as F
@@ -13,21 +17,55 @@ import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.File.Load as Load
 import qualified Sound.MIDI.File.Save as Save
 import qualified Sound.MIDI.File.Event.Meta as Meta
+import System.FilePath ((</>))
+import System.IO.Temp (withSystemTempDirectory)
+import System.Process (callProcess)
 
 import MIDITime
 
+standardMIDI :: F.T -> (RTB.T Beats E.T, [RTB.T Beats E.T])
+standardMIDI (F.Cons _ dvn trks) = case dvn of
+  F.Ticks n -> case map (ticksToBeats n) trks of
+    []     -> (RTB.empty, [])
+    t : ts -> (t        , ts)
+  _ -> error "standardMIDI: not ticks-based"
+
+fromStandardMIDI :: RTB.T Beats E.T -> [RTB.T Beats E.T] -> F.T
+fromStandardMIDI tempo rest = F.Cons F.Parallel (F.Ticks 480) $
+  map (beatsToTicks 480) $ tempo : rest
+
 main :: IO ()
 main = getArgs >>= \argv -> case argv of
+
   ["2x-bass-pedal", fin, fout] -> do
-    F.Cons typ dvn trks <- Load.fromFile fin
-    let (tempo, trks') = case trks of
-          []     -> (RTB.empty, [])
-          t : ts -> (t        , ts)
-    Save.toFile fout $ F.Cons typ dvn $ case partition isDrums trks' of
-      (drums, notdrums) -> [tempo] ++ map make2xBass drums ++ notdrums
+    (tempo, trks) <- standardMIDI <$> Load.fromFile fin
+    Save.toFile fout $ fromStandardMIDI tempo $ case partition isDrums trks of
+      (drums, notdrums) -> map make2xBass drums ++ notdrums
+
+  ["countin", mid, wavin, wavout] -> do
+    (tempo, trks) <- standardMIDI <$> Load.fromFile mid
+    let tmap = tempoMap tempo
+        beats = sort $ concatMap countins $ tempo : trks
+        secs = map (beatsToSeconds tmap) beats
+        secstrs = map (\s -> show (realToFrac s :: Milli)) secs
+    case secstrs of
+      [] -> callProcess "sox" $ [wavin, wavout] ++ words "pad 1 trim 0 1"
+      [s] -> callProcess "sox" [wavin, wavout, "pad", s]
+      _ -> withSystemTempDirectory "countin" $ \d -> do
+        files <- forM secstrs $ \s -> do
+          let f = d </> (s ++ ".wav")
+          callProcess "sox" [wavin, f, "pad", s]
+          return f
+        callProcess "sox" $
+          words "--combine mix -v 1" ++ files ++ [wavout]
+
+  ["fix-resolution", mid] -> do
+    (tempo, trks) <- standardMIDI <$> Load.fromFile mid
+    Save.toFile mid $ fromStandardMIDI tempo trks
+
   _ -> do
     prog <- getProgName
-    error $ prog ++ ": invalid arguments"
+    error $ prog ++ ": invalid arguments: " ++ show argv
   where isDrums t = trackName t == Just "PART DRUMS"
 
 trackName :: (NNC.C t) => RTB.T t E.T -> Maybe String
@@ -39,10 +77,17 @@ trackName rtb = case RTB.viewL $ RTB.collectCoincident rtb of
   _ -> Nothing
 
 -- | Move all notes on pitch 95 to pitch 96.
-make2xBass :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
+-- TODO: Ensure overlapping 95/96 pitches work by removing all note-offs and
+-- making new ones.
+make2xBass :: RTB.T t E.T -> RTB.T t E.T
 make2xBass = fmap $ \x -> case x of
   E.MIDIEvent      (C.Cons ch (C.Voice (V.NoteOn  p v))) | V.fromPitch p == 95
     -> E.MIDIEvent (C.Cons ch (C.Voice (V.NoteOn  (V.toPitch 96) v)))
   E.MIDIEvent      (C.Cons ch (C.Voice (V.NoteOff p v))) | V.fromPitch p == 95
     -> E.MIDIEvent (C.Cons ch (C.Voice (V.NoteOff (V.toPitch 96) v)))
   _ -> x
+
+countins :: RTB.T Beats E.T -> [Beats]
+countins = ATB.getTimes . RTB.toAbsoluteEventList 0 . RTB.filter f where
+  f (E.MetaEvent (Meta.TextEvent "countin_here")) = True
+  f _                                             = False
