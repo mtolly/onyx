@@ -1,7 +1,7 @@
 module Main where
 
 import Control.Applicative ((<$>))
-import Control.Monad (forM)
+import Control.Monad (forM, when)
 import Data.Fixed (Milli)
 import Data.List (partition, sort)
 import Data.Maybe (listToMaybe, mapMaybe)
@@ -45,7 +45,7 @@ main = getArgs >>= \argv -> case argv of
   ["countin", mid, wavin, wavout] -> do
     (tempo, trks) <- standardMIDI <$> Load.fromFile mid
     let tmap = tempoMap tempo
-        beats = sort $ concatMap countins $ tempo : trks
+        beats = sort $ concatMap (findText "countin_here") $ tempo : trks
         secs = map (beatsToSeconds tmap) beats
         secstrs = map (\s -> show (realToFrac s :: Milli)) secs
     case secstrs of
@@ -62,6 +62,34 @@ main = getArgs >>= \argv -> case argv of
   ["fix-resolution", mid] -> do
     (tempo, trks) <- standardMIDI <$> Load.fromFile mid
     Save.toFile mid $ fromStandardMIDI tempo trks
+
+  "preview-bounds" : mid : rest -> do
+    showEnd <- case rest of
+      ["start"] -> return False
+      ["both"]  -> return True
+      []        -> return True
+      _         -> error $ "Invalid mode for preview-bounds: " ++ show rest
+    (tempo, trks) <- standardMIDI <$> Load.fromFile mid
+    let find s = listToMaybe $ concatMap (findText s) (tempo : trks)
+        tmap = tempoMap tempo
+        starts = ["preview_start", "[prc_chorus]", "[prc_chorus_1]"]
+        start = case mapMaybe find starts of
+          []      -> 0
+          bts : _ -> beatsToSeconds tmap bts
+        end = case find "preview_end" of
+          Nothing  -> start + 30
+          Just bts -> beatsToSeconds tmap bts
+        ms n = show (floor $ n * 1000 :: Int)
+    putStr (ms start)
+    when showEnd $ do
+      putChar ' '
+      putStr (ms end)
+    putChar '\n'
+
+  ["replace-tempos", fin, ftempo, fout] -> do
+    (_    , trks) <- standardMIDI <$> Load.fromFile ftempo
+    (tempo, _   ) <- standardMIDI <$> Load.fromFile fin
+    Save.toFile fout $ fromStandardMIDI tempo trks
 
   _ -> do
     prog <- getProgName
@@ -87,7 +115,7 @@ make2xBass = fmap $ \x -> case x of
     -> E.MIDIEvent (C.Cons ch (C.Voice (V.NoteOff (V.toPitch 96) v)))
   _ -> x
 
-countins :: RTB.T Beats E.T -> [Beats]
-countins = ATB.getTimes . RTB.toAbsoluteEventList 0 . RTB.filter f where
-  f (E.MetaEvent (Meta.TextEvent "countin_here")) = True
-  f _                                             = False
+findText :: String -> RTB.T Beats E.T -> [Beats]
+findText s = ATB.getTimes . RTB.toAbsoluteEventList 0 . RTB.filter f where
+  f (E.MetaEvent (Meta.TextEvent s')) | s == s' = True
+  f _                                           = False
