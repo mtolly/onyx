@@ -70,7 +70,7 @@ main = getArgs >>= \argv -> case argv of
       []        -> return True
       _         -> error $ "Invalid mode for preview-bounds: " ++ show rest
     (tempo, trks) <- standardMIDI <$> Load.fromFile mid
-    let find s = listToMaybe $ concatMap (findText s) (tempo : trks)
+    let find s = listToMaybe $ sort $ concatMap (findText s) (tempo : trks)
         tmap = tempoMap tempo
         starts = ["preview_start", "[prc_chorus]", "[prc_chorus_1]"]
         start = case mapMaybe find starts of
@@ -87,9 +87,19 @@ main = getArgs >>= \argv -> case argv of
     putChar '\n'
 
   ["replace-tempos", fin, ftempo, fout] -> do
-    (_    , trks) <- standardMIDI <$> Load.fromFile ftempo
-    (tempo, _   ) <- standardMIDI <$> Load.fromFile fin
+    (_    , trks) <- standardMIDI <$> Load.fromFile fin
+    (tempo, _   ) <- standardMIDI <$> Load.fromFile ftempo
     Save.toFile fout $ fromStandardMIDI tempo trks
+
+  ["song-length", mid] -> do
+    (tempo, trks) <- standardMIDI <$> Load.fromFile mid
+    let tmap = tempoMap tempo
+    case concatMap (findText "[end]") trks of
+      [bts] -> let
+        ms = floor $ beatsToSeconds tmap bts * 1000 :: Int
+        in print ms
+      results -> error $
+        "Error: " ++ show (length results) ++ " [end] events found"
 
   _ -> do
     prog <- getProgName

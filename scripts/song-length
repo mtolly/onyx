@@ -1,18 +1,2 @@
-#!/usr/bin/env ruby
-
-# print the time in milliseconds (as an int) of the [end] RB3 event.
-
-if ARGV.length != 1
-  STDERR.puts "Usage: #{$0} in.mid"
-  exit 1
-end
-mid = ARGV[0]
-
-secs = `"#{File.dirname(__FILE__)}/find-text" "[end]" #{mid}`
-secs = secs.strip.split(/\s+/)
-if secs.length == 1
-  puts (secs[0].to_f * 1000).floor
-else
-  STDERR.puts "Error: #{secs.length} [end] events found in #{mid}"
-  exit 1
-end
+#!/bin/bash
+`dirname $0`/../scripts-hs/dist/build/onyxite-customs/onyxite-customs song-length "$@"
