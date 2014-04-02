@@ -4,7 +4,7 @@ import Control.Applicative ((<$>))
 import Control.Monad (forM, when)
 import Data.Fixed (Milli)
 import Data.List (partition, sort)
-import Data.Maybe (listToMaybe, mapMaybe)
+import Data.Maybe (listToMaybe, mapMaybe, fromMaybe)
 import System.Environment (getArgs, getProgName)
 
 import qualified Data.EventList.Absolute.TimeBody as ATB
@@ -101,6 +101,12 @@ main = getArgs >>= \argv -> case argv of
       results -> error $
         "Error: " ++ show (length results) ++ " [end] events found"
 
+  ["magma-clean", mid] -> do
+    (tempo, trks) <- standardMIDI <$> Load.fromFile mid
+    Save.toFile mid $ fromStandardMIDI
+      (fromMaybe RTB.empty $ magmaClean tempo)
+      (mapMaybe magmaClean trks)
+
   _ -> do
     prog <- getProgName
     error $ prog ++ ": invalid arguments: " ++ show argv
@@ -129,3 +135,16 @@ findText :: String -> RTB.T Beats E.T -> [Beats]
 findText s = ATB.getTimes . RTB.toAbsoluteEventList 0 . RTB.filter f where
   f (E.MetaEvent (Meta.TextEvent s')) | s == s' = True
   f _                                           = False
+
+magmaClean :: (NNC.C t) => RTB.T t E.T -> Maybe (RTB.T t E.T)
+magmaClean trk = case trackName trk of
+  Just "countin"    -> Nothing
+  Just "PART_DRUMS" -> Just $ removePitch (V.toPitch 95) $ removeComments trk
+  _                 -> Just $ removeComments trk
+  where removePitch p = RTB.filter $ \x -> case x of
+          E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn  p' _))) | p == p' -> False
+          E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOff p' _))) | p == p' -> False
+          _ -> True
+        removeComments = RTB.filter $ \x -> case x of
+          E.MetaEvent (Meta.TextEvent ('#' : _)) -> False
+          _ -> True
