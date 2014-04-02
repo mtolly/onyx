@@ -8,7 +8,7 @@
 
 # Album art
 
-gen/%p/cover.png_xbox: ../../covers/$(cover-name).*
+gen/cover.png_xbox: ../../covers/$(cover-name).*
 	mkdir -p $(@D)
 	rb3albumart $< $@
 
@@ -26,7 +26,7 @@ gen/%p/rb3/songs/$(package)/$(package).mogg: gen/%p/audio.mogg
 	mkdir -p $(@D)
 	cp $< $@
 
-gen/%p/rb3/songs/$(package)/gen/$(package)_keep.png_xbox: gen/%p/cover.png_xbox
+gen/%p/rb3/songs/$(package)/gen/$(package)_keep.png_xbox: gen/cover.png_xbox
 	mkdir -p $(@D)
 	cp $< $@
 

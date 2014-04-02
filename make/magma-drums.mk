@@ -6,9 +6,13 @@ gen/%p/magma/song-countin.wav: gen/%p/song-countin.wav
 	mkdir -p $(@D)
 	cp $< $@
 
-gen/%p/magma/cover.bmp: ../../covers/$(cover-name).*
+gen/cover.bmp: ../../covers/$(cover-name).*
 	mkdir -p $(@D)
 	convert $< -resize 256x256\! $@
+
+gen/%p/magma/cover.bmp: gen/cover.bmp
+	mkdir -p $(@D)
+	cp $< $@
 
 gen/%p/magma/notes.mid: gen/%p/notes.mid
 	mkdir -p $(@D)
