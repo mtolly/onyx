@@ -1,5 +1,6 @@
 module MIDITime where
 
+import Data.List (foldl')
 import Data.Ratio (denominator)
 
 import qualified Data.EventList.Absolute.TimeBody as ATB
@@ -24,7 +25,7 @@ beatsToTicks res = RTB.discretize . RTB.mapTime (* fromIntegral res)
 
 minResolution :: RTB.T Beats a -> Resolution
 minResolution =
-  fromIntegral . foldr lcm 1 . map (denominator . NN.toNumber) . RTB.getTimes
+  fromIntegral . foldl' lcm 1 . map (denominator . NN.toNumber) . RTB.getTimes
 
 type TempoMap = Map.Map Beats (Seconds, BPS)
 
