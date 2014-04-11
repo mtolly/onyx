@@ -41,7 +41,7 @@ tempoMap = rtbToMap . go 0 2 where
       E.MetaEvent (Meta.SetTempo uspb) -> let
         bps' = 1000000 / fromIntegral uspb
         in RTB.cons db (s', bps') $ go s' bps' rtb'
-      _ -> go s' bps rtb'
+      _ -> RTB.delay db $ go s' bps rtb'
       where s' = s + db / bps
 
 beatsToSeconds :: TempoMap -> Beats -> Seconds

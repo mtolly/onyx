@@ -75,15 +75,15 @@ main = getArgs >>= \argv -> case argv of
         starts = ["preview_start", "[prc_chorus]", "[prc_chorus_1]"]
         start = case mapMaybe find starts of
           []      -> 0
-          bts : _ -> beatsToSeconds tmap bts
+          bts : _ -> beatsToSeconds tmap bts - 0.6
         end = case find "preview_end" of
           Nothing  -> start + 30
           Just bts -> beatsToSeconds tmap bts
         ms n = show (floor $ n * 1000 :: Int)
-    putStr (ms start)
+    putStr $ ms start
     when showEnd $ do
       putChar ' '
-      putStr (ms end)
+      putStr $ ms end
     putChar '\n'
 
   ["replace-tempos", fin, ftempo, fout] -> do

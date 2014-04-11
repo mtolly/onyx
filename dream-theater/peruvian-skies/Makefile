@@ -1,5 +1,5 @@
 title = Peruvian Skies
-package = peruvian-skies
+package = peruvianskies
 cover-name = falling-into-infinity
 number = 3
 jammit-pad = 2.273
