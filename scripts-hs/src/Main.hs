@@ -75,7 +75,7 @@ main = getArgs >>= \argv -> case argv of
         starts = ["preview_start", "[prc_chorus]", "[prc_chorus_1]"]
         start = case mapMaybe find starts of
           []      -> 0
-          bts : _ -> beatsToSeconds tmap bts - 0.6
+          bts : _ -> max 0 $ beatsToSeconds tmap bts - 0.6
         end = case find "preview_end" of
           Nothing  -> start + 30
           Just bts -> beatsToSeconds tmap bts
