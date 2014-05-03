@@ -8,6 +8,7 @@ Instruments:
 
 Supported audio:
 
+  * `album` (Falling into Infinity)
   * `jammit`
 
 Supported drum pedals:
