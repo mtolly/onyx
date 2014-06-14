@@ -78,7 +78,7 @@ gen/%p/fof/song.ogg: gen/%p/song.wav
 	mkdir -p $(@D)
 	sox $< $@
 
-gen/%p/fof/song.ini: ../../template/fof-drums.ini
+gen/%p/fof/song.ini: ../../template/fof-drums.ini gen/%p/fof/notes.mid
 	mkdir -p $(@D)
 	cat $< \
 		| sed "s/<TITLE>/$(title)/g" \
@@ -86,6 +86,7 @@ gen/%p/fof/song.ini: ../../template/fof-drums.ini
 		| sed "s/<ALBUM>/$(album)/g" \
 		| sed "s/<GENRE>/$(genre)/g" \
 		| sed "s/<YEAR>/$(year)/g" \
+		| sed "s/<LENGTH>/`../../scripts/song-length $(word 2,$+)`/g" \
 		> $@
 
 gen/%p/fof-all:
