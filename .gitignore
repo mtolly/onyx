@@ -1,0 +1,5 @@
+audio-album.*
+*/*/gen/
+*.rpp
+*.rpp-bak
+*.reapeaks
