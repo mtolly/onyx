@@ -19,7 +19,7 @@ gen/%p/magma/notes.mid: gen/%p/notes.mid
 	cp $< $@
 	../../scripts/magma-clean $@
 
-gen/%p/magma/magma.rbproj: ../../template/magma-$(config).rbproj gen/%p/notes.mid
+gen/%p/magma/magma.rbproj: ../../template/magma/$(config).rbproj gen/%p/notes.mid
 	mkdir -p $(@D)
 	cat $< \
 		| sed "s/<TITLE>/$(title)/g" \

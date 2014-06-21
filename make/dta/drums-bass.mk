@@ -2,7 +2,7 @@ rank-drum ?= 1
 rank-bass ?= 1
 rank-band ?= 1
 
-gen/%p/songs.dta: ../../template/rb3-$(config).dta gen/%p/notes.mid
+gen/%p/songs.dta: ../../template/rb3/$(config).dta gen/%p/notes.mid
 	cat $< \
 		| sed "s/<TITLE>/$(title)/g" \
 		| sed "s/<ARTIST>/$(artist)/g" \

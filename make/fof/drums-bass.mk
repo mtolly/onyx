@@ -18,7 +18,7 @@ gen/%p/fof/song.ogg: gen/%p/song.wav
 	mkdir -p $(@D)
 	sox $< $@
 
-gen/%p/fof/song.ini: ../../template/fof-$(config).ini gen/%p/fof/notes.mid
+gen/%p/fof/song.ini: ../../template/fof/$(config).ini gen/%p/fof/notes.mid
 	mkdir -p $(@D)
 	cat $< \
 		| sed "s/<TITLE>/$(title)/g" \
