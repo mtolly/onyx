@@ -6,4 +6,4 @@ number = 4
 jammit-pad = 1.193
 album-pad = 2.960
 
-include ../../make/config/drums.mk
+include ../../make/config/drums-bass.mk

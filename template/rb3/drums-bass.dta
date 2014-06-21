@@ -11,9 +11,9 @@
             (bass (0 1))
          )
       )
-      (pans (-1.00 1.00 -1.00 1.00))
-      (vols (0.00 0.00 0.00 0.00))
-      (cores (-1 -1 -1 -1))
+      (pans (-1.00 1.00 -1.00 1.00 -1.00 1.00))
+      (vols (0.00 0.00 0.00 0.00 0.00 0.00))
+      (cores (-1 -1 -1 -1 -1 -1))
       (vocal_parts 0)
       (drum_solo
          (seqs (kick.cue snare.cue tom1.cue tom2.cue crash.cue))
