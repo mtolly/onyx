@@ -59,10 +59,16 @@ gen/jammit/%.wav: gen/jammit/%-untimed.wav
 
 ### RB3 OGG
 # 6 tracks: drums L, drums R, bass L, bass R, backing L, backing R
+# We add a 7th track of silence because oggenc assumes a 6-channel vorbis file
+# is in 5.1, so the 6th channel (LFE) gets screwed up.
 
 include ../../make/countin.mk
 
-gen/%p/audio.ogg: gen/%p/drums.wav gen/%p/bass.wav gen/%p/song-countin.wav
+gen/fake-lfe.wav:
+	mkdir -p $(@D)
+	sox -n -b 16 $@ rate 44100 channels 1 trim 0 1
+
+gen/%p/audio.ogg: gen/%p/drums.wav gen/%p/bass.wav gen/%p/song-countin.wav gen/fake-lfe.wav
 	sox --combine merge $+ $@
 
 ### SHARED RULES
