@@ -32,11 +32,6 @@ gen/jammit/%p/drums-untimed.wav:
 gen/jammit/%.wav: gen/jammit/%-untimed.wav
 	sox $< $@ trim $(jammit-trim) fade t $(jammit-fadein) pad $(jammit-pad)
 
-### ALBUM AUDIO
-
-album-config ?= single
-include ../../make/album-$(album-config).mk
-
 ### RB3 OGG
 # 4 tracks: drums L, drums R, backing L, backing R
 
@@ -45,22 +40,5 @@ include ../../make/countin.mk
 gen/%p/audio.ogg: gen/%p/drums.wav gen/%p/song-countin.wav
 	sox --combine merge $+ $@
 
-### MIDI
-
-include ../../make/midi.mk
-
-### METADATA
-
-include ../../make/album/$(cover-name).mk
-include ../../make/dta/$(config).mk
-
-### COMPILE
-
-# Rock Band 3
-include ../../make/rb3.mk
-
-# Magma
-include ../../make/magma/$(config).mk
-
-# Frets on Fire
-include ../../make/fof/$(config).mk
+### SHARED RULES
+include ../../make/shared.mk
