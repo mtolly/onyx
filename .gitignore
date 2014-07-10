@@ -3,3 +3,8 @@ audio-album.*
 *.rpp
 *.rpp-bak
 *.reapeaks
+.DS_Store
+.shake.database
+.cabal-sandbox/
+cabal.sandbox.config
+dist/
