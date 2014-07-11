@@ -8,20 +8,28 @@ import System.IO.Temp (openTempFile)
 import System.IO (hClose)
 import Numeric (showFFloat)
 import qualified Data.Foldable as F
+import Data.Char (toLower)
 
 data Edge = Begin | End
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data Audio t a
-  = Silence t
+  = Silence Int t
   | File a
-  | Concat (Audio t a) (Audio t a)
-  | Mix (Audio t a) (Audio t a)
-  | Trim Edge t (Audio t a)
-  | Fade Edge t (Audio t a)
+  | Combine Combine [Audio t a]
+  | Unary [Unary t] (Audio t a)
   deriving (Eq, Ord, Show, Read, Functor, F.Foldable)
 
--- | Assumes 16-bit 44100 Hz stereo audio files.
+data Combine = Concatenate | Mix | Merge
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data Unary t
+  = Trim Edge t
+  | Fade Edge t
+  | Pad Edge t
+  deriving (Eq, Ord, Show, Read)
+
+-- | Assumes 16-bit 44100 Hz audio files.
 buildAudio :: Audio Rational FilePath -> FilePath -> Action ()
 buildAudio aud out = let
   dir = "gen/temp"
@@ -32,46 +40,30 @@ buildAudio aud out = let
     return f
   evalAudio :: Audio Rational FilePath -> Action FilePath
   evalAudio expr = case expr of
-    Silence t -> do
+    Silence chans t -> do
       f <- newWav
-      () <- cmd "sox -n -b 16" [f] "rate 44100 channels 2 trim 0" [showSeconds t]
+      () <- cmd "sox -n -b 16" [f] "rate 44100 channels" [show chans]
+        "trim 0" [showSeconds t]
       return f
     File x -> return x
-    Concat (Silence t) x -> do
-      fx <- evalAudio x
+    Combine _ [] -> error "buildAudio: can't combine 0 files"
+    Combine _ [x] -> evalAudio x
+    Combine comb xs -> do
+      fxs <- mapM evalAudio xs
+      let fxs' = fxs >>= \fx -> ["-v", "1", fx]
       f <- newWav
-      () <- cmd "sox" [fx, f] "pad" [showSeconds t]
+      () <- cmd "sox --combine" [map toLower $ show comb] fxs' f
       return f
-    Concat x (Silence t) -> do
+    Unary uns x -> do
       fx <- evalAudio x
       f <- newWav
-      () <- cmd "sox" [fx, f] "pad 0" [showSeconds t]
-      return f
-    Concat x y -> do
-      fx <- evalAudio x
-      fy <- evalAudio y
-      f <- newWav
-      () <- cmd "sox --combine concatenate" [fx, fy, f]
-      return f
-    Mix x y -> do
-      fx <- evalAudio x
-      fy <- evalAudio y
-      f <- newWav
-      () <- cmd "sox --combine mix" [fx, fy, f]
-      return f
-    Trim edge t x -> do
-      fx <- evalAudio x
-      f <- newWav
-      () <- case edge of
-        Begin -> cmd "sox" [fx, f] "trim" [showSeconds t]
-        End   -> cmd "sox" [fx, f] "trim 0" ['-' : showSeconds t]
-      return f
-    Fade edge t x -> do
-      fx <- evalAudio x
-      f <- newWav
-      () <- case edge of
-        Begin -> cmd "sox" [fx, f] "fade t" [showSeconds t]
-        End   -> cmd "sox" [fx, f] "fade t 0 0" [showSeconds t]
+      () <- cmd "sox" [fx, f] $ uns >>= \un -> case un of
+        Trim Begin t -> ["trim", showSeconds t]
+        Trim End   t -> ["trim", "0", '-' : showSeconds t]
+        Fade Begin t -> ["fade", "t", showSeconds t]
+        Fade End   t -> ["fade", "t", "0", "0", showSeconds t]
+        Pad  Begin t -> ["pad", showSeconds t]
+        Pad  End   t -> ["pad", "0", showSeconds t]
       return f
   showSeconds r = showFFloat (Just 4) (realToFrac r :: Double) ""
   in do
@@ -98,4 +90,4 @@ main = shakeArgs shakeOptions $ do
     getPart "A Mind Beside Itself I. Erotomania" "Dream Theater" 'd' out
   "drums.wav" *> \out -> do
     let untimed = "drums-untimed.wav"
-    buildAudio (Concat (Silence 1.193) (File untimed)) out
+    buildAudio (Unary [Pad Begin 1.193] $ File untimed) out
