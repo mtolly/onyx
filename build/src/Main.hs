@@ -9,6 +9,7 @@ import System.IO (hClose)
 import Numeric (showFFloat)
 import qualified Data.Foldable as F
 import Data.Char (toLower)
+import JSONLink
 
 data Edge = Begin | End
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
