@@ -1,12 +1,13 @@
-{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFunctor, DeriveFoldable #-}
 module Main where
 
 import Development.Shake
 --import Development.Shake.FilePath
-import System.Directory (copyFile)
-import System.IO.Temp (openTempFile, withSystemTempDirectory)
+import System.Directory (copyFile, createDirectoryIfMissing)
+import System.IO.Temp (openTempFile)
 import System.IO (hClose)
 import Numeric (showFFloat)
+import qualified Data.Foldable as F
 
 data Edge = Begin | End
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -18,17 +19,18 @@ data Audio t a
   | Mix (Audio t a) (Audio t a)
   | Trim Edge t (Audio t a)
   | Fade Edge t (Audio t a)
-  deriving (Eq, Ord, Show, Read, Functor)
+  deriving (Eq, Ord, Show, Read, Functor, F.Foldable)
 
 -- | Assumes 16-bit 44100 Hz stereo audio files.
-buildAudio :: Audio Rational FilePath -> FilePath -> IO ()
-buildAudio aud out = withSystemTempDirectory "onyx-audio" $ \dir -> let
-  newWav :: IO FilePath
-  newWav = do
-    (f, h) <- openTempFile dir "temp.wav"
+buildAudio :: Audio Rational FilePath -> FilePath -> Action ()
+buildAudio aud out = let
+  dir = "gen/temp"
+  newWav :: Action FilePath
+  newWav = liftIO $ do
+    (f, h) <- openTempFile dir "audio.wav"
     hClose h
     return f
-  evalAudio :: Audio Rational FilePath -> IO FilePath
+  evalAudio :: Audio Rational FilePath -> Action FilePath
   evalAudio expr = case expr of
     Silence t -> do
       f <- newWav
@@ -72,7 +74,11 @@ buildAudio aud out = withSystemTempDirectory "onyx-audio" $ \dir -> let
         End   -> cmd "sox" [fx, f] "fade t 0 0" [showSeconds t]
       return f
   showSeconds r = showFFloat (Just 4) (realToFrac r :: Double) ""
-  in evalAudio aud >>= \f -> copyFile f out
+  in do
+    need $ F.toList aud
+    liftIO $ createDirectoryIfMissing True dir
+    f <- evalAudio aud
+    liftIO $ copyFile f out
 
 jammitSearch :: String -> String -> Action String
 jammitSearch title artist = do
@@ -92,5 +98,4 @@ main = shakeArgs shakeOptions $ do
     getPart "A Mind Beside Itself I. Erotomania" "Dream Theater" 'd' out
   "drums.wav" *> \out -> do
     let untimed = "drums-untimed.wav"
-    need [untimed]
-    liftIO $ buildAudio (Concat (Silence 1.193) (File untimed)) out
+    buildAudio (Concat (Silence 1.193) (File untimed)) out
