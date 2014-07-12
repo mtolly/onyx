@@ -10,7 +10,7 @@ cabal-version:        >= 1.10
 executable onyxbuild
   hs-source-dirs:       src
   main-is:              Main.hs
-  other-modules:        JSONLink
+  other-modules:        YAMLTree
   build-depends:        base    >= 4.7    && < 4.8
                         , shake >= 0.13.2 && < 0.14
                         , directory >= 1.2.1.0 && < 1.3
