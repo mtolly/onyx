@@ -1,14 +1,15 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable #-}
 module Audio where
 
-import Development.Shake
---import Development.Shake.FilePath
+import Development.Shake (cmd, Action, need, liftIO)
 import System.Directory (copyFile, createDirectoryIfMissing)
 import System.IO.Temp (openTempFile)
 import System.IO (hClose)
 import Numeric (showFFloat)
 import qualified Data.Foldable as F
 import Data.Char (toLower)
+import qualified Data.Aeson as A
+import Text.Read (readEither)
 
 data Edge = Begin | End
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -28,6 +29,12 @@ data Unary t
   | Fade Edge t
   | Pad Edge t
   deriving (Eq, Ord, Show, Read)
+
+instance (Read t, Read a) => A.FromJSON (Audio t a) where
+  parseJSON v = A.parseJSON v >>= either fail return . readEither
+
+instance (Show t, Show a) => A.ToJSON (Audio t a) where
+  toJSON = A.toJSON . show
 
 -- | Assumes 16-bit 44100 Hz audio files.
 buildAudio :: Audio Rational FilePath -> FilePath -> Action ()

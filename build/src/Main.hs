@@ -4,6 +4,8 @@ import Development.Shake
 import YAMLTree
 import Config
 import Audio
+import qualified Data.Aeson as A
+import qualified Data.Text as T
 
 jammitSearch :: String -> String -> Action String
 jammitSearch title artist = do
