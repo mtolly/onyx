@@ -1,7 +1,9 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable #-}
 module Main where
 
 import Development.Shake
 import Development.Shake.FilePath
+import Development.Shake.Classes
 import YAMLTree
 import Config
 import Audio
@@ -10,6 +12,12 @@ import Control.Applicative ((<$>))
 import Control.Monad (forM_)
 import Data.Maybe (fromMaybe)
 import Data.Bifunctor (bimap)
+
+jammitTitle :: Song -> String
+jammitTitle s = fromMaybe (_title s) (_jammitTitle s)
+
+jammitArtist :: Song -> String
+jammitArtist s = fromMaybe (_artist s) (_jammitArtist s)
 
 jammitSearch :: String -> String -> Action String
 jammitSearch title artist = do
@@ -21,9 +29,9 @@ jammitSearch title artist = do
 jammitRules :: Song -> Rules ()
 jammitRules s = do
   let jCmd = ["jammittools", "-T", jTitle, "-R", jArtist]
-      jTitle  = fromMaybe (_title  s) (_jammitTitle  s)
-      jArtist = fromMaybe (_artist s) (_jammitArtist s)
-      jSearch = jammitSearch jTitle jArtist
+      jTitle  = jammitTitle s
+      jArtist = jammitArtist s
+      jSearch = askOracle $ JammitResults (jTitle, jArtist)
   forM_ ["1p", "2p"] $ \feet -> do
     let dir = "gen/jammit" </> feet
     dir </> "drums_untimed.wav" *> \out -> do
@@ -74,12 +82,17 @@ oggRules s =
         need [ogg]
         cmd "ogg2mogg" [ogg, mogg]
 
+newtype JammitResults = JammitResults (String, String)
+  deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
+
 main :: IO ()
 main = do
   yaml <- readYAMLTree "erotomania.yml"
   case A.fromJSON yaml of
     A.Error s -> fail s
     A.Success song -> shakeArgs shakeOptions $ do
+      _ <- addOracle $ \(JammitResults (title, artist)) ->
+        jammitSearch title artist
       phony "clean" $ cmd "rm -rf gen"
       jammitRules song
       oggRules song
