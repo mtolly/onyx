@@ -62,6 +62,20 @@ jammitRules s = do
           Nothing  -> fail "No jammit-audio configuration"
           Just aud -> buildAudio (bimap realToFrac (const untimed) aud) out
 
+countinRules :: Rules ()
+countinRules = do
+  forM_ ["jammit", "album"] $ \src -> do
+    forM_ ["1p", "2p"] $ \feet -> do
+      let dir = "gen" </> src </> feet
+      dir </> "countin.wav" *> \out -> do
+        let mid = dir </> "notes.mid"
+            hit = "../../sound/hihat-foot.wav"
+        cmd "../../scripts/countin" [mid, hit, out]
+      dir </> "song-countin.wav" *> \out -> do
+        let song = File $ dir </> "song.wav"
+            countin = File $ dir </> "countin.wav"
+        buildAudio (Combine Mix [song, countin]) out
+
 oggRules :: Song -> Rules ()
 oggRules s =
   forM_ ["jammit", "album"] $ \src -> do
@@ -70,7 +84,7 @@ oggRules s =
       dir </> "audio.ogg" *> \out -> do
         let drums = File $ dir </> "drums.wav"
             bass  = File $ dir </> "bass.wav"
-            song  = File $ dir </> "song.wav"
+            song  = File $ dir </> "song-countin.wav"
             audio = Combine Merge $ case _config s of
               Drums     -> [drums, song]
               DrumsBass -> [drums, bass, song, Silence 1 0]
@@ -95,4 +109,5 @@ main = do
         jammitSearch title artist
       phony "clean" $ cmd "rm -rf gen"
       jammitRules song
+      countinRules
       oggRules song
