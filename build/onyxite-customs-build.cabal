@@ -23,6 +23,6 @@ executable onyxbuild
                         , aeson, text, unordered-containers, filepath, yaml
                         , bifunctors
                         , event-list, non-negative, midi
-                        , containers, process
+                        , containers
   default-language:     Haskell2010
   ghc-options:          -Wall

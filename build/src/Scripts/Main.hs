@@ -1,8 +1,6 @@
 module Scripts.Main where
 
 import Control.Applicative ((<$>))
-import Control.Monad (forM)
-import Data.Fixed (Milli)
 import Data.List (partition, sort)
 import Data.Maybe (listToMaybe, mapMaybe, fromMaybe)
 
@@ -16,11 +14,9 @@ import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.File.Load as Load
 import qualified Sound.MIDI.File.Save as Save
 import qualified Sound.MIDI.File.Event.Meta as Meta
-import System.FilePath ((</>))
-import System.IO.Temp (withSystemTempDirectory)
-import System.Process (callProcess)
 
 import Scripts.MIDITime
+import Audio
 
 import Development.Shake
 
@@ -46,22 +42,14 @@ make2xBassPedal fin fout = do
 makeCountin :: FilePath -> FilePath -> FilePath -> Action ()
 makeCountin mid wavin wavout = do
   need [mid, wavin]
-  liftIO $ do
-    (tempo, trks) <- standardMIDI <$> Load.fromFile mid
-    let tmap = tempoMap tempo
-        beats = sort $ concatMap (findText "countin_here") $ tempo : trks
-        secs = map (beatsToSeconds tmap) beats
-        secstrs = map (\s -> show (realToFrac s :: Milli)) secs
-    case secstrs of
-      [] -> callProcess "sox" $ [wavin, wavout] ++ words "pad 1 trim 0 1"
-      [s] -> callProcess "sox" [wavin, wavout, "pad", s]
-      _ -> withSystemTempDirectory "countin" $ \d -> do
-        files <- forM secstrs $ \s -> do
-          let f = d </> (s ++ ".wav")
-          callProcess "sox" [wavin, f, "pad", s]
-          return f
-        callProcess "sox" $
-          words "--combine mix -v 1" ++ files ++ [wavout]
+  (tempo, trks) <- liftIO $ standardMIDI <$> Load.fromFile mid
+  let tmap = tempoMap tempo
+      beats = sort $ concatMap (findText "countin_here") $ tempo : trks
+      secs = map (realToFrac . beatsToSeconds tmap) beats :: [Rational]
+      audio = case secs of
+        [] -> Silence 2 1
+        _ -> Combine Mix $ map (\t -> Unary [Pad Begin t] $ File wavin) secs
+  buildAudio audio wavout
 
 fixResolution :: FilePath -> FilePath -> Action ()
 fixResolution fin fout = do
