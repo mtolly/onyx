@@ -37,8 +37,9 @@ jammitRules s = do
         then cmd jCmd "-y b -a" out
         else buildAudio (Silence 2 0) out
     dir </> "song_untimed.wav" *> \out -> do
-      hasDrums <- ('d' `elem`) <$> jSearch
-      hasBass <- ('b' `elem`) <$> jSearch
+      has <- jSearch
+      let hasDrums = 'd' `elem` has
+          hasBass  = 'b' `elem` has
       case _config s of
         Drums -> cmd jCmd "-y D -a" out
         DrumsBass -> case (hasDrums, hasBass) of
@@ -49,7 +50,6 @@ jammitRules s = do
     forM_ ["drums", "bass", "song"] $ \part -> do
       dir </> (part ++ ".wav") *> \out -> do
         let untimed = dropExtension out ++ "_untimed.wav"
-        need [untimed]
         case _jammitAudio s of
           Nothing  -> fail "No jammit-audio configuration"
           Just aud -> buildAudio (bimap realToFrac (const untimed) aud) out
@@ -61,11 +61,13 @@ oggRules s =
       let dir = "gen" </> src </> feet
       dir </> "audio.ogg" *> \out -> do
         let drums = File $ dir </> "drums.wav"
-            bass = File $ dir </> "bass.wav"
-            song = File $ dir </> "song.wav"
+            bass  = File $ dir </> "bass.wav"
+            song  = File $ dir </> "song.wav"
             audio = Combine Merge $ case _config s of
-              Drums -> [drums, song]
+              Drums     -> [drums, song]
               DrumsBass -> [drums, bass, song, Silence 1 0]
+              -- the Silence is to work around oggenc bug
+              -- (it assumes 6 channels is 5.1 surround with lfe channel)
         buildAudio audio out
       dir </> "audio.mogg" *> \mogg -> do
         let ogg = mogg -<.> "ogg"
