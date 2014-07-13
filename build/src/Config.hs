@@ -2,9 +2,9 @@
 module Config where
 
 import Data.Aeson.TH
-import Data.Char (isUpper, toLower)
 
 import Audio
+import TH
 
 data Song = Song
   { _title :: String
@@ -33,11 +33,7 @@ data Gender = Male | Female
 
 $(deriveJSON
   defaultOptions
-    { fieldLabelModifier = let
-      camelToHyphens = concatMap $ \c -> if isUpper c
-        then ['-', toLower c]
-        else [c]
-      in camelToHyphens . drop 1
+    { fieldLabelModifier = camelToHyphens . drop 1
     , omitNothingFields = True
     }
   ''Song
@@ -46,11 +42,7 @@ $(deriveJSON
 $(deriveJSON
   defaultOptions
     { allNullaryToStringTag = True
-    , constructorTagModifier = let
-      camelToHyphens = concatMap $ \c -> if isUpper c
-        then ['-', toLower c]
-        else [c]
-      in drop 1 . camelToHyphens
+    , constructorTagModifier = drop 1 . camelToHyphens
     }
   ''Config
   )
@@ -58,11 +50,7 @@ $(deriveJSON
 $(deriveJSON
   defaultOptions
     { allNullaryToStringTag = True
-    , constructorTagModifier = let
-      camelToHyphens = concatMap $ \c -> if isUpper c
-        then ['-', toLower c]
-        else [c]
-      in drop 1 . camelToHyphens
+    , constructorTagModifier = drop 1 . camelToHyphens
     }
   ''Gender
   )

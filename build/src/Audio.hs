@@ -10,6 +10,7 @@ import qualified Data.Foldable as F
 import Data.Char (toLower)
 import qualified Data.Aeson as A
 import Text.Read (readEither)
+import Data.Bifunctor
 
 data Edge = Begin | End
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -28,7 +29,18 @@ data Unary t
   = Trim Edge t
   | Fade Edge t
   | Pad Edge t
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Functor)
+
+mapTime :: (t -> u) -> Audio t a -> Audio u a
+mapTime f aud = case aud of
+  Silence n t    -> Silence n $ f t
+  File x         -> File x
+  Combine c auds -> Combine c $ map (first f) auds
+  Unary uns aud' -> Unary (map (fmap f) uns) $ first f aud'
+
+instance Bifunctor Audio where
+  first = mapTime
+  second = fmap
 
 instance (Read t, Read a) => A.FromJSON (Audio t a) where
   parseJSON v = A.parseJSON v >>= either fail return . readEither
