@@ -14,11 +14,15 @@ executable onyxbuild
                         Config
                         Audio
                         TH
+                        Scripts.Main
+                        Scripts.MIDITime
   build-depends:        base    >= 4.7    && < 4.8
                         , shake >= 0.13.2 && < 0.14
                         , directory >= 1.2.1.0 && < 1.3
                         , temporary >= 1.2.0.3 && < 1.3
                         , aeson, text, unordered-containers, filepath, yaml
                         , bifunctors
+                        , event-list, non-negative, midi
+                        , containers, process
   default-language:     Haskell2010
   ghc-options:          -Wall

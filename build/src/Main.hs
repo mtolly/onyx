@@ -12,6 +12,7 @@ import Control.Applicative ((<$>))
 import Control.Monad (forM_)
 import Data.Maybe (fromMaybe)
 import Data.Bifunctor (bimap)
+import Scripts.Main
 
 jammitTitle :: Song -> String
 jammitTitle s = fromMaybe (_title s) (_jammitTitle s)
@@ -70,8 +71,7 @@ countinRules = do
       dir </> "countin.wav" *> \out -> do
         let mid = dir </> "notes.mid"
             hit = "../../sound/hihat-foot.wav"
-        need [mid, hit]
-        cmd "../../scripts/countin" [mid, hit, out]
+        makeCountin mid hit out
       dir </> "song-countin.wav" *> \out -> do
         let song = File $ dir </> "song.wav"
             countin = File $ dir </> "countin.wav"
@@ -106,15 +106,9 @@ midRules = forM_ ["jammit", "album"] $ \src -> do
     let tempos = "tempo-" ++ src ++ ".mid"
     b <- doesFileExist tempos
     if b
-      then do
-        need [tempos]
-        cmd "../../scripts/replace-tempos" ["notes.mid", tempos, out]
-      else do
-        copyFile' "notes.mid" out
-        cmd ["../../scripts/fix-resolution", out]
-  mid2p *> \out -> do
-    need [mid1p]
-    cmd "../../scripts/2x-bass-pedal" [mid1p, out]
+      then replaceTempos "notes.mid" tempos out
+      else fixResolution "notes.mid" out
+  mid2p *> \out -> make2xBassPedal mid1p out
 
 newtype JammitResults = JammitResults (String, String)
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
