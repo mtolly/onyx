@@ -70,6 +70,7 @@ countinRules = do
       dir </> "countin.wav" *> \out -> do
         let mid = dir </> "notes.mid"
             hit = "../../sound/hihat-foot.wav"
+        need [mid, hit]
         cmd "../../scripts/countin" [mid, hit, out]
       dir </> "song-countin.wav" *> \out -> do
         let song = File $ dir </> "song.wav"
@@ -96,6 +97,25 @@ oggRules s =
         need [ogg]
         cmd "ogg2mogg" [ogg, mogg]
 
+midRules :: Rules ()
+midRules = forM_ ["jammit", "album"] $ \src -> do
+  let mid1p = "gen" </> src </> "1p/notes.mid"
+      mid2p = "gen" </> src </> "2p/notes.mid"
+  mid1p *> \out -> do
+    need ["notes.mid"]
+    let tempos = "tempo-" ++ src ++ ".mid"
+    b <- doesFileExist tempos
+    if b
+      then do
+        need [tempos]
+        cmd "../../scripts/replace-tempos" ["notes.mid", tempos, out]
+      else do
+        copyFile' "notes.mid" out
+        cmd ["../../scripts/fix-resolution", out]
+  mid2p *> \out -> do
+    need [mid1p]
+    cmd "../../scripts/2x-bass-pedal" [mid1p, out]
+
 newtype JammitResults = JammitResults (String, String)
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
 
@@ -108,6 +128,7 @@ main = do
       _ <- addOracle $ \(JammitResults (title, artist)) ->
         jammitSearch title artist
       phony "clean" $ cmd "rm -rf gen"
+      midRules
       jammitRules song
       countinRules
       oggRules song
