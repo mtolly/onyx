@@ -63,6 +63,22 @@ jammitRules s = do
           Nothing  -> fail "No jammit-audio configuration"
           Just aud -> buildAudio (bimap realToFrac (const untimed) aud) out
 
+albumRules :: Song -> Rules ()
+albumRules s = do
+  forM_ ["1p", "2p"] $ \feet -> do
+    let dir = "gen/album" </> feet
+    forM_ ["drums.wav", "bass.wav"] $ \inst -> do
+      dir </> inst *> buildAudio (Silence 2 0)
+      dir </> "song.wav" *> \out -> do
+        userAudio <- getDirectoryFiles "" ["audio-album.*"]
+        case userAudio of
+          [] -> fail "no audio-album.xxx found"
+          ua : _ -> do
+            need [ua]
+            case _albumAudio s of
+              Nothing  -> fail "No album-audio configuration"
+              Just aud -> buildAudio (bimap realToFrac (const ua) aud) out
+
 countinRules :: Rules ()
 countinRules = do
   forM_ ["jammit", "album"] $ \src -> do
@@ -124,5 +140,6 @@ main = do
       phony "clean" $ cmd "rm -rf gen"
       midRules
       jammitRules song
+      albumRules song
       countinRules
       oggRules song
