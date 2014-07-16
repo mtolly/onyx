@@ -14,10 +14,12 @@ import Data.Maybe (fromMaybe)
 import Data.Bifunctor (bimap)
 import Scripts.Main
 
+import qualified Data.DTA as D
 import qualified Data.DTA.Serialize as D
 import qualified Data.DTA.Serialize.RB3 as D
 import qualified Data.DTA.Serialize.Magma as Magma
 import qualified Data.ByteString.Char8 as B8
+import qualified Data.ByteString as B
 import qualified Data.Map as Map
 
 jammitTitle :: Song -> String
@@ -149,6 +151,32 @@ main = do
       albumRules song
       countinRules
       oggRules song
+      coverRules song
+      rb3Rules song
+
+rb3Rules :: Song -> Rules ()
+rb3Rules s = do
+  forM_ ["jammit", "album"] $ \src -> do
+    forM_ ["1p", "2p"] $ \feet -> do
+      let dir = "gen" </> src </> feet
+          pkg = _package s
+          pathDta = dir </> "rb3/songs/songs.dta"
+          pathMid = dir </> "rb3/songs" </> pkg </> (pkg <.> "mid")
+          pathMogg = dir </> "rb3/songs" </> pkg </> (pkg <.> "mogg")
+          pathPng = dir </> "rb3/songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_xbox")
+          pathCon = dir </> "rb3.con"
+      pathDta *> \out -> do
+        songPkg <- makeDTA (dir </> "notes.mid") s
+        let dta = D.DTA 0 $ D.Tree 0 $ (:[]) $ D.Parens $ D.Tree 0 $
+              D.Key (B8.pack pkg) : D.toChunks songPkg
+        writeFile' out $ D.sToDTA dta
+      pathMid *> copyFile' (dir </> "notes.mid")
+      pathMogg *> copyFile' (dir </> "audio.mogg")
+      pathPng *> copyFile' ("gen/cover.png_xbox")
+      pathCon *> \out -> do
+        need [pathDta, pathMid, pathMogg, pathPng]
+        cmd "rb3pkg -p" [_artist s ++ ": " ++ _title s] "-d"
+          ["Version: " ++ src ++ "/" ++ feet] "-f" [dir </> "rb3"] out
 
 makeDTA :: FilePath -> Song -> Action D.SongPackage
 makeDTA mid s = do
@@ -222,3 +250,26 @@ makeDTA mid s = do
     , D.guidePitchVolume = Just (-3)
     , D.encoding = Just $ D.Keyword $ B8.pack "latin1"
     }
+
+coverRules :: Song -> Rules ()
+coverRules s = do
+  let img = _fileAlbumArt s
+  forM_ ["bmp", "dds"] $ \ext -> do
+    "gen/cover" <.> ext *> \out -> do
+      need [img]
+      cmd "convert" [img] "-resize 256x256!" [out]
+  "gen/cover.png_xbox" *> \out -> do
+    let dds = out -<.> "dds"
+    need [dds]
+    b <- liftIO $ B.readFile dds
+    let header =
+          [ 0x01, 0x04, 0x08, 0x00, 0x00, 0x00, 0x04, 0x00
+          , 0x01, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00
+          , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+          , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+          ]
+        bytes = B.unpack $ B.drop 0x80 b
+        flipPairs (x : y : xs) = y : x : flipPairs xs
+        flipPairs _ = []
+        b' = B.pack $ header ++ flipPairs bytes
+    liftIO $ B.writeFile out b'
