@@ -12,6 +12,7 @@ data Song = Song
   , _album :: String
   , _genre :: String
   , _subgenre :: String
+  , _year :: Int
   , _vocalGender :: Gender
   , _fileAlbumArt :: FilePath
   , _trackNumber :: Int

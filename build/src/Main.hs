@@ -159,7 +159,30 @@ makeDTA mid s = do
     , D.artist = B8.pack $ _artist s
     , D.master = True
     , D.songId = Right $ D.Keyword $ B8.pack $ _package s
-    , D.song = undefined
+    , D.song = D.Song
+      { D.songName = B8.pack $ "songs/" ++ _package s ++ "/" ++ _package s
+      , D.tracksCount = Just $ D.InParens [2, if _config s == DrumsBass then 2 else 0, 0, 0, 0, 2]
+      , D.tracks = D.InParens $ D.Dict $ Map.fromList $ let
+        trackDrum = (B8.pack "drum", Right $ D.InParens [0, 1])
+        trackBass = (B8.pack "bass", Right $ D.InParens [2, 3])
+        in case _config s of
+          Drums -> [trackDrum]
+          DrumsBass -> [trackDrum, trackBass]
+      , D.vocalParts = 0
+      , D.pans = D.InParens $ case _config s of
+        Drums -> [-1, 1, -1, 1]
+        DrumsBass -> [-1, 1, -1, 1, -1, 1]
+      , D.vols = D.InParens $ case _config s of
+        Drums -> replicate 4 0
+        DrumsBass -> replicate 6 0
+      , D.cores = D.InParens $ case _config s of
+        Drums -> replicate 4 (-1)
+        DrumsBass -> replicate 6 (-1)
+      , D.drumSolo = D.DrumSounds $ D.InParens $ map (D.Keyword . B8.pack) $ words
+        "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
+      , D.drumFreestyle = D.DrumSounds $ D.InParens $ map (D.Keyword . B8.pack) $ words
+        "kick.cue snare.cue hat.cue ride.cue crash.cue"
+      }
     , D.bank = Just $ Left $ B8.pack "sfx/tambourine_bank.milo"
     , D.drumBank = Nothing
     , D.animTempo = Left D.KTempoMedium
@@ -186,20 +209,16 @@ makeDTA mid s = do
     , D.vocalGender = case _vocalGender s of
       Male -> Magma.Male
       Female -> Magma.Female
+    , D.shortVersion = Nothing
+    , D.yearReleased = fromIntegral $ _year s
+    , D.albumArt = Just True
+    , D.albumName = Just $ B8.pack $ _album s
+    , D.albumTrackNumber = Just $ fromIntegral $ _trackNumber s
+    , D.vocalTonicNote = Nothing
+    , D.songTonality = Nothing
+    , D.tuningOffsetCents = Just 0
+    , D.realGuitarTuning = Nothing
+    , D.realBassTuning = Nothing
+    , D.guidePitchVolume = Just (-3)
+    , D.encoding = Just $ D.Keyword $ B8.pack "latin1"
     }
- {-
-  ['song'               , nil, 'Song'                     ],
-  ['vocal_gender'       , nil, 'Gender'                   ],
-  ['short_version'      , nil, maybe('Integer')           ],
-  ['year_released'      , nil, 'Integer'                  ],
-  ['album_art'          , nil, maybe('Bool')              ],
-  ['album_name'         , nil, maybe('B8.ByteString')     ],
-  ['album_track_number' , nil, maybe('Integer')           ],
-  ['vocal_tonic_note'   , nil, maybe('Pitch')             ],
-  ['song_tonality'      , nil, maybe('Tonality')          ],
-  ['tuning_offset_cents', nil, maybe('Float')             ],
-  ['real_guitar_tuning' , nil, maybe('InParens [Integer]')],
-  ['real_bass_tuning'   , nil, maybe('InParens [Integer]')],
-  ['guide_pitch_volume' , nil, maybe('Float')             ],
-  ['encoding'           , nil, maybe('Keyword')           ],
- -}
