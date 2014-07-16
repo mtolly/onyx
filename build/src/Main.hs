@@ -14,6 +14,12 @@ import Data.Maybe (fromMaybe)
 import Data.Bifunctor (bimap)
 import Scripts.Main
 
+import qualified Data.DTA.Serialize as D
+import qualified Data.DTA.Serialize.RB3 as D
+import qualified Data.DTA.Serialize.Magma as Magma
+import qualified Data.ByteString.Char8 as B8
+import qualified Data.Map as Map
+
 jammitTitle :: Song -> String
 jammitTitle s = fromMaybe (_title s) (_jammitTitle s)
 
@@ -143,3 +149,57 @@ main = do
       albumRules song
       countinRules
       oggRules song
+
+makeDTA :: FilePath -> Song -> Action D.SongPackage
+makeDTA mid s = do
+  (pstart, pend) <- previewBounds mid
+  len <- songLength mid
+  return D.SongPackage
+    { D.name = B8.pack $ _title s
+    , D.artist = B8.pack $ _artist s
+    , D.master = True
+    , D.songId = Right $ D.Keyword $ B8.pack $ _package s
+    , D.song = undefined
+    , D.bank = Just $ Left $ B8.pack "sfx/tambourine_bank.milo"
+    , D.drumBank = Nothing
+    , D.animTempo = Left D.KTempoMedium
+    , D.bandFailCue = Nothing
+    , D.songScrollSpeed = 2300
+    , D.preview = (fromIntegral pstart, fromIntegral pend)
+    , D.songLength = fromIntegral len
+    , D.rank = D.Dict $ Map.fromList
+      [ (B8.pack "drum", 1)
+      , (B8.pack "guitar", 0)
+      , (B8.pack "bass", if _config s == DrumsBass then 1 else 0)
+      , (B8.pack "vocals", 0)
+      , (B8.pack "keys", 0)
+      , (B8.pack "real_keys", 0)
+      , (B8.pack "band", 1)
+      ]
+    , D.solo = Nothing
+    , D.format = 10
+    , D.version = 30
+    , D.gameOrigin = D.Keyword $ B8.pack "ugc_plus"
+    , D.rating = 4
+    , D.genre = D.Keyword $ B8.pack $ _genre s
+    , D.subGenre = Just $ D.Keyword $ B8.pack $ "subgenre_" ++ _subgenre s
+    , D.vocalGender = case _vocalGender s of
+      Male -> Magma.Male
+      Female -> Magma.Female
+    }
+ {-
+  ['song'               , nil, 'Song'                     ],
+  ['vocal_gender'       , nil, 'Gender'                   ],
+  ['short_version'      , nil, maybe('Integer')           ],
+  ['year_released'      , nil, 'Integer'                  ],
+  ['album_art'          , nil, maybe('Bool')              ],
+  ['album_name'         , nil, maybe('B8.ByteString')     ],
+  ['album_track_number' , nil, maybe('Integer')           ],
+  ['vocal_tonic_note'   , nil, maybe('Pitch')             ],
+  ['song_tonality'      , nil, maybe('Tonality')          ],
+  ['tuning_offset_cents', nil, maybe('Float')             ],
+  ['real_guitar_tuning' , nil, maybe('InParens [Integer]')],
+  ['real_bass_tuning'   , nil, maybe('InParens [Integer]')],
+  ['guide_pitch_volume' , nil, maybe('Float')             ],
+  ['encoding'           , nil, maybe('Keyword')           ],
+ -}

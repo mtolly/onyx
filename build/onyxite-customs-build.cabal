@@ -24,5 +24,7 @@ executable onyxbuild
                         , bifunctors
                         , event-list, non-negative, midi
                         , containers
+                        , dtab == 0.8
+                        , bytestring
   default-language:     Haskell2010
   ghc-options:          -Wall
