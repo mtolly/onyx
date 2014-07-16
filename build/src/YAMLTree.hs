@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, ViewPatterns, PatternSynonyms #-}
+{-# LANGUAGE OverloadedStrings, ViewPatterns #-}
 module YAMLTree where
 
 import qualified Data.Aeson as A
@@ -26,8 +26,8 @@ readYAMLTree f = do
           _ -> return v
         goPairs :: Y.Object -> [(T.Text, Y.Value)] -> IO Y.Value
         goPairs o [] = return $ Y.Object o
-        goPairs o ((k, v) : rest) = case k of
-          File_ "include" -> case stringOrStrings v of
+        goPairs o ((k, v) : rest) = case T.stripPrefix "file-" k of
+          Just "include" -> case stringOrStrings v of
             A.Success e -> do
               let files = either (: []) id e
               vs <- mapM (readYAMLTree . (dir </>)) files
@@ -35,7 +35,7 @@ readYAMLTree f = do
                 A.Success objs -> goPairs (foldl' M.union o objs) rest
                 A.Error s -> fail s
             A.Error s -> fail s
-          File_ _ -> case stringOrStrings v of
+          Just _ -> case stringOrStrings v of
             A.Success e -> let
               v' = case e of
                 Left  s  -> A.toJSON $ dir </> s
@@ -43,5 +43,3 @@ readYAMLTree f = do
               in goPairs (M.insert k v' o) rest
             A.Error s -> fail s
           _ -> go v >>= \v' -> goPairs (M.insert k v' o) rest
-
-pattern File_ s <- ((T.stripPrefix "file-") -> Just s)
