@@ -9,8 +9,9 @@ import Config
 import Audio
 import qualified Data.Aeson as A
 import Control.Applicative ((<$>))
-import Control.Monad (forM_)
-import Data.Maybe (fromMaybe)
+import Control.Monad (forM_, unless)
+import Data.Maybe (fromMaybe, mapMaybe)
+import Data.List (stripPrefix)
 import Data.Bifunctor (bimap)
 import Scripts.Main
 
@@ -32,8 +33,9 @@ jammitSearch :: String -> String -> Action String
 jammitSearch title artist = do
   Stdout out <- cmd "jammittools -d -T" [title] "-R" [artist]
   return $ case reverse $ words out of
-    []        -> ""
-    parts : _ -> parts
+    []          -> ""
+    "Parts" : _ -> ""
+    parts   : _ -> parts
 
 jammitRules :: Song -> Rules ()
 jammitRules s = do
@@ -273,3 +275,17 @@ coverRules s = do
         flipPairs _ = []
         b' = B.pack $ header ++ flipPairs bytes
     liftIO $ B.writeFile out b'
+
+checkPrograms :: Action ()
+checkPrograms = do
+  Stdout soxHelp <- cmd "sox -h"
+  case mapMaybe (stripPrefix "AUDIO FILE FORMATS:") $ lines soxHelp of
+    [fmtLine] -> let
+      formats = words fmtLine
+      in unless (all (`elem` formats) ["ogg", "vorbis"]) $
+        fail $ unlines
+          [ "Your SoX doesn't support OGG Vorbis."
+          , "You must recompile SoX with libsndfile installed, see:"
+          , "http://sourceforge.net/p/sox/mailman/message/30383689/"
+          ]
+    _ -> fail "Couldn't read SoX supported file formats."
