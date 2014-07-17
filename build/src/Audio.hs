@@ -2,7 +2,7 @@
 module Audio where
 
 import Development.Shake (cmd, Action, need, liftIO)
-import System.Directory (copyFile, createDirectoryIfMissing)
+import System.Directory (createDirectoryIfMissing)
 import System.IO.Temp (openTempFile)
 import System.IO (hClose)
 import Numeric (showFFloat)
@@ -89,4 +89,4 @@ buildAudio aud out = let
     need $ F.toList aud
     liftIO $ createDirectoryIfMissing True dir
     f <- evalAudio aud
-    liftIO $ copyFile f out
+    cmd "sox" [f] [out]
