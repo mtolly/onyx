@@ -76,8 +76,8 @@ buildAudio aud out = let
         return ["-v", showFFloat (Just 4) vol "", a]
       f <- newWav
       let comb' = case xs of
-            _ : _ : _ -> ""
-            _         -> "--combine " ++ map toLower (show comb)
+            _ : _ : _ -> "--combine " ++ map toLower (show comb)
+            _         -> ""
       () <- cmd "sox" comb' fxs f
       return f
     Unary uns x -> do
