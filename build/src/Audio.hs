@@ -69,18 +69,16 @@ buildAudio aud out = let
       return f
     File x -> return x
     Combine comb xs -> evalAudio $ Combine' comb $ map (\x -> (x, 1)) xs
-    Combine' _ [] -> error "buildAudio: can't combine 0 files"
-    Combine' _ [(x, vol)] -> do
-      f <- newWav
-      a <- evalAudio x
-      () <- cmd "sox" [a, f] "vol" [showFFloat (Just 4) vol ""]
-      return f
+    Combine' _ [] -> fail "buildAudio: can't combine 0 files"
     Combine' comb xs -> do
       fxs <- fmap concat $ forM xs $ \(x, vol) -> do
         a <- evalAudio x
         return ["-v", showFFloat (Just 4) vol "", a]
       f <- newWav
-      () <- cmd "sox --combine" [map toLower $ show comb] fxs f
+      let comb' = case xs of
+            _ : _ : _ -> ""
+            _         -> "--combine " ++ map toLower (show comb)
+      () <- cmd "sox" comb' fxs f
       return f
     Unary uns x -> do
       a <- evalAudio x
