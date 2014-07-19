@@ -199,7 +199,7 @@ rb3Rules s = do
         writeFile' out $ D.sToDTA dta
       pathMid *> copyFile' (dir </> "notes.mid")
       pathMogg *> copyFile' (dir </> "audio.mogg")
-      pathPng *> copyFile' ("gen/cover.png_xbox")
+      pathPng *> copyFile' "gen/cover.png_xbox"
       pathCon *> \out -> do
         need [pathDta, pathMid, pathMogg, pathPng]
         cmd "rb3pkg -p" [_artist s ++ ": " ++ _title s] "-d"
@@ -236,8 +236,8 @@ makeDTA mid s = do
           ]
       , D.vocalParts = 0
       , D.pans = D.InParens $ take numChannels $ cycle [-1, 1]
-      , D.vols = D.InParens $ take numChannels $ repeat 0
-      , D.cores = D.InParens $ take numChannels $ repeat (-1)
+      , D.vols = D.InParens $ replicate numChannels 0
+      , D.cores = D.InParens $ replicate numChannels (-1)
       , D.drumSolo = D.DrumSounds $ D.InParens $ map (D.Keyword . B8.pack) $ words
         "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
       , D.drumFreestyle = D.DrumSounds $ D.InParens $ map (D.Keyword . B8.pack) $ words

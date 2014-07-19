@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, ViewPatterns #-}
+{-# LANGUAGE OverloadedStrings #-}
 module YAMLTree where
 
 import qualified Data.Aeson as A
