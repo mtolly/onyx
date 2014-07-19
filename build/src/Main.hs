@@ -59,13 +59,16 @@ jammitRules s = do
       has <- jSearch
       let hasDrums = 'd' `elem` has
           hasBass  = 'b' `elem` has
-      case _config s of
-        Drums -> cmd jCmd "-y D -a" out
-        DrumsBass -> case (hasDrums, hasBass) of
-          (True , True ) -> cmd jCmd "-y D -n b -a" out
-          (True , False) -> cmd jCmd "-y D -a" out
-          (False, True ) -> cmd jCmd "-y B -a" out
+          configHas inst = inst `elem` _config s
+      case (configHas Drums, configHas Bass) of
+        (True, False) -> cmd jCmd "-y D -a" [out]
+        (False, True) -> cmd jCmd "-y B -a" [out]
+        (True, True) -> case (hasDrums, hasBass) of
+          (True , True ) -> cmd jCmd "-y D -n b -a" [out]
+          (True , False) -> cmd jCmd "-y D -a" [out]
+          (False, True ) -> cmd jCmd "-y B -a" [out]
           (False, False) -> fail "Couldn't find Jammit drums or bass"
+        (False, False) -> cmd jCmd "-y" [""] "-a" [out]
     forM_ ["drums", "bass", "song"] $ \part -> do
       dir </> (part ++ ".wav") *> \out -> do
         let untimed = dropExtension out ++ "_untimed.wav"
@@ -112,11 +115,18 @@ oggRules s =
         let drums = File $ dir </> "drums.wav"
             bass  = File $ dir </> "bass.wav"
             song  = File $ dir </> "song-countin.wav"
-            audio = Combine Merge $ case _config s of
-              Drums     -> [drums, song]
-              DrumsBass -> [drums, bass, song, Silence 1 0]
-              -- the Silence is to work around oggenc bug
-              -- (it assumes 6 channels is 5.1 surround with lfe channel)
+            audio = Combine Merge $ let
+              parts = concat
+                [ [drums | Drums `elem` _config s]
+                , [bass | Bass `elem` _config s]
+                , [song]
+                ]
+              in if length parts == 3
+                then parts ++ [Silence 1 0]
+                -- the Silence is to work around oggenc bug:
+                -- it assumes 6 channels is 5.1 surround where the last channel
+                -- is LFE, so instead we add a silent 7th channel
+                else parts
         buildAudio audio out
       dir </> "audio.mogg" *> \mogg -> do
         let ogg = mogg -<.> "ogg"
@@ -184,6 +194,7 @@ makeDTA :: FilePath -> Song -> Action D.SongPackage
 makeDTA mid s = do
   (pstart, pend) <- previewBounds mid
   len <- songLength mid
+  let numChannels = length (_config s) * 2 + 2
   return D.SongPackage
     { D.name = B8.pack $ _title s
     , D.artist = B8.pack $ _artist s
@@ -191,23 +202,27 @@ makeDTA mid s = do
     , D.songId = Right $ D.Keyword $ B8.pack $ _package s
     , D.song = D.Song
       { D.songName = B8.pack $ "songs/" ++ _package s ++ "/" ++ _package s
-      , D.tracksCount = Just $ D.InParens [2, if _config s == DrumsBass then 2 else 0, 0, 0, 0, 2]
+      , D.tracksCount = Just $ D.InParens
+        [ if Drums `elem` _config s then 2 else 0
+        , if Bass `elem` _config s then 2 else 0
+        , 0
+        , 0
+        , 0
+        , 2
+        ]
       , D.tracks = D.InParens $ D.Dict $ Map.fromList $ let
-        trackDrum = (B8.pack "drum", Right $ D.InParens [0, 1])
-        trackBass = (B8.pack "bass", Right $ D.InParens [2, 3])
-        in case _config s of
-          Drums -> [trackDrum]
-          DrumsBass -> [trackDrum, trackBass]
+        channelNums = zip [0..] $ concatMap (\x -> [x, x]) $ _config s
+        channelNumsFor inst = [ i | (i, inst') <- channelNums, inst == inst' ]
+        trackDrum = (B8.pack "drum", Right $ D.InParens $ channelNumsFor Drums)
+        trackBass = (B8.pack "bass", Right $ D.InParens $ channelNumsFor Bass)
+        in concat
+          [ [trackDrum | Drums `elem` _config s]
+          , [trackBass | Bass `elem` _config s]
+          ]
       , D.vocalParts = 0
-      , D.pans = D.InParens $ case _config s of
-        Drums -> [-1, 1, -1, 1]
-        DrumsBass -> [-1, 1, -1, 1, -1, 1]
-      , D.vols = D.InParens $ case _config s of
-        Drums -> replicate 4 0
-        DrumsBass -> replicate 6 0
-      , D.cores = D.InParens $ case _config s of
-        Drums -> replicate 4 (-1)
-        DrumsBass -> replicate 6 (-1)
+      , D.pans = D.InParens $ take numChannels $ cycle [-1, 1]
+      , D.vols = D.InParens $ take numChannels $ repeat 0
+      , D.cores = D.InParens $ take numChannels $ repeat (-1)
       , D.drumSolo = D.DrumSounds $ D.InParens $ map (D.Keyword . B8.pack) $ words
         "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
       , D.drumFreestyle = D.DrumSounds $ D.InParens $ map (D.Keyword . B8.pack) $ words
@@ -221,9 +236,9 @@ makeDTA mid s = do
     , D.preview = (fromIntegral pstart, fromIntegral pend)
     , D.songLength = fromIntegral len
     , D.rank = D.Dict $ Map.fromList
-      [ (B8.pack "drum", 1)
+      [ (B8.pack "drum", if Drums `elem` _config s then 1 else 0)
       , (B8.pack "guitar", 0)
-      , (B8.pack "bass", if _config s == DrumsBass then 1 else 0)
+      , (B8.pack "bass", if Bass `elem` _config s then 1 else 0)
       , (B8.pack "vocals", 0)
       , (B8.pack "keys", 0)
       , (B8.pack "real_keys", 0)

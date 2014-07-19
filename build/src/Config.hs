@@ -21,12 +21,10 @@ data Song = Song
   , _jammitArtist :: Maybe String
   , _jammitAudio :: Maybe (Audio Double ())
   , _albumAudio :: Maybe (Audio Double ())
-  , _config :: Config
+  , _config :: [Instrument]
   } deriving (Eq, Ord, Show, Read)
 
-data Config
-  = Drums
-  | DrumsBass
+data Instrument = Drums | Bass
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data Gender = Male | Female
@@ -45,7 +43,7 @@ $(deriveJSON
     { allNullaryToStringTag = True
     , constructorTagModifier = drop 1 . camelToHyphens
     }
-  ''Config
+  ''Instrument
   )
 
 $(deriveJSON
