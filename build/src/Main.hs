@@ -12,7 +12,7 @@ import Control.Applicative ((<$>))
 import Control.Monad (forM_, unless)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.List (stripPrefix)
-import Data.Bifunctor (bimap)
+import Data.Bifunctor (bimap, first)
 import Scripts.Main
 
 import qualified Data.DTA as D
@@ -82,18 +82,26 @@ jammitRules s = do
 
 simpleRules :: Song -> Rules ()
 simpleRules s = do
-  forM_ [ (src, aud) | (src, AudioSimple aud) <- HM.toList $ _audio s, src /= "jammit"] $ \(src, aud) -> do
+  forM_ [ (src, aud) | (src, AudioSimple aud) <- HM.toList $ _audio s, src /= "jammit" ] $ \(src, aud) -> do
     forM_ ["1p", "2p"] $ \feet -> do
       let dir = "gen" </> src </> feet
       forM_ ["drums.wav", "bass.wav"] $ \inst -> do
         dir </> inst *> buildAudio (Silence 2 0)
-        dir </> "song.wav" *> \out -> do
-          userAudio <- getDirectoryFiles "" ["audio-" ++ src ++ ".*"]
-          case userAudio of
-            [] -> fail $ "no audio-" ++ src ++ ".xxx found"
-            ua : _ -> do
-              need [ua]
-              buildAudio (bimap realToFrac (const ua) aud) out
+      dir </> "song.wav" *> \out -> do
+        userAudio <- getDirectoryFiles "" ["audio-" ++ src ++ ".*"]
+        case userAudio of
+          [] -> fail $ "no audio-" ++ src ++ ".xxx found"
+          ua : _ -> do
+            need [ua]
+            buildAudio (bimap realToFrac (const ua) aud) out
+
+stemsRules :: Song -> Rules ()
+stemsRules s = do
+  forM_ [ (src, amap) | (src, AudioStems amap) <- HM.toList $ _audio s ] $ \(src, amap) -> do
+    forM_ ["1p", "2p"] $ \feet -> do
+      let dir = "gen" </> src </> feet
+      forM_ (HM.toList amap) $ \(inst, aud) -> do
+        dir </> (inst <.> "wav") *> buildAudio (first realToFrac aud)
 
 eachAudio :: (Monad m) => Song -> (String -> m ()) -> m ()
 eachAudio = forM_ . HM.keys . _audio
@@ -167,7 +175,7 @@ main = do
       midRules song
       jammitRules song
       simpleRules song
-      -- TODO: stemsRules song
+      stemsRules song
       countinRules song
       oggRules song
       coverRules song
