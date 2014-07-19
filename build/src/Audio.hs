@@ -11,6 +11,7 @@ import Data.Char (toLower)
 import qualified Data.Aeson as A
 import Text.Read (readEither)
 import Data.Bifunctor
+import Control.Monad (forM)
 
 data Edge = Begin | End
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -19,6 +20,7 @@ data Audio t a
   = Silence Int t
   | File a
   | Combine Combine [Audio t a]
+  | Combine' Combine [(Audio t a, Double)]
   | Unary [Unary t] (Audio t a)
   deriving (Eq, Ord, Show, Read, Functor, F.Foldable)
 
@@ -33,10 +35,11 @@ data Unary t
 
 mapTime :: (t -> u) -> Audio t a -> Audio u a
 mapTime f aud = case aud of
-  Silence n t    -> Silence n $ f t
-  File x         -> File x
-  Combine c auds -> Combine c $ map (first f) auds
-  Unary uns aud' -> Unary (map (fmap f) uns) $ first f aud'
+  Silence n t     -> Silence n $ f t
+  File x          -> File x
+  Combine c auds  -> Combine c $ map (first f) auds
+  Combine' c auds -> Combine' c $ map (first $ first f) auds
+  Unary uns aud'  -> Unary (map (fmap f) uns) $ first f aud'
 
 instance Bifunctor Audio where
   first = mapTime
@@ -65,18 +68,24 @@ buildAudio aud out = let
         "trim 0" [showSeconds t]
       return f
     File x -> return x
-    Combine _ [] -> error "buildAudio: can't combine 0 files"
-    Combine _ [x] -> evalAudio x
-    Combine comb xs -> do
-      fxs <- mapM evalAudio xs
-      let fxs' = fxs >>= \fx -> ["-v", "1", fx]
+    Combine comb xs -> evalAudio $ Combine' comb $ map (\x -> (x, 1)) xs
+    Combine' _ [] -> error "buildAudio: can't combine 0 files"
+    Combine' _ [(x, vol)] -> do
       f <- newWav
-      () <- cmd "sox --combine" [map toLower $ show comb] fxs' f
+      a <- evalAudio x
+      () <- cmd "sox" [a, f] "vol" [showFFloat (Just 4) vol ""]
+      return f
+    Combine' comb xs -> do
+      fxs <- fmap concat $ forM xs $ \(x, vol) -> do
+        a <- evalAudio x
+        return ["-v", showFFloat (Just 4) vol "", a]
+      f <- newWav
+      () <- cmd "sox --combine" [map toLower $ show comb] fxs f
       return f
     Unary uns x -> do
-      fx <- evalAudio x
+      a <- evalAudio x
       f <- newWav
-      () <- cmd "sox" [fx, f] $ uns >>= \un -> case un of
+      () <- cmd "sox" [a, f] $ uns >>= \un -> case un of
         Trim Begin t -> ["trim", showSeconds t]
         Trim End   t -> ["trim", "0", '-' : showSeconds t]
         Fade Begin t -> ["fade", "t", showSeconds t]
