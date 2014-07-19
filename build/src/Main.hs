@@ -22,6 +22,7 @@ import qualified Data.DTA.Serialize.Magma as Magma
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString as B
 import qualified Data.Map as Map
+import qualified Data.HashMap.Strict as HM
 
 jammitTitle :: Song -> String
 jammitTitle s = fromMaybe (_title s) (_jammitTitle s)
@@ -72,25 +73,27 @@ jammitRules s = do
     forM_ ["drums", "bass", "song"] $ \part -> do
       dir </> (part ++ ".wav") *> \out -> do
         let untimed = dropExtension out ++ "_untimed.wav"
-        case _jammitAudio s of
-          Nothing  -> fail "No jammit-audio configuration"
-          Just aud -> buildAudio (bimap realToFrac (const untimed) aud) out
+        case HM.lookup "jammit" $ _audio s of
+          Nothing -> fail "No jammit audio configuration"
+          Just (AudioSimple aud) ->
+            buildAudio (bimap realToFrac (const untimed) aud) out
+          Just (AudioStems _) ->
+            fail "jammit audio configuration is stems (unsupported)"
 
-albumRules :: Song -> Rules ()
-albumRules s = do
-  forM_ ["1p", "2p"] $ \feet -> do
-    let dir = "gen/album" </> feet
-    forM_ ["drums.wav", "bass.wav"] $ \inst -> do
-      dir </> inst *> buildAudio (Silence 2 0)
-      dir </> "song.wav" *> \out -> do
-        userAudio <- getDirectoryFiles "" ["audio-album.*"]
-        case userAudio of
-          [] -> fail "no audio-album.xxx found"
-          ua : _ -> do
-            need [ua]
-            case _albumAudio s of
-              Nothing  -> fail "No album-audio configuration"
-              Just aud -> buildAudio (bimap realToFrac (const ua) aud) out
+simpleRules :: Song -> Rules ()
+simpleRules s = do
+  forM_ [ (src, aud) | (src, AudioSimple aud) <- HM.toList $ _audio s, src /= "jammit"] $ \(src, aud) -> do
+    forM_ ["1p", "2p"] $ \feet -> do
+      let dir = "gen" </> src </> feet
+      forM_ ["drums.wav", "bass.wav"] $ \inst -> do
+        dir </> inst *> buildAudio (Silence 2 0)
+        dir </> "song.wav" *> \out -> do
+          userAudio <- getDirectoryFiles "" ["audio-" ++ src ++ ".*"]
+          case userAudio of
+            [] -> fail $ "no audio-" ++ src ++ ".xxx found"
+            ua : _ -> do
+              need [ua]
+              buildAudio (bimap realToFrac (const ua) aud) out
 
 countinRules :: Rules ()
 countinRules = do
@@ -160,7 +163,8 @@ main = do
       phony "clean" $ cmd "rm -rf gen"
       midRules
       jammitRules song
-      albumRules song
+      simpleRules song
+      -- TODO: stemsRules song
       countinRules
       oggRules song
       coverRules song

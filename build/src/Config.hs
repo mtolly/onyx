@@ -1,10 +1,13 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Config where
 
+import Data.Aeson.Types
 import Data.Aeson.TH
 
 import Audio
 import TH
+import qualified Data.HashMap.Strict as Map
+import Control.Applicative ((<|>))
 
 data Song = Song
   { _title :: String
@@ -19,16 +22,20 @@ data Song = Song
   , _package :: String
   , _jammitTitle :: Maybe String
   , _jammitArtist :: Maybe String
-  , _jammitAudio :: Maybe (Audio Double ())
-  , _albumAudio :: Maybe (Audio Double ())
+  , _audio :: Map.HashMap String (AudioConfig Double)
   , _config :: [Instrument]
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Show, Read)
 
 data Instrument = Drums | Bass
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data Gender = Male | Female
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data AudioConfig t
+  = AudioSimple (Audio t ())
+  | AudioStems (Map.HashMap String (Audio t FilePath))
+  deriving (Eq, Show, Read)
 
 $(deriveJSON
   defaultOptions
@@ -53,3 +60,10 @@ $(deriveJSON
     }
   ''Gender
   )
+
+instance (Show t) => ToJSON (AudioConfig t) where
+  toJSON (AudioSimple x) = toJSON x
+  toJSON (AudioStems x) = toJSON x
+
+instance (Read t) => FromJSON (AudioConfig t) where
+  parseJSON v = fmap AudioSimple (parseJSON v) <|> fmap AudioStems (parseJSON v)

@@ -1,0 +1,9 @@
+title: Pull Me Under
+package: pullmeunder
+file-include: images-and-words.yml
+track-number: 1
+audio:
+  jammit: Unary [Pad Begin 2.314] (File ())
+  album: Unary [Pad Begin 4.317] (File ())
+  hit: Unary [Pad Begin 4.340] (File ())
+config: [drums]
