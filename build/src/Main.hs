@@ -165,7 +165,7 @@ newtype JammitResults = JammitResults (String, String)
 
 main :: IO ()
 main = do
-  yaml <- readYAMLTree "erotomania.yml"
+  yaml <- readYAMLTree "song.yml"
   case A.fromJSON yaml of
     A.Error s -> fail s
     A.Success song -> shakeArgs shakeOptions $ do
