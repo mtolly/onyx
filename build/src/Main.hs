@@ -95,9 +95,12 @@ simpleRules s = do
               need [ua]
               buildAudio (bimap realToFrac (const ua) aud) out
 
-countinRules :: Rules ()
-countinRules = do
-  forM_ ["jammit", "album"] $ \src -> do
+eachAudio :: (Monad m) => Song -> (String -> m ()) -> m ()
+eachAudio = forM_ . HM.keys . _audio
+
+countinRules :: Song -> Rules ()
+countinRules s = do
+  eachAudio s $ \src -> do
     forM_ ["1p", "2p"] $ \feet -> do
       let dir = "gen" </> src </> feet
       dir </> "countin.wav" *> \out -> do
@@ -111,7 +114,7 @@ countinRules = do
 
 oggRules :: Song -> Rules ()
 oggRules s =
-  forM_ ["jammit", "album"] $ \src -> do
+  eachAudio s $ \src -> do
     forM_ ["1p", "2p"] $ \feet -> do
       let dir = "gen" </> src </> feet
       dir </> "audio.ogg" *> \out -> do
@@ -136,8 +139,8 @@ oggRules s =
         need [ogg]
         cmd "ogg2mogg" [ogg, mogg]
 
-midRules :: Rules ()
-midRules = forM_ ["jammit", "album"] $ \src -> do
+midRules :: Song -> Rules ()
+midRules s = eachAudio s $ \src -> do
   let mid1p = "gen" </> src </> "1p/notes.mid"
       mid2p = "gen" </> src </> "2p/notes.mid"
   mid1p *> \out -> do
@@ -161,18 +164,18 @@ main = do
       _ <- addOracle $ \(JammitResults (title, artist)) ->
         jammitSearch title artist
       phony "clean" $ cmd "rm -rf gen"
-      midRules
+      midRules song
       jammitRules song
       simpleRules song
       -- TODO: stemsRules song
-      countinRules
+      countinRules song
       oggRules song
       coverRules song
       rb3Rules song
 
 rb3Rules :: Song -> Rules ()
 rb3Rules s = do
-  forM_ ["jammit", "album"] $ \src -> do
+  eachAudio s $ \src -> do
     forM_ ["1p", "2p"] $ \feet -> do
       let dir = "gen" </> src </> feet
           pkg = _package s
