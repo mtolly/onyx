@@ -181,6 +181,7 @@ main = do
       coverRules song
       rb3Rules song
       magmaRules song
+      fofRules song
 
 rb3Rules :: Song -> Rules ()
 rb3Rules s = do
@@ -287,7 +288,7 @@ makeDTA mid s = do
 coverRules :: Song -> Rules ()
 coverRules s = do
   let img = _fileAlbumArt s
-  forM_ ["bmp", "dds"] $ \ext -> do
+  forM_ ["bmp", "dds", "png"] $ \ext -> do
     "gen/cover" <.> ext *> \out -> do
       need [img]
       cmd "convert" [img] "-resize 256x256!" [out]
@@ -442,3 +443,46 @@ makeMagmaProj mid s = do
         }
       }
     }
+
+fofRules :: Song -> Rules ()
+fofRules s = do
+  eachAudio s $ \aud -> do
+    forM_ ["1p", "2p"] $ \feet -> do
+      let dir = "gen" </> aud </> feet
+          mid = dir </> "fof/notes.mid"
+          png = dir </> "fof/album.png"
+          drums = dir </> "fof/drums.ogg"
+          bass = dir </> "fof/rhythm.ogg"
+          song = dir </> "fof/song.ogg"
+          ini = dir </> "fof/song.ini"
+      mid *> copyFile' (dir </> "notes.mid")
+      png *> copyFile' "gen/cover.png"
+      drums *> buildAudio (File $ dir </> "drums.wav")
+      bass *> buildAudio (File $ dir </> "bass.wav")
+      song *> buildAudio (File $ dir </> "song-countin.wav")
+      ini *> \out -> makeIni mid s >>= writeFile' out
+      phony (dir </> "fof-all") $ do
+        need [mid, png, song, ini]
+        when (Drums `elem` _config s) $ need [drums]
+        when (Bass `elem` _config s) $ need [bass]
+
+makeIni :: FilePath -> Song -> Action String
+makeIni mid s = do
+  len <- songLength mid
+  let iniLines =
+        [ ("name", _title s)
+        , ("artist", _artist s)
+        , ("album", _album s)
+        , ("genre", _genre s)
+        , ("year", show $ _year s)
+        , ("song_length", show len)
+        , ("charter", "Onyxite")
+        , ("diff_band", "0")
+        , ("diff_drums", if Drums `elem` _config s then "0" else "-1")
+        , ("diff_guitar", "-1")
+        , ("diff_bass", if Bass `elem` _config s then "0" else "-1")
+        , ("diff_vocals", "-1")
+        , ("diff_keys", "-1")
+        ]
+      makeLine (x, y) = x ++ " = " ++ y
+  return $ unlines $ "[song]" : map makeLine iniLines
