@@ -9,7 +9,7 @@ import Config
 import Audio
 import qualified Data.Aeson as A
 import Control.Applicative ((<$>))
-import Control.Monad (forM_, unless)
+import Control.Monad (forM_, unless, when)
 import Data.Maybe (fromMaybe, mapMaybe)
 import Data.List (stripPrefix)
 import Data.Bifunctor (bimap, first)
@@ -180,6 +180,7 @@ main = do
       oggRules song
       coverRules song
       rb3Rules song
+      magmaRules song
 
 rb3Rules :: Song -> Rules ()
 rb3Rules s = do
@@ -319,3 +320,125 @@ checkPrograms = do
           , "http://sourceforge.net/p/sox/mailman/message/30383689/"
           ]
     _ -> fail "Couldn't read SoX supported file formats."
+
+magmaRules :: Song -> Rules ()
+magmaRules s = do
+  eachAudio s $ \src -> do
+    forM_ ["1p", "2p"] $ \feet -> do
+      let dir = "gen" </> src </> feet
+          drums = dir </> "magma/drums.wav"
+          bass = dir </> "magma/bass.wav"
+          song = dir </> "magma/song-countin.wav"
+          cover = dir </> "magma/cover.bmp"
+          mid = dir </> "magma/notes.mid"
+          proj = dir </> "magma/magma.rbproj"
+          rba = dir </> "magma.rba"
+      drums *> copyFile' (dir </> "drums.wav")
+      bass *> copyFile' (dir </> "bass.wav")
+      song *> copyFile' (dir </> "song-countin.wav")
+      cover *> copyFile' "gen/cover.bmp"
+      mid *> magmaClean (dir </> "notes.mid")
+      proj *> \out -> do
+        p <- makeMagmaProj (dir </> "notes.mid") s
+        let dta = D.DTA 0 $ D.Tree 0 $ D.toChunks p
+        writeFile' out $ D.sToDTA dta
+      rba *> \_ -> do
+        when (Drums `elem` _config s) $ need [drums]
+        when (Bass `elem` _config s) $ need [bass]
+        need [song, cover, mid, proj]
+        cmd "magmyx -c3" [proj, rba]
+
+makeMagmaProj :: FilePath -> Song -> Action Magma.RBProj
+makeMagmaProj mid s = do
+  (pstart, _) <- previewBounds mid
+  let emptyDryVox = Magma.DryVoxPart
+        { Magma.dryVoxFile = B8.pack ""
+        , Magma.dryVoxEnabled = True
+        }
+      emptyAudioFile = Magma.AudioFile
+        { Magma.audioEnabled = False
+        , Magma.channels = 0
+        , Magma.pan = []
+        , Magma.vol = []
+        , Magma.audioFile = B8.pack ""
+        }
+      stereoFile f = Magma.AudioFile
+        { Magma.audioEnabled = True
+        , Magma.channels = 2
+        , Magma.pan = [-1, 1]
+        , Magma.vol = [0, 0]
+        , Magma.audioFile = B8.pack f
+        }
+  return Magma.RBProj
+    { Magma.project = Magma.Project
+      { Magma.toolVersion = B8.pack "110411_A"
+      , Magma.projectVersion = 24
+      , Magma.metadata = Magma.Metadata
+        { Magma.songName = B8.pack $ _title s
+        , Magma.artistName = B8.pack $ _artist s
+        , Magma.genre = D.Keyword $ B8.pack $ _genre s
+        , Magma.subGenre = D.Keyword $ B8.pack $ "subgenre_" ++ _subgenre s
+        , Magma.yearReleased = fromIntegral $ _year s
+        , Magma.albumName = B8.pack $ _album s
+        , Magma.author = B8.pack "Onyxite"
+        , Magma.releaseLabel = B8.pack "Onyxite Customs"
+        , Magma.country = D.Keyword $ B8.pack "ugc_country_us"
+        , Magma.price = 160
+        , Magma.trackNumber = fromIntegral $ _trackNumber s
+        , Magma.hasAlbum = True
+        }
+      , Magma.gamedata = Magma.Gamedata
+        { Magma.previewStartMs = fromIntegral pstart
+        , Magma.rankGuitar = 1
+        , Magma.rankBass = 1
+        , Magma.rankDrum = 1
+        , Magma.rankVocals = 1
+        , Magma.rankKeys = 1
+        , Magma.rankProKeys = 1
+        , Magma.rankBand = 1
+        , Magma.vocalScrollSpeed = 2300
+        , Magma.animTempo = 32
+        , Magma.vocalGender = case _vocalGender s of
+          Male -> Magma.Male
+          Female -> Magma.Female
+        , Magma.vocalPercussion = Magma.Tambourine
+        , Magma.vocalParts = 0
+        , Magma.guidePitchVolume = -3
+        }
+      , Magma.languages = Magma.Languages
+        { Magma.english = True
+        , Magma.french = False
+        , Magma.italian = False
+        , Magma.spanish = False
+        , Magma.german = False
+        , Magma.japanese = False
+        }
+      , Magma.destinationFile = B8.pack $ _package s <.> "rba"
+      , Magma.midi = Magma.Midi
+        { Magma.midiFile = B8.pack "notes.mid"
+        , Magma.autogenTheme = Right $ B8.pack ""
+        }
+      , Magma.dryVox = Magma.DryVox
+        { Magma.part0 = emptyDryVox
+        , Magma.part1 = emptyDryVox
+        , Magma.part2 = emptyDryVox
+        , Magma.tuningOffsetCents = 0
+        }
+      , Magma.albumArt = Magma.AlbumArt $ B8.pack "cover.bmp"
+      , Magma.tracks = Magma.Tracks
+        { Magma.drumLayout = Magma.Kit
+        , Magma.drumKit = if Drums `elem` _config s
+          then stereoFile "drums.wav"
+          else emptyAudioFile
+        , Magma.drumKick = emptyAudioFile
+        , Magma.drumSnare = emptyAudioFile
+        , Magma.bass = if Bass `elem` _config s
+          then stereoFile "bass.wav"
+          else emptyAudioFile
+        , Magma.guitar = emptyAudioFile
+        , Magma.vocals = emptyAudioFile
+        , Magma.keys = emptyAudioFile
+        , Magma.backing = stereoFile "song-countin.wav"
+        }
+      }
+    }
