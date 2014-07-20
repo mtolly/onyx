@@ -2,6 +2,7 @@
 module Audio where
 
 import Development.Shake (cmd, Action, need, liftIO)
+import Development.Shake.FilePath (takeExtension)
 import System.Directory (createDirectoryIfMissing)
 import System.IO.Temp (openTempFile)
 import System.IO (hClose)
@@ -67,7 +68,12 @@ buildAudio aud out = let
       () <- cmd "sox -n -b 16" [f] "rate 44100 channels" [show chans]
         "trim 0" [showSeconds t]
       return f
-    File x -> return x
+    File x -> case takeExtension x of
+      "mp3" -> do
+        f <- newWav
+        () <- cmd "lame" [x, f]
+        return f
+      _ -> return x
     Combine comb xs -> evalAudio $ Combine' comb $ map (\x -> (x, 1)) xs
     Combine' _ [] -> fail "buildAudio: can't combine 0 files"
     Combine' comb xs -> do
