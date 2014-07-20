@@ -106,46 +106,45 @@ stemsRules s = do
 eachAudio :: (Monad m) => Song -> (String -> m ()) -> m ()
 eachAudio = forM_ . HM.keys . _audio
 
+eachVersionDir :: (Monad m) => Song -> (FilePath -> m ()) -> m ()
+eachVersionDir s f = eachAudio s $ \src ->
+  forM_ ["1p", "2p"] $ \feet ->
+    f $ "gen" </> src </> feet
+
 countinRules :: Song -> Rules ()
-countinRules s = do
-  eachAudio s $ \src -> do
-    forM_ ["1p", "2p"] $ \feet -> do
-      let dir = "gen" </> src </> feet
-      dir </> "countin.wav" *> \out -> do
-        let mid = dir </> "notes.mid"
-            hit = "../../sound/hihat-foot.wav"
-        makeCountin mid hit out
-      dir </> "song-countin.wav" *> \out -> do
-        let song = File $ dir </> "song.wav"
-            countin = File $ dir </> "countin.wav"
-        buildAudio (Combine Mix [song, countin]) out
+countinRules s = eachVersionDir s $ \dir -> do
+  dir </> "countin.wav" *> \out -> do
+    let mid = dir </> "notes.mid"
+        hit = "../../sound/hihat-foot.wav"
+    makeCountin mid hit out
+  dir </> "song-countin.wav" *> \out -> do
+    let song = File $ dir </> "song.wav"
+        countin = File $ dir </> "countin.wav"
+    buildAudio (Combine Mix [song, countin]) out
 
 oggRules :: Song -> Rules ()
-oggRules s =
-  eachAudio s $ \src -> do
-    forM_ ["1p", "2p"] $ \feet -> do
-      let dir = "gen" </> src </> feet
-      dir </> "audio.ogg" *> \out -> do
-        let drums = File $ dir </> "drums.wav"
-            bass  = File $ dir </> "bass.wav"
-            song  = File $ dir </> "song-countin.wav"
-            audio = Combine Merge $ let
-              parts = concat
-                [ [drums | Drums `elem` _config s]
-                , [bass | Bass `elem` _config s]
-                , [song]
-                ]
-              in if length parts == 3
-                then parts ++ [Silence 1 0]
-                -- the Silence is to work around oggenc bug:
-                -- it assumes 6 channels is 5.1 surround where the last channel
-                -- is LFE, so instead we add a silent 7th channel
-                else parts
-        buildAudio audio out
-      dir </> "audio.mogg" *> \mogg -> do
-        let ogg = mogg -<.> "ogg"
-        need [ogg]
-        cmd "ogg2mogg" [ogg, mogg]
+oggRules s = eachVersionDir s $ \dir -> do
+  dir </> "audio.ogg" *> \out -> do
+    let drums = File $ dir </> "drums.wav"
+        bass  = File $ dir </> "bass.wav"
+        song  = File $ dir </> "song-countin.wav"
+        audio = Combine Merge $ let
+          parts = concat
+            [ [drums | Drums `elem` _config s]
+            , [bass | Bass `elem` _config s]
+            , [song]
+            ]
+          in if length parts == 3
+            then parts ++ [Silence 1 0]
+            -- the Silence is to work around oggenc bug:
+            -- it assumes 6 channels is 5.1 surround where the last channel
+            -- is LFE, so instead we add a silent 7th channel
+            else parts
+    buildAudio audio out
+  dir </> "audio.mogg" *> \mogg -> do
+    let ogg = mogg -<.> "ogg"
+    need [ogg]
+    cmd "ogg2mogg" [ogg, mogg]
 
 midRules :: Song -> Rules ()
 midRules s = eachAudio s $ \src -> do
@@ -184,28 +183,25 @@ main = do
       fofRules song
 
 rb3Rules :: Song -> Rules ()
-rb3Rules s = do
-  eachAudio s $ \src -> do
-    forM_ ["1p", "2p"] $ \feet -> do
-      let dir = "gen" </> src </> feet
-          pkg = _package s
-          pathDta = dir </> "rb3/songs/songs.dta"
-          pathMid = dir </> "rb3/songs" </> pkg </> (pkg <.> "mid")
-          pathMogg = dir </> "rb3/songs" </> pkg </> (pkg <.> "mogg")
-          pathPng = dir </> "rb3/songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_xbox")
-          pathCon = dir </> "rb3.con"
-      pathDta *> \out -> do
-        songPkg <- makeDTA (dir </> "notes.mid") s
-        let dta = D.DTA 0 $ D.Tree 0 $ (:[]) $ D.Parens $ D.Tree 0 $
-              D.Key (B8.pack pkg) : D.toChunks songPkg
-        writeFile' out $ D.sToDTA dta
-      pathMid *> copyFile' (dir </> "notes.mid")
-      pathMogg *> copyFile' (dir </> "audio.mogg")
-      pathPng *> copyFile' "gen/cover.png_xbox"
-      pathCon *> \out -> do
-        need [pathDta, pathMid, pathMogg, pathPng]
-        cmd "rb3pkg -p" [_artist s ++ ": " ++ _title s] "-d"
-          ["Version: " ++ src ++ "/" ++ feet] "-f" [dir </> "rb3"] out
+rb3Rules s = eachVersionDir s $ \dir -> do
+  let pkg = _package s
+      pathDta = dir </> "rb3/songs/songs.dta"
+      pathMid = dir </> "rb3/songs" </> pkg </> (pkg <.> "mid")
+      pathMogg = dir </> "rb3/songs" </> pkg </> (pkg <.> "mogg")
+      pathPng = dir </> "rb3/songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_xbox")
+      pathCon = dir </> "rb3.con"
+  pathDta *> \out -> do
+    songPkg <- makeDTA (dir </> "notes.mid") s
+    let dta = D.DTA 0 $ D.Tree 0 $ (:[]) $ D.Parens $ D.Tree 0 $
+          D.Key (B8.pack pkg) : D.toChunks songPkg
+    writeFile' out $ D.sToDTA dta
+  pathMid *> copyFile' (dir </> "notes.mid")
+  pathMogg *> copyFile' (dir </> "audio.mogg")
+  pathPng *> copyFile' "gen/cover.png_xbox"
+  pathCon *> \out -> do
+    need [pathDta, pathMid, pathMogg, pathPng]
+    cmd "rb3pkg -p" [_artist s ++ ": " ++ _title s] "-d"
+      ["Version: " ++ drop 4 dir] "-f" [dir </> "rb3"] out
 
 makeDTA :: FilePath -> Song -> Action D.SongPackage
 makeDTA mid s = do
@@ -323,31 +319,28 @@ checkPrograms = do
     _ -> fail "Couldn't read SoX supported file formats."
 
 magmaRules :: Song -> Rules ()
-magmaRules s = do
-  eachAudio s $ \src -> do
-    forM_ ["1p", "2p"] $ \feet -> do
-      let dir = "gen" </> src </> feet
-          drums = dir </> "magma/drums.wav"
-          bass = dir </> "magma/bass.wav"
-          song = dir </> "magma/song-countin.wav"
-          cover = dir </> "magma/cover.bmp"
-          mid = dir </> "magma/notes.mid"
-          proj = dir </> "magma/magma.rbproj"
-          rba = dir </> "magma.rba"
-      drums *> copyFile' (dir </> "drums.wav")
-      bass *> copyFile' (dir </> "bass.wav")
-      song *> copyFile' (dir </> "song-countin.wav")
-      cover *> copyFile' "gen/cover.bmp"
-      mid *> magmaClean (dir </> "notes.mid")
-      proj *> \out -> do
-        p <- makeMagmaProj (dir </> "notes.mid") s
-        let dta = D.DTA 0 $ D.Tree 0 $ D.toChunks p
-        writeFile' out $ D.sToDTA dta
-      rba *> \_ -> do
-        when (Drums `elem` _config s) $ need [drums]
-        when (Bass `elem` _config s) $ need [bass]
-        need [song, cover, mid, proj]
-        cmd "magmyx -c3" [proj, rba]
+magmaRules s = eachVersionDir s $ \dir -> do
+  let drums = dir </> "magma/drums.wav"
+      bass = dir </> "magma/bass.wav"
+      song = dir </> "magma/song-countin.wav"
+      cover = dir </> "magma/cover.bmp"
+      mid = dir </> "magma/notes.mid"
+      proj = dir </> "magma/magma.rbproj"
+      rba = dir </> "magma.rba"
+  drums *> copyFile' (dir </> "drums.wav")
+  bass *> copyFile' (dir </> "bass.wav")
+  song *> copyFile' (dir </> "song-countin.wav")
+  cover *> copyFile' "gen/cover.bmp"
+  mid *> magmaClean (dir </> "notes.mid")
+  proj *> \out -> do
+    p <- makeMagmaProj (dir </> "notes.mid") s
+    let dta = D.DTA 0 $ D.Tree 0 $ D.toChunks p
+    writeFile' out $ D.sToDTA dta
+  rba *> \_ -> do
+    when (Drums `elem` _config s) $ need [drums]
+    when (Bass `elem` _config s) $ need [bass]
+    need [song, cover, mid, proj]
+    cmd "magmyx -c3" [proj, rba]
 
 makeMagmaProj :: FilePath -> Song -> Action Magma.RBProj
 makeMagmaProj mid s = do
@@ -445,26 +438,23 @@ makeMagmaProj mid s = do
     }
 
 fofRules :: Song -> Rules ()
-fofRules s = do
-  eachAudio s $ \aud -> do
-    forM_ ["1p", "2p"] $ \feet -> do
-      let dir = "gen" </> aud </> feet
-          mid = dir </> "fof/notes.mid"
-          png = dir </> "fof/album.png"
-          drums = dir </> "fof/drums.ogg"
-          bass = dir </> "fof/rhythm.ogg"
-          song = dir </> "fof/song.ogg"
-          ini = dir </> "fof/song.ini"
-      mid *> copyFile' (dir </> "notes.mid")
-      png *> copyFile' "gen/cover.png"
-      drums *> buildAudio (File $ dir </> "drums.wav")
-      bass *> buildAudio (File $ dir </> "bass.wav")
-      song *> buildAudio (File $ dir </> "song-countin.wav")
-      ini *> \out -> makeIni mid s >>= writeFile' out
-      phony (dir </> "fof-all") $ do
-        need [mid, png, song, ini]
-        when (Drums `elem` _config s) $ need [drums]
-        when (Bass `elem` _config s) $ need [bass]
+fofRules s = eachVersionDir s $ \dir -> do
+  let mid = dir </> "fof/notes.mid"
+      png = dir </> "fof/album.png"
+      drums = dir </> "fof/drums.ogg"
+      bass = dir </> "fof/rhythm.ogg"
+      song = dir </> "fof/song.ogg"
+      ini = dir </> "fof/song.ini"
+  mid *> copyFile' (dir </> "notes.mid")
+  png *> copyFile' "gen/cover.png"
+  drums *> buildAudio (File $ dir </> "drums.wav")
+  bass *> buildAudio (File $ dir </> "bass.wav")
+  song *> buildAudio (File $ dir </> "song-countin.wav")
+  ini *> \out -> makeIni mid s >>= writeFile' out
+  phony (dir </> "fof-all") $ do
+    need [mid, png, song, ini]
+    when (Drums `elem` _config s) $ need [drums]
+    when (Bass `elem` _config s) $ need [bass]
 
 makeIni :: FilePath -> Song -> Action String
 makeIni mid s = do
