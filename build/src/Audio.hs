@@ -74,8 +74,11 @@ buildAudio aud out = let
       "mp3" -> do
         f <- newWav
         () <- cmd "lame" [x, f]
+        evalAudio $ File f
+      _ -> do
+        f <- newWav
+        () <- cmd "sox" [x, f] "rate 44100 channels 2"
         return f
-      _ -> return x
     Combine comb xs -> evalAudio $ Combine' comb $ map (\x -> (x, 1)) xs
     Combine' _ [] -> fail "buildAudio: can't combine 0 files"
     Combine' comb xs -> do
