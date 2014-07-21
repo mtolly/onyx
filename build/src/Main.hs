@@ -89,12 +89,11 @@ simpleRules s = do
       forM_ ["drums.wav", "bass.wav"] $ \inst -> do
         dir </> inst *> buildAudio (Silence 2 0)
       dir </> "song.wav" *> \out -> do
-        userAudio <- getDirectoryFiles "" ["audio-" ++ src ++ ".*"]
-        case userAudio of
-          [] -> fail $ "no audio-" ++ src ++ ".xxx found"
-          ua : _ -> do
-            need [ua]
-            buildAudio (bimap realToFrac (const ua) aud) out
+        let pat = "audio-" ++ src ++ ".*"
+        ls <- getDirectoryFiles "" [pat]
+        case ls of
+          []    -> fail $ "No file found matching pattern " ++ pat
+          f : _ -> buildAudio (bimap realToFrac (const f) aud) out
 
 stemsRules :: Song -> Rules ()
 stemsRules s = do
