@@ -32,6 +32,7 @@ data Unary t
   = Trim Edge t
   | Fade Edge t
   | Pad Edge t
+  | Take Edge t
   deriving (Eq, Ord, Show, Read, Functor)
 
 mapTime :: (t -> u) -> Audio t a -> Audio u a
@@ -96,6 +97,8 @@ buildAudio aud out = let
         Fade End   t -> ["fade", "t", "0", "0", showSeconds t]
         Pad  Begin t -> ["pad", showSeconds t]
         Pad  End   t -> ["pad", "0", showSeconds t]
+        Take Begin t -> ["trim", "0", showSeconds t]
+        Take End   t -> ["trim", '-' : showSeconds t]
       return f
   showSeconds r = showFFloat (Just 4) (realToFrac r :: Double) ""
   in do
