@@ -1,0 +1,8 @@
+title: Take the Time
+package: takethetime
+file-include: ../../albums/images-and-words.yml
+track-number: 3
+audio:
+  jammit: File ()
+  album: Unary [Pad Begin 0.680] (File ())
+config: [drums]

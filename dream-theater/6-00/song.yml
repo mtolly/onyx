@@ -1,0 +1,8 @@
+title: 6:00
+package: 6oclock
+file-include: ../../albums/awake.yml
+track-number: 1
+audio:
+  jammit: Unary [Pad Begin 1.039] (File ())
+  album: Unary [Pad Begin 3.103] (File ())
+config: [drums]

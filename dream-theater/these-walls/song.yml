@@ -1,0 +1,8 @@
+title: These Walls
+package: thesewalls
+file-include: ../../albums/octavarium.yml
+track-number: 3
+audio:
+  jammit: Unary [Trim Begin 11.711] (File ())
+  album: Unary [Trim Begin 19.991] (File ())
+config: [drums]

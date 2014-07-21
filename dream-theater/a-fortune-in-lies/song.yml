@@ -1,0 +1,7 @@
+title: A Fortune in Lies
+package: afortuneinlies
+file-include: ../../albums/when-dream-and-day-unite.yml
+track-number: 1
+audio:
+  album: Unary [Pad Begin 1.724] (File ())
+config: [drums]

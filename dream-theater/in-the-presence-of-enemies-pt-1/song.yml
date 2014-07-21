@@ -1,0 +1,7 @@
+title: In the Presence of Enemies, Pt. 1
+package: itpoept1
+file-include: ../../albums/systematic-chaos.yml
+track-number: 1
+audio:
+  album: Unary [Pad Begin 4.637, Take Begin 537.302, Fade End 2.75] (File ())
+config: [drums]

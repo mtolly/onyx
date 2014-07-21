@@ -1,0 +1,8 @@
+title: Sacrificed Sons
+package: sacrificedsons
+file-include: ../../albums/octavarium.yml
+track-number: 7
+audio:
+  jammit: Unary [Trim Begin 46.526, Fade Begin 6.866] (File ())
+  album: Unary [Trim Begin 45.914, Fade Begin 6.866] (File ())
+config: [drums]

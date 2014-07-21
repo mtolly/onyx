@@ -1,0 +1,9 @@
+title: Metropolis, Pt. 1: The Miracle and the Sleeper
+jammit-title: Metropolis Pt. 1
+package: metropolispt1
+file-include: ../../albums/images-and-words.yml
+track-number: 5
+audio:
+  jammit: File ()
+  album: Unary [Trim Begin 0.379] (File ())
+config: [drums]

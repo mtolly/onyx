@@ -1,0 +1,15 @@
+title: Hell's Kitchen
+package: hellskitchen
+file-include: ../../albums/falling-into-infinity.yml
+track-number: 6
+audio:
+  album:
+    song: >
+      Unary [Pad Begin 5.051, Fade End 4.500]
+        (Combine Concatenate
+          [ File "audio-this.xxx"
+          , Unary [Take Begin 5.696] (File "audio-next.xxx")
+          ]
+        )
+    drums: Silence 2 0
+config: [drums]

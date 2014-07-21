@@ -1,0 +1,7 @@
+title: Last Night
+package: lastnight
+file-include: ../../albums/for-long-tomorrow.yml
+track-number: 9
+audio:
+  album: Unary [Pad Begin 3.250] (File ())
+config: [drums]

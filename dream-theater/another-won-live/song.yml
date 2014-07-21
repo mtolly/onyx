@@ -1,0 +1,7 @@
+title: Another Won (Live)
+package: anotherwonlive
+file-include: ../../albums/score.yml
+track-number: 3
+audio:
+  album: Unary [Fade Begin 1.051, Pad Begin 1.808, Fade End 5.656] (File ())
+config: [drums]
