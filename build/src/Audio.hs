@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 module Audio where
 
 import Development.Shake (cmd, Action, need, liftIO)
@@ -8,6 +8,7 @@ import System.IO.Temp (openTempFile)
 import System.IO (hClose)
 import Numeric (showFFloat)
 import qualified Data.Foldable as F
+import qualified Data.Traversable as T
 import Data.Char (toLower)
 import qualified Data.Aeson as A
 import Text.Read (readEither)
@@ -23,7 +24,7 @@ data Audio t a
   | Combine Combine [Audio t a]
   | Combine' Combine [(Audio t a, Double)]
   | Unary [Unary t] (Audio t a)
-  deriving (Eq, Ord, Show, Read, Functor, F.Foldable)
+  deriving (Eq, Ord, Show, Read, Functor, F.Foldable, T.Traversable)
 
 data Combine = Concatenate | Mix | Merge
   deriving (Eq, Ord, Show, Read, Enum, Bounded)

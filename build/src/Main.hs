@@ -23,6 +23,7 @@ import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString as B
 import qualified Data.Map as Map
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Traversable as T
 
 jammitTitle :: Song -> String
 jammitTitle s = fromMaybe (_title s) (_jammitTitle s)
@@ -101,7 +102,14 @@ stemsRules s = do
     forM_ ["1p", "2p"] $ \feet -> do
       let dir = "gen" </> src </> feet
       forM_ (HM.toList amap) $ \(inst, aud) -> do
-        dir </> (inst <.> "wav") *> buildAudio (first realToFrac aud)
+        dir </> (inst <.> "wav") *> \out -> do
+          aud' <- T.forM aud $ \f -> do
+            let pat = f -<.> "*"
+            ls <- getDirectoryFiles "" [pat]
+            case ls of
+              []     -> fail $ "No file found matching pattern " ++ pat
+              f' : _ -> return f'
+          buildAudio (first realToFrac aud') out
 
 eachAudio :: (Monad m) => Song -> (String -> m ()) -> m ()
 eachAudio = forM_ . HM.keys . _audio
