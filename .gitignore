@@ -1,4 +1,4 @@
-audio-album.*
+audio-*.*
 */*/gen/
 *.rpp
 *.rpp-bak
