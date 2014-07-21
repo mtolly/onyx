@@ -1,2 +1,0 @@
-#!/bin/bash
-`dirname $0`/../scripts-hs/dist/build/onyxite-customs/onyxite-customs replace-tempos "$@"
