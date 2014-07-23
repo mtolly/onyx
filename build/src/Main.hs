@@ -14,6 +14,7 @@ import Data.Maybe (fromMaybe, mapMaybe)
 import Data.List (stripPrefix)
 import Data.Bifunctor (bimap, first)
 import Scripts.Main
+import Codec.Container.Ogg.Mogg (oggToMogg)
 
 import qualified Data.DTA as D
 import qualified Data.DTA.Serialize as D
@@ -151,7 +152,7 @@ oggRules s = eachVersionDir s $ \dir -> do
   dir </> "audio.mogg" *> \mogg -> do
     let ogg = mogg -<.> "ogg"
     need [ogg]
-    cmd "ogg2mogg" [ogg, mogg]
+    liftIO $ oggToMogg ogg mogg
 
 midRules :: Song -> Rules ()
 midRules s = eachAudio s $ \src -> do
