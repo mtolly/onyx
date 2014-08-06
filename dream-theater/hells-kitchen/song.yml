@@ -3,6 +3,7 @@ package: hellskitchen
 file-include: ../../albums/falling-into-infinity.yml
 track-number: 6
 audio:
+  jammit: File ()
   album:
     song: >
       Unary [Pad Begin 5.051, Fade End 4.500]
