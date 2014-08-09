@@ -73,7 +73,7 @@ buildAudio aud out = let
     File x -> case takeExtension x of
       ".mp3" -> do
         f <- newWav
-        () <- cmd "lame" [x, f]
+        () <- cmd "lame --decode" [x, f]
         evalAudio $ File f
       _ -> do
         f <- newWav
