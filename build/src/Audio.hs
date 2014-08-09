@@ -71,7 +71,7 @@ buildAudio aud out = let
         "trim 0" [showSeconds t]
       return f
     File x -> case takeExtension x of
-      "mp3" -> do
+      ".mp3" -> do
         f <- newWav
         () <- cmd "lame" [x, f]
         evalAudio $ File f
