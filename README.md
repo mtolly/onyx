@@ -12,7 +12,7 @@ complex build process.
 
   2. In the extracted files, find the folder for the song you want.
 
-  3. The file `Makefile` contains numbers for how to modify your audio.
+  3. The file `song.yml` contains numbers for how to modify your audio.
     Use [Audacity][] to pad, fade, or trim the audio as necessary, and also mix
     it with the file `gen/album/Xp/countin.wav` from the song folder, where
     `X` is the number of kick pedals you'd like, 1 or 2.
@@ -39,55 +39,42 @@ Required:
 
 * .NET Framework or [Mono](http://www.mono-project.com):
   .NET v2.0, I think?
-* [Ruby](https://www.ruby-lang.org):
-  I've tested 1.9.3 and 2.0 but other versions might work
-* [GNU Make](http://www.gnu.org/software/make/):
-  Windows binaries [here](http://gnuwin32.sourceforge.net/packages/make.htm)
 * [ImageMagick](http://www.imagemagick.org):
   you need a recent version with DirectDraw Surface write support
 * [SoX](http://sox.sourceforge.net/)
 * [LAME](http://lame.sourceforge.net/) if you want to supply MP3 audio
-
-For Windows:
-
-* [MinGW and MSYS](http://www.mingw.org/):
-  [Cygwin](http://www.cygwin.com/) may also work, but is untested
-
-For Linux and Mac:
-
-* [Wine](http://www.winehq.org/)
-
-On Windows, just download binaries of my tools:
-
-* [`ogg2mogg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/ogg2mogg_standalone_v0.1_win32.zip)
-* [`rb3albumart`](https://github.com/mtolly/rb3tools/raw/master/rb3albumart/rb3albumart)
-* [`rb3pkg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/rb3pkg_v0.1_dotnet.zip)
-* [`midiscript`](https://github.com/mtolly/midiscript/releases/download/v0.1.1/midiscript_v0.1.1_win32.zip)
-* [`jammittools`](https://github.com/mtolly/jammittools/releases/download/v0.1.1/jammittools_v0.1.1_win32.zip)
+* [`rb3pkg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/rb3pkg_v0.1_dotnet.zip),
+  a .NET/Mono application
+* [`jammittools`](https://github.com/mtolly/jammittools/releases)
   if you want to use audio from
   [Jammit](http://www.jammit.com/)
 
-On Linux/Mac, a simple option is to set up Wine/Mono helper scripts for the
-above Windows binaries. `ogg2mogg.exe`, `midiscript.exe`, and `jammittools.exe`
-are Win32 binaries, so you might have an `ogg2mogg` script which simply has:
+For Linux and Mac only:
 
-    #!/bin/bash
-    wine /path/to/ogg2mogg.exe
+* [Wine](http://www.winehq.org)
 
-`rb3pkg` is a .NET binary, so simply replace `wine` with `mono` above.
-`rb3albumart` is a Ruby script, so it can be run unmodified.
+You'll need all of the above to be accessible in your PATH.
 
-The other option for the Win32 binaries is to compile them yourself. This is
-easy to do -- see the `rb3tools` and `jammittools` pages for build information.
+* ImageMagick, SoX, and LAME should do this for you.
+* For `jammittools`, if you download your platform's binary just stick it in
+  a directory that is in your PATH.
+* For `rb3pkg`, on Windows you can just put its directory in the PATH.
+  For Linux/Mac, make a script with contents:
+
+    #!/bin/sh
+    mono /path/to/rb3pkg.exe "$@"
+
+Then, build the `onyxbuild` program in the `build/` directory, or download it
+from the releases page.
 
 In the song directory, first create `audio-album.ogg` or something similar if
 you need to supply audio. Then run:
 
-    make gen/{audio source}/{1p or 2p}/rb3.con
+    onyxbuild gen/{audio source}/{1p or 2p}/rb3.con
 
 to build your Xbox 360 CON file.
 
 If you need to tell `jammittools` where your Jammit files are located, you can
-do that with the `JAMMIT` environment variable. Place this before `make`:
+do that with the `JAMMIT` environment variable. Place this before `onyxbuild`:
 
     JAMMIT=/path/to/directory
