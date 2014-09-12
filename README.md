@@ -45,9 +45,6 @@ Required:
 * [LAME](http://lame.sourceforge.net/) if you want to supply MP3 audio
 * [`rb3pkg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/rb3pkg_v0.1_dotnet.zip),
   a .NET/Mono application
-* [`jammittools`](https://github.com/mtolly/jammittools/releases)
-  if you want to use audio from
-  [Jammit](http://www.jammit.com/)
 
 For Linux and Mac only:
 
@@ -56,8 +53,6 @@ For Linux and Mac only:
 You'll need all of the above to be accessible in your PATH.
 
 * ImageMagick, SoX, and LAME should do this for you.
-* For `jammittools`, if you download your platform's binary just stick it in
-  a directory that is in your PATH.
 * For `rb3pkg`, on Windows you can just put its directory in the PATH.
   For Linux/Mac, make a script with contents:
 
