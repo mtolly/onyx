@@ -8,13 +8,16 @@ import YAMLTree
 import Config
 import Audio
 import qualified Data.Aeson as A
-import Control.Applicative ((<$>))
+import Control.Applicative ((<$>), (<|>))
 import Control.Monad (forM_, unless, when)
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe, isJust)
 import Data.List (stripPrefix)
 import Data.Bifunctor (bimap, first)
 import Scripts.Main
 import Codec.Container.Ogg.Mogg (oggToMogg)
+import qualified Sound.Jammit.Base as J
+import qualified Sound.Jammit.Export as J
+import qualified System.Environment as Env
 
 import qualified Data.DTA as D
 import qualified Data.DTA.Serialize as D
@@ -26,6 +29,14 @@ import qualified Data.Map as Map
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Traversable as T
 
+jammitLib :: IO J.Library
+jammitLib = do
+  env <- Env.lookupEnv "JAMMIT"
+  def <- J.findJammitDir
+  case env <|> def of
+    Nothing  -> error "jammitDir: couldn't find Jammit directory"
+    Just dir -> J.loadLibrary dir
+
 jammitTitle :: Song -> String
 jammitTitle s = fromMaybe (_title s) (_jammitTitle s)
 
@@ -33,45 +44,50 @@ jammitArtist :: Song -> String
 jammitArtist s = fromMaybe (_artist s) (_jammitArtist s)
 
 jammitSearch :: String -> String -> Action String
-jammitSearch title artist = do
-  Stdout out <- cmd "jammittools -d -T" [title] "-R" [artist]
-  return $ case reverse $ words out of
-    []          -> ""
-    "Parts" : _ -> ""
-    parts   : _ -> parts
+jammitSearch title artist
+  = show
+  . J.getAudioParts
+  . J.exactSearchBy J.title title
+  . J.exactSearchBy J.artist artist
+  <$> liftIO jammitLib
 
 jammitRules :: Song -> Rules ()
 jammitRules s = do
-  let jCmd = ["jammittools", "-T", jTitle, "-R", jArtist]
-      jTitle  = jammitTitle s
+  let jTitle  = jammitTitle s
       jArtist = jammitArtist s
-      jSearch = askOracle $ JammitResults (jTitle, jArtist)
+      jSearch :: Action [(J.AudioPart, FilePath)]
+      jSearch = fmap read $ askOracle $ JammitResults (jTitle, jArtist)
   forM_ ["1p", "2p"] $ \feet -> do
     let dir = "gen/jammit" </> feet
     dir </> "drums_untimed.wav" *> \out -> do
-      hasDrums <- ('d' `elem`) <$> jSearch
-      if hasDrums
-        then cmd jCmd "-y d -a" out
-        else buildAudio (Silence 2 0) out
+      audios <- jSearch
+      case lookup (J.Only J.PartDrums) audios of
+        Nothing -> buildAudio (Silence 2 0) out
+        Just fp -> liftIO $ J.runAudio [fp] [] out
     dir </> "bass_untimed.wav" *> \out -> do
-      hasBass <- ('b' `elem`) <$> jSearch
-      if hasBass
-        then cmd jCmd "-y b -a" out
-        else buildAudio (Silence 2 0) out
+      audios <- jSearch
+      case lookup (J.Only J.PartBass) audios of
+        Nothing -> buildAudio (Silence 2 0) out
+        Just fp -> liftIO $ J.runAudio [fp] [] out
     dir </> "song_untimed.wav" *> \out -> do
-      has <- jSearch
-      let hasDrums = 'd' `elem` has
-          hasBass  = 'b' `elem` has
+      audios <- jSearch
+      let hasDrums = isJust $ lookup (J.Only J.PartDrums) audios
+          hasBass  = isJust $ lookup (J.Only J.PartBass) audios
           configHas inst = inst `elem` _config s
+          getAudio aud = case lookup aud audios of
+            Nothing -> error $ "Couldn't find audio part: " ++ show aud
+            Just x  -> x
+          runAudio' y n = liftIO $
+            J.runAudio (map getAudio y) (map getAudio n) out
       case (configHas Drums, configHas Bass) of
-        (True, False) -> cmd jCmd "-y D -a" [out]
-        (False, True) -> cmd jCmd "-y B -a" [out]
+        (True, False) -> runAudio' [J.Without J.Drums] []
+        (False, True) -> runAudio' [J.Without J.Bass] []
         (True, True) -> case (hasDrums, hasBass) of
-          (True , True ) -> cmd jCmd "-y D -n b -a" [out]
-          (True , False) -> cmd jCmd "-y D -a" [out]
-          (False, True ) -> cmd jCmd "-y B -a" [out]
+          (True , True ) -> runAudio' [J.Without J.Drums] [J.Only J.PartBass]
+          (True , False) -> runAudio' [J.Without J.Drums] []
+          (False, True ) -> runAudio' [J.Without J.Bass] []
           (False, False) -> fail "Couldn't find Jammit drums or bass"
-        (False, False) -> cmd jCmd "-y" [""] "-a" [out]
+        (False, False) -> runAudio' [] []
     forM_ ["drums", "bass", "song"] $ \part -> do
       dir </> (part ++ ".wav") *> \out -> do
         let untimed = dropExtension out ++ "_untimed.wav"

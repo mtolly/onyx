@@ -27,5 +27,6 @@ executable onyxbuild
                         , dtab == 0.8
                         , bytestring
                         , ogg2mogg
+                        , jammittools
   default-language:     Haskell2010
   ghc-options:          -Wall
