@@ -24,7 +24,7 @@ executable onyxbuild
                         , bifunctors
                         , event-list, non-negative, midi
                         , containers
-                        , dtab == 0.8
+                        , dtab == 1.0
                         , bytestring
                         , ogg2mogg
                         , jammittools
