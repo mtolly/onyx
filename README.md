@@ -43,8 +43,9 @@ Required:
   you need a recent version with DirectDraw Surface write support
 * [SoX](http://sox.sourceforge.net/)
 * [LAME](http://lame.sourceforge.net/) if you want to supply MP3 audio
-* [`rb3pkg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/rb3pkg_v0.1_dotnet.zip),
-  a .NET/Mono application
+* [`rb3pkg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/rb3pkg_v0.1_dotnet.zip)
+  (a .NET/Mono application) if you want to compile to Xbox 360 CON
+* [`magmyx`](https://github.com/mtolly/magmyx) if you want to compile to RBA
 
 For Linux and Mac only:
 
@@ -60,16 +61,18 @@ You'll need all of the above to be accessible in your PATH.
     mono /path/to/rb3pkg.exe "$@"
 
 Then, build the `onyxbuild` program in the `build/` directory, or download it
-from the releases page.
+from the releases page. This requires one package not on Hackage,
+[ogg2mogg](https://github.com/mtolly/rb3tools/tree/master/ogg2mogg).
 
 In the song directory, first create `audio-album.ogg` or something similar if
 you need to supply audio. Then run:
 
     onyxbuild gen/{audio source}/{1p or 2p}/rb3.con
 
-to build your Xbox 360 CON file.
+to build your Xbox 360 CON file. Or, replace `rb3.con` with `magma.rba` to 
+build with `magmyx`.
 
-If you need to tell `jammittools` where your Jammit files are located, you can
-do that with the `JAMMIT` environment variable. Place this before `onyxbuild`:
+If you need to tell `onyxbuild` where your Jammit files are located, you can
+do that with the `JAMMIT` environment variable:
 
-    JAMMIT=/path/to/directory
+    JAMMIT=/path/to/directory onyxbuild ...
