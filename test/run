@@ -12,10 +12,12 @@ for readme in */*/README.md; do
   DUMMY_LENGTH=$($TEST_DIR/dummy-time gen/album/2p/magma/magma.rbproj)
   echo "Making a dummy audio file of length $DUMMY_LENGTH seconds."
   sox -n audio-album.wav trim 0 $DUMMY_LENGTH
+  cp audio-album.wav audio-this.wav
+  sox -n audio-next.wav trim 0 1
 
   onyxbuild gen/album/2p/magma.rba
 
   rm -rf gen
-  rm audio-album.wav
+  rm audio-album.wav audio-this.wav audio-next.wav
   cd ../..
 done
