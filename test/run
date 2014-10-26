@@ -4,7 +4,7 @@ set -e
 
 TEST_DIR=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)
 
-for readme in */*/README.md; do
+for readme in dream-theater/afterlife/README.md; do
   echo ">> Building" `dirname $readme`
   cd `dirname $readme`
 
@@ -14,6 +14,8 @@ for readme in */*/README.md; do
   sox -n audio-album.wav trim 0 $DUMMY_LENGTH
   cp audio-album.wav audio-this.wav
   sox -n audio-next.wav trim 0 1:00
+  sox --version
+  soxi audio-this.wav audio-next.wav
 
   onyxbuild gen/album/2p/magma.rba
 
