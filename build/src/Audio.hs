@@ -67,7 +67,7 @@ buildAudio aud out = let
   evalAudio expr = case expr of
     Silence chans t -> do
       f <- newWav
-      () <- cmd "sox -n -b 16" [f] "rate 44100 channels" [show chans]
+      () <- cmd "sox -n -b 16 -r 44100" [f] "channels" [show chans]
         "trim 0" [showSeconds t]
       return f
     File x -> case takeExtension x of
@@ -77,7 +77,7 @@ buildAudio aud out = let
         evalAudio $ File f
       _ -> do
         f <- newWav
-        () <- cmd "sox" [x, f] "rate 44100 channels 2"
+        () <- cmd "sox" [x] "-b 16 -r 44100" [f] "channels 2"
         return f
     Combine comb xs -> evalAudio $ Combine' comb $ map (\x -> (x, 1)) xs
     Combine' _ [] -> fail "buildAudio: can't combine 0 files"
