@@ -5,6 +5,8 @@ set -e
 # Builds and installs necessary Haskell programs/libraries.
 # Assumes you're not using Cabal sandboxes.
 
+cabal install alex happy
+
 # Install dependencies from git
 mkdir git
 cd git
