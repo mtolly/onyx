@@ -13,7 +13,7 @@ for readme in */*/README.md; do
   echo "Making a dummy audio file of length $DUMMY_LENGTH seconds."
   sox -n audio-album.wav trim 0 $DUMMY_LENGTH
   cp audio-album.wav audio-this.wav
-  sox -n audio-next.wav trim 0 1
+  sox -n audio-next.wav trim 0 1:00
 
   onyxbuild gen/album/2p/magma.rba
 
