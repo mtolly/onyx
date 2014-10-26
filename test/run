@@ -1,0 +1,21 @@
+#!/bin/bash
+set -u
+set -e
+
+TEST_DIR=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)
+
+for readme in */*/README.md; do
+  echo ">> Building" `dirname $readme`
+  cd `dirname $readme`
+
+  onyxbuild gen/album/2p/magma/magma.rbproj
+  DUMMY_LENGTH=$($TEST_DIR/dummy-time gen/album/2p/magma/magma.rbproj)
+  echo "Making a dummy audio file of length $DUMMY_LENGTH seconds."
+  sox -n audio-album.wav trim 0 $DUMMY_LENGTH
+
+  onyxbuild gen/album/2p/magma.rba
+
+  rm -rf gen
+  rm audio-album.wav
+  cd ../..
+done

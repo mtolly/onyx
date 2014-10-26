@@ -1,0 +1,9 @@
+language: haskell
+ghc:
+  - 7.8
+install:
+  - sudo apt-get update -qq
+  - sudo apt-get install wine
+  - test/install
+script:
+  - test/run

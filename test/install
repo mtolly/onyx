@@ -1,0 +1,20 @@
+#!/bin/bash
+set -u
+set -e
+
+# Builds and installs necessary Haskell programs/libraries.
+# Assumes you're not using Cabal sandboxes.
+
+# Install dependencies from git
+mkdir git
+cd git
+git clone https://github.com/mtolly/magmyx
+(cd magmyx; cabal install)
+git clone https://github.com/mtolly/rb3tools
+(cd rb3tools/ogg2mogg; cabal install)
+cd ..
+
+# Install build program
+cd build
+cabal install
+cd ..

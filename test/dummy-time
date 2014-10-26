@@ -1,0 +1,14 @@
+#!/usr/bin/env ruby
+
+# Given an .rbproj as an argument, prints a valid duration for a dummy
+# audio file, such that Magma won't complain that the preview time extends
+# past it.
+
+rbproj = File.read(ARGV[0])
+rbproj.match(/preview_start_ms[^0-9]+([0-9]+)/) do |md|
+  puts (md[1].to_i / 1000) + 35
+  exit 0
+end
+
+puts "dummy-time: couldn't find the Magma preview time!"
+exit 1
