@@ -6,7 +6,8 @@
 
 rbproj = File.read(ARGV[0])
 rbproj.match(/preview_start_ms[^0-9]+([0-9]+)/) do |md|
-  puts (md[1].to_i / 1000) + 35
+  puts (md[1].to_i / 1000) + 90
+  # 30 plus up to about a minute of cut off time (sac sons)
   exit 0
 end
 

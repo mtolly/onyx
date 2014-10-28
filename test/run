@@ -5,6 +5,9 @@ set -e
 TEST_DIR=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)
 
 for readme in */*/README.md; do
+  if [ $readme = dream-theater/erotomania/README.md ]; then
+    continue
+  fi
   echo ">> Building" `dirname $readme`
   cd `dirname $readme`
 
