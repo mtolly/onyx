@@ -8,6 +8,9 @@ for readme in */*/README.md; do
   if [ $readme = dream-theater/erotomania/README.md ]; then
     continue
   fi
+  if [ ! -f `dirname $readme`/song.yml ]; then
+    continue
+  fi
   echo ">> Building" `dirname $readme`
   cd `dirname $readme`
 
