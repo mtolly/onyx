@@ -1,41 +1,34 @@
-#!/bin/bash
-set -u
-set -e
+#!/usr/bin/env ruby
 
-TEST_DIR=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)
-: "${ONYXITE_MIN:=0}"
-: "${ONYXITE_MAX:=9999}"
+require 'fileutils'
 
-i=0
-for readme in */*/README.md; do
-  j=$i
-  ((i++))
+test_dir = File.expand_path( File.dirname(__FILE__) )
+onyxite_min = ENV['ONYXITE_MIN']
+onyxite_min = [nil, ''].include?(onyxite_min) ? 0 : onyxite_min.to_i
+onyxite_max = ENV['ONYXITE_MAX']
+onyxite_max = [nil, ''].include?(onyxite_max) ? 9999 : onyxite_max.to_i
 
-  if [ $readme = dream-theater/erotomania/README.md ]; then
-    continue
-  fi
-  if (( $j < $ONYXITE_MIN )); then
-    continue
-  fi
-  if (( $j > $ONYXITE_MAX )); then
-    continue
-  fi
-  if [ ! -f `dirname $readme`/song.yml ]; then
-    continue
-  fi
-  echo ">> Building" `dirname $readme`
-  cd `dirname $readme`
+Dir['*/*/README.md'].each_with_index do |readme, i|
+  songdir = File.dirname readme
 
-  onyxbuild gen/album/2p/magma/magma.rbproj
-  DUMMY_LENGTH=$($TEST_DIR/dummy-time gen/album/2p/magma/magma.rbproj)
-  echo "Making a dummy audio file of length $DUMMY_LENGTH seconds."
-  sox -n audio-album.wav trim 0 $DUMMY_LENGTH
-  cp audio-album.wav audio-this.wav
-  sox -n audio-next.wav trim 0 1:00
+  next if readme =~ /erotomania/
+  next if i < onyxite_min
+  next if i > onyxite_max
+  next unless File.file? "#{songdir}/song.yml"
 
-  onyxbuild gen/album/2p/magma.rba
+  puts ">> Building #{songdir}"
+  FileUtils.cd songdir
 
-  rm -rf gen
-  rm audio-album.wav audio-this.wav audio-next.wav
-  cd ../..
-done
+  system 'onyxbuild gen/album/2p/magma/magma.rbproj'
+  dummy_length = `#{test_dir}/dummy-time gen/album/2p/magma/magma.rbproj`.to_i
+  puts "Making a dummy audio file of length #{dummy_length} seconds."
+  system "sox -n audio-album.wav trim 0 #{dummy_length}"
+  system "cp audio-album.wav audio-this.wav"
+  system "sox -n audio-next.wav trim 0 1:00"
+
+  system "onyxbuild gen/album/2p/magma.rba"
+
+  system "rm -rf gen"
+  system "rm audio-{album,this,next}.wav"
+  FileUtils.cd '../..'
+end
