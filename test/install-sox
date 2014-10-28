@@ -2,7 +2,7 @@
 set -u
 set -e
 
-wget -o sox-14.4.1.tar.gz http://sourceforge.net/projects/sox/files/sox/14.4.1/sox-14.4.1.tar.gz/download
+wget -O sox-14.4.1.tar.gz http://sourceforge.net/projects/sox/files/sox/14.4.1/sox-14.4.1.tar.gz/download
 tar -xvzf sox-14.4.1.tar.gz
 cd sox-14.4.1
 ./configure
