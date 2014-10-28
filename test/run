@@ -3,9 +3,21 @@ set -u
 set -e
 
 TEST_DIR=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)
+: "${ONYXITE_MIN:=0}"
+: "${ONYXITE_MAX:=9999}"
 
+i=0
 for readme in */*/README.md; do
+  j=$i
+  ((i++))
+
   if [ $readme = dream-theater/erotomania/README.md ]; then
+    continue
+  fi
+  if (( $j < $ONYXITE_MIN )); then
+    continue
+  fi
+  if (( $j > $ONYXITE_MAX )); then
     continue
   fi
   if [ ! -f `dirname $readme`/song.yml ]; then

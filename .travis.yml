@@ -6,5 +6,11 @@ install:
   - sudo apt-get update -qq
   - sudo apt-get install wine imagemagick
   - test/install
+env:
+  - ONYXITE_MIN=0 ONYXITE_MAX=9
+  - ONYXITE_MIN=10 ONYXITE_MAX=19
+  - ONYXITE_MIN=20 ONYXITE_MAX=29
+  - ONYXITE_MIN=30 ONYXITE_MAX=39
+  - ONYXITE_MIN=40 ONYXITE_MAX=9999
 script:
   - test/run
