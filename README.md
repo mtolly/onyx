@@ -39,28 +39,33 @@ complex build process.
 
 Required:
 
-* .NET Framework or [Mono](http://www.mono-project.com):
-  .NET v2.0, I think?
-* [ImageMagick](http://www.imagemagick.org):
-  you need a recent version with DirectDraw Surface write support
-* [SoX](http://sox.sourceforge.net/)
-* [LAME](http://lame.sourceforge.net/) if you want to supply MP3 audio
-* [`rb3pkg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/rb3pkg_v0.1_dotnet.zip)
-  (a .NET/Mono application) if you want to compile to Xbox 360 CON
-* [`magmyx`](https://github.com/mtolly/magmyx) if you want to compile to RBA
+  * [ImageMagick](http://www.imagemagick.org):
+    you need a recent version with DirectDraw Surface write support
+  * [SoX](http://sox.sourceforge.net/)
+  * [LAME](http://lame.sourceforge.net/) if you want to supply MP3 audio
+
+If you want to compile straight to Xbox 360 CON:
+
+  * [`rb3pkg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/rb3pkg_v0.1_dotnet.zip)
+  * .NET Framework or [Mono](http://www.mono-project.com)
+
+If you want to compile to Magma RBA:
+
+  * [`magmyx`](https://github.com/mtolly/magmyx)
 
 For Linux and Mac only:
 
-* [Wine](http://www.winehq.org)
+  * [Wine](http://www.winehq.org)
 
 You'll need all of the above to be accessible in your PATH.
 
-* ImageMagick, SoX, and LAME should do this for you.
-* For `rb3pkg`, on Windows you can just put its directory in the PATH.
-  For Linux/Mac, make a script with contents:
+  * ImageMagick, SoX, and LAME should do this for you during installation.
+  * `magmyx` is a single executable; place it as appropriate.
+  * For `rb3pkg`, on Windows you can just put its directory in the PATH.
+    For Linux/Mac, make a script with contents:
 
-    #!/bin/sh
-    mono /path/to/rb3pkg.exe "$@"
+        #!/bin/sh
+        mono /path/to/rb3pkg.exe "$@"
 
 Then, build the `onyxbuild` program in the `build/` directory, or download it
 from the releases page. This requires one package not on Hackage,
