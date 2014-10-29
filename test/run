@@ -11,7 +11,6 @@ onyxite_max = [nil, ''].include?(onyxite_max) ? 9999 : onyxite_max.to_i
 Dir['*/*/README.md'].sort.each_with_index do |readme, i|
   songdir = File.dirname readme
 
-  next if readme =~ /erotomania/
   next if i < onyxite_min
   next if i > onyxite_max
   next unless File.file? "#{songdir}/song.yml"
