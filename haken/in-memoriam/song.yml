@@ -1,0 +1,7 @@
+title: In Memoriam
+package: inmemoriam
+file-include: ../../albums/the-mountain.yml
+track-number: 4
+audio:
+  album: Unary [Pad Begin 4.399] (File ())
+config: [drums]
