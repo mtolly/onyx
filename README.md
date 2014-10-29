@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/mtolly/onyxite-customs.svg?branch=master)](https://travis-ci.org/mtolly/onyxite-customs)
+
 This is a collection of songs I have authored for use in Rock Band 3 and other
 similar rhythm games, mostly for drums. The charts are provided in a "source"
 format, where you must supply your own audio. It is recommended that you use a
