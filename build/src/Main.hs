@@ -184,7 +184,7 @@ midRules s = eachAudio s $ \src -> do
       then replaceTempos "notes.mid" tempos out
       else fixResolution "notes.mid" out
   mid2p *> make2xBassPedal mid
-  mid1p *> oneFoot 0.18 0.1 mid2p
+  mid1p *> oneFoot 0.18 0.11 mid2p
 
 newtype JammitResults = JammitResults (String, String)
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
