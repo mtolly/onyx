@@ -8,6 +8,11 @@ onyxite_min = [nil, ''].include?(onyxite_min) ? 0 : onyxite_min.to_i
 onyxite_max = ENV['ONYXITE_MAX']
 onyxite_max = [nil, ''].include?(onyxite_max) ? 9999 : onyxite_max.to_i
 
+def system_(str)
+  result = system str
+  raise(IOError, "Command #{str.inspect} returned #{$?.exitstatus}") if result != true
+end
+
 Dir['*/*/README.md'].sort.each_with_index do |readme, i|
   songdir = File.dirname readme
 
@@ -18,16 +23,16 @@ Dir['*/*/README.md'].sort.each_with_index do |readme, i|
   puts ">> Building #{songdir}"
   FileUtils.cd songdir
 
-  system 'onyxbuild gen/album/2p/magma/magma.rbproj'
+  system_ 'onyxbuild gen/album/2p/magma/magma.rbproj'
   dummy_length = `#{test_dir}/dummy-time gen/album/2p/magma/magma.rbproj`.to_i
   puts "Making a dummy audio file of length #{dummy_length} seconds."
-  system "sox -n audio-album.wav trim 0 #{dummy_length}"
-  system "cp audio-album.wav audio-this.wav"
-  system "sox -n audio-next.wav trim 0 1:00"
+  system_ "sox -n audio-album.wav trim 0 #{dummy_length}"
+  system_ "cp audio-album.wav audio-this.wav"
+  system_ "sox -n audio-next.wav trim 0 1:00"
 
-  system "onyxbuild gen/album/2p/magma.rba"
+  system_ "onyxbuild gen/album/2p/magma.rba"
 
-  system "rm -rf gen"
-  system "rm audio-album.wav audio-this.wav audio-next.wav"
+  system_ "rm -rf gen"
+  system_ "rm audio-album.wav audio-this.wav audio-next.wav"
   FileUtils.cd '../..'
 end

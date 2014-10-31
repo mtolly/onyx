@@ -1,9 +1,10 @@
 module Scripts.Main where
 
 import Control.Applicative ((<$>))
-import Control.Arrow (first)
-import Data.List (partition, sort)
+import Control.Arrow (first, second)
+import Data.List (partition, sort, stripPrefix)
 import Data.Maybe (listToMaybe, mapMaybe, fromMaybe, isNothing)
+import Text.Read (readMaybe)
 
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -37,6 +38,48 @@ tempoTrackName :: F.T -> F.T
 tempoTrackName = uncurry fromStandardMIDI . first fixName . standardMIDI where
   fixName = RTB.cons 0 (E.MetaEvent $ Meta.TrackName "tempo")
     . RTB.filter (isNothing . isTrackName)
+
+-- | Changes all existing drum mix events to use the given config (not changing
+-- stuff like discobeat), and places ones at the beginning if they don't exist
+-- already.
+drumMix :: Int -> F.T -> F.T
+drumMix n = let
+  editTrack trk = if isDrums trk
+    then newMix $ fmap editEvent trk
+    else trk
+  editEvent evt = case fromMix evt of
+    Nothing -> evt
+    Just (diff, _, disco) -> toMix (diff, n, disco)
+  -- Add plain mix events to position 0 for diffs that don't have them
+  newMix trk = let
+    mixes = do
+      evt <- eventsAtZero trk
+      Just (diff, _, _) <- return $ fromMix evt
+      return diff
+    newMixes = [ toMix (diff, n, "") | diff <- [0..3], diff `notElem` mixes ]
+    in foldr addZero trk newMixes
+  fromMix :: E.T -> Maybe (Int, Int, String)
+  fromMix (E.MetaEvent (Meta.TextEvent str)) = do
+    ["[mix", d, rest] <- return $ words str
+    diff              <- readMaybe d
+    c : disco         <- stripPrefix "drums" rest
+    disco'            <- stripSuffix "]" disco
+    mix               <- readMaybe [c]
+    return (diff, mix, disco')
+  fromMix _ = Nothing
+  stripSuffix sfx xs = fmap reverse $ stripPrefix (reverse sfx) (reverse xs)
+  toMix :: (Int, Int, String) -> E.T
+  toMix (x, y, z) = E.MetaEvent $ Meta.TextEvent $
+    "[mix " ++ show x ++ " drums" ++ show y ++ z ++ "]"
+  in uncurry fromStandardMIDI . second (map editTrack) . standardMIDI
+
+-- | Adds an event at position zero *after* all the other events there.
+addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
+addZero x rtb = case RTB.viewL rtb of
+  Nothing -> RTB.singleton NNC.zero x
+  Just ((dt, y), rtb') -> if dt == NNC.zero
+    then RTB.cons dt y $ addZero x rtb'
+    else RTB.cons NNC.zero x rtb
 
 make2xBassPedal :: F.T -> F.T
 make2xBassPedal mid = let
@@ -111,11 +154,13 @@ isTrackName :: E.T -> Maybe String
 isTrackName (E.MetaEvent (Meta.TrackName s)) = Just s
 isTrackName _                                = Nothing
 
+eventsAtZero :: (NNC.C t) => RTB.T t a -> [a]
+eventsAtZero rtb = case RTB.viewL $ RTB.collectCoincident rtb of
+  Just ((t, xs), _) | t == NNC.zero -> xs
+  _ -> []
+
 trackName :: (NNC.C t) => RTB.T t E.T -> Maybe String
-trackName rtb = case RTB.viewL $ RTB.collectCoincident rtb of
-  Just ((t, xs), _) | t == NNC.zero ->
-    listToMaybe $ mapMaybe isTrackName xs
-  _ -> Nothing
+trackName = listToMaybe . mapMaybe isTrackName . eventsAtZero
 
 -- | Move all notes on pitch 95 to pitch 96.
 -- TODO: Ensure overlapping 95/96 pitches work by removing all note-offs and
