@@ -7,6 +7,7 @@ import Development.Shake.Classes
 import YAMLTree
 import Config
 import Audio
+import OneFoot
 import qualified Data.Aeson as A
 import Control.Applicative ((<$>), (<|>))
 import Control.Monad (forM_, unless, when)
@@ -174,14 +175,16 @@ midRules :: Song -> Rules ()
 midRules s = eachAudio s $ \src -> do
   let mid1p = "gen" </> src </> "1p/notes.mid"
       mid2p = "gen" </> src </> "2p/notes.mid"
-  mid1p *> \out -> do
+      mid   = "gen" </> src </> "notes.mid"
+  mid *> \out -> do
     need ["notes.mid"]
     let tempos = "tempo-" ++ src ++ ".mid"
     b <- doesFileExist tempos
     if b
       then replaceTempos "notes.mid" tempos out
       else fixResolution "notes.mid" out
-  mid2p *> \out -> make2xBassPedal mid1p out
+  mid2p *> make2xBassPedal mid
+  mid1p *> oneFoot 0.18 0.1 mid2p
 
 newtype JammitResults = JammitResults (String, String)
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)

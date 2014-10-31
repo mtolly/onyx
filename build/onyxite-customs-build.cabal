@@ -16,6 +16,7 @@ executable onyxbuild
                         TH
                         Scripts.Main
                         Scripts.MIDITime
+                        OneFoot
   build-depends:        base    >= 4.6    && < 4.8
                         , shake >= 0.13.2 && < 0.14
                         , directory
