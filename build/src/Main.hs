@@ -30,6 +30,10 @@ import qualified Data.Map as Map
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Traversable as T
 
+import qualified Sound.MIDI.File as F
+import qualified Sound.MIDI.File.Load as Load
+import qualified Sound.MIDI.File.Save as Save
+
 jammitLib :: IO J.Library
 jammitLib = do
   env <- Env.lookupEnv "JAMMIT"
@@ -182,9 +186,14 @@ midRules s = eachAudio s $ \src -> do
     b <- doesFileExist tempos
     if b
       then replaceTempos "notes.mid" tempos out
-      else fixResolution "notes.mid" out
-  mid2p *> make2xBassPedal mid
-  mid1p *> oneFoot 0.18 0.11 mid2p
+      else runMidi fixResolution "notes.mid" out
+  mid2p *> runMidi (make2xBassPedal . tempoTrackName) mid
+  mid1p *> runMidi (oneFoot 0.18 0.11) mid2p
+
+runMidi :: (F.T -> F.T) -> FilePath -> FilePath -> Action ()
+runMidi f fin fout = do
+  need [fin]
+  liftIO $ Load.fromFile fin >>= Save.toFile fout . f
 
 newtype JammitResults = JammitResults (String, String)
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)

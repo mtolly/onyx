@@ -5,8 +5,6 @@ import Sound.MIDI.File.Event as E
 import Sound.MIDI.File.Event.Meta as M
 import Sound.MIDI.Message.Channel as C
 import Sound.MIDI.Message.Channel.Voice as V
-import Sound.MIDI.File.Load as Load
-import Sound.MIDI.File.Save as Save
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
@@ -14,8 +12,6 @@ import qualified Numeric.NonNegative.Wrapper as NN
 import qualified Numeric.NonNegative.Class as NNC
 
 import qualified Data.Map as Map
-
-import Development.Shake
 
 type Beats   = NN.Rational
 type Seconds = NN.Rational
@@ -157,16 +153,13 @@ thinKicks tx ty rtb = let
   rights = rtbJoin $ fmap (const kick) $ RTB.filter (== R) kicks
   in RTB.merge rights $ removePitch (V.toPitch 96) rtb
 
-oneFoot :: Seconds -> Seconds -> FilePath -> FilePath -> Action ()
-oneFoot tx ty fin fout = do
-  need [fin]
-  liftIO $ do
-    mid <- Load.fromFile fin
-    let trks = getBeatTracks mid
-        tmap = getTempoMap mid
-        untmap = makeUnTempoMap tmap
-        trks' = flip map trks $ \trk -> case trackName trk of
-          Just "PART DRUMS" -> applyTempoMap' untmap $
-            thinKicks tx ty $ applyTempoMap' tmap trk
-          _                 -> trk
-    Save.toFile fout $ fromBeatTracks (getResolution mid) trks'
+oneFoot :: Seconds -> Seconds -> F.T -> F.T
+oneFoot tx ty mid = let
+  trks = getBeatTracks mid
+  tmap = getTempoMap mid
+  untmap = makeUnTempoMap tmap
+  trks' = flip map trks $ \trk -> case trackName trk of
+    Just "PART DRUMS" -> applyTempoMap' untmap $
+      thinKicks tx ty $ applyTempoMap' tmap trk
+    _                 -> trk
+  in fromBeatTracks (getResolution mid) trks'

@@ -1,8 +1,9 @@
 module Scripts.Main where
 
 import Control.Applicative ((<$>))
+import Control.Arrow (first)
 import Data.List (partition, sort)
-import Data.Maybe (listToMaybe, mapMaybe, fromMaybe)
+import Data.Maybe (listToMaybe, mapMaybe, fromMaybe, isNothing)
 
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -31,13 +32,17 @@ fromStandardMIDI :: RTB.T Beats E.T -> [RTB.T Beats E.T] -> F.T
 fromStandardMIDI tempo rest = F.Cons F.Parallel (F.Ticks 480) $
   map (beatsToTicks 480) $ tempo : rest
 
-make2xBassPedal :: FilePath -> FilePath -> Action ()
-make2xBassPedal fin fout = do
-  need [fin]
-  liftIO $ do
-    (tempo, trks) <- standardMIDI <$> Load.fromFile fin
-    Save.toFile fout $ fromStandardMIDI tempo $ case partition isDrums trks of
-      (drums, notdrums) -> map make2xBass drums ++ notdrums
+-- | Ensures that there is a track name event in the tempo track.
+tempoTrackName :: F.T -> F.T
+tempoTrackName = uncurry fromStandardMIDI . first fixName . standardMIDI where
+  fixName = RTB.cons 0 (E.MetaEvent $ Meta.TrackName "tempo")
+    . RTB.filter (isNothing . isTrackName)
+
+make2xBassPedal :: F.T -> F.T
+make2xBassPedal mid = let
+  (tempo, trks) = standardMIDI mid
+  in fromStandardMIDI tempo $ case partition isDrums trks of
+    (drums, notdrums) -> map make2xBass drums ++ notdrums
 
 makeCountin :: FilePath -> FilePath -> FilePath -> Action ()
 makeCountin mid wavin wavout = do
@@ -51,12 +56,8 @@ makeCountin mid wavin wavout = do
         _ -> Combine Mix $ map (\t -> Unary [Pad Begin t] $ File wavin) secs
   buildAudio audio wavout
 
-fixResolution :: FilePath -> FilePath -> Action ()
-fixResolution fin fout = do
-  need [fin]
-  liftIO $ do
-    (tempo, trks) <- standardMIDI <$> Load.fromFile fin
-    Save.toFile fout $ fromStandardMIDI tempo trks
+fixResolution :: F.T -> F.T
+fixResolution = uncurry fromStandardMIDI . standardMIDI
 
 previewBounds :: FilePath -> Action (Int, Int)
 previewBounds mid = do
@@ -106,12 +107,14 @@ magmaClean fin fout = do
 isDrums :: (NNC.C t) => RTB.T t E.T -> Bool
 isDrums t = trackName t == Just "PART DRUMS"
 
+isTrackName :: E.T -> Maybe String
+isTrackName (E.MetaEvent (Meta.TrackName s)) = Just s
+isTrackName _                                = Nothing
+
 trackName :: (NNC.C t) => RTB.T t E.T -> Maybe String
 trackName rtb = case RTB.viewL $ RTB.collectCoincident rtb of
-  Just ((t, xs), _) | t == NNC.zero -> let
-    isTrackName (E.MetaEvent (Meta.TrackName s)) = Just s
-    isTrackName _                                = Nothing
-    in listToMaybe $ mapMaybe isTrackName xs
+  Just ((t, xs), _) | t == NNC.zero ->
+    listToMaybe $ mapMaybe isTrackName xs
   _ -> Nothing
 
 -- | Move all notes on pitch 95 to pitch 96.
