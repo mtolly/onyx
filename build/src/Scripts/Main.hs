@@ -190,3 +190,70 @@ magmaClean' trk = case trackName trk of
         removeComments = RTB.filter $ \x -> case x of
           E.MetaEvent (Meta.TextEvent ('#' : _)) -> False
           _ -> True
+
+-- | Generates a BEAT track (if it doesn't exist already) which ends at the
+-- [end] event from the EVENTS track.
+autoBeat :: F.T -> F.T
+autoBeat f = let
+  (tempo, rest) = standardMIDI f
+  eventsTrack = case filter (\t -> trackName t == Just "EVENTS") rest of
+    t : _ -> t
+    []    -> error "autoBeat: no EVENTS track found"
+  endEvent = case findText "[end]" eventsTrack of
+    t : _ -> t
+    []    -> error "autoBeat: no [end] event found"
+  hasBeat = not $ null $ filter (\t -> trackName t == Just "BEAT") rest
+  beat = rtbTake endEvent $ makeBeatTrack tempo
+  in if hasBeat
+    then f
+    else fromStandardMIDI tempo $ beat : rest
+
+noteOn, noteOff :: Int -> E.T
+noteOn p = E.MIDIEvent $ C.Cons (C.toChannel 0) $ C.Voice $
+  V.NoteOn (V.toPitch p) $ V.toVelocity 96
+noteOff p = E.MIDIEvent $ C.Cons (C.toChannel 0) $ C.Voice $
+  V.NoteOff (V.toPitch p) $ V.toVelocity 0
+
+-- | Makes an infinite BEAT track given the time signature track.
+makeBeatTrack :: RTB.T Beats E.T -> RTB.T Beats E.T
+makeBeatTrack = RTB.cons 0 (E.MetaEvent $ Meta.TrackName "BEAT") . go 4 where
+  go :: Beats -> RTB.T Beats E.T -> RTB.T Beats E.T
+  go sig sigs = let
+    sig' = case mapMaybe isTimeSig $ eventsAtZero sigs of
+      []    -> sig
+      s : _ -> s
+    in rtbGlue sig' infiniteMeasure $ go sig' $ rtbDrop sig' sigs
+  isTimeSig :: E.T -> Maybe Beats
+  isTimeSig (E.MetaEvent (Meta.TimeSig n d _ _)) = Just $ let
+    writtenFraction = fromIntegral n / (2 ^ d)
+    in 4 * writtenFraction
+  isTimeSig _ = Nothing
+  infiniteMeasure, infiniteBeats :: RTB.T Beats E.T
+  infiniteMeasure
+    = RTB.cons 0 (noteOn 12)
+    $ RTB.cons (1/32) (noteOff 12)
+    $ RTB.delay (1 - 1/32) infiniteBeats
+  infiniteBeats
+    = RTB.cons 0 (noteOn 13)
+    $ RTB.cons (1/32) (noteOff 13)
+    $ RTB.delay (1 - 1/32) infiniteBeats
+
+rtbGlue :: (NNC.C t, Ord a) => t -> RTB.T t a -> RTB.T t a -> RTB.T t a
+rtbGlue t xs ys = let
+  xs' = rtbTake t xs
+  gap = t NNC.-| NNC.sum (RTB.getTimes xs')
+  in RTB.append xs' $ RTB.delay gap ys
+
+rtbTake :: (NNC.C t, Ord a) => t -> RTB.T t a -> RTB.T t a
+rtbTake t rtb = case RTB.viewL rtb of
+  Nothing -> rtb
+  Just ((dt, x), rtb') -> case NNC.split t dt of
+    (_, (True, _)) {- t <= dt -} -> RTB.empty
+    (_, (False, d)) {- t > dt -} -> RTB.cons dt x $ rtbTake d rtb'
+
+rtbDrop :: (NNC.C t, Ord a) => t -> RTB.T t a -> RTB.T t a
+rtbDrop t rtb = case RTB.viewL rtb of
+  Nothing -> rtb
+  Just ((dt, x), rtb') -> case NNC.split t dt of
+    (_, (True, d)) {- t <= dt -} -> RTB.cons d x rtb'
+    (_, (False, d)) {- t > dt -} -> rtbDrop d rtb'

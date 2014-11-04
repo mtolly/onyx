@@ -1,0 +1,7 @@
+title: Cockroach King
+package: cockroachking
+file-include: ../../albums/the-mountain.yml
+track-number: 3
+audio:
+  album: Unary [Pad Begin 4.941] (File ())
+config: [drums]
