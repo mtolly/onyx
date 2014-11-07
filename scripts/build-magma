@@ -1,5 +1,11 @@
 #!/usr/bin/env ruby
 
+def system_(*args)
+  STDERR.puts args.join(' ')
+  result = system(*args)
+  raise(IOError, "Command returned #{$?.exitstatus}") if result != true
+end
+
 readmes = `ls */*/README.md`.split "\n"
 #readmes = ['dream-theater/6-00/README.md']
 readmes.each do |readme|
@@ -26,10 +32,15 @@ readmes.each do |readme|
         makes += [
           "gen/#{a}/#{p}/magma/drums.wav",
         ]
+        if str.include? 'Bass:'
+          makes += [
+            "gen/#{a}/#{p}/magma/bass.wav",
+          ]
+        end
       end
     end
   end
   Dir.chdir(folder) do
-    system("make", *makes)
+    system_("onyxbuild", *makes)
   end
 end
