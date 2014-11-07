@@ -37,49 +37,56 @@ complex build process.
 
 ## Full build process
 
-Required:
+As of v0.3, the build system is a Haskell program written with
+[Shake](http://community.haskell.org/~ndm/shake/).
+You can download a binary from the
+[releases](https://github.com/mtolly/onyxite-customs/releases) page,
+or compile it yourself with GHC >= 7.8 or the
+[Haskell Platform](https://www.haskell.org/platform/) >= 2014.2.0.0.
+
+The following programs must be in your `PATH` (callable by the build program):
 
   * [ImageMagick](http://www.imagemagick.org):
     you need a recent version with DirectDraw Surface write support
   * [SoX](http://sox.sourceforge.net/)
   * [LAME](http://lame.sourceforge.net/) if you want to supply MP3 audio
 
-If you want to compile straight to Xbox 360 CON:
+Plus the following if you want to compile straight to Xbox 360 CON:
 
   * [`rb3pkg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/rb3pkg_v0.1_dotnet.zip)
-  * .NET Framework or [Mono](http://www.mono-project.com)
 
-If you want to compile to Magma RBA:
-
-  * [`magmyx`](https://github.com/mtolly/magmyx)
-
-For Linux and Mac only:
-
-  * [Wine](http://www.winehq.org)
-
-You'll need all of the above to be accessible in your PATH.
-
-  * ImageMagick, SoX, and LAME should do this for you during installation.
-  * `magmyx` is a single executable; place it as appropriate.
-  * For `rb3pkg`, on Windows you can just put its directory in the PATH.
-    For Linux/Mac, make a script with contents:
+    To place this in your `PATH` on Linux/Mac, make a script with contents:
 
         #!/bin/sh
         mono /path/to/rb3pkg.exe "$@"
+
+  * .NET Framework or [Mono](http://www.mono-project.com)
+
+Plus this if you want to compile to Magma RBA:
+
+  * [`magmyx`](https://github.com/mtolly/magmyx)
+
+Finally, for Linux and Mac only:
+
+  * [Wine](http://www.winehq.org)
 
 Then, build the `onyxbuild` program in the `build/` directory, or download it
 from the releases page. This requires one package not on Hackage,
 [ogg2mogg](https://github.com/mtolly/rb3tools/tree/master/ogg2mogg).
 
-In the song directory, first create `audio-album.ogg` or something similar if
-you need to supply audio. Then run:
+`onyxbuild` reads the file `song.yml` to get song information, then builds
+whatever files you specify on the command line in a Make-like fashion. Inside
+the song folder, to build a song, enter the following command:
 
-    onyxbuild gen/{audio source}/{1p or 2p}/rb3.con
+    onyxbuild gen/{audio source}/{1p or 2p}/{rb3.con or magma.rba}
 
-to build your Xbox 360 CON file. Or, replace `rb3.con` with `magma.rba` to 
-build with `magmyx`.
+Valid audio sources:
 
-If you need to tell `onyxbuild` where your Jammit files are located, you can
-do that with the `JAMMIT` environment variable:
+  * `album`, for audio from the original CD. You must provide a file named like
+    `audio-album.xxx` in the song directory before building.
 
-    JAMMIT=/path/to/directory onyxbuild ...
+  * `jammit`, for multitrack audio purchased from [Jammit](http://www.jammit.com/).
+    By default your app-created Windows/Mac library will be read from, or you
+    can specify the `JAMMIT` environment variable to point to a custom directory.
+
+  * Various other sources as listed in the song's `README.md`.
