@@ -187,7 +187,9 @@ midRules s = eachAudio s $ \src -> do
     if b
       then replaceTempos "notes.mid" tempos out
       else runMidi fixResolution "notes.mid" out
-  mid2p *> runMidi (autoBeat . drumMix 0 . make2xBassPedal . tempoTrackName) mid
+  mid2p *> runMidi
+    (fixRolls . autoBeat . drumMix 0 . make2xBassPedal . tempoTrackName)
+    mid
   mid1p *> runMidi (oneFoot 0.18 0.11) mid2p
 
 runMidi :: (F.T -> F.T) -> FilePath -> FilePath -> Action ()

@@ -22,6 +22,8 @@ import Audio
 
 import Development.Shake
 
+import Debug.Trace
+
 standardMIDI :: F.T -> (RTB.T Beats E.T, [RTB.T Beats E.T])
 standardMIDI (F.Cons _ dvn trks) = case dvn of
   F.Ticks n -> case map (ticksToBeats n) trks of
@@ -257,3 +259,69 @@ rtbDrop t rtb = case RTB.viewL rtb of
   Just ((dt, x), rtb') -> case NNC.split t dt of
     (_, (True, d)) {- t <= dt -} -> RTB.cons d x rtb'
     (_, (False, d)) {- t > dt -} -> rtbDrop d rtb'
+
+-- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
+-- their last gem note-on.
+fixRolls :: F.T -> F.T
+fixRolls = let
+  isRollable t = trackName t `elem` map Just ["PART DRUMS", "PART BASS"]
+  fixRollsTracks = map $ \t -> if isRollable t then fixRollsTrack t else t
+  in uncurry fromStandardMIDI . second fixRollsTracks . standardMIDI
+
+fixRollsTrack :: RTB.T Beats E.T -> RTB.T Beats E.T
+fixRollsTrack = RTB.flatten . go . RTB.collectCoincident where
+  go :: RTB.T Beats [E.T] -> RTB.T Beats [E.T]
+  go rtb = case RTB.viewL rtb of
+    Nothing -> RTB.empty
+    Just ((dt, evts), rtb') -> case findNoteOn [126, 127] evts of
+      -- Tremolo (single note or chord) or one-drum roll
+      Just 126 -> case findNoteOn [97..100] evts of
+        Nothing -> error "fixRollsTrack: found single-roll start without a gem"
+        Just p -> let
+          rollLength = findFirst [noteOff 126] rtb'
+          lastGem = findLast [noteOn p] $ rtbTake rollLength rtb'
+          newOff = RTB.singleton (lastGem + 1/32) $ noteOff 126
+          modified = RTB.collectCoincident
+            $ RTB.merge newOff
+            $ RTB.flatten
+            $ removeNextOff 126 rtb'
+          in traceShow (rollLength, lastGem, newOff) $ RTB.cons dt evts $ go modified
+      -- Trill or two-drum roll
+      Just 127 -> case findNoteOn [97..100] evts of
+        Nothing -> error "fixRollsTrack: found double-roll start without a gem" 
+        Just p1 -> case RTB.viewL $ RTB.mapMaybe (findNoteOn [97..100]) rtb' of
+          Nothing -> error "fixRollsTrack: found double-roll without a 2nd gem"
+          Just ((_, p2), _) -> let
+            rollLength = findFirst [noteOff 127] rtb'
+            lastGem = findLast [noteOn p1, noteOn p2] $ rtbTake rollLength rtb'
+            newOff = RTB.singleton (lastGem + 1/32) $ noteOff 127
+            modified = RTB.collectCoincident
+              $ RTB.merge newOff
+              $ RTB.flatten
+              $ removeNextOff 127 rtb'
+            in RTB.cons dt evts $ go modified
+      _ -> RTB.cons dt evts $ go rtb'
+  findNoteOn :: [Int] -> [E.T] -> Maybe Int
+  findNoteOn ps evts = listToMaybe $ filter (\p -> noteOn p `elem` evts) ps
+  removeNextOff :: Int -> RTB.T Beats [E.T] -> RTB.T Beats [E.T]
+  removeNextOff p rtb = case RTB.viewL rtb of
+    Nothing -> error $ "fixRollsTrack: unterminated note of pitch " ++ show p
+    Just ((dt, evts), rtb') -> case partition (== noteOff p) evts of
+      ([]   , _    ) -> RTB.cons dt evts $ removeNextOff p rtb'
+      (_ : _, evts') -> RTB.cons dt evts' rtb'
+  findFirst :: [E.T] -> RTB.T Beats [E.T] -> Beats
+  findFirst evts rtb = let
+    hasPitch = any (`elem` evts)
+    atb = RTB.toAbsoluteEventList 0 $ RTB.filter hasPitch rtb
+    in case ATB.toPairList atb of
+      []           -> error $
+        "findFirst: couldn't find any of following events: " ++ show evts
+      (bts, _) : _ -> bts
+  findLast :: [E.T] -> RTB.T Beats [E.T] -> Beats
+  findLast evts rtb = let
+    hasPitch = any (`elem` evts)
+    atb = RTB.toAbsoluteEventList 0 $ RTB.filter hasPitch rtb
+    in case reverse $ ATB.toPairList atb of
+      []           -> error $
+        "findLast: couldn't find any of following events: " ++ show evts
+      (bts, _) : _ -> bts
