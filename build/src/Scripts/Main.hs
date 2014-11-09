@@ -22,8 +22,6 @@ import Audio
 
 import Development.Shake
 
-import Debug.Trace
-
 standardMIDI :: F.T -> (RTB.T Beats E.T, [RTB.T Beats E.T])
 standardMIDI (F.Cons _ dvn trks) = case dvn of
   F.Ticks n -> case map (ticksToBeats n) trks of
@@ -216,6 +214,16 @@ noteOn p = E.MIDIEvent $ C.Cons (C.toChannel 0) $ C.Voice $
 noteOff p = E.MIDIEvent $ C.Cons (C.toChannel 0) $ C.Voice $
   V.NoteOff (V.toPitch p) $ V.toVelocity 0
 
+isNoteOn, isNoteOff :: Int -> E.T -> Bool
+isNoteOn p (E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn p' v))))
+  = V.toPitch p == p' && V.fromVelocity v /= 0
+isNoteOn _ _ = False
+isNoteOff p (E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn p' v))))
+  = V.toPitch p == p' && V.fromVelocity v == 0
+isNoteOff p (E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOff p' _))))
+  = V.toPitch p == p'
+isNoteOff _ _ = False
+
 -- | Makes an infinite BEAT track given the time signature track.
 makeBeatTrack :: RTB.T Beats E.T -> RTB.T Beats E.T
 makeBeatTrack = RTB.cons 0 (E.MetaEvent $ Meta.TrackName "BEAT") . go 4 where
@@ -278,22 +286,22 @@ fixRollsTrack = RTB.flatten . go . RTB.collectCoincident where
       Just 126 -> case findNoteOn [97..100] evts of
         Nothing -> error "fixRollsTrack: found single-roll start without a gem"
         Just p -> let
-          rollLength = findFirst [noteOff 126] rtb'
-          lastGem = findLast [noteOn p] $ rtbTake rollLength rtb'
+          rollLength = findFirst [isNoteOff 126] rtb'
+          lastGem = findLast [isNoteOn p] $ rtbTake rollLength rtb'
           newOff = RTB.singleton (lastGem + 1/32) $ noteOff 126
           modified = RTB.collectCoincident
             $ RTB.merge newOff
             $ RTB.flatten
             $ removeNextOff 126 rtb'
-          in traceShow (rollLength, lastGem, newOff) $ RTB.cons dt evts $ go modified
+          in RTB.cons dt evts $ go modified
       -- Trill or two-drum roll
       Just 127 -> case findNoteOn [97..100] evts of
-        Nothing -> error "fixRollsTrack: found double-roll start without a gem" 
+        Nothing -> error $ "fixRollsTrack: found double-roll start without a gem"
         Just p1 -> case RTB.viewL $ RTB.mapMaybe (findNoteOn [97..100]) rtb' of
           Nothing -> error "fixRollsTrack: found double-roll without a 2nd gem"
           Just ((_, p2), _) -> let
-            rollLength = findFirst [noteOff 127] rtb'
-            lastGem = findLast [noteOn p1, noteOn p2] $ rtbTake rollLength rtb'
+            rollLength = findFirst [isNoteOff 127] rtb'
+            lastGem = findLast [isNoteOn p1, isNoteOn p2] $ rtbTake rollLength rtb'
             newOff = RTB.singleton (lastGem + 1/32) $ noteOff 127
             modified = RTB.collectCoincident
               $ RTB.merge newOff
@@ -302,26 +310,24 @@ fixRollsTrack = RTB.flatten . go . RTB.collectCoincident where
             in RTB.cons dt evts $ go modified
       _ -> RTB.cons dt evts $ go rtb'
   findNoteOn :: [Int] -> [E.T] -> Maybe Int
-  findNoteOn ps evts = listToMaybe $ filter (\p -> noteOn p `elem` evts) ps
+  findNoteOn ps evts = listToMaybe $ filter (\p -> any (isNoteOn p) evts) ps
   removeNextOff :: Int -> RTB.T Beats [E.T] -> RTB.T Beats [E.T]
   removeNextOff p rtb = case RTB.viewL rtb of
     Nothing -> error $ "fixRollsTrack: unterminated note of pitch " ++ show p
-    Just ((dt, evts), rtb') -> case partition (== noteOff p) evts of
+    Just ((dt, evts), rtb') -> case partition (isNoteOff p) evts of
       ([]   , _    ) -> RTB.cons dt evts $ removeNextOff p rtb'
       (_ : _, evts') -> RTB.cons dt evts' rtb'
-  findFirst :: [E.T] -> RTB.T Beats [E.T] -> Beats
-  findFirst evts rtb = let
-    hasPitch = any (`elem` evts)
-    atb = RTB.toAbsoluteEventList 0 $ RTB.filter hasPitch rtb
+  findFirst :: [E.T -> Bool] -> RTB.T Beats [E.T] -> Beats
+  findFirst fns rtb = let
+    satisfy = any $ \e -> any ($ e) fns
+    atb = RTB.toAbsoluteEventList 0 $ RTB.filter satisfy rtb
     in case ATB.toPairList atb of
-      []           -> error $
-        "findFirst: couldn't find any of following events: " ++ show evts
+      []           -> error "findFirst: couldn't find any events satisfying the functions"
       (bts, _) : _ -> bts
-  findLast :: [E.T] -> RTB.T Beats [E.T] -> Beats
-  findLast evts rtb = let
-    hasPitch = any (`elem` evts)
-    atb = RTB.toAbsoluteEventList 0 $ RTB.filter hasPitch rtb
+  findLast :: [E.T -> Bool] -> RTB.T Beats [E.T] -> Beats
+  findLast fns rtb = let
+    satisfy = any $ \e -> any ($ e) fns
+    atb = RTB.toAbsoluteEventList 0 $ RTB.filter satisfy rtb
     in case reverse $ ATB.toPairList atb of
-      []           -> error $
-        "findLast: couldn't find any of following events: " ++ show evts
+      []           -> error "findLast: couldn't find any events satisfying the functions"
       (bts, _) : _ -> bts
