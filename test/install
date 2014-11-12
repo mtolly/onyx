@@ -11,7 +11,7 @@ cabal install alex happy
 mkdir git
 cd git
 git clone https://github.com/mtolly/magmyx
-(cd magmyx; cabal install)
+(cd magmyx; ./zip.sh; cabal install)
 git clone https://github.com/mtolly/rb3tools
 (cd rb3tools/ogg2mogg; cabal install)
 cd ..
