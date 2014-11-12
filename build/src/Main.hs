@@ -135,13 +135,14 @@ stemsRules s = do
 eachAudio :: (Monad m) => Song -> (String -> m ()) -> m ()
 eachAudio = forM_ . HM.keys . _audio
 
-eachVersionDir :: (Monad m) => Song -> (FilePath -> m ()) -> m ()
-eachVersionDir s f = eachAudio s $ \src ->
-  forM_ ["1p", "2p"] $ \feet ->
-    f $ "gen" </> src </> feet
+-- | The given function should accept the version title and directory.
+eachVersion :: (Monad m) => Song -> (String -> FilePath -> m ()) -> m ()
+eachVersion s f = eachAudio s $ \src ->
+  forM_ [("1p", ""), ("2p", " (2x Bass Pedal)")] $ \(feet, titleSuffix) ->
+    f (_title s ++ titleSuffix) ("gen" </> src </> feet)
 
 countinRules :: Song -> Rules ()
-countinRules s = eachVersionDir s $ \dir -> do
+countinRules s = eachVersion s $ \_ dir -> do
   dir </> "countin.wav" *> \out -> do
     let mid = dir </> "notes.mid"
         hit = "../../sound/hihat-foot.wav"
@@ -152,7 +153,7 @@ countinRules s = eachVersionDir s $ \dir -> do
     buildAudio (Combine Mix [song, countin]) out
 
 oggRules :: Song -> Rules ()
-oggRules s = eachVersionDir s $ \dir -> do
+oggRules s = eachVersion s $ \_ dir -> do
   dir </> "audio.ogg" *> \out -> do
     let drums = File $ dir </> "drums.wav"
         bass  = File $ dir </> "bass.wav"
@@ -221,7 +222,7 @@ main = do
       fofRules song
 
 rb3Rules :: Song -> Rules ()
-rb3Rules s = eachVersionDir s $ \dir -> do
+rb3Rules s = eachVersion s $ \title dir -> do
   let pkg = _package s
       pathDta = dir </> "rb3/songs/songs.dta"
       pathMid = dir </> "rb3/songs" </> pkg </> (pkg <.> "mid")
@@ -229,7 +230,7 @@ rb3Rules s = eachVersionDir s $ \dir -> do
       pathPng = dir </> "rb3/songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_xbox")
       pathCon = dir </> "rb3.con"
   pathDta *> \out -> do
-    songPkg <- makeDTA (dir </> "notes.mid") s
+    songPkg <- makeDTA title (dir </> "notes.mid") s
     let dta = D.DTA 0 $ D.Tree 0 $ (:[]) $ D.Parens $ D.Tree 0 $
           D.Key (B8.pack pkg) : D.toChunks songPkg
     writeFile' out $ D.sToDTA dta
@@ -241,13 +242,13 @@ rb3Rules s = eachVersionDir s $ \dir -> do
     cmd "rb3pkg -p" [_artist s ++ ": " ++ _title s] "-d"
       ["Version: " ++ drop 4 dir] "-f" [dir </> "rb3"] out
 
-makeDTA :: FilePath -> Song -> Action D.SongPackage
-makeDTA mid s = do
+makeDTA :: String -> FilePath -> Song -> Action D.SongPackage
+makeDTA title mid s = do
   (pstart, pend) <- previewBounds mid
   len <- songLength mid
   let numChannels = length (_config s) * 2 + 2
   return D.SongPackage
-    { D.name = B8.pack $ _title s
+    { D.name = B8.pack title
     , D.artist = B8.pack $ _artist s
     , D.master = True
     , D.songId = Right $ D.Keyword $ B8.pack $ _package s
@@ -357,7 +358,7 @@ checkPrograms = do
     _ -> fail "Couldn't read SoX supported file formats."
 
 magmaRules :: Song -> Rules ()
-magmaRules s = eachVersionDir s $ \dir -> do
+magmaRules s = eachVersion s $ \title dir -> do
   let drums = dir </> "magma/drums.wav"
       bass = dir </> "magma/bass.wav"
       song = dir </> "magma/song-countin.wav"
@@ -371,7 +372,7 @@ magmaRules s = eachVersionDir s $ \dir -> do
   cover *> copyFile' "gen/cover.bmp"
   mid *> magmaClean (dir </> "notes.mid")
   proj *> \out -> do
-    p <- makeMagmaProj (dir </> "notes.mid") s
+    p <- makeMagmaProj title (dir </> "notes.mid") s
     let dta = D.DTA 0 $ D.Tree 0 $ D.toChunks p
     writeFile' out $ D.sToDTA dta
   rba *> \_ -> do
@@ -380,8 +381,8 @@ magmaRules s = eachVersionDir s $ \dir -> do
     need [song, cover, mid, proj]
     cmd "magmyx -c3" [proj, rba]
 
-makeMagmaProj :: FilePath -> Song -> Action Magma.RBProj
-makeMagmaProj mid s = do
+makeMagmaProj :: String -> FilePath -> Song -> Action Magma.RBProj
+makeMagmaProj title mid s = do
   (pstart, _) <- previewBounds mid
   let emptyDryVox = Magma.DryVoxPart
         { Magma.dryVoxFile = B8.pack ""
@@ -406,7 +407,7 @@ makeMagmaProj mid s = do
       { Magma.toolVersion = B8.pack "110411_A"
       , Magma.projectVersion = 24
       , Magma.metadata = Magma.Metadata
-        { Magma.songName = B8.pack $ _title s
+        { Magma.songName = B8.pack title
         , Magma.artistName = B8.pack $ _artist s
         , Magma.genre = D.Keyword $ B8.pack $ _genre s
         , Magma.subGenre = D.Keyword $ B8.pack $ "subgenre_" ++ _subgenre s
@@ -476,7 +477,7 @@ makeMagmaProj mid s = do
     }
 
 fofRules :: Song -> Rules ()
-fofRules s = eachVersionDir s $ \dir -> do
+fofRules s = eachVersion s $ \title dir -> do
   let mid = dir </> "fof/notes.mid"
       png = dir </> "fof/album.png"
       drums = dir </> "fof/drums.ogg"
@@ -488,17 +489,17 @@ fofRules s = eachVersionDir s $ \dir -> do
   drums *> buildAudio (File $ dir </> "drums.wav")
   bass *> buildAudio (File $ dir </> "bass.wav")
   song *> buildAudio (File $ dir </> "song-countin.wav")
-  ini *> \out -> makeIni mid s >>= writeFile' out
+  ini *> \out -> makeIni title mid s >>= writeFile' out
   phony (dir </> "fof-all") $ do
     need [mid, png, song, ini]
     when (Drums `elem` _config s) $ need [drums]
     when (Bass `elem` _config s) $ need [bass]
 
-makeIni :: FilePath -> Song -> Action String
-makeIni mid s = do
+makeIni :: String -> FilePath -> Song -> Action String
+makeIni title mid s = do
   len <- songLength mid
   let iniLines =
-        [ ("name", _title s)
+        [ ("name", title)
         , ("artist", _artist s)
         , ("album", _album s)
         , ("genre", _genre s)
