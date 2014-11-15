@@ -221,16 +221,21 @@ main = do
       magmaRules song
       fofRules song
 
+packageID :: FilePath -> Song -> String
+packageID dir s = let
+  buildID = hash (_title s, _artist s, dir) `mod` 1000000000
+  in "onyx" ++ show buildID
+
 rb3Rules :: Song -> Rules ()
 rb3Rules s = eachVersion s $ \title dir -> do
-  let pkg = _package s
+  let pkg = packageID dir s
       pathDta = dir </> "rb3/songs/songs.dta"
       pathMid = dir </> "rb3/songs" </> pkg </> (pkg <.> "mid")
       pathMogg = dir </> "rb3/songs" </> pkg </> (pkg <.> "mogg")
       pathPng = dir </> "rb3/songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_xbox")
       pathCon = dir </> "rb3.con"
   pathDta *> \out -> do
-    songPkg <- makeDTA title (dir </> "notes.mid") s
+    songPkg <- makeDTA pkg title (dir </> "notes.mid") s
     let dta = D.DTA 0 $ D.Tree 0 $ (:[]) $ D.Parens $ D.Tree 0 $
           D.Key (B8.pack pkg) : D.toChunks songPkg
     writeFile' out $ D.sToDTA dta
@@ -242,8 +247,8 @@ rb3Rules s = eachVersion s $ \title dir -> do
     cmd "rb3pkg -p" [_artist s ++ ": " ++ _title s] "-d"
       ["Version: " ++ drop 4 dir] "-f" [dir </> "rb3"] out
 
-makeDTA :: String -> FilePath -> Song -> Action D.SongPackage
-makeDTA title mid s = do
+makeDTA :: String -> String -> FilePath -> Song -> Action D.SongPackage
+makeDTA pkg title mid s = do
   (pstart, pend) <- previewBounds mid
   len <- songLength mid
   let numChannels = length (_config s) * 2 + 2
@@ -251,9 +256,9 @@ makeDTA title mid s = do
     { D.name = B8.pack title
     , D.artist = B8.pack $ _artist s
     , D.master = True
-    , D.songId = Right $ D.Keyword $ B8.pack $ _package s
+    , D.songId = Right $ D.Keyword $ B8.pack pkg
     , D.song = D.Song
-      { D.songName = B8.pack $ "songs/" ++ _package s ++ "/" ++ _package s
+      { D.songName = B8.pack $ "songs/" ++ pkg ++ "/" ++ pkg
       , D.tracksCount = Just $ D.InParens
         [ if Drums `elem` _config s then 2 else 0
         , if Bass `elem` _config s then 2 else 0
@@ -372,7 +377,8 @@ magmaRules s = eachVersion s $ \title dir -> do
   cover *> copyFile' "gen/cover.bmp"
   mid *> magmaClean (dir </> "notes.mid")
   proj *> \out -> do
-    p <- makeMagmaProj title (dir </> "notes.mid") s
+    let pkg = packageID dir s
+    p <- makeMagmaProj pkg title (dir </> "notes.mid") s
     let dta = D.DTA 0 $ D.Tree 0 $ D.toChunks p
     writeFile' out $ D.sToDTA dta
   rba *> \_ -> do
@@ -381,8 +387,8 @@ magmaRules s = eachVersion s $ \title dir -> do
     need [song, cover, mid, proj]
     cmd "magmyx -c3" [proj, rba]
 
-makeMagmaProj :: String -> FilePath -> Song -> Action Magma.RBProj
-makeMagmaProj title mid s = do
+makeMagmaProj :: String -> String -> FilePath -> Song -> Action Magma.RBProj
+makeMagmaProj pkg title mid s = do
   (pstart, _) <- previewBounds mid
   let emptyDryVox = Magma.DryVoxPart
         { Magma.dryVoxFile = B8.pack ""
@@ -446,7 +452,7 @@ makeMagmaProj title mid s = do
         , Magma.german = False
         , Magma.japanese = False
         }
-      , Magma.destinationFile = B8.pack $ _package s <.> "rba"
+      , Magma.destinationFile = B8.pack $ pkg <.> "rba"
       , Magma.midi = Magma.Midi
         { Magma.midiFile = B8.pack "notes.mid"
         , Magma.autogenTheme = Right $ B8.pack ""

@@ -19,7 +19,6 @@ data Song = Song
   , _vocalGender :: Gender
   , _fileAlbumArt :: FilePath
   , _trackNumber :: Int
-  , _package :: String
   , _jammitTitle :: Maybe String
   , _jammitArtist :: Maybe String
   , _audio :: Map.HashMap String (AudioConfig Double)
