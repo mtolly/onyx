@@ -1,5 +1,4 @@
 title: Afterlife
-package: dtafterlife
 # package name "afterlife" doesn't work
 # probably conflicts with RB3 disc files relating to A7X afterlife
 file-include: ../../albums/when-dream-and-day-unite.yml
