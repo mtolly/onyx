@@ -14,11 +14,6 @@ Supported audio:
     and `audio-next.xxx` (The Ones Who Help to Set the Sun). The first 10
     seconds or so of the next track are used in this song package.
 
-Supported drum pedals:
-
-  * `1p`
-  * `2p`
-
 Notes:
 
   * Chart confidence: *high*.

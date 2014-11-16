@@ -10,11 +10,6 @@ Supported audio:
 
   * `album` (A Dramatic Turn of Events)
 
-Supported drum pedals:
-
-  * `1p`
-  * `2p`
-
 Notes:
 
   * Chart confidence: *medium-low*.

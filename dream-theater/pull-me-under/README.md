@@ -12,11 +12,6 @@ Supported audio:
   * `hit` (Greatest Hit)
   * `jammit`
 
-Supported drum pedals:
-
-  * `1p`
-  * `2p`
-
 Notes:
 
   * Chart confidence: *high*. Charted to Jammit stems and 2007 remaster.

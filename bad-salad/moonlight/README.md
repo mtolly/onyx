@@ -14,10 +14,6 @@ Supported audio:
     with names like `BadSalad-Puzzled-2-Moonlight-Stem-Drums.flac`,
     in the build folder.
 
-Supported drum pedals:
-
-  * `1p`/`2p` (identical)
-
 Notes:
 
   * Chart confidence: *high*. Written to PledgeMusic stems.

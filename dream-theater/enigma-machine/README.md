@@ -10,11 +10,6 @@ Supported audio:
 
   * `album` (Dream Theater)
 
-Supported drum pedals:
-
-  * `1p`
-  * `2p`
-
 Notes:
 
   * Chart confidence: *medium*. The drum solo is designed for Mangini's unique

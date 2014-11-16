@@ -10,11 +10,6 @@ Supported audio:
 
   * `album` (center:level:roar)
 
-Supported drum pedals:
-
-  * `1p`
-  * `2p`
-
 Notes:
 
   * Chart confidence: *medium*. This song is performed by 2 or 3 percussionists,

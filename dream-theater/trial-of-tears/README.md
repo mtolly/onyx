@@ -11,11 +11,6 @@ Supported audio:
   * `album` (Falling into Infinity)
   * `jammit`
 
-Supported drum pedals:
-
-  * `1p`
-  * `2p`
-
 Notes:
 
   * Chart confidence: *just below high*.

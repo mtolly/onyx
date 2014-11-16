@@ -10,11 +10,6 @@ Supported audio:
 
   * `album` (Black Clouds & Silver Linings)
 
-Supported drum pedals:
-
-  * `1p`
-  * `2p`
-
 Notes:
 
   * Chart confidence: *high*. Charted to BC&SL deluxe edition stems.
