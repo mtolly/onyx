@@ -1,5 +1,6 @@
 audio-*.*
 */*/gen/
+!build/magma/gen/
 *.rpp
 *.rpp-bak
 *.reapeaks
