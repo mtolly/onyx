@@ -62,17 +62,12 @@ Plus the following if you want to compile straight to Xbox 360 CON:
 
   * .NET Framework or [Mono](http://www.mono-project.com)
 
-Plus this if you want to compile to Magma RBA:
-
-  * [`magmyx`](https://github.com/mtolly/magmyx)
-
 Finally, for Linux and Mac only:
 
   * [Wine](http://www.winehq.org)
 
 Then, build the `onyxbuild` program in the `build/` directory, or download it
-from the releases page. This requires one package not on Hackage,
-[ogg2mogg](https://github.com/mtolly/rb3tools/tree/master/ogg2mogg).
+from the releases page.
 
 `onyxbuild` reads the file `song.yml` to get song information, then builds
 whatever files you specify on the command line in a Make-like fashion. Inside

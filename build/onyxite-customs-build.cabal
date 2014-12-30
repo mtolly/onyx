@@ -6,28 +6,40 @@ maintainer:           miketolly@gmail.com
 category:             Distribution
 build-type:           Simple
 cabal-version:        >= 1.10
+extra-source-files:
+  magma/hellskitchen.rbproj
+  magma/MagmaCompilerC3.exe
+  magma/notes.mid
+  magma/oggenc-redirect.exe
+  magma/oggenc.exe
+  magma/gen/main_pc.hdr
+  magma/gen/main_pc_0.ark
 
 executable onyxbuild
   hs-source-dirs:       src
   main-is:              Main.hs
-  other-modules:        YAMLTree
-                        Config
-                        Audio
-                        TH
-                        Scripts.Main
-                        Scripts.MIDITime
-                        OneFoot
-  build-depends:        base    >= 4.6    && < 4.8
-                        , shake >= 0.13.2 && < 0.14
-                        , directory
-                        , temporary
-                        , aeson, text, unordered-containers, filepath, yaml
-                        , bifunctors
-                        , event-list, non-negative, midi
-                        , containers
-                        , dtab == 1.0
-                        , bytestring
-                        , ogg2mogg
-                        , jammittools
+  other-modules:
+    YAMLTree
+    Config
+    Audio
+    TH
+    Scripts.Main
+    Scripts.MIDITime
+    OneFoot
+    Magma
+  build-depends:
+    base    >= 4.6    && < 4.8
+    , shake >= 0.13.2 && < 0.14
+    , directory
+    , temporary
+    , aeson, text, unordered-containers, filepath, yaml
+    , bifunctors
+    , event-list, non-negative, midi
+    , containers
+    , dtab == 1.0
+    , bytestring
+    , jammittools
+    , file-embed
+    , process
   default-language:     Haskell2010
   ghc-options:          -Wall

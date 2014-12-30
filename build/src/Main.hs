@@ -8,6 +8,7 @@ import YAMLTree
 import Config
 import Audio
 import OneFoot
+import Magma
 import qualified Data.Aeson as A
 import Control.Applicative ((<$>), (<|>))
 import Control.Monad (forM_, unless, when)
@@ -15,7 +16,6 @@ import Data.Maybe (fromMaybe, mapMaybe, isJust)
 import Data.List (stripPrefix)
 import Data.Bifunctor (bimap, first)
 import Scripts.Main
-import Codec.Container.Ogg.Mogg (oggToMogg)
 import qualified Sound.Jammit.Base as J
 import qualified Sound.Jammit.Export as J
 import qualified System.Environment as Env
@@ -385,7 +385,7 @@ magmaRules s = eachVersion s $ \title dir -> do
     when (Drums `elem` _config s) $ need [drums]
     when (Bass `elem` _config s) $ need [bass]
     need [song, cover, mid, proj]
-    cmd "magmyx -c3" [proj, rba]
+    liftIO $ runMagma proj rba
 
 makeMagmaProj :: String -> String -> FilePath -> Song -> Action Magma.RBProj
 makeMagmaProj pkg title mid s = do

@@ -1,0 +1,64 @@
+{-# LANGUAGE TemplateHaskell #-}
+module Magma where
+
+import Data.FileEmbed (embedDir)
+import qualified Data.ByteString as B
+import qualified System.Directory as Dir
+import System.IO.Temp (withSystemTempDirectory)
+import System.Info (os)
+import System.Process (callProcess, readProcess)
+import Control.Monad (forM_)
+import Control.Exception (bracket_)
+import Data.Word (Word32)
+import qualified System.IO as IO
+import Data.Bits (shiftL)
+import System.FilePath ((</>))
+
+magmaFiles :: [(FilePath, B.ByteString)]
+magmaFiles = $(embedDir "magma/")
+
+withExe :: (FilePath -> [String] -> IO a) -> FilePath -> [String] -> IO a
+withExe f exe args = if os == "mingw32"
+  then f exe args
+  else f "wine" $ exe : args
+
+runMagma :: FilePath -> FilePath -> IO ()
+runMagma proj rba = withSystemTempDirectory "magma" $ \tmp -> do
+  wd <- Dir.getCurrentDirectory
+  let proj' = wd </> proj
+      rba'  = wd </> rba
+  bracket_ (Dir.setCurrentDirectory tmp) (Dir.setCurrentDirectory wd) $ do
+    Dir.createDirectory "gen"
+    forM_ magmaFiles $ uncurry B.writeFile
+    withExe callProcess "MagmaCompilerC3.exe" [proj', rba']
+
+oggToMogg :: FilePath -> FilePath -> IO ()
+oggToMogg ogg mogg = withSystemTempDirectory "ogg2mogg" $ \tmp -> do
+  wd <- Dir.getCurrentDirectory
+  let ogg'  = wd </> ogg
+      mogg' = wd </> mogg
+  bracket_ (Dir.setCurrentDirectory tmp) (Dir.setCurrentDirectory wd) $ do
+    Dir.createDirectory "gen"
+    forM_ magmaFiles $ uncurry B.writeFile
+    Dir.renameFile "oggenc-redirect.exe" "oggenc.exe"
+    Dir.copyFile ogg' "audio.ogg"
+    let proj = "hellskitchen.rbproj"
+        rba = "out.rba"
+    callProcess "sox" $ words "-n -b 16 -c 2 -r 44.1k silence.wav trim 0 31"
+    _ <- withExe
+      (\exe args -> readProcess exe args "")
+     "MagmaCompilerC3.exe"
+     [proj, rba]
+    IO.withBinaryFile rba IO.ReadMode $ \hrba -> do
+      IO.hSeek hrba IO.AbsoluteSeek $ 4 + (4 * 3)
+      moggOffset <- hReadWord32le hrba
+      IO.hSeek hrba IO.AbsoluteSeek $ 4 + (4 * 10)
+      moggLength <- hReadWord32le hrba
+      IO.hSeek hrba IO.AbsoluteSeek $ fromIntegral moggOffset
+      moggData <- B.hGet hrba $ fromIntegral moggLength
+      B.writeFile mogg' moggData
+
+hReadWord32le :: IO.Handle -> IO Word32
+hReadWord32le h = do
+  [a, b, c, d] <- fmap (map fromIntegral . B.unpack) $ B.hGet h 4
+  return $ a + (b `shiftL` 8) + (c `shiftL` 16) + (d `shiftL` 24)

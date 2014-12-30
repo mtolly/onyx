@@ -1,0 +1,206 @@
+(
+   'project'
+   (
+      'tool_version'
+      "110411_A"
+   )
+   ('project_version' 24)
+   (
+      'metadata'
+      (
+         'song_name'
+         "Hell's Kitchen"
+      )
+      (
+         'artist_name'
+         "Dream Theater"
+      )
+      ('genre' 'metal')
+      ('sub_genre' 'subgenre_prog')
+      ('year_released' 1997)
+      (
+         'album_name'
+         "Falling into Infinity"
+      )
+      (
+         'author'
+         "onyxite"
+      )
+      (
+         'release_label'
+         "East West Records"
+      )
+      ('country' 'ugc_country_us')
+      ('price' 160)
+      ('track_number' 6)
+      ('has_album' 1)
+   )
+   (
+      'gamedata'
+      ('preview_start_ms' 0)
+      ('rank_guitar' 1)
+      ('rank_bass' 1)
+      ('rank_drum' 4)
+      ('rank_vocals' 1)
+      ('rank_keys' 1)
+      ('rank_pro_keys' 1)
+      ('rank_band' 5)
+      ('vocal_scroll_speed' 2300)
+      ('anim_tempo' 32)
+      ('vocal_gender' 'male')
+      ('vocal_percussion' 'tambourine')
+      ('vocal_parts' 0)
+      ('guide_pitch_volume' -3.00)
+   )
+   (
+      'languages'
+      ('english' 1)
+      ('french' 0)
+      ('italian' 0)
+      ('spanish' 0)
+      ('german' 0)
+      ('japanese' 0)
+   )
+   (
+      'destination_file'
+      "hasmogg.rba"
+   )
+   (
+      'midi'
+      (
+         'file'
+         "notes.mid"
+      )
+      (
+         'autogen_theme'
+         "PsychJamRock.rbtheme"
+      )
+   )
+   (
+      'dry_vox'
+      (
+         'part0'
+         (
+            'file'
+            ""
+         )
+         ('enabled' 0)
+      )
+      (
+         'part1'
+         (
+            'file'
+            ""
+         )
+         ('enabled' 0)
+      )
+      (
+         'part2'
+         (
+            'file'
+            ""
+         )
+         ('enabled' 0)
+      )
+      ('tuning_offset_cents' 0.00)
+   )
+   (
+      'album_art'
+      (
+         'file'
+         "cover.bmp"
+      )
+   )
+   (
+      'tracks'
+      ('drum_layout' 'drum_layout_kit')
+      (
+         'drum_kit'
+         ('enabled' 1)
+         ('channels' 2)
+         ('pan' -1.00 1.00)
+         ('vol' -1.00 -1.00)
+         (
+            'file'
+            "silence.wav"
+         )
+      )
+      (
+         'drum_kick'
+         ('enabled' 0)
+         ('channels' 0)
+         ('pan')
+         ('vol')
+         (
+            'file'
+            ""
+         )
+      )
+      (
+         'drum_snare'
+         ('enabled' 0)
+         ('channels' 0)
+         ('pan')
+         ('vol')
+         (
+            'file'
+            ""
+         )
+      )
+      (
+         'bass'
+         ('enabled' 0)
+         ('channels' 0)
+         ('pan')
+         ('vol')
+         (
+            'file'
+            ""
+         )
+      )
+      (
+         'guitar'
+         ('enabled' 0)
+         ('channels' 0)
+         ('pan')
+         ('vol')
+         (
+            'file'
+            ""
+         )
+      )
+      (
+         'vocals'
+         ('enabled' 0)
+         ('channels' 0)
+         ('pan')
+         ('vol')
+         (
+            'file'
+            ""
+         )
+      )
+      (
+         'keys'
+         ('enabled' 0)
+         ('channels' 0)
+         ('pan')
+         ('vol')
+         (
+            'file'
+            ""
+         )
+      )
+      (
+         'backing'
+         ('enabled' 1)
+         ('channels' 2)
+         ('pan' -1.00 1.00)
+         ('vol' -1.00 -1.00)
+         (
+            'file'
+            "silence.wav"
+         )
+      )
+   )
+)
