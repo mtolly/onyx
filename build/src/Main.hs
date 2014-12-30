@@ -12,13 +12,17 @@ import Magma
 import qualified Data.Aeson as A
 import Control.Applicative ((<$>), (<|>))
 import Control.Monad (forM_, unless, when)
-import Data.Maybe (fromMaybe, mapMaybe, isJust)
-import Data.List (stripPrefix)
+import Data.Maybe (fromMaybe, mapMaybe, isJust, listToMaybe)
+import Data.List (stripPrefix, isPrefixOf)
 import Data.Bifunctor (bimap, first)
 import Scripts.Main
 import qualified Sound.Jammit.Base as J
 import qualified Sound.Jammit.Export as J
+import qualified System.Directory as Dir
 import qualified System.Environment as Env
+import System.Exit (ExitCode(ExitSuccess))
+import qualified System.Info as Info
+import System.Process (readProcessWithExitCode)
 
 import qualified Data.DTA as D
 import qualified Data.DTA.Serialize as D
@@ -325,13 +329,46 @@ makeDTA pkg title mid s = do
     , D.encoding = Just $ D.Keyword $ B8.pack "latin1"
     }
 
+-- | Find an ImageMagick binary, because the names are way too generic, and
+-- \"convert\" is both an ImageMagick program and a Windows built-in utility.
+imageMagick :: String -> IO (Maybe String)
+imageMagick icmd = do
+  (code, _, _) <- readProcessWithExitCode icmd ["-version"] ""
+  case code of
+    ExitSuccess -> return $ Just icmd
+    _ -> case Info.os of
+      "mingw32" -> firstJustM $
+        -- env variables for different configs of (ghc arch)/(imagemagick arch)
+        -- ProgramFiles: 32/32 or 64/64
+        -- ProgramFiles(x86): 64/32
+        -- ProgramW6432: 32/64
+        flip map ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"] $ \env ->
+          Env.lookupEnv env >>= \var -> case var of
+            Nothing -> return Nothing
+            Just pf
+              ->  fmap (\im -> pf </> im </> icmd)
+              .   listToMaybe
+              .   filter ("ImageMagick" `isPrefixOf`)
+              <$> Dir.getDirectoryContents pf
+      _ -> return Nothing
+
+-- | Only runs actions until the first that gives 'Just'.
+firstJustM :: (Monad m) => [m (Maybe a)] -> m (Maybe a)
+firstJustM [] = return Nothing
+firstJustM (mx : xs) = mx >>= \x -> case x of
+  Nothing -> firstJustM xs
+  Just y  -> return $ Just y
+
 coverRules :: Song -> Rules ()
 coverRules s = do
   let img = _fileAlbumArt s
   forM_ ["bmp", "dds", "png"] $ \ext -> do
     "gen/cover" <.> ext *> \out -> do
       need [img]
-      cmd "convert" [img] "-resize 256x256!" [out]
+      conv <- liftIO $ imageMagick "convert"
+      case conv of
+        Nothing -> fail "coverRules: couldn't find ImageMagick convert"
+        Just c  -> cmd [c] [img] "-resize 256x256!" [out]
   "gen/cover.png_xbox" *> \out -> do
     let dds = out -<.> "dds"
     need [dds]
