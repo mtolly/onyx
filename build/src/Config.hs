@@ -23,7 +23,7 @@ data Song = Song
   , _jammitArtist :: Maybe String
   , _audio :: Map.HashMap String (AudioConfig Double)
   , _config :: [Instrument]
-  } deriving (Eq, Show, Read)
+  } deriving (Eq, Show)
 
 data Instrument = Drums | Bass
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -34,7 +34,7 @@ data Gender = Male | Female
 data AudioConfig t
   = AudioSimple (Audio t ())
   | AudioStems (Map.HashMap String (Audio t FilePath))
-  deriving (Eq, Show, Read)
+  deriving (Eq, Show)
 
 $(deriveJSON
   defaultOptions

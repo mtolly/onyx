@@ -62,6 +62,10 @@ Plus the following if you want to compile straight to Xbox 360 CON:
 
   * .NET Framework or [Mono](http://www.mono-project.com)
 
+If you are on very old Windows (XP) you may need this:
+
+  * [Microsoft Visual C++ 2005 SP1](http://www.microsoft.com/en-us/download/details.aspx?displaylang=en&id=5638)
+
 Finally, for Linux and Mac only:
 
   * [Wine](http://www.winehq.org)
