@@ -10,6 +10,7 @@ readmes = `ls */*/README.md`.split "\n"
 #readmes = ['dream-theater/6-00/README.md']
 readmes.each do |readme|
   folder = File.dirname(readme)
+  puts ">>> SONG: #{folder}"
   str = File.read(readme)
   audio = []
   pedals = []
@@ -17,11 +18,9 @@ readmes.each do |readme|
   audio << 'jammit' if str.include?('`jammit`')
   audio << 'hit' if str.include?('`hit`')
   audio << 'pledgemusic' if str.include?('`pledgemusic`')
-  pedals << '1p' if str.include?('`1p`')
-  pedals << '2p' if str.include?('`2p`')
   makes = []
   audio.each do |a|
-    pedals.each do |p|
+    ['1p', '2p'].each do |p|
       makes += [
         "gen/#{a}/#{p}/countin.wav",
         "gen/#{a}/#{p}/magma/magma.rbproj",
@@ -41,6 +40,6 @@ readmes.each do |readme|
     end
   end
   Dir.chdir(folder) do
-    system_("onyxbuild", *makes)
+    system_("onyxbuild", "-q", *makes)
   end
 end

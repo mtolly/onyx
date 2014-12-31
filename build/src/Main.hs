@@ -210,20 +210,23 @@ main = do
   yaml <- readYAMLTree "song.yml"
   case A.fromJSON yaml of
     A.Error s -> fail s
-    A.Success song -> shakeArgs shakeOptions $ do
-      _ <- addOracle $ \(JammitResults (title, artist)) ->
-        jammitSearch title artist
-      phony "clean" $ cmd "rm -rf gen"
-      midRules song
-      jammitRules song
-      simpleRules song
-      stemsRules song
-      countinRules song
-      oggRules song
-      coverRules song
-      rb3Rules song
-      magmaRules song
-      fofRules song
+    A.Success song -> do
+      shakeArgs shakeOptions $ do
+        _ <- addOracle $ \(JammitResults (title, artist)) ->
+          jammitSearch title artist
+        phony "clean" $ cmd "rm -rf gen"
+        midRules song
+        jammitRules song
+        simpleRules song
+        stemsRules song
+        countinRules song
+        oggRules song
+        coverRules song
+        rb3Rules song
+        magmaRules song
+        fofRules song
+      e <-     Dir.doesDirectoryExist       "gen/temp"
+      when e $ Dir.removeDirectoryRecursive "gen/temp"
 
 packageID :: FilePath -> Song -> String
 packageID dir s = let
