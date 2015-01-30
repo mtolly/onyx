@@ -181,14 +181,15 @@ findText s = ATB.getTimes . RTB.toAbsoluteEventList 0 . RTB.filter f where
 magmaClean' :: (NNC.C t) => RTB.T t E.T -> Maybe (RTB.T t E.T)
 magmaClean' trk = case trackName trk of
   Just "countin"    -> Nothing
-  Just "PART DRUMS" -> Just $ removePitch (V.toPitch 95) $ removeComments trk
-  _                 -> Just $ removeComments trk
+  Just "PART DRUMS" -> Just $ removePitch (V.toPitch 95) $ removeText trk
+  _                 -> Just $ removeText trk
   where removePitch p = RTB.filter $ \x -> case x of
           E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn  p' _))) | p == p' -> False
           E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOff p' _))) | p == p' -> False
           _ -> True
-        removeComments = RTB.filter $ \x -> case x of
+        removeText = RTB.filter $ \x -> case x of
           E.MetaEvent (Meta.TextEvent ('#' : _)) -> False
+          E.MetaEvent (Meta.TextEvent ('>' : _)) -> False
           _ -> True
 
 -- | Generates a BEAT track (if it doesn't exist already) which ends at the
