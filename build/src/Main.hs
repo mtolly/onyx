@@ -70,7 +70,7 @@ jammitRules s = do
     let dir = "gen/jammit" </> feet
     dir </> "drums_untimed.wav" *> \out -> do
       audios <- jSearch
-      case lookup (J.Only J.PartDrums) audios of
+      case lookup (J.Only J.PartDrums1) audios of
         Nothing -> buildAudio (Silence 2 0) out
         Just fp -> liftIO $ J.runAudio [fp] [] out
     dir </> "bass_untimed.wav" *> \out -> do
@@ -80,7 +80,7 @@ jammitRules s = do
         Just fp -> liftIO $ J.runAudio [fp] [] out
     dir </> "song_untimed.wav" *> \out -> do
       audios <- jSearch
-      let hasDrums = isJust $ lookup (J.Only J.PartDrums) audios
+      let hasDrums = isJust $ lookup (J.Only J.PartDrums1) audios
           hasBass  = isJust $ lookup (J.Only J.PartBass) audios
           configHas inst = inst `elem` _config s
           getAudio aud = case lookup aud audios of
