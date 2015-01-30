@@ -5,7 +5,6 @@
 Instruments:
 
   * (Pro) Drums: Expert
-  * Bass: Expert
 
 Supported audio:
 
