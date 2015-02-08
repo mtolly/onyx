@@ -24,7 +24,6 @@ executable onyxbuild
     Audio
     TH
     Scripts.Main
-    Scripts.MIDITime
     OneFoot
     Magma
   build-depends:
