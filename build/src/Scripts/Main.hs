@@ -74,7 +74,7 @@ drumMix n = let
 -- | Adds an event at position zero *after* all the other events there.
 addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
 addZero x rtb = case U.trackSplitZero rtb of
-  (zero, rest) -> U.trackJoinZero (zero ++ [x]) rest
+  (zero, rest) -> U.trackGlueZero (zero ++ [x]) rest
 
 make2xBassPedal :: F.T -> F.T
 make2xBassPedal mid = let
