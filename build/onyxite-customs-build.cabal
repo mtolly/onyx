@@ -35,11 +35,12 @@ executable onyxbuild
     , bifunctors
     , event-list, non-negative, midi
     , containers
-    , dtab == 1.0
     , bytestring
-    , jammittools == 0.3.2
     , file-embed
     , process >= 1.2.0.0 && < 1.3
-    , midi-util
+    -- my libraries:
+    , dtab == 1.0
+    , jammittools == 0.4
+    , midi-util == 0.1
   default-language:     Haskell2010
   ghc-options:          -Wall
