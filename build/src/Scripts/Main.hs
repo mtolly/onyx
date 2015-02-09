@@ -228,7 +228,10 @@ makeBeatTrack = RTB.cons 0 (E.MetaEvent $ Meta.TrackName "BEAT") . go 4 where
     $ RTB.delay (1 - 1/32) infiniteBeats
 
 trackGlue :: (NNC.C t, Ord a) => t -> RTB.T t a -> RTB.T t a -> RTB.T t a
-trackGlue t xs ys = RTB.merge (U.trackTake t xs) (RTB.delay t ys)
+trackGlue t xs ys = let
+  xs' = U.trackTake t xs
+  gap = t NNC.-| NNC.sum (RTB.getTimes xs')
+  in RTB.append xs' $ RTB.delay gap ys
 
 -- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
 -- their last gem note-on.
