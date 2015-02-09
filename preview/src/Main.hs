@@ -4,8 +4,12 @@ module Main where
 
 import GHCJS.Types
 import GHCJS.Foreign
-import Control.Monad (forever)
-import Control.Concurrent (threadDelay)
+import GHCJS.Marshal
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
+import qualified Sound.MIDI.File as F
+import qualified Sound.MIDI.File.Load as Load
+import qualified Sound.MIDI.Parser.Report as Report
 
 data Canvas_
 type Canvas = JSRef Canvas_
@@ -37,9 +41,39 @@ foreign import javascript unsafe
   "$2.font = $1;"
   setFont :: JSString -> Context -> IO ()
 
+data Howl_
+type Howl = JSRef Howl_
+
+foreign import javascript interruptible
+  "(function(){ var h = new Howl({urls: $1, onload: function(){ $c(h); }}); })();"
+  loadHowl :: JSRef [String] -> IO Howl
+
+foreign import javascript unsafe
+  "$1.play()"
+  playHowl :: Howl -> IO ()
+
+foreign import javascript interruptible
+  "requestAnimationFrame($c);"
+  requestAnimationFrame :: IO ()
+
+foreign import javascript interruptible
+  "hs_ajaxBinary($1, $c);"
+  ajaxBinary :: JSString -> IO (JSRef ())
+
+ajaxByteString :: String -> IO B.ByteString
+ajaxByteString s = ajaxBinary (toJSString s) >>= bufferByteString 0 0
+
 main :: IO ()
 main = do
-  let ctx = context2d theCanvas
+  howl <- toJSRef ["another-day/song-countin.ogg"] >>= loadHowl
+  putStrLn "Loaded Howl."
+  bs <- ajaxByteString "another-day/notes.mid"
+  putStrLn "Got MIDI as ByteString."
+  case Report.result $ Load.maybeFromByteString $ BL.fromStrict bs of
+    Left err -> error err
+    Right mid -> let
+      ctx = context2d theCanvas
+      loop :: Int -> IO ()
       loop i = do
         setFillStyle "red" ctx
         fillRect 0 0 500 500 ctx
@@ -48,8 +82,12 @@ main = do
         setFillStyle "yellow" ctx
         fillRect 50 50 500 500 ctx
         setFillStyle "white" ctx
-        fillText (toJSString $ show i) 10 40 ctx
-        threadDelay 16000
+        setFont "20pt Helvetica" ctx
+        fillText (toJSString $ show i) 10 35 ctx
+        requestAnimationFrame
         loop $ i + 1
-  setFont "20pt Helvetica" ctx
-  loop 0
+      in do
+        let F.Cons _ _ trks = mid
+        putStrLn $ "Parsed MIDI with " ++ show (length trks) ++ " tracks."
+        playHowl howl
+        loop 0

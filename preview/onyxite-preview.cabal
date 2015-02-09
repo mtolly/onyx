@@ -17,5 +17,8 @@ executable onyxite-preview
     , midi
     , midi-util == 0.1
     , ghcjs-base
+    , bytestring
   hs-source-dirs:       src
   default-language:     Haskell2010
+  ghc-options:          -Wall
+  js-sources:           js/getbinary.js
