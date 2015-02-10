@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module Main where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -8,12 +9,13 @@ import qualified Data.Map as Map
 import Data.Time.Clock
 import Control.Exception (evaluate)
 import Text.Printf
+import qualified Sound.MIDI.File.Event as E
 
 import qualified Audio
 import Draw
 import Midi
 
-draw :: (ImageID -> Image) -> UTCTime -> U.Seconds -> Map.Map U.Seconds [Gem] -> IO ()
+draw :: (ImageID -> Image) -> UTCTime -> U.Seconds -> Map.Map U.Seconds [Gem ()] -> IO ()
 draw img start offset gems = do
   now <- getCurrentTime
   let posn = realToFrac (diffUTCTime now start) + offset
@@ -25,9 +27,9 @@ draw img start offset gems = do
   drawImage (img Image_track_drum) 50 50 540 430 ctx
   when (Kick `elem` activeNow) $ drawImage (img Image_gem_kick) 0 100 400 25 ctx
   when (Red `elem` activeNow) $ drawImage (img Image_gem_red) 0 0 100 100 ctx
-  when (Yellow `elem` activeNow) $ drawImage (img Image_gem_yellow) 100 0 100 100 ctx
-  when (Blue `elem` activeNow) $ drawImage (img Image_gem_blue) 200 0 100 100 ctx
-  when (Green `elem` activeNow) $ drawImage (img Image_gem_green) 300 0 100 100 ctx
+  when (Pro Yellow () `elem` activeNow) $ drawImage (img Image_gem_yellow) 100 0 100 100 ctx
+  when (Pro Blue () `elem` activeNow) $ drawImage (img Image_gem_blue) 200 0 100 100 ctx
+  when (Pro Green () `elem` activeNow) $ drawImage (img Image_gem_green) 300 0 100 100 ctx
   setFillStyle "white" ctx
   setFont "20px monospace" ctx
   let dposn = realToFrac posn :: Double
@@ -48,9 +50,13 @@ main = do
     Left trks -> let
       tmap = U.makeTempoMap $ head trks
       trk = foldr RTB.merge RTB.empty $ filter (\t -> U.trackName t == Just "PART DRUMS") trks
-      gemTrack :: RTB.T U.Seconds Gem
+      gemTrack :: RTB.T U.Seconds (Gem ())
       gemTrack = U.applyTempoTrack tmap $ RTB.mapMaybe isGem trk
-      gemMap :: Map.Map U.Seconds [Gem]
+      isGem :: E.T -> Maybe (Gem ())
+      isGem e = readDrumEvent e >>= \case
+        Note Expert gem -> Just gem
+        _               -> Nothing
+      gemMap :: Map.Map U.Seconds [Gem ()]
       gemMap = Map.fromAscList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $
         RTB.collectCoincident gemTrack
       in do
