@@ -11,7 +11,13 @@ import qualified Sound.MIDI.Message.Channel as C
 import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.File.Event.Meta as Meta
 import qualified Data.EventList.Relative.TimeBody as RTB
-import Control.Monad (forM)
+import qualified Data.EventList.Absolute.TimeBody as ATB
+import Control.Monad (forM, when, forever)
+import qualified Sound.MIDI.Util as U
+import qualified Data.Map as Map
+import Data.Time.Clock
+import Control.Exception (evaluate)
+import Text.Printf
 
 data Canvas_
 type Canvas = JSRef Canvas_
@@ -110,31 +116,81 @@ fromJasmid jmid = do
       return (fromIntegral delta, evt)
   return $ F.Cons F.Parallel (F.Ticks $ fromIntegral res) trks
 
+data Gem = Kick | Red | Yellow | Blue | Green
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+isGem :: E.T -> Maybe Gem
+isGem (E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn p vel)))) | V.fromVelocity vel /= 0
+  = case V.fromPitch p of
+    96 -> Just Kick
+    97 -> Just Red
+    98 -> Just Yellow
+    99 -> Just Blue
+    100 -> Just Green
+    _ -> Nothing
+isGem _ = Nothing
+
 foreign import javascript unsafe
   "console.log($1);"
   consoleLog :: JSRef a -> IO ()
 
+draw :: UTCTime -> Map.Map U.Seconds [Gem] -> IO ()
+draw start gems = do
+  now <- getCurrentTime
+  let posn = realToFrac $ diffUTCTime now start :: U.Seconds
+      (_,  gems') = Map.split (if posn < 0.02 then 0 else posn - 0.02) gems
+      (gems'', _) = Map.split (posn + 0.1) gems'
+      activeNow = concat $ Map.elems gems''
+      ctx = context2d theCanvas
+  setFillStyle "white" ctx
+  fillRect 0 0 640 480 ctx
+  when (Kick `elem` activeNow) $ do
+    setFillStyle "orange" ctx
+    fillRect 0 100 400 25 ctx
+  when (Red `elem` activeNow) $ do
+    setFillStyle "red" ctx
+    fillRect 0 0 100 100 ctx
+  when (Yellow `elem` activeNow) $ do
+    setFillStyle "yellow" ctx
+    fillRect 100 0 100 100 ctx
+  when (Blue `elem` activeNow) $ do
+    setFillStyle "blue" ctx
+    fillRect 200 0 100 100 ctx
+  when (Green `elem` activeNow) $ do
+    setFillStyle "green" ctx
+    fillRect 300 0 100 100 ctx
+  setFillStyle "black" ctx
+  setFont "20px monospace" ctx
+  let dposn = realToFrac posn :: Double
+      mins = floor $ dposn / 60 :: Int
+      secs = dposn - fromIntegral mins * 60 :: Double
+      timestamp = printf "%02d:%06.3f" mins secs :: String
+  fillText (toJSString timestamp) 10 150 ctx
+
 main :: IO ()
 main = do
-  howl <- toJSRef ["another-day/song-countin.ogg"] >>= loadHowl
+  howlSong <- toJSRef ["another-day/song-countin.ogg"] >>= loadHowl
+  howlDrums <- toJSRef ["another-day/drums.ogg"] >>= loadHowl
   putStrLn "Loaded Howl."
   jmid <- jasmid_loadMidi "another-day/notes.mid"
   putStrLn "Loaded MIDI with jasmid."
   mid <- fromJasmid jmid
-  print $ take 100 $ show mid
-  let ctx = context2d theCanvas
-      loop :: Int -> IO ()
-      loop i = do
-        setFillStyle "red" ctx
-        fillRect 0 0 500 500 ctx
-        setFillStyle "blue" ctx
-        fillRect 25 25 500 500 ctx
-        setFillStyle "yellow" ctx
-        fillRect 50 50 500 500 ctx
-        setFillStyle "white" ctx
-        setFont "20pt Helvetica" ctx
-        fillText (toJSString $ show i) 10 35 ctx
-        requestAnimationFrame
-        loop $ i + 1
-  playHowl howl
-  loop 0
+  putStrLn "Deserialized jasmid MIDI."
+  case U.decodeFile mid of
+    Right _ -> undefined
+    Left trks -> let
+      tmap = U.makeTempoMap $ head trks
+      trk = foldr RTB.merge RTB.empty $ filter (\t -> U.trackName t == Just "PART DRUMS") trks
+      gemTrack :: RTB.T U.Seconds Gem
+      gemTrack = U.applyTempoTrack tmap $ RTB.mapMaybe isGem trk
+      gemMap :: Map.Map U.Seconds [Gem]
+      gemMap = Map.fromAscList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $
+        RTB.collectCoincident gemTrack
+      in do
+        _ <- evaluate gemMap
+        start <- getCurrentTime
+        playHowl howlSong
+        playHowl howlDrums
+        forever $ do
+          draw start gemMap
+          requestAnimationFrame
