@@ -95,6 +95,7 @@ data DrumEvent
   = Toms ProColor Bool -- ^ this event must come before 'Note' for 'RTB.normalize'
   | Note Difficulty (Gem ())
   deriving (Eq, Ord, Show, Read)
+  -- TODO: discobeat
 
 readDrumEvent :: E.T -> Maybe DrumEvent
 readDrumEvent e = let

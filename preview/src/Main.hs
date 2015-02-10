@@ -8,35 +8,44 @@ import qualified Sound.MIDI.Util as U
 import qualified Data.Map as Map
 import Data.Time.Clock
 import Control.Exception (evaluate)
-import Text.Printf
+import Text.Printf (printf)
 import qualified Sound.MIDI.File.Event as E
 
 import qualified Audio
 import Draw
 import Midi
 
-draw :: (ImageID -> Image) -> UTCTime -> U.Seconds -> Map.Map U.Seconds [Gem ()] -> IO ()
-draw img start offset gems = do
+data App = App
+  { images :: ImageID -> Image
+  , gems :: Map.Map U.Seconds [Gem ()]
+  , timeToMeasure :: U.Seconds -> U.MeasureBeats
+  }
+
+draw :: UTCTime -> U.Seconds -> App -> IO ()
+draw start offset app = do
   now <- getCurrentTime
   let posn = realToFrac (diffUTCTime now start) + offset
-      (_,  gems') = Map.split (if posn < 0.02 then 0 else posn - 0.02) gems
+      (_,  gems') = Map.split (if posn < 0.02 then 0 else posn - 0.02) $ gems app
       (gems'', _) = Map.split (posn + 0.1) gems'
       activeNow = concat $ Map.elems gems''
       ctx = context2d theCanvas
-  drawImage (img Image_RBN_background1) 0 0 640 480 ctx
-  drawImage (img Image_track_drum) 50 50 540 430 ctx
-  when (Kick `elem` activeNow) $ drawImage (img Image_gem_kick) 0 100 400 25 ctx
-  when (Red `elem` activeNow) $ drawImage (img Image_gem_red) 0 0 100 100 ctx
-  when (Pro Yellow () `elem` activeNow) $ drawImage (img Image_gem_yellow) 100 0 100 100 ctx
-  when (Pro Blue () `elem` activeNow) $ drawImage (img Image_gem_blue) 200 0 100 100 ctx
-  when (Pro Green () `elem` activeNow) $ drawImage (img Image_gem_green) 300 0 100 100 ctx
+  drawImage (images app Image_RBN_background1) 0 0 640 480 ctx
+  drawImage (images app Image_track_drum) 50 50 540 430 ctx
+  when (Kick `elem` activeNow) $ drawImage (images app Image_gem_kick) 0 100 400 25 ctx
+  when (Red `elem` activeNow) $ drawImage (images app Image_gem_red) 0 0 100 100 ctx
+  when (Pro Yellow () `elem` activeNow) $ drawImage (images app Image_gem_yellow) 100 0 100 100 ctx
+  when (Pro Blue () `elem` activeNow) $ drawImage (images app Image_gem_blue) 200 0 100 100 ctx
+  when (Pro Green () `elem` activeNow) $ drawImage (images app Image_gem_green) 300 0 100 100 ctx
   setFillStyle "white" ctx
   setFont "20px monospace" ctx
   let dposn = realToFrac posn :: Double
       mins = floor $ dposn / 60 :: Int
       secs = dposn - fromIntegral mins * 60 :: Double
       timestamp = printf "%02d:%06.3f" mins secs :: String
+      (msr, bts) = timeToMeasure app posn
+      measurestamp = printf "m%03d:b%06.3f" (msr + 1) (realToFrac bts + 1 :: Double) :: String
   fillText timestamp 10 150 ctx
+  fillText measurestamp 10 180 ctx
 
 main :: IO ()
 main = do
@@ -49,6 +58,7 @@ main = do
     Right _ -> undefined
     Left trks -> let
       tmap = U.makeTempoMap $ head trks
+      mmap = U.makeMeasureMap U.Error $ head trks
       trk = foldr RTB.merge RTB.empty $ filter (\t -> U.trackName t == Just "PART DRUMS") trks
       gemTrack :: RTB.T U.Seconds (Gem ())
       gemTrack = U.applyTempoTrack tmap $ RTB.mapMaybe isGem trk
@@ -67,11 +77,15 @@ main = do
         imgs <- fmap Map.fromList $ forM [minBound .. maxBound] $ \iid -> do
           img <- loadImage $ "rbprev/" ++ drop 6 (show iid) ++ ".png"
           return (iid, img)
-        let imgLookup iid = case Map.lookup iid imgs of
-              Just img -> img
-              Nothing  -> error $ "couldn't load image " ++ show iid
+        let app = App
+              { images = \iid -> case Map.lookup iid imgs of
+                  Just img -> img
+                  Nothing  -> error $ "panic! couldn't find image " ++ show iid
+              , gems = gemMap
+              , timeToMeasure = U.applyMeasureMap mmap . U.unapplyTempoMap tmap
+              }
         forever $ do
-          draw imgLookup start 0 gemMap
+          draw start 0 app
           requestAnimationFrame
 
 data ImageID

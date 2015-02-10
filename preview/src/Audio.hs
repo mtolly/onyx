@@ -17,5 +17,5 @@ load :: [String] -> IO Howl
 load files = toJSRef files >>= js_load
 
 foreign import javascript unsafe
-  "$1.play()"
+  "$1.play();"
   play :: Howl -> IO ()
