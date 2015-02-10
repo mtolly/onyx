@@ -53,7 +53,7 @@ data Howl_
 type Howl = JSRef Howl_
 
 foreign import javascript interruptible
-  "(function(){ var h = new Howl({urls: $1, onload: function(){ $c(h); }}); })();"
+  "var h = new Howl({ urls: $1, onload: function(){ $c(h); } });"
   loadHowl :: JSRef [String] -> IO Howl
 
 foreign import javascript unsafe
@@ -81,7 +81,7 @@ data Image_
 type Image = JSRef Image_
 
 foreign import javascript interruptible
-  "(function(){ var i = new Image(); i.addEventListener('load', function(){ $c(i); }); i.src = $1; })();"
+  "var i = new Image(); i.addEventListener('load', function(){ $c(i); }); i.src = $1;"
   loadImage :: JSString -> IO Image
 
 foreign import javascript unsafe
@@ -145,31 +145,21 @@ foreign import javascript unsafe
   "console.log($1);"
   consoleLog :: JSRef a -> IO ()
 
-draw :: (ImageID -> Image) -> UTCTime -> Map.Map U.Seconds [Gem] -> IO ()
-draw img start gems = do
+draw :: (ImageID -> Image) -> UTCTime -> U.Seconds -> Map.Map U.Seconds [Gem] -> IO ()
+draw img start offset gems = do
   now <- getCurrentTime
-  let posn = realToFrac $ diffUTCTime now start :: U.Seconds
+  let posn = realToFrac (diffUTCTime now start) + offset
       (_,  gems') = Map.split (if posn < 0.02 then 0 else posn - 0.02) gems
       (gems'', _) = Map.split (posn + 0.1) gems'
       activeNow = concat $ Map.elems gems''
       ctx = context2d theCanvas
   drawImage (img Image_RBN_background1) 0 0 640 480 ctx
   drawImage (img Image_track_drum) 50 50 540 430 ctx
-  when (Kick `elem` activeNow) $ do
-    setFillStyle "orange" ctx
-    fillRect 0 100 400 25 ctx
-  when (Red `elem` activeNow) $ do
-    setFillStyle "red" ctx
-    fillRect 0 0 100 100 ctx
-  when (Yellow `elem` activeNow) $ do
-    setFillStyle "yellow" ctx
-    fillRect 100 0 100 100 ctx
-  when (Blue `elem` activeNow) $ do
-    setFillStyle "blue" ctx
-    fillRect 200 0 100 100 ctx
-  when (Green `elem` activeNow) $ do
-    setFillStyle "green" ctx
-    fillRect 300 0 100 100 ctx
+  when (Kick `elem` activeNow) $ drawImage (img Image_gem_kick) 0 100 400 25 ctx
+  when (Red `elem` activeNow) $ drawImage (img Image_gem_red) 0 0 100 100 ctx
+  when (Yellow `elem` activeNow) $ drawImage (img Image_gem_yellow) 100 0 100 100 ctx
+  when (Blue `elem` activeNow) $ drawImage (img Image_gem_blue) 200 0 100 100 ctx
+  when (Green `elem` activeNow) $ drawImage (img Image_gem_green) 300 0 100 100 ctx
   setFillStyle "white" ctx
   setFont "20px monospace" ctx
   let dposn = realToFrac posn :: Double
@@ -209,7 +199,7 @@ main = do
               Just img -> img
               Nothing  -> error $ "couldn't load image " ++ show iid
         forever $ do
-          draw imgLookup start gemMap
+          draw imgLookup start 0 gemMap
           requestAnimationFrame
 
 data ImageID
