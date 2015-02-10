@@ -169,8 +169,8 @@ draw start gems = do
 
 main :: IO ()
 main = do
-  howlSong <- toJSRef ["another-day/song-countin.ogg"] >>= loadHowl
-  howlDrums <- toJSRef ["another-day/drums.ogg"] >>= loadHowl
+  howlSong <- toJSRef ["another-day/song-countin.ogg", "another-day/song-countin.mp3"] >>= loadHowl
+  howlDrums <- toJSRef ["another-day/drums.ogg", "another-day/drums.mp3"] >>= loadHowl
   putStrLn "Loaded Howl."
   jmid <- jasmid_loadMidi "another-day/notes.mid"
   putStrLn "Loaded MIDI with jasmid."
