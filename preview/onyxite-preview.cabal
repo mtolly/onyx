@@ -10,6 +10,10 @@ cabal-version:        >= 1.10
 
 executable onyxite-preview
   main-is:              Main.hs
+  other-modules:
+    Audio
+    Draw
+    Midi
   build-depends:
     base >= 4.7 && < 4.8
     , non-negative
