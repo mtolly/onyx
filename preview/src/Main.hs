@@ -77,6 +77,17 @@ obj ^. prop = getProp prop obj >>= fromJSRef >>= \res -> case res of
   Nothing -> error $ "(^.): fromJSRef failed on property " ++ show prop
 infixl 1 ^.
 
+data Image_
+type Image = JSRef Image_
+
+foreign import javascript interruptible
+  "(function(){ var i = new Image(); i.addEventListener('load', function(){ $c(i); }); i.src = $1; })();"
+  loadImage :: JSString -> IO Image
+
+foreign import javascript unsafe
+  "$6.drawImage($1, $2, $3, $4, $5);"
+  drawImage :: Image -> Double -> Double -> Double -> Double -> Context -> IO ()
+
 fromJasmid :: MidiFile -> IO F.T
 fromJasmid jmid = do
   res <- (jmid ^. "header") >>=  (^. "ticksPerBeat") :: IO Int
@@ -134,16 +145,16 @@ foreign import javascript unsafe
   "console.log($1);"
   consoleLog :: JSRef a -> IO ()
 
-draw :: UTCTime -> Map.Map U.Seconds [Gem] -> IO ()
-draw start gems = do
+draw :: (ImageID -> Image) -> UTCTime -> Map.Map U.Seconds [Gem] -> IO ()
+draw img start gems = do
   now <- getCurrentTime
   let posn = realToFrac $ diffUTCTime now start :: U.Seconds
       (_,  gems') = Map.split (if posn < 0.02 then 0 else posn - 0.02) gems
       (gems'', _) = Map.split (posn + 0.1) gems'
       activeNow = concat $ Map.elems gems''
       ctx = context2d theCanvas
-  setFillStyle "white" ctx
-  fillRect 0 0 640 480 ctx
+  drawImage (img Image_RBN_background1) 0 0 640 480 ctx
+  drawImage (img Image_track_drum) 50 50 540 430 ctx
   when (Kick `elem` activeNow) $ do
     setFillStyle "orange" ctx
     fillRect 0 100 400 25 ctx
@@ -159,7 +170,7 @@ draw start gems = do
   when (Green `elem` activeNow) $ do
     setFillStyle "green" ctx
     fillRect 300 0 100 100 ctx
-  setFillStyle "black" ctx
+  setFillStyle "white" ctx
   setFont "20px monospace" ctx
   let dposn = realToFrac posn :: Double
       mins = floor $ dposn / 60 :: Int
@@ -188,9 +199,77 @@ main = do
         RTB.collectCoincident gemTrack
       in do
         _ <- evaluate gemMap
-        start <- getCurrentTime
         playHowl howlSong
         playHowl howlDrums
+        start <- getCurrentTime
+        imgs <- fmap Map.fromList $ forM [minBound .. maxBound] $ \iid -> do
+          img <- loadImage $ toJSString $ "rbprev/" ++ drop 6 (show iid) ++ ".png"
+          return (iid, img)
+        let imgLookup iid = case Map.lookup iid imgs of
+              Just img -> img
+              Nothing  -> error $ "couldn't load image " ++ show iid
         forever $ do
-          draw start gemMap
+          draw imgLookup start gemMap
           requestAnimationFrame
+
+data ImageID
+  = Image_RBN_background1
+  | Image_beat_marker
+  | Image_gem_blue
+  | Image_gem_cym_blue
+  | Image_gem_cym_green
+  | Image_gem_cym_style
+  | Image_gem_cym_yellow
+  | Image_gem_green
+  | Image_gem_hopo_blue
+  | Image_gem_hopo_green
+  | Image_gem_hopo_orange
+  | Image_gem_hopo_red
+  | Image_gem_hopo_style
+  | Image_gem_hopo_yellow
+  | Image_gem_kick
+  | Image_gem_kick_style
+  | Image_gem_orange
+  | Image_gem_red
+  | Image_gem_style
+  | Image_gem_yellow
+  | Image_half_beat_marker
+  | Image_kick_flash_1
+  | Image_kick_flash_2
+  | Image_kick_flash_3
+  | Image_kick_flash_4
+  | Image_kick_flash_5
+  | Image_kick_flash_6
+  | Image_kick_flash_7
+  | Image_measure
+  | Image_smash_1
+  | Image_smash_10
+  | Image_smash_2
+  | Image_smash_3
+  | Image_smash_4
+  | Image_smash_5
+  | Image_smash_6
+  | Image_smash_7
+  | Image_smash_8
+  | Image_smash_9
+  | Image_smash_flare_blue
+  | Image_smash_flare_green
+  | Image_smash_flare_orange
+  | Image_smash_flare_red
+  | Image_smash_flare_style
+  | Image_smash_flare_yellow
+  | Image_sustain_blue
+  | Image_sustain_blue_hi
+  | Image_sustain_green
+  | Image_sustain_green_hi
+  | Image_sustain_orange
+  | Image_sustain_orange_hi
+  | Image_sustain_red
+  | Image_sustain_red_hi
+  | Image_sustain_style
+  | Image_sustain_style_hi
+  | Image_sustain_yellow
+  | Image_sustain_yellow_hi
+  | Image_track_drum
+  | Image_track_guitar
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
