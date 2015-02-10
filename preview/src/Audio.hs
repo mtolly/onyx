@@ -1,6 +1,6 @@
 {-# LANGUAGE JavaScriptFFI #-}
 module Audio
-( Howl, load, play
+( Howl, load, play, pause
 ) where
 
 import GHCJS.Marshal
@@ -19,3 +19,7 @@ load files = toJSRef files >>= js_load
 foreign import javascript unsafe
   "$1.play();"
   play :: Howl -> IO ()
+
+foreign import javascript unsafe
+  "$1.pause();"
+  pause :: Howl -> IO ()

@@ -3,13 +3,18 @@ module Main where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
-import Control.Monad (forM, when, forever)
+import Control.Monad (forM, when)
 import qualified Sound.MIDI.Util as U
 import qualified Data.Map as Map
 import Data.Time.Clock
 import Control.Exception (evaluate)
 import Text.Printf (printf)
 import qualified Sound.MIDI.File.Event as E
+
+import GHCJS.Foreign
+import GHCJS.Types
+
+import Control.Concurrent.STM
 
 import qualified Audio
 import Draw
@@ -21,12 +26,10 @@ data App = App
   , timeToMeasure :: U.Seconds -> U.MeasureBeats
   }
 
-draw :: UTCTime -> U.Seconds -> App -> IO ()
-draw start offset app = do
-  now <- getCurrentTime
-  let posn = realToFrac (diffUTCTime now start) + offset
-      (_,  gems') = Map.split (if posn < 0.02 then 0 else posn - 0.02) $ gems app
-      (gems'', _) = Map.split (posn + 0.1) gems'
+draw :: U.Seconds -> App -> IO ()
+draw posn app = do
+  let (_,  gems') = Map.split (if posn < 0.02 then 0 else posn - 0.02) $ gems app
+      (gems'', _) = Map.split (posn + 0.05) gems'
       activeNow = concat $ Map.elems gems''
       ctx = context2d theCanvas
   drawImage (images app Image_RBN_background1) 0 0 640 480 ctx
@@ -47,11 +50,34 @@ draw start offset app = do
   fillText timestamp 10 150 ctx
   fillText measurestamp 10 180 ctx
 
+data Event
+  = Play
+  | Pause
+  deriving (Eq, Ord, Show, Read)
+
+foreign import javascript unsafe
+  "document.getElementById($1)"
+  js_getElementById :: JSString -> IO (JSRef a)
+
+foreign import javascript unsafe
+  "$2.addEventListener($1, $3);"
+  js_addEventListener :: JSString -> JSRef a -> JSFun (IO ()) -> IO ()
+
+addEventListener :: String -> String -> IO () -> IO ()
+addEventListener event eltid f = do
+  elt <- js_getElementById $ toJSString eltid
+  jf <- asyncCallback (DomRetain $ castRef elt) f
+  js_addEventListener (toJSString event) elt jf
+
 main :: IO ()
 main = do
+  equeue <- atomically newTChan
+  addEventListener "click" "button-pause" $ atomically $ writeTChan equeue Pause
+  addEventListener "click" "button-play" $ atomically $ writeTChan equeue Play
+  putStrLn "Hooked up buttons."
   howlSong <- Audio.load ["another-day/song-countin.ogg", "another-day/song-countin.mp3"]
   howlDrums <- Audio.load ["another-day/drums.ogg", "another-day/drums.mp3"]
-  putStrLn "Loaded Howl."
+  putStrLn "Loaded audio."
   mid <- loadMidi "another-day/notes.mid"
   putStrLn "Loaded MIDI."
   case U.decodeFile mid of
@@ -71,12 +97,12 @@ main = do
         RTB.collectCoincident gemTrack
       in do
         _ <- evaluate gemMap
-        Audio.play howlSong
-        Audio.play howlDrums
-        start <- getCurrentTime
         imgs <- fmap Map.fromList $ forM [minBound .. maxBound] $ \iid -> do
           img <- loadImage $ "rbprev/" ++ drop 6 (show iid) ++ ".png"
           return (iid, img)
+        Audio.play howlSong
+        Audio.play howlDrums
+        start <- getCurrentTime
         let app = App
               { images = \iid -> case Map.lookup iid imgs of
                   Just img -> img
@@ -84,9 +110,28 @@ main = do
               , gems = gemMap
               , timeToMeasure = U.applyMeasureMap mmap . U.unapplyTempoMap tmap
               }
-        forever $ do
-          draw start 0 app
-          requestAnimationFrame
+            playing startUTC startSecs = do
+              nowUTC <- getCurrentTime
+              let nowSecs = realToFrac (diffUTCTime nowUTC startUTC) + startSecs
+              draw nowSecs app
+              requestAnimationFrame
+              atomically (tryReadTChan equeue) >>= \case
+                Nothing -> playing startUTC startSecs
+                Just Play -> playing startUTC startSecs
+                Just Pause -> do
+                  mapM_ Audio.pause [howlSong, howlDrums]
+                  paused nowSecs
+            paused secs = do
+              -- draw secs app
+              requestAnimationFrame
+              atomically (tryReadTChan equeue) >>= \case
+                Nothing -> paused secs
+                Just Pause -> paused secs
+                Just Play -> do
+                  mapM_ Audio.play [howlSong, howlDrums]
+                  startUTC <- getCurrentTime
+                  playing startUTC secs
+        playing start 0
 
 data ImageID
   = Image_RBN_background1

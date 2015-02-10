@@ -9,20 +9,19 @@
     <script language="javascript" src="lib/jasmid/midifile.js"></script>
     <style type="text/css">
       body {
-        margin: 0;
-        padding: 0;
+        background-color: gray;
       }
       #the-canvas {
-        position: fixed;
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        padding: 0;
+        background-color: black;
       }
     </style>
   </head>
   <body>
     <canvas id="the-canvas" width="640" height="480"></canvas>
+    <form>
+      <button type="button" id="button-play">Play</button>
+      <button type="button" id="button-pause">Pause</button>
+    </form>
   </body>
   <script language="javascript" src="runmain.js" defer></script>
 </html>
