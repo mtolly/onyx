@@ -8,6 +8,7 @@ module Draw
 ) where
 
 import GHCJS.Types
+import GHCJS.Foreign
 
 data Canvas_
 type Canvas = JSRef Canvas_
@@ -29,15 +30,24 @@ foreign import javascript unsafe
 
 foreign import javascript unsafe
   "$2.fillStyle = $1;"
-  setFillStyle :: JSString -> Context -> IO ()
+  js_setFillStyle :: JSString -> Context -> IO ()
+
+setFillStyle :: String -> Context -> IO ()
+setFillStyle = js_setFillStyle . toJSString
 
 foreign import javascript unsafe
   "$4.fillText($1, $2, $3);"
-  fillText :: JSString -> Double -> Double -> Context -> IO ()
+  js_fillText :: JSString -> Double -> Double -> Context -> IO ()
+
+fillText :: String -> Double -> Double -> Context -> IO ()
+fillText = js_fillText . toJSString
 
 foreign import javascript unsafe
   "$2.font = $1;"
-  setFont :: JSString -> Context -> IO ()
+  js_setFont :: JSString -> Context -> IO ()
+
+setFont :: String -> Context -> IO ()
+setFont = js_setFont . toJSString
 
 foreign import javascript interruptible
   "requestAnimationFrame($c);"
@@ -48,7 +58,10 @@ type Image = JSRef Image_
 
 foreign import javascript interruptible
   "var i = new Image(); i.addEventListener('load', function(){ $c(i); }); i.src = $1;"
-  loadImage :: JSString -> IO Image
+  js_loadImage :: JSString -> IO Image
+
+loadImage :: String -> IO Image
+loadImage = js_loadImage . toJSString
 
 foreign import javascript unsafe
   "$6.drawImage($1, $2, $3, $4, $5);"

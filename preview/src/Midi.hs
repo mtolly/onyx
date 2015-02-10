@@ -1,8 +1,6 @@
 {-# LANGUAGE JavaScriptFFI #-}
 module Midi
-( MidiFile
-, jasmid_loadMidi
-, fromJasmid
+( loadMidi
 , Gem(..), isGem
 ) where
 
@@ -72,6 +70,9 @@ fromJasmid jmid = do
         _ -> unrecognized
       return (fromIntegral delta, evt)
   return $ F.Cons F.Parallel (F.Ticks $ fromIntegral res) trks
+
+loadMidi :: String -> IO F.T
+loadMidi s = jasmid_loadMidi (toJSString s) >>= fromJasmid
 
 data Gem = Kick | Red | Yellow | Blue | Green
   deriving (Eq, Ord, Show, Read, Enum, Bounded)

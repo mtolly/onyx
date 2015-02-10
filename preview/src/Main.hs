@@ -1,8 +1,5 @@
-{-# LANGUAGE JavaScriptFFI #-}
-{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import GHCJS.Foreign
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import Control.Monad (forM, when, forever)
@@ -37,17 +34,15 @@ draw img start offset gems = do
       mins = floor $ dposn / 60 :: Int
       secs = dposn - fromIntegral mins * 60 :: Double
       timestamp = printf "%02d:%06.3f" mins secs :: String
-  fillText (toJSString timestamp) 10 150 ctx
+  fillText timestamp 10 150 ctx
 
 main :: IO ()
 main = do
   howlSong <- Audio.load ["another-day/song-countin.ogg", "another-day/song-countin.mp3"]
   howlDrums <- Audio.load ["another-day/drums.ogg", "another-day/drums.mp3"]
   putStrLn "Loaded Howl."
-  jmid <- jasmid_loadMidi "another-day/notes.mid"
-  putStrLn "Loaded MIDI with jasmid."
-  mid <- fromJasmid jmid
-  putStrLn "Deserialized jasmid MIDI."
+  mid <- loadMidi "another-day/notes.mid"
+  putStrLn "Loaded MIDI."
   case U.decodeFile mid of
     Right _ -> undefined
     Left trks -> let
@@ -64,7 +59,7 @@ main = do
         Audio.play howlDrums
         start <- getCurrentTime
         imgs <- fmap Map.fromList $ forM [minBound .. maxBound] $ \iid -> do
-          img <- loadImage $ toJSString $ "rbprev/" ++ drop 6 (show iid) ++ ".png"
+          img <- loadImage $ "rbprev/" ++ drop 6 (show iid) ++ ".png"
           return (iid, img)
         let imgLookup iid = case Map.lookup iid imgs of
               Just img -> img
