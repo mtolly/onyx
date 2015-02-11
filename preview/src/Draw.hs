@@ -5,6 +5,7 @@ module Draw
 , fillRect, setFillStyle, fillText, setFont
 , requestAnimationFrame
 , Image, loadImage, drawImage
+, setGlobalAlpha
 ) where
 
 import GHCJS.Types
@@ -66,3 +67,7 @@ loadImage = js_loadImage . toJSString
 foreign import javascript unsafe
   "$6.drawImage($1, $2, $3, $4, $5);"
   drawImage :: Image -> Double -> Double -> Double -> Double -> Context -> IO ()
+
+foreign import javascript unsafe
+  "$2.globalAlpha = $1;"
+  setGlobalAlpha :: Double -> Context -> IO ()

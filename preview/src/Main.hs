@@ -3,13 +3,14 @@ module Main where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
-import Control.Monad (forM, when, unless)
+import Control.Monad (forM, forM_, unless)
 import qualified Sound.MIDI.Util as U
 import qualified Data.Map as Map
 import Data.Time.Clock
 import Control.Exception (evaluate)
 import Text.Printf (printf)
 import qualified Sound.MIDI.File.Event as E
+import Data.List (sort)
 
 import GHCJS.Foreign
 import GHCJS.Types
@@ -29,17 +30,50 @@ data App = App
 
 draw :: U.Seconds -> App -> IO ()
 draw posn app = do
-  let (_,  gems') = Map.split (if posn < 0.02 then 0 else posn - 0.02) $ gems app
-      (gems'', _) = Map.split (posn + 0.05) gems'
-      activeNow = concat $ Map.elems gems''
+  let (_,  gems') = Map.split (if posn < seePast then 0 else posn - seePast) $ gems app
+      (gems'', _) = Map.split (posn + seeFuture) gems'
       ctx = context2d theCanvas
+      seePast = 0.05
+      seeFuture = 1.2
   drawImage (images app Image_RBN_background1) 0 0 640 480 ctx
   drawImage (images app Image_track_drum) 50 50 540 430 ctx
-  when (Kick `elem` activeNow) $ drawImage (images app Image_gem_kick) 0 100 400 25 ctx
-  when (Red `elem` activeNow) $ drawImage (images app Image_gem_red) 0 0 100 100 ctx
-  when (Pro Yellow () `elem` activeNow) $ drawImage (images app Image_gem_yellow) 100 0 100 100 ctx
-  when (Pro Blue () `elem` activeNow) $ drawImage (images app Image_gem_blue) 200 0 100 100 ctx
-  when (Pro Green () `elem` activeNow) $ drawImage (images app Image_gem_green) 300 0 100 100 ctx
+  let posnsNow, posnsFuture :: Gem () -> (Double, Double, Double, Double)
+      posnsNow = \case
+        Kick          -> (320, 370.5, 457, 27)
+        Red           -> (170.5, 362.5, 91, 45)
+        Pro Yellow () -> (270.5, 360.47, 91, 45)
+        Pro Blue ()   -> (369.5, 360.47, 86, 46.289)
+        Pro Green ()  -> (468, 362.596, 86, 46.289)
+      posnsFuture = \case
+        Kick          -> (320, 175.577, 256, 19.292)
+        Red           -> (235.215, 169.926, 50.976, 32.137)
+        Pro Yellow () -> (291.233, 168.409, 50.976, 32.137)
+        Pro Blue ()   -> (346.69, 168.412, 48.175, 33.057)
+        Pro Green ()  -> (401.869, 169.929, 48.175, 33.057)
+      futureTime = 0.75 :: Double
+      getIllustratorPx gem gemSecs = let
+        secOffset = realToFrac gemSecs - realToFrac posn :: Double
+        nowToFuturePosn = (secOffset / futureTime) ** 0.75
+        (xn, yn, wn, hn) = posnsNow gem
+        (xf, yf, wf, hf) = posnsFuture gem
+        in  ( xn + nowToFuturePosn * (xf - xn)
+            , yn + nowToFuturePosn * (yf - yn)
+            , wn + nowToFuturePosn * (wf - wn)
+            , hn + nowToFuturePosn * (hf - hn)
+            )
+      getRealPx gem gemSecs = let
+        (x, y, w, h) = getIllustratorPx gem gemSecs
+        in (x - 0.5 * w, y - 0.5 * h, w, h)
+  forM_ (reverse $ Map.assocs gems'') $ \(gemSecs, gemList) ->
+    forM_ (sort gemList) $ \gem -> let -- sort puts Kick first
+      (x, y, w, h) = getRealPx gem gemSecs
+      image = images app $ case gem of
+        Kick          -> Image_gem_kick
+        Red           -> Image_gem_red
+        Pro Yellow () -> Image_gem_yellow
+        Pro Blue ()   -> Image_gem_blue
+        Pro Green ()  -> Image_gem_green
+      in drawImage image x y w h ctx
   setFillStyle "white" ctx
   setFont "20px monospace" ctx
   let dposn = realToFrac posn :: Double
