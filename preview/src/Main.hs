@@ -100,9 +100,6 @@ main = do
         imgs <- fmap Map.fromList $ forM [minBound .. maxBound] $ \iid -> do
           img <- loadImage $ "rbprev/" ++ drop 6 (show iid) ++ ".png"
           return (iid, img)
-        songID  <- Audio.play howlSong
-        drumsID <- Audio.play howlDrums
-        start <- getCurrentTime
         let app = App
               { images = \iid -> case Map.lookup iid imgs of
                   Just img -> img
@@ -110,7 +107,11 @@ main = do
               , gems = gemMap
               , timeToMeasure = U.applyMeasureMap mmap . U.unapplyTempoMap tmap
               }
-            playing startUTC startSecs = do
+        draw 0 app
+        songID  <- Audio.play howlSong
+        drumsID <- Audio.play howlDrums
+        start <- getCurrentTime
+        let playing startUTC startSecs = do
               nowUTC <- getCurrentTime
               let nowSecs = realToFrac (diffUTCTime nowUTC startUTC) + startSecs
               draw nowSecs app
