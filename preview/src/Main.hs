@@ -3,7 +3,7 @@ module Main where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
-import Control.Monad (forM, when)
+import Control.Monad (forM, when, unless)
 import qualified Sound.MIDI.Util as U
 import qualified Data.Map as Map
 import Data.Time.Clock
@@ -15,6 +15,7 @@ import GHCJS.Foreign
 import GHCJS.Types
 
 import Control.Concurrent.STM
+import Data.IORef
 
 import qualified Audio
 import Draw
@@ -52,8 +53,8 @@ draw posn app = do
 
 data Event
   = PlayPause
-  | Forward U.Seconds
-  | Rewind U.Seconds
+  | SeekTo Double
+  | UserDragging Bool
   deriving (Eq, Ord, Show)
 
 foreign import javascript unsafe
@@ -70,12 +71,24 @@ addEventListener event eltid f = do
   jf <- asyncCallback (DomRetain $ castRef elt) f
   js_addEventListener (toJSString event) elt jf
 
+foreign import javascript unsafe
+  "$1.value"
+  js_value :: JSRef a -> IO (JSRef b)
+
+foreign import javascript unsafe
+  "$2.value = $1;"
+  js_setValue :: JSString -> JSRef a -> IO ()
+
 main :: IO ()
 main = do
   equeue <- atomically newTChan
-  addEventListener "click" "button-rewind"     $ atomically $ writeTChan equeue $ Rewind 10
   addEventListener "click" "button-play-pause" $ atomically $ writeTChan equeue PlayPause
-  addEventListener "click" "button-forward"    $ atomically $ writeTChan equeue $ Forward 10
+  addEventListener "change" "the-slider" $ do
+    str <- fmap fromJSString $ js_getElementById (toJSString "the-slider") >>= js_value
+    atomically $ writeTChan equeue $ SeekTo $ read str
+  userDragging <- newIORef False
+  addEventListener "mousedown" "the-slider" $ writeIORef userDragging True
+  addEventListener "mouseup" "the-slider" $ writeIORef userDragging False
   putStrLn "Hooked up buttons."
   howlSong <- Audio.load ["another-day/song-countin.ogg", "another-day/song-countin.mp3"]
   howlDrums <- Audio.load ["another-day/drums.ogg", "another-day/drums.mp3"]
@@ -113,9 +126,16 @@ main = do
         songID  <- Audio.play howlSong
         drumsID <- Audio.play howlDrums
         start <- getCurrentTime
-        let playing startUTC startSecs = do
+        let updateSlider secs = do
+              drag <- readIORef userDragging
+              unless drag $ do
+                dur <- Audio.getDuration howlSong
+                elt <- js_getElementById $ toJSString "the-slider"
+                js_setValue (toJSString $ show $ realToFrac secs / dur) elt
+            playing startUTC startSecs = do
               nowUTC <- getCurrentTime
               let nowSecs = realToFrac (diffUTCTime nowUTC startUTC) + startSecs
+              updateSlider nowSecs
               draw nowSecs app
               requestAnimationFrame
               atomically (tryReadTChan equeue) >>= \case
@@ -124,20 +144,15 @@ main = do
                   Audio.pause songID howlSong
                   Audio.pause drumsID howlDrums
                   paused nowSecs
-                Just (Forward t) -> do
-                  Audio.pause songID howlSong
-                  Audio.pause drumsID howlDrums
-                  let newSecs = nowSecs + t
+                Just (SeekTo p) -> do
+                  dur <- Audio.getDuration howlSong
+                  let newSecs = realToFrac $ dur * p :: U.Seconds
                   Audio.setPosSafe (realToFrac newSecs) songID howlSong
                   Audio.setPosSafe (realToFrac newSecs) drumsID howlDrums
                   playing nowUTC newSecs
-                Just (Rewind t) -> do
-                  Audio.pause songID howlSong
-                  Audio.pause drumsID howlDrums
-                  let newSecs = if t > nowSecs then 0 else nowSecs - t
-                  Audio.setPosSafe (realToFrac newSecs) songID howlSong
-                  Audio.setPosSafe (realToFrac newSecs) drumsID howlDrums
-                  playing nowUTC newSecs
+                Just (UserDragging b) -> do
+                  writeIORef userDragging b
+                  playing startUTC startSecs
             paused nowSecs = do
               -- draw nowSecs app
               requestAnimationFrame
@@ -148,22 +163,19 @@ main = do
                   Audio.setPosSafe (realToFrac nowSecs) drumsID howlDrums
                   startUTC <- getCurrentTime
                   playing startUTC nowSecs
-                Just (Forward t) -> do
-                  let newSecs = nowSecs + t
+                Just (SeekTo p) -> do
+                  dur <- Audio.getDuration howlSong
+                  let newSecs = realToFrac $ dur * p :: U.Seconds
                   Audio.setPosSafe (realToFrac newSecs) songID howlSong
                   Audio.pause songID howlSong
                   Audio.setPosSafe (realToFrac newSecs) drumsID howlDrums
                   Audio.pause drumsID howlDrums
                   draw newSecs app
+                  updateSlider newSecs
                   paused newSecs
-                Just (Rewind t) -> do
-                  let newSecs = if t > nowSecs then 0 else nowSecs - t
-                  Audio.setPosSafe (realToFrac newSecs) songID howlSong
-                  Audio.pause songID howlSong
-                  Audio.setPosSafe (realToFrac newSecs) drumsID howlDrums
-                  Audio.pause drumsID howlDrums
-                  draw newSecs app
-                  paused newSecs
+                Just (UserDragging b) -> do
+                  writeIORef userDragging b
+                  paused nowSecs
         playing start 0
 
 data ImageID

@@ -14,14 +14,16 @@
       #the-canvas {
         background-color: black;
       }
+      #the-slider {
+        width: 400px;
+      }
     </style>
   </head>
   <body>
     <canvas id="the-canvas" width="640" height="480"></canvas>
     <form>
-      <button type="button" id="button-rewind">Rewind</button>
-      <button type="button" id="button-play-pause">Play/Pause</button>
-      <button type="button" id="button-forward">Forward</button>
+      <button type="button" id="button-play-pause">&#9658;/&#10073;&#10073;</button>
+      <input id="the-slider" type="range" min="0" max="1" step="0.001" value="0"></input>
     </form>
   </body>
   <script language="javascript" src="runmain.js" defer></script>
