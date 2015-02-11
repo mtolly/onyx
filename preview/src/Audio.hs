@@ -1,6 +1,6 @@
 {-# LANGUAGE JavaScriptFFI #-}
 module Audio
-( Howl, SoundID, load, play, pause, stop, getPos, setPos
+( Howl, SoundID, load, play, pause, stop, getPos, setPos, getDuration, setPosSafe
 ) where
 
 import GHCJS.Marshal
@@ -39,3 +39,12 @@ foreign import javascript unsafe
 foreign import javascript unsafe
   "$3.pos($1, $2);"
   setPos :: Double -> SoundID -> Howl -> IO ()
+
+foreign import javascript unsafe
+  "$1._duration"
+  getDuration :: Howl -> IO Double
+
+setPosSafe :: Double -> SoundID -> Howl -> IO ()
+setPosSafe t sid h = do
+  dur <- getDuration h
+  setPos (min t dur) sid h

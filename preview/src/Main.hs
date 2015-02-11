@@ -128,15 +128,15 @@ main = do
                   Audio.pause songID howlSong
                   Audio.pause drumsID howlDrums
                   let newSecs = nowSecs + t
-                  Audio.setPos (realToFrac newSecs) songID howlSong
-                  Audio.setPos (realToFrac newSecs) drumsID howlDrums
+                  Audio.setPosSafe (realToFrac newSecs) songID howlSong
+                  Audio.setPosSafe (realToFrac newSecs) drumsID howlDrums
                   playing nowUTC newSecs
                 Just (Rewind t) -> do
                   Audio.pause songID howlSong
                   Audio.pause drumsID howlDrums
                   let newSecs = if t > nowSecs then 0 else nowSecs - t
-                  Audio.setPos (realToFrac newSecs) songID howlSong
-                  Audio.setPos (realToFrac newSecs) drumsID howlDrums
+                  Audio.setPosSafe (realToFrac newSecs) songID howlSong
+                  Audio.setPosSafe (realToFrac newSecs) drumsID howlDrums
                   playing nowUTC newSecs
             paused nowSecs = do
               -- draw nowSecs app
@@ -144,23 +144,23 @@ main = do
               atomically (tryReadTChan equeue) >>= \case
                 Nothing -> paused nowSecs
                 Just PlayPause -> do
-                  Audio.setPos (realToFrac nowSecs) songID howlSong
-                  Audio.setPos (realToFrac nowSecs) drumsID howlDrums
+                  Audio.setPosSafe (realToFrac nowSecs) songID howlSong
+                  Audio.setPosSafe (realToFrac nowSecs) drumsID howlDrums
                   startUTC <- getCurrentTime
                   playing startUTC nowSecs
                 Just (Forward t) -> do
                   let newSecs = nowSecs + t
-                  Audio.setPos (realToFrac newSecs) songID howlSong
+                  Audio.setPosSafe (realToFrac newSecs) songID howlSong
                   Audio.pause songID howlSong
-                  Audio.setPos (realToFrac newSecs) drumsID howlDrums
+                  Audio.setPosSafe (realToFrac newSecs) drumsID howlDrums
                   Audio.pause drumsID howlDrums
                   draw newSecs app
                   paused newSecs
                 Just (Rewind t) -> do
                   let newSecs = if t > nowSecs then 0 else nowSecs - t
-                  Audio.setPos (realToFrac newSecs) songID howlSong
+                  Audio.setPosSafe (realToFrac newSecs) songID howlSong
                   Audio.pause songID howlSong
-                  Audio.setPos (realToFrac newSecs) drumsID howlDrums
+                  Audio.setPosSafe (realToFrac newSecs) drumsID howlDrums
                   Audio.pause drumsID howlDrums
                   draw newSecs app
                   paused newSecs
