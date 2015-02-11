@@ -51,9 +51,10 @@ draw posn app = do
   fillText measurestamp 10 180 ctx
 
 data Event
-  = Play
-  | Pause
-  deriving (Eq, Ord, Show, Read)
+  = PlayPause
+  | Forward U.Seconds
+  | Rewind U.Seconds
+  deriving (Eq, Ord, Show)
 
 foreign import javascript unsafe
   "document.getElementById($1)"
@@ -72,8 +73,9 @@ addEventListener event eltid f = do
 main :: IO ()
 main = do
   equeue <- atomically newTChan
-  addEventListener "click" "button-pause" $ atomically $ writeTChan equeue Pause
-  addEventListener "click" "button-play" $ atomically $ writeTChan equeue Play
+  addEventListener "click" "button-rewind"     $ atomically $ writeTChan equeue $ Rewind 10
+  addEventListener "click" "button-play-pause" $ atomically $ writeTChan equeue PlayPause
+  addEventListener "click" "button-forward"    $ atomically $ writeTChan equeue $ Forward 10
   putStrLn "Hooked up buttons."
   howlSong <- Audio.load ["another-day/song-countin.ogg", "another-day/song-countin.mp3"]
   howlDrums <- Audio.load ["another-day/drums.ogg", "another-day/drums.mp3"]
@@ -118,22 +120,50 @@ main = do
               requestAnimationFrame
               atomically (tryReadTChan equeue) >>= \case
                 Nothing -> playing startUTC startSecs
-                Just Play -> playing startUTC startSecs
-                Just Pause -> do
+                Just PlayPause -> do
                   Audio.pause songID howlSong
                   Audio.pause drumsID howlDrums
                   paused nowSecs
-            paused secs = do
-              -- draw secs app
+                Just (Forward t) -> do
+                  Audio.pause songID howlSong
+                  Audio.pause drumsID howlDrums
+                  let newSecs = nowSecs + t
+                  Audio.setPos (realToFrac newSecs) songID howlSong
+                  Audio.setPos (realToFrac newSecs) drumsID howlDrums
+                  playing nowUTC newSecs
+                Just (Rewind t) -> do
+                  Audio.pause songID howlSong
+                  Audio.pause drumsID howlDrums
+                  let newSecs = if t > nowSecs then 0 else nowSecs - t
+                  Audio.setPos (realToFrac newSecs) songID howlSong
+                  Audio.setPos (realToFrac newSecs) drumsID howlDrums
+                  playing nowUTC newSecs
+            paused nowSecs = do
+              -- draw nowSecs app
               requestAnimationFrame
               atomically (tryReadTChan equeue) >>= \case
-                Nothing -> paused secs
-                Just Pause -> paused secs
-                Just Play -> do
-                  Audio.setPos (realToFrac secs) songID howlSong
-                  Audio.setPos (realToFrac secs) songID howlDrums
+                Nothing -> paused nowSecs
+                Just PlayPause -> do
+                  Audio.setPos (realToFrac nowSecs) songID howlSong
+                  Audio.setPos (realToFrac nowSecs) drumsID howlDrums
                   startUTC <- getCurrentTime
-                  playing startUTC secs
+                  playing startUTC nowSecs
+                Just (Forward t) -> do
+                  let newSecs = nowSecs + t
+                  Audio.setPos (realToFrac newSecs) songID howlSong
+                  Audio.pause songID howlSong
+                  Audio.setPos (realToFrac newSecs) drumsID howlDrums
+                  Audio.pause drumsID howlDrums
+                  draw newSecs app
+                  paused newSecs
+                Just (Rewind t) -> do
+                  let newSecs = if t > nowSecs then 0 else nowSecs - t
+                  Audio.setPos (realToFrac newSecs) songID howlSong
+                  Audio.pause songID howlSong
+                  Audio.setPos (realToFrac newSecs) drumsID howlDrums
+                  Audio.pause drumsID howlDrums
+                  draw newSecs app
+                  paused newSecs
         playing start 0
 
 data ImageID
