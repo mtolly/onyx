@@ -100,8 +100,8 @@ main = do
         imgs <- fmap Map.fromList $ forM [minBound .. maxBound] $ \iid -> do
           img <- loadImage $ "rbprev/" ++ drop 6 (show iid) ++ ".png"
           return (iid, img)
-        Audio.play howlSong
-        Audio.play howlDrums
+        songID  <- Audio.play howlSong
+        drumsID <- Audio.play howlDrums
         start <- getCurrentTime
         let app = App
               { images = \iid -> case Map.lookup iid imgs of
@@ -119,7 +119,8 @@ main = do
                 Nothing -> playing startUTC startSecs
                 Just Play -> playing startUTC startSecs
                 Just Pause -> do
-                  mapM_ Audio.pause [howlSong, howlDrums]
+                  Audio.pause songID howlSong
+                  Audio.pause drumsID howlDrums
                   paused nowSecs
             paused secs = do
               -- draw secs app
@@ -128,7 +129,8 @@ main = do
                 Nothing -> paused secs
                 Just Pause -> paused secs
                 Just Play -> do
-                  mapM_ Audio.play [howlSong, howlDrums]
+                  Audio.setPos (realToFrac secs) songID howlSong
+                  Audio.setPos (realToFrac secs) songID howlDrums
                   startUTC <- getCurrentTime
                   playing startUTC secs
         playing start 0
