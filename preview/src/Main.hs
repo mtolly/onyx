@@ -33,7 +33,7 @@ draw posn app = do
       (gems'', _) = Map.split (posn + seeFuture) gems'
       ctx = context2d theCanvas
       seePast = 0.05
-      seeFuture = 1.2
+      seeFuture = 1
   drawImage (images app Image_RBN_background1) 0 0 640 480 ctx
   drawImage (images app Image_track_drum) 50 50 540 430 ctx
   let posnsNow, posnsFuture :: Gem ProType -> (Double, Double, Double, Double)
@@ -75,7 +75,10 @@ draw posn app = do
         Pro Yellow Cymbal -> Image_gem_cym_yellow
         Pro Blue   Cymbal -> Image_gem_cym_blue
         Pro Green  Cymbal -> Image_gem_cym_green
-      in drawImage image x y w h ctx
+      in do
+        setGlobalAlpha (if secOffset > 0.8 then 1 - (secOffset - 0.8) * 5 else 1) ctx
+        drawImage image x y w h ctx
+        setGlobalAlpha 1 ctx
   setFillStyle "white" ctx
   setFont "20px monospace" ctx
   let dposn = realToFrac posn :: Double
