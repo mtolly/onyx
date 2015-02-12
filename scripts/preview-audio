@@ -1,5 +1,6 @@
 #!/usr/bin/env fish
 
+# album audio will be copied from here
 set music_dir "$HOME/Desktop/music/onyxite-customs audio/"
 
 for readme in */*/README.md
@@ -12,4 +13,14 @@ for readme in */*/README.md
   lame audio-crap.wav -b 16
   oggenc -b 16 --downmix --resample 16000 audio-crap.wav
   cd ../..
+end
+
+# low-quality audio and mids will be copied to here
+set dest_dir "$HOME/Desktop/music/crap/"
+
+for crap in */*/audio-crap.{mp3,ogg}
+  set dir (dirname $crap)
+  mkdir -p $dest_dir/$dir/gen/album/2p
+  cp $crap $dest_dir/$crap
+  cp $dir/gen/album/2p/notes.mid $dest_dir/$dir/gen/album/2p/notes.mid
 end

@@ -10,6 +10,7 @@ import Data.Time.Clock
 import Control.Exception (evaluate)
 import Text.Printf (printf)
 import Data.List (sort)
+import Data.Maybe (fromMaybe)
 
 import GHCJS.Foreign
 import GHCJS.Types
@@ -117,6 +118,15 @@ foreign import javascript unsafe
   "$2.value = $1;"
   js_setValue :: JSString -> JSRef a -> IO ()
 
+foreign import javascript unsafe
+  "lookupGET($1)"
+  js_lookupGET :: JSString -> IO JSString
+
+lookupGET :: String -> IO (Maybe String)
+lookupGET k = js_lookupGET (toJSString k) >>= \ref -> return $ if isNull ref
+  then Nothing
+  else Just $ fromJSString ref
+
 main :: IO ()
 main = do
   equeue <- atomically newTChan
@@ -128,9 +138,13 @@ main = do
   addEventListener "mousedown" "the-slider" $ writeIORef userDragging True
   addEventListener "mouseup" "the-slider" $ writeIORef userDragging False
   putStrLn "Hooked up buttons."
-  howlSong <- Audio.load ["../../dream-theater/never-enough/audio-crap.ogg", "../../dream-theater/never-enough/audio-crap.mp3"]
+  artist <- fmap (fromMaybe "dream-theater") $ lookupGET "artist"
+  title <- fmap (fromMaybe "6-00") $ lookupGET "title"
+  let root = "http://pages.cs.wisc.edu/~tolly/customs/"++artist++"/"++title++"/"
+  putStrLn $ "Loading song from " ++ root
+  howlSong <- Audio.load [root ++ "/audio-crap.ogg", root ++ "/audio-crap.mp3"]
   putStrLn "Loaded audio."
-  mid <- loadMidi "../../dream-theater/never-enough/gen/album/2p/notes.mid"
+  mid <- loadMidi $ root ++ "/gen/album/2p/notes.mid"
   putStrLn "Loaded MIDI."
   case U.decodeFile mid of
     Right _ -> undefined
