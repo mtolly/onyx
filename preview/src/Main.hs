@@ -128,10 +128,9 @@ main = do
   addEventListener "mousedown" "the-slider" $ writeIORef userDragging True
   addEventListener "mouseup" "the-slider" $ writeIORef userDragging False
   putStrLn "Hooked up buttons."
-  howlSong <- Audio.load ["another-day/song-countin.ogg", "another-day/song-countin.mp3"]
-  howlDrums <- Audio.load ["another-day/drums.ogg", "another-day/drums.mp3"]
+  howlSong <- Audio.load ["../../dream-theater/never-enough/audio-crap.ogg", "../../dream-theater/never-enough/audio-crap.mp3"]
   putStrLn "Loaded audio."
-  mid <- loadMidi "another-day/notes.mid"
+  mid <- loadMidi "../../dream-theater/never-enough/notes.mid"
   putStrLn "Loaded MIDI."
   case U.decodeFile mid of
     Right _ -> undefined
@@ -161,7 +160,6 @@ main = do
               }
         draw 0 app
         songID  <- Audio.play howlSong
-        drumsID <- Audio.play howlDrums
         start <- getCurrentTime
         let updateSlider secs = do
               drag <- readIORef userDragging
@@ -179,13 +177,11 @@ main = do
                 Nothing -> playing startUTC startSecs
                 Just PlayPause -> do
                   Audio.pause songID howlSong
-                  Audio.pause drumsID howlDrums
                   paused nowSecs
                 Just (SeekTo p) -> do
                   dur <- Audio.getDuration howlSong
                   let newSecs = realToFrac $ dur * p :: U.Seconds
                   Audio.setPosSafe (realToFrac newSecs) songID howlSong
-                  Audio.setPosSafe (realToFrac newSecs) drumsID howlDrums
                   playing nowUTC newSecs
                 Just (UserDragging b) -> do
                   writeIORef userDragging b
@@ -197,7 +193,6 @@ main = do
                 Nothing -> paused nowSecs
                 Just PlayPause -> do
                   Audio.setPosSafe (realToFrac nowSecs) songID howlSong
-                  Audio.setPosSafe (realToFrac nowSecs) drumsID howlDrums
                   startUTC <- getCurrentTime
                   playing startUTC nowSecs
                 Just (SeekTo p) -> do
@@ -205,8 +200,6 @@ main = do
                   let newSecs = realToFrac $ dur * p :: U.Seconds
                   Audio.setPosSafe (realToFrac newSecs) songID howlSong
                   Audio.pause songID howlSong
-                  Audio.setPosSafe (realToFrac newSecs) drumsID howlDrums
-                  Audio.pause drumsID howlDrums
                   draw newSecs app
                   updateSlider newSecs
                   paused newSecs

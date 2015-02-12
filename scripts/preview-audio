@@ -1,0 +1,15 @@
+#!/usr/bin/env fish
+
+set music_dir "$HOME/Desktop/music/onyxite-customs audio/"
+
+for readme in */*/README.md
+  set dir (dirname $readme)
+  echo ">>> Song:" $dir
+  cp $music_dir/$dir/audio-album.* $dir/
+  cd $dir
+  onyxbuild gen/album/2p/song-countin.wav
+  sox gen/album/2p/song-countin.wav audio-crap.wav remix 1,2
+  lame audio-crap.wav -b 16
+  oggenc -b 16 --downmix --resample 16000 audio-crap.wav
+  cd ../..
+end
