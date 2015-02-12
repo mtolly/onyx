@@ -86,14 +86,16 @@ loadMidi s = jasmid_loadMidi (toJSString s) >>= fromJasmid
 
 data ProColor = Yellow | Blue | Green
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
-data ProType = Tom | Cymbal
+data ProType = Cymbal | Tom
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 data Gem t = Kick | Red | Pro ProColor t
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 data Difficulty = Easy | Medium | Hard | Expert
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 data DrumEvent
-  = ProType ProColor ProType -- ^ must come before 'Note' for 'RTB.normalize'
+  = ProType ProColor ProType
+  -- ^ must come before 'Note' for 'RTB.normalize'
+  -- also, Cymbal < Tom so note-off comes before note-on
   | Discobeat Difficulty Bool -- ^ must come before 'Note' for 'RTB.normalize'
   | Note Difficulty (Gem ())
   deriving (Eq, Ord, Show, Read)

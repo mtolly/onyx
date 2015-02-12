@@ -130,7 +130,7 @@ main = do
   putStrLn "Hooked up buttons."
   howlSong <- Audio.load ["../../dream-theater/never-enough/audio-crap.ogg", "../../dream-theater/never-enough/audio-crap.mp3"]
   putStrLn "Loaded audio."
-  mid <- loadMidi "../../dream-theater/never-enough/notes.mid"
+  mid <- loadMidi "../../dream-theater/never-enough/gen/album/2p/notes.mid"
   putStrLn "Loaded MIDI."
   case U.decodeFile mid of
     Right _ -> undefined
