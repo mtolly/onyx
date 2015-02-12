@@ -9,7 +9,6 @@ import qualified Data.Map as Map
 import Data.Time.Clock
 import Control.Exception (evaluate)
 import Text.Printf (printf)
-import qualified Sound.MIDI.File.Event as E
 import Data.List (sort)
 
 import GHCJS.Foreign
@@ -24,7 +23,7 @@ import Midi
 
 data App = App
   { images :: ImageID -> Image
-  , gems :: Map.Map U.Seconds [Gem ()]
+  , gems :: Map.Map U.Seconds [Gem ProType]
   , timeToMeasure :: U.Seconds -> U.MeasureBeats
   }
 
@@ -37,22 +36,21 @@ draw posn app = do
       seeFuture = 1.2
   drawImage (images app Image_RBN_background1) 0 0 640 480 ctx
   drawImage (images app Image_track_drum) 50 50 540 430 ctx
-  let posnsNow, posnsFuture :: Gem () -> (Double, Double, Double, Double)
+  let posnsNow, posnsFuture :: Gem ProType -> (Double, Double, Double, Double)
       posnsNow = \case
-        Kick          -> (320, 370.5, 457, 27)
-        Red           -> (170.5, 362.5, 91, 45)
-        Pro Yellow () -> (270.5, 360.47, 91, 45)
-        Pro Blue ()   -> (369.5, 360.47, 86, 46.289)
-        Pro Green ()  -> (468, 362.596, 86, 46.289)
+        Kick         -> (320, 370.5, 457, 27)
+        Red          -> (170.5, 362.5, 91, 45)
+        Pro Yellow _ -> (270.5, 360.47, 91, 45)
+        Pro Blue   _ -> (369.5, 360.47, 86, 46.289)
+        Pro Green  _ -> (468, 362.596, 86, 46.289)
       posnsFuture = \case
-        Kick          -> (320, 175.577, 256, 19.292)
-        Red           -> (235.215, 169.926, 50.976, 32.137)
-        Pro Yellow () -> (291.233, 168.409, 50.976, 32.137)
-        Pro Blue ()   -> (346.69, 168.412, 48.175, 33.057)
-        Pro Green ()  -> (401.869, 169.929, 48.175, 33.057)
+        Kick         -> (320, 175.577, 256, 19.292)
+        Red          -> (235.215, 169.926, 50.976, 32.137)
+        Pro Yellow _ -> (291.233, 168.409, 50.976, 32.137)
+        Pro Blue   _ -> (346.69, 168.412, 48.175, 33.057)
+        Pro Green  _ -> (401.869, 169.929, 48.175, 33.057)
       futureTime = 0.75 :: Double
-      getIllustratorPx gem gemSecs = let
-        secOffset = realToFrac gemSecs - realToFrac posn :: Double
+      getIllustratorPx gem secOffset = let
         nowToFuturePosn = (secOffset / futureTime) ** 0.75
         (xn, yn, wn, hn) = posnsNow gem
         (xf, yf, wf, hf) = posnsFuture gem
@@ -61,29 +59,32 @@ draw posn app = do
             , wn + nowToFuturePosn * (wf - wn)
             , hn + nowToFuturePosn * (hf - hn)
             )
-      getRealPx gem gemSecs = let
-        (x, y, w, h) = getIllustratorPx gem gemSecs
+      getRealPx gem secOffset = let
+        (x, y, w, h) = getIllustratorPx gem secOffset
         in (x - 0.5 * w, y - 0.5 * h, w, h)
   forM_ (reverse $ Map.assocs gems'') $ \(gemSecs, gemList) ->
     forM_ (sort gemList) $ \gem -> let -- sort puts Kick first
-      (x, y, w, h) = getRealPx gem gemSecs
+      secOffset = realToFrac gemSecs - realToFrac posn :: Double
+      (x, y, w, h) = getRealPx gem secOffset
       image = images app $ case gem of
-        Kick          -> Image_gem_kick
-        Red           -> Image_gem_red
-        Pro Yellow () -> Image_gem_yellow
-        Pro Blue ()   -> Image_gem_blue
-        Pro Green ()  -> Image_gem_green
+        Kick              -> Image_gem_kick
+        Red               -> Image_gem_red
+        Pro Yellow Tom    -> Image_gem_yellow
+        Pro Blue   Tom    -> Image_gem_blue
+        Pro Green  Tom    -> Image_gem_green
+        Pro Yellow Cymbal -> Image_gem_cym_yellow
+        Pro Blue   Cymbal -> Image_gem_cym_blue
+        Pro Green  Cymbal -> Image_gem_cym_green
       in drawImage image x y w h ctx
   setFillStyle "white" ctx
   setFont "20px monospace" ctx
   let dposn = realToFrac posn :: Double
       mins = floor $ dposn / 60 :: Int
       secs = dposn - fromIntegral mins * 60 :: Double
-      timestamp = printf "%02d:%06.3f" mins secs :: String
+      timestamp = printf "Time: %02d:%06.3f | Measure: %03d | Beat: %06.3f"
+        mins secs (msr + 1) (realToFrac bts + 1 :: Double) :: String
       (msr, bts) = timeToMeasure app posn
-      measurestamp = printf "m%03d:b%06.3f" (msr + 1) (realToFrac bts + 1 :: Double) :: String
-  fillText timestamp 10 150 ctx
-  fillText measurestamp 10 180 ctx
+  fillText timestamp 10 20 ctx
 
 data Event
   = PlayPause
@@ -135,13 +136,12 @@ main = do
       tmap = U.makeTempoMap $ head trks
       mmap = U.makeMeasureMap U.Error $ head trks
       trk = foldr RTB.merge RTB.empty $ filter (\t -> U.trackName t == Just "PART DRUMS") trks
-      gemTrack :: RTB.T U.Seconds (Gem ())
-      gemTrack = U.applyTempoTrack tmap $ RTB.mapMaybe isGem trk
-      isGem :: E.T -> Maybe (Gem ())
-      isGem e = readDrumEvent e >>= \case
-        Note Expert gem -> Just gem
-        _               -> Nothing
-      gemMap :: Map.Map U.Seconds [Gem ()]
+      gemTrack :: RTB.T U.Seconds (Gem ProType)
+      gemTrack = U.applyTempoTrack tmap $ pickExpert $ assignToms $ RTB.mapMaybe readDrumEvent trk
+      pickExpert = RTB.mapMaybe $ \(d, x) -> case d of
+        Expert -> Just x
+        _      -> Nothing
+      gemMap :: Map.Map U.Seconds [Gem ProType]
       gemMap = Map.fromAscList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $
         RTB.collectCoincident gemTrack
       in do

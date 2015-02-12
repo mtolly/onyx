@@ -20,6 +20,7 @@ import qualified Sound.MIDI.File.Event.Meta as Meta
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import Control.Monad (forM)
+import Data.List (isPrefixOf)
 
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
@@ -92,10 +93,10 @@ data Gem t = Kick | Red | Pro ProColor t
 data Difficulty = Easy | Medium | Hard | Expert
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 data DrumEvent
-  = Toms ProColor Bool -- ^ this event must come before 'Note' for 'RTB.normalize'
+  = ProType ProColor ProType -- ^ must come before 'Note' for 'RTB.normalize'
+  | Discobeat Difficulty Bool -- ^ must come before 'Note' for 'RTB.normalize'
   | Note Difficulty (Gem ())
   deriving (Eq, Ord, Show, Read)
-  -- TODO: discobeat
 
 readDrumEvent :: E.T -> Maybe DrumEvent
 readDrumEvent e = let
@@ -124,36 +125,73 @@ readDrumEvent e = let
     99  -> Just $ Note Expert $ Pro Blue   ()
     100 -> Just $ Note Expert $ Pro Green  ()
 
-    110 -> Just $ Toms Yellow True
-    111 -> Just $ Toms Blue   True
-    112 -> Just $ Toms Green  True
+    110 -> Just $ ProType Yellow Tom
+    111 -> Just $ ProType Blue   Tom
+    112 -> Just $ ProType Green  Tom
     _   -> Nothing
   noteOff p = case V.fromPitch p of
-    110 -> Just $ Toms Yellow False
-    111 -> Just $ Toms Blue   False
-    112 -> Just $ Toms Green  False
+    110 -> Just $ ProType Yellow Cymbal
+    111 -> Just $ ProType Blue   Cymbal
+    112 -> Just $ ProType Green  Cymbal
     _   -> Nothing
   in case e of
     E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn p vel))) ->
       (if V.fromVelocity vel == 0 then noteOff else noteOn) p
     E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOff p _))) -> noteOff p
+    E.MetaEvent (Meta.TextEvent s) -> case s of
+      "[mix 0 drums0d]" -> Just $ Discobeat Easy True
+      "[mix 1 drums0d]" -> Just $ Discobeat Medium True
+      "[mix 2 drums0d]" -> Just $ Discobeat Hard True
+      "[mix 3 drums0d]" -> Just $ Discobeat Expert True
+      _ | "[mix 0 drums" `isPrefixOf` s -> Just $ Discobeat Easy False
+        | "[mix 1 drums" `isPrefixOf` s -> Just $ Discobeat Medium False
+        | "[mix 2 drums" `isPrefixOf` s -> Just $ Discobeat Hard False
+        | "[mix 3 drums" `isPrefixOf` s -> Just $ Discobeat Expert False
+        | otherwise -> Nothing
     _ -> Nothing
 
+data DrumState = DrumState
+  { yellowType  :: ProType
+  , blueType    :: ProType
+  , greenType   :: ProType
+  , easyDisco   :: Bool
+  , mediumDisco :: Bool
+  , hardDisco   :: Bool
+  , expertDisco :: Bool
+  }
+
+defDrumState :: DrumState
+defDrumState = DrumState Cymbal Cymbal Cymbal False False False False
+
 assignToms :: (NNC.C t) => RTB.T t DrumEvent -> RTB.T t (Difficulty, Gem ProType)
-assignToms = go False False False . RTB.normalize where
-  go !y !b !g rtb = case RTB.viewL rtb of
+assignToms = go defDrumState . RTB.normalize where
+  go ds rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
     Just ((dt, x), rtb') -> case x of
-      Toms color istom -> RTB.delay dt $ case color of
-        Yellow -> go istom b     g     rtb'
-        Blue   -> go y     istom g     rtb'
-        Green  -> go y     b     istom rtb'
+      ProType color ptype -> RTB.delay dt $ case color of
+        Yellow -> go ds{ yellowType = ptype } rtb'
+        Blue   -> go ds{ blueType   = ptype } rtb'
+        Green  -> go ds{ greenType  = ptype } rtb'
+      Discobeat diff b -> RTB.delay dt $ case diff of
+        Easy   -> go ds{ easyDisco   = b } rtb'
+        Medium -> go ds{ mediumDisco = b } rtb'
+        Hard   -> go ds{ hardDisco   = b } rtb'
+        Expert -> go ds{ expertDisco = b } rtb'
       Note diff gem -> case gem of
-        Kick -> RTB.cons dt (diff, Kick) $ go y b g rtb'
-        Red -> RTB.cons dt (diff, Red) $ go y b g rtb'
+        Kick -> RTB.cons dt (diff, Kick) $ go ds rtb'
+        Red -> if isDisco
+          then RTB.cons dt (diff, Pro Yellow Cymbal) $ go ds rtb'
+          else RTB.cons dt (diff, Red) $ go ds rtb'
         Pro color () -> let
-          new = Pro color $ case color of
-            Yellow -> if y then Tom else Cymbal
-            Blue   -> if b then Tom else Cymbal
-            Green  -> if g then Tom else Cymbal
-          in RTB.cons dt (diff, new) $ go y b g rtb'
+          new = case color of
+            Yellow -> if isDisco
+              then Red
+              else Pro Yellow $ yellowType ds
+            Blue   -> Pro Blue $ blueType ds
+            Green  -> Pro Green $ greenType ds
+          in RTB.cons dt (diff, new) $ go ds rtb'
+        where isDisco = case diff of
+                Easy -> easyDisco ds
+                Medium -> mediumDisco ds
+                Hard -> hardDisco ds
+                Expert -> expertDisco ds
