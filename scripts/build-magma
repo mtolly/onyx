@@ -6,7 +6,7 @@ def system_(*args)
   raise(IOError, "Command returned #{$?.exitstatus}") if result != true
 end
 
-readmes = `ls */*/README.md`.split "\n"
+readmes = `ls songs/*/*/README.md`.split "\n"
 #readmes = ['dream-theater/6-00/README.md']
 readmes.each do |readme|
   folder = File.dirname(readme)

@@ -1,8 +1,0 @@
-title: Voices
-jammit-title: A Mind Beside Itself II. Voices
-file-include: ../../albums/awake.yml
-track-number: 5
-audio:
-  jammit: Unary [Trim Begin 3.183, Fade Begin 0.477, Pad Begin 2.877] (File ())
-  album: Unary [Fade Begin 0.538, Pad Begin 2.893] (File ())
-config: [drums]

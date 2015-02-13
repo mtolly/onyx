@@ -1,0 +1,7 @@
+title: Lie
+file-include: ../../../albums/awake.yml
+track-number: 8
+audio:
+  jammit: Unary [Pad Begin 2.613] (File ())
+  album: Unary [Fade Begin 0.172, Pad Begin 4.918] (File ())
+config: [drums]

@@ -1,5 +1,5 @@
 audio-*.*
-*/*/gen/
+*/*/*/gen/
 !build/magma/gen/
 *.rpp
 *.rpp-bak

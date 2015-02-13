@@ -1,0 +1,7 @@
+title: Caught in a Web
+file-include: ../../../albums/awake.yml
+track-number: 2
+audio:
+  jammit: Unary [Pad Begin 2.780] (File ())
+  album: Unary [Pad Begin 4.151] (File ())
+config: [drums]

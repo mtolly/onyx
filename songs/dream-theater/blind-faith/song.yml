@@ -1,0 +1,7 @@
+title: Blind Faith
+file-include: ../../../albums/six-degrees-of-inner-turbulence.yml
+track-number: 2
+audio:
+  album: Unary [Trim Begin 10.991, Fade Begin 5.673, Take Begin 598, Fade End 5.200] (File ())
+  # sneaking under that Harmonix cutoff
+config: [drums]
