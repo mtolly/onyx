@@ -127,6 +127,21 @@ lookupGET k = js_lookupGET (toJSString k) >>= \ref -> return $ if isNull ref
   then Nothing
   else Just $ fromJSString ref
 
+foreign import javascript unsafe
+  "document.getElementById('the-log').insertAdjacentHTML('beforeend', $1);"
+  js_logHTML :: JSString -> IO ()
+
+logLine :: String -> IO ()
+logLine s = js_logHTML $ toJSString $ s ++ "<br />"
+
+-- | log fn that also saves the value to a global var
+foreign import javascript unsafe
+  " window.hslogn = window.hslogn ? window.hslogn + 1 : 1; \
+  \ console.log($1); \
+  \ window['hslogged' + window.hslogn] = $1; \
+  \ console.log('saved to hslogged' + window.hslogn); "
+  consoleLog :: JSRef a -> IO ()
+
 main :: IO ()
 main = do
   equeue <- atomically newTChan
@@ -137,15 +152,15 @@ main = do
   userDragging <- newIORef False
   addEventListener "mousedown" "the-slider" $ writeIORef userDragging True
   addEventListener "mouseup" "the-slider" $ writeIORef userDragging False
-  putStrLn "Hooked up buttons."
+  logLine "Hooked up buttons."
   artist <- fmap (fromMaybe "dream-theater") $ lookupGET "artist"
   title <- fmap (fromMaybe "6-00") $ lookupGET "title"
-  let root = "http://pages.cs.wisc.edu/~tolly/customs/"++artist++"/"++title++"/"
-  putStrLn $ "Loading song from " ++ root
+  let root = "data/"++artist++"/"++title++"/"
+  logLine $ "Loading song from " ++ root
   howlSong <- Audio.load [root ++ "/audio-crap.ogg", root ++ "/audio-crap.mp3"]
-  putStrLn "Loaded audio."
+  logLine "Loaded audio."
   mid <- loadMidi $ root ++ "/gen/album/2p/notes.mid"
-  putStrLn "Loaded MIDI."
+  logLine "Loaded MIDI."
   case U.decodeFile mid of
     Right _ -> undefined
     Left trks -> let

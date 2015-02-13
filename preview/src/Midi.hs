@@ -42,6 +42,15 @@ obj ^. prop = getProp prop obj >>= fromJSRef >>= \res -> case res of
   Nothing -> error $ "(^.): fromJSRef failed on property " ++ show prop
 infixl 1 ^.
 
+-- | If the given number is @2 ^ n@ where @n@ is a non-negative integer,
+-- returns @n@.
+logBase2 :: Integer -> Maybe Integer
+logBase2 x = go 0 1 where
+  go !p !y = case compare x y of
+    EQ -> Just p
+    GT -> go (p + 1) (y * 2)
+    LT -> Nothing
+
 fromJasmid :: MidiFile -> IO F.T
 fromJasmid jmid = do
   res <- (jmid ^. "header") >>=  (^. "ticksPerBeat") :: IO Int
@@ -60,7 +69,14 @@ fromJasmid jmid = do
           "setTempo" -> do
             uspqn <- jevt ^. "microsecondsPerBeat" :: IO Int
             return $ E.MetaEvent $ Meta.SetTempo $ fromIntegral uspqn
-          "timeSignature" -> return $ E.MetaEvent $ Meta.TextEvent "TODO: time signature"
+          "timeSignature" -> do
+            n <- jevt ^. "numerator"
+            d <- jevt ^. "denominator" :: IO Int
+            m <- jevt ^. "metronome"
+            ts <- jevt ^. "thirtyseconds"
+            case fmap fromIntegral $ logBase2 $ fromIntegral d of
+              Just d' -> return $ E.MetaEvent $ Meta.TimeSig n d' m ts
+              Nothing -> unrecognized
           "endOfTrack" -> return $ E.MetaEvent Meta.EndOfTrack
           "text" -> fmap (E.MetaEvent . Meta.TextEvent) $ jevt ^. "text"
           "lyrics" -> fmap (E.MetaEvent . Meta.Lyric) $ jevt ^. "text"

@@ -58,7 +58,9 @@ data Image_
 type Image = JSRef Image_
 
 foreign import javascript interruptible
-  "var i = new Image(); i.addEventListener('load', function(){ $c(i); }); i.src = $1;"
+  " var i = new Image(); \
+  \ i.addEventListener('load', function(){ $c(i); }); \
+  \ i.src = $1; "
   js_loadImage :: JSString -> IO Image
 
 loadImage :: String -> IO Image
