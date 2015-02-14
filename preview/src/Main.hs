@@ -228,10 +228,10 @@ main = do
         draw 0 app
         songID  <- Audio.play howlSong
         start <- getCurrentTime
+        dur <- Audio.getDuration howlSong
         let updateSlider secs = do
               drag <- readIORef userDragging
               unless drag $ do
-                dur <- Audio.getDuration howlSong
                 elt <- js_getElementById $ toJSString "the-slider"
                 js_setValue (toJSString $ show $ realToFrac secs / dur) elt
             playing startUTC startSecs = do
@@ -240,19 +240,22 @@ main = do
               updateSlider nowSecs
               draw nowSecs app
               requestAnimationFrame
-              atomically (tryReadTChan equeue) >>= \case
-                Nothing -> playing startUTC startSecs
-                Just PlayPause -> do
+              if dur <= realToFrac nowSecs
+                then do
                   Audio.pause songID howlSong
                   paused nowSecs
-                Just (SeekTo p) -> do
-                  dur <- Audio.getDuration howlSong
-                  let newSecs = realToFrac $ dur * p :: U.Seconds
-                  Audio.setPosSafe (realToFrac newSecs) songID howlSong
-                  playing nowUTC newSecs
-                Just (UserDragging b) -> do
-                  writeIORef userDragging b
-                  playing startUTC startSecs
+                else atomically (tryReadTChan equeue) >>= \case
+                  Nothing -> playing startUTC startSecs
+                  Just PlayPause -> do
+                    Audio.pause songID howlSong
+                    paused nowSecs
+                  Just (SeekTo p) -> do
+                    let newSecs = realToFrac $ dur * p :: U.Seconds
+                    Audio.setPosSafe (realToFrac newSecs) songID howlSong
+                    playing nowUTC newSecs
+                  Just (UserDragging b) -> do
+                    writeIORef userDragging b
+                    playing startUTC startSecs
             paused nowSecs = do
               -- draw nowSecs app
               requestAnimationFrame
@@ -263,7 +266,6 @@ main = do
                   startUTC <- getCurrentTime
                   playing startUTC nowSecs
                 Just (SeekTo p) -> do
-                  dur <- Audio.getDuration howlSong
                   let newSecs = realToFrac $ dur * p :: U.Seconds
                   Audio.setPosSafe (realToFrac newSecs) songID howlSong
                   Audio.pause songID howlSong
