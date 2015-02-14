@@ -141,13 +141,16 @@ addEventListener event eltid f = do
   jf <- asyncCallback (DomRetain $ castRef elt) f
   js_addEventListener (toJSString event) elt jf
 
+data Input_
+type Input = JSRef Input_
+
 foreign import javascript unsafe
   "$1.value"
-  js_value :: JSRef a -> IO (JSRef b)
+  js_value :: Input -> IO JSString
 
 foreign import javascript unsafe
   "$2.value = $1;"
-  js_setValue :: JSString -> JSRef a -> IO ()
+  js_setValue :: JSString -> Input -> IO ()
 
 foreign import javascript unsafe
   "lookupGET($1)"
@@ -175,6 +178,7 @@ foreign import javascript unsafe
 
 main :: IO ()
 main = do
+
   equeue <- atomically newTChan
   addEventListener "click" "button-play-pause" $ atomically $ writeTChan equeue PlayPause
   addEventListener "change" "the-slider" $ do
@@ -182,16 +186,18 @@ main = do
     atomically $ writeTChan equeue $ SeekTo $ read str
   userDragging <- newIORef False
   addEventListener "mousedown" "the-slider" $ writeIORef userDragging True
-  addEventListener "mouseup" "the-slider" $ writeIORef userDragging False
+  addEventListener "mouseup"   "the-slider" $ writeIORef userDragging False
   logLine "Hooked up buttons."
+
   artist <- fmap (fromMaybe "dream-theater") $ lookupGET "artist"
-  title <- fmap (fromMaybe "6-00") $ lookupGET "title"
-  let root = "data/"++artist++"/"++title++"/"
+  title  <- fmap (fromMaybe "6-00"         ) $ lookupGET "title"
+  let root = printf "data/%s/%s/" artist title
   logLine $ "Loading song from " ++ root
   howlSong <- Audio.load [root ++ "/audio-crap.ogg", root ++ "/audio-crap.mp3"]
   logLine "Loaded audio."
   mid <- loadMidi $ root ++ "/gen/album/2p/notes.mid"
   logLine "Loaded MIDI."
+
   case U.decodeFile mid of
     Right _ -> undefined
     Left trks -> let
@@ -233,14 +239,14 @@ main = do
               drag <- readIORef userDragging
               unless drag $ do
                 elt <- js_getElementById $ toJSString "the-slider"
-                js_setValue (toJSString $ show $ realToFrac secs / dur) elt
+                js_setValue (toJSString $ show (realToFrac $ secs / dur :: Double)) elt
             playing startUTC startSecs = do
               nowUTC <- getCurrentTime
               let nowSecs = realToFrac (diffUTCTime nowUTC startUTC) + startSecs
               updateSlider nowSecs
               draw nowSecs app
               requestAnimationFrame
-              if dur <= realToFrac nowSecs
+              if dur <= nowSecs
                 then do
                   Audio.pause songID howlSong
                   paused nowSecs
@@ -250,24 +256,23 @@ main = do
                     Audio.pause songID howlSong
                     paused nowSecs
                   Just (SeekTo p) -> do
-                    let newSecs = realToFrac $ dur * p :: U.Seconds
-                    Audio.setPosSafe (realToFrac newSecs) songID howlSong
+                    let newSecs = dur * realToFrac p
+                    Audio.setPosSafe newSecs songID howlSong
                     playing nowUTC newSecs
                   Just (UserDragging b) -> do
                     writeIORef userDragging b
                     playing startUTC startSecs
             paused nowSecs = do
-              -- draw nowSecs app
               requestAnimationFrame
               atomically (tryReadTChan equeue) >>= \case
                 Nothing -> paused nowSecs
                 Just PlayPause -> do
-                  Audio.setPosSafe (realToFrac nowSecs) songID howlSong
+                  Audio.setPosSafe nowSecs songID howlSong
                   startUTC <- getCurrentTime
                   playing startUTC nowSecs
                 Just (SeekTo p) -> do
-                  let newSecs = realToFrac $ dur * p :: U.Seconds
-                  Audio.setPosSafe (realToFrac newSecs) songID howlSong
+                  let newSecs = dur * realToFrac p
+                  Audio.setPosSafe newSecs songID howlSong
                   Audio.pause songID howlSong
                   draw newSecs app
                   updateSlider newSecs
