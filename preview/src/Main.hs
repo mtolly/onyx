@@ -38,8 +38,8 @@ zoom lb ub m = let
 
 draw :: U.Seconds -> App -> IO ()
 draw posn app = do
-  let gems'      = zoom (posn -| 0.01) (posn + 1) $ gems      app
-      beatLines' = zoom (posn -| 1   ) (posn + 1) $ beatLines app
+  let gems'      = zoom (posn -| 1) (posn + 1) $ gems      app
+      beatLines' = zoom (posn -| 1) (posn + 1) $ beatLines app
       ctx = context2d theCanvas
   drawImage (images app Image_RBN_background1) 0  0  640 480 ctx
   drawImage (images app Image_track_drum     ) 50 50 540 430 ctx
@@ -74,6 +74,45 @@ draw posn app = do
         Pro Yellow _ -> (291.233, 168.409, 50.976, 32.137)
         Pro Blue   _ -> (346.69 , 168.412, 48.175, 33.057)
         Pro Green  _ -> (401.869, 169.929, 48.175, 33.057)
+      -- scales illustrator dims given a reference image and an actual image
+      scaleTo :: (Double, Double) -> (Double, Double) ->
+        (Double, Double, Double, Double) -> (Double, Double, Double, Double)
+      (w1, h1) `scaleTo` (w2, h2) = \(x, y, w, h) ->
+        (x, y, w * w2 / w1, h * h2 / h1)
+      scaleSmash = (128, 64) `scaleTo` (256, 256)
+      scaleSmashFlare = (128, 64) `scaleTo` (128, 128)
+      scaleKickFlash = (1024, 64) `scaleTo` (1024, 512)
+      getGemImages :: Gem ProType -> U.Seconds ->
+        [(ImageID, (Double, Double, Double, Double))]
+      getGemImages gem gemSecs = let
+        secOffset = realToFrac gemSecs - realToFrac posn :: Double
+        brokenDims = gemIllustratorPx gem posn
+        movingDims = gemIllustratorPx gem gemSecs
+        image = case gem of
+          Kick              -> Image_gem_kick
+          Red               -> Image_gem_red
+          Pro Yellow Tom    -> Image_gem_yellow
+          Pro Blue   Tom    -> Image_gem_blue
+          Pro Green  Tom    -> Image_gem_green
+          Pro Yellow Cymbal -> Image_gem_cym_yellow
+          Pro Blue   Cymbal -> Image_gem_cym_blue
+          Pro Green  Cymbal -> Image_gem_cym_green
+        brokenAnim = case gem of
+          Kick -> do
+            flash <- [Image_kick_flash_1 .. Image_kick_flash_7]
+            return (flash, scaleKickFlash brokenDims)
+          Pro ybg _ -> do
+            flare <- replicate 4 $ case ybg of
+              Yellow -> Image_smash_flare_yellow
+              Blue   -> Image_smash_flare_blue
+              Green  -> Image_smash_flare_green
+            return (flare, scaleSmashFlare brokenDims)
+          Red -> do
+            flare <- replicate 4 Image_smash_flare_red
+            return (flare, scaleSmashFlare brokenDims)
+        in if secOffset <= 0
+          then take 1 $ drop (floor $ secOffset * (-50)) brokenAnim
+          else [(image, movingDims)]
       -- converts from adobe illustrator xywh to canvas xywh
       -- (illustrator uses rect center for x/y instead of rect top-left)
       getRealPx (x, y, w, h) = (x - 0.5 * w, y - 0.5 * h, w, h)
@@ -91,21 +130,12 @@ draw posn app = do
         drawImage image x y w h ctx
         setGlobalAlpha 1 ctx
   forM_ (reverse $ Map.assocs gems') $ \(gemSecs, gemList) ->
-    forM_ (sort gemList) $ \gem -> let -- sort puts Kick first
-      (x, y, w, h) = getRealPx $ gemIllustratorPx gem gemSecs
-      image = images app $ case gem of
-        Kick              -> Image_gem_kick
-        Red               -> Image_gem_red
-        Pro Yellow Tom    -> Image_gem_yellow
-        Pro Blue   Tom    -> Image_gem_blue
-        Pro Green  Tom    -> Image_gem_green
-        Pro Yellow Cymbal -> Image_gem_cym_yellow
-        Pro Blue   Cymbal -> Image_gem_cym_blue
-        Pro Green  Cymbal -> Image_gem_cym_green
-      in do
-        setGlobalAlpha (opacity gemSecs) ctx
-        drawImage image x y w h ctx
-        setGlobalAlpha 1 ctx
+    forM_ (sort gemList) $ \gem -> do -- sort puts Kick first
+      setGlobalAlpha (opacity gemSecs) ctx
+      forM_ (getGemImages gem gemSecs) $ \(iid, illdims) -> let
+        (x, y, w, h) = getRealPx illdims
+        in drawImage (images app iid) x y w h ctx
+      setGlobalAlpha 1 ctx
   setFillStyle "white" ctx
   setFont "20px monospace" ctx
   let dposn = realToFrac posn :: Double
@@ -306,7 +336,6 @@ data ImageID
   | Image_kick_flash_7
   | Image_measure
   | Image_smash_1
-  | Image_smash_10
   | Image_smash_2
   | Image_smash_3
   | Image_smash_4
@@ -315,6 +344,7 @@ data ImageID
   | Image_smash_7
   | Image_smash_8
   | Image_smash_9
+  | Image_smash_10
   | Image_smash_flare_blue
   | Image_smash_flare_green
   | Image_smash_flare_orange
