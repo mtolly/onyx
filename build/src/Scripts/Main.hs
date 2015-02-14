@@ -76,12 +76,6 @@ addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
 addZero x rtb = case U.trackSplitZero rtb of
   (zero, rest) -> U.trackGlueZero (zero ++ [x]) rest
 
-make2xBassPedal :: F.T -> F.T
-make2xBassPedal mid = let
-  (tempo, trks) = standardMIDI mid
-  in fromStandardMIDI tempo $ case partition isDrums trks of
-    (drums, notdrums) -> map make2xBass drums ++ notdrums
-
 makeCountin :: FilePath -> FilePath -> FilePath -> Action ()
 makeCountin mid wavin wavout = do
   need [mid, wavin]
@@ -145,17 +139,6 @@ magmaClean fin fout = do
 isDrums :: (NNC.C t) => RTB.T t E.T -> Bool
 isDrums t = U.trackName t == Just "PART DRUMS"
 
--- | Move all notes on pitch 95 to pitch 96.
--- TODO: Ensure overlapping 95/96 pitches work by removing all note-offs and
--- making new ones.
-make2xBass :: RTB.T t E.T -> RTB.T t E.T
-make2xBass = fmap $ \x -> case x of
-  E.MIDIEvent      (C.Cons ch (C.Voice (V.NoteOn  p v))) | V.fromPitch p == 95
-    -> E.MIDIEvent (C.Cons ch (C.Voice (V.NoteOn  (V.toPitch 96) v)))
-  E.MIDIEvent      (C.Cons ch (C.Voice (V.NoteOff p v))) | V.fromPitch p == 95
-    -> E.MIDIEvent (C.Cons ch (C.Voice (V.NoteOff (V.toPitch 96) v)))
-  _ -> x
-
 findText :: String -> RTB.T U.Beats E.T -> [U.Beats]
 findText s = ATB.getTimes . RTB.toAbsoluteEventList 0 . RTB.filter f where
   f (E.MetaEvent (Meta.TextEvent s')) | s == s' = True
@@ -163,14 +146,9 @@ findText s = ATB.getTimes . RTB.toAbsoluteEventList 0 . RTB.filter f where
 
 magmaClean' :: (NNC.C t) => RTB.T t E.T -> Maybe (RTB.T t E.T)
 magmaClean' trk = case U.trackName trk of
-  Just "countin"    -> Nothing
-  Just "PART DRUMS" -> Just $ removePitch (V.toPitch 95) $ removeText trk
-  _                 -> Just $ removeText trk
-  where removePitch p = RTB.filter $ \x -> case x of
-          E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn  p' _))) | p == p' -> False
-          E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOff p' _))) | p == p' -> False
-          _ -> True
-        removeText = RTB.filter $ \x -> case x of
+  Just "countin" -> Nothing
+  _              -> Just $ removeText trk
+  where removeText = RTB.filter $ \x -> case x of
           E.MetaEvent (Meta.TextEvent ('#' : _)) -> False
           E.MetaEvent (Meta.TextEvent ('>' : _)) -> False
           _ -> True

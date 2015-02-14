@@ -193,7 +193,7 @@ midRules s = eachAudio s $ \src -> do
       then replaceTempos "notes.mid" tempos out
       else runMidi fixResolution "notes.mid" out
   mid2p *> runMidi
-    (fixRolls . autoBeat . drumMix 0 . make2xBassPedal . tempoTrackName)
+    (fixRolls . autoBeat . drumMix 0 . tempoTrackName)
     mid
   mid1p *> runMidi (oneFoot 0.18 0.11) mid2p
 
