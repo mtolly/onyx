@@ -7,6 +7,7 @@ module Midi
 ( loadMidi
 , ProColor(..), ProType(..), Gem(..), Difficulty(..), DrumEvent(..)
 , readDrumEvent, assignToms
+, BeatEvent(..), readBeatEvent, insertHalfBeats
 ) where
 
 import GHCJS.Types
@@ -21,6 +22,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import Control.Monad (forM)
 import Data.List (isPrefixOf)
+import qualified Sound.MIDI.Util as U
 
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
@@ -213,3 +215,28 @@ assignToms = go defDrumState . RTB.normalize where
                 Medium -> mediumDisco ds
                 Hard -> hardDisco ds
                 Expert -> expertDisco ds
+
+data BeatEvent
+  = Bar
+  | Beat
+  | HalfBeat
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+readBeatEvent :: E.T -> Maybe BeatEvent
+readBeatEvent (E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn p vel))))
+  | V.fromVelocity vel /= 0 = case V.fromPitch p of
+    12 -> Just Bar
+    13 -> Just Beat
+    _  -> Nothing
+readBeatEvent _ = Nothing
+
+insertHalfBeats :: RTB.T U.Beats BeatEvent -> RTB.T U.Beats BeatEvent
+insertHalfBeats = let
+  f rtb = case RTB.viewL rtb of
+    Nothing              -> RTB.empty
+    Just ((dt, x), rtb') -> RTB.cons dt x $ g rtb'
+  g rtb = case RTB.viewL rtb of
+    Nothing -> RTB.empty
+    Just ((dt, x), rtb') ->
+      RTB.cons (dt * 0.5) HalfBeat $ RTB.cons (dt * 0.5) x $ g rtb'
+  in f

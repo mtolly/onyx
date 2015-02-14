@@ -25,6 +25,7 @@ import Midi
 data App = App
   { images :: ImageID -> Image
   , gems :: Map.Map U.Seconds [Gem ProType]
+  , beatLines :: Map.Map U.Seconds BeatEvent
   , timeToMeasure :: U.Seconds -> U.MeasureBeats
   }
 
@@ -166,15 +167,21 @@ main = do
     Left trks -> let
       tmap = U.makeTempoMap $ head trks
       mmap = U.makeMeasureMap U.Error $ head trks
-      trk = foldr RTB.merge RTB.empty $ filter (\t -> U.trackName t == Just "PART DRUMS") trks
+      findTrack s = foldr RTB.merge RTB.empty $ filter (\t -> U.trackName t == Just s) trks
       gemTrack :: RTB.T U.Seconds (Gem ProType)
-      gemTrack = U.applyTempoTrack tmap $ pickExpert $ assignToms $ RTB.mapMaybe readDrumEvent trk
+      gemTrack = U.applyTempoTrack tmap $ pickExpert $ assignToms
+        $ RTB.mapMaybe readDrumEvent $ findTrack "PART DRUMS"
       pickExpert = RTB.mapMaybe $ \(d, x) -> case d of
         Expert -> Just x
         _      -> Nothing
       gemMap :: Map.Map U.Seconds [Gem ProType]
       gemMap = Map.fromAscList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $
         RTB.collectCoincident gemTrack
+      beatTrack :: RTB.T U.Seconds BeatEvent
+      beatTrack = U.applyTempoTrack tmap $ insertHalfBeats $
+        RTB.mapMaybe readBeatEvent $ findTrack "BEAT"
+      beatMap :: Map.Map U.Seconds BeatEvent
+      beatMap = Map.fromAscList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 beatTrack
       in do
         _ <- evaluate gemMap
         imgs <- fmap Map.fromList $ forM [minBound .. maxBound] $ \iid -> do
@@ -185,6 +192,7 @@ main = do
                   Just img -> img
                   Nothing  -> error $ "panic! couldn't find image " ++ show iid
               , gems = gemMap
+              , beatLines = beatMap
               , timeToMeasure = U.applyMeasureMap mmap . U.unapplyTempoMap tmap
               }
         draw 0 app
