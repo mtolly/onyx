@@ -11,6 +11,7 @@ import Control.Exception (evaluate)
 import Text.Printf (printf)
 import Data.List (sort)
 import Data.Maybe (fromMaybe)
+import Numeric.NonNegative.Class ((-|))
 
 import GHCJS.Foreign
 import GHCJS.Types
@@ -29,16 +30,35 @@ data App = App
   , timeToMeasure :: U.Seconds -> U.MeasureBeats
   }
 
+zoom :: (Ord k) => k -> k -> Map.Map k a -> Map.Map k a
+zoom lb ub m = let
+  (_, upper) = Map.split lb m
+  (lower, _) = Map.split ub upper
+  in lower
+
 draw :: U.Seconds -> App -> IO ()
 draw posn app = do
-  let (_,  gems') = Map.split (if posn < seePast then 0 else posn - seePast) $ gems app
-      (gems'', _) = Map.split (posn + seeFuture) gems'
+  let gems'      = zoom (posn -| 0.01) (posn + 1) $ gems      app
+      beatLines' = zoom (posn -| 1   ) (posn + 1) $ beatLines app
       ctx = context2d theCanvas
-      seePast = 0.05
-      seeFuture = 1
   drawImage (images app Image_RBN_background1) 0 0 640 480 ctx
   drawImage (images app Image_track_drum) 50 50 540 430 ctx
-  let posnsNow, posnsFuture :: Gem ProType -> (Double, Double, Double, Double)
+  let beatPosnNow, beatPosnFuture :: (Double, Double, Double, Double)
+      beatPosnNow    = (320, 373.735, 431.201, 28.529)
+      beatPosnFuture = (320, 175.58, 234, 17.888)
+      futureTime = 0.75 :: Double
+      beatIllustratorPx secOffset = let
+        nowToFuturePosn = case secOffset / futureTime of
+          r | r >= 0    -> r ** 0.8
+            | otherwise -> r * 1.25
+        (xn, yn, wn, hn) = beatPosnNow
+        (xf, yf, wf, hf) = beatPosnFuture
+        in  ( xn + nowToFuturePosn * (xf - xn)
+            , yn + nowToFuturePosn * (yf - yn)
+            , wn + nowToFuturePosn * (wf - wn)
+            , hn + nowToFuturePosn * (hf - hn)
+            )
+      posnsNow, posnsFuture :: Gem ProType -> (Double, Double, Double, Double)
       posnsNow = \case
         Kick         -> (320, 370.5, 457, 27)
         Red          -> (170.5, 362.5, 91, 45)
@@ -51,9 +71,10 @@ draw posn app = do
         Pro Yellow _ -> (291.233, 168.409, 50.976, 32.137)
         Pro Blue   _ -> (346.69, 168.412, 48.175, 33.057)
         Pro Green  _ -> (401.869, 169.929, 48.175, 33.057)
-      futureTime = 0.75 :: Double
       getIllustratorPx gem secOffset = let
-        nowToFuturePosn = (secOffset / futureTime) ** 0.75
+        nowToFuturePosn = case secOffset / futureTime of
+          r | r >= 0    -> r ** 0.8
+            | otherwise -> r * 1.25
         (xn, yn, wn, hn) = posnsNow gem
         (xf, yf, wf, hf) = posnsFuture gem
         in  ( xn + nowToFuturePosn * (xf - xn)
@@ -61,13 +82,22 @@ draw posn app = do
             , wn + nowToFuturePosn * (wf - wn)
             , hn + nowToFuturePosn * (hf - hn)
             )
-      getRealPx gem secOffset = let
-        (x, y, w, h) = getIllustratorPx gem secOffset
-        in (x - 0.5 * w, y - 0.5 * h, w, h)
-  forM_ (reverse $ Map.assocs gems'') $ \(gemSecs, gemList) ->
+      getRealPx (x, y, w, h) = (x - 0.5 * w, y - 0.5 * h, w, h)
+  forM_ (reverse $ Map.assocs beatLines') $ \(beatSecs, beat) -> let
+    secOffset = realToFrac beatSecs - realToFrac posn :: Double
+    (x, y, w, h) = getRealPx $ beatIllustratorPx secOffset
+    image = images app $ case beat of
+      Bar      -> Image_measure
+      Beat     -> Image_beat_marker
+      HalfBeat -> Image_half_beat_marker
+    in do
+        setGlobalAlpha (if secOffset > 0.8 then 1 - (secOffset - 0.8) * 5 else 1) ctx
+        drawImage image x y w h ctx
+        setGlobalAlpha 1 ctx
+  forM_ (reverse $ Map.assocs gems') $ \(gemSecs, gemList) ->
     forM_ (sort gemList) $ \gem -> let -- sort puts Kick first
       secOffset = realToFrac gemSecs - realToFrac posn :: Double
-      (x, y, w, h) = getRealPx gem secOffset
+      (x, y, w, h) = getRealPx $ getIllustratorPx gem secOffset
       image = images app $ case gem of
         Kick              -> Image_gem_kick
         Red               -> Image_gem_red
