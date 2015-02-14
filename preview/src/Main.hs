@@ -9,7 +9,7 @@ import qualified Data.Map as Map
 import Data.Time.Clock
 import Control.Exception (evaluate)
 import Text.Printf (printf)
-import Data.List (sort)
+import Data.List (sort, transpose)
 import Data.Maybe (fromMaybe)
 import Numeric.NonNegative.Class ((-|))
 
@@ -100,18 +100,34 @@ draw posn app = do
         brokenAnim = case gem of
           Kick -> do
             flash <- [Image_kick_flash_1 .. Image_kick_flash_7]
-            return (flash, scaleKickFlash brokenDims)
-          Pro ybg _ -> do
+            return [(flash, scaleKickFlash brokenDims)]
+          Pro ybg Cymbal -> do
             flare <- replicate 4 $ case ybg of
               Yellow -> Image_smash_flare_yellow
               Blue   -> Image_smash_flare_blue
               Green  -> Image_smash_flare_green
-            return (flare, scaleSmashFlare brokenDims)
-          Red -> do
-            flare <- replicate 4 Image_smash_flare_red
-            return (flare, scaleSmashFlare brokenDims)
+            return [(flare, scaleSmashFlare brokenDims)]
+          Pro ybg Tom -> let
+            flares = do
+              flare <- replicate 4 $ case ybg of
+                Yellow -> Image_smash_flare_yellow
+                Blue   -> Image_smash_flare_blue
+                Green  -> Image_smash_flare_green
+              return (flare, scaleSmashFlare brokenDims)
+            smashes = do
+              smash <- [Image_smash_1 .. Image_smash_10]
+              return (smash, scaleSmash brokenDims)
+            in transpose [flares, smashes]
+          Red -> let
+            flares = do
+              flare <- replicate 4 Image_smash_flare_red
+              return (flare, scaleSmashFlare brokenDims)
+            smashes = do
+              smash <- [Image_smash_1 .. Image_smash_10]
+              return (smash, scaleSmash brokenDims)
+            in transpose [flares, smashes]
         in if secOffset <= 0
-          then take 1 $ drop (floor $ secOffset * (-50)) brokenAnim
+          then concat $ take 1 $ drop (floor $ secOffset * (-50)) brokenAnim
           else [(image, movingDims)]
       -- converts from adobe illustrator xywh to canvas xywh
       -- (illustrator uses rect center for x/y instead of rect top-left)
