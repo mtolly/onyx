@@ -1,32 +1,35 @@
 {-# LANGUAGE LambdaCase #-}
 module Main where
 
-import qualified Data.EventList.Relative.TimeBody as RTB
+import           Control.Concurrent.STM           (atomically, newTChan,
+                                                   tryReadTChan, writeTChan)
+import           Control.Exception                (evaluate)
+import           Control.Monad                    (forM, forM_, unless)
 import qualified Data.EventList.Absolute.TimeBody as ATB
-import Control.Monad (forM, forM_, unless)
-import qualified Sound.MIDI.Util as U
-import qualified Data.Map as Map
-import Data.Time.Clock
-import Control.Exception (evaluate)
-import Text.Printf (printf)
-import Data.List (sort, transpose)
-import Data.Maybe (fromMaybe)
-import Numeric.NonNegative.Class ((-|))
-
-import GHCJS.Foreign
-import GHCJS.Types
-
-import Control.Concurrent.STM
-import Data.IORef
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.IORef                       (newIORef, readIORef,
+                                                   writeIORef)
+import           Data.List                        (sort, transpose)
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromMaybe)
+import           Data.Time.Clock                  (diffUTCTime, getCurrentTime)
+import           GHCJS.Foreign                    (ForeignRetention (..),
+                                                   asyncCallback, fromJSString,
+                                                   toJSString)
+import           GHCJS.Types                      (JSFun, JSRef, JSString,
+                                                   castRef, isNull)
+import           Numeric.NonNegative.Class        ((-|))
+import qualified Sound.MIDI.Util                  as U
+import           Text.Printf                      (printf)
 
 import qualified Audio
-import Draw
-import Midi
+import           Draw
+import           Midi
 
 data App = App
-  { images :: ImageID -> Image
-  , gems :: Map.Map U.Seconds [Gem ProType]
-  , beatLines :: Map.Map U.Seconds BeatEvent
+  { images        :: ImageID -> Image
+  , gems          :: Map.Map U.Seconds [Gem ProType]
+  , beatLines     :: Map.Map U.Seconds BeatEvent
   , timeToMeasure :: U.Seconds -> U.MeasureBeats
   }
 
@@ -382,3 +385,4 @@ data ImageID
   | Image_track_drum
   | Image_track_guitar
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+

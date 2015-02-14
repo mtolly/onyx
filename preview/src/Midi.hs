@@ -1,8 +1,8 @@
-{-# LANGUAGE JavaScriptFFI #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE JavaScriptFFI     #-}
 module Midi
 ( loadMidi
 , ProColor(..), ProType(..), Gem(..), Difficulty(..), DrumEvent(..)
@@ -10,22 +10,21 @@ module Midi
 , BeatEvent(..), readBeatEvent, insertHalfBeats
 ) where
 
-import GHCJS.Types
-import GHCJS.Foreign
-import GHCJS.Marshal
-import qualified Sound.MIDI.File as F
-import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.Message.Channel as C
-import qualified Sound.MIDI.Message.Channel.Voice as V
-import qualified Sound.MIDI.File.Event.Meta as Meta
+import           Control.Monad                    (forM)
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Numeric.NonNegative.Class as NNC
-import Control.Monad (forM)
-import Data.List (isPrefixOf)
-import qualified Sound.MIDI.Util as U
-
-import Data.Foldable (Foldable)
-import Data.Traversable (Traversable)
+import           Data.Foldable                    (Foldable)
+import           Data.List                        (isPrefixOf)
+import           Data.Traversable                 (Traversable)
+import           GHCJS.Foreign
+import           GHCJS.Marshal
+import           GHCJS.Types
+import qualified Numeric.NonNegative.Class        as NNC
+import qualified Sound.MIDI.File                  as F
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
+import qualified Sound.MIDI.Message.Channel       as C
+import qualified Sound.MIDI.Message.Channel.Voice as V
+import qualified Sound.MIDI.Util                  as U
 
 foreign import javascript unsafe
   "console.log($1);"
@@ -240,3 +239,4 @@ insertHalfBeats = let
     Just ((dt, x), rtb') ->
       RTB.cons (dt * 0.5) HalfBeat $ RTB.cons (dt * 0.5) x $ g rtb'
   in f
+

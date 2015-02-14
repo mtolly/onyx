@@ -3,9 +3,8 @@ module Audio
 ( Howl, SoundID, load, play, pause, stop, getPos, setPos, getDuration, setPosSafe
 ) where
 
-import GHCJS.Marshal
-import GHCJS.Types
-
+import           GHCJS.Marshal
+import           GHCJS.Types
 import qualified Sound.MIDI.Util as U
 
 data Howl_
