@@ -31,6 +31,6 @@ Dir['songs/*/*/README.md'].sort.each_with_index do |readme, i|
     system_ "onyxbuild gen/album/2p/magma.rba"
 
     system_ "rm -rf gen"
-    system_ "rm audio-album.wav audio-this.wav audio-next.wav"
+    system_ "rm audio-album.wav audio-next.wav"
   end
 end
