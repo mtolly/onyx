@@ -5,6 +5,7 @@
 Instruments:
 
   * (Pro) Drums: Expert
+    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=youngblood-brass-band&title=brooklyn)
 
 Supported audio:
 

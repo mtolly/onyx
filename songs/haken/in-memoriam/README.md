@@ -5,6 +5,7 @@
 Instruments:
 
   * (Pro) Drums: Expert
+    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=haken&title=in-memoriam)
 
 Supported audio:
 

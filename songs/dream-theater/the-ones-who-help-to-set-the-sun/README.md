@@ -5,6 +5,7 @@
 Instruments:
 
   * (Pro) Drums: Expert
+    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=the-ones-who-help-to-set-the-sun)
 
 Supported audio:
 

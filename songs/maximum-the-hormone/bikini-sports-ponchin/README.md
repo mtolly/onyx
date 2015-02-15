@@ -5,6 +5,7 @@
 Instruments:
 
   * (Pro) Drums: Expert
+    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=maximum-the-hormone&title=bikini-sports-ponchin)
 
 Supported audio:
 
