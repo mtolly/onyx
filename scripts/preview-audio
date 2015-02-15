@@ -11,12 +11,12 @@ for readme in songs/*/*/README.md
   onyxbuild gen/album/2p/notes.mid gen/album/2p/song-countin.wav
   sox gen/album/2p/song-countin.wav audio-crap.wav remix 1,2
   lame audio-crap.wav -b 16
-  oggenc -b 16 --downmix --resample 16000 audio-crap.wav
+  oggenc -b 16 --resample 16000 audio-crap.wav
   cd ../../..
 end
 
 # low-quality audio and mids will be copied to here
-set dest_dir "$HOME/Desktop/music/crap/"
+set dest_dir "preview/www/"
 
 for crap in songs/*/*/audio-crap.{mp3,ogg}
   set dir (dirname $crap)
