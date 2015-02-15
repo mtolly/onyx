@@ -1,6 +1,4 @@
 title: Afterlife
-# package name "afterlife" doesn't work
-# probably conflicts with RB3 disc files relating to A7X afterlife
 file-include: ../../../albums/when-dream-and-day-unite.yml
 track-number: 6
 audio:
@@ -8,7 +6,7 @@ audio:
     song: >
       Unary [Pad Begin 2.704, Fade End 1.357]
         (Combine Concatenate
-          [ File "audio-this.xxx"
+          [ File "audio-album.xxx"
           , Unary [Take Begin 10.383] (File "audio-next.xxx")
           ]
         )

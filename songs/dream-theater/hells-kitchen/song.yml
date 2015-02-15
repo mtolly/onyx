@@ -7,7 +7,7 @@ audio:
     song: >
       Unary [Pad Begin 5.051, Fade End 4.500]
         (Combine Concatenate
-          [ File "audio-this.xxx"
+          [ File "audio-album.xxx"
           , Unary [Take Begin 5.696] (File "audio-next.xxx")
           ]
         )

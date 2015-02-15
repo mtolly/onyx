@@ -26,7 +26,6 @@ Dir['songs/*/*/README.md'].sort.each_with_index do |readme, i|
     dummy_length = `#{test_dir}/dummy-time gen/album/2p/magma/magma.rbproj`.to_i
     puts "Making a dummy audio file of length #{dummy_length} seconds."
     system_ "sox -n audio-album.wav trim 0 #{dummy_length}"
-    system_ "cp audio-album.wav audio-this.wav"
     system_ "sox -n audio-next.wav trim 0 1:00"
 
     system_ "onyxbuild gen/album/2p/magma.rba"
