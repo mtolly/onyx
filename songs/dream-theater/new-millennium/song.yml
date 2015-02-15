@@ -1,0 +1,6 @@
+title: New Millennium
+file-include: ../../../albums/falling-into-infinity.yml
+track-number: 1
+audio:
+  jammit: File ()
+config: [drums]
