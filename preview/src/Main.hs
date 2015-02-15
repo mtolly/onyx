@@ -84,7 +84,7 @@ draw posn app = do
         (x, y, w * w2 / w1, h * h2 / h1)
       scaleSmash = (128, 64) `scaleTo` (256, 256)
       scaleSmashFlare = (128, 64) `scaleTo` (128, 128)
-      scaleKickFlash = (1024, 64) `scaleTo` (1024, 512)
+      scaleKickFlash = (1024, 64) `scaleTo` (1224, 512)
       getGemImages :: Gem ProType -> U.Seconds ->
         [(ImageID, (Double, Double, Double, Double))]
       getGemImages gem gemSecs = let
@@ -101,34 +101,25 @@ draw posn app = do
           Pro Blue   Cymbal -> Image_gem_cym_blue
           Pro Green  Cymbal -> Image_gem_cym_green
         brokenAnim = case gem of
-          Kick -> do
-            flash <- [Image_kick_flash_1 .. Image_kick_flash_7]
-            return [(flash, scaleKickFlash brokenDims)]
-          Pro ybg Cymbal -> do
-            flare <- replicate 4 $ case ybg of
-              Yellow -> Image_smash_flare_yellow
-              Blue   -> Image_smash_flare_blue
-              Green  -> Image_smash_flare_green
-            return [(flare, scaleSmashFlare brokenDims)]
-          Pro ybg Tom -> let
-            flares = do
-              flare <- replicate 4 $ case ybg of
-                Yellow -> Image_smash_flare_yellow
-                Blue   -> Image_smash_flare_blue
-                Green  -> Image_smash_flare_green
-              return (flare, scaleSmashFlare brokenDims)
-            smashes = do
-              smash <- [Image_smash_1 .. Image_smash_10]
-              return (smash, scaleSmash brokenDims)
-            in transpose [flares, smashes]
-          Red -> let
-            flares = do
-              flare <- replicate 4 Image_smash_flare_red
-              return (flare, scaleSmashFlare brokenDims)
-            smashes = do
-              smash <- [Image_smash_1 .. Image_smash_10]
-              return (smash, scaleSmash brokenDims)
-            in transpose [flares, smashes]
+          Kick           -> transpose [kickFlashes]
+          Pro ybg Cymbal -> transpose [flaresPro ybg]
+          Pro ybg Tom    -> transpose [smashes, flaresPro ybg]
+          Red            -> transpose [smashes, flaresRed]
+          where flaresRed = do
+                  flare <- replicate 3 Image_smash_flare_red
+                  return (flare, scaleSmashFlare brokenDims)
+                flaresPro ybg = do
+                  flare <- replicate 3 $ case ybg of
+                    Yellow -> Image_smash_flare_yellow
+                    Blue   -> Image_smash_flare_blue
+                    Green  -> Image_smash_flare_green
+                  return (flare, scaleSmashFlare brokenDims)
+                smashes = do
+                  smash <- [Image_smash_1 .. Image_smash_10]
+                  return (smash, scaleSmash brokenDims)
+                kickFlashes = do
+                  flash <- [Image_kick_flash_1 .. Image_kick_flash_7]
+                  return (flash, scaleKickFlash brokenDims)
         in if secOffset <= 0
           then concat $ take 1 $ drop (floor $ secOffset * (-50)) brokenAnim
           else [(image, movingDims)]
