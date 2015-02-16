@@ -3,4 +3,5 @@ file-include: ../../../albums/falling-into-infinity.yml
 track-number: 1
 audio:
   jammit: File ()
+  album: Unary [Pad Begin 2.793] (File ())
 config: [drums]
