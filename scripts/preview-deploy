@@ -1,0 +1,80 @@
+#!/usr/bin/env ruby
+
+url        = ''
+username   = ''
+password   = ''
+remote_dir = ''
+
+require 'net/sftp'
+
+def log(s)
+  STDERR.puts s
+end
+
+def mkdir_f(sftp, dir)
+  sftp.mkdir! dir
+rescue Net::SFTP::StatusException
+  # directory already exists
+end
+
+def upload_rf(sftp, from, to)
+  log "Uploading #{from} to #{to}"
+  if File.file?(from)
+    begin
+      sftp.remove! to
+    rescue Net::SFTP::StatusException
+      # file doesn't already exist
+    end
+    sftp.upload! from, to
+  else
+    mkdir_f sftp, to
+    Dir.entries(from).each do |ent|
+      next if %w{. .. .DS_Store .gitignore .git deploy.rb}.include? ent
+      full_from = "#{from}/#{ent}"
+      full_to = "#{to}/#{ent}"
+      if File.file?(full_from)
+        upload_rf sftp, full_from, full_to
+      else
+        mkdir_f sftp, full_to
+        upload_rf sftp, full_from, full_to
+      end
+    end
+  end
+end
+
+def system_(*args)
+  log args.join(' ')
+  result = system(*args)
+  raise(IOError, "Command returned #{$?.exitstatus}") if result != true
+end
+
+Net::SFTP.start(url, username, password: password) do |sftp|
+  log " => Connected #{username}@#{url} via SFTP."
+  if ARGV.include? 'app'
+    Dir.chdir('preview') do
+      system_ 'make', 'minify'
+    end
+    upload_rf sftp, 'preview/www/index.html', "#{remote_dir}/index.html"
+    upload_rf sftp, 'preview/www/app.min.js', "#{remote_dir}/app.min.js"
+    upload_rf sftp, 'preview/www/runmain.js', "#{remote_dir}/runmain.js"
+    upload_rf sftp, 'preview/www/rbprev'    , "#{remote_dir}/rbprev"
+    upload_rf sftp, 'preview/www/lib'       , "#{remote_dir}/lib"
+  end
+  ARGV.each do |songdir|
+    next if songdir == 'app'
+    versiondir = 'gen/album/2p'
+    songfiles = %w{notes.mid preview-audio.ogg preview-audio.mp3}
+    Dir.chdir(songdir) do
+      system_('onyxbuild', *songfiles.map { |f| "#{versiondir}/#{f}" })
+    end
+    dirs = "#{songdir}/#{versiondir}".split('/').reject(&:empty?)
+    dirs.each_index do |i|
+      # make each directory in the chain
+      mkdir_f sftp, "#{remote_dir}/#{dirs[0..i].join('/')}"
+    end
+    songfiles.each do |f|
+      path = "#{songdir}/#{versiondir}/#{f}"
+      upload_rf sftp, path, "#{remote_dir}/#{path}"
+    end
+  end
+end

@@ -1,0 +1,11 @@
+#!/usr/bin/env fish
+
+set audiodir $argv[1]
+set songdirs $argv[2..-1]
+
+for songdir in $songdirs
+  for f in $audiodir/$songdir/audio-*.*
+    echo "For "$songdir", found "(basename $f)
+    cp $f $songdir
+  end
+end

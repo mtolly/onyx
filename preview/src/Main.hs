@@ -228,7 +228,10 @@ main = do
   title  <- fmap (fromMaybe "6-00"         ) $ lookupGET "title"
   let root = printf "songs/%s/%s/" artist title
   logLine $ "Loading song from " ++ root
-  howlSong <- Audio.load [root ++ "/audio-crap.ogg", root ++ "/audio-crap.mp3"]
+  howlSong <- Audio.load
+    [ root ++ "/gen/album/2p/preview-audio.ogg"
+    , root ++ "/gen/album/2p/preview-audio.mp3"
+    ]
   logLine "Loaded audio."
   mid <- loadMidi $ root ++ "/gen/album/2p/notes.mid"
   logLine "Loaded MIDI."
