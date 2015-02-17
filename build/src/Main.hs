@@ -180,6 +180,21 @@ oggRules s = eachVersion s $ \_ dir -> do
     need [ogg]
     liftIO $ oggToMogg ogg mogg
 
+-- | Makes the (low-quality) audio files for the online preview app.
+crapRules :: Rules ()
+crapRules = do
+  let src = "gen/album/2p/song-countin.wav"
+      preview ext = "gen/album/2p/preview-audio" <.> ext
+  preview "wav" *> \out -> do
+    need [src]
+    cmd "sox" [src, out] "remix 1,2"
+  preview "mp3" *> \out -> do
+    need [preview "wav"]
+    cmd "lame" [preview "wav", out] "-b 16"
+  preview "ogg" *> \out -> do
+    need [preview "wav"]
+    cmd "oggenc -b 16 --resample 16000 -o" [out, preview "wav"]
+
 midRules :: Song -> Rules ()
 midRules s = eachAudio s $ \src -> do
   let mid1p = "gen" </> src </> "1p/notes.mid"
@@ -225,6 +240,7 @@ main = do
         rb3Rules song
         magmaRules song
         fofRules song
+        crapRules
       e <-     Dir.doesDirectoryExist       "gen/temp"
       when e $ Dir.removeDirectoryRecursive "gen/temp"
 
