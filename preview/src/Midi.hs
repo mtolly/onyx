@@ -8,6 +8,7 @@ module Midi
 , ProColor(..), ProType(..), Gem(..), Difficulty(..), DrumEvent(..)
 , readDrumEvent, assignToms
 , BeatEvent(..), readBeatEvent, insertHalfBeats
+, isEndEvent
 ) where
 
 import           Control.Monad                    (forM)
@@ -240,3 +241,5 @@ insertHalfBeats = let
       RTB.cons (dt * 0.5) HalfBeat $ RTB.cons (dt * 0.5) x $ g rtb'
   in f
 
+isEndEvent :: E.T -> Bool
+isEndEvent e = e == E.MetaEvent (Meta.TextEvent "[end]")

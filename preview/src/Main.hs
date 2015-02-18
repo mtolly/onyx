@@ -255,6 +255,12 @@ main = do
         RTB.mapMaybe readBeatEvent $ findTrack "BEAT"
       beatMap :: Map.Map U.Seconds BeatEvent
       beatMap = Map.fromAscList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 beatTrack
+      endEvent :: Maybe U.Seconds
+      endEvent = let
+        endEvents = RTB.filter isEndEvent $ findTrack "EVENTS"
+        in case RTB.viewL endEvents of
+          Just ((bts, _), _) -> Just $ U.applyTempoMap tmap bts
+          Nothing            -> Nothing
       in do
         _ <- evaluate gemMap
         imgs <- fmap Map.fromList $ forM [minBound .. maxBound] $ \iid -> do
@@ -271,7 +277,9 @@ main = do
         draw 0 app
         songID  <- Audio.play howlSong
         start <- getCurrentTime
-        dur <- Audio.getDuration howlSong
+        dur <- case endEvent of
+          Just dur -> return dur
+          Nothing  -> Audio.getDuration howlSong
         let updateSlider secs = do
               drag <- readIORef userDragging
               unless drag $ do
