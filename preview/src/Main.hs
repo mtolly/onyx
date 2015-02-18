@@ -159,7 +159,6 @@ draw posn app = do
 data Event
   = PlayPause
   | SeekTo Double
-  | UserDragging Bool
   deriving (Eq, Ord, Show)
 
 foreign import javascript unsafe
@@ -297,9 +296,6 @@ main = do
                     let newSecs = dur * realToFrac p
                     Audio.setPosSafe newSecs songID howlSong
                     playing nowUTC newSecs
-                  Just (UserDragging b) -> do
-                    writeIORef userDragging b
-                    playing startUTC startSecs
             paused nowSecs = do
               requestAnimationFrame
               atomically (tryReadTChan equeue) >>= \case
@@ -313,9 +309,6 @@ main = do
                   draw newSecs app
                   updateSlider newSecs
                   paused newSecs
-                Just (UserDragging b) -> do
-                  writeIORef userDragging b
-                  paused nowSecs
         playing start 0
 
 data ImageID
