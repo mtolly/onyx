@@ -6,7 +6,6 @@ Instruments:
 
   * (Pro) Drums: Expert
     [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=another-day)
-  * Bass: Expert
 
 Supported audio:
 
