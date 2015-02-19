@@ -98,7 +98,7 @@ previewBounds mid = do
     (tempo, trks) <- standardMIDI <$> Load.fromFile mid
     let find s = listToMaybe $ sort $ concatMap (findText s) (tempo : trks)
         tmap = U.makeTempoMap tempo
-        starts = ["preview_start", "[prc_chorus]", "[prc_chorus_1]"]
+        starts = ["preview_start", "[prc_chorus]", "[prc_chorus_1]", "[prc_verse]", "[prc_verse_1]"]
         start = case mapMaybe find starts of
           []      -> 0
           bts : _ -> max 0 $ U.applyTempoMap tmap bts - 0.6
