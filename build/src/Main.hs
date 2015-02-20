@@ -68,17 +68,17 @@ jammitRules s = do
       jSearch = fmap read $ askOracle $ JammitResults (jTitle, jArtist)
   forM_ ["1p", "2p"] $ \feet -> do
     let dir = "gen/jammit" </> feet
-    dir </> "drums_untimed.wav" *> \out -> do
+    dir </> "drums_untimed.wav" %> \out -> do
       audios <- jSearch
       case lookup (J.Only J.PartDrums1) audios of
         Nothing -> buildAudio (Silence 2 0) out
         Just fp -> liftIO $ J.runAudio [fp] [] out
-    dir </> "bass_untimed.wav" *> \out -> do
+    dir </> "bass_untimed.wav" %> \out -> do
       audios <- jSearch
       case lookup (J.Only J.PartBass) audios of
         Nothing -> buildAudio (Silence 2 0) out
         Just fp -> liftIO $ J.runAudio [fp] [] out
-    dir </> "song_untimed.wav" *> \out -> do
+    dir </> "song_untimed.wav" %> \out -> do
       audios <- jSearch
       let hasDrums = isJust $ lookup (J.Only J.PartDrums1) audios
           hasBass  = isJust $ lookup (J.Only J.PartBass) audios
@@ -98,7 +98,7 @@ jammitRules s = do
           (False, False) -> fail "Couldn't find Jammit drums or bass"
         (False, False) -> runAudio' [] []
     forM_ ["drums", "bass", "song"] $ \part -> do
-      dir </> (part ++ ".wav") *> \out -> do
+      dir </> (part ++ ".wav") %> \out -> do
         let untimed = dropExtension out ++ "_untimed.wav"
         case HM.lookup "jammit" $ _audio s of
           Nothing -> fail "No jammit audio configuration"
@@ -113,8 +113,8 @@ simpleRules s = do
     forM_ ["1p", "2p"] $ \feet -> do
       let dir = "gen" </> src </> feet
       forM_ ["drums.wav", "bass.wav"] $ \inst -> do
-        dir </> inst *> buildAudio (Silence 2 0)
-      dir </> "song.wav" *> \out -> do
+        dir </> inst %> buildAudio (Silence 2 0)
+      dir </> "song.wav" %> \out -> do
         let pat = "audio-" ++ src ++ ".*"
         ls <- getDirectoryFiles "" [pat]
         case ls of
@@ -127,7 +127,7 @@ stemsRules s = do
     forM_ ["1p", "2p"] $ \feet -> do
       let dir = "gen" </> src </> feet
       forM_ (HM.toList amap) $ \(inst, aud) -> do
-        dir </> (inst <.> "wav") *> \out -> do
+        dir </> (inst <.> "wav") %> \out -> do
           aud' <- T.forM aud $ \f -> do
             let pat = f -<.> "*"
             ls <- getDirectoryFiles "" [pat]
@@ -147,18 +147,18 @@ eachVersion s f = eachAudio s $ \src ->
 
 countinRules :: Song -> Rules ()
 countinRules s = eachVersion s $ \_ dir -> do
-  dir </> "countin.wav" *> \out -> do
+  dir </> "countin.wav" %> \out -> do
     let mid = dir </> "notes.mid"
         hit = "../../../sound/hihat-foot.wav"
     makeCountin mid hit out
-  dir </> "song-countin.wav" *> \out -> do
+  dir </> "song-countin.wav" %> \out -> do
     let song = File $ dir </> "song.wav"
         countin = File $ dir </> "countin.wav"
     buildAudio (Combine Mix [song, countin]) out
 
 oggRules :: Song -> Rules ()
 oggRules s = eachVersion s $ \_ dir -> do
-  dir </> "audio.ogg" *> \out -> do
+  dir </> "audio.ogg" %> \out -> do
     let drums = File $ dir </> "drums.wav"
         bass  = File $ dir </> "bass.wav"
         song  = File $ dir </> "song-countin.wav"
@@ -175,7 +175,7 @@ oggRules s = eachVersion s $ \_ dir -> do
             -- is LFE, so instead we add a silent 7th channel
             else parts
     buildAudio audio out
-  dir </> "audio.mogg" *> \mogg -> do
+  dir </> "audio.mogg" %> \mogg -> do
     let ogg = mogg -<.> "ogg"
     need [ogg]
     liftIO $ oggToMogg ogg mogg
@@ -185,13 +185,13 @@ crapRules :: Rules ()
 crapRules = do
   let src = "gen/album/2p/song-countin.wav"
       preview ext = "gen/album/2p/preview-audio" <.> ext
-  preview "wav" *> \out -> do
+  preview "wav" %> \out -> do
     need [src]
     cmd "sox" [src, out] "remix 1,2"
-  preview "mp3" *> \out -> do
+  preview "mp3" %> \out -> do
     need [preview "wav"]
     cmd "lame" [preview "wav", out] "-b 16"
-  preview "ogg" *> \out -> do
+  preview "ogg" %> \out -> do
     need [preview "wav"]
     cmd "oggenc -b 16 --resample 16000 -o" [out, preview "wav"]
 
@@ -200,17 +200,17 @@ midRules s = eachAudio s $ \src -> do
   let mid1p = "gen" </> src </> "1p/notes.mid"
       mid2p = "gen" </> src </> "2p/notes.mid"
       mid   = "gen" </> src </> "notes.mid"
-  mid *> \out -> do
+  mid %> \out -> do
     need ["notes.mid"]
     let tempos = "tempo-" ++ src ++ ".mid"
     b <- doesFileExist tempos
     if b
       then replaceTempos "notes.mid" tempos out
       else runMidi fixResolution "notes.mid" out
-  mid2p *> runMidi
+  mid2p %> runMidi
     (fixRolls . autoBeat . drumMix 0 . tempoTrackName)
     mid
-  mid1p *> runMidi (oneFoot 0.18 0.11) mid2p
+  mid1p %> runMidi (oneFoot 0.18 0.11) mid2p
 
 runMidi :: (F.T -> F.T) -> FilePath -> FilePath -> Action ()
 runMidi f fin fout = do
@@ -257,15 +257,15 @@ rb3Rules s = eachVersion s $ \title dir -> do
       pathMogg = dir </> "rb3/songs" </> pkg </> (pkg <.> "mogg")
       pathPng = dir </> "rb3/songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_xbox")
       pathCon = dir </> "rb3.con"
-  pathDta *> \out -> do
+  pathDta %> \out -> do
     songPkg <- makeDTA pkg title (dir </> "notes.mid") s
     let dta = D.DTA 0 $ D.Tree 0 $ (:[]) $ D.Parens $ D.Tree 0 $
           D.Key (B8.pack pkg) : D.toChunks songPkg
     writeFile' out $ D.sToDTA dta
-  pathMid *> copyFile' (dir </> "notes.mid")
-  pathMogg *> copyFile' (dir </> "audio.mogg")
-  pathPng *> copyFile' "gen/cover.png_xbox"
-  pathCon *> \out -> do
+  pathMid %> copyFile' (dir </> "notes.mid")
+  pathMogg %> copyFile' (dir </> "audio.mogg")
+  pathPng %> copyFile' "gen/cover.png_xbox"
+  pathCon %> \out -> do
     need [pathDta, pathMid, pathMogg, pathPng]
     cmd "rb3pkg -p" [_artist s ++ ": " ++ _title s] "-d"
       ["Version: " ++ drop 4 dir] "-f" [dir </> "rb3"] out
@@ -382,13 +382,13 @@ coverRules :: Song -> Rules ()
 coverRules s = do
   let img = _fileAlbumArt s
   forM_ ["bmp", "dds", "png"] $ \ext -> do
-    "gen/cover" <.> ext *> \out -> do
+    "gen/cover" <.> ext %> \out -> do
       need [img]
       conv <- liftIO $ imageMagick "convert"
       case conv of
         Nothing -> fail "coverRules: couldn't find ImageMagick convert"
         Just c  -> cmd [c] [img] "-resize 256x256!" [out]
-  "gen/cover.png_xbox" *> \out -> do
+  "gen/cover.png_xbox" %> \out -> do
     let dds = out -<.> "dds"
     need [dds]
     b <- liftIO $ B.readFile dds
@@ -427,17 +427,17 @@ magmaRules s = eachVersion s $ \title dir -> do
       mid = dir </> "magma/notes.mid"
       proj = dir </> "magma/magma.rbproj"
       rba = dir </> "magma.rba"
-  drums *> copyFile' (dir </> "drums.wav")
-  bass *> copyFile' (dir </> "bass.wav")
-  song *> copyFile' (dir </> "song-countin.wav")
-  cover *> copyFile' "gen/cover.bmp"
-  mid *> magmaClean (dir </> "notes.mid")
-  proj *> \out -> do
+  drums %> copyFile' (dir </> "drums.wav")
+  bass %> copyFile' (dir </> "bass.wav")
+  song %> copyFile' (dir </> "song-countin.wav")
+  cover %> copyFile' "gen/cover.bmp"
+  mid %> magmaClean (dir </> "notes.mid")
+  proj %> \out -> do
     let pkg = packageID dir s
     p <- makeMagmaProj pkg title (dir </> "notes.mid") s
     let dta = D.DTA 0 $ D.Tree 0 $ D.toChunks p
     writeFile' out $ D.sToDTA dta
-  rba *> \_ -> do
+  rba %> \_ -> do
     when (Drums `elem` _config s) $ need [drums]
     when (Bass `elem` _config s) $ need [bass]
     need [song, cover, mid, proj]
@@ -546,12 +546,12 @@ fofRules s = eachVersion s $ \title dir -> do
       bass = dir </> "fof/rhythm.ogg"
       song = dir </> "fof/song.ogg"
       ini = dir </> "fof/song.ini"
-  mid *> copyFile' (dir </> "notes.mid")
-  png *> copyFile' "gen/cover.png"
-  drums *> buildAudio (File $ dir </> "drums.wav")
-  bass *> buildAudio (File $ dir </> "bass.wav")
-  song *> buildAudio (File $ dir </> "song-countin.wav")
-  ini *> \out -> makeIni title mid s >>= writeFile' out
+  mid %> copyFile' (dir </> "notes.mid")
+  png %> copyFile' "gen/cover.png"
+  drums %> buildAudio (File $ dir </> "drums.wav")
+  bass %> buildAudio (File $ dir </> "bass.wav")
+  song %> buildAudio (File $ dir </> "song-countin.wav")
+  ini %> \out -> makeIni title mid s >>= writeFile' out
   phony (dir </> "fof-all") $ do
     need [mid, png, song, ini]
     when (Drums `elem` _config s) $ need [drums]

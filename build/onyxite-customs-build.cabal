@@ -28,7 +28,7 @@ executable onyxbuild
     Magma
   build-depends:
     base    >= 4.6    && < 4.8
-    , shake >= 0.13.2 && < 0.14
+    , shake >= 0.14.3 && < 0.15
     , directory
     , temporary
     , aeson, text, unordered-containers, filepath, yaml
