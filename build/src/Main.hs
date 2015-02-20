@@ -1,7 +1,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable #-}
 module Main where
 
-import Development.Shake
+import Development.Shake hiding ((%>))
+import qualified Development.Shake as Shake
 import Development.Shake.FilePath
 import Development.Shake.Classes
 import YAMLTree
@@ -219,6 +220,13 @@ runMidi f fin fout = do
 
 newtype JammitResults = JammitResults (String, String)
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
+
+-- | Wraps the Shake operator to also install a dependency on song.yml.
+(%>) :: FilePattern -> (FilePath -> Action ()) -> Rules ()
+pat %> f = pat Shake.%> \out -> do
+  need ["song.yml"]
+  f out
+infix 1 %>
 
 main :: IO ()
 main = do
