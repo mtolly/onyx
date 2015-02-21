@@ -5,4 +5,4 @@ track-number: 5
 audio:
   jammit: File ()
   album: Unary [Trim Begin 0.379] (File ())
-config: [drums]
+config: [drums, bass, guitar]

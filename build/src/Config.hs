@@ -25,7 +25,7 @@ data Song = Song
   , _config :: [Instrument]
   } deriving (Eq, Show)
 
-data Instrument = Drums | Bass
+data Instrument = Drums | Bass | Guitar
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data Gender = Male | Female

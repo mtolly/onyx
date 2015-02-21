@@ -147,6 +147,10 @@ findText s = ATB.getTimes . RTB.toAbsoluteEventList 0 . RTB.filter f where
 magmaClean' :: (NNC.C t) => RTB.T t E.T -> Maybe (RTB.T t E.T)
 magmaClean' trk = case U.trackName trk of
   Just "countin" -> Nothing
+  Just "PART REAL_BASS" -> Nothing
+  Just "PART REAL_BASS_22" -> Nothing
+  Just "PART REAL_GUITAR" -> Nothing
+  Just "PART REAL_GUITAR_22" -> Nothing
   _              -> Just $ removeText trk
   where removeText = RTB.filter $ \x -> case x of
           E.MetaEvent (Meta.TextEvent ('#' : _)) -> False

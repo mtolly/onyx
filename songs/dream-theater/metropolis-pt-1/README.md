@@ -6,6 +6,8 @@ Instruments:
 
   * (Pro) Drums: Expert
     [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=metropolis-pt-1)
+  * Bass: Expert
+  * Guitar: Expert
 
 Supported audio:
 

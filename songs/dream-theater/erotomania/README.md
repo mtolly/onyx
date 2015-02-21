@@ -6,6 +6,8 @@ Instruments:
 
   * (Pro) Drums: Expert
     [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=erotomania)
+  * Bass: Expert
+  * Guitar: Expert
 
 Supported audio:
 

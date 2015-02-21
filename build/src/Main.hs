@@ -84,12 +84,19 @@ jammitRules s = do
       case audios of
         [] -> buildAudio (Silence 2 0) out
         _  -> liftIO $ J.runAudio audios [] out
+    dir </> "guitar_untimed.wav" %> \out -> do
+      audios <- jSearchInstrument J.Guitar
+      case audios of
+        [] -> buildAudio (Silence 2 0) out
+        _  -> liftIO $ J.runAudio audios [] out
     dir </> "song_untimed.wav" %> \out -> do
       audios <- jSearch
       let backs = do
             (jpart, rbpart) <-
-              [ (J.Drums, Drums)
-              , (J.Bass , Bass )
+              -- listed in order of backing preference
+              [ (J.Drums , Drums  )
+              , (J.Bass  , Bass   )
+              , (J.Guitar, Guitar )
               ]
             guard $ rbpart `elem` _config s
             case lookup (J.Without jpart) audios of
@@ -105,8 +112,11 @@ jammitRules s = do
           , [ (File $ Soxable $ dir </> "bass_untimed.wav", -1)
             | rbpart /= Bass && elem Bass (_config s)
             ]
+          , [ (File $ Soxable $ dir </> "guitar_untimed.wav", -1)
+            | rbpart /= Guitar && elem Guitar (_config s)
+            ]
           ]
-    forM_ ["drums", "bass", "song"] $ \part -> do
+    forM_ ["drums", "bass", "guitar", "song"] $ \part -> do
       dir </> (part ++ ".wav") %> \out -> do
         let untimed = Soxable $ dropExtension out ++ "_untimed.wav"
         case HM.lookup "jammit" $ _audio s of
@@ -121,7 +131,7 @@ simpleRules s = do
   forM_ [ (src, aud) | (src, AudioSimple aud) <- HM.toList $ _audio s, src /= "jammit" ] $ \(src, aud) -> do
     forM_ ["1p", "2p"] $ \feet -> do
       let dir = "gen" </> src </> feet
-      forM_ ["drums.wav", "bass.wav"] $ \inst -> do
+      forM_ ["drums.wav", "bass.wav", "guitar.wav"] $ \inst -> do
         dir </> inst %> buildAudio (Silence 2 0)
       dir </> "song.wav" %> \out -> do
         let pat = "audio-" ++ src ++ ".*"
@@ -170,11 +180,13 @@ oggRules s = eachVersion s $ \_ dir -> do
   dir </> "audio.ogg" %> \out -> do
     let drums = File $ Soxable $ dir </> "drums.wav"
         bass  = File $ Soxable $ dir </> "bass.wav"
+        guitar = File $ Soxable $ dir </> "guitar.wav"
         song  = File $ Soxable $ dir </> "song-countin.wav"
         audio = Combine Merge $ let
           parts = concat
             [ [drums | Drums `elem` _config s]
             , [bass | Bass `elem` _config s]
+            , [guitar | Guitar `elem` _config s]
             , [song]
             ]
           in if length parts == 3
@@ -301,7 +313,7 @@ makeDTA pkg title mid s = do
       , D.tracksCount = Just $ D.InParens
         [ if Drums `elem` _config s then 2 else 0
         , if Bass `elem` _config s then 2 else 0
-        , 0
+        , if Guitar `elem` _config s then 2 else 0
         , 0
         , 0
         , 2
@@ -311,9 +323,11 @@ makeDTA pkg title mid s = do
         channelNumsFor inst = [ i | (i, inst') <- channelNums, inst == inst' ]
         trackDrum = (B8.pack "drum", Right $ D.InParens $ channelNumsFor Drums)
         trackBass = (B8.pack "bass", Right $ D.InParens $ channelNumsFor Bass)
+        trackGuitar = (B8.pack "guitar", Right $ D.InParens $ channelNumsFor Guitar)
         in concat
           [ [trackDrum | Drums `elem` _config s]
           , [trackBass | Bass `elem` _config s]
+          , [trackGuitar | Guitar `elem` _config s]
           ]
       , D.vocalParts = 0
       , D.pans = D.InParens $ take numChannels $ cycle [-1, 1]
@@ -333,7 +347,7 @@ makeDTA pkg title mid s = do
     , D.songLength = fromIntegral len
     , D.rank = D.Dict $ Map.fromList
       [ (B8.pack "drum", if Drums `elem` _config s then 1 else 0)
-      , (B8.pack "guitar", 0)
+      , (B8.pack "guitar", if Guitar `elem` _config s then 1 else 0)
       , (B8.pack "bass", if Bass `elem` _config s then 1 else 0)
       , (B8.pack "vocals", 0)
       , (B8.pack "keys", 0)
@@ -438,6 +452,7 @@ magmaRules :: Song -> Rules ()
 magmaRules s = eachVersion s $ \title dir -> do
   let drums = dir </> "magma/drums.wav"
       bass = dir </> "magma/bass.wav"
+      guitar = dir </> "magma/guitar.wav"
       song = dir </> "magma/song-countin.wav"
       cover = dir </> "magma/cover.bmp"
       mid = dir </> "magma/notes.mid"
@@ -445,6 +460,7 @@ magmaRules s = eachVersion s $ \title dir -> do
       rba = dir </> "magma.rba"
   drums %> copyFile' (dir </> "drums.wav")
   bass %> copyFile' (dir </> "bass.wav")
+  guitar %> copyFile' (dir </> "guitar.wav")
   song %> copyFile' (dir </> "song-countin.wav")
   cover %> copyFile' "gen/cover.bmp"
   mid %> magmaClean (dir </> "notes.mid")
@@ -456,6 +472,7 @@ magmaRules s = eachVersion s $ \title dir -> do
   rba %> \_ -> do
     when (Drums `elem` _config s) $ need [drums]
     when (Bass `elem` _config s) $ need [bass]
+    when (Guitar `elem` _config s) $ need [guitar]
     need [song, cover, mid, proj]
     liftIO $ runMagma proj rba
 
@@ -546,7 +563,9 @@ makeMagmaProj pkg title mid s = do
         , Magma.bass = if Bass `elem` _config s
           then stereoFile "bass.wav"
           else emptyAudioFile
-        , Magma.guitar = emptyAudioFile
+        , Magma.guitar = if Guitar `elem` _config s
+          then stereoFile "guitar.wav"
+          else emptyAudioFile
         , Magma.vocals = emptyAudioFile
         , Magma.keys = emptyAudioFile
         , Magma.backing = stereoFile "song-countin.wav"
@@ -560,18 +579,21 @@ fofRules s = eachVersion s $ \title dir -> do
       png = dir </> "fof/album.png"
       drums = dir </> "fof/drums.ogg"
       bass = dir </> "fof/rhythm.ogg"
+      guitar = dir </> "fof/guitar.ogg"
       song = dir </> "fof/song.ogg"
       ini = dir </> "fof/song.ini"
   mid %> copyFile' (dir </> "notes.mid")
   png %> copyFile' "gen/cover.png"
   drums %> buildAudio (File $ Soxable $ dir </> "drums.wav")
   bass %> buildAudio (File $ Soxable $ dir </> "bass.wav")
+  guitar %> buildAudio (File $ Soxable $ dir </> "guitar.wav")
   song %> buildAudio (File $ Soxable $ dir </> "song-countin.wav")
   ini %> \out -> makeIni title mid s >>= writeFile' out
   phony (dir </> "fof-all") $ do
     need [mid, png, song, ini]
     when (Drums `elem` _config s) $ need [drums]
     when (Bass `elem` _config s) $ need [bass]
+    when (Guitar `elem` _config s) $ need [guitar]
 
 makeIni :: String -> FilePath -> Song -> Action String
 makeIni title mid s = do
@@ -586,7 +608,7 @@ makeIni title mid s = do
         , ("charter", "Onyxite")
         , ("diff_band", "0")
         , ("diff_drums", if Drums `elem` _config s then "0" else "-1")
-        , ("diff_guitar", "-1")
+        , ("diff_guitar", if Guitar `elem` _config s then "0" else "-1")
         , ("diff_bass", if Bass `elem` _config s then "0" else "-1")
         , ("diff_vocals", "-1")
         , ("diff_keys", "-1")
