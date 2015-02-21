@@ -5,3 +5,4 @@ genre: numetal
 subgenre: numetal
 vocal-gender: male
 file-album-art: ../covers/buiikikaesu.jpg
+file-include: default.yml

@@ -4,3 +4,4 @@ year: 1998
 genre: metal
 subgenre: prog
 file-album-art: ../covers/liquid-tension-experiment.jpg
+file-include: default.yml

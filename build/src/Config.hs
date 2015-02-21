@@ -23,6 +23,7 @@ data Song = Song
   , _jammitArtist :: Maybe String
   , _audio :: Map.HashMap String (AudioConfig Double)
   , _config :: [Instrument]
+  , _fileCountin :: FilePath
   } deriving (Eq, Show)
 
 data Instrument = Drums | Bass | Guitar

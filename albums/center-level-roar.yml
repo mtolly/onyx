@@ -5,3 +5,4 @@ genre: jazz
 subgenre: contemporary
 vocal-gender: male
 file-album-art: ../covers/center-level-roar.jpg
+file-include: default.yml

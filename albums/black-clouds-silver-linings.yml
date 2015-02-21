@@ -5,3 +5,4 @@ genre: metal
 subgenre: prog
 vocal-gender: male
 file-album-art: ../covers/black-clouds-silver-linings.jpg
+file-include: default.yml

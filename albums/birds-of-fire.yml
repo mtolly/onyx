@@ -4,3 +4,4 @@ year: 1973
 genre: fusion
 subgenre: fusion
 file-album-art: ../covers/birds-of-fire.bmp
+file-include: default.yml

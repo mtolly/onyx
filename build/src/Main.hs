@@ -168,7 +168,7 @@ countinRules :: Song -> Rules ()
 countinRules s = eachVersion s $ \_ dir -> do
   dir </> "countin.wav" %> \out -> do
     let mid = dir </> "notes.mid"
-        hit = "../../../sound/hihat-foot.wav"
+        hit = _fileCountin s
     makeCountin mid hit out
   dir </> "song-countin.wav" %> \out -> do
     let song = File $ Soxable $ dir </> "song.wav"

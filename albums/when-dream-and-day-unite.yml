@@ -5,3 +5,4 @@ genre: metal
 subgenre: prog
 vocal-gender: male
 file-album-art: ../covers/when-dream-and-day-unite.bmp
+file-include: default.yml

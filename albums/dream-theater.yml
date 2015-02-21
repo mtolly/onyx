@@ -5,3 +5,4 @@ genre: metal
 subgenre: prog
 vocal-gender: male
 file-album-art: ../covers/dream-theater.bmp
+file-include: default.yml

@@ -5,3 +5,4 @@ genre: metal
 subgenre: prog
 vocal-gender: male
 file-album-art: ../covers/falling-into-infinity.bmp
+file-include: default.yml
