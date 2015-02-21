@@ -362,8 +362,9 @@ makeDTA pkg title mid s = do
     , D.genre = D.Keyword $ B8.pack $ _genre s
     , D.subGenre = Just $ D.Keyword $ B8.pack $ "subgenre_" ++ _subgenre s
     , D.vocalGender = case _vocalGender s of
-      Male -> Magma.Male
-      Female -> Magma.Female
+      Just Male   -> Magma.Male
+      Just Female -> Magma.Female
+      Nothing     -> Magma.Female
     , D.shortVersion = Nothing
     , D.yearReleased = fromIntegral $ _year s
     , D.albumArt = Just True
@@ -527,8 +528,9 @@ makeMagmaProj pkg title mid s = do
         , Magma.vocalScrollSpeed = 2300
         , Magma.animTempo = 32
         , Magma.vocalGender = case _vocalGender s of
-          Male -> Magma.Male
-          Female -> Magma.Female
+          Just Male   -> Magma.Male
+          Just Female -> Magma.Female
+          Nothing     -> Magma.Female
         , Magma.vocalPercussion = Magma.Tambourine
         , Magma.vocalParts = 0
         , Magma.guidePitchVolume = -3

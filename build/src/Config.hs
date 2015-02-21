@@ -16,7 +16,7 @@ data Song = Song
   , _genre :: String
   , _subgenre :: String
   , _year :: Int
-  , _vocalGender :: Gender
+  , _vocalGender :: Maybe Gender
   , _fileAlbumArt :: FilePath
   , _trackNumber :: Int
   , _jammitTitle :: Maybe String
