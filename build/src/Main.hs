@@ -12,8 +12,8 @@ import OneFoot
 import Magma
 import qualified Data.Aeson as A
 import Control.Applicative ((<$>), (<|>))
-import Control.Monad (forM_, unless, when)
-import Data.Maybe (fromMaybe, mapMaybe, isJust, listToMaybe)
+import Control.Monad (forM_, unless, when, guard)
+import Data.Maybe (fromMaybe, mapMaybe, listToMaybe)
 import Data.List (stripPrefix, isPrefixOf)
 import Data.Bifunctor (bimap, first)
 import Scripts.Main
@@ -67,40 +67,48 @@ jammitRules s = do
       jArtist = jammitArtist s
       jSearch :: Action [(J.AudioPart, FilePath)]
       jSearch = fmap read $ askOracle $ JammitResults (jTitle, jArtist)
+      jSearchInstrument :: J.Instrument -> Action [FilePath]
+      jSearchInstrument inst = do
+        audios <- jSearch
+        let parts = [ J.Only p | p <- [minBound .. maxBound], J.partToInstrument p == inst ]
+        return $ mapMaybe (`lookup` audios) parts
   forM_ ["1p", "2p"] $ \feet -> do
     let dir = "gen/jammit" </> feet
     dir </> "drums_untimed.wav" %> \out -> do
-      audios <- jSearch
-      case lookup (J.Only J.PartDrums1) audios of
-        Nothing -> buildAudio (Silence 2 0) out
-        Just fp -> liftIO $ J.runAudio [fp] [] out
+      audios <- jSearchInstrument J.Drums
+      case audios of
+        [] -> buildAudio (Silence 2 0) out
+        _  -> liftIO $ J.runAudio audios [] out
     dir </> "bass_untimed.wav" %> \out -> do
-      audios <- jSearch
-      case lookup (J.Only J.PartBass) audios of
-        Nothing -> buildAudio (Silence 2 0) out
-        Just fp -> liftIO $ J.runAudio [fp] [] out
+      audios <- jSearchInstrument J.Bass
+      case audios of
+        [] -> buildAudio (Silence 2 0) out
+        _  -> liftIO $ J.runAudio audios [] out
     dir </> "song_untimed.wav" %> \out -> do
       audios <- jSearch
-      let hasDrums = isJust $ lookup (J.Only J.PartDrums1) audios
-          hasBass  = isJust $ lookup (J.Only J.PartBass) audios
-          configHas inst = inst `elem` _config s
-          getAudio aud = case lookup aud audios of
-            Nothing -> error $ "Couldn't find audio part: " ++ show aud
-            Just x  -> x
-          runAudio' y n = liftIO $
-            J.runAudio (map getAudio y) (map getAudio n) out
-      case (configHas Drums, configHas Bass) of
-        (True, False) -> runAudio' [J.Without J.Drums] []
-        (False, True) -> runAudio' [J.Without J.Bass] []
-        (True, True) -> case (hasDrums, hasBass) of
-          (True , True ) -> runAudio' [J.Without J.Drums] [J.Only J.PartBass]
-          (True , False) -> runAudio' [J.Without J.Drums] []
-          (False, True ) -> runAudio' [J.Without J.Bass] []
-          (False, False) -> fail "Couldn't find Jammit drums or bass"
-        (False, False) -> runAudio' [] []
+      let backs = do
+            (jpart, rbpart) <-
+              [ (J.Drums, Drums)
+              , (J.Bass , Bass )
+              ]
+            guard $ rbpart `elem` _config s
+            case lookup (J.Without jpart) audios of
+              Nothing    -> []
+              Just audio -> [(rbpart, audio)]
+      case backs of
+        [] -> fail "No Jammit instrument package used in this song was found."
+        (rbpart, back) : _ -> flip buildAudio out $ Combine' Mix $ concat
+          [ [ (File $ JammitAIFC back, 1) ]
+          , [ (File $ Soxable $ dir </> "drums_untimed.wav", -1)
+            | rbpart /= Drums && elem Drums (_config s)
+            ]
+          , [ (File $ Soxable $ dir </> "bass_untimed.wav", -1)
+            | rbpart /= Bass && elem Bass (_config s)
+            ]
+          ]
     forM_ ["drums", "bass", "song"] $ \part -> do
       dir </> (part ++ ".wav") %> \out -> do
-        let untimed = dropExtension out ++ "_untimed.wav"
+        let untimed = Soxable $ dropExtension out ++ "_untimed.wav"
         case HM.lookup "jammit" $ _audio s of
           Nothing -> fail "No jammit audio configuration"
           Just (AudioSimple aud) ->
@@ -120,7 +128,7 @@ simpleRules s = do
         ls <- getDirectoryFiles "" [pat]
         case ls of
           []    -> fail $ "No file found matching pattern " ++ pat
-          f : _ -> buildAudio (bimap realToFrac (const f) aud) out
+          f : _ -> buildAudio (bimap realToFrac (const $ Soxable f) aud) out
 
 stemsRules :: Song -> Rules ()
 stemsRules s = do
@@ -134,7 +142,7 @@ stemsRules s = do
             ls <- getDirectoryFiles "" [pat]
             case ls of
               []     -> fail $ "No file found matching pattern " ++ pat
-              f' : _ -> return f'
+              f' : _ -> return $ Soxable f'
           buildAudio (first realToFrac aud') out
 
 eachAudio :: (Monad m) => Song -> (String -> m ()) -> m ()
@@ -153,16 +161,16 @@ countinRules s = eachVersion s $ \_ dir -> do
         hit = "../../../sound/hihat-foot.wav"
     makeCountin mid hit out
   dir </> "song-countin.wav" %> \out -> do
-    let song = File $ dir </> "song.wav"
-        countin = File $ dir </> "countin.wav"
+    let song = File $ Soxable $ dir </> "song.wav"
+        countin = File $ Soxable $ dir </> "countin.wav"
     buildAudio (Combine Mix [song, countin]) out
 
 oggRules :: Song -> Rules ()
 oggRules s = eachVersion s $ \_ dir -> do
   dir </> "audio.ogg" %> \out -> do
-    let drums = File $ dir </> "drums.wav"
-        bass  = File $ dir </> "bass.wav"
-        song  = File $ dir </> "song-countin.wav"
+    let drums = File $ Soxable $ dir </> "drums.wav"
+        bass  = File $ Soxable $ dir </> "bass.wav"
+        song  = File $ Soxable $ dir </> "song-countin.wav"
         audio = Combine Merge $ let
           parts = concat
             [ [drums | Drums `elem` _config s]
@@ -556,9 +564,9 @@ fofRules s = eachVersion s $ \title dir -> do
       ini = dir </> "fof/song.ini"
   mid %> copyFile' (dir </> "notes.mid")
   png %> copyFile' "gen/cover.png"
-  drums %> buildAudio (File $ dir </> "drums.wav")
-  bass %> buildAudio (File $ dir </> "bass.wav")
-  song %> buildAudio (File $ dir </> "song-countin.wav")
+  drums %> buildAudio (File $ Soxable $ dir </> "drums.wav")
+  bass %> buildAudio (File $ Soxable $ dir </> "bass.wav")
+  song %> buildAudio (File $ Soxable $ dir </> "song-countin.wav")
   ini %> \out -> makeIni title mid s >>= writeFile' out
   phony (dir </> "fof-all") $ do
     need [mid, png, song, ini]

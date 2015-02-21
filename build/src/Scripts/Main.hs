@@ -85,7 +85,7 @@ makeCountin mid wavin wavout = do
       secs = map (realToFrac . U.applyTempoMap tmap) beats :: [Rational]
       audio = case secs of
         [] -> Silence 2 1
-        _ -> Combine Mix $ map (\t -> Unary [Pad Begin t] $ File wavin) secs
+        _ -> Combine Mix $ map (\t -> Unary [Pad Begin t] $ File $ Soxable wavin) secs
   buildAudio audio wavout
 
 fixResolution :: F.T -> F.T

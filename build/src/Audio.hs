@@ -14,6 +14,7 @@ import qualified Data.Aeson as A
 import Text.Read (readEither)
 import Data.Bifunctor
 import Control.Monad (forM)
+import qualified Sound.Jammit.Export as J
 
 data Edge = Begin | End
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -25,6 +26,11 @@ data Audio t a
   | Combine' Combine [(Audio t a, Double)]
   | Unary [Unary t] (Audio t a)
   deriving (Eq, Ord, Show, Read, Functor, F.Foldable, T.Traversable)
+
+data InputFile
+  = Soxable FilePath
+  | JammitAIFC FilePath
+  deriving (Eq, Ord, Show, Read)
 
 data Combine = Concatenate | Mix | Merge
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -55,7 +61,7 @@ instance (Show t, Show a) => A.ToJSON (Audio t a) where
   toJSON = A.toJSON . show
 
 -- | Assumes 16-bit 44100 Hz audio files.
-buildAudio :: Audio Rational FilePath -> FilePath -> Action ()
+buildAudio :: Audio Rational InputFile -> FilePath -> Action ()
 buildAudio aud out = let
   dir = "gen/temp"
   newWav :: Action FilePath
@@ -63,21 +69,26 @@ buildAudio aud out = let
     (f, h) <- openTempFile dir "audio.wav"
     hClose h
     return f
-  evalAudio :: Audio Rational FilePath -> Action FilePath
+  evalAudio :: Audio Rational InputFile -> Action FilePath
   evalAudio expr = case expr of
     Silence chans t -> do
       f <- newWav
       () <- cmd "sox -n -b 16 -r 44100" [f] "channels" [show chans]
         "trim 0" [showSeconds t]
       return f
-    File x -> case takeExtension x of
-      ".mp3" -> do
+    File fin -> case fin of
+      Soxable x -> case takeExtension x of
+        ".mp3" -> do
+          f <- newWav
+          () <- cmd "lame --decode" [x, f]
+          evalAudio $ File $ Soxable f
+        _ -> do
+          f <- newWav
+          () <- cmd "sox" [x] "-b 16 -r 44100" [f] "channels 2"
+          return f
+      JammitAIFC x -> do
         f <- newWav
-        () <- cmd "lame --decode" [x, f]
-        evalAudio $ File f
-      _ -> do
-        f <- newWav
-        () <- cmd "sox" [x] "-b 16 -r 44100" [f] "channels 2"
+        liftIO $ J.runAudio [x] [] f
         return f
     Combine comb xs -> evalAudio $ Combine' comb $ map (\x -> (x, 1)) xs
     Combine' _ [] -> fail "buildAudio: can't combine 0 files"
@@ -106,7 +117,11 @@ buildAudio aud out = let
       return f
   showSeconds r = showFFloat (Just 4) (realToFrac r :: Double) ""
   in do
-    need $ F.toList aud
+    need $ do
+      fin <- F.toList aud
+      return $ case fin of
+        Soxable x -> x
+        JammitAIFC x -> x
     liftIO $ createDirectoryIfMissing True dir
     f <- evalAudio aud
     cmd "sox" [f] [out]
