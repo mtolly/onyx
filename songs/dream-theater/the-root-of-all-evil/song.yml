@@ -1,0 +1,7 @@
+title: The Root of All Evil
+file-include: ../../../albums/octavarium.yml
+track-number: 1
+audio:
+  jammit: Unary [Pad Begin 1.699, Trim End 4.017, Fade End 3.125] (File ())
+  album: Unary [Pad Begin 2.990, Trim End 13.208, Fade End 3.125] (File ())
+config: [drums]
