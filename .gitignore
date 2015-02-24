@@ -1,8 +1,7 @@
 audio-*.*
-*/*/*/gen/
-!build/magma/gen/
-*.rpp
-*.rpp-bak
+songs/*/*/gen/
+*.[Rr][Pp][Pp]
+*.[Rr][Pp][Pp]-bak
 *.reapeaks
 .DS_Store
 .shake.database
