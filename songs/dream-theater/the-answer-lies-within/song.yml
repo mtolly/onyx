@@ -1,0 +1,8 @@
+title: The Answer Lies Within
+file-include: ../../../albums/octavarium.yml
+track-number: 2
+audio:
+  # TODO: fade in/out
+  jammit: Unary [Pad Begin 0.267] (File ())
+  album: Unary [Pad Begin 2.848] (File ())
+config: [drums]
