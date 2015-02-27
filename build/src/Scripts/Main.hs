@@ -219,18 +219,20 @@ trackGlue t xs ys = let
 -- their last gem note-on.
 fixRolls :: F.T -> F.T
 fixRolls = let
-  isRollable t = U.trackName t `elem` map Just ["PART DRUMS", "PART BASS"]
+  isRollable t = U.trackName t `elem` map Just ["PART DRUMS", "PART BASS", "PART GUITAR"]
   fixRollsTracks = map $ \t -> if isRollable t then fixRollsTrack t else t
   in uncurry fromStandardMIDI . second fixRollsTracks . standardMIDI
 
 fixRollsTrack :: RTB.T U.Beats E.T -> RTB.T U.Beats E.T
-fixRollsTrack = RTB.flatten . go . RTB.collectCoincident where
+fixRollsTrack t = RTB.flatten $ go $ RTB.collectCoincident t where
+  rollableNotes =
+    if U.trackName t == Just "PART DRUMS" then [97..100] else [96..100]
   go :: RTB.T U.Beats [E.T] -> RTB.T U.Beats [E.T]
   go rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
     Just ((dt, evts), rtb') -> case findNoteOn [126, 127] evts of
       -- Tremolo (single note or chord) or one-drum roll
-      Just 126 -> case findNoteOn [97..100] evts of
+      Just 126 -> case findNoteOn rollableNotes evts of
         Nothing -> error "fixRollsTrack: found single-roll start without a gem"
         Just p -> let
           rollLength = findFirst [isNoteOff 126] rtb'
@@ -242,9 +244,9 @@ fixRollsTrack = RTB.flatten . go . RTB.collectCoincident where
             $ removeNextOff 126 rtb'
           in RTB.cons dt evts $ go modified
       -- Trill or two-drum roll
-      Just 127 -> case findNoteOn [97..100] evts of
+      Just 127 -> case findNoteOn rollableNotes evts of
         Nothing -> error $ "fixRollsTrack: found double-roll start without a gem"
-        Just p1 -> case RTB.viewL $ RTB.mapMaybe (findNoteOn [97..100]) rtb' of
+        Just p1 -> case RTB.viewL $ RTB.mapMaybe (findNoteOn rollableNotes) rtb' of
           Nothing -> error "fixRollsTrack: found double-roll without a 2nd gem"
           Just ((_, p2), _) -> let
             rollLength = findFirst [isNoteOff 127] rtb'
