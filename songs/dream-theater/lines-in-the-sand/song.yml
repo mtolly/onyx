@@ -4,4 +4,4 @@ track-number: 7
 audio:
   jammit: Unary [Trim Begin 2.222, Fade Begin 4.180, Pad Begin 2.849] (File ())
   album: Unary [Fade Begin 4.261, Pad Begin 2.510] (File ())
-config: [drums]
+config: [drums, guitar, bass]
