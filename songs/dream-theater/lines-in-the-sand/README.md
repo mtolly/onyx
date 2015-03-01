@@ -7,6 +7,7 @@ Instruments:
   * (Pro) Drums: Expert
     [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=lines-in-the-sand)
   * Bass: Expert
+  * Guitar: Expert
 
 Supported audio:
 
