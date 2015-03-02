@@ -14,7 +14,7 @@ import qualified Data.Aeson as A
 import Control.Applicative ((<$>), (<|>))
 import Control.Monad (forM_, unless, when, guard)
 import Data.Maybe (fromMaybe, mapMaybe, listToMaybe)
-import Data.List (stripPrefix, isPrefixOf)
+import Data.List (stripPrefix, isPrefixOf, sort)
 import Data.Bifunctor (bimap, first)
 import Scripts.Main
 import qualified Sound.Jammit.Base as J
@@ -109,11 +109,11 @@ jammitRules s = do
           , [ (File $ Soxable $ dir </> "drums_untimed.wav", -1)
             | rbpart /= Drums && elem Drums (_config s)
             ]
-          , [ (File $ Soxable $ dir </> "guitar_untimed.wav", -1)
-            | rbpart /= Guitar && elem Guitar (_config s)
-            ]
           , [ (File $ Soxable $ dir </> "bass_untimed.wav", -1)
             | rbpart /= Bass && elem Bass (_config s)
+            ]
+          , [ (File $ Soxable $ dir </> "guitar_untimed.wav", -1)
+            | rbpart /= Guitar && elem Guitar (_config s)
             ]
           ]
     forM_ ["drums", "bass", "guitar", "song"] $ \part -> do
@@ -179,14 +179,14 @@ oggRules :: Song -> Rules ()
 oggRules s = eachVersion s $ \_ dir -> do
   dir </> "audio.ogg" %> \out -> do
     let drums = File $ Soxable $ dir </> "drums.wav"
-        guitar = File $ Soxable $ dir </> "guitar.wav"
         bass  = File $ Soxable $ dir </> "bass.wav"
+        guitar = File $ Soxable $ dir </> "guitar.wav"
         song  = File $ Soxable $ dir </> "song-countin.wav"
         audio = Combine Merge $ let
           parts = concat
             [ [drums | Drums `elem` _config s]
-            , [guitar | Guitar `elem` _config s]
             , [bass | Bass `elem` _config s]
+            , [guitar | Guitar `elem` _config s]
             , [song]
             ]
           in if length parts == 3
@@ -312,22 +312,23 @@ makeDTA pkg title mid s = do
       { D.songName = B8.pack $ "songs/" ++ pkg ++ "/" ++ pkg
       , D.tracksCount = Just $ D.InParens
         [ if Drums `elem` _config s then 2 else 0
-        , if Guitar `elem` _config s then 2 else 0
         , if Bass `elem` _config s then 2 else 0
+        , if Guitar `elem` _config s then 2 else 0
         , 0
         , 0
         , 2
         ]
       , D.tracks = D.InParens $ D.Dict $ Map.fromList $ let
-        channelNums = zip [0..] $ concatMap (\x -> [x, x]) $ _config s
+        channelNums = zip [0..] $ concatMap (\x -> [x, x]) $ sort $ _config s
+        -- ^ the sort is important
         channelNumsFor inst = [ i | (i, inst') <- channelNums, inst == inst' ]
         trackDrum = (B8.pack "drum", Right $ D.InParens $ channelNumsFor Drums)
-        trackGuitar = (B8.pack "guitar", Right $ D.InParens $ channelNumsFor Guitar)
         trackBass = (B8.pack "bass", Right $ D.InParens $ channelNumsFor Bass)
+        trackGuitar = (B8.pack "guitar", Right $ D.InParens $ channelNumsFor Guitar)
         in concat
           [ [trackDrum | Drums `elem` _config s]
-          , [trackGuitar | Guitar `elem` _config s]
           , [trackBass | Bass `elem` _config s]
+          , [trackGuitar | Guitar `elem` _config s]
           ]
       , D.vocalParts = 0
       , D.pans = D.InParens $ take numChannels $ cycle [-1, 1]
@@ -347,8 +348,8 @@ makeDTA pkg title mid s = do
     , D.songLength = fromIntegral len
     , D.rank = D.Dict $ Map.fromList
       [ (B8.pack "drum", if Drums `elem` _config s then 1 else 0)
-      , (B8.pack "guitar", if Guitar `elem` _config s then 1 else 0)
       , (B8.pack "bass", if Bass `elem` _config s then 1 else 0)
+      , (B8.pack "guitar", if Guitar `elem` _config s then 1 else 0)
       , (B8.pack "vocals", 0)
       , (B8.pack "keys", 0)
       , (B8.pack "real_keys", 0)
@@ -452,16 +453,16 @@ checkPrograms = do
 magmaRules :: Song -> Rules ()
 magmaRules s = eachVersion s $ \title dir -> do
   let drums = dir </> "magma/drums.wav"
-      guitar = dir </> "magma/guitar.wav"
       bass = dir </> "magma/bass.wav"
+      guitar = dir </> "magma/guitar.wav"
       song = dir </> "magma/song-countin.wav"
       cover = dir </> "magma/cover.bmp"
       mid = dir </> "magma/notes.mid"
       proj = dir </> "magma/magma.rbproj"
       rba = dir </> "magma.rba"
   drums %> copyFile' (dir </> "drums.wav")
-  guitar %> copyFile' (dir </> "guitar.wav")
   bass %> copyFile' (dir </> "bass.wav")
+  guitar %> copyFile' (dir </> "guitar.wav")
   song %> copyFile' (dir </> "song-countin.wav")
   cover %> copyFile' "gen/cover.bmp"
   mid %> magmaClean (dir </> "notes.mid")
@@ -472,8 +473,8 @@ magmaRules s = eachVersion s $ \title dir -> do
     writeFile' out $ D.sToDTA dta
   rba %> \_ -> do
     when (Drums `elem` _config s) $ need [drums]
-    when (Guitar `elem` _config s) $ need [guitar]
     when (Bass `elem` _config s) $ need [bass]
+    when (Guitar `elem` _config s) $ need [guitar]
     need [song, cover, mid, proj]
     liftIO $ runMagma proj rba
 
@@ -519,8 +520,8 @@ makeMagmaProj pkg title mid s = do
       , Magma.gamedata = Magma.Gamedata
         { Magma.previewStartMs = fromIntegral pstart
         , Magma.rankDrum = 1
-        , Magma.rankGuitar = 1
         , Magma.rankBass = 1
+        , Magma.rankGuitar = 1
         , Magma.rankVocals = 1
         , Magma.rankKeys = 1
         , Magma.rankProKeys = 1
@@ -562,11 +563,11 @@ makeMagmaProj pkg title mid s = do
           else emptyAudioFile
         , Magma.drumKick = emptyAudioFile
         , Magma.drumSnare = emptyAudioFile
-        , Magma.guitar = if Guitar `elem` _config s
-          then stereoFile "guitar.wav"
-          else emptyAudioFile
         , Magma.bass = if Bass `elem` _config s
           then stereoFile "bass.wav"
+          else emptyAudioFile
+        , Magma.guitar = if Guitar `elem` _config s
+          then stereoFile "guitar.wav"
           else emptyAudioFile
         , Magma.vocals = emptyAudioFile
         , Magma.keys = emptyAudioFile
@@ -580,22 +581,22 @@ fofRules s = eachVersion s $ \title dir -> do
   let mid = dir </> "fof/notes.mid"
       png = dir </> "fof/album.png"
       drums = dir </> "fof/drums.ogg"
-      guitar = dir </> "fof/guitar.ogg"
       bass = dir </> "fof/rhythm.ogg"
+      guitar = dir </> "fof/guitar.ogg"
       song = dir </> "fof/song.ogg"
       ini = dir </> "fof/song.ini"
   mid %> copyFile' (dir </> "notes.mid")
   png %> copyFile' "gen/cover.png"
   drums %> buildAudio (File $ Soxable $ dir </> "drums.wav")
-  guitar %> buildAudio (File $ Soxable $ dir </> "guitar.wav")
   bass %> buildAudio (File $ Soxable $ dir </> "bass.wav")
+  guitar %> buildAudio (File $ Soxable $ dir </> "guitar.wav")
   song %> buildAudio (File $ Soxable $ dir </> "song-countin.wav")
   ini %> \out -> makeIni title mid s >>= writeFile' out
   phony (dir </> "fof-all") $ do
     need [mid, png, song, ini]
     when (Drums `elem` _config s) $ need [drums]
-    when (Guitar `elem` _config s) $ need [guitar]
     when (Bass `elem` _config s) $ need [bass]
+    when (Guitar `elem` _config s) $ need [guitar]
 
 makeIni :: String -> FilePath -> Song -> Action String
 makeIni title mid s = do
@@ -610,8 +611,8 @@ makeIni title mid s = do
         , ("charter", "Onyxite")
         , ("diff_band", "0")
         , ("diff_drums", if Drums `elem` _config s then "0" else "-1")
-        , ("diff_guitar", if Guitar `elem` _config s then "0" else "-1")
         , ("diff_bass", if Bass `elem` _config s then "0" else "-1")
+        , ("diff_guitar", if Guitar `elem` _config s then "0" else "-1")
         , ("diff_vocals", "-1")
         , ("diff_keys", "-1")
         ]
