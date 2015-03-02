@@ -4,4 +4,4 @@ track-number: 2
 audio:
   jammit: Unary [Pad Begin 2.780] (File ())
   album: Unary [Pad Begin 4.151] (File ())
-config: [drums]
+config: [drums, bass, guitar]
