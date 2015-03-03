@@ -8,11 +8,17 @@ audio:
       Unary [Trim Begin 0.326] (Combine' Mix
         [ (File "BadSalad-Puzzled-2-Moonlight-Stem-Drums.flac", 0.6)
         ])
-    song: >
+    bass: >
       Unary [Trim Begin 0.326] (Combine' Mix
         [ (File "BadSalad-Puzzled-2-Moonlight-Stem-Bass.flac", 0.6)
-        , (File "BadSalad-Puzzled-2-Moonlight-Stem-Guitars.flac", 0.6)
-        , (File "BadSalad-Puzzled-2-Moonlight-Stem-Keyboards.flac", 0.6)
+        ])
+    guitar: >
+      Unary [Trim Begin 0.326] (Combine' Mix
+        [ (File "BadSalad-Puzzled-2-Moonlight-Stem-Guitars.flac", 0.6)
+        ])
+    song: >
+      Unary [Trim Begin 0.326] (Combine' Mix
+        [ (File "BadSalad-Puzzled-2-Moonlight-Stem-Keyboards.flac", 0.6)
         , (File "BadSalad-Puzzled-2-Moonlight-Stem-Vocals.flac", 0.6)
         ])
-config: [drums]
+config: [drums, bass, guitar]
