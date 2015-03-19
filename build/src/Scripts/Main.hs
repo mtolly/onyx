@@ -198,7 +198,17 @@ makeBeatTrack = RTB.cons 0 (E.MetaEvent $ Meta.TrackName "BEAT") . go 4 where
     sig' = case mapMaybe U.readSignature $ U.trackTakeZero sigs of
       []    -> sig
       s : _ -> s
-    in trackGlue sig' infiniteMeasure $ go sig' $ U.trackDrop sig' sigs
+    -- the rounding below ensures that
+    -- e.g. the sig must be at least 3.5 to get bar-beat-beat-beat.
+    -- if it's 3.25, then you would get a beat 0.25 before the next bar,
+    -- which Magma doesn't like...
+    thisMeasure = U.trackTake (fromInteger $ simpleRound sig') infiniteMeasure
+    -- simpleRound always rounds 0.5 up,
+    -- unlike round which rounds to the nearest even number.
+    simpleRound frac = case properFraction frac :: (Integer, U.Beats) of
+      (_, 0.5) -> ceiling frac
+      _        -> round frac
+    in trackGlue sig' thisMeasure $ go sig' $ U.trackDrop sig' sigs
   infiniteMeasure, infiniteBeats :: RTB.T U.Beats E.T
   infiniteMeasure
     = RTB.cons 0 (noteOn 12)
