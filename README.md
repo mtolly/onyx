@@ -72,8 +72,7 @@ The following programs must be in your `PATH` (callable by the build program):
 
   * [ImageMagick](http://www.imagemagick.org):
     you need a recent version with DirectDraw Surface write support
-  * [SoX](http://sox.sourceforge.net/)
-  * [LAME](http://lame.sourceforge.net/) if you want to supply MP3 audio
+  * [LAME](http://lame.sourceforge.net/) only if you want to supply MP3 audio
 
 Plus the following if you want to compile straight to Xbox 360 CON:
 

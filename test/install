@@ -6,6 +6,7 @@ set -e
 # Assumes you're not using Cabal sandboxes.
 
 cabal install alex happy
+cabal install c2hs
 
 # Install build program
 cd build
