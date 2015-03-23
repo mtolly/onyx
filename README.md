@@ -1,48 +1,72 @@
+# Onyxite's Rock Band Custom Songs
+
 [![Build Status](https://travis-ci.org/mtolly/onyxite-customs.svg?branch=master)](https://travis-ci.org/mtolly/onyxite-customs)
 
-This is a collection of songs I have authored for use in Rock Band 3 and other
-similar rhythm games, mostly for drums. The charts are provided in a "source"
-format, where you must supply your own audio. It is recommended that you use a
-pre-built release package, but instructions are also included to use a more
-complex build process.
+This is a collection of songs I have transcribed for use in Rock Band 3
+and other similar rhythm games, primarily for drums.
+The charts are provided in a "source" format, where you must supply your own audio.
 
-## Easy method: supply album audio, compile with Magma
+## Instructions for Magma
 
-  1. Download the [latest release][releases] archive.
+  1. Download the [latest Magma projects][releases] archive
+    (the file with `magma` in the name, from the latest release).
 
 [releases]: https://github.com/mtolly/onyxite-customs/releases
 
-  2. In the extracted files, find the folder for the song you want.
+  2. In the extracted files, find the folder for the song you want to build.
+    Inside that, locate the subfolder `gen/album/Xp`,
+    where X is 1 or 2 for the number of kick pedals you want.
 
-  3. The file `song.yml` contains numbers for how to modify your audio.
-    Use [Audacity][] to pad, fade, or trim the audio as necessary, and also mix
-    it with the file `gen/album/Xp/countin.wav` from the song folder, where
-    `X` is the number of kick pedals you'd like, 1 or 2.
+  3. The file `song.yml` has information on how to modify your audio file so it lines up with the chart.
+    Look for a line such as this:
+
+        album: Unary [Pad Begin 3.205] (File ())
+
+    This means, pad the beginning of the album audio with 3.205 seconds of silence.
+    You can do this with [Audacity][] or a similar audio editing tool.
+    Also, mix in the file `gen/album/Xp/countin.wav` to add countin sounds.
 
 [Audacity]: http://audacity.sourceforge.net/
 
   4. Save the audio to the path `gen/album/Xp/magma/song-countin.wav`.
 
-  5. Compile the Magma project `gen/album/Xp/magma/magma.rbproj` using either
-    Harmonix's Magma, or [C3's Magma][c3magma]. If the song is over 10 minutes,
-    C3's is required. Note that you may have to click once in the
-    "destination" box (the `.rba` path) before compiling.
+  5. Compile the Magma project `gen/album/Xp/magma/magma.rbproj`
+    using either Harmonix's Magma, or [C3's Magma][c3magma].
+    If the song is over 10 minutes, C3's is required.
+    Note that you may have to click once in the "destination" box (the `.rba` path) before compiling,
+    to change the relative path into an absolute one.
 
 [c3magma]: http://www.pksage.com/ccc/forums/viewtopic.php?f=12&t=381
 
-  6. Optionally, convert your RBA file to an Xbox 360 CON package with
-    [RB3Maker][].
+  6. Optionally, convert your RBA file to an Xbox 360 CON package with [RB3Maker][].
 
 [RB3Maker]: http://rockband.scorehero.com/forum/viewtopic.php?t=34542
 
-## Full build process
+## Full build system
 
-As of v0.3, the build system is a Haskell program written with
-[Shake](http://community.haskell.org/~ndm/shake/).
-You can download a binary from the
-[releases](https://github.com/mtolly/onyxite-customs/releases) page,
-or compile it yourself with GHC >= 7.8 or the
-[Haskell Platform](https://www.haskell.org/platform/) >= 2014.2.0.0.
+You don't need to use this if you are just compiling with Magma!
+Follow the instructions above instead.
+
+`onyxbuild` is a build tool written with [Shake](http://community.haskell.org/~ndm/shake/),
+which automates many steps of building a custom song.
+Some current features:
+
+  * transforms audio files from various sources for use in the game,
+    according to a simple expression language
+
+  * creates many different metadata formats
+    (Magma project, RB3 `songs.dta`, Phase Shift `song.ini`)
+    from one input file
+
+  * converts a 2-pedal chart to 1-pedal automatically
+
+  * generates a default `BEAT` track based on the MIDI time signatures
+
+  * adjusts roll lengths to end immediately after the last note-on in the roll
+    (as recommended by Harmonix on the RBN forums)
+
+Binaries for Windows/Mac/Linux are available on the
+[releases](https://github.com/mtolly/onyxite-customs/releases) page.
 
 The following programs must be in your `PATH` (callable by the build program):
 
@@ -53,14 +77,14 @@ The following programs must be in your `PATH` (callable by the build program):
 
 Plus the following if you want to compile straight to Xbox 360 CON:
 
+  * .NET Framework or [Mono](http://www.mono-project.com)
+
   * [`rb3pkg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/rb3pkg_v0.1_dotnet.zip)
 
     To place this in your `PATH` on Linux/Mac, make a script with contents:
 
         #!/bin/sh
         mono /path/to/rb3pkg.exe "$@"
-
-  * .NET Framework or [Mono](http://www.mono-project.com)
 
 If you are on very old Windows (XP) you may need this:
 
