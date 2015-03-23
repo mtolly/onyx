@@ -79,7 +79,7 @@ buildSource aud = case aud of
         buildSource $ File $ Sndable f
       _ -> do
         src <- liftIO $ sourceSnd x
-        let srcRate = if rate src == 44100 then src else resampleTo 44100 SincBestQuality srcRate
+        let srcRate = if rate src == 44100 then src else resampleTo 44100 SincBestQuality src
             srcChan = case channels srcRate of
               2 -> srcRate
               1 -> merge srcRate srcRate
