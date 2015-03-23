@@ -79,9 +79,12 @@ buildSource aud = case aud of
         buildSource $ File $ Sndable f
       _ -> do
         src <- liftIO $ sourceSnd x
-        return $ if rate src == 44100
-          then src
-          else resampleTo 44100 SincBestQuality src
+        let srcRate = if rate src == 44100 then src else resampleTo 44100 SincBestQuality srcRate
+            srcChan = case channels srcRate of
+              2 -> srcRate
+              1 -> merge srcRate srcRate
+              c -> error $ "buildSource: only audio with 1 or 2 channels supported (" ++ show c ++ " given)"
+        return srcChan
     JammitAIFC x -> liftIO $ mapSamples fractionalSample <$> J.audioSource x
   Combine meth xs -> buildSource $ Combine' meth [ (x, 1) | x <- xs ]
   Combine' meth xs -> do
