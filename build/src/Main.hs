@@ -12,9 +12,9 @@ import OneFoot
 import Magma
 import qualified Data.Aeson as A
 import Control.Applicative ((<$>), (<|>))
-import Control.Monad (forM_, unless, when, guard)
+import Control.Monad (forM_, when, guard)
 import Data.Maybe (fromMaybe, mapMaybe, listToMaybe)
-import Data.List (stripPrefix, isPrefixOf, sort)
+import Data.List (isPrefixOf, sort)
 import Data.Bifunctor (bimap, first)
 import Scripts.Main
 import qualified Sound.Jammit.Base as J
@@ -106,19 +106,19 @@ jammitRules s = do
         [] -> fail "No Jammit instrument package used in this song was found."
         (rbpart, back) : _ -> flip buildAudio out $ Combine' Mix $ concat
           [ [ (File $ JammitAIFC back, 1) ]
-          , [ (File $ Soxable $ dir </> "drums_untimed.wav", -1)
+          , [ (File $ Sndable $ dir </> "drums_untimed.wav", -1)
             | rbpart /= Drums && elem Drums (_config s)
             ]
-          , [ (File $ Soxable $ dir </> "bass_untimed.wav", -1)
+          , [ (File $ Sndable $ dir </> "bass_untimed.wav", -1)
             | rbpart /= Bass && elem Bass (_config s)
             ]
-          , [ (File $ Soxable $ dir </> "guitar_untimed.wav", -1)
+          , [ (File $ Sndable $ dir </> "guitar_untimed.wav", -1)
             | rbpart /= Guitar && elem Guitar (_config s)
             ]
           ]
     forM_ ["drums", "bass", "guitar", "song"] $ \part -> do
       dir </> (part ++ ".wav") %> \out -> do
-        let untimed = Soxable $ dropExtension out ++ "_untimed.wav"
+        let untimed = Sndable $ dropExtension out ++ "_untimed.wav"
         case HM.lookup "jammit" $ _audio s of
           Nothing -> fail "No jammit audio configuration"
           Just (AudioSimple aud) ->
@@ -138,7 +138,7 @@ simpleRules s = do
         ls <- getDirectoryFiles "" [pat]
         case ls of
           []    -> fail $ "No file found matching pattern " ++ pat
-          f : _ -> buildAudio (bimap realToFrac (const $ Soxable f) aud) out
+          f : _ -> buildAudio (bimap realToFrac (const $ Sndable f) aud) out
 
 stemsRules :: Song -> Rules ()
 stemsRules s = do
@@ -152,7 +152,7 @@ stemsRules s = do
             ls <- getDirectoryFiles "" [pat]
             case ls of
               []     -> fail $ "No file found matching pattern " ++ pat
-              f' : _ -> return $ Soxable f'
+              f' : _ -> return $ Sndable f'
           buildAudio (first realToFrac aud') out
 
 eachAudio :: (Monad m) => Song -> (String -> m ()) -> m ()
@@ -171,17 +171,17 @@ countinRules s = eachVersion s $ \_ dir -> do
         hit = _fileCountin s
     makeCountin mid hit out
   dir </> "song-countin.wav" %> \out -> do
-    let song = File $ Soxable $ dir </> "song.wav"
-        countin = File $ Soxable $ dir </> "countin.wav"
+    let song = File $ Sndable $ dir </> "song.wav"
+        countin = File $ Sndable $ dir </> "countin.wav"
     buildAudio (Combine Mix [song, countin]) out
 
 oggRules :: Song -> Rules ()
 oggRules s = eachVersion s $ \_ dir -> do
   dir </> "audio.ogg" %> \out -> do
-    let drums = File $ Soxable $ dir </> "drums.wav"
-        bass  = File $ Soxable $ dir </> "bass.wav"
-        guitar = File $ Soxable $ dir </> "guitar.wav"
-        song  = File $ Soxable $ dir </> "song-countin.wav"
+    let drums = File $ Sndable $ dir </> "drums.wav"
+        bass  = File $ Sndable $ dir </> "bass.wav"
+        guitar = File $ Sndable $ dir </> "guitar.wav"
+        song  = File $ Sndable $ dir </> "song-countin.wav"
         audio = Combine Merge $ let
           parts = concat
             [ [drums | Drums `elem` _config s]
@@ -436,20 +436,6 @@ coverRules s = do
         b' = B.pack $ header ++ flipPairs bytes
     liftIO $ B.writeFile out b'
 
-checkPrograms :: Action ()
-checkPrograms = do
-  Stdout soxHelp <- cmd "sox -h"
-  case mapMaybe (stripPrefix "AUDIO FILE FORMATS:") $ lines soxHelp of
-    [fmtLine] -> let
-      formats = words fmtLine
-      in unless (all (`elem` formats) ["ogg", "vorbis"]) $
-        fail $ unlines
-          [ "Your SoX doesn't support OGG Vorbis."
-          , "You must recompile SoX with libsndfile installed, see:"
-          , "http://sourceforge.net/p/sox/mailman/message/30383689/"
-          ]
-    _ -> fail "Couldn't read SoX supported file formats."
-
 magmaRules :: Song -> Rules ()
 magmaRules s = eachVersion s $ \title dir -> do
   let drums = dir </> "magma/drums.wav"
@@ -587,10 +573,10 @@ fofRules s = eachVersion s $ \title dir -> do
       ini = dir </> "fof/song.ini"
   mid %> copyFile' (dir </> "notes.mid")
   png %> copyFile' "gen/cover.png"
-  drums %> buildAudio (File $ Soxable $ dir </> "drums.wav")
-  bass %> buildAudio (File $ Soxable $ dir </> "bass.wav")
-  guitar %> buildAudio (File $ Soxable $ dir </> "guitar.wav")
-  song %> buildAudio (File $ Soxable $ dir </> "song-countin.wav")
+  drums %> buildAudio (File $ Sndable $ dir </> "drums.wav")
+  bass %> buildAudio (File $ Sndable $ dir </> "bass.wav")
+  guitar %> buildAudio (File $ Sndable $ dir </> "guitar.wav")
+  song %> buildAudio (File $ Sndable $ dir </> "song-countin.wav")
   ini %> \out -> makeIni title mid s >>= writeFile' out
   phony (dir </> "fof-all") $ do
     need [mid, png, song, ini]

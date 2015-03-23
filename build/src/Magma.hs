@@ -14,6 +14,12 @@ import qualified System.IO as IO
 import Data.Bits (shiftL)
 import System.FilePath ((</>))
 
+import qualified Sound.File.Sndfile as Snd
+import Data.Conduit.Audio (Duration(..), silent, AudioSource)
+import Data.Conduit.Audio.Sndfile (sinkSnd)
+import Control.Monad.Trans.Resource (ResourceT, runResourceT)
+import Data.Int (Int16)
+
 magmaFiles :: [(FilePath, B.ByteString)]
 magmaFiles = $(embedDir "magma/")
 
@@ -44,7 +50,10 @@ oggToMogg ogg mogg = withSystemTempDirectory "ogg2mogg" $ \tmp -> do
     Dir.copyFile ogg' "audio.ogg"
     let proj = "hellskitchen.rbproj"
         rba = "out.rba"
-    callProcess "sox" $ words "-n -b 16 -c 2 -r 44.1k silence.wav trim 0 31"
+    runResourceT
+      $ sinkSnd "silence.wav"
+      (Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile)
+      (silent (Seconds 31) 44100 2 :: AudioSource (ResourceT IO) Int16)
     _ <- withExe
       (\exe args -> readProcess exe args "")
      "MagmaCompilerC3.exe"

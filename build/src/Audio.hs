@@ -6,15 +6,20 @@ import Development.Shake.FilePath (takeExtension)
 import System.Directory (createDirectoryIfMissing)
 import System.IO.Temp (openTempFile)
 import System.IO (hClose)
-import Numeric (showFFloat)
 import qualified Data.Foldable as F
 import qualified Data.Traversable as T
-import Data.Char (toLower)
 import qualified Data.Aeson as A
 import Text.Read (readEither)
 import Data.Bifunctor
 import Control.Monad (forM)
 import qualified Sound.Jammit.Export as J
+import Control.Applicative ((<$>))
+import Control.Monad.Trans.Resource (MonadResource, runResourceT)
+
+import Data.Conduit.Audio
+import Data.Conduit.Audio.Sndfile
+import qualified Sound.File.Sndfile as Snd
+import Data.Conduit.Audio.SampleRate
 
 data Edge = Begin | End
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -28,7 +33,7 @@ data Audio t a
   deriving (Eq, Ord, Show, Read, Functor, F.Foldable, T.Traversable)
 
 data InputFile
-  = Soxable FilePath
+  = Sndable FilePath
   | JammitAIFC FilePath
   deriving (Eq, Ord, Show, Read)
 
@@ -60,68 +65,58 @@ instance (Read t, Read a) => A.FromJSON (Audio t a) where
 instance (Show t, Show a) => A.ToJSON (Audio t a) where
   toJSON = A.toJSON . show
 
+buildSource :: (MonadResource m) =>
+  Audio Double InputFile -> Action (AudioSource m Float)
+buildSource aud = case aud of
+  Silence chans t -> return $ silent (Seconds t) 44100 chans
+  File fin -> case fin of
+    Sndable x -> case takeExtension x of
+      ".mp3" -> do
+        liftIO $ createDirectoryIfMissing True "gen/temp"
+        (f, h) <- liftIO $ openTempFile "gen/temp" "from-mp3.wav"
+        liftIO $ hClose h
+        () <- cmd "lame --decode" [x, f]
+        buildSource $ File $ Sndable f
+      _ -> do
+        src <- liftIO $ sourceSnd x
+        return $ if rate src == 44100
+          then src
+          else resampleTo 44100 SincBestQuality src
+    JammitAIFC x -> liftIO $ mapSamples fractionalSample <$> J.audioSource x
+  Combine meth xs -> buildSource $ Combine' meth [ (x, 1) | x <- xs ]
+  Combine' meth xs -> do
+    srcs <- forM xs $ \(x, vol) -> gain (realToFrac vol) <$> buildSource x
+    case srcs of
+      [] -> error "buildSource: can't combine 0 files"
+      s : ss -> case meth of
+        Concatenate -> return $ foldl concatenate s ss
+        Mix         -> return $ foldl mix         s ss
+        Merge       -> return $ foldl merge       s ss
+  Unary fs x -> let
+    gs = flip map fs $ \f -> case f of
+      Trim Begin t -> dropStart $ Seconds t
+      Trim End t -> dropEnd $ Seconds t
+      Fade Begin t -> \src -> concatenate
+        (fadeIn $ takeStart (Seconds t) src)
+        (dropStart (Seconds t) src)
+      Fade End t -> \src -> concatenate
+        (dropEnd (Seconds t) src)
+        (fadeOut $ takeEnd (Seconds t) src)
+      Pad Begin t -> padStart $ Seconds t
+      Pad End t -> padEnd $ Seconds t
+      Take Begin t -> takeStart $ Seconds t
+      Take End t -> takeEnd $ Seconds t
+    in buildSource x >>= \src -> return $ foldl (flip ($)) src gs
+
 -- | Assumes 16-bit 44100 Hz audio files.
 buildAudio :: Audio Rational InputFile -> FilePath -> Action ()
-buildAudio aud out = let
-  dir = "gen/temp"
-  newWav :: Action FilePath
-  newWav = liftIO $ do
-    (f, h) <- openTempFile dir "audio.wav"
-    hClose h
-    return f
-  evalAudio :: Audio Rational InputFile -> Action FilePath
-  evalAudio expr = case expr of
-    Silence chans t -> do
-      f <- newWav
-      () <- cmd "sox -n -b 16 -r 44100" [f] "channels" [show chans]
-        "trim 0" [showSeconds t]
-      return f
-    File fin -> case fin of
-      Soxable x -> case takeExtension x of
-        ".mp3" -> do
-          f <- newWav
-          () <- cmd "lame --decode" [x, f]
-          evalAudio $ File $ Soxable f
-        _ -> do
-          f <- newWav
-          () <- cmd "sox" [x] "-b 16 -r 44100" [f] "channels 2"
-          return f
-      JammitAIFC x -> do
-        f <- newWav
-        liftIO $ J.runAudio [x] [] f
-        return f
-    Combine comb xs -> evalAudio $ Combine' comb $ map (\x -> (x, 1)) xs
-    Combine' _ [] -> fail "buildAudio: can't combine 0 files"
-    Combine' comb xs -> do
-      fxs <- fmap concat $ forM xs $ \(x, vol) -> do
-        a <- evalAudio x
-        return ["-v", showFFloat (Just 4) vol "", a]
-      f <- newWav
-      let comb' = case xs of
-            _ : _ : _ -> "--combine " ++ map toLower (show comb)
-            _         -> ""
-      () <- cmd "sox" comb' fxs f
-      return f
-    Unary uns x -> do
-      a <- evalAudio x
-      f <- newWav
-      () <- cmd "sox" [a, f] $ uns >>= \un -> case un of
-        Trim Begin t -> ["trim", showSeconds t]
-        Trim End   t -> ["trim", "0", '-' : showSeconds t]
-        Fade Begin t -> ["fade", "t", showSeconds t]
-        Fade End   t -> ["fade", "t", "0", "0", showSeconds t]
-        Pad  Begin t -> ["pad", showSeconds t]
-        Pad  End   t -> ["pad", "0", showSeconds t]
-        Take Begin t -> ["trim", "0", showSeconds t]
-        Take End   t -> ["trim", '-' : showSeconds t]
-      return f
-  showSeconds r = showFFloat (Just 4) (realToFrac r :: Double) ""
-  in do
-    need $ do
-      fin <- F.toList aud
-      return $ case fin of
-        Soxable x -> x
-        JammitAIFC x -> x
-    liftIO $ createDirectoryIfMissing True dir
-    f <- evalAudio aud
-    cmd "sox" [f] [out]
+buildAudio aud out = do
+  need $ do
+    fin <- F.toList aud
+    return $ case fin of
+      Sndable x -> x
+      JammitAIFC x -> x
+  src <- buildSource $ mapTime realToFrac aud
+  liftIO $ runResourceT $ sinkSnd out
+    (Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile)
+    src

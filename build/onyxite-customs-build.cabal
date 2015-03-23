@@ -38,9 +38,14 @@ executable onyxbuild
     , bytestring
     , file-embed
     , process >= 1.2.0.0 && < 1.3
+    , resourcet
+    , hsndfile
     -- my libraries:
-    , dtab == 1.0
-    , jammittools == 0.4
-    , midi-util == 0.1
+    , dtab >= 1.0 && < 1.1
+    , jammittools >= 0.4 && < 0.5
+    , midi-util >= 0.1 && < 0.2
+    , conduit-audio
+    , conduit-audio-sndfile
+    , conduit-audio-samplerate
   default-language:     Haskell2010
   ghc-options:          -Wall
