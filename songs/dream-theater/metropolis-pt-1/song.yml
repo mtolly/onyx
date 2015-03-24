@@ -3,6 +3,7 @@ jammit-title: Metropolis Pt. 1
 file-include: ../../../albums/images-and-words.yml
 track-number: 5
 audio:
-  jammit: File ()
-  album: Unary [Trim Begin 0.379] (File ())
+  jammit: source
+  album:
+    trim: [0.379, source]
 config: [drums, bass, guitar]

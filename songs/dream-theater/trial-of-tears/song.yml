@@ -2,6 +2,7 @@ title: Trial of Tears
 file-include: ../../../albums/falling-into-infinity.yml
 track-number: 11
 audio:
-  jammit: File ()
-  album: Unary [Trim Begin 0.072] (File ())
+  jammit: source
+  album:
+    trim: [0.072, source]
 config: [drums]

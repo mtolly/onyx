@@ -2,6 +2,8 @@ title: I Walk Beside You
 file-include: ../../../albums/octavarium.yml
 track-number: 4
 audio:
-  jammit: Unary [Pad Begin 1.840] (File ())
-  album: Unary [Pad Begin 3.651] (File ())
+  jammit:
+    pad: [1.840, source]
+  album:
+    pad: [3.651, source]
 config: [drums]

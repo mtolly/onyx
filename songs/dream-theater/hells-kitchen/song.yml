@@ -2,14 +2,17 @@ title: Hell's Kitchen
 file-include: ../../../albums/falling-into-infinity.yml
 track-number: 6
 audio:
-  jammit: File ()
+  jammit: source
   album:
-    song: >
-      Unary [Pad Begin 5.051, Fade End 4.500]
-        (Combine Concatenate
-          [ File "audio-album.xxx"
-          , Unary [Take Begin 5.696] (File "audio-next.xxx")
-          ]
-        )
-    drums: Silence 2 0
+    song:
+      pad:
+        - 5.051
+        - fade:
+          - end
+          - 4.500
+          - concatenate:
+            - audio-album.xxx
+            - take: [5.696, audio-next.xxx]
+    drums:
+      silence: [2, 0]
 config: [drums]

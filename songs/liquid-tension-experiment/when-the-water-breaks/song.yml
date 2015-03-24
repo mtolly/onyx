@@ -2,5 +2,5 @@ title: When the Water Breaks
 file-include: ../../../albums/liquid-tension-experiment-2.yml
 track-number: 5
 audio:
-  album: File ()
+  album: source
 config: [drums]

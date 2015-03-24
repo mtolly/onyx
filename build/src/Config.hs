@@ -8,6 +8,8 @@ import Audio
 import TH
 import qualified Data.HashMap.Strict as Map
 import Control.Applicative ((<|>))
+import Data.Monoid (mempty)
+import qualified Data.Text as T
 
 data Song = Song
   { _title :: String
@@ -33,11 +35,18 @@ data Gender = Male | Female
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data AudioConfig t
-  = AudioSimple (Audio t ())
+  = AudioSimple (Audio t SourceFile)
   | AudioStems (Map.HashMap String (Audio t FilePath))
   deriving (Eq, Show)
 
-$(deriveJSON
+data SourceFile = SourceFile
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance FromJSON SourceFile where
+  parseJSON (String s) | s == T.pack "source" = return SourceFile
+  parseJSON _                                 = mempty
+
+$(deriveFromJSON
   defaultOptions
     { fieldLabelModifier = camelToHyphens . drop 1
     , omitNothingFields = True
@@ -45,7 +54,7 @@ $(deriveJSON
   ''Song
   )
 
-$(deriveJSON
+$(deriveFromJSON
   defaultOptions
     { allNullaryToStringTag = True
     , constructorTagModifier = drop 1 . camelToHyphens
@@ -53,7 +62,7 @@ $(deriveJSON
   ''Instrument
   )
 
-$(deriveJSON
+$(deriveFromJSON
   defaultOptions
     { allNullaryToStringTag = True
     , constructorTagModifier = drop 1 . camelToHyphens
@@ -61,9 +70,5 @@ $(deriveJSON
   ''Gender
   )
 
-instance (Show t) => ToJSON (AudioConfig t) where
-  toJSON (AudioSimple x) = toJSON x
-  toJSON (AudioStems x) = toJSON x
-
-instance (Read t) => FromJSON (AudioConfig t) where
+instance (FromJSON t) => FromJSON (AudioConfig t) where
   parseJSON v = fmap AudioSimple (parseJSON v) <|> fmap AudioStems (parseJSON v)

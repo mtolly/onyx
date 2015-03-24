@@ -84,8 +84,8 @@ makeCountin mid wavin wavout = do
       beats = sort $ concatMap (findText "countin_here") $ tempo : trks
       secs = map (realToFrac . U.applyTempoMap tmap) beats :: [Rational]
       audio = case secs of
-        [] -> Silence 2 1
-        _ -> Combine Mix $ map (\t -> Unary [Pad Begin t] $ File $ Sndable wavin) secs
+        [] -> Silence 2 0
+        _ -> Mix $ map (\t -> Pad Start t $ Input $ Sndable wavin) secs
   buildAudio audio wavout
 
 fixResolution :: F.T -> F.T

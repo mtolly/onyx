@@ -2,5 +2,6 @@ title: This Is the Life
 file-include: ../../../albums/a-dramatic-turn-of-events.yml
 track-number: 4
 audio:
-  album: Unary [Pad Begin 3.066] (File ())
+  album:
+    pad: [3.066, source]
 config: [drums]

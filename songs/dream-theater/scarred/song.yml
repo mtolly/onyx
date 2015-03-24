@@ -2,6 +2,8 @@ title: Scarred
 file-include: ../../../albums/awake.yml
 track-number: 10
 audio:
-  jammit: Unary [Pad Begin 2.580] (File ())
-  album: Unary [Pad Begin 4.946] (File ())
+  jammit:
+    pad: [2.580, source]
+  album:
+    pad: [4.946, source]
 config: [drums]

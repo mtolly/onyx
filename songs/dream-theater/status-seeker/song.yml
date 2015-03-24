@@ -2,5 +2,6 @@ title: Status Seeker
 file-include: ../../../albums/when-dream-and-day-unite.yml
 track-number: 2
 audio:
-  album: Unary [Pad Begin 3.166] (File ())
+  album:
+    pad: [3.166, source]
 config: [drums]

@@ -104,15 +104,15 @@ jammitRules s = do
               Just audio -> [(rbpart, audio)]
       case backs of
         [] -> fail "No Jammit instrument package used in this song was found."
-        (rbpart, back) : _ -> flip buildAudio out $ Combine' Mix $ concat
-          [ [ (File $ JammitAIFC back, 1) ]
-          , [ (File $ Sndable $ dir </> "drums_untimed.wav", -1)
+        (rbpart, back) : _ -> flip buildAudio out $ Mix $ concat
+          [ [ Input $ JammitAIFC back ]
+          , [ Gain (-1) $ Input $ Sndable $ dir </> "drums_untimed.wav"
             | rbpart /= Drums && elem Drums (_config s)
             ]
-          , [ (File $ Sndable $ dir </> "bass_untimed.wav", -1)
+          , [ Gain (-1) $ Input $ Sndable $ dir </> "bass_untimed.wav"
             | rbpart /= Bass && elem Bass (_config s)
             ]
-          , [ (File $ Sndable $ dir </> "guitar_untimed.wav", -1)
+          , [ Gain (-1) $ Input $ Sndable $ dir </> "guitar_untimed.wav"
             | rbpart /= Guitar && elem Guitar (_config s)
             ]
           ]
@@ -171,18 +171,18 @@ countinRules s = eachVersion s $ \_ dir -> do
         hit = _fileCountin s
     makeCountin mid hit out
   dir </> "song-countin.wav" %> \out -> do
-    let song = File $ Sndable $ dir </> "song.wav"
-        countin = File $ Sndable $ dir </> "countin.wav"
-    buildAudio (Combine Mix [song, countin]) out
+    let song = Input $ Sndable $ dir </> "song.wav"
+        countin = Input $ Sndable $ dir </> "countin.wav"
+    buildAudio (Mix [song, countin]) out
 
 oggRules :: Song -> Rules ()
 oggRules s = eachVersion s $ \_ dir -> do
   dir </> "audio.ogg" %> \out -> do
-    let drums = File $ Sndable $ dir </> "drums.wav"
-        bass  = File $ Sndable $ dir </> "bass.wav"
-        guitar = File $ Sndable $ dir </> "guitar.wav"
-        song  = File $ Sndable $ dir </> "song-countin.wav"
-        audio = Combine Merge $ let
+    let drums = Input $ Sndable $ dir </> "drums.wav"
+        bass  = Input $ Sndable $ dir </> "bass.wav"
+        guitar = Input $ Sndable $ dir </> "guitar.wav"
+        song  = Input $ Sndable $ dir </> "song-countin.wav"
+        audio = Merge $ let
           parts = concat
             [ [drums | Drums `elem` _config s]
             , [bass | Bass `elem` _config s]
@@ -573,10 +573,10 @@ fofRules s = eachVersion s $ \title dir -> do
       ini = dir </> "fof/song.ini"
   mid %> copyFile' (dir </> "notes.mid")
   png %> copyFile' "gen/cover.png"
-  drums %> buildAudio (File $ Sndable $ dir </> "drums.wav")
-  bass %> buildAudio (File $ Sndable $ dir </> "bass.wav")
-  guitar %> buildAudio (File $ Sndable $ dir </> "guitar.wav")
-  song %> buildAudio (File $ Sndable $ dir </> "song-countin.wav")
+  drums %> buildAudio (Input $ Sndable $ dir </> "drums.wav")
+  bass %> buildAudio (Input $ Sndable $ dir </> "bass.wav")
+  guitar %> buildAudio (Input $ Sndable $ dir </> "guitar.wav")
+  song %> buildAudio (Input $ Sndable $ dir </> "song-countin.wav")
   ini %> \out -> makeIni title mid s >>= writeFile' out
   phony (dir </> "fof-all") $ do
     need [mid, png, song, ini]

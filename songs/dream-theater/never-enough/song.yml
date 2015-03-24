@@ -2,6 +2,8 @@ title: Never Enough
 file-include: ../../../albums/octavarium.yml
 track-number: 6
 audio:
-  jammit: Unary [Pad Begin 1.920] (File ())
-  album: Unary [Pad Begin 3.707] (File ())
+  jammit:
+    pad: [1.920, source]
+  album:
+    pad: [3.707, source]
 config: [drums]

@@ -2,6 +2,7 @@ title: The Dark Eternal Night
 file-include: ../../../albums/systematic-chaos.yml
 track-number: 4
 audio:
-  album: Unary [Pad Begin 4.450] (File ())
+  album:
+    pad: [4.450, source]
   # TODO: DVD audio with non-fade-out ending
 config: [drums]

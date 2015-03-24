@@ -2,23 +2,33 @@ title: Moonlight
 file-include: ../../../albums/puzzled.yml
 track-number: 2
 audio:
-  album: Unary [Pad Begin 3.631] (File ())
+  album:
+    pad: [3.631, source]
   pledgemusic:
-    drums: >
-      Unary [Trim Begin 0.326] (Combine' Mix
-        [ (File "BadSalad-Puzzled-2-Moonlight-Stem-Drums.flac", 0.6)
-        ])
-    bass: >
-      Unary [Trim Begin 0.326] (Combine' Mix
-        [ (File "BadSalad-Puzzled-2-Moonlight-Stem-Bass.flac", 0.6)
-        ])
-    guitar: >
-      Unary [Trim Begin 0.326] (Combine' Mix
-        [ (File "BadSalad-Puzzled-2-Moonlight-Stem-Guitars.flac", 0.6)
-        ])
-    song: >
-      Unary [Trim Begin 0.326] (Combine' Mix
-        [ (File "BadSalad-Puzzled-2-Moonlight-Stem-Keyboards.flac", 0.6)
-        , (File "BadSalad-Puzzled-2-Moonlight-Stem-Vocals.flac", 0.6)
-        ])
+    drums:
+      trim:
+        - 0.326
+        - gain:
+          - 0.6
+          - BadSalad-Puzzled-2-Moonlight-Stem-Drums.flac
+    bass:
+      trim:
+        - 0.326
+        - gain:
+          - 0.6
+          - BadSalad-Puzzled-2-Moonlight-Stem-Bass.flac
+    guitar:
+      trim:
+        - 0.326
+        - gain:
+          - 0.6
+          - BadSalad-Puzzled-2-Moonlight-Stem-Guitar.flac
+    song:
+      trim:
+        - 0.326
+        - gain:
+          - 0.6
+          - mix:
+            - BadSalad-Puzzled-2-Moonlight-Stem-Keyboards.flac
+            - BadSalad-Puzzled-2-Moonlight-Stem-Vocals.flac
 config: [drums, bass, guitar]

@@ -2,6 +2,15 @@ title: Lines in the Sand
 file-include: ../../../albums/falling-into-infinity.yml
 track-number: 7
 audio:
-  jammit: Unary [Trim Begin 2.222, Fade Begin 4.180, Pad Begin 2.849] (File ())
-  album: Unary [Fade Begin 4.261, Pad Begin 2.510] (File ())
+  jammit:
+    pad:
+      - 2.849
+      - fade:
+        - begin
+        - 4.180
+        - trim: [2.222, source]
+  album:
+    pad:
+      - 2.510
+      - fade: [begin, 4.261, source]
 config: [drums, guitar, bass]

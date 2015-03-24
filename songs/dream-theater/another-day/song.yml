@@ -2,6 +2,7 @@ title: Another Day
 file-include: ../../../albums/images-and-words.yml
 track-number: 2
 audio:
-  jammit: File ()
-  album: Unary [Pad Begin 3.109] (File ())
+  jammit: source
+  album:
+    pad: [3.109, source]
 config: [drums, bass, guitar]

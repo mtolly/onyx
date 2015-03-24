@@ -2,7 +2,10 @@ title: Pull Me Under
 file-include: ../../../albums/images-and-words.yml
 track-number: 1
 audio:
-  jammit: Unary [Pad Begin 2.314] (File ())
-  album: Unary [Pad Begin 4.317] (File ())
-  hit: Unary [Pad Begin 4.340] (File ())
+  jammit:
+    pad: [2.314, source]
+  album:
+    pad: [4.317, source]
+  hit:
+    pad: [4.340, source]
 config: [drums]

@@ -2,6 +2,8 @@ title: Space-Dye Vest
 file-include: ../../../albums/awake.yml
 track-number: 11
 audio:
-  jammit: Unary [Pad Begin 1.260] (File ())
-  album: Unary [Pad Begin 4.540] (File ())
+  jammit:
+    pad: [1.260, source]
+  album:
+    pad: [4.540, source]
 config: [drums]

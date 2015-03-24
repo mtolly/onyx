@@ -2,6 +2,8 @@ title: Under a Glass Moon
 file-include: ../../../albums/images-and-words.yml
 track-number: 6
 audio:
-  jammit: Unary [Pad Begin 1.704] (File ())
-  album: Unary [Pad Begin 3.051] (File ())
+  jammit:
+    pad: [1.704, source]
+  album:
+    pad: [3.051, source]
 config: [drums]

@@ -2,6 +2,6 @@ title: Danimal Across America
 file-include: ../../../albums/roots.yml
 track-number: 6
 audio:
-  jammit: File ()
-  album: Unary [Pad Begin 3.205] (File ())
+  album:
+    pad: [3.205, source]
 config: [drums, bass, guitar]

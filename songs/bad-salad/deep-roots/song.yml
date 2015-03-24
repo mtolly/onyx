@@ -2,17 +2,19 @@ title: Deep Roots
 file-include: ../../../albums/puzzled.yml
 track-number: 3
 audio:
-  album: Unary [Pad Begin 3.532] (File ())
+  album:
+    pad: [3.532, source]
   pledgemusic:
-    drums: >
-      Combine' Mix
-        [ (File "BadSalad-Puzzled-3-DeepRoots-Stem-Drums.flac", 0.65)
-        ]
-    song: >
-      Combine' Mix
-        [ (File "BadSalad-Puzzled-3-DeepRoots-Stem-Bass.flac", 0.65)
-        , (File "BadSalad-Puzzled-3-DeepRoots-Stem-Guitars.flac", 0.65)
-        , (File "BadSalad-Puzzled-3-DeepRoots-Stem-Keyboards.flac", 0.65)
-        , (File "BadSalad-Puzzled-3-DeepRoots-Stem-Vocals.flac", 0.65)
-        ]
+    drums:
+      gain:
+        - 0.65
+        - BadSalad-Puzzled-3-DeepRoots-Stem-Drums.flac
+    song:
+      gain:
+        - 0.65
+        - mix:
+          - BadSalad-Puzzled-3-DeepRoots-Stem-Bass.flac
+          - BadSalad-Puzzled-3-DeepRoots-Stem-Guitars.flac
+          - BadSalad-Puzzled-3-DeepRoots-Stem-Keyboards.flac
+          - BadSalad-Puzzled-3-DeepRoots-Stem-Vocals.flac
 config: [drums]

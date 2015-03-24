@@ -2,6 +2,8 @@ title: Just Let Me Breathe
 file-include: ../../../albums/falling-into-infinity.yml
 track-number: 9
 audio:
-  jammit: Unary [Pad Begin 1.901] (File ())
-  album: Unary [Pad Begin 3.641] (File ())
+  jammit:
+    pad: [1.901, source]
+  album:
+    pad: [3.641, source]
 config: [drums]

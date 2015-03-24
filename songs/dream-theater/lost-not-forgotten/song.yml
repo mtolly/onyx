@@ -2,5 +2,9 @@ title: Lost Not Forgotten
 file-include: ../../../albums/a-dramatic-turn-of-events.yml
 track-number: 3
 audio:
-  album: Unary [Trim Begin 7.088, Fade Begin 3.088] (File ())
+  album:
+    fade:
+      - begin
+      - 3.088
+      - trim: [7.088, source]
 config: [drums]

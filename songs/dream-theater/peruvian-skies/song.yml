@@ -2,6 +2,8 @@ title: Peruvian Skies
 file-include: ../../../albums/falling-into-infinity.yml
 track-number: 3
 audio:
-  jammit: Unary [Pad Begin 2.273] (File ())
-  album: Unary [Pad Begin 4.300] (File ())
+  jammit:
+    pad: [2.273, source]
+  album:
+    pad: [4.300, source]
 config: [drums]

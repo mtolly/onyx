@@ -3,6 +3,8 @@ jammit-title: A Mind Beside Itself I. Erotomania
 file-include: ../../../albums/awake.yml
 track-number: 4
 audio:
-  jammit: Unary [Pad Begin 1.193] (File ())
-  album: Unary [Pad Begin 2.960] (File ())
+  jammit:
+    pad: [1.193, source]
+  album:
+    pad: [2.960, source]
 config: [drums, bass, guitar]

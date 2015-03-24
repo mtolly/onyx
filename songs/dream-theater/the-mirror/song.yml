@@ -2,6 +2,8 @@ title: The Mirror
 file-include: ../../../albums/awake.yml
 track-number: 7
 audio:
-  jammit: Unary [Pad Begin 0.786] (File ())
-  album: Unary [Pad Begin 5.520] (File ())
+  jammit:
+    pad: [0.786, source]
+  album:
+    pad: [5.520, source]
 config: [drums]

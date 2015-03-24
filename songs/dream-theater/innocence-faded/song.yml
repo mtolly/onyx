@@ -2,6 +2,7 @@ title: Innocence Faded
 file-include: ../../../albums/awake.yml
 track-number: 3
 audio:
-  jammit: File ()
-  album: Unary [Pad Begin 3.255] (File ())
+  jammit: source
+  album:
+    pad: [3.255, source]
 config: [drums]

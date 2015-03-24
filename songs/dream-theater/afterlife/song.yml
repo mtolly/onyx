@@ -3,12 +3,17 @@ file-include: ../../../albums/when-dream-and-day-unite.yml
 track-number: 6
 audio:
   album:
-    song: >
-      Unary [Pad Begin 2.704, Fade End 1.357]
-        (Combine Concatenate
-          [ File "audio-album.xxx"
-          , Unary [Take Begin 10.383] (File "audio-next.xxx")
-          ]
-        )
-    drums: Silence 2 0
+    song:
+      pad:
+        - 2.704
+        - fade:
+          - end
+          - 1.357
+          - concatenate:
+            - audio-album.xxx
+            - take:
+              - 10.383
+              - audio-next.xxx
+    drums:
+      silence: [2, 0]
 config: [drums]
