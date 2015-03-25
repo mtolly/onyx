@@ -20,10 +20,34 @@ The charts are provided in a "source" format, where you must supply your own aud
   3. The file `song.yml` has information on how to modify your audio file so it lines up with the chart.
     Look for a line such as this:
 
-        album: Unary [Pad Begin 3.205] (File ())
+        album:
+          pad: [3.205, source]
 
-    This means, pad the beginning of the album audio with 3.205 seconds of silence.
+    This means, take the album audio (`source`)
+    and pad the beginning with 3.205 seconds of silence.
     You can do this with [Audacity][] or a similar audio editing tool.
+    Other effects (`mix`, `fade`, `trim`, etc.) are also possible.
+    Here's a more complicated expression:
+
+        album:
+          fade:
+            - end
+            - 5.200
+            - take:
+              - begin
+              - 598
+              - fade:
+                - begin
+                - 5.673
+                - trim: [10.991, source]
+
+    You should perform the effects starting from the innermost one. So, this means:
+
+      1. Remove the first 10.991 seconds.
+      2. Fade in the first 5.673 seconds.
+      3. Cut off the song after 598 seconds (9 minutes 58 seconds).
+      4. Fade out the last 5.200 seconds.
+
     Also, mix in the file `gen/album/Xp/countin.wav` to add countin sounds.
 
 [Audacity]: http://audacity.sourceforge.net/
