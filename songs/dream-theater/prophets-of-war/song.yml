@@ -1,0 +1,7 @@
+title: Prophets of War
+file-include: ../../../albums/systematic-chaos.yml
+track-number: 6
+audio:
+  album:
+    pad: [3.556, source]
+config: [drums]
