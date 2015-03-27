@@ -14,10 +14,10 @@ audio:
       gain:
       - 0.97
       - trim:
-          - 1.909
-          - take:
-            - 530.723 # 8:50.723
-            - audio-drumcam-drums.wav
+        - 1.909
+        - take:
+          - 530.723 # 8:50.723
+          - audio-drumcam-drums.wav
     song:
       fade:
         - end
