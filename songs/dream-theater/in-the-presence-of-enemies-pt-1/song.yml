@@ -7,6 +7,51 @@ audio:
       - end
       - 2.75
       - take:
-        - 537.302 # TODO: clean this up
+        - 537.302 # 8:57.302
         - pad: [4.637, source]
+  drumcam:
+    drums:
+      gain:
+      - 0.97
+      - trim:
+          - 1.909
+          - take:
+            - 530.723 # 8:50.723
+            - audio-drumcam-drums.wav
+    song:
+      fade:
+        - end
+        - 2.75
+        - take:
+          - 537.302 # 8:57.302
+          - trim:
+            - 1.909
+            - resample:
+                mix:
+                  - concatenate:
+                    - take:
+                      - 182 # 3:02
+                      - pad:
+                        - frames: 3461
+                        - rate: [48000, audio-drumcam-band.wav]
+                    - take:
+                      - 366 # 6:06
+                      - drop:
+                        - 182 # 3:02
+                        - pad:
+                          - frames: 3460
+                          - rate: [48000, audio-drumcam-band.wav]
+                  - gain:
+                    - -1
+                    - concatenate:
+                      - take:
+                        - 530.723 # 8:50.723
+                        - rate: [48000, audio-drumcam-drums.wav]
+                      - pad:
+                        - frames: 3460
+                        - drop:
+                          - 530.723 # 8:50.723
+                          - take:
+                            - 546 # 9:06
+                            - rate: [48000, audio-drumcam-drums.wav]
 config: [drums]
