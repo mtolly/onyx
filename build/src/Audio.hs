@@ -175,6 +175,8 @@ buildAudio aud out = do
       Rate _     x -> x
       JammitAIFC x -> x
   src <- buildSource aud
-  liftIO $ runResourceT $ sinkSnd out
-    (Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile)
-    src
+  let fmt = case takeExtension out of
+        ".ogg" -> Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
+        ".wav" -> Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
+        ext -> error $ "buildAudio: unknown audio output file extension " ++ ext
+  liftIO $ runResourceT $ sinkSnd out fmt src
