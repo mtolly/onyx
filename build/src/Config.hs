@@ -10,6 +10,7 @@ import qualified Data.HashMap.Strict as Map
 import Control.Applicative ((<|>))
 import Data.Monoid (mempty)
 import qualified Data.Text as T
+import Data.Conduit.Audio (Duration)
 
 data Song = Song
   { _title :: String
@@ -23,7 +24,7 @@ data Song = Song
   , _trackNumber :: Int
   , _jammitTitle :: Maybe String
   , _jammitArtist :: Maybe String
-  , _audio :: Map.HashMap String (AudioConfig Double)
+  , _audio :: Map.HashMap String (AudioConfig Duration)
   , _config :: [Instrument]
   , _fileCountin :: FilePath
   } deriving (Eq, Show)
@@ -36,7 +37,7 @@ data Gender = Male | Female
 
 data AudioConfig t
   = AudioSimple (Audio t SourceFile)
-  | AudioStems (Map.HashMap String (Audio t FilePath))
+  | AudioStems (Map.HashMap String (Audio t InputFile))
   deriving (Eq, Show)
 
 data SourceFile = SourceFile

@@ -38,6 +38,7 @@ data Audio t a
   | Drop Edge t (Audio t a)
   | Fade Edge t (Audio t a)
   | Pad  Edge t (Audio t a)
+  | Resample    (Audio t a)
   deriving (Eq, Ord, Show, Read, Functor, F.Foldable, T.Traversable)
 
 pattern OneKey k v <- A.Object (HM.toList -> [(T.unpack -> k, v)])
@@ -65,6 +66,7 @@ instance (A.FromJSON t, A.FromJSON a) => A.FromJSON (Audio t a) where
     OneKey "trim" x -> withEdge Drop x
     OneKey "fade" x -> withEdge Fade x
     OneKey "pad"  x -> withEdge Pad  x
+    OneKey "resample" x -> fmap Resample $ A.parseJSON x
     _ -> fmap Input $ A.parseJSON v
     where withEdge f x
             =   fmap (uncurry3  f      ) (A.parseJSON x)
@@ -82,66 +84,97 @@ mapTime f aud = case aud of
   Drop e t x      -> Drop e (f t) $ mapTime f x
   Fade e t x      -> Fade e (f t) $ mapTime f x
   Pad  e t x      -> Pad  e (f t) $ mapTime f x
+  Resample x      -> Resample     $ mapTime f x
 
 instance Bifunctor Audio where
   first = mapTime
   second = fmap
 
 data InputFile
-  = Sndable    FilePath
-  | JammitAIFC FilePath
+  = Sndable     FilePath
+  | Rate Double FilePath
+  | JammitAIFC  FilePath
   deriving (Eq, Ord, Show, Read)
 
+instance A.FromJSON InputFile where
+  parseJSON v = case v of
+    OneKey "rate" x -> fmap (uncurry Rate) $ A.parseJSON x
+    _               -> fmap Sndable        $ A.parseJSON v
+
+-- | orphan instance
+instance A.FromJSON Duration where
+  parseJSON v = case v of
+    OneKey "frames"  x -> fmap Frames  $ A.parseJSON x
+    OneKey "seconds" x -> fmap Seconds $ A.parseJSON x
+    _                  -> fmap Seconds $ A.parseJSON v
+
+sndableSource :: (MonadResource m) => FilePath -> Action (AudioSource m Float)
+sndableSource fp = case takeExtension fp of
+  ".mp3" -> do
+    liftIO $ createDirectoryIfMissing True "gen/temp"
+    (f, h) <- liftIO $ openTempFile "gen/temp" "from-mp3.wav"
+    liftIO $ hClose h
+    () <- cmd "lame --decode" [fp, f]
+    sndableSource f
+  _ -> liftIO $ sourceSnd fp
+
 buildSource :: (MonadResource m) =>
-  Audio Double InputFile -> Action (AudioSource m Float)
+  Audio Duration InputFile -> Action (AudioSource m Float)
 buildSource aud = case aud of
-  Silence c t -> return $ silent (Seconds t) 44100 c
+  Silence c t -> return $ silent t 44100 c
   Input fin -> case fin of
-    Sndable x -> case takeExtension x of
-      ".mp3" -> do
-        liftIO $ createDirectoryIfMissing True "gen/temp"
-        (f, h) <- liftIO $ openTempFile "gen/temp" "from-mp3.wav"
-        liftIO $ hClose h
-        () <- cmd "lame --decode" [x, f]
-        buildSource $ Input $ Sndable f
-      _ -> do
-        src <- liftIO $ sourceSnd x
-        let srcRate = if rate src == 44100 then src else resampleTo 44100 SincBestQuality src
-            srcChan = case channels srcRate of
-              2 -> srcRate
-              1 -> merge srcRate srcRate
-              c -> error $ "buildSource: only audio with 1 or 2 channels supported (" ++ show c ++ " given)"
-        return srcChan
+    Sndable x -> do
+      src <- sndableSource x
+      let srcRate = if rate src == 44100 then src else resampleTo 44100 SincBestQuality src
+          srcChan = case channels srcRate of
+            2 -> srcRate
+            1 -> merge srcRate srcRate
+            c -> error $ "buildSource: only audio with 1 or 2 channels supported (" ++ show c ++ " given)"
+      return srcChan
+    Rate r x -> do
+      src <- sndableSource x
+      if rate src == r
+        then return src
+        else error $ unwords
+          [ "buildSource: expected"
+          , x
+          , "to have sample rate"
+          , show r
+          , "but was instead"
+          , show $ rate src
+          ]
     JammitAIFC x -> liftIO $ mapSamples fractionalSample <$> J.audioSource x
   Mix         xs -> combine mix         xs
   Merge       xs -> combine merge       xs
   Concatenate xs -> combine concatenate xs
   Gain d x -> gain (realToFrac d) <$> buildSource x
-  Take Start t x -> takeStart (Seconds t) <$> buildSource x
-  Take End t x -> takeEnd (Seconds t) <$> buildSource x
-  Drop Start t x -> dropStart (Seconds t) <$> buildSource x
-  Drop End t x -> dropEnd (Seconds t) <$> buildSource x
-  Pad Start t x -> padStart (Seconds t) <$> buildSource x
-  Pad End t x -> padEnd (Seconds t) <$> buildSource x
+  Take Start t x -> takeStart t <$> buildSource x
+  Take End t x -> takeEnd t <$> buildSource x
+  Drop Start t x -> dropStart t <$> buildSource x
+  Drop End t x -> dropEnd t <$> buildSource x
+  Pad Start t x -> padStart t <$> buildSource x
+  Pad End t x -> padEnd t <$> buildSource x
   Fade Start t x -> buildSource x >>= \src -> return $ concatenate
-    (fadeIn $ takeStart (Seconds t) src)
-    (dropStart (Seconds t) src)
+    (fadeIn $ takeStart t src)
+    (dropStart t src)
   Fade End t x -> buildSource x >>= \src -> return $ concatenate
-    (dropEnd (Seconds t) src)
-    (fadeOut $ takeEnd (Seconds t) src)
+    (dropEnd t src)
+    (fadeOut $ takeEnd t src)
+  Resample x -> resampleTo 44100 SincBestQuality <$> buildSource x
   where combine meth xs = mapM buildSource xs >>= \srcs -> case srcs of
           [] -> error "buildSource: can't combine 0 files"
           s : ss -> return $ foldl meth s ss
 
 -- | Assumes 16-bit 44100 Hz audio files.
-buildAudio :: Audio Rational InputFile -> FilePath -> Action ()
+buildAudio :: Audio Duration InputFile -> FilePath -> Action ()
 buildAudio aud out = do
   need $ do
     fin <- F.toList aud
     return $ case fin of
       Sndable    x -> x
+      Rate _     x -> x
       JammitAIFC x -> x
-  src <- buildSource $ mapTime realToFrac aud
+  src <- buildSource aud
   liftIO $ runResourceT $ sinkSnd out
     (Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile)
     src

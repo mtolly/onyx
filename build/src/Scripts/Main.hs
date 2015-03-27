@@ -23,6 +23,8 @@ import Development.Shake
 
 import qualified Sound.MIDI.Util as U
 
+import qualified Data.Conduit.Audio as CA
+
 standardMIDI :: F.T -> (RTB.T U.Beats E.T, [RTB.T U.Beats E.T])
 standardMIDI mid = case U.decodeFile mid of
   Left []       -> (RTB.empty, [])
@@ -82,10 +84,10 @@ makeCountin mid wavin wavout = do
   (tempo, trks) <- liftIO $ standardMIDI <$> Load.fromFile mid
   let tmap = U.makeTempoMap tempo
       beats = sort $ concatMap (findText "countin_here") $ tempo : trks
-      secs = map (realToFrac . U.applyTempoMap tmap) beats :: [Rational]
+      secs = map (realToFrac . U.applyTempoMap tmap) beats :: [Double]
       audio = case secs of
-        [] -> Silence 2 0
-        _ -> Mix $ map (\t -> Pad Start t $ Input $ Sndable wavin) secs
+        [] -> Silence 2 $ CA.Seconds 0
+        _ -> Mix $ map (\t -> Pad Start (CA.Seconds t) $ Input $ Sndable wavin) secs
   buildAudio audio wavout
 
 fixResolution :: F.T -> F.T

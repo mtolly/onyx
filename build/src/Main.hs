@@ -15,7 +15,6 @@ import Control.Applicative ((<$>), (<|>))
 import Control.Monad (forM_, when, guard)
 import Data.Maybe (fromMaybe, mapMaybe, listToMaybe)
 import Data.List (isPrefixOf, sort)
-import Data.Bifunctor (bimap, first)
 import Scripts.Main
 import qualified Sound.Jammit.Base as J
 import qualified Sound.Jammit.Export as J
@@ -24,6 +23,7 @@ import qualified System.Environment as Env
 import System.Exit (ExitCode(ExitSuccess))
 import qualified System.Info as Info
 import System.Process (readProcessWithExitCode)
+import qualified Data.Conduit.Audio as CA
 
 import qualified Data.DTA as D
 import qualified Data.DTA.Serialize as D
@@ -77,17 +77,17 @@ jammitRules s = do
     dir </> "drums_untimed.wav" %> \out -> do
       audios <- jSearchInstrument J.Drums
       case audios of
-        [] -> buildAudio (Silence 2 0) out
+        [] -> buildAudio (Silence 2 $ CA.Seconds 0) out
         _  -> liftIO $ J.runAudio audios [] out
     dir </> "bass_untimed.wav" %> \out -> do
       audios <- jSearchInstrument J.Bass
       case audios of
-        [] -> buildAudio (Silence 2 0) out
+        [] -> buildAudio (Silence 2 $ CA.Seconds 0) out
         _  -> liftIO $ J.runAudio audios [] out
     dir </> "guitar_untimed.wav" %> \out -> do
       audios <- jSearchInstrument J.Guitar
       case audios of
-        [] -> buildAudio (Silence 2 0) out
+        [] -> buildAudio (Silence 2 $ CA.Seconds 0) out
         _  -> liftIO $ J.runAudio audios [] out
     dir </> "song_untimed.wav" %> \out -> do
       audios <- jSearch
@@ -122,7 +122,7 @@ jammitRules s = do
         case HM.lookup "jammit" $ _audio s of
           Nothing -> fail "No jammit audio configuration"
           Just (AudioSimple aud) ->
-            buildAudio (bimap realToFrac (const untimed) aud) out
+            buildAudio (fmap (const untimed) aud) out
           Just (AudioStems _) ->
             fail "jammit audio configuration is stems (unsupported)"
 
@@ -132,13 +132,13 @@ simpleRules s = do
     forM_ ["1p", "2p"] $ \feet -> do
       let dir = "gen" </> src </> feet
       forM_ ["drums.wav", "bass.wav", "guitar.wav"] $ \inst -> do
-        dir </> inst %> buildAudio (Silence 2 0)
+        dir </> inst %> buildAudio (Silence 2 $ CA.Seconds 0)
       dir </> "song.wav" %> \out -> do
         let pat = "audio-" ++ src ++ ".*"
         ls <- getDirectoryFiles "" [pat]
         case ls of
           []    -> fail $ "No file found matching pattern " ++ pat
-          f : _ -> buildAudio (bimap realToFrac (const $ Sndable f) aud) out
+          f : _ -> buildAudio (fmap (const $ Sndable f) aud) out
 
 stemsRules :: Song -> Rules ()
 stemsRules s = do
@@ -147,13 +147,18 @@ stemsRules s = do
       let dir = "gen" </> src </> feet
       forM_ (HM.toList amap) $ \(inst, aud) -> do
         dir </> (inst <.> "wav") %> \out -> do
-          aud' <- T.forM aud $ \f -> do
-            let pat = f -<.> "*"
-            ls <- getDirectoryFiles "" [pat]
-            case ls of
-              []     -> fail $ "No file found matching pattern " ++ pat
-              f' : _ -> return $ Sndable f'
-          buildAudio (first realToFrac aud') out
+          aud' <- T.forM aud $ \f -> let
+            findMatch fp = do
+              let pat = fp -<.> "*"
+              ls <- getDirectoryFiles "" [pat]
+              case ls of
+                []     -> fail $ "No file found matching pattern " ++ pat
+                f' : _ -> return f'
+            in case f of
+              Sndable    fp -> Sndable    <$> findMatch fp
+              Rate r     fp -> Rate r     <$> findMatch fp
+              JammitAIFC fp -> JammitAIFC <$> findMatch fp -- shouldn't happen
+          buildAudio aud' out
 
 eachAudio :: (Monad m) => Song -> (String -> m ()) -> m ()
 eachAudio = forM_ . HM.keys . _audio
@@ -190,7 +195,7 @@ oggRules s = eachVersion s $ \_ dir -> do
             , [song]
             ]
           in if length parts == 3
-            then parts ++ [Silence 1 0]
+            then parts ++ [Silence 1 $ CA.Seconds 0]
             -- the Silence is to work around oggenc bug:
             -- it assumes 6 channels is 5.1 surround where the last channel
             -- is LFE, so instead we add a silent 7th channel
