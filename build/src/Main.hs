@@ -430,7 +430,7 @@ anyToRGB8 dyn = case dyn of
   ImageRGB16 i -> pixelMap (\(PixelRGB16 r g b) -> PixelRGB8 (f r) (f g) (f b)) i
     where f w16 = fromIntegral $ w16 `shiftR` 8
   ImageRGBF i -> pixelMap (\(PixelRGBF r g b) -> PixelRGB8 (f r) (f g) (f b)) i
-    where f w16 = floor $ min 0x100 $ w16 * 0x100
+    where f w16 = floor $ min 0xFF $ w16 * 0x100
   ImageRGBA8 i -> dropAlphaLayer i
   ImageRGBA16 i -> anyToRGB8 $ ImageRGB16 $ dropAlphaLayer i
   ImageYCbCr8 i -> convertImage i
