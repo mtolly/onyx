@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable, FlexibleContexts #-}
 module Main where
 
 import Development.Shake hiding ((%>))
@@ -38,6 +38,10 @@ import qualified Data.Traversable as T
 import qualified Sound.MIDI.File as F
 import qualified Sound.MIDI.File.Load as Load
 import qualified Sound.MIDI.File.Save as Save
+
+import Codec.Picture
+import Codec.Picture.Types
+import Data.Bits (shiftR)
 
 jammitLib :: IO J.Library
 jammitLib = do
@@ -415,16 +419,66 @@ firstJustM (mx : xs) = mx >>= \x -> case x of
   Nothing -> firstJustM xs
   Just y  -> return $ Just y
 
+anyToRGB8 :: DynamicImage -> Image PixelRGB8
+anyToRGB8 dyn = case dyn of
+  ImageY8 i -> promoteImage i
+  ImageY16 i -> anyToRGB8 $ ImageRGB16 $ promoteImage i
+  ImageYF i -> anyToRGB8 $ ImageRGBF $ promoteImage i
+  ImageYA8 i -> promoteImage i
+  ImageYA16 i -> anyToRGB8 $ ImageRGBA16 $ promoteImage i
+  ImageRGB8 i -> i
+  ImageRGB16 i -> pixelMap (\(PixelRGB16 r g b) -> PixelRGB8 (f r) (f g) (f b)) i
+    where f w16 = fromIntegral $ w16 `shiftR` 8
+  ImageRGBF i -> pixelMap (\(PixelRGBF r g b) -> PixelRGB8 (f r) (f g) (f b)) i
+    where f w16 = floor $ min 0x100 $ w16 * 0x100
+  ImageRGBA8 i -> dropAlphaLayer i
+  ImageRGBA16 i -> anyToRGB8 $ ImageRGB16 $ dropAlphaLayer i
+  ImageYCbCr8 i -> convertImage i
+  ImageCMYK8 i -> convertImage i
+  ImageCMYK16 i -> anyToRGB8 $ ImageRGB16 $ convertImage i
+
+scaleBilinear :: (Pixel a, Integral (PixelBaseComponent a)) => Int -> Int -> Image a -> Image a
+scaleBilinear w' h' img = generateImage f w' h' where
+  f x' y' = let
+    x, y :: Double
+    x = fromIntegral x' / fromIntegral (w' - 1) * fromIntegral (imageWidth  img - 1)
+    y = fromIntegral y' / fromIntegral (h' - 1) * fromIntegral (imageHeight img - 1)
+    in case (properFraction x, properFraction y) of
+      ((xi, 0 ), (yi, 0 )) -> pixelAt img xi yi
+      ((xi, 0 ), (yi, yf)) -> let
+        g _ c1 c2 = round $ fromIntegral c1 * (1 - yf) + fromIntegral c2 * yf
+        in mixWith g (pixelAt img xi yi) (pixelAt img xi (yi + 1))
+      ((xi, xf), (yi, 0 )) -> let
+        g _ c1 c2 = round $ fromIntegral c1 * (1 - xf) + fromIntegral c2 * xf
+        in mixWith g (pixelAt img xi yi) (pixelAt img (xi + 1) yi)
+      ((xi, xf), (yi, yf)) -> let
+        g1 _ c1 c2 = round $ fromIntegral c1 * (1 - xf) + fromIntegral c2 * xf
+        g2 _ c1 c2 = round $ fromIntegral c1 * (1 - yf) + fromIntegral c2 * yf
+        in mixWith g2
+          (mixWith g1 (pixelAt img xi yi) (pixelAt img (xi + 1) yi))
+          (mixWith g1 (pixelAt img xi (yi + 1)) (pixelAt img (xi + 1) (yi + 1)))
+
 coverRules :: Song -> Rules ()
 coverRules s = do
   let img = _fileAlbumArt s
-  forM_ ["bmp", "dds", "png"] $ \ext -> do
-    "gen/cover" <.> ext %> \out -> do
-      need [img]
-      conv <- liftIO $ imageMagick "convert"
-      case conv of
-        Nothing -> fail "coverRules: couldn't find ImageMagick convert"
-        Just c  -> cmd [c] [img] "-resize 256x256!" [out]
+  "gen/cover.bmp" %> \out -> do
+    need [img]
+    res <- liftIO $ readImage img
+    case res of
+      Left err -> fail $ "Failed to load cover art: " ++ err
+      Right dyn -> liftIO $ writeBitmap out $ scaleBilinear 256 256 $ anyToRGB8 dyn
+  "gen/cover.png" %> \out -> do
+    need [img]
+    res <- liftIO $ readImage img
+    case res of
+      Left err -> fail $ "Failed to load cover art: " ++ err
+      Right dyn -> liftIO $ writePng out $ scaleBilinear 256 256 $ anyToRGB8 dyn
+  "gen/cover.dds" %> \out -> do
+    need [img]
+    conv <- liftIO $ imageMagick "convert"
+    case conv of
+      Nothing -> fail "coverRules: couldn't find ImageMagick convert"
+      Just c  -> cmd [c] [img] "-resize 256x256!" [out]
   "gen/cover.png_xbox" %> \out -> do
     let dds = out -<.> "dds"
     need [dds]
