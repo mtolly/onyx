@@ -37,9 +37,5 @@ audio:
           - 3.515
           - take:
             - 324.358 # 5:37 - 12.642 = 5:24.358
-            - trim:
-              - 548 # 9:08
-              - gain:
-                - 0.97
-                - rate: [48000, audio-drumcam-drums.wav]
+            - gain: [0.97, *drums]
 config: [drums]

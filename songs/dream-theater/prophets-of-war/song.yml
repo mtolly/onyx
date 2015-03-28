@@ -4,4 +4,32 @@ track-number: 6
 audio:
   album:
     pad: [3.556, source]
+  drumcam:
+    song:
+      resample:
+        pad:
+          - 3.261
+          - gain:
+            - 0.97
+            - mix:
+              - drop:
+                - frames: 175
+                - take:
+                  - 362.182 # 6:02.182
+                  - drop:
+                    - 2490.764 # 41:30.764
+                    - rate: [48000, audio-drumcam-band.wav]
+              - gain:
+                - -1
+                - &drums
+                  take:
+                  - 362.182 # 6:02.182
+                  - drop:
+                    - 2490.764 # 41:30.764
+                    - rate: [48000, audio-drumcam-drums.wav]
+    drums:
+      resample:
+        pad:
+          - 3.261
+          - gain: [0.97, *drums]
 config: [drums]
