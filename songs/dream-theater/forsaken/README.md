@@ -20,6 +20,9 @@ Supported audio:
 
     3. Place the files at `audio-drumcam-band.wav` and `audio-drumcam-drums.wav`.
 
+[PgcDemux]: http://download.videohelp.com/jsoto/dvdtools.htm
+[FFmpeg]: https://www.ffmpeg.org/
+
 Notes:
 
   * Chart confidence: *high*. Written to Portnoy's recording session DVD.
