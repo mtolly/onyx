@@ -1,11 +1,11 @@
-# Forsaken
+# Prophets of War
 
 ## Dream Theater
 
 Instruments:
 
   * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=forsaken)
+    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=prophets-of-war)
 
 Supported audio:
 
