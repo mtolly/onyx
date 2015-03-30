@@ -1,4 +1,4 @@
-module Scripts.Main where
+module Scripts where
 
 import Control.Applicative ((<$>))
 import Control.Arrow (first, second)

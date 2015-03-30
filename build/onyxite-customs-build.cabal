@@ -23,7 +23,7 @@ executable onyxbuild
     Config
     Audio
     TH
-    Scripts.Main
+    Scripts
     OneFoot
     Magma
   build-depends:
