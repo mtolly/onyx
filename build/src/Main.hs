@@ -462,6 +462,20 @@ findPalette img = let
     return (score, (c0, c1, c2, c3))
   in snd $ minimumBy (comparing fst) choices
 
+-- | Use this instead of findPalette for a sweet mosaic effect.
+-- This was an accidental find before I wrote the current findPalette!
+findPalette' :: Image PixelRGB8 -> (PixelRGB8, PixelRGB8, PixelRGB8, PixelRGB8)
+findPalette' img = let
+  (_, pal) = palettize (PaletteOptions MedianMeanCut True 2) img
+  colors = [ pixelAt pal x y | x <- [0 .. imageWidth pal - 1], y <- [0 .. imageHeight pal - 1] ]
+  (cA, cB) = (head colors, last colors)
+  (c0, c1) = if swap16 (pixel565 cA) < swap16 (pixel565 cB) then (cB, cA) else (cA, cB)
+  swap16 w16 = (w16 `shiftR` 8) + (w16 `shiftL` 8)
+  c2 = mixWith (\_ p0 p1 -> floor $ flt p0 * (2/3) + flt p1 * (1/3)) c0 c1
+  c3 = mixWith (\_ p0 p1 -> floor $ flt p0 * (1/3) + flt p1 * (2/3)) c0 c1
+  flt i = fromIntegral i :: Float
+  in (c0, c1, c2, c3)
+
 -- | Writes 256x256 image to 4-bit grayscale (will improve!) DXT1
 writeDDS :: FilePath -> Image PixelRGB8 -> IO ()
 writeDDS fout img = let
