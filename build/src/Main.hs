@@ -14,7 +14,8 @@ import qualified Data.Aeson as A
 import Control.Applicative ((<$>), (<|>))
 import Control.Monad (forM_, when, guard)
 import Data.Maybe (fromMaybe, mapMaybe)
-import Data.List (sort)
+import Data.List (sort, minimumBy)
+import Data.Ord (comparing)
 import Scripts.Main
 import qualified Sound.Jammit.Base as J
 import qualified Sound.Jammit.Export as J
@@ -39,7 +40,8 @@ import qualified Sound.MIDI.File.Save as Save
 
 import Codec.Picture
 import Codec.Picture.Types
-import Data.Bits (shiftR)
+import Data.Bits (shiftR, shiftL)
+import Data.Word
 
 jammitLib :: IO J.Library
 jammitLib = do
@@ -426,6 +428,40 @@ scaleBilinear w' h' img = generateImage f w' h' where
           (mixWith g1 (pixelAt img xi yi) (pixelAt img (xi + 1) yi))
           (mixWith g1 (pixelAt img xi (yi + 1)) (pixelAt img (xi + 1) (yi + 1)))
 
+pixel565 :: PixelRGB8 -> Word16
+pixel565 (PixelRGB8 r g b) = sum
+  [ (fromIntegral r `shiftR` 3) `shiftL` 11 -- 5 bits
+  , (fromIntegral g `shiftR` 2) `shiftL` 5  -- 6 bits
+  ,  fromIntegral b `shiftR` 3              -- 5 bits
+  ]
+
+pixelFrom565 :: Word16 -> PixelRGB8
+pixelFrom565 w = PixelRGB8
+  (fromIntegral $ (w `shiftR` 11) `shiftL` 3)
+  (fromIntegral $ (w `shiftR` 5 ) `shiftL` 2)
+  (fromIntegral $  w              `shiftL` 3)
+
+colorDiff :: PixelRGB8 -> PixelRGB8 -> Int
+colorDiff (PixelRGB8 r0 g0 b0) (PixelRGB8 r1 g1 b1) = sum
+  [ fromIntegral $ max r0 r1 - min r0 r1
+  , fromIntegral $ max g0 g1 - min g0 g1
+  , fromIntegral $ max b0 b1 - min b0 b1
+  ]
+
+findPalette :: Image PixelRGB8 -> (PixelRGB8, PixelRGB8, PixelRGB8, PixelRGB8)
+findPalette img = let
+  pixels = [ pixelAt img x y | x <- [0 .. imageWidth img - 1], y <- [0 .. imageHeight img - 1] ]
+  choices = do
+    c0 <- pixels
+    c1 <- pixels
+    guard $ pixel565 c0 >= pixel565 c1
+    let c2 = mixWith (\_ p0 p1 -> floor $ flt p0 * (2/3) + flt p1 * (1/3)) c0 c1
+        c3 = mixWith (\_ p0 p1 -> floor $ flt p0 * (1/3) + flt p1 * (2/3)) c0 c1
+        flt i = fromIntegral i :: Float
+        score = sum $ map (\p -> minimum $ map (colorDiff p) [c0,c1,c2,c3]) pixels
+    return (score, (c0, c1, c2, c3))
+  in snd $ minimumBy (comparing fst) choices
+
 -- | Writes 256x256 image to 4-bit grayscale (will improve!) DXT1
 writeDDS :: FilePath -> Image PixelRGB8 -> IO ()
 writeDDS fout img = let
@@ -435,22 +471,31 @@ writeDDS fout img = let
     B.hPut h header
     forM_ [0,4..252] $ \y ->
       forM_ [0,4..252] $ \x -> do
-        -- color0 is white, color1 is black
-        -- so color2 is light gray, color3 dark gray
-        B.hPut h $ B.pack [0xFF, 0xFF, 0x00, 0x00]
+        let chunk = generateImage (\cx cy -> pixelAt img (x + cx) (y + cy)) 4 4
+            (c0, c1, c2, c3) = findPalette chunk
+        B.hPut h $ B.pack
+          [ fromIntegral $ pixel565 c0
+          , fromIntegral $ pixel565 c0 `shiftR` 8
+          , fromIntegral $ pixel565 c1
+          , fromIntegral $ pixel565 c1 `shiftR` 8
+          ]
         forM_ [y .. y + 3] $ \py -> do
-          let byte = sum $ flip map
-                [ (x    , 0x01)
-                , (x + 1, 0x04)
-                , (x + 2, 0x10)
-                , (x + 3, 0x40)
-                ] $ \(px, v) -> let
-                luma = computeLuma $ pixelAt img px py
-                in case () of
-                  () | luma < 0x40 -> v -- color1
-                     | luma < 0x80 -> v * 3 -- color3
-                     | luma < 0xC0 -> v * 2 -- color2
-                     | otherwise   -> 0 -- color0
+          let byte = if pixel565 c0 == pixel565 c1
+                then 0
+                else sum $ flip map
+                  [ (x    , 0x01)
+                  , (x + 1, 0x04)
+                  , (x + 2, 0x10)
+                  , (x + 3, 0x40)
+                  ] $ \(px, v) -> let
+                  score c = colorDiff c $ pixelAt img px py
+                  scoreTable =
+                    [ (score c0, v * 0)
+                    , (score c1, v * 1)
+                    , (score c2, v * 2)
+                    , (score c3, v * 3)
+                    ]
+                  in snd $ head $ sort scoreTable
           B.hPut h $ B.singleton byte
 
 coverRules :: Song -> Rules ()
