@@ -92,13 +92,9 @@ Some current features:
 Binaries for Windows/Mac/Linux are available on the
 [releases](https://github.com/mtolly/onyxite-customs/releases) page.
 
-The following programs must be in your `PATH` (callable by the build program):
+If you want to supply MP3 audio, [LAME](http://lame.sourceforge.net/) must be in your PATH.
 
-  * [ImageMagick](http://www.imagemagick.org):
-    you need a recent version with DirectDraw Surface write support
-  * [LAME](http://lame.sourceforge.net/) only if you want to supply MP3 audio
-
-Plus the following if you want to compile straight to Xbox 360 CON:
+If you want to compile straight to Xbox 360 CON you need:
 
   * .NET Framework or [Mono](http://www.mono-project.com)
 

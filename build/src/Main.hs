@@ -13,16 +13,14 @@ import Magma
 import qualified Data.Aeson as A
 import Control.Applicative ((<$>), (<|>))
 import Control.Monad (forM_, when, guard)
-import Data.Maybe (fromMaybe, mapMaybe, listToMaybe)
-import Data.List (isPrefixOf, sort)
+import Data.Maybe (fromMaybe, mapMaybe)
+import Data.List (sort)
 import Scripts.Main
 import qualified Sound.Jammit.Base as J
 import qualified Sound.Jammit.Export as J
 import qualified System.Directory as Dir
 import qualified System.Environment as Env
-import System.Exit (ExitCode(ExitSuccess))
-import qualified System.Info as Info
-import System.Process (readProcessWithExitCode)
+import System.IO (withBinaryFile, IOMode(..))
 import qualified Data.Conduit.Audio as CA
 
 import qualified Data.DTA as D
@@ -389,36 +387,6 @@ makeDTA pkg title mid s = do
     , D.encoding = Just $ D.Keyword $ B8.pack "latin1"
     }
 
--- | Find an ImageMagick binary, because the names are way too generic, and
--- \"convert\" is both an ImageMagick program and a Windows built-in utility.
-imageMagick :: String -> IO (Maybe String)
-imageMagick icmd = do
-  (code, _, _) <- readProcessWithExitCode icmd ["-version"] ""
-  case code of
-    ExitSuccess -> return $ Just icmd
-    _ -> case Info.os of
-      "mingw32" -> firstJustM $
-        -- env variables for different configs of (ghc arch)/(imagemagick arch)
-        -- ProgramFiles: 32/32 or 64/64
-        -- ProgramFiles(x86): 64/32
-        -- ProgramW6432: 32/64
-        flip map ["ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"] $ \env ->
-          Env.lookupEnv env >>= \var -> case var of
-            Nothing -> return Nothing
-            Just pf
-              ->  fmap (\im -> pf </> im </> icmd)
-              .   listToMaybe
-              .   filter ("ImageMagick" `isPrefixOf`)
-              <$> Dir.getDirectoryContents pf
-      _ -> return Nothing
-
--- | Only runs actions until the first that gives 'Just'.
-firstJustM :: (Monad m) => [m (Maybe a)] -> m (Maybe a)
-firstJustM [] = return Nothing
-firstJustM (mx : xs) = mx >>= \x -> case x of
-  Nothing -> firstJustM xs
-  Just y  -> return $ Just y
-
 anyToRGB8 :: DynamicImage -> Image PixelRGB8
 anyToRGB8 dyn = case dyn of
   ImageY8 i -> promoteImage i
@@ -458,6 +426,33 @@ scaleBilinear w' h' img = generateImage f w' h' where
           (mixWith g1 (pixelAt img xi yi) (pixelAt img (xi + 1) yi))
           (mixWith g1 (pixelAt img xi (yi + 1)) (pixelAt img (xi + 1) (yi + 1)))
 
+-- | Writes 256x256 image to 4-bit grayscale (will improve!) DXT1
+writeDDS :: FilePath -> Image PixelRGB8 -> IO ()
+writeDDS fout img = let
+  -- header stolen from an imagemagick-output file
+  header = B.pack [0x44,0x44,0x53,0x20,0x7C,0x00,0x00,0x00,0x07,0x10,0x0A,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0x09,0x00,0x00,0x00,0x49,0x4D,0x41,0x47,0x45,0x4D,0x41,0x47,0x49,0x43,0x4B,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x20,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0x44,0x58,0x54,0x31,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x08,0x10,0x40,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]
+  in withBinaryFile fout WriteMode $ \h -> do
+    B.hPut h header
+    forM_ [0,4..252] $ \y ->
+      forM_ [0,4..252] $ \x -> do
+        -- color0 is white, color1 is black
+        -- so color2 is light gray, color3 dark gray
+        B.hPut h $ B.pack [0xFF, 0xFF, 0x00, 0x00]
+        forM_ [y .. y + 3] $ \py -> do
+          let byte = sum $ flip map
+                [ (x    , 0x01)
+                , (x + 1, 0x04)
+                , (x + 2, 0x10)
+                , (x + 3, 0x40)
+                ] $ \(px, v) -> let
+                luma = computeLuma $ pixelAt img px py
+                in case () of
+                  () | luma < 0x40 -> v -- color1
+                     | luma < 0x80 -> v * 3 -- color3
+                     | luma < 0xC0 -> v * 2 -- color2
+                     | otherwise   -> 0 -- color0
+          B.hPut h $ B.singleton byte
+
 coverRules :: Song -> Rules ()
 coverRules s = do
   let img = _fileAlbumArt s
@@ -475,10 +470,10 @@ coverRules s = do
       Right dyn -> liftIO $ writePng out $ scaleBilinear 256 256 $ anyToRGB8 dyn
   "gen/cover.dds" %> \out -> do
     need [img]
-    conv <- liftIO $ imageMagick "convert"
-    case conv of
-      Nothing -> fail "coverRules: couldn't find ImageMagick convert"
-      Just c  -> cmd [c] [img] "-resize 256x256!" [out]
+    res <- liftIO $ readImage img
+    case res of
+      Left err -> fail $ "Failed to load cover art: " ++ err
+      Right dyn -> liftIO $ writeDDS out $ scaleBilinear 256 256 $ anyToRGB8 dyn
   "gen/cover.png_xbox" %> \out -> do
     let dds = out -<.> "dds"
     need [dds]
