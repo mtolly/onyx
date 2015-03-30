@@ -29,26 +29,26 @@ anyToRGB8 dyn = case dyn of
   ImageCMYK8 i -> convertImage i
   ImageCMYK16 i -> anyToRGB8 $ ImageRGB16 $ convertImage i
 
-scaleBilinear :: (Pixel a, Integral (PixelBaseComponent a)) => Int -> Int -> Image a -> Image a
+-- | Scales an image using the bilinear interpolation algorithm.
+scaleBilinear
+  :: (Pixel a, Integral (PixelBaseComponent a))
+  => Int -> Int -> Image a -> Image a
 scaleBilinear w' h' img = generateImage f w' h' where
   f x' y' = let
-    x, y :: Double
+    x, y :: Rational
     x = fromIntegral x' / fromIntegral (w' - 1) * fromIntegral (imageWidth  img - 1)
     y = fromIntegral y' / fromIntegral (h' - 1) * fromIntegral (imageHeight img - 1)
-    in case (properFraction x, properFraction y) of
-      ((xi, 0 ), (yi, 0 )) -> pixelAt img xi yi
-      ((xi, 0 ), (yi, yf)) -> let
-        g _ c1 c2 = round $ fromIntegral c1 * (1 - yf) + fromIntegral c2 * yf
-        in mixWith g (pixelAt img xi yi) (pixelAt img xi (yi + 1))
-      ((xi, xf), (yi, 0 )) -> let
-        g _ c1 c2 = round $ fromIntegral c1 * (1 - xf) + fromIntegral c2 * xf
-        in mixWith g (pixelAt img xi yi) (pixelAt img (xi + 1) yi)
-      ((xi, xf), (yi, yf)) -> let
-        g1 _ c1 c2 = round $ fromIntegral c1 * (1 - xf) + fromIntegral c2 * xf
-        g2 _ c1 c2 = round $ fromIntegral c1 * (1 - yf) + fromIntegral c2 * yf
-        in mixWith g2
-          (mixWith g1 (pixelAt img xi yi) (pixelAt img (xi + 1) yi))
-          (mixWith g1 (pixelAt img xi (yi + 1)) (pixelAt img (xi + 1) (yi + 1)))
+    (xi, xf) = properFraction x
+    (yi, yf) = properFraction y
+    gx _ c1 c2 = round $ fromIntegral c1 * (1 - xf) + fromIntegral c2 * xf
+    gy _ c1 c2 = round $ fromIntegral c1 * (1 - yf) + fromIntegral c2 * yf
+    in case (xf, yf) of
+      (0, 0) -> pixelAt img xi yi
+      (0, _) -> mixWith gy (pixelAt img xi yi) (pixelAt img xi (yi + 1))
+      (_, 0) -> mixWith gx (pixelAt img xi yi) (pixelAt img (xi + 1) yi)
+      (_, _) -> mixWith gy
+        (mixWith gx (pixelAt img xi yi      ) (pixelAt img (xi + 1) yi      ))
+        (mixWith gx (pixelAt img xi (yi + 1)) (pixelAt img (xi + 1) (yi + 1)))
 
 pixel565 :: PixelRGB8 -> Word16
 pixel565 (PixelRGB8 r g b) = sum
@@ -70,6 +70,10 @@ colorDiff (PixelRGB8 r0 g0 b0) (PixelRGB8 r1 g1 b1) = sum
   , fromIntegral $ max b0 b1 - min b0 b1
   ]
 
+-- | Computes a valid palette for DXT1 encoding a 4x4 chunk.
+-- In (c0, c1, c2, c3), c0 and c1 are the two stated colors for the chunk,
+-- and c2 and c3 are at third-intervals between c0 and c1
+-- (c2 closer to c0, c3 closer to c1).
 findPalette :: Image PixelRGB8 -> (PixelRGB8, PixelRGB8, PixelRGB8, PixelRGB8)
 findPalette img = let
   pixels = [ pixelAt img x y | x <- [0 .. imageWidth img - 1], y <- [0 .. imageHeight img - 1] ]
@@ -91,8 +95,7 @@ findPalette' img = let
   (_, pal) = palettize (PaletteOptions MedianMeanCut True 2) img
   colors = [ pixelAt pal x y | x <- [0 .. imageWidth pal - 1], y <- [0 .. imageHeight pal - 1] ]
   (cA, cB) = (head colors, last colors)
-  (c0, c1) = if swap16 (pixel565 cA) < swap16 (pixel565 cB) then (cB, cA) else (cA, cB)
-  swap16 w16 = (w16 `shiftR` 8) + (w16 `shiftL` 8)
+  (c0, c1) = if pixel565 cA < pixel565 cB then (cB, cA) else (cA, cB)
   c2 = mixWith (\_ p0 p1 -> floor $ flt p0 * (2/3) + flt p1 * (1/3)) c0 c1
   c3 = mixWith (\_ p0 p1 -> floor $ flt p0 * (1/3) + flt p1 * (2/3)) c0 c1
   flt i = fromIntegral i :: Float
