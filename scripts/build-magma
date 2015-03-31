@@ -36,6 +36,11 @@ readmes.each do |readme|
             "gen/#{a}/#{p}/magma/bass.wav",
           ]
         end
+        if str.include? 'Guitar:'
+          makes += [
+            "gen/#{a}/#{p}/magma/guitar.wav",
+          ]
+        end
       end
     end
   end
