@@ -89,6 +89,9 @@ Some current features:
   * adjusts roll lengths to end immediately after the last note-on in the roll
     (as recommended by Harmonix on the RBN forums)
 
+  * swaps out the tempo track of a MIDI file,
+    to easily use the same chart with two differently timed versions of a song
+
 Binaries for Windows/Mac/Linux are available on the
 [releases](https://github.com/mtolly/onyxite-customs/releases) page.
 
@@ -114,7 +117,8 @@ Finally, for Linux and Mac only:
   * [Wine](http://www.winehq.org)
 
 Then, build the `onyxbuild` program in the `build/` directory, or download it
-from the releases page.
+from the releases page. If building it yourself, you'll need
+`libsndfile`, `libogg`, `libvorbis`, `libvorbisenc`, `libflac`, and `libsamplerate`.
 
 `onyxbuild` reads the file `song.yml` to get song information, then builds
 whatever files you specify on the command line in a Make-like fashion. Inside
@@ -132,3 +136,16 @@ Valid audio sources:
     can specify the `JAMMIT` environment variable to point to a custom directory.
 
   * Various other sources as listed in the song's `README.md`.
+
+## Licensing
+
+[![Creative Commons License](https://i.creativecommons.org/l/by-sa/4.0/88x31.png)](http://creativecommons.org/licenses/by-sa/4.0/)
+[![GNU LGPL License](https://www.gnu.org/graphics/lgplv3-88x31.png)](https://www.gnu.org/licenses/lgpl.html)
+[![GNU GPL License](https://www.gnu.org/graphics/gplv3-88x31.png)](https://www.gnu.org/licenses/gpl.html)
+
+My transcriptions (*not* the compositions) are freely licensed
+under [Creative Commons Attribution-ShareAlike](http://creativecommons.org/licenses/by-sa/4.0/).
+All compositions are the property of the original artists.
+
+Most of my code related to this project is licensed under the [GNU LGPL](https://www.gnu.org/licenses/lgpl.html), including any compatible code whose license is not stated.
+Some code (including anything linked to [X360](https://github.com/mtolly/X360)) is licensed under the [GNU GPL](https://www.gnu.org/licenses/gpl.html).
