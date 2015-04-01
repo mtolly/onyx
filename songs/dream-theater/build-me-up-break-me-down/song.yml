@@ -1,0 +1,10 @@
+title: "Build Me Up, Break Me Down"
+file-include: ../../../albums/a-dramatic-turn-of-events.yml
+track-number: 2
+audio:
+  album:
+    fade:
+      - end
+      - 3.678
+      - pad: [3.570, source]
+config: [drums]
