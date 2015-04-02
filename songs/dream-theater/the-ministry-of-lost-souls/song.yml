@@ -1,0 +1,10 @@
+title: The Ministry of Lost Souls
+file-include: ../../../albums/systematic-chaos.yml
+track-number: 7
+audio:
+  album:
+    fade:
+      - end
+      - 3.425
+      - pad: [5.900, source]
+config: [drums]
