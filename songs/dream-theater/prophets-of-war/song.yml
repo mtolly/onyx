@@ -15,17 +15,17 @@ audio:
               - drop:
                 - frames: 175
                 - take:
-                  - 362.182 # 6:02.182
+                  - '6:02.182'
                   - drop:
-                    - 2490.764 # 41:30.764
+                    - '41:30.764'
                     - rate: [48000, audio-drumcam-band.wav]
               - gain:
                 - -1
                 - &drums
                   take:
-                  - 362.182 # 6:02.182
+                  - '6:02.182'
                   - drop:
-                    - 2490.764 # 41:30.764
+                    - '41:30.764'
                     - rate: [48000, audio-drumcam-drums.wav]
     drums:
       resample:

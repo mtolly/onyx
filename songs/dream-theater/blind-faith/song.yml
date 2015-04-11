@@ -8,7 +8,7 @@ audio:
       - 5.200
       - take:
         - begin
-        - 598
+        - '9:58'
         # ^ TODO: clean this up
         # previously I was trying to sneak under the 10 minute RBN cutoff...
         - fade:

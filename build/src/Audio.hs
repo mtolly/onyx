@@ -18,6 +18,8 @@ import Control.Monad.Trans.Resource (MonadResource, runResourceT)
 import qualified Data.Text as T
 import qualified Data.HashMap.Strict as HM
 import Data.Monoid (mempty)
+import Text.Read (readMaybe)
+import Data.Char (isDigit)
 
 import Data.Conduit.Audio
 import Data.Conduit.Audio.Sndfile
@@ -105,8 +107,16 @@ instance A.FromJSON InputFile where
 instance A.FromJSON Duration where
   parseJSON v = case v of
     OneKey "frames"  x -> fmap Frames  $ A.parseJSON x
-    OneKey "seconds" x -> fmap Seconds $ A.parseJSON x
-    _                  -> fmap Seconds $ A.parseJSON v
+    OneKey "seconds" x -> fmap Seconds $ parseMinutes x
+    _                  -> fmap Seconds $ parseMinutes v
+    where parseMinutes (A.String minstr)
+            | (minutes@(_:_), ':' : secstr) <- span isDigit $ T.unpack minstr
+            , Just seconds <- readMaybe secstr
+            = return $ read minutes * 60 + seconds
+          parseMinutes (A.String secstr)
+            | Just seconds <- readMaybe $ T.unpack secstr
+            = return seconds
+          parseMinutes x = A.parseJSON x -- will succeed if JSON number
 
 sndableSource :: (MonadResource m) => FilePath -> Action (AudioSource m Float)
 sndableSource fp = case takeExtension fp of

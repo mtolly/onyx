@@ -10,32 +10,32 @@ audio:
         pad:
           - 3.515
           - take:
-            - 337 # 5:37
+            - '5:37'
             - mix:
               - pad:
                 - frames: 3192
                 - trim:
-                  - 548 # 9:08
+                  - '9:08'
                   - rate: [48000, audio-drumcam-band.wav]
               - gain:
                 - -1
                 - concatenate:
                   - take:
-                    - 324.340 # 5:24.340
+                    - '5:24.340'
                     - &drums
                       trim:
-                        - 548 # 9:08
+                        - '9:08'
                         - rate: [48000, audio-drumcam-drums.wav]
                   - pad:
                     - frames: 3192
                     - drop:
-                      - 324.340 # 5:24.340
+                      - '5:24.340'
                       - *drums
     drums:
       resample:
         pad:
           - 3.515
           - take:
-            - 324.358 # 5:37 - 12.642 = 5:24.358
+            - '5:24.358' # 5:37 - 12.642
             - gain: [0.97, *drums]
 config: [drums]
