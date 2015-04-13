@@ -4,4 +4,20 @@ track-number: 3
 audio:
   album:
     pad: [3.893, source]
+  deluxe:
+    drums:
+      pad:
+        - 3.750
+        - gain: [0.95, "Wither Drum Stem.flac"]
+    song:
+      pad:
+        - 3.750
+        - gain:
+          - 0.4
+          - mix:
+            - gain: [1.2, "Wither Bass Stem.flac"]
+            - gain: [1.1, "Wither Guitar Stem.flac"]
+            - gain: [0.9, "Wither Keys Stem.flac"]
+            - gain: [0.9, "Wither Solo Stem.flac"]
+            - gain: [1.5, "Wither Vocal Stem.flac"]
 config: [drums]
