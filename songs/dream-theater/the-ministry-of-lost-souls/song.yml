@@ -7,4 +7,25 @@ audio:
       - end
       - 3.425
       - pad: [5.900, source]
+  drumcam:
+    # NOT DONE YET
+    # - subtraction is like a sample off or so, must fix
+    # - end cuts off much earlier than album audio, what do
+    drums:
+      &drums
+      take:
+        - '13:21'
+        - drop:
+          - '47:31.200'
+          - audio-drumcam-drums.wav
+    song:
+      mix:
+        - drop:
+          - frames: 3911
+          - take:
+            - '13:21'
+            - drop:
+              - '47:31.200'
+              - audio-drumcam-band.wav
+        - gain: [-1, *drums]
 config: [drums]
