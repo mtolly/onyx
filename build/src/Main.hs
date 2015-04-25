@@ -106,19 +106,19 @@ jammitRules s = do
         [] -> fail "No Jammit instrument package used in this song was found."
         (rbpart, back) : _ -> flip buildAudio out $ Mix $ concat
           [ [ Input $ JammitAIFC back ]
-          , [ Gain (-1) $ Input $ Sndable $ dir </> "drums_untimed.wav"
+          , [ Gain (-1) $ Input $ sndable $ dir </> "drums_untimed.wav"
             | rbpart /= Drums && elem Drums (_config s)
             ]
-          , [ Gain (-1) $ Input $ Sndable $ dir </> "bass_untimed.wav"
+          , [ Gain (-1) $ Input $ sndable $ dir </> "bass_untimed.wav"
             | rbpart /= Bass && elem Bass (_config s)
             ]
-          , [ Gain (-1) $ Input $ Sndable $ dir </> "guitar_untimed.wav"
+          , [ Gain (-1) $ Input $ sndable $ dir </> "guitar_untimed.wav"
             | rbpart /= Guitar && elem Guitar (_config s)
             ]
           ]
     forM_ ["drums", "bass", "guitar", "song"] $ \part -> do
       dir </> (part ++ ".wav") %> \out -> do
-        let untimed = Sndable $ dropExtension out ++ "_untimed.wav"
+        let untimed = sndable $ dropExtension out ++ "_untimed.wav"
         case HM.lookup "jammit" $ _audio s of
           Nothing -> fail "No jammit audio configuration"
           Just (AudioSimple aud) ->
@@ -138,7 +138,7 @@ simpleRules s = do
         ls <- getDirectoryFiles "" [pat]
         case ls of
           []    -> fail $ "No file found matching pattern " ++ pat
-          f : _ -> buildAudio (fmap (const $ Sndable f) aud) out
+          f : _ -> buildAudio (fmap (const $ sndable f) aud) out
 
 stemsRules :: Song -> Rules ()
 stemsRules s = do
@@ -155,9 +155,9 @@ stemsRules s = do
                 []     -> fail $ "No file found matching pattern " ++ pat
                 f' : _ -> return f'
             in case f of
-              Sndable    fp -> Sndable    <$> findMatch fp
-              Rate r     fp -> Rate r     <$> findMatch fp
-              JammitAIFC fp -> JammitAIFC <$> findMatch fp -- shouldn't happen
+              Sndable    fp pos -> (\g -> Sndable g pos) <$> findMatch fp
+              Rate r     fp pos -> (\g -> Rate  r g pos) <$> findMatch fp
+              JammitAIFC fp     -> JammitAIFC <$> findMatch fp -- shouldn't happen
           buildAudio aud' out
 
 eachAudio :: (Monad m) => Song -> (String -> m ()) -> m ()
@@ -176,17 +176,17 @@ countinRules s = eachVersion s $ \_ dir -> do
         hit = _fileCountin s
     makeCountin mid hit out
   dir </> "song-countin.wav" %> \out -> do
-    let song = Input $ Sndable $ dir </> "song.wav"
-        countin = Input $ Sndable $ dir </> "countin.wav"
+    let song = Input $ sndable $ dir </> "song.wav"
+        countin = Input $ sndable $ dir </> "countin.wav"
     buildAudio (Mix [song, countin]) out
 
 oggRules :: Song -> Rules ()
 oggRules s = eachVersion s $ \_ dir -> do
   dir </> "audio.ogg" %> \out -> do
-    let drums = Input $ Sndable $ dir </> "drums.wav"
-        bass  = Input $ Sndable $ dir </> "bass.wav"
-        guitar = Input $ Sndable $ dir </> "guitar.wav"
-        song  = Input $ Sndable $ dir </> "song-countin.wav"
+    let drums = Input $ sndable $ dir </> "drums.wav"
+        bass  = Input $ sndable $ dir </> "bass.wav"
+        guitar = Input $ sndable $ dir </> "guitar.wav"
+        song  = Input $ sndable $ dir </> "song-countin.wav"
         audio = Merge $ let
           parts = concat
             [ [drums | Drums `elem` _config s]
@@ -559,10 +559,10 @@ fofRules s = eachVersion s $ \title dir -> do
       ini = dir </> "fof/song.ini"
   mid %> copyFile' (dir </> "notes.mid")
   png %> copyFile' "gen/cover.png"
-  drums %> buildAudio (Input $ Sndable $ dir </> "drums.wav")
-  bass %> buildAudio (Input $ Sndable $ dir </> "bass.wav")
-  guitar %> buildAudio (Input $ Sndable $ dir </> "guitar.wav")
-  song %> buildAudio (Input $ Sndable $ dir </> "song-countin.wav")
+  drums %> buildAudio (Input $ sndable $ dir </> "drums.wav")
+  bass %> buildAudio (Input $ sndable $ dir </> "bass.wav")
+  guitar %> buildAudio (Input $ sndable $ dir </> "guitar.wav")
+  song %> buildAudio (Input $ sndable $ dir </> "song-countin.wav")
   ini %> \out -> makeIni title mid s >>= writeFile' out
   phony (dir </> "fof-all") $ do
     need [mid, png, song, ini]

@@ -93,15 +93,18 @@ instance Bifunctor Audio where
   second = fmap
 
 data InputFile
-  = Sndable     FilePath
-  | Rate Double FilePath
+  = Sndable     FilePath (Maybe Duration)
+  | Rate Double FilePath (Maybe Duration)
   | JammitAIFC  FilePath
   deriving (Eq, Ord, Show, Read)
 
+sndable :: FilePath -> InputFile
+sndable f = Sndable f Nothing
+
 instance A.FromJSON InputFile where
   parseJSON v = case v of
-    OneKey "rate" x -> fmap (uncurry Rate) $ A.parseJSON x
-    _               -> fmap Sndable        $ A.parseJSON v
+    OneKey "rate" x -> fmap (\(d, s) -> Rate  d s Nothing) $ A.parseJSON x
+    _               -> fmap (\s      -> Sndable s Nothing) $ A.parseJSON v
 
 -- | orphan instance
 instance A.FromJSON Duration where
@@ -118,31 +121,34 @@ instance A.FromJSON Duration where
             = return seconds
           parseMinutes x = A.parseJSON x -- will succeed if JSON number
 
-sndableSource :: (MonadResource m) => FilePath -> Action (AudioSource m Float)
-sndableSource fp = case takeExtension fp of
+sndableSource :: (MonadResource m) =>
+  FilePath -> Maybe Duration -> Action (AudioSource m Float)
+sndableSource fp pos = case takeExtension fp of
   ".mp3" -> do
     liftIO $ createDirectoryIfMissing True "gen/temp"
     (f, h) <- liftIO $ openTempFile "gen/temp" "from-mp3.wav"
     liftIO $ hClose h
     () <- cmd "lame --decode" [fp, f]
-    sndableSource f
-  _ -> liftIO $ sourceSnd fp
+    sndableSource f pos
+  _ -> liftIO $ case pos of
+    Nothing  -> sourceSnd fp
+    Just dur -> sourceSndFrom dur fp
 
 buildSource :: (MonadResource m) =>
   Audio Duration InputFile -> Action (AudioSource m Float)
 buildSource aud = case aud of
   Silence c t -> return $ silent t 44100 c
   Input fin -> case fin of
-    Sndable x -> do
-      src <- sndableSource x
+    Sndable x pos -> do
+      src <- sndableSource x pos
       let srcRate = if rate src == 44100 then src else resampleTo 44100 SincBestQuality src
           srcChan = case channels srcRate of
             2 -> srcRate
             1 -> merge srcRate srcRate
             c -> error $ "buildSource: only audio with 1 or 2 channels supported (" ++ show c ++ " given)"
       return srcChan
-    Rate r x -> do
-      src <- sndableSource x
+    Rate r x pos -> do
+      src <- sndableSource x pos
       if rate src == r
         then return src
         else error $ unwords
@@ -160,6 +166,8 @@ buildSource aud = case aud of
   Gain d x -> gain (realToFrac d) <$> buildSource x
   Take Start t x -> takeStart t <$> buildSource x
   Take End t x -> takeEnd t <$> buildSource x
+  Drop Start t (Input (Sndable x Nothing)) -> buildSource $ Input $ Sndable x $ Just t
+  Drop Start t (Input (Rate  r x Nothing)) -> buildSource $ Input $ Rate  r x $ Just t
   Drop Start t x -> dropStart t <$> buildSource x
   Drop End t x -> dropEnd t <$> buildSource x
   Pad Start t x -> padStart t <$> buildSource x
@@ -181,9 +189,9 @@ buildAudio aud out = do
   need $ do
     fin <- F.toList aud
     return $ case fin of
-      Sndable    x -> x
-      Rate _     x -> x
-      JammitAIFC x -> x
+      Sndable    x _ -> x
+      Rate _     x _ -> x
+      JammitAIFC x   -> x
   src <- buildSource aud
   let fmt = case takeExtension out of
         ".ogg" -> Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile

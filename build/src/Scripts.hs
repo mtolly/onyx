@@ -87,7 +87,7 @@ makeCountin mid wavin wavout = do
       secs = map (realToFrac . U.applyTempoMap tmap) beats :: [Double]
       audio = case secs of
         [] -> Silence 2 $ CA.Seconds 0
-        _ -> Mix $ map (\t -> Pad Start (CA.Seconds t) $ Input $ Sndable wavin) secs
+        _ -> Mix $ map (\t -> Pad Start (CA.Seconds t) $ Input $ Sndable wavin Nothing) secs
   buildAudio audio wavout
 
 fixResolution :: F.T -> F.T
