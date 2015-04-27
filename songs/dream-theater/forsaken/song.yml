@@ -37,5 +37,5 @@ audio:
           - 3.515
           - take:
             - '5:24.358' # 5:37 - 12.642
-            - gain: [0.97, *drums]
+            - *drums
 config: [drums]

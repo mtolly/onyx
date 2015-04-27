@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE MultiWayIf #-}
 module Audio where
 
 import Development.Shake (cmd, Action, need, liftIO)
@@ -20,7 +21,10 @@ import qualified Data.HashMap.Strict as HM
 import Data.Monoid (mempty)
 import Text.Read (readMaybe)
 import Data.Char (isDigit)
+import qualified Data.Vector.Storable as V
 
+import Data.Conduit ((=$=))
+import qualified Data.Conduit.List as CL
 import Data.Conduit.Audio
 import Data.Conduit.Audio.Sndfile
 import qualified Sound.File.Sndfile as Snd
@@ -197,4 +201,13 @@ buildAudio aud out = do
         ".ogg" -> Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
         ".wav" -> Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
         ext -> error $ "buildAudio: unknown audio output file extension " ++ ext
-  liftIO $ runResourceT $ sinkSnd out fmt src
+  liftIO $ runResourceT $ sinkSnd out fmt $ clampFloat src
+
+-- | Forces floating point samples to be in @[-1, 1]@.
+-- libsndfile should do this, after https://github.com/kaoskorobase/hsndfile/pull/12
+clampFloat :: (Monad m) => AudioSource m Float -> AudioSource m Float
+clampFloat src = src { source = source src =$= CL.map clampVector } where
+  clampVector = V.map $ \s -> if
+    | s < (-1)  -> -1
+    | s > 1     -> 1
+    | otherwise -> s
