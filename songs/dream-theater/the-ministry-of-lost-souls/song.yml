@@ -8,24 +8,28 @@ audio:
       - 3.425
       - pad: [5.900, source]
   drumcam:
-    # NOT DONE YET
-    # - subtraction is like a sample off or so, must fix
-    # - end cuts off much earlier than album audio, what do
+    # not usable in game yet, the DVD cuts off way early
     drums:
-      &drums
-      take:
-        - '13:21'
-        - drop:
-          - '47:31.200'
-          - audio-drumcam-drums.wav
+      resample:
+        &drums
+        take:
+          - '13:21'
+          - drop:
+            - '47:31.200'
+            - rate: [48000, audio-drumcam-drums.wav]
     song:
-      mix:
+      pad:
+        - 1
         - drop:
-          - frames: 3911
-          - take:
-            - '13:21'
-            - drop:
-              - '47:31.200'
-              - audio-drumcam-band.wav
-        - gain: [-1, *drums]
+          - 1
+          - resample:
+              mix:
+                - drop:
+                  - frames: 3911
+                  - take:
+                    - '13:21'
+                    - drop:
+                      - '47:31.200'
+                      - rate: [48000, audio-drumcam-band.wav]
+                - gain: [-1, *drums]
 config: [drums]
