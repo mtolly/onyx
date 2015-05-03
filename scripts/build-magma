@@ -1,23 +1,20 @@
 #!/usr/bin/env ruby
 
+require 'yaml'
+
 def system_(*args)
   STDERR.puts args.join(' ')
   result = system(*args)
   raise(IOError, "Command returned #{$?.exitstatus}") if result != true
 end
 
-readmes = `ls songs/*/*/README.md`.split "\n"
-#readmes = ['dream-theater/6-00/README.md']
+readmes = Dir['songs/*/*/README.md']
 readmes.each do |readme|
-  folder = File.dirname(readme)
+  yaml_file = readme.sub('README.md', 'song.yml')
+  folder = File.dirname(yaml_file)
   puts ">>> SONG: #{folder}"
-  str = File.read(readme)
-  audio = []
-  pedals = []
-  audio << 'album' if str.include?('`album`')
-  audio << 'jammit' if str.include?('`jammit`')
-  audio << 'hit' if str.include?('`hit`')
-  audio << 'pledgemusic' if str.include?('`pledgemusic`')
+  yaml = YAML.load_file(yaml_file)
+  audio = yaml['audio'].keys
   makes = []
   audio.each do |a|
     ['1p', '2p'].each do |p|
@@ -27,18 +24,12 @@ readmes.each do |readme|
         "gen/#{a}/#{p}/magma/notes.mid",
         "gen/#{a}/#{p}/magma/cover.bmp",
       ]
-      if ['album', 'hit'].include? a
-        makes += [
-          "gen/#{a}/#{p}/magma/drums.wav",
-        ]
-        if str.include? 'Bass:'
+      expr = yaml['audio'][a]
+      if a != 'jammit' && !(expr.is_a?(Hash) && expr.has_key?('song'))
+        # audio is non-stems
+        yaml['config'].each do |inst|
           makes += [
-            "gen/#{a}/#{p}/magma/bass.wav",
-          ]
-        end
-        if str.include? 'Guitar:'
-          makes += [
-            "gen/#{a}/#{p}/magma/guitar.wav",
+            "gen/#{a}/#{p}/magma/#{inst}.wav",
           ]
         end
       end
