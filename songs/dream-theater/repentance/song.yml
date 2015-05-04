@@ -1,0 +1,7 @@
+title: Repentance
+file-include: ../../../albums/systematic-chaos.yml
+track-number: 5
+audio:
+  album:
+    pad: [2.315, source]
+config: [drums]

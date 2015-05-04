@@ -1,0 +1,13 @@
+title: Panic Attack
+file-include: ../../../albums/octavarium.yml
+track-number: 5
+audio:
+  album:
+    fade:
+      - end
+      - 0.3
+      - take:
+        - '7:20.188'
+        - pad: [3.778, source]
+config: [drums, guitar, bass]
+# FIXME: grinnz's chart has a misplaced kick at end of measure 139

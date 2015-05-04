@@ -1,0 +1,7 @@
+title: Constant Motion
+file-include: ../../../albums/systematic-chaos.yml
+track-number: 3
+audio:
+  album:
+    pad: [3.593, source]
+config: [drums, bass, guitar]

@@ -1,0 +1,6 @@
+title: Octavarium
+file-include: ../../../albums/octavarium.yml
+track-number: 8
+audio:
+  album: source
+config: [drums]
