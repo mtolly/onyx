@@ -1,0 +1,7 @@
+title: Stream of Consciousness
+file-include: ../../../albums/train-of-thought.yml
+track-number: 6
+audio:
+  album:
+    pad: [4.979, source]
+config: [drums]

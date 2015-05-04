@@ -1,0 +1,7 @@
+title: This Dying Soul
+file-include: ../../../albums/train-of-thought.yml
+track-number: 2
+audio:
+  album:
+    pad: [3.539, source]
+config: [drums]

@@ -1,0 +1,7 @@
+title: Honor Thy Father
+file-include: ../../../albums/train-of-thought.yml
+track-number: 4
+audio:
+  album:
+    pad: [3.095, source]
+config: [drums]

@@ -1,0 +1,8 @@
+album: Train of Thought
+artist: Dream Theater
+year: 2003
+genre: metal
+subgenre: prog
+vocal-gender: male
+file-album-art: ../covers/train-of-thought.jpg
+file-include: default.yml

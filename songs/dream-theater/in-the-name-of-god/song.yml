@@ -1,0 +1,7 @@
+title: In the Name of God
+file-include: ../../../albums/train-of-thought.yml
+track-number: 7
+audio:
+  album:
+    pad: [6.645, source]
+config: [drums]

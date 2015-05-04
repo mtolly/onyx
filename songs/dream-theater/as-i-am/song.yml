@@ -1,0 +1,7 @@
+title: As I Am
+file-include: ../../../albums/train-of-thought.yml
+track-number: 1
+audio:
+  album:
+    pad: [3.181, source]
+config: [drums]
