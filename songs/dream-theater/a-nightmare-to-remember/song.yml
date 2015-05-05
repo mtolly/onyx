@@ -1,0 +1,7 @@
+title: A Nightmare to Remember
+file-include: ../../../albums/black-clouds-silver-linings.yml
+track-number: 1
+audio:
+  album:
+    pad: [2.086, source]
+config: [drums]

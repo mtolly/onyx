@@ -1,0 +1,7 @@
+title: The Count of Tuscany
+file-include: ../../../albums/black-clouds-silver-linings.yml
+track-number: 6
+audio:
+  album:
+    pad: [3.351, source]
+config: [drums]

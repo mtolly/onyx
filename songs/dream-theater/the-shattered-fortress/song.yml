@@ -1,0 +1,7 @@
+title: The Shattered Fortress
+file-include: ../../../albums/black-clouds-silver-linings.yml
+track-number: 4
+audio:
+  album:
+    pad: [7.079, source]
+config: [drums]
