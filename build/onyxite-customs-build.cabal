@@ -30,11 +30,12 @@ executable onyxbuild
 
     Parser
     Parser.Base
-    Parser.Drums
-    Parser.Events
     Parser.Beat
     Parser.Countin
+    Parser.Drums
+    Parser.Events
     Parser.File
+    Parser.FiveButton
   build-depends:
     base    >= 4.6    && < 4.8
     , shake >= 0.14.3 && < 0.15

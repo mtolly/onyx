@@ -16,12 +16,15 @@ import qualified Parser.Drums as Drums
 import qualified Parser.Events as Events
 import qualified Parser.Beat as Beat
 import qualified Parser.Countin as Countin
+import qualified Parser.FiveButton as FiveButton
 
 data Track t
-  = PartDrums (RTB.T t Drums.Event  )
-  | Countin   (RTB.T t Countin.Event)
-  | Events    (RTB.T t Events.Event )
-  | Beat      (RTB.T t Beat.Event   )
+  = PartDrums  (RTB.T t Drums.Event     )
+  | PartGuitar (RTB.T t FiveButton.Event)
+  | PartBass   (RTB.T t FiveButton.Event)
+  | Countin    (RTB.T t Countin.Event   )
+  | Events     (RTB.T t Events.Event    )
+  | Beat       (RTB.T t Beat.Event      )
   deriving (Eq, Ord, Show)
 
 data Song t = Song
@@ -66,10 +69,12 @@ parseTrack :: (Monad m) => U.MeasureMap -> RTB.T U.Beats E.T -> ParserT m (Track
 parseTrack mmap t = case U.trackName t of
   Nothing -> fatal "Track with no name"
   Just s -> inside ("track named " ++ show s) $ case s of
-    "PART DRUMS" -> liftM PartDrums $ makeTrackParser Drums.readEvent   mmap t
-    "countin"    -> liftM Countin   $ makeTrackParser Countin.readEvent mmap t
-    "EVENTS"     -> liftM Events    $ makeTrackParser Events.readEvent  mmap t
-    "BEAT"       -> liftM Beat      $ makeTrackParser Beat.readEvent    mmap t
+    "PART DRUMS"  -> liftM PartDrums  $ makeTrackParser Drums.readEvent      mmap t
+    "PART GUITAR" -> liftM PartGuitar $ makeTrackParser FiveButton.readEvent mmap t
+    "PART BASS"   -> liftM PartBass   $ makeTrackParser FiveButton.readEvent mmap t
+    "countin"     -> liftM Countin    $ makeTrackParser Countin.readEvent    mmap t
+    "EVENTS"      -> liftM Events     $ makeTrackParser Events.readEvent     mmap t
+    "BEAT"        -> liftM Beat       $ makeTrackParser Beat.readEvent       mmap t
     _ -> fatal "Unrecognized track name"
 
 showPosition :: U.MeasureBeats -> String
