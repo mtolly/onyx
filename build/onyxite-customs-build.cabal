@@ -26,6 +26,12 @@ executable onyxbuild
     Scripts
     OneFoot
     Magma
+    Image
+
+    Parser
+    Parser.Base
+    Parser.Drums
+    Parser.File
   build-depends:
     base    >= 4.6    && < 4.8
     , shake >= 0.14.3 && < 0.15
@@ -43,6 +49,7 @@ executable onyxbuild
     , JuicyPixels >= 3.2.3.1
     , conduit
     , vector
+    , transformers >= 0.4
     -- my libraries:
     , dtab >= 1.0 && < 1.1
     , jammittools >= 0.4.1 && < 0.5
