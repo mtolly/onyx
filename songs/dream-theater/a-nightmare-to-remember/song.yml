@@ -4,4 +4,23 @@ track-number: 1
 audio:
   album:
     pad: [2.086, source]
+  deluxe:
+    # TODO: mix
+    #   beginning: no thunderstorm
+    #   14:32 - 14:47: 2nd keyboard part (the one playing 16th notes) is missing
+    drums:
+      pad:
+        - 28.173
+        - gain: [1, "Nightmare to Remember Drum Stem.flac"]
+    song:
+      pad:
+        - 28.173
+        - gain:
+          - 0.5
+          - mix:
+            - gain: [1, "Nightmare to Remember Bass Stem.flac"]
+            - gain: [1, "Nightmare to Remember Guitar Stem.flac"]
+            - gain: [1, "Nightmare to Remember Keys Stem.flac"]
+            - gain: [1, "Nightmare to Remember Solo Stem.flac"]
+            - gain: [1, "Nightmare to Remember Vocal Stem.flac"]
 config: [drums]
