@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE PatternSynonyms #-}
 module Parser.Drums
 ( Event(..), Gem(..), ProColor(..), ProType(..), Audio(..), Disco(..)
 , readEvent, showEvent
@@ -9,7 +10,6 @@ module Parser.Drums
 
 import qualified Sound.MIDI.File.Event as E
 import qualified Sound.MIDI.File.Event.Meta as Meta
-import qualified Sound.MIDI.Message.Channel as C
 import qualified Sound.MIDI.Message.Channel.Voice as V
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
@@ -62,90 +62,50 @@ data Disco
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 readEvent :: E.T -> Maybe [Event]
-readEvent e = let
-  one x = Just [x]
-  noteOn p = case V.fromPitch p of
-    60  -> one $ Note Easy Kick
-    61  -> one $ Note Easy Red
-    62  -> one $ Note Easy $ Pro Yellow ()
-    63  -> one $ Note Easy $ Pro Blue   ()
-    64  -> one $ Note Easy $ Pro Green  ()
+readEvent e = case e of
+  MIDINote p b -> case V.fromPitch p of
+    60  -> on $ Note Easy Kick
+    61  -> on $ Note Easy Red
+    62  -> on $ Note Easy $ Pro Yellow ()
+    63  -> on $ Note Easy $ Pro Blue   ()
+    64  -> on $ Note Easy $ Pro Green  ()
 
-    72  -> one $ Note Medium Kick
-    73  -> one $ Note Medium Red
-    74  -> one $ Note Medium $ Pro Yellow ()
-    75  -> one $ Note Medium $ Pro Blue   ()
-    76  -> one $ Note Medium $ Pro Green  ()
+    72  -> on $ Note Medium Kick
+    73  -> on $ Note Medium Red
+    74  -> on $ Note Medium $ Pro Yellow ()
+    75  -> on $ Note Medium $ Pro Blue   ()
+    76  -> on $ Note Medium $ Pro Green  ()
 
-    84  -> one $ Note Hard Kick
-    85  -> one $ Note Hard Red
-    86  -> one $ Note Hard $ Pro Yellow ()
-    87  -> one $ Note Hard $ Pro Blue   ()
-    88  -> one $ Note Hard $ Pro Green  ()
+    84  -> on $ Note Hard Kick
+    85  -> on $ Note Hard Red
+    86  -> on $ Note Hard $ Pro Yellow ()
+    87  -> on $ Note Hard $ Pro Blue   ()
+    88  -> on $ Note Hard $ Pro Green  ()
 
-    96  -> one $ Note Expert Kick
-    97  -> one $ Note Expert Red
-    98  -> one $ Note Expert $ Pro Yellow ()
-    99  -> one $ Note Expert $ Pro Blue   ()
-    100 -> one $ Note Expert $ Pro Green  ()
+    96  -> on $ Note Expert Kick
+    97  -> on $ Note Expert Red
+    98  -> on $ Note Expert $ Pro Yellow ()
+    99  -> on $ Note Expert $ Pro Blue   ()
+    100 -> on $ Note Expert $ Pro Green  ()
 
-    103 -> one $ Solo True
-    110 -> one $ ProType Yellow Tom
-    111 -> one $ ProType Blue   Tom
-    112 -> one $ ProType Green  Tom
-    116 -> one $ Overdrive True
-    120 -> one $ Activation True
+    103 -> long $ Solo b
+    110 -> long $ ProType Yellow $ if b then Tom else Cymbal
+    111 -> long $ ProType Blue   $ if b then Tom else Cymbal
+    112 -> long $ ProType Green  $ if b then Tom else Cymbal
+    116 -> long $ Overdrive b
+    -- 120..124 are always together, so we just parse 120 and ignore the rest
+    120 -> long $ Activation b
     121 -> Just []
     122 -> Just []
     123 -> Just []
     124 -> Just []
-    126 -> one $ SingleRoll True
-    127 -> one $ DoubleRoll True
+    126 -> long $ SingleRoll b
+    127 -> long $ DoubleRoll b
     _   -> Nothing
-  noteOff p = case V.fromPitch p of
-    60  -> Just []
-    61  -> Just []
-    62  -> Just []
-    63  -> Just []
-    64  -> Just []
-
-    72  -> Just []
-    73  -> Just []
-    74  -> Just []
-    75  -> Just []
-    76  -> Just []
-
-    84  -> Just []
-    85  -> Just []
-    86  -> Just []
-    87  -> Just []
-    88  -> Just []
-
-    96  -> Just []
-    97  -> Just []
-    98  -> Just []
-    99  -> Just []
-    100 -> Just []
-    
-    103 -> one $ Solo False
-    110 -> one $ ProType Yellow Cymbal
-    111 -> one $ ProType Blue   Cymbal
-    112 -> one $ ProType Green  Cymbal
-    116 -> one $ Overdrive False
-    120 -> one $ Activation False
-    121 -> Just []
-    122 -> Just []
-    123 -> Just []
-    124 -> Just []
-    126 -> one $ SingleRoll False
-    127 -> one $ DoubleRoll False
-    _   -> Nothing
-  in case e of
-    E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn p vel))) ->
-      (if V.fromVelocity vel == 0 then noteOff else noteOn) p
-    E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOff p _))) -> noteOff p
-    E.MetaEvent (Meta.TextEvent s) -> fmap (: []) $ readMixEvent s
-    _ -> Nothing
+    where on   x = Just [x | b]
+          long x = Just [x]
+  E.MetaEvent (Meta.TextEvent s) -> fmap (: []) $ readMixEvent s
+  _ -> Nothing
 
 -- | e.g. turns 'D2' and 'Disco' into @\"drums2d\"@
 showMix :: Audio -> Disco -> String
@@ -170,25 +130,20 @@ readMixEvent s = readCommand s >>= \case
 
 showEvent :: Event -> RTB.T U.Beats E.T
 showEvent = \case
-  ProType Yellow ptype -> one $ note (ptype == Tom) 110
-  ProType Blue   ptype -> one $ note (ptype == Tom) 111
-  ProType Green  ptype -> one $ note (ptype == Tom) 112
+  ProType Yellow ptype -> one $ edge' 110 (ptype == Tom)
+  ProType Blue   ptype -> one $ edge' 111 (ptype == Tom)
+  ProType Green  ptype -> one $ edge' 112 (ptype == Tom)
   Mix diff audio disco -> one $ E.MetaEvent $ Meta.TextEvent $
     showCommand ["mix", show $ fromEnum diff, showMix audio disco]
-  SingleRoll b -> one $ note b 126
-  DoubleRoll b -> one $ note b 127
-  Overdrive  b -> one $ note b 116
-  Activation b -> foldr (RTB.cons 0) RTB.empty $ map (note b) [120 .. 124]
-  Solo       b -> one $ note b 103
-  Note diff gem -> let
-    p = 60 + 12 * fromEnum diff + case gem of
-      Kick          -> 0
-      Red           -> 1
-      Pro Yellow () -> 2
-      Pro Blue   () -> 3
-      Pro Green  () -> 4
-    in RTB.fromPairList [(0, note True p), (1/32, note False p)]
+  SingleRoll b -> one $ edge' 126 b
+  DoubleRoll b -> one $ edge' 127 b
+  Overdrive  b -> one $ edge' 116 b
+  Activation b -> foldr (RTB.cons 0) RTB.empty [ edge' p b | p <- [120 .. 124] ]
+  Solo       b -> one $ edge' 103 b
+  Note diff gem -> blip $ V.toPitch $ 60 + 12 * fromEnum diff + case gem of
+    Kick          -> 0
+    Red           -> 1
+    Pro Yellow () -> 2
+    Pro Blue   () -> 3
+    Pro Green  () -> 4
   where one x = RTB.singleton 0 x
-        note True  p = ch0 $ V.NoteOn  (V.toPitch p) (V.toVelocity 96)
-        note False p = ch0 $ V.NoteOff (V.toPitch p) (V.toVelocity 0 )
-        ch0 = E.MIDIEvent . C.Cons (C.toChannel 0) . C.Voice
