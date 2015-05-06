@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 module Parser where
 
+import Data.Functor.Identity
 import Control.Monad.Trans.Except
 import Control.Monad.Trans.RWS
 import Control.Applicative
@@ -49,6 +50,9 @@ inside s (ParserT (ExceptT rwst)) = ParserT $ ExceptT $ local (s :) rwst
 
 runParserT :: (Monad m) => ParserT m a -> m (Either [Message] a, [Message])
 runParserT (ParserT ex) = evalRWST (runExceptT ex) [] ()
+
+runParser :: ParserT Identity a -> (Either [Message] a, [Message])
+runParser = runIdentity . runParserT
 
 -- | Prints the message and its context stack to standard error.
 printMessage :: Message -> IO ()

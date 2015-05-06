@@ -9,7 +9,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Numeric.NonNegative.Class as NNC
 import Control.Monad (forM, forM_, liftM)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromJust)
 
 import Parser
 import qualified Parser.Drums as Drums
@@ -32,6 +32,23 @@ data Song t = Song
   , s_signatures :: U.MeasureMap
   , s_tracks     :: [Track t]
   } deriving (Eq, Ord, Show)
+
+-- | TODO: handle a non-encodeable time signature
+showMIDIFile :: Song U.Beats -> F.T
+showMIDIFile s = let
+  tempos = fmap U.showTempo $ U.tempoMapToBPS $ s_tempos s
+  sigs = fmap (fromJust . U.showSignature) $ U.measureMapToLengths $ s_signatures s
+  tempoTrk = U.setTrackName "onyxbuild" $ RTB.merge tempos sigs
+  in U.encodeFileBeats F.Parallel 480 $ tempoTrk : map showTrack (s_tracks s)
+
+showTrack :: Track U.Beats -> RTB.T U.Beats E.T
+showTrack = \case
+  PartDrums  t -> U.setTrackName "PART DRUMS"  $ U.trackJoin $ fmap Drums.showEvent      t
+  PartGuitar t -> U.setTrackName "PART GUITAR" $ U.trackJoin $ fmap FiveButton.showEvent t
+  PartBass   t -> U.setTrackName "PART BASS"   $ U.trackJoin $ fmap FiveButton.showEvent t
+  Countin    t -> U.setTrackName "countin"     $ U.trackJoin $ fmap Countin.showEvent    t
+  Events     t -> U.setTrackName "EVENTS"      $ U.trackJoin $ fmap Events.showEvent     t
+  Beat       t -> U.setTrackName "BEAT"        $ U.trackJoin $ fmap Beat.showEvent       t
 
 readMIDIFile :: (Monad m) => F.T -> ParserT m (Song U.Beats)
 readMIDIFile mid = case U.decodeFile mid of
