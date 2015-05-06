@@ -1,3 +1,4 @@
+{- | Datatypes and functions used across multiple MIDI parsers. -}
 module Parser.Base where
 
 import Data.Char (isSpace)

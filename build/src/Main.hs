@@ -40,8 +40,6 @@ import qualified Sound.MIDI.File.Save as Save
 import Codec.Picture
 
 import qualified Parser
-import qualified Parser.Base
-import qualified Parser.Drums
 import qualified Parser.File
 
 jammitLib :: IO J.Library

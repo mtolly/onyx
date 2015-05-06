@@ -31,6 +31,11 @@ warn s = ParserT $ lift $ do
   ctx <- ask
   tell [Message s ctx]
 
+-- | Turns errors into warnings, and returns "Nothing".
+optional :: (Monad m) => ParserT m a -> ParserT m (Maybe a)
+optional p = liftM Just p `catch` \errs ->
+  ParserT (lift $ tell errs) >> return Nothing
+
 fatal :: (Monad m) => String -> ParserT m a
 fatal s = ParserT $ do
   ctx <- lift ask
@@ -49,7 +54,7 @@ runParserT (ParserT ex) = evalRWST (runExceptT ex) [] ()
 printMessage :: Message -> IO ()
 printMessage (Message s ctx) = do
   hPutStrLn stderr s
-  hPutStrLn stderr "Context:"
+  hPutStrLn stderr "Context (innermost first):"
   forM_ ctx $ \c -> hPutStrLn stderr $ "  — " ++ c
 
 -- | Prints warnings and errors to standard error, and then throws an exception

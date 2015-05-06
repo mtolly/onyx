@@ -31,6 +31,9 @@ executable onyxbuild
     Parser
     Parser.Base
     Parser.Drums
+    Parser.Events
+    Parser.Beat
+    Parser.Countin
     Parser.File
   build-depends:
     base    >= 4.6    && < 4.8
