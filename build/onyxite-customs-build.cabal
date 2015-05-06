@@ -63,3 +63,43 @@ executable onyxbuild
     , conduit-audio-samplerate
   default-language:     Haskell2010
   ghc-options:          -Wall
+
+executable testparser
+  hs-source-dirs:       src
+  main-is:              testparser.hs
+  other-modules:
+    Parser
+    Parser.Base
+    Parser.Beat
+    Parser.Countin
+    Parser.Drums
+    Parser.Events
+    Parser.File
+    Parser.FiveButton
+  build-depends:
+    base    >= 4.6    && < 4.8
+    , shake >= 0.14.3 && < 0.15
+    , directory
+    , temporary
+    , aeson, text, unordered-containers, filepath, yaml
+    , bifunctors
+    , event-list, non-negative, midi
+    , containers
+    , bytestring
+    , file-embed
+    , process >= 1.2.0.0 && < 1.3
+    , resourcet
+    , hsndfile
+    , JuicyPixels >= 3.2.3.1
+    , conduit
+    , vector
+    , transformers >= 0.4
+    -- my libraries:
+    , dtab >= 1.0 && < 1.1
+    , jammittools >= 0.4.1 && < 0.5
+    , midi-util >= 0.1 && < 0.2
+    , conduit-audio
+    , conduit-audio-sndfile
+    , conduit-audio-samplerate
+  default-language:     Haskell2010
+  ghc-options:          -Wall

@@ -15,6 +15,7 @@ import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
 import qualified Sound.MIDI.Util as U
 import qualified Data.EventList.Relative.TimeBody as RTB
+import Control.Applicative ((<|>), (<*>), (<$>))
 
 import Parser.Base
 
@@ -32,8 +33,9 @@ data Gem a = Kick | Red | Pro ProColor a
 -- Also, @'ProType' _ 'Cymbal'@ comes before @'ProType' _ 'Tom'@, since the
 -- note-on ('Tom') should supercede the simultaneous note-off ('Cymbal').
 data Event
-  = ProType ProColor ProType
-  | Mix Difficulty Audio Disco
+  = Mood Mood
+  | ProType ProColor ProType
+  | SetMix Mix
   | SingleRoll Bool
   | DoubleRoll Bool
   | Overdrive  Bool -- ^ white notes to gain energy
@@ -41,6 +43,9 @@ data Event
   | Solo       Bool
   | Note Difficulty (Gem ())
   -- TODO: animations
+  deriving (Eq, Ord, Show, Read)
+
+data Mix = Mix Difficulty Audio Disco
   deriving (Eq, Ord, Show, Read)
 
 -- | Controls the audio files used for the drum track.
@@ -64,6 +69,7 @@ data Disco
 readEvent :: E.T -> Maybe [Event]
 readEvent e = case e of
   MIDINote p b -> case V.fromPitch p of
+    i | 24 <= i && i <= 51 && i /= 33 -> Just [] -- ignore animations for now
     60  -> on $ Note Easy Kick
     61  -> on $ Note Easy Red
     62  -> on $ Note Easy $ Pro Yellow ()
@@ -89,6 +95,8 @@ readEvent e = case e of
     100 -> on $ Note Expert $ Pro Green  ()
 
     103 -> long $ Solo b
+    105 -> Just [] -- player 1 face-off; ignored
+    106 -> Just [] -- player 2 face-off; ignored
     110 -> long $ ProType Yellow $ if b then Tom else Cymbal
     111 -> long $ ProType Blue   $ if b then Tom else Cymbal
     112 -> long $ ProType Green  $ if b then Tom else Cymbal
@@ -104,37 +112,29 @@ readEvent e = case e of
     _   -> Nothing
     where on   x = Just [x | b]
           long x = Just [x]
-  E.MetaEvent (Meta.TextEvent s) -> fmap (: []) $ readMixEvent s
+  E.MetaEvent (Meta.TextEvent s) -> fmap (: []) $ fmap SetMix (readCommand s) <|> fmap Mood (readCommand s)
   _ -> Nothing
+
+instance Command Mix where
+  fromCommand (Mix diff audio disco) = ["mix", show $ fromEnum diff, showMix audio disco]
+  toCommand = reverseLookup (Mix <$> each <*> each <*> each) fromCommand
 
 -- | e.g. turns 'D2' and 'Disco' into @\"drums2d\"@
 showMix :: Audio -> Disco -> String
-showMix audio disco = "drums" ++ drop 1 (show audio) ++ case disco of
+showMix audio disco = "drums" ++ show (fromEnum audio) ++ case disco of
   NoDisco     -> ""
   Disco       -> "d"
   DiscoNoFlip -> "dnoflip"
   EasyMix     -> "easy"
   EasyNoKick  -> "easynokick"
 
--- | Tries to interpret a string as an audio mix event.
-readMixEvent :: String -> Maybe Event
-readMixEvent s = readCommand s >>= \case
-  ["mix", x, y]
-    | Just diff <- lookup x $ zip (words "0 1 2 3") [Easy .. Expert]
-    , Just (audio, disco) <- lookup y $ do
-      audio <- [minBound .. maxBound]
-      disco <- [minBound .. maxBound]
-      return (showMix audio disco, (audio, disco))
-    -> Just $ Mix diff audio disco
-  _ -> Nothing
-
 showEvent :: Event -> RTB.T U.Beats E.T
 showEvent = \case
+  Mood m -> one $ showCommand' m
   ProType Yellow ptype -> one $ edge' 110 (ptype == Tom)
   ProType Blue   ptype -> one $ edge' 111 (ptype == Tom)
   ProType Green  ptype -> one $ edge' 112 (ptype == Tom)
-  Mix diff audio disco -> one $ E.MetaEvent $ Meta.TextEvent $
-    showCommand ["mix", show $ fromEnum diff, showMix audio disco]
+  SetMix mix -> one $ showCommand' mix
   SingleRoll b -> one $ edge' 126 b
   DoubleRoll b -> one $ edge' 127 b
   Overdrive  b -> one $ edge' 116 b

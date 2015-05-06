@@ -1,15 +1,50 @@
 {- | Datatypes and functions used across multiple MIDI parsers. -}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
 module Parser.Base where
 
-import Data.Char (isSpace)
+import Data.Char (isSpace, isUpper, toLower)
 import qualified Sound.MIDI.File.Event as E
+import qualified Sound.MIDI.File.Event.Meta as Meta
 import qualified Sound.MIDI.Message.Channel as C
 import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util as U
 import qualified Data.EventList.Relative.TimeBody as RTB
+
+class Command a where
+  toCommand :: [String] -> Maybe a
+  fromCommand :: a -> [String]
+
+reverseLookup :: (Eq b) => [a] -> (a -> b) -> b -> Maybe a
+reverseLookup xs f y = let
+  pairs = [ (f x, x) | x <- xs ]
+  in lookup y pairs
+
+each :: (Enum a, Bounded a) => [a]
+each = [minBound .. maxBound]
+
+-- | Turns @FooBarBaz@ into @["foo_bar_baz"]@.
+autoFromCommand :: (Show a) => a -> [String]
+autoFromCommand = (: []) . f . show where
+  f "" = ""
+  f (c : cs) = toLower c : g cs
+  g "" = ""
+  g (c : cs) = if isUpper c
+    then '_' : toLower c : g cs
+    else c : g cs
+
+data Mood = IdleRealtime | Idle | IdleIntense | Play | Mellow | Intense
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance Command Mood where
+  fromCommand = autoFromCommand
+  toCommand = reverseLookup each fromCommand
+
+instance Command [String] where
+  toCommand   = Just
+  fromCommand = id
 
 data Difficulty = Easy | Medium | Hard | Expert
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -35,14 +70,21 @@ blip p = RTB.fromPairList
   , (1/32, edge p False)
   ]
 
+readCommand' :: (Command a) => E.T -> Maybe a
+readCommand' (E.MetaEvent (Meta.TextEvent s)) = readCommand s
+readCommand' _ = Nothing
+
 -- | Turns a text event like @\"[foo bar baz]\"@ into @[\"foo\", \"bar\", \"baz\"]@.
-readCommand :: String -> Maybe [String]
+readCommand :: (Command a) => String -> Maybe a
 readCommand s =  case dropWhile isSpace s of
   '[' : s'    -> case dropWhile isSpace $ reverse s' of
-    ']' : s'' -> Just $ words $ reverse s''
+    ']' : s'' -> toCommand $ words $ reverse s''
     _         -> Nothing
   _           -> Nothing
 
+showCommand' :: (Command a) => a -> E.T
+showCommand' = E.MetaEvent . Meta.TextEvent . showCommand
+
 -- | Opposite of 'readCommand'.
-showCommand :: [String] -> String
-showCommand ws = "[" ++ unwords ws ++ "]"
+showCommand :: (Command a) => a -> String
+showCommand ws = "[" ++ unwords (fromCommand ws) ++ "]"

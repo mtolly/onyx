@@ -12,15 +12,21 @@ data Color = Green | Red | Yellow | Blue | Orange
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data Event
-  = ForceHOPO Difficulty Bool
+  = Mood Mood
+  | ForceHOPO Difficulty Bool
   | ForceStrum Difficulty Bool
+  | Tremolo Bool
+  | Trill Bool
   | Overdrive Bool
+  | BRE Bool
   | Solo Bool
   | Note Difficulty Color Bool
   deriving (Eq, Ord, Show, Read)
 
 readEvent :: E.T -> Maybe [Event]
 readEvent (MIDINote p b) = case V.fromPitch p of
+  i | 40 <= i && i <= 59 -> Just [] -- guitarist fret position; ignored for now
+
   60 -> one $ Note Easy Green b
   61 -> one $ Note Easy Red b
   62 -> one $ Note Easy Yellow b
@@ -54,16 +60,29 @@ readEvent (MIDINote p b) = case V.fromPitch p of
   102 -> one $ ForceStrum Expert b
 
   103 -> one $ Solo b
+  105 -> Just [] -- player 1 face-off; ignored
+  106 -> Just [] -- player 2 face-off; ignored
   116 -> one $ Overdrive b
+  120 -> one $ BRE b
+  121 -> Just []
+  122 -> Just []
+  123 -> Just []
+  124 -> Just []
+  126 -> one $ Tremolo b
+  127 -> one $ Trill b
   _ -> Nothing
   where one x = Just [x]
-readEvent _ = Nothing
+readEvent e = fmap (\m -> [Mood m]) $ readCommand' e
 
 showEvent :: Event -> RTB.T U.Beats E.T
 showEvent = \case
+  Mood         m -> one $ showCommand' m
   ForceHOPO  d b -> one $ edge' (60 + 12 * fromEnum d + 5) b
   ForceStrum d b -> one $ edge' (60 + 12 * fromEnum d + 6) b
   Note     d c b -> one $ edge' (60 + 12 * fromEnum d + fromEnum c) b
-  Overdrive    b -> one $ edge' 116 b
   Solo         b -> one $ edge' 103 b
+  Overdrive    b -> one $ edge' 116 b
+  BRE          b -> RTB.fromPairList [ (0, edge' p b) | p <- [120..124] ]
+  Tremolo      b -> one $ edge' 126 b
+  Trill        b -> one $ edge' 127 b
   where one = RTB.singleton 0
