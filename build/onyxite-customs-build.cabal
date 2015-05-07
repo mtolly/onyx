@@ -57,7 +57,7 @@ executable onyxbuild
     -- my libraries:
     , dtab >= 1.0 && < 1.1
     , jammittools >= 0.4.1 && < 0.5
-    , midi-util >= 0.1 && < 0.2
+    , midi-util >= 0.1.1.1 && < 0.2
     , conduit-audio
     , conduit-audio-sndfile
     , conduit-audio-samplerate
