@@ -3,10 +3,7 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternSynonyms #-}
-module Parser.Drums
-( Event(..), Gem(..), ProColor(..), ProType(..), Audio(..), Disco(..)
-, readEvent, showEvent
-) where
+module Parser.Drums where
 
 import qualified Sound.MIDI.File.Event as E
 import qualified Sound.MIDI.File.Event.Meta as Meta

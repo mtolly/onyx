@@ -1,10 +1,10 @@
+{-# LANGUAGE LambdaCase #-}
 module Scripts where
 
 import Control.Applicative ((<$>))
 import Control.Arrow (first, second)
-import Data.List (partition, sort, stripPrefix)
+import Data.List (partition, sort)
 import Data.Maybe (listToMaybe, mapMaybe, fromMaybe)
-import Text.Read (readMaybe)
 
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -25,6 +25,18 @@ import qualified Sound.MIDI.Util as U
 
 import qualified Data.Conduit.Audio as CA
 
+import Parser
+import Parser.File
+import qualified Parser.Drums as Drums
+import qualified Parser.Beat as Beat
+import qualified Parser.Events as Events
+import Parser.Base
+
+liftSong :: (Song U.Beats -> Song U.Beats) -> F.T -> F.T
+liftSong f mid = case runParser $ readMIDIFile mid of
+  (Left  msgs, _) -> error $ show msgs
+  (Right song, _) -> showMIDIFile $ f song
+
 standardMIDI :: F.T -> (RTB.T U.Beats E.T, [RTB.T U.Beats E.T])
 standardMIDI mid = case U.decodeFile mid of
   Left []       -> (RTB.empty, [])
@@ -43,35 +55,24 @@ tempoTrackName =
 -- stuff like discobeat), and places ones at the beginning if they don't exist
 -- already.
 drumMix :: Int -> F.T -> F.T
-drumMix n = let
-  editTrack trk = if isDrums trk
-    then newMix $ fmap editEvent trk
-    else trk
-  editEvent evt = case fromMix evt of
-    Nothing -> evt
-    Just (diff, _, disco) -> toMix (diff, n, disco)
-  -- Add plain mix events to position 0 for diffs that don't have them
-  newMix trk = let
-    mixes = do
-      evt <- U.trackTakeZero trk
-      Just (diff, _, _) <- return $ fromMix evt
-      return diff
-    newMixes = [ toMix (diff, n, "") | diff <- [0..3], diff `notElem` mixes ]
-    in foldr addZero trk newMixes
-  fromMix :: E.T -> Maybe (Int, Int, String)
-  fromMix (E.MetaEvent (Meta.TextEvent str)) = do
-    ["[mix", d, rest] <- return $ words str
-    diff              <- readMaybe d
-    c : disco         <- stripPrefix "drums" rest
-    disco'            <- stripSuffix "]" disco
-    mix               <- readMaybe [c]
-    return (diff, mix, disco')
-  fromMix _ = Nothing
-  stripSuffix sfx xs = fmap reverse $ stripPrefix (reverse sfx) (reverse xs)
-  toMix :: (Int, Int, String) -> E.T
-  toMix (x, y, z) = E.MetaEvent $ Meta.TextEvent $
-    "[mix " ++ show x ++ " drums" ++ show y ++ z ++ "]"
-  in uncurry fromStandardMIDI . second (map editTrack) . standardMIDI
+drumMix n = liftSong $ \s -> let
+  newTracks = flip map (s_tracks s) $ \case
+    PartDrums t -> PartDrums $ editTrack t
+    trk         -> trk
+  editTrack trk = let
+    (mixes, notMixes) = flip RTB.partitionMaybe trk $ \case
+      Drums.SetMix mix -> Just mix
+      _                -> Nothing
+    mixes' = fmap (\(Drums.Mix diff _ disco) -> Drums.Mix diff audio disco) mixes
+    audio = toEnum n
+    alreadyMixed = [ diff | Drums.Mix diff _ _ <- U.trackTakeZero mixes' ]
+    addedMixes =
+      [ Drums.Mix diff audio Drums.NoDisco
+      | diff <- [Easy .. Expert]
+      , diff `notElem` alreadyMixed
+      ]
+    in RTB.merge notMixes $ fmap Drums.SetMix $ foldr addZero mixes' addedMixes
+  in s { s_tracks = newTracks }
 
 -- | Adds an event at position zero *after* all the other events there.
 addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
@@ -159,23 +160,6 @@ magmaClean' trk = case U.trackName trk of
           E.MetaEvent (Meta.TextEvent ('>' : _)) -> False
           _ -> True
 
--- | Generates a BEAT track (if it doesn't exist already) which ends at the
--- [end] event from the EVENTS track.
-autoBeat :: F.T -> F.T
-autoBeat f = let
-  (tempo, rest) = standardMIDI f
-  eventsTrack = case filter (\t -> U.trackName t == Just "EVENTS") rest of
-    t : _ -> t
-    []    -> error "autoBeat: no EVENTS track found"
-  endEvent = case findText "[end]" eventsTrack of
-    t : _ -> t
-    []    -> error "autoBeat: no [end] event found"
-  hasBeat = not $ null $ filter (\t -> U.trackName t == Just "BEAT") rest
-  beat = U.trackTake endEvent $ makeBeatTrack tempo
-  in if hasBeat
-    then f
-    else fromStandardMIDI tempo $ beat : rest
-
 noteOn, noteOff :: Int -> E.T
 noteOn p = E.MIDIEvent $ C.Cons (C.toChannel 0) $ C.Voice $
   V.NoteOn (V.toPitch p) $ V.toVelocity 96
@@ -192,34 +176,42 @@ isNoteOff p (E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOff p' _))))
   = V.toPitch p == p'
 isNoteOff _ _ = False
 
--- | Makes an infinite BEAT track given the time signature track.
-makeBeatTrack :: RTB.T U.Beats E.T -> RTB.T U.Beats E.T
-makeBeatTrack = RTB.cons 0 (E.MetaEvent $ Meta.TrackName "BEAT") . go 4 where
-  go :: U.Beats -> RTB.T U.Beats E.T -> RTB.T U.Beats E.T
-  go sig sigs = let
-    sig' = case mapMaybe U.readSignature $ U.trackTakeZero sigs of
-      []    -> sig
-      s : _ -> s
+-- | Generates a BEAT track (if it doesn't exist already) which ends at the
+-- [end] event from the EVENTS track.
+autoBeat :: F.T -> F.T
+autoBeat = liftSong $ \s -> let
+  hasBeat = flip any (s_tracks s) $ \trk -> case trk of
+    Beat _ -> True
+    _      -> False
+  endPosns = flip mapMaybe (s_tracks s) $ \trk -> case trk of
+    Events t -> do
+      ((dt, _), _) <- RTB.viewL (RTB.filter (== Events.Simple Events.End) t)
+      return dt
+    _        -> Nothing
+  endPosn = case endPosns of
+    []    -> error "autoBeat: no [end] event found"
+    p : _ -> p
+  autoTrack = Beat $ U.trackTake endPosn $ makeBeatTrack $ s_signatures s
+  in if hasBeat then s else s { s_tracks = autoTrack : s_tracks s }
+
+makeBeatTrack :: U.MeasureMap -> RTB.T U.Beats Beat.Event
+makeBeatTrack mmap = go 0 where
+  go i = let
+    len = U.unapplyMeasureMap mmap (i + 1, 0) - U.unapplyMeasureMap mmap (i, 0)
     -- the rounding below ensures that
     -- e.g. the sig must be at least 3.5 to get bar-beat-beat-beat.
     -- if it's 3.25, then you would get a beat 0.25 before the next bar,
     -- which Magma doesn't like...
-    thisMeasure = U.trackTake (fromInteger $ simpleRound sig') infiniteMeasure
+    thisMeasure = U.trackTake (fromInteger $ simpleRound len) infiniteMeasure
     -- simpleRound always rounds 0.5 up,
     -- unlike round which rounds to the nearest even number.
     simpleRound frac = case properFraction frac :: (Integer, U.Beats) of
       (_, 0.5) -> ceiling frac
       _        -> round frac
-    in trackGlue sig' thisMeasure $ go sig' $ U.trackDrop sig' sigs
-  infiniteMeasure, infiniteBeats :: RTB.T U.Beats E.T
-  infiniteMeasure
-    = RTB.cons 0 (noteOn 12)
-    $ RTB.cons (1/32) (noteOff 12)
-    $ RTB.delay (1 - 1/32) infiniteBeats
-  infiniteBeats
-    = RTB.cons 0 (noteOn 13)
-    $ RTB.cons (1/32) (noteOff 13)
-    $ RTB.delay (1 - 1/32) infiniteBeats
+    in trackGlue len thisMeasure $ go $ i + 1
+  infiniteMeasure, infiniteBeats :: RTB.T U.Beats Beat.Event
+  infiniteMeasure = RTB.cons 0 Beat.Bar  $ RTB.delay 1 infiniteBeats
+  infiniteBeats   = RTB.cons 0 Beat.Beat $ RTB.delay 1 infiniteBeats
 
 trackGlue :: (NNC.C t, Ord a) => t -> RTB.T t a -> RTB.T t a -> RTB.T t a
 trackGlue t xs ys = let

@@ -13,6 +13,7 @@ import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util as U
 import qualified Data.EventList.Relative.TimeBody as RTB
 
+-- | Class for events which are stored as a @\"[x y z]\"@ text event.
 class Command a where
   toCommand :: [String] -> Maybe a
   fromCommand :: a -> [String]
@@ -64,6 +65,7 @@ edge p b = E.MIDIEvent $ C.Cons (C.toChannel 0) $ C.Voice $
 edge' :: Int -> Bool -> E.T
 edge' = edge . V.toPitch
 
+-- | Makes a note on\/off pair of the smallest allowed length.
 blip :: V.Pitch -> RTB.T U.Beats E.T
 blip p = RTB.fromPairList
   [ (0   , edge p True )
@@ -74,7 +76,7 @@ readCommand' :: (Command a) => E.T -> Maybe a
 readCommand' (E.MetaEvent (Meta.TextEvent s)) = readCommand s
 readCommand' _ = Nothing
 
--- | Turns a text event like @\"[foo bar baz]\"@ into @[\"foo\", \"bar\", \"baz\"]@.
+-- | Turns a string like @\"[foo bar baz]\"@ into some parsed type.
 readCommand :: (Command a) => String -> Maybe a
 readCommand s =  case dropWhile isSpace s of
   '[' : s'    -> case dropWhile isSpace $ reverse s' of
