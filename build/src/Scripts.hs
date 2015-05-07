@@ -2,8 +2,8 @@
 module Scripts where
 
 import Control.Applicative ((<$>))
-import Control.Arrow (first, second)
-import Data.List (partition, sort)
+import Control.Arrow (first)
+import Data.List (sort)
 import Data.Maybe (listToMaybe, mapMaybe, fromMaybe)
 
 import qualified Data.EventList.Absolute.TimeBody as ATB
@@ -11,18 +11,12 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import qualified Sound.MIDI.File as F
 import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.Message.Channel as C
-import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.File.Load as Load
 import qualified Sound.MIDI.File.Save as Save
 import qualified Sound.MIDI.File.Event.Meta as Meta
-
-import Audio
-
-import Development.Shake
-
 import qualified Sound.MIDI.Util as U
 
+import Audio
 import qualified Data.Conduit.Audio as CA
 
 import Parser
@@ -30,7 +24,18 @@ import Parser.File
 import qualified Parser.Drums as Drums
 import qualified Parser.Beat as Beat
 import qualified Parser.Events as Events
+import qualified Parser.FiveButton as Five
 import Parser.Base
+
+import Development.Shake
+
+loadSong :: FilePath -> Action (Song U.Beats)
+loadSong fp = do
+  need [fp]
+  mid <- liftIO $ Load.fromFile fp
+  case runParser $ readMIDIFile mid of
+    (Left  msgs, _) -> fail $ show msgs
+    (Right song, _) -> return song
 
 liftSong :: (Song U.Beats -> Song U.Beats) -> F.T -> F.T
 liftSong f mid = case runParser $ readMIDIFile mid of
@@ -81,10 +86,12 @@ addZero x rtb = case U.trackSplitZero rtb of
 
 makeCountin :: FilePath -> FilePath -> FilePath -> Action ()
 makeCountin mid wavin wavout = do
-  need [mid, wavin]
-  (tempo, trks) <- liftIO $ standardMIDI <$> Load.fromFile mid
-  let tmap = U.makeTempoMap tempo
-      beats = sort $ concatMap (findText "countin_here") $ tempo : trks
+  need [wavin]
+  song <- loadSong mid
+  let tmap = s_tempos song
+      beats = sort $ flip concatMap (s_tracks song) $ \case
+        Countin trk -> ATB.getTimes $ RTB.toAbsoluteEventList 0 trk
+        _           -> []
       secs = map (realToFrac . U.applyTempoMap tmap) beats :: [Double]
       audio = case secs of
         [] -> Silence 2 $ CA.Seconds 0
@@ -92,7 +99,7 @@ makeCountin mid wavin wavout = do
   buildAudio audio wavout
 
 fixResolution :: F.T -> F.T
-fixResolution = uncurry fromStandardMIDI . standardMIDI
+fixResolution = liftSong id
 
 previewBounds :: FilePath -> Action (Int, Int)
 previewBounds mid = do
@@ -113,11 +120,9 @@ previewBounds mid = do
 
 replaceTempos :: FilePath -> FilePath -> FilePath -> Action ()
 replaceTempos fin ftempo fout = do
-  need [fin, ftempo]
-  liftIO $ do
-    (_    , trks) <- standardMIDI <$> Load.fromFile fin
-    (tempo, _   ) <- standardMIDI <$> Load.fromFile ftempo
-    Save.toFile fout $ fromStandardMIDI tempo trks
+  song   <- loadSong fin
+  tempos <- loadSong ftempo
+  liftIO $ Save.toFile fout $ showMIDIFile $ song { s_tempos = s_tempos tempos }
 
 songLength :: FilePath -> Action Int
 songLength mid = do
@@ -160,30 +165,14 @@ magmaClean' trk = case U.trackName trk of
           E.MetaEvent (Meta.TextEvent ('>' : _)) -> False
           _ -> True
 
-noteOn, noteOff :: Int -> E.T
-noteOn p = E.MIDIEvent $ C.Cons (C.toChannel 0) $ C.Voice $
-  V.NoteOn (V.toPitch p) $ V.toVelocity 96
-noteOff p = E.MIDIEvent $ C.Cons (C.toChannel 0) $ C.Voice $
-  V.NoteOff (V.toPitch p) $ V.toVelocity 0
-
-isNoteOn, isNoteOff :: Int -> E.T -> Bool
-isNoteOn p (E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn p' v))))
-  = V.toPitch p == p' && V.fromVelocity v /= 0
-isNoteOn _ _ = False
-isNoteOff p (E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn p' v))))
-  = V.toPitch p == p' && V.fromVelocity v == 0
-isNoteOff p (E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOff p' _))))
-  = V.toPitch p == p'
-isNoteOff _ _ = False
-
 -- | Generates a BEAT track (if it doesn't exist already) which ends at the
 -- [end] event from the EVENTS track.
 autoBeat :: F.T -> F.T
 autoBeat = liftSong $ \s -> let
-  hasBeat = flip any (s_tracks s) $ \trk -> case trk of
+  hasBeat = flip any (s_tracks s) $ \case
     Beat _ -> True
     _      -> False
-  endPosns = flip mapMaybe (s_tracks s) $ \trk -> case trk of
+  endPosns = flip mapMaybe (s_tracks s) $ \case
     Events t -> do
       ((dt, _), _) <- RTB.viewL (RTB.filter (== Events.Simple Events.End) t)
       return dt
@@ -220,67 +209,41 @@ trackGlue t xs ys = let
   in RTB.append xs' $ RTB.delay gap ys
 
 -- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
--- their last gem note-on.
+--- their last gem note-on.
 fixRolls :: F.T -> F.T
-fixRolls = let
-  isRollable t = U.trackName t `elem` map Just ["PART DRUMS", "PART BASS", "PART GUITAR"]
-  fixRollsTracks = map $ \t -> if isRollable t then fixRollsTrack t else t
-  in uncurry fromStandardMIDI . second fixRollsTracks . standardMIDI
+fixRolls = liftSong $ \s -> let
+  newTracks = flip map (s_tracks s) $ \case
+    PartDrums  t -> PartDrums  $ drumsSingle $ drumsDouble t
+    PartGuitar t -> PartGuitar $ fiveTremolo $ fiveTrill   t
+    PartBass   t -> PartBass   $ fiveTremolo $ fiveTrill   t
+    trk          -> trk
+  drumsSingle = fixFreeform (== Drums.SingleRoll True) (== Drums.SingleRoll False) isHand
+  drumsDouble = fixFreeform (== Drums.DoubleRoll True) (== Drums.DoubleRoll False) isHand
+  isHand (Drums.Note Expert gem) = gem /= Drums.Kick
+  isHand _                       = False
+  fiveTremolo = fixFreeform (== Five.Tremolo True) (== Five.Tremolo False) isGem
+  fiveTrill   = fixFreeform (== Five.Trill   True) (== Five.Trill   False) isGem
+  isGem (Five.Note Expert _ True) = True
+  isGem _                         = False
+  in s { s_tracks = newTracks }
 
-fixRollsTrack :: RTB.T U.Beats E.T -> RTB.T U.Beats E.T
-fixRollsTrack t = RTB.flatten $ go $ RTB.collectCoincident t where
-  rollableNotes =
-    if U.trackName t == Just "PART DRUMS" then [97..100] else [96..100]
-  go :: RTB.T U.Beats [E.T] -> RTB.T U.Beats [E.T]
+fixFreeform
+  :: (Ord a)
+  => (a -> Bool) -- ^ start of a freeform section
+  -> (a -> Bool) -- ^ end of a freeform section
+  -> (a -> Bool) -- ^ events which are covered by the freeform section
+  -> RTB.T U.Beats a
+  -> RTB.T U.Beats a
+fixFreeform isStart isEnd isCovered = RTB.flatten . go . RTB.collectCoincident where
   go rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
-    Just ((dt, evts), rtb') -> case findNoteOn [126, 127] evts of
-      -- Tremolo (single note or chord) or one-drum roll
-      Just 126 -> case findNoteOn rollableNotes evts of
-        Nothing -> error "fixRollsTrack: found single-roll start without a gem"
-        Just p -> let
-          rollLength = findFirst [isNoteOff 126] rtb'
-          lastGem = findLast [isNoteOn p] $ U.trackTake rollLength rtb'
-          newOff = RTB.singleton (lastGem + 1/32) $ noteOff 126
-          modified = RTB.collectCoincident
-            $ RTB.merge newOff
-            $ RTB.flatten
-            $ removeNextOff 126 rtb'
-          in RTB.cons dt evts $ go modified
-      -- Trill or two-drum roll
-      Just 127 -> case findNoteOn rollableNotes evts of
-        Nothing -> error $ "fixRollsTrack: found double-roll start without a gem"
-        Just p1 -> case RTB.viewL $ RTB.mapMaybe (findNoteOn rollableNotes) rtb' of
-          Nothing -> error "fixRollsTrack: found double-roll without a 2nd gem"
-          Just ((_, p2), _) -> let
-            rollLength = findFirst [isNoteOff 127] rtb'
-            lastGem = findLast [isNoteOn p1, isNoteOn p2] $ U.trackTake rollLength rtb'
-            newOff = RTB.singleton (lastGem + 1/32) $ noteOff 127
-            modified = RTB.collectCoincident
-              $ RTB.merge newOff
-              $ RTB.flatten
-              $ removeNextOff 127 rtb'
-            in RTB.cons dt evts $ go modified
-      _ -> RTB.cons dt evts $ go rtb'
-  findNoteOn :: [Int] -> [E.T] -> Maybe Int
-  findNoteOn ps evts = listToMaybe $ filter (\p -> any (isNoteOn p) evts) ps
-  removeNextOff :: Int -> RTB.T U.Beats [E.T] -> RTB.T U.Beats [E.T]
-  removeNextOff p rtb = case RTB.viewL rtb of
-    Nothing -> error $ "fixRollsTrack: unterminated note of pitch " ++ show p
-    Just ((dt, evts), rtb') -> case partition (isNoteOff p) evts of
-      ([]   , _    ) -> RTB.cons dt evts $ removeNextOff p rtb'
-      (_ : _, evts') -> RTB.cons dt evts' rtb'
-  findFirst :: [E.T -> Bool] -> RTB.T U.Beats [E.T] -> U.Beats
-  findFirst fns rtb = let
-    satisfy = any $ \e -> any ($ e) fns
-    atb = RTB.toAbsoluteEventList 0 $ RTB.filter satisfy rtb
-    in case ATB.toPairList atb of
-      []           -> error "findFirst: couldn't find any events satisfying the functions"
-      (bts, _) : _ -> bts
-  findLast :: [E.T -> Bool] -> RTB.T U.Beats [E.T] -> U.Beats
-  findLast fns rtb = let
-    satisfy = any $ \e -> any ($ e) fns
-    atb = RTB.toAbsoluteEventList 0 $ RTB.filter satisfy rtb
-    in case reverse $ ATB.toPairList atb of
-      []           -> error "findLast: couldn't find any events satisfying the functions"
-      (bts, _) : _ -> bts
+    Just ((dt, evts), rtb') -> RTB.cons dt evts $ if any isStart evts
+      then case U.extractFirst (\x -> if isEnd x then Just x else Nothing) $ RTB.flatten rtb' of
+        Nothing -> RTB.cons dt evts $ go rtb' -- probably an error
+        Just ((oldLength, theEnd), rtb'noEnd) -> let
+          coveredEvents = U.trackTake oldLength $ RTB.filter (any isCovered) rtb'
+          newLength = case reverse $ ATB.getTimes $ RTB.toAbsoluteEventList 0 coveredEvents of
+            pos : _ -> pos + 1/32
+            _       -> oldLength
+          in RTB.insert newLength [theEnd] $ go $ RTB.collectCoincident rtb'noEnd
+      else go rtb'
