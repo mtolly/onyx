@@ -86,6 +86,7 @@ data Disco
   | EasyMix     -- ^ Pre-RB3. 'Easy' sections with only 'Red' and 'Kick' notes.
   | EasyNoKick  -- ^ Pre-RB3. 'Easy' sections with no 'Kick' notes.
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+-- TODO: Fly Like an Eagle has [mix n drums2a], what is this?
 
 readEvent :: E.T -> Maybe [Event]
 readEvent e = case e of

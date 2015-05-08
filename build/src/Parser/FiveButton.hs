@@ -8,6 +8,7 @@ import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util as U
 import qualified Data.EventList.Relative.TimeBody as RTB
 import Parser.Base
+import Control.Applicative ((<|>))
 
 data Color = Green | Red | Yellow | Blue | Orange
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -22,11 +23,58 @@ data Event
   | BRE Bool
   | Solo Bool
   | Note Difficulty Color Bool
+  | HandMap HandMap
+  | StrumMap StrumMap
+  | FretPosition Int Bool -- ^ Int is a MIDI pitch; can be 40 to 59
+  | Player1 Bool
+  | Player2 Bool
   deriving (Eq, Ord, Show, Read)
+
+-- | Controls the fretting hand animation of a guitarist/bassist.
+data HandMap
+  -- | Normal fingering. Single gems = single fingers, gems with duration =
+  -- vibrato, chord gems = chords.
+  = HandDefault
+  | NoChords -- ^ All single fingers/vibrato.
+  | AllChords -- ^ All chords.
+  | HandSolo -- ^ D major shape for all chords, vibrato for all chord sustains.
+  | DropD -- ^ Open hand for all green gems, all other gems are chords.
+  | DropD2 -- ^ Open hand for all green gems.
+  | AllBend -- ^ All ring finger high vibrato.
+  | ChordC -- ^ All C chord shape.
+  | ChordD -- ^ All D chord shape.
+  | ChordA -- ^ All A minor chord shape.
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+handMapName :: HandMap -> String
+handMapName = \case
+  HandDefault -> "HandMap_Default"
+  NoChords -> "HandMap_NoChords"
+  AllChords -> "HandMap_AllChords"
+  HandSolo -> "HandMap_Solo"
+  DropD -> "HandMap_DropD"
+  DropD2 -> "HandMap_DropD2"
+  AllBend -> "HandMap_AllBend"
+  ChordC -> "HandMap_Chord_C"
+  ChordD -> "HandMap_Chord_D"
+  ChordA -> "HandMap_Chord_A"
+
+-- | Controls the strumming animation for a bassist.
+data StrumMap
+  = StrumDefault
+  | Pick
+  | SlapBass
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+strumMapName :: StrumMap -> String
+strumMapName = \case
+  StrumDefault -> "StrumMap_Default"
+  Pick -> "StrumMap_Pick"
+  SlapBass -> "StrumMap_SlapBass"
 
 readEvent :: E.T -> Maybe [Event]
 readEvent (MIDINote p b) = case V.fromPitch p of
-  i | 40 <= i && i <= 59 -> Just [] -- guitarist fret position; ignored for now
+  i | 40 <= i && i <= 59 -> Just [FretPosition i b]
 
   60 -> one $ Note Easy Green b
   61 -> one $ Note Easy Red b
@@ -61,8 +109,8 @@ readEvent (MIDINote p b) = case V.fromPitch p of
   102 -> one $ ForceStrum Expert b
 
   103 -> one $ Solo b
-  105 -> Just [] -- player 1 face-off; ignored
-  106 -> Just [] -- player 2 face-off; ignored
+  105 -> one $ Player1 b
+  106 -> one $ Player2 b
   116 -> one $ Overdrive b
   120 -> one $ BRE b
   121 -> Just []
@@ -73,7 +121,15 @@ readEvent (MIDINote p b) = case V.fromPitch p of
   127 -> one $ Trill b
   _ -> Nothing
   where one x = Just [x]
-readEvent e = fmap (\m -> [Mood m]) $ readCommand' e
+readEvent e
+  = do
+    fmap (\m -> [Mood m]) $ readCommand' e
+  <|> do
+    readCommand' e >>= \case
+      ["map", m]
+        ->  fmap ((:[]) . HandMap ) (reverseLookup each handMapName  m)
+        <|> fmap ((:[]) . StrumMap) (reverseLookup each strumMapName m)
+      _ -> Nothing
 
 showEvent :: Event -> RTB.T U.Beats E.T
 showEvent = \case
@@ -86,4 +142,9 @@ showEvent = \case
   BRE          b -> RTB.fromPairList [ (0, edge' p b) | p <- [120..124] ]
   Tremolo      b -> one $ edge' 126 b
   Trill        b -> one $ edge' 127 b
+  HandMap      m -> one $ showCommand' ["map", handMapName  m]
+  StrumMap     m -> one $ showCommand' ["map", strumMapName m]
+  FretPosition i b -> one $ edge' i b
+  Player1      b -> one $ edge' 105 b
+  Player2      b -> one $ edge' 106 b
   where one = RTB.singleton 0
