@@ -216,6 +216,7 @@ fixRolls = liftSong $ \s -> let
     PartDrums  t -> PartDrums  $ drumsSingle $ drumsDouble t
     PartGuitar t -> PartGuitar $ fiveTremolo $ fiveTrill   t
     PartBass   t -> PartBass   $ fiveTremolo $ fiveTrill   t
+    PartKeys   t -> PartKeys   $               fiveTrill   t
     trk          -> trk
   drumsSingle = fixFreeform (== Drums.SingleRoll True) (== Drums.SingleRoll False) isHand
   drumsDouble = fixFreeform (== Drums.DoubleRoll True) (== Drums.DoubleRoll False) isHand

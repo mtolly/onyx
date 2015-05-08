@@ -9,9 +9,7 @@ import Parser
 import Parser.Base
 import Parser.File
 import qualified Parser.Drums as Drums
-
-data Hand = L | R
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+import Parser.Drums (Hand(..))
 
 assignFeet
   :: U.Seconds -- ^ The period at which a steady stream of kicks become two feet.
@@ -28,31 +26,31 @@ assignFeet timeX timeY = RTB.fromPairList . rule4 . rule3 . rule2 . RTB.toPairLi
      but an isolated KKKK (at the same speed) should become RLRL, not RLRR.
   -}
   rule2 pairs = case pairs of
-    (t1, R) : (t2, R) : rest@((t3, R) : _)
+    (t1, RH) : (t2, RH) : rest@((t3, RH) : _)
       | t2 < timeX && t3 < timeX
-      -> (t1, R) : (t2, L) : rule2 rest
+      -> (t1, RH) : (t2, LH) : rule2 rest
     p : ps -> p : rule2 ps
     [] -> []
   rule3 pairs = case pairs of
-    (t1, R) : (t2, R) : rest
+    (t1, RH) : (t2, RH) : rest
       | t2 < timeY
-      -> (t1, R) : (t2, L) : rule3 rest
+      -> (t1, RH) : (t2, LH) : rule3 rest
     p : ps -> p : rule3 ps
     [] -> []
   rule4 pairs = case pairs of
-    (t1, L) : (t2, R) : (t3, R) : rest
+    (t1, LH) : (t2, RH) : (t3, RH) : rest
       | t2 < timeX && t3 < timeX
-      -> (t1, L) : (t2, R) : rule4 ((t3, L) : rest)
+      -> (t1, LH) : (t2, RH) : rule4 ((t3, LH) : rest)
     p : ps -> p : rule4 ps
     [] -> []
 
 thinKicks :: U.Seconds -> U.Seconds -> RTB.T U.Seconds Drums.Event -> RTB.T U.Seconds Drums.Event
 thinKicks tx ty rtb = let
   (kicks, notKicks) = RTB.partition (== Drums.Note Expert Drums.Kick) rtb
-  assigned = assignFeet tx ty $ fmap (const R) kicks
+  assigned = assignFeet tx ty $ fmap (const RH) kicks
   rightKicks = flip RTB.mapMaybe assigned $ \foot -> case foot of
-    R -> Just $ Drums.Note Expert Drums.Kick
-    L -> Nothing
+    RH -> Just $ Drums.Note Expert Drums.Kick
+    LH -> Nothing
   in RTB.merge rightKicks notKicks
 
 thinKicksFile :: U.Seconds -> U.Seconds -> Song U.Beats -> Song U.Beats

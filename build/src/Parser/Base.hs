@@ -36,7 +36,7 @@ autoFromCommand = (: []) . f . show where
     then '_' : toLower c : g cs
     else c : g cs
 
-data Mood = IdleRealtime | Idle | IdleIntense | Play | Mellow | Intense
+data Mood = IdleRealtime | Idle | IdleIntense | Play | Mellow | Intense | PlaySolo
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command Mood where

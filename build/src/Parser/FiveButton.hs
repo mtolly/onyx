@@ -1,3 +1,4 @@
+-- | Parser used for all the GRYBO instruments (basic guitar, bass, and keys).
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternSynonyms #-}
 module Parser.FiveButton where
