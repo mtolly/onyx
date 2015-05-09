@@ -20,6 +20,6 @@ readEvent (MIDINote p b) = case V.fromPitch p of
 readEvent _ = Nothing
 
 showEvent :: Event -> RTB.T U.Beats E.T
-showEvent = blip . V.toPitch . \case
+showEvent = blip' . \case
   Bar  -> 12
   Beat -> 13

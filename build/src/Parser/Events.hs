@@ -55,6 +55,6 @@ showEvent :: Event -> RTB.T U.Beats E.T
 showEvent = \case
   Simple s -> RTB.singleton 0 $ showCommand' s
   PracticeSection sec -> RTB.singleton 0 $ showCommand' ["prc_" ++ sec]
-  PracticeKick  -> blip $ V.toPitch 24
-  PracticeSnare -> blip $ V.toPitch 25
-  PracticeHihat -> blip $ V.toPitch 26
+  PracticeKick  -> blip' 24
+  PracticeSnare -> blip' 25
+  PracticeHihat -> blip' 26

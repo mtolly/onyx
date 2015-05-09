@@ -199,41 +199,41 @@ showEvent = \case
   Solo       b -> one $ edge' 103 b
   Player1    b -> one $ edge' 105 b
   Player2    b -> one $ edge' 106 b
-  Note diff gem -> blip $ V.toPitch $ 60 + 12 * fromEnum diff + case gem of
+  Note diff gem -> blip' $ 60 + 12 * fromEnum diff + case gem of
     Kick          -> 0
     Red           -> 1
     Pro Yellow () -> 2
     Pro Blue   () -> 3
     Pro Green  () -> 4
   Animation anim -> case anim of
-    KickRF -> blip $ V.toPitch 24
+    KickRF -> blip' 24
     HihatOpen b -> one $ edge' 25 b
-    Snare HardHit LH -> blip $ V.toPitch 26
-    Snare HardHit RH -> blip $ V.toPitch 27
-    Snare SoftHit LH -> blip $ V.toPitch 28
-    Snare SoftHit RH -> blip $ V.toPitch 29
-    Hihat LH -> blip $ V.toPitch 30
-    Hihat RH -> blip $ V.toPitch 31
-    PercussionRH -> blip $ V.toPitch 32
+    Snare HardHit LH -> blip' 26
+    Snare HardHit RH -> blip' 27
+    Snare SoftHit LH -> blip' 28
+    Snare SoftHit RH -> blip' 29
+    Hihat LH -> blip' 30
+    Hihat RH -> blip' 31
+    PercussionRH -> blip' 32
     -- 33 unused
-    Crash1 HardHit LH -> blip $ V.toPitch 34
-    Crash1 SoftHit LH -> blip $ V.toPitch 35
-    Crash1 HardHit RH -> blip $ V.toPitch 36
-    Crash1 SoftHit RH -> blip $ V.toPitch 37
-    Crash2 HardHit RH -> blip $ V.toPitch 38
-    Crash2 SoftHit RH -> blip $ V.toPitch 39
-    Crash2RHChokeLH -> blip $ V.toPitch 40
-    Crash1RHChokeLH -> blip $ V.toPitch 41
-    Ride RH -> blip $ V.toPitch 42
-    Ride LH -> blip $ V.toPitch 43
-    Crash2 HardHit LH -> blip $ V.toPitch 44
-    Crash2 SoftHit LH -> blip $ V.toPitch 45
-    Tom1 LH -> blip $ V.toPitch 46
-    Tom1 RH -> blip $ V.toPitch 47
-    Tom2 LH -> blip $ V.toPitch 48
-    Tom2 RH -> blip $ V.toPitch 49
-    FloorTom LH -> blip $ V.toPitch 50
-    FloorTom RH -> blip $ V.toPitch 51
+    Crash1 HardHit LH -> blip' 34
+    Crash1 SoftHit LH -> blip' 35
+    Crash1 HardHit RH -> blip' 36
+    Crash1 SoftHit RH -> blip' 37
+    Crash2 HardHit RH -> blip' 38
+    Crash2 SoftHit RH -> blip' 39
+    Crash2RHChokeLH -> blip' 40
+    Crash1RHChokeLH -> blip' 41
+    Ride RH -> blip' 42
+    Ride LH -> blip' 43
+    Crash2 HardHit LH -> blip' 44
+    Crash2 SoftHit LH -> blip' 45
+    Tom1 LH -> blip' 46
+    Tom1 RH -> blip' 47
+    Tom2 LH -> blip' 48
+    Tom2 RH -> blip' 49
+    FloorTom LH -> blip' 50
+    FloorTom RH -> blip' 51
     RideSide True -> one $ showCommand' ["ride_side_true"]
     RideSide False -> one $ showCommand' ["ride_side_false"]
   where one x = RTB.singleton 0 x

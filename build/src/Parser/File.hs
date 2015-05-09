@@ -17,12 +17,17 @@ import qualified Parser.Events as Events
 import qualified Parser.Beat as Beat
 import qualified Parser.Countin as Countin
 import qualified Parser.FiveButton as FiveButton
+import qualified Parser.Vocals as Vocals
 
 data Track t
   = PartDrums  (RTB.T t Drums.Event     )
   | PartGuitar (RTB.T t FiveButton.Event)
   | PartBass   (RTB.T t FiveButton.Event)
   | PartKeys   (RTB.T t FiveButton.Event)
+  | PartVocals (RTB.T t Vocals.Event    )
+  | Harm1      (RTB.T t Vocals.Event    )
+  | Harm2      (RTB.T t Vocals.Event    )
+  | Harm3      (RTB.T t Vocals.Event    )
   | Countin    (RTB.T t Countin.Event   )
   | Events     (RTB.T t Events.Event    )
   | Beat       (RTB.T t Beat.Event      )
@@ -48,6 +53,10 @@ showTrack = \case
   PartGuitar t -> U.setTrackName "PART GUITAR" $ U.trackJoin $ fmap FiveButton.showEvent t
   PartBass   t -> U.setTrackName "PART BASS"   $ U.trackJoin $ fmap FiveButton.showEvent t
   PartKeys   t -> U.setTrackName "PART KEYS"   $ U.trackJoin $ fmap FiveButton.showEvent t
+  PartVocals t -> U.setTrackName "PART VOCALS" $ U.trackJoin $ fmap Vocals.showEvent t
+  Harm1      t -> U.setTrackName "HARM1"       $ U.trackJoin $ fmap Vocals.showEvent     t
+  Harm2      t -> U.setTrackName "HARM2"       $ U.trackJoin $ fmap Vocals.showEvent     t
+  Harm3      t -> U.setTrackName "HARM3"       $ U.trackJoin $ fmap Vocals.showEvent     t
   Countin    t -> U.setTrackName "countin"     $ U.trackJoin $ fmap Countin.showEvent    t
   Events     t -> U.setTrackName "EVENTS"      $ U.trackJoin $ fmap Events.showEvent     t
   Beat       t -> U.setTrackName "BEAT"        $ U.trackJoin $ fmap Beat.showEvent       t
@@ -92,6 +101,10 @@ parseTrack mmap t = case U.trackName t of
     "PART GUITAR" -> liftM PartGuitar $ makeTrackParser FiveButton.readEvent mmap t
     "PART BASS"   -> liftM PartBass   $ makeTrackParser FiveButton.readEvent mmap t
     "PART KEYS"   -> liftM PartKeys   $ makeTrackParser FiveButton.readEvent mmap t
+    "PART VOCALS" -> liftM PartVocals $ makeTrackParser Vocals.readEvent mmap t
+    "HARM1"       -> liftM Harm1      $ makeTrackParser Vocals.readEvent mmap t
+    "HARM2"       -> liftM Harm2      $ makeTrackParser Vocals.readEvent mmap t
+    "HARM3"       -> liftM Harm3      $ makeTrackParser Vocals.readEvent mmap t
     "countin"     -> liftM Countin    $ makeTrackParser Countin.readEvent    mmap t
     "EVENTS"      -> liftM Events     $ makeTrackParser Events.readEvent     mmap t
     "BEAT"        -> liftM Beat       $ makeTrackParser Beat.readEvent       mmap t

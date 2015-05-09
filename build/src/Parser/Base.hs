@@ -72,6 +72,9 @@ blip p = RTB.fromPairList
   , (1/32, edge p False)
   ]
 
+blip' :: Int -> RTB.T U.Beats E.T
+blip' = blip . V.toPitch
+
 readCommand' :: (Command a) => E.T -> Maybe a
 readCommand' (E.MetaEvent (Meta.TextEvent s)) = readCommand s
 readCommand' _ = Nothing
