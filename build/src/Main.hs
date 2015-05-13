@@ -1,4 +1,6 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 module Main where
 
 import Development.Shake hiding ((%>))
@@ -253,28 +255,51 @@ pat %> f = pat Shake.%> \out -> do
 infix 1 %>
 
 main :: IO ()
-main = do
-  yaml <- readYAMLTree "song.yml"
-  case A.fromJSON yaml of
-    A.Error s -> fail s
-    A.Success song -> do
-      shakeArgs shakeOptions $ do
-        _ <- addOracle $ \(JammitResults (title, artist)) ->
-          jammitSearch title artist
-        phony "clean" $ cmd "rm -rf gen"
-        midRules song
-        jammitRules song
-        simpleRules song
-        stemsRules song
-        countinRules song
-        oggRules song
-        coverRules song
-        rb3Rules song
-        magmaRules song
-        fofRules song
-        crapRules
-      e <-     Dir.doesDirectoryExist       "gen/temp"
-      when e $ Dir.removeDirectoryRecursive "gen/temp"
+main = Env.getArgs >>= \argv -> case filter ((/= "-") . take 1) argv of
+  [] -> interactive
+  [f] | takeFileName f == "song.yml" -> do
+    Dir.setCurrentDirectory $ takeDirectory f
+    interactive
+  _ -> batch
+  where interactive = do
+          song <- theSong
+          -- interactive mode not implemented yet,
+          -- for now we just list the files you can build
+          prog <- Env.getProgName
+          putStrLn $ "Usage: " ++ prog ++ " <files to build>"
+          putStrLn "This song can produce the following files:"
+          eachVersion song $ \_ dir -> do
+            putStrLn $ dir </> "rb3.con"
+            putStrLn $ dir </> "magma.rba"
+          shake shakeOptions $ do
+            want []
+            theRules song
+          cleanup
+        batch = do
+          song <- theSong
+          shakeArgs shakeOptions $ theRules song
+          cleanup
+        theSong = readYAMLTree "song.yml" >>= \yaml -> case A.fromJSON yaml of
+          A.Error   s    -> fail s
+          A.Success song -> return song
+        theRules song = do
+          _ <- addOracle $ \(JammitResults (title, artist)) ->
+            jammitSearch title artist
+          phony "clean" $ cmd "rm -rf gen"
+          midRules song
+          jammitRules song
+          simpleRules song
+          stemsRules song
+          countinRules song
+          oggRules song
+          coverRules song
+          rb3Rules song
+          magmaRules song
+          fofRules song
+          crapRules
+        cleanup = do
+          e <-     Dir.doesDirectoryExist       "gen/temp"
+          when e $ Dir.removeDirectoryRecursive "gen/temp"
 
 packageID :: FilePath -> Song -> String
 packageID dir s = let
