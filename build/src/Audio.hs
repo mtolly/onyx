@@ -2,6 +2,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Audio where
 
 import Development.Shake (cmd, Action, need, liftIO)
@@ -145,7 +146,7 @@ buildSource aud = case aud of
   Input fin -> case fin of
     Sndable x pos -> do
       src <- sndableSource x pos
-      let srcRate = if rate src == 44100 then src else resampleTo 44100 SincBestQuality src
+      let srcRate = if rate src == 44100 then src else resampleTo 44100 SincMediumQuality src
           srcChan = case channels srcRate of
             2 -> srcRate
             1 -> merge srcRate srcRate
@@ -182,7 +183,7 @@ buildSource aud = case aud of
   Fade End t x -> buildSource x >>= \src -> return $ concatenate
     (dropEnd t src)
     (fadeOut $ takeEnd t src)
-  Resample x -> resampleTo 44100 SincBestQuality <$> buildSource x
+  Resample x -> resampleTo 44100 SincMediumQuality <$> buildSource x
   where combine meth xs = mapM buildSource xs >>= \srcs -> case srcs of
           [] -> error "buildSource: can't combine 0 files"
           s : ss -> return $ foldl meth s ss

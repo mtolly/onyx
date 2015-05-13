@@ -33,9 +33,7 @@ import qualified Data.Map as Map
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Traversable as T
 
-import qualified Sound.MIDI.File as F
-import qualified Sound.MIDI.File.Load as Load
-import qualified Sound.MIDI.File.Save as Save
+import qualified Parser.File as MIDIFile
 
 import Codec.Picture
 
@@ -126,6 +124,8 @@ jammitRules s = do
           Just (AudioStems _) ->
             fail "jammit audio configuration is stems (unsupported)"
 
+-- | Rules to build non-stems audio, where the single audio file goes into
+-- the \"song\", and the individual instrument tracks are silent.
 simpleRules :: Song -> Rules ()
 simpleRules s = do
   forM_ [ (src, aud) | (src, AudioSimple aud) <- HM.toList $ _audio s, src /= "jammit" ] $ \(src, aud) -> do
@@ -140,6 +140,8 @@ simpleRules s = do
           []    -> fail $ "No file found matching pattern " ++ pat
           f : _ -> buildAudio (fmap (const $ sndable f) aud) out
 
+-- | Rules to build (non-Jammit) stems audio, where each instrument plus the
+-- backing track can have its own audio expression.
 stemsRules :: Song -> Rules ()
 stemsRules s = do
   forM_ [ (src, amap) | (src, AudioStems amap) <- HM.toList $ _audio s ] $ \(src, amap) -> do
@@ -169,6 +171,8 @@ eachVersion s f = eachAudio s $ \src ->
   forM_ [("1p", ""), ("2p", " (2x Bass Pedal)")] $ \(feet, titleSuffix) ->
     f (_title s ++ titleSuffix) ("gen" </> src </> feet)
 
+-- | Rules to generate the countin audio from a track in the MIDI file, and
+-- then combine it with the backing track.
 countinRules :: Song -> Rules ()
 countinRules s = eachVersion s $ \_ dir -> do
   dir </> "countin.wav" %> \out -> do
@@ -180,6 +184,8 @@ countinRules s = eachVersion s $ \_ dir -> do
         countin = Input $ sndable $ dir </> "countin.wav"
     buildAudio (Mix [song, countin]) out
 
+-- | Rules to generate the multi-track OGG Vorbis file (.ogg), and then
+-- stick the Rock Band seeking header onto the front (making a .mogg).
 oggRules :: Song -> Rules ()
 oggRules s = eachVersion s $ \_ dir -> do
   dir </> "audio.ogg" %> \out -> do
@@ -225,23 +231,16 @@ midRules :: Song -> Rules ()
 midRules s = eachAudio s $ \src -> do
   let mid1p = "gen" </> src </> "1p/notes.mid"
       mid2p = "gen" </> src </> "2p/notes.mid"
-      mid   = "gen" </> src </> "notes.mid"
-  mid %> \out -> do
-    need ["notes.mid"]
-    let tempos = "tempo-" ++ src ++ ".mid"
-    b <- doesFileExist tempos
-    if b
-      then replaceTempos "notes.mid" tempos out
-      else runMidi fixResolution "notes.mid" out
-  mid2p %> runMidi
-    (fixRolls . autoBeat . drumMix 0 . tempoTrackName)
-    mid
-  mid1p %> runMidi (oneFoot 0.18 0.11) mid2p
-
-runMidi :: (F.T -> F.T) -> FilePath -> FilePath -> Action ()
-runMidi f fin fout = do
-  need [fin]
-  liftIO $ Load.fromFile fin >>= Save.toFile fout . f
+  mid2p %> \out -> do
+    input <- loadMIDI "notes.mid"
+    let ftempos = "tempo-" ++ src ++ ".mid"
+    tempos <- doesFileExist ftempos >>= \b -> if b
+      then loadMIDI ftempos
+      else return input
+    let withTempos = input { MIDIFile.s_tempos = MIDIFile.s_tempos tempos }
+        fixed = fixRolls $ autoBeat $ drumMix 0 withTempos
+    saveMIDI out fixed
+  mid1p %> \out -> loadMIDI mid2p >>= saveMIDI out . oneFoot 0.18 0.11
 
 newtype JammitResults = JammitResults (String, String)
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
@@ -437,7 +436,12 @@ magmaRules s = eachVersion s $ \title dir -> do
   guitar %> copyFile' (dir </> "guitar.wav")
   song %> copyFile' (dir </> "song-countin.wav")
   cover %> copyFile' "gen/cover.bmp"
-  mid %> magmaClean (dir </> "notes.mid")
+  mid %> \out -> do
+    base <- loadMIDI $ dir </> "notes.mid"
+    let cleaned = base { MIDIFile.s_tracks = filter magmaSafe $ MIDIFile.s_tracks base }
+        magmaSafe (MIDIFile.Countin _) = False
+        magmaSafe _                    = True
+    saveMIDI out cleaned
   proj %> \out -> do
     let pkg = packageID dir s
     p <- makeMagmaProj pkg title (dir </> "notes.mid") s

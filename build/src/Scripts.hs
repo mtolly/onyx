@@ -1,19 +1,14 @@
 {-# LANGUAGE LambdaCase #-}
 module Scripts where
 
-import Control.Applicative ((<$>))
-import Control.Arrow (first)
 import Data.List (sort)
-import Data.Maybe (listToMaybe, mapMaybe, fromMaybe)
+import Data.Maybe (mapMaybe)
 
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
-import qualified Sound.MIDI.File as F
-import qualified Sound.MIDI.File.Event as E
 import qualified Sound.MIDI.File.Load as Load
 import qualified Sound.MIDI.File.Save as Save
-import qualified Sound.MIDI.File.Event.Meta as Meta
 import qualified Sound.MIDI.Util as U
 
 import Audio
@@ -29,38 +24,11 @@ import Parser.Base
 
 import Development.Shake
 
-loadSong :: FilePath -> Action (Song U.Beats)
-loadSong fp = do
-  need [fp]
-  mid <- liftIO $ Load.fromFile fp
-  case runParser $ readMIDIFile mid of
-    (Left  msgs, _) -> fail $ show msgs
-    (Right song, _) -> return song
-
-liftSong :: (Song U.Beats -> Song U.Beats) -> F.T -> F.T
-liftSong f mid = case runParser $ readMIDIFile mid of
-  (Left  msgs, _) -> error $ show msgs
-  (Right song, _) -> showMIDIFile $ f song
-
-standardMIDI :: F.T -> (RTB.T U.Beats E.T, [RTB.T U.Beats E.T])
-standardMIDI mid = case U.decodeFile mid of
-  Left []       -> (RTB.empty, [])
-  Left (t : ts) -> (t        , ts)
-  Right _ -> error "standardMIDI: not ticks-based"
-
-fromStandardMIDI :: RTB.T U.Beats E.T -> [RTB.T U.Beats E.T] -> F.T
-fromStandardMIDI t ts = U.encodeFileBeats F.Parallel 480 $ t : ts
-
--- | Ensures that there is a track name event in the tempo track.
-tempoTrackName :: F.T -> F.T
-tempoTrackName =
-  uncurry fromStandardMIDI . first (U.setTrackName "tempo") . standardMIDI
-
 -- | Changes all existing drum mix events to use the given config (not changing
 -- stuff like discobeat), and places ones at the beginning if they don't exist
 -- already.
-drumMix :: Int -> F.T -> F.T
-drumMix n = liftSong $ \s -> let
+drumMix :: Int -> Song U.Beats -> Song U.Beats
+drumMix n s = let
   newTracks = flip map (s_tracks s) $ \case
     PartDrums t -> PartDrums $ editTrack t
     trk         -> trk
@@ -87,7 +55,7 @@ addZero x rtb = case U.trackSplitZero rtb of
 makeCountin :: FilePath -> FilePath -> FilePath -> Action ()
 makeCountin mid wavin wavout = do
   need [wavin]
-  song <- loadSong mid
+  song <- loadMIDI mid
   let tmap = s_tempos song
       beats = sort $ flip concatMap (s_tracks song) $ \case
         Countin trk -> ATB.getTimes $ RTB.toAbsoluteEventList 0 trk
@@ -98,91 +66,56 @@ makeCountin mid wavin wavout = do
         _ -> Mix $ map (\t -> Pad Start (CA.Seconds t) $ Input $ Sndable wavin Nothing) secs
   buildAudio audio wavout
 
-fixResolution :: F.T -> F.T
-fixResolution = liftSong id
+loadMIDI :: FilePath -> Action (Song U.Beats)
+loadMIDI fp = do
+  need [fp]
+  mid <- liftIO $ Load.fromFile fp
+  Parser.printParserIO $ readMIDIFile mid
 
+saveMIDI :: FilePath -> Song U.Beats -> Action ()
+saveMIDI fp song = liftIO $ Save.toFile fp $ showMIDIFile song
+
+allEvents :: (NNC.C t) => Song t -> RTB.T t Events.Event
+allEvents = foldr RTB.merge RTB.empty . mapMaybe getEvents . s_tracks where
+  getEvents (Events trk) = Just trk
+  getEvents _            = Nothing
+
+-- | Returns the start and end of the preview audio in milliseconds.
 previewBounds :: FilePath -> Action (Int, Int)
 previewBounds mid = do
-  need [mid]
-  liftIO $ do
-    (tempo, trks) <- standardMIDI <$> Load.fromFile mid
-    let find s = listToMaybe $ sort $ concatMap (findText s) (tempo : trks)
-        tmap = U.makeTempoMap tempo
-        starts = ["preview_start", "[prc_chorus]", "[prc_chorus_1]", "[prc_verse]", "[prc_verse_1]"]
-        start = case mapMaybe find starts of
-          []      -> 0
-          bts : _ -> max 0 $ U.applyTempoMap tmap bts - 0.6
-        end = case find "preview_end" of
-          Nothing  -> start + 30
-          Just bts -> U.applyTempoMap tmap bts
-        ms n = floor $ n * 1000
-    return (ms start, ms end)
+  song <- loadMIDI mid
+  let starts = map Events.PracticeSection ["chorus", "chorus_1", "verse", "verse_1"]
+      events = allEvents song
+      find s = fmap (fst . fst) $ RTB.viewL $ RTB.filter (== s) events
+      start = case mapMaybe find starts of
+        []      -> 0
+        bts : _ -> max 0 $ U.applyTempoMap (s_tempos song) bts - 0.6
+      end = start + 30
+      ms n = floor $ n * 1000
+  return (ms start, ms end)
 
-replaceTempos :: FilePath -> FilePath -> FilePath -> Action ()
-replaceTempos fin ftempo fout = do
-  song   <- loadSong fin
-  tempos <- loadSong ftempo
-  liftIO $ Save.toFile fout $ showMIDIFile $ song { s_tempos = s_tempos tempos }
+songLength' :: Song U.Beats -> U.Beats
+songLength' s = case RTB.getTimes $ RTB.filter (== Events.Simple Events.End) $ allEvents s of
+  [bts] -> bts
+  results -> error $ "songLength': error, " ++ show (length results) ++ " [end] events found"
 
+-- | Returns the time of the [end] event in milliseconds.
 songLength :: FilePath -> Action Int
 songLength mid = do
-  need [mid]
-  liftIO $ do
-    (tempo, trks) <- standardMIDI <$> Load.fromFile mid
-    let tmap = U.makeTempoMap tempo
-    case concatMap (findText "[end]") trks of
-      [bts] -> return $ floor $ U.applyTempoMap tmap bts * 1000
-      results -> error $
-        "Error: " ++ show (length results) ++ " [end] events found"
-
-magmaClean :: FilePath -> FilePath -> Action ()
-magmaClean fin fout = do
-  need [fin]
-  liftIO $ do
-    (tempo, trks) <- standardMIDI <$> Load.fromFile fin
-    Save.toFile fout $ fromStandardMIDI
-      (fromMaybe RTB.empty $ magmaClean' tempo)
-      (mapMaybe magmaClean' trks)
-
-isDrums :: (NNC.C t) => RTB.T t E.T -> Bool
-isDrums t = U.trackName t == Just "PART DRUMS"
-
-findText :: String -> RTB.T U.Beats E.T -> [U.Beats]
-findText s = ATB.getTimes . RTB.toAbsoluteEventList 0 . RTB.filter f where
-  f (E.MetaEvent (Meta.TextEvent s')) | s == s' = True
-  f _                                           = False
-
-magmaClean' :: (NNC.C t) => RTB.T t E.T -> Maybe (RTB.T t E.T)
-magmaClean' trk = case U.trackName trk of
-  Just "countin" -> Nothing
-  Just "PART REAL_BASS" -> Nothing
-  Just "PART REAL_BASS_22" -> Nothing
-  Just "PART REAL_GUITAR" -> Nothing
-  Just "PART REAL_GUITAR_22" -> Nothing
-  _              -> Just $ removeText trk
-  where removeText = RTB.filter $ \x -> case x of
-          E.MetaEvent (Meta.TextEvent ('#' : _)) -> False
-          E.MetaEvent (Meta.TextEvent ('>' : _)) -> False
-          _ -> True
+  song <- loadMIDI mid
+  return $ floor $ U.applyTempoMap (s_tempos song) (songLength' song) * 1000
 
 -- | Generates a BEAT track (if it doesn't exist already) which ends at the
 -- [end] event from the EVENTS track.
-autoBeat :: F.T -> F.T
-autoBeat = liftSong $ \s -> let
+autoBeat :: Song U.Beats -> Song U.Beats
+autoBeat s = let
   hasBeat = flip any (s_tracks s) $ \case
     Beat _ -> True
     _      -> False
-  endPosns = flip mapMaybe (s_tracks s) $ \case
-    Events t -> do
-      ((dt, _), _) <- RTB.viewL (RTB.filter (== Events.Simple Events.End) t)
-      return dt
-    _        -> Nothing
-  endPosn = case endPosns of
-    []    -> error "autoBeat: no [end] event found"
-    p : _ -> p
-  autoTrack = Beat $ U.trackTake endPosn $ makeBeatTrack $ s_signatures s
+  autoTrack = Beat $ U.trackTake (songLength' s) $ makeBeatTrack $ s_signatures s
   in if hasBeat then s else s { s_tracks = autoTrack : s_tracks s }
 
+-- | Given a measure map, produces an infinite BEAT track.
 makeBeatTrack :: U.MeasureMap -> RTB.T U.Beats Beat.Event
 makeBeatTrack mmap = go 0 where
   go i = let
@@ -210,8 +143,8 @@ trackGlue t xs ys = let
 
 -- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
 --- their last gem note-on.
-fixRolls :: F.T -> F.T
-fixRolls = liftSong $ \s -> let
+fixRolls :: Song U.Beats -> Song U.Beats
+fixRolls s = let
   newTracks = flip map (s_tracks s) $ \case
     PartDrums  t -> PartDrums  $ drumsSingle $ drumsDouble t
     PartGuitar t -> PartGuitar $ fiveTremolo $ fiveTrill   t

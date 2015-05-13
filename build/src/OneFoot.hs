@@ -1,11 +1,7 @@
 module OneFoot (oneFoot) where
 
-import Sound.MIDI.File as F
-
 import qualified Data.EventList.Relative.TimeBody as RTB
-
 import qualified Sound.MIDI.Util as U
-import Parser
 import Parser.Base
 import Parser.File
 import qualified Parser.Drums as Drums
@@ -53,16 +49,11 @@ thinKicks tx ty rtb = let
     LH -> Nothing
   in RTB.merge rightKicks notKicks
 
-thinKicksFile :: U.Seconds -> U.Seconds -> Song U.Beats -> Song U.Beats
-thinKicksFile tx ty song = let
+oneFoot :: U.Seconds -> U.Seconds -> Song U.Beats -> Song U.Beats
+oneFoot tx ty song = let
   f (PartDrums t) = PartDrums
     $ U.unapplyTempoTrack (s_tempos song)
     $ thinKicks tx ty
     $ U.applyTempoTrack (s_tempos song) t
   f trk = trk
   in song { s_tracks = map f $ s_tracks song }
-
-oneFoot :: U.Seconds -> U.Seconds -> F.T -> F.T
-oneFoot tx ty mid = case runParser $ readMIDIFile mid of
-  (Left  msgs, _) -> error $ show msgs
-  (Right song, _) -> showMIDIFile $ thinKicksFile tx ty song
