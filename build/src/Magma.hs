@@ -28,6 +28,16 @@ withExe f exe args = if os == "mingw32"
   then f exe args
   else f "wine" $ exe : args
 
+runMagmaMIDI :: FilePath -> FilePath -> IO ()
+runMagmaMIDI proj mid = withSystemTempDirectory "magma" $ \tmp -> do
+  wd <- Dir.getCurrentDirectory
+  let proj' = wd </> proj
+      mid'  = wd </> mid
+  bracket_ (Dir.setCurrentDirectory tmp) (Dir.setCurrentDirectory wd) $ do
+    Dir.createDirectory "gen"
+    forM_ magmaFiles $ uncurry B.writeFile
+    withExe callProcess "MagmaCompilerC3.exe" ["-export_midi", proj', mid']
+
 runMagma :: FilePath -> FilePath -> IO ()
 runMagma proj rba = withSystemTempDirectory "magma" $ \tmp -> do
   wd <- Dir.getCurrentDirectory

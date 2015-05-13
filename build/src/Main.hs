@@ -319,7 +319,7 @@ rb3Rules s = eachVersion s $ \title dir -> do
     let dta = D.DTA 0 $ D.Tree 0 $ (:[]) $ D.Parens $ D.Tree 0 $
           D.Key (B8.pack pkg) : D.toChunks songPkg
     writeFile' out $ D.sToDTA dta
-  pathMid %> copyFile' (dir </> "notes.mid")
+  pathMid %> copyFile' (dir </> "notes-magma-export.mid")
   pathMogg %> copyFile' (dir </> "audio.mogg")
   pathPng %> copyFile' "gen/cover.png_xbox"
   pathCon %> \out -> do
@@ -456,6 +456,7 @@ magmaRules s = eachVersion s $ \title dir -> do
       mid = dir </> "magma/notes.mid"
       proj = dir </> "magma/magma.rbproj"
       rba = dir </> "magma.rba"
+      export = dir </> "notes-magma-export.mid"
   drums %> copyFile' (dir </> "drums.wav")
   bass %> copyFile' (dir </> "bass.wav")
   guitar %> copyFile' (dir </> "guitar.wav")
@@ -472,12 +473,15 @@ magmaRules s = eachVersion s $ \title dir -> do
     p <- makeMagmaProj pkg title (dir </> "notes.mid") s
     let dta = D.DTA 0 $ D.Tree 0 $ D.toChunks p
     writeFile' out $ D.sToDTA dta
-  rba %> \_ -> do
+  rba %> \out -> do
     when (Drums `elem` _config s) $ need [drums]
     when (Bass `elem` _config s) $ need [bass]
     when (Guitar `elem` _config s) $ need [guitar]
     need [song, cover, mid, proj]
-    liftIO $ runMagma proj rba
+    liftIO $ runMagma proj out
+  export %> \out -> do
+    need [mid, proj]
+    liftIO $ runMagmaMIDI proj out
 
 makeMagmaProj :: String -> String -> FilePath -> Song -> Action Magma.RBProj
 makeMagmaProj pkg title mid s = do
