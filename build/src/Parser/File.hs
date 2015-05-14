@@ -12,18 +12,23 @@ import Control.Monad (forM, forM_, liftM)
 import Data.Maybe (catMaybes, fromJust)
 
 import Parser
+import Parser.Base
 import qualified Parser.Drums as Drums
 import qualified Parser.Events as Events
 import qualified Parser.Beat as Beat
 import qualified Parser.Countin as Countin
 import qualified Parser.FiveButton as FiveButton
 import qualified Parser.Vocals as Vocals
+import qualified Parser.ProKeys as ProKeys
 
 data Track t
   = PartDrums  (RTB.T t Drums.Event     )
   | PartGuitar (RTB.T t FiveButton.Event)
   | PartBass   (RTB.T t FiveButton.Event)
   | PartKeys   (RTB.T t FiveButton.Event)
+  | PartRealKeys Difficulty (RTB.T t ProKeys.Event)
+  | PartKeysAnimLH (RTB.T t ProKeys.Event)
+  | PartKeysAnimRH (RTB.T t ProKeys.Event)
   | PartVocals (RTB.T t Vocals.Event    )
   | Harm1      (RTB.T t Vocals.Event    )
   | Harm2      (RTB.T t Vocals.Event    )
@@ -53,6 +58,10 @@ showTrack = \case
   PartGuitar t -> U.setTrackName "PART GUITAR" $ U.trackJoin $ fmap FiveButton.showEvent t
   PartBass   t -> U.setTrackName "PART BASS"   $ U.trackJoin $ fmap FiveButton.showEvent t
   PartKeys   t -> U.setTrackName "PART KEYS"   $ U.trackJoin $ fmap FiveButton.showEvent t
+  PartRealKeys d t -> U.setTrackName ("PART REAL_KEYS_" ++ take 1 (show d)) $
+    U.trackJoin $ fmap ProKeys.showEvent t
+  PartKeysAnimLH t -> U.setTrackName "PART KEYS_ANIM_LH" $ U.trackJoin $ fmap ProKeys.showEvent t
+  PartKeysAnimRH t -> U.setTrackName "PART KEYS_ANIM_RH" $ U.trackJoin $ fmap ProKeys.showEvent t
   PartVocals t -> U.setTrackName "PART VOCALS" $ U.trackJoin $ fmap Vocals.showEvent t
   Harm1      t -> U.setTrackName "HARM1"       $ U.trackJoin $ fmap Vocals.showEvent     t
   Harm2      t -> U.setTrackName "HARM2"       $ U.trackJoin $ fmap Vocals.showEvent     t
@@ -101,6 +110,12 @@ parseTrack mmap t = case U.trackName t of
     "PART GUITAR" -> liftM PartGuitar $ makeTrackParser FiveButton.readEvent mmap t
     "PART BASS"   -> liftM PartBass   $ makeTrackParser FiveButton.readEvent mmap t
     "PART KEYS"   -> liftM PartKeys   $ makeTrackParser FiveButton.readEvent mmap t
+    "PART REAL_KEYS_E" -> liftM (PartRealKeys Easy) $ makeTrackParser ProKeys.readEvent mmap t
+    "PART REAL_KEYS_M" -> liftM (PartRealKeys Medium) $ makeTrackParser ProKeys.readEvent mmap t
+    "PART REAL_KEYS_H" -> liftM (PartRealKeys Hard) $ makeTrackParser ProKeys.readEvent mmap t
+    "PART REAL_KEYS_X" -> liftM (PartRealKeys Expert) $ makeTrackParser ProKeys.readEvent mmap t
+    "PART KEYS_ANIM_LH" -> liftM PartKeysAnimLH $ makeTrackParser ProKeys.readEvent mmap t
+    "PART KEYS_ANIM_RH" -> liftM PartKeysAnimRH $ makeTrackParser ProKeys.readEvent mmap t
     "PART VOCALS" -> liftM PartVocals $ makeTrackParser Vocals.readEvent mmap t
     "HARM1"       -> liftM Harm1      $ makeTrackParser Vocals.readEvent mmap t
     "HARM2"       -> liftM Harm2      $ makeTrackParser Vocals.readEvent mmap t

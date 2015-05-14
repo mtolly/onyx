@@ -42,6 +42,7 @@ executable onyxbuild
     Parser.File
     Parser.FiveButton
     Parser.Vocals
+    Parser.ProKeys
   build-depends:
     base    >= 4.6    && < 4.8
     , shake >= 0.14.3 && < 0.15

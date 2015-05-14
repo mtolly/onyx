@@ -6,6 +6,8 @@
 module Parser.Base where
 
 import Data.Char (isSpace, isUpper, toLower)
+import Data.List (stripPrefix)
+import Text.Read (readMaybe)
 import qualified Sound.MIDI.File.Event as E
 import qualified Sound.MIDI.File.Event.Meta as Meta
 import qualified Sound.MIDI.Message.Channel as C
@@ -93,3 +95,21 @@ showCommand' = E.MetaEvent . Meta.TextEvent . showCommand
 -- | Opposite of 'readCommand'.
 showCommand :: (Command a) => a -> String
 showCommand ws = "[" ++ unwords (fromCommand ws) ++ "]"
+
+data Trainer
+  = TrainerBegin Int
+  | TrainerNorm Int
+  | TrainerEnd Int
+  deriving (Eq, Ord, Show, Read)
+
+instance Command (Trainer, String) where
+  fromCommand (t, s) = case t of
+    TrainerBegin i -> ["begin_" ++ s, "song_trainer_" ++ s ++ "_" ++ show i]
+    TrainerNorm  i -> [ "norm_" ++ s, "song_trainer_" ++ s ++ "_" ++ show i]
+    TrainerEnd   i -> [  "end_" ++ s, "song_trainer_" ++ s ++ "_" ++ show i]
+  toCommand [x, stripPrefix "song_trainer_" -> Just (readMaybe -> Just i)] = case x of
+    (stripPrefix "begin_" -> Just s) -> Just (TrainerBegin i, s)
+    (stripPrefix "norm_"  -> Just s) -> Just (TrainerNorm  i, s)
+    (stripPrefix "end_"   -> Just s) -> Just (TrainerEnd   i, s)
+    _ -> Nothing
+  toCommand _ = Nothing
