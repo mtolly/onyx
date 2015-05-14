@@ -101,13 +101,6 @@ If you want to compile straight to Xbox 360 CON you need:
 
   * .NET Framework or [Mono](http://www.mono-project.com)
 
-  * [`rb3pkg`](https://github.com/mtolly/rb3tools/releases/download/v0.1/rb3pkg_v0.1_dotnet.zip)
-
-    To place this in your `PATH` on Linux/Mac, make a script with contents:
-
-        #!/bin/sh
-        mono /path/to/rb3pkg.exe "$@"
-
 If you are on very old Windows (XP) you may need this:
 
   * [Microsoft Visual C++ 2005 SP1](http://www.microsoft.com/en-us/download/details.aspx?displaylang=en&id=5638)

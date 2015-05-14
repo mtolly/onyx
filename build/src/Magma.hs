@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Magma where
+module Magma (runMagmaMIDI, runMagma, oggToMogg) where
 
 import Data.FileEmbed (embedDir)
 import qualified Data.ByteString as B

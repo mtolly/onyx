@@ -14,6 +14,10 @@ extra-source-files:
   magma/oggenc.exe
   magma/gen/main_pc.hdr
   magma/gen/main_pc_0.ark
+  xbox/rb3pkg/bin/Release/KV.bin
+  xbox/rb3pkg/bin/Release/rb3.png
+  xbox/rb3pkg/bin/Release/rb3pkg.exe
+  xbox/rb3pkg/bin/Release/X360.dll
 
 executable onyxbuild
   hs-source-dirs:       src
@@ -26,6 +30,7 @@ executable onyxbuild
     Scripts
     OneFoot
     Magma
+    X360
     Image
 
     Parser

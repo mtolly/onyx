@@ -12,6 +12,7 @@ import Config
 import Audio
 import OneFoot
 import Magma
+import X360
 import Image
 import qualified Data.Aeson as A
 import Control.Applicative ((<$>), (<|>))
@@ -324,8 +325,11 @@ rb3Rules s = eachVersion s $ \title dir -> do
   pathPng %> copyFile' "gen/cover.png_xbox"
   pathCon %> \out -> do
     need [pathDta, pathMid, pathMogg, pathPng]
-    cmd "rb3pkg -p" [_artist s ++ ": " ++ _title s] "-d"
-      ["Version: " ++ drop 4 dir] "-f" [dir </> "rb3"] out
+    liftIO $ rb3pkg
+      (_artist s ++ ": " ++ _title s)
+      ("Version: " ++ drop 4 dir)
+      (dir </> "rb3")
+      out
 
 makeDTA :: String -> String -> FilePath -> Song -> Action D.SongPackage
 makeDTA pkg title mid s = do
@@ -411,25 +415,16 @@ makeDTA pkg title mid s = do
 
 coverRules :: Song -> Rules ()
 coverRules s = do
-  let img = _fileAlbumArt s
-  "gen/cover.bmp" %> \out -> do
-    need [img]
-    res <- liftIO $ readImage img
-    case res of
-      Left err -> fail $ "Failed to load cover art: " ++ err
-      Right dyn -> liftIO $ writeBitmap out $ scaleBilinear 256 256 $ anyToRGB8 dyn
-  "gen/cover.png" %> \out -> do
-    need [img]
-    res <- liftIO $ readImage img
-    case res of
-      Left err -> fail $ "Failed to load cover art: " ++ err
-      Right dyn -> liftIO $ writePng out $ scaleBilinear 256 256 $ anyToRGB8 dyn
-  "gen/cover.dds" %> \out -> do
-    need [img]
-    res <- liftIO $ readImage img
-    case res of
-      Left err -> fail $ "Failed to load cover art: " ++ err
-      Right dyn -> liftIO $ writeDDS out $ scaleBilinear 256 256 $ anyToRGB8 dyn
+  let loadRGB8 = do
+        let img = _fileAlbumArt s
+        need [img]
+        res <- liftIO $ readImage img
+        case res of
+          Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
+          Right dyn -> return $ anyToRGB8 dyn
+  "gen/cover.bmp" %> \out -> loadRGB8 >>= liftIO . writeBitmap out . scaleBilinear 256 256
+  "gen/cover.png" %> \out -> loadRGB8 >>= liftIO . writePng    out . scaleBilinear 256 256
+  "gen/cover.dds" %> \out -> loadRGB8 >>= liftIO . writeDDS    out . scaleBilinear 256 256
   "gen/cover.png_xbox" %> \out -> do
     let dds = out -<.> "dds"
     need [dds]
@@ -448,14 +443,14 @@ coverRules s = do
 
 magmaRules :: Song -> Rules ()
 magmaRules s = eachVersion s $ \title dir -> do
-  let drums = dir </> "magma/drums.wav"
-      bass = dir </> "magma/bass.wav"
+  let drums  = dir </> "magma/drums.wav"
+      bass   = dir </> "magma/bass.wav"
       guitar = dir </> "magma/guitar.wav"
-      song = dir </> "magma/song-countin.wav"
-      cover = dir </> "magma/cover.bmp"
-      mid = dir </> "magma/notes.mid"
-      proj = dir </> "magma/magma.rbproj"
-      rba = dir </> "magma.rba"
+      song   = dir </> "magma/song-countin.wav"
+      cover  = dir </> "magma/cover.bmp"
+      mid    = dir </> "magma/notes.mid"
+      proj   = dir </> "magma/magma.rbproj"
+      rba    = dir </> "magma.rba"
       export = dir </> "notes-magma-export.mid"
   drums %> copyFile' (dir </> "drums.wav")
   bass %> copyFile' (dir </> "bass.wav")
