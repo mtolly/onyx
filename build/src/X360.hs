@@ -10,7 +10,7 @@ import Control.Monad (forM_)
 import System.FilePath ((</>))
 
 rb3pkgFiles :: [(FilePath, B.ByteString)]
-rb3pkgFiles = $(embedDir "xbox/rb3pkg/bin/Release/")
+rb3pkgFiles = $(embedDir "vendors/xbox/rb3pkg/bin/Release/")
 
 withExe :: (FilePath -> [String] -> IO a) -> FilePath -> [String] -> IO a
 withExe f exe args = if os == "mingw32"

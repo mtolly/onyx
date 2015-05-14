@@ -21,7 +21,7 @@ import Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import Data.Int (Int16)
 
 magmaFiles :: [(FilePath, B.ByteString)]
-magmaFiles = $(embedDir "magma/")
+magmaFiles = $(embedDir "vendors/magma/")
 
 withExe :: (FilePath -> [String] -> IO a) -> FilePath -> [String] -> IO a
 withExe f exe args = if os == "mingw32"

@@ -7,17 +7,17 @@ category:             Distribution
 build-type:           Simple
 cabal-version:        >= 1.10
 extra-source-files:
-  magma/hellskitchen.rbproj
-  magma/MagmaCompilerC3.exe
-  magma/notes.mid
-  magma/oggenc-redirect.exe
-  magma/oggenc.exe
-  magma/gen/main_pc.hdr
-  magma/gen/main_pc_0.ark
-  xbox/rb3pkg/bin/Release/KV.bin
-  xbox/rb3pkg/bin/Release/rb3.png
-  xbox/rb3pkg/bin/Release/rb3pkg.exe
-  xbox/rb3pkg/bin/Release/X360.dll
+  vendors/magma/hellskitchen.rbproj
+  vendors/magma/MagmaCompilerC3.exe
+  vendors/magma/notes.mid
+  vendors/magma/oggenc-redirect.exe
+  vendors/magma/oggenc.exe
+  vendors/magma/gen/main_pc.hdr
+  vendors/magma/gen/main_pc_0.ark
+  vendors/xbox/rb3pkg/bin/Release/KV.bin
+  vendors/xbox/rb3pkg/bin/Release/rb3.png
+  vendors/xbox/rb3pkg/bin/Release/rb3pkg.exe
+  vendors/xbox/rb3pkg/bin/Release/X360.dll
 
 executable onyxbuild
   hs-source-dirs:       src
