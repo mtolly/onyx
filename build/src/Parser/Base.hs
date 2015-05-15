@@ -107,9 +107,13 @@ instance Command (Trainer, String) where
     TrainerBegin i -> ["begin_" ++ s, "song_trainer_" ++ s ++ "_" ++ show i]
     TrainerNorm  i -> [ "norm_" ++ s, "song_trainer_" ++ s ++ "_" ++ show i]
     TrainerEnd   i -> [  "end_" ++ s, "song_trainer_" ++ s ++ "_" ++ show i]
-  toCommand [x, stripPrefix "song_trainer_" -> Just (readMaybe -> Just i)] = case x of
-    (stripPrefix "begin_" -> Just s) -> Just (TrainerBegin i, s)
-    (stripPrefix "norm_"  -> Just s) -> Just (TrainerNorm  i, s)
-    (stripPrefix "end_"   -> Just s) -> Just (TrainerEnd   i, s)
+  toCommand [x, stripPrefix "song_trainer_" -> Just y] = case x of
+    (stripPrefix "begin_" -> Just s) -> f s TrainerBegin
+    (stripPrefix "norm_"  -> Just s) -> f s TrainerNorm
+    (stripPrefix "end_"   -> Just s) -> f s TrainerEnd
     _ -> Nothing
+    where f s con = case stripPrefix s y of
+            Just ('_' : (readMaybe -> Just i)) -> Just (con i, s)
+            Just (readMaybe -> Just i) -> Just (con i, s)
+            _ -> Nothing
   toCommand _ = Nothing
