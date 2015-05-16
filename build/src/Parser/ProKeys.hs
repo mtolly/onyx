@@ -1,14 +1,16 @@
 -- | The contents of the \"PART REAL_KEYS_?\" and \"PART KEYS_ANIM_?H\" tracks.
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
 module Parser.ProKeys where
 
 import Parser.Base
-import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util as U
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Numeric.NonNegative.Class as NNC
+import Parser.TH
+import Language.Haskell.TH
 
 data Event
   = LaneShift LaneRange
@@ -29,40 +31,32 @@ data Event
 data LaneRange = C | D | E | F | G | A
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-readEvent :: E.T -> Maybe [Event]
-readEvent (MIDINote p b) = case V.fromPitch p of
-  0 -> Just [LaneShift C | b]
-  2 -> Just [LaneShift D | b]
-  4 -> Just [LaneShift E | b]
-  5 -> Just [LaneShift F | b]
-  7 -> Just [LaneShift G | b]
-  9 -> Just [LaneShift A | b]
-  i | 48 <= i && i <= 72 -> one $ Note i b
-  115 -> one $ Solo b
-  116 -> one $ Overdrive b
-  120 -> one $ BRE b
-  126 -> one $ Glissando b
-  127 -> one $ Trill b
-  _ -> Nothing
-  where one x = Just [x]
-readEvent (readCommand' -> Just mood) = Just [Mood mood]
-readEvent (readCommand' -> Just (train, "key")) = Just [Trainer train]
-readEvent _ = Nothing
-
-showEvent :: Event -> RTB.T U.Beats E.T
-showEvent = \case
-  LaneShift C -> blip' 0
-  LaneShift D -> blip' 2
-  LaneShift E -> blip' 4
-  LaneShift F -> blip' 5
-  LaneShift G -> blip' 7
-  LaneShift A -> blip' 9
-  Trainer   t -> one $ showCommand' (t, "key")
-  Mood      m -> one $ showCommand' m
-  Note    i b -> one $ edge' i   b
-  Solo      b -> one $ edge' 115 b
-  Overdrive b -> one $ edge' 116 b
-  BRE       b -> one $ edge' 120 b
-  Glissando b -> one $ edge' 126 b
-  Trill     b -> one $ edge' 127 b
-  where one = RTB.singleton 0
+rosetta :: (Q Exp, Q Exp)
+rosetta = translation
+  [ blip 0 [p| LaneShift C |]
+  , blip 2 [p| LaneShift D |]
+  , blip 4 [p| LaneShift E |]
+  , blip 5 [p| LaneShift F |]
+  , blip 7 [p| LaneShift G |]
+  , blip 9 [p| LaneShift A |]
+  , ( [e| U.extractFirst $ \e -> case isNoteEdge e of
+        Just (i, b) | 48 <= i && i <= 72 -> Just $ Note i b
+        _ -> Nothing
+      |]
+    , [e| \case Note i b -> RTB.singleton NNC.zero $ makeEdge i b |]
+    )
+  , edge 115 $ applyB [p| Solo |]
+  , edge 116 $ applyB [p| Overdrive |]
+  , edge 120 $ applyB [p| BRE |]
+  , edge 126 $ applyB [p| Glissando |]
+  , edge 127 $ applyB [p| Trill |]
+  , ( [e| mapParseOne Mood parseCommand |]
+    , [e| \case Mood m -> unparseCommand m |]
+    )
+  , ( [e| U.extractFirst $ \e -> readCommand' e >>= \case
+        (t, "key") -> Just $ Trainer t
+        _          -> Nothing
+      |]
+    , [e| \case Trainer t -> RTB.singleton NNC.zero $ showCommand' (t, "key") |]
+    )
+  ]

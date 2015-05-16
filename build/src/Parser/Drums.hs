@@ -3,18 +3,18 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ViewPatterns #-}
 module Parser.Drums where
 
-import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.File.Event.Meta as Meta
-import qualified Sound.MIDI.Message.Channel.Voice as V
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
 import qualified Sound.MIDI.Util as U
-import qualified Data.EventList.Relative.TimeBody as RTB
-import Control.Applicative ((<|>), (<*>), (<$>))
+import Control.Applicative ((<*>), (<$>))
 
 import Parser.Base
+import Parser.TH
+import Language.Haskell.TH
 
 data ProColor = Yellow | Blue | Green
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -88,90 +88,6 @@ data Disco
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 -- TODO: Fly Like an Eagle has [mix n drums2a], what is this?
 
-readEvent :: E.T -> Maybe [Event]
-readEvent e = case e of
-  MIDINote p b -> case V.fromPitch p of
-    24  -> on $ Animation KickRF
-    25  -> long $ Animation $ HihatOpen b
-    26  -> on $ Animation $ Snare HardHit LH
-    27  -> on $ Animation $ Snare HardHit RH
-    28  -> on $ Animation $ Snare SoftHit LH
-    29  -> on $ Animation $ Snare SoftHit RH
-    30  -> on $ Animation $ Hihat LH
-    31  -> on $ Animation $ Hihat RH
-    32  -> on $ Animation $ PercussionRH
-    -- 33 unused
-    34  -> on $ Animation $ Crash1 HardHit LH
-    35  -> on $ Animation $ Crash1 SoftHit LH
-    36  -> on $ Animation $ Crash1 HardHit RH
-    37  -> on $ Animation $ Crash1 SoftHit RH
-    38  -> on $ Animation $ Crash2 HardHit RH
-    39  -> on $ Animation $ Crash2 SoftHit RH
-    40  -> on $ Animation Crash2RHChokeLH
-    41  -> on $ Animation Crash1RHChokeLH
-    42  -> on $ Animation $ Ride RH
-    43  -> on $ Animation $ Ride LH
-    44  -> on $ Animation $ Crash2 HardHit LH
-    45  -> on $ Animation $ Crash2 SoftHit LH
-    46  -> on $ Animation $ Tom1 LH
-    47  -> on $ Animation $ Tom1 RH
-    48  -> on $ Animation $ Tom2 LH
-    49  -> on $ Animation $ Tom2 RH
-    50  -> on $ Animation $ FloorTom LH
-    51  -> on $ Animation $ FloorTom RH
-
-    60  -> on $ Note Easy Kick
-    61  -> on $ Note Easy Red
-    62  -> on $ Note Easy $ Pro Yellow ()
-    63  -> on $ Note Easy $ Pro Blue   ()
-    64  -> on $ Note Easy $ Pro Green  ()
-
-    72  -> on $ Note Medium Kick
-    73  -> on $ Note Medium Red
-    74  -> on $ Note Medium $ Pro Yellow ()
-    75  -> on $ Note Medium $ Pro Blue   ()
-    76  -> on $ Note Medium $ Pro Green  ()
-
-    84  -> on $ Note Hard Kick
-    85  -> on $ Note Hard Red
-    86  -> on $ Note Hard $ Pro Yellow ()
-    87  -> on $ Note Hard $ Pro Blue   ()
-    88  -> on $ Note Hard $ Pro Green  ()
-
-    96  -> on $ Note Expert Kick
-    97  -> on $ Note Expert Red
-    98  -> on $ Note Expert $ Pro Yellow ()
-    99  -> on $ Note Expert $ Pro Blue   ()
-    100 -> on $ Note Expert $ Pro Green  ()
-
-    103 -> long $ Solo b
-    105 -> long $ Player1 b
-    106 -> long $ Player2 b
-    110 -> long $ ProType Yellow $ if b then Tom else Cymbal
-    111 -> long $ ProType Blue   $ if b then Tom else Cymbal
-    112 -> long $ ProType Green  $ if b then Tom else Cymbal
-    116 -> long $ Overdrive b
-    -- 120..124 are always together, so we just parse 120 and ignore the rest
-    120 -> long $ Activation b
-    121 -> Just []
-    122 -> Just []
-    123 -> Just []
-    124 -> Just []
-    126 -> long $ SingleRoll b
-    127 -> long $ DoubleRoll b
-    _   -> Nothing
-    where on   x = Just [x | b]
-          long x = Just [x]
-  E.MetaEvent (Meta.TextEvent s) -> fmap (: [])
-    $   fmap SetMix (readCommand s)
-    <|> fmap Mood (readCommand s)
-    <|> do
-      readCommand s >>= \case
-        ["ride_side_true" ] -> Just $ Animation $ RideSide True
-        ["ride_side_false"] -> Just $ Animation $ RideSide False
-        _                   -> Nothing
-  _ -> Nothing
-
 instance Command Mix where
   fromCommand (Mix diff audio disco) = ["mix", show $ fromEnum diff, showMix audio disco]
   toCommand = reverseLookup (Mix <$> each <*> each <*> each) fromCommand
@@ -185,55 +101,87 @@ showMix audio disco = "drums" ++ show (fromEnum audio) ++ case disco of
   EasyMix     -> "easy"
   EasyNoKick  -> "easynokick"
 
-showEvent :: Event -> RTB.T U.Beats E.T
-showEvent = \case
-  Mood m -> one $ showCommand' m
-  ProType Yellow ptype -> one $ edge' 110 (ptype == Tom)
-  ProType Blue   ptype -> one $ edge' 111 (ptype == Tom)
-  ProType Green  ptype -> one $ edge' 112 (ptype == Tom)
-  SetMix mix -> one $ showCommand' mix
-  SingleRoll b -> one $ edge' 126 b
-  DoubleRoll b -> one $ edge' 127 b
-  Overdrive  b -> one $ edge' 116 b
-  Activation b -> foldr (RTB.cons 0) RTB.empty [ edge' p b | p <- [120 .. 124] ]
-  Solo       b -> one $ edge' 103 b
-  Player1    b -> one $ edge' 105 b
-  Player2    b -> one $ edge' 106 b
-  Note diff gem -> blip' $ 60 + 12 * fromEnum diff + case gem of
-    Kick          -> 0
-    Red           -> 1
-    Pro Yellow () -> 2
-    Pro Blue   () -> 3
-    Pro Green  () -> 4
-  Animation anim -> case anim of
-    KickRF -> blip' 24
-    HihatOpen b -> one $ edge' 25 b
-    Snare HardHit LH -> blip' 26
-    Snare HardHit RH -> blip' 27
-    Snare SoftHit LH -> blip' 28
-    Snare SoftHit RH -> blip' 29
-    Hihat LH -> blip' 30
-    Hihat RH -> blip' 31
-    PercussionRH -> blip' 32
-    -- 33 unused
-    Crash1 HardHit LH -> blip' 34
-    Crash1 SoftHit LH -> blip' 35
-    Crash1 HardHit RH -> blip' 36
-    Crash1 SoftHit RH -> blip' 37
-    Crash2 HardHit RH -> blip' 38
-    Crash2 SoftHit RH -> blip' 39
-    Crash2RHChokeLH -> blip' 40
-    Crash1RHChokeLH -> blip' 41
-    Ride RH -> blip' 42
-    Ride LH -> blip' 43
-    Crash2 HardHit LH -> blip' 44
-    Crash2 SoftHit LH -> blip' 45
-    Tom1 LH -> blip' 46
-    Tom1 RH -> blip' 47
-    Tom2 LH -> blip' 48
-    Tom2 RH -> blip' 49
-    FloorTom LH -> blip' 50
-    FloorTom RH -> blip' 51
-    RideSide True -> one $ showCommand' ["ride_side_true"]
-    RideSide False -> one $ showCommand' ["ride_side_false"]
-  where one x = RTB.singleton 0 x
+rosetta :: (Q Exp, Q Exp)
+rosetta = translation
+
+  [ blip 24  [p| Animation KickRF |]
+  , edge 25  $ \b -> if b then [p| Animation (HihatOpen True) |] else [p| Animation (HihatOpen False) |]
+  , blip 26  [p| Animation (Snare HardHit LH) |]
+  , blip 27  [p| Animation (Snare HardHit RH) |]
+  , blip 28  [p| Animation (Snare SoftHit LH) |]
+  , blip 29  [p| Animation (Snare SoftHit RH) |]
+  , blip 30  [p| Animation (Hihat LH) |]
+  , blip 31  [p| Animation (Hihat RH) |]
+  , blip 32  [p| Animation PercussionRH |]
+  -- 33 unused
+  , blip 34  [p| Animation (Crash1 HardHit LH) |]
+  , blip 35  [p| Animation (Crash1 SoftHit LH) |]
+  , blip 36  [p| Animation (Crash1 HardHit RH) |]
+  , blip 37  [p| Animation (Crash1 SoftHit RH) |]
+  , blip 38  [p| Animation (Crash2 HardHit RH) |]
+  , blip 39  [p| Animation (Crash2 SoftHit RH) |]
+  , blip 40  [p| Animation Crash2RHChokeLH |]
+  , blip 41  [p| Animation Crash1RHChokeLH |]
+  , blip 42  [p| Animation (Ride RH) |]
+  , blip 43  [p| Animation (Ride LH) |]
+  , blip 44  [p| Animation (Crash2 HardHit LH) |]
+  , blip 45  [p| Animation (Crash2 SoftHit LH) |]
+  , blip 46  [p| Animation (Tom1 LH) |]
+  , blip 47  [p| Animation (Tom1 RH) |]
+  , blip 48  [p| Animation (Tom2 LH) |]
+  , blip 49  [p| Animation (Tom2 RH) |]
+  , blip 50  [p| Animation (FloorTom LH) |]
+  , blip 51  [p| Animation (FloorTom RH) |]
+
+  , blip 60  [p| Note Easy Kick |]
+  , blip 61  [p| Note Easy Red |]
+  , blip 62  [p| Note Easy (Pro Yellow ()) |]
+  , blip 63  [p| Note Easy (Pro Blue   ()) |]
+  , blip 64  [p| Note Easy (Pro Green  ()) |]
+
+  , blip 72  [p| Note Medium Kick |]
+  , blip 73  [p| Note Medium Red |]
+  , blip 74  [p| Note Medium (Pro Yellow ()) |]
+  , blip 75  [p| Note Medium (Pro Blue   ()) |]
+  , blip 76  [p| Note Medium (Pro Green  ()) |]
+
+  , blip 84  [p| Note Hard Kick |]
+  , blip 85  [p| Note Hard Red |]
+  , blip 86  [p| Note Hard (Pro Yellow ()) |]
+  , blip 87  [p| Note Hard (Pro Blue   ()) |]
+  , blip 88  [p| Note Hard (Pro Green  ()) |]
+
+  , blip 96  [p| Note Expert Kick |]
+  , blip 97  [p| Note Expert Red |]
+  , blip 98  [p| Note Expert (Pro Yellow ()) |]
+  , blip 99  [p| Note Expert (Pro Blue   ()) |]
+  , blip 100 [p| Note Expert (Pro Green  ()) |]
+
+  , edge 103 $ applyB [p| Solo |]
+  , edge 105 $ applyB [p| Player1 |]
+  , edge 106 $ applyB [p| Player2 |]
+  , edge 110 $ \b -> if b then [p| ProType Yellow Tom |] else [p| ProType Yellow Cymbal |]
+  , edge 111 $ \b -> if b then [p| ProType Blue   Tom |] else [p| ProType Blue   Cymbal |]
+  , edge 112 $ \b -> if b then [p| ProType Green  Tom |] else [p| ProType Green  Cymbal |]
+  , edge 116 $ applyB [p| Overdrive |]
+  , edges [120 .. 124] $ applyB [p| Activation |]
+  , edge 126 $ applyB [p| SingleRoll |]
+  , edge 127 $ applyB [p| DoubleRoll |]
+
+  , ( [e| mapParseOne Mood parseCommand |]
+    , [e| \case Mood m -> unparseCommand m |]
+    )
+  , ( [e| mapParseOne SetMix parseCommand |]
+    , [e| \case SetMix m -> unparseCommand m |]
+    )
+  , ( [e| U.extractFirst $ \e -> readCommand' e >>= \case
+        ["ride_side_true" ] -> Just $ Animation $ RideSide True
+        ["ride_side_false"] -> Just $ Animation $ RideSide False
+        _ -> Nothing
+      |]
+    , [e| \case
+        Animation (RideSide True ) -> unparseCommand ["ride_side_true"]
+        Animation (RideSide False) -> unparseCommand ["ride_side_false"]
+      |]
+    )
+  ]

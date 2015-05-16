@@ -2,16 +2,19 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Parser.Vocals where
 
 import qualified Sound.MIDI.File.Event as E
 import qualified Sound.MIDI.File.Event.Meta as Meta
-import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util as U
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Numeric.NonNegative.Class as NNC
 import Parser.Base
 import Control.Applicative ((<$>), (<*>))
 import Data.Char (toLower)
+import Parser.TH
+import Language.Haskell.TH
 
 data Event
   = LyricShift
@@ -33,38 +36,39 @@ data PercussionType
   | Clap
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-readEvent :: E.T -> Maybe [Event]
-readEvent (MIDINote p b) = case V.fromPitch p of
-  0 -> Just [RangeShift b]
-  1 -> Just [LyricShift | b]
-  i | 36 <= i && i <= 84 -> Just [Note i b]
-  96 -> Just [Percussion | b]
-  97 -> Just [PercussionSound | b]
-  105 -> Just [Phrase b]
-  106 -> Just [Phrase2 b]
-  116 -> Just [Overdrive b]
-  _ -> Nothing
-readEvent (E.MetaEvent (Meta.Lyric str)) = Just [Lyric str]
-readEvent (E.MetaEvent (Meta.TextEvent str)) = case str of
-  (readCommand -> Just (typ, b)) -> Just [PercussionAnimation typ b]
-  (readCommand -> Just mood) -> Just [Mood mood]
-  _ -> Just [Lyric str] -- unrecognized text is a lyric by default
-readEvent _ = Nothing
-
 instance Command (PercussionType, Bool) where
   fromCommand (typ, b) = [map toLower (show typ) ++ if b then "_start" else "_end"]
   toCommand = reverseLookup ((,) <$> each <*> each) fromCommand
 
-showEvent :: Event -> RTB.T U.Beats E.T
-showEvent = \case
-  LyricShift -> blip' 1
-  Mood m -> RTB.singleton 0 $ showCommand' m
-  Lyric s -> RTB.singleton 0 $ E.MetaEvent $ Meta.Lyric s
-  Percussion -> blip' 96
-  PercussionSound -> blip' 97
-  PercussionAnimation typ b -> RTB.singleton 0 $ showCommand' (typ, b)
-  Phrase b -> RTB.singleton 0 $ edge' 105 b
-  Phrase2 b -> RTB.singleton 0 $ edge' 106 b
-  Overdrive b -> RTB.singleton 0 $ edge' 116 b
-  RangeShift b -> RTB.singleton 0 $ edge' 0 b
-  Note i b -> RTB.singleton 0 $ edge' i b
+rosetta :: (Q Exp, Q Exp)
+rosetta = translation
+  [ edge 0 $ applyB [p| RangeShift |]
+  , blip 1 [p| LyricShift |]
+  , ( [e| U.extractFirst $ \e -> case isNoteEdge e of
+        Just (i, b) | 36 <= i && i <= 84 -> Just $ Note i b
+        _ -> Nothing
+      |]
+    , [e| \case Note i b -> RTB.singleton NNC.zero $ makeEdge i b |]
+    )
+  , blip 96 [p| Percussion |]
+  , blip 97 [p| PercussionSound |]
+  , edge 105 $ applyB [p| Phrase |]
+  , edge 106 $ applyB [p| Phrase2 |]
+  , edge 116 $ applyB [p| Overdrive |]
+
+  , ( [e| mapParseOne Mood parseCommand |]
+    , [e| \case Mood m -> unparseCommand m |]
+    )
+  , ( [e| mapParseOne (uncurry PercussionAnimation) parseCommand |]
+    , [e| \case PercussionAnimation t b -> unparseCommand (t, b) |]
+    )
+  , ( [e| U.extractFirst $ \case
+        E.MetaEvent (Meta.Lyric s) -> Just $ Lyric s
+        E.MetaEvent (Meta.TextEvent s) -> Just $ Lyric s
+        -- unrecognized text events are lyrics by default.
+        -- but note that this must come after the mood and perc-anim parsers!
+        _ -> Nothing
+      |]
+    , [e| \case Lyric s -> RTB.singleton NNC.zero $ E.MetaEvent $ Meta.Lyric s |]
+    )
+  ]

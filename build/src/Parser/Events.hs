@@ -1,13 +1,14 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Parser.Events where
 
 import Parser.Base
-import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Sound.MIDI.Util as U
-import Control.Applicative ((<|>))
+import qualified Numeric.NonNegative.Class as NNC
+import Parser.TH
+import Language.Haskell.TH
 
 data Event
   = Simple Simple
@@ -34,27 +35,18 @@ instance Command Simple where
   fromCommand = autoFromCommand
   toCommand = reverseLookup each fromCommand
 
-readEvent :: E.T -> Maybe [Event]
-readEvent e
-  =   do
-    fmap (\s -> [Simple s]) $ readCommand' e
-  <|> do
-    readCommand' e >>= \case
-      ['p':'r':'c':'_':sec] -> Just [PracticeSection sec]
-      _                     -> Nothing
-  <|> do
-    case e of
-      MIDINote p b -> case V.fromPitch p of
-        24 -> Just [PracticeKick  | b]
-        25 -> Just [PracticeSnare | b]
-        26 -> Just [PracticeHihat | b]
-        _  -> Nothing
-      _ -> Nothing
-
-showEvent :: Event -> RTB.T U.Beats E.T
-showEvent = \case
-  Simple s -> RTB.singleton 0 $ showCommand' s
-  PracticeSection sec -> RTB.singleton 0 $ showCommand' ["prc_" ++ sec]
-  PracticeKick  -> blip' 24
-  PracticeSnare -> blip' 25
-  PracticeHihat -> blip' 26
+rosetta :: (Q Exp, Q Exp)
+rosetta = translation
+  [ ( [e| mapParseOne Simple parseCommand |]
+    , [e| \case Simple m -> unparseCommand m |]
+    )
+  , ( [e| U.extractFirst $ \e -> readCommand' e >>= \case
+        ['p':'r':'c':'_':s] -> Just $ PracticeSection s
+        _                   -> Nothing
+      |]
+    , [e| \case PracticeSection s -> RTB.singleton NNC.zero $ showCommand' ["prc_" ++ s] |]
+    )
+  , blip 24 [p| PracticeKick |]
+  , blip 25 [p| PracticeSnare |]
+  , blip 26 [p| PracticeHihat |]
+  ]

@@ -33,8 +33,9 @@ executable onyxbuild
     X360
     Image
 
-    Parser
+    StackTrace
     Parser.Base
+    Parser.TH
     Parser.Beat
     Parser.Countin
     Parser.Drums
@@ -61,6 +62,7 @@ executable onyxbuild
     , conduit
     , vector
     , transformers >= 0.4
+    , template-haskell
     -- my libraries:
     , dtab >= 1.0 && < 1.1
     , jammittools >= 0.4.1 && < 0.5

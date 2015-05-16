@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
-module Parser where
+module StackTrace where
 
 import Data.Functor.Identity
 import Control.Monad.Trans.Except
@@ -20,39 +20,39 @@ data Message = Message
 
 -- | Attaches warnings and fatal errors to a monad. Both warnings and errors
 -- keep track of their \"call stack\" of where the message occurred.
-newtype ParserT m a = ParserT
-  { fromParserT :: ExceptT [Message] (RWST [String] [Message] () m) a
+newtype StackTraceT m a = StackTraceT
+  { fromStackTraceT :: ExceptT [Message] (RWST [String] [Message] () m) a
   } deriving (Functor, Applicative, Monad, MonadIO, Alternative, MonadPlus)
 
-instance MonadTrans ParserT where
-  lift = ParserT . lift . lift
+instance MonadTrans StackTraceT where
+  lift = StackTraceT . lift . lift
 
-warn :: (Monad m) => String -> ParserT m ()
-warn s = ParserT $ lift $ do
+warn :: (Monad m) => String -> StackTraceT m ()
+warn s = StackTraceT $ lift $ do
   ctx <- ask
   tell [Message s ctx]
 
 -- | Turns errors into warnings, and returns "Nothing".
-optional :: (Monad m) => ParserT m a -> ParserT m (Maybe a)
+optional :: (Monad m) => StackTraceT m a -> StackTraceT m (Maybe a)
 optional p = liftM Just p `catch` \errs ->
-  ParserT (lift $ tell errs) >> return Nothing
+  StackTraceT (lift $ tell errs) >> return Nothing
 
-fatal :: (Monad m) => String -> ParserT m a
-fatal s = ParserT $ do
+fatal :: (Monad m) => String -> StackTraceT m a
+fatal s = StackTraceT $ do
   ctx <- lift ask
   throwE [Message s ctx]
 
-catch :: (Monad m) => ParserT m a -> ([Message] -> ParserT m a) -> ParserT m a
-ParserT ex `catch` f = ParserT $ ex `catchE` (fromParserT . f)
+catch :: (Monad m) => StackTraceT m a -> ([Message] -> StackTraceT m a) -> StackTraceT m a
+StackTraceT ex `catch` f = StackTraceT $ ex `catchE` (fromStackTraceT . f)
 
-inside :: (Monad m) => String -> ParserT m a -> ParserT m a
-inside s (ParserT (ExceptT rwst)) = ParserT $ ExceptT $ local (s :) rwst
+inside :: (Monad m) => String -> StackTraceT m a -> StackTraceT m a
+inside s (StackTraceT (ExceptT rwst)) = StackTraceT $ ExceptT $ local (s :) rwst
 
-runParserT :: (Monad m) => ParserT m a -> m (Either [Message] a, [Message])
-runParserT (ParserT ex) = evalRWST (runExceptT ex) [] ()
+runStackTraceT :: (Monad m) => StackTraceT m a -> m (Either [Message] a, [Message])
+runStackTraceT (StackTraceT ex) = evalRWST (runExceptT ex) [] ()
 
-runParser :: ParserT Identity a -> (Either [Message] a, [Message])
-runParser = runIdentity . runParserT
+runStackTrace :: StackTraceT Identity a -> (Either [Message] a, [Message])
+runStackTrace = runIdentity . runStackTraceT
 
 -- | Prints the message and its context stack to standard error.
 printMessage :: Message -> IO ()
@@ -63,9 +63,9 @@ printMessage (Message s ctx) = do
 
 -- | Prints warnings and errors to standard error, and then throws an exception
 -- if there were errors.
-printParserIO :: (MonadIO m) => ParserT m a -> m a
-printParserIO p = do
-  (result, warnings) <- runParserT p
+printStackTraceIO :: (MonadIO m) => StackTraceT m a -> m a
+printStackTraceIO p = do
+  (result, warnings) <- runStackTraceT p
   liftIO $ forM_ warnings $ \msg -> do
     hPutStr stderr "Warning: "
     printMessage msg
@@ -74,10 +74,10 @@ printParserIO p = do
       forM_ errors $ \msg -> do
         hPutStr stderr "ERROR: "
         printMessage msg
-      error "printParserIO: fatal errors occurred"
+      error "printStackTraceIO: fatal errors occurred"
     Right x -> return x
 
-liftMaybe :: (Monad m, Show a) => (a -> m (Maybe b)) -> a -> ParserT m b
+liftMaybe :: (Monad m, Show a) => (a -> m (Maybe b)) -> a -> StackTraceT m b
 liftMaybe f x = lift (f x) >>= \case
   Nothing -> fatal $ "Unrecognized input: " ++ show x
   Just y  -> return y

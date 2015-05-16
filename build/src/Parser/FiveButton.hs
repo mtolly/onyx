@@ -1,14 +1,14 @@
 -- | Parser used for all the GRYBO instruments (basic guitar, bass, and keys).
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Parser.FiveButton where
 
-import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util as U
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Numeric.NonNegative.Class as NNC
 import Parser.Base
-import Control.Applicative ((<|>))
+import Language.Haskell.TH
+import Parser.TH
 
 data Color = Green | Red | Yellow | Blue | Orange
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -59,6 +59,10 @@ handMapName = \case
   ChordD -> "HandMap_Chord_D"
   ChordA -> "HandMap_Chord_A"
 
+instance Command HandMap where
+  fromCommand hm = ["map", handMapName hm]
+  toCommand = reverseLookup each fromCommand
+
 -- | Controls the strumming animation for a bassist.
 data StrumMap
   = StrumDefault
@@ -72,79 +76,67 @@ strumMapName = \case
   Pick -> "StrumMap_Pick"
   SlapBass -> "StrumMap_SlapBass"
 
-readEvent :: E.T -> Maybe [Event]
-readEvent (MIDINote p b) = case V.fromPitch p of
-  i | 40 <= i && i <= 59 -> Just [FretPosition i b]
+instance Command StrumMap where
+  fromCommand sm = ["map", strumMapName sm]
+  toCommand = reverseLookup each fromCommand
 
-  60 -> one $ Note Easy Green b
-  61 -> one $ Note Easy Red b
-  62 -> one $ Note Easy Yellow b
-  63 -> one $ Note Easy Blue b
-  64 -> one $ Note Easy Orange b
-  65 -> one $ ForceHOPO Easy b
-  66 -> one $ ForceStrum Easy b
+rosetta :: (Q Exp, Q Exp)
+rosetta = translation
 
-  72 -> one $ Note Medium Green b
-  73 -> one $ Note Medium Red b
-  74 -> one $ Note Medium Yellow b
-  75 -> one $ Note Medium Blue b
-  76 -> one $ Note Medium Orange b
-  77 -> one $ ForceHOPO Medium b
-  78 -> one $ ForceStrum Medium b
+  [ ( [e| U.extractFirst $ \e -> isNoteEdge e >>= \case
+        (i, b) | 40 <= i && i <= 59 -> Just $ FretPosition i b
+        _                           -> Nothing
+      |]
+    , [e| \case FretPosition i b -> RTB.singleton NNC.zero $ makeEdge i b |]
+    )
 
-  84 -> one $ Note Hard Green b
-  85 -> one $ Note Hard Red b
-  86 -> one $ Note Hard Yellow b
-  87 -> one $ Note Hard Blue b
-  88 -> one $ Note Hard Orange b
-  89 -> one $ ForceHOPO Hard b
-  90 -> one $ ForceStrum Hard b
+  , edge 60 $ applyB [p| Note Easy Green |]
+  , edge 61 $ applyB [p| Note Easy Red |]
+  , edge 62 $ applyB [p| Note Easy Yellow |]
+  , edge 63 $ applyB [p| Note Easy Blue |]
+  , edge 64 $ applyB [p| Note Easy Orange |]
+  , edge 65 $ applyB [p| ForceHOPO Easy |]
+  , edge 66 $ applyB [p| ForceStrum Easy |]
 
-  96 -> one $ Note Expert Green b
-  97 -> one $ Note Expert Red b
-  98 -> one $ Note Expert Yellow b
-  99 -> one $ Note Expert Blue b
-  100 -> one $ Note Expert Orange b
-  101 -> one $ ForceHOPO Expert b
-  102 -> one $ ForceStrum Expert b
+  , edge 72 $ applyB [p| Note Medium Green |]
+  , edge 73 $ applyB [p| Note Medium Red |]
+  , edge 74 $ applyB [p| Note Medium Yellow |]
+  , edge 75 $ applyB [p| Note Medium Blue |]
+  , edge 76 $ applyB [p| Note Medium Orange |]
+  , edge 77 $ applyB [p| ForceHOPO Medium |]
+  , edge 78 $ applyB [p| ForceStrum Medium |]
 
-  103 -> one $ Solo b
-  105 -> one $ Player1 b
-  106 -> one $ Player2 b
-  116 -> one $ Overdrive b
-  120 -> one $ BRE b
-  121 -> Just []
-  122 -> Just []
-  123 -> Just []
-  124 -> Just []
-  126 -> one $ Tremolo b
-  127 -> one $ Trill b
-  _ -> Nothing
-  where one x = Just [x]
-readEvent e
-  = do
-    fmap (\m -> [Mood m]) $ readCommand' e
-  <|> do
-    readCommand' e >>= \case
-      ["map", m]
-        ->  fmap ((:[]) . HandMap ) (reverseLookup each handMapName  m)
-        <|> fmap ((:[]) . StrumMap) (reverseLookup each strumMapName m)
-      _ -> Nothing
+  , edge 84 $ applyB [p| Note Hard Green |]
+  , edge 85 $ applyB [p| Note Hard Red |]
+  , edge 86 $ applyB [p| Note Hard Yellow |]
+  , edge 87 $ applyB [p| Note Hard Blue |]
+  , edge 88 $ applyB [p| Note Hard Orange |]
+  , edge 89 $ applyB [p| ForceHOPO Hard |]
+  , edge 90 $ applyB [p| ForceStrum Hard |]
 
-showEvent :: Event -> RTB.T U.Beats E.T
-showEvent = \case
-  Mood         m -> one $ showCommand' m
-  ForceHOPO  d b -> one $ edge' (60 + 12 * fromEnum d + 5) b
-  ForceStrum d b -> one $ edge' (60 + 12 * fromEnum d + 6) b
-  Note     d c b -> one $ edge' (60 + 12 * fromEnum d + fromEnum c) b
-  Solo         b -> one $ edge' 103 b
-  Overdrive    b -> one $ edge' 116 b
-  BRE          b -> RTB.fromPairList [ (0, edge' p b) | p <- [120..124] ]
-  Tremolo      b -> one $ edge' 126 b
-  Trill        b -> one $ edge' 127 b
-  HandMap      m -> one $ showCommand' ["map", handMapName  m]
-  StrumMap     m -> one $ showCommand' ["map", strumMapName m]
-  FretPosition i b -> one $ edge' i b
-  Player1      b -> one $ edge' 105 b
-  Player2      b -> one $ edge' 106 b
-  where one = RTB.singleton 0
+  , edge 96  $ applyB [p| Note Expert Green |]
+  , edge 97  $ applyB [p| Note Expert Red |]
+  , edge 98  $ applyB [p| Note Expert Yellow |]
+  , edge 99  $ applyB [p| Note Expert Blue |]
+  , edge 100 $ applyB [p| Note Expert Orange |]
+  , edge 101 $ applyB [p| ForceHOPO Expert |]
+  , edge 102 $ applyB [p| ForceStrum Expert |]
+
+  , edge 103 $ applyB [p| Solo |]
+  , edge 105 $ applyB [p| Player1 |]
+  , edge 106 $ applyB [p| Player2 |]
+  , edge 116 $ applyB [p| Overdrive |]
+  , edges [120 .. 124] $ applyB [p| BRE |]
+  , edge 126 $ applyB [p| Tremolo |]
+  , edge 127 $ applyB [p| Trill |]
+
+  , ( [e| mapParseOne Mood parseCommand |]
+    , [e| \case Mood m -> unparseCommand m |]
+    )
+  , ( [e| mapParseOne HandMap parseCommand |]
+    , [e| \case HandMap m -> unparseCommand m |]
+    )
+  , ( [e| mapParseOne StrumMap parseCommand |]
+    , [e| \case StrumMap m -> unparseCommand m |]
+    )
+  ]

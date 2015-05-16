@@ -14,7 +14,7 @@ import qualified Sound.MIDI.Util as U
 import Audio
 import qualified Data.Conduit.Audio as CA
 
-import Parser
+import StackTrace
 import Parser.File
 import qualified Parser.Drums as Drums
 import qualified Parser.Beat as Beat
@@ -70,7 +70,7 @@ loadMIDI :: FilePath -> Action (Song U.Beats)
 loadMIDI fp = do
   need [fp]
   mid <- liftIO $ Load.fromFile fp
-  Parser.printParserIO $ readMIDIFile mid
+  printStackTraceIO $ readMIDIFile mid
 
 saveMIDI :: FilePath -> Song U.Beats -> Action ()
 saveMIDI fp song = liftIO $ Save.toFile fp $ showMIDIFile song
