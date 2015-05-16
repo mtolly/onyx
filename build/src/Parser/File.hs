@@ -60,7 +60,10 @@ showTrack = \case
   PartGuitar t -> U.setTrackName "PART GUITAR" $ TH.unparseAll unparseFiveButton t
   PartBass   t -> U.setTrackName "PART BASS"   $ TH.unparseAll unparseFiveButton t
   PartKeys   t -> U.setTrackName "PART KEYS"   $ TH.unparseAll unparseFiveButton t
-  PartRealKeys d t -> U.setTrackName ("PART REAL_KEYS_" ++ take 1 (show d)) $ TH.unparseAll unparseProKeys t
+  PartRealKeys Easy t -> U.setTrackName ("PART REAL_KEYS_E") $ TH.unparseAll unparseProKeys t
+  PartRealKeys Medium t -> U.setTrackName ("PART REAL_KEYS_M") $ TH.unparseAll unparseProKeys t
+  PartRealKeys Hard t -> U.setTrackName ("PART REAL_KEYS_H") $ TH.unparseAll unparseProKeys t
+  PartRealKeys Expert t -> U.setTrackName ("PART REAL_KEYS_X") $ TH.unparseAll unparseProKeys t
   PartKeysAnimLH t -> U.setTrackName "PART KEYS_ANIM_LH" $ TH.unparseAll unparseProKeys t
   PartKeysAnimRH t -> U.setTrackName "PART KEYS_ANIM_RH" $ TH.unparseAll unparseProKeys t
   PartVocals t -> U.setTrackName "PART VOCALS" $ TH.unparseAll unparseVocals  t 

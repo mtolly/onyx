@@ -63,6 +63,9 @@ executable onyxbuild
     , vector
     , transformers >= 0.4
     , template-haskell
+    -- below is a hack around https://github.com/ekmett/recursion-schemes/pull/12
+    -- remove after it's fixed!
+    , free < 4.12
     -- my libraries:
     , dtab >= 1.0 && < 1.1
     , jammittools >= 0.4.1 && < 0.5
