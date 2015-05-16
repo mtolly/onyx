@@ -7,7 +7,6 @@ module Parser.Vocals where
 
 import qualified Sound.MIDI.File.Event as E
 import qualified Sound.MIDI.File.Event.Meta as Meta
-import qualified Sound.MIDI.Util as U
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import Parser.Base
@@ -44,7 +43,7 @@ rosetta :: (Q Exp, Q Exp)
 rosetta = translation
   [ edge 0 $ applyB [p| RangeShift |]
   , blip 1 [p| LyricShift |]
-  , ( [e| U.extractFirst $ \e -> case isNoteEdge e of
+  , ( [e| firstEventWhich $ \e -> case isNoteEdge e of
         Just (i, b) | 36 <= i && i <= 84 -> Just $ Note i b
         _ -> Nothing
       |]
@@ -62,7 +61,7 @@ rosetta = translation
   , ( [e| mapParseOne (uncurry PercussionAnimation) parseCommand |]
     , [e| \case PercussionAnimation t b -> unparseCommand (t, b) |]
     )
-  , ( [e| U.extractFirst $ \case
+  , ( [e| firstEventWhich $ \case
         E.MetaEvent (Meta.Lyric s) -> Just $ Lyric s
         E.MetaEvent (Meta.TextEvent s) -> Just $ Lyric s
         -- unrecognized text events are lyrics by default.

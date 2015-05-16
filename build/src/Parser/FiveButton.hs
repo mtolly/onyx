@@ -3,7 +3,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Parser.FiveButton where
 
-import qualified Sound.MIDI.Util as U
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import Parser.Base
@@ -83,7 +82,7 @@ instance Command StrumMap where
 rosetta :: (Q Exp, Q Exp)
 rosetta = translation
 
-  [ ( [e| U.extractFirst $ \e -> isNoteEdge e >>= \case
+  [ ( [e| firstEventWhich $ \e -> isNoteEdge e >>= \case
         (i, b) | 40 <= i && i <= 59 -> Just $ FretPosition i b
         _                           -> Nothing
       |]

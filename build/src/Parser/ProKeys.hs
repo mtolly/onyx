@@ -6,7 +6,6 @@
 module Parser.ProKeys where
 
 import Parser.Base
-import qualified Sound.MIDI.Util as U
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import Parser.TH
@@ -39,7 +38,7 @@ rosetta = translation
   , blip 5 [p| LaneShift F |]
   , blip 7 [p| LaneShift G |]
   , blip 9 [p| LaneShift A |]
-  , ( [e| U.extractFirst $ \e -> case isNoteEdge e of
+  , ( [e| firstEventWhich $ \e -> case isNoteEdge e of
         Just (i, b) | 48 <= i && i <= 72 -> Just $ Note i b
         _ -> Nothing
       |]
@@ -53,7 +52,7 @@ rosetta = translation
   , ( [e| mapParseOne Mood parseCommand |]
     , [e| \case Mood m -> unparseCommand m |]
     )
-  , ( [e| U.extractFirst $ \e -> readCommand' e >>= \case
+  , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
         (t, "key") -> Just $ Trainer t
         _          -> Nothing
       |]

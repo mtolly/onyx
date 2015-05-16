@@ -9,7 +9,6 @@ module Parser.Drums where
 
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
-import qualified Sound.MIDI.Util as U
 import Control.Applicative ((<*>), (<$>))
 
 import Parser.Base
@@ -174,7 +173,7 @@ rosetta = translation
   , ( [e| mapParseOne SetMix parseCommand |]
     , [e| \case SetMix m -> unparseCommand m |]
     )
-  , ( [e| U.extractFirst $ \e -> readCommand' e >>= \case
+  , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
         ["ride_side_true" ] -> Just $ Animation $ RideSide True
         ["ride_side_false"] -> Just $ Animation $ RideSide False
         _ -> Nothing

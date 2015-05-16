@@ -19,9 +19,12 @@ type ParseAll t e a = RTB.T t e -> (RTB.T t a, RTB.T t e)
 type UnparseOne t e a = a -> RTB.T t e
 type UnparseAll t e a = RTB.T t a -> RTB.T t e
 
-parseAll :: (NNC.C t, Ord a) => ParseOne t e a -> ParseAll t e a
+parseAll :: (NNC.C t, Ord e, Ord a) => ParseOne t e a -> ParseAll t e a
 parseAll p rtb = case p rtb of
-  Nothing -> (RTB.empty, rtb)
+  Nothing -> case RTB.viewL rtb of
+    Nothing -> (RTB.empty, rtb)
+    Just ((dt, y), rtb') -> case parseAll p rtb' of
+      (xs, rtb'') -> (RTB.delay dt xs, RTB.cons dt y rtb'')
   Just ((t, x), rtb') -> case parseAll p rtb' of
     (xs, rtb'') -> (RTB.insert t x xs, rtb'')
 
@@ -58,7 +61,8 @@ parseBlip :: (NNC.C t) => Int -> ParseOne t E.T ()
 parseBlip i rtb0 = let
   findEdge b e = guard (isNoteEdge e == Just (i, b)) >> return ()
   in do
-    ((t , ()), rtb1) <- U.extractFirst (findEdge True ) rtb0
+    ((t , on), rtb1) <- firstEventWhich Just rtb0
+    () <- findEdge True on
     ((t', ()), rtb2) <- U.extractFirst (findEdge False) rtb1
     guard $ t' > NNC.zero
     Just ((t, ()), rtb2)
@@ -99,9 +103,10 @@ blip i pat =
   )
 
 parseEdge :: (NNC.C t) => Int -> (Bool -> a) -> ParseOne t E.T a
-parseEdge i f = U.extractFirst $ \e -> case isNoteEdge e of
-  Just (i', b) | i == i' -> Just $ f b
-  _                      -> Nothing
+parseEdge i f rtb = RTB.viewL rtb >>= \case
+  ((t, e), rtb') -> isNoteEdge e >>= \case
+    (i', b) | i == i' -> Just ((t, f b), RTB.delay t rtb')
+    _                 -> Nothing
 
 makeEdge :: Int -> Bool -> E.T
 makeEdge i b
@@ -140,8 +145,11 @@ stripPredicates (p : ps) xs = case break p xs of
 
 -- | Parses a group of simultaneous events that match a series of predicates.
 parsePredicates :: (NNC.C t, Ord e) => [e -> Bool] -> ParseOne t e ()
-parsePredicates ps rtb = U.extractFirst (stripPredicates ps) (RTB.collectCoincident rtb) >>= \case
-  ((t, rest), rtb') -> Just ((t, ()), RTB.flatten $ RTB.insert t rest rtb')
+parsePredicates ps rtb = RTB.viewL rtb >>= \case
+  ((t, x), rtb') -> case U.trackSplitZero rtb' of
+    (xs, rtb'') -> do
+      ys <- stripPredicates ps $ x : xs
+      return ((t, ()), RTB.delay t $ foldr (RTB.cons NNC.zero) rtb'' ys)
 
 isNoteEdgeB :: Bool -> Int -> E.T -> Bool
 isNoteEdgeB b i e = case isNoteEdge e of
@@ -169,3 +177,10 @@ parseCommand = U.extractFirst P.readCommand'
 
 unparseCommand :: (P.Command a, NNC.C t) => UnparseOne t E.T a
 unparseCommand = RTB.singleton NNC.zero . P.showCommand'
+
+firstEventWhich :: (NNC.C t) =>
+  (a -> Maybe b) -> RTB.T t a -> Maybe ((t, b), RTB.T t a)
+firstEventWhich f rtb = do
+  ((t, x), rtb') <- RTB.viewL rtb
+  y <- f x
+  return $ ((t, y), RTB.delay t rtb')

@@ -5,7 +5,6 @@ module Parser.Events where
 
 import Parser.Base
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Sound.MIDI.Util as U
 import qualified Numeric.NonNegative.Class as NNC
 import Parser.TH
 import Language.Haskell.TH
@@ -40,7 +39,7 @@ rosetta = translation
   [ ( [e| mapParseOne Simple parseCommand |]
     , [e| \case Simple m -> unparseCommand m |]
     )
-  , ( [e| U.extractFirst $ \e -> readCommand' e >>= \case
+  , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
         ['p':'r':'c':'_':s] -> Just $ PracticeSection s
         _                   -> Nothing
       |]
