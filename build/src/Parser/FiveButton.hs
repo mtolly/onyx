@@ -6,7 +6,6 @@ module Parser.FiveButton where
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import Parser.Base
-import Language.Haskell.TH
 import Parser.TH
 
 data Color = Green | Red | Yellow | Blue | Orange
@@ -79,8 +78,7 @@ instance Command StrumMap where
   fromCommand sm = ["map", strumMapName sm]
   toCommand = reverseLookup each fromCommand
 
-rosetta :: (Q Exp, Q Exp)
-rosetta = translation
+instanceMIDIEvent [t| Event |]
 
   [ ( [e| firstEventWhich $ \e -> isNoteEdge e >>= \case
         (i, b) | 40 <= i && i <= 59 -> Just $ FretPosition i b

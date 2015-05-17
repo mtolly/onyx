@@ -9,7 +9,6 @@ import Parser.Base
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import Parser.TH
-import Language.Haskell.TH
 
 data Event
   = LaneShift LaneRange
@@ -30,8 +29,8 @@ data Event
 data LaneRange = C | D | E | F | G | A
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-rosetta :: (Q Exp, Q Exp)
-rosetta = translation
+instanceMIDIEvent [t| Event |]
+
   [ blip 0 [p| LaneShift C |]
   , blip 2 [p| LaneShift D |]
   , blip 4 [p| LaneShift E |]

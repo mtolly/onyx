@@ -7,17 +7,8 @@ import Parser.Base
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import Parser.TH
-import Language.Haskell.TH
 
 data Event
-  = Simple Simple
-  | PracticeSection String
-  | PracticeKick
-  | PracticeSnare
-  | PracticeHihat
-  deriving (Eq, Ord, Show, Read)
-
-data Simple
   = MusicStart
   | MusicEnd
   | End
@@ -28,17 +19,24 @@ data Simple
   | CrowdMellow
   | CrowdNoclap
   | CrowdClap
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  | PracticeSection String
+  | PracticeKick
+  | PracticeSnare
+  | PracticeHihat
+  deriving (Eq, Ord, Show, Read)
 
-instance Command Simple where
-  fromCommand = autoFromCommand
-  toCommand = reverseLookup each fromCommand
+instanceMIDIEvent [t| Event |]
 
-rosetta :: (Q Exp, Q Exp)
-rosetta = translation
-  [ ( [e| mapParseOne Simple parseCommand |]
-    , [e| \case Simple m -> unparseCommand m |]
-    )
+  [ commandPair ["music_start"] [p| MusicStart |]
+  , commandPair ["music_end"] [p| MusicEnd |]
+  , commandPair ["end"] [p| End |]
+  , commandPair ["coda"] [p| Coda |]
+  , commandPair ["crowd_realtime"] [p| CrowdRealtime |]
+  , commandPair ["crowd_intense"] [p| CrowdIntense |]
+  , commandPair ["crowd_normal"] [p| CrowdNormal |]
+  , commandPair ["crowd_mellow"] [p| CrowdMellow |]
+  , commandPair ["crowd_noclap"] [p| CrowdNoclap |]
+  , commandPair ["crowd_clap"] [p| CrowdClap |]
   , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
         ['p':'r':'c':'_':s] -> Just $ PracticeSection s
         _                   -> Nothing

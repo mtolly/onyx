@@ -13,7 +13,6 @@ import Parser.Base
 import Control.Applicative ((<$>), (<*>))
 import Data.Char (toLower)
 import Parser.TH
-import Language.Haskell.TH
 
 data Event
   = LyricShift
@@ -39,8 +38,8 @@ instance Command (PercussionType, Bool) where
   fromCommand (typ, b) = [map toLower (show typ) ++ if b then "_start" else "_end"]
   toCommand = reverseLookup ((,) <$> each <*> each) fromCommand
 
-rosetta :: (Q Exp, Q Exp)
-rosetta = translation
+instanceMIDIEvent [t| Event |]
+
   [ edge 0 $ applyB [p| RangeShift |]
   , blip 1 [p| LyricShift |]
   , ( [e| firstEventWhich $ \e -> case isNoteEdge e of

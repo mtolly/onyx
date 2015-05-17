@@ -95,7 +95,7 @@ previewBounds mid = do
   return (ms start, ms end)
 
 songLength' :: Song U.Beats -> U.Beats
-songLength' s = case RTB.getTimes $ RTB.filter (== Events.Simple Events.End) $ allEvents s of
+songLength' s = case RTB.getTimes $ RTB.filter (== Events.End) $ allEvents s of
   [bts] -> bts
   results -> error $ "songLength': error, " ++ show (length results) ++ " [end] events found"
 

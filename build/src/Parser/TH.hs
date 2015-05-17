@@ -34,12 +34,16 @@ combineParseOne ps rtb = foldr (<|>) empty $ map ($ rtb) ps
 unparseAll :: (NNC.C t, Ord e) => UnparseOne t e a -> UnparseAll t e a
 unparseAll u rtb = U.trackJoin $ fmap u rtb
 
+class MIDIEvent a where
+  parseOne   ::   ParseOne U.Beats E.T a
+  unparseOne :: UnparseOne U.Beats E.T a
+
 -- | The first element of each pair should be an expression of type @ParseOne t e a@.
 -- The second element should be a lambda-case expression which forms
 -- a partial function of type @UnparseOne t e a@.
--- The result is 2 expressions of type @ParseOne t e a@ and @UnparseOne t e a@.
-translation :: [(Q Exp, Q Exp)] -> (Q Exp, Q Exp)
-translation cases = let
+-- The result is an instance of 'MIDIEvent'.
+instanceMIDIEvent :: Q Type -> [(Q Exp, Q Exp)] -> Q [Dec]
+instanceMIDIEvent typ cases = let
   parser = [e| combineParseOne $(listE $ map fst cases) |]
   unparser = do
     es <- mapM snd cases :: Q [Exp]
@@ -47,13 +51,17 @@ translation cases = let
       e <- es
       case e of
         LamCaseE matches -> matches
-        _ -> error "translation: improper form for event unparser. must be lambda-case"
-  in (parser, unparser)
+        _ -> error "instanceMIDIEvent: improper form for event unparser. must be lambda-case"
+  in [d|
+    instance MIDIEvent $(typ) where
+      parseOne   = $(  parser)
+      unparseOne = $(unparser)
+  |]
 
 isNoteEdge :: E.T -> Maybe (Int, Bool)
 isNoteEdge = \case
-  E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn p v))) -> Just (V.fromPitch p, V.fromVelocity v /= 0)
-  E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOff p _))) -> Just (V.fromPitch p, False)
+  E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn  p v))) -> Just (V.fromPitch p, V.fromVelocity v /= 0)
+  E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOff p _))) -> Just (V.fromPitch p, False                )
   _ -> Nothing
 
 -- | Parses a note-on and note-off with any positive duration between them.
@@ -184,3 +192,13 @@ firstEventWhich f rtb = do
   ((t, x), rtb') <- RTB.viewL rtb
   y <- f x
   return $ ((t, y), RTB.delay t rtb')
+
+commandPair :: [String] -> Q Pat -> (Q Exp, Q Exp)
+commandPair cmd pat =
+  ( [e| firstEventWhich $ \e -> P.readCommand' e >>= \x ->
+      if x == cmd then Just $(fmap patToExp pat) else Nothing
+    |]
+  , lamCaseE
+    [ match pat (normalB [e| unparseCommand cmd |]) []
+    ]
+  )

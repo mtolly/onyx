@@ -13,7 +13,6 @@ import Control.Applicative ((<*>), (<$>))
 
 import Parser.Base
 import Parser.TH
-import Language.Haskell.TH
 
 data ProColor = Yellow | Blue | Green
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -100,8 +99,7 @@ showMix audio disco = "drums" ++ show (fromEnum audio) ++ case disco of
   EasyMix     -> "easy"
   EasyNoKick  -> "easynokick"
 
-rosetta :: (Q Exp, Q Exp)
-rosetta = translation
+instanceMIDIEvent [t| Event |]
 
   [ blip 24  [p| Animation KickRF |]
   , edge 25  $ \b -> if b then [p| Animation (HihatOpen True) |] else [p| Animation (HihatOpen False) |]
@@ -173,14 +171,6 @@ rosetta = translation
   , ( [e| mapParseOne SetMix parseCommand |]
     , [e| \case SetMix m -> unparseCommand m |]
     )
-  , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
-        ["ride_side_true" ] -> Just $ Animation $ RideSide True
-        ["ride_side_false"] -> Just $ Animation $ RideSide False
-        _ -> Nothing
-      |]
-    , [e| \case
-        Animation (RideSide True ) -> unparseCommand ["ride_side_true"]
-        Animation (RideSide False) -> unparseCommand ["ride_side_false"]
-      |]
-    )
+  , commandPair ["ride_side_true" ] [p| Animation (RideSide True ) |]
+  , commandPair ["ride_side_false"] [p| Animation (RideSide False) |]
   ]
