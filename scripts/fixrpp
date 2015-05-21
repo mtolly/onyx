@@ -1,0 +1,58 @@
+#!/usr/bin/env ruby
+
+# Script to fix two bugs in Reaper's MIDI import function.
+# - the project name event gets put in the first non-tempo track
+#   (reported at http://forum.cockos.com/project.php?issueid=5393)
+# - the events at the very end of a track are often 1 tick earlier than they should be,
+#   and the MIDI end-of-track event is placed where those events should be
+
+if ARGV.length != 1
+  STDERR.puts "Usage: #{$0} file.RPP"
+  exit 1
+end
+rpp = ARGV[0]
+
+lines = File.read(rpp).gsub("\r", '').split("\n")
+count = 0
+lines.each_with_index do |line, i|
+  if md = line.match(/^(\s*E )1( b0 7b 00)$/)
+    count += 1
+    # move the end-of-track event forward by a bunch of ticks
+    lines[i] = md[1] + '9999' + md[2]
+    # bump the last event forward by one tick
+    (i - 1).downto(0).each do |j|
+      if md = lines[j].match(/^(\s*E )(\S+)( \S+ \S+ \S+)$/)
+        if md[2].to_i != 0
+          lines[j] = md[1] + (md[2].to_i + 1).to_s + md[3]
+          break
+        end
+      elsif md = lines[j].match(/^(\s*<X )(\S+)( \S+)$/)
+        if md[2].to_i != 0
+          lines[j] = md[1] + (md[2].to_i + 1).to_s + md[3]
+          break
+        end
+      elsif lines[j].match(/^\s*<SOURCE MIDI$/)
+        break
+      end
+    end
+    # add a second to the length of the track
+    (i - 1).downto(0).each do |j|
+      if md = lines[j].match(/^(\s*LENGTH )(\S+)$/)
+        lines[j] = md[1] + (md[2].to_f + 1).to_s
+        break
+      end
+    end
+  end
+end
+if count != 0
+  STDERR.puts "Fixed #{count} misplaced track end event#{count == 1 ? '' : 's'}."
+end
+
+str = lines.join("\n")
+str.gsub!(/^\s*<X 0 0
+\s*\/wN\S+
+\s*>
+(\s*<X 0 0
+\s*\/wN\S+
+\s*>)$/) { STDERR.puts "Fixed double track name event."; $1 }
+File.write(rpp, str)
