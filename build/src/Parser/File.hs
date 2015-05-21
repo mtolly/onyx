@@ -21,23 +21,28 @@ import qualified Parser.Countin as Countin
 import qualified Parser.FiveButton as FiveButton
 import qualified Parser.Vocals as Vocals
 import qualified Parser.ProKeys as ProKeys
+import qualified Parser.ProGuitar as ProGuitar
 import qualified Parser.TH as TH
 
 data Track t
-  = PartDrums (RTB.T t Drums.Event     )
-  | PartGuitar (RTB.T t FiveButton.Event)
-  | PartBass   (RTB.T t FiveButton.Event)
-  | PartKeys   (RTB.T t FiveButton.Event)
-  | PartRealKeys Difficulty (RTB.T t ProKeys.Event)
-  | PartKeysAnimLH          (RTB.T t ProKeys.Event)
-  | PartKeysAnimRH          (RTB.T t ProKeys.Event)
-  | PartVocals (RTB.T t Vocals.Event    )
-  | Harm1      (RTB.T t Vocals.Event    )
-  | Harm2      (RTB.T t Vocals.Event    )
-  | Harm3      (RTB.T t Vocals.Event    )
-  | Countin (RTB.T t Countin.Event   )
-  | Events  (RTB.T t Events.Event    )
-  | Beat    (RTB.T t Beat.Event      )
+  = PartDrums               (RTB.T t      Drums.Event)
+  | PartGuitar              (RTB.T t FiveButton.Event)
+  | PartBass                (RTB.T t FiveButton.Event)
+  | PartKeys                (RTB.T t FiveButton.Event)
+  | PartRealGuitar          (RTB.T t  ProGuitar.Event)
+  | PartRealGuitar22        (RTB.T t  ProGuitar.Event)
+  | PartRealBass            (RTB.T t  ProGuitar.Event)
+  | PartRealBass22          (RTB.T t  ProGuitar.Event)
+  | PartRealKeys Difficulty (RTB.T t    ProKeys.Event)
+  | PartKeysAnimLH          (RTB.T t    ProKeys.Event)
+  | PartKeysAnimRH          (RTB.T t    ProKeys.Event)
+  | PartVocals              (RTB.T t     Vocals.Event)
+  | Harm1                   (RTB.T t     Vocals.Event)
+  | Harm2                   (RTB.T t     Vocals.Event)
+  | Harm3                   (RTB.T t     Vocals.Event)
+  | Countin                 (RTB.T t    Countin.Event)
+  | Events                  (RTB.T t     Events.Event)
+  | Beat                    (RTB.T t       Beat.Event)
   deriving (Eq, Ord, Show)
 
 data Song t = Song
@@ -56,23 +61,27 @@ showMIDIFile s = let
 
 showTrack :: Track U.Beats -> RTB.T U.Beats E.T
 showTrack = \case
-  PartDrums           t -> U.setTrackName "PART DRUMS"         $ TH.unparseAll TH.unparseOne t
-  PartGuitar          t -> U.setTrackName "PART GUITAR"        $ TH.unparseAll TH.unparseOne t
-  PartBass            t -> U.setTrackName "PART BASS"          $ TH.unparseAll TH.unparseOne t
-  PartKeys            t -> U.setTrackName "PART KEYS"          $ TH.unparseAll TH.unparseOne t
-  PartRealKeys Easy   t -> U.setTrackName ("PART REAL_KEYS_E") $ TH.unparseAll TH.unparseOne t
-  PartRealKeys Medium t -> U.setTrackName ("PART REAL_KEYS_M") $ TH.unparseAll TH.unparseOne t
-  PartRealKeys Hard   t -> U.setTrackName ("PART REAL_KEYS_H") $ TH.unparseAll TH.unparseOne t
-  PartRealKeys Expert t -> U.setTrackName ("PART REAL_KEYS_X") $ TH.unparseAll TH.unparseOne t
-  PartKeysAnimLH      t -> U.setTrackName "PART KEYS_ANIM_LH"  $ TH.unparseAll TH.unparseOne t
-  PartKeysAnimRH      t -> U.setTrackName "PART KEYS_ANIM_RH"  $ TH.unparseAll TH.unparseOne t
-  PartVocals          t -> U.setTrackName "PART VOCALS"        $ TH.unparseAll TH.unparseOne t
-  Harm1               t -> U.setTrackName "HARM1"              $ TH.unparseAll TH.unparseOne t
-  Harm2               t -> U.setTrackName "HARM2"              $ TH.unparseAll TH.unparseOne t
-  Harm3               t -> U.setTrackName "HARM3"              $ TH.unparseAll TH.unparseOne t
-  Countin             t -> U.setTrackName "countin"            $ TH.unparseAll TH.unparseOne t
-  Events              t -> U.setTrackName "EVENTS"             $ TH.unparseAll TH.unparseOne t
-  Beat                t -> U.setTrackName "BEAT"               $ TH.unparseAll TH.unparseOne t
+  PartDrums           t -> U.setTrackName "PART DRUMS"          $ TH.unparseAll TH.unparseOne t
+  PartGuitar          t -> U.setTrackName "PART GUITAR"         $ TH.unparseAll TH.unparseOne t
+  PartBass            t -> U.setTrackName "PART BASS"           $ TH.unparseAll TH.unparseOne t
+  PartKeys            t -> U.setTrackName "PART KEYS"           $ TH.unparseAll TH.unparseOne t
+  PartRealGuitar      t -> U.setTrackName "PART REAL_GUITAR"    $ TH.unparseAll TH.unparseOne t
+  PartRealGuitar22    t -> U.setTrackName "PART REAL_GUITAR_22" $ TH.unparseAll TH.unparseOne t
+  PartRealBass        t -> U.setTrackName "PART REAL_BASS"      $ TH.unparseAll TH.unparseOne t
+  PartRealBass22      t -> U.setTrackName "PART REAL_BASS_22"   $ TH.unparseAll TH.unparseOne t
+  PartRealKeys Easy   t -> U.setTrackName "PART REAL_KEYS_E"    $ TH.unparseAll TH.unparseOne t
+  PartRealKeys Medium t -> U.setTrackName "PART REAL_KEYS_M"    $ TH.unparseAll TH.unparseOne t
+  PartRealKeys Hard   t -> U.setTrackName "PART REAL_KEYS_H"    $ TH.unparseAll TH.unparseOne t
+  PartRealKeys Expert t -> U.setTrackName "PART REAL_KEYS_X"    $ TH.unparseAll TH.unparseOne t
+  PartKeysAnimLH      t -> U.setTrackName "PART KEYS_ANIM_LH"   $ TH.unparseAll TH.unparseOne t
+  PartKeysAnimRH      t -> U.setTrackName "PART KEYS_ANIM_RH"   $ TH.unparseAll TH.unparseOne t
+  PartVocals          t -> U.setTrackName "PART VOCALS"         $ TH.unparseAll TH.unparseOne t
+  Harm1               t -> U.setTrackName "HARM1"               $ TH.unparseAll TH.unparseOne t
+  Harm2               t -> U.setTrackName "HARM2"               $ TH.unparseAll TH.unparseOne t
+  Harm3               t -> U.setTrackName "HARM3"               $ TH.unparseAll TH.unparseOne t
+  Countin             t -> U.setTrackName "countin"             $ TH.unparseAll TH.unparseOne t
+  Events              t -> U.setTrackName "EVENTS"              $ TH.unparseAll TH.unparseOne t
+  Beat                t -> U.setTrackName "BEAT"                $ TH.unparseAll TH.unparseOne t
 
 readMIDIFile :: (Monad m) => F.T -> StackTraceT m (Song U.Beats)
 readMIDIFile mid = case U.decodeFile mid of
@@ -110,23 +119,27 @@ parseTrack :: (Monad m) => U.MeasureMap -> RTB.T U.Beats E.T -> StackTraceT m (T
 parseTrack mmap t = case U.trackName t of
   Nothing -> fatal "Track with no name"
   Just s -> inside ("track named " ++ show s) $ case s of
-    "PART DRUMS"        -> liftM PartDrums             $ makeTrackParser TH.parseOne mmap t
-    "PART GUITAR"       -> liftM PartGuitar            $ makeTrackParser TH.parseOne mmap t
-    "PART BASS"         -> liftM PartBass              $ makeTrackParser TH.parseOne mmap t
-    "PART KEYS"         -> liftM PartKeys              $ makeTrackParser TH.parseOne mmap t
-    "PART REAL_KEYS_E"  -> liftM (PartRealKeys Easy  ) $ makeTrackParser TH.parseOne mmap t
-    "PART REAL_KEYS_M"  -> liftM (PartRealKeys Medium) $ makeTrackParser TH.parseOne mmap t
-    "PART REAL_KEYS_H"  -> liftM (PartRealKeys Hard  ) $ makeTrackParser TH.parseOne mmap t
-    "PART REAL_KEYS_X"  -> liftM (PartRealKeys Expert) $ makeTrackParser TH.parseOne mmap t
-    "PART KEYS_ANIM_LH" -> liftM PartKeysAnimLH        $ makeTrackParser TH.parseOne mmap t
-    "PART KEYS_ANIM_RH" -> liftM PartKeysAnimRH        $ makeTrackParser TH.parseOne mmap t
-    "PART VOCALS"       -> liftM PartVocals            $ makeTrackParser TH.parseOne mmap t
-    "HARM1"             -> liftM Harm1                 $ makeTrackParser TH.parseOne mmap t
-    "HARM2"             -> liftM Harm2                 $ makeTrackParser TH.parseOne mmap t
-    "HARM3"             -> liftM Harm3                 $ makeTrackParser TH.parseOne mmap t
-    "countin"           -> liftM Countin               $ makeTrackParser TH.parseOne mmap t
-    "EVENTS"            -> liftM Events                $ makeTrackParser TH.parseOne mmap t
-    "BEAT"              -> liftM Beat                  $ makeTrackParser TH.parseOne mmap t
+    "PART DRUMS"          -> liftM PartDrums             $ makeTrackParser TH.parseOne mmap t
+    "PART GUITAR"         -> liftM PartGuitar            $ makeTrackParser TH.parseOne mmap t
+    "PART BASS"           -> liftM PartBass              $ makeTrackParser TH.parseOne mmap t
+    "PART KEYS"           -> liftM PartKeys              $ makeTrackParser TH.parseOne mmap t
+    "PART REAL_GUITAR"    -> liftM PartRealGuitar        $ makeTrackParser TH.parseOne mmap t
+    "PART REAL_GUITAR_22" -> liftM PartRealGuitar22      $ makeTrackParser TH.parseOne mmap t
+    "PART REAL_BASS"      -> liftM PartRealBass          $ makeTrackParser TH.parseOne mmap t
+    "PART REAL_BASS_22"   -> liftM PartRealBass22        $ makeTrackParser TH.parseOne mmap t
+    "PART REAL_KEYS_E"    -> liftM (PartRealKeys Easy  ) $ makeTrackParser TH.parseOne mmap t
+    "PART REAL_KEYS_M"    -> liftM (PartRealKeys Medium) $ makeTrackParser TH.parseOne mmap t
+    "PART REAL_KEYS_H"    -> liftM (PartRealKeys Hard  ) $ makeTrackParser TH.parseOne mmap t
+    "PART REAL_KEYS_X"    -> liftM (PartRealKeys Expert) $ makeTrackParser TH.parseOne mmap t
+    "PART KEYS_ANIM_LH"   -> liftM PartKeysAnimLH        $ makeTrackParser TH.parseOne mmap t
+    "PART KEYS_ANIM_RH"   -> liftM PartKeysAnimRH        $ makeTrackParser TH.parseOne mmap t
+    "PART VOCALS"         -> liftM PartVocals            $ makeTrackParser TH.parseOne mmap t
+    "HARM1"               -> liftM Harm1                 $ makeTrackParser TH.parseOne mmap t
+    "HARM2"               -> liftM Harm2                 $ makeTrackParser TH.parseOne mmap t
+    "HARM3"               -> liftM Harm3                 $ makeTrackParser TH.parseOne mmap t
+    "countin"             -> liftM Countin               $ makeTrackParser TH.parseOne mmap t
+    "EVENTS"              -> liftM Events                $ makeTrackParser TH.parseOne mmap t
+    "BEAT"                -> liftM Beat                  $ makeTrackParser TH.parseOne mmap t
     _ -> fatal "Unrecognized track name"
 
 showPosition :: U.MeasureBeats -> String

@@ -186,8 +186,7 @@ parseCommand = U.extractFirst P.readCommand'
 unparseCommand :: (P.Command a, NNC.C t) => UnparseOne t E.T a
 unparseCommand = RTB.singleton NNC.zero . P.showCommand'
 
-firstEventWhich :: (NNC.C t) =>
-  (a -> Maybe b) -> RTB.T t a -> Maybe ((t, b), RTB.T t a)
+firstEventWhich :: (NNC.C t) => (a -> Maybe b) -> ParseOne t a b
 firstEventWhich f rtb = do
   ((t, x), rtb') <- RTB.viewL rtb
   y <- f x
