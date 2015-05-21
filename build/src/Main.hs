@@ -460,8 +460,12 @@ magmaRules s = eachVersion s $ \title dir -> do
   mid %> \out -> do
     base <- loadMIDI $ dir </> "notes.mid"
     let cleaned = base { MIDIFile.s_tracks = filter magmaSafe $ MIDIFile.s_tracks base }
-        magmaSafe (MIDIFile.Countin _) = False
-        magmaSafe _                    = True
+        magmaSafe (MIDIFile.Countin          _) = False
+        magmaSafe (MIDIFile.PartRealGuitar   _) = False
+        magmaSafe (MIDIFile.PartRealGuitar22 _) = False
+        magmaSafe (MIDIFile.PartRealBass     _) = False
+        magmaSafe (MIDIFile.PartRealBass22   _) = False
+        magmaSafe _                             = True
     saveMIDI out cleaned
   proj %> \out -> do
     let pkg = packageID dir s
