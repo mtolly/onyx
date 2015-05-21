@@ -5,3 +5,4 @@ audio:
   album:
     pad: [3.181, source]
 config: [drums]
+guitar-tuning: [-4, -4, -4, -4, -4, -4]

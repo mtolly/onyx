@@ -9,6 +9,7 @@ import Control.Monad (guard)
 import qualified Sound.MIDI.File.Event as E
 import qualified Sound.MIDI.Message.Channel as C
 import qualified Sound.MIDI.Message.Channel.Voice as V
+import qualified Numeric.NonNegative.Class as NNC
 import Language.Haskell.TH
 
 data Event
@@ -116,3 +117,30 @@ instanceMIDIEvent [t| Event |] $ let
 
       , ([e| \_ -> Nothing |], [e| \case _ -> RTB.empty |]) -- TODO
       ]
+
+standardGuitar :: [Int]
+standardGuitar = [40, 45, 50, 55, 59, 64]
+
+standardBass :: [Int]
+standardBass = [28, 33, 38, 43]
+
+playGuitar :: (NNC.C t) => [Int] -> RTB.T t DiffEvent -> [(GtrString, RTB.T t E.T)]
+playGuitar tuning evts = do
+  str <- [S6 .. S1]
+  let go held rtb = case RTB.viewL rtb of
+        Nothing -> case held of
+          Nothing -> RTB.empty
+          Just _  -> error "playGuitar: unterminated note-on"
+        Just ((t, e), rtb') -> case e of
+          Note s ntype fret | s == str && ntype /= ArpeggioForm -> case fret of
+            Nothing -> case held of
+              Nothing -> error "playGuitar: note-off but string is already not played"
+              Just p  -> RTB.cons t (makeEdge p False) $ go Nothing rtb'
+            Just f -> let
+              p = (tuning !! fromEnum str) + f
+              in case held of
+                Just _  -> error "playGuitar: double note-on"
+                Nothing -> RTB.cons t (makeEdge p True) $ go (Just p) rtb'
+          _ -> RTB.delay t $ go held rtb'
+  return (str, go Nothing $ RTB.normalize evts)
+  -- the normalize puts Nothing (note-off) before Just _ (note-on)

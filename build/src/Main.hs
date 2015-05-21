@@ -245,6 +245,14 @@ midRules s = eachAudio s $ \src -> do
     saveMIDI out fixed
   mid1p %> \out -> loadMIDI mid2p >>= saveMIDI out . oneFoot 0.18 0.11
 
+guitarRules :: Song -> Rules ()
+guitarRules s = eachVersion s $ \_ dir -> do
+  let mid = dir </> "notes.mid"
+      gtr = dir </> "guitar.mid"
+  gtr %> \out -> do
+    input <- loadMIDI mid
+    saveMIDI out $ MIDIFile.playGuitarFile (_guitarTuning s) (_bassTuning s) input
+
 newtype JammitResults = JammitResults (String, String)
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
 
@@ -288,6 +296,7 @@ main = Env.getArgs >>= \argv -> case filter ((/= "-") . take 1) argv of
             jammitSearch title artist
           phony "clean" $ cmd "rm -rf gen"
           midRules song
+          guitarRules song
           jammitRules song
           simpleRules song
           stemsRules song

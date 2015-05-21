@@ -43,6 +43,7 @@ data Track t
   | Countin                 (RTB.T t    Countin.Event)
   | Events                  (RTB.T t     Events.Event)
   | Beat                    (RTB.T t       Beat.Event)
+  | RawTrack                (RTB.T t              E.T)
   deriving (Eq, Ord, Show)
 
 data Song t = Song
@@ -82,6 +83,7 @@ showTrack = \case
   Countin             t -> U.setTrackName "countin"             $ TH.unparseAll TH.unparseOne t
   Events              t -> U.setTrackName "EVENTS"              $ TH.unparseAll TH.unparseOne t
   Beat                t -> U.setTrackName "BEAT"                $ TH.unparseAll TH.unparseOne t
+  RawTrack            t -> t
 
 readMIDIFile :: (Monad m) => F.T -> StackTraceT m (Song U.Beats)
 readMIDIFile mid = case U.decodeFile mid of
@@ -145,3 +147,25 @@ parseTrack mmap t = case U.trackName t of
 showPosition :: U.MeasureBeats -> String
 showPosition (m, b) =
   "measure " ++ show (m + 1) ++ ", beat " ++ show (realToFrac b + 1 :: Double)
+
+playGuitarFile :: (NNC.C t) => [Int] -> [Int] -> Song t -> Song t
+playGuitarFile goffs boffs s =
+  s { s_tracks = map RawTrack $ s_tracks s >>= playGuitarTrack goffs boffs }
+
+playGuitarTrack :: (NNC.C t) => [Int] -> [Int] -> Track t -> [RTB.T t E.T]
+playGuitarTrack goffs boffs = \case
+  PartRealGuitar   t -> gtr "GTR" t
+  PartRealGuitar22 t -> gtr "GTR22" t
+  PartRealBass     t -> bass "BASS" t
+  PartRealBass22   t -> bass "BASS22" t
+  _ -> []
+  where gtr = go ProGuitar.standardGuitar goffs
+        bass = go ProGuitar.standardBass boffs
+        go stdtuning offs name trk = let
+          tuning = zipWith (+) stdtuning offs
+          expert = flip RTB.mapMaybe trk $ \case
+            ProGuitar.DiffEvent Expert evt -> Just evt
+            _                              -> Nothing
+          in do
+            (str, notes) <- ProGuitar.playGuitar tuning expert
+            return $ U.setTrackName (name ++ "_" ++ show str) notes

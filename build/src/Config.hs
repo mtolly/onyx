@@ -27,6 +27,8 @@ data Song = Song
   , _audio :: Map.HashMap String (AudioConfig Duration)
   , _config :: [Instrument]
   , _fileCountin :: FilePath
+  , _guitarTuning :: [Int]
+  , _bassTuning :: [Int]
   } deriving (Eq, Show)
 
 data Instrument = Drums | Bass | Guitar

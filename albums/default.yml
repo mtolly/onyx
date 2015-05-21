@@ -1,1 +1,3 @@
 file-countin: ../sound/hihat-foot.wav
+guitar-tuning: [0, 0, 0, 0, 0, 0]
+bass-tuning: [0, 0, 0, 0]
