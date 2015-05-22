@@ -26,17 +26,17 @@ data Event
 
 -- | There are six playable ranges, each of which covers 10 white keys, plus
 -- all the black keys within. They are named here according to their lowest key.
-data LaneRange = C | D | E | F | G | A
+data LaneRange = RangeC | RangeD | RangeE | RangeF | RangeG | RangeA
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instanceMIDIEvent [t| Event |]
 
-  [ blip 0 [p| LaneShift C |]
-  , blip 2 [p| LaneShift D |]
-  , blip 4 [p| LaneShift E |]
-  , blip 5 [p| LaneShift F |]
-  , blip 7 [p| LaneShift G |]
-  , blip 9 [p| LaneShift A |]
+  [ blip 0 [p| LaneShift RangeC |]
+  , blip 2 [p| LaneShift RangeD |]
+  , blip 4 [p| LaneShift RangeE |]
+  , blip 5 [p| LaneShift RangeF |]
+  , blip 7 [p| LaneShift RangeG |]
+  , blip 9 [p| LaneShift RangeA |]
   , ( [e| firstEventWhich $ \e -> case isNoteEdge e of
         Just (i, b) | 48 <= i && i <= 72 -> Just $ Note i b
         _ -> Nothing

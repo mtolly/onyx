@@ -11,6 +11,7 @@ import qualified Numeric.NonNegative.Class as NNC
 import Language.Haskell.TH
 import Control.Monad (guard)
 import Control.Applicative ((<|>), empty)
+import Data.Maybe (isJust)
 
 import qualified Parser.Base as P
 
@@ -58,22 +59,35 @@ instanceMIDIEvent typ cases = let
       unparseOne = $(unparser)
   |]
 
-isNoteEdge :: E.T -> Maybe (Int, Bool)
-isNoteEdge = \case
-  E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn  p v))) -> Just (V.fromPitch p, V.fromVelocity v /= 0)
-  E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOff p _))) -> Just (V.fromPitch p, False                )
+isNoteEdgeCPV :: E.T -> Maybe (Int, Int, Maybe Int)
+isNoteEdgeCPV = \case
+  E.MIDIEvent (C.Cons c (C.Voice (V.NoteOn  p v))) ->
+    Just (C.fromChannel c, V.fromPitch p, case V.fromVelocity v of 0 -> Nothing; v' -> Just v')
+  E.MIDIEvent (C.Cons c (C.Voice (V.NoteOff p _))) ->
+    Just (C.fromChannel c, V.fromPitch p, Nothing)
   _ -> Nothing
+
+isNoteEdge :: E.T -> Maybe (Int, Bool)
+isNoteEdge e = isNoteEdgeCPV e >>= \(_c, p, v) -> return (p, isJust v)
+
+parseBlips :: (NNC.C t) => [Int] -> ParseOne t E.T Int
+parseBlips ns = combineParseOne [ mapParseOne (const n) $ parseBlip n | n <- ns ]
+
+parseBlipCPV :: (NNC.C t) => ParseOne t E.T (Int, Int, Int)
+parseBlipCPV rtb = do
+  ((t, (c, p, mv)), rtb') <- firstEventWhich isNoteEdgeCPV rtb
+  v <- mv
+  ((_, ()), rtb'') <- flip U.extractFirst rtb' $ \e -> isNoteEdgeCPV e >>= \case
+    (c', p', Nothing) | (c, p) == (c', p') -> Just ()
+    _                                      -> Nothing
+  return ((t, (c, p, v)), rtb'')
 
 -- | Parses a note-on and note-off with any positive duration between them.
 parseBlip :: (NNC.C t) => Int -> ParseOne t E.T ()
-parseBlip i rtb0 = let
-  findEdge b e = guard (isNoteEdge e == Just (i, b)) >> return ()
-  in do
-    ((t , on), rtb1) <- firstEventWhich Just rtb0
-    () <- findEdge True on
-    ((t', ()), rtb2) <- U.extractFirst (findEdge False) rtb1
-    guard $ t' > NNC.zero
-    Just ((t, ()), rtb2)
+parseBlip i rtb = do
+  ((t, (_, p, _)), rtb') <- parseBlipCPV rtb
+  guard $ i == p
+  return ((t, ()), rtb')
 
 mapParseOne :: (a -> b) -> ParseOne t e a -> ParseOne t e b
 mapParseOne f p rtb = fmap (\((t, x), rtb') -> ((t, f x), rtb')) $ p rtb
@@ -98,8 +112,14 @@ patToExp = \case
   SigP p t -> SigE (patToExp p) t
   ViewP _ _ -> error "patToExp: view pattern can't be expression-ified"
 
+unparseBlipCPV :: UnparseOne U.Beats E.T (Int, Int, Int)
+unparseBlipCPV (c, p, v) = RTB.fromPairList
+  [ (0     , makeEdgeCPV c p $ Just v)
+  , (1 / 32, makeEdgeCPV c p Nothing )
+  ]
+
 unparseBlip :: UnparseOne U.Beats E.T Int
-unparseBlip i = RTB.fromPairList [(0, makeEdge i True), (1 / 32, makeEdge i False)]
+unparseBlip p = unparseBlipCPV (0, p, 96)
 
 -- | A blip is an event which is serialized as a MIDI note of unimportant length.
 -- In Rock Band, these can always have their length set to 1\/32 of a beat,
@@ -116,10 +136,12 @@ parseEdge i f rtb = RTB.viewL rtb >>= \case
     (i', b) | i == i' -> Just ((t, f b), RTB.delay t rtb')
     _                 -> Nothing
 
+makeEdgeCPV :: Int -> Int -> Maybe Int -> E.T
+makeEdgeCPV c p v = E.MIDIEvent $ C.Cons (C.toChannel c) $ C.Voice $
+  V.NoteOn (V.toPitch p) $ maybe (V.toVelocity 0) V.toVelocity v
+
 makeEdge :: Int -> Bool -> E.T
-makeEdge i b
-  = E.MIDIEvent $ C.Cons (C.toChannel 0) $ C.Voice $ V.NoteOn (V.toPitch i)
-  $ if b then V.toVelocity 96 else V.toVelocity 0
+makeEdge p b = makeEdgeCPV 1 p $ guard b >> Just 96
 
 -- | Makes a translation pair for a note edge event (an event which is serialized
 -- as a note on or note off).
@@ -201,3 +223,7 @@ commandPair cmd pat =
     [ match pat (normalB [e| unparseCommand cmd |]) []
     ]
   )
+
+bool :: Bool -> Q Pat
+bool True  = [p| True  |]
+bool False = [p| False |]

@@ -76,15 +76,19 @@ data Trainer
 instance Command (Trainer, String) where
   fromCommand (t, s) = case t of
     TrainerBegin i -> ["begin_" ++ s, "song_trainer_" ++ s ++ "_" ++ show i]
-    TrainerNorm  i -> [ "norm_" ++ s, "song_trainer_" ++ s ++ "_" ++ show i]
+    TrainerNorm  i -> [ s ++ "_norm", "song_trainer_" ++ s ++ "_" ++ show i]
     TrainerEnd   i -> [  "end_" ++ s, "song_trainer_" ++ s ++ "_" ++ show i]
   toCommand [x, stripPrefix "song_trainer_" -> Just y] = case x of
     (stripPrefix "begin_" -> Just s) -> f s TrainerBegin
-    (stripPrefix "norm_"  -> Just s) -> f s TrainerNorm
+    (stripSuffix "_norm"  -> Just s) -> f s TrainerNorm
     (stripPrefix "end_"   -> Just s) -> f s TrainerEnd
     _ -> Nothing
     where f s con = case stripPrefix s y of
             Just ('_' : (readMaybe -> Just i)) -> Just (con i, s)
             Just (readMaybe -> Just i) -> Just (con i, s)
             _ -> Nothing
+          stripSuffix sfx s = fmap reverse $ stripPrefix (reverse sfx) (reverse s)
   toCommand _ = Nothing
+
+data Key = C | Cs | D | Ds | E | F | Fs | G | Gs | A | As | B
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)

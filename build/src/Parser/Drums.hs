@@ -102,7 +102,7 @@ showMix audio disco = "drums" ++ show (fromEnum audio) ++ case disco of
 instanceMIDIEvent [t| Event |]
 
   [ blip 24  [p| Animation KickRF |]
-  , edge 25  $ \b -> if b then [p| Animation (HihatOpen True) |] else [p| Animation (HihatOpen False) |]
+  , edge 25  $ \_b -> [p| Animation (HihatOpen $(bool _b)) |]
   , blip 26  [p| Animation (Snare HardHit LH) |]
   , blip 27  [p| Animation (Snare HardHit RH) |]
   , blip 28  [p| Animation (Snare SoftHit LH) |]
