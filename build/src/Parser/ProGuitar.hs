@@ -29,7 +29,7 @@ data Event
   deriving (Eq, Ord, Show)
 
 data DiffEvent
-  = Note GtrString NoteType (Maybe GtrFret)
+  = Note GtrString (Maybe GtrFret) NoteType
   | ForceHOPO Bool
   | Slide SlideType Bool
   | Arpeggio Bool
@@ -81,10 +81,10 @@ instanceMIDIEvent [t| Event |] $ let
       guard $ p == pitch
       guard $ maybe True (>= 100) v
       ntype <- lookup c noteTypeChannels
-      let e = DiffEvent $(fmap patToExp diff) $ Note $(fmap patToExp str) ntype $ fmap (subtract 100) v
+      let e = DiffEvent $(fmap patToExp diff) $ Note $(fmap patToExp str) (fmap (subtract 100) v) ntype
       return ((t, e), rtb')
     |], [e| \case
-      DiffEvent $diff (Note $str ntype fret) ->
+      DiffEvent $diff (Note $str fret ntype) ->
         RTB.singleton 0 $ makeEdgeCPV (fromEnum ntype) pitch $ fmap (+ 100) fret
     |])
   in  [ guitarNote 24  [p| Easy   |] [p| S6 |]
@@ -132,14 +132,14 @@ playGuitar tuning evts = do
           Nothing -> RTB.empty
           Just _  -> error "playGuitar: unterminated note-on"
         Just ((t, e), rtb') -> case e of
-          Note s ntype fret | s == str && ntype /= ArpeggioForm -> case fret of
+          Note s fret ntype | s == str && ntype /= ArpeggioForm -> case fret of
             Nothing -> case held of
               Nothing -> error "playGuitar: note-off but string is already not played"
               Just p  -> RTB.cons t (makeEdge p False) $ go Nothing rtb'
             Just f -> let
               p = (tuning !! fromEnum str) + f
               in case held of
-                Just _  -> error "playGuitar: double note-on"
+                Just _  -> error $ "playGuitar: double note-on"
                 Nothing -> RTB.cons t (makeEdge p True) $ go (Just p) rtb'
           _ -> RTB.delay t $ go held rtb'
   return (str, go Nothing $ RTB.normalize evts)
