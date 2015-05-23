@@ -21,9 +21,14 @@ data Event
   | SlashChords Bool
   | Trill Bool
   | Tremolo Bool
-  | BRE Bool
+  | BREGuitar Bool
+  | BREBass Bool
   | Overdrive Bool
   | Solo Bool
+  | Mystery18 Bool -- ^ I think this switches between sharp and flat chords?
+  | Mystery45 Bool
+  | Mystery69 Bool
+  | Mystery93 Bool
   | DiffEvent Difficulty DiffEvent
   deriving (Eq, Ord, Show)
 
@@ -33,6 +38,7 @@ data DiffEvent
   | Arpeggio Bool
   | PartialChord Bool StrumArea
   | AllFrets Bool
+  | MysteryBFlat Bool
   | Note GtrString (Maybe GtrFret) NoteType
   deriving (Eq, Ord, Show)
 
@@ -46,10 +52,10 @@ data NoteType
   | PinchHarmonic
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-data SlideType = NormalSlide | ReversedSlide
+data SlideType = NormalSlide | ReversedSlide | MysterySlide3 | MysterySlide2
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-data StrumArea = High | Mid | Low
+data StrumArea = High | Mid | Low | MysteryStrum0
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 type GtrFret = Int
@@ -67,11 +73,14 @@ instance GtrChannel SlideType where
   encodeChannel = \case
     NormalSlide   -> 0
     ReversedSlide -> 11
+    MysterySlide3 -> 3
+    MysterySlide2 -> 2
 instance GtrChannel StrumArea where
   encodeChannel = \case
     High -> 13
     Mid  -> 14
     Low  -> 15
+    MysteryStrum0 -> 0
 
 parseNote :: (NNC.C t) => Int -> Difficulty -> GtrString -> ParseOne t E.T Event
 parseNote pitch diff str rtb = do
@@ -145,7 +154,8 @@ instanceMIDIEvent [t| Event |] $ let
 
       , edge 16 $ \_b -> [p| SlashChords $(bool _b) |]
       , edge 17 $ \_b -> [p| NoChordNames $(bool _b) |]
-      -- TODO: 18 (black chord sharp/flat switch)?
+      -- TODO
+      , edge 18 $ \_b -> [p| Mystery18 $(bool _b) |]
 
       , note 24  [p| Easy   |] [p| S6 |]
       , note 25  [p| Easy   |] [p| S5 |]
@@ -157,9 +167,12 @@ instanceMIDIEvent [t| Event |] $ let
       , slide 31 [p| Easy |]
       , edge 32 $ \_b -> [p| DiffEvent Easy (Arpeggio $(bool _b)) |]
       , partialChord 33 [p| Easy |]
+      -- TODO (not actually seen)
+      , edge 34 $ \_b -> [p| DiffEvent Easy (MysteryBFlat $(bool _b)) |]
       , edge 35 $ \_b -> [p| DiffEvent Easy (AllFrets $(bool _b)) |]
 
-      -- TODO: 45
+      -- TODO
+      , edge 45 $ \_b -> [p| Mystery45 $(bool _b) |]
 
       , note 48  [p| Medium |] [p| S6 |]
       , note 49  [p| Medium |] [p| S5 |]
@@ -171,9 +184,12 @@ instanceMIDIEvent [t| Event |] $ let
       , slide 55 [p| Medium |]
       , edge 56 $ \_b -> [p| DiffEvent Medium (Arpeggio $(bool _b)) |]
       , partialChord 57 [p| Medium |]
+      -- TODO
+      , edge 58 $ \_b -> [p| DiffEvent Medium (MysteryBFlat $(bool _b)) |]
       , edge 59 $ \_b -> [p| DiffEvent Medium (AllFrets $(bool _b)) |]
 
-      -- TODO: 69
+      -- TODO
+      , edge 69 $ \_b -> [p| Mystery69 $(bool _b) |]
 
       , note 72  [p| Hard   |] [p| S6 |]
       , note 73  [p| Hard   |] [p| S5 |]
@@ -182,12 +198,15 @@ instanceMIDIEvent [t| Event |] $ let
       , note 76  [p| Hard   |] [p| S2 |]
       , note 77  [p| Hard   |] [p| S1 |]
       , edge 78 $ \_b -> [p| DiffEvent Hard (ForceHOPO $(bool _b)) |]
-      , slide 79 [p| Hard |]
+      , slide 79 [p| Hard |] -- TODO: channel 3
       , edge 80 $ \_b -> [p| DiffEvent Hard (Arpeggio $(bool _b)) |]
       , partialChord 81 [p| Hard |]
+      -- TODO
+      , edge 82 $ \_b -> [p| DiffEvent Hard (MysteryBFlat $(bool _b)) |]
       , edge 83 $ \_b -> [p| DiffEvent Hard (AllFrets $(bool _b)) |]
 
-      -- TODO: 93
+      -- TODO
+      , edge 93 $ \_b -> [p| Mystery93 $(bool _b) |]
 
       , note 96  [p| Expert |] [p| S6 |]
       , note 97  [p| Expert |] [p| S5 |]
@@ -196,9 +215,11 @@ instanceMIDIEvent [t| Event |] $ let
       , note 100 [p| Expert |] [p| S2 |]
       , note 101 [p| Expert |] [p| S1 |]
       , edge 102 $ \_b -> [p| DiffEvent Expert (ForceHOPO $(bool _b)) |]
-      , slide 103 [p| Expert |]
+      , slide 103 [p| Expert |] -- TODO: channel 3
       , edge 104 $ \_b -> [p| DiffEvent Expert (Arpeggio $(bool _b)) |]
       , partialChord 105 [p| Expert |]
+      -- TODO
+      , edge 106 $ \_b -> [p| DiffEvent Expert (MysteryBFlat $(bool _b)) |]
       , edge 107 $ \_b -> [p| DiffEvent Expert (AllFrets $(bool _b)) |]
 
       , ( [e| parseHandPosition |]
@@ -208,7 +229,9 @@ instanceMIDIEvent [t| Event |] $ let
         )
       , edge 115           $ \_b -> [p| Solo      $(bool _b) |]
       , edge 116           $ \_b -> [p| Overdrive $(bool _b) |]
-      , edges [120 .. 125] $ \_b -> [p| BRE       $(bool _b) |]
+      -- guitar BRE must come before bass
+      , edges [120 .. 125] $ \_b -> [p| BREGuitar $(bool _b) |]
+      , edges [120 .. 123] $ \_b -> [p| BREBass   $(bool _b) |]
       , edge 126           $ \_b -> [p| Tremolo   $(bool _b) |]
       , edge 127           $ \_b -> [p| Trill     $(bool _b) |]
 
@@ -222,6 +245,8 @@ instanceMIDIEvent [t| Event |] $ let
             TrainerBass t -> RTB.singleton NNC.zero $ showCommand' (t, "pb")
           |]
         )
+      -- TODO: "[begin_pb song_trainer_pg_1]"
+      -- TODO: "pb_norm song_trainer_pb_1]"
       , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
             ["chrd0", s] -> Just $ ChordName Easy   $ Just s
             ["chrd1", s] -> Just $ ChordName Medium $ Just s

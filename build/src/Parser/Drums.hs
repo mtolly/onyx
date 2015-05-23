@@ -84,7 +84,6 @@ data Disco
   | EasyMix     -- ^ Pre-RB3. 'Easy' sections with only 'Red' and 'Kick' notes.
   | EasyNoKick  -- ^ Pre-RB3. 'Easy' sections with no 'Kick' notes.
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
--- TODO: Fly Like an Eagle has [mix n drums2a], what is this?
 
 instance Command Mix where
   fromCommand (Mix diff audio disco) = ["mix", show $ fromEnum diff, showMix audio disco]
@@ -171,6 +170,7 @@ instanceMIDIEvent [t| Event |]
   , ( [e| mapParseOne SetMix parseCommand |]
     , [e| \case SetMix m -> unparseCommand m |]
     )
+  -- TODO: "[mix 0 drums2a]", "[mix 1 drums2a]", "[mix 2 drums2a]", "[mix 3 drums2a]" (Fly Like an Eagle)
   , commandPair ["ride_side_true" ] [p| Animation (RideSide True ) |]
   , commandPair ["ride_side_false"] [p| Animation (RideSide False) |]
   ]

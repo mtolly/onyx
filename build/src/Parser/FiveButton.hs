@@ -133,7 +133,13 @@ instanceMIDIEvent [t| Event |]
   , ( [e| mapParseOne HandMap parseCommand |]
     , [e| \case HandMap m -> unparseCommand m |]
     )
+  -- TODO:
+  -- "[map HandMap NoChords]"
+  -- "[map HandMap_Drop_D2]"
+  -- "[map handMap_DropD2]"
+  -- "map HandMap DropD2]"
   , ( [e| mapParseOne StrumMap parseCommand |]
     , [e| \case StrumMap m -> unparseCommand m |]
     )
+  -- TODO: "[map HandMap_Pick]"
   ]
