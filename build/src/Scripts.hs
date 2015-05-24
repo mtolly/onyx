@@ -15,12 +15,12 @@ import Audio
 import qualified Data.Conduit.Audio as CA
 
 import StackTrace
-import Parser.File
-import qualified Parser.Drums as Drums
-import qualified Parser.Beat as Beat
-import qualified Parser.Events as Events
-import qualified Parser.FiveButton as Five
-import Parser.Base
+import RockBand.File
+import qualified RockBand.Drums as Drums
+import qualified RockBand.Beat as Beat
+import qualified RockBand.Events as Events
+import qualified RockBand.FiveButton as Five
+import RockBand.Common
 
 import Development.Shake
 
@@ -28,24 +28,24 @@ import Development.Shake
 -- stuff like discobeat), and places ones at the beginning if they don't exist
 -- already.
 drumMix :: Int -> Song U.Beats -> Song U.Beats
-drumMix n s = let
-  newTracks = flip map (s_tracks s) $ \case
-    PartDrums t -> PartDrums $ editTrack t
-    trk         -> trk
+drumMix n = let
   editTrack trk = let
     (mixes, notMixes) = flip RTB.partitionMaybe trk $ \case
-      Drums.SetMix mix -> Just mix
-      _                -> Nothing
-    mixes' = fmap (\(Drums.Mix diff _ disco) -> Drums.Mix diff audio disco) mixes
-    audio = toEnum n
-    alreadyMixed = [ diff | Drums.Mix diff _ _ <- U.trackTakeZero mixes' ]
+      Drums.DiffEvent diff (Drums.Mix audio disco) -> Just (diff, audio, disco)
+      _                                            -> Nothing
+    mixes' = fmap (\(diff, _, disco) -> (diff, audio', disco)) mixes
+    audio' = toEnum n
+    alreadyMixed = [ diff | (diff, _, _) <- U.trackTakeZero mixes' ]
     addedMixes =
-      [ Drums.Mix diff audio Drums.NoDisco
+      [ (diff, audio', Drums.NoDisco)
       | diff <- [Easy .. Expert]
       , diff `notElem` alreadyMixed
       ]
-    in RTB.merge notMixes $ fmap Drums.SetMix $ foldr addZero mixes' addedMixes
-  in s { s_tracks = newTracks }
+    setMix (diff, audio, disco) = Drums.DiffEvent diff $ Drums.Mix audio disco
+    in RTB.merge notMixes $ fmap setMix $ foldr addZero mixes' addedMixes
+  in eachTrack $ \case
+    PartDrums t -> PartDrums $ editTrack t
+    trk         -> trk
 
 -- | Adds an event at position zero *after* all the other events there.
 addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
@@ -144,22 +144,21 @@ trackGlue t xs ys = let
 -- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
 --- their last gem note-on.
 fixRolls :: Song U.Beats -> Song U.Beats
-fixRolls s = let
-  newTracks = flip map (s_tracks s) $ \case
+fixRolls = let
+  drumsSingle = fixFreeform (== Drums.SingleRoll True) (== Drums.SingleRoll False) isHand
+  drumsDouble = fixFreeform (== Drums.DoubleRoll True) (== Drums.DoubleRoll False) isHand
+  isHand (Drums.DiffEvent Expert (Drums.Note gem)) = gem /= Drums.Kick
+  isHand _                       = False
+  fiveTremolo = fixFreeform (== Five.Tremolo True) (== Five.Tremolo False) isGem
+  fiveTrill   = fixFreeform (== Five.Trill   True) (== Five.Trill   False) isGem
+  isGem (Five.DiffEvent Expert (Five.Note True _)) = True
+  isGem _                                          = False
+  in eachTrack $ \case
     PartDrums  t -> PartDrums  $ drumsSingle $ drumsDouble t
     PartGuitar t -> PartGuitar $ fiveTremolo $ fiveTrill   t
     PartBass   t -> PartBass   $ fiveTremolo $ fiveTrill   t
     PartKeys   t -> PartKeys   $               fiveTrill   t
     trk          -> trk
-  drumsSingle = fixFreeform (== Drums.SingleRoll True) (== Drums.SingleRoll False) isHand
-  drumsDouble = fixFreeform (== Drums.DoubleRoll True) (== Drums.DoubleRoll False) isHand
-  isHand (Drums.Note Expert gem) = gem /= Drums.Kick
-  isHand _                       = False
-  fiveTremolo = fixFreeform (== Five.Tremolo True) (== Five.Tremolo False) isGem
-  fiveTrill   = fixFreeform (== Five.Trill   True) (== Five.Trill   False) isGem
-  isGem (Five.Note Expert _ True) = True
-  isGem _                         = False
-  in s { s_tracks = newTracks }
 
 fixFreeform
   :: (Ord a)

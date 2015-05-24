@@ -2,10 +2,10 @@ module OneFoot (oneFoot) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Sound.MIDI.Util as U
-import Parser.Base
-import Parser.File
-import qualified Parser.Drums as Drums
-import Parser.Drums (Hand(..))
+import RockBand.Common
+import RockBand.File
+import qualified RockBand.Drums as Drums
+import RockBand.Drums (Hand(..))
 
 assignFeet
   :: U.Seconds -- ^ The period at which a steady stream of kicks become two feet.
@@ -42,10 +42,10 @@ assignFeet timeX timeY = RTB.fromPairList . rule4 . rule3 . rule2 . RTB.toPairLi
 
 thinKicks :: U.Seconds -> U.Seconds -> RTB.T U.Seconds Drums.Event -> RTB.T U.Seconds Drums.Event
 thinKicks tx ty rtb = let
-  (kicks, notKicks) = RTB.partition (== Drums.Note Expert Drums.Kick) rtb
+  (kicks, notKicks) = RTB.partition (== Drums.DiffEvent Expert (Drums.Note Drums.Kick)) rtb
   assigned = assignFeet tx ty $ fmap (const RH) kicks
   rightKicks = flip RTB.mapMaybe assigned $ \foot -> case foot of
-    RH -> Just $ Drums.Note Expert Drums.Kick
+    RH -> Just $ Drums.DiffEvent Expert $ Drums.Note Drums.Kick
     LH -> Nothing
   in RTB.merge rightKicks notKicks
 

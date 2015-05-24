@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Parser.TH where
+module RockBand.Parse where
 
 import qualified Sound.MIDI.File.Event as E
 import qualified Sound.MIDI.Message.Channel as C
@@ -9,11 +9,12 @@ import qualified Sound.MIDI.Util as U
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import Language.Haskell.TH
-import Control.Monad (guard)
-import Control.Applicative ((<|>), empty)
+import Control.Monad (guard, (>=>))
 import Data.Maybe (isJust)
+import Data.Foldable (asum)
+import Control.Applicative ((<$>))
 
-import qualified Parser.Base as P
+import RockBand.Common
 
 type ParseOne t e a = RTB.T t e -> Maybe ((t, a), RTB.T t e)
 type ParseAll t e a = RTB.T t e -> (RTB.T t a, RTB.T t e)
@@ -30,7 +31,7 @@ parseAll p rtb = case p rtb of
     (xs, rtb'') -> (RTB.insert t x xs, rtb'')
 
 combineParseOne :: [ParseOne t e a] -> ParseOne t e a
-combineParseOne ps rtb = foldr (<|>) empty $ map ($ rtb) ps
+combineParseOne ps rtb = asum $ map ($ rtb) ps
 
 unparseAll :: (NNC.C t, Ord e) => UnparseOne t e a -> UnparseAll t e a
 unparseAll u rtb = U.trackJoin $ fmap u rtb
@@ -77,7 +78,7 @@ parseBlipCPV :: (NNC.C t) => ParseOne t E.T (Int, Int, Int)
 parseBlipCPV rtb = do
   ((t, (c, p, mv)), rtb') <- firstEventWhich isNoteEdgeCPV rtb
   v <- mv
-  ((_, ()), rtb'') <- flip U.extractFirst rtb' $ \e -> isNoteEdgeCPV e >>= \case
+  ((_, ()), rtb'') <- flip U.extractFirst rtb' $ isNoteEdgeCPV >=> \case
     (c', p', Nothing) | (c, p) == (c', p') -> Just ()
     _                                      -> Nothing
   return ((t, (c, p, v)), rtb'')
@@ -90,7 +91,7 @@ parseBlip i rtb = do
   return ((t, ()), rtb')
 
 mapParseOne :: (a -> b) -> ParseOne t e a -> ParseOne t e b
-mapParseOne f p rtb = fmap (\((t, x), rtb') -> ((t, f x), rtb')) $ p rtb
+mapParseOne f p rtb = (\((t, x), rtb') -> ((t, f x), rtb')) <$> p rtb
 
 -- | Does its best to turn a pattern back into an expression.
 patToExp :: Pat -> Exp
@@ -149,8 +150,8 @@ edge :: Int -> (Bool -> Q Pat) -> (Q Exp, Q Exp)
 edge i patf =
   ( [e| parseEdge i
       (\b -> if b
-        then $(fmap patToExp $ patf True )
-        else $(fmap patToExp $ patf False)
+        then $(patToExp <$> patf True )
+        else $(patToExp <$> patf False)
       )
     |]
   , lamCaseE
@@ -186,27 +187,48 @@ isNoteEdgeB b i e = case isNoteEdge e of
   Just (i', b') | b == b' && i == i' -> True
   _                                  -> False
 
-makeEdges :: (NNC.C t) => Bool -> [Int] -> RTB.T t E.T
-makeEdges b is = foldr (RTB.cons NNC.zero) RTB.empty $ map (`makeEdge` b) is
+makeEdges :: (NNC.C t) => [Int] -> Bool -> RTB.T t E.T
+makeEdges is b = foldr (RTB.cons NNC.zero) RTB.empty $ map (`makeEdge` b) is
 
+-- | Parses a collection of simultaneous note-ons or note-offs.
 edges :: [Int] -> (Bool -> Q Pat) -> (Q Exp, Q Exp)
 edges is patf =
   ( [e| combineParseOne
-      [ mapParseOne (const $(fmap patToExp $ patf True )) $ parsePredicates (map (isNoteEdgeB True ) is)
-      , mapParseOne (const $(fmap patToExp $ patf False)) $ parsePredicates (map (isNoteEdgeB False) is)
+      [ mapParseOne (const $(patToExp <$> patf True )) $ parsePredicates (map (isNoteEdgeB True ) is)
+      , mapParseOne (const $(patToExp <$> patf False)) $ parsePredicates (map (isNoteEdgeB False) is)
       ]
     |]
   , lamCaseE
-    [ match (patf True ) (normalB [e| makeEdges True  is |]) []
-    , match (patf False) (normalB [e| makeEdges False is |]) []
+    [ match (patf True ) (normalB [e| makeEdges is True  |]) []
+    , match (patf False) (normalB [e| makeEdges is False |]) []
     ]
   )
 
-parseCommand :: (P.Command a, NNC.C t) => ParseOne t E.T a
-parseCommand = U.extractFirst P.readCommand'
+-- | Parses any one note-edge with a pitch in the given set.
+edgeRange :: [Int] -> (Int -> Bool -> Q Pat) -> (Q Exp, Q Exp)
+edgeRange ps patf = let
+  trues = listE $ flip map ps $ \i -> do
+    e <- patToExp <$> patf i True
+    return $ TupE [LitE $ IntegerL $ fromIntegral i, e]
+  falses = listE $ flip map ps $ \i -> do
+    e <- patToExp <$> patf i False
+    return $ TupE [LitE $ IntegerL $ fromIntegral i, e]
+  in  ( [e| firstEventWhich $ \e -> do
+          (i, b) <- isNoteEdge e
+          if b then lookup i $trues else lookup i $falses
+        |]
+      , lamCaseE
+        [ match (patf i b) (normalB [e| makeEdges [i] b |]) []
+        | i <- ps
+        , b <- [True, False]
+        ]
+      )
 
-unparseCommand :: (P.Command a, NNC.C t) => UnparseOne t E.T a
-unparseCommand = RTB.singleton NNC.zero . P.showCommand'
+parseCommand :: (Command a, NNC.C t) => ParseOne t E.T a
+parseCommand = U.extractFirst readCommand'
+
+unparseCommand :: (Command a, NNC.C t) => UnparseOne t E.T a
+unparseCommand = RTB.singleton NNC.zero . showCommand'
 
 firstEventWhich :: (NNC.C t) => (a -> Maybe b) -> ParseOne t a b
 firstEventWhich f rtb = do
@@ -216,7 +238,7 @@ firstEventWhich f rtb = do
 
 commandPair :: [String] -> Q Pat -> (Q Exp, Q Exp)
 commandPair cmd pat =
-  ( [e| firstEventWhich $ \e -> P.readCommand' e >>= \x ->
+  ( [e| firstEventWhich $ readCommand' >=> \x ->
       if x == cmd then Just $(fmap patToExp pat) else Nothing
     |]
   , lamCaseE
@@ -224,6 +246,6 @@ commandPair cmd pat =
     ]
   )
 
-bool :: Bool -> Q Pat
-bool True  = [p| True  |]
-bool False = [p| False |]
+boolP :: Bool -> Q Pat
+boolP True  = [p| True  |]
+boolP False = [p| False |]

@@ -36,7 +36,7 @@ import qualified Data.Map as Map
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Traversable as T
 
-import qualified Parser.File as MIDIFile
+import qualified RockBand.File as RBFile
 
 import Codec.Picture
 
@@ -240,8 +240,9 @@ midRules s = eachAudio s $ \src -> do
     tempos <- doesFileExist ftempos >>= \b -> if b
       then loadMIDI ftempos
       else return input
-    let withTempos = input { MIDIFile.s_tempos = MIDIFile.s_tempos tempos }
-        fixed = fixRolls $ autoBeat $ drumMix 0 withTempos
+    let withTempos = input { RBFile.s_tempos = RBFile.s_tempos tempos }
+        fixed = RBFile.eachTrack (RBFile.copyExpert . RBFile.autoHandPosition) $
+          fixRolls $ autoBeat $ drumMix 0 withTempos
     saveMIDI out fixed
   mid1p %> \out -> loadMIDI mid2p >>= saveMIDI out . oneFoot 0.18 0.11
 
@@ -251,7 +252,7 @@ guitarRules s = eachVersion s $ \_ dir -> do
       gtr = dir </> "guitar.mid"
   gtr %> \out -> do
     input <- loadMIDI mid
-    saveMIDI out $ MIDIFile.playGuitarFile (_guitarTuning s) (_bassTuning s) input
+    saveMIDI out $ RBFile.playGuitarFile (_guitarTuning s) (_bassTuning s) input
 
 newtype JammitResults = JammitResults (String, String)
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
@@ -468,12 +469,12 @@ magmaRules s = eachVersion s $ \title dir -> do
   cover %> copyFile' "gen/cover.bmp"
   mid %> \out -> do
     base <- loadMIDI $ dir </> "notes.mid"
-    let cleaned = base { MIDIFile.s_tracks = filter magmaSafe $ MIDIFile.s_tracks base }
-        magmaSafe (MIDIFile.Countin          _) = False
-        magmaSafe (MIDIFile.PartRealGuitar   _) = False
-        magmaSafe (MIDIFile.PartRealGuitar22 _) = False
-        magmaSafe (MIDIFile.PartRealBass     _) = False
-        magmaSafe (MIDIFile.PartRealBass22   _) = False
+    let cleaned = base { RBFile.s_tracks = filter magmaSafe $ RBFile.s_tracks base }
+        magmaSafe (RBFile.Countin          _) = False
+        magmaSafe (RBFile.PartRealGuitar   _) = False
+        magmaSafe (RBFile.PartRealGuitar22 _) = False
+        magmaSafe (RBFile.PartRealBass     _) = False
+        magmaSafe (RBFile.PartRealBass22   _) = False
         magmaSafe _                             = True
     saveMIDI out cleaned
   proj %> \out -> do

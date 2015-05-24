@@ -1,12 +1,15 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Parser.Events where
+module RockBand.Events where
 
-import Parser.Base
+import RockBand.Common
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
-import Parser.TH
+import RockBand.Parse
+import Control.Monad ((>=>))
+import Data.List (stripPrefix)
+import Control.Applicative ((<$>))
 
 data Event
   = MusicStart
@@ -37,9 +40,9 @@ instanceMIDIEvent [t| Event |]
   , commandPair ["crowd_mellow"] [p| CrowdMellow |]
   , commandPair ["crowd_noclap"] [p| CrowdNoclap |]
   , commandPair ["crowd_clap"] [p| CrowdClap |]
-  , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
-        ['p':'r':'c':'_':s] -> Just $ PracticeSection s
-        _                   -> Nothing
+  , ( [e| firstEventWhich $ readCommand' >=> \case
+        [s] -> PracticeSection <$> stripPrefix "prc_" s
+        _   -> Nothing
       |]
     , [e| \case PracticeSection s -> RTB.singleton NNC.zero $ showCommand' ["prc_" ++ s] |]
     )

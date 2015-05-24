@@ -7,7 +7,7 @@ import Data.Bits (shiftR, shiftL)
 import Data.Word (Word16)
 import Control.Monad (forM_, guard)
 import qualified Data.ByteString as B
-import Data.List (minimumBy, sort)
+import Data.List (minimumBy)
 import Data.Ord (comparing)
 import System.IO (withBinaryFile, IOMode(..))
 
@@ -134,5 +134,5 @@ writeDDS fout img = let
                     , (score c2, v * 2)
                     , (score c3, v * 3)
                     ]
-                  in snd $ head $ sort scoreTable
+                  in snd $ minimum scoreTable
           B.hPut h $ B.singleton byte

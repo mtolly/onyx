@@ -1,18 +1,21 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
-module Parser.Drums where
+module RockBand.Drums where
 
 import Data.Foldable (Foldable)
 import Data.Traversable (Traversable)
 import Control.Applicative ((<*>), (<$>))
+import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Numeric.NonNegative.Class as NNC
 
-import Parser.Base
-import Parser.TH
+import RockBand.Common
+import RockBand.Parse
 
 data ProColor = Yellow | Blue | Green
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -28,9 +31,8 @@ data Gem a = Kick | Red | Pro ProColor a
 -- Also, @'ProType' _ 'Cymbal'@ comes before @'ProType' _ 'Tom'@, since the
 -- note-on ('Tom') should supercede the simultaneous note-off ('Cymbal').
 data Event
-  = Mood Mood
-  | ProType ProColor ProType
-  | SetMix Mix
+  = Mood       Mood
+  | ProType    ProColor ProType
   | SingleRoll Bool
   | DoubleRoll Bool
   | Overdrive  Bool -- ^ white notes to gain energy
@@ -38,17 +40,22 @@ data Event
   | Solo       Bool
   | Player1    Bool
   | Player2    Bool
-  | Note Difficulty (Gem ())
-  | Animation Animation
+  | DiffEvent  Difficulty DiffEvent
+  | Animation  Animation
+  deriving (Eq, Ord, Show, Read)
+
+data DiffEvent
+  = Mix Audio Disco
+  | Note (Gem ())
   deriving (Eq, Ord, Show, Read)
 
 data Animation
-  = Tom1 Hand -- ^ The high tom.
-  | Tom2 Hand -- ^ The middle tom.
-  | FloorTom Hand -- ^ The low tom.
-  | Hihat Hand
-  | Snare Hit Hand
-  | Ride Hand
+  = Tom1       Hand -- ^ The high tom.
+  | Tom2       Hand -- ^ The middle tom.
+  | FloorTom   Hand -- ^ The low tom.
+  | Hihat      Hand
+  | Snare  Hit Hand
+  | Ride       Hand
   | Crash1 Hit Hand -- ^ The left crash, closer to the hihat.
   | Crash2 Hit Hand -- ^ The right crash, closer to the ride.
   | KickRF
@@ -63,9 +70,6 @@ data Animation
 
 data Hit = SoftHit | HardHit deriving (Eq, Ord, Show, Read, Enum, Bounded)
 data Hand = LH | RH deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-data Mix = Mix Difficulty Audio Disco
-  deriving (Eq, Ord, Show, Read)
 
 -- | Controls the audio files used for the drum track.
 data Audio
@@ -85,9 +89,9 @@ data Disco
   | EasyNoKick  -- ^ Pre-RB3. 'Easy' sections with no 'Kick' notes.
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-instance Command Mix where
-  fromCommand (Mix diff audio disco) = ["mix", show $ fromEnum diff, showMix audio disco]
-  toCommand = reverseLookup (Mix <$> each <*> each <*> each) fromCommand
+instance Command (Difficulty, Audio, Disco) where
+  fromCommand (diff, audio, disco) = ["mix", show $ fromEnum diff, showMix audio disco]
+  toCommand = reverseLookup ((,,) <$> each <*> each <*> each) fromCommand
 
 -- | e.g. turns 'D2' and 'Disco' into @\"drums2d\"@
 showMix :: Audio -> Disco -> String
@@ -101,7 +105,7 @@ showMix audio disco = "drums" ++ show (fromEnum audio) ++ case disco of
 instanceMIDIEvent [t| Event |]
 
   [ blip 24  [p| Animation KickRF |]
-  , edge 25  $ \_b -> [p| Animation (HihatOpen $(bool _b)) |]
+  , edge 25  $ \_b -> [p| Animation (HihatOpen $(boolP _b)) |]
   , blip 26  [p| Animation (Snare HardHit LH) |]
   , blip 27  [p| Animation (Snare HardHit RH) |]
   , blip 28  [p| Animation (Snare SoftHit LH) |]
@@ -129,29 +133,29 @@ instanceMIDIEvent [t| Event |]
   , blip 50  [p| Animation (FloorTom LH) |]
   , blip 51  [p| Animation (FloorTom RH) |]
 
-  , blip 60  [p| Note Easy Kick |]
-  , blip 61  [p| Note Easy Red |]
-  , blip 62  [p| Note Easy (Pro Yellow ()) |]
-  , blip 63  [p| Note Easy (Pro Blue   ()) |]
-  , blip 64  [p| Note Easy (Pro Green  ()) |]
+  , blip 60  [p| DiffEvent Easy (Note Kick) |]
+  , blip 61  [p| DiffEvent Easy (Note Red) |]
+  , blip 62  [p| DiffEvent Easy (Note (Pro Yellow ())) |]
+  , blip 63  [p| DiffEvent Easy (Note (Pro Blue   ())) |]
+  , blip 64  [p| DiffEvent Easy (Note (Pro Green  ())) |]
 
-  , blip 72  [p| Note Medium Kick |]
-  , blip 73  [p| Note Medium Red |]
-  , blip 74  [p| Note Medium (Pro Yellow ()) |]
-  , blip 75  [p| Note Medium (Pro Blue   ()) |]
-  , blip 76  [p| Note Medium (Pro Green  ()) |]
+  , blip 72  [p| DiffEvent Medium (Note Kick) |]
+  , blip 73  [p| DiffEvent Medium (Note Red) |]
+  , blip 74  [p| DiffEvent Medium (Note (Pro Yellow ())) |]
+  , blip 75  [p| DiffEvent Medium (Note (Pro Blue   ())) |]
+  , blip 76  [p| DiffEvent Medium (Note (Pro Green  ())) |]
 
-  , blip 84  [p| Note Hard Kick |]
-  , blip 85  [p| Note Hard Red |]
-  , blip 86  [p| Note Hard (Pro Yellow ()) |]
-  , blip 87  [p| Note Hard (Pro Blue   ()) |]
-  , blip 88  [p| Note Hard (Pro Green  ()) |]
+  , blip 84  [p| DiffEvent Hard (Note Kick) |]
+  , blip 85  [p| DiffEvent Hard (Note Red) |]
+  , blip 86  [p| DiffEvent Hard (Note (Pro Yellow ())) |]
+  , blip 87  [p| DiffEvent Hard (Note (Pro Blue   ())) |]
+  , blip 88  [p| DiffEvent Hard (Note (Pro Green  ())) |]
 
-  , blip 96  [p| Note Expert Kick |]
-  , blip 97  [p| Note Expert Red |]
-  , blip 98  [p| Note Expert (Pro Yellow ()) |]
-  , blip 99  [p| Note Expert (Pro Blue   ()) |]
-  , blip 100 [p| Note Expert (Pro Green  ()) |]
+  , blip 96  [p| DiffEvent Expert (Note Kick) |]
+  , blip 97  [p| DiffEvent Expert (Note Red) |]
+  , blip 98  [p| DiffEvent Expert (Note (Pro Yellow ())) |]
+  , blip 99  [p| DiffEvent Expert (Note (Pro Blue   ())) |]
+  , blip 100 [p| DiffEvent Expert (Note (Pro Green  ())) |]
 
   , edge 103 $ applyB [p| Solo |]
   , edge 105 $ applyB [p| Player1 |]
@@ -167,10 +171,15 @@ instanceMIDIEvent [t| Event |]
   , ( [e| mapParseOne Mood parseCommand |]
     , [e| \case Mood m -> unparseCommand m |]
     )
-  , ( [e| mapParseOne SetMix parseCommand |]
-    , [e| \case SetMix m -> unparseCommand m |]
+  , ( [e| mapParseOne (\(diff, audio, disco) -> DiffEvent diff $ Mix audio disco) parseCommand |]
+    , [e| \case DiffEvent diff (Mix audio disco) -> unparseCommand (diff, audio, disco) |]
     )
   -- TODO: "[mix 0 drums2a]", "[mix 1 drums2a]", "[mix 2 drums2a]", "[mix 3 drums2a]" (Fly Like an Eagle)
   , commandPair ["ride_side_true" ] [p| Animation (RideSide True ) |]
   , commandPair ["ride_side_false"] [p| Animation (RideSide False) |]
   ]
+
+copyExpert :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
+copyExpert = baseCopyExpert DiffEvent $ \case
+  DiffEvent d e -> Just (d, e)
+  _             -> Nothing

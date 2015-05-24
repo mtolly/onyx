@@ -34,17 +34,17 @@ executable onyxbuild
     Image
 
     StackTrace
-    Parser.Base
-    Parser.TH
-    Parser.Beat
-    Parser.Countin
-    Parser.Drums
-    Parser.Events
-    Parser.File
-    Parser.FiveButton
-    Parser.Vocals
-    Parser.ProKeys
-    Parser.ProGuitar
+    RockBand.Common
+    RockBand.Parse
+    RockBand.Beat
+    RockBand.Countin
+    RockBand.Drums
+    RockBand.Events
+    RockBand.File
+    RockBand.FiveButton
+    RockBand.Vocals
+    RockBand.ProKeys
+    RockBand.ProGuitar
   build-depends:
     base    >= 4.6    && < 4.8
     , shake >= 0.14.3 && < 0.15
