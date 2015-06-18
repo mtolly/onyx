@@ -24,6 +24,8 @@ newtype StackTraceT m a = StackTraceT
   { fromStackTraceT :: ExceptT [Message] (RWST [String] [Message] () m) a
   } deriving (Functor, Applicative, Monad, MonadIO, Alternative, MonadPlus)
 
+type StackTrace = StackTraceT Identity
+
 instance MonadTrans StackTraceT where
   lift = StackTraceT . lift . lift
 
@@ -51,7 +53,7 @@ inside s (StackTraceT (ExceptT rwst)) = StackTraceT $ ExceptT $ local (s :) rwst
 runStackTraceT :: (Monad m) => StackTraceT m a -> m (Either [Message] a, [Message])
 runStackTraceT (StackTraceT ex) = evalRWST (runExceptT ex) [] ()
 
-runStackTrace :: StackTraceT Identity a -> (Either [Message] a, [Message])
+runStackTrace :: StackTrace a -> (Either [Message] a, [Message])
 runStackTrace = runIdentity . runStackTraceT
 
 -- | Prints the message and its context stack to standard error.

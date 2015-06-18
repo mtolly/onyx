@@ -1,5 +1,21 @@
+{- |
+A convention for YAML files to include references to other files.
+
+If an object has the key \"file-include\" paired with a relative filename
+(or list of filenames), those are YAML files whose pairs will be inserted into the object.
+The values of the existing object (the one doing the including) take priority in a collision.
+
+If an object has some other key starting with \"file-\" paired with a relative filename
+(or list of filenames), that filename will be kept accurate regardless of what other
+chain of files the object gets included in.
+
+For example, @A.yml@ includes @B/C.yml@ which includes a reference to @D.png@.
+The reference to @D.png@ is actually @B/D.png@ because it is relative to @B/C.yml@.
+So, when the contents of @B/C.yml@ get glued into @A.yml@,
+the filename will be edited into @B/D.png@.
+-}
 {-# LANGUAGE OverloadedStrings #-}
-module YAMLTree where
+module YAMLTree (readYAMLTree) where
 
 import qualified Data.Aeson as A
 import qualified Data.Yaml as Y

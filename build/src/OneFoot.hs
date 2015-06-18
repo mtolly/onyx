@@ -1,3 +1,6 @@
+{- |
+Algorithm to generate 1x Bass Pedal versions automatically from the 2x version.
+-}
 module OneFoot (oneFoot) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
