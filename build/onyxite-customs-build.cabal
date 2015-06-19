@@ -38,7 +38,6 @@ executable onyxbuild
     , directory
     , temporary
     , aeson, text, unordered-containers, filepath, yaml
-    , bifunctors
     , event-list, non-negative, midi
     , containers
     , bytestring
@@ -49,8 +48,6 @@ executable onyxbuild
     , JuicyPixels >= 3.2.3.1
     , conduit
     , vector
-    , transformers >= 0.4
-    , template-haskell
     -- my libraries:
     , dtab >= 1.0 && < 1.1
     , jammittools >= 0.4.1 && < 0.5

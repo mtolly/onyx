@@ -13,7 +13,6 @@ import System.IO (hClose)
 import qualified Data.Foldable as F
 import qualified Data.Traversable as T
 import qualified Data.Aeson as A
-import Data.Bifunctor
 import qualified Sound.Jammit.Export as J
 import Control.Applicative ((<$>), (<|>))
 import Control.Monad.Trans.Resource (MonadResource, runResourceT)
@@ -92,10 +91,6 @@ mapTime f aud = case aud of
   Fade e t x      -> Fade e (f t) $ mapTime f x
   Pad  e t x      -> Pad  e (f t) $ mapTime f x
   Resample x      -> Resample     $ mapTime f x
-
-instance Bifunctor Audio where
-  first = mapTime
-  second = fmap
 
 data InputFile
   = Sndable     FilePath (Maybe Duration)

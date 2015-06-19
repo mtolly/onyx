@@ -22,6 +22,13 @@ import           Numeric.NonNegative.Class        ((-|))
 import qualified Sound.MIDI.Util                  as U
 import           Text.Printf                      (printf)
 
+import qualified RockBand.File                    as File
+import qualified RockBand.Beat                    as Beat
+import           RockBand.Drums
+import           RockBand.Events
+import           RockBand.Common
+import           StackTrace
+
 import qualified Audio
 import           Draw
 import           Midi
@@ -29,7 +36,7 @@ import           Midi
 data App = App
   { images        :: ImageID -> Image
   , gems          :: Map.Map U.Seconds [Gem ProType]
-  , beatLines     :: Map.Map U.Seconds BeatEvent
+  , beatLines     :: Map.Map U.Seconds ExtendedBeat
   , timeToMeasure :: U.Seconds -> U.MeasureBeats
   }
 
@@ -235,89 +242,91 @@ main = do
   mid <- loadMidi $ root ++ "/gen/album/2p/notes.mid"
   logLine "Loaded MIDI."
 
-  case U.decodeFile mid of
-    Right _ -> undefined
-    Left trks -> let
-      tmap = U.makeTempoMap $ head trks
-      mmap = U.makeMeasureMap U.Error $ head trks
-      findTrack s = foldr RTB.merge RTB.empty $ filter (\t -> U.trackName t == Just s) trks
+  file <- printStackTraceIO $ File.readMIDIFile mid
+  logLine "Parsed MIDI."
+
+  let tmap = File.s_tempos file
+      mmap = File.s_signatures file
+      trks = File.s_tracks file
+      theDrums  = foldr RTB.merge RTB.empty [ trk | File.PartDrums trk <- trks ]
+      theBeat   = foldr RTB.merge RTB.empty [ trk | File.Beat      trk <- trks ]
+      theEvents = foldr RTB.merge RTB.empty [ trk | File.Events    trk <- trks ]
       gemTrack :: RTB.T U.Seconds (Gem ProType)
-      gemTrack = U.applyTempoTrack tmap $ pickExpert $ assignToms
-        $ RTB.mapMaybe readDrumEvent $ findTrack "PART DRUMS"
+      gemTrack = U.applyTempoTrack tmap $ pickExpert $ assignToms theDrums
       pickExpert = RTB.mapMaybe $ \(d, x) -> case d of
         Expert -> Just x
         _      -> Nothing
       gemMap :: Map.Map U.Seconds [Gem ProType]
       gemMap = Map.fromAscList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $
         RTB.collectCoincident gemTrack
-      beatTrack :: RTB.T U.Seconds BeatEvent
-      beatTrack = U.applyTempoTrack tmap $ insertHalfBeats $
-        RTB.mapMaybe readBeatEvent $ findTrack "BEAT"
-      beatMap :: Map.Map U.Seconds BeatEvent
+      beatTrack :: RTB.T U.Seconds ExtendedBeat
+      beatTrack = U.applyTempoTrack tmap $ insertHalfBeats $ extendBeats theBeat
+      beatMap :: Map.Map U.Seconds ExtendedBeat
       beatMap = Map.fromAscList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 beatTrack
       endEvent :: Maybe U.Seconds
-      endEvent = let
-        endEvents = RTB.filter isEndEvent $ findTrack "EVENTS"
-        in case RTB.viewL endEvents of
-          Just ((bts, _), _) -> Just $ U.applyTempoMap tmap bts
-          Nothing            -> Nothing
-      in do
-        _ <- evaluate gemMap
-        imgs <- fmap Map.fromList $ forM [minBound .. maxBound] $ \iid -> do
-          img <- loadImage $ "rbprev/" ++ drop 6 (show iid) ++ ".png"
-          return (iid, img)
-        let app = App
-              { images = \iid -> case Map.lookup iid imgs of
-                  Just img -> img
-                  Nothing  -> error $ "panic! couldn't find image " ++ show iid
-              , gems = gemMap
-              , beatLines = beatMap
-              , timeToMeasure = U.applyMeasureMap mmap . U.unapplyTempoMap tmap
-              }
-        draw 0 app
-        songID  <- Audio.play howlSong
-        start <- getCurrentTime
-        dur <- case endEvent of
-          Just dur -> return dur
-          Nothing  -> Audio.getDuration howlSong
-        let updateSlider secs = do
-              drag <- readIORef userDragging
-              unless drag $ do
-                elt <- js_getElementById $ toJSString "the-slider"
-                js_setValue (toJSString $ show (realToFrac $ secs / dur :: Double)) elt
-            playing startUTC startSecs = do
-              nowUTC <- getCurrentTime
-              let nowSecs = realToFrac (diffUTCTime nowUTC startUTC) + startSecs
-              updateSlider nowSecs
-              draw nowSecs app
-              requestAnimationFrame
-              if dur <= nowSecs
-                then do
-                  Audio.pause songID howlSong
-                  paused nowSecs
-                else atomically (tryReadTChan equeue) >>= \case
-                  Nothing -> playing startUTC startSecs
-                  Just PlayPause -> do
-                    Audio.pause songID howlSong
-                    paused nowSecs
-                  Just (SeekTo p) -> do
-                    let newSecs = dur * realToFrac p
-                    Audio.setPosSafe newSecs songID howlSong
-                    playing nowUTC newSecs
-            paused nowSecs = do
-              requestAnimationFrame
-              atomically (tryReadTChan equeue) >>= \case
-                Nothing -> paused nowSecs
-                Just PlayPause -> do
-                  Audio.setPosSafe nowSecs songID howlSong
-                  startUTC <- getCurrentTime
-                  playing startUTC nowSecs
-                Just (SeekTo p) -> do
-                  let newSecs = dur * realToFrac p
-                  draw newSecs app
-                  updateSlider newSecs
-                  paused newSecs
-        playing start 0
+      endEvent = case RTB.viewL $ RTB.filter (== End) theEvents of
+        Just ((bts, _), _) -> Just $ U.applyTempoMap tmap bts
+        Nothing            -> Nothing
+      extendBeats = fmap $ \case
+        Beat.Bar  -> Bar
+        Beat.Beat -> Beat
+
+  _ <- evaluate gemMap
+  imgs <- fmap Map.fromList $ forM [minBound .. maxBound] $ \iid -> do
+    img <- loadImage $ "rbprev/" ++ drop 6 (show iid) ++ ".png"
+    return (iid, img)
+  let app = App
+        { images = \iid -> case Map.lookup iid imgs of
+            Just img -> img
+            Nothing  -> error $ "panic! couldn't find image " ++ show iid
+        , gems = gemMap
+        , beatLines = beatMap
+        , timeToMeasure = U.applyMeasureMap mmap . U.unapplyTempoMap tmap
+        }
+  draw 0 app
+  songID  <- Audio.play howlSong
+  start <- getCurrentTime
+  dur <- case endEvent of
+    Just dur -> return dur
+    Nothing  -> Audio.getDuration howlSong
+  let updateSlider secs = do
+        drag <- readIORef userDragging
+        unless drag $ do
+          elt <- js_getElementById $ toJSString "the-slider"
+          js_setValue (toJSString $ show (realToFrac $ secs / dur :: Double)) elt
+      playing startUTC startSecs = do
+        nowUTC <- getCurrentTime
+        let nowSecs = realToFrac (diffUTCTime nowUTC startUTC) + startSecs
+        updateSlider nowSecs
+        draw nowSecs app
+        requestAnimationFrame
+        if dur <= nowSecs
+          then do
+            Audio.pause songID howlSong
+            paused nowSecs
+          else atomically (tryReadTChan equeue) >>= \case
+            Nothing -> playing startUTC startSecs
+            Just PlayPause -> do
+              Audio.pause songID howlSong
+              paused nowSecs
+            Just (SeekTo p) -> do
+              let newSecs = dur * realToFrac p
+              Audio.setPosSafe newSecs songID howlSong
+              playing nowUTC newSecs
+      paused nowSecs = do
+        requestAnimationFrame
+        atomically (tryReadTChan equeue) >>= \case
+          Nothing -> paused nowSecs
+          Just PlayPause -> do
+            Audio.setPosSafe nowSecs songID howlSong
+            startUTC <- getCurrentTime
+            playing startUTC nowSecs
+          Just (SeekTo p) -> do
+            let newSecs = dur * realToFrac p
+            draw newSecs app
+            updateSlider newSecs
+            paused newSecs
+  playing start 0
 
 data ImageID
   = Image_RBN_background1
@@ -380,4 +389,3 @@ data ImageID
   | Image_track_drum
   | Image_track_guitar
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
-

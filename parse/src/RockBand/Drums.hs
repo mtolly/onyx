@@ -183,3 +183,51 @@ copyExpert :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
 copyExpert = baseCopyExpert DiffEvent $ \case
   DiffEvent d e -> Just (d, e)
   _             -> Nothing
+
+data DrumState = DrumState
+  { yellowType  :: ProType
+  , blueType    :: ProType
+  , greenType   :: ProType
+  , easyDisco   :: Bool
+  , mediumDisco :: Bool
+  , hardDisco   :: Bool
+  , expertDisco :: Bool
+  } deriving (Eq, Ord, Show, Read)
+
+defDrumState :: DrumState
+defDrumState = DrumState Cymbal Cymbal Cymbal False False False False
+
+assignToms :: (NNC.C t) => RTB.T t Event -> RTB.T t (Difficulty, Gem ProType)
+assignToms = go defDrumState . RTB.normalize where
+  go ds rtb = case RTB.viewL rtb of
+    Nothing -> RTB.empty
+    Just ((dt, x), rtb') -> case x of
+      ProType color ptype -> RTB.delay dt $ case color of
+        Yellow -> go ds{ yellowType = ptype } rtb'
+        Blue   -> go ds{ blueType   = ptype } rtb'
+        Green  -> go ds{ greenType  = ptype } rtb'
+      DiffEvent diff (Mix _ dsc) -> RTB.delay dt $ case diff of
+        Easy   -> go ds{ easyDisco   = b } rtb'
+        Medium -> go ds{ mediumDisco = b } rtb'
+        Hard   -> go ds{ hardDisco   = b } rtb'
+        Expert -> go ds{ expertDisco = b } rtb'
+        where b = dsc == Disco
+      DiffEvent diff (Note gem) -> case gem of
+        Kick -> RTB.cons dt (diff, Kick) $ go ds rtb'
+        Red -> if isDisco
+          then RTB.cons dt (diff, Pro Yellow Cymbal) $ go ds rtb'
+          else RTB.cons dt (diff, Red) $ go ds rtb'
+        Pro color () -> let
+          new = case color of
+            Yellow -> if isDisco
+              then Red
+              else Pro Yellow $ yellowType ds
+            Blue   -> Pro Blue $ blueType ds
+            Green  -> Pro Green $ greenType ds
+          in RTB.cons dt (diff, new) $ go ds rtb'
+        where isDisco = case diff of
+                Easy -> easyDisco ds
+                Medium -> mediumDisco ds
+                Hard -> hardDisco ds
+                Expert -> expertDisco ds
+      _ -> RTB.delay dt $ go ds rtb'
