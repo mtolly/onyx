@@ -32,19 +32,6 @@ executable onyxbuild
     Magma
     X360
     Image
-
-    StackTrace
-    RockBand.Common
-    RockBand.Parse
-    RockBand.Beat
-    RockBand.Countin
-    RockBand.Drums
-    RockBand.Events
-    RockBand.File
-    RockBand.FiveButton
-    RockBand.Vocals
-    RockBand.ProKeys
-    RockBand.ProGuitar
   build-depends:
     base    >= 4.6    && < 4.8
     , shake >= 0.14.3 && < 0.15
@@ -64,9 +51,6 @@ executable onyxbuild
     , vector
     , transformers >= 0.4
     , template-haskell
-    -- below is a hack around https://github.com/ekmett/recursion-schemes/pull/12
-    -- remove after it's fixed!
-    , free < 4.12
     -- my libraries:
     , dtab >= 1.0 && < 1.1
     , jammittools >= 0.4.1 && < 0.5
@@ -74,5 +58,6 @@ executable onyxbuild
     , conduit-audio
     , conduit-audio-sndfile
     , conduit-audio-samplerate
+    , onyxite-customs-parse
   default-language:     Haskell2010
   ghc-options:          -Wall
