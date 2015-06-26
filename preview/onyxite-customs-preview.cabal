@@ -13,6 +13,7 @@ executable onyxpreview
   other-modules:
     Audio
     Draw
+    Canvas
     Midi
   build-depends:
     base >= 4.7 && < 4.8
@@ -24,6 +25,7 @@ executable onyxpreview
     , containers
     , time
     , stm
+    , transformers
     , onyxite-customs-parse
   hs-source-dirs:       src
   default-language:     Haskell2010
