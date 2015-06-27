@@ -8,28 +8,54 @@ category:             Game
 build-type:           Simple
 cabal-version:        >= 1.10
 
+flag SDLDisplay
+  description: use SDL (ghc) instead of Canvas (ghcjs)
+  default: False
+
 executable onyxpreview
   main-is:              Main.hs
+
   other-modules:
-    Audio
     Draw
-    Canvas
     Midi
+  if flag(SDLDisplay)
+    other-modules:
+      SDLUtil
+  else
+    other-modules:
+      Audio
+      Canvas
+      Jasmid
+
   build-depends:
     base >= 4.7 && < 4.8
     , non-negative
     , event-list
     , midi
     , midi-util >= 0.1.1.1 && < 0.2
-    , ghcjs-base
     , containers
     , time
     , stm
     , transformers
     , onyxite-customs-parse
+  if flag(SDLDisplay)
+    build-depends:
+      sdl2
+      , sdl2-image
+      , filepath
+  else
+    build-depends:
+      ghcjs-base
+
   hs-source-dirs:       src
+  if flag(SDLDisplay)
+    hs-source-dirs:     src-sdl
+  else
+    hs-source-dirs:     src-js
+
   default-language:     Haskell2010
   ghc-options:          -Wall -O2
-  js-sources:
-    js/loadmidi.js
-    js/parseget.js
+  if !flag(SDLDisplay)
+    js-sources:
+      js/loadmidi.js
+      js/parseget.js

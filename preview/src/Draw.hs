@@ -1,5 +1,9 @@
 {-# LANGUAGE LambdaCase #-}
-module Draw where
+module Draw
+( ImageID(..)
+, Opacity, Rect, Draw(..)
+, draw
+) where
 
 import           Control.Monad              (forM_)
 import           Control.Monad.Trans.Writer (execWriter, tell)
@@ -78,7 +82,7 @@ type Rect = (Double, Double, Double, Double) -- (x, y, w, h)
 
 data Draw
   = DrawImage ImageID Rect Opacity
-  | Status String
+  | Text String Double Double
   deriving (Eq, Ord, Show, Read)
 
 zoom :: (Ord k) => k -> k -> Map.Map k a -> Map.Map k a
@@ -194,4 +198,4 @@ draw posn preview = execWriter $ do
       (msr, bts) = timeToMeasure preview posn
       timestamp = printf "Time: %02d:%06.3f | Measure: %03d | Beat: %06.3f"
         mins secs (msr + 1) (realToFrac bts + 1 :: Double) :: String
-  add $ Status timestamp
+  add $ Text timestamp 10 0

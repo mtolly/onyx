@@ -24,6 +24,7 @@ import qualified Audio
 import           Draw
 import           Canvas
 import           Midi
+import           Jasmid
 
 data Event
   = PlayPause
@@ -102,12 +103,11 @@ main = do
   imgs <- fmap Map.fromList $ forM [minBound .. maxBound] $ \iid -> do
     img <- loadImage $ "rbprev/" ++ drop 6 (show iid) ++ ".png"
     return (iid, img)
-  let preview = buildPreview file
-      images iid = case Map.lookup iid imgs of
+  preview <- evaluate $ buildPreview file
+  let images iid = case Map.lookup iid imgs of
         Just img -> img
         Nothing  -> error $ "panic! couldn't find image " ++ show iid
       performDraw t = mapM_ (canvasDraw images $ context2d theCanvas) $ draw t preview
-  _ <- evaluate $ gems preview
   performDraw 0
   songID  <- Audio.play howlSong
   start <- getCurrentTime

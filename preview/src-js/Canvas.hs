@@ -29,23 +29,26 @@ foreign import javascript unsafe
 foreign import javascript unsafe
   "$2.fillStyle = $1;"
   js_setFillStyle :: JSString -> Context -> IO ()
-
 setFillStyle :: String -> Context -> IO ()
 setFillStyle = js_setFillStyle . toJSString
 
 foreign import javascript unsafe
   "$4.fillText($1, $2, $3);"
   js_fillText :: JSString -> Double -> Double -> Context -> IO ()
-
 fillText :: String -> Double -> Double -> Context -> IO ()
 fillText = js_fillText . toJSString
 
 foreign import javascript unsafe
   "$2.font = $1;"
   js_setFont :: JSString -> Context -> IO ()
-
 setFont :: String -> Context -> IO ()
 setFont = js_setFont . toJSString
+
+foreign import javascript unsafe
+  "$2.textBaseline = $1;"
+  js_setTextBaseline :: JSString -> Context -> IO ()
+setTextBaseline :: String -> Context -> IO ()
+setTextBaseline = js_setTextBaseline . toJSString
 
 foreign import javascript interruptible
   "requestAnimationFrame($c);"
@@ -76,7 +79,8 @@ canvasDraw images ctx (DrawImage iid (x, y, w, h) opacity) = do
   when (opacity /= 1) $ setGlobalAlpha opacity ctx
   drawImage (images iid) x y w h ctx
   when (opacity /= 1) $ setGlobalAlpha 1 ctx
-canvasDraw _ ctx (Status s) = do
+canvasDraw _ ctx (Text s x y) = do
   setFillStyle "white" ctx
   setFont "20px monospace" ctx
-  fillText s 10 20 ctx
+  setTextBaseline "top" ctx
+  fillText s x y ctx
