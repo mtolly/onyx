@@ -1,26 +1,29 @@
 {-# LANGUAGE LambdaCase #-}
 module SDLUtil where
 
-import Foreign
-import Foreign.C
-import qualified Graphics.UI.SDL as SDL
+import           Control.Exception     (bracket, bracket_)
+import           Control.Monad         (unless)
+import           Foreign
+import           Foreign.C
+import qualified Graphics.UI.SDL       as SDL
 import qualified Graphics.UI.SDL.Image as Image
-import Control.Exception (bracket, bracket_)
-import Control.Monad (unless)
 
 -- | Extracts and throws an SDL error if the action returns a null pointer.
 notNull :: IO (Ptr a) -> IO (Ptr a)
 notNull act = do
   p <- act
   if p == nullPtr
-    then SDL.getError >>= peekCString >>= error
+    then SDL.getError >>= peekCString >>= error . ("SDL null pointer; " ++)
     else return p
+
+sdlCode :: (Eq a, Num a) => (a -> Bool) -> IO a -> IO ()
+sdlCode f act = do
+  n <- act
+  unless (f n) $ SDL.getError >>= peekCString >>= error . ("SDL wrong code; " ++)
 
 -- | Extracts and throws an SDL error if the action doesn't return zero.
 zero :: (Eq a, Num a) => IO a -> IO ()
-zero act = do
-  n <- act
-  unless (n == 0) $ SDL.getError >>= peekCString >>= error
+zero = sdlCode (== 0)
 
 withSDL :: [SDL.InitFlag] -> IO a -> IO a
 withSDL flags = bracket_

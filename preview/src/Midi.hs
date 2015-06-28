@@ -4,15 +4,15 @@ module Midi
 , ExtendedBeat(..)
 ) where
 
+import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
-import qualified RockBand.File                    as File
 import qualified RockBand.Beat                    as Beat
+import           RockBand.Common
 import           RockBand.Drums
 import           RockBand.Events
-import           RockBand.Common
+import qualified RockBand.File                    as File
 import qualified Sound.MIDI.Util                  as U
-import qualified Data.EventList.Absolute.TimeBody as ATB
 
 data ExtendedBeat
   = Bar

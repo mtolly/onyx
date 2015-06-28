@@ -14,13 +14,13 @@ flag SDLDisplay
 
 executable onyxpreview
   main-is:              Main.hs
-
   other-modules:
     Draw
     Midi
   if flag(SDLDisplay)
     other-modules:
       SDLUtil
+      SDLMixer
   else
     other-modules:
       Audio
@@ -59,3 +59,7 @@ executable onyxpreview
     js-sources:
       js/loadmidi.js
       js/parseget.js
+
+  if flag(SDLDisplay)
+    pkgconfig-depends:
+      SDL2_mixer

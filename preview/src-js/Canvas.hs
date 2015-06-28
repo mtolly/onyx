@@ -7,10 +7,11 @@ module Canvas
 , canvasDraw
 ) where
 
-import GHCJS.Types
-import GHCJS.Foreign
-import Draw
-import Control.Monad (when)
+import           Control.Monad (when)
+import           GHCJS.Foreign
+import           GHCJS.Types
+
+import           Draw
 
 data Canvas_
 type Canvas = JSRef Canvas_

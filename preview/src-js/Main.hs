@@ -1,30 +1,28 @@
 {-# LANGUAGE LambdaCase #-}
 module Main (main) where
 
-import           Control.Concurrent.STM           (atomically, newTChan,
-                                                   tryReadTChan, writeTChan)
-import           Control.Exception                (evaluate)
-import           Control.Monad                    (forM, unless)
-import           Data.IORef                       (newIORef, readIORef,
-                                                   writeIORef)
-import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe)
-import           Data.Time.Clock                  (diffUTCTime, getCurrentTime)
-import           GHCJS.Foreign                    (ForeignRetention (..),
-                                                   asyncCallback, fromJSString,
-                                                   toJSString)
-import           GHCJS.Types                      (JSFun, JSRef, JSString,
-                                                   castRef, isNull)
-import           Text.Printf                      (printf)
+import           Control.Concurrent.STM (atomically, newTChan, tryReadTChan,
+                                         writeTChan)
+import           Control.Exception      (evaluate)
+import           Control.Monad          (forM, unless)
+import           Data.IORef             (newIORef, readIORef, writeIORef)
+import qualified Data.Map               as Map
+import           Data.Maybe             (fromMaybe)
+import           Data.Time              (diffUTCTime, getCurrentTime)
+import           GHCJS.Foreign          (ForeignRetention (..), asyncCallback,
+                                         fromJSString, toJSString)
+import           GHCJS.Types            (JSFun, JSRef, JSString, castRef,
+                                         isNull)
+import           Text.Printf            (printf)
 
-import qualified RockBand.File                    as File
+import qualified RockBand.File          as File
 import           StackTrace
 
 import qualified Audio
-import           Draw
 import           Canvas
-import           Midi
+import           Draw
 import           Jasmid
+import           Midi
 
 data Event
   = PlayPause
