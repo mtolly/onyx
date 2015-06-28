@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase      #-}
+{-# LANGUAGE PatternSynonyms #-}
 module SDLUtil where
 
 import           Control.Exception     (bracket, bracket_)
@@ -59,7 +60,18 @@ pollEvent = alloca $ \pevt -> SDL.pollEvent pevt >>= \case
   1 -> fmap Just $ peek pevt
   _ -> return Nothing
 
+untilNothing :: IO (Maybe a) -> IO [a]
+untilNothing act = act >>= \case
+  Nothing -> return []
+  Just x  -> fmap (x :) $ untilNothing act
+
 withImage :: SDL.Renderer -> FilePath -> (SDL.Texture -> IO a) -> IO a
 withImage render fp = bracket
   (Image.imgLoadTexture render fp >>= either error return)
   SDL.destroyTexture
+
+pattern KeyPress scan <- SDL.KeyboardEvent
+  { SDL.eventType           = SDL.SDL_KEYDOWN
+  , SDL.keyboardEventRepeat = 0
+  , SDL.keyboardEventKeysym = SDL.Keysym { SDL.keysymScancode = scan }
+  }

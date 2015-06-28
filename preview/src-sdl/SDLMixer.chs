@@ -23,6 +23,9 @@ mixDefaultFormat = {#const MIX_DEFAULT_FORMAT#}
 {#fun Mix_LoadMUS as ^ { `CString' } -> `MixMusic' #}
 {#fun Mix_FreeMusic as ^ { `MixMusic' } -> `()' #}
 {#fun Mix_PlayMusic as ^ { `MixMusic', `CInt' } -> `CInt' #}
+{#fun Mix_PauseMusic as ^ {} -> `()' #}
+{#fun Mix_ResumeMusic as ^ {} -> `()' #}
+{#fun Mix_SetMusicPosition as ^ { `Double' } -> `CInt' #}
 
 withMixer :: [MixInitFlag] -> IO a -> IO a
 withMixer flags = let
