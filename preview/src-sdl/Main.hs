@@ -6,7 +6,7 @@ module Main where
 
 import           Control.Concurrent    (threadDelay)
 import           Control.Exception     (evaluate)
-import           Control.Monad         (forM_, unless)
+import           Control.Monad         (forM_)
 import           Data.Maybe            (mapMaybe)
 import           Data.Time             (diffUTCTime, getCurrentTime)
 import           Foreign

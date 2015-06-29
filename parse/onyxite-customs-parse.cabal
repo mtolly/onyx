@@ -22,7 +22,7 @@ library
     RockBand.ProKeys
     RockBand.ProGuitar
   build-depends:
-    base >= 4.6 && < 4.8
+    base >= 4.6 && < 4.9
     , event-list, non-negative, midi
     , transformers >= 0.4
     , template-haskell

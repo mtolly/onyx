@@ -1,0 +1,27 @@
+flags: {}
+packages:
+- '.'
+- '../parse/'
+- location:
+    git: git@github.com:Twinside/HPDF
+    commit: 090c08ab61a237c721a307f5cf9fd33f3988b82e
+extra-deps:
+- conduit-audio-0.1
+- conduit-audio-samplerate-0.1
+- conduit-audio-sndfile-0.1
+- dtab-1.0
+- event-list-0.1.1.2
+- hsndfile-0.7.1
+- jammittools-0.4.1.1
+- midi-0.2.1.5
+- midi-util-0.1.1.1
+- non-negative-0.1.1
+- boxes-0.1.4
+- explicit-exception-0.1.7.3
+- hsndfile-vector-0.5.2
+- monoid-transformer-0.0.3
+- property-list-0.1.0.5
+- utility-ht-0.0.10
+- oneOfN-0.1.0.1
+- recursion-schemes-4.1.2
+resolver: nightly-2015-06-28
