@@ -65,7 +65,7 @@ main = getArgs >>= \case
             Text _ _ _ -> return ()
           SDL.renderPresent render
 
-    mus <- withCString (dir </> "gen/album/2p/preview-audio.ogg") mixLoadMUS
+    mus <- withCString (dir </> "gen/album/2p/song-countin.ogg") mixLoadMUS
 
     start <- getCurrentTime
     zero $ mixPlayMusic mus 1

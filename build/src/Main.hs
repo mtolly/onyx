@@ -186,6 +186,8 @@ countinRules s = eachVersion s $ \_ dir -> do
     let song = Input $ sndable $ dir </> "song.wav"
         countin = Input $ sndable $ dir </> "countin.wav"
     buildAudio (Mix [song, countin]) out
+  dir </> "song-countin.ogg" %> \out -> do
+    buildAudio (Input $ sndable $ out -<.> "wav") out
 
 -- | Rules to generate the multi-track OGG Vorbis file (.ogg), and then
 -- stick the Rock Band seeking header onto the front (making a .mogg).

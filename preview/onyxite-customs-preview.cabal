@@ -28,7 +28,7 @@ executable onyxpreview
       Jasmid
 
   build-depends:
-    base >= 4.7 && < 4.8
+    base >= 4.7 && < 5
     , non-negative
     , event-list
     , midi
