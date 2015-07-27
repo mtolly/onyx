@@ -1,0 +1,7 @@
+title: "Chris and Kevin's Excellent Adventure"
+file-include: ../../../albums/liquid-tension-experiment.yml
+track-number: 6
+audio:
+  album:
+    pad: [6.124, source]
+config: [drums]
