@@ -1,0 +1,7 @@
+title: Sabotage
+file-include: ../../../albums/pimp-of-the-year.yml
+track-number: 5
+audio:
+  album:
+    pad: [2.629, source]
+config: [drums]

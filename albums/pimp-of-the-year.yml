@@ -1,0 +1,9 @@
+album: Pimp of the Year
+artist: 'Soil & Pimp Sessions'
+# TODO: support '"' (written \q) in dtab
+year: 2006
+genre: jazz
+subgenre: contemporary
+vocal-gender: male
+file-album-art: ../covers/pimp-of-the-year.jpg
+file-include: default.yml
