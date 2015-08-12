@@ -12,7 +12,7 @@ extra-deps:
 - dtab-1.0
 - event-list-0.1.1.2
 - hsndfile-0.7.1
-- jammittools-0.4.1.1
+- jammittools-0.5.0.1
 - midi-0.2.1.5
 - midi-util-0.1.1.1
 - non-negative-0.1.1
