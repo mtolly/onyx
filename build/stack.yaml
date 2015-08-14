@@ -5,6 +5,7 @@ packages:
 - location:
     git: git@github.com:Twinside/HPDF
     commit: 090c08ab61a237c721a307f5cf9fd33f3988b82e
+  extra-dep: true
 extra-deps:
 - conduit-audio-0.1
 - conduit-audio-samplerate-0.1

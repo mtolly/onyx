@@ -1,0 +1,7 @@
+title: Biaxident
+file-include: ../../../albums/liquid-tension-experiment-2.yml
+track-number: 2
+audio:
+  album:
+    pad: [5.028, source]
+config: [drums]
