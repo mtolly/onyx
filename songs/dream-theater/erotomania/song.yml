@@ -1,10 +1,16 @@
 title: Erotomania
-jammit-title: A Mind Beside Itself I. Erotomania
 file-include: ../../../albums/awake.yml
 track-number: 4
-audio:
-  jammit:
-    pad: [1.193, source]
+audio-files:
   album:
-    pad: [2.960, source]
-config: [drums, bass, guitar]
+    md5: a300209fe66c6a058ff7696fd055d06a
+    frames: 17826396
+jammit-tracks:
+  jammit:
+    title: 'A Mind Beside Itself I. Erotomania'
+versions:
+  album:
+    pad: [2.960, album]
+  jammit:
+    pad: [1.193, jammit]
+instruments: [drums, bass, guitar]

@@ -1,7 +1,11 @@
 title: Acid Rain
 file-include: ../../../albums/liquid-tension-experiment-2.yml
 track-number: 1
-audio:
+audio-files:
   album:
-    pad: [2.945, source]
-config: [drums]
+    md5: 9b5edd50b924b637ad35d6c7edcbc00c
+    frames: 17466540
+versions:
+  album:
+    pad: [2.945, album]
+instruments: [drums]

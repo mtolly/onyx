@@ -1,7 +1,11 @@
 title: Paradigm Shift
 file-include: ../../../albums/liquid-tension-experiment.yml
 track-number: 1
-audio:
+audio-files:
   album:
-    pad: [3.069, source]
-config: [drums]
+    md5: 91db93f3eea3c214d6d6f3d09c7eb780
+    frames: 23609376
+versions:
+  album:
+    pad: [3.069, album]
+instruments: [drums]
