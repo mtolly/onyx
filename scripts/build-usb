@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+
+require 'fileutils'
+require 'yaml'
+
+def system_(*args)
+  STDERR.puts args.join(' ')
+  result = system(*args)
+  raise(IOError, "Command returned #{$?.exitstatus}") unless result
+end
+
+if ARGV.length < 2
+  STDERR.puts "Usage: #{$0} path/to/song1 [path/to/song2 ...] /Volumes/MyUSBDrive/"
+  exit 1
+end
+songs = ARGV[0..-2]
+usb = File.expand_path(ARGV[-1])
+
+rb3 = "#{usb}/Content/0000000000000000/45410914/00000001"
+FileUtils.mkdir_p rb3
+
+songs.each do |song|
+  FileUtils.cd(song) do
+    con_title = YAML.load_file('song.yml')['title'].gsub(/[^A-Za-z0-9]/, '') + '_' + (FileUtils.pwd.hash % 10000).to_s
+    system_ 'onyxbuild gen/album/2p/rb3.con'
+    FileUtils.cp 'gen/album/2p/rb3.con', "#{rb3}/#{con_title}"
+  end
+end
