@@ -10,4 +10,3 @@ audio:
         - '7:20.188'
         - pad: [3.778, source]
 config: [drums, guitar, bass]
-# FIXME: grinnz's chart has a misplaced kick at end of measure 139
