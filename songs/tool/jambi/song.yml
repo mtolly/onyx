@@ -1,0 +1,7 @@
+title: Jambi
+file-include: "../../../albums/10000-days.yml"
+track-number: 2
+audio:
+  album:
+    pad: [4.714, source]
+config: [drums]
