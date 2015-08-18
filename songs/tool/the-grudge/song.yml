@@ -1,0 +1,7 @@
+title: The Grudge
+file-include: "../../../albums/lateralus.yml"
+track-number: 1
+audio:
+  album:
+    pad: [1.426, source]
+config: [drums, bass, guitar]

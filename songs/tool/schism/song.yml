@@ -1,0 +1,7 @@
+title: Schism
+file-include: "../../../albums/lateralus.yml"
+track-number: 1
+audio:
+  album:
+    pad: [5.283, source]
+config: [drums]

@@ -1,0 +1,8 @@
+album: Lateralus
+artist: Tool
+year: 2001
+genre: metal
+subgenre: prog
+vocal-gender: male
+file-album-art: ../covers/lateralus.jpg
+file-include: default.yml
