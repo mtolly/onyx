@@ -8,7 +8,6 @@ import Audio
 import TH
 import qualified Data.HashMap.Strict as Map
 import Control.Applicative ((<|>))
-import Data.Monoid (mempty)
 import qualified Data.Text as T
 import Data.Conduit.Audio (Duration)
 
@@ -31,7 +30,7 @@ data Song = Song
   , _bassTuning :: [Int]
   } deriving (Eq, Show)
 
-data Instrument = Drums | Bass | Guitar
+data Instrument = Drums | Bass | Guitar | Keys
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data Gender = Male | Female

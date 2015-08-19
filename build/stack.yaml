@@ -1,11 +1,20 @@
 flags: {}
 packages:
 - '.'
-- '../parse/'
+- location: '../parse/'
+  extra-dep: true
 - location:
     git: git@github.com:Twinside/HPDF
     commit: 090c08ab61a237c721a307f5cf9fd33f3988b82e
   extra-dep: true
+- location:
+    git: git@github.com:mtolly/conduit-audio
+    commit: 50ac88574c9bbae02bef874c6537a1c542bf35e7
+  extra-dep: true
+  subdirs:
+  - conduit-audio
+  - conduit-audio-samplerate
+  - conduit-audio-sndfile
 extra-deps:
 - conduit-audio-0.1
 - conduit-audio-samplerate-0.1
@@ -25,4 +34,4 @@ extra-deps:
 - utility-ht-0.0.10
 - oneOfN-0.1.0.1
 - recursion-schemes-4.1.2
-resolver: nightly-2015-06-28
+resolver: lts-3.0

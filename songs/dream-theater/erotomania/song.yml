@@ -7,4 +7,4 @@ audio:
     pad: [1.193, source]
   album:
     pad: [2.960, source]
-config: [drums, bass, guitar]
+config: [drums, bass, guitar, keys]

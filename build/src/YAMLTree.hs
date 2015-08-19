@@ -20,7 +20,7 @@ module YAMLTree (readYAMLTree) where
 import qualified Data.Aeson as A
 import qualified Data.Yaml as Y
 import qualified Data.Text as T
-import Control.Applicative ((<$>), (<|>))
+import Control.Applicative ((<|>))
 import qualified Data.Traversable as Tr
 import qualified Data.HashMap.Strict as M
 import System.FilePath ((</>), takeDirectory)

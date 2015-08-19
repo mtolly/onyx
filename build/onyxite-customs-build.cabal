@@ -33,7 +33,7 @@ executable onyxbuild
     X360
     Image
   build-depends:
-    base    >= 4.6    && < 4.9
+    base    >= 4.8    && < 4.9
     , shake >= 0.15 && < 0.16
     , directory
     , temporary
