@@ -30,7 +30,7 @@ data Song = Song
   , _bassTuning :: [Int]
   } deriving (Eq, Show)
 
-data Instrument = Drums | Bass | Guitar | Keys
+data Instrument = Drums | Bass | Guitar | Keys | Vocal | Harmony2 | Harmony3
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data Gender = Male | Female
