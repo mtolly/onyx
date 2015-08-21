@@ -7,19 +7,11 @@ packages:
     git: git@github.com:Twinside/HPDF
     commit: 090c08ab61a237c721a307f5cf9fd33f3988b82e
   extra-dep: true
-- location:
-    git: git@github.com:mtolly/conduit-audio
-    commit: 50ac88574c9bbae02bef874c6537a1c542bf35e7
-  extra-dep: true
-  subdirs:
-  - conduit-audio
-  - conduit-audio-samplerate
-  - conduit-audio-sndfile
 extra-deps:
-- conduit-audio-0.1
+- conduit-audio-0.2
 - conduit-audio-samplerate-0.1
 - conduit-audio-sndfile-0.1
-- dtab-1.0
+- dtab-1.0.0.1
 - event-list-0.1.1.2
 - hsndfile-0.7.1
 - jammittools-0.5.0.1

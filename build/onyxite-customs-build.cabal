@@ -49,10 +49,10 @@ executable onyxbuild
     , conduit
     , vector
     -- my libraries:
-    , dtab >= 1.0 && < 1.1
+    , dtab >= 1.0.0.1 && < 1.1
     , jammittools >= 0.5.0.1 && < 0.6
     , midi-util >= 0.1.1.1 && < 0.2
-    , conduit-audio
+    , conduit-audio >= 0.2 && < 0.3
     , conduit-audio-sndfile
     , conduit-audio-samplerate
     , onyxite-customs-parse
