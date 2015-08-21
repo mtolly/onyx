@@ -18,7 +18,7 @@ import Image
 import qualified Data.Aeson as A
 import Control.Applicative ((<|>))
 import Control.Monad (forM_, when, guard)
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe, listToMaybe)
 import Data.List (sort)
 import Scripts
 import qualified Sound.Jammit.Base as J
@@ -29,6 +29,7 @@ import qualified Data.Conduit.Audio as CA
 import Data.Conduit.Audio.Sndfile (sinkSnd)
 import qualified Sound.File.Sndfile as Snd
 import Control.Monad.Trans.Resource (runResourceT)
+import qualified Data.EventList.Relative.TimeBody as RTB
 
 import qualified Data.DTA as D
 import qualified Data.DTA.Serialize as D
@@ -41,6 +42,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Traversable as T
 
 import qualified RockBand.File as RBFile
+import qualified RockBand.Vocals as RBVox
 
 import Codec.Picture
 
@@ -373,6 +375,7 @@ makeDTA pkg title mid s = do
   (pstart, pend) <- previewBounds mid
   len <- songLength mid
   let numChannels = length (_config s) * 2 + 2
+  perctype <- getPercType mid
   return D.SongPackage
     { D.name = B8.pack title
     , D.artist = B8.pack $ _artist s
@@ -410,7 +413,11 @@ makeDTA pkg title mid s = do
       , D.drumFreestyle = D.DrumSounds $ D.InParens $ map (D.Keyword . B8.pack) $ words
         "kick.cue snare.cue hat.cue ride.cue crash.cue"
       }
-    , D.bank = Just $ Left $ B8.pack "sfx/tambourine_bank.milo"
+    , D.bank = Just $ Left $ B8.pack $ case perctype of
+      Nothing               -> "sfx/tambourine_bank.milo"
+      Just RBVox.Tambourine -> "sfx/tambourine_bank.milo"
+      Just RBVox.Cowbell    -> "sfx/cowbell_bank.milo"
+      Just RBVox.Clap       -> "sfx/handclap_bank.milo"
     , D.drumBank = Nothing
     , D.animTempo = Left D.KTempoMedium
     , D.bandFailCue = Nothing
@@ -527,16 +534,30 @@ magmaRules s = eachVersion s $ \title dir -> do
     when (Bass `elem` _config s) $ need [bass]
     when (Guitar `elem` _config s) $ need [guitar]
     when (Keys `elem` _config s) $ need [keys]
-    when (Vocal `elem` _config s) $ need [vocal, dryvox]
+    when (any (`elem` _config s) [Vocal, Harmony2, Harmony3]) $ need [vocal, dryvox]
     need [song, cover, mid, proj]
     liftIO $ runMagma proj out
   export %> \out -> do
     need [mid, proj]
     liftIO $ runMagmaMIDI proj out
 
+getPercType :: FilePath -> Action (Maybe RBVox.PercussionType)
+getPercType mid = do
+  song <- loadMIDI mid
+  let vox = foldr RTB.merge RTB.empty $ mapMaybe getVox $ RBFile.s_tracks song
+      getVox (RBFile.PartVocals t) = Just t
+      getVox (RBFile.Harm1      t) = Just t
+      getVox (RBFile.Harm2      t) = Just t
+      getVox (RBFile.Harm3      t) = Just t
+      getVox _                     = Nothing
+      isPercType (RBVox.PercussionAnimation ptype _) = Just ptype
+      isPercType _                                   = Nothing
+  return $ listToMaybe $ mapMaybe isPercType $ RTB.getBodies vox
+
 makeMagmaProj :: String -> String -> FilePath -> Song -> Action Magma.RBProj
 makeMagmaProj pkg title mid s = do
   (pstart, _) <- previewBounds mid
+  perctype <- getPercType mid
   let silentDryVox = Magma.DryVoxPart
         { Magma.dryVoxFile = B8.pack "dryvox.wav"
         , Magma.dryVoxEnabled = True
@@ -592,7 +613,11 @@ makeMagmaProj pkg title mid s = do
           Just Male   -> Magma.Male
           Just Female -> Magma.Female
           Nothing     -> Magma.Female
-        , Magma.vocalPercussion = Magma.Tambourine
+        , Magma.vocalPercussion = case perctype of
+          Nothing               -> Magma.Tambourine
+          Just RBVox.Tambourine -> Magma.Tambourine
+          Just RBVox.Cowbell    -> Magma.Cowbell
+          Just RBVox.Clap       -> Magma.Handclap
         , Magma.vocalParts = if
           | Vocal    `elem` _config s -> 1
           | Harmony2 `elem` _config s -> 2
@@ -639,7 +664,7 @@ makeMagmaProj pkg title mid s = do
         , Magma.guitar = if Guitar `elem` _config s
           then stereoFile "guitar.wav"
           else emptyAudioFile
-        , Magma.vocals = if Vocal `elem` _config s
+        , Magma.vocals = if any (`elem` _config s) [Vocal, Harmony2, Harmony3]
           then stereoFile "vocal.wav"
           else emptyAudioFile
         , Magma.keys = if Keys `elem` _config s

@@ -9,4 +9,4 @@ audio:
       - take:
         - '7:20.188'
         - pad: [3.778, source]
-config: [drums, guitar, bass]
+config: [drums, guitar, bass, vocal]

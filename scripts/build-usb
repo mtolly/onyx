@@ -19,9 +19,18 @@ usb = File.expand_path(ARGV[-1])
 rb3 = "#{usb}/Content/0000000000000000/45410914/00000001"
 FileUtils.mkdir_p rb3
 
+class String
+  def javahash
+    self.chars.each_with_index.map do |c, i|
+      c.ord * 31 ** (self.length - (i + 1) )
+    end.inject(:+)
+  end
+end
+
 songs.each do |song|
   FileUtils.cd(song) do
-    con_title = YAML.load_file('song.yml')['title'].gsub(/[^A-Za-z0-9]/, '') + '_' + (FileUtils.pwd.hash % 10000).to_s
+    p FileUtils.pwd
+    con_title = YAML.load_file('song.yml')['title'].gsub(/[^A-Za-z0-9]/, '') + '_' + (FileUtils.pwd.javahash % 10000).to_s
     system_ 'onyxbuild gen/album/2p/rb3.con'
     FileUtils.cp 'gen/album/2p/rb3.con', "#{rb3}/#{con_title}"
   end

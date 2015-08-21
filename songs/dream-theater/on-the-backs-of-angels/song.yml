@@ -7,4 +7,4 @@ audio:
       - begin
       - 3.477
       - drop: [10.201, source]
-config: [drums, bass, guitar]
+config: [drums, bass, guitar, harmony2]

@@ -8,6 +8,7 @@ Instruments:
     [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=panic-attack)
   * Bass: All difficulties by Harmonix
   * Guitar: All difficulties by Harmonix
+  * Vocals: by Harmonix
 
 Supported audio:
 
