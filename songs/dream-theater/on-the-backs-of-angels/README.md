@@ -8,6 +8,7 @@ Instruments:
     [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=on-the-backs-of-angels)
   * Bass: all difficulties by Harmonix
   * Guitar: all difficulties by Harmonix
+  * Keys, Pro Keys: all difficulties by Harmonix
   * Harmony Vocals (2): by Harmonix
 
 Supported audio:
