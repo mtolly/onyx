@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 module Main where
 
 import Development.Shake hiding ((%>))
@@ -15,9 +16,9 @@ import Magma
 import X360
 import Image
 import qualified Data.Aeson as A
-import Control.Applicative ((<$>), (<|>))
+import Control.Applicative ((<|>))
 import Control.Monad (forM_, when, guard)
-import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Maybe (fromMaybe, mapMaybe, listToMaybe)
 import Data.List (sort)
 import Scripts
 import qualified Sound.Jammit.Base as J
@@ -25,6 +26,10 @@ import qualified Sound.Jammit.Export as J
 import qualified System.Directory as Dir
 import qualified System.Environment as Env
 import qualified Data.Conduit.Audio as CA
+import Data.Conduit.Audio.Sndfile (sinkSnd)
+import qualified Sound.File.Sndfile as Snd
+import Control.Monad.Trans.Resource (runResourceT)
+import qualified Data.EventList.Relative.TimeBody as RTB
 
 import qualified Data.DTA as D
 import qualified Data.DTA.Serialize as D
@@ -37,6 +42,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Traversable as T
 
 import qualified RockBand.File as RBFile
+import qualified RockBand.Vocals as RBVox
 
 import Codec.Picture
 
@@ -90,34 +96,52 @@ jammitRules s = do
       case audios of
         [] -> buildAudio (Silence 2 $ CA.Seconds 0) out
         _  -> liftIO $ J.runAudio audios [] out
+    dir </> "keys_untimed.wav" %> \out -> do
+      audios <- jSearchInstrument J.Keyboard
+      case audios of
+        [] -> buildAudio (Silence 2 $ CA.Seconds 0) out
+        _  -> liftIO $ J.runAudio audios [] out
+    dir </> "vocal_untimed.wav" %> \out -> do
+      audios <- jSearchInstrument J.Vocal
+      case audios of
+        [] -> buildAudio (Silence 2 $ CA.Seconds 0) out
+        _  -> liftIO $ J.runAudio audios [] out
     dir </> "song_untimed.wav" %> \out -> do
       audios <- jSearch
       let backs = do
-            (jpart, rbpart) <-
+            (jpart, rbparts) <-
               -- listed in order of backing preference
-              [ (J.Drums , Drums  )
-              , (J.Bass  , Bass   )
-              , (J.Guitar, Guitar )
+              [ (J.Drums   , [Drums                    ] )
+              , (J.Bass    , [Bass                     ] )
+              , (J.Guitar  , [Guitar                   ] )
+              , (J.Keyboard, [Keys                     ] )
+              , (J.Vocal   , [Vocal, Harmony2, Harmony3] )
               ]
-            guard $ rbpart `elem` _config s
+            guard $ any (`elem` _config s) rbparts
             case lookup (J.Without jpart) audios of
               Nothing    -> []
-              Just audio -> [(rbpart, audio)]
+              Just audio -> [(jpart, audio)]
       case backs of
         [] -> fail "No Jammit instrument package used in this song was found."
-        (rbpart, back) : _ -> flip buildAudio out $ Mix $ concat
+        (jpart, back) : _ -> flip buildAudio out $ Mix $ concat
           [ [ Input $ JammitAIFC back ]
           , [ Gain (-1) $ Input $ sndable $ dir </> "drums_untimed.wav"
-            | rbpart /= Drums && elem Drums (_config s)
+            | jpart /= J.Drums
             ]
           , [ Gain (-1) $ Input $ sndable $ dir </> "bass_untimed.wav"
-            | rbpart /= Bass && elem Bass (_config s)
+            | jpart /= J.Bass
             ]
           , [ Gain (-1) $ Input $ sndable $ dir </> "guitar_untimed.wav"
-            | rbpart /= Guitar && elem Guitar (_config s)
+            | jpart /= J.Guitar
+            ]
+          , [ Gain (-1) $ Input $ sndable $ dir </> "keys_untimed.wav"
+            | jpart /= J.Keyboard
+            ]
+          , [ Gain (-1) $ Input $ sndable $ dir </> "vocal_untimed.wav"
+            | jpart /= J.Vocal
             ]
           ]
-    forM_ ["drums", "bass", "guitar", "song"] $ \part -> do
+    forM_ ["drums", "bass", "guitar", "keys", "vocal", "song"] $ \part -> do
       dir </> (part ++ ".wav") %> \out -> do
         let untimed = sndable $ dropExtension out ++ "_untimed.wav"
         case HM.lookup "jammit" $ _audio s of
@@ -134,8 +158,8 @@ simpleRules s = do
   forM_ [ (src, aud) | (src, AudioSimple aud) <- HM.toList $ _audio s, src /= "jammit" ] $ \(src, aud) -> do
     forM_ ["1p", "2p"] $ \feet -> do
       let dir = "gen" </> src </> feet
-      forM_ ["drums.wav", "bass.wav", "guitar.wav"] $ \inst -> do
-        dir </> inst %> buildAudio (Silence 2 $ CA.Seconds 0)
+      forM_ ["drums", "bass", "guitar", "keys", "vocal"] $ \inst -> do
+        dir </> inst <.> "wav" %> buildAudio (Silence 2 $ CA.Seconds 0)
       dir </> "song.wav" %> \out -> do
         let pat = "audio-" ++ src ++ ".*"
         ls <- getDirectoryFiles "" [pat]
@@ -197,12 +221,16 @@ oggRules s = eachVersion s $ \_ dir -> do
     let drums = Input $ sndable $ dir </> "drums.wav"
         bass  = Input $ sndable $ dir </> "bass.wav"
         guitar = Input $ sndable $ dir </> "guitar.wav"
+        keys = Input $ sndable $ dir </> "keys.wav"
+        vocal = Input $ sndable $ dir </> "vocal.wav"
         song  = Input $ sndable $ dir </> "song-countin.wav"
         audio = Merge $ let
           parts = concat
-            [ [drums | Drums `elem` _config s]
-            , [bass | Bass `elem` _config s]
+            [ [drums  | Drums  `elem` _config s]
+            , [bass   | Bass   `elem` _config s]
             , [guitar | Guitar `elem` _config s]
+            , [keys   | Keys   `elem` _config s]
+            , [vocal  | any   (`elem` _config s) [Vocal, Harmony2, Harmony3]]
             , [song]
             ]
           in if length parts == 3
@@ -308,7 +336,6 @@ main = Env.getArgs >>= \argv -> case filter ((/= "-") . take 1) argv of
           coverRules song
           rb3Rules song
           magmaRules song
-          fofRules song
           crapRules
         cleanup = do
           e <-     Dir.doesDirectoryExist       "gen/temp"
@@ -348,6 +375,7 @@ makeDTA pkg title mid s = do
   (pstart, pend) <- previewBounds mid
   len <- songLength mid
   let numChannels = length (_config s) * 2 + 2
+  perctype <- getPercType mid
   return D.SongPackage
     { D.name = B8.pack title
     , D.artist = B8.pack $ _artist s
@@ -355,27 +383,28 @@ makeDTA pkg title mid s = do
     , D.songId = Right $ D.Keyword $ B8.pack pkg
     , D.song = D.Song
       { D.songName = B8.pack $ "songs/" ++ pkg ++ "/" ++ pkg
-      , D.tracksCount = Just $ D.InParens
-        [ if Drums `elem` _config s then 2 else 0
-        , if Bass `elem` _config s then 2 else 0
-        , if Guitar `elem` _config s then 2 else 0
-        , 0
-        , 0
-        , 2
-        ]
+      , D.tracksCount = Nothing
       , D.tracks = D.InParens $ D.Dict $ Map.fromList $ let
         channelNums = zip [0..] $ concatMap (\x -> [x, x]) $ sort $ _config s
         -- ^ the sort is important
         channelNumsFor inst = [ i | (i, inst') <- channelNums, inst == inst' ]
-        trackDrum = (B8.pack "drum", Right $ D.InParens $ channelNumsFor Drums)
-        trackBass = (B8.pack "bass", Right $ D.InParens $ channelNumsFor Bass)
+        trackDrum   = (B8.pack "drum"  , Right $ D.InParens $ channelNumsFor Drums )
+        trackBass   = (B8.pack "bass"  , Right $ D.InParens $ channelNumsFor Bass  )
         trackGuitar = (B8.pack "guitar", Right $ D.InParens $ channelNumsFor Guitar)
+        trackKeys   = (B8.pack "keys"  , Right $ D.InParens $ channelNumsFor Keys  )
+        trackVocal  = (B8.pack "vocals", Right $ D.InParens $ maximum $ map channelNumsFor [Vocal, Harmony2, Harmony3])
         in concat
-          [ [trackDrum | Drums `elem` _config s]
-          , [trackBass | Bass `elem` _config s]
+          [ [trackDrum   | Drums  `elem` _config s]
+          , [trackBass   | Bass   `elem` _config s]
           , [trackGuitar | Guitar `elem` _config s]
+          , [trackKeys   | Guitar `elem` _config s]
+          , [trackVocal  | any   (`elem` _config s) [Vocal, Harmony2, Harmony3]]
           ]
-      , D.vocalParts = 0
+      , D.vocalParts = if
+        | Vocal    `elem` _config s -> 1
+        | Harmony2 `elem` _config s -> 2
+        | Harmony3 `elem` _config s -> 3
+        | otherwise                 -> 0
       , D.pans = D.InParens $ take numChannels $ cycle [-1, 1]
       , D.vols = D.InParens $ replicate numChannels 0
       , D.cores = D.InParens $ replicate numChannels (-1)
@@ -384,7 +413,11 @@ makeDTA pkg title mid s = do
       , D.drumFreestyle = D.DrumSounds $ D.InParens $ map (D.Keyword . B8.pack) $ words
         "kick.cue snare.cue hat.cue ride.cue crash.cue"
       }
-    , D.bank = Just $ Left $ B8.pack "sfx/tambourine_bank.milo"
+    , D.bank = Just $ Left $ B8.pack $ case perctype of
+      Nothing               -> "sfx/tambourine_bank.milo"
+      Just RBVox.Tambourine -> "sfx/tambourine_bank.milo"
+      Just RBVox.Cowbell    -> "sfx/cowbell_bank.milo"
+      Just RBVox.Clap       -> "sfx/handclap_bank.milo"
     , D.drumBank = Nothing
     , D.animTempo = Left D.KTempoMedium
     , D.bandFailCue = Nothing
@@ -395,9 +428,9 @@ makeDTA pkg title mid s = do
       [ (B8.pack "drum", if Drums `elem` _config s then 1 else 0)
       , (B8.pack "bass", if Bass `elem` _config s then 1 else 0)
       , (B8.pack "guitar", if Guitar `elem` _config s then 1 else 0)
-      , (B8.pack "vocals", 0)
-      , (B8.pack "keys", 0)
-      , (B8.pack "real_keys", 0)
+      , (B8.pack "vocals", if any (`elem` _config s) [Vocal, Harmony2, Harmony3] then 1 else 0)
+      , (B8.pack "keys", if Keys `elem` _config s then 1 else 0)
+      , (B8.pack "real_keys", if Keys `elem` _config s then 1 else 0)
       , (B8.pack "band", 1)
       ]
     , D.solo = Nothing
@@ -458,6 +491,9 @@ magmaRules s = eachVersion s $ \title dir -> do
   let drums  = dir </> "magma/drums.wav"
       bass   = dir </> "magma/bass.wav"
       guitar = dir </> "magma/guitar.wav"
+      keys   = dir </> "magma/keys.wav"
+      vocal  = dir </> "magma/vocal.wav"
+      dryvox = dir </> "magma/dryvox.wav"
       song   = dir </> "magma/song-countin.wav"
       cover  = dir </> "magma/cover.bmp"
       mid    = dir </> "magma/notes.mid"
@@ -467,6 +503,15 @@ magmaRules s = eachVersion s $ \title dir -> do
   drums %> copyFile' (dir </> "drums.wav")
   bass %> copyFile' (dir </> "bass.wav")
   guitar %> copyFile' (dir </> "guitar.wav")
+  keys %> copyFile' (dir </> "keys.wav")
+  vocal %> copyFile' (dir </> "vocal.wav")
+  dryvox %> \out -> do
+    need [mid]
+    len <- songLength mid
+    let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
+        audsrc :: (Monad m) => CA.AudioSource m Float
+        audsrc = CA.silent (CA.Seconds $ fromIntegral len / 1000) 16000 1
+    liftIO $ runResourceT $ sinkSnd out fmt audsrc
   song %> copyFile' (dir </> "song-countin.wav")
   cover %> copyFile' "gen/cover.bmp"
   mid %> \out -> do
@@ -488,18 +533,38 @@ magmaRules s = eachVersion s $ \title dir -> do
     when (Drums `elem` _config s) $ need [drums]
     when (Bass `elem` _config s) $ need [bass]
     when (Guitar `elem` _config s) $ need [guitar]
+    when (Keys `elem` _config s) $ need [keys]
+    when (any (`elem` _config s) [Vocal, Harmony2, Harmony3]) $ need [vocal, dryvox]
     need [song, cover, mid, proj]
     liftIO $ runMagma proj out
   export %> \out -> do
     need [mid, proj]
     liftIO $ runMagmaMIDI proj out
 
+getPercType :: FilePath -> Action (Maybe RBVox.PercussionType)
+getPercType mid = do
+  song <- loadMIDI mid
+  let vox = foldr RTB.merge RTB.empty $ mapMaybe getVox $ RBFile.s_tracks song
+      getVox (RBFile.PartVocals t) = Just t
+      getVox (RBFile.Harm1      t) = Just t
+      getVox (RBFile.Harm2      t) = Just t
+      getVox (RBFile.Harm3      t) = Just t
+      getVox _                     = Nothing
+      isPercType (RBVox.PercussionAnimation ptype _) = Just ptype
+      isPercType _                                   = Nothing
+  return $ listToMaybe $ mapMaybe isPercType $ RTB.getBodies vox
+
 makeMagmaProj :: String -> String -> FilePath -> Song -> Action Magma.RBProj
 makeMagmaProj pkg title mid s = do
   (pstart, _) <- previewBounds mid
-  let emptyDryVox = Magma.DryVoxPart
-        { Magma.dryVoxFile = B8.pack ""
+  perctype <- getPercType mid
+  let silentDryVox = Magma.DryVoxPart
+        { Magma.dryVoxFile = B8.pack "dryvox.wav"
         , Magma.dryVoxEnabled = True
+        }
+      emptyDryVox = Magma.DryVoxPart
+        { Magma.dryVoxFile = B8.pack ""
+        , Magma.dryVoxEnabled = False
         }
       emptyAudioFile = Magma.AudioFile
         { Magma.audioEnabled = False
@@ -548,8 +613,16 @@ makeMagmaProj pkg title mid s = do
           Just Male   -> Magma.Male
           Just Female -> Magma.Female
           Nothing     -> Magma.Female
-        , Magma.vocalPercussion = Magma.Tambourine
-        , Magma.vocalParts = 0
+        , Magma.vocalPercussion = case perctype of
+          Nothing               -> Magma.Tambourine
+          Just RBVox.Tambourine -> Magma.Tambourine
+          Just RBVox.Cowbell    -> Magma.Cowbell
+          Just RBVox.Clap       -> Magma.Handclap
+        , Magma.vocalParts = if
+          | Vocal    `elem` _config s -> 1
+          | Harmony2 `elem` _config s -> 2
+          | Harmony3 `elem` _config s -> 3
+          | otherwise                 -> 0
         , Magma.guidePitchVolume = -3
         }
       , Magma.languages = Magma.Languages
@@ -566,9 +639,15 @@ makeMagmaProj pkg title mid s = do
         , Magma.autogenTheme = Right $ B8.pack ""
         }
       , Magma.dryVox = Magma.DryVox
-        { Magma.part0 = emptyDryVox
-        , Magma.part1 = emptyDryVox
-        , Magma.part2 = emptyDryVox
+        { Magma.part0 = if any (`elem` _config s) [Vocal, Harmony2, Harmony3]
+          then silentDryVox
+          else emptyDryVox
+        , Magma.part1 = if any (`elem` _config s) [Harmony2, Harmony3]
+          then silentDryVox
+          else emptyDryVox
+        , Magma.part2 = if any (`elem` _config s) [Harmony3]
+          then silentDryVox
+          else emptyDryVox
         , Magma.tuningOffsetCents = 0
         }
       , Magma.albumArt = Magma.AlbumArt $ B8.pack "cover.bmp"
@@ -585,52 +664,13 @@ makeMagmaProj pkg title mid s = do
         , Magma.guitar = if Guitar `elem` _config s
           then stereoFile "guitar.wav"
           else emptyAudioFile
-        , Magma.vocals = emptyAudioFile
-        , Magma.keys = emptyAudioFile
+        , Magma.vocals = if any (`elem` _config s) [Vocal, Harmony2, Harmony3]
+          then stereoFile "vocal.wav"
+          else emptyAudioFile
+        , Magma.keys = if Keys `elem` _config s
+          then stereoFile "keys.wav"
+          else emptyAudioFile
         , Magma.backing = stereoFile "song-countin.wav"
         }
       }
     }
-
-fofRules :: Song -> Rules ()
-fofRules s = eachVersion s $ \title dir -> do
-  let mid = dir </> "fof/notes.mid"
-      png = dir </> "fof/album.png"
-      drums = dir </> "fof/drums.ogg"
-      bass = dir </> "fof/rhythm.ogg"
-      guitar = dir </> "fof/guitar.ogg"
-      song = dir </> "fof/song.ogg"
-      ini = dir </> "fof/song.ini"
-  mid %> copyFile' (dir </> "notes.mid")
-  png %> copyFile' "gen/cover.png"
-  drums %> buildAudio (Input $ sndable $ dir </> "drums.wav")
-  bass %> buildAudio (Input $ sndable $ dir </> "bass.wav")
-  guitar %> buildAudio (Input $ sndable $ dir </> "guitar.wav")
-  song %> buildAudio (Input $ sndable $ dir </> "song-countin.wav")
-  ini %> \out -> makeIni title mid s >>= writeFile' out
-  phony (dir </> "fof-all") $ do
-    need [mid, png, song, ini]
-    when (Drums `elem` _config s) $ need [drums]
-    when (Bass `elem` _config s) $ need [bass]
-    when (Guitar `elem` _config s) $ need [guitar]
-
-makeIni :: String -> FilePath -> Song -> Action String
-makeIni title mid s = do
-  len <- songLength mid
-  let iniLines =
-        [ ("name", title)
-        , ("artist", _artist s)
-        , ("album", _album s)
-        , ("genre", _genre s)
-        , ("year", show $ _year s)
-        , ("song_length", show len)
-        , ("charter", "Onyxite")
-        , ("diff_band", "0")
-        , ("diff_drums", if Drums `elem` _config s then "0" else "-1")
-        , ("diff_bass", if Bass `elem` _config s then "0" else "-1")
-        , ("diff_guitar", if Guitar `elem` _config s then "0" else "-1")
-        , ("diff_vocals", "-1")
-        , ("diff_keys", "-1")
-        ]
-      makeLine (x, y) = x ++ " = " ++ y
-  return $ unlines $ "[song]" : map makeLine iniLines

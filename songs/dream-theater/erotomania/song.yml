@@ -13,4 +13,4 @@ versions:
     pad: [2.960, album]
   jammit:
     pad: [1.193, jammit]
-instruments: [drums, bass, guitar]
+instruments: [drums, bass, guitar, keys]

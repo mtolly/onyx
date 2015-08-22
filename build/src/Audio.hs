@@ -14,11 +14,10 @@ import qualified Data.Foldable as F
 import qualified Data.Traversable as T
 import qualified Data.Aeson as A
 import qualified Sound.Jammit.Export as J
-import Control.Applicative ((<$>), (<|>))
+import Control.Applicative ((<|>))
 import Control.Monad.Trans.Resource (MonadResource, runResourceT)
 import qualified Data.Text as T
 import qualified Data.HashMap.Strict as HM
-import Data.Monoid (mempty)
 import Text.Read (readMaybe)
 import Data.Char (isDigit)
 import qualified Data.Vector.Storable as V

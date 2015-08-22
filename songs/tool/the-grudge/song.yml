@@ -4,4 +4,4 @@ track-number: 1
 audio:
   album:
     pad: [1.426, source]
-config: [drums, bass, guitar]
+config: [drums, bass, guitar, vocal]
