@@ -26,7 +26,6 @@ executable onyxbuild
     YAMLTree
     Config
     Audio
-    TH
     Scripts
     OneFoot
     Magma
@@ -48,6 +47,8 @@ executable onyxbuild
     , JuicyPixels >= 3.2.3.1
     , conduit
     , vector
+    , scientific
+    , transformers >= 0.4
     -- my libraries:
     , dtab >= 1.0.0.1 && < 1.1
     , jammittools >= 0.5.0.1 && < 0.6

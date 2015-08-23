@@ -8,9 +8,6 @@
 {-# LANGUAGE ViewPatterns #-}
 module RockBand.Drums where
 
-import Data.Foldable (Foldable)
-import Data.Traversable (Traversable)
-import Control.Applicative ((<*>), (<$>))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 

@@ -83,3 +83,8 @@ liftMaybe :: (Monad m, Show a) => (a -> m (Maybe b)) -> a -> StackTraceT m b
 liftMaybe f x = lift (f x) >>= \case
   Nothing -> fatal $ "Unrecognized input: " ++ show x
   Just y  -> return y
+
+mapStackTraceT :: (Monad m)
+  => (m (Either [Message] a, (), [Message]) -> n (Either [Message] b, (), [Message]))
+  -> StackTraceT m a -> StackTraceT n b
+mapStackTraceT f (StackTraceT st) = StackTraceT $ mapExceptT (mapRWST f) st

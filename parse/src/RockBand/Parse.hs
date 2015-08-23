@@ -12,7 +12,6 @@ import Language.Haskell.TH
 import Control.Monad (guard, (>=>))
 import Data.Maybe (isJust)
 import Data.Foldable (asum)
-import Control.Applicative ((<$>))
 
 import RockBand.Common
 

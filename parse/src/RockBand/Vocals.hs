@@ -10,7 +10,6 @@ import qualified Sound.MIDI.File.Event.Meta as Meta
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import RockBand.Common
-import Control.Applicative ((<$>), (<*>))
 import Data.Char (toLower)
 import RockBand.Parse
 

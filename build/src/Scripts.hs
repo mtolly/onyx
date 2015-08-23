@@ -11,6 +11,7 @@ import qualified Sound.MIDI.File.Load as Load
 import qualified Sound.MIDI.File.Save as Save
 import qualified Sound.MIDI.Util as U
 
+import Config
 import Audio
 import qualified Data.Conduit.Audio as CA
 
@@ -63,7 +64,7 @@ makeCountin mid wavin wavout = do
       secs = map (realToFrac . U.applyTempoMap tmap) beats :: [Double]
       audio = case secs of
         [] -> Silence 2 $ CA.Seconds 0
-        _ -> Mix $ map (\t -> Pad Start (CA.Seconds t) $ Input $ Sndable wavin Nothing) secs
+        _ -> Mix $ map (\t -> Pad Start (CA.Seconds t) $ Input $ InputSndfile wavin) secs
   buildAudio audio wavout
 
 loadMIDI :: FilePath -> Action (Song U.Beats)

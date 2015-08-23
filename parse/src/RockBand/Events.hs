@@ -9,7 +9,6 @@ import qualified Numeric.NonNegative.Class as NNC
 import RockBand.Parse
 import Control.Monad ((>=>))
 import Data.List (stripPrefix)
-import Control.Applicative ((<$>))
 
 data Event
   = MusicStart
