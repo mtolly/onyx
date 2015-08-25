@@ -2,6 +2,13 @@ title: Danimal Across America
 file-include: ../../../albums/roots.yml
 track-number: 6
 audio:
+  album-track:
+    md5: TODO
+    frames: TODO
+lsdj: TODO
+plans:
   album:
-    pad: [3.205, source]
-config: [drums, bass, guitar]
+    pad: [3.205, album-track]
+instruments: [drums, bass, guitar, keys]
+comments:
+- "Chart confidence: *high*. Written to PledgeMusic stems."

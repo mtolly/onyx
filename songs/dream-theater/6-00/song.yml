@@ -1,15 +1,19 @@
-title: 6:00
-file-include: ../../../albums/awake.yml
-track-number: 1
-audio-files:
-  album:
+metadata:
+  title: 6:00
+  file-include: ../../../albums/awake.yml
+  track-number: 1
+audio:
+  album-track:
     md5: 95e1d6cba4b2556b4f3c1fed9431ccc1
     frames: 14612976
-jammit-tracks:
-  jammit: {}
-versions:
+jammit:
+  jammit-track: {}
+plans:
   album:
-    pad: [3.103, album]
+    song:
+      pad: [3.103, album-track]
   jammit:
-    pad: [1.039, jammit]
-config: [drums]
+    each:
+      pad: [1.039, jammit-track]
+instruments:
+  drums: true

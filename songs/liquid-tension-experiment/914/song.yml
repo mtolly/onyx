@@ -1,11 +1,12 @@
 title: '914'
 file-include: ../../../albums/liquid-tension-experiment-2.yml
 track-number: 3
-audio-files:
-  album:
+audio:
+  album-track:
     md5: 409af3c3a13f04aa6d2d05606c1f44c8
     frames: 10629276
-versions:
+plans:
   album:
-    pad: [4.262, album]
+    song:
+      pad: [4.262, album-track]
 instruments: [drums]

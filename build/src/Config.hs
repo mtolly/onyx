@@ -26,16 +26,21 @@ import qualified Sound.Jammit.Base          as J
 import           StackTrace                 hiding (optional)
 import           Text.Read                  (readMaybe)
 
-type Parser context = StackTraceT (Reader context)
+type Parser m context = StackTraceT (ReaderT context m)
 
-crash :: String -> Parser A.Value a
+crash :: (Monad m) => String -> Parser m A.Value a
 crash msg = lift ask >>= \v -> fatal $ msg ++ ": " ++ BL8.unpack (A.encode v)
 
 class TraceJSON a where
-  traceJSON :: Parser A.Value a
+  traceJSON :: (Monad m) => Parser m A.Value a
 
 instance TraceJSON A.Value where
   traceJSON = lift ask
+
+instance TraceJSON Bool where
+  traceJSON = lift ask >>= \case
+    A.Bool b -> return b
+    _        -> crash "Expected a boolean, but found"
 
 instance TraceJSON T.Text where
   traceJSON = lift ask >>= \case
@@ -61,32 +66,32 @@ instance TraceJSON Int where
     Nothing -> crash "Number doesn't fit into Int range"
     Just i  -> return i
 
-parseFrom :: v -> Parser v a -> Parser v' a
+parseFrom :: (Monad m) => v -> Parser m v a -> Parser m v' a
 parseFrom = mapStackTraceT . withReaderT . const
 
-object :: Parser (Map.HashMap T.Text A.Value) a -> Parser A.Value a
+object :: (Monad m) => Parser m (Map.HashMap T.Text A.Value) a -> Parser m A.Value a
 object p = lift ask >>= \case
   A.Object o -> parseFrom o p
   _          -> crash "Expected an object, but found"
 
-required :: T.Text -> Parser A.Value a -> Parser (Map.HashMap T.Text A.Value) a
+required :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) a
 required k p = lift ask >>= \hm -> case Map.lookup k hm of
   Nothing -> parseFrom (A.Object hm) $
     crash $ "Couldn't find required key " ++ show k ++ " in object"
-  Just v  -> inside ("required key " ++ T.unpack k) $ parseFrom v p
+  Just v  -> inside ("required key " ++ show k) $ parseFrom v p
 
-optional :: T.Text -> Parser A.Value a -> Parser (Map.HashMap T.Text A.Value) (Maybe a)
+optional :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) (Maybe a)
 optional k p = lift ask >>= \hm -> case Map.lookup k hm of
   Nothing -> return Nothing
-  Just v  -> fmap Just $ inside ("optional key " ++ T.unpack k) $ parseFrom v p
+  Just v  -> fmap Just $ inside ("optional key " ++ show k) $ parseFrom v p
 
-theKey :: T.Text -> Parser A.Value a -> Parser (Map.HashMap T.Text A.Value) a
+theKey :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) a
 theKey k p = lift ask >>= \hm -> case Map.toList hm of
-  [(k', v)] | k == k' -> inside ("only key " ++ T.unpack k) $ parseFrom v p
+  [(k', v)] | k == k' -> inside ("only key " ++ show k) $ parseFrom v p
   _ -> parseFrom (A.Object hm) $
     crash $ "Expected an object with only key " ++ show k ++ ", but found"
 
-expectedKeys :: [T.Text] -> Parser (Map.HashMap T.Text A.Value) ()
+expectedKeys :: (Monad m) => [T.Text] -> Parser m (Map.HashMap T.Text A.Value) ()
 expectedKeys keys = do
   hm <- lift ask
   case Map.keys hm \\ keys of
@@ -105,27 +110,31 @@ jammitInstrument = \case
   Vocal  -> J.Vocal
 
 instance TraceJSON Instrument where
-  traceJSON = (traceJSON :: Parser A.Value String) >>= \case
-    "guitar" -> return Guitar
-    "bass"   -> return Bass
-    "drums"  -> return Drums
-    "keys"   -> return Keys
-    "vocal"  -> return Vocal
-    _        -> crash "Invalid instrument string"
+  traceJSON = do
+    s <- traceJSON
+    let _ = s :: String
+    case s of
+      "guitar" -> return Guitar
+      "bass"   -> return Bass
+      "drums"  -> return Drums
+      "keys"   -> return Keys
+      "vocal"  -> return Vocal
+      _        -> crash "Invalid instrument string"
 
 data SongYaml = SongYaml
-  { _metadata :: Metadata
-  , _audio    :: Map.HashMap T.Text AudioFile
-  , _jammit   :: Map.HashMap T.Text JammitTrack
-  , _plans    :: Map.HashMap T.Text Plan
+  { _metadata    :: Metadata
+  , _audio       :: Map.HashMap T.Text AudioFile
+  , _jammit      :: Map.HashMap T.Text JammitTrack
+  , _plans       :: Map.HashMap T.Text Plan
+  , _instruments :: Instruments
   } deriving (Eq, Show, Read)
 
-mapping :: Parser A.Value a -> Parser A.Value (Map.HashMap T.Text a)
+mapping :: (Monad m) => Parser m A.Value a -> Parser m A.Value (Map.HashMap T.Text a)
 mapping p = lift ask >>= \case
   A.Object o -> mapM (\x -> parseFrom x p) o
   _          -> crash "Expected object, but found"
 
-list :: Parser A.Value a -> Parser A.Value [a]
+list :: (Monad m) => Parser m A.Value a -> Parser m A.Value [a]
 list p = lift ask >>= \case
   A.Array v -> forM (zip [0..] $ V.toList v) $ \(i, x) ->
     inside ("element " ++ show (i :: Int)) $ parseFrom x p
@@ -134,11 +143,12 @@ list p = lift ask >>= \case
 instance TraceJSON SongYaml where
   traceJSON = object $ do
     let defaultEmptyMap = fmap $ fromMaybe Map.empty
-    _metadata <- required "metadata" traceJSON
-    _audio    <- defaultEmptyMap $ optional "audio"  $ mapping traceJSON
-    _jammit   <- defaultEmptyMap $ optional "jammit" $ mapping traceJSON
-    _plans    <- defaultEmptyMap $ optional "plans"  $ mapping traceJSON
-    expectedKeys ["metadata", "audio", "jammit", "plans"]
+    _metadata    <- required "metadata" traceJSON
+    _audio       <- defaultEmptyMap $ optional "audio"  $ mapping traceJSON
+    _jammit      <- defaultEmptyMap $ optional "jammit" $ mapping traceJSON
+    _plans       <- defaultEmptyMap $ optional "plans"  $ mapping traceJSON
+    _instruments <- required "instruments" traceJSON
+    expectedKeys ["metadata", "audio", "jammit", "plans", "instruments"]
     return SongYaml{..}
 
 data Metadata = Metadata
@@ -266,11 +276,14 @@ data Edge = Start | End
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance TraceJSON Edge where
-  traceJSON = (traceJSON :: Parser A.Value String) >>= \case
-    "start" -> return Start
-    "begin" -> return Start
-    "end"   -> return End
-    _       -> crash "Invalid audio edge"
+  traceJSON = do
+    s <- traceJSON
+    let _ = s :: String
+    case s of
+      "start" -> return Start
+      "begin" -> return Start
+      "end"   -> return End
+      _       -> crash "Invalid audio edge"
 
 mapTime :: (t -> u) -> Audio t a -> Audio u a
 mapTime f aud = case aud of
@@ -287,15 +300,15 @@ mapTime f aud = case aud of
   Resample x      -> Resample     $ mapTime f x
   Channels cs x   -> Channels cs  $ mapTime f x
 
-algebraic1 :: T.Text -> (a -> b) -> Parser A.Value a -> Parser A.Value b
+algebraic1 :: (Monad m) => T.Text -> (a -> b) -> Parser m A.Value a -> Parser m A.Value b
 algebraic1 k f p1 = object $ theKey k $ lift ask >>= \case
   A.Array v -> case V.toList v of
     [x] -> fmap f $ inside "ADT field 1 of 1" $ parseFrom x p1
     _ -> crash "Expected array of 1 ADT field, but found"
   _ -> crash "Expected array of 1 ADT field, but found"
 
-algebraic2 :: T.Text -> (a -> b -> c) ->
-  Parser A.Value a -> Parser A.Value b -> Parser A.Value c
+algebraic2 :: (Monad m) => T.Text -> (a -> b -> c) ->
+  Parser m A.Value a -> Parser m A.Value b -> Parser m A.Value c
 algebraic2 k f p1 p2 = object $ theKey k $ lift ask >>= \case
   A.Array v -> case V.toList v of
     [x, y] -> f
@@ -304,8 +317,8 @@ algebraic2 k f p1 p2 = object $ theKey k $ lift ask >>= \case
     _ -> crash "Expected array of 2 ADT fields, but found"
   _ -> crash "Expected array of 2 ADT fields, but found"
 
-algebraic3 :: T.Text -> (a -> b -> c -> d) ->
-  Parser A.Value a -> Parser A.Value b -> Parser A.Value c -> Parser A.Value d
+algebraic3 :: (Monad m) => T.Text -> (a -> b -> c -> d) ->
+  Parser m A.Value a -> Parser m A.Value b -> Parser m A.Value c -> Parser m A.Value d
 algebraic3 k f p1 p2 p3 = object $ theKey k $ lift ask >>= \case
   A.Array v -> case V.toList v of
     [x, y, z] -> f
@@ -352,3 +365,33 @@ instance TraceJSON Duration where
                 | Just seconds <- readMaybe $ T.unpack secstr
                 -> return seconds
               _ -> traceJSON -- will succeed if JSON number
+
+data Instruments = Instruments
+  { _hasDrums  :: Bool
+  , _hasGuitar :: Bool
+  , _hasBass   :: Bool
+  , _hasKeys   :: Bool
+  , _hasVocal  :: VocalCount
+  } deriving (Eq, Ord, Show, Read)
+
+instance TraceJSON Instruments where
+  traceJSON = object $ do
+    _hasDrums  <- fromMaybe False  <$> optional "drums"  traceJSON
+    _hasGuitar <- fromMaybe False  <$> optional "guitar" traceJSON
+    _hasBass   <- fromMaybe False  <$> optional "bass"   traceJSON
+    _hasKeys   <- fromMaybe False  <$> optional "keys"   traceJSON
+    _hasVocal  <- fromMaybe Vocal0 <$> optional "vocal"  traceJSON
+    return Instruments{..}
+
+data VocalCount = Vocal0 | Vocal1 | Vocal2 | Vocal3
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance TraceJSON VocalCount where
+  traceJSON = lift ask >>= \case
+    A.Bool False -> return Vocal0
+    A.Bool True -> return Vocal1
+    A.Number 0 -> return Vocal0
+    A.Number 1 -> return Vocal1
+    A.Number 2 -> return Vocal2
+    A.Number 3 -> return Vocal3
+    _          -> crash "Expected a vocal part count (0 through 3), but found"

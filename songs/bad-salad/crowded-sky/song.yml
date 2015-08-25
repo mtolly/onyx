@@ -1,12 +1,13 @@
 title: Crowded Sky
 file-include: ../../../albums/uncivilized.yml
 track-number: 1
-audio-files:
-  album:
+audio:
+  album-track:
     md5: 549b025c2388557ebcc6faf625174da8
     frames: 17263523
-versions:
-  album: album
+plans:
+  album:
+    song: album-track
 instruments: [drums]
 comments:
 - "Chart confidence: *medium-high*. No stems, and the mixing is a bit muddy."

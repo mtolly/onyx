@@ -2,33 +2,42 @@ title: Moonlight
 file-include: ../../../albums/puzzled.yml
 track-number: 2
 audio:
+  album-track:
+    md5: TODO
+    frames: TODO
+  pledgemusic-drums:
+    name: BadSalad-Puzzled-3-DeepRoots-Stem-Drums.flac
+  pledgemusic-bass:
+    name: BadSalad-Puzzled-3-DeepRoots-Stem-Bass.flac
+  pledgemusic-guitars:
+    name: BadSalad-Puzzled-3-DeepRoots-Stem-Guitars.flac
+  pledgemusic-keyboards:
+    name: BadSalad-Puzzled-3-DeepRoots-Stem-Keyboards.flac
+  pledgemusic-vocals:
+    name: BadSalad-Puzzled-3-DeepRoots-Stem-Vocals.flac
+plans:
   album:
-    pad: [3.631, source]
+    song:
+      pad: [3.631, album-track]
   pledgemusic:
     drums:
       trim:
         - 0.326
-        - gain:
-          - 0.6
-          - BadSalad-Puzzled-2-Moonlight-Stem-Drums.flac
+        - gain: [0.6, pledgemusic-drums]
     bass:
       trim:
         - 0.326
-        - gain:
-          - 0.6
-          - BadSalad-Puzzled-2-Moonlight-Stem-Bass.flac
+        - gain: [0.6, pledgemusic-bass]
     guitar:
       trim:
         - 0.326
-        - gain:
-          - 0.6
-          - BadSalad-Puzzled-2-Moonlight-Stem-Guitar.flac
+        - gain: [0.6, pledgemusic-guitars]
     song:
       trim:
         - 0.326
         - gain:
           - 0.6
-          - mix:
-            - BadSalad-Puzzled-2-Moonlight-Stem-Keyboards.flac
-            - BadSalad-Puzzled-2-Moonlight-Stem-Vocals.flac
-config: [drums, bass, guitar]
+          - mix: [pledgemusic-keyboards, pledgemusic-vocals]
+instruments: [drums, bass, guitar]
+comments:
+- "Chart confidence: *high*. Written to PledgeMusic stems."
