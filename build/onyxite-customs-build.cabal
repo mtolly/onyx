@@ -49,6 +49,8 @@ executable onyxbuild
     , vector
     , scientific
     , transformers >= 0.4
+    , extra
+    , pureMD5
     -- my libraries:
     , dtab >= 1.0.0.1 && < 1.1
     , jammittools >= 0.5.0.1 && < 0.6

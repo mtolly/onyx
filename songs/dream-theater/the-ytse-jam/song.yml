@@ -1,7 +1,14 @@
-title: The Ytse Jam
-file-include: ../../../albums/when-dream-and-day-unite.yml
-track-number: 3
+metadata:
+  title: The Ytse Jam
+  file-include: ../../../albums/when-dream-and-day-unite.yml
+  track-number: 3
 audio:
+  album-track:
+    md5: 69f3717eaacd220a1903afe5b271734e
+    frames: 15295644
+plans:
   album:
-    pad: [3.596, source]
-config: [drums]
+    song:
+      pad: [3.596, album-track]
+instruments:
+  drums: true

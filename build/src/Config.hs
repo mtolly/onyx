@@ -7,6 +7,7 @@
 {-# LANGUAGE DeriveTraversable #-}
 module Config where
 
+import           Audio
 import           Control.Applicative        ((<|>))
 import           Control.Monad.Trans.Class  (lift)
 import           Control.Monad.Trans.Reader
@@ -211,9 +212,11 @@ data Plan
     , _keys   :: Audio Duration AudioInput
     , _drums  :: Audio Duration AudioInput
     , _vocal  :: Audio Duration AudioInput
+    , _countin :: Maybe FilePath
     }
   | EachPlan
     { _each :: Audio Duration T.Text
+    , _countin :: Maybe FilePath
     }
   deriving (Eq, Ord, Show, Read)
 
@@ -221,7 +224,8 @@ instance TraceJSON Plan where
   traceJSON = object
     $   do
       _each <- required "each" traceJSON
-      expectedKeys ["each"]
+      _countin <- optional "countin" traceJSON
+      expectedKeys ["each", "countin"]
       return EachPlan{..}
     <|> do
       let defaultSilence = fromMaybe $ Silence 1 $ Seconds 1
@@ -231,7 +235,8 @@ instance TraceJSON Plan where
       _keys   <- defaultSilence <$> optional "keys"   traceJSON
       _drums  <- defaultSilence <$> optional "drums"  traceJSON
       _vocal  <- defaultSilence <$> optional "vocal"  traceJSON
-      expectedKeys ["song", "guitar", "bass", "keys", "drums", "vocal"]
+      _countin <- optional "countin"  traceJSON
+      expectedKeys ["song", "guitar", "bass", "keys", "drums", "vocal", "countin"]
       return Plan{..}
 
 data AudioInput
@@ -257,24 +262,6 @@ instance TraceJSON AudioInput where
         traceJSON
         traceJSON
 
-data Audio t a
-  = Silence Int t
-  | Input a
-  | Mix            [Audio t a]
-  | Merge          [Audio t a]
-  | Concatenate    [Audio t a]
-  | Gain Double    (Audio t a)
-  | Take Edge t    (Audio t a)
-  | Drop Edge t    (Audio t a)
-  | Fade Edge t    (Audio t a)
-  | Pad  Edge t    (Audio t a)
-  | Resample       (Audio t a)
-  | Channels [Int] (Audio t a)
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
-
-data Edge = Start | End
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
 instance TraceJSON Edge where
   traceJSON = do
     s <- traceJSON
@@ -284,21 +271,6 @@ instance TraceJSON Edge where
       "begin" -> return Start
       "end"   -> return End
       _       -> crash "Invalid audio edge"
-
-mapTime :: (t -> u) -> Audio t a -> Audio u a
-mapTime f aud = case aud of
-  Silence c t     -> Silence c $ f t
-  Input   x       -> Input x
-  Mix         xs  -> Mix         $ map (mapTime f) xs
-  Merge       xs  -> Merge       $ map (mapTime f) xs
-  Concatenate xs  -> Concatenate $ map (mapTime f) xs
-  Gain g x        -> Gain g $ mapTime f x
-  Take e t x      -> Take e (f t) $ mapTime f x
-  Drop e t x      -> Drop e (f t) $ mapTime f x
-  Fade e t x      -> Fade e (f t) $ mapTime f x
-  Pad  e t x      -> Pad  e (f t) $ mapTime f x
-  Resample x      -> Resample     $ mapTime f x
-  Channels cs x   -> Channels cs  $ mapTime f x
 
 algebraic1 :: (Monad m) => T.Text -> (a -> b) -> Parser m A.Value a -> Parser m A.Value b
 algebraic1 k f p1 = object $ theKey k $ lift ask >>= \case

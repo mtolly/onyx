@@ -8,7 +8,6 @@ module Audio where
 import Development.Shake (Action, need, liftIO)
 import Development.Shake.FilePath (takeExtension)
 import Data.Foldable (toList)
-import qualified Sound.Jammit.Export as J
 import Control.Monad.Trans.Resource (MonadResource, runResourceT)
 import qualified Data.Vector.Storable as V
 
@@ -19,20 +18,44 @@ import Data.Conduit.Audio.Sndfile
 import qualified Sound.File.Sndfile as Snd
 import Data.Conduit.Audio.SampleRate
 
-import Config
+data Audio t a
+  = Silence Int t
+  | Input a
+  | Mix            [Audio t a]
+  | Merge          [Audio t a]
+  | Concatenate    [Audio t a]
+  | Gain Double    (Audio t a)
+  | Take Edge t    (Audio t a)
+  | Drop Edge t    (Audio t a)
+  | Fade Edge t    (Audio t a)
+  | Pad  Edge t    (Audio t a)
+  | Resample       (Audio t a)
+  | Channels [Int] (Audio t a)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
-data InputFile
-  = InputSndfile FilePath
-  | InputJammit  FilePath
-  deriving (Eq, Ord, Show, Read)
+data Edge = Start | End
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+mapTime :: (t -> u) -> Audio t a -> Audio u a
+mapTime f aud = case aud of
+  Silence c t     -> Silence c $ f t
+  Input   x       -> Input x
+  Mix         xs  -> Mix         $ map (mapTime f) xs
+  Merge       xs  -> Merge       $ map (mapTime f) xs
+  Concatenate xs  -> Concatenate $ map (mapTime f) xs
+  Gain g x        -> Gain g $ mapTime f x
+  Take e t x      -> Take e (f t) $ mapTime f x
+  Drop e t x      -> Drop e (f t) $ mapTime f x
+  Fade e t x      -> Fade e (f t) $ mapTime f x
+  Pad  e t x      -> Pad  e (f t) $ mapTime f x
+  Resample x      -> Resample     $ mapTime f x
+  Channels cs x   -> Channels cs  $ mapTime f x
 
 buildSource :: (MonadResource m) =>
-  Audio Duration InputFile -> Action (AudioSource m Float)
+  Audio Duration FilePath -> Action (AudioSource m Float)
 buildSource aud = case aud of
   Silence c t -> return $ silent t 44100 c
-  Input fin -> case fin of
-    InputSndfile fp -> liftIO $ sourceSnd fp
-    InputJammit  fp -> liftIO $ mapSamples fractionalSample <$> J.audioSource fp
+  Input fin -> liftIO $ sourceSnd fin
   Mix         xs -> combine mix         xs
   Merge       xs -> combine merge       xs
   Concatenate xs -> combine concatenate xs
@@ -63,13 +86,9 @@ buildSource aud = case aud of
           s : ss -> return $ foldl meth s ss
 
 -- | Assumes 16-bit 44100 Hz audio files.
-buildAudio :: Audio Duration InputFile -> FilePath -> Action ()
+buildAudio :: Audio Duration FilePath -> FilePath -> Action ()
 buildAudio aud out = do
-  need $ do
-    fin <- toList aud
-    return $ case fin of
-      InputSndfile x -> x
-      InputJammit  x -> x
+  need $ toList aud
   src <- buildSource aud
   let fmt = case takeExtension out of
         ".ogg" -> Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
