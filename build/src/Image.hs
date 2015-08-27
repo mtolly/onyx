@@ -1,15 +1,15 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Image where
 
-import Codec.Picture
-import Codec.Picture.Types
-import Data.Bits (shiftR, shiftL)
-import Data.Word (Word16)
-import Control.Monad (forM_, guard)
-import qualified Data.ByteString as B
-import Data.List (minimumBy)
-import Data.Ord (comparing)
-import System.IO (withBinaryFile, IOMode(..))
+import           Codec.Picture
+import           Codec.Picture.Types
+import           Control.Monad       (forM_, guard)
+import           Data.Bits           (shiftL, shiftR)
+import qualified Data.ByteString     as B
+import           Data.List           (minimumBy)
+import           Data.Ord            (comparing)
+import           Data.Word           (Word16)
+import           System.IO           (IOMode (..), withBinaryFile)
 
 anyToRGB8 :: DynamicImage -> Image PixelRGB8
 anyToRGB8 dyn = case dyn of

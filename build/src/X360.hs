@@ -1,13 +1,13 @@
 {-# LANGUAGE TemplateHaskell #-}
 module X360 (rb3pkg) where
 
-import Data.FileEmbed (embedDir)
+import           Control.Monad   (forM_)
 import qualified Data.ByteString as B
-import System.IO.Temp (withSystemTempDirectory)
-import System.Info (os)
-import System.Process (callProcess)
-import Control.Monad (forM_)
-import System.FilePath ((</>))
+import           Data.FileEmbed  (embedDir)
+import           System.FilePath ((</>))
+import           System.Info     (os)
+import           System.IO.Temp  (withSystemTempDirectory)
+import           System.Process  (callProcess)
 
 rb3pkgFiles :: [(FilePath, B.ByteString)]
 rb3pkgFiles = $(embedDir "vendors/xbox/rb3pkg/bin/Release/")

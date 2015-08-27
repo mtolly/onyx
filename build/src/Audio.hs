@@ -1,24 +1,24 @@
-{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE MultiWayIf        #-}
+{-# LANGUAGE PatternSynonyms   #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Audio where
 
-import Development.Shake (Action, need, liftIO)
-import Development.Shake.FilePath (takeExtension)
-import Data.Foldable (toList)
-import Control.Monad.Trans.Resource (MonadResource, runResourceT)
-import qualified Data.Vector.Storable as V
-
-import Data.Conduit ((=$=))
-import qualified Data.Conduit.List as CL
-import Data.Conduit.Audio
-import Data.Conduit.Audio.Sndfile
-import qualified Sound.File.Sndfile as Snd
-import Data.Conduit.Audio.SampleRate
-import Control.Monad (ap)
+import           Control.Monad                 (ap)
+import           Control.Monad.Trans.Resource  (MonadResource, runResourceT)
+import           Data.Conduit                  ((=$=))
+import           Data.Conduit.Audio
+import           Data.Conduit.Audio.SampleRate
+import           Data.Conduit.Audio.Sndfile
+import qualified Data.Conduit.List             as CL
+import           Data.Foldable                 (toList)
+import qualified Data.Vector.Storable          as V
+import           Development.Shake             (Action, liftIO, need)
+import           Development.Shake.FilePath    (takeExtension)
+import qualified Sound.File.Sndfile            as Snd
 
 data Audio t a
   = Silence Int t

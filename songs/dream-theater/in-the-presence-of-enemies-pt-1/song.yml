@@ -1,21 +1,36 @@
-title: In the Presence of Enemies, Pt. 1
-file-include: ../../../albums/systematic-chaos.yml
-track-number: 1
+metadata:
+  title: In the Presence of Enemies, Pt. 1
+  file-include: ../../../albums/systematic-chaos.yml
+  track-number: 1
 audio:
+  album-track:
+    md5: bbabecc6e66d28efa546a7c22760c830
+    frames: 23816940
+  drumcam-band:
+    md5: bc116ed2b177da39b41313e6b848f320
+    frames: 220200960
+    rate: 48000
+    name: AudioFile_80.ac3
+  drumcam-drums:
+    md5: 61a05e854bdf97a8a88f35587a6ad556
+    frames: 220200960
+    rate: 48000
+    name: AudioFile_81.ac3
+plans:
   album:
-    fade:
-      - end
-      - 2.75
-      - take:
-        - '8:57.302'
-        - pad: [4.637, source]
+    song:
+      fade:
+        - end
+        - 2.75
+        - take:
+          - '8:57.302'
+          - pad: [4.637, album-track]
   drumcam:
     drums:
-      trim:
-        - 1.909
-        - take:
-          - '8:50.723'
-          - audio-drumcam-drums.wav
+      resample:
+        trim:
+          - 1.909
+          - take: ['8:50.723', drumcam-drums]
     song:
       fade:
         - end
@@ -31,25 +46,22 @@ audio:
                       - '3:02'
                       - pad:
                         - frames: 3461
-                        - rate: [48000, audio-drumcam-band.wav]
+                        - drumcam-band
                     - take:
                       - '6:06'
                       - drop:
                         - '3:02'
                         - pad:
                           - frames: 3460
-                          - rate: [48000, audio-drumcam-band.wav]
+                          - drumcam-band
                   - gain:
                     - -1
                     - concatenate:
-                      - take:
-                        - '8:50.723'
-                        - rate: [48000, audio-drumcam-drums.wav]
+                      - take: ['8:50.723', drumcam-drums]
                       - pad:
                         - frames: 3460
                         - drop:
                           - '8:50.723'
-                          - take:
-                            - '9:06'
-                            - rate: [48000, audio-drumcam-drums.wav]
-config: [drums]
+                          - take: ['9:06', drumcam-drums]
+instruments:
+  drums: true

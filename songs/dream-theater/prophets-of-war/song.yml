@@ -1,9 +1,25 @@
-title: Prophets of War
-file-include: ../../../albums/systematic-chaos.yml
-track-number: 6
+metadata:
+  title: Prophets of War
+  file-include: ../../../albums/systematic-chaos.yml
+  track-number: 6
 audio:
+  album-track:
+    md5: ef72e82888e55606a4de9cadc2d5a113
+    frames: 15907164
+  drumcam-band:
+    md5: bc116ed2b177da39b41313e6b848f320
+    frames: 220200960
+    rate: 48000
+    name: AudioFile_80.ac3
+  drumcam-drums:
+    md5: 61a05e854bdf97a8a88f35587a6ad556
+    frames: 220200960
+    rate: 48000
+    name: AudioFile_81.ac3
+plans:
   album:
-    pad: [3.556, source]
+    song:
+      pad: [3.556, album-track]
   drumcam:
     song:
       resample:
@@ -14,18 +30,15 @@ audio:
               - frames: 175
               - take:
                 - '6:02.182'
-                - drop:
-                  - '41:30.764'
-                  - rate: [48000, audio-drumcam-band.wav]
+                - drop: ['41:30.764', drumcam-band]
             - gain:
               - -1
               - &drums
                 take:
                 - '6:02.182'
-                - drop:
-                  - '41:30.764'
-                  - rate: [48000, audio-drumcam-drums.wav]
+                - drop: ['41:30.764', drumcam-drums]
     drums:
       resample:
         pad: [3.261, *drums]
-config: [drums]
+instruments:
+  drums: true

@@ -34,7 +34,7 @@ import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import           Data.Int                         (Int16)
-import           Data.List                        (nub)
+import           Data.List                        (isPrefixOf, nub)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
@@ -106,7 +106,9 @@ main = do
 
   let audioSearch :: AudioFile -> Action (Maybe FilePath)
       audioSearch aud = do
-        files <- concatMapM allFiles audioDirs
+        genAbsolute <- liftIO $ canonicalizePath "gen/"
+        files <- filter (\f -> not $ genAbsolute `isPrefixOf` f)
+          <$> concatMapM allFiles audioDirs
         let md5Result = case _md5 aud of
               Nothing -> return Nothing
               Just md5search -> fmap listToMaybe $ flip filterM files $ \f -> do
@@ -237,6 +239,33 @@ main = do
                       boughtInstrumentParts otherInstrument
                     in Mix [Input $ jammitPath name $ J.Without back, Gain (-1) negative]
 
+    -- Cover art
+    let loadRGB8 = do
+          let img = _fileAlbumArt $ _metadata songYaml
+          need [img]
+          res <- liftIO $ readImage img
+          case res of
+            Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
+            Right dyn -> return $ anyToRGB8 dyn
+    "gen/cover.bmp" %> \out -> loadRGB8 >>= liftIO . writeBitmap out . scaleBilinear 256 256
+    "gen/cover.png" %> \out -> loadRGB8 >>= liftIO . writePng    out . scaleBilinear 256 256
+    "gen/cover.dds" %> \out -> loadRGB8 >>= liftIO . writeDDS    out . scaleBilinear 256 256
+    "gen/cover.png_xbox" %> \out -> do
+      let dds = out -<.> "dds"
+      need [dds]
+      b <- liftIO $ B.readFile dds
+      let header =
+            [ 0x01, 0x04, 0x08, 0x00, 0x00, 0x00, 0x04, 0x00
+            , 0x01, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00
+            , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+            , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+            ]
+          bytes = B.unpack $ B.drop 0x80 b
+          flipPairs (x : y : xs) = y : x : flipPairs xs
+          flipPairs _ = []
+          b' = B.pack $ header ++ flipPairs bytes
+      liftIO $ B.writeFile out b'
+
     forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
 
       let dir = "gen/plan" </> T.unpack planName
@@ -331,33 +360,6 @@ main = do
       preview "ogg" %> \out -> do
         need [preview "wav"]
         cmd "oggenc -b 16 --resample 16000 -o" [out, preview "wav"]
-
-      -- Cover art
-      let loadRGB8 = do
-            let img = _fileAlbumArt $ _metadata songYaml
-            need [img]
-            res <- liftIO $ readImage img
-            case res of
-              Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
-              Right dyn -> return $ anyToRGB8 dyn
-      "gen/cover.bmp" %> \out -> loadRGB8 >>= liftIO . writeBitmap out . scaleBilinear 256 256
-      "gen/cover.png" %> \out -> loadRGB8 >>= liftIO . writePng    out . scaleBilinear 256 256
-      "gen/cover.dds" %> \out -> loadRGB8 >>= liftIO . writeDDS    out . scaleBilinear 256 256
-      "gen/cover.png_xbox" %> \out -> do
-        let dds = out -<.> "dds"
-        need [dds]
-        b <- liftIO $ B.readFile dds
-        let header =
-              [ 0x01, 0x04, 0x08, 0x00, 0x00, 0x00, 0x04, 0x00
-              , 0x01, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00
-              , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-              , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-              ]
-            bytes = B.unpack $ B.drop 0x80 b
-            flipPairs (x : y : xs) = y : x : flipPairs xs
-            flipPairs _ = []
-            b' = B.pack $ header ++ flipPairs bytes
-        liftIO $ B.writeFile out b'
 
       let pedalVersions =
             [ (dir </> "1p", T.unpack (_title $ _metadata songYaml)                      )

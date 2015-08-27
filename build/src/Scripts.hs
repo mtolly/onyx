@@ -1,28 +1,28 @@
 {-# LANGUAGE LambdaCase #-}
 module Scripts where
 
-import Data.List (sort)
-import Data.Maybe (mapMaybe)
+import           Data.List                        (sort)
+import           Data.Maybe                       (mapMaybe)
 
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Numeric.NonNegative.Class as NNC
-import qualified Sound.MIDI.File.Load as Load
-import qualified Sound.MIDI.File.Save as Save
-import qualified Sound.MIDI.Util as U
+import qualified Numeric.NonNegative.Class        as NNC
+import qualified Sound.MIDI.File.Load             as Load
+import qualified Sound.MIDI.File.Save             as Save
+import qualified Sound.MIDI.Util                  as U
 
-import Audio
-import qualified Data.Conduit.Audio as CA
+import           Audio
+import qualified Data.Conduit.Audio               as CA
 
-import StackTrace
-import RockBand.File
-import qualified RockBand.Drums as Drums
-import qualified RockBand.Beat as Beat
-import qualified RockBand.Events as Events
-import qualified RockBand.FiveButton as Five
-import RockBand.Common
+import qualified RockBand.Beat                    as Beat
+import           RockBand.Common
+import qualified RockBand.Drums                   as Drums
+import qualified RockBand.Events                  as Events
+import           RockBand.File
+import qualified RockBand.FiveButton              as Five
+import           StackTrace
 
-import Development.Shake
+import           Development.Shake
 
 -- | Changes all existing drum mix events to use the given config (not changing
 -- stuff like discobeat), and places ones at the beginning if they don't exist

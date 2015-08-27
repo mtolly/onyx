@@ -1,10 +1,10 @@
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveTraversable #-}
 module Config where
 
 import           Audio
@@ -165,7 +165,7 @@ data Metadata = Metadata
   , _year         :: Int
   , _fileAlbumArt :: FilePath
   , _trackNumber  :: Int
-  , _fileCountin :: Maybe FilePath
+  , _fileCountin  :: Maybe FilePath
   } deriving (Eq, Ord, Show, Read)
 
 instance TraceJSON Metadata where
@@ -275,11 +275,9 @@ instance TraceJSON Edge where
       _       -> crash "Invalid audio edge"
 
 algebraic1 :: (Monad m) => T.Text -> (a -> b) -> Parser m A.Value a -> Parser m A.Value b
-algebraic1 k f p1 = object $ theKey k $ lift ask >>= \case
-  A.Array v -> case V.toList v of
-    [x] -> fmap f $ inside "ADT field 1 of 1" $ parseFrom x p1
-    _ -> crash "Expected array of 1 ADT field, but found"
-  _ -> crash "Expected array of 1 ADT field, but found"
+algebraic1 k f p1 = object $ theKey k $ do
+  x <- lift ask
+  fmap f $ inside "ADT field 1 of 1" $ parseFrom x p1
 
 algebraic2 :: (Monad m) => T.Text -> (a -> b -> c) ->
   Parser m A.Value a -> Parser m A.Value b -> Parser m A.Value c
@@ -311,6 +309,7 @@ instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
     <|> do algebraic2 "gain" Gain traceJSON traceJSON
     <|> do supplyEdge "take" Take
     <|> do supplyEdge "drop" Drop
+    <|> do supplyEdge "trim" Drop
     <|> do supplyEdge "fade" Fade
     <|> do supplyEdge "pad"  Pad
     <|> do algebraic1 "resample" Resample traceJSON

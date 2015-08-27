@@ -4,11 +4,11 @@ Algorithm to generate 1x Bass Pedal versions automatically from the 2x version.
 module OneFoot (oneFoot) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Sound.MIDI.Util as U
-import RockBand.Common
-import RockBand.File
-import qualified RockBand.Drums as Drums
-import RockBand.Drums (Hand(..))
+import           RockBand.Common
+import           RockBand.Drums                   (Hand (..))
+import qualified RockBand.Drums                   as Drums
+import           RockBand.File
+import qualified Sound.MIDI.Util                  as U
 
 assignFeet
   :: U.Seconds -- ^ The period at which a steady stream of kicks become two feet.

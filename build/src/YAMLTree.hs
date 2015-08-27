@@ -17,13 +17,13 @@ the filename will be edited into @B/D.png@.
 {-# LANGUAGE OverloadedStrings #-}
 module YAMLTree (readYAMLTree) where
 
-import qualified Data.Aeson as A
-import qualified Data.Yaml as Y
-import qualified Data.Text as T
-import Control.Applicative ((<|>))
+import           Control.Applicative ((<|>))
+import qualified Data.Aeson          as A
 import qualified Data.HashMap.Strict as M
-import System.FilePath ((</>), takeDirectory)
-import Data.List (foldl')
+import           Data.List           (foldl')
+import qualified Data.Text           as T
+import qualified Data.Yaml           as Y
+import           System.FilePath     (takeDirectory, (</>))
 
 stringOrStrings :: Y.Value -> A.Result (Either String [String])
 stringOrStrings v =

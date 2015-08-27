@@ -1,24 +1,24 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Magma (runMagmaMIDI, runMagma, oggToMogg) where
 
-import Data.FileEmbed (embedDir)
-import qualified Data.ByteString as B
-import qualified System.Directory as Dir
-import System.IO.Temp (withSystemTempDirectory)
-import System.Info (os)
-import System.Process (callProcess, readProcess)
-import Control.Monad (forM_)
-import Control.Exception (bracket_)
-import Data.Word (Word32)
-import qualified System.IO as IO
-import Data.Bits (shiftL)
-import System.FilePath ((</>))
-
-import qualified Sound.File.Sndfile as Snd
-import Data.Conduit.Audio (Duration(..), silent, AudioSource)
-import Data.Conduit.Audio.Sndfile (sinkSnd)
-import Control.Monad.Trans.Resource (ResourceT, runResourceT)
-import Data.Int (Int16)
+import           Control.Exception            (bracket_)
+import           Control.Monad                (forM_)
+import           Control.Monad.Trans.Resource (ResourceT, runResourceT)
+import           Data.Bits                    (shiftL)
+import qualified Data.ByteString              as B
+import           Data.Conduit.Audio           (AudioSource, Duration (..),
+                                               silent)
+import           Data.Conduit.Audio.Sndfile   (sinkSnd)
+import           Data.FileEmbed               (embedDir)
+import           Data.Int                     (Int16)
+import           Data.Word                    (Word32)
+import qualified Sound.File.Sndfile           as Snd
+import qualified System.Directory             as Dir
+import           System.FilePath              ((</>))
+import           System.Info                  (os)
+import qualified System.IO                    as IO
+import           System.IO.Temp               (withSystemTempDirectory)
+import           System.Process               (callProcess, readProcess)
 
 magmaFiles :: [(FilePath, B.ByteString)]
 magmaFiles = $(embedDir "vendors/magma/")
