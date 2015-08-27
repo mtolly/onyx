@@ -2,6 +2,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE LambdaCase #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Audio where
 
@@ -17,6 +18,7 @@ import Data.Conduit.Audio
 import Data.Conduit.Audio.Sndfile
 import qualified Sound.File.Sndfile as Snd
 import Data.Conduit.Audio.SampleRate
+import Control.Monad (ap)
 
 data Audio t a
   = Silence Int t
@@ -32,6 +34,28 @@ data Audio t a
   | Resample       (Audio t a)
   | Channels [Int] (Audio t a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+
+instance Applicative (Audio t) where
+  pure = Input
+  (<*>) = ap
+
+instance Monad (Audio t) where
+  return = Input
+  x >>= f = let
+    join_ = \case
+      Silence c t      -> Silence c t
+      Input       sub  -> sub
+      Mix         auds -> Mix $ map join_ auds
+      Merge       auds -> Merge $ map join_ auds
+      Concatenate auds -> Concatenate $ map join_ auds
+      Gain      d aud  -> Gain d $ join_ aud
+      Take    e t aud  -> Take e t $ join_ aud
+      Drop    e t aud  -> Drop e t $ join_ aud
+      Fade    e t aud  -> Fade e t $ join_ aud
+      Pad     e t aud  -> Pad e t $ join_ aud
+      Resample    aud  -> Resample $ join_ aud
+      Channels cs aud  -> Channels cs $ join_ aud
+    in join_ $ fmap f x
 
 data Edge = Start | End
   deriving (Eq, Ord, Show, Read, Enum, Bounded)

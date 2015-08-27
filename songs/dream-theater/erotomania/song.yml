@@ -1,6 +1,7 @@
-title: Erotomania
-file-include: ../../../albums/awake.yml
-track-number: 4
+metadata:
+  title: Erotomania
+  file-include: ../../../albums/awake.yml
+  track-number: 4
 audio:
   album-track:
     md5: a300209fe66c6a058ff7696fd055d06a
@@ -15,4 +16,8 @@ plans:
   jammit:
     each:
       pad: [1.193, jammit-track]
-instruments: [drums, bass, guitar, keys]
+instruments:
+  drums: true
+  bass: true
+  guitar: true
+  keys: true

@@ -161,6 +161,7 @@ data Metadata = Metadata
   , _year         :: Int
   , _fileAlbumArt :: FilePath
   , _trackNumber  :: Int
+  , _fileCountin :: Maybe FilePath
   } deriving (Eq, Ord, Show, Read)
 
 instance TraceJSON Metadata where
@@ -173,7 +174,8 @@ instance TraceJSON Metadata where
     _year         <- required "year"           traceJSON
     _fileAlbumArt <- required "file-album-art" traceJSON
     _trackNumber  <- required "track-number"   traceJSON
-    expectedKeys ["title", "artist", "album", "genre", "subgenre", "year", "file-album-art", "track-number"]
+    _fileCountin  <- optional "file-countin"   traceJSON
+    expectedKeys ["title", "artist", "album", "genre", "subgenre", "year", "file-album-art", "track-number", "file-countin"]
     return Metadata{..}
 
 data AudioFile = AudioFile
@@ -212,11 +214,9 @@ data Plan
     , _keys   :: Audio Duration AudioInput
     , _drums  :: Audio Duration AudioInput
     , _vocal  :: Audio Duration AudioInput
-    , _countin :: Maybe FilePath
     }
   | EachPlan
     { _each :: Audio Duration T.Text
-    , _countin :: Maybe FilePath
     }
   deriving (Eq, Ord, Show, Read)
 
@@ -224,19 +224,17 @@ instance TraceJSON Plan where
   traceJSON = object
     $   do
       _each <- required "each" traceJSON
-      _countin <- optional "countin" traceJSON
-      expectedKeys ["each", "countin"]
+      expectedKeys ["each"]
       return EachPlan{..}
     <|> do
-      let defaultSilence = fromMaybe $ Silence 1 $ Seconds 1
+      let defaultSilence = fromMaybe $ Silence 2 $ Seconds 1
       _song   <- defaultSilence <$> optional "song"   traceJSON
       _guitar <- defaultSilence <$> optional "guitar" traceJSON
       _bass   <- defaultSilence <$> optional "bass"   traceJSON
       _keys   <- defaultSilence <$> optional "keys"   traceJSON
       _drums  <- defaultSilence <$> optional "drums"  traceJSON
       _vocal  <- defaultSilence <$> optional "vocal"  traceJSON
-      _countin <- optional "countin"  traceJSON
-      expectedKeys ["song", "guitar", "bass", "keys", "drums", "vocal", "countin"]
+      expectedKeys ["song", "guitar", "bass", "keys", "drums", "vocal"]
       return Plan{..}
 
 data AudioInput
