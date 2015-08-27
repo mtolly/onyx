@@ -51,6 +51,7 @@ executable onyxbuild
     , transformers >= 0.4
     , extra
     , pureMD5
+    , binary
     -- my libraries:
     , dtab >= 1.0.0.1 && < 1.1
     , jammittools >= 0.5.0.1 && < 0.6

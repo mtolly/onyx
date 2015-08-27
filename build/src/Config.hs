@@ -128,6 +128,8 @@ data SongYaml = SongYaml
   , _jammit      :: Map.HashMap T.Text JammitTrack
   , _plans       :: Map.HashMap T.Text Plan
   , _instruments :: Instruments
+  , _published   :: Bool
+  , _comments    :: [T.Text]
   } deriving (Eq, Show, Read)
 
 mapping :: (Monad m) => Parser m A.Value a -> Parser m A.Value (Map.HashMap T.Text a)
@@ -149,7 +151,9 @@ instance TraceJSON SongYaml where
     _jammit      <- defaultEmptyMap $ optional "jammit" $ mapping traceJSON
     _plans       <- defaultEmptyMap $ optional "plans"  $ mapping traceJSON
     _instruments <- required "instruments" traceJSON
-    expectedKeys ["metadata", "audio", "jammit", "plans", "instruments"]
+    _published   <- fmap (fromMaybe True) $ optional "published"       traceJSON
+    _comments    <- fmap (fromMaybe []  ) $ optional "comments" $ list traceJSON
+    expectedKeys ["metadata", "audio", "jammit", "plans", "instruments", "published", "comments"]
     return SongYaml{..}
 
 data Metadata = Metadata

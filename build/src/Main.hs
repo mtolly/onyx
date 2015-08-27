@@ -18,9 +18,12 @@ import           Control.Monad.Extra              (concatMapM, filterM, forM_,
                                                    guard, join, when)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
+import           Data.Binary.Get                  (getWord32le, runGetOrFail)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
-import           Data.Char                        (isSpace, toLower)
+import qualified Data.ByteString.Lazy             as BL
+import qualified Data.ByteString.Lazy.Char8       as BL8
+import           Data.Char                        (toLower)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.Sndfile
 import qualified Data.Digest.Pure.MD5             as MD5
@@ -37,9 +40,11 @@ import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
 import qualified Data.Text                        as T
 import           Data.Text.Encoding               (encodeUtf8)
+import           Data.Word                        (Word8)
 import           Development.Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
+import           Numeric                          (showHex)
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.Vocals                  as RBVox
 import qualified Sound.File.Sndfile               as Snd
@@ -107,10 +112,30 @@ main = do
               Just md5search -> fmap listToMaybe $ flip filterM files $ \f -> do
                 case takeExtension f of
                   ".flac" -> do
-                    Stdout result <- cmd "metaflac --show-md5sum" [f]
-                    return $
-                      T.takeWhile (not . isSpace) (T.pack result) == md5search
-                  ".wav" -> return False -- TODO: manually compute MD5 of data chunk
+                    md5bytes <- liftIO $ BL.take 16 . BL.drop 26 <$> BL.readFile f
+                    let showByte :: Word8 -> String
+                        showByte w8 = case map toLower $ showHex w8 "" of
+                          [c] -> ['0', c]
+                          s   -> s
+                    return $ concatMap showByte (BL.unpack md5bytes) == T.unpack md5search
+                  ".wav" -> let
+                    findChunk :: BL.ByteString -> BL.ByteString -> Maybe BL.ByteString
+                    findChunk tag bytes = if BL.null bytes
+                      then Nothing
+                      else let
+                        thisTag = BL.take 4 bytes
+                        len = case runGetOrFail getWord32le $ BL.drop 4 bytes of
+                          Left  _         -> Nothing
+                          Right (_, _, l) -> Just $ fromIntegral l
+                        in if tag == thisTag
+                          then len >>= \l -> Just $ BL.take l $ BL.drop 8 bytes
+                          else len >>= \l -> findChunk tag $ BL.drop (8 + l) bytes
+                    in do
+                      wav <- liftIO $ BL.readFile f
+                      return $ fromMaybe False $ do
+                        riff <- findChunk (BL8.pack "RIFF") wav
+                        data_ <- findChunk (BL8.pack "data") $ BL.drop 4 riff
+                        return $ show (MD5.md5 data_) == T.unpack md5search
                   _ -> return False
         md5Result
 
