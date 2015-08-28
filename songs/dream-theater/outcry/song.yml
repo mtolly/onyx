@@ -1,6 +1,13 @@
-title: Outcry
-file-include: ../../../albums/a-dramatic-turn-of-events.yml
-track-number: 6
+metadata:
+  title: Outcry
+  file-include: ../../../albums/a-dramatic-turn-of-events.yml
+  track-number: 6
 audio:
-  album: source
-config: [drums]
+  album-track:
+    md5: 915bf34a96cc29a45fe8da59a17e1570
+    frames: 30173220
+plans:
+  album:
+    song: album-track
+instruments:
+  drums: true

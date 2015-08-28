@@ -1,6 +1,14 @@
-title: Octavarium
-file-include: ../../../albums/octavarium.yml
-track-number: 8
+metadata:
+  title: Octavarium
+  file-include: ../../../albums/octavarium.yml
+  track-number: 8
 audio:
-  album: source
-config: [drums]
+  album-track:
+    md5: ea6c6c3f4cf5e0122d64cea63f2522c6
+    frames: 63504588
+# TODO: jammit
+plans:
+  album:
+    song: album-track
+instruments:
+  drums: true

@@ -1,7 +1,14 @@
-title: This Is the Life
-file-include: ../../../albums/a-dramatic-turn-of-events.yml
-track-number: 4
+metadata:
+  title: This Is the Life
+  file-include: ../../../albums/a-dramatic-turn-of-events.yml
+  track-number: 4
 audio:
+  album-track:
+    md5: db98eb2b711398be8381ac958ecebc82
+    frames: 18410280
+plans:
   album:
-    pad: [3.066, source]
-config: [drums]
+    song:
+      pad: [3.066, album-track]
+instruments:
+  drums: true

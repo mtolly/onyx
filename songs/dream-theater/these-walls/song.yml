@@ -1,9 +1,19 @@
-title: These Walls
-file-include: ../../../albums/octavarium.yml
-track-number: 3
+metadata:
+  title: These Walls
+  file-include: ../../../albums/octavarium.yml
+  track-number: 3
 audio:
+  album-track:
+    md5: d0168a7020211436743ffef91c474e37
+    frames: 20110776
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    trim: [11.711, source]
+    each:
+      trim: [11.711, jammit-track]
   album:
-    trim: [19.991, source]
-config: [drums]
+    song:
+      trim: [19.991, album-track]
+instruments:
+  drums: true

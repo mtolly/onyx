@@ -1,10 +1,21 @@
-title: On the Backs of Angels
-file-include: ../../../albums/a-dramatic-turn-of-events.yml
-track-number: 1
+metadata:
+  title: On the Backs of Angels
+  file-include: ../../../albums/a-dramatic-turn-of-events.yml
+  track-number: 1
 audio:
+  album-track:
+    md5: 63dbffdd93645e41d4bf7413e6665c52
+    frames: 23043132
+plans:
   album:
-    fade:
-      - begin
-      - 3.477
-      - drop: [10.201, source]
-config: [drums, bass, guitar, keys, harmony2]
+    song:
+      fade:
+        - begin
+        - 3.477
+        - drop: [10.201, album-track]
+instruments:
+  drums: true
+  bass: true
+  guitar: true
+  keys: true
+  vocal: 2

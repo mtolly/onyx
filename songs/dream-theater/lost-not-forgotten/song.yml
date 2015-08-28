@@ -1,10 +1,17 @@
-title: Lost Not Forgotten
-file-include: ../../../albums/a-dramatic-turn-of-events.yml
-track-number: 3
+metadata:
+  title: Lost Not Forgotten
+  file-include: ../../../albums/a-dramatic-turn-of-events.yml
+  track-number: 3
 audio:
+  album-track:
+    md5: 37c8a4b3668a0b68daf697f2b58d2b08
+    frames: 26976852
+plans:
   album:
-    fade:
-      - begin
-      - 3.088
-      - trim: [7.088, source]
-config: [drums]
+    song:
+      fade:
+        - begin
+        - 3.088
+        - trim: [7.088, album-track]
+instruments:
+  drums: true

@@ -1,21 +1,31 @@
-title: The Root of All Evil
-file-include: ../../../albums/octavarium.yml
-track-number: 1
+metadata:
+  title: The Root of All Evil
+  file-include: ../../../albums/octavarium.yml
+  track-number: 1
 audio:
+  album-track:
+    md5: 9685c3c0abd96e0e9b2ecffcad8d1365
+    frames: 22295784
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    fade:
-      - end
-      - 3.125
-      - trim:
+    each:
+      fade:
         - end
-        - 4.017
-        - pad: [1.699, source]
+        - 3.125
+        - trim:
+          - end
+          - 4.017
+          - pad: [1.699, jammit-track]
   album:
-    fade:
-      - end
-      - 3.125
-      - trim:
+    song:
+      fade:
         - end
-        - 13.208
-        - pad: [2.990, source]
-config: [drums]
+        - 3.125
+        - trim:
+          - end
+          - 13.208
+          - pad: [2.990, album-track]
+instruments:
+  drums: true

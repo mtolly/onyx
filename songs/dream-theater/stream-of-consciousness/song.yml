@@ -1,8 +1,14 @@
-title: Stream of Consciousness
-file-include: ../../../albums/train-of-thought.yml
-track-number: 6
+metadata:
+  title: Stream of Consciousness
+  file-include: ../../../albums/train-of-thought.yml
+  track-number: 6
 audio:
+  album-track:
+    md5: 8f1a01eac65add10b94efa1dd41fa32e
+    frames: 29823360
+plans:
   album:
-    pad: [4.979, source]
-config: [drums]
-guitar-tuning: [-1, -1, -1, -1, -1, -1]
+    song:
+      pad: [4.979, album-track]
+instruments:
+  drums: true

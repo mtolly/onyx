@@ -1,7 +1,14 @@
-title: This Dying Soul
-file-include: ../../../albums/train-of-thought.yml
-track-number: 2
+metadata:
+  title: This Dying Soul
+  file-include: ../../../albums/train-of-thought.yml
+  track-number: 2
 audio:
+  album-track:
+    md5: 15d29358a4bd3d730af30e11089cbc26
+    frames: 30317280
+plans:
   album:
-    pad: [3.539, source]
-config: [drums]
+    song:
+      pad: [3.539, album-track]
+instruments:
+  drums: true

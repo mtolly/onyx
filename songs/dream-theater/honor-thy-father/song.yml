@@ -1,7 +1,14 @@
-title: Honor Thy Father
-file-include: ../../../albums/train-of-thought.yml
-track-number: 4
+metadata:
+  title: Honor Thy Father
+  file-include: ../../../albums/train-of-thought.yml
+  track-number: 4
 audio:
+  album-track:
+    md5: bf8342e27676a60a60c5cc3da4f530d6
+    frames: 27083280
+plans:
   album:
-    pad: [3.095, source]
-config: [drums]
+    song:
+      pad: [3.095, album-track]
+instruments:
+  drums: true

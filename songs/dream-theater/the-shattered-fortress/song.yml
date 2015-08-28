@@ -1,7 +1,15 @@
-title: The Shattered Fortress
-file-include: ../../../albums/black-clouds-silver-linings.yml
-track-number: 4
+metadata:
+  title: The Shattered Fortress
+  file-include: ../../../albums/black-clouds-silver-linings.yml
+  track-number: 4
 audio:
+  album-track:
+    md5: 541c78674d3a967b005d2d6f600dbb9f
+    frames: 33927600
+# TODO: DVD
+plans:
   album:
-    pad: [7.079, source]
-config: [drums]
+    song:
+      pad: [7.079, album-track]
+instruments:
+  drums: true

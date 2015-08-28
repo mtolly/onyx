@@ -1,9 +1,19 @@
-title: I Walk Beside You
-file-include: ../../../albums/octavarium.yml
-track-number: 4
+metadata:
+  title: I Walk Beside You
+  file-include: ../../../albums/octavarium.yml
+  track-number: 4
 audio:
+  album-track:
+    md5: 4e193c4f7b1322f1a8d0b9c789f4d295
+    frames: 11877600
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad: [1.840, source]
+    each:
+      pad: [1.840, jammit-track]
   album:
-    pad: [3.651, source]
-config: [drums]
+    song:
+      pad: [3.651, album-track]
+instruments:
+  drums: true

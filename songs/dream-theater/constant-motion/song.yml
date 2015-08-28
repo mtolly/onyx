@@ -6,6 +6,7 @@ audio:
   album-track:
     md5: 8c906ac9ee62cccb895a0daaf5001049
     frames: 18317964
+# TODO: DVD and/or RBDLC mogg
 plans:
   album:
     song:

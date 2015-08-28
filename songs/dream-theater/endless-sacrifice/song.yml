@@ -1,7 +1,14 @@
-title: Endless Sacrifice
-file-include: ../../../albums/train-of-thought.yml
-track-number: 3
+metadata:
+  title: Endless Sacrifice
+  file-include: ../../../albums/train-of-thought.yml
+  track-number: 3
 audio:
+  album-track:
+    md5: 4c7768aca1b5f13b15de68688afdc69f
+    frames: 30184980
+plans:
   album:
-    pad: [5.390, source]
-config: [drums]
+    song:
+      pad: [5.390, album-track]
+instruments:
+  drums: true

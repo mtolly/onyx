@@ -1,8 +1,18 @@
-title: New Millennium
-file-include: ../../../albums/falling-into-infinity.yml
-track-number: 1
+metadata:
+  title: New Millennium
+  file-include: ../../../albums/falling-into-infinity.yml
+  track-number: 1
 audio:
-  jammit: source
+  album-track:
+    md5: a8a08bbf75f939397f79246983c4bd9c
+    frames: 22073520
+jammit:
+  jammit-track: {}
+plans:
+  jammit:
+    each: jammit-track
   album:
-    pad: [2.793, source]
-config: [drums]
+    song:
+      pad: [2.793, album-track]
+instruments:
+  drums: true

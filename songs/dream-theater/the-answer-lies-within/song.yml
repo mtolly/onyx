@@ -1,14 +1,24 @@
-title: The Answer Lies Within
-file-include: ../../../albums/octavarium.yml
-track-number: 2
+metadata:
+  title: The Answer Lies Within
+  file-include: ../../../albums/octavarium.yml
+  track-number: 2
 audio:
+  album-track:
+    md5: 99b484a9f825c8d75845bbdf7f6918a4
+    frames: 14690004
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad: [0.267, source]
+    each:
+      pad: [0.267, jammit-track]
   album:
-    pad:
-      - 2.848
-      - fade:
-        - end
-        - 2.098
-        - fade: [begin, 3.053, source]
-config: [drums]
+    song:
+      pad:
+        - 2.848
+        - fade:
+          - end
+          - 2.098
+          - fade: [begin, 3.053, album-track]
+instruments:
+  drums: true

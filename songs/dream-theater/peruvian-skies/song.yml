@@ -1,9 +1,19 @@
-title: Peruvian Skies
-file-include: ../../../albums/falling-into-infinity.yml
-track-number: 3
+metadata:
+  title: Peruvian Skies
+  file-include: ../../../albums/falling-into-infinity.yml
+  track-number: 3
 audio:
+  album-track:
+    md5: 22d463433f4ef22e502a0d3a771618d0
+    frames: 17773476
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad: [2.273, source]
+    each:
+      pad: [2.273, jammit-track]
   album:
-    pad: [4.300, source]
-config: [drums]
+    song:
+      pad: [4.300, album-track]
+instruments:
+  drums: true

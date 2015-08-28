@@ -1,7 +1,14 @@
-title: In the Name of God
-file-include: ../../../albums/train-of-thought.yml
-track-number: 7
+metadata:
+  title: In the Name of God
+  file-include: ../../../albums/train-of-thought.yml
+  track-number: 7
 audio:
+  album-track:
+    md5: e0d7ef9465510acd5b45d0572cd42e4e
+    frames: 37693740
+plans:
   album:
-    pad: [6.645, source]
-config: [drums]
+    song:
+      pad: [6.645, album-track]
+instruments:
+  drums: true

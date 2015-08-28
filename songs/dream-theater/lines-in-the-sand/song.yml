@@ -1,16 +1,28 @@
-title: Lines in the Sand
-file-include: ../../../albums/falling-into-infinity.yml
-track-number: 7
+metadata:
+  title: Lines in the Sand
+  file-include: ../../../albums/falling-into-infinity.yml
+  track-number: 7
 audio:
+  album-track:
+    md5: a180dd12fee3353604e351a8e8783ef2
+    frames: 32003076
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad:
-      - 2.849
-      - fade:
-        - begin
-        - 4.180
-        - trim: [2.222, source]
+    each:
+      pad:
+        - 2.849
+        - fade:
+          - begin
+          - 4.180
+          - trim: [2.222, jammit-track]
   album:
-    pad:
-      - 2.510
-      - fade: [begin, 4.261, source]
-config: [drums, guitar, bass]
+    song:
+      pad:
+        - 2.510
+        - fade: [begin, 4.261, album-track]
+instruments:
+  drums: true
+  guitar: true
+  bass: true

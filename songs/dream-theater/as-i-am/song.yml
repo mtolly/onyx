@@ -1,8 +1,14 @@
-title: As I Am
-file-include: ../../../albums/train-of-thought.yml
-track-number: 1
+metadata:
+  title: As I Am
+  file-include: ../../../albums/train-of-thought.yml
+  track-number: 1
 audio:
+  album-track:
+    md5: f574e025bacd9879f42dd830a323ea14
+    frames: 20631156
+plans:
   album:
-    pad: [3.181, source]
-config: [drums]
-guitar-tuning: [-4, -4, -4, -4, -4, -4]
+    song:
+      pad: [3.181, album-track]
+instruments:
+  drums: true

@@ -1,7 +1,15 @@
-title: Bridges in the Sky
-file-include: ../../../albums/a-dramatic-turn-of-events.yml
-track-number: 5
+metadata:
+  title: Bridges in the Sky
+  file-include: ../../../albums/a-dramatic-turn-of-events.yml
+  track-number: 5
 audio:
+  album-track:
+    md5: 7a7a854b84b2fa4bbf2b741e4ff07cc9
+    frames: 29168916
+plans:
   album:
-    pad: [5.460, source]
-config: [drums]
+    song:
+      pad: [5.460, album-track]
+instruments:
+  drums: true
+published: false

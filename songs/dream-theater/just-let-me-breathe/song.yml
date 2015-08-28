@@ -1,9 +1,19 @@
-title: Just Let Me Breathe
-file-include: ../../../albums/falling-into-infinity.yml
-track-number: 9
+metadata:
+  title: Just Let Me Breathe
+  file-include: ../../../albums/falling-into-infinity.yml
+  track-number: 9
 audio:
+  album-track:
+    md5: 0d02d23e5a8ad07292eee504b76ed2d7
+    frames: 14497140
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad: [1.901, source]
+    each:
+      pad: [1.901, jammit-track]
   album:
-    pad: [3.641, source]
-config: [drums]
+    song:
+      pad: [3.641, album-track]
+instruments:
+  drums: true

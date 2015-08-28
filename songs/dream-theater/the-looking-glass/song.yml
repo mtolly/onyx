@@ -4,4 +4,5 @@ track-number: 3
 audio:
   album:
     pad: [3.211, source]
-config: [drums]
+instruments:
+  drums: true

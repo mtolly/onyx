@@ -1,15 +1,19 @@
-title: Another Won (Live)
-file-include: ../../../albums/score.yml
-track-number: 3
+metadata:
+  title: Another Won (Live)
+  file-include: ../../../albums/score.yml
+  track-number: 3
 audio:
+  album-track:
+    md5: da6f46e92f9b7c4046ad2d357016d11d
+    frames: 14199612
+plans:
   album:
-    pad:
-      - 1.870
-      - fade:
-        - end
-        - 5.656
+    song:
+      pad:
+        - 1.870
         - fade:
-          - begin
-          - 1.051
-          - source
-config: [drums]
+          - end
+          - 5.656
+          - fade: [begin, 1.051, album-track]
+instruments:
+  drums: true

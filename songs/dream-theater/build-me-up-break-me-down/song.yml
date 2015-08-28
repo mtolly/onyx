@@ -1,10 +1,18 @@
-title: "Build Me Up, Break Me Down"
-file-include: ../../../albums/a-dramatic-turn-of-events.yml
-track-number: 2
+metadata:
+  title: "Build Me Up, Break Me Down"
+  file-include: ../../../albums/a-dramatic-turn-of-events.yml
+  track-number: 2
 audio:
+  album-track:
+    md5: 11d3bc1fa0130e8a47914088be5bb8ca
+    frames: 18491424
+plans:
   album:
-    fade:
-      - end
-      - 3.678
-      - pad: [3.570, source]
-config: [drums]
+    song:
+      fade:
+        - end
+        - 3.678
+        - pad: [3.570, album-track]
+instruments:
+  drums: true
+published: false

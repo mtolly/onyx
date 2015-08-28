@@ -1,12 +1,23 @@
-title: Panic Attack
-file-include: ../../../albums/octavarium.yml
-track-number: 5
+metadata:
+  title: Panic Attack
+  file-include: ../../../albums/octavarium.yml
+  track-number: 5
 audio:
+  album-track:
+    md5: f1f401028b8c8b3788fecbf817953145
+    frames: 21742476
+# TODO: jammit and/or RB2 mogg
+plans:
   album:
-    fade:
-      - end
-      - 0.3
-      - take:
-        - '7:20.188'
-        - pad: [3.778, source]
-config: [drums, guitar, bass, vocal]
+    song:
+      fade:
+        - end
+        - 0.3
+        - take:
+          - '7:20.188'
+          - pad: [3.778, album-track]
+instruments:
+  drums: true
+  guitar: true
+  bass: true
+  vocal: 1

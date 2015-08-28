@@ -1,9 +1,19 @@
-title: Never Enough
-file-include: ../../../albums/octavarium.yml
-track-number: 6
+metadata:
+  title: Never Enough
+  file-include: ../../../albums/octavarium.yml
+  track-number: 6
 audio:
+  album-track:
+    md5: 9409384735dd81810230c9d4e7ca098e
+    frames: 17926944
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad: [1.920, source]
+    each:
+      pad: [1.920, jammit-track]
   album:
-    pad: [3.707, source]
-config: [drums]
+    song:
+      pad: [3.707, album-track]
+instruments:
+  drums: true

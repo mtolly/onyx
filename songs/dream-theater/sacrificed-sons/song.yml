@@ -1,15 +1,25 @@
-title: Sacrificed Sons
-file-include: ../../../albums/octavarium.yml
-track-number: 7
+metadata:
+  title: Sacrificed Sons
+  file-include: ../../../albums/octavarium.yml
+  track-number: 7
 audio:
+  album-track:
+    md5: 94b099b38013cf144c4224827b4b8ad8
+    frames: 28354536
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    fade:
-      - begin
-      - 6.866
-      - trim: [46.526, source]
+    each:
+      fade:
+        - begin
+        - 6.866
+        - trim: [46.526, jammit-track]
   album:
-    fade:
-      - begin
-      - 6.866
-      - trim: [45.914, source]
-config: [drums]
+    song:
+      fade:
+        - begin
+        - 6.866
+        - trim: [45.914, album-track]
+instruments:
+  drums: true

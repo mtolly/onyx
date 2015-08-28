@@ -1,8 +1,19 @@
-title: Hell's Kitchen
-file-include: ../../../albums/falling-into-infinity.yml
-track-number: 6
+metadata:
+  title: "Hell's Kitchen"
+  file-include: ../../../albums/falling-into-infinity.yml
+  track-number: 6
 audio:
-  jammit: source
+  album-track:
+    md5: 74ddb05459b6ca11b1e09bc2c2ef6036
+    frames: 11317824
+  album-next: # Lines in the Sand
+    md5: a180dd12fee3353604e351a8e8783ef2
+    frames: 32003076
+jammit:
+  jammit-track: {}
+plans:
+  jammit:
+    each: jammit-track
   album:
     song:
       pad:
@@ -11,8 +22,7 @@ audio:
           - end
           - 4.500
           - concatenate:
-            - audio-album.xxx
-            - take: [5.696, audio-next.xxx]
-    drums:
-      silence: [2, 0]
-config: [drums]
+            - album-track
+            - take: [5.696, album-next]
+instruments:
+  drums: true
