@@ -97,7 +97,7 @@ expectedKeys keys = do
   hm <- lift ask
   case Map.keys hm \\ keys of
     []    -> return ()
-    unrec -> warn $ "Unrecognized object keys: " ++ show unrec
+    unrec -> fatal $ "Unrecognized object keys: " ++ show unrec
 
 data Instrument = Guitar | Bass | Drums | Keys | Vocal
   deriving (Eq, Ord, Show, Read, Enum, Bounded)

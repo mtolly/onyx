@@ -32,9 +32,10 @@ import qualified Data.DTA.Serialize               as D
 import qualified Data.DTA.Serialize.Magma         as Magma
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.Int                         (Int16)
-import           Data.List                        (isPrefixOf, nub)
+import           Data.List                        (isPrefixOf, nub, (\\))
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
@@ -103,6 +104,21 @@ main = do
   songYaml
     <-  readYAMLTree yamlPath
     >>= runReaderT (printStackTraceIO traceJSON)
+
+  -- make sure all audio leaves are defined, catch typos
+  let definedLeaves = HM.keys (_audio songYaml) ++ HM.keys (_jammit songYaml)
+  forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
+    let leaves = case plan of
+          EachPlan{..} -> toList _each
+          Plan{..} -> let
+            getLeaves = \case
+              Named t -> t
+              JammitSelect _ t -> t
+            in map getLeaves $ concatMap toList [_song, _guitar, _bass, _keys, _drums, _vocal]
+    case leaves \\ definedLeaves of
+      [] -> return ()
+      undefinedLeaves -> fail $
+        "Undefined leaves in plan " ++ show planName ++ " audio expression: " ++ show undefinedLeaves
 
   let audioSearch :: AudioFile -> Action (Maybe FilePath)
       audioSearch aud = do
@@ -200,10 +216,10 @@ main = do
               Nothing -> Resample
               Just _  -> id -- if rate is specified, don't auto-resample
             in maybeResample $ Input $ audioPath name
-          Nothing -> fail $ "Couldn't find an audio file named " ++ show name
+          Nothing -> fail $ "Couldn't find an audio source named " ++ show name
         manualLeaf (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
           Just _  -> return $ Input $ jammitPath name audpart
-          Nothing -> fail $ "Couldn't find a Jammit file named " ++ show name
+          Nothing -> fail $ "Couldn't find a Jammit source named " ++ show name
 
     -- The "auto" mode of Jammit audio assignment, using EachPlan
     let autoLeaf :: Maybe J.Instrument -> T.Text -> Action (Audio Duration FilePath)
