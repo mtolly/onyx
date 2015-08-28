@@ -1,8 +1,18 @@
-title: Surrounded
-file-include: ../../../albums/images-and-words.yml
-track-number: 4
+metadata:
+  title: Surrounded
+  file-include: ../../../albums/images-and-words.yml
+  track-number: 4
 audio:
-  jammit: source
+  album-track:
+    md5: d974c89d6a9fc033d4e2d48ddb2d2413
+    frames: 14555940
+jammit:
+  jammit-track: {}
+plans:
+  jammit:
+    each: jammit-track
   album:
-    pad: [3.490, source]
-config: [drums]
+    song:
+      pad: [3.490, album-track]
+instruments:
+  drums: true

@@ -1,9 +1,19 @@
-title: Under a Glass Moon
-file-include: ../../../albums/images-and-words.yml
-track-number: 6
+metadata:
+  title: Under a Glass Moon
+  file-include: ../../../albums/images-and-words.yml
+  track-number: 6
 audio:
+  album-track:
+    md5: 8dfe009afd7cb3d224a92971c0890bd5
+    frames: 18671940
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad: [1.704, source]
+    each:
+      pad: [1.704, jammit-track]
   album:
-    pad: [3.051, source]
-config: [drums]
+    song:
+      pad: [3.051, album-track]
+instruments:
+  drums: true

@@ -4,8 +4,8 @@ metadata:
   track-number: 4
 audio:
   album-track:
-    md5: TODO
-    frames: 0 # TODO
+    md5: 410b38285daa0447d0c1cec8f5fbac1f
+    frames: 18165672
 plans:
   album:
     song:

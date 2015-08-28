@@ -4,8 +4,8 @@ metadata:
   track-number: 6
 audio:
   album-track:
-    md5: TODO
-    frames: 0 # TODO
+    md5: bcdcc44fd651b5f632e5e5f66619e384
+    frames: 9103487
 plans:
   album:
     song:
@@ -15,5 +15,3 @@ instruments:
   bass: true
   guitar: true
   keys: true
-comments:
-- "Chart confidence: *high*. Written to PledgeMusic stems."

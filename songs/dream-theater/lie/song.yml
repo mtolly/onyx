@@ -1,12 +1,22 @@
-title: Lie
-file-include: ../../../albums/awake.yml
-track-number: 8
+metadata:
+  title: Lie
+  file-include: ../../../albums/awake.yml
+  track-number: 8
 audio:
+  album-track:
+    md5: 74d32b9e3d132682003512be8fce9d27
+    frames: 17369520
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad: [2.613, source]
+    each:
+      pad: [2.613, jammit-track]
   album:
-    fade:
-      - begin
-      - 0.172
-      - pad: [4.918, source]
-config: [drums]
+    song:
+      fade:
+        - begin
+        - 0.172
+        - pad: [4.918, album-track]
+instruments:
+  drums: true

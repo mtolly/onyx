@@ -4,12 +4,12 @@ metadata:
   track-number: 2
 audio:
   album-track:
-    md5: TODO
-    frames: 0 # TODO
+    md5: e96fc8412693ac582bcd3aa21fcfbd4e
+    frames: 12511464
 plans:
   album:
     song:
       pad: [0.650, album-track]
 instruments:
   drums: true
-
+published: false

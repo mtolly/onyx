@@ -1,9 +1,19 @@
-title: Lifting Shadows Off a Dream
-file-include: ../../../albums/awake.yml
-track-number: 9
+metadata:
+  title: Lifting Shadows Off a Dream
+  file-include: ../../../albums/awake.yml
+  track-number: 9
 audio:
+  album-track:
+    md5: 7c450cfdecaf4ea297513c44d1438ea2
+    frames: 16102380
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad: [2.178, source]
+    each:
+      pad: [2.178, jammit-track]
   album:
-    pad: [4.173, source]
-config: [drums]
+    song:
+      pad: [4.173, album-track]
+instruments:
+  drums: true

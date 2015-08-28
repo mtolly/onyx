@@ -1,11 +1,25 @@
-title: Pull Me Under
-file-include: ../../../albums/images-and-words.yml
-track-number: 1
+metadata:
+  title: Pull Me Under
+  file-include: ../../../albums/images-and-words.yml
+  track-number: 1
 audio:
+  album-track:
+    md5: baa4dd6cd8d45a049e0e5ced76b423ff
+    frames: 21782460
+  greatest-hit-track:
+    md5: TODO
+    frames: 0 # TODO
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad: [2.314, source]
+    each:
+      pad: [2.314, jammit-track]
   album:
-    pad: [4.317, source]
-  hit:
-    pad: [4.340, source]
-config: [drums]
+    song:
+      pad: [4.317, album-track]
+  greatest-hit:
+    song:
+      pad: [4.340, greatest-hit-track]
+instruments:
+  drums: true

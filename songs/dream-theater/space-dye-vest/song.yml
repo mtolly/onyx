@@ -1,9 +1,20 @@
-title: Space-Dye Vest
-file-include: ../../../albums/awake.yml
-track-number: 11
+metadata:
+  title: Space-Dye Vest
+  file-include: ../../../albums/awake.yml
+  track-number: 11
 audio:
+  album-track:
+    md5: 45abe2440c6429c5787a4bc490280980
+    frames: 19802076
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad: [1.260, source]
+    each:
+      pad: [1.260, jammit-track]
   album:
-    pad: [4.540, source]
-config: [drums]
+    song:
+      pad: [4.540, album-track]
+instruments:
+  drums: true
+

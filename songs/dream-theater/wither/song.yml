@@ -1,34 +1,35 @@
-title: Wither
-file-include: ../../../albums/black-clouds-silver-linings.yml
-track-number: 3
+metadata:
+  title: Wither
+  file-include: ../../../albums/black-clouds-silver-linings.yml
+  track-number: 3
 audio:
   album-track:
-    md5: TODO
-    frames: TODO
-  stem-drum:
+    md5: eef63d38e7705ea522ed7383931850fd
+    frames: 14360136
+  deluxe-drum:
     name: "Wither Drum Stem.flac"
-    md5: TODO
-    frames: TODO
-  stem-bass:
+    md5: d2fd1e44f3550a2d7d7b8da13e978ba8
+    frames: 14576414
+  deluxe-bass:
     name: "Wither Bass Stem.flac"
-    md5: TODO
-    frames: TODO
-  stem-guitar:
+    md5: b3c7605bb4a1055434750c20d014a4ea
+    frames: 14576414
+  deluxe-guitar:
     name: "Wither Guitar Stem.flac"
-    md5: TODO
-    frames: TODO
-  stem-keys:
+    md5: 90d6649008db3287ddb1b5bbb087e053
+    frames: 14576414
+  deluxe-keys:
     name: "Wither Keys Stem.flac"
-    md5: TODO
-    frames: TODO
-  stem-solo:
+    md5: e18ce00eb96c925578c0ceabf73884cb
+    frames: 14576414
+  deluxe-solo:
     name: "Wither Solo Stem.flac"
-    md5: TODO
-    frames: TODO
-  stem-vocal:
+    md5: 42e5bec9d9a3384793eafc3639b76d53
+    frames: 14576414
+  deluxe-vocal:
     name: "Wither Vocal Stem.flac"
-    md5: TODO
-    frames: TODO
+    md5: 4032e17e25f3bb602c735961f037c6d8
+    frames: 14576414
 plans:
   album:
     song:
@@ -37,16 +38,17 @@ plans:
     drums:
       pad:
         - 3.750
-        - gain: [0.95, stem-drum]
+        - gain: [0.95, deluxe-drum]
     song:
       pad:
         - 3.750
         - gain:
           - 0.4
           - mix:
-            - gain: [1.2, stem-bass]
-            - gain: [1.1, stem-guitar]
-            - gain: [0.9, stem-keys]
-            - gain: [0.9, stem-solo]
-            - gain: [1.5, stem-vocal]
-instruments: [drums]
+            - gain: [1.2, deluxe-bass]
+            - gain: [1.1, deluxe-guitar]
+            - gain: [0.9, deluxe-keys]
+            - gain: [0.9, deluxe-solo]
+            - gain: [1.5, deluxe-vocal]
+instruments:
+  drums: true

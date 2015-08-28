@@ -1,7 +1,14 @@
-title: The Count of Tuscany
-file-include: ../../../albums/black-clouds-silver-linings.yml
-track-number: 6
+metadata:
+  title: The Count of Tuscany
+  file-include: ../../../albums/black-clouds-silver-linings.yml
+  track-number: 6
 audio:
+  album-track:
+    md5: 5cb364825014fe9d5351ea1e8952c850
+    frames: 50991360
+plans:
   album:
-    pad: [3.351, source]
-config: [drums]
+    song:
+      pad: [3.351, album-track]
+instruments:
+  drums: true

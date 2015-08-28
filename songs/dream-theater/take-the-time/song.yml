@@ -1,8 +1,18 @@
-title: Take the Time
-file-include: ../../../albums/images-and-words.yml
-track-number: 3
+metadata:
+  title: Take the Time
+  file-include: ../../../albums/images-and-words.yml
+  track-number: 3
 audio:
-  jammit: source
+  album-track:
+    md5: 91e6d6aba9f62be55dc75c2d573d25e0
+    frames: 22101744
+jammit:
+  jammit-track: {}
+plans:
+  jammit:
+    each: jammit-track
   album:
-    pad: [0.680, source]
-config: [drums]
+    song:
+      pad: [0.680, album-track]
+instruments:
+  drums: true

@@ -1,9 +1,19 @@
-title: Scarred
-file-include: ../../../albums/awake.yml
-track-number: 10
+metadata:
+  title: Scarred
+  file-include: ../../../albums/awake.yml
+  track-number: 10
 audio:
+  album-track:
+    md5: 36a8bcb62e9f69f6b4181e0dab14ceb1
+    frames: 29069544
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad: [2.580, source]
+    each:
+      pad: [2.580, jammit-track]
   album:
-    pad: [4.946, source]
-config: [drums]
+    song:
+      pad: [4.946, album-track]
+instruments:
+  drums: true

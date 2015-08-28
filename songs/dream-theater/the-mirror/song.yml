@@ -1,9 +1,19 @@
-title: The Mirror
-file-include: ../../../albums/awake.yml
-track-number: 7
+metadata:
+  title: The Mirror
+  file-include: ../../../albums/awake.yml
+  track-number: 7
 audio:
+  album-track:
+    md5: 15949f8eb9316408ba4b1f3429e4a4eb
+    frames: 17875200
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad: [0.786, source]
+    each:
+      pad: [0.786, jammit-track]
   album:
-    pad: [5.520, source]
-config: [drums]
+    song:
+      pad: [5.520, album-track]
+instruments:
+  drums: true

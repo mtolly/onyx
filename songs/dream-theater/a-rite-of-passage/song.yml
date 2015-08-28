@@ -1,9 +1,15 @@
-title: A Rite of Passage
-file-include: ../../../albums/black-clouds-silver-linings.yml
-track-number: 2
+metadata:
+  title: A Rite of Passage
+  file-include: ../../../albums/black-clouds-silver-linings.yml
+  track-number: 2
 audio:
+  album-track:
+    md5: e8aa697d723d6cdd3b069d1357adf90e
+    frames: 22763832
+plans:
+  # TODO: BCSL deluxe edition stems, will require heavy remixing
   album:
-    pad: [4.656, source]
-config: [drums]
-
-# TODO: BCSL deluxe edition stems, will require heavy remixing
+    song:
+      pad: [4.656, album-track]
+instruments:
+  drums: true

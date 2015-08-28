@@ -134,7 +134,7 @@ data SongYaml = SongYaml
 
 mapping :: (Monad m) => Parser m A.Value a -> Parser m A.Value (Map.HashMap T.Text a)
 mapping p = lift ask >>= \case
-  A.Object o -> mapM (\x -> parseFrom x p) o
+  A.Object o -> Map.traverseWithKey (\k x -> inside ("mapping key " ++ show k) $ parseFrom x p) o
   _          -> crash "Expected object, but found"
 
 list :: (Monad m) => Parser m A.Value a -> Parser m A.Value [a]
@@ -232,7 +232,7 @@ instance TraceJSON Plan where
       return EachPlan{..}
     <|> do
       let defaultSilence = fromMaybe $ Silence 2 $ Seconds 1
-      _song   <- defaultSilence <$> optional "song"   traceJSON
+      _song   <-                    required "song"   traceJSON
       _guitar <- defaultSilence <$> optional "guitar" traceJSON
       _bass   <- defaultSilence <$> optional "bass"   traceJSON
       _keys   <- defaultSilence <$> optional "keys"   traceJSON

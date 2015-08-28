@@ -1,9 +1,19 @@
-title: Learning to Live
-file-include: ../../../albums/images-and-words.yml
-track-number: 8
+metadata:
+  title: Learning to Live
+  file-include: ../../../albums/images-and-words.yml
+  track-number: 8
 audio:
+  album-track:
+    md5: 171df5323358d8859577b7ccccf4cc84
+    frames: 30438996
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad: [0.222, source]
+    each:
+      pad: [0.222, jammit-track]
   album:
-    pad: [3.348, source]
-config: [drums]
+    song:
+      pad: [3.348, album-track]
+instruments:
+  drums: true

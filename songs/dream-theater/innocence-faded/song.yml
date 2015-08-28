@@ -1,8 +1,18 @@
-title: Innocence Faded
-file-include: ../../../albums/awake.yml
-track-number: 3
+metadata:
+  title: Innocence Faded
+  file-include: ../../../albums/awake.yml
+  track-number: 3
 audio:
-  jammit: source
+  album-track:
+    md5: 906b724e1022eadcf81ecc636b206c2a
+    frames: 15105720
+jammit:
+  jammit-track: {}
+plans:
+  jammit:
+    each: jammit-track
   album:
-    pad: [3.255, source]
-config: [drums]
+    song:
+      pad: [3.255, album-track]
+instruments:
+  drums: true

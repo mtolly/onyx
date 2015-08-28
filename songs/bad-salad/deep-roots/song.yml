@@ -8,14 +8,24 @@ audio:
     frames: 22275850
   pledgemusic-drums:
     name: BadSalad-Puzzled-3-DeepRoots-Stem-Drums.flac
+    md5: ef508f4f2f29b26611e28be888014ff2
+    frames: 22431702
   pledgemusic-bass:
     name: BadSalad-Puzzled-3-DeepRoots-Stem-Bass.flac
+    md5: 3bd41e4e69fb335891e6f54c090acfcc
+    frames: 22431702
   pledgemusic-guitars:
     name: BadSalad-Puzzled-3-DeepRoots-Stem-Guitars.flac
+    md5: ed369a97abb46d6701f41bcf3a2fa3cb
+    frames: 22431702
   pledgemusic-keyboards:
     name: BadSalad-Puzzled-3-DeepRoots-Stem-Keyboards.flac
+    md5: 26c60460fc3c4884a6a17d27f9ed38b0
+    frames: 22431702
   pledgemusic-vocals:
     name: BadSalad-Puzzled-3-DeepRoots-Stem-Vocals.flac
+    md5: 0552ae36c67e9df28c390e2681d7f056
+    frames: 22431702
 plans:
   album:
     song:

@@ -2,7 +2,6 @@ metadata:
   title: The Ytse Jam
   file-include: ../../../albums/when-dream-and-day-unite.yml
   track-number: 3
-  file-countin: ../../../sound/hihat-foot.wav
 audio:
   album-track:
     md5: 69f3717eaacd220a1903afe5b271734e

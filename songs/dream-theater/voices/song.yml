@@ -1,17 +1,27 @@
-title: Voices
-jammit-title: A Mind Beside Itself II. Voices
-file-include: ../../../albums/awake.yml
-track-number: 5
+metadata:
+  title: Voices
+  file-include: ../../../albums/awake.yml
+  track-number: 5
 audio:
+  album-track:
+    md5: 78eb16e2f33d94610d3d174ca6fa66d5
+    frames: 26188344
+jammit:
+  jammit-track:
+    title: "A Mind Beside Itself II. Voices"
+plans:
   jammit:
-    pad:
-      - 2.877
-      - fade:
-        - begin
-        - 0.477
-        - trim: [3.183, source]
+    each:
+      pad:
+        - 2.877
+        - fade:
+          - begin
+          - 0.477
+          - trim: [3.183, jammit-track]
   album:
-    pad:
-      - 2.893
-      - fade: [begin, 0.538, source]
-config: [drums]
+    song:
+      pad:
+        - 2.893
+        - fade: [begin, 0.538, album-track]
+instruments:
+  drums: true

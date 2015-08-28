@@ -1,9 +1,21 @@
-title: "Metropolis, Pt. 1: The Miracle and the Sleeper"
-jammit-title: Metropolis Pt. 1
-file-include: ../../../albums/images-and-words.yml
-track-number: 5
+metadata:
+  title: "Metropolis, Pt. 1: The Miracle and the Sleeper"
+  file-include: ../../../albums/images-and-words.yml
+  track-number: 5
 audio:
-  jammit: source
+  album-track:
+    md5: b49158e869adea023c22239c9e0a3d06
+    frames: 25231080
+jammit:
+  jammit-track:
+    title: "Metropolis Pt. 1"
+plans:
+  jammit:
+    each: jammit-track
   album:
-    trim: [0.379, source]
-config: [drums, bass, guitar]
+    song:
+      trim: [0.379, album-track]
+instruments:
+  drums: true
+  bass: true
+  guitar: true

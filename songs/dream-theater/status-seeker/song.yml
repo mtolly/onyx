@@ -1,7 +1,14 @@
-title: Status Seeker
-file-include: ../../../albums/when-dream-and-day-unite.yml
-track-number: 2
+metadata:
+  title: Status Seeker
+  file-include: ../../../albums/when-dream-and-day-unite.yml
+  track-number: 2
 audio:
+  album-track:
+    md5: 5b1c4b70eb58fa1ac509b1396b86e86c
+    frames: 11343696
+plans:
   album:
-    pad: [3.166, source]
-config: [drums]
+    song:
+      pad: [3.166, album-track]
+instruments:
+  drums: true

@@ -1,6 +1,7 @@
-title: A Fortune in Lies
-file-include: ../../../albums/when-dream-and-day-unite.yml
-track-number: 1
+metadata:
+  title: A Fortune in Lies
+  file-include: ../../../albums/when-dream-and-day-unite.yml
+  track-number: 1
 audio:
   album-track:
     md5: 0cbb564eca8ebc7c029de5074c221ee6
@@ -9,4 +10,5 @@ plans:
   album:
     song:
       pad: [1.724, album-track]
-instruments: [drums]
+instruments:
+  drums: true

@@ -1,7 +1,14 @@
-title: Light Fuse and Get Away
-file-include: ../../../albums/when-dream-and-day-unite.yml
-track-number: 5
+metadata:
+  title: Light Fuse and Get Away
+  file-include: ../../../albums/when-dream-and-day-unite.yml
+  track-number: 5
 audio:
+  album-track:
+    md5: fdcd9aeb080ec52a93df92353cc5a1e3
+    frames: 19571580
+plans:
   album:
-    pad: [0.611, source]
-config: [drums]
+    song:
+      pad: [0.611, album-track]
+instruments:
+  drums: true

@@ -1,7 +1,15 @@
-title: Afterlife
-file-include: ../../../albums/when-dream-and-day-unite.yml
-track-number: 6
+metadata:
+  title: Afterlife
+  file-include: ../../../albums/when-dream-and-day-unite.yml
+  track-number: 6
 audio:
+  album-track:
+    md5: 9efb34bef52c744d1b71ebeb71ae11a8
+    frames: 14419524
+  album-next: # The Ones Who Help to Set the Sun
+    md5: 5cc7df2bf488912a9d733be1932b1f0c
+    frames: 21388500
+plans:
   album:
     song:
       pad:
@@ -10,10 +18,9 @@ audio:
           - end
           - 1.357
           - concatenate:
-            - audio-album.xxx
+            - album-track
             - take:
               - 10.383
-              - audio-next.xxx
-    drums:
-      silence: [2, 0]
-config: [drums]
+              - album-next
+instruments:
+  drums: true

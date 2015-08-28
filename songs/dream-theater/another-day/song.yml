@@ -1,8 +1,20 @@
-title: Another Day
-file-include: ../../../albums/images-and-words.yml
-track-number: 2
+metadata:
+  title: Another Day
+  file-include: ../../../albums/images-and-words.yml
+  track-number: 2
 audio:
-  jammit: source
+  album-track:
+    md5: 69b62917ce8522f2ff4605f96d60d60c
+    frames: 11618880
+jammit:
+  jammit-track: {}
+plans:
+  jammit:
+    each: jammit-track
   album:
-    pad: [3.109, source]
-config: [drums, bass, guitar]
+    song:
+      pad: [3.109, album-track]
+instruments:
+  drums: true
+  bass: true
+  guitar: true
