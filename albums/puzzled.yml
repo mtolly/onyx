@@ -3,6 +3,5 @@ artist: Bad Salad
 year: 2013
 genre: metal
 subgenre: prog
-vocal-gender: male
 file-album-art: ../covers/puzzled.jpg
-file-include: default.yml
+file-countin: ../sound/hihat-foot.wav

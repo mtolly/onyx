@@ -1,7 +1,14 @@
-title: Brooklyn
-file-include: ../../../albums/center-level-roar.yml
-track-number: 4
+metadata:
+  title: Brooklyn
+  file-include: ../../../albums/center-level-roar.yml
+  track-number: 4
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+plans:
   album:
-    pad: [4.739, source]
-config: [drums]
+    song:
+      pad: [4.739, album-track]
+instruments:
+  drums: true

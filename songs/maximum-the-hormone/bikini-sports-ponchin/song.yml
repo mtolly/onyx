@@ -1,7 +1,14 @@
-title: Bikini Sports Ponchin
-file-include: ../../../albums/buiikikaesu.yml
-track-number: 9
+metadata:
+  title: Bikini Sports Ponchin
+  file-include: ../../../albums/buiikikaesu.yml
+  track-number: 9
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+plans:
   album:
-    pad: [2.969, source]
-config: [drums]
+    song:
+      pad: [2.969, album-track]
+instruments:
+  drums: true

@@ -1,7 +1,14 @@
-title: Last Night
-file-include: ../../../albums/for-long-tomorrow.yml
-track-number: 9
+metadata:
+  title: Last Night
+  file-include: ../../../albums/for-long-tomorrow.yml
+  track-number: 9
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+plans:
   album:
-    pad: [3.250, source]
-config: [drums]
+    song:
+      pad: [3.250, album-track]
+instruments:
+  drums: true

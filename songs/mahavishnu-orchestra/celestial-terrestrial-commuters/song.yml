@@ -1,9 +1,19 @@
-title: Celestial Terrestrial Commuters
-file-include: ../../../albums/birds-of-fire.yml
-track-number: 3
+metadata:
+  title: Celestial Terrestrial Commuters
+  file-include: ../../../albums/birds-of-fire.yml
+  track-number: 3
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+jammit:
+  jammit-track: {}
+plans:
   jammit:
-    pad: [3.649, source]
+    each:
+      pad: [3.649, jammit-track]
   album:
-    pad: [4.381, source]
-config: [drums]
+    song:
+      pad: [4.381, album-track]
+instruments:
+  drums: true

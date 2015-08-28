@@ -1,7 +1,14 @@
-title: "Ticks & Leeches"
-file-include: "../../../albums/lateralus.yml"
-track-number: 8
+metadata:
+  title: "Ticks & Leeches"
+  file-include: "../../../albums/lateralus.yml"
+  track-number: 8
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+plans:
   album:
-    pad: [5.295, source]
-config: [drums]
+    song:
+      pad: [5.295, album-track]
+instruments:
+  drums: true

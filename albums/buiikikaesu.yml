@@ -3,6 +3,5 @@ artist: Maximum the Hormone
 year: 2007
 genre: numetal
 subgenre: numetal
-vocal-gender: male
 file-album-art: ../covers/buiikikaesu.jpg
-file-include: default.yml
+file-countin: ../sound/hihat-foot.wav

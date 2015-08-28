@@ -1,7 +1,17 @@
-title: Constant Motion
-file-include: ../../../albums/systematic-chaos.yml
-track-number: 3
+metadata:
+  title: Constant Motion
+  file-include: ../../../albums/systematic-chaos.yml
+  track-number: 3
 audio:
+  album-track:
+    md5: 8c906ac9ee62cccb895a0daaf5001049
+    frames: 18317964
+plans:
   album:
-    pad: [3.593, source]
-config: [drums, bass, guitar]
+    song:
+      pad: [3.593, album-track]
+instruments:
+  drums: true
+  bass: true
+  guitar: true
+  vocal: 1

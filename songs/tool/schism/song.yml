@@ -1,7 +1,14 @@
-title: Schism
-file-include: "../../../albums/lateralus.yml"
-track-number: 1
+metadata:
+  title: Schism
+  file-include: "../../../albums/lateralus.yml"
+  track-number: 5
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+plans:
   album:
-    pad: [5.283, source]
-config: [drums]
+    song:
+      pad: [5.283, album-track]
+instruments:
+  drums: true

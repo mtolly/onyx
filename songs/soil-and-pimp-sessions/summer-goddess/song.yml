@@ -1,7 +1,15 @@
-title: Summer Goddess
-file-include: ../../../albums/pimp-of-the-year.yml
-track-number: 2
+metadata:
+  title: Summer Goddess
+  file-include: ../../../albums/pimp-of-the-year.yml
+  track-number: 2
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+plans:
   album:
-    pad: [0.650, source]
-config: [drums]
+    song:
+      pad: [0.650, album-track]
+instruments:
+  drums: true
+

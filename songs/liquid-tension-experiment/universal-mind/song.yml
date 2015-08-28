@@ -1,11 +1,14 @@
-title: Universal Mind
-file-include: ../../../albums/liquid-tension-experiment.yml
-track-number: 8
+metadata:
+  title: Universal Mind
+  file-include: ../../../albums/liquid-tension-experiment.yml
+  track-number: 8
 audio-files:
-  album:
+  album-track:
     md5: 3a8042ea3c93f7843757a18e352dfb50
     frames: 20865180
-versions:
+plans:
   album:
-    pad: [2.830, album]
-instruments: [drums]
+    song:
+      pad: [2.830, album-track]
+instruments:
+  drums: true

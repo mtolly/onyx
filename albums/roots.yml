@@ -4,4 +4,4 @@ year: 2011
 genre: popdanceelectronic
 subgenre: chiptune
 file-album-art: ../covers/roots.png
-file-include: default.yml
+file-countin: ../sound/hihat-foot.wav

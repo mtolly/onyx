@@ -1,7 +1,17 @@
-title: The Grudge
-file-include: "../../../albums/lateralus.yml"
-track-number: 1
+metadata:
+  title: The Grudge
+  file-include: "../../../albums/lateralus.yml"
+  track-number: 1
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+plans:
   album:
-    pad: [1.426, source]
-config: [drums, bass, guitar, vocal]
+    song:
+      pad: [1.426, album-track]
+instruments:
+  drums: true
+  bass: true
+  guitar: true
+  vocal: 1

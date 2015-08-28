@@ -1,6 +1,7 @@
-title: '914'
-file-include: ../../../albums/liquid-tension-experiment-2.yml
-track-number: 3
+metadata:
+  title: '914'
+  file-include: ../../../albums/liquid-tension-experiment-2.yml
+  track-number: 3
 audio:
   album-track:
     md5: 409af3c3a13f04aa6d2d05606c1f44c8
@@ -9,4 +10,5 @@ plans:
   album:
     song:
       pad: [4.262, album-track]
-instruments: [drums]
+instruments:
+  drums: true

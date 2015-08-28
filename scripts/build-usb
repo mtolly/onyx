@@ -9,12 +9,14 @@ def system_(*args)
   raise(IOError, "Command returned #{$?.exitstatus}") unless result
 end
 
-if ARGV.length < 2
-  STDERR.puts "Usage: #{$0} path/to/song1 [path/to/song2 ...] /Volumes/MyUSBDrive/"
+dash = ARGV.index { |s| s.start_with? '--' } || ARGV.length
+if dash < 2
+  STDERR.puts "Usage: #{$0} path/to/song1 [path/to/song2 ...] /Volumes/MyUSBDrive/ [--options]"
   exit 1
 end
-songs = ARGV[0..-2]
-usb = File.expand_path(ARGV[-1])
+songs = ARGV[0 .. dash - 2]
+usb = ARGV[dash - 1]
+options = ARGV[dash .. -1]
 
 rb3 = "#{usb}/Content/0000000000000000/45410914/00000001"
 FileUtils.mkdir_p rb3
@@ -28,10 +30,23 @@ class String
 end
 
 songs.each do |song|
-  FileUtils.cd(song) do
-    p FileUtils.pwd
-    con_title = YAML.load_file('song.yml')['title'].gsub(/[^A-Za-z0-9]/, '') + '_' + (FileUtils.pwd.javahash % 10000).to_s
-    system_ 'onyxbuild gen/album/2p/rb3.con'
-    FileUtils.cp 'gen/album/2p/rb3.con', "#{rb3}/#{con_title}"
+  p song
+  con_title = YAML.load_file("#{song}/song.yml")['metadata']['title'].gsub(/[^A-Za-z0-9]/, '') + '_' + (song.javahash % 10000).to_s
+  # try plans, multitrack ones first
+  successful = nil
+  ['jammit', 'pledgemusic', 'drumcam', 'album'].each do |plan|
+    begin
+      system_ "onyxbuild --song #{song}/song.yml gen/plan/#{plan}/2p/rb3.con #{options.join(' ')}"
+      successful = plan
+    rescue IOError
+      # not successful, try next plan
+    end
+    break if successful
+  end
+  if successful
+    FileUtils.cp "#{song}/gen/plan/#{successful}/2p/rb3.con", "#{rb3}/#{con_title}"
+  else
+    STDERR.puts "Failed to build song #{song}"
+    exit 1
   end
 end

@@ -1,7 +1,14 @@
-title: Sabotage
-file-include: ../../../albums/pimp-of-the-year.yml
-track-number: 5
+metadata:
+  title: Sabotage
+  file-include: ../../../albums/pimp-of-the-year.yml
+  track-number: 5
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+plans:
   album:
-    pad: [2.629, source]
-config: [drums]
+    song:
+      pad: [2.629, album-track]
+instruments:
+  drums: true

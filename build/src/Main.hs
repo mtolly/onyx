@@ -97,7 +97,7 @@ main = do
   yamlPath <- canonicalizePath $
     fromMaybe "song.yml" $ listToMaybe [ f | SongFile f <- opts ]
   audioDirs <- mapM canonicalizePath $
-    "." : takeDirectory yamlPath : [ d | AudioDir d <- opts ]
+    takeDirectory yamlPath : [ d | AudioDir d <- opts ]
   jammitDirs <- mapM canonicalizePath $
     maybe id (:) defaultJammitDir [ d | JammitDir d <- opts ]
   songYaml

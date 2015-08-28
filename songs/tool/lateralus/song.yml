@@ -1,7 +1,17 @@
-title: Lateralus
-file-include: "../../../albums/lateralus.yml"
-track-number: 9
+metadata:
+  title: Lateralus
+  file-include: "../../../albums/lateralus.yml"
+  track-number: 9
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+plans:
   album:
-    pad: [4.049, source]
-config: [drums, bass, guitar, vocal]
+    song:
+      pad: [4.049, album-track]
+instruments:
+  drums: true
+  bass: true
+  guitar: true
+  vocal: 1

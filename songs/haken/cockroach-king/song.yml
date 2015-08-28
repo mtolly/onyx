@@ -1,7 +1,14 @@
-title: Cockroach King
-file-include: ../../../albums/the-mountain.yml
-track-number: 3
+metadata:
+  title: Cockroach King
+  file-include: ../../../albums/the-mountain.yml
+  track-number: 3
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+plans:
   album:
-    pad: [4.941, source]
-config: [drums]
+    song:
+      pad: [4.941, album-track]
+instruments:
+  drums: true

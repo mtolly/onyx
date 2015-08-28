@@ -3,6 +3,5 @@ artist: Dream Theater
 year: 2003
 genre: metal
 subgenre: prog
-vocal-gender: male
 file-album-art: ../covers/train-of-thought.jpg
-file-include: default.yml
+file-countin: ../sound/hihat-foot.wav

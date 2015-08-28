@@ -1,8 +1,15 @@
-title: The Dark Eternal Night
-file-include: ../../../albums/systematic-chaos.yml
-track-number: 4
+metadata:
+  title: The Dark Eternal Night
+  file-include: ../../../albums/systematic-chaos.yml
+  track-number: 4
 audio:
+  album-track:
+    md5: 6e27ff951e33c336844f196ff0932c39
+    frames: 23528820
+plans:
   album:
-    pad: [4.450, source]
+    song:
+      pad: [4.450, album-track]
   # TODO: DVD audio with non-fade-out ending
-config: [drums]
+instruments:
+  drums: true

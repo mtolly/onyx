@@ -1,10 +1,13 @@
-title: When the Water Breaks
-file-include: ../../../albums/liquid-tension-experiment-2.yml
-track-number: 5
+metadata:
+  title: When the Water Breaks
+  file-include: ../../../albums/liquid-tension-experiment-2.yml
+  track-number: 5
 audio-files:
-  album:
+  album-track:
     md5: 46262fa66f94bda9b20a5f86944d1b10
     frames: 44882040
-versions:
-  album: album
-instruments: [drums]
+plans:
+  album:
+    song: album-track
+instruments:
+  drums: true

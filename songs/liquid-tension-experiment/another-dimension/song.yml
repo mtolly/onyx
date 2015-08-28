@@ -1,6 +1,7 @@
-title: Another Dimension
-file-include: ../../../albums/liquid-tension-experiment-2.yml
-track-number: 4
+metadata:
+  title: Another Dimension
+  file-include: ../../../albums/liquid-tension-experiment-2.yml
+  track-number: 4
 audio:
   album-track:
     md5: 979287af96bd996ae64e35728a77590f
@@ -9,4 +10,5 @@ plans:
   album:
     song:
       pad: [4.067, album-track]
-instruments: [drums]
+instruments:
+  drums: true

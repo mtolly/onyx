@@ -1,10 +1,11 @@
-title: Moonlight
-file-include: ../../../albums/puzzled.yml
-track-number: 2
+metadata:
+  title: Moonlight
+  file-include: ../../../albums/puzzled.yml
+  track-number: 2
 audio:
   album-track:
     md5: TODO
-    frames: TODO
+    frames: 0 # TODO
   pledgemusic-drums:
     name: BadSalad-Puzzled-3-DeepRoots-Stem-Drums.flac
   pledgemusic-bass:
@@ -38,6 +39,9 @@ plans:
         - gain:
           - 0.6
           - mix: [pledgemusic-keyboards, pledgemusic-vocals]
-instruments: [drums, bass, guitar]
+instruments:
+  drums: true
+  bass: true
+  guitar: true
 comments:
 - "Chart confidence: *high*. Written to PledgeMusic stems."

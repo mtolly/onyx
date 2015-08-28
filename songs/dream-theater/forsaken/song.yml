@@ -1,9 +1,25 @@
-title: Forsaken
-file-include: ../../../albums/systematic-chaos.yml
-track-number: 2
+metadata:
+  title: Forsaken
+  file-include: ../../../albums/systematic-chaos.yml
+  track-number: 2
 audio:
+  album-track:
+    md5: 0ecc238833b6dcda1bf52d2d666c387c
+    frames: 14798196
+  drumcam-band:
+    md5: bc116ed2b177da39b41313e6b848f320
+    frames: 220200960
+    rate: 48000
+    name: AudioFile_80.ac3
+  drumcam-drums:
+    md5: 61a05e854bdf97a8a88f35587a6ad556
+    frames: 220200960
+    rate: 48000
+    name: AudioFile_81.ac3
+plans:
   album:
-    pad: [6.027, source]
+    song:
+      pad: [6.027, album-track]
   drumcam:
     song:
       resample:
@@ -14,18 +30,14 @@ audio:
             - mix:
               - pad:
                 - frames: 3192
-                - trim:
-                  - '9:08'
-                  - rate: [48000, audio-drumcam-band.wav]
+                - trim: ['9:08', drumcam-band]
               - gain:
                 - -1
                 - concatenate:
                   - take:
                     - '5:24.340'
                     - &drums
-                      trim:
-                        - '9:08'
-                        - rate: [48000, audio-drumcam-drums.wav]
+                      trim: ['9:08', drumcam-drums]
                   - pad:
                     - frames: 3192
                     - drop:
@@ -38,4 +50,5 @@ audio:
           - take:
             - '5:24.358' # 5:37 - 12.642
             - *drums
-config: [drums]
+instruments:
+  drums: true

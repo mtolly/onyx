@@ -1,7 +1,14 @@
-title: Vicarious
-file-include: "../../../albums/10000-days.yml"
-track-number: 1
+metadata:
+  title: Vicarious
+  file-include: "../../../albums/10000-days.yml"
+  track-number: 1
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+plans:
   album:
-    pad: [4.180, source]
-config: [drums]
+    song:
+      pad: [4.180, album-track]
+instruments:
+  drums: true

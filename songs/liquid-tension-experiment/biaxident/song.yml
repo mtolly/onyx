@@ -1,7 +1,14 @@
-title: Biaxident
-file-include: ../../../albums/liquid-tension-experiment-2.yml
-track-number: 2
+metadata:
+  title: Biaxident
+  file-include: ../../../albums/liquid-tension-experiment-2.yml
+  track-number: 2
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+plans:
   album:
-    pad: [5.028, source]
-config: [drums]
+    song:
+      pad: [5.028, album-track]
+instruments:
+  drums: true

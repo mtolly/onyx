@@ -1,7 +1,14 @@
-title: Jambi
-file-include: "../../../albums/10000-days.yml"
-track-number: 2
+metadata:
+  title: Jambi
+  file-include: "../../../albums/10000-days.yml"
+  track-number: 2
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+plans:
   album:
-    pad: [4.714, source]
-config: [drums]
+    song:
+      pad: [4.714, album-track]
+instruments:
+  drums: true

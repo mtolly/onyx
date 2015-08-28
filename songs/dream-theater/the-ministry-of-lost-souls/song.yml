@@ -1,12 +1,28 @@
-title: The Ministry of Lost Souls
-file-include: ../../../albums/systematic-chaos.yml
-track-number: 7
+metadata:
+  title: The Ministry of Lost Souls
+  file-include: ../../../albums/systematic-chaos.yml
+  track-number: 7
 audio:
+  album-track:
+    md5: 32ed37de6e2fa659f95fe076e714f6c5
+    frames: 39560640
+  drumcam-band:
+    md5: bc116ed2b177da39b41313e6b848f320
+    frames: 220200960
+    rate: 48000
+    name: AudioFile_80.ac3
+  drumcam-drums:
+    md5: 61a05e854bdf97a8a88f35587a6ad556
+    frames: 220200960
+    rate: 48000
+    name: AudioFile_81.ac3
+plans:
   album:
-    fade:
-      - end
-      - 3.425
-      - pad: [5.900, source]
+    song:
+      fade:
+        - end
+        - 3.425
+        - pad: [5.900, album-track]
   drumcam:
     # not usable in game yet, the DVD cuts off way early
     drums:
@@ -14,9 +30,7 @@ audio:
         &drums
         take:
           - '13:21'
-          - drop:
-            - '47:31.200'
-            - rate: [48000, audio-drumcam-drums.wav]
+          - drop: ['47:31.200', drumcam-drums]
     song:
       pad:
         - 1
@@ -28,8 +42,7 @@ audio:
                   - frames: 3911
                   - take:
                     - '13:21'
-                    - drop:
-                      - '47:31.200'
-                      - rate: [48000, audio-drumcam-band.wav]
+                    - drop: ['47:31.200', drumcam-band]
                 - gain: [-1, *drums]
-config: [drums]
+instruments:
+  drums: true

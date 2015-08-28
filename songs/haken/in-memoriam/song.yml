@@ -1,7 +1,15 @@
-title: In Memoriam
-file-include: ../../../albums/the-mountain.yml
-track-number: 4
+metadata:
+  title: In Memoriam
+  file-include: ../../../albums/the-mountain.yml
+  track-number: 4
 audio:
+  album-track:
+    md5: TODO
+    frames: 0 # TODO
+plans:
   album:
-    pad: [4.399, source]
-config: [drums]
+    song:
+      pad: [4.399, album-track]
+instruments:
+  drums: true
+

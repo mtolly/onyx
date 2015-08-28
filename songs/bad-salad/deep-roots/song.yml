@@ -1,6 +1,7 @@
-title: Deep Roots
-file-include: ../../../albums/puzzled.yml
-track-number: 3
+metadata:
+  title: Deep Roots
+  file-include: ../../../albums/puzzled.yml
+  track-number: 3
 audio:
   album-track:
     md5: 40135c28629ba40ed47101547d5dd0f7
@@ -17,7 +18,8 @@ audio:
     name: BadSalad-Puzzled-3-DeepRoots-Stem-Vocals.flac
 plans:
   album:
-    pad: [3.532, album-track]
+    song:
+      pad: [3.532, album-track]
   pledgemusic:
     drums:
       gain: [0.65, pledgemusic-drums]
@@ -29,6 +31,7 @@ plans:
           - pledgemusic-guitars
           - pledgemusic-keyboards
           - pledgemusic-vocals
-instruments: [drums]
+instruments:
+  drums: true
 comments:
 - "Chart confidence: *high*. Written to PledgeMusic stems."
