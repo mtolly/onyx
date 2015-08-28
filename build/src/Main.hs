@@ -115,7 +115,7 @@ main = do
               Named t -> t
               JammitSelect _ t -> t
             in map getLeaves $ concatMap toList [_song, _guitar, _bass, _keys, _drums, _vocal]
-    case leaves \\ definedLeaves of
+    case filter (not . (`elem` definedLeaves)) leaves of
       [] -> return ()
       undefinedLeaves -> fail $
         "Undefined leaves in plan " ++ show planName ++ " audio expression: " ++ show undefinedLeaves

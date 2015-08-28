@@ -2,7 +2,7 @@ metadata:
   title: Paradigm Shift
   file-include: ../../../albums/liquid-tension-experiment.yml
   track-number: 1
-audio-files:
+audio:
   album-track:
     md5: 91db93f3eea3c214d6d6f3d09c7eb780
     frames: 23609376
