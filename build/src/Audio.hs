@@ -7,18 +7,28 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Audio where
 
+import           Control.Exception             (evaluate)
 import           Control.Monad                 (ap)
 import           Control.Monad.Trans.Resource  (MonadResource, runResourceT)
+import           Data.Binary.Get               (getWord32le, runGetOrFail)
+import qualified Data.ByteString.Lazy          as BL
+import qualified Data.ByteString.Lazy.Char8    as BL8
+import           Data.Char                     (toLower)
 import           Data.Conduit                  ((=$=))
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.SampleRate
 import           Data.Conduit.Audio.Sndfile
 import qualified Data.Conduit.List             as CL
+import qualified Data.Digest.Pure.MD5          as MD5
 import           Data.Foldable                 (toList)
+import           Data.Maybe                    (fromMaybe)
 import qualified Data.Vector.Storable          as V
+import           Data.Word                     (Word8)
 import           Development.Shake             (Action, liftIO, need)
 import           Development.Shake.FilePath    (takeExtension)
+import           Numeric                       (showHex)
 import qualified Sound.File.Sndfile            as Snd
+import System.IO
 
 data Audio t a
   = Silence Int t
@@ -128,3 +138,34 @@ clampFloat src = src { source = source src =$= CL.map clampVector } where
     | s < (-1)  -> -1
     | s > 1     -> 1
     | otherwise -> s
+
+flacMD5 :: FilePath -> IO String
+flacMD5 f = withBinaryFile f ReadMode $ \h -> do
+  hSeek h AbsoluteSeek 26
+  md5bytes <- BL.hGet h 16
+  let showByte :: Word8 -> String
+      showByte w8 = case map toLower $ showHex w8 "" of
+        [c] -> ['0', c]
+        s   -> s
+  return $ concatMap showByte $ BL.unpack md5bytes
+
+-- TODO: rewrite this without lazy bytestrings
+wavMD5 :: FilePath -> IO String
+wavMD5 f = let
+  findChunk :: BL.ByteString -> BL.ByteString -> Maybe BL.ByteString
+  findChunk tag bytes = if BL.null bytes
+    then Nothing
+    else let
+      thisTag = BL.take 4 bytes
+      len = case runGetOrFail getWord32le $ BL.drop 4 bytes of
+        Left  _         -> Nothing
+        Right (_, _, l) -> Just $ fromIntegral l
+      in if tag == thisTag
+        then len >>= \l -> Just $ BL.take l $ BL.drop 8 bytes
+        else len >>= \l -> findChunk tag $ BL.drop (8 + l) bytes
+  in do
+    wav <- BL.readFile f
+    evaluate $ fromMaybe "" $ do
+      riff <- findChunk (BL8.pack "RIFF") wav
+      data_ <- findChunk (BL8.pack "data") $ BL.drop 4 riff
+      return $ show $ MD5.md5 data_

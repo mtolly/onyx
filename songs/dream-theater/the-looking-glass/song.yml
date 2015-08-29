@@ -1,8 +1,21 @@
-title: The Looking Glass
-file-include: ../../../albums/dream-theater.yml
-track-number: 3
+metadata:
+  title: The Looking Glass
+  file-include: ../../../albums/dream-theater.yml
+  track-number: 3
 audio:
+  album-track:
+    md5: 30e37fbc73a1e41eed3e2cad45b835c4
+    frames: 12968340
+  hdtracks-track: # 96 kHz, 24-bit
+    md5: c2cb08f5629e04117321d3db7ad54cbc
+    frames: 28134056
+plans:
   album:
-    pad: [3.211, source]
+    song:
+      pad: [3.211, album-track]
+  hdtracks:
+    song:
+      pad: [3.211, hdtracks-track]
 instruments:
   drums: true
+published: false

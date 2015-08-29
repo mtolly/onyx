@@ -14,19 +14,15 @@ import           X360
 import           YAMLTree
 
 import           Codec.Picture
-import           Control.Monad.Extra              (concatMapM, filterM, forM_,
+import           Control.Monad.Extra              (concatMapM, findM, forM_,
                                                    guard, join, when)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
-import           Data.Binary.Get                  (getWord32le, runGetOrFail)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
-import qualified Data.ByteString.Lazy             as BL
-import qualified Data.ByteString.Lazy.Char8       as BL8
 import           Data.Char                        (toLower)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.Sndfile
-import qualified Data.Digest.Pure.MD5             as MD5
 import qualified Data.DTA                         as D
 import qualified Data.DTA.Serialize               as D
 import qualified Data.DTA.Serialize.Magma         as Magma
@@ -35,17 +31,15 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.Int                         (Int16)
-import           Data.List                        (isPrefixOf, nub, (\\))
+import           Data.List                        (isPrefixOf, nub)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
 import qualified Data.Text                        as T
 import           Data.Text.Encoding               (encodeUtf8)
-import           Data.Word                        (Word8)
 import           Development.Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
-import           Numeric                          (showHex)
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.Vocals                  as RBVox
 import qualified Sound.File.Sndfile               as Snd
@@ -125,35 +119,12 @@ main = do
         genAbsolute <- liftIO $ canonicalizePath "gen/"
         files <- filter (\f -> not $ genAbsolute `isPrefixOf` f)
           <$> concatMapM allFiles audioDirs
-        let md5Result = case _md5 aud of
+        let md5Result = liftIO $ case _md5 aud of
               Nothing -> return Nothing
-              Just md5search -> fmap listToMaybe $ flip filterM files $ \f -> do
+              Just md5search -> flip findM files $ \f -> do
                 case takeExtension f of
-                  ".flac" -> do
-                    md5bytes <- liftIO $ BL.take 16 . BL.drop 26 <$> BL.readFile f
-                    let showByte :: Word8 -> String
-                        showByte w8 = case map toLower $ showHex w8 "" of
-                          [c] -> ['0', c]
-                          s   -> s
-                    return $ concatMap showByte (BL.unpack md5bytes) == T.unpack md5search
-                  ".wav" -> let
-                    findChunk :: BL.ByteString -> BL.ByteString -> Maybe BL.ByteString
-                    findChunk tag bytes = if BL.null bytes
-                      then Nothing
-                      else let
-                        thisTag = BL.take 4 bytes
-                        len = case runGetOrFail getWord32le $ BL.drop 4 bytes of
-                          Left  _         -> Nothing
-                          Right (_, _, l) -> Just $ fromIntegral l
-                        in if tag == thisTag
-                          then len >>= \l -> Just $ BL.take l $ BL.drop 8 bytes
-                          else len >>= \l -> findChunk tag $ BL.drop (8 + l) bytes
-                    in do
-                      wav <- liftIO $ BL.readFile f
-                      return $ fromMaybe False $ do
-                        riff <- findChunk (BL8.pack "RIFF") wav
-                        data_ <- findChunk (BL8.pack "data") $ BL.drop 4 riff
-                        return $ show (MD5.md5 data_) == T.unpack md5search
+                  ".flac" -> (== T.unpack md5search) <$> flacMD5 f
+                  ".wav" -> (== T.unpack md5search) <$> wavMD5 f
                   _ -> return False
         md5Result
 
@@ -431,12 +402,16 @@ main = do
                   , D.tracksCount = Nothing
                   , D.tracks = D.InParens $ D.Dict $ Map.fromList $ let
                     channelsFor inst = map fst $ filter ((inst ==) . snd) $ zip [0..] channelMapping
-                    in  [ (B8.pack "drum", Right $ D.InParens $ channelsFor $ Just Drums)
-                        , (B8.pack "bass", Right $ D.InParens $ channelsFor $ Just Bass)
-                        , (B8.pack "guitar", Right $ D.InParens $ channelsFor $ Just Guitar)
-                        , (B8.pack "keys", Right $ D.InParens $ channelsFor $ Just Keys)
-                        , (B8.pack "vocals", Right $ D.InParens $ channelsFor $ Just Vocal)
-                        ]
+                    maybeChannelPair str inst = case channelsFor $ Just inst of
+                      []    -> []
+                      chans -> [(B8.pack str, Right $ D.InParens chans)]
+                    in concat
+                      [ maybeChannelPair "drum" Drums
+                      , maybeChannelPair "bass" Bass
+                      , maybeChannelPair "guitar" Guitar
+                      , maybeChannelPair "keys" Keys
+                      , maybeChannelPair "vocals" Vocal
+                      ]
                   , D.vocalParts = case _hasVocal $ _instruments songYaml of
                     Vocal0 -> 0
                     Vocal1 -> 1

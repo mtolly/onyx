@@ -23,26 +23,26 @@ plans:
         - end
         - 3.425
         - pad: [5.900, album-track]
-  drumcam:
-    # not usable in game yet, the DVD cuts off way early
-    drums:
-      resample:
-        &drums
-        take:
-          - '13:21'
-          - drop: ['47:31.200', drumcam-drums]
-    song:
-      pad:
-        - 1
-        - drop:
-          - 1
-          - resample:
-              mix:
-                - drop:
-                  - frames: 3911
-                  - take:
-                    - '13:21'
-                    - drop: ['47:31.200', drumcam-band]
-                - gain: [-1, *drums]
+  # drumcam:
+  #   # not usable in game yet, the DVD cuts off way early
+  #   drums:
+  #     resample:
+  #       &drums
+  #       take:
+  #         - '13:21'
+  #         - drop: ['47:31.200', drumcam-drums]
+  #   song:
+  #     pad:
+  #       - 1
+  #       - drop:
+  #         - 1
+  #         - resample:
+  #             mix:
+  #               - drop:
+  #                 - frames: 3911
+  #                 - take:
+  #                   - '13:21'
+  #                   - drop: ['47:31.200', drumcam-band]
+  #               - gain: [-1, *drums]
 instruments:
   drums: true

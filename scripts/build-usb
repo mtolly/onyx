@@ -11,7 +11,7 @@ end
 
 dash = ARGV.index { |s| s.start_with? '--' } || ARGV.length
 if dash < 2
-  STDERR.puts "Usage: #{$0} path/to/song1 [path/to/song2 ...] /Volumes/MyUSBDrive/ [--options]"
+  STDERR.puts "Usage: #{$0} path/to/song1 [path/to/song2 ...] /Volumes/MyUSBDrive/ [--onyxbuild-options]"
   exit 1
 end
 songs = ARGV[0 .. dash - 2]
@@ -29,14 +29,32 @@ class String
   end
 end
 
+unsuccessful = []
 songs.each do |song|
   p song
-  con_title = YAML.load_file("#{song}/song.yml")['metadata']['title'].gsub(/[^A-Za-z0-9]/, '') + '_' + (song.javahash % 10000).to_s
-  # try plans, multitrack ones first
+  unless File.exist? "#{song}/song.yml"
+    puts "Skipping because no song.yml."
+    next
+  end
+  yaml = YAML.load_file("#{song}/song.yml")
+  if yaml.has_key?('published') && !(yaml['published'])
+    puts "Skipping because not published."
+    next
+  end
+  con_title = yaml['metadata']['title'].gsub(/[^A-Za-z0-9]/, '') + '_' + (song.javahash % 10000).to_s
+  plans = yaml['plans'].keys.sort_by do |plan|
+    case plan
+    when 'jammit', 'pledgemusic' then 0
+    when 'drumcam' then 1
+    when 'hdtracks' then 2
+    else 3
+    end
+  end
+  # try each plan, with multitrack and high quality ones first
   successful = nil
-  ['jammit', 'pledgemusic', 'drumcam', 'album'].each do |plan|
+  plans.each do |plan|
     begin
-      system_ "onyxbuild --song #{song}/song.yml gen/plan/#{plan}/2p/rb3.con #{options.join(' ')}"
+      system_ 'onyxbuild', '--song', "#{song}/song.yml", "gen/plan/#{plan}/2p/rb3.con", *options
       successful = plan
     rescue IOError
       # not successful, try next plan
@@ -46,7 +64,10 @@ songs.each do |song|
   if successful
     FileUtils.cp "#{song}/gen/plan/#{successful}/2p/rb3.con", "#{rb3}/#{con_title}"
   else
-    STDERR.puts "Failed to build song #{song}"
-    exit 1
+    unsuccessful << song
   end
+end
+unless unsuccessful.empty?
+  STDERR.puts "Some songs failed to build:"
+  unsuccessful.each { |song| STDERR.puts song }
 end

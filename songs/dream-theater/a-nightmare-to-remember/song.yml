@@ -34,24 +34,24 @@ plans:
   album:
     song:
       pad: [2.086, album-track]
-  deluxe:
-    # TODO: mix
-    #   beginning: no thunderstorm
-    #   14:32 - 14:47: 2nd keyboard part (the one playing 16th notes) is missing
-    drums:
-      pad:
-        - 28.173
-        - deluxe-drum
-    song:
-      pad:
-        - 28.173
-        - gain:
-          - 0.5
-          - mix:
-            - deluxe-bass
-            - deluxe-guitar
-            - deluxe-keys
-            - deluxe-solo
-            - deluxe-vocal
+  # deluxe:
+  #   # TODO: mix
+  #   #   beginning: no thunderstorm
+  #   #   14:32 - 14:47: 2nd keyboard part (the one playing 16th notes) is missing
+  #   drums:
+  #     pad:
+  #       - 28.173
+  #       - deluxe-drum
+  #   song:
+  #     pad:
+  #       - 28.173
+  #       - gain:
+  #         - 0.5
+  #         - mix:
+  #           - deluxe-bass
+  #           - deluxe-guitar
+  #           - deluxe-keys
+  #           - deluxe-solo
+  #           - deluxe-vocal
 instruments:
   drums: true
