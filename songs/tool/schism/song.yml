@@ -9,6 +9,6 @@ audio:
 plans:
   album:
     song:
-      pad: [5.283, album-track]
+      pad: [5.188, album-track]
 instruments:
   drums: true
