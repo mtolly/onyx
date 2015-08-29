@@ -59,9 +59,9 @@ data Argument
 
 optDescrs :: [OptDescr Argument]
 optDescrs =
-  [ Option ['a'] ["audio" ] (ReqArg AudioDir  "DIR" ) "a directory with audio"
-  , Option ['j'] ["jammit"] (ReqArg JammitDir "DIR" ) "a directory with Jammit data"
-  , Option ['s'] ["song"  ] (ReqArg SongFile  "FILE") "the song YAML file"
+  [ Option [] ["audio" ] (ReqArg AudioDir  "DIR" ) "a directory with audio"
+  , Option [] ["jammit"] (ReqArg JammitDir "DIR" ) "a directory with Jammit data"
+  , Option [] ["song"  ] (ReqArg SongFile  "FILE") "the song YAML file"
   ]
 
 -- | Oracle for an audio file search.
@@ -138,7 +138,7 @@ main = do
           $ J.exactSearchBy J.artist (T.unpack artist) lib
 
   setCurrentDirectory $ takeDirectory yamlPath
-  shake shakeOptions $ do
+  shakeArgsWith shakeOptions (map (fmap $ const (Right ())) optDescrs) $ \_ _ -> return $ Just $ do
 
     _ <- addOracle $ \(AudioSearch  s) -> audioSearch $ read s
     _ <- addOracle $ \(JammitSearch s) -> fmap show $ jammitSearch $ read s
@@ -159,14 +159,11 @@ main = do
     -- Find and convert all audio files into the work directory
     forM_ (HM.toList $ _audio songYaml) $ \(audioName, audioQuery) -> do
       audioPath audioName %> \out -> do
+        putNormal $ "Looking for the audio file named " ++ show audioName
         result <- askOracle $ AudioSearch $ show audioQuery
         case result of
           Nothing -> fail $ "Couldn't find a necessary audio file for query: " ++ show audioQuery
-          Just fp -> do
-            let wavfmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-            src <- liftIO $ sourceSnd fp
-            let _ = src :: AudioSource (ResourceT IO) Int16
-            liftIO $ runResourceT $ sinkSnd out wavfmt src
+          Just fp -> buildAudio (Input fp) out
 
     -- Find and convert all Jammit audio into the work directory
     let jammitAudioParts = map J.Only    [minBound .. maxBound]
@@ -174,9 +171,12 @@ main = do
     forM_ (HM.toList $ _jammit songYaml) $ \(jammitName, jammitQuery) -> do
       forM_ jammitAudioParts $ \audpart -> do
         jammitPath jammitName audpart %> \out -> do
+          putNormal $ "Looking for the Jammit track named " ++ show jammitName ++ ", part " ++ show audpart
           result <- fmap read $ askOracle $ JammitSearch $ show jammitQuery
           case [ jcfx | (audpart', jcfx) <- result, audpart == audpart' ] of
-            jcfx : _ -> liftIO $ J.runAudio [jcfx] [] out
+            jcfx : _ -> do
+              putNormal $ "Found the Jammit track named " ++ show jammitName ++ ", part " ++ show audpart
+              liftIO $ J.runAudio [jcfx] [] out
             []       -> fail "Couldn't find a necessary Jammit track"
 
     -- Looking up single audio files and Jammit parts in the work directory

@@ -24,7 +24,7 @@ import           Data.Foldable                 (toList)
 import           Data.Maybe                    (fromMaybe)
 import qualified Data.Vector.Storable          as V
 import           Data.Word                     (Word8)
-import           Development.Shake             (Action, liftIO, need)
+import           Development.Shake             (Action, liftIO, need, putNormal)
 import           Development.Shake.FilePath    (takeExtension)
 import           Numeric                       (showHex)
 import qualified Sound.File.Sndfile            as Snd
@@ -128,7 +128,9 @@ buildAudio aud out = do
         ".ogg" -> Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
         ".wav" -> Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
         ext -> error $ "buildAudio: unknown audio output file extension " ++ ext
+  putNormal $ "Writing an audio expression to " ++ out
   liftIO $ runResourceT $ sinkSnd out fmt $ clampFloat src
+  putNormal $ "Finished writing an audio expression to " ++ out
 
 -- | Forces floating point samples to be in @[-1, 1]@.
 -- libsndfile should do this, after https://github.com/kaoskorobase/hsndfile/pull/12
