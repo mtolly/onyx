@@ -61,4 +61,4 @@ executable onyxbuild
     , conduit-audio-samplerate
     , onyxite-customs-parse
   default-language:     Haskell2010
-  ghc-options:          -Wall
+  ghc-options:          -Wall -threaded

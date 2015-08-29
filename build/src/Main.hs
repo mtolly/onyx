@@ -30,7 +30,6 @@ import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
-import           Data.Int                         (Int16)
 import           Data.List                        (isPrefixOf, nub)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
@@ -364,8 +363,7 @@ main = do
               len <- songLength mid
               let countChannels file = do
                     need [file]
-                    fmap channels $ liftIO
-                      (sourceSnd file :: IO (AudioSource (ResourceT IO) Int16))
+                    liftIO $ Snd.channels <$> Snd.getFileInfo file
               numChannels <- countChannels ogg
               drumsChannels <- if _hasDrums $ _instruments songYaml
                 then countChannels $ dir </> "drums.wav"
