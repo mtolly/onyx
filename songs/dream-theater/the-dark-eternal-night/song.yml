@@ -6,10 +6,48 @@ audio:
   album-track:
     md5: 6e27ff951e33c336844f196ff0932c39
     frames: 23528820
+  drumcam-band:
+    md5: bc116ed2b177da39b41313e6b848f320
+    frames: 220200960
+    rate: 48000
+    name: AudioFile_80.ac3
+  drumcam-drums:
+    md5: 61a05e854bdf97a8a88f35587a6ad556
+    frames: 220200960
+    rate: 48000
+    name: AudioFile_81.ac3
 plans:
   album:
     song:
       pad: [4.450, album-track]
-  # TODO: DVD audio with non-fade-out ending
+  drumcam:
+    # TODO: support the non-fade-out ending
+    song:
+      resample:
+        fade:
+        - end
+        - 12.899
+        - take:
+          - '8:53.119'
+          - pad:
+              - 4.266
+              - mix:
+                - drop: ['21:50', drumcam-band]
+                - gain:
+                  - -1
+                  - &drums
+                    drop:
+                    - frames: 3065
+                    - drop: ['21:50', drumcam-drums]
+    drums:
+      resample:
+        fade:
+        - end
+        - 12.899
+        - take:
+          - '8:53.119'
+          - pad:
+              - 4.266
+              - *drums
 instruments:
   drums: true

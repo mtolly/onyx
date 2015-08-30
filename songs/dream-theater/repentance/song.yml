@@ -6,9 +6,75 @@ audio:
   album-track:
     md5: f95cbe0b2005c3b5a1387814a0c813bf
     frames: 28375116
+  drumcam-band:
+    md5: bc116ed2b177da39b41313e6b848f320
+    frames: 220200960
+    rate: 48000
+    name: AudioFile_80.ac3
+  drumcam-drums:
+    md5: 61a05e854bdf97a8a88f35587a6ad556
+    frames: 220200960
+    rate: 48000
+    name: AudioFile_81.ac3
 plans:
   album:
     song:
       pad: [2.315, album-track]
+  drumcam:
+    # three phases of offset in this one.
+    # first band is 821 frames ahead of drums,
+    # then 1986 frames, finally 705 frames.
+    # first  switch point in full dvd audio: 30:47.852 + 16602381 frames
+    # second switch point in full dvd audio: 30:47.852 + 20636395 frames
+    song:
+      resample:
+        pad:
+          - 2.205
+          - take:
+            - '10:42.951'
+            - mix:
+              - drop:
+                - '30:47.852'
+                - drumcam-band
+              - gain:
+                - -1
+                - concatenate:
+                  - take:
+                    - frames: 16602381
+                    - &drums
+                      drop:
+                      - frames: 821
+                      - pad:
+                        - 1
+                        - drop:
+                          - '30:48.852'
+                          - drumcam-drums
+                  - take:
+                    - frames: 4034014
+                    - drop:
+                      - frames: 16602381
+                      - drop:
+                        - frames: 1986
+                        - pad:
+                          - 1
+                          - drop:
+                            - '30:48.852'
+                            - drumcam-drums
+                  - drop:
+                    - frames: 20636395
+                    - drop:
+                      - frames: 705
+                      - pad:
+                        - 1
+                        - drop:
+                          - '30:48.852'
+                          - drumcam-drums
+    drums:
+      resample:
+        pad:
+          - 2.205
+          - take:
+            - '10:42.951'
+            - *drums
 instruments:
   drums: true

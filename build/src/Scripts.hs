@@ -84,7 +84,7 @@ allEvents = foldr RTB.merge RTB.empty . mapMaybe getEvents . s_tracks where
 previewBounds :: FilePath -> Action (Int, Int)
 previewBounds mid = do
   song <- loadMIDI mid
-  let starts = map Events.PracticeSection ["chorus", "chorus_1", "verse", "verse_1"]
+  let starts = map Events.PracticeSection ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"]
       events = allEvents song
       find s = fmap (fst . fst) $ RTB.viewL $ RTB.filter (== s) events
       start = case mapMaybe find starts of
