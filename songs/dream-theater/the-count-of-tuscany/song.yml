@@ -6,9 +6,50 @@ audio:
   album-track:
     md5: 5cb364825014fe9d5351ea1e8952c850
     frames: 50991360
+  deluxe-drum:
+    name: "The Count of Tuscany Drum Stem.flac"
+    md5: 4521fc5de427bfd62a2ba8d54f0030e7
+    frames: 49823778
+  deluxe-bass:
+    name: "The Count of Tuscany Bass Stem.flac"
+    md5: ff13ebf21d6a78e6c232f8c1d0ad8c12
+    frames: 49823778
+  deluxe-guitar:
+    name: "The Count of Tuscany Guitar Stem.flac"
+    md5: 779c015a70d8bdeec2513f9202e0cc01
+    frames: 49823778
+  deluxe-keys:
+    name: "The Count of Tuscany Keys Stem.flac"
+    md5: 4af9fb8f6f8d53c481796b91492597e2
+    frames: 49823778
+  deluxe-solo:
+    name: "The Count of Tuscany Solo Stem.flac"
+    md5: eca61f2bfa7acfddc92c88c55e242395
+    frames: 49823778
+  deluxe-vocal:
+    name: "The Count of Tuscany Vocal Stem.flac"
+    md5: 487054292cdfe125dd9a8363201e2a64
+    frames: 49823778
 plans:
   album:
     song:
       pad: [3.351, album-track]
+  deluxe:
+    # TODO: some guitar parts in the intro (before the srs C minor part) are missing
+    drums:
+      pad:
+        - 2.496
+        - gain: [0.9, deluxe-drum]
+    song:
+      pad:
+        - 2.496
+        - gain:
+          - 0.4
+          - mix:
+            - gain: [1.3, deluxe-bass]
+            - gain: [1.1, deluxe-guitar]
+            - gain: [1.0, deluxe-keys]
+            - gain: [1.5, deluxe-solo]
+            - gain: [2.6, deluxe-vocal]
 instruments:
   drums: true
