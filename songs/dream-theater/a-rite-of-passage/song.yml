@@ -6,10 +6,53 @@ audio:
   album-track:
     md5: e8aa697d723d6cdd3b069d1357adf90e
     frames: 22763832
+  deluxe-drum:
+    name: "A Rite of Passage Drum Stem.flac"
+    md5: 941b8cc7c28114390284fffc9e7a6ea5
+    frames: 22720499
+  deluxe-bass:
+    name: "A Rite of Passage Bass Stem.flac"
+    md5: 5b95325d3e31323ca4f26a63b65669dc
+    frames: 22720499
+  deluxe-guitar:
+    name: "A Rite of Passage Guitar Stem.flac"
+    md5: 3cf1d834960abbf5c81f23962f3aa18e
+    frames: 22720499
+  deluxe-keys:
+    name: "A Rite of Passage Keys Stem.flac"
+    md5: 337648ab991e8952ec8031b29dd73e15
+    frames: 22720499
+  deluxe-solo:
+    name: "A Rite of Passage Solo Stem.flac"
+    md5: 43632f7307ed5507bce91755fb10d2a8
+    frames: 22720499
+  deluxe-vocal:
+    name: "A Rite of Passage Vocal Stem.flac"
+    md5: ab34a443a950ed7184072bae71dc4988
+    frames: 22720499
 plans:
-  # TODO: BCSL deluxe edition stems, will require heavy remixing
   album:
     song:
       pad: [4.656, album-track]
+  deluxe:
+    # TODO: fix this
+    # 6:13 - 7:06: keyboard solo is in both Keys and Solo stems
+    # Reconstruct bg keyboard by moving solo stem back 49 samples, and mixing with keys stem.
+    # (It's already inverted.)
+    drums:
+      pad:
+        - 4.317
+        - gain: [1.3, deluxe-drum]
+    song:
+      pad:
+        - 4.317
+        - gain:
+          - 0.4
+          - mix:
+            - gain: [1.2, deluxe-bass]
+            - gain: [1.2, deluxe-guitar]
+            - gain: [1.2, deluxe-keys]
+            - gain: [1.5, deluxe-solo]
+            - gain: [3.0, deluxe-vocal]
 instruments:
   drums: true

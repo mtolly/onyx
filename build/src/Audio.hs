@@ -28,7 +28,7 @@ import           Development.Shake             (Action, liftIO, need, putNormal)
 import           Development.Shake.FilePath    (takeExtension)
 import           Numeric                       (showHex)
 import qualified Sound.File.Sndfile            as Snd
-import System.IO
+import           System.IO
 
 data Audio t a
   = Silence Int t

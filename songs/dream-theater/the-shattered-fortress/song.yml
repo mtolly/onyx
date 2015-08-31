@@ -6,8 +6,8 @@ audio:
   album-track:
     md5: 541c78674d3a967b005d2d6f600dbb9f
     frames: 33927600
-# TODO: DVD
 plans:
+  # TODO: dvd and/or deluxe stems
   album:
     song:
       pad: [7.079, album-track]

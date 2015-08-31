@@ -36,6 +36,8 @@ plans:
       pad: [3.351, album-track]
   deluxe:
     # TODO: some guitar parts in the intro (before the srs C minor part) are missing
+    # 2:19 - 2:37: guitar is missing
+    # 3:04 - 3:20: guitar is missing
     drums:
       pad:
         - 2.496

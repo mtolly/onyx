@@ -14,32 +14,34 @@ The charts are provided in a "source" format, where you must supply your own aud
 [releases]: https://github.com/mtolly/onyxite-customs/releases
 
   2. In the extracted files, find the folder for the song you want to build.
-    Inside that, locate the subfolder `gen/album/Xp`,
+    Inside that, locate the subfolder `gen/plan/album/Xp`,
     where X is 1 or 2 for the number of kick pedals you want.
 
   3. The file `song.yml` has information on how to modify your audio file so it lines up with the chart.
     Look for a line such as this:
 
         album:
-          pad: [3.205, source]
+          song:
+            pad: [3.205, album-track]
 
-    This means, take the album audio (`source`)
+    This means, take the track from the CD (`album-track`)
     and pad the beginning with 3.205 seconds of silence.
     You can do this with [Audacity][] or a similar audio editing tool.
     Other effects (`mix`, `fade`, `trim`, etc.) are also possible.
     Here's a more complicated expression:
 
         album:
-          fade:
-            - end
-            - 5.200
-            - take:
-              - begin
-              - 598
-              - fade:
+          song:
+            fade:
+              - end
+              - 5.200
+              - take:
                 - begin
-                - 5.673
-                - trim: [10.991, source]
+                - 598
+                - fade:
+                  - begin
+                  - 5.673
+                  - trim: [10.991, album-track]
 
     You should perform the effects starting from the innermost one. So, this means:
 
@@ -48,13 +50,13 @@ The charts are provided in a "source" format, where you must supply your own aud
       3. Cut off the song after 598 seconds (9 minutes 58 seconds).
       4. Fade out the last 5.200 seconds.
 
-    Also, mix in the file `gen/album/Xp/countin.wav` to add countin sounds.
+    Also, mix in the file `gen/plan/album/countin.wav` to add countin sounds.
 
 [Audacity]: http://audacity.sourceforge.net/
 
-  4. Save the audio to the path `gen/album/Xp/magma/song-countin.wav`.
+  4. Save the audio to the path `gen/plan/album/Xp/magma/song-countin.wav`.
 
-  5. Compile the Magma project `gen/album/Xp/magma/magma.rbproj`
+  5. Compile the Magma project `gen/plan/album/Xp/magma/magma.rbproj`
     using either Harmonix's Magma, or [C3's Magma][c3magma].
     If the song is over 10 minutes, C3's is required.
     Note that you may have to click once in the "destination" box (the `.rba` path) before compiling,
@@ -117,16 +119,13 @@ from the releases page. If building it yourself, you'll need
 whatever files you specify on the command line in a Make-like fashion. Inside
 the song folder, to build a song, enter the following command:
 
-    onyxbuild gen/{audio source}/{1p or 2p}/{rb3.con or magma.rba}
+    onyxbuild gen/plan/{audio source}/{1p or 2p}/{rb3.con or magma.rba}
 
 Valid audio sources:
 
-  * `album`, for audio from the original CD. You must provide a file named like
-    `audio-album.xxx` in the song directory before building.
+  * `album`, for audio from the original CD.
 
   * `jammit`, for multitrack audio purchased from [Jammit](http://www.jammit.com/).
-    By default your app-created Windows/Mac library will be read from, or you
-    can specify the `JAMMIT` environment variable to point to a custom directory.
 
   * Various other sources as listed in the song's `README.md`.
 

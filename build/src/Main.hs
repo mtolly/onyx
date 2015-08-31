@@ -332,7 +332,7 @@ main = do
         buildAudio audio out
       mogg %> \out -> do
         need [ogg]
-        liftIO $ oggToMogg ogg out
+        oggToMogg ogg out
 
       -- Low-quality audio files for the online preview app
       let preview ext = dir </> "preview-audio" <.> ext
@@ -487,7 +487,7 @@ main = do
         pathPng %> copyFile' "gen/cover.png_xbox"
         pathCon %> \out -> do
           need [pathDta, pathMid, pathMogg, pathPng]
-          liftIO $ rb3pkg
+          rb3pkg
             (T.unpack (_artist $ _metadata songYaml) ++ ": " ++ T.unpack (_title $ _metadata songYaml))
             ("Version: " ++ pedalDir)
             (pedalDir </> "rb3")
@@ -661,10 +661,10 @@ main = do
             when (_hasKeys $ _instruments songYaml) $ need [keys]
             when (_hasVocal (_instruments songYaml) /= Vocal0) $ need [vocal, dryvox]
             need [song, cover, mid, proj]
-            liftIO $ runMagma proj out
+            runMagma proj out
           export %> \out -> do
             need [mid, proj]
-            liftIO $ runMagmaMIDI proj out
+            runMagmaMIDI proj out
 
     want nonopts
 

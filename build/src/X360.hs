@@ -1,25 +1,34 @@
 {-# LANGUAGE TemplateHaskell #-}
 module X360 (rb3pkg) where
 
-import           Control.Monad   (forM_)
-import qualified Data.ByteString as B
-import           Data.FileEmbed  (embedDir)
-import           System.FilePath ((</>))
-import           System.Info     (os)
-import           System.IO.Temp  (withSystemTempDirectory)
-import           System.Process  (callProcess)
+import           Control.Monad     (forM_)
+import qualified Data.ByteString   as B
+import           Data.FileEmbed    (embedDir)
+import           Development.Shake
+import           Magma             (withSystemTempDirectory)
+import           System.FilePath   ((</>))
+import           System.Info       (os)
 
 rb3pkgFiles :: [(FilePath, B.ByteString)]
 rb3pkgFiles = $(embedDir "vendors/xbox/rb3pkg/bin/Release/")
 
-withExe :: (FilePath -> [String] -> IO a) -> FilePath -> [String] -> IO a
+withExe :: (FilePath -> [String] -> a) -> FilePath -> [String] -> a
 withExe f exe args = if os == "mingw32"
   then f exe args
   else f "mono" $ exe : args
 
-rb3pkg :: String -> String -> FilePath -> FilePath -> IO ()
+callProcess :: FilePath -> [String] -> Action ()
+callProcess = command_
+  [ Stdin ""
+  , WithStdout True
+  , WithStderr True
+  , EchoStdout False
+  , EchoStderr False
+  ]
+
+rb3pkg :: String -> String -> FilePath -> FilePath -> Action ()
 rb3pkg title desc dir fout = withSystemTempDirectory "rb3pkg" $ \tmp -> do
-  forM_ rb3pkgFiles $ \(fp, bs) -> B.writeFile (tmp </> fp) bs
+  liftIO $ forM_ rb3pkgFiles $ \(fp, bs) -> B.writeFile (tmp </> fp) bs
   withExe callProcess (tmp </> "rb3pkg.exe")
     [ "-p", title
     , "-d", desc

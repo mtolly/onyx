@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Magma (runMagmaMIDI, runMagma, oggToMogg) where
+module Magma (runMagmaMIDI, runMagma, oggToMogg, withSystemTempDirectory) where
 
+import qualified Control.Exception            as Exception
 import           Control.Monad                (forM_)
 import           Control.Monad.Trans.Resource (ResourceT, runResourceT)
 import           Data.Bits                    (shiftL)
@@ -11,65 +12,76 @@ import           Data.Conduit.Audio.Sndfile   (sinkSnd)
 import           Data.FileEmbed               (embedDir)
 import           Data.Int                     (Int16)
 import           Data.Word                    (Word32)
+import           Development.Shake
 import qualified Sound.File.Sndfile           as Snd
 import qualified System.Directory             as Dir
 import           System.FilePath              ((</>))
 import           System.Info                  (os)
 import qualified System.IO                    as IO
-import           System.IO.Temp               (withSystemTempDirectory)
-import           System.Process               (CreateProcess (..), proc,
-                                               readCreateProcess)
+import           System.IO.Temp               (createTempDirectory)
 
 magmaFiles :: [(FilePath, B.ByteString)]
 magmaFiles = $(embedDir "vendors/magma/")
 
-withExe :: (FilePath -> [String] -> IO a) -> FilePath -> [String] -> IO a
+withExe :: (FilePath -> [String] -> a) -> FilePath -> [String] -> a
 withExe f exe args = if os == "mingw32"
   then f exe args
   else f "wine" $ exe : args
 
-runMagmaMIDI :: FilePath -> FilePath -> IO ()
+callProcessIn :: FilePath -> FilePath -> [String] -> Action ()
+callProcessIn dir = command_
+  [ Cwd dir
+  , Stdin ""
+  , WithStdout True
+  , WithStderr True
+  , EchoStdout False
+  , EchoStderr False
+  ]
+
+runMagmaMIDI :: FilePath -> FilePath -> Action ()
 runMagmaMIDI proj mid = withSystemTempDirectory "magma" $ \tmp -> do
-  wd <- Dir.getCurrentDirectory
+  wd <- liftIO Dir.getCurrentDirectory
   let proj' = wd </> proj
       mid'  = wd </> mid
-  Dir.createDirectory $ tmp </> "gen"
-  forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
-  withExe
-    (\exe args -> readCreateProcess (proc exe args){ cwd = Just tmp } "" >>= putStr)
-    "MagmaCompilerC3.exe" ["-export_midi", proj', mid']
+  liftIO $ Dir.createDirectory $ tmp </> "gen"
+  liftIO $ forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
+  withExe (callProcessIn tmp) "MagmaCompilerC3.exe" ["-export_midi", proj', mid']
 
-runMagma :: FilePath -> FilePath -> IO ()
+runMagma :: FilePath -> FilePath -> Action ()
 runMagma proj rba = withSystemTempDirectory "magma" $ \tmp -> do
-  wd <- Dir.getCurrentDirectory
+  wd <- liftIO Dir.getCurrentDirectory
   let proj' = wd </> proj
       rba'  = wd </> rba
-  Dir.createDirectory $ tmp </> "gen"
-  forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
-  withExe
-    (\exe args -> readCreateProcess (proc exe args){ cwd = Just tmp } "" >>= putStr)
-    "MagmaCompilerC3.exe" [proj', rba']
+  liftIO $ Dir.createDirectory $ tmp </> "gen"
+  liftIO $ forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
+  withExe (callProcessIn tmp) "MagmaCompilerC3.exe" [proj', rba']
 
-oggToMogg :: FilePath -> FilePath -> IO ()
+-- | Like the one from 'System.IO.Temp', but in the 'Action' monad.
+withSystemTempDirectory :: String -> (FilePath -> Action a) -> Action a
+withSystemTempDirectory template f = do
+  parent <- liftIO $ Dir.getTemporaryDirectory
+  dir <- liftIO $ createTempDirectory parent template
+  actionFinally (f dir) $ ignoringIOErrors $ Dir.removeDirectoryRecursive dir
+  where ignoringIOErrors ioe =
+          ioe `Exception.catch` (\e -> const (return ()) (e :: IOError))
+
+oggToMogg :: FilePath -> FilePath -> Action ()
 oggToMogg ogg mogg = withSystemTempDirectory "ogg2mogg" $ \tmp -> do
-  wd <- Dir.getCurrentDirectory
+  wd <- liftIO Dir.getCurrentDirectory
   let ogg'  = wd </> ogg
       mogg' = wd </> mogg
-  Dir.createDirectory $ tmp </> "gen"
-  forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
-  Dir.renameFile (tmp </> "oggenc-redirect.exe") (tmp </> "oggenc.exe")
-  Dir.copyFile ogg' $ tmp </> "audio.ogg"
+  liftIO $ Dir.createDirectory $ tmp </> "gen"
+  liftIO $ forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
+  liftIO $ Dir.renameFile (tmp </> "oggenc-redirect.exe") (tmp </> "oggenc.exe")
+  liftIO $ Dir.copyFile ogg' $ tmp </> "audio.ogg"
   let proj = "hellskitchen.rbproj"
       rba = "out.rba"
-  runResourceT
+  liftIO $ runResourceT
     $ sinkSnd (tmp </> "silence.wav")
     (Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile)
     (silent (Seconds 31) 44100 2 :: AudioSource (ResourceT IO) Int16)
-  _ <- withExe
-    (\exe args -> readCreateProcess (proc exe args){ cwd = Just tmp } "" >>= putStr)
-   "MagmaCompilerC3.exe"
-   [proj, rba]
-  IO.withBinaryFile (tmp </> rba) IO.ReadMode $ \hrba -> do
+  _ <- withExe (callProcessIn tmp) "MagmaCompilerC3.exe" [proj, rba]
+  liftIO $ IO.withBinaryFile (tmp </> rba) IO.ReadMode $ \hrba -> do
     IO.hSeek hrba IO.AbsoluteSeek $ 4 + (4 * 3)
     moggOffset <- hReadWord32le hrba
     IO.hSeek hrba IO.AbsoluteSeek $ 4 + (4 * 10)
