@@ -2,6 +2,8 @@ metadata:
   title: These Walls
   file-include: ../../../albums/octavarium.yml
   track-number: 3
+  comments:
+  - "Chart confidence: *high*. Written to Jammit stems and Portnoy's DVD."
 audio:
   album-track:
     md5: d0168a7020211436743ffef91c474e37

@@ -2,6 +2,8 @@ metadata:
   title: The Mirror
   file-include: ../../../albums/awake.yml
   track-number: 7
+  comments:
+  - "Chart confidence: *high* (Jammit stems)."
 audio:
   album-track:
     md5: 15949f8eb9316408ba4b1f3429e4a4eb

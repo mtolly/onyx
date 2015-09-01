@@ -2,6 +2,8 @@ metadata:
   title: Learning to Live
   file-include: ../../../albums/images-and-words.yml
   track-number: 8
+  comments:
+  - "Chart confidence: *high* (Jammit stems)."
 audio:
   album-track:
     md5: 171df5323358d8859577b7ccccf4cc84

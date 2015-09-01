@@ -1,11 +1,10 @@
-# Another Won (Live)
+# Another Won \(Live\)
 
 ## Dream Theater
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=another-won-live)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -14,3 +13,4 @@ Supported audio:
 Notes:
 
   * Chart confidence: *high*.
+

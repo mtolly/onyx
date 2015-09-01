@@ -2,6 +2,8 @@ metadata:
   title: Innocence Faded
   file-include: ../../../albums/awake.yml
   track-number: 3
+  comments:
+  - "Chart confidence: *high* (Jammit stems)."
 audio:
   album-track:
     md5: 906b724e1022eadcf81ecc636b206c2a

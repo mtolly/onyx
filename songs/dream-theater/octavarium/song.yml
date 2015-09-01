@@ -2,6 +2,9 @@ metadata:
   title: Octavarium
   file-include: ../../../albums/octavarium.yml
   track-number: 8
+  comments:
+  - "Timing and drums by Grinnz."
+  - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:
   album-track:
     md5: ea6c6c3f4cf5e0122d64cea63f2522c6

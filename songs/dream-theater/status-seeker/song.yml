@@ -2,6 +2,8 @@ metadata:
   title: Status Seeker
   file-include: ../../../albums/when-dream-and-day-unite.yml
   track-number: 2
+  comments:
+  - "Chart confidence: *high*."
 audio:
   album-track:
     md5: 5b1c4b70eb58fa1ac509b1396b86e86c

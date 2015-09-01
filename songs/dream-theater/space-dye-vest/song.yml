@@ -2,6 +2,8 @@ metadata:
   title: Space-Dye Vest
   file-include: ../../../albums/awake.yml
   track-number: 11
+  comments:
+  - "Chart confidence: *high* (Jammit stems)."
 audio:
   album-track:
     md5: 45abe2440c6429c5787a4bc490280980

@@ -2,6 +2,8 @@ metadata:
   title: In Memoriam
   file-include: ../../../albums/the-mountain.yml
   track-number: 4
+  comments:
+  - "Chart confidence: *high*. No stems but nice clear mixing for the most part."
 audio:
   album-track:
     md5: 5cc7e0dbd5a67f9994a53b22e429f14b

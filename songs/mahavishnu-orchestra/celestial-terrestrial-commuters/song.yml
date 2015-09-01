@@ -2,6 +2,10 @@ metadata:
   title: Celestial Terrestrial Commuters
   file-include: ../../../albums/birds-of-fire.yml
   track-number: 3
+  comments:
+  - >-
+    Chart confidence: *medium-high*.
+    Written to Jammit stems, but the drum part is fairly ridiculous.
 audio:
   album-track:
     md5: 171abbfdc77ec2ef86a816994723e22d

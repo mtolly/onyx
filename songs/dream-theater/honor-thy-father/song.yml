@@ -2,6 +2,9 @@ metadata:
   title: Honor Thy Father
   file-include: ../../../albums/train-of-thought.yml
   track-number: 4
+  comments:
+  - "Timing and drums by Grinnz."
+  - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:
   album-track:
     md5: bf8342e27676a60a60c5cc3da4f530d6

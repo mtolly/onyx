@@ -4,8 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=light-fuse-and-get-away)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -13,4 +12,5 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *high*.
+  * Chart confidence: *medium-high*.
+

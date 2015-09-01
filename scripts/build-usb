@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+# Builds some CONs, and copies them onto a (plain FAT32, not FATX) Xbox 360 USB drive.
+
 require 'fileutils'
 require 'yaml'
 

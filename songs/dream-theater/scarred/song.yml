@@ -2,6 +2,8 @@ metadata:
   title: Scarred
   file-include: ../../../albums/awake.yml
   track-number: 10
+  comments:
+  - "Chart confidence: *high* (Jammit stems)."
 audio:
   album-track:
     md5: 36a8bcb62e9f69f6b4181e0dab14ceb1

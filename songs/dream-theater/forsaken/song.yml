@@ -2,6 +2,8 @@ metadata:
   title: Forsaken
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 2
+  comments:
+  - "Chart confidence: *high*. Written to Portnoy's DVD."
 audio:
   album-track:
     md5: 0ecc238833b6dcda1bf52d2d666c387c
@@ -21,6 +23,8 @@ plans:
     song:
       pad: [6.027, album-track]
   drumcam:
+    comments:
+    - "Portnoy's sysDRUMatic Chaos DVD."
     song:
       resample:
         pad:

@@ -2,6 +2,12 @@ metadata:
   title: Take the Time
   file-include: ../../../albums/images-and-words.yml
   track-number: 3
+  comments:
+  - "Chart confidence: *high* (Jammit stems)."
+  # - >-
+  #   During the break, there's a note played by the bass where all other
+  #   instruments cut out in the `album` and `jammit` audio. The Greatest Hit
+  #   remaster (possibly to be supported) has drums during this part.
 audio:
   album-track:
     md5: 91e6d6aba9f62be55dc75c2d573d25e0

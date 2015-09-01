@@ -2,6 +2,8 @@ metadata:
   title: Wither
   file-include: ../../../albums/black-clouds-silver-linings.yml
   track-number: 3
+  comments:
+  - "Chart confidence: *high*, transcribed from the deluxe edition stems."
 audio:
   album-track:
     md5: eef63d38e7705ea522ed7383931850fd
@@ -35,6 +37,8 @@ plans:
     song:
       pad: [3.893, album-track]
   deluxe:
+    comments:
+    - "Stems from the deluxe edition of Black Clouds & Silver Linings."
     drums:
       pad:
         - 3.750

@@ -2,6 +2,8 @@ metadata:
   title: A Rite of Passage
   file-include: ../../../albums/black-clouds-silver-linings.yml
   track-number: 2
+  comments:
+  - "Chart confidence: *high*, transcribed from the deluxe edition stems."
 audio:
   album-track:
     md5: e8aa697d723d6cdd3b069d1357adf90e
@@ -54,5 +56,7 @@ plans:
             - gain: [1.2, deluxe-keys]
             - gain: [1.5, deluxe-solo]
             - gain: [3.0, deluxe-vocal]
+    comments:
+    - "Stems from the deluxe edition of Black Clouds & Silver Linings."
 instruments:
   drums: true

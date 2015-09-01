@@ -2,6 +2,10 @@ metadata:
   title: The Glass Prison
   file-include: ../../../albums/six-degrees-of-inner-turbulence.yml
   track-number: 1
+  comments:
+  - >-
+    Chart confidence: *medium-high*.
+    Written to Portnoy's DVD (which is not quite the same as the recorded take).
 audio:
   album-track:
     md5: ecd81eb9497bc5e4689e6f43582fa8b7

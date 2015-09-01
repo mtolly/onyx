@@ -4,11 +4,9 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert by Grinnz, other difficulties by Harmonix
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=panic-attack)
-  * Bass: All difficulties by Harmonix
-  * Guitar: All difficulties by Harmonix
-  * Vocals: by Harmonix
+  * (Pro) Drums
+  * Bass
+  * Guitar
 
 Supported audio:
 
@@ -16,4 +14,9 @@ Supported audio:
 
 Notes:
 
+  * Timing, guitar, bass, and vocals by Harmonix.
+
+  * Drums by Grinnz.
+
   * Chart confidence: *high*, written to stems and Portnoy's DVD.
+

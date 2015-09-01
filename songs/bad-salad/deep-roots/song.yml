@@ -2,6 +2,8 @@ metadata:
   title: Deep Roots
   file-include: ../../../albums/puzzled.yml
   track-number: 3
+  comments:
+  - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
 audio:
   album-track:
     md5: 40135c28629ba40ed47101547d5dd0f7
@@ -31,6 +33,8 @@ plans:
     song:
       pad: [3.532, album-track]
   pledgemusic:
+    comments:
+    - "Stems from [the PledgeMusic campaign](http://www.pledgemusic.com/projects/badsalad2013)."
     drums:
       gain: [0.65, pledgemusic-drums]
     song:
@@ -43,5 +47,3 @@ plans:
           - pledgemusic-vocals
 instruments:
   drums: true
-comments:
-- "Chart confidence: *high*. Written to PledgeMusic stems."

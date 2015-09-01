@@ -4,11 +4,15 @@
 
 Instruments:
 
-  * (Pro) Drums by Grinnz
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=tool&title=the-grudge)
-  * Bass by Grinnz
-  * Guitar by Grinnz
+  * (Pro) Drums
+  * Bass
+  * Guitar
 
 Supported audio:
 
   * `album` (Lateralus)
+
+Notes:
+
+  * Timing, drums, bass, guitar and vocals by Grinnz.
+

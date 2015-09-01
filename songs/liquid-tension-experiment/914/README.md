@@ -4,8 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=liquid-tension-experiment&title=914)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -13,5 +12,5 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *medium-high*. Some parts are weird, but generally the
-    mixing is clear enough (especially without any guitar).
+  * Chart confidence: *medium-high*. Some parts are weird, but generally the mixing is clear enough (especially without any guitar).
+

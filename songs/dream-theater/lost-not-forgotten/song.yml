@@ -2,6 +2,11 @@ metadata:
   title: Lost Not Forgotten
   file-include: ../../../albums/a-dramatic-turn-of-events.yml
   track-number: 3
+  comments:
+  - >-
+    Chart confidence: *medium-low*.
+    No isolated audio, fills designed for the "pyramid" tom layout,
+    and very muddy/quiet drums in ADTOE's mixing compared to other albums.
 audio:
   album-track:
     md5: 37c8a4b3668a0b68daf697f2b58d2b08

@@ -2,6 +2,8 @@ metadata:
   title: Another Day
   file-include: ../../../albums/images-and-words.yml
   track-number: 2
+  comments:
+  - "Chart confidence: *high* (Jammit stems)."
 audio:
   album-track:
     md5: 69b62917ce8522f2ff4605f96d60d60c

@@ -2,6 +2,8 @@ metadata:
   title: Lines in the Sand
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 7
+  comments:
+  - "Chart confidence: *high* (Jammit stems)."
 audio:
   album-track:
     md5: a180dd12fee3353604e351a8e8783ef2

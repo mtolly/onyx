@@ -2,6 +2,13 @@ metadata:
   title: Under a Glass Moon
   file-include: ../../../albums/images-and-words.yml
   track-number: 6
+  comments:
+  - >-
+    Chart confidence: *high* (Jammit stems).
+  - >-
+    Jammit audio has an extra snare at `81|1`.
+  - >-
+    Album audio has 2 extra tom hits at `176|0.5`, and again at `233|0.5`.
 audio:
   album-track:
     md5: 8dfe009afd7cb3d224a92971c0890bd5

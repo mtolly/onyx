@@ -2,6 +2,8 @@ metadata:
   title: The Answer Lies Within
   file-include: ../../../albums/octavarium.yml
   track-number: 2
+  comments:
+  - "Chart confidence: *high*. Written to Portnoy's DVD."
 audio:
   album-track:
     md5: 99b484a9f825c8d75845bbdf7f6918a4

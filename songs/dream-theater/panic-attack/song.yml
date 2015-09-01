@@ -2,6 +2,10 @@ metadata:
   title: Panic Attack
   file-include: ../../../albums/octavarium.yml
   track-number: 5
+  comments:
+  - "Timing, guitar, bass, and vocals by Harmonix."
+  - "Drums by Grinnz."
+  - "Chart confidence: *high*, written to stems and Portnoy's DVD."
 audio:
   album-track:
     md5: f1f401028b8c8b3788fecbf817953145

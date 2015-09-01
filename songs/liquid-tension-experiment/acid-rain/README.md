@@ -4,8 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=liquid-tension-experiment&title=acid-rain)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -14,3 +13,4 @@ Supported audio:
 Notes:
 
   * Chart confidence: *medium-high*. Some parts are hard to make out in the mix.
+

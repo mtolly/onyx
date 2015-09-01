@@ -2,6 +2,9 @@ metadata:
   title: "Hell's Kitchen"
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 6
+  comments:
+  - "Chart confidence: *high* (Jammit stems)."
+  - "Uses a few seconds of audio from the next track (Lines in the Sand)."
 audio:
   album-track:
     md5: 74ddb05459b6ca11b1e09bc2c2ef6036

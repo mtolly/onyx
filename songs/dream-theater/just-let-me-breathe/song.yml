@@ -2,6 +2,12 @@ metadata:
   title: Just Let Me Breathe
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 9
+  comments:
+  - >-
+    Chart confidence: *medium-high*. Written to Jammit stems,
+    but the tom fills in the intro, 1st verse, and solo section are hard to make out.
+  - >-
+    The "Step right up, fellas!" voice sample is missing in the Jammit audio.
 audio:
   album-track:
     md5: 0d02d23e5a8ad07292eee504b76ed2d7

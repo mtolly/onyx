@@ -4,9 +4,13 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert by Grinnz
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=the-ytse-jam)
+  * (Pro) Drums
 
 Supported audio:
 
   * `album` (When Dream and Day Unite)
+
+Notes:
+
+  * Timing and drums by Grinnz.
+

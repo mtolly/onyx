@@ -2,6 +2,8 @@ metadata:
   title: Peruvian Skies
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 3
+  comments:
+  - "Chart confidence: *high* (Jammit stems)."
 audio:
   album-track:
     md5: 22d463433f4ef22e502a0d3a771618d0

@@ -15,8 +15,9 @@ import           YAMLTree
 
 import           Codec.Picture
 import           Control.Monad.Extra              (concatMapM, findM, forM_,
-                                                   guard, join, when)
+                                                   guard, join, when, unless)
 import           Control.Monad.Trans.Reader
+import           Control.Monad.Trans.Writer
 import           Control.Monad.Trans.Resource
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
@@ -251,6 +252,39 @@ main = do
           flipPairs _ = []
           b' = B.pack $ header ++ flipPairs bytes
       liftIO $ B.writeFile out b'
+
+    -- The Markdown README file, for GitHub purposes
+    "README.md" %> \out -> liftIO $ writeFile out $ execWriter $ do
+      let escape = concatMap $ \c -> if c `elem` "\\`*_{}[]()#+-.!"
+            then ['\\', c]
+            else [c]
+          line str = tell $ str ++ "\n"
+      line $ "# " ++ escape (T.unpack $ _title $ _metadata songYaml)
+      line ""
+      line $ "## " ++ escape (T.unpack $ _artist $ _metadata songYaml)
+      line ""
+      line "Instruments:"
+      line ""
+      when (_hasDrums $ _instruments songYaml) $ line "  * (Pro) Drums"
+      when (_hasBass $ _instruments songYaml) $ line "  * Bass"
+      when (_hasGuitar $ _instruments songYaml) $ line "  * Guitar"
+      line ""
+      line "Supported audio:"
+      line ""
+      forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
+        line $ "  * `" ++ T.unpack planName ++ "`" ++ if planName == T.pack "album"
+          then " (" ++ escape (T.unpack $ _album $ _metadata songYaml) ++ ")"
+          else ""
+        line ""
+        forM_ (_planComments plan) $ \cmt -> do
+          line $ "    * " ++ T.unpack cmt
+          line ""
+      unless (null $ _comments $ _metadata songYaml) $ do
+        line "Notes:"
+        line ""
+        forM_ (_comments $ _metadata songYaml) $ \cmt -> do
+          line $ "  * " ++ T.unpack cmt
+          line ""
 
     forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
 

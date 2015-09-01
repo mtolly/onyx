@@ -2,6 +2,8 @@ metadata:
   title: I Walk Beside You
   file-include: ../../../albums/octavarium.yml
   track-number: 4
+  comments:
+  - "Chart confidence: *high*. Written to Jammit stems and Portnoy's DVD."
 audio:
   album-track:
     md5: 4e193c4f7b1322f1a8d0b9c789f4d295

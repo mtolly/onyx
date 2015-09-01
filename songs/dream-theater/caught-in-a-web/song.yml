@@ -2,6 +2,8 @@ metadata:
   title: Caught in a Web
   file-include: ../../../albums/awake.yml
   track-number: 2
+  comments:
+  - "Chart confidence: *high* (Jammit stems)."
 audio:
   album-track:
     md5: b263698dc0f8c56b642eb041bccc2225

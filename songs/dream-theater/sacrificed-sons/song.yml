@@ -2,6 +2,8 @@ metadata:
   title: Sacrificed Sons
   file-include: ../../../albums/octavarium.yml
   track-number: 7
+  comments:
+  - "Chart confidence: *high*. Written to Jammit stems and Portnoy's DVD."
 audio:
   album-track:
     md5: 94b099b38013cf144c4224827b4b8ad8

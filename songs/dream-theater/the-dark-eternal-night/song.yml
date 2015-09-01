@@ -2,6 +2,8 @@ metadata:
   title: The Dark Eternal Night
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 4
+  comments:
+  - "Chart confidence: *high*. Written to Portnoy's recording session DVD."
 audio:
   album-track:
     md5: 6e27ff951e33c336844f196ff0932c39
@@ -21,7 +23,13 @@ plans:
     song:
       pad: [4.450, album-track]
   drumcam:
-    # TODO: support the non-fade-out ending
+    comments:
+    - >-
+      Portnoy's sysDRUMatic Chaos DVD.
+      See the project README for help on extracting the DVD audio.
+    - >-
+      This version has a complete recorded ending with no fade-out;
+      I plan to chart and support this version in a future release.
     song:
       resample:
         fade:

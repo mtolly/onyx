@@ -2,6 +2,11 @@ metadata:
   title: Blind Faith
   file-include: ../../../albums/six-degrees-of-inner-turbulence.yml
   track-number: 2
+  comments:
+  - >-
+    Chart confidence: *medium*.
+    No stems, muddy mixing.
+    Cymbals in some sections are hard to differentiate.
 audio:
   album-track:
     md5: bb640697c680c06882276305c29191ed

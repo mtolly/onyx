@@ -2,6 +2,8 @@ metadata:
   title: Danimal Across America
   file-include: ../../../albums/roots.yml
   track-number: 6
+  comments:
+  - "Chart confidence: *high*. Transcribed from the separated Game Boy channels."
 audio:
   album-track:
     md5: bcdcc44fd651b5f632e5e5f66619e384

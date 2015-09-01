@@ -4,8 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert by Grinnz
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=stream-of-consciousness)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -13,4 +12,7 @@ Supported audio:
 
 Notes:
 
+  * Timing and drums by Grinnz.
+
   * Chart confidence: *high*, written to Portnoy's DVD.
+

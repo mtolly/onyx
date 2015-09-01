@@ -2,6 +2,8 @@ metadata:
   title: Erotomania
   file-include: ../../../albums/awake.yml
   track-number: 4
+  comments:
+  - "Chart confidence: *high* (Jammit stems)."
 audio:
   album-track:
     md5: a300209fe66c6a058ff7696fd055d06a

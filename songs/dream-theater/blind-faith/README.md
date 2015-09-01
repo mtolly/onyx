@@ -4,8 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=blind-faith)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -13,5 +12,5 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *medium*. No stems, and cymbals in some sections are hard
-    to differentiate.
+  * Chart confidence: *medium*. No stems, muddy mixing. Cymbals in some sections are hard to differentiate.
+

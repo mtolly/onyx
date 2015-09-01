@@ -2,6 +2,8 @@ metadata:
   title: Another Won (Live)
   file-include: ../../../albums/score.yml
   track-number: 3
+  comments:
+  - "Chart confidence: *high*."
 audio:
   album-track:
     md5: da6f46e92f9b7c4046ad2d357016d11d

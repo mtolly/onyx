@@ -4,8 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=the-ministry-of-lost-souls)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -13,5 +12,5 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *medium-high*. Written to Portnoy's recording session DVD,
-    but the DVD cuts out about 2 minutes before the end of the song.
+  * Chart confidence: *high*. Written to Portnoy's DVD, but it cuts out about 2 minutes before the end of the song.
+

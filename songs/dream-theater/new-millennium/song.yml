@@ -2,6 +2,8 @@ metadata:
   title: New Millennium
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 1
+  comments:
+  - "Chart confidence: *high* (Jammit stems)."
 audio:
   album-track:
     md5: a8a08bbf75f939397f79246983c4bd9c

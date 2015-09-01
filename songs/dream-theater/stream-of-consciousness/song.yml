@@ -2,6 +2,9 @@ metadata:
   title: Stream of Consciousness
   file-include: ../../../albums/train-of-thought.yml
   track-number: 6
+  comments:
+  - "Timing and drums by Grinnz."
+  - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:
   album-track:
     md5: 8f1a01eac65add10b94efa1dd41fa32e

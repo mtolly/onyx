@@ -4,23 +4,17 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert by Grinnz
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=repentance)
+  * (Pro) Drums
 
 Supported audio:
 
+  * `drumcam`
+
+    * Portnoy's sysDRUMatic Chaos DVD. See the project README for help on extracting the DVD audio.
+
   * `album` (Systematic Chaos)
-
-  * `drumcam` (sysDRUMatic Chaos)
-
-    1. Use software such as [PgcDemux][] to rip the complete audio files
-      for the full band and isolated drums audio options from the DVD.
-
-    2. If needed, use [FFmpeg][] to convert from AC3 to WAV.
-
-[PgcDemux]: http://download.videohelp.com/jsoto/dvdtools.htm
-[FFmpeg]: https://www.ffmpeg.org/
 
 Notes:
 
   * Chart confidence: *high*, written to Portnoy's DVD.
+

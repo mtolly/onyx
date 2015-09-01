@@ -2,6 +2,10 @@ metadata:
   title: On the Backs of Angels
   file-include: ../../../albums/a-dramatic-turn-of-events.yml
   track-number: 1
+  comments:
+  - "Timing, guitar, bass, vocals and keys by Harmonix."
+  - "Drums by Harmonix, with 2x Bass Pedal and other minor edits by me."
+  - "Chart confidence: *high*, from stems."
 audio:
   album-track:
     md5: 63dbffdd93645e41d4bf7413e6665c52

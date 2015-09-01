@@ -2,6 +2,12 @@ metadata:
   title: Enigma Machine
   file-include: ../../../albums/dream-theater.yml
   track-number: 4
+  comments:
+  - >-
+    Chart confidence: *medium*.
+    The drum solo is designed for Mangini's unique tom layout,
+    so I used the RB3 `[mix _ drums0dnoflip]` event to move snare to the yellow pad,
+    and wrote all left-hand tom hits as red.
 audio:
   album-track:
     md5: e3b02d6c3135375d72e87eafce49c1b7
@@ -10,6 +16,7 @@ audio:
     md5: b8f8e0a61b7bf836fe5b61bfad9c9235
     frames: 34730845
 plans:
+  # TODO (both plans): move the drum solo to the drum stem since it's by itself
   album:
     song:
       pad: [2.483, album-track]

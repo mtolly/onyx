@@ -2,6 +2,8 @@ metadata:
   title: Crowded Sky
   file-include: ../../../albums/uncivilized.yml
   track-number: 1
+  comments:
+  - "Chart confidence: *medium-high*. Mixing is a bit muddy."
 audio:
   album-track:
     md5: 549b025c2388557ebcc6faf625174da8
@@ -11,5 +13,3 @@ plans:
     song: album-track
 instruments:
   drums: true
-comments:
-- "Chart confidence: *medium-high*. No stems, and the mixing is a bit muddy."

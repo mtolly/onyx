@@ -2,6 +2,8 @@ metadata:
   title: A Fortune in Lies
   file-include: ../../../albums/when-dream-and-day-unite.yml
   track-number: 1
+  comments:
+  - "Chart confidence: *medium-high*."
 audio:
   album-track:
     md5: 0cbb564eca8ebc7c029de5074c221ee6

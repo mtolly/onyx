@@ -4,8 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert by Grinnz
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=in-the-name-of-god)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -14,3 +13,4 @@ Supported audio:
 Notes:
 
   * Chart confidence: *high*, written to Portnoy's DVD.
+

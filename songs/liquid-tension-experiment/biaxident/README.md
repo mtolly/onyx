@@ -4,8 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=liquid-tension-experiment&title=biaxident)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -13,5 +12,5 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *medium-high*.
-    Most parts are simple, but some hits are hard to make out in the mix.
+  * Chart confidence: *medium-high*. Most parts are simple, but some possible ghost hits are hard to make out in the mix.
+

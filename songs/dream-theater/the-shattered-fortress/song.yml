@@ -2,6 +2,9 @@ metadata:
   title: The Shattered Fortress
   file-include: ../../../albums/black-clouds-silver-linings.yml
   track-number: 4
+  comments:
+  - "Timing and drums by Grinnz."
+  - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:
   album-track:
     md5: 541c78674d3a967b005d2d6f600dbb9f

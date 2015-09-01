@@ -4,8 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=lost-not-forgotten)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -13,9 +12,5 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *medium-low*.
+  * Chart confidence: *medium-low*. No isolated audio, fills designed for the "pyramid" tom layout, and very muddy/quiet drums in ADTOE's mixing compared to other albums.
 
-    * No isolated audio.
-    * Mangini's drum parts can be somewhat obtuse, and the fills are often
-      designed for his "pyramid" tom layout.
-    * ADTOE's mixing makes the drums very muddy/quiet compared to other albums.

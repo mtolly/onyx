@@ -4,8 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=this-is-the-life)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -13,5 +12,5 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *medium-high*. The mixing is a bit muddy, but the part
-    is mostly straightforward.
+  * Chart confidence: *medium-high*. Mixing is a bit muddy, but the part is mostly straightforward.
+

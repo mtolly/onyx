@@ -2,6 +2,8 @@ metadata:
   title: Schism
   file-include: "../../../albums/lateralus.yml"
   track-number: 5
+  comments:
+  - "Timing and drums by Grinnz."
 audio:
   album-track:
     md5: 3252667818e22d0504f6098dc5e25fee

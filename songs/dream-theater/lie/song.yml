@@ -2,6 +2,8 @@ metadata:
   title: Lie
   file-include: ../../../albums/awake.yml
   track-number: 8
+  comments:
+  - "Chart confidence: *high* (Jammit stems)."
 audio:
   album-track:
     md5: 74d32b9e3d132682003512be8fce9d27

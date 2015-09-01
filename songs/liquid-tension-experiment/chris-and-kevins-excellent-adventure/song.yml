@@ -2,6 +2,8 @@ metadata:
   title: "Chris and Kevin's Excellent Adventure"
   file-include: ../../../albums/liquid-tension-experiment.yml
   track-number: 6
+  comments:
+  - "Chart confidence: *high*."
 audio:
   album-track:
     md5: 0aae8dce8159e9f81f78c8833e560525

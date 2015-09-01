@@ -2,6 +2,13 @@ metadata:
   title: "Metropolis, Pt. 1: The Miracle and the Sleeper"
   file-include: ../../../albums/images-and-words.yml
   track-number: 5
+  comments:
+  - >-
+    Chart confidence: *high* (Jammit stems).
+  - >-
+    I made the ending into a BRE, even though it is really only necessary for
+    drums. The rolls would be a tremendous pain otherwise, especially the
+    initial kick drum since there is no kick drum roll lane in RB3.
 audio:
   album-track:
     md5: b49158e869adea023c22239c9e0a3d06

@@ -4,18 +4,17 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=6-00)
+  * (Pro) Drums
 
 Supported audio:
 
   * `album` (Awake)
+
   * `jammit`
 
 Notes:
 
   * Chart confidence: *high* (Jammit stems).
 
-  * The quiet section after the keyboard solo has some overdubbed drum parts.
-    I tried to merge the two parts into a coherent whole, as is done on Harmonix
-    tracks like Frankenstein.
+  * The quiet section after the keyboard solo has some overdubbed drum parts. I tried to merge the two parts into a coherent whole, as is done on Harmonix tracks like Frankenstein.
+

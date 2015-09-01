@@ -2,6 +2,13 @@ metadata:
   title: "6:00"
   file-include: ../../../albums/awake.yml
   track-number: 1
+  comments:
+  - >-
+    Chart confidence: *high* (Jammit stems).
+  - >-
+    The quiet section after the keyboard solo has some overdubbed drum parts.
+    I tried to merge the two parts into a coherent whole, as is done on Harmonix
+    tracks like Frankenstein.
 audio:
   album-track:
     md5: 95e1d6cba4b2556b4f3c1fed9431ccc1

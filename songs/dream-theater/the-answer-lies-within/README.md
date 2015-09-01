@@ -4,14 +4,15 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=the-answer-lies-within)
+  * (Pro) Drums
 
 Supported audio:
 
   * `album` (Octavarium)
+
   * `jammit`
 
 Notes:
 
   * Chart confidence: *high*. Written to Portnoy's DVD.
+

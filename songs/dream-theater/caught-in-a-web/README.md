@@ -4,16 +4,17 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=caught-in-a-web)
-  * Bass: Expert
-  * Guitar: Expert
+  * (Pro) Drums
+  * Bass
+  * Guitar
 
 Supported audio:
 
   * `album` (Awake)
+
   * `jammit`
 
 Notes:
 
   * Chart confidence: *high* (Jammit stems).
+

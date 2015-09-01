@@ -4,8 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert by Grinnz
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=a-nightmare-to-remember)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -13,4 +12,7 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *high*, written to Portnoy's DVD.
+  * Timing and drum chart by Grinnz.
+
+  * Chart confidence: *high*, transcribed from Portnoy's DVD.
+

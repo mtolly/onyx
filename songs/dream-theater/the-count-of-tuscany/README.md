@@ -4,13 +4,17 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert by Grinnz
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=the-count-of-tuscany)
+  * (Pro) Drums
 
 Supported audio:
 
   * `album` (Black Clouds & Silver Linings)
 
+  * `deluxe`
+
 Notes:
 
+  * Timing and drums by Grinnz.
+
   * Chart confidence: *high*, written to Portnoy's DVD.
+

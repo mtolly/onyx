@@ -1,11 +1,10 @@
-# In the Presence of Enemies, Pt. 2
+# In the Presence of Enemies, Pt\. 2
 
 ## Dream Theater
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=dream-theater&title=in-the-presence-of-enemies-pt-2)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -14,3 +13,4 @@ Supported audio:
 Notes:
 
   * Chart confidence: *high*. Written to Portnoy's recording session DVD.
+

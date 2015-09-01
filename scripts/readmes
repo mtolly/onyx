@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+
+# Remakes all the GitHub README.md files for the song directories.
+
+require 'yaml'
+
+def system_(*args)
+  STDERR.puts args.join(' ')
+  result = system(*args)
+  raise(IOError, "Command returned #{$?.exitstatus}") if result != true
+end
+
+system_ "rm -rf songs/*/*/README.md"
+Dir['songs/*/*/song.yml'].each do |f|
+  yaml = YAML.load_file f
+  next if yaml.has_key?('published') && !yaml['published']
+  system_ "onyxbuild README.md --song #{f}"
+end

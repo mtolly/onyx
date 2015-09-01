@@ -129,7 +129,6 @@ data SongYaml = SongYaml
   , _plans       :: Map.HashMap T.Text Plan
   , _instruments :: Instruments
   , _published   :: Bool
-  , _comments    :: [T.Text]
   } deriving (Eq, Show, Read)
 
 mapping :: (Monad m) => Parser m A.Value a -> Parser m A.Value (Map.HashMap T.Text a)
@@ -151,9 +150,8 @@ instance TraceJSON SongYaml where
     _jammit      <- defaultEmptyMap $ optional "jammit" $ mapping traceJSON
     _plans       <- defaultEmptyMap $ optional "plans"  $ mapping traceJSON
     _instruments <- required "instruments" traceJSON
-    _published   <- fmap (fromMaybe True) $ optional "published"       traceJSON
-    _comments    <- fmap (fromMaybe []  ) $ optional "comments" $ list traceJSON
-    expectedKeys ["metadata", "audio", "jammit", "plans", "instruments", "published", "comments"]
+    _published   <- fromMaybe True <$> optional "published" traceJSON
+    expectedKeys ["metadata", "audio", "jammit", "plans", "instruments", "published"]
     return SongYaml{..}
 
 data Metadata = Metadata
@@ -166,6 +164,7 @@ data Metadata = Metadata
   , _fileAlbumArt :: FilePath
   , _trackNumber  :: Int
   , _fileCountin  :: Maybe FilePath
+  , _comments     :: [T.Text]
   } deriving (Eq, Ord, Show, Read)
 
 instance TraceJSON Metadata where
@@ -179,7 +178,8 @@ instance TraceJSON Metadata where
     _fileAlbumArt <- required "file-album-art" traceJSON
     _trackNumber  <- required "track-number"   traceJSON
     _fileCountin  <- optional "file-countin"   traceJSON
-    expectedKeys ["title", "artist", "album", "genre", "subgenre", "year", "file-album-art", "track-number", "file-countin"]
+    _comments     <- fromMaybe [] <$> optional "comments" (list traceJSON)
+    expectedKeys ["title", "artist", "album", "genre", "subgenre", "year", "file-album-art", "track-number", "file-countin", "comments"]
     return Metadata{..}
 
 data AudioFile = AudioFile
@@ -218,9 +218,11 @@ data Plan
     , _keys   :: Audio Duration AudioInput
     , _drums  :: Audio Duration AudioInput
     , _vocal  :: Audio Duration AudioInput
+    , _planComments :: [T.Text]
     }
   | EachPlan
     { _each :: Audio Duration T.Text
+    , _planComments :: [T.Text]
     }
   deriving (Eq, Ord, Show, Read)
 
@@ -228,7 +230,8 @@ instance TraceJSON Plan where
   traceJSON = object
     $   do
       _each <- required "each" traceJSON
-      expectedKeys ["each"]
+      _planComments <- fromMaybe [] <$> optional "comments" (list traceJSON)
+      expectedKeys ["each", "comments"]
       return EachPlan{..}
     <|> do
       let defaultSilence = fromMaybe $ Silence 2 $ Seconds 1
@@ -238,7 +241,8 @@ instance TraceJSON Plan where
       _keys   <- defaultSilence <$> optional "keys"   traceJSON
       _drums  <- defaultSilence <$> optional "drums"  traceJSON
       _vocal  <- defaultSilence <$> optional "vocal"  traceJSON
-      expectedKeys ["song", "guitar", "bass", "keys", "drums", "vocal"]
+      _planComments <- fromMaybe [] <$> optional "comments" (list traceJSON)
+      expectedKeys ["song", "guitar", "bass", "keys", "drums", "vocal", "comments"]
       return Plan{..}
 
 data AudioInput

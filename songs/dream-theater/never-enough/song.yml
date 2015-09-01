@@ -2,6 +2,8 @@ metadata:
   title: Never Enough
   file-include: ../../../albums/octavarium.yml
   track-number: 6
+  comments:
+  - "Chart confidence: *high*. Written to Jammit stems and Portnoy's DVD."
 audio:
   album-track:
     md5: 9409384735dd81810230c9d4e7ca098e

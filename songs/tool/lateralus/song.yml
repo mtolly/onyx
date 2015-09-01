@@ -2,6 +2,8 @@ metadata:
   title: Lateralus
   file-include: "../../../albums/lateralus.yml"
   track-number: 9
+  comments:
+  - "Timing, drums, bass, guitar and vocals by Grinnz."
 audio:
   album-track:
     md5: 4f0234335acd7b851d712bffb48d643a

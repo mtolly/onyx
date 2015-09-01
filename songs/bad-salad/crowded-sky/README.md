@@ -4,8 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=bad-salad&title=crowded-sky)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -13,4 +12,5 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *medium-high*. No stems, and the mixing is a bit muddy.
+  * Chart confidence: *medium-high*. Mixing is a bit muddy.
+

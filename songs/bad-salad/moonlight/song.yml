@@ -2,6 +2,8 @@ metadata:
   title: Moonlight
   file-include: ../../../albums/puzzled.yml
   track-number: 2
+  comments:
+  - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
 audio:
   album-track:
     md5: ea5b989528502700eafc8c246dca4f5c
@@ -31,6 +33,8 @@ plans:
     song:
       pad: [3.631, album-track]
   pledgemusic:
+    comments:
+    - "Stems from [the PledgeMusic campaign](http://www.pledgemusic.com/projects/badsalad2013)."
     drums:
       trim:
         - 0.326
@@ -53,5 +57,3 @@ instruments:
   drums: true
   bass: true
   guitar: true
-comments:
-- "Chart confidence: *high*. Written to PledgeMusic stems."

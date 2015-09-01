@@ -2,6 +2,8 @@ metadata:
   title: As I Am
   file-include: ../../../albums/train-of-thought.yml
   track-number: 1
+  comments:
+  - "Chart confidence: *high*, transcribed from Portnoy's DVD."
 audio:
   album-track:
     md5: f574e025bacd9879f42dd830a323ea14

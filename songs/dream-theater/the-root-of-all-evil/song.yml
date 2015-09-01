@@ -2,6 +2,8 @@ metadata:
   title: The Root of All Evil
   file-include: ../../../albums/octavarium.yml
   track-number: 1
+  comments:
+  - "Chart confidence: *high*. Written to Portnoy's DVD."
 audio:
   album-track:
     md5: 9685c3c0abd96e0e9b2ecffcad8d1365

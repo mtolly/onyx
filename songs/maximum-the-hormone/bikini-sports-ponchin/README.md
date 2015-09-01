@@ -4,8 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums: Expert
-    [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?artist=maximum-the-hormone&title=bikini-sports-ponchin)
+  * (Pro) Drums
 
 Supported audio:
 
@@ -13,5 +12,5 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *medium-high*. There are a few places where I think two
-    drum parts are overdubbed.
+  * Chart confidence: *medium-high*. There are a few places where I think two drum parts are overdubbed.
+
