@@ -14,8 +14,7 @@ import           X360
 import           YAMLTree
 
 import           Codec.Picture
-import           Control.Monad.Extra              (concatMapM, findM, forM_,
-                                                   guard, join, when, unless)
+import           Control.Monad.Extra
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Writer
 import           Control.Monad.Trans.Resource
@@ -122,11 +121,12 @@ main = do
         let md5Result = liftIO $ case _md5 aud of
               Nothing -> return Nothing
               Just md5search -> flip findM files $ \f -> do
-                case takeExtension f of
-                  ".flac" -> (== T.unpack md5search) <$> flacMD5 f
-                  ".wav" -> (== T.unpack md5search) <$> wavMD5 f
-                  _ -> return False
-        md5Result
+                (== Just (T.unpack md5search)) <$> audioMD5 f
+            lenResult = liftIO $ case _frames aud of
+              Nothing -> return Nothing
+              Just len -> flip findM files $ \f -> do
+                (== Just len) <$> audioLength f
+        firstJustM id [md5Result, lenResult]
 
       jammitSearch :: JammitTrack -> Action [(J.AudioPart, FilePath)]
       jammitSearch jmt = do
