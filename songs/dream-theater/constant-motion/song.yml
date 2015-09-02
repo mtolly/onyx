@@ -10,11 +10,20 @@ audio:
   album-track:
     md5: 8c906ac9ee62cccb895a0daaf5001049
     frames: 18317964
-# TODO: DVD and/or RBDLC mogg
 plans:
+  # TODO: DVD, maybe?
   album:
     song:
       pad: [3.593, album-track]
+  mogg:
+    mogg-md5: e9657cb623ede70d2930c98ac6c4c243
+    drums: [0, 1, 2, 3, 4]
+    bass: [5]
+    guitar: [6, 7]
+    vocal: [8, 9]
+    pans: [ 0.0, -1.0,  1.0, -1.0,  1.0,  0.0, -1.0,  1.0, -1.0,  1.0, -1.0,  1.0]
+    vols: [-0.5, -1.0, -1.0, -2.0, -2.0, -1.5, -3.5, -3.5, -4.0, -4.0, -3.0, -3.0]
+    drum-mix: 2
 instruments:
   drums: true
   bass: true

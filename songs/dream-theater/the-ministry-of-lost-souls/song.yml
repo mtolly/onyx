@@ -23,31 +23,40 @@ audio:
 plans:
   album:
     song:
+      &album
       fade:
         - end
         - 3.425
         - pad: [5.900, album-track]
-  # drumcam:
-  #   # not usable in game yet, the DVD cuts off way early.
-  #   # will have to use the album track for the ending!
-  #   drums:
-  #     resample:
-  #       &drums
-  #       take:
-  #         - '13:21'
-  #         - drop: ['47:31.200', drumcam-drums]
-  #   song:
-  #     pad:
-  #       - 1
-  #       - drop:
-  #         - 1
-  #         - resample:
-  #             mix:
-  #               - drop:
-  #                 - frames: 3911
-  #                 - take:
-  #                   - '13:21'
-  #                   - drop: ['47:31.200', drumcam-band]
-  #               - gain: [-1, *drums]
+  drumcam:
+    song:
+      mix:
+        - pad:
+          - 1
+          - drop:
+            - 1
+            - resample:
+                mix:
+                  - drop:
+                    - frames: 3911
+                    - take:
+                      - '13:21'
+                      - drop: ['47:31.200', drumcam-band]
+                  - gain:
+                    - -1
+                    - &drums
+                      take:
+                      - '13:21'
+                      - drop: ['47:31.200', drumcam-drums]
+        - gain:
+          - 0.58
+          - pad:
+            - "13:12.517"
+            - fade:
+              - start
+              - 5.75
+              - drop: ["13:12.517", *album]
+    drums:
+      resample: *drums
 instruments:
   drums: true

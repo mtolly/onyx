@@ -212,17 +212,29 @@ instance TraceJSON JammitTrack where
 
 data Plan
   = Plan
-    { _song   :: Audio Duration AudioInput
-    , _guitar :: Audio Duration AudioInput
-    , _bass   :: Audio Duration AudioInput
-    , _keys   :: Audio Duration AudioInput
-    , _drums  :: Audio Duration AudioInput
-    , _vocal  :: Audio Duration AudioInput
+    { _song         :: Audio Duration AudioInput
+    , _guitar       :: Audio Duration AudioInput
+    , _bass         :: Audio Duration AudioInput
+    , _keys         :: Audio Duration AudioInput
+    , _drums        :: Audio Duration AudioInput
+    , _vocal        :: Audio Duration AudioInput
     , _planComments :: [T.Text]
     }
   | EachPlan
-    { _each :: Audio Duration T.Text
+    { _each         :: Audio Duration T.Text
     , _planComments :: [T.Text]
+    }
+  | MoggPlan
+    { _moggMD5      :: T.Text
+    , _moggGuitar   :: [Int]
+    , _moggBass     :: [Int]
+    , _moggKeys     :: [Int]
+    , _moggDrums    :: [Int]
+    , _moggVocal    :: [Int]
+    , _pans         :: [Double]
+    , _vols         :: [Double]
+    , _planComments :: [T.Text]
+    , _drumMix      :: Int
     }
   deriving (Eq, Ord, Show, Read)
 
@@ -244,6 +256,19 @@ instance TraceJSON Plan where
       _planComments <- fromMaybe [] <$> optional "comments" (list traceJSON)
       expectedKeys ["song", "guitar", "bass", "keys", "drums", "vocal", "comments"]
       return Plan{..}
+    <|> do
+      _moggMD5 <- required "mogg-md5" traceJSON
+      _moggGuitar <- fromMaybe [] <$> optional "guitar" (list traceJSON)
+      _moggBass   <- fromMaybe [] <$> optional "bass" (list traceJSON)
+      _moggKeys   <- fromMaybe [] <$> optional "keys" (list traceJSON)
+      _moggDrums  <- fromMaybe [] <$> optional "drums" (list traceJSON)
+      _moggVocal  <- fromMaybe [] <$> optional "vocal" (list traceJSON)
+      _pans <- required "pans" $ list traceJSON
+      _vols <- required "vols" $ list traceJSON
+      _drumMix <- required "drum-mix" traceJSON
+      _planComments <- fromMaybe [] <$> optional "comments" (list traceJSON)
+      expectedKeys ["mogg-md5", "guitar", "bass", "keys", "drums", "vocal", "pans", "vols", "drum-mix", "comments"]
+      return MoggPlan{..}
 
 data AudioInput
   = Named T.Text
