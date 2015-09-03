@@ -46,7 +46,7 @@ songs.each do |song|
   con_title = yaml['metadata']['title'].gsub(/[^A-Za-z0-9]/, '') + '_' + (song.javahash % 10000).to_s
   plans = yaml['plans'].keys.sort_by do |plan|
     case plan
-    when 'jammit', 'pledgemusic', 'deluxe' then 0
+    when 'jammit', 'pledgemusic', 'deluxe', 'mogg' then 0
     when 'drumcam' then 1
     when 'hdtracks' then 2
     when 'album' then 4

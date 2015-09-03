@@ -12,6 +12,8 @@ Supported audio:
 
   * `album` (A Dramatic Turn of Events)
 
+  * `mogg`
+
 Notes:
 
   * Timing, guitar, bass, vocals and keys by Harmonix.

@@ -3,7 +3,8 @@ flags:
     SDLDisplay: true
 packages:
 - '.'
-- ../parse
+- location: '../parse'
+  extra-dep: true
 extra-deps:
 - event-list-0.1.1.2
 - midi-0.2.1.5

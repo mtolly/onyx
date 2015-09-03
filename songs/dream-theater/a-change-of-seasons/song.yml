@@ -1,0 +1,14 @@
+metadata:
+  title: A Change of Seasons
+  file-include: ../../../albums/a-change-of-seasons.yml
+  track-number: 1
+audio:
+  album-track:
+    md5: 629c033478090a97c89144aca7dc104c
+    frames: 61242552
+plans:
+  album:
+    song:
+      pad: [4.874, album-track]
+instruments:
+  drums: true

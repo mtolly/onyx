@@ -12,6 +12,8 @@ Supported audio:
 
   * `album` (Octavarium)
 
+  * `mogg`
+
 Notes:
 
   * Timing, guitar, bass, and vocals by Harmonix.

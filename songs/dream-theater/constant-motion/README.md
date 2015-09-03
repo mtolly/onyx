@@ -12,6 +12,8 @@ Supported audio:
 
   * `album` (Systematic Chaos)
 
+  * `mogg`
+
 Notes:
 
   * Drums by Grinnz.

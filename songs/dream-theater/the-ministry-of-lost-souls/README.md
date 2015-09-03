@@ -8,6 +8,8 @@ Instruments:
 
 Supported audio:
 
+  * `drumcam`
+
   * `album` (Systematic Chaos)
 
 Notes:

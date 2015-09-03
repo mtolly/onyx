@@ -37,7 +37,7 @@ main = getArgs >>= \case
   ["--list-options"] -> return () -- be quiet fish
   [dir] -> do
 
-    preview <- Load.fromFile (dir </> "gen/album/2p/notes.mid")
+    preview <- Load.fromFile (dir </> "gen/plan/album/2p/notes.mid")
       >>= printStackTraceIO . File.readMIDIFile
       >>= evaluate . buildPreview
 
@@ -65,7 +65,7 @@ main = getArgs >>= \case
             Text _ _ _ -> return ()
           SDL.renderPresent render
 
-    mus <- withCString (dir </> "gen/album/2p/song-countin.ogg") mixLoadMUS
+    mus <- withCString (dir </> "gen/plan/album/song-countin.ogg") mixLoadMUS
 
     start <- getCurrentTime
     zero $ mixPlayMusic mus 1
