@@ -8,8 +8,8 @@ module Canvas
 ) where
 
 import           Control.Monad (when)
-import           GHCJS.Foreign
 import           GHCJS.Types
+import qualified Data.JSString as JSStr
 
 import           Draw
 
@@ -31,25 +31,25 @@ foreign import javascript unsafe
   "$2.fillStyle = $1;"
   js_setFillStyle :: JSString -> Context -> IO ()
 setFillStyle :: String -> Context -> IO ()
-setFillStyle = js_setFillStyle . toJSString
+setFillStyle = js_setFillStyle . JSStr.pack
 
 foreign import javascript unsafe
   "$4.fillText($1, $2, $3);"
   js_fillText :: JSString -> Double -> Double -> Context -> IO ()
 fillText :: String -> Double -> Double -> Context -> IO ()
-fillText = js_fillText . toJSString
+fillText = js_fillText . JSStr.pack
 
 foreign import javascript unsafe
   "$2.font = $1;"
   js_setFont :: JSString -> Context -> IO ()
 setFont :: String -> Context -> IO ()
-setFont = js_setFont . toJSString
+setFont = js_setFont . JSStr.pack
 
 foreign import javascript unsafe
   "$2.textBaseline = $1;"
   js_setTextBaseline :: JSString -> Context -> IO ()
 setTextBaseline :: String -> Context -> IO ()
-setTextBaseline = js_setTextBaseline . toJSString
+setTextBaseline = js_setTextBaseline . JSStr.pack
 
 foreign import javascript interruptible
   "requestAnimationFrame($c);"
@@ -65,7 +65,7 @@ foreign import javascript interruptible
   js_loadImage :: JSString -> IO Image
 
 loadImage :: String -> IO Image
-loadImage = js_loadImage . toJSString
+loadImage = js_loadImage . JSStr.pack
 
 foreign import javascript unsafe
   "$6.drawImage($1, $2, $3, $4, $5);"

@@ -9,10 +9,9 @@ import           Data.IORef             (newIORef, readIORef, writeIORef)
 import qualified Data.Map               as Map
 import           Data.Maybe             (fromMaybe)
 import           Data.Time              (diffUTCTime, getCurrentTime)
-import           GHCJS.Foreign          (ForeignRetention (..), asyncCallback,
-                                         fromJSString, toJSString)
-import           GHCJS.Types            (JSFun, JSRef, JSString, castRef,
-                                         isNull)
+import           GHCJS.Foreign.Callback
+import qualified Data.JSString as JSStr
+import           GHCJS.Types            (JSRef, JSString, isNull)
 import           Text.Printf            (printf)
 
 import qualified RockBand.File          as File
@@ -35,13 +34,13 @@ foreign import javascript unsafe
 
 foreign import javascript unsafe
   "$2.addEventListener($1, $3);"
-  js_addEventListener :: JSString -> JSRef a -> JSFun (IO ()) -> IO ()
+  js_addEventListener :: JSString -> JSRef a -> Callback (IO ()) -> IO ()
 
 addEventListener :: String -> String -> IO () -> IO ()
 addEventListener event eltid f = do
-  elt <- js_getElementById $ toJSString eltid
-  jf <- asyncCallback (DomRetain $ castRef elt) f
-  js_addEventListener (toJSString event) elt jf
+  elt <- js_getElementById $ JSStr.pack eltid
+  jf <- asyncCallback f
+  js_addEventListener (JSStr.pack event) elt jf
 
 data Input_
 type Input = JSRef Input_
@@ -58,17 +57,21 @@ foreign import javascript unsafe
   "lookupGET($1)"
   js_lookupGET :: JSString -> IO JSString
 
+foreign import javascript unsafe
+  "(function(){ return $1; })()"
+  getJSRef :: JSString -> JSRef a
+
 lookupGET :: String -> IO (Maybe String)
-lookupGET k = js_lookupGET (toJSString k) >>= \ref -> return $ if isNull ref
+lookupGET k = js_lookupGET (JSStr.pack k) >>= \ref -> return $ if isNull $ getJSRef ref
   then Nothing
-  else Just $ fromJSString ref
+  else Just $ JSStr.unpack ref
 
 foreign import javascript unsafe
   "document.getElementById('the-log').insertAdjacentHTML('beforeend', $1);"
   js_logHTML :: JSString -> IO ()
 
 logLine :: String -> IO ()
-logLine s = js_logHTML $ toJSString $ s ++ "<br />"
+logLine s = js_logHTML $ JSStr.pack $ s ++ "<br />"
 
 main :: IO ()
 main = do
@@ -76,7 +79,7 @@ main = do
   equeue <- atomically newTChan
   addEventListener "click" "button-play-pause" $ atomically $ writeTChan equeue PlayPause
   addEventListener "change" "the-slider" $ do
-    str <- fmap fromJSString $ js_getElementById (toJSString "the-slider") >>= js_value
+    str <- fmap JSStr.unpack $ js_getElementById (JSStr.pack "the-slider") >>= js_value
     atomically $ writeTChan equeue $ SeekTo $ read str
   userDragging <- newIORef False
   addEventListener "mousedown" "the-slider" $ writeIORef userDragging True
@@ -88,11 +91,11 @@ main = do
   let root = printf "songs/%s/%s/" artist title
   logLine $ "Loading song from " ++ root
   howlSong <- Audio.load
-    [ root ++ "/gen/album/2p/preview-audio.ogg"
-    , root ++ "/gen/album/2p/preview-audio.mp3"
+    [ root ++ "/gen/plan/album/preview-audio.ogg"
+    , root ++ "/gen/plan/album/preview-audio.mp3"
     ]
   logLine "Loaded audio."
-  mid <- loadMidi $ root ++ "/gen/album/2p/notes.mid"
+  mid <- loadMidi $ root ++ "/gen/plan/album/2p/notes.mid"
   logLine "Loaded MIDI."
 
   file <- printStackTraceIO $ File.readMIDIFile mid
@@ -115,8 +118,8 @@ main = do
   let updateSlider secs = do
         drag <- readIORef userDragging
         unless drag $ do
-          elt <- js_getElementById $ toJSString "the-slider"
-          js_setValue (toJSString $ show (realToFrac $ secs / dur :: Double)) elt
+          elt <- js_getElementById $ JSStr.pack "the-slider"
+          js_setValue (JSStr.pack $ show (realToFrac $ secs / dur :: Double)) elt
       playing startUTC startSecs = do
         nowUTC <- getCurrentTime
         let nowSecs = realToFrac (diffUTCTime nowUTC startUTC) + startSecs

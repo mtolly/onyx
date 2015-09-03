@@ -6,9 +6,9 @@ module Jasmid
 
 import           Control.Monad                    (forM)
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           GHCJS.Foreign
 import           GHCJS.Marshal
 import           GHCJS.Types
+import qualified Data.JSString as JSStr
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
@@ -18,6 +18,15 @@ import qualified Sound.MIDI.Message.Channel.Voice as V
 foreign import javascript unsafe
   "console.log($1);"
   consoleLog :: JSRef a -> IO ()
+
+foreign import javascript unsafe "$2[$1]"
+  js_getProp :: JSStr.JSString -> JSRef a -> IO (JSRef b)
+
+getProp :: String -> JSRef a -> IO (JSRef b)
+getProp = js_getProp . JSStr.pack
+
+foreign import javascript unsafe "$2[$1]"
+  indexArray :: Int -> JSRef a -> IO (JSRef b)
 
 data MidiFile_
 type MidiFile = JSRef MidiFile_
@@ -88,4 +97,4 @@ fromJasmid jmid = do
   return $ F.Cons F.Parallel (F.Ticks $ fromIntegral res) trks
 
 loadMidi :: String -> IO F.T
-loadMidi s = jasmid_loadMidi (toJSString s) >>= fromJasmid
+loadMidi s = jasmid_loadMidi (JSStr.pack s) >>= fromJasmid

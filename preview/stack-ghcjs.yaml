@@ -1,0 +1,19 @@
+flags:
+  onyxite-customs-preview:
+    SDLDisplay: false
+packages:
+- '.'
+- location: '../parse'
+  extra-dep: true
+extra-deps:
+- event-list-0.1.1.2
+- midi-0.2.1.5
+- midi-util-0.1.1.1
+- non-negative-0.1.1
+- QuickCheck-2.8.1
+- explicit-exception-0.1.7.3
+- monoid-transformer-0.0.3
+- random-1.1
+- utility-ht-0.0.11
+- tf-random-0.5
+resolver: ghcjs-0.1.0_ghc-7.10.2
