@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 module Magma (runMagmaMIDI, runMagma, oggToMogg, withSystemTempDirectory) where
 
 import qualified Control.Exception            as Exception
@@ -9,7 +8,6 @@ import qualified Data.ByteString              as B
 import           Data.Conduit.Audio           (AudioSource, Duration (..),
                                                silent)
 import           Data.Conduit.Audio.Sndfile   (sinkSnd)
-import           Data.FileEmbed               (embedDir)
 import           Data.Int                     (Int16)
 import           Data.Word                    (Word32)
 import           Development.Shake
@@ -19,9 +17,7 @@ import           System.FilePath              ((</>))
 import           System.Info                  (os)
 import qualified System.IO                    as IO
 import           System.IO.Temp               (createTempDirectory)
-
-magmaFiles :: [(FilePath, B.ByteString)]
-magmaFiles = $(embedDir "vendors/magma/")
+import Resources (magmaFiles)
 
 withExe :: (FilePath -> [String] -> a) -> FilePath -> [String] -> a
 withExe f exe args = if os == "mingw32"

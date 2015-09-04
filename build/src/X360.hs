@@ -1,16 +1,12 @@
-{-# LANGUAGE TemplateHaskell #-}
 module X360 (rb3pkg) where
 
 import           Control.Monad     (forM_)
 import qualified Data.ByteString   as B
-import           Data.FileEmbed    (embedDir)
 import           Development.Shake
 import           Magma             (withSystemTempDirectory)
 import           System.FilePath   ((</>))
 import           System.Info       (os)
-
-rb3pkgFiles :: [(FilePath, B.ByteString)]
-rb3pkgFiles = $(embedDir "vendors/xbox/rb3pkg/bin/Release/")
+import Resources (rb3pkgFiles)
 
 withExe :: (FilePath -> [String] -> a) -> FilePath -> [String] -> a
 withExe f exe args = if os == "mingw32"

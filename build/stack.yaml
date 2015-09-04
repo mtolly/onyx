@@ -3,6 +3,8 @@ packages:
 - '.'
 - location: '../parse/'
   extra-dep: true
+- location: 'resources/'
+  extra-dep: true
 extra-deps:
 - conduit-audio-0.2
 - conduit-audio-samplerate-0.1
