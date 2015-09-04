@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/train-of-thought.yml
   track-number: 1
   comments:
+  - "Timing and drums by Grinnz."
   - "Chart confidence: *high*, transcribed from Portnoy's DVD."
 audio:
   album-track:

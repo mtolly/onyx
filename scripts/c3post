@@ -1,0 +1,117 @@
+#!/usr/bin/env ruby
+
+require 'yaml'
+
+# Hastily ported line for line from Haskell.
+def load_tree(yaml)
+  def stringOrStrings(v)
+    case v
+    when String
+      return v
+    when Array
+      return v if v.all? { |el| el.is_a? String }
+    end
+    throw "Not a string or list of strings: #{v}"
+  end
+  def go(v, dir)
+    case v
+    when Hash
+      go_pairs({}, v.each_pair.to_a, dir)
+    when Array
+      v.map { |el| go(el, dir) }
+    else
+      v
+    end
+  end
+  def go_pairs(obj, pairs, dir)
+    return obj if pairs.empty?
+    k, v = pairs[0]
+    rest = pairs[1..-1]
+    if k == 'file-include'
+      e = stringOrStrings(v)
+      files = e.is_a?(String) ? [e] : e
+      vs = files.map { |file| load_tree("#{dir}/#{file}") }
+      vs.each do |loaded|
+        obj = loaded.merge(obj) # this makes obj's values take precedence
+      end
+      go_pairs(obj, rest, dir)
+    elsif k.start_with? 'file-'
+      e = stringOrStrings(v)
+      v = e.is_a?(String) ? "#{dir}/#{e}" : e.map { |s| "#{dir}/#{s}" }
+      obj[k] = v
+      go_pairs(obj, rest, dir)
+    else
+      obj[k] = go(v, dir)
+      go_pairs(obj, rest, dir)
+    end
+  end
+  go(YAML.load_file(yaml), File.dirname(yaml))
+end
+
+yamls = []
+Dir['songs/*/*/song.yml'].each do |f|
+  begin
+    yaml = load_tree(f)
+    next if yaml.has_key?('published') && !yaml['published']
+    next if (yaml['metadata']['comments'] || []).any? { |cmt| cmt.include?('Grinnz') || cmt.include?('Harmonix') }
+    next if ['Metropolis, Pt. 1: The Miracle and the Sleeper', 'On the Backs of Angels', 'Constant Motion'].include?(yaml['metadata']['title'])
+    yaml['path'] = f
+    yamls << yaml
+  rescue
+  end
+end
+
+artists = {}
+yamls.each do |yaml|
+  meta = yaml['metadata']
+  artists[meta['artist']] ||= {}
+  artists[meta['artist']][meta['album']] ||= {}
+  artists[meta['artist']][meta['album']][meta['track-number']] = yaml
+end
+
+puts %{So, after working in mostly secrecy for some time (barring some links posted in someguy913's Twitch channel), I figured I should put up a more official page for my stuff :v:
+
+I've done mostly expert Pro Drums charts, 2x+1x bass pedal. My current goal is (together with others like Grinnz) high-quality drum charts for Dream Theater's entire discography. A few random songs have expert guitar/bass. I am always interested in contributions to add more instruments!
+
+All the files downloadable below were produced with a program I wrote called [i]onyxbuild[/i]. Basically it is an all-in-one tool to go from a MIDI file and the album audio (straight from the CD) all the way to an RBA or CON, doing all the audio transformations on the fly. It also does automatic 1x kick reductions, generates a BEAT track if needed, fixes the lengths of roll lanes, creates count-in sounds, and more. It has a copy of C3's Magma and DJ Shepherd's X360 library inside it, but it handles all that internally. It is not [i]quite[/i] user-friendly enough for general use, but I do certainly intend for it to get there, eventually!
+
+Every chart also has a "Drums Preview" link where you can playback the drums chart in your browser. This should work in any modern browser but it seems to run best in Chrome.
+
+My charts, the build tool, and the preview app are hosted on GitHub: https://github.com/mtolly/onyxite-customs
+
+}
+
+artists.each_pair do |artist, albums|
+  print '[table border=1 cellpadding=0 cellspacing=0 width=100% height=50px]'
+  print '[tr]'
+  print "[td align=left valign=middle bordercolor=#666666 bgcolor=#444444][color=#FFFFFF][b]Artist[/b][/color][/td]"
+  print "[td align=left valign=middle bordercolor=#666666 bgcolor=#444444][color=#FFFFFF][b]#{artist}[/b][/color][/td]"
+  print '[/tr]'
+  albums.each_pair do |album, tracks|
+    print '[tr]'
+    print "[td align=center valign=middle bordercolor=#666666 bgcolor=#888888]Album[/td]"
+    print "[td align=left valign=middle bordercolor=#666666 bgcolor=#888888]#{album}[/td]"
+    print '[/tr]'
+    tracks.sort.each do |number, yaml|
+      print '[tr]'
+      print "[td align=right valign=middle bordercolor=#666666 bgcolor=#CCCCCC]#{number}[/td]"
+      print "[td align=center valign=middle bordercolor=#666666 bgcolor=#CCCCCC][b]#{yaml['metadata']['title']}[/b]\n"
+      instruments = ''
+      instruments += 'G' if yaml['instruments']['guitar']
+      instruments += 'B' if yaml['instruments']['bass']
+      instruments += 'D' if yaml['instruments']['drums']
+      instruments += 'K' if yaml['instruments']['keys']
+      instruments += 'V' if yaml['instruments']['vocal'] && yaml['instruments']['vocal'] != 0
+      preview = ''
+      yaml['path'].match(/^songs\/([\w-]+)\/([\w-]+)\/song.yml$/) do |md|
+        artist_path = md[1]
+        title_path = md[2]
+        preview = "http://pages.cs.wisc.edu/~tolly/customs/?title=#{title_path}&artist=#{artist_path}"
+      end
+      print "#{instruments} - [url=#{preview}]Drums Preview[/url][/td]"
+      print '[/tr]'
+    end
+  end
+  print '[/table]'
+  print "\n"
+end

@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 5
   comments:
+  - "Timing and drums by Grinnz."
   - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:
   album-track:

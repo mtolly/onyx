@@ -19,6 +19,9 @@ end
 songs = ARGV[0 .. dash - 2]
 usb = ARGV[dash - 1]
 options = ARGV[dash .. -1]
+only_album = options.include?('--only-album')
+one_pedal = options.include?('--1p')
+options.select! { |x| !(%w{--only-album --1p}.include? x) }
 
 rb3 = "#{usb}/Content/0000000000000000/45410914/00000001"
 FileUtils.mkdir_p rb3
@@ -53,11 +56,12 @@ songs.each do |song|
     else 3
     end
   end
+  plans = ['album'] if only_album
   # try each plan, with multitrack and high quality ones first
   successful = nil
   plans.each do |plan|
     begin
-      system_ 'onyxbuild', '--song', "#{song}/song.yml", "gen/plan/#{plan}/2p/rb3.con", *options
+      system_ 'onyxbuild', '--song', "#{song}/song.yml", "gen/plan/#{plan}/#{one_pedal ? '1p' : '2p'}/rb3.con", *options
       successful = plan
     rescue IOError
       # not successful, try next plan
@@ -65,7 +69,7 @@ songs.each do |song|
     break if successful
   end
   if successful
-    FileUtils.cp "#{song}/gen/plan/#{successful}/2p/rb3.con", "#{rb3}/#{con_title}"
+    FileUtils.cp "#{song}/gen/plan/#{successful}/#{one_pedal ? '1p' : '2p'}/rb3.con", "#{rb3}/#{con_title}"
   else
     unsuccessful << song
   end

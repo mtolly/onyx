@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -29,11 +28,19 @@ import           Text.Read                  (readMaybe)
 
 type Parser m context = StackTraceT (ReaderT context m)
 
-crash :: (Monad m) => String -> Parser m A.Value a
-crash msg = lift ask >>= \v -> fatal $ msg ++ ": " ++ BL8.unpack (A.encode v)
+expected :: (Monad m) => String -> Parser m A.Value a
+expected x = lift ask >>= \v -> fatal $ "Expected " ++ x ++ ", but found: " ++ BL8.unpack (A.encode v)
 
 class TraceJSON a where
   traceJSON :: (Monad m) => Parser m A.Value a
+  traceJSONList :: (Monad m) => Parser m A.Value [a]
+  traceJSONList = lift ask >>= \case
+    A.Array v -> forM (zip [0..] $ V.toList v) $ \(i, x) ->
+      inside ("array element " ++ show (i :: Int)) $ parseFrom x traceJSON
+    _         -> expected "an array"
+
+instance (TraceJSON a) => TraceJSON [a] where
+  traceJSON = traceJSONList
 
 instance TraceJSON A.Value where
   traceJSON = lift ask
@@ -41,20 +48,23 @@ instance TraceJSON A.Value where
 instance TraceJSON Bool where
   traceJSON = lift ask >>= \case
     A.Bool b -> return b
-    _        -> crash "Expected a boolean, but found"
+    _        -> expected "a boolean"
 
 instance TraceJSON T.Text where
   traceJSON = lift ask >>= \case
     A.String s -> return s
-    _          -> crash "Expected a string, but found"
+    _          -> expected "a string"
 
-instance TraceJSON String where
-  traceJSON = fmap T.unpack traceJSON
+instance TraceJSON Char where
+  traceJSON = traceJSON >>= \case
+    [c] -> return c
+    _   -> expected "a string of a single character"
+  traceJSONList = fmap T.unpack traceJSON
 
 instance TraceJSON Scientific where
   traceJSON = lift ask >>= \case
     A.Number n -> return n
-    _          -> crash "Expected a number, but found"
+    _          -> expected "a number"
 
 instance TraceJSON Integer where
   traceJSON = fmap (round :: Scientific -> Integer) traceJSON
@@ -64,7 +74,7 @@ instance TraceJSON Double where
 
 instance TraceJSON Int where
   traceJSON = traceJSON >>= \n -> case toBoundedInteger n of
-    Nothing -> crash "Number doesn't fit into Int range"
+    Nothing -> expected "a number in Int range"
     Just i  -> return i
 
 parseFrom :: (Monad m) => v -> Parser m v a -> Parser m v' a
@@ -73,12 +83,12 @@ parseFrom = mapStackTraceT . withReaderT . const
 object :: (Monad m) => Parser m (Map.HashMap T.Text A.Value) a -> Parser m A.Value a
 object p = lift ask >>= \case
   A.Object o -> parseFrom o p
-  _          -> crash "Expected an object, but found"
+  _          -> expected "an object"
 
 required :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) a
 required k p = lift ask >>= \hm -> case Map.lookup k hm of
   Nothing -> parseFrom (A.Object hm) $
-    crash $ "Couldn't find required key " ++ show k ++ " in object"
+    expected $ "to find required key " ++ show k ++ " in object"
   Just v  -> inside ("required key " ++ show k) $ parseFrom v p
 
 optional :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) (Maybe a)
@@ -90,7 +100,7 @@ theKey :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.T
 theKey k p = lift ask >>= \hm -> case Map.toList hm of
   [(k', v)] | k == k' -> inside ("only key " ++ show k) $ parseFrom v p
   _ -> parseFrom (A.Object hm) $
-    crash $ "Expected an object with only key " ++ show k ++ ", but found"
+    expected $ "to find only key " ++ show k ++ " in object"
 
 expectedKeys :: (Monad m) => [T.Text] -> Parser m (Map.HashMap T.Text A.Value) ()
 expectedKeys keys = do
@@ -120,7 +130,7 @@ instance TraceJSON Instrument where
       "drums"  -> return Drums
       "keys"   -> return Keys
       "vocal"  -> return Vocal
-      _        -> crash "Invalid instrument string"
+      _        -> expected "an instrument name"
 
 data SongYaml = SongYaml
   { _metadata    :: Metadata
@@ -134,13 +144,7 @@ data SongYaml = SongYaml
 mapping :: (Monad m) => Parser m A.Value a -> Parser m A.Value (Map.HashMap T.Text a)
 mapping p = lift ask >>= \case
   A.Object o -> Map.traverseWithKey (\k x -> inside ("mapping key " ++ show k) $ parseFrom x p) o
-  _          -> crash "Expected object, but found"
-
-list :: (Monad m) => Parser m A.Value a -> Parser m A.Value [a]
-list p = lift ask >>= \case
-  A.Array v -> forM (zip [0..] $ V.toList v) $ \(i, x) ->
-    inside ("element " ++ show (i :: Int)) $ parseFrom x p
-  _         -> crash "Expected array, but found"
+  _          -> expected "an object"
 
 instance TraceJSON SongYaml where
   traceJSON = object $ do
@@ -178,7 +182,7 @@ instance TraceJSON Metadata where
     _fileAlbumArt <- required "file-album-art" traceJSON
     _trackNumber  <- required "track-number"   traceJSON
     _fileCountin  <- optional "file-countin"   traceJSON
-    _comments     <- fromMaybe [] <$> optional "comments" (list traceJSON)
+    _comments     <- fromMaybe [] <$> optional "comments" traceJSON
     expectedKeys ["title", "artist", "album", "genre", "subgenre", "year", "file-album-art", "track-number", "file-countin", "comments"]
     return Metadata{..}
 
@@ -242,7 +246,7 @@ instance TraceJSON Plan where
   traceJSON = object
     $   do
       _each <- required "each" traceJSON
-      _planComments <- fromMaybe [] <$> optional "comments" (list traceJSON)
+      _planComments <- fromMaybe [] <$> optional "comments" traceJSON
       expectedKeys ["each", "comments"]
       return EachPlan{..}
     <|> do
@@ -253,20 +257,20 @@ instance TraceJSON Plan where
       _keys   <- defaultSilence <$> optional "keys"   traceJSON
       _drums  <- defaultSilence <$> optional "drums"  traceJSON
       _vocal  <- defaultSilence <$> optional "vocal"  traceJSON
-      _planComments <- fromMaybe [] <$> optional "comments" (list traceJSON)
+      _planComments <- fromMaybe [] <$> optional "comments" traceJSON
       expectedKeys ["song", "guitar", "bass", "keys", "drums", "vocal", "comments"]
       return Plan{..}
     <|> do
       _moggMD5 <- required "mogg-md5" traceJSON
-      _moggGuitar <- fromMaybe [] <$> optional "guitar" (list traceJSON)
-      _moggBass   <- fromMaybe [] <$> optional "bass" (list traceJSON)
-      _moggKeys   <- fromMaybe [] <$> optional "keys" (list traceJSON)
-      _moggDrums  <- fromMaybe [] <$> optional "drums" (list traceJSON)
-      _moggVocal  <- fromMaybe [] <$> optional "vocal" (list traceJSON)
-      _pans <- required "pans" $ list traceJSON
-      _vols <- required "vols" $ list traceJSON
+      _moggGuitar <- fromMaybe [] <$> optional "guitar" traceJSON
+      _moggBass   <- fromMaybe [] <$> optional "bass" traceJSON
+      _moggKeys   <- fromMaybe [] <$> optional "keys" traceJSON
+      _moggDrums  <- fromMaybe [] <$> optional "drums" traceJSON
+      _moggVocal  <- fromMaybe [] <$> optional "vocal" traceJSON
+      _pans <- required "pans" traceJSON
+      _vols <- required "vols" traceJSON
       _drumMix <- required "drum-mix" traceJSON
-      _planComments <- fromMaybe [] <$> optional "comments" (list traceJSON)
+      _planComments <- fromMaybe [] <$> optional "comments" traceJSON
       expectedKeys ["mogg-md5", "guitar", "bass", "keys", "drums", "vocal", "pans", "vols", "drum-mix", "comments"]
       return MoggPlan{..}
 
@@ -284,7 +288,7 @@ instance TraceJSON AudioInput where
         (\part str -> JammitSelect (J.Only part) str)
         (traceJSON >>= \title -> case J.titleToPart title of
           Just part -> return part
-          Nothing   -> crash "Unrecognized Jammit part name"
+          Nothing   -> expected "a Jammit part name"
           )
         traceJSON
     <|> do
@@ -301,7 +305,7 @@ instance TraceJSON Edge where
       "start" -> return Start
       "begin" -> return Start
       "end"   -> return End
-      _       -> crash "Invalid audio edge"
+      _       -> expected "an audio edge"
 
 algebraic1 :: (Monad m) => T.Text -> (a -> b) -> Parser m A.Value a -> Parser m A.Value b
 algebraic1 k f p1 = object $ theKey k $ do
@@ -315,8 +319,8 @@ algebraic2 k f p1 p2 = object $ theKey k $ lift ask >>= \case
     [x, y] -> f
       <$> do inside "ADT field 1 of 2" $ parseFrom x p1
       <*> do inside "ADT field 2 of 2" $ parseFrom y p2
-    _ -> crash "Expected array of 2 ADT fields, but found"
-  _ -> crash "Expected array of 2 ADT fields, but found"
+    _ -> expected "an array of 2 ADT fields"
+  _ -> expected "an array of 2 ADT fields"
 
 algebraic3 :: (Monad m) => T.Text -> (a -> b -> c -> d) ->
   Parser m A.Value a -> Parser m A.Value b -> Parser m A.Value c -> Parser m A.Value d
@@ -326,15 +330,15 @@ algebraic3 k f p1 p2 p3 = object $ theKey k $ lift ask >>= \case
       <$> do inside "ADT field 1 of 3" $ parseFrom x p1
       <*> do inside "ADT field 2 of 3" $ parseFrom y p2
       <*> do inside "ADT field 3 of 3" $ parseFrom z p3
-    _ -> crash "Expected array of 3 ADT fields, but found"
-  _ -> crash "Expected array of 3 ADT fields, but found"
+    _ -> expected "an array of 3 ADT fields"
+  _ -> expected "an array of 3 ADT fields"
 
 instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
   traceJSON
     =   do algebraic2 "silence" Silence traceJSON traceJSON
-    <|> do object $ theKey "mix"         $ Mix         <$> list traceJSON
-    <|> do object $ theKey "merge"       $ Merge       <$> list traceJSON
-    <|> do object $ theKey "concatenate" $ Concatenate <$> list traceJSON
+    <|> do object $ theKey "mix"         $ Mix         <$> traceJSON
+    <|> do object $ theKey "merge"       $ Merge       <$> traceJSON
+    <|> do object $ theKey "concatenate" $ Concatenate <$> traceJSON
     <|> do algebraic2 "gain" Gain traceJSON traceJSON
     <|> do supplyEdge "take" Take
     <|> do supplyEdge "drop" Drop
@@ -342,7 +346,7 @@ instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
     <|> do supplyEdge "fade" Fade
     <|> do supplyEdge "pad"  Pad
     <|> do algebraic1 "resample" Resample traceJSON
-    <|> do algebraic2 "channels" Channels (list traceJSON) traceJSON
+    <|> do algebraic2 "channels" Channels traceJSON traceJSON
     <|> do Input <$> traceJSON
     where supplyEdge s f
             =   do algebraic2 s (f Start   ) traceJSON traceJSON
@@ -396,4 +400,4 @@ instance TraceJSON VocalCount where
     A.Number 1 -> return Vocal1
     A.Number 2 -> return Vocal2
     A.Number 3 -> return Vocal3
-    _          -> crash "Expected a vocal part count (0 through 3), but found"
+    _          -> expected "a vocal part count (0 to 3)"

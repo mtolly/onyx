@@ -16,5 +16,7 @@ Supported audio:
 
 Notes:
 
+  * Timing and drums by Grinnz.
+
   * Chart confidence: *high*, written to Portnoy's DVD.
 
