@@ -84,14 +84,32 @@ mapTime f aud = case aud of
   Resample x      -> Resample     $ mapTime f x
   Channels cs x   -> Channels cs  $ mapTime f x
 
+-- | Duplicates mono into stereo, or otherwise just tacks on silent channels to one source.
+sameChannels :: (Monad m, Num a, V.Storable a) => (AudioSource m a, AudioSource m a) -> (AudioSource m a, AudioSource m a)
+sameChannels (a1, a2) = case (channels a1, channels a2) of
+  (1, c2) | c2 /= 1 -> let
+    a1' = foldr merge a1 $ replicate (c2 - 1) a1
+    in (a1', a2)
+  (c1, 1) | c1 /= 1 -> let
+    a2' = foldr merge a2 $ replicate (c1 - 1) a2
+    in (a1, a2')
+  (c1, c2) -> let
+    a1' = case max c1 c2 - c1 of
+      0 -> a1
+      n -> merge a1 $ silent (Frames 0) (rate a1) n
+    a2' = case max c1 c2 - c2 of
+      0 -> a2
+      n -> merge a2 $ silent (Frames 0) (rate a2) n
+    in (a1', a2')
+
 buildSource :: (MonadResource m) =>
   Audio Duration FilePath -> Action (AudioSource m Float)
 buildSource aud = case aud of
   Silence c t -> return $ silent t 44100 c
   Input fin -> liftIO $ sourceSnd fin
-  Mix         xs -> combine mix         xs
-  Merge       xs -> combine merge       xs
-  Concatenate xs -> combine concatenate xs
+  Mix         xs -> combine (\a b -> uncurry mix $ sameChannels (a, b)) xs
+  Merge       xs -> combine merge xs
+  Concatenate xs -> combine (\a b -> uncurry concatenate $ sameChannels (a, b)) xs
   Gain d x -> gain (realToFrac d) <$> buildSource x
   Take Start t x -> takeStart t <$> buildSource x
   Take End t x -> takeEnd t <$> buildSource x

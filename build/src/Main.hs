@@ -233,14 +233,14 @@ main = do
                     J.Only part <- nub $ map fst result
                     guard $ J.partToInstrument part == inst
                     return $ jammitPath name $ J.Only part
-                  mixOrStereo []    = Silence 2 $ Seconds 1
-                  mixOrStereo files = Mix $ map Input files
+                  mixOrMono []    = Silence 1 $ Frames 0
+                  mixOrMono files = Mix $ map Input files
               case minst of
-                Just inst -> return $ mixOrStereo $ boughtInstrumentParts inst
+                Just inst -> return $ mixOrMono $ boughtInstrumentParts inst
                 Nothing -> case filter (\inst -> J.Without inst `elem` map fst result) backs of
                   []       -> fail "No charted instruments with Jammit tracks found"
                   back : _ -> return $ let
-                    negative = mixOrStereo $ do
+                    negative = mixOrMono $ do
                       otherInstrument <- filter (/= back) backs
                       boughtInstrumentParts otherInstrument
                     in Mix [Input $ jammitPath name $ J.Without back, Gain (-1) negative]
@@ -359,7 +359,7 @@ main = do
 
       -- Countin audio, and song+countin files
       dir </> "countin.wav" %> \out -> case _fileCountin $ _metadata songYaml of
-        Nothing -> buildAudio (Silence 2 $ Seconds 1) out
+        Nothing -> buildAudio (Silence 1 $ Frames 0) out
         Just hit -> makeCountin mid2p hit out
       dir </> "song-countin.wav" %> \out -> do
         let song = Input $ dir </> "song.wav"
