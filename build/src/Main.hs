@@ -50,6 +50,8 @@ import           System.Console.GetOpt
 import           System.Directory                 (canonicalizePath,
                                                    setCurrentDirectory)
 import           System.Environment               (getArgs)
+import           System.IO                        (IOMode (ReadMode), hFileSize,
+                                                   withFile)
 
 data Argument
   = AudioDir  FilePath
@@ -409,13 +411,24 @@ main = do
         need [preview "wav"]
         cmd "oggenc -b 16 --resample 16000 -o" [out, preview "wav"]
 
-      let pedalVersions =
-            [ (dir </> "1p", T.unpack (_title $ _metadata songYaml)                      )
-            , (dir </> "2p", T.unpack (_title $ _metadata songYaml) ++ " (2x Bass Pedal)")
-            ]
-      forM_ pedalVersions $ \(pedalDir, title) -> do
+      let get1xTitle, get2xTitle :: Action String
+          get1xTitle = return $ T.unpack $ _title $ _metadata songYaml
+          get2xTitle = do
+            need [mid1p, mid2p]
+            let getFileSize f = liftIO $ withFile f ReadMode hFileSize
+            size1p <- getFileSize mid1p
+            size2p <- getFileSize mid2p
+            return $ if size1p == size2p
+              then T.unpack (_title $ _metadata songYaml)
+              else T.unpack (_title $ _metadata songYaml) ++ " (2x Bass Pedal)"
 
-        let pkg = "onyx" ++ show (hash (pedalDir, title) `mod` 1000000000)
+      let pedalVersions =
+            [ (dir </> "1p", get1xTitle)
+            , (dir </> "2p", get2xTitle)
+            ]
+      forM_ pedalVersions $ \(pedalDir, getTitle) -> do
+
+        let pkg = "onyx" ++ show (hash (pedalDir, _title $ _metadata songYaml, _artist $ _metadata songYaml) `mod` 1000000000)
 
         -- Rock Band 3 DTA file
         let makeDTA :: Action D.SongPackage
@@ -487,6 +500,7 @@ main = do
                         in concatMap pansForCount allChannels
                       vols = replicate numChannels 0
                   return (numChannels, tracksAssocList, pans, vols)
+              title <- getTitle
               return D.SongPackage
                 { D.name = B8.pack title
                 , D.artist = B8.pack $ T.unpack $ _artist $ _metadata songYaml
@@ -615,6 +629,7 @@ main = do
                   mixMode = case plan of
                     MoggPlan{..} -> _drumMix
                     _            -> 0
+              title <- getTitle
               return Magma.RBProj
                 { Magma.project = Magma.Project
                   { Magma.toolVersion = B8.pack "110411_A"

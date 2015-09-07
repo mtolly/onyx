@@ -11,13 +11,13 @@ import           Data.Conduit.Audio.Sndfile   (sinkSnd)
 import           Data.Int                     (Int16)
 import           Data.Word                    (Word32)
 import           Development.Shake
+import           Resources                    (magmaFiles)
 import qualified Sound.File.Sndfile           as Snd
 import qualified System.Directory             as Dir
 import           System.FilePath              ((</>))
 import           System.Info                  (os)
 import qualified System.IO                    as IO
 import           System.IO.Temp               (createTempDirectory)
-import Resources (magmaFiles)
 
 withExe :: (FilePath -> [String] -> a) -> FilePath -> [String] -> a
 withExe f exe args = if os == "mingw32"

@@ -4,9 +4,9 @@ import           Control.Monad     (forM_)
 import qualified Data.ByteString   as B
 import           Development.Shake
 import           Magma             (withSystemTempDirectory)
+import           Resources         (rb3pkgFiles)
 import           System.FilePath   ((</>))
 import           System.Info       (os)
-import Resources (rb3pkgFiles)
 
 withExe :: (FilePath -> [String] -> a) -> FilePath -> [String] -> a
 withExe f exe args = if os == "mingw32"
