@@ -289,6 +289,12 @@ main = do
       when (_hasDrums $ _instruments songYaml) $ line "  * (Pro) Drums"
       when (_hasBass $ _instruments songYaml) $ line "  * Bass"
       when (_hasGuitar $ _instruments songYaml) $ line "  * Guitar"
+      when (_hasKeys $ _instruments songYaml) $ line "  * (Pro) Keys"
+      case _hasVocal $ _instruments songYaml of
+        Vocal0 -> return ()
+        Vocal1 -> line "  * Vocals (1)"
+        Vocal2 -> line "  * Vocals (2)"
+        Vocal3 -> line "  * Vocals (3)"
       line ""
       line "Supported audio:"
       line ""

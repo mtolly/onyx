@@ -5,6 +5,7 @@
 Instruments:
 
   * (Pro) Drums
+  * Vocals (2)
 
 Supported audio:
 

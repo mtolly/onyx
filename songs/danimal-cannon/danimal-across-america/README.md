@@ -7,6 +7,7 @@ Instruments:
   * (Pro) Drums
   * Bass
   * Guitar
+  * (Pro) Keys
 
 Supported audio:
 
