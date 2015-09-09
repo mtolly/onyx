@@ -59,3 +59,4 @@ plans:
               - *drums
 instruments:
   drums: true
+  vocal: 2
