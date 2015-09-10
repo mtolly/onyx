@@ -1,14 +1,14 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 module RockBand.Events where
 
-import RockBand.Common
+import           Control.Monad                    ((>=>))
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Numeric.NonNegative.Class as NNC
-import RockBand.Parse
-import Control.Monad ((>=>))
-import Data.List (stripPrefix)
+import           Data.List                        (stripPrefix)
+import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Common
+import           RockBand.Parse
 
 data Event
   = MusicStart

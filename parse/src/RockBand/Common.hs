@@ -1,21 +1,21 @@
 {- | Datatypes and functions used across multiple MIDI parsers. -}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE ViewPatterns      #-}
 module RockBand.Common where
 
-import Data.Char (isSpace, isUpper, toLower)
-import Data.List (stripPrefix)
-import Text.Read (readMaybe)
-import Control.Monad (guard)
-import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.File.Event.Meta as Meta
+import           Control.Monad                    (guard)
+import           Data.Char                        (isSpace, isUpper, toLower)
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Numeric.NonNegative.Class as NNC
-import Language.Haskell.TH
+import           Data.List                        (stripPrefix)
+import           Language.Haskell.TH
+import qualified Numeric.NonNegative.Class        as NNC
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
+import           Text.Read                        (readMaybe)
 
 -- | Class for events which are stored as a @\"[x y z]\"@ text event.
 class Command a where

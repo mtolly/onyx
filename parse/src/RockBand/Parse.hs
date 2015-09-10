@@ -1,19 +1,19 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE TemplateHaskell #-}
 module RockBand.Parse where
 
-import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.Message.Channel as C
-import qualified Sound.MIDI.Message.Channel.Voice as V
-import qualified Sound.MIDI.Util as U
+import           Control.Monad                    (guard, (>=>))
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Numeric.NonNegative.Class as NNC
-import Language.Haskell.TH
-import Control.Monad (guard, (>=>))
-import Data.Maybe (isJust)
-import Data.Foldable (asum)
+import           Data.Foldable                    (asum)
+import           Data.Maybe                       (isJust)
+import           Language.Haskell.TH
+import qualified Numeric.NonNegative.Class        as NNC
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.Message.Channel       as C
+import qualified Sound.MIDI.Message.Channel.Voice as V
+import qualified Sound.MIDI.Util                  as U
 
-import RockBand.Common
+import           RockBand.Common
 
 type ParseOne t e a = RTB.T t e -> Maybe ((t, a), RTB.T t e)
 type ParseAll t e a = RTB.T t e -> (RTB.T t a, RTB.T t e)

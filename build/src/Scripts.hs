@@ -17,10 +17,10 @@ import qualified Data.Conduit.Audio               as CA
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common
 import qualified RockBand.Drums                   as Drums
-import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Events                  as Events
 import           RockBand.File
 import qualified RockBand.FiveButton              as Five
+import qualified RockBand.ProKeys                 as ProKeys
 import           StackTrace
 
 import           Development.Shake

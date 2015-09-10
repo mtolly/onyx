@@ -1,27 +1,27 @@
 {-# LANGUAGE LambdaCase #-}
 module RockBand.File where
 
-import qualified Sound.MIDI.File as F
-import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.File.Event.Meta as Meta
-import qualified Sound.MIDI.Util as U
-import qualified Data.EventList.Relative.TimeBody as RTB
+import           Control.Monad                    (forM, forM_, liftM)
 import qualified Data.EventList.Absolute.TimeBody as ATB
-import qualified Numeric.NonNegative.Class as NNC
-import Control.Monad (forM, forM_, liftM)
-import Data.Maybe (catMaybes, fromJust)
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Maybe                       (catMaybes, fromJust)
+import qualified Numeric.NonNegative.Class        as NNC
+import qualified Sound.MIDI.File                  as F
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
+import qualified Sound.MIDI.Util                  as U
 
-import StackTrace
-import RockBand.Common
-import qualified RockBand.Drums as Drums
-import qualified RockBand.Events as Events
-import qualified RockBand.Beat as Beat
-import qualified RockBand.Countin as Countin
-import qualified RockBand.FiveButton as FiveButton
-import qualified RockBand.Vocals as Vocals
-import qualified RockBand.ProKeys as ProKeys
-import qualified RockBand.ProGuitar as ProGuitar
-import RockBand.Parse
+import qualified RockBand.Beat                    as Beat
+import           RockBand.Common
+import qualified RockBand.Countin                 as Countin
+import qualified RockBand.Drums                   as Drums
+import qualified RockBand.Events                  as Events
+import qualified RockBand.FiveButton              as FiveButton
+import           RockBand.Parse
+import qualified RockBand.ProGuitar               as ProGuitar
+import qualified RockBand.ProKeys                 as ProKeys
+import qualified RockBand.Vocals                  as Vocals
+import           StackTrace
 
 data Track t
   = PartDrums               (RTB.T t      Drums.Event)

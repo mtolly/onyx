@@ -40,12 +40,13 @@ import qualified Data.Text                        as T
 import           Development.Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
-import           RockBand.Common                  (Difficulty(..))
+import           RockBand.Common                  (Difficulty (..))
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.Vocals                  as RBVox
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.Jammit.Base                as J
 import qualified Sound.Jammit.Export              as J
+import qualified Sound.MIDI.Util                  as U
 import           StackTrace
 import           System.Console.GetOpt
 import           System.Directory                 (canonicalizePath,
@@ -53,7 +54,6 @@ import           System.Directory                 (canonicalizePath,
 import           System.Environment               (getArgs)
 import           System.IO                        (IOMode (ReadMode), hFileSize,
                                                    withFile)
-import qualified Sound.MIDI.Util as U
 
 data Argument
   = AudioDir  FilePath

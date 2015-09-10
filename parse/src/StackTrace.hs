@@ -1,15 +1,15 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase                 #-}
 module StackTrace where
 
-import Data.Functor.Identity
-import Control.Monad.Trans.Except
-import Control.Monad.Trans.RWS
-import Control.Applicative
-import Control.Monad
-import Control.Monad.IO.Class
-import Control.Monad.Trans.Class
-import System.IO
+import           Control.Applicative
+import           Control.Monad
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Except
+import           Control.Monad.Trans.RWS
+import           Data.Functor.Identity
+import           System.IO
 
 -- | This can represent an error (required input was not found) or a warning
 -- (given input was not completely recognized).
