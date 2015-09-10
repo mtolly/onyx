@@ -40,6 +40,7 @@ import qualified Data.Text                        as T
 import           Development.Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
+import           RockBand.Common                  (Difficulty(..))
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.Vocals                  as RBVox
 import qualified Sound.File.Sndfile               as Snd
@@ -52,6 +53,7 @@ import           System.Directory                 (canonicalizePath,
 import           System.Environment               (getArgs)
 import           System.IO                        (IOMode (ReadMode), hFileSize,
                                                    withFile)
+import qualified Sound.MIDI.Util as U
 
 data Argument
   = AudioDir  FilePath
@@ -347,23 +349,78 @@ main = do
       mid2p %> \out -> do
         input <- loadMIDI "notes.mid"
         let ftempos = "tempo-" ++ T.unpack planName ++ ".mid"
-        tempos <- doesFileExist ftempos >>= \b -> if b
+        tempos <- fmap RBFile.s_tempos $ doesFileExist ftempos >>= \b -> if b
           then loadMIDI ftempos
           else return input
-        let withTempos = input { RBFile.s_tempos = RBFile.s_tempos tempos }
-            fixed = RBFile.eachTrack (RBFile.copyExpert . RBFile.autoHandPosition) $
-              fixRolls $ autoBeat $ drumMix mixMode withTempos
-            mixMode = case plan of
-              MoggPlan{..} -> _drumMix
-              _            -> 0
-        saveMIDI out fixed
+        let trks = RBFile.s_tracks input
+            mergeTracks ts = foldr RTB.merge RTB.empty ts
+            beatTrack = let
+              trk = mergeTracks [ t | RBFile.Beat t <- trks ]
+              in RBFile.Beat $ if RTB.null trk
+                then U.trackTake (songLength' input) $ makeBeatTrack $ RBFile.s_signatures input
+                else trk
+            eventsTrack = RBFile.Events $ mergeTracks [ t | RBFile.Events t <- trks ]
+            drumsTracks = if not $ _hasDrums $ _instruments songYaml
+              then []
+              else (: []) $ RBFile.copyExpert $ RBFile.PartDrums $ let
+                trk = mergeTracks [ t | RBFile.PartDrums t <- trks ]
+                mixMode = case plan of
+                  MoggPlan{..} -> _drumMix
+                  _            -> 0
+                in drumMix mixMode trk
+            guitarTracks = if not $ _hasGuitar $ _instruments songYaml
+              then []
+              else (: []) $ RBFile.copyExpert $ RBFile.PartGuitar
+                $ mergeTracks [ t | RBFile.PartGuitar t <- trks ]
+            bassTracks = if not $ _hasBass $ _instruments songYaml
+              then []
+              else (: []) $ RBFile.copyExpert $ RBFile.PartBass
+                $ mergeTracks [ t | RBFile.PartBass t <- trks ]
+            keysTracks = if not $ _hasKeys $ _instruments songYaml
+              then []
+              else
+                [ RBFile.copyExpert $ RBFile.PartKeys $ mergeTracks [ t | RBFile.PartKeys t <- trks ]
+                , RBFile.PartRealKeys Expert          $ mergeTracks [ t | RBFile.PartRealKeys Expert t <- trks ]
+                , RBFile.PartRealKeys Hard            $ mergeTracks [ t | RBFile.PartRealKeys Hard   t <- trks ]
+                , RBFile.PartRealKeys Medium          $ mergeTracks [ t | RBFile.PartRealKeys Medium t <- trks ]
+                , RBFile.PartRealKeys Easy            $ mergeTracks [ t | RBFile.PartRealKeys Easy   t <- trks ]
+                ]
+            vocalTracks = case _hasVocal $ _instruments songYaml of
+              Vocal0 -> []
+              Vocal1 ->
+                [ RBFile.PartVocals $ mergeTracks [ t | RBFile.PartVocals t <- trks ]
+                ]
+              Vocal2 ->
+                [ RBFile.PartVocals $ mergeTracks [ t | RBFile.PartVocals t <- trks ]
+                , RBFile.Harm1      $ mergeTracks [ t | RBFile.Harm1      t <- trks ]
+                , RBFile.Harm2      $ mergeTracks [ t | RBFile.Harm2      t <- trks ]
+                ]
+              Vocal3 ->
+                [ RBFile.PartVocals $ mergeTracks [ t | RBFile.PartVocals t <- trks ]
+                , RBFile.Harm1      $ mergeTracks [ t | RBFile.Harm1      t <- trks ]
+                , RBFile.Harm2      $ mergeTracks [ t | RBFile.Harm2      t <- trks ]
+                , RBFile.Harm3      $ mergeTracks [ t | RBFile.Harm3      t <- trks ]
+                ]
+        saveMIDI out $ RBFile.Song
+          { RBFile.s_tempos = tempos
+          , RBFile.s_signatures = RBFile.s_signatures input
+          , RBFile.s_tracks = map fixRolls $ concat
+            [ [beatTrack]
+            , [eventsTrack]
+            , drumsTracks
+            , guitarTracks
+            , bassTracks
+            , keysTracks
+            , vocalTracks
+            ]
+          }
       mid1p %> \out -> loadMIDI mid2p >>= saveMIDI out . oneFoot 0.18 0.11
 
-      -- Guitar rules
-      dir </> "guitar.mid" %> \out -> do
-        input <- loadMIDI mid2p
-        saveMIDI out $ RBFile.playGuitarFile [0, 0, 0, 0, 0, 0] [0, 0, 0, 0] input
-        -- TODO: support different tunings again
+      -- -- Guitar rules
+      -- dir </> "guitar.mid" %> \out -> do
+      --   input <- loadMIDI mid2p
+      --   saveMIDI out $ RBFile.playGuitarFile [0, 0, 0, 0, 0, 0] [0, 0, 0, 0] input
+      --   -- TODO: support different tunings again
 
       -- Countin audio, and song+countin files
       dir </> "countin.wav" %> \out -> case _fileCountin $ _metadata songYaml of
@@ -776,16 +833,7 @@ main = do
             liftIO $ runResourceT $ sinkSnd out fmt audsrc
           song %> copyFile' (dir </> "song-countin.wav")
           cover %> copyFile' "gen/cover.bmp"
-          mid %> \out -> do
-            base <- loadMIDI $ pedalDir </> "notes.mid"
-            let cleaned = base { RBFile.s_tracks = filter magmaSafe $ RBFile.s_tracks base }
-                magmaSafe (RBFile.Countin          _) = False
-                magmaSafe (RBFile.PartRealGuitar   _) = False
-                magmaSafe (RBFile.PartRealGuitar22 _) = False
-                magmaSafe (RBFile.PartRealBass     _) = False
-                magmaSafe (RBFile.PartRealBass22   _) = False
-                magmaSafe _                           = True
-            saveMIDI out cleaned
+          mid %> copyFile' (pedalDir </> "notes.mid")
           proj %> \out -> do
             p <- makeMagmaProj
             let dta = D.DTA 0 $ D.Tree 0 $ D.toChunks p

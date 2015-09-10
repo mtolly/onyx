@@ -17,6 +17,7 @@ import qualified Data.Conduit.Audio               as CA
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common
 import qualified RockBand.Drums                   as Drums
+import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Events                  as Events
 import           RockBand.File
 import qualified RockBand.FiveButton              as Five
@@ -27,25 +28,21 @@ import           Development.Shake
 -- | Changes all existing drum mix events to use the given config (not changing
 -- stuff like discobeat), and places ones at the beginning if they don't exist
 -- already.
-drumMix :: Int -> Song U.Beats -> Song U.Beats
-drumMix n = let
-  editTrack trk = let
-    (mixes, notMixes) = flip RTB.partitionMaybe trk $ \case
-      Drums.DiffEvent diff (Drums.Mix audio disco) -> Just (diff, audio, disco)
-      _                                            -> Nothing
-    mixes' = fmap (\(diff, _, disco) -> (diff, audio', disco)) mixes
-    audio' = toEnum n
-    alreadyMixed = [ diff | (diff, _, _) <- U.trackTakeZero mixes' ]
-    addedMixes =
-      [ (diff, audio', Drums.NoDisco)
-      | diff <- [Easy .. Expert]
-      , diff `notElem` alreadyMixed
-      ]
-    setMix (diff, audio, disco) = Drums.DiffEvent diff $ Drums.Mix audio disco
-    in RTB.merge notMixes $ fmap setMix $ foldr addZero mixes' addedMixes
-  in eachTrack $ \case
-    PartDrums t -> PartDrums $ editTrack t
-    trk         -> trk
+drumMix :: Int -> RTB.T U.Beats Drums.Event -> RTB.T U.Beats Drums.Event
+drumMix n trk = let
+  (mixes, notMixes) = flip RTB.partitionMaybe trk $ \case
+    Drums.DiffEvent diff (Drums.Mix audio disco) -> Just (diff, audio, disco)
+    _                                            -> Nothing
+  mixes' = fmap (\(diff, _, disco) -> (diff, audio', disco)) mixes
+  audio' = toEnum n
+  alreadyMixed = [ diff | (diff, _, _) <- U.trackTakeZero mixes' ]
+  addedMixes =
+    [ (diff, audio', Drums.NoDisco)
+    | diff <- [Easy .. Expert]
+    , diff `notElem` alreadyMixed
+    ]
+  setMix (diff, audio, disco) = Drums.DiffEvent diff $ Drums.Mix audio disco
+  in RTB.merge notMixes $ fmap setMix $ foldr addZero mixes' addedMixes
 
 -- | Adds an event at position zero *after* all the other events there.
 addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
@@ -105,16 +102,6 @@ songLength mid = do
   song <- loadMIDI mid
   return $ floor $ U.applyTempoMap (s_tempos song) (songLength' song) * 1000
 
--- | Generates a BEAT track (if it doesn't exist already) which ends at the
--- [end] event from the EVENTS track.
-autoBeat :: Song U.Beats -> Song U.Beats
-autoBeat s = let
-  hasBeat = flip any (s_tracks s) $ \case
-    Beat _ -> True
-    _      -> False
-  autoTrack = Beat $ U.trackTake (songLength' s) $ makeBeatTrack $ s_signatures s
-  in if hasBeat then s else s { s_tracks = autoTrack : s_tracks s }
-
 -- | Given a measure map, produces an infinite BEAT track.
 makeBeatTrack :: U.MeasureMap -> RTB.T U.Beats Beat.Event
 makeBeatTrack mmap = fixDoubleDownbeat $ go 0 where
@@ -155,7 +142,7 @@ trackGlue t xs ys = let
 
 -- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
 --- their last gem note-on.
-fixRolls :: Song U.Beats -> Song U.Beats
+fixRolls :: Track U.Beats -> Track U.Beats
 fixRolls = let
   drumsSingle = fixFreeform (== Drums.SingleRoll True) (== Drums.SingleRoll False) isHand
   drumsDouble = fixFreeform (== Drums.DoubleRoll True) (== Drums.DoubleRoll False) isHand
@@ -165,12 +152,17 @@ fixRolls = let
   fiveTrill   = fixFreeform (== Five.Trill   True) (== Five.Trill   False) isGem
   isGem (Five.DiffEvent Expert (Five.Note True _)) = True
   isGem _                                          = False
-  in eachTrack $ \case
-    PartDrums  t -> PartDrums  $ drumsSingle $ drumsDouble t
-    PartGuitar t -> PartGuitar $ fiveTremolo $ fiveTrill   t
-    PartBass   t -> PartBass   $ fiveTremolo $ fiveTrill   t
-    PartKeys   t -> PartKeys   $               fiveTrill   t
-    trk          -> trk
+  pkGlissando = fixFreeform (== ProKeys.Glissando True) (== ProKeys.Glissando False) isPKNote
+  pkTrill     = fixFreeform (== ProKeys.Trill     True) (== ProKeys.Trill     False) isPKNote
+  isPKNote (ProKeys.Note _ True) = True
+  isPKNote _                     = False
+  in \case
+    PartDrums         t -> PartDrums         $ drumsSingle $ drumsDouble t
+    PartGuitar        t -> PartGuitar        $ fiveTremolo $ fiveTrill   t
+    PartBass          t -> PartBass          $ fiveTremolo $ fiveTrill   t
+    PartKeys          t -> PartKeys          $               fiveTrill   t
+    PartRealKeys diff t -> PartRealKeys diff $ pkGlissando $ pkTrill     t
+    trk                 -> trk
 
 fixFreeform
   :: (Ord a)

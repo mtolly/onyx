@@ -8,29 +8,27 @@ def system_(*args)
   raise(IOError, "Command returned #{$?.exitstatus}") if result != true
 end
 
-readmes = Dir['songs/*/*/README.md']
-readmes.each do |readme|
-  yaml_file = readme.sub('README.md', 'song.yml')
+yamls = Dir['songs/*/*/song.yml']
+yamls.each do |yaml_file|
   folder = File.dirname(yaml_file)
   puts ">>> SONG: #{folder}"
   yaml = YAML.load_file(yaml_file)
-  audio = yaml['audio'].keys
+  next unless yaml.fetch('published', true)
+  audio = yaml['plans'].keys
   makes = []
   audio.each do |a|
     ['1p', '2p'].each do |p|
       makes += [
-        "gen/#{a}/#{p}/countin.wav",
-        "gen/#{a}/#{p}/magma/magma.rbproj",
-        "gen/#{a}/#{p}/magma/notes.mid",
-        "gen/#{a}/#{p}/magma/cover.bmp",
+        "gen/plan/#{a}/countin.wav",
+        "gen/plan/#{a}/#{p}/magma/magma.rbproj",
+        "gen/plan/#{a}/#{p}/magma/notes.mid",
+        "gen/plan/#{a}/#{p}/magma/cover.bmp",
       ]
-      expr = yaml['audio'][a]
-      if a != 'jammit' && !(expr.is_a?(Hash) && expr.has_key?('song'))
-        # audio is non-stems
-        yaml['config'].each do |inst|
-          makes += [
-            "gen/#{a}/#{p}/magma/#{inst}.wav",
-          ]
+      plan_exprs = yaml['plans'][a]
+      unless plan_exprs.has_key?('each')
+        # we need to make dummy audio for instruments not present
+        yaml['instruments'].each_key do |inst|
+          makes += ["gen/plan/#{a}/#{p}/magma/#{inst}.wav"] unless plan_exprs.has_key?(inst)
         end
       end
     end
