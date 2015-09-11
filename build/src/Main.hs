@@ -423,9 +423,16 @@ main = do
       --   -- TODO: support different tunings again
 
       -- Countin audio, and song+countin files
+      dir </> "countin.mid" %> \out -> do
+        input <- loadMIDI "notes.mid"
+        let ftempos = "tempo-" ++ T.unpack planName ++ ".mid"
+        tempos <- fmap RBFile.s_tempos $ doesFileExist ftempos >>= \b -> if b
+          then loadMIDI ftempos
+          else return input
+        saveMIDI out input{ RBFile.s_tempos = tempos }
       dir </> "countin.wav" %> \out -> case _fileCountin $ _metadata songYaml of
         Nothing -> buildAudio (Silence 1 $ Frames 0) out
-        Just hit -> makeCountin mid2p hit out
+        Just hit -> makeCountin (dir </> "countin.mid") hit out
       dir </> "song-countin.wav" %> \out -> do
         let song = Input $ dir </> "song.wav"
             countin = Input $ dir </> "countin.wav"
