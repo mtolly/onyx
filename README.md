@@ -1,12 +1,12 @@
-# Onyxite's Rock Band Custom Songs
+# Onyxite's Custom Songs & Build Tool for *Rock Band 3*
 
-[![Build Status](https://travis-ci.org/mtolly/onyxite-customs.svg?branch=master)](https://travis-ci.org/mtolly/onyxite-customs)
+I transcribe songs for use in Harmonix's *Rock Band 3* and other similar rhythm games, mostly for drums.
+Along the way, I've written a program called `onyxbuild`,
+a powerful command-line tool for automating the song build process.
 
-This is a collection of songs I have transcribed for use in Rock Band 3
-and other similar rhythm games, primarily for drums.
-The charts are provided in a "source" format, where you must supply your own audio.
+This repository contains charts by myself, as well as [Grinnz](https://www.youtube.com/user/SHGrinnz).
 
-## Instructions for Magma
+## Building songs with Magma
 
   1. Download the [latest Magma projects][releases] archive
     (the file with `magma` in the name, from the latest release).
@@ -37,7 +37,7 @@ The charts are provided in a "source" format, where you must supply your own aud
               - 5.200
               - take:
                 - begin
-                - 598
+                - '9:58'
                 - fade:
                   - begin
                   - 5.673
@@ -47,7 +47,7 @@ The charts are provided in a "source" format, where you must supply your own aud
 
       1. Remove the first 10.991 seconds.
       2. Fade in the first 5.673 seconds.
-      3. Cut off the song after 598 seconds (9 minutes 58 seconds).
+      3. Cut off the song after 9 minutes, 58 seconds.
       4. Fade out the last 5.200 seconds.
 
     Also, mix in the file `gen/plan/album/countin.wav` to add countin sounds.
@@ -68,23 +68,23 @@ The charts are provided in a "source" format, where you must supply your own aud
 
 [RB3Maker]: http://rockband.scorehero.com/forum/viewtopic.php?t=34542
 
-## Full build system
+## How to use `onyxbuild`
 
-You don't need to use this if you are just compiling with Magma!
+You don't need to do this if you are just compiling with Magma!
 Follow the instructions above instead.
 
 `onyxbuild` is a build tool written with [Shake](http://community.haskell.org/~ndm/shake/),
-which automates many steps of building a custom song.
+which automates many steps of building a song package.
 Some current features:
 
-  * transforms audio files from various sources for use in the game,
-    according to a simple expression language
+  * transforms original audio files for use in the game,
+    according to a declarative language of audio expressions
 
-  * creates many different metadata formats
-    (Magma project, RB3 `songs.dta`, Phase Shift `song.ini`)
+  * creates different metadata formats
+    (Magma project, RB3 `songs.dta`)
     from one input file
 
-  * converts a 2-pedal chart to 1-pedal automatically
+  * thins out a 2-pedal drum chart to 1-pedal automatically
 
   * generates a default `BEAT` track based on the MIDI time signatures
 
@@ -94,26 +94,20 @@ Some current features:
   * swaps out the tempo track of a MIDI file,
     to easily use the same chart with two differently timed versions of a song
 
-Binaries for Windows/Mac/Linux are available on the
+Binaries for Windows and Mac are available on the
 [releases](https://github.com/mtolly/onyxite-customs/releases) page.
+You'll also need to install:
 
-If you want to supply MP3 audio, [LAME](http://lame.sourceforge.net/) must be in your PATH.
+  * .NET Framework on Windows, or [Mono](http://www.mono-project.com) on Mac/Linux
 
-If you want to compile straight to Xbox 360 CON you need:
+  * [Microsoft Visual C++ 2008](http://www.microsoft.com/en-us/download/details.aspx?id=29),
+    but probably only if you are on an older Windows version
 
-  * .NET Framework or [Mono](http://www.mono-project.com)
+  * [Wine](http://www.winehq.org) on Mac/Linux
 
-If you are on very old Windows (XP) you may need this:
-
-  * [Microsoft Visual C++ 2005 SP1](http://www.microsoft.com/en-us/download/details.aspx?displaylang=en&id=5638)
-
-Finally, for Linux and Mac only:
-
-  * [Wine](http://www.winehq.org)
-
-Then, build the `onyxbuild` program in the `build/` directory, or download it
-from the releases page. If building it yourself, you'll need
-`libsndfile`, `libogg`, `libvorbis`, `libvorbisenc`, `libflac`, and `libsamplerate`.
+If you want to build it yourself,
+[`stack`](https://github.com/commercialhaskell/stack) is the preferred way to do so.
+You'll also need `libsndfile` (plus OGG/FLAC support) and `libsamplerate`.
 
 `onyxbuild` reads the file `song.yml` to get song information, then builds
 whatever files you specify on the command line in a Make-like fashion. Inside
@@ -121,13 +115,14 @@ the song folder, to build a song, enter the following command:
 
     onyxbuild gen/plan/{audio source}/{1p or 2p}/{rb3.con or magma.rba}
 
-Valid audio sources:
+Valid audio sources differ by song, but often include:
 
   * `album`, for audio from the original CD.
 
   * `jammit`, for multitrack audio purchased from [Jammit](http://www.jammit.com/).
 
-  * Various other sources as listed in the song's `README.md`.
+Note that generating `magma.rba` directly currently fails on Mac/Linux if the song has vocals,
+but generating `rb3.con` (which still uses Magma to process the MIDI) works fine.
 
 ## Licensing
 
