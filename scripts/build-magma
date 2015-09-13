@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require 'yaml'
+require_relative 'yamltree'
 
 def system_(*args)
   STDERR.puts args.join(' ')
@@ -12,7 +12,7 @@ yamls = Dir['songs/*/*/song.yml']
 yamls.each do |yaml_file|
   folder = File.dirname(yaml_file)
   puts ">>> SONG: #{folder}"
-  yaml = YAML.load_file(yaml_file)
+  yaml = load_yaml_tree(yaml_file)
   next unless yaml.fetch('published', true)
   audio = yaml['plans'].keys
   makes = []

@@ -2,7 +2,7 @@
 
 # Remakes all the GitHub README.md files for the song directories.
 
-require 'yaml'
+require_relative 'yamltree'
 
 def system_(*args)
   STDERR.puts args.join(' ')
@@ -12,7 +12,7 @@ end
 
 system_ "rm -rf songs/*/*/README.md"
 Dir['songs/*/*/song.yml'].each do |f|
-  yaml = YAML.load_file f
+  yaml = load_yaml_tree(f)
   next if yaml.has_key?('published') && !yaml['published']
   system_ "onyxbuild README.md --song #{f}"
 end

@@ -3,7 +3,7 @@
 # Builds some CONs, and copies them onto a (plain FAT32, not FATX) Xbox 360 USB drive.
 
 require 'fileutils'
-require 'yaml'
+require_relative 'yamltree'
 
 def system_(*args)
   STDERR.puts args.join(' ')
@@ -41,7 +41,7 @@ songs.each do |song|
     puts "Skipping because no song.yml."
     next
   end
-  yaml = YAML.load_file("#{song}/song.yml")
+  yaml = load_yaml_tree("#{song}/song.yml")
   if yaml.has_key?('published') && !(yaml['published'])
     puts "Skipping because not published."
     next
