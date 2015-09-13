@@ -119,7 +119,13 @@ Valid audio sources differ by song, but often include:
 
   * `album`, for audio from the original CD.
 
+    * Either place the audio (FLAC is preferred, OGG or WAV also works) in the song folder,
+      or if you have it in another folder, add `--audio your/music/folder/` to the `onyxbuild` command.
+
   * `jammit`, for multitrack audio purchased from [Jammit](http://www.jammit.com/).
+
+    * By default, the official Jammit app's folder is read from.
+      If you have another folder with Jammit data, add `--jammit your/jammit/folder/` to the `onyxbuild` command.
 
 Note that generating `magma.rba` directly currently fails on Mac/Linux if the song has vocals,
 but generating `rb3.con` (which still uses Magma to process the MIDI) works fine.
