@@ -250,7 +250,7 @@ instance TraceJSON Plan where
       expectedKeys ["each", "comments"]
       return EachPlan{..}
     <|> do
-      let defaultSilence = fromMaybe $ Silence 1 $ Frames 0
+      let defaultSilence = fromMaybe $ Silence 2 $ Frames 0
       _song   <-                    required "song"   traceJSON
       _guitar <- defaultSilence <$> optional "guitar" traceJSON
       _bass   <- defaultSilence <$> optional "bass"   traceJSON

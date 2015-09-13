@@ -237,14 +237,14 @@ main = do
                     J.Only part <- nub $ map fst result
                     guard $ J.partToInstrument part == inst
                     return $ jammitPath name $ J.Only part
-                  mixOrMono []    = Silence 1 $ Frames 0
-                  mixOrMono files = Mix $ map Input files
+                  mixOrStereo []    = Silence 2 $ Frames 0
+                  mixOrStereo files = Mix $ map Input files
               case minst of
-                Just inst -> return $ mixOrMono $ boughtInstrumentParts inst
+                Just inst -> return $ mixOrStereo $ boughtInstrumentParts inst
                 Nothing -> case filter (\inst -> J.Without inst `elem` map fst result) backs of
                   []       -> fail "No charted instruments with Jammit tracks found"
                   back : _ -> return $ let
-                    negative = mixOrMono $ do
+                    negative = mixOrStereo $ do
                       otherInstrument <- filter (/= back) backs
                       boughtInstrumentParts otherInstrument
                     in Mix [Input $ jammitPath name $ J.Without back, Gain (-1) negative]
