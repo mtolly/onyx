@@ -4,7 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums
+  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=in-the-name-of-god&artist=dream-theater)
 
 Supported audio:
 

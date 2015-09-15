@@ -288,7 +288,11 @@ main = do
       line ""
       line "Instruments:"
       line ""
-      when (_hasDrums $ _instruments songYaml) $ line "  * (Pro) Drums"
+      when (_hasDrums $ _instruments songYaml) $ do
+        let titleDir  = takeFileName $ takeDirectory yamlPath
+            artistDir = takeFileName $ takeDirectory $ takeDirectory yamlPath
+            link = "http://pages.cs.wisc.edu/~tolly/customs/?title=" ++ titleDir ++ "&artist=" ++ artistDir
+        line $ "  * (Pro) Drums [(preview)](" ++ link ++ ")"
       when (_hasBass $ _instruments songYaml) $ line "  * Bass"
       when (_hasGuitar $ _instruments songYaml) $ line "  * Guitar"
       when (_hasKeys $ _instruments songYaml) $ line "  * (Pro) Keys"

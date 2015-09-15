@@ -4,7 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums
+  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=the-root-of-all-evil&artist=dream-theater)
 
 Supported audio:
 

@@ -4,7 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums
+  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=the-answer-lies-within&artist=dream-theater)
 
 Supported audio:
 

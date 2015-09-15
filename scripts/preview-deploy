@@ -7,6 +7,7 @@ password   = File.read("#{Dir.home}/pw/csl").strip
 remote_dir = '/afs/cs.wisc.edu/u/t/o/tolly/public/html/customs'
 
 require 'net/sftp'
+require_relative 'yamltree'
 
 def log(s)
   STDERR.puts s
@@ -61,20 +62,26 @@ Net::SFTP.start(url, username, password: password) do |sftp|
     upload_rf sftp, 'preview/www/rbprev'    , "#{remote_dir}/rbprev"
     upload_rf sftp, 'preview/www/lib'       , "#{remote_dir}/lib"
   end
-  ARGV.each do |songdir|
+  first_option = ARGV.index { |arg| arg.start_with? '--' }
+  not_options = first_option ? ARGV[0 ... first_option] : ARGV
+  onyxbuild_options = first_option ? ARGV[first_option .. -1] : []
+  not_options.each do |songdir|
     next if songdir == 'app'
-    versiondir = 'gen/album/2p'
-    songfiles = %w{notes.mid preview-audio.ogg preview-audio.mp3}
+    next unless File.exist? "#{songdir}/song.yml"
+    yaml = load_yaml_tree("#{songdir}/song.yml")
+    next if yaml.has_key?('published') && !(yaml['published'])
+
+    songfiles = %w{gen/plan/album/2p/notes.mid gen/plan/album/preview-audio.ogg gen/plan/album/preview-audio.mp3}
     Dir.chdir(songdir) do
-      system_('onyxbuild', *songfiles.map { |f| "#{versiondir}/#{f}" })
+      system_('onyxbuild', *songfiles, *onyxbuild_options)
     end
-    dirs = "#{songdir}/#{versiondir}".split('/').reject(&:empty?)
+    dirs = "#{songdir}/gen/plan/album/2p".split('/').reject(&:empty?)
     dirs.each_index do |i|
       # make each directory in the chain
       mkdir_f sftp, "#{remote_dir}/#{dirs[0..i].join('/')}"
     end
     songfiles.each do |f|
-      path = "#{songdir}/#{versiondir}/#{f}"
+      path = "#{songdir}/#{f}"
       upload_rf sftp, path, "#{remote_dir}/#{path}"
     end
   end

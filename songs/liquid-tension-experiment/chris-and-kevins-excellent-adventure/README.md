@@ -4,7 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums
+  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=chris-and-kevins-excellent-adventure&artist=liquid-tension-experiment)
 
 Supported audio:
 

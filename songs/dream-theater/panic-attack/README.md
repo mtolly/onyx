@@ -4,7 +4,7 @@
 
 Instruments:
 
-  * (Pro) Drums
+  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=panic-attack&artist=dream-theater)
   * Bass
   * Guitar
   * Vocals (1)

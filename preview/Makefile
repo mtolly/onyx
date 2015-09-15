@@ -7,4 +7,4 @@ build:
 	cp www/app.js www/app.min.js
 
 minify: build
-	closure-compiler --language_in ECMASCRIPT5 www/app.js > www/app.min.js
+	uglifyjs www/app.js -c -m > www/app.min.js
