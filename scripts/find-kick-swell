@@ -1,0 +1,16 @@
+#!/usr/bin/env ruby
+
+require_relative 'yamltree'
+
+Dir['songs/*/*/song.yml'].each do |f|
+  yaml = load_yaml_tree f
+  next unless yaml.fetch('published', true)
+  mid = f.gsub('song.yml', 'notes.mid')
+  text = `midiscript -mo #{mid}`
+  text.each_line do |line|
+    if line.include?('on 96 v') && (line.include?('on 126 v') || line.include?('on 127 v'))
+      puts mid
+      puts line
+    end
+  end
+end

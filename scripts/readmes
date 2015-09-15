@@ -13,6 +13,6 @@ end
 system_ "rm -rf songs/*/*/README.md"
 Dir['songs/*/*/song.yml'].each do |f|
   yaml = load_yaml_tree(f)
-  next if yaml.has_key?('published') && !yaml['published']
+  next unless yaml.fetch('published', true)
   system_ "onyxbuild README.md --song #{f}"
 end

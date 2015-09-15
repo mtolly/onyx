@@ -4,14 +4,12 @@ require_relative 'yamltree'
 
 yamls = []
 Dir['songs/*/*/song.yml'].each do |f|
-  begin
-    yaml = load_yaml_tree(f)
-    next if yaml.has_key?('published') && !yaml['published']
-    next if (yaml['metadata']['comments'] || []).any? { |cmt| cmt.include?('Grinnz') || cmt.include?('Harmonix') }
-    next if ['Metropolis, Pt. 1: The Miracle and the Sleeper', 'On the Backs of Angels', 'Constant Motion'].include?(yaml['metadata']['title'])
-    yaml['path'] = f
-    yamls << yaml
-  end
+  yaml = load_yaml_tree(f)
+  next unless yaml.fetch('published', true)
+  next if (yaml['metadata']['comments'] || []).any? { |cmt| cmt.include?('Grinnz') || cmt.include?('Harmonix') }
+  next if ['Metropolis, Pt. 1: The Miracle and the Sleeper', 'On the Backs of Angels', 'Constant Motion'].include?(yaml['metadata']['title'])
+  yaml['path'] = f
+  yamls << yaml
 end
 
 artists = {}
