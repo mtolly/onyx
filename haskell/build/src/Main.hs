@@ -47,7 +47,7 @@ import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.Jammit.Base                as J
 import qualified Sound.Jammit.Export              as J
 import qualified Sound.MIDI.Util                  as U
-import           StackTrace
+import           Control.Monad.Trans.StackTrace
 import           System.Console.GetOpt
 import           System.Directory                 (canonicalizePath,
                                                    setCurrentDirectory)

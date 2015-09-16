@@ -38,6 +38,7 @@ executable onyxpreview
     , stm
     , transformers
     , onyxite-customs-parse
+    , onyxite-customs-stack-trace
   if flag(SDLDisplay)
     build-depends:
       sdl2 >= 1.3.1 && < 2
@@ -64,3 +65,4 @@ executable onyxpreview
   if flag(SDLDisplay)
     pkgconfig-depends:
       SDL2_mixer
+    build-tools: c2hs

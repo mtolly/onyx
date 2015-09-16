@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
-module StackTrace where
+module Control.Monad.Trans.StackTrace where
 
 import           Control.Applicative
 import           Control.Monad

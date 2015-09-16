@@ -1,0 +1,14 @@
+name:                 onyxite-customs-stack-trace
+version:              0.1
+synopsis:             A monad for warnings and errors with contexts
+build-type:           Simple
+cabal-version:        >= 1.10
+
+library
+  hs-source-dirs:       src
+  exposed-modules:
+    Control.Monad.Trans.StackTrace
+  default-language:     Haskell2010
+  build-depends:
+    base >= 4.7 && < 5
+    , transformers >= 0.4

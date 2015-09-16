@@ -16,7 +16,7 @@ import qualified Graphics.UI.SDL.Image as Image
 import qualified RockBand.File         as File
 import qualified Sound.MIDI.File.Load  as Load
 import qualified Sound.MIDI.Util       as U
-import           StackTrace
+import           Control.Monad.Trans.StackTrace
 import           System.Environment
 import           System.FilePath       ((<.>), (</>))
 

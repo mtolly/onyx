@@ -21,7 +21,7 @@ import           RockBand.Parse
 import qualified RockBand.ProGuitar               as ProGuitar
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as Vocals
-import           StackTrace
+import           Control.Monad.Trans.StackTrace
 
 data Track t
   = PartDrums               (RTB.T t      Drums.Event)

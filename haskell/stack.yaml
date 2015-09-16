@@ -4,12 +4,13 @@ flags:
 packages:
 - 'build'
 - 'build/resources'
+- 'preview'
 - 'dta'
 - 'parse'
-- 'preview'
+- 'stack-trace'
 extra-deps:
-- conduit-audio-0.2
-- conduit-audio-samplerate-0.1
+- conduit-audio-0.2.0.1
+- conduit-audio-samplerate-0.1.0.1
 - conduit-audio-sndfile-0.1
 - event-list-0.1.1.2
 - hsndfile-0.7.1

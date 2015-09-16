@@ -23,7 +23,7 @@ import qualified Data.Text                  as T
 import           Data.Traversable
 import qualified Data.Vector                as V
 import qualified Sound.Jammit.Base          as J
-import           StackTrace                 hiding (optional)
+import           Control.Monad.Trans.StackTrace hiding (optional)
 import           Text.Read                  (readMaybe)
 
 type Parser m context = StackTraceT (ReaderT context m)

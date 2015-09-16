@@ -2,8 +2,9 @@ flags:
   onyxite-customs-preview:
     SDLDisplay: false
 packages:
-- 'parse'
 - 'preview'
+- 'parse'
+- 'stack-trace'
 extra-deps:
 - event-list-0.1.1.2
 - midi-0.2.1.5

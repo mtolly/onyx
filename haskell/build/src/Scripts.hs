@@ -21,7 +21,7 @@ import qualified RockBand.Events                  as Events
 import           RockBand.File
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as ProKeys
-import           StackTrace
+import           Control.Monad.Trans.StackTrace
 
 import           Development.Shake
 

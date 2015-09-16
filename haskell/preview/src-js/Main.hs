@@ -15,7 +15,7 @@ import           GHCJS.Types            (JSRef, JSString, isNull)
 import           Text.Printf            (printf)
 
 import qualified RockBand.File          as File
-import           StackTrace
+import           Control.Monad.Trans.StackTrace
 
 import qualified Audio
 import           Canvas
