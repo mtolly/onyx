@@ -10,7 +10,7 @@ usage:
 mac:
 	rm -rf mac/
 	mkdir mac/
-	stack build
+	stack build .
 	cp "$(shell stack exec which onyxbuild)" mac/
 	dylibbundler -x mac/onyxbuild -b -d mac/ -p '@executable_path' -of
 	strip mac/onyxbuild
@@ -22,7 +22,7 @@ mac-deps:
 win:
 	rm -rf win/
 	mkdir win/
-	stack build --extra-lib-dirs=/mingw32/lib --extra-include-dirs=/mingw32/include
+	stack build . --extra-lib-dirs=/mingw32/lib --extra-include-dirs=/mingw32/include
 	cp "$(shell stack exec which onyxbuild)" win/
 	cp /mingw32/bin/*.dll win/
 	stack exec strip win/onyxbuild.exe

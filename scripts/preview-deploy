@@ -53,14 +53,14 @@ end
 Net::SFTP.start(url, username, password: password) do |sftp|
   log " => Connected #{username}@#{url} via SFTP."
   if ARGV.include? 'app'
-    Dir.chdir('preview') do
+    Dir.chdir('haskell/preview') do
       system_ 'make', 'minify'
     end
-    upload_rf sftp, 'preview/www/index.html', "#{remote_dir}/index.html"
-    upload_rf sftp, 'preview/www/app.min.js', "#{remote_dir}/app.min.js"
-    upload_rf sftp, 'preview/www/runmain.js', "#{remote_dir}/runmain.js"
-    upload_rf sftp, 'preview/www/rbprev'    , "#{remote_dir}/rbprev"
-    upload_rf sftp, 'preview/www/lib'       , "#{remote_dir}/lib"
+    upload_rf sftp, 'haskell/preview/www/index.html', "#{remote_dir}/index.html"
+    upload_rf sftp, 'haskell/preview/www/app.min.js', "#{remote_dir}/app.min.js"
+    upload_rf sftp, 'haskell/preview/www/runmain.js', "#{remote_dir}/runmain.js"
+    upload_rf sftp, 'haskell/preview/www/rbprev'    , "#{remote_dir}/rbprev"
+    upload_rf sftp, 'haskell/preview/www/lib'       , "#{remote_dir}/lib"
   end
   first_option = ARGV.index { |arg| arg.start_with? '--' }
   not_options = first_option ? ARGV[0 ... first_option] : ARGV

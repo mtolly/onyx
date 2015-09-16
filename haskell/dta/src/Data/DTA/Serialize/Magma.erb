@@ -1,0 +1,149 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
+module Data.DTA.Serialize.Magma where
+
+#if __GLASGOW_HASKELL__ < 710
+import Control.Applicative ((<$>), (<*>))
+#endif
+import Control.Monad ((>=>))
+
+import qualified Data.ByteString.Char8 as B8
+import qualified Data.Map as Map
+
+import Data.DTA
+import Data.DTA.Serialize
+
+<%
+require File.expand_path(File.dirname(__FILE__) + '/make_data')
+%>
+
+<%= makeRecord('RBProj', [
+  ['project', nil, 'Project'],
+  ]) %>
+
+<%= makeRecord('Project', [
+  ['tool_version'    , nil, 'B8.ByteString'],
+  ['project_version' , nil, 'Integer'      ],
+  ['metadata'        , nil, 'Metadata'     ],
+  ['gamedata'        , nil, 'Gamedata'     ],
+  ['languages'       , nil, 'Languages'    ],
+  ['destination_file', nil, 'B8.ByteString'],
+  ['midi'            , nil, 'Midi'         ],
+  ['dry_vox'         , nil, 'DryVox'       ],
+  ['album_art'       , nil, 'AlbumArt'     ],
+  ['tracks'          , nil, 'Tracks'       ],
+  ]) %>
+
+<%= makeRecord('AlbumArt', [
+  ['file', 'albumArtFile', 'B8.ByteString'],
+  ]) %>
+
+<%= makeRecord('Languages', [
+  ['english' , nil, 'Bool'],
+  ['french'  , nil, 'Bool'],
+  ['italian' , nil, 'Bool'],
+  ['spanish' , nil, 'Bool'],
+  ['german'  , nil, 'Bool'],
+  ['japanese', nil, 'Bool'],
+  ]) %>
+
+<%= makeRecord('Gamedata', [
+  ['preview_start_ms'  , nil, 'Integer'],
+  ['rank_guitar'       , nil, 'Integer', '1 is no dots, 7 is devils.'],
+  ['rank_bass'         , nil, 'Integer'],
+  ['rank_drum'         , nil, 'Integer'],
+  ['rank_vocals'       , nil, 'Integer'],
+  ['rank_keys'         , nil, 'Integer'],
+  ['rank_pro_keys'     , nil, 'Integer'],
+  ['rank_band'         , nil, 'Integer'],
+  ['vocal_scroll_speed', nil, 'Integer', 'Normal = 2300. Fast = 2000.'],
+  ['anim_tempo'        , nil, 'Integer', 'Slow (under 100bpm) = 16. Medium (100-160bpm) = 32. Fast (over 160bpm) = 64.'],
+  ['vocal_gender'      , nil, 'Gender'],
+  ['vocal_percussion'  , nil, 'Percussion'],
+  ['vocal_parts'       , nil, 'Integer'],
+  ['guide_pitch_volume', nil, 'Float']
+  ]) %>
+
+<%= makeEnum('Gender', [
+  ['male'  , nil],
+  ['female', nil],
+  ]) %>
+
+<%= makeEnum('Percussion', [
+  ['tambourine', nil],
+  ['cowbell'   , nil],
+  ['handclap'  , nil],
+  ]) %>
+
+<%= makeRecord('Metadata', [
+  ['song_name'    , nil, 'B8.ByteString'],
+  ['artist_name'  , nil, 'B8.ByteString'],
+  ['genre'        , nil, 'Keyword'      ],
+  ['sub_genre'    , nil, 'Keyword'      ],
+  ['year_released', nil, 'Integer'      ],
+  ['album_name'   , nil, 'B8.ByteString'],
+  ['author'       , nil, 'B8.ByteString'],
+  ['release_label', nil, 'B8.ByteString'],
+  ['country'      , nil, 'Keyword'      ],
+  ['price'        , nil, 'Integer'      ],
+  ['track_number' , nil, 'Integer'      ],
+  ['has_album'    , nil, 'Bool'         ],
+  ]) %>
+
+<%= makeRecord('Midi', [
+  ['file'         , 'midiFile', 'B8.ByteString'],
+  ['autogen_theme', nil       , 'Either AutogenTheme B8.ByteString'],
+  ]) %>
+
+<%= makeEnum('AutogenTheme', [
+  ['', 'DefaultTheme'],
+  (theme = 'AggressiveMetal'; ["#{theme}.rbtheme", theme]),
+  (theme = 'ArenaRock'      ; ["#{theme}.rbtheme", theme]),
+  (theme = 'DarkHeavyRock'  ; ["#{theme}.rbtheme", theme]),
+  (theme = 'DustyVintage'   ; ["#{theme}.rbtheme", theme]),
+  (theme = 'EdgyProgRock'   ; ["#{theme}.rbtheme", theme]),
+  (theme = 'FeelGoodPopRock'; ["#{theme}.rbtheme", theme]),
+  (theme = 'GaragePunkRock' ; ["#{theme}.rbtheme", theme]),
+  (theme = 'PsychJamRock'   ; ["#{theme}.rbtheme", theme]),
+  (theme = 'SlowJam'        ; ["#{theme}.rbtheme", theme]),
+  (theme = 'SynthPop'       ; ["#{theme}.rbtheme", theme]),
+  ], 'String') %>
+
+<%= makeRecord('DryVox', [
+  ['part0'              , nil, 'DryVoxPart'],
+  ['part1'              , nil, 'DryVoxPart'],
+  ['part2'              , nil, 'DryVoxPart'],
+  ['tuning_offset_cents', nil, 'Float'     ],
+  ]) %>
+
+<%= makeRecord('DryVoxPart', [
+  ['file'   , 'dryVoxFile'   , 'B8.ByteString'],
+  ['enabled', 'dryVoxEnabled', 'Bool'         ],
+  ]) %>
+
+<%= makeRecord('Tracks', [
+  ['drum_layout', nil, 'DrumLayout'],
+  ['drum_kit'   , nil, 'AudioFile' ],
+  ['drum_kick'  , nil, 'AudioFile' ],
+  ['drum_snare' , nil, 'AudioFile' ],
+  ['bass'       , nil, 'AudioFile' ],
+  ['guitar'     , nil, 'AudioFile' ],
+  ['vocals'     , nil, 'AudioFile' ],
+  ['keys'       , nil, 'AudioFile' ],
+  ['backing'    , nil, 'AudioFile' ],
+  ]) %>
+
+<%= makeEnum('DrumLayout', [
+  ['drum_layout_kit'           , 'Kit'         ],
+  ['drum_layout_kit_snare'     , 'KitSnare'    ],
+  ['drum_layout_kit_kick'      , 'KitKick'     ],
+  ['drum_layout_kit_kick_snare', 'KitKickSnare'],
+  ]) %>
+
+<%= makeRecord('AudioFile', [
+  ['enabled' , 'audioEnabled', 'Bool'          ],
+  ['channels', nil           , 'Integer'       ],
+  ['pan'     , nil           , '[Float]'       ],
+  ['vol'     , nil           , '[Float]'       ],
+  ['file'    , 'audioFile'   , 'B8.ByteString' ],
+  ]) %>

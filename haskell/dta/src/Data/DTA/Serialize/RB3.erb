@@ -1,0 +1,100 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
+module Data.DTA.Serialize.RB3 where
+
+#if __GLASGOW_HASKELL__ < 710
+import Control.Applicative ((<$>), (<*>))
+#endif
+import Control.Monad ((>=>))
+
+import qualified Data.ByteString.Char8 as B8
+import qualified Data.Map as Map
+
+import Data.DTA
+import Data.DTA.Serialize
+import Data.DTA.Serialize.Magma (Gender(..))
+
+<%
+require File.expand_path(File.dirname(__FILE__) + '/make_data')
+%>
+
+type Path = Either B8.ByteString Keyword
+
+<%= makeRecord('SongPackage', [
+  ['name'               , nil, 'B8.ByteString'            ],
+  ['artist'             , nil, 'B8.ByteString'            ],
+  ['master'             , nil, 'Bool'                     ],
+  ['song_id'            , nil, 'Either Integer Keyword'   ],
+  ['song'               , nil, 'Song'                     ],
+  ['bank'               , nil, maybe('Path')              ],
+  ['drum_bank'          , nil, maybe('Path')              ],
+  ['anim_tempo'         , nil, 'Either AnimTempo Integer' ],
+  ['band_fail_cue'      , nil, maybe('Path')              ],
+  ['song_scroll_speed'  , nil, 'Integer'                  ],
+  ['preview'            , nil, '(Integer, Integer)'       ],
+  ['song_length'        , nil, 'Integer'                  ],
+  ['rank'               , nil, 'Dict Integer'             ],
+  ['solo'               , nil, maybe('InParens [Keyword]')],
+  ['format'             , nil, 'Integer'                  ],
+  ['version'            , nil, 'Integer'                  ],
+  ['game_origin'        , nil, 'Keyword'                  ],
+  ['rating'             , nil, 'Integer'                  ],
+  ['genre'              , nil, 'Keyword'                  ],
+  ['sub_genre'          , nil, maybe('Keyword')           ],
+  ['vocal_gender'       , nil, 'Gender'                   ],
+  ['short_version'      , nil, maybe('Integer')           ],
+  ['year_released'      , nil, 'Integer'                  ],
+  ['album_art'          , nil, maybe('Bool')              ],
+  ['album_name'         , nil, maybe('B8.ByteString')     ],
+  ['album_track_number' , nil, maybe('Integer')           ],
+  ['vocal_tonic_note'   , nil, maybe('Pitch')             ],
+  ['song_tonality'      , nil, maybe('Tonality')          ],
+  ['tuning_offset_cents', nil, maybe('Float')             ],
+  ['real_guitar_tuning' , nil, maybe('InParens [Integer]')],
+  ['real_bass_tuning'   , nil, maybe('InParens [Integer]')],
+  ['guide_pitch_volume' , nil, maybe('Float')             ],
+  ['encoding'           , nil, maybe('Keyword')           ],
+  ]) %>
+
+<%= makeEnum('Pitch', [
+  [0 , 'C'     ],
+  [1 , 'CSharp'],
+  [2 , 'D'     ],
+  [3 , 'DSharp'],
+  [4 , 'E'     ],
+  [5 , 'F'     ],
+  [6 , 'FSharp'],
+  [7 , 'G'     ],
+  [8 , 'GSharp'],
+  [9 , 'A'     ],
+  [10, 'ASharp'],
+  [11, 'B'     ],
+  ], 'Int') %>
+
+<%= makeEnum('Tonality', [
+  [0, 'Major'],
+  [1, 'Minor'],
+  ], 'Int') %>
+
+<%= makeEnum('AnimTempo', [
+  ['kTempoSlow'  , nil],
+  ['kTempoMedium', nil],
+  ['kTempoFast'  , nil],
+  ]) %>
+
+<%= makeRecord('Song', [
+  ['name'          , 'songName', 'B8.ByteString'            ],
+  ['tracks_count'  , nil       , maybe('InParens [Integer]')],
+  ['tracks'        , nil       ,
+    'InParens (Dict (Either Integer (InParens [Integer])))' ],
+  ['vocal_parts'   , nil       , 'Integer'                  ],
+  ['pans'          , nil       , 'InParens [Float]'         ],
+  ['vols'          , nil       , 'InParens [Float]'         ],
+  ['cores'         , nil       , 'InParens [Integer]'       ],
+  ['drum_solo'     , nil       , 'DrumSounds'               ],
+  ['drum_freestyle', nil       , 'DrumSounds'               ],
+  ]) %>
+
+<%= makeRecord('DrumSounds', [
+  ['seqs', nil, 'InParens [Keyword]'],
+  ]) %>

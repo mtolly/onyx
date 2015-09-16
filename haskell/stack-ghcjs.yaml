@@ -2,9 +2,8 @@ flags:
   onyxite-customs-preview:
     SDLDisplay: false
 packages:
-- '.'
-- location: '../parse'
-  extra-dep: true
+- 'parse'
+- 'preview'
 extra-deps:
 - event-list-0.1.1.2
 - midi-0.2.1.5
