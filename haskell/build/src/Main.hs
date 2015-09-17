@@ -12,6 +12,7 @@ import           OneFoot
 import           Scripts
 import           X360
 import           YAMLTree
+import           Resources (emptyMilo)
 
 import           Codec.Picture
 import           Control.Monad.Extra
@@ -649,6 +650,7 @@ main = do
             pathMid  = pedalDir </> "rb3/songs" </> pkg </> (pkg <.> "mid")
             pathMogg = pedalDir </> "rb3/songs" </> pkg </> (pkg <.> "mogg")
             pathPng  = pedalDir </> "rb3/songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_xbox")
+            pathMilo = pedalDir </> "rb3/songs" </> pkg </> "gen" </> (pkg <.> ".milo_xbox")
             pathCon  = pedalDir </> "rb3.con"
         pathDta %> \out -> do
           songPkg <- makeDTA
@@ -658,8 +660,9 @@ main = do
         pathMid  %> copyFile' (pedalDir </> "notes-magma-export.mid")
         pathMogg %> copyFile' (dir </> "audio.mogg")
         pathPng  %> copyFile' "gen/cover.png_xbox"
+        pathMilo %> \out -> liftIO $ B.writeFile out emptyMilo
         pathCon  %> \out -> do
-          need [pathDta, pathMid, pathMogg, pathPng]
+          need [pathDta, pathMid, pathMogg, pathPng, pathMilo]
           rb3pkg
             (T.unpack (_artist $ _metadata songYaml) ++ ": " ++ T.unpack (_title $ _metadata songYaml))
             ("Version: " ++ pedalDir)
