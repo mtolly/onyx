@@ -15,7 +15,5 @@ Supported audio:
 
 Notes:
 
-  * Timing, drums, bass, guitar and vocals by Grinnz.
-
-  * TODO: fix some blue open hihat notes in drums.
+  * Timing, drums, bass, guitar and vocals by Grinnz. Some small fixes to drums by me.
 
