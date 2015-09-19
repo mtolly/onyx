@@ -21,13 +21,13 @@ instance ToChunks RBProj where { toChunks x = makeDict $ Dict $ Map.fromList $ [
 
 instance FromChunks RBProj where { fromChunks = getDict >=> \d -> RBProj <$> (dictLookup "project" d >>= fromChunks) }
 
-data Project = Project { toolVersion :: B8.ByteString, projectVersion :: Integer, metadata :: Metadata, gamedata :: Gamedata, languages :: Languages, destinationFile :: B8.ByteString, midi :: Midi, dryVox :: DryVox, albumArt :: AlbumArt, tracks :: Tracks } deriving (Eq, Ord, Read, Show)
+data Project = Project { toolVersion :: String, projectVersion :: Integer, metadata :: Metadata, gamedata :: Gamedata, languages :: Languages, destinationFile :: String, midi :: Midi, dryVox :: DryVox, albumArt :: AlbumArt, tracks :: Tracks } deriving (Eq, Ord, Read, Show)
 
 instance ToChunks Project where { toChunks x = makeDict $ Dict $ Map.fromList $ [("tool_version", toChunks $ toolVersion x)] ++ [("project_version", toChunks $ projectVersion x)] ++ [("metadata", toChunks $ metadata x)] ++ [("gamedata", toChunks $ gamedata x)] ++ [("languages", toChunks $ languages x)] ++ [("destination_file", toChunks $ destinationFile x)] ++ [("midi", toChunks $ midi x)] ++ [("dry_vox", toChunks $ dryVox x)] ++ [("album_art", toChunks $ albumArt x)] ++ [("tracks", toChunks $ tracks x)] }
 
 instance FromChunks Project where { fromChunks = getDict >=> \d -> Project <$> (dictLookup "tool_version" d >>= fromChunks) <*> (dictLookup "project_version" d >>= fromChunks) <*> (dictLookup "metadata" d >>= fromChunks) <*> (dictLookup "gamedata" d >>= fromChunks) <*> (dictLookup "languages" d >>= fromChunks) <*> (dictLookup "destination_file" d >>= fromChunks) <*> (dictLookup "midi" d >>= fromChunks) <*> (dictLookup "dry_vox" d >>= fromChunks) <*> (dictLookup "album_art" d >>= fromChunks) <*> (dictLookup "tracks" d >>= fromChunks) }
 
-data AlbumArt = AlbumArt { albumArtFile :: B8.ByteString } deriving (Eq, Ord, Read, Show)
+data AlbumArt = AlbumArt { albumArtFile :: String } deriving (Eq, Ord, Read, Show)
 
 instance ToChunks AlbumArt where { toChunks x = makeDict $ Dict $ Map.fromList $ [("file", toChunks $ albumArtFile x)] }
 
@@ -57,13 +57,13 @@ instance ToChunks Percussion where { toChunks Tambourine = [Key "tambourine"]; t
 
 instance FromChunks Percussion where { fromChunks [Key "tambourine"] = Right Tambourine; fromChunks [Key "cowbell"] = Right Cowbell; fromChunks [Key "handclap"] = Right Handclap; fromChunks cs = Left $ "Couldn't read as Percussion: " ++ show cs }
 
-data Metadata = Metadata { songName :: B8.ByteString, artistName :: B8.ByteString, genre :: Keyword, subGenre :: Keyword, yearReleased :: Integer, albumName :: B8.ByteString, author :: B8.ByteString, releaseLabel :: B8.ByteString, country :: Keyword, price :: Integer, trackNumber :: Integer, hasAlbum :: Bool } deriving (Eq, Ord, Read, Show)
+data Metadata = Metadata { songName :: String, artistName :: String, genre :: Keyword, subGenre :: Keyword, yearReleased :: Integer, albumName :: String, author :: String, releaseLabel :: String, country :: Keyword, price :: Integer, trackNumber :: Integer, hasAlbum :: Bool } deriving (Eq, Ord, Read, Show)
 
 instance ToChunks Metadata where { toChunks x = makeDict $ Dict $ Map.fromList $ [("song_name", toChunks $ songName x)] ++ [("artist_name", toChunks $ artistName x)] ++ [("genre", toChunks $ genre x)] ++ [("sub_genre", toChunks $ subGenre x)] ++ [("year_released", toChunks $ yearReleased x)] ++ [("album_name", toChunks $ albumName x)] ++ [("author", toChunks $ author x)] ++ [("release_label", toChunks $ releaseLabel x)] ++ [("country", toChunks $ country x)] ++ [("price", toChunks $ price x)] ++ [("track_number", toChunks $ trackNumber x)] ++ [("has_album", toChunks $ hasAlbum x)] }
 
 instance FromChunks Metadata where { fromChunks = getDict >=> \d -> Metadata <$> (dictLookup "song_name" d >>= fromChunks) <*> (dictLookup "artist_name" d >>= fromChunks) <*> (dictLookup "genre" d >>= fromChunks) <*> (dictLookup "sub_genre" d >>= fromChunks) <*> (dictLookup "year_released" d >>= fromChunks) <*> (dictLookup "album_name" d >>= fromChunks) <*> (dictLookup "author" d >>= fromChunks) <*> (dictLookup "release_label" d >>= fromChunks) <*> (dictLookup "country" d >>= fromChunks) <*> (dictLookup "price" d >>= fromChunks) <*> (dictLookup "track_number" d >>= fromChunks) <*> (dictLookup "has_album" d >>= fromChunks) }
 
-data Midi = Midi { midiFile :: B8.ByteString, autogenTheme :: Either AutogenTheme B8.ByteString } deriving (Eq, Ord, Read, Show)
+data Midi = Midi { midiFile :: String, autogenTheme :: Either AutogenTheme String } deriving (Eq, Ord, Read, Show)
 
 instance ToChunks Midi where { toChunks x = makeDict $ Dict $ Map.fromList $ [("file", toChunks $ midiFile x)] ++ [("autogen_theme", toChunks $ autogenTheme x)] }
 
@@ -81,7 +81,7 @@ instance ToChunks DryVox where { toChunks x = makeDict $ Dict $ Map.fromList $ [
 
 instance FromChunks DryVox where { fromChunks = getDict >=> \d -> DryVox <$> (dictLookup "part0" d >>= fromChunks) <*> (dictLookup "part1" d >>= fromChunks) <*> (dictLookup "part2" d >>= fromChunks) <*> (dictLookup "tuning_offset_cents" d >>= fromChunks) }
 
-data DryVoxPart = DryVoxPart { dryVoxFile :: B8.ByteString, dryVoxEnabled :: Bool } deriving (Eq, Ord, Read, Show)
+data DryVoxPart = DryVoxPart { dryVoxFile :: String, dryVoxEnabled :: Bool } deriving (Eq, Ord, Read, Show)
 
 instance ToChunks DryVoxPart where { toChunks x = makeDict $ Dict $ Map.fromList $ [("file", toChunks $ dryVoxFile x)] ++ [("enabled", toChunks $ dryVoxEnabled x)] }
 
@@ -99,7 +99,7 @@ instance ToChunks DrumLayout where { toChunks Kit = [Key "drum_layout_kit"]; toC
 
 instance FromChunks DrumLayout where { fromChunks [Key "drum_layout_kit"] = Right Kit; fromChunks [Key "drum_layout_kit_snare"] = Right KitSnare; fromChunks [Key "drum_layout_kit_kick"] = Right KitKick; fromChunks [Key "drum_layout_kit_kick_snare"] = Right KitKickSnare; fromChunks cs = Left $ "Couldn't read as DrumLayout: " ++ show cs }
 
-data AudioFile = AudioFile { audioEnabled :: Bool, channels :: Integer, pan :: [Float], vol :: [Float], audioFile :: B8.ByteString } deriving (Eq, Ord, Read, Show)
+data AudioFile = AudioFile { audioEnabled :: Bool, channels :: Integer, pan :: [Float], vol :: [Float], audioFile :: String } deriving (Eq, Ord, Read, Show)
 
 instance ToChunks AudioFile where { toChunks x = makeDict $ Dict $ Map.fromList $ [("enabled", toChunks $ audioEnabled x)] ++ [("channels", toChunks $ channels x)] ++ [("pan", toChunks $ pan x)] ++ [("vol", toChunks $ vol x)] ++ [("file", toChunks $ audioFile x)] }
 

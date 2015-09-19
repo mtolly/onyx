@@ -7,7 +7,6 @@ import Control.Applicative ((<$>), (<*>))
 #endif
 import Control.Monad ((>=>))
 
-import qualified Data.ByteString.Char8 as B8
 import qualified Data.Map as Map
 
 import Data.DTA
@@ -18,11 +17,11 @@ import Data.DTA.Serialize.Magma (Gender(..))
 require File.expand_path(File.dirname(__FILE__) + '/make_data')
 %>
 
-type Path = Either B8.ByteString Keyword
+type Path = Either String Keyword
 
 <%= makeRecord('SongPackage', [
-  ['name'               , nil, 'B8.ByteString'            ],
-  ['artist'             , nil, 'B8.ByteString'            ],
+  ['name'               , nil, 'String'            ],
+  ['artist'             , nil, 'String'            ],
   ['master'             , nil, 'Bool'                     ],
   ['song_id'            , nil, 'Either Integer Keyword'   ],
   ['song'               , nil, 'Song'                     ],
@@ -45,7 +44,7 @@ type Path = Either B8.ByteString Keyword
   ['short_version'      , nil, maybe('Integer')           ],
   ['year_released'      , nil, 'Integer'                  ],
   ['album_art'          , nil, maybe('Bool')              ],
-  ['album_name'         , nil, maybe('B8.ByteString')     ],
+  ['album_name'         , nil, maybe('String')     ],
   ['album_track_number' , nil, maybe('Integer')           ],
   ['vocal_tonic_note'   , nil, maybe('Pitch')             ],
   ['song_tonality'      , nil, maybe('Tonality')          ],
@@ -83,7 +82,7 @@ type Path = Either B8.ByteString Keyword
   ]) %>
 
 <%= makeRecord('Song', [
-  ['name'          , 'songName', 'B8.ByteString'            ],
+  ['name'          , 'songName', 'String'            ],
   ['tracks_count'  , nil       , maybe('InParens [Integer]')],
   ['tracks'        , nil       ,
     'InParens (Dict (Either Integer (InParens [Integer])))' ],

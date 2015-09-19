@@ -3,65 +3,54 @@
 {-# LANGUAGE CPP #-}
 module Data.DTA
 ( DTA(..), Tree(..), Chunk(..)
-, lFromDTB, hFromDTB, fromDTB
-, lToDTB, hToDTB, toDTB
-, sFromDTA, hFromDTA, fromDTA
-, sToDTA, hToDTA, toDTA
+, decodeDTB, encodeDTB
+, readFileDTB, writeFileDTB
+, readDTA, showDTA
+, readFileDTA, readFileDTA_latin1, readFileDTA_utf8
+, writeFileDTA_latin1, writeFileDTA_utf8
 , renumberFrom
 ) where
 
 #if __GLASGOW_HASKELL__ < 710
 import Control.Applicative ((<$>))
 #endif
-import System.IO (withFile, Handle, IOMode(ReadMode, WriteMode))
-
 import Data.Binary (decode, encode)
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy as BL
+import System.IO.Extra
+import Control.Exception.Extra
 
 import Data.DTA.Base
 import Data.DTA.Lex
 import Data.DTA.Parse
 import Data.DTA.PrettyPrint
 
-lFromDTB :: BL.ByteString -> DTA
-lFromDTB = decode
+decodeDTB :: BL.ByteString -> DTA B.ByteString
+decodeDTB = decode
 
-lToDTB :: DTA -> BL.ByteString
-lToDTB = encode
+encodeDTB :: DTA B.ByteString -> BL.ByteString
+encodeDTB = encode
 
-fromDTB :: FilePath -> IO DTA
-fromDTB fp = withFile fp ReadMode hFromDTB
+readFileDTB :: FilePath -> IO (DTA B.ByteString)
+readFileDTB = fmap (decodeDTB . BL.fromStrict) . B.readFile
 
-hFromDTB :: Handle -> IO DTA
-hFromDTB h = decode . strictToLazy <$> B.hGetContents h
-  where strictToLazy b = BL.fromChunks [b]
+writeFileDTB :: FilePath -> DTA B.ByteString -> IO ()
+writeFileDTB fp dta = BL.writeFile fp $ encodeDTB dta
 
-toDTB :: FilePath -> DTA -> IO ()
-toDTB fp dta = withFile fp WriteMode $ \h -> hToDTB h dta
+readDTA :: String -> DTA String
+readDTA = parse . scan
 
-hToDTB :: Handle -> DTA -> IO ()
-hToDTB h dta = B.hPutStr h $ lazyToStrict $ encode dta
-  where lazyToStrict = B.concat . BL.toChunks
+readFileDTA :: FilePath -> IO (DTA String)
+readFileDTA f = readFileDTA_utf8 f `catch_` \_ -> readFileDTA_latin1 f
 
-sFromDTA :: String -> DTA
-sFromDTA = parse . scan
+readFileDTA_latin1 :: FilePath -> IO (DTA String)
+readFileDTA_latin1 = fmap readDTA . readFileEncoding' latin1
 
-bFromDTA :: B8.ByteString -> DTA
-bFromDTA = sFromDTA . B8.unpack
+readFileDTA_utf8 :: FilePath -> IO (DTA String)
+readFileDTA_utf8 = fmap readDTA . readFileEncoding' utf8
 
-hFromDTA :: Handle -> IO DTA
-hFromDTA h = bFromDTA <$> B8.hGetContents h
+writeFileDTA_latin1 :: FilePath -> DTA String -> IO ()
+writeFileDTA_latin1 fp dta = writeFileEncoding latin1 fp $ showDTA dta
 
-fromDTA :: FilePath -> IO DTA
-fromDTA fp = withFile fp ReadMode hFromDTA
-
-bToDTA :: DTA -> B8.ByteString
-bToDTA = B8.pack . sToDTA
-
-hToDTA :: Handle -> DTA -> IO ()
-hToDTA h = B8.hPutStr h . bToDTA
-
-toDTA :: FilePath -> DTA -> IO ()
-toDTA fp dta = withFile fp WriteMode $ \h -> hToDTA h dta
+writeFileDTA_utf8 :: FilePath -> DTA String -> IO ()
+writeFileDTA_utf8 fp dta = writeFileEncoding utf8 fp $ showDTA dta

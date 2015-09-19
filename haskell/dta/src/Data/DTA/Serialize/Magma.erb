@@ -7,7 +7,6 @@ import Control.Applicative ((<$>), (<*>))
 #endif
 import Control.Monad ((>=>))
 
-import qualified Data.ByteString.Char8 as B8
 import qualified Data.Map as Map
 
 import Data.DTA
@@ -22,20 +21,20 @@ require File.expand_path(File.dirname(__FILE__) + '/make_data')
   ]) %>
 
 <%= makeRecord('Project', [
-  ['tool_version'    , nil, 'B8.ByteString'],
-  ['project_version' , nil, 'Integer'      ],
-  ['metadata'        , nil, 'Metadata'     ],
-  ['gamedata'        , nil, 'Gamedata'     ],
-  ['languages'       , nil, 'Languages'    ],
-  ['destination_file', nil, 'B8.ByteString'],
-  ['midi'            , nil, 'Midi'         ],
-  ['dry_vox'         , nil, 'DryVox'       ],
-  ['album_art'       , nil, 'AlbumArt'     ],
-  ['tracks'          , nil, 'Tracks'       ],
+  ['tool_version'    , nil, 'String'   ],
+  ['project_version' , nil, 'Integer'  ],
+  ['metadata'        , nil, 'Metadata' ],
+  ['gamedata'        , nil, 'Gamedata' ],
+  ['languages'       , nil, 'Languages'],
+  ['destination_file', nil, 'String'   ],
+  ['midi'            , nil, 'Midi'     ],
+  ['dry_vox'         , nil, 'DryVox'   ],
+  ['album_art'       , nil, 'AlbumArt' ],
+  ['tracks'          , nil, 'Tracks'   ],
   ]) %>
 
 <%= makeRecord('AlbumArt', [
-  ['file', 'albumArtFile', 'B8.ByteString'],
+  ['file', 'albumArtFile', 'String'],
   ]) %>
 
 <%= makeRecord('Languages', [
@@ -76,23 +75,23 @@ require File.expand_path(File.dirname(__FILE__) + '/make_data')
   ]) %>
 
 <%= makeRecord('Metadata', [
-  ['song_name'    , nil, 'B8.ByteString'],
-  ['artist_name'  , nil, 'B8.ByteString'],
-  ['genre'        , nil, 'Keyword'      ],
-  ['sub_genre'    , nil, 'Keyword'      ],
-  ['year_released', nil, 'Integer'      ],
-  ['album_name'   , nil, 'B8.ByteString'],
-  ['author'       , nil, 'B8.ByteString'],
-  ['release_label', nil, 'B8.ByteString'],
-  ['country'      , nil, 'Keyword'      ],
-  ['price'        , nil, 'Integer'      ],
-  ['track_number' , nil, 'Integer'      ],
-  ['has_album'    , nil, 'Bool'         ],
+  ['song_name'    , nil, 'String' ],
+  ['artist_name'  , nil, 'String' ],
+  ['genre'        , nil, 'Keyword'],
+  ['sub_genre'    , nil, 'Keyword'],
+  ['year_released', nil, 'Integer'],
+  ['album_name'   , nil, 'String' ],
+  ['author'       , nil, 'String' ],
+  ['release_label', nil, 'String' ],
+  ['country'      , nil, 'Keyword'],
+  ['price'        , nil, 'Integer'],
+  ['track_number' , nil, 'Integer'],
+  ['has_album'    , nil, 'Bool'   ],
   ]) %>
 
 <%= makeRecord('Midi', [
-  ['file'         , 'midiFile', 'B8.ByteString'],
-  ['autogen_theme', nil       , 'Either AutogenTheme B8.ByteString'],
+  ['file'         , 'midiFile', 'String'],
+  ['autogen_theme', nil       , 'Either AutogenTheme String'],
   ]) %>
 
 <%= makeEnum('AutogenTheme', [
@@ -117,8 +116,8 @@ require File.expand_path(File.dirname(__FILE__) + '/make_data')
   ]) %>
 
 <%= makeRecord('DryVoxPart', [
-  ['file'   , 'dryVoxFile'   , 'B8.ByteString'],
-  ['enabled', 'dryVoxEnabled', 'Bool'         ],
+  ['file'   , 'dryVoxFile'   , 'String'],
+  ['enabled', 'dryVoxEnabled', 'Bool'  ],
   ]) %>
 
 <%= makeRecord('Tracks', [
@@ -145,5 +144,5 @@ require File.expand_path(File.dirname(__FILE__) + '/make_data')
   ['channels', nil           , 'Integer'       ],
   ['pan'     , nil           , '[Float]'       ],
   ['vol'     , nil           , '[Float]'       ],
-  ['file'    , 'audioFile'   , 'B8.ByteString' ],
+  ['file'    , 'audioFile'   , 'String' ],
   ]) %>

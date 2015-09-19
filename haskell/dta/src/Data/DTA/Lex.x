@@ -3,7 +3,6 @@
 {-# OPTIONS_GHC -w #-}
 module Data.DTA.Lex (scan, Token(..), AlexPosn(..)) where
 
-import qualified Data.ByteString.Char8 as B8
 import Data.Int (Int32)
 }
 
@@ -23,18 +22,18 @@ $white+ ;
 \-? $digit+ (\. $digit+)? (e \-? $digit+)? { \pn str -> (pn, Float $ read str) }
 
 -- Variable names.
-\$ ($alpha | $digit | _)+ { \pn str -> (pn, Var $ B8.pack $ tail str) }
+\$ ($alpha | $digit | _)+ { \pn str -> (pn, Var $ tail str) }
 
 -- This reserved word needs to come before the general keyword rule.
 "kDataUnhandled" { \pn _ -> (pn, Unhandled) }
 -- Raw keywords. Note: these can start with digits, like "3sand7s", as long as
 -- they also have letters in them.
-($alpha | $digit | _ | \/ | \.)+ { \pn str -> (pn, Key $ B8.pack str) }
+($alpha | $digit | _ | \/ | \.)+ { \pn str -> (pn, Key str) }
 -- Quoted keywords.
-' ([^'] | \\')* ' { \pn str -> (pn, Key $ B8.pack $ getKeyword str) }
+' ([^'] | \\')* ' { \pn str -> (pn, Key $ readKey str) }
 
 -- Quoted strings.
-\" ([^\"] | \\\")* \" { \pn str -> (pn, String $ B8.pack $ read str) }
+\" [^\"]* \" { \pn str -> (pn, String $ readString str) }
 
 -- Preprocessor commands.
 \#ifdef { \pn _ -> (pn, IfDef) }
@@ -58,8 +57,8 @@ $white+ ;
 data Token
   = Int Int32
   | Float Float
-  | Var B8.ByteString
-  | Key B8.ByteString
+  | Var String
+  | Key String
   | Unhandled
   | IfDef
   | Else
@@ -68,7 +67,7 @@ data Token
   | RParen
   | LBrace
   | RBrace
-  | String B8.ByteString
+  | String String
   | LBracket
   | RBracket
   | Define
@@ -78,13 +77,20 @@ data Token
   deriving (Eq, Ord, Show, Read)
 
 -- | Reads a single-quoted string, by converting it to a double-quoted one.
-getKeyword :: String -> String
-getKeyword = read . go where
+readKey :: String -> String
+readKey = readString . go where
   go ('\'':xs) = '"' : go xs        -- string begin/end -> double-quote
-  go ('"':xs) = '\\' : '"' : go xs  -- double-quote gets escaped
+  go ('"':xs) = '\\' : 'q' : go xs  -- double-quote gets encoded as \q
   go ('\\':x:xs) = '\\' : x : go xs -- any escaped char can remain escaped
   go (x:xs) = x : go xs             -- all other chars are unchanged
   go [] = []
+
+-- | Reads the special format for double-quoted strings.
+readString :: String -> String
+readString = read . go where
+  go ('\\' : 'q' : rest) = '"' : go rest
+  go ""                  = ""
+  go (c : rest)          = c : go rest
 
 scan :: String -> [(AlexPosn, Token)]
 scan = alexScanTokens

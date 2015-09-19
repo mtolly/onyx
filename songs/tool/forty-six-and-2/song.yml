@@ -1,0 +1,20 @@
+metadata:
+  title: "Forty-Six & 2"
+  file-include: "../../../albums/aenima.yml"
+  track-number: 5
+  comments:
+  - "Timing, drums, bass, guitar and vocals by Grinnz."
+  - "TODO: fix some blue open hihat notes in drums."
+audio:
+  album-track:
+    md5: dbcedf7b8a894eb90758e15fc94c7de5
+    frames: 16062396
+plans:
+  album:
+    song:
+      pad: [6.195, album-track]
+instruments:
+  drums: true
+  bass: true
+  guitar: true
+  vocal: 1

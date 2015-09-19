@@ -1,4 +1,8 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE CPP #-}
 module Data.DTA.Base
 ( DTA(..), Tree(..), Chunk(..)
@@ -27,45 +31,45 @@ import Data.Binary.Put (putWord32le, putWord16le, putByteString)
 --
 
 -- | A top-level file.
-data DTA = DTA { byteZero :: Word8, topTree :: Tree }
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
+data DTA s = DTA { byteZero :: Word8, topTree :: Tree s }
+  deriving (Eq, Ord, Show, Read, Typeable, Data, Functor, Foldable, Traversable)
 
 -- | A list of chunks, for either the top-level tree or a subtree.
-data Tree = Tree { nodeID :: Word32, treeChunks :: [Chunk] }
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
+data Tree s = Tree { nodeID :: Word32, treeChunks :: [Chunk s] }
+  deriving (Eq, Ord, Show, Read, Typeable, Data, Functor, Foldable, Traversable)
 
 -- | A data value, which may be a subtree. The constructors are ordered by their
 -- chunk identification tag in the binary format.
-data Chunk
+data Chunk s
   = Int Int32
   | Float Float
-  | Var B.ByteString
-  | Key B.ByteString
+  | Var s
+  | Key s
   | Unhandled
-  | IfDef B.ByteString
+  | IfDef s
   | Else
   | EndIf
-  | Parens Tree
-  | Braces Tree
-  | String B.ByteString
-  | Brackets Tree
-  | Define B.ByteString
-  | Include B.ByteString
-  | Merge B.ByteString
-  | IfNDef B.ByteString
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
+  | Parens (Tree s)
+  | Braces (Tree s)
+  | String s
+  | Brackets (Tree s)
+  | Define s
+  | Include s
+  | Merge s
+  | IfNDef s
+  deriving (Eq, Ord, Show, Read, Typeable, Data, Functor, Foldable, Traversable)
 
 --
 -- Binary (DTB) instances
 --
 
 -- Single byte, then a tree.
-instance Binary DTA where
+instance Binary (DTA B.ByteString) where
   put (DTA b t) = put b >> put t
   get = liftA2 DTA get get
 
 -- 2-byte length, 4-byte node ID, then each element in sequence.
-instance Binary Tree where
+instance Binary (Tree B.ByteString) where
   put (Tree nid chks) = do
     putWord16le $ fromIntegral $ length chks
     putWord32le nid
@@ -75,7 +79,7 @@ instance Binary Tree where
     liftA2 Tree getWord32le $ replicateM (fromIntegral len) get
 
 -- 4-byte chunk type ID, then at least 4 bytes of chunk data.
-instance Binary Chunk where
+instance Binary (Chunk B.ByteString) where
   put c = case c of
     Int i       -> putWord32le 0x0  >> putWord32le (fromIntegral i)
     Float f     -> putWord32le 0x1  >> putFloat32le f
@@ -122,12 +126,12 @@ getLenStr = getWord32le >>= getByteString . fromIntegral
 
 -- | Assign new sequential node IDs to each tree in a DTA, starting with the
 -- top-level tree.
-renumberFrom :: Word32 -> DTA -> DTA
+renumberFrom :: Word32 -> DTA s -> DTA s
 renumberFrom w (DTA b t) = DTA b $ S.evalState (renumberTree t) w where
-  renumberTree :: Tree -> S.State Word32 Tree
+  renumberTree :: Tree s -> S.State Word32 (Tree s)
   renumberTree (Tree _ sub) = liftA2 Tree S.get $
     S.modify (+ 1) >> mapM renumberChunk sub
-  renumberChunk :: Chunk -> S.State Word32 Chunk
+  renumberChunk :: Chunk s -> S.State Word32 (Chunk s)
   renumberChunk c = case c of
     Parens tr -> Parens <$> renumberTree tr
     Braces tr -> Braces <$> renumberTree tr

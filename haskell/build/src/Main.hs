@@ -516,7 +516,7 @@ main = do
                 MoggPlan{..} -> return $ let
                   tracksAssocList = Map.fromList $ let
                     maybeChannelPair _   []    = []
-                    maybeChannelPair str chans = [(B8.pack str, Right $ D.InParens $ map fromIntegral chans)]
+                    maybeChannelPair str chans = [(str, Right $ D.InParens $ map fromIntegral chans)]
                     in concat
                       [ maybeChannelPair "drum" _moggDrums
                       , maybeChannelPair "guitar" _moggGuitar
@@ -558,7 +558,7 @@ main = do
                         channelsFor inst = map fst $ filter ((inst ==) . snd) $ zip [0..] channelMapping
                         maybeChannelPair str inst = case channelsFor $ Just inst of
                           []    -> []
-                          chans -> [(B8.pack str, Right $ D.InParens chans)]
+                          chans -> [(str, Right $ D.InParens chans)]
                         in concat
                           [ maybeChannelPair "drum" Drums
                           , maybeChannelPair "bass" Bass
@@ -577,12 +577,12 @@ main = do
                   return (numChannels, tracksAssocList, pans, vols)
               title <- getTitle
               return D.SongPackage
-                { D.name = B8.pack title
-                , D.artist = B8.pack $ T.unpack $ _artist $ _metadata songYaml
+                { D.name = title
+                , D.artist = T.unpack $ _artist $ _metadata songYaml
                 , D.master = True
-                , D.songId = Right $ D.Keyword $ B8.pack pkg
+                , D.songId = Right $ D.Keyword pkg
                 , D.song = D.Song
-                  { D.songName = B8.pack $ "songs/" ++ pkg ++ "/" ++ pkg
+                  { D.songName = "songs/" ++ pkg ++ "/" ++ pkg
                   , D.tracksCount = Nothing
                   , D.tracks = D.InParens $ D.Dict tracksAssocList
                   , D.vocalParts = case _hasVocal $ _instruments songYaml of
@@ -593,17 +593,17 @@ main = do
                   , D.pans = D.InParens pans
                   , D.vols = D.InParens vols
                   , D.cores = D.InParens $ take numChannels $ let
-                    guitarIndexes = case Map.lookup (B8.pack "guitar") tracksAssocList of
+                    guitarIndexes = case Map.lookup "guitar" tracksAssocList of
                       Nothing                         -> []
                       Just (Right (D.InParens chans)) -> chans
                       Just (Left  chan              ) -> [chan]
                     in map (\i -> if i `elem` guitarIndexes then 1 else -1) [0..]
-                  , D.drumSolo = D.DrumSounds $ D.InParens $ map (D.Keyword . B8.pack) $ words
+                  , D.drumSolo = D.DrumSounds $ D.InParens $ map D.Keyword $ words
                     "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
-                  , D.drumFreestyle = D.DrumSounds $ D.InParens $ map (D.Keyword . B8.pack) $ words
+                  , D.drumFreestyle = D.DrumSounds $ D.InParens $ map D.Keyword $ words
                     "kick.cue snare.cue hat.cue ride.cue crash.cue"
                   }
-                , D.bank = Just $ Left $ B8.pack $ case perctype of
+                , D.bank = Just $ Left $ case perctype of
                   Nothing               -> "sfx/tambourine_bank.milo"
                   Just RBVox.Tambourine -> "sfx/tambourine_bank.milo"
                   Just RBVox.Cowbell    -> "sfx/cowbell_bank.milo"
@@ -615,26 +615,26 @@ main = do
                 , D.preview = (fromIntegral pstart, fromIntegral pend)
                 , D.songLength = fromIntegral len
                 , D.rank = D.Dict $ Map.fromList
-                  [ (B8.pack "drum"     , if _hasDrums  $ _instruments songYaml then 1 else 0)
-                  , (B8.pack "bass"     , if _hasBass   $ _instruments songYaml then 1 else 0)
-                  , (B8.pack "guitar"   , if _hasGuitar $ _instruments songYaml then 1 else 0)
-                  , (B8.pack "vocals"   , if _hasVocal   (_instruments songYaml) /= Vocal0 then 1 else 0)
-                  , (B8.pack "keys"     , if _hasKeys   $ _instruments songYaml then 1 else 0)
-                  , (B8.pack "real_keys", if _hasKeys   $ _instruments songYaml then 1 else 0)
-                  , (B8.pack "band"     , 1)
+                  [ ("drum"     , if _hasDrums  $ _instruments songYaml then 1 else 0)
+                  , ("bass"     , if _hasBass   $ _instruments songYaml then 1 else 0)
+                  , ("guitar"   , if _hasGuitar $ _instruments songYaml then 1 else 0)
+                  , ("vocals"   , if _hasVocal   (_instruments songYaml) /= Vocal0 then 1 else 0)
+                  , ("keys"     , if _hasKeys   $ _instruments songYaml then 1 else 0)
+                  , ("real_keys", if _hasKeys   $ _instruments songYaml then 1 else 0)
+                  , ("band"     , 1)
                   ]
                 , D.solo = Nothing
                 , D.format = 10
                 , D.version = 30
-                , D.gameOrigin = D.Keyword $ B8.pack "ugc_plus"
+                , D.gameOrigin = D.Keyword "ugc_plus"
                 , D.rating = 4
-                , D.genre = D.Keyword $ B8.pack $ T.unpack $ _genre $ _metadata songYaml
-                , D.subGenre = Just $ D.Keyword $ B8.pack $ "subgenre_" ++ T.unpack (_subgenre $ _metadata songYaml)
+                , D.genre = D.Keyword $ T.unpack $ _genre $ _metadata songYaml
+                , D.subGenre = Just $ D.Keyword $ "subgenre_" ++ T.unpack (_subgenre $ _metadata songYaml)
                 , D.vocalGender = Magma.Female -- TODO
                 , D.shortVersion = Nothing
                 , D.yearReleased = fromIntegral $ _year $ _metadata songYaml
                 , D.albumArt = Just True
-                , D.albumName = Just $ B8.pack $ T.unpack $ _album $ _metadata songYaml
+                , D.albumName = Just $ T.unpack $ _album $ _metadata songYaml
                 , D.albumTrackNumber = Just $ fromIntegral $ _trackNumber $ _metadata songYaml
                 , D.vocalTonicNote = Nothing
                 , D.songTonality = Nothing
@@ -642,7 +642,7 @@ main = do
                 , D.realGuitarTuning = Nothing
                 , D.realBassTuning = Nothing
                 , D.guidePitchVolume = Just (-3)
-                , D.encoding = Just $ D.Keyword $ B8.pack "latin1"
+                , D.encoding = Just $ D.Keyword "utf8"
                 }
 
         -- Rock Band 3 CON package
@@ -654,9 +654,8 @@ main = do
             pathCon  = pedalDir </> "rb3.con"
         pathDta %> \out -> do
           songPkg <- makeDTA
-          let dta = D.DTA 0 $ D.Tree 0 $ (:[]) $ D.Parens $ D.Tree 0 $
-                D.Key (B8.pack pkg) : D.toChunks songPkg
-          writeFile' out $ D.sToDTA dta
+          liftIO $ D.writeFileDTA_utf8 out $ D.serialize $
+            D.Dict $ Map.fromList [(pkg, D.toChunks songPkg)]
         pathMid  %> copyFile' (pedalDir </> "notes-magma-export.mid")
         pathMogg %> copyFile' (dir </> "audio.mogg")
         pathPng  %> copyFile' "gen/cover.png_xbox"
@@ -675,11 +674,11 @@ main = do
               (pstart, _) <- previewBounds $ pedalDir </> "magma/notes.mid"
               perctype    <- getPercType   $ pedalDir </> "magma/notes.mid"
               let silentDryVox = Magma.DryVoxPart
-                    { Magma.dryVoxFile = B8.pack "dryvox.wav"
+                    { Magma.dryVoxFile = "dryvox.wav"
                     , Magma.dryVoxEnabled = True
                     }
                   emptyDryVox = Magma.DryVoxPart
-                    { Magma.dryVoxFile = B8.pack ""
+                    { Magma.dryVoxFile = ""
                     , Magma.dryVoxEnabled = False
                     }
                   disabledFile = Magma.AudioFile
@@ -687,21 +686,21 @@ main = do
                     , Magma.channels = 0
                     , Magma.pan = []
                     , Magma.vol = []
-                    , Magma.audioFile = B8.pack ""
+                    , Magma.audioFile = ""
                     }
                   monoFile f = Magma.AudioFile
                     { Magma.audioEnabled = True
                     , Magma.channels = 1
                     , Magma.pan = [0]
                     , Magma.vol = [0]
-                    , Magma.audioFile = B8.pack f
+                    , Magma.audioFile = f
                     }
                   stereoFile f = Magma.AudioFile
                     { Magma.audioEnabled = True
                     , Magma.channels = 2
                     , Magma.pan = [-1, 1]
                     , Magma.vol = [0, 0]
-                    , Magma.audioFile = B8.pack f
+                    , Magma.audioFile = f
                     }
                   mixMode = case plan of
                     MoggPlan{..} -> _drumMix
@@ -709,18 +708,18 @@ main = do
               title <- getTitle
               return Magma.RBProj
                 { Magma.project = Magma.Project
-                  { Magma.toolVersion = B8.pack "110411_A"
+                  { Magma.toolVersion = "110411_A"
                   , Magma.projectVersion = 24
                   , Magma.metadata = Magma.Metadata
-                    { Magma.songName = B8.pack title
-                    , Magma.artistName = B8.pack $ T.unpack $ _artist $ _metadata songYaml
-                    , Magma.genre = D.Keyword $ B8.pack $ T.unpack $ _genre $ _metadata songYaml
-                    , Magma.subGenre = D.Keyword $ B8.pack $ "subgenre_" ++ T.unpack (_subgenre $ _metadata songYaml)
+                    { Magma.songName = title
+                    , Magma.artistName = T.unpack $ _artist $ _metadata songYaml
+                    , Magma.genre = D.Keyword $ T.unpack $ _genre $ _metadata songYaml
+                    , Magma.subGenre = D.Keyword $ "subgenre_" ++ T.unpack (_subgenre $ _metadata songYaml)
                     , Magma.yearReleased = fromIntegral $ _year $ _metadata songYaml
-                    , Magma.albumName = B8.pack $ T.unpack $ _album $ _metadata songYaml
-                    , Magma.author = B8.pack "Onyxite"
-                    , Magma.releaseLabel = B8.pack "Onyxite Customs"
-                    , Magma.country = D.Keyword $ B8.pack "ugc_country_us"
+                    , Magma.albumName = T.unpack $ _album $ _metadata songYaml
+                    , Magma.author = "Onyxite"
+                    , Magma.releaseLabel = "Onyxite Customs"
+                    , Magma.country = D.Keyword "ugc_country_us"
                     , Magma.price = 160
                     , Magma.trackNumber = fromIntegral $ _trackNumber $ _metadata songYaml
                     , Magma.hasAlbum = True
@@ -757,10 +756,10 @@ main = do
                     , Magma.german   = False
                     , Magma.japanese = False
                     }
-                  , Magma.destinationFile = B8.pack $ pkg <.> "rba"
+                  , Magma.destinationFile = pkg <.> "rba"
                   , Magma.midi = Magma.Midi
-                    { Magma.midiFile = B8.pack "notes.mid"
-                    , Magma.autogenTheme = Right $ B8.pack ""
+                    { Magma.midiFile = "notes.mid"
+                    , Magma.autogenTheme = Right ""
                     }
                   , Magma.dryVox = Magma.DryVox
                     { Magma.part0 = if _hasVocal (_instruments songYaml) >= Vocal1
@@ -774,7 +773,7 @@ main = do
                       else emptyDryVox
                     , Magma.tuningOffsetCents = 0
                     }
-                  , Magma.albumArt = Magma.AlbumArt $ B8.pack "cover.bmp"
+                  , Magma.albumArt = Magma.AlbumArt "cover.bmp"
                   , Magma.tracks = Magma.Tracks
                     { Magma.drumLayout = case mixMode of
                       0 -> Magma.Kit
@@ -850,8 +849,7 @@ main = do
           mid %> copyFile' (pedalDir </> "notes.mid")
           proj %> \out -> do
             p <- makeMagmaProj
-            let dta = D.DTA 0 $ D.Tree 0 $ D.toChunks p
-            writeFile' out $ D.sToDTA dta
+            liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
           rba %> \out -> do
             when (_hasDrums  $ _instruments songYaml) $ need [drums ]
             when (_hasBass   $ _instruments songYaml) $ need [bass  ]
