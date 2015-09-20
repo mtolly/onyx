@@ -1,0 +1,32 @@
+metadata:
+  title: Ants of the Sky
+  file-include: "../../../albums/colors.yml"
+  track-number: 5
+  comments:
+  - "Timing and drums by Grinnz."
+audio:
+  album-sun-of-nothing:
+    md5: bc09bcb9a21fc6c0d8fcc06f63c8fbc8
+    frames: 29060136
+  album-ants-of-the-sky:
+    md5: c33b76af226ce40d79ae66cb6a611651
+    frames: 34863696
+  album-prequel-to-the-sequel:
+    md5: a1c2cc16b9119b5e1bb4a6d2d3890b17
+    frames: 22782648
+plans:
+  album:
+    song:
+      fade:
+        - end
+        - 0.565
+        - take:
+          - '13:15.159'
+          - fade:
+            - start
+            - 3.878
+            - drop:
+              - '10:54.968'
+              - concatenate: [album-sun-of-nothing, album-ants-of-the-sky, album-prequel-to-the-sequel]
+instruments:
+  drums: true

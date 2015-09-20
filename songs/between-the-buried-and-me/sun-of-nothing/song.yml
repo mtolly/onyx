@@ -1,0 +1,32 @@
+metadata:
+  title: Sun of Nothing
+  file-include: "../../../albums/colors.yml"
+  track-number: 4
+  comments:
+  - "Timing and drums by Grinnz."
+audio:
+  album-informal-gluttony:
+    md5: d468595b781ed178479d2183f72f9333
+    frames: 17985156
+  album-sun-of-nothing:
+    md5: bc09bcb9a21fc6c0d8fcc06f63c8fbc8
+    frames: 29060136
+  album-ants-of-the-sky:
+    md5: c33b76af226ce40d79ae66cb6a611651
+    frames: 34863696
+plans:
+  album:
+    song:
+      fade:
+        - end
+        - 0.412
+        - take:
+          - '11:05.869'
+          - fade:
+            - start
+            - 3.512
+            - drop:
+              - '6:44.248'
+              - concatenate: [album-informal-gluttony, album-sun-of-nothing, album-ants-of-the-sky]
+instruments:
+  drums: true
