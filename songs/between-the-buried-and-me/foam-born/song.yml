@@ -1,0 +1,27 @@
+metadata:
+  title: "Foam Born (a) The Backtrack (b) The Decade of Statues"
+  file-include: "../../../albums/colors.yml"
+  track-number: 1
+  comments:
+  - "Timing and drums by Grinnz."
+audio:
+  album-the-backtrack:
+    md5: 04f58a2602f6544aa625beaa4665a2de
+    frames: 5901168
+  album-the-decade-of-statues:
+    md5: ff456218898121bc232d908de3f9457f
+    frames: 14126700
+plans:
+  album:
+    song:
+      fade:
+        - end
+        - 0.050
+        - drop:
+          - end
+          - 0.020
+          - pad:
+            - 3.496
+            - concatenate: [album-the-backtrack, album-the-decade-of-statues]
+instruments:
+  drums: true
