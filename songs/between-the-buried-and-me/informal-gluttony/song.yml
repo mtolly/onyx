@@ -1,0 +1,28 @@
+metadata:
+  title: Informal Gluttony
+  file-include: "../../../albums/colors.yml"
+  track-number: 3
+  comments:
+  - "Timing and drums by Grinnz."
+audio:
+  album-the-decade-of-statues:
+    md5: ff456218898121bc232d908de3f9457f
+    frames: 14126700
+  album-informal-gluttony:
+    md5: d468595b781ed178479d2183f72f9333
+    frames: 17985156
+  album-sun-of-nothing:
+    md5: bc09bcb9a21fc6c0d8fcc06f63c8fbc8
+    frames: 29060136
+plans:
+  album:
+    song:
+      take:
+        - '6:55.385'
+        - pad:
+          - 3.157
+          - drop:
+            - '5:19.485'
+            - concatenate: [album-the-decade-of-statues, album-informal-gluttony, album-sun-of-nothing]
+instruments:
+  drums: true
