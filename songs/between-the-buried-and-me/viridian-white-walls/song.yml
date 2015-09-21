@@ -1,0 +1,27 @@
+metadata:
+  title: "Viridian/White Walls"
+  file-include: "../../../albums/colors.yml"
+  track-number: 7
+  comments:
+  - "Timing and drums by Grinnz."
+audio:
+  album-prequel-to-the-sequel:
+    md5: a1c2cc16b9119b5e1bb4a6d2d3890b17
+    frames: 22782648
+  album-viridian:
+    md5: 1a1ca6914aa5756bca81be5a17bab222
+    frames: 7544628
+  album-white-walls:
+    md5: 487374f97abaafccc34c6a6b065062c6
+    frames: 37626708
+plans:
+  album:
+    song:
+      fade:
+        - start
+        - 4.198
+        - drop:
+          - '8:32.264'
+          - concatenate: [album-prequel-to-the-sequel, album-viridian, album-white-walls]
+instruments:
+  drums: true

@@ -1,0 +1,26 @@
+metadata:
+  title: Prequel to the Sequel
+  file-include: "../../../albums/colors.yml"
+  track-number: 6
+  comments:
+  - "Timing and drums by Grinnz, starting from Harmonix's chart."
+audio:
+  album-prequel-to-the-sequel:
+    md5: a1c2cc16b9119b5e1bb4a6d2d3890b17
+    frames: 22782648
+  album-viridian:
+    md5: 1a1ca6914aa5756bca81be5a17bab222
+    frames: 7544628
+plans:
+  album:
+    song:
+      fade:
+        - end
+        - 2.583
+        - take:
+          - '8:45.635'
+          - pad:
+            - 4.800
+            - concatenate: [album-prequel-to-the-sequel, album-viridian]
+instruments:
+  drums: true
