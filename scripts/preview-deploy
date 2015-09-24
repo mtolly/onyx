@@ -7,7 +7,7 @@ password   = File.read("#{Dir.home}/pw/csl").strip
 remote_dir = '/afs/cs.wisc.edu/u/t/o/tolly/public/html/customs'
 
 require 'net/sftp'
-require_relative 'yamltree'
+require_relative 'common'
 
 def log(s)
   STDERR.puts s
@@ -42,12 +42,6 @@ def upload_rf(sftp, from, to)
       end
     end
   end
-end
-
-def system_(*args)
-  log args.join(' ')
-  result = system(*args)
-  raise(IOError, "Command returned #{$?.exitstatus}") if result != true
 end
 
 Net::SFTP.start(url, username, password: password) do |sftp|

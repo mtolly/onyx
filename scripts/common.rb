@@ -2,6 +2,12 @@
 
 require 'yaml'
 
+def system_(*args)
+  STDERR.puts args.join(' ')
+  result = system(*args)
+  raise(IOError, "Command returned #{$?.exitstatus}") unless result
+end
+
 # Hastily ported line for line from the Haskell.
 def load_yaml_tree(yaml)
   def stringOrStrings(v)

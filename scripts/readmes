@@ -2,13 +2,7 @@
 
 # Remakes all the GitHub README.md files for the song directories.
 
-require_relative 'yamltree'
-
-def system_(*args)
-  STDERR.puts args.join(' ')
-  result = system(*args)
-  raise(IOError, "Command returned #{$?.exitstatus}") if result != true
-end
+require_relative 'common'
 
 system_ "rm -rf songs/*/*/README.md"
 Dir['songs/*/*/song.yml'].each do |f|

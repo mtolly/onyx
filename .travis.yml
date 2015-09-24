@@ -2,17 +2,13 @@ language: haskell
 ghc:
   - 7.8
 install:
+  - wget -q -O- https://s3.amazonaws.com/download.fpcomplete.com/ubuntu/fpco.key | sudo apt-key add -
+  - echo 'deb http://download.fpcomplete.com/ubuntu/precise stable main' | sudo tee /etc/apt/sources.list.d/fpco.list
   - sudo apt-get update -qq
-  - sudo apt-get install wine imagemagick sox libsndfile-dev libsamplerate-dev
-  - cabal install alex happy
-  - cabal install c2hs
-  - cabal install ./parse ./build
+  - sudo apt-get install stack wine libsndfile-dev libsamplerate-dev -y
+  - stack setup
+  - stack install
 env:
-  - ONYXITE_MIN=0  ONYXITE_MAX=11
-  - ONYXITE_MIN=12 ONYXITE_MAX=23
-  - ONYXITE_MIN=24 ONYXITE_MAX=35
-  - ONYXITE_MIN=36 ONYXITE_MAX=47
-  - ONYXITE_MIN=48 ONYXITE_MAX=59
-  - ONYXITE_MIN=60 ONYXITE_MAX=9999
+  - ONYXITE_MIN=0  ONYXITE_MAX=9999
 script:
   - test/run

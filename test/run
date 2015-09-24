@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'fileutils'
+require_relative '../scripts/common'
 
 test_dir = File.expand_path( File.dirname(__FILE__) )
 onyxite_min = ENV['ONYXITE_MIN']
@@ -8,29 +9,25 @@ onyxite_min = [nil, ''].include?(onyxite_min) ? 0 : onyxite_min.to_i
 onyxite_max = ENV['ONYXITE_MAX']
 onyxite_max = [nil, ''].include?(onyxite_max) ? 9999 : onyxite_max.to_i
 
-def system_(str)
-  result = system str
-  raise(IOError, "Command #{str.inspect} returned #{$?.exitstatus}") if result != true
-end
-
-Dir['songs/*/*/README.md'].sort.each_with_index do |readme, i|
-  songdir = File.dirname readme
+Dir['songs/*/*/song.yml'].sort.each_with_index do |yaml_file, i|
+  songdir = File.dirname yaml_file
+  yaml = load_yaml_tree yaml_file
+  next unless yaml.fetch('published', true)
 
   next if i < onyxite_min
   next if i > onyxite_max
-  next unless File.file? "#{songdir}/song.yml"
 
   puts ">> Building #{songdir}"
   Dir.chdir(songdir) do
-    system_ 'onyxbuild gen/album/2p/magma/magma.rbproj'
-    dummy_length = `#{test_dir}/dummy-time gen/album/2p/magma/magma.rbproj`.to_i
-    puts "Making a dummy audio file of length #{dummy_length} seconds."
-    system_ "sox -n audio-album.wav trim 0 #{dummy_length} rate 44100"
-    system_ "sox -n audio-next.wav trim 0 1:00 rate 44100"
+    # system_ 'onyxbuild gen/plan/album/2p/magma/magma.rbproj'
+    # dummy_length = `#{test_dir}/dummy-time gen/album/2p/magma/magma.rbproj`.to_i
+    # puts "Making a dummy audio file of length #{dummy_length} seconds."
+    # system_ "sox -n audio-album.wav trim 0 #{dummy_length} rate 44100"
+    # system_ "sox -n audio-next.wav trim 0 1:00 rate 44100"
 
-    system_ "onyxbuild gen/album/2p/magma.rba"
+    # system_ "onyxbuild gen/plan/album/2p/magma.rba"
 
-    system_ "rm -rf gen"
-    system_ "rm audio-album.wav audio-next.wav"
+    # system_ "rm -rf gen"
+    # system_ "rm audio-album.wav audio-next.wav"
   end
 end

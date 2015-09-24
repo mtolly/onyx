@@ -3,13 +3,7 @@
 # Builds some CONs, and copies them onto a (plain FAT32, not FATX) Xbox 360 USB drive.
 
 require 'fileutils'
-require_relative 'yamltree'
-
-def system_(*args)
-  STDERR.puts args.join(' ')
-  result = system(*args)
-  raise(IOError, "Command returned #{$?.exitstatus}") unless result
-end
+require_relative 'common'
 
 dash = ARGV.index { |s| s.start_with? '--' } || ARGV.length
 if dash < 2

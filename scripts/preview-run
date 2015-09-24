@@ -1,10 +1,6 @@
 #!/usr/bin/env ruby
 
-def system_(*args)
-  STDERR.puts args.join(' ')
-  result = system(*args)
-  raise(IOError, "Command returned #{$?.exitstatus}") unless result
-end
+require_relative 'common'
 
 if ARGV.length < 1
   STDERR.puts "Usage: #{$0} path/to/song/ [--audio dir/]"

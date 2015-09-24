@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require_relative 'yamltree'
+require_relative 'common'
 
 yamls = []
 Dir['songs/*/*/song.yml'].each do |f|
