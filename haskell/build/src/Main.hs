@@ -20,7 +20,6 @@ import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                  as B
-import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (toLower)
 import           Data.Conduit.Audio

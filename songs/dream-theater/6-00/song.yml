@@ -24,3 +24,4 @@ plans:
       pad: [1.039, jammit-track]
 instruments:
   drums: true
+  vocal: 3

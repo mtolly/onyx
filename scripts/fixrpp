@@ -50,9 +50,9 @@ end
 
 str = lines.join("\n")
 str.gsub!(/^\s*<X 0 0
-\s*\/wN\S+
+\s*\/w[MN]\S+
 \s*>
 (\s*<X 0 0
-\s*\/wN\S+
+\s*\/w[MN]\S+
 \s*>)$/) { STDERR.puts "Fixed double track name event."; $1 }
 File.write(rpp, str)
