@@ -21,6 +21,7 @@ import qualified RockBand.Events                  as Events
 import           RockBand.File
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as ProKeys
+import qualified RockBand.Vocals                  as Vocals
 import           Control.Monad.Trans.StackTrace
 
 import           Development.Shake
@@ -184,3 +185,22 @@ fixFreeform isStart isEnd isCovered = RTB.flatten . go . RTB.collectCoincident w
             _       -> oldLength
           in RTB.insert newLength [theEnd] $ go $ RTB.collectCoincident rtb'noEnd
       else go rtb'
+
+-- This doesn't currently handle
+-- [note start, phrase boundary, phrase boundary, note end]
+-- i.e. a note that spans 3 phrases. But you shouldn't be doing that anyways!
+harm1ToPartVocals :: (NNC.C t) => RTB.T t Vocals.Event -> RTB.T t Vocals.Event
+harm1ToPartVocals = go . RTB.normalize where
+  go rtb = case RTB.viewL rtb of
+    Just ((dt, phstart@(Vocals.Phrase True)), rtb') -> case U.extractFirst isPhraseEnd rtb' of
+      Nothing -> error "harm1ToPartVocals: found a HARM1 phrase with no end"
+      Just ((phlen, phend), rtb'') -> if any isNote $ RTB.getBodies $ U.trackTake phlen rtb''
+        then RTB.merge (RTB.fromPairList [(dt, phstart), (phlen, phend)])
+          $ RTB.delay dt $ go rtb''
+        else RTB.delay dt $ go rtb''
+    Just ((dt, evt), rtb') -> RTB.cons dt evt $ go rtb'
+    Nothing -> RTB.empty
+  isPhraseEnd e = case e of
+    Vocals.Phrase False -> Just e
+    _                   -> Nothing
+  isNote = \case Vocals.Note _ _ -> True; _ -> False

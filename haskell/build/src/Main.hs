@@ -392,19 +392,24 @@ main = do
             vocalTracks = case _hasVocal $ _instruments songYaml of
               Vocal0 -> []
               Vocal1 ->
-                [ RBFile.PartVocals $ mergeTracks [ t | RBFile.PartVocals t <- trks ]
+                [ RBFile.PartVocals partVox'
                 ]
               Vocal2 ->
-                [ RBFile.PartVocals $ mergeTracks [ t | RBFile.PartVocals t <- trks ]
-                , RBFile.Harm1      $ mergeTracks [ t | RBFile.Harm1      t <- trks ]
-                , RBFile.Harm2      $ mergeTracks [ t | RBFile.Harm2      t <- trks ]
+                [ RBFile.PartVocals partVox'
+                , RBFile.Harm1 harm1
+                , RBFile.Harm2 harm2
                 ]
               Vocal3 ->
-                [ RBFile.PartVocals $ mergeTracks [ t | RBFile.PartVocals t <- trks ]
-                , RBFile.Harm1      $ mergeTracks [ t | RBFile.Harm1      t <- trks ]
-                , RBFile.Harm2      $ mergeTracks [ t | RBFile.Harm2      t <- trks ]
-                , RBFile.Harm3      $ mergeTracks [ t | RBFile.Harm3      t <- trks ]
+                [ RBFile.PartVocals partVox'
+                , RBFile.Harm1 harm1
+                , RBFile.Harm2 harm2
+                , RBFile.Harm3 harm3
                 ]
+              where partVox = mergeTracks [ t | RBFile.PartVocals t <- trks ]
+                    partVox' = if RTB.null partVox then harm1ToPartVocals harm1 else partVox
+                    harm1   = mergeTracks [ t | RBFile.Harm1      t <- trks ]
+                    harm2   = mergeTracks [ t | RBFile.Harm2      t <- trks ]
+                    harm3   = mergeTracks [ t | RBFile.Harm3      t <- trks ]
         saveMIDI out $ RBFile.Song
           { RBFile.s_tempos = tempos
           , RBFile.s_signatures = RBFile.s_signatures input
