@@ -19,5 +19,7 @@ Notes:
 
   * Timing and drums by Grinnz.
 
-  * Chart confidence: *high*, written to Portnoy's DVD.
+  * Drums confidence: *high*, written to Portnoy's DVD.
+
+  * Restitution spoken word transcribed from the isolated audio on Chaos in Progress.
 
