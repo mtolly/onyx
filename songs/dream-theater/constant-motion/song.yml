@@ -4,8 +4,9 @@ metadata:
   track-number: 3
   comments:
   - "Drums by Grinnz."
-  - "Timing, guitar, bass, and vocals by Harmonix."
-  - "Chart confidence: *high*, written to stems and Portnoy's DVD."
+  - "Timing, guitar, bass, and original vocals by Harmonix."
+  - "Vocals fixed up and split into harmonies by me."
+  - "Drums confidence: *high*, written to stems and Portnoy's DVD."
 audio:
   album-track:
     md5: 8c906ac9ee62cccb895a0daaf5001049
@@ -28,4 +29,4 @@ instruments:
   drums: true
   bass: true
   guitar: true
-  vocal: 1
+  vocal: 2

@@ -7,7 +7,7 @@ Instruments:
   * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=constant-motion&artist=dream-theater)
   * Bass
   * Guitar
-  * Vocals (1)
+  * Vocals (2)
 
 Supported audio:
 
@@ -19,7 +19,9 @@ Notes:
 
   * Drums by Grinnz.
 
-  * Timing, guitar, bass, and vocals by Harmonix.
+  * Timing, guitar, bass, and original vocals by Harmonix.
 
-  * Chart confidence: *high*, written to stems and Portnoy's DVD.
+  * Vocals fixed up and split into harmonies by me.
+
+  * Drums confidence: *high*, written to stems and Portnoy's DVD.
 

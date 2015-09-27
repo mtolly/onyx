@@ -45,7 +45,9 @@ data Mood = IdleRealtime | Idle | IdleIntense | Play | Mellow | Intense | PlaySo
 
 instance Command Mood where
   fromCommand = autoFromCommand
-  toCommand = reverseLookup each fromCommand
+  toCommand = \case
+    ["play", "solo"] -> Just PlaySolo
+    cmd -> reverseLookup each fromCommand cmd
 
 instance Command [String] where
   toCommand   = Just
