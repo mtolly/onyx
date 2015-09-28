@@ -3,7 +3,7 @@ metadata:
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 6
   comments:
-  - "Chart confidence: *high*. Written to Portnoy's recording session DVD."
+  - "Drums confidence: *high*. Written to Portnoy's recording session DVD."
 audio:
   album-track:
     md5: ef72e82888e55606a4de9cadc2d5a113
@@ -48,3 +48,4 @@ plans:
         pad: [3.261, *drums]
 instruments:
   drums: true
+  vocal: 3
