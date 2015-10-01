@@ -184,6 +184,8 @@ data Event
   | LightingFirst
   | LightingPrev
   | LightingNext
+  | BonusFX
+  | BonusFXOptional
   deriving (Eq, Ord, Show, Read)
 
 instanceMIDIEvent [t| Event |]
@@ -207,4 +209,6 @@ instanceMIDIEvent [t| Event |]
   , commandPair ["first"] [p| LightingFirst |]
   , commandPair ["prev"] [p| LightingPrev |]
   , commandPair ["next"] [p| LightingNext |]
+  , commandPair ["bonusfx"] [p| BonusFX |]
+  , commandPair ["bonusfx_optional"] [p| BonusFXOptional |]
   ]
