@@ -13,6 +13,7 @@ import           Scripts
 import           X360
 import           YAMLTree
 import           Resources (emptyMilo)
+import           Background
 
 import           Codec.Picture
 import           Control.Monad.Extra
@@ -350,7 +351,8 @@ main = do
       -- MIDI files
       let mid2p = dir </> "2p/notes.mid"
           mid1p = dir </> "1p/notes.mid"
-      mid2p %> \out -> do
+          midcountin = dir </> "countin.mid"
+      [mid2p, midcountin] &%> \[out, _] -> do
         input <- loadMIDI "notes.mid"
         let ftempos = "tempo-" ++ T.unpack planName ++ ".mid"
         tempos <- fmap RBFile.s_tempos $ doesFileExist ftempos >>= \b -> if b
@@ -364,6 +366,7 @@ main = do
                 then U.trackTake (songLength' input) $ makeBeatTrack $ RBFile.s_signatures input
                 else trk
             eventsTrack = RBFile.Events $ mergeTracks [ t | RBFile.Events t <- trks ]
+            countinTrack = RBFile.Countin $ mergeTracks [ t | RBFile.Countin t <- trks ]
             drumsTracks = if not $ _hasDrums $ _instruments songYaml
               then []
               else (: []) $ RBFile.copyExpert $ RBFile.PartDrums $ let
@@ -423,6 +426,11 @@ main = do
             , vocalTracks
             ]
           }
+        saveMIDI midcountin $ RBFile.Song
+          { RBFile.s_tempos = tempos
+          , RBFile.s_signatures = RBFile.s_signatures input
+          , RBFile.s_tracks = [countinTrack]
+          }
       mid1p %> \out -> loadMIDI mid2p >>= saveMIDI out . oneFoot 0.18 0.11
 
       -- -- Guitar rules
@@ -432,16 +440,9 @@ main = do
       --   -- TODO: support different tunings again
 
       -- Countin audio, and song+countin files
-      dir </> "countin.mid" %> \out -> do
-        input <- loadMIDI "notes.mid"
-        let ftempos = "tempo-" ++ T.unpack planName ++ ".mid"
-        tempos <- fmap RBFile.s_tempos $ doesFileExist ftempos >>= \b -> if b
-          then loadMIDI ftempos
-          else return input
-        saveMIDI out input{ RBFile.s_tempos = tempos }
       dir </> "countin.wav" %> \out -> case _fileCountin $ _metadata songYaml of
         Nothing -> buildAudio (Silence 1 $ Frames 0) out
-        Just hit -> makeCountin (dir </> "countin.mid") hit out
+        Just hit -> makeCountin midcountin hit out
       dir </> "song-countin.wav" %> \out -> do
         let song = Input $ dir </> "song.wav"
             countin = Input $ dir </> "countin.wav"

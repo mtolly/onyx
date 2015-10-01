@@ -21,6 +21,7 @@ import           RockBand.Parse
 import qualified RockBand.ProGuitar               as ProGuitar
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as Vocals
+import qualified RockBand.Venue                   as Venue
 import           Control.Monad.Trans.StackTrace
 
 data Track t
@@ -42,6 +43,7 @@ data Track t
   | Countin                 (RTB.T t    Countin.Event)
   | Events                  (RTB.T t     Events.Event)
   | Beat                    (RTB.T t       Beat.Event)
+  | Venue                   (RTB.T t      Venue.Event)
   | RawTrack                (RTB.T t              E.T)
   deriving (Eq, Ord, Show)
 
@@ -82,6 +84,7 @@ showTrack = \case
   Countin             t -> U.setTrackName "countin"             $ unparseAll unparseOne t
   Events              t -> U.setTrackName "EVENTS"              $ unparseAll unparseOne t
   Beat                t -> U.setTrackName "BEAT"                $ unparseAll unparseOne t
+  Venue               t -> U.setTrackName "VENUE"               $ unparseAll unparseOne t
   RawTrack            t -> t
 
 readMIDIFile :: (Monad m) => F.T -> StackTraceT m (Song U.Beats)
@@ -141,6 +144,7 @@ parseTrack mmap t = case U.trackName t of
     "countin"             -> liftM Countin               $ makeTrackParser parseOne mmap t
     "EVENTS"              -> liftM Events                $ makeTrackParser parseOne mmap t
     "BEAT"                -> liftM Beat                  $ makeTrackParser parseOne mmap t
+    "VENUE"               -> liftM Venue                 $ makeTrackParser parseOne mmap t
     _ -> fatal "Unrecognized track name"
 
 showPosition :: U.MeasureBeats -> String

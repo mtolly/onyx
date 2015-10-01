@@ -19,6 +19,7 @@ executable onyxbuild
     Magma
     X360
     Image
+    Background
   build-depends:
     base    >= 4.8    && < 4.9
     , shake >= 0.15 && < 0.16

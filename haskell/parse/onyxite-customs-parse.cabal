@@ -20,6 +20,7 @@ library
     RockBand.Vocals
     RockBand.ProKeys
     RockBand.ProGuitar
+    RockBand.Venue
   build-depends:
     base >= 4.6 && < 4.9
     , event-list, non-negative, midi
