@@ -57,9 +57,9 @@ data Animation
   | Crash2 Hit Hand -- ^ The right crash, closer to the ride.
   | KickRF
   | Crash1RHChokeLH
-  -- NOTE: This is MIDI note 41! The RBN docs incorrectly say 40.
+  -- ^ NOTE: This is MIDI note 41! The RBN docs incorrectly say 40.
   | Crash2RHChokeLH
-  -- NOTE: This is MIDI note 40! The RBN docs incorrectly say 41.
+  -- ^ NOTE: This is MIDI note 40! The RBN docs incorrectly say 41.
   | PercussionRH
   | HihatOpen Bool
   | RideSide Bool -- ^ Causes slow 'Ride' hits to animate differently.

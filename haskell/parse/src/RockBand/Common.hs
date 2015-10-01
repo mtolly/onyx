@@ -8,7 +8,7 @@
 module RockBand.Common where
 
 import           Control.Monad                    (guard)
-import           Data.Char                        (isSpace, isUpper, toLower)
+import           Data.Char                        (isSpace)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (stripPrefix)
 import           Language.Haskell.TH
@@ -30,23 +30,20 @@ reverseLookup xs f y = let
 each :: (Enum a, Bounded a) => [a]
 each = [minBound .. maxBound]
 
--- | Turns @FooBarBaz@ into @["foo_bar_baz"]@.
-autoFromCommand :: (Show a) => a -> [String]
-autoFromCommand = (: []) . f . show where
-  f "" = ""
-  f (c : cs) = toLower c : g cs
-  g "" = ""
-  g (c : cs) = if isUpper c
-    then '_' : toLower c : g cs
-    else c : g cs
-
-data Mood = IdleRealtime | Idle | IdleIntense | Play | Mellow | Intense | PlaySolo
+data Mood
+  = Mood_idle_realtime
+  | Mood_idle
+  | Mood_idle_intense
+  | Mood_play
+  | Mood_mellow
+  | Mood_intense
+  | Mood_play_solo
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command Mood where
-  fromCommand = autoFromCommand
+  fromCommand x = [drop (length "Mood_") $ show x]
   toCommand = \case
-    ["play", "solo"] -> Just PlaySolo
+    ["play", "solo"] -> Just Mood_play_solo
     cmd -> reverseLookup each fromCommand cmd
 
 instance Command [String] where

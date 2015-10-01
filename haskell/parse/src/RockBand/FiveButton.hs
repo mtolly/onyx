@@ -12,19 +12,44 @@ data Color = Green | Red | Yellow | Blue | Orange
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data Event
-  = Mood             Mood
-  | HandMap       HandMap
-  | StrumMap     StrumMap
-  | FretPosition Int Bool -- ^ Int is a MIDI pitch; can be 40 to 59
-  | Tremolo          Bool
-  | Trill            Bool
-  | Overdrive        Bool
-  | BRE              Bool
-  | Solo             Bool
-  | Player1          Bool
-  | Player2          Bool
+  = Mood                      Mood
+  | HandMap                HandMap
+  | StrumMap              StrumMap
+  | FretPosition FretPosition Bool
+  | Tremolo                   Bool
+  | Trill                     Bool
+  | Overdrive                 Bool
+  | BRE                       Bool
+  | Solo                      Bool
+  | Player1                   Bool
+  | Player2                   Bool
   | DiffEvent Difficulty DiffEvent
   deriving (Eq, Ord, Show, Read)
+
+-- | These don't actually correspond to 20 different frets;
+-- see http://i.imgur.com/fRg6Vo9.png
+data FretPosition
+  = Fret40
+  | Fret41
+  | Fret42
+  | Fret43
+  | Fret44
+  | Fret45
+  | Fret46
+  | Fret47
+  | Fret48
+  | Fret49
+  | Fret50
+  | Fret51
+  | Fret52
+  | Fret53
+  | Fret54
+  | Fret55
+  | Fret56
+  | Fret57
+  | Fret58
+  | Fret59
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data DiffEvent
   = ForceHOPO  Bool
@@ -34,62 +59,57 @@ data DiffEvent
 
 -- | Controls the fretting hand animation of a guitarist/bassist.
 data HandMap
-  -- | Normal fingering. Single gems = single fingers, gems with duration =
+  = HandMap_Default
+  -- ^ Normal fingering. Single gems = single fingers, gems with duration =
   -- vibrato, chord gems = chords.
-  = HandDefault
-  | NoChords -- ^ All single fingers/vibrato.
-  | AllChords -- ^ All chords.
-  | HandSolo -- ^ D major shape for all chords, vibrato for all chord sustains.
-  | DropD -- ^ Open hand for all green gems, all other gems are chords.
-  | DropD2 -- ^ Open hand for all green gems.
-  | AllBend -- ^ All ring finger high vibrato.
-  | ChordC -- ^ All C chord shape.
-  | ChordD -- ^ All D chord shape.
-  | ChordA -- ^ All A minor chord shape.
+  | HandMap_NoChords  -- ^ All single fingers/vibrato.
+  | HandMap_AllChords -- ^ All chords.
+  | HandMap_Solo      -- ^ D major shape for all chords, vibrato for all chord sustains.
+  | HandMap_DropD     -- ^ Open hand for all green gems, all other gems are chords.
+  | HandMap_DropD2    -- ^ Open hand for all green gems.
+  | HandMap_AllBend   -- ^ All ring finger high vibrato.
+  | HandMap_Chord_C   -- ^ All C chord shape.
+  | HandMap_Chord_D   -- ^ All D chord shape.
+  | HandMap_Chord_A   -- ^ All A minor chord shape.
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-handMapName :: HandMap -> String
-handMapName = \case
-  HandDefault -> "HandMap_Default"
-  NoChords    -> "HandMap_NoChords"
-  AllChords   -> "HandMap_AllChords"
-  HandSolo    -> "HandMap_Solo"
-  DropD       -> "HandMap_DropD"
-  DropD2      -> "HandMap_DropD2"
-  AllBend     -> "HandMap_AllBend"
-  ChordC      -> "HandMap_Chord_C"
-  ChordD      -> "HandMap_Chord_D"
-  ChordA      -> "HandMap_Chord_A"
-
 instance Command HandMap where
-  fromCommand hm = ["map", handMapName hm]
+  fromCommand hm = ["map", show hm]
   toCommand = reverseLookup each fromCommand
 
 -- | Controls the strumming animation for a bassist.
 data StrumMap
-  = StrumDefault
-  | Pick
-  | SlapBass
+  = StrumMap_Default
+  | StrumMap_Pick
+  | StrumMap_SlapBass
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-strumMapName :: StrumMap -> String
-strumMapName = \case
-  StrumDefault -> "StrumMap_Default"
-  Pick         -> "StrumMap_Pick"
-  SlapBass     -> "StrumMap_SlapBass"
-
 instance Command StrumMap where
-  fromCommand sm = ["map", strumMapName sm]
+  fromCommand sm = ["map", show sm]
   toCommand = reverseLookup each fromCommand
 
 instanceMIDIEvent [t| Event |]
 
-  [ ( [e| firstEventWhich $ \e -> isNoteEdge e >>= \case
-        (i, b) | 40 <= i && i <= 59 -> Just $ FretPosition i b
-        _                           -> Nothing
-      |]
-    , [e| \case FretPosition i b -> RTB.singleton NNC.zero $ makeEdge i b |]
-    )
+  [ edge 40 $ applyB [p| FretPosition Fret40 |]
+  , edge 41 $ applyB [p| FretPosition Fret41 |]
+  , edge 42 $ applyB [p| FretPosition Fret42 |]
+  , edge 43 $ applyB [p| FretPosition Fret43 |]
+  , edge 44 $ applyB [p| FretPosition Fret44 |]
+  , edge 45 $ applyB [p| FretPosition Fret45 |]
+  , edge 46 $ applyB [p| FretPosition Fret46 |]
+  , edge 47 $ applyB [p| FretPosition Fret47 |]
+  , edge 48 $ applyB [p| FretPosition Fret48 |]
+  , edge 49 $ applyB [p| FretPosition Fret49 |]
+  , edge 50 $ applyB [p| FretPosition Fret50 |]
+  , edge 51 $ applyB [p| FretPosition Fret51 |]
+  , edge 52 $ applyB [p| FretPosition Fret52 |]
+  , edge 53 $ applyB [p| FretPosition Fret53 |]
+  , edge 54 $ applyB [p| FretPosition Fret54 |]
+  , edge 55 $ applyB [p| FretPosition Fret55 |]
+  , edge 56 $ applyB [p| FretPosition Fret56 |]
+  , edge 57 $ applyB [p| FretPosition Fret57 |]
+  , edge 58 $ applyB [p| FretPosition Fret58 |]
+  , edge 59 $ applyB [p| FretPosition Fret59 |]
 
   , edge 60 $ \_b -> [p| DiffEvent Easy (Note $(boolP _b) Green ) |]
   , edge 61 $ \_b -> [p| DiffEvent Easy (Note $(boolP _b) Red   ) |]
