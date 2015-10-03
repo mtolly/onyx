@@ -69,4 +69,4 @@ plans:
       resample: *drums
 instruments:
   drums: true
-  vocal: 3
+  vocal: 2
