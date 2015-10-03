@@ -92,6 +92,7 @@ type Path = Either String Keyword
   ['cores'         , nil       , 'InParens [Integer]'       ],
   ['drum_solo'     , nil       , 'DrumSounds'               ],
   ['drum_freestyle', nil       , 'DrumSounds'               ],
+  ['crowd_channels', nil       , maybe('[Integer]')         ],
   ]) %>
 
 <%= makeRecord('DrumSounds', [

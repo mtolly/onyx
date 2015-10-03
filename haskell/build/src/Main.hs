@@ -607,6 +607,7 @@ main = do
                     "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
                   , D.drumFreestyle = D.DrumSounds $ D.InParens $ map D.Keyword $ words
                     "kick.cue snare.cue hat.cue ride.cue crash.cue"
+                  , D.crowdChannels = Nothing
                   }
                 , D.bank = Just $ Left $ case perctype of
                   Nothing               -> "sfx/tambourine_bank.milo"

@@ -7,7 +7,6 @@ import Control.Applicative ((<$>), (<*>))
 #endif
 import Control.Monad ((>=>))
 
-import qualified Data.ByteString.Char8 as B8
 import qualified Data.Map as Map
 
 import Data.DTA
