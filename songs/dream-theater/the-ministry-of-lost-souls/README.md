@@ -11,9 +11,11 @@ Supported audio:
 
   * `drumcam`
 
+    * Requires both the DVD audio, and the album audio. (The DVD audio cuts out about 2 minutes before the end of the song.)
+
   * `album` (Systematic Chaos)
 
 Notes:
 
-  * Chart confidence: *high*. Written to Portnoy's DVD, but it cuts out about 2 minutes before the end of the song.
+  * Drums confidence: *high*, written to Portnoy's DVD.
 

@@ -4,8 +4,7 @@ metadata:
   track-number: 7
   comments:
   - >-
-    Chart confidence: *high*.
-    Written to Portnoy's DVD, but it cuts out about 2 minutes before the end of the song.
+    Drums confidence: *high*, written to Portnoy's DVD.
 audio:
   album-track:
     md5: 32ed37de6e2fa659f95fe076e714f6c5
@@ -29,6 +28,10 @@ plans:
         - 3.425
         - pad: [5.900, album-track]
   drumcam:
+    comments:
+    - >-
+      Requires both the DVD audio, and the album audio.
+      (The DVD audio cuts out about 2 minutes before the end of the song.)
     song:
       mix:
         - pad:
@@ -37,25 +40,31 @@ plans:
             - 1
             - resample:
                 mix:
-                  - drop:
-                    - frames: 3911
-                    - take:
-                      - '13:21'
-                      - drop: ['47:31.200', drumcam-band]
+                  - fade:
+                    - end
+                    - 2.771
+                    - drop:
+                      - frames: 3911
+                      - take:
+                        - '13:06.612' # 13:03.841 + 2.771
+                        - drop: ['47:31.200', drumcam-band]
                   - gain:
                     - -1
                     - &drums
-                      take:
-                      - '13:21'
-                      - drop: ['47:31.200', drumcam-drums]
+                      fade:
+                      - end
+                      - 2.771
+                      - take:
+                        - '13:06.612'
+                        - drop: ['47:31.200', drumcam-drums]
         - gain:
           - 0.58
           - pad:
-            - "13:12.517"
+            - "13:03.441"
             - fade:
               - start
-              - 5.75
-              - drop: ["13:12.517", *album]
+              - 2.771
+              - drop: ["13:03.441", *album]
     drums:
       resample: *drums
 instruments:
