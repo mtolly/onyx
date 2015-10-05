@@ -5,6 +5,7 @@
 Instruments:
 
   * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=prophets-of-war&artist=dream-theater)
+  * Guitar
   * Vocals (3)
 
 Supported audio:
