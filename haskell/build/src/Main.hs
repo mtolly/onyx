@@ -33,7 +33,7 @@ import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (isPrefixOf, nub)
+import           Data.List                        (foldl', isPrefixOf, nub)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
@@ -42,6 +42,7 @@ import           Development.Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
 import           RockBand.Common                  (Difficulty (..))
+import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.Vocals                  as RBVox
 import qualified Sound.File.Sndfile               as Snd
@@ -514,6 +515,7 @@ main = do
         let makeDTA :: Action D.SongPackage
             makeDTA = do
               let mid = pedalDir </> "notes.mid"
+              song <- loadMIDI mid
               (pstart, pend) <- previewBounds mid
               len <- songLength mid
               perctype <- getPercType mid
@@ -621,7 +623,9 @@ main = do
                 , D.preview = (fromIntegral pstart, fromIntegral pend)
                 , D.songLength = fromIntegral len
                 , D.rank = D.Dict $ Map.fromList
-                  [ ("drum"     , if _hasDrums  $ _instruments songYaml then 1 else 0)
+                  [ ("drum"     , if _hasDrums  $ _instruments songYaml
+                    then drumsDifficulty song
+                    else 0)
                   , ("bass"     , if _hasBass   $ _instruments songYaml then 1 else 0)
                   , ("guitar"   , if _hasGuitar $ _instruments songYaml then 1 else 0)
                   , ("vocals"   , if _hasVocal   (_instruments songYaml) /= Vocal0 then 1 else 0)
@@ -679,6 +683,7 @@ main = do
             makeMagmaProj = do
               (pstart, _) <- previewBounds $ pedalDir </> "magma/notes.mid"
               perctype    <- getPercType   $ pedalDir </> "magma/notes.mid"
+              song <- loadMIDI $ pedalDir </> "notes.mid"
               let silentDryVox = Magma.DryVoxPart
                     { Magma.dryVoxFile = "dryvox.wav"
                     , Magma.dryVoxEnabled = True
@@ -732,7 +737,9 @@ main = do
                     }
                   , Magma.gamedata = Magma.Gamedata
                     { Magma.previewStartMs = fromIntegral pstart
-                    , Magma.rankDrum    = 1
+                    , Magma.rankDrum    = if _hasDrums $ _instruments songYaml
+                      then drumsRankToTier $ drumsDifficulty song
+                      else 1
                     , Magma.rankBass    = 1
                     , Magma.rankGuitar  = 1
                     , Magma.rankVocals  = 1
@@ -882,3 +889,26 @@ getPercType mid = do
       isPercType (RBVox.PercussionAnimation ptype _) = Just ptype
       isPercType _                                   = Nothing
   return $ listToMaybe $ mapMaybe isPercType $ RTB.getBodies vox
+
+-- | 0 = no part, 1 = no dots, 7 = devil dots.
+drumsRankToTier :: Integer -> Integer
+drumsRankToTier rank = fromIntegral $ length $ takeWhile (<= rank) [1, 124, 151, 178, 242, 345, 448]
+
+drumsDifficulty :: RBFile.Song U.Beats -> Integer
+drumsDifficulty song = let
+  drums = foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks song ]
+  gems = RTB.mapMaybe (\case RBDrums.DiffEvent Expert (RBDrums.Note gem) -> Just gem; _ -> Nothing) drums
+  trackTails trk = case RTB.viewL trk of
+    Nothing -> []
+    Just (_, trk') -> trk : trackTails trk'
+  x, spooky :: Double
+  x = fromIntegral $ foldl' max 0 $ map (length . RTB.getBodies . U.trackTake (U.Seconds 5))
+    $ trackTails $ U.applyTempoTrack (RBFile.s_tempos song) gems
+  -- Spooky equation follows. Where did it come from? I...
+  -- 1. compiled a list of DT drums tracks and their max notes in a 5 second span
+  -- 2. figured out approximately where the tier boundaries should fall, and matched them up with the rank boundaries
+  -- 3. fit a curve: np5s(rank) = 2.603e-6*rank**3 - 2.594e-3*rank**2 + 0.91rank - 41.101
+  -- 4. had Wolfram Alpha invert that so it's a fn from np5s to rank.
+  spooky = (4.73247e14 * sqrt (5.59906e34*x**2 - 7.8792e36*x + 2.77557e38) + 1.11981e32*x - 7.8792e33) ** (1/3)
+  rank = round $ 332.181 + 1.19706e-9 * spooky - 5.16941e12 / spooky
+  in if rank < 1 then 1 else if rank > 1000 then 1000 else rank
