@@ -5,3 +5,4 @@ genre: metal
 subgenre: prog
 file-album-art: ../covers/dream-theater.bmp
 file-countin: ../sound/hihat-foot.wav
+vocal-gender: male

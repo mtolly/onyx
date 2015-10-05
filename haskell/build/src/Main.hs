@@ -636,7 +636,7 @@ main = do
                 , D.rating = 4
                 , D.genre = D.Keyword $ T.unpack $ _genre $ _metadata songYaml
                 , D.subGenre = Just $ D.Keyword $ "subgenre_" ++ T.unpack (_subgenre $ _metadata songYaml)
-                , D.vocalGender = Magma.Female -- TODO
+                , D.vocalGender = fromMaybe Magma.Female $ _vocalGender $ _metadata songYaml
                 , D.shortVersion = Nothing
                 , D.yearReleased = fromIntegral $ _year $ _metadata songYaml
                 , D.albumArt = Just True
@@ -741,7 +741,7 @@ main = do
                     , Magma.rankBand    = 1
                     , Magma.vocalScrollSpeed = 2300
                     , Magma.animTempo = 32
-                    , Magma.vocalGender = Magma.Female -- TODO
+                    , Magma.vocalGender = fromMaybe Magma.Female $ _vocalGender $ _metadata songYaml
                     , Magma.vocalPercussion = case perctype of
                       Nothing               -> Magma.Tambourine
                       Just RBVox.Tambourine -> Magma.Tambourine

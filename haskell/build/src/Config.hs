@@ -14,6 +14,7 @@ import qualified Data.Aeson                 as A
 import qualified Data.ByteString.Lazy.Char8 as BL8
 import           Data.Char                  (isDigit)
 import           Data.Conduit.Audio         (Duration (..))
+import qualified Data.DTA.Serialize.Magma   as Magma
 import qualified Data.HashMap.Strict        as Map
 import           Data.List                  ((\\))
 import           Data.Maybe                 (fromMaybe)
@@ -169,7 +170,17 @@ data Metadata = Metadata
   , _trackNumber  :: Int
   , _fileCountin  :: Maybe FilePath
   , _comments     :: [T.Text]
+  , _vocalGender  :: Maybe Magma.Gender
   } deriving (Eq, Ord, Show, Read)
+
+instance TraceJSON Magma.Gender where
+  traceJSON = do
+    s <- traceJSON
+    let _ = s :: String
+    case s of
+      "female" -> return Magma.Female
+      "male"   -> return Magma.Male
+      _        -> expected "female or male"
 
 instance TraceJSON Metadata where
   traceJSON = object $ do
@@ -182,8 +193,9 @@ instance TraceJSON Metadata where
     _fileAlbumArt <- required "file-album-art" traceJSON
     _trackNumber  <- required "track-number"   traceJSON
     _fileCountin  <- optional "file-countin"   traceJSON
+    _vocalGender  <- optional "vocal-gender"   traceJSON
     _comments     <- fromMaybe [] <$> optional "comments" traceJSON
-    expectedKeys ["title", "artist", "album", "genre", "subgenre", "year", "file-album-art", "track-number", "file-countin", "comments"]
+    expectedKeys ["title", "artist", "album", "genre", "subgenre", "year", "file-album-art", "track-number", "file-countin", "comments", "vocal-gender"]
     return Metadata{..}
 
 data AudioFile = AudioFile
