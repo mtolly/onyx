@@ -57,3 +57,4 @@ plans:
 instruments:
   drums: true
   vocal: 3
+  guitar: true
