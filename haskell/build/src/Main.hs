@@ -368,6 +368,9 @@ main = do
                 else trk
             eventsTrack = RBFile.Events $ mergeTracks [ t | RBFile.Events t <- trks ]
             countinTrack = RBFile.Countin $ mergeTracks [ t | RBFile.Countin t <- trks ]
+            venueTracks = let
+              trk = mergeTracks [ t | RBFile.Venue t <- trks ]
+              in guard (not $ RTB.null trk) >> [RBFile.Venue trk]
             drumsTracks = if not $ _hasDrums $ _instruments songYaml
               then []
               else (: []) $ RBFile.copyExpert $ RBFile.PartDrums $ let
@@ -420,6 +423,7 @@ main = do
           , RBFile.s_tracks = map fixRolls $ concat
             [ [beatTrack]
             , [eventsTrack]
+            , venueTracks
             , drumsTracks
             , guitarTracks
             , bassTracks
