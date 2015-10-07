@@ -60,3 +60,4 @@ plans:
 instruments:
   drums: true
   vocal: 2
+  guitar: true

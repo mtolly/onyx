@@ -5,6 +5,7 @@
 Instruments:
 
   * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=the-dark-eternal-night&artist=dream-theater)
+  * Guitar
   * Vocals (2)
 
 Supported audio:
