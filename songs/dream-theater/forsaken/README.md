@@ -20,3 +20,5 @@ Notes:
 
   * Drums confidence: *high*. Written to Portnoy's DVD.
 
+  * Guitar, drums, and vocals have overdrive/unison.
+
