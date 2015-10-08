@@ -373,12 +373,14 @@ main = do
               in guard (not $ RTB.null trk) >> [RBFile.Venue trk]
             drumsTracks = if not $ _hasDrums $ _instruments songYaml
               then []
-              else (: []) $ RBFile.copyExpert $ RBFile.PartDrums $ let
+              else (: []) $ RBFile.PartDrums $ let
                 trk = mergeTracks [ t | RBFile.PartDrums t <- trks ]
                 mixMode = case plan of
                   MoggPlan{..} -> _drumMix
                   _            -> 0
-                in drumMix mixMode trk
+                in drumMix mixMode $ RBDrums.copyExpert trk
+                -- Note: drum mix must be applied *after* copy expert.
+                -- Otherwise the automatic EMH mix events prevent copying.
             guitarTracks = if not $ _hasGuitar $ _instruments songYaml
               then []
               else (: []) $ RBFile.copyExpert $ RBFile.PartGuitar
