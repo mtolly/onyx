@@ -20,5 +20,7 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *high*. Written to Portnoy's recording session DVD.
+  * Drums confidence: *high*. Written to Portnoy's recording session DVD.
+
+  * Guitar, drums, and vocals have overdrive/unison.
 
