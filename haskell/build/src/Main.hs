@@ -13,7 +13,6 @@ import           Scripts
 import           X360
 import           YAMLTree
 import           Resources (emptyMilo)
-import           Background
 
 import           Codec.Picture
 import           Control.Monad.Extra
@@ -630,14 +629,46 @@ main = do
                 , D.songLength = fromIntegral len
                 , D.rank = D.Dict $ Map.fromList
                   [ ("drum"     , if _hasDrums  $ _instruments songYaml
-                    then drumsDifficulty song
+                    then case _difficultyDrums $ _difficulty $ _metadata songYaml of
+                      Nothing       -> drumsDifficulty song
+                      Just (Rank r) -> r
+                      Just (Tier t) -> tierToRank drumsDiffMap t
                     else 0)
-                  , ("bass"     , if _hasBass   $ _instruments songYaml then 1 else 0)
-                  , ("guitar"   , if _hasGuitar $ _instruments songYaml then 1 else 0)
-                  , ("vocals"   , if _hasVocal   (_instruments songYaml) /= Vocal0 then 1 else 0)
-                  , ("keys"     , if _hasKeys   $ _instruments songYaml then 1 else 0)
-                  , ("real_keys", if _hasKeys   $ _instruments songYaml then 1 else 0)
-                  , ("band"     , 1)
+                  , ("bass"     , if _hasBass   $ _instruments songYaml
+                    then case _difficultyBass $ _difficulty $ _metadata songYaml of
+                      Nothing       -> 1
+                      Just (Rank r) -> r
+                      Just (Tier t) -> tierToRank bassDiffMap t
+                    else 0)
+                  , ("guitar"   , if _hasGuitar $ _instruments songYaml
+                    then case _difficultyGuitar $ _difficulty $ _metadata songYaml of
+                      Nothing       -> 1
+                      Just (Rank r) -> r
+                      Just (Tier t) -> tierToRank guitarDiffMap t
+                    else 0)
+                  , ("vocals"   , if _hasVocal   (_instruments songYaml) /= Vocal0
+                    then case _difficultyVocal $ _difficulty $ _metadata songYaml of
+                      Nothing       -> 1
+                      Just (Rank r) -> r
+                      Just (Tier t) -> tierToRank vocalDiffMap t
+                    else 0)
+                  , ("keys"     , if _hasKeys   $ _instruments songYaml
+                    then case _difficultyKeys $ _difficulty $ _metadata songYaml of
+                      Nothing       -> 1
+                      Just (Rank r) -> r
+                      Just (Tier t) -> tierToRank keysDiffMap t
+                    else 0)
+                  , ("real_keys", if _hasKeys   $ _instruments songYaml
+                    then case _difficultyProKeys $ _difficulty $ _metadata songYaml of
+                      Nothing       -> 1
+                      Just (Rank r) -> r
+                      Just (Tier t) -> tierToRank keysDiffMap t
+                    else 0)
+                  , ("band"     , case _difficultyBand $ _difficulty $ _metadata songYaml of
+                      Nothing       -> 1
+                      Just (Rank r) -> r
+                      Just (Tier t) -> tierToRank bandDiffMap t
+                    )
                   ]
                 , D.solo = Nothing
                 , D.format = 10
@@ -743,15 +774,36 @@ main = do
                     }
                   , Magma.gamedata = Magma.Gamedata
                     { Magma.previewStartMs = fromIntegral pstart
-                    , Magma.rankDrum    = if _hasDrums $ _instruments songYaml
-                      then drumsRankToTier $ drumsDifficulty song
-                      else 1
-                    , Magma.rankBass    = 1
-                    , Magma.rankGuitar  = 1
-                    , Magma.rankVocals  = 1
-                    , Magma.rankKeys    = 1
-                    , Magma.rankProKeys = 1
-                    , Magma.rankBand    = 1
+                    , Magma.rankDrum    = case _difficultyDrums $ _difficulty $ _metadata songYaml of
+                      Nothing -> if _hasDrums $ _instruments songYaml
+                        then rankToTier drumsDiffMap $ drumsDifficulty song
+                        else 1
+                      Just (Rank r) -> rankToTier drumsDiffMap r
+                      Just (Tier t) -> t
+                    , Magma.rankBass    = case _difficultyBass $ _difficulty $ _metadata songYaml of
+                      Nothing -> 1
+                      Just (Rank r) -> rankToTier bassDiffMap r
+                      Just (Tier t) -> t
+                    , Magma.rankGuitar  = case _difficultyGuitar $ _difficulty $ _metadata songYaml of
+                      Nothing -> 1
+                      Just (Rank r) -> rankToTier guitarDiffMap r
+                      Just (Tier t) -> t
+                    , Magma.rankVocals  = case _difficultyVocal $ _difficulty $ _metadata songYaml of
+                      Nothing -> 1
+                      Just (Rank r) -> rankToTier vocalDiffMap r
+                      Just (Tier t) -> t
+                    , Magma.rankKeys    = case _difficultyKeys $ _difficulty $ _metadata songYaml of
+                      Nothing -> 1
+                      Just (Rank r) -> rankToTier keysDiffMap r
+                      Just (Tier t) -> t
+                    , Magma.rankProKeys = case _difficultyProKeys $ _difficulty $ _metadata songYaml of
+                      Nothing -> 1
+                      Just (Rank r) -> rankToTier keysDiffMap r
+                      Just (Tier t) -> t
+                    , Magma.rankBand    = case _difficultyBand $ _difficulty $ _metadata songYaml of
+                      Nothing -> 1
+                      Just (Rank r) -> rankToTier bandDiffMap r
+                      Just (Tier t) -> t
                     , Magma.vocalScrollSpeed = 2300
                     , Magma.animTempo = 32
                     , Magma.vocalGender = fromMaybe Magma.Female $ _vocalGender $ _metadata songYaml
@@ -896,9 +948,24 @@ getPercType mid = do
       isPercType _                                   = Nothing
   return $ listToMaybe $ mapMaybe isPercType $ RTB.getBodies vox
 
--- | 0 = no part, 1 = no dots, 7 = devil dots.
-drumsRankToTier :: Integer -> Integer
-drumsRankToTier rank = fromIntegral $ length $ takeWhile (<= rank) [1, 124, 151, 178, 242, 345, 448]
+rankToTier :: DiffMap -> Integer -> Integer
+rankToTier dm rank = fromIntegral $ length $ takeWhile (<= rank) (1 : dm)
+
+tierToRank :: DiffMap -> Integer -> Integer
+tierToRank dm tier = (0 : 1 : dm) !! fromIntegral tier
+
+type DiffMap = [Integer]
+
+drumsDiffMap, vocalDiffMap, bassDiffMap, guitarDiffMap, keysDiffMap,
+  proGuitarDiffMap, proBassDiffMap, bandDiffMap :: DiffMap
+drumsDiffMap     = [124, 151, 178, 242, 345, 448]
+vocalDiffMap     = [132, 175, 218, 279, 353, 427]
+bassDiffMap      = [135, 181, 228, 293, 364, 436]
+guitarDiffMap    = [139, 176, 221, 267, 333, 409]
+keysDiffMap      = [153, 211, 269, 327, 385, 443]
+proGuitarDiffMap = [150, 205, 264, 323, 382, 442]
+proBassDiffMap   = [150, 208, 267, 325, 384, 442]
+bandDiffMap      = [163, 215, 243, 267, 292, 345]
 
 drumsDifficulty :: RBFile.Song U.Beats -> Integer
 drumsDifficulty song = let

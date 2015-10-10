@@ -2,6 +2,11 @@ metadata:
   title: Constant Motion
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 3
+  difficulty:
+    guitar: 7
+    bass: 6
+    vocal: 4
+    drums: 7
   comments:
   - "Drums by Grinnz."
   - "Timing, guitar, bass, and original vocals by Harmonix."

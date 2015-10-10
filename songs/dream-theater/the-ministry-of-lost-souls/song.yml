@@ -2,6 +2,9 @@ metadata:
   title: The Ministry of Lost Souls
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 7
+  difficulty:
+    drums: 7
+    vocal: 6
   comments:
   - >-
     Drums confidence: *high*, written to Portnoy's DVD.

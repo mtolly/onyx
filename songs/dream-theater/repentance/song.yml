@@ -2,6 +2,9 @@ metadata:
   title: Repentance
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 5
+  difficulty:
+    drums: 4
+    vocal: 6
   comments:
   - "Timing and drums by Grinnz."
   - "Drums confidence: *high*, written to Portnoy's DVD."

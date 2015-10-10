@@ -171,7 +171,41 @@ data Metadata = Metadata
   , _fileCountin  :: Maybe FilePath
   , _comments     :: [T.Text]
   , _vocalGender  :: Maybe Magma.Gender
+  , _difficulty   :: Difficulties
   } deriving (Eq, Ord, Show, Read)
+
+data Difficulties = Difficulties
+  { _difficultyDrums   :: Maybe Difficulty
+  , _difficultyGuitar  :: Maybe Difficulty
+  , _difficultyBass    :: Maybe Difficulty
+  , _difficultyKeys    :: Maybe Difficulty
+  , _difficultyProKeys :: Maybe Difficulty
+  , _difficultyVocal   :: Maybe Difficulty
+  , _difficultyBand    :: Maybe Difficulty
+  } deriving (Eq, Ord, Show, Read)
+
+instance TraceJSON Difficulties where
+  traceJSON = object $ do
+    _difficultyDrums   <- optional "drums"    traceJSON
+    _difficultyGuitar  <- optional "guitar"   traceJSON
+    _difficultyBass    <- optional "bass"     traceJSON
+    _difficultyKeys    <- optional "keys"     traceJSON
+    _difficultyProKeys <- optional "pro-keys" traceJSON
+    _difficultyVocal   <- optional "vocal"    traceJSON
+    _difficultyBand    <- optional "band"     traceJSON
+    expectedKeys ["drums", "guitar", "bass", "keys", "pro-keys", "vocal", "band"]
+    return Difficulties{..}
+
+data Difficulty
+  = Tier Integer -- ^ [1..7]: 1 = no dots, 7 = devil dots
+  | Rank Integer -- ^ [1..]
+  deriving (Eq, Ord, Show, Read)
+
+instance TraceJSON Difficulty where
+  traceJSON
+    =   do fmap Tier traceJSON
+    <|> do algebraic1 "tier" Tier traceJSON
+    <|> do algebraic1 "rank" Rank traceJSON
 
 instance TraceJSON Magma.Gender where
   traceJSON = do
@@ -194,8 +228,14 @@ instance TraceJSON Metadata where
     _trackNumber  <- required "track-number"   traceJSON
     _fileCountin  <- optional "file-countin"   traceJSON
     _vocalGender  <- optional "vocal-gender"   traceJSON
+    let emptyDiffs = Difficulties Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+    _difficulty   <- fromMaybe emptyDiffs <$> optional "difficulty" traceJSON
     _comments     <- fromMaybe [] <$> optional "comments" traceJSON
-    expectedKeys ["title", "artist", "album", "genre", "subgenre", "year", "file-album-art", "track-number", "file-countin", "comments", "vocal-gender"]
+    expectedKeys
+      [ "title", "artist", "album", "genre", "subgenre", "year"
+      , "file-album-art", "track-number", "file-countin", "comments", "vocal-gender"
+      , "difficulty"
+      ]
     return Metadata{..}
 
 data AudioFile = AudioFile

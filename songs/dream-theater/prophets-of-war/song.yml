@@ -2,6 +2,10 @@ metadata:
   title: Prophets of War
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 6
+  difficulty:
+    guitar: 2
+    vocal: 6
+    drums: 5
   comments:
   - "Drums confidence: *high*. Written to Portnoy's recording session DVD."
 audio:

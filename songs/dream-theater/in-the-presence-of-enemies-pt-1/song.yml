@@ -2,6 +2,9 @@ metadata:
   title: "In the Presence of Enemies, Pt. 1"
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 1
+  difficulty:
+    drums: 6
+    vocal: 3
   comments:
   - "Drums confidence: *high*. Written to Portnoy's recording session DVD."
 audio:

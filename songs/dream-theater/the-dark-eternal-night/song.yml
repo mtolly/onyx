@@ -2,6 +2,10 @@ metadata:
   title: The Dark Eternal Night
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 4
+  difficulty:
+    guitar: 7
+    drums: 7
+    vocal: 2
   comments:
   - "Drums confidence: *high*. Written to Portnoy's recording session DVD."
   - "Guitar, drums, and vocals have overdrive/unison."
