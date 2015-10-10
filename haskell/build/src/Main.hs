@@ -228,7 +228,7 @@ main = do
                     [ [J.Drums    | _hasDrums  $ _instruments songYaml]
                     , [J.Bass     | _hasBass   $ _instruments songYaml]
                     , [J.Guitar   | _hasGuitar $ _instruments songYaml]
-                    , [J.Keyboard | _hasKeys   $ _instruments songYaml]
+                    , [J.Keyboard | hasAnyKeys $ _instruments songYaml]
                     , [J.Vocal    | _hasVocal   (_instruments songYaml) /= Vocal0]
                     ]
                   -- audio that is used in the song and bought by the user
@@ -289,19 +289,33 @@ main = do
       line ""
       line "Instruments:"
       line ""
+      let diffString f dm = case f $ _difficulty $ _metadata songYaml of
+            Just (Rank rank) -> g $ rankToTier dm rank
+            Just (Tier tier) -> g tier
+            Nothing -> ""
+            where g = \case
+                    1 -> " ⚫️⚫️⚫️⚫️⚫️"
+                    2 -> " ⚪️⚫️⚫️⚫️⚫️"
+                    3 -> " ⚪️⚪️⚫️⚫️⚫️"
+                    4 -> " ⚪️⚪️⚪️⚫️⚫️"
+                    5 -> " ⚪️⚪️⚪️⚪️⚫️"
+                    6 -> " ⚪️⚪️⚪️⚪️⚪️"
+                    7 -> " 😈😈😈😈😈"
+                    _ -> ""
       when (_hasDrums $ _instruments songYaml) $ do
         let titleDir  = takeFileName $ takeDirectory yamlPath
             artistDir = takeFileName $ takeDirectory $ takeDirectory yamlPath
             link = "http://pages.cs.wisc.edu/~tolly/customs/?title=" ++ titleDir ++ "&artist=" ++ artistDir
-        line $ "  * (Pro) Drums [(preview)](" ++ link ++ ")"
-      when (_hasBass $ _instruments songYaml) $ line "  * Bass"
-      when (_hasGuitar $ _instruments songYaml) $ line "  * Guitar"
-      when (_hasKeys $ _instruments songYaml) $ line "  * (Pro) Keys"
+        line $ "  * (Pro) Drums [(preview)](" ++ link ++ ")" ++ diffString _difficultyDrums drumsDiffMap
+      when (_hasBass    $ _instruments songYaml) $ line $ "  * Bass"     ++ diffString _difficultyBass bassDiffMap
+      when (_hasGuitar  $ _instruments songYaml) $ line $ "  * Guitar"   ++ diffString _difficultyGuitar guitarDiffMap
+      when (_hasKeys    $ _instruments songYaml) $ line $ "  * Keys"     ++ diffString _difficultyKeys keysDiffMap
+      when (_hasProKeys $ _instruments songYaml) $ line $ "  * Pro Keys" ++ diffString _difficultyProKeys keysDiffMap
       case _hasVocal $ _instruments songYaml of
         Vocal0 -> return ()
-        Vocal1 -> line "  * Vocals (1)"
-        Vocal2 -> line "  * Vocals (2)"
-        Vocal3 -> line "  * Vocals (3)"
+        Vocal1 -> line $ "  * Vocals (1)" ++ diffString _difficultyVocal vocalDiffMap
+        Vocal2 -> line $ "  * Vocals (2)" ++ diffString _difficultyVocal vocalDiffMap
+        Vocal3 -> line $ "  * Vocals (3)" ++ diffString _difficultyVocal vocalDiffMap
       line ""
       line "Supported audio:"
       line ""
@@ -388,7 +402,7 @@ main = do
               then []
               else (: []) $ RBFile.copyExpert $ RBFile.PartBass
                 $ mergeTracks [ t | RBFile.PartBass t <- trks ]
-            keysTracks = if not $ _hasKeys $ _instruments songYaml
+            keysTracks = if not $ hasAnyKeys $ _instruments songYaml
               then []
               else
                 [ RBFile.copyExpert $ RBFile.PartKeys $ mergeTracks [ t | RBFile.PartKeys t <- trks ]
@@ -464,7 +478,7 @@ main = do
               [ [Input $ dir </> "drums.wav"  | _hasDrums  $ _instruments songYaml]
               , [Input $ dir </> "bass.wav"   | _hasBass   $ _instruments songYaml]
               , [Input $ dir </> "guitar.wav" | _hasGuitar $ _instruments songYaml]
-              , [Input $ dir </> "keys.wav"   | _hasKeys   $ _instruments songYaml]
+              , [Input $ dir </> "keys.wav"   | hasAnyKeys $ _instruments songYaml]
               , [Input $ dir </> "vocal.wav"  | _hasVocal   (_instruments songYaml) /= Vocal0]
               , [Input $ dir </> "song-countin.wav"]
               ]
@@ -652,13 +666,13 @@ main = do
                       Just (Rank r) -> r
                       Just (Tier t) -> tierToRank vocalDiffMap t
                     else 0)
-                  , ("keys"     , if _hasKeys   $ _instruments songYaml
+                  , ("keys"     , if hasAnyKeys   $ _instruments songYaml
                     then case _difficultyKeys $ _difficulty $ _metadata songYaml of
                       Nothing       -> 1
                       Just (Rank r) -> r
                       Just (Tier t) -> tierToRank keysDiffMap t
                     else 0)
-                  , ("real_keys", if _hasKeys   $ _instruments songYaml
+                  , ("real_keys", if hasAnyKeys   $ _instruments songYaml
                     then case _difficultyProKeys $ _difficulty $ _metadata songYaml of
                       Nothing       -> 1
                       Just (Rank r) -> r
@@ -881,7 +895,7 @@ main = do
                     , Magma.vocals = if _hasVocal (_instruments songYaml) /= Vocal0
                       then stereoFile "vocal.wav"
                       else disabledFile
-                    , Magma.keys = if _hasKeys $ _instruments songYaml
+                    , Magma.keys = if hasAnyKeys $ _instruments songYaml
                       then stereoFile "keys.wav"
                       else disabledFile
                     , Magma.backing = stereoFile "song-countin.wav"
@@ -925,7 +939,7 @@ main = do
             when (_hasDrums  $ _instruments songYaml) $ need [drums ]
             when (_hasBass   $ _instruments songYaml) $ need [bass  ]
             when (_hasGuitar $ _instruments songYaml) $ need [guitar]
-            when (_hasKeys   $ _instruments songYaml) $ need [keys  ]
+            when (hasAnyKeys $ _instruments songYaml) $ need [keys  ]
             when (_hasVocal (_instruments songYaml) /= Vocal0) $ need [vocal, dryvox]
             need [song, cover, mid, proj]
             runMagma proj out

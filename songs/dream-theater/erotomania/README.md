@@ -7,7 +7,7 @@ Instruments:
   * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=erotomania&artist=dream-theater)
   * Bass
   * Guitar
-  * (Pro) Keys
+  * Pro Keys
 
 Supported audio:
 

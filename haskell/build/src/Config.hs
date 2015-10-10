@@ -425,12 +425,16 @@ instance TraceJSON Duration where
               _ -> traceJSON -- will succeed if JSON number
 
 data Instruments = Instruments
-  { _hasDrums  :: Bool
-  , _hasGuitar :: Bool
-  , _hasBass   :: Bool
-  , _hasKeys   :: Bool
-  , _hasVocal  :: VocalCount
+  { _hasDrums   :: Bool
+  , _hasGuitar  :: Bool
+  , _hasBass    :: Bool
+  , _hasKeys    :: Bool
+  , _hasProKeys :: Bool
+  , _hasVocal   :: VocalCount
   } deriving (Eq, Ord, Show, Read)
+
+hasAnyKeys :: Instruments -> Bool
+hasAnyKeys insts = _hasKeys insts || _hasProKeys insts
 
 instance TraceJSON Instruments where
   traceJSON = object $ do
@@ -438,7 +442,9 @@ instance TraceJSON Instruments where
     _hasGuitar <- fromMaybe False  <$> optional "guitar" traceJSON
     _hasBass   <- fromMaybe False  <$> optional "bass"   traceJSON
     _hasKeys   <- fromMaybe False  <$> optional "keys"   traceJSON
+    _hasProKeys <- fromMaybe False  <$> optional "pro-keys" traceJSON
     _hasVocal  <- fromMaybe Vocal0 <$> optional "vocal"  traceJSON
+    expectedKeys ["drums", "guitar", "bass", "keys", "pro-keys", "vocal"]
     return Instruments{..}
 
 data VocalCount = Vocal0 | Vocal1 | Vocal2 | Vocal3

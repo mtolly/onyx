@@ -4,10 +4,10 @@
 
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=constant-motion&artist=dream-theater)
-  * Bass
-  * Guitar
-  * Vocals (2)
+  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=constant-motion&artist=dream-theater) 😈😈😈😈😈
+  * Bass ⚪️⚪️⚪️⚪️⚪️
+  * Guitar 😈😈😈😈😈
+  * Vocals (2) ⚪️⚪️⚪️⚫️⚫️
 
 Supported audio:
 

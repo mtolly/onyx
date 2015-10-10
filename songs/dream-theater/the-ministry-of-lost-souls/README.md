@@ -4,8 +4,8 @@
 
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=the-ministry-of-lost-souls&artist=dream-theater)
-  * Vocals (2)
+  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=the-ministry-of-lost-souls&artist=dream-theater) 😈😈😈😈😈
+  * Vocals (2) ⚪️⚪️⚪️⚪️⚪️
 
 Supported audio:
 

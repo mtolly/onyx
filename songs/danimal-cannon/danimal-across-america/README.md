@@ -7,7 +7,8 @@ Instruments:
   * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=danimal-across-america&artist=danimal-cannon)
   * Bass
   * Guitar
-  * (Pro) Keys
+  * Keys
+  * Pro Keys
 
 Supported audio:
 

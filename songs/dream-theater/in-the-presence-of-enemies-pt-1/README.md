@@ -4,8 +4,8 @@
 
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=in-the-presence-of-enemies-pt-1&artist=dream-theater)
-  * Vocals (3)
+  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=in-the-presence-of-enemies-pt-1&artist=dream-theater) ⚪️⚪️⚪️⚪️⚪️
+  * Vocals (3) ⚪️⚪️⚫️⚫️⚫️
 
 Supported audio:
 
