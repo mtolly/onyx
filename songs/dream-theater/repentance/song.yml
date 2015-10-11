@@ -5,6 +5,7 @@ metadata:
   difficulty:
     drums: 4
     vocal: 6
+    guitar: 2
   comments:
   - "Timing and drums by Grinnz."
   - "Drums confidence: *high*, written to Portnoy's DVD."
@@ -90,3 +91,4 @@ plans:
 instruments:
   drums: true
   vocal: 3
+  guitar: true
