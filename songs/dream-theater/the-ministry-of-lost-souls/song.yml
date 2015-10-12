@@ -5,6 +5,7 @@ metadata:
   difficulty:
     drums: 7
     vocal: 6
+    guitar: 7
   comments:
   - >-
     Drums confidence: *high*, written to Portnoy's DVD.
@@ -73,3 +74,4 @@ plans:
 instruments:
   drums: true
   vocal: 2
+  guitar: true
