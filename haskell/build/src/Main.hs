@@ -42,8 +42,10 @@ import           Development.Shake.Classes
 import           Development.Shake.FilePath
 import           RockBand.Common                  (Difficulty (..))
 import qualified RockBand.Drums                   as RBDrums
+import qualified RockBand.FiveButton              as RBFive
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.Vocals                  as RBVox
+import qualified RockBand.ProKeys                 as ProKeys
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.Jammit.Base                as J
 import qualified Sound.Jammit.Export              as J
@@ -404,13 +406,26 @@ main = do
                 $ mergeTracks [ t | RBFile.PartBass t <- trks ]
             keysTracks = if not $ hasAnyKeys $ _instruments songYaml
               then []
-              else
-                [ RBFile.copyExpert $ RBFile.PartKeys $ mergeTracks [ t | RBFile.PartKeys t <- trks ]
-                , RBFile.PartRealKeys Expert          $ mergeTracks [ t | RBFile.PartRealKeys Expert t <- trks ]
-                , RBFile.PartRealKeys Hard            $ mergeTracks [ t | RBFile.PartRealKeys Hard   t <- trks ]
-                , RBFile.PartRealKeys Medium          $ mergeTracks [ t | RBFile.PartRealKeys Medium t <- trks ]
-                , RBFile.PartRealKeys Easy            $ mergeTracks [ t | RBFile.PartRealKeys Easy   t <- trks ]
-                ]
+              else let
+                keysDiff diff = mergeTracks [ t | RBFile.PartRealKeys diff' t <- trks, diff == diff' ]
+                keysExpert = keysDiff Expert
+                keysHard   = keysDiff Hard
+                keysMedium = keysDiff Medium
+                keysEasy   = keysDiff Easy
+                keysExpert' = flip RTB.filter keysExpert $ \case
+                  ProKeys.LaneShift _ -> True
+                  ProKeys.Glissando _ -> True
+                  ProKeys.Trill     _ -> True
+                  ProKeys.Note    _ _ -> True
+                  _                   -> False
+                in  [ RBFile.copyExpert $ RBFile.PartKeys $ if not $ _hasKeys $ _instruments songYaml
+                      then expertProKeysToKeys keysExpert -- pro keys to dummy basic keys
+                      else mergeTracks [ t | RBFile.PartKeys t <- trks ]
+                    , RBFile.PartRealKeys Expert          $ keysExpert
+                    , RBFile.PartRealKeys Hard            $ if RTB.null keysHard   then keysExpert' else keysHard
+                    , RBFile.PartRealKeys Medium          $ if RTB.null keysMedium then keysExpert' else keysMedium
+                    , RBFile.PartRealKeys Easy            $ if RTB.null keysEasy   then keysExpert' else keysEasy
+                    ]
             vocalTracks = case _hasVocal $ _instruments songYaml of
               Vocal0 -> []
               Vocal1 ->
@@ -999,3 +1014,22 @@ drumsDifficulty song = let
   spooky = (4.73247e14 * sqrt (5.59906e34*x**2 - 7.8792e36*x + 2.77557e38) + 1.11981e32*x - 7.8792e33) ** (1/3)
   rank = round $ 332.181 + 1.19706e-9 * spooky - 5.16941e12 / spooky
   in if rank < 1 then 1 else if rank > 1000 then 1000 else rank
+
+-- | Makes a dummy Basic Keys track, for songs with only Pro Keys charted.
+expertProKeysToKeys :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats RBFive.Event
+expertProKeysToKeys = let
+  pkToBasic :: [ProKeys.Event] -> RTB.T U.Beats RBFive.Event
+  pkToBasic pk = let
+    hasNote    = any (\case ProKeys.Note    _ True  -> True; _ -> False) pk
+    hasODTrue  = any (\case ProKeys.Overdrive True  -> True; _ -> False) pk
+    hasODFalse = any (\case ProKeys.Overdrive False -> True; _ -> False) pk
+    blip diff = RTB.fromPairList
+      [ (0     , RBFive.DiffEvent diff $ RBFive.Note True  RBFive.Green)
+      , (1 / 32, RBFive.DiffEvent diff $ RBFive.Note False RBFive.Green)
+      ]
+    in foldr RTB.merge RTB.empty $ concat
+      [ [ blip d | d <- [minBound .. maxBound], hasNote ]
+      , [ RTB.singleton 0 $ RBFive.Overdrive True  | hasODTrue  ]
+      , [ RTB.singleton 0 $ RBFive.Overdrive False | hasODFalse ]
+      ]
+  in U.trackJoin . fmap pkToBasic . RTB.collectCoincident
