@@ -370,11 +370,15 @@ main = do
           midcountin = dir </> "countin.mid"
       [mid2p, midcountin] &%> \[out, _] -> do
         input <- loadMIDI "notes.mid"
-        let ftempos = "tempo-" ++ T.unpack planName ++ ".mid"
-        tempos <- fmap RBFile.s_tempos $ doesFileExist ftempos >>= \b -> if b
-          then loadMIDI ftempos
-          else return input
-        let trks = RBFile.s_tracks input
+        let extraTracks = "notes-" ++ T.unpack planName ++ ".mid"
+            extraTempo  = "tempo-" ++ T.unpack planName ++ ".mid"
+        extra <- doesFileExist extraTracks >>= \b -> if b
+          then loadMIDI extraTracks
+          else return input{ RBFile.s_tracks = [] }
+        tempos <- fmap RBFile.s_tempos $ doesFileExist extraTempo >>= \b -> if b
+          then loadMIDI extraTempo
+          else return extra
+        let trks = RBFile.s_tracks input ++ RBFile.s_tracks extra
             mergeTracks ts = foldr RTB.merge RTB.empty ts
             beatTrack = let
               trk = mergeTracks [ t | RBFile.Beat t <- trks ]
