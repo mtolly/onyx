@@ -5,7 +5,11 @@ metadata:
   difficulty:
     drums: 6
     vocal: 3
+    guitar: 7
+    bass: 4
+    keys: 7
   comments:
+  - "Guitar, bass, and keys charted by Meander and compiled by Sideshow."
   - "Drums confidence: *high*. Written to Portnoy's recording session DVD."
 audio:
   album-track:
@@ -75,3 +79,6 @@ plans:
 instruments:
   drums: true
   vocal: 3
+  guitar: true
+  bass: true
+  keys: true

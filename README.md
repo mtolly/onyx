@@ -4,7 +4,12 @@ I transcribe songs for use in Harmonix's *Rock Band 3* and other similar rhythm 
 Along the way, I've written a program called `onyxbuild`,
 a powerful command-line tool for automating the song build process.
 
-This repository contains charts by myself, as well as [Grinnz](https://www.youtube.com/user/SHGrinnz).
+In addition to my own charts, this repository also contains work by:
+Harmonix,
+[Grinnz](https://www.youtube.com/user/SHGrinnz),
+Meander,
+and [Sideshow](http://pksage.com/ccc/IPS/index.php?/topic/10433-sideshows-customs-10415-a-plethora-of-led-zeppelin/?p=61000).
+(Credited in individual song READMEs.)
 
 ## Building songs with Magma
 

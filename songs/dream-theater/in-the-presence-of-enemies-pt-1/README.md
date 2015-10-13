@@ -5,6 +5,9 @@
 Instruments:
 
   * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=in-the-presence-of-enemies-pt-1&artist=dream-theater) ⚪️⚪️⚪️⚪️⚪️
+  * Bass ⚪️⚪️⚪️⚫️⚫️
+  * Guitar 😈😈😈😈😈
+  * Keys 😈😈😈😈😈
   * Vocals (3) ⚪️⚪️⚫️⚫️⚫️
 
 Supported audio:
@@ -16,6 +19,8 @@ Supported audio:
   * `album` (Systematic Chaos)
 
 Notes:
+
+  * Guitar, bass, and keys charted by Meander and compiled by Sideshow.
 
   * Drums confidence: *high*. Written to Portnoy's recording session DVD.
 
