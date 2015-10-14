@@ -934,6 +934,7 @@ main = do
               cover  = pedalDir </> "magma/cover.bmp"
               mid    = pedalDir </> "magma/notes.mid"
               proj   = pedalDir </> "magma/magma.rbproj"
+              setup  = pedalDir </> "magma"
               rba    = pedalDir </> "magma.rba"
               export = pedalDir </> "notes-magma-export.mid"
           drums  %> copyFile' (dir </> "drums.wav" )
@@ -954,13 +955,16 @@ main = do
           proj %> \out -> do
             p <- makeMagmaProj
             liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
-          rba %> \out -> do
+          phony setup $ do
+            -- Just make all the Magma prereqs, but don't actually run Magma
             when (_hasDrums  $ _instruments songYaml) $ need [drums ]
             when (_hasBass   $ _instruments songYaml) $ need [bass  ]
             when (_hasGuitar $ _instruments songYaml) $ need [guitar]
             when (hasAnyKeys $ _instruments songYaml) $ need [keys  ]
             when (_hasVocal (_instruments songYaml) /= Vocal0) $ need [vocal, dryvox]
             need [song, cover, mid, proj]
+          rba %> \out -> do
+            need [setup]
             runMagma proj out
           export %> \out -> do
             need [mid, proj]
