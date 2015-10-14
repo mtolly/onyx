@@ -62,6 +62,27 @@ plans:
           - pad:
               - 4.266
               - *drums
+    # song:
+    #   resample:
+    #     take:
+    #     - '9:01.477'
+    #     - pad:
+    #       - 4.266
+    #       - mix:
+    #         - drop: ['21:50', drumcam-band]
+    #         - gain:
+    #           - -1
+    #           - &drums
+    #             drop:
+    #             - frames: 3065
+    #             - drop: ['21:50', drumcam-drums]
+    # drums:
+    #   resample:
+    #     take:
+    #     - '9:01.477'
+    #     - pad:
+    #       - 4.266
+    #       - *drums
 instruments:
   drums: true
   vocal: 2
