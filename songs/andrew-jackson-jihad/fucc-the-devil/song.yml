@@ -1,0 +1,14 @@
+metadata:
+  title: Fucc the Devil
+  file-include: ../../../albums/knife-man.yml
+  track-number: 6
+audio:
+  crap-mp3:
+    frames: 4496256
+plans:
+  album:
+    song:
+      pad: [1.905, crap-mp3]
+instruments:
+  vocal: 2
+published: false
