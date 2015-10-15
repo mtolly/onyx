@@ -9,7 +9,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common
-import           RockBand.Drums
+import qualified RockBand.Drums                   as Drums
 import           RockBand.Events
 import qualified RockBand.File                    as File
 import qualified Sound.MIDI.Util                  as U
@@ -32,7 +32,7 @@ insertHalfBeats = let
   in f
 
 data Preview = Preview
-  { gems          :: !(Map.Map U.Seconds [Gem ProType])
+  { gems          :: !(Map.Map U.Seconds [Drums.Gem Drums.ProType])
   , beatLines     :: !(Map.Map U.Seconds ExtendedBeat)
   , timeToMeasure :: !(U.Seconds -> U.MeasureBeats)
   , theEnd        :: !(Maybe U.Seconds)
@@ -46,12 +46,12 @@ buildPreview file = let
   theDrums  = foldr RTB.merge RTB.empty [ trk | File.PartDrums trk <- trks ]
   theBeat   = foldr RTB.merge RTB.empty [ trk | File.Beat      trk <- trks ]
   theEvents = foldr RTB.merge RTB.empty [ trk | File.Events    trk <- trks ]
-  gemTrack :: RTB.T U.Seconds (Gem ProType)
-  gemTrack = U.applyTempoTrack tmap $ pickExpert $ assignToms theDrums
+  gemTrack :: RTB.T U.Seconds (Drums.Gem Drums.ProType)
+  gemTrack = U.applyTempoTrack tmap $ pickExpert $ Drums.assignToms theDrums
   pickExpert = RTB.mapMaybe $ \(d, x) -> case d of
     Expert -> Just x
     _      -> Nothing
-  gemMap :: Map.Map U.Seconds [Gem ProType]
+  gemMap :: Map.Map U.Seconds [Drums.Gem Drums.ProType]
   gemMap = Map.fromAscList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $
     RTB.collectCoincident gemTrack
   beatTrack :: RTB.T U.Seconds ExtendedBeat
