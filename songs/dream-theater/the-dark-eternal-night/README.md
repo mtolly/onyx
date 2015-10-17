@@ -7,6 +7,7 @@ Instruments:
   * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=the-dark-eternal-night&artist=dream-theater) 😈😈😈😈😈
   * Bass 😈😈😈😈😈
   * Guitar 😈😈😈😈😈
+  * Pro Keys 😈😈😈😈😈
   * Vocals (2) ⚪️⚫️⚫️⚫️⚫️
 
 Supported audio:
@@ -23,5 +24,5 @@ Notes:
 
   * Drums confidence: *high*. Written to Portnoy's recording session DVD.
 
-  * Guitar, drums, bass, and vocals have overdrive/unison.
+  * All instruments have overdrive/unison.
 

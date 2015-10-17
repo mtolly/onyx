@@ -6,10 +6,11 @@ metadata:
     guitar: 7
     bass: 7
     drums: 7
+    pro-keys: 7
     vocal: 2
   comments:
   - "Drums confidence: *high*. Written to Portnoy's recording session DVD."
-  - "Guitar, drums, bass, and vocals have overdrive/unison."
+  - "All instruments have overdrive/unison."
 audio:
   album-track:
     md5: 6e27ff951e33c336844f196ff0932c39
@@ -89,3 +90,4 @@ instruments:
   vocal: 2
   guitar: true
   bass: true
+  pro-keys: true
