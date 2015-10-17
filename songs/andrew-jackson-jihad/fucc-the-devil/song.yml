@@ -3,12 +3,11 @@ metadata:
   file-include: ../../../albums/knife-man.yml
   track-number: 6
 audio:
-  crap-mp3:
-    frames: 4496256
+  album-track:
+    frames: 4497612
 plans:
   album:
     song:
-      pad: [1.905, crap-mp3]
+      pad: [1.905, album-track]
 instruments:
   vocal: 2
-published: false
