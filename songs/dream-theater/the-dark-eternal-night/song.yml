@@ -4,6 +4,7 @@ metadata:
   track-number: 4
   difficulty:
     guitar: 7
+    bass: 7
     drums: 7
     vocal: 2
   comments:
@@ -87,3 +88,4 @@ instruments:
   drums: true
   vocal: 2
   guitar: true
+  bass: true
