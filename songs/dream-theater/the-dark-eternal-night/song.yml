@@ -27,65 +27,37 @@ audio:
     rate: 48000
     name: AudioFile_81.ac3
 plans:
-  album:
-    song:
-      pad: [4.450, album-track]
+  # album:
+  #   song:
+  #     pad: [4.450, album-track]
   drumcam:
     comments:
     - >-
       Portnoy's sysDRUMatic Chaos DVD.
       See the project README for help on extracting the DVD audio.
     - >-
-      This version has a complete recorded ending with no fade-out;
-      I plan to chart and support this version in a future release.
+      This version has a complete recorded ending with no fade-out.
     song:
       resample:
-        fade:
-        - end
-        - 12.899
-        - take:
-          - '8:53.119'
-          - pad:
-              - 4.266
-              - mix:
-                - drop: ['21:50', drumcam-band]
-                - gain:
-                  - -1
-                  - &drums
-                    drop:
-                    - frames: 3065
-                    - drop: ['21:50', drumcam-drums]
+        take:
+        - '9:01.477'
+        - pad:
+          - 4.266
+          - mix:
+            - drop: ['21:50', drumcam-band]
+            - gain:
+              - -1
+              - &drums
+                drop:
+                - frames: 3065
+                - drop: ['21:50', drumcam-drums]
     drums:
       resample:
-        fade:
-        - end
-        - 12.899
-        - take:
-          - '8:53.119'
-          - pad:
-              - 4.266
-              - *drums
-    # song:
-    #   resample:
-    #     take:
-    #     - '9:01.477'
-    #     - pad:
-    #       - 4.266
-    #       - mix:
-    #         - drop: ['21:50', drumcam-band]
-    #         - gain:
-    #           - -1
-    #           - &drums
-    #             drop:
-    #             - frames: 3065
-    #             - drop: ['21:50', drumcam-drums]
-    # drums:
-    #   resample:
-    #     take:
-    #     - '9:01.477'
-    #     - pad:
-    #       - 4.266
-    #       - *drums
+        take:
+        - '9:01.477'
+        - pad:
+          - 4.266
+          - *drums
 instruments:
   drums: true
   vocal: 2
