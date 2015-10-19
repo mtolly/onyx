@@ -4,6 +4,7 @@
 
 Instruments:
 
+  * Guitar
   * Vocals (2)
 
 Supported audio:

@@ -11,3 +11,4 @@ plans:
       pad: [1.905, album-track]
 instruments:
   vocal: 2
+  guitar: true
