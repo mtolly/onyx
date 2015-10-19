@@ -58,6 +58,19 @@ plans:
         - pad:
           - 4.266
           - *drums
+  album:
+    comments:
+    - >-
+      The audio expression for this is not actually the album track;
+      it uses audio from MP's DVD, but with no separated instruments.
+      This is due to the extended ending heard on the DVD.
+    song:
+      resample:
+        take:
+        - '9:01.477'
+        - pad:
+          - 4.266
+          - drop: ['21:50', drumcam-band]
 instruments:
   drums: true
   vocal: 2

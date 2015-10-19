@@ -18,6 +18,10 @@ Supported audio:
 
     * This version has a complete recorded ending with no fade-out.
 
+  * `album` (Systematic Chaos)
+
+    * The audio expression for this is not actually the album track; it uses audio from MP's DVD, but with no separated instruments. This is due to the extended ending heard on the DVD.
+
 Notes:
 
   * Drums confidence: *high*. Written to Portnoy's recording session DVD.
