@@ -6,6 +6,7 @@ metadata:
     guitar: 7
     bass: 7
     drums: 7
+    keys: 7
     pro-keys: 7
     vocal: 2
   comments:
@@ -76,4 +77,5 @@ instruments:
   vocal: 2
   guitar: true
   bass: true
+  keys: true
   pro-keys: true

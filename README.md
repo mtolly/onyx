@@ -7,7 +7,7 @@ a powerful command-line tool for automating the song build process.
 In addition to my own charts, this repository also contains work by:
 Harmonix,
 [Grinnz](https://www.youtube.com/user/SHGrinnz),
-Meander,
+[Meander](http://pksage.com/ccc/IPS/index.php?/topic/11496-meanders-songs-82014-open-for-business/),
 and [Sideshow](http://pksage.com/ccc/IPS/index.php?/topic/10433-sideshows-customs-10415-a-plethora-of-led-zeppelin/?p=61000).
 (Credited in individual song READMEs.)
 
@@ -67,7 +67,7 @@ and [Sideshow](http://pksage.com/ccc/IPS/index.php?/topic/10433-sideshows-custom
     Note that you may have to click once in the "destination" box (the `.rba` path) before compiling,
     to change the relative path into an absolute one.
 
-[c3magma]: http://www.pksage.com/ccc/forums/viewtopic.php?f=12&t=381
+[c3magma]: http://pksage.com/ccc/IPS/index.php?/topic/9257-magma-c3-roks-edition-v332-072815/
 
   6. Optionally, convert your RBA file to an Xbox 360 CON package with [RB3Maker][].
 
@@ -98,6 +98,12 @@ Some current features:
 
   * swaps out the tempo track of a MIDI file,
     to easily use the same chart with two differently timed versions of a song
+
+  * makes dummy hard\/medium\/easy tracks from expert
+
+  * makes a dummy Basic Keys track from Pro Keys
+
+  * allows the use of comments, text events starting with `#`, in MIDI files
 
 Binaries for Windows and Mac are available on the
 [releases](https://github.com/mtolly/onyxite-customs/releases) page.
