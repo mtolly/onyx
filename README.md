@@ -99,7 +99,7 @@ Some current features:
   * swaps out the tempo track of a MIDI file,
     to easily use the same chart with two differently timed versions of a song
 
-  * makes dummy hard\/medium\/easy tracks from expert
+  * makes dummy hard/medium/easy tracks from expert
 
   * makes a dummy Basic Keys track from Pro Keys
 
