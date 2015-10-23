@@ -29,5 +29,5 @@ Notes:
 
   * All instruments have overdrive/unison.
 
-  * Drums, guitar, and bass also have hard charted.
+  * All instruments have Expert and Hard difficulties.
 
