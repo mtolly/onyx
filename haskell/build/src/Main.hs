@@ -422,13 +422,18 @@ main = do
                   ProKeys.Trill     _ -> True
                   ProKeys.Note    _ _ -> True
                   _                   -> False
+                keysAnim = flip RTB.filter keysExpert $ \case
+                  ProKeys.Note _ _ -> True
+                  _                -> False
                 in  [ RBFile.copyExpert $ RBFile.PartKeys $ if not $ _hasKeys $ _instruments songYaml
                       then expertProKeysToKeys keysExpert -- pro keys to dummy basic keys
                       else mergeTracks [ t | RBFile.PartKeys t <- trks ]
-                    , RBFile.PartRealKeys Expert          $ keysExpert
-                    , RBFile.PartRealKeys Hard            $ if RTB.null keysHard   then keysExpert' else keysHard
-                    , RBFile.PartRealKeys Medium          $ if RTB.null keysMedium then keysExpert' else keysMedium
-                    , RBFile.PartRealKeys Easy            $ if RTB.null keysEasy   then keysExpert' else keysEasy
+                    , RBFile.PartKeysAnimRH      $ keysAnim
+                    , RBFile.PartKeysAnimLH      $ RTB.empty
+                    , RBFile.PartRealKeys Expert $ keysExpert
+                    , RBFile.PartRealKeys Hard   $ if RTB.null keysHard   then keysExpert' else keysHard
+                    , RBFile.PartRealKeys Medium $ if RTB.null keysMedium then keysExpert' else keysMedium
+                    , RBFile.PartRealKeys Easy   $ if RTB.null keysEasy   then keysExpert' else keysEasy
                     ]
             vocalTracks = case _hasVocal $ _instruments songYaml of
               Vocal0 -> []
