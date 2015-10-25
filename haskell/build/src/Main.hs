@@ -13,6 +13,7 @@ import           Scripts
 import           X360
 import           YAMLTree
 import           Resources (emptyMilo)
+import qualified C3
 
 import           Codec.Picture
 import           Control.Monad.Extra
@@ -547,10 +548,10 @@ main = do
               else T.unpack (_title $ _metadata songYaml) ++ " (2x Bass Pedal)"
 
       let pedalVersions =
-            [ (dir </> "1p", get1xTitle)
-            , (dir </> "2p", get2xTitle)
+            [ (dir </> "1p", get1xTitle, False)
+            , (dir </> "2p", get2xTitle, True )
             ]
-      forM_ pedalVersions $ \(pedalDir, getTitle) -> do
+      forM_ pedalVersions $ \(pedalDir, getTitle, is2xBass) -> do
 
         let pkg = "onyx" ++ show (hash (pedalDir, _title $ _metadata songYaml, _artist $ _metadata songYaml) `mod` 1000000000)
 
@@ -939,6 +940,7 @@ main = do
               cover  = pedalDir </> "magma/cover.bmp"
               mid    = pedalDir </> "magma/notes.mid"
               proj   = pedalDir </> "magma/magma.rbproj"
+              c3     = pedalDir </> "magma/magma.c3"
               setup  = pedalDir </> "magma"
               rba    = pedalDir </> "magma.rba"
               export = pedalDir </> "notes-magma-export.mid"
@@ -960,6 +962,65 @@ main = do
           proj %> \out -> do
             p <- makeMagmaProj
             liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
+          c3 %> \out -> do
+            (pstart, _) <- previewBounds mid
+            title <- getTitle
+            let isSilence Silence{} = True
+                isSilence _         = False
+            liftIO $ writeFile out $ C3.showC3 $ C3.C3
+              { C3.song = T.unpack $ _title $ _metadata songYaml
+              , C3.artist = T.unpack $ _artist $ _metadata songYaml
+              , C3.album = T.unpack $ _album $ _metadata songYaml
+              , C3.customID = pkg
+              , C3.version = 1
+              , C3.isMaster = True
+              , C3.encodingQuality = 5
+              , C3.is2xBass = is2xBass
+              , C3.rhythmKeys = False
+              , C3.rhythmBass = False
+              , C3.karaoke = case plan of
+                Plan{..} -> not (isSilence _vocal) && all isSilence
+                  [_guitar, _bass, _keys, _drums]
+                _ -> False
+              , C3.multitrack = case plan of
+                Plan{..} -> any (not . isSilence)
+                  [_guitar, _bass, _keys, _drums]
+                _ -> True
+              , C3.convert = False
+              , C3.expertOnly = True -- TODO
+              , C3.proBassDiff = Nothing
+              , C3.proBassTuning = Nothing
+              , C3.proGuitarDiff = Nothing
+              , C3.proGuitarTuning = Nothing
+              , C3.disableProKeys =
+                  _hasKeys (_instruments songYaml) && not (_hasProKeys $ _instruments songYaml)
+              , C3.tonicNote = Nothing -- TODO
+              , C3.tuningCents = 0
+              , C3.songRating = 4 -- unrated
+              , C3.drumKitSFX = 0 -- default Hard Rock Kit
+              , C3.hopoThresholdIndex = 2 -- default 170
+              , C3.muteVol = -96
+              , C3.vocalMuteVol = -12
+              , C3.soloDrums = False -- TODO
+              , C3.soloGuitar = False -- TODO
+              , C3.soloBass = False -- TODO
+              , C3.soloKeys = False -- TODO
+              , C3.soloVocals = False -- TODO
+              , C3.songPreview = fromIntegral pstart
+              , C3.checkTempoMap = True
+              , C3.wiiMode = False
+              , C3.doDrumMixEvents = True -- is this a good idea?
+              , C3.packageDisplay = T.unpack (_artist $ _metadata songYaml) ++ " - " ++ title
+              , C3.packageDescription = "Created with Magma: C3 Roks Edition (forums.customscreators.com) and Onyxite's Build Tool."
+              , C3.songAlbumArt = "cover.bmp"
+              , C3.packageThumb = ""
+              , C3.encodeANSI = True  -- is this right?
+              , C3.encodeUTF8 = False -- is this right?
+              , C3.useNumericID = False
+              , C3.uniqueNumericID = ""
+              , C3.uniqueNumericID2x = ""
+              , C3.toDoList = C3.defaultToDo
+              }
           phony setup $ do
             -- Just make all the Magma prereqs, but don't actually run Magma
             when (_hasDrums  $ _instruments songYaml) $ need [drums ]
@@ -967,7 +1028,7 @@ main = do
             when (_hasGuitar $ _instruments songYaml) $ need [guitar]
             when (hasAnyKeys $ _instruments songYaml) $ need [keys  ]
             when (_hasVocal (_instruments songYaml) /= Vocal0) $ need [vocal, dryvox]
-            need [song, cover, mid, proj]
+            need [song, cover, mid, proj, c3]
           rba %> \out -> do
             need [setup]
             runMagma proj out
