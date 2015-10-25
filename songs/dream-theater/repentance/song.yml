@@ -2,6 +2,7 @@ metadata:
   title: Repentance
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 5
+  key: B # for vocals
   difficulty:
     drums: 4
     vocal: 6

@@ -2,6 +2,7 @@ metadata:
   title: "In the Presence of Enemies, Pt. 1"
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 1
+  key: D
   difficulty:
     drums: 6
     vocal: 3

@@ -722,7 +722,7 @@ main = do
                 , D.albumArt = Just True
                 , D.albumName = Just $ T.unpack $ _album $ _metadata songYaml
                 , D.albumTrackNumber = Just $ fromIntegral $ _trackNumber $ _metadata songYaml
-                , D.vocalTonicNote = Nothing
+                , D.vocalTonicNote = toEnum . fromEnum <$> _key (_metadata songYaml)
                 , D.songTonality = Nothing
                 , D.tuningOffsetCents = Just 0
                 , D.realGuitarTuning = Nothing
@@ -994,7 +994,7 @@ main = do
               , C3.proGuitarTuning = Nothing
               , C3.disableProKeys =
                   _hasKeys (_instruments songYaml) && not (_hasProKeys $ _instruments songYaml)
-              , C3.tonicNote = Nothing -- TODO
+              , C3.tonicNote = _key $ _metadata songYaml
               , C3.tuningCents = 0
               , C3.songRating = 4 -- unrated
               , C3.drumKitSFX = 0 -- default Hard Rock Kit

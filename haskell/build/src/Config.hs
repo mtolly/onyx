@@ -17,6 +17,7 @@ import           Data.Conduit.Audio         (Duration (..))
 import qualified Data.DTA.Serialize.Magma   as Magma
 import qualified Data.HashMap.Strict        as Map
 import           Data.List                  ((\\))
+import Data.Monoid ((<>))
 import           Data.Maybe                 (fromMaybe)
 import           Data.Scientific            (Scientific, toBoundedInteger,
                                              toRealFloat)
@@ -26,6 +27,7 @@ import qualified Data.Vector                as V
 import qualified Sound.Jammit.Base          as J
 import           Control.Monad.Trans.StackTrace hiding (optional)
 import           Text.Read                  (readMaybe)
+import           RockBand.Common            (Key(..))
 
 type Parser m context = StackTraceT (ReaderT context m)
 
@@ -77,6 +79,20 @@ instance TraceJSON Int where
   traceJSON = traceJSON >>= \n -> case toBoundedInteger n of
     Nothing -> expected "a number in Int range"
     Just i  -> return i
+
+keyNames :: [(T.Text, Key)]
+keyNames = let
+  keys = [C,D,E,F,G,A,B]
+  letter = T.toLower . T.pack . show
+  numKeys = fromEnum (maxBound :: Key) + 1
+  in   [(letter k, k) | k <- keys]
+    ++ [(letter k <> " flat" , toEnum $ (fromEnum k - 1) `mod` numKeys) | k <- keys]
+    ++ [(letter k <> " sharp", toEnum $ (fromEnum k + 1) `mod` numKeys) | k <- keys]
+
+instance TraceJSON Key where
+  traceJSON = traceJSON >>= \t -> case lookup (T.toLower t) keyNames of
+    Just k -> return k
+    Nothing -> expected "the name of a pitch"
 
 parseFrom :: (Monad m) => v -> Parser m v a -> Parser m v' a
 parseFrom = mapStackTraceT . withReaderT . const
@@ -172,6 +188,7 @@ data Metadata = Metadata
   , _comments     :: [T.Text]
   , _vocalGender  :: Maybe Magma.Gender
   , _difficulty   :: Difficulties
+  , _key          :: Maybe Key
   } deriving (Eq, Ord, Show, Read)
 
 data Difficulties = Difficulties
@@ -230,11 +247,12 @@ instance TraceJSON Metadata where
     _vocalGender  <- optional "vocal-gender"   traceJSON
     let emptyDiffs = Difficulties Nothing Nothing Nothing Nothing Nothing Nothing Nothing
     _difficulty   <- fromMaybe emptyDiffs <$> optional "difficulty" traceJSON
+    _key          <- optional "key" traceJSON
     _comments     <- fromMaybe [] <$> optional "comments" traceJSON
     expectedKeys
       [ "title", "artist", "album", "genre", "subgenre", "year"
       , "file-album-art", "track-number", "file-countin", "comments", "vocal-gender"
-      , "difficulty"
+      , "difficulty", "key"
       ]
     return Metadata{..}
 

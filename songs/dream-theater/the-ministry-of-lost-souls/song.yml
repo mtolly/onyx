@@ -2,6 +2,7 @@ metadata:
   title: The Ministry of Lost Souls
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 7
+  key: A
   difficulty:
     drums: 7
     vocal: 6

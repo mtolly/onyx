@@ -2,6 +2,7 @@ metadata:
   title: Constant Motion
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 3
+  key: E
   difficulty:
     guitar: 7
     bass: 6

@@ -2,6 +2,7 @@ metadata:
   title: Prophets of War
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 6
+  key: E
   difficulty:
     guitar: 4
     vocal: 5
