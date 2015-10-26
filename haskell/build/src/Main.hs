@@ -538,18 +538,18 @@ main = do
 
       let get1xTitle, get2xTitle :: Action String
           get1xTitle = return $ T.unpack $ _title $ _metadata songYaml
-          get2xTitle = do
-            need [mid1p, mid2p]
-            let getFileSize f = liftIO $ withFile f ReadMode hFileSize
-            size1p <- getFileSize mid1p
-            size2p <- getFileSize mid2p
-            return $ if size1p == size2p
+          get2xTitle = get2xBass >>= \b -> return $ if b
               then T.unpack (_title $ _metadata songYaml)
               else T.unpack (_title $ _metadata songYaml) ++ " (2x Bass Pedal)"
+          get2xBass :: Action Bool
+          get2xBass = do
+            need [mid1p, mid2p]
+            let getFileSize f = liftIO $ withFile f ReadMode hFileSize
+            liftM2 (==) (getFileSize mid1p) (getFileSize mid2p)
 
       let pedalVersions =
-            [ (dir </> "1p", get1xTitle, False)
-            , (dir </> "2p", get2xTitle, True )
+            [ (dir </> "1p", get1xTitle, return False)
+            , (dir </> "2p", get2xTitle, get2xBass   )
             ]
       forM_ pedalVersions $ \(pedalDir, getTitle, is2xBass) -> do
 
@@ -709,7 +709,13 @@ main = do
                       Just (Tier t) -> tierToRank bandDiffMap t
                     )
                   ]
-                , D.solo = Nothing
+                , D.solo = Just $ D.InParens $ concat
+                  [ [D.Keyword "guitar" | hasSolo Guitar song]
+                  , [D.Keyword "bass" | hasSolo Bass song]
+                  , [D.Keyword "drum" | hasSolo Drums song]
+                  , [D.Keyword "keys" | hasSolo Keys song]
+                  , [D.Keyword "vocal_percussion" | hasSolo Vocal song]
+                  ]
                 , D.format = 10
                 , D.version = 30
                 , D.gameOrigin = D.Keyword "ugc_plus"
@@ -967,6 +973,8 @@ main = do
             title <- getTitle
             let isSilence Silence{} = True
                 isSilence _         = False
+            midi <- loadMIDI mid
+            is2x <- is2xBass
             liftIO $ writeFile out $ C3.showC3 $ C3.C3
               { C3.song = T.unpack $ _title $ _metadata songYaml
               , C3.artist = T.unpack $ _artist $ _metadata songYaml
@@ -975,7 +983,7 @@ main = do
               , C3.version = 1
               , C3.isMaster = True
               , C3.encodingQuality = 5
-              , C3.is2xBass = is2xBass
+              , C3.is2xBass = is2x
               , C3.rhythmKeys = False
               , C3.rhythmBass = False
               , C3.karaoke = case plan of
@@ -1001,11 +1009,11 @@ main = do
               , C3.hopoThresholdIndex = 2 -- default 170
               , C3.muteVol = -96
               , C3.vocalMuteVol = -12
-              , C3.soloDrums = False -- TODO
-              , C3.soloGuitar = False -- TODO
-              , C3.soloBass = False -- TODO
-              , C3.soloKeys = False -- TODO
-              , C3.soloVocals = False -- TODO
+              , C3.soloDrums = hasSolo Drums midi
+              , C3.soloGuitar = hasSolo Guitar midi
+              , C3.soloBass = hasSolo Bass midi
+              , C3.soloKeys = hasSolo Keys midi
+              , C3.soloVocals = hasSolo Vocal midi
               , C3.songPreview = fromIntegral pstart
               , C3.checkTempoMap = True
               , C3.wiiMode = False
@@ -1107,3 +1115,35 @@ expertProKeysToKeys = let
       , [ RTB.singleton 0 $ RBFive.Overdrive False | hasODFalse ]
       ]
   in U.trackJoin . fmap pkToBasic . RTB.collectCoincident
+
+hasSolo :: Instrument -> RBFile.Song t -> Bool
+hasSolo Guitar song = not $ null $ do
+  RBFile.PartGuitar t <- RBFile.s_tracks song
+  RBFive.Solo _ <- RTB.getBodies t
+  return ()
+hasSolo Bass song = not $ null $ do
+  RBFile.PartBass t <- RBFile.s_tracks song
+  RBFive.Solo _ <- RTB.getBodies t
+  return ()
+hasSolo Drums song = not $ null $ do
+  RBFile.PartDrums t <- RBFile.s_tracks song
+  RBDrums.Solo _ <- RTB.getBodies t
+  return ()
+hasSolo Keys song = not $ null
+  $ do
+    RBFile.PartKeys t <- RBFile.s_tracks song
+    RBFive.Solo _ <- RTB.getBodies t
+    return ()
+  ++ do
+    RBFile.PartRealKeys Expert t <- RBFile.s_tracks song
+    ProKeys.Solo _ <- RTB.getBodies t
+    return ()
+hasSolo Vocal song = not $ null
+  $ do
+    RBFile.PartVocals t <- RBFile.s_tracks song
+    RBVox.Percussion <- RTB.getBodies t
+    return ()
+  ++ do
+    RBFile.Harm1 t <- RBFile.s_tracks song
+    RBVox.Percussion <- RTB.getBodies t
+    return ()
