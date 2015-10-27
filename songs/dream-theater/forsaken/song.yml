@@ -7,10 +7,11 @@ metadata:
     drums: 3
     guitar: 4
     vocal: 5
+    keys: 3
     pro-keys: 3
   comments:
   - "Drums confidence: *high*. Written to Portnoy's DVD."
-  - "Guitar, drums, and vocals have overdrive/unison."
+  - "All instruments have overdrive/unison."
 audio:
   album-track:
     md5: 0ecc238833b6dcda1bf52d2d666c387c
@@ -65,4 +66,5 @@ instruments:
   drums: true
   vocal: 3
   guitar: true
+  keys: true
   pro-keys: true

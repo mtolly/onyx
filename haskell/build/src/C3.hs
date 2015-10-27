@@ -22,7 +22,10 @@ data C3 = C3
   , multitrack :: Bool
   , convert :: Bool
   , expertOnly :: Bool
-  -- next 4 are optional
+  -- note: CAT EMH and Encrypt Audio are not settings in the .c3 file.
+  -- CAT EMH is not remembered at all for some reason.
+  -- Encrypt Audio is a setting remembered by the program, not an individual song.
+  -- next 4 fields are optional
   , proBassDiff :: Maybe Int
   , proBassTuning :: Maybe String -- like "(real_bass_tuning (0 0 0 0))"
   , proGuitarDiff :: Maybe Int

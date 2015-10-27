@@ -6,6 +6,7 @@ Instruments:
 
   * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=forsaken&artist=dream-theater) ⚪️⚪️⚫️⚫️⚫️
   * Guitar ⚪️⚪️⚪️⚫️⚫️
+  * Keys ⚪️⚪️⚫️⚫️⚫️
   * Pro Keys ⚪️⚪️⚫️⚫️⚫️
   * Vocals (3) ⚪️⚪️⚪️⚪️⚫️
 
@@ -21,5 +22,5 @@ Notes:
 
   * Drums confidence: *high*. Written to Portnoy's DVD.
 
-  * Guitar, drums, and vocals have overdrive/unison.
+  * All instruments have overdrive/unison.
 
