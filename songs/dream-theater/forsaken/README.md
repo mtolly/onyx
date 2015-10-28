@@ -5,6 +5,7 @@
 Instruments:
 
   * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=forsaken&artist=dream-theater) ⚪️⚪️⚫️⚫️⚫️
+  * Bass ⚪️⚫️⚫️⚫️⚫️
   * Guitar ⚪️⚪️⚪️⚫️⚫️
   * Keys ⚪️⚪️⚫️⚫️⚫️
   * Pro Keys ⚪️⚪️⚫️⚫️⚫️
