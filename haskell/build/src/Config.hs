@@ -138,16 +138,13 @@ jammitInstrument = \case
   Vocal  -> J.Vocal
 
 instance TraceJSON Instrument where
-  traceJSON = do
-    s <- traceJSON
-    let _ = s :: String
-    case s of
-      "guitar" -> return Guitar
-      "bass"   -> return Bass
-      "drums"  -> return Drums
-      "keys"   -> return Keys
-      "vocal"  -> return Vocal
-      _        -> expected "an instrument name"
+  traceJSON = traceJSON >>= \s -> case s :: String of
+    "guitar" -> return Guitar
+    "bass"   -> return Bass
+    "drums"  -> return Drums
+    "keys"   -> return Keys
+    "vocal"  -> return Vocal
+    _        -> expected "an instrument name"
 
 data SongYaml = SongYaml
   { _metadata    :: Metadata
@@ -219,10 +216,10 @@ data Difficulty
   deriving (Eq, Ord, Show, Read)
 
 instance TraceJSON Difficulty where
-  traceJSON
-    =   do fmap Tier traceJSON
-    <|> do algebraic1 "tier" Tier traceJSON
-    <|> do algebraic1 "rank" Rank traceJSON
+  traceJSON = decideKey
+    [ ("tier", algebraic1 "tier" Tier traceJSON)
+    , ("rank", algebraic1 "rank" Rank traceJSON)
+    ] (fmap Tier traceJSON)
 
 instance TraceJSON Magma.Gender where
   traceJSON = do
@@ -313,13 +310,14 @@ data Plan
   deriving (Eq, Ord, Show, Read)
 
 instance TraceJSON Plan where
-  traceJSON = object
-    $   do
+  traceJSON = decideKey
+    [ ("each", object $ do
       _each <- required "each" traceJSON
       _planComments <- fromMaybe [] <$> optional "comments" traceJSON
       expectedKeys ["each", "comments"]
       return EachPlan{..}
-    <|> do
+      )
+    , ("song", object $ do
       let defaultSilence = fromMaybe $ Silence 2 $ Frames 0
       _song   <-                    required "song"   traceJSON
       _guitar <- defaultSilence <$> optional "guitar" traceJSON
@@ -330,7 +328,8 @@ instance TraceJSON Plan where
       _planComments <- fromMaybe [] <$> optional "comments" traceJSON
       expectedKeys ["song", "guitar", "bass", "keys", "drums", "vocal", "comments"]
       return Plan{..}
-    <|> do
+      )
+    , ("mogg-md5", object $ do
       _moggMD5 <- required "mogg-md5" traceJSON
       _moggGuitar <- fromMaybe [] <$> optional "guitar" traceJSON
       _moggBass   <- fromMaybe [] <$> optional "bass" traceJSON
@@ -343,6 +342,8 @@ instance TraceJSON Plan where
       _planComments <- fromMaybe [] <$> optional "comments" traceJSON
       expectedKeys ["mogg-md5", "guitar", "bass", "keys", "drums", "vocal", "pans", "vols", "drum-mix", "comments"]
       return MoggPlan{..}
+      )
+    ] (expected "an object with one of the keys \"each\", \"song\", or \"mogg-md5\"")
 
 data AudioInput
   = Named T.Text
@@ -350,10 +351,8 @@ data AudioInput
   deriving (Eq, Ord, Show, Read)
 
 instance TraceJSON AudioInput where
-  traceJSON
-    =   do
-      Named <$> traceJSON
-    <|> do
+  traceJSON = decideKey
+    [ ("only", do
       algebraic2 "only"
         (\part str -> JammitSelect (J.Only part) str)
         (traceJSON >>= \title -> case J.titleToPart title of
@@ -361,11 +360,14 @@ instance TraceJSON AudioInput where
           Nothing   -> expected "a Jammit part name"
           )
         traceJSON
-    <|> do
+      )
+    , ("without", do
       algebraic2 "without"
         (\inst str -> JammitSelect (J.Without $ jammitInstrument inst) str)
         traceJSON
         traceJSON
+      )
+    ] (Named <$> traceJSON)
 
 instance TraceJSON Edge where
   traceJSON = do
@@ -403,33 +405,37 @@ algebraic3 k f p1 p2 p3 = object $ theKey k $ lift ask >>= \case
     _ -> expected "an array of 3 ADT fields"
   _ -> expected "an array of 3 ADT fields"
 
+decideKey :: (Monad m) => [(T.Text, Parser m A.Value a)] -> Parser m A.Value a -> Parser m A.Value a
+decideKey opts def = lift ask >>= \case
+  A.Object hm -> case [ p | (k, p) <- opts, Map.member k hm ] of
+    p : _ -> p
+    [] -> def
+  _ -> def
+
 instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
-  traceJSON
-    =   do algebraic2 "silence" Silence traceJSON traceJSON
-    <|> do object $ theKey "mix"         $ Mix         <$> traceJSON
-    <|> do object $ theKey "merge"       $ Merge       <$> traceJSON
-    <|> do object $ theKey "concatenate" $ Concatenate <$> traceJSON
-    <|> do algebraic2 "gain" Gain traceJSON traceJSON
-    <|> do supplyEdge "take" Take
-    <|> do supplyEdge "drop" Drop
-    <|> do supplyEdge "trim" Drop
-    <|> do supplyEdge "fade" Fade
-    <|> do supplyEdge "pad"  Pad
-    <|> do algebraic1 "resample" Resample traceJSON
-    <|> do algebraic2 "channels" Channels traceJSON traceJSON
-    <|> do Input <$> traceJSON
+  traceJSON = decideKey
+    [ ("silence", algebraic2 "silence" Silence traceJSON traceJSON)
+    , ("mix"        , object $ theKey "mix"         $ Mix         <$> traceJSON)
+    , ("merge"      , object $ theKey "merge"       $ Merge       <$> traceJSON)
+    , ("concatenate", object $ theKey "concatenate" $ Concatenate <$> traceJSON)
+    , ("gain", algebraic2 "gain" Gain traceJSON traceJSON)
+    , ("take", supplyEdge "take" Take)
+    , ("drop", supplyEdge "drop" Drop)
+    , ("trim", supplyEdge "trim" Drop)
+    , ("fade", supplyEdge "fade" Fade)
+    , ("pad" , supplyEdge "pad"  Pad )
+    , ("resample", algebraic1 "resample" Resample traceJSON)
+    , ("channels", algebraic2 "channels" Channels traceJSON traceJSON)
+    ] (fmap Input traceJSON <|> expected "an audio expression")
     where supplyEdge s f
             =   do algebraic2 s (f Start   ) traceJSON traceJSON
             <|> do algebraic3 s  f traceJSON traceJSON traceJSON
 
 instance TraceJSON Duration where
-  traceJSON
-    =   do
-      object $ theKey "frames" $ Frames <$> traceJSON
-    <|> do
-      object $ theKey "seconds" $ Seconds <$> parseMinutes
-    <|> do
-      Seconds <$> parseMinutes
+  traceJSON = decideKey
+    [ ("frames", object $ theKey "frames" $ Frames <$> traceJSON)
+    , ("seconds", object $ theKey "seconds" $ Seconds <$> parseMinutes)
+    ] (fmap Seconds parseMinutes <|> expected "a time duration")
     where parseMinutes = do
             v <- lift ask
             case v of
