@@ -4,10 +4,11 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE ViewPatterns      #-}
 module Config where
 
 import           Audio
-import           Control.Applicative        ((<|>))
 import           Control.Monad.Trans.Class  (lift)
 import           Control.Monad.Trans.Reader
 import qualified Data.Aeson                 as A
@@ -215,20 +216,20 @@ data Difficulty
   | Rank Integer -- ^ [1..]
   deriving (Eq, Ord, Show, Read)
 
+pattern OneKey k v <- A.Object (Map.toList -> [(k, v)])
+
 instance TraceJSON Difficulty where
-  traceJSON = decideKey
-    [ ("tier", algebraic1 "tier" Tier traceJSON)
-    , ("rank", algebraic1 "rank" Rank traceJSON)
-    ] (fmap Tier traceJSON)
+  traceJSON = lift ask >>= \case
+    OneKey "tier" (A.Number n) -> return $ Tier $ round n
+    OneKey "rank" (A.Number n) -> return $ Rank $ round n
+    A.Number n -> return $ Tier $ round n
+    _ -> expected "a difficulty value (tier or rank)"
 
 instance TraceJSON Magma.Gender where
-  traceJSON = do
-    s <- traceJSON
-    let _ = s :: String
-    case s of
-      "female" -> return Magma.Female
-      "male"   -> return Magma.Male
-      _        -> expected "female or male"
+  traceJSON = lift ask >>= \case
+    A.String "female" -> return Magma.Female
+    A.String "male"   -> return Magma.Male
+    _                 -> expected "a gender (male or female)"
 
 instance TraceJSON Metadata where
   traceJSON = object $ do
@@ -370,14 +371,11 @@ instance TraceJSON AudioInput where
     ] (Named <$> traceJSON)
 
 instance TraceJSON Edge where
-  traceJSON = do
-    s <- traceJSON
-    let _ = s :: String
-    case s of
-      "start" -> return Start
-      "begin" -> return Start
-      "end"   -> return End
-      _       -> expected "an audio edge"
+  traceJSON = lift ask >>= \case
+    A.String "start" -> return Start
+    A.String "begin" -> return Start
+    A.String "end"   -> return End
+    _                -> expected "an audio edge (start or end)"
 
 algebraic1 :: (Monad m) => T.Text -> (a -> b) -> Parser m A.Value a -> Parser m A.Value b
 algebraic1 k f p1 = object $ theKey k $ do
@@ -426,27 +424,28 @@ instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
     , ("pad" , supplyEdge "pad"  Pad )
     , ("resample", algebraic1 "resample" Resample traceJSON)
     , ("channels", algebraic2 "channels" Channels traceJSON traceJSON)
-    ] (fmap Input traceJSON <|> expected "an audio expression")
-    where supplyEdge s f
-            =   do algebraic2 s (f Start   ) traceJSON traceJSON
-            <|> do algebraic3 s  f traceJSON traceJSON traceJSON
+    ] (fmap Input traceJSON `catch` \_ -> expected "an audio expression")
+    where supplyEdge s f = lift ask >>= \case
+            OneKey _ (A.Array v)
+              | V.length v == 2 -> algebraic2 s (f Start   ) traceJSON traceJSON
+              | V.length v == 3 -> algebraic3 s  f traceJSON traceJSON traceJSON
+            _ -> expected $ "2 or 3 fields in the " ++ show s ++ " ADT"
 
 instance TraceJSON Duration where
-  traceJSON = decideKey
-    [ ("frames", object $ theKey "frames" $ Frames <$> traceJSON)
-    , ("seconds", object $ theKey "seconds" $ Seconds <$> parseMinutes)
-    ] (fmap Seconds parseMinutes <|> expected "a time duration")
-    where parseMinutes = do
-            v <- lift ask
-            case v of
-              A.String minstr
-                | (minutes@(_:_), ':' : secstr) <- span isDigit $ T.unpack minstr
-                , Just seconds <- readMaybe secstr
-                -> return $ read minutes * 60 + seconds
-              A.String secstr
-                | Just seconds <- readMaybe $ T.unpack secstr
-                -> return seconds
-              _ -> traceJSON -- will succeed if JSON number
+  traceJSON = lift ask >>= \case
+    OneKey "frames" v -> inside "frames duration" $ Frames <$> parseFrom v traceJSON
+    OneKey "seconds" v -> inside "seconds duration" $ Seconds <$> parseFrom v parseMinutes
+    _ -> (inside "unitless (seconds) duration" $ Seconds <$> parseMinutes)
+      `catch` \_ -> expected "a duration in frames or seconds"
+    where parseMinutes = lift ask >>= \case
+            A.String minstr
+              | (minutes@(_:_), ':' : secstr) <- span isDigit $ T.unpack minstr
+              , Just seconds <- readMaybe secstr
+              -> return $ read minutes * 60 + seconds
+            A.String secstr
+              | Just seconds <- readMaybe $ T.unpack secstr
+              -> return seconds
+            _ -> traceJSON -- will succeed if JSON number
 
 data Instruments = Instruments
   { _hasDrums   :: Bool
@@ -462,12 +461,12 @@ hasAnyKeys insts = _hasKeys insts || _hasProKeys insts
 
 instance TraceJSON Instruments where
   traceJSON = object $ do
-    _hasDrums  <- fromMaybe False  <$> optional "drums"  traceJSON
-    _hasGuitar <- fromMaybe False  <$> optional "guitar" traceJSON
-    _hasBass   <- fromMaybe False  <$> optional "bass"   traceJSON
-    _hasKeys   <- fromMaybe False  <$> optional "keys"   traceJSON
+    _hasDrums   <- fromMaybe False  <$> optional "drums"    traceJSON
+    _hasGuitar  <- fromMaybe False  <$> optional "guitar"   traceJSON
+    _hasBass    <- fromMaybe False  <$> optional "bass"     traceJSON
+    _hasKeys    <- fromMaybe False  <$> optional "keys"     traceJSON
     _hasProKeys <- fromMaybe False  <$> optional "pro-keys" traceJSON
-    _hasVocal  <- fromMaybe Vocal0 <$> optional "vocal"  traceJSON
+    _hasVocal   <- fromMaybe Vocal0 <$> optional "vocal"    traceJSON
     expectedKeys ["drums", "guitar", "bass", "keys", "pro-keys", "vocal"]
     return Instruments{..}
 
@@ -477,9 +476,9 @@ data VocalCount = Vocal0 | Vocal1 | Vocal2 | Vocal3
 instance TraceJSON VocalCount where
   traceJSON = lift ask >>= \case
     A.Bool False -> return Vocal0
-    A.Bool True -> return Vocal1
-    A.Number 0 -> return Vocal0
-    A.Number 1 -> return Vocal1
-    A.Number 2 -> return Vocal2
-    A.Number 3 -> return Vocal3
-    _          -> expected "a vocal part count (0 to 3)"
+    A.Bool True  -> return Vocal1
+    A.Number 0   -> return Vocal0
+    A.Number 1   -> return Vocal1
+    A.Number 2   -> return Vocal2
+    A.Number 3   -> return Vocal3
+    _            -> expected "a vocal part count (0 to 3)"
