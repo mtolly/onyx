@@ -7,6 +7,7 @@ metadata:
     drums: 4
     vocal: 6
     guitar: 2
+    bass: 2
   comments:
   - "Timing and drums by Grinnz."
   - "Drums confidence: *high*, written to Portnoy's DVD."
@@ -93,3 +94,4 @@ instruments:
   drums: true
   vocal: 3
   guitar: true
+  bass: true

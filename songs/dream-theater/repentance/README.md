@@ -5,6 +5,7 @@
 Instruments:
 
   * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=repentance&artist=dream-theater) ⚪️⚪️⚪️⚫️⚫️
+  * Bass ⚪️⚫️⚫️⚫️⚫️
   * Guitar ⚪️⚫️⚫️⚫️⚫️
   * Vocals (3) ⚪️⚪️⚪️⚪️⚪️
 
