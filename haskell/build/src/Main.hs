@@ -31,6 +31,7 @@ import qualified Data.DTA.Serialize               as D
 import qualified Data.DTA.Serialize.Magma         as Magma
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.EventList.Absolute.TimeBody as ATB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (foldl', isPrefixOf, nub)
@@ -554,6 +555,50 @@ main = do
       forM_ pedalVersions $ \(pedalDir, getTitle, is2xBass) -> do
 
         let pkg = "onyx" ++ show (hash (pedalDir, _title $ _metadata songYaml, _artist $ _metadata songYaml) `mod` 1000000000)
+
+        -- Check for some extra problems that Magma doesn't catch.
+        phony (pedalDir </> "problems") $ do
+          song <- loadMIDI (pedalDir </> "notes.mid")
+          -- Don't have a kick at the start of a drum roll.
+          -- It screws up the roll somehow and causes spontaneous misses.
+          let drums = foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks song ]
+              kickSwells = flip RTB.mapMaybe (RTB.collectCoincident drums) $ \evts -> do
+                let kick = RBDrums.DiffEvent Expert $ RBDrums.Note RBDrums.Kick
+                    swell1 = RBDrums.SingleRoll True
+                    swell2 = RBDrums.DoubleRoll True
+                guard $ elem kick evts && (elem swell1 evts || elem swell2 evts)
+                return ()
+          -- Don't have a vocal phrase that ends simultaneous with a lyric event.
+          -- In static vocals, this puts the lyric in the wrong phrase.
+          let vox = foldr RTB.merge RTB.empty [ t | RBFile.PartVocals t <- RBFile.s_tracks song ]
+              harm1 = foldr RTB.merge RTB.empty [ t | RBFile.Harm1 t <- RBFile.s_tracks song ]
+              harm2 = foldr RTB.merge RTB.empty [ t | RBFile.Harm2 t <- RBFile.s_tracks song ]
+              harm3 = foldr RTB.merge RTB.empty [ t | RBFile.Harm3 t <- RBFile.s_tracks song ]
+              phraseOff = RBVox.Phrase False
+              isLyric = \case RBVox.Lyric _ -> True; _ -> False
+              voxBugs = flip RTB.mapMaybe (RTB.collectCoincident vox) $ \evts -> do
+                guard $ elem phraseOff evts && any isLyric evts
+                return ()
+              harm1Bugs = flip RTB.mapMaybe (RTB.collectCoincident harm1) $ \evts -> do
+                guard $ elem phraseOff evts && any isLyric evts
+                return ()
+              harm2Bugs = flip RTB.mapMaybe (RTB.collectCoincident $ RTB.merge harm2 harm3) $ \evts -> do
+                guard $ elem phraseOff evts && any isLyric evts
+                return ()
+          -- Put it all together and show the error positions.
+          let showPositions :: RTB.T U.Beats () -> [String]
+              showPositions
+                = map (RBFile.showPosition . U.applyMeasureMap (RBFile.s_signatures song))
+                . ATB.getTimes
+                . RTB.toAbsoluteEventList 0
+              message rtb msg = forM_ (showPositions rtb) $ \pos -> do
+                putNormal $ pos ++ ": " ++ msg
+          message kickSwells "kick note can't be simultaneous with start of drum roll"
+          message voxBugs "PART VOCALS vocal phrase can't end simultaneous with a lyric"
+          message harm1Bugs "HARM1 vocal phrase can't end simultaneous with a lyric"
+          message harm2Bugs "HARM2 vocal phrase can't end simultaneous with a (HARM2 or HARM3) lyric"
+          unless (all RTB.null [kickSwells, voxBugs, harm1Bugs, harm2Bugs]) $
+            fail "At least 1 problem was found in the MIDI."
 
         -- Rock Band 3 DTA file
         let makeDTA :: Action D.SongPackage
