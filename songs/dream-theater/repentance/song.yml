@@ -8,8 +8,10 @@ metadata:
     vocal: 6
     guitar: 2
     bass: 2
+    pro-keys: 5
   comments:
   - "Timing and drums by Grinnz."
+  - "All instruments have overdrive/unison."
   - "Drums confidence: *high*, written to Portnoy's DVD."
   - "Restitution spoken word transcribed from the isolated audio on Chaos in Progress."
 audio:
@@ -95,3 +97,4 @@ instruments:
   vocal: 3
   guitar: true
   bass: true
+  pro-keys: true

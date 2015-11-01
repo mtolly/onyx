@@ -7,6 +7,7 @@ Instruments:
   * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=repentance&artist=dream-theater) ⚪️⚪️⚪️⚫️⚫️
   * Bass ⚪️⚫️⚫️⚫️⚫️
   * Guitar ⚪️⚫️⚫️⚫️⚫️
+  * Pro Keys ⚪️⚪️⚪️⚪️⚫️
   * Vocals (3) ⚪️⚪️⚪️⚪️⚪️
 
 Supported audio:
@@ -20,6 +21,8 @@ Supported audio:
 Notes:
 
   * Timing and drums by Grinnz.
+
+  * All instruments have overdrive/unison.
 
   * Drums confidence: *high*, written to Portnoy's DVD.
 
