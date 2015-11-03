@@ -58,7 +58,7 @@ data C3 = C3
   , encodeUTF8 :: Bool
   , useNumericID :: Bool
   , uniqueNumericID :: String
-  , uniqueNumericID2x :: String
+  , uniqueNumericID2X :: String
   , toDoList :: [(String, Bool, Bool)] -- ^ to do item, is required, is completed
   } deriving (Eq, Ord, Show, Read)
 
@@ -108,7 +108,7 @@ showC3 c3 = unlines $ execWriter $ do
   showPair "EncodeUTF8" encodeUTF8
   showPair "UseNumericID" useNumericID
   pair "UniqueNumericID" uniqueNumericID
-  pair "UniqueNumericID2" uniqueNumericID2x
+  pair "UniqueNumericID2X" uniqueNumericID2X
   line ""
   line "TO DO List Begin"
   forM_ (zip [1..] $ toDoList c3) $ \(i, (todo, required, completed)) -> do

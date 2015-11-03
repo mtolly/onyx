@@ -5,7 +5,7 @@
 module Main where
 
 import           Audio
-import           Config
+import           Config hiding (Difficulty)
 import           Image
 import           Magma
 import           OneFoot
@@ -546,7 +546,7 @@ main = do
           get2xBass = do
             need [mid1p, mid2p]
             let getFileSize f = liftIO $ withFile f ReadMode hFileSize
-            liftM2 (==) (getFileSize mid1p) (getFileSize mid2p)
+            liftM2 (/=) (getFileSize mid1p) (getFileSize mid2p)
 
       let pedalVersions =
             [ (dir </> "1p", get1xTitle, return False)
@@ -1072,7 +1072,7 @@ main = do
               , C3.encodeUTF8 = False -- is this right?
               , C3.useNumericID = False
               , C3.uniqueNumericID = ""
-              , C3.uniqueNumericID2x = ""
+              , C3.uniqueNumericID2X = ""
               , C3.toDoList = C3.defaultToDo
               }
           phony setup $ do
