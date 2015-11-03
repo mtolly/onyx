@@ -9,6 +9,7 @@ metadata:
     guitar: 2
     bass: 2
     pro-keys: 5
+    keys: 3
   comments:
   - "Timing and drums by Grinnz."
   - "All instruments have overdrive/unison."
@@ -98,3 +99,4 @@ instruments:
   guitar: true
   bass: true
   pro-keys: true
+  keys: true
