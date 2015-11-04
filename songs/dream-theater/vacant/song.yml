@@ -1,0 +1,19 @@
+metadata:
+  title: Vacant
+  file-include: ../../../albums/train-of-thought.yml
+  track-number: 5
+  comments:
+  - "Guitar is the cello part."
+audio:
+  album-track:
+    md5: 9211f41070f889aaa468008349f5efdf
+    frames: 7822164
+plans:
+  album:
+    song:
+      fade: [end, 4, album-track]
+instruments:
+  bass: true
+  guitar: true
+  vocal: 1
+  pro-keys: true
