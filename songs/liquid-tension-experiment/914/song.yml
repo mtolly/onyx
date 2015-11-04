@@ -14,6 +14,12 @@ audio:
 plans:
   album:
     song:
-      pad: [4.262, album-track]
+      pad:
+      - 4.262
+      - fade:
+        - end
+        - 0.4
+        - album-track
 instruments:
   drums: true
+  bass: true
