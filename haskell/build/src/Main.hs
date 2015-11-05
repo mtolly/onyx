@@ -540,8 +540,8 @@ main = do
       let get1xTitle, get2xTitle :: Action String
           get1xTitle = return $ T.unpack $ _title $ _metadata songYaml
           get2xTitle = get2xBass >>= \b -> return $ if b
-              then T.unpack (_title $ _metadata songYaml)
-              else T.unpack (_title $ _metadata songYaml) ++ " (2x Bass Pedal)"
+              then T.unpack (_title $ _metadata songYaml) ++ " (2x Bass Pedal)"
+              else T.unpack (_title $ _metadata songYaml)
           get2xBass :: Action Bool
           get2xBass = do
             need [mid1p, mid2p]

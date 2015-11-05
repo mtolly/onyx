@@ -16,3 +16,5 @@ Notes:
 
   * Chart confidence: *medium-high*. Some parts are weird, but generally the mixing is clear enough (especially without any guitar).
 
+  * All instruments have overdrive/unison.
+

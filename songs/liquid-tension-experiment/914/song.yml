@@ -7,6 +7,8 @@ metadata:
     Chart confidence: *medium-high*.
     Some parts are weird, but generally the mixing is clear enough
     (especially without any guitar).
+  - >-
+    All instruments have overdrive/unison.
 audio:
   album-track:
     md5: 409af3c3a13f04aa6d2d05606c1f44c8
