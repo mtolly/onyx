@@ -635,7 +635,7 @@ main = do
                   guitarChannels <- if _hasGuitar $ _instruments songYaml
                     then countChannels $ dir </> "guitar.wav"
                     else return 0
-                  keysChannels <- if _hasGuitar $ _instruments songYaml
+                  keysChannels <- if hasAnyKeys $ _instruments songYaml
                     then countChannels $ dir </> "keys.wav"
                     else return 0
                   vocalChannels <- if _hasVocal (_instruments songYaml) /= Vocal0
