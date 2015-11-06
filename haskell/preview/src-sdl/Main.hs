@@ -2,11 +2,14 @@
 {-# LANGUAGE MultiWayIf               #-}
 {-# LANGUAGE NondecreasingIndentation #-}
 {-# LANGUAGE PatternSynonyms          #-}
+{-# LANGUAGE TemplateHaskell          #-}
 module Main where
 
 import           Control.Concurrent    (threadDelay)
 import           Control.Exception     (evaluate)
 import           Control.Monad         (forM_)
+import qualified Data.ByteString       as B
+import           Data.FileEmbed        (embedDir)
 import           Data.Maybe            (mapMaybe)
 import           Data.Time             (diffUTCTime, getCurrentTime)
 import           Foreign
@@ -32,6 +35,16 @@ data Event
   | Quit
   deriving (Eq, Ord, Show)
 
+imageFiles :: [(ImageID, B.ByteString)]
+imageFiles = let
+  dir = $(embedDir "www/rbprev")
+  filename iid = drop 6 (show iid) <.> "png"
+  in do
+    iid <- [minBound .. maxBound]
+    case lookup (filename iid) dir of
+      Nothing -> error $ "Main.imageFiles: panic! couldn't find " ++ show iid
+      Just bytes -> return (iid, bytes)
+
 main :: IO ()
 main = getArgs >>= \case
   ["--list-options"] -> return () -- be quiet fish
@@ -47,10 +60,8 @@ main = getArgs >>= \case
     withMixer [MIX_INIT_OGG] $ do
     withMixerAudio 44100 mixDefaultFormat 2 1024 $ do
 
-    let imageIDs = [minBound .. maxBound] :: [ImageID]
-        imagePath iid = "www/rbprev" </> drop 6 (show iid) <.> "png"
-    withMany (withImage render . imagePath) imageIDs $ \texs -> do
-    let imageTable = zip imageIDs texs
+    withMany (withImageBinary render . snd) imageFiles $ \texs -> do
+    let imageTable = zip (map fst imageFiles) texs
         image iid = case lookup iid imageTable of
           Nothing  -> error $ "panic! no texture found for " ++ show iid
           Just tex -> tex

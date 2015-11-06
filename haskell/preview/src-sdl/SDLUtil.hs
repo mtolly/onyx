@@ -4,10 +4,13 @@ module SDLUtil where
 
 import           Control.Exception     (bracket, bracket_)
 import           Control.Monad         (unless)
+import qualified Data.ByteString       as B
 import           Foreign
 import           Foreign.C
 import qualified Graphics.UI.SDL       as SDL
 import qualified Graphics.UI.SDL.Image as Image
+import           System.IO             (hClose)
+import           System.IO.Temp        (withSystemTempFile)
 
 -- | Extracts and throws an SDL error if the action returns a null pointer.
 notNull :: IO (Ptr a) -> IO (Ptr a)
@@ -64,6 +67,12 @@ untilNothing :: IO (Maybe a) -> IO [a]
 untilNothing act = act >>= \case
   Nothing -> return []
   Just x  -> fmap (x :) $ untilNothing act
+
+withImageBinary :: SDL.Renderer -> B.ByteString -> (SDL.Texture -> IO a) -> IO a
+withImageBinary render bs f = withSystemTempFile "onyxpreview.png" $ \fp h -> do
+  hClose h
+  B.writeFile fp bs
+  withImage render fp f
 
 withImage :: SDL.Renderer -> FilePath -> (SDL.Texture -> IO a) -> IO a
 withImage render fp = bracket
