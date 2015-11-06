@@ -4,11 +4,14 @@ metadata:
   track-number: 6
   key: E
   difficulty:
-    guitar: 4
+    guitar: 5
     vocal: 5
     drums: 5
+    bass: 2
+    pro-keys: 3
   comments:
   - "Drums confidence: *high*. Written to Portnoy's recording session DVD."
+  - "All instruments have overdrive/unison."
 audio:
   album-track:
     md5: ef72e82888e55606a4de9cadc2d5a113
@@ -55,3 +58,5 @@ instruments:
   drums: true
   vocal: 3
   guitar: true
+  bass: true
+  pro-keys: true

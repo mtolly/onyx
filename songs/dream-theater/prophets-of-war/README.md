@@ -5,7 +5,9 @@
 Instruments:
 
   * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=prophets-of-war&artist=dream-theater) ⚪️⚪️⚪️⚪️⚫️
-  * Guitar ⚪️⚪️⚪️⚫️⚫️
+  * Bass ⚪️⚫️⚫️⚫️⚫️
+  * Guitar ⚪️⚪️⚪️⚪️⚫️
+  * Pro Keys ⚪️⚪️⚫️⚫️⚫️
   * Vocals (3) ⚪️⚪️⚪️⚪️⚫️
 
 Supported audio:
@@ -19,4 +21,6 @@ Supported audio:
 Notes:
 
   * Drums confidence: *high*. Written to Portnoy's recording session DVD.
+
+  * All instruments have overdrive/unison.
 
