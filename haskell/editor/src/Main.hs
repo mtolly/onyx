@@ -6,7 +6,7 @@ module Main where
 
 import           Control.Concurrent               (threadDelay)
 import           Control.Exception                (bracket, bracket_)
-import           Control.Monad                    (forM_, guard, when)
+import           Control.Monad                    (forM_, guard, unless)
 import           Control.Monad.Fix                (fix)
 import           Control.Monad.Trans.StackTrace   (printMessage, runStackTrace)
 import qualified Data.ByteString                  as B
@@ -15,6 +15,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.FileEmbed                   (embedDir)
 import           Data.List                        (stripPrefix)
 import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromMaybe)
 import           Foreign
 import           Foreign.C                        (withCString)
 import           Linear                           (V2 (..), V4 (..))
@@ -150,10 +151,14 @@ data Five = Five
   , notesYellow :: Map.Map U.Seconds FiveEvent
   , notesBlue   :: Map.Map U.Seconds FiveEvent
   , notesOrange :: Map.Map U.Seconds FiveEvent
+  , fiveSolo :: Map.Map U.Seconds Bool
+  , fiveEnergy :: Map.Map U.Seconds Bool
   } deriving (Eq, Ord, Show)
 
 data Drums = Drums
   { notesDrums :: Map.Map U.Seconds [Drums.Gem Drums.ProType]
+  , drumSolo :: Map.Map U.Seconds Bool
+  , drumEnergy :: Map.Map U.Seconds Bool
   } deriving (Eq, Ord, Show)
 
 processFive :: Bool -> U.TempoMap -> U.Beats -> RTB.T U.Beats Five.Event -> Five
@@ -187,13 +192,19 @@ processFive hasHOPOs tmap threshold trk = let
           else RTB.cons dt HOPOSustain $ RTB.cons dt' SustainEnd $ removeStubs rtb''
         _ -> error "processFive: double note-on"
       SustainEnd -> RTB.delay dt $ removeStubs rtb'
-  in Five (getColor Five.Green) (getColor Five.Red) (getColor Five.Yellow) (getColor Five.Blue) (getColor Five.Orange)
+  solo = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack tmap $ RTB.normalize $ flip RTB.mapMaybe trk $ \case Five.Solo b -> Just b; _ -> Nothing
+  energy = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack tmap $ RTB.normalize $ flip RTB.mapMaybe trk $ \case Five.Overdrive b -> Just b; _ -> Nothing
+  in Five (getColor Five.Green) (getColor Five.Red) (getColor Five.Yellow) (getColor Five.Blue) (getColor Five.Orange) solo energy
 
 processDrums :: U.TempoMap -> RTB.T U.Beats Drums.Event -> Drums
-processDrums tmap trk = Drums $ Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $
-  U.applyTempoTrack tmap $ RTB.collectCoincident $ flip RTB.mapMaybe (Drums.assignToms trk) $ \case
-    (Expert, gem) -> Just gem
-    _ -> Nothing
+processDrums tmap trk = let
+  notes = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $
+    U.applyTempoTrack tmap $ RTB.collectCoincident $ flip RTB.mapMaybe (Drums.assignToms trk) $ \case
+      (Expert, gem) -> Just gem
+      _ -> Nothing
+  solo = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack tmap $ RTB.normalize $ flip RTB.mapMaybe trk $ \case Drums.Solo b -> Just b; _ -> Nothing
+  energy = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ U.applyTempoTrack tmap $ RTB.normalize $ flip RTB.mapMaybe trk $ \case Drums.Overdrive b -> Just b; _ -> Nothing
+  in Drums notes solo energy
 
 type Beats = Map.Map U.Seconds Beat
 
@@ -217,7 +228,11 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getIm
       zoom = fst . Map.split maxSecs . snd . Map.split minSecs
   -- Highway
   let tex = getImage Image_highway_grybo
-  forM_ [0 .. fromIntegral windowH - 1] $ \y -> draw1x rend tex $ P $ V2 targetX y
+      texSolo = getImage Image_highway_grybo_solo
+      texSoloEdge = getImage Image_highway_grybo_solo_edge
+  forM_ [0 .. fromIntegral windowH - 1] $ \y -> let
+    isSolo = fromMaybe False $ fmap snd $ Map.lookupLE (pxToSecs y) $ fiveSolo five
+    in draw1x rend (if isSolo then texSolo else tex) $ P $ V2 targetX y
   -- Beats
   forM_ (Map.toDescList $ zoom beats) $ \(secs, evt) -> do
     let y = secsToPx secs
@@ -236,56 +251,72 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getIm
           Five.Blue -> notesBlue five
           Five.Orange -> notesOrange five
         in case Map.lookupLE secs colormap of
-          Just (_, StrumSustain) -> True
-          Just (_, HOPOSustain) -> True
-          _ -> False
+          Just (t, StrumSustain) -> Just $ sustainFrom t
+          Just (t, HOPOSustain) -> Just $ sustainFrom t
+          _ -> Nothing
+          where sustainFrom secs' = case Map.lookupLE secs' $ fiveEnergy five of
+                  Just (_, b) -> b
+                  _           -> False
+      withSustain secs color f = case sust secs color of
+        Nothing -> return ()
+        Just b -> f b
   forM_ [0 .. fromIntegral windowH - 1] $ \y -> do
-    when (sust (pxToSecs y) Five.Green ) $ draw1x rend (getImage Image_sustain_green ) $ P $ V2 (targetX + 1  ) y
-    when (sust (pxToSecs y) Five.Red   ) $ draw1x rend (getImage Image_sustain_red   ) $ P $ V2 (targetX + 37 ) y
-    when (sust (pxToSecs y) Five.Yellow) $ draw1x rend (getImage Image_sustain_yellow) $ P $ V2 (targetX + 73 ) y
-    when (sust (pxToSecs y) Five.Blue  ) $ draw1x rend (getImage Image_sustain_blue  ) $ P $ V2 (targetX + 109) y
-    when (sust (pxToSecs y) Five.Orange) $ draw1x rend (getImage Image_sustain_orange) $ P $ V2 (targetX + 145) y
+    withSustain (pxToSecs y) Five.Green $ \isEnergy ->
+      draw1x rend (getImage $ if isEnergy then Image_sustain_energy else Image_sustain_green ) $ P $ V2 (targetX + 1  ) y
+    withSustain (pxToSecs y) Five.Red $ \isEnergy ->
+      draw1x rend (getImage $ if isEnergy then Image_sustain_energy else Image_sustain_red   ) $ P $ V2 (targetX + 37 ) y
+    withSustain (pxToSecs y) Five.Yellow $ \isEnergy ->
+      draw1x rend (getImage $ if isEnergy then Image_sustain_energy else Image_sustain_yellow) $ P $ V2 (targetX + 73 ) y
+    withSustain (pxToSecs y) Five.Blue $ \isEnergy ->
+      draw1x rend (getImage $ if isEnergy then Image_sustain_energy else Image_sustain_blue  ) $ P $ V2 (targetX + 109) y
+    withSustain (pxToSecs y) Five.Orange $ \isEnergy ->
+      draw1x rend (getImage $ if isEnergy then Image_sustain_energy else Image_sustain_orange) $ P $ V2 (targetX + 145) y
   -- Notes
   forM_ (Map.toDescList $ zoom $ notesGreen five) $ \(secs, evt) -> do
     let y = secsToPx secs
+        isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ fiveEnergy five
     case evt of
       SustainEnd -> draw1x rend (getImage Image_sustain_end) $ P $ V2 (targetX + 1) y
-      Strum -> draw1x rend (getImage Image_gem_green) $ P $ V2 (targetX + 1) $ y - 5
-      StrumSustain -> draw1x rend (getImage Image_gem_green) $ P $ V2 (targetX + 1) $ y - 5
-      HOPO -> draw1x rend (getImage Image_gem_green_hopo) $ P $ V2 (targetX + 1) $ y - 5
-      HOPOSustain -> draw1x rend (getImage Image_gem_green_hopo) $ P $ V2 (targetX + 1) $ y - 5
+      Strum -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_green) $ P $ V2 (targetX + 1) $ y - 5
+      StrumSustain -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_green) $ P $ V2 (targetX + 1) $ y - 5
+      HOPO -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_hopo else Image_gem_green_hopo) $ P $ V2 (targetX + 1) $ y - 5
+      HOPOSustain -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_hopo else Image_gem_green_hopo) $ P $ V2 (targetX + 1) $ y - 5
   forM_ (Map.toDescList $ zoom $ notesRed five) $ \(secs, evt) -> do
     let y = secsToPx secs
+        isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ fiveEnergy five
     case evt of
       SustainEnd -> draw1x rend (getImage Image_sustain_end) $ P $ V2 (targetX + 37) y
-      Strum -> draw1x rend (getImage Image_gem_red) $ P $ V2 (targetX + 37) $ y - 5
-      StrumSustain -> draw1x rend (getImage Image_gem_red) $ P $ V2 (targetX + 37) $ y - 5
-      HOPO -> draw1x rend (getImage Image_gem_red_hopo) $ P $ V2 (targetX + 37) $ y - 5
-      HOPOSustain -> draw1x rend (getImage Image_gem_red_hopo) $ P $ V2 (targetX + 37) $ y - 5
+      Strum -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_red) $ P $ V2 (targetX + 37) $ y - 5
+      StrumSustain -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_red) $ P $ V2 (targetX + 37) $ y - 5
+      HOPO -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_hopo else Image_gem_red_hopo) $ P $ V2 (targetX + 37) $ y - 5
+      HOPOSustain -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_hopo else Image_gem_red_hopo) $ P $ V2 (targetX + 37) $ y - 5
   forM_ (Map.toDescList $ zoom $ notesYellow five) $ \(secs, evt) -> do
     let y = secsToPx secs
+        isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ fiveEnergy five
     case evt of
       SustainEnd -> draw1x rend (getImage Image_sustain_end) $ P $ V2 (targetX + 73) y
-      Strum -> draw1x rend (getImage Image_gem_yellow) $ P $ V2 (targetX + 73) $ y - 5
-      StrumSustain -> draw1x rend (getImage Image_gem_yellow) $ P $ V2 (targetX + 73) $ y - 5
-      HOPO -> draw1x rend (getImage Image_gem_yellow_hopo) $ P $ V2 (targetX + 73) $ y - 5
-      HOPOSustain -> draw1x rend (getImage Image_gem_yellow_hopo) $ P $ V2 (targetX + 73) $ y - 5
+      Strum -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_yellow) $ P $ V2 (targetX + 73) $ y - 5
+      StrumSustain -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_yellow) $ P $ V2 (targetX + 73) $ y - 5
+      HOPO -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_hopo else Image_gem_yellow_hopo) $ P $ V2 (targetX + 73) $ y - 5
+      HOPOSustain -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_hopo else Image_gem_yellow_hopo) $ P $ V2 (targetX + 73) $ y - 5
   forM_ (Map.toDescList $ zoom $ notesBlue five) $ \(secs, evt) -> do
     let y = secsToPx secs
+        isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ fiveEnergy five
     case evt of
       SustainEnd -> draw1x rend (getImage Image_sustain_end) $ P $ V2 (targetX + 109) y
-      Strum -> draw1x rend (getImage Image_gem_blue) $ P $ V2 (targetX + 109) $ y - 5
-      StrumSustain -> draw1x rend (getImage Image_gem_blue) $ P $ V2 (targetX + 109) $ y - 5
-      HOPO -> draw1x rend (getImage Image_gem_blue_hopo) $ P $ V2 (targetX + 109) $ y - 5
-      HOPOSustain -> draw1x rend (getImage Image_gem_blue_hopo) $ P $ V2 (targetX + 109) $ y - 5
+      Strum -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_blue) $ P $ V2 (targetX + 109) $ y - 5
+      StrumSustain -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_blue) $ P $ V2 (targetX + 109) $ y - 5
+      HOPO -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_hopo else Image_gem_blue_hopo) $ P $ V2 (targetX + 109) $ y - 5
+      HOPOSustain -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_hopo else Image_gem_blue_hopo) $ P $ V2 (targetX + 109) $ y - 5
   forM_ (Map.toDescList $ zoom $ notesOrange five) $ \(secs, evt) -> do
     let y = secsToPx secs
+        isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ fiveEnergy five
     case evt of
       SustainEnd -> draw1x rend (getImage Image_sustain_end) $ P $ V2 (targetX + 145) y
-      Strum -> draw1x rend (getImage Image_gem_orange) $ P $ V2 (targetX + 145) $ y - 5
-      StrumSustain -> draw1x rend (getImage Image_gem_orange) $ P $ V2 (targetX + 145) $ y - 5
-      HOPO -> draw1x rend (getImage Image_gem_orange_hopo) $ P $ V2 (targetX + 145) $ y - 5
-      HOPOSustain -> draw1x rend (getImage Image_gem_orange_hopo) $ P $ V2 (targetX + 145) $ y - 5
+      Strum -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_orange) $ P $ V2 (targetX + 145) $ y - 5
+      StrumSustain -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_orange) $ P $ V2 (targetX + 145) $ y - 5
+      HOPO -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_hopo else Image_gem_orange_hopo) $ P $ V2 (targetX + 145) $ y - 5
+      HOPOSustain -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_hopo else Image_gem_orange_hopo) $ P $ V2 (targetX + 145) $ y - 5
 
 drawDrums :: (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> Drums -> Beats -> Draw ()
 drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats wind rend getImage = do
@@ -295,7 +326,11 @@ drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats wind rend get
       zoom = fst . Map.split maxSecs . snd . Map.split minSecs
   -- Highway
   let tex = getImage Image_highway_drums
-  forM_ [0 .. fromIntegral windowH - 1] $ \y -> draw1x rend tex $ P $ V2 targetX y
+      texSolo = getImage Image_highway_drums_solo
+      texSoloEdge = getImage Image_highway_drums_solo_edge
+  forM_ [0 .. fromIntegral windowH - 1] $ \y -> let
+    isSolo = fromMaybe False $ fmap snd $ Map.lookupLE (pxToSecs y) $ drumSolo drums
+    in draw1x rend (if isSolo then texSolo else tex) $ P $ V2 targetX y
   -- Beats
   forM_ (Map.toDescList $ zoom beats) $ \(secs, evt) -> do
     let y = secsToPx secs
@@ -308,16 +343,17 @@ drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats wind rend get
   -- Notes
   forM_ (Map.toDescList $ zoom $ notesDrums drums) $ \(secs, evts) -> do
     let y = secsToPx secs
+        isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ drumEnergy drums
     forM_ evts $ \evt -> do
       case evt of
-        Drums.Kick -> draw1x rend (getImage Image_gem_kick) $ P $ V2 (targetX + 1) (y - 3)
-        Drums.Red -> draw1x rend (getImage Image_gem_red) $ P $ V2 (targetX + 1) (y - 5)
-        Drums.Pro Drums.Yellow Drums.Tom -> draw1x rend (getImage Image_gem_yellow) $ P $ V2 (targetX + 37) (y - 5)
-        Drums.Pro Drums.Yellow Drums.Cymbal -> draw1x rend (getImage Image_gem_yellow_cymbal) $ P $ V2 (targetX + 37) (y - 5)
-        Drums.Pro Drums.Blue Drums.Tom -> draw1x rend (getImage Image_gem_blue) $ P $ V2 (targetX + 73) (y - 5)
-        Drums.Pro Drums.Blue Drums.Cymbal -> draw1x rend (getImage Image_gem_blue_cymbal) $ P $ V2 (targetX + 73) (y - 5)
-        Drums.Pro Drums.Green Drums.Tom -> draw1x rend (getImage Image_gem_green) $ P $ V2 (targetX + 109) (y - 5)
-        Drums.Pro Drums.Green Drums.Cymbal -> draw1x rend (getImage Image_gem_green_cymbal) $ P $ V2 (targetX + 109) (y - 5)
+        Drums.Kick -> draw1x rend (getImage $ if isEnergy then Image_gem_kick_energy else Image_gem_kick) $ P $ V2 (targetX + 1) (y - 3)
+        Drums.Red -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_red) $ P $ V2 (targetX + 1) (y - 5)
+        Drums.Pro Drums.Yellow Drums.Tom -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_yellow) $ P $ V2 (targetX + 37) (y - 5)
+        Drums.Pro Drums.Yellow Drums.Cymbal -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) $ P $ V2 (targetX + 37) (y - 8)
+        Drums.Pro Drums.Blue Drums.Tom -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_blue) $ P $ V2 (targetX + 73) (y - 5)
+        Drums.Pro Drums.Blue Drums.Cymbal -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal) $ P $ V2 (targetX + 73) (y - 8)
+        Drums.Pro Drums.Green Drums.Tom -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_green) $ P $ V2 (targetX + 109) (y - 5)
+        Drums.Pro Drums.Green Drums.Cymbal -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal) $ P $ V2 (targetX + 109) (y - 8)
 
 main :: IO ()
 main = do
@@ -361,15 +397,17 @@ main = do
   let isQuit = \case
         SDL.Event _ SDL.QuitEvent -> True
         _ -> False
+      fiveNull five = and [ Map.null $ f five | f <- [notesGreen, notesRed, notesYellow, notesBlue, notesOrange] ]
+      drumsNull = Map.null $ notesDrums drums
   fix $ \loop -> do
     SDL.clear rend
     now <- fmap (subtract start) SDL.time
-    draw $ drawFive (pxToSecs now) (secsToPx now) (P $ V2 50 550) gtr beat
-    draw $ drawFive (pxToSecs now) (secsToPx now) (P $ V2 275 550) bass beat
-    draw $ drawDrums (pxToSecs now) (secsToPx now) (P $ V2 500 550) drums beat
-    draw $ drawFive (pxToSecs now) (secsToPx now) (P $ V2 689 550) keys beat
+    unless (fiveNull gtr) $ draw $ drawFive (pxToSecs now) (secsToPx now) (P $ V2 50 550) gtr beat
+    unless (fiveNull bass) $ draw $ drawFive (pxToSecs now) (secsToPx now) (P $ V2 275 550) bass beat
+    unless drumsNull $ draw $ drawDrums (pxToSecs now) (secsToPx now) (P $ V2 500 550) drums beat
+    unless (fiveNull keys) $ draw $ drawFive (pxToSecs now) (secsToPx now) (P $ V2 689 550) keys beat
     SDL.present rend
-    -- threadDelay 2000
+    threadDelay 1000
     evts <- SDL.pollEvents
     if any isQuit evts
       then return ()
