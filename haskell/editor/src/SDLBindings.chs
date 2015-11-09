@@ -1,12 +1,12 @@
 module SDLBindings where
 
-import qualified SDL
-import qualified SDL.Raw as Raw
-import Foreign
-import Foreign.C
+import           Control.Exception         (bracket, bracket_)
 import qualified Data.ByteString as B
-import Data.ByteString.Unsafe (unsafeUseAsCStringLen)
-import Control.Exception (bracket, bracket_)
+import           Data.ByteString.Unsafe    (unsafeUseAsCStringLen)
+import           Foreign
+import           Foreign.C
+import qualified SDL
+import qualified SDL.Raw                   as Raw
 
 #include "SDL_image.h"
 

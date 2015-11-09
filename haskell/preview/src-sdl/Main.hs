@@ -1,35 +1,35 @@
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE MultiWayIf               #-}
 {-# LANGUAGE NondecreasingIndentation #-}
+{-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE PatternSynonyms          #-}
 {-# LANGUAGE TemplateHaskell          #-}
-{-# LANGUAGE OverloadedStrings          #-}
 module Main where
 
-import           Control.Concurrent    (threadDelay)
-import           Control.Exception     (evaluate, bracket, bracket_)
-import           Control.Monad         (forM_)
-import qualified Data.ByteString       as B
-import           Data.FileEmbed        (embedDir)
-import           Data.Maybe            (mapMaybe)
-import           Data.Time             (diffUTCTime, getCurrentTime)
+import           Control.Concurrent             (threadDelay)
+import           Control.Exception              (bracket, bracket_, evaluate)
+import           Control.Monad                  (forM_)
+import           Control.Monad.Trans.StackTrace
+import qualified Data.ByteString                as B
+import           Data.FileEmbed                 (embedDir)
+import           Data.Maybe                     (mapMaybe)
+import           Data.Time                      (diffUTCTime, getCurrentTime)
 import           Foreign
 import           Foreign.C
-import qualified SDL as SDL
-import qualified RockBand.File         as File
-import qualified Sound.MIDI.File.Load  as Load
-import qualified Sound.MIDI.Util       as U
-import           Control.Monad.Trans.StackTrace
+import           Linear                         (V2 (..))
+import           Linear.Affine                  (Point (..))
+import qualified RockBand.File                  as File
+import           SDL                            (($=))
+import qualified SDL                            as SDL
+import qualified Sound.MIDI.File.Load           as Load
+import qualified Sound.MIDI.Util                as U
 import           System.Environment
-import           System.FilePath       ((<.>), (</>))
-import Linear (V2(..))
-import Linear.Affine (Point(..))
-import SDL (($=))
+import           System.FilePath                ((<.>), (</>))
 
 import           Draw
 import           Midi
-import           SDLMixer
 import           SDLImage
+import           SDLMixer
 
 data Event
   = PlayPause
