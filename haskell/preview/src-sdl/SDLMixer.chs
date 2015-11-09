@@ -3,8 +3,7 @@ module SDLMixer where
 import Foreign
 import Foreign.C
 import Control.Exception (bracket_)
-
-import SDLUtil
+import qualified SDL.Raw as Raw
 
 #include <SDL_mixer.h>
 
@@ -34,3 +33,13 @@ withMixer flags = let
 
 withMixerAudio :: CInt -> Word16 -> CInt -> CInt -> IO a -> IO a
 withMixerAudio a b c d = bracket_ (zero $ mixOpenAudio a b c d) mixCloseAudio
+
+sdlCode :: (a -> Bool) -> IO a -> IO ()
+sdlCode f act = do
+  x <- act
+  if f x
+    then return ()
+    else Raw.getError >>= peekCString >>= error
+
+zero :: (Eq a, Num a) => IO a -> IO ()
+zero = sdlCode (== 0)

@@ -3,10 +3,11 @@
 {-# LANGUAGE NondecreasingIndentation #-}
 {-# LANGUAGE PatternSynonyms          #-}
 {-# LANGUAGE TemplateHaskell          #-}
+{-# LANGUAGE OverloadedStrings          #-}
 module Main where
 
 import           Control.Concurrent    (threadDelay)
-import           Control.Exception     (evaluate)
+import           Control.Exception     (evaluate, bracket, bracket_)
 import           Control.Monad         (forM_)
 import qualified Data.ByteString       as B
 import           Data.FileEmbed        (embedDir)
@@ -14,19 +15,21 @@ import           Data.Maybe            (mapMaybe)
 import           Data.Time             (diffUTCTime, getCurrentTime)
 import           Foreign
 import           Foreign.C
-import qualified Graphics.UI.SDL       as SDL
-import qualified Graphics.UI.SDL.Image as Image
+import qualified SDL as SDL
 import qualified RockBand.File         as File
 import qualified Sound.MIDI.File.Load  as Load
 import qualified Sound.MIDI.Util       as U
 import           Control.Monad.Trans.StackTrace
 import           System.Environment
 import           System.FilePath       ((<.>), (</>))
+import Linear (V2(..))
+import Linear.Affine (Point(..))
+import SDL (($=))
 
 import           Draw
 import           Midi
 import           SDLMixer
-import           SDLUtil
+import           SDLImage
 
 data Event
   = PlayPause
@@ -54,9 +57,10 @@ main = getArgs >>= \case
       >>= printStackTraceIO . File.readMIDIFile
       >>= evaluate . buildPreview
 
-    withSDL [SDL.SDL_INIT_TIMER, SDL.SDL_INIT_VIDEO, SDL.SDL_INIT_AUDIO] $ do
-    withSDLImage [Image.InitPNG] $ do
-    withWindowAndRenderer "onyxpreview" 640 480 0 $ \_window render -> do
+    bracket_ (SDL.initialize [SDL.InitTimer, SDL.InitVideo, SDL.InitAudio]) SDL.quit $ do
+    withImgInit [IMG_INIT_PNG] $ \_ -> do
+    bracket (SDL.createWindow "onyxpreview" SDL.defaultWindow{ SDL.windowInitialSize = V2 640 480 }) SDL.destroyWindow $ \window -> do
+    bracket (SDL.createRenderer window (-1) SDL.defaultRenderer) SDL.destroyRenderer $ \render -> do
     withMixer [MIX_INIT_OGG] $ do
     withMixerAudio 44100 mixDefaultFormat 2 1024 $ do
 
@@ -69,12 +73,12 @@ main = getArgs >>= \case
           forM_ (draw t preview) $ \case
             DrawImage iid (x, y, w, h) opacity -> do
               let tex = image iid
-              zero $ SDL.setTextureAlphaMod tex $ round $ opacity * 255
-              with (SDL.Rect (round x) (round y) (round w) (round h)) $ \rect ->
-                zero $ SDL.renderCopy render tex nullPtr rect
-              zero $ SDL.setTextureAlphaMod tex 255
+              SDL.textureAlphaMod tex $= round (opacity * 255)
+              SDL.copy render tex Nothing $ Just $
+                SDL.Rectangle (P $ V2 (round x) (round y)) (V2 (round w) (round h))
+              SDL.textureAlphaMod tex $= 255
             Text _ _ _ -> return ()
-          SDL.renderPresent render
+          SDL.present render
 
     mus <- withCString (dir </> "gen/plan/album/song-countin.ogg") mixLoadMUS
 
@@ -110,14 +114,20 @@ main = getArgs >>= \case
                 startUTC <- getCurrentTime
                 playing startUTC nowSecs
               | otherwise -> paused $ nowSecs + seekForward - seekBackward
-        readEvent = \case
-          SDL.QuitEvent{} -> Just Quit
-          KeyPress SDL.SDL_SCANCODE_LEFT -> Just $ Backward 10
-          KeyPress SDL.SDL_SCANCODE_RIGHT -> Just $ Forward 10
-          KeyPress SDL.SDL_SCANCODE_SPACE -> Just PlayPause
+        readEvent (SDL.Event _ pay) = case pay of
+          SDL.QuitEvent -> Just Quit
+          KeyPress SDL.ScancodeLeft -> Just $ Backward 10
+          KeyPress SDL.ScancodeRight -> Just $ Forward 10
+          KeyPress SDL.ScancodeSpace -> Just PlayPause
           _ -> Nothing
-        getEvents = fmap (mapMaybe readEvent) $ untilNothing pollEvent
+        getEvents = fmap (mapMaybe readEvent) SDL.pollEvents
     playing start 0
   _ -> do
     prog <- getProgName
     error $ "usage: " ++ prog ++ " .../songs/the-artist/the-song/"
+
+pattern KeyPress scan <- SDL.KeyboardEvent SDL.KeyboardEventData
+  { SDL.keyboardEventKeyMotion = SDL.Pressed
+  , SDL.keyboardEventRepeat = False
+  , SDL.keyboardEventKeysym = SDL.Keysym { SDL.keysymScancode = scan }
+  }

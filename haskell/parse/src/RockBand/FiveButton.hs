@@ -174,9 +174,9 @@ copyExpert = baseCopyExpert DiffEvent $ \case
   _             -> Nothing
 
 data AssignedNote
-  = Strum Color
+  = NoteOff Color
+  | Strum Color
   | HOPO Color
-  | NoteOff Color
   deriving (Eq, Ord, Show, Read)
 
 assignHOPO :: (NNC.C t) => t -> RTB.T t DiffEvent -> RTB.T t AssignedNote

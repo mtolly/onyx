@@ -8,6 +8,7 @@ packages:
 - 'dta'
 - 'parse'
 - 'stack-trace'
+- 'editor'
 extra-deps:
 - conduit-audio-0.2.0.1
 - conduit-audio-samplerate-0.1.0.1
@@ -24,4 +25,5 @@ extra-deps:
 - hsndfile-vector-0.5.2
 - monoid-transformer-0.0.3
 - utility-ht-0.0.11
+- sdl2-2.1.0
 resolver: lts-3.5
