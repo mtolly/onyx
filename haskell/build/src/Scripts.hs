@@ -130,8 +130,8 @@ makeBeatTrack mmap = fixDoubleDownbeat $ go 0 where
   fixDoubleDownbeat :: RTB.T U.Beats Beat.Event -> RTB.T U.Beats Beat.Event
   fixDoubleDownbeat = RTB.fromPairList . fixDoubleDownbeat' . RTB.toPairList
   fixDoubleDownbeat' = \case
-    (t1, Beat.Bar) : (t2, Beat.Beat) : rest
-      -> (t1, Beat.Beat) : (t2, Beat.Beat) : fixDoubleDownbeat' rest
+    (t1, Beat.Bar) : rest@((_, Beat.Bar) : _)
+      -> (t1, Beat.Beat) : fixDoubleDownbeat' rest
     (t, x) : rest -> (t, x) : fixDoubleDownbeat' rest
     [] -> []
 
