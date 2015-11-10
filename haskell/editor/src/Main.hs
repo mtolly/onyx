@@ -1,13 +1,14 @@
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NondecreasingIndentation #-}
 {-# LANGUAGE OverloadedStrings        #-}
+{-# LANGUAGE PatternSynonyms          #-}
+{-# LANGUAGE RecordWildCards          #-}
 {-# LANGUAGE TemplateHaskell          #-}
 module Main where
 
 import           Control.Concurrent               (threadDelay)
 import           Control.Exception                (bracket, bracket_)
-import           Control.Monad                    (forM_, guard, unless)
-import           Control.Monad.Fix                (fix)
+import           Control.Monad                    (forM_, guard, unless, when)
 import           Control.Monad.Trans.StackTrace   (printMessage, runStackTrace)
 import qualified Data.ByteString                  as B
 import qualified Data.EventList.Absolute.TimeBody as ATB
@@ -20,8 +21,9 @@ import           Foreign
 import           Foreign.C                        (withCString)
 import           Linear                           (V2 (..), V4 (..))
 import           Linear.Affine                    (Point (..))
-import           RockBand.Common                  (Difficulty (..))
+import           Numeric.NonNegative.Class        ((-|))
 import qualified RockBand.Beat                    as Beat
+import           RockBand.Common                  (Difficulty (..))
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.File                    as RB
 import qualified RockBand.FiveButton              as Five
@@ -151,13 +153,13 @@ data Five = Five
   , notesYellow :: Map.Map U.Seconds FiveEvent
   , notesBlue   :: Map.Map U.Seconds FiveEvent
   , notesOrange :: Map.Map U.Seconds FiveEvent
-  , fiveSolo :: Map.Map U.Seconds Bool
-  , fiveEnergy :: Map.Map U.Seconds Bool
+  , fiveSolo    :: Map.Map U.Seconds Bool
+  , fiveEnergy  :: Map.Map U.Seconds Bool
   } deriving (Eq, Ord, Show)
 
 data Drums = Drums
   { notesDrums :: Map.Map U.Seconds [Drums.Gem Drums.ProType]
-  , drumSolo :: Map.Map U.Seconds Bool
+  , drumSolo   :: Map.Map U.Seconds Bool
   , drumEnergy :: Map.Map U.Seconds Bool
   } deriving (Eq, Ord, Show)
 
@@ -355,6 +357,16 @@ drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats wind rend get
         Drums.Pro Drums.Green Drums.Tom -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_green) $ P $ V2 (targetX + 109) (y - 5)
         Drums.Pro Drums.Green Drums.Cymbal -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal) $ P $ V2 (targetX + 109) (y - 8)
 
+data App
+  = Paused
+    { pausedSongTime :: U.Seconds
+    }
+  | Playing
+    { startedSDLTime  :: U.Seconds
+    , startedSongTime :: U.Seconds
+    }
+  deriving (Eq, Ord, Show)
+
 main :: IO ()
 main = do
   dir <- getArgs >>= \case
@@ -376,7 +388,7 @@ main = do
         $ foldr RTB.merge RTB.empty [ t | RB.Beat t <- RB.s_tracks song ]
 
   bracket_ (SDL.initialize [SDL.InitTimer, SDL.InitVideo, SDL.InitAudio]) SDL.quit $ do
-  bracket (SDL.createWindow "Onyx Editor" SDL.defaultWindow{ SDL.windowInitialSize = V2 1000 600 }) SDL.destroyWindow $ \wind -> do
+  bracket (SDL.createWindow "Onyx Editor" SDL.defaultWindow{ SDL.windowInitialSize = V2 1000 600, SDL.windowResizable = True }) SDL.destroyWindow $ \wind -> do
   bracket (SDL.createRenderer wind (-1) SDL.defaultRenderer) SDL.destroyRenderer $ \rend -> do
   withImgInit [IMG_INIT_PNG] $ \_ -> do
   withImages rend $ \getImage -> do
@@ -386,32 +398,71 @@ main = do
 
   let draw f = f wind rend getImage
 
-  let pxToSecs now px = let
-        secs = fromIntegral (550 - px) * 0.003 + now :: Rational
+  let pxToSecs targetY now px = let
+        secs = fromIntegral (targetY - px) * 0.003 + realToFrac now :: Rational
         in if secs < 0 then 0 else realToFrac secs
-      secsToPx now px = round (negate $ (realToFrac px - now) / 0.003 - 550 :: Rational)
+      secsToPx targetY now px = round (negate $ (realToFrac px - realToFrac now) / 0.003 - targetY :: Rational)
 
-  let isQuit = \case
-        SDL.Event _ SDL.QuitEvent -> True
-        _ -> False
-      fiveNull five = and [ Map.null $ f five | f <- [notesGreen, notesRed, notesYellow, notesBlue, notesOrange] ]
+  let fiveNull five = and [ Map.null $ f five | f <- [notesGreen, notesRed, notesYellow, notesBlue, notesOrange] ]
       drumsNull = Map.null $ notesDrums drums
+      drawFrame :: U.Seconds -> IO ()
       drawFrame t = do
         SDL.rendererDrawColor rend $= V4 54 59 123 255
         SDL.clear rend
-        unless (fiveNull gtr) $ draw $ drawFive (pxToSecs t) (secsToPx t) (P $ V2 50 550) gtr beat
-        unless (fiveNull bass) $ draw $ drawFive (pxToSecs t) (secsToPx t) (P $ V2 275 550) bass beat
-        unless drumsNull $ draw $ drawDrums (pxToSecs t) (secsToPx t) (P $ V2 500 550) drums beat
-        unless (fiveNull keys) $ draw $ drawFive (pxToSecs t) (secsToPx t) (P $ V2 689 550) keys beat
+        V2 _ windowH <- SDL.get $ SDL.windowSize wind
+        let targetY :: (Num a) => a
+            targetY = fromIntegral windowH - 50
+        unless (fiveNull gtr) $ draw $ drawFive (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 50 targetY) gtr beat
+        unless (fiveNull bass) $ draw $ drawFive (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 275 targetY) bass beat
+        unless drumsNull $ draw $ drawDrums (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 500 targetY) drums beat
+        unless (fiveNull keys) $ draw $ drawFive (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 689 targetY) keys beat
         SDL.present rend
   drawFrame 0
+  firstSDLTime <- SDL.time
   zero $ mixPlayMusic mus 1
-  start <- SDL.time
-  fix $ \loop -> do
-    now <- fmap (subtract start) SDL.time
-    drawFrame now
-    threadDelay 1000
-    evts <- SDL.pollEvents
-    if any isQuit evts
-      then return ()
-      else loop
+  let loop state = do
+        currentSDLTime <- SDL.time
+        let currentSongTime = case state of
+              Paused{..}  -> pausedSongTime
+              Playing{..} -> startedSongTime + (currentSDLTime - startedSDLTime)
+        drawFrame currentSongTime
+        let applyEvents s []                   = threadDelay 1000 >> loop s
+            applyEvents s (SDL.Event _ e : es) = case e of
+              SDL.QuitEvent -> return ()
+              KeyPress SDL.ScancodeSpace -> case s of
+                Paused{..} -> do
+                  err <- mixSetMusicPosition $ realToFrac currentSongTime
+                  when (err == 0) mixResumeMusic
+                  applyEvents (Playing{ startedSDLTime = currentSDLTime, startedSongTime = currentSongTime }) es
+                Playing{..} -> do
+                  mixPauseMusic
+                  applyEvents (Paused{ pausedSongTime = currentSongTime }) es
+              KeyPress SDL.ScancodeLeft -> case s of
+                Paused{..} -> do
+                  applyEvents (Paused{ pausedSongTime = pausedSongTime -| 10 }) es
+                Playing{..} -> do
+                  let currentSongTime' = startedSongTime + (currentSDLTime - startedSDLTime)
+                      newSongTime = currentSongTime' -| 10
+                  mixPauseMusic
+                  err <- mixSetMusicPosition $ realToFrac newSongTime
+                  when (err == 0) mixResumeMusic
+                  applyEvents (Playing{ startedSDLTime = currentSDLTime, startedSongTime = newSongTime }) es
+              KeyPress SDL.ScancodeRight -> case s of
+                Paused{..} -> do
+                  applyEvents (Paused{ pausedSongTime = pausedSongTime + 10 }) es
+                Playing{..} -> do
+                  let currentSongTime' = startedSongTime + (currentSDLTime - startedSDLTime)
+                      newSongTime = currentSongTime' + 10
+                  mixPauseMusic
+                  err <- mixSetMusicPosition $ realToFrac newSongTime
+                  when (err == 0) mixResumeMusic
+                  applyEvents (Playing{ startedSDLTime = currentSDLTime, startedSongTime = newSongTime }) es
+              _ -> applyEvents s es
+        SDL.pollEvents >>= applyEvents state
+  loop Playing{ startedSDLTime = firstSDLTime, startedSongTime = 0 }
+
+pattern KeyPress scan <- SDL.KeyboardEvent SDL.KeyboardEventData
+  { SDL.keyboardEventKeyMotion = SDL.Pressed
+  , SDL.keyboardEventRepeat = False
+  , SDL.keyboardEventKeysym = SDL.Keysym { SDL.keysymScancode = scan }
+  }

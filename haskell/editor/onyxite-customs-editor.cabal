@@ -22,6 +22,7 @@ executable onyxeditor
     , event-list
     , midi-util
     , containers
+    , non-negative
   pkgconfig-depends: SDL2_image, SDL2_mixer
   build-tools: c2hs
   ghc-options: -Wall
