@@ -14,7 +14,7 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.FileEmbed                   (embedDir)
 import           Data.List                        (stripPrefix)
-import qualified Data.Map                         as Map
+import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (fromMaybe)
 import           Foreign
 import           Foreign.C                        (withCString)
@@ -391,22 +391,25 @@ main = do
         in if secs < 0 then 0 else realToFrac secs
       secsToPx now px = round (negate $ (realToFrac px - now) / 0.003 - 550 :: Rational)
 
-  zero $ mixPlayMusic mus 1
-  SDL.rendererDrawColor rend $= V4 54 59 123 255
-  start <- SDL.time
   let isQuit = \case
         SDL.Event _ SDL.QuitEvent -> True
         _ -> False
       fiveNull five = and [ Map.null $ f five | f <- [notesGreen, notesRed, notesYellow, notesBlue, notesOrange] ]
       drumsNull = Map.null $ notesDrums drums
+      drawFrame t = do
+        SDL.rendererDrawColor rend $= V4 54 59 123 255
+        SDL.clear rend
+        unless (fiveNull gtr) $ draw $ drawFive (pxToSecs t) (secsToPx t) (P $ V2 50 550) gtr beat
+        unless (fiveNull bass) $ draw $ drawFive (pxToSecs t) (secsToPx t) (P $ V2 275 550) bass beat
+        unless drumsNull $ draw $ drawDrums (pxToSecs t) (secsToPx t) (P $ V2 500 550) drums beat
+        unless (fiveNull keys) $ draw $ drawFive (pxToSecs t) (secsToPx t) (P $ V2 689 550) keys beat
+        SDL.present rend
+  drawFrame 0
+  zero $ mixPlayMusic mus 1
+  start <- SDL.time
   fix $ \loop -> do
-    SDL.clear rend
     now <- fmap (subtract start) SDL.time
-    unless (fiveNull gtr) $ draw $ drawFive (pxToSecs now) (secsToPx now) (P $ V2 50 550) gtr beat
-    unless (fiveNull bass) $ draw $ drawFive (pxToSecs now) (secsToPx now) (P $ V2 275 550) bass beat
-    unless drumsNull $ draw $ drawDrums (pxToSecs now) (secsToPx now) (P $ V2 500 550) drums beat
-    unless (fiveNull keys) $ draw $ drawFive (pxToSecs now) (secsToPx now) (P $ V2 689 550) keys beat
-    SDL.present rend
+    drawFrame now
     threadDelay 1000
     evts <- SDL.pollEvents
     if any isQuit evts
