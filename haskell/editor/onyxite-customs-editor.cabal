@@ -8,6 +8,7 @@ executable onyxeditor
   main-is:              Main.hs
   other-modules:
     SDLBindings
+    Images
   default-language:     Haskell2010
   build-depends:
     base >= 4.7 && < 5

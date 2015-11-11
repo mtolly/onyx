@@ -3,138 +3,36 @@
 {-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE PatternSynonyms          #-}
 {-# LANGUAGE RecordWildCards          #-}
-{-# LANGUAGE TemplateHaskell          #-}
 module Main where
 
 import           Control.Concurrent               (threadDelay)
 import           Control.Exception                (bracket, bracket_)
 import           Control.Monad                    (forM_, guard, unless, when)
 import           Control.Monad.Trans.StackTrace   (printMessage, runStackTrace)
-import qualified Data.ByteString                  as B
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.FileEmbed                   (embedDir)
-import           Data.List                        (inits, stripPrefix)
+import           Data.List                        (inits)
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (fromJust, fromMaybe)
-import           Foreign
 import           Foreign.C                        (withCString)
 import           Linear                           (V2 (..), V4 (..))
 import           Linear.Affine                    (Point (..))
 import           Numeric.NonNegative.Class        ((-|))
 import qualified RockBand.Beat                    as Beat
-import           RockBand.Common                  (Difficulty (..))
+import           RockBand.Common                  (Difficulty (..), Key (..))
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.File                    as RB
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as PK
 import           SDL                              (($=))
 import qualified SDL
-import           SDLBindings
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.Util                  as U
 import           System.Environment               (getArgs)
 import           System.FilePath                  ((</>))
 
-data ImageID
-  = Image_gem_blackkey_energy_sustain
-  | Image_gem_blackkey_energy
-  | Image_gem_blackkey
-  | Image_gem_blue_cymbal
-  | Image_gem_blue_hopo
-  | Image_gem_blue
-  | Image_gem_energy_cymbal
-  | Image_gem_energy_hopo
-  | Image_gem_energy
-  | Image_gem_green_cymbal
-  | Image_gem_green_hopo
-  | Image_gem_green
-  | Image_gem_kick_energy
-  | Image_gem_kick
-  | Image_gem_orange_hopo
-  | Image_gem_orange
-  | Image_gem_red_cymbal
-  | Image_gem_red_hopo
-  | Image_gem_red
-  | Image_gem_whitekey_energy_sustain
-  | Image_gem_whitekey_energy
-  | Image_gem_whitekey
-  | Image_gem_yellow_cymbal
-  | Image_gem_yellow_hopo
-  | Image_gem_yellow
-  | Image_highway_drums_bar
-  | Image_highway_drums_beat
-  | Image_highway_drums_halfbeat
-  | Image_highway_drums_solo_edge
-  | Image_highway_drums_solo
-  | Image_highway_drums_target
-  | Image_highway_drums
-  | Image_highway_grybo_bar
-  | Image_highway_grybo_beat
-  | Image_highway_grybo_halfbeat
-  | Image_highway_grybo_solo_edge
-  | Image_highway_grybo_solo
-  | Image_highway_grybo_target
-  | Image_highway_grybo
-  | Image_highway_prokeys_bar
-  | Image_highway_prokeys_beat
-  | Image_highway_prokeys_halfbeat
-  | Image_highway_prokeys_arange
-  | Image_highway_prokeys_crange
-  | Image_highway_prokeys_drange
-  | Image_highway_prokeys_erange
-  | Image_highway_prokeys_frange
-  | Image_highway_prokeys_grange
-  | Image_highway_prokeys_solo_arange
-  | Image_highway_prokeys_solo_edge_arange
-  | Image_highway_prokeys_solo_edge
-  | Image_highway_prokeys_solo
-  | Image_highway_prokeys_target
-  | Image_highway_prokeys
-  | Image_sustain_blackkey_end
-  | Image_sustain_blackkey
-  | Image_sustain_blue
-  | Image_sustain_end
-  | Image_sustain_energy
-  | Image_sustain_green
-  | Image_sustain_orange
-  | Image_sustain_red
-  | Image_sustain_whitekey_end
-  | Image_sustain_whitekey
-  | Image_sustain_yellow
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-imageFolder :: [(FilePath, B.ByteString)]
-imageFolder = $(embedDir "images/")
-
-getImageByteString :: ImageID -> B.ByteString
-getImageByteString iid = let
-  filename = case stripPrefix "Image_" $ show iid of
-    Nothing -> error $ "getImageByteString: couldn't get filename for " ++ show iid
-    Just s -> map (\case '_' -> '-'; c -> c) s ++ ".png"
-  in case lookup filename imageFolder of
-    Just bs -> bs
-    Nothing -> error $ "getImageByteString: couldn't find image for " ++ show iid
-
-withImages :: SDL.Renderer -> ((ImageID -> SDL.Texture) -> IO a) -> IO a
-withImages rend f = let
-  iids = [minBound .. maxBound]
-  withTexture surf = bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture
-  in withMany (withImageFromByteString . getImageByteString) iids $ \surfs ->
-    withMany withTexture surfs $ \texs -> do
-      let table = zip iids texs
-          getImage iid = case lookup iid table of
-            Nothing -> error $ "withImages: couldn't find image for " ++ show iid
-            Just surf -> surf
-      forM_
-        [ Image_highway_prokeys_crange
-        , Image_highway_prokeys_drange
-        , Image_highway_prokeys_erange
-        , Image_highway_prokeys_frange
-        , Image_highway_prokeys_grange
-        , Image_highway_prokeys_arange
-        ] $ \rng -> SDL.textureAlphaMod (getImage rng) $= round (0.3 * 255 :: Double)
-      f getImage
+import           Images
+import           SDLBindings
 
 type Draw a = SDL.Window -> SDL.Renderer -> (ImageID -> SDL.Texture) -> IO a
 
@@ -148,9 +46,6 @@ gryboHighway x wind rend getImage = do
   let tex = getImage Image_highway_grybo
   V2 _w h <- SDL.get $ SDL.windowSize wind
   forM_ [0 .. fromIntegral h - 1] $ \y -> draw1x rend tex $ P $ V2 x y
-
-image :: ImageID -> Point V2 Int -> Draw ()
-image iid p _wind rend getImage = draw1x rend (getImage iid) p
 
 data Sustainable a
   = SustainEnd
@@ -168,7 +63,7 @@ data Five = Five
   } deriving (Eq, Ord, Show)
 
 data Drums = Drums
-  { drumNotes :: Map.Map U.Seconds [Drums.Gem Drums.ProType]
+  { drumNotes  :: Map.Map U.Seconds [Drums.Gem Drums.ProType]
   , drumSolo   :: Map.Map U.Seconds Bool
   , drumEnergy :: Map.Map U.Seconds Bool
   } deriving (Eq, Ord, Show)
@@ -183,15 +78,15 @@ data ProKeys = ProKeys
 removeStubs :: (Ord a) => RTB.T U.Beats (Sustainable a) -> RTB.T U.Beats (Sustainable a)
 removeStubs = go . RTB.normalize where
   go rtb = case RTB.viewL rtb of
-    Nothing -> RTB.empty
+    Nothing              -> RTB.empty
     Just ((dt, e), rtb') -> case e of
-      Note nt -> RTB.cons dt (Note nt) $ go rtb'
+      Note    nt -> RTB.cons dt (Note nt) $ go rtb'
       Sustain nt -> case RTB.viewL rtb' of
-        Nothing -> RTB.empty
+        Nothing                         -> RTB.empty
         Just ((dt', SustainEnd), rtb'') -> if dt' <= 1/4
-          then RTB.cons dt (Note nt) $ RTB.delay dt' $ go rtb''
-          else RTB.cons dt (Sustain nt) $ RTB.cons dt' SustainEnd $ go rtb''
-        _ -> error "removeStubs: double note-on"
+          then RTB.cons dt (Note    nt) $ RTB.delay dt' $ go rtb''
+          else RTB.cons dt (Sustain nt) $ RTB.cons  dt' SustainEnd $ go rtb''
+        _                               -> error "removeStubs: double note-on"
       SustainEnd -> RTB.delay dt $ go rtb'
 
 trackToMap :: (Ord a) => U.TempoMap -> RTB.T U.Beats a -> Map.Map U.Seconds a
@@ -203,7 +98,7 @@ processFive hopoThreshold tmap trk = let
   assigned = case hopoThreshold of
     Just threshold -> Five.assignHOPO threshold expert
     Nothing -> flip RTB.mapMaybe expert $ \case
-      Five.Note True color -> Just $ Five.Strum color
+      Five.Note True  color -> Just $ Five.Strum   color
       Five.Note False color -> Just $ Five.NoteOff color
       _ -> Nothing
   getColor color = trackToMap tmap $ removeStubs $ flip RTB.mapMaybe assigned $ \case
@@ -213,7 +108,7 @@ processFive hopoThreshold tmap trk = let
   notes = Map.fromList $ do
     color <- [minBound .. maxBound]
     return (color, getColor color)
-  solo = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.Solo b -> Just b; _ -> Nothing
+  solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.Solo      b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.Overdrive b -> Just b; _ -> Nothing
   in Five notes solo energy
 
@@ -222,8 +117,8 @@ processDrums tmap trk = let
   notes = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $
     U.applyTempoTrack tmap $ RTB.collectCoincident $ flip RTB.mapMaybe (Drums.assignToms trk) $ \case
       (Expert, gem) -> Just gem
-      _ -> Nothing
-  solo = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Drums.Solo b -> Just b; _ -> Nothing
+      _             -> Nothing
+  solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Drums.Solo      b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Drums.Overdrive b -> Just b; _ -> Nothing
   in Drums notes solo energy
 
@@ -231,14 +126,14 @@ processProKeys :: U.TempoMap -> RTB.T U.Beats PK.Event -> ProKeys
 processProKeys tmap trk = let
   notesForPitch p = trackToMap tmap $ removeStubs $ flip RTB.mapMaybe trk $ \case
     PK.Note p' b | p == p' -> Just $ if b then Sustain () else SustainEnd
-    _ -> Nothing
+    _                      -> Nothing
   notes = Map.fromList [ (p, notesForPitch p) | p <- allPitches ]
   allPitches
     =  map PK.RedYellow [minBound .. maxBound]
     ++ map PK.BlueGreen [minBound .. maxBound]
     ++ [PK.OrangeC]
   ranges = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.LaneShift r -> Just r; _ -> Nothing
-  solo = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Solo b -> Just b; _ -> Nothing
+  solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Solo      b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Overdrive b -> Just b; _ -> Nothing
   in ProKeys notes ranges solo energy
 
@@ -255,6 +150,7 @@ processBeat tmap rtb = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0
   $ U.applyTempoTrack tmap $ flip fmap rtb $ \case
     Beat.Bar -> Bar
     Beat.Beat -> Beat
+    -- TODO: add half-beats
 
 drawFive :: (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> Five -> Beats -> Draw ()
 drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getImage = do
@@ -306,9 +202,9 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getIm
       let y = secsToPx secs
           isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ fiveEnergy five
       case evt of
-        SustainEnd    -> draw1x rend (getImage Image_sustain_end) $ P $ V2 (targetX + offsetX) y
-        Note    Strum -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else strumImage) $ P $ V2 (targetX + offsetX) $ y - 5
-        Sustain Strum -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else strumImage) $ P $ V2 (targetX + offsetX) $ y - 5
+        SustainEnd    -> draw1x rend (getImage Image_sustain_end                                      ) $ P $ V2 (targetX + offsetX) y
+        Note    Strum -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else strumImage    ) $ P $ V2 (targetX + offsetX) $ y - 5
+        Sustain Strum -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else strumImage    ) $ P $ V2 (targetX + offsetX) $ y - 5
         Note    HOPO  -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_hopo else hopoImage) $ P $ V2 (targetX + offsetX) $ y - 5
         Sustain HOPO  -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_hopo else hopoImage) $ P $ V2 (targetX + offsetX) $ y - 5
 
@@ -317,10 +213,10 @@ drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats wind rend get
   V2 _ windowH <- SDL.get $ SDL.windowSize wind
   let maxSecs = pxToSecs (-100)
       minSecs = pxToSecs $ fromIntegral windowH + 100
-      zoom = fst . Map.split maxSecs . snd . Map.split minSecs
+      zoom    = fst . Map.split maxSecs . snd . Map.split minSecs
   -- Highway
-  let tex = getImage Image_highway_drums
-      texSolo = getImage Image_highway_drums_solo
+  let tex         = getImage Image_highway_drums
+      texSolo     = getImage Image_highway_drums_solo
       texSoloEdge = getImage Image_highway_drums_solo_edge
   forM_ [0 .. fromIntegral windowH - 1] $ \y -> let
     isSolo = fromMaybe False $ fmap snd $ Map.lookupLE (pxToSecs y) $ drumSolo drums
@@ -331,8 +227,8 @@ drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats wind rend get
   forM_ (Map.toDescList $ zoom beats) $ \(secs, evt) -> do
     let y = secsToPx secs
     case evt of
-      Bar -> draw1x rend (getImage Image_highway_drums_bar) $ P $ V2 targetX (y - 1)
-      Beat -> draw1x rend (getImage Image_highway_drums_beat) $ P $ V2 targetX (y - 1)
+      Bar      -> draw1x rend (getImage Image_highway_drums_bar     ) $ P $ V2 targetX (y - 1)
+      Beat     -> draw1x rend (getImage Image_highway_drums_beat    ) $ P $ V2 targetX (y - 1)
       HalfBeat -> draw1x rend (getImage Image_highway_drums_halfbeat) $ P $ V2 targetX y
   -- Target
   draw1x rend (getImage Image_highway_drums_target) targetP
@@ -342,24 +238,24 @@ drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats wind rend get
         isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ drumEnergy drums
     forM_ evts $ \evt -> do
       case evt of
-        Drums.Kick -> draw1x rend (getImage $ if isEnergy then Image_gem_kick_energy else Image_gem_kick) $ P $ V2 (targetX + 1) (y - 3)
-        Drums.Red -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_red) $ P $ V2 (targetX + 1) (y - 5)
-        Drums.Pro Drums.Yellow Drums.Tom -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_yellow) $ P $ V2 (targetX + 37) (y - 5)
-        Drums.Pro Drums.Yellow Drums.Cymbal -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) $ P $ V2 (targetX + 37) (y - 8)
-        Drums.Pro Drums.Blue Drums.Tom -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_blue) $ P $ V2 (targetX + 73) (y - 5)
-        Drums.Pro Drums.Blue Drums.Cymbal -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal) $ P $ V2 (targetX + 73) (y - 8)
-        Drums.Pro Drums.Green Drums.Tom -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else Image_gem_green) $ P $ V2 (targetX + 109) (y - 5)
-        Drums.Pro Drums.Green Drums.Cymbal -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal) $ P $ V2 (targetX + 109) (y - 8)
+        Drums.Kick                          -> draw1x rend (getImage $ if isEnergy then Image_gem_kick_energy   else Image_gem_kick         ) $ P $ V2 (targetX + 1  ) (y - 3)
+        Drums.Red                           -> draw1x rend (getImage $ if isEnergy then Image_gem_energy        else Image_gem_red          ) $ P $ V2 (targetX + 1  ) (y - 5)
+        Drums.Pro Drums.Yellow Drums.Tom    -> draw1x rend (getImage $ if isEnergy then Image_gem_energy        else Image_gem_yellow       ) $ P $ V2 (targetX + 37 ) (y - 5)
+        Drums.Pro Drums.Yellow Drums.Cymbal -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) $ P $ V2 (targetX + 37 ) (y - 8)
+        Drums.Pro Drums.Blue   Drums.Tom    -> draw1x rend (getImage $ if isEnergy then Image_gem_energy        else Image_gem_blue         ) $ P $ V2 (targetX + 73 ) (y - 5)
+        Drums.Pro Drums.Blue   Drums.Cymbal -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal  ) $ P $ V2 (targetX + 73 ) (y - 8)
+        Drums.Pro Drums.Green  Drums.Tom    -> draw1x rend (getImage $ if isEnergy then Image_gem_energy        else Image_gem_green        ) $ P $ V2 (targetX + 109) (y - 5)
+        Drums.Pro Drums.Green  Drums.Cymbal -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) $ P $ V2 (targetX + 109) (y - 8)
 
 drawProKeys :: (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> ProKeys -> Beats -> Draw ()
 drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend getImage = do
   V2 _ windowH <- SDL.get $ SDL.windowSize wind
   let maxSecs = pxToSecs (-100)
       minSecs = pxToSecs $ fromIntegral windowH + 100
-      zoom = fst . Map.split maxSecs . snd . Map.split minSecs
+      zoom    = fst . Map.split maxSecs . snd . Map.split minSecs
   -- Highway
-  let tex = getImage Image_highway_prokeys
-      texSolo = getImage Image_highway_prokeys_solo
+  let tex         = getImage Image_highway_prokeys
+      texSolo     = getImage Image_highway_prokeys_solo
       texSoloEdge = getImage Image_highway_prokeys_solo_edge
   forM_ [0 .. fromIntegral windowH - 1] $ \y -> let
     isSolo = fromMaybe False $ fmap snd $ Map.lookupLE (pxToSecs y) $ proKeysSolo prokeys
@@ -370,8 +266,8 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend
   forM_ (Map.toDescList $ zoom beats) $ \(secs, evt) -> do
     let y = secsToPx secs
     case evt of
-      Bar -> draw1x rend (getImage Image_highway_prokeys_bar) $ P $ V2 targetX (y - 1)
-      Beat -> draw1x rend (getImage Image_highway_prokeys_beat) $ P $ V2 targetX (y - 1)
+      Bar      -> draw1x rend (getImage Image_highway_prokeys_bar     ) $ P $ V2 targetX (y - 1)
+      Beat     -> draw1x rend (getImage Image_highway_prokeys_beat    ) $ P $ V2 targetX (y - 1)
       HalfBeat -> draw1x rend (getImage Image_highway_prokeys_halfbeat) $ P $ V2 targetX y
   -- Target
   draw1x rend (getImage Image_highway_prokeys_target) targetP
@@ -396,7 +292,12 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend
                 _           -> False
   let pitches = map PK.RedYellow keys ++ map PK.BlueGreen keys ++ [PK.OrangeC]
       keys = [minBound .. maxBound]
-      isBlack x = case reverse $ show x of 's' : _ -> True; _ -> False
+      isBlack = \case
+        PK.RedYellow k -> isBlackKey k
+        PK.BlueGreen k -> isBlackKey k
+        PK.OrangeC     -> False
+      isBlackKey = \case
+        Cs -> True; Ds -> True; Fs -> True; Gs -> True; As -> True; _ -> False
       pitchList = do
         (pitch, lowerPitches) <- zip pitches $ inits pitches
         let offsetX = 1 + sum (map (\p -> if isBlack p then 10 else 12) lowerPitches)
@@ -409,8 +310,8 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend
           let img = getImage $ case (isEnergy, isBlack pitch) of
                 (False, False) -> Image_sustain_whitekey
                 (False, True ) -> Image_sustain_blackkey
-                (True , False) -> Image_gem_whitekey_energy_sustain
-                (True , True ) -> Image_gem_blackkey_energy_sustain
+                (True , False) -> Image_sustain_whitekey_energy
+                (True , True ) -> Image_sustain_blackkey_energy
           draw1x rend img $ P $ V2 (targetX + offsetX) y
   -- Notes
   forM_ pitchList $ \(pitch, offsetX) -> do
@@ -423,9 +324,9 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend
             (True , False) -> Image_gem_whitekey_energy
             (True , True ) -> Image_gem_blackkey_energy
       case evt of
-        SustainEnd -> draw1x rend (getImage Image_sustain_whitekey_end) $ P $ V2 (targetX + offsetX) y
-        Note    () -> draw1x rend img $ P $ V2 (targetX + offsetX) $ y - 5
-        Sustain () -> draw1x rend img $ P $ V2 (targetX + offsetX) $ y - 5
+        SustainEnd -> draw1x rend (getImage Image_sustain_key_end) $ P $ V2 (targetX + offsetX) y
+        Note    () -> draw1x rend img                              $ P $ V2 (targetX + offsetX) $ y - 5
+        Sustain () -> draw1x rend img                              $ P $ V2 (targetX + offsetX) $ y - 5
 
 data App
   = Paused
@@ -480,16 +381,19 @@ main = do
       proKeysNull = Map.null $ proKeysNotes prokeys
       drawFrame :: U.Seconds -> IO ()
       drawFrame t = do
+        frameStart <- SDL.ticks
         SDL.rendererDrawColor rend $= V4 54 59 123 255
         SDL.clear rend
         V2 _ windowH <- SDL.get $ SDL.windowSize wind
         let targetY :: (Num a) => a
             targetY = fromIntegral windowH - 50
-        unless (fiveNull gtr) $ draw $ drawFive (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 50 targetY) gtr beat
-        unless (fiveNull bass) $ draw $ drawFive (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 275 targetY) bass beat
-        unless drumsNull $ draw $ drawDrums (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 500 targetY) drums beat
-        unless (fiveNull keys) $ draw $ drawFive (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 689 targetY) keys beat
-        unless proKeysNull $ draw $ drawProKeys (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 914 targetY) prokeys beat
+        unless (fiveNull gtr ) $ draw $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 50  targetY) gtr     beat
+        unless (fiveNull bass) $ draw $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 275 targetY) bass    beat
+        unless drumsNull       $ draw $ drawDrums   (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 500 targetY) drums   beat
+        unless (fiveNull keys) $ draw $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 689 targetY) keys    beat
+        unless proKeysNull     $ draw $ drawProKeys (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 914 targetY) prokeys beat
+        frameEnd <- SDL.ticks
+        print $ frameEnd - frameStart
         SDL.present rend
   drawFrame 0
   firstSDLTime <- SDL.time
@@ -497,7 +401,7 @@ main = do
   let loop state = do
         currentSDLTime <- SDL.time
         let currentSongTime = case state of
-              Paused{..}  -> pausedSongTime
+              Paused {..} -> pausedSongTime
               Playing{..} -> startedSongTime + (currentSDLTime - startedSDLTime)
         drawFrame currentSongTime
         let applyEvents s []                   = threadDelay 1000 >> loop s
@@ -505,6 +409,7 @@ main = do
               SDL.QuitEvent -> return ()
               KeyPress SDL.ScancodeSpace -> case s of
                 Paused{..} -> do
+                  -- TODO: resuming fails if the audio ended, need to call mixPlayMusic instead
                   err <- mixSetMusicPosition $ realToFrac currentSongTime
                   when (err == 0) mixResumeMusic
                   applyEvents (Playing{ startedSDLTime = currentSDLTime, startedSongTime = currentSongTime }) es
