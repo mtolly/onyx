@@ -177,12 +177,6 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getIm
   -- Target
   draw1x rend (getImage Image_highway_grybo_target) targetP
   -- Sustains
-  let isSustain secs color = case Map.lookupLE secs $ fromJust $ Map.lookup color $ fiveNotes five of
-        Just (t, Sustain _) -> Just $ sustainFrom t
-        _ -> Nothing
-        where sustainFrom secs' = case Map.lookupLE secs' $ fiveEnergy five of
-                Just (_, b) -> b
-                _           -> False
   let colors =
         [ (Five.Green , 1  , Image_gem_green , Image_gem_green_hopo , Image_sustain_green )
         , (Five.Red   , 37 , Image_gem_red   , Image_gem_red_hopo   , Image_sustain_red   )
@@ -190,12 +184,33 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getIm
         , (Five.Blue  , 109, Image_gem_blue  , Image_gem_blue_hopo  , Image_sustain_blue  )
         , (Five.Orange, 145, Image_gem_orange, Image_gem_orange_hopo, Image_sustain_orange)
         ]
-  forM_ [0 .. fromIntegral windowH - 1] $ \y -> do
-    forM_ colors $ \(color, offsetX, _, _, sustainImage) -> do
-      case isSustain (pxToSecs y) color of
-        Nothing -> return ()
-        Just isEnergy -> do
-          draw1x rend (getImage $ if isEnergy then Image_sustain_energy else sustainImage) $ P $ V2 (targetX + offsetX) y
+  forM_ colors $ \(color, offsetX, _, _, sustainImage) -> do
+    let thisColor = fromJust $ Map.lookup color $ fiveNotes five
+        isEnergy secs = fromMaybe False $ fmap snd $ Map.lookupLE secs $ fiveEnergy five
+        drawSustain energy y = draw1x rend (getImage $ if energy then Image_sustain_energy else sustainImage) $ P $ V2 (targetX + offsetX) y
+        go False ((secsEnd, SustainEnd) : rest) = case Map.lookupLT secsEnd thisColor of
+          Just (secsStart, Sustain _) -> do
+            forM_ [secsToPx secsEnd .. fromIntegral windowH] $ drawSustain $ isEnergy secsStart
+            go False rest
+          _ -> error "during grybo drawing: found a sustain end not preceded by sustain start"
+        go True ((_, SustainEnd) : rest) = go False rest
+        go False ((_, Note _) : rest) = go False rest
+        go True ((_, Note _) : _) = error "during grybo drawing: found a note in middle of a sustain"
+        go True ((_, Sustain _) : _) = error "during grybo drawing: found a sustain in middle of a sustain"
+        go False ((secsStart, Sustain _) : rest) = do
+          let pxEnd = case rest of
+                [] -> 0
+                (secsEnd, SustainEnd) : _ -> secsToPx secsEnd
+                _ -> error "during grybo drawing: found a sustain not followed by sustain end"
+          forM_ [pxEnd .. secsToPx secsStart] $ drawSustain $ isEnergy secsStart
+          go True rest
+        go _ [] = return ()
+    case Map.toAscList $ zoom thisColor of
+      [] -> case Map.lookupLT (pxToSecs $ fromIntegral windowH) thisColor of
+        -- handle the case where the entire screen is the middle of a sustain
+        Just (secsStart, Sustain _) -> forM_ [0 .. fromIntegral windowH] $ drawSustain $ isEnergy secsStart
+        _ -> return ()
+      events -> go False events
   -- Notes
   forM_ colors $ \(color, offsetX, strumImage, hopoImage, _) -> do
     forM_ (Map.toDescList $ zoom $ fromJust $ Map.lookup color $ fiveNotes five) $ \(secs, evt) -> do
@@ -284,12 +299,6 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend
             PK.RangeA -> Image_highway_prokeys_arange
       draw1x rend texRange $ P $ V2 targetX y
   -- Sustains
-  let isSustain secs pitch = case Map.lookupLE secs $ fromJust $ Map.lookup pitch $ proKeysNotes prokeys of
-        Just (t, Sustain _) -> Just $ sustainFrom t
-        _ -> Nothing
-        where sustainFrom secs' = case Map.lookupLE secs' $ proKeysEnergy prokeys of
-                Just (_, b) -> b
-                _           -> False
   let pitches = map PK.RedYellow keys ++ map PK.BlueGreen keys ++ [PK.OrangeC]
       keys = [minBound .. maxBound]
       isBlack = \case
@@ -302,17 +311,40 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend
         (pitch, lowerPitches) <- zip pitches $ inits pitches
         let offsetX = 1 + sum (map (\p -> if isBlack p then 10 else 12) lowerPitches)
         return (pitch, offsetX)
-  forM_ [0 .. fromIntegral windowH - 1] $ \y -> do
-    forM_ pitchList $ \(pitch, offsetX) -> do
-      case isSustain (pxToSecs y) pitch of
-        Nothing -> return ()
-        Just isEnergy -> do
-          let img = getImage $ case (isEnergy, isBlack pitch) of
+  forM_ pitchList $ \(pitch, offsetX) -> do
+    let thisPitch = fromJust $ Map.lookup pitch $ proKeysNotes prokeys
+        black = isBlack pitch
+        isEnergy secs = fromMaybe False $ fmap snd $ Map.lookupLE secs $ proKeysEnergy prokeys
+        drawSustain energy y = do
+          let img = getImage $ case (energy, black) of
                 (False, False) -> Image_sustain_whitekey
                 (False, True ) -> Image_sustain_blackkey
                 (True , False) -> Image_sustain_whitekey_energy
                 (True , True ) -> Image_sustain_blackkey_energy
           draw1x rend img $ P $ V2 (targetX + offsetX) y
+        go False ((secsEnd, SustainEnd) : rest) = case Map.lookupLT secsEnd thisPitch of
+          Just (secsStart, Sustain _) -> do
+            forM_ [secsToPx secsEnd .. fromIntegral windowH] $ drawSustain $ isEnergy secsStart
+            go False rest
+          _ -> error "during prokeys drawing: found a sustain end not preceded by sustain start"
+        go True ((_, SustainEnd) : rest) = go False rest
+        go False ((_, Note ()) : rest) = go False rest
+        go True ((_, Note ()) : _) = error "during prokeys drawing: found a note in middle of a sustain"
+        go True ((_, Sustain ()) : _) = error "during prokeys drawing: found a sustain in middle of a sustain"
+        go False ((secsStart, Sustain ()) : rest) = do
+          let pxEnd = case rest of
+                [] -> 0
+                (secsEnd, SustainEnd) : _ -> secsToPx secsEnd
+                _ -> error "during prokeys drawing: found a sustain not followed by sustain end"
+          forM_ [pxEnd .. secsToPx secsStart] $ drawSustain $ isEnergy secsStart
+          go True rest
+        go _ [] = return ()
+    case Map.toAscList $ zoom thisPitch of
+      [] -> case Map.lookupLT (pxToSecs $ fromIntegral windowH) thisPitch of
+        -- handle the case where the entire screen is the middle of a sustain
+        Just (secsStart, Sustain ()) -> forM_ [0 .. fromIntegral windowH] $ drawSustain $ isEnergy secsStart
+        _ -> return ()
+      events -> go False events
   -- Notes
   forM_ pitchList $ \(pitch, offsetX) -> do
     forM_ (Map.toDescList $ zoom $ fromJust $ Map.lookup pitch $ proKeysNotes prokeys) $ \(secs, evt) -> do
@@ -381,7 +413,7 @@ main = do
       proKeysNull = Map.null $ proKeysNotes prokeys
       drawFrame :: U.Seconds -> IO ()
       drawFrame t = do
-        frameStart <- SDL.ticks
+        -- frameStart <- SDL.ticks
         SDL.rendererDrawColor rend $= V4 54 59 123 255
         SDL.clear rend
         V2 _ windowH <- SDL.get $ SDL.windowSize wind
@@ -392,8 +424,8 @@ main = do
         unless drumsNull       $ draw $ drawDrums   (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 500 targetY) drums   beat
         unless (fiveNull keys) $ draw $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 689 targetY) keys    beat
         unless proKeysNull     $ draw $ drawProKeys (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 914 targetY) prokeys beat
-        frameEnd <- SDL.ticks
-        print $ frameEnd - frameStart
+        -- frameEnd <- SDL.ticks
+        -- print $ frameEnd - frameStart
         SDL.present rend
   drawFrame 0
   firstSDLTime <- SDL.time
@@ -418,20 +450,20 @@ main = do
                   applyEvents (Paused{ pausedSongTime = currentSongTime }) es
               KeyPress SDL.ScancodeLeft -> case s of
                 Paused{..} -> do
-                  applyEvents (Paused{ pausedSongTime = pausedSongTime -| 10 }) es
+                  applyEvents (Paused{ pausedSongTime = pausedSongTime -| 5 }) es
                 Playing{..} -> do
                   let currentSongTime' = startedSongTime + (currentSDLTime - startedSDLTime)
-                      newSongTime = currentSongTime' -| 10
+                      newSongTime = currentSongTime' -| 5
                   mixPauseMusic
                   err <- mixSetMusicPosition $ realToFrac newSongTime
                   when (err == 0) mixResumeMusic
                   applyEvents (Playing{ startedSDLTime = currentSDLTime, startedSongTime = newSongTime }) es
               KeyPress SDL.ScancodeRight -> case s of
                 Paused{..} -> do
-                  applyEvents (Paused{ pausedSongTime = pausedSongTime + 10 }) es
+                  applyEvents (Paused{ pausedSongTime = pausedSongTime + 5 }) es
                 Playing{..} -> do
                   let currentSongTime' = startedSongTime + (currentSDLTime - startedSDLTime)
-                      newSongTime = currentSongTime' + 10
+                      newSongTime = currentSongTime' + 5
                   mixPauseMusic
                   err <- mixSetMusicPosition $ realToFrac newSongTime
                   when (err == 0) mixResumeMusic
