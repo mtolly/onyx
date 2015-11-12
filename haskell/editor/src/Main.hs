@@ -11,9 +11,9 @@ import           Control.Monad                    (forM_, guard, unless, when)
 import           Control.Monad.Trans.StackTrace   (printMessage, runStackTrace)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (inits)
+import           Data.List                        (inits, intercalate)
 import qualified Data.Map.Strict                  as Map
-import           Data.Maybe                       (fromJust, fromMaybe)
+import           Data.Maybe                       (fromJust, fromMaybe, listToMaybe)
 import           Foreign.C                        (withCString)
 import           Linear                           (V2 (..), V4 (..))
 import           Linear.Affine                    (Point (..))
@@ -24,6 +24,7 @@ import qualified RockBand.Drums                   as Drums
 import qualified RockBand.File                    as RB
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as PK
+import qualified RockBand.Events                  as Events
 import           SDL                              (($=))
 import qualified SDL
 import qualified Sound.MIDI.File.Load             as Load
@@ -186,9 +187,7 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getIm
           offsetX <- [2, 38, 74, 110, 146]
           return $ SDL.Rectangle (P $ V2 (x + offsetX) $ fromIntegral y2) (V2 34 $ fromIntegral $ y1 - y2)
         go rest
-    in do
-      -- print soloEdges
-      go $ Map.toAscList soloEdges
+    in go $ Map.toAscList soloEdges
   -- Solo edges
   let texSoloEdge = getImage Image_highway_grybo_solo_edge
   forM_ (Map.toDescList $ zoom $ fiveSolo five) $ \(secs, _) -> do
@@ -301,9 +300,7 @@ drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats wind rend get
           offsetX <- [2, 38, 74, 110]
           return $ SDL.Rectangle (P $ V2 (x + offsetX) $ fromIntegral y2) (V2 34 $ fromIntegral $ y1 - y2)
         go rest
-    in do
-      -- print soloEdges
-      go $ Map.toAscList soloEdges
+    in go $ Map.toAscList soloEdges
   -- Solo edges
   let texSoloEdge = getImage Image_highway_drums_solo_edge
   forM_ (Map.toDescList $ zoom $ drumSolo drums) $ \(secs, _) -> do
@@ -332,6 +329,23 @@ drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats wind rend get
         Drums.Pro Drums.Green  Drums.Tom    -> draw1x rend (getImage $ if isEnergy then Image_gem_energy        else Image_gem_green        ) $ P $ V2 (targetX + 109) (y - 5)
         Drums.Pro Drums.Green  Drums.Cymbal -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) $ P $ V2 (targetX + 109) (y - 8)
 
+data PKHighway
+  = RailingLight
+  | RailingDark
+  | WhiteKey
+  | WhiteKeyShort
+  | BlackKey
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+pkHighway :: [PKHighway]
+pkHighway = let
+  rail = [RailingLight, RailingDark]
+  w = WhiteKey
+  b = BlackKey
+  three = [w, b, w, b, WhiteKeyShort]
+  four = [w, b, w, b, w, b, WhiteKeyShort]
+  in intercalate rail [[], three, four, three, four, [WhiteKeyShort], []]
+
 drawProKeys :: (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> ProKeys -> Beats -> Draw ()
 drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend getImage = do
   V2 _ windowH <- SDL.get $ SDL.windowSize wind
@@ -339,14 +353,40 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend
       minSecs = pxToSecs $ fromIntegral windowH + 100
       zoom    = fst . Map.split maxSecs . snd . Map.split minSecs
   -- Highway
-  let tex         = getImage Image_highway_prokeys
-      texSolo     = getImage Image_highway_prokeys_solo
-      texSoloEdge = getImage Image_highway_prokeys_solo_edge
-  forM_ [0 .. fromIntegral windowH - 1] $ \y -> let
-    isSolo = fromMaybe False $ fmap snd $ Map.lookupLE (pxToSecs y) $ proKeysSolo prokeys
-    in draw1x rend (if isSolo then texSolo else tex) $ P $ V2 targetX y
-  forM_ (Map.toDescList $ zoom $ proKeysSolo prokeys) $ \(secs, _) -> do
-    draw1x rend texSoloEdge $ P $ V2 targetX $ secsToPx secs
+  let drawHighway _    []               = return ()
+      drawHighway xpos (chunk : chunks) = do
+        let (color, width) = case chunk of
+              RailingLight  -> (V4 184 185 204 255, 1 )
+              RailingDark   -> (V4   0   0   0 255, 1 )
+              WhiteKey      -> (V4 126 126 150 255, 11)
+              WhiteKeyShort -> (V4 126 126 150 255, 10)
+              BlackKey      -> (V4 105 105 129 255, 11)
+        SDL.rendererDrawColor rend $= color
+        SDL.fillRect rend $ Just $ SDL.Rectangle (P $ V2 xpos 0) (V2 width windowH)
+        drawHighway (xpos + width) chunks
+  drawHighway (fromIntegral targetX) pkHighway
+  -- Solo highway
+  let soloEdges
+        = Map.insert minSecs (fromMaybe False $ fmap snd $ Map.lookupLE minSecs $ proKeysSolo prokeys)
+        $ Map.insert maxSecs False
+        $ zoom $ proKeysSolo prokeys
+      drawSoloHighway _    _  _  []               = return ()
+      drawSoloHighway xpos y1 y2 (chunk : chunks) = do
+        let (color, width) = case chunk of
+              RailingLight  -> (V4 184 185 204   0, 1 )
+              RailingDark   -> (V4   0   0   0   0, 1 )
+              WhiteKey      -> (V4  91 137 185 255, 11)
+              WhiteKeyShort -> (V4  91 137 185 255, 10)
+              BlackKey      -> (V4  73 111 149 255, 11)
+        SDL.rendererDrawColor rend $= color
+        SDL.fillRect rend $ Just $ fmap fromIntegral $ SDL.Rectangle (P $ V2 xpos y1) (V2 width $ y2 - y1)
+        drawSoloHighway (xpos + width) y1 y2 chunks
+      go []  = return ()
+      go [_] = return ()
+      go ((s1, b1) : rest@((s2, _) : _)) = do
+        when b1 $ drawSoloHighway targetX (secsToPx s1) (secsToPx s2) pkHighway
+        go rest
+    in go $ Map.toAscList soloEdges
   -- Beats
   forM_ (Map.toDescList $ zoom beats) $ \(secs, evt) -> do
     let y = secsToPx secs
@@ -482,7 +522,11 @@ main = do
 
   let fiveNull five = all Map.null $ Map.elems $ fiveNotes five
       drumsNull = Map.null $ drumNotes drums
-      proKeysNull = Map.null $ proKeysNotes prokeys
+      proKeysNull = all Map.null $ Map.elems $ proKeysNotes prokeys
+      endEvent = listToMaybe $ do
+        RB.Events t <- RB.s_tracks song
+        (bts, Events.End) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 t
+        return $ U.applyTempoMap (RB.s_tempos song) bts
       drawFrame :: U.Seconds -> IO ()
       drawFrame t = do
         -- frameStart <- SDL.ticks
@@ -504,18 +548,25 @@ main = do
   zero $ mixPlayMusic mus 1
   let loop state = do
         currentSDLTime <- SDL.time
-        let currentSongTime = case state of
+        let currentSongTime = maybe id min endEvent $ case state of
               Paused {..} -> pausedSongTime
               Playing{..} -> startedSongTime + (currentSDLTime - startedSDLTime)
         drawFrame currentSongTime
-        let applyEvents s []                   = threadDelay 1000 >> loop s
+        let playFrom :: U.Seconds -> IO ()
+            playFrom t = do
+              err <- mixSetMusicPosition $ realToFrac t
+              when (err /= 0) $ do
+                zero $ mixPlayMusic mus 1
+                zero $ mixSetMusicPosition $ realToFrac t
+                -- TODO: if this goes past the end of the audio,
+                -- it will play from the beginning.
+              mixResumeMusic
+            applyEvents s []                   = threadDelay 1000 >> loop s
             applyEvents s (SDL.Event _ e : es) = case e of
               SDL.QuitEvent -> return ()
               KeyPress SDL.ScancodeSpace -> case s of
                 Paused{..} -> do
-                  -- TODO: resuming fails if the audio ended, need to call mixPlayMusic instead
-                  err <- mixSetMusicPosition $ realToFrac currentSongTime
-                  when (err == 0) mixResumeMusic
+                  playFrom currentSongTime
                   applyEvents (Playing{ startedSDLTime = currentSDLTime, startedSongTime = currentSongTime }) es
                 Playing{..} -> do
                   mixPauseMusic
@@ -527,8 +578,7 @@ main = do
                   let currentSongTime' = startedSongTime + (currentSDLTime - startedSDLTime)
                       newSongTime = currentSongTime' -| 5
                   mixPauseMusic
-                  err <- mixSetMusicPosition $ realToFrac newSongTime
-                  when (err == 0) mixResumeMusic
+                  playFrom newSongTime
                   applyEvents (Playing{ startedSDLTime = currentSDLTime, startedSongTime = newSongTime }) es
               KeyPress SDL.ScancodeRight -> case s of
                 Paused{..} -> do
@@ -537,8 +587,7 @@ main = do
                   let currentSongTime' = startedSongTime + (currentSDLTime - startedSDLTime)
                       newSongTime = currentSongTime' + 5
                   mixPauseMusic
-                  err <- mixSetMusicPosition $ realToFrac newSongTime
-                  when (err == 0) mixResumeMusic
+                  playFrom newSongTime
                   applyEvents (Playing{ startedSDLTime = currentSDLTime, startedSongTime = newSongTime }) es
               _ -> applyEvents s es
         SDL.pollEvents >>= applyEvents state
