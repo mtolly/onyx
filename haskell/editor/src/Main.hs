@@ -74,7 +74,7 @@ data ProKeys = ProKeys
   , proKeysRanges :: Map.Map U.Seconds PK.LaneRange
   , proKeysSolo   :: Map.Map U.Seconds Bool
   , proKeysEnergy :: Map.Map U.Seconds Bool
-  }
+  } deriving (Eq, Ord, Show)
 
 removeStubs :: (Ord a) => RTB.T U.Beats (Sustainable a) -> RTB.T U.Beats (Sustainable a)
 removeStubs = go . RTB.normalize where
@@ -204,19 +204,37 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getIm
   draw1x rend (getImage Image_highway_grybo_target) targetP
   -- Sustains
   let colors =
-        [ (Five.Green , 1  , Image_gem_green , Image_gem_green_hopo , Image_sustain_green )
-        , (Five.Red   , 37 , Image_gem_red   , Image_gem_red_hopo   , Image_sustain_red   )
-        , (Five.Yellow, 73 , Image_gem_yellow, Image_gem_yellow_hopo, Image_sustain_yellow)
-        , (Five.Blue  , 109, Image_gem_blue  , Image_gem_blue_hopo  , Image_sustain_blue  )
-        , (Five.Orange, 145, Image_gem_orange, Image_gem_orange_hopo, Image_sustain_orange)
+        [ (Five.Green , 1  , Image_gem_green , Image_gem_green_hopo )
+        , (Five.Red   , 37 , Image_gem_red   , Image_gem_red_hopo   )
+        , (Five.Yellow, 73 , Image_gem_yellow, Image_gem_yellow_hopo)
+        , (Five.Blue  , 109, Image_gem_blue  , Image_gem_blue_hopo  )
+        , (Five.Orange, 145, Image_gem_orange, Image_gem_orange_hopo)
         ]
-  forM_ colors $ \(color, offsetX, _, _, sustainImage) -> do
+  forM_ colors $ \(color, offsetX, _, _) -> do
     let thisColor = fromJust $ Map.lookup color $ fiveNotes five
         isEnergy secs = fromMaybe False $ fmap snd $ Map.lookupLE secs $ fiveEnergy five
-        drawSustain energy y = draw1x rend (getImage $ if energy then Image_sustain_energy else sustainImage) $ P $ V2 (targetX + offsetX) y
+        drawSustainBlock ystart yend energy = do
+          let (shadeLight, shadeNormal, shadeDark) = if energy
+                then             (V4 137 235 204 255, V4 138 192 175 255, V4 124 158 149 255)
+                else case color of
+                  Five.Green  -> (V4 135 247 126 255, V4  21 218   2 255, V4  13 140   2 255)
+                  Five.Red    -> (V4 247 127 158 255, V4 218   2  62 255, V4 140   2  40 255)
+                  Five.Yellow -> (V4 247 228 127 255, V4 218 180   2 255, V4 140 115   3 255)
+                  Five.Blue   -> (V4 119 189 255 255, V4   2 117 218 255, V4   3  76 140 255)
+                  Five.Orange -> (V4 255 183 119 255, V4 218  97   4 255, V4 140  63   3 255)
+              h = yend - ystart + 1
+          SDL.rendererDrawColor rend $= V4 0 0 0 255
+          SDL.fillRect rend $ Just $ fmap fromIntegral $ SDL.Rectangle (P $ V2 (targetX + offsetX + 14) ystart) (V2 1 h)
+          SDL.fillRect rend $ Just $ fmap fromIntegral $ SDL.Rectangle (P $ V2 (targetX + offsetX + 22) ystart) (V2 1 h)
+          SDL.rendererDrawColor rend $= shadeLight
+          SDL.fillRect rend $ Just $ fmap fromIntegral $ SDL.Rectangle (P $ V2 (targetX + offsetX + 15) ystart) (V2 1 h)
+          SDL.rendererDrawColor rend $= shadeNormal
+          SDL.fillRect rend $ Just $ fmap fromIntegral $ SDL.Rectangle (P $ V2 (targetX + offsetX + 16) ystart) (V2 5 h)
+          SDL.rendererDrawColor rend $= shadeDark
+          SDL.fillRect rend $ Just $ fmap fromIntegral $ SDL.Rectangle (P $ V2 (targetX + offsetX + 21) ystart) (V2 1 h)
         go False ((secsEnd, SustainEnd) : rest) = case Map.lookupLT secsEnd thisColor of
           Just (secsStart, Sustain _) -> do
-            forM_ [secsToPx secsEnd .. fromIntegral windowH] $ drawSustain $ isEnergy secsStart
+            drawSustainBlock (secsToPx secsEnd) (fromIntegral windowH) $ isEnergy secsStart
             go False rest
           _ -> error "during grybo drawing: found a sustain end not preceded by sustain start"
         go True ((_, SustainEnd) : rest) = go False rest
@@ -228,17 +246,18 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getIm
                 [] -> 0
                 (secsEnd, SustainEnd) : _ -> secsToPx secsEnd
                 _ -> error "during grybo drawing: found a sustain not followed by sustain end"
-          forM_ [pxEnd .. secsToPx secsStart] $ drawSustain $ isEnergy secsStart
+          drawSustainBlock pxEnd (secsToPx secsStart) $ isEnergy secsStart
           go True rest
         go _ [] = return ()
     case Map.toAscList $ zoom thisColor of
       [] -> case Map.lookupLT (pxToSecs $ fromIntegral windowH) thisColor of
         -- handle the case where the entire screen is the middle of a sustain
-        Just (secsStart, Sustain _) -> forM_ [0 .. fromIntegral windowH] $ drawSustain $ isEnergy secsStart
+        Just (secsStart, Sustain _) ->
+          drawSustainBlock 0 (fromIntegral windowH) $ isEnergy secsStart
         _ -> return ()
       events -> go False events
   -- Notes
-  forM_ colors $ \(color, offsetX, strumImage, hopoImage, _) -> do
+  forM_ colors $ \(color, offsetX, strumImage, hopoImage) -> do
     forM_ (Map.toDescList $ zoom $ fromJust $ Map.lookup color $ fiveNotes five) $ \(secs, evt) -> do
       let y = secsToPx secs
           isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ fiveEnergy five
