@@ -15,45 +15,39 @@ import qualified SDL
 import           SDLBindings
 
 data ImageID
-  = Image_sustain_blackkey_energy
+  = Image_gem_blackkey
   | Image_gem_blackkey_energy
-  | Image_gem_blackkey
+  | Image_gem_blue
   | Image_gem_blue_cymbal
   | Image_gem_blue_hopo
-  | Image_gem_blue
+  | Image_gem_energy
   | Image_gem_energy_cymbal
   | Image_gem_energy_hopo
-  | Image_gem_energy
+  | Image_gem_green
   | Image_gem_green_cymbal
   | Image_gem_green_hopo
-  | Image_gem_green
-  | Image_gem_kick_energy
   | Image_gem_kick
-  | Image_gem_orange_hopo
+  | Image_gem_kick_energy
   | Image_gem_orange
+  | Image_gem_orange_hopo
+  | Image_gem_red
   | Image_gem_red_cymbal
   | Image_gem_red_hopo
-  | Image_gem_red
-  | Image_sustain_whitekey_energy
-  | Image_gem_whitekey_energy
   | Image_gem_whitekey
+  | Image_gem_whitekey_energy
+  | Image_gem_yellow
   | Image_gem_yellow_cymbal
   | Image_gem_yellow_hopo
-  | Image_gem_yellow
   | Image_highway_drums_bar
   | Image_highway_drums_beat
   | Image_highway_drums_halfbeat
   | Image_highway_drums_solo_edge
-  | Image_highway_drums_solo
   | Image_highway_drums_target
-  | Image_highway_drums
   | Image_highway_grybo_bar
   | Image_highway_grybo_beat
   | Image_highway_grybo_halfbeat
   | Image_highway_grybo_solo_edge
-  | Image_highway_grybo_solo
   | Image_highway_grybo_target
-  | Image_highway_grybo
   | Image_highway_prokeys_bar
   | Image_highway_prokeys_beat
   | Image_highway_prokeys_halfbeat
@@ -63,22 +57,14 @@ data ImageID
   | Image_highway_prokeys_erange
   | Image_highway_prokeys_frange
   | Image_highway_prokeys_grange
-  | Image_highway_prokeys_solo_arange
-  | Image_highway_prokeys_solo_edge_arange
   | Image_highway_prokeys_solo_edge
-  | Image_highway_prokeys_solo
   | Image_highway_prokeys_target
-  | Image_highway_prokeys
   | Image_sustain_key_end
   | Image_sustain_blackkey
-  | Image_sustain_blue
+  | Image_sustain_blackkey_energy
   | Image_sustain_end
-  | Image_sustain_energy
-  | Image_sustain_green
-  | Image_sustain_orange
-  | Image_sustain_red
   | Image_sustain_whitekey
-  | Image_sustain_yellow
+  | Image_sustain_whitekey_energy
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 imageFolder :: [(FilePath, B.ByteString)]

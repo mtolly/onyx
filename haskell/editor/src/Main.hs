@@ -43,12 +43,6 @@ draw1x rend tex xy = do
   SDL.TextureInfo{ SDL.textureWidth = w, SDL.textureHeight = h } <- SDL.queryTexture tex
   SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (fromIntegral <$> xy) (V2 w h)
 
-gryboHighway :: Int -> Draw ()
-gryboHighway x wind rend getImage = do
-  let tex = getImage Image_highway_grybo
-  V2 _w h <- SDL.get $ SDL.windowSize wind
-  forM_ [0 .. fromIntegral h - 1] $ \y -> draw1x rend tex $ P $ V2 x y
-
 data Sustainable a
   = SustainEnd
   | Note a
@@ -520,7 +514,11 @@ main = do
         in if secs < 0 then 0 else realToFrac secs
       secsToPx targetY now px = round (negate $ (realToFrac px - realToFrac now) / 0.003 - targetY :: Rational)
 
-  let fiveNull five = all Map.null $ Map.elems $ fiveNotes five
+  let fiveNull      five = all Map.null $ Map.elems $                         fiveNotes five
+      fiveOnlyGreen five = all Map.null $ Map.elems $ Map.delete Five.Green $ fiveNotes five
+      gtrNull = fiveNull gtr
+      bassNull = fiveNull bass
+      keysNull = fiveNull keys || fiveOnlyGreen keys
       drumsNull = Map.null $ drumNotes drums
       proKeysNull = all Map.null $ Map.elems $ proKeysNotes prokeys
       endEvent = listToMaybe $ do
@@ -529,24 +527,22 @@ main = do
         return $ U.applyTempoMap (RB.s_tempos song) bts
       drawFrame :: U.Seconds -> IO ()
       drawFrame t = do
-        -- frameStart <- SDL.ticks
         SDL.rendererDrawColor rend $= V4 54 59 123 255
         SDL.clear rend
         V2 _ windowH <- SDL.get $ SDL.windowSize wind
         let targetY :: (Num a) => a
             targetY = fromIntegral windowH - 50
-        unless (fiveNull gtr ) $ draw $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 50  targetY) gtr     beat
-        unless (fiveNull bass) $ draw $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 275 targetY) bass    beat
-        unless drumsNull       $ draw $ drawDrums   (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 500 targetY) drums   beat
-        unless (fiveNull keys) $ draw $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 689 targetY) keys    beat
-        unless proKeysNull     $ draw $ drawProKeys (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 914 targetY) prokeys beat
-        -- frameEnd <- SDL.ticks
-        -- print $ frameEnd - frameStart
+        unless gtrNull     $ draw $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 50  targetY) gtr     beat
+        unless bassNull    $ draw $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 275 targetY) bass    beat
+        unless drumsNull   $ draw $ drawDrums   (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 500 targetY) drums   beat
+        unless keysNull    $ draw $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 689 targetY) keys    beat
+        unless proKeysNull $ draw $ drawProKeys (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 914 targetY) prokeys beat
         SDL.present rend
   drawFrame 0
   firstSDLTime <- SDL.time
   zero $ mixPlayMusic mus 1
   let loop state = do
+        startTicks <- SDL.ticks
         currentSDLTime <- SDL.time
         let currentSongTime = maybe id min endEvent $ case state of
               Paused {..} -> pausedSongTime
@@ -561,7 +557,13 @@ main = do
                 -- TODO: if this goes past the end of the audio,
                 -- it will play from the beginning.
               mixResumeMusic
-            applyEvents s []                   = threadDelay 1000 >> loop s
+            applyEvents s []                   = do
+              endTicks <- SDL.ticks
+              let took = fromIntegral endTicks - fromIntegral startTicks :: Int
+                  fps = round (1000 / fromIntegral (max 16 took) :: Double) :: Int
+              print fps
+              threadDelay $ (16 - took) * 1000
+              loop s
             applyEvents s (SDL.Event _ e : es) = case e of
               SDL.QuitEvent -> return ()
               KeyPress SDL.ScancodeSpace -> case s of
