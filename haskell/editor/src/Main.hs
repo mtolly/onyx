@@ -30,6 +30,7 @@ import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.Util                  as U
 import           System.Environment               (getArgs)
 import           System.FilePath                  ((</>))
+import qualified Data.Vector.Storable as V
 
 import           Images
 import           SDLBindings
@@ -159,20 +160,45 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getIm
       minSecs = pxToSecs $ fromIntegral windowH + 100
       zoom = fst . Map.split maxSecs . snd . Map.split minSecs
   -- Highway
-  let tex = getImage Image_highway_grybo
-      texSolo = getImage Image_highway_grybo_solo
-      texSoloEdge = getImage Image_highway_grybo_solo_edge
-  forM_ [0 .. fromIntegral windowH - 1] $ \y -> let
-    isSolo = fromMaybe False $ fmap snd $ Map.lookupLE (pxToSecs y) $ fiveSolo five
-    in draw1x rend (if isSolo then texSolo else tex) $ P $ V2 targetX y
+  let x = fromIntegral targetX
+  SDL.rendererDrawColor rend $= V4 126 126 150 255
+  SDL.fillRect rend $ Just $ SDL.Rectangle (P $ V2 x 0) (V2 182 windowH)
+  SDL.rendererDrawColor rend $= V4 184 185 204 255
+  SDL.fillRects rend $ V.fromList $ do
+    offsetX <- [0, 36, 72, 108, 144, 180]
+    return $ SDL.Rectangle (P $ V2 (x + offsetX) 0) (V2 1 windowH)
+  SDL.rendererDrawColor rend $= V4 0 0 0 255
+  SDL.fillRects rend $ V.fromList $ do
+    offsetX <- [1, 37, 73, 109, 145, 181]
+    return $ SDL.Rectangle (P $ V2 (x + offsetX) 0) (V2 1 windowH)
+  -- Solo highway
+  SDL.rendererDrawColor rend $= V4 91 137 185 255
+  let soloEdges
+        = Map.insert minSecs (fromMaybe False $ fmap snd $ Map.lookupLE minSecs $ fiveSolo five)
+        $ Map.insert maxSecs False
+        $ zoom $ fiveSolo five
+      go []  = return ()
+      go [_] = return ()
+      go ((s1, b1) : rest@((s2, _) : _)) = do
+        let y1 = secsToPx s1
+            y2 = secsToPx s2
+        when b1 $ SDL.fillRects rend $ V.fromList $ do
+          offsetX <- [2, 38, 74, 110, 146]
+          return $ SDL.Rectangle (P $ V2 (x + offsetX) $ fromIntegral y2) (V2 34 $ fromIntegral $ y1 - y2)
+        go rest
+    in do
+      -- print soloEdges
+      go $ Map.toAscList soloEdges
+  -- Solo edges
+  let texSoloEdge = getImage Image_highway_grybo_solo_edge
   forM_ (Map.toDescList $ zoom $ fiveSolo five) $ \(secs, _) -> do
     draw1x rend texSoloEdge $ P $ V2 targetX $ secsToPx secs
   -- Beats
   forM_ (Map.toDescList $ zoom beats) $ \(secs, evt) -> do
     let y = secsToPx secs
     case evt of
-      Bar -> draw1x rend (getImage Image_highway_grybo_bar) $ P $ V2 targetX (y - 1)
-      Beat -> draw1x rend (getImage Image_highway_grybo_beat) $ P $ V2 targetX (y - 1)
+      Bar      -> draw1x rend (getImage Image_highway_grybo_bar     ) $ P $ V2 targetX (y - 1)
+      Beat     -> draw1x rend (getImage Image_highway_grybo_beat    ) $ P $ V2 targetX (y - 1)
       HalfBeat -> draw1x rend (getImage Image_highway_grybo_halfbeat) $ P $ V2 targetX y
   -- Target
   draw1x rend (getImage Image_highway_grybo_target) targetP
@@ -230,12 +256,37 @@ drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats wind rend get
       minSecs = pxToSecs $ fromIntegral windowH + 100
       zoom    = fst . Map.split maxSecs . snd . Map.split minSecs
   -- Highway
-  let tex         = getImage Image_highway_drums
-      texSolo     = getImage Image_highway_drums_solo
-      texSoloEdge = getImage Image_highway_drums_solo_edge
-  forM_ [0 .. fromIntegral windowH - 1] $ \y -> let
-    isSolo = fromMaybe False $ fmap snd $ Map.lookupLE (pxToSecs y) $ drumSolo drums
-    in draw1x rend (if isSolo then texSolo else tex) $ P $ V2 targetX y
+  let x = fromIntegral targetX
+  SDL.rendererDrawColor rend $= V4 126 126 150 255
+  SDL.fillRect rend $ Just $ SDL.Rectangle (P $ V2 x 0) (V2 146 windowH)
+  SDL.rendererDrawColor rend $= V4 184 185 204 255
+  SDL.fillRects rend $ V.fromList $ do
+    offsetX <- [0, 36, 72, 108, 144]
+    return $ SDL.Rectangle (P $ V2 (x + offsetX) 0) (V2 1 windowH)
+  SDL.rendererDrawColor rend $= V4 0 0 0 255
+  SDL.fillRects rend $ V.fromList $ do
+    offsetX <- [1, 37, 73, 109, 145]
+    return $ SDL.Rectangle (P $ V2 (x + offsetX) 0) (V2 1 windowH)
+  -- Solo highway
+  SDL.rendererDrawColor rend $= V4 91 137 185 255
+  let soloEdges
+        = Map.insert minSecs (fromMaybe False $ fmap snd $ Map.lookupLE minSecs $ drumSolo drums)
+        $ Map.insert maxSecs False
+        $ zoom $ drumSolo drums
+      go []  = return ()
+      go [_] = return ()
+      go ((s1, b1) : rest@((s2, _) : _)) = do
+        let y1 = secsToPx s1
+            y2 = secsToPx s2
+        when b1 $ SDL.fillRects rend $ V.fromList $ do
+          offsetX <- [2, 38, 74, 110]
+          return $ SDL.Rectangle (P $ V2 (x + offsetX) $ fromIntegral y2) (V2 34 $ fromIntegral $ y1 - y2)
+        go rest
+    in do
+      -- print soloEdges
+      go $ Map.toAscList soloEdges
+  -- Solo edges
+  let texSoloEdge = getImage Image_highway_drums_solo_edge
   forM_ (Map.toDescList $ zoom $ drumSolo drums) $ \(secs, _) -> do
     draw1x rend texSoloEdge $ P $ V2 targetX $ secsToPx secs
   -- Beats
@@ -349,14 +400,16 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend
   forM_ pitchList $ \(pitch, offsetX) -> do
     forM_ (Map.toDescList $ zoom $ fromJust $ Map.lookup pitch $ proKeysNotes prokeys) $ \(secs, evt) -> do
       let y = secsToPx secs
+          black = isBlack pitch
           isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ proKeysEnergy prokeys
-          img = getImage $ case (isEnergy, isBlack pitch) of
+          img = getImage $ case (isEnergy, black) of
             (False, False) -> Image_gem_whitekey
             (False, True ) -> Image_gem_blackkey
             (True , False) -> Image_gem_whitekey_energy
             (True , True ) -> Image_gem_blackkey_energy
       case evt of
-        SustainEnd -> draw1x rend (getImage Image_sustain_key_end) $ P $ V2 (targetX + offsetX) y
+        SustainEnd -> draw1x rend (getImage Image_sustain_key_end) $ P $ V2 (targetX + offsetX - if black then 1 else 0) y
+        -- TODO: why is the above black sustain end hack needed?
         Note    () -> draw1x rend img                              $ P $ V2 (targetX + offsetX) $ y - 5
         Sustain () -> draw1x rend img                              $ P $ V2 (targetX + offsetX) $ y - 5
 
