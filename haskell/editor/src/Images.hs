@@ -3,13 +3,11 @@
 module Images where
 
 import           Control.Exception (bracket)
-import           Control.Monad     (forM_)
 import qualified Data.ByteString   as B
 import           Data.FileEmbed    (embedDir)
 import           Data.List         (stripPrefix)
 import qualified Data.Map.Strict   as Map
 import           Foreign
-import           SDL               (($=))
 import qualified SDL
 
 import           SDLBindings
@@ -51,20 +49,10 @@ data ImageID
   | Image_highway_prokeys_bar
   | Image_highway_prokeys_beat
   | Image_highway_prokeys_halfbeat
-  | Image_highway_prokeys_arange
-  | Image_highway_prokeys_crange
-  | Image_highway_prokeys_drange
-  | Image_highway_prokeys_erange
-  | Image_highway_prokeys_frange
-  | Image_highway_prokeys_grange
   | Image_highway_prokeys_solo_edge
   | Image_highway_prokeys_target
   | Image_sustain_key_end
-  | Image_sustain_blackkey
-  | Image_sustain_blackkey_energy
   | Image_sustain_end
-  | Image_sustain_whitekey
-  | Image_sustain_whitekey_energy
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 imageFolder :: [(FilePath, B.ByteString)]
@@ -89,12 +77,4 @@ withImages rend f = let
           getImage iid = case Map.lookup iid table of
             Nothing -> error $ "withImages: couldn't find image for " ++ show iid
             Just surf -> surf
-      forM_
-        [ Image_highway_prokeys_crange
-        , Image_highway_prokeys_drange
-        , Image_highway_prokeys_erange
-        , Image_highway_prokeys_frange
-        , Image_highway_prokeys_grange
-        , Image_highway_prokeys_arange
-        ] $ \rng -> SDL.textureAlphaMod (getImage rng) $= round (0.3 * 255 :: Double)
       f getImage

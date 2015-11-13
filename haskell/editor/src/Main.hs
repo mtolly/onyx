@@ -3,6 +3,7 @@
 {-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE PatternSynonyms          #-}
 {-# LANGUAGE RecordWildCards          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Main where
 
 import           Control.Concurrent               (threadDelay)
@@ -32,16 +33,12 @@ import qualified Sound.MIDI.Util                  as U
 import           System.Environment               (getArgs)
 import           System.FilePath                  ((</>))
 import qualified Data.Vector.Storable as V
+import Control.Monad.Trans.Reader
+import Data.Word (Word8)
+import Control.Monad.IO.Class (MonadIO)
 
 import           Images
 import           SDLBindings
-
-type Draw a = SDL.Window -> SDL.Renderer -> (ImageID -> SDL.Texture) -> IO a
-
-draw1x :: SDL.Renderer -> SDL.Texture -> Point V2 Int -> IO ()
-draw1x rend tex xy = do
-  SDL.TextureInfo{ SDL.textureWidth = w, SDL.textureHeight = h } <- SDL.queryTexture tex
-  SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (fromIntegral <$> xy) (V2 w h)
 
 data Sustainable a
   = SustainEnd
@@ -148,26 +145,56 @@ processBeat tmap rtb = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0
     Beat.Beat -> Beat
     -- TODO: add half-beats
 
-drawFive :: (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> Five -> Beats -> Draw ()
-drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getImage = do
-  V2 _ windowH <- SDL.get $ SDL.windowSize wind
+class (Monad m) => MonadDraw m where
+  getDims   :: m (V2 Int)
+  setColor  :: V4 Word8 -> m ()
+  fillRect  :: Point V2 Int -> V2 Int -> m ()
+  fillRects :: [(Point V2 Int, V2 Int)] -> m ()
+  fillRects = mapM_ $ uncurry fillRect
+  drawImage :: ImageID -> Point V2 Int -> m ()
+
+newtype DrawSDL a = DrawSDL
+  { runDrawSDL :: ReaderT (SDL.Window, SDL.Renderer, ImageID -> SDL.Texture) IO a
+  } deriving (Functor, Applicative, Monad, MonadIO)
+
+instance MonadDraw DrawSDL where
+  getDims = do
+    (wind, _, _) <- DrawSDL ask
+    fmap fromIntegral <$> SDL.get (SDL.windowSize wind)
+  setColor color = do
+    (_, rend, _) <- DrawSDL ask
+    SDL.rendererDrawColor rend $= color
+  fillRect pos dims = do
+    (_, rend, _) <- DrawSDL ask
+    SDL.fillRect rend $ Just $ fromIntegral <$> SDL.Rectangle pos dims
+  fillRects rects = do
+    (_, rend, _) <- DrawSDL ask
+    SDL.fillRects rend $ V.fromList $ map (fmap fromIntegral . uncurry SDL.Rectangle) rects
+  drawImage img pos = do
+    (_, rend, getImage) <- DrawSDL ask
+    let tex = getImage img
+    SDL.TextureInfo{ SDL.textureWidth = w, SDL.textureHeight = h } <- SDL.queryTexture tex
+    SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (fromIntegral <$> pos) (V2 w h)
+
+drawFive :: (MonadDraw m) => (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> Five -> Beats -> m ()
+drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats = do
+  V2 _ windowH <- getDims
   let maxSecs = pxToSecs (-100)
-      minSecs = pxToSecs $ fromIntegral windowH + 100
+      minSecs = pxToSecs $ windowH + 100
       zoom = fst . Map.split maxSecs . snd . Map.split minSecs
   -- Highway
-  let x = fromIntegral targetX
-  SDL.rendererDrawColor rend $= V4 126 126 150 255
-  SDL.fillRect rend $ Just $ SDL.Rectangle (P $ V2 x 0) (V2 182 windowH)
-  SDL.rendererDrawColor rend $= V4 184 185 204 255
-  SDL.fillRects rend $ V.fromList $ do
+  setColor $ V4 126 126 150 255
+  fillRect (P $ V2 targetX 0) (V2 182 windowH)
+  setColor $ V4 184 185 204 255
+  fillRects $ do
     offsetX <- [0, 36, 72, 108, 144, 180]
-    return $ SDL.Rectangle (P $ V2 (x + offsetX) 0) (V2 1 windowH)
-  SDL.rendererDrawColor rend $= V4 0 0 0 255
-  SDL.fillRects rend $ V.fromList $ do
+    return (P $ V2 (targetX + offsetX) 0, V2 1 windowH)
+  setColor $ V4 0 0 0 255
+  fillRects $ do
     offsetX <- [1, 37, 73, 109, 145, 181]
-    return $ SDL.Rectangle (P $ V2 (x + offsetX) 0) (V2 1 windowH)
+    return (P $ V2 (targetX + offsetX) 0, V2 1 windowH)
   -- Solo highway
-  SDL.rendererDrawColor rend $= V4 91 137 185 255
+  setColor $ V4 91 137 185 255
   let soloEdges
         = Map.insert minSecs (fromMaybe False $ fmap snd $ Map.lookupLE minSecs $ fiveSolo five)
         $ Map.insert maxSecs False
@@ -177,24 +204,23 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getIm
       go ((s1, b1) : rest@((s2, _) : _)) = do
         let y1 = secsToPx s1
             y2 = secsToPx s2
-        when b1 $ SDL.fillRects rend $ V.fromList $ do
+        when b1 $ fillRects $ do
           offsetX <- [2, 38, 74, 110, 146]
-          return $ SDL.Rectangle (P $ V2 (x + offsetX) $ fromIntegral y2) (V2 34 $ fromIntegral $ y1 - y2)
+          return (P $ V2 (targetX + offsetX) y2, V2 34 $ y1 - y2)
         go rest
     in go $ Map.toAscList soloEdges
   -- Solo edges
-  let texSoloEdge = getImage Image_highway_grybo_solo_edge
   forM_ (Map.toDescList $ zoom $ fiveSolo five) $ \(secs, _) -> do
-    draw1x rend texSoloEdge $ P $ V2 targetX $ secsToPx secs
+    drawImage Image_highway_grybo_solo_edge $ P $ V2 targetX $ secsToPx secs
   -- Beats
   forM_ (Map.toDescList $ zoom beats) $ \(secs, evt) -> do
     let y = secsToPx secs
     case evt of
-      Bar      -> draw1x rend (getImage Image_highway_grybo_bar     ) $ P $ V2 targetX (y - 1)
-      Beat     -> draw1x rend (getImage Image_highway_grybo_beat    ) $ P $ V2 targetX (y - 1)
-      HalfBeat -> draw1x rend (getImage Image_highway_grybo_halfbeat) $ P $ V2 targetX y
+      Bar      -> drawImage Image_highway_grybo_bar      $ P $ V2 targetX (y - 1)
+      Beat     -> drawImage Image_highway_grybo_beat     $ P $ V2 targetX (y - 1)
+      HalfBeat -> drawImage Image_highway_grybo_halfbeat $ P $ V2 targetX y
   -- Target
-  draw1x rend (getImage Image_highway_grybo_target) targetP
+  drawImage Image_highway_grybo_target targetP
   -- Sustains
   let colors =
         [ (Five.Green , 1  , Image_gem_green , Image_gem_green_hopo )
@@ -216,18 +242,18 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getIm
                   Five.Blue   -> (V4 119 189 255 255, V4   2 117 218 255, V4   3  76 140 255)
                   Five.Orange -> (V4 255 183 119 255, V4 218  97   4 255, V4 140  63   3 255)
               h = yend - ystart + 1
-          SDL.rendererDrawColor rend $= V4 0 0 0 255
-          SDL.fillRect rend $ Just $ fmap fromIntegral $ SDL.Rectangle (P $ V2 (targetX + offsetX + 14) ystart) (V2 1 h)
-          SDL.fillRect rend $ Just $ fmap fromIntegral $ SDL.Rectangle (P $ V2 (targetX + offsetX + 22) ystart) (V2 1 h)
-          SDL.rendererDrawColor rend $= shadeLight
-          SDL.fillRect rend $ Just $ fmap fromIntegral $ SDL.Rectangle (P $ V2 (targetX + offsetX + 15) ystart) (V2 1 h)
-          SDL.rendererDrawColor rend $= shadeNormal
-          SDL.fillRect rend $ Just $ fmap fromIntegral $ SDL.Rectangle (P $ V2 (targetX + offsetX + 16) ystart) (V2 5 h)
-          SDL.rendererDrawColor rend $= shadeDark
-          SDL.fillRect rend $ Just $ fmap fromIntegral $ SDL.Rectangle (P $ V2 (targetX + offsetX + 21) ystart) (V2 1 h)
+          setColor $ V4 0 0 0 255
+          fillRect (P $ V2 (targetX + offsetX + 14) ystart) (V2 1 h)
+          fillRect (P $ V2 (targetX + offsetX + 22) ystart) (V2 1 h)
+          setColor shadeLight
+          fillRect (P $ V2 (targetX + offsetX + 15) ystart) (V2 1 h)
+          setColor shadeNormal
+          fillRect (P $ V2 (targetX + offsetX + 16) ystart) (V2 5 h)
+          setColor shadeDark
+          fillRect (P $ V2 (targetX + offsetX + 21) ystart) (V2 1 h)
         go False ((secsEnd, SustainEnd) : rest) = case Map.lookupLT secsEnd thisColor of
           Just (secsStart, Sustain _) -> do
-            drawSustainBlock (secsToPx secsEnd) (fromIntegral windowH) $ isEnergy secsStart
+            drawSustainBlock (secsToPx secsEnd) windowH $ isEnergy secsStart
             go False rest
           _ -> error "during grybo drawing: found a sustain end not preceded by sustain start"
         go True ((_, SustainEnd) : rest) = go False rest
@@ -243,10 +269,10 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getIm
           go True rest
         go _ [] = return ()
     case Map.toAscList $ zoom thisColor of
-      [] -> case Map.lookupLT (pxToSecs $ fromIntegral windowH) thisColor of
+      [] -> case Map.lookupLT (pxToSecs windowH) thisColor of
         -- handle the case where the entire screen is the middle of a sustain
         Just (secsStart, Sustain _) ->
-          drawSustainBlock 0 (fromIntegral windowH) $ isEnergy secsStart
+          drawSustainBlock 0 windowH $ isEnergy secsStart
         _ -> return ()
       events -> go False events
   -- Notes
@@ -255,32 +281,31 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats wind rend getIm
       let y = secsToPx secs
           isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ fiveEnergy five
       case evt of
-        SustainEnd    -> draw1x rend (getImage Image_sustain_end                                      ) $ P $ V2 (targetX + offsetX) y
-        Note    Strum -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else strumImage    ) $ P $ V2 (targetX + offsetX) $ y - 5
-        Sustain Strum -> draw1x rend (getImage $ if isEnergy then Image_gem_energy else strumImage    ) $ P $ V2 (targetX + offsetX) $ y - 5
-        Note    HOPO  -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_hopo else hopoImage) $ P $ V2 (targetX + offsetX) $ y - 5
-        Sustain HOPO  -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_hopo else hopoImage) $ P $ V2 (targetX + offsetX) $ y - 5
+        SustainEnd    -> drawImage Image_sustain_end                                        $ P $ V2 (targetX + offsetX) y
+        Note    Strum -> drawImage (if isEnergy then Image_gem_energy      else strumImage) $ P $ V2 (targetX + offsetX) $ y - 5
+        Sustain Strum -> drawImage (if isEnergy then Image_gem_energy      else strumImage) $ P $ V2 (targetX + offsetX) $ y - 5
+        Note    HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) $ P $ V2 (targetX + offsetX) $ y - 5
+        Sustain HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) $ P $ V2 (targetX + offsetX) $ y - 5
 
-drawDrums :: (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> Drums -> Beats -> Draw ()
-drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats wind rend getImage = do
-  V2 _ windowH <- SDL.get $ SDL.windowSize wind
+drawDrums :: (MonadDraw m) => (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> Drums -> Beats -> m ()
+drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats = do
+  V2 _ windowH <- getDims
   let maxSecs = pxToSecs (-100)
-      minSecs = pxToSecs $ fromIntegral windowH + 100
+      minSecs = pxToSecs $ windowH + 100
       zoom    = fst . Map.split maxSecs . snd . Map.split minSecs
   -- Highway
-  let x = fromIntegral targetX
-  SDL.rendererDrawColor rend $= V4 126 126 150 255
-  SDL.fillRect rend $ Just $ SDL.Rectangle (P $ V2 x 0) (V2 146 windowH)
-  SDL.rendererDrawColor rend $= V4 184 185 204 255
-  SDL.fillRects rend $ V.fromList $ do
+  setColor $ V4 126 126 150 255
+  fillRect (P $ V2 targetX 0) (V2 146 windowH)
+  setColor $ V4 184 185 204 255
+  fillRects $ do
     offsetX <- [0, 36, 72, 108, 144]
-    return $ SDL.Rectangle (P $ V2 (x + offsetX) 0) (V2 1 windowH)
-  SDL.rendererDrawColor rend $= V4 0 0 0 255
-  SDL.fillRects rend $ V.fromList $ do
+    return (P $ V2 (targetX + offsetX) 0, V2 1 windowH)
+  setColor $ V4 0 0 0 255
+  fillRects $ do
     offsetX <- [1, 37, 73, 109, 145]
-    return $ SDL.Rectangle (P $ V2 (x + offsetX) 0) (V2 1 windowH)
+    return (P $ V2 (targetX + offsetX) 0, V2 1 windowH)
   -- Solo highway
-  SDL.rendererDrawColor rend $= V4 91 137 185 255
+  setColor $ V4 91 137 185 255
   let soloEdges
         = Map.insert minSecs (fromMaybe False $ fmap snd $ Map.lookupLE minSecs $ drumSolo drums)
         $ Map.insert maxSecs False
@@ -290,38 +315,37 @@ drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats wind rend get
       go ((s1, b1) : rest@((s2, _) : _)) = do
         let y1 = secsToPx s1
             y2 = secsToPx s2
-        when b1 $ SDL.fillRects rend $ V.fromList $ do
+        when b1 $ fillRects $ do
           offsetX <- [2, 38, 74, 110]
-          return $ SDL.Rectangle (P $ V2 (x + offsetX) $ fromIntegral y2) (V2 34 $ fromIntegral $ y1 - y2)
+          return (P $ V2 (targetX + offsetX) y2, V2 34 $ y1 - y2)
         go rest
     in go $ Map.toAscList soloEdges
   -- Solo edges
-  let texSoloEdge = getImage Image_highway_drums_solo_edge
   forM_ (Map.toDescList $ zoom $ drumSolo drums) $ \(secs, _) -> do
-    draw1x rend texSoloEdge $ P $ V2 targetX $ secsToPx secs
+    drawImage Image_highway_drums_solo_edge $ P $ V2 targetX $ secsToPx secs
   -- Beats
   forM_ (Map.toDescList $ zoom beats) $ \(secs, evt) -> do
     let y = secsToPx secs
     case evt of
-      Bar      -> draw1x rend (getImage Image_highway_drums_bar     ) $ P $ V2 targetX (y - 1)
-      Beat     -> draw1x rend (getImage Image_highway_drums_beat    ) $ P $ V2 targetX (y - 1)
-      HalfBeat -> draw1x rend (getImage Image_highway_drums_halfbeat) $ P $ V2 targetX y
+      Bar      -> drawImage Image_highway_drums_bar      $ P $ V2 targetX (y - 1)
+      Beat     -> drawImage Image_highway_drums_beat     $ P $ V2 targetX (y - 1)
+      HalfBeat -> drawImage Image_highway_drums_halfbeat $ P $ V2 targetX y
   -- Target
-  draw1x rend (getImage Image_highway_drums_target) targetP
+  drawImage Image_highway_drums_target targetP
   -- Notes
   forM_ (Map.toDescList $ zoom $ drumNotes drums) $ \(secs, evts) -> do
     let y = secsToPx secs
         isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ drumEnergy drums
     forM_ evts $ \evt -> do
       case evt of
-        Drums.Kick                          -> draw1x rend (getImage $ if isEnergy then Image_gem_kick_energy   else Image_gem_kick         ) $ P $ V2 (targetX + 1  ) (y - 3)
-        Drums.Red                           -> draw1x rend (getImage $ if isEnergy then Image_gem_energy        else Image_gem_red          ) $ P $ V2 (targetX + 1  ) (y - 5)
-        Drums.Pro Drums.Yellow Drums.Tom    -> draw1x rend (getImage $ if isEnergy then Image_gem_energy        else Image_gem_yellow       ) $ P $ V2 (targetX + 37 ) (y - 5)
-        Drums.Pro Drums.Yellow Drums.Cymbal -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) $ P $ V2 (targetX + 37 ) (y - 8)
-        Drums.Pro Drums.Blue   Drums.Tom    -> draw1x rend (getImage $ if isEnergy then Image_gem_energy        else Image_gem_blue         ) $ P $ V2 (targetX + 73 ) (y - 5)
-        Drums.Pro Drums.Blue   Drums.Cymbal -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal  ) $ P $ V2 (targetX + 73 ) (y - 8)
-        Drums.Pro Drums.Green  Drums.Tom    -> draw1x rend (getImage $ if isEnergy then Image_gem_energy        else Image_gem_green        ) $ P $ V2 (targetX + 109) (y - 5)
-        Drums.Pro Drums.Green  Drums.Cymbal -> draw1x rend (getImage $ if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) $ P $ V2 (targetX + 109) (y - 8)
+        Drums.Kick                          -> drawImage (if isEnergy then Image_gem_kick_energy   else Image_gem_kick         ) $ P $ V2 (targetX + 1  ) (y - 3)
+        Drums.Red                           -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_red          ) $ P $ V2 (targetX + 1  ) (y - 5)
+        Drums.Pro Drums.Yellow Drums.Tom    -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_yellow       ) $ P $ V2 (targetX + 37 ) (y - 5)
+        Drums.Pro Drums.Yellow Drums.Cymbal -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) $ P $ V2 (targetX + 37 ) (y - 8)
+        Drums.Pro Drums.Blue   Drums.Tom    -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_blue         ) $ P $ V2 (targetX + 73 ) (y - 5)
+        Drums.Pro Drums.Blue   Drums.Cymbal -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal  ) $ P $ V2 (targetX + 73 ) (y - 8)
+        Drums.Pro Drums.Green  Drums.Tom    -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_green        ) $ P $ V2 (targetX + 109) (y - 5)
+        Drums.Pro Drums.Green  Drums.Cymbal -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) $ P $ V2 (targetX + 109) (y - 8)
 
 data PKHighway
   = RailingLight
@@ -340,11 +364,11 @@ pkHighway = let
   four = [w, b, w, b, w, b, WhiteKeyShort]
   in intercalate rail [[], three, four, three, four, [WhiteKeyShort], []]
 
-drawProKeys :: (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> ProKeys -> Beats -> Draw ()
-drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend getImage = do
-  V2 _ windowH <- SDL.get $ SDL.windowSize wind
+drawProKeys :: (MonadDraw m) => (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> ProKeys -> Beats -> m ()
+drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats = do
+  V2 _ windowH <- getDims
   let maxSecs = pxToSecs (-100)
-      minSecs = pxToSecs $ fromIntegral windowH + 100
+      minSecs = pxToSecs $ windowH + 100
       zoom    = fst . Map.split maxSecs . snd . Map.split minSecs
   -- Highway
   let drawHighway _    []               = return ()
@@ -355,10 +379,10 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend
               WhiteKey      -> (V4 126 126 150 255, 11)
               WhiteKeyShort -> (V4 126 126 150 255, 10)
               BlackKey      -> (V4 105 105 129 255, 11)
-        SDL.rendererDrawColor rend $= color
-        SDL.fillRect rend $ Just $ SDL.Rectangle (P $ V2 xpos 0) (V2 width windowH)
+        setColor color
+        fillRect (P $ V2 xpos 0) (V2 width windowH)
         drawHighway (xpos + width) chunks
-  drawHighway (fromIntegral targetX) pkHighway
+  drawHighway targetX pkHighway
   -- Solo highway
   let soloEdges
         = Map.insert minSecs (fromMaybe False $ fmap snd $ Map.lookupLE minSecs $ proKeysSolo prokeys)
@@ -372,8 +396,8 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend
               WhiteKey      -> (V4  91 137 185 255, 11)
               WhiteKeyShort -> (V4  91 137 185 255, 10)
               BlackKey      -> (V4  73 111 149 255, 11)
-        SDL.rendererDrawColor rend $= color
-        SDL.fillRect rend $ Just $ fmap fromIntegral $ SDL.Rectangle (P $ V2 xpos y1) (V2 width $ y2 - y1)
+        setColor color
+        fillRect (P $ V2 xpos y1) (V2 width $ y2 - y1)
         drawSoloHighway (xpos + width) y1 y2 chunks
       go []  = return ()
       go [_] = return ()
@@ -381,27 +405,40 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend
         when b1 $ drawSoloHighway targetX (secsToPx s1) (secsToPx s2) pkHighway
         go rest
     in go $ Map.toAscList soloEdges
+  -- Solo edges
+  forM_ (Map.toDescList $ zoom $ proKeysSolo prokeys) $ \(secs, _) -> do
+    drawImage Image_highway_prokeys_solo_edge $ P $ V2 targetX $ secsToPx secs
   -- Beats
   forM_ (Map.toDescList $ zoom beats) $ \(secs, evt) -> do
     let y = secsToPx secs
     case evt of
-      Bar      -> draw1x rend (getImage Image_highway_prokeys_bar     ) $ P $ V2 targetX (y - 1)
-      Beat     -> draw1x rend (getImage Image_highway_prokeys_beat    ) $ P $ V2 targetX (y - 1)
-      HalfBeat -> draw1x rend (getImage Image_highway_prokeys_halfbeat) $ P $ V2 targetX y
+      Bar      -> drawImage Image_highway_prokeys_bar      $ P $ V2 targetX (y - 1)
+      Beat     -> drawImage Image_highway_prokeys_beat     $ P $ V2 targetX (y - 1)
+      HalfBeat -> drawImage Image_highway_prokeys_halfbeat $ P $ V2 targetX y
   -- Target
-  draw1x rend (getImage Image_highway_prokeys_target) targetP
+  drawImage Image_highway_prokeys_target targetP
   -- Ranges
-  forM_ [0 .. fromIntegral windowH - 1] $ \y -> case Map.lookupLE (pxToSecs y) $ proKeysRanges prokeys of
-    Nothing -> return ()
-    Just (_, rng) -> do
-      let texRange = getImage $ case rng of
-            PK.RangeC -> Image_highway_prokeys_crange
-            PK.RangeD -> Image_highway_prokeys_drange
-            PK.RangeE -> Image_highway_prokeys_erange
-            PK.RangeF -> Image_highway_prokeys_frange
-            PK.RangeG -> Image_highway_prokeys_grange
-            PK.RangeA -> Image_highway_prokeys_arange
-      draw1x rend texRange $ P $ V2 targetX y
+  setColor $ V4 0 0 0 $ round (0.3 * 255 :: Double)
+  let rangeEdges
+        = Map.insert minSecs (fmap snd $ Map.lookupLE minSecs $ proKeysRanges prokeys)
+        $ Map.insert maxSecs Nothing
+        $ fmap Just $ zoom $ proKeysRanges prokeys
+      go []  = return ()
+      go [_] = return ()
+      go ((s1, rng) : rest@((s2, _) : _)) = do
+        case rng of
+          Nothing -> return ()
+          Just r -> fillRects $ case r of
+            PK.RangeC -> [(P $ V2 (targetX + 192) y, V2 90 h)]
+            PK.RangeD -> [(P $ V2 (targetX + 2) y, V2 22 h), (P $ V2 (targetX + 203) y, V2 79 h)]
+            PK.RangeE -> [(P $ V2 (targetX + 2) y, V2 44 h), (P $ V2 (targetX + 225) y, V2 57 h)]
+            PK.RangeF -> [(P $ V2 (targetX + 2) y, V2 56 h), (P $ V2 (targetX + 247) y, V2 35 h)]
+            PK.RangeG -> [(P $ V2 (targetX + 2) y, V2 78 h), (P $ V2 (targetX + 270) y, V2 12 h)]
+            PK.RangeA -> [(P $ V2 (targetX + 2) y, V2 100 h)]
+            where y = secsToPx s1
+                  h = secsToPx s2 - y
+        go rest
+    in go $ Map.toAscList rangeEdges
   -- Sustains
   let pitches = map PK.RedYellow keys ++ map PK.BlueGreen keys ++ [PK.OrangeC]
       keys = [minBound .. maxBound]
@@ -419,16 +456,26 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend
     let thisPitch = fromJust $ Map.lookup pitch $ proKeysNotes prokeys
         black = isBlack pitch
         isEnergy secs = fromMaybe False $ fmap snd $ Map.lookupLE secs $ proKeysEnergy prokeys
-        drawSustain energy y = do
-          let img = getImage $ case (energy, black) of
-                (False, False) -> Image_sustain_whitekey
-                (False, True ) -> Image_sustain_blackkey
-                (True , False) -> Image_sustain_whitekey_energy
-                (True , True ) -> Image_sustain_blackkey_energy
-          draw1x rend img $ P $ V2 (targetX + offsetX) y
+        drawSustainBlock ystart yend energy = do
+          let (shadeLight, shadeNormal, shadeDark) = case (energy, black) of
+                (True , False) -> (V4 137 235 204 255, V4 138 192 175 255, V4 124 158 149 255)
+                (True , True ) -> (V4  52 148 117 255, V4  71 107  95 255, V4  69  83  79 255)
+                (False, False) -> (V4 199 134 218 255, V4 184 102 208 255, V4 178  86 204 255)
+                (False, True ) -> (V4 175  83 201 255, V4 147  49 175 255, V4 123  42 150 255)
+              h = yend - ystart + 1
+              offsetX' = offsetX + if black then 0 else 1
+          setColor $ V4 0 0 0 255
+          fillRect (P $ V2 (targetX + offsetX' + 2) ystart) (V2 1 h)
+          fillRect (P $ V2 (targetX + offsetX' + 8) ystart) (V2 1 h)
+          setColor shadeLight
+          fillRect (P $ V2 (targetX + offsetX' + 3) ystart) (V2 1 h)
+          setColor shadeNormal
+          fillRect (P $ V2 (targetX + offsetX' + 4) ystart) (V2 3 h)
+          setColor shadeDark
+          fillRect (P $ V2 (targetX + offsetX' + 7) ystart) (V2 1 h)
         go False ((secsEnd, SustainEnd) : rest) = case Map.lookupLT secsEnd thisPitch of
           Just (secsStart, Sustain _) -> do
-            forM_ [secsToPx secsEnd .. fromIntegral windowH] $ drawSustain $ isEnergy secsStart
+            drawSustainBlock (secsToPx secsEnd) windowH $ isEnergy secsStart
             go False rest
           _ -> error "during prokeys drawing: found a sustain end not preceded by sustain start"
         go True ((_, SustainEnd) : rest) = go False rest
@@ -440,13 +487,14 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend
                 [] -> 0
                 (secsEnd, SustainEnd) : _ -> secsToPx secsEnd
                 _ -> error "during prokeys drawing: found a sustain not followed by sustain end"
-          forM_ [pxEnd .. secsToPx secsStart] $ drawSustain $ isEnergy secsStart
+          drawSustainBlock pxEnd (secsToPx secsStart) $ isEnergy secsStart
           go True rest
         go _ [] = return ()
     case Map.toAscList $ zoom thisPitch of
-      [] -> case Map.lookupLT (pxToSecs $ fromIntegral windowH) thisPitch of
+      [] -> case Map.lookupLT (pxToSecs windowH) thisPitch of
         -- handle the case where the entire screen is the middle of a sustain
-        Just (secsStart, Sustain ()) -> forM_ [0 .. fromIntegral windowH] $ drawSustain $ isEnergy secsStart
+        Just (secsStart, Sustain ()) ->
+          drawSustainBlock 0 windowH $ isEnergy secsStart
         _ -> return ()
       events -> go False events
   -- Notes
@@ -455,16 +503,15 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats wind rend
       let y = secsToPx secs
           black = isBlack pitch
           isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ proKeysEnergy prokeys
-          img = getImage $ case (isEnergy, black) of
+          img = case (isEnergy, black) of
             (False, False) -> Image_gem_whitekey
             (False, True ) -> Image_gem_blackkey
             (True , False) -> Image_gem_whitekey_energy
             (True , True ) -> Image_gem_blackkey_energy
       case evt of
-        SustainEnd -> draw1x rend (getImage Image_sustain_key_end) $ P $ V2 (targetX + offsetX - if black then 1 else 0) y
-        -- TODO: why is the above black sustain end hack needed?
-        Note    () -> draw1x rend img                              $ P $ V2 (targetX + offsetX) $ y - 5
-        Sustain () -> draw1x rend img                              $ P $ V2 (targetX + offsetX) $ y - 5
+        SustainEnd -> drawImage Image_sustain_key_end $ P $ V2 (targetX + offsetX - if black then 1 else 0) y
+        Note    () -> drawImage img                   $ P $ V2 (targetX + offsetX) $ y - 5
+        Sustain () -> drawImage img                   $ P $ V2 (targetX + offsetX) $ y - 5
 
 data App
   = Paused
@@ -507,7 +554,7 @@ main = do
   withMixerAudio 44100 mixDefaultFormat 2 1024 $ do
   mus <- withCString (dir </> "gen/plan/album/song-countin.ogg") mixLoadMUS
 
-  let draw f = f wind rend getImage
+  SDL.rendererDrawBlendMode rend $= SDL.BlendAlphaBlend
 
   let pxToSecs targetY now px = let
         secs = fromIntegral (targetY - px) * 0.003 + realToFrac now :: Rational
@@ -532,11 +579,12 @@ main = do
         V2 _ windowH <- SDL.get $ SDL.windowSize wind
         let targetY :: (Num a) => a
             targetY = fromIntegral windowH - 50
-        unless gtrNull     $ draw $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 50  targetY) gtr     beat
-        unless bassNull    $ draw $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 275 targetY) bass    beat
-        unless drumsNull   $ draw $ drawDrums   (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 500 targetY) drums   beat
-        unless keysNull    $ draw $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 689 targetY) keys    beat
-        unless proKeysNull $ draw $ drawProKeys (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 914 targetY) prokeys beat
+        (\sdl -> runReaderT (runDrawSDL sdl) (wind, rend, getImage)) $ do
+          unless gtrNull     $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 50  targetY) gtr     beat
+          unless bassNull    $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 275 targetY) bass    beat
+          unless drumsNull   $ drawDrums   (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 500 targetY) drums   beat
+          unless keysNull    $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 689 targetY) keys    beat
+          unless proKeysNull $ drawProKeys (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 914 targetY) prokeys beat
         SDL.present rend
   drawFrame 0
   firstSDLTime <- SDL.time

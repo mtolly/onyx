@@ -25,6 +25,7 @@ executable onyxeditor
     , containers
     , non-negative
     , vector
+    , transformers
   pkgconfig-depends: SDL2_image, SDL2_mixer
   build-tools: c2hs
   ghc-options: -Wall
