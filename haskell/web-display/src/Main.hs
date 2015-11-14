@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Main (main) where
 
@@ -12,9 +13,6 @@ import Control.Applicative (liftA2)
 import Linear (V2(..), V4(..))
 import Linear.Affine (Point (..))
 import JavaScript.Web.XMLHttpRequest
-import qualified Sound.MIDI.File.Load as Load
-import qualified Sound.MIDI.Parser.Report as MIDIParser
-import qualified Data.ByteString.Lazy as BL
 import Control.Monad.Trans.StackTrace (runStackTrace)
 import qualified RockBand.File                    as RB
 import RockBand.Common (Difficulty(..))
@@ -24,13 +22,28 @@ import qualified Data.Map.Strict                  as Map
 import qualified RockBand.Events                  as Events
 import qualified RockBand.FiveButton              as Five
 import qualified Sound.MIDI.Util                  as U
-import           Data.Maybe                       (listToMaybe)
+import           Data.Maybe                       (listToMaybe, fromMaybe)
 import qualified Data.EventList.Relative.TimeBody as RTB
+import GHCJS.Marshal (fromJSVal)
+import Data.JSString (pack)
 
 import GHCJS.Types
 
 import qualified Audio
 import Images
+import MIDI
+
+foreign import javascript unsafe
+  " location.search.substr(1).split('&').map(function(pair){ \
+  \   var tmp = pair.split('=');                             \
+  \   return [tmp[0], decodeURIComponent(tmp[1])];           \
+  \ })                                                       "
+  js_retrieveGET :: IO JSVal
+
+retrieveGET :: IO [(String, String)]
+retrieveGET = js_retrieveGET >>= fromJSVal >>= \case
+  Just pairs -> return pairs
+  Nothing    -> error "retrieveGET: could not read JS value as list of pairs"
 
 newtype DrawCanvas a = DrawCanvas
   { runDrawCanvas :: ReaderT (C.Canvas, C.Context, ImageID -> C.Image) IO a
@@ -73,9 +86,12 @@ foreign import javascript unsafe
 
 main :: IO ()
 main = do
+  get <- retrieveGET
+  let artist = fromMaybe "dream-theater" $ lookup "artist" get
+      title = fromMaybe "6-00" $ lookup "title" get
   resp <- xhrByteString $ Request
     { reqMethod = GET
-    , reqURI = "songs/liquid-tension-experiment/914/gen/plan/album/2p/notes.mid"
+    , reqURI = pack $ "songs/" ++ artist ++ "/" ++ title ++ "/gen/plan/album/2p/notes.mid"
     , reqLogin = Nothing
     , reqHeaders = []
     , reqWithCredentials = False
@@ -84,9 +100,7 @@ main = do
   midbs <- case contents resp of
     Just bs -> return bs
     Nothing -> error "couldn't get MIDI as bytestring"
-  mid <- case MIDIParser.result $ Load.maybeFromByteString $ BL.fromStrict midbs of
-    Right mid -> return mid
-    Left _ -> error "couldn't parse MIDI from bytestring"
+  mid <- readMIDI midbs
   song <- case runStackTrace $ RB.readMIDIFile mid of
     (Right song, _) -> return song
     (Left _, _) -> error "Error when reading MIDI file"
@@ -105,7 +119,9 @@ main = do
 
   ctx <- C.getContext theCanvas
   getImage <- imageGetter
-  howl <- Audio.load ["songs/liquid-tension-experiment/914/gen/plan/album/preview-audio.ogg"]
+  howl <- Audio.load $ do
+    ext <- ["ogg", "mp3"]
+    return $ "songs/" ++ artist ++ "/" ++ title ++ "/gen/plan/album/preview-audio." ++ ext
 
   let pxToSecs targetY now px = let
         secs = fromIntegral (targetY - px) * 0.003 + realToFrac now :: Rational

@@ -9,6 +9,7 @@ executable onyxpreview
   other-modules:
     Audio
     Images
+    MIDI
   ghc-options:          -Wall
   build-depends:
     base
