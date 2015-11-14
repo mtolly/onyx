@@ -1,19 +1,39 @@
-flags:
-  onyxite-customs-preview:
-    SDLDisplay: false
 packages:
-- 'preview'
-- 'parse'
 - 'stack-trace'
+- 'parse'
+- 'display'
+- 'web-display'
 extra-deps:
+- QuickCheck-2.8.1
+- StateVar-1.1.0.1
+- adjunctions-4.2.2
+- base-orphans-0.4.4
+- bifunctors-5.1
+- bytes-0.15.0.1
+- cereal-0.4.1.1
+- comonad-4.2.7.2
+- contravariant-1.3.3
+- distributive-0.4.4
 - event-list-0.1.1.2
+- exceptions-0.8.0.2
+- explicit-exception-0.1.7.3
+- free-4.12.1
+- kan-extensions-4.2.3
+- lens-4.13
+- linear-1.20.2
 - midi-0.2.1.5
 - midi-util-0.1.1.1
-- non-negative-0.1.1
-- QuickCheck-2.8.1
-- explicit-exception-0.1.7.3
 - monoid-transformer-0.0.3
+- non-negative-0.1.1
+- prelude-extras-0.4.0.2
+- profunctors-5.1.1
 - random-1.1
-- utility-ht-0.0.11
+- reflection-2.1
+- semigroupoids-5.0.0.4
+- semigroups-0.18.0.1
+- tagged-0.8.2
 - tf-random-0.5
-resolver: ghcjs-0.1.0_ghc-7.10.2
+- transformers-compat-0.4.0.4
+- utility-ht-0.0.11
+- void-0.7.1
+resolver: ghcjs-0.2.0_ghc-7.10.2

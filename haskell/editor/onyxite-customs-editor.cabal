@@ -26,6 +26,7 @@ executable onyxeditor
     , non-negative
     , vector
     , transformers
+    , onyxite-customs-display
   pkgconfig-depends: SDL2_image, SDL2_mixer
   build-tools: c2hs
   ghc-options: -Wall
