@@ -128,11 +128,11 @@ main = do
         let targetY :: (Num a) => a
             targetY = fromIntegral windowH - 50
         (\sdl -> runReaderT (runDrawSDL sdl) (wind, rend, getImage)) $ do
-          unless gtrNull     $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 50  targetY) gtr     beat
-          unless bassNull    $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 275 targetY) bass    beat
-          unless drumsNull   $ drawDrums   (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 500 targetY) drums   beat
-          unless keysNull    $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 689 targetY) keys    beat
-          unless proKeysNull $ drawProKeys (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 914 targetY) prokeys beat
+          unless gtrNull     $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 50  targetY) gtr     beat True
+          unless bassNull    $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 275 targetY) bass    beat True
+          unless drumsNull   $ drawDrums   (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 500 targetY) drums   beat True
+          unless keysNull    $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 689 targetY) keys    beat True
+          unless proKeysNull $ drawProKeys (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 914 targetY) prokeys beat True
         SDL.present rend
   drawFrame 0
   firstSDLTime <- SDL.time
@@ -156,8 +156,7 @@ main = do
             applyEvents s []                   = do
               endTicks <- SDL.ticks
               let took = fromIntegral endTicks - fromIntegral startTicks :: Int
-                  fps = round (1000 / fromIntegral (max 16 took) :: Double) :: Int
-              print fps
+                  -- fps = round (1000 / fromIntegral (max 16 took) :: Double) :: Int
               threadDelay $ (16 - took) * 1000
               loop s
             applyEvents s (SDL.Event _ e : es) = case e of

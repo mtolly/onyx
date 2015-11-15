@@ -2,7 +2,7 @@
 module OnyxiteDisplay.Draw where
 
 import           Control.Monad          (forM_, when)
-import           Data.List              (inits, intercalate)
+import           Data.List              (inits, intercalate, sort)
 import qualified Data.Map.Strict        as Map
 import           Data.Maybe             (fromJust, fromMaybe)
 import           Data.Word              (Word8)
@@ -67,8 +67,8 @@ class (Monad m) => MonadDraw m where
   fillRects = mapM_ $ uncurry fillRect
   drawImage :: ImageID -> Point V2 Int -> m ()
 
-drawFive :: (MonadDraw m) => (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> Five -> Beats -> m ()
-drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats = do
+drawFive :: (MonadDraw m) => (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> Five -> Beats -> Bool -> m ()
+drawFive pxToSecs secsToPx (P (V2 targetX targetY)) five beats autoplay = do
   V2 _ windowH <- getDims
   let maxSecs = pxToSecs (-100)
       minSecs = pxToSecs $ windowH + 100
@@ -111,7 +111,7 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats = do
       Beat     -> drawImage Image_highway_grybo_beat     $ P $ V2 targetX (y - 1)
       HalfBeat -> drawImage Image_highway_grybo_halfbeat $ P $ V2 targetX y
   -- Target
-  drawImage Image_highway_grybo_target targetP
+  drawImage Image_highway_grybo_target $ P $ V2 targetX $ targetY - 5
   -- Sustains
   let colors =
         [ (Five.Green , 1  , Image_gem_green , Image_gem_green_hopo )
@@ -123,8 +123,11 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats = do
   forM_ colors $ \(color, offsetX, _, _) -> do
     let thisColor = fromJust $ Map.lookup color $ fiveNotes five
         isEnergy secs = fromMaybe False $ fmap snd $ Map.lookupLE secs $ fiveEnergy five
-        drawSustainBlock ystart yend energy = do
-          let (shadeLight, shadeNormal, shadeDark) = if energy
+        drawSustainBlock ystart yend energy = when (not autoplay || ystart < targetY || yend < targetY) $ do
+          let ystart' = if autoplay then min ystart targetY else ystart
+              yend'   = if autoplay then min yend   targetY else yend
+              sustaining = autoplay && (targetY < ystart || targetY < yend)
+              (shadeLight, shadeNormal, shadeDark) = if energy
                 then             (V4 137 235 204 255, V4 138 192 175 255, V4 124 158 149 255)
                 else case color of
                   Five.Green  -> (V4 135 247 126 255, V4  21 218   2 255, V4  13 140   2 255)
@@ -132,16 +135,19 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats = do
                   Five.Yellow -> (V4 247 228 127 255, V4 218 180   2 255, V4 140 115   3 255)
                   Five.Blue   -> (V4 119 189 255 255, V4   2 117 218 255, V4   3  76 140 255)
                   Five.Orange -> (V4 255 183 119 255, V4 218  97   4 255, V4 140  63   3 255)
-              h = yend - ystart + 1
+              h = yend' - ystart' + 1
           setColor $ V4 0 0 0 255
-          fillRect (P $ V2 (targetX + offsetX + 14) ystart) (V2 1 h)
-          fillRect (P $ V2 (targetX + offsetX + 22) ystart) (V2 1 h)
+          fillRect (P $ V2 (targetX + offsetX + 14) ystart') (V2 1 h)
+          fillRect (P $ V2 (targetX + offsetX + 22) ystart') (V2 1 h)
           setColor shadeLight
-          fillRect (P $ V2 (targetX + offsetX + 15) ystart) (V2 1 h)
+          fillRect (P $ V2 (targetX + offsetX + 15) ystart') (V2 1 h)
           setColor shadeNormal
-          fillRect (P $ V2 (targetX + offsetX + 16) ystart) (V2 5 h)
+          fillRect (P $ V2 (targetX + offsetX + 16) ystart') (V2 5 h)
           setColor shadeDark
-          fillRect (P $ V2 (targetX + offsetX + 21) ystart) (V2 1 h)
+          fillRect (P $ V2 (targetX + offsetX + 21) ystart') (V2 1 h)
+          when sustaining $ do
+            setColor shadeLight
+            fillRect (P $ V2 (targetX + offsetX + 1) (targetY - 4)) $ V2 35 8
         go False ((secsEnd, SustainEnd) : rest) = case Map.lookupLT secsEnd thisColor of
           Just (secsStart, Sustain _) -> do
             drawSustainBlock (secsToPx secsEnd) windowH $ isEnergy secsStart
@@ -167,19 +173,38 @@ drawFive pxToSecs secsToPx targetP@(P (V2 targetX _)) five beats = do
         _ -> return ()
       events -> go False events
   -- Notes
+  let nowSecs = pxToSecs targetY
   forM_ colors $ \(color, offsetX, strumImage, hopoImage) -> do
     forM_ (Map.toDescList $ zoom $ fromJust $ Map.lookup color $ fiveNotes five) $ \(secs, evt) -> do
-      let y = secsToPx secs
-          isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ fiveEnergy five
-      case evt of
-        SustainEnd    -> drawImage Image_sustain_end                                        $ P $ V2 (targetX + offsetX) y
-        Note    Strum -> drawImage (if isEnergy then Image_gem_energy      else strumImage) $ P $ V2 (targetX + offsetX) $ y - 5
-        Sustain Strum -> drawImage (if isEnergy then Image_gem_energy      else strumImage) $ P $ V2 (targetX + offsetX) $ y - 5
-        Note    HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) $ P $ V2 (targetX + offsetX) $ y - 5
-        Sustain HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) $ P $ V2 (targetX + offsetX) $ y - 5
+      let futureSecs = toRational secs - toRational nowSecs
+      if autoplay && futureSecs <= 0
+        then do
+          -- note is in the past or being hit now
+          if (-0.1) < futureSecs
+            then do
+              let opacity = round $ ((futureSecs + 0.1) / 0.05) * 255 :: Int
+                  opacity' = fromIntegral $ if opacity < 0 then 0 else if opacity > 255 then 255 else opacity
+              when (evt /= SustainEnd) $ do
+                setColor $ case color of
+                  Five.Green  -> V4 190 255 192 opacity'
+                  Five.Red    -> V4 255 188 188 opacity'
+                  Five.Yellow -> V4 255 244 151 opacity'
+                  Five.Blue   -> V4 190 198 255 opacity'
+                  Five.Orange -> V4 231 196 112 opacity'
+                fillRect (P $ V2 (targetX + offsetX + 1) (targetY - 4)) $ V2 35 8
+            else return ()
+        else do
+          let y = secsToPx secs
+              isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ fiveEnergy five
+          case evt of
+            SustainEnd    -> drawImage Image_sustain_end                                        $ P $ V2 (targetX + offsetX) y
+            Note    Strum -> drawImage (if isEnergy then Image_gem_energy      else strumImage) $ P $ V2 (targetX + offsetX) $ y - 5
+            Sustain Strum -> drawImage (if isEnergy then Image_gem_energy      else strumImage) $ P $ V2 (targetX + offsetX) $ y - 5
+            Note    HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) $ P $ V2 (targetX + offsetX) $ y - 5
+            Sustain HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) $ P $ V2 (targetX + offsetX) $ y - 5
 
-drawDrums :: (MonadDraw m) => (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> Drums -> Beats -> m ()
-drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats = do
+drawDrums :: (MonadDraw m) => (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> Drums -> Beats -> Bool -> m ()
+drawDrums pxToSecs secsToPx (P (V2 targetX targetY)) drums beats autoplay = do
   V2 _ windowH <- getDims
   let maxSecs = pxToSecs (-100)
       minSecs = pxToSecs $ windowH + 100
@@ -222,21 +247,38 @@ drawDrums pxToSecs secsToPx targetP@(P (V2 targetX _)) drums beats = do
       Beat     -> drawImage Image_highway_drums_beat     $ P $ V2 targetX (y - 1)
       HalfBeat -> drawImage Image_highway_drums_halfbeat $ P $ V2 targetX y
   -- Target
-  drawImage Image_highway_drums_target targetP
+  drawImage Image_highway_drums_target $ P $ V2 targetX $ targetY - 5
   -- Notes
+  let nowSecs = pxToSecs targetY
   forM_ (Map.toDescList $ zoom $ drumNotes drums) $ \(secs, evts) -> do
-    let y = secsToPx secs
-        isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ drumEnergy drums
-    forM_ evts $ \evt -> do
-      case evt of
-        Drums.Kick                          -> drawImage (if isEnergy then Image_gem_kick_energy   else Image_gem_kick         ) $ P $ V2 (targetX + 1  ) (y - 3)
-        Drums.Red                           -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_red          ) $ P $ V2 (targetX + 1  ) (y - 5)
-        Drums.Pro Drums.Yellow Drums.Tom    -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_yellow       ) $ P $ V2 (targetX + 37 ) (y - 5)
-        Drums.Pro Drums.Yellow Drums.Cymbal -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) $ P $ V2 (targetX + 37 ) (y - 8)
-        Drums.Pro Drums.Blue   Drums.Tom    -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_blue         ) $ P $ V2 (targetX + 73 ) (y - 5)
-        Drums.Pro Drums.Blue   Drums.Cymbal -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal  ) $ P $ V2 (targetX + 73 ) (y - 8)
-        Drums.Pro Drums.Green  Drums.Tom    -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_green        ) $ P $ V2 (targetX + 109) (y - 5)
-        Drums.Pro Drums.Green  Drums.Cymbal -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) $ P $ V2 (targetX + 109) (y - 8)
+    let futureSecs = toRational secs - toRational nowSecs
+    if autoplay && futureSecs <= 0
+      then do
+        -- note is in the past or being hit now
+        if (-0.1) < futureSecs
+          then do
+            let opacity = round $ ((futureSecs + 0.1) / 0.05) * 255 :: Int
+                opacity' = fromIntegral $ if opacity < 0 then 0 else if opacity > 255 then 255 else opacity
+            forM_ (sort evts) $ \case
+              Drums.Kick               -> do setColor $ V4 231 196 112 opacity'; fillRect (P $ V2 (targetX + 2  ) (targetY - 5)) $ V2 143 1; fillRect (P $ V2 (targetX + 2  ) (targetY + 4)) $ V2 143 1
+              Drums.Red                -> do setColor $ V4 255 188 188 opacity'; fillRect (P $ V2 (targetX + 2  ) (targetY - 4)) $ V2 35  8
+              Drums.Pro Drums.Yellow _ -> do setColor $ V4 255 244 151 opacity'; fillRect (P $ V2 (targetX + 38 ) (targetY - 4)) $ V2 35  8
+              Drums.Pro Drums.Blue   _ -> do setColor $ V4 190 198 255 opacity'; fillRect (P $ V2 (targetX + 74 ) (targetY - 4)) $ V2 35  8
+              Drums.Pro Drums.Green  _ -> do setColor $ V4 190 255 192 opacity'; fillRect (P $ V2 (targetX + 110) (targetY - 4)) $ V2 35  8
+          else return ()
+      else do
+        -- note is in the future
+        let y = secsToPx secs
+            isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ drumEnergy drums
+        forM_ evts $ \case
+          Drums.Kick                          -> drawImage (if isEnergy then Image_gem_kick_energy   else Image_gem_kick         ) $ P $ V2 (targetX + 1  ) (y - 3)
+          Drums.Red                           -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_red          ) $ P $ V2 (targetX + 1  ) (y - 5)
+          Drums.Pro Drums.Yellow Drums.Tom    -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_yellow       ) $ P $ V2 (targetX + 37 ) (y - 5)
+          Drums.Pro Drums.Yellow Drums.Cymbal -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) $ P $ V2 (targetX + 37 ) (y - 8)
+          Drums.Pro Drums.Blue   Drums.Tom    -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_blue         ) $ P $ V2 (targetX + 73 ) (y - 5)
+          Drums.Pro Drums.Blue   Drums.Cymbal -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal  ) $ P $ V2 (targetX + 73 ) (y - 8)
+          Drums.Pro Drums.Green  Drums.Tom    -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_green        ) $ P $ V2 (targetX + 109) (y - 5)
+          Drums.Pro Drums.Green  Drums.Cymbal -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) $ P $ V2 (targetX + 109) (y - 8)
 
 data PKHighway
   = RailingLight
@@ -255,8 +297,8 @@ pkHighway = let
   four = [w, b, w, b, w, b, WhiteKeyShort]
   in intercalate rail [[], three, four, three, four, [WhiteKeyShort], []]
 
-drawProKeys :: (MonadDraw m) => (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> ProKeys -> Beats -> m ()
-drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats = do
+drawProKeys :: (MonadDraw m) => (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> ProKeys -> Beats -> Bool -> m ()
+drawProKeys pxToSecs secsToPx (P (V2 targetX targetY)) prokeys beats autoplay = do
   V2 _ windowH <- getDims
   let maxSecs = pxToSecs (-100)
       minSecs = pxToSecs $ windowH + 100
@@ -307,7 +349,7 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats = do
       Beat     -> drawImage Image_highway_prokeys_beat     $ P $ V2 targetX (y - 1)
       HalfBeat -> drawImage Image_highway_prokeys_halfbeat $ P $ V2 targetX y
   -- Target
-  drawImage Image_highway_prokeys_target targetP
+  drawImage Image_highway_prokeys_target $ P $ V2 targetX $ targetY - 5
   -- Ranges
   setColor $ V4 0 0 0 $ round (0.3 * 255 :: Double)
   let rangeEdges
@@ -347,23 +389,29 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats = do
     let thisPitch = fromJust $ Map.lookup pitch $ proKeysNotes prokeys
         black = isBlack pitch
         isEnergy secs = fromMaybe False $ fmap snd $ Map.lookupLE secs $ proKeysEnergy prokeys
-        drawSustainBlock ystart yend energy = do
-          let (shadeLight, shadeNormal, shadeDark) = case (energy, black) of
+        drawSustainBlock ystart yend energy = when (not autoplay || ystart < targetY || yend < targetY) $ do
+          let ystart' = if autoplay then min ystart targetY else ystart
+              yend'   = if autoplay then min yend   targetY else yend
+              sustaining = autoplay && (targetY < ystart || targetY < yend)
+              (shadeLight, shadeNormal, shadeDark) = case (energy, black) of
                 (True , False) -> (V4 137 235 204 255, V4 138 192 175 255, V4 124 158 149 255)
                 (True , True ) -> (V4  52 148 117 255, V4  71 107  95 255, V4  69  83  79 255)
                 (False, False) -> (V4 199 134 218 255, V4 184 102 208 255, V4 178  86 204 255)
                 (False, True ) -> (V4 175  83 201 255, V4 147  49 175 255, V4 123  42 150 255)
-              h = yend - ystart + 1
+              h = yend' - ystart' + 1
               offsetX' = offsetX + if black then 0 else 1
           setColor $ V4 0 0 0 255
-          fillRect (P $ V2 (targetX + offsetX' + 2) ystart) (V2 1 h)
-          fillRect (P $ V2 (targetX + offsetX' + 8) ystart) (V2 1 h)
+          fillRect (P $ V2 (targetX + offsetX' + 2) ystart') (V2 1 h)
+          fillRect (P $ V2 (targetX + offsetX' + 8) ystart') (V2 1 h)
           setColor shadeLight
-          fillRect (P $ V2 (targetX + offsetX' + 3) ystart) (V2 1 h)
+          fillRect (P $ V2 (targetX + offsetX' + 3) ystart') (V2 1 h)
           setColor shadeNormal
-          fillRect (P $ V2 (targetX + offsetX' + 4) ystart) (V2 3 h)
+          fillRect (P $ V2 (targetX + offsetX' + 4) ystart') (V2 3 h)
           setColor shadeDark
-          fillRect (P $ V2 (targetX + offsetX' + 7) ystart) (V2 1 h)
+          fillRect (P $ V2 (targetX + offsetX' + 7) ystart') (V2 1 h)
+          when sustaining $ do
+            setColor shadeLight
+            fillRect (P $ V2 (targetX + offsetX + 1) (targetY - 4)) $ V2 (if black then 9 else 11) 8
         go False ((secsEnd, SustainEnd) : rest) = case Map.lookupLT secsEnd thisPitch of
           Just (secsStart, Sustain _) -> do
             drawSustainBlock (secsToPx secsEnd) windowH $ isEnergy secsStart
@@ -389,17 +437,31 @@ drawProKeys pxToSecs secsToPx targetP@(P (V2 targetX _)) prokeys beats = do
         _ -> return ()
       events -> go False events
   -- Notes
+  let nowSecs = pxToSecs targetY
   forM_ pitchList $ \(pitch, offsetX) -> do
+    let black = isBlack pitch
     forM_ (Map.toDescList $ zoom $ fromJust $ Map.lookup pitch $ proKeysNotes prokeys) $ \(secs, evt) -> do
-      let y = secsToPx secs
-          black = isBlack pitch
-          isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ proKeysEnergy prokeys
-          img = case (isEnergy, black) of
-            (False, False) -> Image_gem_whitekey
-            (False, True ) -> Image_gem_blackkey
-            (True , False) -> Image_gem_whitekey_energy
-            (True , True ) -> Image_gem_blackkey_energy
-      case evt of
-        SustainEnd -> drawImage Image_sustain_key_end $ P $ V2 (targetX + offsetX - if black then 1 else 0) y
-        Note    () -> drawImage img                   $ P $ V2 (targetX + offsetX) $ y - 5
-        Sustain () -> drawImage img                   $ P $ V2 (targetX + offsetX) $ y - 5
+      let futureSecs = toRational secs - toRational nowSecs
+      if autoplay && futureSecs <= 0
+        then do
+          -- note is in the past or being hit now
+          if (-0.1) < futureSecs
+            then do
+              let opacity = round $ ((futureSecs + 0.1) / 0.05) * 255 :: Int
+                  opacity' = fromIntegral $ if opacity < 0 then 0 else if opacity > 255 then 255 else opacity
+              when (evt /= SustainEnd) $ do
+                setColor $ V4 227 193 238 opacity'
+                fillRect (P $ V2 (targetX + offsetX + 1) (targetY - 4)) $ V2 (if black then 9 else 11) 8
+            else return ()
+        else do
+          let y = secsToPx secs
+              isEnergy = fromMaybe False $ fmap snd $ Map.lookupLE secs $ proKeysEnergy prokeys
+              img = case (isEnergy, black) of
+                (False, False) -> Image_gem_whitekey
+                (False, True ) -> Image_gem_blackkey
+                (True , False) -> Image_gem_whitekey_energy
+                (True , True ) -> Image_gem_blackkey_energy
+          case evt of
+            SustainEnd -> drawImage Image_sustain_key_end $ P $ V2 (targetX + offsetX - if black then 1 else 0) y
+            Note    () -> drawImage img                   $ P $ V2 (targetX + offsetX) $ y - 5
+            Sustain () -> drawImage img                   $ P $ V2 (targetX + offsetX) $ y - 5
