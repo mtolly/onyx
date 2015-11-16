@@ -5,11 +5,13 @@ import           Control.Monad                    (guard)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map.Strict                  as Map
+import           Data.Maybe                       (listToMaybe, mapMaybe)
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common                  (Difficulty (..))
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as PK
+import qualified RockBand.Vocals                  as Vox
 import qualified Sound.MIDI.Util                  as U
 
 data Sustainable a
@@ -92,11 +94,7 @@ processProKeys tmap trk = let
   notesForPitch p = trackToMap tmap $ removeStubs $ flip RTB.mapMaybe trk $ \case
     PK.Note p' b | p == p' -> Just $ if b then Sustain () else SustainEnd
     _                      -> Nothing
-  notes = Map.fromList [ (p, notesForPitch p) | p <- allPitches ]
-  allPitches
-    =  map PK.RedYellow [minBound .. maxBound]
-    ++ map PK.BlueGreen [minBound .. maxBound]
-    ++ [PK.OrangeC]
+  notes = Map.fromList [ (p, notesForPitch p) | p <- [minBound .. maxBound] ]
   ranges = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.LaneShift r -> Just r; _ -> Nothing
   solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Solo      b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Overdrive b -> Just b; _ -> Nothing
@@ -116,3 +114,61 @@ processBeat tmap rtb = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0
     Beat.Bar -> Bar
     Beat.Beat -> Beat
     -- TODO: add half-beats
+
+data VocalNote
+  = Pitched WordPart String Vox.Pitch
+  | Slide                   Vox.Pitch
+  | Talky   WordPart String
+  | VocalEnd
+  deriving (Eq, Ord, Show, Read)
+
+data WordPart = WordStart | WordContinue
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data VocalPhrase
+  = PhraseStart
+  | EnergyPhraseStart
+  | PhraseEnd
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data Vocals = Vocals
+  { vocalNotes   :: Map.Map U.Seconds VocalNote
+  , vocalPhrases :: Map.Map U.Seconds VocalPhrase
+  , vocalRange   :: Maybe (Vox.Pitch, Vox.Pitch)
+  -- TODO: support range shifts
+  } deriving (Eq, Ord, Show)
+
+processVocals :: U.TempoMap -> RTB.T U.Beats Vox.Event -> Vocals
+processVocals tmap trk = let
+  notes = trackToMap tmap $ flip RTB.mapMaybe (RTB.collectCoincident trk) $ \evts ->
+    if flip any evts $ \case Vox.Note _ False -> True; _ -> False
+      then Just VocalEnd
+      else let
+        mpitch = listToMaybe $ flip mapMaybe evts $ \case Vox.Note p True -> Just p; _ -> Nothing
+        mlyric = listToMaybe $ flip mapMaybe evts $ \case Vox.Lyric s -> Just s; _ -> Nothing
+        part p lyric = case reverse lyric of
+          '#' : rev -> Just $ Talky p $ reverse rev
+          '^' : rev -> Just $ Talky p $ reverse rev
+          _         -> mpitch >>= Just . Pitched p lyric
+        in mlyric >>= \case
+          "+"         -> mpitch >>= Just . Slide
+          '-' : lyric -> part WordContinue lyric
+          lyric       -> part WordStart    lyric
+  phrases = trackToMap tmap $ flip RTB.mapMaybe (RTB.collectCoincident trk) $ \evts ->
+    if any isPhraseStart evts
+      then Just $ if any (== Vox.Overdrive True) evts
+        then EnergyPhraseStart
+        else PhraseStart
+      else if any isPhraseEnd evts
+        then Just PhraseEnd
+        else Nothing
+  isPhraseStart = \case Vox.Phrase True  -> True; Vox.Phrase2 True  -> True; _ -> False
+  isPhraseEnd   = \case Vox.Phrase False -> True; Vox.Phrase2 False -> True; _ -> False
+  pitches = flip mapMaybe (Map.elems notes) $ \case
+    Pitched _ _ p -> Just p
+    Slide       p -> Just p
+    _             -> Nothing
+  range = case pitches of
+    p : ps -> Just (foldr min p ps, foldr max p ps)
+    []     -> Just undefined
+  in Vocals notes phrases range

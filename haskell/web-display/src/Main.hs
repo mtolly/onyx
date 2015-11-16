@@ -1,6 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 module Main (main) where
 
 import OnyxiteDisplay.Draw
@@ -24,10 +25,11 @@ import qualified RockBand.FiveButton              as Five
 import qualified Sound.MIDI.Util                  as U
 import           Data.Maybe                       (listToMaybe, fromMaybe)
 import qualified Data.EventList.Relative.TimeBody as RTB
-import GHCJS.Marshal (fromJSVal)
+import GHCJS.Marshal (fromJSVal, fromJSValUnchecked)
 import Data.JSString (pack)
-
 import GHCJS.Types
+import GHCJS.Foreign.Callback
+import Control.Concurrent.STM
 
 import qualified Audio
 import Images
@@ -44,6 +46,9 @@ retrieveGET :: IO [(String, String)]
 retrieveGET = js_retrieveGET >>= fromJSVal >>= \case
   Just pairs -> return pairs
   Nothing    -> error "retrieveGET: could not read JS value as list of pairs"
+
+foreign import javascript unsafe "$4.addEventListener($1, $2, $3);"
+  addEventListener :: JSString -> Callback a -> Bool -> JSVal -> IO ()
 
 newtype DrawCanvas a = DrawCanvas
   { runDrawCanvas :: ReaderT (C.Canvas, C.Context, ImageID -> C.Image) IO a
@@ -84,11 +89,59 @@ foreign import javascript unsafe
   \ $1.height = window.innerHeight; "
   resizeCanvas :: C.Canvas -> IO ()
 
+foreign import javascript unsafe "$1.x" mouseEventX :: JSVal -> IO Int
+foreign import javascript unsafe "$1.y" mouseEventY :: JSVal -> IO Int
+
+foreign import javascript unsafe "prompt($1)"
+  js_prompt :: JSString -> IO JSVal
+
+prompt :: String -> IO (Maybe String)
+prompt s = js_prompt (pack s) >>= fromJSValUnchecked
+
+data MouseEvent
+  = MouseDown Int Int
+  | MouseUp   Int Int
+  | MouseMove Int Int
+  deriving (Eq, Ord, Show, Read)
+
+readAll :: TChan a -> STM [a]
+readAll c = tryReadTChan c >>= \case
+  Just x  -> fmap (x :) $ readAll c
+  Nothing -> return []
+
+data App
+  = Paused
+    { pausedSongTime :: U.Seconds
+    }
+  | Playing
+    { startedPageTime :: U.Seconds
+    , startedSongTime :: U.Seconds
+    }
+  deriving (Eq, Ord, Show)
+
 main :: IO ()
 main = do
+
+  clicks <- atomically newTChan
+
+  let addMouseListener s f = do
+        cb <- asyncCallback1 $ \v -> do
+          x <- mouseEventX v
+          y <- mouseEventY v
+          atomically $ writeTChan clicks $ f x y
+        addEventListener s cb False $ jsval theCanvas
+  addMouseListener "mousedown" MouseDown
+  addMouseListener "mouseup"   MouseUp
+  addMouseListener "mousemove" MouseMove
+
   get <- retrieveGET
-  let artist = fromMaybe "dream-theater" $ lookup "artist" get
-      title = fromMaybe "6-00" $ lookup "title" get
+  let param s = case lookup s get of
+        Just x  -> return x
+        Nothing -> prompt ("Enter " ++ s) >>= \case
+          Just x  -> return x
+          Nothing -> error "User canceled required prompt."
+  artist <- param "artist"
+  title <- param "title"
   resp <- xhrByteString $ Request
     { reqMethod = GET
     , reqURI = pack $ "songs/" ++ artist ++ "/" ++ title ++ "/gen/plan/album/2p/notes.mid"
@@ -122,6 +175,7 @@ main = do
   howl <- Audio.load $ do
     ext <- ["ogg", "mp3"]
     return $ "songs/" ++ artist ++ "/" ++ title ++ "/gen/plan/album/preview-audio." ++ ext
+  audioLen <- Audio.getDuration howl
 
   let pxToSecs targetY now px = let
         secs = fromIntegral (targetY - px) * 0.003 + realToFrac now :: Rational
@@ -135,12 +189,12 @@ main = do
       keysNull = fiveNull keys || fiveOnlyGreen keys
       drumsNull = Map.null $ drumNotes drums
       proKeysNull = all Map.null $ Map.elems $ proKeysNotes prokeys
-      endEvent = listToMaybe $ do
+      endEvent = fromMaybe (realToFrac audioLen) $ listToMaybe $ do
         RB.Events t <- RB.s_tracks song
         (bts, Events.End) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 t
         return $ U.applyTempoMap (RB.s_tempos song) bts
-      drawFrame :: U.Seconds -> IO ()
-      drawFrame t = do
+      drawFrame :: U.Seconds -> App -> IO ()
+      drawFrame t state = do
         resizeCanvas theCanvas
         windowW <- canvasWidth theCanvas
         windowH <- canvasHeight theCanvas
@@ -149,16 +203,67 @@ main = do
         let targetY :: (Num a) => a
             targetY = fromIntegral windowH - 50
         (\act -> runReaderT (runDrawCanvas act) (theCanvas, ctx, getImage)) $ do
-          unless gtrNull     $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 50  targetY) gtr     beat True
-          unless bassNull    $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 275 targetY) bass    beat True
-          unless drumsNull   $ drawDrums   (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 500 targetY) drums   beat True
-          unless keysNull    $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 689 targetY) keys    beat True
-          unless proKeysNull $ drawProKeys (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 914 targetY) prokeys beat True
-  drawFrame 0
+          unless gtrNull     $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 100 targetY) gtr     beat True
+          unless bassNull    $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 325 targetY) bass    beat True
+          unless drumsNull   $ drawDrums   (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 550 targetY) drums   beat True
+          unless keysNull    $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 739 targetY) keys    beat True
+          unless proKeysNull $ drawProKeys (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 964 targetY) prokeys beat True
+          setColor $ V4 0 0 0 255
+          fillRect (P $ V2 20 $ windowH - 70) $ V2 50 50
+          fillRect (P $ V2 20 20) $ V2 50 $ windowH - 110
+          setColor $ V4 255 255 255 255
+          fillRect (P $ V2 23 $ windowH - 67) $ V2 44 44
+          let timelineH = windowH - 116
+          fillRect (P $ V2 23 23) $ V2 44 timelineH
+          setColor $ V4 0 0 0 255
+          case state of
+            Paused{}  -> liftIO $ do
+              C.beginPath ctx
+              C.moveTo 30 (fromIntegral windowH - 60) ctx
+              C.lineTo 30 (fromIntegral windowH - 30) ctx
+              C.lineTo 60 (fromIntegral windowH - 45) ctx
+              C.closePath ctx
+              C.fill ctx
+            Playing{} -> do
+              fillRect (P $ V2 30 $ windowH - 60) $ V2 11 30
+              fillRect (P $ V2 49 $ windowH - 60) $ V2 11 30
+          let filled = realToFrac $ t / endEvent :: Rational
+          setColor $ V4 100 130 255 255
+          fillRect (P $ V2 23 $ 23 + round (fromIntegral timelineH * (1 - filled))) $ V2 44 $ round $ fromIntegral timelineH * filled
+  drawFrame 0 (Paused 0)
   msStart <- waitForAnimationFrame
-  _ <- Audio.play howl
-  let loop = do
+  aud <- Audio.play howl
+  let loop state = do
         ms <- waitForAnimationFrame
-        drawFrame $ realToFrac $ (ms - msStart) / 1000
-        loop
-  loop
+        let nowSeconds = case state of
+              Paused{..} -> pausedSongTime
+              Playing{..} -> startedSongTime + realToFrac (ms / 1000) - startedPageTime
+        drawFrame (min nowSeconds endEvent) state
+        windowH <- canvasHeight theCanvas
+        let handle s []       = loop s
+            handle s (e : es) = case e of
+              MouseDown x y -> if 20 <= x && x <= 70
+                then if windowH - 70 <= y && y <= windowH - 20
+                  then case state of
+                    Paused{..} -> do
+                      ms' <- waitForAnimationFrame
+                      Audio.setPosSafe pausedSongTime aud howl
+                      handle (Playing (realToFrac $ ms' / 1000) pausedSongTime) es
+                    Playing{..} -> do
+                      Audio.pause aud howl
+                      handle (Paused nowSeconds) es
+                  else if 20 <= y && y <= windowH - 90
+                    then let
+                      frac = 1 - (fromIntegral y - 20) / (fromIntegral windowH - 110) :: Rational
+                      t = realToFrac frac * endEvent
+                      in case state of
+                        Paused{..} -> handle (Paused t) es
+                        Playing{..} -> do
+                          ms' <- waitForAnimationFrame
+                          Audio.setPosSafe t aud howl
+                          handle (Playing (realToFrac $ ms' / 1000) t) es
+                    else handle s es
+                else handle s es
+              _ -> handle s es
+        atomically (readAll clicks) >>= handle state
+  loop $ Playing (realToFrac $ msStart / 1000) 0

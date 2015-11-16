@@ -35,6 +35,24 @@ data Pitch
   | Octave84C
   deriving (Eq, Ord, Show, Read)
 
+instance Enum Pitch where
+  fromEnum (Octave36 k) = fromEnum k
+  fromEnum (Octave48 k) = fromEnum k + 12
+  fromEnum (Octave60 k) = fromEnum k + 24
+  fromEnum (Octave72 k) = fromEnum k + 36
+  fromEnum Octave84C    = 48
+  toEnum i = case divMod i 12 of
+    (0, j) -> Octave36 $ toEnum j
+    (1, j) -> Octave48 $ toEnum j
+    (2, j) -> Octave60 $ toEnum j
+    (3, j) -> Octave72 $ toEnum j
+    (4, 0) -> Octave84C
+    _      -> error $ "No vocals Pitch for: fromEnum " ++ show i
+
+instance Bounded Pitch where
+  minBound = Octave36 minBound
+  maxBound = Octave84C
+
 data PercussionType
   = Tambourine
   | Cowbell

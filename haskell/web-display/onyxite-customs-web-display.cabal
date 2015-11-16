@@ -24,6 +24,7 @@ executable onyxpreview
     , bytestring
     , event-list
     , containers
+    , stm
   default-language:     Haskell2010
   cpp-options:          -DGHCJS_BROWSER
 

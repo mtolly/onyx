@@ -373,8 +373,7 @@ drawProKeys pxToSecs secsToPx (P (V2 targetX targetY)) prokeys beats autoplay = 
         go rest
     in go $ Map.toAscList rangeEdges
   -- Sustains
-  let pitches = map PK.RedYellow keys ++ map PK.BlueGreen keys ++ [PK.OrangeC]
-      keys = [minBound .. maxBound]
+  let pitches = [minBound .. maxBound]
       isBlack = \case
         PK.RedYellow k -> isBlackKey k
         PK.BlueGreen k -> isBlackKey k
@@ -465,3 +464,6 @@ drawProKeys pxToSecs secsToPx (P (V2 targetX targetY)) prokeys beats autoplay = 
             SustainEnd -> drawImage Image_sustain_key_end $ P $ V2 (targetX + offsetX - if black then 1 else 0) y
             Note    () -> drawImage img                   $ P $ V2 (targetX + offsetX) $ y - 5
             Sustain () -> drawImage img                   $ P $ V2 (targetX + offsetX) $ y - 5
+
+drawVocals :: (MonadDraw m) => (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> Int -> Vocals -> m ()
+drawVocals pxToSecs secsToPx (P (V2 targetX targetY)) height vox = return ()

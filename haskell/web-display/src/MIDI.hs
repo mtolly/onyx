@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module MIDI where
+module MIDI (readMIDI) where
 
 import GHCJS.Types
 import GHCJS.Marshal
