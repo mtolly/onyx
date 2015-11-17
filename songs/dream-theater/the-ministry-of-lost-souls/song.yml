@@ -7,6 +7,7 @@ metadata:
     drums: 7
     vocal: 6
     guitar: 7
+    bass: 6
   comments:
   - >-
     Drums confidence: *high*, written to Portnoy's DVD.
@@ -47,32 +48,33 @@ plans:
                 mix:
                   - fade:
                     - end
-                    - 2.771
+                    - 0.03
                     - drop:
                       - frames: 3911
                       - take:
-                        - '13:06.612' # 13:03.841 + 2.771
+                        - '12:50.531'
                         - drop: ['47:31.200', drumcam-band]
                   - gain:
                     - -1
                     - &drums
                       fade:
                       - end
-                      - 2.771
+                      - 0.03
                       - take:
-                        - '13:06.612'
+                        - '12:50.531'
                         - drop: ['47:31.200', drumcam-drums]
         - gain:
           - 0.58
           - pad:
-            - "13:03.441"
+            - "12:50.401"
             - fade:
               - start
-              - 2.771
-              - drop: ["13:03.441", *album]
+              - 0.03
+              - drop: ["12:50.401", *album]
     drums:
       resample: *drums
 instruments:
   drums: true
   vocal: 2
   guitar: true
+  bass: true
