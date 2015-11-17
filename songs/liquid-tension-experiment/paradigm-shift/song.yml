@@ -4,6 +4,9 @@ metadata:
   track-number: 1
   comments:
   - "Chart confidence: *high*."
+  difficulty:
+    drums: 7
+    guitar: 7
 audio:
   album-track:
     md5: 91db93f3eea3c214d6d6f3d09c7eb780
@@ -14,3 +17,4 @@ plans:
       pad: [3.069, album-track]
 instruments:
   drums: true
+  guitar: true
