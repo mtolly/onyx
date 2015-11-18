@@ -9,6 +9,11 @@ metadata:
     (especially without any guitar).
   - >-
     All instruments have overdrive/unison.
+  difficulty:
+    drums: 3
+    bass: 3
+    keys: 7
+    pro-keys: 7
 audio:
   album-track:
     md5: 409af3c3a13f04aa6d2d05606c1f44c8
@@ -25,4 +30,5 @@ plans:
 instruments:
   drums: true
   bass: true
+  keys: true
   pro-keys: true
