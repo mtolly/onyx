@@ -6,6 +6,7 @@ Instruments:
 
   * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=paradigm-shift&artist=liquid-tension-experiment) 😈😈😈😈😈
   * Guitar 😈😈😈😈😈
+  * Pro Keys 😈😈😈😈😈
 
 Supported audio:
 
@@ -13,5 +14,5 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *high*.
+  * Drums confidence: *high*.
 

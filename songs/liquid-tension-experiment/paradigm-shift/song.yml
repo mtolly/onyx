@@ -3,10 +3,11 @@ metadata:
   file-include: ../../../albums/liquid-tension-experiment.yml
   track-number: 1
   comments:
-  - "Chart confidence: *high*."
+  - "Drums confidence: *high*."
   difficulty:
     drums: 7
     guitar: 7
+    pro-keys: 7
 audio:
   album-track:
     md5: 91db93f3eea3c214d6d6f3d09c7eb780
@@ -18,3 +19,4 @@ plans:
 instruments:
   drums: true
   guitar: true
+  pro-keys: true
