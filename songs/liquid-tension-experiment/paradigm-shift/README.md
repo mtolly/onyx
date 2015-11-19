@@ -16,3 +16,5 @@ Notes:
 
   * Drums confidence: *high*.
 
+  * All instruments have overdrive/unison.
+
