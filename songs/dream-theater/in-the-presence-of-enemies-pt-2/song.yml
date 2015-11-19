@@ -7,7 +7,11 @@ metadata:
     drums: 7
     vocal: 5
   comments:
-  - "Drums confidence: *high*. Written to Portnoy's recording session DVD."
+  - >-
+    Guitar, bass, and keys charted by Meander and compiled by Sideshow.
+    NOT READY to play; needs to be realigned to my tempo map.
+  - >-
+    Drums confidence: *high*. Written to Portnoy's recording session DVD.
 audio:
   album-track:
     md5: e7a1dccaa73c2afa901063afa57064be
@@ -66,3 +70,6 @@ plans:
 instruments:
   drums: true
   vocal: 2
+  guitar: true
+  bass: true
+  keys: true

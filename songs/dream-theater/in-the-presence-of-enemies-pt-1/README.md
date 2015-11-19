@@ -20,7 +20,7 @@ Supported audio:
 
 Notes:
 
-  * Guitar, bass, and keys charted by Meander and compiled by Sideshow. (Minor fixes by me.)
+  * Guitar, bass, and keys charted by Meander and compiled by Sideshow. (Minor edits by me.)
 
   * Drums confidence: *high*. Written to Portnoy's recording session DVD.
 
