@@ -92,7 +92,7 @@ processDrums tmap trk = let
 processProKeys :: U.TempoMap -> RTB.T U.Beats PK.Event -> ProKeys
 processProKeys tmap trk = let
   notesForPitch p = trackToMap tmap $ removeStubs $ flip RTB.mapMaybe trk $ \case
-    PK.Note p' b | p == p' -> Just $ if b then Sustain () else SustainEnd
+    PK.Note b p' | p == p' -> Just $ if b then Sustain () else SustainEnd
     _                      -> Nothing
   notes = Map.fromList [ (p, notesForPitch p) | p <- [minBound .. maxBound] ]
   ranges = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.LaneShift r -> Just r; _ -> Nothing

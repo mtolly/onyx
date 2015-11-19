@@ -42,7 +42,7 @@ import qualified Data.Text                        as T
 import           Development.Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
-import           RockBand.Common                  (Difficulty (..))
+import           RockBand.Common                  (Difficulty (..), Key (..))
 import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.FiveButton              as RBFive
 import qualified RockBand.File                    as RBFile
@@ -413,7 +413,12 @@ main = do
             keysTracks = if not $ hasAnyKeys $ _instruments songYaml
               then []
               else let
-                keysDiff diff = mergeTracks [ t | RBFile.PartRealKeys diff' t <- trks, diff == diff' ]
+                basicKeys = RBFive.copyExpert $ if _hasKeys $ _instruments songYaml
+                  then mergeTracks [ t | RBFile.PartKeys t <- trks ]
+                  else expertProKeysToKeys keysExpert
+                keysDiff diff = if _hasProKeys $ _instruments songYaml
+                  then mergeTracks [ t | RBFile.PartRealKeys diff' t <- trks, diff == diff' ]
+                  else keysToProKeys diff $ basicKeys
                 keysExpert = keysDiff Expert
                 keysHard   = keysDiff Hard
                 keysMedium = keysDiff Medium
@@ -427,9 +432,7 @@ main = do
                 keysAnim = flip RTB.filter keysExpert $ \case
                   ProKeys.Note _ _ -> True
                   _                -> False
-                in  [ RBFile.copyExpert $ RBFile.PartKeys $ if not $ _hasKeys $ _instruments songYaml
-                      then expertProKeysToKeys keysExpert -- pro keys to dummy basic keys
-                      else mergeTracks [ t | RBFile.PartKeys t <- trks ]
+                in  [ RBFile.PartKeys            $ basicKeys
                     , RBFile.PartKeysAnimRH      $ keysAnim
                     , RBFile.PartKeysAnimLH      $ RTB.empty
                     , RBFile.PartRealKeys Expert $ keysExpert
@@ -1196,19 +1199,41 @@ expertProKeysToKeys :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats RBFive.Event
 expertProKeysToKeys = let
   pkToBasic :: [ProKeys.Event] -> RTB.T U.Beats RBFive.Event
   pkToBasic pk = let
-    hasNote    = any (\case ProKeys.Note    _ True  -> True; _ -> False) pk
-    hasODTrue  = any (\case ProKeys.Overdrive True  -> True; _ -> False) pk
-    hasODFalse = any (\case ProKeys.Overdrive False -> True; _ -> False) pk
+    hasNote     = any (\case ProKeys.Note      True _ -> True; _ -> False) pk
+    hasODTrue   = any (== ProKeys.Overdrive True ) pk
+    hasODFalse  = any (== ProKeys.Overdrive False) pk
+    hasBRETrue  = any (== ProKeys.BRE       True ) pk
+    hasBREFalse = any (== ProKeys.BRE       False) pk
     blip diff = RTB.fromPairList
       [ (0     , RBFive.DiffEvent diff $ RBFive.Note True  RBFive.Green)
       , (1 / 32, RBFive.DiffEvent diff $ RBFive.Note False RBFive.Green)
       ]
     in foldr RTB.merge RTB.empty $ concat
       [ [ blip d | d <- [minBound .. maxBound], hasNote ]
-      , [ RTB.singleton 0 $ RBFive.Overdrive True  | hasODTrue  ]
-      , [ RTB.singleton 0 $ RBFive.Overdrive False | hasODFalse ]
+      , [ RTB.singleton 0 $ RBFive.Overdrive True  | hasODTrue   ]
+      , [ RTB.singleton 0 $ RBFive.Overdrive False | hasODFalse  ]
+      , [ RTB.singleton 0 $ RBFive.BRE       True  | hasBRETrue  ]
+      , [ RTB.singleton 0 $ RBFive.BRE       False | hasBREFalse ]
       ]
   in U.trackJoin . fmap pkToBasic . RTB.collectCoincident
+
+-- | Makes a Pro Keys track, for songs with only Basic Keys charted.
+keysToProKeys :: Difficulty -> RTB.T U.Beats RBFive.Event -> RTB.T U.Beats ProKeys.Event
+keysToProKeys d = let
+  basicToPK = \case
+    RBFive.DiffEvent d' (RBFive.Note b c) | d == d' ->
+      Just $ ProKeys.Note b $ ProKeys.BlueGreen $ case c of
+        RBFive.Green  -> C
+        RBFive.Red    -> D
+        RBFive.Yellow -> E
+        RBFive.Blue   -> F
+        RBFive.Orange -> G
+    RBFive.Overdrive b | d == Expert -> Just $ ProKeys.Overdrive b
+    RBFive.Solo      b | d == Expert -> Just $ ProKeys.Solo      b
+    RBFive.BRE       b | d == Expert -> Just $ ProKeys.BRE       b
+    RBFive.Trill     b               -> Just $ ProKeys.Trill     b
+    _                                -> Nothing
+  in RTB.cons 0 (ProKeys.LaneShift ProKeys.RangeA) . RTB.mapMaybe basicToPK
 
 hasSolo :: Instrument -> RBFile.Song t -> Bool
 hasSolo Guitar song = not $ null $ do

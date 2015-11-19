@@ -155,7 +155,7 @@ fixRolls = let
   isGem _                                          = False
   pkGlissando = fixFreeform (== ProKeys.Glissando True) (== ProKeys.Glissando False) isPKNote
   pkTrill     = fixFreeform (== ProKeys.Trill     True) (== ProKeys.Trill     False) isPKNote
-  isPKNote (ProKeys.Note _ True) = True
+  isPKNote (ProKeys.Note True _) = True
   isPKNote _                     = False
   in \case
     PartDrums         t -> PartDrums         $ drumsSingle $ drumsDouble t

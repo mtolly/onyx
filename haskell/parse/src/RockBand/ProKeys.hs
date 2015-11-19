@@ -21,7 +21,7 @@ data Event
   | Trill      Bool -- ^ Fill lanes on two keys.
   | Overdrive  Bool -- ^ An energy phrase.
   | BRE        Bool -- ^ Fill lanes for a Big Rock Ending.
-  | Note Pitch Bool
+  | Note       Bool Pitch
   deriving (Eq, Ord, Show)
 
 -- | There are six playable ranges, each of which covers 10 white keys, plus
@@ -68,9 +68,9 @@ instanceMIDIEvent [t| Event |]
   , blip 7 [p| LaneShift RangeG |]
   , blip 9 [p| LaneShift RangeA |]
 
-  , edgeRange [48..59] $ \_i _b -> [p| Note (RedYellow $(keyP $ _i - 48)) $(boolP _b) |]
-  , edgeRange [60..71] $ \_i _b -> [p| Note (BlueGreen $(keyP $ _i - 60)) $(boolP _b) |]
-  , edge      72       $ \   _b -> [p| Note OrangeC                       $(boolP _b) |]
+  , edgeRange [48..59] $ \_i _b -> [p| Note $(boolP _b) (RedYellow $(keyP $ _i - 48)) |]
+  , edgeRange [60..71] $ \_i _b -> [p| Note $(boolP _b) (BlueGreen $(keyP $ _i - 60)) |]
+  , edge      72       $ \   _b -> [p| Note $(boolP _b) OrangeC                       |]
 
   , edge 115 $ applyB [p| Solo |]
   , edge 116 $ applyB [p| Overdrive |]
