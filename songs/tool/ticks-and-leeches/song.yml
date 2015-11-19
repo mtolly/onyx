@@ -2,8 +2,7 @@ metadata:
   title: "Ticks & Leeches"
   file-include: "../../../albums/lateralus.yml"
   track-number: 8
-  comments:
-  - "Timing and drums by Grinnz."
+  author: Grinnz
 audio:
   album-track:
     md5: 29b125b55606180ed63f433cce4ba048

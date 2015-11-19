@@ -321,6 +321,11 @@ main = do
         Vocal2 -> line $ "  * Vocals (2)" ++ diffString _difficultyVocal vocalDiffMap
         Vocal3 -> line $ "  * Vocals (3)" ++ diffString _difficultyVocal vocalDiffMap
       line ""
+      case T.unpack $ _author $ _metadata songYaml of
+        "Onyxite" -> return ()
+        auth -> do
+          line $ "Author: " ++ auth
+          line ""
       line "Supported audio:"
       line ""
       forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
@@ -767,7 +772,7 @@ main = do
                 , D.format = 10
                 , D.version = 30
                 , D.gameOrigin = D.Keyword "ugc_plus"
-                , D.rating = 4
+                , D.rating = fromIntegral $ fromEnum (_rating $ _metadata songYaml) + 1
                 , D.genre = D.Keyword $ T.unpack $ _genre $ _metadata songYaml
                 , D.subGenre = Just $ D.Keyword $ "subgenre_" ++ T.unpack (_subgenre $ _metadata songYaml)
                 , D.vocalGender = fromMaybe Magma.Female $ _vocalGender $ _metadata songYaml
@@ -858,7 +863,7 @@ main = do
                     , Magma.subGenre = D.Keyword $ "subgenre_" ++ T.unpack (_subgenre $ _metadata songYaml)
                     , Magma.yearReleased = fromIntegral $ _year $ _metadata songYaml
                     , Magma.albumName = T.unpack $ _album $ _metadata songYaml
-                    , Magma.author = "Onyxite"
+                    , Magma.author = T.unpack $ _author $ _metadata songYaml
                     , Magma.releaseLabel = "Onyxite Customs"
                     , Magma.country = D.Keyword "ugc_country_us"
                     , Magma.price = 160
@@ -923,7 +928,9 @@ main = do
                   , Magma.destinationFile = pkg <.> "rba"
                   , Magma.midi = Magma.Midi
                     { Magma.midiFile = "notes.mid"
-                    , Magma.autogenTheme = Right ""
+                    , Magma.autogenTheme = Right $ case _autogenTheme $ _metadata songYaml of
+                      AutogenDefault -> "Default.rbtheme"
+                      theme -> show theme ++ ".rbtheme"
                     }
                   , Magma.dryVox = Magma.DryVox
                     { Magma.part0 = if _hasVocal (_instruments songYaml) >= Vocal1
@@ -1053,7 +1060,7 @@ main = do
                   _hasKeys (_instruments songYaml) && not (_hasProKeys $ _instruments songYaml)
               , C3.tonicNote = _key $ _metadata songYaml
               , C3.tuningCents = 0
-              , C3.songRating = 4 -- unrated
+              , C3.songRating = fromEnum (_rating $ _metadata songYaml) + 1
               , C3.drumKitSFX = 0 -- default Hard Rock Kit
               , C3.hopoThresholdIndex = 2 -- default 170
               , C3.muteVol = -96

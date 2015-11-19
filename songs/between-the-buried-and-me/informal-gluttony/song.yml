@@ -2,8 +2,7 @@ metadata:
   title: Informal Gluttony
   file-include: "../../../albums/colors.yml"
   track-number: 3
-  comments:
-  - "Timing and drums by Grinnz."
+  author: Grinnz
 audio:
   album-the-decade-of-statues:
     md5: ff456218898121bc232d908de3f9457f

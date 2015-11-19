@@ -2,8 +2,8 @@ metadata:
   title: This Dying Soul
   file-include: ../../../albums/train-of-thought.yml
   track-number: 2
+  author: Grinnz
   comments:
-  - "Timing and drums by Grinnz."
   - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:
   album-track:

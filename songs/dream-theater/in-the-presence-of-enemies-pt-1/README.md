@@ -10,6 +10,8 @@ Instruments:
   * Keys 😈😈😈😈😈
   * Vocals (3) ⚪️⚪️⚫️⚫️⚫️
 
+Author: Meander, Sideshow, Onyxite
+
 Supported audio:
 
   * `drumcam`

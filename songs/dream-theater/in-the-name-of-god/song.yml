@@ -2,8 +2,8 @@ metadata:
   title: In the Name of God
   file-include: ../../../albums/train-of-thought.yml
   track-number: 7
+  author: Grinnz
   comments:
-  - "Timing and drums by Grinnz."
   - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:
   album-track:

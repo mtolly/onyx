@@ -11,6 +11,8 @@ Instruments:
   * Pro Keys ⚪️⚪️⚪️⚪️⚫️
   * Vocals (3) ⚪️⚪️⚪️⚪️⚪️
 
+Author: Onyxite, Grinnz
+
 Supported audio:
 
   * `drumcam`

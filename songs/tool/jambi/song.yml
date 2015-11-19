@@ -2,8 +2,7 @@ metadata:
   title: Jambi
   file-include: "../../../albums/10000-days.yml"
   track-number: 2
-  comments:
-  - "Timing and drums by Grinnz."
+  author: Grinnz
 audio:
   album-track:
     md5: 3f9cee0a1552e47a766bcbc48abe9c96

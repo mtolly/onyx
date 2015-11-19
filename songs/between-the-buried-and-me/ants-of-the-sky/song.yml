@@ -2,8 +2,7 @@ metadata:
   title: Ants of the Sky
   file-include: "../../../albums/colors.yml"
   track-number: 5
-  comments:
-  - "Timing and drums by Grinnz."
+  author: Grinnz
 audio:
   album-sun-of-nothing:
     md5: bc09bcb9a21fc6c0d8fcc06f63c8fbc8

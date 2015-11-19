@@ -10,10 +10,13 @@ metadata:
   - >-
     All instruments have overdrive/unison.
   difficulty:
-    drums: 3
+    drums: 4
     bass: 3
     keys: 7
     pro-keys: 7
+    band: 5
+  autogen-theme: Psych Jam Rock
+  rating: Family Friendly
 audio:
   album-track:
     md5: 409af3c3a13f04aa6d2d05606c1f44c8

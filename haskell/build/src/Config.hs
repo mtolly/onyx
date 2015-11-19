@@ -187,6 +187,9 @@ data Metadata = Metadata
   , _vocalGender  :: Maybe Magma.Gender
   , _difficulty   :: Difficulties
   , _key          :: Maybe Key
+  , _autogenTheme :: AutogenTheme
+  , _author       :: T.Text
+  , _rating       :: Rating
   } deriving (Eq, Ord, Show, Read)
 
 data Difficulties = Difficulties
@@ -247,10 +250,13 @@ instance TraceJSON Metadata where
     _difficulty   <- fromMaybe emptyDiffs <$> optional "difficulty" traceJSON
     _key          <- optional "key" traceJSON
     _comments     <- fromMaybe [] <$> optional "comments" traceJSON
+    _autogenTheme <- fromMaybe AutogenDefault <$> optional "autogen-theme" traceJSON
+    _author       <- fromMaybe "Onyxite" <$> optional "author" traceJSON
+    _rating       <- fromMaybe Unrated <$> optional "rating" traceJSON
     expectedKeys
       [ "title", "artist", "album", "genre", "subgenre", "year"
       , "file-album-art", "track-number", "file-countin", "comments", "vocal-gender"
-      , "difficulty", "key"
+      , "difficulty", "key", "autogen-theme", "author", "rating"
       ]
     return Metadata{..}
 
@@ -482,3 +488,48 @@ instance TraceJSON VocalCount where
     A.Number 2   -> return Vocal2
     A.Number 3   -> return Vocal3
     _            -> expected "a vocal part count (0 to 3)"
+
+data AutogenTheme
+  = AutogenDefault
+  | AggressiveMetal
+  | ArenaRock
+  | DarkHeavyRock
+  | DustyVintage
+  | EdgyProgRock
+  | FeelGoodPopRock
+  | GaragePunkRock
+  | PsychJamRock
+  | SlowJam
+  | SynthPop
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance TraceJSON AutogenTheme where
+  traceJSON = lift ask >>= \case
+    A.Null             -> return AutogenDefault
+    A.String "Default" -> return AutogenDefault
+    A.String t         -> case readMaybe $ filter (/= ' ') $ T.unpack t of
+      Just theme -> return theme
+      Nothing    -> expected "the name of an autogen theme or null"
+    _                  -> expected "the name of an autogen theme or null"
+
+data Rating
+  = FamilyFriendly
+  | SupervisionRecommended
+  | Mature
+  | Unrated
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance TraceJSON Rating where
+  traceJSON = lift ask >>= \case
+    A.Null     -> return Unrated
+    A.String t -> case T.filter (/= ' ') t of
+      "FF"                     -> return FamilyFriendly
+      "SR"                     -> return SupervisionRecommended
+      "M"                      -> return Mature
+      "UR"                     -> return Unrated
+      "FamilyFriendly"         -> return FamilyFriendly
+      "SupervisionRecommended" -> return SupervisionRecommended
+      "Mature"                 -> return Mature
+      "Unrated"                -> return Unrated
+      _ -> expected "a valid content rating or null"
+    _          -> expected "a valid content rating or null"

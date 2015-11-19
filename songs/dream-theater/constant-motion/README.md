@@ -9,6 +9,8 @@ Instruments:
   * Guitar 😈😈😈😈😈
   * Vocals (2) ⚪️⚪️⚪️⚫️⚫️
 
+Author: Harmonix, Grinnz, Onyxite
+
 Supported audio:
 
   * `album` (Systematic Chaos)

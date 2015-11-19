@@ -2,8 +2,8 @@ metadata:
   title: A Nightmare to Remember
   file-include: ../../../albums/black-clouds-silver-linings.yml
   track-number: 1
+  author: Grinnz
   comments:
-  - "Timing and drum chart by Grinnz."
   - "Chart confidence: *high*, transcribed from Portnoy's DVD."
 audio:
   album-track:

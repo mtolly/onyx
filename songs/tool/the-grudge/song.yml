@@ -2,8 +2,7 @@ metadata:
   title: The Grudge
   file-include: "../../../albums/lateralus.yml"
   track-number: 1
-  comments:
-  - "Timing, drums, bass, guitar and vocals by Grinnz."
+  author: Grinnz
 audio:
   album-track:
     md5: a6148c38e5d744e06055bd4e2005ced5

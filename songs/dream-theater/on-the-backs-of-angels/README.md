@@ -11,6 +11,8 @@ Instruments:
   * Pro Keys
   * Vocals (2)
 
+Author: Harmonix, Onyxite
+
 Supported audio:
 
   * `album` (A Dramatic Turn of Events)

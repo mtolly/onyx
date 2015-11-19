@@ -2,8 +2,7 @@ metadata:
   title: Sun of Nothing
   file-include: "../../../albums/colors.yml"
   track-number: 4
-  comments:
-  - "Timing and drums by Grinnz."
+  author: Grinnz
 audio:
   album-informal-gluttony:
     md5: d468595b781ed178479d2183f72f9333

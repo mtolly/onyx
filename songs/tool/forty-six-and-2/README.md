@@ -9,11 +9,13 @@ Instruments:
   * Guitar
   * Vocals (1)
 
+Author: Grinnz
+
 Supported audio:
 
   * `album` (Ænima)
 
 Notes:
 
-  * Timing, drums, bass, guitar and vocals by Grinnz. Some small fixes to drums by me.
+  * Some small fixes to drums by me.
 

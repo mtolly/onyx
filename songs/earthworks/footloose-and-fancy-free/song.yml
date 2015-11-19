@@ -2,8 +2,9 @@ metadata:
   title: Footloose and Fancy Free
   file-include: ../../../albums/a-part-and-yet-apart.yml
   track-number: 4
+  author: Mick Larkins
   comments:
-  - "In progress: fixing up the unreleased RBN chart by Mick Larkins."
+  - "In progress: fixing up the pulled RBN chart."
 audio:
   album-track:
     md5: 0cbf5766870e0657050410120a36f64a

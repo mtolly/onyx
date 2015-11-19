@@ -2,8 +2,7 @@ metadata:
   title: Ænema
   file-include: "../../../albums/aenima.yml"
   track-number: 13
-  comments:
-  - "Timing and drums by Grinnz."
+  author: Grinnz
 audio:
   album-track:
     md5: 656399b7cc059a5bb38026922517ed94

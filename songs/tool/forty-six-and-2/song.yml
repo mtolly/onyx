@@ -2,8 +2,9 @@ metadata:
   title: "Forty-Six & 2"
   file-include: "../../../albums/aenima.yml"
   track-number: 5
+  author: Grinnz
   comments:
-  - "Timing, drums, bass, guitar and vocals by Grinnz. Some small fixes to drums by me."
+  - "Some small fixes to drums by me."
 audio:
   album-track:
     md5: dbcedf7b8a894eb90758e15fc94c7de5

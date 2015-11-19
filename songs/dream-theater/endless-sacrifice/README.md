@@ -6,13 +6,13 @@ Instruments:
 
   * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=endless-sacrifice&artist=dream-theater)
 
+Author: Grinnz
+
 Supported audio:
 
   * `album` (Train of Thought)
 
 Notes:
-
-  * Timing and drums by Grinnz.
 
   * Chart confidence: *high*, written to Portnoy's DVD.
 

@@ -9,11 +9,9 @@ Instruments:
   * Guitar
   * Vocals (1)
 
+Author: Grinnz
+
 Supported audio:
 
   * `album` (Lateralus)
-
-Notes:
-
-  * Timing, drums, bass, guitar and vocals by Grinnz.
 

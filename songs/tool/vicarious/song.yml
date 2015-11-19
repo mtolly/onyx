@@ -2,8 +2,7 @@ metadata:
   title: Vicarious
   file-include: "../../../albums/10000-days.yml"
   track-number: 1
-  comments:
-  - "Timing and drums by Grinnz."
+  author: Grinnz
 audio:
   album-track:
     md5: f032101ce26dec13250017d459090c18

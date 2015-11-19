@@ -9,6 +9,8 @@ Instruments:
   * Guitar
   * Vocals (1)
 
+Author: Harmonix, Grinnz
+
 Supported audio:
 
   * `album` (Octavarium)
