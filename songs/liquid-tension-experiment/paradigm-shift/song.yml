@@ -9,6 +9,10 @@ metadata:
     drums: 7
     guitar: 7
     pro-keys: 7
+    keys: 7
+    bass: 5
+    band: 7
+  rating: Family Friendly
 audio:
   album-track:
     md5: 91db93f3eea3c214d6d6f3d09c7eb780
@@ -21,3 +25,5 @@ instruments:
   drums: true
   guitar: true
   pro-keys: true
+  bass: true
+  keys: true
