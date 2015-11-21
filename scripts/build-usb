@@ -15,8 +15,9 @@ usb = ARGV[dash - 1]
 options = ARGV[dash .. -1]
 only_album = options.include?('--only-album')
 one_pedal = options.include?('--1p')
+clean = options.include?('--clean')
 pedal = one_pedal ? '1p' : '2p'
-options.select! { |x| !(%w{--only-album --1p}.include? x) }
+options.reject! { |x| %w{--only-album --1p --clean}.include? x }
 
 rb3 = "#{usb}/Content/0000000000000000/45410914/00000001"
 FileUtils.mkdir_p rb3
@@ -71,6 +72,9 @@ songs.each do |song|
     end
     con_title = "#{short_title}_#{pedal}_#{hashed.javahash % 10000}"
     FileUtils.cp "#{song}/#{version}/rb3.con", "#{rb3}/#{con_title}"
+    if clean
+      system_ 'git', 'clean', '-fdx', song
+    end
   else
     unsuccessful << song
   end

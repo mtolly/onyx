@@ -22,7 +22,7 @@ Supported audio:
 
 Notes:
 
-  * Guitar, bass, and keys charted by Meander and compiled by Sideshow. NOT READY to play; needs to be realigned to my tempo map.
+  * Guitar, bass, and keys charted by Meander and compiled by Sideshow. Bass and keys are NOT DONE; they need to be realigned to my tempo map.
 
   * Drums confidence: *high*. Written to Portnoy's recording session DVD.
 
