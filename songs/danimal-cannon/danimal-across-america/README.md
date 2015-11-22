@@ -2,9 +2,12 @@
 
 ## Danimal Cannon
 
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=danimal-across-america&artist=danimal-cannon)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=danimal-across-america&artist=danimal-cannon)
+  * (Pro) Drums
   * Bass
   * Guitar
   * Keys

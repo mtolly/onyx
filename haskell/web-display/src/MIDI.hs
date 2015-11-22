@@ -1,19 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
 module MIDI (readMIDI) where
 
-import GHCJS.Types
-import GHCJS.Marshal
-import JavaScript.Object
-import JavaScript.Object.Internal
-import qualified Data.ByteString.Char8 as B8
-import qualified Sound.MIDI.File as F
-import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.File.Event.Meta as Meta
-import qualified Sound.MIDI.Message.Channel as C
-import qualified Sound.MIDI.Message.Channel.Voice as V
-import Data.JSString (pack)
+import           Control.Monad                    (forM)
+import qualified Data.ByteString.Char8            as B8
 import qualified Data.EventList.Relative.TimeBody as RTB
-import Control.Monad (forM)
+import           Data.JSString                    (pack)
+import           GHCJS.Marshal
+import           GHCJS.Types
+import           JavaScript.Object
+import           JavaScript.Object.Internal
+import qualified Sound.MIDI.File                  as F
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
+import qualified Sound.MIDI.Message.Channel       as C
+import qualified Sound.MIDI.Message.Channel.Voice as V
 
 (^.) :: (FromJSVal b) => JSVal -> JSString -> IO b
 obj ^. prop = getProp prop (Object obj) >>= fromJSVal >>= \res -> case res of

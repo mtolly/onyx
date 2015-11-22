@@ -2,9 +2,12 @@
 
 ## Dream Theater
 
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=lie&artist=dream-theater)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=lie&artist=dream-theater)
+  * (Pro) Drums
 
 Supported audio:
 

@@ -1,39 +1,40 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE RecordWildCards            #-}
 module Main (main) where
 
-import OnyxiteDisplay.Draw
-import OnyxiteDisplay.Process
-import Control.Monad.Trans.Reader
-import Control.Monad.IO.Class
-import qualified JavaScript.Web.Canvas as C
-import JavaScript.Web.AnimationFrame (waitForAnimationFrame)
-import Control.Applicative (liftA2)
-import Linear (V2(..), V4(..))
-import Linear.Affine (Point (..))
-import JavaScript.Web.XMLHttpRequest
-import Control.Monad.Trans.StackTrace (runStackTrace)
-import qualified RockBand.File                    as RB
-import RockBand.Common (Difficulty(..))
+import           Control.Applicative              (liftA2)
+import           Control.Concurrent.STM
+import           Control.Monad                    (void, when)
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Reader
+import           Control.Monad.Trans.StackTrace   (runStackTrace)
 import qualified Data.EventList.Absolute.TimeBody as ATB
-import           Control.Monad                    (unless)
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.JSString                    (pack)
 import qualified Data.Map.Strict                  as Map
+import           Data.Maybe                       (fromMaybe, listToMaybe)
+import           GHCJS.Foreign.Callback
+import           GHCJS.Marshal                    (fromJSVal,
+                                                   fromJSValUnchecked)
+import           GHCJS.Types
+import           JavaScript.Web.AnimationFrame    (waitForAnimationFrame)
+import qualified JavaScript.Web.Canvas            as C
+import           JavaScript.Web.XMLHttpRequest
+import           Linear                           (V2 (..), V4 (..))
+import           Linear.Affine                    (Point (..))
+import           OnyxiteDisplay.Draw
+import           OnyxiteDisplay.Process
+import           RockBand.Common                  (Difficulty (..))
 import qualified RockBand.Events                  as Events
+import qualified RockBand.File                    as RB
 import qualified RockBand.FiveButton              as Five
 import qualified Sound.MIDI.Util                  as U
-import           Data.Maybe                       (listToMaybe, fromMaybe)
-import qualified Data.EventList.Relative.TimeBody as RTB
-import GHCJS.Marshal (fromJSVal, fromJSValUnchecked)
-import Data.JSString (pack)
-import GHCJS.Types
-import GHCJS.Foreign.Callback
-import Control.Concurrent.STM
 
 import qualified Audio
-import Images
-import MIDI
+import           Images
+import           MIDI
 
 foreign import javascript unsafe
   " location.search.substr(1).split('&').map(function(pair){ \
@@ -89,8 +90,8 @@ foreign import javascript unsafe
   \ $1.height = window.innerHeight; "
   resizeCanvas :: C.Canvas -> IO ()
 
-foreign import javascript unsafe "$1.x" mouseEventX :: JSVal -> IO Int
-foreign import javascript unsafe "$1.y" mouseEventY :: JSVal -> IO Int
+foreign import javascript unsafe "$1.clientX" mouseEventX :: JSVal -> IO Int
+foreign import javascript unsafe "$1.clientY" mouseEventY :: JSVal -> IO Int
 
 foreign import javascript unsafe "prompt($1)"
   js_prompt :: JSString -> IO JSVal
@@ -100,8 +101,8 @@ prompt s = js_prompt (pack s) >>= fromJSValUnchecked
 
 data MouseEvent
   = MouseDown Int Int
-  | MouseUp   Int Int
-  | MouseMove Int Int
+  -- | MouseUp   Int Int
+  -- | MouseMove Int Int
   deriving (Eq, Ord, Show, Read)
 
 readAll :: TChan a -> STM [a]
@@ -109,13 +110,24 @@ readAll c = tryReadTChan c >>= \case
   Just x  -> fmap (x :) $ readAll c
   Nothing -> return []
 
+data Settings = Settings
+  { seeGuitar  :: Bool
+  , seeBass    :: Bool
+  , seeKeys    :: Bool
+  , seeProKeys :: Bool
+  , seeDrums   :: Bool
+  , halfFrames :: Bool
+  } deriving (Eq, Ord, Show, Read)
+
 data App
   = Paused
     { pausedSongTime :: U.Seconds
+    , settings       :: Settings
     }
   | Playing
     { startedPageTime :: U.Seconds
     , startedSongTime :: U.Seconds
+    , settings        :: Settings
     }
   deriving (Eq, Ord, Show)
 
@@ -131,8 +143,8 @@ main = do
           atomically $ writeTChan clicks $ f x y
         addEventListener s cb False $ jsval theCanvas
   addMouseListener "mousedown" MouseDown
-  addMouseListener "mouseup"   MouseUp
-  addMouseListener "mousemove" MouseMove
+  -- addMouseListener "mouseup"   MouseUp
+  -- addMouseListener "mousemove" MouseMove
 
   get <- retrieveGET
   let param s = case lookup s get of
@@ -193,6 +205,9 @@ main = do
         RB.Events t <- RB.s_tracks song
         (bts, Events.End) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 t
         return $ U.applyTempoMap (RB.s_tempos song) bts
+      _M, _B :: (Num a) => a
+      _M = 20 -- margin
+      _B = 41 -- height/width of buttons
       drawFrame :: U.Seconds -> App -> IO ()
       drawFrame t state = do
         resizeCanvas theCanvas
@@ -203,67 +218,115 @@ main = do
         let targetY :: (Num a) => a
             targetY = fromIntegral windowH - 50
         (\act -> runReaderT (runDrawCanvas act) (theCanvas, ctx, getImage)) $ do
-          unless gtrNull     $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 100 targetY) gtr     beat True
-          unless bassNull    $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 325 targetY) bass    beat True
-          unless drumsNull   $ drawDrums   (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 550 targetY) drums   beat True
-          unless keysNull    $ drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 739 targetY) keys    beat True
-          unless proKeysNull $ drawProKeys (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 964 targetY) prokeys beat True
+          let Settings{..} = settings state
+              tracks = concat
+                [ [ (182, \x -> drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 x targetY) gtr     beat True) | not gtrNull     && seeGuitar  ]
+                , [ (182, \x -> drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 x targetY) bass    beat True) | not bassNull    && seeBass    ]
+                , [ (146, \x -> drawDrums   (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 x targetY) drums   beat True) | not drumsNull   && seeDrums   ]
+                , [ (182, \x -> drawFive    (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 x targetY) keys    beat True) | not keysNull    && seeKeys    ]
+                , [ (282, \x -> drawProKeys (pxToSecs targetY t) (secsToPx targetY t) (P $ V2 x targetY) prokeys beat True) | not proKeysNull && seeProKeys ]
+                ]
+              drawTracks :: (Monad m) => Int -> [(Int, Int -> m ())] -> m ()
+              drawTracks _ []                   = return ()
+              drawTracks x ((w, drawfn) : rest) = do
+                drawfn x
+                drawTracks (x + w + 20) rest
+          drawTracks (_M + _B + _M + _B + _M) tracks
+          let buttons = concat
+                [ [ if seeProKeys then Image_button_prokeys else Image_button_prokeys_off | not proKeysNull ]
+                , [ if seeKeys    then Image_button_keys    else Image_button_keys_off    | not keysNull    ]
+                , [ if seeDrums   then Image_button_drums   else Image_button_drums_off   | not drumsNull   ]
+                , [ if seeBass    then Image_button_bass    else Image_button_bass_off    | not bassNull    ]
+                , [ if seeGuitar  then Image_button_guitar  else Image_button_guitar_off  | not gtrNull     ]
+                ]
+              drawButtons _ []           = return ()
+              drawButtons y (iid : iids) = do
+                drawImage iid $ P $ V2 (_M + _B + _M) y
+                drawButtons (y - _M - _B) iids
+          drawButtons (windowH - _M - _B) $ buttons
+          let playPause = case state of
+                Paused{}  -> Image_button_play
+                Playing{} -> Image_button_pause
+          drawImage playPause $ P $ V2 _M (windowH - _M - _B - _M - _B)
+          drawImage (if halfFrames then Image_button_half_fps else Image_button_half_fps_off) $
+            P $ V2 _M (windowH - _M - _B)
+          let timelineH = windowH - 4 * _M - 2 * _B - 2
+              filled = realToFrac $ t / endEvent :: Rational
           setColor $ V4 0 0 0 255
-          fillRect (P $ V2 20 $ windowH - 70) $ V2 50 50
-          fillRect (P $ V2 20 20) $ V2 50 $ windowH - 110
+          fillRect (P $ V2 _M _M) $ V2 _B $ timelineH + 2
           setColor $ V4 255 255 255 255
-          fillRect (P $ V2 23 $ windowH - 67) $ V2 44 44
-          let timelineH = windowH - 116
-          fillRect (P $ V2 23 23) $ V2 44 timelineH
-          setColor $ V4 0 0 0 255
-          case state of
-            Paused{}  -> liftIO $ do
-              C.beginPath ctx
-              C.moveTo 30 (fromIntegral windowH - 60) ctx
-              C.lineTo 30 (fromIntegral windowH - 30) ctx
-              C.lineTo 60 (fromIntegral windowH - 45) ctx
-              C.closePath ctx
-              C.fill ctx
-            Playing{} -> do
-              fillRect (P $ V2 30 $ windowH - 60) $ V2 11 30
-              fillRect (P $ V2 49 $ windowH - 60) $ V2 11 30
-          let filled = realToFrac $ t / endEvent :: Rational
+          fillRect (P $ V2 (_M + 1) (_M + 1)) $ V2 (_B - 2) timelineH
           setColor $ V4 100 130 255 255
-          fillRect (P $ V2 23 $ 23 + round (fromIntegral timelineH * (1 - filled))) $ V2 44 $ round $ fromIntegral timelineH * filled
-  drawFrame 0 (Paused 0)
+          fillRect (P $ V2 (_M + 1) $ _M + 1 + round (fromIntegral timelineH * (1 - filled))) $ V2 (_B - 2) $ round $ fromIntegral timelineH * filled
+  let initSettings = Settings True True True True True False
+  drawFrame 0 $ Paused 0 initSettings
   msStart <- waitForAnimationFrame
   aud <- Audio.play howl
   let loop state = do
+        when (halfFrames $ settings state) $ void $ waitForAnimationFrame
         ms <- waitForAnimationFrame
         let nowSeconds = case state of
               Paused{..} -> pausedSongTime
               Playing{..} -> startedSongTime + realToFrac (ms / 1000) - startedPageTime
         drawFrame (min nowSeconds endEvent) state
         windowH <- canvasHeight theCanvas
-        let handle s []       = loop s
-            handle s (e : es) = case e of
-              MouseDown x y -> if 20 <= x && x <= 70
-                then if windowH - 70 <= y && y <= windowH - 20
-                  then case state of
+        let handle []       s = loop s
+            handle (e : es) s = case e of
+              MouseDown x y -> if _M <= x && x <= _M + _B
+                then if windowH - 2*_M - 2*_B <= y && y <= windowH - 2*_M - _B
+                  then case state of -- play/pause button
                     Paused{..} -> do
                       ms' <- waitForAnimationFrame
                       Audio.setPosSafe pausedSongTime aud howl
-                      handle (Playing (realToFrac $ ms' / 1000) pausedSongTime) es
+                      handle es Playing
+                        { startedPageTime = realToFrac $ ms' / 1000
+                        , startedSongTime = pausedSongTime
+                        , ..
+                        }
                     Playing{..} -> do
                       Audio.pause aud howl
-                      handle (Paused nowSeconds) es
-                  else if 20 <= y && y <= windowH - 90
-                    then let
-                      frac = 1 - (fromIntegral y - 20) / (fromIntegral windowH - 110) :: Rational
+                      handle es Paused
+                        { pausedSongTime = nowSeconds
+                        , ..
+                        }
+                  else if _M <= y && y <= windowH - 3*_M - 2*_B
+                    then let -- progress bar
+                      frac = 1 - (fromIntegral y - _M) / (fromIntegral windowH - 4*_M - 2*_B) :: Rational
                       t = realToFrac frac * endEvent
                       in case state of
-                        Paused{..} -> handle (Paused t) es
+                        Paused{..} -> handle es Paused
+                          { pausedSongTime = t
+                          , ..
+                          }
                         Playing{..} -> do
                           ms' <- waitForAnimationFrame
                           Audio.setPosSafe t aud howl
-                          handle (Playing (realToFrac $ ms' / 1000) t) es
-                    else handle s es
-                else handle s es
-              _ -> handle s es
-        atomically (readAll clicks) >>= handle state
-  loop $ Playing (realToFrac $ msStart / 1000) 0
+                          handle es Playing
+                            { startedPageTime = realToFrac $ ms' / 1000
+                            , startedSongTime = t
+                            , ..
+                            }
+                    else if windowH - _M - _B <= y && y <= windowH - _M
+                      then handle es s{ settings = (settings s){ halfFrames = not $ halfFrames $ settings s } }
+                      else handle es s
+                else if 2*_M + _B <= x && x <= 2*_M + 2*_B
+                  then let
+                    buttons = concat
+                      [ [ (\sets -> sets { seeProKeys = not $ seeProKeys sets }) | not proKeysNull ]
+                      , [ (\sets -> sets { seeKeys    = not $ seeKeys    sets }) | not keysNull    ]
+                      , [ (\sets -> sets { seeDrums   = not $ seeDrums   sets }) | not drumsNull   ]
+                      , [ (\sets -> sets { seeBass    = not $ seeBass    sets }) | not bassNull    ]
+                      , [ (\sets -> sets { seeGuitar  = not $ seeGuitar  sets }) | not gtrNull     ]
+                      ]
+                    go s' []                   = handle es s'
+                    go s' ((i, action) : rest) = do
+                      let ystart = windowH - i * (_M + _B)
+                          yend   = ystart + _B
+                      if ystart <= y && y <= yend
+                        then handle es s{ settings = action $ settings s }
+                        else go s' rest
+                    in go s $ zip [1..] buttons
+                  else handle es s
+              -- _ -> handle es s
+        atomically (readAll clicks) >>= flip handle state
+  loop $ Playing (realToFrac $ msStart / 1000) 0 initSettings

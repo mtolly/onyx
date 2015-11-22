@@ -2,15 +2,17 @@
 
 ## Dream Theater
 
+Author: Meander, Sideshow, Onyxite
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=in-the-presence-of-enemies-pt-1&artist=dream-theater)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=in-the-presence-of-enemies-pt-1&artist=dream-theater) ⚪️⚪️⚪️⚪️⚪️
+  * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
   * Bass ⚪️⚪️⚪️⚫️⚫️
   * Guitar 😈😈😈😈😈
   * Keys 😈😈😈😈😈
   * Vocals (3) ⚪️⚪️⚫️⚫️⚫️
-
-Author: Meander, Sideshow, Onyxite
 
 Supported audio:
 

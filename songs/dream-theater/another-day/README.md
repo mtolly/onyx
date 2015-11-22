@@ -2,9 +2,12 @@
 
 ## Dream Theater
 
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=another-day&artist=dream-theater)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=another-day&artist=dream-theater)
+  * (Pro) Drums
   * Bass
   * Guitar
 

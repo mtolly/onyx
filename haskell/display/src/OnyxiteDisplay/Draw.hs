@@ -57,6 +57,20 @@ data ImageID
   | Image_highway_prokeys_target
   | Image_sustain_key_end
   | Image_sustain_end
+  | Image_button_bass
+  | Image_button_bass_off
+  | Image_button_drums
+  | Image_button_drums_off
+  | Image_button_guitar
+  | Image_button_guitar_off
+  | Image_button_half_fps
+  | Image_button_half_fps_off
+  | Image_button_keys
+  | Image_button_keys_off
+  | Image_button_pause
+  | Image_button_play
+  | Image_button_prokeys
+  | Image_button_prokeys_off
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 class (Monad m) => MonadDraw m where

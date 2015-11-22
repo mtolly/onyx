@@ -2,9 +2,12 @@
 
 ## Haken
 
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=in-memoriam&artist=haken)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=in-memoriam&artist=haken)
+  * (Pro) Drums
 
 Supported audio:
 

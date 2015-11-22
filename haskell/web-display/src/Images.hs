@@ -3,9 +3,9 @@
 {-# LANGUAGE JavaScriptFFI #-}
 module Images where
 
-import           Data.List           (stripPrefix)
-import qualified Data.Map.Strict     as Map
-import Data.JSString (JSString, pack)
+import           Data.JSString         (JSString, pack)
+import           Data.List             (stripPrefix)
+import qualified Data.Map.Strict       as Map
 import qualified JavaScript.Web.Canvas as C
 
 import           OnyxiteDisplay.Draw (ImageID (..))

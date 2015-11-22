@@ -291,6 +291,15 @@ main = do
       line ""
       line $ "## " ++ escape (T.unpack $ _artist $ _metadata songYaml)
       line ""
+      case T.unpack $ _author $ _metadata songYaml of
+        "Onyxite" -> return ()
+        auth      -> line $ "Author: " ++ auth
+      line ""
+      let titleDir  = takeFileName $ takeDirectory yamlPath
+          artistDir = takeFileName $ takeDirectory $ takeDirectory yamlPath
+          link = "http://pages.cs.wisc.edu/~tolly/customs/?title=" ++ titleDir ++ "&artist=" ++ artistDir
+      line $ "[Play in browser](" ++ link ++ ")"
+      line ""
       line "Instruments:"
       line ""
       let diffString f dm = case f $ _difficulty $ _metadata songYaml of
@@ -306,26 +315,17 @@ main = do
                     6 -> " ⚪️⚪️⚪️⚪️⚪️"
                     7 -> " 😈😈😈😈😈"
                     _ -> ""
-      when (_hasDrums $ _instruments songYaml) $ do
-        let titleDir  = takeFileName $ takeDirectory yamlPath
-            artistDir = takeFileName $ takeDirectory $ takeDirectory yamlPath
-            link = "http://pages.cs.wisc.edu/~tolly/customs/?title=" ++ titleDir ++ "&artist=" ++ artistDir
-        line $ "  * (Pro) Drums [(preview)](" ++ link ++ ")" ++ diffString _difficultyDrums drumsDiffMap
-      when (_hasBass    $ _instruments songYaml) $ line $ "  * Bass"     ++ diffString _difficultyBass bassDiffMap
-      when (_hasGuitar  $ _instruments songYaml) $ line $ "  * Guitar"   ++ diffString _difficultyGuitar guitarDiffMap
-      when (_hasKeys    $ _instruments songYaml) $ line $ "  * Keys"     ++ diffString _difficultyKeys keysDiffMap
-      when (_hasProKeys $ _instruments songYaml) $ line $ "  * Pro Keys" ++ diffString _difficultyProKeys keysDiffMap
+      when (_hasDrums   $ _instruments songYaml) $ line $ "  * (Pro) Drums" ++ diffString _difficultyDrums   drumsDiffMap
+      when (_hasBass    $ _instruments songYaml) $ line $ "  * Bass"        ++ diffString _difficultyBass    bassDiffMap
+      when (_hasGuitar  $ _instruments songYaml) $ line $ "  * Guitar"      ++ diffString _difficultyGuitar  guitarDiffMap
+      when (_hasKeys    $ _instruments songYaml) $ line $ "  * Keys"        ++ diffString _difficultyKeys    keysDiffMap
+      when (_hasProKeys $ _instruments songYaml) $ line $ "  * Pro Keys"    ++ diffString _difficultyProKeys keysDiffMap
       case _hasVocal $ _instruments songYaml of
         Vocal0 -> return ()
         Vocal1 -> line $ "  * Vocals (1)" ++ diffString _difficultyVocal vocalDiffMap
         Vocal2 -> line $ "  * Vocals (2)" ++ diffString _difficultyVocal vocalDiffMap
         Vocal3 -> line $ "  * Vocals (3)" ++ diffString _difficultyVocal vocalDiffMap
       line ""
-      case T.unpack $ _author $ _metadata songYaml of
-        "Onyxite" -> return ()
-        auth -> do
-          line $ "Author: " ++ auth
-          line ""
       line "Supported audio:"
       line ""
       forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do

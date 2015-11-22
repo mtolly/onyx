@@ -2,9 +2,12 @@
 
 ## Bad Salad
 
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=deep-roots&artist=bad-salad)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=deep-roots&artist=bad-salad)
+  * (Pro) Drums
 
 Supported audio:
 

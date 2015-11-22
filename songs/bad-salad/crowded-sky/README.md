@@ -2,9 +2,12 @@
 
 ## Bad Salad
 
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=crowded-sky&artist=bad-salad)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=crowded-sky&artist=bad-salad)
+  * (Pro) Drums
 
 Supported audio:
 

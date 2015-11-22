@@ -2,11 +2,13 @@
 
 ## Tool
 
+Author: Grinnz
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=aenema&artist=tool)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=aenema&artist=tool)
-
-Author: Grinnz
+  * (Pro) Drums
 
 Supported audio:
 

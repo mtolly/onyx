@@ -2,14 +2,16 @@
 
 ## Dream Theater
 
+Author: Harmonix, Grinnz
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=panic-attack&artist=dream-theater)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=panic-attack&artist=dream-theater)
+  * (Pro) Drums
   * Bass
   * Guitar
   * Vocals (1)
-
-Author: Harmonix, Grinnz
 
 Supported audio:
 

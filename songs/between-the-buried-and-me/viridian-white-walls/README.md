@@ -2,11 +2,13 @@
 
 ## Between the Buried and Me
 
+Author: Grinnz
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=viridian-white-walls&artist=between-the-buried-and-me)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=viridian-white-walls&artist=between-the-buried-and-me)
-
-Author: Grinnz
+  * (Pro) Drums
 
 Supported audio:
 

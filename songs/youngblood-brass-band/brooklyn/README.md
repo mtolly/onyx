@@ -2,9 +2,12 @@
 
 ## Youngblood Brass Band
 
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=brooklyn&artist=youngblood-brass-band)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=brooklyn&artist=youngblood-brass-band)
+  * (Pro) Drums
 
 Supported audio:
 

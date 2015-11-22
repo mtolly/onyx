@@ -2,16 +2,18 @@
 
 ## Dream Theater
 
+Author: Harmonix, Onyxite
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=on-the-backs-of-angels&artist=dream-theater)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=on-the-backs-of-angels&artist=dream-theater)
+  * (Pro) Drums
   * Bass
   * Guitar
   * Keys
   * Pro Keys
   * Vocals (2)
-
-Author: Harmonix, Onyxite
 
 Supported audio:
 

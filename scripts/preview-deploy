@@ -47,25 +47,31 @@ end
 Net::SFTP.start(url, username, password: password) do |sftp|
   log " => Connected #{username}@#{url} via SFTP."
   if ARGV.include? 'app'
-    Dir.chdir('haskell/preview') do
+    Dir.chdir('haskell/web-display') do
       system_ 'make', 'minify'
     end
-    upload_rf sftp, 'haskell/preview/www/index.html', "#{remote_dir}/index.html"
-    upload_rf sftp, 'haskell/preview/www/app.min.js', "#{remote_dir}/app.min.js"
-    upload_rf sftp, 'haskell/preview/www/runmain.js', "#{remote_dir}/runmain.js"
-    upload_rf sftp, 'haskell/preview/www/rbprev'    , "#{remote_dir}/rbprev"
-    upload_rf sftp, 'haskell/preview/www/lib'       , "#{remote_dir}/lib"
+    upload_rf sftp, 'haskell/web-display/www/index.html', "#{remote_dir}/index.html"
+    upload_rf sftp, 'haskell/web-display/www/app.min.js', "#{remote_dir}/app.min.js"
+    upload_rf sftp, 'haskell/web-display/www/runmain.js', "#{remote_dir}/runmain.js"
+    upload_rf sftp, 'haskell/web-display/www/images'    , "#{remote_dir}/images"
+    upload_rf sftp, 'haskell/web-display/www/lib'       , "#{remote_dir}/lib"
   end
-  first_option = ARGV.index { |arg| arg.start_with? '--' }
+  first_option = ARGV.index { |arg| arg.start_with? '-' }
   not_options = first_option ? ARGV[0 ... first_option] : ARGV
-  onyxbuild_options = first_option ? ARGV[first_option .. -1] : []
+  onyxbuild_options = first_option ? ARGV[first_option .. -1].reject { |x| x == '--only-midi' } : []
+  only_mid = ARGV.include?('--only-midi')
   not_options.each do |songdir|
     next if songdir == 'app'
     next unless File.exist? "#{songdir}/song.yml"
     yaml = load_yaml_tree("#{songdir}/song.yml")
     next unless yaml.fetch('published', true)
 
-    songfiles = %w{gen/plan/album/2p/notes.mid gen/plan/album/preview-audio.ogg gen/plan/album/preview-audio.mp3}
+    songfiles =
+      if only_mid
+        %w{gen/plan/album/2p/notes.mid}
+      else
+        %w{gen/plan/album/2p/notes.mid gen/plan/album/preview-audio.ogg gen/plan/album/preview-audio.mp3}
+      end
     Dir.chdir(songdir) do
       system_('onyxbuild', *songfiles, *onyxbuild_options)
     end

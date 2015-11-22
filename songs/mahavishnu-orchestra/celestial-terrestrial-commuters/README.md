@@ -2,9 +2,12 @@
 
 ## Mahavishnu Orchestra
 
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=celestial-terrestrial-commuters&artist=mahavishnu-orchestra)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=celestial-terrestrial-commuters&artist=mahavishnu-orchestra)
+  * (Pro) Drums
 
 Supported audio:
 

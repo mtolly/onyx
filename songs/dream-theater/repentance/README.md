@@ -2,16 +2,18 @@
 
 ## Dream Theater
 
+Author: Onyxite, Grinnz
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=repentance&artist=dream-theater)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=repentance&artist=dream-theater) ⚪️⚪️⚪️⚫️⚫️
+  * (Pro) Drums ⚪️⚪️⚪️⚫️⚫️
   * Bass ⚪️⚫️⚫️⚫️⚫️
   * Guitar ⚪️⚫️⚫️⚫️⚫️
   * Keys ⚪️⚪️⚫️⚫️⚫️
   * Pro Keys ⚪️⚪️⚪️⚪️⚫️
   * Vocals (3) ⚪️⚪️⚪️⚪️⚪️
-
-Author: Onyxite, Grinnz
 
 Supported audio:
 

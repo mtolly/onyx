@@ -2,14 +2,16 @@
 
 ## Tool
 
+Author: Grinnz
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=the-grudge&artist=tool)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=the-grudge&artist=tool)
+  * (Pro) Drums
   * Bass
   * Guitar
   * Vocals (1)
-
-Author: Grinnz
 
 Supported audio:
 

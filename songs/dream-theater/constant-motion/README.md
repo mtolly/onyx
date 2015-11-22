@@ -2,14 +2,16 @@
 
 ## Dream Theater
 
+Author: Harmonix, Grinnz, Onyxite
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=constant-motion&artist=dream-theater)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=constant-motion&artist=dream-theater) 😈😈😈😈😈
+  * (Pro) Drums 😈😈😈😈😈
   * Bass ⚪️⚪️⚪️⚪️⚪️
   * Guitar 😈😈😈😈😈
   * Vocals (2) ⚪️⚪️⚪️⚫️⚫️
-
-Author: Harmonix, Grinnz, Onyxite
 
 Supported audio:
 

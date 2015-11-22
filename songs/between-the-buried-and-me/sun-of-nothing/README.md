@@ -2,11 +2,13 @@
 
 ## Between the Buried and Me
 
+Author: Grinnz
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=sun-of-nothing&artist=between-the-buried-and-me)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=sun-of-nothing&artist=between-the-buried-and-me)
-
-Author: Grinnz
+  * (Pro) Drums
 
 Supported audio:
 

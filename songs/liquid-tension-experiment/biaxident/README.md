@@ -2,9 +2,12 @@
 
 ## Liquid Tension Experiment
 
+
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=biaxident&artist=liquid-tension-experiment)
+
 Instruments:
 
-  * (Pro) Drums [(preview)](http://pages.cs.wisc.edu/~tolly/customs/?title=biaxident&artist=liquid-tension-experiment)
+  * (Pro) Drums
 
 Supported audio:
 

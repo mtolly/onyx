@@ -1,3 +1,3 @@
 window.h$main = h$main;
-window.h$mainZCMainzimain = h$mainZCMainzimain;
+window.h$mainZCZCMainzimain = h$mainZCZCMainzimain;
 })(typeof global !== 'undefined' ? global : this);
