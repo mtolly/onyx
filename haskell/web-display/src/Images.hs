@@ -1,8 +1,10 @@
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE JavaScriptFFI #-}
-module Images where
+module Images (imageGetter) where
 
+import           Control.Concurrent    (forkIO, newEmptyMVar, putMVar, takeMVar)
+import           Control.Monad         (forM)
 import           Data.JSString         (JSString, pack)
 import           Data.List             (stripPrefix)
 import qualified Data.Map.Strict       as Map
@@ -23,10 +25,19 @@ foreign import javascript interruptible
   \ i.src = $1; "
   js_loadImage :: JSString -> IO C.Image
 
+-- | Very simple, no exception safety. Intended for async JS functions.
+parallel :: [IO a] -> IO [a]
+parallel fs = do
+  vars <- forM fs $ \f -> do
+    v <- newEmptyMVar
+    _ <- forkIO $ f >>= putMVar v
+    return v
+  mapM takeMVar vars
+
 imageGetter :: IO (ImageID -> C.Image)
 imageGetter = do
   let iids = [minBound .. maxBound]
-  imgs <- mapM loadImage iids
+  imgs <- parallel $ map loadImage iids
   let table = Map.fromList $ zip iids imgs
       getImage iid = case Map.lookup iid table of
         Nothing -> error $ "imageGetter: couldn't find image for " ++ show iid
