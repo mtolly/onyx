@@ -21,3 +21,5 @@ Notes:
 
   * Chart confidence: *high*. Transcribed from the separated Game Boy channels.
 
+  * All difficulties are charted on all instruments.
+
