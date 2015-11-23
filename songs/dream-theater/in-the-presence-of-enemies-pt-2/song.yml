@@ -70,7 +70,9 @@ plans:
     drums:
       pad:
         - "1:43.080"
-        - resample: *drums
+        - gain:
+          - -1
+          - resample: *drums
 instruments:
   drums: true
   vocal: 2

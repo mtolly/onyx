@@ -19,7 +19,7 @@ metadata:
   - "Restitution spoken word transcribed from the isolated audio on Chaos in Progress."
   rating: Family Friendly
   autogen-theme: Dusty Vintage
-  # vintage kit
+  drum-kit: Vintage Kit
 audio:
   album-track:
     md5: f95cbe0b2005c3b5a1387814a0c813bf
@@ -92,12 +92,14 @@ plans:
                           - '30:48.852'
                           - drumcam-drums
     drums:
-      resample:
-        pad:
-          - 2.205
-          - take:
-            - '10:42.951'
-            - *drums
+      gain:
+      - -1
+      - resample:
+          pad:
+            - 2.205
+            - take:
+              - '10:42.951'
+              - *drums
 instruments:
   drums: true
   vocal: 3

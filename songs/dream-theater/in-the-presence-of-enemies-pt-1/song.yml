@@ -44,10 +44,12 @@ plans:
       Portnoy's sysDRUMatic Chaos DVD.
       See the project README for help on extracting the DVD audio.
     drums:
-      resample:
-        trim:
-          - 1.909
-          - take: ['8:50.723', drumcam-drums]
+      gain:
+        - -1
+        - resample:
+            trim:
+              - 1.909
+              - take: ['8:50.723', drumcam-drums]
     song:
       fade:
         - end

@@ -190,6 +190,7 @@ data Metadata = Metadata
   , _autogenTheme :: AutogenTheme
   , _author       :: T.Text
   , _rating       :: Rating
+  , _drumKit      :: DrumKit
   } deriving (Eq, Ord, Show, Read)
 
 data Difficulties = Difficulties
@@ -253,10 +254,11 @@ instance TraceJSON Metadata where
     _autogenTheme <- fromMaybe AutogenDefault <$> optional "autogen-theme" traceJSON
     _author       <- fromMaybe "Onyxite" <$> optional "author" traceJSON
     _rating       <- fromMaybe Unrated <$> optional "rating" traceJSON
+    _drumKit      <- fromMaybe HardRockKit <$> optional "drum-kit" traceJSON
     expectedKeys
       [ "title", "artist", "album", "genre", "subgenre", "year"
       , "file-album-art", "track-number", "file-countin", "comments", "vocal-gender"
-      , "difficulty", "key", "autogen-theme", "author", "rating"
+      , "difficulty", "key", "autogen-theme", "author", "rating", "drum-kit"
       ]
     return Metadata{..}
 
@@ -533,3 +535,19 @@ instance TraceJSON Rating where
       "Unrated"                -> return Unrated
       _ -> expected "a valid content rating or null"
     _          -> expected "a valid content rating or null"
+
+data DrumKit
+  = HardRockKit
+  | ArenaKit
+  | VintageKit
+  | TrashyKit
+  | ElectronicKit
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance TraceJSON DrumKit where
+  traceJSON = lift ask >>= \case
+    A.Null     -> return HardRockKit
+    A.String t         -> case readMaybe $ filter (/= ' ') $ T.unpack t of
+      Just kit -> return kit
+      Nothing    -> expected "the name of a drum kit or null"
+    _                  -> expected "the name of a drum kit or null"

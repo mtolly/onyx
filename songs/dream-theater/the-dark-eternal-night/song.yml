@@ -92,12 +92,14 @@ plans:
             - '4:40.440'
             - *song
     drums:
-      resample:
-        take:
-        - '9:01.477'
-        - pad:
-          - 4.266
-          - *drums
+      gain:
+      - -1
+      - resample:
+          take:
+          - '9:01.477'
+          - pad:
+            - 4.266
+            - *drums
   album:
     comments:
     - >-

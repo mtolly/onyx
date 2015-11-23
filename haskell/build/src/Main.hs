@@ -702,6 +702,7 @@ main = do
                       Just (Right (D.InParens chans)) -> chans
                       Just (Left  chan              ) -> [chan]
                     in map (\i -> if i `elem` guitarIndexes then 1 else -1) [0..]
+                  -- TODO: different drum kit sounds
                   , D.drumSolo = D.DrumSounds $ D.InParens $ map D.Keyword $ words
                     "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
                   , D.drumFreestyle = D.DrumSounds $ D.InParens $ map D.Keyword $ words
@@ -1061,7 +1062,7 @@ main = do
               , C3.tonicNote = _key $ _metadata songYaml
               , C3.tuningCents = 0
               , C3.songRating = fromEnum (_rating $ _metadata songYaml) + 1
-              , C3.drumKitSFX = 0 -- default Hard Rock Kit
+              , C3.drumKitSFX = fromEnum $ _drumKit $ _metadata songYaml
               , C3.hopoThresholdIndex = 2 -- default 170
               , C3.muteVol = -96
               , C3.vocalMuteVol = -12

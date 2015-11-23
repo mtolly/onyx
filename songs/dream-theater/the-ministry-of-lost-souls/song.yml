@@ -74,7 +74,9 @@ plans:
               - 0.03
               - drop: ["12:50.401", *album]
     drums:
-      resample: *drums
+      gain:
+      - -1
+      - resample: *drums
 instruments:
   drums: true
   vocal: 2

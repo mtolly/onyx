@@ -55,8 +55,10 @@ plans:
                 - '6:02.182'
                 - drop: ['41:30.764', drumcam-drums]
     drums:
-      resample:
-        pad: [3.261, *drums]
+      gain:
+      - -1
+      - resample:
+          pad: [3.261, *drums]
 instruments:
   drums: true
   vocal: 3

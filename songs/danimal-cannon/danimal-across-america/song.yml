@@ -14,7 +14,7 @@ metadata:
     band: 5
   autogen-theme: Synth Pop
   rating: Family Friendly
-  # electronic kit
+  drum-kit: Electronic Kit
 audio:
   album-track:
     md5: bcdcc44fd651b5f632e5e5f66619e384
