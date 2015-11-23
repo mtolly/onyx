@@ -10,12 +10,16 @@ metadata:
     bass: 2
     pro-keys: 5
     keys: 3
+    band: 4
   author: "Onyxite, Grinnz"
   comments:
   - "Timing and drums by Grinnz."
   - "All instruments have overdrive/unison."
   - "Drums confidence: *high*, written to Portnoy's DVD."
   - "Restitution spoken word transcribed from the isolated audio on Chaos in Progress."
+  rating: Family Friendly
+  autogen-theme: Dusty Vintage
+  # vintage kit
 audio:
   album-track:
     md5: f95cbe0b2005c3b5a1387814a0c813bf

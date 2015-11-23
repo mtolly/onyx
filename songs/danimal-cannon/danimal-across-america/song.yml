@@ -5,6 +5,16 @@ metadata:
   comments:
   - "Chart confidence: *high*. Transcribed from the separated Game Boy channels."
   - "All difficulties are charted on all instruments."
+  difficulty:
+    drums: 3
+    bass: 4
+    guitar: 6
+    keys: 6
+    pro-keys: 6
+    band: 5
+  autogen-theme: Synth Pop
+  rating: Family Friendly
+  # electronic kit
 audio:
   album-track:
     md5: bcdcc44fd651b5f632e5e5f66619e384

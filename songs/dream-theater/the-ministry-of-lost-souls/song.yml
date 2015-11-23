@@ -8,9 +8,11 @@ metadata:
     vocal: 6
     guitar: 7
     bass: 6
+    band: 7
   comments:
   - >-
     Drums confidence: *high*, written to Portnoy's DVD.
+  rating: Supervision Recommended
 audio:
   album-track:
     md5: 32ed37de6e2fa659f95fe076e714f6c5

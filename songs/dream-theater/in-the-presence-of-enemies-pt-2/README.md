@@ -10,7 +10,7 @@ Instruments:
 
   * (Pro) Drums 😈😈😈😈😈
   * Bass
-  * Guitar
+  * Guitar 😈😈😈😈😈
   * Keys
   * Vocals (2) ⚪️⚪️⚪️⚪️⚫️
 

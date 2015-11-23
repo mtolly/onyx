@@ -6,6 +6,8 @@ metadata:
   difficulty:
     drums: 7
     vocal: 5
+    guitar: 7
+    band: 7
   author: "Meander, Sideshow, Onyxite"
   comments:
   - >-
@@ -13,6 +15,7 @@ metadata:
     Bass and keys are NOT DONE; they need to be realigned to my tempo map.
   - >-
     Drums confidence: *high*. Written to Portnoy's recording session DVD.
+  rating: Supervision Recommended
 audio:
   album-track:
     md5: e7a1dccaa73c2afa901063afa57064be

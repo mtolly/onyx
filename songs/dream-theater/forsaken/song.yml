@@ -10,9 +10,11 @@ metadata:
     keys: 3
     pro-keys: 3
     bass: 2
+    band: 3
   comments:
   - "Drums confidence: *high*. Written to Portnoy's DVD."
   - "All instruments have overdrive/unison."
+  rating: Supervision Recommended
 audio:
   album-track:
     md5: 0ecc238833b6dcda1bf52d2d666c387c

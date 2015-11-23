@@ -1,6 +1,5 @@
 album: Pimp of the Year
-artist: 'Soil & Pimp Sessions'
-# TODO: support '"' (written \q) in dtab
+artist: "Soil & 'Pimp' Sessions"
 year: 2006
 genre: jazz
 subgenre: contemporary

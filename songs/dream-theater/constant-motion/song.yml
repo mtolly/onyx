@@ -8,12 +8,14 @@ metadata:
     bass: 6
     vocal: 4
     drums: 7
+    band: 6
   author: "Harmonix, Grinnz, Onyxite"
   comments:
   - "Drums by Grinnz."
   - "Timing, guitar, bass, and original vocals by Harmonix."
   - "Vocals fixed up and split into harmonies by me."
   - "Drums confidence: *high*, written to stems and Portnoy's DVD."
+  rating: Family Friendly # HMX
 audio:
   album-track:
     md5: 8c906ac9ee62cccb895a0daaf5001049

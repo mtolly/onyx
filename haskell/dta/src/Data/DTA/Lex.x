@@ -88,7 +88,7 @@ readKey = readString . go where
 -- | Reads the special format for double-quoted strings.
 readString :: String -> String
 readString = read . go where
-  go ('\\' : 'q' : rest) = '"' : go rest
+  go ('\\' : 'q' : rest) = '\\' : '"' : go rest
   go ""                  = ""
   go (c : rest)          = c : go rest
 

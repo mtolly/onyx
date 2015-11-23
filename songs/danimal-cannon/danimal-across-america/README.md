@@ -7,11 +7,11 @@
 
 Instruments:
 
-  * (Pro) Drums
-  * Bass
-  * Guitar
-  * Keys
-  * Pro Keys
+  * (Pro) Drums ⚪️⚪️⚫️⚫️⚫️
+  * Bass ⚪️⚪️⚪️⚫️⚫️
+  * Guitar ⚪️⚪️⚪️⚪️⚪️
+  * Keys ⚪️⚪️⚪️⚪️⚪️
+  * Pro Keys ⚪️⚪️⚪️⚪️⚪️
 
 Supported audio:
 
