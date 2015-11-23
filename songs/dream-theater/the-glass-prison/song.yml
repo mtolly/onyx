@@ -4,14 +4,15 @@ metadata:
   track-number: 1
   comments:
   - >-
-    Chart confidence: *medium-high*.
-    Written to Portnoy's DVD (which is not quite the same as the recorded take).
+    Drums confidence: *medium-high*. Aided by Portnoy's DVD,
+    but the footage is not quite the same as the recorded take.
 audio:
   album-track:
     md5: ecd81eb9497bc5e4689e6f43582fa8b7
     frames: 36724716
 plans:
   album:
-    song: album-track
+    song:
+      pad: [0.057, album-track]
 instruments:
   drums: true

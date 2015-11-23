@@ -14,17 +14,19 @@ audio:
 plans:
   album:
     song:
-      fade:
-        - end
-        - 5.200
-        - take:
-          - begin
-          - '9:58'
-          # ^ TODO: clean this up
-          # previously I was trying to sneak under the 10 minute RBN cutoff...
-          - fade:
+      pad:
+        - 0.050
+        - fade:
+          - end
+          - 5.200
+          - take:
             - begin
-            - 5.673
-            - trim: [10.991, album-track]
+            - '9:58'
+            # ^ TODO: clean this up
+            # previously I was trying to sneak under the 10 minute RBN cutoff...
+            - fade:
+              - begin
+              - 5.673
+              - trim: [10.991, album-track]
 instruments:
   drums: true

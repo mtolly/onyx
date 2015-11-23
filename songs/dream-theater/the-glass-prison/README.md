@@ -15,5 +15,5 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *medium-high*. Written to Portnoy's DVD (which is not quite the same as the recorded take).
+  * Drums confidence: *medium-high*. Aided by Portnoy's DVD, but the footage is not quite the same as the recorded take.
 
