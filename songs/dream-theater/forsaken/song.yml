@@ -30,32 +30,47 @@ audio:
 plans:
   album:
     song:
+      &album
       pad: [6.027, album-track]
   drumcam:
     comments:
     - "Portnoy's sysDRUMatic Chaos DVD."
     song:
-      resample:
-        pad:
-          - 3.515
-          - take:
-            - '5:37'
-            - mix:
-              - pad:
-                - frames: 3192
-                - trim: ['9:08', drumcam-band]
-              - gain:
-                - -1
-                - concatenate:
-                  - take:
-                    - '5:24.340'
-                    - &drums
-                      trim: ['9:08', drumcam-drums]
-                  - pad:
-                    - frames: 3192
-                    - drop:
-                      - '5:24.340'
-                      - *drums
+      mix:
+      - fade:
+        - end
+        - 1
+        - take:
+          - '5:29.490'
+          - resample:
+              pad:
+                - 3.515
+                - take:
+                  - '5:37'
+                  - mix:
+                    - pad:
+                      - frames: 3192
+                      - trim: ['9:08', drumcam-band]
+                    - gain:
+                      - -1
+                      - concatenate:
+                        - take:
+                          - '5:24.340'
+                          - &drums
+                            trim: ['9:08', drumcam-drums]
+                        - pad:
+                          - frames: 3192
+                          - drop:
+                            - '5:24.340'
+                            - *drums
+      - pad:
+        - '5:28.090'
+        - gain:
+          - 0.55
+          - fade:
+            - start
+            - 1
+            - drop: ['5:28.090', *album]
     drums:
       resample:
         pad:
