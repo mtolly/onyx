@@ -38,6 +38,7 @@ data Event
   | Player1    Bool
   | Player2    Bool
   | DiffEvent  Difficulty DiffEvent
+  | Kick2x -- ^ Used as input to the build tool for 2x Bass Pedal notes
   | Animation  Animation
   deriving (Eq, Ord, Show, Read)
 
@@ -148,6 +149,7 @@ instanceMIDIEvent [t| Event |]
   , blip 87  [p| DiffEvent Hard (Note (Pro Blue   ())) |]
   , blip 88  [p| DiffEvent Hard (Note (Pro Green  ())) |]
 
+  , blip 95  [p| Kick2x |] -- Phase Shift convention, not a Rock Band note
   , blip 96  [p| DiffEvent Expert (Note Kick) |]
   , blip 97  [p| DiffEvent Expert (Note Red) |]
   , blip 98  [p| DiffEvent Expert (Note (Pro Yellow ())) |]

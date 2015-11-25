@@ -1,13 +1,12 @@
-{- |
-Algorithm to generate 1x Bass Pedal versions automatically from the 2x version.
--}
-module OneFoot (oneFoot) where
+-- | Algorithm to generate 1x Bass Pedal versions automatically from the 2x version.
+{-# LANGUAGE LambdaCase #-}
+module OneFoot (phaseShiftKicks, rockBand1x, rockBand2x) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           RockBand.Common
 import           RockBand.Drums                   (Hand (..))
 import qualified RockBand.Drums                   as Drums
-import           RockBand.File
+import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.Util                  as U
 
 assignFeet
@@ -43,20 +42,21 @@ assignFeet timeX timeY = RTB.fromPairList . rule4 . rule3 . rule2 . RTB.toPairLi
     p : ps -> p : rule4 ps
     [] -> []
 
-thinKicks :: U.Seconds -> U.Seconds -> RTB.T U.Seconds Drums.Event -> RTB.T U.Seconds Drums.Event
-thinKicks tx ty rtb = let
-  (kicks, notKicks) = RTB.partition (== Drums.DiffEvent Expert (Drums.Note Drums.Kick)) rtb
-  assigned = assignFeet tx ty $ fmap (const RH) kicks
-  rightKicks = flip RTB.mapMaybe assigned $ \foot -> case foot of
-    RH -> Just $ Drums.DiffEvent Expert $ Drums.Note Drums.Kick
-    LH -> Nothing
-  in RTB.merge rightKicks notKicks
+-- | If there are no PS left kick notes, automatically chooses some if necessary.
+phaseShiftKicks :: U.Seconds -> U.Seconds -> RTB.T U.Seconds Drums.Event -> RTB.T U.Seconds Drums.Event
+phaseShiftKicks tx ty rtb = let
+  (kicks, notKicks) = flip RTB.partitionMaybe rtb $ \case
+    Drums.DiffEvent Expert (Drums.Note Drums.Kick) -> Just RH
+    Drums.Kick2x                                   -> Just LH
+    _                                              -> Nothing
+  in if LH `elem` kicks
+    then rtb
+    else RTB.merge notKicks $ flip fmap (assignFeet tx ty kicks) $ \case
+      RH -> Drums.DiffEvent Expert $ Drums.Note Drums.Kick
+      LH -> Drums.Kick2x
 
-oneFoot :: U.Seconds -> U.Seconds -> Song U.Beats -> Song U.Beats
-oneFoot tx ty song = let
-  f (PartDrums t) = PartDrums
-    $ U.unapplyTempoTrack (s_tempos song)
-    $ thinKicks tx ty
-    $ U.applyTempoTrack (s_tempos song) t
-  f trk = trk
-  in song { s_tracks = map f $ s_tracks song }
+rockBand1x, rockBand2x :: (NNC.C t) => RTB.T t Drums.Event -> RTB.T t Drums.Event
+rockBand1x = RTB.filter (/= Drums.Kick2x)
+rockBand2x = fmap $ \case
+  Drums.Kick2x -> Drums.DiffEvent Expert $ Drums.Note Drums.Kick
+  evt          -> evt

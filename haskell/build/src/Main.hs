@@ -57,8 +57,6 @@ import           System.Console.GetOpt
 import           System.Directory                 (canonicalizePath,
                                                    setCurrentDirectory)
 import           System.Environment               (getArgs)
-import           System.IO                        (IOMode (ReadMode), hFileSize,
-                                                   withFile)
 
 data Argument
   = AudioDir  FilePath
@@ -372,10 +370,12 @@ main = do
         MoggPlan{} -> return ()
 
       -- MIDI files
-      let mid2p = dir </> "2p/notes.mid"
+      let midPS = dir </> "ps/notes.mid"
+          mid2p = dir </> "2p/notes.mid"
           mid1p = dir </> "1p/notes.mid"
           midcountin = dir </> "countin.mid"
-      [mid2p, midcountin] &%> \[out, _] -> do
+          has2p = dir </> "has2p.txt"
+      [midPS, midcountin, mid2p, mid1p, has2p] &%> \_ -> do
         input <- loadMIDI "notes.mid"
         let extraTracks = "notes-" ++ T.unpack planName ++ ".mid"
             extraTempo  = "tempo-" ++ T.unpack planName ++ ".mid"
@@ -397,16 +397,22 @@ main = do
             venueTracks = let
               trk = mergeTracks [ t | RBFile.Venue t <- trks ]
               in guard (not $ RTB.null trk) >> [RBFile.Venue trk]
-            drumsTracks = if not $ _hasDrums $ _instruments songYaml
-              then []
-              else (: []) $ RBFile.PartDrums $ let
+            (drumsPS, drums1p, drums2p, has2xNotes) = if not $ _hasDrums $ _instruments songYaml
+              then ([], [], [], False)
+              else let
                 trk = mergeTracks [ t | RBFile.PartDrums t <- trks ]
                 mixMode = case plan of
                   MoggPlan{..} -> _drumMix
                   _            -> 0
-                in drumMix mixMode $ RBDrums.copyExpert trk
+                psKicks = U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
+                ps = psKicks $ drumMix mixMode $ RBDrums.copyExpert trk
                 -- Note: drum mix must be applied *after* copy expert.
                 -- Otherwise the automatic EMH mix events prevent copying.
+                in  ( [RBFile.PartDrums ps]
+                    , [RBFile.PartDrums $ rockBand1x ps]
+                    , [RBFile.PartDrums $ rockBand2x ps]
+                    , any (== RBDrums.Kick2x) ps
+                    )
             guitarTracks = if not $ _hasGuitar $ _instruments songYaml
               then []
               else (: []) $ RBFile.copyExpert $ RBFile.PartGuitar
@@ -466,26 +472,27 @@ main = do
                     harm1   = mergeTracks [ t | RBFile.Harm1      t <- trks ]
                     harm2   = mergeTracks [ t | RBFile.Harm2      t <- trks ]
                     harm3   = mergeTracks [ t | RBFile.Harm3      t <- trks ]
-        saveMIDI out $ RBFile.Song
-          { RBFile.s_tempos = tempos
-          , RBFile.s_signatures = RBFile.s_signatures input
-          , RBFile.s_tracks = map fixRolls $ concat
-            [ [beatTrack]
-            , [eventsTrack]
-            , venueTracks
-            , drumsTracks
-            , guitarTracks
-            , bassTracks
-            , keysTracks
-            , vocalTracks
-            ]
-          }
+        forM_ [(midPS, drumsPS), (mid1p, drums1p), (mid2p, drums2p)] $ \(midout, drumsTracks) -> do
+          saveMIDI midout $ RBFile.Song
+            { RBFile.s_tempos = tempos
+            , RBFile.s_signatures = RBFile.s_signatures input
+            , RBFile.s_tracks = map fixRolls $ concat
+              [ [beatTrack]
+              , [eventsTrack]
+              , venueTracks
+              , drumsTracks
+              , guitarTracks
+              , bassTracks
+              , keysTracks
+              , vocalTracks
+              ]
+            }
         saveMIDI midcountin $ RBFile.Song
           { RBFile.s_tempos = tempos
           , RBFile.s_signatures = RBFile.s_signatures input
           , RBFile.s_tracks = [countinTrack]
           }
-      mid1p %> \out -> loadMIDI mid2p >>= saveMIDI out . oneFoot 0.18 0.11
+        liftIO $ writeFile has2p $ show has2xNotes
 
       -- -- Guitar rules
       -- dir </> "guitar.mid" %> \out -> do
@@ -547,14 +554,11 @@ main = do
 
       let get1xTitle, get2xTitle :: Action String
           get1xTitle = return $ T.unpack $ _title $ _metadata songYaml
-          get2xTitle = get2xBass >>= \b -> return $ if b
+          get2xTitle = flip fmap get2xBass $ \b -> if b
               then T.unpack (_title $ _metadata songYaml) ++ " (2x Bass Pedal)"
               else T.unpack (_title $ _metadata songYaml)
           get2xBass :: Action Bool
-          get2xBass = do
-            need [mid1p, mid2p]
-            let getFileSize f = liftIO $ withFile f ReadMode hFileSize
-            liftM2 (/=) (getFileSize mid1p) (getFileSize mid2p)
+          get2xBass = fmap read $ readFile' has2p
 
       let pedalVersions =
             [ (dir </> "1p", get1xTitle, return False)
