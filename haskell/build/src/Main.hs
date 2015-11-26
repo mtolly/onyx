@@ -552,6 +552,44 @@ main = do
         need [preview "wav"]
         cmd "oggenc -b 16 --resample 16000 -o" [out, preview "wav"]
 
+      dir </> "ps/song.ini" %> \out -> do
+        (pstart, _) <- previewBounds midPS
+        liftIO $ writeFile out $ unlines
+          [ "[song]"
+          , "artist = " ++ T.unpack (_artist $ _metadata songYaml)
+          , "name = " ++ T.unpack (_title $ _metadata songYaml)
+          , "album = " ++ T.unpack (_album $ _metadata songYaml)
+          , "frets = " ++ T.unpack (_author $ _metadata songYaml)
+          , "charter = " ++ T.unpack (_author $ _metadata songYaml)
+          , "year = " ++ show (_year $ _metadata songYaml)
+          , "genre = " ++ T.unpack (_genre $ _metadata songYaml) -- TODO: capitalize
+          , "pro_drums = True"
+          , "preview_start_time = " ++ show pstart
+          -- TODO: difficulty tiers (from 0 to 6)
+          , "diff_guitar = "      ++ if _hasGuitar  $ _instruments songYaml            then "0" else "-1"
+          , "diff_bass = "        ++ if _hasBass    $ _instruments songYaml            then "0" else "-1"
+          , "diff_drums = "       ++ if _hasDrums   $ _instruments songYaml            then "0" else "-1"
+          , "diff_keys = "        ++ if _hasKeys    $ _instruments songYaml            then "0" else "-1"
+          , "diff_keys_real = "   ++ if _hasProKeys $ _instruments songYaml            then "0" else "-1"
+          , "diff_vocals_harm = " ++ if _hasVocal    (_instruments songYaml) /= Vocal0 then "0" else "-1"
+          ]
+      dir </> "ps/drums.ogg"  %> buildAudio (Input $ dir </> "drums.wav" )
+      dir </> "ps/guitar.ogg" %> buildAudio (Input $ dir </> "guitar.wav")
+      dir </> "ps/keys.ogg"   %> buildAudio (Input $ dir </> "keys.wav"  )
+      dir </> "ps/rhythm.ogg" %> buildAudio (Input $ dir </> "bass.wav"  )
+      dir </> "ps/vocal.ogg"  %> buildAudio (Input $ dir </> "vocals.wav")
+      dir </> "ps/song.ogg"   %> buildAudio (Input $ dir </> "song-countin.wav")
+      dir </> "ps/album.png"  %> copyFile' "gen/cover.png"
+      phony (dir </> "ps") $ do
+        need $ map (\f -> dir </> "ps" </> f) $ concat
+          [ ["song.ini", "notes.mid", "song.ogg", "album.png"]
+          , ["drums.ogg"  | _hasDrums  $ _instruments songYaml]
+          , ["guitar.ogg" | _hasGuitar $ _instruments songYaml]
+          , ["keys.ogg"   | hasAnyKeys $ _instruments songYaml]
+          , ["rhythm.ogg" | _hasBass   $ _instruments songYaml]
+          , ["vocal.ogg"  | _hasVocal  (_instruments songYaml) /= Vocal0]
+          ]
+
       let get1xTitle, get2xTitle :: Action String
           get1xTitle = return $ T.unpack $ _title $ _metadata songYaml
           get2xTitle = flip fmap get2xBass $ \b -> if b

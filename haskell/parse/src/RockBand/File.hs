@@ -4,10 +4,13 @@ module RockBand.File where
 import           Control.Monad                    (forM, forM_, liftM)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import Data.List (sortOn)
 import           Data.Maybe                       (catMaybes, fromJust)
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.Message.Channel       as C
+import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
 
@@ -61,9 +64,24 @@ showMIDIFile s = let
   tempoTrk = U.setTrackName "onyxbuild" $ RTB.merge tempos sigs
   in U.encodeFileBeats F.Parallel 480 $ tempoTrk : map showTrack (s_tracks s)
 
+-- | Work around a Phase Shift (v1.27) bug.
+-- Phase Shift won't apply a tom/cymbal switch to gems simultaneous with it
+-- unless the tom marker event comes before the gem event in the MIDI.
+-- Oddly this same problem does not affect guitar/bass HOPO force notes.
+phaseShiftFixToms :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
+phaseShiftFixToms = RTB.flatten . fmap tomsFirst . RTB.collectCoincident where
+  tomsFirst = sortOn $ \e -> let
+    isTomMarker = case e of
+      E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOn  p _)))
+        -> V.fromPitch p `elem` [110, 111, 112]
+      E.MIDIEvent (C.Cons _ (C.Voice (V.NoteOff p _)))
+        -> V.fromPitch p `elem` [110, 111, 112]
+      _ -> False
+    in (not isTomMarker, e)
+
 showTrack :: Track U.Beats -> RTB.T U.Beats E.T
 showTrack = \case
-  PartDrums           t -> U.setTrackName "PART DRUMS"          $ unparseAll unparseOne t
+  PartDrums           t -> U.setTrackName "PART DRUMS"          $ phaseShiftFixToms $ unparseAll unparseOne t
   PartGuitar          t -> U.setTrackName "PART GUITAR"         $ unparseAll unparseOne t
   PartBass            t -> U.setTrackName "PART BASS"           $ unparseAll unparseOne t
   PartKeys            t -> U.setTrackName "PART KEYS"           $ unparseAll unparseOne t
