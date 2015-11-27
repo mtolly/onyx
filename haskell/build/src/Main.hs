@@ -14,6 +14,7 @@ import           X360
 import           YAMLTree
 import           Resources (emptyMilo)
 import qualified C3
+import           Reductions
 
 import           Codec.Picture
 import           Control.Monad.Extra
@@ -415,16 +416,16 @@ main = do
                     )
             guitarTracks = if not $ _hasGuitar $ _instruments songYaml
               then []
-              else (: []) $ RBFile.copyExpert $ RBFile.PartGuitar
+              else (: []) $ RBFile.PartGuitar $ gryboComplete False (RBFile.s_signatures input)
                 $ mergeTracks [ t | RBFile.PartGuitar t <- trks ]
             bassTracks = if not $ _hasBass $ _instruments songYaml
               then []
-              else (: []) $ RBFile.copyExpert $ RBFile.PartBass
+              else (: []) $ RBFile.PartBass $ gryboComplete False (RBFile.s_signatures input)
                 $ mergeTracks [ t | RBFile.PartBass t <- trks ]
             keysTracks = if not $ hasAnyKeys $ _instruments songYaml
               then []
               else let
-                basicKeys = RBFive.copyExpert $ if _hasKeys $ _instruments songYaml
+                basicKeys = gryboComplete True (RBFile.s_signatures input) $ if _hasKeys $ _instruments songYaml
                   then mergeTracks [ t | RBFile.PartKeys t <- trks ]
                   else expertProKeysToKeys keysExpert
                 keysDiff diff = if _hasProKeys $ _instruments songYaml
