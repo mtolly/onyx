@@ -93,7 +93,7 @@ gryboHarden isKeys mmap od diffEvents = let
   disgrace = \case
     [] -> []
     (t1, GuitarNote _ Strum Nothing) : (t2, GuitarNote cols HOPO (Just len)) : rest
-      | t2 - t1 <= 0.25 && is8th t1 && not (not (isOD t2) && isOD t1)
+      | t2 - t1 <= 0.25 && is8th t1 && not (not (isOD t1) && isOD t2)
       -> (t1, GuitarNote cols Strum $ Just $ len + t2 - t1) : disgrace rest
     x : xs -> x : disgrace xs
   -- Step: simplify 3-note chords and GO chords
@@ -107,8 +107,8 @@ gryboHarden isKeys mmap od diffEvents = let
       _ -> cols
     in GuitarNote cols' ntype len
   -- Step: start marking notes as kept according to these (in order of importance):
-  -- 1. Look at OD phrases first
-  -- 2. Keep sustains first
+  -- 1. Keep sustains first
+  -- 2. Look at OD phrases first
   -- 3. Keep notes on a measure line first
   -- 4. Keep notes aligned to an 8th-note within a measure first
   -- 5. Finally, look at notes in chronological order
@@ -119,8 +119,8 @@ gryboHarden isKeys mmap od diffEvents = let
           _                       -> False
         priority :: Int
         priority = sum
-          [ if isOD      bts then 0 else 8
-          , if isSustain     then 0 else 4
+          [ if isSustain     then 0 else 8
+          , if isOD      bts then 0 else 4
           , if isMeasure bts then 0 else 2
           , if is8th     bts then 0 else 1
           ]
@@ -189,7 +189,7 @@ data GuitarNote t = GuitarNote [Five.Color] NoteType (Maybe t)
 
 readGuitarNotes :: Bool -> RTB.T U.Beats Five.DiffEvent -> RTB.T U.Beats (GuitarNote U.Beats)
 readGuitarNotes isKeys = go . RTB.collectCoincident . assign where
-  assign = if isKeys
+  assign = if not isKeys
     then Five.assignHOPO $ 170 / 480
     else RTB.mapMaybe $ \case
       Five.Note True  color -> Just $ Five.Strum   color
