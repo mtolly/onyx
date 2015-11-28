@@ -25,9 +25,9 @@ gryboComplete isKeys mmap trk = let
     _                             -> Nothing
   rtb1 `orIfNull` rtb2 = if RTB.null rtb1 then rtb2 else rtb1
   expert    = getDiff Expert
-  hard      = getDiff Hard   `orIfNull` gryboHarden  isKeys mmap od expert
-  medium    = getDiff Medium `orIfNull` gryboMediate isKeys mmap od hard
-  easy      = getDiff Easy   `orIfNull` gryboEase    isKeys mmap od medium
+  hard      = getDiff Hard   `orIfNull` gryboReduce Hard   isKeys mmap od expert
+  medium    = getDiff Medium `orIfNull` gryboReduce Medium isKeys mmap od hard
+  easy      = getDiff Easy   `orIfNull` gryboReduce Easy   isKeys mmap od medium
   noDiffs = flip RTB.filter trk $ \case
     Five.DiffEvent _ _ -> False
     _                  -> True
@@ -71,47 +71,60 @@ At all steps, must take care to always keep at least one note in each overdrive 
 
 -}
 
-gryboHarden, gryboMediate, gryboEase
-  :: Bool                         -- ^ is this a basic keys track?
+gryboReduce
+  :: Difficulty
+  -> Bool                         -- ^ is this a basic keys track?
   -> U.MeasureMap
   -> RTB.T U.Beats Bool           -- ^ Overdrive phrases
   -> RTB.T U.Beats Five.DiffEvent -- ^ The source difficulty, one level up
   -> RTB.T U.Beats Five.DiffEvent -- ^ The target difficulty
 
-gryboHarden isKeys mmap od diffEvents = let
+gryboReduce Expert _      _    _  diffEvents = diffEvents
+gryboReduce diff   isKeys mmap od diffEvents = let
   odMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.normalize od
   gnotes1 = readGuitarNotes isKeys diffEvents
   isOD bts = fromMaybe False $ fmap snd $ Map.lookupLE bts odMap
   -- TODO: replace the next 2 with BEAT track
   isMeasure bts = snd (U.applyMeasureMap mmap bts) == 0
-  is8th bts = let
+  isAligned divn bts = let
     beatsWithinMeasure = snd $ U.applyMeasureMap mmap bts
-    (_, frac) = properFraction $ beatsWithinMeasure * 2 :: (Int, U.Beats)
+    (_, frac) = properFraction $ beatsWithinMeasure / divn :: (Int, U.Beats)
     in frac == 0
   -- Step: simplify grace notes
   gnotes2 = RTB.fromAbsoluteEventList $ ATB.fromPairList $ disgrace $ ATB.toPairList $ RTB.toAbsoluteEventList 0 gnotes1
   disgrace = \case
     [] -> []
     (t1, GuitarNote _ Strum Nothing) : (t2, GuitarNote cols HOPO (Just len)) : rest
-      | t2 - t1 <= 0.25 && is8th t1 && not (not (isOD t1) && isOD t2)
+      | t2 - t1 <= 0.25 && isAligned 0.5 t1 && not (not (isOD t1) && isOD t2)
       -> (t1, GuitarNote cols Strum $ Just $ len + t2 - t1) : disgrace rest
     x : xs -> x : disgrace xs
-  -- Step: simplify 3-note chords and GO chords
+  -- Step: simplify 3-note chords and GO chords (or GB and RO chords on medium)
   gnotes3 = flip fmap gnotes2 $ \(GuitarNote cols ntype len) -> let
-    cols' = case cols of
-      [_, _, _] -> case (minimum cols, maximum cols) of
-        (Five.Green, Five.Orange) -> [Five.Green, Five.Blue]
-        (mincol, maxcol) -> [mincol, maxcol]
-      [Five.Green, Five.Orange] -> [Five.Green, Five.Blue]
-      [Five.Orange, Five.Green] -> [Five.Green, Five.Blue]
-      _ -> cols
+    cols' = case diff of
+      Expert -> cols
+      Hard   -> case cols of
+        [_, _, _] -> case (minimum cols, maximum cols) of
+          (Five.Green, Five.Orange) -> [Five.Green, Five.Blue]
+          (mincol, maxcol) -> [mincol, maxcol]
+        [Five.Green, Five.Orange] -> [Five.Green, Five.Blue]
+        [Five.Orange, Five.Green] -> [Five.Green, Five.Blue]
+        _ -> cols
+      Medium -> case cols of
+        [x] -> [x]
+        _ -> case (minimum cols, maximum cols) of
+          (Five.Green , c2) -> [Five.Green, min c2 Five.Yellow]
+          (Five.Red   , c2) -> [Five.Red, min c2 Five.Blue]
+          (c1         , c2) -> [c1, c2]
+      Easy -> [minimum cols]
     in GuitarNote cols' ntype len
   -- Step: start marking notes as kept according to these (in order of importance):
-  -- 1. Keep sustains first
-  -- 2. Look at OD phrases first
+  -- 1. Look at OD phrases first
+  -- 2. Keep sustains first
   -- 3. Keep notes on a measure line first
   -- 4. Keep notes aligned to an 8th-note within a measure first
   -- 5. Finally, look at notes in chronological order
+  -- TODO: maybe also prioritize strums over hopos, and chords over single notes?
+  -- TODO: this order causes some oddness when OD phrases make adjacent notes disappear
   sortedPositions = map snd $ sort $ do
     (bts, gnote) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 gnotes3
     let isSustain = case gnote of
@@ -119,15 +132,25 @@ gryboHarden isKeys mmap od diffEvents = let
           _                       -> False
         priority :: Int
         priority = sum
-          [ if isSustain     then 0 else 8
-          , if isOD      bts then 0 else 4
-          , if isMeasure bts then 0 else 2
-          , if is8th     bts then 0 else 1
+          [ if isOD           bts then 0 else 8
+          , if isSustain          then 0 else 4
+          , if isMeasure      bts then 0 else 2
+          , if isAligned divn bts then 0 else 1
           ]
+        divn = case diff of
+          Expert -> 0.25 -- doesn't matter
+          Hard   -> 0.5
+          Medium -> 1
+          Easy   -> 2
     return (priority, bts)
   handlePosns kept []             = kept
   handlePosns kept (posn : posns) = let
-    slice = fst $ Set.split (posn + 0.5) $ snd $ Set.split (posn -| 0.5) kept
+    padding = case diff of
+      Expert -> 0
+      Hard   -> 0.5
+      Medium -> 1
+      Easy   -> 2
+    slice = fst $ Set.split (posn + padding) $ snd $ Set.split (posn -| padding) kept
     in if Set.null slice
       then handlePosns (Set.insert posn kept) posns
       else handlePosns kept posns
@@ -136,10 +159,14 @@ gryboHarden isKeys mmap od diffEvents = let
     = RTB.fromAbsoluteEventList $ ATB.fromPairList
     $ filter (\(t, _) -> Set.member t keptPosns)
     $ ATB.toPairList $ RTB.toAbsoluteEventList 0 gnotes3
-  -- Step: only hopo chords and sustained notes
-  gnotes5 = flip fmap gnotes4 $ \case
-    GuitarNote [col] HOPO Nothing -> GuitarNote [col] Strum Nothing
-    gnote                         -> gnote
+  -- Step: for hard, only hopo chords and sustained notes
+  -- for easy/medium, all strum
+  gnotes5 = case diff of
+    Expert -> gnotes4
+    Hard -> flip fmap gnotes4 $ \case
+      GuitarNote [col] HOPO Nothing -> GuitarNote [col] Strum Nothing
+      gnote                         -> gnote
+    _ -> (\(GuitarNote cols _ len) -> GuitarNote cols Strum len) <$> gnotes4
   -- Step: chord->hopochord becomes note->hopochord
   gnotes6 = RTB.fromPairList $ fixDoubleHopoChord $ RTB.toPairList gnotes5
   fixDoubleHopoChord = \case
@@ -147,25 +174,29 @@ gryboHarden isKeys mmap od diffEvents = let
     (t1, GuitarNote cols@(_ : _ : _) ntype len) : rest@((_, GuitarNote (_ : _ : _) HOPO _) : _)
       -> (t1, GuitarNote [minimum cols] ntype len) : fixDoubleHopoChord rest
     x : xs -> x : fixDoubleHopoChord xs
-  -- Step: fix quick green-orange jumps
-  gnotes7 = RTB.fromPairList $ fixJumps $ RTB.toPairList gnotes6
+  -- Step: fix quick jumps (GO for hard, GB/RO for medium/easy)
+  gnotes7 = if isKeys
+    then gnotes6
+    else RTB.fromPairList $ fixJumps $ RTB.toPairList gnotes6
+  jumpDiff = case diff of
+    Expert -> 4
+    Hard   -> 3
+    Medium -> 2
+    Easy   -> 2
+  jumpTime = case diff of
+    Expert -> 0
+    Hard   -> 0.5
+    Medium -> 1
+    Easy   -> 2
   fixJumps = \case
     [] -> []
-    tnote1@(_, GuitarNote cols1 _ len1) : rest@((t2, GuitarNote cols2 ntype2 len2) : rest')
-      | (elem Five.Green cols1 && elem Five.Orange cols2) || (elem Five.Orange cols1 && elem Five.Green cols2)
-      -> if t2 <= 0.5 || case len1 of
-          Nothing -> False
-          Just l1 -> t2 -| l1 <= 0.5
-        then let
-          cols2' = if elem Five.Green cols1
-            then if sort cols2 == [Five.Blue, Five.Orange]
-              then [Five.Yellow, Five.Blue]
-              else map (\case Five.Orange -> Five.Blue; c -> c) cols2
-            else if sort cols2 == [Five.Green, Five.Red]
-              then [Five.Red, Five.Yellow]
-              else map (\case Five.Green -> Five.Red; c -> c) cols2
-          in tnote1 : fixJumps ((t2, GuitarNote cols2' ntype2 len2) : rest')
-        else tnote1 : fixJumps rest
+    tnote1@(_, GuitarNote cols1 _ len1) : (t2, GuitarNote cols2 ntype2 len2) : rest
+      | fromEnum (maximum cols2) - fromEnum (minimum cols1) > jumpDiff
+      && (t2 <= jumpTime || case len1 of Nothing -> False; Just l1 -> t2 -| l1 <= jumpTime)
+      -> tnote1 : fixJumps ((t2, GuitarNote (map pred cols2) ntype2 len2) : rest)
+      | fromEnum (maximum cols1) - fromEnum (minimum cols2) > jumpDiff
+      && (t2 <= jumpTime || case len1 of Nothing -> False; Just l1 -> t2 -| l1 <= jumpTime)
+      -> tnote1 : fixJumps ((t2, GuitarNote (map succ cols2) ntype2 len2) : rest)
     x : xs -> x : fixJumps xs
   -- Step: fix HOPO notes with the same high fret as the note before them
   gnotes8 = RTB.fromPairList $ fixHOPOs $ RTB.toPairList gnotes7
@@ -175,11 +206,19 @@ gryboHarden isKeys mmap od diffEvents = let
       | maximum cols1 == maximum cols2
       -> tnote1 : fixHOPOs ((t2, GuitarNote cols2 Strum len2) : rest)
     x : xs -> x : fixHOPOs xs
-  in showGuitarNotes isKeys gnotes8
-
-gryboMediate isKeys mmap od = id -- TODO
-
-gryboEase isKeys mmap od = id -- TODO
+  -- Step: bring back sustains for quarter note gap on medium/easy
+  gnotes9 = case diff of
+    Expert -> gnotes8
+    Hard -> gnotes8
+    _ -> RTB.fromPairList $ pullBackSustains $ RTB.toPairList gnotes8
+  pullBackSustains = \case
+    [] -> []
+    (t1, GuitarNote cols1 ntype1 (Just l1)) : rest@((t2, _) : _) -> let
+      l1' = min l1 $ t2 -| 1
+      len1' = guard (l1' >= 1) >> Just l1'
+      in (t1, GuitarNote cols1 ntype1 len1') : pullBackSustains rest
+    x : xs -> x : pullBackSustains xs
+  in showGuitarNotes (isKeys || elem diff [Easy, Medium]) gnotes9
 
 data NoteType = Strum | HOPO
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
