@@ -431,26 +431,24 @@ main = do
                 keysDiff diff = if _hasProKeys $ _instruments songYaml
                   then mergeTracks [ t | RBFile.PartRealKeys diff' t <- trks, diff == diff' ]
                   else keysToProKeys diff $ basicKeys
+                rtb1 `orIfNull` rtb2 = if RTB.null rtb1 then rtb2 else rtb1
                 keysExpert = keysDiff Expert
-                keysHard   = keysDiff Hard
-                keysMedium = keysDiff Medium
-                keysEasy   = keysDiff Easy
-                keysExpert' = flip RTB.filter keysExpert $ \case
-                  ProKeys.LaneShift _ -> True
-                  ProKeys.Glissando _ -> True
-                  ProKeys.Trill     _ -> True
-                  ProKeys.Note    _ _ -> True
-                  _                   -> False
+                keysHard   = keysDiff Hard   `orIfNull` pkReduce Hard   (RBFile.s_signatures input) keysOD keysExpert
+                keysMedium = keysDiff Medium `orIfNull` pkReduce Medium (RBFile.s_signatures input) keysOD keysHard
+                keysEasy   = keysDiff Easy   `orIfNull` pkReduce Easy   (RBFile.s_signatures input) keysOD keysMedium
+                keysOD = flip RTB.mapMaybe keysExpert $ \case
+                  ProKeys.Overdrive b -> Just b
+                  _                   -> Nothing
                 keysAnim = flip RTB.filter keysExpert $ \case
                   ProKeys.Note _ _ -> True
                   _                -> False
-                in  [ RBFile.PartKeys            $ basicKeys
-                    , RBFile.PartKeysAnimRH      $ keysAnim
-                    , RBFile.PartKeysAnimLH      $ RTB.empty
-                    , RBFile.PartRealKeys Expert $ keysExpert
-                    , RBFile.PartRealKeys Hard   $ if RTB.null keysHard   then keysExpert' else keysHard
-                    , RBFile.PartRealKeys Medium $ if RTB.null keysMedium then keysExpert' else keysMedium
-                    , RBFile.PartRealKeys Easy   $ if RTB.null keysEasy   then keysExpert' else keysEasy
+                in  [ RBFile.PartKeys            basicKeys
+                    , RBFile.PartKeysAnimRH      keysAnim
+                    , RBFile.PartKeysAnimLH      RTB.empty
+                    , RBFile.PartRealKeys Expert keysExpert
+                    , RBFile.PartRealKeys Hard   keysHard
+                    , RBFile.PartRealKeys Medium keysMedium
+                    , RBFile.PartRealKeys Easy   keysEasy
                     ]
             vocalTracks = case _hasVocal $ _instruments songYaml of
               Vocal0 -> []

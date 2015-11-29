@@ -1,18 +1,19 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
-module Reductions (gryboComplete) where
+module Reductions (gryboComplete, pkReduce) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified RockBand.FiveButton as Five
-import RockBand.Common (Difficulty(..))
+import qualified RockBand.ProKeys as PK
+import RockBand.Common (Difficulty(..), Key(..))
 import qualified Sound.MIDI.Util as U
 import Data.Maybe (mapMaybe, fromMaybe)
 import Control.Monad (guard)
 import Numeric.NonNegative.Class ((-|))
-import Data.List (sort)
+import Data.List (sort, nub)
 
 -- | Fills out a GRYBO chart by generating difficulties if needed.
 gryboComplete :: Bool -> U.MeasureMap -> RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
@@ -38,38 +39,6 @@ gryboComplete isKeys mmap trk = let
     , Five.DiffEvent Medium <$> medium
     , Five.DiffEvent Easy   <$> easy
     ]
-
-{-
-
-for keys, start by just getting rid of overlapping sustains
-(just like how the game does it for playing keys on guitar)
-
-expert to hard:
-* start by keeping any sustain notes
-* if there's a note within 1/16 of a sustain start, and there's nothing
-  for an 8th before that, remove that note and extend the sustain onto it
-* then keep all the 8th-note aligned notes that aren't within an 8th of a sustain
-* then keep any more notes which have an 8th gap on both sides
-* take middle note out of 3 note chords, make GO into GB or RO
-* make sure any hopos which can't be hopos anymore are made into strums
-
-hard to medium:
-* keep sustains
-* pull sustains back so there's a quarter note gap, un-sustain if necessary
-* make GB into GY or RB, and RO into RB or YO
-* keep notes on 4tr note boundaries (as long as not within a 4tr of a sustain)
-* keep any remaining notes with 4tr note gap on both sides
-* remove all force hopo/sustain
-
-medium to easy:
-* again, make sure quarter note gap after sustain
-* all chords to single notes
-* keep notes on 1/2 note boundaries (not within 1/2 of a sustain)
-* keep any remaining notes with 1/2 note gap on both sides
-
-At all steps, must take care to always keep at least one note in each overdrive phrase.
-
--}
 
 gryboReduce
   :: Difficulty
@@ -260,3 +229,144 @@ showGuitarNotes isKeys = U.trackJoin . fmap f where
     ] where force b = case ntype of
               Strum -> [Five.ForceStrum b | not isKeys]
               HOPO  -> [Five.ForceHOPO  b | not isKeys]
+
+data PKNote t = PKNote [PK.Pitch] (Maybe t)
+  deriving (Eq, Ord, Show, Read)
+
+readPKNotes :: RTB.T U.Beats PK.Event -> RTB.T U.Beats (PKNote U.Beats)
+readPKNotes = go . RTB.collectCoincident where
+  go rtb = case RTB.viewL rtb of
+    Nothing -> RTB.empty
+    Just ((dt, xs), rtb') -> let
+      ons = flip mapMaybe xs $ \case PK.Note True p -> Just p; _ -> Nothing
+      len = case RTB.viewL rtb' of
+        Nothing              -> error "Pro keys reduction: panic! note with no note-off"
+        Just ((dt', xs'), _) -> if any (\case PK.Note True _ -> True; _ -> False) xs'
+          then dt' -| 0.125
+          else dt'
+      len' = guard (len > 0.25) >> Just len
+      in if null ons
+        then RTB.delay dt $ go rtb'
+        else RTB.cons dt (PKNote ons len') $ go rtb'
+
+showPKNotes :: RTB.T U.Beats (PKNote U.Beats) -> RTB.T U.Beats PK.Event
+showPKNotes = U.trackJoin . fmap f where
+  f (PKNote ps len) = RTB.flatten $ RTB.fromPairList
+    [ (0, map (PK.Note True) ps)
+    , (fromMaybe (1 / 32) len, map (PK.Note False) ps)
+    ]
+
+pkReduce
+  :: Difficulty
+  -> U.MeasureMap
+  -> RTB.T U.Beats Bool     -- ^ Overdrive phrases
+  -> RTB.T U.Beats PK.Event -- ^ The source difficulty, one level up
+  -> RTB.T U.Beats PK.Event -- ^ The target difficulty
+
+pkReduce Expert _    _  diffEvents = diffEvents
+pkReduce diff   mmap od diffEvents = let
+  odMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.normalize od
+  pknotes1 = readPKNotes diffEvents
+  isOD bts = fromMaybe False $ fmap snd $ Map.lookupLE bts odMap
+  -- TODO: replace the next 2 with BEAT track
+  isMeasure bts = snd (U.applyMeasureMap mmap bts) == 0
+  isAligned divn bts = let
+    beatsWithinMeasure = snd $ U.applyMeasureMap mmap bts
+    (_, frac) = properFraction $ beatsWithinMeasure / divn :: (Int, U.Beats)
+    in frac == 0
+  -- Step: simplify grace notes
+  pknotes2 = RTB.fromAbsoluteEventList $ ATB.fromPairList $ disgrace $ ATB.toPairList $ RTB.toAbsoluteEventList 0 pknotes1
+  disgrace = \case
+    [] -> []
+    (t1, PKNote _ Nothing) : (t2, PKNote ps (Just len)) : rest
+      | t2 - t1 <= 0.25 && isAligned 0.5 t1 && not (not (isOD t1) && isOD t2)
+      -> (t1, PKNote ps $ Just $ len + t2 - t1) : disgrace rest
+    x : xs -> x : disgrace xs
+  -- Step: simplify chords
+  pknotes3 = flip fmap pknotes2 $ \(PKNote ps len) -> let
+    ps' = case diff of
+      Expert -> ps
+      Hard   -> case ps of
+        [x] -> [x]
+        [x, y] -> [x, y]
+        _    -> let
+          (p1, p3) = (minimum ps, maximum ps)
+          p2 = minimum $ filter (`notElem` [p1, p3]) ps
+          in [p1, p2, p3]
+      Medium -> case ps of
+        [x] -> [x]
+        _   -> [minimum ps, maximum ps]
+      Easy   -> [maximum ps]
+    in PKNote ps' len
+  -- Step: start marking notes as kept according to these (in order of importance):
+  -- 1. Look at OD phrases first
+  -- 2. Keep sustains first
+  -- 3. Keep notes on a measure line first
+  -- 4. Keep notes aligned to an 8th-note within a measure first
+  -- 5. Finally, look at notes in chronological order
+  -- TODO: maybe also prioritize chords over single notes?
+  -- TODO: this order causes some oddness when OD phrases make adjacent notes disappear
+  sortedPositions = map snd $ sort $ do
+    (bts, pknote) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 pknotes3
+    let isSustain = case pknote of
+          PKNote _ (Just _) -> True
+          _                 -> False
+        priority :: Int
+        priority = sum
+          [ if isOD           bts then 0 else 8
+          , if isSustain          then 0 else 4
+          , if isMeasure      bts then 0 else 2
+          , if isAligned divn bts then 0 else 1
+          ]
+        divn = case diff of
+          Expert -> 0.25 -- doesn't matter
+          Hard   -> 0.5
+          Medium -> 1
+          Easy   -> 2
+    return (priority, bts)
+  handlePosns kept []             = kept
+  handlePosns kept (posn : posns) = let
+    padding = case diff of
+      Expert -> 0
+      Hard   -> 0.5
+      Medium -> 1
+      Easy   -> 2
+    slice = fst $ Set.split (posn + padding) $ snd $ Set.split (posn -| padding) kept
+    in if Set.null slice
+      then handlePosns (Set.insert posn kept) posns
+      else handlePosns kept posns
+  keptPosns = handlePosns Set.empty sortedPositions
+  pknotes4
+    = RTB.fromAbsoluteEventList $ ATB.fromPairList
+    $ filter (\(t, _) -> Set.member t keptPosns)
+    $ ATB.toPairList $ RTB.toAbsoluteEventList 0 pknotes3
+  -- Step: limit range on medium/easy
+  ranges = if elem diff [Easy, Medium]
+    then RTB.singleton 0 PK.RangeF
+    else flip RTB.mapMaybe diffEvents $ \case PK.LaneShift r -> Just r; _ -> Nothing
+  -- Step: fix quick jumps (TODO) and out-of-range notes on easy/medium
+  pknotes5 = if elem diff [Expert, Hard]
+    then pknotes4
+    else flip fmap pknotes4 $ \(PKNote ps len) -> let
+      ps' = nub $ flip map ps $ \case
+        PK.RedYellow k -> if k < F
+          then PK.BlueGreen k
+          else PK.RedYellow k
+        PK.BlueGreen k -> if A < k
+          then PK.RedYellow k
+          else PK.BlueGreen k
+        PK.OrangeC -> PK.BlueGreen C
+      in PKNote ps' len
+  -- Step: bring back sustains for quarter note gap on medium/easy
+  pknotes6 = case diff of
+    Expert -> pknotes5
+    Hard -> pknotes5
+    _ -> RTB.fromPairList $ pullBackSustains $ RTB.toPairList pknotes5
+  pullBackSustains = \case
+    [] -> []
+    (t1, PKNote ps1 (Just l1)) : rest@((t2, _) : _) -> let
+      l1' = min l1 $ t2 -| 1
+      len1' = guard (l1' >= 1) >> Just l1'
+      in (t1, PKNote ps1 len1') : pullBackSustains rest
+    x : xs -> x : pullBackSustains xs
+  in RTB.merge (fmap PK.LaneShift ranges) (showPKNotes pknotes6)
