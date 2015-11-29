@@ -40,7 +40,8 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
 import qualified Data.Text                        as T
-import           Development.Shake
+import           Development.Shake                hiding ((%>), (&%>), phony)
+import qualified Development.Shake                as Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
 import           RockBand.Common                  (Difficulty (..), Key (..))
@@ -85,6 +86,9 @@ newtype JammitSearch = JammitSearch String
 -- | Oracle for an existing MOGG file search.
 -- The String is an MD5 hash of the complete MOGG file.
 newtype MoggSearch = MoggSearch T.Text
+  deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
+
+newtype GetSongYaml = GetSongYaml ()
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
 
 allFiles :: FilePath -> Action [FilePath]
@@ -169,6 +173,16 @@ main = do
     audioOracle  <- addOracle $ \(AudioSearch  s) -> audioSearch $ read s
     jammitOracle <- addOracle $ \(JammitSearch s) -> fmap show $ jammitSearch $ read s
     moggOracle   <- addOracle $ \(MoggSearch   s) -> moggSearch s
+
+    -- Make all rules depend on the parsed song.yml contents
+    strSongYaml  <- addOracle $ \(GetSongYaml ()) -> return $ show songYaml
+    let (%>) :: FilePattern -> (FilePath -> Action ()) -> Rules ()
+        pat %> f = pat Shake.%> \out -> strSongYaml (GetSongYaml ()) >> f out
+        (&%>) :: [FilePattern] -> ([FilePath] -> Action ()) -> Rules ()
+        pats &%> f = pats Shake.&%> \outs -> strSongYaml (GetSongYaml ()) >> f outs
+        phony :: String -> Action () -> Rules ()
+        phony s f = Shake.phony s $ strSongYaml (GetSongYaml ())  >> f
+        infix 1 %>, &%>
 
     phony "yaml"   $ liftIO $ print songYaml
     phony "audio"  $ liftIO $ print audioDirs
