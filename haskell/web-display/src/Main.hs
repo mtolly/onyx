@@ -262,6 +262,7 @@ main = do
   drawFrame 0 $ Paused 0 initSettings
   msStart <- waitForAnimationFrame
   aud <- Audio.play howl
+  Audio.pause aud howl
   let loop state = do
         when (halfFrames $ settings state) $ void $ waitForAnimationFrame
         ms <- waitForAnimationFrame
@@ -329,4 +330,4 @@ main = do
                   else handle es s
               -- _ -> handle es s
         atomically (readAll clicks) >>= flip handle state
-  loop $ Playing (realToFrac $ msStart / 1000) 0 initSettings
+  loop $ Paused 0 initSettings

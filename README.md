@@ -100,9 +100,10 @@ Some current features:
   * swaps out the tempo track of a MIDI file,
     to easily use the same chart with two differently timed versions of a song
 
-  * makes dummy hard/medium/easy tracks from expert
+  * very crude automatic difficulty reductions for all instruments
+    (except drums, for now)
 
-  * makes a dummy Basic Keys track from Pro Keys
+  * makes a dummy Basic Keys track from Pro Keys, and vice versa
 
   * allows the use of comments, text events starting with `#`, in MIDI files
 
@@ -151,6 +152,9 @@ but generating `rb3.con` (which still uses Magma to process the MIDI) works fine
 My transcriptions (*not* the compositions) are freely licensed
 under [Creative Commons Attribution-ShareAlike](http://creativecommons.org/licenses/by-sa/4.0/).
 All compositions are the property of the original artists.
+
+Other authors' work hosted here is *not* necessarily licensed as such;
+please contact them if you want permission to redistribute or repackage charts.
 
 Most of my code related to this project is licensed under the [GNU LGPL](https://www.gnu.org/licenses/lgpl.html), including any compatible code whose license is not stated.
 Some code (including anything linked to [X360](https://github.com/mtolly/X360)) is licensed under the [GNU GPL](https://www.gnu.org/licenses/gpl.html).

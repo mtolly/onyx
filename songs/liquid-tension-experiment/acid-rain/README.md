@@ -8,6 +8,8 @@
 Instruments:
 
   * (Pro) Drums
+  * Guitar
+  * Pro Keys
 
 Supported audio:
 
