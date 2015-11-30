@@ -1,12 +1,13 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
-module Reductions (gryboComplete, pkReduce) where
+module Reductions (gryboComplete, pkReduce, drumsComplete) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import qualified RockBand.FiveButton as Five
+import qualified RockBand.Drums as Drums
 import qualified RockBand.ProKeys as PK
 import RockBand.Common (Difficulty(..), Key(..))
 import qualified Sound.MIDI.Util as U
@@ -14,6 +15,7 @@ import Data.Maybe (mapMaybe, fromMaybe)
 import Control.Monad (guard)
 import Numeric.NonNegative.Class ((-|))
 import Data.List (sort, nub)
+import Data.Functor (($>))
 
 -- | Fills out a GRYBO chart by generating difficulties if needed.
 gryboComplete :: Bool -> U.MeasureMap -> RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
@@ -370,3 +372,44 @@ pkReduce diff   mmap od diffEvents = let
       in (t1, PKNote ps1 len1') : pullBackSustains rest
     x : xs -> x : pullBackSustains xs
   in RTB.merge (fmap PK.LaneShift ranges) (showPKNotes pknotes6)
+
+drumsComplete
+  :: U.MeasureMap
+  -> RTB.T U.Beats String -- ^ Practice sections
+  -> RTB.T U.Beats Drums.Event
+  -> RTB.T U.Beats Drums.Event
+drumsComplete mmap sections trk = let
+  od        = flip RTB.mapMaybe trk $ \case
+    Drums.Overdrive b -> Just b
+    _                -> Nothing
+  assigned = Drums.assignToms trk
+  getAssigned d = fmap snd $ RTB.filter (\(d', _) -> d == d') assigned
+  getRaw d = flip RTB.mapMaybe trk $ \case
+    Drums.DiffEvent d' e | d == d' -> Just e
+    _                              -> Nothing
+  reduceStep diff source = let
+    authored = getRaw diff
+    in if RTB.null authored
+      then let
+        auto = drumsReduce diff mmap od sections source
+        in (stripToms diff auto, auto)
+      else (Drums.DiffEvent diff <$> authored, getAssigned diff)
+  expert              = getAssigned Expert
+  (hardRaw  , hard  ) = reduceStep Hard   expert
+  (mediumRaw, medium) = reduceStep Medium hard
+  (easyRaw  , _     ) = reduceStep Easy   medium
+  untouched = flip RTB.filter trk $ \case
+    Drums.DiffEvent Expert _ -> True
+    Drums.DiffEvent _      _ -> False
+    _                        -> True
+  stripToms d = fmap $ \progem -> Drums.DiffEvent d $ Drums.Note $ progem $> ()
+  in foldr RTB.merge RTB.empty [untouched, hardRaw, mediumRaw, easyRaw]
+
+drumsReduce
+  :: Difficulty
+  -> U.MeasureMap
+  -> RTB.T U.Beats Bool          -- ^ Overdrive phrases
+  -> RTB.T U.Beats String        -- ^ Practice sections
+  -> RTB.T U.Beats (Drums.Gem Drums.ProType) -- ^ The source difficulty, one level up
+  -> RTB.T U.Beats (Drums.Gem Drums.ProType) -- ^ The target difficulty
+drumsReduce _ _ _ _ trk = trk -- TODO

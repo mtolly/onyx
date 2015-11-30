@@ -50,6 +50,7 @@ import qualified RockBand.FiveButton              as RBFive
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.Vocals                  as RBVox
 import qualified RockBand.ProKeys                 as ProKeys
+import qualified RockBand.Events                  as Events
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.Jammit.Base                as J
 import qualified Sound.Jammit.Export              as J
@@ -407,7 +408,8 @@ main = do
               in RBFile.Beat $ if RTB.null trk
                 then U.trackTake (songLength' input) $ makeBeatTrack $ RBFile.s_signatures input
                 else trk
-            eventsTrack = RBFile.Events $ mergeTracks [ t | RBFile.Events t <- trks ]
+            eventsTrack = RBFile.Events eventsRaw
+            eventsRaw   = mergeTracks [ t | RBFile.Events t <- trks ]
             countinTrack = RBFile.Countin $ mergeTracks [ t | RBFile.Countin t <- trks ]
             venueTracks = let
               trk = mergeTracks [ t | RBFile.Venue t <- trks ]
@@ -420,7 +422,10 @@ main = do
                   MoggPlan{..} -> _drumMix
                   _            -> 0
                 psKicks = U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
-                ps = psKicks $ drumMix mixMode $ RBDrums.copyExpert trk
+                sections = flip RTB.mapMaybe eventsRaw $ \case
+                  Events.PracticeSection s -> Just s
+                  _                        -> Nothing
+                ps = psKicks $ drumMix mixMode $ drumsComplete (RBFile.s_signatures input) sections trk
                 -- Note: drum mix must be applied *after* copy expert.
                 -- Otherwise the automatic EMH mix events prevent copying.
                 in  ( [RBFile.PartDrums ps]
