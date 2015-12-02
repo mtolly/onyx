@@ -20,6 +20,6 @@ plans:
       pad: [1.901, jammit-track]
   album:
     song:
-      pad: [3.641, album-track]
+      pad: [3.591, album-track]
 instruments:
   drums: true
