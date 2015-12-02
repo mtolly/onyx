@@ -14,7 +14,7 @@ import qualified Sound.MIDI.Util as U
 import Data.Maybe (mapMaybe, fromMaybe)
 import Control.Monad (guard)
 import Numeric.NonNegative.Class ((-|))
-import Data.List (sort, nub)
+import Data.List (sort, nub, sortOn)
 import Data.Functor (($>))
 
 -- | Fills out a GRYBO chart by generating difficulties if needed.
@@ -26,7 +26,7 @@ gryboComplete isKeys mmap trk = let
   getDiff d = flip RTB.mapMaybe trk $ \case
     Five.DiffEvent d' e | d == d' -> Just e
     _                             -> Nothing
-  rtb1 `orIfNull` rtb2 = if RTB.null rtb1 then rtb2 else rtb1
+  rtb1 `orIfNull` rtb2 = if length rtb1 < 5 then rtb2 else rtb1
   expert    = getDiff Expert
   hard      = getDiff Hard   `orIfNull` gryboReduce Hard   isKeys mmap od expert
   medium    = getDiff Medium `orIfNull` gryboReduce Medium isKeys mmap od hard
@@ -389,7 +389,7 @@ drumsComplete mmap sections trk = let
     _                              -> Nothing
   reduceStep diff source = let
     authored = getRaw diff
-    in if RTB.null authored
+    in if length authored < 5
       then let
         auto = drumsReduce diff mmap od sections source
         in (stripToms diff auto, auto)
@@ -408,8 +408,97 @@ drumsComplete mmap sections trk = let
 drumsReduce
   :: Difficulty
   -> U.MeasureMap
-  -> RTB.T U.Beats Bool          -- ^ Overdrive phrases
-  -> RTB.T U.Beats String        -- ^ Practice sections
+  -> RTB.T U.Beats Bool                      -- ^ Overdrive phrases
+  -> RTB.T U.Beats String                    -- ^ Practice sections
   -> RTB.T U.Beats (Drums.Gem Drums.ProType) -- ^ The source difficulty, one level up
   -> RTB.T U.Beats (Drums.Gem Drums.ProType) -- ^ The target difficulty
-drumsReduce _ _ _ _ trk = trk -- TODO
+drumsReduce Expert _    _  _        trk = trk
+drumsReduce diff   mmap od sections trk = let
+  -- odMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.normalize od
+  -- isOD bts = fromMaybe False $ fmap snd $ Map.lookupLE bts odMap
+  isMeasure bts = snd (U.applyMeasureMap mmap bts) == 0
+  isAligned divn bts = let
+    beatsWithinMeasure = snd $ U.applyMeasureMap mmap bts
+    (_, frac) = properFraction $ beatsWithinMeasure / divn :: (Int, U.Beats)
+    in frac == 0
+  priority :: U.Beats -> Int
+  priority bts = sum
+    [ if isMeasure     bts then 0 else 1
+    , if isAligned 2   bts then 0 else 1
+    , if isAligned 1   bts then 0 else 1
+    , if isAligned 0.5 bts then 0 else 1
+    ]
+  snares = ATB.getTimes $ RTB.toAbsoluteEventList 0 $ RTB.filter (== Drums.Red) trk
+  keepSnares kept [] = kept
+  keepSnares kept (posn : rest) = let
+    padding = if diff == Hard then 0.5 else 1
+    slice = fst $ Map.split (posn + padding) $ snd $ Map.split (posn -| padding) kept
+    in if Map.null slice
+      then keepSnares (Map.insert posn [Drums.Red] kept) rest
+      else keepSnares kept rest
+  keptSnares = keepSnares Map.empty $ sortOn (\bts -> (priority bts, bts)) snares
+  kit = ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.collectCoincident $ RTB.filter (`notElem` [Drums.Red, Drums.Kick]) trk
+  keepKit kept [] = kept
+  keepKit kept ((posn, gems) : rest) = let
+    gems' = case sort gems of
+      [Drums.Pro _ Drums.Cymbal, green@(Drums.Pro Drums.Green Drums.Cymbal)] -> [green]
+      [Drums.Pro Drums.Yellow Drums.Cymbal, blue@(Drums.Pro Drums.Blue Drums.Cymbal)] -> [blue]
+      [tom1@(Drums.Pro _ Drums.Tom), Drums.Pro _ Drums.Tom] | diff <= Medium -> [tom1]
+      _ -> gems
+    padding = if diff == Hard then 0.5 else 1
+    slice = fst $ Map.split (posn + padding) $ snd $ Map.split (posn -| padding) kept
+    in if case Map.toList slice of [(p, _)] | p == posn -> True; [] -> True; _ -> False
+      then keepKit (Map.alter (Just . (gems' ++) . fromMaybe []) posn kept) rest
+      else keepKit kept rest
+  keptHands = keepKit keptSnares $ sortOn (\(bts, _) -> (priority bts, bts)) kit
+  kicks = ATB.getTimes $ RTB.toAbsoluteEventList 0 $ RTB.filter (== Drums.Kick) trk
+  keepKicks kept [] = kept
+  keepKicks kept (posn : rest) = let
+    padding = if diff == Hard then 1 else 2
+    slice = fst $ Map.split (posn + padding) $ snd $ Map.split (posn -| padding) kept
+    hasKick = any (Drums.Kick `elem`) $ Map.elems slice
+    hasOneHandGem = case Map.lookup posn slice of
+      Just [_] -> True
+      _        -> False
+    in if not hasKick && (diff == Hard || Map.null slice || hasOneHandGem)
+      then keepKicks (Map.alter (Just . (Drums.Kick :) . fromMaybe []) posn kept) rest
+      else keepKicks kept rest
+  keptAll = keepKicks keptHands $ sortOn (\bts -> (priority bts, bts)) kicks
+  nullNothing [] = Nothing
+  nullNothing xs = Just xs
+  makeEasy, makeSnareKick, makeNoKick
+    :: U.Beats -> Maybe U.Beats
+    -> Map.Map U.Beats [Drums.Gem Drums.ProType]
+    -> Map.Map U.Beats [Drums.Gem Drums.ProType]
+  makeEasy start maybeEnd progress = let
+    (_, startNote, sliceStart) = Map.splitLookup start progress
+    slice = concat $ maybe id (:) startNote $ Map.elems $ case maybeEnd of
+      Nothing  -> sliceStart
+      Just end -> fst $ Map.split end sliceStart
+    sliceKicks = length $ filter (== Drums.Kick) slice
+    sliceHihats = length $ filter (== Drums.Pro Drums.Yellow Drums.Cymbal) slice
+    sliceOtherKit = length $ filter (`notElem` [Drums.Kick, Drums.Red, Drums.Pro Drums.Yellow Drums.Cymbal]) slice
+    fn  | sliceKicks == 0                          = makeNoKick
+        | sliceKicks > sliceHihats + sliceOtherKit = makeSnareKick
+        | sliceHihats > sliceOtherKit              = makeSnareKick
+        | otherwise                                = makeNoKick
+    in fn start maybeEnd progress
+  makeSnareKick start maybeEnd = Map.mapMaybeWithKey $ \bts gems ->
+    if start <= bts && case maybeEnd of Just end -> bts < end; Nothing -> True
+      then nullNothing $ if start == bts && elem (Drums.Pro Drums.Green Drums.Cymbal) gems
+        then filter (/= Drums.Kick) gems
+        else filter (`elem` [Drums.Kick, Drums.Red]) gems
+      else Just gems
+  makeNoKick start maybeEnd = Map.mapMaybeWithKey $ \bts gems ->
+    if start <= bts && case maybeEnd of Just end -> bts < end; Nothing -> True
+      then nullNothing $ filter (/= Drums.Kick) gems
+      else Just gems
+  sectionStarts = ATB.toPairList $ RTB.toAbsoluteEventList 0 sections
+  sectionBounds = zip sectionStarts (map (Just . fst) (drop 1 sectionStarts) ++ [Nothing])
+  sectioned = if diff /= Easy
+    then keptAll
+    else let
+      f ((start, _), maybeEnd) = makeEasy start maybeEnd
+      in foldr f keptAll sectionBounds
+  -- TODO: use "od" to make sure every OD phrase at least one note, add one back in if necessary
+  in RTB.flatten $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ Map.toAscList sectioned

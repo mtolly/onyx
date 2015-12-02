@@ -450,7 +450,7 @@ main = do
                 keysDiff diff = if _hasProKeys $ _instruments songYaml
                   then mergeTracks [ t | RBFile.PartRealKeys diff' t <- trks, diff == diff' ]
                   else keysToProKeys diff $ basicKeys
-                rtb1 `orIfNull` rtb2 = if RTB.null rtb1 then rtb2 else rtb1
+                rtb1 `orIfNull` rtb2 = if length rtb1 < 5 then rtb2 else rtb1
                 keysExpert = keysDiff Expert
                 keysHard   = keysDiff Hard   `orIfNull` pkReduce Hard   (RBFile.s_signatures input) keysOD keysExpert
                 keysMedium = keysDiff Medium `orIfNull` pkReduce Medium (RBFile.s_signatures input) keysOD keysHard
