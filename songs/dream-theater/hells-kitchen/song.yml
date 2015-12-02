@@ -20,7 +20,7 @@ plans:
   album:
     song:
       pad:
-        - 5.051
+        - 5.000
         - fade:
           - end
           - 4.500
