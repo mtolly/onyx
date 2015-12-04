@@ -141,7 +141,7 @@ makeEdgeCPV c p v = E.MIDIEvent $ C.Cons (C.toChannel c) $ C.Voice $
   V.NoteOn (V.toPitch p) $ maybe (V.toVelocity 0) V.toVelocity v
 
 makeEdge :: Int -> Bool -> E.T
-makeEdge p b = makeEdgeCPV 1 p $ guard b >> Just 96
+makeEdge p b = makeEdgeCPV 0 p $ guard b >> Just 96
 
 -- | Makes a translation pair for a note edge event (an event which is serialized
 -- as a note on or note off).
