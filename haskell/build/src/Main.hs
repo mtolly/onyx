@@ -319,6 +319,7 @@ main = do
             secs : _ -> secs
       liftIO $ writeRPP out $ runIdentity $
         RPP.rpp "REAPER_PROJECT" ["0.1", "5.0/OSX64", "1449358215"] $ do
+          RPP.line "VZOOMEX" ["0"]
           RPP.line "SAMPLERATE" ["44100", "0", "0"]
           case mid of
             F.Cons F.Parallel (F.Ticks resn) (tempoTrack : trks) -> do

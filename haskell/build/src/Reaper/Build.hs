@@ -89,6 +89,39 @@ track len resn trk = let
   name = fromMaybe "untitled track" $ U.trackName trk
   in block "TRACK" [] $ do
     line "NAME" [name]
+    let yellow = (255, 255, 0)
+        green = (0, 255, 0)
+        red = (255, 0, 0)
+        blue = (0, 0, 255)
+        orange = (255, 128, 0)
+    case lookup name
+      [ ("PART DRUMS", yellow)
+      , ("PART GUITAR", green)
+      , ("PART BASS", red)
+      , ("PART VOCALS", blue)
+      , ("HARM1", blue)
+      , ("HARM2", blue)
+      , ("HARM3", blue)
+      , ("PART KEYS", orange)
+      , ("PART REAL_KEYS_X", orange)
+      , ("PART REAL_KEYS_H", orange)
+      , ("PART REAL_KEYS_M", orange)
+      , ("PART REAL_KEYS_E", orange)
+      ] of
+      Nothing -> return ()
+      Just (r, g, b) -> let
+        encoded :: Int
+        encoded = 0x1000000 + 0x10000 * b + 0x100 * g + r
+        in line "PEAKCOL" [show encoded]
+    line "TRACKHEIGHT" ["0", "0"]
+    case lookup name
+      [ ("PART DRUMS", drumNoteNames)
+      ] of
+      Nothing -> return ()
+      Just names -> do
+        block "MIDINOTENAMES" [] $ do
+          forM_ names $ \(pitch, noteName) -> line "-1" [show pitch, noteName]
+    block "FXCHAIN" [] $ return () -- not sure why, but this is needed for note names
     block "ITEM" [] $ do
       line "POSITION" ["0"]
       line "LOOP" ["0"]
@@ -117,3 +150,79 @@ audio len path = let
             _ -> error $ "While generating a Reaper project: I don't know the audio format of this file: " ++ show path
       block "SOURCE" [fmt] $ do
         line "FILE" [path]
+
+drumNoteNames :: [(Int, String)]
+drumNoteNames = execWriter $ do
+  o 127 "Roll Marker 2-Lane"
+  o 126 "Roll Marker 1-Lane"
+  x 125
+  o 124 "DRUM FILL"
+  o 123 "DRUM FILL"
+  o 122 "DRUM FILL"
+  o 121 "DRUM FILL"
+  o 120 "DRUM FILL (use all 5"
+  x 118
+  o 116 "OVERDRIVE"
+  x 114
+  o 112 "PRO Green Tom"
+  o 111 "PRO Blue Tom"
+  o 110 "PRO Yellow Tom"
+  x 108
+  o 103 "Solo Marker"
+  x 102
+  o 100 "EXPERT Green"
+  o 99 "EXPERT Blue"
+  o 98 "EXPERT Yellow"
+  o 97 "EXPERT Red"
+  o 96 "EXPERT Kick"
+  o 95 "PS Left Kick"
+  x 92
+  o 88 "HARD Green"
+  o 87 "HARD Blue"
+  o 86 "HARD Yellow"
+  o 85 "HARD Red"
+  o 84 "HARD Kick"
+  x 80
+  o 76 "MEDIUM Green"
+  o 75 "MEDIUM Blue"
+  o 74 "MEDIUM Yellow"
+  o 73 "MEDIUM Red"
+  o 72 "MEDIUM Kick"
+  x 68
+  o 64 "EASY Green"
+  o 63 "EASY Blue"
+  o 62 "EASY Yellow"
+  o 61 "EASY Red"
+  o 60 "EASY Kick"
+  x 56
+  o 52 "--DRUM ANIMATION--"
+  o 51 "FLOOR TOM RH"
+  o 50 "FLOOR TOM LH"
+  o 49 "TOM2 RH"
+  o 48 "TOM2 LH"
+  o 47 "TOM1 RH"
+  o 46 "TOM1 LH"
+  o 45 "CRASH2 SOFT LH"
+  o 44 "CRASH2 HARD LH"
+  o 43 "RIDE CYM LH"
+  o 42 "RIDE CYM RH"
+  o 41 "CRASH1 CHOKE" -- docs incorrectly say CRASH2 CHOKE
+  o 40 "CRASH2 CHOKE" -- docs incorrectly say CRASH1 CHOKE
+  o 39 "CRASH2 SOFT RH"
+  o 38 "CRASH2 HARD RH"
+  o 37 "CRASH1 SOFT RH"
+  o 36 "CRASH1 HARD RH"
+  o 35 "CRASH1 SOFT LH"
+  o 34 "CRASH1 HARD LH"
+  -- 33 unused
+  o 32 "PERCUSSION RH"
+  o 31 "HI-HAT RH"
+  o 30 "HI-HAT LH"
+  o 29 "SNARE SOFT RH"
+  o 28 "SNARE SOFT LH"
+  o 27 "SNARE HARD RH"
+  o 26 "SNARE HARD LH"
+  o 25 "HI-HAT OPEN"
+  o 24 "KICK RF"
+  where o k v = tell [(k, v)]
+        x k = tell [(k, "----")]
