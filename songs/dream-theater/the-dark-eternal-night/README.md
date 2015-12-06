@@ -32,5 +32,5 @@ Notes:
 
   * All instruments have overdrive/unison.
 
-  * All instruments have Expert and Hard difficulties.
+  * All reductions done except: easy bass, easy keys, medium and easy pro keys.
 
