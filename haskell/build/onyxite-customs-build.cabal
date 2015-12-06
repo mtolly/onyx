@@ -21,6 +21,10 @@ executable onyxbuild
     Image
     C3
     Reductions
+    Reaper.Scan
+    Reaper.Parse
+    Reaper.Base
+    Reaper.Build
   build-depends:
     base    >= 4.8    && < 4.9
     , shake >= 0.15 && < 0.16
@@ -41,6 +45,9 @@ executable onyxbuild
     , extra
     , pureMD5
     , binary
+    , array
+    , base64-bytestring
+    , pretty
     -- my libraries:
     , jammittools >= 0.5.0.2 && < 0.6
     , midi-util >= 0.1.1.1 && < 0.2

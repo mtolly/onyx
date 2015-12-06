@@ -16,6 +16,9 @@ import           Resources (emptyMilo)
 import qualified C3
 import           Reductions
 
+import           Reaper.Base (writeRPP)
+import qualified Reaper.Build as RPP
+
 import           Codec.Picture
 import           Control.Monad.Extra
 import           Control.Monad.Trans.Reader
@@ -60,6 +63,9 @@ import           System.Console.GetOpt
 import           System.Directory                 (canonicalizePath,
                                                    setCurrentDirectory)
 import           System.Environment               (getArgs)
+import qualified Sound.MIDI.File as F
+import qualified Sound.MIDI.File.Load as Load
+import Data.Functor.Identity (runIdentity)
 
 data Argument
   = AudioDir  FilePath
@@ -294,6 +300,35 @@ main = do
           flipPairs _ = []
           b' = B.pack $ header ++ flipPairs bytes
       liftIO $ B.writeFile out b'
+
+    -- Build a REAPER project
+    "notes.RPP" %> \out -> do
+      let audio = "gen/plan/album/song-countin.wav"
+      need [audio, "notes.mid"]
+      audioLen <- do
+        info <- liftIO $ Snd.getFileInfo audio
+        return $ fromIntegral (Snd.frames info) / fromIntegral (Snd.samplerate info)
+      song <- loadMIDI "notes.mid"
+      mid <- liftIO $ Load.fromFile "notes.mid"
+      let ends = map (U.applyTempoMap $ RBFile.s_tempos song) $ do
+            RBFile.Events trk <- RBFile.s_tracks song
+            (bts, Events.End) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 trk
+            return bts
+          midiLen = 5 + case ends of
+            [] -> audioLen
+            secs : _ -> secs
+      liftIO $ writeRPP out $ runIdentity $
+        RPP.rpp "REAPER_PROJECT" ["0.1", "5.0/OSX64", "1449358215"] $ do
+          RPP.line "SAMPLERATE" ["44100", "0", "0"]
+          case mid of
+            F.Cons F.Parallel (F.Ticks resn) (tempoTrack : trks) -> do
+              let t_ticks = RPP.processTempoTrack tempoTrack
+                  t_beats = RTB.mapTime (\tks -> fromIntegral tks / fromIntegral resn) t_ticks
+                  t_secs = U.applyTempoTrack (RBFile.s_tempos song) t_beats
+              RPP.tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
+              forM_ trks $ RPP.track midiLen resn
+              RPP.audio audioLen audio
+            _ -> error "Unsupported MIDI format for Reaper project generation"
 
     -- The Markdown README file, for GitHub purposes
     "README.md" %> \out -> liftIO $ writeFile out $ execWriter $ do
