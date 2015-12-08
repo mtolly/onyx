@@ -30,7 +30,5 @@ Notes:
 
   * Drums confidence: *high*. Written to Portnoy's recording session DVD.
 
-  * All instruments have overdrive/unison.
-
-  * All reductions done except: easy bass, easy keys, medium and easy pro keys.
+  * All instruments have all difficulties, plus overdrive/unison.
 
