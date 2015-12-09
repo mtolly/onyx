@@ -38,7 +38,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (foldl', isPrefixOf, nub)
+import           Data.List                        (foldl', isPrefixOf, nub, sortOn)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
@@ -303,8 +303,12 @@ main = do
 
     -- Build a REAPER project
     "notes.RPP" %> \out -> do
-      let audio = "gen/plan/album/song-countin.wav"
-      need [audio, "notes.mid"]
+      let countin = "gen/plan/album/countin.wav"
+          audio = "gen/plan/album/song.wav"
+      need [countin, audio, "notes.mid"]
+      countinLen <- do
+        info <- liftIO $ Snd.getFileInfo countin
+        return $ fromIntegral (Snd.frames info) / fromIntegral (Snd.samplerate info)
       audioLen <- do
         info <- liftIO $ Snd.getFileInfo audio
         return $ fromIntegral (Snd.frames info) / fromIntegral (Snd.samplerate info)
@@ -327,7 +331,29 @@ main = do
                   t_beats = RTB.mapTime (\tks -> fromIntegral tks / fromIntegral resn) t_ticks
                   t_secs = U.applyTempoTrack (RBFile.s_tempos song) t_beats
               RPP.tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
-              forM_ trks $ RPP.track midiLen resn
+              let trackOrder :: [(String, Int)]
+                  trackOrder = zip
+                    [ "PART DRUMS"
+                    , "PART BASS"
+                    , "PART GUITAR"
+                    , "PART VOCALS"
+                    , "HARM1"
+                    , "HARM2"
+                    , "HARM3"
+                    , "PART KEYS"
+                    , "PART REAL_KEYS_X"
+                    , "PART REAL_KEYS_H"
+                    , "PART REAL_KEYS_M"
+                    , "PART REAL_KEYS_E"
+                    , "PART KEYS_ANIM_RH"
+                    , "PART KEYS_ANIM_LH"
+                    , "EVENTS"
+                    , "VENUE"
+                    , "BEAT"
+                    , "countin"
+                    ] [0..]
+              forM_ (sortOn (U.trackName >=> flip lookup trackOrder) trks) $ RPP.track midiLen resn
+              RPP.audio countinLen countin
               RPP.audio audioLen audio
             _ -> error "Unsupported MIDI format for Reaper project generation"
 

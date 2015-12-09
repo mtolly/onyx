@@ -14,7 +14,7 @@ import qualified Data.Text.Encoding as TE
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Char8 as B8
-import Control.Monad (forM_)
+import Control.Monad (forM_, when, unless)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Sound.MIDI.Util as U
 import qualified Data.ByteString.Base64 as B64
@@ -22,7 +22,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Wrapper as NN
 import qualified Numeric.NonNegative.Class as NNC
 import Data.Maybe (fromMaybe, listToMaybe)
-import System.FilePath (takeExtension, takeFileName, dropExtension)
+import System.FilePath (takeExtension, takeFileName)
 import Data.Char (toLower)
 
 line :: (Monad m) => String -> [String] -> WriterT [Element] m ()
@@ -96,17 +96,17 @@ track len resn trk = let
         orange = (255, 128, 0)
     case lookup name
       [ ("PART DRUMS", yellow)
-      , ("PART GUITAR", green)
+      , ("PART GUITAR", blue)
       , ("PART BASS", red)
-      , ("PART VOCALS", blue)
-      , ("HARM1", blue)
-      , ("HARM2", blue)
-      , ("HARM3", blue)
-      , ("PART KEYS", orange)
-      , ("PART REAL_KEYS_X", orange)
-      , ("PART REAL_KEYS_H", orange)
-      , ("PART REAL_KEYS_M", orange)
-      , ("PART REAL_KEYS_E", orange)
+      , ("PART VOCALS", orange)
+      , ("HARM1", orange)
+      , ("HARM2", orange)
+      , ("HARM3", orange)
+      , ("PART KEYS", green)
+      , ("PART REAL_KEYS_X", green)
+      , ("PART REAL_KEYS_H", green)
+      , ("PART REAL_KEYS_M", green)
+      , ("PART REAL_KEYS_E", green)
       ] of
       Nothing -> return ()
       Just (r, g, b) -> let
@@ -116,6 +116,10 @@ track len resn trk = let
     line "TRACKHEIGHT" ["0", "0"]
     case lookup name
       [ ("PART DRUMS", drumNoteNames)
+      , ("PART GUITAR", gryboNoteNames False)
+      , ("PART BASS", gryboNoteNames False)
+      , ("PART KEYS", gryboNoteNames True)
+      , ("BEAT", [(13, "Up Beats"), (12, "Downbeat")])
       ] of
       Nothing -> return ()
       Just names -> do
@@ -134,7 +138,7 @@ track len resn trk = let
 
 audio :: (Monad m) => U.Seconds -> FilePath -> WriterT [Element] m ()
 audio len path = let
-  name = takeFileName $ dropExtension path
+  name = takeFileName path
   in block "TRACK" [] $ do
     line "NAME" [name]
     block "ITEM" [] $ do
@@ -160,7 +164,7 @@ drumNoteNames = execWriter $ do
   o 123 "DRUM FILL"
   o 122 "DRUM FILL"
   o 121 "DRUM FILL"
-  o 120 "DRUM FILL (use all 5"
+  o 120 "DRUM FILL (use all 5)"
   x 118
   o 116 "OVERDRIVE"
   x 114
@@ -224,5 +228,54 @@ drumNoteNames = execWriter $ do
   o 26 "SNARE HARD LH"
   o 25 "HI-HAT OPEN"
   o 24 "KICK RF"
+  where o k v = tell [(k, v)]
+        x k = tell [(k, "----")]
+
+gryboNoteNames :: Bool -> [(Int, String)]
+gryboNoteNames isKeys = execWriter $ do
+  o 127 "Trill Marker"
+  unless isKeys $ o 126 "Tremolo Marker"
+  x 125
+  o 124 "BRE"
+  o 123 "BRE"
+  o 122 "BRE"
+  o 121 "BRE"
+  o 120 "BRE (use all 5)"
+  x 118
+  o 116 "OVERDRIVE"
+  x 115
+  o 103 "Solo Marker"
+  unless isKeys $ o 102 "Force HOPO Off"
+  unless isKeys $ o 101 "Force HOPO On"
+  when isKeys $ x 102
+  o 100 "EXPERT Orange"
+  o 99 "EXPERT Blue"
+  o 98 "EXPERT Yellow"
+  o 97 "EXPERT Red"
+  o 96 "EXPERT Green"
+  x 95
+  unless isKeys $ o 90 "Force HOPO Off"
+  unless isKeys $ o 89 "Force HOPO On"
+  o 88 "HARD Orange"
+  o 87 "HARD Blue"
+  o 86 "HARD Yellow"
+  o 85 "HARD Red"
+  o 84 "HARD Green"
+  x 77
+  o 76 "MEDIUM Orange"
+  o 75 "MEDIUM Blue"
+  o 74 "MEDIUM Yellow"
+  o 73 "MEDIUM Red"
+  o 72 "MEDIUM Green"
+  x 65
+  o 64 "EASY Orange"
+  o 63 "EASY Blue"
+  o 62 "EASY Yellow"
+  o 61 "EASY Red"
+  o 60 "EASY Green"
+  unless isKeys $ do
+    o 59 "Left Hand Highest"
+    forM_ [58, 57 .. 41] $ \i -> o i "-"
+    o 40 "Left Hand Lowest"
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
