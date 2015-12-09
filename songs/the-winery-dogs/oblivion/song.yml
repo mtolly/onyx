@@ -1,0 +1,15 @@
+metadata:
+  title: Oblivion
+  file-include: ../../../albums/hot-streak.yml
+  track-number: 1
+audio:
+  album-track:
+    md5: 825fe29f6780d07f51cf9d93f2da155c
+    frames: 11074980
+plans:
+  album:
+    song:
+      pad: [3.576, album-track]
+instruments:
+  drums: true
+published: false
