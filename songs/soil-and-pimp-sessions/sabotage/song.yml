@@ -2,6 +2,8 @@ metadata:
   title: Sabotage
   file-include: ../../../albums/pimp-of-the-year.yml
   track-number: 5
+  difficulty:
+    drums: 7
 audio:
   album-track:
     md5: fa5dbe61d808c40d9d26c2d76ae30a1a
@@ -12,4 +14,3 @@ plans:
       pad: [2.629, album-track]
 instruments:
   drums: true
-published: false
