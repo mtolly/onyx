@@ -58,7 +58,7 @@ Net::SFTP.start(url, username, password: password) do |sftp|
   end
   first_option = ARGV.index { |arg| arg.start_with? '-' }
   not_options = first_option ? ARGV[0 ... first_option] : ARGV
-  onyxbuild_options = first_option ? ARGV[first_option .. -1].reject { |x| x == '--only-midi' } : []
+  onyx_options = first_option ? ARGV[first_option .. -1].reject { |x| x == '--only-midi' } : []
   only_mid = ARGV.include?('--only-midi')
   not_options.each do |songdir|
     next if songdir == 'app'
@@ -73,7 +73,7 @@ Net::SFTP.start(url, username, password: password) do |sftp|
         %w{gen/plan/album/2p/notes.mid gen/plan/album/preview-audio.ogg gen/plan/album/preview-audio.mp3}
       end
     Dir.chdir(songdir) do
-      system_('onyxbuild', *songfiles, *onyxbuild_options)
+      system_('onyx', 'build', *songfiles, *onyx_options)
     end
     dirs = "#{songdir}/gen/plan/album/2p".split('/').reject(&:empty?)
     dirs.each_index do |i|

@@ -61,7 +61,7 @@ showMIDIFile :: Song U.Beats -> F.T
 showMIDIFile s = let
   tempos = fmap U.showTempo $ U.tempoMapToBPS $ s_tempos s
   sigs = fmap (fromJust . U.showSignature) $ U.measureMapToLengths $ s_signatures s
-  tempoTrk = U.setTrackName "onyxbuild" $ RTB.merge tempos sigs
+  tempoTrk = U.setTrackName "notes" $ RTB.merge tempos sigs
   in U.encodeFileBeats F.Parallel 480 $ tempoTrk : map showTrack (s_tracks s)
 
 -- | Work around a Phase Shift (v1.27) bug.

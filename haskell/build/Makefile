@@ -11,9 +11,9 @@ mac:
 	rm -rf mac/
 	mkdir mac/
 	stack build .
-	cp "$(shell stack exec which onyxbuild)" mac/
-	dylibbundler -x mac/onyxbuild -b -d mac/ -p '@executable_path' -of
-	strip mac/onyxbuild
+	cp "$(shell stack exec which onyx)" mac/
+	dylibbundler -x mac/onyx -b -d mac/ -p '@executable_path' -of
+	strip mac/onyx
 
 mac-deps:
 	stack setup
@@ -23,9 +23,9 @@ win:
 	rm -rf win/
 	mkdir win/
 	stack build . --extra-lib-dirs=/mingw32/lib --extra-include-dirs=/mingw32/include
-	cp "$(shell stack exec which onyxbuild)" win/
+	cp "$(shell stack exec which onyx)" win/
 	cp /mingw32/bin/*.dll win/
-	stack exec strip win/onyxbuild.exe
+	stack exec strip win/onyx.exe
 
 win-deps:
 	stack setup

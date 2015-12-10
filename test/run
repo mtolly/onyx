@@ -19,13 +19,13 @@ Dir['songs/*/*/song.yml'].sort.each_with_index do |yaml_file, i|
 
   puts ">> Building #{songdir}"
   Dir.chdir(songdir) do
-    # system_ 'onyxbuild gen/plan/album/2p/magma/magma.rbproj'
+    # system_ 'onyx build gen/plan/album/2p/magma/magma.rbproj'
     # dummy_length = `#{test_dir}/dummy-time gen/album/2p/magma/magma.rbproj`.to_i
     # puts "Making a dummy audio file of length #{dummy_length} seconds."
     # system_ "sox -n audio-album.wav trim 0 #{dummy_length} rate 44100"
     # system_ "sox -n audio-next.wav trim 0 1:00 rate 44100"
 
-    # system_ "onyxbuild gen/plan/album/2p/magma.rba"
+    # system_ "onyx build gen/plan/album/2p/magma.rba"
 
     # system_ "rm -rf gen"
     # system_ "rm audio-album.wav audio-next.wav"

@@ -28,6 +28,6 @@ yamls.each do |yaml_file|
     end
   end
   Dir.chdir(folder) do
-    system_("onyxbuild", "-q", *makes)
+    system_("onyx", "build", "-q", *makes)
   end
 end

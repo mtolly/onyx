@@ -6,5 +6,5 @@ Dir['songs/*/*/song.yml'].each do |f|
   yaml = load_yaml_tree f
   next unless yaml.fetch('published', true)
   puts f
-  system('onyxbuild', '--song', f, 'gen/plan/album/2p/problems')
+  system('onyx', 'build', '--song', f, 'gen/plan/album/2p/problems')
 end

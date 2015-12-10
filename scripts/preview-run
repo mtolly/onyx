@@ -9,7 +9,7 @@ end
 song = ARGV[0]
 
 Dir.chdir(song) do
-  system_(*%w{onyxbuild gen/plan/album/2p/notes.mid gen/plan/album/song-countin.ogg}, *(ARGV[1..-1]))
+  system_(*%w{onyx build gen/plan/album/2p/notes.mid gen/plan/album/song-countin.ogg}, *(ARGV[1..-1]))
 end
 Dir.chdir('haskell/preview') do
   system_(*%w{stack exec onyxpreview}, "../../#{song}")

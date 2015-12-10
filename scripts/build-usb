@@ -7,7 +7,7 @@ require_relative 'common'
 
 dash = ARGV.index { |s| s.start_with? '--' } || ARGV.length
 if dash < 2
-  STDERR.puts "Usage: #{$0} path/to/song1 [path/to/song2 ...] /Volumes/MyUSBDrive/ [--onyxbuild-options]"
+  STDERR.puts "Usage: #{$0} path/to/song1 [path/to/song2 ...] /Volumes/MyUSBDrive/ [--onyx-options]"
   exit 1
 end
 songs = ARGV[0 .. dash - 2]
@@ -56,7 +56,7 @@ songs.each do |song|
   successful = nil
   plans.each do |plan|
     begin
-      system_ 'onyxbuild', '--song', "#{song}/song.yml", "gen/plan/#{plan}/#{pedal}/rb3.con", *options
+      system_ 'onyx', 'build', '--song', "#{song}/song.yml", "gen/plan/#{plan}/#{pedal}/rb3.con", *options
       successful = plan
     rescue IOError
       # not successful, try next plan

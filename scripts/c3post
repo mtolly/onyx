@@ -20,18 +20,6 @@ yamls.each do |yaml|
   artists[meta['artist']][meta['album']][meta['track-number']] = yaml
 end
 
-puts %{So, after working in mostly secrecy for some time (barring some links posted in someguy913's Twitch channel), I figured I should put up a more official page for my stuff :v:
-
-I've done mostly expert Pro Drums charts, 2x+1x bass pedal. My current goal is (together with others like Grinnz) high-quality drum charts for Dream Theater's entire discography. A few random songs have expert guitar/bass. I am always interested in contributions to add more instruments!
-
-All the files downloadable below were produced with a program I wrote called [i]onyxbuild[/i]. Basically it is an all-in-one tool to go from a MIDI file and the album audio (straight from the CD) all the way to an RBA or CON, doing all the audio transformations on the fly. It also does automatic 1x kick reductions, generates a BEAT track if needed, fixes the lengths of roll lanes, creates count-in sounds, and more. It has a copy of C3's Magma and DJ Shepherd's X360 library inside it, but it handles all that internally. It is not [i]quite[/i] user-friendly enough for general use, but I do certainly intend for it to get there, eventually!
-
-Every chart also has a "Drums Preview" link where you can playback the drums chart in your browser. This should work in any modern browser but it seems to run best in Chrome.
-
-My charts, the build tool, and the preview app are hosted on GitHub: https://github.com/mtolly/onyxite-customs
-
-}
-
 artists.each_pair do |artist, albums|
   print '[table border=1 cellpadding=0 cellspacing=0 width=100% height=50px]'
   print '[tr]'
