@@ -1,0 +1,35 @@
+(from xorloser at http://rockband.scorehero.com/forum/viewtopic.php?p=85805#85805)
+
+these are structs for the header that kells mentions.
+Note that a mogg file has the following layout:
+
+MoggHeader
+MoggEntry_0
+MoggEntry_1
+...
+MoggEntry_n
+MoggKey
+Ogg Vorbis File
+
+typedef struct {
+int version; // 0xA = unencrypted, 0xB = encrypted
+int headerSize; // this is the offset of the start of the ogg file
+int numChannels; // number of channels in the mogg? not 100% sure on this..
+int unknown; // 0x4E20 : 20000 (some kind of max packet/chunk size?)
+int numEntries; // number of MoggEntrys following this
+} MoggHeader;
+
+typedef struct {
+unsigned int fileOffset; // these are multiples of 0x8000
+unsigned int unknown; // time offset into ogg stream?
+} MoggEntry;
+
+typedef struct {
+unsigned char key[16];
+} MoggKey;
+
+I am guessing we need to work out what the MoggEntrys are and how they are generated to make custom tracks. I have not tried using an ogg file without this special header stuff to see if it'll work however. What have people done so far when they have made custom songs for the guitar hero games?
+
+These special headers are not part of the ogg standard. (I looked into the "skeleton" headers that someone mentioned and it turns out they are part of the ogg format and so are stored inside the ogg file.) These special headers are present before the ogg file beings.
+
+As for audacity it seems to load files whose special headers are less than or equal to 0x2000 bytes. I had a quick look at the audacity sourcecode and i think this is due to it using a 0x2000 byte buffer to find the start of the ogg file, so for files with a special header that is bigger than 0x2000 bytes it will not find the start of the ogg file. There are only 2 files I've found for which this applies, the 2 biggest songs in rockband foreplay and greengrass. In the case that audacity will not open the file, you can remove the special headers and it will then open them ok.

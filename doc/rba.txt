@@ -1,0 +1,33 @@
+(from AerialX at http://rockband.scorehero.com/forum/viewtopic.php?p=482992#482992)
+
+Finalized .RBA format specification:
+
+All values Little Endian
+Header
+Offset      Length      Meaning
+0x00        0x04        "RBSF" Magic
+0x04        0x04        Version = 0x03
+files=0x07;
+0x08        0x04*files  Offset into file of files
+0x24        0x04*files  Filesize
+0x40        0x14*files  SHA1 hash of each file
+0xCC        0x14        SHA1 hash of header
+0xE0        ?           Sequence of 8 null-termined strings
+
+Explanation of the SHA1 Header hash (0xCC, 0x14 bytes)...
+First, write the entire header with this hash section zeroed out, including the string list, which brings you right up to the first file offset. The hash of this then gets retroactively placed at 0xCC as the header hash.
+
+RBA File Contents
+Index   Meaning
+0x00    songs.dta - all the usual song data
+0x01    MIDI note chart - song.mid
+0x02    MOGG (0x0A unencrypted) - song audio
+0x03    Milo ("AF DE BE CA" magic) - includes lipsync
+0x04    Texture ("BM6" magic) - album art - looks like ARBG8
+0x05    weights.bin (I think? or the pan file)
+0x06    Extra Magma "backend" DTA file:
+            - Chart Author
+            - Languages
+            - Price
+            - Country
+            - Release Label
