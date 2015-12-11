@@ -3,137 +3,202 @@
 ***I realized afterward that I had started the song at measure 2, not measure 3. So add 1 to each measure number.
 
 Intro - If it was me, I wouldn't use GO chords in the intro there. I'd really only use that chord for pick slides or other rare cases. Maybe a GB chord or a GYB chord? It's just a preference but your choice. (If you choose to change this, this of course would apply to the choruses as well.)
+DONE
 
 40-41 - Note sure about charting those chords as the don't appear anywhere else in the verse and they last for a short time. Kinda interrupts the flow of the chart.
+DONE
 
 73.4 - change R-G to Y-R?
+DONE (I already did it this way in final solo???)
 
 79 - extend sustain to full bar since there's no note afterward
+DONE
 
 87.4.5 - Not sure if that last hopo marker is worth
+NOT DONE - eh, it's not annoying to play like the other forced strums are
 
 125.3 - Change YO/YBO to BO/YO?
+NOT DONE - they're x57755 and x57765 chords, 3-note chord is probably warranted
 
 147.4 - Those chords might just be single notes. I'm assuming you used a tab for this though so I definitely could be wrong.
+NOT DONE - yep, they're double stops. muted though, so I could understand charting single notes
 
 154-156 - I don't think the two hopo markers flow here.
+DONE
 
 161 - 100% preference but maybe just do B-O for the pick slide
+DONE (changed to G-O)
 
 162 & on - This is the one thing that I pretty much say needs to be removed. :) You should remove the forced strum markers.  Up until 177 it's manageable, but it makes sections like 177 & on have unnecessary difficulty. I'd remove it entirely since if you remove it for 177, it would be inconsistent to keep it earlier.
+DONE (thank god)
 
 178 (and all the sections like it) - I would chart it like this: https://gyazo.com/14ef3533e75c0300886e25666777fe6e I did it this way mainly due to the double yellow you had that are two different pitches, and you also had a O-B-Y thing that were very low notes. Figured I'd omit the orange for that part.
+DONE - but I modified it a bit more
 
 197.4 & 201.4 - These chords just sound like higher power chords compared to the YB power chords. As a result, maybe put these two chords on BO instead of YBO.
+DONE - No idea why I did this. They're just double stops...
 
 209.4 - Extend this sustain to end of bar.
+DONE
 
 234-235 - I'd remove these forced strums except the first one in the solo. Though I can see it working both ways.
+DONE
 
 238-241 - Nice job on that. :)
+DONE :D
 
 242 - 247.2 - Definitely remove these strum markers (and if it was me I'd remove the hopo marker at 247 as well but not a big deal if you keep it in).
+DONE
 
 252 -275 - Remove strum/hopo markers.
+DONE
 
 277.1 - Maybe make that Y-B instead of B-O, so that the 'real' B-O flows better.
+DONE - edited some of the earlier notes
 
 278 - https://gyazo.com/c709d8abf5376319c3ef4ab22fdbc36f
+NOT SURE what this is saying? This time signature got messed up on his end somehow?
 
 --- Seems like everything got shifted after this point. Not sure it's just on my end but just so you know.
 
 283 - I don't believe there should be a solo marker here, since the strings play the exact same melody in the intro etc, and that's definitely not a solo.
+DONE
 
 291.3 - Extend sustain to end of measure.
+DONE
 
 309.4.5 - Remove strum marker.
+DONE
 
 326-328, 334-336, 343-345, 353-355, 360-362  - You should chart this the same way you did the first solo (hopefully with my suggestion too) like this: https://gyazo.com/7370b4c7a11241ab689a46e1929d7654
+DONE
 
 363-365 - I would chart this part like this (including hopo/strum markers): https://gyazo.com/16ee8994502fe1189bd5dfc29cd21a90 I don't hear that quick BYR in there, just a double yellow.
+NOT DONE - huh, it's super-clear to me. and in the sheet music
 
 Ministry of Lost Souls - Bass:
 
 3 - This sustain is shorter than the others (and all the sustains like it, the red F notes).
+DONE
 
 14 - Not sure why this is cut short but maybe it was intentional?
+NOT DONE - intentional
 
 41, 42, 45, 46, 49, 58, 59, 70, 76, 82, 85, 89, 93.3, 101, 105, 106, 109, 110, 125, 126, 128, 140,  152, 280, 281, 282, 283, 302, 306, 310, 311, 314, 315, 316, 328.3.5, 335.3.5,  - These are cut short.
+DONE - all of these have been standardized to either 32nd gap or 8th gap
 
 52-53 - I don't have headphones at the moment but I'm hearing this part like this: https://gyazo.com/d92099ac76666c3aaefa632e010db170
+NOT DONE - 5.1 makes it clear
 
 147.4 - maybe make this B-O-Y instead of Y-B-Y.
+DONE
 
 162 - As explained in guitar, remove entire strum marker (however starting at 259, I can see it being there).
+DONE - including the 259 section
 
 170 - The note before 170 should be R and the note on 170 should be Y. Not sure if I addressed this in guitar so if not, I would change both instruments' riffs.
+NOT DONE - I agree that it sounds different, but I think it's just a bit higher pitch because of palm mute
 
 177 and every other riff in the solo section - mimic your changes to guitar.
+DONE
 
 322.4 - For once I would actually suggest to put strum markers here! (The B-R-Y notes, not O).
+DONE
 
 347.2 - I can't tell since I don't have headphones right now, but double check that note, make sure it's not a sustain.
+NOT DONE - it's held for an 8th note, so probably shouldn't be a sustain
 
 356 - Same thing, I can't hear that but double check.
+NOT SURE what this is suggesting
+
 [12/3/15, 8:39:12 PM] Jarod (mazegeek999): Pressed enter early whoops
 [12/3/15, 8:39:18 PM] Jarod (mazegeek999): But I am working on this :)
 
 DRUMS
 
 4, 9, 12, 13, 16 - He might be playing different cymbals but you may just want to keep it at YG for consistency.
+NOT DONE - though I'm on the fence
 
 18.2-18.3 - I know you had to 'wrap' these toms' pitches, though I would suggest just flipping these last two flams so that BG is the last hit.
+NOT DONE
 
 41 - I'd just make this G. It's all preference though.
+NOT DONE
 
 41.2.5 - I would HIGHLY suggest removing the ghost snares on those bass notes. I'm not too sure if they are there - and if they are there, it would be one of those hyper-accurate charting situations. Would probably confuse the player at first why those hits aren't sounding.
+DONE - they're there, but they are indeed confusing, and not terribly important. I am keeping the other ghost snares though
 
 44 -  Not too sure if those double reds are part of that fill (then again, I do hear it at measure 82 so maybe it is there).
+NOT DONE
 
 57.2 - I don't hear a bass note here.
+NOT DONE - it's pretty much only audible on the dvd, but it fits the groove
 
 60 & 64 - Crash cymbal preferences.
+NOT DONE
 
 73 & 77 - Double check those reds.
+Quiet ghosts, but I'm gonna keep them :)
 
 88 - Single crash?
+NOT DONE
 
 96 - I can hardly (if at all) hear the red ghost notes. I would advise getting rid of them (as it would also flow better when playing the song).
+NOT DONE
 
 98.1 - I would keep that as a green crash.
+NOT DONE
 
 120.4.5 - I would make these single green crashes as it would then be more natural to transition to the fill.
+DONE
 
 131, 132 & 133 - I would do YG.
+NOT DONE
 
 140.1 - I realize that this blue cymbal and the green cymbals after it are different, but consider making that blue cymbal a green, since it's the end of the section and a rather 'big' or important crash.
+DONE
 
 142, 144, 146, 148 - YG cymbal preference (if you change this, make the two tom hits before measure 148 YB instead of YG).
+NOT DONE
 
 157 - The second, third, and fourth cymbals of this measure all sound the same. Maybe make these four cymbals B, G, G, G.
+DONE - they are different, but similar enough, and it's obnoxious to have to read the GBGB interspersed with the toms
 
 157.4 - I would shift these toms down one (except for the green tom) as they are toms and I don't think they need to be put on red (though, the four reds at the beginning of the measure are fine).
+NOT DONE - any time MP breaks out the octoban, I think using all 4 pads for them is ok :)
 
 161.3 - These toms all sound the same. Make these blue toms and end with a green crash.
+DONE - I didn't adjust the toms, but the crashes are all G
 
 193 - Oh my goodness this fill is so hard to hear... I don't think they're quintuplets, this was the best I could come up with though: https://gyazo.com/de33265d1fdc6d9a303b046ba0cd7048 Not sure if this is just sloppy playing or what.
+NOT DONE - unfortunately the clusterfuck I put down is mostly accurate...
 
 228.1, 230.1, 232.1 - I believe a blue cymbal is with those bass notes at the start of these measures (and 233.3).
+NOT DONE - I think it's just a loud foot hihat close
 
 259, 279, 283, 285, 286, 288, 289, 290, 305, 306, 309, 316, 365, 366 - YG crash preference.
+NOT DONE
 
 278.4 - I think there are bass notes under these three toms.
+DONE - I have no idea how I missed these!
 
 283.3.5 - I would make this tom hit YB, as the G tom after it is a significantly lower pitch.
+DONE - Not sure why I did this
 
 291 - This green cymbal sounds the same as the blue cymbals.
+NOT DONE - it is different!
 
 317.2.5 - I hear a kick here.
+NOT DONE - it would fit, but nope
 
 334.3 - I would change the first "double kick" to a blue tom, so that it would be YBO-O instead of [YG]O-O
+Previously this was "RY _ YG K K _ K _" but I changed the "YG K" to a triplet "G B K"
 
 343.2.5 - I hear a kick here.
+DONE
 
 354.1 - I hear a kick here.
+DONE
 
 365.4.5 - Not sure if these are double kicks or if his left foot didn't hit hard enough to hear at this part.
+I think they are double kicks, but it's very hard to hear
