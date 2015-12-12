@@ -69,15 +69,13 @@ import Data.Functor.Identity (runIdentity)
 
 data Argument
   = AudioDir  FilePath
-  | JammitDir FilePath
   | SongFile  FilePath
   deriving (Eq, Ord, Show, Read)
 
 optDescrs :: [OptDescr Argument]
 optDescrs =
-  [ Option [] ["audio" ] (ReqArg AudioDir  "DIR" ) "a directory with audio"
-  , Option [] ["jammit"] (ReqArg JammitDir "DIR" ) "a directory with Jammit data"
-  , Option [] ["song"  ] (ReqArg SongFile  "FILE") "the song YAML file"
+  [ Option [] ["audio"] (ReqArg AudioDir  "DIR" ) "a directory with audio"
+  , Option [] ["song" ] (ReqArg SongFile  "FILE") "the song YAML file"
   ]
 
 -- | Oracle for an audio file search.
@@ -118,10 +116,9 @@ main = do
 
       yamlPath <- canonicalizePath $
         fromMaybe "song.yml" $ listToMaybe [ f | SongFile f <- opts ]
-      audioDirs <- mapM canonicalizePath $
-        takeDirectory yamlPath : [ d | AudioDir d <- opts ]
-      jammitDirs <- mapM canonicalizePath $
-        maybe id (:) defaultJammitDir [ d | JammitDir d <- opts ]
+      audioDirs <- mapM canonicalizePath
+        $ takeDirectory yamlPath
+        : maybe id (:) defaultJammitDir [ d | AudioDir d <- opts ]
       songYaml
         <-  readYAMLTree yamlPath
         >>= runReaderT (printStackTraceIO traceJSON)
@@ -161,7 +158,7 @@ main = do
           jammitSearch jmt = do
             let title  = fromMaybe (_title  $ _metadata songYaml) $ _jammitTitle  jmt
                 artist = fromMaybe (_artist $ _metadata songYaml) $ _jammitArtist jmt
-            lib <- liftIO $ concatMapM J.loadLibrary jammitDirs
+            lib <- liftIO $ concatMapM J.loadLibrary audioDirs
             return $ J.getAudioParts
               $ J.exactSearchBy J.title  (T.unpack title )
               $ J.exactSearchBy J.artist (T.unpack artist) lib
@@ -194,10 +191,9 @@ main = do
             phony s f = Shake.phony s $ strSongYaml (GetSongYaml ())  >> f
             infix 1 %>, &%>
 
-        phony "yaml"   $ liftIO $ print songYaml
-        phony "audio"  $ liftIO $ print audioDirs
-        phony "jammit" $ liftIO $ print jammitDirs
-        phony "clean"  $ cmd "rm -rf gen"
+        phony "yaml"  $ liftIO $ print songYaml
+        phony "audio" $ liftIO $ print audioDirs
+        phony "clean" $ cmd "rm -rf gen"
 
         let audioPath :: T.Text -> FilePath
             audioPath name = "gen/audio" </> T.unpack name <.> "wav"
@@ -1272,7 +1268,8 @@ main = do
 
         want buildables
 
-    _ -> return ()
+    [] -> return ()
+    _ -> error "Invalid command"
 
 getPercType :: FilePath -> Action (Maybe RBVox.PercussionType)
 getPercType mid = do
