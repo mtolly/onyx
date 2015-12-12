@@ -2,6 +2,10 @@ metadata:
   title: Trial of Tears
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 11
+  autogen-theme: Slow Jam
+  rating: Family Friendly
+  difficulty:
+    drums: 5
   comments:
   - >-
     Chart confidence: *high* (Jammit stems).

@@ -2,6 +2,10 @@ metadata:
   title: Biaxident
   file-include: ../../../albums/liquid-tension-experiment-2.yml
   track-number: 2
+  autogen-theme: Feel Good Pop Rock
+  rating: Family Friendly
+  difficulty:
+    drums: 2
   comments:
   - >-
     Chart confidence: *medium-high*.

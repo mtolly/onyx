@@ -2,6 +2,10 @@ metadata:
   title: New Millennium
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 1
+  autogen-theme: Edgy Prog Rock
+  rating: Supervision Recommended
+  difficulty:
+    drums: 4
   comments:
   - "Chart confidence: *high* (Jammit stems)."
 audio:

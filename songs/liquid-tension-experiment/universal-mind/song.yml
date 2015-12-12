@@ -2,6 +2,10 @@ metadata:
   title: Universal Mind
   file-include: ../../../albums/liquid-tension-experiment.yml
   track-number: 8
+  autogen-theme: Psych Jam Rock
+  rating: Family Friendly
+  difficulty:
+    drums: 6
   comments:
   - "Chart confidence: *high*."
 audio:

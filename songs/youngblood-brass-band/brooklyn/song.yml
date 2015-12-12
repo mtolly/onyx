@@ -2,6 +2,10 @@ metadata:
   title: Brooklyn
   file-include: ../../../albums/center-level-roar.yml
   track-number: 4
+  autogen-theme: Feel Good Pop Rock # no idea lol
+  rating: Family Friendly
+  difficulty:
+    drums: 5
   comments:
   - >-
     Chart confidence: *medium-high*.
