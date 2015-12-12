@@ -458,15 +458,11 @@ main = do
               has2p = dir </> "has2p.txt"
           [midPS, midcountin, mid2p, mid1p, has2p] &%> \_ -> do
             input <- loadMIDI "notes.mid"
-            let extraTracks = "notes-" ++ T.unpack planName ++ ".mid"
-                extraTempo  = "tempo-" ++ T.unpack planName ++ ".mid"
-            extra <- doesFileExist extraTracks >>= \b -> if b
-              then loadMIDI extraTracks
-              else return input{ RBFile.s_tracks = [] }
+            let extraTempo  = "tempo-" ++ T.unpack planName ++ ".mid"
             tempos <- fmap RBFile.s_tempos $ doesFileExist extraTempo >>= \b -> if b
               then loadMIDI extraTempo
-              else return extra
-            let trks = RBFile.s_tracks input ++ RBFile.s_tracks extra
+              else return input
+            let trks = RBFile.s_tracks input
                 mergeTracks ts = foldr RTB.merge RTB.empty ts
                 beatTrack = let
                   trk = mergeTracks [ t | RBFile.Beat t <- trks ]
