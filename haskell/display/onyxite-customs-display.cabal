@@ -16,4 +16,6 @@ library
     , event-list
     , midi-util
     , containers
+    , aeson
+    , text
   ghc-options: -Wall

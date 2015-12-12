@@ -118,7 +118,7 @@ drawFive pxToSecs secsToPx (P (V2 targetX targetY)) five beats autoplay = do
   forM_ (Map.toDescList $ zoom $ fiveSolo five) $ \(secs, _) -> do
     drawImage Image_highway_grybo_solo_edge $ P $ V2 targetX $ secsToPx secs
   -- Beats
-  forM_ (Map.toDescList $ zoom beats) $ \(secs, evt) -> do
+  forM_ (Map.toDescList $ zoom $ beatLines beats) $ \(secs, evt) -> do
     let y = secsToPx secs
     case evt of
       Bar      -> drawImage Image_highway_grybo_bar      $ P $ V2 targetX (y - 1)
@@ -254,7 +254,7 @@ drawDrums pxToSecs secsToPx (P (V2 targetX targetY)) drums beats autoplay = do
   forM_ (Map.toDescList $ zoom $ drumSolo drums) $ \(secs, _) -> do
     drawImage Image_highway_drums_solo_edge $ P $ V2 targetX $ secsToPx secs
   -- Beats
-  forM_ (Map.toDescList $ zoom beats) $ \(secs, evt) -> do
+  forM_ (Map.toDescList $ zoom $ beatLines beats) $ \(secs, evt) -> do
     let y = secsToPx secs
     case evt of
       Bar      -> drawImage Image_highway_drums_bar      $ P $ V2 targetX (y - 1)
@@ -356,7 +356,7 @@ drawProKeys pxToSecs secsToPx (P (V2 targetX targetY)) prokeys beats autoplay = 
   forM_ (Map.toDescList $ zoom $ proKeysSolo prokeys) $ \(secs, _) -> do
     drawImage Image_highway_prokeys_solo_edge $ P $ V2 targetX $ secsToPx secs
   -- Beats
-  forM_ (Map.toDescList $ zoom beats) $ \(secs, evt) -> do
+  forM_ (Map.toDescList $ zoom $ beatLines beats) $ \(secs, evt) -> do
     let y = secsToPx secs
     case evt of
       Bar      -> drawImage Image_highway_prokeys_bar      $ P $ V2 targetX (y - 1)
@@ -478,6 +478,3 @@ drawProKeys pxToSecs secsToPx (P (V2 targetX targetY)) prokeys beats autoplay = 
             SustainEnd -> drawImage Image_sustain_key_end $ P $ V2 (targetX + offsetX - if black then 1 else 0) y
             Note    () -> drawImage img                   $ P $ V2 (targetX + offsetX) $ y - 5
             Sustain () -> drawImage img                   $ P $ V2 (targetX + offsetX) $ y - 5
-
-drawVocals :: (MonadDraw m) => (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> Int -> Vocals -> m ()
-drawVocals pxToSecs secsToPx (P (V2 targetX targetY)) height vox = return ()

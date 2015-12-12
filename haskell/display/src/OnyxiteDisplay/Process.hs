@@ -1,18 +1,21 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 module OnyxiteDisplay.Process where
 
 import           Control.Monad                    (guard)
+import qualified Data.Aeson                       as A
+import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map.Strict                  as Map
-import           Data.Maybe                       (listToMaybe, mapMaybe)
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common                  (Difficulty (..))
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as PK
-import qualified RockBand.Vocals                  as Vox
 import qualified Sound.MIDI.Util                  as U
+import qualified Data.Text                        as T
+import Data.Monoid ((<>))
 
 data Sustainable a
   = SustainEnd
@@ -29,11 +32,48 @@ data Five = Five
   , fiveEnergy :: Map.Map U.Seconds Bool
   } deriving (Eq, Ord, Show)
 
+eventList :: Map.Map U.Seconds a -> (a -> A.Value) -> A.Value
+eventList evts f = A.toJSON $ map g $ Map.toAscList evts where
+  g (secs, evt) = let
+    secs' = A.Number $ realToFrac secs
+    evt' = f evt
+    in A.toJSON [secs', evt']
+
+instance A.ToJSON Five where
+  toJSON x = A.object
+    [ (,) "notes" $ A.object $ flip map (Map.toList $ fiveNotes x) $ \(color, notes) ->
+      (,) (T.pack $ map toLower $ show color) $ eventList notes $ \case
+        SustainEnd -> "end"
+        Note Strum -> "strum"
+        Note HOPO -> "hopo"
+        Sustain Strum -> "strum-sust"
+        Sustain HOPO -> "hopo-sust"
+    , (,) "solo" $ eventList (fiveSolo x) A.toJSON
+    , (,) "energy" $ eventList (fiveEnergy x) A.toJSON
+    ]
+
 data Drums = Drums
   { drumNotes  :: Map.Map U.Seconds [Drums.Gem Drums.ProType]
   , drumSolo   :: Map.Map U.Seconds Bool
   , drumEnergy :: Map.Map U.Seconds Bool
   } deriving (Eq, Ord, Show)
+
+instance A.ToJSON Drums where
+  toJSON x = A.object
+    [ (,) "notes" $ eventList (drumNotes x) $ let
+      gem = A.String . \case
+        Drums.Kick -> "kick"
+        Drums.Red -> "red"
+        Drums.Pro Drums.Yellow Drums.Cymbal -> "y-cym"
+        Drums.Pro Drums.Yellow Drums.Tom -> "y-tom"
+        Drums.Pro Drums.Blue Drums.Cymbal -> "b-cym"
+        Drums.Pro Drums.Blue Drums.Tom -> "b-tom"
+        Drums.Pro Drums.Green Drums.Cymbal -> "g-cym"
+        Drums.Pro Drums.Green Drums.Tom -> "g-tom"
+      in A.toJSON . map gem
+    , (,) "solo" $ eventList (drumSolo x) A.toJSON
+    , (,) "energy" $ eventList (drumEnergy x) A.toJSON
+    ]
 
 data ProKeys = ProKeys
   { proKeysNotes  :: Map.Map PK.Pitch (Map.Map U.Seconds (Sustainable ()))
@@ -41,6 +81,25 @@ data ProKeys = ProKeys
   , proKeysSolo   :: Map.Map U.Seconds Bool
   , proKeysEnergy :: Map.Map U.Seconds Bool
   } deriving (Eq, Ord, Show)
+
+showPitch :: PK.Pitch -> T.Text
+showPitch = \case
+  PK.RedYellow k -> "ry-" <> showKey k
+  PK.BlueGreen k -> "bg-" <> showKey k
+  PK.OrangeC -> "o-c"
+  where showKey = T.pack . map toLower . show
+
+instance A.ToJSON ProKeys where
+  toJSON x = A.object
+    [ (,) "notes" $ A.object $ flip map (Map.toList $ proKeysNotes x) $ \(p, notes) ->
+      (,) (showPitch p) $ eventList notes $ \case
+        SustainEnd -> "end"
+        Note () -> "note"
+        Sustain () -> "sust"
+    , (,) "ranges" $ eventList (proKeysRanges x) $ A.toJSON . map toLower . drop 5 . show
+    , (,) "solo" $ eventList (proKeysSolo x) A.toJSON
+    , (,) "energy" $ eventList (proKeysEnergy x) A.toJSON
+    ]
 
 removeStubs :: (Ord a) => RTB.T U.Beats (Sustainable a) -> RTB.T U.Beats (Sustainable a)
 removeStubs = go . RTB.normalize where
@@ -100,7 +159,14 @@ processProKeys tmap trk = let
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Overdrive b -> Just b; _ -> Nothing
   in ProKeys notes ranges solo energy
 
-type Beats = Map.Map U.Seconds Beat
+data Beats = Beats
+  { beatLines :: Map.Map U.Seconds Beat
+  } deriving (Eq, Ord, Show)
+
+instance A.ToJSON Beats where
+  toJSON x = A.object
+    [ (,) "lines" $ eventList (beatLines x) $ A.toJSON . map toLower . show
+    ]
 
 data Beat
   = Bar
@@ -109,66 +175,8 @@ data Beat
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 processBeat :: U.TempoMap -> RTB.T U.Beats Beat.Event -> Beats
-processBeat tmap rtb = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0
+processBeat tmap rtb = Beats $ Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0
   $ U.applyTempoTrack tmap $ flip fmap rtb $ \case
     Beat.Bar -> Bar
     Beat.Beat -> Beat
     -- TODO: add half-beats
-
-data VocalNote
-  = Pitched WordPart String Vox.Pitch
-  | Slide                   Vox.Pitch
-  | Talky   WordPart String
-  | VocalEnd
-  deriving (Eq, Ord, Show, Read)
-
-data WordPart = WordStart | WordContinue
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-data VocalPhrase
-  = PhraseStart
-  | EnergyPhraseStart
-  | PhraseEnd
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-data Vocals = Vocals
-  { vocalNotes   :: Map.Map U.Seconds VocalNote
-  , vocalPhrases :: Map.Map U.Seconds VocalPhrase
-  , vocalRange   :: Maybe (Vox.Pitch, Vox.Pitch)
-  -- TODO: support range shifts
-  } deriving (Eq, Ord, Show)
-
-processVocals :: U.TempoMap -> RTB.T U.Beats Vox.Event -> Vocals
-processVocals tmap trk = let
-  notes = trackToMap tmap $ flip RTB.mapMaybe (RTB.collectCoincident trk) $ \evts ->
-    if flip any evts $ \case Vox.Note _ False -> True; _ -> False
-      then Just VocalEnd
-      else let
-        mpitch = listToMaybe $ flip mapMaybe evts $ \case Vox.Note p True -> Just p; _ -> Nothing
-        mlyric = listToMaybe $ flip mapMaybe evts $ \case Vox.Lyric s -> Just s; _ -> Nothing
-        part p lyric = case reverse lyric of
-          '#' : rev -> Just $ Talky p $ reverse rev
-          '^' : rev -> Just $ Talky p $ reverse rev
-          _         -> mpitch >>= Just . Pitched p lyric
-        in mlyric >>= \case
-          "+"         -> mpitch >>= Just . Slide
-          '-' : lyric -> part WordContinue lyric
-          lyric       -> part WordStart    lyric
-  phrases = trackToMap tmap $ flip RTB.mapMaybe (RTB.collectCoincident trk) $ \evts ->
-    if any isPhraseStart evts
-      then Just $ if any (== Vox.Overdrive True) evts
-        then EnergyPhraseStart
-        else PhraseStart
-      else if any isPhraseEnd evts
-        then Just PhraseEnd
-        else Nothing
-  isPhraseStart = \case Vox.Phrase True  -> True; Vox.Phrase2 True  -> True; _ -> False
-  isPhraseEnd   = \case Vox.Phrase False -> True; Vox.Phrase2 False -> True; _ -> False
-  pitches = flip mapMaybe (Map.elems notes) $ \case
-    Pitched _ _ p -> Just p
-    Slide       p -> Just p
-    _             -> Nothing
-  range = case pitches of
-    p : ps -> Just (foldr min p ps, foldr max p ps)
-    []     -> Just undefined
-  in Vocals notes phrases range
