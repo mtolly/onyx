@@ -1,31 +1,42 @@
 DRUMS
 
 3 - Last two notes of the intro measure could be G G instead of B B.
+Hm, it would break the pattern of the other tom groups
 
 48-55 - The lone green cymbal hits like at 48.1.5 (all the greems without a snare or bass drum with it) are either super quiet or not there. I would suggest getting rid of those.
 
 70 - Green crash maybe, as it would match all the other crashes.
+Eh, would require dropping the audible ride
 
 100 - The last two reds sound like flams (R+Y for both).
+Is this referring to 107? If so, nope
 
 197.1 - YG preference.
+Is this 225? If so, maybe
 
 197.2.75 - I hear the kick there, but softly. I'm guessing he just didn't hit it that hard.
+Yeah, it's weird
 
 This chart is nearly perfect... and the stuff I could find is mostly preference. Fantastic job on that chart!
 
 GUITAR
 
 3-15 - I highly suggest you remove all hopo/strum markers. The tempo is fine to keep the natural hopos, and especially if one is not familiar with the song, the strums won't make sense at first as they won't yet be used to the time signatures and the strong beats. It's best to leave those markers out.
+DONE
 
 14.2 - Missing green note.
+DONE
 
 24-55 - Same reasoning as before. No one will know at the first playthrough (or probably the 2nd, 3rd, 4th...) how the riffs are structured. The strums would make it confusing to play. Best to leave those out.
+DONE
 
 50.3.5, 51.3.5, 54.3.5 - These notes don't need to be sustains (change BASS for this as well).
+DONE
 
 68 - Remove strum markers until 68.5.50 (that blue note should be the first strum as that measure slows down).
+DONE
 
+{ # Whole solo was redone, all of this applied
 69.4, 73.4, 77.4, 81.4 - I would make that orange note a 16th triplet away from the B note, not a 16th away. I would then also make the B note after the O note a strum.
 
 71 - That note definitely shouldn't be a strum. :p
@@ -71,22 +82,30 @@ GUITAR
 98 - Move the first two notes down one, and remove all strum/hopo markers until 100.2.
 
 98.4 - Those 3 notes sound closer to 16th triplets than 32nds.
+}
 
 104 to the end - remove all strum/hopo markers. I know it seems like I don't like forced strums, but they seem too forced in this song. They're not necessary. :)
+DONE
 
 131 - The short sustain notes at 132.1.75, 132.3.25, are too stubby. I would simply remove the sustain on those notes and all of the other notes like them. You'll want to do that for both choruses and the bridge before the outro solo.
+Can't figure out which measure this is actually referring to
 
 180-181 - I would make the low note of those chords red instead of green.
+Can't figure out which measure this is actually referring to
 
 191.3.25 - Extend the sustain.
+Can't figure out which measure this is actually referring to
 
 BASS
 
 3-4 - Remove all strum markers. I would make the last seven notes of measure 3: O-B-Y-O-B-Y-R (because of the G in measure 4).
+DONE
 
 11.1 - Change B to Y.
+DONE
 
 11.3.50 - Change Y to R.
+DONE
 
 12.2.50 - Remove strum marker.
 
@@ -97,6 +116,7 @@ BASS
 15.3.50 - Change Y to R.
 
 15.7 - 68.5.25 - Remove all strum markers. Keep the last seven notes of measure 68 strums, just like guitar.
+DONE
 
 50.3.5, 51.3.5, 54.3.5 - These notes don't need to be sustains.
 
