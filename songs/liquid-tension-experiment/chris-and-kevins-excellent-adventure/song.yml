@@ -14,4 +14,4 @@ plans:
       pad: [6.124, album-track]
 instruments:
   drums: true
-  # bass: true
+  bass: true
