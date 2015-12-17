@@ -1,0 +1,21 @@
+metadata:
+  title: "Lost Keys (Blame Hofmann)/Rosetta Stoned"
+  # HMX style is consistent: no spaces around the slash
+  file-include: "../../../albums/10000-days.yml"
+  track-number: 7 # and 8
+audio:
+  album-lost-keys:
+    md5: 0e1bbc5f1c81e035255ac466d38020d8
+    frames: 9978360
+  album-rosetta-stoned:
+    md5: 4aaca61faf260e2f21155b38697f6ab9
+    frames: 29606976
+plans:
+  album:
+    song:
+      pad:
+      - 4.391
+      - concatenate: [album-lost-keys, album-rosetta-stoned]
+instruments:
+  drums: true
+published: false
