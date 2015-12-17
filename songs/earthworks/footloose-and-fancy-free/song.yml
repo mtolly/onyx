@@ -16,6 +16,6 @@ plans:
 instruments:
   drums: true
   bass: true
-  guitar: true
+  keys: true
   vocal: 1
 published: false
