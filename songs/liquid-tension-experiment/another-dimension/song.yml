@@ -6,6 +6,7 @@ metadata:
   rating: Family Friendly
   difficulty:
     drums: 6
+    guitar: 5
   comments:
   - "Chart confidence: *medium-high*."
 audio:
@@ -15,6 +16,9 @@ audio:
 plans:
   album:
     song:
-      pad: [4.067, album-track]
+      pad:
+      - 4.067
+      - fade: [0.5, album-track]
 instruments:
   drums: true
+  guitar: true
