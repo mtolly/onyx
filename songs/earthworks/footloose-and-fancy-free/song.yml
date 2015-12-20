@@ -12,10 +12,9 @@ audio:
 plans:
   album:
     song:
-      pad: [5.246, album-track]
+      pad: [4.787, album-track]
 instruments:
   drums: true
   bass: true
   keys: true
   vocal: 1
-published: false
