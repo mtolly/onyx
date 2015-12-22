@@ -18,4 +18,5 @@ library
     , containers
     , aeson
     , text
+    , unordered-containers
   ghc-options: -Wall

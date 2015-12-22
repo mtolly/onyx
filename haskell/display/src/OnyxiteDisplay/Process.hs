@@ -1,21 +1,24 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module OnyxiteDisplay.Process where
 
-import           Control.Monad                    (guard)
+import           Control.Monad                    (forM, guard)
+import           Data.Aeson                       ((.:))
 import qualified Data.Aeson                       as A
+import qualified Data.Aeson.Types                 as A
 import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map.Strict                  as Map
+import           Data.Monoid                      ((<>))
+import qualified Data.Text                        as T
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common                  (Difficulty (..))
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as PK
 import qualified Sound.MIDI.Util                  as U
-import qualified Data.Text                        as T
-import Data.Monoid ((<>))
 
 class TimeFunctor f where
   mapTime :: (Real u) => (t -> u) -> f t -> f u
@@ -58,6 +61,42 @@ instance (Real t) => A.ToJSON (Five t) where
     , (,) "energy" $ eventList (fiveEnergy x) A.toJSON
     ]
 
+readEventList :: (Ord t, Fractional t) => (A.Value -> A.Parser a) -> A.Value -> A.Parser (Map.Map t a)
+readEventList f v = do
+  dblValPairs <- A.parseJSON v
+  fmap Map.fromList $ forM dblValPairs $ \(dbl, val) -> do
+    let _ = dbl :: Double
+    x <- f val
+    return (realToFrac dbl, x)
+
+readKeyMapping :: (Ord k) => (T.Text -> A.Parser k) -> (A.Value -> A.Parser a) -> A.Value -> A.Parser (Map.Map k a)
+readKeyMapping readKey readVal = A.withObject "object with key->notes mapping" $ \obj -> do
+  fmap Map.fromList $ forM (HM.toList obj) $ \(k, v) -> do
+    key <- readKey k
+    val <- readVal v
+    return (key, val)
+
+instance (Ord t, Fractional t) => A.FromJSON (Five t) where
+  parseJSON = A.withObject "five-button data" $ \obj -> do
+    let readColor = \case
+          "green"  -> return Five.Green
+          "red"    -> return Five.Red
+          "yellow" -> return Five.Yellow
+          "blue"   -> return Five.Blue
+          "orange" -> return Five.Orange
+          _        -> fail "invalid five-button color name"
+        readSust = \case
+          "end"        -> return SustainEnd
+          "strum"      -> return $ Note Strum
+          "hopo"       -> return $ Note HOPO
+          "strum-sust" -> return $ Sustain Strum
+          "hopo-sust"  -> return $ Sustain HOPO
+          _            -> fail "invalid five-button note type"
+    notes <- (obj .: "notes") >>= readKeyMapping readColor (readEventList readSust)
+    solo <- (obj .: "solo") >>= readEventList A.parseJSON
+    energy <- (obj .: "energy") >>= readEventList A.parseJSON
+    return $ Five notes solo energy
+
 data Drums t = Drums
   { drumNotes  :: Map.Map t [Drums.Gem Drums.ProType]
   , drumSolo   :: Map.Map t Bool
@@ -71,18 +110,37 @@ instance (Real t) => A.ToJSON (Drums t) where
   toJSON x = A.object
     [ (,) "notes" $ eventList (drumNotes x) $ let
       gem = A.String . \case
-        Drums.Kick -> "kick"
-        Drums.Red -> "red"
+        Drums.Kick                          -> "kick"
+        Drums.Red                           -> "red"
         Drums.Pro Drums.Yellow Drums.Cymbal -> "y-cym"
-        Drums.Pro Drums.Yellow Drums.Tom -> "y-tom"
-        Drums.Pro Drums.Blue Drums.Cymbal -> "b-cym"
-        Drums.Pro Drums.Blue Drums.Tom -> "b-tom"
-        Drums.Pro Drums.Green Drums.Cymbal -> "g-cym"
-        Drums.Pro Drums.Green Drums.Tom -> "g-tom"
+        Drums.Pro Drums.Yellow Drums.Tom    -> "y-tom"
+        Drums.Pro Drums.Blue   Drums.Cymbal -> "b-cym"
+        Drums.Pro Drums.Blue   Drums.Tom    -> "b-tom"
+        Drums.Pro Drums.Green  Drums.Cymbal -> "g-cym"
+        Drums.Pro Drums.Green  Drums.Tom    -> "g-tom"
       in A.toJSON . map gem
     , (,) "solo" $ eventList (drumSolo x) A.toJSON
     , (,) "energy" $ eventList (drumEnergy x) A.toJSON
     ]
+
+instance (Ord t, Fractional t) => A.FromJSON (Drums t) where
+  parseJSON = A.withObject "drums data" $ \obj -> do
+    let readGem :: A.Value -> A.Parser (Drums.Gem Drums.ProType)
+        readGem = \case
+          "kick"  -> return Drums.Kick
+          "red"   -> return Drums.Red
+          "y-cym" -> return $ Drums.Pro Drums.Yellow Drums.Cymbal
+          "y-tom" -> return $ Drums.Pro Drums.Yellow Drums.Tom
+          "b-cym" -> return $ Drums.Pro Drums.Blue   Drums.Cymbal
+          "b-tom" -> return $ Drums.Pro Drums.Blue   Drums.Tom
+          "g-cym" -> return $ Drums.Pro Drums.Green  Drums.Cymbal
+          "g-tom" -> return $ Drums.Pro Drums.Green  Drums.Tom
+          _       -> fail "invalid drums gem"
+        readGems v = A.parseJSON v >>= mapM readGem
+    notes <- (obj .: "notes") >>= readEventList readGems
+    solo <- (obj .: "solo") >>= readEventList A.parseJSON
+    energy <- (obj .: "energy") >>= readEventList A.parseJSON
+    return $ Drums notes solo energy
 
 data ProKeys t = ProKeys
   { proKeysNotes  :: Map.Map PK.Pitch (Map.Map t (Sustainable ()))
@@ -101,6 +159,16 @@ showPitch = \case
   PK.OrangeC -> "o-c"
   where showKey = T.pack . map toLower . show
 
+pitchMap :: [(T.Text, PK.Pitch)]
+pitchMap = do
+  p <- [minBound .. maxBound]
+  return (showPitch p, p)
+
+readPitch :: T.Text -> A.Parser PK.Pitch
+readPitch t = case lookup t pitchMap of
+  Just p -> return p
+  Nothing -> fail "invalid pro keys pitch name"
+
 instance (Real t) => A.ToJSON (ProKeys t) where
   toJSON x = A.object
     [ (,) "notes" $ A.object $ flip map (Map.toList $ proKeysNotes x) $ \(p, notes) ->
@@ -112,6 +180,27 @@ instance (Real t) => A.ToJSON (ProKeys t) where
     , (,) "solo" $ eventList (proKeysSolo x) A.toJSON
     , (,) "energy" $ eventList (proKeysEnergy x) A.toJSON
     ]
+
+instance (Ord t, Fractional t) => A.FromJSON (ProKeys t) where
+  parseJSON = A.withObject "pro keys data" $ \obj -> do
+    let readSust = \case
+          "end"  -> return SustainEnd
+          "note" -> return $ Note ()
+          "sust" -> return $ Sustain ()
+          _      -> fail "invalid pro keys note type"
+        readRange = \case
+          "c" -> return PK.RangeC
+          "d" -> return PK.RangeD
+          "e" -> return PK.RangeE
+          "f" -> return PK.RangeF
+          "g" -> return PK.RangeG
+          "a" -> return PK.RangeA
+          _   -> fail "invalid pro keys range name"
+    notes <- (obj .: "notes") >>= readKeyMapping readPitch (readEventList readSust)
+    ranges <- (obj .: "ranges") >>= readEventList readRange
+    solo <- (obj .: "solo") >>= readEventList A.parseJSON
+    energy <- (obj .: "energy") >>= readEventList A.parseJSON
+    return $ ProKeys notes ranges solo energy
 
 removeStubs :: (Ord a) => RTB.T U.Beats (Sustainable a) -> RTB.T U.Beats (Sustainable a)
 removeStubs = go . RTB.normalize where
@@ -183,11 +272,22 @@ instance (Real t) => A.ToJSON (Beats t) where
     [ (,) "lines" $ eventList (beatLines x) $ A.toJSON . map toLower . show
     ]
 
+instance (Ord t, Fractional t) => A.FromJSON (Beats t) where
+  parseJSON = A.withObject "beat track data" $ \obj -> do
+    fmap Beats $ (obj .: "lines") >>= readEventList A.parseJSON
+
 data Beat
   = Bar
   | Beat
   | HalfBeat
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance A.FromJSON Beat where
+  parseJSON = \case
+    "bar"      -> return Bar
+    "beat"     -> return Beat
+    "halfbeat" -> return HalfBeat
+    _          -> fail "invalid beat event"
 
 processBeat :: U.TempoMap -> RTB.T U.Beats Beat.Event -> Beats U.Seconds
 processBeat tmap rtb = Beats $ Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0
