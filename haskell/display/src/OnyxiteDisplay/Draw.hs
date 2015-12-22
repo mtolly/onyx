@@ -12,7 +12,6 @@ import           RockBand.Common        (Key (..))
 import qualified RockBand.Drums         as Drums
 import qualified RockBand.FiveButton    as Five
 import qualified RockBand.ProKeys       as PK
-import qualified Sound.MIDI.Util        as U
 
 import           OnyxiteDisplay.Process
 
@@ -81,7 +80,7 @@ class (Monad m) => MonadDraw m where
   fillRects = mapM_ $ uncurry fillRect
   drawImage :: ImageID -> Point V2 Int -> m ()
 
-drawFive :: (MonadDraw m) => (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> Five -> Beats -> Bool -> m ()
+drawFive :: (MonadDraw m, Real t) => (Int -> t) -> (t -> Int) -> Point V2 Int -> Five t -> Beats t -> Bool -> m ()
 drawFive pxToSecs secsToPx (P (V2 targetX targetY)) five beats autoplay = do
   V2 _ windowH <- getDims
   let maxSecs = pxToSecs (-100)
@@ -217,7 +216,7 @@ drawFive pxToSecs secsToPx (P (V2 targetX targetY)) five beats autoplay = do
             Note    HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) $ P $ V2 (targetX + offsetX) $ y - 5
             Sustain HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) $ P $ V2 (targetX + offsetX) $ y - 5
 
-drawDrums :: (MonadDraw m) => (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> Drums -> Beats -> Bool -> m ()
+drawDrums :: (MonadDraw m, Real t) => (Int -> t) -> (t -> Int) -> Point V2 Int -> Drums t -> Beats t -> Bool -> m ()
 drawDrums pxToSecs secsToPx (P (V2 targetX targetY)) drums beats autoplay = do
   V2 _ windowH <- getDims
   let maxSecs = pxToSecs (-100)
@@ -311,7 +310,7 @@ pkHighway = let
   four = [w, b, w, b, w, b, WhiteKeyShort]
   in intercalate rail [[], three, four, three, four, [WhiteKeyShort], []]
 
-drawProKeys :: (MonadDraw m) => (Int -> U.Seconds) -> (U.Seconds -> Int) -> Point V2 Int -> ProKeys -> Beats -> Bool -> m ()
+drawProKeys :: (MonadDraw m, Real t) => (Int -> t) -> (t -> Int) -> Point V2 Int -> ProKeys t -> Beats t -> Bool -> m ()
 drawProKeys pxToSecs secsToPx (P (V2 targetX targetY)) prokeys beats autoplay = do
   V2 _ windowH <- getDims
   let maxSecs = pxToSecs (-100)

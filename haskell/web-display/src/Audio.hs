@@ -5,7 +5,6 @@ module Audio
 
 import           GHCJS.Marshal
 import           GHCJS.Types
-import qualified Sound.MIDI.Util as U
 
 newtype Howl = Howl JSVal
 
@@ -32,27 +31,18 @@ foreign import javascript unsafe
 
 foreign import javascript unsafe
   "$2.pos(null, $1)"
-  js_getPos :: SoundID -> Howl -> IO Double
-
-getPos :: SoundID -> Howl -> IO U.Seconds
-getPos sid h = fmap realToFrac $ js_getPos sid h
+  getPos :: SoundID -> Howl -> IO Double
 
 -- | If the sound is paused, this also starts playing it.
 foreign import javascript unsafe
   "$3.pos($1, $2);"
-  js_setPos :: Double -> SoundID -> Howl -> IO ()
-
-setPos :: U.Seconds -> SoundID -> Howl -> IO ()
-setPos = js_setPos . realToFrac
+  setPos :: Double -> SoundID -> Howl -> IO ()
 
 foreign import javascript unsafe
   "$1._duration"
-  js_getDuration :: Howl -> IO Double
+  getDuration :: Howl -> IO Double
 
-getDuration :: Howl -> IO U.Seconds
-getDuration = fmap realToFrac . js_getDuration
-
-setPosSafe :: U.Seconds -> SoundID -> Howl -> IO ()
+setPosSafe :: Double -> SoundID -> Howl -> IO ()
 setPosSafe t sid h = do
   dur <- getDuration h
   setPos (min t dur) sid h

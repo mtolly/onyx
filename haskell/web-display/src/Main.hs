@@ -121,12 +121,12 @@ data Settings = Settings
 
 data App
   = Paused
-    { pausedSongTime :: U.Seconds
+    { pausedSongTime :: Double
     , settings       :: Settings
     }
   | Playing
-    { startedPageTime :: U.Seconds
-    , startedSongTime :: U.Seconds
+    { startedPageTime :: Double
+    , startedSongTime :: Double
     , settings        :: Settings
     }
   deriving (Eq, Ord, Show)
@@ -169,18 +169,20 @@ main = do
   song <- case runStackTrace $ RB.readMIDIFile mid of
     (Right song, _) -> return song
     (Left _, _) -> error "Error when reading MIDI file"
-  let gtr = processFive (Just $ 170 / 480) (RB.s_tempos song)
+  let gtr = toDoubles $ processFive (Just $ 170 / 480) (RB.s_tempos song)
         $ foldr RTB.merge RTB.empty [ t | RB.PartGuitar t <- RB.s_tracks song ]
-      bass = processFive (Just $ 170 / 480) (RB.s_tempos song)
+      bass = toDoubles $ processFive (Just $ 170 / 480) (RB.s_tempos song)
         $ foldr RTB.merge RTB.empty [ t | RB.PartBass t <- RB.s_tracks song ]
-      keys = processFive Nothing (RB.s_tempos song)
+      keys = toDoubles $ processFive Nothing (RB.s_tempos song)
         $ foldr RTB.merge RTB.empty [ t | RB.PartKeys t <- RB.s_tracks song ]
-      drums = processDrums (RB.s_tempos song)
+      drums = toDoubles $ processDrums (RB.s_tempos song)
         $ foldr RTB.merge RTB.empty [ t | RB.PartDrums t <- RB.s_tracks song ]
-      prokeys = processProKeys (RB.s_tempos song)
+      prokeys = toDoubles $ processProKeys (RB.s_tempos song)
         $ foldr RTB.merge RTB.empty [ t | RB.PartRealKeys Expert t <- RB.s_tracks song ]
-      beat = processBeat (RB.s_tempos song)
+      beat = toDoubles $ processBeat (RB.s_tempos song)
         $ foldr RTB.merge RTB.empty [ t | RB.Beat t <- RB.s_tracks song ]
+      toDoubles :: (TimeFunctor f) => f U.Seconds -> f Double
+      toDoubles = mapTime realToFrac
 
   ctx <- C.getContext theCanvas
   getImage <- imageGetter
@@ -201,14 +203,14 @@ main = do
       keysNull = fiveNull keys || fiveOnlyGreen keys
       drumsNull = Map.null $ drumNotes drums
       proKeysNull = all Map.null $ Map.elems $ proKeysNotes prokeys
-      endEvent = fromMaybe (realToFrac audioLen) $ listToMaybe $ do
+      endEvent = (realToFrac :: U.Seconds -> Double) $ fromMaybe (realToFrac audioLen) $ listToMaybe $ do
         RB.Events t <- RB.s_tracks song
         (bts, Events.End) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 t
         return $ U.applyTempoMap (RB.s_tempos song) bts
       _M, _B :: (Num a) => a
       _M = 20 -- margin
       _B = 41 -- height/width of buttons
-      drawFrame :: U.Seconds -> App -> IO ()
+      drawFrame :: Double -> App -> IO ()
       drawFrame t state = do
         resizeCanvas theCanvas
         windowW <- canvasWidth theCanvas
@@ -260,7 +262,7 @@ main = do
           fillRect (P $ V2 (_M + 1) $ _M + 1 + round (fromIntegral timelineH * (1 - filled))) $ V2 (_B - 2) $ round $ fromIntegral timelineH * filled
   let initSettings = Settings True True True True True False
   drawFrame 0 $ Paused 0 initSettings
-  msStart <- waitForAnimationFrame
+  _msStart <- waitForAnimationFrame
   aud <- Audio.play howl
   Audio.pause aud howl
   let loop state = do
