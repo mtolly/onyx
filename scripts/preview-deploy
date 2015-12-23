@@ -68,9 +68,9 @@ Net::SFTP.start(url, username, password: password) do |sftp|
 
     songfiles =
       if only_mid
-        %w{gen/plan/album/2p/notes.mid}
+        %w{gen/plan/album/display.json}
       else
-        %w{gen/plan/album/2p/notes.mid gen/plan/album/preview-audio.ogg gen/plan/album/preview-audio.mp3}
+        %w{gen/plan/album/display.json gen/plan/album/preview-audio.ogg gen/plan/album/preview-audio.mp3}
       end
     Dir.chdir(songdir) do
       system_('onyx', 'build', *songfiles, *onyx_options)

@@ -9,7 +9,6 @@ executable onyxpreview
   other-modules:
     Audio
     Images
-    MIDI
   ghc-options:          -Wall
   build-depends:
     base
@@ -19,12 +18,11 @@ executable onyxpreview
     , transformers
     , ghcjs-base
     , linear
-    , midi-util
-    , midi
     , bytestring
     , event-list
     , containers
     , stm
+    , aeson
   default-language:     Haskell2010
   cpp-options:          -DGHCJS_BROWSER
 

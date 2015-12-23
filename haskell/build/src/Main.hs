@@ -15,6 +15,7 @@ import           YAMLTree
 import           Resources (emptyMilo)
 import qualified C3
 import           Reductions
+import qualified OnyxiteDisplay.Process as Proc
 
 import           Reaper.Base (writeRPP)
 import qualified Reaper.Build as RPP
@@ -24,6 +25,7 @@ import           Control.Monad.Extra
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.Writer
+import qualified Data.Aeson                       as A
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (toLower)
@@ -36,6 +38,7 @@ import qualified Data.DTA.Serialize.Magma         as Magma
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
+import           Data.Fixed                       (Milli)
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (foldl', isPrefixOf, nub, sortOn)
@@ -452,6 +455,7 @@ main = do
               mid1p = dir </> "1p/notes.mid"
               midcountin = dir </> "countin.mid"
               has2p = dir </> "has2p.txt"
+              display = dir </> "display.json"
           [midPS, midcountin, mid2p, mid1p, has2p] &%> \_ -> do
             input <- loadMIDI "notes.mid"
             let extraTempo  = "tempo-" ++ T.unpack planName ++ ".mid"
@@ -568,6 +572,25 @@ main = do
               , RBFile.s_tracks = [countinTrack]
               }
             liftIO $ writeFile has2p $ show has2xNotes
+
+          display %> \out -> do
+            song <- loadMIDI mid2p
+            let gtr = justIf (_hasGuitar $ _instruments songYaml) $ Proc.processFive (Just $ 170 / 480) (RBFile.s_tempos song)
+                  $ foldr RTB.merge RTB.empty [ t | RBFile.PartGuitar t <- RBFile.s_tracks song ]
+                bass = justIf (_hasBass $ _instruments songYaml) $ Proc.processFive (Just $ 170 / 480) (RBFile.s_tempos song)
+                  $ foldr RTB.merge RTB.empty [ t | RBFile.PartBass t <- RBFile.s_tracks song ]
+                keys = justIf (_hasKeys $ _instruments songYaml) $ Proc.processFive Nothing (RBFile.s_tempos song)
+                  $ foldr RTB.merge RTB.empty [ t | RBFile.PartKeys t <- RBFile.s_tracks song ]
+                drums = justIf (_hasDrums $ _instruments songYaml) $ Proc.processDrums (RBFile.s_tempos song)
+                  $ foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks song ]
+                prokeys = justIf (_hasProKeys $ _instruments songYaml) $ Proc.processProKeys (RBFile.s_tempos song)
+                  $ foldr RTB.merge RTB.empty [ t | RBFile.PartRealKeys Expert t <- RBFile.s_tracks song ]
+                beat = Proc.processBeat (RBFile.s_tempos song)
+                  $ foldr RTB.merge RTB.empty [ t | RBFile.Beat t <- RBFile.s_tracks song ]
+                end = U.applyTempoMap (RBFile.s_tempos song) $ songLength' song
+                justIf b x = guard b >> Just x
+            liftIO $ BL.writeFile out $ A.encode $ Proc.mapTime (realToFrac :: U.Seconds -> Milli)
+              $ Proc.Processed gtr bass keys drums prokeys beat end
 
           -- -- Guitar rules
           -- dir </> "guitar.mid" %> \out -> do

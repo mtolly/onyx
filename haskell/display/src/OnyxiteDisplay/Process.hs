@@ -3,7 +3,7 @@
 module OnyxiteDisplay.Process where
 
 import           Control.Monad                    (forM, guard)
-import           Data.Aeson                       ((.:))
+import           Data.Aeson                       ((.:), (.:?))
 import qualified Data.Aeson                       as A
 import qualified Data.Aeson.Types                 as A
 import           Data.Char                        (toLower)
@@ -295,3 +295,45 @@ processBeat tmap rtb = Beats $ Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEve
     Beat.Bar -> Bar
     Beat.Beat -> Beat
     -- TODO: add half-beats
+
+data Processed t = Processed
+  { processedGuitar  :: Maybe (Five    t)
+  , processedBass    :: Maybe (Five    t)
+  , processedKeys    :: Maybe (Five    t)
+  , processedDrums   :: Maybe (Drums   t)
+  , processedProKeys :: Maybe (ProKeys t)
+  , processedBeats   ::        Beats   t
+  , processedEnd     :: t
+  } deriving (Eq, Ord, Show)
+
+instance TimeFunctor Processed where
+  mapTime f (Processed g b k d pk bts end) = Processed
+    (fmap (mapTime f) g)
+    (fmap (mapTime f) b)
+    (fmap (mapTime f) k)
+    (fmap (mapTime f) d)
+    (fmap (mapTime f) pk)
+    (mapTime f bts)
+    (f end)
+
+instance (Real t) => A.ToJSON (Processed t) where
+  toJSON proc = A.object $ concat
+    [ case processedGuitar  proc of Nothing -> []; Just x -> [("guitar" , A.toJSON x)]
+    , case processedBass    proc of Nothing -> []; Just x -> [("bass"   , A.toJSON x)]
+    , case processedKeys    proc of Nothing -> []; Just x -> [("keys"   , A.toJSON x)]
+    , case processedDrums   proc of Nothing -> []; Just x -> [("drums"  , A.toJSON x)]
+    , case processedProKeys proc of Nothing -> []; Just x -> [("prokeys", A.toJSON x)]
+    , [("beats", A.toJSON $ processedBeats proc)]
+    , [("end", A.toJSON $ toRational $ processedEnd proc)]
+    ]
+
+instance (Ord t, Fractional t) => A.FromJSON (Processed t) where
+  parseJSON = A.withObject "processed midi data" $ \obj -> do
+    g   <- obj .:? "guitar"
+    b   <- obj .:? "bass"
+    k   <- obj .:? "keys"
+    d   <- obj .:? "drums"
+    pk  <- obj .:? "prokeys"
+    bts <- obj .:  "beats"
+    end <- obj .:  "end"
+    return $ Processed g b k d pk bts (fromRational end)
