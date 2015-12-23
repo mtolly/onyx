@@ -324,7 +324,7 @@ instance (Real t) => A.ToJSON (Processed t) where
     , case processedDrums   proc of Nothing -> []; Just x -> [("drums"  , A.toJSON x)]
     , case processedProKeys proc of Nothing -> []; Just x -> [("prokeys", A.toJSON x)]
     , [("beats", A.toJSON $ processedBeats proc)]
-    , [("end", A.toJSON $ toRational $ processedEnd proc)]
+    , [("end", A.Number $ realToFrac $ processedEnd proc)]
     ]
 
 instance (Ord t, Fractional t) => A.FromJSON (Processed t) where
@@ -335,5 +335,5 @@ instance (Ord t, Fractional t) => A.FromJSON (Processed t) where
     d   <- obj .:? "drums"
     pk  <- obj .:? "prokeys"
     bts <- obj .:  "beats"
-    end <- obj .:  "end"
-    return $ Processed g b k d pk bts (fromRational end)
+    A.Number end <- obj .: "end"
+    return $ Processed g b k d pk bts $ realToFrac end
