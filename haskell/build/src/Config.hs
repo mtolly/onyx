@@ -6,8 +6,6 @@
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE ViewPatterns      #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TupleSections      #-}
 module Config where
 
 import           Audio
@@ -31,33 +29,6 @@ import qualified Sound.Jammit.Base          as J
 import           Control.Monad.Trans.StackTrace hiding (optional)
 import           Text.Read                  (readMaybe)
 import           RockBand.Common            (Key(..))
-import Data.Hashable (Hashable)
-import Language.Haskell.TH
-
-lookupDelete :: (Eq k, Hashable k) => k -> Map.HashMap k v -> Maybe (v, Map.HashMap k v)
-lookupDelete k m = fmap (, Map.delete k m) $ Map.lookup k m
-
-lookupMaybeDelete :: (Eq k, Hashable k) => k -> Map.HashMap k v -> (Maybe v, Map.HashMap k v)
-lookupMaybeDelete k m = (Map.lookup k m, Map.delete k m)
-
-matchObject :: Q Pat -> Q Pat
-matchObject pat = do
-  ConP cons [] <- [p| (:) |]
-  pat >>= \case
-    ListP pats -> case pats of
-      []    -> [p| (Map.null -> True) |]
-      x : y -> descend x $ ListP y
-    ConP c [x, y] | c == cons -> descend x y
-    InfixP x c y | c == cons -> descend x y
-    WildP -> return WildP
-    _ -> error "matchObject: pattern does not form a list"
-  where
-    descend x y = case x of
-      TupP [LitP (StringL k), v] ->
-        [p| (lookupDelete $(litE (StringL k)) -> Just ($(return v), $(matchObject (return y)))) |]
-      TupP [TildeP (LitP (StringL k)), v] ->
-        [p| (lookupMaybeDelete $(litE (StringL k)) -> ($(return v), $(matchObject (return y)))) |]
-      _ -> error "matchObject: binding is not in form (\"str\", pat) or (~\"str\", pat)"
 
 type Parser m context = StackTraceT (ReaderT context m)
 
@@ -220,6 +191,7 @@ data Metadata = Metadata
   , _author       :: T.Text
   , _rating       :: Rating
   , _drumKit      :: DrumKit
+  , _auto2xBass   :: Bool
   } deriving (Eq, Ord, Show, Read)
 
 data Difficulties = Difficulties
@@ -284,27 +256,30 @@ instance TraceJSON Metadata where
     _author       <- fromMaybe "Onyxite" <$> optional "author" traceJSON
     _rating       <- fromMaybe Unrated <$> optional "rating" traceJSON
     _drumKit      <- fromMaybe HardRockKit <$> optional "drum-kit" traceJSON
+    _auto2xBass   <- fromMaybe True <$> optional "auto-2x-bass" traceJSON
     expectedKeys
       [ "title", "artist", "album", "genre", "subgenre", "year"
       , "file-album-art", "track-number", "file-countin", "comments", "vocal-gender"
-      , "difficulty", "key", "autogen-theme", "author", "rating", "drum-kit"
+      , "difficulty", "key", "autogen-theme", "author", "rating", "drum-kit", "auto-2x-bass"
       ]
     return Metadata{..}
 
 data AudioFile = AudioFile
-  { _md5    :: Maybe T.Text
-  , _frames :: Maybe Integer
-  , _name   :: Maybe FilePath
-  , _rate   :: Maybe Int
+  { _md5      :: Maybe T.Text
+  , _frames   :: Maybe Integer
+  , _name     :: Maybe FilePath
+  , _rate     :: Maybe Int
+  , _channels :: Int
   } deriving (Eq, Ord, Show, Read)
 
 instance TraceJSON AudioFile where
   traceJSON = object $ do
-    _md5    <- optional "md5"    traceJSON
-    _frames <- optional "frames" traceJSON
-    _name   <- optional "name"   traceJSON
-    _rate   <- optional "rate"   traceJSON
-    expectedKeys ["md5", "frames", "name", "rate"]
+    _md5      <- optional "md5"    traceJSON
+    _frames   <- optional "frames" traceJSON
+    _name     <- optional "name"   traceJSON
+    _rate     <- optional "rate"   traceJSON
+    _channels <- fromMaybe 2 <$> optional "channels" traceJSON
+    expectedKeys ["md5", "frames", "name", "rate", "channels"]
     return AudioFile{..}
 
 data JammitTrack = JammitTrack

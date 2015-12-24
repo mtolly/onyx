@@ -482,13 +482,15 @@ main = do
                     mixMode = case plan of
                       MoggPlan{..} -> _drumMix
                       _            -> 0
-                    psKicks = U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
+                    psKicks = if _auto2xBass $ _metadata songYaml
+                      then U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
+                      else id
                     sections = flip RTB.mapMaybe eventsRaw $ \case
                       Events.PracticeSection s -> Just s
                       _                        -> Nothing
                     ps = psKicks $ drumMix mixMode $ drumsComplete (RBFile.s_signatures input) sections trk
-                    -- Note: drum mix must be applied *after* copy expert.
-                    -- Otherwise the automatic EMH mix events prevent copying.
+                    -- Note: drumMix must be applied *after* drumsComplete.
+                    -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
                     in  ( [RBFile.PartDrums ps]
                         , [RBFile.PartDrums $ rockBand1x ps]
                         , [RBFile.PartDrums $ rockBand2x ps]
