@@ -27,9 +27,9 @@ data Event
   deriving (Eq, Ord, Show, Read)
 
 -- | These don't actually correspond to 20 different frets;
--- see http://i.imgur.com/fRg6Vo9.png
+-- see http://i.imgur.com/fRg6Vo9.png by Orange Harrison
 data FretPosition
-  = Fret40
+  = Fret40 -- ^ the nut
   | Fret41
   | Fret42
   | Fret43
@@ -48,7 +48,7 @@ data FretPosition
   | Fret56
   | Fret57
   | Fret58
-  | Fret59
+  | Fret59 -- ^ roughly fret 13
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data DiffEvent
