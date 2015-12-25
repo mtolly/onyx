@@ -142,7 +142,40 @@ main = do
           undefinedLeaves -> fail $
             "Undefined leaves in plan " ++ show planName ++ " audio expression: " ++ show undefinedLeaves
 
-      let audioSearch :: AudioFile -> Action (Maybe FilePath)
+      let computeChannels :: Audio Duration Int -> Int
+          computeChannels = \case
+            Silence n _ -> n
+            Input n -> n
+            Mix auds -> maximum $ map computeChannels auds
+            Merge auds -> sum $ map computeChannels auds
+            Concatenate auds -> maximum $ map computeChannels auds
+            Gain _ aud -> computeChannels aud
+            Take _ _ aud -> computeChannels aud
+            Drop _ _ aud -> computeChannels aud
+            Fade _ _ aud -> computeChannels aud
+            Pad _ _ aud -> computeChannels aud
+            Resample aud -> computeChannels aud
+            Channels chans _ -> length chans
+
+          computeChannelsPlan :: Audio Duration AudioInput -> Int
+          computeChannelsPlan = let
+            toChannels ai = case ai of
+              Named name -> case HM.lookup name $ _audio songYaml of
+                Nothing      -> error "panic! audio leaf not found, after it should've been checked"
+                Just audfile -> _channels audfile
+              JammitSelect _ _ -> 2
+            in computeChannels . fmap toChannels
+
+          computeChannelsEachPlan :: Audio Duration T.Text -> Int
+          computeChannelsEachPlan = let
+            toChannels name = case HM.lookup name $ _jammit songYaml of
+              Just _ -> 2
+              Nothing -> case HM.lookup name $ _audio songYaml of
+                Nothing      -> error "panic! audio leaf not found, after it should've been checked"
+                Just audfile -> _channels audfile
+            in computeChannels . fmap toChannels
+
+          audioSearch :: AudioFile -> Action (Maybe FilePath)
           audioSearch aud = do
             genAbsolute <- liftIO $ canonicalizePath "gen/"
             files <- filter (\f -> not $ genAbsolute `isPrefixOf` f)
@@ -615,21 +648,15 @@ main = do
           let ogg  = dir </> "audio.ogg"
               mogg = dir </> "audio.mogg"
           ogg %> \out -> do
-            let parts = concat
-                  [ [Input $ dir </> "drums.wav"  | _hasDrums  $ _instruments songYaml]
-                  , [Input $ dir </> "bass.wav"   | _hasBass   $ _instruments songYaml]
-                  , [Input $ dir </> "guitar.wav" | _hasGuitar $ _instruments songYaml]
-                  , [Input $ dir </> "keys.wav"   | hasAnyKeys $ _instruments songYaml]
-                  , [Input $ dir </> "vocal.wav"  | _hasVocal   (_instruments songYaml) /= Vocal0]
-                  , [Input $ dir </> "song-countin.wav"]
+            let parts = map Input $ concat
+                  [ [dir </> "drums.wav"  | _hasDrums  $ _instruments songYaml]
+                  , [dir </> "bass.wav"   | _hasBass   $ _instruments songYaml]
+                  , [dir </> "guitar.wav" | _hasGuitar $ _instruments songYaml]
+                  , [dir </> "keys.wav"   | hasAnyKeys $ _instruments songYaml]
+                  , [dir </> "vocal.wav"  | _hasVocal   (_instruments songYaml) /= Vocal0]
+                  , [dir </> "song-countin.wav"]
                   ]
-                audio = Merge $ if length parts == 3
-                  then parts ++ [Silence 1 $ Seconds 0]
-                  -- the Silence is to work around oggenc bug:
-                  -- it assumes 6 channels is 5.1 surround where the last channel
-                  -- is LFE, so instead we add a silent 7th channel
-                  else parts
-            buildAudio audio out
+            buildAudio (Merge parts) out
           mogg %> \out -> do
             case plan of
               MoggPlan{..} -> moggOracle (MoggSearch _moggMD5) >>= \case
@@ -638,6 +665,80 @@ main = do
               _ -> do
                 need [ogg]
                 oggToMogg ogg out
+
+          -- TODO: song.yml should be able to specify pans/vols for Plan/EachPlan
+          let channelCountToPanVol = \case
+                0 -> []
+                1 -> [(0, 0)]
+                2 -> [(-1, 0), (1, 0)]
+                c -> error $ "channelCountToPanVol: don't know pans to use for " ++ show c ++ "-channel audio"
+          let bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, songPV :: [(Double, Double)]
+              bassPV = if _hasBass $ _instruments songYaml
+                then case plan of
+                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggBass
+                  Plan{..} -> channelCountToPanVol $ computeChannelsPlan _bass
+                  EachPlan{..} -> channelCountToPanVol $ computeChannelsEachPlan _each
+                else []
+              guitarPV = if _hasGuitar $ _instruments songYaml
+                then case plan of
+                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggGuitar
+                  Plan{..} -> channelCountToPanVol $ computeChannelsPlan _guitar
+                  EachPlan{..} -> channelCountToPanVol $ computeChannelsEachPlan _each
+                else []
+              keysPV = if hasAnyKeys $ _instruments songYaml
+                then case plan of
+                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggKeys
+                  Plan{..} -> channelCountToPanVol $ computeChannelsPlan _keys
+                  EachPlan{..} -> channelCountToPanVol $ computeChannelsEachPlan _each
+                else []
+              vocalPV = if _hasVocal (_instruments songYaml) /= Vocal0
+                then case plan of
+                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggVocal
+                  Plan{..} -> channelCountToPanVol $ computeChannelsPlan _vocal
+                  EachPlan{..} -> channelCountToPanVol $ computeChannelsEachPlan _each
+                else []
+              drumsPV = if _hasDrums $ _instruments songYaml
+                then case plan of
+                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ case _drumMix of
+                    0 -> _moggDrums
+                    1 -> drop 2 _moggDrums
+                    2 -> drop 3 _moggDrums
+                    3 -> drop 4 _moggDrums
+                    4 -> drop 1 _moggDrums
+                    n -> error $ "invalid mogg drum mix: " ++ show n
+                  Plan{..} -> channelCountToPanVol $ computeChannelsPlan _drums
+                  EachPlan{..} -> channelCountToPanVol $ computeChannelsEachPlan _each
+                else []
+              kickPV = if _hasDrums $ _instruments songYaml
+                then case plan of
+                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ case _drumMix of
+                    0 -> []
+                    1 -> take 1 _moggDrums
+                    2 -> take 1 _moggDrums
+                    3 -> take 2 _moggDrums
+                    4 -> take 1 _moggDrums
+                    n -> error $ "invalid mogg drum mix: " ++ show n
+                  Plan{..} -> []
+                  EachPlan{..} -> []
+                else []
+              snarePV = if _hasDrums $ _instruments songYaml
+                then case plan of
+                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ case _drumMix of
+                    0 -> []
+                    1 -> take 1 $ drop 1 _moggDrums
+                    2 -> take 2 $ drop 1 _moggDrums
+                    3 -> take 2 $ drop 2 _moggDrums
+                    4 -> []
+                    n -> error $ "invalid mogg drum mix: " ++ show n
+                  Plan{..} -> []
+                  EachPlan{..} -> []
+                else []
+              songPV = case plan of
+                MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ let
+                  notSong = concat [_moggGuitar, _moggBass, _moggKeys, _moggDrums, _moggVocal]
+                  in filter (`notElem` notSong) [0 .. length _pans - 1]
+                Plan{..} -> channelCountToPanVol $ computeChannelsPlan _song
+                EachPlan{..} -> channelCountToPanVol $ computeChannelsEachPlan _each
 
           -- Low-quality audio files for the online preview app
           let preview ext = dir </> "preview-audio" <.> ext
@@ -758,69 +859,48 @@ main = do
                   (pstart, pend) <- previewBounds mid
                   len <- songLength mid
                   perctype <- getPercType mid
-                  (numChannels, tracksAssocList, pans, vols) <- case plan of
-                    MoggPlan{..} -> return $ let
-                      tracksAssocList = Map.fromList $ let
-                        maybeChannelPair _   []    = []
-                        maybeChannelPair str chans = [(str, Right $ D.InParens $ map fromIntegral chans)]
-                        in concat
-                          [ maybeChannelPair "drum" _moggDrums
-                          , maybeChannelPair "guitar" _moggGuitar
-                          , maybeChannelPair "bass" _moggBass
-                          , maybeChannelPair "keys" _moggKeys
-                          , maybeChannelPair "vocals" _moggVocal
+
+                  let channels = concat [kickPV, snarePV, drumsPV, bassPV, guitarPV, keysPV, vocalPV, songPV]
+                      pans = case plan of
+                        MoggPlan{..} -> _pans
+                        _ -> map fst channels
+                      vols = case plan of
+                        MoggPlan{..} -> _vols
+                        _ -> map snd channels
+                      -- I still don't know what cores are...
+                      -- All I know is guitar channels are usually (not always) 1 and all others are -1
+                      cores = case plan of
+                        MoggPlan{..} -> map (\i -> if elem i _moggGuitar then 1 else -1) $ zipWith const [0..] _pans
+                        _ -> concat
+                          [ map (const (-1)) $ concat [kickPV, snarePV, drumsPV, bassPV]
+                          , map (const   1)    guitarPV
+                          , map (const (-1)) $ concat [keysPV, vocalPV, songPV]
                           ]
-                      in (length _pans, tracksAssocList, map realToFrac _pans, map realToFrac _vols)
-                    _ -> do
-                      let countChannels file = do
-                            need [file]
-                            liftIO $ Snd.channels <$> Snd.getFileInfo file
-                      numChannels <- countChannels ogg
-                      drumsChannels <- if _hasDrums $ _instruments songYaml
-                        then countChannels $ dir </> "drums.wav"
-                        else return 0
-                      bassChannels <- if _hasBass $ _instruments songYaml
-                        then countChannels $ dir </> "bass.wav"
-                        else return 0
-                      guitarChannels <- if _hasGuitar $ _instruments songYaml
-                        then countChannels $ dir </> "guitar.wav"
-                        else return 0
-                      keysChannels <- if hasAnyKeys $ _instruments songYaml
-                        then countChannels $ dir </> "keys.wav"
-                        else return 0
-                      vocalChannels <- if _hasVocal (_instruments songYaml) /= Vocal0
-                        then countChannels $ dir </> "vocal.wav"
-                        else return 0
-                      songCountinChannels <- countChannels $ dir </> "song-countin.wav"
-                      let channelMapping = concat
-                            [ replicate drumsChannels $ Just Drums
-                            , replicate bassChannels $ Just Bass
-                            , replicate guitarChannels $ Just Guitar
-                            , replicate keysChannels $ Just Keys
-                            , replicate vocalChannels $ Just Vocal
-                            , replicate songCountinChannels Nothing
+                      tracksAssocList = Map.fromList $ case plan of
+                        MoggPlan{..} -> let
+                          maybeChannelPair _   []    = []
+                          maybeChannelPair str chans = [(str, Right $ D.InParens $ map fromIntegral chans)]
+                          in concat
+                            [ maybeChannelPair "drum" _moggDrums
+                            , maybeChannelPair "guitar" _moggGuitar
+                            , maybeChannelPair "bass" _moggBass
+                            , maybeChannelPair "keys" _moggKeys
+                            , maybeChannelPair "vocals" _moggVocal
                             ]
-                          tracksAssocList = Map.fromList $ let
-                            channelsFor inst = map fst $ filter ((inst ==) . snd) $ zip [0..] channelMapping
-                            maybeChannelPair str inst = case channelsFor $ Just inst of
-                              []    -> []
-                              chans -> [(str, Right $ D.InParens chans)]
-                            in concat
-                              [ maybeChannelPair "drum" Drums
-                              , maybeChannelPair "bass" Bass
-                              , maybeChannelPair "guitar" Guitar
-                              , maybeChannelPair "keys" Keys
-                              , maybeChannelPair "vocals" Vocal
-                              ]
-                          pans = let
-                            allChannels = [drumsChannels, bassChannels, guitarChannels, keysChannels, vocalChannels, songCountinChannels]
-                            pansForCount 0 = []
-                            pansForCount 1 = [0]
-                            pansForCount 2 = [-1, 1]
-                            pansForCount n = error $ "FIXME: what pans to assign for " ++ show n ++ "-channel audio?"
-                            in concatMap pansForCount allChannels
-                          vols = replicate numChannels 0
-                      return (numChannels, tracksAssocList, pans, vols)
+                        _ -> let
+                          counts =
+                            [ ("drum", concat [kickPV, snarePV, drumsPV])
+                            , ("bass", bassPV)
+                            , ("guitar", guitarPV)
+                            , ("keys", keysPV)
+                            , ("vocals", vocalPV)
+                            ]
+                          go _ [] = []
+                          go n ((inst, chans) : rest) = case length chans of
+                            0 -> go n rest
+                            c -> (inst, Right $ D.InParens $ map fromIntegral $ take c [n..]) : go (n + c) rest
+                          in go 0 counts
+
                   title <- getTitle
                   return D.SongPackage
                     { D.name = title
@@ -836,14 +916,9 @@ main = do
                         Vocal1 -> 1
                         Vocal2 -> 2
                         Vocal3 -> 3
-                      , D.pans = D.InParens pans
-                      , D.vols = D.InParens vols
-                      , D.cores = D.InParens $ take numChannels $ let
-                        guitarIndexes = case Map.lookup "guitar" tracksAssocList of
-                          Nothing                         -> []
-                          Just (Right (D.InParens chans)) -> chans
-                          Just (Left  chan              ) -> [chan]
-                        in map (\i -> if i `elem` guitarIndexes then 1 else -1) [0..]
+                      , D.pans = D.InParens $ map realToFrac pans
+                      , D.vols = D.InParens $ map realToFrac vols
+                      , D.cores = D.InParens cores
                       -- TODO: different drum kit sounds
                       , D.drumSolo = D.DrumSounds $ D.InParens $ map D.Keyword $ words
                         "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
@@ -977,23 +1052,17 @@ main = do
                         , Magma.vol = []
                         , Magma.audioFile = ""
                         }
-                      monoFile f = Magma.AudioFile
+                      pvFile [] _ = disabledFile
+                      pvFile pv f = Magma.AudioFile
                         { Magma.audioEnabled = True
-                        , Magma.channels = 1
-                        , Magma.pan = [0]
-                        , Magma.vol = [0]
-                        , Magma.audioFile = f
-                        }
-                      stereoFile f = Magma.AudioFile
-                        { Magma.audioEnabled = True
-                        , Magma.channels = 2
-                        , Magma.pan = [-1, 1]
-                        , Magma.vol = [0, 0]
+                        , Magma.channels = fromIntegral $ length pv
+                        , Magma.pan = map (realToFrac . fst) pv
+                        , Magma.vol = map (realToFrac . snd) pv
                         , Magma.audioFile = f
                         }
                       mixMode = case plan of
                         MoggPlan{..} -> _drumMix
-                        _            -> 0
+                        _            -> 0 -- TODO: support other mix modes
                   title <- getTitle
                   return Magma.RBProj
                     { Magma.project = Magma.Project
@@ -1096,38 +1165,14 @@ main = do
                           3 -> Magma.KitKickSnare
                           4 -> Magma.KitKick
                           _ -> error $ "Invalid drum mix number: " ++ show mixMode
-                        , Magma.drumKit = if _hasDrums $ _instruments songYaml
-                          then stereoFile "drums.wav"
-                          else disabledFile
-                        , Magma.drumKick = case mixMode of
-                          _ | not $ _hasDrums $ _instruments songYaml -> disabledFile
-                          0 -> disabledFile
-                          1 -> monoFile   "kick.wav"
-                          2 -> monoFile   "kick.wav"
-                          3 -> stereoFile "kick.wav"
-                          4 -> monoFile   "kick.wav"
-                          _ -> error $ "Invalid drum mix number: " ++ show mixMode
-                        , Magma.drumSnare = case mixMode of
-                          _ | not $ _hasDrums $ _instruments songYaml -> disabledFile
-                          0 -> disabledFile
-                          1 -> monoFile   "snare.wav"
-                          2 -> stereoFile "snare.wav"
-                          3 -> stereoFile "snare.wav"
-                          4 -> disabledFile
-                          _ -> error $ "Invalid drum mix number: " ++ show mixMode
-                        , Magma.bass = if _hasBass $ _instruments songYaml
-                          then stereoFile "bass.wav"
-                          else disabledFile
-                        , Magma.guitar = if _hasGuitar $ _instruments songYaml
-                          then stereoFile "guitar.wav"
-                          else disabledFile
-                        , Magma.vocals = if _hasVocal (_instruments songYaml) /= Vocal0
-                          then stereoFile "vocal.wav"
-                          else disabledFile
-                        , Magma.keys = if hasAnyKeys $ _instruments songYaml
-                          then stereoFile "keys.wav"
-                          else disabledFile
-                        , Magma.backing = stereoFile "song-countin.wav"
+                        , Magma.drumKit = pvFile drumsPV "drums.wav"
+                        , Magma.drumKick = pvFile kickPV "kick.wav"
+                        , Magma.drumSnare = pvFile snarePV "snare.wav"
+                        , Magma.bass = pvFile bassPV "bass.wav"
+                        , Magma.guitar = pvFile guitarPV "guitar.wav"
+                        , Magma.vocals = pvFile vocalPV "vocal.wav"
+                        , Magma.keys = pvFile keysPV "keys.wav"
+                        , Magma.backing = pvFile songPV "song-countin.wav"
                         }
                       }
                     }

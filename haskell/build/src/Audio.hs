@@ -145,8 +145,14 @@ buildAudio aud out = do
         ".ogg" -> Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
         ".wav" -> Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
         ext -> error $ "buildAudio: unknown audio output file extension " ++ ext
+      src' = if takeExtension out == ".ogg" && channels src == 6
+        then merge src $ silent (Frames 0) (rate src) 1
+        -- this works around an issue with oggenc:
+        -- it assumes 6 channels is 5.1 surround where the last channel
+        -- is LFE, so instead we add a silent 7th channel
+        else src
   putNormal $ "Writing an audio expression to " ++ out
-  liftIO $ runResourceT $ sinkSnd out fmt $ clampFloat src
+  liftIO $ runResourceT $ sinkSnd out fmt $ clampFloat src'
   putNormal $ "Finished writing an audio expression to " ++ out
 
 -- | Forces floating point samples to be in @[-1, 1]@.
