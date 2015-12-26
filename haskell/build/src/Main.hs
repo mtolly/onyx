@@ -188,7 +188,14 @@ main = do
                   Nothing -> return Nothing
                   Just len -> flip findM files $ \f -> do
                     (== Just len) <$> audioLength f
-            firstJustM id [md5Result, lenResult]
+                nameResult = do
+                  name <- _name aud
+                  listToMaybe $ flip filter files $ \f -> takeFileName f == name
+                nameResultNoExt = do
+                  name <- dropExtension <$> _name aud
+                  listToMaybe $ flip filter files $ \f ->
+                    dropExtension (takeFileName f) == name
+            firstJustM id [md5Result, lenResult, return nameResult, return nameResultNoExt]
 
           jammitSearch :: JammitTrack -> Action [(J.AudioPart, FilePath)]
           jammitSearch jmt = do
