@@ -294,18 +294,35 @@ instance TraceJSON JammitTrack where
     expectedKeys ["title", "artist"]
     return JammitTrack{..}
 
+data PlanAudio t a = PlanAudio
+  { _planExpr :: Audio t a
+  , _planPans :: [Double]
+  , _planVols :: [Double]
+  } deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+
+instance (TraceJSON t, TraceJSON a) => TraceJSON (PlanAudio t a) where
+  traceJSON = decideKey
+    [ ("expr", object $ do
+      _planExpr <- required "expr" traceJSON
+      _planPans <- fromMaybe [] <$> optional "pans" traceJSON
+      _planVols <- fromMaybe [] <$> optional "vols" traceJSON
+      expectedKeys ["expr", "pans", "vols"]
+      return PlanAudio{..}
+      )
+    ] $ (\expr -> PlanAudio expr [] []) <$> traceJSON
+
 data Plan
   = Plan
-    { _song         :: Audio Duration AudioInput
-    , _guitar       :: Audio Duration AudioInput
-    , _bass         :: Audio Duration AudioInput
-    , _keys         :: Audio Duration AudioInput
-    , _drums        :: Audio Duration AudioInput
-    , _vocal        :: Audio Duration AudioInput
+    { _song         :: Maybe (PlanAudio Duration AudioInput)
+    , _guitar       :: Maybe (PlanAudio Duration AudioInput)
+    , _bass         :: Maybe (PlanAudio Duration AudioInput)
+    , _keys         :: Maybe (PlanAudio Duration AudioInput)
+    , _drums        :: Maybe (PlanAudio Duration AudioInput)
+    , _vocal        :: Maybe (PlanAudio Duration AudioInput)
     , _planComments :: [T.Text]
     }
   | EachPlan
-    { _each         :: Audio Duration T.Text
+    { _each         :: PlanAudio Duration T.Text
     , _planComments :: [T.Text]
     }
   | MoggPlan
@@ -331,13 +348,12 @@ instance TraceJSON Plan where
       return EachPlan{..}
       )
     , ("song", object $ do
-      let defaultSilence = fromMaybe $ Silence 2 $ Frames 0
-      _song   <-                    required "song"   traceJSON
-      _guitar <- defaultSilence <$> optional "guitar" traceJSON
-      _bass   <- defaultSilence <$> optional "bass"   traceJSON
-      _keys   <- defaultSilence <$> optional "keys"   traceJSON
-      _drums  <- defaultSilence <$> optional "drums"  traceJSON
-      _vocal  <- defaultSilence <$> optional "vocal"  traceJSON
+      _song   <- optional "song"   traceJSON -- not actually optional because of decideKey
+      _guitar <- optional "guitar" traceJSON
+      _bass   <- optional "bass"   traceJSON
+      _keys   <- optional "keys"   traceJSON
+      _drums  <- optional "drums"  traceJSON
+      _vocal  <- optional "vocal"  traceJSON
       _planComments <- fromMaybe [] <$> optional "comments" traceJSON
       expectedKeys ["song", "guitar", "bass", "keys", "drums", "vocal", "comments"]
       return Plan{..}

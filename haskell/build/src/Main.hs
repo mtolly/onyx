@@ -44,7 +44,7 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (foldl', isPrefixOf, nub, sortOn)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
-                                                   mapMaybe)
+                                                   mapMaybe, isJust, isNothing)
 import qualified Data.Text                        as T
 import           Development.Shake                hiding ((%>), (&%>), phony)
 import qualified Development.Shake                as Shake
@@ -136,7 +136,7 @@ main = do
                 getLeaves = \case
                   Named t -> t
                   JammitSelect _ t -> t
-                in map getLeaves $ concatMap toList [_song, _guitar, _bass, _keys, _drums, _vocal]
+                in map getLeaves $ concatMap (maybe [] toList) [_song, _guitar, _bass, _keys, _drums, _vocal]
         case filter (not . (`elem` definedLeaves)) leaves of
           [] -> return ()
           undefinedLeaves -> fail $
@@ -467,7 +467,9 @@ main = do
             Plan{..} -> do
               let locate :: Audio Duration AudioInput -> Action (Audio Duration FilePath)
                   locate = fmap join . mapM manualLeaf
-                  buildPart planPart fout = locate planPart >>= \aud -> buildAudio aud fout
+                  buildPart planPart fout = let
+                    expr = maybe (Silence 2 $ Frames 0) _planExpr planPart
+                    in locate expr >>= \aud -> buildAudio aud fout
               planAudioPath Nothing       %> buildPart _song
               planAudioPath (Just Guitar) %> buildPart _guitar
               planAudioPath (Just Bass  ) %> buildPart _bass
@@ -476,7 +478,7 @@ main = do
               planAudioPath (Just Vocal ) %> buildPart _vocal
             EachPlan{..} -> do
               let locate :: Maybe J.Instrument -> Action (Audio Duration FilePath)
-                  locate inst = fmap join $ mapM (autoLeaf inst) _each
+                  locate inst = fmap join $ mapM (autoLeaf inst) $ _planExpr _each
                   buildPart maybeInst fout = locate maybeInst >>= \aud -> buildAudio aud fout
               forM_ (Nothing : map Just [minBound .. maxBound]) $ \maybeInst -> do
                 planAudioPath maybeInst %> buildPart (fmap jammitInstrument maybeInst)
@@ -667,35 +669,59 @@ main = do
                 oggToMogg ogg out
 
           -- TODO: song.yml should be able to specify pans/vols for Plan/EachPlan
-          let channelCountToPanVol = \case
-                0 -> []
-                1 -> [(0, 0)]
-                2 -> [(-1, 0), (1, 0)]
-                c -> error $ "channelCountToPanVol: don't know pans to use for " ++ show c ++ "-channel audio"
-          let bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, songPV :: [(Double, Double)]
+          let planPV :: Maybe (PlanAudio Duration AudioInput) -> [(Double, Double)]
+              planPV Nothing = [(-1, 0), (1, 0)]
+              planPV (Just paud) = let
+                chans = computeChannelsPlan $ _planExpr paud
+                pans = case _planPans paud of
+                  [] -> case chans of
+                    0 -> []
+                    1 -> [0]
+                    2 -> [-1, 1]
+                    c -> error $ "Error: I don't know what pans to use for " ++ show c ++ "-channel audio"
+                  ps -> ps
+                vols = case _planVols paud of
+                  [] -> replicate chans 0
+                  vs -> vs
+                in zip pans vols
+              eachPlanPV :: PlanAudio Duration T.Text -> [(Double, Double)]
+              eachPlanPV paud = let
+                chans = computeChannelsEachPlan $ _planExpr paud
+                pans = case _planPans paud of
+                  [] -> case chans of
+                    0 -> []
+                    1 -> [0]
+                    2 -> [-1, 1]
+                    c -> error $ "Error: I don't know what pans to use for " ++ show c ++ "-channel audio"
+                  ps -> ps
+                vols = case _planVols paud of
+                  [] -> replicate chans 0
+                  vs -> vs
+                in zip pans vols
+              bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, songPV :: [(Double, Double)]
               bassPV = if _hasBass $ _instruments songYaml
                 then case plan of
                   MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggBass
-                  Plan{..} -> channelCountToPanVol $ computeChannelsPlan _bass
-                  EachPlan{..} -> channelCountToPanVol $ computeChannelsEachPlan _each
+                  Plan{..} -> planPV _bass
+                  EachPlan{..} -> eachPlanPV _each
                 else []
               guitarPV = if _hasGuitar $ _instruments songYaml
                 then case plan of
                   MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggGuitar
-                  Plan{..} -> channelCountToPanVol $ computeChannelsPlan _guitar
-                  EachPlan{..} -> channelCountToPanVol $ computeChannelsEachPlan _each
+                  Plan{..} -> planPV _guitar
+                  EachPlan{..} -> eachPlanPV _each
                 else []
               keysPV = if hasAnyKeys $ _instruments songYaml
                 then case plan of
                   MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggKeys
-                  Plan{..} -> channelCountToPanVol $ computeChannelsPlan _keys
-                  EachPlan{..} -> channelCountToPanVol $ computeChannelsEachPlan _each
+                  Plan{..} -> planPV _keys
+                  EachPlan{..} -> eachPlanPV _each
                 else []
               vocalPV = if _hasVocal (_instruments songYaml) /= Vocal0
                 then case plan of
                   MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggVocal
-                  Plan{..} -> channelCountToPanVol $ computeChannelsPlan _vocal
-                  EachPlan{..} -> channelCountToPanVol $ computeChannelsEachPlan _each
+                  Plan{..} -> planPV _vocal
+                  EachPlan{..} -> eachPlanPV _each
                 else []
               drumsPV = if _hasDrums $ _instruments songYaml
                 then case plan of
@@ -706,8 +732,8 @@ main = do
                     3 -> drop 4 _moggDrums
                     4 -> drop 1 _moggDrums
                     n -> error $ "invalid mogg drum mix: " ++ show n
-                  Plan{..} -> channelCountToPanVol $ computeChannelsPlan _drums
-                  EachPlan{..} -> channelCountToPanVol $ computeChannelsEachPlan _each
+                  Plan{..} -> planPV _drums
+                  EachPlan{..} -> eachPlanPV _each
                 else []
               kickPV = if _hasDrums $ _instruments songYaml
                 then case plan of
@@ -737,8 +763,8 @@ main = do
                 MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ let
                   notSong = concat [_moggGuitar, _moggBass, _moggKeys, _moggDrums, _moggVocal]
                   in filter (`notElem` notSong) [0 .. length _pans - 1]
-                Plan{..} -> channelCountToPanVol $ computeChannelsPlan _song
-                EachPlan{..} -> channelCountToPanVol $ computeChannelsEachPlan _each
+                Plan{..} -> planPV _song
+                EachPlan{..} -> eachPlanPV _each
 
           -- Low-quality audio files for the online preview app
           let preview ext = dir </> "preview-audio" <.> ext
@@ -1215,8 +1241,6 @@ main = do
               c3 %> \out -> do
                 (pstart, _) <- previewBounds mid
                 title <- getTitle
-                let isSilence Silence{} = True
-                    isSilence _         = False
                 midi <- loadMIDI mid
                 is2x <- is2xBass
                 liftIO $ writeFile out $ C3.showC3 $ C3.C3
@@ -1231,15 +1255,13 @@ main = do
                   , C3.rhythmKeys = False
                   , C3.rhythmBass = False
                   , C3.karaoke = case plan of
-                    Plan{..} -> not (isSilence _vocal) && all isSilence
-                      [_guitar, _bass, _keys, _drums]
+                    Plan{..} -> isJust _vocal && all isNothing [_guitar, _bass, _keys, _drums]
                     _ -> False
                   , C3.multitrack = case plan of
-                    Plan{..} -> any (not . isSilence)
-                      [_guitar, _bass, _keys, _drums]
+                    Plan{..} -> any isJust [_guitar, _bass, _keys, _drums]
                     _ -> True
                   , C3.convert = False
-                  , C3.expertOnly = True -- TODO
+                  , C3.expertOnly = False
                   , C3.proBassDiff = Nothing
                   , C3.proBassTuning = Nothing
                   , C3.proGuitarDiff = Nothing
