@@ -458,10 +458,6 @@ main = do
 
           let dir = "gen/plan" </> T.unpack planName
 
-              planAudioPath :: Maybe Instrument -> FilePath
-              planAudioPath (Just inst) = dir </> map toLower (show inst) <.> "wav"
-              planAudioPath Nothing     = dir </> "song.wav"
-
           -- Audio files
           case plan of
             Plan{..} -> do
@@ -470,19 +466,128 @@ main = do
                   buildPart planPart fout = let
                     expr = maybe (Silence 2 $ Frames 0) _planExpr planPart
                     in locate expr >>= \aud -> buildAudio aud fout
-              planAudioPath Nothing       %> buildPart _song
-              planAudioPath (Just Guitar) %> buildPart _guitar
-              planAudioPath (Just Bass  ) %> buildPart _bass
-              planAudioPath (Just Keys  ) %> buildPart _keys
-              planAudioPath (Just Drums ) %> buildPart _drums
-              planAudioPath (Just Vocal ) %> buildPart _vocal
+              dir </> "song.wav"   %> buildPart _song
+              dir </> "guitar.wav" %> buildPart _guitar
+              dir </> "bass.wav"   %> buildPart _bass
+              dir </> "keys.wav"   %> buildPart _keys
+              dir </> "kick.wav"   %> buildPart _kick
+              dir </> "snare.wav"  %> buildPart _snare
+              dir </> "drums.wav"  %> buildPart _drums
+              dir </> "vocal.wav"  %> buildPart _vocal
             EachPlan{..} -> do
               let locate :: Maybe J.Instrument -> Action (Audio Duration FilePath)
                   locate inst = fmap join $ mapM (autoLeaf inst) $ _planExpr _each
                   buildPart maybeInst fout = locate maybeInst >>= \aud -> buildAudio aud fout
-              forM_ (Nothing : map Just [minBound .. maxBound]) $ \maybeInst -> do
-                planAudioPath maybeInst %> buildPart (fmap jammitInstrument maybeInst)
+              forM_ (Nothing : map Just [minBound .. maxBound]) $ \maybeInst -> let
+                planAudioPath :: Maybe Instrument -> FilePath
+                planAudioPath (Just inst) = dir </> map toLower (show inst) <.> "wav"
+                planAudioPath Nothing     = dir </> "song.wav"
+                in planAudioPath maybeInst %> buildPart (fmap jammitInstrument maybeInst)
             MoggPlan{} -> return ()
+
+          let planPV :: Maybe (PlanAudio Duration AudioInput) -> [(Double, Double)]
+              planPV Nothing = [(-1, 0), (1, 0)]
+              planPV (Just paud) = let
+                chans = computeChannelsPlan $ _planExpr paud
+                pans = case _planPans paud of
+                  [] -> case chans of
+                    0 -> []
+                    1 -> [0]
+                    2 -> [-1, 1]
+                    c -> error $ "Error: I don't know what pans to use for " ++ show c ++ "-channel audio"
+                  ps -> ps
+                vols = case _planVols paud of
+                  [] -> replicate chans 0
+                  vs -> vs
+                in zip pans vols
+              eachPlanPV :: PlanAudio Duration T.Text -> [(Double, Double)]
+              eachPlanPV paud = let
+                chans = computeChannelsEachPlan $ _planExpr paud
+                pans = case _planPans paud of
+                  [] -> case chans of
+                    0 -> []
+                    1 -> [0]
+                    2 -> [-1, 1]
+                    c -> error $ "Error: I don't know what pans to use for " ++ show c ++ "-channel audio"
+                  ps -> ps
+                vols = case _planVols paud of
+                  [] -> replicate chans 0
+                  vs -> vs
+                in zip pans vols
+              bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, songPV :: [(Double, Double)]
+              mixMode :: Int
+              bassPV = if _hasBass $ _instruments songYaml
+                then case plan of
+                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggBass
+                  Plan{..} -> planPV _bass
+                  EachPlan{..} -> eachPlanPV _each
+                else []
+              guitarPV = if _hasGuitar $ _instruments songYaml
+                then case plan of
+                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggGuitar
+                  Plan{..} -> planPV _guitar
+                  EachPlan{..} -> eachPlanPV _each
+                else []
+              keysPV = if hasAnyKeys $ _instruments songYaml
+                then case plan of
+                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggKeys
+                  Plan{..} -> planPV _keys
+                  EachPlan{..} -> eachPlanPV _each
+                else []
+              vocalPV = if _hasVocal (_instruments songYaml) /= Vocal0
+                then case plan of
+                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggVocal
+                  Plan{..} -> planPV _vocal
+                  EachPlan{..} -> eachPlanPV _each
+                else []
+              (kickPV, snarePV, drumsPV, mixMode) = if _hasDrums $ _instruments songYaml
+                then case plan of
+                  MoggPlan{..} -> let
+                    getChannel i = (_pans !! i, _vols !! i)
+                    kickChannels = case _drumMix of
+                      0 -> []
+                      1 -> take 1 _moggDrums
+                      2 -> take 1 _moggDrums
+                      3 -> take 2 _moggDrums
+                      4 -> take 1 _moggDrums
+                      n -> error $ "invalid mogg drum mix: " ++ show n
+                    snareChannels = case _drumMix of
+                      0 -> []
+                      1 -> take 1 $ drop 1 _moggDrums
+                      2 -> take 2 $ drop 1 _moggDrums
+                      3 -> take 2 $ drop 2 _moggDrums
+                      4 -> []
+                      n -> error $ "invalid mogg drum mix: " ++ show n
+                    drumsChannels = case _drumMix of
+                      0 -> _moggDrums
+                      1 -> drop 2 _moggDrums
+                      2 -> drop 3 _moggDrums
+                      3 -> drop 4 _moggDrums
+                      4 -> drop 1 _moggDrums
+                      n -> error $ "invalid mogg drum mix: " ++ show n
+                    in (map getChannel kickChannels, map getChannel snareChannels, map getChannel drumsChannels, _drumMix)
+                  Plan{..} -> let
+                    count = maybe 0 (computeChannelsPlan . _planExpr)
+                    matchingMix = case (count _kick, count _snare) of
+                      (0, 0) -> 0
+                      (1, 1) -> 1
+                      (1, 2) -> 2
+                      (2, 2) -> 3
+                      (1, 0) -> 4
+                      (k, s) -> error $ "No matching drum mix mode for (kick,snare) == " ++ show (k, s)
+                    in  ( guard (matchingMix /= 0) >> planPV _kick
+                        , guard (matchingMix `elem` [1, 2, 3]) >> planPV _snare
+                        , planPV _drums
+                        , matchingMix
+                        )
+                  EachPlan{..} -> ([], [], eachPlanPV _each, 0)
+                else ([], [], [], 0)
+              songPV = case plan of
+                MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ let
+                  notSong = concat [_moggGuitar, _moggBass, _moggKeys, _moggDrums, _moggVocal]
+                  in filter (`notElem` notSong) [0 .. length _pans - 1]
+                Plan{..} -> planPV _song
+                EachPlan{..} -> eachPlanPV _each
 
           -- MIDI files
           let midPS = dir </> "ps/notes.mid"
@@ -514,9 +619,6 @@ main = do
                   then ([], [], [], False)
                   else let
                     trk = mergeTracks [ t | RBFile.PartDrums t <- trks ]
-                    mixMode = case plan of
-                      MoggPlan{..} -> _drumMix
-                      _            -> 0
                     psKicks = if _auto2xBass $ _metadata songYaml
                       then U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
                       else id
@@ -651,7 +753,9 @@ main = do
               mogg = dir </> "audio.mogg"
           ogg %> \out -> do
             let parts = map Input $ concat
-                  [ [dir </> "drums.wav"  | _hasDrums  $ _instruments songYaml]
+                  [ [dir </> "kick.wav"   | _hasDrums   (_instruments songYaml) && mixMode /= 0]
+                  , [dir </> "snare.wav"  | _hasDrums   (_instruments songYaml) && elem mixMode [1,2,3]]
+                  , [dir </> "drums.wav"  | _hasDrums  $ _instruments songYaml]
                   , [dir </> "bass.wav"   | _hasBass   $ _instruments songYaml]
                   , [dir </> "guitar.wav" | _hasGuitar $ _instruments songYaml]
                   , [dir </> "keys.wav"   | hasAnyKeys $ _instruments songYaml]
@@ -667,104 +771,6 @@ main = do
               _ -> do
                 need [ogg]
                 oggToMogg ogg out
-
-          -- TODO: song.yml should be able to specify pans/vols for Plan/EachPlan
-          let planPV :: Maybe (PlanAudio Duration AudioInput) -> [(Double, Double)]
-              planPV Nothing = [(-1, 0), (1, 0)]
-              planPV (Just paud) = let
-                chans = computeChannelsPlan $ _planExpr paud
-                pans = case _planPans paud of
-                  [] -> case chans of
-                    0 -> []
-                    1 -> [0]
-                    2 -> [-1, 1]
-                    c -> error $ "Error: I don't know what pans to use for " ++ show c ++ "-channel audio"
-                  ps -> ps
-                vols = case _planVols paud of
-                  [] -> replicate chans 0
-                  vs -> vs
-                in zip pans vols
-              eachPlanPV :: PlanAudio Duration T.Text -> [(Double, Double)]
-              eachPlanPV paud = let
-                chans = computeChannelsEachPlan $ _planExpr paud
-                pans = case _planPans paud of
-                  [] -> case chans of
-                    0 -> []
-                    1 -> [0]
-                    2 -> [-1, 1]
-                    c -> error $ "Error: I don't know what pans to use for " ++ show c ++ "-channel audio"
-                  ps -> ps
-                vols = case _planVols paud of
-                  [] -> replicate chans 0
-                  vs -> vs
-                in zip pans vols
-              bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, songPV :: [(Double, Double)]
-              bassPV = if _hasBass $ _instruments songYaml
-                then case plan of
-                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggBass
-                  Plan{..} -> planPV _bass
-                  EachPlan{..} -> eachPlanPV _each
-                else []
-              guitarPV = if _hasGuitar $ _instruments songYaml
-                then case plan of
-                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggGuitar
-                  Plan{..} -> planPV _guitar
-                  EachPlan{..} -> eachPlanPV _each
-                else []
-              keysPV = if hasAnyKeys $ _instruments songYaml
-                then case plan of
-                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggKeys
-                  Plan{..} -> planPV _keys
-                  EachPlan{..} -> eachPlanPV _each
-                else []
-              vocalPV = if _hasVocal (_instruments songYaml) /= Vocal0
-                then case plan of
-                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggVocal
-                  Plan{..} -> planPV _vocal
-                  EachPlan{..} -> eachPlanPV _each
-                else []
-              drumsPV = if _hasDrums $ _instruments songYaml
-                then case plan of
-                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ case _drumMix of
-                    0 -> _moggDrums
-                    1 -> drop 2 _moggDrums
-                    2 -> drop 3 _moggDrums
-                    3 -> drop 4 _moggDrums
-                    4 -> drop 1 _moggDrums
-                    n -> error $ "invalid mogg drum mix: " ++ show n
-                  Plan{..} -> planPV _drums
-                  EachPlan{..} -> eachPlanPV _each
-                else []
-              kickPV = if _hasDrums $ _instruments songYaml
-                then case plan of
-                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ case _drumMix of
-                    0 -> []
-                    1 -> take 1 _moggDrums
-                    2 -> take 1 _moggDrums
-                    3 -> take 2 _moggDrums
-                    4 -> take 1 _moggDrums
-                    n -> error $ "invalid mogg drum mix: " ++ show n
-                  Plan{..} -> []
-                  EachPlan{..} -> []
-                else []
-              snarePV = if _hasDrums $ _instruments songYaml
-                then case plan of
-                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ case _drumMix of
-                    0 -> []
-                    1 -> take 1 $ drop 1 _moggDrums
-                    2 -> take 2 $ drop 1 _moggDrums
-                    3 -> take 2 $ drop 2 _moggDrums
-                    4 -> []
-                    n -> error $ "invalid mogg drum mix: " ++ show n
-                  Plan{..} -> []
-                  EachPlan{..} -> []
-                else []
-              songPV = case plan of
-                MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ let
-                  notSong = concat [_moggGuitar, _moggBass, _moggKeys, _moggDrums, _moggVocal]
-                  in filter (`notElem` notSong) [0 .. length _pans - 1]
-                Plan{..} -> planPV _song
-                EachPlan{..} -> eachPlanPV _each
 
           -- Low-quality audio files for the online preview app
           let preview ext = dir </> "preview-audio" <.> ext
@@ -800,17 +806,23 @@ main = do
               , "diff_keys_real = "   ++ if _hasProKeys $ _instruments songYaml            then "0" else "-1"
               , "diff_vocals_harm = " ++ if _hasVocal    (_instruments songYaml) /= Vocal0 then "0" else "-1"
               ]
-          dir </> "ps/drums.ogg"  %> buildAudio (Input $ dir </> "drums.wav" )
-          dir </> "ps/guitar.ogg" %> buildAudio (Input $ dir </> "guitar.wav")
-          dir </> "ps/keys.ogg"   %> buildAudio (Input $ dir </> "keys.wav"  )
-          dir </> "ps/rhythm.ogg" %> buildAudio (Input $ dir </> "bass.wav"  )
-          dir </> "ps/vocal.ogg"  %> buildAudio (Input $ dir </> "vocals.wav")
-          dir </> "ps/song.ogg"   %> buildAudio (Input $ dir </> "song-countin.wav")
-          dir </> "ps/album.png"  %> copyFile' "gen/cover.png"
+          dir </> "ps/drums.ogg"   %> buildAudio (Input $ dir </> "drums.wav" )
+          dir </> "ps/drums_1.ogg" %> buildAudio (Input $ dir </> "kick.wav"  )
+          dir </> "ps/drums_2.ogg" %> buildAudio (Input $ dir </> "snare.wav" )
+          dir </> "ps/drums_3.ogg" %> buildAudio (Input $ dir </> "drums.wav" )
+          dir </> "ps/guitar.ogg"  %> buildAudio (Input $ dir </> "guitar.wav")
+          dir </> "ps/keys.ogg"    %> buildAudio (Input $ dir </> "keys.wav"  )
+          dir </> "ps/rhythm.ogg"  %> buildAudio (Input $ dir </> "bass.wav"  )
+          dir </> "ps/vocal.ogg"   %> buildAudio (Input $ dir </> "vocals.wav")
+          dir </> "ps/song.ogg"    %> buildAudio (Input $ dir </> "song-countin.wav")
+          dir </> "ps/album.png"   %> copyFile' "gen/cover.png"
           phony (dir </> "ps") $ do
             need $ map (\f -> dir </> "ps" </> f) $ concat
               [ ["song.ini", "notes.mid", "song.ogg", "album.png"]
               , ["drums.ogg"  | _hasDrums  $ _instruments songYaml]
+              , ["drums_1.ogg" | _hasDrums  (_instruments songYaml) && mixMode /= 0]
+              , ["drums_2.ogg" | _hasDrums  (_instruments songYaml) && mixMode /= 0]
+              , ["drums_3.ogg" | _hasDrums  (_instruments songYaml) && mixMode /= 0]
               , ["guitar.ogg" | _hasGuitar $ _instruments songYaml]
               , ["keys.ogg"   | hasAnyKeys $ _instruments songYaml]
               , ["rhythm.ogg" | _hasBass   $ _instruments songYaml]
@@ -1086,9 +1098,6 @@ main = do
                         , Magma.vol = map (realToFrac . snd) pv
                         , Magma.audioFile = f
                         }
-                      mixMode = case plan of
-                        MoggPlan{..} -> _drumMix
-                        _            -> 0 -- TODO: support other mix modes
                   title <- getTitle
                   return Magma.RBProj
                     { Magma.project = Magma.Project

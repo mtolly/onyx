@@ -317,6 +317,8 @@ data Plan
     , _guitar       :: Maybe (PlanAudio Duration AudioInput)
     , _bass         :: Maybe (PlanAudio Duration AudioInput)
     , _keys         :: Maybe (PlanAudio Duration AudioInput)
+    , _kick         :: Maybe (PlanAudio Duration AudioInput)
+    , _snare        :: Maybe (PlanAudio Duration AudioInput)
     , _drums        :: Maybe (PlanAudio Duration AudioInput)
     , _vocal        :: Maybe (PlanAudio Duration AudioInput)
     , _planComments :: [T.Text]
@@ -352,10 +354,12 @@ instance TraceJSON Plan where
       _guitar <- optional "guitar" traceJSON
       _bass   <- optional "bass"   traceJSON
       _keys   <- optional "keys"   traceJSON
+      _kick   <- optional "kick"   traceJSON
+      _snare  <- optional "snare"  traceJSON
       _drums  <- optional "drums"  traceJSON
       _vocal  <- optional "vocal"  traceJSON
       _planComments <- fromMaybe [] <$> optional "comments" traceJSON
-      expectedKeys ["song", "guitar", "bass", "keys", "drums", "vocal", "comments"]
+      expectedKeys ["song", "guitar", "bass", "keys", "kick", "snare", "drums", "vocal", "comments"]
       return Plan{..}
       )
     , ("mogg-md5", object $ do
