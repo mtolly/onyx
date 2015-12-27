@@ -19,6 +19,11 @@ clean = options.include?('--clean')
 pedal = one_pedal ? '1p' : '2p'
 options.reject! { |x| %w{--only-album --1p --clean}.include? x }
 
+if File.exist? "#{usb}/song.yml"
+  STDERR.puts "Error: you forgot a destination directory."
+  exit 1
+end
+
 rb3 = "#{usb}/Content/0000000000000000/45410914/00000001"
 FileUtils.mkdir_p rb3
 

@@ -5,6 +5,7 @@ metadata:
   track-number: 7 # and 8
   difficulty:
     drums: 7
+    bass: 6
     band: 7
   rating: Supervision Recommended
   comments:
@@ -25,3 +26,4 @@ plans:
       - concatenate: [album-lost-keys, album-rosetta-stoned]
 instruments:
   drums: true
+  bass: true
