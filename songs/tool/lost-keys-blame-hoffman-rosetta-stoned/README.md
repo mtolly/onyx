@@ -21,3 +21,5 @@ Notes:
 
   * Could not have been done without [this drum clinic footage](https://www.youtube.com/watch?v=Dh3z__10bhg).
 
+  * All instruments have overdrive/unison.
+
