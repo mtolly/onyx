@@ -491,6 +491,9 @@ data Instruments = Instruments
 hasAnyKeys :: Instruments -> Bool
 hasAnyKeys insts = _hasKeys insts || _hasProKeys insts
 
+hasAnyVocal :: Instruments -> Bool
+hasAnyVocal insts = _hasVocal insts /= Vocal0
+
 instance TraceJSON Instruments where
   traceJSON = object $ do
     _hasDrums   <- fromMaybe False  <$> optional "drums"    traceJSON
