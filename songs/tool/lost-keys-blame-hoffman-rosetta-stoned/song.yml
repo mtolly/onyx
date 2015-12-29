@@ -7,7 +7,8 @@ metadata:
     drums: 7
     bass: 6
     guitar: 6
-    band: 6
+    vocal: 5
+    band: 7
   rating: Supervision Recommended
   comments:
   - "Without a doubt, the hardest drum chart I've made."
@@ -30,3 +31,4 @@ instruments:
   drums: true
   bass: true
   guitar: true
+  vocal: 2
