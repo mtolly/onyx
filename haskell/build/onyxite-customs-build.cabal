@@ -25,6 +25,7 @@ executable onyx
     Reaper.Parse
     Reaper.Base
     Reaper.Build
+    STFS.Extract
   build-depends:
     base    >= 4.8    && < 4.9
     , shake >= 0.15 && < 0.16
@@ -48,6 +49,7 @@ executable onyx
     , array
     , base64-bytestring
     , pretty
+    , monad-loops
     -- my libraries:
     , jammittools >= 0.5.0.2 && < 0.6
     , midi-util >= 0.1.1.1 && < 0.2

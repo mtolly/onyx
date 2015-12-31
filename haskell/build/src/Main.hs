@@ -17,6 +17,8 @@ import           Scripts
 import           X360
 import           YAMLTree
 
+import STFS.Extract
+
 import           Reaper.Base                      (writeRPP)
 import qualified Reaper.Build                     as RPP
 
@@ -835,14 +837,14 @@ main = do
           dir </> "ps/album.png"   %> copyFile' "gen/cover.png"
           phony (dir </> "ps") $ need $ map (\f -> dir </> "ps" </> f) $ concat
             [ ["song.ini", "notes.mid", "song.ogg", "album.png"]
-            , ["drums.ogg"  | _hasDrums  $ _instruments songYaml]
-            , ["drums_1.ogg" | _hasDrums  (_instruments songYaml) && mixMode /= RBDrums.D0]
-            , ["drums_2.ogg" | _hasDrums  (_instruments songYaml) && mixMode /= RBDrums.D0]
-            , ["drums_3.ogg" | _hasDrums  (_instruments songYaml) && mixMode /= RBDrums.D0]
-            , ["guitar.ogg" | _hasGuitar $ _instruments songYaml]
-            , ["keys.ogg"   | hasAnyKeys $ _instruments songYaml]
-            , ["rhythm.ogg" | _hasBass   $ _instruments songYaml]
-            , ["vocal.ogg"  | _hasVocal  (_instruments songYaml) /= Vocal0]
+            , ["drums.ogg"   | _hasDrums    (_instruments songYaml) && mixMode == RBDrums.D0]
+            , ["drums_1.ogg" | _hasDrums    (_instruments songYaml) && mixMode /= RBDrums.D0]
+            , ["drums_2.ogg" | _hasDrums    (_instruments songYaml) && mixMode /= RBDrums.D0]
+            , ["drums_3.ogg" | _hasDrums    (_instruments songYaml) && mixMode /= RBDrums.D0]
+            , ["guitar.ogg"  | _hasGuitar  $ _instruments songYaml]
+            , ["keys.ogg"    | hasAnyKeys  $ _instruments songYaml]
+            , ["rhythm.ogg"  | _hasBass    $ _instruments songYaml]
+            , ["vocal.ogg"   | hasAnyVocal $ _instruments songYaml]
             ]
 
           let get1xTitle, get2xTitle :: Action String
@@ -1328,6 +1330,8 @@ main = do
         want buildables
 
     [] -> return ()
+    ["unstfs", stfs, dir] -> extractSTFS stfs dir
+    "unstfs" : _ -> error "Usage: onyx unstfs input_rb3con outdir/"
     _ -> error "Invalid command"
 
 getPercType :: FilePath -> Action (Maybe RBVox.PercussionType)
