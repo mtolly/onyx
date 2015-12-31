@@ -110,7 +110,7 @@ writeDDS fout img_ = let
     B.hPut h header
     forM_ [256, 128, 64, 32, 16, 8, 4] $ \size -> do
       let img = scaleBilinear size size img_
-      forM_ [0, 4 .. size - 4] $ \y -> do
+      forM_ [0, 4 .. size - 4] $ \y ->
         forM_ [0, 4 .. size - 4] $ \x -> do
           let chunk = generateImage (\cx cy -> pixelAt img (x + cx) (y + cy)) 4 4
               (c0, c1, c2, c3) = findPalette chunk

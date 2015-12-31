@@ -1,9 +1,8 @@
-{-# LANGUAGE LambdaCase #-}
 module Reaper.Base where
 
+import           Data.List        (foldl')
+import           Text.PrettyPrint ((<+>), (<>))
 import qualified Text.PrettyPrint as PP
-import Text.PrettyPrint ((<+>), (<>))
-import Data.List (foldl')
 
 data Element = Element String [String] (Maybe [Element])
   deriving (Eq, Ord, Show, Read)

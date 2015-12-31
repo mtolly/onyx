@@ -1,34 +1,34 @@
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE ViewPatterns      #-}
 module Config where
 
 import           Audio
-import           Control.Monad.Trans.Class  (lift)
+import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
-import qualified Data.Aeson                 as A
-import qualified Data.ByteString.Lazy.Char8 as BL8
-import           Data.Char                  (isDigit)
-import           Data.Conduit.Audio         (Duration (..))
-import qualified Data.DTA.Serialize.Magma   as Magma
-import qualified Data.HashMap.Strict        as Map
-import           Data.List                  ((\\))
-import Data.Monoid ((<>))
-import           Data.Maybe                 (fromMaybe)
-import           Data.Scientific            (Scientific, toBoundedInteger,
-                                             toRealFloat)
-import qualified Data.Text                  as T
-import           Data.Traversable
-import qualified Data.Vector                as V
-import qualified Sound.Jammit.Base          as J
 import           Control.Monad.Trans.StackTrace hiding (optional)
-import           Text.Read                  (readMaybe)
-import           RockBand.Common            (Key(..))
+import qualified Data.Aeson                     as A
+import qualified Data.ByteString.Lazy.Char8     as BL8
+import           Data.Char                      (isDigit)
+import           Data.Conduit.Audio             (Duration (..))
+import qualified Data.DTA.Serialize.Magma       as Magma
+import qualified Data.HashMap.Strict            as Map
+import           Data.List                      ((\\))
+import           Data.Maybe                     (fromMaybe)
+import           Data.Monoid                    ((<>))
+import           Data.Scientific                (Scientific, toBoundedInteger,
+                                                 toRealFloat)
+import qualified Data.Text                      as T
+import           Data.Traversable
+import qualified Data.Vector                    as V
+import           RockBand.Common                (Key (..))
+import qualified RockBand.Drums                 as Drums
+import qualified Sound.Jammit.Base              as J
+import           Text.Read                      (readMaybe)
 
 type Parser m context = StackTraceT (ReaderT context m)
 
@@ -337,7 +337,7 @@ data Plan
     , _pans         :: [Double]
     , _vols         :: [Double]
     , _planComments :: [T.Text]
-    , _drumMix      :: Int
+    , _drumMix      :: Drums.Audio
     }
   deriving (Eq, Ord, Show, Read)
 
@@ -377,6 +377,15 @@ instance TraceJSON Plan where
       return MoggPlan{..}
       )
     ] (expected "an object with one of the keys \"each\", \"song\", or \"mogg-md5\"")
+
+instance TraceJSON Drums.Audio where
+  traceJSON = traceJSON >>= \n -> case n :: Int of
+    0 -> return Drums.D0
+    1 -> return Drums.D1
+    2 -> return Drums.D2
+    3 -> return Drums.D3
+    4 -> return Drums.D4
+    _ -> expected "a valid drum mix mode (a number 0 through 4)"
 
 data AudioInput
   = Named T.Text

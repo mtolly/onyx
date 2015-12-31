@@ -58,11 +58,12 @@ runMagma proj rba = withSystemTempDirectory "magma" $ \tmp -> do
 -- | Like the one from 'System.IO.Temp', but in the 'Action' monad.
 withSystemTempDirectory :: String -> (FilePath -> Action a) -> Action a
 withSystemTempDirectory template f = do
-  parent <- liftIO $ Dir.getTemporaryDirectory
+  parent <- liftIO Dir.getTemporaryDirectory
   dir <- liftIO $ createTempDirectory parent template
   actionFinally (f dir) $ ignoringIOErrors $ Dir.removeDirectoryRecursive dir
-  where ignoringIOErrors ioe =
-          ioe `Exception.catch` (\e -> const (return ()) (e :: IOError))
+  where ignoringIOErrors ioe = ioe `Exception.catch` ignoreIOError
+        ignoreIOError :: IOError -> IO ()
+        ignoreIOError _ = return ()
 
 oggToMogg :: FilePath -> FilePath -> Action ()
 oggToMogg ogg mogg = withSystemTempDirectory "ogg2mogg" $ \tmp -> do
@@ -91,5 +92,5 @@ oggToMogg ogg mogg = withSystemTempDirectory "ogg2mogg" $ \tmp -> do
 
 hReadWord32le :: IO.Handle -> IO Word32
 hReadWord32le h = do
-  [a, b, c, d] <- fmap (map fromIntegral . B.unpack) $ B.hGet h 4
+  [a, b, c, d] <- map fromIntegral . B.unpack <$> B.hGet h 4
   return $ a + (b `shiftL` 8) + (c `shiftL` 16) + (d `shiftL` 24)

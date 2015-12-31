@@ -1,21 +1,19 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TupleSections #-}
 module Reductions (gryboComplete, pkReduce, drumsComplete) where
 
-import qualified Data.EventList.Relative.TimeBody as RTB
+import           Control.Monad                    (guard)
 import qualified Data.EventList.Absolute.TimeBody as ATB
-import qualified Data.Map as Map
-import qualified Data.Set as Set
-import qualified RockBand.FiveButton as Five
-import qualified RockBand.Drums as Drums
-import qualified RockBand.ProKeys as PK
-import RockBand.Common (Difficulty(..), Key(..))
-import qualified Sound.MIDI.Util as U
-import Data.Maybe (mapMaybe, fromMaybe)
-import Control.Monad (guard)
-import Numeric.NonNegative.Class ((-|))
-import Data.List (sort, nub, sortOn)
-import Data.Functor (($>))
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     (($>))
+import           Data.List                        (nub, sort, sortOn)
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromMaybe, mapMaybe)
+import qualified Data.Set                         as Set
+import           Numeric.NonNegative.Class        ((-|))
+import           RockBand.Common                  (Difficulty (..), Key (..))
+import qualified RockBand.Drums                   as Drums
+import qualified RockBand.FiveButton              as Five
+import qualified RockBand.ProKeys                 as PK
+import qualified Sound.MIDI.Util                  as U
 
 -- | Fills out a GRYBO chart by generating difficulties if needed.
 gryboComplete :: Bool -> U.MeasureMap -> RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
@@ -54,7 +52,7 @@ gryboReduce Expert _      _    _  diffEvents = diffEvents
 gryboReduce diff   isKeys mmap od diffEvents = let
   odMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.normalize od
   gnotes1 = readGuitarNotes isKeys diffEvents
-  isOD bts = fromMaybe False $ fmap snd $ Map.lookupLE bts odMap
+  isOD bts = maybe False snd $ Map.lookupLE bts odMap
   -- TODO: replace the next 2 with BEAT track
   isMeasure bts = snd (U.applyMeasureMap mmap bts) == 0
   isAligned divn bts = let
@@ -269,7 +267,7 @@ pkReduce Expert _    _  diffEvents = diffEvents
 pkReduce diff   mmap od diffEvents = let
   odMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.normalize od
   pknotes1 = readPKNotes diffEvents
-  isOD bts = fromMaybe False $ fmap snd $ Map.lookupLE bts odMap
+  isOD bts = maybe False snd $ Map.lookupLE bts odMap
   -- TODO: replace the next 2 with BEAT track
   isMeasure bts = snd (U.applyMeasureMap mmap bts) == 0
   isAligned divn bts = let
@@ -383,7 +381,7 @@ drumsComplete mmap sections trk = let
     Drums.Overdrive b -> Just b
     _                -> Nothing
   assigned = Drums.assignToms trk
-  getAssigned d = fmap snd $ RTB.filter (\(d', _) -> d == d') assigned
+  getAssigned d = snd <$> RTB.filter (\(d', _) -> d == d') assigned
   getRaw d = flip RTB.mapMaybe trk $ \case
     Drums.DiffEvent d' e | d == d' -> Just e
     _                              -> Nothing

@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 module Scripts where
 
 import           Data.List                        (sort)
@@ -14,6 +13,7 @@ import qualified Sound.MIDI.Util                  as U
 import           Audio
 import qualified Data.Conduit.Audio               as CA
 
+import           Control.Monad.Trans.StackTrace
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common
 import qualified RockBand.Drums                   as Drums
@@ -22,20 +22,18 @@ import           RockBand.File
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as Vocals
-import           Control.Monad.Trans.StackTrace
 
 import           Development.Shake
 
 -- | Changes all existing drum mix events to use the given config (not changing
 -- stuff like discobeat), and places ones at the beginning if they don't exist
 -- already.
-drumMix :: Int -> RTB.T U.Beats Drums.Event -> RTB.T U.Beats Drums.Event
-drumMix n trk = let
+drumMix :: Drums.Audio -> RTB.T U.Beats Drums.Event -> RTB.T U.Beats Drums.Event
+drumMix audio' trk = let
   (mixes, notMixes) = flip RTB.partitionMaybe trk $ \case
     Drums.DiffEvent diff (Drums.Mix audio disco) -> Just (diff, audio, disco)
     _                                            -> Nothing
   mixes' = fmap (\(diff, _, disco) -> (diff, audio', disco)) mixes
-  audio' = toEnum n
   alreadyMixed = [ diff | (diff, _, _) <- U.trackTakeZero mixes' ]
   addedMixes =
     [ (diff, audio', Drums.NoDisco)
@@ -43,7 +41,7 @@ drumMix n trk = let
     , diff `notElem` alreadyMixed
     ]
   setMix (diff, audio, disco) = Drums.DiffEvent diff $ Drums.Mix audio disco
-  in RTB.merge notMixes $ fmap setMix $ foldr addZero mixes' addedMixes
+  in RTB.merge notMixes $ setMix <$> foldr addZero mixes' addedMixes
 
 -- | Adds an event at position zero *after* all the other events there.
 addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a

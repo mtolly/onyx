@@ -1,12 +1,11 @@
 -- | Algorithm to generate 1x Bass Pedal versions automatically from the 2x version.
-{-# LANGUAGE LambdaCase #-}
 module OneFoot (phaseShiftKicks, rockBand1x, rockBand2x) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
 import           RockBand.Drums                   (Hand (..))
 import qualified RockBand.Drums                   as Drums
-import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.Util                  as U
 
 assignFeet

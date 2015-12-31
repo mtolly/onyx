@@ -1,29 +1,28 @@
-{-# LANGUAGE LambdaCase #-}
 module Reaper.Build where
 
-import Reaper.Base
+import           Reaper.Base
 
-import Control.Monad.Trans.Writer
-import Control.Monad.Trans.Class (lift)
-import qualified Sound.MIDI.Message as Message
-import Numeric (showHex)
-import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.File.Event.Meta as Meta
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString.Char8 as B8
-import Control.Monad (forM_, when, unless)
+import           Control.Monad                    (forM_, unless, when)
+import           Control.Monad.Trans.Class        (lift)
+import           Control.Monad.Trans.Writer
+import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Base64           as B64
+import qualified Data.ByteString.Char8            as B8
+import qualified Data.ByteString.Lazy             as BL
+import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
-import qualified Sound.MIDI.Util as U
-import qualified Data.ByteString.Base64 as B64
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Numeric.NonNegative.Wrapper as NN
-import qualified Numeric.NonNegative.Class as NNC
-import Data.Maybe (fromMaybe, listToMaybe)
-import System.FilePath (takeExtension, takeFileName)
-import Data.Char (toLower)
+import           Data.Maybe                       (fromMaybe, listToMaybe)
+import qualified Data.Text                        as T
+import qualified Data.Text.Encoding               as TE
+import           Numeric                          (showHex)
+import qualified Numeric.NonNegative.Class        as NNC
+import qualified Numeric.NonNegative.Wrapper      as NN
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
+import qualified Sound.MIDI.Message               as Message
+import qualified Sound.MIDI.Util                  as U
+import           System.FilePath                  (takeExtension, takeFileName)
 
 line :: (Monad m) => String -> [String] -> WriterT [Element] m ()
 line k atoms = tell [Element k atoms Nothing]

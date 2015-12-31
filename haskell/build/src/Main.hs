@@ -1,29 +1,30 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiWayIf                 #-}
+{-# LANGUAGE NoMonomorphismRestriction  #-}
 {-# LANGUAGE RecordWildCards            #-}
 module Main (main) where
 
 import           Audio
-import           Config hiding (Difficulty)
+import qualified C3
+import           Config                           hiding (Difficulty)
 import           Image
 import           Magma
 import           OneFoot
+import qualified OnyxiteDisplay.Process           as Proc
+import           Reductions
+import           Resources                        (emptyMilo)
 import           Scripts
 import           X360
 import           YAMLTree
-import           Resources (emptyMilo)
-import qualified C3
-import           Reductions
-import qualified OnyxiteDisplay.Process as Proc
 
-import           Reaper.Base (writeRPP)
-import qualified Reaper.Build as RPP
+import           Reaper.Base                      (writeRPP)
+import qualified Reaper.Build                     as RPP
 
 import           Codec.Picture
 import           Control.Monad.Extra
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
+import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
 import qualified Data.Aeson                       as A
 import qualified Data.ByteString                  as B
@@ -36,39 +37,38 @@ import qualified Data.DTA                         as D
 import qualified Data.DTA.Serialize               as D
 import qualified Data.DTA.Serialize.Magma         as Magma
 import qualified Data.DTA.Serialize.RB3           as D
-import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
+import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
 import           Data.Foldable                    (toList)
+import           Data.Functor.Identity            (runIdentity)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (isPrefixOf, nub, sortOn)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, listToMaybe,
-                                                   mapMaybe, isJust, isNothing)
+import           Data.Maybe                       (fromMaybe, isJust, isNothing,
+                                                   listToMaybe, mapMaybe)
 import qualified Data.Text                        as T
-import           Development.Shake                hiding ((%>), (&%>), phony)
+import           Development.Shake                hiding (phony, (%>), (&%>))
 import qualified Development.Shake                as Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
 import           RockBand.Common                  (Difficulty (..), Key (..))
 import qualified RockBand.Drums                   as RBDrums
-import qualified RockBand.FiveButton              as RBFive
-import qualified RockBand.File                    as RBFile
-import qualified RockBand.Vocals                  as RBVox
-import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Events                  as Events
+import qualified RockBand.File                    as RBFile
+import qualified RockBand.FiveButton              as RBFive
+import qualified RockBand.ProKeys                 as ProKeys
+import qualified RockBand.Vocals                  as RBVox
 import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.Jammit.Base                as J
 import qualified Sound.Jammit.Export              as J
+import qualified Sound.MIDI.File                  as F
+import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.Util                  as U
-import           Control.Monad.Trans.StackTrace
 import           System.Console.GetOpt
 import           System.Directory                 (canonicalizePath,
                                                    setCurrentDirectory)
 import           System.Environment               (getArgs)
-import qualified Sound.MIDI.File as F
-import qualified Sound.MIDI.File.Load as Load
-import Data.Functor.Identity (runIdentity)
 
 data Argument
   = AudioDir  FilePath
@@ -182,11 +182,11 @@ main = do
               <$> concatMapM allFiles audioDirs
             let md5Result = liftIO $ case _md5 aud of
                   Nothing -> return Nothing
-                  Just md5search -> flip findM files $ \f -> do
+                  Just md5search -> flip findM files $ \f ->
                     (== Just (T.unpack md5search)) <$> audioMD5 f
                 lenResult = liftIO $ case _frames aud of
                   Nothing -> return Nothing
-                  Just len -> flip findM files $ \f -> do
+                  Just len -> flip findM files $ \f ->
                     (== Just len) <$> audioLength f
                 nameResult = do
                   name <- _name aud
@@ -270,7 +270,7 @@ main = do
             bandTier    = rankToTier bandDiffMap   bandRank
 
         -- Find and convert all audio files into the work directory
-        forM_ (HM.toList $ _audio songYaml) $ \(audioName, audioQuery) -> do
+        forM_ (HM.toList $ _audio songYaml) $ \(audioName, audioQuery) ->
           audioPath audioName %> \out -> do
             putNormal $ "Looking for the audio file named " ++ show audioName
             result <- audioOracle $ AudioSearch $ show audioQuery
@@ -281,8 +281,8 @@ main = do
         -- Find and convert all Jammit audio into the work directory
         let jammitAudioParts = map J.Only    [minBound .. maxBound]
                             ++ map J.Without [minBound .. maxBound]
-        forM_ (HM.toList $ _jammit songYaml) $ \(jammitName, jammitQuery) -> do
-          forM_ jammitAudioParts $ \audpart -> do
+        forM_ (HM.toList $ _jammit songYaml) $ \(jammitName, jammitQuery) ->
+          forM_ jammitAudioParts $ \audpart ->
             jammitPath jammitName audpart %> \out -> do
               putNormal $ "Looking for the Jammit track named " ++ show jammitName ++ ", part " ++ show audpart
               result <- fmap read $ jammitOracle $ JammitSearch $ show jammitQuery
@@ -307,37 +307,36 @@ main = do
 
         -- The "auto" mode of Jammit audio assignment, using EachPlan
         let autoLeaf :: Maybe J.Instrument -> T.Text -> Action (Audio Duration FilePath)
-            autoLeaf minst name = do
-              case HM.lookup name $ _jammit songYaml of
-                Nothing -> manualLeaf $ Named name
-                Just jmtQuery -> do
-                  result <- fmap read $ jammitOracle $ JammitSearch $ show jmtQuery
-                  let _ = result :: [(J.AudioPart, FilePath)]
-                  let backs = concat
-                        [ [J.Drums    | _hasDrums  $ _instruments songYaml]
-                        , [J.Bass     | _hasBass   $ _instruments songYaml]
-                        , [J.Guitar   | _hasGuitar $ _instruments songYaml]
-                        , [J.Keyboard | hasAnyKeys $ _instruments songYaml]
-                        , [J.Vocal    | _hasVocal   (_instruments songYaml) /= Vocal0]
-                        ]
-                      -- audio that is used in the song and bought by the user
-                      boughtInstrumentParts :: J.Instrument -> [FilePath]
-                      boughtInstrumentParts inst = do
-                        guard $ inst `elem` backs
-                        J.Only part <- nub $ map fst result
-                        guard $ J.partToInstrument part == inst
-                        return $ jammitPath name $ J.Only part
-                      mixOrStereo []    = Silence 2 $ Frames 0
-                      mixOrStereo files = Mix $ map Input files
-                  case minst of
-                    Just inst -> return $ mixOrStereo $ boughtInstrumentParts inst
-                    Nothing -> case filter (\inst -> J.Without inst `elem` map fst result) backs of
-                      []       -> fail "No charted instruments with Jammit tracks found"
-                      back : _ -> return $ let
-                        negative = mixOrStereo $ do
-                          otherInstrument <- filter (/= back) backs
-                          boughtInstrumentParts otherInstrument
-                        in Mix [Input $ jammitPath name $ J.Without back, Gain (-1) negative]
+            autoLeaf minst name = case HM.lookup name $ _jammit songYaml of
+              Nothing -> manualLeaf $ Named name
+              Just jmtQuery -> do
+                result <- fmap read $ jammitOracle $ JammitSearch $ show jmtQuery
+                let _ = result :: [(J.AudioPart, FilePath)]
+                let backs = concat
+                      [ [J.Drums    | _hasDrums   $ _instruments songYaml]
+                      , [J.Bass     | _hasBass    $ _instruments songYaml]
+                      , [J.Guitar   | _hasGuitar  $ _instruments songYaml]
+                      , [J.Keyboard | hasAnyKeys  $ _instruments songYaml]
+                      , [J.Vocal    | hasAnyVocal $ _instruments songYaml]
+                      ]
+                    -- audio that is used in the song and bought by the user
+                    boughtInstrumentParts :: J.Instrument -> [FilePath]
+                    boughtInstrumentParts inst = do
+                      guard $ inst `elem` backs
+                      J.Only part <- nub $ map fst result
+                      guard $ J.partToInstrument part == inst
+                      return $ jammitPath name $ J.Only part
+                    mixOrStereo []    = Silence 2 $ Frames 0
+                    mixOrStereo files = Mix $ map Input files
+                case minst of
+                  Just inst -> return $ mixOrStereo $ boughtInstrumentParts inst
+                  Nothing -> case filter (\inst -> J.Without inst `elem` map fst result) backs of
+                    []       -> fail "No charted instruments with Jammit tracks found"
+                    back : _ -> return $ let
+                      negative = mixOrStereo $ do
+                        otherInstrument <- filter (/= back) backs
+                        boughtInstrumentParts otherInstrument
+                      in Mix [Input $ jammitPath name $ J.Without back, Gain (-1) negative]
 
         -- Cover art
         let loadRGB8 = do
@@ -545,73 +544,62 @@ main = do
                   vs -> vs
                 in zip pans vols
               bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, songPV :: [(Double, Double)]
-              mixMode :: Int
-              bassPV = if _hasBass $ _instruments songYaml
-                then case plan of
-                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggBass
-                  Plan{..} -> planPV _bass
-                  EachPlan{..} -> eachPlanPV _each
-                else []
-              guitarPV = if _hasGuitar $ _instruments songYaml
-                then case plan of
-                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggGuitar
-                  Plan{..} -> planPV _guitar
-                  EachPlan{..} -> eachPlanPV _each
-                else []
-              keysPV = if hasAnyKeys $ _instruments songYaml
-                then case plan of
-                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggKeys
-                  Plan{..} -> planPV _keys
-                  EachPlan{..} -> eachPlanPV _each
-                else []
-              vocalPV = if _hasVocal (_instruments songYaml) /= Vocal0
-                then case plan of
-                  MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggVocal
-                  Plan{..} -> planPV _vocal
-                  EachPlan{..} -> eachPlanPV _each
-                else []
+              mixMode :: RBDrums.Audio
+              bassPV = guard (_hasBass $ _instruments songYaml) >> case plan of
+                MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggBass
+                Plan{..} -> planPV _bass
+                EachPlan{..} -> eachPlanPV _each
+              guitarPV = guard (_hasGuitar $ _instruments songYaml) >> case plan of
+                MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggGuitar
+                Plan{..} -> planPV _guitar
+                EachPlan{..} -> eachPlanPV _each
+              keysPV = guard (hasAnyKeys $ _instruments songYaml) >> case plan of
+                MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggKeys
+                Plan{..} -> planPV _keys
+                EachPlan{..} -> eachPlanPV _each
+              vocalPV = guard (hasAnyVocal $ _instruments songYaml) >> case plan of
+                MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggVocal
+                Plan{..} -> planPV _vocal
+                EachPlan{..} -> eachPlanPV _each
               (kickPV, snarePV, drumsPV, mixMode) = if _hasDrums $ _instruments songYaml
                 then case plan of
                   MoggPlan{..} -> let
                     getChannel i = (_pans !! i, _vols !! i)
                     kickChannels = case _drumMix of
-                      0 -> []
-                      1 -> take 1 _moggDrums
-                      2 -> take 1 _moggDrums
-                      3 -> take 2 _moggDrums
-                      4 -> take 1 _moggDrums
-                      n -> error $ "invalid mogg drum mix: " ++ show n
+                      RBDrums.D0 -> []
+                      RBDrums.D1 -> take 1 _moggDrums
+                      RBDrums.D2 -> take 1 _moggDrums
+                      RBDrums.D3 -> take 2 _moggDrums
+                      RBDrums.D4 -> take 1 _moggDrums
                     snareChannels = case _drumMix of
-                      0 -> []
-                      1 -> take 1 $ drop 1 _moggDrums
-                      2 -> take 2 $ drop 1 _moggDrums
-                      3 -> take 2 $ drop 2 _moggDrums
-                      4 -> []
-                      n -> error $ "invalid mogg drum mix: " ++ show n
+                      RBDrums.D0 -> []
+                      RBDrums.D1 -> take 1 $ drop 1 _moggDrums
+                      RBDrums.D2 -> take 2 $ drop 1 _moggDrums
+                      RBDrums.D3 -> take 2 $ drop 2 _moggDrums
+                      RBDrums.D4 -> []
                     drumsChannels = case _drumMix of
-                      0 -> _moggDrums
-                      1 -> drop 2 _moggDrums
-                      2 -> drop 3 _moggDrums
-                      3 -> drop 4 _moggDrums
-                      4 -> drop 1 _moggDrums
-                      n -> error $ "invalid mogg drum mix: " ++ show n
+                      RBDrums.D0 -> _moggDrums
+                      RBDrums.D1 -> drop 2 _moggDrums
+                      RBDrums.D2 -> drop 3 _moggDrums
+                      RBDrums.D3 -> drop 4 _moggDrums
+                      RBDrums.D4 -> drop 1 _moggDrums
                     in (map getChannel kickChannels, map getChannel snareChannels, map getChannel drumsChannels, _drumMix)
                   Plan{..} -> let
                     count = maybe 0 (computeChannelsPlan . _planExpr)
                     matchingMix = case (count _kick, count _snare) of
-                      (0, 0) -> 0
-                      (1, 1) -> 1
-                      (1, 2) -> 2
-                      (2, 2) -> 3
-                      (1, 0) -> 4
+                      (0, 0) -> RBDrums.D0
+                      (1, 1) -> RBDrums.D1
+                      (1, 2) -> RBDrums.D2
+                      (2, 2) -> RBDrums.D3
+                      (1, 0) -> RBDrums.D4
                       (k, s) -> error $ "No matching drum mix mode for (kick,snare) == " ++ show (k, s)
-                    in  ( guard (matchingMix /= 0) >> planPV _kick
-                        , guard (matchingMix `elem` [1, 2, 3]) >> planPV _snare
+                    in  ( guard (matchingMix /= RBDrums.D0) >> planPV _kick
+                        , guard (matchingMix `elem` [RBDrums.D1, RBDrums.D2, RBDrums.D3]) >> planPV _snare
                         , planPV _drums
                         , matchingMix
                         )
-                  EachPlan{..} -> ([], [], eachPlanPV _each, 0)
-                else ([], [], [], 0)
+                  EachPlan{..} -> ([], [], eachPlanPV _each, RBDrums.D0)
+                else ([], [], [], RBDrums.D0)
               songPV = case plan of
                 MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ let
                   notSong = concat [_moggGuitar, _moggBass, _moggKeys, _moggDrums, _moggVocal]
@@ -633,7 +621,7 @@ main = do
               then loadMIDI extraTempo
               else return input
             let trks = RBFile.s_tracks input
-                mergeTracks ts = foldr RTB.merge RTB.empty ts
+                mergeTracks = foldr RTB.merge RTB.empty
                 beatTrack = let
                   trk = mergeTracks [ t | RBFile.Beat t <- trks ]
                   in RBFile.Beat $ if RTB.null trk
@@ -661,7 +649,7 @@ main = do
                     in  ( [RBFile.PartDrums ps]
                         , [RBFile.PartDrums $ rockBand1x ps]
                         , [RBFile.PartDrums $ rockBand2x ps]
-                        , any (== RBDrums.Kick2x) ps
+                        , elem RBDrums.Kick2x ps
                         )
                 guitarTracks = if not $ _hasGuitar $ _instruments songYaml
                   then []
@@ -679,7 +667,7 @@ main = do
                       else expertProKeysToKeys keysExpert
                     keysDiff diff = if _hasProKeys $ _instruments songYaml
                       then mergeTracks [ t | RBFile.PartRealKeys diff' t <- trks, diff == diff' ]
-                      else keysToProKeys diff $ basicKeys
+                      else keysToProKeys diff basicKeys
                     rtb1 `orIfNull` rtb2 = if length rtb1 < 5 then rtb2 else rtb1
                     keysExpert = keysDiff Expert
                     keysHard   = keysDiff Hard   `orIfNull` pkReduce Hard   (RBFile.s_signatures input) keysOD keysExpert
@@ -720,8 +708,8 @@ main = do
                         harm1   = mergeTracks [ t | RBFile.Harm1      t <- trks ]
                         harm2   = mergeTracks [ t | RBFile.Harm2      t <- trks ]
                         harm3   = mergeTracks [ t | RBFile.Harm3      t <- trks ]
-            forM_ [(midPS, drumsPS), (mid1p, drums1p), (mid2p, drums2p)] $ \(midout, drumsTracks) -> do
-              saveMIDI midout $ RBFile.Song
+            forM_ [(midPS, drumsPS), (mid1p, drums1p), (mid2p, drums2p)] $ \(midout, drumsTracks) ->
+              saveMIDI midout RBFile.Song
                 { RBFile.s_tempos = tempos
                 , RBFile.s_signatures = RBFile.s_signatures input
                 , RBFile.s_tracks = map fixRolls $ concat
@@ -735,7 +723,7 @@ main = do
                   , vocalTracks
                   ]
                 }
-            saveMIDI midcountin $ RBFile.Song
+            saveMIDI midcountin RBFile.Song
               { RBFile.s_tempos = tempos
               , RBFile.s_signatures = RBFile.s_signatures input
               , RBFile.s_tracks = [countinTrack]
@@ -775,7 +763,7 @@ main = do
             let song = Input $ dir </> "song.wav"
                 countin = Input $ dir </> "countin.wav"
             buildAudio (Mix [song, countin]) out
-          dir </> "song-countin.ogg" %> \out -> do
+          dir </> "song-countin.ogg" %> \out ->
             buildAudio (Input $ out -<.> "wav") out
 
           -- Rock Band OGG and MOGG
@@ -783,24 +771,23 @@ main = do
               mogg = dir </> "audio.mogg"
           ogg %> \out -> do
             let parts = map Input $ concat
-                  [ [dir </> "kick.wav"   | _hasDrums   (_instruments songYaml) && mixMode /= 0]
-                  , [dir </> "snare.wav"  | _hasDrums   (_instruments songYaml) && elem mixMode [1,2,3]]
-                  , [dir </> "drums.wav"  | _hasDrums  $ _instruments songYaml]
-                  , [dir </> "bass.wav"   | _hasBass   $ _instruments songYaml]
-                  , [dir </> "guitar.wav" | _hasGuitar $ _instruments songYaml]
-                  , [dir </> "keys.wav"   | hasAnyKeys $ _instruments songYaml]
-                  , [dir </> "vocal.wav"  | _hasVocal   (_instruments songYaml) /= Vocal0]
+                  [ [dir </> "kick.wav"   | _hasDrums    (_instruments songYaml) && mixMode /= RBDrums.D0]
+                  , [dir </> "snare.wav"  | _hasDrums    (_instruments songYaml) && elem mixMode [RBDrums.D1, RBDrums.D2, RBDrums.D3]]
+                  , [dir </> "drums.wav"  | _hasDrums   $ _instruments songYaml]
+                  , [dir </> "bass.wav"   | _hasBass    $ _instruments songYaml]
+                  , [dir </> "guitar.wav" | _hasGuitar  $ _instruments songYaml]
+                  , [dir </> "keys.wav"   | hasAnyKeys  $ _instruments songYaml]
+                  , [dir </> "vocal.wav"  | hasAnyVocal $ _instruments songYaml]
                   , [dir </> "song-countin.wav"]
                   ]
             buildAudio (Merge parts) out
-          mogg %> \out -> do
-            case plan of
-              MoggPlan{..} -> moggOracle (MoggSearch _moggMD5) >>= \case
-                Nothing -> fail "Couldn't find the MOGG file"
-                Just f -> copyFile' f out
-              _ -> do
-                need [ogg]
-                oggToMogg ogg out
+          mogg %> \out -> case plan of
+            MoggPlan{..} -> moggOracle (MoggSearch _moggMD5) >>= \case
+              Nothing -> fail "Couldn't find the MOGG file"
+              Just f -> copyFile' f out
+            _ -> do
+              need [ogg]
+              oggToMogg ogg out
 
           -- Low-quality audio files for the online preview app
           let preview ext = dir </> "preview-audio" <.> ext
@@ -828,7 +815,7 @@ main = do
               , "genre = " ++ T.unpack (_genre $ _metadata songYaml) -- TODO: capitalize
               , "pro_drums = True"
               , "preview_start_time = " ++ show pstart
-              -- TODO: difficulty tiers (from 0 to 6)
+              -- difficulty tiers go from 0 to 6, or -1 for no part
               , "diff_guitar = "      ++ show (guitarTier  - 1)
               , "diff_bass = "        ++ show (bassTier    - 1)
               , "diff_drums = "       ++ show (drumsTier   - 1)
@@ -846,18 +833,17 @@ main = do
           dir </> "ps/vocal.ogg"   %> buildAudio (Input $ dir </> "vocals.wav")
           dir </> "ps/song.ogg"    %> buildAudio (Input $ dir </> "song-countin.wav")
           dir </> "ps/album.png"   %> copyFile' "gen/cover.png"
-          phony (dir </> "ps") $ do
-            need $ map (\f -> dir </> "ps" </> f) $ concat
-              [ ["song.ini", "notes.mid", "song.ogg", "album.png"]
-              , ["drums.ogg"  | _hasDrums  $ _instruments songYaml]
-              , ["drums_1.ogg" | _hasDrums  (_instruments songYaml) && mixMode /= 0]
-              , ["drums_2.ogg" | _hasDrums  (_instruments songYaml) && mixMode /= 0]
-              , ["drums_3.ogg" | _hasDrums  (_instruments songYaml) && mixMode /= 0]
-              , ["guitar.ogg" | _hasGuitar $ _instruments songYaml]
-              , ["keys.ogg"   | hasAnyKeys $ _instruments songYaml]
-              , ["rhythm.ogg" | _hasBass   $ _instruments songYaml]
-              , ["vocal.ogg"  | _hasVocal  (_instruments songYaml) /= Vocal0]
-              ]
+          phony (dir </> "ps") $ need $ map (\f -> dir </> "ps" </> f) $ concat
+            [ ["song.ini", "notes.mid", "song.ogg", "album.png"]
+            , ["drums.ogg"  | _hasDrums  $ _instruments songYaml]
+            , ["drums_1.ogg" | _hasDrums  (_instruments songYaml) && mixMode /= RBDrums.D0]
+            , ["drums_2.ogg" | _hasDrums  (_instruments songYaml) && mixMode /= RBDrums.D0]
+            , ["drums_3.ogg" | _hasDrums  (_instruments songYaml) && mixMode /= RBDrums.D0]
+            , ["guitar.ogg" | _hasGuitar $ _instruments songYaml]
+            , ["keys.ogg"   | hasAnyKeys $ _instruments songYaml]
+            , ["rhythm.ogg" | _hasBass   $ _instruments songYaml]
+            , ["vocal.ogg"  | _hasVocal  (_instruments songYaml) /= Vocal0]
+            ]
 
           let get1xTitle, get2xTitle :: Action String
               get1xTitle = return $ T.unpack $ _title $ _metadata songYaml
@@ -865,7 +851,7 @@ main = do
                   then T.unpack (_title $ _metadata songYaml) ++ " (2x Bass Pedal)"
                   else T.unpack (_title $ _metadata songYaml)
               get2xBass :: Action Bool
-              get2xBass = fmap read $ readFile' has2p
+              get2xBass = read <$> readFile' has2p
 
           let pedalVersions =
                 [ (dir </> "1p", get1xTitle, return False)
@@ -910,7 +896,7 @@ main = do
                     = map (RBFile.showPosition . U.applyMeasureMap (RBFile.s_signatures song))
                     . ATB.getTimes
                     . RTB.toAbsoluteEventList 0
-                  message rtb msg = forM_ (showPositions rtb) $ \pos -> do
+                  message rtb msg = forM_ (showPositions rtb) $ \pos ->
                     putNormal $ pos ++ ": " ++ msg
               message kickSwells "kick note can't be simultaneous with start of drum roll"
               message voxBugs "PART VOCALS vocal phrase can't end simultaneous with a lyric"
@@ -1114,13 +1100,13 @@ main = do
                         }
                       , Magma.gamedata = Magma.Gamedata
                         { Magma.previewStartMs = fromIntegral pstart
-                        , Magma.rankDrum    = max 1 $ drumsTier
-                        , Magma.rankBass    = max 1 $ bassTier
-                        , Magma.rankGuitar  = max 1 $ guitarTier
-                        , Magma.rankVocals  = max 1 $ vocalTier
-                        , Magma.rankKeys    = max 1 $ keysTier
-                        , Magma.rankProKeys = max 1 $ proKeysTier
-                        , Magma.rankBand    = max 1 $ bandTier
+                        , Magma.rankDrum    = max 1 drumsTier
+                        , Magma.rankBass    = max 1 bassTier
+                        , Magma.rankGuitar  = max 1 guitarTier
+                        , Magma.rankVocals  = max 1 vocalTier
+                        , Magma.rankKeys    = max 1 keysTier
+                        , Magma.rankProKeys = max 1 proKeysTier
+                        , Magma.rankBand    = max 1 bandTier
                         , Magma.vocalScrollSpeed = 2300
                         , Magma.animTempo = 32
                         , Magma.vocalGender = fromMaybe Magma.Female $ _vocalGender $ _metadata songYaml
@@ -1166,12 +1152,11 @@ main = do
                       , Magma.albumArt = Magma.AlbumArt "cover.bmp"
                       , Magma.tracks = Magma.Tracks
                         { Magma.drumLayout = case mixMode of
-                          0 -> Magma.Kit
-                          1 -> Magma.KitKickSnare
-                          2 -> Magma.KitKickSnare
-                          3 -> Magma.KitKickSnare
-                          4 -> Magma.KitKick
-                          _ -> error $ "Invalid drum mix number: " ++ show mixMode
+                          RBDrums.D0 -> Magma.Kit
+                          RBDrums.D1 -> Magma.KitKickSnare
+                          RBDrums.D2 -> Magma.KitKickSnare
+                          RBDrums.D3 -> Magma.KitKickSnare
+                          RBDrums.D4 -> Magma.KitKick
                         , Magma.drumKit = pvFile drumsPV "drums.wav"
                         , Magma.drumKick = pvFile kickPV "kick.wav"
                         , Magma.drumSnare = pvFile snarePV "snare.wav"
@@ -1224,7 +1209,7 @@ main = do
                 title <- getTitle
                 midi <- loadMIDI mid
                 is2x <- is2xBass
-                liftIO $ writeFile out $ C3.showC3 $ C3.C3
+                liftIO $ writeFile out $ C3.showC3 C3.C3
                   { C3.song = T.unpack $ _title $ _metadata songYaml
                   , C3.artist = T.unpack $ _artist $ _metadata songYaml
                   , C3.album = T.unpack $ _album $ _metadata songYaml
@@ -1276,14 +1261,15 @@ main = do
                   , C3.uniqueNumericID2X = ""
                   , C3.toDoList = C3.defaultToDo
                   }
-              phony setup $ do
+              phony setup $ need $ concat
                 -- Just make all the Magma prereqs, but don't actually run Magma
-                when (_hasDrums  $ _instruments songYaml) $ need [drums ]
-                when (_hasBass   $ _instruments songYaml) $ need [bass  ]
-                when (_hasGuitar $ _instruments songYaml) $ need [guitar]
-                when (hasAnyKeys $ _instruments songYaml) $ need [keys  ]
-                when (_hasVocal (_instruments songYaml) /= Vocal0) $ need [vocal, dryvox]
-                need [song, cover, mid, proj, c3]
+                [ guard (_hasDrums   $ _instruments songYaml) >> [drums        ]
+                , guard (_hasBass    $ _instruments songYaml) >> [bass         ]
+                , guard (_hasGuitar  $ _instruments songYaml) >> [guitar       ]
+                , guard (hasAnyKeys  $ _instruments songYaml) >> [keys         ]
+                , guard (hasAnyVocal $ _instruments songYaml) >> [vocal, dryvox]
+                , [song, cover, mid, proj, c3]
+                ]
               rba %> \out -> do
                 need [setup]
                 runMagma proj out
@@ -1382,10 +1368,10 @@ expertProKeysToKeys = let
   pkToBasic :: [ProKeys.Event] -> RTB.T U.Beats RBFive.Event
   pkToBasic pk = let
     hasNote     = any (\case ProKeys.Note      True _ -> True; _ -> False) pk
-    hasODTrue   = any (== ProKeys.Overdrive True ) pk
-    hasODFalse  = any (== ProKeys.Overdrive False) pk
-    hasBRETrue  = any (== ProKeys.BRE       True ) pk
-    hasBREFalse = any (== ProKeys.BRE       False) pk
+    hasODTrue   = elem (ProKeys.Overdrive True ) pk
+    hasODFalse  = elem (ProKeys.Overdrive False) pk
+    hasBRETrue  = elem (ProKeys.BRE       True ) pk
+    hasBREFalse = elem (ProKeys.BRE       False) pk
     blip diff = RTB.fromPairList
       [ (0     , RBFive.DiffEvent diff $ RBFive.Note True  RBFive.Green)
       , (1 / 32, RBFive.DiffEvent diff $ RBFive.Note False RBFive.Green)

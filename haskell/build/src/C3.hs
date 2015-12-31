@@ -1,65 +1,65 @@
 -- | Defines a type for the @.c3@ file used by C3's Magma.
 module C3 where
 
-import RockBand.Common (Key(..))
-import Control.Monad.Trans.Writer
-import Control.Monad (forM_)
+import           Control.Monad              (forM_)
+import           Control.Monad.Trans.Writer
+import           RockBand.Common            (Key (..))
 
 -- .c3 files are always encoded in UTF8, regardless of encodeANSI and encodeUTF8
 
 data C3 = C3
-  { song :: String
-  , artist :: String
-  , album :: String
-  , customID :: String
-  , version :: Int
-  , isMaster :: Bool
-  , encodingQuality :: Int
-  , is2xBass :: Bool -- 2xBass in file
-  , rhythmKeys :: Bool
-  , rhythmBass :: Bool
-  , karaoke :: Bool
-  , multitrack :: Bool
-  , convert :: Bool
-  , expertOnly :: Bool
+  { song               :: String
+  , artist             :: String
+  , album              :: String
+  , customID           :: String
+  , version            :: Int
+  , isMaster           :: Bool
+  , encodingQuality    :: Int
+  , is2xBass           :: Bool -- 2xBass in file
+  , rhythmKeys         :: Bool
+  , rhythmBass         :: Bool
+  , karaoke            :: Bool
+  , multitrack         :: Bool
+  , convert            :: Bool
+  , expertOnly         :: Bool
   -- note: CAT EMH and Encrypt Audio are not settings in the .c3 file.
   -- CAT EMH is not remembered at all for some reason.
   -- Encrypt Audio is a setting remembered by the program, not an individual song.
   -- next 4 fields are optional
-  , proBassDiff :: Maybe Int
-  , proBassTuning :: Maybe String -- like "(real_bass_tuning (0 0 0 0))"
-  , proGuitarDiff :: Maybe Int
-  , proGuitarTuning :: Maybe String -- like "(real_guitar_tuning (0 0 0 0 0 0))"
-  , disableProKeys :: Bool
-  , tonicNote :: Maybe Key -- optional
-  , tuningCents :: Int
-  , songRating :: Int
+  , proBassDiff        :: Maybe Int
+  , proBassTuning      :: Maybe String -- like "(real_bass_tuning (0 0 0 0))"
+  , proGuitarDiff      :: Maybe Int
+  , proGuitarTuning    :: Maybe String -- like "(real_guitar_tuning (0 0 0 0 0 0))"
+  , disableProKeys     :: Bool
+  , tonicNote          :: Maybe Key -- optional
+  , tuningCents        :: Int
+  , songRating         :: Int
   -- ^ 1,2,3,4 are Family Friendly, Supervision Recommended, Mature, Unrated
-  , drumKitSFX :: Int
+  , drumKitSFX         :: Int
   -- ^ index into [Hard Rock Kit (default), Arena Kit, Vintage Kit, Trashy Kit, Electronic Kit]
   , hopoThresholdIndex :: Int -- HopoTresholdIndex in file (misspelled)
   -- ^ index into [90, 130, 170 (default), 250]
-  , muteVol :: Int
-  , vocalMuteVol :: Int
-  , soloDrums :: Bool
-  , soloGuitar :: Bool
-  , soloBass :: Bool
-  , soloKeys :: Bool
-  , soloVocals :: Bool
-  , songPreview :: Int
-  , checkTempoMap :: Bool
-  , wiiMode :: Bool
-  , doDrumMixEvents :: Bool
-  , packageDisplay :: String
+  , muteVol            :: Int
+  , vocalMuteVol       :: Int
+  , soloDrums          :: Bool
+  , soloGuitar         :: Bool
+  , soloBass           :: Bool
+  , soloKeys           :: Bool
+  , soloVocals         :: Bool
+  , songPreview        :: Int
+  , checkTempoMap      :: Bool
+  , wiiMode            :: Bool
+  , doDrumMixEvents    :: Bool
+  , packageDisplay     :: String
   , packageDescription :: String
-  , songAlbumArt :: FilePath
-  , packageThumb :: FilePath
-  , encodeANSI :: Bool
-  , encodeUTF8 :: Bool
-  , useNumericID :: Bool
-  , uniqueNumericID :: String
-  , uniqueNumericID2X :: String
-  , toDoList :: [(String, Bool, Bool)] -- ^ to do item, is required, is completed
+  , songAlbumArt       :: FilePath
+  , packageThumb       :: FilePath
+  , encodeANSI         :: Bool
+  , encodeUTF8         :: Bool
+  , useNumericID       :: Bool
+  , uniqueNumericID    :: String
+  , uniqueNumericID2X  :: String
+  , toDoList           :: [(String, Bool, Bool)] -- ^ to do item, is required, is completed
   } deriving (Eq, Ord, Show, Read)
 
 showC3 :: C3 -> String
@@ -111,7 +111,7 @@ showC3 c3 = unlines $ execWriter $ do
   pair "UniqueNumericID2X" uniqueNumericID2X
   line ""
   line "TO DO List Begin"
-  forM_ (zip [1..] $ toDoList c3) $ \(i, (todo, required, completed)) -> do
+  forM_ (zip [1..] $ toDoList c3) $ \(i, (todo, required, completed)) ->
     line $ "ToDo" ++ show (i :: Int) ++ "=" ++
       todo ++ "," ++ show required ++ "," ++ show completed
   line "TO DO List End"
