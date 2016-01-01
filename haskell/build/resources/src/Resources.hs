@@ -12,3 +12,7 @@ rb3pkgFiles = $(embedDir "vendors/xbox/rb3pkg/bin/Release/")
 
 emptyMilo :: B.ByteString
 emptyMilo = $(embedFile "vendors/empty.milo_xbox")
+
+mogg2ogg :: B.ByteString
+mogg2ogg = B.empty
+-- mogg2ogg = $(embedFile "vendors/mogg2ogg.exe")

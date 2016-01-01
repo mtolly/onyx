@@ -16,6 +16,7 @@ import           Resources                        (emptyMilo)
 import           Scripts
 import           X360
 import           YAMLTree
+import MoggDecrypt
 
 import STFS.Extract
 
@@ -496,34 +497,7 @@ main = do
 
           let dir = "gen/plan" </> T.unpack planName
 
-          -- Audio files
-          case plan of
-            Plan{..} -> do
-              let locate :: Audio Duration AudioInput -> Action (Audio Duration FilePath)
-                  locate = fmap join . mapM manualLeaf
-                  buildPart planPart fout = let
-                    expr = maybe (Silence 2 $ Frames 0) _planExpr planPart
-                    in locate expr >>= \aud -> buildAudio aud fout
-              dir </> "song.wav"   %> buildPart _song
-              dir </> "guitar.wav" %> buildPart _guitar
-              dir </> "bass.wav"   %> buildPart _bass
-              dir </> "keys.wav"   %> buildPart _keys
-              dir </> "kick.wav"   %> buildPart _kick
-              dir </> "snare.wav"  %> buildPart _snare
-              dir </> "drums.wav"  %> buildPart _drums
-              dir </> "vocal.wav"  %> buildPart _vocal
-            EachPlan{..} -> do
-              let locate :: Maybe J.Instrument -> Action (Audio Duration FilePath)
-                  locate inst = fmap join $ mapM (autoLeaf inst) $ _planExpr _each
-                  buildPart maybeInst fout = locate maybeInst >>= \aud -> buildAudio aud fout
-              forM_ (Nothing : map Just [minBound .. maxBound]) $ \maybeInst -> let
-                planAudioPath :: Maybe Instrument -> FilePath
-                planAudioPath (Just inst) = dir </> map toLower (show inst) <.> "wav"
-                planAudioPath Nothing     = dir </> "song.wav"
-                in planAudioPath maybeInst %> buildPart (fmap jammitInstrument maybeInst)
-            MoggPlan{} -> return ()
-
-          let planPV :: Maybe (PlanAudio Duration AudioInput) -> [(Double, Double)]
+              planPV :: Maybe (PlanAudio Duration AudioInput) -> [(Double, Double)]
               planPV Nothing = [(-1, 0), (1, 0)]
               planPV (Just paud) = let
                 chans = computeChannelsPlan $ _planExpr paud
@@ -615,6 +589,69 @@ main = do
                   in filter (`notElem` notSong) [0 .. length _pans - 1]
                 Plan{..} -> planPV _song
                 EachPlan{..} -> eachPlanPV _each
+
+          -- Audio files
+          case plan of
+            Plan{..} -> do
+              let locate :: Audio Duration AudioInput -> Action (Audio Duration FilePath)
+                  locate = fmap join . mapM manualLeaf
+                  buildPart planPart fout = let
+                    expr = maybe (Silence 2 $ Frames 0) _planExpr planPart
+                    in locate expr >>= \aud -> buildAudio aud fout
+              dir </> "song.wav"   %> buildPart _song
+              dir </> "guitar.wav" %> buildPart _guitar
+              dir </> "bass.wav"   %> buildPart _bass
+              dir </> "keys.wav"   %> buildPart _keys
+              dir </> "kick.wav"   %> buildPart _kick
+              dir </> "snare.wav"  %> buildPart _snare
+              dir </> "drums.wav"  %> buildPart _drums
+              dir </> "vocal.wav"  %> buildPart _vocal
+            EachPlan{..} -> do
+              let locate :: Maybe J.Instrument -> Action (Audio Duration FilePath)
+                  locate inst = fmap join $ mapM (autoLeaf inst) $ _planExpr _each
+                  buildPart maybeInst fout = locate maybeInst >>= \aud -> buildAudio aud fout
+              forM_ (Nothing : map Just [minBound .. maxBound]) $ \maybeInst -> let
+                planAudioPath :: Maybe Instrument -> FilePath
+                planAudioPath (Just inst) = dir </> map toLower (show inst) <.> "wav"
+                planAudioPath Nothing     = dir </> "song.wav"
+                in planAudioPath maybeInst %> buildPart (fmap jammitInstrument maybeInst)
+            MoggPlan{..} -> do
+              let oggChannels []    = buildAudio $ Silence 2 $ Frames 0
+                  oggChannels chans = buildAudio $ Channels chans $ Input $ dir </> "audio.ogg"
+              dir </> "guitar.wav" %> oggChannels _moggGuitar
+              dir </> "bass.wav" %> oggChannels _moggBass
+              dir </> "keys.wav" %> oggChannels _moggKeys
+              dir </> "vocal.wav" %> oggChannels _moggVocal
+              dir </> "kick.wav" %> do
+                oggChannels $ case mixMode of
+                  RBDrums.D0 -> []
+                  RBDrums.D1 -> take 1 _moggDrums
+                  RBDrums.D2 -> take 1 _moggDrums
+                  RBDrums.D3 -> take 2 _moggDrums
+                  RBDrums.D4 -> take 1 _moggDrums
+              dir </> "snare.wav" %> do
+                oggChannels $ case mixMode of
+                  RBDrums.D0 -> []
+                  RBDrums.D1 -> take 1 $ drop 1 _moggDrums
+                  RBDrums.D2 -> take 2 $ drop 1 _moggDrums
+                  RBDrums.D3 -> take 2 $ drop 2 _moggDrums
+                  RBDrums.D4 -> []
+              dir </> "drums.wav" %> do
+                oggChannels $ case mixMode of
+                  RBDrums.D0 -> _moggDrums
+                  RBDrums.D1 -> drop 2 _moggDrums
+                  RBDrums.D2 -> drop 3 _moggDrums
+                  RBDrums.D3 -> drop 4 _moggDrums
+                  RBDrums.D4 -> drop 1 _moggDrums
+              dir </> "song.wav" %> \out -> do
+                need [dir </> "audio.ogg"]
+                chanCount <- liftIO $ Snd.channels <$> Snd.getFileInfo (dir </> "audio.ogg")
+                let songChannels = do
+                      i <- [0 .. chanCount - 1]
+                      guard $ notElem i $ concat
+                        [_moggGuitar, _moggBass, _moggKeys, _moggDrums, _moggVocal]
+                      return i
+                oggChannels songChannels out
 
           -- MIDI files
           let midPS = dir </> "ps/notes.mid"
@@ -778,18 +815,22 @@ main = do
           -- Rock Band OGG and MOGG
           let ogg  = dir </> "audio.ogg"
               mogg = dir </> "audio.mogg"
-          ogg %> \out -> do
-            let parts = map Input $ concat
-                  [ [dir </> "kick.wav"   | _hasDrums    (_instruments songYaml) && mixMode /= RBDrums.D0]
-                  , [dir </> "snare.wav"  | _hasDrums    (_instruments songYaml) && elem mixMode [RBDrums.D1, RBDrums.D2, RBDrums.D3]]
-                  , [dir </> "drums.wav"  | _hasDrums   $ _instruments songYaml]
-                  , [dir </> "bass.wav"   | _hasBass    $ _instruments songYaml]
-                  , [dir </> "guitar.wav" | _hasGuitar  $ _instruments songYaml]
-                  , [dir </> "keys.wav"   | hasAnyKeys  $ _instruments songYaml]
-                  , [dir </> "vocal.wav"  | hasAnyVocal $ _instruments songYaml]
-                  , [dir </> "song-countin.wav"]
-                  ]
-            buildAudio (Merge parts) out
+          ogg %> \out -> case plan of
+            MoggPlan{} -> do
+              need [mogg]
+              liftIO $ moggToOgg mogg out
+            _ -> let
+              parts = map Input $ concat
+                [ [dir </> "kick.wav"   | _hasDrums    (_instruments songYaml) && mixMode /= RBDrums.D0]
+                , [dir </> "snare.wav"  | _hasDrums    (_instruments songYaml) && elem mixMode [RBDrums.D1, RBDrums.D2, RBDrums.D3]]
+                , [dir </> "drums.wav"  | _hasDrums   $ _instruments songYaml]
+                , [dir </> "bass.wav"   | _hasBass    $ _instruments songYaml]
+                , [dir </> "guitar.wav" | _hasGuitar  $ _instruments songYaml]
+                , [dir </> "keys.wav"   | hasAnyKeys  $ _instruments songYaml]
+                , [dir </> "vocal.wav"  | hasAnyVocal $ _instruments songYaml]
+                , [dir </> "song-countin.wav"]
+                ]
+              in buildAudio (Merge parts) out
           mogg %> \out -> case plan of
             MoggPlan{..} -> moggOracle (MoggSearch _moggMD5) >>= \case
               Nothing -> fail "Couldn't find the MOGG file"
