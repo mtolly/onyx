@@ -8,7 +8,7 @@ import           Audio
 import qualified C3
 import           Config                           hiding (Difficulty)
 import           Image
-import           Magma
+import           Magma                            hiding (withSystemTempDirectory)
 import           OneFoot
 import qualified OnyxiteDisplay.Process           as Proc
 import           Reductions
@@ -45,11 +45,12 @@ import           Data.Fixed                       (Milli)
 import           Data.Foldable                    (toList)
 import           Data.Functor.Identity            (runIdentity)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (isPrefixOf, nub, sortOn)
+import           Data.List                        (isPrefixOf, nub, sortOn, stripPrefix)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing,
                                                    listToMaybe, mapMaybe)
 import qualified Data.Text                        as T
+import qualified Data.Yaml                        as Y
 import           Development.Shake                hiding (phony, (%>), (&%>))
 import qualified Development.Shake                as Shake
 import           Development.Shake.Classes
@@ -71,6 +72,8 @@ import           System.Console.GetOpt
 import           System.Directory                 (canonicalizePath,
                                                    setCurrentDirectory)
 import           System.Environment               (getArgs)
+import           System.IO.Temp                   (withSystemTempDirectory)
+import System.Directory (copyFile)
 
 data Argument
   = AudioDir  FilePath
@@ -352,20 +355,24 @@ main = do
         "gen/cover.png" %> \out -> loadRGB8 >>= liftIO . writePng    out . scaleBilinear 256 256
         "gen/cover.dds" %> \out -> loadRGB8 >>= liftIO . writeDDS    out . scaleBilinear 256 256
         "gen/cover.png_xbox" %> \out -> do
-          let dds = out -<.> "dds"
-          need [dds]
-          b <- liftIO $ B.readFile dds
-          let header =
-                [ 0x01, 0x04, 0x08, 0x00, 0x00, 0x00, 0x04, 0x00
-                , 0x01, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00
-                , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-                , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-                ]
-              bytes = B.unpack $ B.drop 0x80 b
-              flipPairs (x : y : xs) = y : x : flipPairs xs
-              flipPairs _ = []
-              b' = B.pack $ header ++ flipPairs bytes
-          liftIO $ B.writeFile out b'
+          let f = _fileAlbumArt $ _metadata songYaml
+          if takeExtension f == ".png_xbox"
+            then copyFile' f out
+            else do
+              let dds = out -<.> "dds"
+              need [dds]
+              b <- liftIO $ B.readFile dds
+              let header =
+                    [ 0x01, 0x04, 0x08, 0x00, 0x00, 0x00, 0x04, 0x00
+                    , 0x01, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00
+                    , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+                    , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+                    ]
+                  bytes = B.unpack $ B.drop 0x80 b
+                  flipPairs (x : y : xs) = y : x : flipPairs xs
+                  flipPairs _ = []
+                  b' = B.pack $ header ++ flipPairs bytes
+              liftIO $ B.writeFile out b'
 
         -- Build a REAPER project
         "notes.RPP" %> \out -> do
@@ -1332,6 +1339,114 @@ main = do
     [] -> return ()
     ["unstfs", stfs, dir] -> extractSTFS stfs dir
     "unstfs" : _ -> error "Usage: onyx unstfs input_rb3con outdir/"
+    ["uncon", stfs, dir] -> withSystemTempDirectory "onyx_con" $ \temp -> do
+      extractSTFS stfs temp
+      -- Not sure what encoding it is, try both.
+      let dtaPath = temp </> "songs/songs.dta"
+          readSongWith :: (FilePath -> IO (D.DTA String)) -> IO (String, D.SongPackage)
+          readSongWith rdr = do
+            dta <- rdr dtaPath
+            (k, chunks) <- case D.treeChunks $ D.topTree dta of
+              [D.Parens (D.Tree _ (D.Key k : chunks))] -> return (k, chunks)
+              _ -> error $ stfs ++ " is not a valid songs.dta with exactly one song"
+            case D.fromChunks chunks of
+              Left e -> error $ stfs ++ " couldn't be unserialized: " ++ e
+              Right pkg -> return (k, pkg)
+      (k_l1, l1) <- readSongWith D.readFileDTA_latin1
+      (k, pkg) <- case D.fromKeyword <$> D.encoding l1 of
+        Just "utf8" -> readSongWith D.readFileDTA_utf8
+        Just "latin1" -> return (k_l1, l1)
+        Nothing -> return (k_l1, l1)
+        Just enc -> error $ stfs ++ " specifies an unrecognized encoding: " ++ enc
+      copyFile (temp </> "songs" </> k </> k <.> "mogg") $ dir </> "audio.mogg"
+      copyFile (temp </> "songs" </> k </> k <.> "mid" ) $ dir </> "notes.mid"
+      copyFile (temp </> "songs" </> k </> "gen" </> (k ++ "_keep.png_xbox") ) $ dir </> "cover.png_xbox"
+      md5 <- show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
+      mid <- Load.fromFile $ dir </> "notes.mid"
+      rb3mid <- printStackTraceIO $ RBFile.readMIDIFile mid
+      Y.encodeFile (dir </> "song.yml") SongYaml
+        { _metadata = Metadata
+          { _title        = T.pack $ D.name pkg
+          , _artist       = T.pack $ D.artist pkg
+          , _album        = T.pack $ fromMaybe "" $ D.albumName pkg
+          , _genre        = T.pack $ D.fromKeyword $ D.genre pkg
+          , _subgenre     = T.pack $ case D.subGenre pkg of
+            Nothing -> error $ "When importing a CON file: no subgenre specified"
+            Just subk -> case stripPrefix "subgenre_" $ D.fromKeyword subk of
+              Nothing -> error $ "When importing a CON file: can't read subgenre: " ++ D.fromKeyword subk
+              Just sub -> sub
+          , _year         = fromIntegral $ D.yearReleased pkg
+          , _fileAlbumArt = "cover.png_xbox"
+          , _trackNumber  = maybe 0 fromIntegral $ D.albumTrackNumber pkg
+          , _fileCountin  = Nothing
+          , _comments     = []
+          , _vocalGender  = Just $ D.vocalGender pkg
+          , _difficulty   = let
+            diffMap :: Map.Map String Integer
+            diffMap = D.fromDict $ D.rank pkg
+            in Difficulties
+              { _difficultyDrums   = Rank <$> Map.lookup "drum" diffMap
+              , _difficultyGuitar  = Rank <$> Map.lookup "guitar" diffMap
+              , _difficultyBass    = Rank <$> Map.lookup "bass" diffMap
+              , _difficultyKeys    = Rank <$> Map.lookup "keys" diffMap
+              , _difficultyProKeys = Rank <$> Map.lookup "real_keys" diffMap
+              , _difficultyVocal   = Rank <$> Map.lookup "vocals" diffMap
+              , _difficultyBand    = Rank <$> Map.lookup "band" diffMap
+              }
+          , _key          = toEnum . fromEnum <$> D.vocalTonicNote pkg
+          , _autogenTheme = AutogenDefault
+          , _author       = T.empty -- TODO
+          , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
+          , _drumKit      = HardRockKit -- TODO
+          , _auto2xBass   = False
+          }
+        , _audio = HM.empty
+        , _jammit = HM.empty
+        , _plans = HM.singleton (T.pack "mogg") $ let
+          instChans :: Map.Map String [Integer]
+          instChans = fmap chanList $ D.fromDict $ D.fromInParens $ D.tracks $ D.song pkg
+          chanList :: Either Integer (D.InParens [Integer]) -> [Integer]
+          chanList (Left n)                = [n]
+          chanList (Right (D.InParens ns)) = ns
+          in MoggPlan
+            { _moggMD5 = T.pack md5
+            , _moggGuitar = maybe [] (map fromIntegral) $ Map.lookup "guitar" instChans
+            , _moggBass   = maybe [] (map fromIntegral) $ Map.lookup "bass" instChans
+            , _moggKeys   = maybe [] (map fromIntegral) $ Map.lookup "keys" instChans
+            , _moggDrums  = maybe [] (map fromIntegral) $ Map.lookup "drum" instChans
+            , _moggVocal  = maybe [] (map fromIntegral) $ Map.lookup "vocals" instChans
+            , _pans = map realToFrac $ D.fromInParens $ D.pans $ D.song pkg
+            , _vols = map realToFrac $ D.fromInParens $ D.vols $ D.song pkg
+            , _planComments = []
+            , _drumMix = let
+              drumEvents = concat [ toList t | RBFile.PartDrums t <- RBFile.s_tracks rb3mid ]
+              drumMixes = [ aud | RBDrums.DiffEvent _ (RBDrums.Mix aud _) <- drumEvents ]
+              in case drumMixes of
+                [] -> RBDrums.D0
+                aud : auds -> if all (== aud) auds
+                  then aud
+                  else error $ "When importing a CON file: inconsistent drum mixes: " ++ show (nub drumMixes)
+            }
+        , _instruments = let
+          diffMap :: Map.Map String Integer
+          diffMap = D.fromDict $ D.rank pkg
+          in Instruments
+            { _hasDrums   = maybe False (/= 0) $ Map.lookup "drum" diffMap
+            , _hasGuitar  = maybe False (/= 0) $ Map.lookup "guitar" diffMap
+            , _hasBass    = maybe False (/= 0) $ Map.lookup "bass" diffMap
+            , _hasKeys    = maybe False (/= 0) $ Map.lookup "keys" diffMap
+            , _hasProKeys = maybe False (/= 0) $ Map.lookup "real_keys" diffMap
+            , _hasVocal   = if maybe False (/= 0) $ Map.lookup "real_keys" diffMap
+              then case D.vocalParts $ D.song pkg of
+                0 -> Vocal0
+                1 -> Vocal1
+                2 -> Vocal2
+                3 -> Vocal3
+                n -> error $ "When importing a CON file: invalid vocal count of " ++ show n
+              else Vocal0
+            }
+        , _published = True
+        }
     _ -> error "Invalid command"
 
 getPercType :: FilePath -> Action (Maybe RBVox.PercussionType)

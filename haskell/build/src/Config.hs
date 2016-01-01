@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -12,6 +13,7 @@ import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace hiding (optional)
 import qualified Data.Aeson                     as A
+import           Data.Aeson                     ((.=))
 import qualified Data.ByteString.Lazy.Char8     as BL8
 import           Data.Char                      (isDigit)
 import           Data.Conduit.Audio             (Duration (..))
@@ -29,6 +31,7 @@ import           RockBand.Common                (Key (..))
 import qualified RockBand.Drums                 as Drums
 import qualified Sound.Jammit.Base              as J
 import           Text.Read                      (readMaybe)
+import Data.Foldable (toList)
 
 type Parser m context = StackTraceT (ReaderT context m)
 
@@ -95,6 +98,21 @@ instance TraceJSON Key where
     Just k -> return k
     Nothing -> expected "the name of a pitch"
 
+instance A.ToJSON Key where
+  toJSON = \case
+    C  -> "C"
+    Cs -> "C sharp"
+    D  -> "D"
+    Ds -> "D sharp"
+    E  -> "E"
+    F  -> "F"
+    Fs -> "F sharp"
+    G  -> "G"
+    Gs -> "G sharp"
+    A  -> "A"
+    As -> "A sharp"
+    B  -> "B"
+
 parseFrom :: (Monad m) => v -> Parser m v a -> Parser m v' a
 parseFrom = mapStackTraceT . withReaderT . const
 
@@ -138,6 +156,14 @@ jammitInstrument = \case
   Keys   -> J.Keyboard
   Vocal  -> J.Vocal
 
+fromJammitInstrument :: J.Instrument -> Instrument
+fromJammitInstrument = \case
+  J.Guitar   -> Guitar
+  J.Bass     -> Bass
+  J.Drums    -> Drums
+  J.Keyboard -> Keys
+  J.Vocal    -> Vocal
+
 instance TraceJSON Instrument where
   traceJSON = traceJSON >>= \s -> case s :: String of
     "guitar" -> return Guitar
@@ -146,6 +172,14 @@ instance TraceJSON Instrument where
     "keys"   -> return Keys
     "vocal"  -> return Vocal
     _        -> expected "an instrument name"
+
+instance A.ToJSON Instrument where
+  toJSON = \case
+    Guitar -> "guitar"
+    Bass   -> "bass"
+    Drums  -> "drums"
+    Keys   -> "keys"
+    Vocal  -> "vocal"
 
 data SongYaml = SongYaml
   { _metadata    :: Metadata
@@ -172,6 +206,16 @@ instance TraceJSON SongYaml where
     _published   <- fromMaybe True <$> optional "published" traceJSON
     expectedKeys ["metadata", "audio", "jammit", "plans", "instruments", "published"]
     return SongYaml{..}
+
+instance A.ToJSON SongYaml where
+  toJSON SongYaml{..} = A.object
+    [ "metadata" .= _metadata
+    , "audio" .= A.Object (fmap A.toJSON _audio)
+    , "jammit" .= A.Object (fmap A.toJSON _jammit)
+    , "plans" .= A.Object (fmap A.toJSON _plans)
+    , "instruments" .= _instruments
+    , "published" .= _published
+    ]
 
 data Metadata = Metadata
   { _title        :: T.Text
@@ -216,6 +260,17 @@ instance TraceJSON Difficulties where
     expectedKeys ["drums", "guitar", "bass", "keys", "pro-keys", "vocal", "band"]
     return Difficulties{..}
 
+instance A.ToJSON Difficulties where
+  toJSON Difficulties{..} = A.object $ concat
+    [ map ("drums"    .=) $ toList _difficultyDrums
+    , map ("guitar"   .=) $ toList _difficultyGuitar
+    , map ("bass"     .=) $ toList _difficultyBass
+    , map ("keys"     .=) $ toList _difficultyKeys
+    , map ("pro-keys" .=) $ toList _difficultyProKeys
+    , map ("vocal"    .=) $ toList _difficultyVocal
+    , map ("band"     .=) $ toList _difficultyBand
+    ]
+
 data Difficulty
   = Tier Integer -- ^ [1..7]: 1 = no dots, 7 = devil dots
   | Rank Integer -- ^ [1..]
@@ -230,11 +285,21 @@ instance TraceJSON Difficulty where
     A.Number n -> return $ Tier $ round n
     _ -> expected "a difficulty value (tier or rank)"
 
+instance A.ToJSON Difficulty where
+  toJSON = \case
+    Tier i -> A.object ["tier" .= i]
+    Rank i -> A.object ["rank" .= i]
+
 instance TraceJSON Magma.Gender where
   traceJSON = lift ask >>= \case
     A.String "female" -> return Magma.Female
     A.String "male"   -> return Magma.Male
     _                 -> expected "a gender (male or female)"
+
+instance A.ToJSON Magma.Gender where
+  toJSON = \case
+    Magma.Female -> "female"
+    Magma.Male   -> "male"
 
 instance TraceJSON Metadata where
   traceJSON = object $ do
@@ -264,6 +329,30 @@ instance TraceJSON Metadata where
       ]
     return Metadata{..}
 
+instance A.ToJSON Metadata where
+  toJSON Metadata{..} = A.object $ concat
+    [ ["title" .= _title]
+    , ["artist" .= _artist]
+    , ["album" .= _album]
+    , ["genre" .= _genre]
+    , ["subgenre" .= _subgenre]
+    , ["year" .= _year]
+    , ["file-album-art" .= _fileAlbumArt]
+    , ["track-number" .= _trackNumber]
+    , map ("file-countin" .=) $ toList _fileCountin
+    , case _comments of
+      [] -> []
+      _  -> ["comments" .= _comments]
+    , map ("vocal-gender" .=) $ toList _vocalGender
+    , ["difficulty" .= _difficulty]
+    , map ("key" .=) $ toList _key
+    , ["autogen-theme" .= _autogenTheme]
+    , ["author" .= _author]
+    , ["rating" .= _rating]
+    , ["drum-kit" .= _drumKit]
+    , ["auto-2x-bass" .= _auto2xBass]
+    ]
+
 data AudioFile = AudioFile
   { _md5      :: Maybe T.Text
   , _frames   :: Maybe Integer
@@ -282,6 +371,15 @@ instance TraceJSON AudioFile where
     expectedKeys ["md5", "frames", "name", "rate", "channels"]
     return AudioFile{..}
 
+instance A.ToJSON AudioFile where
+  toJSON AudioFile{..} = A.object $ concat
+    [ map ("md5"    .=) $ toList _md5
+    , map ("frames" .=) $ toList _frames
+    , map ("name"   .=) $ toList _name
+    , map ("rate"   .=) $ toList _rate
+    , ["channels"   .= _channels]
+    ]
+
 data JammitTrack = JammitTrack
   { _jammitTitle  :: Maybe T.Text
   , _jammitArtist :: Maybe T.Text
@@ -293,6 +391,12 @@ instance TraceJSON JammitTrack where
     _jammitArtist <- optional "artist" traceJSON
     expectedKeys ["title", "artist"]
     return JammitTrack{..}
+
+instance A.ToJSON JammitTrack where
+  toJSON JammitTrack{..} = A.object $ concat
+    [ map ("title" .=) $ toList _jammitTitle
+    , map ("artist" .=) $ toList _jammitArtist
+    ]
 
 data PlanAudio t a = PlanAudio
   { _planExpr :: Audio t a
@@ -310,6 +414,14 @@ instance (TraceJSON t, TraceJSON a) => TraceJSON (PlanAudio t a) where
       return PlanAudio{..}
       )
     ] $ (\expr -> PlanAudio expr [] []) <$> traceJSON
+
+instance (A.ToJSON t, A.ToJSON a) => A.ToJSON (PlanAudio t a) where
+  toJSON (PlanAudio expr [] []) = A.toJSON expr
+  toJSON PlanAudio{..} = A.object
+    [ "expr" .= _planExpr
+    , "pans" .= _planPans
+    , "vols" .= _planVols
+    ]
 
 data Plan
   = Plan
@@ -378,6 +490,36 @@ instance TraceJSON Plan where
       )
     ] (expected "an object with one of the keys \"each\", \"song\", or \"mogg-md5\"")
 
+instance A.ToJSON Plan where
+  toJSON = \case
+    Plan{..} -> A.object $ concat
+      [ map ("song" .=) $ toList _song
+      , map ("guitar" .=) $ toList _guitar
+      , map ("bass" .=) $ toList _bass
+      , map ("keys" .=) $ toList _keys
+      , map ("kick" .=) $ toList _kick
+      , map ("snare" .=) $ toList _snare
+      , map ("drums" .=) $ toList _drums
+      , map ("vocal" .=) $ toList _vocal
+      , ["comments" .= _planComments | not $ null _planComments]
+      ]
+    EachPlan{..} -> A.object $ concat
+      [ map ("each" .=) $ toList _each
+      , ["comments" .= _planComments | not $ null _planComments]
+      ]
+    MoggPlan{..} -> A.object $ concat
+      [ ["mogg-md5" .= _moggMD5]
+      , ["guitar" .= _moggGuitar | not $ null _moggGuitar]
+      , ["bass" .= _moggBass | not $ null _moggBass]
+      , ["keys" .= _moggKeys | not $ null _moggKeys]
+      , ["drums" .= _moggDrums | not $ null _moggDrums]
+      , ["vocal" .= _moggVocal | not $ null _moggVocal]
+      , ["pans" .= _pans]
+      , ["vols" .= _vols]
+      , ["comments" .= _planComments | not $ null _planComments]
+      , ["drum-mix" .= _drumMix]
+      ]
+
 instance TraceJSON Drums.Audio where
   traceJSON = traceJSON >>= \n -> case n :: Int of
     0 -> return Drums.D0
@@ -386,6 +528,9 @@ instance TraceJSON Drums.Audio where
     3 -> return Drums.D3
     4 -> return Drums.D4
     _ -> expected "a valid drum mix mode (a number 0 through 4)"
+
+instance A.ToJSON Drums.Audio where
+  toJSON = A.toJSON . fromEnum
 
 data AudioInput
   = Named T.Text
@@ -411,12 +556,38 @@ instance TraceJSON AudioInput where
       )
     ] (Named <$> traceJSON)
 
+instance A.ToJSON AudioInput where
+  toJSON = \case
+    Named t -> A.toJSON t
+    JammitSelect (J.Only p) t -> A.object ["only" .= [A.toJSON $ jammitPartToTitle p, A.toJSON t]]
+    JammitSelect (J.Without i) t -> A.object ["without" .= [A.toJSON $ fromJammitInstrument i, A.toJSON t]]
+
+jammitPartToTitle :: J.Part -> String
+jammitPartToTitle = \case
+  J.PartGuitar1 -> "Guitar 1"
+  J.PartGuitar2 -> "Guitar 2"
+  J.PartBass -> "Bass"
+  J.PartDrums1 -> "Drums 1"
+  J.PartDrums2 -> "Drums 2"
+  J.PartKeys1 -> "Keys 1"
+  J.PartKeys2 -> "Keys 2"
+  J.PartPiano -> "Piano"
+  J.PartSynth -> "Synth"
+  J.PartOrgan -> "Organ"
+  J.PartVocal -> "Vocal"
+  J.PartBVocals -> "B Vocals"
+
 instance TraceJSON Edge where
   traceJSON = lift ask >>= \case
     A.String "start" -> return Start
     A.String "begin" -> return Start
     A.String "end"   -> return End
     _                -> expected "an audio edge (start or end)"
+
+instance A.ToJSON Edge where
+  toJSON = \case
+    Start -> "start"
+    End -> "end"
 
 algebraic1 :: (Monad m) => T.Text -> (a -> b) -> Parser m A.Value a -> Parser m A.Value b
 algebraic1 k f p1 = object $ theKey k $ do
@@ -472,6 +643,21 @@ instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
               | V.length v == 3 -> algebraic3 s  f traceJSON traceJSON traceJSON
             _ -> expected $ "2 or 3 fields in the " ++ show s ++ " ADT"
 
+instance (A.ToJSON t, A.ToJSON a) => A.ToJSON (Audio t a) where
+  toJSON = \case
+    Silence chans t -> A.object ["silence" .= [A.toJSON chans, A.toJSON t]]
+    Input x -> A.toJSON x
+    Mix auds -> A.object ["mix" .= auds]
+    Merge auds -> A.object ["merge" .= auds]
+    Concatenate auds -> A.object ["concatenate" .= auds]
+    Gain d aud -> A.object ["gain" .= [A.toJSON d, A.toJSON aud]]
+    Take e t aud -> A.object ["take" .= [A.toJSON e, A.toJSON t, A.toJSON aud]]
+    Drop e t aud -> A.object ["drop" .= [A.toJSON e, A.toJSON t, A.toJSON aud]]
+    Fade e t aud -> A.object ["fade" .= [A.toJSON e, A.toJSON t, A.toJSON aud]]
+    Pad e t aud -> A.object ["pad" .= [A.toJSON e, A.toJSON t, A.toJSON aud]]
+    Resample aud -> A.object ["resample" .= aud]
+    Channels ns aud -> A.object ["channels" .= [A.toJSON ns, A.toJSON aud]]
+
 instance TraceJSON Duration where
   traceJSON = lift ask >>= \case
     OneKey "frames" v -> inside "frames duration" $ Frames <$> parseFrom v traceJSON
@@ -487,6 +673,11 @@ instance TraceJSON Duration where
               | Just seconds <- readMaybe $ T.unpack secstr
               -> return seconds
             _ -> traceJSON -- will succeed if JSON number
+
+instance A.ToJSON Duration where
+  toJSON = \case
+    Frames f -> A.object ["frames" .= f]
+    Seconds s -> A.toJSON s -- TODO: use MM:SS representation
 
 data Instruments = Instruments
   { _hasDrums   :: Bool
@@ -513,6 +704,18 @@ instance TraceJSON Instruments where
     _hasVocal   <- fromMaybe Vocal0 <$> optional "vocal"    traceJSON
     expectedKeys ["drums", "guitar", "bass", "keys", "pro-keys", "vocal"]
     return Instruments{..}
+
+instance A.ToJSON Instruments where
+  toJSON Instruments{..} = A.object $ concat
+    [ ["drums" .= True | _hasDrums]
+    , ["guitar" .= True | _hasGuitar]
+    , ["bass" .= True | _hasBass]
+    , ["keys" .= True | _hasKeys]
+    , ["pro-keys" .= True | _hasProKeys]
+    , case _hasVocal of
+      Vocal0 -> []
+      _ -> ["vocal" .= fromEnum _hasVocal]
+    ]
 
 data VocalCount = Vocal0 | Vocal1 | Vocal2 | Vocal3
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -550,6 +753,9 @@ instance TraceJSON AutogenTheme where
       Nothing    -> expected "the name of an autogen theme or null"
     _                  -> expected "the name of an autogen theme or null"
 
+instance A.ToJSON AutogenTheme where
+  toJSON = A.toJSON . show -- maybe put spaces in here later
+
 data Rating
   = FamilyFriendly
   | SupervisionRecommended
@@ -572,6 +778,9 @@ instance TraceJSON Rating where
       _ -> expected "a valid content rating or null"
     _          -> expected "a valid content rating or null"
 
+instance A.ToJSON Rating where
+  toJSON = A.toJSON . show -- maybe put spaces in here later
+
 data DrumKit
   = HardRockKit
   | ArenaKit
@@ -587,3 +796,11 @@ instance TraceJSON DrumKit where
       Just kit -> return kit
       Nothing    -> expected "the name of a drum kit or null"
     _                  -> expected "the name of a drum kit or null"
+
+instance A.ToJSON DrumKit where
+  toJSON = \case
+    HardRockKit -> "Hard Rock Kit"
+    ArenaKit -> "Arena Kit"
+    VintageKit -> "Vintage Kit"
+    TrashyKit -> "Trashy Kit"
+    ElectronicKit -> "Electronic Kit"

@@ -55,6 +55,7 @@ data Difficulty = Easy | Medium | Hard | Expert
 
 readCommand' :: (Command a) => E.T -> Maybe a
 readCommand' (E.MetaEvent (Meta.TextEvent s)) = readCommand s
+readCommand' (E.MetaEvent (Meta.Lyric s)) = readCommand s
 readCommand' _ = Nothing
 
 -- | Turns a string like @\"[foo bar baz]\"@ into some parsed type.

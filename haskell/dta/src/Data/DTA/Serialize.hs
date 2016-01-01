@@ -102,6 +102,7 @@ instance ToChunks Float where
   toChunks f = [Float f]
 
 instance FromChunks Float where
+  fromChunks [Int   i] = Right $ fromIntegral i
   fromChunks [Float f] = Right f
   fromChunks cs = Left $ "Couldn't read as Float: " ++ show cs
 
