@@ -93,7 +93,7 @@ newtype AudioSearch = AudioSearch String
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
 
 -- | Oracle for a Jammit track search.
--- The Strings are the title and artist.
+-- The String is the 'show' of a value of type 'JammitTrack'.
 newtype JammitSearch = JammitSearch String
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
 
@@ -643,7 +643,7 @@ main = do
                   RBDrums.D2 -> drop 3 _moggDrums
                   RBDrums.D3 -> drop 4 _moggDrums
                   RBDrums.D4 -> drop 1 _moggDrums
-              dir </> "song.wav" %> \out -> do
+              dir </> "song-countin.wav" %> \out -> do
                 need [dir </> "audio.ogg"]
                 chanCount <- liftIO $ Snd.channels <$> Snd.getFileInfo (dir </> "audio.ogg")
                 let songChannels = do
@@ -652,6 +652,23 @@ main = do
                         [_moggGuitar, _moggBass, _moggKeys, _moggDrums, _moggVocal]
                       return i
                 oggChannels songChannels out
+
+          dir </> "everything.wav" %> \out -> do
+            let files = map (\w -> dir </> w <.> "wav") $ words
+                  "song-countin guitar bass keys kick snare drums vocal"
+            need files
+            -- TODO: apply pans and vols
+            let stereoSrc f = do
+                  info <- liftIO $ Snd.getFileInfo f
+                  if Snd.frames info == 0
+                    then return []
+                    else case Snd.channels info of
+                      0 -> return []
+                      1 -> return [Merge [Input f, Input f]]
+                      2 -> return [Input f]
+                      n -> error $ "everything.wav: " ++ show n ++ "-channel audio (" ++ f ++ ") not supported yet"
+            srcs <- concatMapM stereoSrc files
+            buildAudio (Mix srcs) out
 
           -- MIDI files
           let midPS = dir </> "ps/notes.mid"
@@ -805,10 +822,13 @@ main = do
           dir </> "countin.wav" %> \out -> case _fileCountin $ _metadata songYaml of
             Nothing -> buildAudio (Silence 1 $ Frames 0) out
             Just hit -> makeCountin midcountin hit out
-          dir </> "song-countin.wav" %> \out -> do
-            let song = Input $ dir </> "song.wav"
-                countin = Input $ dir </> "countin.wav"
-            buildAudio (Mix [song, countin]) out
+          case plan of
+            MoggPlan{} -> return () -- handled above
+            _          -> do
+              dir </> "song-countin.wav" %> \out -> do
+                let song = Input $ dir </> "song.wav"
+                    countin = Input $ dir </> "countin.wav"
+                buildAudio (Mix [song, countin]) out
           dir </> "song-countin.ogg" %> \out ->
             buildAudio (Input $ out -<.> "wav") out
 
@@ -854,6 +874,7 @@ main = do
 
           dir </> "ps/song.ini" %> \out -> do
             (pstart, _) <- previewBounds midPS
+            len <- songLength midPS
             liftIO $ writeFile out $ unlines
               [ "[song]"
               , "artist = " ++ T.unpack (_artist $ _metadata songYaml)
@@ -863,24 +884,37 @@ main = do
               , "charter = " ++ T.unpack (_author $ _metadata songYaml)
               , "year = " ++ show (_year $ _metadata songYaml)
               , "genre = " ++ T.unpack (_genre $ _metadata songYaml) -- TODO: capitalize
-              , "pro_drums = True"
+              , if _hasDrums $ _instruments songYaml then "pro_drums = True" else ""
+              , "song_length = " ++ show len
               , "preview_start_time = " ++ show pstart
               -- difficulty tiers go from 0 to 6, or -1 for no part
+              , "diff_band = "        ++ show (bandTier    - 1)
               , "diff_guitar = "      ++ show (guitarTier  - 1)
               , "diff_bass = "        ++ show (bassTier    - 1)
               , "diff_drums = "       ++ show (drumsTier   - 1)
+              , "diff_drums_real = "  ++ show (drumsTier   - 1)
               , "diff_keys = "        ++ show (keysTier    - 1)
               , "diff_keys_real = "   ++ show (proKeysTier - 1)
+              , "diff_vocals = "      ++ show (vocalTier   - 1)
               , "diff_vocals_harm = " ++ show (vocalTier   - 1)
+              , "diff_dance = -1"
+              , "diff_bass_real = -1"
+              , "diff_guitar_real = -1"
+              , "diff_bass_real_22 = -1"
+              , "diff_guitar_real_22 = -1"
+              , "diff_guitar_coop = -1"
+              , "diff_rhythm = -1"
+              , "diff_drums_real_ps = -1"
+              , "diff_keys_real_ps = -1"
               ]
-          dir </> "ps/drums.ogg"   %> buildAudio (Input $ dir </> "drums.wav" )
-          dir </> "ps/drums_1.ogg" %> buildAudio (Input $ dir </> "kick.wav"  )
-          dir </> "ps/drums_2.ogg" %> buildAudio (Input $ dir </> "snare.wav" )
-          dir </> "ps/drums_3.ogg" %> buildAudio (Input $ dir </> "drums.wav" )
-          dir </> "ps/guitar.ogg"  %> buildAudio (Input $ dir </> "guitar.wav")
-          dir </> "ps/keys.ogg"    %> buildAudio (Input $ dir </> "keys.wav"  )
-          dir </> "ps/rhythm.ogg"  %> buildAudio (Input $ dir </> "bass.wav"  )
-          dir </> "ps/vocal.ogg"   %> buildAudio (Input $ dir </> "vocals.wav")
+          dir </> "ps/drums.ogg"   %> buildAudio (Input $ dir </> "drums.wav"       )
+          dir </> "ps/drums_1.ogg" %> buildAudio (Input $ dir </> "kick.wav"        )
+          dir </> "ps/drums_2.ogg" %> buildAudio (Input $ dir </> "snare.wav"       )
+          dir </> "ps/drums_3.ogg" %> buildAudio (Input $ dir </> "drums.wav"       )
+          dir </> "ps/guitar.ogg"  %> buildAudio (Input $ dir </> "guitar.wav"      )
+          dir </> "ps/keys.ogg"    %> buildAudio (Input $ dir </> "keys.wav"        )
+          dir </> "ps/rhythm.ogg"  %> buildAudio (Input $ dir </> "bass.wav"        )
+          dir </> "ps/vocal.ogg"   %> buildAudio (Input $ dir </> "vocal.wav"       )
           dir </> "ps/song.ogg"    %> buildAudio (Input $ dir </> "song-countin.wav")
           dir </> "ps/album.png"   %> copyFile' "gen/cover.png"
           phony (dir </> "ps") $ need $ map (\f -> dir </> "ps" </> f) $ concat
