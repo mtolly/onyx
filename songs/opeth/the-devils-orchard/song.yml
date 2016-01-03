@@ -1,0 +1,15 @@
+metadata:
+  title: "The Devil's Orchard"
+  file-include: "../../../albums/heritage.yml"
+  track-number: 2
+audio:
+  album-track:
+    md5: 1d438c33fbe188de0e3a38f6f623013c
+    frames: 17625300
+plans:
+  album:
+    song:
+      pad: [3.929, album-track]
+instruments:
+  drums: true
+published: false
