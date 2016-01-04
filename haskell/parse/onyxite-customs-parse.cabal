@@ -21,6 +21,7 @@ library
     RockBand.ProKeys
     RockBand.ProGuitar
     RockBand.Venue
+    RockBand.PhaseShiftKeys
   build-depends:
     base >= 4.6 && < 4.9
     , event-list, non-negative, midi
