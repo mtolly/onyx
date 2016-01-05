@@ -8,20 +8,19 @@ import           Audio
 import qualified C3
 import           Config                           hiding (Difficulty)
 import           Image
-import           Magma                            hiding (withSystemTempDirectory)
+import           Magma                            hiding
+                                                   (withSystemTempDirectory)
+import           MoggDecrypt
 import           OneFoot
 import qualified OnyxiteDisplay.Process           as Proc
+import           Reaper.Base                      (writeRPP)
+import qualified Reaper.Build                     as RPP
 import           Reductions
 import           Resources                        (emptyMilo)
 import           Scripts
+import           STFS.Extract
 import           X360
 import           YAMLTree
-import MoggDecrypt
-
-import STFS.Extract
-
-import           Reaper.Base                      (writeRPP)
-import qualified Reaper.Build                     as RPP
 
 import           Codec.Picture
 import           Control.Monad.Extra
@@ -30,7 +29,9 @@ import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
 import qualified Data.Aeson                       as A
+import           Data.Binary.Get                  (getWord32le, runGet)
 import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (toLower)
 import           Data.Conduit.Audio
@@ -46,7 +47,8 @@ import           Data.Fixed                       (Milli)
 import           Data.Foldable                    (toList)
 import           Data.Functor.Identity            (runIdentity)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (isPrefixOf, nub, sortOn, stripPrefix)
+import           Data.List                        (isPrefixOf, nub, sortOn,
+                                                   stripPrefix)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing,
                                                    listToMaybe, mapMaybe)
@@ -72,12 +74,13 @@ import qualified Sound.MIDI.Util                  as U
 import           System.Console.GetOpt
 import           System.Directory                 (canonicalizePath,
                                                    setCurrentDirectory)
+import           System.Directory                 (copyFile)
 import           System.Environment               (getArgs)
+import           System.IO                        (IOMode (..), SeekMode (..),
+                                                   hSeek, withBinaryFile)
+import           System.IO.Extra                  (latin1, readFileEncoding',
+                                                   utf8)
 import           System.IO.Temp                   (withSystemTempDirectory)
-import System.Directory (copyFile)
-import System.IO (hSeek, IOMode(..), withBinaryFile, SeekMode(..))
-import Data.Binary.Get (runGet, getWord32le)
-import qualified Data.ByteString.Char8 as B8
 
 data Argument
   = AudioDir  FilePath
@@ -1422,8 +1425,11 @@ main = do
       if magic `elem` [B8.pack "CON ", B8.pack "STFS"]
         then withSystemTempDirectory "onyx_con" $ \temp -> do
           extractSTFS file temp
-          (k, pkg) <- readRB3DTA $ temp </> "songs/songs.dta"
-          importRB3 pkg Nothing
+          (k, pkg, isUTF8) <- readRB3DTA $ temp </> "songs/songs.dta"
+          -- C3 puts extra info in DTA comments
+          dtaLines <- fmap (lines . filter (/= '\r')) $ readFileEncoding' (if isUTF8 then utf8 else latin1) $ temp </> "songs/songs.dta"
+          let author = listToMaybe $ mapMaybe (stripPrefix ";Song authored by ") dtaLines
+          importRB3 pkg (fmap T.pack author)
             (temp </> "songs" </> k </> k <.> "mid")
             (temp </> "songs" </> k </> k <.> "mogg")
             (temp </> "songs" </> k </> "gen" </> (k ++ "_keep.png_xbox"))
@@ -1445,8 +1451,8 @@ main = do
                 getFile 2 >>= BL.writeFile (temp </> "audio.mogg")
                 getFile 4 >>= BL.writeFile (temp </> "cover.bmp")
                 getFile 6 >>= BL.writeFile (temp </> "extra.dta")
-                (_, pkg) <- readRB3DTA $ temp </> "songs.dta"
-                extra <- D.readFileDTA_utf8 $ temp </> "extra.dta"
+                (_, pkg, isUTF8) <- readRB3DTA $ temp </> "songs.dta"
+                extra <- (if isUTF8 then D.readFileDTA_utf8 else D.readFileDTA_latin1) $ temp </> "extra.dta"
                 let author = case extra of
                       D.DTA _ (D.Tree _ [D.Parens (D.Tree _
                         ( D.String "backend"
@@ -1465,7 +1471,7 @@ main = do
     "import" : _ -> error "Usage: onyx import [input_rb3con|input.rba] outdir/"
     _ -> error "Invalid command"
 
-readRB3DTA :: FilePath -> IO (String, D.SongPackage)
+readRB3DTA :: FilePath -> IO (String, D.SongPackage, Bool)
 readRB3DTA dtaPath = do
   -- Not sure what encoding it is, try both.
   let readSongWith :: (FilePath -> IO (D.DTA String)) -> IO (String, D.SongPackage)
@@ -1479,9 +1485,9 @@ readRB3DTA dtaPath = do
           Right pkg -> return (k, pkg)
   (k_l1, l1) <- readSongWith D.readFileDTA_latin1
   case D.fromKeyword <$> D.encoding l1 of
-    Just "utf8" -> readSongWith D.readFileDTA_utf8
-    Just "latin1" -> return (k_l1, l1)
-    Nothing -> return (k_l1, l1)
+    Just "utf8" -> (\(k, pkg) -> (k, pkg, True)) <$> readSongWith D.readFileDTA_utf8
+    Just "latin1" -> return (k_l1, l1, False)
+    Nothing -> return (k_l1, l1, False)
     Just enc -> error $ dtaPath ++ " specifies an unrecognized encoding: " ++ enc
 
 importRB3 :: D.SongPackage -> Maybe T.Text -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> IO ()
