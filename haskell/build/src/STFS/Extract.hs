@@ -27,7 +27,7 @@ fst3 :: (a, b, c) -> a
 fst3 (x, _, _) = x
 
 extractSTFS :: FilePath -> FilePath -> IO ()
-extractSTFS stfs dir = withFile stfs ReadMode $ \fd -> do
+extractSTFS stfs dir = withBinaryFile stfs ReadMode $ \fd -> do
   header <- BL.hGet fd 0x971A
   let -- volume_descriptor_size = BL.index header 0x379
       -- block_seperation = BL.index header 0x37B

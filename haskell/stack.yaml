@@ -6,6 +6,10 @@ packages:
 - 'stack-trace'
 - 'display'
 - 'editor'
+- location:
+    git: git@github.com:mtolly/Juicy.Pixels
+    commit: 76b0bdcbe7399e04e3dd9287f75f45960b79d66f
+  extra-dep: true
 extra-deps:
 - conduit-audio-0.2.0.1
 - conduit-audio-samplerate-0.1.0.1
