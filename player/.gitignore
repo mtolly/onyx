@@ -1,0 +1,10 @@
+/bower_components/
+/node_modules/
+/.pulp-cache/
+/output/
+/.psci*
+/src/.webpack.js
+
+app.js
+app.min.js
+song.js
