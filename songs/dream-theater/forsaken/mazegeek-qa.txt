@@ -1,0 +1,49 @@
+* = my responses
+
+PRO KEYS
+
+(Note: range markers are not showing up for me so I'll give suggestions on ranges, although you probably did it right).
+
+This chart generally looks pretty good. Hard to hear some of the rhythm of the chords but you got the chords right so I trust you on what you heard in terms of rhythm.
+
+The big thing here is the wrapping on the riff at measure 8 and places like it. I think one of two things: either the C should be moved down to reflect the octave change of the whole
+F-E-C, or move the F and E notes up. Should be consistent. If you were to move the F-E notes up, make it all D range. If you move the C note down, then shift back and forth between
+C range and D range each measure.
+
+I'm assuming the 1st chorus is entirely in A range until the transition at measure 42, when it switches to D range.
+
+Measure 70 should start F range.
+
+Measure 88 sustain should probably be extended to keep consistency with the rest of the sustains.
+
+DRUMS
+
+I think the YGs in the choruses should be blue cymbals? Esp. the ones that come out of fills.
+* DONE - the double crashes are clever editing in dvd I think
+
+44.4 - I don't hear a flam.
+* DONE
+
+51.1 and 51.2 sound like the same cymbal hits. Perhaps both YGs?
+* Nope, they are different I think
+
+80.3 sounds like a snare flam.
+* Nope, it's a snare and cymbal
+
+88.3 - I hear a crash instead of a hi-hat.
+* Does this mean 88.1? If so DONE
+
+110.1 - Not sure if the YG flows here.
+* DONE
+
+GUITAR
+
+For the second measure of the main riffs, do it this way instead? https://gyazo.com/899dafd1a403eb0a039bf06b9f98bbce
+* I think the way I did it is closer to the tab book - wasn't sure what to do with the 2nd to last note since it's actually a chord (but open/muted), but the notes before it are good
+
+BASS
+
+I feel like the main riff sections should be all strums. It matches the guitar's all strums too.
+
+I think guitar and bass's last notes should end at the same time.
+* DONE
