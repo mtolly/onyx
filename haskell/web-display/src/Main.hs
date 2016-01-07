@@ -15,8 +15,7 @@ import           Data.Foldable                    (toList)
 import           Data.JSString                    (pack)
 import           Data.Maybe                       (isJust)
 import           GHCJS.Foreign.Callback
-import           GHCJS.Marshal                    (fromJSVal,
-                                                   fromJSValUnchecked)
+import           GHCJS.Marshal                    (fromJSVal)
 import           GHCJS.Types
 import           JavaScript.Web.AnimationFrame    (waitForAnimationFrame)
 import qualified JavaScript.Web.Canvas            as C
@@ -86,12 +85,6 @@ foreign import javascript unsafe
 foreign import javascript unsafe "$1.clientX" mouseEventX :: JSVal -> IO Int
 foreign import javascript unsafe "$1.clientY" mouseEventY :: JSVal -> IO Int
 
-foreign import javascript unsafe "prompt($1)"
-  js_prompt :: JSString -> IO JSVal
-
-prompt :: String -> IO (Maybe String)
-prompt s = js_prompt (pack s) >>= fromJSValUnchecked
-
 data MouseEvent
   = MouseDown Int Int
   -- | MouseUp   Int Int
@@ -140,16 +133,12 @@ main = do
   -- addMouseListener "mousemove" MouseMove
 
   get <- retrieveGET
-  let param s = case lookup s get of
-        Just x  -> return x
-        Nothing -> prompt ("Enter " ++ s) >>= \case
-          Just x  -> return x
-          Nothing -> error "User canceled required prompt."
-  artist <- param "artist"
-  title <- param "title"
+  let folder = case (lookup "artist" get, lookup "title" get) of
+        (Just artist, Just title) -> "songs/" ++ artist ++ "/" ++ title ++ "/gen/plan/album"
+        _ -> "."
   resp <- xhrByteString $ Request
     { reqMethod = GET
-    , reqURI = pack $ "songs/" ++ artist ++ "/" ++ title ++ "/gen/plan/album/display.json"
+    , reqURI = pack $ folder ++ "/display.json"
     , reqLogin = Nothing
     , reqHeaders = []
     , reqWithCredentials = False
@@ -166,7 +155,7 @@ main = do
   getImage <- imageGetter
   howl <- Audio.load $ do
     ext <- ["ogg", "mp3"]
-    return $ "songs/" ++ artist ++ "/" ++ title ++ "/gen/plan/album/preview-audio." ++ ext
+    return $ folder ++ "/preview-audio." ++ ext
   audioLen <- Audio.getDuration howl
   let endEvent = if end > 0 then end else audioLen
 

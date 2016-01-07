@@ -16,7 +16,7 @@ import qualified OnyxiteDisplay.Process           as Proc
 import           Reaper.Base                      (writeRPP)
 import qualified Reaper.Build                     as RPP
 import           Reductions
-import           Resources                        (emptyMilo)
+import           Resources                        (emptyMilo, webDisplay)
 import           Scripts
 import           STFS.Extract
 import           X360
@@ -73,6 +73,7 @@ import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.Util                  as U
 import           System.Console.GetOpt
 import           System.Directory                 (canonicalizePath,
+                                                   createDirectoryIfMissing,
                                                    setCurrentDirectory)
 import           System.Directory                 (copyFile)
 import           System.Environment               (getArgs)
@@ -659,6 +660,13 @@ main = do
                       return i
                 oggChannels songChannels out
 
+          phony (dir </> "web") $ do
+            liftIO $ forM_ webDisplay $ \(f, bs) -> do
+              createDirectoryIfMissing True $ dir </> "web" </> takeDirectory f
+              B.writeFile (dir </> "web" </> f) bs
+            forM_ ["preview-audio.mp3", "preview-audio.ogg", "display.json"] $ \f -> do
+              copyFile' (dir </> f) (dir </> "web" </> f)
+
           dir </> "everything.wav" %> \out -> do
             let files = map (\w -> dir </> w <.> "wav") $ words
                   "song-countin guitar bass keys kick snare drums vocal"
@@ -868,7 +876,7 @@ main = do
           -- Low-quality audio files for the online preview app
           let preview ext = dir </> "preview-audio" <.> ext
           preview "wav" %> \out -> do
-            let src = dir </> "song-countin.wav"
+            let src = dir </> "everything.wav"
             need [src]
             cmd "sox" [src, out] "remix 1,2"
           preview "mp3" %> \out -> do
