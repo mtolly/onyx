@@ -33,7 +33,7 @@ import           Data.Binary.Get                  (getWord32le, runGet)
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
-import           Data.Char                        (toLower)
+import           Data.Char                        (toLower, isSpace)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.Sndfile
 import qualified Data.Digest.Pure.MD5             as MD5
@@ -659,11 +659,17 @@ main = do
                       return i
                 oggChannels songChannels out
 
+          dir </> "song.js" %> \out -> do
+            let json = dir </> "display.json"
+            s <- readFile' json
+            let s' = reverse $ dropWhile isSpace $ reverse $ dropWhile isSpace s
+                js = "window.onyxSong = " ++ s' ++ ";\n"
+            liftIO $ writeFile out js
           phony (dir </> "web") $ do
             liftIO $ forM_ webDisplay $ \(f, bs) -> do
               Dir.createDirectoryIfMissing True $ dir </> "web" </> takeDirectory f
               B.writeFile (dir </> "web" </> f) bs
-            let songFiles = ["preview-audio.mp3", "preview-audio.ogg", "display.json"]
+            let songFiles = ["preview-audio.mp3", "preview-audio.ogg", "song.js"]
             need $ map (dir </>) songFiles
             forM_ songFiles $ \f -> do
               copyFile' (dir </> f) (dir </> "web" </> f)

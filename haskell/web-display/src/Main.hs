@@ -13,7 +13,8 @@ import qualified Data.Aeson                       as A
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Foldable                    (toList)
 import           Data.JSString                    (pack)
-import           Data.Maybe                       (isJust)
+import           Data.JSString.Text               (lazyTextFromJSString)
+import           Data.Maybe                       (isJust, fromMaybe)
 import           GHCJS.Foreign.Callback
 import           GHCJS.Marshal                    (fromJSVal)
 import           GHCJS.Types
@@ -24,6 +25,7 @@ import           Linear                           (V2 (..), V4 (..))
 import           Linear.Affine                    (Point (..))
 import           OnyxiteDisplay.Draw
 import           OnyxiteDisplay.Process
+import qualified Data.Text.Lazy.Encoding          as TLE
 
 import qualified Audio
 import           Images
@@ -34,6 +36,10 @@ foreign import javascript unsafe
   \   return [tmp[0], decodeURIComponent(tmp[1])];           \
   \ })                                                       "
   js_retrieveGET :: IO JSVal
+
+foreign import javascript unsafe
+  "JSON.stringify(window.onyxSong)"
+  bakedInSong :: IO JSString
 
 retrieveGET :: IO [(String, String)]
 retrieveGET = js_retrieveGET >>= fromJSVal >>= \case
@@ -134,20 +140,23 @@ main = do
 
   get <- retrieveGET
   let folder = case (lookup "artist" get, lookup "title" get) of
-        (Just artist, Just title) -> "songs/" ++ artist ++ "/" ++ title ++ "/gen/plan/album"
-        _ -> "."
-  resp <- xhrByteString $ Request
-    { reqMethod = GET
-    , reqURI = pack $ folder ++ "/display.json"
-    , reqLogin = Nothing
-    , reqHeaders = []
-    , reqWithCredentials = False
-    , reqData = NoData
-    }
-  jsonbs <- case contents resp of
-    Just bs -> return bs
-    Nothing -> error "couldn't get processed json as bytestring"
-  Processed mgtr mbass mkeys mdrums mprokeys beat end <- case A.decode $ BL.fromStrict jsonbs of
+        (Just artist, Just title) -> Just $ "songs/" ++ artist ++ "/" ++ title ++ "/gen/plan/album"
+        _ -> Nothing
+  jsonbs <- case folder of
+    Nothing -> TLE.encodeUtf8 . lazyTextFromJSString <$> bakedInSong
+    Just f -> do
+      resp <- xhrByteString $ Request
+        { reqMethod = GET
+        , reqURI = pack $ f ++ "/display.json"
+        , reqLogin = Nothing
+        , reqHeaders = []
+        , reqWithCredentials = False
+        , reqData = NoData
+        }
+      case contents resp of
+        Just bs -> return $ BL.fromStrict bs
+        Nothing -> error "couldn't get processed json as bytestring"
+  Processed mgtr mbass mkeys mdrums mprokeys beat end <- case A.decode jsonbs of
     Just proc -> return proc
     Nothing -> error "couldn't decode json into processed data"
 
@@ -155,7 +164,7 @@ main = do
   getImage <- imageGetter
   howl <- Audio.load $ do
     ext <- ["ogg", "mp3"]
-    return $ folder ++ "/preview-audio." ++ ext
+    return $ fromMaybe "." folder ++ "/preview-audio." ++ ext
   audioLen <- Audio.getDuration howl
   let endEvent = if end > 0 then end else audioLen
 
