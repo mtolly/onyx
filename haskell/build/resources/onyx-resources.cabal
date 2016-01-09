@@ -15,6 +15,11 @@ extra-source-files:
   vendors/xbox/rb3pkg/bin/Release/rb3pkg.exe
   vendors/xbox/rb3pkg/bin/Release/X360.dll
   vendors/empty.milo_xbox
+  ../../web-display/www/index.html
+  ../../web-display/www/app.min.js
+  ../../web-display/www/runmain.js
+  ../../web-display/www/images/*.png
+  ../../web-display/www/lib/howler/howler.min.js
 
 library
   hs-source-dirs:      src

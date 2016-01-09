@@ -1519,6 +1519,20 @@ importFile file dir = do
               dir
       else error $ file ++ " is not a CON or RBA file; can't import"
 
+-- | CONs put out by C3 Magma sometimes bizarrely have the @tracks_count@ key
+-- completely removed from @songs.dta@, but the list of track counts is still
+-- there. So, we have to put it back before parsing @song@ as a key-value map.
+fixTracksCount :: [D.Chunk String] -> [D.Chunk String]
+fixTracksCount = map findSong where
+  findSong = \case
+    D.Parens (D.Tree w (D.Key "song" : rest)) ->
+      D.Parens (D.Tree w (D.Key "song" : map findTracksCount rest))
+    x -> x
+  findTracksCount = \case
+    D.Parens (D.Tree w [D.Parens (D.Tree w2 nums)]) ->
+      D.Parens $ D.Tree w [D.Key "tracks_count", D.Parens $ D.Tree w2 nums]
+    x -> x
+
 readRB3DTA :: FilePath -> IO (String, D.SongPackage, Bool)
 readRB3DTA dtaPath = do
   -- Not sure what encoding it is, try both.
@@ -1528,7 +1542,7 @@ readRB3DTA dtaPath = do
         (k, chunks) <- case D.treeChunks $ D.topTree dta of
           [D.Parens (D.Tree _ (D.Key k : chunks))] -> return (k, chunks)
           _ -> error $ dtaPath ++ " is not a valid songs.dta with exactly one song"
-        case D.fromChunks chunks of
+        case D.fromChunks $ fixTracksCount chunks of
           Left e -> error $ dtaPath ++ " couldn't be unserialized: " ++ e
           Right pkg -> return (k, pkg)
   (k_l1, l1) <- readSongWith D.readFileDTA_latin1

@@ -167,14 +167,11 @@ drawFive pxToSecs secsToPx (P (V2 targetX targetY)) five beats autoplay = do
             go False rest
           _ -> error "during grybo drawing: found a sustain end not preceded by sustain start"
         go True ((_, SustainEnd) : rest) = go False rest
-        go False ((_, Note _) : rest) = go False rest
-        go True ((_, Note _) : _) = error "during grybo drawing: found a note in middle of a sustain"
-        go True ((_, Sustain _) : _) = error "during grybo drawing: found a sustain in middle of a sustain"
-        go False ((secsStart, Sustain _) : rest) = do
+        go _ ((_, Note _) : rest) = go False rest
+        go _ ((secsStart, Sustain _) : rest) = do
           let pxEnd = case rest of
-                [] -> 0
-                (secsEnd, SustainEnd) : _ -> secsToPx secsEnd
-                _ -> error "during grybo drawing: found a sustain not followed by sustain end"
+                []               -> 0
+                (secsEnd, _) : _ -> secsToPx secsEnd
           drawSustainBlock pxEnd (secsToPx secsStart) $ isEnergy secsStart
           go True rest
         go _ [] = return ()
@@ -430,14 +427,11 @@ drawProKeys pxToSecs secsToPx (P (V2 targetX targetY)) prokeys beats autoplay = 
             go False rest
           _ -> error "during prokeys drawing: found a sustain end not preceded by sustain start"
         go True ((_, SustainEnd) : rest) = go False rest
-        go False ((_, Note ()) : rest) = go False rest
-        go True ((_, Note ()) : _) = error "during prokeys drawing: found a note in middle of a sustain"
-        go True ((_, Sustain ()) : _) = error "during prokeys drawing: found a sustain in middle of a sustain"
-        go False ((secsStart, Sustain ()) : rest) = do
+        go _ ((_, Note ()) : rest) = go False rest
+        go _ ((secsStart, Sustain ()) : rest) = do
           let pxEnd = case rest of
-                [] -> 0
-                (secsEnd, SustainEnd) : _ -> secsToPx secsEnd
-                _ -> error "during prokeys drawing: found a sustain not followed by sustain end"
+                []               -> 0
+                (secsEnd, _) : _ -> secsToPx secsEnd
           drawSustainBlock pxEnd (secsToPx secsStart) $ isEnergy secsStart
           go True rest
         go _ [] = return ()
