@@ -72,10 +72,7 @@ import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.Util                  as U
 import           System.Console.GetOpt
-import           System.Directory                 (canonicalizePath,
-                                                   createDirectoryIfMissing,
-                                                   setCurrentDirectory)
-import           System.Directory                 (copyFile)
+import qualified System.Directory                 as Dir
 import           System.Environment               (getArgs)
 import           System.IO                        (IOMode (..), SeekMode (..),
                                                    hSeek, withBinaryFile)
@@ -126,13 +123,14 @@ main :: IO ()
 main = do
   argv <- getArgs
   defaultJammitDir <- J.findJammitDir
-  let (opts, nonopts, _) = getOpt Permute optDescrs argv
-  case nonopts of
-    "build" : buildables -> do
+  let
+    (opts, nonopts, _) = getOpt Permute optDescrs argv
+    shakeBuild buildables yml = do
 
-      yamlPath <- canonicalizePath $
-        fromMaybe "song.yml" $ listToMaybe [ f | SongFile f <- opts ]
-      audioDirs <- mapM canonicalizePath
+      yamlPath <- Dir.canonicalizePath $ case yml of
+        Just y  -> y
+        Nothing -> fromMaybe "song.yml" $ listToMaybe [ f | SongFile f <- opts ]
+      audioDirs <- mapM Dir.canonicalizePath
         $ takeDirectory yamlPath
         : maybe id (:) defaultJammitDir [ d | AudioDir d <- opts ]
       songYaml
@@ -190,7 +188,7 @@ main = do
 
           audioSearch :: AudioFile -> Action (Maybe FilePath)
           audioSearch aud = do
-            genAbsolute <- liftIO $ canonicalizePath "gen/"
+            genAbsolute <- liftIO $ Dir.canonicalizePath "gen/"
             files <- filter (\f -> not $ genAbsolute `isPrefixOf` f)
               <$> concatMapM allFiles audioDirs
             let md5Result = liftIO $ case _md5 aud of
@@ -221,7 +219,7 @@ main = do
 
           moggSearch :: T.Text -> Action (Maybe FilePath)
           moggSearch md5search = do
-            genAbsolute <- liftIO $ canonicalizePath "gen/"
+            genAbsolute <- liftIO $ Dir.canonicalizePath "gen/"
             files <- filter (\f -> not $ genAbsolute `isPrefixOf` f)
               <$> concatMapM allFiles audioDirs
             flip findM files $ \f -> case takeExtension f of
@@ -230,8 +228,9 @@ main = do
                 return $ T.unpack md5search == md5
               _ -> return False
 
-      setCurrentDirectory $ takeDirectory yamlPath
-      shakeArgsWith shakeOptions (map (fmap $ const (Right ())) optDescrs) $ \_ _ -> return $ Just $ do
+      origDirectory <- Dir.getCurrentDirectory
+      Dir.setCurrentDirectory $ takeDirectory yamlPath
+      shakeArgsWith shakeOptions{ shakeThreads = 0 } (map (fmap $ const (Right ())) optDescrs) $ \_ _ -> return $ Just $ do
 
         audioOracle  <- addOracle $ \(AudioSearch  s) -> audioSearch $ read s
         jammitOracle <- addOracle $ \(JammitSearch s) -> fmap show $ jammitSearch $ read s
@@ -662,27 +661,35 @@ main = do
 
           phony (dir </> "web") $ do
             liftIO $ forM_ webDisplay $ \(f, bs) -> do
-              createDirectoryIfMissing True $ dir </> "web" </> takeDirectory f
+              Dir.createDirectoryIfMissing True $ dir </> "web" </> takeDirectory f
               B.writeFile (dir </> "web" </> f) bs
-            forM_ ["preview-audio.mp3", "preview-audio.ogg", "display.json"] $ \f -> do
+            let songFiles = ["preview-audio.mp3", "preview-audio.ogg", "display.json"]
+            need $ map (dir </>) songFiles
+            forM_ songFiles $ \f -> do
               copyFile' (dir </> f) (dir </> "web" </> f)
 
-          dir </> "everything.wav" %> \out -> do
-            let files = map (\w -> dir </> w <.> "wav") $ words
-                  "song-countin guitar bass keys kick snare drums vocal"
-            need files
-            -- TODO: apply pans and vols
-            let stereoSrc f = do
-                  info <- liftIO $ Snd.getFileInfo f
-                  if Snd.frames info == 0
-                    then return []
-                    else case Snd.channels info of
-                      0 -> return []
-                      1 -> return [Merge [Input f, Input f]]
-                      2 -> return [Input f]
-                      n -> error $ "everything.wav: " ++ show n ++ "-channel audio (" ++ f ++ ") not supported yet"
-            srcs <- concatMapM stereoSrc files
-            buildAudio (Mix srcs) out
+          dir </> "everything.wav" %> \out -> case plan of
+            MoggPlan{..} -> do
+              let ogg = dir </> "audio.ogg"
+              need [ogg]
+              src <- liftIO $ sourceSnd ogg
+              runAudio (applyPansVols (map realToFrac _pans) (map realToFrac _vols) src) out
+            _ -> do
+              let files = map (\w -> dir </> w <.> "wav") $ words
+                    "song-countin guitar bass keys kick snare drums vocal"
+              need files
+              -- TODO: apply pans and vols
+              let stereoSrc f = do
+                    info <- liftIO $ Snd.getFileInfo f
+                    if Snd.frames info == 0
+                      then return []
+                      else case Snd.channels info of
+                        0 -> return []
+                        1 -> return [Merge [Input f, Input f]]
+                        2 -> return [Input f]
+                        n -> error $ "everything.wav: " ++ show n ++ "-channel audio (" ++ f ++ ") not supported yet"
+              srcs <- concatMapM stereoSrc files
+              buildAudio (Mix srcs) out
 
           -- MIDI files
           let midPS = dir </> "ps/notes.mid"
@@ -874,17 +881,13 @@ main = do
               oggToMogg ogg out
 
           -- Low-quality audio files for the online preview app
-          let preview ext = dir </> "preview-audio" <.> ext
-          preview "wav" %> \out -> do
-            let src = dir </> "everything.wav"
-            need [src]
-            cmd "sox" [src, out] "remix 1,2"
-          preview "mp3" %> \out -> do
-            need [preview "wav"]
-            cmd "lame" [preview "wav", out] "-b 16"
-          preview "ogg" %> \out -> do
-            need [preview "wav"]
-            cmd "oggenc -b 16 --resample 16000 -o" [out, preview "wav"]
+          forM_ [("mp3", crapMP3), ("ogg", crapVorbis)] $ \(ext, crap) -> do
+            dir </> "preview-audio" <.> ext %> \out -> do
+              need [dir </> "everything.wav"]
+              src <- liftIO $ sourceSnd $ dir </> "everything.wav"
+              putNormal $ "Writing a crappy audio file to " ++ out
+              liftIO $ runResourceT $ crap out src
+              putNormal $ "Finished writing a crappy audio file to " ++ out
 
           dir </> "ps/song.ini" %> \out -> do
             (pstart, _) <- previewBounds midPS
@@ -1425,59 +1428,90 @@ main = do
 
         want buildables
 
+      Dir.setCurrentDirectory origDirectory
+
+  case nonopts of
     [] -> return ()
+    "build" : buildables -> shakeBuild buildables Nothing
     ["unstfs", stfs, dir] -> extractSTFS stfs dir
     "unstfs" : _ -> error "Usage: onyx unstfs input_rb3con outdir/"
-    ["import", file, dir] -> do
-      magic <- withBinaryFile file ReadMode $ \h -> B.hGet h 4
-      if magic `elem` [B8.pack "CON ", B8.pack "STFS"]
-        then withSystemTempDirectory "onyx_con" $ \temp -> do
-          extractSTFS file temp
-          (k, pkg, isUTF8) <- readRB3DTA $ temp </> "songs/songs.dta"
-          -- C3 puts extra info in DTA comments
-          dtaLines <- fmap (lines . filter (/= '\r')) $ readFileEncoding' (if isUTF8 then utf8 else latin1) $ temp </> "songs/songs.dta"
-          let author = listToMaybe $ mapMaybe (stripPrefix ";Song authored by ") dtaLines
-          importRB3 pkg (fmap T.pack author)
-            (temp </> "songs" </> k </> k <.> "mid")
-            (temp </> "songs" </> k </> k <.> "mogg")
-            (temp </> "songs" </> k </> "gen" </> (k ++ "_keep.png_xbox"))
-            "cover.png_xbox"
-            dir
-        else if magic == B8.pack "RBSF"
-          then do
-            withSystemTempDirectory "onyx_rba" $ \temp -> do
-              withBinaryFile file ReadMode $ \h -> do
-                hSeek h AbsoluteSeek 0x08
-                let read7words = runGet (replicateM 7 getWord32le) <$> BL.hGet h (7 * 4)
-                offsets <- read7words
-                sizes <- read7words
-                let getFile i = do
-                      hSeek h AbsoluteSeek $ fromIntegral $ offsets !! i
-                      BL.hGet h $ fromIntegral $ sizes !! i
-                getFile 0 >>= BL.writeFile (temp </> "songs.dta")
-                getFile 1 >>= BL.writeFile (temp </> "notes.mid")
-                getFile 2 >>= BL.writeFile (temp </> "audio.mogg")
-                getFile 4 >>= BL.writeFile (temp </> "cover.bmp")
-                getFile 6 >>= BL.writeFile (temp </> "extra.dta")
-                (_, pkg, isUTF8) <- readRB3DTA $ temp </> "songs.dta"
-                extra <- (if isUTF8 then D.readFileDTA_utf8 else D.readFileDTA_latin1) $ temp </> "extra.dta"
-                let author = case extra of
-                      D.DTA _ (D.Tree _ [D.Parens (D.Tree _
-                        ( D.String "backend"
-                        : D.Parens (D.Tree _ [D.Key "author", D.String s])
-                        : _
-                        ))])
-                        -> Just s
-                      _ -> Nothing
-                importRB3 pkg (fmap T.pack author)
-                  (temp </> "notes.mid")
-                  (temp </> "audio.mogg")
-                  (temp </> "cover.bmp")
-                  "cover.bmp"
-                  dir
-          else error $ file ++ " is not a CON or RBA file; can't import"
+    ["import", file, dir] -> importFile file dir
     "import" : _ -> error "Usage: onyx import [input_rb3con|input.rba] outdir/"
+    [file] -> withSystemTempDirectory "onyx_preview" $ \dir -> do
+      let out = file ++ "_preview"
+      importFile file dir
+      shakeBuild ["gen/plan/mogg/web"] $ Just $ dir </> "song.yml"
+      let copyDir :: FilePath -> FilePath -> IO ()
+          copyDir src dst = do
+            Dir.createDirectory dst
+            content <- Dir.getDirectoryContents src
+            let xs = filter (`notElem` [".", ".."]) content
+            forM_ xs $ \name -> do
+              let srcPath = src </> name
+              let dstPath = dst </> name
+              isDirectory <- Dir.doesDirectoryExist srcPath
+              if isDirectory
+                then copyDir  srcPath dstPath
+                else Dir.copyFile srcPath dstPath
+      b <- Dir.doesDirectoryExist out
+      when b $ Dir.removeDirectoryRecursive out
+      copyDir (dir </> "gen/plan/mogg/web") out
     _ -> error "Invalid command"
+
+importFile :: FilePath -> FilePath -> IO ()
+importFile file dir = do
+  magic <- withBinaryFile file ReadMode $ \h -> B.hGet h 4
+  if magic `elem` [B8.pack "CON ", B8.pack "STFS"]
+    then withSystemTempDirectory "onyx_con" $ \temp -> do
+      extractSTFS file temp
+      (_, pkg, isUTF8) <- readRB3DTA $ temp </> "songs/songs.dta"
+      -- C3 puts extra info in DTA comments
+      dtaLines <- fmap (lines . filter (/= '\r')) $ readFileEncoding' (if isUTF8 then utf8 else latin1) $ temp </> "songs/songs.dta"
+      let author = listToMaybe $ mapMaybe (stripPrefix ";Song authored by ") dtaLines
+          base = D.songName $ D.song pkg
+          -- Note: the base path does NOT necessarily have to be songs/foo/foo
+          -- where foo is the top key of songs.dta. foo can be different!
+          -- e.g. C3's "City Escape" has a top key 'SonicAdvCityEscape2x'
+          -- and a 'name' of "songs/sonicadv2cityescape2x/sonicadv2cityescape2x"
+      importRB3 pkg (fmap T.pack author)
+        (temp </> base <.> "mid")
+        (temp </> base <.> "mogg")
+        (temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox"))
+        "cover.png_xbox"
+        dir
+    else if magic == B8.pack "RBSF"
+      then do
+        withSystemTempDirectory "onyx_rba" $ \temp -> do
+          withBinaryFile file ReadMode $ \h -> do
+            hSeek h AbsoluteSeek 0x08
+            let read7words = runGet (replicateM 7 getWord32le) <$> BL.hGet h (7 * 4)
+            offsets <- read7words
+            sizes <- read7words
+            let getFile i = do
+                  hSeek h AbsoluteSeek $ fromIntegral $ offsets !! i
+                  BL.hGet h $ fromIntegral $ sizes !! i
+            getFile 0 >>= BL.writeFile (temp </> "songs.dta")
+            getFile 1 >>= BL.writeFile (temp </> "notes.mid")
+            getFile 2 >>= BL.writeFile (temp </> "audio.mogg")
+            getFile 4 >>= BL.writeFile (temp </> "cover.bmp")
+            getFile 6 >>= BL.writeFile (temp </> "extra.dta")
+            (_, pkg, isUTF8) <- readRB3DTA $ temp </> "songs.dta"
+            extra <- (if isUTF8 then D.readFileDTA_utf8 else D.readFileDTA_latin1) $ temp </> "extra.dta"
+            let author = case extra of
+                  D.DTA _ (D.Tree _ [D.Parens (D.Tree _
+                    ( D.String "backend"
+                    : D.Parens (D.Tree _ [D.Key "author", D.String s])
+                    : _
+                    ))])
+                    -> Just s
+                  _ -> Nothing
+            importRB3 pkg (fmap T.pack author)
+              (temp </> "notes.mid")
+              (temp </> "audio.mogg")
+              (temp </> "cover.bmp")
+              "cover.bmp"
+              dir
+      else error $ file ++ " is not a CON or RBA file; can't import"
 
 readRB3DTA :: FilePath -> IO (String, D.SongPackage, Bool)
 readRB3DTA dtaPath = do
@@ -1500,9 +1534,9 @@ readRB3DTA dtaPath = do
 
 importRB3 :: D.SongPackage -> Maybe T.Text -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> IO ()
 importRB3 pkg author mid mogg cover coverName dir = do
-  copyFile mogg $ dir </> "audio.mogg"
-  copyFile mid $ dir </> "notes.mid"
-  copyFile cover $ dir </> coverName
+  Dir.copyFile mogg $ dir </> "audio.mogg"
+  Dir.copyFile mid $ dir </> "notes.mid"
+  Dir.copyFile cover $ dir </> coverName
   md5 <- show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
   rb3mid <- Load.fromFile (dir </> "notes.mid") >>= printStackTraceIO . RBFile.readMIDIFile
   Y.encodeFile (dir </> "song.yml") SongYaml

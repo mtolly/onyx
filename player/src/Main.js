@@ -2,4 +2,4 @@
 
 // module Main
 
-exports.onyxData = onyxData;
+exports.onyxData = window.onyxData;

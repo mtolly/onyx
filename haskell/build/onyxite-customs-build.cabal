@@ -27,6 +27,7 @@ executable onyx
     Reaper.Build
     STFS.Extract
     MoggDecrypt
+    SndfileExtra
   build-depends:
     base    >= 4.8    && < 4.9
     , shake >= 0.15 && < 0.16
@@ -57,6 +58,7 @@ executable onyx
     , conduit-audio >= 0.2 && < 0.3
     , conduit-audio-sndfile
     , conduit-audio-samplerate
+    , conduit-audio-lame
     , onyxite-customs-parse
     , onyx-resources
     , onyxite-customs-dta
@@ -67,3 +69,4 @@ executable onyx
     LambdaCase
     TupleSections
   ghc-options:          -Wall -threaded
+  build-tools: c2hs >= 0.27.1

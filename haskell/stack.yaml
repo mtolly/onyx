@@ -13,7 +13,8 @@ packages:
 extra-deps:
 - conduit-audio-0.2.0.1
 - conduit-audio-samplerate-0.1.0.1
-- conduit-audio-sndfile-0.1
+- conduit-audio-sndfile-0.1.1
+- conduit-audio-lame-0.1.1
 - jammittools-0.5.0.2
 - midi-0.2.1.5
 - midi-util-0.1.1.1
@@ -26,4 +27,5 @@ extra-deps:
 - monoid-transformer-0.0.3
 - non-negative-0.1.1
 - utility-ht-0.0.11
-resolver: lts-3.13
+- vector-0.10.12.3
+resolver: lts-4.0

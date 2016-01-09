@@ -8,7 +8,7 @@ module Audio where
 
 import           Control.Exception             (evaluate)
 import           Control.Monad                 (ap)
-import           Control.Monad.Trans.Resource  (MonadResource, runResourceT)
+import           Control.Monad.Trans.Resource  (MonadResource, ResourceT, runResourceT)
 import           Data.Binary.Get               (getWord32le, runGetOrFail)
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.ByteString.Lazy.Char8    as BL8
@@ -17,6 +17,8 @@ import           Data.Conduit                  ((=$=))
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.SampleRate
 import           Data.Conduit.Audio.Sndfile
+import           Data.Conduit.Audio.LAME
+import           Data.Conduit.Audio.LAME.Binding as L
 import qualified Data.Conduit.List             as CL
 import qualified Data.Digest.Pure.MD5          as MD5
 import           Data.Foldable                 (toList)
@@ -27,6 +29,7 @@ import           Development.Shake.FilePath    (takeExtension)
 import           Numeric                       (showHex)
 import qualified Sound.File.Sndfile            as Snd
 import           System.IO
+import SndfileExtra
 
 data Audio t a
   = Silence Int t
@@ -140,6 +143,10 @@ buildAudio :: Audio Duration FilePath -> FilePath -> Action ()
 buildAudio aud out = do
   need $ toList aud
   src <- buildSource aud
+  runAudio src out
+
+runAudio :: AudioSource (ResourceT IO) Float -> FilePath -> Action ()
+runAudio src out = do
   let fmt = case takeExtension out of
         ".ogg" -> Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
         ".wav" -> Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
@@ -197,3 +204,50 @@ audioLength :: FilePath -> IO (Maybe Integer)
 audioLength f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
   then Just . fromIntegral . Snd.frames <$> Snd.getFileInfo f
   else return Nothing
+
+-- | Applies Rock Band's pan and volume lists
+-- to turn a multichannel OGG input into a stereo output.
+applyPansVols :: (Monad m) => [Float] -> [Float] -> AudioSource m Float -> AudioSource m Float
+applyPansVols pans vols src = AudioSource
+  { rate     = rate src
+  , frames   = frames src
+  , channels = 2
+  , source   = source src =$= CL.map applyChunk
+  } where
+    applyChunk :: V.Vector Float -> V.Vector Float
+    applyChunk v = V.generate (vectorFrames v (channels src) * 2) $ \i -> do
+      case quotRem i 2 of
+        (frame, chan) -> let
+          pvx = zip3 pans vols $ V.toList $ V.drop (frame * channels src) v
+          wire (pan, volDB, sample) = let
+            volRatio = 10 ** (volDB / 20)
+            panRatio = if chan == 0
+              then (negate pan + 1) * 0.5
+              else (       pan + 1) * 0.5
+              -- TODO: this should be improved. panning should be in dB (logarithmic)
+            in panRatio * volRatio * sample
+          in sum $ map wire pvx
+
+mono16kHz :: (MonadResource m) => AudioSource m Float -> AudioSource m Float
+mono16kHz = resampleTo 16000 SincMediumQuality . monoify where
+  monoify src = let
+    chans = splitChannels src
+    g = 1 / fromIntegral (length chans)
+    in case map (gain g) chans of
+      []     -> silent (Frames 0) 16000 1
+      c : cs -> foldr mix c cs
+
+crapMP3 :: (MonadResource m) => FilePath -> AudioSource m Float -> m ()
+crapMP3 out src = let
+  setup lame = liftIO $ do
+    L.check $ L.setVBR lame L.VbrDefault
+    L.check $ L.setVBRQ lame 9 -- lowest
+  in sinkMP3WithHandle out setup $ mono16kHz src
+
+crapVorbis :: (MonadResource m) => FilePath -> AudioSource m Float -> m ()
+crapVorbis out src = let
+  setup hsnd = liftIO (setVBREncodingQuality hsnd 0) >>= \case
+    True  -> return ()
+    False -> error "crapVorbis: couldn't set crappy encoding quality"
+  fmt = Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
+  in sinkSndWithHandle out fmt setup $ mono16kHz src
