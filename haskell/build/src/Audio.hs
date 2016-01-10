@@ -228,21 +228,28 @@ applyPansVols pans vols src = AudioSource
             in panRatio * volRatio * sample
           in sum $ map wire pvx
 
-mono16kHz :: (MonadResource m) => AudioSource m Float -> AudioSource m Float
-mono16kHz = resampleTo 16000 SincMediumQuality . monoify where
-  monoify src = let
-    chans = splitChannels src
-    g = 1 / fromIntegral (length chans)
-    in case map (gain g) chans of
-      []     -> silent (Frames 0) 16000 1
-      c : cs -> foldr mix c cs
+-- | Like 'applyPansVols', but mixes into mono instead of stereo.
+applyVolsMono :: (Monad m) => [Float] -> AudioSource m Float -> AudioSource m Float
+applyVolsMono vols src = AudioSource
+  { rate     = rate src
+  , frames   = frames src
+  , channels = 1
+  , source   = source src =$= CL.map applyChunk
+  } where
+    applyChunk :: V.Vector Float -> V.Vector Float
+    applyChunk v = V.generate (vectorFrames v $ channels src) $ \frame -> let
+      vx = zip vols $ V.toList $ V.drop (frame * channels src) v
+      wire (volDB, sample) = let
+        volRatio = 10 ** (volDB / 20)
+        in 0.5 * volRatio * sample
+      in sum $ map wire vx
 
 crapMP3 :: (MonadResource m) => FilePath -> AudioSource m Float -> m ()
 crapMP3 out src = let
   setup lame = liftIO $ do
     L.check $ L.setVBR lame L.VbrDefault
     L.check $ L.setVBRQ lame 9 -- lowest
-  in sinkMP3WithHandle out setup $ mono16kHz src
+  in sinkMP3WithHandle out setup $ resampleTo 16000 SincMediumQuality src
 
 crapVorbis :: (MonadResource m) => FilePath -> AudioSource m Float -> m ()
 crapVorbis out src = let
@@ -250,4 +257,4 @@ crapVorbis out src = let
     True  -> return ()
     False -> error "crapVorbis: couldn't set crappy encoding quality"
   fmt = Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
-  in sinkSndWithHandle out fmt setup $ mono16kHz src
+  in sinkSndWithHandle out fmt setup $ resampleTo 16000 SincMediumQuality src

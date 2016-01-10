@@ -674,6 +674,17 @@ main = do
             forM_ songFiles $ \f -> do
               copyFile' (dir </> f) (dir </> "web" </> f)
 
+          let allAudioWithPV =
+                [ (kickPV, dir </> "kick.wav")
+                , (snarePV, dir </> "snare.wav")
+                , (drumsPV, dir </> "drums.wav")
+                , (guitarPV, dir </> "guitar.wav")
+                , (bassPV, dir </> "bass.wav")
+                , (keysPV, dir </> "keys.wav")
+                , (vocalPV, dir </> "vocal.wav")
+                , (songPV, dir </> "song-countin.wav")
+                ]
+
           dir </> "everything.wav" %> \out -> case plan of
             MoggPlan{..} -> do
               let ogg = dir </> "audio.ogg"
@@ -681,21 +692,34 @@ main = do
               src <- liftIO $ sourceSnd ogg
               runAudio (applyPansVols (map realToFrac _pans) (map realToFrac _vols) src) out
             _ -> do
-              let files = map (\w -> dir </> w <.> "wav") $ words
-                    "song-countin guitar bass keys kick snare drums vocal"
-              need files
-              -- TODO: apply pans and vols
-              let stereoSrc f = do
-                    info <- liftIO $ Snd.getFileInfo f
-                    if Snd.frames info == 0
-                      then return []
-                      else case Snd.channels info of
-                        0 -> return []
-                        1 -> return [Merge [Input f, Input f]]
-                        2 -> return [Input f]
-                        n -> error $ "everything.wav: " ++ show n ++ "-channel audio (" ++ f ++ ") not supported yet"
-              srcs <- concatMapM stereoSrc files
-              buildAudio (Mix srcs) out
+              need $ map snd allAudioWithPV
+              srcs <- fmap concat $ forM allAudioWithPV $ \(pv, wav) -> case pv of
+                  [] -> return []
+                  _  -> do
+                    src <- liftIO $ sourceSnd wav
+                    return [applyPansVols (map (realToFrac . fst) pv) (map (realToFrac . snd) pv) src]
+              let mixed = case srcs of
+                    []     -> silent (Frames 0) 44100 2
+                    s : ss -> foldr mix s ss
+              runAudio mixed out
+
+          dir </> "everything-mono.wav" %> \out -> case plan of
+            MoggPlan{..} -> do
+              let ogg = dir </> "audio.ogg"
+              need [ogg]
+              src <- liftIO $ sourceSnd ogg
+              runAudio (applyVolsMono (map realToFrac _vols) src) out
+            _ -> do
+              need $ map snd allAudioWithPV
+              srcs <- fmap concat $ forM allAudioWithPV $ \(pv, wav) -> case pv of
+                  [] -> return []
+                  _  -> do
+                    src <- liftIO $ sourceSnd wav
+                    return [applyVolsMono (map (realToFrac . snd) pv) src]
+              let mixed = case srcs of
+                    []     -> silent (Frames 0) 44100 1
+                    s : ss -> foldr mix s ss
+              runAudio mixed out
 
           -- MIDI files
           let midPS = dir </> "ps/notes.mid"
@@ -889,8 +913,8 @@ main = do
           -- Low-quality audio files for the online preview app
           forM_ [("mp3", crapMP3), ("ogg", crapVorbis)] $ \(ext, crap) -> do
             dir </> "preview-audio" <.> ext %> \out -> do
-              need [dir </> "everything.wav"]
-              src <- liftIO $ sourceSnd $ dir </> "everything.wav"
+              need [dir </> "everything-mono.wav"]
+              src <- liftIO $ sourceSnd $ dir </> "everything-mono.wav"
               putNormal $ "Writing a crappy audio file to " ++ out
               liftIO $ runResourceT $ crap out src
               putNormal $ "Finished writing a crappy audio file to " ++ out
