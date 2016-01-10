@@ -2,7 +2,7 @@
 
 require_relative 'common'
 
-yamls = Dir['songs/*/*/song.yml']
+yamls = Dir['songs*/*/*/song.yml']
 yamls.each do |yaml_file|
   folder = File.dirname(yaml_file)
   puts ">>> SONG: #{folder}"

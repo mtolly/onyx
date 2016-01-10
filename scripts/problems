@@ -2,7 +2,7 @@
 
 require_relative 'common'
 
-Dir['songs/*/*/song.yml'].each do |f|
+Dir['songs*/*/*/song.yml'].each do |f|
   yaml = load_yaml_tree f
   next unless yaml.fetch('published', true)
   puts f

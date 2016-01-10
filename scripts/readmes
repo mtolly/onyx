@@ -4,8 +4,8 @@
 
 require_relative 'common'
 
-system_ "rm -rf songs/*/*/README.md"
-Dir['songs/*/*/song.yml'].each do |f|
+system_ "rm -rf songs*/*/*/README.md"
+Dir['songs*/*/*/song.yml'].each do |f|
   yaml = load_yaml_tree(f)
   next unless yaml.fetch('published', true)
   system_ "onyx build README.md --song #{f}"
