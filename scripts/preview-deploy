@@ -73,14 +73,14 @@ Net::SFTP.start(url, username, password: password) do |sftp|
     Dir.chdir(songdir) do
       system_('onyx', 'build', *songfiles, *onyx_options)
     end
-    dirs = "#{songdir}/gen/plan/album".split('/').reject(&:empty?)
+    remote_songdir = songdir.gsub(/^songs([^\/]+)\//, 'songs/')
+    dirs = "#{remote_songdir}/gen/plan/album".split('/').reject(&:empty?)
     dirs.each_index do |i|
       # make each directory in the chain
       mkdir_f sftp, "#{remote_dir}/#{dirs[0..i].join('/')}"
     end
     songfiles.each do |f|
-      path = "#{songdir}/#{f}"
-      upload_rf sftp, path, "#{remote_dir}/#{path}"
+      upload_rf sftp, "#{songdir}/#{f}", "#{remote_dir}/#{remote_songdir}/#{f}"
     end
   end
 end
