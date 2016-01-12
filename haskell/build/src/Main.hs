@@ -501,7 +501,9 @@ main = do
 
         forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
 
-          let dir = "gen/plan" </> T.unpack planName
+          let dir = "gen/plan/" ++ T.unpack planName
+              -- NOTE: the above doesn't use </> because of
+              -- https://github.com/ndmitchell/shake/issues/405
 
               planPV :: Maybe (PlanAudio Duration AudioInput) -> [(Double, Double)]
               planPV Nothing = [(-1, 0), (1, 0)]
@@ -665,7 +667,9 @@ main = do
             let s' = reverse $ dropWhile isSpace $ reverse $ dropWhile isSpace s
                 js = "window.onyxSong = " ++ s' ++ ";\n"
             liftIO $ writeFile out js
-          phony (dir </> "web") $ do
+          -- NOTE: the below phony command doesn't use </> because of
+          -- https://github.com/ndmitchell/shake/issues/405
+          phony (dir ++ "/web") $ do
             liftIO $ forM_ webDisplay $ \(f, bs) -> do
               Dir.createDirectoryIfMissing True $ dir </> "web" </> takeDirectory f
               B.writeFile (dir </> "web" </> f) bs
@@ -964,7 +968,9 @@ main = do
           dir </> "ps/vocal.ogg"   %> buildAudio (Input $ dir </> "vocal.wav"       )
           dir </> "ps/song.ogg"    %> buildAudio (Input $ dir </> "song-countin.wav")
           dir </> "ps/album.png"   %> copyFile' "gen/cover.png"
-          phony (dir </> "ps") $ need $ map (\f -> dir </> "ps" </> f) $ concat
+          -- NOTE: the below phony command doesn't use </> because of
+          -- https://github.com/ndmitchell/shake/issues/405
+          phony (dir ++ "/ps") $ need $ map (\f -> dir </> "ps" </> f) $ concat
             [ ["song.ini", "notes.mid", "song.ogg", "album.png"]
             , ["drums.ogg"   | _hasDrums    (_instruments songYaml) && mixMode == RBDrums.D0]
             , ["drums_1.ogg" | _hasDrums    (_instruments songYaml) && mixMode /= RBDrums.D0]
@@ -993,7 +999,9 @@ main = do
             let pkg = "onyx" ++ show (hash (pedalDir, _title $ _metadata songYaml, _artist $ _metadata songYaml) `mod` 1000000000)
 
             -- Check for some extra problems that Magma doesn't catch.
-            phony (pedalDir </> "problems") $ do
+            -- NOTE: the below phony command doesn't use </> because of
+            -- https://github.com/ndmitchell/shake/issues/405
+            phony (pedalDir ++ "/problems") $ do
               song <- loadMIDI (pedalDir </> "notes.mid")
               -- Don't have a kick at the start of a drum roll.
               -- It screws up the roll somehow and causes spontaneous misses.

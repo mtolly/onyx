@@ -61,7 +61,7 @@ printMessage :: Message -> IO ()
 printMessage (Message s ctx) = do
   hPutStrLn stderr s
   hPutStrLn stderr "Context (innermost first):"
-  forM_ ctx $ \c -> hPutStrLn stderr $ "  — " ++ c
+  forM_ ctx $ \c -> hPutStrLn stderr $ "  - " ++ c
 
 -- | Prints warnings and errors to standard error, and then throws an exception
 -- if there were errors.
