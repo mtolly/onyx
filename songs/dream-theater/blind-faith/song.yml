@@ -2,11 +2,14 @@ metadata:
   title: Blind Faith
   file-include: ../../../albums/six-degrees-of-inner-turbulence.yml
   track-number: 2
+  author: "mazegeek999 (guitar, pro keys), Onyxite (drums, vocals)"
   comments:
   - >-
-    Chart confidence: *medium*.
-    No stems, muddy mixing.
-    Cymbals in some sections are hard to differentiate.
+    Drums confidence: *medium-high*.
+    Portnoy's DVD has different takes from the album track in many places.
+    Some fills look odd because his main toms are ordered medium-high-low.
+  - >-
+    This chart is in progress and will be released in a completed version by mazegeek soon.
 audio:
   album-track:
     md5: bb640697c680c06882276305c29191ed
@@ -14,19 +17,9 @@ audio:
 plans:
   album:
     song:
-      pad:
-        - 0.050
-        - fade:
-          - end
-          - 5.200
-          - take:
-            - begin
-            - '9:58'
-            # ^ TODO: clean this up
-            # previously I was trying to sneak under the 10 minute RBN cutoff...
-            - fade:
-              - begin
-              - 5.673
-              - trim: [10.991, album-track]
+      trim: [4.744, album-track]
 instruments:
   drums: true
+  guitar: true
+  pro-keys: true
+  vocal: 3
