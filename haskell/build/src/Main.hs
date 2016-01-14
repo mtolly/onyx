@@ -349,35 +349,34 @@ main = do
                 []       -> fail "Couldn't find a necessary Jammit track"
 
         -- Cover art
-        let loadRGB8 = do
-              let img = _fileAlbumArt $ _metadata songYaml
-              need [img]
-              res <- liftIO $ readImage img
-              case res of
-                Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
-                Right dyn -> return $ anyToRGB8 dyn
+        let loadRGB8 = case _fileAlbumArt $ _metadata songYaml of
+              Just img -> do
+                need [img]
+                res <- liftIO $ readImage img
+                case res of
+                  Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
+                  Right dyn -> return $ anyToRGB8 dyn
+              Nothing -> return $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
         "gen/cover.bmp" %> \out -> loadRGB8 >>= liftIO . writeBitmap out . scaleBilinear 256 256
         "gen/cover.png" %> \out -> loadRGB8 >>= liftIO . writePng    out . scaleBilinear 256 256
         "gen/cover.dds" %> \out -> loadRGB8 >>= liftIO . writeDDS    out . scaleBilinear 256 256
-        "gen/cover.png_xbox" %> \out -> do
-          let f = _fileAlbumArt $ _metadata songYaml
-          if takeExtension f == ".png_xbox"
-            then copyFile' f out
-            else do
-              let dds = out -<.> "dds"
-              need [dds]
-              b <- liftIO $ B.readFile dds
-              let header =
-                    [ 0x01, 0x04, 0x08, 0x00, 0x00, 0x00, 0x04, 0x00
-                    , 0x01, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00
-                    , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-                    , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-                    ]
-                  bytes = B.unpack $ B.drop 0x80 b
-                  flipPairs (x : y : xs) = y : x : flipPairs xs
-                  flipPairs _ = []
-                  b' = B.pack $ header ++ flipPairs bytes
-              liftIO $ B.writeFile out b'
+        "gen/cover.png_xbox" %> \out -> case _fileAlbumArt $ _metadata songYaml of
+          Just f | takeExtension f == ".png_xbox" -> copyFile' f out
+          _ -> do
+            let dds = out -<.> "dds"
+            need [dds]
+            b <- liftIO $ B.readFile dds
+            let header =
+                  [ 0x01, 0x04, 0x08, 0x00, 0x00, 0x00, 0x04, 0x00
+                  , 0x01, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00
+                  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+                  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+                  ]
+                bytes = B.unpack $ B.drop 0x80 b
+                flipPairs (x : y : xs) = y : x : flipPairs xs
+                flipPairs _ = []
+                b' = B.pack $ header ++ flipPairs bytes
+            liftIO $ B.writeFile out b'
 
         -- Build a REAPER project
         "notes.RPP" %> \out -> do
@@ -1601,7 +1600,7 @@ importRB3 pkg author mid mogg cover coverName dir = do
           Nothing -> error $ "When importing a CON file: can't read subgenre: " ++ D.fromKeyword subk
           Just sub -> sub
       , _year         = fromIntegral $ D.yearReleased pkg
-      , _fileAlbumArt = coverName
+      , _fileAlbumArt = Just coverName
       , _trackNumber  = maybe 0 fromIntegral $ D.albumTrackNumber pkg
       , _fileCountin  = Nothing
       , _comments     = []

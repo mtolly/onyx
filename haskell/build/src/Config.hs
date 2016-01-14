@@ -224,7 +224,7 @@ data Metadata = Metadata
   , _genre        :: T.Text
   , _subgenre     :: T.Text
   , _year         :: Int
-  , _fileAlbumArt :: FilePath
+  , _fileAlbumArt :: Maybe FilePath
   , _trackNumber  :: Int
   , _fileCountin  :: Maybe FilePath
   , _comments     :: [T.Text]
@@ -301,16 +301,49 @@ instance A.ToJSON Magma.Gender where
     Magma.Female -> "female"
     Magma.Male   -> "male"
 
+defaultSubgenre :: T.Text -> T.Text
+defaultSubgenre = \case
+  "alternative" -> "alternative"
+  "blues" -> "other"
+  "classical" -> "classical"
+  "classicrock" -> "classicrock"
+  "country" -> "other"
+  "emo" -> "emo"
+  "fusion" -> "fusion"
+  "glam" -> "glam"
+  "grunge" -> "grunge"
+  "hiphoprap" -> "other"
+  "indierock" -> "other"
+  "inspirational" -> "inspirational"
+  "jazz" -> "other"
+  "jrock" -> "jrock"
+  "latin" -> "latin"
+  "metal" -> "metal"
+  "newwave" -> "newwave"
+  "novelty" -> "novelty"
+  "numetal" -> "numetal"
+  "popdanceelectronic" -> "other"
+  "poprock" -> "other"
+  "prog" -> "progrock"
+  "punk" -> "other"
+  "rbsoulfunk" -> "rhythmandblues"
+  "reggaeska" -> "other"
+  "rock" -> "rock"
+  "southernrock" -> "southernrock"
+  "world" -> "world"
+  "other" -> "other"
+  g -> error $ "defaultSubgenre: I don't recognized the genre " ++ show g
+
 instance TraceJSON Metadata where
   traceJSON = object $ do
-    _title        <- required "title"          traceJSON
-    _artist       <- required "artist"         traceJSON
-    _album        <- required "album"          traceJSON
-    _genre        <- required "genre"          traceJSON
-    _subgenre     <- required "subgenre"       traceJSON
-    _year         <- required "year"           traceJSON
-    _fileAlbumArt <- required "file-album-art" traceJSON
-    _trackNumber  <- required "track-number"   traceJSON
+    _title        <- fromMaybe "Untitled" <$> optional "title" traceJSON
+    _artist       <- fromMaybe "Anonymous" <$> optional "artist" traceJSON
+    _album        <- fromMaybe "No Album" <$> optional "album" traceJSON
+    _genre        <- fromMaybe "other" <$> optional "genre" traceJSON
+    _subgenre     <- fromMaybe (defaultSubgenre _genre) <$> optional "subgenre" traceJSON
+    _year         <- fromMaybe 1991 <$> optional "year" traceJSON
+    _fileAlbumArt <- optional "file-album-art" traceJSON
+    _trackNumber  <- fromMaybe 0 <$> optional "track-number" traceJSON
     _fileCountin  <- optional "file-countin"   traceJSON
     _vocalGender  <- optional "vocal-gender"   traceJSON
     let emptyDiffs = Difficulties Nothing Nothing Nothing Nothing Nothing Nothing Nothing
@@ -337,7 +370,7 @@ instance A.ToJSON Metadata where
     , ["genre" .= _genre]
     , ["subgenre" .= _subgenre]
     , ["year" .= _year]
-    , ["file-album-art" .= _fileAlbumArt]
+    , map ("file-album-art" .=) $ toList _fileAlbumArt
     , ["track-number" .= _trackNumber]
     , map ("file-countin" .=) $ toList _fileCountin
     , case _comments of
