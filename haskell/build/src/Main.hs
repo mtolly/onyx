@@ -172,8 +172,10 @@ main = do
           computeChannelsPlan = let
             toChannels ai = case ai of
               Named name -> case HM.lookup name $ _audio songYaml of
-                Nothing      -> error "panic! audio leaf not found, after it should've been checked"
-                Just audfile -> _channels audfile
+                Nothing               -> error
+                  "panic! audio leaf not found, after it should've been checked"
+                Just AudioFile   {..} -> _channels
+                Just AudioSnippet{..} -> computeChannelsPlan _expr
               JammitSelect _ _ -> 2
             in computeChannels . fmap toChannels
 
@@ -183,27 +185,29 @@ main = do
               Just _ -> 2
               Nothing -> case HM.lookup name $ _audio songYaml of
                 Nothing      -> error "panic! audio leaf not found, after it should've been checked"
-                Just audfile -> _channels audfile
+                Just AudioFile{..} -> _channels
+                Just AudioSnippet{..} -> computeChannelsPlan _expr
             in computeChannels . fmap toChannels
 
           audioSearch :: AudioFile -> Action (Maybe FilePath)
-          audioSearch aud = do
+          audioSearch AudioSnippet{} = fail "panic! called audioSearch on a snippet. report this bug"
+          audioSearch AudioFile{..} = do
             genAbsolute <- liftIO $ Dir.canonicalizePath "gen/"
             files <- filter (\f -> not $ genAbsolute `isPrefixOf` f)
               <$> concatMapM allFiles audioDirs
-            let md5Result = liftIO $ case _md5 aud of
+            let md5Result = liftIO $ case _md5 of
                   Nothing -> return Nothing
                   Just md5search -> flip findM files $ \f ->
                     (== Just (T.unpack md5search)) <$> audioMD5 f
-                lenResult = liftIO $ case _frames aud of
+                lenResult = liftIO $ case _frames of
                   Nothing -> return Nothing
                   Just len -> flip findM files $ \f ->
                     (== Just len) <$> audioLength f
                 nameResult = do
-                  name <- _name aud
+                  name <- _name
                   listToMaybe $ flip filter files $ \f -> takeFileName f == name
                 nameResultNoExt = do
-                  name <- dropExtension <$> _name aud
+                  name <- dropExtension <$> _name
                   listToMaybe $ flip filter files $ \f ->
                     dropExtension (takeFileName f) == name
             firstJustM id [md5Result, lenResult, return nameResult, return nameResultNoExt]
@@ -250,9 +254,7 @@ main = do
         phony "audio" $ liftIO $ print audioDirs
         phony "clean" $ cmd "rm -rf gen"
 
-        let audioPath :: T.Text -> FilePath
-            audioPath name = "gen/audio" </> T.unpack name <.> "wav"
-            jammitPath :: T.Text -> J.AudioPart -> FilePath
+        let jammitPath :: T.Text -> J.AudioPart -> FilePath
             jammitPath name (J.Only part)
               = "gen/jammit" </> T.unpack name </> "only" </> map toLower (drop 4 $ show part) <.> "wav"
             jammitPath name (J.Without inst)
@@ -281,37 +283,19 @@ main = do
             proKeysTier = rankToTier keysDiffMap   proKeysRank
             bandTier    = rankToTier bandDiffMap   bandRank
 
-        -- Find and convert all audio files into the work directory
-        forM_ (HM.toList $ _audio songYaml) $ \(audioName, audioQuery) ->
-          audioPath audioName %> \out -> do
-            putNormal $ "Looking for the audio file named " ++ show audioName
-            result <- audioOracle $ AudioSearch $ show audioQuery
-            case result of
-              Nothing -> fail $ "Couldn't find a necessary audio file for query: " ++ show audioQuery
-              Just fp -> buildAudio (Input fp) out
-
-        -- Find and convert all Jammit audio into the work directory
-        let jammitAudioParts = map J.Only    [minBound .. maxBound]
-                            ++ map J.Without [minBound .. maxBound]
-        forM_ (HM.toList $ _jammit songYaml) $ \(jammitName, jammitQuery) ->
-          forM_ jammitAudioParts $ \audpart ->
-            jammitPath jammitName audpart %> \out -> do
-              putNormal $ "Looking for the Jammit track named " ++ show jammitName ++ ", part " ++ show audpart
-              result <- fmap read $ jammitOracle $ JammitSearch $ show jammitQuery
-              case [ jcfx | (audpart', jcfx) <- result, audpart == audpart' ] of
-                jcfx : _ -> do
-                  putNormal $ "Found the Jammit track named " ++ show jammitName ++ ", part " ++ show audpart
-                  liftIO $ J.runAudio [jcfx] [] out
-                []       -> fail "Couldn't find a necessary Jammit track"
-
         -- Looking up single audio files and Jammit parts in the work directory
         let manualLeaf :: AudioInput -> Action (Audio Duration FilePath)
             manualLeaf (Named name) = case HM.lookup name $ _audio songYaml of
-              Just audioQuery -> return $ let
-                maybeResample = case _rate audioQuery of
-                  Nothing -> Resample
-                  Just _  -> id -- if rate is specified, don't auto-resample
-                in maybeResample $ Input $ audioPath name
+              Just audioQuery -> case audioQuery of
+                AudioFile{..} -> do
+                  putNormal $ "Looking for the audio file named " ++ show name
+                  result <- audioOracle $ AudioSearch $ show audioQuery
+                  case result of
+                    Nothing -> fail $ "Couldn't find a necessary audio file for query: " ++ show audioQuery
+                    Just fp -> return $ case _rate of
+                      Nothing -> Resample $ Input fp
+                      Just _  -> Input fp -- if rate is specified, don't auto-resample
+                AudioSnippet expr -> fmap join $ mapM manualLeaf expr
               Nothing -> fail $ "Couldn't find an audio source named " ++ show name
             manualLeaf (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
               Just _  -> return $ Input $ jammitPath name audpart
@@ -349,6 +333,20 @@ main = do
                         otherInstrument <- filter (/= back) backs
                         boughtInstrumentParts otherInstrument
                       in Mix [Input $ jammitPath name $ J.Without back, Gain (-1) negative]
+
+        -- Find and convert all Jammit audio into the work directory
+        let jammitAudioParts = map J.Only    [minBound .. maxBound]
+                            ++ map J.Without [minBound .. maxBound]
+        forM_ (HM.toList $ _jammit songYaml) $ \(jammitName, jammitQuery) ->
+          forM_ jammitAudioParts $ \audpart ->
+            jammitPath jammitName audpart %> \out -> do
+              putNormal $ "Looking for the Jammit track named " ++ show jammitName ++ ", part " ++ show audpart
+              result <- fmap read $ jammitOracle $ JammitSearch $ show jammitQuery
+              case [ jcfx | (audpart', jcfx) <- result, audpart == audpart' ] of
+                jcfx : _ -> do
+                  putNormal $ "Found the Jammit track named " ++ show jammitName ++ ", part " ++ show audpart
+                  liftIO $ J.runAudio [jcfx] [] out
+                []       -> fail "Couldn't find a necessary Jammit track"
 
         -- Cover art
         let loadRGB8 = do
@@ -1696,16 +1694,15 @@ tierToRank dm tier = (0 : 1 : dm) !! fromIntegral tier
 
 type DiffMap = [Integer]
 
-drumsDiffMap, vocalDiffMap, bassDiffMap, guitarDiffMap, keysDiffMap,
-  proGuitarDiffMap, proBassDiffMap, bandDiffMap :: DiffMap
+drumsDiffMap, vocalDiffMap, bassDiffMap, guitarDiffMap, keysDiffMap, bandDiffMap :: DiffMap
 drumsDiffMap     = [124, 151, 178, 242, 345, 448]
 vocalDiffMap     = [132, 175, 218, 279, 353, 427]
 bassDiffMap      = [135, 181, 228, 293, 364, 436]
 guitarDiffMap    = [139, 176, 221, 267, 333, 409]
 keysDiffMap      = [153, 211, 269, 327, 385, 443]
-proGuitarDiffMap = [150, 205, 264, 323, 382, 442]
-proBassDiffMap   = [150, 208, 267, 325, 384, 442]
 bandDiffMap      = [163, 215, 243, 267, 292, 345]
+-- proGuitarDiffMap = [150, 205, 264, 323, 382, 442]
+-- proBassDiffMap   = [150, 208, 267, 325, 384, 442]
 
 -- | Makes a dummy Basic Keys track, for songs with only Pro Keys charted.
 expertProKeysToKeys :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats RBFive.Event

@@ -31,14 +31,23 @@ audio:
     frames: 220200960
     rate: 48000
     name: AudioFile_81.ac3
-plans:
-  album:
-    song:
-      &album
+  expr-album-song:
+    expr:
       fade:
         - end
         - 3.425
         - pad: [5.900, album-track]
+  expr-drumcam-drums:
+    expr:
+      fade:
+      - end
+      - 0.03
+      - take:
+        - '12:50.531'
+        - drop: ['47:31.200', drumcam-drums]
+plans:
+  album:
+    song: expr-album-song
   drumcam:
     comments:
     - >-
@@ -60,15 +69,7 @@ plans:
                       - take:
                         - '12:50.531'
                         - drop: ['47:31.200', drumcam-band]
-                  - gain:
-                    - -1
-                    - &drums
-                      fade:
-                      - end
-                      - 0.03
-                      - take:
-                        - '12:50.531'
-                        - drop: ['47:31.200', drumcam-drums]
+                  - gain: [-1, expr-drumcam-drums]
         - gain:
           - 0.58
           - pad:
@@ -76,11 +77,11 @@ plans:
             - fade:
               - start
               - 0.03
-              - drop: ["12:50.401", *album]
+              - drop: ["12:50.401", expr-album-song]
     drums:
       gain:
       - -1
-      - resample: *drums
+      - resample: expr-drumcam-drums
 instruments:
   drums: true
   vocal: 2

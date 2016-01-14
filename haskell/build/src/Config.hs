@@ -353,23 +353,34 @@ instance A.ToJSON Metadata where
     , ["auto-2x-bass" .= _auto2xBass]
     ]
 
-data AudioFile = AudioFile
-  { _md5      :: Maybe T.Text
-  , _frames   :: Maybe Integer
-  , _name     :: Maybe FilePath
-  , _rate     :: Maybe Int
-  , _channels :: Int
-  } deriving (Eq, Ord, Show, Read)
+data AudioFile
+  = AudioFile
+    { _md5      :: Maybe T.Text
+    , _frames   :: Maybe Integer
+    , _name     :: Maybe FilePath
+    , _rate     :: Maybe Int
+    , _channels :: Int
+    }
+  | AudioSnippet
+    { _expr     :: Audio Duration AudioInput
+    }
+  deriving (Eq, Ord, Show, Read)
 
 instance TraceJSON AudioFile where
-  traceJSON = object $ do
-    _md5      <- optional "md5"    traceJSON
-    _frames   <- optional "frames" traceJSON
-    _name     <- optional "name"   traceJSON
-    _rate     <- optional "rate"   traceJSON
-    _channels <- fromMaybe 2 <$> optional "channels" traceJSON
-    expectedKeys ["md5", "frames", "name", "rate", "channels"]
-    return AudioFile{..}
+  traceJSON = decideKey
+    [ ("expr", object $ do
+      _expr <- required "expr" traceJSON
+      expectedKeys ["expr"]
+      return AudioSnippet{..}
+      )
+    ] $ object $ do
+      _md5      <- optional "md5"    traceJSON
+      _frames   <- optional "frames" traceJSON
+      _name     <- optional "name"   traceJSON
+      _rate     <- optional "rate"   traceJSON
+      _channels <- fromMaybe 2 <$> optional "channels" traceJSON
+      expectedKeys ["md5", "frames", "name", "rate", "channels"]
+      return AudioFile{..}
 
 instance A.ToJSON AudioFile where
   toJSON AudioFile{..} = A.object $ concat
@@ -378,6 +389,9 @@ instance A.ToJSON AudioFile where
     , map ("name"   .=) $ toList _name
     , map ("rate"   .=) $ toList _rate
     , ["channels"   .= _channels]
+    ]
+  toJSON AudioSnippet{..} = A.object
+    [ "expr" .= A.toJSON _expr
     ]
 
 data JammitTrack = JammitTrack

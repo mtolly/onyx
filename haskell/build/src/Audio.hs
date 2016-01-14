@@ -107,6 +107,10 @@ sameChannels (a1, a2) = case (channels a1, channels a2) of
 buildSource :: (MonadResource m) =>
   Audio Duration FilePath -> Action (AudioSource m Float)
 buildSource aud = case aud of
+  -- optimizations
+  Drop Start t (Input fin) -> liftIO $ sourceSndFrom t fin
+  Drop Start (Seconds s) (Resample (Input fin)) -> buildSource $ Resample $ Drop Start (Seconds s) (Input fin)
+  -- normal cases
   Silence c t -> return $ silent t 44100 c
   Input fin -> liftIO $ sourceSnd fin
   Mix         xs -> combine (\a b -> uncurry mix $ sameChannels (a, b)) xs
