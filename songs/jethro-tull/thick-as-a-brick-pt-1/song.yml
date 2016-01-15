@@ -1,0 +1,21 @@
+metadata:
+  title: "Thick as a Brick, Part I"
+  file-include: ../../../albums/thick-as-a-brick.yml
+  track-number: 1
+audio:
+  # surround sound version (with errors)
+  album-track:
+    md5: 97a8bc7d5374dc6eff2e12a4ad2a9b2a
+    frames: 125745152
+plans:
+  album:
+    song:
+      expr:
+        pad:
+        - 3.636
+        - take: ['22:42.597', album-track]
+      pans: [-1, 1, 0, 0, -1, 1]
+      vols: [0, 0, 0, 0, 0, 0]
+instruments:
+  drums: true
+published: false

@@ -1,0 +1,14 @@
+metadata:
+  title: Life on Mars
+  file-include: ../../../albums/hunky-dory.yml
+  track-number: 4
+audio:
+  album-track:
+    md5: b1a7d480ceb896feadfc2a1821c8667e
+    frames: 10371144
+plans:
+  album:
+    song:
+      pad: [3.118, album-track]
+instruments:
+  drums: true
