@@ -7,8 +7,8 @@ packages:
 - 'display'
 - 'editor'
 - location:
-    git: git@github.com:mtolly/Juicy.Pixels
-    commit: 76b0bdcbe7399e04e3dd9287f75f45960b79d66f
+    git: git@github.com:Twinside/Juicy.Pixels
+    commit: 209e9ae2ad77482a2556fd5aba8082c8580ce725
   extra-dep: true
 extra-deps:
 - conduit-audio-0.2.0.1

@@ -1121,7 +1121,12 @@ main = do
                       Just RBVox.Tambourine -> "sfx/tambourine_bank.milo"
                       Just RBVox.Cowbell    -> "sfx/cowbell_bank.milo"
                       Just RBVox.Clap       -> "sfx/handclap_bank.milo"
-                    , D.drumBank = Nothing
+                    , D.drumBank = Just $ Right $ D.Keyword $ case _drumKit $ _metadata songYaml of
+                      HardRockKit   -> "sfx/kit01_bank.milo"
+                      ArenaKit      -> "sfx/kit02_bank.milo"
+                      VintageKit    -> "sfx/kit03_bank.milo"
+                      TrashyKit     -> "sfx/kit04_bank.milo"
+                      ElectronicKit -> "sfx/kit05_bank.milo"
                     , D.animTempo = Left D.KTempoMedium
                     , D.bandFailCue = Nothing
                     , D.songScrollSpeed = 2300
