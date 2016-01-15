@@ -11,4 +11,5 @@ plans:
     song:
       pad: [3.118, album-track]
 instruments:
-  drums: true
+  vocal: 2
+published: false
