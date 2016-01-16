@@ -1473,6 +1473,12 @@ main = do
   case nonopts of
     [] -> return ()
     "build" : buildables -> shakeBuild buildables Nothing
+    ["stfs", dir, stfs] -> do
+      (_, pkg, _) <- readRB3DTA $ dir </> "songs/songs.dta"
+      let title = D.name pkg
+          desc  = D.name pkg ++ " (" ++ D.artist pkg ++ ")"
+      shake shakeOptions $ action $ rb3pkg title desc dir stfs
+    "stfs" : _ -> error "Usage: onyx stfs input_dir/ out_rb3con"
     ["unstfs", stfs, dir] -> extractSTFS stfs dir
     "unstfs" : _ -> error "Usage: onyx unstfs input_rb3con outdir/"
     ["import", file, dir] -> importFile file dir
