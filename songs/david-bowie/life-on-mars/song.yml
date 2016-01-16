@@ -9,11 +9,14 @@ metadata:
     guitar: 1
     bass: 1
     drums: 2
+    band: 3
   autogen-theme: Slow Jam
   rating: Family Friendly
   comments:
   - >-
     All instruments have overdrive/unison.
+  key: F
+  drum-kit: Vintage Kit
 audio:
   album-track:
     md5: b1a7d480ceb896feadfc2a1821c8667e
