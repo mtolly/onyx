@@ -21,7 +21,9 @@ audio:
 plans:
   album:
     song:
-      pad: [3.118, album-track]
+      pad:
+      - 3.118
+      - gain: [1.5, album-track]
 instruments:
   vocal: 2
   drums: true
