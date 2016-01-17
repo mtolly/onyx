@@ -21,6 +21,7 @@ import           Scripts
 import           STFS.Extract
 import           X360
 import           YAMLTree
+import           ProKeysRanges (completeRanges)
 
 import           Codec.Picture
 import           Control.Monad.Extra
@@ -784,10 +785,10 @@ main = do
                       then mergeTracks [ t | RBFile.PartRealKeys diff' t <- trks, diff == diff' ]
                       else keysToProKeys diff basicKeys
                     rtb1 `orIfNull` rtb2 = if length rtb1 < 5 then rtb2 else rtb1
-                    keysExpert = keysDiff Expert
-                    keysHard   = keysDiff Hard   `orIfNull` pkReduce Hard   (RBFile.s_signatures input) keysOD keysExpert
-                    keysMedium = keysDiff Medium `orIfNull` pkReduce Medium (RBFile.s_signatures input) keysOD keysHard
-                    keysEasy   = keysDiff Easy   `orIfNull` pkReduce Easy   (RBFile.s_signatures input) keysOD keysMedium
+                    keysExpert = completeRanges $ keysDiff Expert
+                    keysHard   = completeRanges $ keysDiff Hard   `orIfNull` pkReduce Hard   (RBFile.s_signatures input) keysOD keysExpert
+                    keysMedium = completeRanges $ keysDiff Medium `orIfNull` pkReduce Medium (RBFile.s_signatures input) keysOD keysHard
+                    keysEasy   = completeRanges $ keysDiff Easy   `orIfNull` pkReduce Easy   (RBFile.s_signatures input) keysOD keysMedium
                     keysOD = flip RTB.mapMaybe keysExpert $ \case
                       ProKeys.Overdrive b -> Just b
                       _                   -> Nothing
