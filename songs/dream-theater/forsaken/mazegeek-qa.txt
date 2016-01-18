@@ -9,12 +9,14 @@ This chart generally looks pretty good. Hard to hear some of the rhythm of the c
 The big thing here is the wrapping on the riff at measure 8 and places like it. I think one of two things: either the C should be moved down to reflect the octave change of the whole
 F-E-C, or move the F and E notes up. Should be consistent. If you were to move the F-E notes up, make it all D range. If you move the C note down, then shift back and forth between
 C range and D range each measure.
+* DONE - moved the C down
 
 I'm assuming the 1st chorus is entirely in A range until the transition at measure 42, when it switches to D range.
 
 Measure 70 should start F range.
 
 Measure 88 sustain should probably be extended to keep consistency with the rest of the sustains.
+* DONE
 
 DRUMS
 
