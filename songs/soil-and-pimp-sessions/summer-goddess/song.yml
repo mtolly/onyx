@@ -11,5 +11,5 @@ plans:
     song:
       pad: [0.650, album-track]
 instruments:
-  drums: true
+  pro-keys: true
 published: false

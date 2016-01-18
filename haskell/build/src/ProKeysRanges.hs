@@ -64,11 +64,12 @@ data Lifetime t
 bestRange :: (NNC.C t) => Maybe LaneRange -> Set.Set Pitch -> RTB.T t (Set.Set Pitch) -> Maybe LaneRange
 bestRange currentRange held rtb = let
   ranges = filter (\rng -> all (keyInRange rng) held) [minBound .. maxBound]
-  isDifficult rng = rng `elem` [RangeD, RangeE]
+  isLegible rng = rng `notElem` [RangeD, RangeE]
   distance rng = case currentRange of
     Nothing -> 0
     Just cr -> abs $ fromEnum cr - fromEnum rng
-  score rng = (rangeLifetime rng rtb, isDifficult rng, distance rng)
+  -- higher of each score value is better
+  score rng = (rangeLifetime rng rtb, isLegible rng, negate $ distance rng)
   -- First, we want to pick the longest-lasting range.
   -- Second, I personally think D and E ranges are harder to read.
   -- Third, we want to pick a range that is closest to the last one.
