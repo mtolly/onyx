@@ -2,7 +2,7 @@
 
 ## Dream Theater
 
-Author: Meander, Sideshow, Onyxite
+Author: Onyxite, mazegeek999, Meander
 
 [Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=in-the-presence-of-enemies-pt-1&artist=dream-theater)
 
@@ -12,6 +12,7 @@ Instruments:
   * Bass ⚪️⚪️⚪️⚫️⚫️
   * Guitar 😈😈😈😈😈
   * Keys 😈😈😈😈😈
+  * Pro Keys 😈😈😈😈😈
   * Vocals (3) ⚪️⚪️⚫️⚫️⚫️
 
 Supported audio:
@@ -24,7 +25,7 @@ Supported audio:
 
 Notes:
 
-  * Guitar, bass, and keys charted by Meander and compiled by Sideshow. (Minor edits by me.)
+  * Keys and pro keys by mazegeek999.
 
-  * Drums confidence: *high*. Written to Portnoy's recording session DVD.
+  * Guitar and bass by Meander. (Minor edits by me.)
 

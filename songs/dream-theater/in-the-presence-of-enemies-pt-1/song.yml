@@ -9,11 +9,12 @@ metadata:
     guitar: 7
     bass: 4
     keys: 7
+    pro-keys: 7
     band: 6
-  author: "Meander, Sideshow, Onyxite"
+  author: "Onyxite, mazegeek999, Meander"
   comments:
-  - "Guitar, bass, and keys charted by Meander and compiled by Sideshow. (Minor edits by me.)"
-  - "Drums confidence: *high*. Written to Portnoy's recording session DVD."
+  - "Keys and pro keys by mazegeek999."
+  - "Guitar and bass by Meander. (Minor edits by me.)"
   rating: Supervision Recommended
 audio:
   album-track:
@@ -88,3 +89,4 @@ instruments:
   guitar: true
   bass: true
   keys: true
+  pro-keys: true

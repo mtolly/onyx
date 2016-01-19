@@ -8,7 +8,6 @@ Harmonix,
 [Grinnz](https://www.youtube.com/user/SHGrinnz),
 [mazegeek999](http://pksage.com/ccc/IPS/index.php?/topic/13775-mazegeeks-customs-1117-tarkus-by-emerson-lake-palmer/),
 [Meander](http://pksage.com/ccc/IPS/index.php?/topic/11496-meanders-songs-82014-open-for-business/),
-[Sideshow](http://pksage.com/ccc/IPS/index.php?/topic/10433-sideshows-customs-10415-a-plethora-of-led-zeppelin/?p=61000),
 and [beard216](http://pksage.com/ccc/IPS/index.php?/topic/12749-beard216s-conversions-silence-in-the-snow-full-album-by-trivium-and-proxy-by-tesseract-1125/).
 (Credited in individual song READMEs.)
 

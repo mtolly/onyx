@@ -8,13 +8,11 @@ metadata:
     vocal: 5
     guitar: 7
     band: 7
-  author: "Meander, Sideshow, Onyxite"
+  author: "Meander, Onyxite"
   comments:
   - >-
-    Guitar, bass, and keys charted by Meander and compiled by Sideshow.
+    Guitar, bass, and keys charted by Meander.
     Bass and keys are NOT DONE; they need to be realigned to my tempo map.
-  - >-
-    Drums confidence: *high*. Written to Portnoy's recording session DVD.
   rating: Supervision Recommended
 audio:
   album-track:
