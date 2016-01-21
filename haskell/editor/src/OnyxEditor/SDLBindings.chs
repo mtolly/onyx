@@ -1,4 +1,4 @@
-module SDLBindings where
+module OnyxEditor.SDLBindings where
 
 import           Control.Exception         (bracket, bracket_)
 import qualified Data.ByteString as B

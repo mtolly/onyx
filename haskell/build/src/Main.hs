@@ -22,6 +22,7 @@ import           STFS.Extract
 import           X360
 import           YAMLTree
 import           ProKeysRanges (completeRanges)
+import           OnyxEditor.Main (runEditor)
 
 import           Codec.Picture
 import           Control.Monad.Extra
@@ -704,6 +705,7 @@ main = do
                     []     -> silent (Frames 0) 44100 2
                     s : ss -> foldr mix s ss
               runAudio mixed out
+          dir </> "everything.ogg" %> buildAudio (Input $ dir </> "everything.wav")
 
           dir </> "everything-mono.wav" %> \out -> case plan of
             MoggPlan{..} -> do
@@ -1484,6 +1486,12 @@ main = do
     "unstfs" : _ -> error "Usage: onyx unstfs input_rb3con outdir/"
     ["import", file, dir] -> importFile file dir
     "import" : _ -> error "Usage: onyx import [input_rb3con|input.rba] outdir/"
+    ["edit", dir] -> do
+      let mid = dir </> "2p/notes.mid"
+          ogg = dir </> "everything.ogg"
+      shakeBuild [mid, ogg] Nothing
+      runEditor mid ogg
+    "edit" : _ -> error "Usage: onyx edit gen/plan/someplan"
     [file] -> withSystemTempDirectory "onyx_preview" $ \dir -> do
       let out = file ++ "_preview"
       importFile file dir

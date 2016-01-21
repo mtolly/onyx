@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Images where
+module OnyxEditor.Images where
 
 import           Control.Exception   (bracket)
 import qualified Data.ByteString     as B
@@ -11,7 +11,7 @@ import           Foreign
 import qualified SDL
 
 import           OnyxiteDisplay.Draw (ImageID (..))
-import           SDLBindings
+import           OnyxEditor.SDLBindings
 
 imageFolder :: [(FilePath, B.ByteString)]
 imageFolder = $(embedDir "../web-display/www/images/")

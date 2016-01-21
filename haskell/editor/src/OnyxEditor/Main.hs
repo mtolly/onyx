@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE PatternSynonyms            #-}
 {-# LANGUAGE RecordWildCards            #-}
-module Main where
+module OnyxEditor.Main (runEditor) where
 
 import           Control.Concurrent               (threadDelay)
 import           Control.Exception                (bracket, bracket_)
@@ -29,11 +29,9 @@ import           SDL                              (($=))
 import qualified SDL
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.Util                  as U
-import           System.Environment               (getArgs)
-import           System.FilePath                  ((</>))
 
-import           Images
-import           SDLBindings
+import           OnyxEditor.Images
+import           OnyxEditor.SDLBindings
 
 import           OnyxiteDisplay.Draw
 import           OnyxiteDisplay.Process
@@ -71,12 +69,10 @@ data App
     }
   deriving (Eq, Ord, Show)
 
-main :: IO ()
-main = do
-  dir <- getArgs >>= \case
-    [dir] -> return dir
-    _ -> error "Usage: onyxeditor path/to/song/dir/"
-  mid <- Load.fromFile $ dir </> "gen/plan/album/2p/notes.mid"
+runEditor :: FilePath -> FilePath -> IO ()
+runEditor midPath oggPath = do
+
+  mid <- Load.fromFile midPath
   song <- case runStackTrace $ RB.readMIDIFile mid of
     (Right song, warns) -> mapM_ printMessage warns >> return song
     (Left errs, _) -> mapM_ printMessage errs >> error "Error when reading MIDI file"
@@ -100,7 +96,7 @@ main = do
   withImages rend $ \getImage -> do
   withMixer [MIX_INIT_OGG] $ do
   withMixerAudio 44100 mixDefaultFormat 2 1024 $ do
-  mus <- withCString (dir </> "gen/plan/album/song-countin.ogg") mixLoadMUS
+  mus <- withCString oggPath mixLoadMUS
 
   SDL.rendererDrawBlendMode rend $= SDL.BlendAlphaBlend
 
