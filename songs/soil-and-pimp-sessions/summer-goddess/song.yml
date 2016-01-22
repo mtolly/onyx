@@ -2,6 +2,8 @@ metadata:
   title: Summer Goddess
   file-include: ../../../albums/pimp-of-the-year.yml
   track-number: 2
+  difficulty:
+    pro-keys: 7
 audio:
   album-track:
     md5: e96fc8412693ac582bcd3aa21fcfbd4e
@@ -12,4 +14,3 @@ plans:
       pad: [0.650, album-track]
 instruments:
   pro-keys: true
-published: false
