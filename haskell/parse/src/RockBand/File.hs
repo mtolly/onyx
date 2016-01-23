@@ -91,10 +91,10 @@ showTrack = \case
   PartRealGuitar22      t -> U.setTrackName "PART REAL_GUITAR_22" $ unparseAll unparseOne t
   PartRealBass          t -> U.setTrackName "PART REAL_BASS"      $ unparseAll unparseOne t
   PartRealBass22        t -> U.setTrackName "PART REAL_BASS_22"   $ unparseAll unparseOne t
-  PartRealKeys   Easy   t -> U.setTrackName "PART REAL_KEYS_E"    $ unparseAll unparseOne t
-  PartRealKeys   Medium t -> U.setTrackName "PART REAL_KEYS_M"    $ unparseAll unparseOne t
-  PartRealKeys   Hard   t -> U.setTrackName "PART REAL_KEYS_H"    $ unparseAll unparseOne t
-  PartRealKeys   Expert t -> U.setTrackName "PART REAL_KEYS_X"    $ unparseAll unparseOne t
+  PartRealKeys   Easy   t -> U.setTrackName "PART REAL_KEYS_E"    $ ProKeys.unparseNice   t
+  PartRealKeys   Medium t -> U.setTrackName "PART REAL_KEYS_M"    $ ProKeys.unparseNice   t
+  PartRealKeys   Hard   t -> U.setTrackName "PART REAL_KEYS_H"    $ ProKeys.unparseNice   t
+  PartRealKeys   Expert t -> U.setTrackName "PART REAL_KEYS_X"    $ ProKeys.unparseNice   t
   PartRealKeysPS Easy   t -> U.setTrackName "PART REAL_KEYS_PS_E" $ unparseAll unparseOne t
   PartRealKeysPS Medium t -> U.setTrackName "PART REAL_KEYS_PS_M" $ unparseAll unparseOne t
   PartRealKeysPS Hard   t -> U.setTrackName "PART REAL_KEYS_PS_H" $ unparseAll unparseOne t

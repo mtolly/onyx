@@ -7,8 +7,11 @@ module RockBand.ProKeys where
 
 import RockBand.Common
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Numeric.NonNegative.Class as NNC
 import RockBand.Parse
+import qualified Sound.MIDI.File.Event as E
+import qualified Sound.MIDI.Util as U
 
 data Event
   = LaneShift LaneRange
@@ -58,6 +61,38 @@ instance Enum Pitch where
 instance Bounded Pitch where
   minBound = RedYellow minBound
   maxBound = OrangeC
+
+-- | Stretches out each range shift event until the next one.
+-- Thanks to mazegeek999 for showing me that this is allowed!
+unparseNice :: RTB.T U.Beats Event -> RTB.T U.Beats E.T
+unparseNice trk = let
+  (ranges, notRanges) = flip RTB.partitionMaybe trk $ \case
+    LaneShift r -> Just r
+    _           -> Nothing
+  rangeEvents = go Nothing ranges
+  lastTime rtb = case reverse $ ATB.toPairList $ RTB.toAbsoluteEventList 0 rtb of
+    []         -> 0
+    (t, _) : _ -> t
+  -- The last range shift will be stretched until the very last PK event.
+  lastLength = max (1 / 32) $ lastTime trk - lastTime ranges
+  go curRange rngs = case RTB.viewL rngs of
+    Nothing -> case curRange of
+      Nothing  -> RTB.empty
+      Just cur -> RTB.singleton lastLength $ endRange cur
+    Just ((dt, rng), rngs') -> case curRange of
+      Nothing  -> RTB.cons dt (startRange rng) $ go (Just rng) rngs'
+      Just cur -> RTB.cons dt (endRange cur) $ RTB.cons 0 (startRange rng) $ go (Just rng) rngs'
+  startRange r = makeEdge (rangePitch r) True
+  endRange r = makeEdge (rangePitch r) False
+  rangePitch = \case
+    RangeC -> 0
+    RangeD -> 2
+    RangeE -> 4
+    RangeF -> 5
+    RangeG -> 7
+    RangeA -> 9
+  notRangeEvents = unparseAll unparseOne notRanges
+  in RTB.merge rangeEvents notRangeEvents
 
 instanceMIDIEvent [t| Event |]
 
