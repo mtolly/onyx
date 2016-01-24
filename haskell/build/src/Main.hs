@@ -25,6 +25,7 @@ import           ProKeysRanges (completeRanges)
 import           OnyxEditor.Main (runEditor)
 
 import           Codec.Picture
+import           Control.Exception as Exc
 import           Control.Monad.Extra
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
@@ -1477,9 +1478,12 @@ main = do
     [] -> return ()
     "build" : buildables -> shakeBuild buildables Nothing
     ["stfs", dir, stfs] -> do
-      (_, pkg, _) <- readRB3DTA $ dir </> "songs/songs.dta"
-      let title = D.name pkg
-          desc  = D.name pkg ++ " (" ++ D.artist pkg ++ ")"
+      let getDTAInfo = do
+            (_, pkg, _) <- readRB3DTA $ dir </> "songs/songs.dta"
+            return (D.name pkg, D.name pkg ++ " (" ++ D.artist pkg ++ ")")
+          handler :: Exc.ErrorCall -> IO (String, String)
+          handler _ = return (takeFileName stfs, stfs)
+      (title, desc) <- getDTAInfo `Exc.catch` handler
       shake shakeOptions $ action $ rb3pkg title desc dir stfs
     "stfs" : _ -> error "Usage: onyx stfs input_dir/ out_rb3con"
     ["unstfs", stfs, dir] -> extractSTFS stfs dir
