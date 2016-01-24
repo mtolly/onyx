@@ -2,7 +2,7 @@ metadata:
   title: Blind Faith
   file-include: ../../../albums/six-degrees-of-inner-turbulence.yml
   track-number: 2
-  author: "mazegeek999 (guitar, pro keys), Onyxite (drums, vocals)"
+  author: "mazegeek999 (guitar, pro keys), Onyxite (drums, vocals, bass)"
   comments:
   - >-
     Drums confidence: *medium-high*.
@@ -21,5 +21,6 @@ plans:
 instruments:
   drums: true
   guitar: true
+  bass: true
   pro-keys: true
   vocal: 3
