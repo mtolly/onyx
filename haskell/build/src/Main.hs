@@ -1477,6 +1477,8 @@ main = do
   case nonopts of
     [] -> return ()
     "build" : buildables -> shakeBuild buildables Nothing
+    ["mogg", ogg, mogg] -> shake shakeOptions $ action $ oggToMogg ogg mogg
+    "mogg" : _ -> error "Usage: onyx mogg in.ogg out.mogg"
     ["stfs", dir, stfs] -> do
       let getDTAInfo = do
             (_, pkg, _) <- readRB3DTA $ dir </> "songs/songs.dta"
