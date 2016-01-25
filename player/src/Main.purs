@@ -15,8 +15,12 @@ import Data.Foreign.NullOrUndefined
 import Data.Either
 import qualified Data.Map as Map
 import Data.Tuple
+import Control.Monad.Eff.Ref
+import Data.Array
+import Data.DOM.Simple.Types (DOMEvent())
+import Data.DOM.Simple.Events (addMouseEventListener, MouseEventType(..))
 
-foreign import onyxData :: Foreign
+foreign import onyxSong :: Foreign
 
 newtype Song = Song
   { end   :: Number
@@ -73,20 +77,26 @@ instance showGem :: Show Gem where
     GCym -> "GCym"
     GTom -> "GTom"
 
-main :: Eff (canvas :: Canvas, dom :: DOM, console :: CONSOLE) Unit
-main = do
-  c   <- fromJust <$> getCanvasElementById "the-canvas"
+draw :: forall e. Song -> CanvasElement -> Eff (dom :: DOM, canvas :: Canvas | e) Unit
+draw _ c = do
   ctx <- getContext2D c
-  let draw = do
-        w <- innerWidth globalWindow
-        h <- innerHeight globalWindow
-        setCanvasWidth  w c
-        setCanvasHeight h c
-        void $ setFillStyle "rgb(54,59,123)" ctx
-        void $ fillRect ctx { x: 0.0, y: 0.0, w: w, h: h }
-  draw
-  case read onyxData of
-    Right (Song s) -> case s.drums of
-      Just (Drums d) -> log $ show d.notes
-      Nothing -> return unit
-    Left _ -> return unit
+  w <- innerWidth globalWindow
+  h <- innerHeight globalWindow
+  setCanvasWidth  w c
+  setCanvasHeight h c
+  void $ setFillStyle "rgb(54,59,123)" ctx
+  void $ fillRect ctx { x: 0.0, y: 0.0, w: w, h: h }
+
+main :: Eff (canvas :: Canvas, dom :: DOM, console :: CONSOLE, ref :: REF) Unit
+main = do
+  c <- fromJust <$> getCanvasElementById "the-canvas"
+  clicks <- newRef []
+  let click e = modifyRef clicks ((e :: DOMEvent) :)
+  addMouseEventListener MouseClickEvent click globalWindow
+  case read onyxSong of
+    Left e -> log $ show e
+    Right song -> let
+      loop = do
+        evts <- modifyRef' clicks $ \evts -> {state: [], value: evts}
+        draw song c
+      in loop

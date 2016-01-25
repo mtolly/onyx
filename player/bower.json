@@ -17,6 +17,7 @@
     "purescript-foreign": "~0.7.2",
     "howler.js": "howler#~1.1.28",
     "purescript-tuples": "~0.4.0",
-    "purescript-maps": "~0.5.4"
+    "purescript-maps": "~0.5.4",
+    "purescript-refs": "~0.2.0"
   }
 }
