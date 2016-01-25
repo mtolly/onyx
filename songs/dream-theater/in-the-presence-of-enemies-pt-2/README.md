@@ -25,5 +25,5 @@ Supported audio:
 
 Notes:
 
-  * Chart is IN PROGRESS; guitar, bass, and basic keys are not 100% polished.
+  * Chart is IN PROGRESS; guitar and bass are not 100% polished.
 
