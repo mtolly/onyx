@@ -2,16 +2,17 @@
 
 ## Dream Theater
 
-Author: Meander, Onyxite
+Author: Onyxite (drums, vox), mazegeek999 (keys, pro keys), Meander (guitar, bass)
 
 [Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=in-the-presence-of-enemies-pt-2&artist=dream-theater)
 
 Instruments:
 
   * (Pro) Drums 😈😈😈😈😈
-  * Bass
+  * Bass ⚪️⚪️⚪️⚪️⚪️
   * Guitar 😈😈😈😈😈
-  * Keys
+  * Keys 😈😈😈😈😈
+  * Pro Keys 😈😈😈😈😈
   * Vocals (2) ⚪️⚪️⚪️⚪️⚫️
 
 Supported audio:
@@ -24,5 +25,5 @@ Supported audio:
 
 Notes:
 
-  * Guitar, bass, and keys charted by Meander. Bass and keys are NOT DONE; they need to be realigned to my tempo map.
+  * Chart is IN PROGRESS; guitar, bass, and basic keys are not 100% polished.
 

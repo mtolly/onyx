@@ -8,11 +8,13 @@ metadata:
     vocal: 5
     guitar: 7
     band: 7
-  author: "Meander, Onyxite"
+    keys: 7
+    pro-keys: 7
+    bass: 6
+  author: "Onyxite (drums, vox), mazegeek999 (keys, pro keys), Meander (guitar, bass)"
   comments:
   - >-
-    Guitar, bass, and keys charted by Meander.
-    Bass and keys are NOT DONE; they need to be realigned to my tempo map.
+    Chart is IN PROGRESS; guitar, bass, and basic keys are not 100% polished.
   rating: Supervision Recommended
 audio:
   album-track:
@@ -77,3 +79,4 @@ instruments:
   guitar: true
   bass: true
   keys: true
+  pro-keys: true
