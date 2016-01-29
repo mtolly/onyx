@@ -15,9 +15,15 @@
     "purescript-canvas": "^0.4.0",
     "purescript-simple-dom": "^0.1.3",
     "purescript-foreign": "~0.7.2",
-    "howler.js": "howler#~1.1.28",
     "purescript-tuples": "~0.4.0",
     "purescript-maps": "~0.5.4",
-    "purescript-refs": "~0.2.0"
+    "purescript-refs": "~0.2.0",
+    "purescript-requestanimationframe": "CapillarySoftware/purescript-requestAnimationFrame#~1.0.0",
+    "purescript-datetime": "~0.9.1",
+    "purescript-parallel": "~0.5.1",
+    "purescript-foldable-traversable": "~0.4.2",
+    "purescript-strings": "^0.7.1",
+    "purescript-generics": "^0.7.2",
+    "purescript-orders": "^0.1.1"
   }
 }
