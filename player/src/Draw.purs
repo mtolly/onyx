@@ -7,8 +7,12 @@ import Images
 import Control.Monad.Reader.Trans
 import Control.Monad.Eff
 import Data.DOM.Simple.Window
-import Data.Int (toNumber)
+import Data.Int (toNumber, round)
 import DOM
+import qualified OnyxMap as Map
+import Data.Traversable (for)
+import Data.Maybe
+import Data.Array (uncons)
 
 import Song
 
@@ -38,9 +42,14 @@ type DrawStuff =
   , getImage :: ImageID -> C.CanvasImageSource
   , canvas :: C.CanvasElement
   , context :: C.Context2D
+  , pxToSecs :: Int -> Seconds -- pixels from bottom -> now-offset in seconds
+  , secsToPx :: Seconds -> Int -- now-offset in seconds -> pixels from bottom
   }
 
 type Draw e = ReaderT DrawStuff (Eff (canvas :: C.Canvas | e))
+
+askStuff :: forall e. Draw e DrawStuff
+askStuff = ask
 
 setFillStyle :: forall e. String -> Draw e Unit
 setFillStyle s = do
@@ -85,9 +94,112 @@ draw = do
     , w: toNumber _B - 2.0
     , h: timelineH * filled
     }
+  -- Draw the visible instrument tracks in sequence
+  let drawTracks targetX trks = case uncons trks of
+        Nothing -> return unit
+        Just {head: trk, tail: trkt} -> do
+          drawResult <- trk targetX
+          case drawResult of
+            Just targetX' -> drawTracks targetX' trkt
+            Nothing       -> drawTracks targetX  trkt
+  drawTracks (_M + _B + _M + _B + _M) [drawDrums]
 
+-- | Height/width of margins
 _M :: Int
-_M = 20 -- margin
+_M = 20
 
+-- | Height/width of buttons
 _B :: Int
-_B = 41 -- height/width of buttons
+_B = 41
+
+drawDrums :: forall e. Int -> Draw e (Maybe Int)
+drawDrums targetX = do
+  stuff <- askStuff
+  let settings = case stuff.app of
+        Paused  o -> o.settings
+        Playing o -> o.settings
+  case stuff.song of
+    Song { drums: Just drums } | settings.seeDrums -> do
+      windowH <- map round $ lift $ C.getCanvasHeight stuff.canvas
+      let pxToSecs px = stuff.pxToSecs (windowH - px) + stuff.time
+          secsToPx secs = windowH - stuff.secsToPx (secs - stuff.time)
+          maxSecs = pxToSecs (-100)
+          minSecs = pxToSecs $ windowH + 100
+          zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
+          zoomDesc = Map.zoomDescDo minSecs maxSecs
+          targetY = secsToPx stuff.time
+      -- Highway
+      setFillStyle "rgb(126,126,150)"
+      fillRect { x: toNumber targetX, y: 0.0, w: 146.0, h: toNumber windowH }
+      setFillStyle "rgb(184,185,204)"
+      void $ for [0, 36, 72, 108, 144] $ \offsetX -> do
+        fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
+      setFillStyle "black"
+      void $ for [1, 37, 73, 109, 145] $ \offsetX -> do
+        fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
+      -- Solo highway TODO
+      -- Solo edges TODO
+      -- Beats
+      zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
+        let y = secsToPx secs
+        case evt of
+          Bar      -> drawImage Image_highway_drums_bar      (toNumber targetX) (toNumber y - 1.0)
+          Beat     -> drawImage Image_highway_drums_beat     (toNumber targetX) (toNumber y - 1.0)
+          HalfBeat -> drawImage Image_highway_drums_halfbeat (toNumber targetX) (toNumber y)
+      -- Target
+      drawImage Image_highway_drums_target (toNumber targetX) (toNumber targetY - 5.0)
+      -- Notes
+      zoomDesc (case drums of Drums o -> o.notes) $ \secs evts -> do
+        let futureSecs = case secs - stuff.time of Seconds s -> s
+        if futureSecs <= 0.0
+          then do
+            -- note is in the past or being hit now
+            if (-0.1) < futureSecs
+              then do
+                let opacity = round $ ((futureSecs + 0.1) / 0.05) * 255.0
+                    opacity' = if opacity < 0 then 0 else if opacity > 255 then 255 else opacity
+                    kick = do
+                      setFillStyle $ "rgba(231, 196, 112, " <> show opacity' <> ")"
+                      fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY - 5, w: 143.0, h: 1.0 }
+                      fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY + 4, w: 143.0, h: 1.0 }
+                    red = do
+                      setFillStyle $ "rgba(255, 188, 188, " <> show opacity' <> ")"
+                      fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
+                    yellow = do
+                      setFillStyle $ "rgba(255, 244, 151, " <> show opacity' <> ")"
+                      fillRect { x: toNumber $ targetX + 38, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
+                    blue = do
+                      setFillStyle $ "rgba(190, 198, 255, " <> show opacity' <> ")"
+                      fillRect { x: toNumber $ targetX + 74, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
+                    green = do
+                      setFillStyle $ "rgba(190, 255, 192, " <> show opacity' <> ")"
+                      fillRect { x: toNumber $ targetX + 110, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
+                void $ for evts $ \e -> case e of
+                  Kick -> kick
+                  Red  -> red
+                  YCym -> yellow
+                  YTom -> yellow
+                  BCym -> blue
+                  BTom -> blue
+                  GCym -> green
+                  GTom -> green
+              else return unit
+          else do
+            -- note is in the future
+            let y = secsToPx secs
+                isEnergy = case Map.lookupLE secs $ case drums of Drums o -> o.energy of
+                  Just {value: bool} -> bool
+                  Nothing            -> false
+            void $ for evts $ \e -> case e of
+              Kick -> drawImage (if isEnergy then Image_gem_kick_energy   else Image_gem_kick         ) (toNumber $ targetX + 1  ) (toNumber $ y - 3)
+              Red  -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_red          ) (toNumber $ targetX + 1  ) (toNumber $ y - 5)
+              YTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_yellow       ) (toNumber $ targetX + 37 ) (toNumber $ y - 5)
+              YCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) (toNumber $ targetX + 37 ) (toNumber $ y - 8)
+              BTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_blue         ) (toNumber $ targetX + 73 ) (toNumber $ y - 5)
+              BCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal  ) (toNumber $ targetX + 73 ) (toNumber $ y - 8)
+              GTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_green        ) (toNumber $ targetX + 109) (toNumber $ y - 5)
+              GCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) (toNumber $ targetX + 109) (toNumber $ y - 8)
+      -- TODO: draw all kicks before starting hand gems
+      -- Return targetX of next track
+      return $ Just $ targetX + 146 + 20
+    _ -> return Nothing

@@ -24,8 +24,8 @@
     "purescript-strings": "^0.7.1",
     "purescript-generics": "^0.7.2",
     "purescript-orders": "^0.1.1",
-    "purescript-maps": "git://github.com/mtolly/purescript-maps#268977a19d7f0f2ddef7eaf0e6ba022a1da13839",
-    "purescript-transformers": "^0.8.4"
+    "purescript-transformers": "^0.8.4",
+    "purescript-monoid": "^0.3.2"
   },
   "resolutions": {
     "purescript-maps": "268977a19d7f0f2ddef7eaf0e6ba022a1da13839"

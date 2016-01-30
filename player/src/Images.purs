@@ -8,7 +8,7 @@ import Control.Monad.Eff (Eff())
 import Data.Tuple (Tuple(..))
 import Control.Parallel (withCallback, runParallelWith, Parallel())
 import Data.Maybe (Maybe(..))
-import qualified Data.Map as Map
+import qualified OnyxMap as Map
 import Data.Generic (Generic, gShow, gEq, gCompare)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 

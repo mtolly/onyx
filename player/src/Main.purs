@@ -61,6 +61,8 @@ main = do
               , getImage: imageGetter
               , canvas: canvas
               , context: ctx
+              , pxToSecs: \px -> Seconds $ toNumber (px - 50) * 0.003
+              , secsToPx: \(Seconds secs) -> round (secs / 0.003) + 50
               }
             windowH <- round <$> innerHeight globalWindow
             evts <- modifyRef' clicks $ \evts -> {state: [], value: evts}
