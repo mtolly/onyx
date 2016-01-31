@@ -35,7 +35,7 @@ module OnyxMap
   , size
   , zoomAscDo
   , zoomDescDo
-  , doTupleList
+  , doTupleArray
   ) where
 
 import Prelude
@@ -413,8 +413,8 @@ zoomDescDo kmin kmax m act = case m of
     when (kmin < k1) $ zoomDescDo kmin kmax left act
 
 -- | Converts `zoomAscDo` or `zoomDescDo` into an array-generating function
-doTupleList :: forall k v. (forall e. (k -> v -> Eff e Unit) -> Eff e Unit) -> Array (Tuple k v)
-doTupleList f = runPure $ runSTArray (do
+doTupleArray :: forall k v. (forall e. (k -> v -> Eff e Unit) -> Eff e Unit) -> Array (Tuple k v)
+doTupleArray f = runPure $ runSTArray (do
   arr <- emptySTArray
   f $ \k v -> void $ pushSTArray arr $ Tuple k v
   return arr

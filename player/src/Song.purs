@@ -16,6 +16,9 @@ newtype Song = Song
   { end   :: Seconds
   , beats :: Beats
   , drums :: Maybe Drums
+  , guitar :: Maybe Five
+  , bass :: Maybe Five
+  , keys :: Maybe Five
   }
 
 newtype Drums = Drums
@@ -24,12 +27,80 @@ newtype Drums = Drums
   , energy :: Map.Map Seconds Boolean
   }
 
+data Sustainable a
+  = SustainEnd
+  | Note a
+  | Sustain a
+
+data GuitarNoteType = Strum | HOPO
+
+newtype Five = Five
+  { notes ::
+    { green  :: Map.Map Seconds (Sustainable GuitarNoteType)
+    , red    :: Map.Map Seconds (Sustainable GuitarNoteType)
+    , yellow :: Map.Map Seconds (Sustainable GuitarNoteType)
+    , blue   :: Map.Map Seconds (Sustainable GuitarNoteType)
+    , orange :: Map.Map Seconds (Sustainable GuitarNoteType)
+    }
+  , solo :: Map.Map Seconds Boolean
+  , energy :: Map.Map Seconds Boolean
+  }
+
+instance isForeignFiveNote :: IsForeign (Sustainable GuitarNoteType) where
+  read f = read f >>= \s -> case s of
+    "end"  -> return SustainEnd
+    "strum" -> return $ Note Strum
+    "hopo" -> return $ Note HOPO
+    "strum-sust" -> return $ Sustain Strum
+    "hopo-sust" -> return $ Sustain HOPO
+    _ -> Left $ TypeMismatch "grybo note event" $ show s
+
+instance isForeignPKNote :: IsForeign (Sustainable Unit) where
+  read f = read f >>= \s -> case s of
+    "end"  -> return SustainEnd
+    "note" -> return $ Note unit
+    "sust" -> return $ Sustain unit
+    _ -> Left $ TypeMismatch "pro keys note event" $ show s
+
+instance isForeignFive :: IsForeign Five where
+  read f = do
+    notes <- readProp "notes" f
+    let readColor s = readProp s notes >>= readTimedMap
+    green  <- readColor "green"
+    red    <- readColor "red"
+    yellow <- readColor "yellow"
+    blue   <- readColor "blue"
+    orange <- readColor "orange"
+    solo <- readProp "solo" f >>= readTimedMap
+    energy <- readProp "energy" f >>= readTimedMap
+    return $ Five
+      { notes:
+        { green: green
+        , red: red
+        , yellow: yellow
+        , blue: blue
+        , orange: orange
+        }
+      , solo: solo
+      , energy: energy
+      }
+
 instance isForeignSong :: IsForeign Song where
   read f = do
     end <- readProp "end" f
     beats <- readProp "beats" f
     NullOrUndefined drums <- readProp "drums" f
-    return $ Song { end: Seconds end, beats: beats, drums: drums }
+    NullOrUndefined guitar <- readProp "guitar" f
+    NullOrUndefined bass <- readProp "bass" f
+    NullOrUndefined keys <- readProp "keys" f
+    return $ Song
+      { end: Seconds end
+      , beats: beats
+      , drums: drums
+      , guitar: guitar
+      , bass: bass
+      , keys: keys
+      }
 
 readTimedMap :: forall a. (IsForeign a) => Foreign -> F (Map.Map Seconds a)
 readTimedMap f = Map.fromFoldable <$> (readArray f >>= traverse readTimedPair)

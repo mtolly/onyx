@@ -88,7 +88,7 @@ withImages = let
   loadTuple iid = let
     path = "images/" <> joinWith "-" (split "_" $ drop 13 $ show iid) <> ".png"
     -- TODO: the 13 is the length of "Images.Image_". do this better somehow
-    in map (\img -> Tuple iid img) $ withCallback $ withImage path
+    in map (Tuple iid) $ withCallback $ withImage path
   pairsToFn :: Array (Tuple ImageID CanvasImageSource) -> ImageID -> CanvasImageSource
   pairsToFn pairs = let
     imageMap :: Map.Map ImageID CanvasImageSource
