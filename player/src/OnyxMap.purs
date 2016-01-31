@@ -35,6 +35,7 @@ module OnyxMap
   , size
   , zoomAscDo
   , zoomDescDo
+  , doTupleList
   ) where
 
 import Prelude
@@ -47,6 +48,9 @@ import Data.Monoid (Monoid)
 import Data.Traversable (traverse, Traversable)
 import Data.Tuple (Tuple(..), uncurry)
 import Control.Monad (when)
+
+import Control.Monad.Eff (runPure, Eff())
+import Data.Array.ST (runSTArray, emptySTArray, pushSTArray)
 
 -- | `Map k v` represents maps from keys of type `k` to values of type `v`.
 data Map k v
@@ -407,3 +411,11 @@ zoomDescDo kmin kmax m act = case m of
     when (kmin < k2 && k1 < kmax) $ zoomDescDo kmin kmax mid act
     when (kmin < k1 && k1 < kmax) $ act k1 v1
     when (kmin < k1) $ zoomDescDo kmin kmax left act
+
+-- | Converts `zoomAscDo` or `zoomDescDo` into an array-generating function
+doTupleList :: forall k v. (forall e. (k -> v -> Eff e Unit) -> Eff e Unit) -> Array (Tuple k v)
+doTupleList f = runPure $ runSTArray (do
+  arr <- emptySTArray
+  f $ \k v -> void $ pushSTArray arr $ Tuple k v
+  return arr
+)

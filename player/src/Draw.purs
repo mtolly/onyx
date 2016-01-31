@@ -12,7 +12,10 @@ import DOM
 import qualified OnyxMap as Map
 import Data.Traversable (for)
 import Data.Maybe
-import Data.Array (uncons)
+import Data.Array (uncons, cons, snoc)
+import qualified Data.List as L
+import Data.Tuple
+import Control.Monad (when)
 
 import Song
 
@@ -127,6 +130,8 @@ drawDrums targetX = do
           minSecs = pxToSecs $ windowH + 100
           zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
           zoomDesc = Map.zoomDescDo minSecs maxSecs
+          zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
+          zoomAsc = Map.zoomAscDo minSecs maxSecs
           targetY = secsToPx stuff.time
       -- Highway
       setFillStyle "rgb(126,126,150)"
@@ -137,8 +142,29 @@ drawDrums targetX = do
       setFillStyle "black"
       void $ for [1, 37, 73, 109, 145] $ \offsetX -> do
         fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
-      -- Solo highway TODO
-      -- Solo edges TODO
+      -- Solo highway
+      setFillStyle "rgb(91,137,185)"
+      let solos = case drums of Drums o -> o.solo
+          startsAsSolo = case Map.lookupLE minSecs solos of
+            Nothing           -> false
+            Just { value: v } -> v
+          soloEdges
+            = L.fromFoldable
+            $ cons (Tuple minSecs startsAsSolo)
+            $ flip snoc (Tuple maxSecs false)
+            $ Map.doTupleList (zoomAsc solos)
+          drawSolos L.Nil            = return unit
+          drawSolos (L.Cons _ L.Nil) = return unit
+          drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
+            let y1 = secsToPx s1
+                y2 = secsToPx s2
+            when b1 $ void $ for [2, 38, 74, 110] $ \offsetX -> do
+              fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 }
+            drawSolos rest
+      drawSolos soloEdges
+      -- Solo edges
+      zoomDesc solos $ \secs _ -> do
+        drawImage Image_highway_drums_solo_edge (toNumber targetX) (toNumber $ secsToPx secs)
       -- Beats
       zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
         let y = secsToPx secs
