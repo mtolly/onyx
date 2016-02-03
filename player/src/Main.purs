@@ -21,6 +21,9 @@ import Data.Time
 import Data.Int (round, toNumber)
 import Data.Ord (min)
 import Control.Monad.Reader.Trans (runReaderT)
+import qualified Data.List as L
+import Control.Apply ((*>))
+import Control.MonadPlus (guard)
 
 import Audio
 import Images
@@ -104,7 +107,26 @@ main = do
                                   , startedSongTime = t
                                   }
                           else handle et app_
-                      else handle et app_ -- TODO: handle buttons
+                      else if 2*_M + _B <= x && x <= 2*_M + 2*_B
+                        then let
+                          go _ L.Nil                = handle et app_
+                          go i (L.Cons action rest) = do
+                            let ystart = windowH - i * (_M + _B)
+                                yend   = ystart + _B
+                            if ystart <= y && y <= yend
+                              then handle et $ case app_ of
+                                Paused  o -> Paused  o { settings = action o.settings }
+                                Playing o -> Playing o { settings = action o.settings }
+                              else go (i + 1) rest
+                          s = case song of Song o -> o
+                          in go 1 $ L.fromFoldable $ concat
+                            [ guard (isJust s.prokeys) *> [ (\sets -> sets { seeProKeys = not sets.seeProKeys }) ]
+                            , guard (isJust s.keys   ) *> [ (\sets -> sets { seeKeys    = not sets.seeKeys    }) ]
+                            , guard (isJust s.drums  ) *> [ (\sets -> sets { seeDrums   = not sets.seeDrums   }) ]
+                            , guard (isJust s.bass   ) *> [ (\sets -> sets { seeBass    = not sets.seeBass    }) ]
+                            , guard (isJust s.guitar ) *> [ (\sets -> sets { seeGuitar  = not sets.seeGuitar  }) ]
+                            ]
+                        else handle et app_
             handle evts $ case app of
               Paused _ -> app
               Playing o -> if nowSeconds == case song of Song o -> o.end

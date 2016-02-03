@@ -11,13 +11,15 @@ import Data.Int (toNumber, round)
 import DOM
 import qualified OnyxMap as Map
 import Data.Maybe
-import Data.Array (uncons, cons, snoc, take, zip, (..), length)
+import Data.Array (uncons, cons, snoc, take, zip, (..), length, concat)
 import qualified Data.List as L
 import Data.Tuple
 import Control.Monad (when)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Ord (min)
 import Data.Foldable (elem, sum, for_)
+import Control.Apply ((*>))
+import Control.MonadPlus (guard)
 
 import Song
 
@@ -113,6 +115,21 @@ draw = do
     , drawPart (\(Song o) -> o.drums  ) _.seeDrums   drawDrums
     , drawPart (\(Song o) -> o.keys   ) _.seeKeys    drawFive
     , drawPart (\(Song o) -> o.prokeys) _.seeProKeys drawProKeys
+    ]
+  let drawButtons _ L.Nil             = return unit
+      drawButtons y (L.Cons iid iids) = do
+        drawImage iid (toNumber $ _M + _B + _M) (toNumber y)
+        drawButtons (y - _M - _B) iids
+      song = case stuff.song of Song s -> s
+      settings = case stuff.app of
+        Paused  o -> o.settings
+        Playing o -> o.settings
+  drawButtons (round windowH - _M - _B) $ L.fromFoldable $ concat
+    [ guard (isJust song.prokeys) *> [ if settings.seeProKeys then Image_button_prokeys else Image_button_prokeys_off ]
+    , guard (isJust song.keys   ) *> [ if settings.seeKeys    then Image_button_keys    else Image_button_keys_off    ]
+    , guard (isJust song.drums  ) *> [ if settings.seeDrums   then Image_button_drums   else Image_button_drums_off   ]
+    , guard (isJust song.bass   ) *> [ if settings.seeBass    then Image_button_bass    else Image_button_bass_off    ]
+    , guard (isJust song.guitar ) *> [ if settings.seeGuitar  then Image_button_guitar  else Image_button_guitar_off  ]
     ]
 
 -- | Height/width of margins
