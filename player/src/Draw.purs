@@ -10,14 +10,14 @@ import Data.DOM.Simple.Window
 import Data.Int (toNumber, round)
 import DOM
 import qualified OnyxMap as Map
-import Data.Traversable (for)
 import Data.Maybe
-import Data.Array (uncons, cons, snoc)
+import Data.Array (uncons, cons, snoc, take, zip, (..), length)
 import qualified Data.List as L
 import Data.Tuple
 import Control.Monad (when)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Data.Ord (min)
+import Data.Foldable (elem, sum, for_)
 
 import Song
 
@@ -108,10 +108,11 @@ draw = do
             Just targetX' -> drawTracks targetX' trkt
             Nothing       -> drawTracks targetX  trkt
   drawTracks (_M + _B + _M + _B + _M)
-    [ drawPart (\(Song o) -> o.guitar) _.seeGuitar drawFive
-    , drawPart (\(Song o) -> o.bass  ) _.seeBass   drawFive
-    , drawPart (\(Song o) -> o.drums ) _.seeDrums  drawDrums
-    , drawPart (\(Song o) -> o.keys  ) _.seeKeys   drawFive
+    [ drawPart (\(Song o) -> o.guitar ) _.seeGuitar  drawFive
+    , drawPart (\(Song o) -> o.bass   ) _.seeBass    drawFive
+    , drawPart (\(Song o) -> o.drums  ) _.seeDrums   drawDrums
+    , drawPart (\(Song o) -> o.keys   ) _.seeKeys    drawFive
+    , drawPart (\(Song o) -> o.prokeys) _.seeProKeys drawProKeys
     ]
 
 -- | Height/width of margins
@@ -155,10 +156,10 @@ drawFive (Five five) targetX = do
   setFillStyle "rgb(126,126,150)"
   fillRect { x: toNumber targetX, y: 0.0, w: 182.0, h: toNumber windowH }
   setFillStyle "rgb(184,185,204)"
-  void $ for [0, 36, 72, 108, 144, 180] $ \offsetX -> do
+  for_ [0, 36, 72, 108, 144, 180] $ \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
   setFillStyle "black"
-  void $ for [1, 37, 73, 109, 145, 181] $ \offsetX -> do
+  for_ [1, 37, 73, 109, 145, 181] $ \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
   -- Solo highway
   setFillStyle "rgb(91,137,185)"
@@ -175,7 +176,7 @@ drawFive (Five five) targetX = do
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPx s1
             y2 = secsToPx s2
-        when b1 $ void $ for [2, 38, 74, 110, 146] $ \offsetX -> do
+        when b1 $ for_ [2, 38, 74, 110, 146] $ \offsetX -> do
           fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 }
         drawSolos rest
   drawSolos soloEdges
@@ -214,7 +215,7 @@ drawFive (Five five) targetX = do
           , hit: \o -> "rgba(231,196,112," <> show o <> ")"
           }
         ]
-  void $ for colors $ \{ c: getColor, x: offsetX, shades: normalShades } -> do
+  for_ colors $ \{ c: getColor, x: offsetX, shades: normalShades } -> do
     let thisColor = getColor five.notes
         isEnergy secs = case Map.lookupLE secs five.energy of
           Nothing           -> false
@@ -261,21 +262,18 @@ drawFive (Five five) targetX = do
         _ -> return unit
       events -> go false events
   -- Notes
-  void $ for colors $ \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, hit: shadeHit } -> do
+  for_ colors $ \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, hit: shadeHit } -> do
     zoomDesc (getColor five.notes) $ \secs evt -> do
       let futureSecs = case secs - stuff.time of Seconds s -> s
       if futureSecs <= 0.0
         then do
           -- note is in the past or being hit now
           if (-0.1) < futureSecs
-            then do
-              let opacity = round $ ((futureSecs + 0.1) / 0.05) * 255.0
-                  opacity' = if opacity < 0 then 0 else if opacity > 255 then 255 else opacity
-              case evt of
-                SustainEnd -> return unit
-                _ -> do
-                  setFillStyle $ shadeHit opacity'
-                  fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
+            then case evt of
+              SustainEnd -> return unit
+              _ -> do
+                setFillStyle $ shadeHit $ (futureSecs + 0.1) / 0.05
+                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
             else return unit
         else do
           let y = secsToPx secs
@@ -307,10 +305,10 @@ drawDrums (Drums drums) targetX = do
   setFillStyle "rgb(126,126,150)"
   fillRect { x: toNumber targetX, y: 0.0, w: 146.0, h: toNumber windowH }
   setFillStyle "rgb(184,185,204)"
-  void $ for [0, 36, 72, 108, 144] $ \offsetX -> do
+  for_ [0, 36, 72, 108, 144] $ \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
   setFillStyle "black"
-  void $ for [1, 37, 73, 109, 145] $ \offsetX -> do
+  for_ [1, 37, 73, 109, 145] $ \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
   -- Solo highway
   setFillStyle "rgb(91,137,185)"
@@ -327,7 +325,7 @@ drawDrums (Drums drums) targetX = do
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPx s1
             y2 = secsToPx s2
-        when b1 $ void $ for [2, 38, 74, 110] $ \offsetX -> do
+        when b1 $ for_ [2, 38, 74, 110] $ \offsetX -> do
           fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 }
         drawSolos rest
   drawSolos soloEdges
@@ -351,25 +349,24 @@ drawDrums (Drums drums) targetX = do
         -- note is in the past or being hit now
         if (-0.1) < futureSecs
           then do
-            let opacity = round $ ((futureSecs + 0.1) / 0.05) * 255.0
-                opacity' = if opacity < 0 then 0 else if opacity > 255 then 255 else opacity
+            let opacity = (futureSecs + 0.1) / 0.05
                 kick = do
-                  setFillStyle $ "rgba(231, 196, 112, " <> show opacity' <> ")"
+                  setFillStyle $ "rgba(231, 196, 112, " <> show opacity <> ")"
                   fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY - 5, w: 143.0, h: 1.0 }
                   fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY + 4, w: 143.0, h: 1.0 }
                 red = do
-                  setFillStyle $ "rgba(255, 188, 188, " <> show opacity' <> ")"
+                  setFillStyle $ "rgba(255, 188, 188, " <> show opacity <> ")"
                   fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
                 yellow = do
-                  setFillStyle $ "rgba(255, 244, 151, " <> show opacity' <> ")"
+                  setFillStyle $ "rgba(255, 244, 151, " <> show opacity <> ")"
                   fillRect { x: toNumber $ targetX + 38, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
                 blue = do
-                  setFillStyle $ "rgba(190, 198, 255, " <> show opacity' <> ")"
+                  setFillStyle $ "rgba(190, 198, 255, " <> show opacity <> ")"
                   fillRect { x: toNumber $ targetX + 74, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
                 green = do
-                  setFillStyle $ "rgba(190, 255, 192, " <> show opacity' <> ")"
+                  setFillStyle $ "rgba(190, 255, 192, " <> show opacity <> ")"
                   fillRect { x: toNumber $ targetX + 110, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
-            void $ for evts $ \e -> case e of
+            for_ evts $ \e -> case e of
               Kick -> kick
               Red  -> red
               YCym -> yellow
@@ -385,7 +382,7 @@ drawDrums (Drums drums) targetX = do
             isEnergy = case Map.lookupLE secs drums.energy of
               Just {value: bool} -> bool
               Nothing            -> false
-        void $ for evts $ \e -> case e of
+        for_ evts $ \e -> case e of
           Kick -> drawImage (if isEnergy then Image_gem_kick_energy   else Image_gem_kick         ) (toNumber $ targetX + 1  ) (toNumber $ y - 3)
           Red  -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_red          ) (toNumber $ targetX + 1  ) (toNumber $ y - 5)
           YTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_yellow       ) (toNumber $ targetX + 37 ) (toNumber $ y - 5)
@@ -397,3 +394,208 @@ drawDrums (Drums drums) targetX = do
   -- TODO: draw all kicks before starting hand gems
   -- Return targetX of next track
   return $ targetX + 146 + _M
+
+data PKHighway
+  = RailingLight
+  | RailingDark
+  | WhiteKey
+  | WhiteKeyShort
+  | BlackKey
+
+pkHighway :: L.List PKHighway
+pkHighway = L.fromFoldable
+  [ RailingLight, RailingDark, WhiteKey, BlackKey, WhiteKey, BlackKey, WhiteKeyShort
+  , RailingLight, RailingDark, WhiteKey, BlackKey, WhiteKey, BlackKey, WhiteKey, BlackKey, WhiteKeyShort
+  , RailingLight, RailingDark, WhiteKey, BlackKey, WhiteKey, BlackKey, WhiteKeyShort
+  , RailingLight, RailingDark, WhiteKey, BlackKey, WhiteKey, BlackKey, WhiteKey, BlackKey, WhiteKeyShort
+  , RailingLight, RailingDark, WhiteKeyShort
+  , RailingLight, RailingDark
+  ]
+
+inits :: forall a. Array a -> Array (Array a)
+inits ary = map (\n -> take n ary) (0 .. length ary)
+
+pitchList :: Array { pitch :: Pitch, offsetX :: Int, isBlack :: Boolean }
+pitchList = do
+  let allPitches = [RedC,RedCs,RedD,RedDs,RedE,YellowF,YellowFs,YellowG,YellowGs,YellowA,YellowAs,YellowB,BlueC,BlueCs,BlueD,BlueDs,BlueE,GreenF,GreenFs,GreenG,GreenGs,GreenA,GreenAs,GreenB,OrangeC]
+      isBlack p = elem p [RedCs,RedDs,YellowFs,YellowGs,YellowAs,BlueCs,BlueDs,GreenFs,GreenGs,GreenAs]
+  Tuple pitch lowerPitches <- zip allPitches $ inits allPitches
+  return
+    { pitch: pitch
+    , offsetX: 1 + sum (map (\p -> if isBlack p then 10 else 12) lowerPitches)
+    , isBlack: isBlack pitch
+    }
+
+data HackBool = False | True
+
+drawProKeys :: forall e. ProKeys -> Int -> Draw e Int
+drawProKeys (ProKeys pk) targetX = do
+  stuff <- askStuff
+  windowH <- map round $ lift $ C.getCanvasHeight stuff.canvas
+  let pxToSecs px = stuff.pxToSecs (windowH - px) + stuff.time
+      secsToPx secs = windowH - stuff.secsToPx (secs - stuff.time)
+      maxSecs = pxToSecs (-100)
+      minSecs = pxToSecs $ windowH + 100
+      zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
+      zoomDesc = Map.zoomDescDo minSecs maxSecs
+      zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
+      zoomAsc = Map.zoomAscDo minSecs maxSecs
+      targetY = secsToPx stuff.time
+  -- Highway
+  let drawHighway _    L.Nil                 = return unit
+      drawHighway xpos (L.Cons chunk chunks) = do
+        let params = case chunk of
+              RailingLight  -> { color: "rgb(184,185,205)", width: 1 }
+              RailingDark   -> { color: "black"           , width: 1 }
+              WhiteKey      -> { color: "rgb(126,126,150)", width: 11 }
+              WhiteKeyShort -> { color: "rgb(126,126,150)", width: 10 }
+              BlackKey      -> { color: "rgb(105,105,129)", width: 11 }
+        setFillStyle params.color
+        fillRect { x: toNumber xpos, y: 0.0, w: toNumber params.width, h: toNumber windowH }
+        drawHighway (xpos + params.width) chunks
+  drawHighway targetX pkHighway
+  -- Solo highway
+  let startsAsSolo = case Map.lookupLE minSecs pk.solo of
+        Nothing           -> false
+        Just { value: v } -> v
+      soloEdges
+        = L.fromFoldable
+        $ cons (Tuple minSecs startsAsSolo)
+        $ flip snoc (Tuple maxSecs false)
+        $ Map.doTupleArray (zoomAsc pk.solo)
+      drawSoloHighway _    _  _  L.Nil                 = return unit
+      drawSoloHighway xpos y1 y2 (L.Cons chunk chunks) = do
+        let params = case chunk of
+              RailingLight  -> { color: Nothing                , width: 1  }
+              RailingDark   -> { color: Nothing                , width: 1  }
+              WhiteKey      -> { color: Just "rgb( 91,137,185)", width: 11 }
+              WhiteKeyShort -> { color: Just "rgb( 91,137,185)", width: 10 }
+              BlackKey      -> { color: Just "rgb( 73,111,149)", width: 11 }
+        case params.color of
+          Nothing -> return unit
+          Just c  -> do
+            setFillStyle c
+            fillRect { x: toNumber xpos, y: toNumber y1, w: toNumber params.width, h: toNumber $ y2 - y1 }
+        drawSoloHighway (xpos + params.width) y1 y2 chunks
+      drawSolos L.Nil            = return unit
+      drawSolos (L.Cons _ L.Nil) = return unit
+      drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
+        when b1 $ drawSoloHighway targetX (secsToPx s1) (secsToPx s2) pkHighway
+        drawSolos rest
+  drawSolos soloEdges
+  -- Solo edges
+  zoomDesc pk.solo $ \secs _ -> do
+    drawImage Image_highway_prokeys_solo_edge (toNumber targetX) (toNumber $ secsToPx secs)
+  -- Beats
+  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
+    let y = secsToPx secs
+    case evt of
+      Bar      -> drawImage Image_highway_prokeys_bar      (toNumber targetX) (toNumber y - 1.0)
+      Beat     -> drawImage Image_highway_prokeys_beat     (toNumber targetX) (toNumber y - 1.0)
+      HalfBeat -> drawImage Image_highway_prokeys_halfbeat (toNumber targetX) (toNumber y)
+  -- Target
+  drawImage Image_highway_prokeys_target (toNumber targetX) (toNumber targetY - 5.0)
+  -- Ranges
+  setFillStyle "rgba(0,0,0,0.3)"
+  let rangeEdges
+        = L.fromFoldable
+        $ cons (Tuple minSecs $ map _.value $ Map.lookupLE minSecs pk.ranges)
+        $ flip snoc (Tuple maxSecs Nothing)
+        $ map (map Just) $ Map.doTupleArray (zoomAsc pk.ranges)
+      drawRanges L.Nil = return unit
+      drawRanges (L.Cons _ L.Nil) = return unit
+      drawRanges (L.Cons (Tuple s1 rng) rest@(L.Cons (Tuple s2 _) _)) = do
+        case rng of
+          Nothing -> return unit
+          Just r -> let
+            y = toNumber (secsToPx s1)
+            h = toNumber (secsToPx s2) - y
+            rects = case r of
+              RangeC -> [{x: toNumber $ targetX + 192, y: y, w: 90.0, h: h}]
+              RangeD -> [{x: toNumber $ targetX + 2, y: y, w: 22.0, h: h}, {x: toNumber $ targetX + 203, y: y, w: 79.0, h: h}]
+              RangeE -> [{x: toNumber $ targetX + 2, y: y, w: 44.0, h: h}, {x: toNumber $ targetX + 225, y: y, w: 57.0, h: h}]
+              RangeF -> [{x: toNumber $ targetX + 2, y: y, w: 56.0, h: h}, {x: toNumber $ targetX + 247, y: y, w: 35.0, h: h}]
+              RangeG -> [{x: toNumber $ targetX + 2, y: y, w: 78.0, h: h}, {x: toNumber $ targetX + 270, y: y, w: 12.0, h: h}]
+              RangeA -> [{x: toNumber $ targetX + 2, y: y, w: 100.0, h: h}]
+            in for_ rects fillRect
+        drawRanges rest
+  drawRanges rangeEdges
+  -- Sustains
+  for_ pitchList $ \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
+    let thisPitch = fromMaybe Map.empty $ Map.lookup pitch pk.notes
+        isEnergy secs = case Map.lookupLE secs pk.energy of
+          Just {value: bool} -> bool
+          Nothing            -> false
+        drawSustainBlock ystart yend energy = when (ystart < targetY || yend < targetY) $ do
+          let ystart' = min ystart targetY
+              yend'   = min yend   targetY
+              sustaining = targetY < ystart || targetY < yend
+              shades = if energy
+                then if isBlack
+                  then { light: "rgb( 52,148,117)", normal: "rgb( 71,107, 95)", dark: "rgb( 69, 83, 79)" }
+                  else { light: "rgb(137,235,204)", normal: "rgb(138,192,175)", dark: "rgb(124,158,149)" }
+                else if isBlack
+                  then { light: "rgb(175, 83,201)", normal: "rgb(147, 49,175)", dark: "rgb(123, 42,150)" }
+                  else { light: "rgb(199,134,218)", normal: "rgb(184,102,208)", dark: "rgb(178, 86,204)" }
+              h = yend' - ystart' + 1
+              offsetX' = offsetX + if isBlack then 0 else 0
+          setFillStyle "black"
+          fillRect { x: toNumber $ targetX + offsetX' + 2, y: toNumber ystart', w: 1.0, h: toNumber h }
+          fillRect { x: toNumber $ targetX + offsetX' + 8, y: toNumber ystart', w: 1.0, h: toNumber h }
+          setFillStyle shades.light
+          fillRect { x: toNumber $ targetX + offsetX' + 3, y: toNumber ystart', w: 1.0, h: toNumber h }
+          setFillStyle shades.normal
+          fillRect { x: toNumber $ targetX + offsetX' + 4, y: toNumber ystart', w: 3.0, h: toNumber h }
+          setFillStyle shades.dark
+          fillRect { x: toNumber $ targetX + offsetX' + 7, y: toNumber ystart', w: 1.0, h: toNumber h }
+          when sustaining $ do
+            setFillStyle shades.light
+            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 }
+        go False (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisPitch of
+          Just { key: secsStart, value: Sustain _ } -> do
+            drawSustainBlock (secsToPx secsEnd) windowH $ isEnergy secsStart
+            go False rest
+          _ -> unsafeThrow "during prokeys drawing: found a sustain end not preceded by sustain start"
+        go True (L.Cons (Tuple _ SustainEnd) rest) = go False rest
+        go _ (L.Cons (Tuple _ (Note (_ :: Unit))) rest) = go False rest
+        go _ (L.Cons (Tuple secsStart (Sustain (_ :: Unit))) rest) = do
+          let pxEnd = case rest of
+                L.Nil                      -> 0
+                L.Cons (Tuple secsEnd _) _ -> secsToPx secsEnd
+          drawSustainBlock pxEnd (secsToPx secsStart) $ isEnergy secsStart
+          go True rest
+        go _ L.Nil = return unit
+    case L.fromFoldable $ Map.doTupleArray (zoomAsc thisPitch) of
+      L.Nil -> case Map.lookupLT (pxToSecs windowH) thisPitch of
+        -- handle the case where the entire screen is the middle of a sustain
+        Just { key: secsStart, value: Sustain (_ :: Unit) } ->
+          drawSustainBlock 0 windowH $ isEnergy secsStart
+        _ -> return unit
+      events -> go False events
+  -- Notes
+  for_ pitchList $ \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
+    zoomDesc (fromMaybe Map.empty $ Map.lookup pitch pk.notes) $ \secs evt -> do
+      let futureSecs = case secs - stuff.time of Seconds s -> s
+      if futureSecs <= 0.0
+        then do
+          -- note is in the past or being hit now
+          if (-0.1) < futureSecs
+            then case evt of
+              SustainEnd -> return unit
+              _ -> do
+                setFillStyle $ "rgba(227,193,238," <> show ((futureSecs + 0.1) / 0.05) <> ")"
+                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 }
+            else return unit
+        else do
+          let y = secsToPx secs
+              isEnergy = case Map.lookupLE secs pk.energy of
+                Just {value: bool} -> bool
+                Nothing            -> false
+              img = if isEnergy
+                then if isBlack then Image_gem_blackkey_energy else Image_gem_whitekey_energy
+                else if isBlack then Image_gem_blackkey        else Image_gem_whitekey
+          case evt of
+            SustainEnd   -> drawImage Image_sustain_key_end (toNumber $ targetX + offsetX - if isBlack then 1 else 0) (toNumber   y    )
+            Note    (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5)
+            Sustain (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5)
+  return $ targetX + 282 + _M

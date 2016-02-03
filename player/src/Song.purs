@@ -19,6 +19,7 @@ newtype Song = Song
   , guitar :: Maybe Five
   , bass :: Maybe Five
   , keys :: Maybe Five
+  , prokeys :: Maybe ProKeys
   }
 
 newtype Drums = Drums
@@ -45,6 +46,66 @@ newtype Five = Five
   , solo :: Map.Map Seconds Boolean
   , energy :: Map.Map Seconds Boolean
   }
+
+newtype ProKeys = ProKeys
+  { notes  :: Map.Map Pitch (Map.Map Seconds (Sustainable Unit))
+  , ranges :: Map.Map Seconds Range
+  , solo   :: Map.Map Seconds Boolean
+  , energy :: Map.Map Seconds Boolean
+  }
+
+data Range
+  = RangeC
+  | RangeD
+  | RangeE
+  | RangeF
+  | RangeG
+  | RangeA
+
+instance isForeignRange :: IsForeign Range where
+  read f = read f >>= \s -> case s of
+    "c" -> return RangeC
+    "d" -> return RangeD
+    "e" -> return RangeE
+    "f" -> return RangeF
+    "g" -> return RangeG
+    "a" -> return RangeA
+    _ -> Left $ TypeMismatch "pro keys range" $ show s
+
+data Pitch
+  = RedC
+  | RedCs
+  | RedD
+  | RedDs
+  | RedE
+  | YellowF
+  | YellowFs
+  | YellowG
+  | YellowGs
+  | YellowA
+  | YellowAs
+  | YellowB
+  | BlueC
+  | BlueCs
+  | BlueD
+  | BlueDs
+  | BlueE
+  | GreenF
+  | GreenFs
+  | GreenG
+  | GreenGs
+  | GreenA
+  | GreenAs
+  | GreenB
+  | OrangeC
+
+derive instance genPitch :: Generic Pitch
+instance showPitch :: Show Pitch where
+  show = gShow
+instance eqPitch :: Eq Pitch where
+  eq = gEq
+instance ordPitch :: Ord Pitch where
+  compare = gCompare
 
 instance isForeignFiveNote :: IsForeign (Sustainable GuitarNoteType) where
   read f = read f >>= \s -> case s of
@@ -85,6 +146,47 @@ instance isForeignFive :: IsForeign Five where
       , energy: energy
       }
 
+instance isForeignProKeys :: IsForeign ProKeys where
+  read f = do
+    notes <- readProp "notes" f
+    let readPitch p s = map (Tuple p) $ readProp s notes >>= readTimedMap
+    pitches <- sequence
+      [ readPitch RedC "ry-c"
+      , readPitch RedCs "ry-cs"
+      , readPitch RedD "ry-d"
+      , readPitch RedDs "ry-ds"
+      , readPitch RedE "ry-e"
+      , readPitch YellowF "ry-f"
+      , readPitch YellowFs "ry-fs"
+      , readPitch YellowG "ry-g"
+      , readPitch YellowGs "ry-gs"
+      , readPitch YellowA "ry-a"
+      , readPitch YellowAs "ry-as"
+      , readPitch YellowB "ry-b"
+      , readPitch BlueC "bg-c"
+      , readPitch BlueCs "bg-cs"
+      , readPitch BlueD "bg-d"
+      , readPitch BlueDs "bg-ds"
+      , readPitch BlueE "bg-e"
+      , readPitch GreenF "bg-f"
+      , readPitch GreenFs "bg-fs"
+      , readPitch GreenG "bg-g"
+      , readPitch GreenGs "bg-gs"
+      , readPitch GreenA "bg-a"
+      , readPitch GreenAs "bg-as"
+      , readPitch GreenB "bg-b"
+      , readPitch OrangeC "o-c"
+      ]
+    solo <- readProp "solo" f >>= readTimedMap
+    energy <- readProp "energy" f >>= readTimedMap
+    ranges <- readProp "ranges" f >>= readTimedMap
+    return $ ProKeys
+      { notes: Map.fromFoldable pitches
+      , solo: solo
+      , energy: energy
+      , ranges: ranges
+      }
+
 instance isForeignSong :: IsForeign Song where
   read f = do
     end <- readProp "end" f
@@ -93,6 +195,7 @@ instance isForeignSong :: IsForeign Song where
     NullOrUndefined guitar <- readProp "guitar" f
     NullOrUndefined bass <- readProp "bass" f
     NullOrUndefined keys <- readProp "keys" f
+    NullOrUndefined prokeys <- readProp "prokeys" f
     return $ Song
       { end: Seconds end
       , beats: beats
@@ -100,6 +203,7 @@ instance isForeignSong :: IsForeign Song where
       , guitar: guitar
       , bass: bass
       , keys: keys
+      , prokeys: prokeys
       }
 
 readTimedMap :: forall a. (IsForeign a) => Foreign -> F (Map.Map Seconds a)
@@ -130,13 +234,10 @@ instance isForeignGem :: IsForeign Gem where
     _ -> Left $ TypeMismatch "drum gem name" $ show s
 
 derive instance genGem :: Generic Gem
-
 instance showGem :: Show Gem where
   show = gShow
-
 instance eqGem :: Eq Gem where
   eq = gEq
-
 instance ordGem :: Ord Gem where
   compare = gCompare
 
