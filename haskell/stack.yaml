@@ -5,7 +5,6 @@ packages:
 - 'parse'
 - 'stack-trace'
 - 'display'
-- 'editor'
 - location:
     git: git@github.com:Twinside/Juicy.Pixels
     commit: 209e9ae2ad77482a2556fd5aba8082c8580ce725

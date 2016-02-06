@@ -17,7 +17,7 @@ mac:
 
 mac-deps:
 	stack setup
-	brew install libsndfile libsamplerate lame sdl2 sdl2_image sdl2_mixer
+	brew install libsndfile libsamplerate lame
 
 win:
 	rm -rf win/
@@ -29,4 +29,4 @@ win:
 
 win-deps:
 	stack setup
-	pacman -S mingw-w64-i686-libsndfile mingw-w64-i686-libsamplerate mingw-w64-i686-lame mingw-w64-i686-SDL2 mingw-w64-i686-SDL2_image mingw-w64-i686-SDL2_mixer
+	pacman -S mingw-w64-i686-libsndfile mingw-w64-i686-libsamplerate mingw-w64-i686-lame

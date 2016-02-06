@@ -199,7 +199,7 @@ drawFive (Five five) targetX = do
   drawSolos soloEdges
   -- Solo edges
   zoomDesc five.solo $ \secs _ -> do
-    drawImage Image_highway_drums_solo_edge (toNumber targetX) (toNumber $ secsToPx secs)
+    drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPx secs)
   -- Beats
   zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
     let y = secsToPx secs

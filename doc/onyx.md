@@ -13,6 +13,8 @@ Some of Onyx's key features:
 
   * a placeholder pro keys track from basic keys, using the CDEFG white keys
 
+  * automatic lane ranges for pro keys
+
   * a 1x Bass Pedal reduced version of a 2x Bass Pedal drums chart
 
   * drum mix events

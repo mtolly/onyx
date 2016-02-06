@@ -21,9 +21,8 @@ mogg2ogg = B.empty
 
 webDisplay :: [(FilePath, B.ByteString)]
 webDisplay = concat
-  [ [("index.html", $(embedFile "../../web-display/www/index.html"))]
-  , [("app.min.js", $(embedFile "../../web-display/www/app.min.js"))]
-  , [("runmain.js", $(embedFile "../../web-display/www/runmain.js"))]
-  , map (first ("images" </>)) $(embedDir "../../web-display/www/images")
-  , map (first ("lib"    </>)) $(embedDir "../../web-display/www/lib")
+  [ [("index.html", $(embedFile "../../../player/www/index.html"))]
+  , [("app.min.js", $(embedFile "../../../player/www/app.min.js"))]
+  , map (first ("images" </>)) $(embedDir "../../../player/www/images")
+  , map (first ("lib" </>)) $(embedDir "../../../player/www/lib")
   ]

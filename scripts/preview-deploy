@@ -4,7 +4,7 @@
 url        = 'best-linux.cs.wisc.edu'
 username   = 'tolly'
 password   = File.read("#{Dir.home}/pw/csl").strip
-remote_dir = '/afs/cs.wisc.edu/u/t/o/tolly/public/html/customs2'
+remote_dir = '/afs/cs.wisc.edu/u/t/o/tolly/public/html/customs'
 
 require 'net/sftp'
 require 'net/ssh'
