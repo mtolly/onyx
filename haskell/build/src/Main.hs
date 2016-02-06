@@ -661,7 +661,7 @@ main = do
                       return i
                 oggChannels songChannels out
 
-          dir </> "song.js" %> \out -> do
+          dir </> "web/song.js" %> \out -> do
             let json = dir </> "display.json"
             s <- readFile' json
             let s' = reverse $ dropWhile isSpace $ reverse $ dropWhile isSpace s
@@ -673,10 +673,11 @@ main = do
             liftIO $ forM_ webDisplay $ \(f, bs) -> do
               Dir.createDirectoryIfMissing True $ dir </> "web" </> takeDirectory f
               B.writeFile (dir </> "web" </> f) bs
-            let songFiles = ["preview-audio.mp3", "preview-audio.ogg", "song.js"]
-            need $ map (dir </>) songFiles
-            forM_ songFiles $ \f -> do
-              copyFile' (dir </> f) (dir </> "web" </> f)
+            need
+              [ dir </> "web/preview-audio.mp3"
+              , dir </> "web/preview-audio.ogg"
+              , dir </> "web/song.js"
+              ]
 
           let allAudioWithPV =
                 [ (kickPV, dir </> "kick.wav")
@@ -917,7 +918,7 @@ main = do
 
           -- Low-quality audio files for the online preview app
           forM_ [("mp3", crapMP3), ("ogg", crapVorbis)] $ \(ext, crap) -> do
-            dir </> "preview-audio" <.> ext %> \out -> do
+            dir </> "web/preview-audio" <.> ext %> \out -> do
               need [dir </> "everything-mono.wav"]
               src <- liftIO $ sourceSnd $ dir </> "everything-mono.wav"
               putNormal $ "Writing a crappy audio file to " ++ out

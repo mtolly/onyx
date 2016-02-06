@@ -4,9 +4,10 @@
 url        = 'best-linux.cs.wisc.edu'
 username   = 'tolly'
 password   = File.read("#{Dir.home}/pw/csl").strip
-remote_dir = '/afs/cs.wisc.edu/u/t/o/tolly/public/html/customs'
+remote_dir = '/afs/cs.wisc.edu/u/t/o/tolly/public/html/customs2'
 
 require 'net/sftp'
+require 'net/ssh'
 require_relative 'common'
 
 def log(s)
@@ -30,57 +31,74 @@ def upload_rf(sftp, from, to)
     sftp.upload! from, to
   else
     mkdir_f sftp, to
-    Dir.entries(from).each do |ent|
-      next if %w{. .. .DS_Store .gitignore .git deploy.rb}.include? ent
-      full_from = "#{from}/#{ent}"
-      full_to = "#{to}/#{ent}"
-      if File.file?(full_from)
-        upload_rf sftp, full_from, full_to
-      else
-        mkdir_f sftp, full_to
-        upload_rf sftp, full_from, full_to
-      end
+    upload_contents(sftp, from, to)
+  end
+end
+
+def upload_contents(sftp, from, to)
+  Dir.entries(from).each do |ent|
+    next if %w{. .. .DS_Store .gitignore .git deploy.rb}.include? ent
+    full_from = "#{from}/#{ent}"
+    full_to = "#{to}/#{ent}"
+    if File.file?(full_from)
+      upload_rf sftp, full_from, full_to
+    else
+      mkdir_f sftp, full_to
+      upload_rf sftp, full_from, full_to
     end
   end
 end
 
 Net::SFTP.start(url, username, password: password) do |sftp|
   log " => Connected #{username}@#{url} via SFTP."
-  if ARGV.include? 'app'
-    Dir.chdir('haskell/web-display') do
-      system_ 'make', 'minify'
-    end
-    %w{index.html app.min.js runmain.js images lib}.each do |file|
-      upload_rf sftp, "haskell/web-display/www/#{file}", "#{remote_dir}/#{file}"
-    end
-  end
   first_option = ARGV.index { |arg| arg.start_with? '-' }
   not_options = first_option ? ARGV[0 ... first_option] : ARGV
   onyx_options = first_option ? ARGV[first_option .. -1].reject { |x| x == '--only-midi' } : []
-  only_mid = ARGV.include?('--only-midi')
+  only_midi = ARGV.include?('--only-midi')
+  if not_options.include?('app')
+    upload_rf sftp, "player/www/index.html", "#{remote_dir}/app/index.html"
+    upload_rf sftp, "player/www/app.min.js", "#{remote_dir}/app/app.min.js"
+    upload_rf sftp, "player/www/images", "#{remote_dir}/app/images"
+    upload_rf sftp, "player/www/lib", "#{remote_dir}/app/lib"
+  end
   not_options.each do |songdir|
     next if songdir == 'app'
     next unless File.exist? "#{songdir}/song.yml"
     yaml = load_yaml_tree("#{songdir}/song.yml")
     next unless yaml.fetch('published', true)
+    puts "SONG: #{songdir}"
 
-    songfiles =
-      if only_mid
-        %w{gen/plan/album/display.json}
-      else
-        %w{gen/plan/album/display.json gen/plan/album/preview-audio.ogg gen/plan/album/preview-audio.mp3}
-      end
     Dir.chdir(songdir) do
-      system_('onyx', 'build', *songfiles, *onyx_options)
+      if only_midi
+        system_('onyx', 'build', 'gen/plan/album/web/song.js', *onyx_options)
+      else
+        system_('onyx', 'build', 'gen/plan/album/web', *onyx_options)
+      end
     end
-    remote_songdir = songdir.gsub(/^songs([^\/]+)\//, 'songs/')
-    dirs = "#{remote_songdir}/gen/plan/album".split('/').reject(&:empty?)
-    dirs.each_index do |i|
-      # make each directory in the chain
-      mkdir_f sftp, "#{remote_dir}/#{dirs[0..i].join('/')}"
-    end
-    songfiles.each do |f|
-      upload_rf sftp, "#{songdir}/#{f}", "#{remote_dir}/#{remote_songdir}/#{f}"
+    remote_songdir = songdir.match(/\Asongs[^\/]*\/([^\/]+)\/([^\/]+)\/?\Z/) do |md|
+      artist = md[1]
+      title = md[2]
+      mkdir_f sftp, "#{remote_dir}/#{artist}"
+      mkdir_f sftp, "#{remote_dir}/#{artist}/#{title}"
+      "#{remote_dir}/#{artist}/#{title}"
+    end or raise "Couldn't parse song directory"
+
+    if only_midi
+      upload_rf sftp, "#{songdir}/gen/plan/album/web/song.js", "#{remote_songdir}/song.js"
+    else
+      upload_rf sftp, "#{songdir}/gen/plan/album/web/song.js", "#{remote_songdir}/song.js"
+      upload_rf sftp, "#{songdir}/gen/plan/album/web/preview-audio.mp3", "#{remote_songdir}/preview-audio.mp3"
+      upload_rf sftp, "#{songdir}/gen/plan/album/web/preview-audio.ogg", "#{remote_songdir}/preview-audio.ogg"
+      Net::SSH.start(url, username, password: password) do |ssh|
+        def p_(str)
+          puts str if str && str.match(/\S/)
+        end
+        p_ ssh.exec!("cd \"#{remote_songdir}\" && rm -f images lib index.html app.min.js")
+        p_ ssh.exec!("cd \"#{remote_songdir}\" && ln -s ../../app/images images")
+        p_ ssh.exec!("cd \"#{remote_songdir}\" && ln -s ../../app/lib lib")
+        p_ ssh.exec!("cd \"#{remote_songdir}\" && ln -s ../../app/index.html index.html")
+        p_ ssh.exec!("cd \"#{remote_songdir}\" && ln -s ../../app/app.min.js app.min.js")
+      end
     end
   end
 end

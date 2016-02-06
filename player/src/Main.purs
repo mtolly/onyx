@@ -49,99 +49,98 @@ main = do
   withImages $ \imageGetter -> do
     case read onyxSong of
       Left  e    -> log $ show e
-      Right song -> do
-        audio <- getTheAudio
-        onLoad audio $ let
-          loop app = do
-            ms <- nowEpochMilliseconds
-            let nowSeconds = min (case song of Song o -> o.end) $ case app of
-                  Paused o -> o.pausedSongTime
-                  Playing o -> o.startedSongTime + toSeconds ms - o.startedPageTime
-            runReaderT draw
-              { time: nowSeconds
-              , app: app
-              , song: song
-              , getImage: imageGetter
-              , canvas: canvas
-              , context: ctx
-              , pxToSecs: \px -> Seconds $ toNumber (px - 50) * 0.003
-              , secsToPx: \(Seconds secs) -> round (secs / 0.003) + 50
-              }
-            windowH <- round <$> innerHeight globalWindow
-            evts <- modifyRef' clicks $ \evts -> {state: [], value: evts}
-            let handle es app_ = case uncons es of
-                  Nothing -> requestAnimationFrame $ loop app_
-                  Just {head: e, tail: et} -> do
-                    x <- clientX e
-                    y <- clientY e
-                    if _M <= x && x <= _M + _B
-                      then if windowH - _M - _B <= y && y <= windowH - _M
-                        then case app_ of -- play/pause button
-                          Paused o -> do
-                            ms <- nowEpochMilliseconds
-                            playFrom nowSeconds audio
-                            handle et $ Playing
-                              { startedPageTime: toSeconds ms
-                              , startedSongTime: nowSeconds
-                              , settings: o.settings
-                              }
-                          Playing o -> do
-                            pause audio
-                            handle et $ Paused
-                              { pausedSongTime: nowSeconds
-                              , settings: o.settings
-                              }
-                        else if _M <= y && y <= windowH - 2*_M - _B
-                          then let -- progress bar
-                            frac = 1.0 - toNumber (y - _M) / toNumber (windowH - 3*_M - _B)
-                            t = Seconds frac * case song of Song o -> o.end
-                            in case app_ of
-                              Paused o -> handle et $ Paused $ o
-                                { pausedSongTime = t
+      Right song -> loadAudio $ \audio -> do
+        let loop app = do
+              ms <- nowEpochMilliseconds
+              let nowSeconds = min (case song of Song o -> o.end) $ case app of
+                    Paused o -> o.pausedSongTime
+                    Playing o -> o.startedSongTime + toSeconds ms - o.startedPageTime
+              runReaderT draw
+                { time: nowSeconds
+                , app: app
+                , song: song
+                , getImage: imageGetter
+                , canvas: canvas
+                , context: ctx
+                , pxToSecs: \px -> Seconds $ toNumber (px - 50) * 0.003
+                , secsToPx: \(Seconds secs) -> round (secs / 0.003) + 50
+                }
+              windowH <- round <$> innerHeight globalWindow
+              evts <- modifyRef' clicks $ \evts -> {state: [], value: evts}
+              let handle es app_ = case uncons es of
+                    Nothing -> requestAnimationFrame $ loop app_
+                    Just {head: e, tail: et} -> do
+                      x <- clientX e
+                      y <- clientY e
+                      if _M <= x && x <= _M + _B
+                        then if windowH - _M - _B <= y && y <= windowH - _M
+                          then case app_ of -- play/pause button
+                            Paused o -> do
+                              ms <- nowEpochMilliseconds
+                              playFrom audio nowSeconds
+                              handle et $ Playing
+                                { startedPageTime: toSeconds ms
+                                , startedSongTime: nowSeconds
+                                , settings: o.settings
                                 }
-                              Playing o -> do
-                                ms <- nowEpochMilliseconds
-                                playFrom t audio
-                                handle et $ Playing $ o
-                                  { startedPageTime = toSeconds ms
-                                  , startedSongTime = t
+                            Playing o -> do
+                              stop audio
+                              handle et $ Paused
+                                { pausedSongTime: nowSeconds
+                                , settings: o.settings
+                                }
+                          else if _M <= y && y <= windowH - 2*_M - _B
+                            then let -- progress bar
+                              frac = 1.0 - toNumber (y - _M) / toNumber (windowH - 3*_M - _B)
+                              t = Seconds frac * case song of Song o -> o.end
+                              in case app_ of
+                                Paused o -> handle et $ Paused $ o
+                                  { pausedSongTime = t
                                   }
+                                Playing o -> do
+                                  ms <- nowEpochMilliseconds
+                                  stop audio
+                                  playFrom audio t
+                                  handle et $ Playing $ o
+                                    { startedPageTime = toSeconds ms
+                                    , startedSongTime = t
+                                    }
+                            else handle et app_
+                        else if 2*_M + _B <= x && x <= 2*_M + 2*_B
+                          then let
+                            go _ L.Nil                = handle et app_
+                            go i (L.Cons action rest) = do
+                              let ystart = windowH - i * (_M + _B)
+                                  yend   = ystart + _B
+                              if ystart <= y && y <= yend
+                                then handle et $ case app_ of
+                                  Paused  o -> Paused  o { settings = action o.settings }
+                                  Playing o -> Playing o { settings = action o.settings }
+                                else go (i + 1) rest
+                            s = case song of Song o -> o
+                            in go 1 $ L.fromFoldable $ concat
+                              [ guard (isJust s.prokeys) *> [ (\sets -> sets { seeProKeys = not sets.seeProKeys }) ]
+                              , guard (isJust s.keys   ) *> [ (\sets -> sets { seeKeys    = not sets.seeKeys    }) ]
+                              , guard (isJust s.drums  ) *> [ (\sets -> sets { seeDrums   = not sets.seeDrums   }) ]
+                              , guard (isJust s.bass   ) *> [ (\sets -> sets { seeBass    = not sets.seeBass    }) ]
+                              , guard (isJust s.guitar ) *> [ (\sets -> sets { seeGuitar  = not sets.seeGuitar  }) ]
+                              ]
                           else handle et app_
-                      else if 2*_M + _B <= x && x <= 2*_M + 2*_B
-                        then let
-                          go _ L.Nil                = handle et app_
-                          go i (L.Cons action rest) = do
-                            let ystart = windowH - i * (_M + _B)
-                                yend   = ystart + _B
-                            if ystart <= y && y <= yend
-                              then handle et $ case app_ of
-                                Paused  o -> Paused  o { settings = action o.settings }
-                                Playing o -> Playing o { settings = action o.settings }
-                              else go (i + 1) rest
-                          s = case song of Song o -> o
-                          in go 1 $ L.fromFoldable $ concat
-                            [ guard (isJust s.prokeys) *> [ (\sets -> sets { seeProKeys = not sets.seeProKeys }) ]
-                            , guard (isJust s.keys   ) *> [ (\sets -> sets { seeKeys    = not sets.seeKeys    }) ]
-                            , guard (isJust s.drums  ) *> [ (\sets -> sets { seeDrums   = not sets.seeDrums   }) ]
-                            , guard (isJust s.bass   ) *> [ (\sets -> sets { seeBass    = not sets.seeBass    }) ]
-                            , guard (isJust s.guitar ) *> [ (\sets -> sets { seeGuitar  = not sets.seeGuitar  }) ]
-                            ]
-                        else handle et app_
-            handle evts $ case app of
-              Paused _ -> app
-              Playing o -> if nowSeconds == case song of Song o -> o.end
-                then Paused
-                  { pausedSongTime: nowSeconds
-                  , settings: o.settings
-                  }
-                else Playing o
-          in loop $ Paused
-            { pausedSongTime: Seconds 0.0
-            , settings:
-              { seeGuitar:  true
-              , seeBass:    true
-              , seeKeys:    true
-              , seeProKeys: true
-              , seeDrums:   true
-              }
+              handle evts $ case app of
+                Paused _ -> app
+                Playing o -> if nowSeconds == case song of Song o -> o.end
+                  then Paused
+                    { pausedSongTime: nowSeconds
+                    , settings: o.settings
+                    }
+                  else Playing o
+        loop $ Paused
+          { pausedSongTime: Seconds 0.0
+          , settings:
+            { seeGuitar:  true
+            , seeBass:    true
+            , seeKeys:    true
+            , seeProKeys: true
+            , seeDrums:   true
             }
+          }
