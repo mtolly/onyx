@@ -861,12 +861,27 @@ main = do
                   $ foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks song ]
                 prokeys = justIf (_hasProKeys $ _instruments songYaml) $ Proc.processProKeys (RBFile.s_tempos song)
                   $ foldr RTB.merge RTB.empty [ t | RBFile.PartRealKeys Expert t <- RBFile.s_tracks song ]
+                vox = case _hasVocal $ _instruments songYaml of
+                  Vocal0 -> Nothing
+                  Vocal1 -> makeVox
+                    (foldr RTB.merge RTB.empty [ t | RBFile.PartVocals t <- RBFile.s_tracks song ])
+                    RTB.empty
+                    RTB.empty
+                  Vocal2 -> makeVox
+                    (foldr RTB.merge RTB.empty [ t | RBFile.Harm1 t <- RBFile.s_tracks song ])
+                    (foldr RTB.merge RTB.empty [ t | RBFile.Harm2 t <- RBFile.s_tracks song ])
+                    RTB.empty
+                  Vocal3 -> makeVox
+                    (foldr RTB.merge RTB.empty [ t | RBFile.Harm1 t <- RBFile.s_tracks song ])
+                    (foldr RTB.merge RTB.empty [ t | RBFile.Harm2 t <- RBFile.s_tracks song ])
+                    (foldr RTB.merge RTB.empty [ t | RBFile.Harm3 t <- RBFile.s_tracks song ])
+                makeVox h1 h2 h3 = Just $ Proc.processVocal (RBFile.s_tempos song) h1 h2 h3 (fmap fromEnum $ _key $ _metadata songYaml)
                 beat = Proc.processBeat (RBFile.s_tempos song)
                   $ foldr RTB.merge RTB.empty [ t | RBFile.Beat t <- RBFile.s_tracks song ]
                 end = U.applyTempoMap (RBFile.s_tempos song) $ songLength' song
                 justIf b x = guard b >> Just x
             liftIO $ BL.writeFile out $ A.encode $ Proc.mapTime (realToFrac :: U.Seconds -> Milli)
-              $ Proc.Processed gtr bass keys drums prokeys beat end
+              $ Proc.Processed gtr bass keys drums prokeys vox beat end
 
           -- -- Guitar rules
           -- dir </> "guitar.mid" %> \out -> do

@@ -20,6 +20,7 @@ newtype Song = Song
   , bass :: Maybe Five
   , keys :: Maybe Five
   , prokeys :: Maybe ProKeys
+  , vocal :: Maybe Vocal
   }
 
 newtype Drums = Drums
@@ -196,6 +197,7 @@ instance isForeignSong :: IsForeign Song where
     NullOrUndefined bass <- readProp "bass" f
     NullOrUndefined keys <- readProp "keys" f
     NullOrUndefined prokeys <- readProp "prokeys" f
+    NullOrUndefined vocal <- readProp "vocal" f
     return $ Song
       { end: Seconds end
       , beats: beats
@@ -204,7 +206,11 @@ instance isForeignSong :: IsForeign Song where
       , bass: bass
       , keys: keys
       , prokeys: prokeys
+      , vocal: vocal
       }
+
+readTimedSet :: Foreign -> F (Map.Map Seconds Unit)
+readTimedSet f = map (map $ \(_ :: Foreign) -> unit) $ readTimedMap f
 
 readTimedMap :: forall a. (IsForeign a) => Foreign -> F (Map.Map Seconds a)
 readTimedMap f = Map.fromFoldable <$> (readArray f >>= traverse readTimedPair)
@@ -267,3 +273,47 @@ instance showBeat :: Show Beat where
     Bar      -> "Bar"
     Beat     -> "Beat"
     HalfBeat -> "HalfBeat"
+
+data Vocal = Vocal
+  { harm1 :: Map.Map Seconds VocalNote
+  , harm2 :: Map.Map Seconds VocalNote
+  , harm3 :: Map.Map Seconds VocalNote
+  , percussion :: Map.Map Seconds Unit
+  , phrases :: Map.Map Seconds Unit
+  , ranges :: Map.Map Seconds VocalRange
+  , energy :: Map.Map Seconds Boolean
+  , tonic :: Maybe Int
+  }
+
+instance isForeignVocal :: IsForeign Vocal where
+  read f = do
+    harm1 <- readProp "harm1"  f >>= readTimedMap
+    harm2 <- readProp "harm2"  f >>= readTimedMap
+    harm3 <- readProp "harm3"  f >>= readTimedMap
+    energy <- readProp "energy" f >>= readTimedMap
+    ranges <- readProp "ranges" f >>= readTimedMap
+    NullOrUndefined tonic <- readProp "tonic" f
+    percussion <- readProp "percussion" f >>= readTimedSet
+    phrases <- readProp "percussion" f >>= readTimedSet
+    return $ Vocal { harm1: harm1, harm2: harm2, harm3: harm3, energy: energy, ranges: ranges, tonic: tonic, percussion: percussion, phrases: phrases }
+
+data VocalRange
+  = VocalRangeShift    -- ^ Start of a range shift
+  | VocalRange Int Int -- ^ The starting range, or the end of a range shift
+
+instance isForeignVocalRange :: IsForeign VocalRange where
+  read f = if isNull f
+    then return VocalRangeShift
+    else VocalRange <$> readProp 0 f <*> readProp 1 f
+
+data VocalNote
+  = VocalStart String (Maybe Int)
+  | VocalEnd
+
+instance isForeignVocalNote :: IsForeign VocalNote where
+  read f = if isNull f
+    then return VocalEnd
+    else do
+      lyric <- readProp 0 f
+      NullOrUndefined pitch <- readProp 1 f
+      return $ VocalStart lyric pitch

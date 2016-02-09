@@ -2,20 +2,23 @@
 {-# LANGUAGE OverloadedStrings #-}
 module OnyxiteDisplay.Process where
 
+import           Control.Applicative              ((<|>))
 import           Control.Monad                    (forM, guard)
-import           Data.Aeson                       ((.:), (.:?))
 import qualified Data.Aeson                       as A
 import qualified Data.Aeson.Types                 as A
 import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
+import           Data.List                        (stripPrefix)
 import qualified Data.Map.Strict                  as Map
+import           Data.Maybe                       (listToMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common                  (Difficulty (..))
 import qualified RockBand.Drums                   as Drums
+import qualified RockBand.Vocals                  as Vox
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as PK
 import qualified Sound.MIDI.Util                  as U
@@ -76,27 +79,6 @@ readKeyMapping readKey readVal = A.withObject "object with key->notes mapping" $
     val <- readVal v
     return (key, val)
 
-instance (Ord t, Fractional t) => A.FromJSON (Five t) where
-  parseJSON = A.withObject "five-button data" $ \obj -> do
-    let readColor = \case
-          "green"  -> return Five.Green
-          "red"    -> return Five.Red
-          "yellow" -> return Five.Yellow
-          "blue"   -> return Five.Blue
-          "orange" -> return Five.Orange
-          _        -> fail "invalid five-button color name"
-        readSust = \case
-          "end"        -> return SustainEnd
-          "strum"      -> return $ Note Strum
-          "hopo"       -> return $ Note HOPO
-          "strum-sust" -> return $ Sustain Strum
-          "hopo-sust"  -> return $ Sustain HOPO
-          _            -> fail "invalid five-button note type"
-    notes <- (obj .: "notes") >>= readKeyMapping readColor (readEventList readSust)
-    solo <- (obj .: "solo") >>= readEventList A.parseJSON
-    energy <- (obj .: "energy") >>= readEventList A.parseJSON
-    return $ Five notes solo energy
-
 data Drums t = Drums
   { drumNotes  :: Map.Map t [Drums.Gem Drums.ProType]
   , drumSolo   :: Map.Map t Bool
@@ -122,25 +104,6 @@ instance (Real t) => A.ToJSON (Drums t) where
     , (,) "solo" $ eventList (drumSolo x) A.toJSON
     , (,) "energy" $ eventList (drumEnergy x) A.toJSON
     ]
-
-instance (Ord t, Fractional t) => A.FromJSON (Drums t) where
-  parseJSON = A.withObject "drums data" $ \obj -> do
-    let readGem :: A.Value -> A.Parser (Drums.Gem Drums.ProType)
-        readGem = \case
-          "kick"  -> return Drums.Kick
-          "red"   -> return Drums.Red
-          "y-cym" -> return $ Drums.Pro Drums.Yellow Drums.Cymbal
-          "y-tom" -> return $ Drums.Pro Drums.Yellow Drums.Tom
-          "b-cym" -> return $ Drums.Pro Drums.Blue   Drums.Cymbal
-          "b-tom" -> return $ Drums.Pro Drums.Blue   Drums.Tom
-          "g-cym" -> return $ Drums.Pro Drums.Green  Drums.Cymbal
-          "g-tom" -> return $ Drums.Pro Drums.Green  Drums.Tom
-          _       -> fail "invalid drums gem"
-        readGems v = A.parseJSON v >>= mapM readGem
-    notes <- (obj .: "notes") >>= readEventList readGems
-    solo <- (obj .: "solo") >>= readEventList A.parseJSON
-    energy <- (obj .: "energy") >>= readEventList A.parseJSON
-    return $ Drums notes solo energy
 
 data ProKeys t = ProKeys
   { proKeysNotes  :: Map.Map PK.Pitch (Map.Map t (Sustainable ()))
@@ -180,27 +143,6 @@ instance (Real t) => A.ToJSON (ProKeys t) where
     , (,) "solo" $ eventList (proKeysSolo x) A.toJSON
     , (,) "energy" $ eventList (proKeysEnergy x) A.toJSON
     ]
-
-instance (Ord t, Fractional t) => A.FromJSON (ProKeys t) where
-  parseJSON = A.withObject "pro keys data" $ \obj -> do
-    let readSust = \case
-          "end"  -> return SustainEnd
-          "note" -> return $ Note ()
-          "sust" -> return $ Sustain ()
-          _      -> fail "invalid pro keys note type"
-        readRange = \case
-          "c" -> return PK.RangeC
-          "d" -> return PK.RangeD
-          "e" -> return PK.RangeE
-          "f" -> return PK.RangeF
-          "g" -> return PK.RangeG
-          "a" -> return PK.RangeA
-          _   -> fail "invalid pro keys range name"
-    notes <- (obj .: "notes") >>= readKeyMapping readPitch (readEventList readSust)
-    ranges <- (obj .: "ranges") >>= readEventList readRange
-    solo <- (obj .: "solo") >>= readEventList A.parseJSON
-    energy <- (obj .: "energy") >>= readEventList A.parseJSON
-    return $ ProKeys notes ranges solo energy
 
 removeStubs :: (Ord a) => RTB.T U.Beats (Sustainable a) -> RTB.T U.Beats (Sustainable a)
 removeStubs = go . RTB.normalize where
@@ -272,22 +214,11 @@ instance (Real t) => A.ToJSON (Beats t) where
     [ (,) "lines" $ eventList (beatLines x) $ A.toJSON . map toLower . show
     ]
 
-instance (Ord t, Fractional t) => A.FromJSON (Beats t) where
-  parseJSON = A.withObject "beat track data" $ \obj -> do
-    fmap Beats $ (obj .: "lines") >>= readEventList A.parseJSON
-
 data Beat
   = Bar
   | Beat
   | HalfBeat
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-instance A.FromJSON Beat where
-  parseJSON = \case
-    "bar"      -> return Bar
-    "beat"     -> return Beat
-    "halfbeat" -> return HalfBeat
-    _          -> fail "invalid beat event"
 
 processBeat :: U.TempoMap -> RTB.T U.Beats Beat.Event -> Beats U.Seconds
 processBeat tmap rtb = Beats $ Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0
@@ -296,22 +227,120 @@ processBeat tmap rtb = Beats $ Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEve
     Beat.Beat -> Beat
     -- TODO: add half-beats
 
+data Vocal t = Vocal
+  { harm1Notes :: Map.Map t VocalNote
+  , harm2Notes :: Map.Map t VocalNote
+  , harm3Notes :: Map.Map t VocalNote
+  , vocalPercussion :: Map.Map t ()
+  , vocalPhraseEnds :: Map.Map t ()
+  , vocalRanges :: Map.Map t VocalRange
+  , vocalEnergy :: Map.Map t Bool
+  , vocalTonic :: Maybe Int
+  } deriving (Eq, Ord, Show)
+
+data VocalRange
+  = VocalRangeShift    -- ^ Start of a range shift
+  | VocalRange Int Int -- ^ The starting range, or the end of a range shift
+  deriving (Eq, Ord, Show)
+
+data VocalNote
+  = VocalStart String (Maybe Int)
+  | VocalEnd
+  deriving (Eq, Ord, Show)
+
+instance (Real t) => A.ToJSON (Vocal t) where
+  toJSON x = A.object
+    [ (,) "harm1" $ eventList (harm1Notes x) voxEvent
+    , (,) "harm2" $ eventList (harm2Notes x) voxEvent
+    , (,) "harm3" $ eventList (harm3Notes x) voxEvent
+    , (,) "percussion" $ eventList (vocalPercussion x) $ \() -> A.Null
+    , (,) "phrases" $ eventList (vocalPhraseEnds x) $ \() -> A.Null
+    , (,) "ranges" $ eventList (vocalRanges x) $ \case
+      VocalRange pmin pmax -> A.toJSON [pmin, pmax]
+      VocalRangeShift      -> A.Null
+    , (,) "energy" $ eventList (vocalEnergy x) A.toJSON
+    , (,) "tonic" $ maybe A.Null A.toJSON $ vocalTonic x
+    ] where voxEvent VocalEnd                 = A.Null
+            voxEvent (VocalStart lyric pitch) = A.toJSON [A.toJSON lyric, maybe A.Null A.toJSON pitch]
+
+instance TimeFunctor Vocal where
+  mapTime f (Vocal h1 h2 h3 perc ends ranges energy tonic) = Vocal
+    (Map.mapKeys f h1)
+    (Map.mapKeys f h2)
+    (Map.mapKeys f h3)
+    (Map.mapKeys f perc)
+    (Map.mapKeys f ends)
+    (Map.mapKeys f ranges)
+    (Map.mapKeys f energy)
+    tonic
+
+stripSuffix :: (Eq a) => [a] -> [a] -> Maybe [a]
+stripSuffix sfx str = fmap reverse $ stripPrefix (reverse sfx) (reverse str)
+
+processVocal
+  :: U.TempoMap
+  -> RTB.T U.Beats Vox.Event
+  -> RTB.T U.Beats Vox.Event
+  -> RTB.T U.Beats Vox.Event
+  -> Maybe Int
+  -> Vocal U.Seconds
+processVocal tmap h1 h2 h3 tonic = let
+  perc = trackToMap tmap $ flip RTB.mapMaybe h1 $ \case
+    Vox.Percussion -> Just ()
+    _              -> Nothing
+  ends = trackToMap tmap $ flip RTB.mapMaybe h1 $ \case
+    Vox.Phrase False  -> Just ()
+    Vox.Phrase2 False -> Just ()
+    _                 -> Nothing
+  pitchToInt p = fromEnum p + 36
+  makeVoxPart trk = trackToMap tmap $ flip RTB.mapMaybe (RTB.collectCoincident trk) $ \evts -> let
+    lyric = listToMaybe [ s | Vox.Lyric s <- evts ]
+    note = listToMaybe [ p | Vox.Note p True <- evts ]
+    end = listToMaybe [ () | Vox.Note _ False <- evts ]
+    in case (lyric, note, end) of
+      (Just l, Just p, Nothing) -> Just $ case stripSuffix "#" l <|> stripSuffix "^" l of
+        Nothing -> VocalStart l $ Just $ pitchToInt p -- non-talky
+        Just l' -> VocalStart l' Nothing              -- talky
+      (Nothing, Nothing, Just ()) -> Just VocalEnd
+      (Nothing, Nothing, Nothing) -> Nothing
+      _ -> error "processVocal: invalid set of vocal events!"
+  harm1 = makeVoxPart h1
+  harm2 = makeVoxPart h2
+  harm3 = makeVoxPart h3
+  -- TODO: handle range changes
+  ranges = Map.singleton 0 $ VocalRange (foldr min 84 allPitches) (foldr max 36 allPitches)
+  allPitches = [ p | VocalStart _ (Just p) <- concatMap Map.elems [harm1, harm2, harm3] ]
+  in Vocal
+    { vocalPercussion = perc
+    , vocalPhraseEnds = ends
+    , vocalTonic = tonic
+    , harm1Notes = harm1
+    , harm2Notes = harm2
+    , harm3Notes = harm3
+    , vocalEnergy = trackToMap tmap $ flip RTB.mapMaybe h1 $ \case
+      Vox.Overdrive b -> Just b
+      _               -> Nothing
+    , vocalRanges = ranges
+    }
+
 data Processed t = Processed
   { processedGuitar  :: Maybe (Five    t)
   , processedBass    :: Maybe (Five    t)
   , processedKeys    :: Maybe (Five    t)
   , processedDrums   :: Maybe (Drums   t)
   , processedProKeys :: Maybe (ProKeys t)
+  , processedVocal   :: Maybe (Vocal   t)
   , processedBeats   ::        Beats   t
   , processedEnd     :: t
   } deriving (Eq, Ord, Show)
 
 instance TimeFunctor Processed where
-  mapTime f (Processed g b k d pk bts end) = Processed
+  mapTime f (Processed g b k d v pk bts end) = Processed
     (fmap (mapTime f) g)
     (fmap (mapTime f) b)
     (fmap (mapTime f) k)
     (fmap (mapTime f) d)
+    (fmap (mapTime f) v)
     (fmap (mapTime f) pk)
     (mapTime f bts)
     (f end)
@@ -323,17 +352,7 @@ instance (Real t) => A.ToJSON (Processed t) where
     , case processedKeys    proc of Nothing -> []; Just x -> [("keys"   , A.toJSON x)]
     , case processedDrums   proc of Nothing -> []; Just x -> [("drums"  , A.toJSON x)]
     , case processedProKeys proc of Nothing -> []; Just x -> [("prokeys", A.toJSON x)]
+    , case processedVocal   proc of Nothing -> []; Just x -> [("vocal"  , A.toJSON x)]
     , [("beats", A.toJSON $ processedBeats proc)]
     , [("end", A.Number $ realToFrac $ processedEnd proc)]
     ]
-
-instance (Ord t, Fractional t) => A.FromJSON (Processed t) where
-  parseJSON = A.withObject "processed midi data" $ \obj -> do
-    g   <- obj .:? "guitar"
-    b   <- obj .:? "bass"
-    k   <- obj .:? "keys"
-    d   <- obj .:? "drums"
-    pk  <- obj .:? "prokeys"
-    bts <- obj .:  "beats"
-    A.Number end <- obj .: "end"
-    return $ Processed g b k d pk bts $ realToFrac end

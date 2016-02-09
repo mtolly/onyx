@@ -29,6 +29,7 @@ type Settings =
   , seeKeys    :: Boolean
   , seeProKeys :: Boolean
   , seeDrums   :: Boolean
+  , seeVocal   :: Boolean
   }
 
 data App
@@ -49,8 +50,10 @@ type DrawStuff =
   , getImage :: ImageID -> C.CanvasImageSource
   , canvas :: C.CanvasElement
   , context :: C.Context2D
-  , pxToSecs :: Int -> Seconds -- pixels from bottom -> now-offset in seconds
-  , secsToPx :: Seconds -> Int -- now-offset in seconds -> pixels from bottom
+  , pxToSecsVert :: Int -> Seconds -- pixels from bottom -> now-offset in seconds
+  , secsToPxVert :: Seconds -> Int -- now-offset in seconds -> pixels from bottom
+  , pxToSecsHoriz :: Int -> Seconds -- pixels from left -> now-offset in seconds
+  , secsToPxHoriz :: Seconds -> Int -- now-offset in seconds -> pixels from left
   }
 
 type Draw e = ReaderT DrawStuff (Eff (canvas :: C.Canvas | e))
@@ -83,6 +86,38 @@ draw = do
   lift $ C.setCanvasHeight windowH stuff.canvas
   setFillStyle "rgb(54,59,123)"
   fillRect { x: 0.0, y: 0.0, w: windowW, h: windowH }
+  -- Draw the visible instrument tracks in sequence
+  let drawTracks targetX trks = case uncons trks of
+        Nothing -> return unit
+        Just {head: trk, tail: trkt} -> do
+          drawResult <- trk targetX
+          case drawResult of
+            Just targetX' -> drawTracks targetX' trkt
+            Nothing       -> drawTracks targetX  trkt
+  drawTracks (_M + _B + _M + _B + _M)
+    [ drawPart (\(Song o) -> o.guitar ) _.seeGuitar  drawFive
+    , drawPart (\(Song o) -> o.bass   ) _.seeBass    drawFive
+    , drawPart (\(Song o) -> o.drums  ) _.seeDrums   drawDrums
+    , drawPart (\(Song o) -> o.keys   ) _.seeKeys    drawFive
+    , drawPart (\(Song o) -> o.prokeys) _.seeProKeys drawProKeys
+    ]
+  void $ drawPart (\(Song o) -> o.vocal) _.seeVocal drawVocal 0
+  let drawButtons _ L.Nil             = return unit
+      drawButtons y (L.Cons iid iids) = do
+        drawImage iid (toNumber $ _M + _B + _M) (toNumber y)
+        drawButtons (y - _M - _B) iids
+      song = case stuff.song of Song s -> s
+      settings = case stuff.app of
+        Paused  o -> o.settings
+        Playing o -> o.settings
+  drawButtons (round windowH - _M - _B) $ L.fromFoldable $ concat
+    [ guard (isJust song.prokeys) *> [ if settings.seeProKeys then Image_button_prokeys else Image_button_prokeys_off ]
+    , guard (isJust song.keys   ) *> [ if settings.seeKeys    then Image_button_keys    else Image_button_keys_off    ]
+    , guard (isJust song.vocal  ) *> [ if settings.seeVocal   then Image_button_vocal   else Image_button_vocal_off   ]
+    , guard (isJust song.drums  ) *> [ if settings.seeDrums   then Image_button_drums   else Image_button_drums_off   ]
+    , guard (isJust song.bass   ) *> [ if settings.seeBass    then Image_button_bass    else Image_button_bass_off    ]
+    , guard (isJust song.guitar ) *> [ if settings.seeGuitar  then Image_button_guitar  else Image_button_guitar_off  ]
+    ]
   let playPause = case stuff.app of
         Paused  _ -> Image_button_play
         Playing _ -> Image_button_pause
@@ -101,36 +136,6 @@ draw = do
     , w: toNumber _B - 2.0
     , h: timelineH * filled
     }
-  -- Draw the visible instrument tracks in sequence
-  let drawTracks targetX trks = case uncons trks of
-        Nothing -> return unit
-        Just {head: trk, tail: trkt} -> do
-          drawResult <- trk targetX
-          case drawResult of
-            Just targetX' -> drawTracks targetX' trkt
-            Nothing       -> drawTracks targetX  trkt
-  drawTracks (_M + _B + _M + _B + _M)
-    [ drawPart (\(Song o) -> o.guitar ) _.seeGuitar  drawFive
-    , drawPart (\(Song o) -> o.bass   ) _.seeBass    drawFive
-    , drawPart (\(Song o) -> o.drums  ) _.seeDrums   drawDrums
-    , drawPart (\(Song o) -> o.keys   ) _.seeKeys    drawFive
-    , drawPart (\(Song o) -> o.prokeys) _.seeProKeys drawProKeys
-    ]
-  let drawButtons _ L.Nil             = return unit
-      drawButtons y (L.Cons iid iids) = do
-        drawImage iid (toNumber $ _M + _B + _M) (toNumber y)
-        drawButtons (y - _M - _B) iids
-      song = case stuff.song of Song s -> s
-      settings = case stuff.app of
-        Paused  o -> o.settings
-        Playing o -> o.settings
-  drawButtons (round windowH - _M - _B) $ L.fromFoldable $ concat
-    [ guard (isJust song.prokeys) *> [ if settings.seeProKeys then Image_button_prokeys else Image_button_prokeys_off ]
-    , guard (isJust song.keys   ) *> [ if settings.seeKeys    then Image_button_keys    else Image_button_keys_off    ]
-    , guard (isJust song.drums  ) *> [ if settings.seeDrums   then Image_button_drums   else Image_button_drums_off   ]
-    , guard (isJust song.bass   ) *> [ if settings.seeBass    then Image_button_bass    else Image_button_bass_off    ]
-    , guard (isJust song.guitar ) *> [ if settings.seeGuitar  then Image_button_guitar  else Image_button_guitar_off  ]
-    ]
 
 -- | Height/width of margins
 _M :: Int
@@ -141,12 +146,12 @@ _B :: Int
 _B = 41
 
 drawPart
-  :: forall e a
+  :: forall e a r
   .  (Song -> Maybe a)
   -> (Settings -> Boolean)
-  -> (a -> Int -> Draw e Int)
+  -> (a -> Int -> Draw e r)
   -> Int
-  -> Draw e (Maybe Int)
+  -> Draw e (Maybe r)
 drawPart getPart see drawIt targetX = do
   stuff <- askStuff
   let settings = case stuff.app of
@@ -160,15 +165,15 @@ drawFive :: forall e. Five -> Int -> Draw e Int
 drawFive (Five five) targetX = do
   stuff <- askStuff
   windowH <- map round $ lift $ C.getCanvasHeight stuff.canvas
-  let pxToSecs px = stuff.pxToSecs (windowH - px) + stuff.time
-      secsToPx secs = windowH - stuff.secsToPx (secs - stuff.time)
-      maxSecs = pxToSecs (-100)
-      minSecs = pxToSecs $ windowH + 100
+  let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
+      secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
+      maxSecs = pxToSecsVert (-100)
+      minSecs = pxToSecsVert $ windowH + 100
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomDesc = Map.zoomDescDo minSecs maxSecs
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
-      targetY = secsToPx stuff.time
+      targetY = secsToPxVert stuff.time
   -- Highway
   setFillStyle "rgb(126,126,150)"
   fillRect { x: toNumber targetX, y: 0.0, w: 182.0, h: toNumber windowH }
@@ -191,18 +196,18 @@ drawFive (Five five) targetX = do
       drawSolos L.Nil            = return unit
       drawSolos (L.Cons _ L.Nil) = return unit
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
-        let y1 = secsToPx s1
-            y2 = secsToPx s2
+        let y1 = secsToPxVert s1
+            y2 = secsToPxVert s2
         when b1 $ for_ [2, 38, 74, 110, 146] $ \offsetX -> do
           fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 }
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
   zoomDesc five.solo $ \secs _ -> do
-    drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPx secs)
+    drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs)
   -- Beats
   zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
-    let y = secsToPx secs
+    let y = secsToPxVert secs
     case evt of
       Bar      -> drawImage Image_highway_grybo_bar      (toNumber targetX) (toNumber y - 1.0)
       Beat     -> drawImage Image_highway_grybo_beat     (toNumber targetX) (toNumber y - 1.0)
@@ -259,7 +264,7 @@ drawFive (Five five) targetX = do
             fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
         go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisColor of
           Just { key: secsStart, value: Sustain _ } -> do
-            drawSustainBlock (secsToPx secsEnd) windowH $ isEnergy secsStart
+            drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
             go false rest
           _ -> unsafeThrow "during grybo drawing: found a sustain end not preceded by sustain start"
         go true (L.Cons (Tuple _ SustainEnd) rest) = go false rest
@@ -267,12 +272,12 @@ drawFive (Five five) targetX = do
         go _ (L.Cons (Tuple secsStart (Sustain _)) rest) = do
           let pxEnd = case rest of
                 L.Nil                      -> 0
-                L.Cons (Tuple secsEnd _) _ -> secsToPx secsEnd
-          drawSustainBlock pxEnd (secsToPx secsStart) $ isEnergy secsStart
+                L.Cons (Tuple secsEnd _) _ -> secsToPxVert secsEnd
+          drawSustainBlock pxEnd (secsToPxVert secsStart) $ isEnergy secsStart
           go true rest
         go _ L.Nil = return unit
     case L.fromFoldable $ Map.doTupleArray (zoomAsc thisColor) of
-      L.Nil -> case Map.lookupLT (pxToSecs windowH) thisColor of
+      L.Nil -> case Map.lookupLT (pxToSecsVert windowH) thisColor of
         -- handle the case where the entire screen is the middle of a sustain
         Just { key: secsStart, value: Sustain _ } ->
           drawSustainBlock 0 windowH $ isEnergy secsStart
@@ -293,7 +298,7 @@ drawFive (Five five) targetX = do
                 fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
             else return unit
         else do
-          let y = secsToPx secs
+          let y = secsToPxVert secs
               isEnergy = case Map.lookupLE secs five.energy of
                 Just {value: bool} -> bool
                 Nothing            -> false
@@ -309,15 +314,15 @@ drawDrums :: forall e. Drums -> Int -> Draw e Int
 drawDrums (Drums drums) targetX = do
   stuff <- askStuff
   windowH <- map round $ lift $ C.getCanvasHeight stuff.canvas
-  let pxToSecs px = stuff.pxToSecs (windowH - px) + stuff.time
-      secsToPx secs = windowH - stuff.secsToPx (secs - stuff.time)
-      maxSecs = pxToSecs (-100)
-      minSecs = pxToSecs $ windowH + 100
+  let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
+      secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
+      maxSecs = pxToSecsVert (-100)
+      minSecs = pxToSecsVert $ windowH + 100
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomDesc = Map.zoomDescDo minSecs maxSecs
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
-      targetY = secsToPx stuff.time
+      targetY = secsToPxVert stuff.time
   -- Highway
   setFillStyle "rgb(126,126,150)"
   fillRect { x: toNumber targetX, y: 0.0, w: 146.0, h: toNumber windowH }
@@ -340,18 +345,18 @@ drawDrums (Drums drums) targetX = do
       drawSolos L.Nil            = return unit
       drawSolos (L.Cons _ L.Nil) = return unit
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
-        let y1 = secsToPx s1
-            y2 = secsToPx s2
+        let y1 = secsToPxVert s1
+            y2 = secsToPxVert s2
         when b1 $ for_ [2, 38, 74, 110] $ \offsetX -> do
           fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 }
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
   zoomDesc drums.solo $ \secs _ -> do
-    drawImage Image_highway_drums_solo_edge (toNumber targetX) (toNumber $ secsToPx secs)
+    drawImage Image_highway_drums_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs)
   -- Beats
   zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
-    let y = secsToPx secs
+    let y = secsToPxVert secs
     case evt of
       Bar      -> drawImage Image_highway_drums_bar      (toNumber targetX) (toNumber y - 1.0)
       Beat     -> drawImage Image_highway_drums_beat     (toNumber targetX) (toNumber y - 1.0)
@@ -395,7 +400,7 @@ drawDrums (Drums drums) targetX = do
           else return unit
       else do
         -- note is in the future
-        let y = secsToPx secs
+        let y = secsToPxVert secs
             isEnergy = case Map.lookupLE secs drums.energy of
               Just {value: bool} -> bool
               Nothing            -> false
@@ -449,15 +454,15 @@ drawProKeys :: forall e. ProKeys -> Int -> Draw e Int
 drawProKeys (ProKeys pk) targetX = do
   stuff <- askStuff
   windowH <- map round $ lift $ C.getCanvasHeight stuff.canvas
-  let pxToSecs px = stuff.pxToSecs (windowH - px) + stuff.time
-      secsToPx secs = windowH - stuff.secsToPx (secs - stuff.time)
-      maxSecs = pxToSecs (-100)
-      minSecs = pxToSecs $ windowH + 100
+  let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
+      secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
+      maxSecs = pxToSecsVert (-100)
+      minSecs = pxToSecsVert $ windowH + 100
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomDesc = Map.zoomDescDo minSecs maxSecs
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
-      targetY = secsToPx stuff.time
+      targetY = secsToPxVert stuff.time
   -- Highway
   let drawHighway _    L.Nil                 = return unit
       drawHighway xpos (L.Cons chunk chunks) = do
@@ -497,15 +502,15 @@ drawProKeys (ProKeys pk) targetX = do
       drawSolos L.Nil            = return unit
       drawSolos (L.Cons _ L.Nil) = return unit
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
-        when b1 $ drawSoloHighway targetX (secsToPx s1) (secsToPx s2) pkHighway
+        when b1 $ drawSoloHighway targetX (secsToPxVert s1) (secsToPxVert s2) pkHighway
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
   zoomDesc pk.solo $ \secs _ -> do
-    drawImage Image_highway_prokeys_solo_edge (toNumber targetX) (toNumber $ secsToPx secs)
+    drawImage Image_highway_prokeys_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs)
   -- Beats
   zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
-    let y = secsToPx secs
+    let y = secsToPxVert secs
     case evt of
       Bar      -> drawImage Image_highway_prokeys_bar      (toNumber targetX) (toNumber y - 1.0)
       Beat     -> drawImage Image_highway_prokeys_beat     (toNumber targetX) (toNumber y - 1.0)
@@ -525,8 +530,8 @@ drawProKeys (ProKeys pk) targetX = do
         case rng of
           Nothing -> return unit
           Just r -> let
-            y = toNumber (secsToPx s1)
-            h = toNumber (secsToPx s2) - y
+            y = toNumber (secsToPxVert s1)
+            h = toNumber (secsToPxVert s2) - y
             rects = case r of
               RangeC -> [{x: toNumber $ targetX + 192, y: y, w: 90.0, h: h}]
               RangeD -> [{x: toNumber $ targetX + 2, y: y, w: 22.0, h: h}, {x: toNumber $ targetX + 203, y: y, w: 79.0, h: h}]
@@ -570,7 +575,7 @@ drawProKeys (ProKeys pk) targetX = do
             fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 }
         go False (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisPitch of
           Just { key: secsStart, value: Sustain _ } -> do
-            drawSustainBlock (secsToPx secsEnd) windowH $ isEnergy secsStart
+            drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
             go False rest
           _ -> unsafeThrow "during prokeys drawing: found a sustain end not preceded by sustain start"
         go True (L.Cons (Tuple _ SustainEnd) rest) = go False rest
@@ -578,12 +583,12 @@ drawProKeys (ProKeys pk) targetX = do
         go _ (L.Cons (Tuple secsStart (Sustain (_ :: Unit))) rest) = do
           let pxEnd = case rest of
                 L.Nil                      -> 0
-                L.Cons (Tuple secsEnd _) _ -> secsToPx secsEnd
-          drawSustainBlock pxEnd (secsToPx secsStart) $ isEnergy secsStart
+                L.Cons (Tuple secsEnd _) _ -> secsToPxVert secsEnd
+          drawSustainBlock pxEnd (secsToPxVert secsStart) $ isEnergy secsStart
           go True rest
         go _ L.Nil = return unit
     case L.fromFoldable $ Map.doTupleArray (zoomAsc thisPitch) of
-      L.Nil -> case Map.lookupLT (pxToSecs windowH) thisPitch of
+      L.Nil -> case Map.lookupLT (pxToSecsVert windowH) thisPitch of
         -- handle the case where the entire screen is the middle of a sustain
         Just { key: secsStart, value: Sustain (_ :: Unit) } ->
           drawSustainBlock 0 windowH $ isEnergy secsStart
@@ -604,7 +609,7 @@ drawProKeys (ProKeys pk) targetX = do
                 fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 }
             else return unit
         else do
-          let y = secsToPx secs
+          let y = secsToPxVert secs
               isEnergy = case Map.lookupLE secs pk.energy of
                 Just {value: bool} -> bool
                 Nothing            -> false
@@ -616,3 +621,20 @@ drawProKeys (ProKeys pk) targetX = do
             Note    (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5)
             Sustain (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5)
   return $ targetX + 282 + _M
+
+drawVocal :: forall e. Vocal -> Int -> Draw e Int
+drawVocal (Vocal v) targetY = do
+  stuff <- askStuff
+  windowW <- map round $ lift $ C.getCanvasWidth stuff.canvas
+  let pxToSecsHoriz px = stuff.pxToSecsHoriz px + stuff.time
+      secsToPxHoriz secs = stuff.secsToPxHoriz $ secs - stuff.time
+      maxSecs = pxToSecsHoriz (-100)
+      minSecs = pxToSecsHoriz $ windowW + 100
+      zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
+      zoomDesc = Map.zoomDescDo minSecs maxSecs
+      zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
+      zoomAsc = Map.zoomAscDo minSecs maxSecs
+      targetX = secsToPxHoriz stuff.time
+  setFillStyle "rgba(0,0,0,0.6)"
+  fillRect { x: 0.0, y: toNumber targetY, w: toNumber windowW, h: 160.0 }
+  return $ targetY + 160 + _M

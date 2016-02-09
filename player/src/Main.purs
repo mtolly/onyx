@@ -62,8 +62,10 @@ main = do
                 , getImage: imageGetter
                 , canvas: canvas
                 , context: ctx
-                , pxToSecs: \px -> Seconds $ toNumber (px - 50) * 0.003
-                , secsToPx: \(Seconds secs) -> round (secs / 0.003) + 50
+                , pxToSecsVert: \px -> Seconds $ toNumber (px - 50) * 0.003
+                , secsToPxVert: \(Seconds secs) -> round (secs / 0.003) + 50
+                , pxToSecsHoriz: \px -> Seconds $ toNumber (px - 225) * 0.003
+                , secsToPxHoriz: \(Seconds secs) -> round (secs / 0.003) + 225
                 }
               windowH <- round <$> innerHeight globalWindow
               evts <- modifyRef' clicks $ \evts -> {state: [], value: evts}
@@ -121,6 +123,7 @@ main = do
                             in go 1 $ L.fromFoldable $ concat
                               [ guard (isJust s.prokeys) *> [ (\sets -> sets { seeProKeys = not sets.seeProKeys }) ]
                               , guard (isJust s.keys   ) *> [ (\sets -> sets { seeKeys    = not sets.seeKeys    }) ]
+                              , guard (isJust s.vocal  ) *> [ (\sets -> sets { seeVocal   = not sets.seeVocal   }) ]
                               , guard (isJust s.drums  ) *> [ (\sets -> sets { seeDrums   = not sets.seeDrums   }) ]
                               , guard (isJust s.bass   ) *> [ (\sets -> sets { seeBass    = not sets.seeBass    }) ]
                               , guard (isJust s.guitar ) *> [ (\sets -> sets { seeGuitar  = not sets.seeGuitar  }) ]
@@ -142,5 +145,6 @@ main = do
             , seeKeys:    true
             , seeProKeys: true
             , seeDrums:   true
+            , seeVocal:   true
             }
           }
