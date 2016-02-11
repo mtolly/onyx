@@ -242,7 +242,7 @@ drawFive (Five five) targetX = do
         isEnergy secs = case Map.lookupLE secs five.energy of
           Nothing           -> false
           Just { value: v } -> v
-        drawSustainBlock ystart yend energy = when (ystart < targetY || yend < targetY) $ do
+        drawSustainBlock ystart yend energy = when (ystart < targetY || yend < targetY) do
           let ystart' = min ystart targetY
               yend'   = min yend   targetY
               sustaining = targetY < ystart || targetY < yend
@@ -259,7 +259,7 @@ drawFive (Five five) targetX = do
           fillRect { x: toNumber $ targetX + offsetX + 16, y: toNumber ystart', w: 5.0, h: toNumber h }
           setFillStyle shades.dark
           fillRect { x: toNumber $ targetX + offsetX + 21, y: toNumber ystart', w: 1.0, h: toNumber h }
-          when sustaining $ do
+          when sustaining do
             setFillStyle shades.light
             fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
         go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisColor of
@@ -548,7 +548,7 @@ drawProKeys (ProKeys pk) targetX = do
         isEnergy secs = case Map.lookupLE secs pk.energy of
           Just {value: bool} -> bool
           Nothing            -> false
-        drawSustainBlock ystart yend energy = when (ystart < targetY || yend < targetY) $ do
+        drawSustainBlock ystart yend energy = when (ystart < targetY || yend < targetY) do
           let ystart' = min ystart targetY
               yend'   = min yend   targetY
               sustaining = targetY < ystart || targetY < yend
@@ -570,7 +570,7 @@ drawProKeys (ProKeys pk) targetX = do
           fillRect { x: toNumber $ targetX + offsetX' + 4, y: toNumber ystart', w: 3.0, h: toNumber h }
           setFillStyle shades.dark
           fillRect { x: toNumber $ targetX + offsetX' + 7, y: toNumber ystart', w: 1.0, h: toNumber h }
-          when sustaining $ do
+          when sustaining do
             setFillStyle shades.light
             fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 }
         go False (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisPitch of
@@ -622,19 +622,93 @@ drawProKeys (ProKeys pk) targetX = do
             Sustain (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5)
   return $ targetX + 282 + _M
 
+zoomAscDoPadding :: forall k a m. (Ord k, Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
+zoomAscDoPadding k1 k2 m act = do
+  case Map.lookupLE k1 m of
+    Nothing -> return unit
+    Just { key: k, value: v } -> act k v
+  Map.zoomAscDo k1 k2 m act
+  case Map.lookupGE k2 m of
+    Nothing -> return unit
+    Just { key: k, value: v } -> act k v
+
+zoomDescDoPadding :: forall k a m. (Ord k, Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
+zoomDescDoPadding k1 k2 m act = do
+  case Map.lookupGE k2 m of
+    Nothing -> return unit
+    Just { key: k, value: v } -> act k v
+  Map.zoomDescDo k1 k2 m act
+  case Map.lookupLE k1 m of
+    Nothing -> return unit
+    Just { key: k, value: v } -> act k v
+
 drawVocal :: forall e. Vocal -> Int -> Draw e Int
 drawVocal (Vocal v) targetY = do
   stuff <- askStuff
   windowW <- map round $ lift $ C.getCanvasWidth stuff.canvas
   let pxToSecsHoriz px = stuff.pxToSecsHoriz px + stuff.time
       secsToPxHoriz secs = stuff.secsToPxHoriz $ secs - stuff.time
-      maxSecs = pxToSecsHoriz (-100)
-      minSecs = pxToSecsHoriz $ windowW + 100
+      minSecs = pxToSecsHoriz (-100)
+      maxSecs = pxToSecsHoriz $ windowW + 100
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
-      zoomDesc = Map.zoomDescDo minSecs maxSecs
+      zoomDesc = zoomDescDoPadding minSecs maxSecs
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
-      zoomAsc = Map.zoomAscDo minSecs maxSecs
+      zoomAsc = zoomAscDoPadding minSecs maxSecs
       targetX = secsToPxHoriz stuff.time
   setFillStyle "rgba(0,0,0,0.6)"
-  fillRect { x: 0.0, y: toNumber targetY, w: toNumber windowW, h: 160.0 }
-  return $ targetY + 160 + _M
+  fillRect { x: 0.0, y: toNumber targetY + 25.0, w: toNumber windowW, h: 130.0 }
+  setFillStyle "rgba(0,27,89,0.85)"
+  fillRect { x: 0.0, y: toNumber targetY + 155.0, w: toNumber windowW, h: 25.0 }
+  setFillStyle "rgba(87,55,0,0.85)"
+  fillRect { x: 0.0, y: toNumber targetY, w: toNumber windowW, h: 25.0 }
+  -- Draw note pitches
+  let thisRange = case Map.lookupLE stuff.time v.ranges of
+        Nothing -> {min: 36, max: 84}
+        Just { value: (VocalRange rmin rmax) } -> {min: rmin, max: rmax}
+        Just { value: VocalRangeShift } -> {min: 36, max: 84} -- TODO
+      rangeMin = thisRange.min
+      rangeMax = thisRange.max
+      pitchToY p = toNumber targetY + 143.0 - 106.0 * (toNumber (p - rangeMin) / toNumber (rangeMax - rangeMin))
+      ctx = stuff.context
+      drawLines :: Maybe (Tuple Seconds Int) -> L.List (Tuple Seconds VocalNote) -> Draw e Unit
+      drawLines (Just (Tuple t1 p1)) evts@(L.Cons (Tuple t2 (VocalStart "+" (Just p2))) _) = do
+        -- draw line from (t1,p1) to (t2,p2)
+        lift do
+          C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p1)
+          C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p2)
+        drawLines Nothing evts
+      drawLines (Just _) evts = drawLines Nothing evts -- ignore last note-off because no slide
+      drawLines Nothing (L.Cons (Tuple t1 (VocalStart _ (Just p))) (L.Cons (Tuple t2 VocalEnd) rest)) = do
+        -- draw line from (t1,p) to (t2,p)
+        lift do
+          C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p)
+          C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p)
+        drawLines (Just (Tuple t2 p)) rest
+      drawLines Nothing (L.Cons (Tuple t1 (VocalStart _ Nothing)) (L.Cons (Tuple t2 VocalEnd) rest)) = do
+        -- draw talky from t1 to t2
+        fillRect { x: toNumber $ secsToPxHoriz t1, y: toNumber targetY + 25.0, w: toNumber $ secsToPxHoriz t2 - secsToPxHoriz t1, h: 130.0 }
+        drawLines Nothing rest
+      drawLines Nothing (L.Cons (Tuple _ (VocalStart _ _)) L.Nil) = return unit -- off-screen
+      drawLines _ L.Nil = return unit
+      drawLines Nothing (L.Cons (Tuple _ VocalEnd) rest) = drawLines Nothing rest
+      drawLines Nothing (L.Cons (Tuple t (VocalStart _ _)) (L.Cons (Tuple _ (VocalStart _ _)) _)) = unsafeThrow $ "double note-on in vocal part at " <> show t
+      lineParts =
+        [ { part: v.harm1, line: "rgb(46,229,223)", talky: "rgba(46,229,223,0.8)", width: 4.0 }
+        , { part: v.harm3, line: "rgb(225,148,22)", talky: "rgba(225,148,22,0.8)", width: 5.0 }
+        , { part: v.harm2, line: "rgb(189,67,0)"  , talky: "rgba(189,67,0,0.8)"  , width: 6.0 }
+        ]
+  lift $ C.setLineCap C.Round ctx
+  for_ lineParts $ \o -> do
+    lift do
+      C.beginPath ctx
+      C.setStrokeStyle o.line ctx
+      C.setLineWidth o.width ctx
+    setFillStyle o.talky
+    drawLines Nothing $ L.fromFoldable $ Map.doTupleArray (zoomAsc o.part)
+    lift do
+      C.stroke ctx
+      C.closePath ctx
+  -- Draw target line
+  setFillStyle "white"
+  fillRect { x: toNumber targetX - 1.0, y: toNumber targetY + 25.0, w: 3.0, h: 130.0 }
+  return $ targetY + 180 + _M
