@@ -29,8 +29,5 @@
     "purescript-st": "^0.1.1",
     "purescript-arrays": "^0.4.4",
     "purescript-lists": "^0.7.9"
-  },
-  "resolutions": {
-    "purescript-maps": "268977a19d7f0f2ddef7eaf0e6ba022a1da13839"
   }
 }

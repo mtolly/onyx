@@ -1,4 +1,4 @@
-module Draw where
+module Draw (Settings(), App(..), DrawStuff(), draw, _M, _B) where
 
 import Prelude
 import qualified Graphics.Canvas as C
@@ -16,10 +16,11 @@ import qualified Data.List as L
 import Data.Tuple
 import Control.Monad (when)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-import Data.Ord (min)
+import Data.Ord (min, max)
 import Data.Foldable (elem, sum, for_)
 import Control.Apply ((*>))
 import Control.MonadPlus (guard)
+import qualified Data.String.Regex as R
 
 import Song
 
@@ -62,20 +63,21 @@ askStuff :: forall e. Draw e DrawStuff
 askStuff = ask
 
 setFillStyle :: forall e. String -> Draw e Unit
-setFillStyle s = do
-  ctx <- map _.context ask
-  lift $ void $ C.setFillStyle s ctx
+setFillStyle s = onContext $ C.setFillStyle s
 
 fillRect :: forall e. C.Rectangle -> Draw e Unit
-fillRect rect = do
-  ctx <- map _.context ask
-  lift $ void $ C.fillRect ctx rect
+fillRect rect = onContext $ \ctx -> C.fillRect ctx rect
 
 drawImage :: forall e. ImageID -> Number -> Number -> Draw e Unit
 drawImage iid x y = do
-  ctx <- map _.context ask
   img <- map _.getImage ask
-  lift $ void $ C.drawImage ctx (img iid) x y
+  onContext $ \ctx -> C.drawImage ctx (img iid) x y
+
+onContext :: forall e. (C.Context2D -> Eff (canvas :: C.Canvas | e) C.Context2D) -> Draw e Unit
+onContext act = map _.context ask >>= act >>> void >>> lift
+
+measureText :: forall e. String -> Draw e C.TextMetrics
+measureText str = map _.context ask >>= \ctx -> lift $ C.measureText ctx str
 
 draw :: forall e. Draw (dom :: DOM | e) Unit
 draw = do
@@ -286,7 +288,7 @@ drawFive (Five five) targetX = do
   -- Notes
   for_ colors $ \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, hit: shadeHit } -> do
     zoomDesc (getColor five.notes) $ \secs evt -> do
-      let futureSecs = case secs - stuff.time of Seconds s -> s
+      let futureSecs = secToNum $ secs - stuff.time
       if futureSecs <= 0.0
         then do
           -- note is in the past or being hit now
@@ -365,7 +367,7 @@ drawDrums (Drums drums) targetX = do
   drawImage Image_highway_drums_target (toNumber targetX) (toNumber targetY - 5.0)
   -- Notes
   zoomDesc drums.notes $ \secs evts -> do
-    let futureSecs = case secs - stuff.time of Seconds s -> s
+    let futureSecs = secToNum $ secs - stuff.time
     if futureSecs <= 0.0
       then do
         -- note is in the past or being hit now
@@ -597,7 +599,7 @@ drawProKeys (ProKeys pk) targetX = do
   -- Notes
   for_ pitchList $ \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
     zoomDesc (fromMaybe Map.empty $ Map.lookup pitch pk.notes) $ \secs evt -> do
-      let futureSecs = case secs - stuff.time of Seconds s -> s
+      let futureSecs = secToNum $ secs - stuff.time
       if futureSecs <= 0.0
         then do
           -- note is in the past or being hit now
@@ -642,6 +644,12 @@ zoomDescDoPadding k1 k2 m act = do
     Nothing -> return unit
     Just { key: k, value: v } -> act k v
 
+slide :: Number -> Number -> Number -> Number -> Number -> Number
+slide t1 t2 tx v1 v2 = v1 + (v2 - v1) * ((tx - t1) / (t2 - t1))
+
+secToNum :: Seconds -> Number
+secToNum (Seconds n) = n
+
 drawVocal :: forall e. Vocal -> Int -> Draw e Int
 drawVocal (Vocal v) targetY = do
   stuff <- askStuff
@@ -663,26 +671,33 @@ drawVocal (Vocal v) targetY = do
   fillRect { x: 0.0, y: toNumber targetY, w: toNumber windowW, h: 25.0 }
   -- Draw note pitches
   let thisRange = case Map.lookupLE stuff.time v.ranges of
-        Nothing -> {min: 36, max: 84}
-        Just { value: (VocalRange rmin rmax) } -> {min: rmin, max: rmax}
-        Just { value: VocalRangeShift } -> {min: 36, max: 84} -- TODO
-      rangeMin = thisRange.min
-      rangeMax = thisRange.max
-      pitchToY p = toNumber targetY + 143.0 - 106.0 * (toNumber (p - rangeMin) / toNumber (rangeMax - rangeMin))
-      ctx = stuff.context
+        Nothing -> { min: 36.0, max: 84.0 }
+        Just { value: VocalRange rmin rmax } -> { min: toNumber rmin, max: toNumber rmax }
+        Just { key: t1, value: VocalRangeShift } -> case Map.lookupGT stuff.time v.ranges of
+          Just { key: t2, value: VocalRange bmin bmax } -> case Map.lookupLT t1 v.ranges of
+            Just { value: VocalRange amin amax } ->
+              { min: slide (secToNum t1) (secToNum t2) (secToNum stuff.time) (toNumber amin) (toNumber bmin)
+              , max: slide (secToNum t1) (secToNum t2) (secToNum stuff.time) (toNumber amax) (toNumber bmax)
+              }
+            _ -> unsafeThrow "not a valid range shift"
+          _ -> unsafeThrow "not a valid range shift"
+      pitchToY p = toNumber targetY + slide thisRange.min thisRange.max (toNumber p) 143.0 37.0
       drawLines :: Maybe (Tuple Seconds Int) -> L.List (Tuple Seconds VocalNote) -> Draw e Unit
       drawLines (Just (Tuple t1 p1)) evts@(L.Cons (Tuple t2 (VocalStart "+" (Just p2))) _) = do
         -- draw line from (t1,p1) to (t2,p2)
-        lift do
-          C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p1)
-          C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p2)
+        onContext $ \ctx -> C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p1)
+        onContext $ \ctx -> C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p2)
+        drawLines Nothing evts
+      drawLines (Just (Tuple t1 p1)) evts@(L.Cons (Tuple t2 (VocalStart "+$" (Just p2))) _) = do
+        -- draw line from (t1,p1) to (t2,p2)
+        onContext $ \ctx -> C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p1)
+        onContext $ \ctx -> C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p2)
         drawLines Nothing evts
       drawLines (Just _) evts = drawLines Nothing evts -- ignore last note-off because no slide
       drawLines Nothing (L.Cons (Tuple t1 (VocalStart _ (Just p))) (L.Cons (Tuple t2 VocalEnd) rest)) = do
         -- draw line from (t1,p) to (t2,p)
-        lift do
-          C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p)
-          C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p)
+        onContext $ \ctx -> C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p)
+        onContext $ \ctx -> C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p)
         drawLines (Just (Tuple t2 p)) rest
       drawLines Nothing (L.Cons (Tuple t1 (VocalStart _ Nothing)) (L.Cons (Tuple t2 VocalEnd) rest)) = do
         -- draw talky from t1 to t2
@@ -693,21 +708,75 @@ drawVocal (Vocal v) targetY = do
       drawLines Nothing (L.Cons (Tuple _ VocalEnd) rest) = drawLines Nothing rest
       drawLines Nothing (L.Cons (Tuple t (VocalStart _ _)) (L.Cons (Tuple _ (VocalStart _ _)) _)) = unsafeThrow $ "double note-on in vocal part at " <> show t
       lineParts =
-        [ { part: v.harm1, line: "rgb(46,229,223)", talky: "rgba(46,229,223,0.8)", width: 4.0 }
+        [ { part: v.harm2, line: "rgb(189,67,0)"  , talky: "rgba(189,67,0,0.8)"  , width: 6.0 }
         , { part: v.harm3, line: "rgb(225,148,22)", talky: "rgba(225,148,22,0.8)", width: 5.0 }
-        , { part: v.harm2, line: "rgb(189,67,0)"  , talky: "rgba(189,67,0,0.8)"  , width: 6.0 }
+        , { part: v.harm1, line: "rgb(46,229,223)", talky: "rgba(46,229,223,0.8)", width: 4.0 }
         ]
-  lift $ C.setLineCap C.Round ctx
+  onContext $ C.setLineCap C.Round
   for_ lineParts $ \o -> do
-    lift do
-      C.beginPath ctx
-      C.setStrokeStyle o.line ctx
-      C.setLineWidth o.width ctx
-    setFillStyle o.talky
+    onContext C.beginPath
+    onContext $ C.setStrokeStyle o.line
+    onContext $ C.setLineWidth o.width
+    onContext $ C.setFillStyle o.talky
     drawLines Nothing $ L.fromFoldable $ Map.doTupleArray (zoomAsc o.part)
-    lift do
-      C.stroke ctx
-      C.closePath ctx
+    onContext $ C.stroke
+    onContext $ C.closePath
+  -- Draw text
+  setFillStyle "white"
+  let lyricParts =
+        [ { part: v.harm1, y: targetY + 174, isHarm3: false }
+        , { part: v.harm2, y: targetY + 20, isHarm3: false }
+        , { part: v.harm3, y: targetY + 20, isHarm3: true }
+        ]
+      harm2Lyric t = case Map.lookup t v.harm2 of
+        Nothing -> Nothing
+        Just VocalEnd -> Nothing
+        Just (VocalStart lyric _) -> Just lyric
+      getLyrics
+        :: Boolean
+        -> L.List (Tuple Seconds VocalNote)
+        -> L.List {time :: Seconds, lyric :: String, isTalky :: Boolean}
+      getLyrics isHarm3 = L.mapMaybe $ \(Tuple t vn) -> case vn of
+        VocalEnd -> Nothing
+        VocalStart lyric pitch
+          | lyric == "+" -> Nothing
+          | R.test (R.regex "\\$$" R.noFlags) lyric -> Nothing
+          | isHarm3 && harm2Lyric t == Just lyric -> Nothing
+          | otherwise -> Just
+            { time: t
+            , lyric: R.replace (R.regex "=$" R.noFlags) "-" lyric
+            , isTalky: isNothing pitch
+            }
+          -- TODO: support §
+      drawLyrics
+        :: Number
+        -> Number
+        -> L.List {time :: Seconds, lyric :: String, isTalky :: Boolean}
+        -> Draw e Unit
+      drawLyrics _    _     L.Nil           = return unit
+      drawLyrics minX textY (L.Cons o rest) = do
+        let textX = max minX $ toNumber $ secsToPxHoriz o.time
+        onContext $ C.setFont $ if o.isTalky
+          then "bold italic 17px sans-serif"
+          else "bold 17px sans-serif"
+        metric <- measureText o.lyric
+        onContext $ \ctx -> C.fillText ctx o.lyric textX textY
+        drawLyrics (textX + metric.width + 5.0) textY rest
+      mergeTime
+        :: forall a t. (Ord t)
+        => L.List {time :: t | a}
+        -> L.List {time :: t | a}
+        -> L.List {time :: t | a}
+      mergeTime L.Nil ly = ly
+      mergeTime lx L.Nil = lx
+      mergeTime lx@(L.Cons x tx) ly@(L.Cons y ty) = if x.time <= y.time
+        then L.Cons x $ mergeTime tx ly
+        else L.Cons y $ mergeTime lx ty
+  drawLyrics (-999.0) (toNumber targetY + 174.0) $
+    getLyrics false $ L.fromFoldable $ Map.doTupleArray (zoomAsc v.harm1)
+  drawLyrics (-999.0) (toNumber targetY + 20.0) $ mergeTime
+    (getLyrics false $ L.fromFoldable $ Map.doTupleArray (zoomAsc v.harm2))
+    (getLyrics true  $ L.fromFoldable $ Map.doTupleArray (zoomAsc v.harm3))
   -- Draw target line
   setFillStyle "white"
   fillRect { x: toNumber targetX - 1.0, y: toNumber targetY + 25.0, w: 3.0, h: 130.0 }

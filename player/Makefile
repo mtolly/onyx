@@ -5,4 +5,5 @@ build:
 	cp www/app.js www/app.min.js
 
 minify: build
+	./opt.rb www/app.js
 	closure-compiler www/app.js > www/app.min.js
