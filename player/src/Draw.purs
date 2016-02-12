@@ -670,6 +670,8 @@ drawVocal (Vocal v) targetY = do
   setFillStyle "rgba(87,55,0,0.85)"
   fillRect { x: 0.0, y: toNumber targetY, w: toNumber windowW, h: 25.0 }
   -- Draw note pitches
+  -- TODO: draw all pitch lines before talkies
+  -- TODO: draw harmony unisons better
   let thisRange = case Map.lookupLE stuff.time v.ranges of
         Nothing -> { min: 36.0, max: 84.0 }
         Just { value: VocalRange rmin rmax } -> { min: toNumber rmin, max: toNumber rmax }
@@ -683,12 +685,7 @@ drawVocal (Vocal v) targetY = do
           _ -> unsafeThrow "not a valid range shift"
       pitchToY p = toNumber targetY + slide thisRange.min thisRange.max (toNumber p) 143.0 37.0
       drawLines :: Maybe (Tuple Seconds Int) -> L.List (Tuple Seconds VocalNote) -> Draw e Unit
-      drawLines (Just (Tuple t1 p1)) evts@(L.Cons (Tuple t2 (VocalStart "+" (Just p2))) _) = do
-        -- draw line from (t1,p1) to (t2,p2)
-        onContext $ \ctx -> C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p1)
-        onContext $ \ctx -> C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p2)
-        drawLines Nothing evts
-      drawLines (Just (Tuple t1 p1)) evts@(L.Cons (Tuple t2 (VocalStart "+$" (Just p2))) _) = do
+      drawLines (Just (Tuple t1 p1)) evts@(L.Cons (Tuple t2 (VocalStart lyric (Just p2))) _) | lyric == "+" || lyric == "+$" = do
         -- draw line from (t1,p1) to (t2,p2)
         onContext $ \ctx -> C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p1)
         onContext $ \ctx -> C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p2)
@@ -708,9 +705,9 @@ drawVocal (Vocal v) targetY = do
       drawLines Nothing (L.Cons (Tuple _ VocalEnd) rest) = drawLines Nothing rest
       drawLines Nothing (L.Cons (Tuple t (VocalStart _ _)) (L.Cons (Tuple _ (VocalStart _ _)) _)) = unsafeThrow $ "double note-on in vocal part at " <> show t
       lineParts =
-        [ { part: v.harm2, line: "rgb(189,67,0)"  , talky: "rgba(189,67,0,0.8)"  , width: 6.0 }
-        , { part: v.harm3, line: "rgb(225,148,22)", talky: "rgba(225,148,22,0.8)", width: 5.0 }
-        , { part: v.harm1, line: "rgb(46,229,223)", talky: "rgba(46,229,223,0.8)", width: 4.0 }
+        [ { part: v.harm2, line: "rgb(189,67,0)"  , talky: "rgba(189,67,0,0.6)"  , width: 6.0 }
+        , { part: v.harm3, line: "rgb(225,148,22)", talky: "rgba(225,148,22,0.6)", width: 5.0 }
+        , { part: v.harm1, line: "rgb(46,229,223)", talky: "rgba(46,229,223,0.6)", width: 4.0 }
         ]
   onContext $ C.setLineCap C.Round
   for_ lineParts $ \o -> do

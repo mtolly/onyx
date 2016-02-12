@@ -299,8 +299,10 @@ processVocal tmap h1 h2 h3 tonic = let
     end = listToMaybe [ () | Vox.Note _ False <- evts ]
     in case (lyric, note, end) of
       (Just l, Just p, Nothing) -> Just $ case stripSuffix "#" l <|> stripSuffix "^" l of
-        Nothing -> VocalStart l $ Just $ pitchToInt p -- non-talky
-        Just l' -> VocalStart l' Nothing              -- talky
+        Nothing -> case stripSuffix "#$" l <|> stripSuffix "^$" l of
+          Nothing -> VocalStart l $ Just $ pitchToInt p -- non-talky
+          Just l' -> VocalStart (l' ++ "$") Nothing     -- hidden lyric talky
+        Just l' -> VocalStart l' Nothing                -- talky
       (Nothing, Nothing, Just ()) -> Just VocalEnd
       (Nothing, Nothing, Nothing) -> Nothing
       _ -> error "processVocal: invalid set of vocal events!"
