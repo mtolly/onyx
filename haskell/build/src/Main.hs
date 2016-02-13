@@ -357,7 +357,7 @@ main = do
                 res <- liftIO $ readImage img
                 case res of
                   Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
-                  Right dyn -> return $ anyToRGB8 dyn
+                  Right dyn -> return $ convertRGB8 dyn
               Nothing -> return $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
         "gen/cover.bmp" %> \out -> loadRGB8 >>= liftIO . writeBitmap out . scaleBilinear 256 256
         "gen/cover.png" %> \out -> loadRGB8 >>= liftIO . writePng    out . scaleBilinear 256 256
@@ -744,10 +744,29 @@ main = do
                 beatTrack = let
                   trk = mergeTracks [ t | RBFile.Beat t <- trks ]
                   in RBFile.Beat $ if RTB.null trk
-                    then U.trackTake (songLength' input) $ makeBeatTrack $ RBFile.s_signatures input
+                    then U.trackTake endPosn $ makeBeatTrack $ RBFile.s_signatures input
                     else trk
-                eventsTrack = RBFile.Events eventsRaw
-                eventsRaw   = mergeTracks [ t | RBFile.Events t <- trks ]
+                eventsTrack = RBFile.Events eventsRaw'
+                eventsRaw = mergeTracks [ t | RBFile.Events t <- trks ]
+                eventsList = ATB.toPairList $ RTB.toAbsoluteEventList 0 eventsRaw
+                musicStartPosn = case [ t | (t, Events.MusicStart) <- eventsList ] of
+                  t : _ -> max t 2
+                  []    -> 2
+                  -- If [music_start] is before 2 beats,
+                  -- Magma will add auto [idle] events there in instrument tracks, and then error...
+                -- A better default end position would take into account the audio length.
+                -- But, it's nice to not have notes.mid depend on any audio files.
+                endPosn = case [ t | (t, Events.End) <- eventsList ] of
+                  t : _ -> t
+                  []    -> (4 +) $ maximum $ concatMap (ATB.getTimes . RTB.toAbsoluteEventList 0 . RBFile.showTrack) trks
+                musicEndPosn = case [ t | (t, Events.MusicEnd) <- eventsList ] of
+                  t : _ -> t
+                  []    -> endPosn - 2
+                eventsRaw'
+                  = RTB.insert musicStartPosn Events.MusicStart
+                  $ RTB.insert musicEndPosn Events.MusicEnd
+                  $ RTB.insert endPosn Events.End
+                  $ RTB.filter (`notElem` [Events.MusicStart, Events.MusicEnd, Events.End]) eventsRaw
                 countinTrack = RBFile.Countin $ mergeTracks [ t | RBFile.Countin t <- trks ]
                 venueTracks = let
                   trk = mergeTracks [ t | RBFile.Venue t <- trks ]
@@ -1514,6 +1533,11 @@ main = do
     "unstfs" : _ -> error "Usage: onyx unstfs input_rb3con outdir/"
     ["import", file, dir] -> importFile file dir
     "import" : _ -> error "Usage: onyx import [input_rb3con|input.rba] outdir/"
+    ["rbacon", rba, con] -> withSystemTempDirectory "onyx_rbacon" $ \dir -> do
+      importFile rba dir
+      shakeBuild ["gen/plan/mogg/2p/rb3.con"] $ Just $ dir </> "song.yml"
+      Dir.copyFile (dir </> "gen/plan/mogg/2p/rb3.con") con
+    "rbacon" : _ -> error "Usage: onyx rbacon in.rba out_rb3con"
     [file] -> withSystemTempDirectory "onyx_preview" $ \dir -> do
       let out = file ++ "_preview"
       importFile file dir

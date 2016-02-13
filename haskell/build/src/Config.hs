@@ -19,6 +19,7 @@ import           Data.Char                      (isDigit)
 import           Data.Conduit.Audio             (Duration (..))
 import qualified Data.DTA.Serialize.Magma       as Magma
 import qualified Data.HashMap.Strict            as Map
+import           Data.String                    (IsString)
 import           Data.List                      ((\\))
 import           Data.Maybe                     (fromMaybe)
 import           Data.Monoid                    ((<>))
@@ -335,13 +336,19 @@ defaultSubgenre = \case
   "other" -> "other"
   g -> error $ "defaultSubgenre: I don't recognized the genre " ++ show g
 
+fromMaybe' :: (Eq s, IsString s) => s -> Maybe s -> s
+fromMaybe' s ms = case ms of
+  Nothing -> s
+  Just "" -> s
+  Just s' -> s'
+
 instance TraceJSON Metadata where
   traceJSON = object $ do
-    _title        <- fromMaybe "Untitled" <$> optional "title" traceJSON
-    _artist       <- fromMaybe "Anonymous" <$> optional "artist" traceJSON
-    _album        <- fromMaybe "No Album" <$> optional "album" traceJSON
-    _genre        <- fromMaybe "other" <$> optional "genre" traceJSON
-    _subgenre     <- fromMaybe (defaultSubgenre _genre) <$> optional "subgenre" traceJSON
+    _title        <- fromMaybe' "Untitled" <$> optional "title" traceJSON
+    _artist       <- fromMaybe' "Anonymous" <$> optional "artist" traceJSON
+    _album        <- fromMaybe' "No Album" <$> optional "album" traceJSON
+    _genre        <- fromMaybe' "other" <$> optional "genre" traceJSON
+    _subgenre     <- fromMaybe' (defaultSubgenre _genre) <$> optional "subgenre" traceJSON
     _year         <- fromMaybe 1991 <$> optional "year" traceJSON
     _fileAlbumArt <- optional "file-album-art" traceJSON
     _trackNumber  <- fromMaybe 0 <$> optional "track-number" traceJSON

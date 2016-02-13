@@ -2,7 +2,6 @@
 module Image where
 
 import           Codec.Picture
-import           Codec.Picture.Types
 import           Control.Monad       (forM_, guard)
 import           Data.Bits           (shiftL, shiftR)
 import qualified Data.ByteString     as B
@@ -10,24 +9,6 @@ import           Data.List           (minimumBy)
 import           Data.Ord            (comparing)
 import           Data.Word           (Word16)
 import           System.IO           (IOMode (..), withBinaryFile)
-
-anyToRGB8 :: DynamicImage -> Image PixelRGB8
-anyToRGB8 dyn = case dyn of
-  ImageY8 i -> promoteImage i
-  ImageY16 i -> anyToRGB8 $ ImageRGB16 $ promoteImage i
-  ImageYF i -> anyToRGB8 $ ImageRGBF $ promoteImage i
-  ImageYA8 i -> promoteImage i
-  ImageYA16 i -> anyToRGB8 $ ImageRGBA16 $ promoteImage i
-  ImageRGB8 i -> i
-  ImageRGB16 i -> pixelMap (\(PixelRGB16 r g b) -> PixelRGB8 (f r) (f g) (f b)) i
-    where f w16 = fromIntegral $ w16 `shiftR` 8
-  ImageRGBF i -> pixelMap (\(PixelRGBF r g b) -> PixelRGB8 (f r) (f g) (f b)) i
-    where f w16 = floor $ min 0xFF $ w16 * 0x100
-  ImageRGBA8 i -> dropAlphaLayer i
-  ImageRGBA16 i -> anyToRGB8 $ ImageRGB16 $ dropAlphaLayer i
-  ImageYCbCr8 i -> convertImage i
-  ImageCMYK8 i -> convertImage i
-  ImageCMYK16 i -> anyToRGB8 $ ImageRGB16 $ convertImage i
 
 -- | Scales an image using the bilinear interpolation algorithm.
 scaleBilinear
