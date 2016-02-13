@@ -772,16 +772,16 @@ main = do
                         )
                 guitarTracks = if not $ _hasGuitar $ _instruments songYaml
                   then []
-                  else (: []) $ RBFile.PartGuitar $ gryboComplete False (RBFile.s_signatures input)
+                  else (: []) $ RBFile.PartGuitar $ gryboComplete (Just $ _hopoThreshold $ _metadata songYaml) (RBFile.s_signatures input)
                     $ mergeTracks [ t | RBFile.PartGuitar t <- trks ]
                 bassTracks = if not $ _hasBass $ _instruments songYaml
                   then []
-                  else (: []) $ RBFile.PartBass $ gryboComplete False (RBFile.s_signatures input)
+                  else (: []) $ RBFile.PartBass $ gryboComplete (Just $ _hopoThreshold $ _metadata songYaml) (RBFile.s_signatures input)
                     $ mergeTracks [ t | RBFile.PartBass t <- trks ]
                 keysTracks = if not $ hasAnyKeys $ _instruments songYaml
                   then []
                   else let
-                    basicKeys = gryboComplete True (RBFile.s_signatures input) $ if _hasKeys $ _instruments songYaml
+                    basicKeys = gryboComplete Nothing (RBFile.s_signatures input) $ if _hasKeys $ _instruments songYaml
                       then mergeTracks [ t | RBFile.PartKeys t <- trks ]
                       else expertProKeysToKeys keysExpert
                     keysDiff diff = if _hasProKeys $ _instruments songYaml
@@ -851,9 +851,10 @@ main = do
 
           display %> \out -> do
             song <- loadMIDI mid2p
-            let gtr = justIf (_hasGuitar $ _instruments songYaml) $ Proc.processFive (Just $ 170 / 480) (RBFile.s_tempos song)
+            let ht = fromIntegral (_hopoThreshold $ _metadata songYaml) / 480
+                gtr = justIf (_hasGuitar $ _instruments songYaml) $ Proc.processFive (Just ht) (RBFile.s_tempos song)
                   $ foldr RTB.merge RTB.empty [ t | RBFile.PartGuitar t <- RBFile.s_tracks song ]
-                bass = justIf (_hasBass $ _instruments songYaml) $ Proc.processFive (Just $ 170 / 480) (RBFile.s_tempos song)
+                bass = justIf (_hasBass $ _instruments songYaml) $ Proc.processFive (Just ht) (RBFile.s_tempos song)
                   $ foldr RTB.merge RTB.empty [ t | RBFile.PartBass t <- RBFile.s_tracks song ]
                 keys = justIf (_hasKeys $ _instruments songYaml) $ Proc.processFive Nothing (RBFile.s_tempos song)
                   $ foldr RTB.merge RTB.empty [ t | RBFile.PartKeys t <- RBFile.s_tracks song ]
@@ -1134,6 +1135,7 @@ main = do
                       , D.drumFreestyle = D.DrumSounds $ D.InParens $ map D.Keyword $ words
                         "kick.cue snare.cue hat.cue ride.cue crash.cue"
                       , D.crowdChannels = Nothing
+                      , D.hopoThreshold = Just $ fromIntegral $ _hopoThreshold $ _metadata songYaml
                       }
                     , D.bank = Just $ Left $ case perctype of
                       Nothing               -> "sfx/tambourine_bank.milo"
@@ -1398,7 +1400,12 @@ main = do
                   , C3.tuningCents = 0
                   , C3.songRating = fromEnum (_rating $ _metadata songYaml) + 1
                   , C3.drumKitSFX = fromEnum $ _drumKit $ _metadata songYaml
-                  , C3.hopoThresholdIndex = 2 -- default 170
+                  , C3.hopoThresholdIndex = case _hopoThreshold $ _metadata songYaml of
+                    90  -> 0
+                    130 -> 1
+                    170 -> 2
+                    250 -> 3
+                    ht  -> error $ "C3 Magma does not support the HOPO threshold " ++ show ht
                   , C3.muteVol = -96
                   , C3.vocalMuteVol = -12
                   , C3.soloDrums = hasSolo Drums midi
@@ -1658,6 +1665,7 @@ importRB3 pkg author mid mogg cover coverName dir = do
       , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
       , _drumKit      = HardRockKit -- TODO
       , _auto2xBass   = False
+      , _hopoThreshold = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
       }
     , _audio = HM.empty
     , _jammit = HM.empty

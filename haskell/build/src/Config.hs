@@ -236,6 +236,7 @@ data Metadata = Metadata
   , _rating       :: Rating
   , _drumKit      :: DrumKit
   , _auto2xBass   :: Bool
+  , _hopoThreshold :: Int
   } deriving (Eq, Ord, Show, Read)
 
 data Difficulties = Difficulties
@@ -355,10 +356,11 @@ instance TraceJSON Metadata where
     _rating       <- fromMaybe Unrated <$> optional "rating" traceJSON
     _drumKit      <- fromMaybe HardRockKit <$> optional "drum-kit" traceJSON
     _auto2xBass   <- fromMaybe True <$> optional "auto-2x-bass" traceJSON
+    _hopoThreshold <- fromMaybe 170 <$> optional "hopo-threshold" traceJSON
     expectedKeys
       [ "title", "artist", "album", "genre", "subgenre", "year"
       , "file-album-art", "track-number", "file-countin", "comments", "vocal-gender"
-      , "difficulty", "key", "autogen-theme", "author", "rating", "drum-kit", "auto-2x-bass"
+      , "difficulty", "key", "autogen-theme", "author", "rating", "drum-kit", "auto-2x-bass", "hopo-threshold"
       ]
     return Metadata{..}
 
@@ -384,6 +386,7 @@ instance A.ToJSON Metadata where
     , ["rating" .= _rating]
     , ["drum-kit" .= _drumKit]
     , ["auto-2x-bass" .= _auto2xBass]
+    , ["hopo-threshold" .= _hopoThreshold]
     ]
 
 data AudioFile

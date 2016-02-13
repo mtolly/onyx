@@ -6,7 +6,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     (($>))
 import           Data.List                        (nub, sort, sortOn)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, mapMaybe)
+import           Data.Maybe                       (fromMaybe, isNothing, mapMaybe)
 import qualified Data.Set                         as Set
 import           Numeric.NonNegative.Class        ((-|))
 import           RockBand.Common                  (Difficulty (..), Key (..))
@@ -16,8 +16,8 @@ import qualified RockBand.ProKeys                 as PK
 import qualified Sound.MIDI.Util                  as U
 
 -- | Fills out a GRYBO chart by generating difficulties if needed.
-gryboComplete :: Bool -> U.MeasureMap -> RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
-gryboComplete isKeys mmap trk = let
+gryboComplete :: Maybe Int -> U.MeasureMap -> RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
+gryboComplete hopoThres mmap trk = let
   od        = flip RTB.mapMaybe trk $ \case
     Five.Overdrive b -> Just b
     _                -> Nothing
@@ -26,9 +26,9 @@ gryboComplete isKeys mmap trk = let
     _                             -> Nothing
   rtb1 `orIfNull` rtb2 = if length rtb1 < 5 then rtb2 else rtb1
   expert    = getDiff Expert
-  hard      = getDiff Hard   `orIfNull` gryboReduce Hard   isKeys mmap od expert
-  medium    = getDiff Medium `orIfNull` gryboReduce Medium isKeys mmap od hard
-  easy      = getDiff Easy   `orIfNull` gryboReduce Easy   isKeys mmap od medium
+  hard      = getDiff Hard   `orIfNull` gryboReduce Hard   hopoThres mmap od expert
+  medium    = getDiff Medium `orIfNull` gryboReduce Medium hopoThres mmap od hard
+  easy      = getDiff Easy   `orIfNull` gryboReduce Easy   hopoThres mmap od medium
   noDiffs = flip RTB.filter trk $ \case
     Five.DiffEvent _ _ -> False
     _                  -> True
@@ -42,16 +42,16 @@ gryboComplete isKeys mmap trk = let
 
 gryboReduce
   :: Difficulty
-  -> Bool                         -- ^ is this a basic keys track?
+  -> Maybe Int                    -- ^ HOPO threshold if guitar or bass, Nothing if keys
   -> U.MeasureMap
   -> RTB.T U.Beats Bool           -- ^ Overdrive phrases
   -> RTB.T U.Beats Five.DiffEvent -- ^ The source difficulty, one level up
   -> RTB.T U.Beats Five.DiffEvent -- ^ The target difficulty
 
-gryboReduce Expert _      _    _  diffEvents = diffEvents
-gryboReduce diff   isKeys mmap od diffEvents = let
+gryboReduce Expert _         _    _  diffEvents = diffEvents
+gryboReduce diff   hopoThres mmap od diffEvents = let
   odMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.normalize od
-  gnotes1 = readGuitarNotes isKeys diffEvents
+  gnotes1 = readGuitarNotes hopoThres diffEvents
   isOD bts = maybe False snd $ Map.lookupLE bts odMap
   -- TODO: replace the next 2 with BEAT track
   isMeasure bts = snd (U.applyMeasureMap mmap bts) == 0
@@ -144,7 +144,7 @@ gryboReduce diff   isKeys mmap od diffEvents = let
       -> (t1, GuitarNote [minimum cols] ntype len) : fixDoubleHopoChord rest
     x : xs -> x : fixDoubleHopoChord xs
   -- Step: fix quick jumps (GO for hard, GB/RO for medium/easy)
-  gnotes7 = if isKeys
+  gnotes7 = if isNothing hopoThres
     then gnotes6
     else RTB.fromPairList $ fixJumps $ RTB.toPairList gnotes6
   jumpDiff = case diff of
@@ -187,7 +187,7 @@ gryboReduce diff   isKeys mmap od diffEvents = let
       len1' = guard (l1' >= 1) >> Just l1'
       in (t1, GuitarNote cols1 ntype1 len1') : pullBackSustains rest
     x : xs -> x : pullBackSustains xs
-  in showGuitarNotes (isKeys || elem diff [Easy, Medium]) gnotes9
+  in showGuitarNotes (isNothing hopoThres || elem diff [Easy, Medium]) gnotes9
 
 data NoteType = Strum | HOPO
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -195,11 +195,11 @@ data NoteType = Strum | HOPO
 data GuitarNote t = GuitarNote [Five.Color] NoteType (Maybe t)
   deriving (Eq, Ord, Show, Read)
 
-readGuitarNotes :: Bool -> RTB.T U.Beats Five.DiffEvent -> RTB.T U.Beats (GuitarNote U.Beats)
-readGuitarNotes isKeys = go . RTB.collectCoincident . assign where
-  assign = if not isKeys
-    then Five.assignHOPO $ 170 / 480
-    else RTB.mapMaybe $ \case
+readGuitarNotes :: Maybe Int -> RTB.T U.Beats Five.DiffEvent -> RTB.T U.Beats (GuitarNote U.Beats)
+readGuitarNotes hopoThres = go . RTB.collectCoincident . assign where
+  assign = case hopoThres of
+    Just i  -> Five.assignHOPO $ fromIntegral i / 480
+    Nothing -> RTB.mapMaybe $ \case
       Five.Note True  color -> Just $ Five.Strum   color
       Five.Note False color -> Just $ Five.NoteOff color
       _                     -> Nothing
