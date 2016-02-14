@@ -10,6 +10,7 @@ import           Config                           hiding (Difficulty)
 import           Image
 import           Magma                            hiding
                                                    (withSystemTempDirectory)
+import qualified Magma
 import           MoggDecrypt
 import           OneFoot
 import qualified OnyxiteDisplay.Process           as Proc
@@ -1018,6 +1019,160 @@ main = do
             , ["vocal.ogg"   | hasAnyVocal $ _instruments songYaml]
             ]
 
+          -- Rock Band 3 DTA file
+          let makeDTA :: String -> FilePath -> String -> Maybe Int -> Action D.SongPackage
+              makeDTA pkg mid title piracy = do
+                song <- loadMIDI mid
+                (pstart, pend) <- previewBounds mid
+                len <- songLength mid
+                perctype <- getPercType mid
+
+                let channels = concat [kickPV, snarePV, drumsPV, bassPV, guitarPV, keysPV, vocalPV, songPV]
+                    pans = piratePans $ case plan of
+                      MoggPlan{..} -> _pans
+                      _ -> map fst channels
+                    vols = pirateVols $ case plan of
+                      MoggPlan{..} -> _vols
+                      _ -> map snd channels
+                    piratePans = case piracy of
+                      Nothing -> id
+                      Just i  -> zipWith const $ map (\j -> if i == j then -1 else 1) [0..]
+                    pirateVols = case piracy of
+                      Nothing -> id
+                      Just _  -> map $ const 0
+                    -- I still don't know what cores are...
+                    -- All I know is guitar channels are usually (not always) 1 and all others are -1
+                    cores = case plan of
+                      MoggPlan{..} -> map (\i -> if elem i _moggGuitar then 1 else -1) $ zipWith const [0..] _pans
+                      _ -> concat
+                        [ map (const (-1)) $ concat [kickPV, snarePV, drumsPV, bassPV]
+                        , map (const   1)    guitarPV
+                        , map (const (-1)) $ concat [keysPV, vocalPV, songPV]
+                        ]
+                    tracksAssocList = Map.fromList $ case plan of
+                      MoggPlan{..} -> let
+                        maybeChannelPair _   []    = []
+                        maybeChannelPair str chans = [(str, Right $ D.InParens $ map fromIntegral chans)]
+                        in concat
+                          [ maybeChannelPair "drum" _moggDrums
+                          , maybeChannelPair "guitar" _moggGuitar
+                          , maybeChannelPair "bass" _moggBass
+                          , maybeChannelPair "keys" _moggKeys
+                          , maybeChannelPair "vocals" _moggVocal
+                          ]
+                      _ -> let
+                        counts =
+                          [ ("drum", concat [kickPV, snarePV, drumsPV])
+                          , ("bass", bassPV)
+                          , ("guitar", guitarPV)
+                          , ("keys", keysPV)
+                          , ("vocals", vocalPV)
+                          ]
+                        go _ [] = []
+                        go n ((inst, chans) : rest) = case length chans of
+                          0 -> go n rest
+                          c -> (inst, Right $ D.InParens $ map fromIntegral $ take c [n..]) : go (n + c) rest
+                        in go 0 counts
+
+                return D.SongPackage
+                  { D.name = title
+                  , D.artist = T.unpack $ _artist $ _metadata songYaml
+                  , D.master = True
+                  , D.songId = Right $ D.Keyword pkg
+                  , D.song = D.Song
+                    { D.songName = "songs/" ++ pkg ++ "/" ++ pkg
+                    , D.tracksCount = Nothing
+                    , D.tracks = D.InParens $ D.Dict tracksAssocList
+                    , D.vocalParts = case _hasVocal $ _instruments songYaml of
+                      Vocal0 -> 0
+                      Vocal1 -> 1
+                      Vocal2 -> 2
+                      Vocal3 -> 3
+                    , D.pans = D.InParens $ map realToFrac pans
+                    , D.vols = D.InParens $ map realToFrac vols
+                    , D.cores = D.InParens cores
+                    -- TODO: different drum kit sounds
+                    , D.drumSolo = D.DrumSounds $ D.InParens $ map D.Keyword $ words
+                      "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
+                    , D.drumFreestyle = D.DrumSounds $ D.InParens $ map D.Keyword $ words
+                      "kick.cue snare.cue hat.cue ride.cue crash.cue"
+                    , D.crowdChannels = Nothing
+                    , D.hopoThreshold = Just $ fromIntegral $ _hopoThreshold $ _metadata songYaml
+                    }
+                  , D.bank = Just $ Left $ case perctype of
+                    Nothing               -> "sfx/tambourine_bank.milo"
+                    Just RBVox.Tambourine -> "sfx/tambourine_bank.milo"
+                    Just RBVox.Cowbell    -> "sfx/cowbell_bank.milo"
+                    Just RBVox.Clap       -> "sfx/handclap_bank.milo"
+                  , D.drumBank = Just $ Right $ D.Keyword $ case _drumKit $ _metadata songYaml of
+                    HardRockKit   -> "sfx/kit01_bank.milo"
+                    ArenaKit      -> "sfx/kit02_bank.milo"
+                    VintageKit    -> "sfx/kit03_bank.milo"
+                    TrashyKit     -> "sfx/kit04_bank.milo"
+                    ElectronicKit -> "sfx/kit05_bank.milo"
+                  , D.animTempo = Left D.KTempoMedium
+                  , D.bandFailCue = Nothing
+                  , D.songScrollSpeed = 2300
+                  , D.preview = (fromIntegral pstart, fromIntegral pend)
+                  , D.songLength = fromIntegral len
+                  , D.rank = D.Dict $ Map.fromList
+                    [ ("drum"     , drumsRank  )
+                    , ("bass"     , bassRank   )
+                    , ("guitar"   , guitarRank )
+                    , ("vocals"   , vocalRank  )
+                    , ("keys"     , keysRank   )
+                    , ("real_keys", proKeysRank)
+                    , ("band"     , bandRank   )
+                    ]
+                  , D.solo = Just $ D.InParens $ concat
+                    [ [D.Keyword "guitar" | hasSolo Guitar song]
+                    , [D.Keyword "bass" | hasSolo Bass song]
+                    , [D.Keyword "drum" | hasSolo Drums song]
+                    , [D.Keyword "keys" | hasSolo Keys song]
+                    , [D.Keyword "vocal_percussion" | hasSolo Vocal song]
+                    ]
+                  , D.format = 10
+                  , D.version = 30
+                  , D.gameOrigin = D.Keyword "ugc_plus"
+                  , D.rating = fromIntegral $ fromEnum (_rating $ _metadata songYaml) + 1
+                  , D.genre = D.Keyword $ T.unpack $ _genre $ _metadata songYaml
+                  , D.subGenre = Just $ D.Keyword $ "subgenre_" ++ T.unpack (_subgenre $ _metadata songYaml)
+                  , D.vocalGender = fromMaybe Magma.Female $ _vocalGender $ _metadata songYaml
+                  , D.shortVersion = Nothing
+                  , D.yearReleased = fromIntegral $ _year $ _metadata songYaml
+                  , D.albumArt = Just True
+                  , D.albumName = Just $ T.unpack $ _album $ _metadata songYaml
+                  , D.albumTrackNumber = Just $ fromIntegral $ _trackNumber $ _metadata songYaml
+                  , D.vocalTonicNote = toEnum . fromEnum <$> _key (_metadata songYaml)
+                  , D.songTonality = Nothing
+                  , D.tuningOffsetCents = Just 0
+                  , D.realGuitarTuning = Nothing
+                  , D.realBassTuning = Nothing
+                  , D.guidePitchVolume = Just (-3)
+                  , D.encoding = Just $ D.Keyword "utf8"
+                  }
+
+          -- CONs for recording MOGG channels
+          -- (pan one channel to left, all others to right)
+          case plan of
+            MoggPlan{..} -> forM_ (zipWith const [0..] $ _pans) $ \i -> do
+              dir </> ("mogg" ++ show (i :: Int) ++ ".con") %> \out -> do
+                Magma.withSystemTempDirectory "moggrecord" $ \tmp -> do
+                  let pkg = "mogg_" ++ T.unpack (T.take 6 _moggMD5) ++ "_" ++ show i
+                  liftIO $ Dir.createDirectoryIfMissing True (tmp </> "songs" </> pkg </> "gen")
+                  copyFile' (dir </> "audio.mogg"              ) $ tmp </> "songs" </> pkg </> pkg <.> "mogg"
+                  copyFile' (dir </> "2p/notes-magma-added.mid") $ tmp </> "songs" </> pkg </> pkg <.> "mid"
+                  copyFile' "gen/cover.png_xbox"                 $ tmp </> "songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_xbox")
+                  songPkg <- makeDTA pkg (dir </> "2p/notes-magma-added.mid")
+                    (T.unpack (_title $ _metadata songYaml) ++ " - Channel " ++ show i)
+                    (Just i)
+                  liftIO $ do
+                    flip B.writeFile emptyMilo                   $ tmp </> "songs" </> pkg </> "gen" </> pkg <.> "milo_xbox"
+                    D.writeFileDTA_utf8                           (tmp </> "songs/songs.dta")
+                      $ D.serialize $ D.Dict $ Map.fromList [(pkg, D.toChunks songPkg)]
+                  rb3pkg (T.unpack (_title $ _metadata songYaml) ++ " MOGG " ++ show i) "" tmp out
+            _ -> return ()
+
           let get1xTitle, get2xTitle :: Action String
               get1xTitle = return $ T.unpack $ _title $ _metadata songYaml
               get2xTitle = flip fmap get2xBass $ \b -> if b
@@ -1080,135 +1235,6 @@ main = do
               unless (all RTB.null [kickSwells, voxBugs, harm1Bugs, harm2Bugs]) $
                 fail "At least 1 problem was found in the MIDI."
 
-            -- Rock Band 3 DTA file
-            let makeDTA :: Action D.SongPackage
-                makeDTA = do
-                  let mid = pedalDir </> "notes.mid"
-                  song <- loadMIDI mid
-                  (pstart, pend) <- previewBounds mid
-                  len <- songLength mid
-                  perctype <- getPercType mid
-
-                  let channels = concat [kickPV, snarePV, drumsPV, bassPV, guitarPV, keysPV, vocalPV, songPV]
-                      pans = case plan of
-                        MoggPlan{..} -> _pans
-                        _ -> map fst channels
-                      vols = case plan of
-                        MoggPlan{..} -> _vols
-                        _ -> map snd channels
-                      -- I still don't know what cores are...
-                      -- All I know is guitar channels are usually (not always) 1 and all others are -1
-                      cores = case plan of
-                        MoggPlan{..} -> map (\i -> if elem i _moggGuitar then 1 else -1) $ zipWith const [0..] _pans
-                        _ -> concat
-                          [ map (const (-1)) $ concat [kickPV, snarePV, drumsPV, bassPV]
-                          , map (const   1)    guitarPV
-                          , map (const (-1)) $ concat [keysPV, vocalPV, songPV]
-                          ]
-                      tracksAssocList = Map.fromList $ case plan of
-                        MoggPlan{..} -> let
-                          maybeChannelPair _   []    = []
-                          maybeChannelPair str chans = [(str, Right $ D.InParens $ map fromIntegral chans)]
-                          in concat
-                            [ maybeChannelPair "drum" _moggDrums
-                            , maybeChannelPair "guitar" _moggGuitar
-                            , maybeChannelPair "bass" _moggBass
-                            , maybeChannelPair "keys" _moggKeys
-                            , maybeChannelPair "vocals" _moggVocal
-                            ]
-                        _ -> let
-                          counts =
-                            [ ("drum", concat [kickPV, snarePV, drumsPV])
-                            , ("bass", bassPV)
-                            , ("guitar", guitarPV)
-                            , ("keys", keysPV)
-                            , ("vocals", vocalPV)
-                            ]
-                          go _ [] = []
-                          go n ((inst, chans) : rest) = case length chans of
-                            0 -> go n rest
-                            c -> (inst, Right $ D.InParens $ map fromIntegral $ take c [n..]) : go (n + c) rest
-                          in go 0 counts
-
-                  title <- getTitle
-                  return D.SongPackage
-                    { D.name = title
-                    , D.artist = T.unpack $ _artist $ _metadata songYaml
-                    , D.master = True
-                    , D.songId = Right $ D.Keyword pkg
-                    , D.song = D.Song
-                      { D.songName = "songs/" ++ pkg ++ "/" ++ pkg
-                      , D.tracksCount = Nothing
-                      , D.tracks = D.InParens $ D.Dict tracksAssocList
-                      , D.vocalParts = case _hasVocal $ _instruments songYaml of
-                        Vocal0 -> 0
-                        Vocal1 -> 1
-                        Vocal2 -> 2
-                        Vocal3 -> 3
-                      , D.pans = D.InParens $ map realToFrac pans
-                      , D.vols = D.InParens $ map realToFrac vols
-                      , D.cores = D.InParens cores
-                      -- TODO: different drum kit sounds
-                      , D.drumSolo = D.DrumSounds $ D.InParens $ map D.Keyword $ words
-                        "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
-                      , D.drumFreestyle = D.DrumSounds $ D.InParens $ map D.Keyword $ words
-                        "kick.cue snare.cue hat.cue ride.cue crash.cue"
-                      , D.crowdChannels = Nothing
-                      , D.hopoThreshold = Just $ fromIntegral $ _hopoThreshold $ _metadata songYaml
-                      }
-                    , D.bank = Just $ Left $ case perctype of
-                      Nothing               -> "sfx/tambourine_bank.milo"
-                      Just RBVox.Tambourine -> "sfx/tambourine_bank.milo"
-                      Just RBVox.Cowbell    -> "sfx/cowbell_bank.milo"
-                      Just RBVox.Clap       -> "sfx/handclap_bank.milo"
-                    , D.drumBank = Just $ Right $ D.Keyword $ case _drumKit $ _metadata songYaml of
-                      HardRockKit   -> "sfx/kit01_bank.milo"
-                      ArenaKit      -> "sfx/kit02_bank.milo"
-                      VintageKit    -> "sfx/kit03_bank.milo"
-                      TrashyKit     -> "sfx/kit04_bank.milo"
-                      ElectronicKit -> "sfx/kit05_bank.milo"
-                    , D.animTempo = Left D.KTempoMedium
-                    , D.bandFailCue = Nothing
-                    , D.songScrollSpeed = 2300
-                    , D.preview = (fromIntegral pstart, fromIntegral pend)
-                    , D.songLength = fromIntegral len
-                    , D.rank = D.Dict $ Map.fromList
-                      [ ("drum"     , drumsRank  )
-                      , ("bass"     , bassRank   )
-                      , ("guitar"   , guitarRank )
-                      , ("vocals"   , vocalRank  )
-                      , ("keys"     , keysRank   )
-                      , ("real_keys", proKeysRank)
-                      , ("band"     , bandRank   )
-                      ]
-                    , D.solo = Just $ D.InParens $ concat
-                      [ [D.Keyword "guitar" | hasSolo Guitar song]
-                      , [D.Keyword "bass" | hasSolo Bass song]
-                      , [D.Keyword "drum" | hasSolo Drums song]
-                      , [D.Keyword "keys" | hasSolo Keys song]
-                      , [D.Keyword "vocal_percussion" | hasSolo Vocal song]
-                      ]
-                    , D.format = 10
-                    , D.version = 30
-                    , D.gameOrigin = D.Keyword "ugc_plus"
-                    , D.rating = fromIntegral $ fromEnum (_rating $ _metadata songYaml) + 1
-                    , D.genre = D.Keyword $ T.unpack $ _genre $ _metadata songYaml
-                    , D.subGenre = Just $ D.Keyword $ "subgenre_" ++ T.unpack (_subgenre $ _metadata songYaml)
-                    , D.vocalGender = fromMaybe Magma.Female $ _vocalGender $ _metadata songYaml
-                    , D.shortVersion = Nothing
-                    , D.yearReleased = fromIntegral $ _year $ _metadata songYaml
-                    , D.albumArt = Just True
-                    , D.albumName = Just $ T.unpack $ _album $ _metadata songYaml
-                    , D.albumTrackNumber = Just $ fromIntegral $ _trackNumber $ _metadata songYaml
-                    , D.vocalTonicNote = toEnum . fromEnum <$> _key (_metadata songYaml)
-                    , D.songTonality = Nothing
-                    , D.tuningOffsetCents = Just 0
-                    , D.realGuitarTuning = Nothing
-                    , D.realBassTuning = Nothing
-                    , D.guidePitchVolume = Just (-3)
-                    , D.encoding = Just $ D.Keyword "utf8"
-                    }
-
             -- Rock Band 3 CON package
             let pathDta  = pedalDir </> "rb3/songs/songs.dta"
                 pathMid  = pedalDir </> "rb3/songs" </> pkg </> (pkg <.> "mid")
@@ -1217,7 +1243,8 @@ main = do
                 pathMilo = pedalDir </> "rb3/songs" </> pkg </> "gen" </> (pkg <.> ".milo_xbox")
                 pathCon  = pedalDir </> "rb3.con"
             pathDta %> \out -> do
-              songPkg <- makeDTA
+              title <- getTitle
+              songPkg <- makeDTA pkg (pedalDir </> "notes.mid") title Nothing
               liftIO $ D.writeFileDTA_utf8 out $ D.serialize $
                 D.Dict $ Map.fromList [(pkg, D.toChunks songPkg)]
             pathMid  %> copyFile' (pedalDir </> "notes-magma-added.mid")
