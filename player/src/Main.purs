@@ -129,14 +129,14 @@ main = do
                               , guard (isJust s.guitar ) *> [ (\sets -> sets { seeGuitar  = not sets.seeGuitar  }) ]
                               ]
                           else handle et app_
-              handle evts $ case app of
-                Paused _ -> app
-                Playing o -> if nowSeconds == case song of Song o -> o.end
-                  then Paused
+              case app of
+                Playing o | nowSeconds >= (case song of Song o -> o.end) -> do
+                  stop audio
+                  handle evts $ Paused
                     { pausedSongTime: nowSeconds
                     , settings: o.settings
                     }
-                  else Playing o
+                _ -> handle evts app
         loop $ Paused
           { pausedSongTime: Seconds 0.0
           , settings:
