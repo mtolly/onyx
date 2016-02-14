@@ -1,0 +1,49 @@
+metadata:
+  comments:
+  - 2x Bass Pedal upgrade; no other changes.
+  vocal-gender: male
+  drum-kit: Hard Rock Kit
+  file-album-art: cover.png_xbox
+  auto-2x-bass: false
+  track-number: 4
+  album: Extension of the Wish
+  year: 2001
+  subgenre: progrock
+  hopo-threshold: 170
+  author: Rhythm Authors
+  title: Chameleon Carneval
+  genre: prog
+  difficulty:
+    pro-keys:
+      rank: 443
+    vocal:
+      rank: 0
+    bass:
+      rank: 364
+    guitar:
+      rank: 409
+    keys:
+      rank: 443
+    drums:
+      rank: 448
+    band:
+      rank: 345
+  artist: Andromeda
+jammit: {}
+audio: {}
+instruments:
+  pro-keys: true
+  bass: true
+  guitar: true
+  keys: true
+  drums: true
+plans:
+  mogg:
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    drum-mix: 3
+    bass: [6, 7]
+    mogg-md5: 38e18f67dded555839f866aa70d6eadb
+    guitar: [8, 9]
+    keys: [10, 11]
+    drums: [0, 1, 2, 3, 4, 5]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]

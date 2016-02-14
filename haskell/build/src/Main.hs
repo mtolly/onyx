@@ -453,7 +453,7 @@ main = do
           let titleDir  = takeFileName $ takeDirectory yamlPath
               artistDir = takeFileName $ takeDirectory $ takeDirectory yamlPath
               link = "http://pages.cs.wisc.edu/~tolly/customs/?title=" ++ titleDir ++ "&artist=" ++ artistDir
-          line $ "[Play in browser](" ++ link ++ ")"
+          when (HM.member (T.pack "album") $ _plans songYaml) $ line $ "[Play in browser](" ++ link ++ ")"
           line ""
           line "Instruments:"
           line ""
