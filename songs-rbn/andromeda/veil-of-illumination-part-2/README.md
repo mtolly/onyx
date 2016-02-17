@@ -1,4 +1,4 @@
-# Veil of Illumination \(Part 1\)
+# Veil of Illumination \(Part 2\)
 
 ## Andromeda
 
@@ -8,11 +8,11 @@ Author: Rhythm Authors
 Instruments:
 
   * (Pro) Drums 😈😈😈😈😈
-  * Bass ⚪️⚪️⚪️⚪️⚪️
+  * Bass 😈😈😈😈😈
   * Guitar 😈😈😈😈😈
   * Keys 😈😈😈😈😈
   * Pro Keys 😈😈😈😈😈
-  * Vocals (3) 😈😈😈😈😈
+  * Vocals (3) ⚪️⚪️⚪️⚪️⚪️
 
 Supported audio:
 
@@ -20,5 +20,5 @@ Supported audio:
 
 Notes:
 
-  * 2x Bass Pedal upgrade, plus some added ghost notes.
+  * TODO: 2x Bass Pedal upgrade.
 

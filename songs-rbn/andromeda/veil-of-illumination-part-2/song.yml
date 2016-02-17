@@ -4,33 +4,33 @@ plans:
     vocal: [6, 7]
     drum-mix: 0
     bass: [2, 3]
-    mogg-md5: 4b82202ecf0a90aa666cfb223eca1718
+    mogg-md5: 3da0250d17cd74a52d483c22c27d89dd
     guitar: [4, 5]
     keys: [8, 9]
     drums: [0, 1]
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 metadata:
   comments:
-  - "2x Bass Pedal upgrade, plus some added ghost notes."
+  - "TODO: 2x Bass Pedal upgrade."
   vocal-gender: male
   drum-kit: Hard Rock Kit
   file-album-art: cover.png_xbox
   auto-2x-bass: false
-  track-number: 9
+  track-number: 10
   album: The Immunity Zone
   year: 2008
   subgenre: progrock
   hopo-threshold: 170
   author: Rhythm Authors
-  title: Veil of Illumination (Part 1)
+  title: Veil of Illumination (Part 2)
   genre: prog
   difficulty:
     pro-keys:
       rank: 443
     vocal:
-      rank: 427
+      rank: 353
     bass:
-      rank: 364
+      rank: 436
     guitar:
       rank: 409
     keys:
