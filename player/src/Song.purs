@@ -294,7 +294,7 @@ instance isForeignVocal :: IsForeign Vocal where
     ranges <- readProp "ranges" f >>= readTimedMap
     NullOrUndefined tonic <- readProp "tonic" f
     percussion <- readProp "percussion" f >>= readTimedSet
-    phrases <- readProp "percussion" f >>= readTimedSet
+    phrases <- readProp "phrases" f >>= readTimedSet
     return $ Vocal { harm1: harm1, harm2: harm2, harm3: harm3, energy: energy, ranges: ranges, tonic: tonic, percussion: percussion, phrases: phrases }
 
 data VocalRange

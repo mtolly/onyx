@@ -719,7 +719,6 @@ drawVocal (Vocal v) targetY = do
     onContext $ C.stroke
     onContext $ C.closePath
   -- Draw text
-  setFillStyle "white"
   let lyricParts =
         [ { part: v.harm1, y: targetY + 174, isHarm3: false }
         , { part: v.harm2, y: targetY + 20, isHarm3: false }
@@ -756,6 +755,9 @@ drawVocal (Vocal v) targetY = do
         onContext $ C.setFont $ if o.isTalky
           then "bold italic 17px sans-serif"
           else "bold 17px sans-serif"
+        setFillStyle $ case Map.lookupLE o.time v.energy of
+          Nothing -> "white"
+          Just { value: v } -> if v then "yellow" else "white"
         metric <- measureText o.lyric
         onContext $ \ctx -> C.fillText ctx o.lyric textX textY
         drawLyrics (textX + metric.width + 5.0) textY rest
@@ -774,7 +776,11 @@ drawVocal (Vocal v) targetY = do
   drawLyrics (-999.0) (toNumber targetY + 20.0) $ mergeTime
     (getLyrics false $ L.fromFoldable $ Map.doTupleArray (zoomAsc v.harm2))
     (getLyrics true  $ L.fromFoldable $ Map.doTupleArray (zoomAsc v.harm3))
+  -- Draw phrase ends
+  setFillStyle "#bbb"
+  zoomDesc v.phrases $ \t (_ :: Unit) -> do
+    fillRect { x: toNumber (secsToPxHoriz t) - 1.0, y: toNumber targetY + 25.0, w: 3.0, h: 130.0 }
   -- Draw target line
-  setFillStyle "white"
+  setFillStyle "#ddd"
   fillRect { x: toNumber targetX - 1.0, y: toNumber targetY + 25.0, w: 3.0, h: 130.0 }
   return $ targetY + 180 + _M
