@@ -9,6 +9,7 @@ metadata:
     guitar: 7
     bass: 6
     pro-keys: 7
+    keys: 7
     band: 7
   author: "Onyxite, mazegeek999"
   comments:
@@ -88,3 +89,4 @@ instruments:
   guitar: true
   bass: true
   pro-keys: true
+  keys: true
