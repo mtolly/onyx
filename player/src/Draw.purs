@@ -21,6 +21,7 @@ import Data.Foldable (elem, sum, for_)
 import Control.Apply ((*>))
 import Control.MonadPlus (guard)
 import qualified Data.String.Regex as R
+import Math (pi)
 
 import Song
 
@@ -67,6 +68,15 @@ setFillStyle s = onContext $ C.setFillStyle s
 
 fillRect :: forall e. C.Rectangle -> Draw e Unit
 fillRect rect = onContext $ \ctx -> C.fillRect ctx rect
+
+fillCircle :: forall e. { x :: Number, y :: Number, r :: Number } -> Draw e Unit
+fillCircle o = do
+  ctx <- map _.context ask
+  lift $ void do
+    C.beginPath ctx
+    C.arc ctx { x: o.x, y: o.y, r: o.r, start: 0.0, end: 2.0 * pi }
+    C.fill ctx
+    C.closePath ctx
 
 drawImage :: forall e. ImageID -> Number -> Number -> Draw e Unit
 drawImage iid x y = do
@@ -776,6 +786,18 @@ drawVocal (Vocal v) targetY = do
   drawLyrics (-999.0) (toNumber targetY + 20.0) $ mergeTime
     (getLyrics false $ L.fromFoldable $ Map.doTupleArray (zoomAsc v.harm2))
     (getLyrics true  $ L.fromFoldable $ Map.doTupleArray (zoomAsc v.harm3))
+  -- Draw percussion notes
+  zoomDesc v.percussion $ \t (_ :: Unit) -> if t > stuff.time
+    then do
+      setFillStyle "#d9d9d9"
+      fillCircle { x: toNumber $ secsToPxHoriz t, y: toNumber targetY + 90.0, r: 11.0 }
+      setFillStyle "#00b9c9"
+      fillCircle { x: toNumber $ secsToPxHoriz t, y: toNumber targetY + 90.0, r: 9.0 }
+    else do
+      let opacity = (secToNum (t - stuff.time) + 0.1) / 0.05
+      when (opacity > 0.0) $ do
+        setFillStyle $ "rgba(255, 255, 255, " <> show opacity <> ")"
+        fillCircle { x: toNumber $ secsToPxHoriz stuff.time, y: toNumber targetY + 90.0, r: 11.0 }
   -- Draw phrase ends
   setFillStyle "#bbb"
   zoomDesc v.phrases $ \t (_ :: Unit) -> do
