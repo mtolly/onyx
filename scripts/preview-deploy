@@ -66,6 +66,7 @@ Net::SFTP.start(url, username, password: password) do |sftp|
     next unless File.exist? "#{songdir}/song.yml"
     yaml = load_yaml_tree("#{songdir}/song.yml")
     next unless yaml.fetch('published', true)
+    next unless yaml['plans'].has_key?('album')
     puts "SONG: #{songdir}"
 
     Dir.chdir(songdir) do

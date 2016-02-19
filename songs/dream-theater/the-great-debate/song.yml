@@ -9,6 +9,7 @@ metadata:
     band: 7
 instruments:
   pro-keys: true
+  drums: true
 audio:
   album-track:
     md5: 2f23c4da1a55d8e1802586ae40f9eb4f

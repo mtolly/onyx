@@ -15,6 +15,7 @@ yamls.each do |yaml_file|
       makes += [
         "gen/plan/#{a}/countin.wav",
         "gen/plan/#{a}/#{p}/magma/magma.rbproj",
+        "gen/plan/#{a}/#{p}/magma/magma.c3",
         "gen/plan/#{a}/#{p}/magma/notes.mid",
         "gen/plan/#{a}/#{p}/magma/cover.bmp",
       ]
@@ -22,7 +23,13 @@ yamls.each do |yaml_file|
       unless plan_exprs.has_key?('each')
         # we need to make dummy audio for instruments not present
         yaml['instruments'].each_key do |inst|
-          makes += ["gen/plan/#{a}/#{p}/magma/#{inst}.wav"] unless plan_exprs.has_key?(inst)
+          inst = 'keys' if inst == 'pro-keys'
+          unless plan_exprs.has_key?(inst)
+            makes += ["gen/plan/#{a}/#{p}/magma/#{inst}.wav"]
+            if inst == 'vocal'
+              makes += ["gen/plan/#{a}/#{p}/magma/dryvox.wav"]
+            end
+          end
         end
       end
     end
