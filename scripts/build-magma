@@ -16,9 +16,12 @@ yamls.each do |yaml_file|
         "gen/plan/#{a}/countin.wav",
         "gen/plan/#{a}/#{p}/magma/magma.rbproj",
         "gen/plan/#{a}/#{p}/magma/magma.c3",
-        "gen/plan/#{a}/#{p}/magma/notes.mid",
-        "gen/plan/#{a}/#{p}/magma/cover.bmp",
+        "gen/plan/#{a}/#{p}/magma/notes.mid"
       ]
+      # Remove the following once we can read .png_xbox files :)
+      unless yaml['metadata'].fetch('file-album-art', 'nothing.png').match(/png_xbox$/)
+        makes += ["gen/plan/#{a}/#{p}/magma/cover.bmp"]
+      end
       plan_exprs = yaml['plans'][a]
       unless plan_exprs.has_key?('each')
         # we need to make dummy audio for instruments not present
