@@ -23,7 +23,3 @@ Supported audio:
 
   * `album` (Systematic Chaos)
 
-Notes:
-
-  * Chart is IN PROGRESS; guitar and bass are not 100% polished.
-
