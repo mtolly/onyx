@@ -394,8 +394,8 @@ drumsComplete mmap sections trk = let
       else (Drums.DiffEvent diff <$> authored, getAssigned diff)
   expert              = getAssigned Expert
   (hardRaw  , hard  ) = reduceStep Hard   expert
-  (mediumRaw, medium) = reduceStep Medium hard
-  (easyRaw  , _     ) = reduceStep Easy   medium
+  (mediumRaw, _     ) = reduceStep Medium hard
+  (easyRaw  , _     ) = reduceStep Easy   hard -- we want kicks that medium might've removed
   untouched = flip RTB.filter trk $ \case
     Drums.DiffEvent Expert _ -> True
     Drums.DiffEvent _      _ -> False
@@ -410,8 +410,8 @@ drumsReduce
   -> RTB.T U.Beats String                    -- ^ Practice sections
   -> RTB.T U.Beats (Drums.Gem Drums.ProType) -- ^ The source difficulty, one level up
   -> RTB.T U.Beats (Drums.Gem Drums.ProType) -- ^ The target difficulty
-drumsReduce Expert _    _  _        trk = trk
-drumsReduce diff   mmap od sections trk = let
+drumsReduce Expert _    _   _        trk = trk
+drumsReduce diff   mmap _od sections trk = let
   -- odMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.normalize od
   -- isOD bts = fromMaybe False $ fmap snd $ Map.lookupLE bts odMap
   isMeasure bts = snd (U.applyMeasureMap mmap bts) == 0
@@ -458,8 +458,9 @@ drumsReduce diff   mmap od sections trk = let
     hasOneHandGem = case Map.lookup posn slice of
       Just [_] -> True
       _        -> False
-    in if not hasKick && (diff == Hard || Map.null slice || hasOneHandGem)
+    in if not hasKick && (diff /= Medium || Map.null slice || hasOneHandGem)
       then keepKicks (Map.alter (Just . (Drums.Kick :) . fromMaybe []) posn kept) rest
+      -- keep inter-hand kicks for Easy even though they are dropped in Medium
       else keepKicks kept rest
   keptAll = keepKicks keptHands $ sortOn (\bts -> (priority bts, bts)) kicks
   nullNothing [] = Nothing
