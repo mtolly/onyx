@@ -615,6 +615,8 @@ main = do
               dir </> "drums.wav"  %> buildPart _drums
               dir </> "vocal.wav"  %> buildPart _vocal
             EachPlan{..} -> do
+              dir </> "kick.wav"   %> buildAudio (Silence 1 $ Frames 0)
+              dir </> "snare.wav"  %> buildAudio (Silence 1 $ Frames 0)
               let locate :: Maybe J.Instrument -> Action (Audio Duration FilePath)
                   locate inst = fmap join $ mapM (autoLeaf inst) $ _planExpr _each
                   buildPart maybeInst fout = locate maybeInst >>= \aud -> buildAudio aud fout
