@@ -2,6 +2,8 @@ metadata:
   title: Deep Roots
   file-include: ../../../albums/puzzled.yml
   track-number: 3
+  difficulty:
+    drums: 6
   comments:
   - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
 audio:

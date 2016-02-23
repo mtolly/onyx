@@ -7,9 +7,9 @@
 
 Instruments:
 
-  * (Pro) Drums
-  * Bass
-  * Guitar
+  * (Pro) Drums ⚪️⚪️⚪️⚫️⚫️
+  * Bass ⚪️⚪️⚫️⚫️⚫️
+  * Guitar ⚪️⚪️⚪️⚪️⚫️
 
 Supported audio:
 

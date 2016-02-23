@@ -2,6 +2,8 @@ metadata:
   title: Wither
   file-include: ../../../albums/black-clouds-silver-linings.yml
   track-number: 3
+  difficulty:
+    drums: 3
   comments:
   - "Chart confidence: *high*, transcribed from the deluxe edition stems."
 audio:

@@ -2,6 +2,8 @@ metadata:
   title: Lost Not Forgotten
   file-include: ../../../albums/a-dramatic-turn-of-events.yml
   track-number: 3
+  difficulty:
+    drums: 7
   comments:
   - >-
     Chart confidence: *medium-low*.

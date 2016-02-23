@@ -27,5 +27,5 @@ Notes:
 
   * Keys and pro keys by mazegeek999.
 
-  * Guitar and bass by Meander. (Minor edits by me.)
+  * Guitar and bass by Meander, with some edits by me.
 

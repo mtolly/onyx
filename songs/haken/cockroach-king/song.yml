@@ -2,6 +2,8 @@ metadata:
   title: Cockroach King
   file-include: ../../../albums/the-mountain.yml
   track-number: 3
+  difficulty:
+    drums: 4
   comments:
   - "Chart confidence: *high*. No stems but nice clear mixing for the most part."
 audio:

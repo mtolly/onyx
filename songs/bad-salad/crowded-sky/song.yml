@@ -2,6 +2,8 @@ metadata:
   title: Crowded Sky
   file-include: ../../../albums/uncivilized.yml
   track-number: 1
+  difficulty:
+    drums: 7
   comments:
   - "Chart confidence: *medium-high*. Mixing is a bit muddy."
 audio:

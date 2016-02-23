@@ -7,8 +7,8 @@
 
 Instruments:
 
-  * (Pro) Drums
-  * Bass
+  * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
+  * Bass 😈😈😈😈😈
 
 Supported audio:
 
@@ -16,5 +16,5 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *high*.
+  * Drums confidence: *high*.
 

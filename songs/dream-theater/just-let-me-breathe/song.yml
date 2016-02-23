@@ -2,6 +2,8 @@ metadata:
   title: Just Let Me Breathe
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 9
+  difficulty:
+    drums: 6
   comments:
   - >-
     Chart confidence: *medium-high*. Written to Jammit stems,

@@ -2,6 +2,8 @@ metadata:
   title: Lines in the Sand
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 7
+  difficulty:
+    drums: 6
   comments:
   - "Chart confidence: *high* (Jammit stems)."
 audio:

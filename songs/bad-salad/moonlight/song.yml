@@ -2,6 +2,10 @@ metadata:
   title: Moonlight
   file-include: ../../../albums/puzzled.yml
   track-number: 2
+  difficulty:
+    drums: 4
+    bass: 3
+    guitar: 5
   comments:
   - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
 audio:

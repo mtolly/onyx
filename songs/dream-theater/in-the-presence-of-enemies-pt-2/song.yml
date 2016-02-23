@@ -11,7 +11,10 @@ metadata:
     keys: 7
     pro-keys: 7
     bass: 6
-  author: "Onyxite (drums, vox), mazegeek999 (keys, pro keys), Meander (guitar, bass)"
+  author: "Onyxite, mazegeek999, Meander"
+  comments:
+  - "Keys and pro keys by mazegeek999."
+  - "Guitar and bass by Meander, with some edits by me."
   rating: Supervision Recommended
 audio:
   album-track:

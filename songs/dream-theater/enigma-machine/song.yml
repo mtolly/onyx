@@ -2,6 +2,8 @@ metadata:
   title: Enigma Machine
   file-include: ../../../albums/dream-theater.yml
   track-number: 4
+  difficulty:
+    drums: 7
   comments:
   - >-
     Chart confidence: *medium*.

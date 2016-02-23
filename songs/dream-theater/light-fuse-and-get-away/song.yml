@@ -2,6 +2,8 @@ metadata:
   title: Light Fuse and Get Away
   file-include: ../../../albums/when-dream-and-day-unite.yml
   track-number: 5
+  difficulty:
+    drums: 5
   comments:
   - "Chart confidence: *medium-high*."
 audio:

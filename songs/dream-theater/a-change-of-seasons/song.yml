@@ -2,6 +2,8 @@ metadata:
   title: A Change of Seasons
   file-include: ../../../albums/a-change-of-seasons.yml
   track-number: 1
+  difficulty:
+    drums: 5
 audio:
   album-track:
     md5: 629c033478090a97c89144aca7dc104c

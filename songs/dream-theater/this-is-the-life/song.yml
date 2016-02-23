@@ -2,6 +2,8 @@ metadata:
   title: This Is the Life
   file-include: ../../../albums/a-dramatic-turn-of-events.yml
   track-number: 4
+  difficulty:
+    drums: 3
   comments:
   - >-
     Chart confidence: *medium-high*.

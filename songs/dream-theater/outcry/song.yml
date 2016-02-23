@@ -2,6 +2,8 @@ metadata:
   title: Outcry
   file-include: ../../../albums/a-dramatic-turn-of-events.yml
   track-number: 6
+  difficulty:
+    drums: 7
   comments:
   - >-
     Chart confidence: *medium-low*.
