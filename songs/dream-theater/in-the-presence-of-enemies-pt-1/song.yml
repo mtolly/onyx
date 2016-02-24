@@ -33,7 +33,9 @@ audio:
 plans:
   album:
     song:
-      fade:
+      pad:
+      - 0.014
+      - fade:
         - end
         - 2.75
         - take:
@@ -48,11 +50,15 @@ plans:
       gain:
         - -1
         - resample:
-            trim:
+            pad:
+            - 0.026
+            - trim:
               - 1.909
               - take: ['8:50.723', drumcam-drums]
     song:
-      fade:
+      pad:
+      - 0.026
+      - fade:
         - end
         - 2.75
         - take:
