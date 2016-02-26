@@ -30,17 +30,19 @@ audio:
     frames: 220200960
     rate: 48000
     name: AudioFile_81.ac3
-plans:
-  album:
-    song:
+  album-expr:
+    expr:
       pad:
-      - 0.014
+      - 0.01
       - fade:
         - end
         - 2.75
         - take:
           - '8:57.302'
           - pad: [4.637, album-track]
+plans:
+  album:
+    song: album-expr
   drumcam:
     comments:
     - >-
@@ -56,39 +58,47 @@ plans:
               - 1.909
               - take: ['8:50.723', drumcam-drums]
     song:
-      pad:
-      - 0.026
-      - fade:
-        - end
-        - 2.75
-        - take:
-          - '8:57.302'
-          - trim:
-            - 1.909
-            - resample:
-                mix:
-                  - concatenate:
-                    - take:
-                      - '3:02'
-                      - pad:
-                        - frames: 3461
-                        - drumcam-band
-                    - take:
-                      - '6:06'
-                      - drop:
-                        - '3:02'
-                        - pad:
-                          - frames: 3460
-                          - drumcam-band
-                  - gain:
-                    - -1
-                    - concatenate:
-                      - take: ['8:50.723', drumcam-drums]
-                      - pad:
-                        - frames: 3460
-                        - drop:
-                          - '8:50.723'
-                          - take: ['9:06', drumcam-drums]
+      mix:
+      - take:
+        - '8:51'
+        - pad:
+          - 0.026
+          - fade:
+            - end
+            - 2.75
+            - take:
+              - '8:57.302'
+              - trim:
+                - 1.909
+                - resample:
+                    mix:
+                      - concatenate:
+                        - take:
+                          - '3:02'
+                          - pad:
+                            - frames: 3461
+                            - drumcam-band
+                        - take:
+                          - '6:06'
+                          - drop:
+                            - '3:02'
+                            - pad:
+                              - frames: 3460
+                              - drumcam-band
+                      - gain:
+                        - -1
+                        - concatenate:
+                          - take: ['8:50.723', drumcam-drums]
+                          - pad:
+                            - frames: 3460
+                            - drop:
+                              - '8:50.723'
+                              - take: ['9:06', drumcam-drums]
+      - pad:
+        - '8:51'
+        - drop:
+          - '8:51'
+          - gain: [0.684, album-expr]
 instruments:
   drums: true
   vocal: 3
