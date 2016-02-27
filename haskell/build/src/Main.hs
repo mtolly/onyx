@@ -14,6 +14,7 @@ import qualified Magma
 import           MoggDecrypt
 import           OneFoot
 import qualified OnyxiteDisplay.Process           as Proc
+import           PrettyDTA
 import           Reaper.Base                      (writeRPP)
 import qualified Reaper.Build                     as RPP
 import           Reductions
@@ -1100,6 +1101,8 @@ main = do
                       "kick.cue snare.cue hat.cue ride.cue crash.cue"
                     , D.crowdChannels = Nothing
                     , D.hopoThreshold = Just $ fromIntegral $ _hopoThreshold $ _metadata songYaml
+                    , D.muteVolume = Nothing
+                    , D.muteVolumeVocals = Nothing
                     }
                   , D.bank = Just $ Left $ case perctype of
                     Nothing               -> "sfx/tambourine_bank.milo"
@@ -1247,8 +1250,7 @@ main = do
             pathDta %> \out -> do
               title <- getTitle
               songPkg <- makeDTA pkg (pedalDir </> "notes.mid") title Nothing
-              liftIO $ D.writeFileDTA_utf8 out $ D.serialize $
-                D.Dict $ Map.fromList [(pkg, D.toChunks songPkg)]
+              liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg
             pathMid  %> copyFile' (pedalDir </> "notes-magma-added.mid")
             pathMogg %> copyFile' (dir </> "audio.mogg")
             pathPng  %> copyFile' "gen/cover.png_xbox"

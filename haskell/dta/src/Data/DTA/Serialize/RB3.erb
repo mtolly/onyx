@@ -20,8 +20,8 @@ require File.expand_path(File.dirname(__FILE__) + '/make_data')
 type Path = Either String Keyword
 
 <%= makeRecord('SongPackage', [
-  ['name'               , nil, 'String'            ],
-  ['artist'             , nil, 'String'            ],
+  ['name'               , nil, 'String'                   ],
+  ['artist'             , nil, 'String'                   ],
   ['master'             , nil, 'Bool'                     ],
   ['song_id'            , nil, 'Either Integer Keyword'   ],
   ['song'               , nil, 'Song'                     ],
@@ -44,7 +44,7 @@ type Path = Either String Keyword
   ['short_version'      , nil, maybe('Integer')           ],
   ['year_released'      , nil, 'Integer'                  ],
   ['album_art'          , nil, maybe('Bool')              ],
-  ['album_name'         , nil, maybe('String')     ],
+  ['album_name'         , nil, maybe('String')            ],
   ['album_track_number' , nil, maybe('Integer')           ],
   ['vocal_tonic_note'   , nil, maybe('Pitch')             ],
   ['song_tonality'      , nil, maybe('Tonality')          ],
@@ -82,18 +82,19 @@ type Path = Either String Keyword
   ]) %>
 
 <%= makeRecord('Song', [
-  ['name'          , 'songName', 'String'            ],
-  ['tracks_count'  , nil       , maybe('InParens [Integer]')],
-  ['tracks'        , nil       ,
-    'InParens (Dict (Either Integer (InParens [Integer])))' ],
-  ['vocal_parts'   , nil       , 'Integer'                  ],
-  ['pans'          , nil       , 'InParens [Float]'         ],
-  ['vols'          , nil       , 'InParens [Float]'         ],
-  ['cores'         , nil       , 'InParens [Integer]'       ],
-  ['drum_solo'     , nil       , 'DrumSounds'               ],
-  ['drum_freestyle', nil       , 'DrumSounds'               ],
-  ['crowd_channels', nil       , maybe('[Integer]')         ],
-  ['hopo_threshold', nil       , maybe('Integer')           ],
+  ['name'              , 'songName', 'String'                   ],
+  ['tracks_count'      , nil       , maybe('InParens [Integer]')],
+  ['tracks'            , nil       , 'InParens (Dict (Either Integer (InParens [Integer])))' ],
+  ['vocal_parts'       , nil       , 'Integer'                  ],
+  ['pans'              , nil       , 'InParens [Float]'         ],
+  ['vols'              , nil       , 'InParens [Float]'         ],
+  ['cores'             , nil       , 'InParens [Integer]'       ],
+  ['drum_solo'         , nil       , 'DrumSounds'               ],
+  ['drum_freestyle'    , nil       , 'DrumSounds'               ],
+  ['crowd_channels'    , nil       , maybe('[Integer]')         ],
+  ['hopo_threshold'    , nil       , maybe('Integer')           ],
+  ['mute_volume'       , nil       , maybe('Integer')           ],
+  ['mute_volume_vocals', nil       , maybe('Integer')           ],
   ]) %>
 
 <%= makeRecord('DrumSounds', [
