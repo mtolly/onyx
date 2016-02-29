@@ -3,10 +3,20 @@ metadata:
   file-include: ../../../albums/six-degrees-of-inner-turbulence.yml
   track-number: 4
   rating: Supervision Recommended
-  author: mazegeek999
+  author: mazegeek999, Onyxite
   difficulty:
+    drums: 7
     pro-keys: 7
     band: 7
+  comments:
+  - >-
+    Pro keys by mazegeek999, drums by me.
+  - >-
+    Drums done with heavy reference to *Ten Degrees of Turbulent Drumming*
+    [footage](https://www.youtube.com/watch?v=OOjKScCpgMw),
+    plus [lesson](https://www.youtube.com/watch?v=sI2fnseLcbg)
+    and [playthrough](https://www.youtube.com/watch?v=5DJvgVYqJm8)
+    from *In Constant Motion*.
 instruments:
   pro-keys: true
   drums: true
@@ -18,4 +28,3 @@ plans:
   album:
     song:
       pad: [1.082, album-track]
-published: false
