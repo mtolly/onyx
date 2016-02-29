@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiWayIf                 #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 {-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE TemplateHaskell            #-}
 module Main (main) where
 
 import           Audio
@@ -57,11 +58,13 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing,
                                                    listToMaybe, mapMaybe)
 import qualified Data.Text                        as T
+import           Data.Time                        (getCurrentTime)
 import qualified Data.Yaml                        as Y
 import           Development.Shake                hiding (phony, (%>), (&%>))
 import qualified Development.Shake                as Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
+import           Language.Haskell.TH              (stringL, litE, runIO)
 import           RockBand.Common                  (Difficulty (..), Key (..))
 import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
@@ -106,12 +109,18 @@ newtype JammitSearch = JammitSearch String
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
 
 -- | Oracle for an existing MOGG file search.
--- The String is an MD5 hash of the complete MOGG file.
+-- The Text is an MD5 hash of the complete MOGG file.
 newtype MoggSearch = MoggSearch T.Text
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
 
 newtype GetSongYaml = GetSongYaml ()
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
+
+newtype CompileTime = CompileTime ()
+  deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
+
+theCompileTime :: String
+theCompileTime = $( runIO getCurrentTime >>= litE . stringL . show )
 
 allFiles :: FilePath -> Action [FilePath]
 allFiles absolute = do
@@ -244,14 +253,16 @@ main = do
         jammitOracle <- addOracle $ \(JammitSearch s) -> fmap show $ jammitSearch $ read s
         moggOracle   <- addOracle $ \(MoggSearch   s) -> moggSearch s
 
-        -- Make all rules depend on the parsed song.yml contents
+        -- Make all rules depend on the parsed song.yml contents and onyx compile time
         strSongYaml  <- addOracle $ \(GetSongYaml ()) -> return $ show songYaml
-        let (%>) :: FilePattern -> (FilePath -> Action ()) -> Rules ()
-            pat %> f = pat Shake.%> \out -> strSongYaml (GetSongYaml ()) >> f out
+        ctime        <- addOracle $ \(CompileTime ()) -> return theCompileTime
+        let onyxDeps act = strSongYaml (GetSongYaml ()) >> ctime (CompileTime ()) >> act
+            (%>) :: FilePattern -> (FilePath -> Action ()) -> Rules ()
+            pat %> f = pat Shake.%> onyxDeps . f
             (&%>) :: [FilePattern] -> ([FilePath] -> Action ()) -> Rules ()
-            pats &%> f = pats Shake.&%> \outs -> strSongYaml (GetSongYaml ()) >> f outs
+            pats &%> f = pats Shake.&%> onyxDeps . f
             phony :: String -> Action () -> Rules ()
-            phony s f = Shake.phony s $ strSongYaml (GetSongYaml ())  >> f
+            phony s f = Shake.phony s $ onyxDeps f
             infix 1 %>, &%>
 
         phony "yaml"  $ liftIO $ print songYaml
