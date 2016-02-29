@@ -27,4 +27,6 @@ extra-deps:
 - non-negative-0.1.1
 - utility-ht-0.0.11
 - vector-0.10.12.3
+- lock-file-0.5.0.2
+- tagged-exception-core-2.2.0.0
 resolver: lts-4.0

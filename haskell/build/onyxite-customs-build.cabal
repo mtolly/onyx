@@ -56,6 +56,9 @@ executable onyx
     , monad-loops
     , time
     , template-haskell
+    , lock-file
+    , tagged-exception-core
+    , data-default-class
     -- my libraries:
     , jammittools >= 0.5.0.2 && < 0.6
     , midi-util >= 0.1.1.1 && < 0.2

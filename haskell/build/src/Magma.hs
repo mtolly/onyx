@@ -19,10 +19,22 @@ import           System.Info                  (os)
 import qualified System.IO                    as IO
 import           System.IO.Temp               (createTempDirectory)
 
+import Control.Monad.TaggedException.Hidden (hideException)
+import System.IO.LockFile.Internal (lock, unlock)
+import Data.Default.Class (def)
+
 withExe :: (FilePath -> [String] -> a) -> FilePath -> [String] -> a
 withExe f exe args = if os == "mingw32"
   then f exe args
   else f "wine" $ exe : args
+
+-- | Hastily hacked into the Action monad.
+-- Possibly doesn't handle async exceptions properly.
+withMagmaLock :: Action a -> Action a
+withMagmaLock act = do
+  theLock <- fmap (</> "onyx_magma.lock") $ liftIO Dir.getTemporaryDirectory
+  h <- liftIO $ hideException $ lock def theLock
+  actionFinally act $ liftIO $ hideException $ unlock theLock h
 
 callProcessIn :: FilePath -> FilePath -> [String] -> Action ()
 callProcessIn dir = command_
@@ -44,7 +56,7 @@ runMagmaMIDI proj mid = withSystemTempDirectory "magma" $ \tmp -> do
       mid'  = wd </> mid
   liftIO $ Dir.createDirectory $ tmp </> "gen"
   liftIO $ forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
-  withExe (callProcessIn tmp) (tmp </> "MagmaCompilerC3.exe") ["-export_midi", proj', mid']
+  withMagmaLock $ withExe (callProcessIn tmp) (tmp </> "MagmaCompilerC3.exe") ["-export_midi", proj', mid']
 
 runMagma :: FilePath -> FilePath -> Action ()
 runMagma proj rba = withSystemTempDirectory "magma" $ \tmp -> do
@@ -53,7 +65,7 @@ runMagma proj rba = withSystemTempDirectory "magma" $ \tmp -> do
       rba'  = wd </> rba
   liftIO $ Dir.createDirectory $ tmp </> "gen"
   liftIO $ forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
-  withExe (callProcessIn tmp) (tmp </> "MagmaCompilerC3.exe") [proj', rba']
+  withMagmaLock $ withExe (callProcessIn tmp) (tmp </> "MagmaCompilerC3.exe") [proj', rba']
 
 -- | Like the one from 'System.IO.Temp', but in the 'Action' monad.
 withSystemTempDirectory :: String -> (FilePath -> Action a) -> Action a
@@ -80,7 +92,7 @@ oggToMogg ogg mogg = withSystemTempDirectory "ogg2mogg" $ \tmp -> do
     $ sinkSnd (tmp </> "silence.wav")
     (Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile)
     (silent (Seconds 31) 44100 2 :: AudioSource (ResourceT IO) Int16)
-  _ <- withExe (callProcessIn tmp) (tmp </> "MagmaCompilerC3.exe") [proj, rba]
+  _ <- withMagmaLock $ withExe (callProcessIn tmp) (tmp </> "MagmaCompilerC3.exe") [proj, rba]
   liftIO $ IO.withBinaryFile (tmp </> rba) IO.ReadMode $ \hrba -> do
     IO.hSeek hrba IO.AbsoluteSeek $ 4 + (4 * 3)
     moggOffset <- hReadWord32le hrba
