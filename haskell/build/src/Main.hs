@@ -1219,6 +1219,22 @@ main = do
                         swell2 = RBDrums.DoubleRoll True
                     guard $ elem kick evts && (elem swell1 evts || elem swell2 evts)
                     return ()
+              -- Every discobeat mix event should be simultaneous with,
+              -- or immediately followed by, a set of notes not including red or yellow.
+              let discos = flip RTB.mapMaybe drums $ \case
+                    RBDrums.DiffEvent d (RBDrums.Mix _ RBDrums.Disco) -> Just d
+                    _ -> Nothing
+                  badDiscos = fmap (const ()) $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ filter isBadDisco $ ATB.toPairList $ RTB.toAbsoluteEventList 0 discos
+                  drumsDiff d = flip RTB.mapMaybe drums $ \case
+                    RBDrums.DiffEvent d' (RBDrums.Note gem) | d == d' -> Just gem
+                    _ -> Nothing
+                  isBadDisco (t, diff) = case RTB.viewL $ RTB.collectCoincident $ U.trackDrop t $ drumsDiff diff of
+                    Just ((_, evts), _) | any isDiscoGem evts -> True
+                    _ -> False
+                  isDiscoGem = \case
+                    RBDrums.Red -> True
+                    RBDrums.Pro RBDrums.Yellow _ -> True
+                    _ -> False
               -- Don't have a vocal phrase that ends simultaneous with a lyric event.
               -- In static vocals, this puts the lyric in the wrong phrase.
               let vox = foldr RTB.merge RTB.empty [ t | RBFile.PartVocals t <- RBFile.s_tracks song ]
@@ -1244,11 +1260,12 @@ main = do
                     . RTB.toAbsoluteEventList 0
                   message rtb msg = forM_ (showPositions rtb) $ \pos ->
                     putNormal $ pos ++ ": " ++ msg
-              message kickSwells "kick note can't be simultaneous with start of drum roll"
-              message voxBugs "PART VOCALS vocal phrase can't end simultaneous with a lyric"
-              message harm1Bugs "HARM1 vocal phrase can't end simultaneous with a lyric"
-              message harm2Bugs "HARM2 vocal phrase can't end simultaneous with a (HARM2 or HARM3) lyric"
-              unless (all RTB.null [kickSwells, voxBugs, harm1Bugs, harm2Bugs]) $
+              message kickSwells "kick note is simultaneous with start of drum roll"
+              message badDiscos "discobeat drum event is followed immediately by red or yellow gem"
+              message voxBugs "PART VOCALS vocal phrase ends simultaneous with a lyric"
+              message harm1Bugs "HARM1 vocal phrase ends simultaneous with a lyric"
+              message harm2Bugs "HARM2 vocal phrase ends simultaneous with a (HARM2 or HARM3) lyric"
+              unless (all RTB.null [kickSwells, badDiscos, voxBugs, harm1Bugs, harm2Bugs]) $
                 fail "At least 1 problem was found in the MIDI."
 
             -- Rock Band 3 CON package
