@@ -913,7 +913,7 @@ main = do
                 makeVox h1 h2 h3 = Just $ Proc.processVocal (RBFile.s_tempos song) h1 h2 h3 (fmap fromEnum $ _key $ _metadata songYaml)
                 beat = Proc.processBeat (RBFile.s_tempos song)
                   $ foldr RTB.merge RTB.empty [ t | RBFile.Beat t <- RBFile.s_tracks song ]
-                end = U.applyTempoMap (RBFile.s_tempos song) $ songLength' song
+                end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats song
                 justIf b x = guard b >> Just x
             liftIO $ BL.writeFile out $ A.encode $ Proc.mapTime (realToFrac :: U.Seconds -> Milli)
               $ Proc.Processed gtr bass keys drums prokeys vox beat end
@@ -975,8 +975,9 @@ main = do
               putNormal $ "Finished writing a crappy audio file to " ++ out
 
           dir </> "ps/song.ini" %> \out -> do
-            (pstart, _) <- previewBounds midPS
-            len <- songLength midPS
+            song <- loadMIDI midPS
+            let (pstart, _) = previewBounds song
+                len = songLengthMS song
             liftIO $ writeFile out $ unlines
               [ "[song]"
               , "artist = " ++ T.unpack (_artist $ _metadata songYaml)
@@ -1037,9 +1038,9 @@ main = do
           let makeDTA :: String -> FilePath -> String -> Maybe Int -> Action D.SongPackage
               makeDTA pkg mid title piracy = do
                 song <- loadMIDI mid
-                (pstart, pend) <- previewBounds mid
-                len <- songLength mid
-                perctype <- getPercType mid
+                let (pstart, pend) = previewBounds song
+                    len = songLengthMS song
+                    perctype = getPercType song
 
                 let channels = concat [kickPV, snarePV, drumsPV, bassPV, guitarPV, keysPV, vocalPV, songPV]
                     pans = piratePans $ case plan of
@@ -1294,9 +1295,10 @@ main = do
             -- Magma RBProj rules
             let makeMagmaProj :: Action Magma.RBProj
                 makeMagmaProj = do
-                  (pstart, _) <- previewBounds $ pedalDir </> "magma/notes.mid"
-                  perctype    <- getPercType   $ pedalDir </> "magma/notes.mid"
-                  let silentDryVox = Magma.DryVoxPart
+                  song <- loadMIDI $ pedalDir </> "magma/notes.mid"
+                  let (pstart, _) = previewBounds song
+                      perctype = getPercType song
+                      silentDryVox = Magma.DryVoxPart
                         { Magma.dryVoxFile = "dryvox.wav"
                         , Magma.dryVoxEnabled = True
                         }
@@ -1432,8 +1434,7 @@ main = do
               keys   %> copyFile' (dir </> "keys.wav"  )
               vocal  %> copyFile' (dir </> "vocal.wav" )
               dryvox %> \out -> do
-                need [mid]
-                len <- songLength mid
+                len <- songLengthMS <$> loadMIDI mid
                 let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
                     audsrc :: (Monad m) => AudioSource m Float
                     audsrc = silent (Seconds $ fromIntegral len / 1000) 16000 1
@@ -1445,9 +1446,9 @@ main = do
                 p <- makeMagmaProj
                 liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
               c3 %> \out -> do
-                (pstart, _) <- previewBounds mid
-                title <- getTitle
                 midi <- loadMIDI mid
+                let (pstart, _) = previewBounds midi
+                title <- getTitle
                 is2x <- is2xBass
                 liftIO $ writeFile out $ C3.showC3 C3.C3
                   { C3.song = T.unpack $ _title $ _metadata songYaml
@@ -1798,19 +1799,6 @@ importRB3 pkg author mid mogg cover coverName dir = do
     , _published = True
     }
 
-getPercType :: FilePath -> Action (Maybe RBVox.PercussionType)
-getPercType mid = do
-  song <- loadMIDI mid
-  let vox = foldr RTB.merge RTB.empty $ mapMaybe getVox $ RBFile.s_tracks song
-      getVox (RBFile.PartVocals t) = Just t
-      getVox (RBFile.Harm1      t) = Just t
-      getVox (RBFile.Harm2      t) = Just t
-      getVox (RBFile.Harm3      t) = Just t
-      getVox _                     = Nothing
-      isPercType (RBVox.PercussionAnimation ptype _) = Just ptype
-      isPercType _                                   = Nothing
-  return $ listToMaybe $ mapMaybe isPercType $ RTB.getBodies vox
-
 rankToTier :: DiffMap -> Integer -> Integer
 rankToTier dm rank = fromIntegral $ length $ takeWhile (<= rank) (1 : dm)
 
@@ -1828,76 +1816,3 @@ keysDiffMap      = [153, 211, 269, 327, 385, 443]
 bandDiffMap      = [163, 215, 243, 267, 292, 345]
 -- proGuitarDiffMap = [150, 205, 264, 323, 382, 442]
 -- proBassDiffMap   = [150, 208, 267, 325, 384, 442]
-
--- | Makes a dummy Basic Keys track, for songs with only Pro Keys charted.
-expertProKeysToKeys :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats RBFive.Event
-expertProKeysToKeys = let
-  pkToBasic :: [ProKeys.Event] -> RTB.T U.Beats RBFive.Event
-  pkToBasic pk = let
-    hasNote     = any (\case ProKeys.Note      True _ -> True; _ -> False) pk
-    hasODTrue   = elem (ProKeys.Overdrive True ) pk
-    hasODFalse  = elem (ProKeys.Overdrive False) pk
-    hasBRETrue  = elem (ProKeys.BRE       True ) pk
-    hasBREFalse = elem (ProKeys.BRE       False) pk
-    blip diff = RTB.fromPairList
-      [ (0     , RBFive.DiffEvent diff $ RBFive.Note True  RBFive.Green)
-      , (1 / 32, RBFive.DiffEvent diff $ RBFive.Note False RBFive.Green)
-      ]
-    in foldr RTB.merge RTB.empty $ concat
-      [ [ blip d | d <- [minBound .. maxBound], hasNote ]
-      , [ RTB.singleton 0 $ RBFive.Overdrive True  | hasODTrue   ]
-      , [ RTB.singleton 0 $ RBFive.Overdrive False | hasODFalse  ]
-      , [ RTB.singleton 0 $ RBFive.BRE       True  | hasBRETrue  ]
-      , [ RTB.singleton 0 $ RBFive.BRE       False | hasBREFalse ]
-      ]
-  in U.trackJoin . fmap pkToBasic . RTB.collectCoincident
-
--- | Makes a Pro Keys track, for songs with only Basic Keys charted.
-keysToProKeys :: Difficulty -> RTB.T U.Beats RBFive.Event -> RTB.T U.Beats ProKeys.Event
-keysToProKeys d = let
-  basicToPK = \case
-    RBFive.DiffEvent d' (RBFive.Note b c) | d == d' ->
-      Just $ ProKeys.Note b $ ProKeys.BlueGreen $ case c of
-        RBFive.Green  -> C
-        RBFive.Red    -> D
-        RBFive.Yellow -> E
-        RBFive.Blue   -> F
-        RBFive.Orange -> G
-    RBFive.Overdrive b | d == Expert -> Just $ ProKeys.Overdrive b
-    RBFive.Solo      b | d == Expert -> Just $ ProKeys.Solo      b
-    RBFive.BRE       b | d == Expert -> Just $ ProKeys.BRE       b
-    RBFive.Trill     b               -> Just $ ProKeys.Trill     b
-    _                                -> Nothing
-  in RTB.cons 0 (ProKeys.LaneShift ProKeys.RangeA) . RTB.mapMaybe basicToPK
-
-hasSolo :: Instrument -> RBFile.Song t -> Bool
-hasSolo Guitar song = not $ null $ do
-  RBFile.PartGuitar t <- RBFile.s_tracks song
-  RBFive.Solo _ <- RTB.getBodies t
-  return ()
-hasSolo Bass song = not $ null $ do
-  RBFile.PartBass t <- RBFile.s_tracks song
-  RBFive.Solo _ <- RTB.getBodies t
-  return ()
-hasSolo Drums song = not $ null $ do
-  RBFile.PartDrums t <- RBFile.s_tracks song
-  RBDrums.Solo _ <- RTB.getBodies t
-  return ()
-hasSolo Keys song = not $ null
-  $ do
-    RBFile.PartKeys t <- RBFile.s_tracks song
-    RBFive.Solo _ <- RTB.getBodies t
-    return ()
-  ++ do
-    RBFile.PartRealKeys Expert t <- RBFile.s_tracks song
-    ProKeys.Solo _ <- RTB.getBodies t
-    return ()
-hasSolo Vocal song = not $ null
-  $ do
-    RBFile.PartVocals t <- RBFile.s_tracks song
-    RBVox.Percussion <- RTB.getBodies t
-    return ()
-  ++ do
-    RBFile.Harm1 t <- RBFile.s_tracks song
-    RBVox.Percussion <- RTB.getBodies t
-    return ()

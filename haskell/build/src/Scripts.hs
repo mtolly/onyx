@@ -1,7 +1,7 @@
 module Scripts where
 
 import           Data.List                        (sort)
-import           Data.Maybe                       (mapMaybe)
+import           Data.Maybe                       (listToMaybe, mapMaybe)
 
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -23,6 +23,7 @@ import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as Vocals
 
+import           Config                           (Instrument(..))
 import           Development.Shake
 
 -- | Changes all existing drum mix events to use the given config (not changing
@@ -77,29 +78,26 @@ allEvents = foldr RTB.merge RTB.empty . mapMaybe getEvents . s_tracks where
   getEvents _            = Nothing
 
 -- | Returns the start and end of the preview audio in milliseconds.
-previewBounds :: FilePath -> Action (Int, Int)
-previewBounds mid = do
-  song <- loadMIDI mid
-  let starts = map Events.PracticeSection ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"]
-      events = allEvents song
-      find s = fmap (fst . fst) $ RTB.viewL $ RTB.filter (== s) events
-      start = case mapMaybe find starts of
-        []      -> 0
-        bts : _ -> max 0 $ U.applyTempoMap (s_tempos song) bts - 0.6
-      end = start + 30
-      ms n = floor $ n * 1000
-  return (ms start, ms end)
+previewBounds :: Song U.Beats -> (Int, Int)
+previewBounds song = let
+  starts = map Events.PracticeSection ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"]
+  events = allEvents song
+  find s = fmap (fst . fst) $ RTB.viewL $ RTB.filter (== s) events
+  start = case mapMaybe find starts of
+    []      -> 0
+    bts : _ -> max 0 $ U.applyTempoMap (s_tempos song) bts - 0.6
+  end = start + 30
+  ms n = floor $ n * 1000
+  in (ms start, ms end)
 
-songLength' :: Song U.Beats -> U.Beats
-songLength' s = case RTB.getTimes $ RTB.filter (== Events.End) $ allEvents s of
+songLengthBeats :: Song U.Beats -> U.Beats
+songLengthBeats s = case RTB.getTimes $ RTB.filter (== Events.End) $ allEvents s of
   [bts] -> bts
   _     -> 0 -- eh
 
 -- | Returns the time of the [end] event in milliseconds.
-songLength :: FilePath -> Action Int
-songLength mid = do
-  song <- loadMIDI mid
-  return $ floor $ U.applyTempoMap (s_tempos song) (songLength' song) * 1000
+songLengthMS :: Song U.Beats -> Int
+songLengthMS song = floor $ U.applyTempoMap (s_tempos song) (songLengthBeats song) * 1000
 
 -- | Given a measure map, produces an infinite BEAT track.
 makeBeatTrack :: U.MeasureMap -> RTB.T U.Beats Beat.Event
@@ -202,3 +200,88 @@ harm1ToPartVocals = go . RTB.normalize where
     Vocals.Phrase False -> Just e
     _                   -> Nothing
   isNote = \case Vocals.Note _ _ -> True; _ -> False
+
+getPercType :: Song U.Beats -> Maybe Vocals.PercussionType
+getPercType song = let
+  vox = foldr RTB.merge RTB.empty $ mapMaybe getVox $ s_tracks song
+  getVox (PartVocals t) = Just t
+  getVox (Harm1      t) = Just t
+  getVox (Harm2      t) = Just t
+  getVox (Harm3      t) = Just t
+  getVox _                     = Nothing
+  isPercType (Vocals.PercussionAnimation ptype _) = Just ptype
+  isPercType _                                   = Nothing
+  in listToMaybe $ mapMaybe isPercType $ RTB.getBodies vox
+
+-- | Makes a dummy Basic Keys track, for songs with only Pro Keys charted.
+expertProKeysToKeys :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats Five.Event
+expertProKeysToKeys = let
+  pkToBasic :: [ProKeys.Event] -> RTB.T U.Beats Five.Event
+  pkToBasic pk = let
+    hasNote     = any (\case ProKeys.Note      True _ -> True; _ -> False) pk
+    hasODTrue   = elem (ProKeys.Overdrive True ) pk
+    hasODFalse  = elem (ProKeys.Overdrive False) pk
+    hasBRETrue  = elem (ProKeys.BRE       True ) pk
+    hasBREFalse = elem (ProKeys.BRE       False) pk
+    blip diff = RTB.fromPairList
+      [ (0     , Five.DiffEvent diff $ Five.Note True  Five.Green)
+      , (1 / 32, Five.DiffEvent diff $ Five.Note False Five.Green)
+      ]
+    in foldr RTB.merge RTB.empty $ concat
+      [ [ blip d | d <- [minBound .. maxBound], hasNote ]
+      , [ RTB.singleton 0 $ Five.Overdrive True  | hasODTrue   ]
+      , [ RTB.singleton 0 $ Five.Overdrive False | hasODFalse  ]
+      , [ RTB.singleton 0 $ Five.BRE       True  | hasBRETrue  ]
+      , [ RTB.singleton 0 $ Five.BRE       False | hasBREFalse ]
+      ]
+  in U.trackJoin . fmap pkToBasic . RTB.collectCoincident
+
+-- | Makes a Pro Keys track, for songs with only Basic Keys charted.
+keysToProKeys :: Difficulty -> RTB.T U.Beats Five.Event -> RTB.T U.Beats ProKeys.Event
+keysToProKeys d = let
+  basicToPK = \case
+    Five.DiffEvent d' (Five.Note b c) | d == d' ->
+      Just $ ProKeys.Note b $ ProKeys.BlueGreen $ case c of
+        Five.Green  -> C
+        Five.Red    -> D
+        Five.Yellow -> E
+        Five.Blue   -> F
+        Five.Orange -> G
+    Five.Overdrive b | d == Expert -> Just $ ProKeys.Overdrive b
+    Five.Solo      b | d == Expert -> Just $ ProKeys.Solo      b
+    Five.BRE       b | d == Expert -> Just $ ProKeys.BRE       b
+    Five.Trill     b               -> Just $ ProKeys.Trill     b
+    _                                -> Nothing
+  in RTB.cons 0 (ProKeys.LaneShift ProKeys.RangeA) . RTB.mapMaybe basicToPK
+
+hasSolo :: Instrument -> Song t -> Bool
+hasSolo Guitar song = not $ null $ do
+  PartGuitar t <- s_tracks song
+  Five.Solo _ <- RTB.getBodies t
+  return ()
+hasSolo Bass song = not $ null $ do
+  PartBass t <- s_tracks song
+  Five.Solo _ <- RTB.getBodies t
+  return ()
+hasSolo Drums song = not $ null $ do
+  PartDrums t <- s_tracks song
+  Drums.Solo _ <- RTB.getBodies t
+  return ()
+hasSolo Keys song = not $ null
+  $ do
+    PartKeys t <- s_tracks song
+    Five.Solo _ <- RTB.getBodies t
+    return ()
+  ++ do
+    PartRealKeys Expert t <- s_tracks song
+    ProKeys.Solo _ <- RTB.getBodies t
+    return ()
+hasSolo Vocal song = not $ null
+  $ do
+    PartVocals t <- s_tracks song
+    Vocals.Percussion <- RTB.getBodies t
+    return ()
+  ++ do
+    Harm1 t <- s_tracks song
+    Vocals.Percussion <- RTB.getBodies t
+    return ()
