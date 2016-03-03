@@ -56,7 +56,7 @@ runMagmaMIDI proj mid = withSystemTempDirectory "magma" $ \tmp -> do
       mid'  = wd </> mid
   liftIO $ Dir.createDirectory $ tmp </> "gen"
   liftIO $ forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
-  withMagmaLock $ withExe (callProcessIn tmp) (tmp </> "MagmaCompilerC3.exe") ["-export_midi", proj', mid']
+  withExe (callProcessIn tmp) (tmp </> "MagmaCompilerC3.exe") ["-export_midi", proj', mid']
 
 runMagma :: FilePath -> FilePath -> Action ()
 runMagma proj rba = withSystemTempDirectory "magma" $ \tmp -> do
@@ -65,7 +65,7 @@ runMagma proj rba = withSystemTempDirectory "magma" $ \tmp -> do
       rba'  = wd </> rba
   liftIO $ Dir.createDirectory $ tmp </> "gen"
   liftIO $ forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
-  withMagmaLock $ withExe (callProcessIn tmp) (tmp </> "MagmaCompilerC3.exe") [proj', rba']
+  withExe (callProcessIn tmp) (tmp </> "MagmaCompilerC3.exe") [proj', rba']
 
 -- | Like the one from 'System.IO.Temp', but in the 'Action' monad.
 withSystemTempDirectory :: String -> (FilePath -> Action a) -> Action a
@@ -92,7 +92,7 @@ oggToMogg ogg mogg = withSystemTempDirectory "ogg2mogg" $ \tmp -> do
     $ sinkSnd (tmp </> "silence.wav")
     (Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile)
     (silent (Seconds 31) 44100 2 :: AudioSource (ResourceT IO) Int16)
-  _ <- withMagmaLock $ withExe (callProcessIn tmp) (tmp </> "MagmaCompilerC3.exe") [proj, rba]
+  _ <- withExe (callProcessIn tmp) (tmp </> "MagmaCompilerC3.exe") [proj, rba]
   liftIO $ IO.withBinaryFile (tmp </> rba) IO.ReadMode $ \hrba -> do
     IO.hSeek hrba IO.AbsoluteSeek $ 4 + (4 * 3)
     moggOffset <- hReadWord32le hrba
