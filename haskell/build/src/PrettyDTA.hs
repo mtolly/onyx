@@ -18,17 +18,20 @@ writeUtf8CRLF :: FilePath -> String -> IO ()
 writeUtf8CRLF fp = B.writeFile fp . TE.encodeUtf8 . T.pack
   . concatMap (\case '\n' -> "\r\n"; c -> [c])
 
+stringLit :: String -> String
+stringLit s = "\"" ++ s ++ "\""
+
 prettyDTA :: String -> D.SongPackage -> String
 prettyDTA name pkg = unlines $ execWriter $ do
   ln "("
   indent $ do
     ln $ quote name
-    two "name" $ show $ D.name pkg
-    two "artist" $ show $ D.artist pkg
+    two "name" $ stringLit $ D.name pkg
+    two "artist" $ stringLit $ D.artist pkg
     inline "master" $ if D.master pkg then "1" else "0"
     parens $ do
       ln $ quote "song"
-      two "name" $ show $ D.songName $ D.song pkg
+      two "name" $ stringLit $ D.songName $ D.song pkg
       forM_ (D.tracksCount $ D.song pkg) $ \(InParens ns) -> do
         two "tracks_count" $ "(" ++ unwords (map show ns) ++ ")"
       parens $ do
@@ -60,7 +63,7 @@ prettyDTA name pkg = unlines $ execWriter $ do
       forM_ (D.muteVolumeVocals $ D.song pkg) $ inlineRaw "mute_volume_vocals" . show
       forM_ (D.hopoThreshold    $ D.song pkg) $ inlineRaw "hopo_threshold"     . show
     inline "song_scroll_speed" $ show $ D.songScrollSpeed pkg
-    forM_ (D.bank pkg) $ two "bank" . show . either id fromKeyword
+    forM_ (D.bank pkg) $ two "bank" . stringLit . either id fromKeyword
     forM_ (D.drumBank pkg) $ inlineRaw "drum_bank" . either id fromKeyword
     inline "anim_tempo" $ case D.animTempo pkg of
       Left D.KTempoSlow -> "kTempoSlow"
@@ -98,7 +101,7 @@ prettyDTA name pkg = unlines $ execWriter $ do
     forM_ (D.guidePitchVolume pkg) $ inline "guide_pitch_volume" . show
     inline "game_origin" $ quote $ fromKeyword $ D.gameOrigin pkg
     forM_ (D.encoding pkg) $ inline "encoding" . quote . fromKeyword
-    forM_ (D.albumName pkg) $ two "album_name" . show
+    forM_ (D.albumName pkg) $ two "album_name" . stringLit
     forM_ (D.albumTrackNumber pkg) $ inline "album_track_number" . show
     forM_ (D.vocalTonicNote pkg) $ inlineRaw "vocal_tonic_note" . show . fromEnum
     forM_ (D.songTonality pkg) $ inlineRaw "song_tonality" . \case

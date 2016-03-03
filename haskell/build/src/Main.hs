@@ -65,7 +65,7 @@ import qualified Development.Shake                as Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
 import           Language.Haskell.TH              (stringL, litE, runIO)
-import           RockBand.Common                  (Difficulty (..), Key (..))
+import           RockBand.Common                  (Difficulty (..))
 import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
