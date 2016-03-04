@@ -79,12 +79,12 @@ main = do
                           then case app_ of -- play/pause button
                             Paused o -> do
                               ms <- nowEpochMilliseconds
-                              playFrom audio nowSeconds
-                              handle et $ Playing
-                                { startedPageTime: toSeconds ms
-                                , startedSongTime: nowSeconds
-                                , settings: o.settings
-                                }
+                              playFrom audio nowSeconds do
+                                handle et $ Playing
+                                  { startedPageTime: toSeconds ms
+                                  , startedSongTime: nowSeconds
+                                  , settings: o.settings
+                                  }
                             Playing o -> do
                               stop audio
                               handle et $ Paused
@@ -102,11 +102,11 @@ main = do
                                 Playing o -> do
                                   ms <- nowEpochMilliseconds
                                   stop audio
-                                  playFrom audio t
-                                  handle et $ Playing $ o
-                                    { startedPageTime = toSeconds ms
-                                    , startedSongTime = t
-                                    }
+                                  playFrom audio t do
+                                    handle et $ Playing $ o
+                                      { startedPageTime = toSeconds ms
+                                      , startedSongTime = t
+                                      }
                             else handle et app_
                         else if 2*_M + _B <= x && x <= 2*_M + 2*_B
                           then let

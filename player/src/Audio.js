@@ -6,8 +6,12 @@ function AudioHandle(audio){
   var self = this;
   self.audio = audio;
 
-  self.playFrom = function(t){
+  self.playFrom = function(t, cb){
     if (t < self.audio.duration()) {
+      self.audio.on('play', function(){
+        self.audio.off('play');
+        cb();
+      });
       var sound_id = self.audio.play();
       self.audio.seek(t);
       self.stop = function(){
@@ -15,6 +19,7 @@ function AudioHandle(audio){
       };
     } else {
       self.stop = function(){};
+      cb();
     }
   };
 }
@@ -35,9 +40,11 @@ exports.loadAudio = function(cb){
 
 exports.playFrom = function(audio){
   return function(t){
-    return function(){
-      audio.playFrom(t);
-    }
+    return function(cb){
+      return function(){
+        audio.playFrom(t, cb);
+      };
+    };
   };
 };
 

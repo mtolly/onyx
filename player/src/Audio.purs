@@ -10,6 +10,6 @@ foreign import data Audio :: *
 
 foreign import loadAudio :: forall e. (Audio -> Eff (audio :: AUDIO | e) Unit) -> Eff (audio :: AUDIO | e) Unit
 
-foreign import playFrom :: forall e. Audio -> Seconds -> Eff (audio :: AUDIO | e) Unit
+foreign import playFrom :: forall e. Audio -> Seconds -> Eff (audio :: AUDIO | e) Unit -> Eff (audio :: AUDIO | e) Unit
 
 foreign import stop :: forall e. Audio -> Eff (audio :: AUDIO | e) Unit
