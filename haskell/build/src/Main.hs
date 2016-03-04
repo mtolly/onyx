@@ -170,9 +170,9 @@ main = do
           computeChannels = \case
             Silence n _ -> n
             Input n -> n
-            Mix auds -> maximum $ map computeChannels auds
+            Mix auds -> foldr max 0 $ map computeChannels auds
             Merge auds -> sum $ map computeChannels auds
-            Concatenate auds -> maximum $ map computeChannels auds
+            Concatenate auds -> foldr max 0 $ map computeChannels auds
             Gain _ aud -> computeChannels aud
             Take _ _ aud -> computeChannels aud
             Drop _ _ aud -> computeChannels aud
@@ -773,7 +773,7 @@ main = do
                 -- But, it's nice to not have notes.mid depend on any audio files.
                 endPosn = case [ t | (t, Events.End) <- eventsList ] of
                   t : _ -> t
-                  []    -> (4 +) $ maximum $ concatMap (ATB.getTimes . RTB.toAbsoluteEventList 0 . RBFile.showTrack) trks
+                  []    -> (4 +) $ foldr max 0 $ concatMap (ATB.getTimes . RTB.toAbsoluteEventList 0 . RBFile.showTrack) trks
                 musicEndPosn = case [ t | (t, Events.MusicEnd) <- eventsList ] of
                   t : _ -> t
                   []    -> endPosn - 2

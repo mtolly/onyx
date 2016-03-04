@@ -1,0 +1,21 @@
+metadata:
+  title: Not Your Kind of People
+  artist: Garbage
+  album: Not Your Kind of People
+  year: 2012
+  genre: alternative
+  subgenre: alternative
+  file-album-art: cover.png
+  vocal-gender: female
+  file-countin: ../../../sound/hihat-foot.wav
+audio:
+  youtube:
+    md5: 13ce78c276b4ff7baa5470f4d11ac7be
+    frames: 13184000
+plans:
+  album:
+    song:
+      pad: [3.683, youtube]
+instruments:
+  vocal: 1 # 3
+published: false
