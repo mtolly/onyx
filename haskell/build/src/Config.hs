@@ -366,8 +366,11 @@ instance TraceJSON Metadata where
     _drumKit      <- fromMaybe HardRockKit <$> optional "drum-kit" traceJSON
     _auto2xBass   <- fromMaybe True <$> optional "auto-2x-bass" traceJSON
     _hopoThreshold <- fromMaybe 170 <$> optional "hopo-threshold" traceJSON
-    _previewStart <- optional "preview-start" traceJSON
-    _previewEnd   <- optional "preview-end" traceJSON
+    let traceDurationSecs = flip fmap traceJSON $ \case
+          Frames  f -> fromIntegral f / 44100
+          Seconds s -> s
+    _previewStart <- optional "preview-start" traceDurationSecs
+    _previewEnd   <- optional "preview-end" traceDurationSecs
     expectedKeys
       [ "title", "artist", "album", "genre", "subgenre", "year"
       , "file-album-art", "track-number", "file-countin", "comments", "vocal-gender"
