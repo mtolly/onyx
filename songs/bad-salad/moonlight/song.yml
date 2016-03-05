@@ -6,6 +6,7 @@ metadata:
     drums: 4
     bass: 3
     guitar: 5
+    pro-keys: 5
   comments:
   - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
 audio:
@@ -51,13 +52,16 @@ plans:
       trim:
         - 0.326
         - gain: [0.6, pledgemusic-guitars]
+    keys:
+      trim:
+        - 0.326
+        - gain: [0.6, pledgemusic-keyboards]
     song:
       trim:
         - 0.326
-        - gain:
-          - 0.6
-          - mix: [pledgemusic-keyboards, pledgemusic-vocals]
+        - gain: [0.6, pledgemusic-vocals]
 instruments:
   drums: true
   bass: true
   guitar: true
+  pro-keys: true
