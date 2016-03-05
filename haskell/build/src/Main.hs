@@ -976,7 +976,7 @@ main = do
 
           dir </> "ps/song.ini" %> \out -> do
             song <- loadMIDI midPS
-            let (pstart, _) = previewBounds song
+            let (pstart, _) = previewBounds songYaml song
                 len = songLengthMS song
             liftIO $ writeFile out $ unlines
               [ "[song]"
@@ -1038,7 +1038,7 @@ main = do
           let makeDTA :: String -> FilePath -> String -> Maybe Int -> Action D.SongPackage
               makeDTA pkg mid title piracy = do
                 song <- loadMIDI mid
-                let (pstart, pend) = previewBounds song
+                let (pstart, pend) = previewBounds songYaml song
                     len = songLengthMS song
                     perctype = getPercType song
 
@@ -1296,7 +1296,7 @@ main = do
             let makeMagmaProj :: Action Magma.RBProj
                 makeMagmaProj = do
                   song <- loadMIDI $ pedalDir </> "magma/notes.mid"
-                  let (pstart, _) = previewBounds song
+                  let (pstart, _) = previewBounds songYaml song
                       perctype = getPercType song
                       silentDryVox = Magma.DryVoxPart
                         { Magma.dryVoxFile = "dryvox.wav"
@@ -1413,7 +1413,9 @@ main = do
 
             -- Magma rules
             do
-              let drums  = pedalDir </> "magma/drums.wav"
+              let kick   = pedalDir </> "magma/kick.wav"
+                  snare  = pedalDir </> "magma/snare.wav"
+                  drums  = pedalDir </> "magma/drums.wav"
                   bass   = pedalDir </> "magma/bass.wav"
                   guitar = pedalDir </> "magma/guitar.wav"
                   keys   = pedalDir </> "magma/keys.wav"
@@ -1428,6 +1430,8 @@ main = do
                   rba    = pedalDir </> "magma.rba"
                   export = pedalDir </> "notes-magma-export.mid"
                   export2 = pedalDir </> "notes-magma-added.mid"
+              kick   %> copyFile' (dir </> "kick.wav"  )
+              snare  %> copyFile' (dir </> "snare.wav" )
               drums  %> copyFile' (dir </> "drums.wav" )
               bass   %> copyFile' (dir </> "bass.wav"  )
               guitar %> copyFile' (dir </> "guitar.wav")
@@ -1447,7 +1451,7 @@ main = do
                 liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
               c3 %> \out -> do
                 midi <- loadMIDI mid
-                let (pstart, _) = previewBounds midi
+                let (pstart, _) = previewBounds songYaml midi
                 title <- getTitle
                 is2x <- is2xBass
                 liftIO $ writeFile out $ C3.showC3 C3.C3
@@ -1750,6 +1754,8 @@ importRB3 pkg author mid mogg cover coverName dir = do
       , _drumKit      = HardRockKit -- TODO
       , _auto2xBass   = False
       , _hopoThreshold = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
+      , _previewStart = Just $ fromIntegral (fst $ D.preview pkg) / 1000
+      , _previewEnd   = Just $ fromIntegral (snd $ D.preview pkg) / 1000
       }
     , _audio = HM.empty
     , _jammit = HM.empty

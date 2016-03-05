@@ -238,6 +238,8 @@ data Metadata = Metadata
   , _drumKit      :: DrumKit
   , _auto2xBass   :: Bool
   , _hopoThreshold :: Int
+  , _previewStart :: Maybe Double
+  , _previewEnd   :: Maybe Double
   } deriving (Eq, Ord, Show, Read)
 
 data Difficulties = Difficulties
@@ -364,10 +366,13 @@ instance TraceJSON Metadata where
     _drumKit      <- fromMaybe HardRockKit <$> optional "drum-kit" traceJSON
     _auto2xBass   <- fromMaybe True <$> optional "auto-2x-bass" traceJSON
     _hopoThreshold <- fromMaybe 170 <$> optional "hopo-threshold" traceJSON
+    _previewStart <- optional "preview-start" traceJSON
+    _previewEnd   <- optional "preview-end" traceJSON
     expectedKeys
       [ "title", "artist", "album", "genre", "subgenre", "year"
       , "file-album-art", "track-number", "file-countin", "comments", "vocal-gender"
       , "difficulty", "key", "autogen-theme", "author", "rating", "drum-kit", "auto-2x-bass", "hopo-threshold"
+      , "preview-start", "preview-end"
       ]
     return Metadata{..}
 

@@ -23,7 +23,7 @@ import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as Vocals
 
-import           Config                           (Instrument(..))
+import           Config (Instrument(..), SongYaml, _previewStart, _previewEnd, _metadata)
 import           Development.Shake
 
 -- | Changes all existing drum mix events to use the given config (not changing
@@ -78,8 +78,8 @@ allEvents = foldr RTB.merge RTB.empty . mapMaybe getEvents . s_tracks where
   getEvents _            = Nothing
 
 -- | Returns the start and end of the preview audio in milliseconds.
-previewBounds :: Song U.Beats -> (Int, Int)
-previewBounds song = let
+previewBounds :: SongYaml -> Song U.Beats -> (Int, Int)
+previewBounds syaml song = let
   starts = map Events.PracticeSection ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"]
   events = allEvents song
   find s = fmap (fst . fst) $ RTB.viewL $ RTB.filter (== s) events
@@ -88,7 +88,11 @@ previewBounds song = let
     bts : _ -> max 0 $ U.applyTempoMap (s_tempos song) bts - 0.6
   end = start + 30
   ms n = floor $ n * 1000
-  in (ms start, ms end)
+  in case (_previewStart $ _metadata syaml, _previewEnd $ _metadata syaml) of
+    (Nothing, Nothing) -> (ms start, ms end)
+    (Just ps, Just pe) -> (ms ps, ms pe)
+    (Just ps, Nothing) -> (ms ps, ms $ ps + 30)
+    (Nothing, Just pe) -> (ms $ pe - 30, ms pe)
 
 songLengthBeats :: Song U.Beats -> U.Beats
 songLengthBeats s = case RTB.getTimes $ RTB.filter (== Events.End) $ allEvents s of
