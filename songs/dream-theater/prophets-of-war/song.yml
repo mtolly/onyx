@@ -29,10 +29,14 @@ audio:
     frames: 220200960
     rate: 48000
     name: AudioFile_81.ac3
+  chant:
+    name: crowd.ogg
+    frames: 15357295
 plans:
   album:
     song:
       pad: [3.556, album-track]
+    crowd: chant
   drumcam:
     comments:
     - >-
@@ -59,6 +63,7 @@ plans:
       - -1
       - resample:
           pad: [3.261, *drums]
+    crowd: chant
 instruments:
   drums: true
   vocal: 3

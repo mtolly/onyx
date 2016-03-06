@@ -498,6 +498,7 @@ data Plan
     , _snare        :: Maybe (PlanAudio Duration AudioInput)
     , _drums        :: Maybe (PlanAudio Duration AudioInput)
     , _vocal        :: Maybe (PlanAudio Duration AudioInput)
+    , _crowd        :: Maybe (PlanAudio Duration AudioInput)
     , _planComments :: [T.Text]
     }
   | EachPlan
@@ -511,6 +512,7 @@ data Plan
     , _moggKeys     :: [Int]
     , _moggDrums    :: [Int]
     , _moggVocal    :: [Int]
+    , _moggCrowd    :: [Int]
     , _pans         :: [Double]
     , _vols         :: [Double]
     , _planComments :: [T.Text]
@@ -535,8 +537,9 @@ instance TraceJSON Plan where
       _snare  <- optional "snare"  traceJSON
       _drums  <- optional "drums"  traceJSON
       _vocal  <- optional "vocal"  traceJSON
+      _crowd  <- optional "crowd"  traceJSON
       _planComments <- fromMaybe [] <$> optional "comments" traceJSON
-      expectedKeys ["song", "guitar", "bass", "keys", "kick", "snare", "drums", "vocal", "comments"]
+      expectedKeys ["song", "guitar", "bass", "keys", "kick", "snare", "drums", "vocal", "crowd", "comments"]
       return Plan{..}
       )
     , ("mogg-md5", object $ do
@@ -546,11 +549,12 @@ instance TraceJSON Plan where
       _moggKeys   <- fromMaybe [] <$> optional "keys" traceJSON
       _moggDrums  <- fromMaybe [] <$> optional "drums" traceJSON
       _moggVocal  <- fromMaybe [] <$> optional "vocal" traceJSON
+      _moggCrowd  <- fromMaybe [] <$> optional "crowd" traceJSON
       _pans <- required "pans" traceJSON
       _vols <- required "vols" traceJSON
       _drumMix <- required "drum-mix" traceJSON
       _planComments <- fromMaybe [] <$> optional "comments" traceJSON
-      expectedKeys ["mogg-md5", "guitar", "bass", "keys", "drums", "vocal", "pans", "vols", "drum-mix", "comments"]
+      expectedKeys ["mogg-md5", "guitar", "bass", "keys", "drums", "vocal", "crowd", "pans", "vols", "drum-mix", "comments"]
       return MoggPlan{..}
       )
     ] (expected "an object with one of the keys \"each\", \"song\", or \"mogg-md5\"")
@@ -566,6 +570,7 @@ instance A.ToJSON Plan where
       , map ("snare" .=) $ toList _snare
       , map ("drums" .=) $ toList _drums
       , map ("vocal" .=) $ toList _vocal
+      , map ("crowd" .=) $ toList _crowd
       , ["comments" .= _planComments | not $ null _planComments]
       ]
     EachPlan{..} -> A.object $ concat
@@ -579,6 +584,7 @@ instance A.ToJSON Plan where
       , ["keys" .= _moggKeys | not $ null _moggKeys]
       , ["drums" .= _moggDrums | not $ null _moggDrums]
       , ["vocal" .= _moggVocal | not $ null _moggVocal]
+      , ["crowd" .= _moggCrowd | not $ null _moggCrowd]
       , ["pans" .= _pans]
       , ["vols" .= _vols]
       , ["comments" .= _planComments | not $ null _planComments]

@@ -15,6 +15,8 @@ data C3 = C3
   , version            :: Int
   , isMaster           :: Bool
   , encodingQuality    :: Int
+  , crowdAudio         :: Maybe String -- optional
+  , crowdVol           :: Maybe Double -- optional
   , is2xBass           :: Bool -- 2xBass in file
   , rhythmKeys         :: Bool
   , rhythmBass         :: Bool
@@ -72,6 +74,8 @@ showC3 c3 = unlines $ execWriter $ do
   showPair "Version" version
   showPair "IsMaster" isMaster
   showPair "EncodingQuality" encodingQuality
+  maybePair "CrowdAudio" crowdAudio
+  maybeShowPair "CrowdVol" crowdVol
   showPair "2xBass" is2xBass
   showPair "RhythmKeys" rhythmKeys
   showPair "RhythmBass" rhythmBass

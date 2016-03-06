@@ -160,7 +160,7 @@ main = do
                 getLeaves = \case
                   Named t -> t
                   JammitSelect _ t -> t
-                in map getLeaves $ concatMap (maybe [] toList) [_song, _guitar, _bass, _keys, _drums, _vocal]
+                in map getLeaves $ concatMap (maybe [] toList) [_song, _guitar, _bass, _keys, _drums, _vocal, _crowd]
         case filter (not . (`elem` definedLeaves)) leaves of
           [] -> return ()
           undefinedLeaves -> fail $
@@ -564,6 +564,10 @@ main = do
                 MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggVocal
                 Plan{..} -> planPV _vocal
                 EachPlan{..} -> eachPlanPV _each
+              crowdPV = case plan of
+                MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggCrowd
+                Plan{..} -> planPV _crowd
+                EachPlan{..} -> []
               (kickPV, snarePV, drumsPV, mixMode) = if _hasDrums $ _instruments songYaml
                 then case plan of
                   MoggPlan{..} -> let
@@ -626,9 +630,11 @@ main = do
               dir </> "snare.wav"  %> buildPart _snare
               dir </> "drums.wav"  %> buildPart _drums
               dir </> "vocal.wav"  %> buildPart _vocal
+              dir </> "crowd.wav"  %> buildPart _crowd
             EachPlan{..} -> do
               dir </> "kick.wav"   %> buildAudio (Silence 1 $ Frames 0)
               dir </> "snare.wav"  %> buildAudio (Silence 1 $ Frames 0)
+              dir </> "crowd.wav"  %> buildAudio (Silence 1 $ Frames 0)
               let locate :: Maybe J.Instrument -> Action (Audio Duration FilePath)
                   locate inst = fmap join $ mapM (autoLeaf inst) $ _planExpr _each
                   buildPart maybeInst fout = locate maybeInst >>= \aud -> buildAudio aud fout
@@ -644,6 +650,7 @@ main = do
               dir </> "bass.wav" %> oggChannels _moggBass
               dir </> "keys.wav" %> oggChannels _moggKeys
               dir </> "vocal.wav" %> oggChannels _moggVocal
+              dir </> "crowd.wav" %> oggChannels _moggCrowd
               dir </> "kick.wav" %> do
                 oggChannels $ case mixMode of
                   RBDrums.D0 -> []
@@ -701,6 +708,7 @@ main = do
                 , (bassPV, dir </> "bass.wav")
                 , (keysPV, dir </> "keys.wav")
                 , (vocalPV, dir </> "vocal.wav")
+                , (crowdPV, dir </> "crowd.wav")
                 , (songPV, dir </> "song-countin.wav")
                 ]
 
@@ -946,6 +954,9 @@ main = do
               need [mogg]
               liftIO $ moggToOgg mogg out
             _ -> let
+              hasCrowd = case plan of
+                Plan{..} -> isJust _crowd
+                _        -> False
               parts = map Input $ concat
                 [ [dir </> "kick.wav"   | _hasDrums    (_instruments songYaml) && mixMode /= RBDrums.D0]
                 , [dir </> "snare.wav"  | _hasDrums    (_instruments songYaml) && elem mixMode [RBDrums.D1, RBDrums.D2, RBDrums.D3]]
@@ -954,6 +965,7 @@ main = do
                 , [dir </> "guitar.wav" | _hasGuitar  $ _instruments songYaml]
                 , [dir </> "keys.wav"   | hasAnyKeys  $ _instruments songYaml]
                 , [dir </> "vocal.wav"  | hasAnyVocal $ _instruments songYaml]
+                , [dir </> "crowd.wav"  | hasCrowd                           ]
                 , [dir </> "song-countin.wav"]
                 ]
               in buildAudio (Merge parts) out
@@ -1018,6 +1030,7 @@ main = do
           dir </> "ps/keys.ogg"    %> buildAudio (Input $ dir </> "keys.wav"        )
           dir </> "ps/rhythm.ogg"  %> buildAudio (Input $ dir </> "bass.wav"        )
           dir </> "ps/vocal.ogg"   %> buildAudio (Input $ dir </> "vocal.wav"       )
+          dir </> "ps/crowd.ogg"   %> buildAudio (Input $ dir </> "crowd.wav"       )
           dir </> "ps/song.ogg"    %> buildAudio (Input $ dir </> "song-countin.wav")
           dir </> "ps/album.png"   %> copyFile' "gen/cover.png"
           -- NOTE: the below phony command doesn't use </> because of
@@ -1032,6 +1045,7 @@ main = do
             , ["keys.ogg"    | hasAnyKeys  $ _instruments songYaml]
             , ["rhythm.ogg"  | _hasBass    $ _instruments songYaml]
             , ["vocal.ogg"   | hasAnyVocal $ _instruments songYaml]
+            , ["crowd.ogg"   | case plan of Plan{..} -> isJust _crowd; _ -> False]
             ]
 
           -- Rock Band 3 DTA file
@@ -1042,7 +1056,7 @@ main = do
                     len = songLengthMS song
                     perctype = getPercType song
 
-                let channels = concat [kickPV, snarePV, drumsPV, bassPV, guitarPV, keysPV, vocalPV, songPV]
+                let channels = concat [kickPV, snarePV, drumsPV, bassPV, guitarPV, keysPV, vocalPV, crowdPV, songPV]
                     pans = piratePans $ case plan of
                       MoggPlan{..} -> _pans
                       _ -> map fst channels
@@ -1064,6 +1078,11 @@ main = do
                         , map (const   1)    guitarPV
                         , map (const (-1)) $ concat [keysPV, vocalPV, songPV]
                         ]
+                    -- TODO: clean this up
+                    crowdChannels = case plan of
+                      MoggPlan{..} -> _moggCrowd
+                      EachPlan{} -> []
+                      Plan{..} -> take (length crowdPV) $ drop (sum $ map length [kickPV, snarePV, drumsPV, bassPV, guitarPV, keysPV, vocalPV]) $ [0..]
                     tracksAssocList = Map.fromList $ case plan of
                       MoggPlan{..} -> let
                         maybeChannelPair _   []    = []
@@ -1111,7 +1130,7 @@ main = do
                       "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
                     , D.drumFreestyle = D.DrumSounds $ D.InParens $ map D.Keyword $ words
                       "kick.cue snare.cue hat.cue ride.cue crash.cue"
-                    , D.crowdChannels = Nothing
+                    , D.crowdChannels = guard (not $ null crowdChannels) >> Just (map fromIntegral crowdChannels)
                     , D.hopoThreshold = Just $ fromIntegral $ _hopoThreshold $ _metadata songYaml
                     , D.muteVolume = Nothing
                     , D.muteVolumeVocals = Nothing
@@ -1141,13 +1160,15 @@ main = do
                     , ("real_keys", proKeysRank)
                     , ("band"     , bandRank   )
                     ]
-                  , D.solo = Just $ D.InParens $ concat
-                    [ [D.Keyword "guitar" | hasSolo Guitar song]
-                    , [D.Keyword "bass" | hasSolo Bass song]
-                    , [D.Keyword "drum" | hasSolo Drums song]
-                    , [D.Keyword "keys" | hasSolo Keys song]
-                    , [D.Keyword "vocal_percussion" | hasSolo Vocal song]
-                    ]
+                  , D.solo = let
+                    kwds = concat
+                      [ [D.Keyword "guitar" | hasSolo Guitar song]
+                      , [D.Keyword "bass" | hasSolo Bass song]
+                      , [D.Keyword "drum" | hasSolo Drums song]
+                      , [D.Keyword "keys" | hasSolo Keys song]
+                      , [D.Keyword "vocal_percussion" | hasSolo Vocal song]
+                      ]
+                    in guard (not $ null kwds) >> Just (D.InParens kwds)
                   , D.format = 10
                   , D.version = 30
                   , D.gameOrigin = D.Keyword "ugc_plus"
@@ -1420,6 +1441,7 @@ main = do
                   guitar = pedalDir </> "magma/guitar.wav"
                   keys   = pedalDir </> "magma/keys.wav"
                   vocal  = pedalDir </> "magma/vocal.wav"
+                  crowd  = pedalDir </> "magma/crowd.wav"
                   dryvox = pedalDir </> "magma/dryvox.wav"
                   song   = pedalDir </> "magma/song-countin.wav"
                   cover  = pedalDir </> "magma/cover.bmp"
@@ -1437,6 +1459,7 @@ main = do
               guitar %> copyFile' (dir </> "guitar.wav")
               keys   %> copyFile' (dir </> "keys.wav"  )
               vocal  %> copyFile' (dir </> "vocal.wav" )
+              crowd  %> copyFile' (dir </> "crowd.wav" )
               dryvox %> \out -> do
                 len <- songLengthMS <$> loadMIDI mid
                 let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
@@ -1454,6 +1477,11 @@ main = do
                 let (pstart, _) = previewBounds songYaml midi
                 title <- getTitle
                 is2x <- is2xBass
+                let crowdVol = case map snd crowdPV of
+                      [] -> Nothing
+                      v : vs -> if all (== v) vs
+                        then Just v
+                        else error $ "C3 doesn't support separate crowd volumes: " ++ show (v : vs)
                 liftIO $ writeFile out $ C3.showC3 C3.C3
                   { C3.song = T.unpack $ _title $ _metadata songYaml
                   , C3.artist = T.unpack $ _artist $ _metadata songYaml
@@ -1462,6 +1490,8 @@ main = do
                   , C3.version = 1
                   , C3.isMaster = True
                   , C3.encodingQuality = 5
+                  , C3.crowdAudio = guard (isJust crowdVol) >> Just "crowd.wav"
+                  , C3.crowdVol = crowdVol
                   , C3.is2xBass = is2x
                   , C3.rhythmKeys = False
                   , C3.rhythmBass = False
@@ -1772,6 +1802,7 @@ importRB3 pkg author mid mogg cover coverName dir = do
         , _moggKeys   = maybe [] (map fromIntegral) $ Map.lookup "keys" instChans
         , _moggDrums  = maybe [] (map fromIntegral) $ Map.lookup "drum" instChans
         , _moggVocal  = maybe [] (map fromIntegral) $ Map.lookup "vocals" instChans
+        , _moggCrowd  = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
         , _pans = map realToFrac $ D.fromInParens $ D.pans $ D.song pkg
         , _vols = map realToFrac $ D.fromInParens $ D.vols $ D.song pkg
         , _planComments = []
