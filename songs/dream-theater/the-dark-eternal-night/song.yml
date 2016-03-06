@@ -41,55 +41,20 @@ plans:
       See the project README for help on extracting the DVD audio.
     - >-
       This version has a complete recorded ending with no fade-out.
-    # Piano solo is separated out from these sections:
-    # 4:34.960 - 4:38.940
-    # 4:40.440 - 4:41.814
     song:
-      concatenate:
-      - take:
-        - '4:34.960'
-        - &song
-          resample:
-            take:
-            - '9:01.477'
-            - pad:
-              - 4.266
-              - mix:
-                - drop: ['21:50', drumcam-band]
-                - gain:
-                  - -1
-                  - &drums
-                    drop:
-                    - frames: 3065
-                    - drop: ['21:50', drumcam-drums]
-      - pad:
-        - 3.98 # 4:38.940 - 4:34.960
-        - take:
-          - 1.5 # 4:40.440 - 4:38.940
-          - drop:
-            - '4:38.940'
-            - *song
-      - pad:
-        - 1.374 # 4:41.814 - 4:40.440
-        - drop:
-          - '4:41.814'
-          - *song
-    keys:
-      concatenate:
-      - pad:
-        - '4:34.960'
-        - take:
-          - 3.98 # 4:38.940 - 4:34.960
-          - drop:
-            - '4:34.960'
-            - *song
-      - pad:
-        - 1.5 # 4:40.440 - 4:38.940
-        - take:
-          - 1.374 # 4:41.814 - 4:40.440
-          - drop:
-            - '4:40.440'
-            - *song
+      resample:
+        take:
+        - '9:01.477'
+        - pad:
+          - 4.266
+          - mix:
+            - drop: ['21:50', drumcam-band]
+            - gain:
+              - -1
+              - &drums
+                drop:
+                - frames: 3065
+                - drop: ['21:50', drumcam-drums]
     drums:
       gain:
       - -1
