@@ -2,7 +2,7 @@ module Reaper.Build where
 
 import           Reaper.Base
 
-import           Control.Monad                    (forM_, unless, when)
+import           Control.Monad                    (forM_, unless)
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                  as B
@@ -118,6 +118,10 @@ track len resn trk = let
       , ("PART GUITAR", gryboNoteNames False)
       , ("PART BASS", gryboNoteNames False)
       , ("PART KEYS", gryboNoteNames True)
+      , ("PART REAL_KEYS_X", proKeysNoteNames)
+      , ("PART REAL_KEYS_H", proKeysNoteNames)
+      , ("PART REAL_KEYS_M", proKeysNoteNames)
+      , ("PART REAL_KEYS_E", proKeysNoteNames)
       , ("BEAT", [(13, "Up Beats"), (12, "Downbeat")])
       ] of
       Nothing -> return ()
@@ -244,17 +248,16 @@ gryboNoteNames isKeys = execWriter $ do
   o 116 "OVERDRIVE"
   x 115
   o 103 "Solo Marker"
-  unless isKeys $ o 102 "Force HOPO Off"
-  unless isKeys $ o 101 "Force HOPO On"
-  when isKeys $ x 102
+  o 102 $ if isKeys then "(Keytar) Force HOPO Off" else "Force HOPO Off"
+  o 101 $ if isKeys then "(Keytar) Force HOPO On"  else "Force HOPO On"
   o 100 "EXPERT Orange"
   o 99 "EXPERT Blue"
   o 98 "EXPERT Yellow"
   o 97 "EXPERT Red"
   o 96 "EXPERT Green"
   x 95
-  unless isKeys $ o 90 "Force HOPO Off"
-  unless isKeys $ o 89 "Force HOPO On"
+  o 90 $ if isKeys then "(Keytar) Force HOPO Off" else "Force HOPO Off"
+  o 89 $ if isKeys then "(Keytar) Force HOPO On"  else "Force HOPO On"
   o 88 "HARD Orange"
   o 87 "HARD Blue"
   o 86 "HARD Yellow"
@@ -276,5 +279,50 @@ gryboNoteNames isKeys = execWriter $ do
     o 59 "Left Hand Highest"
     forM_ [58, 57 .. 41] $ \i -> o i "-"
     o 40 "Left Hand Lowest"
+  where o k v = tell [(k, v)]
+        x k = tell [(k, "----")]
+
+proKeysNoteNames :: [(Int, String)]
+proKeysNoteNames = execWriter $ do
+  o 127 "Trill Marker"
+  o 126 "Glissando Marker"
+  x 125
+  o 120 "BRE"
+  x 118
+  o 116 "OVERDRIVE"
+  o 115 "Solo Marker"
+  x 114
+  o 72 "C3 (highest)"
+  o 71 "B2"
+  o 70 "A#2"
+  o 69 "A2"
+  o 68 "G#2"
+  o 67 "G2"
+  o 66 "F#2"
+  o 65 "F2"
+  o 64 "E2"
+  o 63 "D#2"
+  o 62 "D2"
+  o 61 "C#2"
+  o 60 "C2"
+  o 59 "B1"
+  o 58 "A#1"
+  o 57 "A1"
+  o 56 "G#1"
+  o 55 "G1"
+  o 54 "F#1"
+  o 53 "F1"
+  o 52 "E1"
+  o 51 "D#1"
+  o 50 "D1"
+  o 49 "C#1"
+  o 48 "C1 (lowest)"
+  x 12
+  o 9 "Range A1 to C3"
+  o 7 "Range G1 to B2"
+  o 5 "Range F1 to A2"
+  o 4 "Range E1 to G2"
+  o 2 "Range D1 to F2"
+  o 0 "Range C1 to E2"
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
