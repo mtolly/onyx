@@ -566,7 +566,7 @@ main = do
                 EachPlan{..} -> eachPlanPV _each
               crowdPV = case plan of
                 MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggCrowd
-                Plan{..} -> planPV _crowd
+                Plan{..} -> guard (isJust _crowd) >> planPV _crowd
                 EachPlan{..} -> []
               (kickPV, snarePV, drumsPV, mixMode) = if _hasDrums $ _instruments songYaml
                 then case plan of
@@ -1076,7 +1076,7 @@ main = do
                       _ -> concat
                         [ map (const (-1)) $ concat [kickPV, snarePV, drumsPV, bassPV]
                         , map (const   1)    guitarPV
-                        , map (const (-1)) $ concat [keysPV, vocalPV, songPV]
+                        , map (const (-1)) $ concat [keysPV, vocalPV, crowdPV, songPV]
                         ]
                     -- TODO: clean this up
                     crowdChannels = case plan of
