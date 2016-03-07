@@ -402,6 +402,8 @@ instance A.ToJSON Metadata where
     , ["drum-kit" .= _drumKit]
     , ["auto-2x-bass" .= _auto2xBass]
     , ["hopo-threshold" .= _hopoThreshold]
+    , map ("preview-start" .=) $ toList _previewStart
+    , map ("preview-end" .=) $ toList _previewEnd
     ]
 
 data AudioFile
