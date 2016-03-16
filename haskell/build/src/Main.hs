@@ -24,7 +24,7 @@ import           Scripts
 import           STFS.Extract
 import           X360
 import           YAMLTree
-import           ProKeysRanges (completeRanges)
+import           ProKeysRanges
 
 import           Codec.Picture
 import           Control.Exception as Exc
@@ -1231,7 +1231,7 @@ main = do
             -- NOTE: the below phony command doesn't use </> because of
             -- https://github.com/ndmitchell/shake/issues/405
             phony (pedalDir ++ "/problems") $ do
-              song <- loadMIDI (pedalDir </> "notes.mid")
+              song <- loadMIDI $ pedalDir </> "notes.mid"
               -- Don't have a kick at the start of a drum roll.
               -- It screws up the roll somehow and causes spontaneous misses.
               let drums = foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks song ]
@@ -1289,6 +1289,25 @@ main = do
               message harm2Bugs "HARM2 vocal phrase ends simultaneous with a (HARM2 or HARM3) lyric"
               unless (all RTB.null [kickSwells, badDiscos, voxBugs, harm1Bugs, harm2Bugs]) $
                 fail "At least 1 problem was found in the MIDI."
+
+            phony (pedalDir ++ "/ranges") $ do
+              song <- loadMIDI $ pedalDir </> "notes.mid"
+              forM_ (RBFile.s_tracks song) $ \case
+                RBFile.PartRealKeys Expert trk -> let
+                  close = U.unapplyTempoTrack (RBFile.s_tempos song) $ closeShifts 1 $ U.applyTempoTrack (RBFile.s_tempos song) trk
+                  in forM_ (ATB.toPairList $ RTB.toAbsoluteEventList 0 close) $ \(t, (rng1, rng2, dt, p)) -> do
+                    putNormal $ unwords
+                      [ RBFile.showPosition (U.applyMeasureMap (RBFile.s_signatures song) t) ++ ":"
+                      , "expert pro keys shift to"
+                      , show rng2
+                      , "is"
+                      , show (realToFrac dt :: Milli) ++ "s"
+                      , "before"
+                      , show p ++ ","
+                      , "which is outside previous range"
+                      , show rng1
+                      ]
+                _ -> return ()
 
             -- Rock Band 3 CON package
             let pathDta  = pedalDir </> "rb3/songs/songs.dta"

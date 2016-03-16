@@ -1,13 +1,14 @@
 {-# LANGUAGE DeriveFunctor #-}
-module ProKeysRanges (completeRanges) where
+module ProKeysRanges (completeRanges, closeShifts) where
 
 import RockBand.ProKeys
 import RockBand.Common
+import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import qualified Data.Set as Set
 import Data.List (sortOn)
-import Data.Maybe (listToMaybe)
+import Data.Maybe (listToMaybe, mapMaybe)
 import qualified Sound.MIDI.Util as U
 
 -- | Adds ranges if there are none.
@@ -89,3 +90,21 @@ keyInRange RangeE p = RedYellow E <= p && p <= BlueGreen G
 keyInRange RangeF p = RedYellow F <= p && p <= BlueGreen A
 keyInRange RangeG p = RedYellow G <= p && p <= BlueGreen B
 keyInRange RangeA p = RedYellow A <= p && p <= OrangeC
+
+keyInPreRange :: LaneRange -> Pitch -> Bool
+keyInPreRange RangeC p = RedYellow C  <= p && p <= BlueGreen E
+keyInPreRange RangeD p = RedYellow Cs <= p && p <= BlueGreen Fs
+keyInPreRange RangeE p = RedYellow Ds <= p && p <= BlueGreen Gs
+keyInPreRange RangeF p = RedYellow F  <= p && p <= BlueGreen As
+keyInPreRange RangeG p = RedYellow Fs <= p && p <= BlueGreen B
+keyInPreRange RangeA p = RedYellow Gs <= p && p <= OrangeC
+
+closeShifts :: U.Seconds -> RTB.T U.Seconds Event -> RTB.T U.Seconds (LaneRange, LaneRange, U.Seconds, Pitch)
+closeShifts threshold rtb = let
+  lanes = ATB.toPairList $ RTB.toAbsoluteEventList 0 $ flip RTB.mapMaybe rtb $ \case LaneShift rng -> Just rng; _ -> Nothing
+  shifts = zip lanes $ drop 1 lanes
+  notes = flip RTB.mapMaybe rtb $ \case Note True p -> Just p; _ -> Nothing
+  closeNotes ((_, rng1), (t, rng2)) = do
+    ((dt, p), _) <- RTB.viewL $ RTB.filter (not . keyInPreRange rng1) $ U.trackTake threshold $ U.trackDrop t notes
+    return (t, (rng1, rng2, dt, p))
+  in RTB.fromAbsoluteEventList $ ATB.fromPairList $ mapMaybe closeNotes shifts

@@ -9,6 +9,7 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isNothing, mapMaybe)
 import qualified Data.Set                         as Set
 import           Numeric.NonNegative.Class        ((-|))
+import           ProKeysRanges                    (completeRanges)
 import           RockBand.Common                  (Difficulty (..), Key (..))
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.FiveButton              as Five
@@ -369,7 +370,9 @@ pkReduce diff   mmap od diffEvents = let
       len1' = guard (l1' >= 1) >> Just l1'
       in (t1, PKNote ps1 len1') : pullBackSustains rest
     x : xs -> x : pullBackSustains xs
-  in RTB.merge (fmap PK.LaneShift ranges) (showPKNotes pknotes6)
+  -- Step: redo range shifts
+  redoRanges = completeRanges . RTB.filter (\case PK.LaneShift _ -> False; _ -> True)
+  in redoRanges $ RTB.merge (fmap PK.LaneShift ranges) (showPKNotes pknotes6)
 
 drumsComplete
   :: U.MeasureMap
