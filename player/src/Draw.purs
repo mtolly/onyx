@@ -706,14 +706,24 @@ drawVocal (Vocal v) targetY = do
         onContext $ \ctx -> C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p)
         onContext $ \ctx -> C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p)
         drawLines (Just (Tuple t2 p)) rest
+      drawLines Nothing (L.Cons (Tuple t1 (VocalStart _ (Just p))) rest@(L.Cons (Tuple t2 (VocalStart _ _)) _)) = do
+        -- draw line from (t1,p) to (t2,p)
+        -- this case only happens in sloppy vox charts with no gap between notes
+        onContext $ \ctx -> C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p)
+        onContext $ \ctx -> C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p)
+        drawLines (Just (Tuple t2 p)) rest
       drawLines Nothing (L.Cons (Tuple t1 (VocalStart _ Nothing)) (L.Cons (Tuple t2 VocalEnd) rest)) = do
         -- draw talky from t1 to t2
+        fillRect { x: toNumber $ secsToPxHoriz t1, y: toNumber targetY + 25.0, w: toNumber $ secsToPxHoriz t2 - secsToPxHoriz t1, h: 130.0 }
+        drawLines Nothing rest
+      drawLines Nothing (L.Cons (Tuple t1 (VocalStart _ Nothing)) rest@(L.Cons (Tuple t2 (VocalStart _ _)) _)) = do
+        -- draw talky from t1 to t2
+        -- this case only happens in sloppy vox charts with no gap between notes
         fillRect { x: toNumber $ secsToPxHoriz t1, y: toNumber targetY + 25.0, w: toNumber $ secsToPxHoriz t2 - secsToPxHoriz t1, h: 130.0 }
         drawLines Nothing rest
       drawLines Nothing (L.Cons (Tuple _ (VocalStart _ _)) L.Nil) = return unit -- off-screen
       drawLines _ L.Nil = return unit
       drawLines Nothing (L.Cons (Tuple _ VocalEnd) rest) = drawLines Nothing rest
-      drawLines Nothing (L.Cons (Tuple t (VocalStart _ _)) (L.Cons (Tuple _ (VocalStart _ _)) _)) = unsafeThrow $ "double note-on in vocal part at " <> show t
       lineParts =
         [ { part: v.harm2, line: "rgb(189,67,0)"  , talky: "rgba(189,67,0,0.6)"  , width: 6.0 }
         , { part: v.harm3, line: "rgb(225,148,22)", talky: "rgba(225,148,22,0.6)", width: 5.0 }
