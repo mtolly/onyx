@@ -18,6 +18,8 @@ import qualified Data.Text.Encoding               as TE
 import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Numeric.NonNegative.Wrapper      as NN
+import           RockBand.Common                  (Key(..))
+import qualified RockBand.Vocals                  as Vox
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Message               as Message
@@ -123,6 +125,10 @@ track len resn trk = let
       , ("PART REAL_KEYS_M", proKeysNoteNames)
       , ("PART REAL_KEYS_E", proKeysNoteNames)
       , ("BEAT", [(13, "Up Beats"), (12, "Downbeat")])
+      , ("PART VOCALS", vocalNoteNames)
+      , ("HARM1", vocalNoteNames)
+      , ("HARM2", vocalNoteNames)
+      , ("HARM3", vocalNoteNames)
       ] of
       Nothing -> return ()
       Just names -> do
@@ -324,5 +330,31 @@ proKeysNoteNames = execWriter $ do
   o 4 "Range E1 to G2"
   o 2 "Range D1 to F2"
   o 0 "Range C1 to E2"
+  where o k v = tell [(k, v)]
+        x k = tell [(k, "----")]
+
+vocalNoteNames :: [(Int, String)]
+vocalNoteNames = execWriter $ do
+  o 116 "OVERDRIVE"
+  o 106 "Phrase (Face-Off P2)"
+  o 105 "Phrase"
+  x 104
+  o 97 "Percussion Sound"
+  o 96 "Percussion"
+  x 85
+  forM_ [maxBound, pred maxBound .. minBound] $ \voxpitch -> do
+    let midpitch = fromEnum voxpitch + 36
+        str = case voxpitch of
+          Vox.Octave36 C -> "C (lowest)"
+          Vox.Octave36 p -> showPitch p
+          Vox.Octave48 p -> showPitch p
+          Vox.Octave60 p -> showPitch p
+          Vox.Octave72 p -> showPitch p
+          Vox.Octave84C -> "C (highest) (bugged)"
+        showPitch = map (\case 's' -> '#'; c -> c) . show
+    o midpitch str
+  x 35
+  o 1 "Lyric Shift"
+  o 0 "Range Shift"
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
