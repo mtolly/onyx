@@ -18,7 +18,7 @@ Supported audio:
 
 Notes:
 
-  * Without a doubt, the hardest drum chart I've made.
+  * Without a doubt, the hardest (non-Mahavishnu) drum chart I've made.
 
   * Could not have been done without [this drum clinic footage](https://www.youtube.com/watch?v=Dh3z__10bhg).
 

@@ -781,7 +781,9 @@ main = do
                 -- But, it's nice to not have notes.mid depend on any audio files.
                 endPosn = case [ t | (t, Events.End) <- eventsList ] of
                   t : _ -> t
-                  []    -> (4 +) $ foldr max 0 $ concatMap (ATB.getTimes . RTB.toAbsoluteEventList 0 . RBFile.showTrack) trks
+                  []    -> 4 + let
+                    absTimes = ATB.getTimes . RTB.toAbsoluteEventList 0
+                    in foldr max 0 $ concatMap absTimes (map RBFile.showTrack trks) ++ absTimes (U.tempoMapToBPS tempos)
                 musicEndPosn = case [ t | (t, Events.MusicEnd) <- eventsList ] of
                   t : _ -> t
                   []    -> endPosn - 2

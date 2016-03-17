@@ -1,0 +1,17 @@
+metadata:
+  title: The Pot
+  file-include: "../../../albums/10000-days.yml"
+  track-number: 5
+  rating: Supervision Recommended
+  key: D
+audio:
+  album-track:
+    md5: 1c0518d18a53a3e89404b4e6b0786107
+    frames: 16843848
+plans:
+  album:
+    song:
+      pad: [3.123, album-track]
+instruments:
+  drums: true
+published: false
