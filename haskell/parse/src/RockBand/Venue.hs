@@ -139,7 +139,8 @@ instance Command PostProcess where
   toCommand = reverseLookup each fromCommand
 
 data Lighting
-  = Lighting_intro
+  = Lighting_ -- ^ @[lighting ()]@
+  | Lighting_intro
   | Lighting_verse
   | Lighting_chorus
   | Lighting_manual_cool
