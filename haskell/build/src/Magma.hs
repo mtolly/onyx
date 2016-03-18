@@ -19,22 +19,10 @@ import           System.Info                  (os)
 import qualified System.IO                    as IO
 import           System.IO.Temp               (createTempDirectory)
 
-import Control.Monad.TaggedException.Hidden (hideException)
-import System.IO.LockFile.Internal (lock, unlock)
-import Data.Default.Class (def)
-
 withExe :: (FilePath -> [String] -> a) -> FilePath -> [String] -> a
 withExe f exe args = if os == "mingw32"
   then f exe args
   else f "wine" $ exe : args
-
--- | Hastily hacked into the Action monad.
--- Possibly doesn't handle async exceptions properly.
-withMagmaLock :: Action a -> Action a
-withMagmaLock act = do
-  theLock <- fmap (</> "onyx_magma.lock") $ liftIO Dir.getTemporaryDirectory
-  h <- liftIO $ hideException $ lock def theLock
-  actionFinally act $ liftIO $ hideException $ unlock theLock h
 
 callProcessIn :: FilePath -> FilePath -> [String] -> Action ()
 callProcessIn dir = command_

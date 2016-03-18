@@ -27,6 +27,7 @@ import           YAMLTree
 import           ProKeysRanges
 import           Import
 import           Difficulty
+import qualified FretsOnFire                      as FoF
 
 import           Codec.Picture
 import           Control.Exception as Exc
@@ -986,38 +987,36 @@ main = do
             song <- loadMIDI midPS
             let (pstart, _) = previewBounds songYaml song
                 len = songLengthMS song
-            liftIO $ writeFile out $ unlines
-              [ "[song]"
-              , "artist = " ++ T.unpack (_artist $ _metadata songYaml)
-              , "name = " ++ T.unpack (_title $ _metadata songYaml)
-              , "album = " ++ T.unpack (_album $ _metadata songYaml)
-              , "frets = " ++ T.unpack (_author $ _metadata songYaml)
-              , "charter = " ++ T.unpack (_author $ _metadata songYaml)
-              , "year = " ++ show (_year $ _metadata songYaml)
-              , "genre = " ++ T.unpack (_genre $ _metadata songYaml) -- TODO: capitalize
-              , if _hasDrums $ _instruments songYaml then "pro_drums = True" else ""
-              , "song_length = " ++ show len
-              , "preview_start_time = " ++ show pstart
+            liftIO $ FoF.saveSong out FoF.Song
+              { FoF.artist           = Just $ _artist $ _metadata songYaml
+              , FoF.name             = Just $ _title $ _metadata songYaml
+              , FoF.album            = Just $ _album $ _metadata songYaml
+              , FoF.charter          = Just $ _author $ _metadata songYaml
+              , FoF.year             = Just $ _year $ _metadata songYaml
+              , FoF.genre            = Just $ _genre $ _metadata songYaml -- TODO: capitalize
+              , FoF.proDrums         = guard (_hasDrums $ _instruments songYaml) >> Just True
+              , FoF.songLength       = Just len
+              , FoF.previewStartTime = Just pstart
               -- difficulty tiers go from 0 to 6, or -1 for no part
-              , "diff_band = "        ++ show (bandTier    - 1)
-              , "diff_guitar = "      ++ show (guitarTier  - 1)
-              , "diff_bass = "        ++ show (bassTier    - 1)
-              , "diff_drums = "       ++ show (drumsTier   - 1)
-              , "diff_drums_real = "  ++ show (drumsTier   - 1)
-              , "diff_keys = "        ++ show (keysTier    - 1)
-              , "diff_keys_real = "   ++ show (proKeysTier - 1)
-              , "diff_vocals = "      ++ show (vocalTier   - 1)
-              , "diff_vocals_harm = " ++ show (vocalTier   - 1)
-              , "diff_dance = -1"
-              , "diff_bass_real = -1"
-              , "diff_guitar_real = -1"
-              , "diff_bass_real_22 = -1"
-              , "diff_guitar_real_22 = -1"
-              , "diff_guitar_coop = -1"
-              , "diff_rhythm = -1"
-              , "diff_drums_real_ps = -1"
-              , "diff_keys_real_ps = -1"
-              ]
+              , FoF.diffBand         = Just $ fromIntegral $ bandTier    - 1
+              , FoF.diffGuitar       = Just $ fromIntegral $ guitarTier  - 1
+              , FoF.diffBass         = Just $ fromIntegral $ bassTier    - 1
+              , FoF.diffDrums        = Just $ fromIntegral $ drumsTier   - 1
+              , FoF.diffDrumsReal    = Just $ fromIntegral $ drumsTier   - 1
+              , FoF.diffKeys         = Just $ fromIntegral $ keysTier    - 1
+              , FoF.diffKeysReal     = Just $ fromIntegral $ proKeysTier - 1
+              , FoF.diffVocals       = Just $ fromIntegral $ vocalTier   - 1
+              , FoF.diffVocalsHarm   = Just $ fromIntegral $ vocalTier   - 1
+              , FoF.diffDance        = Just (-1)
+              , FoF.diffBassReal     = Just (-1)
+              , FoF.diffGuitarReal   = Just (-1)
+              , FoF.diffBassReal22   = Just (-1)
+              , FoF.diffGuitarReal22 = Just (-1)
+              , FoF.diffGuitarCoop   = Just (-1)
+              , FoF.diffRhythm       = Just (-1)
+              , FoF.diffDrumsRealPS  = Just (-1)
+              , FoF.diffKeysRealPS   = Just (-1)
+              }
           dir </> "ps/drums.ogg"   %> buildAudio (Input $ dir </> "drums.wav"       )
           dir </> "ps/drums_1.ogg" %> buildAudio (Input $ dir </> "kick.wav"        )
           dir </> "ps/drums_2.ogg" %> buildAudio (Input $ dir </> "snare.wav"       )

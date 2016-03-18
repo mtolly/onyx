@@ -32,6 +32,7 @@ executable onyx
     PrettyDTA
     Import
     Difficulty
+    FretsOnFire
   build-depends:
     base    >= 4.8    && < 4.9
     , shake >= 0.15 && < 0.16
@@ -58,9 +59,7 @@ executable onyx
     , monad-loops
     , time
     , template-haskell
-    , lock-file
-    , tagged-exception-core
-    , data-default-class
+    , ini
     -- my libraries:
     , jammittools >= 0.5.0.3 && < 0.6
     , midi-util >= 0.1.1.1 && < 0.2
