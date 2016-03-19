@@ -17,6 +17,7 @@ metadata:
     All instruments have overdrive/unison.
   key: F
   drum-kit: Vintage Kit
+  author: Onyxite
 audio:
   album-track:
     md5: b1a7d480ceb896feadfc2a1821c8667e

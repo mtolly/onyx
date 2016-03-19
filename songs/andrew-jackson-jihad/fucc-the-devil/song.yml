@@ -2,6 +2,7 @@ metadata:
   title: Fucc the Devil
   file-include: ../../../albums/knife-man.yml
   track-number: 6
+  author: Onyxite
 audio:
   album-track:
     frames: 4497612

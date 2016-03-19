@@ -2,6 +2,7 @@
 
 ## Dream Theater
 
+Author: Onyxite, mazegeek999
 
 [Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=the-dark-eternal-night&artist=dream-theater)
 
@@ -31,4 +32,6 @@ Notes:
   * Drums confidence: *high*. Written to Portnoy's recording session DVD.
 
   * All instruments have all difficulties, plus overdrive/unison.
+
+  * QA plus Continuum pro keys solo by mazegeek999.
 

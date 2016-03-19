@@ -2,6 +2,7 @@ metadata:
   title: "Thick as a Brick, Part I"
   file-include: ../../../albums/thick-as-a-brick.yml
   track-number: 1
+  author: Onyxite
 audio:
   # surround sound version (with errors)
   album-track:

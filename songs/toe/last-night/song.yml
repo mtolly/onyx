@@ -2,6 +2,7 @@ metadata:
   title: Last Night
   file-include: ../../../albums/for-long-tomorrow.yml
   track-number: 9
+  author: Onyxite
 audio:
   album-track:
     md5: 0f025d8ca6fb648c2ecef0830f280959

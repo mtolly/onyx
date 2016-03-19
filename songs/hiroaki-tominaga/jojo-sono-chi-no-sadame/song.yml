@@ -2,6 +2,7 @@ metadata:
   title: "JoJo ~Sono Chi no Sadame~"
   file-include: ../../../albums/jojo-sono-chi-no-sadame.yml
   track-number: 1
+  author: Onyxite
 audio:
   album-track:
     md5: 48787c042b0cb542ca3f414ae44ae990

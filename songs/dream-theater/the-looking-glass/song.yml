@@ -2,6 +2,7 @@ metadata:
   title: The Looking Glass
   file-include: ../../../albums/dream-theater.yml
   track-number: 3
+  author: Onyxite
 audio:
   album-track:
     md5: 30e37fbc73a1e41eed3e2cad45b835c4

@@ -2,6 +2,7 @@ metadata:
   title: "Build Me Up, Break Me Down"
   file-include: ../../../albums/a-dramatic-turn-of-events.yml
   track-number: 2
+  author: Onyxite
 audio:
   album-track:
     md5: 11d3bc1fa0130e8a47914088be5bb8ca

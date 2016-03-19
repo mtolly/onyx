@@ -2,6 +2,7 @@ metadata:
   title: "The Devil's Orchard"
   file-include: "../../../albums/heritage.yml"
   track-number: 2
+  author: Onyxite
 audio:
   album-track:
     md5: 1d438c33fbe188de0e3a38f6f623013c

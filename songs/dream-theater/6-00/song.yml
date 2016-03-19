@@ -2,6 +2,7 @@ metadata:
   title: "6:00"
   file-include: ../../../albums/awake.yml
   track-number: 1
+  author: Onyxite
   comments:
   - >-
     Chart confidence: *high* (Jammit stems).

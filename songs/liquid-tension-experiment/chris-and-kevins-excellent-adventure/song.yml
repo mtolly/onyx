@@ -5,6 +5,7 @@ metadata:
   difficulty:
     drums: 6
     bass: 7
+  author: Onyxite
   comments:
   - "Drums confidence: *high*."
 audio:

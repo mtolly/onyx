@@ -8,6 +8,7 @@ metadata:
   file-album-art: cover.png
   vocal-gender: female
   file-countin: ../../../sound/hihat-foot.wav
+  author: Onyxite
 audio:
   youtube:
     md5: 13ce78c276b4ff7baa5470f4d11ac7be

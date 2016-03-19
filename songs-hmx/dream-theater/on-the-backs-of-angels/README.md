@@ -2,7 +2,7 @@
 
 ## Dream Theater
 
-Author: Harmonix, Onyxite
+Author: Harmonix
 
 [Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=on-the-backs-of-angels&artist=dream-theater)
 
@@ -23,9 +23,9 @@ Supported audio:
 
 Notes:
 
-  * Timing, guitar, bass, vocals and keys by Harmonix.
+  * Timing and all instruments by Harmonix.
 
-  * Drums by Harmonix, with 2x Bass Pedal and other minor edits by me.
+  * 2x Bass Pedal and other minor drum edits by me.
 
   * Chart confidence: *high*, from stems.
 

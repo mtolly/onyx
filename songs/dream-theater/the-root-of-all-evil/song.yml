@@ -2,6 +2,7 @@ metadata:
   title: The Root of All Evil
   file-include: ../../../albums/octavarium.yml
   track-number: 1
+  author: Onyxite
   comments:
   - "Chart confidence: *high*. Written to Portnoy's DVD."
 audio:

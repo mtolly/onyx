@@ -2,6 +2,7 @@ metadata:
   title: Voices
   file-include: ../../../albums/awake.yml
   track-number: 5
+  author: Onyxite
   comments:
   - "Chart confidence: *high* (Jammit stems)."
 audio:

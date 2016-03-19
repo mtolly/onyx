@@ -361,7 +361,7 @@ instance TraceJSON Metadata where
     _key          <- optional "key" traceJSON
     _comments     <- fromMaybe [] <$> optional "comments" traceJSON
     _autogenTheme <- fromMaybe AutogenDefault <$> optional "autogen-theme" traceJSON
-    _author       <- fromMaybe "Onyxite" <$> optional "author" traceJSON
+    _author       <- fromMaybe "Unknown Author" <$> optional "author" traceJSON
     _rating       <- fromMaybe Unrated <$> optional "rating" traceJSON
     _drumKit      <- fromMaybe HardRockKit <$> optional "drum-kit" traceJSON
     _auto2xBass   <- fromMaybe True <$> optional "auto-2x-bass" traceJSON
