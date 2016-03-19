@@ -346,12 +346,12 @@ fromMaybe' s ms = case ms of
 
 instance TraceJSON Metadata where
   traceJSON = object $ do
-    _title        <- fromMaybe' "Untitled" <$> optional "title" traceJSON
-    _artist       <- fromMaybe' "Anonymous" <$> optional "artist" traceJSON
-    _album        <- fromMaybe' "No Album" <$> optional "album" traceJSON
+    _title        <- fromMaybe' "Unknown Song" <$> optional "title" traceJSON
+    _artist       <- fromMaybe' "Unknown Artist" <$> optional "artist" traceJSON
+    _album        <- fromMaybe' "Unknown Album" <$> optional "album" traceJSON
     _genre        <- fromMaybe' "other" <$> optional "genre" traceJSON
     _subgenre     <- fromMaybe' (defaultSubgenre _genre) <$> optional "subgenre" traceJSON
-    _year         <- fromMaybe 1991 <$> optional "year" traceJSON
+    _year         <- fromMaybe 1900 <$> optional "year" traceJSON
     _fileAlbumArt <- optional "file-album-art" traceJSON
     _trackNumber  <- fromMaybe 0 <$> optional "track-number" traceJSON
     _fileCountin  <- optional "file-countin"   traceJSON

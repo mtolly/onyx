@@ -36,6 +36,9 @@ data Song = Song
   , diffRhythm :: Maybe Int
   , diffDrumsRealPS :: Maybe Int
   , diffKeysRealPS :: Maybe Int
+  , delay :: Maybe Int
+  , starPowerNote :: Maybe Int -- ^ can be @star_power_note@ or @multiplier_note@
+  , track :: Maybe Int
   } deriving (Eq, Ord, Show, Read)
 
 loadSong :: FilePath -> IO Song
@@ -76,6 +79,9 @@ loadSong fp = do
       diffRhythm = int "diff_rhythm"
       diffDrumsRealPS = int "diff_drums_real_ps"
       diffKeysRealPS = int "diff_keys_real_ps"
+      delay = int "delay"
+      starPowerNote = int "star_power_note" <|> int "multiplier_note"
+      track = int "track"
 
   return Song{..}
 
@@ -112,3 +118,7 @@ saveSong fp Song{..} = writeIniFileWith (WriteIniSettings EqualsKeySeparator) fp
     shown "diff_rhythm" diffRhythm
     shown "diff_drums_real_ps" diffDrumsRealPS
     shown "diff_keys_real_ps" diffKeysRealPS
+    shown "delay" delay
+    shown "star_power_note" starPowerNote
+    shown "multiplier_note" starPowerNote
+    shown "track" track

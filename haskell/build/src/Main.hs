@@ -1016,6 +1016,9 @@ main = do
               , FoF.diffRhythm       = Just (-1)
               , FoF.diffDrumsRealPS  = Just (-1)
               , FoF.diffKeysRealPS   = Just (-1)
+              , FoF.delay            = Nothing
+              , FoF.starPowerNote    = Just 116
+              , FoF.track            = Just $ _trackNumber $ _metadata songYaml
               }
           dir </> "ps/drums.ogg"   %> buildAudio (Input $ dir </> "drums.wav"       )
           dir </> "ps/drums_1.ogg" %> buildAudio (Input $ dir </> "kick.wav"        )
@@ -1639,17 +1642,20 @@ main = do
     "stfs" : _ -> error "Usage: onyx stfs input_dir/ out_rb3con"
     ["unstfs", stfs, dir] -> extractSTFS stfs dir
     "unstfs" : _ -> error "Usage: onyx unstfs input_rb3con outdir/"
-    ["import", file, dir] -> importFile file dir
+    ["import", file, dir] -> importAny file dir
     "import" : _ -> error "Usage: onyx import [input_rb3con|input.rba] outdir/"
-    ["rbacon", rba, con] -> withSystemTempDirectory "onyx_rbacon" $ \dir -> do
-      importFile rba dir
+    ["convert", rba, con] -> withSystemTempDirectory "onyx_convert" $ \dir -> do
+      importAny rba dir
       shakeBuild ["gen/plan/mogg/2p/rb3.con"] $ Just $ dir </> "song.yml"
       Dir.copyFile (dir </> "gen/plan/mogg/2p/rb3.con") con
-    "rbacon" : _ -> error "Usage: onyx rbacon in.rba out_rb3con"
+    "convert" : _ -> error "Usage: onyx convert in.rba out_rb3con"
     [file] -> withSystemTempDirectory "onyx_preview" $ \dir -> do
-      let out = file ++ "_preview"
-      importFile file dir
-      shakeBuild ["gen/plan/mogg/web"] $ Just $ dir </> "song.yml"
+      let out = dropSlash file ++ "_preview"
+          dropSlash = reverse . dropWhile (`elem` "/\\") . reverse
+      importAny file dir
+      isFoF <- Dir.doesDirectoryExist file
+      let planWeb = if isFoF then "gen/plan/fof/web" else "gen/plan/mogg/web"
+      shakeBuild [planWeb] $ Just $ dir </> "song.yml"
       let copyDir :: FilePath -> FilePath -> IO ()
           copyDir src dst = do
             Dir.createDirectory dst
@@ -1664,5 +1670,5 @@ main = do
                 else Dir.copyFile srcPath dstPath
       b <- Dir.doesDirectoryExist out
       when b $ Dir.removeDirectoryRecursive out
-      copyDir (dir </> "gen/plan/mogg/web") out
+      copyDir (dir </> planWeb) out
     _ -> error "Invalid command"
