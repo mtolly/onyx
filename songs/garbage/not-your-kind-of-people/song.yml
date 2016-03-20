@@ -9,6 +9,8 @@ metadata:
   vocal-gender: female
   file-countin: ../../../sound/hihat-foot.wav
   author: Onyxite
+  comments:
+  - "Audio is a Youtube download (run `audio.sh`)."
 audio:
   youtube:
     md5: 13ce78c276b4ff7baa5470f4d11ac7be
@@ -18,5 +20,4 @@ plans:
     song:
       pad: [3.683, youtube]
 instruments:
-  vocal: 1 # 3
-published: false
+  vocal: 3
