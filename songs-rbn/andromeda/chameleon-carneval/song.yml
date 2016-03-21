@@ -3,7 +3,7 @@ metadata:
   - 2x Bass Pedal upgrade; no other changes.
   vocal-gender: male
   drum-kit: Hard Rock Kit
-  file-album-art: cover.png_xbox
+  file-album-art: ../../../covers/extension-of-the-wish.png_xbox
   auto-2x-bass: false
   track-number: 4
   album: Extension of the Wish

@@ -14,7 +14,7 @@ metadata:
   - "TODO: 2x Bass Pedal upgrade."
   vocal-gender: male
   drum-kit: Hard Rock Kit
-  file-album-art: cover.png_xbox
+  file-album-art: ../../../covers/the-immunity-zone.png_xbox
   auto-2x-bass: false
   track-number: 10
   album: The Immunity Zone
