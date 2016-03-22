@@ -4,6 +4,7 @@ metadata:
   track-number: 1
   difficulty:
     drums: 7
+    guitar: 6
   author: Onyxite
   comments:
   - "Chart confidence: *medium-high*. Mixing is a bit muddy."
@@ -16,3 +17,4 @@ plans:
     song: album-track
 instruments:
   drums: true
+  guitar: true
