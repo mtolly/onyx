@@ -7,6 +7,7 @@ metadata:
   difficulty:
     drums: 6
     guitar: 5
+    pro-keys: 7
   author: Onyxite
   comments:
   - "Chart confidence: *medium-high*."
@@ -23,3 +24,4 @@ plans:
 instruments:
   drums: true
   guitar: true
+  pro-keys: true
