@@ -38,7 +38,12 @@ writeFileDTB :: FilePath -> DTA B.ByteString -> IO ()
 writeFileDTB fp dta = BL.writeFile fp $ encodeDTB dta
 
 readDTA :: String -> DTA String
-readDTA = parse . scan
+readDTA = parse . scan . removeBOM
+
+removeBOM :: String -> String
+removeBOM ('\xFEFF' : s)                 = s -- normal unicode-decoded BOM
+removeBOM ('\xEF' : '\xBB' : '\xBF' : s) = s -- latin1 decoding of a utf8 BOM
+removeBOM s                              = s
 
 readFileDTA :: FilePath -> IO (DTA String)
 readFileDTA f = readFileDTA_utf8 f `catch_` \_ -> readFileDTA_latin1 f
