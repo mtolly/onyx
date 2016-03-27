@@ -6,6 +6,7 @@ metadata:
   rating: Family Friendly
   difficulty:
     drums: 6
+    pro-keys: 7
   author: Onyxite
   comments:
   - >-
@@ -30,3 +31,4 @@ plans:
       trim: [0.072, album-track]
 instruments:
   drums: true
+  pro-keys: true
