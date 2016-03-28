@@ -530,20 +530,6 @@ instance TraceJSON Plan where
       expectedKeys ["each", "comments"]
       return EachPlan{..}
       )
-    , ("song", object $ do
-      _song   <- optional "song"   traceJSON -- not actually optional because of decideKey
-      _guitar <- optional "guitar" traceJSON
-      _bass   <- optional "bass"   traceJSON
-      _keys   <- optional "keys"   traceJSON
-      _kick   <- optional "kick"   traceJSON
-      _snare  <- optional "snare"  traceJSON
-      _drums  <- optional "drums"  traceJSON
-      _vocal  <- optional "vocal"  traceJSON
-      _crowd  <- optional "crowd"  traceJSON
-      _planComments <- fromMaybe [] <$> optional "comments" traceJSON
-      expectedKeys ["song", "guitar", "bass", "keys", "kick", "snare", "drums", "vocal", "crowd", "comments"]
-      return Plan{..}
-      )
     , ("mogg-md5", object $ do
       _moggMD5 <- required "mogg-md5" traceJSON
       _moggGuitar <- fromMaybe [] <$> optional "guitar" traceJSON
@@ -559,7 +545,29 @@ instance TraceJSON Plan where
       expectedKeys ["mogg-md5", "guitar", "bass", "keys", "drums", "vocal", "crowd", "pans", "vols", "drum-mix", "comments"]
       return MoggPlan{..}
       )
-    ] (expected "an object with one of the keys \"each\", \"song\", or \"mogg-md5\"")
+    , ("song", normalPlan)
+    , ("guitar", normalPlan)
+    , ("bass", normalPlan)
+    , ("keys", normalPlan)
+    , ("kick", normalPlan)
+    , ("snare", normalPlan)
+    , ("drums", normalPlan)
+    , ("vocal", normalPlan)
+    , ("crowd", normalPlan)
+    ] (expected "an instrument to audio plan (standard, each, or mogg)")
+    where normalPlan = object $ do
+            _song   <- optional "song"   traceJSON
+            _guitar <- optional "guitar" traceJSON
+            _bass   <- optional "bass"   traceJSON
+            _keys   <- optional "keys"   traceJSON
+            _kick   <- optional "kick"   traceJSON
+            _snare  <- optional "snare"  traceJSON
+            _drums  <- optional "drums"  traceJSON
+            _vocal  <- optional "vocal"  traceJSON
+            _crowd  <- optional "crowd"  traceJSON
+            _planComments <- fromMaybe [] <$> optional "comments" traceJSON
+            expectedKeys ["song", "guitar", "bass", "keys", "kick", "snare", "drums", "vocal", "crowd", "comments"]
+            return Plan{..}
 
 instance A.ToJSON Plan where
   toJSON = \case

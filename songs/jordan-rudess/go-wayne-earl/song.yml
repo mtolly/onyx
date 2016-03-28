@@ -1,0 +1,33 @@
+metadata:
+  title: Go Wayne Earl (Live)
+  artist: Jordan Rudess
+  album: Live on Stageit 2012-06-03
+  file-album-art: cover.png
+  year: 2012
+  genre: prog
+  subgenre: progrock
+  file-countin: ../../../sound/hihat-foot.wav
+  author: Onyxite
+  comments:
+  - "Audio is a Youtube download (run `audio.sh`)."
+audio:
+  youtube:
+    md5: a6fa10dee2b5e50dab111c556099b66f
+    frames: 7674880
+plans:
+  album:
+    keys:
+      # I originally tempo mapped this according to my own recording, which I then lost.
+      # The Youtube copy has some minor differences, corrected below.
+      pad:
+      - 1.700
+      - concatenate:
+        - take: [29.310, youtube]
+        - drop:
+          - 29.378
+          - concatenate:
+            - take: [36.225, youtube]
+            - drop: [36.260, youtube]
+instruments:
+  pro-keys: true
+published: false
