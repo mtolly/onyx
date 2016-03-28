@@ -5,6 +5,7 @@ metadata:
   difficulty:
     drums: 7
     pro-keys: 7
+    bass: 3
   author: Onyxite
 audio:
   album-track:
@@ -17,3 +18,4 @@ plans:
 instruments:
   drums: true
   pro-keys: true
+  bass: true
