@@ -388,61 +388,66 @@ main = do
                 b' = B.pack $ header ++ flipPairs bytes
             liftIO $ B.writeFile out b'
 
-        -- Build a REAPER project
-        "notes.RPP" %> \out -> do
-          let countin = "gen/plan/album/countin.wav"
-              audio = "gen/plan/album/song.wav"
-          need [countin, audio, "notes.mid"]
-          countinLen <- do
-            info <- liftIO $ Snd.getFileInfo countin
-            return $ fromIntegral (Snd.frames info) / fromIntegral (Snd.samplerate info)
-          audioLen <- do
-            info <- liftIO $ Snd.getFileInfo audio
-            return $ fromIntegral (Snd.frames info) / fromIntegral (Snd.samplerate info)
-          song <- loadMIDI "notes.mid"
-          mid <- liftIO $ Load.fromFile "notes.mid"
-          let ends = map (U.applyTempoMap $ RBFile.s_tempos song) $ do
-                RBFile.Events trk <- RBFile.s_tracks song
-                (bts, Events.End) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 trk
-                return bts
-              midiLen = 5 + case ends of
-                [] -> audioLen
-                secs : _ -> secs
-          liftIO $ writeRPP out $ runIdentity $
-            RPP.rpp "REAPER_PROJECT" ["0.1", "5.0/OSX64", "1449358215"] $ do
-              RPP.line "VZOOMEX" ["0"]
-              RPP.line "SAMPLERATE" ["44100", "0", "0"]
-              case mid of
-                F.Cons F.Parallel (F.Ticks resn) (tempoTrack : trks) -> do
-                  let t_ticks = RPP.processTempoTrack tempoTrack
+        let makeReaper :: FilePath -> FilePath -> [FilePath] -> FilePath -> Action ()
+            makeReaper evts tempo audios out = do
+              need $ evts : tempo : audios
+              lenAudios <- flip mapMaybeM audios $ \aud -> do
+                info <- liftIO $ Snd.getFileInfo aud
+                return $ case Snd.frames info of
+                  0 -> Nothing
+                  f -> Just (fromIntegral f / fromIntegral (Snd.samplerate info), aud)
+              song <- loadMIDI evts
+              mid <- liftIO $ Load.fromFile evts
+              tempoSong <- loadMIDI tempo
+              tempoMid <- liftIO $ Load.fromFile tempo
+              let ends = map (U.applyTempoMap $ RBFile.s_tempos tempoSong) $ do
+                    RBFile.Events trk <- RBFile.s_tracks song
+                    (bts, Events.End) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 trk
+                    return bts
+                  midiLen = 5 + case ends of
+                    [] -> case map fst lenAudios of
+                      len : lens -> foldr max len lens
+                      []         -> 0
+                    secs : _ -> secs
+                  writeTempoTrack = case tempoMid of
+                    F.Cons F.Parallel (F.Ticks resn) (tempoTrack : _) -> let
+                      t_ticks = RPP.processTempoTrack tempoTrack
                       t_beats = RTB.mapTime (\tks -> fromIntegral tks / fromIntegral resn) t_ticks
                       t_secs = U.applyTempoTrack (RBFile.s_tempos song) t_beats
-                  RPP.tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
-                  let trackOrder :: [(String, Int)]
-                      trackOrder = zip
-                        [ "PART DRUMS"
-                        , "PART BASS"
-                        , "PART GUITAR"
-                        , "PART VOCALS"
-                        , "HARM1"
-                        , "HARM2"
-                        , "HARM3"
-                        , "PART KEYS"
-                        , "PART REAL_KEYS_X"
-                        , "PART REAL_KEYS_H"
-                        , "PART REAL_KEYS_M"
-                        , "PART REAL_KEYS_E"
-                        , "PART KEYS_ANIM_RH"
-                        , "PART KEYS_ANIM_LH"
-                        , "EVENTS"
-                        , "VENUE"
-                        , "BEAT"
-                        , "countin"
-                        ] [0..]
-                  forM_ (sortOn (U.trackName >=> flip lookup trackOrder) trks) $ RPP.track midiLen resn
-                  RPP.audio countinLen countin
-                  RPP.audio audioLen audio
-                _ -> error "Unsupported MIDI format for Reaper project generation"
+                      in RPP.tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
+                    _ -> error "Unsupported MIDI format for Reaper project generation"
+              liftIO $ writeRPP out $ runIdentity $
+                RPP.rpp "REAPER_PROJECT" ["0.1", "5.0/OSX64", "1449358215"] $ do
+                  RPP.line "VZOOMEX" ["0"]
+                  RPP.line "SAMPLERATE" ["44100", "0", "0"]
+                  case mid of
+                    F.Cons F.Parallel (F.Ticks resn) (_ : trks) -> do
+                      writeTempoTrack
+                      let trackOrder :: [(String, Int)]
+                          trackOrder = zip
+                            [ "PART DRUMS"
+                            , "PART BASS"
+                            , "PART GUITAR"
+                            , "PART VOCALS"
+                            , "HARM1"
+                            , "HARM2"
+                            , "HARM3"
+                            , "PART KEYS"
+                            , "PART REAL_KEYS_X"
+                            , "PART REAL_KEYS_H"
+                            , "PART REAL_KEYS_M"
+                            , "PART REAL_KEYS_E"
+                            , "PART KEYS_ANIM_RH"
+                            , "PART KEYS_ANIM_LH"
+                            , "EVENTS"
+                            , "VENUE"
+                            , "BEAT"
+                            , "countin"
+                            ] [0..]
+                      forM_ (sortOn (U.trackName >=> flip lookup trackOrder) trks) $ RPP.track midiLen resn
+                      forM_ lenAudios $ \(len, aud) -> do
+                        RPP.audio len $ makeRelative (takeDirectory out) aud
+                    _ -> error "Unsupported MIDI format for Reaper project generation"
 
         -- The Markdown README file, for GitHub purposes
         "README.md" %> \out -> liftIO $ writeFile out $ execWriter $ do
@@ -608,6 +613,17 @@ main = do
                   in filter (`notElem` notSong) [0 .. length _pans - 1]
                 Plan{..} -> planPV _song
                 EachPlan{..} -> eachPlanPV _each
+
+          -- REAPER project
+          "notes-" ++ T.unpack planName ++ ".RPP" %> \out -> do
+            let audios = map (\x -> "gen/plan" </> T.unpack planName </> x <.> "wav")
+                  $ ["guitar", "bass", "drums", "kick", "snare", "keys", "vocal", "crowd"] ++ case plan of
+                    MoggPlan{} -> ["song-countin"]
+                    _          -> ["song", "countin"]
+                extraTempo = "tempo-" ++ T.unpack planName ++ ".mid"
+            b <- doesFileExist extraTempo
+            let tempo = if b then extraTempo else "notes.mid"
+            makeReaper "notes.mid" tempo audios out
 
           -- Audio files
           case plan of
