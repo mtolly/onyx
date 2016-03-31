@@ -7,6 +7,7 @@ metadata:
     bass: 3
     guitar: 5
     pro-keys: 5
+    keys: 4
   author: Onyxite
   comments:
   - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
@@ -66,3 +67,4 @@ instruments:
   bass: true
   guitar: true
   pro-keys: true
+  keys: true
