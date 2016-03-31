@@ -4,16 +4,18 @@ metadata:
   track-number: 1
   author: Onyxite
 audio:
-  # surround sound version (with errors)
+  # this is the fixed surround sound version
+  # magnet:?xt=urn:btih:b9cc9d37876eadc53b89d2fc4c5dd2245d353334&dn=Jethro%20Tull%20-%201972%20-%20Thick%20As%20A%20Brick%2040th%20Anniversary%20Set%20%282012%29%20%5BADVD%5D&tr=http%3A%2F%2Fbt2.rutracker.cc%2Fann&tr=http%3A%2F%2Fretracker.local%2Fannounce
   album-track:
-    md5: 97a8bc7d5374dc6eff2e12a4ad2a9b2a
-    frames: 125745152
+    md5: d49e5e49fd04bf00c67cc2ae8129f63d
+    frames: 125842944
+    channels: 6
 plans:
   album:
     song:
       expr:
         pad:
-        - 3.636
+        - 3.626
         - take: ['22:42.597', album-track]
       pans: [-1, 1, 0, 0, -1, 1]
       vols: [0, 0, 0, 0, 0, 0]
