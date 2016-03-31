@@ -10,24 +10,32 @@ metadata:
   author: Onyxite
   comments:
   - "Audio is a Youtube download (run `audio.sh`)."
+  difficulty:
+    pro-keys: 7
 audio:
   youtube:
     md5: a6fa10dee2b5e50dab111c556099b66f
     frames: 7674880
-plans:
-  album:
-    keys:
+  youtube-fixed:
+    expr:
       # I originally tempo mapped this according to my own recording, which I then lost.
       # The Youtube copy has some minor differences, corrected below.
       pad:
       - 1.700
-      - concatenate:
-        - take: [29.310, youtube]
-        - drop:
-          - 29.378
-          - concatenate:
-            - take: [36.225, youtube]
-            - drop: [36.260, youtube]
+      - gain:
+        - 2.3
+        - concatenate:
+          - take: [29.310, youtube]
+          - drop:
+            - 29.378
+            - concatenate:
+              - take: [36.225, youtube]
+              - drop: [36.260, youtube]
+plans:
+  album:
+    song:
+      pad: ['2:50', drop: ['2:50', youtube-fixed]]
+    keys:
+      take: ['2:50', youtube-fixed]
 instruments:
   pro-keys: true
-published: false
