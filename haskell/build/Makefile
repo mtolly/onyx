@@ -22,7 +22,7 @@ mac-deps:
 win:
 	rm -rf win/
 	mkdir win/
-	stack build . --extra-lib-dirs=/mingw32/lib --extra-include-dirs=/mingw32/include
+	stack build .
 	cp "$(shell stack exec which onyx)" win/
 	cp /mingw32/bin/*.dll win/
 	stack exec strip win/onyx.exe

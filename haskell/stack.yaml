@@ -19,3 +19,9 @@ extra-deps:
 - tagged-exception-core-2.2.0.0
 - monoid-transformer-0.0.3
 resolver: lts-5.5
+extra-include-dirs:
+- /usr/local/include
+- /mingw32/include
+extra-lib-dirs:
+- /usr/local/lib
+- /mingw32/lib

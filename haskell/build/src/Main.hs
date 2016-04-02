@@ -619,7 +619,9 @@ main = do
             let audios = map (\x -> "gen/plan" </> T.unpack planName </> x <.> "wav")
                   $ ["guitar", "bass", "drums", "kick", "snare", "keys", "vocal", "crowd"] ++ case plan of
                     MoggPlan{} -> ["song-countin"]
-                    _          -> ["song", "countin"]
+                    _          -> ["song"]
+                    -- Previously this relied on countin,
+                    -- but it's better to not have to generate gen/plan/foo/xp/notes.mid
                 extraTempo = "tempo-" ++ T.unpack planName ++ ".mid"
             b <- doesFileExist extraTempo
             let tempo = if b then extraTempo else "notes.mid"
