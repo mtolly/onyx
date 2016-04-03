@@ -2,7 +2,6 @@
 {-# LANGUAGE MultiWayIf                 #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 {-# LANGUAGE RecordWildCards            #-}
-{-# LANGUAGE TemplateHaskell            #-}
 module Main (main) where
 
 import           Audio
@@ -58,12 +57,10 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing,
                                                    listToMaybe, mapMaybe)
 import qualified Data.Text                        as T
-import           Data.Time                        (getCurrentTime)
 import           Development.Shake                hiding (phony, (%>), (&%>))
 import qualified Development.Shake                as Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
-import           Language.Haskell.TH              (stringL, litE, runIO)
 import           RockBand.Common                  (Difficulty (..))
 import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
@@ -80,6 +77,7 @@ import qualified Sound.MIDI.Util                  as U
 import           System.Console.GetOpt
 import qualified System.Directory                 as Dir
 import           System.Environment               (getArgs)
+import           System.Environment.Executable    (getExecutablePath)
 import           System.IO.Temp                   (withSystemTempDirectory)
 
 data Argument
@@ -113,9 +111,6 @@ newtype GetSongYaml = GetSongYaml ()
 
 newtype CompileTime = CompileTime ()
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
-
-theCompileTime :: String
-theCompileTime = $( runIO getCurrentTime >>= litE . stringL . show )
 
 allFiles :: FilePath -> Action [FilePath]
 allFiles absolute = do
@@ -249,8 +244,9 @@ main = do
         moggOracle   <- addOracle $ \(MoggSearch   s) -> moggSearch s
 
         -- Make all rules depend on the parsed song.yml contents and onyx compile time
-        strSongYaml  <- addOracle $ \(GetSongYaml ()) -> return $ show songYaml
-        ctime        <- addOracle $ \(CompileTime ()) -> return theCompileTime
+        strSongYaml    <- addOracle $ \(GetSongYaml ()) -> return $ show songYaml
+        ctime'         <- newCache $ \(CompileTime ()) -> liftIO $ fmap show $ getExecutablePath >>= Dir.getModificationTime
+        ctime          <- addOracle ctime'
         let onyxDeps act = strSongYaml (GetSongYaml ()) >> ctime (CompileTime ()) >> act
             (%>) :: FilePattern -> (FilePath -> Action ()) -> Rules ()
             pat %> f = pat Shake.%> onyxDeps . f

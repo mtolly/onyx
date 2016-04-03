@@ -60,6 +60,7 @@ executable onyx
     , time
     , template-haskell
     , ini
+    , executable-path
     -- my libraries:
     , jammittools >= 0.5.0.3 && < 0.6
     , midi-util >= 0.1.1.1 && < 0.2
