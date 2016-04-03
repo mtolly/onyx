@@ -11,10 +11,11 @@ metadata:
     pro-keys: 3
     keys: 2
     band: 4
-  author: Onyxite
+  author: Onyxite, mazegeek999
   comments:
   - "Drums confidence: *high*. Written to Portnoy's recording session DVD."
   - "All instruments have overdrive/unison."
+  - "QA by [mazegeek999](http://pksage.com/ccc/IPS/index.php?/topic/13775-mazegeeks-customs-1117-tarkus-by-emerson-lake-palmer/)."
   rating: Supervision Recommended
 audio:
   album-track:

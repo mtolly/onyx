@@ -25,7 +25,9 @@ Supported audio:
 
 Notes:
 
-  * Keys and pro keys by mazegeek999.
+  * Keys, pro keys, and QA by [mazegeek999](http://pksage.com/ccc/IPS/index.php?/topic/13775-mazegeeks-customs-1117-tarkus-by-emerson-lake-palmer/).
 
   * Guitar and bass by Meander, with some edits by me.
+
+  * All instruments have overdrive/unison.
 

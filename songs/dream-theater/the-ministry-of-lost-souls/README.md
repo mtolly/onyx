@@ -27,5 +27,7 @@ Notes:
 
   * Drums confidence: *high*, written to Portnoy's DVD.
 
-  * Pro keys chart by [mazegeek999](http://pksage.com/ccc/IPS/index.php?/topic/13775-mazegeeks-customs-1117-tarkus-by-emerson-lake-palmer/).
+  * Pro keys and QA by [mazegeek999](http://pksage.com/ccc/IPS/index.php?/topic/13775-mazegeeks-customs-1117-tarkus-by-emerson-lake-palmer/).
+
+  * All instruments have overdrive/unison.
 

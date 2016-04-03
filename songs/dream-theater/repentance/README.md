@@ -2,7 +2,7 @@
 
 ## Dream Theater
 
-Author: Onyxite, Grinnz
+Author: Onyxite, Grinnz, mazegeek999
 
 [Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=repentance&artist=dream-theater)
 
@@ -26,6 +26,8 @@ Supported audio:
 Notes:
 
   * Timing and drums by Grinnz.
+
+  * QA by [mazegeek999](http://pksage.com/ccc/IPS/index.php?/topic/13775-mazegeeks-customs-1117-tarkus-by-emerson-lake-palmer/).
 
   * All instruments have overdrive/unison.
 
