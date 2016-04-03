@@ -1,0 +1,214 @@
+ITPOE PT 1 * DONE
+
+-----
+
+Keys
+-2:21 - Last 7 notes need strums just like guitar and bass. * DONE
+-5:10 - Sustain cut off really early. * DONE
+
+Guitar
+-Last 7 notes of intro at 0:35 should be OYROBYR, not OBYBYRG. * DONE
+-1:16 - 4 notes should be sustains * DONE
+-3:34 - all strums, and the OBY right after should have orange as strum * DONE
+-5:24 - I hear a passing A5 chord which should be RY in between the Bb5 and G5 chords (this happens twice in this riff) * They're actually written as open strums in the tab book, so I changed them to single notes (like muted strums)
+
+Bass
+-Intro should match the keys chart. Make sure the guitar chart matches the keys chart as well. Same with 2:18, and keep the strums there too (which need to be added to keys). * DONE
+-0:20 - Sustain extend to same length as keys. * DONE
+-0:37 - No strums. * DONE
+-1:51 - Red note should be strum. * DONE
+-4:34 - The green note extending all the way here might be too much. * DONE
+
+Drums
+-1:00 - I'm not hearing the two bass pedal hits before the YG here. * NOT DONE, audible on isolated drums
+-1:58 - I'm not hearing the ghost green cymbals in this section (the ones not on a kick or snare). * NOT DONE, audible on isolated drums
+-4:37 - Those two snares sound like flams. * DONE, yep the 2nd one is a flam
+-4:45 - I think the yellow roll is kinda excessive. * I think it's fine, the (china?) cymbal is pretty audible
+-8:44 - I hear the double kick. Faint but I would believe that's what Portnoy intended. * DONE, not sure how I missed this, it's not even faint on the stem
+
+Vocals
+-6:40 - "anything" as one word(?) * DONE
+
+FORSAKEN * DONE
+
+-----
+
+Pro Keys
+:)
+
+Keys
+13:00 - The GRB chord here seems to have the sustain cut too short. * I think this is just an unfortunate translation to keytar. On keys, the GR are sustained and the B is not
+15:02 - End with a green note (make sure pro keys ends with a D note as well). * DONE, pro keys already had the D
+
+Guitar
+-1:05 - This verse I'm not hearing a pedal green note, I'm hearing a bunch of repeated notes. Lemme know if you don't agree/not sure what I mean. * It does sound like that, but the tab book says they are open notes, mainly on the high E (D) string, in between the fretted main notes, and then the whole thing is palm muted.
+-4:04 - I think the 10 or so no notes coming out of the sweep (starting on the forced strum blue note) shouldn't have any hopo markers. Same with the three notes at 4:08. * DONE. I kept the BYY in the middle of those as strums (because the sound is very obviously strummed)
+
+Bass
+:)
+
+Drums
+5:35 - Not sure if the swell is necessary as it's pretty faint. * I moved it to a single lane swell
+
+Vocals
+1:10 - You may want to split some of these phrases in half, before "fell", "inside", and after "suddenly" * DONE
+2:50 - You capitalized "Where" here but I don't think you split the phrase. * DONE (split the phrase)
+
+THE DARK ETERNAL NIGHT * DONE
+
+-----
+
+Pro Keys
+:)
+
+Keys
+23:50 - The red note coming out of the 'glissando' shouldn't be a strum I don't think. * DONE, for god knows what reason the keytar translator makes this a strum by default since it is the start of a broken chord?
+
+Guitar
+4:20 - Missing 4 sustains * DONE, fixed a few more in that section as well
+5:37 - I think the longer notes in this section should be sustains. * DONE, also fixed some hard reductions in this section
+
+Bass
+20:50 - Similar to guitar, the long notes here should be sustains. * DONE
+
+Drums
+0:25 - I'm really not hearing those 8th note ghost green cymbals, except for the ones directly preceding a fill (this also applies at 7:02). * They're more audible in the stem, and I think it feels better to play them
+9:11 - I believe that cutting out the last blue cymbal and its audio would make the non-fade out sound better. It's preference though. * Eh, I think it's silly, much like the rest of the song
+
+Vocals
+1:27 - I feel VERY unsure about this verse being pitched. Especially since it's only in some phrases (this also goes for the second verse at 2:32). * Yeah, I'm not sure. I think the way I did it works, I only did pitched phrases when you can really clearly hear James doing specific pitches
+
+REPENTANCE * almost done
+
+-----
+
+Guitar
+0:28 - To keep the flow, I don't think the blue note should be a forced strum (this applies everywhere until the last one at 1:31). This also applies from 6:11 to 7:15. * Disagree, I think the sound is very clearly a strum (and the similar notes around it are clearly not)
+1:41 - Conversely, I think the hopos in this section kinda break the flow and should be strums. But that's more preference than anything I think (until 2:19). This also applies from 3:27 to 4:04, excluding the grace note at 3:39. * Again, I think the sound clearly indicates the strum and hopo pattern
+2:39 - OBYRG as all strums. * DONE, this one is not as clear a pattern
+4:57 - Y and G as hopos. * DONE
+5:13 - Yellow as forced strum. * DONE
+5:20 - Blue as forced strum. * DONE
+8:03 - The GB can be GRB and the RB can be RBO to keep the 3-note chord consistency (would apply to each cycle). * DONE
+
+Bass
+- I only skimmed this one, but looked good.
+
+Drums
+0:56 - I don't hear triplet drags here. Same with 1:18.
+1:55 - I don't hear the kick before the BG.
+2:39 - The transition might be nicer if it was YB YG BG instead of YB BG YB * NOT DONE, gonna defer to Grinnz's positional style
+3:17 - I don't hear the kick before the YG.
+10:32 - I think only the green swell should say, as the other ones are pretty inaudible.
+
+Vocals
+1:22 - "Mirror" shouldn't be capitalized. * Nope, this is actually correct -- it's capitalized in the lyrics, presumably because it's kind of a name, referencing The Mirror.
+5:53 - I hate to say this, because I know that must have taken a while to chart all that spoken word, but in my honest opinion I don't think it should be in the chart. Reason being it would be very odd to sing in game, and it also eliminates a harmony line starting at 9:28. Again, I understand that would suck to have charted that and then it not be used, but I would say the spoken word shouldn't be charted.
+   ...now that I think about it, however, we could have two versions of the song, one with the talkies and one without. We could do a similar thing with The Great Debate also.
+* I totally agree with the issues, but I do like having them, since you don't have to follow along with the lyrics -- I figured you can substitute your own apologies/regrets. What I'm gonna do is remove a bunch of them to thin it out. The end result won't use HARM3, and it won't cut into the harmony line. TODO
+
+PROPHETS OF WAR * DONE
+
+-----
+
+Pro Keys
+0:23 - I think a B dim chord (FBD) would suit better here. * DONE
+0:26 - I would add the octaved E note since it's in the other chords and I hear the E in that A major chord. * DONE, but I really don't know if I hear it at all
+1:26 - There's a chord with an interval of a 9th that should be cut down. I would remove the low B note on the chord and the chord after it for ease of movement. This also applies to 3:04, 4:05, and 5:32. * DONE, I actually wasn't aware of the max octave chord rule
+3:35 - The low A note sustain tail should be cut back a 1/4 note. * DONE
+
+Keys
+:)
+
+Guitar
+3:03 - The YO and BO chords I think should be swapped as BO and YO. Same with 5:32. * DONE, there are actually 2 guitars with different chords, but the BO->YO matches the more prominent one
+3:19 - I don't know why I never thought of doing strum lanes this way and I think you've changed how I do them from now on. However because of the note gap, I don't think there should be a hopo starting each strum lane. Should all be strums. This also applies to the outro strum lanes at 5:48. * DONE, by "this way" do you mean with the note gap? Regardless, I feel honored :)
+
+Bass
+3:49 - Not sure if that red strum flows. * DONE, made it hopo
+
+Drums
+1:29 - I don't hear the swell. * NOT DONE, but I agree it's not audible in the full mix
+4:06 - I don't hear the 8th note ghost blue crashes here. * DONE, agreed, they're not actually even visible in dvd or audible in isolated drums
+
+Vocals
+
+0:41: "its" -> "it's" * The album booklet does say "it's". But I think it's wrong; I can only sensibly read the line as "debate this fight [and debate] its just cause"
+2:02: "inception" as one word * UGH. This is totally correct in the midi. Is the word not connected because there's too much of a gap between the two syllables?
+
+THE MINISTRY OF LOST SOULS * DONE
+
+-----
+
+Pro Keys
+5:52 - Change the CFGA chord to ACG chord, and range shift to E on that chord so that the GCG chord doesn't hang. * DONE
+7:36 - The A range marker isn't necessary. Delete it and extend the F range marker to where the A range marker ended. * DONE
+8:55 - Delete G range marker and have E range stay instead. * DONE
+9:26 - Wrap the E note right before the sustained Bb note up an octave. Switch to E range on the Bb sustain instead of earlier. * DONE
+9:33 - Wrap the low Ab note up an octave. Keep the range markers as is. * DONE
+9:40 - Wrap the high F-G-Ab-Bb notes down an octave. Switch to E range at the start of the scale (the Ab-Bb-F-G-Ab-Bb...) instead of later, and delete the G range marker. * DONE
+10:40 - Wrap the F note right before the current G-range marker (after a G note and before an A note) up an octave. Start the G range a bit earlier, at 10:39, the A-G-F-C-D part. * DONE
+
+Keys
+6:41 - I think the main riff (and the other similar parts) should be like this: G R Y R O~ B~ O~B~Y~R~ B~Y~R~G~ O~B~Y~R~ instead. The O~ Y~ you had there caught me off guard. And then for 7:20, you had the notes as B~Y~G~R~, I would switch to O~B~G~R~. * DONE
+11:03 - B should be Y. * DONE
+11:17 - I think the two orange notes surrounding the GYO chord should be blue instead. * DONE
+12:26 - Chord should be forced strum. * DONE
+13:19 - IIRC this is an extended sustain that got cut off on guitar because it should be, but I think that particular GRB sustain got messed up somehow. Same with 13:25, 13:35, and 13:45. * This is another instance of that unfortunate translation when you have a chord where some notes are sustained and others aren't.
+14:03 - GO chord as forced strum. * DONE
+15:00 - BO chord as forced HOPO. * DONE, not sure why this wasn't auto hopo'd like all the other chords
+
+Guitar
+3:47 - I think G Y R would be better here instead of Y B G because of the half step from Bb to A. You did it that way in the ending solo. * DONE
+4:25 - You should start the overdrive on the first note. :) * DONE
+4:28 - The green note after the red hopo should also be a hopo in my opinion. * DONE
+9:43 - I think I hear the blue-to-orange grace note every 2 notes, not every 4 notes. So by that I mean I hear BO O BO O BO O BO O etc. * DONE
+10:03 - Instead of R Y~~~ Y R G, I think it should be shifted up one to Y B~~~ B Y R. * DONE, I also bumped up the notes in YRGYYRY in the next measure to BYRBBYB
+14:50 - I don't think the green hopo needs to be there and you could just extend the yellow tail to the line. * DONE
+
+Bass
+14:23 - I think bass should match keys here. Also make sure guitar matches keys as well. * Guitar matches keys, but as far as I can tell, I did it this way because the bass is actually different -- m171 starts with A-A-A on bass instead of the C-Bb-A like guitar and keys
+
+Drums
+
+:)
+
+Vocals
+
+you probably fixed these
+
+ITPOE PT 2 * DONE
+
+-----
+
+Pro Keys
+:)
+
+Keys
+25:57 - Force all strums. * DONE
+27:21 - Force all strums. * DONE
+31:00 - Force GB chord as strum. * DONE
+34:10 - That short red sustain shouldn't be there. * DONE
+35:20 - Last 7 notes should be OYROBYR, not OBYBYRG. * DONE
+35:48 - I think it'd be cool if you put an overdrive phrase starting on the yellow note for Y~ R~~ Y R G~~~~~ for that whammy effect. You'd probably have to remove a different overdrive phrase to make up for it but I think that would be cool. Put on pro keys as well if you choose to do that. * DONE, this is awesome!
+36:00 - The R G R shouldn't be sustains. * DONE
+
+Bass
+27:38 - Force green as HOPO. * DONE
+31:58 - I think the B Y R G should actually be O B Y R. Same with 32:20. * DONE
+34:02 - Those short sustains shouldn't be there, like how keys is. Same with the section at 34:44. * DONE
+38:25 - Last two notes should be R Y to be consistent with the other instances of the melody. * DONE, though I'm not sure what this means by other instances of the melody -- the chorus has almost the melody but no final A?
+
+Guitar
+2:46 - I would extend the sustain a 16th forward. * DONE
+5:38 - Force green as HOPO. * DONE
+11:55 - The forced strums from 11:55 to 12:00 I really don't think should be here, especially the O-B double strum at 11:59. * DONE
+12:43 - Those short sustains shouldn't be there, like how keys is. * DONE
+13:19 - Last 7 notes should be OYROBYR, not OBYBYRG. * DONE
+
+Drums
+1:57 - I think you should start the swell a quarter note later. Same with 2:06 and 2:13. * DONE
+13:13 - Missing yellow tom after a crash cymbal. * NOT DONE, can't hear one at all
+
+Vocals
+8:53 - "ones" to "one" (?) * NOT DONE, official is "ones", I think the "s" is just faint
