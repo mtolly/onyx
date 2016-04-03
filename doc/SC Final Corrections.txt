@@ -78,7 +78,7 @@ Drums
 Vocals
 1:27 - I feel VERY unsure about this verse being pitched. Especially since it's only in some phrases (this also goes for the second verse at 2:32). * Yeah, I'm not sure. I think the way I did it works, I only did pitched phrases when you can really clearly hear James doing specific pitches
 
-REPENTANCE * almost done
+REPENTANCE * DONE
 
 -----
 
@@ -95,17 +95,17 @@ Bass
 - I only skimmed this one, but looked good.
 
 Drums
-0:56 - I don't hear triplet drags here. Same with 1:18.
-1:55 - I don't hear the kick before the BG.
+0:56 - I don't hear triplet drags here. Same with 1:18. * DONE, changed them all from three to two hits
+1:55 - I don't hear the kick before the BG. * It's there, just faint
 2:39 - The transition might be nicer if it was YB YG BG instead of YB BG YB * NOT DONE, gonna defer to Grinnz's positional style
-3:17 - I don't hear the kick before the YG.
-10:32 - I think only the green swell should say, as the other ones are pretty inaudible.
+3:17 - I don't hear the kick before the YG. * Also there but faint
+10:32 - I think only the green swell should say, as the other ones are pretty inaudible. * I think they're audible enough -- the drums audio is very quiet near the end of the song, I might actually bump it up a bit before releasing.
 
 Vocals
 1:22 - "Mirror" shouldn't be capitalized. * Nope, this is actually correct -- it's capitalized in the lyrics, presumably because it's kind of a name, referencing The Mirror.
 5:53 - I hate to say this, because I know that must have taken a while to chart all that spoken word, but in my honest opinion I don't think it should be in the chart. Reason being it would be very odd to sing in game, and it also eliminates a harmony line starting at 9:28. Again, I understand that would suck to have charted that and then it not be used, but I would say the spoken word shouldn't be charted.
    ...now that I think about it, however, we could have two versions of the song, one with the talkies and one without. We could do a similar thing with The Great Debate also.
-* I totally agree with the issues, but I do like having them, since you don't have to follow along with the lyrics -- I figured you can substitute your own apologies/regrets. What I'm gonna do is remove a bunch of them to thin it out. The end result won't use HARM3, and it won't cut into the harmony line. TODO
+* I totally agree with the issues, but I do like having them, since you don't have to follow along with the lyrics -- I figured you can substitute your own apologies/regrets. What I did is removed a bunch of them to thin it out, so you never have conflicting HARM2/HARM3 lyrics, and it looks a lot more readable. It also doesn't cut into that harmony line.
 
 PROPHETS OF WAR * DONE
 
