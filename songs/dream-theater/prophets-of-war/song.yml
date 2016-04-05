@@ -38,7 +38,9 @@ plans:
   album:
     song:
       pad: [3.556, album-track]
-    crowd: chant
+    crowd:
+      expr: chant
+      vols: [-1, -1]
   drumcam:
     comments:
     - >-
@@ -65,7 +67,9 @@ plans:
       - -1
       - resample:
           pad: [3.261, *drums]
-    crowd: chant
+    crowd:
+      expr: chant
+      vols: [-1, -1]
 instruments:
   drums: true
   vocal: 3
