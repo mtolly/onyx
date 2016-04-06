@@ -107,6 +107,17 @@ Vocals
    ...now that I think about it, however, we could have two versions of the song, one with the talkies and one without. We could do a similar thing with The Great Debate also.
 * I totally agree with the issues, but I do like having them, since you don't have to follow along with the lyrics -- I figured you can substitute your own apologies/regrets. What I did is removed a bunch of them to thin it out, so you never have conflicting HARM2/HARM3 lyrics, and it looks a lot more readable. It also doesn't cut into that harmony line.
 
+Pro Keys
+27:45 - I think the chord is D-F#, not B-F# * DONE
+29:43 - I'm hearing D-C#-B * I originally had D-G#-B; I slowed it down and now I'm pretty sure it's actually C#-G#-B, so your C# is right
+30:03 - It might be better to chart that as F# B C# and F# B D * DONE, but I moved the F# for range reasons
+30:14 - I'd remove the D note on the G7 chord * DONE
+31:30 - I can't say I hear what the notes are  but are you sure it's CDE? * I am not sure at all. I think it's close though
+31:47 - 32:58 - I feel like these sound effects aren't necessary to chart * DONE
+33:24 - Don't hear the ninth there, would just chart as E-G#-C# * I do hear the ninth, I removed the C# though
+34:27 - I hear a quick chord in between the F#-D# and G#-E chords. Pretty sure it's a G#-E chord. * I think that's just guitar
+34:37 - Move the chord an 8th later * DONE
+
 PROPHETS OF WAR * DONE
 
 -----
