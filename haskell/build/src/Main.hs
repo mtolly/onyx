@@ -1574,12 +1574,12 @@ main = do
                   }
               phony setup $ need $ concat
                 -- Just make all the Magma prereqs, but don't actually run Magma
-                [ guard (_hasDrums   $ _instruments songYaml) >> [drums        ]
-                , guard (_hasBass    $ _instruments songYaml) >> [bass         ]
-                , guard (_hasGuitar  $ _instruments songYaml) >> [guitar       ]
-                , guard (hasAnyKeys  $ _instruments songYaml) >> [keys         ]
-                , guard (hasAnyVocal $ _instruments songYaml) >> [vocal, dryvox]
-                , [song, cover, mid, proj, c3]
+                [ guard (_hasDrums   $ _instruments songYaml) >> [drums, kick, snare]
+                , guard (_hasBass    $ _instruments songYaml) >> [bass              ]
+                , guard (_hasGuitar  $ _instruments songYaml) >> [guitar            ]
+                , guard (hasAnyKeys  $ _instruments songYaml) >> [keys              ]
+                , guard (hasAnyVocal $ _instruments songYaml) >> [vocal, dryvox     ]
+                , [song, crowd, cover, mid, proj, c3]
                 ]
               rba %> \out -> do
                 need [setup]
