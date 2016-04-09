@@ -151,8 +151,8 @@ importFoF src dest = do
       , _hasBass    = elem "PART BASS" trackNames && FoF.diffBass song /= Just (-1)
       , _hasKeys    = elem "PART KEYS" trackNames && FoF.diffKeys song /= Just (-1)
       , _hasProKeys = elem "PART REAL_KEYS_X" trackNames && FoF.diffKeysReal song /= Just (-1)
-      , _hasVocal   = if elem "PART VOCALS" trackNames && FoF.diffVocals song == Just (-1)
-        then if elem "HARM2" trackNames && FoF.diffVocalsHarm song == Just (-1)
+      , _hasVocal   = if elem "PART VOCALS" trackNames && FoF.diffVocals song /= Just (-1)
+        then if elem "HARM2" trackNames && FoF.diffVocalsHarm song /= Just (-1)
           then if elem "HARM3" trackNames
             then Vocal3
             else Vocal2
