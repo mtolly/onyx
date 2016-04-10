@@ -1,4 +1,4 @@
-# In the Presence of Enemies, Pt\. 1
+# In the Presence of Enemies \(Part 1\)
 
 ## Dream Theater
 
