@@ -19,11 +19,12 @@ import DOM.RequestAnimationFrame
 import Data.Date
 import Data.Time
 import Data.Int (round, toNumber)
-import Data.Ord (min)
+import Data.Ord (min, max)
 import Control.Monad.Reader.Trans (runReaderT)
 import qualified Data.List as L
 import Control.Apply ((*>))
 import Control.MonadPlus (guard)
+import Math (abs)
 
 import Audio
 import Images
@@ -52,12 +53,31 @@ main = do
       Right song -> loadAudio $ \audio -> do
         let loop app = do
               ms <- nowEpochMilliseconds
-              let nowSeconds = min (case song of Song o -> o.end) $ case app of
+              -- This is what we think the time should be, it moves nice and smooth
+              let nowTheory = case app of
                     Paused o -> o.pausedSongTime
                     Playing o -> o.startedSongTime + toSeconds ms - o.startedPageTime
+              -- This is what Howler says the audio position really is,
+              -- it accounts for all sorts of audio hiccups but it's a bit choppy
+              nowHowler <- case app of
+                Paused o -> return o.pausedSongTime
+                Playing o -> getPosition audio
+              -- So, we slightly correct nowTheory towards nowHowler when needed
+              let isClose = abs (case nowHowler - nowTheory of Seconds n -> n) < 0.08
+                  nowSeconds = if isClose then nowTheory else
+                    nowTheory + if nowTheory < nowHowler
+                      then min (Seconds 0.01) $ nowHowler - nowTheory
+                      else max (Seconds (-0.01)) $ nowHowler - nowTheory
+                  app' = if isClose then app else case app of
+                    Paused o -> Paused o -- this should never happen
+                    Playing o -> Playing
+                      { startedPageTime: toSeconds ms
+                      , startedSongTime: nowSeconds
+                      , settings: o.settings
+                      }
               runReaderT draw
                 { time: nowSeconds
-                , app: app
+                , app: app'
                 , song: song
                 , getImage: imageGetter
                 , canvas: canvas
@@ -136,7 +156,7 @@ main = do
                     { pausedSongTime: nowSeconds
                     , settings: o.settings
                     }
-                _ -> handle evts app
+                _ -> handle evts app'
         loop $ Paused
           { pausedSongTime: Seconds 0.0
           , settings:

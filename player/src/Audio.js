@@ -22,6 +22,10 @@ function AudioHandle(audio){
       cb();
     }
   };
+
+  self.getPosition = function(){
+    return self.audio.seek();
+  };
 }
 
 exports.loadAudio = function(cb){
@@ -51,5 +55,11 @@ exports.playFrom = function(audio){
 exports.stop = function(audio){
   return function(){
     audio.stop();
+  };
+};
+
+exports.getPosition = function(audio){
+  return function(){
+    return audio.getPosition();
   };
 };
