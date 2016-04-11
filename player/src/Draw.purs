@@ -1,4 +1,4 @@
-module Draw (Settings(), App(..), DrawStuff(), draw, _M, _B) where
+module Draw (Settings(), App(..), DrawStuff(), draw, _M, _B, getWindowDims) where
 
 import Prelude
 import qualified Graphics.Canvas as C
@@ -6,7 +6,6 @@ import Data.Time
 import Images
 import Control.Monad.Reader.Trans
 import Control.Monad.Eff
-import Data.DOM.Simple.Window
 import Data.Int (toNumber, round)
 import DOM
 import qualified OnyxMap as Map
@@ -24,6 +23,8 @@ import qualified Data.String.Regex as R
 import Math (pi)
 
 import Song
+
+foreign import getWindowDims :: forall e. Eff (dom :: DOM | e) {w :: Number, h :: Number}
 
 type Settings =
   { seeGuitar  :: Boolean
@@ -92,8 +93,7 @@ measureText str = map _.context ask >>= \ctx -> lift $ C.measureText ctx str
 draw :: forall e. Draw (dom :: DOM | e) Unit
 draw = do
   stuff <- ask
-  windowW <- lift $ innerWidth  globalWindow
-  windowH <- lift $ innerHeight globalWindow
+  {w: windowW, h: windowH} <- lift getWindowDims
   lift $ C.setCanvasWidth  windowW stuff.canvas
   lift $ C.setCanvasHeight windowH stuff.canvas
   setFillStyle "rgb(54,59,123)"

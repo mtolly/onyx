@@ -6,15 +6,12 @@ import Data.Maybe.Unsafe
 import Control.Monad.Eff
 import qualified Graphics.Canvas as C
 import DOM
-import Data.DOM.Simple.Window
 import Control.Monad.Eff.Console
 import Data.Foreign
 import Data.Foreign.Class
 import Data.Either
 import Control.Monad.Eff.Ref
 import Data.Array
-import Data.DOM.Simple.Types (DOMEvent())
-import Data.DOM.Simple.Events (addMouseEventListener, MouseEventType(..), clientX, clientY)
 import DOM.RequestAnimationFrame
 import Data.Date
 import Data.Time
@@ -33,6 +30,11 @@ import Song
 
 foreign import onyxSong :: Foreign
 
+foreign import onPoint
+  :: forall e
+  .  ({x :: Int, y :: Int} -> Eff (dom :: DOM | e) Unit)
+  -> Eff (dom :: DOM | e) Unit
+
 main :: Eff
   ( canvas  :: C.Canvas
   , dom     :: DOM
@@ -45,8 +47,7 @@ main = do
   canvas <- fromJust <$> C.getCanvasElementById "the-canvas"
   ctx <- C.getContext2D canvas
   clicks <- newRef []
-  let click e = modifyRef clicks ((e :: DOMEvent) :)
-  addMouseEventListener MouseClickEvent click globalWindow
+  onPoint $ \e -> modifyRef clicks (e :)
   withImages $ \imageGetter -> do
     case read onyxSong of
       Left  e    -> log $ show e
@@ -87,13 +88,12 @@ main = do
                 , pxToSecsHoriz: \px -> Seconds $ toNumber (px - 225) * 0.003
                 , secsToPxHoriz: \(Seconds secs) -> round (secs / 0.003) + 225
                 }
-              windowH <- round <$> innerHeight globalWindow
+              {h: windowH'} <- getWindowDims
+              let windowH = round windowH'
               evts <- modifyRef' clicks $ \evts -> {state: [], value: evts}
               let handle es app_ = case uncons es of
                     Nothing -> requestAnimationFrame $ loop app_
-                    Just {head: e, tail: et} -> do
-                      x <- clientX e
-                      y <- clientY e
+                    Just {head: {x: x, y: y}, tail: et} -> do
                       if _M <= x && x <= _M + _B
                         then if windowH - _M - _B <= y && y <= windowH - _M
                           then case app_ of -- play/pause button
