@@ -1,0 +1,51 @@
+metadata:
+  title: "In the Presence of Enemies"
+  file-include: ../../../albums/systematic-chaos.yml
+  track-number: 9
+  key: D
+  difficulty:
+    drums: 7
+    vocal: 5
+    guitar: 7
+    band: 7
+    keys: 7
+    pro-keys: 7
+    bass: 6
+  author: "Onyxite, mazegeek999, Meander"
+  comments:
+  - "The two parts, glued together. See individual part READMEs for comments."
+  rating: Supervision Recommended
+audio:
+  pt1-song:
+    md5: 943dace9e6a460d2cab6d916f7b38dec
+    frames: 23695459
+  pt1-drums:
+    md5: 5fa7b0d6042023ec982d8657cf84e47a
+    frames: 23321844
+  pt2-song:
+    md5: ca059101356897e0c952636cf8ba822c
+    frames: 43915414
+  pt2-drums:
+    md5: 31bc113e191b38a50e3ade0696f14472
+    frames: 43915388
+plans:
+  drumcam:
+    comments:
+    - "References the audio files built for parts 1 and 2."
+    drums:
+      mix:
+      - pt1-drums
+      - pad: ['8:56.950', pt2-drums]
+    song:
+      mix:
+      - pt1-song
+      - pad:
+        - '8:56.950'
+        - fade: [start, 2, pt2-song]
+instruments:
+  drums: true
+  vocal: 3
+  guitar: true
+  bass: true
+  keys: true
+  pro-keys: true

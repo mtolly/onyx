@@ -43,7 +43,7 @@ audio:
       - end
       - 0.03
       - take:
-        - '12:50.531'
+        - '12:50.466'
         - drop: ['47:31.200', drumcam-drums]
 plans:
   album:
