@@ -12,6 +12,7 @@ Instruments:
   * Guitar ⚪️⚪️⚪️⚪️⚫️
   * Keys ⚪️⚪️⚪️⚫️⚫️
   * Pro Keys ⚪️⚪️⚪️⚪️⚫️
+  * Vocals (3) ⚪️⚪️⚪️⚪️⚫️
 
 Supported audio:
 
@@ -24,4 +25,6 @@ Supported audio:
 Notes:
 
   * Chart confidence: *high*. Transcribed from the PledgeMusic stems.
+
+  * All instruments have overdrive/unison.
 

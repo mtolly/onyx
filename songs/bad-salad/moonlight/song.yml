@@ -8,9 +8,12 @@ metadata:
     guitar: 5
     pro-keys: 5
     keys: 4
+    vocal: 5
   author: Onyxite
   comments:
   - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
+  - "All instruments have overdrive/unison."
+  autogen-theme: Slow Jam
 audio:
   album-track:
     md5: ea5b989528502700eafc8c246dca4f5c
@@ -58,7 +61,7 @@ plans:
       trim:
         - 0.326
         - gain: [0.6, pledgemusic-keyboards]
-    song:
+    vocal:
       trim:
         - 0.326
         - gain: [0.6, pledgemusic-vocals]
@@ -68,3 +71,4 @@ instruments:
   guitar: true
   pro-keys: true
   keys: true
+  vocal: 3
