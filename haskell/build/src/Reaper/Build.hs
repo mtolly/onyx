@@ -115,7 +115,9 @@ track len resn trk = let
         encoded = 0x1000000 + 0x10000 * b + 0x100 * g + r
         in line "PEAKCOL" [show encoded]
     line "TRACKHEIGHT" ["0", "0"]
-    let isPitched = elem name ["PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART VOCALS", "HARM1", "HARM2", "HARM3"]
+    let isProKeys = elem name ["PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X"]
+        isVox = elem name ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
+        isPitched = isProKeys || isVox
     when isPitched $ line "FX" ["0"]
     case lookup name
       [ ("PART DRUMS", drumNoteNames)
@@ -143,8 +145,10 @@ track len resn trk = let
         line "DOCKED" ["0"]
         line "BYPASS" ["0", "0", "0"]
         block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
-          line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA4AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
-          line "AACAPwAAEAAAAA==" []
+          line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
+          if isProKeys
+            then line "AACAPwAAgD8AABAAAAA=" [] -- pro keys: tuned up one octave
+            else line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
         line "FLOATPOS" ["0", "0", "0", "0"]
         line "WAK" ["0"]
       else return () -- not sure why, but you still need empty FXCHAIN so note names work
