@@ -5,6 +5,13 @@ metadata:
   author: Onyxite
   comments:
   - "Guitar is the cello part."
+  - "All instruments have overdrive/unison."
+  difficulty:
+    vocal: 2
+    bass: 1
+    guitar: 1
+    pro-keys: 4
+    keys: 3
 audio:
   album-track:
     md5: 9211f41070f889aaa468008349f5efdf
@@ -18,3 +25,4 @@ instruments:
   guitar: true
   vocal: 1
   pro-keys: true
+  keys: true

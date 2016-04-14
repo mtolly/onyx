@@ -7,10 +7,11 @@
 
 Instruments:
 
-  * Bass
-  * Guitar
-  * Pro Keys
-  * Vocals (1)
+  * Bass ⚫️⚫️⚫️⚫️⚫️
+  * Guitar ⚫️⚫️⚫️⚫️⚫️
+  * Keys ⚪️⚪️⚫️⚫️⚫️
+  * Pro Keys ⚪️⚪️⚪️⚫️⚫️
+  * Vocals (1) ⚪️⚫️⚫️⚫️⚫️
 
 Supported audio:
 
@@ -19,4 +20,6 @@ Supported audio:
 Notes:
 
   * Guitar is the cello part.
+
+  * All instruments have overdrive/unison.
 
