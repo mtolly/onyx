@@ -15,3 +15,7 @@ Supported audio:
 
   * `album` (Pimp of the Year)
 
+Notes:
+
+  * All instruments have overdrive/unison.
+
