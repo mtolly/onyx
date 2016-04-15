@@ -1663,6 +1663,8 @@ main = do
       shakeBuild ["gen/plan/mogg/2p/rb3.con"] $ Just $ dir </> "song.yml"
       Dir.copyFile (dir </> "gen/plan/mogg/2p/rb3.con") con
     "convert" : _ -> error "Usage: onyx convert in.rba out_rb3con"
+    ["reduce", fin, fout] -> simpleReduce fin fout
+    "reduce" : _ -> error "Usage: onyx reduce in.mid out.mid"
     [file] -> withSystemTempDirectory "onyx_preview" $ \dir -> do
       let out = dropSlash file ++ "_preview"
           dropSlash = reverse . dropWhile (`elem` "/\\") . reverse

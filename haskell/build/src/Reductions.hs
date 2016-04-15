@@ -1,6 +1,7 @@
-module Reductions (gryboComplete, pkReduce, drumsComplete) where
+module Reductions (gryboComplete, pkReduce, drumsComplete, simpleReduce) where
 
 import           Control.Monad                    (guard)
+import           Control.Monad.Trans.StackTrace   (printStackTraceIO)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     (($>))
@@ -12,8 +13,13 @@ import           Numeric.NonNegative.Class        ((-|))
 import           ProKeysRanges                    (completeRanges)
 import           RockBand.Common                  (Difficulty (..), Key (..))
 import qualified RockBand.Drums                   as Drums
+import qualified RockBand.Events                  as Events
+import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as PK
+import qualified Sound.MIDI.File                  as F
+import qualified Sound.MIDI.File.Load             as Load
+import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 
 -- | Fills out a GRYBO chart by generating difficulties if needed.
@@ -504,3 +510,48 @@ drumsReduce diff   mmap _od sections trk = let
       in foldr f keptAll sectionBounds
   -- TODO: use "od" to make sure every OD phrase at least one note, add one back in if necessary
   in RTB.flatten $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ Map.toAscList sectioned
+
+simpleReduce :: FilePath -> FilePath -> IO ()
+simpleReduce fin fout = do
+  mid@(F.Cons typ dvn trks) <- Load.fromFile fin
+  res <- case dvn of
+    F.Ticks res -> return res
+    _           -> error "unsupported smpte time"
+  song <- printStackTraceIO $ RBFile.readMIDIFile mid
+  let mid' = F.Cons typ dvn trks'
+      trks' = concatMap reduce trks ++ proKeys
+      findTrack ftrk = foldr RTB.merge RTB.empty $ mapMaybe ftrk $ RBFile.s_tracks song
+      findPK diff = findTrack $ \case RBFile.PartRealKeys d t | d == diff -> Just t; _ -> Nothing
+      diff `pkOr` x = let trk = findPK diff in if RTB.null trk then x else trk
+      ticks = RTB.discretize . RTB.mapTime (* fromIntegral res)
+      sections = let
+        evts = findTrack $ \case RBFile.Events t -> Just t; _ -> Nothing
+        getSection = \case Events.PracticeSection s -> Just s; _ -> Nothing
+        in RTB.mapMaybe getSection evts
+      reduce trk = case U.trackName trk of
+        Nothing -> [trk]
+        Just n -> case n of
+          "PART GUITAR" -> [ticks $ RBFile.showTrack $ RBFile.PartGuitar $ gryboComplete (Just 170) (RBFile.s_signatures song) $ findTrack $ \case RBFile.PartGuitar t -> Just t; _ -> Nothing]
+          "PART BASS" -> [ticks $ RBFile.showTrack $ RBFile.PartBass $ gryboComplete (Just 170) (RBFile.s_signatures song) $ findTrack $ \case RBFile.PartBass t -> Just t; _ -> Nothing]
+          "PART KEYS" -> [ticks $ RBFile.showTrack $ RBFile.PartKeys $ gryboComplete Nothing (RBFile.s_signatures song) $ findTrack $ \case RBFile.PartKeys t -> Just t; _ -> Nothing]
+          "PART DRUMS" -> [ticks $ RBFile.showTrack $ RBFile.PartDrums $ drumsComplete (RBFile.s_signatures song) sections $ findTrack $ \case RBFile.PartDrums t -> Just t; _ -> Nothing]
+          "PART REAL_KEYS_X" -> []
+          "PART REAL_KEYS_H" -> []
+          "PART REAL_KEYS_M" -> []
+          "PART REAL_KEYS_E" -> []
+          _ -> [trk]
+      proKeys = if RTB.null $ findPK Expert
+        then []
+        else let
+          expert = findPK Expert
+          od = flip RTB.mapMaybe expert $ \case PK.Overdrive b -> Just b; _ -> Nothing
+          hard   = Hard   `pkOr` pkReduce Hard   (RBFile.s_signatures song) od expert
+          medium = Medium `pkOr` pkReduce Medium (RBFile.s_signatures song) od hard
+          easy   = Easy   `pkOr` pkReduce Easy   (RBFile.s_signatures song) od medium
+          in map (ticks . RBFile.showTrack)
+              [ RBFile.PartRealKeys Expert expert
+              , RBFile.PartRealKeys Hard hard
+              , RBFile.PartRealKeys Medium medium
+              , RBFile.PartRealKeys Easy easy
+              ]
+  Save.toFile fout mid'
