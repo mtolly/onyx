@@ -5,6 +5,9 @@ metadata:
   author: Onyxite
   comments:
   - "Audio is a Youtube download (run `audio.sh`)."
+  - "Drums confidence: *medium*. Drums are mixed a bit low, and several sections mix acoustic and electronic drums."
+  difficulty:
+    drums: 6
 audio:
   youtube:
     md5: fd5279ff95aebdd3dac5f43de6736420
@@ -15,4 +18,3 @@ plans:
       pad: [3, youtube]
 instruments:
   drums: true
-published: false
