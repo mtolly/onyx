@@ -289,3 +289,18 @@ hasSolo Vocal song = not $ null
     Harm1 t <- s_tracks song
     Vocals.Percussion <- RTB.getBodies t
     return ()
+
+-- | Gives any note with no lyric a note name lyric.
+windLyrics :: (NNC.C t) => RTB.T t Vocals.Event -> RTB.T t Vocals.Event
+windLyrics = RTB.flatten . fmap f . RTB.collectCoincident where
+  f evts = let
+    ps = [ p | Vocals.Note p True <- evts ]
+    lyrics = [ t | Vocals.Lyric t <- evts ]
+    notlyrics = flip filter evts $ \case Vocals.Lyric _ -> False; _ -> True
+    in case (ps, lyrics) of
+      ([p], [   ]) -> Vocals.Lyric (noteName p       ) : evts
+      ([p], ["$"]) -> Vocals.Lyric (noteName p ++ "$") : notlyrics
+      _            -> evts
+
+noteName :: Vocals.Pitch -> String
+noteName = concatMap (\case 's' -> "# "; c -> [c]) . show . Vocals.pitchToKey

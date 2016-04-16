@@ -35,6 +35,14 @@ data Pitch
   | Octave84C
   deriving (Eq, Ord, Show, Read)
 
+pitchToKey :: Pitch -> Key
+pitchToKey = \case
+  Octave36 k -> k
+  Octave48 k -> k
+  Octave60 k -> k
+  Octave72 k -> k
+  Octave84C  -> C
+
 instance Enum Pitch where
   fromEnum (Octave36 k) = fromEnum k
   fromEnum (Octave48 k) = fromEnum k + 12

@@ -876,10 +876,10 @@ main = do
                     , RBFile.Harm3 harm3
                     ]
                   where partVox = mergeTracks [ t | RBFile.PartVocals t <- trks ]
-                        partVox' = if RTB.null partVox then harm1ToPartVocals harm1 else partVox
-                        harm1   = mergeTracks [ t | RBFile.Harm1      t <- trks ]
-                        harm2   = mergeTracks [ t | RBFile.Harm2      t <- trks ]
-                        harm3   = mergeTracks [ t | RBFile.Harm3      t <- trks ]
+                        partVox' = windLyrics $ if RTB.null partVox then harm1ToPartVocals harm1 else partVox
+                        harm1   = windLyrics $ mergeTracks [ t | RBFile.Harm1      t <- trks ]
+                        harm2   = windLyrics $ mergeTracks [ t | RBFile.Harm2      t <- trks ]
+                        harm3   = windLyrics $ mergeTracks [ t | RBFile.Harm3      t <- trks ]
             forM_ [(midPS, drumsPS), (mid1p, drums1p), (mid2p, drums2p)] $ \(midout, drumsTracks) ->
               saveMIDI midout RBFile.Song
                 { RBFile.s_tempos = tempos
