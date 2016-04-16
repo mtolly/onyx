@@ -77,5 +77,5 @@ executable onyx
   default-extensions:
     LambdaCase
     TupleSections
-  ghc-options:          -Wall -threaded
+  ghc-options:          -Wall -threaded -O2
   build-tools: c2hs >= 0.27.1
