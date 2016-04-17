@@ -8,6 +8,7 @@ metadata:
     drums: 6
     guitar: 5
     pro-keys: 7
+    bass: 5
   author: Onyxite
   comments:
   - "Chart confidence: *medium-high*."
@@ -25,3 +26,4 @@ instruments:
   drums: true
   guitar: true
   pro-keys: true
+  bass: true
