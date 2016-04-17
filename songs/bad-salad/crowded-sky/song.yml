@@ -5,6 +5,7 @@ metadata:
   difficulty:
     drums: 7
     guitar: 6
+    pro-keys: 7
   author: Onyxite
   comments:
   - "Chart confidence: *medium-high*. Mixing is a bit muddy."
@@ -18,3 +19,4 @@ plans:
 instruments:
   drums: true
   guitar: true
+  pro-keys: true

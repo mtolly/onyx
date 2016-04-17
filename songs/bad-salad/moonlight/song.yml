@@ -48,23 +48,23 @@ plans:
     drums:
       trim:
         - 0.326
-        - gain: [0.6, pledgemusic-drums]
+        - gain: [0.8, pledgemusic-drums]
     bass:
       trim:
         - 0.326
-        - gain: [0.6, pledgemusic-bass]
+        - gain: [0.8, pledgemusic-bass]
     guitar:
       trim:
         - 0.326
-        - gain: [0.6, pledgemusic-guitars]
+        - gain: [0.8, pledgemusic-guitars]
     keys:
       trim:
         - 0.326
-        - gain: [0.6, pledgemusic-keyboards]
+        - gain: [0.8, pledgemusic-keyboards]
     vocal:
       trim:
         - 0.326
-        - gain: [0.6, pledgemusic-vocals]
+        - gain: [0.8, pledgemusic-vocals]
 instruments:
   drums: true
   bass: true
