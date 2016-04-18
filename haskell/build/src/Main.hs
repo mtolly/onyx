@@ -52,10 +52,12 @@ import           Data.Fixed                       (Milli)
 import           Data.Foldable                    (toList)
 import           Data.Functor.Identity            (runIdentity)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (isPrefixOf, nub, sortOn)
+import           Data.List                        (intercalate, isPrefixOf, nub,
+                                                   sortOn)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing,
                                                    listToMaybe, mapMaybe)
+import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import           Development.Shake                hiding (phony, (%>), (&%>))
 import qualified Development.Shake                as Shake
@@ -1302,6 +1304,7 @@ main = do
               unless (all RTB.null [kickSwells, badDiscos, voxBugs, harm1Bugs, harm2Bugs]) $
                 fail "At least 1 problem was found in the MIDI."
 
+            -- Warn about notes that might hang off before a pro keys range shift
             phony (pedalDir ++ "/ranges") $ do
               song <- loadMIDI $ pedalDir </> "notes.mid"
               forM_ (RBFile.s_tracks song) $ \case
@@ -1320,6 +1323,28 @@ main = do
                       , show rng1
                       ]
                 _ -> return ()
+
+            -- Print out a summary of (non-vocal) overdrive and unison phrases
+            phony (pedalDir ++ "/overdrive") $ do
+              song <- loadMIDI $ pedalDir </> "notes.mid"
+              let trackTimes = Set.fromList . ATB.getTimes . RTB.toAbsoluteEventList 0
+                  getTrack f = foldr RTB.merge RTB.empty $ mapMaybe f $ RBFile.s_tracks song
+                  fiveOverdrive t = trackTimes $ RTB.filter (== RBFive.Overdrive True) t
+                  drumOverdrive t = trackTimes $ RTB.filter (== RBDrums.Overdrive True) t
+                  gtr = fiveOverdrive $ getTrack $ \case RBFile.PartGuitar t -> Just t; _ -> Nothing
+                  bass = fiveOverdrive $ getTrack $ \case RBFile.PartBass t -> Just t; _ -> Nothing
+                  keys = fiveOverdrive $ getTrack $ \case RBFile.PartKeys t -> Just t; _ -> Nothing
+                  drums = drumOverdrive $ getTrack $ \case RBFile.PartDrums t -> Just t; _ -> Nothing
+              forM_ (Set.toAscList $ Set.unions [gtr, bass, keys, drums]) $ \t -> let
+                insts = intercalate "," $ concat
+                  [ ["guitar" | Set.member t gtr]
+                  , ["bass" | Set.member t bass]
+                  , ["keys" | Set.member t keys]
+                  , ["drums" | Set.member t drums]
+                  ]
+                posn = RBFile.showPosition $ U.applyMeasureMap (RBFile.s_signatures song) t
+                in putNormal $ posn ++ ": " ++ insts
+              return ()
 
             -- Rock Band 3 CON package
             let pathDta  = pedalDir </> "rb3/songs/songs.dta"

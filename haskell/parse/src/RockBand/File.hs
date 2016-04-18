@@ -175,9 +175,9 @@ parseTrack mmap t = case U.trackName t of
     "VENUE"               -> liftM Venue                   $ makeTrackParser parseOne mmap t
     _ -> fatal "Unrecognized track name"
 
+-- | midiscript format, where both measure and beats start from zero
 showPosition :: U.MeasureBeats -> String
-showPosition (m, b) =
-  "measure " ++ show (m + 1) ++ ", beat " ++ show (realToFrac b + 1 :: Double)
+showPosition (m, b) = show m ++ "|" ++ show (realToFrac b :: Double)
 
 playGuitarFile :: (NNC.C t) => [Int] -> [Int] -> Song t -> Song t
 playGuitarFile goffs boffs s =
