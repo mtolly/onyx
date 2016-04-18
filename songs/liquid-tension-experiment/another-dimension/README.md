@@ -10,6 +10,7 @@ Instruments:
   * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
   * Bass ⚪️⚪️⚪️⚪️⚫️
   * Guitar ⚪️⚪️⚪️⚪️⚫️
+  * Keys 😈😈😈😈😈
   * Pro Keys 😈😈😈😈😈
 
 Supported audio:
@@ -19,4 +20,6 @@ Supported audio:
 Notes:
 
   * Chart confidence: *medium-high*.
+
+  * All instruments have overdrive/unison.
 

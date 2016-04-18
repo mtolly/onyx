@@ -7,11 +7,13 @@ metadata:
   difficulty:
     drums: 6
     guitar: 5
+    keys: 7
     pro-keys: 7
     bass: 5
   author: Onyxite
   comments:
   - "Chart confidence: *medium-high*."
+  - "All instruments have overdrive/unison."
 audio:
   album-track:
     md5: 979287af96bd996ae64e35728a77590f
@@ -25,5 +27,6 @@ plans:
 instruments:
   drums: true
   guitar: true
+  keys: true
   pro-keys: true
   bass: true
