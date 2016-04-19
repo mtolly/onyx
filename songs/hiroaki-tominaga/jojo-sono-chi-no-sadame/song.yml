@@ -3,6 +3,11 @@ metadata:
   file-include: ../../../albums/jojo-sono-chi-no-sadame.yml
   track-number: 1
   author: Onyxite
+  auto-2x-bass: false
+  difficulty:
+    drums: 3
+  comments:
+  - "Kick drum is hard to make out because of synth kick-like sounds (not charted) layered on top of the real drums."
 audio:
   album-track:
     md5: 48787c042b0cb542ca3f414ae44ae990
@@ -13,4 +18,3 @@ plans:
       pad: [2.640, album-track]
 instruments:
   drums: true
-published: false
