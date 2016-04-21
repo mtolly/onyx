@@ -1,0 +1,25 @@
+metadata:
+  title: The Tempest (The Siren's Song; The Banshee's Cry)
+  artist: The Agonist
+  album: Lullabies for the Dormant Mind
+  author: dertanz (TheCourtofaPorcupine)
+  vocal-gender: female
+  drum-kit: Hard Rock Kit
+  file-album-art: cover.bmp
+  track-number: 1
+  year: 2011
+  genre: metal
+  subgenre: death
+  difficulty:
+    drums: 7
+  file-countin: ../../../sound/hihat-foot.wav
+instruments:
+  drums: true
+audio:
+  album-track:
+    md5: bfacc282cb6b9c92edb8561c16a10cb5
+    frames: 12629652
+plans:
+  album:
+    song:
+      pad: [3.587, album-track]
