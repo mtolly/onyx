@@ -1,0 +1,9 @@
+album: Live in LA
+artist: Liquid Tension Experiment
+year: 2009 # actual concert was in 2008
+genre: metal
+subgenre: prog
+file-album-art: ../covers/lte-live-in-la.jpg
+file-countin: ../sound/hihat-foot.wav
+vocal-gender: male
+autogen-theme: Psych Jam Rock

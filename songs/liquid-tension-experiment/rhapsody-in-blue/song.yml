@@ -1,0 +1,31 @@
+metadata:
+  title: Rhapsody in Blue (Live)
+  file-include: ../../../albums/lte-live-in-la.yml
+  track-number: 13 # first disc has 10 tracks, this is track 3 on disc 2
+  rating: Family Friendly
+  author: Onyxite
+  difficulty:
+    drums: 4
+audio:
+  album-improv-jam-2:
+    # TODO md5
+    frames: 34551468
+  album-track:
+    # TODO md5
+    frames: 35910336
+plans:
+  album:
+    song:
+      fade:
+      - end
+      - 3.9
+      - take:
+        - '13:36.987'
+        - fade:
+          - start
+          - 5.320
+          - drop:
+            - '12:43.463'
+            - concatenate: [album-improv-jam-2, album-track]
+instruments:
+  drums: true
