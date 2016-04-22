@@ -5,10 +5,13 @@ metadata:
   difficulty:
     drums: 7
     guitar: 6
+    bass: 5
     pro-keys: 7
+    keys: 7
   author: Onyxite
   comments:
-  - "Chart confidence: *medium-high*. Mixing is a bit muddy."
+  - "Chart confidence: *medium-high*. Mixing is a bit muddy. Bass was a lot of guessing."
+  - "All instruments have overdrive/unison."
 audio:
   album-track:
     md5: 549b025c2388557ebcc6faf625174da8
@@ -19,4 +22,6 @@ plans:
 instruments:
   drums: true
   guitar: true
+  bass: true
   pro-keys: true
+  keys: true
