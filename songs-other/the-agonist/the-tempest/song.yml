@@ -2,7 +2,7 @@ metadata:
   title: The Tempest (The Siren's Song; The Banshee's Cry)
   artist: The Agonist
   album: Lullabies for the Dormant Mind
-  author: dertanz (TheCourtofaPorcupine)
+  author: dertanz (TheCourtofaPorcupine), girldrummer
   vocal-gender: female
   drum-kit: Hard Rock Kit
   file-album-art: cover.bmp
@@ -12,9 +12,15 @@ metadata:
   subgenre: death
   difficulty:
     drums: 7
+    guitar: 5
+    bass: 5
   file-countin: ../../../sound/hihat-foot.wav
+  comments:
+  - "Drums by TheCourtofaPorcupine, guitar and bass by girldrummer."
 instruments:
   drums: true
+  guitar: true
+  bass: true
 audio:
   album-track:
     md5: bfacc282cb6b9c92edb8561c16a10cb5
