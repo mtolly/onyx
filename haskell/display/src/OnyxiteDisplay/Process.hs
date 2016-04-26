@@ -9,6 +9,7 @@ import qualified Data.Aeson.Types                 as A
 import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Fixed                       (Milli)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (stripPrefix)
 import qualified Data.Map.Strict                  as Map
@@ -277,6 +278,20 @@ instance TimeFunctor Vocal where
 stripSuffix :: (Eq a) => [a] -> [a] -> Maybe [a]
 stripSuffix sfx str = fmap reverse $ stripPrefix (reverse sfx) (reverse str)
 
+rtbMapMaybeWithAbsoluteTime :: (Num t) => (t -> a -> Maybe b) -> RTB.T t a -> RTB.T t b
+rtbMapMaybeWithAbsoluteTime f = RTB.fromAbsoluteEventList . ATB.foldrPair g ATB.empty . RTB.toAbsoluteEventList 0 where
+  g absTime body = case f absTime body of
+    Nothing    -> id
+    Just body' -> ATB.cons absTime body'
+
+showTimestamp :: U.Seconds -> String
+showTimestamp secs = let
+  minutes = floor $ secs / 60 :: Int
+  seconds = secs - realToFrac minutes * 60
+  milli = realToFrac seconds :: Milli
+  pad = if milli < 10 then "0" else ""
+  in show minutes ++ ":" ++ pad ++ show milli
+
 processVocal
   :: U.TempoMap
   -> RTB.T U.Beats Vox.Event
@@ -293,7 +308,7 @@ processVocal tmap h1 h2 h3 tonic = let
     Vox.Phrase2 False -> Just ()
     _                 -> Nothing
   pitchToInt p = fromEnum p + 36
-  makeVoxPart trk = trackToMap tmap $ flip RTB.mapMaybe (RTB.collectCoincident trk) $ \evts -> let
+  makeVoxPart trk = trackToMap tmap $ flip rtbMapMaybeWithAbsoluteTime (RTB.collectCoincident trk) $ \bts evts -> let
     lyric = listToMaybe [ s | Vox.Lyric s <- evts ]
     note = listToMaybe [ p | Vox.Note p True <- evts ]
     end = listToMaybe [ () | Vox.Note _ False <- evts ]
@@ -307,7 +322,8 @@ processVocal tmap h1 h2 h3 tonic = let
         Just l' -> VocalStart l' Nothing                -- talky
       (Nothing, Nothing, Just ()) -> Just VocalEnd
       (Nothing, Nothing, Nothing) -> Nothing
-      lne -> error $ "processVocal: invalid set of vocal events! " ++ show lne
+      lne -> error $
+        "processVocal: invalid set of vocal events at " ++ showTimestamp (U.applyTempoMap tmap bts) ++ "! " ++ show lne
   harm1 = makeVoxPart h1
   harm2 = makeVoxPart h2
   harm3 = makeVoxPart h3
