@@ -8,6 +8,7 @@ metadata:
     bass: 5
     pro-keys: 7
     keys: 7
+    vocal: 6
   author: Onyxite
   comments:
   - "Chart confidence: *medium-high*. Mixing is a bit muddy. Bass was a lot of guessing."
@@ -25,3 +26,4 @@ instruments:
   bass: true
   pro-keys: true
   keys: true
+  vocal: 3
