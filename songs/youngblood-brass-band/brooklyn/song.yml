@@ -6,16 +6,21 @@ metadata:
   rating: Family Friendly
   difficulty:
     drums: 5
+    bass: 6
+    guitar: 4
+    pro-keys: 4
   auto-2x-bass: false
   author: Onyxite
   comments:
   - >-
-    Chart confidence: *medium-high*.
-  - >-
-    This song is performed by 2 or 3 percussionists,
+    The drums are performed by 2 or 3 percussionists,
     so I did my best to arrange it into a playable drumkit part.
     Ghost notes are everywhere and they are often difficult to make out in the mix,
     so there may be some small errors but nothing major.
+  - >-
+    Bass is tuba, keys is trombone plus backing chords, guitar is sax plus backing chords.
+  - >-
+    All instruments have overdrive/unison.
 audio:
   album-track:
     md5: 410b38285daa0447d0c1cec8f5fbac1f
@@ -26,3 +31,6 @@ plans:
       pad: [4.739, album-track]
 instruments:
   drums: true
+  bass: true
+  pro-keys: true
+  guitar: true
