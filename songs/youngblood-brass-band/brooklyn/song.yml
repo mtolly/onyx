@@ -9,6 +9,7 @@ metadata:
     bass: 6
     guitar: 4
     pro-keys: 4
+    keys: 4
   auto-2x-bass: false
   author: Onyxite
   comments:
@@ -34,3 +35,4 @@ instruments:
   bass: true
   pro-keys: true
   guitar: true
+  keys: true
