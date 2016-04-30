@@ -2,7 +2,7 @@
 
 ## The Agonist
 
-Author: dertanz (TheCourtofaPorcupine), girldrummer
+Author: dertanz (TheCourtofaPorcupine), girldrummer, Onyxite
 
 [Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=the-tempest&artist=the-agonist)
 
@@ -11,6 +11,8 @@ Instruments:
   * (Pro) Drums 😈😈😈😈😈
   * Bass ⚪️⚪️⚪️⚪️⚫️
   * Guitar ⚪️⚪️⚪️⚪️⚫️
+  * Keys ⚫️⚫️⚫️⚫️⚫️
+  * Pro Keys ⚫️⚫️⚫️⚫️⚫️
 
 Supported audio:
 
