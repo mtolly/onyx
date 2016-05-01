@@ -4,6 +4,8 @@ metadata:
   track-number: 9
   difficulty:
     drums: 4
+    guitar: 3
+    bass: 4
   author: Onyxite
   comments:
   - >-
@@ -16,6 +18,8 @@ audio:
 plans:
   album:
     song:
-      pad: [2.969, album-track]
+      pad: [3.014, album-track]
 instruments:
   drums: true
+  guitar: true
+  bass: true

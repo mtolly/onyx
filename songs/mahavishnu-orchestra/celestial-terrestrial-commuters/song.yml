@@ -6,6 +6,7 @@ metadata:
     drums: 7
     guitar: 6
     pro-keys: 5
+    bass: 4
   author: Onyxite
   comments:
   - >-
@@ -28,3 +29,4 @@ instruments:
   drums: true
   guitar: true
   pro-keys: true
+  bass: true
