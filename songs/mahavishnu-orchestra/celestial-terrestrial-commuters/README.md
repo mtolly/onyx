@@ -8,6 +8,8 @@
 Instruments:
 
   * (Pro) Drums 😈😈😈😈😈
+  * Guitar ⚪️⚪️⚪️⚪️⚪️
+  * Pro Keys ⚪️⚪️⚪️⚪️⚫️
 
 Supported audio:
 
@@ -17,5 +19,5 @@ Supported audio:
 
 Notes:
 
-  * Chart confidence: *medium-high*. Written to Jammit stems, but the drum part is fairly ridiculous.
+  * Drums confidence: *medium-high*. Written to Jammit stems, but the drum part is fairly ridiculous.
 
