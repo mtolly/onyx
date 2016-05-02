@@ -63,6 +63,7 @@ import           Development.Shake                hiding (phony, (%>), (&%>))
 import qualified Development.Shake                as Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
+import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common                  (Difficulty (..))
 import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
@@ -385,67 +386,6 @@ main = do
                 flipPairs _ = []
                 b' = B.pack $ header ++ flipPairs bytes
             liftIO $ B.writeFile out b'
-
-        let makeReaper :: FilePath -> FilePath -> [FilePath] -> FilePath -> Action ()
-            makeReaper evts tempo audios out = do
-              need $ evts : tempo : audios
-              lenAudios <- flip mapMaybeM audios $ \aud -> do
-                info <- liftIO $ Snd.getFileInfo aud
-                return $ case Snd.frames info of
-                  0 -> Nothing
-                  f -> Just (fromIntegral f / fromIntegral (Snd.samplerate info), aud)
-              song <- loadMIDI evts
-              mid <- liftIO $ Load.fromFile evts
-              tempoSong <- loadMIDI tempo
-              tempoMid <- liftIO $ Load.fromFile tempo
-              let ends = map (U.applyTempoMap $ RBFile.s_tempos tempoSong) $ do
-                    RBFile.Events trk <- RBFile.s_tracks song
-                    (bts, Events.End) <- ATB.toPairList $ RTB.toAbsoluteEventList 0 trk
-                    return bts
-                  midiLen = 5 + case ends of
-                    [] -> case map fst lenAudios of
-                      len : lens -> foldr max len lens
-                      []         -> 0
-                    secs : _ -> secs
-                  writeTempoTrack = case tempoMid of
-                    F.Cons F.Parallel (F.Ticks resn) (tempoTrack : _) -> let
-                      t_ticks = RPP.processTempoTrack tempoTrack
-                      t_beats = RTB.mapTime (\tks -> fromIntegral tks / fromIntegral resn) t_ticks
-                      t_secs = U.applyTempoTrack (RBFile.s_tempos song) t_beats
-                      in RPP.tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
-                    _ -> error "Unsupported MIDI format for Reaper project generation"
-              liftIO $ writeRPP out $ runIdentity $
-                RPP.rpp "REAPER_PROJECT" ["0.1", "5.0/OSX64", "1449358215"] $ do
-                  RPP.line "VZOOMEX" ["0"]
-                  RPP.line "SAMPLERATE" ["44100", "0", "0"]
-                  case mid of
-                    F.Cons F.Parallel (F.Ticks resn) (_ : trks) -> do
-                      writeTempoTrack
-                      let trackOrder :: [(String, Int)]
-                          trackOrder = zip
-                            [ "PART DRUMS"
-                            , "PART BASS"
-                            , "PART GUITAR"
-                            , "PART VOCALS"
-                            , "HARM1"
-                            , "HARM2"
-                            , "HARM3"
-                            , "PART KEYS"
-                            , "PART REAL_KEYS_X"
-                            , "PART REAL_KEYS_H"
-                            , "PART REAL_KEYS_M"
-                            , "PART REAL_KEYS_E"
-                            , "PART KEYS_ANIM_RH"
-                            , "PART KEYS_ANIM_LH"
-                            , "EVENTS"
-                            , "VENUE"
-                            , "BEAT"
-                            , "countin"
-                            ] [0..]
-                      forM_ (sortOn (U.trackName >=> flip lookup trackOrder) trks) $ RPP.track midiLen resn
-                      forM_ lenAudios $ \(len, aud) -> do
-                        RPP.audio len $ makeRelative (takeDirectory out) aud
-                    _ -> error "Unsupported MIDI format for Reaper project generation"
 
         -- The Markdown README file, for GitHub purposes
         "README.md" %> \out -> liftIO $ writeFile out $ execWriter $ do
@@ -1225,6 +1165,33 @@ main = do
                   rb3pkg (T.unpack (_title $ _metadata songYaml) ++ " MOGG " ++ show i) "" tmp out
             _ -> return ()
 
+          -- Warn about notes that might hang off before a pro keys range shift
+          phony (dir ++ "/ranges") $ do
+            song <- loadMIDI $ dir </> "2p/notes.mid"
+            putNormal $ closeShiftsFile song
+
+          -- Print out a summary of (non-vocal) overdrive and unison phrases
+          phony (dir ++ "/overdrive") $ do
+            song <- loadMIDI $ dir </> "2p/notes.mid"
+            let trackTimes = Set.fromList . ATB.getTimes . RTB.toAbsoluteEventList 0
+                getTrack f = foldr RTB.merge RTB.empty $ mapMaybe f $ RBFile.s_tracks song
+                fiveOverdrive t = trackTimes $ RTB.filter (== RBFive.Overdrive True) t
+                drumOverdrive t = trackTimes $ RTB.filter (== RBDrums.Overdrive True) t
+                gtr = fiveOverdrive $ getTrack $ \case RBFile.PartGuitar t -> Just t; _ -> Nothing
+                bass = fiveOverdrive $ getTrack $ \case RBFile.PartBass t -> Just t; _ -> Nothing
+                keys = fiveOverdrive $ getTrack $ \case RBFile.PartKeys t -> Just t; _ -> Nothing
+                drums = drumOverdrive $ getTrack $ \case RBFile.PartDrums t -> Just t; _ -> Nothing
+            forM_ (Set.toAscList $ Set.unions [gtr, bass, keys, drums]) $ \t -> let
+              insts = intercalate "," $ concat
+                [ ["guitar" | Set.member t gtr]
+                , ["bass" | Set.member t bass]
+                , ["keys" | Set.member t keys]
+                , ["drums" | Set.member t drums]
+                ]
+              posn = RBFile.showPosition $ U.applyMeasureMap (RBFile.s_signatures song) t
+              in putNormal $ posn ++ ": " ++ insts
+            return ()
+
           let get1xTitle, get2xTitle :: Action String
               get1xTitle = return $ T.unpack $ _title $ _metadata songYaml
               get2xTitle = flip fmap get2xBass $ \b -> if b
@@ -1303,48 +1270,6 @@ main = do
               message harm2Bugs "HARM2 vocal phrase ends simultaneous with a (HARM2 or HARM3) lyric"
               unless (all RTB.null [kickSwells, badDiscos, voxBugs, harm1Bugs, harm2Bugs]) $
                 fail "At least 1 problem was found in the MIDI."
-
-            -- Warn about notes that might hang off before a pro keys range shift
-            phony (pedalDir ++ "/ranges") $ do
-              song <- loadMIDI $ pedalDir </> "notes.mid"
-              forM_ (RBFile.s_tracks song) $ \case
-                RBFile.PartRealKeys Expert trk -> let
-                  close = U.unapplyTempoTrack (RBFile.s_tempos song) $ closeShifts 1 $ U.applyTempoTrack (RBFile.s_tempos song) trk
-                  in forM_ (ATB.toPairList $ RTB.toAbsoluteEventList 0 close) $ \(t, (rng1, rng2, dt, p)) -> do
-                    putNormal $ unwords
-                      [ RBFile.showPosition (U.applyMeasureMap (RBFile.s_signatures song) t) ++ ":"
-                      , "expert pro keys shift to"
-                      , show rng2
-                      , "is"
-                      , show (realToFrac dt :: Milli) ++ "s"
-                      , "before"
-                      , show p ++ ","
-                      , "which is outside previous range"
-                      , show rng1
-                      ]
-                _ -> return ()
-
-            -- Print out a summary of (non-vocal) overdrive and unison phrases
-            phony (pedalDir ++ "/overdrive") $ do
-              song <- loadMIDI $ pedalDir </> "notes.mid"
-              let trackTimes = Set.fromList . ATB.getTimes . RTB.toAbsoluteEventList 0
-                  getTrack f = foldr RTB.merge RTB.empty $ mapMaybe f $ RBFile.s_tracks song
-                  fiveOverdrive t = trackTimes $ RTB.filter (== RBFive.Overdrive True) t
-                  drumOverdrive t = trackTimes $ RTB.filter (== RBDrums.Overdrive True) t
-                  gtr = fiveOverdrive $ getTrack $ \case RBFile.PartGuitar t -> Just t; _ -> Nothing
-                  bass = fiveOverdrive $ getTrack $ \case RBFile.PartBass t -> Just t; _ -> Nothing
-                  keys = fiveOverdrive $ getTrack $ \case RBFile.PartKeys t -> Just t; _ -> Nothing
-                  drums = drumOverdrive $ getTrack $ \case RBFile.PartDrums t -> Just t; _ -> Nothing
-              forM_ (Set.toAscList $ Set.unions [gtr, bass, keys, drums]) $ \t -> let
-                insts = intercalate "," $ concat
-                  [ ["guitar" | Set.member t gtr]
-                  , ["bass" | Set.member t bass]
-                  , ["keys" | Set.member t keys]
-                  , ["drums" | Set.member t drums]
-                  ]
-                posn = RBFile.showPosition $ U.applyMeasureMap (RBFile.s_signatures song) t
-                in putNormal $ posn ++ ": " ++ insts
-              return ()
 
             -- Rock Band 3 CON package
             let pathDta  = pedalDir </> "rb3/songs/songs.dta"
@@ -1665,36 +1590,10 @@ main = do
 
       Dir.setCurrentDirectory origDirectory
 
-  case nonopts of
-    [] -> return ()
-    "build" : buildables -> shakeBuild buildables Nothing
-    ["mogg", ogg, mogg] -> shake shakeOptions $ action $ oggToMogg ogg mogg
-    "mogg" : _ -> error "Usage: onyx mogg in.ogg out.mogg"
-    ["stfs", dir, stfs] -> do
-      let getDTAInfo = do
-            (_, pkg, _) <- readRB3DTA $ dir </> "songs/songs.dta"
-            return (D.name pkg, D.name pkg ++ " (" ++ D.artist pkg ++ ")")
-          handler :: Exc.ErrorCall -> IO (String, String)
-          handler _ = return (takeFileName stfs, stfs)
-      (title, desc) <- getDTAInfo `Exc.catch` handler
-      shake shakeOptions $ action $ rb3pkg title desc dir stfs
-    "stfs" : _ -> error "Usage: onyx stfs input_dir/ out_rb3con"
-    ["unstfs", stfs, dir] -> extractSTFS stfs dir
-    "unstfs" : _ -> error "Usage: onyx unstfs input_rb3con outdir/"
-    ["import", file, dir] -> importAny file dir
-    "import" : _ -> error "Usage: onyx import [input_rb3con|input.rba] outdir/"
-    ["convert", rba, con] -> withSystemTempDirectory "onyx_convert" $ \dir -> do
-      importAny rba dir
-      shakeBuild ["gen/plan/mogg/2p/rb3.con"] $ Just $ dir </> "song.yml"
-      Dir.copyFile (dir </> "gen/plan/mogg/2p/rb3.con") con
-    "convert" : _ -> error "Usage: onyx convert in.rba out_rb3con"
-    ["reduce", fin, fout] -> simpleReduce fin fout
-    "reduce" : _ -> error "Usage: onyx reduce in.mid out.mid"
-    [file] -> withSystemTempDirectory "onyx_preview" $ \dir -> do
-      let out = dropSlash file ++ "_preview"
-          dropSlash = reverse . dropWhile (`elem` "/\\") . reverse
-      importAny file dir
-      isFoF <- Dir.doesDirectoryExist file
+    makePlayer :: FilePath -> FilePath -> IO ()
+    makePlayer fin dout = withSystemTempDirectory "onyx_player" $ \dir -> do
+      importAny fin dir
+      isFoF <- Dir.doesDirectoryExist fin
       let planWeb = if isFoF then "gen/plan/fof/web" else "gen/plan/mogg/web"
       shakeBuild [planWeb] $ Just $ dir </> "song.yml"
       let copyDir :: FilePath -> FilePath -> IO ()
@@ -1709,7 +1608,126 @@ main = do
               if isDirectory
                 then copyDir  srcPath dstPath
                 else Dir.copyFile srcPath dstPath
-      b <- Dir.doesDirectoryExist out
-      when b $ Dir.removeDirectoryRecursive out
-      copyDir (dir </> planWeb) out
+      b <- Dir.doesDirectoryExist dout
+      when b $ Dir.removeDirectoryRecursive dout
+      copyDir (dir </> planWeb) dout
+
+  case nonopts of
+    [] -> return ()
+    "build" : buildables -> shakeBuild buildables Nothing
+    "mogg" : args -> case inputOutput ".mogg" args of
+      Nothing -> error "Usage: onyx mogg in.ogg [out.mogg]"
+      Just (ogg, mogg) -> shake shakeOptions $ action $ oggToMogg ogg mogg
+    "unmogg" : args -> case inputOutput ".ogg" args of
+      Nothing -> error "Usage: onyx unmogg in.mogg [out.ogg]"
+      Just (mogg, ogg) -> moggToOgg mogg ogg
+    "stfs" : args -> case inputOutput "_rb3con" args of
+      Nothing -> error "Usage: onyx stfs in_dir/ [out_rb3con]"
+      Just (dir, stfs) -> do
+        let getDTAInfo = do
+              (_, pkg, _) <- readRB3DTA $ dir </> "songs/songs.dta"
+              return (D.name pkg, D.name pkg ++ " (" ++ D.artist pkg ++ ")")
+            handler :: Exc.ErrorCall -> IO (String, String)
+            handler _ = return (takeFileName stfs, stfs)
+        (title, desc) <- getDTAInfo `Exc.catch` handler
+        shake shakeOptions $ action $ rb3pkg title desc dir stfs
+    "unstfs" : args -> case inputOutput "_extract" args of
+      Nothing -> error "Usage: onyx unstfs in_rb3con [outdir/]"
+      Just (stfs, dir) -> extractSTFS stfs dir
+    "import" : args -> case inputOutput "_import" args of
+      Nothing -> error "Usage: onyx import in{_rb3con|.rba} [outdir/]"
+      Just (file, dir) -> importAny file dir
+    "convert" : args -> case inputOutput "_rb3con" args of
+      Nothing -> error "Usage: onyx convert in.rba [out_rb3con]"
+      Just (rba, con) -> withSystemTempDirectory "onyx_convert" $ \dir -> do
+        importAny rba dir
+        shakeBuild ["gen/plan/mogg/2p/rb3.con"] $ Just $ dir </> "song.yml"
+        Dir.copyFile (dir </> "gen/plan/mogg/2p/rb3.con") con
+    "reduce" : args -> case inputOutput ".reduced.mid" args of
+      Nothing -> error "Usage: onyx reduce in.mid [out.mid]"
+      Just (fin, fout) -> simpleReduce fin fout
+    "player" : args -> case inputOutput "_preview" args of
+      Nothing -> error "Usage: onyx player in{_rb3con|.rba} [outdir/]"
+      Just (fin, dout) -> makePlayer fin dout
+    "rpp" : args -> case inputOutput ".RPP" args of
+      Nothing -> error "Usage: onyx rpp in.mid [out.RPP]"
+      Just (mid, rpp) -> shake shakeOptions $ action $ makeReaper mid mid [] rpp
+    "ranges" : args -> case inputOutput ".ranges.mid" args of
+      Nothing -> error "Usage: onyx ranges in.mid [out.mid]"
+      Just (fin, fout) -> completeFile fin fout
+    "hanging" : args -> case inputOutput ".hanging.txt" args of
+      Nothing -> error "Usage: onyx hanging in.mid [out.txt]"
+      Just (fin, fout) -> do
+        song <- Load.fromFile fin >>= printStackTraceIO . RBFile.readMIDIFile
+        writeFile fout $ closeShiftsFile song
+    -- TODO: midiscript
     _ -> error "Invalid command"
+
+inputOutput :: String -> [String] -> Maybe (FilePath, FilePath)
+inputOutput suffix args = case args of
+  [fin] -> let
+    dropSlash = reverse . dropWhile (`elem` "/\\") . reverse
+    in Just (fin, dropSlash fin ++ suffix)
+  [fin, fout] -> Just (fin, fout)
+  _ -> Nothing
+
+makeReaper :: FilePath -> FilePath -> [FilePath] -> FilePath -> Action ()
+makeReaper evts tempo audios out = do
+  need $ evts : tempo : audios
+  lenAudios <- flip mapMaybeM audios $ \aud -> do
+    info <- liftIO $ Snd.getFileInfo aud
+    return $ case Snd.frames info of
+      0 -> Nothing
+      f -> Just (fromIntegral f / fromIntegral (Snd.samplerate info), aud)
+  mid <- liftIO $ Load.fromFile evts
+  tmap <- loadTempos tempo
+  tempoMid <- liftIO $ Load.fromFile tempo
+  let getLastTime :: (NNC.C t, Num t) => [RTB.T t a] -> t
+      getLastTime = foldr max NNC.zero . map getTrackLastTime
+      getTrackLastTime trk = case reverse $ ATB.getTimes $ RTB.toAbsoluteEventList NNC.zero trk of
+        []    -> NNC.zero
+        t : _ -> t
+      lastEventSecs = case U.decodeFile mid of
+        Left beatTracks -> U.applyTempoMap tmap $ getLastTime beatTracks
+        Right secTracks -> getLastTime secTracks
+      midiLenSecs = 5 + foldr max lastEventSecs (map fst lenAudios)
+      midiLenTicks resn = floor $ U.unapplyTempoMap tmap midiLenSecs * fromIntegral resn
+      writeTempoTrack = case tempoMid of
+        F.Cons F.Parallel (F.Ticks resn) (tempoTrack : _) -> let
+          t_ticks = RPP.processTempoTrack tempoTrack
+          t_beats = RTB.mapTime (\tks -> fromIntegral tks / fromIntegral resn) t_ticks
+          t_secs = U.applyTempoTrack tmap t_beats
+          in RPP.tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
+        _ -> error "Unsupported MIDI format for Reaper project generation"
+  liftIO $ writeRPP out $ runIdentity $
+    RPP.rpp "REAPER_PROJECT" ["0.1", "5.0/OSX64", "1449358215"] $ do
+      RPP.line "VZOOMEX" ["0"]
+      RPP.line "SAMPLERATE" ["44100", "0", "0"]
+      case mid of
+        F.Cons F.Parallel (F.Ticks resn) (_ : trks) -> do
+          writeTempoTrack
+          let trackOrder :: [(String, Int)]
+              trackOrder = zip
+                [ "PART DRUMS"
+                , "PART BASS"
+                , "PART GUITAR"
+                , "PART VOCALS"
+                , "HARM1"
+                , "HARM2"
+                , "HARM3"
+                , "PART KEYS"
+                , "PART REAL_KEYS_X"
+                , "PART REAL_KEYS_H"
+                , "PART REAL_KEYS_M"
+                , "PART REAL_KEYS_E"
+                , "PART KEYS_ANIM_RH"
+                , "PART KEYS_ANIM_LH"
+                , "EVENTS"
+                , "VENUE"
+                , "BEAT"
+                , "countin"
+                ] [0..]
+          forM_ (sortOn (U.trackName >=> flip lookup trackOrder) trks) $ RPP.track (midiLenTicks resn) midiLenSecs resn
+          forM_ lenAudios $ \(len, aud) -> do
+            RPP.audio len $ makeRelative (takeDirectory out) aud
+        _ -> error "Unsupported MIDI format for Reaper project generation"

@@ -85,8 +85,8 @@ event tks = \case
       line (B8.unpack $ B64.encode chunk) []
   E.SystemExclusive _ -> undefined
 
-track :: (Monad m, NNC.C t, Integral t) => U.Seconds -> NN.Int -> RTB.T t E.T -> WriterT [Element] m ()
-track len resn trk = let
+track :: (Monad m, NNC.C t, Integral t) => NN.Int -> U.Seconds -> NN.Int -> RTB.T t E.T -> WriterT [Element] m ()
+track lenTicks lenSecs resn trk = let
   name = fromMaybe "untitled track" $ U.trackName trk
   in block "TRACK" [] $ do
     line "NAME" [name]
@@ -155,12 +155,15 @@ track len resn trk = let
     block "ITEM" [] $ do
       line "POSITION" ["0"]
       line "LOOP" ["0"]
-      line "LENGTH" [show (realToFrac len :: Double)]
+      line "LENGTH" [show (realToFrac lenSecs :: Double)]
       line "NAME" [name]
       block "SOURCE" ["MIDI"] $ do
         line "HASDATA" ["1", show resn, "QN"]
         forM_ (RTB.toPairList trk) $ \(tks, e) -> event (fromIntegral tks) e
-        line "E" $ words "99999999 b0 7b 00"
+        let lastEvent = case reverse $ ATB.getTimes $ RTB.toAbsoluteEventList 0 trk of
+              t : _ -> fromIntegral t
+              []    -> 0
+        line "E" [show $ lenTicks NNC.-| lastEvent, "b0", "7b", "00"]
 
 audio :: (Monad m) => U.Seconds -> FilePath -> WriterT [Element] m ()
 audio len path = let
