@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP #-}
 module Resources where
 
 import           Control.Arrow                (first)
@@ -16,8 +17,11 @@ emptyMilo :: B.ByteString
 emptyMilo = $(embedFile "vendors/empty.milo_xbox")
 
 mogg2ogg :: B.ByteString
+#ifdef MOGGDECRYPT
+mogg2ogg = $(embedFile "vendors/mogg2ogg.exe")
+#else
 mogg2ogg = B.empty
--- mogg2ogg = $(embedFile "vendors/mogg2ogg.exe")
+#endif
 
 webDisplay :: [(FilePath, B.ByteString)]
 webDisplay = concat

@@ -7,6 +7,10 @@ category:             Distribution
 build-type:           Simple
 cabal-version:        >= 1.10
 
+flag MoggDecrypt
+  default:             False
+  description:         Enable external MOGG decryptor
+
 executable onyx
   hs-source-dirs:       src
   main-is:              Main.hs
@@ -79,3 +83,5 @@ executable onyx
     TupleSections
   ghc-options:          -Wall -threaded -O2
   build-tools: c2hs >= 0.27.1
+  if flag(MoggDecrypt)
+    cpp-options: -DMOGGDECRYPT
