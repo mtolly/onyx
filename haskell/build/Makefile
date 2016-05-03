@@ -26,6 +26,7 @@ win:
 	cp "$(shell stack exec which onyx)" win/
 	cp /mingw32/bin/*.dll win/
 	stack exec strip win/onyx.exe
+	cp batch/*.bat win/
 
 win-deps:
 	stack setup
