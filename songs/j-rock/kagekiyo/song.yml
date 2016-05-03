@@ -1,0 +1,22 @@
+metadata:
+  title: "KAGEKIYO ~Genpei Touma Den Medley~"
+  artist: Norio Nakagata
+  album: Taiko no Tatsujin
+  author: Onyxite
+  file-album-art: cover.png
+  track-number: 1
+  year: 2003
+  genre: jrock
+  subgenre: jrock
+  file-countin: ../../../sound/hihat-foot.wav
+  auto-2x-bass: false
+instruments:
+  drums: true
+audio:
+  album-track:
+    md5: 58a957d214b5ca8ff454347059c87eef
+    frames: 6589440
+plans:
+  album:
+    song:
+      pad: [2.945, album-track]

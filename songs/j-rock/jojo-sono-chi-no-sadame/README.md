@@ -3,7 +3,7 @@
 ## Hiroaki 'TOMMY' Tominaga
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=jojo-sono-chi-no-sadame&artist=hiroaki-tominaga)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=jojo-sono-chi-no-sadame&artist=j-rock)
 
 Instruments:
 
