@@ -11,8 +11,9 @@ Instruments:
   * (Pro) Drums 😈😈😈😈😈
   * Bass ⚪️⚪️⚪️⚪️⚫️
   * Guitar ⚪️⚪️⚪️⚪️⚫️
-  * Keys ⚫️⚫️⚫️⚫️⚫️
-  * Pro Keys ⚫️⚫️⚫️⚫️⚫️
+  * Keys ⚪️⚫️⚫️⚫️⚫️
+  * Pro Keys ⚪️⚫️⚫️⚫️⚫️
+  * Vocals (3) 😈😈😈😈😈
 
 Supported audio:
 
@@ -21,4 +22,6 @@ Supported audio:
 Notes:
 
   * Drums by TheCourtofaPorcupine, guitar and bass by girldrummer.
+
+  * All instruments have overdrive/unison.
 

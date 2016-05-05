@@ -14,17 +14,20 @@ metadata:
     drums: 7
     guitar: 5
     bass: 5
-    pro-keys: 1
-    keys: 1
+    pro-keys: 2
+    keys: 2
+    vocal: 7
   file-countin: ../../../sound/hihat-foot.wav
   comments:
   - "Drums by TheCourtofaPorcupine, guitar and bass by girldrummer."
+  - "All instruments have overdrive/unison."
 instruments:
   drums: true
   guitar: true
   bass: true
   pro-keys: true
   keys: true
+  vocal: 3
 audio:
   album-track:
     md5: bfacc282cb6b9c92edb8561c16a10cb5
