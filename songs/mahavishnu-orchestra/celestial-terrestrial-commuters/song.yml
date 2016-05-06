@@ -7,26 +7,99 @@ metadata:
     guitar: 6
     pro-keys: 5
     bass: 4
+    vocal: 7
   author: Onyxite
   comments:
   - >-
     Drums confidence: *medium-high*.
     Written to Jammit stems, but the drum part is fairly ridiculous.
+  - >-
+    The vocals are violin, and probably could use a few more devil icons. Good luck!
 audio:
   album-track:
     md5: 171abbfdc77ec2ef86a816994723e22d
     frames: 7708680
+  jammit-all-guitar:
+    # all guitar 1, plus guitar 2 from 36.649 to 43 and 2:40.825 to end
+    expr:
+      mix:
+      - only: [Guitar 1, jammit-track]
+      - take:
+        - 43
+        - pad:
+          - 36.649
+          - drop:
+            - 36.649
+            - only: [Guitar 2, jammit-track]
+      - pad:
+        - '2:40.825'
+        - drop:
+          - '2:40.825'
+          - only: [Guitar 2, jammit-track]
+  jammit-all-keys:
+    # keys 1 until 2:33.863, then switch to keys 2
+    expr:
+      concatenate:
+      - take:
+        - '2:33.863'
+        - only: [Keys 1, jammit-track]
+      - drop:
+        - '2:33.863'
+        - only: [Keys 2, jammit-track]
 jammit:
   jammit-track: {}
 plans:
-  jammit:
-    each:
-      pad: [3.649, jammit-track]
   album:
     song:
       pad: [4.381, album-track]
+  jammit:
+    each:
+      pad: [3.649, jammit-track]
+  jammit-all:
+    comments:
+    - "Requires all the Jammit instruments."
+    song:
+      pad:
+      - 3.649
+      - mix:
+        - only: [Guitar 1, jammit-track]
+        - only: [Guitar 2, jammit-track]
+        - gain: [-1, jammit-all-guitar]
+        - only: [Keys 1, jammit-track]
+        - only: [Keys 2, jammit-track]
+        - gain: [-1, jammit-all-keys]
+    guitar:
+      pad:
+      - 3.649
+      - jammit-all-guitar
+    bass:
+      pad:
+      - 3.649
+      - only: [Bass, jammit-track]
+    drums:
+      pad:
+      - 3.649
+      - only: [Drums, jammit-track]
+    keys:
+      pad:
+      - 3.649
+      - jammit-all-keys
+    vocal:
+      pad:
+      - 3.649
+      - mix:
+        - without: [drums, jammit-track]
+        - gain:
+          - -1
+          - mix:
+            - only: [Guitar 1, jammit-track]
+            - only: [Guitar 2, jammit-track]
+            - only: [Bass, jammit-track]
+            - only: [Keys 1, jammit-track]
+            - only: [Keys 2, jammit-track]
 instruments:
   drums: true
   guitar: true
   pro-keys: true
   bass: true
+  vocal: 2
