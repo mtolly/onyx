@@ -186,26 +186,24 @@ assignHOPO threshold = RTB.flatten . start . RTB.collectCoincident where
     Nothing -> RTB.empty
     Just ((dt, evs), rtb') -> let
       forceStrum' = or
-        [ forceStrum && null [ () | ForceStrum False <- evs ]
-        ,         not $ null [ () | ForceStrum True  <- evs ]
+        [ forceStrum && notElem (ForceStrum False) evs
+        ,               elem    (ForceStrum True ) evs
         ]
       forceHOPO' = or
-        [ forceHOPO && null [ () | ForceHOPO False <- evs ]
-        ,        not $ null [ () | ForceHOPO True  <- evs ]
+        [ forceHOPO && notElem (ForceHOPO False) evs
+        ,              elem    (ForceHOPO True ) evs
         ]
       fretsOn  = [ color | Note True  color <- evs ]
       fretsOff = [ color | Note False color <- evs ]
       autoHOPO = case (fretsOn, lastNoteOn) of
-        ([color], Just (ago, color')) -> and
-          [ color /= color'
+        ([color], Just (ago, colors)) -> and
+          [ color `notElem` colors
           , NNC.add ago dt < threshold -- TODO: should be < or <= ?
           ]
         _ -> False -- chord, or first note of the song
-      lastNoteOn' = case fretsOn of
-        [] -> flip fmap lastNoteOn $ \(ago, color) -> (NNC.add ago dt, color)
-        f : fs -> let
-          highFret = foldr max f fs
-          in Just (NNC.zero, highFret)
+      lastNoteOn' = if null fretsOn
+        then flip fmap lastNoteOn $ \(ago, colors) -> (NNC.add ago dt, colors)
+        else Just (NNC.zero, fretsOn)
       makeNoteOn = if forceStrum' then Strum
         else if forceHOPO' || autoHOPO then HOPO
         else Strum
