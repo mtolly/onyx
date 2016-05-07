@@ -10,6 +10,7 @@ Instruments:
   * (Pro) Drums 😈😈😈😈😈
   * Bass ⚪️⚪️⚪️⚫️⚫️
   * Guitar ⚪️⚪️⚪️⚪️⚪️
+  * Keys ⚪️⚪️⚪️⚪️⚫️
   * Pro Keys ⚪️⚪️⚪️⚪️⚫️
   * Vocals (2) 😈😈😈😈😈
 
@@ -28,4 +29,6 @@ Notes:
   * Drums confidence: *medium-high*. Written to Jammit stems, but the drum part is fairly ridiculous.
 
   * The vocals are violin, and probably could use a few more devil icons. Good luck!
+
+  * All instruments have overdrive/unison.
 

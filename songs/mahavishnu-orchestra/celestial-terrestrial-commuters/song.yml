@@ -5,6 +5,7 @@ metadata:
   difficulty:
     drums: 7
     guitar: 6
+    keys: 5
     pro-keys: 5
     bass: 4
     vocal: 7
@@ -15,6 +16,8 @@ metadata:
     Written to Jammit stems, but the drum part is fairly ridiculous.
   - >-
     The vocals are violin, and probably could use a few more devil icons. Good luck!
+  - >-
+    All instruments have overdrive/unison.
 audio:
   album-track:
     md5: 171abbfdc77ec2ef86a816994723e22d
@@ -100,6 +103,7 @@ plans:
 instruments:
   drums: true
   guitar: true
+  keys: true
   pro-keys: true
   bass: true
   vocal: 2
