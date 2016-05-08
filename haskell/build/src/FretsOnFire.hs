@@ -4,9 +4,12 @@ module FretsOnFire where
 
 import Data.Ini
 import Control.Applicative ((<|>))
+import qualified Data.ByteString as B
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import qualified Data.HashMap.Strict as HM
 import Control.Monad.Trans.Writer
+import Data.List (sortOn)
 
 data Song = Song
   { name :: Maybe T.Text
@@ -86,7 +89,7 @@ loadSong fp = do
   return Song{..}
 
 saveSong :: FilePath -> Song -> IO ()
-saveSong fp Song{..} = writeIniFileWith (WriteIniSettings EqualsKeySeparator) fp $
+saveSong fp Song{..} = writePSIni fp $
   Ini $ HM.singleton "song" $ HM.fromList $ execWriter $ do
     let str k = maybe (return ()) $ \v -> tell [(k, v)]
         shown k = str k . fmap (T.pack . show)
@@ -122,3 +125,11 @@ saveSong fp Song{..} = writeIniFileWith (WriteIniSettings EqualsKeySeparator) fp
     shown "star_power_note" starPowerNote
     shown "multiplier_note" starPowerNote
     shown "track" track
+
+writePSIni :: FilePath -> Ini -> IO ()
+writePSIni fp (Ini hmap) = let
+  txt = T.intercalate "\r\n" $ map section $ sortOn fst $ HM.toList hmap
+  section (title, pairs) = T.intercalate "\r\n" $
+    T.concat ["[", title, "]"] : map line (sortOn fst $ HM.toList pairs)
+  line (k, v) = T.concat [k, " = ", v]
+  in B.writeFile fp $ TE.encodeUtf8 $ T.append txt "\r\n"
