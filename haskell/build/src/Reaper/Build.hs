@@ -143,14 +143,31 @@ track lenTicks lenSecs resn trk = let
         line "SHOW" ["0"]
         line "LASTSEL" ["0"]
         line "DOCKED" ["0"]
-        line "BYPASS" ["0", "0", "0"]
-        block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
-          line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
-          if isProKeys
-            then line "AACAPwAAgD8AABAAAAA=" [] -- pro keys: tuned up one octave
-            else line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
-        line "FLOATPOS" ["0", "0", "0", "0"]
-        line "WAK" ["0"]
+        let mutePitches pmin pmax = do
+              line "BYPASS" ["0", "0", "0"]
+              block "JS" ["IX/MIDI_Tool II", ""] $ do
+                line "0.000000" $ show (pmin :: Int) : show (pmax :: Int) : words "0.000000 0.000000 0.000000 100.000000 0.000000 0.000000 127.000000 0.000000 0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+              line "FLOATPOS" ["0", "0", "0", "0"]
+              line "WAK" ["0"]
+        if isProKeys
+          then do
+            mutePitches 0 47
+            mutePitches 73 127
+            line "BYPASS" ["0", "0", "0"]
+            block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
+              line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
+              line "AACAPwAAgD8AABAAAAA=" [] -- pro keys: tuned up one octave
+            line "FLOATPOS" ["0", "0", "0", "0"]
+            line "WAK" ["0"]
+          else do
+            mutePitches 0 35
+            mutePitches 85 127
+            line "BYPASS" ["0", "0", "0"]
+            block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
+              line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
+              line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
+            line "FLOATPOS" ["0", "0", "0", "0"]
+            line "WAK" ["0"]
       else return () -- not sure why, but you still need empty FXCHAIN so note names work
     block "ITEM" [] $ do
       line "POSITION" ["0"]
