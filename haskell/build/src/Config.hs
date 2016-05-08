@@ -28,6 +28,7 @@ import           Data.Scientific                (Scientific, toBoundedInteger,
 import qualified Data.Text                      as T
 import           Data.Traversable
 import qualified Data.Vector                    as V
+import           Genre                          (defaultSubgenre)
 import           RockBand.Common                (Key (..))
 import qualified RockBand.Drums                 as Drums
 import qualified Sound.Jammit.Base              as J
@@ -304,39 +305,6 @@ instance A.ToJSON Magma.Gender where
   toJSON = \case
     Magma.Female -> "female"
     Magma.Male   -> "male"
-
-defaultSubgenre :: T.Text -> T.Text
-defaultSubgenre = \case
-  "alternative" -> "alternative"
-  "blues" -> "other"
-  "classical" -> "classical"
-  "classicrock" -> "classicrock"
-  "country" -> "other"
-  "emo" -> "emo"
-  "fusion" -> "fusion"
-  "glam" -> "glam"
-  "grunge" -> "grunge"
-  "hiphoprap" -> "other"
-  "indierock" -> "other"
-  "inspirational" -> "inspirational"
-  "jazz" -> "other"
-  "jrock" -> "jrock"
-  "latin" -> "latin"
-  "metal" -> "metal"
-  "newwave" -> "newwave"
-  "novelty" -> "novelty"
-  "numetal" -> "numetal"
-  "popdanceelectronic" -> "other"
-  "poprock" -> "other"
-  "prog" -> "progrock"
-  "punk" -> "other"
-  "rbsoulfunk" -> "rhythmandblues"
-  "reggaeska" -> "other"
-  "rock" -> "rock"
-  "southernrock" -> "southernrock"
-  "world" -> "world"
-  "other" -> "other"
-  g -> error $ "defaultSubgenre: I don't recognized the genre " ++ show g
 
 fromMaybe' :: (Eq s, IsString s) => s -> Maybe s -> s
 fromMaybe' s ms = case ms of

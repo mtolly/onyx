@@ -7,6 +7,7 @@ module Main (main) where
 import           Audio
 import qualified C3
 import           Config                           hiding (Difficulty)
+import           Genre                            (genreDisplay)
 import           Image
 import           Magma                            hiding
                                                    (withSystemTempDirectory)
@@ -949,7 +950,7 @@ main = do
               , FoF.album            = Just $ _album $ _metadata songYaml
               , FoF.charter          = Just $ _author $ _metadata songYaml
               , FoF.year             = Just $ _year $ _metadata songYaml
-              , FoF.genre            = Just $ _genre $ _metadata songYaml -- TODO: capitalize
+              , FoF.genre            = Just $ genreDisplay $ _genre $ _metadata songYaml
               , FoF.proDrums         = guard (_hasDrums $ _instruments songYaml) >> Just True
               , FoF.songLength       = Just len
               , FoF.previewStartTime = Just pstart
