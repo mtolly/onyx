@@ -2,7 +2,13 @@ metadata:
   title: Prequel to the Sequel
   file-include: "../../../albums/colors.yml"
   track-number: 6
-  author: "Grinnz, Harmonix"
+  author: "Grinnz, Harmonix, Galhenig, Espher, Onyxite"
+  comments:
+  - "Drums by Grinnz."
+  - "First half guitar, bass, and solo vocals by Harmonix."
+  - "Second half guitar and bass by Galhenig."
+  - "First half harmonies by Espher (RBHP)."
+  - "(Eventually) second half harmonies and all basic/pro keys by Onyxite."
 audio:
   album-prequel-to-the-sequel:
     md5: a1c2cc16b9119b5e1bb4a6d2d3890b17
@@ -23,3 +29,6 @@ plans:
             - concatenate: [album-prequel-to-the-sequel, album-viridian]
 instruments:
   drums: true
+  guitar: true
+  bass: true
+  vocal: 3
