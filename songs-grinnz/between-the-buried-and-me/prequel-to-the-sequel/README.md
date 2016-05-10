@@ -11,6 +11,7 @@ Instruments:
   * (Pro) Drums
   * Bass
   * Guitar
+  * Pro Keys
   * Vocals (3)
 
 Supported audio:
@@ -27,5 +28,5 @@ Notes:
 
   * First half harmonies by Espher (RBHP).
 
-  * (Eventually) second half harmonies and all basic/pro keys by Onyxite.
+  * Second half harmonies and all pro keys by Onyxite.
 

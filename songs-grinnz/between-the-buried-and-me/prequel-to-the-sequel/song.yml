@@ -8,7 +8,7 @@ metadata:
   - "First half guitar, bass, and solo vocals by Harmonix."
   - "Second half guitar and bass by Galhenig."
   - "First half harmonies by Espher (RBHP)."
-  - "(Eventually) second half harmonies and all basic/pro keys by Onyxite."
+  - "Second half harmonies and all pro keys by Onyxite."
 audio:
   album-prequel-to-the-sequel:
     md5: a1c2cc16b9119b5e1bb4a6d2d3890b17
@@ -32,3 +32,4 @@ instruments:
   guitar: true
   bass: true
   vocal: 3
+  pro-keys: true
