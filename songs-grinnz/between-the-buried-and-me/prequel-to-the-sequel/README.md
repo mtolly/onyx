@@ -11,6 +11,7 @@ Instruments:
   * (Pro) Drums
   * Bass
   * Guitar
+  * Keys
   * Pro Keys
   * Vocals (3)
 
