@@ -14,6 +14,7 @@ metadata:
     pro-keys: 7
 audio:
   youtube:
+    path: audio-youtube.wav
     md5: a6fa10dee2b5e50dab111c556099b66f
     frames: 7674880
   youtube-fixed:

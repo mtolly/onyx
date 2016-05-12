@@ -126,6 +126,56 @@ allFiles absolute = do
         | isDir                    -> allFiles full
         | otherwise                -> return [full]
 
+computeChannels :: Audio Duration Int -> Int
+computeChannels = \case
+  Silence n _ -> n
+  Input n -> n
+  Mix auds -> foldr max 0 $ map computeChannels auds
+  Merge auds -> sum $ map computeChannels auds
+  Concatenate auds -> foldr max 0 $ map computeChannels auds
+  Gain _ aud -> computeChannels aud
+  Take _ _ aud -> computeChannels aud
+  Drop _ _ aud -> computeChannels aud
+  Fade _ _ aud -> computeChannels aud
+  Pad _ _ aud -> computeChannels aud
+  Resample aud -> computeChannels aud
+  Channels chans _ -> length chans
+
+audioSearch :: AudioFile -> [FilePath] -> Action (Maybe FilePath)
+audioSearch AudioSnippet{} _     = fail "panic! called audioSearch on a snippet. report this bug"
+audioSearch AudioFile{..}  files = do
+  files1 <- case _path of
+    Nothing   -> return files
+    Just path -> doesFileExist path >>= \case
+      False -> return []
+      True  -> liftIO $ fmap (:[]) $ Dir.canonicalizePath path
+  files2 <- liftIO $ case _md5 of
+    Nothing  -> return files1
+    Just md5 -> fmap toList $ findM (fmap (== Just (T.unpack md5)) . audioMD5) files1
+  files3 <- liftIO $ case _frames of
+    Nothing  -> return files2
+    Just len -> filterM (fmap (== Just len) . audioLength) files2
+  files4 <- if isNothing _path && isNothing _md5
+    then case _name of
+      Nothing   -> fail "audioSearch: you must specify one of [path, md5, name]"
+      Just name -> return $ let
+        name' = dropExtension name
+        in filter (\f -> dropExtension (takeFileName f) == name') files3
+    else return files3
+  files5 <- liftIO $ filterM (fmap (== Just _channels) . audioChannels) files4
+  files6 <- liftIO $ case _rate of
+    Nothing   -> return files5
+    Just rate -> filterM (fmap (== Just rate) . audioRate) files5
+  return $ listToMaybe files6
+
+moggSearch :: T.Text -> [FilePath] -> Action (Maybe FilePath)
+moggSearch md5search files = do
+  flip findM files $ \f -> case takeExtension f of
+    ".mogg" -> do
+      md5 <- liftIO $ show . MD5.md5 <$> BL.readFile f
+      return $ T.unpack md5search == md5
+    _ -> return False
+
 main :: IO ()
 main = do
   argv <- getArgs
@@ -160,22 +210,7 @@ main = do
           undefinedLeaves -> fail $
             "Undefined leaves in plan " ++ show planName ++ " audio expression: " ++ show undefinedLeaves
 
-      let computeChannels :: Audio Duration Int -> Int
-          computeChannels = \case
-            Silence n _ -> n
-            Input n -> n
-            Mix auds -> foldr max 0 $ map computeChannels auds
-            Merge auds -> sum $ map computeChannels auds
-            Concatenate auds -> foldr max 0 $ map computeChannels auds
-            Gain _ aud -> computeChannels aud
-            Take _ _ aud -> computeChannels aud
-            Drop _ _ aud -> computeChannels aud
-            Fade _ _ aud -> computeChannels aud
-            Pad _ _ aud -> computeChannels aud
-            Resample aud -> computeChannels aud
-            Channels chans _ -> length chans
-
-          computeChannelsPlan :: Audio Duration AudioInput -> Int
+      let computeChannelsPlan :: Audio Duration AudioInput -> Int
           computeChannelsPlan = let
             toChannels ai = case ai of
               Named name -> case HM.lookup name $ _audio songYaml of
@@ -196,56 +231,27 @@ main = do
                 Just AudioSnippet{..} -> computeChannelsPlan _expr
             in computeChannels . fmap toChannels
 
-          audioSearch :: AudioFile -> Action (Maybe FilePath)
-          audioSearch AudioSnippet{} = fail "panic! called audioSearch on a snippet. report this bug"
-          audioSearch AudioFile{..} = do
-            genAbsolute <- liftIO $ Dir.canonicalizePath "gen/"
-            files <- filter (\f -> not $ genAbsolute `isPrefixOf` f)
-              <$> concatMapM allFiles audioDirs
-            let md5Result = liftIO $ case _md5 of
-                  Nothing -> return Nothing
-                  Just md5search -> flip findM files $ \f ->
-                    (== Just (T.unpack md5search)) <$> audioMD5 f
-                lenResult = liftIO $ case _frames of
-                  Nothing -> return Nothing
-                  Just len -> flip findM files $ \f ->
-                    (== Just len) <$> audioLength f
-                nameResult = do
-                  name <- _name
-                  listToMaybe $ flip filter files $ \f -> takeFileName f == name
-                nameResultNoExt = do
-                  name <- dropExtension <$> _name
-                  listToMaybe $ flip filter files $ \f ->
-                    dropExtension (takeFileName f) == name
-            firstJustM id [md5Result, lenResult, return nameResult, return nameResultNoExt]
-
-          jammitSearch :: JammitTrack -> Action [(J.AudioPart, FilePath)]
-          jammitSearch jmt = do
+          jammitSearch :: JammitTrack -> J.Library -> Action [(J.AudioPart, FilePath)]
+          jammitSearch jmt lib = do
             let title  = fromMaybe (_title  $ _metadata songYaml) $ _jammitTitle  jmt
                 artist = fromMaybe (_artist $ _metadata songYaml) $ _jammitArtist jmt
-            lib <- liftIO $ concatMapM J.loadLibrary audioDirs
             return $ J.getAudioParts
               $ J.exactSearchBy J.title  (T.unpack title )
               $ J.exactSearchBy J.artist (T.unpack artist) lib
 
-          moggSearch :: T.Text -> Action (Maybe FilePath)
-          moggSearch md5search = do
-            genAbsolute <- liftIO $ Dir.canonicalizePath "gen/"
-            files <- filter (\f -> not $ genAbsolute `isPrefixOf` f)
-              <$> concatMapM allFiles audioDirs
-            flip findM files $ \f -> case takeExtension f of
-              ".mogg" -> do
-                md5 <- liftIO $ show . MD5.md5 <$> BL.readFile f
-                return $ T.unpack md5search == md5
-              _ -> return False
-
       origDirectory <- Dir.getCurrentDirectory
       Dir.setCurrentDirectory $ takeDirectory yamlPath
-      shakeArgsWith shakeOptions{ shakeThreads = 0 } (map (fmap $ const (Right ())) optDescrs) $ \_ _ -> return $ Just $ do
+      shakeArgsWith shakeOptions{ shakeThreads = 0, shakeFiles = "gen" } (map (fmap $ const (Right ())) optDescrs) $ \_ _ -> return $ Just $ do
 
-        audioOracle  <- addOracle $ \(AudioSearch  s) -> audioSearch $ read s
-        jammitOracle <- addOracle $ \(JammitSearch s) -> fmap show $ jammitSearch $ read s
-        moggOracle   <- addOracle $ \(MoggSearch   s) -> moggSearch s
+        allFilesInAudioDirs <- newCache $ \() -> do
+          genAbsolute <- liftIO $ Dir.canonicalizePath "gen/"
+          filter (\f -> not $ genAbsolute `isPrefixOf` f)
+            <$> concatMapM allFiles audioDirs
+        allJammitInAudioDirs <- newCache $ \() -> liftIO $ concatMapM J.loadLibrary audioDirs
+
+        audioOracle  <- addOracle $ \(AudioSearch  s) -> allFilesInAudioDirs () >>= audioSearch (read s)
+        jammitOracle <- addOracle $ \(JammitSearch s) -> fmap show $ allJammitInAudioDirs () >>= jammitSearch (read s)
+        moggOracle   <- addOracle $ \(MoggSearch   s) -> allFilesInAudioDirs () >>= moggSearch s
 
         -- Make all rules depend on the parsed song.yml contents and onyx compile time
         strSongYaml    <- addOracle $ \(GetSongYaml ()) -> return $ show songYaml

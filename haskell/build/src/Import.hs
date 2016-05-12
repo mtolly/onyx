@@ -124,7 +124,8 @@ importFoF src dest = do
     , _audio = HM.fromList $ flip map audioFiles $ \aud -> (T.pack aud, AudioFile
       { _md5 = Nothing
       , _frames = Nothing
-      , _name = Just aud
+      , _name = Nothing
+      , _path = Just aud
       , _rate = Nothing
       , _channels = 2 -- TODO
       })

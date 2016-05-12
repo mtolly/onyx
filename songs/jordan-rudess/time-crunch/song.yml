@@ -10,6 +10,7 @@ metadata:
     drums: 6
 audio:
   youtube:
+    path: audio-youtube.wav
     md5: fd5279ff95aebdd3dac5f43de6736420
     frames: 17117184
 plans:

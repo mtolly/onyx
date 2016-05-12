@@ -3,7 +3,6 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE PatternSynonyms   #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Audio where
 
 import           Control.Exception             (evaluate)
@@ -29,7 +28,7 @@ import           Development.Shake.FilePath    (takeExtension)
 import           Numeric                       (showHex)
 import qualified Sound.File.Sndfile            as Snd
 import           System.IO
-import SndfileExtra
+import           SndfileExtra
 
 data Audio t a
   = Silence Int t
@@ -207,6 +206,16 @@ audioMD5 f = case takeExtension f of
 audioLength :: FilePath -> IO (Maybe Integer)
 audioLength f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
   then Just . fromIntegral . Snd.frames <$> Snd.getFileInfo f
+  else return Nothing
+
+audioChannels :: FilePath -> IO (Maybe Int)
+audioChannels f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
+  then Just . Snd.channels <$> Snd.getFileInfo f
+  else return Nothing
+
+audioRate :: FilePath -> IO (Maybe Int)
+audioRate f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
+  then Just . Snd.samplerate <$> Snd.getFileInfo f
   else return Nothing
 
 -- | Applies Rock Band's pan and volume lists

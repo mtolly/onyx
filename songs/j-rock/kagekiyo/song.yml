@@ -14,6 +14,7 @@ instruments:
   drums: true
 audio:
   album-track:
+    path: audio-youtube.wav
     md5: 58a957d214b5ca8ff454347059c87eef
     frames: 6589440
 plans:
