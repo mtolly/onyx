@@ -11,7 +11,7 @@ Instruments:
   * Bass ⚪️⚪️⚪️⚪️⚪️
   * Guitar ⚪️⚪️⚪️⚫️⚫️
   * Keys ⚪️⚪️⚪️⚫️⚫️
-  * Pro Keys ⚪️⚪️⚪️⚫️⚫️
+  * Pro Keys ⚪️⚪️⚪️⚪️⚫️
 
 Supported audio:
 
