@@ -83,6 +83,8 @@ import qualified System.Directory                 as Dir
 import           System.Environment               (getArgs)
 import           System.Environment.Executable    (getExecutablePath)
 import           System.IO.Temp                   (withSystemTempDirectory)
+import qualified System.Info                      as Info
+import           System.Process                   (callProcess)
 
 data Argument
   = AudioDir  FilePath
@@ -1667,6 +1669,15 @@ main = do
       Just (fin, fout) -> do
         song <- Load.fromFile fin >>= printStackTraceIO . RBFile.readMIDIFile
         writeFile fout $ closeShiftsFile song
+    "reap" : args -> case args of
+      [plan] -> do
+        let rpp = "notes-" ++ plan ++ ".RPP"
+        shakeBuild [rpp] Nothing
+        Dir.renameFile rpp "notes.RPP"
+        case Info.os of
+          "darwin" -> callProcess "open" ["notes.RPP"]
+          _        -> return ()
+      _ -> error "Usage: onyx reap plan"
     -- TODO: midiscript
     _ -> error "Invalid command"
 
