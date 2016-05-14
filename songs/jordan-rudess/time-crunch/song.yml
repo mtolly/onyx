@@ -11,7 +11,7 @@ metadata:
 audio:
   youtube:
     path: audio-youtube.wav
-    md5: fd5279ff95aebdd3dac5f43de6736420
+    md5: 143bff7bff53e48360356f7ac8c18798
     frames: 17117184
 plans:
   album:
