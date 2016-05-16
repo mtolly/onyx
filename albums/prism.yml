@@ -1,0 +1,7 @@
+album: Prism
+artist: Yoshida Brothers
+year: 2009
+genre: world # I feel terrible choosing this
+subgenre: world
+file-album-art: ../covers/prism.jpg
+file-countin: ../sound/hihat-foot.wav

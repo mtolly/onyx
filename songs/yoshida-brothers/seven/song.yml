@@ -1,15 +1,12 @@
 metadata:
   title: Seven
-  artist: Yoshida Brothers
-  album: Prism
-  year: 2009
   track-number: 2
   author: Onyxite
   comments:
   - "Audio is a Youtube download (run `audio.sh`)."
-  file-countin: ../../../sound/hihat-foot.wav
   difficulty:
     drums: 4
+  file-include: ../../../albums/prism.yml
 audio:
   youtube:
     path: audio-youtube.wav
@@ -18,6 +15,6 @@ audio:
 plans:
   album:
     song:
-      pad: [2.050, youtube]
+      pad: [2.050, gain: [1.8, youtube]]
 instruments:
   drums: true

@@ -21,6 +21,7 @@ metadata:
   comments:
   - "Drums by TheCourtofaPorcupine, guitar and bass by girldrummer."
   - "All instruments have overdrive/unison."
+  autogen-theme: Aggressive Metal
 instruments:
   drums: true
   guitar: true
