@@ -8,6 +8,8 @@ metadata:
   comments:
   - "Audio is a Youtube download (run `audio.sh`)."
   file-countin: ../../../sound/hihat-foot.wav
+  difficulty:
+    drums: 4
 audio:
   youtube:
     path: audio-youtube.wav
@@ -19,4 +21,3 @@ plans:
       pad: [2.050, youtube]
 instruments:
   drums: true
-published: false
