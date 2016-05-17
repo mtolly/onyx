@@ -1650,8 +1650,10 @@ main = do
       Nothing -> error "Usage: onyx convert in.rba [out_rb3con]"
       Just (rba, con) -> withSystemTempDirectory "onyx_convert" $ \dir -> do
         importAny rba dir
-        shakeBuild ["gen/plan/mogg/2p/rb3.con"] $ Just $ dir </> "song.yml"
-        Dir.copyFile (dir </> "gen/plan/mogg/2p/rb3.con") con
+        isFoF <- Dir.doesDirectoryExist rba
+        let planCon = if isFoF then "gen/plan/fof/2p/rb3.con" else "gen/plan/mogg/2p/rb3.con"
+        shakeBuild [planCon] $ Just $ dir </> "song.yml"
+        Dir.copyFile (dir </> planCon) con
     "reduce" : args -> case inputOutput ".reduced.mid" args of
       Nothing -> error "Usage: onyx reduce in.mid [out.mid]"
       Just (fin, fout) -> simpleReduce fin fout

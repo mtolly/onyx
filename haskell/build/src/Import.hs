@@ -42,6 +42,7 @@ import           System.IO.Temp                 (withSystemTempDirectory)
 -- | Convert a CON or RBA file (or FoF directory) to Onyx format.
 importAny :: FilePath -> FilePath -> IO ()
 importAny src dest = do
+  Dir.createDirectoryIfMissing True dest
   isDir <- Dir.doesDirectoryExist src
   if isDir
     then importFoF src dest
