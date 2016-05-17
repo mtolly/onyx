@@ -1,0 +1,16 @@
+metadata:
+  title: Scoop Out
+  file-include: ../../../albums/pimp-of-the-year.yml
+  track-number: 6
+  author: Onyxite
+audio:
+  album-track:
+    md5: 53cfe5969cd3451eebadc33dc4b89d54
+    frames: 10529904
+plans:
+  album:
+    song:
+      pad: [3.324, album-track]
+instruments:
+  drums: true
+published: false
