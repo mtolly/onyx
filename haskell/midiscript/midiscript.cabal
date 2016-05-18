@@ -1,0 +1,24 @@
+Name:               midiscript
+Version:            0.1.1
+License:            GPL
+Author:             Michael Tolly
+Maintainer:         miketolly@gmail.com
+Build-Type:         Simple
+Cabal-version:      >= 1.8
+Category:           Data
+
+Library
+  Build-Depends:    base           >= 4.6   && < 5
+                    , array        >= 0.4   && < 0.6
+                    , event-list   >= 0.1   && < 0.2
+                    , midi         >= 0.2   && < 0.3
+                    , non-negative >= 0.1   && < 0.2
+                    , utility-ht   >= 0.0.1 && < 0.1
+                    , containers   >= 0.5.0.0 && < 0.6
+  Exposed-modules:  Sound.MIDI.Script.Base
+                    Sound.MIDI.Script.Scan
+                    Sound.MIDI.Script.Parse
+                    Sound.MIDI.Script.Read
+  hs-source-dirs:   src
+  ghc-options:      -Wall
+  Build-Tools:      alex, happy

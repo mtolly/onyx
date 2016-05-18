@@ -5,6 +5,7 @@ packages:
 - 'parse'
 - 'stack-trace'
 - 'display'
+- 'midiscript'
 extra-deps:
 - conduit-audio-0.2.0.1
 - conduit-audio-lame-0.1.1

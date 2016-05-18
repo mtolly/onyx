@@ -28,6 +28,10 @@ import           ProKeysRanges
 import           Import
 import           Difficulty
 import qualified FretsOnFire                      as FoF
+import qualified Sound.MIDI.Script.Base           as MS
+import qualified Sound.MIDI.Script.Parse          as MS
+import qualified Sound.MIDI.Script.Read           as MS
+import qualified Sound.MIDI.Script.Scan           as MS
 
 import           Codec.Picture
 import           Control.Exception as Exc
@@ -77,24 +81,37 @@ import qualified Sound.Jammit.Base                as J
 import qualified Sound.Jammit.Export              as J
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Load             as Load
+import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           System.Console.GetOpt
 import qualified System.Directory                 as Dir
 import           System.Environment               (getArgs)
 import           System.Environment.Executable    (getExecutablePath)
+import           System.IO                        (hPutStrLn, stderr)
 import           System.IO.Temp                   (withSystemTempDirectory)
 import qualified System.Info                      as Info
 import           System.Process                   (callProcess)
 
 data Argument
-  = AudioDir  FilePath
-  | SongFile  FilePath
+  = AudioDir FilePath
+  | SongFile FilePath
+  -- midi<->text options:
+  | MatchNotes
+  | PositionSeconds
+  | PositionMeasure
+  | SeparateLines
+  | Resolution Integer
   deriving (Eq, Ord, Show, Read)
 
 optDescrs :: [OptDescr Argument]
 optDescrs =
-  [ Option [] ["audio"] (ReqArg AudioDir  "DIR" ) "a directory with audio"
-  , Option [] ["song" ] (ReqArg SongFile  "FILE") "the song YAML file"
+  [ Option [] ["audio"] (ReqArg AudioDir "DIR" ) "a directory with audio"
+  , Option [] ["song" ] (ReqArg SongFile "FILE") "the song YAML file"
+  , Option [] ["match-notes"] (NoArg MatchNotes) "midi to text: combine note on/off events"
+  , Option [] ["seconds"] (NoArg PositionSeconds) "midi to text: position non-tempo-track events in seconds"
+  , Option [] ["measure"] (NoArg PositionMeasure) "midi to text: position non-tempo-track events in measures + beats"
+  , Option [] ["separate-lines"] (NoArg SeparateLines) "midi to text: give every event on its own line"
+  , Option ['r'] ["resolution"] (ReqArg (Resolution . read) "int") "text to midi: how many ticks per beat"
   ]
 
 -- | Oracle for an audio file search.
@@ -1621,6 +1638,17 @@ main = do
       when b $ Dir.removeDirectoryRecursive dout
       copyDir (dir </> planWeb) dout
 
+    midiTextOptions :: MS.Options
+    midiTextOptions = MS.Options
+      { showFormat = if
+        | PositionSeconds `elem` opts -> MS.ShowSeconds
+        | PositionMeasure `elem` opts -> MS.ShowMeasures
+        | otherwise                   -> MS.ShowBeats
+      , resolution = listToMaybe [ i | Resolution i <- opts ]
+      , separateLines = SeparateLines `elem` opts
+      , matchNoteOff = MatchNotes `elem` opts
+      }
+
   case nonopts of
     [] -> return ()
     "build" : buildables -> shakeBuild buildables Nothing
@@ -1680,7 +1708,18 @@ main = do
           "darwin" -> callProcess "open" ["notes.RPP"]
           _        -> return ()
       _ -> error "Usage: onyx reap plan"
-    -- TODO: midiscript
+    "mt" : args -> case inputOutput ".txt" args of
+      Nothing -> error "Usage: onyx mt in.mid [out.txt]"
+      Just (fin, fout) -> fmap MS.toStandardMIDI (Load.fromFile fin) >>= \case
+        Left  err -> error err
+        Right mid -> writeFile fout $ MS.showStandardMIDI midiTextOptions mid
+    "tm" : args -> case inputOutput ".mid" args of
+      Nothing -> error "Usage: onyx tm in.txt [out.mid]"
+      Just (fin, fout) -> do
+        sf <- MS.readStandardFile . MS.parse . MS.scan <$> readFile fin
+        let (mid, warnings) = MS.fromStandardMIDI midiTextOptions sf
+        mapM_ (hPutStrLn stderr) warnings
+        Save.toFile fout mid
     _ -> error "Invalid command"
 
 inputOutput :: String -> [String] -> Maybe (FilePath, FilePath)

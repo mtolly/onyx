@@ -78,6 +78,7 @@ executable onyx
     , onyxite-customs-dta
     , onyxite-customs-stack-trace
     , onyxite-customs-display
+    , midiscript
   default-language:     Haskell2010
   default-extensions:
     LambdaCase
