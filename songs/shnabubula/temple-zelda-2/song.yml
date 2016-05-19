@@ -1,0 +1,16 @@
+metadata:
+  title: Temple (Zelda 2)
+  file-include: ../../../albums/nes-jams.yml
+  track-number: 2
+  author: Onyxite
+audio:
+  album:
+    md5: 019d6ca36ef0e10841404568fa275df6
+    frames: 8654848
+plans:
+  album:
+    song:
+      pad: [2.957, album]
+instruments:
+  pro-keys: true
+published: false

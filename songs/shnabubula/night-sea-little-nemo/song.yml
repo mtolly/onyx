@@ -1,0 +1,16 @@
+metadata:
+  title: Night Sea (Little Nemo the Dream Master)
+  file-include: ../../../albums/nes-jams.yml
+  track-number: 4
+  author: Onyxite
+audio:
+  album:
+    md5: 0ea1d74ec6b3cab59b687a5a8ce7a1bf
+    frames: 9948803
+plans:
+  album:
+    song:
+      pad: [3.702, album]
+instruments:
+  pro-keys: true
+published: false

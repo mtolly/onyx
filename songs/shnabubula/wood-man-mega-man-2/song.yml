@@ -1,0 +1,16 @@
+metadata:
+  title: Wood Man (Mega Man 2)
+  file-include: ../../../albums/nes-jams.yml
+  track-number: 11
+  author: Onyxite
+audio:
+  album:
+    md5: b787e968484feaa0e8af56a7a9e12776
+    frames: 9582091
+plans:
+  album:
+    song:
+      pad: [3.755, album]
+instruments:
+  pro-keys: true
+published: false
