@@ -3,6 +3,10 @@ metadata:
   file-include: ../../../albums/pimp-of-the-year.yml
   track-number: 6
   author: Onyxite
+  difficulty:
+    drums: 7
+    pro-keys: 7
+  auto-2x-bass: false
 audio:
   album-track:
     md5: 53cfe5969cd3451eebadc33dc4b89d54
@@ -12,5 +16,5 @@ plans:
     song:
       pad: [3.324, album-track]
 instruments:
-  drums: true
-published: false
+  # drums: true
+  pro-keys: true
