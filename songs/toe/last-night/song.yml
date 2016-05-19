@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/for-long-tomorrow.yml
   track-number: 9
   author: Onyxite
+  auto-2x-bass: false
 audio:
   album-track:
     md5: 0f025d8ca6fb648c2ecef0830f280959
@@ -13,4 +14,3 @@ plans:
       pad: [3.250, album-track]
 instruments:
   drums: true
-published: false
