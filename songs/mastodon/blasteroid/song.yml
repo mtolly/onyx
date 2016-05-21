@@ -1,0 +1,20 @@
+metadata:
+  title: Blasteroid
+  artist: Mastodon
+  comments:
+  - "Audio is a Youtube download (run `audio.sh`)."
+audio:
+  youtube:
+    path: audio-youtube.wav
+    md5: 0c6c4a20a57df0025f03df0abca443fe
+    frames: 6866944
+plans:
+  album:
+    song:
+      pad: [2.001, youtube]
+instruments:
+  vocal: 2
+  guitar: true
+  bass: true
+  drums: true
+published: false
