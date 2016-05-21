@@ -1,0 +1,23 @@
+metadata:
+  title: Disease, Injury, Madness
+  file-include: "../../../albums/the-great-misdirect.yml"
+  track-number: 3
+  author: Grinnz
+audio:
+  album-obfuscation:
+    md5: f130cd04390dbe9554269233cc70ebe0
+    frames: 24490200
+  album-disease:
+    md5: 717a6a45ecf026ba2186ff545710828b
+    frames: 29236536
+plans:
+  album:
+    song:
+      fade:
+      - end
+      - 0.1
+      - trim:
+        - '9:11.247'
+        - concatenate: [album-obfuscation, album-disease]
+instruments:
+  drums: true

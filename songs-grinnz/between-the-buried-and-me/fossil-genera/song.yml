@@ -1,0 +1,20 @@
+metadata:
+  title: "Fossil Genera - A Feed from Cloud Mountain"
+  file-include: "../../../albums/the-great-misdirect.yml"
+  track-number: 4
+  author: Grinnz
+audio:
+  album-track:
+    md5: 3076093303750e6e3387835f0ba70143
+    frames: 32228280
+plans:
+  album:
+    song:
+      fade:
+      - end
+      - 1.903
+      - pad:
+        - 2.667
+        - album-track
+instruments:
+  drums: true
