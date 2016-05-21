@@ -1,0 +1,23 @@
+metadata:
+  title: Obfuscation
+  file-include: "../../../albums/the-great-misdirect.yml"
+  track-number: 2
+  author: Grinnz
+audio:
+  album-mirrors:
+    md5: f7ee2d02293a31d867449932d4c4d81b
+    frames: 9603216
+  album-obfuscation:
+    md5: f130cd04390dbe9554269233cc70ebe0
+    frames: 24490200
+plans:
+  album:
+    song:
+      fade:
+      - start
+      - 2.756
+      - trim:
+        - '3:32.957'
+        - concatenate: [album-mirrors, album-obfuscation]
+instruments:
+  drums: true
