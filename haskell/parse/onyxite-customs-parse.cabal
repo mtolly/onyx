@@ -28,7 +28,7 @@ library
     , transformers >= 0.4
     , template-haskell
     -- my libraries:
-    , midi-util >= 0.1.1.1 && < 0.2
+    , midi-util >= 0.2 && < 0.3
     , onyxite-customs-stack-trace
   default-language:     Haskell2010
   ghc-options:          -Wall

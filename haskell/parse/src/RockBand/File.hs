@@ -30,6 +30,7 @@ import           Control.Monad.Trans.StackTrace
 
 data Track t
   = PartDrums                 (RTB.T t      Drums.Event)
+  | PartDrums2x               (RTB.T t      Drums.Event)
   | PartGuitar                (RTB.T t FiveButton.Event)
   | PartBass                  (RTB.T t FiveButton.Event)
   | PartKeys                  (RTB.T t FiveButton.Event)
@@ -56,13 +57,12 @@ data Song t = Song
   { s_tempos     :: U.TempoMap
   , s_signatures :: U.MeasureMap
   , s_tracks     :: [Track t]
-  } deriving (Eq, Ord, Show)
+  } deriving (Eq, Show)
 
--- | TODO: handle a non-encodeable time signature
 showMIDIFile :: Song U.Beats -> F.T
 showMIDIFile s = let
-  tempos = fmap U.showTempo $ U.tempoMapToBPS $ s_tempos s
-  sigs = fmap (fromJust . U.showSignature) $ U.measureMapToLengths $ s_signatures s
+  tempos = U.unmakeTempoMap $ s_tempos s
+  sigs = U.unmakeMeasureMap $ s_signatures s
   tempoTrk = U.setTrackName "notes" $ RTB.merge tempos sigs
   in U.encodeFileBeats F.Parallel 480 $ tempoTrk : map showTrack (s_tracks s)
 
@@ -84,6 +84,7 @@ phaseShiftFixToms = RTB.flatten . fmap tomsFirst . RTB.collectCoincident where
 showTrack :: Track U.Beats -> RTB.T U.Beats E.T
 showTrack = \case
   PartDrums             t -> U.setTrackName "PART DRUMS"          $ phaseShiftFixToms $ unparseAll unparseOne t
+  PartDrums2x           t -> U.setTrackName "PART DRUMS_2X"       $ phaseShiftFixToms $ unparseAll unparseOne t
   PartGuitar            t -> U.setTrackName "PART GUITAR"         $ unparseAll unparseOne t
   PartBass              t -> U.setTrackName "PART BASS"           $ unparseAll unparseOne t
   PartKeys              t -> U.setTrackName "PART KEYS"           $ unparseAll unparseOne t
@@ -148,6 +149,7 @@ parseTrack mmap t = case U.trackName t of
   Nothing -> fatal "Track with no name"
   Just s -> inside ("track named " ++ show s) $ case s of
     "PART DRUMS"          -> liftM PartDrums               $ makeTrackParser parseOne mmap t
+    "PART DRUMS_2X"       -> liftM PartDrums2x             $ makeTrackParser parseOne mmap t
     "PART GUITAR"         -> liftM PartGuitar              $ makeTrackParser parseOne mmap t
     "PART BASS"           -> liftM PartBass                $ makeTrackParser parseOne mmap t
     "PART KEYS"           -> liftM PartKeys                $ makeTrackParser parseOne mmap t
@@ -204,6 +206,7 @@ playGuitarTrack goffs boffs = \case
 copyExpert :: (NNC.C t) => Track t -> Track t
 copyExpert = \case
   PartDrums        t -> PartDrums        $      Drums.copyExpert t
+  PartDrums2x      t -> PartDrums2x      $      Drums.copyExpert t
   PartGuitar       t -> PartGuitar       $ FiveButton.copyExpert t
   PartBass         t -> PartBass         $ FiveButton.copyExpert t
   PartKeys         t -> PartKeys         $ FiveButton.copyExpert t

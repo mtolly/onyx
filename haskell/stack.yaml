@@ -15,7 +15,7 @@ extra-deps:
 - jammittools-0.5.0.3
 - lock-file-0.5.0.2
 - midi-0.2.2
-- midi-util-0.1.1.1
+- midi-util-0.2
 - non-negative-0.1.1
 - tagged-exception-core-2.2.0.0
 - monoid-transformer-0.0.3
