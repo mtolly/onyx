@@ -1,0 +1,19 @@
+metadata:
+  title: Black Tongue
+  artist: Mastodon
+  comments:
+  - "Audio is a Youtube download (run `audio.sh`)."
+audio:
+  youtube:
+    path: audio-youtube.wav
+    md5: 0f27cd53fd7d38ab728402eef64991a8
+    frames: 9134080
+plans:
+  album:
+    song:
+      pad: [5.595, youtube]
+instruments:
+  vocal: 2
+  guitar: true
+  drums: true
+published: false
