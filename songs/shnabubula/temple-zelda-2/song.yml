@@ -3,6 +3,8 @@ metadata:
   file-include: ../../../albums/nes-jams.yml
   track-number: 2
   author: Onyxite
+  difficulty:
+    pro-keys: 7
 audio:
   album:
     md5: 019d6ca36ef0e10841404568fa275df6
@@ -13,4 +15,3 @@ plans:
       pad: [2.957, album]
 instruments:
   pro-keys: true
-published: false
