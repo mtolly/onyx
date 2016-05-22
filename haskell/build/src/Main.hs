@@ -327,9 +327,11 @@ main = do
                   result <- audioOracle $ AudioSearch $ show audioQuery
                   case result of
                     Nothing -> fail $ "Couldn't find a necessary audio file for query: " ++ show audioQuery
-                    Just fp -> return $ case _rate of
-                      Nothing -> Resample $ Input fp
-                      Just _  -> Input fp -- if rate is specified, don't auto-resample
+                    Just fp -> do
+                      putNormal $ "Found " ++ show name ++ " located at: " ++ fp
+                      return $ case _rate of
+                        Nothing -> Resample $ Input fp
+                        Just _  -> Input fp -- if rate is specified, don't auto-resample
                 AudioSnippet expr -> fmap join $ mapM manualLeaf expr
               Nothing -> fail $ "Couldn't find an audio source named " ++ show name
             manualLeaf (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
@@ -734,36 +736,53 @@ main = do
               has2p = dir </> "has2p.txt"
               display = dir </> "display.json"
           [midPS, midcountin, mid2p, mid1p, has2p] &%> \_ -> do
+            putNormal "Loading the MIDI file..."
             input <- loadMIDI "notes.mid"
             let extraTempo  = "tempo-" ++ T.unpack planName ++ ".mid"
+                showPosition = RBFile.showPosition . U.applyMeasureMap (RBFile.s_signatures input)
             tempos <- fmap RBFile.s_tempos $ doesFileExist extraTempo >>= \b -> if b
               then loadMIDI extraTempo
               else return input
             let trks = RBFile.s_tracks input
                 mergeTracks = foldr RTB.merge RTB.empty
-                beatTrack = let
-                  trk = mergeTracks [ t | RBFile.Beat t <- trks ]
-                  in RBFile.Beat $ if RTB.null trk
-                    then U.trackTake endPosn $ makeBeatTrack $ RBFile.s_signatures input
-                    else trk
-                eventsTrack = RBFile.Events eventsRaw'
                 eventsRaw = mergeTracks [ t | RBFile.Events t <- trks ]
                 eventsList = ATB.toPairList $ RTB.toAbsoluteEventList 0 eventsRaw
-                musicStartPosn = case [ t | (t, Events.MusicStart) <- eventsList ] of
-                  t : _ -> max t 2
-                  []    -> 2
-                  -- If [music_start] is before 2 beats,
-                  -- Magma will add auto [idle] events there in instrument tracks, and then error...
-                -- A better default end position would take into account the audio length.
-                -- But, it's nice to not have notes.mid depend on any audio files.
-                endPosn = case [ t | (t, Events.End) <- eventsList ] of
-                  t : _ -> t
-                  []    -> 4 + let
-                    absTimes = ATB.getTimes . RTB.toAbsoluteEventList 0
-                    in foldr max 0 $ concatMap absTimes (map RBFile.showTrack trks) ++ absTimes (U.tempoMapToBPS tempos)
-                musicEndPosn = case [ t | (t, Events.MusicEnd) <- eventsList ] of
-                  t : _ -> t
-                  []    -> endPosn - 2
+            -- If [music_start] is before 2 beats,
+            -- Magma will add auto [idle] events there in instrument tracks, and then error...
+            musicStartPosn <- case [ t | (t, Events.MusicStart) <- eventsList ] of
+              t : _ -> if t < 2
+                then do
+                  putNormal $ "[music_start] is too early. Moving to " ++ showPosition 2
+                  return 2
+                else return t
+              []    -> do
+                putNormal $ "[music_start] is missing. Placing at " ++ showPosition 2
+                return 2
+            -- A better default end position would take into account the audio length.
+            -- But, it's nice to not have notes.mid depend on any audio files.
+            endPosn <- case [ t | (t, Events.End) <- eventsList ] of
+              t : _ -> return t
+              [] -> do
+                let absTimes = ATB.getTimes . RTB.toAbsoluteEventList 0
+                    lastMIDIEvent = foldr max 0 $ concatMap absTimes (map RBFile.showTrack trks) ++ absTimes (U.tempoMapToBPS tempos)
+                putNormal $ unwords
+                  [ "[end] is missing. The last MIDI event is at"
+                  , showPosition lastMIDIEvent
+                  , "so [end] will be at"
+                  , showPosition $ 4 + lastMIDIEvent
+                  ]
+                return $ 4 + lastMIDIEvent
+            musicEndPosn <- case [ t | (t, Events.MusicEnd) <- eventsList ] of
+              t : _ -> return t
+              []    -> do
+                putNormal $ unwords
+                  [ "[music_end] is missing. [end] is at"
+                  , showPosition endPosn
+                  , "so [music_end] will be at"
+                  , showPosition $ endPosn - 2
+                  ]  
+                return $ endPosn - 2
+            let eventsTrack = RBFile.Events eventsRaw'
                 eventsRaw'
                   = RTB.insert musicStartPosn Events.MusicStart
                   $ RTB.insert musicEndPosn Events.MusicEnd
@@ -848,6 +867,13 @@ main = do
                         harm1   = windLyrics $ mergeTracks [ t | RBFile.Harm1      t <- trks ]
                         harm2   = windLyrics $ mergeTracks [ t | RBFile.Harm2      t <- trks ]
                         harm3   = windLyrics $ mergeTracks [ t | RBFile.Harm3      t <- trks ]
+            beatTrack <- let
+              trk = mergeTracks [ t | RBFile.Beat t <- trks ]
+              in if RTB.null trk
+                then do
+                  putNormal "Generating a BEAT track..."
+                  return $ RBFile.Beat $ U.trackTake endPosn $ makeBeatTrack $ RBFile.s_signatures input
+                else return $ RBFile.Beat trk
             forM_ [(midPS, drumsPS), (mid1p, drums1p), (mid2p, drums2p)] $ \(midout, drumsTracks) ->
               saveMIDI midout RBFile.Song
                 { RBFile.s_tempos = tempos

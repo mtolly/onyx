@@ -146,7 +146,9 @@ makeTrackParser p mmap trk = do
 
 parseTrack :: (Monad m) => U.MeasureMap -> RTB.T U.Beats E.T -> StackTraceT m (Track U.Beats)
 parseTrack mmap t = case U.trackName t of
-  Nothing -> fatal "Track with no name"
+  Nothing -> do
+    warn "Track with no name"
+    return $ RawTrack t
   Just s -> inside ("track named " ++ show s) $ case s of
     "PART DRUMS"          -> liftM PartDrums               $ makeTrackParser parseOne mmap t
     "PART DRUMS_2X"       -> liftM PartDrums2x             $ makeTrackParser parseOne mmap t
@@ -175,7 +177,9 @@ parseTrack mmap t = case U.trackName t of
     "EVENTS"              -> liftM Events                  $ makeTrackParser parseOne mmap t
     "BEAT"                -> liftM Beat                    $ makeTrackParser parseOne mmap t
     "VENUE"               -> liftM Venue                   $ makeTrackParser parseOne mmap t
-    _ -> fatal "Unrecognized track name"
+    _ -> do
+      warn "Unrecognized track name"
+      return $ RawTrack t
 
 -- | midiscript format, where both measure and beats start from zero
 showPosition :: U.MeasureBeats -> String

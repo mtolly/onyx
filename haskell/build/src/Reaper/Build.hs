@@ -23,6 +23,8 @@ import qualified RockBand.Vocals                  as Vox
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Message               as Message
+import qualified Sound.MIDI.Message.Channel       as C
+import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util                  as U
 import           System.FilePath                  (takeExtension, takeFileName)
 
@@ -65,7 +67,13 @@ tempoTrack trk = block "TEMPOENVEX" [] $ do
 event :: (Monad m) => Int -> E.T -> WriterT [Element] m ()
 event tks = \case
   E.MIDIEvent e -> let
-    bs = Message.toByteString $ Message.Channel e
+    bs = Message.toByteString $ Message.Channel $ case e of
+      C.Cons chan (C.Voice (V.NoteOff p _)) -> C.Cons chan $ C.Voice $ V.NoteOff p $ V.toVelocity 96
+      _ -> e
+    -- the above intentionally ignores the velocity of note-offs.
+    -- this is done because if the `midi` package parses a note-off with
+    -- a wrong velocity (outside of 0..127) it will crash upon evaluating
+    -- the velocity.
     showByte n = case showHex n "" of
       [c] -> ['0', c]
       s   -> s
@@ -74,8 +82,12 @@ event tks = \case
     stringBytes = TE.encodeUtf8 . T.pack
     bytes = B.cons 0xFF $ case e of
       Meta.TextEvent s -> B.cons 1 $ stringBytes s
+      Meta.Copyright s -> B.cons 2 $ stringBytes s
       Meta.TrackName s -> B.cons 3 $ stringBytes s
+      Meta.InstrumentName s -> B.cons 4 $ stringBytes s
       Meta.Lyric s -> B.cons 5 $ stringBytes s
+      Meta.Marker s -> B.cons 6 $ stringBytes s
+      Meta.CuePoint s -> B.cons 7 $ stringBytes s
       _ -> error $ "unhandled case in reaper event parser: " ++ show e
     splitChunks bs = if B.length bs <= 40
       then [bs]
