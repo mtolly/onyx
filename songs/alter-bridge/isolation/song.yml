@@ -1,0 +1,27 @@
+metadata:
+  title: Isolation
+  artist: Alter Bridge
+  album: AB III
+  genre: metal
+  subgenre: alternative
+  track-number: 2
+  year: 2010
+  file-album-art: cover.jpg
+  author: Guyshenig, Onyxite
+  comments:
+  - "Guitar, bass, drums by Guyshenig; vocals by Onyxite."
+  - "Audio is a Youtube download (run `audio.sh`)."
+audio:
+  youtube:
+    path: audio-youtube.wav
+    md5: ec7976ae1764d2cbe92193e14925e16c
+    frames: 11189248
+plans:
+  album:
+    song:
+      pad: [4.113, youtube]
+instruments:
+  guitar: true
+  bass: true
+  drums: true
+published: false
