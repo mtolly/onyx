@@ -1,4 +1,4 @@
-<REAPER_PROJECT 0.1 "5.17/OSX64" 1463854589
+<REAPER_PROJECT 0.1 "5.17/OSX64" 1463897234
   RIPPLE 0
   GROUPOVERRIDE 0 0 0
   AUTOXFADE 1
@@ -11,8 +11,8 @@
   MAXPROJLEN 0 600
   GRID 1151 8 1 8 1 0 0
   TIMEMODE 1 0 -1 24 2
-  CURSOR 0
-  ZOOM 3.18995632903933 0 0
+  CURSOR 185.32204861589301
+  ZOOM 3.8279475948472 102 0
   VZOOMEX 0
   USE_REC_CFG 0
   RECMODE 1
@@ -37101,6 +37101,7 @@
         >
         E 0 90 40 7f
         E 0 90 69 7f
+        E 0 90 74 7f
         E 60 80 40 00
         <X 120 0
           /wUr
@@ -37132,6 +37133,7 @@
         >
         E 0 90 41 7f
         E 1140 80 69 00
+        E 0 80 74 00
         E 0 80 41 00
         <X 2880 0
           /wVZb3U=
@@ -37254,6 +37256,7 @@
         E 720 80 3e 00
         E 240 80 69 00
         E 1200 90 69 60
+        E 0 90 74 60
         <X 30 0
           /wVBbmQ=
         >
@@ -37279,6 +37282,7 @@
         >
         E 0 90 3e 60
         E 720 80 69 00
+        E 0 80 74 00
         E 0 80 3e 00
         E 1680 90 69 60
         <X 30 0
@@ -37428,6 +37432,7 @@
         >
         E 0 90 44 60
         E 0 90 69 60
+        E 0 90 74 60
         E 210 80 44 00
         <X 60 0
           /wVjYW4=
@@ -37490,6 +37495,7 @@
         E 0 90 43 60
         E 540 80 43 00
         E 270 80 69 00
+        E 0 80 74 00
         <X 7200 0
           /wVZb3UndmU=
         >
@@ -37549,6 +37555,7 @@
         >
         E 0 90 45 60
         E 0 90 69 60
+        E 0 90 74 60
         E 240 80 45 00
         <X 120 0
           /wVraWxsZWQ=
@@ -37566,6 +37573,7 @@
         E 0 90 46 60
         E 360 80 46 00
         E 180 80 69 00
+        E 0 80 74 00
         <X 2400 0
           /wVZb3U=
         >
@@ -37644,7 +37652,7 @@
         VELLANE 132 128 128
         COLORMAP "C:\Users\me\AppData\Roaming\REAPER\Data\color_maps\rockband_vox-other.png"
         TEXTSTRINGFILE "Text Events List.txt"
-        CFGEDITVIEW -18049.874462 0.002191 0 12 0 0 0 0 0
+        CFGEDITVIEW 33108.820195 0.071845 0 12 0 0 0 0 0
         KEYSNAP 0 0 102034050607 0 Major
         TRACKSEL -252 0 0 ""
         EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
@@ -37664,7 +37672,7 @@
     BUSCOMP 1 0
     SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
-    SEL 0
+    SEL 1
     REC 0 4096 1 7 0 0 0
     TRACKHEIGHT 77 0
     INQ 0 0 0 0.5 100 0 0 100
@@ -37895,6 +37903,7 @@
         >
         E 0 90 40 7f
         E 0 90 69 7f
+        e 0 90 74 7f
         E 60 80 40 00
         <X 120 0
           /wUr
@@ -37925,7 +37934,8 @@
           /wVub25l
         >
         E 0 90 41 7f
-        E 1140 80 69 00
+        e 1140 80 74 00
+        E 0 80 69 00
         E 0 80 41 00
         <X 2880 0
           /wVZb3U=
@@ -38048,6 +38058,7 @@
         E 720 80 3e 00
         E 240 80 69 00
         E 1200 90 69 60
+        e 0 90 74 60
         <X 30 0
           /wVBbmQ=
         >
@@ -38072,7 +38083,8 @@
           /wVzaWdodA==
         >
         E 0 90 3e 60
-        E 720 80 69 00
+        e 720 80 74 00
+        E 0 80 69 00
         E 0 80 3e 00
         E 1680 90 69 60
         <X 30 0
@@ -38222,6 +38234,7 @@
         >
         E 0 90 44 60
         E 0 90 69 60
+        e 0 90 74 60
         E 210 80 44 00
         <X 60 0
           /wVjYW4=
@@ -38283,7 +38296,8 @@
         >
         E 0 90 43 60
         E 540 80 43 00
-        E 270 80 69 00
+        e 270 80 74 00
+        E 0 80 69 00
         <X 7200 0
           /wVZb3UndmU=
         >
@@ -38343,6 +38357,7 @@
         >
         E 0 90 45 60
         E 0 90 69 60
+        e 0 90 74 60
         E 240 80 45 00
         <X 120 0
           /wVraWxsZWQ=
@@ -38359,7 +38374,8 @@
         >
         E 0 90 46 60
         E 360 80 46 00
-        E 180 80 69 00
+        e 180 80 74 00
+        E 0 80 69 00
         <X 2400 0
           /wVZb3U=
         >
@@ -38438,7 +38454,7 @@
         VELLANE 132 128 128
         COLORMAP "C:\Users\me\AppData\Roaming\REAPER\Data\color_maps\rockband_vox-other.png"
         TEXTSTRINGFILE "Text Events List.txt"
-        CFGEDITVIEW -18049.874462 0.002191 0 12 0 0 0 0 0
+        CFGEDITVIEW 38062.428936 0.011014 0 12 0 0 0 0 0
         KEYSNAP 0 0 102034050607 0 Major
         TRACKSEL -252 0 0 ""
         EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
