@@ -1,0 +1,18 @@
+metadata:
+  title: Thickening
+  artist: Mastodon
+  comments:
+  - "Audio is a Youtube download (run `audio.sh`)."
+audio:
+  youtube:
+    path: audio-youtube.wav
+    md5: 82a582394110c5952ec386621a196291
+    frames: 11931648
+plans:
+  album:
+    song:
+      pad: [3.279, youtube]
+instruments:
+  vocal: 2
+  drums: true
+published: false
