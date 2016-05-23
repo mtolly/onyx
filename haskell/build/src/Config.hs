@@ -9,6 +9,7 @@
 module Config where
 
 import           Audio
+import           Control.Monad                  (when)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace hiding (optional)
@@ -21,7 +22,7 @@ import qualified Data.DTA.Serialize.Magma       as Magma
 import qualified Data.HashMap.Strict            as Map
 import           Data.String                    (IsString)
 import           Data.List                      ((\\))
-import           Data.Maybe                     (fromMaybe)
+import           Data.Maybe                     (fromMaybe, isNothing)
 import           Data.Monoid                    ((<>))
 import           Data.Scientific                (Scientific, toBoundedInteger,
                                                  toRealFloat)
@@ -314,14 +315,18 @@ fromMaybe' s ms = case ms of
 
 instance TraceJSON Metadata where
   traceJSON = object $ do
-    _title        <- fromMaybe' "Unknown Song" <$> optional "title" traceJSON
-    _artist       <- fromMaybe' "Unknown Artist" <$> optional "artist" traceJSON
-    _album        <- fromMaybe' "Unknown Album" <$> optional "album" traceJSON
-    _genre        <- fromMaybe' "other" <$> optional "genre" traceJSON
-    _subgenre     <- fromMaybe' (defaultSubgenre _genre) <$> optional "subgenre" traceJSON
-    _year         <- fromMaybe 1900 <$> optional "year" traceJSON
+    let s `orWarn` (w, v) = optional s traceJSON >>= \case
+          Nothing -> warn w >> return v
+          Just x  -> return x
+    _title        <- "title" `orWarn` ("Song has no title", "Untitled")
+    _artist       <- "artist" `orWarn` ("Song has no artist", "Unknown Artist")
+    _album        <- "album" `orWarn` ("Song has no album", "Unknown Album")
+    _genre        <- "genre" `orWarn` ("Song has no genre", "other")
+    _subgenre     <- "subgenre" `orWarn` ("Song has no subgenre", defaultSubgenre _genre)
+    _year         <- "year" `orWarn` ("Song has no release year", 1900)
     _fileAlbumArt <- optional "file-album-art" traceJSON
-    _trackNumber  <- fromMaybe 0 <$> optional "track-number" traceJSON
+    when (isNothing _fileAlbumArt) $ warn "Song has no album art"
+    _trackNumber  <- "track-number" `orWarn` ("Song has no track number", 0)
     _fileCountin  <- optional "file-countin"   traceJSON
     _vocalGender  <- optional "vocal-gender"   traceJSON
     let emptyDiffs = Difficulties Nothing Nothing Nothing Nothing Nothing Nothing Nothing
@@ -329,7 +334,7 @@ instance TraceJSON Metadata where
     _key          <- optional "key" traceJSON
     _comments     <- fromMaybe [] <$> optional "comments" traceJSON
     _autogenTheme <- fromMaybe AutogenDefault <$> optional "autogen-theme" traceJSON
-    _author       <- fromMaybe "Unknown Author" <$> optional "author" traceJSON
+    _author       <- "author" `orWarn` ("Song has no author", "Unknown Author")
     _rating       <- fromMaybe Unrated <$> optional "rating" traceJSON
     _drumKit      <- fromMaybe HardRockKit <$> optional "drum-kit" traceJSON
     _auto2xBass   <- fromMaybe True <$> optional "auto-2x-bass" traceJSON
@@ -729,7 +734,12 @@ instance TraceJSON Duration where
 instance A.ToJSON Duration where
   toJSON = \case
     Frames f -> A.object ["frames" .= f]
-    Seconds s -> A.toJSON s -- TODO: use MM:SS representation
+    Seconds s -> let
+      mins = floor $ s / 60 :: Int
+      secs = s - fromIntegral mins * 60
+      in case mins of
+        0 -> A.toJSON s
+        _ -> A.toJSON $ show mins ++ ":" ++ (if secs < 10 then "0" else "") ++ show secs
 
 data Instruments = Instruments
   { _hasDrums   :: Bool

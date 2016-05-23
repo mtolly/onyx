@@ -24,6 +24,7 @@ import           Data.Maybe                     (fromMaybe, listToMaybe,
 import qualified Data.Text                      as T
 import qualified Data.Yaml                      as Y
 import qualified FretsOnFire                    as FoF
+import           Genre                          (defaultSubgenre)
 import qualified RockBand.Drums                 as RBDrums
 import qualified RockBand.File                  as RBFile
 import qualified Sound.MIDI.File                as F
@@ -34,7 +35,8 @@ import qualified System.Directory               as Dir
 import           System.FilePath                (takeDirectory, takeFileName,
                                                  (<.>), (</>))
 import           System.IO                      (IOMode (..), SeekMode (..),
-                                                 hSeek, withBinaryFile)
+                                                 hSeek, withBinaryFile,
+                                                 hPutStrLn, stderr)
 import           System.IO.Extra                (latin1, readFileEncoding',
                                                  utf8)
 import           System.IO.Temp                 (withSystemTempDirectory)
@@ -257,17 +259,34 @@ importRB3 pkg author mid mogg cover coverName dir = do
   Dir.copyFile cover $ dir </> coverName
   md5 <- show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
   rb3mid <- Load.fromFile (dir </> "notes.mid") >>= printStackTraceIO . RBFile.readMIDIFile
+  let genre = T.pack $ D.fromKeyword $ D.genre pkg
+  subgenre <- case D.subGenre pkg of
+    Nothing -> do
+      hPutStrLn stderr "Warning: when importing a CON file, no subgenre specified"
+      return $ defaultSubgenre genre
+    Just subk -> case stripPrefix "subgenre_" $ D.fromKeyword subk of
+      Nothing -> do
+        hPutStrLn stderr $ "Warning: when importing a CON file, couldn't parse the subgenre: " ++ D.fromKeyword subk
+        return $ defaultSubgenre genre
+      Just sub -> return $ T.pack sub
+  drumkit <- case D.drumBank pkg of
+    Nothing -> return HardRockKit
+    Just x -> case either id D.fromKeyword x of
+      "sfx/kit01_bank.milo" -> return HardRockKit
+      "sfx/kit02_bank.milo" -> return ArenaKit
+      "sfx/kit03_bank.milo" -> return VintageKit
+      "sfx/kit04_bank.milo" -> return TrashyKit
+      "sfx/kit05_bank.milo" -> return ElectronicKit
+      s -> do
+        hPutStrLn stderr $ "Warning: when importing a CON file, unrecognized drum bank " ++ show s
+        return HardRockKit
   Y.encodeFile (dir </> "song.yml") SongYaml
     { _metadata = Metadata
       { _title        = T.pack $ D.name pkg
       , _artist       = T.pack $ D.artist pkg
       , _album        = T.pack $ fromMaybe "" $ D.albumName pkg
-      , _genre        = T.pack $ D.fromKeyword $ D.genre pkg
-      , _subgenre     = T.pack $ case D.subGenre pkg of
-        Nothing -> error $ "When importing a CON file: no subgenre specified"
-        Just subk -> case stripPrefix "subgenre_" $ D.fromKeyword subk of
-          Nothing -> error $ "When importing a CON file: can't read subgenre: " ++ D.fromKeyword subk
-          Just sub -> sub
+      , _genre        = genre
+      , _subgenre     = subgenre
       , _year         = fromIntegral $ D.yearReleased pkg
       , _fileAlbumArt = Just coverName
       , _trackNumber  = maybe 0 fromIntegral $ D.albumTrackNumber pkg
@@ -290,7 +309,7 @@ importRB3 pkg author mid mogg cover coverName dir = do
       , _autogenTheme = AutogenDefault
       , _author       = fromMaybe (T.pack "Unknown") author
       , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
-      , _drumKit      = HardRockKit -- TODO
+      , _drumKit      = drumkit
       , _auto2xBass   = False
       , _hopoThreshold = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
       , _previewStart = Just $ fromIntegral (fst $ D.preview pkg) / 1000
