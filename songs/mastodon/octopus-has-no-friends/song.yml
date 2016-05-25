@@ -1,0 +1,18 @@
+metadata:
+  title: Octopus Has No Friends
+  artist: Mastodon
+  comments:
+  - "Audio is a Youtube download (run `audio.sh`)."
+audio:
+  youtube:
+    path: audio-youtube.wav
+    md5: 9423a7480f26362a617dbccc56a00c02
+    frames: 10080256
+plans:
+  album:
+    song:
+      pad: [2.902, youtube]
+instruments:
+  vocal: 2
+  drums: true
+published: false
