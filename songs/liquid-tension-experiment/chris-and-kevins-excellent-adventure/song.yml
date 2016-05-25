@@ -3,11 +3,12 @@ metadata:
   file-include: ../../../albums/liquid-tension-experiment.yml
   track-number: 6
   difficulty:
-    drums: 6
+    drums: 5
     bass: 7
+    vocal: 4
   author: Onyxite
   comments:
-  - "Drums confidence: *high*."
+  - "All instruments have overdrive/unison."
 audio:
   album-track:
     md5: 0aae8dce8159e9f81f78c8833e560525
@@ -19,3 +20,4 @@ plans:
 instruments:
   drums: true
   bass: true
+  vocal: 2

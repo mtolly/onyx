@@ -7,8 +7,9 @@
 
 Instruments:
 
-  * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
+  * (Pro) Drums ⚪️⚪️⚪️⚪️⚫️
   * Bass 😈😈😈😈😈
+  * Vocals (2) ⚪️⚪️⚪️⚫️⚫️
 
 Supported audio:
 
@@ -16,5 +17,5 @@ Supported audio:
 
 Notes:
 
-  * Drums confidence: *high*.
+  * All instruments have overdrive/unison.
 
