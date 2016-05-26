@@ -1,0 +1,55 @@
+metadata:
+  title: Pain that Binds Us
+  file-include: ../../../albums/puzzled.yml
+  track-number: 1
+  author: Onyxite
+  comments:
+  - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
+audio:
+  album-track:
+    md5: ef3d2557667d9bd6b7af0d15ee26dce9
+    frames: 36037199
+  pledgemusic-drums:
+    name: BadSalad-Puzzled-1-PainThatBindsUs-Stem-Drums.flac
+    md5: 2d431a13759fdf2b291e9cc6990ad2e8
+    frames: 36423029
+  pledgemusic-bass:
+    name: BadSalad-Puzzled-1-PainThatBindsUs-Stem-Bass.flac
+    md5: 4e3dc2acd15a18396ab25e40565a24be
+    frames: 36423013
+  pledgemusic-guitars:
+    name: BadSalad-Puzzled-1-PainThatBindsUs-Stem-Guitars.flac
+    md5: 652ec90006c0e3f34ebe197161fedeeb
+    frames: 36423029
+  pledgemusic-keyboards:
+    name: BadSalad-Puzzled-1-PainThatBindsUs-Stem-Keyboards.flac
+    md5: 5654b2b316b7cd347b7f6e15334d275f
+    frames: 36423029
+  pledgemusic-vocals:
+    name: BadSalad-Puzzled-1-PainThatBindsUs-Stem-Vocals.flac
+    md5: fac5c2fe6a356e4b28604683e549fdaf
+    frames: 36423045
+plans:
+  album:
+    song:
+      pad: [4.333, album-track]
+  pledgemusic:
+    comments:
+    - "Stems from [the PledgeMusic campaign](http://www.pledgemusic.com/projects/badsalad2013)."
+    drums:
+      pad:
+      - 4.371
+      - gain: [0.65, pledgemusic-drums]
+    song:
+      pad:
+      - 4.371
+      - gain:
+        - 0.65
+        - mix:
+          - pledgemusic-bass
+          - pledgemusic-guitars
+          - pledgemusic-keyboards
+          - pledgemusic-vocals
+instruments:
+  drums: true
+published: false
