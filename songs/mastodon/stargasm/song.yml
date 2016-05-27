@@ -1,0 +1,18 @@
+metadata:
+  title: Stargasm
+  artist: Mastodon
+  comments:
+  - "Audio is a Youtube download (run `audio.sh`)."
+audio:
+  youtube:
+    path: audio-youtube.wav
+    md5: 844fed2fe7c5e43cc64d6d4aab52184d
+    frames: 12318720
+plans:
+  album:
+    song:
+      pad: [5.436, youtube]
+instruments:
+  drums: true
+  vocal: 2
+published: false
