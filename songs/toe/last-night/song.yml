@@ -15,3 +15,4 @@ plans:
 instruments:
   drums: true
   pro-keys: true
+  keys: true
