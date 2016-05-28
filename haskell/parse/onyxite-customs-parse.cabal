@@ -22,6 +22,7 @@ library
     RockBand.ProGuitar
     RockBand.Venue
     RockBand.PhaseShiftKeys
+    MelodysEscape
   build-depends:
     base >= 4.6 && < 4.9
     , event-list, non-negative, midi

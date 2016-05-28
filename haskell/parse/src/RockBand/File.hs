@@ -4,8 +4,8 @@ module RockBand.File where
 import           Control.Monad                    (forM, forM_, liftM)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import Data.List (sortOn)
-import           Data.Maybe                       (catMaybes, fromJust)
+import           Data.List                        (sortOn)
+import           Data.Maybe                       (catMaybes)
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Event            as E
@@ -26,6 +26,7 @@ import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.PhaseShiftKeys          as PSKeys
 import qualified RockBand.Vocals                  as Vocals
 import qualified RockBand.Venue                   as Venue
+import qualified MelodysEscape                    as Melody
 import           Control.Monad.Trans.StackTrace
 
 data Track t
@@ -51,6 +52,7 @@ data Track t
   | Beat                      (RTB.T t       Beat.Event)
   | Venue                     (RTB.T t      Venue.Event)
   | RawTrack                  (RTB.T t              E.T)
+  | MelodysEscape             (RTB.T t     Melody.Event)
   deriving (Eq, Ord, Show)
 
 data Song t = Song
@@ -110,6 +112,7 @@ showTrack = \case
   Events                t -> U.setTrackName "EVENTS"              $ unparseAll unparseOne t
   Beat                  t -> U.setTrackName "BEAT"                $ unparseAll unparseOne t
   Venue                 t -> U.setTrackName "VENUE"               $ unparseAll unparseOne t
+  MelodysEscape         t -> U.setTrackName "MELODY'S ESCAPE"     $ unparseAll unparseOne t
   RawTrack              t -> t
 
 readMIDIFile :: (Monad m) => F.T -> StackTraceT m (Song U.Beats)
@@ -177,6 +180,7 @@ parseTrack mmap t = case U.trackName t of
     "EVENTS"              -> liftM Events                  $ makeTrackParser parseOne mmap t
     "BEAT"                -> liftM Beat                    $ makeTrackParser parseOne mmap t
     "VENUE"               -> liftM Venue                   $ makeTrackParser parseOne mmap t
+    "MELODY'S ESCAPE"     -> liftM MelodysEscape           $ makeTrackParser parseOne mmap t
     _ -> do
       warn "Unrecognized track name"
       return $ RawTrack t

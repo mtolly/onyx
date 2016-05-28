@@ -130,6 +130,23 @@ blip i pat =
   , lamCaseE [match pat (normalB [e| unparseBlip i |]) []]
   )
 
+parseBlipMax :: Rational -> Int -> ParseOne U.Beats E.T ()
+parseBlipMax len i rtb = do
+  ((t, (c, p, mv)), rtb') <- firstEventWhich isNoteEdgeCPV rtb
+  guard $ p == i
+  _ <- mv
+  ((t', ()), rtb'') <- flip U.extractFirst rtb' $ isNoteEdgeCPV >=> \case
+    (c', p', Nothing) | (c, p) == (c', p') -> Just ()
+    _                                      -> Nothing
+  guard $ realToFrac t' - realToFrac t <= len
+  return ((t, ()), rtb'')
+
+blipMax :: U.Beats -> Int -> Q Pat -> (Q Exp, Q Exp)
+blipMax len i pat =
+  ( [e| mapParseOne (const $(fmap patToExp pat)) $ parseBlipMax len' i |]
+  , lamCaseE [match pat (normalB [e| unparseBlip i |]) []]
+  ) where len' = realToFrac len :: Rational
+
 parseEdge :: (NNC.C t) => Int -> (Bool -> a) -> ParseOne t E.T a
 parseEdge i f rtb = RTB.viewL rtb >>= \case
   ((t, e), rtb') -> isNoteEdge e >>= \case

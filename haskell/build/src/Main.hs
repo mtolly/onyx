@@ -32,6 +32,7 @@ import qualified Sound.MIDI.Script.Base           as MS
 import qualified Sound.MIDI.Script.Parse          as MS
 import qualified Sound.MIDI.Script.Read           as MS
 import qualified Sound.MIDI.Script.Scan           as MS
+import qualified MelodysEscape
 
 import           Codec.Picture
 import           Control.Exception as Exc
@@ -53,7 +54,7 @@ import qualified Data.DTA.Serialize.Magma         as Magma
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Fixed                       (Milli)
+import           Data.Fixed                       (Milli, Centi)
 import           Data.Foldable                    (toList)
 import           Data.Functor.Identity            (runIdentity)
 import qualified Data.HashMap.Strict              as HM
@@ -732,10 +733,10 @@ main = do
           let midPS = dir </> "ps/notes.mid"
               mid2p = dir </> "2p/notes.mid"
               mid1p = dir </> "1p/notes.mid"
-              midcountin = dir </> "countin.mid"
+              midraw = dir </> "raw.mid"
               has2p = dir </> "has2p.txt"
               display = dir </> "display.json"
-          [midPS, midcountin, mid2p, mid1p, has2p] &%> \_ -> do
+          [midPS, midraw, mid2p, mid1p, has2p] &%> \_ -> do
             putNormal "Loading the MIDI file..."
             input <- loadMIDI "notes.mid"
             let extraTempo  = "tempo-" ++ T.unpack planName ++ ".mid"
@@ -788,7 +789,6 @@ main = do
                   $ RTB.insert musicEndPosn Events.MusicEnd
                   $ RTB.insert endPosn Events.End
                   $ RTB.filter (`notElem` [Events.MusicStart, Events.MusicEnd, Events.End]) eventsRaw
-                countinTrack = RBFile.Countin $ mergeTracks [ t | RBFile.Countin t <- trks ]
                 venueTracks = let
                   trk = mergeTracks [ t | RBFile.Venue t <- trks ]
                   in guard (not $ RTB.null trk) >> [RBFile.Venue trk]
@@ -889,10 +889,10 @@ main = do
                   , vocalTracks
                   ]
                 }
-            saveMIDI midcountin RBFile.Song
+            saveMIDI midraw RBFile.Song
               { RBFile.s_tempos = tempos
               , RBFile.s_signatures = RBFile.s_signatures input
-              , RBFile.s_tracks = [countinTrack]
+              , RBFile.s_tracks = RBFile.s_tracks input
               }
             liftIO $ writeFile has2p $ show has2xNotes
 
@@ -940,7 +940,7 @@ main = do
           -- Countin audio, and song+countin files
           dir </> "countin.wav" %> \out -> case _fileCountin $ _metadata songYaml of
             Nothing -> buildAudio (Silence 1 $ Frames 0) out
-            Just hit -> makeCountin midcountin hit out
+            Just hit -> makeCountin midraw hit out
           case plan of
             MoggPlan{} -> return () -- handled above
             _          -> do
@@ -1243,6 +1243,31 @@ main = do
               posn = RBFile.showPosition $ U.applyMeasureMap (RBFile.s_signatures song) t
               in putNormal $ posn ++ ": " ++ insts
             return ()
+
+          -- Melody's Escape customs
+          let melodyAudio = dir </> "melody/audio.ogg"
+              melodyChart = dir </> "melody/song.track"
+          melodyAudio %> copyFile' (dir </> "everything.ogg")
+          melodyChart %> \out -> do
+            need [midraw, melodyAudio]
+            mid <- loadMIDI midraw
+            let melody = U.applyTempoTrack (RBFile.s_tempos mid)
+                  $ foldr RTB.merge RTB.empty [ trk | RBFile.MelodysEscape trk <- RBFile.s_tracks mid ]
+            info <- liftIO $ Snd.getFileInfo melodyAudio
+            let secs = realToFrac (Snd.frames info) / realToFrac (Snd.samplerate info) :: U.Seconds
+                str = unlines
+                  [ "1.02"
+                  , intercalate ";"
+                    [ show (MelodysEscape.secondsToTicks secs)
+                    , show (realToFrac secs :: Centi)
+                    , "420"
+                    , "4"
+                    ]
+                  , MelodysEscape.writeTransitions melody
+                  , MelodysEscape.writeNotes melody
+                  ]
+            liftIO $ writeFile out str
+          phony (dir </> "melody") $ need [melodyAudio, melodyChart]
 
           let get1xTitle, get2xTitle :: Action String
               get1xTitle = return $ T.unpack $ _title $ _metadata songYaml
