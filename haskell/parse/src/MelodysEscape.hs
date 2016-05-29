@@ -6,8 +6,10 @@ import RockBand.Parse
 import qualified Sound.MIDI.Util as U
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import Data.List (intercalate)
+import Data.List (intercalate, partition)
 import Data.Maybe (mapMaybe)
+import Control.Monad.Random
+import qualified Numeric.NonNegative.Class as NNC
 
 data Event
   = Intensity        Bool  Intensity
@@ -16,7 +18,7 @@ data Event
 
 data NoteType
   = Obstacle Direction
-  | Collect  Direction
+  | Color    Direction
   | Cutscene
   deriving (Eq, Ord, Show, Read)
 
@@ -34,10 +36,10 @@ instanceMIDIEvent [t| Event |]
   , blipMax (1/4) 63 [p| Note Nothing (Obstacle U) |]
   , blipMax (1/4) 64 [p| Note Nothing  Cutscene    |]
 
-  , blipMax (1/4) 72 [p| Note Nothing (Collect D) |]
-  , blipMax (1/4) 73 [p| Note Nothing (Collect L) |]
-  , blipMax (1/4) 74 [p| Note Nothing (Collect R) |]
-  , blipMax (1/4) 75 [p| Note Nothing (Collect U) |]
+  , blipMax (1/4) 72 [p| Note Nothing (Color D) |]
+  , blipMax (1/4) 73 [p| Note Nothing (Color L) |]
+  , blipMax (1/4) 74 [p| Note Nothing (Color R) |]
+  , blipMax (1/4) 75 [p| Note Nothing (Color U) |]
 
   , edge 60 $ \_b -> [p| Note (Just $(boolP _b)) (Obstacle D) |]
   , edge 61 $ \_b -> [p| Note (Just $(boolP _b)) (Obstacle L) |]
@@ -45,10 +47,10 @@ instanceMIDIEvent [t| Event |]
   , edge 63 $ \_b -> [p| Note (Just $(boolP _b)) (Obstacle U) |]
   , edge 64 $ \_b -> [p| Note (Just $(boolP _b))  Cutscene    |]
 
-  , edge 72 $ \_b -> [p| Note (Just $(boolP _b)) (Collect D) |]
-  , edge 73 $ \_b -> [p| Note (Just $(boolP _b)) (Collect L) |]
-  , edge 74 $ \_b -> [p| Note (Just $(boolP _b)) (Collect R) |]
-  , edge 75 $ \_b -> [p| Note (Just $(boolP _b)) (Collect U) |]
+  , edge 72 $ \_b -> [p| Note (Just $(boolP _b)) (Color D) |]
+  , edge 73 $ \_b -> [p| Note (Just $(boolP _b)) (Color L) |]
+  , edge 74 $ \_b -> [p| Note (Just $(boolP _b)) (Color R) |]
+  , edge 75 $ \_b -> [p| Note (Just $(boolP _b)) (Color U) |]
 
   , edge 84 $ \_b -> [p| Intensity $(boolP _b) Low       |]
   , edge 85 $ \_b -> [p| Intensity $(boolP _b) Neutral   |]
@@ -73,10 +75,10 @@ noteTypeCharacter = \case
   Obstacle R -> 'R'
   Obstacle U -> 'U'
   Cutscene   -> 'A'
-  Collect  D -> '2'
-  Collect  L -> '4'
-  Collect  R -> '6'
-  Collect  U -> '8'
+  Color    D -> '2'
+  Color    L -> '4'
+  Color    R -> '6'
+  Color    U -> '8'
 
 writeTransitions :: RTB.T U.Seconds Event -> String
 writeTransitions = let
@@ -111,10 +113,26 @@ writeNotes = intercalate ";" . go 0 where
       Note Nothing nt -> let
         evt = show (secondsToTicks $ posn + dt) ++ ":" ++ [noteTypeCharacter nt]
         in evt : go (posn + dt) rtb'
-      Note (Just True) nt -> case RTB.viewL rtb' of
-        Just ((dt', Note (Just False) nt'), rtb'') | nt == nt' -> let
-          evt = show (secondsToTicks $ posn + dt) ++ ":" ++ [noteTypeCharacter nt] ++ "-" ++
-            show (secondsToTicks dt')
-          in evt : go (posn + dt + dt') rtb''
-        _ -> error $ "MelodysEscape.writeNotes: note on is not followed by matching note off: " ++ show (posn + dt, x)
+      Note (Just True) nt -> let
+        getNoteOff e = if e == Note (Just False) nt
+          then Just ()
+          else Nothing
+        in case U.extractFirst getNoteOff rtb' of
+          Just ((dt', ()), rtb'') -> let
+            evt = show (secondsToTicks $ posn + dt) ++ ":" ++ [noteTypeCharacter nt] ++ "-" ++
+              show (secondsToTicks dt')
+            in evt : go (posn + dt) rtb''
+          _ -> error $ "MelodysEscape.writeNotes: note on is not followed by matching note off: " ++ show (posn + dt, x)
       Note (Just False) _ -> error $ "MelodysEscape.writeNotes: found an unmatched note off: " ++ show (posn + dt, x)
+
+-- | Any time 2 or more notes appear, randomly delete all but one of them.
+randomNotes :: (NNC.C t, MonadRandom m) => RTB.T t Event -> m (RTB.T t Event)
+randomNotes = fmap RTB.flatten . mapM go . RTB.collectCoincident where
+  go evts = let
+    (notes, notNotes) = partition (\case Note _ _ -> True; _ -> False) evts
+    in case notes of
+      [] -> return evts
+      _  -> fmap (: notNotes) $ uniform notes
+
+randomNotesIO :: (NNC.C t) => RTB.T t Event -> IO (RTB.T t Event)
+randomNotesIO = evalRandIO . randomNotes

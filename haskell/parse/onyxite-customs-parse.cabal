@@ -28,6 +28,7 @@ library
     , event-list, non-negative, midi
     , transformers >= 0.4
     , template-haskell
+    , MonadRandom
     -- my libraries:
     , midi-util >= 0.2 && < 0.3
     , onyxite-customs-stack-trace

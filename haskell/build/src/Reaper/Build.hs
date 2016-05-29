@@ -145,6 +145,7 @@ track lenTicks lenSecs resn trk = let
       , ("HARM1", vocalNoteNames)
       , ("HARM2", vocalNoteNames)
       , ("HARM3", vocalNoteNames)
+      , ("MELODY'S ESCAPE", melodyNoteNames)
       ] of
       Nothing -> return ()
       Just names -> do
@@ -405,5 +406,25 @@ vocalNoteNames = execWriter $ do
   x 35
   o 1 "Lyric Shift"
   o 0 "Range Shift"
+  where o k v = tell [(k, v)]
+        x k = tell [(k, "----")]
+
+melodyNoteNames :: [(Int, String)]
+melodyNoteNames = execWriter $ do
+  o 87 "Intensity FLYING"
+  o 86 "Intensity RUNNING"
+  o 85 "Intensity JOGGING"
+  o 84 "Intensity WALKING"
+  x 83
+  o 75 "Color UP"
+  o 74 "Color RIGHT"
+  o 73 "Color LEFT"
+  o 72 "Color DOWN"
+  x 71
+  o 64 "Obstacle UP CUTSCENE"
+  o 63 "Obstacle UP"
+  o 62 "Obstacle RIGHT"
+  o 61 "Obstacle LEFT"
+  o 60 "Obstacle DOWN"
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]

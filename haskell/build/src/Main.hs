@@ -1251,8 +1251,8 @@ main = do
           melodyChart %> \out -> do
             need [midraw, melodyAudio]
             mid <- loadMIDI midraw
-            let melody = U.applyTempoTrack (RBFile.s_tempos mid)
-                  $ foldr RTB.merge RTB.empty [ trk | RBFile.MelodysEscape trk <- RBFile.s_tracks mid ]
+            melody <- liftIO $ MelodysEscape.randomNotes $ U.applyTempoTrack (RBFile.s_tempos mid)
+              $ foldr RTB.merge RTB.empty [ trk | RBFile.MelodysEscape trk <- RBFile.s_tracks mid ]
             info <- liftIO $ Snd.getFileInfo melodyAudio
             let secs = realToFrac (Snd.frames info) / realToFrac (Snd.samplerate info) :: U.Seconds
                 str = unlines
