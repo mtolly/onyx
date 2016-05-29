@@ -655,7 +655,9 @@ zoomDescDoPadding k1 k2 m act = do
     Just { key: k, value: v } -> act k v
 
 slide :: Number -> Number -> Number -> Number -> Number -> Number
-slide t1 t2 tx v1 v2 = v1 + (v2 - v1) * ((tx - t1) / (t2 - t1))
+slide t1 t2 tx v1 v2 = if t1 == t2
+  then (v1 + v2) / 2.0
+  else v1 + (v2 - v1) * ((tx - t1) / (t2 - t1))
 
 secToNum :: Seconds -> Number
 secToNum (Seconds n) = n
