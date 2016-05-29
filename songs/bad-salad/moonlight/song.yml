@@ -14,6 +14,7 @@ metadata:
   - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
   - "All instruments have overdrive/unison."
   autogen-theme: Slow Jam
+  auto-2x-bass: false
 audio:
   album-track:
     md5: ea5b989528502700eafc8c246dca4f5c
