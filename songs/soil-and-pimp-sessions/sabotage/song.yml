@@ -4,6 +4,7 @@ metadata:
   track-number: 5
   difficulty:
     drums: 7
+    keys: 7
     pro-keys: 7
     bass: 3
     guitar: 6
@@ -22,6 +23,7 @@ plans:
       pad: [2.629, album-track]
 instruments:
   drums: true
+  keys: true
   pro-keys: true
   bass: true
   guitar: true
