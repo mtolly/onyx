@@ -9,7 +9,9 @@ Instruments:
 
   * (Pro) Drums 😈😈😈😈😈
   * Bass ⚪️⚪️⚫️⚫️⚫️
+  * Guitar ⚪️⚪️⚪️⚪️⚪️
   * Pro Keys 😈😈😈😈😈
+  * Vocals (1) ⚫️⚫️⚫️⚫️⚫️
 
 Supported audio:
 
@@ -18,4 +20,6 @@ Supported audio:
 Notes:
 
   * All instruments have overdrive/unison.
+
+  * Guitar part is sax and trumpet.
 

@@ -6,9 +6,12 @@ metadata:
     drums: 7
     pro-keys: 7
     bass: 3
+    guitar: 6
+    vocal: 1
   author: Onyxite
   comments:
   - "All instruments have overdrive/unison."
+  - "Guitar part is sax and trumpet."
 audio:
   album-track:
     md5: fa5dbe61d808c40d9d26c2d76ae30a1a
@@ -21,3 +24,5 @@ instruments:
   drums: true
   pro-keys: true
   bass: true
+  guitar: true
+  vocal: 1
