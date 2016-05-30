@@ -1,0 +1,15 @@
+metadata:
+  title: Keizoku
+  file-include: ../../../albums/6.yml
+  track-number: 2
+  author: Onyxite
+audio:
+  album-track:
+    md5: 675dac1566809747687e43efe098918a
+    frames: 7890960
+plans:
+  album:
+    song:
+      pad: [2.764, album-track]
+instruments:
+  drums: true
