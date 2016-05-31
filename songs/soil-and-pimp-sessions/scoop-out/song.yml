@@ -4,7 +4,8 @@ metadata:
   track-number: 6
   author: Onyxite
   difficulty:
-    drums: 7
+    drums: 6
+    keys: 7
     pro-keys: 7
   auto-2x-bass: false
 audio:
@@ -17,4 +18,5 @@ plans:
       pad: [3.324, album-track]
 instruments:
   drums: true
+  keys: true
   pro-keys: true

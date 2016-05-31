@@ -1,0 +1,16 @@
+metadata:
+  title: Pop Korn
+  file-include: ../../../albums/6.yml
+  track-number: 6
+  author: Onyxite
+audio:
+  album-track:
+    md5: 282fc878d0eecf586eaf4d8e2ac773cf
+    frames: 10808028
+plans:
+  album:
+    song:
+      pad: [1.828, album-track]
+instruments:
+  drums: true
+published: false

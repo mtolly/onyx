@@ -7,7 +7,8 @@
 
 Instruments:
 
-  * (Pro) Drums 😈😈😈😈😈
+  * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
+  * Keys 😈😈😈😈😈
   * Pro Keys 😈😈😈😈😈
 
 Supported audio:
