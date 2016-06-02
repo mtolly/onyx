@@ -1,0 +1,19 @@
+metadata:
+  title: Sleeping Giant
+  artist: Mastodon
+  comments:
+  - "Audio is a Youtube download (run `audio.sh`)."
+audio:
+  youtube:
+    path: audio-youtube.wav
+    md5: 6fa8eef6bff26d8f932f488a0a3b0745
+    frames: 14833664
+plans:
+  album:
+    song:
+      pad: [7.209, youtube]
+instruments:
+  drums: true
+  guitar: true
+  bass: true
+published: false
