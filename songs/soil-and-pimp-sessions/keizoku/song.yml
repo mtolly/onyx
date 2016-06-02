@@ -13,3 +13,4 @@ plans:
       pad: [2.764, album-track]
 instruments:
   drums: true
+  pro-keys: true
