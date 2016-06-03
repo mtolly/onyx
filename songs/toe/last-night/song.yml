@@ -4,6 +4,12 @@ metadata:
   track-number: 9
   author: Onyxite
   auto-2x-bass: false
+  difficulty:
+    drums: 6
+    guitar: 4
+    bass: 4
+    keys: 4
+    pro-keys: 5
 audio:
   album-track:
     md5: 0f025d8ca6fb648c2ecef0830f280959
@@ -16,3 +22,5 @@ instruments:
   drums: true
   pro-keys: true
   keys: true
+  guitar: true
+  bass: true
