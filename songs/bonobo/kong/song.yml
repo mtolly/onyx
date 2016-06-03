@@ -1,0 +1,16 @@
+metadata:
+  title: Kong
+  file-include: ../../../albums/black-sands.yml
+  track-number: 3
+  author: Onyxite
+audio:
+  album-track:
+    md5: 68c1cc69d09ff9bcbccb1286332c77fc
+    frames: 10488156
+plans:
+  album:
+    song:
+      pad: [5.048, album-track]
+instruments:
+  drums: true
+published: false

@@ -1,0 +1,26 @@
+metadata:
+  title: Eyesdown (feat. Andreya Triana)
+  file-include: ../../../albums/black-sands.yml
+  track-number: 4
+  author: Onyxite
+audio:
+  album-eyesdown:
+    md5: 6e7b800f6b7784d98c3880d937316620
+    frames: 14387184
+  album-el-toro:
+    md5: 38dfd34cf19baff9b33f90d3360f1b3f
+    frames: 9891336
+plans:
+  album:
+    song:
+      fade:
+      - end
+      - 0.848
+      - take:
+        - '5:33.685'
+        - pad:
+          - 3.615
+          - concatenate: [album-eyesdown, album-el-toro]
+instruments:
+  drums: true
+published: false

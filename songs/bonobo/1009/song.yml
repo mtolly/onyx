@@ -1,0 +1,16 @@
+metadata:
+  title: '1009'
+  file-include: ../../../albums/black-sands.yml
+  track-number: 7
+  author: Onyxite
+audio:
+  album-track:
+    md5: 5be58f7b060be2c180c8d69106cfe69c
+    frames: 11980500
+plans:
+  album:
+    song:
+      pad: [2.305, album-track]
+instruments:
+  drums: true
+published: false
