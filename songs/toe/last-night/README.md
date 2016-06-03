@@ -17,3 +17,7 @@ Supported audio:
 
   * `album` (For Long Tomorrow)
 
+Notes:
+
+  * All instruments have overdrive/unison.
+
