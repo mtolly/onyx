@@ -1,0 +1,41 @@
+metadata:
+  title: Peace Sells
+  artist: Megadeth
+  album: "Peace Sells... but Who's Buying?"
+  year: 1985
+  file-album-art: peacesells_keep.png_xbox
+  genre: metal
+  vocal-gender: male
+  track-number: 3
+  author: Harmonix
+  difficulty:
+    drums:
+      rank: 500
+    guitar:
+      rank: 457
+    bass:
+      rank: 495
+    vocal:
+      rank: 190
+    band:
+      rank: 480
+  preview-start: 8.314
+  preview-end: 38.314
+  comments:
+  - "2x Bass Pedal upgrade."
+plans:
+  mogg:
+    mogg-md5: 6024277baa985a414e06773e106b6c54 # unenc: 41b4cdab5a17fe1b99184977e4025665
+    drums: [0, 1, 2, 3, 4, 5]
+    bass: [6]
+    guitar: [7, 8]
+    vocal: [9, 10]
+    pans: [-1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 0.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0]
+    vols: [-0.5, -0.5, -0.5, -0.5, -3.0, -3.0, -3.5, -3.5, -3.5, -3.0, -3.0, -3.5, -3.5]
+    drum-mix: 3
+instruments:
+  drums: true
+  guitar: true
+  bass: true
+  vocal: 1
+published: false
