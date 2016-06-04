@@ -1,0 +1,51 @@
+('battery'
+ ('name'
+  "Battery")
+ ('artist'
+  "Metallica")
+ ('master' 'TRUE')
+ ('context' 271)
+ ('song'
+  ('name' 'songs/battery/battery')
+  ('tracks'
+   (('drum'
+     (0 1 2 3 4))
+    ('bass' 5)
+    ('guitar'
+     (6 7))
+    ('vocals'
+     (8 9))))
+  ('pans'
+   (0.0 -1.0 1.0 -1.0 1.0 0.0 -1.0 1.0 -1.0 1.0 -1.0 1.0))
+  ('vols'
+   (-0.5 -1.0 -1.0 -3.0 -3.0 -4.0 -6.0 -6.0 -4.5 -4.5 -5.5 -5.5))
+  ('cores'
+   (-1 -1 -1 -1 -1 -1 1 1 -1 -1 -1 -1))
+  ('drum_solo'
+   ('seqs'
+    ('kick.cue' 'snare.cue' 'tom1.cue' 'tom2.cue' 'crash.cue')))
+  ('drum_freestyle'
+   ('seqs'
+    ('kick.cue' 'snare.cue' 'hat.cue' 'ride.cue' 'crash.cue')))
+  ('midi_file' 'songs/battery/battery.mid'))
+ ('song_scroll_speed' 2300)
+ ('bank' 'sfx/cowbell3_bank.milo')
+ ('anim_tempo' 'kTempoFast')
+ ('preview' 101700 131700)
+ ('rank'
+  ('drum' 510)
+  ('guitar' 483)
+  ('bass' 553)
+  ('vocals' 261)
+  ('band' 520))
+ ('genre' 'metal')
+ ('decade' 'the80s')
+ ('vocal_gender' 'male')
+ ('format' 3)
+ ('version' 1)
+ ('year_released' 1986)
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Master of Puppets")
+ ('album_track_number' 1)
+ ('base_points' 761017))
