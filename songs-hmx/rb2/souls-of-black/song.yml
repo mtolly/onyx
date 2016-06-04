@@ -1,0 +1,41 @@
+metadata:
+  title: Souls of Black
+  artist: Testament
+  album: Souls of Black
+  year: 1990
+  file-album-art: soulsofblack_keep.png_xbox
+  genre: metal
+  vocal-gender: male
+  track-number: 4
+  author: Harmonix
+  difficulty:
+    drums:
+      rank: 396
+    guitar:
+      rank: 465
+    bass:
+      rank: 529
+    vocal:
+      rank: 339
+    band:
+      rank: 493
+  preview-start: 71.9
+  preview-end: 98
+  comments:
+  - "2x Bass Pedal upgrade."
+plans:
+  mogg:
+    mogg-md5: d3f5bd81a327545edd6ac803b913f101 # unenc: 487575b9fa9389e65641f81c41c37a86
+    drums: [0, 1, 2, 3, 4]
+    bass: [5]
+    guitar: [6, 7]
+    vocal: [8, 9]
+    pans: [0.0, -1.0, 1.0, -1.0, 1.0, 0.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0]
+    vols: [-0.5, -1.0, -1.0, -3.0, -3.0, -3.0, -4.0, -4.0, -4.5, -4.5, -2.5, -2.5]
+    drum-mix: 2
+instruments:
+  drums: true
+  guitar: true
+  bass: true
+  vocal: 1
+published: false

@@ -153,7 +153,7 @@ removeStubs = go . RTB.normalize where
       Note    nt -> RTB.cons dt (Note nt) $ go rtb'
       Sustain nt -> case RTB.viewL rtb' of
         Nothing                         -> RTB.empty
-        Just ((dt', SustainEnd), rtb'') -> if dt' <= 1/4
+        Just ((dt', SustainEnd), rtb'') -> if dt' <= 1/3 -- TODO: verify the real threshold
           then RTB.cons dt (Note    nt) $ RTB.delay dt' $ go rtb''
           else RTB.cons dt (Sustain nt) $ RTB.cons  dt' SustainEnd $ go rtb''
         _                               -> error "removeStubs: double note-on"

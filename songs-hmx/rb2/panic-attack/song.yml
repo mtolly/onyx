@@ -18,6 +18,8 @@ metadata:
       rank: 359
     band:
       rank: 540
+  preview-start: 106.2
+  preview-end: 136.2
 audio:
   album-track:
     md5: f1f401028b8c8b3788fecbf817953145
