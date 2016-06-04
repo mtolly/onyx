@@ -7,6 +7,17 @@ metadata:
   - "Timing, guitar, bass, and vocals by Harmonix."
   - "Drums by Grinnz."
   - "Chart confidence: *high*, written to stems and Portnoy's DVD."
+  difficulty:
+    drums:
+      rank: 550
+    guitar:
+      rank: 491
+    bass:
+      rank: 600
+    vocal:
+      rank: 359
+    band:
+      rank: 540
 audio:
   album-track:
     md5: f1f401028b8c8b3788fecbf817953145
@@ -35,3 +46,4 @@ instruments:
   guitar: true
   bass: true
   vocal: 1
+published: false
