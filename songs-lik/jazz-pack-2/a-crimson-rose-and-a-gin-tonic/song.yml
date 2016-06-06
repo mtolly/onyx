@@ -1,0 +1,27 @@
+metadata:
+  vocal-gender: female
+  drum-kit: Vintage Kit
+  file-album-art: cover.jpg
+  auto-2x-bass: false
+  track-number: 10
+  album: Katamari Fortissimo Damacy
+  year: 2004
+  author: TheLieInKing
+  title: A Crimson Rose and a Gin Tonic
+  genre: jazz
+  artist: Asuka Sakai, Ado Mizumori
+  file-countin: ../../../sound/hihat-foot.wav
+  comments:
+  - "Audio is a Youtube download (run `audio.sh`)."
+  - "Full band (esp. pro keys) coming soon."
+audio:
+  youtube:
+    path: audio-youtube.wav
+    md5: 42bcdf1f53d439c12ce4cc8fe09895a1
+    frames: 11888640
+plans:
+  album:
+    song:
+      pad: [3.664, youtube]
+instruments:
+  drums: true
