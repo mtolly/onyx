@@ -1,0 +1,38 @@
+published: true
+plans:
+  mogg:
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    drum-mix: 0
+    mogg-md5: 0f3d7b174c5d1db1ae5fbe23ed595735
+    drums:
+    - 0
+    - 1
+    vols:
+    - -1.5
+    - -1.5
+    - -3
+    - -3
+metadata:
+  autogen-theme: AutogenDefault
+  rating: Unrated
+  preview-start: 0.0
+  vocal-gender: male
+  drum-kit: Hard Rock Kit
+  auto-2x-bass: false
+  track-number: 0
+  year: 2011
+  subgenre: rock
+  hopo-threshold: 170
+  author: TheLieInKing
+  title: Aja
+  preview-end: 30
+  genre: rock
+  artist: Steely Dan
+jammit: {}
+audio: {}
+instruments:
+  drums: true

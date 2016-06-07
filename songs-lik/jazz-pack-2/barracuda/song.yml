@@ -1,0 +1,38 @@
+published: true
+plans:
+  mogg:
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    drum-mix: 0
+    mogg-md5: 200b26490c7955328e7b971a9c70e67e
+    drums:
+    - 0
+    - 1
+    vols:
+    - -1.5
+    - -1.5
+    - -3
+    - -3
+metadata:
+  autogen-theme: AutogenDefault
+  rating: Unrated
+  preview-start: 0.0
+  vocal-gender: male
+  drum-kit: Hard Rock Kit
+  auto-2x-bass: false
+  track-number: 0
+  year: 2011
+  subgenre: rock
+  hopo-threshold: 170
+  author: TheLieInKing
+  title: Barracuda
+  preview-end: 30
+  genre: rock
+  artist: The Bad Plus
+jammit: {}
+audio: {}
+instruments:
+  drums: true

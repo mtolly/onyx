@@ -1,0 +1,38 @@
+published: true
+plans:
+  mogg:
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    drum-mix: 0
+    mogg-md5: 9204d8655dc2d24c5c0381ff61c22e06
+    drums:
+    - 0
+    - 1
+    vols:
+    - -1.5
+    - -1.5
+    - -3
+    - -3
+metadata:
+  autogen-theme: AutogenDefault
+  rating: Unrated
+  preview-start: 0.0
+  vocal-gender: male
+  drum-kit: Hard Rock Kit
+  auto-2x-bass: false
+  track-number: 0
+  year: 2009
+  subgenre: rock
+  hopo-threshold: 170
+  author: TheLieInKing
+  title: The Nag
+  preview-end: 30
+  genre: rock
+  artist: John Scofield
+jammit: {}
+audio: {}
+instruments:
+  drums: true

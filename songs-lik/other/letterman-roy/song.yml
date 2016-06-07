@@ -1,0 +1,38 @@
+published: true
+plans:
+  mogg:
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    drum-mix: 0
+    mogg-md5: 832a9b9e663d5ab4f1eeb7b0022a7d45
+    drums:
+    - 0
+    - 1
+    vols:
+    - -1.5
+    - -1.5
+    - -3
+    - -3
+metadata:
+  autogen-theme: AutogenDefault
+  rating: Unrated
+  preview-start: 0.0
+  vocal-gender: male
+  drum-kit: Hard Rock Kit
+  auto-2x-bass: false
+  track-number: 0
+  year: 2011
+  subgenre: rock
+  hopo-threshold: 170
+  author: TheLieInKing
+  title: Drum Solo (Live on Letterman)
+  preview-end: 30
+  genre: rock
+  artist: Roy Haynes
+jammit: {}
+audio: {}
+instruments:
+  drums: true

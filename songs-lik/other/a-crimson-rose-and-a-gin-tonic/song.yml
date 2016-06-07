@@ -6,14 +6,18 @@ metadata:
   track-number: 10
   album: Katamari Fortissimo Damacy
   year: 2004
-  author: TheLieInKing
+  author: TheLieInKing, Onyxite
   title: A Crimson Rose and a Gin Tonic
   genre: jazz
+  subgenre: contemporary
   artist: Asuka Sakai, Ado Mizumori
   file-countin: ../../../sound/hihat-foot.wav
   comments:
   - "Audio is a Youtube download (run `audio.sh`)."
-  - "Full band (esp. pro keys) coming soon."
+  - "Drums by TheLieInKing, pro keys by Onyxite."
+  difficulty:
+    drums: 6
+    pro-keys: 7
 audio:
   youtube:
     path: audio-youtube.wav
@@ -25,3 +29,4 @@ plans:
       pad: [3.664, youtube]
 instruments:
   drums: true
+  pro-keys: true

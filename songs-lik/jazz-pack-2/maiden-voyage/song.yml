@@ -1,0 +1,38 @@
+published: true
+plans:
+  mogg:
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    drum-mix: 0
+    mogg-md5: bedd004799bb5c26294c9f9915ad8c28
+    drums:
+    - 0
+    - 1
+    vols:
+    - -1.5
+    - -1.5
+    - -3
+    - -3
+metadata:
+  autogen-theme: AutogenDefault
+  rating: Unrated
+  preview-start: 0.0
+  vocal-gender: male
+  drum-kit: Hard Rock Kit
+  auto-2x-bass: false
+  track-number: 0
+  year: 2011
+  subgenre: rock
+  hopo-threshold: 170
+  author: TheLieInKing
+  title: Maiden Voyage/Everything in It's Right Place
+  preview-end: 30
+  genre: rock
+  artist: Robert Glasper
+jammit: {}
+audio: {}
+instruments:
+  drums: true

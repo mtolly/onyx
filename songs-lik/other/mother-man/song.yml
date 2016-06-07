@@ -1,0 +1,38 @@
+published: true
+plans:
+  mogg:
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    drum-mix: 0
+    mogg-md5: f9280ab5a0a1676d9dd9bb2887be59e7
+    drums:
+    - 0
+    - 1
+    vols:
+    - -1.5
+    - -1.5
+    - -3
+    - -3
+metadata:
+  autogen-theme: AutogenDefault
+  rating: Unrated
+  preview-start: 0.0
+  vocal-gender: male
+  drum-kit: Hard Rock Kit
+  auto-2x-bass: false
+  track-number: 0
+  year: 2009
+  subgenre: rock
+  hopo-threshold: 170
+  author: TheLieInKing
+  title: Mother Man
+  preview-end: 30
+  genre: rock
+  artist: Atheist
+jammit: {}
+audio: {}
+instruments:
+  drums: true

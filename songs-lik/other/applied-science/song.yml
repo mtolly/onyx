@@ -1,0 +1,57 @@
+published: true
+plans:
+  mogg:
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    drum-mix: 0
+    bass:
+    - 2
+    - 3
+    mogg-md5: b3526a7bc8bd79245bb49d4a8f65ac52
+    drums:
+    - 0
+    - 1
+    vols:
+    - -3
+    - -3
+    - -1.5
+    - -1.5
+metadata:
+  autogen-theme: AutogenDefault
+  rating: Unrated
+  preview-start: 0.0
+  vocal-gender: male
+  drum-kit: Hard Rock Kit
+  auto-2x-bass: false
+  track-number: 0
+  year: 2009
+  subgenre: rock
+  hopo-threshold: 170
+  author: TheLieInKing
+  title: Applied Science (Live)
+  preview-end: 30
+  genre: rock
+  difficulty:
+    pro-keys:
+      rank: 0
+    vocal:
+      rank: 0
+    bass:
+      rank: 1
+    guitar:
+      rank: 0
+    keys:
+      rank: 0
+    drums:
+      rank: 1
+    band:
+      rank: 1
+  artist: '311'
+jammit: {}
+audio: {}
+instruments:
+  bass: true
+  drums: true
