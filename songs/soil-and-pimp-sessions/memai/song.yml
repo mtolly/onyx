@@ -1,0 +1,19 @@
+metadata:
+  title: Memai
+  file-include: ../../../albums/pimp-of-the-year.yml
+  track-number: 1
+  author: Onyxite
+audio:
+  album-track:
+    md5: bd3840eb88515df98ef7ca33f8159982
+    frames: 11007360
+plans:
+  album:
+    song:
+      fade:
+      - end
+      - 0.265
+      - pad: [0.908, album-track]
+instruments:
+  drums: true
+published: false
