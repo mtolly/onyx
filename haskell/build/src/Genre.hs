@@ -234,4 +234,4 @@ defaultSubgenre = \case
   "southernrock" -> "southernrock"
   "world" -> "world"
   "other" -> "other"
-  g -> error $ "defaultSubgenre: I don't recognized the genre " ++ show g
+  g -> error $ "defaultSubgenre: couldn't recognize the genre " ++ show g

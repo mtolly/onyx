@@ -977,7 +977,9 @@ main = do
           mogg %> \out -> case plan of
             MoggPlan{..} -> moggOracle (MoggSearch _moggMD5) >>= \case
               Nothing -> fail "Couldn't find the MOGG file"
-              Just f -> copyFile' f out
+              Just f -> do
+                putNormal $ "Found the MOGG file: " ++ f
+                copyFile' f out
             _ -> do
               need [ogg]
               oggToMogg ogg out
