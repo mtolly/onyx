@@ -1,0 +1,41 @@
+metadata:
+  title: Shoulder to the Plow
+  artist: Breaking Wheel
+  album: Breaking Wheel
+  year: 2008
+  file-album-art: shouldertotheplow_keep.png_xbox
+  genre: metal
+  vocal-gender: male
+  track-number: 5
+  author: Harmonix
+  difficulty:
+    drums:
+      rank: 520
+    guitar:
+      rank: 431
+    bass:
+      rank: 448
+    vocal:
+      rank: 141
+    band:
+      rank: 510
+  preview-start: 56.9
+  preview-end: 86.2
+  comments:
+  - "2x Bass Pedal upgrade."
+plans:
+  mogg:
+    mogg-md5: 4758b06302f5d3a6df35e7fb1ad9f7d9 # unenc: ad5cb18348998458e41a5fe632a3fc1b
+    drums: [0, 1, 2, 3, 4]
+    bass: [5]
+    guitar: [6, 7]
+    vocal: [8, 9]
+    pans: [0.0, -1.0, 1.0, -1.0, 1.0, 0.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0]
+    vols: [0.0, 0.0, 0.0, 0.0, 0.0, -3.0, -4.5, -4.5, -3.0, -3.0, -3.0, -3.0]
+    drum-mix: 2
+instruments:
+  drums: true
+  guitar: true
+  bass: true
+  vocal: 1
+published: false
