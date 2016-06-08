@@ -420,20 +420,21 @@ ensureODNotes
   -> RTB.T t a    -- ^ Original notes
   -> RTB.T t a    -- ^ Reduced notes
   -> RTB.T t a
-ensureODNotes od original reduced = case RTB.viewL od of
-  Just ((dt, True), od') -> let
-    odLength = case RTB.viewL od' of
-      Just ((len, _), _) -> U.trackTake len
-      Nothing            -> id
-    original' = U.trackDrop dt original
-    reduced' = U.trackDrop dt reduced
-    in trackGlue dt reduced $ if RTB.null $ odLength reduced'
-      then ensureODNotes od' original' $ case RTB.viewL original' of
-        Just ((originalTime, originalEvent), _) -> RTB.insert originalTime originalEvent reduced'
-        Nothing -> reduced'
-      else ensureODNotes od' original' reduced'
-  Just ((dt, False), od') -> trackGlue dt reduced $ ensureODNotes od' (U.trackDrop dt original) (U.trackDrop dt reduced)
-  Nothing -> reduced
+ensureODNotes = go . RTB.normalize where
+  go od original reduced = case RTB.viewL od of
+    Just ((dt, True), od') -> let
+      odLength = case RTB.viewL od' of
+        Just ((len, _), _) -> U.trackTake len
+        Nothing            -> id
+      original' = U.trackDrop dt original
+      reduced' = U.trackDrop dt reduced
+      in trackGlue dt reduced $ if RTB.null $ odLength reduced'
+        then go od' original' $ case RTB.viewL original' of
+          Just ((originalTime, originalEvent), _) -> RTB.insert originalTime originalEvent reduced'
+          Nothing -> reduced'
+        else go od' original' reduced'
+    Just ((dt, False), od') -> trackGlue dt reduced $ go od' (U.trackDrop dt original) (U.trackDrop dt reduced)
+    Nothing -> reduced
 
 drumsReduce
   :: Difficulty
