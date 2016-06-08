@@ -16,13 +16,6 @@ rb3pkgFiles = $(embedDir "vendors/xbox/rb3pkg/bin/Release/")
 emptyMilo :: B.ByteString
 emptyMilo = $(embedFile "vendors/empty.milo_xbox")
 
-mogg2ogg :: B.ByteString
-#ifdef MOGGDECRYPT
-mogg2ogg = $(embedFile "vendors/mogg2ogg.exe")
-#else
-mogg2ogg = B.empty
-#endif
-
 webDisplay :: [(FilePath, B.ByteString)]
 webDisplay = concat
   [ [("index.html", $(embedFile "../../../player/www/index.html"))]

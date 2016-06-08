@@ -87,3 +87,4 @@ executable onyx
   build-tools: c2hs >= 0.27.1
   if flag(MoggDecrypt)
     cpp-options: -DMOGGDECRYPT
+    build-depends: mogg2ogg

@@ -12,6 +12,8 @@ packages:
   extra-dep: true
 - location: midiscript
   extra-dep: true
+- location: /Users/mtolly/git/mogg2ogg/hs-mogg2ogg
+  extra-dep: true
 extra-deps:
 - conduit-audio-0.2.0.1
 - conduit-audio-lame-0.1.1
@@ -26,3 +28,6 @@ extra-deps:
 - tagged-exception-core-2.2.0.0
 - monoid-transformer-0.0.3
 resolver: lts-5.5
+flags:
+  onyxite-customs-build:
+    MoggDecrypt: true
