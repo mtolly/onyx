@@ -9,6 +9,8 @@ Author: TheLieInKing, Onyxite
 Instruments:
 
   * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
+  * Bass ⚪️⚪️⚫️⚫️⚫️
+  * Keys ⚪️⚪️⚪️⚪️⚪️
   * Pro Keys 😈😈😈😈😈
 
 Supported audio:
@@ -19,5 +21,5 @@ Notes:
 
   * Audio is a Youtube download (run `audio.sh`).
 
-  * Drums by TheLieInKing, pro keys by Onyxite.
+  * Drums and tempo map by TheLieInKing.
 

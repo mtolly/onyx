@@ -14,10 +14,12 @@ metadata:
   file-countin: ../../../sound/hihat-foot.wav
   comments:
   - "Audio is a Youtube download (run `audio.sh`)."
-  - "Drums by TheLieInKing, pro keys by Onyxite."
+  - "Drums and tempo map by TheLieInKing."
   difficulty:
     drums: 6
     pro-keys: 7
+    keys: 6
+    bass: 3
 audio:
   youtube:
     path: audio-youtube.wav
@@ -30,3 +32,5 @@ plans:
 instruments:
   drums: true
   pro-keys: true
+  keys: true
+  bass: true
