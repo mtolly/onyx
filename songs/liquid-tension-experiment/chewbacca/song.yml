@@ -1,0 +1,17 @@
+metadata:
+  title: Chewbacca
+  file-include: ../../../albums/liquid-tension-experiment-2.yml
+  track-number: 6
+  autogen-theme: Psych Jam Rock
+  rating: Family Friendly
+  author: Onyxite
+audio:
+  album-track:
+    md5: 1fb31cd90b974415208d2cac28e5c301
+    frames: 35965020
+plans:
+  album:
+    song: album-track
+instruments:
+  drums: true
+published: false
