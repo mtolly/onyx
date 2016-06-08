@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiWayIf                 #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
@@ -1703,7 +1704,37 @@ main = do
       }
 
   case nonopts of
-    [] -> return ()
+    [] -> do
+      let p = hPutStrLn stderr
+      p "Onyxite's Rock Band Custom Song Toolkit"
+      p "By Michael Tolly, licensed under the GPL"
+      p ""
+      -- TODO: print version number or compile date
+#ifdef MOGGDECRYPT
+      p "Compiled with MOGG decryption."
+      p ""
+#endif
+      p "Usage: onyx [command] [args]"
+      p "Commands:"
+      p "  build - create files in a Make-like fashion"
+      p "  mogg - convert OGG to unencrypted MOGG"
+#ifdef MOGGDECRYPT
+      p "  unmogg - convert MOGG to OGG (supports some encrypted MOGGs)"
+#else
+      p "  unmogg - convert unencrypted MOGG to OGG"
+#endif
+      p "  stfs - pack a directory into a CON STFS package"
+      p "  unstfs - unpack an STFS package to a directory"
+      p "  import - import CON/RBA/FoF to onyx's project format"
+      p "  convert - convert RBA/FoF to CON"
+      p "  reduce - fill in blank difficulties in a MIDI"
+      p "  player - create web browser song playback app"
+      p "  rpp - convert MIDI to Reaper project"
+      p "  ranges - add automatic Pro Keys ranges"
+      p "  hanging - find Pro Keys range shifts with hanging notes"
+      p "  reap - from onyx project, create and launch Reaper project"
+      p "  mt - convert MIDI to a plain text format"
+      p "  tm - convert plain text format back to MIDI"
     "build" : buildables -> shakeBuild buildables Nothing
     "mogg" : args -> case inputOutput ".mogg" args of
       Nothing -> error "Usage: onyx mogg in.ogg [out.mogg]"
@@ -1738,7 +1769,7 @@ main = do
     "reduce" : args -> case inputOutput ".reduced.mid" args of
       Nothing -> error "Usage: onyx reduce in.mid [out.mid]"
       Just (fin, fout) -> simpleReduce fin fout
-    "player" : args -> case inputOutput "_preview" args of
+    "player" : args -> case inputOutput "_player" args of
       Nothing -> error "Usage: onyx player in{_rb3con|.rba} [outdir/]"
       Just (fin, dout) -> makePlayer fin dout
     "rpp" : args -> case inputOutput ".RPP" args of
