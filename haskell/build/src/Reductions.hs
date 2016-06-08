@@ -9,6 +9,7 @@ import           Data.List                        (nub, sort, sortOn)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isNothing, mapMaybe)
 import qualified Data.Set                         as Set
+import qualified Numeric.NonNegative.Class        as NNC
 import           Numeric.NonNegative.Class        ((-|))
 import           ProKeysRanges                    (completeRanges)
 import           RockBand.Common                  (Difficulty (..), Key (..))
@@ -21,6 +22,7 @@ import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
+import           Scripts                          (trackGlue)
 
 -- | Fills out a GRYBO chart by generating difficulties if needed.
 gryboComplete :: Maybe Int -> U.MeasureMap -> RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
@@ -412,6 +414,27 @@ drumsComplete mmap sections trk = let
   stripToms d = fmap $ \progem -> Drums.DiffEvent d $ Drums.Note $ progem $> ()
   in foldr RTB.merge RTB.empty [untouched, hardRaw, mediumRaw, easyRaw]
 
+ensureODNotes
+  :: (NNC.C t, Ord a)
+  => RTB.T t Bool -- ^ Overdrive phrases
+  -> RTB.T t a    -- ^ Original notes
+  -> RTB.T t a    -- ^ Reduced notes
+  -> RTB.T t a
+ensureODNotes od original reduced = case RTB.viewL od of
+  Just ((dt, True), od') -> let
+    odLength = case RTB.viewL od' of
+      Just ((len, _), _) -> U.trackTake len
+      Nothing            -> id
+    original' = U.trackDrop dt original
+    reduced' = U.trackDrop dt reduced
+    in trackGlue dt reduced $ if RTB.null $ odLength reduced'
+      then ensureODNotes od' original' $ case RTB.viewL original' of
+        Just ((originalTime, originalEvent), _) -> RTB.insert originalTime originalEvent reduced'
+        Nothing -> reduced'
+      else ensureODNotes od' original' reduced'
+  Just ((dt, False), od') -> trackGlue dt reduced $ ensureODNotes od' (U.trackDrop dt original) (U.trackDrop dt reduced)
+  Nothing -> reduced
+
 drumsReduce
   :: Difficulty
   -> U.MeasureMap
@@ -419,8 +442,8 @@ drumsReduce
   -> RTB.T U.Beats String                    -- ^ Practice sections
   -> RTB.T U.Beats (Drums.Gem Drums.ProType) -- ^ The source difficulty, one level up
   -> RTB.T U.Beats (Drums.Gem Drums.ProType) -- ^ The target difficulty
-drumsReduce Expert _    _   _        trk = trk
-drumsReduce diff   mmap _od sections trk = let
+drumsReduce Expert _    _  _        trk = trk
+drumsReduce diff   mmap od sections trk = let
   -- odMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.normalize od
   -- isOD bts = fromMaybe False $ fmap snd $ Map.lookupLE bts odMap
   isMeasure bts = snd (U.applyMeasureMap mmap bts) == 0
@@ -508,8 +531,7 @@ drumsReduce diff   mmap _od sections trk = let
     else let
       f ((start, _), maybeEnd) = makeEasy start maybeEnd
       in foldr f keptAll sectionBounds
-  -- TODO: use "od" to make sure every OD phrase at least one note, add one back in if necessary
-  in RTB.flatten $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ Map.toAscList sectioned
+  in ensureODNotes od trk $ RTB.flatten $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ Map.toAscList sectioned
 
 simpleReduce :: FilePath -> FilePath -> IO ()
 simpleReduce fin fout = do

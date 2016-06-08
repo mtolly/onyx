@@ -144,7 +144,7 @@ makeBeatTrack mmap = fixDoubleDownbeat $ go 0 where
     (t, x) : rest -> (t, x) : fixDoubleDownbeat' rest
     [] -> []
 
-trackGlue :: (NNC.C t, Ord a) => t -> RTB.T t a -> RTB.T t a -> RTB.T t a
+trackGlue :: (NNC.C t) => t -> RTB.T t a -> RTB.T t a -> RTB.T t a
 trackGlue t xs ys = let
   xs' = U.trackTake t xs
   gap = t NNC.-| NNC.sum (RTB.getTimes xs')
