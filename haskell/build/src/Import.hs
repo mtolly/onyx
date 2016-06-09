@@ -139,6 +139,7 @@ importFoF src dest = do
         , _planPans = []
         , _planVols = []
         }
+      , _countin      = Countin []
       , _guitar       = Nothing
       , _bass         = Nothing
       , _keys         = Nothing

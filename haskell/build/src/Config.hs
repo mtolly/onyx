@@ -19,6 +19,8 @@ import qualified Data.ByteString.Lazy.Char8     as BL8
 import           Data.Char                      (isDigit)
 import           Data.Conduit.Audio             (Duration (..))
 import qualified Data.DTA.Serialize.Magma       as Magma
+import           Data.Fixed                     (Milli)
+import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as Map
 import           Data.String                    (IsString)
 import           Data.List                      ((\\))
@@ -33,8 +35,8 @@ import           Genre                          (defaultSubgenre)
 import           RockBand.Common                (Key (..))
 import qualified RockBand.Drums                 as Drums
 import qualified Sound.Jammit.Base              as J
+import qualified Sound.MIDI.Util                as U
 import           Text.Read                      (readMaybe)
-import Data.Foldable (toList)
 
 type Parser m context = StackTraceT (ReaderT context m)
 
@@ -191,7 +193,7 @@ data SongYaml = SongYaml
   , _plans       :: Map.HashMap T.Text Plan
   , _instruments :: Instruments
   , _published   :: Bool
-  } deriving (Eq, Show, Read)
+  } deriving (Eq, Show)
 
 mapping :: (Monad m) => Parser m A.Value a -> Parser m A.Value (Map.HashMap T.Text a)
 mapping p = lift ask >>= \case
@@ -466,9 +468,13 @@ instance (A.ToJSON t, A.ToJSON a) => A.ToJSON (PlanAudio t a) where
     , "vols" .= _planVols
     ]
 
+newtype Countin = Countin [(Either U.MeasureBeats U.Seconds, PlanAudio Duration AudioInput)]
+  deriving (Eq, Ord, Show)
+
 data Plan
   = Plan
     { _song         :: Maybe (PlanAudio Duration AudioInput)
+    , _countin      :: Countin
     , _guitar       :: Maybe (PlanAudio Duration AudioInput)
     , _bass         :: Maybe (PlanAudio Duration AudioInput)
     , _keys         :: Maybe (PlanAudio Duration AudioInput)
@@ -481,6 +487,7 @@ data Plan
     }
   | EachPlan
     { _each         :: PlanAudio Duration T.Text
+    , _countin      :: Countin
     , _planComments :: [T.Text]
     }
   | MoggPlan
@@ -496,14 +503,44 @@ data Plan
     , _planComments :: [T.Text]
     , _drumMix      :: Drums.Audio
     }
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show)
+
+instance TraceJSON Countin where
+  traceJSON = do
+    hm <- mapping traceJSON
+    fmap Countin $ forM (Map.toList hm) $ \(k, v) -> (, v) <$> parseFrom k parseCountinTime
+
+-- | Parses any of \"measure|beats\", \"seconds\", or \"minutes:seconds\".
+parseCountinTime :: (Monad m) => Parser m T.Text (Either U.MeasureBeats U.Seconds)
+parseCountinTime = do
+  t <- lift ask
+  inside ("Countin timestamp " ++ show t)
+    $             fmap Left                 parseMeasureBeats
+    `catch` \_ -> fmap (Right . realToFrac) (parseFrom (A.String t) parseMinutes)
+    `catch` \_ -> parseFrom (A.String t) $ expected "a timestamp in measure|beats, seconds, or minutes:seconds"
+
+parseMeasureBeats :: (Monad m) => Parser m T.Text U.MeasureBeats
+parseMeasureBeats = lift ask >>= \case
+  msrstr
+    | (measures@(_:_), '|' : beatstr) <- span isDigit $ T.unpack msrstr
+    , Just beats <- readMaybe beatstr
+    -> return (read measures, realToFrac (beats :: Scientific))
+  _ -> fatal "Couldn't parse as measure|beats"
+
+instance A.ToJSON Countin where
+  toJSON (Countin pairs) = A.Object $ Map.fromList $ flip map pairs $ \(t, v) -> let
+    k = case t of
+      Left (msr, bts) -> T.pack $ show msr ++ "|" ++ show (realToFrac bts :: Scientific)
+      Right secs -> T.pack $ show (realToFrac secs :: Milli)
+    in (k, A.toJSON v)
 
 instance TraceJSON Plan where
   traceJSON = decideKey
     [ ("each", object $ do
       _each <- required "each" traceJSON
+      _countin <- fromMaybe (Countin []) <$> optional "countin" traceJSON
       _planComments <- fromMaybe [] <$> optional "comments" traceJSON
-      expectedKeys ["each", "comments"]
+      expectedKeys ["each", "countin", "comments"]
       return EachPlan{..}
       )
     , ("mogg-md5", object $ do
@@ -532,23 +569,25 @@ instance TraceJSON Plan where
     , ("crowd", normalPlan)
     ] (expected "an instrument to audio plan (standard, each, or mogg)")
     where normalPlan = object $ do
-            _song   <- optional "song"   traceJSON
-            _guitar <- optional "guitar" traceJSON
-            _bass   <- optional "bass"   traceJSON
-            _keys   <- optional "keys"   traceJSON
-            _kick   <- optional "kick"   traceJSON
-            _snare  <- optional "snare"  traceJSON
-            _drums  <- optional "drums"  traceJSON
-            _vocal  <- optional "vocal"  traceJSON
-            _crowd  <- optional "crowd"  traceJSON
+            _song    <- optional "song"    traceJSON
+            _countin <- fromMaybe (Countin []) <$> optional "countin" traceJSON
+            _guitar  <- optional "guitar"  traceJSON
+            _bass    <- optional "bass"    traceJSON
+            _keys    <- optional "keys"    traceJSON
+            _kick    <- optional "kick"    traceJSON
+            _snare   <- optional "snare"   traceJSON
+            _drums   <- optional "drums"   traceJSON
+            _vocal   <- optional "vocal"   traceJSON
+            _crowd   <- optional "crowd"   traceJSON
             _planComments <- fromMaybe [] <$> optional "comments" traceJSON
-            expectedKeys ["song", "guitar", "bass", "keys", "kick", "snare", "drums", "vocal", "crowd", "comments"]
+            expectedKeys ["song", "countin", "guitar", "bass", "keys", "kick", "snare", "drums", "vocal", "crowd", "comments"]
             return Plan{..}
 
 instance A.ToJSON Plan where
   toJSON = \case
     Plan{..} -> A.object $ concat
       [ map ("song" .=) $ toList _song
+      , ["countin" .= _countin | _countin /= Countin []]
       , map ("guitar" .=) $ toList _guitar
       , map ("bass" .=) $ toList _bass
       , map ("keys" .=) $ toList _keys
@@ -561,6 +600,7 @@ instance A.ToJSON Plan where
       ]
     EachPlan{..} -> A.object $ concat
       [ map ("each" .=) $ toList _each
+      , ["countin" .= _countin | _countin /= Countin []]
       , ["comments" .= _planComments | not $ null _planComments]
       ]
     MoggPlan{..} -> A.object $ concat
@@ -718,18 +758,20 @@ instance (A.ToJSON t, A.ToJSON a) => A.ToJSON (Audio t a) where
 instance TraceJSON Duration where
   traceJSON = lift ask >>= \case
     OneKey "frames" v -> inside "frames duration" $ Frames <$> parseFrom v traceJSON
-    OneKey "seconds" v -> inside "seconds duration" $ Seconds <$> parseFrom v parseMinutes
-    _ -> (inside "unitless (seconds) duration" $ Seconds <$> parseMinutes)
+    OneKey "seconds" v -> inside "seconds duration" $ Seconds . toRealFloat <$> parseFrom v parseMinutes
+    _ -> (inside "unitless (seconds) duration" $ Seconds . toRealFloat <$> parseMinutes)
       `catch` \_ -> expected "a duration in frames or seconds"
-    where parseMinutes = lift ask >>= \case
-            A.String minstr
-              | (minutes@(_:_), ':' : secstr) <- span isDigit $ T.unpack minstr
-              , Just seconds <- readMaybe secstr
-              -> return $ read minutes * 60 + seconds
-            A.String secstr
-              | Just seconds <- readMaybe $ T.unpack secstr
-              -> return seconds
-            _ -> traceJSON -- will succeed if JSON number
+
+parseMinutes :: (Monad m) => Parser m A.Value Scientific
+parseMinutes = lift ask >>= \case
+  A.String minstr
+    | (minutes@(_:_), ':' : secstr) <- span isDigit $ T.unpack minstr
+    , Just seconds <- readMaybe secstr
+    -> return $ read minutes * 60 + seconds
+  A.String secstr
+    | Just seconds <- readMaybe $ T.unpack secstr
+    -> return seconds
+  _ -> traceJSON -- will succeed if JSON number
 
 instance A.ToJSON Duration where
   toJSON = \case

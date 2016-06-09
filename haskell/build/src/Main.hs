@@ -225,7 +225,9 @@ main = do
                 getLeaves = \case
                   Named t -> t
                   JammitSelect _ t -> t
-                in map getLeaves $ concatMap (maybe [] toList) [_song, _guitar, _bass, _keys, _drums, _vocal, _crowd]
+                in map getLeaves
+                  $ concatMap (maybe [] toList) [_song, _guitar, _bass, _keys, _drums, _vocal, _crowd]
+                  ++ case _countin of Countin xs -> concatMap (toList . snd) xs
         case filter (not . (`elem` definedLeaves)) leaves of
           [] -> return ()
           undefinedLeaves -> fail $
