@@ -234,7 +234,6 @@ data Metadata = Metadata
   , _year         :: Int
   , _fileAlbumArt :: Maybe FilePath
   , _trackNumber  :: Int
-  , _fileCountin  :: Maybe FilePath
   , _comments     :: [T.Text]
   , _vocalGender  :: Maybe Magma.Gender
   , _difficulty   :: Difficulties
@@ -332,7 +331,6 @@ instance TraceJSON Metadata where
     _fileAlbumArt <- optional "file-album-art" traceJSON
     when (isNothing _fileAlbumArt) $ warn "Song has no album art"
     _trackNumber  <- "track-number" `orWarn` ("Song has no track number", 0)
-    _fileCountin  <- optional "file-countin"   traceJSON
     _vocalGender  <- optional "vocal-gender"   traceJSON
     let emptyDiffs = Difficulties Nothing Nothing Nothing Nothing Nothing Nothing Nothing
     _difficulty   <- fromMaybe emptyDiffs <$> optional "difficulty" traceJSON
@@ -351,7 +349,7 @@ instance TraceJSON Metadata where
     _previewEnd   <- optional "preview-end" traceDurationSecs
     expectedKeys
       [ "title", "artist", "album", "genre", "subgenre", "year"
-      , "file-album-art", "track-number", "file-countin", "comments", "vocal-gender"
+      , "file-album-art", "track-number", "comments", "vocal-gender"
       , "difficulty", "key", "autogen-theme", "author", "rating", "drum-kit", "auto-2x-bass", "hopo-threshold"
       , "preview-start", "preview-end"
       ]
@@ -367,7 +365,6 @@ instance A.ToJSON Metadata where
     , ["year" .= _year]
     , map ("file-album-art" .=) $ toList _fileAlbumArt
     , ["track-number" .= _trackNumber]
-    , map ("file-countin" .=) $ toList _fileCountin
     , case _comments of
       [] -> []
       _  -> ["comments" .= _comments]

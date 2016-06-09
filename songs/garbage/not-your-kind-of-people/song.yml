@@ -7,7 +7,6 @@ metadata:
   subgenre: alternative
   file-album-art: cover.png
   vocal-gender: female
-  file-countin: ../../../sound/hihat-foot.wav
   author: Onyxite
   comments:
   - "Audio is a Youtube download (run `audio.sh`)."

@@ -6,7 +6,6 @@ metadata:
   year: 2012
   genre: prog
   subgenre: progrock
-  file-countin: ../../../sound/hihat-foot.wav
   author: Onyxite
   comments:
   - "Audio is a Youtube download (run `audio.sh`)."
