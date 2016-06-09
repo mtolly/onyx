@@ -10,7 +10,7 @@ audio:
     md5: 99b484a9f825c8d75845bbdf7f6918a4
     frames: 14690004
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
 jammit:
   jammit-track: {}
 plans:

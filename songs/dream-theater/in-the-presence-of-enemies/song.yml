@@ -29,7 +29,7 @@ audio:
     md5: 31bc113e191b38a50e3ade0696f14472
     frames: 43915388
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   drumcam:
     comments:

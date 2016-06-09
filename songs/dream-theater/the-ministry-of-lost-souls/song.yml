@@ -46,7 +46,7 @@ audio:
         - '12:50.466'
         - drop: ['47:31.200', drumcam-drums]
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
     countin:

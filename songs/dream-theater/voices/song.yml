@@ -10,7 +10,7 @@ audio:
     md5: 78eb16e2f33d94610d3d174ca6fa66d5
     frames: 26188344
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
 jammit:
   jammit-track:
     title: "A Mind Beside Itself II. Voices"

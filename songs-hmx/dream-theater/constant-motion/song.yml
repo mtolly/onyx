@@ -21,7 +21,7 @@ audio:
     md5: 8c906ac9ee62cccb895a0daaf5001049
     frames: 18317964
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   # TODO: DVD, maybe?
   album:

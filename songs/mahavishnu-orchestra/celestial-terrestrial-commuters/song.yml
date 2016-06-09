@@ -23,7 +23,7 @@ audio:
     md5: 171abbfdc77ec2ef86a816994723e22d
     frames: 7708680
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
   jammit-all-guitar:
     # all guitar 1, plus guitar 2 from 36.649 to 43 and 2:40.825 to end
     expr:

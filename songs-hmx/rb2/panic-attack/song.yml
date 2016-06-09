@@ -25,7 +25,7 @@ audio:
     md5: f1f401028b8c8b3788fecbf817953145
     frames: 21742476
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   # TODO: Jammit
   album:

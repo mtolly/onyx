@@ -19,7 +19,7 @@ audio:
     md5: b8f8e0a61b7bf836fe5b61bfad9c9235
     frames: 34730845
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   # TODO (both plans): move the drum solo to the drum stem since it's by itself
   album:

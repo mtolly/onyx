@@ -6,7 +6,7 @@ metadata:
   - "Audio is a Youtube download (run `audio.sh`)."
 audio:
   youtube:
-    path: audio-youtube.wav
+    file-path: audio-youtube.wav
     md5: 32b54400d8a8fa81b37a78ec83625714
     frames: 21090304
 plans:

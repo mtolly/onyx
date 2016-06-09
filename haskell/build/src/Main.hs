@@ -165,7 +165,7 @@ computeChannels = \case
 audioSearch :: AudioFile -> [FilePath] -> Action (Maybe FilePath)
 audioSearch AudioSnippet{} _     = fail "panic! called audioSearch on a snippet. report this bug"
 audioSearch AudioFile{..}  files = do
-  files1 <- case _path of
+  files1 <- case _filePath of
     Nothing   -> return files
     Just path -> doesFileExist path >>= \case
       False -> return []
@@ -176,7 +176,7 @@ audioSearch AudioFile{..}  files = do
   files3 <- liftIO $ case _frames of
     Nothing  -> return files2
     Just len -> filterM (fmap (== Just len) . audioLength) files2
-  files4 <- if isNothing _path && isNothing _md5
+  files4 <- if isNothing _filePath && isNothing _md5
     then case _name of
       Nothing   -> fail "audioSearch: you must specify one of [path, md5, name]"
       Just name -> return $ let

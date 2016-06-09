@@ -127,7 +127,7 @@ importFoF src dest = do
       { _md5 = Nothing
       , _frames = Nothing
       , _name = Nothing
-      , _path = Just aud
+      , _filePath = Just aud
       , _rate = Nothing
       , _channels = 2 -- TODO
       })

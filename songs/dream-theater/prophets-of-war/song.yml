@@ -35,7 +35,7 @@ audio:
     name: crowd.ogg
     frames: 15357295
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
     countin:

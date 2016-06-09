@@ -10,7 +10,7 @@ audio:
     md5: f574e025bacd9879f42dd830a323ea14
     frames: 20631156
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
     countin:

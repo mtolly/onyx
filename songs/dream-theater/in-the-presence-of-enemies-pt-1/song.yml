@@ -42,7 +42,7 @@ audio:
           - '8:57.302'
           - pad: [4.637, album-track]
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
     countin:

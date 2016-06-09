@@ -32,7 +32,7 @@ audio:
     rate: 48000
     name: AudioFile_81.ac3
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
     countin:

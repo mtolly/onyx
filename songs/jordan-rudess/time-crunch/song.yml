@@ -10,11 +10,11 @@ metadata:
     drums: 6
 audio:
   youtube:
-    path: audio-youtube.wav
+    file-path: audio-youtube.wav
     md5: 143bff7bff53e48360356f7ac8c18798
     frames: 17117184
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
     countin:

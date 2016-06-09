@@ -10,7 +10,7 @@ audio:
     md5: 541c78674d3a967b005d2d6f600dbb9f
     frames: 33927600
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   # TODO: dvd and/or deluxe stems
   album:

@@ -13,11 +13,11 @@ instruments:
   drums: true
 audio:
   album-track:
-    path: audio-youtube.wav
+    file-path: audio-youtube.wav
     md5: 58a957d214b5ca8ff454347059c87eef
     frames: 6589440
   hihat:
-    path: ../../../sound/hihat-foot.wav
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
     countin:
