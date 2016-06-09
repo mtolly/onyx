@@ -9,9 +9,9 @@ audio:
   album-track:
     md5: baa4dd6cd8d45a049e0e5ced76b423ff
     frames: 21782460
-  greatest-hit-track:
-    md5: TODO
-    frames: 0 # TODO
+  # greatest-hit-track:
+  #   md5: TODO
+  #   frames: 0 # TODO
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 jammit:
@@ -36,11 +36,11 @@ plans:
     countin: *countin
     song:
       pad: [4.317, album-track]
-  greatest-hit:
-    comments:
-    - "The remastered version from *Greatest Hit (...and 21 other pretty cool songs)*."
-    countin: *countin
-    song:
-      pad: [4.340, greatest-hit-track]
+  # greatest-hit:
+  #   comments:
+  #   - "The remastered version from *Greatest Hit (...and 21 other pretty cool songs)*."
+  #   countin: *countin
+  #   song:
+  #     pad: [4.340, greatest-hit-track]
 instruments:
   drums: true

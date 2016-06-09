@@ -11,10 +11,6 @@ Instruments:
 
 Supported audio:
 
-  * `greatest-hit`
-
-    * The remastered version from *Greatest Hit (...and 21 other pretty cool songs)*.
-
   * `album` (Images and Words)
 
   * `jammit`
