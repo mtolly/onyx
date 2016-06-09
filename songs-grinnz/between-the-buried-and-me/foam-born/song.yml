@@ -10,8 +10,15 @@ audio:
   album-the-decade-of-statues:
     md5: ff456218898121bc232d908de3f9457f
     frames: 14126700
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|1: hihat
+      0|2: hihat
+      0|3: hihat
     song:
       fade:
         - end

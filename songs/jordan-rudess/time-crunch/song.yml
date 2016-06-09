@@ -13,8 +13,17 @@ audio:
     path: audio-youtube.wav
     md5: 143bff7bff53e48360356f7ac8c18798
     frames: 17117184
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       pad: [3, youtube]
 instruments:

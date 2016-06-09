@@ -13,8 +13,17 @@ audio:
   album-white-walls:
     md5: 487374f97abaafccc34c6a6b065062c6
     frames: 37626708
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       fade:
         - start

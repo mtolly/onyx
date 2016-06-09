@@ -15,8 +15,17 @@ audio:
   album-next: # The Ones Who Help to Set the Sun
     md5: 5cc7df2bf488912a9d733be1932b1f0c
     frames: 21388500
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       pad:
         - 2.704

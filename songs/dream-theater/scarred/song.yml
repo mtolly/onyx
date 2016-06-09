@@ -9,13 +9,24 @@ audio:
   album-track:
     md5: 36a8bcb62e9f69f6b4181e0dab14ceb1
     frames: 29069544
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 jammit:
   jammit-track: {}
 plans:
   jammit:
+    countin:
+      &countin
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     each:
       pad: [2.580, jammit-track]
   album:
+    countin: *countin
     song:
       pad: [4.946, album-track]
 instruments:

@@ -45,14 +45,25 @@ audio:
       - take:
         - '12:50.466'
         - drop: ['47:31.200', drumcam-drums]
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      &countin
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song: expr-album-song
   drumcam:
     comments:
     - >-
       Requires both the DVD audio, and the album audio.
       (The DVD audio cuts out about 2 minutes before the end of the song.)
+    countin: *countin
     song:
       mix:
         - pad:

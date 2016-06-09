@@ -28,10 +28,19 @@ audio:
   pt2-drums:
     md5: 31bc113e191b38a50e3ade0696f14472
     frames: 43915388
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   drumcam:
     comments:
     - "References the audio files built for parts 1 and 2."
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     drums:
       mix:
       - pt1-drums

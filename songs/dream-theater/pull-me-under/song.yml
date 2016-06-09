@@ -12,6 +12,8 @@ audio:
   greatest-hit-track:
     md5: TODO
     frames: 0 # TODO
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 jammit:
   jammit-track: {}
 plans:
@@ -20,14 +22,24 @@ plans:
     - >-
       The drum stem is missing many kick drum hits.
       At some point I may try to add them back in.
+    countin:
+      &countin
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     each:
       pad: [2.314, jammit-track]
   album:
+    countin: *countin
     song:
       pad: [4.317, album-track]
   greatest-hit:
     comments:
     - "The remastered version from *Greatest Hit (...and 21 other pretty cool songs)*."
+    countin: *countin
     song:
       pad: [4.340, greatest-hit-track]
 instruments:

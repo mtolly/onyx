@@ -15,12 +15,23 @@ audio:
   album-next: # Lines in the Sand
     md5: a180dd12fee3353604e351a8e8783ef2
     frames: 32003076
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 jammit:
   jammit-track: {}
 plans:
   jammit:
+    countin:
+      &countin
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     each: jammit-track
   album:
+    countin: *countin
     song:
       pad:
         - 5.000

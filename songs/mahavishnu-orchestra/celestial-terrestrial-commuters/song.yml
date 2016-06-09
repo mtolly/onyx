@@ -22,6 +22,8 @@ audio:
   album-track:
     md5: 171abbfdc77ec2ef86a816994723e22d
     frames: 7708680
+  hihat:
+    path: ../../../sound/hihat-foot.wav
   jammit-all-guitar:
     # all guitar 1, plus guitar 2 from 36.649 to 43 and 2:40.825 to end
     expr:
@@ -53,14 +55,24 @@ jammit:
   jammit-track: {}
 plans:
   album:
+    countin:
+      &countin
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       pad: [4.381, album-track]
   jammit:
+    countin: *countin
     each:
       pad: [3.649, jammit-track]
   jammit-all:
     comments:
     - "Requires all the Jammit instruments."
+    countin: *countin
     song:
       pad:
       - 3.649

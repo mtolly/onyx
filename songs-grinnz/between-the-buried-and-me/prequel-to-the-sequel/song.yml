@@ -16,8 +16,17 @@ audio:
   album-viridian:
     md5: 1a1ca6914aa5756bca81be5a17bab222
     frames: 7544628
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       fade:
         - end

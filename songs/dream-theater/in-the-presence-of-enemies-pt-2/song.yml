@@ -31,14 +31,25 @@ audio:
     frames: 220200960
     rate: 48000
     name: AudioFile_81.ac3
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      &countin
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song: album-track
   drumcam:
     comments:
     - >-
       Portnoy's sysDRUMatic Chaos DVD.
       See the project README for help on extracting the DVD audio.
+    countin: *countin
     song:
       mix:
         - pad:

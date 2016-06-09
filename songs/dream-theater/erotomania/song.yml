@@ -9,14 +9,25 @@ audio:
   album-track:
     md5: a300209fe66c6a058ff7696fd055d06a
     frames: 17826396
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 jammit:
   jammit-track:
     title: 'A Mind Beside Itself I. Erotomania'
 plans:
   album:
+    countin:
+      &countin
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       pad: [2.960, album-track]
   jammit:
+    countin: *countin
     each:
       pad: [1.193, jammit-track]
 instruments:

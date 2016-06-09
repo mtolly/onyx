@@ -13,8 +13,20 @@ audio:
   album-ants-of-the-sky:
     md5: c33b76af226ce40d79ae66cb6a611651
     frames: 34863696
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|2: hihat
+      1|3: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
     song:
       fade:
         - end

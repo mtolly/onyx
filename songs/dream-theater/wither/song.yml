@@ -35,13 +35,24 @@ audio:
     name: "Wither Vocal Stem.flac"
     md5: 4032e17e25f3bb602c735961f037c6d8
     frames: 14576414
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      &countin
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       pad: [3.893, album-track]
   deluxe:
     comments:
     - "Stems from the deluxe edition of Black Clouds & Silver Linings."
+    countin: *countin
     drums:
       pad:
         - 3.750

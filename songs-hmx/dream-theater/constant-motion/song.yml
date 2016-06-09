@@ -20,9 +20,17 @@ audio:
   album-track:
     md5: 8c906ac9ee62cccb895a0daaf5001049
     frames: 18317964
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   # TODO: DVD, maybe?
   album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
     song:
       pad: [3.593, album-track]
   mogg:

@@ -18,12 +18,23 @@ audio:
   hdtracks-track: # 96 kHz, 24-bit
     md5: b8f8e0a61b7bf836fe5b61bfad9c9235
     frames: 34730845
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   # TODO (both plans): move the drum solo to the drum stem since it's by itself
   album:
+    countin:
+      &countin
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       pad: [2.483, album-track]
   hdtracks:
+    countin: *countin
     song:
       pad: [2.483, hdtracks-track]
 instruments:

@@ -7,8 +7,17 @@ audio:
   album-track:
     md5: 69f3717eaacd220a1903afe5b271734e
     frames: 15295644
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       pad: [3.596, album-track]
 instruments:

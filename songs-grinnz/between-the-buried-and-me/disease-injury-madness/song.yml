@@ -10,8 +10,17 @@ audio:
   album-disease:
     md5: 717a6a45ecf026ba2186ff545710828b
     frames: 29236536
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|1.5: hihat
+      0|3: hihat
+      1|0.5: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       fade:
       - end

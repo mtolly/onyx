@@ -13,8 +13,17 @@ audio:
   album-prequel-to-the-sequel:
     md5: a1c2cc16b9119b5e1bb4a6d2d3890b17
     frames: 22782648
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
     song:
       fade:
         - end

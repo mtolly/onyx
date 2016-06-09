@@ -13,8 +13,17 @@ audio:
   album-sun-of-nothing:
     md5: bc09bcb9a21fc6c0d8fcc06f63c8fbc8
     frames: 29060136
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|1.5: hihat
+      1|0: hihat
+      1|0.5: hihat
+      1|1: hihat
+      1|1.5: hihat
     song:
       take:
         - '6:55.385'

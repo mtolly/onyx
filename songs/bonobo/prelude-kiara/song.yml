@@ -10,8 +10,17 @@ audio:
   album-kiara:
     md5: 390130a11b105e46d9c0044e2bb0a351
     frames: 10156524
+  hihat:
+    path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       pad:
       - 3.954
