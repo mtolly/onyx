@@ -16,7 +16,7 @@ import           Control.Monad.Trans.StackTrace hiding (optional)
 import qualified Data.Aeson                     as A
 import           Data.Aeson                     ((.=))
 import qualified Data.ByteString.Lazy.Char8     as BL8
-import           Data.Char                      (isDigit)
+import           Data.Char                      (isDigit, isSpace)
 import           Data.Conduit.Audio             (Duration (..))
 import qualified Data.DTA.Serialize.Magma       as Magma
 import           Data.Fixed                     (Milli)
@@ -37,6 +37,9 @@ import qualified RockBand.Drums                 as Drums
 import qualified Sound.Jammit.Base              as J
 import qualified Sound.MIDI.Util                as U
 import           Text.Read                      (readMaybe)
+
+import qualified Text.ParserCombinators.ReadP   as ReadP
+import qualified Text.Read.Lex                  as Lex
 
 type Parser m context = StackTraceT (ReaderT context m)
 
@@ -520,12 +523,29 @@ parseCountinTime = do
     `catch` \_ -> parseFrom (A.String t) $ expected "a timestamp in measure|beats, seconds, or minutes:seconds"
 
 parseMeasureBeats :: (Monad m) => Parser m T.Text U.MeasureBeats
-parseMeasureBeats = lift ask >>= \case
-  msrstr
-    | (measures@(_:_), '|' : beatstr) <- span isDigit $ T.unpack msrstr
-    , Just beats <- readMaybe beatstr
-    -> return (read measures, realToFrac (beats :: Scientific))
-  _ -> fatal "Couldn't parse as measure|beats"
+parseMeasureBeats = lift ask >>= \t -> let
+  parser :: ReadP.ReadP U.MeasureBeats
+  parser = do
+    measures <- Lex.readDecP
+    _ <- ReadP.char '|'
+    beats <- parseDecimal ReadP.+++ parsePlusFrac
+    return (measures, beats)
+  parseDecimal, parsePlusFrac :: ReadP.ReadP U.Beats
+  parseDecimal = Lex.lex >>= \case
+    Lex.Number n -> return $ realToFrac $ Lex.numberToRational n
+    _ -> ReadP.pfail
+  parsePlusFrac = do
+    a <- Lex.readDecP
+    _ <- ReadP.char '+'
+    _ <- ReadP.char '('
+    b <- Lex.readDecP
+    _ <- ReadP.char '/'
+    c <- Lex.readDecP
+    _ <- ReadP.char ')'
+    return $ a + (b / c)
+  in case map fst $ filter (all isSpace . snd) $ ReadP.readP_to_S parser $ T.unpack t of
+    mb : _ -> return mb
+    []     -> fatal "Couldn't parse as measure|beats"
 
 instance A.ToJSON Countin where
   toJSON (Countin pairs) = A.Object $ Map.fromList $ flip map pairs $ \(t, v) -> let
