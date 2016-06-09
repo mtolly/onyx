@@ -12,7 +12,6 @@ library
     RockBand.Common
     RockBand.Parse
     RockBand.Beat
-    RockBand.Countin
     RockBand.Drums
     RockBand.Events
     RockBand.File

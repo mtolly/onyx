@@ -471,7 +471,7 @@ instance (A.ToJSON t, A.ToJSON a) => A.ToJSON (PlanAudio t a) where
     , "vols" .= _planVols
     ]
 
-newtype Countin = Countin [(Either U.MeasureBeats U.Seconds, PlanAudio Duration AudioInput)]
+newtype Countin = Countin [(Either U.MeasureBeats U.Seconds, Audio Duration AudioInput)]
   deriving (Eq, Ord, Show)
 
 data Plan

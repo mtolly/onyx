@@ -16,7 +16,6 @@ import qualified Sound.MIDI.Util                  as U
 
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common
-import qualified RockBand.Countin                 as Countin
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.FiveButton              as FiveButton
@@ -47,7 +46,6 @@ data Track t
   | Harm1                     (RTB.T t     Vocals.Event)
   | Harm2                     (RTB.T t     Vocals.Event)
   | Harm3                     (RTB.T t     Vocals.Event)
-  | Countin                   (RTB.T t    Countin.Event)
   | Events                    (RTB.T t     Events.Event)
   | Beat                      (RTB.T t       Beat.Event)
   | Venue                     (RTB.T t      Venue.Event)
@@ -108,7 +106,6 @@ showTrack = \case
   Harm1                 t -> U.setTrackName "HARM1"               $ unparseAll unparseOne t
   Harm2                 t -> U.setTrackName "HARM2"               $ unparseAll unparseOne t
   Harm3                 t -> U.setTrackName "HARM3"               $ unparseAll unparseOne t
-  Countin               t -> U.setTrackName "countin"             $ unparseAll unparseOne t
   Events                t -> U.setTrackName "EVENTS"              $ unparseAll unparseOne t
   Beat                  t -> U.setTrackName "BEAT"                $ unparseAll unparseOne t
   Venue                 t -> U.setTrackName "VENUE"               $ unparseAll unparseOne t
@@ -176,7 +173,6 @@ parseTrack mmap t = case U.trackName t of
     "HARM1"               -> liftM Harm1                   $ makeTrackParser parseOne mmap t
     "HARM2"               -> liftM Harm2                   $ makeTrackParser parseOne mmap t
     "HARM3"               -> liftM Harm3                   $ makeTrackParser parseOne mmap t
-    "countin"             -> liftM Countin                 $ makeTrackParser parseOne mmap t
     "EVENTS"              -> liftM Events                  $ makeTrackParser parseOne mmap t
     "BEAT"                -> liftM Beat                    $ makeTrackParser parseOne mmap t
     "VENUE"               -> liftM Venue                   $ makeTrackParser parseOne mmap t

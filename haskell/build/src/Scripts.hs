@@ -1,6 +1,5 @@
 module Scripts where
 
-import           Data.List                        (sort)
 import           Data.Maybe                       (listToMaybe, mapMaybe)
 
 import qualified Data.EventList.Absolute.TimeBody as ATB
@@ -9,9 +8,6 @@ import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
-
-import           Audio
-import qualified Data.Conduit.Audio               as CA
 
 import           Control.Monad.Trans.StackTrace
 import qualified RockBand.Beat                    as Beat
@@ -48,20 +44,6 @@ drumMix audio' trk = let
 addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
 addZero x rtb = case U.trackSplitZero rtb of
   (zero, rest) -> U.trackGlueZero (zero ++ [x]) rest
-
-makeCountin :: FilePath -> FilePath -> FilePath -> Action ()
-makeCountin mid wavin wavout = do
-  need [wavin]
-  song <- loadMIDI mid
-  let tmap = s_tempos song
-      beats = sort $ flip concatMap (s_tracks song) $ \case
-        Countin trk -> ATB.getTimes $ RTB.toAbsoluteEventList 0 trk
-        _           -> []
-      secs = map (realToFrac . U.applyTempoMap tmap) beats :: [Double]
-      audio = case secs of
-        [] -> Silence 2 $ CA.Seconds 0
-        _ -> Mix $ map (\t -> Pad Start (CA.Seconds t) $ Input wavin) secs
-  buildAudio audio wavout
 
 loadMIDI :: FilePath -> Action (Song U.Beats)
 loadMIDI fp = do

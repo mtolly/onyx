@@ -941,16 +941,26 @@ main = do
           --   -- TODO: support different tunings again
 
           -- Countin audio, and song+countin files
-          dir </> "countin.wav" %> \out -> case _fileCountin $ _metadata songYaml of
-            Nothing -> buildAudio (Silence 1 $ Frames 0) out
-            Just hit -> makeCountin midraw hit out
+          let useCountin (Countin hits) = do
+                dir </> "countin.wav" %> \out -> case hits of
+                  [] -> buildAudio (Silence 1 $ Frames 0) out
+                  _  -> do
+                    mid <- loadMIDI $ dir </> "2p/notes.mid"
+                    hits' <- forM hits $ \(posn, aud) -> do
+                      let time = case posn of
+                            Left  mb   -> Seconds $ realToFrac $ U.applyTempoMap (RBFile.s_tempos mid) $ U.unapplyMeasureMap (RBFile.s_signatures mid) mb
+                            Right secs -> Seconds $ realToFrac secs
+                      aud' <- fmap join $ mapM manualLeaf aud
+                      return $ Pad Start time aud'
+                    buildAudio (Mix hits') out
+                dir </> "song-countin.wav" %> \out -> do
+                  let song = Input $ dir </> "song.wav"
+                      countin = Input $ dir </> "countin.wav"
+                  buildAudio (Mix [song, countin]) out
           case plan of
-            MoggPlan{} -> return () -- handled above
-            _          -> do
-              dir </> "song-countin.wav" %> \out -> do
-                let song = Input $ dir </> "song.wav"
-                    countin = Input $ dir </> "countin.wav"
-                buildAudio (Mix [song, countin]) out
+            MoggPlan{}   -> return () -- handled above
+            Plan{..}     -> useCountin _countin
+            EachPlan{..} -> useCountin _countin
           dir </> "song-countin.ogg" %> \out ->
             buildAudio (Input $ out -<.> "wav") out
 
@@ -1870,7 +1880,6 @@ makeReaper evts tempo audios out = do
                 , "EVENTS"
                 , "VENUE"
                 , "BEAT"
-                , "countin"
                 ] [0..]
           forM_ (sortOn (U.trackName >=> flip lookup trackOrder) trks) $ RPP.track (midiLenTicks resn) midiLenSecs resn
           forM_ lenAudios $ \(len, aud) -> do
