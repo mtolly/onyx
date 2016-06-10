@@ -59,8 +59,7 @@ import           Data.Fixed                       (Milli, Centi)
 import           Data.Foldable                    (toList)
 import           Data.Functor.Identity            (runIdentity)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (intercalate, isPrefixOf, nub,
-                                                   sortOn)
+import           Data.List                        (intercalate, isPrefixOf, nub)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing,
                                                    listToMaybe, mapMaybe)
@@ -768,7 +767,7 @@ main = do
               t : _ -> return t
               [] -> do
                 let absTimes = ATB.getTimes . RTB.toAbsoluteEventList 0
-                    lastMIDIEvent = foldr max 0 $ concatMap absTimes (map RBFile.showTrack trks) ++ absTimes (U.tempoMapToBPS tempos)
+                    lastMIDIEvent = foldr max 0 $ concatMap (absTimes . RBFile.showTrack) trks ++ absTimes (U.tempoMapToBPS tempos)
                 putNormal $ unwords
                   [ "[end] is missing. The last MIDI event is at"
                   , showPosition lastMIDIEvent
@@ -1861,27 +1860,7 @@ makeReaper evts tempo audios out = do
       case mid of
         F.Cons F.Parallel (F.Ticks resn) (_ : trks) -> do
           writeTempoTrack
-          let trackOrder :: [(String, Int)]
-              trackOrder = zip
-                [ "PART DRUMS"
-                , "PART BASS"
-                , "PART GUITAR"
-                , "PART VOCALS"
-                , "HARM1"
-                , "HARM2"
-                , "HARM3"
-                , "PART KEYS"
-                , "PART REAL_KEYS_X"
-                , "PART REAL_KEYS_H"
-                , "PART REAL_KEYS_M"
-                , "PART REAL_KEYS_E"
-                , "PART KEYS_ANIM_RH"
-                , "PART KEYS_ANIM_LH"
-                , "EVENTS"
-                , "VENUE"
-                , "BEAT"
-                ] [0..]
-          forM_ (sortOn (U.trackName >=> flip lookup trackOrder) trks) $ RPP.track (midiLenTicks resn) midiLenSecs resn
+          forM_ (RPP.sortTracks trks) $ RPP.track (midiLenTicks resn) midiLenSecs resn
           forM_ lenAudios $ \(len, aud) -> do
             RPP.audio len $ makeRelative (takeDirectory out) aud
         _ -> error "Unsupported MIDI format for Reaper project generation"

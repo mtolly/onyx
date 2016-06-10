@@ -2,7 +2,7 @@ module Reaper.Build where
 
 import           Reaper.Base
 
-import           Control.Monad                    (forM_, when, unless)
+import           Control.Monad                    (forM_, when, unless, (>=>))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                  as B
@@ -12,6 +12,7 @@ import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.List                        (findIndex, sortOn)
 import           Data.Maybe                       (fromMaybe, listToMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
@@ -428,3 +429,25 @@ melodyNoteNames = execWriter $ do
   o 60 "Obstacle DOWN"
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
+
+sortTracks :: (NNC.C t) => [RTB.T t E.T] -> [RTB.T t E.T]
+sortTracks = sortOn $ U.trackName >=> \name -> findIndex (== name)
+  [ "PART DRUMS"
+  , "PART DRUMS_2X"
+  , "PART BASS"
+  , "PART GUITAR"
+  , "PART VOCALS"
+  , "HARM1"
+  , "HARM2"
+  , "HARM3"
+  , "PART KEYS"
+  , "PART REAL_KEYS_X"
+  , "PART REAL_KEYS_H"
+  , "PART REAL_KEYS_M"
+  , "PART REAL_KEYS_E"
+  , "PART KEYS_ANIM_RH"
+  , "PART KEYS_ANIM_LH"
+  , "EVENTS"
+  , "VENUE"
+  , "BEAT"
+  ]
