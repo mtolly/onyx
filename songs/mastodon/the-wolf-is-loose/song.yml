@@ -1,0 +1,18 @@
+metadata:
+  title: The Wolf Is Loose
+  artist: Mastodon
+  comments:
+  - "Audio is a Youtube download (run `audio.sh`)."
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    md5: dc83ebf6c1eecf6ad194970403e9a646
+    frames: 9440256
+plans:
+  album:
+    song:
+      pad: [7.426, youtube]
+instruments:
+  drums: true
+  guitar: true
+published: false
