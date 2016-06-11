@@ -19,7 +19,5 @@ Supported audio:
 
 Notes:
 
-  * Audio is a Youtube download (run `audio.sh`).
-
   * Drums and tempo map by TheLieInKing.
 

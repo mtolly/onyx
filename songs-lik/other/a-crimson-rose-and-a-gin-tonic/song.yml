@@ -12,7 +12,6 @@ metadata:
   subgenre: contemporary
   artist: Asuka Sakai, Ado Mizumori
   comments:
-  - "Audio is a Youtube download (run `audio.sh`)."
   - "Drums and tempo map by TheLieInKing."
   difficulty:
     drums: 6
@@ -22,6 +21,8 @@ metadata:
 audio:
   youtube:
     file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube _olRp55Zs0I 140
     md5: 42bcdf1f53d439c12ce4cc8fe09895a1
     frames: 11888640
   hihat:

@@ -2,14 +2,14 @@ metadata:
   title: Seven
   track-number: 2
   author: Onyxite
-  comments:
-  - "Audio is a Youtube download (run `audio.sh`)."
   difficulty:
     drums: 4
   file-include: ../../../albums/prism.yml
 audio:
   youtube:
     file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube cFIdWOPz3mk 140
     md5: fcfe26753cb092ecabe841aec41cd00f
     frames: 14059520
   hihat:

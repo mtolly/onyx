@@ -385,8 +385,8 @@ data AudioFile
   = AudioFile
     { _md5      :: Maybe T.Text
     , _frames   :: Maybe Integer
-    , _name     :: Maybe FilePath
     , _filePath :: Maybe FilePath
+    , _commands :: [String]
     , _rate     :: Maybe Int
     , _channels :: Int
     }
@@ -405,19 +405,19 @@ instance TraceJSON AudioFile where
     ] $ object $ do
       _md5      <- optional "md5"       traceJSON
       _frames   <- optional "frames"    traceJSON
-      _name     <- optional "name"      traceJSON
       _filePath <- optional "file-path" traceJSON
+      _commands <- fromMaybe [] <$> optional "commands" traceJSON
       _rate     <- optional "rate"      traceJSON
       _channels <- fromMaybe 2 <$> optional "channels" traceJSON
-      expectedKeys ["md5", "frames", "name", "file-path", "rate", "channels"]
+      expectedKeys ["md5", "frames", "file-path", "commands", "rate", "channels"]
       return AudioFile{..}
 
 instance A.ToJSON AudioFile where
   toJSON AudioFile{..} = A.object $ concat
     [ map ("md5"       .=) $ toList _md5
     , map ("frames"    .=) $ toList _frames
-    , map ("name"      .=) $ toList _name
     , map ("file-path" .=) $ toList _filePath
+    , ["commands" .= _commands | not $ null _commands]
     , map ("rate"      .=) $ toList _rate
     , ["channels"      .= _channels]
     ]

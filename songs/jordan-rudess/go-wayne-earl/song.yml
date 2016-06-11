@@ -7,13 +7,13 @@ metadata:
   genre: prog
   subgenre: progrock
   author: Onyxite
-  comments:
-  - "Audio is a Youtube download (run `audio.sh`)."
   difficulty:
     pro-keys: 7
 audio:
   youtube:
     file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube y1B6LzB6Uvc 141
     md5: a6fa10dee2b5e50dab111c556099b66f
     frames: 7674880
   youtube-fixed:

@@ -10,27 +10,27 @@ audio:
     md5: f82bdb032ad099eb57f70d6572798cf2
     frames: 42802284
   deluxe-bass:
-    name: "Nightmare to Remember Bass Stem.flac"
+    # "Nightmare to Remember Bass Stem.flac"
     md5: e8c8498276841ef975a3b651d3c119e1
     frames: 41710321
   deluxe-guitar:
-    name: "Nightmare to Remember Guitar Stem.flac"
+    # "Nightmare to Remember Guitar Stem.flac"
     md5: 2e686378f8bfc5932a3a0e46afc4cb94
     frames: 41710321
   deluxe-keys:
-    name: "Nightmare to Remember Keys Stem.flac"
+    # "Nightmare to Remember Keys Stem.flac"
     md5: 4b3292d1a00dfda427e0dbc95f0e17b2
     frames: 41710321
   deluxe-drum:
-    name: "Nightmare to Remember Drum Stem.flac"
+    # "Nightmare to Remember Drum Stem.flac"
     md5: 85cb37c9e607d6065c328e5305283cfa
     frames: 41710321
   deluxe-vocal:
-    name: "Nightmare to Remember Vocal Stem.flac"
+    # "Nightmare to Remember Vocal Stem.flac"
     md5: b71c19cdca53aed3b99000d21ab93bd3
     frames: 41710321
   deluxe-solo:
-    name: "Nightmare to Remember Solo Stem.flac"
+    # "Nightmare to Remember Solo Stem.flac"
     md5: b54ef19bb3d7ad7fe6aa1ed77a72f5ae
     frames: 41710321
   hihat:

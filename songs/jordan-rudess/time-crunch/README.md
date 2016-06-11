@@ -15,7 +15,5 @@ Supported audio:
 
 Notes:
 
-  * Audio is a Youtube download (run `audio.sh`).
-
   * Drums confidence: *medium*. Drums are mixed a bit low, and several sections mix acoustic and electronic drums.
 

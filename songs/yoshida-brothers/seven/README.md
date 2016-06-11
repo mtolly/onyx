@@ -13,7 +13,3 @@ Supported audio:
 
   * `album` (Prism)
 
-Notes:
-
-  * Audio is a Youtube download (run `audio.sh`).
-

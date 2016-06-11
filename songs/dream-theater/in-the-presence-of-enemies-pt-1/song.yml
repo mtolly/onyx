@@ -25,12 +25,12 @@ audio:
     md5: bc116ed2b177da39b41313e6b848f320
     frames: 220200960
     rate: 48000
-    name: AudioFile_80.ac3
+    # AudioFile_80.ac3
   drumcam-drums:
     md5: 61a05e854bdf97a8a88f35587a6ad556
     frames: 220200960
     rate: 48000
-    name: AudioFile_81.ac3
+    # AudioFile_81.ac3
   album-expr:
     expr:
       pad:

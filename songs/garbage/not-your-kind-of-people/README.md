@@ -13,7 +13,3 @@ Supported audio:
 
   * `album` (Not Your Kind of People)
 
-Notes:
-
-  * Audio is a Youtube download (run `audio.sh`).
-

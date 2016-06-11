@@ -13,7 +13,3 @@ Supported audio:
 
   * `album` (Live on Stageit 2012\-06\-03)
 
-Notes:
-
-  * Audio is a Youtube download (run `audio.sh`).
-

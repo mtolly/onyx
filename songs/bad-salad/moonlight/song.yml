@@ -20,23 +20,23 @@ audio:
     md5: ea5b989528502700eafc8c246dca4f5c
     frames: 17864772
   pledgemusic-drums:
-    name: BadSalad-Puzzled-2-Moonlight-Stem-Drums.flac
+    # BadSalad-Puzzled-2-Moonlight-Stem-Drums.flac
     md5: e226818ecfb394e6ef51245bf883c613
     frames: 18190155
   pledgemusic-bass:
-    name: BadSalad-Puzzled-2-Moonlight-Stem-Bass.flac
+    # BadSalad-Puzzled-2-Moonlight-Stem-Bass.flac
     md5: 9448c2f63e9e22fe33dabf8ad49c04c0
     frames: 18190155
   pledgemusic-guitars:
-    name: BadSalad-Puzzled-2-Moonlight-Stem-Guitars.flac
+    # BadSalad-Puzzled-2-Moonlight-Stem-Guitars.flac
     md5: 435eaba9826af0c78285ba6bf03468cf
     frames: 18190155
   pledgemusic-keyboards:
-    name: BadSalad-Puzzled-2-Moonlight-Stem-Keyboards.flac
+    # BadSalad-Puzzled-2-Moonlight-Stem-Keyboards.flac
     md5: a547c8f711da977bcfca03d5cfacd126
     frames: 18190155
   pledgemusic-vocals:
-    name: BadSalad-Puzzled-2-Moonlight-Stem-Vocals.flac
+    # BadSalad-Puzzled-2-Moonlight-Stem-Vocals.flac
     md5: edb5529d9b162c92e9254081127593e9
     frames: 18190155
   hihat:

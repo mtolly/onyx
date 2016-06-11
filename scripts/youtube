@@ -1,0 +1,8 @@
+#!/bin/bash
+set -e
+set -u
+
+youtube-dl "https://www.youtube.com/watch?v=$1" -f "$2" -o audio-youtube.m4a
+rm -f audio-youtube.wav
+ffmpeg -i audio-youtube.m4a audio-youtube.wav
+rm -f audio-youtube.m4a

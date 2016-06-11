@@ -2,11 +2,11 @@ metadata:
   title: Hollow
   artist: Alice in Chains
   author: Guyshenig, Onyxite
-  comments:
-  - "Audio is a Youtube download (run `audio.sh`)."
 audio:
   youtube:
     file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube hmSeWqmlqYs 140
     md5: 5391be70031e4c65350ebcf4da33cc9d
     frames: 15427584
 plans:

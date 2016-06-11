@@ -3,11 +3,11 @@ metadata:
   file-include: ../../../albums/knife-man.yml
   track-number: 6
   author: Onyxite
-  comments:
-  - "Audio is a Youtube download (run `audio.sh`)."
 audio:
   youtube:
     file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube B8QLI39r0nk 140
     md5: 085a9a8707e62da11a157c8682e3aab0
     frames: 4503552
 plans:

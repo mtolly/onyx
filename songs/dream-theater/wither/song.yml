@@ -12,27 +12,27 @@ audio:
     md5: eef63d38e7705ea522ed7383931850fd
     frames: 14360136
   deluxe-drum:
-    name: "Wither Drum Stem.flac"
+    # "Wither Drum Stem.flac"
     md5: d2fd1e44f3550a2d7d7b8da13e978ba8
     frames: 14576414
   deluxe-bass:
-    name: "Wither Bass Stem.flac"
+    # "Wither Bass Stem.flac"
     md5: b3c7605bb4a1055434750c20d014a4ea
     frames: 14576414
   deluxe-guitar:
-    name: "Wither Guitar Stem.flac"
+    # "Wither Guitar Stem.flac"
     md5: 90d6649008db3287ddb1b5bbb087e053
     frames: 14576414
   deluxe-keys:
-    name: "Wither Keys Stem.flac"
+    # "Wither Keys Stem.flac"
     md5: e18ce00eb96c925578c0ceabf73884cb
     frames: 14576414
   deluxe-solo:
-    name: "Wither Solo Stem.flac"
+    # "Wither Solo Stem.flac"
     md5: 42e5bec9d9a3384793eafc3639b76d53
     frames: 14576414
   deluxe-vocal:
-    name: "Wither Vocal Stem.flac"
+    # "Wither Vocal Stem.flac"
     md5: 4032e17e25f3bb602c735961f037c6d8
     frames: 14576414
   hihat:

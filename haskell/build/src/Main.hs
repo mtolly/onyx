@@ -166,9 +166,9 @@ audioSearch AudioSnippet{} _     = fail "panic! called audioSearch on a snippet.
 audioSearch AudioFile{..}  files = do
   files1 <- case _filePath of
     Nothing   -> return files
-    Just path -> doesFileExist path >>= \case
-      False -> return []
-      True  -> liftIO $ fmap (:[]) $ Dir.canonicalizePath path
+    Just path -> do
+      need [path]
+      liftIO $ fmap (:[]) $ Dir.canonicalizePath path
   files2 <- liftIO $ case _md5 of
     Nothing  -> return files1
     Just md5 -> fmap toList $ findM (fmap (== Just (T.unpack md5)) . audioMD5) files1
@@ -176,16 +176,13 @@ audioSearch AudioFile{..}  files = do
     Nothing  -> return files2
     Just len -> filterM (fmap (== Just len) . audioLength) files2
   files4 <- if isNothing _filePath && isNothing _md5
-    then case _name of
-      Nothing   -> fail "audioSearch: you must specify one of [path, md5, name]"
-      Just name -> return $ let
-        name' = dropExtension name
-        in filter (\f -> dropExtension (takeFileName f) == name') files3
+    then fail "audioSearch: you must specify either file-path or md5"
     else return files3
   files5 <- liftIO $ filterM (fmap (== Just _channels) . audioChannels) files4
   files6 <- liftIO $ case _rate of
     Nothing   -> return files5
     Just rate -> filterM (fmap (== Just rate) . audioRate) files5
+  need files6
   return $ listToMaybe files6
 
 moggSearch :: T.Text -> [FilePath] -> Action (Maybe FilePath)
@@ -287,6 +284,11 @@ main = do
             phony :: String -> Action () -> Rules ()
             phony s f = Shake.phony s $ onyxDeps f
             infix 1 %>, &%>
+
+        forM_ (HM.elems $ _audio songYaml) $ \case
+          AudioFile{ _filePath = Just fp, _commands = cmds } | not $ null cmds -> do
+            fp %> \_ -> mapM_ (Shake.unit . Shake.cmd) cmds
+          _ -> return ()
 
         phony "yaml"  $ liftIO $ print songYaml
         phony "audio" $ liftIO $ print audioDirs

@@ -2,11 +2,11 @@ metadata:
   title: Blackbird
   artist: Alter Bridge
   author: Guyshenig, Onyxite
-  comments:
-  - "Audio is a Youtube download (run `audio.sh`)."
 audio:
   youtube:
     file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube yz_j7nVCJJ0 140
     md5: 32b54400d8a8fa81b37a78ec83625714
     frames: 21090304
 plans:

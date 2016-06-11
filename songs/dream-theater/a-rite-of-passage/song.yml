@@ -12,27 +12,27 @@ audio:
     md5: e8aa697d723d6cdd3b069d1357adf90e
     frames: 22763832
   deluxe-drum:
-    name: "A Rite of Passage Drum Stem.flac"
+    # "A Rite of Passage Drum Stem.flac"
     md5: 941b8cc7c28114390284fffc9e7a6ea5
     frames: 22720499
   deluxe-bass:
-    name: "A Rite of Passage Bass Stem.flac"
+    # "A Rite of Passage Bass Stem.flac"
     md5: 5b95325d3e31323ca4f26a63b65669dc
     frames: 22720499
   deluxe-guitar:
-    name: "A Rite of Passage Guitar Stem.flac"
+    # "A Rite of Passage Guitar Stem.flac"
     md5: 3cf1d834960abbf5c81f23962f3aa18e
     frames: 22720499
   deluxe-keys:
-    name: "A Rite of Passage Keys Stem.flac"
+    # "A Rite of Passage Keys Stem.flac"
     md5: 337648ab991e8952ec8031b29dd73e15
     frames: 22720499
   deluxe-solo:
-    name: "A Rite of Passage Solo Stem.flac"
+    # "A Rite of Passage Solo Stem.flac"
     md5: 43632f7307ed5507bce91755fb10d2a8
     frames: 22720499
   deluxe-vocal:
-    name: "A Rite of Passage Vocal Stem.flac"
+    # "A Rite of Passage Vocal Stem.flac"
     md5: ab34a443a950ed7184072bae71dc4988
     frames: 22720499
   hihat:

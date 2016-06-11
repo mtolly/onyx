@@ -10,10 +10,11 @@ metadata:
   author: Guyshenig, Onyxite
   comments:
   - "Guitar, bass, drums by Guyshenig; vocals by Onyxite."
-  - "Audio is a Youtube download (run `audio.sh`)."
 audio:
   youtube:
     file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube 1_viH3FchWI 140
     md5: ec7976ae1764d2cbe92193e14925e16c
     frames: 11189248
 plans:
