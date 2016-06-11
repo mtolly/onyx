@@ -10,6 +10,8 @@ module RockBand.Drums where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
+import qualified Sound.MIDI.Util as U
+import qualified Sound.MIDI.File.Event as E
 
 import RockBand.Common
 import RockBand.Parse
@@ -230,3 +232,37 @@ assignToms = go defDrumState . RTB.normalize where
                 Hard -> hardDisco ds
                 Expert -> expertDisco ds
       _ -> RTB.delay dt $ go ds rtb'
+
+-- | Writes drum gems as the given length, or shorter if there is another gem
+-- in the same difficulty sooner than that.
+unparseNice :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats E.T
+unparseNice defLength trk = let
+  (notes, notNotes) = flip RTB.partitionMaybe trk $ \case
+    Kick2x                 -> Just (Expert, Nothing )
+    DiffEvent d (Note gem) -> Just (d     , Just gem)
+    _                      -> Nothing
+  assignLengths :: RTB.T U.Beats (Difficulty, Maybe (Gem ())) -> RTB.T U.Beats (RTB.T U.Beats E.T)
+  assignLengths rtb = case RTB.viewL rtb of
+    Nothing -> RTB.empty
+    Just ((dt, (diff, gem)), rtb') -> let
+      len = case RTB.viewL $ RTB.filter ((diff ==) . fst) $ U.trackTake defLength $ U.trackDropZero rtb' of
+        Nothing             -> defLength
+        Just ((next, _), _) -> next
+      in RTB.cons dt (makeNote len diff gem) $ assignLengths rtb'
+  makeNote len diff gem = let
+    pitch = let
+      a = case diff of
+        Easy   -> 60
+        Medium -> 72
+        Hard   -> 84
+        Expert -> 96
+      b = case gem of
+        Nothing -> -1
+        Just Kick -> 0
+        Just Red -> 1
+        Just (Pro Yellow ()) -> 2
+        Just (Pro Blue ()) -> 3
+        Just (Pro Green ()) -> 4
+      in a + b
+    in RTB.cons NNC.zero (makeEdge pitch True) $ RTB.singleton len (makeEdge pitch False)
+  in RTB.merge (U.trackJoin $ assignLengths notes) (unparseAll unparseOne notNotes)

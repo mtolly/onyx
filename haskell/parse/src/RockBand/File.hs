@@ -5,7 +5,7 @@ import           Control.Monad                    (forM, forM_, liftM)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (sortOn)
-import           Data.Maybe                       (catMaybes)
+import           Data.Maybe                       (catMaybes, fromJust)
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Event            as E
@@ -62,7 +62,9 @@ data Song t = Song
 showMIDIFile :: Song U.Beats -> F.T
 showMIDIFile s = let
   tempos = U.unmakeTempoMap $ s_tempos s
-  sigs = U.unmakeMeasureMap $ s_signatures s
+  sigs = case mapM U.showSignatureFull $ U.measureMapToTimeSigs $ s_signatures s of
+    Nothing   -> RTB.singleton 0 $ fromJust $ U.showSignature 4
+    Just evts -> evts
   tempoTrk = U.setTrackName "notes" $ RTB.merge tempos sigs
   in U.encodeFileBeats F.Parallel 480 $ tempoTrk : map showTrack (s_tracks s)
 
@@ -83,8 +85,8 @@ phaseShiftFixToms = RTB.flatten . fmap tomsFirst . RTB.collectCoincident where
 
 showTrack :: Track U.Beats -> RTB.T U.Beats E.T
 showTrack = \case
-  PartDrums             t -> U.setTrackName "PART DRUMS"          $ phaseShiftFixToms $ unparseAll unparseOne t
-  PartDrums2x           t -> U.setTrackName "PART DRUMS_2X"       $ phaseShiftFixToms $ unparseAll unparseOne t
+  PartDrums             t -> U.setTrackName "PART DRUMS"          $ phaseShiftFixToms $ Drums.unparseNice (1/8) t
+  PartDrums2x           t -> U.setTrackName "PART DRUMS_2X"       $ phaseShiftFixToms $ Drums.unparseNice (1/8) t
   PartGuitar            t -> U.setTrackName "PART GUITAR"         $ unparseAll unparseOne t
   PartBass              t -> U.setTrackName "PART BASS"           $ unparseAll unparseOne t
   PartKeys              t -> U.setTrackName "PART KEYS"           $ unparseAll unparseOne t
