@@ -1,0 +1,74 @@
+published: true
+plans:
+  mogg:
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    drum-mix: 0
+    mogg-md5: d6b61ca276451be5e8ff15da8eda0a0d
+    guitar:
+    - 2
+    - 3
+    keys:
+    - 4
+    - 5
+    drums:
+    - 0
+    - 1
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+metadata:
+  autogen-theme: AutogenDefault
+  rating: SupervisionRecommended
+  preview-start: 97.853
+  vocal-gender: male
+  drum-kit: Hard Rock Kit
+  file-album-art: cover.png_xbox
+  auto-2x-bass: false
+  track-number: 4
+  album: Electric Ladyland
+  year: 1968
+  subgenre: classicrock
+  hopo-threshold: 170
+  author: mazegeek999
+  title: Voodoo Chile
+  preview-end: 127.853
+  genre: classicrock
+  difficulty:
+    pro-keys:
+      rank: 443
+    vocal:
+      rank: 0
+    bass:
+      rank: 0
+    guitar:
+      rank: 409
+    keys:
+      rank: 443
+    drums:
+      rank: 448
+    band:
+      rank: 345
+  artist: The Jimi Hendrix Experience
+  comments:
+  - "Vocals to be authored soon."
+jammit: {}
+audio: {}
+instruments:
+  pro-keys: true
+  guitar: true
+  keys: true
+  drums: true
