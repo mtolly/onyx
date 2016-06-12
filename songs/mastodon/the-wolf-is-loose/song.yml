@@ -15,4 +15,6 @@ plans:
 instruments:
   drums: true
   guitar: true
+  bass: true
+  vocal: 2
 published: false
