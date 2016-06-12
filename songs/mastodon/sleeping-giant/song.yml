@@ -17,4 +17,6 @@ instruments:
   guitar: true
   bass: true
   vocal: 2
+  keys: true
+  pro-keys: true
 published: false
