@@ -1,0 +1,53 @@
+DRUMS (I compared these to my drums chart)
+47.1: should be double crash (YG)
+86.1: I'd do G B GBG for the crashes instead of all on G
+126.3.5: I missed this kick in my chart, nice catch
+136.1.5: I didn't put a snare here but it probably makes sense for consistency
+139.1: double crash
+151.1: I did 8th note hihats the next 8 measures, I think they're audible enough but up to you
+175.2.5, 176.3.5, 177.1.5, 178.2, 180.2: Faint kicks here, up to you whether to include them. You did include other faint kicks in this section so either way I'd be consistent
+185.1.75: This kick is clearly a mistake by MP so I agree with you to omit it
+188.3, 190.3: No ride here
+222.2.5: crash (Y -> B or G)
+251.2: It's faint but there is a crash here, and I'd write it for consistency
+262.1: I missed this crash (it's probably overdubbed though, kind of awkward)
+
+GUITAR/BASS
+IMO all the sustains should be 32nd note gaps. Some of yours already are, e.g. at 74.4.25
+40.1 (and this main riff everywhere): I'd move this Y to R, but it's fine either way
+
+GUITAR
+48.4, 50.4, 52.4, 56.4, etc.: Y -> R (since it's F not F#)
+83.1: hmmm, the actual guitar here is single finger power chords (https://imgur.com/i9PSmfT) so your chords here are IMO harder than the real part :) Might make sense to just do single notes but it definitely feels like it should be chords, so I dunno.
+116.4.5: I might put a G here due to the muted strum before the 117.1 chord
+117.4, 120.3, 122.3: These should be sustained
+124.4.5: Same here, I'd do a G for the muted strum
+127.1: haha, nice Prophets tremolo :D Make sure and drag each tremolo end to right after (like, a 128th note after) its last note-on. Not sure if that's a common C3 thing but it was discussed way back on the RBN creator forums (and approved by HMX authors) as the way to make it look best in game
+178.3.5: I'd do muted G
+191.1: I'd cut this note off at 191.2.25, but I can see you wanted to have the guitar and bass notes same length, so that works too.
+195.1: hahahahaha ok
+223.1: Sweet OD phrase here!
+231.1: ehhhhh, I don't like cutting off the last solo note here. It kind of works, but I would have an O that goes to 231.3, have the solo end at 232.1, and then just have a bit of a gap before the RB at 232.3. I'd also put that first rhythm guitar chord in the backing audio. But I know it'd be a bit of a pain, and still kind of ugly, so up to you!
+236.4.5: I'd do G for muted strum
+237.4, 240.3, 242.3: again, probably sustain these
+247.1: again, I'd make sure the tremolo ends are right after their last note-on. Especially fix the one at 254.1 (which currently ends when the next one starts at 255.1)
+
+BASS
+63.2.5: not sure of best duration here, it's cut off but probably better to sustain to be consistent with the other ones
+175.1.5, 177.1.5, 180.1.5, 183.1.5, 185.1.5: force hopo
+181.3: no note here (and then sustain 181.2.5)
+191.1: I'd have this stretched out to 191.3.5. But again I understand having it the same length as guitar
+195.1: lolololol this is awesome
+230.2: I wouldn't sustain this (but it's not clear-cut, up to you)
+
+PRO KEYS
+163.4.5: Maybe have an E grace note before the Eb
+167.4.5, 169.4.5: Same here, maybe A grace note before Ab
+192.4: I have no idea what this screech is? Is Jordan actually playing these notes underneath?
+195.1: haha the trainers are great
+243.1: The 4 chords here, it feels odd to have the first two and last two chords stay same inversion when the real chords are all going up in inversion. Maybe swap the second and third chords? So it'd be FBbDb BbDbF FBbDb Bb BbDbF Db. The third chord is wrong then (should be DbFBb but can't fit that in this range) but I think that's fine as long as it's different from the ones next to it
+
+KEYS
+80.1: If you did the change I suggested to the main riff for guitar/bass (Y -> R), do it here too
+163.4.5 etc.: If you did the grace notes I suggested for PK, do them here (e.g. O sustain change to O grace note and B sustain)
+192.4: Make screech same as PK if you changed that
