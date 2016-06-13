@@ -27,3 +27,5 @@ plans:
       - concatenate: [album-prelude, album-kiara]
 instruments:
   drums: true
+  guitar: true
+  pro-keys: true
