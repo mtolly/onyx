@@ -1,5 +1,12 @@
 published: true
 plans:
+  album:
+    song:
+      pad:
+      - 2.576
+      - concatenate:
+        - take: ['1:23.924', youtube]
+        - drop: ['5:05.137', youtube]
   mogg:
     pans:
     - -1
@@ -33,6 +40,12 @@ metadata:
   genre: rock
   artist: Chick Corea and Antonio Sanchez
 jammit: {}
-audio: {}
+audio:
+  youtube:
+    commands:
+    - ../../../scripts/youtube ZMHyRjIGrOc 140
+    file-path: audio-youtube.wav
+    md5: ec4fe71853a5e152967a52e15078d282
+    frames: 23981056
 instruments:
   drums: true

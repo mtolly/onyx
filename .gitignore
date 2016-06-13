@@ -8,6 +8,7 @@ songs*/*/*/gen/
 *.reapeaks
 .DS_Store
 .shake.database
+.shake/
 .cabal-sandbox/
 cabal.sandbox.config
 dist/
