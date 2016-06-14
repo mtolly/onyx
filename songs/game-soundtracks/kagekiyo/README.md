@@ -3,7 +3,7 @@
 ## Norio Nakagata
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=kagekiyo&artist=j-rock)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=kagekiyo&artist=game-soundtracks)
 
 Instruments:
 
