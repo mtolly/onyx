@@ -79,6 +79,8 @@ event tks = \case
       [c] -> ['0', c]
       s   -> s
     in line "E" $ show tks : map showByte (BL.unpack bs)
+  E.MetaEvent (Meta.TimeSig _ _ _ _) -> return ()
+  E.MetaEvent (Meta.SetTempo _) -> return ()
   E.MetaEvent e -> let
     stringBytes = TE.encodeUtf8 . T.pack
     bytes = B.cons 0xFF $ case e of

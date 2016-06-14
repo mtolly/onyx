@@ -282,7 +282,9 @@ main = do
             (&%>) :: [FilePattern] -> ([FilePath] -> Action ()) -> Rules ()
             pats &%> f = pats Shake.&%> onyxDeps . f
             phony :: String -> Action () -> Rules ()
-            phony s f = Shake.phony s $ onyxDeps f
+            phony s f = do
+              Shake.phony s $ onyxDeps f
+              Shake.phony (s ++ "/") $ onyxDeps f
             infix 1 %>, &%>
 
         forM_ (HM.elems $ _audio songYaml) $ \case
@@ -484,9 +486,7 @@ main = do
 
         forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
 
-          let dir = "gen/plan/" ++ T.unpack planName
-              -- NOTE: the above doesn't use </> because of
-              -- https://github.com/ndmitchell/shake/issues/405
+          let dir = "gen/plan" </> T.unpack planName
 
               planPV :: Maybe (PlanAudio Duration AudioInput) -> [(Double, Double)]
               planPV Nothing = [(-1, 0), (1, 0)]
@@ -672,9 +672,7 @@ main = do
             let s' = reverse $ dropWhile isSpace $ reverse $ dropWhile isSpace s
                 js = "window.onyxSong = " ++ s' ++ ";\n"
             liftIO $ writeFile out js
-          -- NOTE: the below phony command doesn't use </> because of
-          -- https://github.com/ndmitchell/shake/issues/405
-          phony (dir ++ "/web") $ do
+          phony (dir </> "web") $ do
             liftIO $ forM_ webDisplay $ \(f, bs) -> do
               Dir.createDirectoryIfMissing True $ dir </> "web" </> takeDirectory f
               B.writeFile (dir </> "web" </> f) bs
@@ -1055,9 +1053,7 @@ main = do
           dir </> "ps/crowd.ogg"   %> buildAudio (Input $ dir </> "crowd.wav"       )
           dir </> "ps/song.ogg"    %> buildAudio (Input $ dir </> "song-countin.wav")
           dir </> "ps/album.png"   %> copyFile' "gen/cover.png"
-          -- NOTE: the below phony command doesn't use </> because of
-          -- https://github.com/ndmitchell/shake/issues/405
-          phony (dir ++ "/ps") $ need $ map (\f -> dir </> "ps" </> f) $ concat
+          phony (dir </> "ps") $ need $ map (\f -> dir </> "ps" </> f) $ concat
             [ ["song.ini", "notes.mid", "song.ogg", "album.png"]
             , ["drums.ogg"   | _hasDrums    (_instruments songYaml) && mixMode == RBDrums.D0]
             , ["drums_1.ogg" | _hasDrums    (_instruments songYaml) && mixMode /= RBDrums.D0]
@@ -1234,12 +1230,12 @@ main = do
             _ -> return ()
 
           -- Warn about notes that might hang off before a pro keys range shift
-          phony (dir ++ "/ranges") $ do
+          phony (dir </> "ranges") $ do
             song <- loadMIDI $ dir </> "2p/notes.mid"
             putNormal $ closeShiftsFile song
 
           -- Print out a summary of (non-vocal) overdrive and unison phrases
-          phony (dir ++ "/overdrive") $ do
+          phony (dir </> "overdrive") $ do
             song <- loadMIDI $ dir </> "2p/notes.mid"
             let trackTimes = Set.fromList . ATB.getTimes . RTB.toAbsoluteEventList 0
                 getTrack f = foldr RTB.merge RTB.empty $ mapMaybe f $ RBFile.s_tracks song
@@ -1302,9 +1298,7 @@ main = do
             let pkg = "onyx" ++ show (hash (pedalDir, _title $ _metadata songYaml, _artist $ _metadata songYaml) `mod` 1000000000)
 
             -- Check for some extra problems that Magma doesn't catch.
-            -- NOTE: the below phony command doesn't use </> because of
-            -- https://github.com/ndmitchell/shake/issues/405
-            phony (pedalDir ++ "/problems") $ do
+            phony (pedalDir </> "problems") $ do
               song <- loadMIDI $ pedalDir </> "notes.mid"
               -- Don't have a kick at the start of a drum roll.
               -- It screws up the roll somehow and causes spontaneous misses.
@@ -1854,15 +1848,24 @@ makeReaper evts tempo audios out = do
           t_beats = RTB.mapTime (\tks -> fromIntegral tks / fromIntegral resn) t_ticks
           t_secs = U.applyTempoTrack tmap t_beats
           in RPP.tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
+        F.Cons F.Mixed (F.Ticks resn) tracks -> let
+          track = foldr RTB.merge RTB.empty tracks
+          t_ticks = RPP.processTempoTrack track
+          t_beats = RTB.mapTime (\tks -> fromIntegral tks / fromIntegral resn) t_ticks
+          t_secs = U.applyTempoTrack tmap t_beats
+          in RPP.tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
         _ -> error "Unsupported MIDI format for Reaper project generation"
   liftIO $ writeRPP out $ runIdentity $
     RPP.rpp "REAPER_PROJECT" ["0.1", "5.0/OSX64", "1449358215"] $ do
       RPP.line "VZOOMEX" ["0"]
       RPP.line "SAMPLERATE" ["44100", "0", "0"]
+      writeTempoTrack
       case mid of
         F.Cons F.Parallel (F.Ticks resn) (_ : trks) -> do
-          writeTempoTrack
           forM_ (RPP.sortTracks trks) $ RPP.track (midiLenTicks resn) midiLenSecs resn
-          forM_ lenAudios $ \(len, aud) -> do
-            RPP.audio len $ makeRelative (takeDirectory out) aud
+        F.Cons F.Mixed (F.Ticks resn) tracks -> let
+          track = foldr RTB.merge RTB.empty tracks
+          in RPP.track (midiLenTicks resn) midiLenSecs resn track
         _ -> error "Unsupported MIDI format for Reaper project generation"
+      forM_ lenAudios $ \(len, aud) -> do
+        RPP.audio len $ makeRelative (takeDirectory out) aud

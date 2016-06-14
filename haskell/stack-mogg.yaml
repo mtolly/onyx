@@ -25,6 +25,7 @@ extra-deps:
 - midi-util-0.2
 - non-negative-0.1.1
 - monoid-transformer-0.0.3
+- shake-0.15.10
 resolver: lts-6.1
 flags:
   onyxite-customs-build:
