@@ -1,0 +1,26 @@
+metadata:
+  title: "Ashes of Dreams (New)"
+  artist: Emi Evans
+  album: NieR Gestalt & Replicant Original Soundtrack
+  track-number: 39 # 23 + 16
+  author: Onyxite
+audio:
+  youtube:
+    commands:
+    - ../../../scripts/youtube uxgJ_8AgQbo 140
+    file-path: audio-youtube.wav
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|1.5: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+    song:
+      pad: [3.401, youtube]
+instruments:
+  vocal: 1
+published: false

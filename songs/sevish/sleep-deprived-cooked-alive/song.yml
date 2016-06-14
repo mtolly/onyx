@@ -1,0 +1,97 @@
+metadata:
+  title: Sleep Deprived Cooked Alive
+  artist: Sevish
+  album: Rhythm and Xen
+  track-number: 3
+  genre: popdanceelectronic
+  subgenre: drumandbass
+  year: 2015
+  file-album-art: cover.jpg
+  author: Onyxite
+audio:
+  stem-bass-1:
+    # Sleep Deprived Cooked Alive (Stems session) Bass 1.wav
+    md5: e70f4efb0f826c34daa41848fead5a3d
+    frames: 3968946
+  stem-bass-dark-sub:
+    # Sleep Deprived Cooked Alive (Stems session) Bass Dark + Sub.wav
+    md5: 9a99451f84f81e3235072b8fc1cf54b9
+    frames: 11144330
+  stem-bass-fm:
+    # Sleep Deprived Cooked Alive (Stems session) Bass FM.wav
+    md5: 6b0c7509b3364acc4b5e10ebcd9ae9ee
+    frames: 11144330
+  stem-bass-wide:
+    # Sleep Deprived Cooked Alive (Stems session) Bass Wide.wav
+    md5: 3ca362088b0980c06462e9dc490f3cee
+    frames: 11144330
+  stem-crowd:
+    # Sleep Deprived Cooked Alive (Stems session) crowd.wav
+    md5: 4b0b1f375df0a8add6ca8bb4748796cd
+    frames: 2267145
+  stem-drums:
+    # Sleep Deprived Cooked Alive (Stems session) Drums.wav
+    md5: 47a071d9c7b9844035aa23fbf2ebdbed
+    frames: 11144330
+  stem-dulcimer:
+    # Sleep Deprived Cooked Alive (Stems session) Dulcimer.wav
+    md5: 5bc7731c8e02af68bd4175938650e4e1
+    frames: 11144330
+  stem-lead-descending:
+    # Sleep Deprived Cooked Alive (Stems session) Lead Descending.wav
+    md5: 3f66d2681d3ef87170d18bb01f1774f1
+    frames: 9210275
+  stem-square:
+    # Sleep Deprived Cooked Alive (Stems session) Square.wav
+    md5: 715f3a886feeba6efbb25559c9278d23
+    frames: 11144330
+  stem-stab:
+    # Sleep Deprived Cooked Alive (Stems session) Stab.wav
+    md5: 6920f53671a0aac8fb4dd28a3f09b85d
+    frames: 1023221
+  stem-starpad-group:
+    # Sleep Deprived Cooked Alive (Stems session) Starpad Group.wav
+    md5: 99efce60c4fdd8cd3bd7af75dd11a348
+    frames: 11144330
+  stem-strings-group:
+    # Sleep Deprived Cooked Alive (Stems session) Strings Group.wav
+    md5: e17faf782c6b96d1a9e52a28c2e9ec21
+    frames: 9058369
+  stem-vibes-group:
+    # Sleep Deprived Cooked Alive (Stems session) Vibes Group.wav
+    md5: dcdfe5035a7461638610bc002eafff9c
+    frames: 11144330
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  stems:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad:
+      - 2.817
+      - mix:
+        - stem-bass-1
+        - stem-bass-dark-sub
+        - stem-bass-fm
+        - stem-bass-wide
+        - stem-crowd
+        - stem-dulcimer
+        - stem-lead-descending
+        - stem-square
+        - stem-stab
+        - stem-starpad-group
+        - stem-strings-group
+        - stem-vibes-group
+    drums:
+      pad:
+      - 2.817
+      - stem-drums
+instruments:
+  drums: true
+published: false
