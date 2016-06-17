@@ -7,11 +7,17 @@
 
 Instruments:
 
-  * (Pro) Drums
-  * Guitar
-  * Pro Keys
+  * (Pro) Drums ⚪️⚪️⚫️⚫️⚫️
+  * Bass ⚪️⚫️⚫️⚫️⚫️
+  * Guitar ⚪️⚫️⚫️⚫️⚫️
+  * Keys ⚪️⚪️⚫️⚫️⚫️
+  * Pro Keys ⚪️⚪️⚫️⚫️⚫️
 
 Supported audio:
 
   * `album` (Black Sands)
+
+Notes:
+
+  * All instruments have overdrive/unison.
 
