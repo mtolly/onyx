@@ -286,7 +286,9 @@ data Difficulty
   | Rank Integer -- ^ [1..]
   deriving (Eq, Ord, Show, Read)
 
-pattern OneKey k v <- A.Object (Map.toList -> [(k, v)])
+pattern OneKey :: T.Text -> A.Value -> A.Value
+pattern OneKey k v <- A.Object (Map.toList -> [(k, v)]) where
+  OneKey k v = A.Object $ Map.fromList [(k, v)]
 
 instance TraceJSON Difficulty where
   traceJSON = lift ask >>= \case

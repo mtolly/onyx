@@ -54,8 +54,10 @@ phaseShiftKicks tx ty rtb = let
       RH -> Drums.DiffEvent Expert $ Drums.Note Drums.Kick
       LH -> Drums.Kick2x
 
-rockBand1x, rockBand2x :: (NNC.C t) => RTB.T t Drums.Event -> RTB.T t Drums.Event
+rockBand1x :: (NNC.C t) => RTB.T t Drums.Event -> RTB.T t Drums.Event
 rockBand1x = RTB.filter (/= Drums.Kick2x)
+
+rockBand2x :: RTB.T t Drums.Event -> RTB.T t Drums.Event
 rockBand2x = fmap $ \case
   Drums.Kick2x -> Drums.DiffEvent Expert $ Drums.Note Drums.Kick
   evt          -> evt

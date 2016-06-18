@@ -184,9 +184,6 @@ data FileListing = FileListing
   , fl_atime :: Word16
   } deriving (Show)
 
-getInt16be :: Get Int16
-getInt16be = fmap fromIntegral getWord16be
-
 newFileListing :: BL.ByteString -> Either String FileListing
 newFileListing data_ = let
   stripNull = BL.reverse . BL.dropWhile (== 0) . BL.reverse . BL.dropWhile (== 0)

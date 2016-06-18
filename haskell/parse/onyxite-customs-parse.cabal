@@ -23,7 +23,7 @@ library
     RockBand.PhaseShiftKeys
     MelodysEscape
   build-depends:
-    base >= 4.6 && < 4.9
+    base >= 4.6 && < 4.10
     , event-list, non-negative, midi
     , transformers >= 0.4
     , template-haskell
