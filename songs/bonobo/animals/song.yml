@@ -1,0 +1,25 @@
+metadata:
+  title: Animals
+  file-include: ../../../albums/black-sands.yml
+  track-number: 11
+  author: Onyxite
+audio:
+  album-track:
+    md5: 7c24e6e97ac11b7b54274d285ca9ac6f
+    frames: 17862264
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [3.465, album-track]
+instruments:
+  drums: true
+published: false

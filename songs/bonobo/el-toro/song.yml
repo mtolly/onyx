@@ -1,0 +1,30 @@
+metadata:
+  title: El Toro
+  file-include: ../../../albums/black-sands.yml
+  track-number: 5
+  author: Onyxite
+audio:
+  album-track:
+    md5: 38dfd34cf19baff9b33f90d3360f1b3f
+    frames: 9891336
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad:
+      - 0.716
+      - fade:
+        - end
+        - 0.2
+        - album-track
+instruments:
+  drums: true
+published: false
