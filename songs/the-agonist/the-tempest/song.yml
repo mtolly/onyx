@@ -11,6 +11,7 @@ metadata:
   genre: metal
   subgenre: death
   difficulty:
+    band: 6
     drums: 7
     guitar: 5
     bass: 5
@@ -21,6 +22,12 @@ metadata:
   - "Drums by TheCourtofaPorcupine, guitar and bass by girldrummer."
   - "All instruments have overdrive/unison."
   autogen-theme: Aggressive Metal
+  key: D
+  rating: Supervision Recommended
+  # visualizer: https://i.imgur.com/96nMWwB.jpg
+  # mediafire 1x: http://www.mediafire.com/download/cbbdzrdb3sy08k8/TheTempest_1p_v1_rb3con
+  # mediafire 2x: http://www.mediafire.com/download/f71451e01f4xs07/TheTempest_2p_v1_rb3con
+  # mediafire ps: http://www.mediafire.com/download/slt1tewru5z1z01/TheTempest_ps_v1.zip
 instruments:
   drums: true
   guitar: true
