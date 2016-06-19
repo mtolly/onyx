@@ -10,6 +10,9 @@ import           System.FilePath              ((</>))
 magmaFiles :: [(FilePath, B.ByteString)]
 magmaFiles = $(embedDir "vendors/magma/")
 
+magmaV1Files :: [(FilePath, B.ByteString)]
+magmaV1Files = $(embedDir "vendors/magma-v1/")
+
 rb3pkgFiles :: [(FilePath, B.ByteString)]
 rb3pkgFiles = $(embedDir "vendors/xbox/rb3pkg/bin/Release/")
 

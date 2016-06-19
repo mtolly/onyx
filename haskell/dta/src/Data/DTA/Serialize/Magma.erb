@@ -38,12 +38,12 @@ require File.expand_path(File.dirname(__FILE__) + '/make_data')
   ]) %>
 
 <%= makeRecord('Languages', [
-  ['english' , nil, 'Bool'],
-  ['french'  , nil, 'Bool'],
-  ['italian' , nil, 'Bool'],
-  ['spanish' , nil, 'Bool'],
-  ['german'  , nil, 'Bool'],
-  ['japanese', nil, 'Bool'],
+  ['english' , nil, maybe('Bool')],
+  ['french'  , nil, maybe('Bool')],
+  ['italian' , nil, maybe('Bool')],
+  ['spanish' , nil, maybe('Bool')],
+  ['german'  , nil, maybe('Bool')],
+  ['japanese', nil, maybe('Bool')],
   ]) %>
 
 <%= makeRecord('Gamedata', [
@@ -109,6 +109,7 @@ require File.expand_path(File.dirname(__FILE__) + '/make_data')
   ], 'String') %>
 
 <%= makeRecord('DryVox', [
+  ['file'               , 'dryVoxFileRB2', maybe('String')],
   ['part0'              , nil, 'DryVoxPart'],
   ['part1'              , nil, 'DryVoxPart'],
   ['part2'              , nil, 'DryVoxPart'],

@@ -353,10 +353,11 @@ importRB3 pkg author mid mogg cover coverName dir = do
         , _hasProKeys = maybe False (/= 0) $ Map.lookup "real_keys" diffMap
         , _hasVocal   = if maybe False (/= 0) $ Map.lookup "vocals" diffMap
           then case D.vocalParts $ D.song pkg of
-            0 -> Vocal0
-            1 -> Vocal1
-            2 -> Vocal2
-            3 -> Vocal3
+            Nothing -> Vocal1
+            Just 0 -> Vocal0
+            Just 1 -> Vocal1
+            Just 2 -> Vocal2
+            Just 3 -> Vocal3
             n -> error $ "When importing a CON file: invalid vocal count of " ++ show n
           else Vocal0
         }

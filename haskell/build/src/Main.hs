@@ -34,6 +34,7 @@ import qualified Sound.MIDI.Script.Parse          as MS
 import qualified Sound.MIDI.Script.Read           as MS
 import qualified Sound.MIDI.Script.Scan           as MS
 import qualified MelodysEscape
+import qualified RockBand2                        as RB2
 
 import           Codec.Picture
 import           Control.Exception as Exc
@@ -1135,7 +1136,7 @@ main = do
                     { D.songName = "songs/" ++ pkg ++ "/" ++ pkg
                     , D.tracksCount = Nothing
                     , D.tracks = D.InParens $ D.Dict tracksAssocList
-                    , D.vocalParts = case _hasVocal $ _instruments songYaml of
+                    , D.vocalParts = Just $ case _hasVocal $ _instruments songYaml of
                       Vocal0 -> 0
                       Vocal1 -> 1
                       Vocal2 -> 2
@@ -1152,6 +1153,7 @@ main = do
                     , D.hopoThreshold = Just $ fromIntegral $ _hopoThreshold $ _metadata songYaml
                     , D.muteVolume = Nothing
                     , D.muteVolumeVocals = Nothing
+                    , D.midiFile = Nothing
                     }
                   , D.bank = Just $ Left $ case perctype of
                     Nothing               -> "sfx/tambourine_bank.milo"
@@ -1206,6 +1208,10 @@ main = do
                   , D.realBassTuning = Nothing
                   , D.guidePitchVolume = Just (-3)
                   , D.encoding = Just $ D.Keyword "utf8"
+                  , D.context = Nothing
+                  , D.decade = Nothing
+                  , D.downloaded = Nothing
+                  , D.basePoints = Nothing
                   }
 
           -- CONs for recording MOGG channels
@@ -1454,12 +1460,12 @@ main = do
                         , Magma.guidePitchVolume = -3
                         }
                       , Magma.languages = Magma.Languages
-                        { Magma.english  = True
-                        , Magma.french   = False
-                        , Magma.italian  = False
-                        , Magma.spanish  = False
-                        , Magma.german   = False
-                        , Magma.japanese = False
+                        { Magma.english  = Just True
+                        , Magma.french   = Just False
+                        , Magma.italian  = Just False
+                        , Magma.spanish  = Just False
+                        , Magma.german   = Just False
+                        , Magma.japanese = Just False
                         }
                       , Magma.destinationFile = pkg <.> "rba"
                       , Magma.midi = Magma.Midi
@@ -1478,6 +1484,7 @@ main = do
                         , Magma.part2 = if _hasVocal (_instruments songYaml) >= Vocal3
                           then silentDryVox
                           else emptyDryVox
+                        , Magma.dryVoxFileRB2 = Nothing
                         , Magma.tuningOffsetCents = 0
                         }
                       , Magma.albumArt = Magma.AlbumArt "cover.bmp"
@@ -1513,11 +1520,15 @@ main = do
                   dryvox = pedalDir </> "magma/dryvox.wav"
                   song   = pedalDir </> "magma/song-countin.wav"
                   cover  = pedalDir </> "magma/cover.bmp"
+                  coverV1 = pedalDir </> "magma/cover-v1.bmp"
                   mid    = pedalDir </> "magma/notes.mid"
+                  midV1  = pedalDir </> "magma/notes-v1.mid"
                   proj   = pedalDir </> "magma/magma.rbproj"
+                  projV1 = pedalDir </> "magma/magma-v1.rbproj"
                   c3     = pedalDir </> "magma/magma.c3"
                   setup  = pedalDir </> "magma"
                   rba    = pedalDir </> "magma.rba"
+                  rbaV1  = pedalDir </> "magma-v1.rba"
                   export = pedalDir </> "notes-magma-export.mid"
                   export2 = pedalDir </> "notes-magma-added.mid"
               kick   %> copyFile' (dir </> "kick.wav"  )
@@ -1536,10 +1547,34 @@ main = do
                 liftIO $ runResourceT $ sinkSnd out fmt audsrc
               song %> copyFile' (dir </> "song-countin.wav")
               cover %> copyFile' "gen/cover.bmp"
+              coverV1 %> \out -> liftIO $ writeBitmap out $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
               mid %> copyFile' (pedalDir </> "notes.mid")
+              midV1 %> \out -> loadMIDI mid >>= saveMIDI out . RB2.convertMIDI
               proj %> \out -> do
                 p <- makeMagmaProj
                 liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
+              projV1 %> \out -> do
+                p <- makeMagmaProj
+                liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
+                  { Magma.project = (Magma.project p)
+                    { Magma.albumArt = Magma.AlbumArt "cover-v1.bmp"
+                    , Magma.midi = (Magma.midi $ Magma.project p)
+                      { Magma.midiFile = "notes-v1.mid"
+                      }
+                    , Magma.projectVersion = 5
+                    , Magma.languages = Magma.Languages
+                      { Magma.english  = Just True
+                      , Magma.french   = Just False
+                      , Magma.spanish  = Just False
+                      , Magma.italian  = Nothing
+                      , Magma.german   = Nothing
+                      , Magma.japanese = Nothing
+                      }
+                    , Magma.dryVox = (Magma.dryVox $ Magma.project p)
+                      { Magma.dryVoxFileRB2 = Just "dryvox.wav"
+                      }
+                    }
+                  }
               c3 %> \out -> do
                 midi <- loadMIDI mid
                 let (pstart, _) = previewBounds songYaml midi
@@ -1621,6 +1656,9 @@ main = do
               rba %> \out -> do
                 need [setup]
                 runMagma proj out
+              rbaV1 %> \out -> do
+                need [setup, projV1, coverV1, midV1]
+                runMagmaV1 projV1 out
               export %> \out -> do
                 need [mid, proj]
                 runMagmaMIDI proj out
@@ -1759,6 +1797,16 @@ main = do
             handler _ = return (takeFileName stfs, stfs)
         (title, desc) <- getDTAInfo `Exc.catch` handler
         shake shakeOptions $ action $ rb3pkg title desc dir stfs
+    "stfs-rb2" : args -> case inputOutput "_rb2con" args of
+      Nothing -> error "Usage: onyx stfs in_dir/ [out_rb3con]"
+      Just (dir, stfs) -> do
+        let getDTAInfo = do
+              (_, pkg, _) <- readRB3DTA $ dir </> "songs/songs.dta"
+              return (D.name pkg, D.name pkg ++ " (" ++ D.artist pkg ++ ")")
+            handler :: Exc.ErrorCall -> IO (String, String)
+            handler _ = return (takeFileName stfs, stfs)
+        (title, desc) <- getDTAInfo `Exc.catch` handler
+        shake shakeOptions $ action $ rb2pkg title desc dir stfs
     "unstfs" : args -> case inputOutput "_extract" args of
       Nothing -> error "Usage: onyx unstfs in_rb3con [outdir/]"
       Just (stfs, dir) -> extractSTFS stfs dir
@@ -1811,6 +1859,9 @@ main = do
         let (mid, warnings) = MS.fromStandardMIDI midiTextOptions sf
         mapM_ (hPutStrLn stderr) warnings
         Save.toFile fout mid
+    "rb2" : args -> case inputOutput "_rb2con" args of
+      Nothing -> error "Usage: onyx rb2 in_rb3con out_rb2con"
+      Just (fin, fout) -> RB2.convertCON fin fout
     _ -> error "Invalid command"
 
 inputOutput :: String -> [String] -> Maybe (FilePath, FilePath)

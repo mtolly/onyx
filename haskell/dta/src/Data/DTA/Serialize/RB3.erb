@@ -53,6 +53,11 @@ type Path = Either String Keyword
   ['real_bass_tuning'   , nil, maybe('InParens [Integer]')],
   ['guide_pitch_volume' , nil, maybe('Float')             ],
   ['encoding'           , nil, maybe('Keyword')           ],
+  # seen in magma v1 / rb2:
+  ['context'            , nil, maybe('Integer')           ],
+  ['decade'             , nil, maybe('Keyword')           ],
+  ['downloaded'         , nil, maybe('Bool')              ],
+  ['base_points'        , nil, maybe('Integer')           ],
   ]) %>
 
 <%= makeEnum('Pitch', [
@@ -85,7 +90,7 @@ type Path = Either String Keyword
   ['name'              , 'songName', 'String'                   ],
   ['tracks_count'      , nil       , maybe('InParens [Integer]')],
   ['tracks'            , nil       , 'InParens (Dict (Either Integer (InParens [Integer])))' ],
-  ['vocal_parts'       , nil       , 'Integer'                  ],
+  ['vocal_parts'       , nil       , maybe('Integer')           ],
   ['pans'              , nil       , 'InParens [Float]'         ],
   ['vols'              , nil       , 'InParens [Float]'         ],
   ['cores'             , nil       , 'InParens [Integer]'       ],
@@ -95,6 +100,8 @@ type Path = Either String Keyword
   ['hopo_threshold'    , nil       , maybe('Integer')           ],
   ['mute_volume'       , nil       , maybe('Integer')           ],
   ['mute_volume_vocals', nil       , maybe('Integer')           ],
+  # seen in magma v1 / rb2:
+  ['midi_file'         , nil       , maybe('String')            ],
   ]) %>
 
 <%= makeRecord('DrumSounds', [

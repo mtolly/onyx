@@ -1,4 +1,4 @@
-module Magma (runMagmaMIDI, runMagma, oggToMogg, withSystemTempDirectory) where
+module Magma (runMagmaMIDI, runMagma, runMagmaV1, oggToMogg, withSystemTempDirectory) where
 
 import qualified Control.Exception            as Exception
 import           Control.Monad                (forM_)
@@ -11,7 +11,7 @@ import           Data.Conduit.Audio.Sndfile   (sinkSnd)
 import           Data.Int                     (Int16)
 import           Data.Word                    (Word32)
 import           Development.Shake
-import           Resources                    (magmaFiles)
+import           Resources                    (magmaFiles, magmaV1Files)
 import qualified Sound.File.Sndfile           as Snd
 import qualified System.Directory             as Dir
 import           System.FilePath              ((</>))
@@ -54,6 +54,15 @@ runMagma proj rba = withSystemTempDirectory "magma" $ \tmp -> do
   liftIO $ Dir.createDirectory $ tmp </> "gen"
   liftIO $ forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
   withExe (callProcessIn tmp) (tmp </> "MagmaCompilerC3.exe") [proj', rba']
+
+runMagmaV1 :: FilePath -> FilePath -> Action ()
+runMagmaV1 proj rba = withSystemTempDirectory "magma-v1" $ \tmp -> do
+  wd <- liftIO Dir.getCurrentDirectory
+  let proj' = wd </> proj
+      rba'  = wd </> rba
+  liftIO $ Dir.createDirectory $ tmp </> "gen"
+  liftIO $ forM_ magmaV1Files $ \(path, bs) -> B.writeFile (tmp </> path) bs
+  withExe (callProcessIn tmp) (tmp </> "MagmaCompiler.exe") [proj', rba']
 
 -- | Like the one from 'System.IO.Temp', but in the 'Action' monad.
 withSystemTempDirectory :: String -> (FilePath -> Action a) -> Action a

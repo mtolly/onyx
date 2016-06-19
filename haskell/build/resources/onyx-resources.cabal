@@ -10,6 +10,10 @@ extra-source-files:
   vendors/magma/oggenc.exe
   vendors/magma/gen/main_pc.hdr
   vendors/magma/gen/main_pc_0.ark
+  vendors/magma-v1/MagmaCompiler.exe
+  vendors/magma-v1/oggenc.exe
+  vendors/magma-v1/gen/main_pc.hdr
+  vendors/magma-v1/gen/main_pc_0.ark
   vendors/xbox/rb3pkg/bin/Release/KV.bin
   vendors/xbox/rb3pkg/bin/Release/rb3.png
   vendors/xbox/rb3pkg/bin/Release/rb3pkg.exe

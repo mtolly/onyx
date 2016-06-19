@@ -1,4 +1,4 @@
-module X360 (rb3pkg) where
+module X360 (rb3pkg, rb2pkg) where
 
 import           Control.Monad     (forM_)
 import qualified Data.ByteString   as B
@@ -29,5 +29,16 @@ rb3pkg title desc dir fout = withSystemTempDirectory "rb3pkg" $ \tmp -> do
     [ "-p", title
     , "-d", desc
     , "-f", dir
+    , fout
+    ]
+
+rb2pkg :: String -> String -> FilePath -> FilePath -> Action ()
+rb2pkg title desc dir fout = withSystemTempDirectory "rb2pkg" $ \tmp -> do
+  liftIO $ forM_ rb3pkgFiles $ \(fp, bs) -> B.writeFile (tmp </> fp) bs
+  withExe callProcess (tmp </> "rb3pkg.exe")
+    [ "-p", title
+    , "-d", desc
+    , "-f", dir
+    , "-i", show (0x45410869 :: Integer)
     , fout
     ]

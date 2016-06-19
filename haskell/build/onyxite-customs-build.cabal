@@ -38,6 +38,7 @@ executable onyx
     Difficulty
     FretsOnFire
     Genre
+    RockBand2
   build-depends:
     base    >= 4.8    && < 4.10
     , shake >= 0.15 && < 0.16
