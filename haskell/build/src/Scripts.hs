@@ -285,7 +285,7 @@ hasSolo Vocal song = not $ null
 windLyrics :: (NNC.C t) => RTB.T t Vocals.Event -> RTB.T t Vocals.Event
 windLyrics = RTB.flatten . fmap f . RTB.collectCoincident where
   f evts = let
-    ps = [ p | Vocals.Note p True <- evts ]
+    ps = [ p | Vocals.Note True p <- evts ]
     lyrics = [ t | Vocals.Lyric t <- evts ]
     notlyrics = flip filter evts $ \case Vocals.Lyric _ -> False; _ -> True
     in case (ps, lyrics) of

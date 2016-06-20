@@ -329,10 +329,10 @@ instance TraceJSON Metadata where
     _album        <- "album" `orWarn` ("Song has no album", "Unknown Album")
     _genre        <- "genre" `orWarn` ("Song has no genre", "other")
     _subgenre     <- "subgenre" `orWarn` ("Song has no subgenre", defaultSubgenre _genre)
-    _year         <- "year" `orWarn` ("Song has no release year", 1900)
+    _year         <- "year" `orWarn` ("Song has no release year", 1960)
     _fileAlbumArt <- optional "file-album-art" traceJSON
     when (isNothing _fileAlbumArt) $ warn "Song has no album art"
-    _trackNumber  <- "track-number" `orWarn` ("Song has no track number", 0)
+    _trackNumber  <- "track-number" `orWarn` ("Song has no track number", 1)
     _vocalGender  <- optional "vocal-gender"   traceJSON
     let emptyDiffs = Difficulties Nothing Nothing Nothing Nothing Nothing Nothing Nothing
     _difficulty   <- fromMaybe emptyDiffs <$> optional "difficulty" traceJSON

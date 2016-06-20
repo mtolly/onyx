@@ -1542,11 +1542,9 @@ main = do
               vocal  %> copyFile' (dir </> "vocal.wav" )
               crowd  %> copyFile' (dir </> "crowd.wav" )
               dryvox %> \out -> do
-                len <- songLengthMS <$> loadMIDI mid
+                m <- loadMIDI mid
                 let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-                    audsrc :: (Monad m) => AudioSource m Float
-                    audsrc = silent (Seconds $ fromIntegral len / 1000) 16000 1
-                liftIO $ runResourceT $ sinkSnd out fmt audsrc
+                liftIO $ runResourceT $ sinkSnd out fmt $ RB2.dryVoxAudio m
               dummyMono %> \out -> do
                 len <- songLengthMS <$> loadMIDI mid
                 buildAudio (Silence 1 $ Seconds $ fromIntegral len / 1000) out
@@ -1778,12 +1776,7 @@ main = do
                 let newDTA :: D.SongPackage
                     newDTA = magmaDTA
                       { D.song = (D.song magmaDTA)
-                        { D.tracksCount = let
-                          tracksCountFor s = case Map.lookup s $ D.fromDict $ D.fromInParens $ D.tracks $ D.song rb3DTA of
-                            Nothing -> 0
-                            Just (Left _) -> 1
-                            Just (Right (D.InParens ns)) -> toInteger $ length ns
-                          in Just $ D.InParens $ map tracksCountFor ["drum", "bass", "guitar", "vocals"]
+                        { D.tracksCount = Nothing
                         , D.tracks = fmap (D.Dict . Map.filterWithKey (\k _ -> k /= "keys") . D.fromDict) $ D.tracks $ D.song rb3DTA
                         , D.midiFile = Just $ "songs/" ++ pkg ++ "/" ++ pkg ++ ".mid"
                         , D.songName = "songs/" ++ pkg ++ "/" ++ pkg

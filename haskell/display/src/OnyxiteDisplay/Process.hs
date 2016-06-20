@@ -310,8 +310,8 @@ processVocal tmap h1 h2 h3 tonic = let
   pitchToInt p = fromEnum p + 36
   makeVoxPart trk = trackToMap tmap $ flip rtbMapMaybeWithAbsoluteTime (RTB.collectCoincident trk) $ \bts evts -> let
     lyric = listToMaybe [ s | Vox.Lyric s <- evts ]
-    note = listToMaybe [ p | Vox.Note p True <- evts ]
-    end = listToMaybe [ () | Vox.Note _ False <- evts ]
+    note = listToMaybe [ p | Vox.Note True p <- evts ]
+    end = listToMaybe [ () | Vox.Note False _ <- evts ]
     in case (lyric, note, end) of
       -- Note: the _ in the first pattern below should be Nothing,
       -- but we allow Just () for sloppy vox charts with no gap between notes

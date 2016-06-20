@@ -1,4 +1,4 @@
-module RockBand2 (convertMIDI) where
+module RockBand2 (convertMIDI, dryVoxAudio) where
 
 import qualified RockBand.File as F
 import Data.Maybe (mapMaybe)
@@ -8,6 +8,24 @@ import qualified RockBand.Vocals as Vox
 import qualified RockBand.FiveButton as Five
 import qualified RockBand.Events as Events
 import qualified Sound.MIDI.Util as U
+import Data.Conduit.Audio (AudioSource, Duration(Seconds), silent, concatenate, sine)
+
+dryVoxAudio :: (Monad m) => F.Song U.Beats -> AudioSource m Float
+dryVoxAudio f = let
+  vox = foldr RTB.merge RTB.empty [ t | F.PartVocals t <- F.s_tracks f ]
+  notes = RTB.normalize $ flip RTB.mapMaybe vox $ \case
+    Vox.Note True  p -> Just (Just p)
+    Vox.Note False _ -> Just Nothing
+    _                -> Nothing
+  go p rtb = case RTB.viewL rtb of
+    Nothing -> silent (Seconds 1) 16000 1
+    Just ((dt, p'), rtb') -> let
+      chunk = case p of
+        Nothing -> silent (Seconds $ realToFrac dt) 16000 1
+        Just pitch -> sine (midiPitchToFreq $ fromEnum pitch + 36) (Seconds $ realToFrac dt) 16000
+      in concatenate chunk $ go p' rtb'
+  midiPitchToFreq p = (2 ** ((fromIntegral p - 69) / 12)) * 440
+  in go Nothing $ U.applyTempoTrack (F.s_tempos f) notes
 
 convertMIDI :: F.Song U.Beats -> F.Song U.Beats
 convertMIDI mid = mid

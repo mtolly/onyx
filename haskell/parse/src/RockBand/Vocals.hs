@@ -24,7 +24,7 @@ data Event
   | Phrase2    Bool -- ^ Pre-RB3, used for 2nd player phrases in Tug of War
   | Overdrive  Bool
   | RangeShift Bool
-  | Note Pitch Bool
+  | Note       Bool Pitch
   deriving (Eq, Ord, Show, Read)
 
 data Pitch
@@ -76,11 +76,11 @@ instanceMIDIEvent [t| Event |]
   [ edge 0 $ applyB [p| RangeShift |]
   , blip 1 [p| LyricShift |]
 
-  , edgeRange [36..47] $ \_i _b -> [p| Note (Octave36 $(keyP $ _i - 36)) $(boolP _b) |]
-  , edgeRange [48..59] $ \_i _b -> [p| Note (Octave48 $(keyP $ _i - 48)) $(boolP _b) |]
-  , edgeRange [60..71] $ \_i _b -> [p| Note (Octave60 $(keyP $ _i - 60)) $(boolP _b) |]
-  , edgeRange [72..83] $ \_i _b -> [p| Note (Octave72 $(keyP $ _i - 72)) $(boolP _b) |]
-  , edge      84       $ \   _b -> [p| Note Octave84C                    $(boolP _b) |]
+  , edgeRange [36..47] $ \_i _b -> [p| Note $(boolP _b) (Octave36 $(keyP $ _i - 36)) |]
+  , edgeRange [48..59] $ \_i _b -> [p| Note $(boolP _b) (Octave48 $(keyP $ _i - 48)) |]
+  , edgeRange [60..71] $ \_i _b -> [p| Note $(boolP _b) (Octave60 $(keyP $ _i - 60)) |]
+  , edgeRange [72..83] $ \_i _b -> [p| Note $(boolP _b) (Octave72 $(keyP $ _i - 72)) |]
+  , edge      84       $ \   _b -> [p| Note $(boolP _b) Octave84C                    |]
 
   , blip 96 [p| Percussion |]
   , blip 97 [p| PercussionSound |]
