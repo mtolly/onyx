@@ -14,6 +14,8 @@ extra-source-files:
   vendors/magma-v1/oggenc.exe
   vendors/magma-v1/gen/main_pc.hdr
   vendors/magma-v1/gen/main_pc_0.ark
+  vendors/magma-v1/facefx/FonixData.cdf
+  vendors/magma-v1/facefx/singer.fxa
   vendors/xbox/rb3pkg/bin/Release/KV.bin
   vendors/xbox/rb3pkg/bin/Release/rb3.png
   vendors/xbox/rb3pkg/bin/Release/rb3pkg.exe

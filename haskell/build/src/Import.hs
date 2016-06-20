@@ -185,37 +185,38 @@ importSTFS file dir = withSystemTempDirectory "onyx_con" $ \temp -> do
     "cover.png_xbox"
     dir
 
+getRBAFile :: Int -> FilePath -> FilePath -> IO ()
+getRBAFile i rba out = withBinaryFile rba ReadMode $ \h -> do
+  hSeek h AbsoluteSeek 0x08
+  let read7words = runGet (replicateM 7 getWord32le) <$> BL.hGet h (7 * 4)
+  offsets <- read7words
+  sizes <- read7words
+  hSeek h AbsoluteSeek $ fromIntegral $ offsets !! i
+  BL.hGet h (fromIntegral $ sizes !! i) >>= BL.writeFile out
+
 importRBA :: FilePath -> FilePath -> IO ()
 importRBA file dir = withSystemTempDirectory "onyx_rba" $ \temp -> do
-  withBinaryFile file ReadMode $ \h -> do
-    hSeek h AbsoluteSeek 0x08
-    let read7words = runGet (replicateM 7 getWord32le) <$> BL.hGet h (7 * 4)
-    offsets <- read7words
-    sizes <- read7words
-    let getFile i = do
-          hSeek h AbsoluteSeek $ fromIntegral $ offsets !! i
-          BL.hGet h $ fromIntegral $ sizes !! i
-    getFile 0 >>= BL.writeFile (temp </> "songs.dta")
-    getFile 1 >>= BL.writeFile (temp </> "notes.mid")
-    getFile 2 >>= BL.writeFile (temp </> "audio.mogg")
-    getFile 4 >>= BL.writeFile (temp </> "cover.bmp")
-    getFile 6 >>= BL.writeFile (temp </> "extra.dta")
-    (_, pkg, isUTF8) <- readRB3DTA $ temp </> "songs.dta"
-    extra <- (if isUTF8 then D.readFileDTA_utf8 else D.readFileDTA_latin1) $ temp </> "extra.dta"
-    let author = case extra of
-          D.DTA _ (D.Tree _ [D.Parens (D.Tree _
-            ( D.String "backend"
-            : D.Parens (D.Tree _ [D.Key "author", D.String s])
-            : _
-            ))])
-            -> Just s
-          _ -> Nothing
-    importRB3 pkg (fmap T.pack author)
-      (temp </> "notes.mid")
-      (temp </> "audio.mogg")
-      (temp </> "cover.bmp")
-      "cover.bmp"
-      dir
+  getRBAFile 0 file $ temp </> "songs.dta"
+  getRBAFile 1 file $ temp </> "notes.mid"
+  getRBAFile 2 file $ temp </> "audio.mogg"
+  getRBAFile 4 file $ temp </> "cover.bmp"
+  getRBAFile 6 file $ temp </> "extra.dta"
+  (_, pkg, isUTF8) <- readRB3DTA $ temp </> "songs.dta"
+  extra <- (if isUTF8 then D.readFileDTA_utf8 else D.readFileDTA_latin1) $ temp </> "extra.dta"
+  let author = case extra of
+        D.DTA _ (D.Tree _ [D.Parens (D.Tree _
+          ( D.String "backend"
+          : D.Parens (D.Tree _ [D.Key "author", D.String s])
+          : _
+          ))])
+          -> Just s
+        _ -> Nothing
+  importRB3 pkg (fmap T.pack author)
+    (temp </> "notes.mid")
+    (temp </> "audio.mogg")
+    (temp </> "cover.bmp")
+    "cover.bmp"
+    dir
 
 -- | CONs put out by C3 Magma sometimes bizarrely have the @tracks_count@ key
 -- completely removed from @songs.dta@, but the list of track counts is still

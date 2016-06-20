@@ -61,6 +61,7 @@ runMagmaV1 proj rba = withSystemTempDirectory "magma-v1" $ \tmp -> do
   let proj' = wd </> proj
       rba'  = wd </> rba
   liftIO $ Dir.createDirectory $ tmp </> "gen"
+  liftIO $ Dir.createDirectory $ tmp </> "facefx"
   liftIO $ forM_ magmaV1Files $ \(path, bs) -> B.writeFile (tmp </> path) bs
   withExe (callProcessIn tmp) (tmp </> "MagmaCompiler.exe") [proj', rba']
 

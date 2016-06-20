@@ -52,7 +52,7 @@ prettyDTA name pkg = unlines $ execWriter $ do
       two "vols" $ "(" ++ unwords (map show $ fromInParens $ D.vols $ D.song pkg) ++ ")"
       two "cores" $ "(" ++ unwords (map show $ fromInParens $ D.cores $ D.song pkg) ++ ")"
       forM_ (D.crowdChannels $ D.song pkg) $ inline "crowd_channels" . unwords . map show -- C3 unindents this for some reason but whatever
-      inline "vocal_parts" $ show $ D.vocalParts $ D.song pkg
+      forM_ (D.vocalParts $ D.song pkg) $ inline "vocal_parts" . show
       parens $ do
         ln $ quote "drum_solo"
         two "seqs" $ "(" ++ unwords (map (quote . fromKeyword) $ fromInParens $ D.seqs $ D.drumSolo $ D.song pkg) ++ ")"
@@ -62,6 +62,8 @@ prettyDTA name pkg = unlines $ execWriter $ do
       forM_ (D.muteVolume       $ D.song pkg) $ inlineRaw "mute_volume"        . show
       forM_ (D.muteVolumeVocals $ D.song pkg) $ inlineRaw "mute_volume_vocals" . show
       forM_ (D.hopoThreshold    $ D.song pkg) $ inlineRaw "hopo_threshold"     . show
+      -- rb2
+      forM_ (D.midiFile         $ D.song pkg) $ inline "midi_file" . show
     inline "song_scroll_speed" $ show $ D.songScrollSpeed pkg
     forM_ (D.bank pkg) $ two "bank" . stringLit . either id fromKeyword
     forM_ (D.drumBank pkg) $ inlineRaw "drum_bank" . either id fromKeyword
@@ -112,6 +114,11 @@ prettyDTA name pkg = unlines $ execWriter $ do
     forM_ (D.shortVersion pkg) $ inline "short_version" . show
     forM_ (D.realGuitarTuning pkg) $ inline "real_guitar_tuning" . unwords . map show . fromInParens
     forM_ (D.realBassTuning pkg) $ inline "real_bass_tuning" . unwords . map show . fromInParens
+    -- rb2 stuff
+    forM_ (D.context pkg) $ inline "context" . show
+    forM_ (D.decade pkg) $ inline "decade" . fromKeyword
+    forM_ (D.downloaded pkg) $ inline "downloaded" . \case True -> "1"; False -> "0"
+    forM_ (D.basePoints pkg) $ inline "base_points" . show
   -- TODO: C3 comments
   ln ")"
   where indent = mapWriter $ \(x, s) -> (x, map ("   " ++) s)

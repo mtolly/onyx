@@ -69,7 +69,7 @@ dictLookup k (Dict m) = case Map.lookup k m of
 -- | A value which is DTA-stored as a parenthesized subtree around the normal
 -- representation.
 newtype InParens a = InParens { fromInParens :: a }
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Functor)
 
 instance (ToChunks a) => ToChunks (InParens a) where
   toChunks (InParens xs) = [Parens $ Tree 0 $ toChunks xs]

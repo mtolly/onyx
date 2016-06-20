@@ -1566,7 +1566,7 @@ main = do
                       { Magma.english  = Just True
                       , Magma.french   = Just False
                       , Magma.spanish  = Just False
-                      , Magma.italian  = Nothing
+                      , Magma.italian  = Just False
                       , Magma.german   = Nothing
                       , Magma.japanese = Nothing
                       }
@@ -1711,6 +1711,61 @@ main = do
                     t -> t
                   }
 
+            -- Magma v1 rba to con
+            do
+              let rb2RBA = pedalDir </> "magma-v1.rba"
+                  rb2CON = pedalDir </> "rb2.con"
+                  rb2OriginalDTA = pedalDir </> "rb2-original.dta"
+                  rb2DTA = pedalDir </> "rb2/songs/songs.dta"
+                  rb2Mogg = pedalDir </> "rb2/songs" </> pkg </> pkg <.> "mogg"
+                  rb2Mid = pedalDir </> "rb2/songs" </> pkg </> pkg <.> "mid"
+                  rb2Art = pedalDir </> "rb2/songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_xbox")
+                  rb2Weights = pedalDir </> "rb2/songs" </> pkg </> "gen" </> (pkg ++ "_weights.bin")
+                  rb2Milo = pedalDir </> "rb2/songs" </> pkg </> "gen" </> pkg <.> "milo_xbox"
+                  rb2Pan = pedalDir </> "rb2/songs" </> pkg </> pkg <.> "pan"
+              rb2OriginalDTA %> \out -> do
+                need [rb2RBA]
+                liftIO $ getRBAFile 0 rb2RBA out
+              rb2DTA %> \out -> do
+                need [rb2OriginalDTA, pathDta]
+                (_, magmaDTA, _) <- liftIO $ readRB3DTA rb2OriginalDTA
+                (_, rb3DTA, _) <- liftIO $ readRB3DTA pathDta
+                let newDTA :: D.SongPackage
+                    newDTA = magmaDTA
+                      { D.song = (D.song magmaDTA)
+                        { D.tracksCount = let
+                          tracksCountFor s = case Map.lookup s $ D.fromDict $ D.fromInParens $ D.tracks $ D.song rb3DTA of
+                            Nothing -> 0
+                            Just (Left _) -> 1
+                            Just (Right (D.InParens ns)) -> toInteger $ length ns
+                          in Just $ D.InParens $ map tracksCountFor ["drum", "bass", "guitar", "vocals"]
+                        , D.tracks = fmap (D.Dict . Map.filterWithKey (\k _ -> k /= "keys") . D.fromDict) $ D.tracks $ D.song rb3DTA
+                        , D.midiFile = Just $ "songs/" ++ pkg ++ "/" ++ pkg ++ ".mid"
+                        , D.songName = "songs/" ++ pkg ++ "/" ++ pkg
+                        , D.pans = D.pans $ D.song rb3DTA
+                        , D.vols = D.vols $ D.song rb3DTA
+                        , D.cores = D.cores $ D.song rb3DTA
+                        }
+                      , D.songId = Right $ D.Keyword pkg
+                      }
+                liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : D.toChunks newDTA))]
+              rb2Mid %> \out -> do
+                need [rb2RBA]
+                -- TODO: add back practice sections
+                liftIO $ getRBAFile 1 rb2RBA out
+              rb2Mogg %> copyFile' (dir </> "audio.mogg")
+              rb2Milo %> \out -> do
+                need [rb2RBA]
+                liftIO $ getRBAFile 3 rb2RBA out
+              rb2Weights %> \out -> do
+                need [rb2RBA]
+                liftIO $ getRBAFile 5 rb2RBA out
+              rb2Art %> copyFile' "gen/cover.png_xbox"
+              rb2Pan %> \out -> liftIO $ B.writeFile out B.empty
+              rb2CON %> \out -> do
+                need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
+                rb2pkg "title" "desc" (pedalDir </> "rb2") out
+
         want buildables
 
       Dir.setCurrentDirectory origDirectory
@@ -1780,6 +1835,7 @@ main = do
       p "  reap - from onyx project, create and launch Reaper project"
       p "  mt - convert MIDI to a plain text format"
       p "  tm - convert plain text format back to MIDI"
+      p "  rb2 - convert rb3con to rb2con"
     "build" : buildables -> shakeBuild buildables Nothing
     "mogg" : args -> case inputOutput ".mogg" args of
       Nothing -> error "Usage: onyx mogg in.ogg [out.mogg]"
@@ -1798,7 +1854,7 @@ main = do
         (title, desc) <- getDTAInfo `Exc.catch` handler
         shake shakeOptions $ action $ rb3pkg title desc dir stfs
     "stfs-rb2" : args -> case inputOutput "_rb2con" args of
-      Nothing -> error "Usage: onyx stfs in_dir/ [out_rb3con]"
+      Nothing -> error "Usage: onyx stfs-rb2 in_dir/ [out_rb2con]"
       Just (dir, stfs) -> do
         let getDTAInfo = do
               (_, pkg, _) <- readRB3DTA $ dir </> "songs/songs.dta"
@@ -1860,8 +1916,13 @@ main = do
         mapM_ (hPutStrLn stderr) warnings
         Save.toFile fout mid
     "rb2" : args -> case inputOutput "_rb2con" args of
-      Nothing -> error "Usage: onyx rb2 in_rb3con out_rb2con"
-      Just (fin, fout) -> RB2.convertCON fin fout
+      Nothing -> error "Usage: onyx rb2 in_rb3con [out_rb2con]"
+      Just (fin, fout) -> withSystemTempDirectory "onyx_convert" $ \dir -> do
+        importAny fin dir
+        isFoF <- Dir.doesDirectoryExist fin
+        let planCon = if isFoF then "gen/plan/fof/2p/rb2.con" else "gen/plan/mogg/2p/rb2.con"
+        shakeBuild [planCon] $ Just $ dir </> "song.yml"
+        Dir.copyFile (dir </> planCon) fout
     _ -> error "Invalid command"
 
 inputOutput :: String -> [String] -> Maybe (FilePath, FilePath)
