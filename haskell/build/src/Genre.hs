@@ -20,6 +20,66 @@ genreDisplay k = let
     name : _ -> name
     [] -> error $ "genreDisplay: couldn't recognize the genre " ++ show k
 
+magmaV1Genre :: (T.Text, T.Text) -> (T.Text, T.Text)
+magmaV1Genre p@(g, s) = case g of
+  "alternative" -> p
+  "blues" -> p
+  "classical" -> ("other", "other")
+  "classicrock" -> p
+  "country" -> p
+  "emo" -> p
+  "fusion" -> p
+  "glam" -> p
+  "grunge" -> p
+  "hiphoprap" -> ("urban", s)
+  "indierock" -> p
+  "inspirational" -> ("other", "other")
+  "jazz" -> p
+  "jrock" -> ("rock", "rock")
+  "latin" -> ("other", "other")
+  "metal" -> p
+  "newwave" -> p
+  "novelty" -> p
+  "numetal" -> p
+  "popdanceelectronic" -> case s of
+    "ambient" -> ("other", s)
+    "breakbeat" -> ("other", s)
+    "chiptune" -> ("other", s)
+    "dance" -> ("other", s)
+    "downtempo" -> ("other", "electronica")
+    "dub" -> ("rock", "reggae")
+    "drumandbass" -> ("other", s)
+    "electronica" -> ("other", s)
+    "garage" -> ("urban", s)
+    "hardcoredance" -> ("urban", s)
+    "house" -> ("other", s)
+    "industrial" -> ("urban", s)
+    "techno" -> ("other", s)
+    "trance" -> ("other", s)
+    "other" -> ("other", "electronica")
+    _ -> ("other", "electronica")
+  "poprock" -> p
+  "prog" -> p
+  "punk" -> p
+  "rbsoulfunk" -> case s of
+    "disco" -> ("poprock", s)
+    "funk" -> ("rock", s)
+    "motown" -> ("poprock", s)
+    "rhythmandblues" -> ("poprock", s)
+    "soul" -> ("poprock", s)
+    "other" -> ("poprock", "rhythmandblues")
+    _ -> ("poprock", "rhythmandblues")
+  "reggaeska" -> case s of
+    "reggae" -> ("rock", "reggae")
+    "ska" -> ("rock", "ska")
+    "other" -> ("rock", "reggae")
+    _ -> ("rock", "reggae")
+  "rock" -> p
+  "southernrock" -> p
+  "world" -> ("other", "other")
+  "other" -> p
+  _ -> ("other", "other")
+
 allGenres :: [Genre]
 allGenres =
   [ Genre "alternative" "Alternative"
@@ -167,7 +227,12 @@ allGenres =
     , Subgenre "other" "Other"
     ]
   , Genre "rbsoulfunk" "R&B/Soul/Funk"
-    [ Subgenre "rhythmandblues" "Rhythm and Blues"
+    [ Subgenre "disco" "Disco"
+    , Subgenre "funk" "Funk"
+    , Subgenre "motown" "Motown"
+    , Subgenre "rhythmandblues" "Rhythm and Blues"
+    , Subgenre "soul" "Soul"
+    , Subgenre "other" "Other"
     ]
   , Genre "reggaeska" "Reggae/Ska"
     [ Subgenre "reggae" "Reggae"

@@ -8,7 +8,7 @@ module Main (main) where
 import           Audio
 import qualified C3
 import           Config                           hiding (Difficulty)
-import           Genre                            (genreDisplay)
+import           Genre                            (genreDisplay, magmaV1Genre)
 import           Image
 import           Magma                            hiding
                                                    (withSystemTempDirectory)
@@ -60,7 +60,7 @@ import           Data.Fixed                       (Milli, Centi)
 import           Data.Foldable                    (toList)
 import           Data.Functor.Identity            (runIdentity)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (intercalate, isPrefixOf, nub)
+import           Data.List                        (intercalate, isPrefixOf, nub, stripPrefix)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing,
                                                    listToMaybe, mapMaybe)
@@ -71,7 +71,7 @@ import qualified Development.Shake                as Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
 import qualified Numeric.NonNegative.Class        as NNC
-import           RockBand.Common                  (Difficulty (..))
+import           RockBand.Common                  (Difficulty (..), readCommand', showCommand')
 import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
@@ -1563,17 +1563,23 @@ main = do
                 liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
               projV1 %> \out -> do
                 p <- makeMagmaProj
-                let makeDummy (Magma.Tracks a b c d e f g h i) = Magma.Tracks
-                      a
-                      (makeDummyOne b)
-                      (makeDummyOne c)
-                      (makeDummyOne d)
-                      (makeDummyOne e)
-                      (makeDummyOne f)
-                      (makeDummyOne g)
-                      (makeDummyOne h)
-                      (makeDummyOne i)
-                    makeDummyOne af = case Magma.channels af of
+                let makeDummy (Magma.Tracks dl dkt dk ds b g v k bck) = Magma.Tracks
+                      dl
+                      (makeDummyKeep dkt)
+                      (makeDummyKeep dk)
+                      (makeDummyKeep ds)
+                      (makeDummyMono b)
+                      (makeDummyMono g)
+                      (makeDummyMono v)
+                      (makeDummyMono k) -- doesn't matter
+                      (makeDummyMono bck)
+                    makeDummyMono af = af
+                      { Magma.audioFile = "dummy-mono.wav"
+                      , Magma.channels = 1
+                      , Magma.pan = [0]
+                      , Magma.vol = [0]
+                      }
+                    makeDummyKeep af = case Magma.channels af of
                       1 -> af
                         { Magma.audioFile = "dummy-mono.wav"
                         }
@@ -1583,6 +1589,12 @@ main = do
                         , Magma.pan = [-1, 1]
                         , Magma.vol = [0, 0]
                         }
+                    (newGenre, newSubgenre) = case stripPrefix "subgenre_" $ D.fromKeyword $ Magma.subGenre $ Magma.metadata $ Magma.project p of
+                      Just sub -> magmaV1Genre
+                        ( T.pack $ D.fromKeyword $ Magma.genre $ Magma.metadata $ Magma.project p
+                        , T.pack sub
+                        )
+                      Nothing -> (T.pack "other", T.pack "other")
                 liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
                   { Magma.project = (Magma.project p)
                     { Magma.albumArt = Magma.AlbumArt "cover-v1.bmp"
@@ -1602,6 +1614,10 @@ main = do
                       { Magma.dryVoxFileRB2 = Just "dryvox.wav"
                       }
                     , Magma.tracks = makeDummy $ Magma.tracks $ Magma.project p
+                    , Magma.metadata = (Magma.metadata $ Magma.project p)
+                      { Magma.genre = D.Keyword $ T.unpack newGenre
+                      , Magma.subGenre = D.Keyword $ "subgenre_" ++ T.unpack newSubgenre
+                      }
                     }
                   }
               c3 %> \out -> do
@@ -1774,14 +1790,30 @@ main = do
                         , D.pans = D.pans $ D.song rb3DTA
                         , D.vols = D.vols $ D.song rb3DTA
                         , D.cores = D.cores $ D.song rb3DTA
+                        , D.crowdChannels = D.crowdChannels $ D.song rb3DTA
                         }
                       , D.songId = Right $ D.Keyword pkg
                       }
                 liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : D.toChunks newDTA))]
               rb2Mid %> \out -> do
-                need [rb2RBA]
-                -- TODO: add back practice sections
+                need [rb2RBA, pedalDir </> "notes.mid"]
                 liftIO $ getRBAFile 1 rb2RBA out
+                -- add back practice sections
+                mid <- liftIO $ Load.fromFile out
+                let Left beatTracks = U.decodeFile mid
+                sectsMid <- loadMIDI $ pedalDir </> "notes.mid"
+                let sects = foldr RTB.merge RTB.empty $ flip mapMaybe (RBFile.s_tracks sectsMid) $ \case
+                      RBFile.Events t -> Just $ flip RTB.mapMaybe t $ \case
+                        Events.PracticeSection s -> Just $ showCommand' ["section", s]
+                        _                        -> Nothing
+                      _               -> Nothing
+                    modifyTrack t = if U.trackName t == Just "EVENTS"
+                      then RTB.merge sects $ flip RTB.filter t $ \e -> case readCommand' e of
+                        Just ["section", _] -> False
+                        _                   -> True
+                      else t
+                unless (RTB.null sects) $ liftIO $ Save.toFile out $
+                  U.encodeFileBeats F.Parallel 480 $ map modifyTrack beatTracks
               rb2Mogg %> copyFile' (dir </> "audio.mogg")
               rb2Milo %> \out -> do
                 need [rb2RBA]
