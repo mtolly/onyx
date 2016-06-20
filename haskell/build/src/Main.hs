@@ -518,7 +518,7 @@ main = do
                   [] -> replicate chans 0
                   vs -> vs
                 in zip pans vols
-              bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, songPV :: [(Double, Double)]
+              bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, crowdPV, songPV :: [(Double, Double)]
               mixMode :: RBDrums.Audio
               bassPV = guard (_hasBass $ _instruments songYaml) >> case plan of
                 MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggBass
@@ -581,7 +581,7 @@ main = do
                 else ([], [], [], RBDrums.D0)
               songPV = case plan of
                 MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ let
-                  notSong = concat [_moggGuitar, _moggBass, _moggKeys, _moggDrums, _moggVocal]
+                  notSong = concat [_moggGuitar, _moggBass, _moggKeys, _moggDrums, _moggVocal, _moggCrowd]
                   in filter (`notElem` notSong) [0 .. length _pans - 1]
                 Plan{..} -> planPV _song
                 EachPlan{..} -> eachPlanPV _each
@@ -663,7 +663,7 @@ main = do
                 let songChannels = do
                       i <- [0 .. chanCount - 1]
                       guard $ notElem i $ concat
-                        [_moggGuitar, _moggBass, _moggKeys, _moggDrums, _moggVocal]
+                        [_moggGuitar, _moggBass, _moggKeys, _moggDrums, _moggVocal, _moggCrowd]
                       return i
                 oggChannels songChannels out
 
@@ -1531,6 +1531,8 @@ main = do
                   rbaV1  = pedalDir </> "magma-v1.rba"
                   export = pedalDir </> "notes-magma-export.mid"
                   export2 = pedalDir </> "notes-magma-added.mid"
+                  dummyMono = pedalDir </> "magma/dummy-mono.wav"
+                  dummyStereo = pedalDir </> "magma/dummy-stereo.wav"
               kick   %> copyFile' (dir </> "kick.wav"  )
               snare  %> copyFile' (dir </> "snare.wav" )
               drums  %> copyFile' (dir </> "drums.wav" )
@@ -1545,6 +1547,12 @@ main = do
                     audsrc :: (Monad m) => AudioSource m Float
                     audsrc = silent (Seconds $ fromIntegral len / 1000) 16000 1
                 liftIO $ runResourceT $ sinkSnd out fmt audsrc
+              dummyMono %> \out -> do
+                len <- songLengthMS <$> loadMIDI mid
+                buildAudio (Silence 1 $ Seconds $ fromIntegral len / 1000) out
+              dummyStereo %> \out -> do
+                len <- songLengthMS <$> loadMIDI mid
+                buildAudio (Silence 2 $ Seconds $ fromIntegral len / 1000) out
               song %> copyFile' (dir </> "song-countin.wav")
               cover %> copyFile' "gen/cover.bmp"
               coverV1 %> \out -> liftIO $ writeBitmap out $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
@@ -1555,6 +1563,26 @@ main = do
                 liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
               projV1 %> \out -> do
                 p <- makeMagmaProj
+                let makeDummy (Magma.Tracks a b c d e f g h i) = Magma.Tracks
+                      a
+                      (makeDummyOne b)
+                      (makeDummyOne c)
+                      (makeDummyOne d)
+                      (makeDummyOne e)
+                      (makeDummyOne f)
+                      (makeDummyOne g)
+                      (makeDummyOne h)
+                      (makeDummyOne i)
+                    makeDummyOne af = case Magma.channels af of
+                      1 -> af
+                        { Magma.audioFile = "dummy-mono.wav"
+                        }
+                      _ -> af
+                        { Magma.audioFile = "dummy-stereo.wav"
+                        , Magma.channels = 2
+                        , Magma.pan = [-1, 1]
+                        , Magma.vol = [0, 0]
+                        }
                 liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
                   { Magma.project = (Magma.project p)
                     { Magma.albumArt = Magma.AlbumArt "cover-v1.bmp"
@@ -1573,6 +1601,7 @@ main = do
                     , Magma.dryVox = (Magma.dryVox $ Magma.project p)
                       { Magma.dryVoxFileRB2 = Just "dryvox.wav"
                       }
+                    , Magma.tracks = makeDummy $ Magma.tracks $ Magma.project p
                     }
                   }
               c3 %> \out -> do
@@ -1657,7 +1686,7 @@ main = do
                 need [setup]
                 runMagma proj out
               rbaV1 %> \out -> do
-                need [setup, projV1, coverV1, midV1]
+                need [dummyMono, dummyStereo, dryvox, coverV1, midV1, projV1]
                 runMagmaV1 projV1 out
               export %> \out -> do
                 need [mid, proj]
