@@ -19,6 +19,12 @@ rb3pkgFiles = $(embedDir "vendors/xbox/rb3pkg/bin/Release/")
 emptyMilo :: B.ByteString
 emptyMilo = $(embedFile "vendors/empty.milo_xbox")
 
+emptyMiloRB2 :: B.ByteString
+emptyMiloRB2 = $(embedFile "vendors/empty-rb2.milo_xbox")
+
+emptyWeightsRB2 :: B.ByteString
+emptyWeightsRB2 = $(embedFile "vendors/empty-rb2_weights.bin")
+
 webDisplay :: [(FilePath, B.ByteString)]
 webDisplay = concat
   [ [("index.html", $(embedFile "../../../player/www/index.html"))]

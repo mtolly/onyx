@@ -21,6 +21,8 @@ extra-source-files:
   vendors/xbox/rb3pkg/bin/Release/rb3pkg.exe
   vendors/xbox/rb3pkg/bin/Release/X360.dll
   vendors/empty.milo_xbox
+  vendors/empty-rb2.milo_xbox
+  vendors/empty-rb2_weights.bin
   ../../../player/www/index.html
   ../../../player/www/app.min.js
   ../../../player/www/images/*.png

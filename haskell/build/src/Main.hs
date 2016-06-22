@@ -20,7 +20,7 @@ import           PrettyDTA
 import           Reaper.Base                      (writeRPP)
 import qualified Reaper.Build                     as RPP
 import           Reductions
-import           Resources                        (emptyMilo, webDisplay)
+import           Resources                        (emptyMilo, webDisplay, emptyMiloRB2, emptyWeightsRB2)
 import           Scripts
 import           STFS.Extract
 import           X360
@@ -76,6 +76,7 @@ import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as RBFive
+import           RockBand.Parse                   (unparseCommand, unparseBlip)
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as RBVox
 import qualified Sound.File.Sndfile               as Snd
@@ -89,7 +90,7 @@ import           System.Console.GetOpt
 import qualified System.Directory                 as Dir
 import           System.Environment               (getArgs)
 import           System.Environment.Executable    (getExecutablePath)
-import           System.IO                        (hPutStrLn, stderr)
+import           System.IO                        (hPutStrLn, stderr, withBinaryFile, IOMode(ReadMode), hFileSize)
 import           System.IO.Temp                   (withSystemTempDirectory)
 import qualified System.Info                      as Info
 import           System.Process                   (callProcess)
@@ -1701,7 +1702,10 @@ main = do
                 runMagma proj out
               rbaV1 %> \out -> do
                 need [dummyMono, dummyStereo, dryvox, coverV1, midV1, projV1]
-                runMagmaV1 projV1 out
+                good <- runMagmaV1 projV1 out
+                unless good $ do
+                  putNormal "Magma v1 failed; optimistically bypassing."
+                  liftIO $ B.writeFile out B.empty
               export %> \out -> do
                 need [mid, proj]
                 runMagmaMIDI proj out
@@ -1756,7 +1760,10 @@ main = do
 
             -- Magma v1 rba to con
             do
-              let rb2RBA = pedalDir </> "magma-v1.rba"
+              let doesRBAExist = do
+                    need [rb2RBA]
+                    liftIO $ (/= 0) <$> withBinaryFile (pedalDir </> "magma-v1.rba") ReadMode hFileSize 
+                  rb2RBA = pedalDir </> "magma-v1.rba"
                   rb2CON = pedalDir </> "rb2.con"
                   rb2OriginalDTA = pedalDir </> "rb2-original.dta"
                   rb2DTA = pedalDir </> "rb2/songs/songs.dta"
@@ -1767,8 +1774,88 @@ main = do
                   rb2Milo = pedalDir </> "rb2/songs" </> pkg </> "gen" </> pkg <.> "milo_xbox"
                   rb2Pan = pedalDir </> "rb2/songs" </> pkg </> pkg <.> "pan"
               rb2OriginalDTA %> \out -> do
-                need [rb2RBA]
-                liftIO $ getRBAFile 0 rb2RBA out
+                ex <- doesRBAExist
+                if ex
+                  then liftIO $ getRBAFile 0 rb2RBA out
+                  else do
+                    need [pathDta]
+                    (_, rb3DTA, _) <- liftIO $ readRB3DTA pathDta
+                    let (newGenre, newSubgenre) = case D.subGenre rb3DTA >>= stripPrefix "subgenre_" . D.fromKeyword of
+                          Just sub -> magmaV1Genre
+                            ( T.pack $ D.fromKeyword $ D.genre rb3DTA
+                            , T.pack sub
+                            )
+                          Nothing -> (T.pack "other", T.pack "other")
+                        newDTA :: D.SongPackage
+                        newDTA = D.SongPackage
+                          { D.name = D.name rb3DTA
+                          , D.artist = D.artist rb3DTA
+                          , D.master = True
+                          , D.song = D.Song
+                            -- most of this gets rewritten later anyway
+                            { D.songName = D.songName $ D.song rb3DTA
+                            , D.tracksCount = Nothing
+                            , D.tracks = D.tracks $ D.song rb3DTA
+                            , D.pans = D.pans $ D.song rb3DTA
+                            , D.vols = D.vols $ D.song rb3DTA
+                            , D.cores = D.cores $ D.song rb3DTA
+                            , D.drumSolo = D.drumSolo $ D.song rb3DTA -- needed
+                            , D.drumFreestyle = D.drumFreestyle $ D.song rb3DTA -- needed
+                            , D.midiFile = D.midiFile $ D.song rb3DTA
+                            -- not used
+                            , D.vocalParts = Nothing
+                            , D.crowdChannels = Nothing
+                            , D.hopoThreshold = Nothing
+                            , D.muteVolume = Nothing
+                            , D.muteVolumeVocals = Nothing
+                            }
+                          , D.songScrollSpeed = D.songScrollSpeed rb3DTA
+                          , D.bank = D.bank rb3DTA
+                          , D.animTempo = D.animTempo rb3DTA
+                          , D.songLength = D.songLength rb3DTA
+                          , D.preview = D.preview rb3DTA
+                          , D.rank
+                            = D.Dict
+                            . Map.filterWithKey (\k _ -> k `elem` words "guitar bass drum vocals band")
+                            . D.fromDict
+                            $ D.rank rb3DTA
+                          , D.genre = D.Keyword $ T.unpack newGenre
+                          , D.decade = Just $ D.Keyword $ let y = D.yearReleased rb3DTA in if
+                            | 1960 <= y && y < 1970 -> "the60s"
+                            | 1970 <= y && y < 1980 -> "the70s"
+                            | 1980 <= y && y < 1990 -> "the80s"
+                            | 1990 <= y && y < 2000 -> "the90s"
+                            | 2000 <= y && y < 2010 -> "the00s"
+                            | 2010 <= y && y < 2020 -> "the10s"
+                            | otherwise -> "the10s"
+                          , D.vocalGender = D.vocalGender rb3DTA
+                          , D.version = 0
+                          , D.downloaded = Just True
+                          , D.format = 4
+                          , D.albumArt = Just True
+                          , D.yearReleased = D.yearReleased rb3DTA
+                          , D.basePoints = Just 0
+                          , D.rating = D.rating rb3DTA
+                          , D.subGenre = Just $ D.Keyword $ T.unpack newSubgenre
+                          , D.songId = D.songId rb3DTA
+                          , D.tuningOffsetCents = D.tuningOffsetCents rb3DTA
+                          , D.context = Just 2000
+                          , D.gameOrigin = D.Keyword "rb2"
+                          , D.albumName = D.albumName rb3DTA
+                          , D.albumTrackNumber = D.albumTrackNumber rb3DTA
+                          -- not present
+                          , D.drumBank = Nothing
+                          , D.bandFailCue = Nothing
+                          , D.solo = Nothing
+                          , D.shortVersion = Nothing
+                          , D.vocalTonicNote = Nothing
+                          , D.songTonality = Nothing
+                          , D.realGuitarTuning = Nothing
+                          , D.realBassTuning = Nothing
+                          , D.guidePitchVolume = Nothing
+                          , D.encoding = Nothing
+                          }
+                    liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : D.toChunks newDTA))]
               rb2DTA %> \out -> do
                 need [rb2OriginalDTA, pathDta]
                 (_, magmaDTA, _) <- liftIO $ readRB3DTA rb2OriginalDTA
@@ -1789,11 +1876,15 @@ main = do
                       }
                 liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : D.toChunks newDTA))]
               rb2Mid %> \out -> do
-                need [rb2RBA, pedalDir </> "notes.mid"]
-                liftIO $ getRBAFile 1 rb2RBA out
-                -- add back practice sections
-                mid <- liftIO $ Load.fromFile out
+                ex <- doesRBAExist
+                need [pedalDir </> "notes.mid"]
+                mid <- liftIO $ if ex
+                  then do
+                    getRBAFile 1 rb2RBA out
+                    Load.fromFile out
+                  else Load.fromFile (pedalDir </> "magma/notes-v1.mid")
                 let Left beatTracks = U.decodeFile mid
+                -- add back practice sections
                 sectsMid <- loadMIDI $ pedalDir </> "notes.mid"
                 let sects = foldr RTB.merge RTB.empty $ flip mapMaybe (RBFile.s_tracks sectsMid) $ \case
                       RBFile.Events t -> Just $ flip RTB.mapMaybe t $ \case
@@ -1805,15 +1896,37 @@ main = do
                         Just ["section", _] -> False
                         _                   -> True
                       else t
-                unless (RTB.null sects) $ liftIO $ Save.toFile out $
-                  U.encodeFileBeats F.Parallel 480 $ map modifyTrack beatTracks
+                    defaultVenue = U.trackJoin $ RTB.flatten $ RTB.singleton 0
+                      [ unparseCommand ["lighting", "()"]
+                      , unparseCommand ["verse"]
+                      , unparseBlip 60
+                      , unparseBlip 61
+                      , unparseBlip 62
+                      , unparseBlip 63
+                      , unparseBlip 64
+                      , unparseBlip 70
+                      , unparseBlip 71
+                      , unparseBlip 73
+                      , unparseBlip 109
+                      ]
+                    addVenue = if any ((== Just "VENUE") . U.trackName) beatTracks
+                      then id
+                      else (defaultVenue :)
+                liftIO $ Save.toFile out $ U.encodeFileBeats F.Parallel 480 $
+                  addVenue $ if RTB.null sects
+                    then beatTracks
+                    else map modifyTrack beatTracks
               rb2Mogg %> copyFile' (dir </> "audio.mogg")
               rb2Milo %> \out -> do
-                need [rb2RBA]
-                liftIO $ getRBAFile 3 rb2RBA out
+                ex <- doesRBAExist
+                liftIO $ if ex
+                  then getRBAFile 3 rb2RBA out
+                  else B.writeFile out emptyMiloRB2
               rb2Weights %> \out -> do
-                need [rb2RBA]
-                liftIO $ getRBAFile 5 rb2RBA out
+                ex <- doesRBAExist
+                liftIO $ if ex
+                  then getRBAFile 5 rb2RBA out
+                  else B.writeFile out emptyWeightsRB2
               rb2Art %> copyFile' "gen/cover.png_xbox"
               rb2Pan %> \out -> liftIO $ B.writeFile out B.empty
               rb2CON %> \out -> do
@@ -1877,10 +1990,12 @@ main = do
 #else
       p "  unmogg - convert unencrypted MOGG to OGG"
 #endif
-      p "  stfs - pack a directory into a CON STFS package"
+      p "  stfs - pack a directory into a US RB3 CON STFS package"
+      p "  stfs-rb2 - pack a directory into a US RB2 CON STFS package"
       p "  unstfs - unpack an STFS package to a directory"
       p "  import - import CON/RBA/FoF to onyx's project format"
-      p "  convert - convert RBA/FoF to CON"
+      p "  convert - convert CON/RBA/FoF to RB3 CON"
+      p "  convert-rb2 - convert RB3 CON to RB2 CON"
       p "  reduce - fill in blank difficulties in a MIDI"
       p "  player - create web browser song playback app"
       p "  rpp - convert MIDI to Reaper project"
@@ -1889,7 +2004,6 @@ main = do
       p "  reap - from onyx project, create and launch Reaper project"
       p "  mt - convert MIDI to a plain text format"
       p "  tm - convert plain text format back to MIDI"
-      p "  rb2 - convert rb3con to rb2con"
     "build" : buildables -> shakeBuild buildables Nothing
     "mogg" : args -> case inputOutput ".mogg" args of
       Nothing -> error "Usage: onyx mogg in.ogg [out.mogg]"
@@ -1931,6 +2045,14 @@ main = do
         let planCon = if isFoF then "gen/plan/fof/2p/rb3.con" else "gen/plan/mogg/2p/rb3.con"
         shakeBuild [planCon] $ Just $ dir </> "song.yml"
         Dir.copyFile (dir </> planCon) con
+    "convert-rb2" : args -> case inputOutput "_rb2con" args of
+      Nothing -> error "Usage: onyx convert-rb2 in_rb3con [out_rb2con]"
+      Just (fin, fout) -> withSystemTempDirectory "onyx_convert" $ \dir -> do
+        importAny fin dir
+        isFoF <- Dir.doesDirectoryExist fin
+        let planCon = if isFoF then "gen/plan/fof/2p/rb2.con" else "gen/plan/mogg/2p/rb2.con"
+        shakeBuild [planCon] $ Just $ dir </> "song.yml"
+        Dir.copyFile (dir </> planCon) fout
     "reduce" : args -> case inputOutput ".reduced.mid" args of
       Nothing -> error "Usage: onyx reduce in.mid [out.mid]"
       Just (fin, fout) -> simpleReduce fin fout
@@ -1969,14 +2091,6 @@ main = do
         let (mid, warnings) = MS.fromStandardMIDI midiTextOptions sf
         mapM_ (hPutStrLn stderr) warnings
         Save.toFile fout mid
-    "rb2" : args -> case inputOutput "_rb2con" args of
-      Nothing -> error "Usage: onyx rb2 in_rb3con [out_rb2con]"
-      Just (fin, fout) -> withSystemTempDirectory "onyx_convert" $ \dir -> do
-        importAny fin dir
-        isFoF <- Dir.doesDirectoryExist fin
-        let planCon = if isFoF then "gen/plan/fof/2p/rb2.con" else "gen/plan/mogg/2p/rb2.con"
-        shakeBuild [planCon] $ Just $ dir </> "song.yml"
-        Dir.copyFile (dir </> planCon) fout
     _ -> error "Invalid command"
 
 inputOutput :: String -> [String] -> Maybe (FilePath, FilePath)

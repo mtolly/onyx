@@ -2,6 +2,8 @@ module RockBand2 (convertMIDI, dryVoxAudio) where
 
 import qualified RockBand.File as F
 import Data.Maybe (mapMaybe)
+import qualified Data.Set as Set
+import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified RockBand.Drums as Drums
 import qualified RockBand.Vocals as Vox
@@ -9,6 +11,9 @@ import qualified RockBand.FiveButton as Five
 import qualified RockBand.Events as Events
 import qualified Sound.MIDI.Util as U
 import Data.Conduit.Audio (AudioSource, Duration(Seconds), silent, concatenate, sine)
+import Scripts (trackGlue)
+import Data.List (partition)
+import Control.Monad (guard)
 
 dryVoxAudio :: (Monad m) => F.Song U.Beats -> AudioSource m Float
 dryVoxAudio f = let
@@ -29,9 +34,9 @@ dryVoxAudio f = let
 
 convertMIDI :: F.Song U.Beats -> F.Song U.Beats
 convertMIDI mid = mid
-  { F.s_tracks = flip mapMaybe (F.s_tracks mid) $ \case
+  { F.s_tracks = fixUnisons $ flip mapMaybe (F.s_tracks mid) $ \case
     F.PartDrums  t -> Just $ F.PartDrums $ flip RTB.mapMaybe t $ \case
-      Drums.ProType{} -> Nothing
+      -- Drums.ProType{} -> Nothing -- Magma is fine with pro markers
       Drums.SingleRoll{} -> Nothing
       Drums.DoubleRoll{} -> Nothing
       Drums.Kick2x -> Nothing
@@ -62,3 +67,36 @@ convertMIDI mid = mid
       Five.Trill{} -> Nothing
       Five.Solo{} | not hasSolos -> Nothing
       e -> Just e
+    -- for any unison missing an instrument (only has 2 of gtr/bass/drums)
+    -- just remove one of the 2 instruments to make it not a unison
+    fixUnisons trks = let
+      getODTimes f = Set.fromList . ATB.getTimes . RTB.toAbsoluteEventList 0 . RTB.filter f
+      gtr = foldr RTB.merge RTB.empty [ t | F.PartGuitar t <- trks ]
+      bass = foldr RTB.merge RTB.empty [ t | F.PartBass t <- trks ]
+      drum = foldr RTB.merge RTB.empty [ t | F.PartDrums t <- trks ]
+      gtrOD = getODTimes (== Five.Overdrive True) gtr
+      bassOD = getODTimes (== Five.Overdrive True) bass
+      drumOD = getODTimes (== Drums.Overdrive True) drum
+      gb = Set.difference (Set.intersection gtrOD bassOD) drumOD
+      bd = Set.difference (Set.intersection bassOD drumOD) gtrOD
+      gd = Set.difference (Set.intersection gtrOD drumOD) bassOD
+      removeOD isStart isEnd time trk = case U.trackSplit time trk of
+        (before, atafter) -> case U.trackSplitZero atafter of
+          (at, after) -> case partition isStart at of
+            ([_], at') -> case U.extractFirst (\x -> guard (isEnd x) >> Just ()) after of
+              Just (_, after') -> trackGlue time before $ U.trackGlueZero at' after'
+              Nothing -> trk -- probably an error though
+            _ -> trk
+      fixTrack = \case
+        F.PartGuitar t -> F.PartGuitar $ foldr
+          (removeOD (== Five.Overdrive True) (== Five.Overdrive False))
+          t
+          (Set.toList gd)
+        F.PartBass t -> F.PartBass $ foldr
+          (removeOD (== Five.Overdrive True) (== Five.Overdrive False))
+          t
+          (Set.toList $ Set.union gb bd)
+        trk -> trk
+      in if RTB.null gtr || RTB.null bass || RTB.null drum
+        then trks
+        else map fixTrack trks
