@@ -1132,7 +1132,9 @@ main = do
                   { D.name = title
                   , D.artist = T.unpack $ _artist $ _metadata songYaml
                   , D.master = True
-                  , D.songId = Right $ D.Keyword pkg
+                  , D.songId = case _songID $ _metadata songYaml of
+                    Nothing  -> Right $ D.Keyword pkg
+                    Just sid -> either Left (Right . D.Keyword . T.unpack) sid
                   , D.song = D.Song
                     { D.songName = "songs/" ++ pkg ++ "/" ++ pkg
                     , D.tracksCount = Nothing
@@ -1872,7 +1874,9 @@ main = do
                         , D.cores = D.cores $ D.song rb3DTA
                         , D.crowdChannels = D.crowdChannels $ D.song rb3DTA
                         }
-                      , D.songId = Right $ D.Keyword pkg
+                      , D.songId = case _songID $ _metadata songYaml of
+                        Nothing  -> Right $ D.Keyword pkg
+                        Just eis -> either Left (Right . D.Keyword . T.unpack) eis
                       }
                 liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : D.toChunks newDTA))]
               rb2Mid %> \out -> do

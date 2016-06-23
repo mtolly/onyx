@@ -9,6 +9,7 @@
 module Config where
 
 import           Audio
+import           Control.Applicative            ((<|>))
 import           Control.Monad                  (when)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
@@ -91,6 +92,9 @@ instance TraceJSON Int where
   traceJSON = traceJSON >>= \n -> case toBoundedInteger n of
     Nothing -> expected "a number in Int range"
     Just i  -> return i
+
+instance (TraceJSON a, TraceJSON b) => TraceJSON (Either a b) where
+  traceJSON = fmap Left traceJSON <|> fmap Right traceJSON
 
 keyNames :: [(T.Text, Key)]
 keyNames = let
@@ -246,6 +250,7 @@ data Metadata = Metadata
   , _hopoThreshold :: Int
   , _previewStart :: Maybe Double
   , _previewEnd   :: Maybe Double
+  , _songID       :: Maybe (Either Integer T.Text)
   } deriving (Eq, Ord, Show, Read)
 
 data Difficulties = Difficulties
@@ -349,11 +354,12 @@ instance TraceJSON Metadata where
           Seconds s -> s
     _previewStart <- optional "preview-start" traceDurationSecs
     _previewEnd   <- optional "preview-end" traceDurationSecs
+    _songID       <- optional "song-id" traceJSON
     expectedKeys
       [ "title", "artist", "album", "genre", "subgenre", "year"
       , "file-album-art", "track-number", "comments", "vocal-gender"
       , "difficulty", "key", "autogen-theme", "author", "rating", "drum-kit", "auto-2x-bass", "hopo-threshold"
-      , "preview-start", "preview-end"
+      , "preview-start", "preview-end", "song-id"
       ]
     return Metadata{..}
 
@@ -381,6 +387,10 @@ instance A.ToJSON Metadata where
     , ["hopo-threshold" .= _hopoThreshold]
     , map ("preview-start" .=) $ toList _previewStart
     , map ("preview-end" .=) $ toList _previewEnd
+    , case _songID of
+      Nothing -> []
+      Just (Left i) -> ["song-id" .= i]
+      Just (Right s) -> ["song-id" .= s]
     ]
 
 data AudioFile

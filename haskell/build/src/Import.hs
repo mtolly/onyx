@@ -122,6 +122,7 @@ importFoF src dest = do
       , _hopoThreshold = 170
       , _previewStart = Nothing
       , _previewEnd   = Nothing
+      , _songID       = Nothing
       }
     , _audio = HM.fromList $ flip map audioFiles $ \aud -> (T.pack aud, AudioFile
       { _md5 = Nothing
@@ -314,6 +315,7 @@ importRB3 pkg author mid mogg cover coverName dir = do
       , _hopoThreshold = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
       , _previewStart = Just $ fromIntegral (fst $ D.preview pkg) / 1000
       , _previewEnd   = Just $ fromIntegral (snd $ D.preview pkg) / 1000
+      , _songID       = Just $ either Left (Right . T.pack . D.fromKeyword) $ D.songId pkg
       }
     , _audio = HM.empty
     , _jammit = HM.empty
