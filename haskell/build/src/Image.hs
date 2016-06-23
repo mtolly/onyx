@@ -2,14 +2,13 @@
 module Image where
 
 import           Codec.Picture
-import           Codec.Picture.Types (promotePixel)
 import           Control.Monad       (forM_, guard)
-import           Data.Bits           (shiftL, shiftR, testBit)
+import           Data.Bits           (shiftL, shiftR, testBit, (.&.))
 import qualified Data.ByteString     as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.List           (minimumBy)
 import           Data.Ord            (comparing)
-import           Data.Word           (Word16)
+import           Data.Word           (Word8, Word16)
 import           System.IO           (IOMode (..), withBinaryFile)
 import           Data.Binary.Get
 import Control.Monad (replicateM)
@@ -42,11 +41,19 @@ pixel565 (PixelRGB8 r g b) = sum
   ,  fromIntegral b `shiftR` 3              -- 5 bits
   ]
 
+bits5to8 :: Word16 -> Word8
+bits5to8 w = fromIntegral $ shiftL w' 3 + shiftR w' 2
+  where w' = w .&. 0x1F
+
+bits6to8 :: Word16 -> Word8
+bits6to8 w = fromIntegral $ shiftL w' 2 + shiftR w' 4
+  where w' = w .&. 0x3F
+
 pixelFrom565 :: Word16 -> PixelRGB8
 pixelFrom565 w = PixelRGB8
-  (fromIntegral $ (w `shiftR` 11) `shiftL` 3)
-  (fromIntegral $ (w `shiftR` 5 ) `shiftL` 2)
-  (fromIntegral $  w              `shiftL` 3)
+  (bits5to8 $ w `shiftR` 11)
+  (bits6to8 $ w `shiftR` 5 )
+  (bits5to8   w            )
 
 colorDiff :: PixelRGB8 -> PixelRGB8 -> Int
 colorDiff (PixelRGB8 r0 g0 b0) (PixelRGB8 r1 g1 b1) = sum
@@ -127,19 +134,19 @@ writeDDS fout img_ = let
                     in snd $ minimum scoreTable
             B.hPut h $ B.singleton byte
 
-readDXT1Chunk :: Get (Image PixelRGBA8)
-readDXT1Chunk = do
-  c0w <- getWord16be
-  c1w <- getWord16be
-  let c0 = promotePixel $ pixelFrom565 c0w
-      c1 = promotePixel $ pixelFrom565 c1w
-      c2 = if c0w > c1w
+readDXTChunk :: Bool -> Get (Image PixelRGB8)
+readDXTChunk isDXT1 = do
+  c0w <- getWord16le
+  c1w <- getWord16le
+  let c0 = pixelFrom565 c0w
+      c1 = pixelFrom565 c1w
+      c2 = if not isDXT1 || c0w > c1w
         then mixProportions (2/3) (1/3) c0 c1
         else mixProportions (1/2) (1/2) c0 c1
-      c3 = if c0w > c1w
+      c3 = if not isDXT1 || c0w > c1w
         then mixProportions (1/3) (2/3) c0 c1
-        else PixelRGBA8 0 0 0 0
-  rows <- (\[a, b, c, d] -> [b, a, d, c]) <$> replicateM 4 getWord8
+        else PixelRGB8 0 0 0 -- should be transparent black
+  rows <- replicateM 4 getWord8
   let gen x y = case ((rows !! y) `testBit` (x * 2 + 1), (rows !! y) `testBit` (x * 2)) of
         (False, False) -> c0
         (False,  True) -> c1
@@ -147,12 +154,52 @@ readDXT1Chunk = do
         ( True,  True) -> c3
   return $ generateImage gen 4 4
 
--- | Assumes 256x256 DXT1 (TODO: look into C3 non-DXT1 and higher-res)
-readPNGXbox :: BL.ByteString -> Image PixelRGBA8
+pngXboxDXT1Signature :: B.ByteString
+pngXboxDXT1Signature = B.pack
+  [ 0x01, 0x04, 0x08, 0x00, 0x00, 0x00, 0x04, 0x00
+  , 0x01, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00
+  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  ]
+
+pngXboxDXT3Signature :: B.ByteString
+pngXboxDXT3Signature = B.pack
+  [ 0x01, 0x08, 0x18, 0x00, 0x00, 0x00, 0x04, 0x00
+  , 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00
+  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  ]
+
+flipWord16s :: BL.ByteString -> BL.ByteString
+flipWord16s = let
+  flipPairs (x : y : xs) = y : x : flipPairs xs
+  flipPairs _ = []
+  in BL.pack . flipPairs . BL.unpack
+
+flipWord16sStrict :: B.ByteString -> B.ByteString
+flipWord16sStrict = let
+  flipPairs (x : y : xs) = y : x : flipPairs xs
+  flipPairs _ = []
+  in B.pack . flipPairs . B.unpack
+
+-- | Supports both official DXT1 and C3 DXT2/3.
+readPNGXbox :: BL.ByteString -> Image PixelRGB8
 readPNGXbox bs = let
-  chunks = runGet (skip 32 >> replicateM 4096 readDXT1Chunk) bs
-  gen x y = let
-    (xa, xb) = quotRem x 4
-    (ya, yb) = quotRem y 4
-    in pixelAt (chunks !! (ya * 64 + xa)) xb yb
-  in generateImage gen 256 256
+  sig = BL.toStrict $ BL.take 32 bs
+  in if sig == pngXboxDXT1Signature
+    then let
+      chunks = runGet (replicateM 4096 $ readDXTChunk True) $ flipWord16s $ BL.take 32768 $ BL.drop 32 bs
+      gen x y = let
+        (xa, xb) = quotRem x 4
+        (ya, yb) = quotRem y 4
+        in pixelAt (chunks !! (ya * 64 + xa)) xb yb
+      in generateImage gen 256 256
+    else if sig == pngXboxDXT3Signature
+      then let
+        chunks = runGet (replicateM 4096 $ skip 8 >> readDXTChunk False) $ flipWord16s $ BL.take 65536 $ BL.drop 32 bs
+        gen x y = let
+          (xa, xb) = quotRem x 4
+          (ya, yb) = quotRem y 4
+          in pixelAt (chunks !! (ya * 64 + xa)) xb yb
+        in generateImage gen 256 256
+      else generateImage (\_ _ -> PixelRGB8 255 0 255) 256 256

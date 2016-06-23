@@ -37,7 +37,6 @@ import qualified MelodysEscape
 import qualified RockBand2                        as RB2
 
 import           Codec.Picture
-import           Codec.Picture.Types              (dropTransparency)
 import           Control.Exception as Exc
 import           Control.Monad.Extra
 import           Control.Monad.Trans.Reader
@@ -65,6 +64,7 @@ import           Data.List                        (intercalate, isPrefixOf, nub,
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing,
                                                    listToMaybe, mapMaybe)
+import           Data.Monoid                      ((<>))
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import           Development.Shake                hiding (phony, (%>), (&%>))
@@ -400,7 +400,7 @@ main = do
               Just img -> do
                 need [img]
                 liftIO $ if takeExtension img == ".png_xbox"
-                  then pixelMap dropTransparency . readPNGXbox <$> BL.readFile img
+                  then readPNGXbox <$> BL.readFile img
                   else readImage img >>= \case
                     Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
                     Right dyn -> return $ convertRGB8 dyn
@@ -413,18 +413,9 @@ main = do
           _ -> do
             let dds = out -<.> "dds"
             need [dds]
-            b <- liftIO $ B.readFile dds
-            let header =
-                  [ 0x01, 0x04, 0x08, 0x00, 0x00, 0x00, 0x04, 0x00
-                  , 0x01, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00
-                  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-                  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-                  ]
-                bytes = B.unpack $ B.drop 0x80 b
-                flipPairs (x : y : xs) = y : x : flipPairs xs
-                flipPairs _ = []
-                b' = B.pack $ header ++ flipPairs bytes
-            liftIO $ B.writeFile out b'
+            liftIO $ do
+              b <- B.readFile dds
+              B.writeFile out $ pngXboxDXT1Signature <> flipWord16sStrict (B.drop 0x80 b)
 
         -- The Markdown README file, for GitHub purposes
         "README.md" %> \out -> liftIO $ writeFile out $ execWriter $ do
