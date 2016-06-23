@@ -2,13 +2,17 @@
 module Image where
 
 import           Codec.Picture
+import           Codec.Picture.Types (promotePixel)
 import           Control.Monad       (forM_, guard)
-import           Data.Bits           (shiftL, shiftR)
+import           Data.Bits           (shiftL, shiftR, testBit)
 import qualified Data.ByteString     as B
+import qualified Data.ByteString.Lazy as BL
 import           Data.List           (minimumBy)
 import           Data.Ord            (comparing)
 import           Data.Word           (Word16)
 import           System.IO           (IOMode (..), withBinaryFile)
+import           Data.Binary.Get
+import Control.Monad (replicateM)
 
 -- | Scales an image using the bilinear interpolation algorithm.
 scaleBilinear
@@ -51,6 +55,11 @@ colorDiff (PixelRGB8 r0 g0 b0) (PixelRGB8 r1 g1 b1) = sum
   , fromIntegral $ max b0 b1 - min b0 b1
   ]
 
+mixProportions :: (Pixel a, Integral (PixelBaseComponent a)) =>
+  Float -> Float -> a -> a -> a
+mixProportions f0 f1 = mixWith $ \_ p0 p1 ->
+  floor $ fromIntegral p0 * f0 + fromIntegral p1 * f1
+
 -- | Computes a valid palette for DXT1 encoding a 4x4 chunk.
 -- In (c0, c1, c2, c3), c0 and c1 are the two stated colors for the chunk,
 -- and c2 and c3 are at third-intervals between c0 and c1
@@ -62,9 +71,8 @@ findPalette img = let
     c0 <- pixels
     c1 <- pixels
     guard $ pixel565 c0 >= pixel565 c1
-    let c2 = mixWith (\_ p0 p1 -> floor $ flt p0 * (2/3) + flt p1 * (1/3)) c0 c1
-        c3 = mixWith (\_ p0 p1 -> floor $ flt p0 * (1/3) + flt p1 * (2/3)) c0 c1
-        flt i = fromIntegral i :: Float
+    let c2 = mixProportions (2/3) (1/3) c0 c1
+        c3 = mixProportions (1/3) (2/3) c0 c1
         score = sum $ map (\p -> minimum $ map (colorDiff p) [c0,c1,c2,c3]) pixels
     return (score, (c0, c1, c2, c3))
   in snd $ minimumBy (comparing fst) choices
@@ -77,9 +85,8 @@ findPalette' img = let
   colors = [ pixelAt pal x y | x <- [0 .. imageWidth pal - 1], y <- [0 .. imageHeight pal - 1] ]
   (cA, cB) = (head colors, last colors)
   (c0, c1) = if pixel565 cA < pixel565 cB then (cB, cA) else (cA, cB)
-  c2 = mixWith (\_ p0 p1 -> floor $ flt p0 * (2/3) + flt p1 * (1/3)) c0 c1
-  c3 = mixWith (\_ p0 p1 -> floor $ flt p0 * (1/3) + flt p1 * (2/3)) c0 c1
-  flt i = fromIntegral i :: Float
+  c2 = mixProportions (2/3) (1/3) c0 c1
+  c3 = mixProportions (1/3) (2/3) c0 c1
   in (c0, c1, c2, c3)
 
 -- | Writes 256x256 image to DXT1
@@ -119,3 +126,33 @@ writeDDS fout img_ = let
                       ]
                     in snd $ minimum scoreTable
             B.hPut h $ B.singleton byte
+
+readDXT1Chunk :: Get (Image PixelRGBA8)
+readDXT1Chunk = do
+  c0w <- getWord16be
+  c1w <- getWord16be
+  let c0 = promotePixel $ pixelFrom565 c0w
+      c1 = promotePixel $ pixelFrom565 c1w
+      c2 = if c0w > c1w
+        then mixProportions (2/3) (1/3) c0 c1
+        else mixProportions (1/2) (1/2) c0 c1
+      c3 = if c0w > c1w
+        then mixProportions (1/3) (2/3) c0 c1
+        else PixelRGBA8 0 0 0 0
+  rows <- (\[a, b, c, d] -> [b, a, d, c]) <$> replicateM 4 getWord8
+  let gen x y = case ((rows !! y) `testBit` (x * 2 + 1), (rows !! y) `testBit` (x * 2)) of
+        (False, False) -> c0
+        (False,  True) -> c1
+        ( True, False) -> c2
+        ( True,  True) -> c3
+  return $ generateImage gen 4 4
+
+-- | Assumes 256x256 DXT1 (TODO: look into C3 non-DXT1 and higher-res)
+readPNGXbox :: BL.ByteString -> Image PixelRGBA8
+readPNGXbox bs = let
+  chunks = runGet (skip 32 >> replicateM 4096 readDXT1Chunk) bs
+  gen x y = let
+    (xa, xb) = quotRem x 4
+    (ya, yb) = quotRem y 4
+    in pixelAt (chunks !! (ya * 64 + xa)) xb yb
+  in generateImage gen 256 256

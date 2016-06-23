@@ -37,6 +37,7 @@ import qualified MelodysEscape
 import qualified RockBand2                        as RB2
 
 import           Codec.Picture
+import           Codec.Picture.Types              (dropTransparency)
 import           Control.Exception as Exc
 import           Control.Monad.Extra
 import           Control.Monad.Trans.Reader
@@ -398,10 +399,11 @@ main = do
         let loadRGB8 = case _fileAlbumArt $ _metadata songYaml of
               Just img -> do
                 need [img]
-                res <- liftIO $ readImage img
-                case res of
-                  Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
-                  Right dyn -> return $ convertRGB8 dyn
+                liftIO $ if takeExtension img == ".png_xbox"
+                  then pixelMap dropTransparency . readPNGXbox <$> BL.readFile img
+                  else readImage img >>= \case
+                    Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
+                    Right dyn -> return $ convertRGB8 dyn
               Nothing -> return $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
         "gen/cover.bmp" %> \out -> loadRGB8 >>= liftIO . writeBitmap out . scaleBilinear 256 256
         "gen/cover.png" %> \out -> loadRGB8 >>= liftIO . writePng    out . scaleBilinear 256 256
