@@ -10,10 +10,10 @@ Instruments:
 
   * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
   * Bass ⚪️⚪️⚫️⚫️⚫️
-  * Guitar ⚪️⚪️⚪️⚫️⚫️
+  * Guitar ⚪️⚪️⚪️⚪️⚫️
   * Keys ⚪️⚪️⚪️⚪️⚪️
   * Pro Keys 😈😈😈😈😈
-  * Vocals (2) 😈😈😈😈😈
+  * Vocals (2) ⚪️⚪️⚪️⚪️⚪️
 
 Supported audio:
 
@@ -24,4 +24,6 @@ Notes:
   * Drums and tempo map by TheLieInKing.
 
   * Flute charted to guitar.
+
+  * All instruments have overdrive/unison.
 
