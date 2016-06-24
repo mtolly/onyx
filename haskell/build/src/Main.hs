@@ -1908,7 +1908,7 @@ main = do
                       ]
                     addVenue = if any ((== Just "VENUE") . U.trackName) beatTracks
                       then id
-                      else (defaultVenue :)
+                      else (++ [defaultVenue])
                 liftIO $ Save.toFile out $ U.encodeFileBeats F.Parallel 480 $
                   addVenue $ if RTB.null sects
                     then beatTracks
