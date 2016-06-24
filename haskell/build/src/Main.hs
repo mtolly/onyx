@@ -1893,7 +1893,7 @@ main = do
                         Just ["section", _] -> False
                         _                   -> True
                       else t
-                    defaultVenue = U.trackJoin $ RTB.flatten $ RTB.singleton 0
+                    defaultVenue = U.setTrackName "VENUE" $ U.trackJoin $ RTB.flatten $ RTB.singleton 0
                       [ unparseCommand ["lighting", "()"]
                       , unparseCommand ["verse"]
                       , unparseBlip 60

@@ -4,7 +4,7 @@ module RockBand.File where
 import           Control.Monad                    (forM, forM_, liftM)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (sort)
+import           Data.List                        (sortOn)
 import           Data.Maybe                       (catMaybes, fromJust)
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File                  as F
@@ -80,7 +80,11 @@ and the phrase event comes after the note in the MIDI, Magma v1 will
 complain that there are no notes under the phrase.
 -}
 higherPitchesFirst :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
-higherPitchesFirst = RTB.flatten . fmap (reverse . sort) . RTB.collectCoincident
+higherPitchesFirst = RTB.flatten . fmap (sortOn f) . RTB.collectCoincident
+  where f x = case isNoteEdge x of
+          Nothing         -> (0, 0       , x)
+          Just (p, False) -> (1, negate p, x)
+          Just (p, True ) -> (2, negate p, x)
 
 showTrack :: Track U.Beats -> RTB.T U.Beats E.T
 showTrack = \case
