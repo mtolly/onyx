@@ -1514,6 +1514,7 @@ main = do
                   vocal  = pedalDir </> "magma/vocal.wav"
                   crowd  = pedalDir </> "magma/crowd.wav"
                   dryvox = pedalDir </> "magma/dryvox.wav"
+                  dryvoxSine = pedalDir </> "magma/dryvox-sine.wav"
                   song   = pedalDir </> "magma/song-countin.wav"
                   cover  = pedalDir </> "magma/cover.bmp"
                   coverV1 = pedalDir </> "magma/cover-v1.bmp"
@@ -1538,6 +1539,12 @@ main = do
               vocal  %> copyFile' (dir </> "vocal.wav" )
               crowd  %> copyFile' (dir </> "crowd.wav" )
               dryvox %> \out -> do
+                len <- songLengthMS <$> loadMIDI mid
+                let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
+                    audsrc :: (Monad m) => AudioSource m Float
+                    audsrc = silent (Seconds $ fromIntegral len / 1000) 16000 1
+                liftIO $ runResourceT $ sinkSnd out fmt audsrc
+              dryvoxSine %> \out -> do
                 m <- loadMIDI mid
                 let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
                 liftIO $ runResourceT $ sinkSnd out fmt $ RB2.dryVoxAudio m
@@ -1605,7 +1612,7 @@ main = do
                       , Magma.japanese = Nothing
                       }
                     , Magma.dryVox = (Magma.dryVox $ Magma.project p)
-                      { Magma.dryVoxFileRB2 = Just "dryvox.wav"
+                      { Magma.dryVoxFileRB2 = Just "dryvox-sine.wav"
                       }
                     , Magma.tracks = makeDummy $ Magma.tracks $ Magma.project p
                     , Magma.metadata = (Magma.metadata $ Magma.project p)
@@ -1696,7 +1703,7 @@ main = do
                 need [setup]
                 runMagma proj out
               rbaV1 %> \out -> do
-                need [dummyMono, dummyStereo, dryvox, coverV1, midV1, projV1]
+                need [dummyMono, dummyStereo, dryvoxSine, coverV1, midV1, projV1]
                 good <- runMagmaV1 projV1 out
                 unless good $ do
                   putNormal "Magma v1 failed; optimistically bypassing."

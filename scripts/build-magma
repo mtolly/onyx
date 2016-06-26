@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 
+require 'fileutils'
 require_relative 'common'
 
 yamls = Dir['songs*/*/*/song.yml']
@@ -7,34 +8,45 @@ yamls.each do |yaml_file|
   folder = File.dirname(yaml_file)
   puts ">>> SONG: #{folder}"
   yaml = load_yaml_tree(yaml_file)
-  next unless yaml.fetch('published', true)
-  audio = yaml['plans'].keys
+  unless yaml.fetch('published', true)
+    FileUtils.rm_rf(folder)
+    next
+  end
   makes = []
-  audio.each do |a|
+  yaml['plans'].keys.each do |a|
     ['1p', '2p'].each do |p|
       makes += [
-        "gen/plan/#{a}/countin.wav",
         "gen/plan/#{a}/#{p}/magma/magma.rbproj",
         "gen/plan/#{a}/#{p}/magma/magma.c3",
         "gen/plan/#{a}/#{p}/magma/notes.mid"
       ]
-      # Remove the following once we can read .png_xbox files :)
-      unless yaml['metadata'].fetch('file-album-art', 'nothing.png').match(/png_xbox$/)
-        makes += ["gen/plan/#{a}/#{p}/magma/cover.bmp"]
-      end
+      makes += ["gen/plan/#{a}/#{p}/magma/cover.bmp"]
       plan_exprs = yaml['plans'][a]
-      unless plan_exprs.has_key?('each')
+      has_inst = ->(inst){ yaml['instruments'].has_key?(inst) }
+      is_empty = ->(audio){ !(plan_exprs.has_key?(audio)) }
+      make_audio = ->(audio){ makes += ["gen/plan/#{a}/#{p}/magma/#{audio}.wav"] }
+      makes += ["gen/plan/#{a}/countin.wav"] unless plan_exprs.has_key?('mogg-md5')
+      unless plan_exprs.has_key?('each') || plan_exprs.has_key?('mogg-md5')
         # we need to make dummy audio for instruments not present
-        yaml['instruments'].each_key do |inst|
-          inst = 'keys' if inst == 'pro-keys'
-          unless plan_exprs.has_key?(inst)
-            makes += ["gen/plan/#{a}/#{p}/magma/#{inst}.wav"]
-            if inst == 'vocal'
-              makes += ["gen/plan/#{a}/#{p}/magma/dryvox.wav"]
-            end
-          end
+        if has_inst['guitar'] && is_empty['guitar']
+          make_audio['guitar']
+        end
+        if has_inst['bass'] && is_empty['bass']
+          make_audio['bass']
+        end
+        if (has_inst['keys'] || has_inst['pro-keys']) && is_empty['keys']
+          make_audio['keys']
+        end
+        if has_inst['vocal']
+          make_audio['vocal'] if is_empty['vocal']
+          make_audio['dryvox']
+        end
+        if has_inst['drums']
+          make_audio['drums'] if is_empty['drums']
+          # we never have to build snare.wav or kit.wav
         end
       end
+      # currently my only crowd.wav is Prophets of War, and it's supplied with the repo
     end
   end
   Dir.chdir(folder) do

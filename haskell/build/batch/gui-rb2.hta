@@ -1,0 +1,52 @@
+<html>
+<head>
+<title>Onyx RB2 Converter</title>
+<hta:application
+  applicationname="Onyx RB2 Converter"
+  scroll="yes"
+  singleinstance="yes"
+  windowstate="Normal"
+></hta:application>
+</head>
+
+<style>
+  body {
+    text-align: center;
+  }
+</style>
+
+<script language="VBScript">
+Sub RunProgram
+  document.All.fileForm.reset
+  document.getElementById("file-in").click()
+  Dim rb3con
+  rb3con = document.getElementById("file-in").value
+  If rb3con <> "" then
+    Set objShell = CreateObject("Wscript.Shell")
+    objShell.Run "convert-rb2.bat """ & rb3con & """"
+  End If
+End Sub
+Sub Window_onLoad
+  window.resizeTo 400, 250
+End Sub
+</script>
+
+<body>
+
+<form>
+  <p>
+    <label><input type="radio" name="keys-mode" value="no-keys" checked> No Keys</label><br>
+    <label><input type="radio" name="keys-mode" value="keytar"> Keys on Guitar</label><br>
+    <label><input type="radio" name="keys-mode" value="keybass"> Keys on Bass</label><br>
+  </p>
+  <p>
+    <button type="button" onClick="RunProgram">Convert</button>
+  </p>
+</form>
+
+<form name="fileForm" style="display: none;">
+  <input type="file" id="file-in">
+</form>
+
+</body>
+</html>
