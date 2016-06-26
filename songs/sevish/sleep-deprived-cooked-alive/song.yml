@@ -135,4 +135,7 @@ plans:
         - stem-drums
 instruments:
   drums: true
+  keys: true
+  bass: true
+  guitar: true
 published: false
