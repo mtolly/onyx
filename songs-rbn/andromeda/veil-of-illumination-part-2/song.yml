@@ -11,7 +11,7 @@ plans:
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 metadata:
   comments:
-  - "TODO: 2x Bass Pedal upgrade."
+  - "2x Bass Pedal upgrade, with some added ghost notes."
   vocal-gender: male
   drum-kit: Hard Rock Kit
   file-album-art: ../../../covers/the-immunity-zone.png_xbox
