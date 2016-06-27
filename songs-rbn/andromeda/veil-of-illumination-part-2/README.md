@@ -20,5 +20,5 @@ Supported audio:
 
 Notes:
 
-  * 2x Bass Pedal upgrade, with some added ghost notes.
+  * 2x Bass Pedal upgrade, plus some added ghost notes.
 

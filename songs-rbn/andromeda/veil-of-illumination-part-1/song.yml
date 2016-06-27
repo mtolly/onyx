@@ -40,6 +40,8 @@ metadata:
     band:
       rank: 345
   artist: Andromeda
+  preview-start: 97
+  preview-end: 127
 instruments:
   pro-keys: true
   vocal: 3

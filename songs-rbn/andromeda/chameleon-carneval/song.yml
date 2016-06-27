@@ -29,6 +29,8 @@ metadata:
     band:
       rank: 345
   artist: Andromeda
+  preview-start: 51
+  preview-end: 81
 jammit: {}
 audio: {}
 instruments:
