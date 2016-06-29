@@ -12,11 +12,12 @@ import qualified Data.Set                         as Set
 import qualified Numeric.NonNegative.Class        as NNC
 import           Numeric.NonNegative.Class        ((-|))
 import           ProKeysRanges                    (completeRanges)
-import           RockBand.Common                  (Difficulty (..), Key (..))
+import           RockBand.Common                  (Difficulty (..), Key (..), LongNote (..), joinEdges)
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as Five
+import           RockBand.FiveButton              (StrumHOPO (..))
 import qualified RockBand.ProKeys                 as PK
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Load             as Load
@@ -198,72 +199,48 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
     x : xs -> x : pullBackSustains xs
   in showGuitarNotes (isNothing hopoThres || elem diff [Easy, Medium]) gnotes9
 
-data NoteType = Strum | HOPO
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-data GuitarNote t = GuitarNote [Five.Color] NoteType (Maybe t)
+data GuitarNote t = GuitarNote [Five.Color] StrumHOPO (Maybe t)
   deriving (Eq, Ord, Show, Read)
 
 readGuitarNotes :: Maybe Int -> RTB.T U.Beats Five.DiffEvent -> RTB.T U.Beats (GuitarNote U.Beats)
-readGuitarNotes hopoThres = go . RTB.collectCoincident . assign where
+readGuitarNotes hopoThres = fmap f . joinEdges . Five.guitarify . assign where
   assign = case hopoThres of
     Just i  -> Five.assignHOPO $ fromIntegral i / 480
-    Nothing -> RTB.mapMaybe $ \case
-      Five.Note True  color -> Just $ Five.Strum   color
-      Five.Note False color -> Just $ Five.NoteOff color
-      _                     -> Nothing
-  go :: RTB.T U.Beats [Five.AssignedNote] -> RTB.T U.Beats (GuitarNote U.Beats)
-  go rtb = case RTB.viewL rtb of
-    Nothing -> RTB.empty
-    Just ((dt, xs), rtb') -> let
-      strums = flip mapMaybe xs $ \case Five.Strum   c -> Just c; _ -> Nothing
-      hopos  = flip mapMaybe xs $ \case Five.HOPO    c -> Just c; _ -> Nothing
-      len = case RTB.viewL rtb' of
-        Nothing              -> error "GRYBO reduction: panic! note with no note-off"
-        Just ((dt', xs'), _) -> if any (\case Five.NoteOff _ -> False; _ -> True) xs'
-          then dt' -| 0.125
-          else dt'
-      len' = guard (len > 0.25) >> Just len
-      in if null strums
-        then if null hopos
-          then RTB.delay dt $ go rtb'
-          else RTB.cons dt (GuitarNote hopos HOPO len') $ go rtb'
-        else RTB.cons dt (GuitarNote strums Strum len') $ go rtb'
+    Nothing -> Five.assignKeys
+  f (ntype, colors, len) = GuitarNote colors ntype len
 
 showGuitarNotes :: Bool -> RTB.T U.Beats (GuitarNote U.Beats) -> RTB.T U.Beats Five.DiffEvent
 showGuitarNotes isKeys = U.trackJoin . fmap f where
-  f (GuitarNote cols ntype len) = RTB.flatten $ RTB.fromPairList
-    [ (0, force True ++ map (Five.Note True) cols)
-    , (fromMaybe (1 / 32) len, force False ++ map (Five.Note False) cols)
+  f (GuitarNote cols ntype len) = RTB.flatten $ foldr RTB.merge RTB.empty
+    [ RTB.fromPairList [(0, force True), (1/32, force False)]
+    , case len of
+      Nothing -> RTB.singleton 0 $ map (Five.Note . Blip ()) cols
+      Just t  -> RTB.fromPairList
+        [ (0, map (Five.Note . NoteOn ()) cols)
+        , (t, map (Five.Note . NoteOff  ) cols)
+        ]
     ] where force b = case ntype of
-              Strum -> [Five.ForceStrum b | not isKeys]
-              HOPO  -> [Five.ForceHOPO  b | not isKeys]
+              Strum -> [Five.Force Strum b | not isKeys]
+              HOPO  -> [Five.Force HOPO  b | not isKeys]
 
 data PKNote t = PKNote [PK.Pitch] (Maybe t)
   deriving (Eq, Ord, Show, Read)
 
 readPKNotes :: RTB.T U.Beats PK.Event -> RTB.T U.Beats (PKNote U.Beats)
-readPKNotes = go . RTB.collectCoincident where
-  go rtb = case RTB.viewL rtb of
-    Nothing -> RTB.empty
-    Just ((dt, xs), rtb') -> let
-      ons = flip mapMaybe xs $ \case PK.Note True p -> Just p; _ -> Nothing
-      len = case RTB.viewL rtb' of
-        Nothing              -> error "Pro keys reduction: panic! note with no note-off"
-        Just ((dt', xs'), _) -> if any (\case PK.Note True _ -> True; _ -> False) xs'
-          then dt' -| 0.125
-          else dt'
-      len' = guard (len > 0.25) >> Just len
-      in if null ons
-        then RTB.delay dt $ go rtb'
-        else RTB.cons dt (PKNote ons len') $ go rtb'
+readPKNotes = fmap f . joinEdges . Five.guitarify . assign where
+  assign = RTB.mapMaybe $ \case
+    PK.Note long -> Just long
+    _            -> Nothing
+  f ((), pitches, len) = PKNote pitches len
 
 showPKNotes :: RTB.T U.Beats (PKNote U.Beats) -> RTB.T U.Beats PK.Event
 showPKNotes = U.trackJoin . fmap f where
-  f (PKNote ps len) = RTB.flatten $ RTB.fromPairList
-    [ (0, map (PK.Note True) ps)
-    , (fromMaybe (1 / 32) len, map (PK.Note False) ps)
-    ]
+  f (PKNote ps len) = RTB.flatten $ case len of
+    Nothing -> RTB.singleton 0 $ map (PK.Note . Blip ()) ps
+    Just t -> RTB.fromPairList
+      [ (0, map (PK.Note . NoteOn ()) ps)
+      , (t, map (PK.Note . NoteOff  ) ps)
+      ]
 
 pkReduce
   :: Difficulty

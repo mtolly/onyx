@@ -82,6 +82,16 @@ parseBlipCPV rtb = do
     _                                      -> Nothing
   return ((t, (c, p, v)), rtb'')
 
+parseBlipCPVMax :: (NNC.C t) => t -> ParseOne t E.T (Int, Int, Int)
+parseBlipCPVMax len rtb = do
+  ((t, (c, p, mv)), rtb') <- firstEventWhich isNoteEdgeCPV rtb
+  v <- mv
+  ((t', ()), rtb'') <- flip U.extractFirst rtb' $ isNoteEdgeCPV >=> \case
+    (c', p', Nothing) | (c, p) == (c', p') -> Just ()
+    _                                      -> Nothing
+  guard $ t' NNC.-| t <= len
+  return ((t, (c, p, v)), rtb'')
+
 -- | Parses a note-on and note-off with any positive duration between them.
 parseBlip :: (NNC.C t) => Int -> ParseOne t E.T ()
 parseBlip i rtb = do
@@ -191,7 +201,7 @@ stripPredicates (p : ps) xs = case break p xs of
   (ys, _ : zs) -> stripPredicates ps $ ys ++ zs
 
 -- | Parses a group of simultaneous events that match a series of predicates.
-parsePredicates :: (NNC.C t, Ord e) => [e -> Bool] -> ParseOne t e ()
+parsePredicates :: (NNC.C t) => [e -> Bool] -> ParseOne t e ()
 parsePredicates ps rtb = RTB.viewL rtb >>= \case
   ((t, x), rtb') -> case U.trackSplitZero rtb' of
     (xs, rtb'') -> do
@@ -265,3 +275,11 @@ commandPair cmd pat =
 boolP :: Bool -> Q Pat
 boolP True  = [p| True  |]
 boolP False = [p| False |]
+
+noteParser :: Int -> Q Pat -> (Q Pat -> Q Pat) -> [(Q Exp, Q Exp)]
+noteParser pitch x f =
+  [ blipMax (1/3) pitch $ f [p| Blip () $(x) |]
+  , edge pitch $ \_b -> f $ if _b
+    then [p| NoteOn  () $(x) |]
+    else [p| NoteOff    $(x) |]
+  ]

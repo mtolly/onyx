@@ -833,8 +833,8 @@ main = do
                       ProKeys.Overdrive b -> Just b
                       _                   -> Nothing
                     keysAnim = flip RTB.filter keysExpert $ \case
-                      ProKeys.Note _ _ -> True
-                      _                -> False
+                      ProKeys.Note _ -> True
+                      _              -> False
                     in  [ RBFile.PartKeys            basicKeys
                         , RBFile.PartKeysAnimRH      keysAnim
                         , RBFile.PartKeysAnimLH      RTB.empty

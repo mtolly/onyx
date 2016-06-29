@@ -17,7 +17,7 @@ import           Data.Maybe                       (listToMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified RockBand.Beat                    as Beat
-import           RockBand.Common                  (Difficulty (..))
+import           RockBand.Common                  (Difficulty (..), LongNote (..))
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.Vocals                  as Vox
 import qualified RockBand.FiveButton              as Five
@@ -27,17 +27,8 @@ import qualified Sound.MIDI.Util                  as U
 class TimeFunctor f where
   mapTime :: (Real u) => (t -> u) -> f t -> f u
 
-data Sustainable a
-  = SustainEnd
-  | Note a
-  | Sustain a
-  deriving (Eq, Ord, Show, Read)
-
-data GuitarNoteType = Strum | HOPO
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
 data Five t = Five
-  { fiveNotes  :: Map.Map Five.Color (Map.Map t (Sustainable GuitarNoteType))
+  { fiveNotes  :: Map.Map Five.Color (Map.Map t (LongNote Five.StrumHOPO ()))
   , fiveSolo   :: Map.Map t Bool
   , fiveEnergy :: Map.Map t Bool
   } deriving (Eq, Ord, Show)
@@ -56,11 +47,11 @@ instance (Real t) => A.ToJSON (Five t) where
   toJSON x = A.object
     [ (,) "notes" $ A.object $ flip map (Map.toList $ fiveNotes x) $ \(color, notes) ->
       (,) (T.pack $ map toLower $ show color) $ eventList notes $ \case
-        SustainEnd -> "end"
-        Note Strum -> "strum"
-        Note HOPO -> "hopo"
-        Sustain Strum -> "strum-sust"
-        Sustain HOPO -> "hopo-sust"
+        NoteOff () -> "end"
+        Blip Five.Strum () -> "strum"
+        Blip Five.HOPO () -> "hopo"
+        NoteOn Five.Strum () -> "strum-sust"
+        NoteOn Five.HOPO () -> "hopo-sust"
     , (,) "solo" $ eventList (fiveSolo x) A.toJSON
     , (,) "energy" $ eventList (fiveEnergy x) A.toJSON
     ]
@@ -107,7 +98,7 @@ instance (Real t) => A.ToJSON (Drums t) where
     ]
 
 data ProKeys t = ProKeys
-  { proKeysNotes  :: Map.Map PK.Pitch (Map.Map t (Sustainable ()))
+  { proKeysNotes  :: Map.Map PK.Pitch (Map.Map t (LongNote () ()))
   , proKeysRanges :: Map.Map t PK.LaneRange
   , proKeysSolo   :: Map.Map t Bool
   , proKeysEnergy :: Map.Map t Bool
@@ -137,27 +128,13 @@ instance (Real t) => A.ToJSON (ProKeys t) where
   toJSON x = A.object
     [ (,) "notes" $ A.object $ flip map (Map.toList $ proKeysNotes x) $ \(p, notes) ->
       (,) (showPitch p) $ eventList notes $ \case
-        SustainEnd -> "end"
-        Note () -> "note"
-        Sustain () -> "sust"
+        NoteOff () -> "end"
+        Blip () () -> "note"
+        NoteOn () () -> "sust"
     , (,) "ranges" $ eventList (proKeysRanges x) $ A.toJSON . map toLower . drop 5 . show
     , (,) "solo" $ eventList (proKeysSolo x) A.toJSON
     , (,) "energy" $ eventList (proKeysEnergy x) A.toJSON
     ]
-
-removeStubs :: (Ord a) => RTB.T U.Beats (Sustainable a) -> RTB.T U.Beats (Sustainable a)
-removeStubs = go . RTB.normalize where
-  go rtb = case RTB.viewL rtb of
-    Nothing              -> RTB.empty
-    Just ((dt, e), rtb') -> case e of
-      Note    nt -> RTB.cons dt (Note nt) $ go rtb'
-      Sustain nt -> case RTB.viewL rtb' of
-        Nothing                         -> RTB.empty
-        Just ((dt', SustainEnd), rtb'') -> if dt' <= 1/3 -- TODO: verify the real threshold
-          then RTB.cons dt (Note    nt) $ RTB.delay dt' $ go rtb''
-          else RTB.cons dt (Sustain nt) $ RTB.cons  dt' SustainEnd $ go rtb''
-        _                               -> error "removeStubs: double note-on"
-      SustainEnd -> RTB.delay dt $ go rtb'
 
 trackToMap :: (Ord a) => U.TempoMap -> RTB.T U.Beats a -> Map.Map U.Seconds a
 trackToMap tmap = Map.fromList . ATB.toPairList . RTB.toAbsoluteEventList 0 . U.applyTempoTrack tmap . RTB.normalize
@@ -167,14 +144,11 @@ processFive hopoThreshold tmap trk = let
   expert = flip RTB.mapMaybe trk $ \case Five.DiffEvent Expert e -> Just e; _ -> Nothing
   assigned = case hopoThreshold of
     Just threshold -> Five.assignHOPO threshold expert
-    Nothing -> flip RTB.mapMaybe expert $ \case
-      Five.Note True  color -> Just $ Five.Strum   color
-      Five.Note False color -> Just $ Five.NoteOff color
-      _ -> Nothing
-  getColor color = trackToMap tmap $ removeStubs $ flip RTB.mapMaybe assigned $ \case
-    Five.NoteOff c -> guard (c == color) >> Just SustainEnd
-    Five.Strum   c -> guard (c == color) >> Just (Sustain Strum)
-    Five.HOPO    c -> guard (c == color) >> Just (Sustain HOPO )
+    Nothing -> Five.assignKeys expert
+  getColor color = trackToMap tmap $ flip RTB.mapMaybe assigned $ \case
+    Blip   ntype c -> guard (c == color) >> Just (Blip   ntype ())
+    NoteOn ntype c -> guard (c == color) >> Just (NoteOn ntype ())
+    NoteOff      c -> guard (c == color) >> Just (NoteOff      ())
   notes = Map.fromList $ do
     color <- [minBound .. maxBound]
     return (color, getColor color)
@@ -194,9 +168,11 @@ processDrums tmap trk = let
 
 processProKeys :: U.TempoMap -> RTB.T U.Beats PK.Event -> ProKeys U.Seconds
 processProKeys tmap trk = let
-  notesForPitch p = trackToMap tmap $ removeStubs $ flip RTB.mapMaybe trk $ \case
-    PK.Note b p' | p == p' -> Just $ if b then Sustain () else SustainEnd
-    _                      -> Nothing
+  notesForPitch p = trackToMap tmap $ flip RTB.mapMaybe trk $ \case
+    PK.Note (NoteOff    p') -> guard (p == p') >> Just (NoteOff    ())
+    PK.Note (Blip    () p') -> guard (p == p') >> Just (Blip    () ())
+    PK.Note (NoteOn  () p') -> guard (p == p') >> Just (NoteOn  () ())
+    _                    -> Nothing
   notes = Map.fromList [ (p, notesForPitch p) | p <- [minBound .. maxBound] ]
   ranges = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.LaneShift r -> Just r; _ -> Nothing
   solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Solo      b -> Just b; _ -> Nothing

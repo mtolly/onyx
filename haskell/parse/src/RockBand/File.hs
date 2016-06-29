@@ -82,9 +82,9 @@ complain that there are no notes under the phrase.
 higherPitchesFirst :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
 higherPitchesFirst = RTB.flatten . fmap (sortOn f) . RTB.collectCoincident
   where f x = case isNoteEdge x of
-          Nothing         -> (0, 0       , x)
-          Just (p, False) -> (1, negate p, x)
-          Just (p, True ) -> (2, negate p, x)
+          Nothing         -> (0 :: Int, 0       , x)
+          Just (p, False) -> (1       , negate p, x)
+          Just (p, True ) -> (2       , negate p, x)
 
 showTrack :: Track U.Beats -> RTB.T U.Beats E.T
 showTrack = \case

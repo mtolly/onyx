@@ -7,6 +7,8 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import RockBand.Common
 import RockBand.Parse
+import Control.Monad (guard)
+import qualified Sound.MIDI.Util as U
 
 data Color = Green | Red | Yellow | Blue | Orange
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -52,10 +54,12 @@ data FretPosition
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data DiffEvent
-  = ForceHOPO  Bool
-  | ForceStrum Bool
-  | Note       Bool Color
+  = Force StrumHOPO Bool
+  | Note (LongNote () Color)
   deriving (Eq, Ord, Show, Read)
+
+data StrumHOPO = Strum | HOPO
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 -- | Controls the fretting hand animation of a guitarist/bassist.
 data HandMap
@@ -88,7 +92,7 @@ instance Command StrumMap where
   fromCommand sm = ["map", show sm]
   toCommand = reverseLookup each fromCommand
 
-instanceMIDIEvent [t| Event |]
+instanceMIDIEvent [t| Event |] $
 
   [ edge 40 $ applyB [p| FretPosition Fret40 |]
   , edge 41 $ applyB [p| FretPosition Fret41 |]
@@ -111,37 +115,37 @@ instanceMIDIEvent [t| Event |]
   , edge 58 $ applyB [p| FretPosition Fret58 |]
   , edge 59 $ applyB [p| FretPosition Fret59 |]
 
-  , edge 60 $ \_b -> [p| DiffEvent Easy (Note $(boolP _b) Green ) |]
-  , edge 61 $ \_b -> [p| DiffEvent Easy (Note $(boolP _b) Red   ) |]
-  , edge 62 $ \_b -> [p| DiffEvent Easy (Note $(boolP _b) Yellow) |]
-  , edge 63 $ \_b -> [p| DiffEvent Easy (Note $(boolP _b) Blue  ) |]
-  , edge 64 $ \_b -> [p| DiffEvent Easy (Note $(boolP _b) Orange) |]
-  , edge 65 $ \_b -> [p| DiffEvent Easy (ForceHOPO  $(boolP _b)) |]
-  , edge 66 $ \_b -> [p| DiffEvent Easy (ForceStrum $(boolP _b)) |]
+  ] ++ noteParser 60 [p| Green |] (\p -> [p| DiffEvent Easy (Note $p) |])
+    ++ noteParser 61 [p| Red |] (\p -> [p| DiffEvent Easy (Note $p) |])
+    ++ noteParser 62 [p| Yellow |] (\p -> [p| DiffEvent Easy (Note $p) |])
+    ++ noteParser 63 [p| Blue |] (\p -> [p| DiffEvent Easy (Note $p) |])
+    ++ noteParser 64 [p| Orange |] (\p -> [p| DiffEvent Easy (Note $p) |]) ++
+  [ edge 65 $ \_b -> [p| DiffEvent Easy (Force HOPO  $(boolP _b)) |]
+  , edge 66 $ \_b -> [p| DiffEvent Easy (Force Strum $(boolP _b)) |]
 
-  , edge 72 $ \_b -> [p| DiffEvent Medium (Note $(boolP _b) Green ) |]
-  , edge 73 $ \_b -> [p| DiffEvent Medium (Note $(boolP _b) Red   ) |]
-  , edge 74 $ \_b -> [p| DiffEvent Medium (Note $(boolP _b) Yellow) |]
-  , edge 75 $ \_b -> [p| DiffEvent Medium (Note $(boolP _b) Blue  ) |]
-  , edge 76 $ \_b -> [p| DiffEvent Medium (Note $(boolP _b) Orange) |]
-  , edge 77 $ \_b -> [p| DiffEvent Medium (ForceHOPO  $(boolP _b)) |]
-  , edge 78 $ \_b -> [p| DiffEvent Medium (ForceStrum $(boolP _b)) |]
+  ] ++ noteParser 72 [p| Green |] (\p -> [p| DiffEvent Medium (Note $p) |])
+    ++ noteParser 73 [p| Red |] (\p -> [p| DiffEvent Medium (Note $p) |])
+    ++ noteParser 74 [p| Yellow |] (\p -> [p| DiffEvent Medium (Note $p) |])
+    ++ noteParser 75 [p| Blue |] (\p -> [p| DiffEvent Medium (Note $p) |])
+    ++ noteParser 76 [p| Orange |] (\p -> [p| DiffEvent Medium (Note $p) |]) ++
+  [ edge 77 $ \_b -> [p| DiffEvent Medium (Force HOPO  $(boolP _b)) |]
+  , edge 78 $ \_b -> [p| DiffEvent Medium (Force Strum $(boolP _b)) |]
 
-  , edge 84 $ \_b -> [p| DiffEvent Hard (Note $(boolP _b) Green ) |]
-  , edge 85 $ \_b -> [p| DiffEvent Hard (Note $(boolP _b) Red   ) |]
-  , edge 86 $ \_b -> [p| DiffEvent Hard (Note $(boolP _b) Yellow) |]
-  , edge 87 $ \_b -> [p| DiffEvent Hard (Note $(boolP _b) Blue  ) |]
-  , edge 88 $ \_b -> [p| DiffEvent Hard (Note $(boolP _b) Orange) |]
-  , edge 89 $ \_b -> [p| DiffEvent Hard (ForceHOPO  $(boolP _b)) |]
-  , edge 90 $ \_b -> [p| DiffEvent Hard (ForceStrum $(boolP _b)) |]
+  ] ++ noteParser 84 [p| Green |] (\p -> [p| DiffEvent Hard (Note $p) |])
+    ++ noteParser 85 [p| Red |] (\p -> [p| DiffEvent Hard (Note $p) |])
+    ++ noteParser 86 [p| Yellow |] (\p -> [p| DiffEvent Hard (Note $p) |])
+    ++ noteParser 87 [p| Blue |] (\p -> [p| DiffEvent Hard (Note $p) |])
+    ++ noteParser 88 [p| Orange |] (\p -> [p| DiffEvent Hard (Note $p) |]) ++
+  [ edge 89 $ \_b -> [p| DiffEvent Hard (Force HOPO  $(boolP _b)) |]
+  , edge 90 $ \_b -> [p| DiffEvent Hard (Force Strum $(boolP _b)) |]
 
-  , edge 96  $ \_b -> [p| DiffEvent Expert (Note $(boolP _b) Green ) |]
-  , edge 97  $ \_b -> [p| DiffEvent Expert (Note $(boolP _b) Red   ) |]
-  , edge 98  $ \_b -> [p| DiffEvent Expert (Note $(boolP _b) Yellow) |]
-  , edge 99  $ \_b -> [p| DiffEvent Expert (Note $(boolP _b) Blue  ) |]
-  , edge 100 $ \_b -> [p| DiffEvent Expert (Note $(boolP _b) Orange) |]
-  , edge 101 $ \_b -> [p| DiffEvent Expert (ForceHOPO  $(boolP _b)) |]
-  , edge 102 $ \_b -> [p| DiffEvent Expert (ForceStrum $(boolP _b)) |]
+  ] ++ noteParser 96 [p| Green |] (\p -> [p| DiffEvent Expert (Note $p) |])
+    ++ noteParser 97 [p| Red |] (\p -> [p| DiffEvent Expert (Note $p) |])
+    ++ noteParser 98 [p| Yellow |] (\p -> [p| DiffEvent Expert (Note $p) |])
+    ++ noteParser 99 [p| Blue |] (\p -> [p| DiffEvent Expert (Note $p) |])
+    ++ noteParser 100 [p| Orange |] (\p -> [p| DiffEvent Expert (Note $p) |]) ++
+  [ edge 101 $ \_b -> [p| DiffEvent Expert (Force HOPO  $(boolP _b)) |]
+  , edge 102 $ \_b -> [p| DiffEvent Expert (Force Strum $(boolP _b)) |]
 
   , edge 103 $ applyB [p| Solo |]
   , edge 105 $ applyB [p| Player1 |]
@@ -173,39 +177,62 @@ copyExpert = baseCopyExpert DiffEvent $ \case
   DiffEvent d e -> Just (d, e)
   _             -> Nothing
 
-data AssignedNote
-  = NoteOff Color
-  | Strum Color
-  | HOPO Color
-  deriving (Eq, Ord, Show, Read)
+assignKeys :: (NNC.C t) => RTB.T t DiffEvent -> RTB.T t (LongNote StrumHOPO Color)
+assignKeys = RTB.mapMaybe $ \case
+  Force _ _          -> Nothing
+  Note (NoteOff   c) -> Just $ NoteOff      c
+  Note (Blip   () c) -> Just $ Blip   Strum c
+  Note (NoteOn () c) -> Just $ NoteOn Strum c
 
-assignHOPO :: (NNC.C t) => t -> RTB.T t DiffEvent -> RTB.T t AssignedNote
+assignHOPO :: (NNC.C t) => t -> RTB.T t DiffEvent -> RTB.T t (LongNote StrumHOPO Color)
 assignHOPO threshold = RTB.flatten . start . RTB.collectCoincident where
   start = go Nothing False False
   go lastNoteOn forceStrum forceHOPO rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
     Just ((dt, evs), rtb') -> let
       forceStrum' = or
-        [ forceStrum && notElem (ForceStrum False) evs
-        ,               elem    (ForceStrum True ) evs
+        [ forceStrum && notElem (Force Strum False) evs
+        ,               elem    (Force Strum True ) evs
         ]
       forceHOPO' = or
-        [ forceHOPO && notElem (ForceHOPO False) evs
-        ,              elem    (ForceHOPO True ) evs
+        [ forceHOPO && notElem (Force HOPO False) evs
+        ,              elem    (Force HOPO True ) evs
         ]
-      fretsOn  = [ color | Note True  color <- evs ]
-      fretsOff = [ color | Note False color <- evs ]
-      autoHOPO = case (fretsOn, lastNoteOn) of
+      blips    = [ c | Note (Blip   () c) <- evs ]
+      fretsOn  = [ c | Note (NoteOn () c) <- evs ]
+      fretsOff = [ c | Note (NoteOff   c) <- evs ]
+      autoHOPO = case (blips ++ fretsOn, lastNoteOn) of
         ([color], Just (ago, colors)) -> and
           [ color `notElem` colors
           , NNC.add ago dt < threshold -- TODO: should be < or <= ?
           ]
         _ -> False -- chord, or first note of the song
-      lastNoteOn' = if null fretsOn
+      lastNoteOn' = if null $ blips ++ fretsOn
         then flip fmap lastNoteOn $ \(ago, colors) -> (NNC.add ago dt, colors)
-        else Just (NNC.zero, fretsOn)
-      makeNoteOn = if forceStrum' then Strum
+        else Just (NNC.zero, blips ++ fretsOn)
+      ntype = if forceStrum' then Strum
         else if forceHOPO' || autoHOPO then HOPO
         else Strum
-      theseEvents = map NoteOff fretsOff ++ map makeNoteOn fretsOn
+      theseEvents = map NoteOff fretsOff ++ map (Blip ntype) blips ++ map (NoteOn ntype) fretsOn
       in RTB.cons dt theseEvents $ go lastNoteOn' forceStrum' forceHOPO' rtb'
+
+guitarify :: (Ord s, Ord a) => RTB.T U.Beats (LongNote s a) -> RTB.T U.Beats (LongNote s [a])
+guitarify = splitEdges . go . RTB.collectCoincident where
+  go rtb = case RTB.viewL rtb of
+    Nothing -> RTB.empty
+    Just ((dt, xs), rtb') -> let
+      notes = xs >>= \case
+        NoteOn s c -> [(s, c)]
+        Blip   s c -> [(s, c)]
+        NoteOff  _ -> []
+      len = case RTB.viewL rtb' of
+        Nothing              -> error "guitar note interpretation: panic! note with no note-off"
+        Just ((dt', xs'), _) -> if any (\case NoteOff _ -> False; _ -> True) xs'
+          then dt' NNC.-| (1/8) -- 32nd note gap between notes
+          else dt'
+      len' = guard (len > 1/3) >> Just len
+      -- anything 1/3 beat or less, make into blip.
+      -- RB does not do this step, so it produces 16th note sustains on keytar...
+      in case notes of
+        [] -> RTB.delay dt $ go rtb'
+        (ntype, _) : _ -> RTB.cons dt (ntype, map snd notes, len') $ go rtb'

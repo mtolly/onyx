@@ -10,6 +10,7 @@ import qualified Sound.MIDI.File.Event as E
 import qualified Numeric.NonNegative.Class as NNC
 import Language.Haskell.TH
 import Data.Maybe (isJust)
+import qualified Sound.MIDI.Util as U
 
 data Event
   = TrainerGtr   Trainer
@@ -39,7 +40,7 @@ data DiffEvent
   | PartialChord Bool StrumArea
   | AllFrets     Bool
   | MysteryBFlat Bool
-  | Note GtrString (Maybe GtrFret) NoteType
+  | Note (LongNote GtrFret (GtrString, NoteType))
   deriving (Eq, Ord, Show)
 
 data NoteType
@@ -82,13 +83,24 @@ instance GtrChannel StrumArea where
     Low  -> 15
     MysteryStrum0 -> 0
 
-parseNote :: (NNC.C t) => Int -> Difficulty -> GtrString -> ParseOne t E.T Event
-parseNote pitch diff str rtb = do
+parseNoteBlip :: Int -> Difficulty -> GtrString -> ParseOne U.Beats E.T Event
+parseNoteBlip pitch diff str rtb = do
+  ((t, (c, p, v)), rtb') <- parseBlipCPVMax (1/3) rtb
+  guard $ p == pitch
+  guard $ v >= 100
+  ntype <- lookup c channelMap
+  let e = DiffEvent diff $ Note $ Blip (v - 100) (str, ntype)
+  return ((t, e), rtb')
+
+parseLongNoteEdge :: (NNC.C t) => Int -> Difficulty -> GtrString -> ParseOne t E.T Event
+parseLongNoteEdge pitch diff str rtb = do
   ((t, (c, p, v)), rtb') <- firstEventWhich isNoteEdgeCPV rtb
   guard $ p == pitch
   guard $ maybe True (>= 100) v
   ntype <- lookup c channelMap
-  let e = DiffEvent diff $ Note str (fmap (subtract 100) v) ntype
+  let e = DiffEvent diff $ Note $ case v of
+        Nothing -> NoteOff (str, ntype)
+        Just vel -> NoteOn (vel - 100) (str, ntype)
   return ((t, e), rtb')
 
 parseSlide :: (NNC.C t) => Int -> Difficulty -> ParseOne t E.T Event
@@ -115,14 +127,23 @@ parseHandPosition rtb = do
   return ((t, HandPosition $ v - 100), rtb')
 
 instanceMIDIEvent [t| Event |] $ let
-  note :: Int -> Q Pat -> Q Pat -> (Q Exp, Q Exp)
+  note :: Int -> Q Pat -> Q Pat -> [(Q Exp, Q Exp)]
   note pitch diff str =
-    ( [e| parseNote pitch $(fmap patToExp diff) $(fmap patToExp str) |]
-    , [e| \case
-      DiffEvent $diff (Note $str fret ntype) ->
-        RTB.singleton 0 $ makeEdgeCPV (encodeChannel ntype) pitch $ fmap (+ 100) fret
-      |]
-    )
+    [ ( [e| parseNoteBlip pitch $(fmap patToExp diff) $(fmap patToExp str) |]
+      , [e| \case
+        DiffEvent $diff (Note (Blip fret ($str, ntype))) ->
+          unparseBlipCPV (encodeChannel ntype, pitch, fret + 100)
+        |]
+      )
+    , ( [e| parseLongNoteEdge pitch $(fmap patToExp diff) $(fmap patToExp str) |]
+      , [e| \case
+        DiffEvent $diff (Note (NoteOn fret ($str, ntype))) ->
+          RTB.singleton 0 $ makeEdgeCPV (encodeChannel ntype) pitch $ Just $ fret + 100
+        DiffEvent $diff (Note (NoteOff ($str, ntype))) ->
+          RTB.singleton 0 $ makeEdgeCPV (encodeChannel ntype) pitch Nothing
+        |]
+      )
+    ]
   slide :: Int -> Q Pat -> (Q Exp, Q Exp)
   slide pitch diff =
     ( [e| parseSlide pitch $(fmap patToExp diff) |]
@@ -157,13 +178,13 @@ instanceMIDIEvent [t| Event |] $ let
       -- TODO
       , edge 18 $ \_b -> [p| Mystery18 $(boolP _b) |]
 
-      , note 24  [p| Easy   |] [p| S6 |]
-      , note 25  [p| Easy   |] [p| S5 |]
-      , note 26  [p| Easy   |] [p| S4 |]
-      , note 27  [p| Easy   |] [p| S3 |]
-      , note 28  [p| Easy   |] [p| S2 |]
-      , note 29  [p| Easy   |] [p| S1 |]
-      , edge 30 $ \_b -> [p| DiffEvent Easy (ForceHOPO $(boolP _b)) |]
+      ] ++ note 24  [p| Easy |] [p| S6 |]
+        ++ note 25  [p| Easy |] [p| S5 |]
+        ++ note 26  [p| Easy |] [p| S4 |]
+        ++ note 27  [p| Easy |] [p| S3 |]
+        ++ note 28  [p| Easy |] [p| S2 |]
+        ++ note 29  [p| Easy |] [p| S1 |] ++
+      [ edge 30 $ \_b -> [p| DiffEvent Easy (ForceHOPO $(boolP _b)) |]
       , slide 31 [p| Easy |]
       , edge 32 $ \_b -> [p| DiffEvent Easy (Arpeggio $(boolP _b)) |]
       , partialChord 33 [p| Easy |]
@@ -174,13 +195,13 @@ instanceMIDIEvent [t| Event |] $ let
       -- TODO
       , edge 45 $ \_b -> [p| Mystery45 $(boolP _b) |]
 
-      , note 48  [p| Medium |] [p| S6 |]
-      , note 49  [p| Medium |] [p| S5 |]
-      , note 50  [p| Medium |] [p| S4 |]
-      , note 51  [p| Medium |] [p| S3 |]
-      , note 52  [p| Medium |] [p| S2 |]
-      , note 53  [p| Medium |] [p| S1 |]
-      , edge 54 $ \_b -> [p| DiffEvent Medium (ForceHOPO $(boolP _b)) |]
+      ] ++ note 48  [p| Medium |] [p| S6 |]
+        ++ note 49  [p| Medium |] [p| S5 |]
+        ++ note 50  [p| Medium |] [p| S4 |]
+        ++ note 51  [p| Medium |] [p| S3 |]
+        ++ note 52  [p| Medium |] [p| S2 |]
+        ++ note 53  [p| Medium |] [p| S1 |] ++
+      [ edge 54 $ \_b -> [p| DiffEvent Medium (ForceHOPO $(boolP _b)) |]
       , slide 55 [p| Medium |]
       , edge 56 $ \_b -> [p| DiffEvent Medium (Arpeggio $(boolP _b)) |]
       , partialChord 57 [p| Medium |]
@@ -191,13 +212,13 @@ instanceMIDIEvent [t| Event |] $ let
       -- TODO
       , edge 69 $ \_b -> [p| Mystery69 $(boolP _b) |]
 
-      , note 72  [p| Hard   |] [p| S6 |]
-      , note 73  [p| Hard   |] [p| S5 |]
-      , note 74  [p| Hard   |] [p| S4 |]
-      , note 75  [p| Hard   |] [p| S3 |]
-      , note 76  [p| Hard   |] [p| S2 |]
-      , note 77  [p| Hard   |] [p| S1 |]
-      , edge 78 $ \_b -> [p| DiffEvent Hard (ForceHOPO $(boolP _b)) |]
+      ] ++ note 72  [p| Hard |] [p| S6 |]
+        ++ note 73  [p| Hard |] [p| S5 |]
+        ++ note 74  [p| Hard |] [p| S4 |]
+        ++ note 75  [p| Hard |] [p| S3 |]
+        ++ note 76  [p| Hard |] [p| S2 |]
+        ++ note 77  [p| Hard |] [p| S1 |] ++
+      [ edge 78 $ \_b -> [p| DiffEvent Hard (ForceHOPO $(boolP _b)) |]
       , slide 79 [p| Hard |] -- TODO: channel 3
       , edge 80 $ \_b -> [p| DiffEvent Hard (Arpeggio $(boolP _b)) |]
       , partialChord 81 [p| Hard |]
@@ -208,13 +229,13 @@ instanceMIDIEvent [t| Event |] $ let
       -- TODO
       , edge 93 $ \_b -> [p| Mystery93 $(boolP _b) |]
 
-      , note 96  [p| Expert |] [p| S6 |]
-      , note 97  [p| Expert |] [p| S5 |]
-      , note 98  [p| Expert |] [p| S4 |]
-      , note 99  [p| Expert |] [p| S3 |]
-      , note 100 [p| Expert |] [p| S2 |]
-      , note 101 [p| Expert |] [p| S1 |]
-      , edge 102 $ \_b -> [p| DiffEvent Expert (ForceHOPO $(boolP _b)) |]
+      ] ++ note 96  [p| Expert |] [p| S6 |]
+        ++ note 97  [p| Expert |] [p| S5 |]
+        ++ note 98  [p| Expert |] [p| S4 |]
+        ++ note 99  [p| Expert |] [p| S3 |]
+        ++ note 100 [p| Expert |] [p| S2 |]
+        ++ note 101 [p| Expert |] [p| S1 |] ++
+      [ edge 102 $ \_b -> [p| DiffEvent Expert (ForceHOPO $(boolP _b)) |]
       , slide 103 [p| Expert |] -- TODO: channel 3
       , edge 104 $ \_b -> [p| DiffEvent Expert (Arpeggio $(boolP _b)) |]
       , partialChord 105 [p| Expert |]
@@ -281,8 +302,8 @@ playGuitar tuning evts = do
         Nothing -> case held of
           Nothing -> RTB.empty
           Just _  -> error "playGuitar: unterminated note-on"
-        Just ((t, e), rtb') -> case e of
-          Note s fret ntype | s == str && ntype /= ArpeggioForm -> case fret of
+        Just ((t, e), rtb') -> let
+          cont fret = case fret of
             Nothing -> case held of
               Nothing -> error "playGuitar: note-off but string is already not played"
               Just p  -> RTB.cons t (makeEdgeCPV (fromEnum str) p Nothing) $ go Nothing rtb'
@@ -291,14 +312,24 @@ playGuitar tuning evts = do
               in case held of
                 Just _  -> error $ "playGuitar: double note-on"
                 Nothing -> RTB.cons t (makeEdgeCPV (fromEnum str) p $ Just 96) $ go (Just p) rtb'
-          _ -> RTB.delay t $ go held rtb'
+          in case e of
+            Note (Blip    fret (s, ntype)) | s == str && ntype /= ArpeggioForm -> cont $ Just fret
+            Note (NoteOn  fret (s, ntype)) | s == str && ntype /= ArpeggioForm -> cont $ Just fret
+            Note (NoteOff      (s, ntype)) | s == str && ntype /= ArpeggioForm -> cont Nothing
+            _ -> RTB.delay t $ go held rtb'
   return (str, go Nothing $ RTB.normalize evts)
   -- the normalize puts Nothing (note-off) before Just _ (note-on)
 
 autoHandPosition :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
 autoHandPosition = RTB.flatten . fmap f . RTB.collectCoincident where
   f evts = let
-    frets = [ fret | DiffEvent _ (Note _ (Just fret) ntype) <- evts, ntype /= ArpeggioForm ]
+    frets = do
+      (fret, ntype) <- evts >>= \case
+        DiffEvent _ (Note (NoteOn fret (_, ntype))) -> [(fret, ntype)]
+        DiffEvent _ (Note (Blip   fret (_, ntype))) -> [(fret, ntype)]
+        _ -> []
+      guard $ ntype /= ArpeggioForm
+      return fret
     evts' = flip filter evts $ \case
       HandPosition _ -> False
       _              -> True

@@ -142,12 +142,14 @@ fixRolls = let
   isHand _                       = False
   fiveTremolo = fixFreeform (== Five.Tremolo True) (== Five.Tremolo False) isGem
   fiveTrill   = fixFreeform (== Five.Trill   True) (== Five.Trill   False) isGem
-  isGem (Five.DiffEvent Expert (Five.Note True _)) = True
-  isGem _                                          = False
+  isGem (Five.DiffEvent Expert (Five.Note (NoteOn () _))) = True
+  isGem (Five.DiffEvent Expert (Five.Note (Blip   () _))) = True
+  isGem _                                                 = False
   pkGlissando = fixFreeform (== ProKeys.Glissando True) (== ProKeys.Glissando False) isPKNote
   pkTrill     = fixFreeform (== ProKeys.Trill     True) (== ProKeys.Trill     False) isPKNote
-  isPKNote (ProKeys.Note True _) = True
-  isPKNote _                     = False
+  isPKNote (ProKeys.Note (NoteOn _ _)) = True
+  isPKNote (ProKeys.Note (Blip   _ _)) = True
+  isPKNote _                           = False
   in \case
     PartDrums         t -> PartDrums         $ drumsSingle $ drumsDouble t
     PartGuitar        t -> PartGuitar        $ fiveTremolo $ fiveTrill   t
@@ -213,15 +215,15 @@ expertProKeysToKeys :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats Five.Event
 expertProKeysToKeys = let
   pkToBasic :: [ProKeys.Event] -> RTB.T U.Beats Five.Event
   pkToBasic pk = let
-    hasNote     = any (\case ProKeys.Note      True _ -> True; _ -> False) pk
+    hasNote     = flip any pk $ \case
+      ProKeys.Note (Blip   () _) -> True
+      ProKeys.Note (NoteOn () _) -> True
+      _                          -> False
     hasODTrue   = elem (ProKeys.Overdrive True ) pk
     hasODFalse  = elem (ProKeys.Overdrive False) pk
     hasBRETrue  = elem (ProKeys.BRE       True ) pk
     hasBREFalse = elem (ProKeys.BRE       False) pk
-    blip diff = RTB.fromPairList
-      [ (0     , Five.DiffEvent diff $ Five.Note True  Five.Green)
-      , (1 / 32, Five.DiffEvent diff $ Five.Note False Five.Green)
-      ]
+    blip diff = RTB.singleton 0 $ Five.DiffEvent diff $ Five.Note $ Blip () Five.Green
     in foldr RTB.merge RTB.empty $ concat
       [ [ blip d | d <- [minBound .. maxBound], hasNote ]
       , [ RTB.singleton 0 $ Five.Overdrive True  | hasODTrue   ]
@@ -235,8 +237,8 @@ expertProKeysToKeys = let
 keysToProKeys :: Difficulty -> RTB.T U.Beats Five.Event -> RTB.T U.Beats ProKeys.Event
 keysToProKeys d = let
   basicToPK = \case
-    Five.DiffEvent d' (Five.Note b c) | d == d' ->
-      Just $ ProKeys.Note b $ ProKeys.BlueGreen $ case c of
+    Five.DiffEvent d' (Five.Note long) | d == d' ->
+      Just $ ProKeys.Note $ flip fmap long $ \c -> ProKeys.BlueGreen $ case c of
         Five.Green  -> C
         Five.Red    -> D
         Five.Yellow -> E

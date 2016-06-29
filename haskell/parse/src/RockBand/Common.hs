@@ -5,6 +5,9 @@
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TupleSections     #-}
 {-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveTraversable #-}
 module RockBand.Common where
 
 import           Control.Monad                    (guard)
@@ -16,6 +19,7 @@ import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import           Text.Read                        (readMaybe)
+import qualified Sound.MIDI.Util as U
 
 -- | Class for events which are stored as a @\"[x y z]\"@ text event.
 class Command a where
@@ -130,3 +134,31 @@ baseCopyExpert differ undiffer rtb = let
   h' = fmap (differ Hard  ) $ if RTB.null h then x else h
   x' = fmap (differ Expert) x
   in foldr RTB.merge rtb' [e', m', h', x']
+
+data LongNote s a
+  = NoteOff     a
+  | Blip      s a
+  | NoteOn    s a
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+
+joinEdges :: (NNC.C t, Eq a) => RTB.T t (LongNote s a) -> RTB.T t (s, a, Maybe t)
+joinEdges rtb = case RTB.viewL rtb of
+  Nothing -> RTB.empty
+  Just ((dt, x), rtb') -> case x of
+    Blip s a -> RTB.cons dt (s, a, Nothing) $ joinEdges rtb'
+    NoteOn s a -> let
+      isNoteOff (NoteOff a') = guard (a == a') >> Just ()
+      isNoteOff _            = Nothing
+      in case U.extractFirst isNoteOff rtb' of
+        Nothing -> RTB.delay dt $ joinEdges rtb' -- unmatched note on
+        Just ((len, ()), rtb'') -> RTB.cons dt (s, a, Just len) $ joinEdges rtb''
+    NoteOff _ -> RTB.delay dt $ joinEdges rtb' -- unmatched note off
+
+splitEdges :: (NNC.C t, Ord s, Ord a) => RTB.T t (s, a, Maybe t) -> RTB.T t (LongNote s a)
+splitEdges = U.trackJoin . fmap f where
+  f (s, a, len) = case len of
+    Nothing -> RTB.singleton NNC.zero $ Blip s a
+    Just t  -> RTB.fromPairList
+      [ (NNC.zero, NoteOn s a)
+      , (t       , NoteOff  a)
+      ]

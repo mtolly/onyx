@@ -24,7 +24,7 @@ data Event
   | Trill      Bool -- ^ Fill lanes on two keys.
   | Overdrive  Bool -- ^ An energy phrase.
   | BRE        Bool -- ^ Fill lanes for a Big Rock Ending.
-  | Note       Bool Pitch
+  | Note (LongNote () Pitch)
   deriving (Eq, Ord, Show)
 
 -- | There are six playable ranges, each of which covers 10 white keys, plus
@@ -94,7 +94,7 @@ unparseNice trk = let
   notRangeEvents = unparseAll unparseOne notRanges
   in RTB.merge rangeEvents notRangeEvents
 
-instanceMIDIEvent [t| Event |]
+instanceMIDIEvent [t| Event |] $
 
   [ blip 0 [p| LaneShift RangeC |]
   , blip 2 [p| LaneShift RangeD |]
@@ -103,11 +103,33 @@ instanceMIDIEvent [t| Event |]
   , blip 7 [p| LaneShift RangeG |]
   , blip 9 [p| LaneShift RangeA |]
 
-  , edgeRange [48..59] $ \_i _b -> [p| Note $(boolP _b) (RedYellow $(keyP $ _i - 48)) |]
-  , edgeRange [60..71] $ \_i _b -> [p| Note $(boolP _b) (BlueGreen $(keyP $ _i - 60)) |]
-  , edge      72       $ \   _b -> [p| Note $(boolP _b) OrangeC                       |]
+  ] ++ noteParser 48 [p| RedYellow C  |] (\p -> [p| Note $p |])
+    ++ noteParser 49 [p| RedYellow Cs |] (\p -> [p| Note $p |])
+    ++ noteParser 50 [p| RedYellow D  |] (\p -> [p| Note $p |])
+    ++ noteParser 51 [p| RedYellow Ds |] (\p -> [p| Note $p |])
+    ++ noteParser 52 [p| RedYellow E  |] (\p -> [p| Note $p |])
+    ++ noteParser 53 [p| RedYellow F  |] (\p -> [p| Note $p |])
+    ++ noteParser 54 [p| RedYellow Fs |] (\p -> [p| Note $p |])
+    ++ noteParser 55 [p| RedYellow G  |] (\p -> [p| Note $p |])
+    ++ noteParser 56 [p| RedYellow Gs |] (\p -> [p| Note $p |])
+    ++ noteParser 57 [p| RedYellow A  |] (\p -> [p| Note $p |])
+    ++ noteParser 58 [p| RedYellow As |] (\p -> [p| Note $p |])
+    ++ noteParser 59 [p| RedYellow B  |] (\p -> [p| Note $p |])
+    ++ noteParser 60 [p| BlueGreen C  |] (\p -> [p| Note $p |])
+    ++ noteParser 61 [p| BlueGreen Cs |] (\p -> [p| Note $p |])
+    ++ noteParser 62 [p| BlueGreen D  |] (\p -> [p| Note $p |])
+    ++ noteParser 63 [p| BlueGreen Ds |] (\p -> [p| Note $p |])
+    ++ noteParser 64 [p| BlueGreen E  |] (\p -> [p| Note $p |])
+    ++ noteParser 65 [p| BlueGreen F  |] (\p -> [p| Note $p |])
+    ++ noteParser 66 [p| BlueGreen Fs |] (\p -> [p| Note $p |])
+    ++ noteParser 67 [p| BlueGreen G  |] (\p -> [p| Note $p |])
+    ++ noteParser 68 [p| BlueGreen Gs |] (\p -> [p| Note $p |])
+    ++ noteParser 69 [p| BlueGreen A  |] (\p -> [p| Note $p |])
+    ++ noteParser 70 [p| BlueGreen As |] (\p -> [p| Note $p |])
+    ++ noteParser 71 [p| BlueGreen B  |] (\p -> [p| Note $p |])
+    ++ noteParser 72 [p| OrangeC      |] (\p -> [p| Note $p |]) ++
 
-  , edge 115 $ applyB [p| Solo |]
+  [ edge 115 $ applyB [p| Solo |]
   , edge 116 $ applyB [p| Overdrive |]
   , edge 120 $ applyB [p| BRE |]
   , edge 126 $ applyB [p| Glissando |]

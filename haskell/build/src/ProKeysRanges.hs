@@ -41,14 +41,19 @@ completeFile fin fout = do
   Save.toFile fout mid'
 
 -- | Adds ranges if there are none.
-completeRanges :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
+completeRanges :: RTB.T U.Beats Event -> RTB.T U.Beats Event
 completeRanges rtb = let
   (ranges, notRanges) = flip RTB.partitionMaybe rtb $ \case
     LaneShift r -> Just r
     _           -> Nothing
-  held = heldNotes $ flip RTB.mapMaybe notRanges $ \case
-    Note b p -> Just (b, p)
-    _        -> Nothing
+  held = heldNotes $ U.trackJoin $ flip fmap notRanges $ \case
+    Note (Blip () p) -> RTB.fromPairList
+      [ (0  , (True, p))
+      , (1/4, (True, p)) -- give all blips a 16th note of room
+      ]
+    Note (NoteOn () p) -> RTB.singleton 0 (True, p)
+    Note (NoteOff   p) -> RTB.singleton 0 (False, p)
+    _                  -> RTB.empty
   in if RTB.null ranges
     then RTB.merge rtb $ fmap LaneShift $ pullBackRanges held $ createRanges held
     else rtb
@@ -150,7 +155,10 @@ closeShifts :: U.Seconds -> RTB.T U.Seconds Event -> RTB.T U.Seconds (LaneRange,
 closeShifts threshold rtb = let
   lanes = ATB.toPairList $ RTB.toAbsoluteEventList 0 $ flip RTB.mapMaybe rtb $ \case LaneShift rng -> Just rng; _ -> Nothing
   shifts = zip lanes $ drop 1 lanes
-  notes = flip RTB.mapMaybe rtb $ \case Note True p -> Just p; _ -> Nothing
+  notes = flip RTB.mapMaybe rtb $ \case
+    Note (NoteOn () p) -> Just p
+    Note (Blip   () p) -> Just p
+    _                  -> Nothing
   closeNotes ((_, rng1), (t, rng2)) = do
     ((dt, p), _) <- RTB.viewL $ RTB.filter (not . keyInPreRange rng1) $ U.trackTake threshold $ U.trackDrop t notes
     return (t, (rng1, rng2, dt, p))
