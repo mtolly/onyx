@@ -9,6 +9,9 @@ import RockBand.Common
 import RockBand.Parse
 import Control.Monad (guard)
 import qualified Sound.MIDI.Util as U
+import qualified Data.Set as Set
+import Data.List (sort)
+import Data.Bifunctor (first)
 
 data Color = Green | Red | Yellow | Blue | Orange
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -179,60 +182,87 @@ copyExpert = baseCopyExpert DiffEvent $ \case
 
 assignKeys :: (NNC.C t) => RTB.T t DiffEvent -> RTB.T t (LongNote StrumHOPO Color)
 assignKeys = RTB.mapMaybe $ \case
-  Force _ _          -> Nothing
-  Note (NoteOff   c) -> Just $ NoteOff      c
-  Note (Blip   () c) -> Just $ Blip   Strum c
-  Note (NoteOn () c) -> Just $ NoteOn Strum c
+  Force _ _ -> Nothing
+  Note note -> Just $ first (const Strum) note
 
-assignHOPO :: (NNC.C t) => t -> RTB.T t DiffEvent -> RTB.T t (LongNote StrumHOPO Color)
-assignHOPO threshold = RTB.flatten . start . RTB.collectCoincident where
-  start = go Nothing False False
-  go lastNoteOn forceStrum forceHOPO rtb = case RTB.viewL rtb of
-    Nothing -> RTB.empty
-    Just ((dt, evs), rtb') -> let
-      forceStrum' = or
-        [ forceStrum && notElem (Force Strum False) evs
-        ,               elem    (Force Strum True ) evs
-        ]
-      forceHOPO' = or
-        [ forceHOPO && notElem (Force HOPO False) evs
-        ,              elem    (Force HOPO True ) evs
-        ]
-      blips    = [ c | Note (Blip   () c) <- evs ]
-      fretsOn  = [ c | Note (NoteOn () c) <- evs ]
-      fretsOff = [ c | Note (NoteOff   c) <- evs ]
-      autoHOPO = case (blips ++ fretsOn, lastNoteOn) of
-        ([color], Just (ago, colors)) -> and
-          [ color `notElem` colors
-          , NNC.add ago dt < threshold -- TODO: should be < or <= ?
-          ]
-        _ -> False -- chord, or first note of the song
-      lastNoteOn' = if null $ blips ++ fretsOn
-        then flip fmap lastNoteOn $ \(ago, colors) -> (NNC.add ago dt, colors)
-        else Just (NNC.zero, blips ++ fretsOn)
-      ntype = if forceStrum' then Strum
-        else if forceHOPO' || autoHOPO then HOPO
-        else Strum
-      theseEvents = map NoteOff fretsOff ++ map (Blip ntype) blips ++ map (NoteOn ntype) fretsOn
-      in RTB.cons dt theseEvents $ go lastNoteOn' forceStrum' forceHOPO' rtb'
+trackState :: (NNC.C t) => s -> (s -> t -> a -> (s, Maybe b)) -> RTB.T t a -> RTB.T t b
+trackState state step rtb = case RTB.viewL rtb of
+  Nothing -> RTB.empty
+  Just ((dt, x), rtb') -> case step state dt x of
+    (state', Nothing) -> RTB.delay dt   $ trackState state' step rtb'
+    (state', Just y ) -> RTB.cons  dt y $ trackState state' step rtb'
 
+applyStatus :: (NNC.C t, Ord s, Ord a) => RTB.T t (s, Bool) -> RTB.T t a -> RTB.T t ([s], a)
+applyStatus status events = let
+  fn current _ = \case
+    Left  (s, True ) -> (Set.insert s current, Nothing                     )
+    Left  (s, False) -> (Set.delete s current, Nothing                     )
+    Right x          -> (             current, Just (Set.toList current, x))
+  in trackState Set.empty fn $ RTB.merge (fmap Left status) (fmap Right events)
+
+guitarifyHOPO :: U.Beats -> Bool -> RTB.T U.Beats DiffEvent -> RTB.T U.Beats (LongNote StrumHOPO [Color])
+guitarifyHOPO threshold keys rtb = let
+  gtr = joinEdges $ guitarify $ RTB.mapMaybe (\case Note ln -> Just ln; _ -> Nothing) rtb
+  withForce = applyStatus (RTB.mapMaybe (\case Force f b -> Just (f, b); _ -> Nothing) rtb) gtr
+  fn prev dt (forces, ((), colors, len)) = let
+    ntype = case forces of
+      nt : _ -> nt
+      [] -> if dt >= threshold -- TODO: should this be > or >= ?
+        then Strum
+        else case prev of
+          Nothing -> Strum
+          Just prevColors -> case colors of
+            [c] -> if c `elem` prevColors -- TODO: is this also true on keys?
+              then Strum
+              else HOPO
+            _ -> if keys
+              then if sort colors /= sort prevColors
+                then HOPO
+                else Strum
+              else Strum
+    in (Just colors, Just (ntype, colors, len))
+  in splitEdges $ trackState Nothing fn withForce
+
+keysToGuitar :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats Event
+keysToGuitar threshold evts = let
+  getDiffEvent diff = \case
+    DiffEvent d e | d == diff -> Just e
+    _                         -> Nothing
+  (expert, notExpert) = RTB.partitionMaybe (getDiffEvent Expert) evts
+  (hard  , notHard  ) = RTB.partitionMaybe (getDiffEvent Hard  ) notExpert
+  (medium, notMedium) = RTB.partitionMaybe (getDiffEvent Medium) notHard
+  (easy  , notEasy  ) = RTB.partitionMaybe (getDiffEvent Easy  ) notMedium
+  forceNote ntype = RTB.fromPairList
+    [ (0   , Force ntype True )
+    , (1/32, Force ntype False)
+    ]
+  longToEvents longs = U.trackJoin $ flip fmap longs $ \case
+    Blip   ntype colors -> RTB.merge (forceNote ntype) $ foldr (RTB.cons 0) RTB.empty $ map (Note . Blip   ()) colors
+    NoteOn ntype colors -> RTB.merge (forceNote ntype) $ foldr (RTB.cons 0) RTB.empty $ map (Note . NoteOn ()) colors
+    NoteOff      colors ->                               foldr (RTB.cons 0) RTB.empty $ map (Note . NoteOff  ) colors
+  in foldr RTB.merge RTB.empty
+    [ DiffEvent Expert <$> longToEvents (guitarifyHOPO threshold True expert)
+    , DiffEvent Hard   <$> longToEvents (guitarifyHOPO threshold True hard  )
+    , DiffEvent Medium <$> longToEvents (guitarifyHOPO threshold True medium)
+    , DiffEvent Easy   <$> longToEvents (guitarifyHOPO threshold True easy  )
+    , notEasy
+    ]
+
+-- | Takes a track of individual notes, possibly with overlaps,
+-- and returns a guitar-controller-playable sequence where chords are
+-- grouped together and overlaps are removed.
 guitarify :: (Ord s, Ord a) => RTB.T U.Beats (LongNote s a) -> RTB.T U.Beats (LongNote s [a])
-guitarify = splitEdges . go . RTB.collectCoincident where
+guitarify = splitEdges . go . RTB.collectCoincident . joinEdges where
   go rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
     Just ((dt, xs), rtb') -> let
-      notes = xs >>= \case
-        NoteOn s c -> [(s, c)]
-        Blip   s c -> [(s, c)]
-        NoteOff  _ -> []
-      len = case RTB.viewL rtb' of
-        Nothing              -> error "guitar note interpretation: panic! note with no note-off"
-        Just ((dt', xs'), _) -> if any (\case NoteOff _ -> False; _ -> True) xs'
-          then dt' NNC.-| (1/8) -- 32nd note gap between notes
-          else dt'
-      len' = guard (len > 1/3) >> Just len
+      ntype = case head xs of (nt, _, _) -> nt
+      colors = map (\(_, c, _) -> c) xs
+      len1 = maximum $ map (\(_, _, len) -> len) xs
+      len2 = case RTB.viewL rtb' of
+        Nothing          -> len1
+        Just ((t, _), _) -> min (t NNC.-| (1/8)) <$> len1
+      len3 = guard (maybe True (> 1/3) len2) >> len2
       -- anything 1/3 beat or less, make into blip.
       -- RB does not do this step, so it produces 16th note sustains on keytar...
-      in case notes of
-        [] -> RTB.delay dt $ go rtb'
-        (ntype, _) : _ -> RTB.cons dt (ntype, map snd notes, len') $ go rtb'
+      in RTB.cons dt (ntype, colors, len3) $ go rtb'

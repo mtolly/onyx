@@ -20,6 +20,7 @@ import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import           Text.Read                        (readMaybe)
 import qualified Sound.MIDI.Util as U
+import Data.Bifunctor (Bifunctor(..))
 
 -- | Class for events which are stored as a @\"[x y z]\"@ text event.
 class Command a where
@@ -140,6 +141,13 @@ data LongNote s a
   | Blip      s a
   | NoteOn    s a
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+
+instance Bifunctor LongNote where
+  first f = \case
+    NoteOff  x -> NoteOff      x
+    Blip   s x -> Blip   (f s) x
+    NoteOn s x -> NoteOn (f s) x
+  second = fmap
 
 joinEdges :: (NNC.C t, Eq a) => RTB.T t (LongNote s a) -> RTB.T t (s, a, Maybe t)
 joinEdges rtb = case RTB.viewL rtb of

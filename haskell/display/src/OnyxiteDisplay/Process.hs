@@ -10,6 +10,7 @@ import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
+import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (stripPrefix)
 import qualified Data.Map.Strict                  as Map
@@ -143,8 +144,9 @@ processFive :: Maybe U.Beats -> U.TempoMap -> RTB.T U.Beats Five.Event -> Five U
 processFive hopoThreshold tmap trk = let
   expert = flip RTB.mapMaybe trk $ \case Five.DiffEvent Expert e -> Just e; _ -> Nothing
   assigned = case hopoThreshold of
-    Just threshold -> Five.assignHOPO threshold expert
+    Just threshold -> expandColors $ Five.guitarifyHOPO threshold False expert
     Nothing -> Five.assignKeys expert
+  expandColors = RTB.flatten . fmap (traverse toList)
   getColor color = trackToMap tmap $ flip RTB.mapMaybe assigned $ \case
     Blip   ntype c -> guard (c == color) >> Just (Blip   ntype ())
     NoteOn ntype c -> guard (c == color) >> Just (NoteOn ntype ())

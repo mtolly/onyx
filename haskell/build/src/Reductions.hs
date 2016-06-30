@@ -203,11 +203,12 @@ data GuitarNote t = GuitarNote [Five.Color] StrumHOPO (Maybe t)
   deriving (Eq, Ord, Show, Read)
 
 readGuitarNotes :: Maybe Int -> RTB.T U.Beats Five.DiffEvent -> RTB.T U.Beats (GuitarNote U.Beats)
-readGuitarNotes hopoThres = fmap f . joinEdges . Five.guitarify . assign where
-  assign = case hopoThres of
-    Just i  -> Five.assignHOPO $ fromIntegral i / 480
-    Nothing -> Five.assignKeys
-  f (ntype, colors, len) = GuitarNote colors ntype len
+readGuitarNotes hopoThres
+  = fmap (\(ntype, colors, len) -> GuitarNote colors ntype len)
+  . joinEdges
+  . case hopoThres of
+    Nothing -> Five.guitarifyHOPO 0                      True
+    Just i  -> Five.guitarifyHOPO (fromIntegral i / 480) False
 
 showGuitarNotes :: Bool -> RTB.T U.Beats (GuitarNote U.Beats) -> RTB.T U.Beats Five.DiffEvent
 showGuitarNotes isKeys = U.trackJoin . fmap f where
