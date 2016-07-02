@@ -1,17 +1,17 @@
 module Draw (Settings(), App(..), DrawStuff(), draw, _M, _B, getWindowDims) where
 
 import Prelude
-import qualified Graphics.Canvas as C
-import Data.Time
+import Graphics.Canvas as C
+import Data.Time.Duration
 import Images
 import Control.Monad.Reader.Trans
 import Control.Monad.Eff
 import Data.Int (toNumber, round)
 import DOM
-import qualified OnyxMap as Map
+import OnyxMap as Map
 import Data.Maybe
 import Data.Array (uncons, cons, snoc, take, zip, (..), length, concat)
-import qualified Data.List as L
+import Data.List as L
 import Data.Tuple
 import Control.Monad (when)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
@@ -19,8 +19,9 @@ import Data.Ord (min, max)
 import Data.Foldable (elem, sum, for_)
 import Control.Apply ((*>))
 import Control.MonadPlus (guard)
-import qualified Data.String.Regex as R
+import Data.String.Regex as R
 import Math (pi)
+import Data.Either (either)
 
 import Song
 
@@ -59,7 +60,7 @@ type DrawStuff =
   , secsToPxHoriz :: Seconds -> Int -- now-offset in seconds -> pixels from left
   }
 
-type Draw e = ReaderT DrawStuff (Eff (canvas :: C.Canvas | e))
+type Draw e = ReaderT DrawStuff (Eff (canvas :: C.CANVAS | e))
 
 askStuff :: forall e. Draw e DrawStuff
 askStuff = ask
@@ -84,7 +85,7 @@ drawImage iid x y = do
   img <- map _.getImage ask
   onContext $ \ctx -> C.drawImage ctx (img iid) x y
 
-onContext :: forall e. (C.Context2D -> Eff (canvas :: C.Canvas | e) C.Context2D) -> Draw e Unit
+onContext :: forall e. (C.Context2D -> Eff (canvas :: C.CANVAS | e) C.Context2D) -> Draw e Unit
 onContext act = map _.context ask >>= act >>> void >>> lift
 
 measureText :: forall e. String -> Draw e C.TextMetrics
@@ -100,7 +101,7 @@ draw = do
   fillRect { x: 0.0, y: 0.0, w: windowW, h: windowH }
   -- Draw the visible instrument tracks in sequence
   let drawTracks targetX trks = case uncons trks of
-        Nothing -> return unit
+        Nothing -> pure unit
         Just {head: trk, tail: trkt} -> do
           drawResult <- trk targetX
           case drawResult of
@@ -114,7 +115,7 @@ draw = do
     , drawPart (\(Song o) -> o.prokeys) _.seeProKeys drawProKeys
     ]
   void $ drawPart (\(Song o) -> o.vocal) _.seeVocal drawVocal 0
-  let drawButtons _ L.Nil             = return unit
+  let drawButtons _ L.Nil             = pure unit
       drawButtons y (L.Cons iid iids) = do
         drawImage iid (toNumber $ _M + _B + _M) (toNumber y)
         drawButtons (y - _M - _B) iids
@@ -135,8 +136,7 @@ draw = do
         Playing _ -> Image_button_pause
   drawImage playPause (toNumber _M) (windowH - toNumber _M - toNumber _B)
   let timelineH = windowH - 3.0 * toNumber _M - toNumber _B - 2.0
-      filled = case stuff.time / (case stuff.song of Song o -> o.end) of
-        Seconds n -> n
+      filled = unSeconds (stuff.time) / unSeconds (case stuff.song of Song o -> o.end)
   setFillStyle "black"
   fillRect { x: toNumber _M, y: toNumber _M, w: toNumber _B, h: timelineH + 2.0 }
   setFillStyle "white"
@@ -171,7 +171,7 @@ drawPart getPart see drawIt targetX = do
         Playing o -> o.settings
   case getPart stuff.song of
     Just part | see settings -> map Just $ drawIt part targetX
-    _                        -> return Nothing
+    _                        -> pure Nothing
 
 drawFive :: forall e. Five -> Int -> Draw e Int
 drawFive (Five five) targetX = do
@@ -205,8 +205,8 @@ drawFive (Five five) targetX = do
         $ cons (Tuple minSecs startsAsSolo)
         $ flip snoc (Tuple maxSecs false)
         $ Map.doTupleArray (zoomAsc five.solo)
-      drawSolos L.Nil            = return unit
-      drawSolos (L.Cons _ L.Nil) = return unit
+      drawSolos L.Nil            = pure unit
+      drawSolos (L.Cons _ L.Nil) = pure unit
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
@@ -287,13 +287,13 @@ drawFive (Five five) targetX = do
                 L.Cons (Tuple secsEnd _) _ -> secsToPxVert secsEnd
           drawSustainBlock pxEnd (secsToPxVert secsStart) $ isEnergy secsStart
           go true rest
-        go _ L.Nil = return unit
+        go _ L.Nil = pure unit
     case L.fromFoldable $ Map.doTupleArray (zoomAsc thisColor) of
       L.Nil -> case Map.lookupLT (pxToSecsVert windowH) thisColor of
         -- handle the case where the entire screen is the middle of a sustain
         Just { key: secsStart, value: Sustain _ } ->
           drawSustainBlock 0 windowH $ isEnergy secsStart
-        _ -> return unit
+        _ -> pure unit
       events -> go false events
   -- Notes
   for_ colors $ \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, hit: shadeHit } -> do
@@ -304,11 +304,11 @@ drawFive (Five five) targetX = do
           -- note is in the past or being hit now
           if (-0.1) < futureSecs
             then case evt of
-              SustainEnd -> return unit
+              SustainEnd -> pure unit
               _ -> do
                 setFillStyle $ shadeHit $ (futureSecs + 0.1) / 0.05
                 fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
-            else return unit
+            else pure unit
         else do
           let y = secsToPxVert secs
               isEnergy = case Map.lookupLE secs five.energy of
@@ -320,7 +320,7 @@ drawFive (Five five) targetX = do
             Sustain Strum -> drawImage (if isEnergy then Image_gem_energy      else strumImage) (toNumber $ targetX + offsetX) (toNumber $ y - 5 )
             Note    HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) (toNumber $ targetX + offsetX) (toNumber $ y - 5 )
             Sustain HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) (toNumber $ targetX + offsetX) (toNumber $ y - 5 )
-  return $ targetX + 182 + _M
+  pure $ targetX + 182 + _M
 
 drawDrums :: forall e. Drums -> Int -> Draw e Int
 drawDrums (Drums drums) targetX = do
@@ -354,8 +354,8 @@ drawDrums (Drums drums) targetX = do
         $ cons (Tuple minSecs startsAsSolo)
         $ flip snoc (Tuple maxSecs false)
         $ Map.doTupleArray (zoomAsc drums.solo)
-      drawSolos L.Nil            = return unit
-      drawSolos (L.Cons _ L.Nil) = return unit
+      drawSolos L.Nil            = pure unit
+      drawSolos (L.Cons _ L.Nil) = pure unit
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
@@ -409,7 +409,7 @@ drawDrums (Drums drums) targetX = do
               BTom -> blue
               GCym -> green
               GTom -> green
-          else return unit
+          else pure unit
       else do
         -- note is in the future
         let y = secsToPxVert secs
@@ -427,7 +427,7 @@ drawDrums (Drums drums) targetX = do
           GCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) (toNumber $ targetX + 109) (toNumber $ y - 8)
   -- TODO: draw all kicks before starting hand gems
   -- Return targetX of next track
-  return $ targetX + 146 + _M
+  pure $ targetX + 146 + _M
 
 data PKHighway
   = RailingLight
@@ -454,7 +454,7 @@ pitchList = do
   let allPitches = [RedC,RedCs,RedD,RedDs,RedE,YellowF,YellowFs,YellowG,YellowGs,YellowA,YellowAs,YellowB,BlueC,BlueCs,BlueD,BlueDs,BlueE,GreenF,GreenFs,GreenG,GreenGs,GreenA,GreenAs,GreenB,OrangeC]
       isBlack p = elem p [RedCs,RedDs,YellowFs,YellowGs,YellowAs,BlueCs,BlueDs,GreenFs,GreenGs,GreenAs]
   Tuple pitch lowerPitches <- zip allPitches $ inits allPitches
-  return
+  pure
     { pitch: pitch
     , offsetX: 1 + sum (map (\p -> if isBlack p then 10 else 12) lowerPitches)
     , isBlack: isBlack pitch
@@ -476,7 +476,7 @@ drawProKeys (ProKeys pk) targetX = do
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
   -- Highway
-  let drawHighway _    L.Nil                 = return unit
+  let drawHighway _    L.Nil                 = pure unit
       drawHighway xpos (L.Cons chunk chunks) = do
         let params = case chunk of
               RailingLight  -> { color: "rgb(184,185,205)", width: 1 }
@@ -497,7 +497,7 @@ drawProKeys (ProKeys pk) targetX = do
         $ cons (Tuple minSecs startsAsSolo)
         $ flip snoc (Tuple maxSecs false)
         $ Map.doTupleArray (zoomAsc pk.solo)
-      drawSoloHighway _    _  _  L.Nil                 = return unit
+      drawSoloHighway _    _  _  L.Nil                 = pure unit
       drawSoloHighway xpos y1 y2 (L.Cons chunk chunks) = do
         let params = case chunk of
               RailingLight  -> { color: Nothing                , width: 1  }
@@ -506,13 +506,13 @@ drawProKeys (ProKeys pk) targetX = do
               WhiteKeyShort -> { color: Just "rgb( 91,137,185)", width: 10 }
               BlackKey      -> { color: Just "rgb( 73,111,149)", width: 11 }
         case params.color of
-          Nothing -> return unit
+          Nothing -> pure unit
           Just c  -> do
             setFillStyle c
             fillRect { x: toNumber xpos, y: toNumber y1, w: toNumber params.width, h: toNumber $ y2 - y1 }
         drawSoloHighway (xpos + params.width) y1 y2 chunks
-      drawSolos L.Nil            = return unit
-      drawSolos (L.Cons _ L.Nil) = return unit
+      drawSolos L.Nil            = pure unit
+      drawSolos (L.Cons _ L.Nil) = pure unit
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         when b1 $ drawSoloHighway targetX (secsToPxVert s1) (secsToPxVert s2) pkHighway
         drawSolos rest
@@ -536,11 +536,11 @@ drawProKeys (ProKeys pk) targetX = do
         $ cons (Tuple minSecs $ map _.value $ Map.lookupLE minSecs pk.ranges)
         $ flip snoc (Tuple maxSecs Nothing)
         $ map (map Just) $ Map.doTupleArray (zoomAsc pk.ranges)
-      drawRanges L.Nil = return unit
-      drawRanges (L.Cons _ L.Nil) = return unit
+      drawRanges L.Nil = pure unit
+      drawRanges (L.Cons _ L.Nil) = pure unit
       drawRanges (L.Cons (Tuple s1 rng) rest@(L.Cons (Tuple s2 _) _)) = do
         case rng of
-          Nothing -> return unit
+          Nothing -> pure unit
           Just r -> let
             y = toNumber (secsToPxVert s1)
             h = toNumber (secsToPxVert s2) - y
@@ -598,13 +598,13 @@ drawProKeys (ProKeys pk) targetX = do
                 L.Cons (Tuple secsEnd _) _ -> secsToPxVert secsEnd
           drawSustainBlock pxEnd (secsToPxVert secsStart) $ isEnergy secsStart
           go True rest
-        go _ L.Nil = return unit
+        go _ L.Nil = pure unit
     case L.fromFoldable $ Map.doTupleArray (zoomAsc thisPitch) of
       L.Nil -> case Map.lookupLT (pxToSecsVert windowH) thisPitch of
         -- handle the case where the entire screen is the middle of a sustain
         Just { key: secsStart, value: Sustain (_ :: Unit) } ->
           drawSustainBlock 0 windowH $ isEnergy secsStart
-        _ -> return unit
+        _ -> pure unit
       events -> go False events
   -- Notes
   for_ pitchList $ \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
@@ -615,11 +615,11 @@ drawProKeys (ProKeys pk) targetX = do
           -- note is in the past or being hit now
           if (-0.1) < futureSecs
             then case evt of
-              SustainEnd -> return unit
+              SustainEnd -> pure unit
               _ -> do
                 setFillStyle $ "rgba(227,193,238," <> show ((futureSecs + 0.1) / 0.05) <> ")"
                 fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 }
-            else return unit
+            else pure unit
         else do
           let y = secsToPxVert secs
               isEnergy = case Map.lookupLE secs pk.energy of
@@ -632,26 +632,26 @@ drawProKeys (ProKeys pk) targetX = do
             SustainEnd   -> drawImage Image_sustain_key_end (toNumber $ targetX + offsetX - if isBlack then 1 else 0) (toNumber   y    )
             Note    (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5)
             Sustain (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5)
-  return $ targetX + 282 + _M
+  pure $ targetX + 282 + _M
 
 zoomAscDoPadding :: forall k a m. (Ord k, Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
 zoomAscDoPadding k1 k2 m act = do
   case Map.lookupLE k1 m of
-    Nothing -> return unit
+    Nothing -> pure unit
     Just { key: k, value: v } -> act k v
   Map.zoomAscDo k1 k2 m act
   case Map.lookupGE k2 m of
-    Nothing -> return unit
+    Nothing -> pure unit
     Just { key: k, value: v } -> act k v
 
 zoomDescDoPadding :: forall k a m. (Ord k, Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
 zoomDescDoPadding k1 k2 m act = do
   case Map.lookupGE k2 m of
-    Nothing -> return unit
+    Nothing -> pure unit
     Just { key: k, value: v } -> act k v
   Map.zoomDescDo k1 k2 m act
   case Map.lookupLE k1 m of
-    Nothing -> return unit
+    Nothing -> pure unit
     Just { key: k, value: v } -> act k v
 
 slide :: Number -> Number -> Number -> Number -> Number -> Number
@@ -723,8 +723,8 @@ drawVocal (Vocal v) targetY = do
         -- this case only happens in sloppy vox charts with no gap between notes
         fillRect { x: toNumber $ secsToPxHoriz t1, y: toNumber targetY + 25.0, w: toNumber $ secsToPxHoriz t2 - secsToPxHoriz t1, h: 130.0 }
         drawLines Nothing rest
-      drawLines Nothing (L.Cons (Tuple _ (VocalStart _ _)) L.Nil) = return unit -- off-screen
-      drawLines _ L.Nil = return unit
+      drawLines Nothing (L.Cons (Tuple _ (VocalStart _ _)) L.Nil) = pure unit -- off-screen
+      drawLines _ L.Nil = pure unit
       drawLines Nothing (L.Cons (Tuple _ VocalEnd) rest) = drawLines Nothing rest
       lineParts =
         [ { part: v.harm2, line: "rgb(189,67,0)"  , talky: "rgba(189,67,0,0.6)"  , width: 6.0 }
@@ -758,11 +758,11 @@ drawVocal (Vocal v) targetY = do
         VocalEnd -> Nothing
         VocalStart lyric pitch
           | lyric == "+" -> Nothing
-          | R.test (R.regex "\\$$" R.noFlags) lyric -> Nothing
+          | R.test (either unsafeThrow id $ R.regex "\\$$" R.noFlags) lyric -> Nothing
           | isHarm3 && harm2Lyric t == Just lyric -> Nothing
           | otherwise -> Just
             { time: t
-            , lyric: R.replace (R.regex "=$" R.noFlags) "-" lyric
+            , lyric: R.replace (either unsafeThrow id $ R.regex "=$" R.noFlags) "-" lyric
             , isTalky: isNothing pitch
             }
           -- TODO: support §
@@ -771,7 +771,7 @@ drawVocal (Vocal v) targetY = do
         -> Number
         -> L.List {time :: Seconds, lyric :: String, isTalky :: Boolean}
         -> Draw e Unit
-      drawLyrics _    _     L.Nil           = return unit
+      drawLyrics _    _     L.Nil           = pure unit
       drawLyrics minX textY (L.Cons o rest) = do
         let textX = max minX $ toNumber $ secsToPxHoriz o.time
         onContext $ C.setFont $ if o.isTalky
@@ -817,4 +817,4 @@ drawVocal (Vocal v) targetY = do
   -- Draw target line
   setFillStyle "#ddd"
   fillRect { x: toNumber targetX - 1.0, y: toNumber targetY + 25.0, w: 3.0, h: 130.0 }
-  return $ targetY + 180 + _M
+  pure $ targetY + 180 + _M

@@ -2,9 +2,8 @@ module Main where
 
 import Prelude
 import Data.Maybe
-import Data.Maybe.Unsafe
 import Control.Monad.Eff
-import qualified Graphics.Canvas as C
+import Graphics.Canvas as C
 import DOM
 import Control.Monad.Eff.Console
 import Data.Foreign
@@ -14,14 +13,17 @@ import Control.Monad.Eff.Ref
 import Data.Array
 import DOM.RequestAnimationFrame
 import Data.Date
-import Data.Time
+import Data.Time.Duration
 import Data.Int (round, toNumber)
 import Data.Ord (min, max)
 import Control.Monad.Reader.Trans (runReaderT)
-import qualified Data.List as L
+import Data.List as L
 import Control.Apply ((*>))
 import Control.MonadPlus (guard)
 import Math (abs)
+import Control.Monad.Eff.Now
+import Data.DateTime.Instant
+import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 
 import Audio
 import Images
@@ -36,32 +38,34 @@ foreign import onPoint
   -> Eff (dom :: DOM | e) Unit
 
 main :: Eff
-  ( canvas  :: C.Canvas
+  ( canvas  :: C.CANVAS
   , dom     :: DOM
   , console :: CONSOLE
   , ref     :: REF
-  , now     :: Now
+  , now     :: NOW
   , audio   :: AUDIO
   ) Unit
 main = do
-  canvas <- fromJust <$> C.getCanvasElementById "the-canvas"
+  canvas <- C.getCanvasElementById "the-canvas" >>= \mc -> case mc of
+    Just canvas -> pure canvas
+    Nothing -> unsafeThrow "No canvas element found"
   ctx <- C.getContext2D canvas
   clicks <- newRef []
-  onPoint $ \e -> modifyRef clicks (e :)
+  onPoint $ \e -> modifyRef clicks (e : _)
   withImages $ \imageGetter -> do
     case read onyxSong of
       Left  e    -> log $ show e
       Right song -> loadAudio $ \audio -> do
         let loop app = do
-              ms <- nowEpochMilliseconds
+              ms <- unInstant <$> now
               -- This is what we think the time should be, it moves nice and smooth
               let nowTheory = case app of
                     Paused o -> o.pausedSongTime
-                    Playing o -> o.startedSongTime + toSeconds ms - o.startedPageTime
+                    Playing o -> o.startedSongTime + convertDuration ms - o.startedPageTime
               -- This is what Howler says the audio position really is,
               -- it accounts for all sorts of audio hiccups but it's a bit choppy
               nowHowler <- case app of
-                Paused o -> return o.pausedSongTime
+                Paused o -> pure o.pausedSongTime
                 Playing o -> getPosition audio
               -- So, we slightly correct nowTheory towards nowHowler when needed
               let isClose = abs (case nowHowler - nowTheory of Seconds n -> n) < 0.08
@@ -72,7 +76,7 @@ main = do
                   app' = if isClose then app else case app of
                     Paused o -> Paused o -- this should never happen
                     Playing o -> Playing
-                      { startedPageTime: toSeconds ms
+                      { startedPageTime: convertDuration ms
                       , startedSongTime: nowSeconds
                       , settings: o.settings
                       }
@@ -98,10 +102,10 @@ main = do
                         then if windowH - _M - _B <= y && y <= windowH - _M
                           then case app_ of -- play/pause button
                             Paused o -> do
-                              ms <- nowEpochMilliseconds
+                              ms <- unInstant <$> now
                               playFrom audio nowSeconds do
                                 handle et $ Playing
-                                  { startedPageTime: toSeconds ms
+                                  { startedPageTime: convertDuration ms
                                   , startedSongTime: nowSeconds
                                   , settings: o.settings
                                   }
@@ -120,11 +124,11 @@ main = do
                                   { pausedSongTime = t
                                   }
                                 Playing o -> do
-                                  ms <- nowEpochMilliseconds
+                                  ms <- unInstant <$> now
                                   stop audio
                                   playFrom audio t do
                                     handle et $ Playing $ o
-                                      { startedPageTime = toSeconds ms
+                                      { startedPageTime = convertDuration ms
                                       , startedSongTime = t
                                       }
                             else handle et app_

@@ -2,7 +2,7 @@ module Audio where
 
 import Prelude
 import Control.Monad.Eff (Eff())
-import Data.Time (Seconds())
+import Data.Time.Duration (Seconds())
 
 foreign import data AUDIO :: !
 

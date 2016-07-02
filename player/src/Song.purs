@@ -1,16 +1,16 @@
 module Song where
 
 import Prelude
-import Data.Time
+import Data.Time.Duration
 import Data.Foreign
 import Data.Foreign.Class
 import Data.Foreign.NullOrUndefined
-import qualified OnyxMap as Map
+import OnyxMap as Map
 import Data.Maybe
 import Data.Traversable
 import Data.Tuple
 import Data.Either
-import Data.Generic (Generic, gShow, gEq, gCompare)
+import Data.Generic (class Generic, gShow, gEq, gCompare)
 
 newtype Song = Song
   { end   :: Seconds
@@ -65,12 +65,12 @@ data Range
 
 instance isForeignRange :: IsForeign Range where
   read f = read f >>= \s -> case s of
-    "c" -> return RangeC
-    "d" -> return RangeD
-    "e" -> return RangeE
-    "f" -> return RangeF
-    "g" -> return RangeG
-    "a" -> return RangeA
+    "c" -> pure RangeC
+    "d" -> pure RangeD
+    "e" -> pure RangeE
+    "f" -> pure RangeF
+    "g" -> pure RangeG
+    "a" -> pure RangeA
     _ -> Left $ TypeMismatch "pro keys range" $ show s
 
 data Pitch
@@ -110,18 +110,18 @@ instance ordPitch :: Ord Pitch where
 
 instance isForeignFiveNote :: IsForeign (Sustainable GuitarNoteType) where
   read f = read f >>= \s -> case s of
-    "end"  -> return SustainEnd
-    "strum" -> return $ Note Strum
-    "hopo" -> return $ Note HOPO
-    "strum-sust" -> return $ Sustain Strum
-    "hopo-sust" -> return $ Sustain HOPO
+    "end"  -> pure SustainEnd
+    "strum" -> pure $ Note Strum
+    "hopo" -> pure $ Note HOPO
+    "strum-sust" -> pure $ Sustain Strum
+    "hopo-sust" -> pure $ Sustain HOPO
     _ -> Left $ TypeMismatch "grybo note event" $ show s
 
 instance isForeignPKNote :: IsForeign (Sustainable Unit) where
   read f = read f >>= \s -> case s of
-    "end"  -> return SustainEnd
-    "note" -> return $ Note unit
-    "sust" -> return $ Sustain unit
+    "end"  -> pure SustainEnd
+    "note" -> pure $ Note unit
+    "sust" -> pure $ Sustain unit
     _ -> Left $ TypeMismatch "pro keys note event" $ show s
 
 instance isForeignFive :: IsForeign Five where
@@ -135,7 +135,7 @@ instance isForeignFive :: IsForeign Five where
     orange <- readColor "orange"
     solo <- readProp "solo" f >>= readTimedMap
     energy <- readProp "energy" f >>= readTimedMap
-    return $ Five
+    pure $ Five
       { notes:
         { green: green
         , red: red
@@ -181,7 +181,7 @@ instance isForeignProKeys :: IsForeign ProKeys where
     solo <- readProp "solo" f >>= readTimedMap
     energy <- readProp "energy" f >>= readTimedMap
     ranges <- readProp "ranges" f >>= readTimedMap
-    return $ ProKeys
+    pure $ ProKeys
       { notes: Map.fromFoldable pitches
       , solo: solo
       , energy: energy
@@ -198,7 +198,7 @@ instance isForeignSong :: IsForeign Song where
     NullOrUndefined keys <- readProp "keys" f
     NullOrUndefined prokeys <- readProp "prokeys" f
     NullOrUndefined vocal <- readProp "vocal" f
-    return $ Song
+    pure $ Song
       { end: Seconds end
       , beats: beats
       , drums: drums
@@ -223,20 +223,20 @@ instance isForeignDrums :: IsForeign Drums where
     notes  <- readProp "notes"  f >>= readTimedMap
     solo   <- readProp "solo"   f >>= readTimedMap
     energy <- readProp "energy" f >>= readTimedMap
-    return $ Drums { notes: notes, solo: solo, energy: energy }
+    pure $ Drums { notes: notes, solo: solo, energy: energy }
 
 data Gem = Kick | Red | YCym | YTom | BCym | BTom | GCym | GTom
 
 instance isForeignGem :: IsForeign Gem where
   read f = read f >>= \s -> case s of
-    "kick"  -> return Kick
-    "red"   -> return Red
-    "y-cym" -> return YCym
-    "y-tom" -> return YTom
-    "b-cym" -> return BCym
-    "b-tom" -> return BTom
-    "g-cym" -> return GCym
-    "g-tom" -> return GTom
+    "kick"  -> pure Kick
+    "red"   -> pure Red
+    "y-cym" -> pure YCym
+    "y-tom" -> pure YTom
+    "b-cym" -> pure BCym
+    "b-tom" -> pure BTom
+    "g-cym" -> pure GCym
+    "g-tom" -> pure GTom
     _ -> Left $ TypeMismatch "drum gem name" $ show s
 
 derive instance genGem :: Generic Gem
@@ -254,7 +254,7 @@ newtype Beats = Beats
 instance isForeignBeats :: IsForeign Beats where
   read f = do
     lines <- readProp "lines"  f >>= readTimedMap
-    return $ Beats { lines: lines }
+    pure $ Beats { lines: lines }
 
 data Beat
   = Bar
@@ -263,9 +263,9 @@ data Beat
 
 instance isForeignBeat :: IsForeign Beat where
   read f = read f >>= \s -> case s of
-    "bar"      -> return Bar
-    "beat"     -> return Beat
-    "halfbeat" -> return HalfBeat
+    "bar"      -> pure Bar
+    "beat"     -> pure Beat
+    "halfbeat" -> pure HalfBeat
     _          -> Left $ TypeMismatch "bar/beat/halfbeat" $ show s
 
 instance showBeat :: Show Beat where
@@ -295,7 +295,7 @@ instance isForeignVocal :: IsForeign Vocal where
     NullOrUndefined tonic <- readProp "tonic" f
     percussion <- readProp "percussion" f >>= readTimedSet
     phrases <- readProp "phrases" f >>= readTimedSet
-    return $ Vocal { harm1: harm1, harm2: harm2, harm3: harm3, energy: energy, ranges: ranges, tonic: tonic, percussion: percussion, phrases: phrases }
+    pure $ Vocal { harm1: harm1, harm2: harm2, harm3: harm3, energy: energy, ranges: ranges, tonic: tonic, percussion: percussion, phrases: phrases }
 
 data VocalRange
   = VocalRangeShift    -- ^ Start of a range shift
@@ -303,7 +303,7 @@ data VocalRange
 
 instance isForeignVocalRange :: IsForeign VocalRange where
   read f = if isNull f
-    then return VocalRangeShift
+    then pure VocalRangeShift
     else VocalRange <$> readProp 0 f <*> readProp 1 f
 
 data VocalNote
@@ -312,8 +312,8 @@ data VocalNote
 
 instance isForeignVocalNote :: IsForeign VocalNote where
   read f = if isNull f
-    then return VocalEnd
+    then pure VocalEnd
     else do
       lyric <- readProp 0 f
       NullOrUndefined pitch <- readProp 1 f
-      return $ VocalStart lyric pitch
+      pure $ VocalStart lyric pitch
