@@ -31,3 +31,5 @@ plans:
 instruments:
   drums: true
   # guitar: true
+options:
+  auto-2x-bass: true

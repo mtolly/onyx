@@ -16,7 +16,6 @@ metadata:
   vocal-gender: male
   drum-kit: Trashy Kit
   file-album-art: cover.png_xbox
-  auto-2x-bass: false
   track-number: 10
   key: D sharp
   album: Reign in Blood
@@ -56,3 +55,5 @@ instruments:
   bass: true
   guitar: true
   drums: true
+options:
+  auto-2x-bass: true

@@ -38,3 +38,5 @@ plans:
               - concatenate: [album-sun-of-nothing, album-ants-of-the-sky, album-prequel-to-the-sequel]
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

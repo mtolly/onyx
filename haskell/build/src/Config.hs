@@ -38,6 +38,7 @@ import qualified Text.ParserCombinators.ReadP   as ReadP
 import qualified Text.Read.Lex                  as Lex
 
 import JSONData
+import Data.Default.Class
 
 data Difficulty
   = Tier Integer -- ^ [1..7]: 1 = no dots, 7 = devil dots
@@ -130,21 +131,33 @@ instance A.ToJSON Instrument where
     Keys   -> "keys"
     Vocal  -> "vocal"
 
-{-
--- | Options that affect gameplay.
-data Options = Options
-  { _padStart :: Bool
-  , _hopoThreshold :: Int
-  , _keysRB2 :: KeysRB2
-  , _auto2xBass :: Bool
-  } deriving (Eq, Ord, Show, Read)
-
 data KeysRB2
   = NoKeys
   | KeysGuitar
   | KeysBass
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
--}
+
+instance TraceJSON KeysRB2 where
+  traceJSON = lift ask >>= \case
+    A.Null             -> return NoKeys
+    A.String "no-keys" -> return NoKeys
+    A.String "guitar"  -> return KeysGuitar
+    A.String "bass"    -> return KeysBass
+    _                  -> expected
+      "a location for the keys part on RB2: null/\"no-keys\", \"guitar\", \"bass\""
+
+instance A.ToJSON KeysRB2 where
+  toJSON = \case
+    NoKeys -> A.Null
+    KeysGuitar -> A.String "guitar"
+    KeysBass -> A.String "bass"
+
+-- | Options that affect gameplay.
+jsonRecord "Options" eosr $ do
+  opt "_padStart"      "pad-start"      [t| Bool |]    [e| True |]
+  opt "_hopoThreshold" "hopo-threshold" [t| Int |]     [e| 170 |]
+  opt "_keysRB2"       "keys-rb2"       [t| KeysRB2 |] [e| NoKeys |]
+  opt "_auto2xBass"    "auto-2x-bass"   [t| Bool |]    [e| False |]
 
 instance TraceJSON Magma.Gender where
   traceJSON = lift ask >>= \case
@@ -506,11 +519,11 @@ algebraic3 k f p1 p2 p3 = object $ theKey k $ lift ask >>= \case
   _ -> expected "an array of 3 ADT fields"
 
 decideKey :: (Monad m) => [(T.Text, Parser m A.Value a)] -> Parser m A.Value a -> Parser m A.Value a
-decideKey opts def = lift ask >>= \case
+decideKey opts dft = lift ask >>= \case
   A.Object hm -> case [ p | (k, p) <- opts, Map.member k hm ] of
     p : _ -> p
-    [] -> def
-  _ -> def
+    [] -> dft
+  _ -> dft
 
 instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
   traceJSON = decideKey
@@ -703,9 +716,6 @@ jsonRecord "Metadata" eosr $ do
   opt "_previewStart" "preview-start" [t| Maybe Double |] [e| Nothing |]
   opt "_previewEnd" "preview-end" [t| Maybe Double |] [e| Nothing |]
   opt "_songID" "song-id" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]
-  -- TODO remove
-  opt "_auto2xBass" "auto-2x-bass" [t| Bool |] [e| True |]
-  opt "_hopoThreshold" "hopo-threshold" [t| Int |] [e| 170 |]
 
 getTitle, getArtist, getAlbum, getGenre, getSubgenre, getAuthor :: Metadata -> T.Text
 getTitle = fromMaybe "Untitled" . _title
@@ -721,7 +731,7 @@ getTrackNumber = fromMaybe 1 . _trackNumber
 
 data SongYaml = SongYaml
   { _metadata    :: Metadata
-  -- , _options     :: Options
+  , _options     :: Options
   , _audio       :: Map.HashMap T.Text AudioFile
   , _jammit      :: Map.HashMap T.Text JammitTrack
   , _plans       :: Map.HashMap T.Text Plan
@@ -732,18 +742,20 @@ data SongYaml = SongYaml
 instance TraceJSON SongYaml where
   traceJSON = object $ do
     let defaultEmptyMap = fmap $ fromMaybe Map.empty
-    _metadata    <- required "metadata" traceJSON
+    _metadata    <- fromMaybe def <$> optional "metadata" traceJSON
+    _options     <- fromMaybe def <$> optional "options" traceJSON
     _audio       <- defaultEmptyMap $ optional "audio"  $ mapping traceJSON
     _jammit      <- defaultEmptyMap $ optional "jammit" $ mapping traceJSON
     _plans       <- defaultEmptyMap $ optional "plans"  $ mapping traceJSON
     _instruments <- required "instruments" traceJSON
     _published   <- fromMaybe True <$> optional "published" traceJSON
-    expectedKeys ["metadata", "audio", "jammit", "plans", "instruments", "published"]
+    expectedKeys ["metadata", "options", "audio", "jammit", "plans", "instruments", "published"]
     return SongYaml{..}
 
 instance A.ToJSON SongYaml where
   toJSON SongYaml{..} = A.object
     [ "metadata" .= _metadata
+    , "options" .= _options
     , "audio" .= A.Object (fmap A.toJSON _audio)
     , "jammit" .= A.Object (fmap A.toJSON _jammit)
     , "plans" .= A.Object (fmap A.toJSON _plans)

@@ -69,3 +69,5 @@ plans:
   #   - "Stems from the deluxe edition of Black Clouds & Silver Linings."
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

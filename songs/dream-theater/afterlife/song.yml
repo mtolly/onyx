@@ -39,3 +39,5 @@ plans:
               - album-next
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

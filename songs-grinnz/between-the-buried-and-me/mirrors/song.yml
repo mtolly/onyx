@@ -3,7 +3,6 @@ metadata:
   file-include: "../../../albums/the-great-misdirect.yml"
   track-number: 1
   author: Grinnz
-  auto-2x-bass: false
 audio:
   album-track:
     md5: f7ee2d02293a31d867449932d4c4d81b

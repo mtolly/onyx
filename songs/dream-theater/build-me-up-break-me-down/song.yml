@@ -26,3 +26,5 @@ plans:
 instruments:
   drums: true
 published: false
+options:
+  auto-2x-bass: true

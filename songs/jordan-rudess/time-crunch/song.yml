@@ -29,3 +29,5 @@ plans:
       pad: [3, youtube]
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

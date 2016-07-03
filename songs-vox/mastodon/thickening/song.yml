@@ -16,3 +16,5 @@ instruments:
   vocal: 2
   drums: true
 published: false
+options:
+  auto-2x-bass: true

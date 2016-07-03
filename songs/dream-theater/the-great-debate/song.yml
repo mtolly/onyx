@@ -28,3 +28,5 @@ plans:
   album:
     song:
       pad: [1.082, album-track]
+options:
+  auto-2x-bass: true

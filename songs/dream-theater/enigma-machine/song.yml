@@ -39,3 +39,5 @@ plans:
       pad: [2.483, hdtracks-track]
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

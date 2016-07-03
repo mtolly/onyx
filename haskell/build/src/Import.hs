@@ -118,11 +118,15 @@ importFoF src dest = do
       , _author       = FoF.charter song
       , _rating       = Unrated
       , _drumKit      = HardRockKit
-      , _auto2xBass   = False
-      , _hopoThreshold = 170
       , _previewStart = Nothing
       , _previewEnd   = Nothing
       , _songID       = Nothing
+      }
+    , _options = Options
+      { _auto2xBass    = False
+      , _hopoThreshold = 170
+      , _keysRB2       = NoKeys
+      , _padStart      = False -- TODO
       }
     , _audio = HM.fromList $ flip map audioFiles $ \aud -> (T.pack aud, AudioFile
       { _md5 = Nothing
@@ -301,11 +305,15 @@ importRB3 pkg author mid mogg cover coverName dir = do
       , _author       = author
       , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
       , _drumKit      = drumkit
-      , _auto2xBass   = False
-      , _hopoThreshold = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
       , _previewStart = Just $ fromIntegral (fst $ D.preview pkg) / 1000
       , _previewEnd   = Just $ fromIntegral (snd $ D.preview pkg) / 1000
       , _songID       = Just $ JSONEither $ either Left (Right . T.pack . D.fromKeyword) $ D.songId pkg
+      }
+    , _options = Options
+      { _padStart = False
+      , _auto2xBass = False
+      , _hopoThreshold = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
+      , _keysRB2 = NoKeys
       }
     , _audio = HM.empty
     , _jammit = HM.empty

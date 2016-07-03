@@ -15,12 +15,10 @@ metadata:
   vocal-gender: male
   drum-kit: Hard Rock Kit
   file-album-art: ../../../covers/the-immunity-zone.png_xbox
-  auto-2x-bass: false
   track-number: 9
   album: The Immunity Zone
   year: 2008
   subgenre: progrock
-  hopo-threshold: 170
   author: Rhythm Authors
   title: Veil of Illumination (Part 1)
   genre: prog
@@ -49,3 +47,5 @@ instruments:
   guitar: true
   keys: true
   drums: true
+options:
+  auto-2x-bass: true

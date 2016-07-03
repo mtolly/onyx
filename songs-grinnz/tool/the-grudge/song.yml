@@ -26,3 +26,5 @@ instruments:
   bass: true
   guitar: true
   vocal: 1
+options:
+  auto-2x-bass: true

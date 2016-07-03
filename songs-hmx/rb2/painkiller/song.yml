@@ -19,7 +19,6 @@ metadata:
       rank: 430
     band:
       rank: 550
-  auto-2x-bass: false
 plans:
   mogg:
     mogg-md5: 9c45fd3ccb7a8daece740c690c5169db
@@ -36,3 +35,5 @@ instruments:
   bass: true
   vocal: 1
 published: false
+options:
+  auto-2x-bass: true

@@ -7,7 +7,6 @@ metadata:
     drums: 6
     keys: 7
     pro-keys: 7
-  auto-2x-bass: false
 audio:
   album-track:
     md5: 53cfe5969cd3451eebadc33dc4b89d54

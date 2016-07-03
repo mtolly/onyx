@@ -34,3 +34,5 @@ plans:
       pad: [0.680, album-track]
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

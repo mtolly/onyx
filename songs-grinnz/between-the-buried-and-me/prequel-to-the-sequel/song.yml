@@ -43,3 +43,5 @@ instruments:
   vocal: 3
   pro-keys: true
   keys: true
+options:
+  auto-2x-bass: true

@@ -29,3 +29,5 @@ plans:
             - concatenate: [album-improv-jam-2, album-track]
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

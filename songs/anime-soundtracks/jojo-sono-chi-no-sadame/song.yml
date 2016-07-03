@@ -3,7 +3,6 @@ metadata:
   file-include: ../../../albums/jojo-sono-chi-no-sadame.yml
   track-number: 1
   author: Onyxite
-  auto-2x-bass: false
   difficulty:
     drums: 3
     pro-keys: 4

@@ -20,3 +20,5 @@ instruments:
   keys: true
   pro-keys: true
 published: false
+options:
+  auto-2x-bass: true

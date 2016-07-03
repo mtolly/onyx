@@ -39,3 +39,5 @@ instruments:
   bass: true
   vocal: 1
 published: false
+options:
+  auto-2x-bass: true

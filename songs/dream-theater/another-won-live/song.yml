@@ -31,3 +31,5 @@ plans:
           - fade: [begin, 1.051, album-track]
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

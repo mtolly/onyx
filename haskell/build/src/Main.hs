@@ -419,6 +419,9 @@ main = do
               B.writeFile out $ pngXboxDXT1Signature <> flipWord16sStrict (B.drop 0x80 b)
 
         -- The Markdown README file, for GitHub purposes
+        phony "update-readme" $ if _published songYaml
+          then need ["README.md"]
+          else removeFilesAfter "." ["README.md"]
         "README.md" %> \out -> liftIO $ writeFile out $ execWriter $ do
           let escape = concatMap $ \c -> if c `elem` "\\`*_{}[]()#+-.!"
                 then ['\\', c]
@@ -794,7 +797,7 @@ main = do
                   then ([], [], [], False)
                   else let
                     trk = mergeTracks [ t | RBFile.PartDrums t <- trks ]
-                    psKicks = if _auto2xBass $ _metadata songYaml
+                    psKicks = if _auto2xBass $ _options songYaml
                       then U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
                       else id
                     sections = flip RTB.mapMaybe eventsRaw $ \case
@@ -810,11 +813,11 @@ main = do
                         )
                 guitarTracks = if not $ _hasGuitar $ _instruments songYaml
                   then []
-                  else (: []) $ RBFile.PartGuitar $ gryboComplete (Just $ _hopoThreshold $ _metadata songYaml) (RBFile.s_signatures input)
+                  else (: []) $ RBFile.PartGuitar $ gryboComplete (Just $ _hopoThreshold $ _options songYaml) (RBFile.s_signatures input)
                     $ mergeTracks [ t | RBFile.PartGuitar t <- trks ]
                 bassTracks = if not $ _hasBass $ _instruments songYaml
                   then []
-                  else (: []) $ RBFile.PartBass $ gryboComplete (Just $ _hopoThreshold $ _metadata songYaml) (RBFile.s_signatures input)
+                  else (: []) $ RBFile.PartBass $ gryboComplete (Just $ _hopoThreshold $ _options songYaml) (RBFile.s_signatures input)
                     $ mergeTracks [ t | RBFile.PartBass t <- trks ]
                 keysTracks = if not $ hasAnyKeys $ _instruments songYaml
                   then []
@@ -896,7 +899,7 @@ main = do
 
           display %> \out -> do
             song <- loadMIDI mid2p
-            let ht = fromIntegral (_hopoThreshold $ _metadata songYaml) / 480
+            let ht = fromIntegral (_hopoThreshold $ _options songYaml) / 480
                 gtr = justIf (_hasGuitar $ _instruments songYaml) $ Proc.processFive (Just ht) (RBFile.s_tempos song)
                   $ foldr RTB.merge RTB.empty [ t | RBFile.PartGuitar t <- RBFile.s_tracks song ]
                 bass = justIf (_hasBass $ _instruments songYaml) $ Proc.processFive (Just ht) (RBFile.s_tempos song)
@@ -1147,7 +1150,7 @@ main = do
                     , D.drumFreestyle = D.DrumSounds $ D.InParens $ map D.Keyword $ words
                       "kick.cue snare.cue hat.cue ride.cue crash.cue"
                     , D.crowdChannels = guard (not $ null crowdChannels) >> Just (map fromIntegral crowdChannels)
-                    , D.hopoThreshold = Just $ fromIntegral $ _hopoThreshold $ _metadata songYaml
+                    , D.hopoThreshold = Just $ fromIntegral $ _hopoThreshold $ _options songYaml
                     , D.muteVolume = Nothing
                     , D.muteVolumeVocals = Nothing
                     , D.midiFile = Nothing
@@ -1663,7 +1666,7 @@ main = do
                   , C3.tuningCents = 0
                   , C3.songRating = fromEnum (_rating $ _metadata songYaml) + 1
                   , C3.drumKitSFX = fromEnum $ _drumKit $ _metadata songYaml
-                  , C3.hopoThresholdIndex = case _hopoThreshold $ _metadata songYaml of
+                  , C3.hopoThresholdIndex = case _hopoThreshold $ _options songYaml of
                     90  -> 0
                     130 -> 1
                     170 -> 2

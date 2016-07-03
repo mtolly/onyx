@@ -4,12 +4,10 @@ metadata:
   vocal-gender: male
   drum-kit: Hard Rock Kit
   file-album-art: ../../../covers/extension-of-the-wish.png_xbox
-  auto-2x-bass: false
   track-number: 4
   album: Extension of the Wish
   year: 2001
   subgenre: progrock
-  hopo-threshold: 170
   author: Rhythm Authors
   title: Chameleon Carneval
   genre: prog
@@ -49,3 +47,5 @@ plans:
     keys: [10, 11]
     drums: [0, 1, 2, 3, 4, 5]
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+options:
+  auto-2x-bass: true

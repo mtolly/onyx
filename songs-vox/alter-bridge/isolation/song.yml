@@ -27,3 +27,5 @@ instruments:
   drums: true
   vocal: 3
 published: false
+options:
+  auto-2x-bass: true

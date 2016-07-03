@@ -34,3 +34,5 @@ plans:
             - concatenate: [album-the-decade-of-statues, album-informal-gluttony, album-sun-of-nothing]
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

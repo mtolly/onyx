@@ -19,6 +19,7 @@ import Control.Applicative ((<|>))
 import qualified Data.HashMap.Strict            as Map
 import           Data.List                      ((\\))
 import           Data.Aeson                     ((.=))
+import Data.Default.Class
 
 type Parser m context = StackTraceT (ReaderT context m)
 
@@ -143,9 +144,9 @@ req :: String -> String -> TypeQ -> Writer [JSONField] ()
 req hs js t = tell [JSONField hs js t Nothing False False]
 
 warning, fill, opt :: String -> String -> TypeQ -> ExpQ -> Writer [JSONField] ()
-warning hs js t def = tell [JSONField hs js t (Just def) True  False]
-fill    hs js t def = tell [JSONField hs js t (Just def) False True ]
-opt     hs js t def = tell [JSONField hs js t (Just def) False False]
+warning hs js t dft = tell [JSONField hs js t (Just dft) True  False]
+fill    hs js t dft = tell [JSONField hs js t (Just dft) False True ]
+opt     hs js t dft = tell [JSONField hs js t (Just dft) False False]
 
 eosr :: CxtQ
 eosr = cxt [[t| Eq |], [t| Ord |], [t| Show |], [t| Read |]]
@@ -154,6 +155,7 @@ jsonRecord :: String -> CxtQ -> Writer [JSONField] () -> DecsQ
 jsonRecord rec derivs writ = do
   let fields = execWriter writ
       apply x y = [e| $x <*> $y |]
+      fn x y = [e| $x $y |]
   dec1 <- dataD (cxt []) (mkName rec) [] Nothing
     [ recC (mkName rec) $ flip map fields $ \field ->
       varBangType (mkName $ hsField field)
@@ -164,12 +166,12 @@ jsonRecord rec derivs writ = do
     keys = TH.lift $ map jsonKey fields
     tracer = foldl apply [e| pure $(conE (mkName rec)) |] $ flip map fields $ \field ->
       case defaultValue field of
-        Just def -> [e|
+        Just dft -> [e|
           optional $(TH.lift (jsonKey field)) traceJSON >>= \case
             Nothing -> do
               when $(TH.lift (warnMissing field))
                 (warn ("missing key " ++ $(TH.lift (jsonKey field))))
-              return $def
+              return $dft
             Just x -> return x
           |]
         Nothing -> [e| required $(TH.lift (jsonKey field)) traceJSON |]
@@ -182,8 +184,8 @@ jsonRecord rec derivs writ = do
     parts = listE $ flip map fields $ \field -> let
       getField = varE (mkName (hsField field))
       in case defaultValue field of
-        Just def | not $ writeDefault field -> [e|
-          if $getField $(varE recName) == $def
+        Just dft | not $ writeDefault field -> [e|
+          if $getField $(varE recName) == $dft
             then []
             else [$(TH.lift (jsonKey field)) .= $getField $(varE recName)]
           |]
@@ -192,4 +194,10 @@ jsonRecord rec derivs writ = do
       instance A.ToJSON $(conT (mkName rec)) where
         toJSON $(varP recName) = A.object (concat $parts)
     |]
-  return $ [dec1] ++ decs2 ++ decs3
+  decs4 <- case mapM defaultValue fields of
+    Nothing   -> return []
+    Just defs -> [d|
+      instance Default $(conT (mkName rec)) where
+        def = $(foldl fn (conE (mkName rec)) defs)
+      |]
+  return $ [dec1] ++ decs2 ++ decs3 ++ decs4

@@ -41,3 +41,5 @@ plans:
               - concatenate: [album-informal-gluttony, album-sun-of-nothing, album-ants-of-the-sky]
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

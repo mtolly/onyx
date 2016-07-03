@@ -3,7 +3,6 @@ metadata:
   file-include: ../../../albums/for-long-tomorrow.yml
   track-number: 9
   author: Onyxite
-  auto-2x-bass: false
   difficulty:
     drums: 6
     guitar: 4

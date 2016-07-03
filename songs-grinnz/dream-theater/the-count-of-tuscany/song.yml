@@ -71,3 +71,5 @@ plans:
             - gain: [2.6, deluxe-vocal]
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

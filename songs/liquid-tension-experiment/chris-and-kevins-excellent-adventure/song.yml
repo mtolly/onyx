@@ -30,3 +30,5 @@ instruments:
   drums: true
   bass: true
   vocal: 2
+options:
+  auto-2x-bass: true

@@ -8,7 +8,6 @@ metadata:
   year: 2003
   genre: jrock
   subgenre: jrock
-  auto-2x-bass: false
 instruments:
   drums: true
 audio:

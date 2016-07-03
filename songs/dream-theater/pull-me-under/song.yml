@@ -44,3 +44,5 @@ plans:
   #     pad: [4.340, greatest-hit-track]
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

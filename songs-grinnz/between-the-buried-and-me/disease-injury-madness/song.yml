@@ -30,3 +30,5 @@ plans:
         - concatenate: [album-obfuscation, album-disease]
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

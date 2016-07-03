@@ -33,3 +33,5 @@ instruments:
   drums: true
   bass: true
   guitar: true
+options:
+  auto-2x-bass: true

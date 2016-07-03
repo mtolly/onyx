@@ -33,3 +33,5 @@ plans:
           - concatenate: [album-prequel-to-the-sequel, album-viridian, album-white-walls]
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

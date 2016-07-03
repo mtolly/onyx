@@ -26,3 +26,5 @@ instruments:
   drums: true
   guitar: true
   pro-keys: true
+options:
+  auto-2x-bass: true

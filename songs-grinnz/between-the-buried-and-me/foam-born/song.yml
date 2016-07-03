@@ -31,3 +31,5 @@ plans:
             - concatenate: [album-the-backtrack, album-the-decade-of-statues]
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

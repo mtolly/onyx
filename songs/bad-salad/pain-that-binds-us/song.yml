@@ -63,3 +63,5 @@ plans:
           - pledgemusic-vocals
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

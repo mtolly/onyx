@@ -27,3 +27,5 @@ plans:
       pad: [7.079, album-track]
 instruments:
   drums: true
+options:
+  auto-2x-bass: true

@@ -52,3 +52,5 @@ plans:
       1|3: hihat
     song:
       pad: [3.587, album-track]
+options:
+  auto-2x-bass: true
