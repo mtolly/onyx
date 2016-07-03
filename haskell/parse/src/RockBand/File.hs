@@ -235,3 +235,91 @@ autoHandPosition = \case
 
 eachTrack :: (Track t -> Track t) -> Song t -> Song t
 eachTrack f s = s { s_tracks = map f $ s_tracks s }
+
+-- | True if there are any playable notes in the first 2.5 seconds.
+needsPad :: Song U.Beats -> Bool
+needsPad (Song temps _ trks) = let
+  sec2_5 = U.unapplyTempoMap temps (2.5 :: U.Seconds)
+  early = \case
+    PartDrums        t -> earlyDrums   t
+    PartDrums2x      t -> earlyDrums   t
+    PartGuitar       t -> earlyFive    t
+    PartBass         t -> earlyFive    t
+    PartKeys         t -> earlyFive    t
+    PartRealGuitar   t -> earlyProGtr  t
+    PartRealGuitar22 t -> earlyProGtr  t
+    PartRealBass     t -> earlyProGtr  t
+    PartRealBass22   t -> earlyProGtr  t
+    PartRealKeys   _ t -> earlyProKeys t
+    PartRealKeysPS _ t -> earlyPSKeys  t
+    PartVocals       t -> earlyVox     t
+    Harm1            t -> earlyVox     t
+    Harm2            t -> earlyVox     t
+    Harm3            t -> earlyVox     t
+    _                  -> False
+  earlyDrums = earlyPred $ \case
+    Drums.DiffEvent _ (Drums.Note _) -> True
+    _ -> False
+  earlyFive = earlyPred $ \case
+    FiveButton.DiffEvent _ (FiveButton.Note _) -> True
+    _ -> False
+  earlyProGtr = earlyPred $ \case
+    ProGuitar.DiffEvent _ (ProGuitar.Note _) -> True
+    _ -> False
+  earlyProKeys = earlyPred $ \case
+    ProKeys.Note _ -> True
+    _ -> False
+  earlyPSKeys = earlyPred $ \case
+    PSKeys.Note _ _ _ -> True
+    _ -> False
+  earlyVox = earlyPred $ \case
+    Vocals.Note _ _ -> True
+    _ -> False
+  earlyPred fn t = any fn $ U.trackTake sec2_5 t
+  in any early trks
+
+-- | Adds 2.5 seconds of empty space to the start of the MIDI.
+padMIDI :: Song U.Beats -> Song U.Beats
+padMIDI (Song temps sigs trks) = let
+  temps'
+    = U.tempoMapFromBPS
+    $ RTB.cons 0 (2 :: U.BPS) -- 120 bpm
+    $ RTB.delay 5
+    $ U.tempoMapToBPS temps
+  sigs'
+    = U.measureMapFromTimeSigs U.Error
+    $ RTB.cons 0 (U.TimeSig 5 1) -- 5/4
+    $ RTB.delay 5
+    $ U.measureMapToTimeSigs sigs
+  trks' = flip map trks $ \case
+    PartDrums         t -> PartDrums         $ padTrack t
+    PartDrums2x       t -> PartDrums2x       $ padTrack t
+    PartGuitar        t -> PartGuitar        $ padTrack t
+    PartBass          t -> PartBass          $ padTrack t
+    PartKeys          t -> PartKeys          $ padTrack t
+    PartRealGuitar    t -> PartRealGuitar    $ padTrack t
+    PartRealGuitar22  t -> PartRealGuitar22  $ padTrack t
+    PartRealBass      t -> PartRealBass      $ padTrack t
+    PartRealBass22    t -> PartRealBass22    $ padTrack t
+    PartRealKeys   df t -> PartRealKeys   df $ padTrack t
+    PartRealKeysPS df t -> PartRealKeysPS df $ padTrack t
+    PartKeysAnimLH    t -> PartKeysAnimLH    $ padTrack t
+    PartKeysAnimRH    t -> PartKeysAnimRH    $ padTrack t
+    PartVocals        t -> PartVocals        $ padTrack t
+    Harm1             t -> Harm1             $ padTrack t
+    Harm2             t -> Harm2             $ padTrack t
+    Harm3             t -> Harm3             $ padTrack t
+    Events            t -> Events            $ padTrack t
+    Beat              t -> Beat              $ padBeat  t
+    Venue             t -> Venue             $ padTrack t
+    RawTrack          t -> RawTrack          $ padTrack t
+    MelodysEscape     t -> MelodysEscape     $ padTrack t
+  padTrack = RTB.delay 5
+  padBeat
+    = RTB.cons  0 Beat.Bar
+    . RTB.cons  1 Beat.Beat
+    . RTB.cons  1 Beat.Beat
+    . RTB.cons  1 Beat.Beat
+    . RTB.cons  1 Beat.Beat
+    . RTB.delay 1
+  in Song temps' sigs' trks'

@@ -40,6 +40,7 @@ import           System.IO                      (IOMode (..), SeekMode (..),
 import           System.IO.Extra                (latin1, readFileEncoding',
                                                  utf8)
 import           System.IO.Temp                 (withSystemTempDirectory)
+import Scripts (loadMIDI_IO)
 
 -- | Convert a CON or RBA file (or FoF directory) to Onyx format.
 importAny :: FilePath -> FilePath -> IO ()
@@ -92,6 +93,10 @@ importFoF src dest = do
           EQ -> id
           GT -> Drop Start (CA.Seconds $ fromIntegral n / 1000)
           LT -> Pad  Start (CA.Seconds $ fromIntegral (abs n) / 1000)
+
+  pad <- fmap RBFile.needsPad $ loadMIDI_IO $ dest </> "notes.mid"
+  when pad $ putStrLn "Padding song start by 2.5 seconds due to early notes."
+
   Y.encodeFile (dest </> "song.yml") SongYaml
     { _metadata = Metadata
       { _title        = FoF.name song
@@ -126,7 +131,7 @@ importFoF src dest = do
       { _auto2xBass    = False
       , _hopoThreshold = 170
       , _keysRB2       = NoKeys
-      , _padStart      = False -- TODO
+      , _padStart      = pad
       }
     , _audio = HM.fromList $ flip map audioFiles $ \aud -> (T.pack aud, AudioFile
       { _md5 = Nothing

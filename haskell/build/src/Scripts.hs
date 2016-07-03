@@ -46,10 +46,10 @@ addZero x rtb = case U.trackSplitZero rtb of
   (zero, rest) -> U.trackGlueZero (zero ++ [x]) rest
 
 loadMIDI :: FilePath -> Action (Song U.Beats)
-loadMIDI fp = do
-  need [fp]
-  mid <- liftIO $ Load.fromFile fp
-  printStackTraceIO $ readMIDIFile mid
+loadMIDI fp = need [fp] >> liftIO (loadMIDI_IO fp)
+
+loadMIDI_IO :: FilePath -> IO (Song U.Beats)
+loadMIDI_IO fp = Load.fromFile fp >>= printStackTraceIO . readMIDIFile
 
 loadTempos :: FilePath -> Action U.TempoMap
 loadTempos fp = do
