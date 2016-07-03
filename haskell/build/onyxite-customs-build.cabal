@@ -39,6 +39,7 @@ executable onyx
     FretsOnFire
     Genre
     RockBand2
+    JSONData
   build-depends:
     base    >= 4.8    && < 4.10
     , shake >= 0.15 && < 0.16

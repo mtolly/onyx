@@ -5,30 +5,25 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module Config where
 
 import           Audio
-import           Control.Applicative            ((<|>))
 import           Control.Monad                  (when)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace hiding (optional)
 import qualified Data.Aeson                     as A
 import           Data.Aeson                     ((.=))
-import qualified Data.ByteString.Lazy.Char8     as BL8
 import           Data.Char                      (isDigit, isSpace)
 import           Data.Conduit.Audio             (Duration (..))
 import qualified Data.DTA.Serialize.Magma       as Magma
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as Map
-import           Data.String                    (IsString)
-import           Data.List                      ((\\))
-import           Data.Maybe                     (fromMaybe, isNothing)
+import           Data.Maybe                     (fromMaybe)
 import           Data.Monoid                    ((<>))
-import           Data.Scientific                (Scientific, toBoundedInteger,
-                                                 toRealFloat)
+import           Data.Scientific                (Scientific, toRealFloat)
 import qualified Data.Text                      as T
 import           Data.Traversable
 import qualified Data.Vector                    as V
@@ -42,59 +37,33 @@ import           Text.Read                      (readMaybe)
 import qualified Text.ParserCombinators.ReadP   as ReadP
 import qualified Text.Read.Lex                  as Lex
 
-type Parser m context = StackTraceT (ReaderT context m)
+import JSONData
 
-expected :: (Monad m) => String -> Parser m A.Value a
-expected x = lift ask >>= \v -> fatal $ "Expected " ++ x ++ ", but found: " ++ BL8.unpack (A.encode v)
+data Difficulty
+  = Tier Integer -- ^ [1..7]: 1 = no dots, 7 = devil dots
+  | Rank Integer -- ^ [1..]
+  deriving (Eq, Ord, Show, Read)
 
-class TraceJSON a where
-  traceJSON :: (Monad m) => Parser m A.Value a
-  traceJSONList :: (Monad m) => Parser m A.Value [a]
-  traceJSONList = lift ask >>= \case
-    A.Array v -> forM (zip [0..] $ V.toList v) $ \(i, x) ->
-      inside ("array element " ++ show (i :: Int)) $ parseFrom x traceJSON
-    _         -> expected "an array"
-
-instance (TraceJSON a) => TraceJSON [a] where
-  traceJSON = traceJSONList
-
-instance TraceJSON A.Value where
-  traceJSON = lift ask
-
-instance TraceJSON Bool where
+instance TraceJSON Difficulty where
   traceJSON = lift ask >>= \case
-    A.Bool b -> return b
-    _        -> expected "a boolean"
+    OneKey "tier" (A.Number n) -> return $ Tier $ round n
+    OneKey "rank" (A.Number n) -> return $ Rank $ round n
+    A.Number n -> return $ Tier $ round n
+    _ -> expected "a difficulty value (tier or rank)"
 
-instance TraceJSON T.Text where
-  traceJSON = lift ask >>= \case
-    A.String s -> return s
-    _          -> expected "a string"
+instance A.ToJSON Difficulty where
+  toJSON = \case
+    Tier i -> A.object ["tier" .= i]
+    Rank i -> A.object ["rank" .= i]
 
-instance TraceJSON Char where
-  traceJSON = traceJSON >>= \case
-    [c] -> return c
-    _   -> expected "a string of a single character"
-  traceJSONList = fmap T.unpack traceJSON
-
-instance TraceJSON Scientific where
-  traceJSON = lift ask >>= \case
-    A.Number n -> return n
-    _          -> expected "a number"
-
-instance TraceJSON Integer where
-  traceJSON = fmap (round :: Scientific -> Integer) traceJSON
-
-instance TraceJSON Double where
-  traceJSON = fmap toRealFloat traceJSON
-
-instance TraceJSON Int where
-  traceJSON = traceJSON >>= \n -> case toBoundedInteger n of
-    Nothing -> expected "a number in Int range"
-    Just i  -> return i
-
-instance (TraceJSON a, TraceJSON b) => TraceJSON (Either a b) where
-  traceJSON = fmap Left traceJSON <|> fmap Right traceJSON
+jsonRecord "Difficulties" eosr $ do
+  opt "_difficultyDrums"   "drums"    [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyGuitar"  "guitar"   [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyBass"    "bass"     [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyKeys"    "keys"     [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyProKeys" "pro-keys" [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyVocal"   "vocal"    [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyBand"    "band"     [t| Maybe Difficulty |] [e| Nothing |]
 
 keyNames :: [(T.Text, Key)]
 keyNames = let
@@ -124,38 +93,6 @@ instance A.ToJSON Key where
     A  -> "A"
     As -> "A sharp"
     B  -> "B"
-
-parseFrom :: (Monad m) => v -> Parser m v a -> Parser m v' a
-parseFrom = mapStackTraceT . withReaderT . const
-
-object :: (Monad m) => Parser m (Map.HashMap T.Text A.Value) a -> Parser m A.Value a
-object p = lift ask >>= \case
-  A.Object o -> parseFrom o p
-  _          -> expected "an object"
-
-required :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) a
-required k p = lift ask >>= \hm -> case Map.lookup k hm of
-  Nothing -> parseFrom (A.Object hm) $
-    expected $ "to find required key " ++ show k ++ " in object"
-  Just v  -> inside ("required key " ++ show k) $ parseFrom v p
-
-optional :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) (Maybe a)
-optional k p = lift ask >>= \hm -> case Map.lookup k hm of
-  Nothing -> return Nothing
-  Just v  -> fmap Just $ inside ("optional key " ++ show k) $ parseFrom v p
-
-theKey :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) a
-theKey k p = lift ask >>= \hm -> case Map.toList hm of
-  [(k', v)] | k == k' -> inside ("only key " ++ show k) $ parseFrom v p
-  _ -> parseFrom (A.Object hm) $
-    expected $ "to find only key " ++ show k ++ " in object"
-
-expectedKeys :: (Monad m) => [T.Text] -> Parser m (Map.HashMap T.Text A.Value) ()
-expectedKeys keys = do
-  hm <- lift ask
-  case Map.keys hm \\ keys of
-    []    -> return ()
-    unrec -> fatal $ "Unrecognized object keys: " ++ show unrec
 
 data Instrument = Guitar | Bass | Drums | Keys | Vocal
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -193,119 +130,21 @@ instance A.ToJSON Instrument where
     Keys   -> "keys"
     Vocal  -> "vocal"
 
-data SongYaml = SongYaml
-  { _metadata    :: Metadata
-  , _audio       :: Map.HashMap T.Text AudioFile
-  , _jammit      :: Map.HashMap T.Text JammitTrack
-  , _plans       :: Map.HashMap T.Text Plan
-  , _instruments :: Instruments
-  , _published   :: Bool
-  } deriving (Eq, Show)
-
-mapping :: (Monad m) => Parser m A.Value a -> Parser m A.Value (Map.HashMap T.Text a)
-mapping p = lift ask >>= \case
-  A.Object o -> Map.traverseWithKey (\k x -> inside ("mapping key " ++ show k) $ parseFrom x p) o
-  _          -> expected "an object"
-
-instance TraceJSON SongYaml where
-  traceJSON = object $ do
-    let defaultEmptyMap = fmap $ fromMaybe Map.empty
-    _metadata    <- required "metadata" traceJSON
-    _audio       <- defaultEmptyMap $ optional "audio"  $ mapping traceJSON
-    _jammit      <- defaultEmptyMap $ optional "jammit" $ mapping traceJSON
-    _plans       <- defaultEmptyMap $ optional "plans"  $ mapping traceJSON
-    _instruments <- required "instruments" traceJSON
-    _published   <- fromMaybe True <$> optional "published" traceJSON
-    expectedKeys ["metadata", "audio", "jammit", "plans", "instruments", "published"]
-    return SongYaml{..}
-
-instance A.ToJSON SongYaml where
-  toJSON SongYaml{..} = A.object
-    [ "metadata" .= _metadata
-    , "audio" .= A.Object (fmap A.toJSON _audio)
-    , "jammit" .= A.Object (fmap A.toJSON _jammit)
-    , "plans" .= A.Object (fmap A.toJSON _plans)
-    , "instruments" .= _instruments
-    , "published" .= _published
-    ]
-
-data Metadata = Metadata
-  { _title        :: T.Text
-  , _artist       :: T.Text
-  , _album        :: T.Text
-  , _genre        :: T.Text
-  , _subgenre     :: T.Text
-  , _year         :: Int
-  , _fileAlbumArt :: Maybe FilePath
-  , _trackNumber  :: Int
-  , _comments     :: [T.Text]
-  , _vocalGender  :: Maybe Magma.Gender
-  , _difficulty   :: Difficulties
-  , _key          :: Maybe Key
-  , _autogenTheme :: AutogenTheme
-  , _author       :: T.Text
-  , _rating       :: Rating
-  , _drumKit      :: DrumKit
-  , _auto2xBass   :: Bool
+{-
+-- | Options that affect gameplay.
+data Options = Options
+  { _padStart :: Bool
   , _hopoThreshold :: Int
-  , _previewStart :: Maybe Double
-  , _previewEnd   :: Maybe Double
-  , _songID       :: Maybe (Either Integer T.Text)
+  , _keysRB2 :: KeysRB2
+  , _auto2xBass :: Bool
   } deriving (Eq, Ord, Show, Read)
 
-data Difficulties = Difficulties
-  { _difficultyDrums   :: Maybe Difficulty
-  , _difficultyGuitar  :: Maybe Difficulty
-  , _difficultyBass    :: Maybe Difficulty
-  , _difficultyKeys    :: Maybe Difficulty
-  , _difficultyProKeys :: Maybe Difficulty
-  , _difficultyVocal   :: Maybe Difficulty
-  , _difficultyBand    :: Maybe Difficulty
-  } deriving (Eq, Ord, Show, Read)
-
-instance TraceJSON Difficulties where
-  traceJSON = object $ do
-    _difficultyDrums   <- optional "drums"    traceJSON
-    _difficultyGuitar  <- optional "guitar"   traceJSON
-    _difficultyBass    <- optional "bass"     traceJSON
-    _difficultyKeys    <- optional "keys"     traceJSON
-    _difficultyProKeys <- optional "pro-keys" traceJSON
-    _difficultyVocal   <- optional "vocal"    traceJSON
-    _difficultyBand    <- optional "band"     traceJSON
-    expectedKeys ["drums", "guitar", "bass", "keys", "pro-keys", "vocal", "band"]
-    return Difficulties{..}
-
-instance A.ToJSON Difficulties where
-  toJSON Difficulties{..} = A.object $ concat
-    [ map ("drums"    .=) $ toList _difficultyDrums
-    , map ("guitar"   .=) $ toList _difficultyGuitar
-    , map ("bass"     .=) $ toList _difficultyBass
-    , map ("keys"     .=) $ toList _difficultyKeys
-    , map ("pro-keys" .=) $ toList _difficultyProKeys
-    , map ("vocal"    .=) $ toList _difficultyVocal
-    , map ("band"     .=) $ toList _difficultyBand
-    ]
-
-data Difficulty
-  = Tier Integer -- ^ [1..7]: 1 = no dots, 7 = devil dots
-  | Rank Integer -- ^ [1..]
-  deriving (Eq, Ord, Show, Read)
-
-pattern OneKey :: T.Text -> A.Value -> A.Value
-pattern OneKey k v <- A.Object (Map.toList -> [(k, v)]) where
-  OneKey k v = A.Object $ Map.fromList [(k, v)]
-
-instance TraceJSON Difficulty where
-  traceJSON = lift ask >>= \case
-    OneKey "tier" (A.Number n) -> return $ Tier $ round n
-    OneKey "rank" (A.Number n) -> return $ Rank $ round n
-    A.Number n -> return $ Tier $ round n
-    _ -> expected "a difficulty value (tier or rank)"
-
-instance A.ToJSON Difficulty where
-  toJSON = \case
-    Tier i -> A.object ["tier" .= i]
-    Rank i -> A.object ["rank" .= i]
+data KeysRB2
+  = NoKeys
+  | KeysGuitar
+  | KeysBass
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+-}
 
 instance TraceJSON Magma.Gender where
   traceJSON = lift ask >>= \case
@@ -317,81 +156,6 @@ instance A.ToJSON Magma.Gender where
   toJSON = \case
     Magma.Female -> "female"
     Magma.Male   -> "male"
-
-fromMaybe' :: (Eq s, IsString s) => s -> Maybe s -> s
-fromMaybe' s ms = case ms of
-  Nothing -> s
-  Just "" -> s
-  Just s' -> s'
-
-instance TraceJSON Metadata where
-  traceJSON = object $ do
-    let s `orWarn` (w, v) = optional s traceJSON >>= \case
-          Nothing -> warn w >> return v
-          Just x  -> return x
-    _title        <- "title" `orWarn` ("Song has no title", "Untitled")
-    _artist       <- "artist" `orWarn` ("Song has no artist", "Unknown Artist")
-    _album        <- "album" `orWarn` ("Song has no album", "Unknown Album")
-    _genre        <- "genre" `orWarn` ("Song has no genre", "other")
-    _subgenre     <- "subgenre" `orWarn` ("Song has no subgenre", defaultSubgenre _genre)
-    _year         <- "year" `orWarn` ("Song has no release year", 1960)
-    _fileAlbumArt <- optional "file-album-art" traceJSON
-    when (isNothing _fileAlbumArt) $ warn "Song has no album art"
-    _trackNumber  <- "track-number" `orWarn` ("Song has no track number", 1)
-    _vocalGender  <- optional "vocal-gender"   traceJSON
-    let emptyDiffs = Difficulties Nothing Nothing Nothing Nothing Nothing Nothing Nothing
-    _difficulty   <- fromMaybe emptyDiffs <$> optional "difficulty" traceJSON
-    _key          <- optional "key" traceJSON
-    _comments     <- fromMaybe [] <$> optional "comments" traceJSON
-    _autogenTheme <- fromMaybe AutogenDefault <$> optional "autogen-theme" traceJSON
-    _author       <- "author" `orWarn` ("Song has no author", "Unknown Author")
-    _rating       <- fromMaybe Unrated <$> optional "rating" traceJSON
-    _drumKit      <- fromMaybe HardRockKit <$> optional "drum-kit" traceJSON
-    _auto2xBass   <- fromMaybe True <$> optional "auto-2x-bass" traceJSON
-    _hopoThreshold <- fromMaybe 170 <$> optional "hopo-threshold" traceJSON
-    let traceDurationSecs = flip fmap traceJSON $ \case
-          Frames  f -> fromIntegral f / 44100
-          Seconds s -> s
-    _previewStart <- optional "preview-start" traceDurationSecs
-    _previewEnd   <- optional "preview-end" traceDurationSecs
-    _songID       <- optional "song-id" traceJSON
-    expectedKeys
-      [ "title", "artist", "album", "genre", "subgenre", "year"
-      , "file-album-art", "track-number", "comments", "vocal-gender"
-      , "difficulty", "key", "autogen-theme", "author", "rating", "drum-kit", "auto-2x-bass", "hopo-threshold"
-      , "preview-start", "preview-end", "song-id"
-      ]
-    return Metadata{..}
-
-instance A.ToJSON Metadata where
-  toJSON Metadata{..} = A.object $ concat
-    [ ["title" .= _title]
-    , ["artist" .= _artist]
-    , ["album" .= _album]
-    , ["genre" .= _genre]
-    , ["subgenre" .= _subgenre]
-    , ["year" .= _year]
-    , map ("file-album-art" .=) $ toList _fileAlbumArt
-    , ["track-number" .= _trackNumber]
-    , case _comments of
-      [] -> []
-      _  -> ["comments" .= _comments]
-    , map ("vocal-gender" .=) $ toList _vocalGender
-    , ["difficulty" .= _difficulty]
-    , map ("key" .=) $ toList _key
-    , ["autogen-theme" .= _autogenTheme]
-    , ["author" .= _author]
-    , ["rating" .= _rating]
-    , ["drum-kit" .= _drumKit]
-    , ["auto-2x-bass" .= _auto2xBass]
-    , ["hopo-threshold" .= _hopoThreshold]
-    , map ("preview-start" .=) $ toList _previewStart
-    , map ("preview-end" .=) $ toList _previewEnd
-    , case _songID of
-      Nothing -> []
-      Just (Left i) -> ["song-id" .= i]
-      Just (Right s) -> ["song-id" .= s]
-    ]
 
 data AudioFile
   = AudioFile
@@ -812,44 +576,6 @@ instance A.ToJSON Duration where
         0 -> A.toJSON s
         _ -> A.toJSON $ show mins ++ ":" ++ (if secs < 10 then "0" else "") ++ show secs
 
-data Instruments = Instruments
-  { _hasDrums   :: Bool
-  , _hasGuitar  :: Bool
-  , _hasBass    :: Bool
-  , _hasKeys    :: Bool
-  , _hasProKeys :: Bool
-  , _hasVocal   :: VocalCount
-  } deriving (Eq, Ord, Show, Read)
-
-hasAnyKeys :: Instruments -> Bool
-hasAnyKeys insts = _hasKeys insts || _hasProKeys insts
-
-hasAnyVocal :: Instruments -> Bool
-hasAnyVocal insts = _hasVocal insts /= Vocal0
-
-instance TraceJSON Instruments where
-  traceJSON = object $ do
-    _hasDrums   <- fromMaybe False  <$> optional "drums"    traceJSON
-    _hasGuitar  <- fromMaybe False  <$> optional "guitar"   traceJSON
-    _hasBass    <- fromMaybe False  <$> optional "bass"     traceJSON
-    _hasKeys    <- fromMaybe False  <$> optional "keys"     traceJSON
-    _hasProKeys <- fromMaybe False  <$> optional "pro-keys" traceJSON
-    _hasVocal   <- fromMaybe Vocal0 <$> optional "vocal"    traceJSON
-    expectedKeys ["drums", "guitar", "bass", "keys", "pro-keys", "vocal"]
-    return Instruments{..}
-
-instance A.ToJSON Instruments where
-  toJSON Instruments{..} = A.object $ concat
-    [ ["drums" .= True | _hasDrums]
-    , ["guitar" .= True | _hasGuitar]
-    , ["bass" .= True | _hasBass]
-    , ["keys" .= True | _hasKeys]
-    , ["pro-keys" .= True | _hasProKeys]
-    , case _hasVocal of
-      Vocal0 -> []
-      _ -> ["vocal" .= fromEnum _hasVocal]
-    ]
-
 data VocalCount = Vocal0 | Vocal1 | Vocal2 | Vocal3
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
@@ -862,6 +588,23 @@ instance TraceJSON VocalCount where
     A.Number 2   -> return Vocal2
     A.Number 3   -> return Vocal3
     _            -> expected "a vocal part count (0 to 3)"
+
+instance A.ToJSON VocalCount where
+  toJSON = A.toJSON . fromEnum
+
+jsonRecord "Instruments" eosr $ do
+  opt "_hasDrums" "drums" [t| Bool |] [e| False |]
+  opt "_hasGuitar" "guitar" [t| Bool |] [e| False |]
+  opt "_hasBass" "bass" [t| Bool |] [e| False |]
+  opt "_hasKeys" "keys" [t| Bool |] [e| False |]
+  opt "_hasProKeys" "pro-keys" [t| Bool |] [e| False |]
+  opt "_hasVocal" "vocal" [t| VocalCount |] [e| Vocal0 |]
+
+hasAnyKeys :: Instruments -> Bool
+hasAnyKeys insts = _hasKeys insts || _hasProKeys insts
+
+hasAnyVocal :: Instruments -> Bool
+hasAnyVocal insts = _hasVocal insts /= Vocal0
 
 data AutogenTheme
   = AutogenDefault
@@ -937,3 +680,73 @@ instance A.ToJSON DrumKit where
     VintageKit -> "Vintage Kit"
     TrashyKit -> "Trashy Kit"
     ElectronicKit -> "Electronic Kit"
+
+-- | Extra information with no gameplay affect.
+jsonRecord "Metadata" eosr $ do
+  warning "_title" "title" [t| Maybe T.Text |] [e| Nothing |]
+  warning "_artist" "artist" [t| Maybe T.Text |] [e| Nothing |]
+  warning "_album" "album" [t| Maybe T.Text |] [e| Nothing |]
+  warning "_genre" "genre" [t| Maybe T.Text |] [e| Nothing |]
+  warning "_subgenre" "subgenre" [t| Maybe T.Text |] [e| Nothing |]
+  warning "_year" "year" [t| Maybe Int |] [e| Nothing |]
+  opt "_fileAlbumArt" "file-album-art" [t| Maybe FilePath |] [e| Nothing |]
+  warning "_trackNumber" "track-number" [t| Maybe Int |] [e| Nothing |]
+  opt "_comments" "comments" [t| [T.Text] |] [e| [] |]
+  opt "_vocalGender" "vocal-gender" [t| Maybe Magma.Gender |] [e| Nothing |]
+  opt "_difficulty" "difficulty" [t| Difficulties |]
+    [e| Difficulties Nothing Nothing Nothing Nothing Nothing Nothing Nothing |]
+  opt "_key" "key" [t| Maybe Key |] [e| Nothing |]
+  opt "_autogenTheme" "autogen-theme" [t| AutogenTheme |] [e| AutogenDefault |]
+  warning "_author" "author" [t| Maybe T.Text |] [e| Nothing |]
+  opt "_rating" "rating" [t| Rating |] [e| Unrated |]
+  opt "_drumKit" "drum-kit" [t| DrumKit |] [e| HardRockKit |]
+  opt "_previewStart" "preview-start" [t| Maybe Double |] [e| Nothing |]
+  opt "_previewEnd" "preview-end" [t| Maybe Double |] [e| Nothing |]
+  opt "_songID" "song-id" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]
+  -- TODO remove
+  opt "_auto2xBass" "auto-2x-bass" [t| Bool |] [e| True |]
+  opt "_hopoThreshold" "hopo-threshold" [t| Int |] [e| 170 |]
+
+getTitle, getArtist, getAlbum, getGenre, getSubgenre, getAuthor :: Metadata -> T.Text
+getTitle = fromMaybe "Untitled" . _title
+getArtist = fromMaybe "Unknown Artist" . _artist
+getAlbum = fromMaybe "Unknown Album" . _album
+getGenre = fromMaybe "other" . _genre
+getSubgenre r = fromMaybe (defaultSubgenre $ getGenre r) $ _subgenre r
+getAuthor = fromMaybe "Unknown Author" . _author
+
+getYear, getTrackNumber :: Metadata -> Int
+getYear = fromMaybe 1960 . _year
+getTrackNumber = fromMaybe 1 . _trackNumber
+
+data SongYaml = SongYaml
+  { _metadata    :: Metadata
+  -- , _options     :: Options
+  , _audio       :: Map.HashMap T.Text AudioFile
+  , _jammit      :: Map.HashMap T.Text JammitTrack
+  , _plans       :: Map.HashMap T.Text Plan
+  , _instruments :: Instruments
+  , _published   :: Bool
+  } deriving (Eq, Show)
+
+instance TraceJSON SongYaml where
+  traceJSON = object $ do
+    let defaultEmptyMap = fmap $ fromMaybe Map.empty
+    _metadata    <- required "metadata" traceJSON
+    _audio       <- defaultEmptyMap $ optional "audio"  $ mapping traceJSON
+    _jammit      <- defaultEmptyMap $ optional "jammit" $ mapping traceJSON
+    _plans       <- defaultEmptyMap $ optional "plans"  $ mapping traceJSON
+    _instruments <- required "instruments" traceJSON
+    _published   <- fromMaybe True <$> optional "published" traceJSON
+    expectedKeys ["metadata", "audio", "jammit", "plans", "instruments", "published"]
+    return SongYaml{..}
+
+instance A.ToJSON SongYaml where
+  toJSON SongYaml{..} = A.object
+    [ "metadata" .= _metadata
+    , "audio" .= A.Object (fmap A.toJSON _audio)
+    , "jammit" .= A.Object (fmap A.toJSON _jammit)
+    , "plans" .= A.Object (fmap A.toJSON _plans)
+    , "instruments" .= _instruments
+    , "published" .= _published
+    ]

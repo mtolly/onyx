@@ -3,6 +3,7 @@ module Import where
 
 import           Audio
 import           Config                         hiding (Difficulty)
+import           JSONData                       (JSONEither(..))
 import           Control.Monad                  (guard, when)
 import           Control.Monad.Extra            (replicateM, mapMaybeM)
 import           Control.Monad.Trans.StackTrace (printStackTraceIO)
@@ -24,7 +25,6 @@ import           Data.Maybe                     (fromMaybe, listToMaybe,
 import qualified Data.Text                      as T
 import qualified Data.Yaml                      as Y
 import qualified FretsOnFire                    as FoF
-import           Genre                          (defaultSubgenre)
 import qualified RockBand.Drums                 as RBDrums
 import qualified RockBand.File                  as RBFile
 import qualified Sound.MIDI.File                as F
@@ -94,14 +94,14 @@ importFoF src dest = do
           LT -> Pad  Start (CA.Seconds $ fromIntegral (abs n) / 1000)
   Y.encodeFile (dest </> "song.yml") SongYaml
     { _metadata = Metadata
-      { _title        = fromMaybe "Unknown Song" $ FoF.name song
-      , _artist       = fromMaybe "Unknown Artist" $ FoF.artist song
-      , _album        = fromMaybe "Unknown Album" $ FoF.album song
-      , _genre        = "other" -- TODO
-      , _subgenre     = "other" -- TODO
-      , _year         = fromMaybe 1900 $ FoF.year song
+      { _title        = FoF.name song
+      , _artist       = FoF.artist song
+      , _album        = FoF.album song
+      , _genre        = FoF.genre song
+      , _subgenre     = Nothing
+      , _year         = FoF.year song
       , _fileAlbumArt = guard hasAlbumArt >> Just "album.png"
-      , _trackNumber  = fromMaybe 0 $ FoF.track song
+      , _trackNumber  = FoF.track song
       , _comments     = []
       , _vocalGender  = Nothing
       , _difficulty   = Difficulties
@@ -115,7 +115,7 @@ importFoF src dest = do
         }
       , _key          = Nothing
       , _autogenTheme = AutogenDefault
-      , _author       = fromMaybe "Unknown Author" $ FoF.charter song
+      , _author       = FoF.charter song
       , _rating       = Unrated
       , _drumKit      = HardRockKit
       , _auto2xBass   = False
@@ -261,16 +261,6 @@ importRB3 pkg author mid mogg cover coverName dir = do
   Dir.copyFile cover $ dir </> coverName
   md5 <- show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
   rb3mid <- Load.fromFile (dir </> "notes.mid") >>= printStackTraceIO . RBFile.readMIDIFile
-  let genre = T.pack $ D.fromKeyword $ D.genre pkg
-  subgenre <- case D.subGenre pkg of
-    Nothing -> do
-      hPutStrLn stderr "Warning: when importing a CON file, no subgenre specified"
-      return $ defaultSubgenre genre
-    Just subk -> case stripPrefix "subgenre_" $ D.fromKeyword subk of
-      Nothing -> do
-        hPutStrLn stderr $ "Warning: when importing a CON file, couldn't parse the subgenre: " ++ D.fromKeyword subk
-        return $ defaultSubgenre genre
-      Just sub -> return $ T.pack sub
   drumkit <- case D.drumBank pkg of
     Nothing -> return HardRockKit
     Just x -> case either id D.fromKeyword x of
@@ -284,14 +274,14 @@ importRB3 pkg author mid mogg cover coverName dir = do
         return HardRockKit
   Y.encodeFile (dir </> "song.yml") SongYaml
     { _metadata = Metadata
-      { _title        = T.pack $ D.name pkg
-      , _artist       = T.pack $ D.artist pkg
-      , _album        = T.pack $ fromMaybe "Unknown Album" $ D.albumName pkg
-      , _genre        = genre
-      , _subgenre     = subgenre
-      , _year         = fromIntegral $ D.yearReleased pkg
+      { _title        = Just $ T.pack $ D.name pkg
+      , _artist       = Just $ T.pack $ D.artist pkg
+      , _album        = Just $ T.pack $ fromMaybe "Unknown Album" $ D.albumName pkg
+      , _genre        = Just $ T.pack $ D.fromKeyword $ D.genre pkg
+      , _subgenre     = T.pack . D.fromKeyword <$> D.subGenre pkg
+      , _year         = Just $ fromIntegral $ D.yearReleased pkg
       , _fileAlbumArt = Just coverName
-      , _trackNumber  = maybe 1 fromIntegral $ D.albumTrackNumber pkg
+      , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
       , _comments     = []
       , _vocalGender  = Just $ D.vocalGender pkg
       , _difficulty   = let
@@ -308,14 +298,14 @@ importRB3 pkg author mid mogg cover coverName dir = do
           }
       , _key          = toEnum . fromEnum <$> D.vocalTonicNote pkg
       , _autogenTheme = AutogenDefault
-      , _author       = fromMaybe (T.pack "Unknown") author
+      , _author       = author
       , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
       , _drumKit      = drumkit
       , _auto2xBass   = False
       , _hopoThreshold = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
       , _previewStart = Just $ fromIntegral (fst $ D.preview pkg) / 1000
       , _previewEnd   = Just $ fromIntegral (snd $ D.preview pkg) / 1000
-      , _songID       = Just $ either Left (Right . T.pack . D.fromKeyword) $ D.songId pkg
+      , _songID       = Just $ JSONEither $ either Left (Right . T.pack . D.fromKeyword) $ D.songId pkg
       }
     , _audio = HM.empty
     , _jammit = HM.empty

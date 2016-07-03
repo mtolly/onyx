@@ -35,6 +35,7 @@ import qualified Sound.MIDI.Script.Read           as MS
 import qualified Sound.MIDI.Script.Scan           as MS
 import qualified MelodysEscape
 import qualified RockBand2                        as RB2
+import JSONData (traceJSON, JSONEither(..))
 
 import           Codec.Picture
 import           Control.Exception as Exc
@@ -255,8 +256,8 @@ main = do
 
           jammitSearch :: JammitTrack -> J.Library -> Action [(J.AudioPart, FilePath)]
           jammitSearch jmt lib = do
-            let title  = fromMaybe (_title  $ _metadata songYaml) $ _jammitTitle  jmt
-                artist = fromMaybe (_artist $ _metadata songYaml) $ _jammitArtist jmt
+            let title  = fromMaybe (getTitle  $ _metadata songYaml) $ _jammitTitle  jmt
+                artist = fromMaybe (getArtist $ _metadata songYaml) $ _jammitArtist jmt
             return $ J.getAudioParts
               $ J.exactSearchBy J.title  (T.unpack title )
               $ J.exactSearchBy J.artist (T.unpack artist) lib
@@ -423,11 +424,11 @@ main = do
                 then ['\\', c]
                 else [c]
               line str = tell $ str ++ "\n"
-          line $ "# " ++ escape (T.unpack $ _title $ _metadata songYaml)
+          line $ "# " ++ escape (T.unpack $ getTitle $ _metadata songYaml)
           line ""
-          line $ "## " ++ escape (T.unpack $ _artist $ _metadata songYaml)
+          line $ "## " ++ escape (T.unpack $ getArtist $ _metadata songYaml)
           line ""
-          case T.unpack $ _author $ _metadata songYaml of
+          case T.unpack $ getAuthor $ _metadata songYaml of
             "Onyxite" -> return ()
             auth      -> line $ "Author: " ++ auth
           line ""
@@ -466,7 +467,7 @@ main = do
           line ""
           forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
             line $ "  * `" ++ T.unpack planName ++ "`" ++ if planName == T.pack "album"
-              then " (" ++ escape (T.unpack $ _album $ _metadata songYaml) ++ ")"
+              then " (" ++ escape (T.unpack $ getAlbum $ _metadata songYaml) ++ ")"
               else ""
             line ""
             forM_ (_planComments plan) $ \cmt -> do
@@ -1005,12 +1006,12 @@ main = do
             let (pstart, _) = previewBounds songYaml song
                 len = songLengthMS song
             liftIO $ FoF.saveSong out FoF.Song
-              { FoF.artist           = Just $ _artist $ _metadata songYaml
-              , FoF.name             = Just $ _title $ _metadata songYaml
-              , FoF.album            = Just $ _album $ _metadata songYaml
-              , FoF.charter          = Just $ _author $ _metadata songYaml
-              , FoF.year             = Just $ _year $ _metadata songYaml
-              , FoF.genre            = Just $ genreDisplay $ _genre $ _metadata songYaml
+              { FoF.artist           = _artist $ _metadata songYaml
+              , FoF.name             = _title $ _metadata songYaml
+              , FoF.album            = _album $ _metadata songYaml
+              , FoF.charter          = _author $ _metadata songYaml
+              , FoF.year             = _year $ _metadata songYaml
+              , FoF.genre            = fmap genreDisplay $ _genre $ _metadata songYaml
               , FoF.proDrums         = guard (_hasDrums $ _instruments songYaml) >> Just True
               , FoF.songLength       = Just len
               , FoF.previewStartTime = Just pstart
@@ -1035,7 +1036,7 @@ main = do
               , FoF.diffKeysRealPS   = Just (-1)
               , FoF.delay            = Nothing
               , FoF.starPowerNote    = Just 116
-              , FoF.track            = Just $ _trackNumber $ _metadata songYaml
+              , FoF.track            = _trackNumber $ _metadata songYaml
               }
           dir </> "ps/drums.ogg"   %> buildAudio (Input $ dir </> "drums.wav"       )
           dir </> "ps/drums_1.ogg" %> buildAudio (Input $ dir </> "kick.wav"        )
@@ -1123,11 +1124,11 @@ main = do
 
                 return D.SongPackage
                   { D.name = title
-                  , D.artist = T.unpack $ _artist $ _metadata songYaml
+                  , D.artist = T.unpack $ getArtist $ _metadata songYaml
                   , D.master = True
                   , D.songId = case _songID $ _metadata songYaml of
                     Nothing  -> Right $ D.Keyword pkg
-                    Just sid -> either Left (Right . D.Keyword . T.unpack) sid
+                    Just (JSONEither sid) -> either Left (Right . D.Keyword . T.unpack) sid
                   , D.song = D.Song
                     { D.songName = "songs/" ++ pkg ++ "/" ++ pkg
                     , D.tracksCount = Nothing
@@ -1189,14 +1190,14 @@ main = do
                   , D.version = 30
                   , D.gameOrigin = D.Keyword "ugc_plus"
                   , D.rating = fromIntegral $ fromEnum (_rating $ _metadata songYaml) + 1
-                  , D.genre = D.Keyword $ T.unpack $ _genre $ _metadata songYaml
-                  , D.subGenre = Just $ D.Keyword $ "subgenre_" ++ T.unpack (_subgenre $ _metadata songYaml)
+                  , D.genre = D.Keyword $ T.unpack $ getGenre $ _metadata songYaml
+                  , D.subGenre = Just $ D.Keyword $ "subgenre_" ++ T.unpack (getSubgenre $ _metadata songYaml)
                   , D.vocalGender = fromMaybe Magma.Female $ _vocalGender $ _metadata songYaml
                   , D.shortVersion = Nothing
-                  , D.yearReleased = fromIntegral $ _year $ _metadata songYaml
+                  , D.yearReleased = fromIntegral $ getYear $ _metadata songYaml
                   , D.albumArt = Just True
-                  , D.albumName = Just $ T.unpack $ _album $ _metadata songYaml
-                  , D.albumTrackNumber = Just $ fromIntegral $ _trackNumber $ _metadata songYaml
+                  , D.albumName = Just $ T.unpack $ getAlbum $ _metadata songYaml
+                  , D.albumTrackNumber = Just $ fromIntegral $ getTrackNumber $ _metadata songYaml
                   , D.vocalTonicNote = toEnum . fromEnum <$> _key (_metadata songYaml)
                   , D.songTonality = Nothing
                   , D.tuningOffsetCents = Just 0
@@ -1222,13 +1223,13 @@ main = do
                   copyFile' (dir </> "2p/notes-magma-added.mid") $ tmp </> "songs" </> pkg </> pkg <.> "mid"
                   copyFile' "gen/cover.png_xbox"                 $ tmp </> "songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_xbox")
                   songPkg <- makeDTA pkg (dir </> "2p/notes-magma-added.mid")
-                    (T.unpack (_title $ _metadata songYaml) ++ " - Channel " ++ show i)
+                    (T.unpack (getTitle $ _metadata songYaml) ++ " - Channel " ++ show i)
                     (Just i)
                   liftIO $ do
                     flip B.writeFile emptyMilo                   $ tmp </> "songs" </> pkg </> "gen" </> pkg <.> "milo_xbox"
                     D.writeFileDTA_utf8                           (tmp </> "songs/songs.dta")
                       $ D.serialize $ D.Dict $ Map.fromList [(pkg, D.toChunks songPkg)]
-                  rb3pkg (T.unpack (_title $ _metadata songYaml) ++ " MOGG " ++ show i) "" tmp out
+                  rb3pkg (T.unpack (getTitle $ _metadata songYaml) ++ " MOGG " ++ show i) "" tmp out
             _ -> return ()
 
           -- Warn about notes that might hang off before a pro keys range shift
@@ -1284,10 +1285,10 @@ main = do
           phony (dir </> "melody") $ need [melodyAudio, melodyChart]
 
           let get1xTitle, get2xTitle :: Action String
-              get1xTitle = return $ T.unpack $ _title $ _metadata songYaml
+              get1xTitle = return $ T.unpack $ getTitle $ _metadata songYaml
               get2xTitle = flip fmap get2xBass $ \b -> if b
-                  then T.unpack (_title $ _metadata songYaml) ++ " (2x Bass Pedal)"
-                  else T.unpack (_title $ _metadata songYaml)
+                  then T.unpack (getTitle $ _metadata songYaml) ++ " (2x Bass Pedal)"
+                  else T.unpack (getTitle $ _metadata songYaml)
               get2xBass :: Action Bool
               get2xBass = read <$> readFile' has2p
 
@@ -1295,7 +1296,7 @@ main = do
                 [ (dir </> "1p", get1xTitle, return False)
                 , (dir </> "2p", get2xTitle, get2xBass   )
                 ]
-          forM_ pedalVersions $ \(pedalDir, getTitle, is2xBass) -> do
+          forM_ pedalVersions $ \(pedalDir, thisTitle, is2xBass) -> do
 
             let pkg = "onyx" ++ show (hash (pedalDir, _title $ _metadata songYaml, _artist $ _metadata songYaml) `mod` 1000000000)
 
@@ -1368,7 +1369,7 @@ main = do
                 pathMilo = pedalDir </> "rb3/songs" </> pkg </> "gen" </> (pkg <.> ".milo_xbox")
                 pathCon  = pedalDir </> "rb3.con"
             pathDta %> \out -> do
-              title <- getTitle
+              title <- thisTitle
               songPkg <- makeDTA pkg (pedalDir </> "notes.mid") title Nothing
               liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg
             pathMid  %> copyFile' (pedalDir </> "notes-magma-added.mid")
@@ -1378,7 +1379,7 @@ main = do
             pathCon  %> \out -> do
               need [pathDta, pathMid, pathMogg, pathPng, pathMilo]
               rb3pkg
-                (T.unpack (_artist $ _metadata songYaml) ++ ": " ++ T.unpack (_title $ _metadata songYaml))
+                (T.unpack (getArtist $ _metadata songYaml) ++ ": " ++ T.unpack (getTitle $ _metadata songYaml))
                 ("Version: " ++ pedalDir)
                 (pedalDir </> "rb3")
                 out
@@ -1412,23 +1413,23 @@ main = do
                         , Magma.vol = map (realToFrac . snd) pv
                         , Magma.audioFile = f
                         }
-                  title <- getTitle
+                  title <- thisTitle
                   return Magma.RBProj
                     { Magma.project = Magma.Project
                       { Magma.toolVersion = "110411_A"
                       , Magma.projectVersion = 24
                       , Magma.metadata = Magma.Metadata
                         { Magma.songName = title
-                        , Magma.artistName = T.unpack $ _artist $ _metadata songYaml
-                        , Magma.genre = D.Keyword $ T.unpack $ _genre $ _metadata songYaml
-                        , Magma.subGenre = D.Keyword $ "subgenre_" ++ T.unpack (_subgenre $ _metadata songYaml)
-                        , Magma.yearReleased = fromIntegral $ _year $ _metadata songYaml
-                        , Magma.albumName = T.unpack $ _album $ _metadata songYaml
-                        , Magma.author = T.unpack $ _author $ _metadata songYaml
+                        , Magma.artistName = T.unpack $ getArtist $ _metadata songYaml
+                        , Magma.genre = D.Keyword $ T.unpack $ getGenre $ _metadata songYaml
+                        , Magma.subGenre = D.Keyword $ "subgenre_" ++ T.unpack (getSubgenre $ _metadata songYaml)
+                        , Magma.yearReleased = fromIntegral $ getYear $ _metadata songYaml
+                        , Magma.albumName = T.unpack $ getAlbum $ _metadata songYaml
+                        , Magma.author = T.unpack $ getAuthor $ _metadata songYaml
                         , Magma.releaseLabel = "Onyxite Customs"
                         , Magma.country = D.Keyword "ugc_country_us"
                         , Magma.price = 160
-                        , Magma.trackNumber = fromIntegral $ _trackNumber $ _metadata songYaml
+                        , Magma.trackNumber = fromIntegral $ getTrackNumber $ _metadata songYaml
                         , Magma.hasAlbum = True
                         }
                       , Magma.gamedata = Magma.Gamedata
@@ -1624,7 +1625,7 @@ main = do
               c3 %> \out -> do
                 midi <- loadMIDI mid
                 let (pstart, _) = previewBounds songYaml midi
-                title <- getTitle
+                title <- thisTitle
                 is2x <- is2xBass
                 let crowdVol = case map snd crowdPV of
                       [] -> Nothing
@@ -1632,9 +1633,9 @@ main = do
                         then Just v
                         else error $ "C3 doesn't support separate crowd volumes: " ++ show (v : vs)
                 liftIO $ writeFile out $ C3.showC3 C3.C3
-                  { C3.song = T.unpack $ _title $ _metadata songYaml
-                  , C3.artist = T.unpack $ _artist $ _metadata songYaml
-                  , C3.album = T.unpack $ _album $ _metadata songYaml
+                  { C3.song = T.unpack $ getTitle $ _metadata songYaml
+                  , C3.artist = T.unpack $ getArtist $ _metadata songYaml
+                  , C3.album = T.unpack $ getAlbum $ _metadata songYaml
                   , C3.customID = pkg
                   , C3.version = 1
                   , C3.isMaster = True
@@ -1679,7 +1680,7 @@ main = do
                   , C3.checkTempoMap = True
                   , C3.wiiMode = False
                   , C3.doDrumMixEvents = True -- is this a good idea?
-                  , C3.packageDisplay = T.unpack (_artist $ _metadata songYaml) ++ " - " ++ title
+                  , C3.packageDisplay = T.unpack (getArtist $ _metadata songYaml) ++ " - " ++ title
                   , C3.packageDescription = "Created with Magma: C3 Roks Edition (forums.customscreators.com) and Onyxite's Build Tool."
                   , C3.songAlbumArt = "cover.bmp"
                   , C3.packageThumb = ""
@@ -1875,8 +1876,8 @@ main = do
                         , D.crowdChannels = D.crowdChannels $ D.song rb3DTA
                         }
                       , D.songId = case _songID $ _metadata songYaml of
-                        Nothing  -> Right $ D.Keyword pkg
-                        Just eis -> either Left (Right . D.Keyword . T.unpack) eis
+                        Nothing -> Right $ D.Keyword pkg
+                        Just (JSONEither eis) -> either Left (Right . D.Keyword . T.unpack) eis
                       }
                 liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : D.toChunks newDTA))]
               rb2Mid %> \out -> do
@@ -2083,6 +2084,9 @@ main = do
           "darwin" -> callProcess "open" ["notes.RPP"]
           _        -> return ()
       _ -> error "Usage: onyx reap plan"
+    "mt" : fin : [] -> fmap MS.toStandardMIDI (Load.fromFile fin) >>= \case
+      Left  err -> error err
+      Right mid -> putStr $ MS.showStandardMIDI midiTextOptions mid
     "mt" : args -> case inputOutput ".txt" args of
       Nothing -> error "Usage: onyx mt in.mid [out.txt]"
       Just (fin, fout) -> fmap MS.toStandardMIDI (Load.fromFile fin) >>= \case
