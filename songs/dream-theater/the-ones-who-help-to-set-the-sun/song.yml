@@ -23,7 +23,7 @@ plans:
       60|4: hihat
       60|5: hihat
     song:
-      trim: [0.231, album-track]
+      trim: [0.231, gain: [1.8, album-track]]
 instruments:
   drums: true
 options:

@@ -23,7 +23,7 @@ plans:
       2|2: hihat
       2|3: hihat
     song:
-      pad: [0.611, album-track]
+      pad: [0.611, gain: [1.8, album-track]]
 instruments:
   drums: true
 options:

@@ -21,8 +21,10 @@ plans:
       1|0: hihat
       1|1: hihat
     song:
-      pad: [1.724, album-track]
+      pad: [1.724, gain: [1.8, album-track]]
 instruments:
   drums: true
+  guitar: true
+  pro-keys: true
 options:
   auto-2x-bass: true

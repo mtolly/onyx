@@ -154,7 +154,7 @@ instance A.ToJSON KeysRB2 where
 
 -- | Options that affect gameplay.
 jsonRecord "Options" eosr $ do
-  opt "_padStart"      "pad-start"      [t| Bool |]    [e| True |]
+  opt "_padStart"      "pad-start"      [t| Bool |]    [e| False |]
   opt "_hopoThreshold" "hopo-threshold" [t| Int |]     [e| 170 |]
   opt "_keysRB2"       "keys-rb2"       [t| KeysRB2 |] [e| NoKeys |]
   opt "_auto2xBass"    "auto-2x-bass"   [t| Bool |]    [e| False |]
