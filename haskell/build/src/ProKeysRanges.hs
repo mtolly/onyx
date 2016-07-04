@@ -49,7 +49,7 @@ completeRanges rtb = let
   held = heldNotes $ U.trackJoin $ flip fmap notRanges $ \case
     Note (Blip () p) -> RTB.fromPairList
       [ (0  , (True, p))
-      , (1/4, (True, p)) -- give all blips a 16th note of room
+      , (1/4, (False, p)) -- give all blips a 16th note of room
       ]
     Note (NoteOn () p) -> RTB.singleton 0 (True, p)
     Note (NoteOff   p) -> RTB.singleton 0 (False, p)

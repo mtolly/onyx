@@ -43,22 +43,22 @@ import           System.IO.Temp                 (withSystemTempDirectory)
 import Scripts (loadMIDI_IO)
 
 -- | Convert a CON or RBA file (or FoF directory) to Onyx format.
-importAny :: FilePath -> FilePath -> IO ()
-importAny src dest = do
+importAny :: KeysRB2 -> FilePath -> FilePath -> IO ()
+importAny krb2 src dest = do
   Dir.createDirectoryIfMissing True dest
   isDir <- Dir.doesDirectoryExist src
   if isDir
-    then importFoF src dest
+    then importFoF krb2 src dest
     else do
       magic <- withBinaryFile src ReadMode $ \h -> B.hGet h 4
       case B8.unpack magic of
-        "CON " -> importSTFS src dest
-        "STFS" -> importSTFS src dest
-        "RBSF" -> importRBA  src dest
+        "CON " -> importSTFS krb2 src dest
+        "STFS" -> importSTFS krb2 src dest
+        "RBSF" -> importRBA  krb2 src dest
         _      -> error $ src ++ " is not in a supported song format"
 
-importFoF :: FilePath -> FilePath -> IO ()
-importFoF src dest = do
+importFoF :: KeysRB2 -> FilePath -> FilePath -> IO ()
+importFoF krb2 src dest = do
   song <- FoF.loadSong $ src </> "song.ini"
   F.Cons _ _ midtrks <- Load.fromFile $ src </> "notes.mid"
   let trackNames = mapMaybe U.trackName midtrks
@@ -130,7 +130,7 @@ importFoF src dest = do
     , _options = Options
       { _auto2xBass    = False
       , _hopoThreshold = 170
-      , _keysRB2       = NoKeys
+      , _keysRB2       = krb2
       , _padStart      = pad
       }
     , _audio = HM.fromList $ flip map audioFiles $ \aud -> (T.pack aud, AudioFile
@@ -176,8 +176,8 @@ importFoF src dest = do
     , _published = True
     }
 
-importSTFS :: FilePath -> FilePath -> IO ()
-importSTFS file dir = withSystemTempDirectory "onyx_con" $ \temp -> do
+importSTFS :: KeysRB2 -> FilePath -> FilePath -> IO ()
+importSTFS krb2 file dir = withSystemTempDirectory "onyx_con" $ \temp -> do
   extractSTFS file temp
   (_, pkg, isUTF8) <- readRB3DTA $ temp </> "songs/songs.dta"
   -- C3 puts extra info in DTA comments
@@ -188,7 +188,7 @@ importSTFS file dir = withSystemTempDirectory "onyx_con" $ \temp -> do
       -- where foo is the top key of songs.dta. foo can be different!
       -- e.g. C3's "Escape from the City" has a top key 'SonicAdvCityEscape2x'
       -- and a 'name' of "songs/sonicadv2cityescape2x/sonicadv2cityescape2x"
-  importRB3 pkg (fmap T.pack author)
+  importRB3 krb2 pkg (fmap T.pack author)
     (temp </> base <.> "mid")
     (temp </> base <.> "mogg")
     (temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox"))
@@ -204,8 +204,8 @@ getRBAFile i rba out = withBinaryFile rba ReadMode $ \h -> do
   hSeek h AbsoluteSeek $ fromIntegral $ offsets !! i
   BL.hGet h (fromIntegral $ sizes !! i) >>= BL.writeFile out
 
-importRBA :: FilePath -> FilePath -> IO ()
-importRBA file dir = withSystemTempDirectory "onyx_rba" $ \temp -> do
+importRBA :: KeysRB2 -> FilePath -> FilePath -> IO ()
+importRBA krb2 file dir = withSystemTempDirectory "onyx_rba" $ \temp -> do
   getRBAFile 0 file $ temp </> "songs.dta"
   getRBAFile 1 file $ temp </> "notes.mid"
   getRBAFile 2 file $ temp </> "audio.mogg"
@@ -221,7 +221,7 @@ importRBA file dir = withSystemTempDirectory "onyx_rba" $ \temp -> do
           ))])
           -> Just s
         _ -> Nothing
-  importRB3 pkg (fmap T.pack author)
+  importRB3 krb2 pkg (fmap T.pack author)
     (temp </> "notes.mid")
     (temp </> "audio.mogg")
     (temp </> "cover.bmp")
@@ -263,8 +263,8 @@ readRB3DTA dtaPath = do
     Just enc -> error $ dtaPath ++ " specifies an unrecognized encoding: " ++ enc
 
 -- | Collects the contents of an RBA or CON file into an Onyx project.
-importRB3 :: D.SongPackage -> Maybe T.Text -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> IO ()
-importRB3 pkg author mid mogg cover coverName dir = do
+importRB3 :: KeysRB2 -> D.SongPackage -> Maybe T.Text -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> IO ()
+importRB3 krb2 pkg author mid mogg cover coverName dir = do
   Dir.copyFile mogg $ dir </> "audio.mogg"
   Dir.copyFile mid $ dir </> "notes.mid"
   Dir.copyFile cover $ dir </> coverName
@@ -287,7 +287,7 @@ importRB3 pkg author mid mogg cover coverName dir = do
       , _artist       = Just $ T.pack $ D.artist pkg
       , _album        = Just $ T.pack $ fromMaybe "Unknown Album" $ D.albumName pkg
       , _genre        = Just $ T.pack $ D.fromKeyword $ D.genre pkg
-      , _subgenre     = T.pack . D.fromKeyword <$> D.subGenre pkg
+      , _subgenre     = D.subGenre pkg >>= T.stripPrefix "subgenre_" . T.pack . D.fromKeyword
       , _year         = Just $ fromIntegral $ D.yearReleased pkg
       , _fileAlbumArt = Just coverName
       , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
@@ -318,7 +318,7 @@ importRB3 pkg author mid mogg cover coverName dir = do
       { _padStart = False
       , _auto2xBass = False
       , _hopoThreshold = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
-      , _keysRB2 = NoKeys
+      , _keysRB2 = krb2
       }
     , _audio = HM.empty
     , _jammit = HM.empty

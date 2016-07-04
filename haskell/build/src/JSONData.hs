@@ -170,7 +170,7 @@ jsonRecord rec derivs writ = do
           optional $(TH.lift (jsonKey field)) traceJSON >>= \case
             Nothing -> do
               when $(TH.lift (warnMissing field))
-                (warn ("missing key " ++ $(TH.lift (jsonKey field))))
+                (warn ("missing key " ++ show ($(TH.lift (jsonKey field)) :: String)))
               return $dft
             Just x -> return x
           |]

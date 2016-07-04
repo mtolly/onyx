@@ -1555,16 +1555,18 @@ main = do
                 let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
                 liftIO $ runResourceT $ sinkSnd out fmt $ RB2.dryVoxAudio m
               dummyMono %> \out -> do
-                len <- songLengthMS <$> loadMIDI mid
+                len <- songLengthMS <$> loadMIDI mid -- TODO: it only needs to be preview start + 30 secs
                 buildAudio (Silence 1 $ Seconds $ fromIntegral len / 1000) out
               dummyStereo %> \out -> do
-                len <- songLengthMS <$> loadMIDI mid
+                len <- songLengthMS <$> loadMIDI mid -- TODO: it only needs to be preview start + 30 secs
                 buildAudio (Silence 2 $ Seconds $ fromIntegral len / 1000) out
               song %> copyFile' (dir </> "song-countin.wav")
               cover %> copyFile' "gen/cover.bmp"
               coverV1 %> \out -> liftIO $ writeBitmap out $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
               mid %> copyFile' (pedalDir </> "notes.mid")
               midV1 %> \out -> loadMIDI mid >>= saveMIDI out . RB2.convertMIDI
+                (_keysRB2 $ _options songYaml)
+                (fromIntegral (_hopoThreshold $ _options songYaml) / 480)
               proj %> \out -> do
                 p <- makeMagmaProj
                 liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
@@ -1575,8 +1577,8 @@ main = do
                       (makeDummyKeep dkt)
                       (makeDummyKeep dk)
                       (makeDummyKeep ds)
-                      (makeDummyMono b)
-                      (makeDummyMono g)
+                      (makeDummyMono $ if _keysRB2 (_options songYaml) == KeysBass   then k else b)
+                      (makeDummyMono $ if _keysRB2 (_options songYaml) == KeysGuitar then k else g)
                       (makeDummyMono v)
                       (makeDummyMono k) -- doesn't matter
                       (makeDummyMono bck)
@@ -1602,6 +1604,10 @@ main = do
                         , T.pack sub
                         )
                       Nothing -> (T.pack "other", T.pack "other")
+                    swapRanks gd = case _keysRB2 $ _options songYaml of
+                      NoKeys     -> gd
+                      KeysBass   -> gd { Magma.rankBass   = Magma.rankKeys gd }
+                      KeysGuitar -> gd { Magma.rankGuitar = Magma.rankKeys gd }
                 liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
                   { Magma.project = (Magma.project p)
                     { Magma.albumArt = Magma.AlbumArt "cover-v1.bmp"
@@ -1625,6 +1631,7 @@ main = do
                       { Magma.genre = D.Keyword $ T.unpack newGenre
                       , Magma.subGenre = D.Keyword $ "subgenre_" ++ T.unpack newSubgenre
                       }
+                    , Magma.gamedata = swapRanks $ Magma.gamedata $ Magma.project p
                     }
                   }
               c3 %> \out -> do
@@ -1781,6 +1788,27 @@ main = do
                   rb2Weights = pedalDir </> "rb2/songs" </> pkg </> "gen" </> (pkg ++ "_weights.bin")
                   rb2Milo = pedalDir </> "rb2/songs" </> pkg </> "gen" </> pkg <.> "milo_xbox"
                   rb2Pan = pedalDir </> "rb2/songs" </> pkg </> pkg <.> "pan"
+                  fixDict
+                    = D.Dict
+                    . Map.fromList
+                    . mapMaybe (\(k, v) -> case k of
+                      "guitar" -> case _keysRB2 $ _options songYaml of
+                        KeysGuitar -> Nothing
+                        _ -> Just (k, v)
+                      "bass" -> case _keysRB2 $ _options songYaml of
+                        KeysBass -> Nothing
+                        _ -> Just (k, v)
+                      "keys" -> case _keysRB2 $ _options songYaml of
+                        NoKeys -> Nothing
+                        KeysGuitar -> Just ("guitar", v)
+                        KeysBass -> Just ("bass", v)
+                      "drum" -> Just (k, v)
+                      "vocals" -> Just (k, v)
+                      "band" -> Just (k, v)
+                      _ -> Nothing
+                    )
+                    . Map.toList
+                    . D.fromDict
               rb2OriginalDTA %> \out -> do
                 ex <- doesRBAExist
                 if ex
@@ -1822,11 +1850,7 @@ main = do
                           , D.animTempo = D.animTempo rb3DTA
                           , D.songLength = D.songLength rb3DTA
                           , D.preview = D.preview rb3DTA
-                          , D.rank
-                            = D.Dict
-                            . Map.filterWithKey (\k _ -> k `elem` words "guitar bass drum vocals band")
-                            . D.fromDict
-                            $ D.rank rb3DTA
+                          , D.rank = fixDict $ D.rank rb3DTA
                           , D.genre = D.Keyword $ T.unpack newGenre
                           , D.decade = Just $ D.Keyword $ let y = D.yearReleased rb3DTA in if
                             | 1960 <= y && y < 1970 -> "the60s"
@@ -1872,7 +1896,7 @@ main = do
                     newDTA = magmaDTA
                       { D.song = (D.song magmaDTA)
                         { D.tracksCount = Nothing
-                        , D.tracks = fmap (D.Dict . Map.filterWithKey (\k _ -> k /= "keys") . D.fromDict) $ D.tracks $ D.song rb3DTA
+                        , D.tracks = fmap fixDict $ D.tracks $ D.song rb3DTA
                         , D.midiFile = Just $ "songs/" ++ pkg ++ "/" ++ pkg ++ ".mid"
                         , D.songName = "songs/" ++ pkg ++ "/" ++ pkg
                         , D.pans = D.pans $ D.song rb3DTA
@@ -1949,7 +1973,7 @@ main = do
 
     makePlayer :: FilePath -> FilePath -> IO ()
     makePlayer fin dout = withSystemTempDirectory "onyx_player" $ \dir -> do
-      importAny fin dir
+      importAny NoKeys fin dir
       isFoF <- Dir.doesDirectoryExist fin
       let planWeb = if isFoF then "gen/plan/fof/web" else "gen/plan/mogg/web"
       shakeBuild [planWeb] $ Just $ dir </> "song.yml"
@@ -2005,7 +2029,9 @@ main = do
       p "  unstfs - unpack an STFS package to a directory"
       p "  import - import CON/RBA/FoF to onyx's project format"
       p "  convert - convert CON/RBA/FoF to RB3 CON"
-      p "  convert-rb2 - convert RB3 CON to RB2 CON"
+      p "  convert-rb2    - convert RB3 CON to RB2 CON (drop keys)"
+      p "  convert-rb2-kg - convert RB3 CON to RB2 CON (guitar is keys)"
+      p "  convert-rb2-kb - convert RB3 CON to RB2 CON (bass is keys)"
       p "  reduce - fill in blank difficulties in a MIDI"
       p "  player - create web browser song playback app"
       p "  rpp - convert MIDI to Reaper project"
@@ -2046,11 +2072,11 @@ main = do
       Just (stfs, dir) -> extractSTFS stfs dir
     "import" : args -> case inputOutput "_import" args of
       Nothing -> error "Usage: onyx import in{_rb3con|.rba} [outdir/]"
-      Just (file, dir) -> importAny file dir
+      Just (file, dir) -> importAny NoKeys file dir
     "convert" : args -> case inputOutput "_rb3con" args of
       Nothing -> error "Usage: onyx convert in.rba [out_rb3con]"
       Just (rba, con) -> withSystemTempDirectory "onyx_convert" $ \dir -> do
-        importAny rba dir
+        importAny NoKeys rba dir
         isFoF <- Dir.doesDirectoryExist rba
         let planCon = if isFoF then "gen/plan/fof/2p/rb3.con" else "gen/plan/mogg/2p/rb3.con"
         shakeBuild [planCon] $ Just $ dir </> "song.yml"
@@ -2058,7 +2084,23 @@ main = do
     "convert-rb2" : args -> case inputOutput "_rb2con" args of
       Nothing -> error "Usage: onyx convert-rb2 in_rb3con [out_rb2con]"
       Just (fin, fout) -> withSystemTempDirectory "onyx_convert" $ \dir -> do
-        importAny fin dir
+        importAny NoKeys fin dir
+        isFoF <- Dir.doesDirectoryExist fin
+        let planCon = if isFoF then "gen/plan/fof/2p/rb2.con" else "gen/plan/mogg/2p/rb2.con"
+        shakeBuild [planCon] $ Just $ dir </> "song.yml"
+        Dir.copyFile (dir </> planCon) fout
+    "convert-rb2-kg" : args -> case inputOutput "_rb2con" args of
+      Nothing -> error "Usage: onyx convert-rb2-kg in_rb3con [out_rb2con]"
+      Just (fin, fout) -> withSystemTempDirectory "onyx_convert" $ \dir -> do
+        importAny KeysGuitar fin dir
+        isFoF <- Dir.doesDirectoryExist fin
+        let planCon = if isFoF then "gen/plan/fof/2p/rb2.con" else "gen/plan/mogg/2p/rb2.con"
+        shakeBuild [planCon] $ Just $ dir </> "song.yml"
+        Dir.copyFile (dir </> planCon) fout
+    "convert-rb2-kb" : args -> case inputOutput "_rb2con" args of
+      Nothing -> error "Usage: onyx convert-rb2-kb in_rb3con [out_rb2con]"
+      Just (fin, fout) -> withSystemTempDirectory "onyx_convert" $ \dir -> do
+        importAny KeysBass fin dir
         isFoF <- Dir.doesDirectoryExist fin
         let planCon = if isFoF then "gen/plan/fof/2p/rb2.con" else "gen/plan/mogg/2p/rb2.con"
         shakeBuild [planCon] $ Just $ dir </> "song.yml"

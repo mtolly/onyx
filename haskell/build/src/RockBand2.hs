@@ -14,6 +14,7 @@ import Data.Conduit.Audio (AudioSource, Duration(Seconds), silent, concatenate, 
 import Scripts (trackGlue)
 import Data.List (partition)
 import Control.Monad (guard)
+import Config (KeysRB2(..))
 
 dryVoxAudio :: (Monad m) => F.Song U.Beats -> AudioSource m Float
 dryVoxAudio f = let
@@ -32,8 +33,8 @@ dryVoxAudio f = let
   midiPitchToFreq p = (2 ** ((fromIntegral p - 69) / 12)) * 440
   in go Nothing $ U.applyTempoTrack (F.s_tempos f) notes
 
-convertMIDI :: F.Song U.Beats -> F.Song U.Beats
-convertMIDI mid = mid
+convertMIDI :: KeysRB2 -> U.Beats -> F.Song U.Beats -> F.Song U.Beats
+convertMIDI keysrb2 hopoThresh mid = mid
   { F.s_tracks = fixUnisons $ flip mapMaybe (F.s_tracks mid) $ \case
     F.PartDrums  t -> Just $ F.PartDrums $ flip RTB.mapMaybe t $ \case
       -- Drums.ProType{} -> Nothing -- Magma is fine with pro markers
@@ -49,8 +50,16 @@ convertMIDI mid = mid
         Drums.Crash2 hit Drums.LH -> Drums.Crash1 hit Drums.LH
         _ -> a
       x -> Just x
-    F.PartGuitar t -> Just $ F.PartGuitar $ fixGB True  t
-    F.PartBass   t -> Just $ F.PartBass $ fixGB False t
+    F.PartGuitar t -> case keysrb2 of
+      KeysGuitar -> Nothing
+      _          -> Just $ F.PartGuitar $ fixGB True  t
+    F.PartBass   t -> case keysrb2 of
+      KeysBass -> Nothing
+      _        -> Just $ F.PartBass $ fixGB False t
+    F.PartKeys   t -> case keysrb2 of
+      NoKeys     -> Nothing
+      KeysGuitar -> Just $ F.PartGuitar $ fixGB True  $ Five.keysToGuitar hopoThresh t
+      KeysBass   -> Just $ F.PartBass   $ fixGB False $ Five.keysToGuitar hopoThresh t
     F.PartVocals t -> Just $ F.PartVocals $ flip RTB.mapMaybe t $ \case
       Vox.LyricShift -> Nothing
       Vox.RangeShift{} -> Nothing
