@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/train-of-thought.yml
   track-number: 7
   author: Grinnz
+  drum-layout: flip-yb-toms
   comments:
   - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:

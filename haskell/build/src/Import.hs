@@ -123,6 +123,7 @@ importFoF krb2 src dest = do
       , _author       = FoF.charter song
       , _rating       = Unrated
       , _drumKit      = HardRockKit
+      , _drumLayout   = StandardLayout
       , _previewStart = Nothing
       , _previewEnd   = Nothing
       , _songID       = Nothing
@@ -310,9 +311,12 @@ importRB3 krb2 pkg author mid mogg cover coverName dir = do
       , _author       = author
       , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
       , _drumKit      = drumkit
+      , _drumLayout   = StandardLayout -- TODO import this
       , _previewStart = Just $ fromIntegral (fst $ D.preview pkg) / 1000
       , _previewEnd   = Just $ fromIntegral (snd $ D.preview pkg) / 1000
-      , _songID       = Just $ JSONEither $ either Left (Right . T.pack . D.fromKeyword) $ D.songId pkg
+      , _songID       = fmap JSONEither $ case D.songId pkg of
+        Left  i -> guard (i /= 0) >> Just (Left i)
+        Right k -> Just $ Right $ T.pack $ D.fromKeyword k
       }
     , _options = Options
       { _padStart = False

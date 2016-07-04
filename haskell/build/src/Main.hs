@@ -1146,9 +1146,9 @@ main = do
                     , D.pans = D.InParens $ map realToFrac pans
                     , D.vols = D.InParens $ map realToFrac vols
                     , D.cores = D.InParens cores
-                    -- TODO: different drum kit sounds
-                    , D.drumSolo = D.DrumSounds $ D.InParens $ map D.Keyword $ words
-                      "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
+                    , D.drumSolo = D.DrumSounds $ D.InParens $ map D.Keyword $ words $ case _drumLayout $ _metadata songYaml of
+                      StandardLayout -> "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
+                      FlipYBToms     -> "kick.cue snare.cue tom2.cue tom1.cue crash.cue"
                     , D.drumFreestyle = D.DrumSounds $ D.InParens $ map D.Keyword $ words
                       "kick.cue snare.cue hat.cue ride.cue crash.cue"
                     , D.crowdChannels = guard (not $ null crowdChannels) >> Just (map fromIntegral crowdChannels)
@@ -1554,12 +1554,8 @@ main = do
                 m <- loadMIDI mid
                 let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
                 liftIO $ runResourceT $ sinkSnd out fmt $ RB2.dryVoxAudio m
-              dummyMono %> \out -> do
-                len <- songLengthMS <$> loadMIDI mid -- TODO: it only needs to be preview start + 30 secs
-                buildAudio (Silence 1 $ Seconds $ fromIntegral len / 1000) out
-              dummyStereo %> \out -> do
-                len <- songLengthMS <$> loadMIDI mid -- TODO: it only needs to be preview start + 30 secs
-                buildAudio (Silence 2 $ Seconds $ fromIntegral len / 1000) out
+              dummyMono   %> \out -> buildAudio (Silence 1 $ Seconds 31) out -- we set preview start to 0:00 so these can be short
+              dummyStereo %> \out -> buildAudio (Silence 2 $ Seconds 31) out
               song %> copyFile' (dir </> "song-countin.wav")
               cover %> copyFile' "gen/cover.bmp"
               coverV1 %> \out -> liftIO $ writeBitmap out $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
@@ -1631,7 +1627,9 @@ main = do
                       { Magma.genre = D.Keyword $ T.unpack newGenre
                       , Magma.subGenre = D.Keyword $ "subgenre_" ++ T.unpack newSubgenre
                       }
-                    , Magma.gamedata = swapRanks $ Magma.gamedata $ Magma.project p
+                    , Magma.gamedata = swapRanks $ (Magma.gamedata $ Magma.project p)
+                      { Magma.previewStartMs = 0 -- for dummy audio. will reset after magma
+                      }
                     }
                   }
               c3 %> \out -> do
@@ -1907,6 +1905,8 @@ main = do
                       , D.songId = case _songID $ _metadata songYaml of
                         Nothing -> Right $ D.Keyword pkg
                         Just (JSONEither eis) -> either Left (Right . D.Keyword . T.unpack) eis
+                      , D.preview = D.preview rb3DTA -- because we told magma preview was at 0s earlier
+                      , D.songLength = D.songLength rb3DTA -- magma v1 set this to 31s from the audio file lengths
                       }
                 liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : D.toChunks newDTA))]
               rb2Mid %> \out -> do

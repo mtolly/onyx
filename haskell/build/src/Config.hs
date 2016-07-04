@@ -694,6 +694,23 @@ instance A.ToJSON DrumKit where
     TrashyKit -> "Trashy Kit"
     ElectronicKit -> "Electronic Kit"
 
+data DrumLayout
+  = StandardLayout
+  | FlipYBToms
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance TraceJSON DrumLayout where
+  traceJSON = lift ask >>= \case
+    A.Null                     -> return StandardLayout
+    A.String "standard-layout" -> return StandardLayout
+    A.String "flip-yb-toms"    -> return FlipYBToms
+    _                          -> expected "the name of a drum kit layout or null"
+
+instance A.ToJSON DrumLayout where
+  toJSON = \case
+    StandardLayout -> "standard-layout"
+    FlipYBToms     -> "flip-yb-toms"
+
 -- | Extra information with no gameplay affect.
 jsonRecord "Metadata" eosr $ do
   warning "_title" "title" [t| Maybe T.Text |] [e| Nothing |]
@@ -713,6 +730,7 @@ jsonRecord "Metadata" eosr $ do
   warning "_author" "author" [t| Maybe T.Text |] [e| Nothing |]
   opt "_rating" "rating" [t| Rating |] [e| Unrated |]
   opt "_drumKit" "drum-kit" [t| DrumKit |] [e| HardRockKit |]
+  opt "_drumLayout" "drum-layout" [t| DrumLayout |] [e| StandardLayout |]
   opt "_previewStart" "preview-start" [t| Maybe Double |] [e| Nothing |]
   opt "_previewEnd" "preview-end" [t| Maybe Double |] [e| Nothing |]
   opt "_songID" "song-id" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]

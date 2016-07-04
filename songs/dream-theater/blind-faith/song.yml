@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/six-degrees-of-inner-turbulence.yml
   track-number: 2
   author: "mazegeek999 (pro keys), Onyxite (drums, vocals, bass), unknown (guitar)"
+  drum-layout: flip-yb-toms # as demonstrated on ten degrees dvd
   comments:
   - >-
     Drums confidence: *medium-high*.
