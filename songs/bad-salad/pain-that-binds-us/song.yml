@@ -2,8 +2,12 @@ metadata:
   title: Pain that Binds Us
   file-include: ../../../albums/puzzled.yml
   track-number: 1
-  author: Onyxite
+  author: Onyxite, mazegeek999
+  difficulty:
+    drums: 6
+    pro-keys: 7
   comments:
+  - "Pro keys by mazegeek999."
   - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
 audio:
   album-track:
@@ -51,6 +55,10 @@ plans:
       pad:
       - 4.371
       - gain: [0.65, pledgemusic-drums]
+    keys:
+      pad:
+      - 4.371
+      - gain: [0.65, pledgemusic-keyboards]
     song:
       pad:
       - 4.371
@@ -59,9 +67,9 @@ plans:
         - mix:
           - pledgemusic-bass
           - pledgemusic-guitars
-          - pledgemusic-keyboards
           - pledgemusic-vocals
 instruments:
   drums: true
+  pro-keys: true
 options:
   auto-2x-bass: true
