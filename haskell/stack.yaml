@@ -12,6 +12,10 @@ packages:
   extra-dep: true
 - location: midiscript
   extra-dep: true
+- location:
+    git: git://github.com/mtolly/midi
+    commit: b6249df44ddfbd342acbb099cbc4ef760df13bcf
+  extra-dep: true
 extra-deps:
 - conduit-audio-0.2.0.2
 - conduit-audio-lame-0.1.2
