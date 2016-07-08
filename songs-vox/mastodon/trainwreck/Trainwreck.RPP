@@ -1,39 +1,40 @@
-<REAPER_PROJECT 0.1 "4.22"
+<REAPER_PROJECT 0.1 "5.211/OSX" 1468019456
   RIPPLE 0
   GROUPOVERRIDE 0 0 0
   AUTOXFADE 1
   ENVATTACH 1
   MIXERUIFLAGS 11 48
-  PEAKGAIN 1.00000000000000
+  PEAKGAIN 1
   FEEDBACK 0
-  PANLAW 1.00000000000000
-  PROJOFFS 0.00000000000000 0
-  MAXPROJLEN 0 600.00000000000000
-  GRID 1151 8 1.00000000000000 8 1.00000000000000 0
-  TIMEMODE 1 0 -1
-  CURSOR 390.85961299876584
-  ZOOM 246.03095524575392 95716 0
+  PANLAW 1
+  PROJOFFS 0 0
+  MAXPROJLEN 0 600
+  GRID 1151 8 1 8 1 0 0
+  TIMEMODE 1 0 -1 24 2
+  CURSOR 140.161270333348
+  ZOOM 1.21572671912411 0 0
   VZOOMEX 0
   USE_REC_CFG 0
   RECMODE 1
-  SMPTESYNC 0 30.000000 100 40 1000 300 0 0.000000 0
+  SMPTESYNC 0 30 100 40 1000 300 0 0 0
   LOOP 0
-  LOOPGRAN 0 4.00000000000000
+  LOOPGRAN 0 4
   RECORD_PATH "" ""
   <RECORD_CFG
     ZXZhdxgA
   >
   <APPLYFX_CFG
   >
-  RENDER_FILE "C:\Users\AJFOne23\Downloads\RB3\Metal\Mastodon\2002 Remission\Trainwreck\Trainwreck-FINAL.wav"
+  RENDER_FILE "C:\Users\AJFOne23\Downloads\RB3\Metal\Mastodon\2002 Remission\Trainwreck/Trainwreck-FINAL.wav"
   RENDER_FMT 0 2 44100
   RENDER_1X 0
-  RENDER_RANGE 1 0.00000000000000 0.00000000000000
+  RENDER_RANGE 1 0 0 18 1000
   RENDER_RESAMPLE 3 0 1
   RENDER_ADDTOPROJ 0
   RENDER_STEMS 0
   RENDER_DITHER 0
   TIMELOCKMODE 0
+  TEMPOENVLOCKMODE 1
   ITEMMIX 0
   DEFPITCHMODE 0
   TAKELANE 1
@@ -42,37 +43,36 @@
     ZXZhdxAA
   >
   LOCK 1
-  <METRONOME 6 2.000000
+  <METRONOME 6 2
     VOL 0.752735 0.723913
     FREQ 800 1600 0
     BEATLEN 4
     SAMPLES "" ""
+    PATTERN 2863311530 2863311529
   >
   GLOBAL_AUTO -1
-  TEMPO 120.00000000000000 4 4
-  PLAYRATE 1.00000000000000 0 0.25000 4.00000
-  SELECTION 0.00000000000000 0.00000000000000
-  SELECTION2 0.00000000000000 0.00000000000000
+  TEMPO 120 4 4
+  PLAYRATE 1 1 0.25 4
+  SELECTION 142.88885853462 142.88885853462
+  SELECTION2 142.88885853462 142.88885853462
   MASTERAUTOMODE 0
   MASTERTRACKHEIGHT 0
   MASTERPEAKCOL 16576
   MASTERMUTESOLO 0
-  MASTERTRACKVIEW 1 0.666700 0.500000 0.500000 -1 -1 -1
-  MASTERHWOUT 0 0 1.00000000000000 0.00000000000000 0 0 0 -1.00000000000000
+  MASTERTRACKVIEW 1 0.6667 0.5 0.5 0 0 0
+  MASTERHWOUT 0 0 1 0 0 0 0 -1
   MASTER_NCH 2 2
-  MASTER_VOLUME 1.00000000000000 0.00000000000000 -1.00000000000000 -1.00000000000000 1.00000000000000
+  MASTER_VOLUME 1 0 -1 -1 1
   MASTER_FX 1
   MASTER_SEL 0
   <MASTERFXLIST
     SHOW 0
     LASTSEL 0
     DOCKED 0
-    BYPASS 0 0
-    <VST "VST: W1 Limiter (George Yohng)" "George Yohng's W1 Limiter.dll" 0 ""
-      THdGNO5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAA==
-      AgAAAAAAAABMAAAAAQAAAAAAEAAMAACBdGhyZXNoAAD+1Hg/DAAAgQ==
-      Y2VpbGluZwD+1Hg/DAAAgXJlbGVhc2UAMEAfPxQAAIFhZGFwdFJlbA==
-      ZWFzZQAAAAAAAAAAAAAAgAAAEAAAAA==
+    BYPASS 0 0 0
+    <VST "VST: W1 Limiter (George Yohng)" "George Yohng's W1 Limiter.dll" 0 "" ""
+      THdGNO5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAATAAAAAEAAAAAABAADAAAgXRocmVzaAAA/tR4PwwAAIFjZWlsaW5nAP7UeD8MAACB
+      cmVsZWFzZQAwQB8/FAAAgWFkYXB0UmVsZWFzZQAAAAAAAAAAAAAAgAAAEAAAAA==
     >
     FLOATPOS 24 24 481 152
     FXID {69D45D23-FE06-4141-B0BB-1A6D9443AFA8}
@@ -80,14 +80,14 @@
   >
   <MASTERPLAYSPEEDENV
     ACT 0
-    VIS 0 1 1.000000
+    VIS 0 1 1
     LANEHEIGHT 0 0
     ARM 0
     DEFSHAPE 0 -1 -1
   >
   <TEMPOENVEX
     ACT 1
-    VIS 1 0 1.000000
+    VIS 1 0 1
     LANEHEIGHT 0 0
     ARM 0
     DEFSHAPE 1 -1 -1
@@ -446,22 +446,22 @@
   >
   <PROJBAY
   >
-  <TRACK '{4D889F49-FE1F-4D1D-9FB8-BFD5BA06901A}'
+  <TRACK {4D889F49-FE1F-4D1D-9FB8-BFD5BA06901A}
     NAME "SONG AUDIO"
     PEAKCOL 16576
     BEAT -1
     AUTOMODE 0
-    VOLPAN 1.00000000000000 0.00000000000000 -1.00000000000000 -1.00000000000000 1.00000000000000
-    MUTESOLO 0 2 0
+    VOLPAN 1 0 -1 -1 1
+    MUTESOLO 0 0 0
     IPHASE 0
     ISBUS 0 0
     BUSCOMP 0 0
-    SHOWINMIX 1 0.666700 0.500000 1 0.500000 -1 -1 -1
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
     SEL 0
     REC 0 0 0 0 0 0 0
-    TRACKHEIGHT 421 0
-    INQ 0 0 0 0.5000000000 100 0 0 100
+    TRACKHEIGHT 146 0
+    INQ 0 0 0 0.5 100 0 0 100
     NCHAN 2
     FX 0
     TRACKID {4D889F49-FE1F-4D1D-9FB8-BFD5BA06901A}
@@ -473,18 +473,16 @@
       SHOW 0
       LASTSEL 1
       DOCKED 0
-      BYPASS 0 0
-      <VST "VST: W1 Limiter (George Yohng)" "George Yohng's W1 Limiter.dll" 0 ""
-        THdGNO5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAA==
-        AgAAAAAAAABMAAAAAQAAAAAAEAAMAACBdGhyZXNoAAD+1Hg/DAAAgQ==
-        Y2VpbGluZwD+1Hg/DAAAgXJlbGVhc2UAMEAfPxQAAIFhZGFwdFJlbA==
-        ZWFzZQAAAAAAAAAAAAAAgABEZWZhdWx0ABAAAAA=
+      BYPASS 0 0 0
+      <VST "VST: W1 Limiter (George Yohng)" "George Yohng's W1 Limiter.dll" 0 "" ""
+        THdGNO5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAATAAAAAEAAAAAABAADAAAgXRocmVzaAAA/tR4PwwAAIFjZWlsaW5nAP7UeD8MAACB
+        cmVsZWFzZQAwQB8/FAAAgWFkYXB0UmVsZWFzZQAAAAAAAAAAAAAAgABEZWZhdWx0ABAAAAA=
       >
       FLOATPOS 24 24 481 152
       FXID {D32BE511-3942-4A83-B6D7-DF2FE763A2B4}
       WAK 0
-      BYPASS 0 0
-      <JS "LOSER/CenterCanceler" ""
+      BYPASS 0 0 0
+      <JS LOSER/CenterCanceler ""
         100.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
       >
       FLOATPOS 0 0 0 0
@@ -492,66 +490,66 @@
       WAK 0
     >
     <ITEM
-      POSITION 1.11199999999999
-      SNAPOFFS 0.00000000000000
-      LENGTH 11.38800000000001
+      POSITION 1.112
+      SNAPOFFS 0
+      LENGTH 11.388
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {C7EE7BC0-52C7-4DC9-9005-7B2F336E4853}
       IID 22
-      NAME "Trainwreck.wav"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 1.75000000000000
-      PLAYRATE 1.00000000000000 1 0.00000000000000 -1
+      NAME Trainwreck.ogg
+      VOLPAN 1 0 1 -1
+      SOFFS 1.75
+      PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {862A56E8-159D-40BD-AB56-36F4A750BEE2}
-      <SOURCE WAVE
-        FILE "Trainwreck.wav"
+      <SOURCE VORBIS
+        FILE "Trainwreck.ogg"
       >
     >
     <ITEM
-      POSITION 12.50000000000000
-      SNAPOFFS 0.00000000000000
-      LENGTH 382.36199999999997
+      POSITION 12.5
+      SNAPOFFS 0
+      LENGTH 382.362
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {8AD9F68E-9C23-434C-8B6C-5D301EB73A47}
       IID 22
-      NAME "Trainwreck.wav"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 13.13800000000001
-      PLAYRATE 1.00000000000000 1 0.00000000000000 -1
+      NAME Trainwreck.ogg
+      VOLPAN 1 0 1 -1
+      SOFFS 13.138
+      PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {289ACD36-8641-4FC6-859A-093D16E7BF41}
-      <SOURCE WAVE
-        FILE "Trainwreck.wav"
+      <SOURCE VORBIS
+        FILE "Trainwreck.ogg"
       >
     >
   >
-  <TRACK '{BDCFF37A-71AC-4D17-AF26-EA560B308842}'
-    NAME "COUNTIN"
+  <TRACK {BDCFF37A-71AC-4D17-AF26-EA560B308842}
+    NAME COUNTIN
     PEAKCOL 16576
     BEAT -1
     AUTOMODE 0
-    VOLPAN 1.00000000000000 0.00000000000000 -1.00000000000000 -1.00000000000000 1.00000000000000
-    MUTESOLO 0 2 0
+    VOLPAN 1 0 -1 -1 1
+    MUTESOLO 0 0 0
     IPHASE 0
     ISBUS 0 0
     BUSCOMP 0 0
-    SHOWINMIX 1 0.666700 0.500000 1 0.500000 -1 -1 -1
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
     SEL 0
     REC 0 0 0 0 0 0 0
     TRACKHEIGHT 0 0
-    INQ 0 0 0 0.5000000000 100 0 0 100
+    INQ 0 0 0 0.5 100 0 0 100
     NCHAN 2
     FX 1
     TRACKID {BDCFF37A-71AC-4D17-AF26-EA560B308842}
@@ -559,21 +557,21 @@
     MIDIOUT -1
     MAINSEND 1 0
     <ITEM
-      POSITION 7.50000000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 7.5
+      SNAPOFFS 0
       LENGTH 0.28216019417451
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {49CCEEAD-12F1-472E-8B9C-48A90BF6E20A}
       IID 12
-      NAME "stick.wav"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000
-      PLAYRATE 1.00000000000052 1 0.00000000000000 -1
+      NAME stick.wav
+      VOLPAN 1 0 1 -1
+      SOFFS 0
+      PLAYRATE 1.00000000000052 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {3DFEA1C1-AD72-4DF8-A1BD-3977672F4D80}
       <SOURCE WAVE
@@ -581,21 +579,21 @@
       >
     >
     <ITEM
-      POSITION 8.75000000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 8.75
+      SNAPOFFS 0
       LENGTH 0.28216019417451
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {D829F3DA-0BE5-4277-954B-C2D10DB114A6}
       IID 7
-      NAME "stick.wav"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000
-      PLAYRATE 1.00000000000000 1 0.00000000000000 -1
+      NAME stick.wav
+      VOLPAN 1 0 1 -1
+      SOFFS 0
+      PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {3A242298-C3E5-4DC8-9A3C-2EE82D8D2134}
       <SOURCE WAVE
@@ -603,21 +601,21 @@
       >
     >
     <ITEM
-      POSITION 10.00000000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 10
+      SNAPOFFS 0
       LENGTH 0.28216019417451
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {5AEC5162-2B2C-4FF2-BB3B-E29ADC0916FE}
       IID 8
-      NAME "stick.wav"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000
-      PLAYRATE 1.00000000000052 1 0.00000000000000 -1
+      NAME stick.wav
+      VOLPAN 1 0 1 -1
+      SOFFS 0
+      PLAYRATE 1.00000000000052 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {16E29BEE-96F5-48F0-9FB0-3F04A1AF90D5}
       <SOURCE WAVE
@@ -625,21 +623,21 @@
       >
     >
     <ITEM
-      POSITION 10.62500000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 10.625
+      SNAPOFFS 0
       LENGTH 0.28216019417451
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {1FA8F8C4-F448-4E02-B340-4A6644F6D8AB}
       IID 9
-      NAME "stick.wav"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000
-      PLAYRATE 1.00000000000052 1 0.00000000000000 -1
+      NAME stick.wav
+      VOLPAN 1 0 1 -1
+      SOFFS 0
+      PLAYRATE 1.00000000000052 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {8D594F7C-8B39-4D29-A27D-55F46BC65189}
       <SOURCE WAVE
@@ -647,21 +645,21 @@
       >
     >
     <ITEM
-      POSITION 11.25000000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 11.25
+      SNAPOFFS 0
       LENGTH 0.28216019417451
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {1D23FF37-8166-4C8E-915E-19EFDB52B4D8}
       IID 10
-      NAME "stick.wav"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000
-      PLAYRATE 1.00000000000052 1 0.00000000000000 -1
+      NAME stick.wav
+      VOLPAN 1 0 1 -1
+      SOFFS 0
+      PLAYRATE 1.00000000000052 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {1D91F480-CA0B-4E03-8204-02893D660CDF}
       <SOURCE WAVE
@@ -669,21 +667,21 @@
       >
     >
     <ITEM
-      POSITION 11.87500000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 11.875
+      SNAPOFFS 0
       LENGTH 0.28216019417451
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {A6BA2F37-4089-4BF2-A73E-A602F32B7614}
       IID 11
-      NAME "stick.wav"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000
-      PLAYRATE 1.00000000000050 1 0.00000000000000 -1
+      NAME stick.wav
+      VOLPAN 1 0 1 -1
+      SOFFS 0
+      PLAYRATE 1.0000000000005 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {ABD24FE2-95CA-428E-ADD9-9A13921FCC29}
       <SOURCE WAVE
@@ -691,98 +689,98 @@
       >
     >
   >
-  <TRACK '{8F33A645-3DF2-48FA-99BC-10992A4F8042}'
+  <TRACK {8F33A645-3DF2-48FA-99BC-10992A4F8042}
     NAME "PART DRUMS"
     PEAKCOL 16842751
     BEAT -1
     AUTOMODE 0
-    VOLPAN 1.00000000000000 0.00000000000000 -1.00000000000000 -1.00000000000000 1.00000000000000
+    VOLPAN 1 0 -1 -1 1
     MUTESOLO 0 0 0
     IPHASE 0
     ISBUS 0 0
     BUSCOMP 1 0
-    SHOWINMIX 1 0.666700 0.500000 1 0.500000 -1 -1 -1
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
     SEL 0
     REC 0 4096 1 7 0 0 0
-    TRACKHEIGHT 57 0
-    INQ 0 0 0 0.5000000000 100 0 0 100
+    TRACKHEIGHT 0 0
+    INQ 0 0 0 0.5 100 0 0 100
     NCHAN 2
     FX 1
     TRACKID {8F33A645-3DF2-48FA-99BC-10992A4F8042}
     PERF 0
     MIDIOUT -1
     <MIDINOTENAMES
-      0 84 "HARD Kick"
-      0 96 "EXPERT Kick"
-      0 72 "MEDIUM Kick"
-      0 60 "EASY Kick"
-      0 97 "EXPERT Red"
-      0 98 "EXPERT Yellow"
-      0 99 "EXPERT Blue"
-      0 100 "EXPERT Green"
-      0 85 "HARD Red"
-      0 86 "HARD Yellow"
-      0 87 "HARD Blue"
-      0 88 "HARD Green"
-      0 73 "MEDIUM Red"
-      0 74 "MEDIUM Yellow"
-      0 75 "MEDIUM Blue"
-      0 76 "MEDIUM Green"
-      0 61 "EASY Red"
-      0 62 "EASY Yellow"
-      0 63 "EASY Blue"
-      0 64 "EASY Green"
-      0 101 " "
-      0 92 "----"
-      0 80 "----"
-      0 68 "----"
-      0 120 "DRUM FILL (use all 5)"
-      0 121 "DRUM FILL"
-      0 122 "DRUM FILL"
-      0 123 "DRUM FILL"
-      0 124 "DRUM FILL"
-      0 114 "----"
-      0 116 "OVERDRIVE"
-      0 118 "----"
-      0 24 "KICK RF"
-      0 25 "HI-HAT OPEN"
-      0 26 "SNARE HARD LH"
-      0 27 "SNARE HARD RH"
-      0 30 "HI-HAT LH"
-      0 31 "HI-HAT RH"
-      0 32 "PERCUSSION RH"
-      0 34 "CRASH1 HARD LH"
-      0 35 "CRASH1 SOFT LH"
-      0 36 "CRASH1 HARD RH"
-      0 37 "CRASH1 SOFT RH"
-      0 38 "CRASH2 HARD RH"
-      0 39 "CRASH2 SOFT RH"
-      0 40 "CRASH1 CHOKE"
-      0 41 "CRASH2 CHOKE"
-      0 42 "RIDE CYM RH"
-      0 46 "TOM1 LH"
-      0 47 "TOM1 RH"
-      0 48 "TOM2 LH"
-      0 49 "TOM2 RH"
-      0 50 "FLOOR TOM LH"
-      0 51 "FLOOR TOM RH"
-      0 52 "--DRUM ANIMATION--"
-      0 56 "----"
-      0 103 "Solo Marker"
-      0 102 "----"
-      0 110 "PRO Yellow Tom"
-      0 111 "PRO Blue Tom"
-      0 112 "PRO Green Tom"
-      0 108 "----"
-      0 127 "Roll Marker 2-Lane / Cym"
-      0 126 "Roll Marker 1-Lane"
-      0 125 "----"
-      0 28 "SNARE SOFT LH"
-      0 29 "SNARE SOFT RH"
-      0 43 "RIDE CYM LH"
-      0 44 "CRASH2 HARD LH"
-      0 45 "CRASH2 SOFT LH"
+      0 24 "KICK RF" 0 24
+      0 25 "HI-HAT OPEN" 0 25
+      0 26 "SNARE HARD LH" 0 26
+      0 27 "SNARE HARD RH" 0 27
+      0 28 "SNARE SOFT LH" 0 28
+      0 29 "SNARE SOFT RH" 0 29
+      0 30 "HI-HAT LH" 0 30
+      0 31 "HI-HAT RH" 0 31
+      0 32 "PERCUSSION RH" 0 32
+      0 34 "CRASH1 HARD LH" 0 34
+      0 35 "CRASH1 SOFT LH" 0 35
+      0 36 "CRASH1 HARD RH" 0 36
+      0 37 "CRASH1 SOFT RH" 0 37
+      0 38 "CRASH2 HARD RH" 0 38
+      0 39 "CRASH2 SOFT RH" 0 39
+      0 40 "CRASH1 CHOKE" 0 40
+      0 41 "CRASH2 CHOKE" 0 41
+      0 42 "RIDE CYM RH" 0 42
+      0 43 "RIDE CYM LH" 0 43
+      0 44 "CRASH2 HARD LH" 0 44
+      0 45 "CRASH2 SOFT LH" 0 45
+      0 46 "TOM1 LH" 0 46
+      0 47 "TOM1 RH" 0 47
+      0 48 "TOM2 LH" 0 48
+      0 49 "TOM2 RH" 0 49
+      0 50 "FLOOR TOM LH" 0 50
+      0 51 "FLOOR TOM RH" 0 51
+      0 52 "--DRUM ANIMATION--" 0 52
+      0 56 ---- 0 56
+      0 60 "EASY Kick" 0 60
+      0 61 "EASY Red" 0 61
+      0 62 "EASY Yellow" 0 62
+      0 63 "EASY Blue" 0 63
+      0 64 "EASY Green" 0 64
+      0 68 ---- 0 68
+      0 72 "MEDIUM Kick" 0 72
+      0 73 "MEDIUM Red" 0 73
+      0 74 "MEDIUM Yellow" 0 74
+      0 75 "MEDIUM Blue" 0 75
+      0 76 "MEDIUM Green" 0 76
+      0 80 ---- 0 80
+      0 84 "HARD Kick" 0 84
+      0 85 "HARD Red" 0 85
+      0 86 "HARD Yellow" 0 86
+      0 87 "HARD Blue" 0 87
+      0 88 "HARD Green" 0 88
+      0 92 ---- 0 92
+      0 96 "EXPERT Kick" 0 96
+      0 97 "EXPERT Red" 0 97
+      0 98 "EXPERT Yellow" 0 98
+      0 99 "EXPERT Blue" 0 99
+      0 100 "EXPERT Green" 0 100
+      0 101 " " 0 101
+      0 102 ---- 0 102
+      0 103 "Solo Marker" 0 103
+      0 108 ---- 0 108
+      0 110 "PRO Yellow Tom" 0 110
+      0 111 "PRO Blue Tom" 0 111
+      0 112 "PRO Green Tom" 0 112
+      0 114 ---- 0 114
+      0 116 OVERDRIVE 0 116
+      0 118 ---- 0 118
+      0 120 "DRUM FILL (use all 5)" 0 120
+      0 121 "DRUM FILL" 0 121
+      0 122 "DRUM FILL" 0 122
+      0 123 "DRUM FILL" 0 123
+      0 124 "DRUM FILL" 0 124
+      0 125 ---- 0 125
+      0 126 "Roll Marker 1-Lane" 0 126
+      0 127 "Roll Marker 2-Lane / Cym" 0 127
     >
     MAINSEND 1 0
     <FXCHAIN
@@ -790,41 +788,40 @@
       SHOW 0
       LASTSEL 1
       DOCKED 0
-      BYPASS 1 0
-      <VST "VSTi: ReaSynth (Cockos)" "reasynth.dll" 0 ""
-        eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA4AAAAAAAAAA==
-        AAAAAO++rd4N8K3eAAAAAAAAAAAAAAAAAAAAADm0SD59y9s+tbSxOQ==
-        AAAAALbz/T5VpCs6AAAAAAAAAAAAAAAAAAA=
+      BYPASS 1 0 0
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
+        eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
+        776t3g3wrd4AAAAAAAAAAAAAAAAAAAAAObRIPn3L2z61tLE5AAAAALbz/T5VpCs6AAAAAAAAAAAAAIA/
+        AAAAAAAA
       >
       FLOATPOS 0 0 0 0
       FXID {58F55556-9407-4062-A048-6AFCC0B53535}
       WAK 0
-      BYPASS 0 0
-      <VST "VSTi: RBN Preview (RBN)" "rbprev_vst.dll" 0 ""
-        dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAA==
-        AAAAAAMBqgAAAAAAAAA=
+      BYPASS 0 0 0
+      <VST "VSTi: RBN Preview (RBN)" rbprev_vst.dll 0 "" ""
+        dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAAAADAaoAAAAAAAAA
       >
       FLOATPOS 32 32 659 497
       FXID {D7126437-AB1E-4109-A0FA-F2D5D0AC68DC}
       WAK 0
     >
     <ITEM
-      POSITION 0.00000000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 0
+      SNAPOFFS 0
       LENGTH 399.68314241053054
       LOOP 0
       ALLTAKES 0
-      COLOR 19150555
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      COLOR 19150555 B
+      SEL 0
       IGUID {9FF11F36-E94F-4396-9C0E-8449C916EC21}
       IID 1
       NAME "PART DRUMS"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000 0.00000000000000
-      PLAYRATE 1.00000000000000 1 0.00000000000000 -65536
+      VOLPAN 1 0 1 -1
+      SOFFS 0 0
+      PLAYRATE 1 1 0 -65536 0 0.0025
       CHANMODE 0
       GUID {70A79ADF-E70C-430A-913F-E16D0CC85517}
       <SOURCE MIDI
@@ -22224,98 +22221,99 @@
         >
         E 13200 b0 7b 00
         GUID {99C52F88-C54B-4CCD-B038-A5C950AC8E6E}
-        IGNTEMPO 0 120.00000000 4 4
+        IGNTEMPO 0 120 4 4
         SRCCOLOR 19
         VELLANE 132 38 60
         COLORMAP "C:\Program Files (x86)\REAPER\Data\color_maps\rockband_drums.png"
         TEXTSTRINGFILE "Text Events List.txt"
-        CFGEDITVIEW -203770.608558 1.036460 0 12 0 0 0
-        CFGEDIT 1 1 0 0 0 1 1 1 1 1 1 0.25000000 -8 -8 1370 736 1 2 1 2 0.00000000 0 0 0 0 0.500000 1 0 1.000000 64
-        KEYSNAP 0 0 "102034050607" 0 "Major"
-        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1.00000000 -1.00000000
+        CFGEDITVIEW 204865.817644 78.723966 0 12 0 0 0 0 0 0.5
+        KEYSNAP 0
+        TRACKSEL 0 0 0 ""
+        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
+        CFGEDIT 1 1 0 0 0 1 1 1 1 1 1 0.25 57 0 1435 744 0 2 1 2 0 0 0 0 0 0.5 1 0 1 64
       >
     >
   >
-  <TRACK '{6B7F9B4B-FF4E-4CE6-9E2D-4C9BD5DAED77}'
+  <TRACK {6B7F9B4B-FF4E-4CE6-9E2D-4C9BD5DAED77}
     NAME "PART GUITAR"
     PEAKCOL 33488896
     BEAT -1
     AUTOMODE 0
-    VOLPAN 1.00000000000000 0.00000000000000 -1.00000000000000 -1.00000000000000 1.00000000000000
+    VOLPAN 1 0 -1 -1 1
     MUTESOLO 0 0 0
     IPHASE 0
     ISBUS 0 0
     BUSCOMP 1 0
-    SHOWINMIX 1 0.666700 0.500000 1 0.500000 -1 -1 -1
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
     SEL 0
     REC 0 4096 1 7 0 0 0
-    TRACKHEIGHT 55 0
-    INQ 0 0 0 0.5000000000 100 0 0 100
+    TRACKHEIGHT 0 0
+    INQ 0 0 0 0.5 100 0 0 100
     NCHAN 2
     FX 1
     TRACKID {6B7F9B4B-FF4E-4CE6-9E2D-4C9BD5DAED77}
     PERF 0
     MIDIOUT -1
     <MIDINOTENAMES
-      0 116 "OVERDRIVE"
-      0 102 "Force HOPO Off"
-      0 101 "Force HOPO On"
-      0 100 "EXPERT Orange"
-      0 99 "EXPERT Blue"
-      0 98 "EXPERT Yellow"
-      0 97 "EXPERT Red"
-      0 96 "EXPERT Green"
-      0 88 "HARD Orange"
-      0 87 "HARD Blue"
-      0 86 "HARD Yellow"
-      0 85 "HARD Red"
-      0 84 "HARD Green"
-      0 76 "MEDIUM Orange"
-      0 75 "MEDIUM Blue"
-      0 74 "MEDIUM Yellow"
-      0 73 "MEDIUM Red"
-      0 72 "MEDIUM Green"
-      0 64 "EASY Orange"
-      0 63 "EASY Blue"
-      0 62 "EASY Yellow"
-      0 61 "EASY Red"
-      0 60 "EASY Green"
-      0 59 "Left Hand Highest"
-      0 40 "Left Hand Lowest"
-      0 58 "-"
-      0 57 "-"
-      0 56 "-"
-      0 55 "-"
-      0 54 "-"
-      0 53 "-"
-      0 52 "-"
-      0 51 "-"
-      0 50 "-"
-      0 49 "-"
-      0 48 "-"
-      0 47 "-"
-      0 46 "-"
-      0 45 "-"
-      0 44 "-"
-      0 43 "-"
-      0 42 "-"
-      0 41 "-"
-      0 115 "----"
-      0 95 "----"
-      0 89 "Force HOPO On"
-      0 77 "----"
-      0 65 "----"
-      0 119 "----"
-      0 120 "BRE (use all 5)"
-      0 121 "BRE"
-      0 122 "BRE"
-      0 123 "BRE"
-      0 124 "BRE"
-      0 90 "Force HOPO Off"
-      0 103 "Solo Marker"
-      0 127 "Trill Marker"
-      0 125 "----"
+      0 40 "Left Hand Lowest" 0 40
+      0 41 - 0 41
+      0 42 - 0 42
+      0 43 - 0 43
+      0 44 - 0 44
+      0 45 - 0 45
+      0 46 - 0 46
+      0 47 - 0 47
+      0 48 - 0 48
+      0 49 - 0 49
+      0 50 - 0 50
+      0 51 - 0 51
+      0 52 - 0 52
+      0 53 - 0 53
+      0 54 - 0 54
+      0 55 - 0 55
+      0 56 - 0 56
+      0 57 - 0 57
+      0 58 - 0 58
+      0 59 "Left Hand Highest" 0 59
+      0 60 "EASY Green" 0 60
+      0 61 "EASY Red" 0 61
+      0 62 "EASY Yellow" 0 62
+      0 63 "EASY Blue" 0 63
+      0 64 "EASY Orange" 0 64
+      0 65 ---- 0 65
+      0 72 "MEDIUM Green" 0 72
+      0 73 "MEDIUM Red" 0 73
+      0 74 "MEDIUM Yellow" 0 74
+      0 75 "MEDIUM Blue" 0 75
+      0 76 "MEDIUM Orange" 0 76
+      0 77 ---- 0 77
+      0 84 "HARD Green" 0 84
+      0 85 "HARD Red" 0 85
+      0 86 "HARD Yellow" 0 86
+      0 87 "HARD Blue" 0 87
+      0 88 "HARD Orange" 0 88
+      0 89 "Force HOPO On" 0 89
+      0 90 "Force HOPO Off" 0 90
+      0 95 ---- 0 95
+      0 96 "EXPERT Green" 0 96
+      0 97 "EXPERT Red" 0 97
+      0 98 "EXPERT Yellow" 0 98
+      0 99 "EXPERT Blue" 0 99
+      0 100 "EXPERT Orange" 0 100
+      0 101 "Force HOPO On" 0 101
+      0 102 "Force HOPO Off" 0 102
+      0 103 "Solo Marker" 0 103
+      0 115 ---- 0 115
+      0 116 OVERDRIVE 0 116
+      0 119 ---- 0 119
+      0 120 "BRE (use all 5)" 0 120
+      0 121 BRE 0 121
+      0 122 BRE 0 122
+      0 123 BRE 0 123
+      0 124 BRE 0 124
+      0 125 ---- 0 125
+      0 127 "Trill Marker" 0 127
     >
     MAINSEND 1 0
     <FXCHAIN
@@ -22323,40 +22321,39 @@
       SHOW 0
       LASTSEL 1
       DOCKED 0
-      BYPASS 1 0
-      <VST "VSTi: ReaSynth (Cockos)" "reasynth.dll" 0 ""
-        eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA4AAAAAAAAAA==
-        AAAAAO++rd4N8K3eAAAAAAAAAAAAAAAAAAAAADm0SD59y9s+tbSxOQ==
-        AAAAALbz/T5VpCs6AAAAAAAAAAAAAAAAAAA=
+      BYPASS 1 0 0
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
+        eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
+        776t3g3wrd4AAAAAAAAAAAAAAAAAAAAAObRIPn3L2z61tLE5AAAAALbz/T5VpCs6AAAAAAAAAAAAAIA/
+        AAAAAAAA
       >
       FLOATPOS 0 0 0 0
       FXID {52B28C73-185B-48E4-B8F4-1FD7A8848B0F}
       WAK 0
-      BYPASS 0 0
-      <VST "VSTi: RBN Preview (RBN)" "rbprev_vst.dll" 0 ""
-        dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAA==
-        AAAAAAMAqgAAAAAAAAA=
+      BYPASS 0 0 0
+      <VST "VSTi: RBN Preview (RBN)" rbprev_vst.dll 0 "" ""
+        dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAAAADAKoAAAAAAAAA
       >
       FLOATPOS 32 32 659 497
       FXID {190BBB08-7A86-476B-BD07-5F71F5CD6F7C}
       WAK 0
     >
     <ITEM
-      POSITION 0.00000000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 0
+      SNAPOFFS 0
       LENGTH 399.68314241053054
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {81210F06-DA35-41E7-BA75-C6E1C5689733}
       IID 2
       NAME "PART GUITAR"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000 0.00000000000000
-      PLAYRATE 1.00000000000000 1 0.00000000000000 -65536
+      VOLPAN 1 0 1 -1
+      SOFFS 0 0
+      PLAYRATE 1 1 0 -65536 0 0.0025
       CHANMODE 0
       GUID {61757875-B3D4-49E4-8483-EE351B7D2386}
       <SOURCE MIDI
@@ -33490,138 +33487,139 @@
         >
         E 6720 b0 7b 00
         GUID {14D9E950-FB92-4048-8603-8FD02AE3B865}
-        IGNTEMPO 0 120.00000000 4 4
+        IGNTEMPO 0 120 4 4
         SRCCOLOR 20
         VELLANE 132 38 60
         COLORMAP "C:\Program Files (x86)\REAPER\Data\color_maps\rockband_guitarbass.png"
         TEXTSTRINGFILE "Text Events List.txt"
-        CFGEDITVIEW 372483.504059 246.030955 7 12 0 0 0
-        CFGEDIT 1 1 0 0 0 1 1 1 1 1 1 0.25000000 -8 -8 1370 736 1 2 1 2 0.00000000 0 0 0 0 0.500000 1 0 1.000000 64
-        KEYSNAP 0 0 "102034050607" 0 "Major"
-        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1.00000000 -1.00000000
+        CFGEDITVIEW 372483.504059 246.030955 7 12 0 0 0 0 0 0.5
+        KEYSNAP 0
+        TRACKSEL 0 0 0 ""
+        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
+        CFGEDIT 1 1 0 0 0 1 1 1 1 1 1 0.25 -8 -8 1370 736 1 2 1 2 0 0 0 0 0 0.5 1 0 1 64
       >
     >
   >
-  <TRACK '{C298A11E-8E06-44B8-AA31-429ECCE3F0AF}'
+  <TRACK {C298A11E-8E06-44B8-AA31-429ECCE3F0AF}
     NAME "PART VOCALS"
     PEAKCOL 16810239
     BEAT -1
     AUTOMODE 0
-    VOLPAN 1.00000000000000 0.00000000000000 -1.00000000000000 -1.00000000000000 1.00000000000000
-    MUTESOLO 1 0 0
+    VOLPAN 2.0713978587611 0 -1 -1 1
+    MUTESOLO 0 0 0
     IPHASE 0
     ISBUS 0 0
     BUSCOMP 1 0
-    SHOWINMIX 1 0.666700 0.500000 1 0.500000 -1 -1 -1
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
     SEL 0
     REC 0 4096 1 7 0 0 0
-    TRACKHEIGHT 56 0
-    INQ 0 0 0 0.5000000000 100 0 0 100
+    TRACKHEIGHT 0 0
+    INQ 0 0 0 0.5 100 0 0 100
     NCHAN 2
     FX 1
     TRACKID {C298A11E-8E06-44B8-AA31-429ECCE3F0AF}
     PERF 0
     MIDIOUT -1
     <MIDINOTENAMES
-      0 105 "Phrase Marker"
-      0 84 "C5"
-      0 36 "C1"
-      0 83 "B"
-      0 82 "Bb"
-      0 81 "A"
-      0 80 "G#"
-      0 79 "G"
-      0 78 "F#"
-      0 77 "F"
-      0 76 "E"
-      0 75 "Eb"
-      0 74 "D"
-      0 73 "C#"
-      0 72 "C4"
-      0 71 "B"
-      0 70 "Bb"
-      0 69 "A"
-      0 68 "G#"
-      0 67 "G"
-      0 66 "F#"
-      0 65 "F"
-      0 64 "E"
-      0 63 "Eb"
-      0 62 "D"
-      0 61 "C#"
-      0 60 "C3"
-      0 59 "B"
-      0 58 "Bb"
-      0 57 "A"
-      0 56 "G#"
-      0 55 "G"
-      0 54 "F#"
-      0 53 "F"
-      0 52 "E"
-      0 51 "Eb"
-      0 50 "D"
-      0 49 "C#"
-      0 48 "C2"
-      0 47 "B"
-      0 46 "Bb"
-      0 45 "A"
-      0 44 "G#"
-      0 43 "G"
-      0 42 "F#"
-      0 41 "F"
-      0 40 "E"
-      0 39 "Eb"
-      0 38 "D"
-      0 37 "C#"
-      0 97 "Not Displayed Percussion"
-      0 96 "Displayed Percussion"
-      0 104 "----"
-      0 95 "----"
-      0 116 "OVERDRIVE"
-      0 115 "----"
-      0 0 "Range Shift"
-      0 1 "Lyric Shift"
+      0 0 "Range Shift" 0 0
+      0 1 "Lyric Shift" 0 1
+      0 36 C1 0 36
+      0 37 C# 0 37
+      0 38 D 0 38
+      0 39 Eb 0 39
+      0 40 E 0 40
+      0 41 F 0 41
+      0 42 F# 0 42
+      0 43 G 0 43
+      0 44 G# 0 44
+      0 45 A 0 45
+      0 46 Bb 0 46
+      0 47 B 0 47
+      0 48 C2 0 48
+      0 49 C# 0 49
+      0 50 D 0 50
+      0 51 Eb 0 51
+      0 52 E 0 52
+      0 53 F 0 53
+      0 54 F# 0 54
+      0 55 G 0 55
+      0 56 G# 0 56
+      0 57 A 0 57
+      0 58 Bb 0 58
+      0 59 B 0 59
+      0 60 C3 0 60
+      0 61 C# 0 61
+      0 62 D 0 62
+      0 63 Eb 0 63
+      0 64 E 0 64
+      0 65 F 0 65
+      0 66 F# 0 66
+      0 67 G 0 67
+      0 68 G# 0 68
+      0 69 A 0 69
+      0 70 Bb 0 70
+      0 71 B 0 71
+      0 72 C4 0 72
+      0 73 C# 0 73
+      0 74 D 0 74
+      0 75 Eb 0 75
+      0 76 E 0 76
+      0 77 F 0 77
+      0 78 F# 0 78
+      0 79 G 0 79
+      0 80 G# 0 80
+      0 81 A 0 81
+      0 82 Bb 0 82
+      0 83 B 0 83
+      0 84 C5 0 84
+      0 95 ---- 0 95
+      0 96 "Displayed Percussion" 0 96
+      0 97 "Not Displayed Percussion" 0 97
+      0 104 ---- 0 104
+      0 105 "Phrase Marker" 0 105
+      0 115 ---- 0 115
+      0 116 OVERDRIVE 0 116
     >
     MAINSEND 1 0
     <FXCHAIN
-      WNDRECT 455 130 716 493
+      WNDRECT 455 130 612 464
       SHOW 0
       LASTSEL 1
       DOCKED 0
-      BYPASS 0 0
+      BYPASS 0 0 0
       <JS "IX/MIDI_Tool II" ""
         0.000000 85.000000 127.000000 0.000000 0.000000 0.000000 100.000000 0.000000 0.000000 127.000000 0.000000 0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
       >
       FLOATPOS 0 0 0 0
       FXID {CA785021-0433-497E-9A6C-EE23A1BC21B0}
       WAK 0
-      BYPASS 0 0
-      <VST "VSTi: ReaSynth (Cockos)" "reasynth.dll" 0 ""
-        eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA4AAAAAAAAAA==
-        AAAAAO++rd4N8K3eppvEOxe30ToAAAAAAAAAAAAAAADMm4A+6WeIPQ==
-        AAAAAAAAAD8AAIA/AAAAAAAAAD8AAAAAAAA=
+      BYPASS 0 0 0
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
+        eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
+        776t3g3wrd6mm8Q7F7fROgAAgD8AAAAAAAAAAAwtAj7pZ4g9AAAAAAAAAD8AAIA/AAAAAAAAAD8AAIA/
+        AAAAAAAA
       >
       FLOATPOS 32 32 338 405
       FXID {F124DD19-73B4-4CD5-B659-E246F2A3D0B3}
       WAK 0
     >
     <ITEM
-      POSITION 0.00000000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 0
+      SNAPOFFS 0
       LENGTH 399.68314241053054
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {9C9617EC-369A-41B9-80F6-31F4222F13F6}
       IID 13
       NAME "PART VOCALS"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000 0.00000000000000
-      PLAYRATE 1.00000000000000 1 0.00000000000000 -65536
+      VOLPAN 1 0 1 -1
+      SOFFS 0 0
+      PLAYRATE 1 1 0 -65536 0 0.0025
       CHANMODE 0
       GUID {8E872349-00D8-4243-95D7-0B92852E4EE5}
       <SOURCE MIDI
@@ -33630,107 +33628,908 @@
         <X 0 0
           /wNQQVJUIFZPQ0FMUw==
         >
-        <X 5760 0
-          /wFbaWRsZV0=
+        E 100800 90 69 60
+        <X 240 0
+          /wVMaWZlJ3M=
         >
-        <X 1937 0
-          /wFbcGxheV0=
+        E 0 90 39 60
+        E 270 80 39 00
+        <X 300 0
+          /wVjaGFuZ2Vk
         >
-        E 374383 b0 7b 00
+        E 0 90 39 60
+        E 1080 80 39 00
+        <X 630 0
+          /wUr
+        >
+        E 0 90 35 60
+        E 630 80 35 00
+        E 60 80 69 00
+        E 300 90 69 60
+        <X 60 0
+          /wVZZXQ=
+        >
+        E 0 90 38 60
+        E 210 80 38 00
+        <X 60 0
+          /wVyZS0=
+        >
+        E 0 90 35 60
+        E 210 80 35 00
+        <X 60 0
+          /wVtYWlu
+        >
+        E 0 90 35 60
+        E 210 80 35 00
+        <X 60 0
+          /wV0aGU=
+        >
+        E 0 90 35 60
+        E 210 80 35 00
+        <X 60 0
+          /wVzYW1l
+        >
+        E 0 90 35 60
+        E 900 80 35 00
+        <X 450 0
+          /wUr
+        >
+        E 0 90 32 60
+        E 420 80 32 00
+        E 90 80 69 00
+        E 1230 90 69 60
+        <X 180 0
+          /wVCYXNrLQ==
+        >
+        E 0 90 39 60
+        E 240 80 39 00
+        <X 240 0
+          /wVpbmc=
+        >
+        E 0 90 37 60
+        E 210 80 37 00
+        <X 60 0
+          /wUr
+        >
+        E 0 90 39 60
+        E 1140 80 39 00
+        E 120 80 69 00
+        <X 150 0
+          /wVBZi0=
+        >
+        E 0 90 37 60
+        E 0 90 69 60
+        E 0 90 74 60
+        E 180 80 37 00
+        <X 60 0
+          /wV0ZXI=
+        >
+        E 0 90 35 60
+        E 240 80 35 00
+        <X 240 0
+          /wVnbG93
+        >
+        E 0 90 37 60
+        E 120 80 37 00
+        <X 30 0
+          /wUr
+        >
+        E 0 90 35 60
+        E 330 80 35 00
+        <X 240 0
+          /wVkaWQ=
+        >
+        E 0 90 37 60
+        E 150 80 37 00
+        <X 90 0
+          /wVub3Q=
+        >
+        E 0 90 37 60
+        E 180 80 37 00
+        <X 300 0
+          /wVrbm93
+        >
+        E 0 90 36 60
+        E 180 80 36 00
+        <X 90 0
+          /wUr
+        >
+        E 0 90 34 60
+        E 390 80 34 00
+        <X 120 0
+          /wUr
+        >
+        E 0 90 32 60
+        E 300 80 32 00
+        E 60 80 69 00
+        E 0 80 74 00
+        E 2130 90 69 60
+        <X 90 0
+          /wVJ
+        >
+        E 0 90 39 60
+        E 180 80 39 00
+        <X 60 0
+          /wVhbQ==
+        >
+        E 0 90 37 60
+        E 180 80 37 00
+        <X 60 0
+          /wVoZXJl
+        >
+        E 0 90 37 60
+        E 120 80 37 00
+        <X 30 0
+          /wUr
+        >
+        E 0 90 39 60
+        E 1170 80 39 00
+        <X 360 0
+          /wUr
+        >
+        E 0 90 35 60
+        E 720 80 35 00
+        E 90 80 69 00
+        E 750 90 69 60
+        <X 120 0
+          /wVTaGEt
+        >
+        E 0 90 37 60
+        E 180 80 37 00
+        <X 60 0
+          /wUr
+        >
+        E 0 90 35 60
+        E 150 80 35 00
+        <X 90 0
+          /wVkb3cncw==
+        >
+        E 0 90 37 60
+        E 360 80 37 00
+        <X 120 0
+          /wVpcy0=
+        >
+        E 0 90 37 60
+        E 300 80 37 00
+        <X 180 0
+          /wVsYW5k
+        >
+        E 0 90 36 60
+        E 240 80 36 00
+        <X 480 0
+          /wUr
+        >
+        E 0 90 32 60
+        E 960 80 32 00
+        E 120 80 69 00
+        E 3930 90 69 60
+        <X 30 0
+          /wVMeS0=
+        >
+        E 0 90 39 60
+        E 240 80 39 00
+        <X 240 0
+          /wVpbmc=
+        >
+        E 0 90 38 60
+        E 210 80 38 00
+        <X 30 0
+          /wUr
+        >
+        E 0 90 39 60
+        E 1140 80 39 00
+        <X 300 0
+          /wUr
+        >
+        E 0 90 35 60
+        E 750 80 35 00
+        E 60 80 69 00
+        E 810 90 69 60
+        E 0 90 74 60
+        <X 60 0
+          /wVIb3BlLQ==
+        >
+        E 0 90 38 60
+        E 240 80 38 00
+        <X 240 0
+          /wVsZXNz
+        >
+        E 0 90 35 60
+        E 1200 80 35 00
+        <X 480 0
+          /wV3b24t
+        >
+        E 0 90 36 60
+        E 180 80 36 00
+        <X 90 0
+          /wVkZXIt
+        >
+        E 0 90 35 60
+        E 300 80 35 00
+        <X 150 0
+          /wVpbmc=
+        >
+        E 0 90 39 60
+        E 1680 80 39 00
+        E 60 80 69 00
+        E 0 80 74 00
+        E 570 90 69 60
+        <X 90 0
+          /wVBbGwj
+        >
+        E 0 90 3a 60
+        E 570 80 3a 00
+        <X 180 0
+          /wVxdWVzLSM=
+        >
+        E 0 90 39 60
+        E 210 80 39 00
+        <X 90 0
+          /wV0aW9ucyM=
+        >
+        E 0 90 35 60
+        E 540 80 35 00
+        <X 570 0
+          /wVleC0j
+        >
+        E 0 90 38 60
+        E 150 80 38 00
+        <X 90 0
+          /wVoYXVzdCM=
+        >
+        E 0 90 37 60
+        E 330 80 37 00
+        <X 150 0
+          /wVtZSM=
+        >
+        E 0 90 37 60
+        E 1410 80 37 00
+        E 90 80 69 00
+        E 35250 90 69 60
+        <X 240 0
+          /wVMaWZlJ3M=
+        >
+        E 0 90 39 60
+        E 270 80 39 00
+        <X 300 0
+          /wVjaGFuZ2Vk
+        >
+        E 0 90 39 60
+        E 1080 80 39 00
+        <X 630 0
+          /wUr
+        >
+        E 0 90 35 60
+        E 630 80 35 00
+        E 60 80 69 00
+        E 300 90 69 60
+        <X 60 0
+          /wVZZXQ=
+        >
+        E 0 90 38 60
+        E 210 80 38 00
+        <X 60 0
+          /wVyZS0=
+        >
+        E 0 90 35 60
+        E 210 80 35 00
+        <X 60 0
+          /wVtYWlu
+        >
+        E 0 90 35 60
+        E 210 80 35 00
+        <X 60 0
+          /wV0aGU=
+        >
+        E 0 90 35 60
+        E 210 80 35 00
+        <X 60 0
+          /wVzYW1l
+        >
+        E 0 90 35 60
+        E 900 80 35 00
+        <X 450 0
+          /wUr
+        >
+        E 0 90 32 60
+        E 420 80 32 00
+        E 90 80 69 00
+        E 1230 90 69 60
+        <X 180 0
+          /wVCYXNrLQ==
+        >
+        E 0 90 39 60
+        E 240 80 39 00
+        <X 240 0
+          /wVpbmc=
+        >
+        E 0 90 37 60
+        E 210 80 37 00
+        <X 60 0
+          /wUr
+        >
+        E 0 90 39 60
+        E 1140 80 39 00
+        E 120 80 69 00
+        <X 150 0
+          /wVBZi0=
+        >
+        E 0 90 37 60
+        E 0 90 69 60
+        E 0 90 74 60
+        E 180 80 37 00
+        <X 60 0
+          /wV0ZXI=
+        >
+        E 0 90 35 60
+        E 240 80 35 00
+        <X 240 0
+          /wVnbG93
+        >
+        E 0 90 37 60
+        E 120 80 37 00
+        <X 30 0
+          /wUr
+        >
+        E 0 90 35 60
+        E 330 80 35 00
+        <X 240 0
+          /wVkaWQ=
+        >
+        E 0 90 37 60
+        E 150 80 37 00
+        <X 90 0
+          /wVub3Q=
+        >
+        E 0 90 37 60
+        E 180 80 37 00
+        <X 300 0
+          /wVrbm93
+        >
+        E 0 90 36 60
+        E 180 80 36 00
+        <X 90 0
+          /wUr
+        >
+        E 0 90 34 60
+        E 390 80 34 00
+        <X 120 0
+          /wUr
+        >
+        E 0 90 32 60
+        E 300 80 32 00
+        E 60 80 69 00
+        E 0 80 74 00
+        E 2130 90 69 60
+        <X 90 0
+          /wVJ
+        >
+        E 0 90 39 60
+        E 180 80 39 00
+        <X 60 0
+          /wVhbQ==
+        >
+        E 0 90 38 60
+        E 180 80 38 00
+        <X 60 0
+          /wVoZXJl
+        >
+        E 0 90 38 60
+        E 120 80 38 00
+        <X 30 0
+          /wUr
+        >
+        E 0 90 39 60
+        E 900 80 39 00
+        <X 630 0
+          /wUr
+        >
+        E 0 90 32 60
+        E 360 80 32 00
+        E 90 80 69 00
+        E 1110 90 69 60
+        <X 120 0
+          /wVTaGEt
+        >
+        E 0 90 37 60
+        E 300 80 37 00
+        <X 180 0
+          /wVkb3cncw==
+        >
+        E 0 90 35 60
+        E 300 80 35 00
+        <X 180 0
+          /wVpcy0=
+        >
+        E 0 90 35 60
+        E 300 80 35 00
+        <X 180 0
+          /wVsYW5k
+        >
+        E 0 90 36 60
+        E 240 80 36 00
+        <X 480 0
+          /wUr
+        >
+        E 0 90 32 60
+        E 960 80 32 00
+        E 120 80 69 00
+        E 3900 90 69 60
+        <X 30 0
+          /wVMeS0=
+        >
+        E 0 90 39 60
+        E 240 80 39 00
+        <X 240 0
+          /wVpbmc=
+        >
+        E 0 90 38 60
+        E 210 80 38 00
+        <X 30 0
+          /wUr
+        >
+        E 0 90 39 60
+        E 1140 80 39 00
+        <X 300 0
+          /wUr
+        >
+        E 0 90 35 60
+        E 750 80 35 00
+        E 60 80 69 00
+        E 810 90 69 60
+        <X 60 0
+          /wVIb3BlLQ==
+        >
+        E 0 90 38 60
+        E 240 80 38 00
+        <X 240 0
+          /wVsZXNz
+        >
+        E 0 90 35 60
+        E 1200 80 35 00
+        <X 480 0
+          /wV3b24t
+        >
+        E 0 90 36 60
+        E 240 80 36 00
+        <X 150 0
+          /wVkZXIt
+        >
+        E 0 90 35 60
+        E 300 80 35 00
+        <X 210 0
+          /wVpbmc=
+        >
+        E 0 90 32 60
+        E 1410 80 32 00
+        E 150 80 69 00
+        E 570 90 69 60
+        E 0 90 74 60
+        <X 90 0
+          /wVBbGwj
+        >
+        E 0 90 3a 60
+        E 570 80 3a 00
+        <X 180 0
+          /wVxdWVzLSM=
+        >
+        E 0 90 39 60
+        E 210 80 39 00
+        <X 90 0
+          /wV0aW9ucyM=
+        >
+        E 0 90 35 60
+        E 540 80 35 00
+        <X 570 0
+          /wVleC0j
+        >
+        E 0 90 38 60
+        E 150 80 38 00
+        <X 90 0
+          /wVoYXVzdCM=
+        >
+        E 0 90 37 60
+        E 330 80 37 00
+        <X 150 0
+          /wVtZSM=
+        >
+        E 0 90 37 60
+        E 1410 80 37 00
+        E 90 80 69 00
+        E 0 80 74 00
+        E 14970 90 69 60
+        <X 90 0
+          /wVSdW4tIw==
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 60 0
+          /wVuaW5nIw==
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 300 0
+          /wVzY3JlYW0tIw==
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 60 0
+          /wVpbmcj
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 300 0
+          /wVjaGFudC0j
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 60 0
+          /wVpbmcj
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 300 0
+          /wVmb3Ij
+        >
+        E 0 90 3c 60
+        E 390 80 3c 00
+        <X 330 0
+          /wVhbGwj
+        >
+        E 0 90 3c 60
+        E 300 80 3c 00
+        <X 180 0
+          /wV0aGlzIw==
+        >
+        E 0 90 3c 60
+        E 300 80 3c 00
+        <X 180 0
+          /wVsYW5kIw==
+        >
+        E 0 90 3c 60
+        E 450 80 3c 00
+        E 120 80 69 00
+        E 120 90 69 60
+        <X 30 0
+          /wVJJ3ZlIw==
+        >
+        E 0 90 3c 60
+        E 420 80 3c 00
+        <X 300 0
+          /wVzZWVuIw==
+        >
+        E 0 90 3c 60
+        E 420 80 3c 00
+        <X 300 0
+          /wVpdHMj
+        >
+        E 0 90 3c 60
+        E 390 80 3c 00
+        <X 330 0
+          /wV3b3J0aCM=
+        >
+        E 0 90 3c 60
+        E 1020 80 3c 00
+        E 90 80 69 00
+        E 5460 90 69 60
+        <X 150 0
+          /wVIZWxwLSM=
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 60 0
+          /wVpbmcj
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 300 0
+          /wVhbGwj
+        >
+        E 0 90 3c 60
+        E 420 80 3c 00
+        <X 300 0
+          /wVmb3Ij
+        >
+        E 0 90 3c 60
+        E 420 80 3c 00
+        <X 300 0
+          /wV0aW1lcyM=
+        >
+        E 0 90 3c 60
+        E 390 80 3c 00
+        <X 330 0
+          /wVzYWtlIw==
+        >
+        E 0 90 3c 60
+        E 300 80 3c 00
+        <X 180 0
+          /wVpdCM=
+        >
+        E 0 90 3c 60
+        E 300 80 3c 00
+        <X 180 0
+          /wVicmluZ3Mj
+        >
+        E 0 90 3c 60
+        E 450 80 3c 00
+        <X 270 0
+          /wVtZSM=
+        >
+        E 0 90 3c 60
+        E 420 80 3c 00
+        <X 300 0
+          /wV3b3JrIw==
+        >
+        E 0 90 3c 60
+        E 420 80 3c 00
+        E 90 80 69 00
+        E 90 90 69 60
+        E 0 90 74 60
+        <X 120 0
+          /wVQaW5uZWQj
+        >
+        E 0 90 3c 60
+        E 390 80 3c 00
+        <X 330 0
+          /wV0byM=
+        >
+        E 0 90 3c 60
+        E 360 80 3c 00
+        <X 120 0
+          /wV0aGlzIw==
+        >
+        E 0 90 3c 60
+        E 300 80 3c 00
+        <X 180 0
+          /wV3b3JsZCM=
+        >
+        E 0 90 3c 60
+        E 1440 80 3c 00
+        E 120 80 69 00
+        E 0 80 74 00
+        E 4110 90 69 60
+        <X 90 0
+          /wVSdW4tIw==
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 60 0
+          /wVuaW5nIw==
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 300 0
+          /wVzY3JlYW0tIw==
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 60 0
+          /wVpbmcj
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 300 0
+          /wVjaGFudC0j
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 60 0
+          /wVpbmcj
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 300 0
+          /wVmb3Ij
+        >
+        E 0 90 3c 60
+        E 390 80 3c 00
+        <X 330 0
+          /wVhbGwj
+        >
+        E 0 90 3c 60
+        E 300 80 3c 00
+        <X 180 0
+          /wV0aGlzIw==
+        >
+        E 0 90 3c 60
+        E 300 80 3c 00
+        <X 180 0
+          /wVsYW5kIw==
+        >
+        E 0 90 3c 60
+        E 450 80 3c 00
+        E 120 80 69 00
+        E 120 90 69 60
+        <X 30 0
+          /wVJJ3ZlIw==
+        >
+        E 0 90 3c 60
+        E 420 80 3c 00
+        <X 300 0
+          /wVzZWVuIw==
+        >
+        E 0 90 3c 60
+        E 420 80 3c 00
+        <X 300 0
+          /wVpdHMj
+        >
+        E 0 90 3c 60
+        E 390 80 3c 00
+        <X 330 0
+          /wV3b3J0aCM=
+        >
+        E 0 90 3c 60
+        E 1020 80 3c 00
+        E 90 80 69 00
+        E 5460 90 69 60
+        <X 150 0
+          /wVIZWxwLSM=
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 60 0
+          /wVpbmcj
+        >
+        E 0 90 3c 60
+        E 180 80 3c 00
+        <X 300 0
+          /wVhbGwj
+        >
+        E 0 90 3c 60
+        E 420 80 3c 00
+        <X 300 0
+          /wVmb3Ij
+        >
+        E 0 90 3c 60
+        E 420 80 3c 00
+        <X 300 0
+          /wV0aW1lcyM=
+        >
+        E 0 90 3c 60
+        E 390 80 3c 00
+        <X 330 0
+          /wVzYWtlIw==
+        >
+        E 0 90 3c 60
+        E 300 80 3c 00
+        <X 180 0
+          /wVpdCM=
+        >
+        E 0 90 3c 60
+        E 300 80 3c 00
+        <X 180 0
+          /wVicmluZ3Mj
+        >
+        E 0 90 3c 60
+        E 450 80 3c 00
+        <X 270 0
+          /wVtZSM=
+        >
+        E 0 90 3c 60
+        E 420 80 3c 00
+        <X 300 0
+          /wV3b3JrIw==
+        >
+        E 0 90 3c 60
+        E 420 80 3c 00
+        E 90 80 69 00
+        E 90 90 69 60
+        <X 120 0
+          /wVQaW5uZWQj
+        >
+        E 0 90 3c 60
+        E 390 80 3c 00
+        <X 330 0
+          /wV0byM=
+        >
+        E 0 90 3c 60
+        E 360 80 3c 00
+        <X 120 0
+          /wV0aGlzIw==
+        >
+        E 0 90 3c 60
+        E 300 80 3c 00
+        <X 180 0
+          /wV3b3JsZCM=
+        >
+        E 0 90 3c 60
+        E 1440 80 3c 00
+        E 120 80 69 00
+        E 101160 b0 7b 00
         GUID {C9A1A4CA-4224-4672-91C0-075BEB2A8650}
-        IGNTEMPO 0 120.00000000 4 4
+        IGNTEMPO 0 120 4 4
         SRCCOLOR 25
-        VELLANE 132 128 128
+        VELLANE 132 88 128
         COLORMAP "C:\Users\AJFOne23\AppData\Roaming\REAPER\Data\color_maps\rockband_vox-other.png"
-        BANKPROGRAMFILE "C:\Users\AJFOne23\AppData\Roaming\REAPER/Data/GM.reabank"
         TEXTSTRINGFILE "Text Events List.txt"
-        CFGEDITVIEW -2055.263631 68.662724 0 12 0 0 0
-        CFGEDIT 1 1 0 0 1 1 1 1 1 1 1 0.06250000 75 0 1611 691 1 2 1 2 0.00000000 0 0 0 0 0.500000 1 0 1.000000 64
-        KEYSNAP 0 0 "102034050607" 0 "Major"
-        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1.00000000 -1.00000000
+        CFGEDITVIEW -12324.750695 2.472164 0 12 0 0 0 0 0 0.5
+        KEYSNAP 0
+        TRACKSEL 0 0 0 ""
+        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
+        CFGEDIT 1 1 0 0 1 1 1 1 1 1 1 0.0625 57 58 1440 877 0 2 2 2 0 0 0 0 0 0.5 1 0 1 64
       >
     >
   >
-  <TRACK '{70C3FE4D-3BC3-4146-95C4-8AC455A2D0F5}'
+  <TRACK {70C3FE4D-3BC3-4146-95C4-8AC455A2D0F5}
     NAME "PART BASS"
     PEAKCOL 16777471
     BEAT -1
     AUTOMODE 0
-    VOLPAN 1.00000000000000 0.00000000000000 -1.00000000000000 -1.00000000000000 1.00000000000000
+    VOLPAN 1 0 -1 -1 1
     MUTESOLO 0 0 0
     IPHASE 0
     ISBUS 0 0
     BUSCOMP 1 0
-    SHOWINMIX 1 0.666700 0.500000 1 0.500000 -1 -1 -1
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
-    SEL 1
+    SEL 0
     REC 0 4096 1 0 0 0 0
-    TRACKHEIGHT 54 0
-    INQ 0 0 0 0.5000000000 100 0 0 100
+    TRACKHEIGHT 0 0
+    INQ 0 0 0 0.5 100 0 0 100
     NCHAN 2
     FX 1
     TRACKID {70C3FE4D-3BC3-4146-95C4-8AC455A2D0F5}
     PERF 0
     MIDIOUT -1
     <MIDINOTENAMES
-      0 96 "EXPERT Green"
-      0 97 "EXPERT Red"
-      0 98 "EXPERT Yellow"
-      0 99 "EXPERT Blue"
-      0 100 "EXPERT Orange"
-      0 84 "HARD Green"
-      0 85 "HARD Red"
-      0 86 "HARD Yellow"
-      0 87 "HARD Blue"
-      0 88 "HARD Orange"
-      0 91 "----"
-      0 116 "OVERDRIVE"
-      0 40 "Left Hand Lowest"
-      0 59 "Left Hand Highest"
-      0 58 "-"
-      0 57 "-"
-      0 56 "-"
-      0 55 "-"
-      0 54 "-"
-      0 53 "-"
-      0 52 "-"
-      0 51 "-"
-      0 50 "-"
-      0 49 "-"
-      0 47 "-"
-      0 48 "-"
-      0 46 "-"
-      0 45 "-"
-      0 44 "-"
-      0 43 "-"
-      0 42 "-"
-      0 41 "-"
-      0 111 "----"
-      0 72 "MEDIUM Green"
-      0 73 "MEDIUM Red"
-      0 74 "MEDIUM Yellow"
-      0 75 "MEDIUM Blue"
-      0 76 "MEDIUM Orange"
-      0 60 "EASY Green"
-      0 61 "EASY Red"
-      0 62 "EASY Yellow"
-      0 63 "EASY Blue"
-      0 64 "EASY Orange"
-      0 68 "----"
-      0 80 "----"
-      0 102 "Force HOPO Off"
-      0 101 "Force HOPO On"
-      0 120 "BRE (use all 5)"
-      0 121 "BRE"
-      0 122 "BRE"
-      0 123 "BRE"
-      0 124 "BRE"
-      0 119 "----"
-      0 90 "Force HOPO Off"
-      0 89 "Force HOPO On"
-      0 127 "Trill Marker"
-      0 125 "----"
-      0 103 "Solo Marker"
+      0 40 "Left Hand Lowest" 0 40
+      0 41 - 0 41
+      0 42 - 0 42
+      0 43 - 0 43
+      0 44 - 0 44
+      0 45 - 0 45
+      0 46 - 0 46
+      0 47 - 0 47
+      0 48 - 0 48
+      0 49 - 0 49
+      0 50 - 0 50
+      0 51 - 0 51
+      0 52 - 0 52
+      0 53 - 0 53
+      0 54 - 0 54
+      0 55 - 0 55
+      0 56 - 0 56
+      0 57 - 0 57
+      0 58 - 0 58
+      0 59 "Left Hand Highest" 0 59
+      0 60 "EASY Green" 0 60
+      0 61 "EASY Red" 0 61
+      0 62 "EASY Yellow" 0 62
+      0 63 "EASY Blue" 0 63
+      0 64 "EASY Orange" 0 64
+      0 68 ---- 0 68
+      0 72 "MEDIUM Green" 0 72
+      0 73 "MEDIUM Red" 0 73
+      0 74 "MEDIUM Yellow" 0 74
+      0 75 "MEDIUM Blue" 0 75
+      0 76 "MEDIUM Orange" 0 76
+      0 80 ---- 0 80
+      0 84 "HARD Green" 0 84
+      0 85 "HARD Red" 0 85
+      0 86 "HARD Yellow" 0 86
+      0 87 "HARD Blue" 0 87
+      0 88 "HARD Orange" 0 88
+      0 89 "Force HOPO On" 0 89
+      0 90 "Force HOPO Off" 0 90
+      0 91 ---- 0 91
+      0 96 "EXPERT Green" 0 96
+      0 97 "EXPERT Red" 0 97
+      0 98 "EXPERT Yellow" 0 98
+      0 99 "EXPERT Blue" 0 99
+      0 100 "EXPERT Orange" 0 100
+      0 101 "Force HOPO On" 0 101
+      0 102 "Force HOPO Off" 0 102
+      0 103 "Solo Marker" 0 103
+      0 111 ---- 0 111
+      0 116 OVERDRIVE 0 116
+      0 119 ---- 0 119
+      0 120 "BRE (use all 5)" 0 120
+      0 121 BRE 0 121
+      0 122 BRE 0 122
+      0 123 BRE 0 123
+      0 124 BRE 0 124
+      0 125 ---- 0 125
+      0 127 "Trill Marker" 0 127
     >
     MAINSEND 1 0
     <FXCHAIN
@@ -33738,40 +34537,39 @@
       SHOW 0
       LASTSEL 1
       DOCKED 0
-      BYPASS 1 0
-      <VST "VSTi: ReaSynth (Cockos)" "reasynth.dll" 0 ""
-        eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA4AAAAAAAAAA==
-        AAAAAO++rd4N8K3eAAAAAAAAAAAAAAAAAAAAADm0SD59y9s+tbSxOQ==
-        AAAAALbz/T5VpCs6AAAAAAAAAAAAAAAAAAA=
+      BYPASS 1 0 0
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
+        eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
+        776t3g3wrd4AAAAAAAAAAAAAAAAAAAAAObRIPn3L2z61tLE5AAAAALbz/T5VpCs6AAAAAAAAAAAAAIA/
+        AAAAAAAA
       >
       FLOATPOS 0 0 0 0
       FXID {D4EC3C58-478E-4D1F-A0FC-2252BD344989}
       WAK 0
-      BYPASS 0 0
-      <VST "VSTi: RBN Preview (RBN)" "rbprev_vst.dll" 0 ""
-        dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAA==
-        AAAAAAMAqgAAAAAAAAA=
+      BYPASS 0 0 0
+      <VST "VSTi: RBN Preview (RBN)" rbprev_vst.dll 0 "" ""
+        dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAAAADAKoAAAAAAAAA
       >
       FLOATPOS 32 32 659 497
       FXID {72D22271-4F4F-4081-90C4-66415E7AEC47}
       WAK 0
     >
     <ITEM
-      POSITION 0.00000000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 0
+      SNAPOFFS 0
       LENGTH 399.68314241053054
       LOOP 0
       ALLTAKES 0
-      SEL 1
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {A1B24BBF-93B7-476C-BC6D-33F5621C633F}
       IID 3
       NAME "PART BASS"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000 0.00000000000000
-      PLAYRATE 1.00000000000000 1 0.00000000000000 -65536
+      VOLPAN 1 0 1 -1
+      SOFFS 0 0
+      PLAYRATE 1 1 0 -65536 0 0.0025
       CHANMODE 0
       GUID {344A7487-35C3-41F9-8B1E-12A4F3D7F336}
       <SOURCE MIDI
@@ -44835,138 +45633,138 @@
         >
         E 6720 b0 7b 00
         GUID {54A57D35-811F-42A6-AB75-F5706122F903}
-        IGNTEMPO 0 120.00000000 4 4
+        IGNTEMPO 0 120 4 4
         SRCCOLOR 21
         VELLANE 132 128 60
         COLORMAP "C:\Program Files (x86)\REAPER\Data\color_maps\rockband_guitarbass.png"
-        BANKPROGRAMFILE "C:\Users\AJFOne23\AppData\Roaming\REAPER/Data/GM.reabank"
         TEXTSTRINGFILE "Text Events List.txt"
-        CFGEDITVIEW 372483.504059 246.030955 0 12 0 0 0
-        CFGEDIT 1 1 0 0 0 1 1 1 1 1 1 0.12500000 -8 -8 1370 736 1 2 1 2 0.00000000 0 0 0 0 0.500000 1 0 1.000000 64
-        KEYSNAP 0 0 "102034050607" 0 "Major"
-        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1.00000000 -1.00000000
+        CFGEDITVIEW 372483.504059 246.030955 0 12 0 0 0 0 0 0.5
+        KEYSNAP 0
+        TRACKSEL 0 0 0 ""
+        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
+        CFGEDIT 1 1 0 0 0 1 1 1 1 1 1 0.125 -8 -8 1370 736 1 2 1 2 0 0 0 0 0 0.5 1 0 1 64
       >
     >
   >
-  <TRACK '{E60BCF67-80FD-4554-840A-5B0B5C2E06A0}'
-    NAME "HARM1"
+  <TRACK {E60BCF67-80FD-4554-840A-5B0B5C2E06A0}
+    NAME HARM1
     PEAKCOL 24624127
     BEAT -1
     AUTOMODE 0
-    VOLPAN 1.00000000000000 -0.09600000000000 -1.00000000000000 -1.00000000000000 1.00000000000000
-    MUTESOLO 1 0 0
+    VOLPAN 1 -0.096 -1 -1 1
+    MUTESOLO 0 0 0
     IPHASE 0
     ISBUS 0 0
     BUSCOMP 0 0
-    SHOWINMIX 1 0.666700 0.500000 1 0.500000 -1 -1 -1
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
     SEL 0
     REC 0 0 0 0 0 0 0
-    TRACKHEIGHT 52 0
-    INQ 0 0 0 0.5000000000 100 0 0 100
+    TRACKHEIGHT 0 0
+    INQ 0 0 0 0.5 100 0 0 100
     NCHAN 2
     FX 1
     TRACKID {E60BCF67-80FD-4554-840A-5B0B5C2E06A0}
     PERF 0
     MIDIOUT -1
     <MIDINOTENAMES
-      0 0 "Range Shift"
-      0 1 "Lyric Shift"
-      0 36 "C1"
-      0 37 "C#"
-      0 38 "D"
-      0 39 "Eb"
-      0 40 "E"
-      0 41 "F"
-      0 42 "F#"
-      0 43 "G"
-      0 44 "G#"
-      0 45 "A"
-      0 46 "Bb"
-      0 47 "B"
-      0 48 "C2"
-      0 49 "C#"
-      0 50 "D"
-      0 51 "Eb"
-      0 52 "E"
-      0 53 "F"
-      0 54 "F#"
-      0 55 "G"
-      0 56 "G#"
-      0 57 "A"
-      0 58 "Bb"
-      0 59 "B"
-      0 60 "C3"
-      0 61 "C#"
-      0 62 "D"
-      0 63 "Eb"
-      0 64 "E"
-      0 65 "F"
-      0 66 "F#"
-      0 67 "G"
-      0 68 "G#"
-      0 69 "A"
-      0 70 "Bb"
-      0 71 "B"
-      0 72 "C4"
-      0 73 "C#"
-      0 74 "D"
-      0 75 "Eb"
-      0 76 "E"
-      0 77 "F"
-      0 78 "F#"
-      0 79 "G"
-      0 80 "G#"
-      0 81 "A"
-      0 82 "Bb"
-      0 83 "B"
-      0 105 "Phrase Marker"
-      0 116 "OVERDRIVE"
-      0 115 "----"
-      0 104 "----"
-      0 97 "Not Displayed Percussion"
-      0 96 "Displayed Percussion"
-      0 95 "----"
-      0 84 "C5"
+      0 0 "Range Shift" 0 0
+      0 1 "Lyric Shift" 0 1
+      0 36 C1 0 36
+      0 37 C# 0 37
+      0 38 D 0 38
+      0 39 Eb 0 39
+      0 40 E 0 40
+      0 41 F 0 41
+      0 42 F# 0 42
+      0 43 G 0 43
+      0 44 G# 0 44
+      0 45 A 0 45
+      0 46 Bb 0 46
+      0 47 B 0 47
+      0 48 C2 0 48
+      0 49 C# 0 49
+      0 50 D 0 50
+      0 51 Eb 0 51
+      0 52 E 0 52
+      0 53 F 0 53
+      0 54 F# 0 54
+      0 55 G 0 55
+      0 56 G# 0 56
+      0 57 A 0 57
+      0 58 Bb 0 58
+      0 59 B 0 59
+      0 60 C3 0 60
+      0 61 C# 0 61
+      0 62 D 0 62
+      0 63 Eb 0 63
+      0 64 E 0 64
+      0 65 F 0 65
+      0 66 F# 0 66
+      0 67 G 0 67
+      0 68 G# 0 68
+      0 69 A 0 69
+      0 70 Bb 0 70
+      0 71 B 0 71
+      0 72 C4 0 72
+      0 73 C# 0 73
+      0 74 D 0 74
+      0 75 Eb 0 75
+      0 76 E 0 76
+      0 77 F 0 77
+      0 78 F# 0 78
+      0 79 G 0 79
+      0 80 G# 0 80
+      0 81 A 0 81
+      0 82 Bb 0 82
+      0 83 B 0 83
+      0 84 C5 0 84
+      0 95 ---- 0 95
+      0 96 "Displayed Percussion" 0 96
+      0 97 "Not Displayed Percussion" 0 97
+      0 104 ---- 0 104
+      0 105 "Phrase Marker" 0 105
+      0 115 ---- 0 115
+      0 116 OVERDRIVE 0 116
     >
     MAINSEND 1 0
     <FXCHAIN
       SHOW 0
       LASTSEL 1
       DOCKED 0
-      BYPASS 0 0
+      BYPASS 0 0 0
       <JS "IX/MIDI_Tool II" ""
         0.000000 85.000000 127.000000 0.000000 0.000000 0.000000 100.000000 0.000000 0.000000 127.000000 0.000000 0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
       >
       FLOATPOS 0 0 0 0
       FXID {2E79298C-F056-441C-A64B-722C2599E1AA}
       WAK 0
-      BYPASS 0 0
-      <VST "VSTi: ReaSynth (Cockos)" "reasynth.dll" 0 ""
-        eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA4AAAAAAAAAA==
-        AAAAAO++rd4N8K3eppvEOxe30TqcxKA+AAAAAAAAAADMm4A+6WeIPQ==
-        AAAAAAAAAD8AAIA/6SaxPgAAAD8AAAAAAAA=
+      BYPASS 0 0 0
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
+        eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
+        776t3g3wrd6mm8Q7F7fROpzEoD4AAAAAAAAAAMybgD7pZ4g9AAAAAAAAAD8AAIA/6SaxPgAAAD8AAIA/
+        AAAAAAAA
       >
       FLOATPOS 0 0 0 0
       FXID {A391E59B-3475-47CA-9BDB-E03F3B8FF2C4}
       WAK 0
     >
     <ITEM
-      POSITION 0.00000000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 0
+      SNAPOFFS 0
       LENGTH 399.68314241053054
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {FE84F6DE-5A5E-43D1-BFBE-4632BD10F85F}
       IID 14
-      NAME "HARM1"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000 0.00000000000000
-      PLAYRATE 1.00000000000000 1 0.00000000000000 -1
+      NAME HARM1
+      VOLPAN 1 0 1 -1
+      SOFFS 0 0
+      PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {188D8841-6EF7-4ADC-A9DC-A83C2882A63B}
       <SOURCE MIDI
@@ -44975,141 +45773,948 @@
         <X 0 0
           /wNIQVJNMQ==
         >
-        E 382080 b0 7b 00
+        e 100800 90 69 60
+        <x 240 0
+          /wVMaWZlJ3M=
+        >
+        e 0 90 39 60
+        e 270 80 39 00
+        <x 300 0
+          /wVjaGFuZ2Vk
+        >
+        e 0 90 39 60
+        e 1080 80 39 00
+        <x 630 0
+          /wUr
+        >
+        e 0 90 35 60
+        e 630 80 35 00
+        e 60 80 69 00
+        e 300 90 69 60
+        <x 60 0
+          /wVZZXQ=
+        >
+        e 0 90 38 60
+        e 210 80 38 00
+        <x 60 0
+          /wVyZS0=
+        >
+        e 0 90 35 60
+        e 210 80 35 00
+        <x 60 0
+          /wVtYWlu
+        >
+        e 0 90 35 60
+        e 210 80 35 00
+        <x 60 0
+          /wV0aGU=
+        >
+        e 0 90 35 60
+        e 210 80 35 00
+        <x 60 0
+          /wVzYW1l
+        >
+        e 0 90 35 60
+        e 900 80 35 00
+        <x 450 0
+          /wUr
+        >
+        e 0 90 32 60
+        e 420 80 32 00
+        e 90 80 69 00
+        e 1230 90 69 60
+        <x 180 0
+          /wVCYXNrLQ==
+        >
+        e 0 90 39 60
+        e 240 80 39 00
+        <x 240 0
+          /wVpbmc=
+        >
+        e 0 90 37 60
+        e 210 80 37 00
+        <x 60 0
+          /wUr
+        >
+        e 0 90 39 60
+        e 1140 80 39 00
+        e 120 80 69 00
+        <x 150 0
+          /wVBZi0=
+        >
+        e 0 90 37 60
+        e 0 90 69 60
+        e 0 90 74 60
+        e 180 80 37 00
+        <x 60 0
+          /wV0ZXI=
+        >
+        e 0 90 35 60
+        e 240 80 35 00
+        <x 240 0
+          /wVnbG93
+        >
+        e 0 90 37 60
+        e 120 80 37 00
+        <x 30 0
+          /wUr
+        >
+        e 0 90 35 60
+        e 330 80 35 00
+        <x 240 0
+          /wVkaWQ=
+        >
+        e 0 90 37 60
+        e 150 80 37 00
+        <x 90 0
+          /wVub3Q=
+        >
+        e 0 90 37 60
+        e 180 80 37 00
+        <x 300 0
+          /wVrbm93
+        >
+        e 0 90 36 60
+        e 180 80 36 00
+        <x 90 0
+          /wUr
+        >
+        e 0 90 34 60
+        e 390 80 34 00
+        <x 120 0
+          /wUr
+        >
+        e 0 90 32 60
+        e 300 80 32 00
+        e 60 80 74 00
+        e 0 80 69 00
+        e 2130 90 69 60
+        <x 90 0
+          /wVJ
+        >
+        e 0 90 39 60
+        e 180 80 39 00
+        <x 60 0
+          /wVhbQ==
+        >
+        e 0 90 37 60
+        e 180 80 37 00
+        <x 60 0
+          /wVoZXJl
+        >
+        e 0 90 37 60
+        e 120 80 37 00
+        <x 30 0
+          /wUr
+        >
+        e 0 90 39 60
+        e 1170 80 39 00
+        <x 360 0
+          /wUr
+        >
+        e 0 90 35 60
+        e 720 80 35 00
+        e 90 80 69 00
+        e 750 90 69 60
+        <x 120 0
+          /wVTaGEt
+        >
+        e 0 90 37 60
+        e 180 80 37 00
+        <x 60 0
+          /wUr
+        >
+        e 0 90 35 60
+        e 150 80 35 00
+        <x 90 0
+          /wVkb3cncw==
+        >
+        e 0 90 37 60
+        e 360 80 37 00
+        <x 120 0
+          /wVpcy0=
+        >
+        e 0 90 37 60
+        e 300 80 37 00
+        <x 180 0
+          /wVsYW5k
+        >
+        e 0 90 36 60
+        e 240 80 36 00
+        <x 480 0
+          /wUr
+        >
+        e 0 90 32 60
+        e 960 80 32 00
+        e 120 80 69 00
+        e 3930 90 69 60
+        <x 30 0
+          /wVMeS0=
+        >
+        e 0 90 39 60
+        e 240 80 39 00
+        <x 240 0
+          /wVpbmc=
+        >
+        e 0 90 38 60
+        e 210 80 38 00
+        <x 30 0
+          /wUr
+        >
+        e 0 90 39 60
+        e 1140 80 39 00
+        <x 300 0
+          /wUr
+        >
+        e 0 90 35 60
+        e 750 80 35 00
+        e 60 80 69 00
+        e 810 90 69 60
+        e 0 90 74 60
+        <x 60 0
+          /wVIb3BlLQ==
+        >
+        e 0 90 38 60
+        e 240 80 38 00
+        <x 240 0
+          /wVsZXNz
+        >
+        e 0 90 35 60
+        e 1200 80 35 00
+        <x 480 0
+          /wV3b24t
+        >
+        e 0 90 36 60
+        e 180 80 36 00
+        <x 90 0
+          /wVkZXIt
+        >
+        e 0 90 35 60
+        e 300 80 35 00
+        <x 150 0
+          /wVpbmc=
+        >
+        e 0 90 39 60
+        e 1680 80 39 00
+        e 60 80 74 00
+        e 0 80 69 00
+        e 570 90 69 60
+        <x 90 0
+          /wVBbGwj
+        >
+        e 0 90 3a 60
+        e 570 80 3a 00
+        <x 180 0
+          /wVxdWVzLSM=
+        >
+        e 0 90 39 60
+        e 210 80 39 00
+        <x 90 0
+          /wV0aW9ucyM=
+        >
+        e 0 90 35 60
+        e 540 80 35 00
+        <x 570 0
+          /wVleC0j
+        >
+        e 0 90 38 60
+        e 150 80 38 00
+        <x 90 0
+          /wVoYXVzdCM=
+        >
+        e 0 90 37 60
+        e 330 80 37 00
+        <x 150 0
+          /wVtZSM=
+        >
+        e 0 90 37 60
+        e 1410 80 37 00
+        e 90 80 69 00
+        e 35250 90 69 60
+        <x 240 0
+          /wVMaWZlJ3M=
+        >
+        e 0 90 39 60
+        e 270 80 39 00
+        <x 300 0
+          /wVjaGFuZ2Vk
+        >
+        e 0 90 39 60
+        e 1080 80 39 00
+        <x 630 0
+          /wUr
+        >
+        e 0 90 35 60
+        e 630 80 35 00
+        e 60 80 69 00
+        e 300 90 69 60
+        <x 60 0
+          /wVZZXQ=
+        >
+        e 0 90 38 60
+        e 210 80 38 00
+        <x 60 0
+          /wVyZS0=
+        >
+        e 0 90 35 60
+        e 210 80 35 00
+        <x 60 0
+          /wVtYWlu
+        >
+        e 0 90 35 60
+        e 210 80 35 00
+        <x 60 0
+          /wV0aGU=
+        >
+        e 0 90 35 60
+        e 210 80 35 00
+        <x 60 0
+          /wVzYW1l
+        >
+        e 0 90 35 60
+        e 900 80 35 00
+        <x 450 0
+          /wUr
+        >
+        e 0 90 32 60
+        e 420 80 32 00
+        e 90 80 69 00
+        e 1230 90 69 60
+        <x 180 0
+          /wVCYXNrLQ==
+        >
+        e 0 90 39 60
+        e 240 80 39 00
+        <x 240 0
+          /wVpbmc=
+        >
+        e 0 90 37 60
+        e 210 80 37 00
+        <x 60 0
+          /wUr
+        >
+        e 0 90 39 60
+        e 1140 80 39 00
+        e 120 80 69 00
+        <x 150 0
+          /wVBZi0=
+        >
+        e 0 90 37 60
+        e 0 90 69 60
+        e 0 90 74 60
+        e 180 80 37 00
+        <x 60 0
+          /wV0ZXI=
+        >
+        e 0 90 35 60
+        e 240 80 35 00
+        <x 240 0
+          /wVnbG93
+        >
+        e 0 90 37 60
+        e 120 80 37 00
+        <x 30 0
+          /wUr
+        >
+        e 0 90 35 60
+        e 330 80 35 00
+        <x 240 0
+          /wVkaWQ=
+        >
+        e 0 90 37 60
+        e 150 80 37 00
+        <x 90 0
+          /wVub3Q=
+        >
+        e 0 90 37 60
+        e 180 80 37 00
+        <x 300 0
+          /wVrbm93
+        >
+        e 0 90 36 60
+        e 180 80 36 00
+        <x 90 0
+          /wUr
+        >
+        e 0 90 34 60
+        e 390 80 34 00
+        <x 120 0
+          /wUr
+        >
+        e 0 90 32 60
+        e 300 80 32 00
+        e 60 80 74 00
+        e 0 80 69 00
+        e 2130 90 69 60
+        <x 90 0
+          /wVJ
+        >
+        e 0 90 39 60
+        e 180 80 39 00
+        <x 60 0
+          /wVhbQ==
+        >
+        e 0 90 38 60
+        e 180 80 38 00
+        <x 60 0
+          /wVoZXJl
+        >
+        e 0 90 38 60
+        e 120 80 38 00
+        <x 30 0
+          /wUr
+        >
+        e 0 90 39 60
+        e 900 80 39 00
+        <x 630 0
+          /wUr
+        >
+        e 0 90 32 60
+        e 360 80 32 00
+        e 90 80 69 00
+        e 1110 90 69 60
+        <x 120 0
+          /wVTaGEt
+        >
+        e 0 90 37 60
+        e 300 80 37 00
+        <x 180 0
+          /wVkb3cncw==
+        >
+        e 0 90 35 60
+        e 300 80 35 00
+        <x 180 0
+          /wVpcy0=
+        >
+        e 0 90 35 60
+        e 300 80 35 00
+        <x 180 0
+          /wVsYW5k
+        >
+        e 0 90 36 60
+        e 240 80 36 00
+        <x 480 0
+          /wUr
+        >
+        e 0 90 32 60
+        e 960 80 32 00
+        e 120 80 69 00
+        e 3900 90 69 60
+        <x 30 0
+          /wVMeS0=
+        >
+        e 0 90 39 60
+        e 240 80 39 00
+        <x 240 0
+          /wVpbmc=
+        >
+        e 0 90 38 60
+        e 210 80 38 00
+        <x 30 0
+          /wUr
+        >
+        e 0 90 39 60
+        e 1140 80 39 00
+        <x 300 0
+          /wUr
+        >
+        e 0 90 35 60
+        e 750 80 35 00
+        e 60 80 69 00
+        e 810 90 69 60
+        <x 60 0
+          /wVIb3BlLQ==
+        >
+        e 0 90 38 60
+        e 240 80 38 00
+        <x 240 0
+          /wVsZXNz
+        >
+        e 0 90 35 60
+        e 1200 80 35 00
+        <x 480 0
+          /wV3b24t
+        >
+        e 0 90 36 60
+        e 240 80 36 00
+        <x 150 0
+          /wVkZXIt
+        >
+        e 0 90 35 60
+        e 300 80 35 00
+        <x 210 0
+          /wVpbmc=
+        >
+        e 0 90 32 60
+        e 1410 80 32 00
+        e 150 80 69 00
+        e 570 90 69 60
+        e 0 90 74 60
+        <x 90 0
+          /wVBbGwj
+        >
+        e 0 90 3a 60
+        e 570 80 3a 00
+        <x 180 0
+          /wVxdWVzLSM=
+        >
+        e 0 90 39 60
+        e 210 80 39 00
+        <x 90 0
+          /wV0aW9ucyM=
+        >
+        e 0 90 35 60
+        e 540 80 35 00
+        <x 570 0
+          /wVleC0j
+        >
+        e 0 90 38 60
+        e 150 80 38 00
+        <x 90 0
+          /wVoYXVzdCM=
+        >
+        e 0 90 37 60
+        e 330 80 37 00
+        <x 150 0
+          /wVtZSM=
+        >
+        e 0 90 37 60
+        e 1410 80 37 00
+        e 90 80 74 00
+        e 0 80 69 00
+        e 14970 90 69 60
+        <x 90 0
+          /wVSdW4tIw==
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 60 0
+          /wVuaW5nIw==
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 300 0
+          /wVzY3JlYW0tIw==
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 60 0
+          /wVpbmcj
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 300 0
+          /wVjaGFudC0j
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 60 0
+          /wVpbmcj
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 300 0
+          /wVmb3Ij
+        >
+        e 0 90 3c 60
+        e 390 80 3c 00
+        <x 330 0
+          /wVhbGwj
+        >
+        e 0 90 3c 60
+        e 300 80 3c 00
+        <x 180 0
+          /wV0aGlzIw==
+        >
+        e 0 90 3c 60
+        e 300 80 3c 00
+        <x 180 0
+          /wVsYW5kIw==
+        >
+        e 0 90 3c 60
+        e 450 80 3c 00
+        e 120 80 69 00
+        e 120 90 69 60
+        <x 30 0
+          /wVJJ3ZlIw==
+        >
+        e 0 90 3c 60
+        e 420 80 3c 00
+        <x 300 0
+          /wVzZWVuIw==
+        >
+        e 0 90 3c 60
+        e 420 80 3c 00
+        <x 300 0
+          /wVpdHMj
+        >
+        e 0 90 3c 60
+        e 390 80 3c 00
+        <x 330 0
+          /wV3b3J0aCM=
+        >
+        e 0 90 3c 60
+        e 1020 80 3c 00
+        e 90 80 69 00
+        e 5460 90 69 60
+        <x 150 0
+          /wVIZWxwLSM=
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 60 0
+          /wVpbmcj
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 300 0
+          /wVhbGwj
+        >
+        e 0 90 3c 60
+        e 420 80 3c 00
+        <x 300 0
+          /wVmb3Ij
+        >
+        e 0 90 3c 60
+        e 420 80 3c 00
+        <x 300 0
+          /wV0aW1lcyM=
+        >
+        e 0 90 3c 60
+        e 390 80 3c 00
+        <x 330 0
+          /wVzYWtlIw==
+        >
+        e 0 90 3c 60
+        e 300 80 3c 00
+        <x 180 0
+          /wVpdCM=
+        >
+        e 0 90 3c 60
+        e 300 80 3c 00
+        <x 180 0
+          /wVicmluZ3Mj
+        >
+        e 0 90 3c 60
+        e 450 80 3c 00
+        <x 270 0
+          /wVtZSM=
+        >
+        e 0 90 3c 60
+        e 420 80 3c 00
+        <x 300 0
+          /wV3b3JrIw==
+        >
+        e 0 90 3c 60
+        e 420 80 3c 00
+        e 90 80 69 00
+        e 90 90 69 60
+        e 0 90 74 60
+        <x 120 0
+          /wVQaW5uZWQj
+        >
+        e 0 90 3c 60
+        e 390 80 3c 00
+        <x 330 0
+          /wV0byM=
+        >
+        e 0 90 3c 60
+        e 360 80 3c 00
+        <x 120 0
+          /wV0aGlzIw==
+        >
+        e 0 90 3c 60
+        e 300 80 3c 00
+        <x 180 0
+          /wV3b3JsZCM=
+        >
+        e 0 90 3c 60
+        e 1440 80 3c 00
+        e 120 80 74 00
+        e 0 80 69 00
+        e 4110 90 69 60
+        <x 90 0
+          /wVSdW4tIw==
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 60 0
+          /wVuaW5nIw==
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 300 0
+          /wVzY3JlYW0tIw==
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 60 0
+          /wVpbmcj
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 300 0
+          /wVjaGFudC0j
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 60 0
+          /wVpbmcj
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 300 0
+          /wVmb3Ij
+        >
+        e 0 90 3c 60
+        e 390 80 3c 00
+        <x 330 0
+          /wVhbGwj
+        >
+        e 0 90 3c 60
+        e 300 80 3c 00
+        <x 180 0
+          /wV0aGlzIw==
+        >
+        e 0 90 3c 60
+        e 300 80 3c 00
+        <x 180 0
+          /wVsYW5kIw==
+        >
+        e 0 90 3c 60
+        e 450 80 3c 00
+        e 120 80 69 00
+        e 120 90 69 60
+        <x 30 0
+          /wVJJ3ZlIw==
+        >
+        e 0 90 3c 60
+        e 420 80 3c 00
+        <x 300 0
+          /wVzZWVuIw==
+        >
+        e 0 90 3c 60
+        e 420 80 3c 00
+        <x 300 0
+          /wVpdHMj
+        >
+        e 0 90 3c 60
+        e 390 80 3c 00
+        <x 330 0
+          /wV3b3J0aCM=
+        >
+        e 0 90 3c 60
+        e 1020 80 3c 00
+        e 90 80 69 00
+        e 5460 90 69 60
+        <x 150 0
+          /wVIZWxwLSM=
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 60 0
+          /wVpbmcj
+        >
+        e 0 90 3c 60
+        e 180 80 3c 00
+        <x 300 0
+          /wVhbGwj
+        >
+        e 0 90 3c 60
+        e 420 80 3c 00
+        <x 300 0
+          /wVmb3Ij
+        >
+        e 0 90 3c 60
+        e 420 80 3c 00
+        <x 300 0
+          /wV0aW1lcyM=
+        >
+        e 0 90 3c 60
+        e 390 80 3c 00
+        <x 330 0
+          /wVzYWtlIw==
+        >
+        e 0 90 3c 60
+        e 300 80 3c 00
+        <x 180 0
+          /wVpdCM=
+        >
+        e 0 90 3c 60
+        e 300 80 3c 00
+        <x 180 0
+          /wVicmluZ3Mj
+        >
+        e 0 90 3c 60
+        e 450 80 3c 00
+        <x 270 0
+          /wVtZSM=
+        >
+        e 0 90 3c 60
+        e 420 80 3c 00
+        <x 300 0
+          /wV3b3JrIw==
+        >
+        e 0 90 3c 60
+        e 420 80 3c 00
+        e 90 80 69 00
+        e 90 90 69 60
+        <x 120 0
+          /wVQaW5uZWQj
+        >
+        e 0 90 3c 60
+        e 390 80 3c 00
+        <x 330 0
+          /wV0byM=
+        >
+        e 0 90 3c 60
+        e 360 80 3c 00
+        <x 120 0
+          /wV0aGlzIw==
+        >
+        e 0 90 3c 60
+        e 300 80 3c 00
+        <x 180 0
+          /wV3b3JsZCM=
+        >
+        e 0 90 3c 60
+        e 1440 80 3c 00
+        e 120 80 69 00
+        E 101160 b0 7b 00
         GUID {D78D8959-2AD8-48C0-8F6C-4A6670952331}
-        IGNTEMPO 0 120.00000000 4 4
+        IGNTEMPO 0 120 4 4
         SRCCOLOR 26
         VELLANE 132 128 60
         COLORMAP "C:\Users\AJFOne23\AppData\Roaming\REAPER\Data\color_maps\rockband_vox-other.png"
-        BANKPROGRAMFILE "C:\Users\AJFOne23\AppData\Roaming\REAPER/Data/GM.reabank"
         TEXTSTRINGFILE "C:\Program Files\REAPER\Data\Text_Strings\Text Events List.txt"
-        CFGEDITVIEW -2055.263631 68.662724 0 12 0 0 0
-        CFGEDIT 1 1 0 1 1 1 1 1 1 1 1 0.06250000 -8 -8 1374 736 1 2 1 2 0.00000000 0 0 0 0 0.500000 1 0 1.000000 64
-        KEYSNAP 0 0 "102034050607" 0 "Major"
-        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1.00000000 -1.00000000
+        CFGEDITVIEW 274385.223995 101.483428 0 12 0 0 0 0 0 0.5
+        KEYSNAP 0
+        TRACKSEL 0 0 0 ""
+        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
+        CFGEDIT 1 1 0 1 1 1 1 1 1 1 1 0.0625 57 0 1440 877 0 2 2 2 0 0 0 0 0 0.5 1 0 1 64
       >
     >
   >
-  <TRACK '{983C7D04-DAF6-462A-B5E6-64213F29FBA0}'
-    NAME "HARM2"
+  <TRACK {983C7D04-DAF6-462A-B5E6-64213F29FBA0}
+    NAME HARM2
     PEAKCOL 24624127
     BEAT -1
     AUTOMODE 0
-    VOLPAN 1.00497380427334 -0.09600000000000 -1.00000000000000 -1.00000000000000 1.00000000000000
-    MUTESOLO 1 0 0
+    VOLPAN 1.00497380427334 -0.096 -1 -1 1
+    MUTESOLO 0 0 0
     IPHASE 0
     ISBUS 0 0
     BUSCOMP 0 0
-    SHOWINMIX 1 0.666700 0.500000 1 0.500000 -1 -1 -1
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
     SEL 0
     REC 0 0 0 0 0 0 0
-    TRACKHEIGHT 53 0
-    INQ 0 0 0 0.5000000000 100 0 0 100
+    TRACKHEIGHT 0 0
+    INQ 0 0 0 0.5 100 0 0 100
     NCHAN 2
     FX 1
     TRACKID {983C7D04-DAF6-462A-B5E6-64213F29FBA0}
     PERF 0
     MIDIOUT -1
     <MIDINOTENAMES
-      0 0 "Range Shift"
-      0 1 "Lyric Shift"
-      0 36 "C1"
-      0 37 "C#"
-      0 38 "D"
-      0 39 "Eb"
-      0 40 "E"
-      0 41 "F"
-      0 42 "F#"
-      0 43 "G"
-      0 44 "G#"
-      0 45 "A"
-      0 46 "Bb"
-      0 47 "B"
-      0 48 "C2"
-      0 49 "C#"
-      0 50 "D"
-      0 51 "Eb"
-      0 52 "E"
-      0 53 "F"
-      0 54 "F#"
-      0 55 "G"
-      0 56 "G#"
-      0 57 "A"
-      0 58 "Bb"
-      0 59 "B"
-      0 60 "C3"
-      0 61 "C#"
-      0 62 "D"
-      0 63 "Eb"
-      0 64 "E"
-      0 65 "F"
-      0 66 "F#"
-      0 67 "G"
-      0 68 "G#"
-      0 69 "A"
-      0 70 "Bb"
-      0 71 "B"
-      0 72 "C4"
-      0 73 "C#"
-      0 74 "D"
-      0 75 "Eb"
-      0 76 "E"
-      0 77 "F"
-      0 78 "F#"
-      0 79 "G"
-      0 80 "G#"
-      0 81 "A"
-      0 82 "Bb"
-      0 83 "B"
-      0 105 "Phrase Marker"
-      0 35 "----"
-      0 84 "C5"
-      0 116 "OVERDRIVE"
-      0 115 "----"
-      0 104 "----"
-      0 97 "Not Displayed Percussion"
-      0 96 "Displayed Percussion"
-      0 95 "----"
+      0 0 "Range Shift" 0 0
+      0 1 "Lyric Shift" 0 1
+      0 35 ---- 0 35
+      0 36 C1 0 36
+      0 37 C# 0 37
+      0 38 D 0 38
+      0 39 Eb 0 39
+      0 40 E 0 40
+      0 41 F 0 41
+      0 42 F# 0 42
+      0 43 G 0 43
+      0 44 G# 0 44
+      0 45 A 0 45
+      0 46 Bb 0 46
+      0 47 B 0 47
+      0 48 C2 0 48
+      0 49 C# 0 49
+      0 50 D 0 50
+      0 51 Eb 0 51
+      0 52 E 0 52
+      0 53 F 0 53
+      0 54 F# 0 54
+      0 55 G 0 55
+      0 56 G# 0 56
+      0 57 A 0 57
+      0 58 Bb 0 58
+      0 59 B 0 59
+      0 60 C3 0 60
+      0 61 C# 0 61
+      0 62 D 0 62
+      0 63 Eb 0 63
+      0 64 E 0 64
+      0 65 F 0 65
+      0 66 F# 0 66
+      0 67 G 0 67
+      0 68 G# 0 68
+      0 69 A 0 69
+      0 70 Bb 0 70
+      0 71 B 0 71
+      0 72 C4 0 72
+      0 73 C# 0 73
+      0 74 D 0 74
+      0 75 Eb 0 75
+      0 76 E 0 76
+      0 77 F 0 77
+      0 78 F# 0 78
+      0 79 G 0 79
+      0 80 G# 0 80
+      0 81 A 0 81
+      0 82 Bb 0 82
+      0 83 B 0 83
+      0 84 C5 0 84
+      0 95 ---- 0 95
+      0 96 "Displayed Percussion" 0 96
+      0 97 "Not Displayed Percussion" 0 97
+      0 104 ---- 0 104
+      0 105 "Phrase Marker" 0 105
+      0 115 ---- 0 115
+      0 116 OVERDRIVE 0 116
     >
     MAINSEND 1 0
     <FXCHAIN
       SHOW 0
       LASTSEL 1
       DOCKED 0
-      BYPASS 0 0
+      BYPASS 0 0 0
       <JS "IX/MIDI_Tool II" ""
         0.000000 85.000000 127.000000 0.000000 0.000000 0.000000 100.000000 0.000000 0.000000 127.000000 0.000000 0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
       >
       FLOATPOS 0 0 0 0
       FXID {0D2127EF-90E6-4278-AB57-59BADA75D3A0}
       WAK 0
-      BYPASS 0 0
-      <VST "VSTi: ReaSynth (Cockos)" "reasynth.dll" 0 ""
-        eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA4AAAAAAAAAA==
-        AAAAAO++rd4N8K3eppvEOxe30ToAAAAAAAAAAAAAAADMm4A+6WeIPQ==
-        AAAAAAAAAD8AAIA/AAAAAAAAAD8AAAAAAAA=
+      BYPASS 0 0 0
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
+        eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
+        776t3g3wrd6mm8Q7F7fROgAAAAAAAAAAAAAAAMybgD7pZ4g9AAAAAAAAAD8AAIA/AAAAAAAAAD8AAIA/
+        AAAAAAAA
       >
       FLOATPOS 0 0 0 0
       FXID {9CF76FE8-51DE-4F46-8774-EF282D9874DF}
       WAK 0
     >
     <ITEM
-      POSITION 0.00000000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 0
+      SNAPOFFS 0
       LENGTH 399.68314241053054
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {85B4D2FA-0EE6-4979-8286-EAC89A15680D}
       IID 15
-      NAME "HARM2"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000 0.00000000000000
-      PLAYRATE 1.00000000000000 1 0.00000000000000 -1
+      NAME HARM2
+      VOLPAN 1 0 1 -1
+      SOFFS 0 0
+      PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
       GUID {67C8C31A-733D-46F5-9A6D-0FDF2143554E}
       <SOURCE MIDI
@@ -45118,37 +46723,538 @@
         <X 0 0
           /wNIQVJNMg==
         >
-        E 382080 b0 7b 00
+        E 100800 90 69 60
+        <X 240 0
+          /wVMaWZlJ3M=
+        >
+        E 0 90 45 60
+        E 270 80 45 00
+        <X 300 0
+          /wVjaGFuZ2Vk
+        >
+        E 0 90 45 60
+        E 1080 80 45 00
+        <X 630 0
+          /wUr
+        >
+        E 0 90 41 60
+        E 630 80 41 00
+        E 60 80 69 00
+        E 300 90 69 60
+        <X 60 0
+          /wVZZXQ=
+        >
+        E 0 90 44 60
+        E 210 80 44 00
+        <X 60 0
+          /wVyZS0=
+        >
+        E 0 90 41 60
+        E 210 80 41 00
+        <X 60 0
+          /wVtYWlu
+        >
+        E 0 90 41 60
+        E 210 80 41 00
+        <X 60 0
+          /wV0aGU=
+        >
+        E 0 90 41 60
+        E 210 80 41 00
+        <X 60 0
+          /wVzYW1l
+        >
+        E 0 90 41 60
+        E 900 80 41 00
+        <X 450 0
+          /wUr
+        >
+        E 0 90 3e 60
+        E 420 80 3e 00
+        E 90 80 69 00
+        E 1230 90 69 60
+        <X 180 0
+          /wVCYXNrLQ==
+        >
+        E 0 90 45 60
+        E 240 80 45 00
+        <X 240 0
+          /wVpbmc=
+        >
+        E 0 90 43 60
+        E 210 80 43 00
+        <X 60 0
+          /wUr
+        >
+        E 0 90 45 60
+        E 1140 80 45 00
+        E 120 80 69 00
+        <X 150 0
+          /wVBZi0=
+        >
+        E 0 90 43 60
+        E 0 90 69 60
+        E 180 80 43 00
+        <X 60 0
+          /wV0ZXI=
+        >
+        E 0 90 41 60
+        E 240 80 41 00
+        <X 240 0
+          /wVnbG93
+        >
+        E 0 90 43 60
+        E 120 80 43 00
+        <X 30 0
+          /wUr
+        >
+        E 0 90 41 60
+        E 330 80 41 00
+        <X 240 0
+          /wVkaWQ=
+        >
+        E 0 90 43 60
+        E 150 80 43 00
+        <X 90 0
+          /wVub3Q=
+        >
+        E 0 90 43 60
+        E 180 80 43 00
+        <X 300 0
+          /wVrbm93
+        >
+        E 0 90 42 60
+        E 180 80 42 00
+        <X 90 0
+          /wUr
+        >
+        E 0 90 40 60
+        E 390 80 40 00
+        <X 120 0
+          /wUr
+        >
+        E 0 90 3e 60
+        E 300 80 3e 00
+        E 60 80 69 00
+        E 2130 90 69 60
+        <X 90 0
+          /wVJ
+        >
+        E 0 90 45 60
+        E 180 80 45 00
+        <X 60 0
+          /wVhbQ==
+        >
+        E 0 90 43 60
+        E 180 80 43 00
+        <X 60 0
+          /wVoZXJl
+        >
+        E 0 90 43 60
+        E 120 80 43 00
+        <X 30 0
+          /wUr
+        >
+        E 0 90 45 60
+        E 1170 80 45 00
+        <X 360 0
+          /wUr
+        >
+        E 0 90 41 60
+        E 720 80 41 00
+        E 90 80 69 00
+        E 750 90 69 60
+        <X 120 0
+          /wVTaGEt
+        >
+        E 0 90 43 60
+        E 180 80 43 00
+        <X 60 0
+          /wUr
+        >
+        E 0 90 41 60
+        E 150 80 41 00
+        <X 90 0
+          /wVkb3cncw==
+        >
+        E 0 90 43 60
+        E 360 80 43 00
+        <X 120 0
+          /wVpcy0=
+        >
+        E 0 90 43 60
+        E 300 80 43 00
+        <X 180 0
+          /wVsYW5k
+        >
+        E 0 90 42 60
+        E 240 80 42 00
+        <X 480 0
+          /wUr
+        >
+        E 0 90 3e 60
+        E 960 80 3e 00
+        E 120 80 69 00
+        E 3930 90 69 60
+        <X 30 0
+          /wVMeS0=
+        >
+        E 0 90 45 60
+        E 240 80 45 00
+        <X 240 0
+          /wVpbmc=
+        >
+        E 0 90 44 60
+        E 210 80 44 00
+        <X 30 0
+          /wUr
+        >
+        E 0 90 45 60
+        E 1140 80 45 00
+        <X 300 0
+          /wUr
+        >
+        E 0 90 41 60
+        E 750 80 41 00
+        E 60 80 69 00
+        E 810 90 69 60
+        <X 60 0
+          /wVIb3BlLQ==
+        >
+        E 0 90 44 60
+        E 240 80 44 00
+        <X 240 0
+          /wVsZXNz
+        >
+        E 0 90 41 60
+        E 1200 80 41 00
+        <X 480 0
+          /wV3b24t
+        >
+        E 0 90 42 60
+        E 180 80 42 00
+        <X 90 0
+          /wVkZXIt
+        >
+        E 0 90 41 60
+        E 300 80 41 00
+        <X 150 0
+          /wVpbmc=
+        >
+        E 0 90 45 60
+        E 1680 80 45 00
+        E 60 80 69 00
+        E 570 90 69 60
+        <X 90 0
+          /wVBbGwj
+        >
+        E 0 90 46 60
+        E 570 80 46 00
+        <X 180 0
+          /wVxdWVzLSM=
+        >
+        E 0 90 45 60
+        E 210 80 45 00
+        <X 90 0
+          /wV0aW9ucyM=
+        >
+        E 0 90 41 60
+        E 540 80 41 00
+        <X 570 0
+          /wVleC0j
+        >
+        E 0 90 44 60
+        E 150 80 44 00
+        <X 90 0
+          /wVoYXVzdCM=
+        >
+        E 0 90 43 60
+        E 330 80 43 00
+        <X 150 0
+          /wVtZSM=
+        >
+        E 0 90 43 60
+        E 1410 80 43 00
+        E 90 80 69 00
+        E 35250 90 69 60
+        <X 240 0
+          /wVMaWZlJ3M=
+        >
+        E 0 90 45 60
+        E 270 80 45 00
+        <X 300 0
+          /wVjaGFuZ2Vk
+        >
+        E 0 90 45 60
+        E 1080 80 45 00
+        <X 630 0
+          /wUr
+        >
+        E 0 90 41 60
+        E 630 80 41 00
+        E 60 80 69 00
+        E 300 90 69 60
+        <X 60 0
+          /wVZZXQ=
+        >
+        E 0 90 44 60
+        E 210 80 44 00
+        <X 60 0
+          /wVyZS0=
+        >
+        E 0 90 41 60
+        E 210 80 41 00
+        <X 60 0
+          /wVtYWlu
+        >
+        E 0 90 41 60
+        E 210 80 41 00
+        <X 60 0
+          /wV0aGU=
+        >
+        E 0 90 41 60
+        E 210 80 41 00
+        <X 60 0
+          /wVzYW1l
+        >
+        E 0 90 41 60
+        E 900 80 41 00
+        <X 450 0
+          /wUr
+        >
+        E 0 90 3e 60
+        E 420 80 3e 00
+        E 90 80 69 00
+        E 1230 90 69 60
+        <X 180 0
+          /wVCYXNrLQ==
+        >
+        E 0 90 45 60
+        E 240 80 45 00
+        <X 240 0
+          /wVpbmc=
+        >
+        E 0 90 43 60
+        E 210 80 43 00
+        <X 60 0
+          /wUr
+        >
+        E 0 90 45 60
+        E 1140 80 45 00
+        E 120 80 69 00
+        <X 150 0
+          /wVBZi0=
+        >
+        E 0 90 43 60
+        E 0 90 69 60
+        E 180 80 43 00
+        <X 60 0
+          /wV0ZXI=
+        >
+        E 0 90 41 60
+        E 240 80 41 00
+        <X 240 0
+          /wVnbG93
+        >
+        E 0 90 43 60
+        E 120 80 43 00
+        <X 30 0
+          /wUr
+        >
+        E 0 90 41 60
+        E 330 80 41 00
+        <X 240 0
+          /wVkaWQ=
+        >
+        E 0 90 43 60
+        E 150 80 43 00
+        <X 90 0
+          /wVub3Q=
+        >
+        E 0 90 43 60
+        E 180 80 43 00
+        <X 300 0
+          /wVrbm93
+        >
+        E 0 90 42 60
+        E 180 80 42 00
+        <X 90 0
+          /wUr
+        >
+        E 0 90 40 60
+        E 390 80 40 00
+        <X 120 0
+          /wUr
+        >
+        E 0 90 3e 60
+        E 300 80 3e 00
+        E 60 80 69 00
+        E 2130 90 69 60
+        <X 90 0
+          /wVJ
+        >
+        E 0 90 45 60
+        E 180 80 45 00
+        <X 60 0
+          /wVhbQ==
+        >
+        E 0 90 44 60
+        E 180 80 44 00
+        <X 60 0
+          /wVoZXJl
+        >
+        E 0 90 44 60
+        E 120 80 44 00
+        <X 30 0
+          /wUr
+        >
+        E 0 90 45 60
+        E 900 80 45 00
+        <X 630 0
+          /wUr
+        >
+        E 0 90 3e 60
+        E 360 80 3e 00
+        E 90 80 69 00
+        E 1110 90 69 60
+        <X 120 0
+          /wVTaGEt
+        >
+        E 0 90 43 60
+        E 300 80 43 00
+        <X 180 0
+          /wVkb3cncw==
+        >
+        E 0 90 41 60
+        E 300 80 41 00
+        <X 180 0
+          /wVpcy0=
+        >
+        E 0 90 41 60
+        E 300 80 41 00
+        <X 180 0
+          /wVsYW5k
+        >
+        E 0 90 42 60
+        E 240 80 42 00
+        <X 480 0
+          /wUr
+        >
+        E 0 90 3e 60
+        E 960 80 3e 00
+        E 120 80 69 00
+        E 3900 90 69 60
+        <X 30 0
+          /wVMeS0=
+        >
+        E 0 90 45 60
+        E 240 80 45 00
+        <X 240 0
+          /wVpbmc=
+        >
+        E 0 90 44 60
+        E 210 80 44 00
+        <X 30 0
+          /wUr
+        >
+        E 0 90 45 60
+        E 1140 80 45 00
+        <X 300 0
+          /wUr
+        >
+        E 0 90 41 60
+        E 750 80 41 00
+        E 60 80 69 00
+        E 810 90 69 60
+        <X 60 0
+          /wVIb3BlLQ==
+        >
+        E 0 90 44 60
+        E 240 80 44 00
+        <X 240 0
+          /wVsZXNz
+        >
+        E 0 90 41 60
+        E 1200 80 41 00
+        <X 480 0
+          /wV3b24t
+        >
+        E 0 90 42 60
+        E 240 80 42 00
+        <X 150 0
+          /wVkZXIt
+        >
+        E 0 90 41 60
+        E 300 80 41 00
+        <X 210 0
+          /wVpbmc=
+        >
+        E 0 90 3e 60
+        E 1410 80 3e 00
+        E 150 80 69 00
+        E 570 90 69 60
+        <X 90 0
+          /wVBbGwj
+        >
+        E 0 90 46 60
+        E 570 80 46 00
+        <X 180 0
+          /wVxdWVzLSM=
+        >
+        E 0 90 45 60
+        E 210 80 45 00
+        <X 90 0
+          /wV0aW9ucyM=
+        >
+        E 0 90 41 60
+        E 540 80 41 00
+        <X 570 0
+          /wVleC0j
+        >
+        E 0 90 44 60
+        E 150 80 44 00
+        <X 90 0
+          /wVoYXVzdCM=
+        >
+        E 0 90 43 60
+        E 330 80 43 00
+        <X 150 0
+          /wVtZSM=
+        >
+        E 0 90 43 60
+        E 1410 80 43 00
+        E 90 80 69 00
+        E 165780 b0 7b 00
         GUID {E53B89F8-ECC8-4A25-86E2-BC4D240C9444}
-        IGNTEMPO 0 120.00000000 4 4
+        IGNTEMPO 0 120 4 4
         SRCCOLOR 27
         VELLANE 132 128 60
         COLORMAP "C:\Users\AJFOne23\AppData\Roaming\REAPER\Data\color_maps\rockband_vox-other.png"
-        BANKPROGRAMFILE "C:\Users\AJFOne23\AppData\Roaming\REAPER/Data/GM.reabank"
         TEXTSTRINGFILE "C:\Program Files\REAPER\Data\Text_Strings\Text Events List.txt"
-        CFGEDITVIEW -2978.035058 68.662724 0 12 0 0 0
-        CFGEDIT 1 1 0 1 1 1 1 1 1 1 1 0.06250000 -8 -8 1374 736 1 2 1 2 0.00000000 0 0 0 0 0.500000 1 0 1.000000 64
-        KEYSNAP 0 0 "102034050607" 0 "Major"
-        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1.00000000 -1.00000000
+        CFGEDITVIEW 79471.770992 25.938791 14 12 0 0 0 0 0 0.5
+        KEYSNAP 0
+        TRACKSEL 0 0 0 ""
+        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
+        CFGEDIT 1 1 0 1 1 1 1 1 1 1 1 0.0625 57 30 1439 774 0 2 2 2 0 0 0 0 0 0.5 1 0 1 64
       >
     >
   >
-  <TRACK '{4BCC1CF3-63A3-43C4-A155-D3593AD88A10}'
-    NAME "EVENTS"
+  <TRACK {4BCC1CF3-63A3-43C4-A155-D3593AD88A10}
+    NAME EVENTS
     PEAKCOL 29393024
     BEAT -1
     AUTOMODE 0
-    VOLPAN 1.00000000000000 0.00000000000000 -1.00000000000000 -1.00000000000000 1.00000000000000
+    VOLPAN 1 0 -1 -1 1
     MUTESOLO 0 0 0
     IPHASE 0
     ISBUS 1 1
     BUSCOMP 0 0
-    SHOWINMIX 1 0.666700 0.500000 1 0.500000 -1 -1 -1
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
     SEL 0
     REC 0 0 0 0 0 0 0
     TRACKHEIGHT 0 0
-    INQ 0 0 0 0.5000000000 100 0 0 100
+    INQ 0 0 0 0.5 100 0 0 100
     NCHAN 2
     FX 1
     TRACKID {4BCC1CF3-63A3-43C4-A155-D3593AD88A10}
@@ -45161,21 +47267,21 @@
       DOCKED 0
     >
     <ITEM
-      POSITION 0.00000000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 0
+      SNAPOFFS 0
       LENGTH 399.68314241053054
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {86A06D27-867C-4398-9CE6-8F0526B3B594}
       IID 4
-      NAME "EVENTS"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000 0.00000000000000
-      PLAYRATE 1.00000000000000 1 0.00000000000000 -65536
+      NAME EVENTS
+      VOLPAN 1 0 1 -1
+      SOFFS 0 0
+      PLAYRATE 1 1 0 -65536 0 0.0025
       CHANMODE 0
       GUID {584C8192-4FF3-4E29-8138-2E6BD568B61A}
       <SOURCE MIDI
@@ -45237,49 +47343,49 @@
         >
         E 4800 b0 7b 00
         GUID {40AD7956-A22A-434A-8513-4D3792B9DF69}
-        IGNTEMPO 0 120.00000000 4 4
+        IGNTEMPO 0 120 4 4
         SRCCOLOR 22
         VELLANE 132 100 100
         COLORMAP "C:\Users\AJFOne23\AppData\Roaming\REAPER\Data\color_maps\rockband_vox-other.png"
-        BANKPROGRAMFILE "C:\Users\AJFOne23\AppData\Roaming\REAPER/Data/GM.reabank"
         TEXTSTRINGFILE "Text Events List.txt"
-        CFGEDITVIEW -203770.608558 1.036460 0 48 0 0 0
-        CFGEDIT 1 1 0 0 0 1 1 1 1 1 1 1.00000000 44 63 1223 847 1 2 1 2 0.00000000 0 0 0 0 0.500000 1 0 1.000000 64
-        KEYSNAP 0 0 "102034050607" 0 "Major"
-        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1.00000000 -1.00000000
+        CFGEDITVIEW -203770.608558 1.03646 0 48 0 0 0 0 0 0.5
+        KEYSNAP 0
+        TRACKSEL 0 0 0 ""
+        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
+        CFGEDIT 1 1 0 0 0 1 1 1 1 1 1 1 44 63 1223 847 1 2 1 2 0 0 0 0 0 0.5 1 0 1 64
       >
     >
   >
-  <TRACK '{1529008F-97D2-43EB-8634-7C5A7418AD90}'
-    NAME "VENUE"
+  <TRACK {1529008F-97D2-43EB-8634-7C5A7418AD90}
+    NAME VENUE
     PEAKCOL 16842496
     BEAT -1
     AUTOMODE 0
-    VOLPAN 1.00000000000000 0.00000000000000 -1.00000000000000 -1.00000000000000 1.00000000000000
+    VOLPAN 1 0 -1 -1 1
     MUTESOLO 0 0 0
     IPHASE 0
     ISBUS 0 0
     BUSCOMP 0 0
-    SHOWINMIX 1 0.666700 0.500000 1 0.500000 -1 -1 -1
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
     SEL 0
     REC 0 0 0 0 0 0 0
     TRACKHEIGHT 0 0
-    INQ 0 0 0 0.5000000000 100 0 0 100
+    INQ 0 0 0 0.5 100 0 0 100
     NCHAN 2
     FX 1
     TRACKID {1529008F-97D2-43EB-8634-7C5A7418AD90}
     PERF 0
     MIDIOUT -1
     <MIDINOTENAMES
-      0 87 "Guitarist Sing Along"
-      0 86 "Drummer Sing Along"
-      0 85 "Bassist Sing Along"
-      0 40 "Spotlight on Vocals"
-      0 39 "Spotlight on Guitar"
-      0 38 "Spotlight on Drums"
-      0 37 "Spotlight on Bass"
-      0 41 "Spotlight on Keys"
+      0 37 "Spotlight on Bass" 0 37
+      0 38 "Spotlight on Drums" 0 38
+      0 39 "Spotlight on Guitar" 0 39
+      0 40 "Spotlight on Vocals" 0 40
+      0 41 "Spotlight on Keys" 0 41
+      0 85 "Bassist Sing Along" 0 85
+      0 86 "Drummer Sing Along" 0 86
+      0 87 "Guitarist Sing Along" 0 87
     >
     MAINSEND 1 0
     <FXCHAIN
@@ -45288,21 +47394,21 @@
       DOCKED 0
     >
     <ITEM
-      POSITION 0.00000000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 0
+      SNAPOFFS 0
       LENGTH 399.68314241053054
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {71027329-E0AB-447D-A192-4839733334E7}
       IID 5
-      NAME "VENUE"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000 0.00000000000000
-      PLAYRATE 1.00000000000000 1 0.00000000000000 -65536
+      NAME VENUE
+      VOLPAN 1 0 1 -1
+      SOFFS 0 0
+      PLAYRATE 1 1 0 -65536 0 0.0025
       CHANMODE 0
       GUID {44F0FFD1-5109-4A47-8BED-262AA04D3B23}
       <SOURCE MIDI
@@ -45316,43 +47422,43 @@
         >
         E 382080 b0 7b 00
         GUID {30097062-47C5-4B33-B665-170EF09D70D9}
-        IGNTEMPO 0 120.00000000 4 4
+        IGNTEMPO 0 120 4 4
         SRCCOLOR 23
         VELLANE 132 230 230
         COLORMAP "C:\Users\AJFOne23\AppData\Roaming\REAPER\Data\color_maps\rockband_vox-other.png"
-        BANKPROGRAMFILE "C:\Users\AJFOne23\AppData\Roaming\REAPER/Data/GM.reabank"
         TEXTSTRINGFILE "Text Events List.txt"
-        CFGEDITVIEW -2978.035058 68.662724 79 12 0 0 0
-        CFGEDIT 1 1 0 0 0 1 1 1 1 1 1 0.25000000 133 19 1300 803 1 0 1 2 0.00000000 0 0 0 0 0.500000 1 0 1.000000 64
-        KEYSNAP 0 0 "102034050607" 0 "Major"
-        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1.00000000 -1.00000000
+        CFGEDITVIEW -2978.035058 68.662724 79 12 0 0 0 0 0 0.5
+        KEYSNAP 0
+        TRACKSEL 0 0 0 ""
+        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
+        CFGEDIT 1 1 0 0 0 1 1 1 1 1 1 0.25 133 19 1300 803 1 0 1 2 0 0 0 0 0 0.5 1 0 1 64
       >
     >
   >
-  <TRACK '{7BC63EFC-0ABC-4D0D-8204-E9893AE9FFFA}'
-    NAME "BEAT"
+  <TRACK {7BC63EFC-0ABC-4D0D-8204-E9893AE9FFFA}
+    NAME BEAT
     PEAKCOL 23514346
     BEAT -1
     AUTOMODE 0
-    VOLPAN 1.00000000000000 0.00000000000000 -1.00000000000000 -1.00000000000000 1.00000000000000
+    VOLPAN 1 0 -1 -1 1
     MUTESOLO 0 0 0
     IPHASE 0
     ISBUS 2 -1
     BUSCOMP 1 0
-    SHOWINMIX 1 0.666700 0.500000 1 0.500000 -1 -1 -1
+    SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
     SEL 0
     REC 0 0 0 0 0 0 0
     TRACKHEIGHT 0 0
-    INQ 0 0 0 0.5000000000 100 0 0 100
+    INQ 0 0 0 0.5 100 0 0 100
     NCHAN 2
     FX 1
     TRACKID {7BC63EFC-0ABC-4D0D-8204-E9893AE9FFFA}
     PERF 0
     MIDIOUT -1
     <MIDINOTENAMES
-      0 12 "Downbeat"
-      0 13 "Up Beats"
+      0 12 Downbeat 0 12
+      0 13 "Up Beats" 0 13
     >
     MAINSEND 1 0
     <FXCHAIN
@@ -45361,21 +47467,21 @@
       DOCKED 0
     >
     <ITEM
-      POSITION 0.00000000000000
-      SNAPOFFS 0.00000000000000
+      POSITION 0
+      SNAPOFFS 0
       LENGTH 399.68314241053054
       LOOP 0
       ALLTAKES 0
-      SEL 0
-      FADEIN 1 0.000000 0.000000 1 0
-      FADEOUT 1 0.000000 0.000000 1 0
+      FADEIN 1 0 0 1 0 0
+      FADEOUT 1 0 0 1 0 0
       MUTE 0
+      SEL 0
       IGUID {9960CDFD-BF2E-4E67-97CD-4F13D0A3F2ED}
       IID 6
-      NAME "BEAT"
-      VOLPAN 1.000000 0.000000 1.000000 -1.000000
-      SOFFS 0.00000000000000 0.00000000000000
-      PLAYRATE 1.00000000000000 1 0.00000000000000 -65536
+      NAME BEAT
+      VOLPAN 1 0 1 -1
+      SOFFS 0 0
+      PLAYRATE 1 1 0 -65536 0 0.0025
       CHANMODE 0
       GUID {CEBFDCF1-B2BD-47E1-A085-C26E1C9E9ED2}
       <SOURCE MIDI
@@ -46958,16 +49064,16 @@
         e 120 86 0d 00
         E 5160 b0 7b 00
         GUID {8CB930E8-B6A0-4CAD-825A-9F47FB66C1D0}
-        IGNTEMPO 0 120.00000000 4 4
+        IGNTEMPO 0 120 4 4
         SRCCOLOR 24
         VELLANE 132 100 100
         COLORMAP "C:\Users\AJFOne23\AppData\Roaming\REAPER\Data\color_maps\rockband_vox-other.png"
-        BANKPROGRAMFILE "C:\Users\AJFOne23\AppData\Roaming\REAPER/Data/GM.reabank"
         TEXTSTRINGFILE "Text Events List.txt"
-        CFGEDITVIEW -3397.476615 68.662724 0 48 0 0 0
-        CFGEDIT 1 1 0 0 0 1 1 1 1 1 1 1.00000000 44 63 1223 847 1 2 1 2 0.00000000 0 0 0 0 0.500000 1 0 1.000000 64
-        KEYSNAP 0 0 "102034050607" 0 "Major"
-        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1.00000000 -1.00000000
+        CFGEDITVIEW -3397.476615 68.662724 0 48 0 0 0 0 0 0.5
+        KEYSNAP 0
+        TRACKSEL 0 0 0 ""
+        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
+        CFGEDIT 1 1 0 0 0 1 1 1 1 1 1 1 44 63 1223 847 1 2 1 2 0 0 0 0 0 0.5 1 0 1 64
       >
     >
   >
