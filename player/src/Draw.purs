@@ -638,7 +638,13 @@ zoomAscDoPadding :: forall k a m. (Ord k, Monad m) => k -> k -> Map.Map k a -> (
 zoomAscDoPadding k1 k2 m act = do
   case Map.lookupLE k1 m of
     Nothing -> pure unit
-    Just { key: k, value: v } -> act k v
+    Just { key: k, value: v } -> do
+      -- hack for vocal slides: two padding events before the left edge
+      -- so that "(note start)+ (note end) (screen left edge) (note start)" works
+      case Map.lookupLT k m of
+        Nothing -> pure unit
+        Just { key: k', value: v' } -> act k' v'
+      act k v
   Map.zoomAscDo k1 k2 m act
   case Map.lookupGE k2 m of
     Nothing -> pure unit
