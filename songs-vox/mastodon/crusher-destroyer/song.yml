@@ -1,0 +1,20 @@
+metadata:
+  title: Crusher Destroyer
+  artist: Mastodon
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube latazoi7XEY 140
+    md5: 22d3e63b54a4affd6fd05d40c58b5008
+    frames: 5344256
+plans:
+  album:
+    song:
+      pad: [0.762, youtube]
+instruments:
+  vocal: 1
+  drums: true
+  guitar: true
+  bass: true
+published: false

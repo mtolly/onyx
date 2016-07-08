@@ -1,0 +1,18 @@
+metadata:
+  title: Trampled Under Hoof
+  artist: Mastodon
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube mvXBZrl5460 140
+    md5: 2fa4a31847514311463239dca7bfde74
+    frames: 7971840
+plans:
+  album:
+    song:
+      pad: [2.248, youtube]
+instruments:
+  vocal: 1
+  drums: true
+published: false

@@ -1,4 +1,4 @@
-<REAPER_PROJECT 0.1 "5.211/OSX" 1467855312
+<REAPER_PROJECT 0.1 "5.211/OSX" 1468020297
   RIPPLE 0
   GROUPOVERRIDE 0 0 0
   AUTOXFADE 1
@@ -11,7 +11,7 @@
   MAXPROJLEN 0 600
   GRID 1151 8 1 8 1 0 0
   TIMEMODE 1 0 -1 24 2
-  CURSOR 19.70328573944
+  CURSOR 60.45390731404486
   ZOOM 4.58569307747392 0 0
   VZOOMEX 0
   USE_REC_CFG 0
@@ -18527,7 +18527,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 0
+      SEL 1
       IGUID {9C9617EC-369A-41B9-80F6-31F4222F13F6}
       IID 4
       NAME "PART VOCALS"
@@ -18754,8 +18754,8 @@
         >
         E 0 90 48 60
         E 180 80 48 00
-        <X 60 0
-          /wV3YXk=
+        <x 60 0
+          /wV3YXkj
         >
         E 0 90 48 60
         E 720 80 48 00
@@ -18848,7 +18848,7 @@
         E 0 90 48 60
         E 1140 80 48 00
         E 60 80 69 00
-        e 390 90 69 60
+        E 390 90 69 60
         <X 90 0
           /wVMZXNzIw==
         >
@@ -18884,8 +18884,8 @@
         >
         E 0 90 48 60
         E 930 80 48 00
-        e 90 80 69 00
-        e 600 90 69 60
+        E 90 80 69 00
+        E 600 90 69 60
         <X 60 0
           /wVUby0j
         >
@@ -18911,8 +18911,8 @@
         >
         E 0 90 48 60
         E 1260 80 48 00
-        e 120 80 69 00
-        e 29760 90 69 60
+        E 120 80 69 00
+        E 29760 90 69 60
         E 0 90 74 60
         <X 60 0
           /wVMaXMtIw==
@@ -18969,9 +18969,9 @@
         >
         E 0 90 48 60
         E 750 80 48 00
-        e 30 80 69 00
+        E 30 80 69 00
         E 0 80 74 00
-        e 5400 90 69 60
+        E 5400 90 69 60
         <X 120 0
           /wVCbGFjay0j
         >
@@ -19037,8 +19037,8 @@
         >
         E 0 90 48 60
         E 1200 80 48 00
-        e 90 80 69 00
-        e 10080 90 69 60
+        E 90 80 69 00
+        E 10080 90 69 60
         <X 150 0
           /wVCdXJuIw==
         >
@@ -19049,7 +19049,7 @@
         >
         E 0 90 48 60
         E 1590 80 48 00
-        e 120 80 69 00
+        E 120 80 69 00
         E 1050 90 69 60
         <X 120 0
           /wVHYW1lIw==
@@ -19069,7 +19069,7 @@
         VELLANE 132 128 128
         COLORMAP "C:\Users\AJFOne23\AppData\Roaming\REAPER\Data\color_maps\rockband_vox-other.png"
         TEXTSTRINGFILE "Text Events List.txt"
-        CFGEDITVIEW -12038.402961 5.326559 0 13 0 0 0 0 0 0.5
+        CFGEDITVIEW 84930.677934 60.037991 0 13 0 0 0 0 0 0.5
         KEYSNAP 0
         TRACKSEL 0 0 0 ""
         EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
