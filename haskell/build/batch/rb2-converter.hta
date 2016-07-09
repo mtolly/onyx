@@ -10,22 +10,41 @@
 </head>
 
 <style>
-  body {
-    text-align: center;
-  }
+body {
+  text-align: center;
+}
 </style>
 
 <script language="VBScript">
-Sub RunProgram
-  document.All.fileForm.reset
-  document.getElementById("file-in").click()
-  Dim rb3con
-  rb3con = document.getElementById("file-in").value
-  If rb3con <> "" then
-    Set objShell = CreateObject("Wscript.Shell")
-    objShell.Run "convert-rb2.bat """ & rb3con & """"
-  End If
+Sub RunProg(prog, arg)
+  Set objShell = CreateObject("Wscript.Shell")
+  objShell.Run """" & prog & """ """ & arg & """"
 End Sub
+</script>
+
+<script type="text/javascript">
+function RunProgram() {
+  document.all.fileForm.reset();
+  document.getElementById("file-in").click();
+  var prog;
+  var radios = document.all['keys-mode'];
+  for (var i = 0; i < radios.length; i++) {
+    if (radios[i].checked) {
+      switch (radios[i].value) {
+        case 'no-keys': prog = 'convert-rb2.bat'   ; break;
+        case 'keytar' : prog = 'convert-rb2-kg.bat'; break;
+        case 'keybass': prog = 'convert-rb2-kb.bat'; break;
+      }
+    }
+  }
+  var rb3con = document.getElementById('file-in').value;
+  if (rb3con !== '') {
+    RunProg(prog, rb3con);
+  }
+}
+</script>
+
+<script language="VBScript">
 Sub Window_onLoad
   window.resizeTo 400, 250
 End Sub
