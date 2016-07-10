@@ -1565,7 +1565,7 @@ main = do
                 (fromIntegral (_hopoThreshold $ _options songYaml) / 480)
               proj %> \out -> do
                 p <- makeMagmaProj
-                liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
+                liftIO $ D.writeFileDTA_utf8 out $ D.serialize p
               projV1 %> \out -> do
                 p <- makeMagmaProj
                 let makeDummy (Magma.Tracks dl dkt dk ds b g v k bck) = Magma.Tracks
@@ -1604,7 +1604,7 @@ main = do
                       NoKeys     -> gd
                       KeysBass   -> gd { Magma.rankBass   = Magma.rankKeys gd }
                       KeysGuitar -> gd { Magma.rankGuitar = Magma.rankKeys gd }
-                liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
+                liftIO $ D.writeFileDTA_utf8 out $ D.serialize p
                   { Magma.project = (Magma.project p)
                     { Magma.albumArt = Magma.AlbumArt "cover-v1.bmp"
                     , Magma.midi = (Magma.midi $ Magma.project p)
@@ -1908,7 +1908,7 @@ main = do
                       , D.preview = D.preview rb3DTA -- because we told magma preview was at 0s earlier
                       , D.songLength = D.songLength rb3DTA -- magma v1 set this to 31s from the audio file lengths
                       }
-                liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : D.toChunks newDTA))]
+                liftIO $ writeLatin1CRLF out $ prettyDTA pkg newDTA
               rb2Mid %> \out -> do
                 ex <- doesRBAExist
                 need [pedalDir </> "notes.mid"]

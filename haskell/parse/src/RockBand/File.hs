@@ -79,20 +79,23 @@ If you have an overdrive phrase simultaneous with the only note in it,
 and the phrase event comes after the note in the MIDI, Magma v1 will
 complain that there are no notes under the phrase.
 -}
-higherPitchesFirst :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
-higherPitchesFirst = RTB.flatten . fmap (sortOn f) . RTB.collectCoincident
-  where f x = case isNoteEdge x of
+fixEventOrder :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
+fixEventOrder = RTB.flatten . fmap (sortOn f) . RTB.collectCoincident
+  where f x@(E.MetaEvent (Meta.TrackName _              )) = (-3, 0, x)
+        f x@(E.MetaEvent (Meta.TextEvent "[lighting ()]")) = (-1, 0, x) -- magma v1: ensure [lighting ()] comes after simultaneous [verse]
+        f x@(E.MetaEvent (Meta.TextEvent _              )) = (-2, 0, x)
+        f x = case isNoteEdge x of
           Nothing         -> (0 :: Int, 0       , x)
           Just (p, False) -> (1       , negate p, x)
           Just (p, True ) -> (2       , negate p, x)
 
 showTrack :: Track U.Beats -> RTB.T U.Beats E.T
-showTrack = \case
-  PartDrums             t -> U.setTrackName "PART DRUMS"          $ higherPitchesFirst $ Drums.unparseNice (1/8) t
-  PartDrums2x           t -> U.setTrackName "PART DRUMS_2X"       $ higherPitchesFirst $ Drums.unparseNice (1/8) t
-  PartGuitar            t -> U.setTrackName "PART GUITAR"         $ higherPitchesFirst $ unparseAll unparseOne t
-  PartBass              t -> U.setTrackName "PART BASS"           $ higherPitchesFirst $ unparseAll unparseOne t
-  PartKeys              t -> U.setTrackName "PART KEYS"           $ higherPitchesFirst $ unparseAll unparseOne t
+showTrack = fixEventOrder . \case
+  PartDrums             t -> U.setTrackName "PART DRUMS"          $ Drums.unparseNice (1/8) t
+  PartDrums2x           t -> U.setTrackName "PART DRUMS_2X"       $ Drums.unparseNice (1/8) t
+  PartGuitar            t -> U.setTrackName "PART GUITAR"         $ unparseAll unparseOne t
+  PartBass              t -> U.setTrackName "PART BASS"           $ unparseAll unparseOne t
+  PartKeys              t -> U.setTrackName "PART KEYS"           $ unparseAll unparseOne t
   PartRealGuitar        t -> U.setTrackName "PART REAL_GUITAR"    $ unparseAll unparseOne t
   PartRealGuitar22      t -> U.setTrackName "PART REAL_GUITAR_22" $ unparseAll unparseOne t
   PartRealBass          t -> U.setTrackName "PART REAL_BASS"      $ unparseAll unparseOne t
@@ -107,10 +110,10 @@ showTrack = \case
   PartRealKeysPS Expert t -> U.setTrackName "PART REAL_KEYS_PS_X" $ unparseAll unparseOne t
   PartKeysAnimLH        t -> U.setTrackName "PART KEYS_ANIM_LH"   $ unparseAll unparseOne t
   PartKeysAnimRH        t -> U.setTrackName "PART KEYS_ANIM_RH"   $ unparseAll unparseOne t
-  PartVocals            t -> U.setTrackName "PART VOCALS"         $ higherPitchesFirst $ unparseAll unparseOne t
-  Harm1                 t -> U.setTrackName "HARM1"               $ higherPitchesFirst $ unparseAll unparseOne t
-  Harm2                 t -> U.setTrackName "HARM2"               $ higherPitchesFirst $ unparseAll unparseOne t
-  Harm3                 t -> U.setTrackName "HARM3"               $ higherPitchesFirst $ unparseAll unparseOne t
+  PartVocals            t -> U.setTrackName "PART VOCALS"         $ unparseAll unparseOne t
+  Harm1                 t -> U.setTrackName "HARM1"               $ unparseAll unparseOne t
+  Harm2                 t -> U.setTrackName "HARM2"               $ unparseAll unparseOne t
+  Harm3                 t -> U.setTrackName "HARM3"               $ unparseAll unparseOne t
   Events                t -> U.setTrackName "EVENTS"              $ unparseAll unparseOne t
   Beat                  t -> U.setTrackName "BEAT"                $ unparseAll unparseOne t
   Venue                 t -> U.setTrackName "VENUE"               $ unparseAll unparseOne t

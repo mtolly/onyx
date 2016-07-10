@@ -18,8 +18,12 @@ writeUtf8CRLF :: FilePath -> String -> IO ()
 writeUtf8CRLF fp = B.writeFile fp . TE.encodeUtf8 . T.pack
   . concatMap (\case '\n' -> "\r\n"; c -> [c])
 
+writeLatin1CRLF :: FilePath -> String -> IO ()
+writeLatin1CRLF fp = B.writeFile fp . B.pack . map (fromIntegral . fromEnum) . T.unpack . T.pack
+  . concatMap (\case '\n' -> "\r\n"; c -> [c])
+
 stringLit :: String -> String
-stringLit s = "\"" ++ s ++ "\""
+stringLit s = "\"" ++ (s >>= \case '"' -> "\\q"; c -> [c]) ++ "\""
 
 prettyDTA :: String -> D.SongPackage -> String
 prettyDTA name pkg = unlines $ execWriter $ do

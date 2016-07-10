@@ -9,12 +9,16 @@ import qualified RockBand.Drums as Drums
 import qualified RockBand.Vocals as Vox
 import qualified RockBand.FiveButton as Five
 import qualified RockBand.Events as Events
+import qualified RockBand.Venue as V
 import qualified Sound.MIDI.Util as U
 import Data.Conduit.Audio (AudioSource, Duration(Seconds), silent, concatenate, sine)
 import Scripts (trackGlue)
-import Data.List (partition)
+import Data.List (partition, sort, nub)
 import Control.Monad (guard)
-import Config (KeysRB2(..))
+import Config (KeysRB2(..), Instrument(..))
+import qualified Sound.MIDI.File.Event as E
+import RockBand.Parse (unparseBlip, unparseOne, unparseCommand)
+import Data.Either (lefts, rights)
 
 dryVoxAudio :: (Monad m) => F.Song U.Beats -> AudioSource m Float
 dryVoxAudio f = let
@@ -67,8 +71,8 @@ convertMIDI keysrb2 hopoThresh mid = mid
     F.Events     t -> Just $ F.Events $ flip RTB.mapMaybe t $ \case
       Events.PracticeSection _ -> Nothing
       e -> Just e
-    F.Beat       t -> Just $ F.Beat t
-    F.Venue      _ -> Nothing -- TODO
+    F.Beat  t -> Just $ F.Beat t
+    F.Venue v -> Just $ F.RawTrack $ convertVenue v
     _ -> Nothing
   } where
     fixGB hasSolos t = flip RTB.mapMaybe t $ \case
@@ -109,3 +113,189 @@ convertMIDI keysrb2 hopoThresh mid = mid
       in if RTB.null gtr || RTB.null bass || RTB.null drum
         then trks
         else map fixTrack trks
+
+convertVenue :: RTB.T U.Beats V.Event -> RTB.T U.Beats E.T
+convertVenue rtb = let
+  (z, nz) = U.trackSplitZero rtb
+  z' = V.Lighting V.Lighting_verse : filter (\case V.Lighting _ -> False; _ -> True) z
+  in U.setTrackName "VENUE" $ RTB.flatten $ fmap nub $ RTB.collectCoincident
+    $ U.trackJoin $ fmap convertVenueInstant $ RTB.collectCoincident $ U.trackGlueZero z' nz
+
+convertVenueInstant :: [V.Event] -> RTB.T U.Beats E.T
+convertVenueInstant evts = let
+  changed = flip mapMaybe evts $ \e -> case e of
+    V.Camera c -> Just $ Left c
+    V.SingalongGuitarKeys{} -> unchanged e
+    V.SingalongDrums{} -> unchanged e
+    V.SingalongBassKeys{} -> unchanged e
+    V.SpotlightKeys{} -> Nothing
+    V.SpotlightVocal{} -> unchanged e
+    V.SpotlightGuitar{} -> unchanged e
+    V.SpotlightBass{} -> unchanged e
+    V.SpotlightDrums{} -> unchanged e
+    V.PostProcess pp -> Just $ Right $ postproc pp
+    V.Lighting l -> Just $ Right $ lighting l
+    V.LightingFirst -> Just $ Right $ unparseBlip 50
+    V.LightingPrev -> Just $ Right $ unparseBlip 49
+    V.LightingNext -> Just $ Right $ unparseBlip 48
+    V.BonusFX{} -> unchanged e
+    V.BonusFXOptional{} -> unchanged e
+  unchanged = Just . Right . unparseOne
+  postproc = \case
+    V.PP_ProFilm_a -> unparseBlip 96
+    V.PP_ProFilm_b -> unparseBlip 96
+    V.PP_video_a -> unparseBlip 107
+    V.PP_film_16mm -> unparseBlip 98
+    V.PP_shitty_tv -> unparseBlip 109
+    V.PP_bloom -> unparseBlip 103
+    V.PP_film_sepia_ink -> unparseBlip 99
+    V.PP_film_silvertone -> unparseBlip 100
+    V.PP_film_b_w -> unparseBlip 108
+    V.PP_video_bw -> unparseBlip 108
+    V.PP_contrast_a -> unparseBlip 97
+    V.PP_photocopy -> unparseBlip 102
+    V.PP_film_blue_filter -> unparseBlip 106
+    V.PP_desat_blue -> unparseBlip 106
+    V.PP_video_security -> unparseBlip 109
+    V.PP_bright -> unparseBlip 104
+    V.PP_posterize -> unparseBlip 103
+    V.PP_clean_trails -> unparseBlip 110
+    V.PP_video_trails -> unparseBlip 110
+    V.PP_flicker_trails -> unparseBlip 110
+    V.PP_desat_posterize_trails -> unparseBlip 98
+    V.PP_film_contrast -> unparseBlip 97
+    V.PP_film_contrast_blue -> unparseBlip 106
+    V.PP_film_contrast_green -> unparseBlip 97
+    V.PP_film_contrast_red -> unparseBlip 97
+    V.PP_horror_movie_special -> unparseBlip 101
+    V.PP_photo_negative -> unparseBlip 101
+    V.PP_ProFilm_mirror_a -> unparseBlip 105
+    V.PP_ProFilm_psychedelic_blue_red -> unparseBlip 101
+    V.PP_space_woosh -> unparseBlip 110
+  lighting l = case l of
+    V.Lighting_ -> unparseCommand l
+    V.Lighting_intro -> unparseCommand V.Lighting_
+    V.Lighting_verse -> unparseCommand ["verse"]
+    V.Lighting_chorus -> unparseCommand ["chorus"]
+    V.Lighting_manual_cool -> unparseCommand l
+    V.Lighting_manual_warm -> unparseCommand l
+    V.Lighting_dischord -> unparseCommand l
+    V.Lighting_stomp -> unparseCommand l
+    V.Lighting_loop_cool -> unparseCommand l
+    V.Lighting_loop_warm -> unparseCommand l
+    V.Lighting_harmony -> unparseCommand l
+    V.Lighting_frenzy -> unparseCommand l
+    V.Lighting_silhouettes -> unparseCommand l
+    V.Lighting_silhouettes_spot -> unparseCommand l
+    V.Lighting_searchlights -> unparseCommand l
+    V.Lighting_sweep -> unparseCommand l
+    V.Lighting_strobe_slow -> unparseCommand l
+    V.Lighting_strobe_fast -> unparseCommand l
+    V.Lighting_blackout_slow -> unparseCommand l
+    V.Lighting_blackout_fast -> unparseCommand l
+    V.Lighting_blackout_spot -> unparseCommand V.Lighting_silhouettes_spot
+    V.Lighting_flare_slow -> unparseCommand l
+    V.Lighting_flare_fast -> unparseCommand l
+    V.Lighting_bre -> unparseCommand l
+  directed d = unparseCommand ["do_directed_cut", d]
+  behind = cut [73]
+  far = cut [70, 72]
+  close = cut [70, 71, 73]
+  cut :: [Int] -> [Instrument] -> RTB.T U.Beats E.T
+  cut distance insts = foldr RTB.merge RTB.empty $ map unparseBlip $
+    60 : (distance ++ map cutInst insts)
+  cutInst = \case
+    Bass -> 61
+    Drums -> 62
+    Guitar -> 63
+    Vocal -> 64
+    Keys -> 63
+  cameraEvents = case reverse $ sort $ lefts changed of
+    [] -> RTB.empty
+    cam : _ -> case cam of
+      -- generic 4 camera shots
+      V.Camera_coop_all_behind -> behind [Guitar, Bass, Drums, Vocal]
+      V.Camera_coop_all_far -> far [Guitar, Bass, Drums, Vocal]
+      V.Camera_coop_all_near -> close [Guitar, Bass, Drums, Vocal]
+      -- 3 char shots (no drum)
+      V.Camera_coop_front_behind -> behind [Guitar, Bass, Vocal]
+      V.Camera_coop_front_near -> close [Guitar, Bass, Vocal]
+      -- 1 char standard shots
+      V.Camera_coop_d_behind -> behind [Drums]
+      V.Camera_coop_d_near -> close [Drums]
+      V.Camera_coop_v_behind -> behind [Vocal]
+      V.Camera_coop_v_near -> close [Vocal]
+      V.Camera_coop_b_behind -> behind [Bass]
+      V.Camera_coop_b_near -> close [Bass]
+      V.Camera_coop_g_behind -> behind [Guitar]
+      V.Camera_coop_g_near -> close [Guitar]
+      V.Camera_coop_k_behind -> behind [Guitar]
+      V.Camera_coop_k_near -> close [Guitar]
+      -- 1 char closeups
+      V.Camera_coop_d_closeup_hand -> close [Drums]
+      V.Camera_coop_d_closeup_head -> close [Drums]
+      V.Camera_coop_v_closeup -> close [Vocal]
+      V.Camera_coop_b_closeup_hand -> close [Bass]
+      V.Camera_coop_b_closeup_head -> close [Bass]
+      V.Camera_coop_g_closeup_hand -> close [Guitar]
+      V.Camera_coop_g_closeup_head -> close [Guitar]
+      V.Camera_coop_k_closeup_hand -> close [Guitar]
+      V.Camera_coop_k_closeup_head -> close [Guitar]
+      -- 2 char shots
+      V.Camera_coop_dv_near -> close [Drums, Vocal]
+      V.Camera_coop_bd_near -> close [Bass, Drums]
+      V.Camera_coop_dg_near -> close [Drums, Guitar]
+      V.Camera_coop_bv_behind -> behind [Bass, Vocal]
+      V.Camera_coop_bv_near -> close [Bass, Vocal]
+      V.Camera_coop_gv_behind -> behind [Guitar, Vocal]
+      V.Camera_coop_gv_near -> close [Guitar, Vocal]
+      V.Camera_coop_kv_behind -> behind [Guitar, Vocal]
+      V.Camera_coop_kv_near -> close [Guitar, Vocal]
+      V.Camera_coop_bg_behind -> behind [Bass, Guitar]
+      V.Camera_coop_bg_near -> close [Bass, Guitar]
+      V.Camera_coop_bk_behind -> behind [Bass, Guitar]
+      V.Camera_coop_bk_near -> close [Bass, Guitar]
+      V.Camera_coop_gk_behind -> behind [Guitar, Bass]
+      V.Camera_coop_gk_near -> close [Guitar, Bass]
+      -- directed cuts
+      V.Camera_directed_all -> directed "directed_all"
+      V.Camera_directed_all_cam -> directed "directed_all_cam"
+      V.Camera_directed_all_lt -> directed "directed_all_lt"
+      V.Camera_directed_all_yeah -> directed "directed_all_yeah"
+      V.Camera_directed_bre -> directed "directed_all_bre"
+      V.Camera_directed_brej -> directed "directed_all_brej"
+      V.Camera_directed_crowd -> directed "directed_crowd_g"
+      V.Camera_directed_drums -> directed "directed_drums"
+      V.Camera_directed_drums_pnt -> directed "directed_drums_pnt"
+      V.Camera_directed_drums_np -> directed "directed_drums_np"
+      V.Camera_directed_drums_lt -> directed "directed_drums_lt"
+      V.Camera_directed_drums_kd -> directed "directed_drums_kd"
+      V.Camera_directed_vocals -> directed "directed_vocals"
+      V.Camera_directed_vocals_np -> directed "directed_vocals_np"
+      V.Camera_directed_vocals_cls -> directed "directed_vocals_cls"
+      V.Camera_directed_vocals_cam_pr -> directed "directed_vocals_cam"
+      V.Camera_directed_vocals_cam_pt -> directed "directed_vocals_cam"
+      V.Camera_directed_stagedive -> directed "directed_stagedive"
+      V.Camera_directed_crowdsurf -> directed "directed_crowdsurf"
+      V.Camera_directed_bass -> directed "directed_bass"
+      V.Camera_directed_crowd_b -> directed "directed_crowd_b"
+      V.Camera_directed_bass_np -> directed "directed_bass_np"
+      V.Camera_directed_bass_cam -> directed "directed_bass_cam"
+      V.Camera_directed_bass_cls -> directed "directed_bass_cls"
+      V.Camera_directed_guitar -> directed "directed_guitar"
+      V.Camera_directed_crowd_g -> directed "directed_crowd_g"
+      V.Camera_directed_guitar_np -> directed "directed_guitar_np"
+      V.Camera_directed_guitar_cls -> directed "directed_guitar_cls"
+      V.Camera_directed_guitar_cam_pr -> directed "directed_guitar_cam"
+      V.Camera_directed_guitar_cam_pt -> directed "directed_guitar_cam"
+      V.Camera_directed_keys -> directed "directed_crowd_b"
+      V.Camera_directed_keys_cam -> directed "directed_crowd_b"
+      V.Camera_directed_keys_np -> directed "directed_crowd_b"
+      V.Camera_directed_duo_drums -> directed "directed_drums"
+      V.Camera_directed_duo_bass -> directed "directed_duo_bass"
+      V.Camera_directed_duo_guitar -> directed "directed_duo_guitar"
+      V.Camera_directed_duo_kv -> directed "directed_duo_guitar"
+      V.Camera_directed_duo_gb -> directed "directed_duo_gb"
+      V.Camera_directed_duo_kb -> directed "directed_duo_gb"
+      V.Camera_directed_duo_kg -> directed "directed_duo_gb"
+  in foldr RTB.merge cameraEvents $ rights changed

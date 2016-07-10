@@ -269,10 +269,10 @@ instanceMIDIEvent [t| Event |] $ let
       -- TODO: "[begin_pb song_trainer_pg_1]"
       -- TODO: "pb_norm song_trainer_pb_1]"
       , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
-            ["chrd0", s] -> Just $ DiffEvent Easy   $ ChordName $ Just s
-            ["chrd1", s] -> Just $ DiffEvent Medium $ ChordName $ Just s
-            ["chrd2", s] -> Just $ DiffEvent Hard   $ ChordName $ Just s
-            ["chrd3", s] -> Just $ DiffEvent Expert $ ChordName $ Just s
+            "chrd0" : ws -> Just $ DiffEvent Easy   $ ChordName $ Just $ unwords ws
+            "chrd1" : ws -> Just $ DiffEvent Medium $ ChordName $ Just $ unwords ws
+            "chrd2" : ws -> Just $ DiffEvent Hard   $ ChordName $ Just $ unwords ws
+            "chrd3" : ws -> Just $ DiffEvent Expert $ ChordName $ Just $ unwords ws
             ["chrd0"   ] -> Just $ DiffEvent Easy   $ ChordName Nothing
             ["chrd1"   ] -> Just $ DiffEvent Medium $ ChordName Nothing
             ["chrd2"   ] -> Just $ DiffEvent Hard   $ ChordName Nothing
