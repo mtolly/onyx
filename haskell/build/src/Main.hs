@@ -1418,7 +1418,7 @@ main = do
                         , Magma.vol = map (realToFrac . snd) pv
                         , Magma.audioFile = f
                         }
-                  title <- thisTitle
+                  title <- map (\case '"' -> '\''; c -> c) <$> thisTitle
                   return Magma.RBProj
                     { Magma.project = Magma.Project
                       { Magma.toolVersion = "110411_A"

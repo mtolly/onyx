@@ -8,10 +8,10 @@ metadata:
     drums: 4
 audio:
   album-improv-jam-2:
-    # TODO md5
+    md5: b645ba1ff15e04116bb595a062c25c9d
     frames: 34551468
   album-track:
-    # TODO md5
+    md5: 8bf25a1943027fbcdfe38296f4b51929
     frames: 35910336
 plans:
   album:
@@ -29,5 +29,3 @@ plans:
             - concatenate: [album-improv-jam-2, album-track]
 instruments:
   drums: true
-options:
-  auto-2x-bass: true
