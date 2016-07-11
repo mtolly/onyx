@@ -1238,7 +1238,7 @@ main = do
             _ -> return ()
 
           -- Warn about notes that might hang off before a pro keys range shift
-          phony (dir </> "ranges") $ do
+          phony (dir </> "hanging") $ do
             song <- loadMIDI $ dir </> "2p/notes.mid"
             putNormal $ closeShiftsFile song
 

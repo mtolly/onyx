@@ -23,10 +23,10 @@ extra-source-files:
   vendors/empty.milo_xbox
   vendors/empty-rb2.milo_xbox
   vendors/empty-rb2_weights.bin
-  ../../../player/www/index.html
-  ../../../player/www/app.min.js
-  ../../../player/www/images/*.png
-  ../../../player/www/lib/howler/howler.min.js
+  ../../player/www/index.html
+  ../../player/www/app.min.js
+  ../../player/www/images/*.png
+  ../../player/www/lib/howler/howler.min.js
 
 library
   hs-source-dirs:      src

@@ -1,6 +1,6 @@
 packages:
 - 'build'
-- location: build/resources
+- location: resources
   extra-dep: true
 - location: dta
   extra-dep: true
