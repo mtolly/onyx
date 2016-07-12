@@ -1,0 +1,37 @@
+name:                 onyxite-customs-build-types
+version:              0.4
+homepage:             https://github.com/mtolly/onyxite-customs
+author:               Michael Tolly
+maintainer:           miketolly@gmail.com
+category:             Distribution
+build-type:           Simple
+cabal-version:        >= 1.10
+
+library
+  hs-source-dirs:       src
+  exposed-modules:
+    Config
+    Audio.Types
+    Genre
+    JSONData
+  build-depends:
+    base    >= 4.8    && < 4.10
+    , aeson, text, unordered-containers, filepath, yaml
+    , event-list, non-negative, midi
+    , containers
+    , bytestring
+    , vector
+    , scientific
+    , transformers >= 0.4
+    , pretty
+    , template-haskell
+    , data-default-class
+    -- my libraries:
+    , jammittools >= 0.5.0.3 && < 0.6
+    , midi-util >= 0.2 && < 0.3
+    , onyxite-customs-parse
+    , onyxite-customs-dta
+    , onyxite-customs-stack-trace
+    , conduit-audio
+  default-language:     Haskell2010
+  ghc-options:          -Wall

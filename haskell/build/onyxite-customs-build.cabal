@@ -16,7 +16,6 @@ executable onyx
   main-is:              Main.hs
   other-modules:
     YAMLTree
-    Config
     Audio
     Scripts
     OneFoot
@@ -37,9 +36,7 @@ executable onyx
     Import
     Difficulty
     FretsOnFire
-    Genre
     RockBand2
-    JSONData
   build-depends:
     base    >= 4.8    && < 4.10
     , shake >= 0.15 && < 0.16
@@ -55,7 +52,6 @@ executable onyx
     , JuicyPixels >= 3.2.3.1
     , conduit
     , vector
-    , scientific
     , transformers >= 0.4
     , extra
     , pureMD5
@@ -65,10 +61,8 @@ executable onyx
     , pretty
     , monad-loops
     , time
-    , template-haskell
     , ini
     , executable-path
-    , data-default-class
     -- my libraries:
     , jammittools >= 0.5.0.3 && < 0.6
     , midi-util >= 0.2 && < 0.3
@@ -81,6 +75,7 @@ executable onyx
     , onyxite-customs-dta
     , onyxite-customs-stack-trace
     , onyxite-customs-display
+    , onyxite-customs-build-types
     , midiscript
   default-language:     Haskell2010
   default-extensions:

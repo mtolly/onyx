@@ -1,5 +1,7 @@
 packages:
-- 'build'
+- build
+- location: build-types
+  extra-dep: true
 - location: resources
   extra-dep: true
 - location: dta

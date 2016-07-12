@@ -6,9 +6,11 @@
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE LambdaCase    #-}
+{-# LANGUAGE TupleSections    #-}
 module Config where
 
-import           Audio
+import           Audio.Types
 import           Control.Monad                  (when)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader

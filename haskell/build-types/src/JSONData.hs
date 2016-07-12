@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns    #-}
+{-# LANGUAGE LambdaCase    #-}
 module JSONData where
 
 import Language.Haskell.TH

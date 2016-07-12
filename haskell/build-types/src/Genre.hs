@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase    #-}
 module Genre where
 
 import qualified Data.Text as T
