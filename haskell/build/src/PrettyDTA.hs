@@ -1,18 +1,19 @@
 {- |
 Format a @songs.dta@ so that C3 CON Tools can read it.
 -}
+{-# LANGUAGE LambdaCase #-}
 module PrettyDTA where
 
-import Data.DTA.Serialize
-import qualified Data.DTA.Serialize.RB3 as D
-import Data.DTA.Serialize.Magma (Gender(..))
-import Control.Monad.Trans.Writer
-import Data.Foldable (forM_)
-import Data.List (sortOn)
-import qualified Data.Map as Map
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
-import qualified Data.ByteString as B
+import           Control.Monad.Trans.Writer
+import qualified Data.ByteString            as B
+import           Data.DTA.Serialize
+import           Data.DTA.Serialize.Magma   (Gender (..))
+import qualified Data.DTA.Serialize.RB3     as D
+import           Data.Foldable              (forM_)
+import           Data.List                  (sortOn)
+import qualified Data.Map                   as Map
+import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as TE
 
 writeUtf8CRLF :: FilePath -> String -> IO ()
 writeUtf8CRLF fp = B.writeFile fp . TE.encodeUtf8 . T.pack

@@ -1,16 +1,17 @@
 {- | Datatypes and functions used across multiple MIDI parsers. -}
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TupleSections     #-}
 {-# LANGUAGE ViewPatterns      #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveTraversable #-}
 module RockBand.Common where
 
 import           Control.Monad                    (guard)
+import           Data.Bifunctor                   (Bifunctor (..))
 import           Data.Char                        (isSpace)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (stripPrefix)
@@ -18,9 +19,8 @@ import           Language.Haskell.TH
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
+import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
-import qualified Sound.MIDI.Util as U
-import Data.Bifunctor (Bifunctor(..))
 
 -- | Class for events which are stored as a @\"[x y z]\"@ text event.
 class Command a where

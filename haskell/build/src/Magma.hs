@@ -14,7 +14,7 @@ import           Development.Shake
 import           Resources                    (magmaFiles, magmaV1Files)
 import qualified Sound.File.Sndfile           as Snd
 import qualified System.Directory             as Dir
-import           System.Exit                  (ExitCode(ExitSuccess))
+import           System.Exit                  (ExitCode (ExitSuccess))
 import           System.FilePath              ((</>))
 import           System.Info                  (os)
 import qualified System.IO                    as IO

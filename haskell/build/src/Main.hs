@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiWayIf                 #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 {-# LANGUAGE RecordWildCards            #-}
@@ -8,37 +9,38 @@ module Main (main) where
 import           Audio
 import qualified C3
 import           Config                           hiding (Difficulty)
+import           Difficulty
+import qualified FretsOnFire                      as FoF
 import           Genre                            (genreDisplay, magmaV1Genre)
 import           Image
+import           Import
+import           JSONData                         (JSONEither (..), traceJSON)
 import           Magma                            hiding
                                                    (withSystemTempDirectory)
 import qualified Magma
+import qualified MelodysEscape
 import           MoggDecrypt
 import           OneFoot
 import qualified OnyxiteDisplay.Process           as Proc
 import           PrettyDTA
+import           ProKeysRanges
 import           Reaper.Base                      (writeRPP)
 import qualified Reaper.Build                     as RPP
 import           Reductions
-import           Resources                        (emptyMilo, webDisplay, emptyMiloRB2, emptyWeightsRB2)
+import           Resources                        (emptyMilo, emptyMiloRB2,
+                                                   emptyWeightsRB2, webDisplay)
+import qualified RockBand2                        as RB2
 import           Scripts
-import           STFS.Extract
-import           X360
-import           YAMLTree
-import           ProKeysRanges
-import           Import
-import           Difficulty
-import qualified FretsOnFire                      as FoF
 import qualified Sound.MIDI.Script.Base           as MS
 import qualified Sound.MIDI.Script.Parse          as MS
 import qualified Sound.MIDI.Script.Read           as MS
 import qualified Sound.MIDI.Script.Scan           as MS
-import qualified MelodysEscape
-import qualified RockBand2                        as RB2
-import JSONData (traceJSON, JSONEither(..))
+import           STFS.Extract
+import           X360
+import           YAMLTree
 
 import           Codec.Picture
-import           Control.Exception as Exc
+import           Control.Exception                as Exc
 import           Control.Monad.Extra
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
@@ -47,7 +49,7 @@ import           Control.Monad.Trans.Writer
 import qualified Data.Aeson                       as A
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
-import           Data.Char                        (toLower, isSpace)
+import           Data.Char                        (isSpace, toLower)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.Sndfile
 import qualified Data.Digest.Pure.MD5             as MD5
@@ -57,11 +59,12 @@ import qualified Data.DTA.Serialize.Magma         as Magma
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Fixed                       (Milli, Centi)
+import           Data.Fixed                       (Centi, Milli)
 import           Data.Foldable                    (toList)
 import           Data.Functor.Identity            (runIdentity)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (intercalate, isPrefixOf, nub, stripPrefix)
+import           Data.List                        (intercalate, isPrefixOf, nub,
+                                                   stripPrefix)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust, isNothing,
                                                    listToMaybe, mapMaybe)
@@ -73,12 +76,13 @@ import qualified Development.Shake                as Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
 import qualified Numeric.NonNegative.Class        as NNC
-import           RockBand.Common                  (Difficulty (..), readCommand', showCommand')
+import           RockBand.Common                  (Difficulty (..),
+                                                   readCommand', showCommand')
 import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as RBFive
-import           RockBand.Parse                   (unparseCommand, unparseBlip)
+import           RockBand.Parse                   (unparseBlip, unparseCommand)
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as RBVox
 import qualified Sound.File.Sndfile               as Snd
@@ -92,9 +96,11 @@ import           System.Console.GetOpt
 import qualified System.Directory                 as Dir
 import           System.Environment               (getArgs)
 import           System.Environment.Executable    (getExecutablePath)
-import           System.IO                        (hPutStrLn, stderr, withBinaryFile, IOMode(ReadMode), hFileSize)
-import           System.IO.Temp                   (withSystemTempDirectory)
 import qualified System.Info                      as Info
+import           System.IO                        (IOMode (ReadMode), hFileSize,
+                                                   hPutStrLn, stderr,
+                                                   withBinaryFile)
+import           System.IO.Temp                   (withSystemTempDirectory)
 import           System.Process                   (callProcess)
 
 data Argument
@@ -783,7 +789,7 @@ main = do
                   , showPosition endPosn
                   , "so [music_end] will be at"
                   , showPosition $ endPosn - 2
-                  ]  
+                  ]
                 return $ endPosn - 2
             let eventsTrack = RBFile.Events eventsRaw'
                 eventsRaw'
@@ -1775,7 +1781,7 @@ main = do
             do
               let doesRBAExist = do
                     need [rb2RBA]
-                    liftIO $ (/= 0) <$> withBinaryFile (pedalDir </> "magma-v1.rba") ReadMode hFileSize 
+                    liftIO $ (/= 0) <$> withBinaryFile (pedalDir </> "magma-v1.rba") ReadMode hFileSize
                   rb2RBA = pedalDir </> "magma-v1.rba"
                   rb2CON = pedalDir </> "rb2.con"
                   rb2OriginalDTA = pedalDir </> "rb2-original.dta"

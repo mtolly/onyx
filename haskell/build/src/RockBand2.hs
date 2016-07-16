@@ -1,26 +1,34 @@
+{-# LANGUAGE LambdaCase #-}
 module RockBand2 (convertMIDI, dryVoxAudio) where
 
-import qualified RockBand.File as F
-import Data.Maybe (mapMaybe, listToMaybe)
-import qualified Data.Set as Set
+import           Config                           (Instrument (..),
+                                                   KeysRB2 (..))
+import           Control.Monad                    (guard)
+import           Data.Conduit.Audio               (AudioSource,
+                                                   Duration (Seconds),
+                                                   concatenate, silent, sine)
+import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified RockBand.Drums as Drums
-import qualified RockBand.Vocals as Vox
-import qualified RockBand.FiveButton as Five
-import qualified RockBand.Events as Events
-import qualified RockBand.Venue as V
-import qualified Sound.MIDI.Util as U
-import Data.Conduit.Audio (AudioSource, Duration(Seconds), silent, concatenate, sine)
-import Scripts (trackGlue)
-import Data.List (partition, sort, nub, inits, tails)
-import Control.Monad (guard)
-import Config (KeysRB2(..), Instrument(..))
-import qualified Sound.MIDI.File.Event as E
-import RockBand.Parse (unparseBlip, unparseOne, unparseCommand)
-import Data.Either (lefts, rights)
-import RockBand.Common (LongNote(..), Difficulty(..), joinEdges, splitEdges)
-import Data.Foldable (toList)
+import           Data.Foldable                    (toList)
+import           Data.List                        (inits, nub, partition, sort,
+                                                   tails)
+import           Data.Maybe                       (listToMaybe, mapMaybe)
+import qualified Data.Set                         as Set
+import           RockBand.Common                  (Difficulty (..),
+                                                   LongNote (..), joinEdges,
+                                                   splitEdges)
+import qualified RockBand.Drums                   as Drums
+import qualified RockBand.Events                  as Events
+import qualified RockBand.File                    as F
+import qualified RockBand.FiveButton              as Five
+import           RockBand.Parse                   (unparseBlip, unparseCommand,
+                                                   unparseOne)
+import qualified RockBand.Venue                   as V
+import qualified RockBand.Vocals                  as Vox
+import           Scripts                          (trackGlue)
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.Util                  as U
 
 dryVoxAudio :: (Monad m) => F.Song U.Beats -> AudioSource m Float
 dryVoxAudio f = let

@@ -1,10 +1,10 @@
 -- | The RB3 (RBN2) VENUE track format.
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE TemplateHaskell #-}
 module RockBand.Venue where
 
-import           RockBand.Parse
 import           RockBand.Common
+import           RockBand.Parse
 
 data Camera
   -- generic 4 camera shots

@@ -1,47 +1,47 @@
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module FretsOnFire where
 
-import Data.Ini
-import Control.Applicative ((<|>))
-import qualified Data.ByteString as B
-import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
-import qualified Data.HashMap.Strict as HM
-import Control.Monad.Trans.Writer
-import Data.List (sortOn)
+import           Control.Applicative        ((<|>))
+import           Control.Monad.Trans.Writer
+import qualified Data.ByteString            as B
+import qualified Data.HashMap.Strict        as HM
+import           Data.Ini
+import           Data.List                  (sortOn)
+import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as TE
 
 data Song = Song
-  { name :: Maybe T.Text
-  , artist :: Maybe T.Text
-  , album :: Maybe T.Text
-  , charter :: Maybe T.Text -- ^ can be @frets@ or @charter@
-  , year :: Maybe Int
-  , genre :: Maybe T.Text
-  , proDrums :: Maybe Bool
-  , songLength :: Maybe Int
+  { name             :: Maybe T.Text
+  , artist           :: Maybe T.Text
+  , album            :: Maybe T.Text
+  , charter          :: Maybe T.Text -- ^ can be @frets@ or @charter@
+  , year             :: Maybe Int
+  , genre            :: Maybe T.Text
+  , proDrums         :: Maybe Bool
+  , songLength       :: Maybe Int
   , previewStartTime :: Maybe Int
-  , diffBand :: Maybe Int
-  , diffGuitar :: Maybe Int
-  , diffBass :: Maybe Int
-  , diffDrums :: Maybe Int
-  , diffDrumsReal :: Maybe Int
-  , diffKeys :: Maybe Int
-  , diffKeysReal :: Maybe Int
-  , diffVocals :: Maybe Int
-  , diffVocalsHarm :: Maybe Int
-  , diffDance :: Maybe Int
-  , diffBassReal :: Maybe Int
-  , diffGuitarReal :: Maybe Int
-  , diffBassReal22 :: Maybe Int
+  , diffBand         :: Maybe Int
+  , diffGuitar       :: Maybe Int
+  , diffBass         :: Maybe Int
+  , diffDrums        :: Maybe Int
+  , diffDrumsReal    :: Maybe Int
+  , diffKeys         :: Maybe Int
+  , diffKeysReal     :: Maybe Int
+  , diffVocals       :: Maybe Int
+  , diffVocalsHarm   :: Maybe Int
+  , diffDance        :: Maybe Int
+  , diffBassReal     :: Maybe Int
+  , diffGuitarReal   :: Maybe Int
+  , diffBassReal22   :: Maybe Int
   , diffGuitarReal22 :: Maybe Int
-  , diffGuitarCoop :: Maybe Int
-  , diffRhythm :: Maybe Int
-  , diffDrumsRealPS :: Maybe Int
-  , diffKeysRealPS :: Maybe Int
-  , delay :: Maybe Int
-  , starPowerNote :: Maybe Int -- ^ can be @star_power_note@ or @multiplier_note@
-  , track :: Maybe Int
+  , diffGuitarCoop   :: Maybe Int
+  , diffRhythm       :: Maybe Int
+  , diffDrumsRealPS  :: Maybe Int
+  , diffKeysRealPS   :: Maybe Int
+  , delay            :: Maybe Int
+  , starPowerNote    :: Maybe Int -- ^ can be @star_power_note@ or @multiplier_note@
+  , track            :: Maybe Int
   } deriving (Eq, Ord, Show, Read)
 
 loadSong :: FilePath -> IO Song

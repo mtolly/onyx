@@ -12,16 +12,18 @@ module Sound.MIDI.Script.Base
 , showAsMeasure
 ) where
 
-import Control.Arrow (first, second)
-import Control.Monad (guard)
-import Data.Char     (toLower)
-import Data.Fixed    (Milli)
-import Data.List     (sort, sortBy, intercalate)
-import Data.Maybe    (isNothing, fromMaybe, catMaybes, mapMaybe)
-import Data.Ord      (comparing)
-import Data.Ratio    (numerator, denominator)
-import Data.Word     (Word8)
-import Numeric       (showHex)
+import           Control.Arrow                         (first, second)
+import           Control.Monad                         (guard)
+import           Data.Char                             (toLower)
+import           Data.Fixed                            (Milli)
+import           Data.List                             (intercalate, sort,
+                                                        sortBy)
+import           Data.Maybe                            (catMaybes, fromMaybe,
+                                                        isNothing, mapMaybe)
+import           Data.Ord                              (comparing)
+import           Data.Ratio                            (denominator, numerator)
+import           Data.Word                             (Word8)
+import           Numeric                               (showHex)
 
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB

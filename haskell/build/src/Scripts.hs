@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module Scripts where
 
 import           Data.Maybe                       (listToMaybe, mapMaybe)
@@ -19,7 +20,9 @@ import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as Vocals
 
-import           Config (Instrument(..), SongYaml, _previewStart, _previewEnd, _metadata)
+import           Config                           (Instrument (..), SongYaml,
+                                                   _metadata, _previewEnd,
+                                                   _previewStart)
 import           Development.Shake
 
 -- | Changes all existing drum mix events to use the given config (not changing

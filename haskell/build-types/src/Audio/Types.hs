@@ -1,10 +1,10 @@
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE LambdaCase    #-}
+{-# LANGUAGE LambdaCase        #-}
 module Audio.Types where
 
-import Control.Monad (ap)
+import           Control.Monad (ap)
 
 data Audio t a
   = Silence Int t

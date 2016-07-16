@@ -1,8 +1,6 @@
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE MultiWayIf        #-}
-{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE LambdaCase      #-}
+{-# LANGUAGE MultiWayIf      #-}
+{-# LANGUAGE PatternSynonyms #-}
 module Audio
 ( module Audio.Types
 , sameChannels
@@ -20,31 +18,33 @@ module Audio
 , crapVorbis
 ) where
 
-import Audio.Types
+import           Audio.Types
 
-import           Control.Exception             (evaluate)
-import           Control.Monad.Trans.Resource  (MonadResource, ResourceT, runResourceT)
-import           Data.Binary.Get               (getWord32le, runGetOrFail)
-import qualified Data.ByteString.Lazy          as BL
-import qualified Data.ByteString.Lazy.Char8    as BL8
-import           Data.Char                     (toLower)
-import           Data.Conduit                  ((=$=))
+import           Control.Exception               (evaluate)
+import           Control.Monad.Trans.Resource    (MonadResource, ResourceT,
+                                                  runResourceT)
+import           Data.Binary.Get                 (getWord32le, runGetOrFail)
+import qualified Data.ByteString.Lazy            as BL
+import qualified Data.ByteString.Lazy.Char8      as BL8
+import           Data.Char                       (toLower)
+import           Data.Conduit                    ((=$=))
 import           Data.Conduit.Audio
-import           Data.Conduit.Audio.SampleRate
-import           Data.Conduit.Audio.Sndfile
 import           Data.Conduit.Audio.LAME
 import           Data.Conduit.Audio.LAME.Binding as L
-import qualified Data.Conduit.List             as CL
-import qualified Data.Digest.Pure.MD5          as MD5
-import           Data.Foldable                 (toList)
-import qualified Data.Vector.Storable          as V
-import           Data.Word                     (Word8)
-import           Development.Shake             (Action, liftIO, need, putNormal)
-import           Development.Shake.FilePath    (takeExtension)
-import           Numeric                       (showHex)
-import qualified Sound.File.Sndfile            as Snd
-import           System.IO
+import           Data.Conduit.Audio.SampleRate
+import           Data.Conduit.Audio.Sndfile
+import qualified Data.Conduit.List               as CL
+import qualified Data.Digest.Pure.MD5            as MD5
+import           Data.Foldable                   (toList)
+import qualified Data.Vector.Storable            as V
+import           Data.Word                       (Word8)
+import           Development.Shake               (Action, liftIO, need,
+                                                  putNormal)
+import           Development.Shake.FilePath      (takeExtension)
+import           Numeric                         (showHex)
 import           SndfileExtra
+import qualified Sound.File.Sndfile              as Snd
+import           System.IO
 
 -- | Duplicates mono into stereo, or otherwise just tacks on silent channels to one source.
 sameChannels :: (Monad m, Num a, V.Storable a) => (AudioSource m a, AudioSource m a) -> (AudioSource m a, AudioSource m a)

@@ -4,21 +4,21 @@ https://github.com/arkem/py360
 -}
 module STFS.Extract (extractSTFS) where
 
-import Data.Binary.Get
-import qualified Data.Map as Map
-import Data.IORef
-import Data.Bits
-import qualified Data.ByteString.Lazy as BL
+import           Control.Monad
+import           Control.Monad.Loops        (whileM_)
+import           Data.Binary.Get
+import           Data.Bits
+import qualified Data.ByteString.Lazy       as BL
 import qualified Data.ByteString.Lazy.Char8 as BL8
-import System.IO
-import Data.Int
-import Data.Word
-import Control.Monad
-import Control.Monad.Loops (whileM_)
-import System.Directory
-import System.FilePath
-import qualified Data.Text.Lazy as TL
-import qualified Data.Text.Lazy.Encoding as TLE
+import           Data.Int
+import           Data.IORef
+import qualified Data.Map                   as Map
+import qualified Data.Text.Lazy             as TL
+import qualified Data.Text.Lazy.Encoding    as TLE
+import           Data.Word
+import           System.Directory
+import           System.FilePath
+import           System.IO
 
 table_spacing :: [(Integer, Integer, Integer)]
 table_spacing = [(0xAB, 0x718F, 0xFE7DA), (0xAC, 0x723A, 0xFD00B)]
@@ -150,11 +150,11 @@ extractSTFS stfs dir = withBinaryFile stfs ReadMode $ \fd -> do
       BL.writeFile (readFilename filename) bs
 
 data BlockHashRecord = BlockHashRecord
-  { blockhash_record :: Integer
-  , blockhash_table :: Integer
-  , blockhash_blocknum :: Integer
-  , blockhash_hash :: BL.ByteString
-  , blockhash_info :: Word8
+  { blockhash_record    :: Integer
+  , blockhash_table     :: Integer
+  , blockhash_blocknum  :: Integer
+  , blockhash_hash      :: BL.ByteString
+  , blockhash_info      :: Word8
   , blockhash_nextblock :: Word32
   } deriving (Show)
 
@@ -172,16 +172,16 @@ newBlockHashRecord blocknum data_ table record = BlockHashRecord
   }
 
 data FileListing = FileListing
-  { fl_filename :: BL.ByteString
+  { fl_filename    :: BL.ByteString
   , fl_isdirectory :: Bool
-  , fl_numblocks :: Word32
-  , fl_firstblock :: Word32
-  , fl_pathindex :: Int16
-  , fl_size :: Word32
-  , fl_udate :: Word16
-  , fl_utime :: Word16
-  , fl_adate :: Word16
-  , fl_atime :: Word16
+  , fl_numblocks   :: Word32
+  , fl_firstblock  :: Word32
+  , fl_pathindex   :: Int16
+  , fl_size        :: Word32
+  , fl_udate       :: Word16
+  , fl_utime       :: Word16
+  , fl_adate       :: Word16
+  , fl_atime       :: Word16
   } deriving (Show)
 
 newFileListing :: BL.ByteString -> Either String FileListing

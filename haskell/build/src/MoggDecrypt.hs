@@ -1,12 +1,13 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP        #-}
+{-# LANGUAGE LambdaCase #-}
 module MoggDecrypt (moggToOgg) where
 
 #ifdef MOGGDECRYPT
 import qualified Sound.MOGG
 #else
-import Data.Binary.Get (runGet, getWord32le)
+import           Control.Applicative  (liftA2)
+import           Data.Binary.Get      (getWord32le, runGet)
 import qualified Data.ByteString.Lazy as BL
-import Control.Applicative (liftA2)
 #endif
 
 -- | Only supports unencrypted MOGGs, unless you provide an external decryptor.

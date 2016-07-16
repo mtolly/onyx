@@ -3,7 +3,7 @@ module Data.DTA.PrettyPrint (showDTA) where
 
 import qualified Text.PrettyPrint.HughesPJ as PP
 
-import Data.DTA.Base
+import           Data.DTA.Base
 
 ppChunk :: Chunk String -> PP.Doc
 ppChunk c = case c of

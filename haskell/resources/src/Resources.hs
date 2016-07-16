@@ -1,10 +1,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Resources where
 
-import           Control.Arrow                (first)
-import           Data.FileEmbed               (embedDir, embedFile, makeRelativeToProject)
+import           Control.Arrow   (first)
 import qualified Data.ByteString as B
-import           System.FilePath              ((</>))
+import           Data.FileEmbed  (embedDir, embedFile, makeRelativeToProject)
+import           System.FilePath ((</>))
 
 magmaFiles :: [(FilePath, B.ByteString)]
 magmaFiles = $(makeRelativeToProject "vendors/magma/" >>= embedDir)

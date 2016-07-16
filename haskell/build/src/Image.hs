@@ -2,16 +2,15 @@
 module Image where
 
 import           Codec.Picture
-import           Control.Monad       (forM_, guard)
-import           Data.Bits           (shiftL, shiftR, testBit, (.&.))
-import qualified Data.ByteString     as B
-import qualified Data.ByteString.Lazy as BL
-import           Data.List           (minimumBy)
-import           Data.Ord            (comparing)
-import           Data.Word           (Word8, Word16)
-import           System.IO           (IOMode (..), withBinaryFile)
+import           Control.Monad        (forM_, guard, replicateM)
 import           Data.Binary.Get
-import Control.Monad (replicateM)
+import           Data.Bits            (shiftL, shiftR, testBit, (.&.))
+import qualified Data.ByteString      as B
+import qualified Data.ByteString.Lazy as BL
+import           Data.List            (minimumBy)
+import           Data.Ord             (comparing)
+import           Data.Word            (Word16, Word8)
+import           System.IO            (IOMode (..), withBinaryFile)
 
 -- | Scales an image using the bilinear interpolation algorithm.
 scaleBilinear

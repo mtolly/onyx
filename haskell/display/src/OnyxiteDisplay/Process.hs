@@ -18,11 +18,12 @@ import           Data.Maybe                       (listToMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified RockBand.Beat                    as Beat
-import           RockBand.Common                  (Difficulty (..), LongNote (..))
+import           RockBand.Common                  (Difficulty (..),
+                                                   LongNote (..))
 import qualified RockBand.Drums                   as Drums
-import qualified RockBand.Vocals                  as Vox
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as PK
+import qualified RockBand.Vocals                  as Vox
 import qualified Sound.MIDI.Util                  as U
 
 class TimeFunctor f where
@@ -207,14 +208,14 @@ processBeat tmap rtb = Beats $ Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEve
     -- TODO: add half-beats
 
 data Vocal t = Vocal
-  { harm1Notes :: Map.Map t VocalNote
-  , harm2Notes :: Map.Map t VocalNote
-  , harm3Notes :: Map.Map t VocalNote
+  { harm1Notes      :: Map.Map t VocalNote
+  , harm2Notes      :: Map.Map t VocalNote
+  , harm3Notes      :: Map.Map t VocalNote
   , vocalPercussion :: Map.Map t ()
   , vocalPhraseEnds :: Map.Map t ()
-  , vocalRanges :: Map.Map t VocalRange
-  , vocalEnergy :: Map.Map t Bool
-  , vocalTonic :: Maybe Int
+  , vocalRanges     :: Map.Map t VocalRange
+  , vocalEnergy     :: Map.Map t Bool
+  , vocalTonic      :: Maybe Int
   } deriving (Eq, Ord, Show)
 
 data VocalRange

@@ -1,16 +1,16 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
 module Data.DTA.Serialize.Magma where
 
 #if __GLASGOW_HASKELL__ < 710
-import Control.Applicative ((<$>), (<*>))
+import           Control.Applicative ((<$>), (<*>))
 #endif
-import Control.Monad ((>=>))
+import           Control.Monad       ((>=>))
 
-import qualified Data.Map as Map
+import qualified Data.Map            as Map
 
-import Data.DTA
-import Data.DTA.Serialize
+import           Data.DTA
+import           Data.DTA.Serialize
 
 
 

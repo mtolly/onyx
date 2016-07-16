@@ -1,11 +1,11 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Import where
 
 import           Audio
 import           Config                         hiding (Difficulty)
-import           JSONData                       (JSONEither(..))
 import           Control.Monad                  (guard, when)
-import           Control.Monad.Extra            (replicateM, mapMaybeM)
+import           Control.Monad.Extra            (mapMaybeM, replicateM)
 import           Control.Monad.Trans.StackTrace (printStackTraceIO)
 import           Data.Binary.Get                (getWord32le, runGet)
 import qualified Data.ByteString                as B
@@ -25,8 +25,10 @@ import           Data.Maybe                     (fromMaybe, listToMaybe,
 import qualified Data.Text                      as T
 import qualified Data.Yaml                      as Y
 import qualified FretsOnFire                    as FoF
+import           JSONData                       (JSONEither (..))
 import qualified RockBand.Drums                 as RBDrums
 import qualified RockBand.File                  as RBFile
+import           Scripts                        (loadMIDI_IO)
 import qualified Sound.MIDI.File                as F
 import qualified Sound.MIDI.File.Load           as Load
 import qualified Sound.MIDI.Util                as U
@@ -35,12 +37,11 @@ import qualified System.Directory               as Dir
 import           System.FilePath                (takeDirectory, takeFileName,
                                                  (<.>), (</>))
 import           System.IO                      (IOMode (..), SeekMode (..),
-                                                 hSeek, withBinaryFile,
-                                                 hPutStrLn, stderr)
+                                                 hPutStrLn, hSeek, stderr,
+                                                 withBinaryFile)
 import           System.IO.Extra                (latin1, readFileEncoding',
                                                  utf8)
 import           System.IO.Temp                 (withSystemTempDirectory)
-import Scripts (loadMIDI_IO)
 
 -- | Convert a CON or RBA file (or FoF directory) to Onyx format.
 importAny :: KeysRB2 -> FilePath -> FilePath -> IO ()

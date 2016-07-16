@@ -1,26 +1,26 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns    #-}
-{-# LANGUAGE LambdaCase    #-}
 module JSONData where
 
-import Language.Haskell.TH
-import qualified Language.Haskell.TH.Syntax as TH
-import Data.Scientific
-import Control.Monad.Trans.Reader
-import Control.Monad.Trans.Writer
-import qualified Data.Text as T
-import qualified Data.Aeson as A
-import qualified Data.Vector as V
-import qualified Data.ByteString.Lazy.Char8 as BL8
-import           Control.Monad.Trans.StackTrace hiding (optional)
+import           Control.Applicative            ((<|>))
+import           Control.Monad                  (forM)
 import           Control.Monad.Trans.Class      (lift)
-import Control.Monad (forM)
-import Control.Applicative ((<|>))
+import           Control.Monad.Trans.Reader
+import           Control.Monad.Trans.StackTrace hiding (optional)
+import           Control.Monad.Trans.Writer
+import           Data.Aeson                     ((.=))
+import qualified Data.Aeson                     as A
+import qualified Data.ByteString.Lazy.Char8     as BL8
+import           Data.Default.Class
 import qualified Data.HashMap.Strict            as Map
 import           Data.List                      ((\\))
-import           Data.Aeson                     ((.=))
-import Data.Default.Class
+import           Data.Scientific
+import qualified Data.Text                      as T
+import qualified Data.Vector                    as V
+import           Language.Haskell.TH
+import qualified Language.Haskell.TH.Syntax     as TH
 
 type Parser m context = StackTraceT (ReaderT context m)
 
@@ -133,11 +133,11 @@ pattern OneKey k v <- A.Object (Map.toList -> [(k, v)]) where
   OneKey k v = A.Object $ Map.fromList [(k, v)]
 
 data JSONField = JSONField
-  { hsField :: String
-  , jsonKey :: String
-  , fieldType :: TypeQ
+  { hsField      :: String
+  , jsonKey      :: String
+  , fieldType    :: TypeQ
   , defaultValue :: Maybe ExpQ
-  , warnMissing :: Bool
+  , warnMissing  :: Bool
   , writeDefault :: Bool
   }
 

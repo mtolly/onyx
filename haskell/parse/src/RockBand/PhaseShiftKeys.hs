@@ -1,19 +1,19 @@
 -- | Phase Shift's Real Keys (full keyboard) mode.
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE TemplateHaskell #-}
 module RockBand.PhaseShiftKeys
 ( Event(..)
 , Hand(..)
 ) where
 
-import RockBand.Drums (Hand(..))
-import RockBand.Parse
-import qualified Numeric.NonNegative.Class as NNC
-import Control.Monad (guard)
-import RockBand.Common
-import qualified Sound.MIDI.File.Event as E
+import           Control.Monad                    (guard)
 import qualified Data.EventList.Relative.TimeBody as RTB
-import Data.Maybe (isJust)
+import           Data.Maybe                       (isJust)
+import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Common
+import           RockBand.Drums                   (Hand (..))
+import           RockBand.Parse
+import qualified Sound.MIDI.File.Event            as E
 
 data Event
   = LaneShift  Hand Int

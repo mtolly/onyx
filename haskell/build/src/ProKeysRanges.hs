@@ -1,22 +1,23 @@
 {-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE LambdaCase    #-}
 module ProKeysRanges (completeFile, completeRanges, closeShifts, closeShiftsFile) where
 
 import           Control.Monad.Trans.StackTrace   (printStackTraceIO)
-import qualified RockBand.File as RBFile
-import RockBand.ProKeys
-import RockBand.Common
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Numeric.NonNegative.Class as NNC
-import qualified Data.Set as Set
-import Data.List (sortOn)
-import Data.Maybe (listToMaybe, mapMaybe)
-import qualified Sound.MIDI.File as F
-import qualified Sound.MIDI.File.Load as Load
-import qualified Sound.MIDI.File.Save as Save
-import qualified Sound.MIDI.Util as U
-import Data.Fixed (Milli)
-import OnyxiteDisplay.Process (showTimestamp)
+import           Data.Fixed                       (Milli)
+import           Data.List                        (sortOn)
+import           Data.Maybe                       (listToMaybe, mapMaybe)
+import qualified Data.Set                         as Set
+import qualified Numeric.NonNegative.Class        as NNC
+import           OnyxiteDisplay.Process           (showTimestamp)
+import           RockBand.Common
+import qualified RockBand.File                    as RBFile
+import           RockBand.ProKeys
+import qualified Sound.MIDI.File                  as F
+import qualified Sound.MIDI.File.Load             as Load
+import qualified Sound.MIDI.File.Save             as Save
+import qualified Sound.MIDI.Util                  as U
 
 completeFile :: FilePath -> FilePath -> IO ()
 completeFile fin fout = do

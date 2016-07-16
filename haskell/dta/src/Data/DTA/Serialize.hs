@@ -1,11 +1,14 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveTraversable, OverloadedStrings, FlexibleInstances #-}
+{-# LANGUAGE DeriveTraversable          #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
 module Data.DTA.Serialize where
 
-import Data.DTA.Base
-import Control.Applicative (liftA2)
-import qualified Data.Map as Map
-import qualified Data.Foldable as F
-import qualified Data.Traversable as T
+import           Control.Applicative (liftA2)
+import           Data.DTA.Base
+import qualified Data.Foldable       as F
+import qualified Data.Map            as Map
+import qualified Data.Traversable    as T
 
 unserialize :: (FromChunks a) => DTA String -> Either String a
 unserialize (DTA _ (Tree _ cs)) = fromChunks cs

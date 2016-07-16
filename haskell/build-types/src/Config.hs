@@ -2,12 +2,12 @@
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE LambdaCase    #-}
-{-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE TupleSections     #-}
 module Config where
 
 import           Audio.Types
@@ -15,8 +15,8 @@ import           Control.Monad                  (when)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace hiding (optional)
-import qualified Data.Aeson                     as A
 import           Data.Aeson                     ((.=))
+import qualified Data.Aeson                     as A
 import           Data.Char                      (isDigit, isSpace)
 import           Data.Conduit.Audio             (Duration (..))
 import qualified Data.DTA.Serialize.Magma       as Magma
@@ -39,8 +39,8 @@ import           Text.Read                      (readMaybe)
 import qualified Text.ParserCombinators.ReadP   as ReadP
 import qualified Text.Read.Lex                  as Lex
 
-import JSONData
-import Data.Default.Class
+import           Data.Default.Class
+import           JSONData
 
 data Difficulty
   = Tier Integer -- ^ [1..7]: 1 = no dots, 7 = devil dots
@@ -182,7 +182,7 @@ data AudioFile
     , _channels :: Int
     }
   | AudioSnippet
-    { _expr     :: Audio Duration AudioInput
+    { _expr :: Audio Duration AudioInput
     }
   deriving (Eq, Ord, Show, Read)
 
@@ -567,7 +567,7 @@ instance TraceJSON Duration where
   traceJSON = lift ask >>= \case
     OneKey "frames" v -> inside "frames duration" $ Frames <$> parseFrom v traceJSON
     OneKey "seconds" v -> inside "seconds duration" $ Seconds . toRealFloat <$> parseFrom v parseMinutes
-    _ -> (inside "unitless (seconds) duration" $ Seconds . toRealFloat <$> parseMinutes)
+    _ -> inside "unitless (seconds) duration" (Seconds . toRealFloat <$> parseMinutes)
       `catch` \_ -> expected "a duration in frames or seconds"
 
 parseMinutes :: (Monad m) => Parser m A.Value Scientific

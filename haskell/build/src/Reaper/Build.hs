@@ -1,8 +1,9 @@
+{-# LANGUAGE LambdaCase #-}
 module Reaper.Build where
 
 import           Reaper.Base
 
-import           Control.Monad                    (forM_, when, unless, (>=>))
+import           Control.Monad                    (forM_, unless, when, (>=>))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                  as B
@@ -12,14 +13,14 @@ import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (findIndex, sortOn)
+import           Data.List                        (elemIndex, sortOn)
 import           Data.Maybe                       (fromMaybe, listToMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Numeric                          (showHex)
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Numeric.NonNegative.Wrapper      as NN
-import           RockBand.Common                  (Key(..))
+import           RockBand.Common                  (Key (..))
 import qualified RockBand.Vocals                  as Vox
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
@@ -79,8 +80,8 @@ event tks = \case
       [c] -> ['0', c]
       s   -> s
     in line "E" $ show tks : map showByte (BL.unpack bs)
-  E.MetaEvent (Meta.TimeSig _ _ _ _) -> return ()
-  E.MetaEvent (Meta.SetTempo _) -> return ()
+  E.MetaEvent Meta.TimeSig{} -> return ()
+  E.MetaEvent Meta.SetTempo{} -> return ()
   E.MetaEvent e -> let
     stringBytes = TE.encodeUtf8 . T.pack
     bytes = B.cons 0xFF $ case e of
@@ -154,37 +155,36 @@ track lenTicks lenSecs resn trk = let
       Just names -> do
         block "MIDINOTENAMES" [] $ do
           forM_ names $ \(pitch, noteName) -> line "-1" [show pitch, noteName]
-    block "FXCHAIN" [] $ if isPitched
-      then do
-        line "SHOW" ["0"]
-        line "LASTSEL" ["0"]
-        line "DOCKED" ["0"]
-        let mutePitches pmin pmax = do
-              line "BYPASS" ["0", "0", "0"]
-              block "JS" ["IX/MIDI_Tool II", ""] $ do
-                line "0.000000" $ show (pmin :: Int) : show (pmax :: Int) : words "0.000000 0.000000 0.000000 100.000000 0.000000 0.000000 127.000000 0.000000 0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
-              line "FLOATPOS" ["0", "0", "0", "0"]
-              line "WAK" ["0"]
-        if isProKeys
-          then do
-            mutePitches 0 47
-            mutePitches 73 127
+    -- note: even if not pitched, you still need empty FXCHAIN so note names work
+    block "FXCHAIN" [] $ when isPitched $ do
+      line "SHOW" ["0"]
+      line "LASTSEL" ["0"]
+      line "DOCKED" ["0"]
+      let mutePitches pmin pmax = do
             line "BYPASS" ["0", "0", "0"]
-            block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
-              line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
-              line "AACAPwAAgD8AABAAAAA=" [] -- pro keys: tuned up one octave
+            block "JS" ["IX/MIDI_Tool II", ""] $ do
+              line "0.000000" $ show (pmin :: Int) : show (pmax :: Int) : words "0.000000 0.000000 0.000000 100.000000 0.000000 0.000000 127.000000 0.000000 0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
             line "FLOATPOS" ["0", "0", "0", "0"]
             line "WAK" ["0"]
-          else do
-            mutePitches 0 35
-            mutePitches 85 127
-            line "BYPASS" ["0", "0", "0"]
-            block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
-              line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
-              line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
-            line "FLOATPOS" ["0", "0", "0", "0"]
-            line "WAK" ["0"]
-      else return () -- not sure why, but you still need empty FXCHAIN so note names work
+      if isProKeys
+        then do
+          mutePitches 0 47
+          mutePitches 73 127
+          line "BYPASS" ["0", "0", "0"]
+          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
+            line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
+            line "AACAPwAAgD8AABAAAAA=" [] -- pro keys: tuned up one octave
+          line "FLOATPOS" ["0", "0", "0", "0"]
+          line "WAK" ["0"]
+        else do
+          mutePitches 0 35
+          mutePitches 85 127
+          line "BYPASS" ["0", "0", "0"]
+          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
+            line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
+            line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
+          line "FLOATPOS" ["0", "0", "0", "0"]
+          line "WAK" ["0"]
     block "ITEM" [] $ do
       line "POSITION" ["0"]
       line "LOOP" ["0"]
@@ -433,7 +433,7 @@ melodyNoteNames = execWriter $ do
         x k = tell [(k, "----")]
 
 sortTracks :: (NNC.C t) => [RTB.T t E.T] -> [RTB.T t E.T]
-sortTracks = sortOn $ U.trackName >=> \name -> findIndex (== name)
+sortTracks = sortOn $ U.trackName >=> \name -> elemIndex name
   [ "PART DRUMS"
   , "PART DRUMS_2X"
   , "PART BASS"

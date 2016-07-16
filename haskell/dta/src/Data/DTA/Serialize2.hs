@@ -1,15 +1,15 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE RankNTypes        #-}
 module Data.DTA.Serialize where
 
-import Data.DTA.Base
-import Control.Monad.Trans.StackTrace
-import Control.Monad.Trans.Reader
-import Control.Monad.Trans.Class (lift)
-import Control.Monad
-import Control.Applicative
-import qualified Data.Map as Map
+import           Control.Applicative
+import           Control.Monad
+import           Control.Monad.Trans.Class      (lift)
+import           Control.Monad.Trans.Reader
+import           Control.Monad.Trans.StackTrace
+import           Data.DTA.Base
+import qualified Data.Map                       as Map
 
 type Parser m context = StackTraceT (ReaderT context m)
 

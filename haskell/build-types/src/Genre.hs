@@ -1,9 +1,9 @@
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE LambdaCase    #-}
 module Genre where
 
-import qualified Data.Text as T
-import Control.Monad (guard)
+import           Control.Monad (guard)
+import qualified Data.Text     as T
 
 data Genre = Genre T.Text T.Text [Subgenre]
   deriving (Eq, Ord, Show, Read)

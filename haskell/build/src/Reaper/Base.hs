@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module Reaper.Base where
 
 import           Data.List        (foldl')

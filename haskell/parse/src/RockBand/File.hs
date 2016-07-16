@@ -12,19 +12,19 @@ import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
 
+import           Control.Monad.Trans.StackTrace
+import qualified MelodysEscape                    as Melody
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.FiveButton              as FiveButton
 import           RockBand.Parse
+import qualified RockBand.PhaseShiftKeys          as PSKeys
 import qualified RockBand.ProGuitar               as ProGuitar
 import qualified RockBand.ProKeys                 as ProKeys
-import qualified RockBand.PhaseShiftKeys          as PSKeys
-import qualified RockBand.Vocals                  as Vocals
 import qualified RockBand.Venue                   as Venue
-import qualified MelodysEscape                    as Melody
-import           Control.Monad.Trans.StackTrace
+import qualified RockBand.Vocals                  as Vocals
 
 data Track t
   = PartDrums                 (RTB.T t      Drums.Event)

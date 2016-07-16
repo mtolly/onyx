@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module Reductions (gryboComplete, pkReduce, drumsComplete, simpleReduce) where
 
 import           Control.Monad                    (guard)
@@ -7,23 +8,25 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     (($>))
 import           Data.List                        (nub, sort, sortOn)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, isNothing, mapMaybe)
+import           Data.Maybe                       (fromMaybe, isNothing,
+                                                   mapMaybe)
 import qualified Data.Set                         as Set
-import qualified Numeric.NonNegative.Class        as NNC
 import           Numeric.NonNegative.Class        ((-|))
+import qualified Numeric.NonNegative.Class        as NNC
 import           ProKeysRanges                    (completeRanges)
-import           RockBand.Common                  (Difficulty (..), Key (..), LongNote (..), joinEdges)
+import           RockBand.Common                  (Difficulty (..), Key (..),
+                                                   LongNote (..), joinEdges)
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
-import qualified RockBand.FiveButton              as Five
 import           RockBand.FiveButton              (StrumHOPO (..))
+import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as PK
+import           Scripts                          (trackGlue)
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
-import           Scripts                          (trackGlue)
 
 -- | Fills out a GRYBO chart by generating difficulties if needed.
 gryboComplete :: Maybe Int -> U.MeasureMap -> RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
