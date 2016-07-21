@@ -8,10 +8,16 @@
 Instruments:
 
   * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
+  * Bass ⚪️⚫️⚫️⚫️⚫️
+  * Guitar ⚪️⚪️⚪️⚫️⚫️
   * Keys 😈😈😈😈😈
   * Pro Keys 😈😈😈😈😈
 
 Supported audio:
 
   * `album` (Pimp of the Year)
+
+Notes:
+
+  * Guitar part is sax and trumpet.
 

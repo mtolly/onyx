@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 # edit as necessary
-url        = 'emperor-01.cs.wisc.edu'
+url        = 'alumni.cs.wisc.edu'
 username   = 'tolly'
 password   = File.read("#{Dir.home}/pw/csl").strip
 remote_dir = '/afs/cs.wisc.edu/u/t/o/tolly/public/html/customs'
