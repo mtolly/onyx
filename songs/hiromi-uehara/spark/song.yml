@@ -2,6 +2,14 @@ metadata:
   title: Spark
   artist: Hiromi Uehara
   author: Onyxite
+  genre: jazz
+  subgenre: contemporary
+  album: Spark
+  year: 2016
+  track-number: 1
+  file-album-art: cover.jpg
+  difficulty:
+    drums: 7
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -9,10 +17,18 @@ audio:
     - ../../../scripts/youtube 37XkrrjAyNQ 140
     md5: 1e48a92e1f54868d23db222adc2043ff
     frames: 24009728
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       pad: [4.797, youtube]
 instruments:
   drums: true
-published: false
