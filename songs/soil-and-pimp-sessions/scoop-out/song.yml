@@ -11,6 +11,7 @@ metadata:
     guitar: 4
   comments:
   - "Guitar part is sax and trumpet."
+  - "All instruments have overdrive/unison."
 audio:
   album-track:
     md5: 53cfe5969cd3451eebadc33dc4b89d54

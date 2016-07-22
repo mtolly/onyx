@@ -21,3 +21,5 @@ Notes:
 
   * Guitar part is sax and trumpet.
 
+  * All instruments have overdrive/unison.
+
