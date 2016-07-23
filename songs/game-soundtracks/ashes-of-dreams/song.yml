@@ -4,6 +4,12 @@ metadata:
   album: NieR Gestalt & Replicant Original Soundtrack
   track-number: 39 # 23 + 16
   author: Onyxite
+  genre: classical
+  subgenre: classical
+  year: 2010
+  file-album-art: cover.jpg
+  difficulty:
+    vocal: 6
 audio:
   youtube:
     commands:
@@ -23,4 +29,3 @@ plans:
       pad: [3.401, youtube]
 instruments:
   vocal: 1
-published: false
