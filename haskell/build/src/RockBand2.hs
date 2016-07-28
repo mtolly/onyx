@@ -335,18 +335,18 @@ fixFiveColors rtb = let
   (hard  , notHard  ) = getDiff Hard notMedium
   (expert, _        ) = getDiff Expert notHard
   usedColors = Set.fromList $ concatMap toList $ RTB.getBodies expert
-  easy'   = makeDiff Easy   $ useColors usedColors easy
-  medium' = makeDiff Medium $ useColors usedColors medium
-  hard'   = makeDiff Hard   $ useColors usedColors hard
+  easy'   = makeDiff Easy   $ useColorsFive usedColors easy
+  medium' = makeDiff Medium $ useColorsFive usedColors medium
+  hard'   = makeDiff Hard   $ useColorsFive usedColors hard
   makeDiff d = fmap $ Five.DiffEvent d . Five.Note
   in foldr RTB.merge notHard [easy', medium', hard']
 
-useColors :: Set.Set Five.Color -> RTB.T U.Beats (LongNote () Five.Color) -> RTB.T U.Beats (LongNote () Five.Color)
-useColors cols rtb = let
+useColorsFive :: Set.Set Five.Color -> RTB.T U.Beats (LongNote () Five.Color) -> RTB.T U.Beats (LongNote () Five.Color)
+useColorsFive cols rtb = let
   gtr = joinEdges $ Five.guitarify rtb
   present = Set.fromList $ concatMap toList $ RTB.getBodies rtb
   missing = Set.difference cols present
-  good = foldl (>>=) [gtr] $ map useColor $ Set.toDescList missing
+  good = foldl (>>=) [gtr] $ map useColorFive $ Set.toDescList missing
   in if Set.null missing then rtb else case good of
     [] -> rtb
     g : _ -> RTB.flatten $ fmap (traverse toList) $ splitEdges g
@@ -355,11 +355,11 @@ focuses :: [a] -> [([a], a, [a])]
 focuses [] = []
 focuses xs = zip3 (inits xs) xs (tail $ tails xs)
 
-useColor
-  :: Five.Color
+useColorFive
+  ::                      Five.Color
   ->  RTB.T U.Beats ((), [Five.Color], Maybe U.Beats)
   -> [RTB.T U.Beats ((), [Five.Color], Maybe U.Beats)]
-useColor newColor rtb = do
+useColorFive newColor rtb = do
   -- TODO sort this better (move closer colors first)
   (before, (t, ((), oldColors, len)), after) <- focuses $ reverse $ RTB.toPairList rtb
   oldColor <- oldColors
@@ -368,4 +368,47 @@ useColor newColor rtb = do
   return $ RTB.fromPairList $ reverse $ before ++ [(t, ((), newColors, len))] ++ after
 
 fixDrumColors :: RTB.T U.Beats Drums.Event -> RTB.T U.Beats Drums.Event
-fixDrumColors = id -- TODO
+fixDrumColors rtb = let
+  getDiff d = RTB.partitionMaybe $ \case
+    Drums.DiffEvent d' (Drums.Note gem) | d == d' -> Just gem
+    _                                             -> Nothing
+  (easy  , notEasy  ) = getDiff Easy rtb
+  (medium, notMedium) = getDiff Medium notEasy
+  (hard  , notHard  ) = getDiff Hard notMedium
+  (expert, _        ) = getDiff Expert notHard
+  usedColors = Set.fromList $ RTB.getBodies expert
+  easy'   = makeDiff Easy   $ useColorsDrums usedColors expert easy
+  medium' = makeDiff Medium $ useColorsDrums usedColors expert medium
+  hard'   = makeDiff Hard   $ useColorsDrums usedColors expert hard
+  makeDiff d = fmap $ Drums.DiffEvent d . Drums.Note
+  in foldr RTB.merge notHard [easy', medium', hard']
+
+useColorsDrums :: Set.Set (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ())
+useColorsDrums cols expert rtb = let
+  drums = RTB.collectCoincident rtb
+  present = Set.fromList $ RTB.getBodies rtb
+  missing = Set.difference cols present
+  expert' = RTB.collectCoincident expert
+  good = foldl (>>=) [drums] $ map (useColorDrums expert') $ Set.toDescList missing
+  in if Set.null missing then rtb else case good of
+    []    -> rtb
+    g : _ -> RTB.flatten g
+
+useColorDrums
+  ::  RTB.T U.Beats [Drums.Gem ()]
+  ->                 Drums.Gem ()
+  ->  RTB.T U.Beats [Drums.Gem ()]
+  -> [RTB.T U.Beats [Drums.Gem ()]]
+useColorDrums expert gem rtb = let
+  annotated = RTB.mapMaybe annotate $ RTB.collectCoincident $ RTB.merge (fmap Left expert) (fmap Right rtb)
+  annotate = \case
+    [Left x, Right y] -> Just ( x, y)
+    [Right y]         -> Just ([], y)
+    _                 -> Nothing
+  removeX (t, (_, gems)) = (t, gems)
+  in do
+    (before, (t, (xgems, gems)), after) <- focuses $ reverse $ RTB.toPairList annotated
+    let otherGems = concatMap (snd . snd) $ before ++ after
+    guard $ elem gem xgems
+    guard $ all (`elem` otherGems) gems
+    return $ RTB.fromPairList $ reverse $ map removeX before ++ [(t, [gem])] ++ map removeX after
