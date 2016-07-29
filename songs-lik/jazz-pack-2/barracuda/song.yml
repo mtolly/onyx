@@ -1,36 +1,33 @@
-published: true
-plans:
-  mogg:
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    drum-mix: 0
-    mogg-md5: 200b26490c7955328e7b971a9c70e67e
-    drums:
-    - 0
-    - 1
-    vols:
-    - -1.5
-    - -1.5
-    - -3
-    - -3
 metadata:
-  autogen-theme: AutogenDefault
-  rating: Unrated
-  preview-start: 0.0
-  vocal-gender: male
-  drum-kit: Hard Rock Kit
-  track-number: 0
-  year: 2011
-  subgenre: rock
-  author: TheLieInKing
   title: Barracuda
-  preview-end: 30
-  genre: rock
   artist: The Bad Plus
-jammit: {}
-audio: {}
+  album: For All I Care
+  track-number: 8
+  year: 2008
+  vocal-gender: female
+  genre: jazz
+  subgenre: experimental
+  author: TheLieInKing
+  file-album-art: cover.jpg
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube kZkQJ3kkPys 140
+    md5: 6a5b5b6721367c64e336679225595732
+    frames: 8824832
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [3.097, youtube]
 instruments:
   drums: true

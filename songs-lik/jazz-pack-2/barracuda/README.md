@@ -4,6 +4,7 @@
 
 Author: TheLieInKing
 
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=barracuda&artist=jazz-pack-2)
 
 Instruments:
 
@@ -11,5 +12,5 @@ Instruments:
 
 Supported audio:
 
-  * `mogg`
+  * `album` (For All I Care)
 
