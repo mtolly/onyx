@@ -11,7 +11,11 @@ audio:
     frames: 35965020
 plans:
   album:
-    song: album-track
+    song:
+      fade:
+      - end
+      - 0.482
+      - album-track
 instruments:
   drums: true
 published: false

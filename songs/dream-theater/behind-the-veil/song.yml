@@ -4,6 +4,9 @@ metadata:
   track-number: 6
   author: Onyxite
 audio:
+  hdtracks-track:
+    md5: 8ec1b6619eecd454b7166c016f7e18bf
+    frames: 39612622
   stem-bass:
     md5: 63872a345480636746574b43dea4f47e
     frames: 14521583
@@ -31,26 +34,38 @@ plans:
   stems:
     countin:
       &countin
-      38|0: hihat
-      38|2: hihat
-      39|0: hihat
-      39|1: hihat
-      39|2: hihat
-      39|3: hihat
+      # countin for spacey part
+      19|1: hihat
+      19|3: hihat
+      20|1: hihat
+      20|2: hihat
+      20|3: hihat
+      20|4: hihat
+      # countin for band
+      36|0: hihat
+      36|2: hihat
+      37|0: hihat
+      37|1: hihat
+      37|2: hihat
+      37|3: hihat
     drums:
       pad:
       - '1:22.684'
       - stem-drum
     song:
-      pad:
-      - '1:22.684'
-      - mix:
-        - stem-bass
-        - stem-bgv
-        - stem-guitar
-        - stem-keys
-        - stem-solo
-        - stem-vocal
+      mix:
+      - take:
+        - '1:22.806'
+        - hdtracks-track
+      - pad:
+        - '1:22.684'
+        - mix:
+          - stem-bass
+          - stem-bgv
+          - stem-guitar
+          - stem-keys
+          - stem-solo
+          - stem-vocal
 instruments:
   drums: true
 options:
