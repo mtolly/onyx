@@ -4,13 +4,13 @@
 
 Author: TheLieInKing
 
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=applied-science&artist=other)
 
 Instruments:
 
-  * (Pro) Drums ⚫️⚫️⚫️⚫️⚫️
-  * Bass ⚫️⚫️⚫️⚫️⚫️
+  * (Pro) Drums
 
 Supported audio:
 
-  * `mogg`
+  * `album` (Live)
 
