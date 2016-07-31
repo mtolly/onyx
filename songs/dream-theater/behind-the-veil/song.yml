@@ -3,6 +3,8 @@ metadata:
   file-include: ../../../albums/dream-theater.yml
   track-number: 6
   author: Onyxite
+  difficulty:
+    drums: 6
 audio:
   hdtracks-track:
     md5: 8ec1b6619eecd454b7166c016f7e18bf
@@ -56,18 +58,19 @@ plans:
       mix:
       - take:
         - '1:22.806'
-        - hdtracks-track
+        - gain: [1.2, hdtracks-track]
       - pad:
         - '1:22.684'
         - mix:
-          - stem-bass
+          - gain: [0.8, stem-bass]
           - stem-bgv
-          - stem-guitar
-          - stem-keys
+          - gain: [0.8, stem-guitar]
+          - gain: [0.85, stem-keys]
           - stem-solo
           - stem-vocal
+  album:
+    countin: *countin
+    song:
+      gain: [1.2, hdtracks-track]
 instruments:
   drums: true
-options:
-  auto-2x-bass: true
-published: false
