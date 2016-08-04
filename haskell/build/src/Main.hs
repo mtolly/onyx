@@ -10,6 +10,8 @@ import           Audio
 import qualified C3
 import           Config                           hiding (Difficulty)
 import           Difficulty
+import           DryVox                           (clipDryVox, toDryVoxFormat,
+                                                   vocalTubes)
 import qualified FretsOnFire                      as FoF
 import           Genre                            (genreDisplay, magmaV1Genre)
 import           Image
@@ -1401,8 +1403,9 @@ main = do
                   song <- loadMIDI $ pedalDir </> "magma/notes.mid"
                   let (pstart, _) = previewBounds songYaml song
                       perctype = getPercType song
-                      silentDryVox = Magma.DryVoxPart
-                        { Magma.dryVoxFile = "dryvox.wav"
+                      silentDryVox :: Int -> Magma.DryVoxPart
+                      silentDryVox n = Magma.DryVoxPart
+                        { Magma.dryVoxFile = "dryvox" ++ show n ++ ".wav"
                         , Magma.dryVoxEnabled = True
                         }
                       emptyDryVox = Magma.DryVoxPart
@@ -1483,14 +1486,15 @@ main = do
                           theme -> show theme ++ ".rbtheme"
                         }
                       , Magma.dryVox = Magma.DryVox
-                        { Magma.part0 = if _hasVocal (_instruments songYaml) >= Vocal1
-                          then silentDryVox
-                          else emptyDryVox
+                        { Magma.part0 = case _hasVocal $ _instruments songYaml of
+                          Vocal0 -> emptyDryVox
+                          Vocal1 -> silentDryVox 0
+                          _      -> silentDryVox 1
                         , Magma.part1 = if _hasVocal (_instruments songYaml) >= Vocal2
-                          then silentDryVox
+                          then silentDryVox 2
                           else emptyDryVox
                         , Magma.part2 = if _hasVocal (_instruments songYaml) >= Vocal3
-                          then silentDryVox
+                          then silentDryVox 3
                           else emptyDryVox
                         , Magma.dryVoxFileRB2 = Nothing
                         , Magma.tuningOffsetCents = 0
@@ -1525,7 +1529,10 @@ main = do
                   keys   = pedalDir </> "magma/keys.wav"
                   vocal  = pedalDir </> "magma/vocal.wav"
                   crowd  = pedalDir </> "magma/crowd.wav"
-                  dryvox = pedalDir </> "magma/dryvox.wav"
+                  dryvox0 = pedalDir </> "magma/dryvox0.wav"
+                  dryvox1 = pedalDir </> "magma/dryvox1.wav"
+                  dryvox2 = pedalDir </> "magma/dryvox2.wav"
+                  dryvox3 = pedalDir </> "magma/dryvox3.wav"
                   dryvoxSine = pedalDir </> "magma/dryvox-sine.wav"
                   song   = pedalDir </> "magma/song-countin.wav"
                   cover  = pedalDir </> "magma/cover.bmp"
@@ -1550,12 +1557,31 @@ main = do
               keys   %> copyFile' (dir </> "keys.wav"  )
               vocal  %> copyFile' (dir </> "vocal.wav" )
               crowd  %> copyFile' (dir </> "crowd.wav" )
-              dryvox %> \out -> do
-                len <- songLengthMS <$> loadMIDI mid
-                let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-                    audsrc :: (Monad m) => AudioSource m Float
-                    audsrc = silent (Seconds $ fromIntegral len / 1000) 16000 1
-                liftIO $ runResourceT $ sinkSnd out fmt audsrc
+              let saveClip m out vox = do
+                    let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
+                        clip = clipDryVox $ U.applyTempoTrack (RBFile.s_tempos m) $ vocalTubes vox
+                    need [vocal]
+                    unclippedVox <- liftIO $ sourceSnd vocal
+                    unclipped <- case frames unclippedVox of
+                      0 -> do
+                        need [song]
+                        liftIO $ sourceSnd song
+                      _ -> return unclippedVox
+                    putNormal $ "Writing a clipped dry vocals file to " ++ out
+                    liftIO $ runResourceT $ sinkSnd out fmt $ toDryVoxFormat $ clip unclipped
+                    putNormal $ "Finished writing dry vocals to " ++ out
+              dryvox0 %> \out -> do
+                m <- loadMIDI mid
+                saveClip m out $ foldr RTB.merge RTB.empty [ trk | RBFile.PartVocals trk <- RBFile.s_tracks m ]
+              dryvox1 %> \out -> do
+                m <- loadMIDI mid
+                saveClip m out $ foldr RTB.merge RTB.empty [ trk | RBFile.Harm1 trk <- RBFile.s_tracks m ]
+              dryvox2 %> \out -> do
+                m <- loadMIDI mid
+                saveClip m out $ foldr RTB.merge RTB.empty [ trk | RBFile.Harm2 trk <- RBFile.s_tracks m ]
+              dryvox3 %> \out -> do
+                m <- loadMIDI mid
+                saveClip m out $ foldr RTB.merge RTB.empty [ trk | RBFile.Harm3 trk <- RBFile.s_tracks m ]
               dryvoxSine %> \out -> do
                 m <- loadMIDI mid
                 let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
@@ -1713,7 +1739,11 @@ main = do
                 , guard (_hasBass    $ _instruments songYaml) >> [bass              ]
                 , guard (_hasGuitar  $ _instruments songYaml) >> [guitar            ]
                 , guard (hasAnyKeys  $ _instruments songYaml) >> [keys              ]
-                , guard (hasAnyVocal $ _instruments songYaml) >> [vocal, dryvox     ]
+                , case _hasVocal $ _instruments songYaml of
+                  Vocal0 -> []
+                  Vocal1 -> [vocal, dryvox0]
+                  Vocal2 -> [vocal, dryvox1, dryvox2]
+                  Vocal3 -> [vocal, dryvox1, dryvox2, dryvox3]
                 , [song, crowd, cover, mid, proj, c3]
                 ]
               rba %> \out -> do

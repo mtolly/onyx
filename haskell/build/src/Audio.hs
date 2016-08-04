@@ -210,9 +210,10 @@ applyVolsMono vols src = AudioSource
   , channels = 1
   , source   = source src =$= CL.map applyChunk
   } where
+    vols' = take (channels src) $ vols ++ repeat 0
     applyChunk :: V.Vector Float -> V.Vector Float
     applyChunk v = V.generate (vectorFrames v $ channels src) $ \frame -> let
-      vx = zip vols $ V.toList $ V.drop (frame * channels src) v
+      vx = zip vols' $ V.toList $ V.drop (frame * channels src) v
       wire (volDB, sample) = let
         volRatio = 10 ** (volDB / 20)
         in 0.5 * volRatio * sample

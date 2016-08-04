@@ -37,6 +37,7 @@ executable onyx
     Difficulty
     FretsOnFire
     RockBand2
+    DryVox
   build-depends:
     base    >= 4.8    && < 4.10
     , shake >= 0.15 && < 0.16
