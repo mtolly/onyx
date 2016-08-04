@@ -4,12 +4,16 @@ metadata:
   album: Blue Matter
   track-number: 7
   year: 1987
-  author: TheLieInKing
+  author: TheLieInKing, Onyxite
   genre: jazz
   subgenre: other
   file-album-art: cover.jpg
   difficulty:
     drums: 7
+    guitar: 6
+  comments:
+  - Drums and tempo map by TheLieInKing.
+  - Minor drum adjustments & quantization by me.
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -22,14 +26,15 @@ audio:
 plans:
   album:
     countin:
+      0|0: hihat
       0|2: hihat
-      0|4: hihat
-      0|6: hihat
-      0|7: hihat
-      0|8: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
     song:
       gain:
       - 1.7
-      - pad: [3.335, youtube]
+      - pad: [2.508, youtube]
 instruments:
   drums: true
+  guitar: true
