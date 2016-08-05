@@ -12,6 +12,7 @@ metadata:
     guitar: 1
     pro-keys: 4
     keys: 3
+    band: 2
 audio:
   album-track:
     md5: 9211f41070f889aaa468008349f5efdf

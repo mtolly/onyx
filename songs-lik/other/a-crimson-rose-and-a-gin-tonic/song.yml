@@ -21,6 +21,7 @@ metadata:
     bass: 3
     guitar: 5
     vocal: 6
+    band: 6
 audio:
   youtube:
     file-path: audio-youtube.wav

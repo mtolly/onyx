@@ -9,6 +9,7 @@ metadata:
     guitar: 2
     keys: 3
     pro-keys: 3
+    band: 2
   comments:
   - "All instruments have overdrive/unison."
 audio:

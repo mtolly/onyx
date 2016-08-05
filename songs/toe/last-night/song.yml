@@ -9,6 +9,7 @@ metadata:
     bass: 4
     keys: 4
     pro-keys: 5
+    band: 5
   comments:
   - "All instruments have overdrive/unison."
 audio:

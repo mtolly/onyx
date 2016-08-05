@@ -8,7 +8,6 @@ Author: TheLieInKing
 Instruments:
 
   * (Pro) Drums ⚫️⚫️⚫️⚫️⚫️
-  * Bass ⚫️⚫️⚫️⚫️⚫️
 
 Supported audio:
 
