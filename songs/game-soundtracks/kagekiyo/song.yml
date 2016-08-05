@@ -1,15 +1,19 @@
 metadata:
   title: "KAGEKIYO ~Genpei Touma Den Medley~"
   artist: Norio Nakagata
-  album: Taiko no Tatsujin
+  album: Taiko no Tatsujin Soundtrack 2008
   author: Onyxite
-  file-album-art: cover.png
-  track-number: 1
+  file-album-art: cover.jpg
+  track-number: 32
   year: 2003
   genre: jrock
   subgenre: jrock
+  difficulty:
+    drums: 6
+    pro-keys: 5
 instruments:
   drums: true
+  pro-keys: true
 audio:
   album-track:
     file-path: audio-youtube.wav

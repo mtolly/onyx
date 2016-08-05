@@ -7,9 +7,10 @@
 
 Instruments:
 
-  * (Pro) Drums
+  * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
+  * Pro Keys ⚪️⚪️⚪️⚪️⚫️
 
 Supported audio:
 
-  * `album` (Taiko no Tatsujin)
+  * `album` (Taiko no Tatsujin Soundtrack 2008)
 
