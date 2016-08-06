@@ -1,6 +1,8 @@
 audio-*.*
+audio.*
 *.mogg
 video-*.*
+video.*
 preview-audio.*
 songs*/*/*/gen/
 *.[Rr][Pp][Pp]
