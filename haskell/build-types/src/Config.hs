@@ -758,6 +758,7 @@ jsonRecord "Metadata" eosr $ do
   opt "_rhythmBass" "rhythm-bass" [t| Bool |] [e| False |]
   opt "_catEMH"     "cat-emh"     [t| Bool |] [e| False |]
   opt "_expertOnly" "expert-only" [t| Bool |] [e| False |]
+  opt "_cover"      "cover"       [t| Bool |] [e| False |]
 
 getTitle, getArtist, getAlbum, getGenre, getSubgenre, getAuthor :: Metadata -> T.Text
 getTitle = fromMaybe "Untitled" . _title

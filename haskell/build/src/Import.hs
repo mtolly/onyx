@@ -137,6 +137,7 @@ importFoF krb2 src dest = do
       , _rhythmBass   = _rhythmBass def
       , _catEMH       = _catEMH def
       , _expertOnly   = _expertOnly def
+      , _cover        = _cover def
       }
     , _options = Options
       { _auto2xBass    = False
@@ -375,6 +376,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       , _rhythmBass   = _rhythmBass meta
       , _catEMH       = _catEMH meta
       , _expertOnly   = _expertOnly meta
+      , _cover        = not $ D.master pkg
       }
     , _options = Options
       { _padStart = False

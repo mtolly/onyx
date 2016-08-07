@@ -1138,7 +1138,7 @@ main = do
                 return D.SongPackage
                   { D.name = title
                   , D.artist = T.unpack $ getArtist $ _metadata songYaml
-                  , D.master = True -- TODO add 'is-cover' to metadata
+                  , D.master = not $ _cover $ _metadata songYaml
                   , D.songId = case _songID $ _metadata songYaml of
                     Nothing  -> Right $ D.Keyword pkg
                     Just (JSONEither sid) -> either Left (Right . D.Keyword . T.unpack) sid
@@ -1695,7 +1695,7 @@ main = do
                   , C3.album = T.unpack $ getAlbum $ _metadata songYaml
                   , C3.customID = pkg
                   , C3.version = 1
-                  , C3.isMaster = True -- TODO add 'is-cover' to metadata
+                  , C3.isMaster = not $ _cover $ _metadata songYaml
                   , C3.encodingQuality = 5
                   , C3.crowdAudio = guard (isJust crowdVol) >> Just "crowd.wav"
                   , C3.crowdVol = crowdVol
@@ -1871,7 +1871,7 @@ main = do
                         newDTA = D.SongPackage
                           { D.name = D.name rb3DTA
                           , D.artist = D.artist rb3DTA
-                          , D.master = True -- TODO add 'is-cover' to metadata
+                          , D.master = not $ _cover $ _metadata songYaml
                           , D.song = D.Song
                             -- most of this gets rewritten later anyway
                             { D.songName = D.songName $ D.song rb3DTA
@@ -1939,7 +1939,8 @@ main = do
                 (_, rb3DTA, _) <- liftIO $ readRB3DTA pathDta
                 let newDTA :: D.SongPackage
                     newDTA = magmaDTA
-                      { D.song = (D.song magmaDTA)
+                      { D.master = not $ _cover $ _metadata songYaml
+                      , D.song = (D.song magmaDTA)
                         { D.tracksCount = Nothing
                         , D.tracks = fmap fixDict $ D.tracks $ D.song rb3DTA
                         , D.midiFile = Just $ "songs/" ++ pkg ++ "/" ++ pkg ++ ".mid"
