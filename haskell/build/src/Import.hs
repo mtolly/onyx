@@ -4,6 +4,7 @@ module Import where
 
 import           Audio
 import           Config                         hiding (Difficulty)
+import           Control.Applicative            ((<|>))
 import           Control.Monad                  (guard, when)
 import           Control.Monad.Extra            (mapMaybeM, replicateM)
 import           Control.Monad.Trans.StackTrace (printStackTraceIO)
@@ -12,6 +13,7 @@ import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.ByteString.Lazy           as BL
 import qualified Data.Conduit.Audio             as CA
+import           Data.Default.Class             (def)
 import qualified Data.Digest.Pure.MD5           as MD5
 import qualified Data.DTA                       as D
 import qualified Data.DTA.Serialize             as D
@@ -19,6 +21,7 @@ import qualified Data.DTA.Serialize.RB3         as D
 import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as HM
 import           Data.List                      (nub, stripPrefix)
+import           Data.List.Split                (splitOn)
 import qualified Data.Map                       as Map
 import           Data.Maybe                     (fromMaybe, listToMaybe,
                                                  mapMaybe)
@@ -128,6 +131,12 @@ importFoF krb2 src dest = do
       , _previewStart = Nothing
       , _previewEnd   = Nothing
       , _songID       = Nothing
+      , _languages    = _languages def
+      , _convert      = _convert def
+      , _rhythmKeys   = _rhythmKeys def
+      , _rhythmBass   = _rhythmBass def
+      , _catEMH       = _catEMH def
+      , _expertOnly   = _expertOnly def
       }
     , _options = Options
       { _auto2xBass    = False
@@ -178,19 +187,51 @@ importFoF krb2 src dest = do
     , _published = True
     }
 
+determine2xBass :: String -> (String, Bool)
+determine2xBass s = case stripSuffix " (2x Bass Pedal)" s <|> stripSuffix " (2X Bass Pedal)" s of
+  Nothing -> (s , False)
+  Just s' -> (s', True )
+  where stripSuffix a b = fmap reverse $ stripPrefix (reverse a) (reverse b)
+
 importSTFS :: KeysRB2 -> FilePath -> FilePath -> IO ()
 importSTFS krb2 file dir = withSystemTempDirectory "onyx_con" $ \temp -> do
   extractSTFS file temp
   (_, pkg, isUTF8) <- readRB3DTA $ temp </> "songs/songs.dta"
   -- C3 puts extra info in DTA comments
   dtaLines <- fmap (lines . filter (/= '\r')) $ readFileEncoding' (if isUTF8 then utf8 else latin1) $ temp </> "songs/songs.dta"
-  let author = listToMaybe $ mapMaybe (stripPrefix ";Song authored by ") dtaLines
+  let findBool s
+        | elem (";" ++ s ++ "=0") dtaLines = Just False
+        | elem (";" ++ s ++ "=1") dtaLines = Just True
+        | otherwise                        = Nothing
+      gameTitle = D.name pkg
+      c3Title = fromMaybe gameTitle $ listToMaybe $ mapMaybe (stripPrefix ";Song=") dtaLines
+      (title, is2x) = case findBool "2xBass" of
+        Nothing -> determine2xBass c3Title
+        Just b  -> (fst $ determine2xBass c3Title, b)
+      meta = def
+        { _author = fmap T.pack $ listToMaybe $ mapMaybe (stripPrefix ";Song authored by ") dtaLines
+        , _title = Just $ T.pack title
+        , _convert = fromMaybe (_convert def) $ findBool "Convert"
+        , _rhythmKeys = fromMaybe (_rhythmKeys def) $ findBool "RhythmKeys"
+        , _rhythmBass = fromMaybe (_rhythmBass def) $ findBool "RhythmBass"
+        , _catEMH = fromMaybe (_catEMH def) $ findBool "CATemh"
+        , _expertOnly = fromMaybe (_expertOnly def) $ findBool "ExpertOnly"
+        , _languages = case listToMaybe $ mapMaybe (stripPrefix ";Language(s)=") dtaLines of
+          Nothing -> _languages def
+          Just s  -> map T.pack $ filter (not . null) $ splitOn "," s
+        }
+      karaoke    = fromMaybe False $ findBool "Karaoke"
+      multitrack = fromMaybe True  $ findBool "Multitrack"
       base = D.songName $ D.song pkg
       -- Note: the base path does NOT necessarily have to be songs/foo/foo
       -- where foo is the top key of songs.dta. foo can be different!
       -- e.g. C3's "Escape from the City" has a top key 'SonicAdvCityEscape2x'
       -- and a 'name' of "songs/sonicadv2cityescape2x/sonicadv2cityescape2x"
-  importRB3 krb2 pkg (fmap T.pack author)
+  importRB3 krb2 pkg
+    meta
+    karaoke
+    multitrack
+    is2x
     (temp </> base <.> "mid")
     (temp </> base <.> "mogg")
     (temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox"))
@@ -223,7 +264,17 @@ importRBA krb2 file dir = withSystemTempDirectory "onyx_rba" $ \temp -> do
           ))])
           -> Just s
         _ -> Nothing
-  importRB3 krb2 pkg (fmap T.pack author)
+      (title, is2x) = determine2xBass $ D.name pkg
+      -- TODO: import more stuff from the extra dta
+      meta = def
+        { _author = fmap T.pack author
+        , _title = Just $ T.pack title
+        }
+  importRB3 krb2 pkg
+    meta
+    False
+    True
+    is2x
     (temp </> "notes.mid")
     (temp </> "audio.mogg")
     (temp </> "cover.bmp")
@@ -265,8 +316,8 @@ readRB3DTA dtaPath = do
     Just enc -> error $ dtaPath ++ " specifies an unrecognized encoding: " ++ enc
 
 -- | Collects the contents of an RBA or CON file into an Onyx project.
-importRB3 :: KeysRB2 -> D.SongPackage -> Maybe T.Text -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> IO ()
-importRB3 krb2 pkg author mid mogg cover coverName dir = do
+importRB3 :: KeysRB2 -> D.SongPackage -> Metadata -> Bool -> Bool -> Bool -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> IO ()
+importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = do
   Dir.copyFile mogg $ dir </> "audio.mogg"
   Dir.copyFile mid $ dir </> "notes.mid"
   Dir.copyFile cover $ dir </> coverName
@@ -285,7 +336,7 @@ importRB3 krb2 pkg author mid mogg cover coverName dir = do
         return HardRockKit
   Y.encodeFile (dir </> "song.yml") SongYaml
     { _metadata = Metadata
-      { _title        = Just $ T.pack $ D.name pkg
+      { _title        = _title meta <|> Just (T.pack $ D.name pkg)
       , _artist       = Just $ T.pack $ D.artist pkg
       , _album        = Just $ T.pack $ fromMaybe "Unknown Album" $ D.albumName pkg
       , _genre        = Just $ T.pack $ D.fromKeyword $ D.genre pkg
@@ -309,7 +360,7 @@ importRB3 krb2 pkg author mid mogg cover coverName dir = do
           }
       , _key          = toEnum . fromEnum <$> D.vocalTonicNote pkg
       , _autogenTheme = AutogenDefault
-      , _author       = author
+      , _author       = _author meta
       , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
       , _drumKit      = drumkit
       , _drumLayout   = StandardLayout -- TODO import this
@@ -318,10 +369,16 @@ importRB3 krb2 pkg author mid mogg cover coverName dir = do
       , _songID       = fmap JSONEither $ case D.songId pkg of
         Left  i -> guard (i /= 0) >> Just (Left i)
         Right k -> Just $ Right $ T.pack $ D.fromKeyword k
+      , _languages    = _languages meta
+      , _convert      = _convert meta
+      , _rhythmKeys   = _rhythmKeys meta
+      , _rhythmBass   = _rhythmBass meta
+      , _catEMH       = _catEMH meta
+      , _expertOnly   = _expertOnly meta
       }
     , _options = Options
       { _padStart = False
-      , _auto2xBass = False
+      , _auto2xBass = is2x
       , _hopoThreshold = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
       , _keysRB2 = krb2
       }
@@ -352,6 +409,8 @@ importRB3 krb2 pkg author mid mogg cover coverName dir = do
             aud : auds -> if all (== aud) auds
               then aud
               else error $ "When importing a CON file: inconsistent drum mixes: " ++ show (nub drumMixes)
+        , _karaoke = karaoke
+        , _multitrack = multitrack
         }
     , _instruments = let
       diffMap :: Map.Map String Integer

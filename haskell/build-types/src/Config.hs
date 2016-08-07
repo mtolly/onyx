@@ -23,7 +23,7 @@ import qualified Data.DTA.Serialize.Magma       as Magma
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as Map
-import           Data.Maybe                     (fromMaybe)
+import           Data.Maybe                     (fromMaybe, isJust, isNothing)
 import           Data.Monoid                    ((<>))
 import           Data.Scientific                (Scientific, toRealFloat)
 import qualified Data.Text                      as T
@@ -293,8 +293,20 @@ data Plan
     , _vols         :: [Double]
     , _planComments :: [T.Text]
     , _drumMix      :: Drums.Audio
+    , _karaoke      :: Bool
+    , _multitrack   :: Bool
     }
   deriving (Eq, Ord, Show)
+
+getKaraoke, getMultitrack :: Plan -> Bool
+getKaraoke = \case
+  Plan{..} -> isJust _vocal && all isNothing [_guitar, _bass, _keys, _drums]
+  MoggPlan{..} -> _karaoke
+  EachPlan{} -> False
+getMultitrack = \case
+  Plan{..} -> any isJust [_guitar, _bass, _keys, _drums]
+  MoggPlan{..} -> _multitrack
+  EachPlan{} -> True
 
 instance TraceJSON Countin where
   traceJSON = do
@@ -363,7 +375,9 @@ instance TraceJSON Plan where
       _vols <- required "vols" traceJSON
       _drumMix <- required "drum-mix" traceJSON
       _planComments <- fromMaybe [] <$> optional "comments" traceJSON
-      expectedKeys ["mogg-md5", "guitar", "bass", "keys", "drums", "vocal", "crowd", "pans", "vols", "drum-mix", "comments"]
+      _karaoke    <- fromMaybe False          <$> optional "karaoke"    traceJSON
+      _multitrack <- fromMaybe (not _karaoke) <$> optional "multitrack" traceJSON
+      expectedKeys ["mogg-md5", "guitar", "bass", "keys", "drums", "vocal", "crowd", "pans", "vols", "drum-mix", "comments", "karaoke", "multitrack"]
       return MoggPlan{..}
       )
     , ("song", normalPlan)
@@ -423,6 +437,8 @@ instance A.ToJSON Plan where
       , ["vols" .= _vols]
       , ["comments" .= _planComments | not $ null _planComments]
       , ["drum-mix" .= _drumMix]
+      , ["karaoke" .= _karaoke]
+      , ["multitrack" .= _multitrack]
       ]
 
 instance TraceJSON Drums.Audio where
@@ -736,6 +752,12 @@ jsonRecord "Metadata" eosr $ do
   opt "_previewStart" "preview-start" [t| Maybe Double |] [e| Nothing |]
   opt "_previewEnd" "preview-end" [t| Maybe Double |] [e| Nothing |]
   opt "_songID" "song-id" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]
+  opt "_languages" "languages" [t| [T.Text] |] [e| [] |]
+  opt "_convert"    "convert"     [t| Bool |] [e| False |]
+  opt "_rhythmKeys" "rhythm-keys" [t| Bool |] [e| False |]
+  opt "_rhythmBass" "rhythm-bass" [t| Bool |] [e| False |]
+  opt "_catEMH"     "cat-emh"     [t| Bool |] [e| False |]
+  opt "_expertOnly" "expert-only" [t| Bool |] [e| False |]
 
 getTitle, getArtist, getAlbum, getGenre, getSubgenre, getAuthor :: Metadata -> T.Text
 getTitle = fromMaybe "Untitled" . _title

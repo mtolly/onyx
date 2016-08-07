@@ -905,7 +905,7 @@ main = do
               , RBFile.s_signatures = RBFile.s_signatures input
               , RBFile.s_tracks = RBFile.s_tracks input
               }
-            liftIO $ writeFile has2p $ show has2xNotes
+            liftIO $ writeFile has2p $ show $ _auto2xBass (_options songYaml) || has2xNotes
 
           display %> \out -> do
             song <- loadMIDI mid2p
@@ -1138,7 +1138,7 @@ main = do
                 return D.SongPackage
                   { D.name = title
                   , D.artist = T.unpack $ getArtist $ _metadata songYaml
-                  , D.master = True
+                  , D.master = True -- TODO add 'is-cover' to metadata
                   , D.songId = case _songID $ _metadata songYaml of
                     Nothing  -> Right $ D.Keyword pkg
                     Just (JSONEither sid) -> either Left (Right . D.Keyword . T.unpack) sid
@@ -1384,7 +1384,8 @@ main = do
             pathDta %> \out -> do
               title <- thisTitle
               songPkg <- makeDTA pkg (pedalDir </> "notes.mid") title Nothing
-              liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg
+              is2x <- is2xBass
+              liftIO $ writeUtf8CRLF out $ prettyDTA pkg (_metadata songYaml) plan is2x songPkg
             pathMid  %> copyFile' (pedalDir </> "notes-magma-added.mid")
             pathMogg %> copyFile' (dir </> "audio.mogg")
             pathPng  %> copyFile' "gen/cover.png_xbox"
@@ -1470,14 +1471,22 @@ main = do
                           Vocal3 -> 3
                         , Magma.guidePitchVolume = -3
                         }
-                      , Magma.languages = Magma.Languages
-                        { Magma.english  = Just True
-                        , Magma.french   = Just False
-                        , Magma.italian  = Just False
-                        , Magma.spanish  = Just False
-                        , Magma.german   = Just False
-                        , Magma.japanese = Just False
-                        }
+                      , Magma.languages = let
+                        lang s = elem (T.pack s) $ _languages $ _metadata songYaml
+                        eng = lang "English"
+                        fre = lang "French"
+                        ita = lang "Italian"
+                        spa = lang "Spanish"
+                        ger = lang "German"
+                        jap = lang "Japanese"
+                        in Magma.Languages
+                          { Magma.english  = Just $ eng || not (or [eng, fre, ita, spa, ger, jap])
+                          , Magma.french   = Just fre
+                          , Magma.italian  = Just ita
+                          , Magma.spanish  = Just spa
+                          , Magma.german   = Just ger
+                          , Magma.japanese = Just jap
+                          }
                       , Magma.destinationFile = pkg <.> "rba"
                       , Magma.midi = Magma.Midi
                         { Magma.midiFile = "notes.mid"
@@ -1643,14 +1652,20 @@ main = do
                       { Magma.midiFile = "notes-v1.mid"
                       }
                     , Magma.projectVersion = 5
-                    , Magma.languages = Magma.Languages
-                      { Magma.english  = Just True
-                      , Magma.french   = Just False
-                      , Magma.spanish  = Just False
-                      , Magma.italian  = Just False
-                      , Magma.german   = Nothing
-                      , Magma.japanese = Nothing
-                      }
+                    , Magma.languages = let
+                        lang s = elem (T.pack s) $ _languages $ _metadata songYaml
+                        eng = lang "English"
+                        fre = lang "French"
+                        ita = lang "Italian"
+                        spa = lang "Spanish"
+                        in Magma.Languages
+                          { Magma.english  = Just $ eng || not (or [eng, fre, ita, spa])
+                          , Magma.french   = Just fre
+                          , Magma.italian  = Just ita
+                          , Magma.spanish  = Just spa
+                          , Magma.german   = Nothing
+                          , Magma.japanese = Nothing
+                          }
                     , Magma.dryVox = (Magma.dryVox $ Magma.project p)
                       { Magma.dryVoxFileRB2 = Just "dryvox-sine.wav"
                       }
@@ -1680,21 +1695,17 @@ main = do
                   , C3.album = T.unpack $ getAlbum $ _metadata songYaml
                   , C3.customID = pkg
                   , C3.version = 1
-                  , C3.isMaster = True
+                  , C3.isMaster = True -- TODO add 'is-cover' to metadata
                   , C3.encodingQuality = 5
                   , C3.crowdAudio = guard (isJust crowdVol) >> Just "crowd.wav"
                   , C3.crowdVol = crowdVol
                   , C3.is2xBass = is2x
-                  , C3.rhythmKeys = False
-                  , C3.rhythmBass = False
-                  , C3.karaoke = case plan of
-                    Plan{..} -> isJust _vocal && all isNothing [_guitar, _bass, _keys, _drums]
-                    _ -> False
-                  , C3.multitrack = case plan of
-                    Plan{..} -> any isJust [_guitar, _bass, _keys, _drums]
-                    _ -> True
-                  , C3.convert = False
-                  , C3.expertOnly = False
+                  , C3.rhythmKeys = _rhythmKeys $ _metadata songYaml
+                  , C3.rhythmBass = _rhythmBass $ _metadata songYaml
+                  , C3.karaoke = getKaraoke plan
+                  , C3.multitrack = getMultitrack plan
+                  , C3.convert = _convert $ _metadata songYaml
+                  , C3.expertOnly = _expertOnly $ _metadata songYaml
                   , C3.proBassDiff = Nothing
                   , C3.proBassTuning = Nothing
                   , C3.proGuitarDiff = Nothing
@@ -1860,7 +1871,7 @@ main = do
                         newDTA = D.SongPackage
                           { D.name = D.name rb3DTA
                           , D.artist = D.artist rb3DTA
-                          , D.master = True
+                          , D.master = True -- TODO add 'is-cover' to metadata
                           , D.song = D.Song
                             -- most of this gets rewritten later anyway
                             { D.songName = D.songName $ D.song rb3DTA
@@ -1944,7 +1955,8 @@ main = do
                       , D.preview = D.preview rb3DTA -- because we told magma preview was at 0s earlier
                       , D.songLength = D.songLength rb3DTA -- magma v1 set this to 31s from the audio file lengths
                       }
-                liftIO $ writeLatin1CRLF out $ prettyDTA pkg newDTA
+                is2x <- is2xBass
+                liftIO $ writeLatin1CRLF out $ prettyDTA pkg (_metadata songYaml) plan is2x newDTA
               rb2Mid %> \out -> do
                 ex <- doesRBAExist
                 need [pedalDir </> "notes.mid"]

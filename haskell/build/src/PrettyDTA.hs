@@ -4,6 +4,8 @@ Format a @songs.dta@ so that C3 CON Tools can read it.
 {-# LANGUAGE LambdaCase #-}
 module PrettyDTA where
 
+import           Config
+
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString            as B
 import           Data.DTA.Serialize
@@ -26,8 +28,8 @@ writeLatin1CRLF fp = B.writeFile fp . B.pack . map (fromIntegral . fromEnum) . T
 stringLit :: String -> String
 stringLit s = "\"" ++ (s >>= \case '"' -> "\\q"; c -> [c]) ++ "\""
 
-prettyDTA :: String -> D.SongPackage -> String
-prettyDTA name pkg = unlines $ execWriter $ do
+prettyDTA :: String -> Metadata -> Plan -> Bool -> D.SongPackage -> String
+prettyDTA name meta plan is2x pkg = unlines $ execWriter $ do
   ln "("
   indent $ do
     ln $ quote name
@@ -124,7 +126,20 @@ prettyDTA name pkg = unlines $ execWriter $ do
     forM_ (D.decade pkg) $ inline "decade" . fromKeyword
     forM_ (D.downloaded pkg) $ inline "downloaded" . \case True -> "1"; False -> "0"
     forM_ (D.basePoints pkg) $ inline "base_points" . show
-  -- TODO: C3 comments
+  -- C3 comments
+  ln ";DO NOT EDIT THE FOLLOWING LINES MANUALLY"
+  ln ";Created using Onyxite's Rock Band Tool"
+  ln $ ";Song authored by " ++ T.unpack (getAuthor meta)
+  ln $ ";Song=" ++ T.unpack (getTitle meta)
+  ln $ ";Language(s)=" ++ concatMap (\t -> T.unpack t ++ ",") (_languages meta)
+  ln $ ";Karaoke=" ++ if getKaraoke plan then "1" else "0"
+  ln $ ";Multitrack=" ++ if getMultitrack plan then "1" else "0"
+  ln $ ";Convert=" ++ if _convert meta then "1" else "0"
+  ln $ ";2xBass=" ++ if is2x then "1" else "0"
+  ln $ ";RhythmKeys=" ++ if _rhythmKeys meta then "1" else "0"
+  ln $ ";RhythmBass=" ++ if _rhythmBass meta then "1" else "0"
+  ln $ ";CATemh=" ++ if _catEMH meta then "1" else "0"
+  ln $ ";ExpertOnly=" ++ if _expertOnly meta then "1" else "0"
   ln ")"
   where indent = mapWriter $ \(x, s) -> (x, map ("   " ++) s)
         parens act = do
