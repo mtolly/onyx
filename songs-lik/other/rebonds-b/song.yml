@@ -1,4 +1,27 @@
-published: true
+metadata:
+  title: Rebonds B
+  artist: Pedro Carneiro
+  album: Iannis Xenakis
+  year: 2004
+  track-number: 2
+  author: TheLieInKing
+  drum-kit: Vintage Kit # ???
+  genre: classical
+  subgenre: classical
+  difficulty:
+    drums: 7
+    band: 7
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube iKTF0o6wYhg 140
+    md5: e6202bf5184d163c96dbb18facfb8071
+    frames: 15137792
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+instruments:
+  drums: true
 plans:
   mogg:
     pans:
@@ -19,36 +42,7 @@ plans:
     - -3
     - -1.5
     - -1.5
-metadata:
-  autogen-theme: AutogenDefault
-  rating: Unrated
-  preview-start: 0.0
-  vocal-gender: male
-  drum-kit: Hard Rock Kit
-  track-number: 0
-  year: 2009
-  subgenre: rock
-  author: TheLieInKing
-  title: ! 'Xenakis: Rebonds B'
-  preview-end: 30
-  genre: rock
-  difficulty:
-    pro-keys:
-      rank: 0
-    vocal:
-      rank: 0
-    bass:
-      rank: 1
-    guitar:
-      rank: 0
-    keys:
-      rank: 0
-    drums:
-      rank: 1
-    band:
-      rank: 1
-  artist: Pedro Carneiro
-jammit: {}
-audio: {}
-instruments:
-  drums: true
+  # TODO retime this
+  # album:
+  #   drums:
+  #     pad: [0, youtube]

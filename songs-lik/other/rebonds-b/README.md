@@ -1,4 +1,4 @@
-# Xenakis: Rebonds B
+# Rebonds B
 
 ## Pedro Carneiro
 
@@ -7,7 +7,7 @@ Author: TheLieInKing
 
 Instruments:
 
-  * (Pro) Drums ⚫️⚫️⚫️⚫️⚫️
+  * (Pro) Drums 😈😈😈😈😈
 
 Supported audio:
 
