@@ -36,7 +36,7 @@ dryVoxAudio f = sineDryVox $ U.applyTempoTrack (F.s_tempos f)
 convertMIDI :: KeysRB2 -> U.Beats -> F.Song U.Beats -> F.Song U.Beats
 convertMIDI keysrb2 hopoThresh mid = mid
   { F.s_tracks = fixUnisons $ flip mapMaybe (F.s_tracks mid) $ \case
-    F.PartDrums  t -> Just $ F.PartDrums $ fixDrumColors $ flip RTB.mapMaybe t $ \case
+    F.PartDrums  t -> Just $ F.PartDrums $ fixDrumColors $ fixDoubleEvents $ flip RTB.mapMaybe t $ \case
       -- Drums.ProType{} -> Nothing -- Magma is fine with pro markers
       Drums.SingleRoll{} -> Nothing
       Drums.DoubleRoll{} -> Nothing
@@ -80,6 +80,8 @@ convertMIDI keysrb2 hopoThresh mid = mid
       Five.Trill{} -> Nothing
       Five.Solo{} | not hasSolos -> Nothing
       e -> Just e
+    -- this fixes when a song, inexplicably, has simultaneous "soft snare LH" and "hard snare LH"
+    fixDoubleEvents = RTB.flatten . fmap nub . RTB.collectCoincident
     -- for any unison missing an instrument (only has 2 of gtr/bass/drums)
     -- just remove one of the 2 instruments to make it not a unison
     fixUnisons trks = let
@@ -390,7 +392,8 @@ useColorDrums expert gem rtb = let
   annotate = \case
     [Left x, Right y] -> Just ( x, y)
     [Right y]         -> Just ([], y)
-    _                 -> Nothing
+    [Left x]          -> Just (x, [])
+    _                 -> error "RockBand2.useColorDrums: panic! impossible case while fixing drums reductions"
   removeX (t, (_, gems)) = (t, gems)
   in do
     (before, (t, (xgems, gems)), after) <- focuses $ reverse $ RTB.toPairList annotated
