@@ -5,6 +5,7 @@ metadata:
   author: Onyxite
   difficulty:
     drums: 6
+    bass: 4
 audio:
   hdtracks-track:
     md5: 8ec1b6619eecd454b7166c016f7e18bf
@@ -54,6 +55,10 @@ plans:
       pad:
       - '1:22.684'
       - stem-drum
+    bass:
+      pad:
+      - '1:22.684'
+      - gain: [0.8, stem-bass]
     song:
       mix:
       - take:
@@ -62,7 +67,6 @@ plans:
       - pad:
         - '1:22.684'
         - mix:
-          - gain: [0.8, stem-bass]
           - stem-bgv
           - gain: [0.8, stem-guitar]
           - gain: [0.85, stem-keys]
@@ -74,3 +78,4 @@ plans:
       gain: [1.2, hdtracks-track]
 instruments:
   drums: true
+  bass: true
