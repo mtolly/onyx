@@ -11,6 +11,7 @@ metadata:
   difficulty:
     drums: 7
     guitar: 6
+    bass: 7
   comments:
   - Drums and tempo map by TheLieInKing.
   - Minor drum adjustments & quantization by me.
@@ -38,3 +39,4 @@ plans:
 instruments:
   drums: true
   guitar: true
+  bass: true

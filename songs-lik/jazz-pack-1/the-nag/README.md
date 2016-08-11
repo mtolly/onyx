@@ -9,6 +9,7 @@ Author: TheLieInKing, Onyxite
 Instruments:
 
   * (Pro) Drums 😈😈😈😈😈
+  * Bass 😈😈😈😈😈
   * Guitar ⚪️⚪️⚪️⚪️⚪️
 
 Supported audio:
