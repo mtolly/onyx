@@ -3,32 +3,35 @@ module Reaper.Build where
 
 import           Reaper.Base
 
-import           Control.Monad                    (forM_, unless, when, (>=>))
-import           Control.Monad.Trans.Class        (lift)
+import           Control.Monad                         (forM_, unless, when,
+                                                        (>=>))
+import           Control.Monad.Trans.Class             (lift)
 import           Control.Monad.Trans.Writer
-import qualified Data.ByteString                  as B
-import qualified Data.ByteString.Base64           as B64
-import qualified Data.ByteString.Char8            as B8
-import qualified Data.ByteString.Lazy             as BL
-import           Data.Char                        (toLower)
-import qualified Data.EventList.Absolute.TimeBody as ATB
-import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (elemIndex, sortOn)
-import           Data.Maybe                       (fromMaybe, listToMaybe)
-import qualified Data.Text                        as T
-import qualified Data.Text.Encoding               as TE
-import           Numeric                          (showHex)
-import qualified Numeric.NonNegative.Class        as NNC
-import qualified Numeric.NonNegative.Wrapper      as NN
-import           RockBand.Common                  (Key (..))
-import qualified RockBand.Vocals                  as Vox
-import qualified Sound.MIDI.File.Event            as E
-import qualified Sound.MIDI.File.Event.Meta       as Meta
-import qualified Sound.MIDI.Message               as Message
-import qualified Sound.MIDI.Message.Channel       as C
-import qualified Sound.MIDI.Message.Channel.Voice as V
-import qualified Sound.MIDI.Util                  as U
-import           System.FilePath                  (takeExtension, takeFileName)
+import qualified Data.ByteString                       as B
+import qualified Data.ByteString.Base64                as B64
+import qualified Data.ByteString.Char8                 as B8
+import qualified Data.ByteString.Lazy                  as BL
+import           Data.Char                             (toLower)
+import qualified Data.EventList.Absolute.TimeBody      as ATB
+import qualified Data.EventList.Relative.TimeBody      as RTB
+import           Data.List                             (elemIndex, sortOn)
+import           Data.Maybe                            (fromMaybe, listToMaybe)
+import qualified Data.Text                             as T
+import qualified Data.Text.Encoding                    as TE
+import           Numeric                               (showHex)
+import qualified Numeric.NonNegative.Class             as NNC
+import qualified Numeric.NonNegative.Wrapper           as NN
+import           RockBand.Common                       (Key (..))
+import qualified RockBand.Vocals                       as Vox
+import qualified Sound.MIDI.File.Event                 as E
+import qualified Sound.MIDI.File.Event.Meta            as Meta
+import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
+import qualified Sound.MIDI.Message                    as Message
+import qualified Sound.MIDI.Message.Channel            as C
+import qualified Sound.MIDI.Message.Channel.Voice      as V
+import qualified Sound.MIDI.Util                       as U
+import           System.FilePath                       (takeExtension,
+                                                        takeFileName)
 
 line :: (Monad m) => String -> [String] -> WriterT [Element] m ()
 line k atoms = tell [Element k atoms Nothing]
@@ -99,7 +102,16 @@ event tks = \case
         (x, y) -> x : splitChunks y
     in block "X" [show tks, "0"] $ forM_ (splitChunks bytes) $ \chunk -> do
       line (B8.unpack $ B64.encode chunk) []
-  E.SystemExclusive _ -> undefined
+  E.SystemExclusive sysex -> let
+    bytes = B.pack $ case sysex of
+      SysEx.Regular bs -> 0xF0 : bs
+      SysEx.Escape  _  -> error $ "unhandled case (escaped sysex) in reaper event parser: " ++ show sysex
+    splitChunks bs = if B.length bs <= 40
+      then [bs]
+      else case B.splitAt 40 bs of
+        (x, y) -> x : splitChunks y
+    in block "X" [show tks, "0"] $ forM_ (splitChunks bytes) $ \chunk -> do
+      line (B8.unpack $ B64.encode chunk) []
 
 track :: (Monad m, NNC.C t, Integral t) => NN.Int -> U.Seconds -> NN.Int -> RTB.T t E.T -> WriterT [Element] m ()
 track lenTicks lenSecs resn trk = let
@@ -113,6 +125,7 @@ track lenTicks lenSecs resn trk = let
         orange = (255, 128, 0)
     case lookup name
       [ ("PART DRUMS", yellow)
+      , ("PART REAL_DRUMS_PS", yellow)
       , ("PART GUITAR", blue)
       , ("PART BASS", red)
       , ("PART VOCALS", orange)
@@ -137,6 +150,7 @@ track lenTicks lenSecs resn trk = let
     when isPitched $ line "FX" ["0"]
     case lookup name
       [ ("PART DRUMS", drumNoteNames)
+      , ("PART REAL_DRUMS_PS", drumNoteNames)
       , ("PART GUITAR", gryboNoteNames False)
       , ("PART BASS", gryboNoteNames False)
       , ("PART KEYS", gryboNoteNames True)
@@ -436,6 +450,7 @@ sortTracks :: (NNC.C t) => [RTB.T t E.T] -> [RTB.T t E.T]
 sortTracks = sortOn $ U.trackName >=> \name -> elemIndex name
   [ "PART DRUMS"
   , "PART DRUMS_2X"
+  , "PART REAL_DRUMS_PS"
   , "PART BASS"
   , "PART GUITAR"
   , "PART VOCALS"
