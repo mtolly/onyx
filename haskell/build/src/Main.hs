@@ -1606,7 +1606,7 @@ main = do
                 (fromIntegral (_hopoThreshold $ _options songYaml) / 480)
               proj %> \out -> do
                 p <- makeMagmaProj
-                liftIO $ D.writeFileDTA_utf8 out $ D.serialize p
+                liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
               projV1 %> \out -> do
                 p <- makeMagmaProj
                 let makeDummy (Magma.Tracks dl dkt dk ds b g v k bck) = Magma.Tracks
@@ -1645,7 +1645,7 @@ main = do
                       NoKeys     -> gd
                       KeysBass   -> gd { Magma.rankBass   = Magma.rankKeys gd }
                       KeysGuitar -> gd { Magma.rankGuitar = Magma.rankKeys gd }
-                liftIO $ D.writeFileDTA_utf8 out $ D.serialize p
+                liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
                   { Magma.project = (Magma.project p)
                     { Magma.albumArt = Magma.AlbumArt "cover-v1.bmp"
                     , Magma.midi = (Magma.midi $ Magma.project p)

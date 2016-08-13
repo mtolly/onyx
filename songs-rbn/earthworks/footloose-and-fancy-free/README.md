@@ -8,10 +8,10 @@ Author: Mick Larkins
 
 Instruments:
 
-  * (Pro) Drums
-  * Bass
-  * Keys
-  * Vocals (1)
+  * (Pro) Drums ⚪️⚪️⚪️⚪️⚫️
+  * Bass ⚪️⚫️⚫️⚫️⚫️
+  * Keys ⚪️⚪️⚪️⚪️⚪️
+  * Vocals (1) ⚪️⚪️⚪️⚪️⚪️
 
 Supported audio:
 
