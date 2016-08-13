@@ -269,14 +269,14 @@ instanceMIDIEvent [t| Event |] $ let
       -- TODO: "[begin_pb song_trainer_pg_1]"
       -- TODO: "pb_norm song_trainer_pb_1]"
       , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
-            "chrd0" : ws -> Just $ DiffEvent Easy   $ ChordName $ Just $ unwords ws
-            "chrd1" : ws -> Just $ DiffEvent Medium $ ChordName $ Just $ unwords ws
-            "chrd2" : ws -> Just $ DiffEvent Hard   $ ChordName $ Just $ unwords ws
-            "chrd3" : ws -> Just $ DiffEvent Expert $ ChordName $ Just $ unwords ws
             ["chrd0"   ] -> Just $ DiffEvent Easy   $ ChordName Nothing
             ["chrd1"   ] -> Just $ DiffEvent Medium $ ChordName Nothing
             ["chrd2"   ] -> Just $ DiffEvent Hard   $ ChordName Nothing
             ["chrd3"   ] -> Just $ DiffEvent Expert $ ChordName Nothing
+            "chrd0" : ws -> Just $ DiffEvent Easy   $ ChordName $ Just $ unwords ws
+            "chrd1" : ws -> Just $ DiffEvent Medium $ ChordName $ Just $ unwords ws
+            "chrd2" : ws -> Just $ DiffEvent Hard   $ ChordName $ Just $ unwords ws
+            "chrd3" : ws -> Just $ DiffEvent Expert $ ChordName $ Just $ unwords ws
             _            -> Nothing
           |]
         , [e| \case
@@ -295,30 +295,23 @@ standardGuitar = [40, 45, 50, 55, 59, 64]
 standardBass :: [Int]
 standardBass = [28, 33, 38, 43]
 
-playGuitar :: (NNC.C t) => [Int] -> RTB.T t DiffEvent -> [(GtrString, RTB.T t E.T)]
-playGuitar tuning evts = do
-  str <- [S6 .. S1]
-  let go held rtb = case RTB.viewL rtb of
-        Nothing -> case held of
-          Nothing -> RTB.empty
-          Just _  -> error "playGuitar: unterminated note-on"
-        Just ((t, e), rtb') -> let
-          cont fret = case fret of
-            Nothing -> case held of
-              Nothing -> error "playGuitar: note-off but string is already not played"
-              Just p  -> RTB.cons t (makeEdgeCPV (fromEnum str) p Nothing) $ go Nothing rtb'
-            Just f -> let
-              p = (tuning !! fromEnum str) + f
-              in case held of
-                Just _  -> error $ "playGuitar: double note-on"
-                Nothing -> RTB.cons t (makeEdgeCPV (fromEnum str) p $ Just 96) $ go (Just p) rtb'
-          in case e of
-            Note (Blip    fret (s, ntype)) | s == str && ntype /= ArpeggioForm -> cont $ Just fret
-            Note (NoteOn  fret (s, ntype)) | s == str && ntype /= ArpeggioForm -> cont $ Just fret
-            Note (NoteOff      (s, ntype)) | s == str && ntype /= ArpeggioForm -> cont Nothing
-            _ -> RTB.delay t $ go held rtb'
-  return (str, go Nothing $ RTB.normalize evts)
-  -- the normalize puts Nothing (note-off) before Just _ (note-on)
+playGuitar :: [Int] -> RTB.T U.Beats DiffEvent -> [(GtrString, RTB.T U.Beats E.T)]
+playGuitar tuning evts = let
+  longs = fillJoinedBlips (1/4) $ joinEdges $ RTB.mapMaybe (\case Note ln -> Just ln; _ -> Nothing) evts
+  playString s = let
+    strNum = fromEnum s
+    stringNotes = flip RTB.mapMaybe longs $ \case
+      (fret, (str, ntype), len) | s == str -> Just (fret, ntype, len)
+      _                                    -> Nothing
+    playNote (fret, ntype, len) = RTB.fromPairList
+      [ (NNC.zero, makeEdgeCPV strNum pitch $ Just 96)
+      , (len'    , makeEdgeCPV strNum pitch Nothing  )
+      ] where len' = case ntype of
+                Muted -> min len (1/16)
+                _     -> len
+              pitch = (tuning !! strNum) + fret
+    in U.trackJoin $ fmap playNote stringNotes
+  in map (\s -> (s, playString s)) [S6 .. S1]
 
 autoHandPosition :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
 autoHandPosition = RTB.flatten . fmap f . RTB.collectCoincident where

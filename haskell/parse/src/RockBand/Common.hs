@@ -15,6 +15,7 @@ import           Data.Bifunctor                   (Bifunctor (..))
 import           Data.Char                        (isSpace)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (stripPrefix)
+import Data.Maybe (fromMaybe)
 import           Language.Haskell.TH
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File.Event            as E
@@ -161,6 +162,15 @@ joinEdges rtb = case RTB.viewL rtb of
         Nothing -> RTB.delay dt $ joinEdges rtb' -- unmatched note on
         Just ((len, ()), rtb'') -> RTB.cons dt (s, a, Just len) $ joinEdges rtb''
     NoteOff _ -> RTB.delay dt $ joinEdges rtb' -- unmatched note off
+
+fillJoinedBlips :: (NNC.C t) => t -> RTB.T t (s, a, Maybe t) -> RTB.T t (s, a, t)
+fillJoinedBlips defLength rtb = case RTB.viewL rtb of
+  Nothing -> RTB.empty
+  Just ((dt, (s, a, len)), rtb') -> let
+    len' = flip fromMaybe len $ case dropWhile (== NNC.zero) $ RTB.getTimes rtb' of
+      []       -> defLength
+      next : _ -> min defLength next
+    in RTB.cons dt (s, a, len') $ fillJoinedBlips defLength rtb'
 
 splitEdges :: (NNC.C t, Ord s, Ord a) => RTB.T t (s, a, Maybe t) -> RTB.T t (LongNote s a)
 splitEdges = U.trackJoin . fmap f where

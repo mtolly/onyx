@@ -146,8 +146,14 @@ track lenTicks lenSecs resn trk = let
     line "TRACKHEIGHT" ["0", "0"]
     let isProKeys = elem name ["PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X"]
         isVox = elem name ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
-        isPitched = isProKeys || isVox
-    when isPitched $ line "FX" ["0"]
+        isGuitarPitch = case name of
+          'G':'T':'R':'_':'S':_ -> True
+          'G':'T':'R':'2':'2':'_':'S':_ -> True
+          'B':'A':'S':'S':'_':'S':_ -> True
+          'B':'A':'S':'S':'2':'2':'_':'S':_ -> True
+          _ -> False
+        isPitched = isProKeys || isVox || isGuitarPitch
+    when isPitched $ line "FX" [if isGuitarPitch then "1" else "0"]
     case lookup name
       [ ("PART DRUMS", drumNoteNames)
       , ("PART REAL_DRUMS_PS", drumNoteNames)
@@ -190,15 +196,24 @@ track lenTicks lenSecs resn trk = let
             line "AACAPwAAgD8AABAAAAA=" [] -- pro keys: tuned up one octave
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
-        else do
-          mutePitches 0 35
-          mutePitches 85 127
-          line "BYPASS" ["0", "0", "0"]
-          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
-            line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
-            line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
-          line "FLOATPOS" ["0", "0", "0", "0"]
-          line "WAK" ["0"]
+        else if isVox
+          then do
+            mutePitches 0 35
+            mutePitches 85 127
+            line "BYPASS" ["0", "0", "0"]
+            block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
+              line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
+              line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
+            line "FLOATPOS" ["0", "0", "0", "0"]
+            line "WAK" ["0"]
+          else do
+            line "BYPASS" ["0", "0", "0"]
+            block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
+              line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA=" []
+              line "776t3g3wrd6mm8Q7F7fROqjGCz8AAAAAAAAAAM5NAD/O4BA8AAAAAAAAAD+nViw+AACAPwAAAD8AAAAA" []
+              line "AAAQAAAA" [] -- pro guitar pitches: normal tuning, square + decay
+            line "FLOATPOS" ["0", "0", "0", "0"]
+            line "WAK" ["0"]
     block "ITEM" [] $ do
       line "POSITION" ["0"]
       line "LOOP" ["0"]

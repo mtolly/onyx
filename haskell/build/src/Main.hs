@@ -114,6 +114,8 @@ data Argument
   | PositionMeasure
   | SeparateLines
   | Resolution Integer
+  | GtrTuning [Int]
+  | BassTuning [Int]
   deriving (Eq, Ord, Show, Read)
 
 optDescrs :: [OptDescr Argument]
@@ -124,6 +126,8 @@ optDescrs =
   , Option [] ["seconds"] (NoArg PositionSeconds) "midi to text: position non-tempo-track events in seconds"
   , Option [] ["measure"] (NoArg PositionMeasure) "midi to text: position non-tempo-track events in measures + beats"
   , Option [] ["separate-lines"] (NoArg SeparateLines) "midi to text: give every event on its own line"
+  , Option [] ["gtr-tuning"] (ReqArg (GtrTuning . map read . words) "tuning") "tuning offsets for pro guitar"
+  , Option [] ["bass-tuning"] (ReqArg (BassTuning . map read . words) "tuning") "tuning offsets for pro bass"
   , Option ['r'] ["resolution"] (ReqArg (Resolution . read) "int") "text to midi: how many ticks per beat"
   ]
 
@@ -2195,6 +2199,17 @@ main = do
         let (mid, warnings) = MS.fromStandardMIDI midiTextOptions sf
         mapM_ (hPutStrLn stderr) warnings
         Save.toFile fout mid
+    "guitar" : args -> case inputOutput ".guitar.mid" args of
+      Nothing -> do
+        hPutStrLn stderr "Usage: onyx guitar in.mid [out.mid]"
+        hPutStrLn stderr "For tuning, add like: --gtr-tuning \"-2 0 0 0 0 0\" for drop D"
+        hPutStrLn stderr "                      --bass-tuning \"-2 0 0 0\""
+        error ""
+      Just (fin, fout) -> let
+        goffs = fromMaybe [] $ listToMaybe [ offs | GtrTuning  offs <- opts ]
+        boffs = fromMaybe [] $ listToMaybe [ offs | BassTuning offs <- opts ]
+        in loadMIDI_IO fin
+          >>= Save.toFile fout . RBFile.showMIDIFile . RBFile.playGuitarFile goffs boffs
     _ -> error "Invalid command"
 
 inputOutput :: String -> [String] -> Maybe (FilePath, FilePath)
