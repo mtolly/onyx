@@ -6,14 +6,14 @@ import           Config                           (Instrument (..),
 import           Control.Monad                    (guard)
 import           Data.Conduit.Audio               (AudioSource)
 import           Data.Either                      (lefts, rights)
-import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
-import           Data.List                        (inits, nub, partition, sort,
-                                                   tails)
-import           Data.Maybe                       (listToMaybe, mapMaybe)
+import           Data.List                        (inits, nub, sort, tails)
+import           Data.Maybe                       (isNothing, listToMaybe,
+                                                   mapMaybe)
 import qualified Data.Set                         as Set
 import           DryVox                           (sineDryVox)
+import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), joinEdges,
                                                    splitEdges)
@@ -32,6 +32,34 @@ import qualified Sound.MIDI.Util                  as U
 dryVoxAudio :: (Monad m) => F.Song U.Beats -> AudioSource m Float
 dryVoxAudio f = sineDryVox $ U.applyTempoTrack (F.s_tempos f)
   $ foldr RTB.merge RTB.empty [ t | F.PartVocals t <- F.s_tracks f ]
+
+-- | Removes OD phrases to ensures that no phrases overlap on different tracks,
+-- except for precisely matching unison phrases on all tracks.
+fixOverdrive :: (NNC.C t) => [RTB.T t Bool] -> [RTB.T t Bool]
+fixOverdrive [] = []
+fixOverdrive tracks = let
+  go trks = case sort $ mapMaybe (fmap fst . RTB.viewL) trks of
+    [] -> trks -- all tracks are empty
+    (_, ((), (), Nothing)) : _ -> panic "blip in joined phrase stream"
+    firstPhrase@(dt, ((), (), Just len)) : _ -> let
+      hasThisPhrase trk = case RTB.viewL trk of
+        Nothing             -> Nothing
+        Just (phrase, trk') -> guard (phrase == firstPhrase) >> Just trk'
+      in case mapM hasThisPhrase trks of
+        Just trks' -> map (uncurry RTB.cons firstPhrase) $ go trks' -- full unison
+        Nothing    -> let
+          ix = length $ takeWhile (isNothing . hasThisPhrase) trks
+          trksNext = map (RTB.delay len . U.trackDrop (NNC.add dt len)) trks
+          repackage i = if i == ix
+            then uncurry RTB.cons firstPhrase
+            else RTB.delay dt
+          in zipWith repackage [0..] $ go trksNext
+  boolToLong b = if b then NoteOn () () else NoteOff ()
+  longToBool (NoteOn  () ()) = True
+  longToBool (Blip    () ()) = panic "blip in LongNote stream"
+  longToBool (NoteOff    ()) = False
+  panic s = error $ "RockBand2.fixOverdrive: panic! this shouldn't happen: " ++ s
+  in map (fmap longToBool . splitEdges) $ go $ map (joinEdges . fmap boolToLong) tracks
 
 convertMIDI :: KeysRB2 -> U.Beats -> F.Song U.Beats -> F.Song U.Beats
 convertMIDI keysrb2 hopoThresh mid = mid
@@ -82,39 +110,51 @@ convertMIDI keysrb2 hopoThresh mid = mid
       e -> Just e
     -- this fixes when a song, inexplicably, has simultaneous "soft snare LH" and "hard snare LH"
     fixDoubleEvents = RTB.flatten . fmap nub . RTB.collectCoincident
-    -- for any unison missing an instrument (only has 2 of gtr/bass/drums)
-    -- just remove one of the 2 instruments to make it not a unison
+    -- the complicated dance to extract OD phrases, fix partial unisons,
+    -- and put the phrases back
     fixUnisons trks = let
-      getODTimes f = Set.fromList . ATB.getTimes . RTB.toAbsoluteEventList 0 . RTB.filter f
-      gtr = foldr RTB.merge RTB.empty [ t | F.PartGuitar t <- trks ]
-      bass = foldr RTB.merge RTB.empty [ t | F.PartBass t <- trks ]
-      drum = foldr RTB.merge RTB.empty [ t | F.PartDrums t <- trks ]
-      gtrOD = getODTimes (== Five.Overdrive True) gtr
-      bassOD = getODTimes (== Five.Overdrive True) bass
-      drumOD = getODTimes (== Drums.Overdrive True) drum
-      gb = Set.difference (Set.intersection gtrOD bassOD) drumOD
-      bd = Set.difference (Set.intersection bassOD drumOD) gtrOD
-      gd = Set.difference (Set.intersection gtrOD drumOD) bassOD
-      removeOD isStart isEnd time trk = case U.trackSplit time trk of
-        (before, atafter) -> case U.trackSplitZero atafter of
-          (at, after) -> case partition isStart at of
-            ([_], at') -> case U.extractFirst (\x -> guard (isEnd x) >> Just ()) after of
-              Just (_, after') -> trackGlue time before $ U.trackGlueZero at' after'
-              Nothing -> trk -- probably an error though
-            _ -> trk
-      fixTrack = \case
-        F.PartGuitar t -> F.PartGuitar $ foldr
-          (removeOD (== Five.Overdrive True) (== Five.Overdrive False))
-          t
-          (Set.toList gd)
-        F.PartBass t -> F.PartBass $ foldr
-          (removeOD (== Five.Overdrive True) (== Five.Overdrive False))
-          t
-          (Set.toList $ Set.union gb bd)
-        trk -> trk
-      in if RTB.null gtr || RTB.null bass || RTB.null drum
-        then trks
-        else map fixTrack trks
+      gtr  = foldr RTB.merge RTB.empty [ t | F.PartGuitar t <- trks ]
+      bass = foldr RTB.merge RTB.empty [ t | F.PartBass   t <- trks ]
+      drum = foldr RTB.merge RTB.empty [ t | F.PartDrums  t <- trks ]
+      gtrOD  = RTB.mapMaybe getFiveOD gtr
+      bassOD = RTB.mapMaybe getFiveOD bass
+      drumOD = RTB.mapMaybe getDrumOD drum
+      getFiveOD = \case Five.Overdrive  b -> Just b; _ -> Nothing
+      getDrumOD = \case Drums.Overdrive b -> Just b; _ -> Nothing
+      replaceFiveOD od trk = RTB.merge (fmap Five.Overdrive od)
+        $ RTB.filter (\case Five.Overdrive _ -> False; _ -> True) trk
+      replaceDrumsOD od trk = RTB.merge (fmap Drums.Overdrive od)
+        $ RTB.filter (\case Drums.Overdrive _ -> False; _ -> True) trk
+      in case (not $ RTB.null gtr, not $ RTB.null bass, not $ RTB.null drum) of
+        (False, False, False) -> trks
+        ( True, False, False) -> trks
+        (False,  True, False) -> trks
+        (False, False,  True) -> trks
+        ( True,  True, False) -> let
+          [gtrOD', bassOD'] = fixOverdrive [gtrOD, bassOD]
+          in flip map trks $ \case
+            F.PartGuitar t -> F.PartGuitar $ replaceFiveOD gtrOD'  t
+            F.PartBass   t -> F.PartBass   $ replaceFiveOD bassOD' t
+            trk            -> trk
+        ( True, False,  True) -> let
+          [drumOD', gtrOD'] = fixOverdrive [drumOD, gtrOD]
+          in flip map trks $ \case
+            F.PartGuitar t -> F.PartGuitar $ replaceFiveOD  gtrOD'  t
+            F.PartDrums  t -> F.PartDrums  $ replaceDrumsOD drumOD' t
+            trk            -> trk
+        (False,  True,  True) -> let
+          [drumOD', bassOD'] = fixOverdrive [drumOD, bassOD]
+          in flip map trks $ \case
+            F.PartBass   t -> F.PartBass  $ replaceFiveOD  bassOD' t
+            F.PartDrums  t -> F.PartDrums $ replaceDrumsOD drumOD' t
+            trk            -> trk
+        ( True,  True,  True) -> let
+          [drumOD', gtrOD', bassOD'] = fixOverdrive [drumOD, gtrOD, bassOD]
+          in flip map trks $ \case
+            F.PartGuitar t -> F.PartGuitar $ replaceFiveOD  gtrOD'  t
+            F.PartBass   t -> F.PartBass   $ replaceFiveOD  bassOD' t
+            F.PartDrums  t -> F.PartDrums  $ replaceDrumsOD drumOD' t
+            trk            -> trk
 
 convertVenue :: Maybe U.Beats -> RTB.T U.Beats V.Event -> RTB.T U.Beats E.T
 convertVenue endPosn rtb = let
