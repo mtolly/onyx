@@ -119,8 +119,8 @@ prettyDTA name meta plan is2x pkg = unlines $ execWriter $ do
     -- the following keys, I'm not sure if they need to go in a certain place
     forM_ (D.bandFailCue pkg) $ inline "band_fail_cue" . show . either id fromKeyword
     forM_ (D.shortVersion pkg) $ inline "short_version" . show
-    forM_ (D.realGuitarTuning pkg) $ inline "real_guitar_tuning" . unwords . map show . fromInParens
-    forM_ (D.realBassTuning pkg) $ inline "real_bass_tuning" . unwords . map show . fromInParens
+    forM_ (D.realGuitarTuning pkg) $ inline "real_guitar_tuning" . parenthesize . unwords . map show . fromInParens
+    forM_ (D.realBassTuning pkg) $ inline "real_bass_tuning" . parenthesize . unwords . map show . fromInParens
     -- rb2 stuff
     forM_ (D.context pkg) $ inline "context" . show
     forM_ (D.decade pkg) $ inline "decade" . fromKeyword

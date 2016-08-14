@@ -114,13 +114,15 @@ importFoF krb2 src dest = do
       , _comments     = []
       , _vocalGender  = Nothing
       , _difficulty   = Difficulties
-        { _difficultyDrums   = toRank $ FoF.diffDrums song
-        , _difficultyGuitar  = toRank $ FoF.diffGuitar song
-        , _difficultyBass    = toRank $ FoF.diffBass song
-        , _difficultyKeys    = toRank $ FoF.diffKeys song
-        , _difficultyProKeys = toRank $ FoF.diffKeysReal song
-        , _difficultyVocal   = toRank $ FoF.diffVocals song
-        , _difficultyBand    = toRank $ FoF.diffBand song
+        { _difficultyDrums     = toRank $ FoF.diffDrums song
+        , _difficultyGuitar    = toRank $ FoF.diffGuitar song
+        , _difficultyBass      = toRank $ FoF.diffBass song
+        , _difficultyKeys      = toRank $ FoF.diffKeys song
+        , _difficultyProKeys   = toRank $ FoF.diffKeysReal song
+        , _difficultyProGuitar = toRank $ FoF.diffGuitarReal song
+        , _difficultyProBass   = toRank $ FoF.diffBassReal song
+        , _difficultyVocal     = toRank $ FoF.diffVocals song
+        , _difficultyBand      = toRank $ FoF.diffBand song
         }
       , _key          = Nothing
       , _autogenTheme = AutogenDefault
@@ -140,10 +142,12 @@ importFoF krb2 src dest = do
       , _cover        = _cover def
       }
     , _options = Options
-      { _auto2xBass    = False
-      , _hopoThreshold = 170
-      , _keysRB2       = krb2
-      , _padStart      = pad
+      { _auto2xBass      = False
+      , _hopoThreshold   = 170
+      , _keysRB2         = krb2
+      , _padStart        = pad
+      , _proGuitarTuning = []
+      , _proBassTuning   = []
       }
     , _audio = HM.fromList $ flip map audioFiles $ \aud -> (T.pack aud, AudioFile
       { _md5 = Nothing
@@ -177,6 +181,12 @@ importFoF krb2 src dest = do
       , _hasBass    = elem "PART BASS" trackNames && FoF.diffBass song /= Just (-1)
       , _hasKeys    = elem "PART KEYS" trackNames && FoF.diffKeys song /= Just (-1)
       , _hasProKeys = elem "PART REAL_KEYS_X" trackNames && FoF.diffKeysReal song /= Just (-1)
+      , _hasProGuitar =
+        (elem "PART REAL_GUITAR" trackNames && FoF.diffGuitarReal song /= Just (-1)) ||
+        (elem "PART REAL_GUITAR_22" trackNames && FoF.diffGuitarReal22 song /= Just (-1))
+      , _hasProBass =
+        (elem "PART REAL_BASS" trackNames && FoF.diffBassReal song /= Just (-1)) ||
+        (elem "PART REAL_BASS_22" trackNames && FoF.diffBassReal22 song /= Just (-1))
       , _hasVocal   = if elem "PART VOCALS" trackNames && FoF.diffVocals song /= Just (-1)
         then if elem "HARM2" trackNames && FoF.diffVocalsHarm song /= Just (-1)
           then if elem "HARM3" trackNames
@@ -351,13 +361,15 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
         diffMap :: Map.Map String Integer
         diffMap = D.fromDict $ D.rank pkg
         in Difficulties
-          { _difficultyDrums   = Rank <$> Map.lookup "drum" diffMap
-          , _difficultyGuitar  = Rank <$> Map.lookup "guitar" diffMap
-          , _difficultyBass    = Rank <$> Map.lookup "bass" diffMap
-          , _difficultyKeys    = Rank <$> Map.lookup "keys" diffMap
-          , _difficultyProKeys = Rank <$> Map.lookup "real_keys" diffMap
-          , _difficultyVocal   = Rank <$> Map.lookup "vocals" diffMap
-          , _difficultyBand    = Rank <$> Map.lookup "band" diffMap
+          { _difficultyDrums     = Rank <$> Map.lookup "drum" diffMap
+          , _difficultyGuitar    = Rank <$> Map.lookup "guitar" diffMap
+          , _difficultyBass      = Rank <$> Map.lookup "bass" diffMap
+          , _difficultyKeys      = Rank <$> Map.lookup "keys" diffMap
+          , _difficultyProKeys   = Rank <$> Map.lookup "real_keys" diffMap
+          , _difficultyProGuitar = Rank <$> Map.lookup "real_guitar" diffMap
+          , _difficultyProBass   = Rank <$> Map.lookup "real_bass" diffMap
+          , _difficultyVocal     = Rank <$> Map.lookup "vocals" diffMap
+          , _difficultyBand      = Rank <$> Map.lookup "band" diffMap
           }
       , _key          = toEnum . fromEnum <$> D.vocalTonicNote pkg
       , _autogenTheme = AutogenDefault
@@ -383,6 +395,8 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       , _auto2xBass = is2x
       , _hopoThreshold = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
       , _keysRB2 = krb2
+      , _proGuitarTuning = fromMaybe [] $ map fromIntegral . D.fromInParens <$> D.realGuitarTuning pkg
+      , _proBassTuning   = fromMaybe [] $ map fromIntegral . D.fromInParens <$> D.realBassTuning   pkg
       }
     , _audio = HM.empty
     , _jammit = HM.empty
@@ -418,12 +432,14 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       diffMap :: Map.Map String Integer
       diffMap = D.fromDict $ D.rank pkg
       in Instruments
-        { _hasDrums   = maybe False (/= 0) $ Map.lookup "drum" diffMap
-        , _hasGuitar  = maybe False (/= 0) $ Map.lookup "guitar" diffMap
-        , _hasBass    = maybe False (/= 0) $ Map.lookup "bass" diffMap
-        , _hasKeys    = maybe False (/= 0) $ Map.lookup "keys" diffMap
-        , _hasProKeys = maybe False (/= 0) $ Map.lookup "real_keys" diffMap
-        , _hasVocal   = if maybe False (/= 0) $ Map.lookup "vocals" diffMap
+        { _hasDrums     = maybe False (/= 0) $ Map.lookup "drum" diffMap
+        , _hasGuitar    = maybe False (/= 0) $ Map.lookup "guitar" diffMap
+        , _hasBass      = maybe False (/= 0) $ Map.lookup "bass" diffMap
+        , _hasKeys      = maybe False (/= 0) $ Map.lookup "keys" diffMap
+        , _hasProKeys   = maybe False (/= 0) $ Map.lookup "real_keys" diffMap
+        , _hasProGuitar = maybe False (/= 0) $ Map.lookup "real_guitar" diffMap
+        , _hasProBass   = maybe False (/= 0) $ Map.lookup "real_bass" diffMap
+        , _hasVocal     = if maybe False (/= 0) $ Map.lookup "vocals" diffMap
           then case D.vocalParts $ D.song pkg of
             Nothing -> Vocal1
             Just 0 -> Vocal0

@@ -7,6 +7,25 @@ metadata:
   - "Timing and all instruments by Harmonix."
   - "2x Bass Pedal and other minor drum edits by me."
   - "Chart confidence: *high*, from stems."
+  difficulty:
+    drums:
+      rank: 463
+    guitar:
+      rank: 422
+    bass:
+      rank: 450
+    vocal:
+      rank: 189
+    keys:
+      rank: 495
+    pro-keys:
+      rank: 505
+    band:
+      rank: 445
+    pro-guitar:
+      rank: 461
+    pro-bass:
+      rank: 460
 audio:
   album-track:
     md5: 63dbffdd93645e41d4bf7413e6665c52
@@ -44,5 +63,5 @@ instruments:
   keys: true
   pro-keys: true
   vocal: 2
-  # pro-guitar: true
-  # pro-bass: true
+  pro-guitar: true
+  pro-bass: true

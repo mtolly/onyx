@@ -8,12 +8,14 @@ Author: Harmonix
 
 Instruments:
 
-  * (Pro) Drums
-  * Bass
-  * Guitar
-  * Keys
-  * Pro Keys
-  * Vocals (2)
+  * (Pro) Drums 😈😈😈😈😈
+  * Bass 😈😈😈😈😈
+  * Guitar 😈😈😈😈😈
+  * Pro Bass 😈😈😈😈😈
+  * Pro Guitar 😈😈😈😈😈
+  * Keys 😈😈😈😈😈
+  * Pro Keys 😈😈😈😈😈
+  * Vocals (2) ⚪️⚪️⚫️⚫️⚫️
 
 Supported audio:
 

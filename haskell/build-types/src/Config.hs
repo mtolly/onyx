@@ -19,6 +19,7 @@ import           Data.Aeson                     ((.=))
 import qualified Data.Aeson                     as A
 import           Data.Char                      (isDigit, isSpace)
 import           Data.Conduit.Audio             (Duration (..))
+import           Data.Default.Class
 import qualified Data.DTA.Serialize.Magma       as Magma
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
@@ -30,17 +31,14 @@ import qualified Data.Text                      as T
 import           Data.Traversable
 import qualified Data.Vector                    as V
 import           Genre                          (defaultSubgenre)
+import           JSONData
 import           RockBand.Common                (Key (..))
 import qualified RockBand.Drums                 as Drums
 import qualified Sound.Jammit.Base              as J
 import qualified Sound.MIDI.Util                as U
-import           Text.Read                      (readMaybe)
-
 import qualified Text.ParserCombinators.ReadP   as ReadP
+import           Text.Read                      (readMaybe)
 import qualified Text.Read.Lex                  as Lex
-
-import           Data.Default.Class
-import           JSONData
 
 data Difficulty
   = Tier Integer -- ^ [1..7]: 1 = no dots, 7 = devil dots
@@ -60,13 +58,15 @@ instance A.ToJSON Difficulty where
     Rank i -> A.object ["rank" .= i]
 
 jsonRecord "Difficulties" eosr $ do
-  opt "_difficultyDrums"   "drums"    [t| Maybe Difficulty |] [e| Nothing |]
-  opt "_difficultyGuitar"  "guitar"   [t| Maybe Difficulty |] [e| Nothing |]
-  opt "_difficultyBass"    "bass"     [t| Maybe Difficulty |] [e| Nothing |]
-  opt "_difficultyKeys"    "keys"     [t| Maybe Difficulty |] [e| Nothing |]
-  opt "_difficultyProKeys" "pro-keys" [t| Maybe Difficulty |] [e| Nothing |]
-  opt "_difficultyVocal"   "vocal"    [t| Maybe Difficulty |] [e| Nothing |]
-  opt "_difficultyBand"    "band"     [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyDrums"     "drums"      [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyGuitar"    "guitar"     [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyBass"      "bass"       [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyKeys"      "keys"       [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyProKeys"   "pro-keys"   [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyProGuitar" "pro-guitar" [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyProBass"   "pro-bass"   [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyVocal"     "vocal"      [t| Maybe Difficulty |] [e| Nothing |]
+  opt "_difficultyBand"      "band"       [t| Maybe Difficulty |] [e| Nothing |]
 
 keyNames :: [(T.Text, Key)]
 keyNames = let
@@ -156,10 +156,12 @@ instance A.ToJSON KeysRB2 where
 
 -- | Options that affect gameplay.
 jsonRecord "Options" eosr $ do
-  opt "_padStart"      "pad-start"      [t| Bool |]    [e| False |]
-  opt "_hopoThreshold" "hopo-threshold" [t| Int |]     [e| 170 |]
-  opt "_keysRB2"       "keys-rb2"       [t| KeysRB2 |] [e| NoKeys |]
-  opt "_auto2xBass"    "auto-2x-bass"   [t| Bool |]    [e| False |]
+  opt "_padStart"        "pad-start"         [t| Bool |]    [e| False |]
+  opt "_hopoThreshold"   "hopo-threshold"    [t| Int |]     [e| 170 |]
+  opt "_keysRB2"         "keys-rb2"          [t| KeysRB2 |] [e| NoKeys |]
+  opt "_auto2xBass"      "auto-2x-bass"      [t| Bool |]    [e| False |]
+  opt "_proGuitarTuning" "pro-guitar-tuning" [t| [Int] |]   [e| [] |]
+  opt "_proBassTuning"   "pro-bass-tuning"   [t| [Int] |]   [e| [] |]
 
 instance TraceJSON Magma.Gender where
   traceJSON = lift ask >>= \case
@@ -630,6 +632,14 @@ jsonRecord "Instruments" eosr $ do
   opt "_hasKeys" "keys" [t| Bool |] [e| False |]
   opt "_hasProKeys" "pro-keys" [t| Bool |] [e| False |]
   opt "_hasVocal" "vocal" [t| VocalCount |] [e| Vocal0 |]
+  opt "_hasProGuitar" "pro-guitar" [t| Bool |] [e| False |]
+  opt "_hasProBass" "pro-bass" [t| Bool |] [e| False |]
+
+hasAnyGuitar :: Instruments -> Bool
+hasAnyGuitar insts = _hasGuitar insts || _hasProGuitar insts
+
+hasAnyBass :: Instruments -> Bool
+hasAnyBass insts = _hasBass insts || _hasProBass insts
 
 hasAnyKeys :: Instruments -> Bool
 hasAnyKeys insts = _hasKeys insts || _hasProKeys insts
@@ -741,8 +751,7 @@ jsonRecord "Metadata" eosr $ do
   warning "_trackNumber" "track-number" [t| Maybe Int |] [e| Nothing |]
   opt "_comments" "comments" [t| [T.Text] |] [e| [] |]
   opt "_vocalGender" "vocal-gender" [t| Maybe Magma.Gender |] [e| Nothing |]
-  opt "_difficulty" "difficulty" [t| Difficulties |]
-    [e| Difficulties Nothing Nothing Nothing Nothing Nothing Nothing Nothing |]
+  opt "_difficulty" "difficulty" [t| Difficulties |] [e| def |]
   opt "_key" "key" [t| Maybe Key |] [e| Nothing |]
   opt "_autogenTheme" "autogen-theme" [t| AutogenTheme |] [e| AutogenDefault |]
   warning "_author" "author" [t| Maybe T.Text |] [e| Nothing |]

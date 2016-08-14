@@ -17,6 +17,7 @@ import qualified RockBand.Drums                   as Drums
 import qualified RockBand.Events                  as Events
 import           RockBand.File
 import qualified RockBand.FiveButton              as Five
+import qualified RockBand.ProGuitar               as ProGuitar
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as Vocals
 
@@ -255,14 +256,24 @@ keysToProKeys d = let
   in RTB.cons 0 (ProKeys.LaneShift ProKeys.RangeA) . RTB.mapMaybe basicToPK
 
 hasSolo :: Instrument -> Song t -> Bool
-hasSolo Guitar song = not $ null $ do
-  PartGuitar t <- s_tracks song
-  Five.Solo _ <- RTB.getBodies t
-  return ()
-hasSolo Bass song = not $ null $ do
-  PartBass t <- s_tracks song
-  Five.Solo _ <- RTB.getBodies t
-  return ()
+hasSolo Guitar song = not $ null
+  $ do
+    PartGuitar t <- s_tracks song
+    Five.Solo _ <- RTB.getBodies t
+    return ()
+  ++ do
+    PartRealGuitar t <- s_tracks song
+    ProGuitar.Solo _ <- RTB.getBodies t
+    return ()
+hasSolo Bass song = not $ null
+  $ do
+    PartBass t <- s_tracks song
+    Five.Solo _ <- RTB.getBodies t
+    return ()
+  ++ do
+    PartRealBass t <- s_tracks song
+    ProGuitar.Solo _ <- RTB.getBodies t
+    return ()
 hasSolo Drums song = not $ null $ do
   PartDrums t <- s_tracks song
   Drums.Solo _ <- RTB.getBodies t

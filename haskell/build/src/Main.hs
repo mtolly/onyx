@@ -325,21 +325,25 @@ main = do
                 Just (Tier t) -> tierToRank dmap t
               else 0
 
-            drumsRank   = getRank _hasDrums    _difficultyDrums   drumsDiffMap
-            bassRank    = getRank _hasBass     _difficultyBass    bassDiffMap
-            guitarRank  = getRank _hasGuitar   _difficultyGuitar  guitarDiffMap
-            vocalRank   = getRank hasAnyVocal  _difficultyVocal   vocalDiffMap
-            keysRank    = getRank hasAnyKeys   _difficultyKeys    keysDiffMap
-            proKeysRank = getRank hasAnyKeys   _difficultyProKeys keysDiffMap
-            bandRank    = getRank (const True) _difficultyBand    bandDiffMap
+            drumsRank     = getRank _hasDrums     _difficultyDrums     drumsDiffMap
+            bassRank      = getRank _hasBass      _difficultyBass      bassDiffMap
+            guitarRank    = getRank _hasGuitar    _difficultyGuitar    guitarDiffMap
+            vocalRank     = getRank hasAnyVocal   _difficultyVocal     vocalDiffMap
+            keysRank      = getRank hasAnyKeys    _difficultyKeys      keysDiffMap
+            proKeysRank   = getRank hasAnyKeys    _difficultyProKeys   keysDiffMap
+            proGuitarRank = getRank _hasProGuitar _difficultyProGuitar proGuitarDiffMap
+            proBassRank   = getRank _hasProBass   _difficultyProBass   proBassDiffMap
+            bandRank      = getRank (const True)  _difficultyBand      bandDiffMap
 
-            drumsTier   = rankToTier drumsDiffMap  drumsRank
-            bassTier    = rankToTier bassDiffMap   bassRank
-            guitarTier  = rankToTier guitarDiffMap guitarRank
-            vocalTier   = rankToTier vocalDiffMap  vocalRank
-            keysTier    = rankToTier keysDiffMap   keysRank
-            proKeysTier = rankToTier keysDiffMap   proKeysRank
-            bandTier    = rankToTier bandDiffMap   bandRank
+            drumsTier     = rankToTier drumsDiffMap     drumsRank
+            bassTier      = rankToTier bassDiffMap      bassRank
+            guitarTier    = rankToTier guitarDiffMap    guitarRank
+            vocalTier     = rankToTier vocalDiffMap     vocalRank
+            keysTier      = rankToTier keysDiffMap      keysRank
+            proKeysTier   = rankToTier keysDiffMap      proKeysRank
+            proGuitarTier = rankToTier proGuitarDiffMap proGuitarRank
+            proBassTier   = rankToTier proBassDiffMap   proBassRank
+            bandTier      = rankToTier bandDiffMap      bandRank
 
         -- Looking up single audio files and Jammit parts in the work directory
         let manualLeaf :: AudioInput -> Action (Audio Duration FilePath)
@@ -369,11 +373,11 @@ main = do
                 result <- fmap read $ jammitOracle $ JammitSearch $ show jmtQuery
                 let _ = result :: [(J.AudioPart, FilePath)]
                 let backs = concat
-                      [ [J.Drums    | _hasDrums   $ _instruments songYaml]
-                      , [J.Bass     | _hasBass    $ _instruments songYaml]
-                      , [J.Guitar   | _hasGuitar  $ _instruments songYaml]
-                      , [J.Keyboard | hasAnyKeys  $ _instruments songYaml]
-                      , [J.Vocal    | hasAnyVocal $ _instruments songYaml]
+                      [ [J.Drums    | _hasDrums    $ _instruments songYaml]
+                      , [J.Bass     | hasAnyBass   $ _instruments songYaml]
+                      , [J.Guitar   | hasAnyGuitar $ _instruments songYaml]
+                      , [J.Keyboard | hasAnyKeys   $ _instruments songYaml]
+                      , [J.Vocal    | hasAnyVocal  $ _instruments songYaml]
                       ]
                     -- audio that is used in the song and bought by the user
                     boughtInstrumentParts :: J.Instrument -> [FilePath]
@@ -467,11 +471,13 @@ main = do
                         6 -> " ⚪️⚪️⚪️⚪️⚪️"
                         7 -> " 😈😈😈😈😈"
                         _ -> ""
-          when (_hasDrums   $ _instruments songYaml) $ line $ "  * (Pro) Drums" ++ diffString _difficultyDrums   drumsDiffMap
-          when (_hasBass    $ _instruments songYaml) $ line $ "  * Bass"        ++ diffString _difficultyBass    bassDiffMap
-          when (_hasGuitar  $ _instruments songYaml) $ line $ "  * Guitar"      ++ diffString _difficultyGuitar  guitarDiffMap
-          when (_hasKeys    $ _instruments songYaml) $ line $ "  * Keys"        ++ diffString _difficultyKeys    keysDiffMap
-          when (_hasProKeys $ _instruments songYaml) $ line $ "  * Pro Keys"    ++ diffString _difficultyProKeys keysDiffMap
+          when (_hasDrums     $ _instruments songYaml) $ line $ "  * (Pro) Drums" ++ diffString _difficultyDrums     drumsDiffMap
+          when (_hasBass      $ _instruments songYaml) $ line $ "  * Bass"        ++ diffString _difficultyBass      bassDiffMap
+          when (_hasGuitar    $ _instruments songYaml) $ line $ "  * Guitar"      ++ diffString _difficultyGuitar    guitarDiffMap
+          when (_hasProBass   $ _instruments songYaml) $ line $ "  * Pro Bass"    ++ diffString _difficultyProBass   proBassDiffMap
+          when (_hasProGuitar $ _instruments songYaml) $ line $ "  * Pro Guitar"  ++ diffString _difficultyProGuitar proGuitarDiffMap
+          when (_hasKeys      $ _instruments songYaml) $ line $ "  * Keys"        ++ diffString _difficultyKeys      keysDiffMap
+          when (_hasProKeys   $ _instruments songYaml) $ line $ "  * Pro Keys"    ++ diffString _difficultyProKeys   keysDiffMap
           case _hasVocal $ _instruments songYaml of
             Vocal0 -> return ()
             Vocal1 -> line $ "  * Vocals (1)" ++ diffString _difficultyVocal vocalDiffMap
@@ -530,11 +536,11 @@ main = do
                 in zip pans vols
               bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, crowdPV, songPV :: [(Double, Double)]
               mixMode :: RBDrums.Audio
-              bassPV = guard (_hasBass $ _instruments songYaml) >> case plan of
+              bassPV = guard (hasAnyBass $ _instruments songYaml) >> case plan of
                 MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggBass
                 Plan{..} -> planPV _bass
                 EachPlan{..} -> eachPlanPV _each
-              guitarPV = guard (_hasGuitar $ _instruments songYaml) >> case plan of
+              guitarPV = guard (hasAnyGuitar $ _instruments songYaml) >> case plan of
                 MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggGuitar
                 Plan{..} -> planPV _guitar
                 EachPlan{..} -> eachPlanPV _each
@@ -832,6 +838,22 @@ main = do
                   then []
                   else (: []) $ RBFile.PartBass $ gryboComplete (Just $ _hopoThreshold $ _options songYaml) (RBFile.s_signatures input)
                     $ mergeTracks [ t | RBFile.PartBass t <- trks ]
+                proGuitarTracks = if not $ _hasProGuitar $ _instruments songYaml
+                  then []
+                  else let
+                    -- TODO: difficulty completion
+                    mustang = mergeTracks [ t | RBFile.PartRealGuitar   t <- trks ]
+                    squier  = mergeTracks [ t | RBFile.PartRealGuitar22 t <- trks ]
+                    in [ RBFile.PartRealGuitar   mustang | not $ RTB.null mustang ]
+                    ++ [ RBFile.PartRealGuitar22 squier  | not $ RTB.null squier  ]
+                proBassTracks = if not $ _hasProGuitar $ _instruments songYaml
+                  then []
+                  else let
+                    -- TODO: difficulty completion
+                    mustang = mergeTracks [ t | RBFile.PartRealBass   t <- trks ]
+                    squier  = mergeTracks [ t | RBFile.PartRealBass22 t <- trks ]
+                    in [ RBFile.PartRealBass   mustang | not $ RTB.null mustang ]
+                    ++ [ RBFile.PartRealBass22 squier  | not $ RTB.null squier  ]
                 keysTracks = if not $ hasAnyKeys $ _instruments songYaml
                   then []
                   else let
@@ -900,6 +922,8 @@ main = do
                   , drumsTracks
                   , guitarTracks
                   , bassTracks
+                  , proGuitarTracks
+                  , proBassTracks
                   , keysTracks
                   , vocalTracks
                   ]
@@ -988,14 +1012,14 @@ main = do
                 Plan{..} -> isJust _crowd
                 _        -> False
               parts = map Input $ concat
-                [ [dir </> "kick.wav"   | _hasDrums    (_instruments songYaml) && mixMode /= RBDrums.D0]
-                , [dir </> "snare.wav"  | _hasDrums    (_instruments songYaml) && elem mixMode [RBDrums.D1, RBDrums.D2, RBDrums.D3]]
-                , [dir </> "drums.wav"  | _hasDrums   $ _instruments songYaml]
-                , [dir </> "bass.wav"   | _hasBass    $ _instruments songYaml]
-                , [dir </> "guitar.wav" | _hasGuitar  $ _instruments songYaml]
-                , [dir </> "keys.wav"   | hasAnyKeys  $ _instruments songYaml]
-                , [dir </> "vocal.wav"  | hasAnyVocal $ _instruments songYaml]
-                , [dir </> "crowd.wav"  | hasCrowd                           ]
+                [ [dir </> "kick.wav"   | _hasDrums     (_instruments songYaml) && mixMode /= RBDrums.D0]
+                , [dir </> "snare.wav"  | _hasDrums     (_instruments songYaml) && elem mixMode [RBDrums.D1, RBDrums.D2, RBDrums.D3]]
+                , [dir </> "drums.wav"  | _hasDrums    $ _instruments songYaml]
+                , [dir </> "bass.wav"   | hasAnyBass   $ _instruments songYaml]
+                , [dir </> "guitar.wav" | hasAnyGuitar $ _instruments songYaml]
+                , [dir </> "keys.wav"   | hasAnyKeys   $ _instruments songYaml]
+                , [dir </> "vocal.wav"  | hasAnyVocal  $ _instruments songYaml]
+                , [dir </> "crowd.wav"  | hasCrowd                            ]
                 , [dir </> "song-countin.wav"]
                 ]
               in buildAudio (Merge parts) out
@@ -1043,10 +1067,11 @@ main = do
               , FoF.diffVocals       = Just $ fromIntegral $ vocalTier   - 1
               , FoF.diffVocalsHarm   = Just $ fromIntegral $ vocalTier   - 1
               , FoF.diffDance        = Just (-1)
-              , FoF.diffBassReal     = Just (-1)
-              , FoF.diffGuitarReal   = Just (-1)
-              , FoF.diffBassReal22   = Just (-1)
-              , FoF.diffGuitarReal22 = Just (-1)
+              , FoF.diffBassReal     = Just $ fromIntegral $ proBassTier - 1
+              , FoF.diffGuitarReal   = Just $ fromIntegral $ proGuitarTier - 1
+              -- TODO: are the 22-fret difficulties needed?
+              , FoF.diffBassReal22   = Just $ fromIntegral $ proBassTier - 1
+              , FoF.diffGuitarReal22 = Just $ fromIntegral $ proGuitarTier - 1
               , FoF.diffGuitarCoop   = Just (-1)
               , FoF.diffRhythm       = Just (-1)
               , FoF.diffDrumsRealPS  = Just (-1)
@@ -1068,14 +1093,14 @@ main = do
           dir </> "ps/album.png"   %> copyFile' "gen/cover.png"
           phony (dir </> "ps") $ need $ map (\f -> dir </> "ps" </> f) $ concat
             [ ["song.ini", "notes.mid", "song.ogg", "album.png"]
-            , ["drums.ogg"   | _hasDrums    (_instruments songYaml) && mixMode == RBDrums.D0]
-            , ["drums_1.ogg" | _hasDrums    (_instruments songYaml) && mixMode /= RBDrums.D0]
-            , ["drums_2.ogg" | _hasDrums    (_instruments songYaml) && mixMode /= RBDrums.D0]
-            , ["drums_3.ogg" | _hasDrums    (_instruments songYaml) && mixMode /= RBDrums.D0]
-            , ["guitar.ogg"  | _hasGuitar  $ _instruments songYaml]
-            , ["keys.ogg"    | hasAnyKeys  $ _instruments songYaml]
-            , ["rhythm.ogg"  | _hasBass    $ _instruments songYaml]
-            , ["vocal.ogg"   | hasAnyVocal $ _instruments songYaml]
+            , ["drums.ogg"   | _hasDrums     (_instruments songYaml) && mixMode == RBDrums.D0]
+            , ["drums_1.ogg" | _hasDrums     (_instruments songYaml) && mixMode /= RBDrums.D0]
+            , ["drums_2.ogg" | _hasDrums     (_instruments songYaml) && mixMode /= RBDrums.D0]
+            , ["drums_3.ogg" | _hasDrums     (_instruments songYaml) && mixMode /= RBDrums.D0]
+            , ["guitar.ogg"  | hasAnyGuitar $ _instruments songYaml]
+            , ["keys.ogg"    | hasAnyKeys   $ _instruments songYaml]
+            , ["rhythm.ogg"  | hasAnyBass   $ _instruments songYaml]
+            , ["vocal.ogg"   | hasAnyVocal  $ _instruments songYaml]
             , ["crowd.ogg"   | case plan of Plan{..} -> isJust _crowd; _ -> False]
             ]
 
@@ -1186,13 +1211,15 @@ main = do
                   , D.preview = (fromIntegral pstart, fromIntegral pend)
                   , D.songLength = fromIntegral len
                   , D.rank = D.Dict $ Map.fromList
-                    [ ("drum"     , drumsRank  )
-                    , ("bass"     , bassRank   )
-                    , ("guitar"   , guitarRank )
-                    , ("vocals"   , vocalRank  )
-                    , ("keys"     , keysRank   )
-                    , ("real_keys", proKeysRank)
-                    , ("band"     , bandRank   )
+                    [ ("drum"       , drumsRank    )
+                    , ("bass"       , bassRank     )
+                    , ("guitar"     , guitarRank   )
+                    , ("vocals"     , vocalRank    )
+                    , ("keys"       , keysRank     )
+                    , ("real_keys"  , proKeysRank  )
+                    , ("real_guitar", proGuitarRank)
+                    , ("real_bass"  , proBassRank  )
+                    , ("band"       , bandRank     )
                     ]
                   , D.solo = let
                     kwds = concat
@@ -1218,8 +1245,16 @@ main = do
                   , D.vocalTonicNote = toEnum . fromEnum <$> _key (_metadata songYaml)
                   , D.songTonality = Nothing
                   , D.tuningOffsetCents = Just 0
-                  , D.realGuitarTuning = Nothing
-                  , D.realBassTuning = Nothing
+                  , D.realGuitarTuning = do
+                    guard $ _hasProGuitar $ _instruments songYaml
+                    Just $ D.InParens $ map fromIntegral $ case _proGuitarTuning $ _options songYaml of
+                      []   -> [0, 0, 0, 0, 0, 0]
+                      tune -> tune
+                  , D.realBassTuning = do
+                    guard $ _hasProBass $ _instruments songYaml
+                    Just $ D.InParens $ map fromIntegral $ case _proBassTuning $ _options songYaml of
+                      []   -> [0, 0, 0, 0]
+                      tune -> tune
                   , D.guidePitchVolume = Just (-3)
                   , D.encoding = Just $ D.Keyword "utf8"
                   , D.context = Nothing
@@ -1710,10 +1745,18 @@ main = do
                   , C3.multitrack = getMultitrack plan
                   , C3.convert = _convert $ _metadata songYaml
                   , C3.expertOnly = _expertOnly $ _metadata songYaml
-                  , C3.proBassDiff = Nothing
-                  , C3.proBassTuning = Nothing
-                  , C3.proGuitarDiff = Nothing
-                  , C3.proGuitarTuning = Nothing
+                  , C3.proBassDiff = guard (_hasProBass $ _instruments songYaml) >> Just (fromIntegral proBassTier)
+                  , C3.proBassTuning = if _hasProBass $ _instruments songYaml
+                    then Just $ case _proBassTuning $ _options songYaml of
+                      []   -> "(real_bass_tuning (0 0 0 0))"
+                      tune -> "(real_bass_tuning (" ++ unwords (map show tune) ++ "))"
+                    else Nothing
+                  , C3.proGuitarDiff = guard (_hasProGuitar $ _instruments songYaml) >> Just (fromIntegral proGuitarTier)
+                  , C3.proGuitarTuning = if _hasProGuitar $ _instruments songYaml
+                    then Just $ case _proGuitarTuning $ _options songYaml of
+                      []   -> "(real_guitar_tuning (0 0 0 0 0 0))"
+                      tune -> "(real_guitar_tuning (" ++ unwords (map show tune) ++ "))"
+                    else Nothing
                   , C3.disableProKeys =
                       _hasKeys (_instruments songYaml) && not (_hasProKeys $ _instruments songYaml)
                   , C3.tonicNote = _key $ _metadata songYaml
@@ -1750,10 +1793,10 @@ main = do
                   }
               phony setup $ need $ concat
                 -- Just make all the Magma prereqs, but don't actually run Magma
-                [ guard (_hasDrums   $ _instruments songYaml) >> [drums, kick, snare]
-                , guard (_hasBass    $ _instruments songYaml) >> [bass              ]
-                , guard (_hasGuitar  $ _instruments songYaml) >> [guitar            ]
-                , guard (hasAnyKeys  $ _instruments songYaml) >> [keys              ]
+                [ guard (_hasDrums    $ _instruments songYaml) >> [drums, kick, snare]
+                , guard (hasAnyBass   $ _instruments songYaml) >> [bass              ]
+                , guard (hasAnyGuitar $ _instruments songYaml) >> [guitar            ]
+                , guard (hasAnyKeys   $ _instruments songYaml) >> [keys              ]
                 , case _hasVocal $ _instruments songYaml of
                   Vocal0 -> []
                   Vocal1 -> [vocal, dryvox0]

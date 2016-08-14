@@ -28,32 +28,27 @@ metadata:
   comments:
   - "2x Bass Pedal upgrade."
   difficulty:
-    pro-keys:
-      rank: 0
     vocal:
       rank: 120
     bass:
       rank: 342
     guitar:
       rank: 430
-    keys:
-      rank: 0
     drums:
       rank: 484
     band:
       rank: 389
-    # pro-guitar:
-    #   rank: 461
-    # pro-bass:
-    #   rank: 322
+    pro-guitar:
+      rank: 461
+    pro-bass:
+      rank: 322
   artist: Slayer
-  # tuning:
-  #   guitar: standard
-  #   bass: standard
 instruments:
   vocal: 1
   bass: true
   guitar: true
   drums: true
+  pro-guitar: true
+  pro-bass: true
 options:
   auto-2x-bass: true

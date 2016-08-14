@@ -15,7 +15,7 @@ import           Data.Bifunctor                   (Bifunctor (..))
 import           Data.Char                        (isSpace)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (stripPrefix)
-import Data.Maybe (fromMaybe)
+import           Data.Maybe                       (fromMaybe)
 import           Language.Haskell.TH
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File.Event            as E
