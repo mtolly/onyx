@@ -3,6 +3,10 @@ metadata:
   file-include: ../../../albums/6.yml
   track-number: 2
   author: Onyxite
+  difficulty:
+    pro-keys: 7
+    keys: 6
+    drums: 7
 audio:
   album-track:
     md5: 675dac1566809747687e43efe098918a
@@ -23,3 +27,4 @@ plans:
 instruments:
   drums: true
   pro-keys: true
+  keys: true
