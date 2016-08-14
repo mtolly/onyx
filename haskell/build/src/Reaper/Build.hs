@@ -127,7 +127,11 @@ track lenTicks lenSecs resn trk = let
       [ ("PART DRUMS", yellow)
       , ("PART REAL_DRUMS_PS", yellow)
       , ("PART GUITAR", blue)
+      , ("PART REAL_GUITAR", blue)
+      , ("PART REAL_GUITAR_22", blue)
       , ("PART BASS", red)
+      , ("PART REAL_BASS", red)
+      , ("PART REAL_BASS_22", red)
       , ("PART VOCALS", orange)
       , ("HARM1", orange)
       , ("HARM2", orange)
@@ -467,7 +471,11 @@ sortTracks = sortOn $ U.trackName >=> \name -> elemIndex name
   , "PART DRUMS_2X"
   , "PART REAL_DRUMS_PS"
   , "PART BASS"
+  , "PART REAL_BASS"
+  , "PART REAL_BASS_22"
   , "PART GUITAR"
+  , "PART REAL_GUITAR"
+  , "PART REAL_GUITAR_22"
   , "PART VOCALS"
   , "HARM1"
   , "HARM2"
