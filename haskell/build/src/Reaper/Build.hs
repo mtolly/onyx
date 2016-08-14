@@ -173,6 +173,10 @@ track lenTicks lenSecs resn trk = let
       , ("HARM1", vocalNoteNames)
       , ("HARM2", vocalNoteNames)
       , ("HARM3", vocalNoteNames)
+      , ("PART REAL_GUITAR", proGuitarNoteNames)
+      , ("PART REAL_GUITAR_22", proGuitarNoteNames)
+      , ("PART REAL_BASS", proGuitarNoteNames)
+      , ("PART REAL_BASS_22", proGuitarNoteNames)
       , ("MELODY'S ESCAPE", melodyNoteNames)
       ] of
       Nothing -> return ()
@@ -442,6 +446,90 @@ vocalNoteNames = execWriter $ do
   x 35
   o 1 "Lyric Shift"
   o 0 "Range Shift"
+  where o k v = tell [(k, v)]
+        x k = tell [(k, "----")]
+
+proGuitarNoteNames :: [(Int, String)]
+proGuitarNoteNames = execWriter $ do
+  o 127 "Trill"
+  o 126 "Tremolo" -- not visible in game? see Roundabout
+  o 125 "BRE"
+  o 124 "BRE"
+  o 123 "BRE"
+  o 122 "BRE"
+  o 121 "BRE"
+  o 120 "BRE (use all 6)"
+  o 116 "OVERDRIVE"
+  o 115 "Solo Marker"
+  o 108 "Left Hand Position"
+  o 107 "EXPERT Show All Numbers"
+  -- 106 was marked as ??? in my original file, is it a used pitch?
+  o 105 "EXPERT Strum Direction"
+  o 104 "EXPERT Arpeggio Marker"
+  o 103 "EXPERT Slide Marker"
+  o 102 "EXPERT Force HOPO"
+  o 101 "EXPERT E String (HIGH)"
+  o 100 "EXPERT B String"
+  o 99 "EXPERT G String"
+  o 98 "EXPERT D String"
+  o 97 "EXPERT A String"
+  o 96 "EXPERT E String (LOW)"
+  x 95
+  o 94 "(Note channels:)"
+  o 93 "(1 Normal)"
+  o 92 "(2 Arpeggio phantom)"
+  o 91 "(3 String bend)"
+  o 90 "(4 Muted)"
+  o 89 "(5 Tapped)"
+  o 88 "(6 Harmonic)"
+  o 87 "(7 Pinch harmonic)"
+  x 86
+  o 83 "HARD Show All Numbers"
+  o 81 "HARD Strum Direction"
+  o 80 "HARD Arpeggio Marker"
+  o 79 "HARD Slide Marker"
+  o 78 "HARD Force HOPO"
+  o 77 "HARD E String (HIGH)"
+  o 76 "HARD B String"
+  o 75 "HARD G String"
+  o 74 "HARD D String"
+  o 73 "HARD A String"
+  o 72 "HARD E String (LOW)"
+  x 71
+  o 56 "MEDIUM Arpeggio Marker"
+  o 55 "MEDIUM Slide Marker"
+  o 53 "MEDIUM E String (HIGH)"
+  o 52 "MEDIUM B String"
+  o 51 "MEDIUM G String"
+  o 50 "MEDIUM D String"
+  o 49 "MEDIUM A String"
+  o 48 "MEDIUM E String (LOW)"
+  x 47
+  o 32 "EASY Arpeggio Marker"
+  o 31 "EASY Slide Marker"
+  o 29 "EASY E String (HIGH)"
+  o 28 "EASY B String"
+  o 27 "EASY G String"
+  o 26 "EASY D String"
+  o 25 "EASY A String"
+  o 24 "EASY E String (LOW)"
+  x 23
+  o 21 "CHORD NAMES:"
+  o 18 "Flat Note Name"
+  o 17 "Hide Chord Names"
+  o 16 "Slash Chord"
+  o 15 "Chord Root D#"
+  o 14 "Chord Root D"
+  o 13 "Chord Root C#"
+  o 12 "Chord Root C"
+  o 11 "Chord Root B"
+  o 10 "Chord Root A#"
+  o 9  "Chord Root A"
+  o 8  "Chord Root G#"
+  o 7  "Chord Root G"
+  o 6  "Chord Root F#"
+  o 5  "Chord Root F"
+  o 4  "Chord Root E"
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 
