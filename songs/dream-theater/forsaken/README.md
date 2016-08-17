@@ -11,6 +11,7 @@ Instruments:
   * (Pro) Drums ⚪️⚪️⚫️⚫️⚫️
   * Bass ⚪️⚫️⚫️⚫️⚫️
   * Guitar ⚪️⚪️⚪️⚫️⚫️
+  * Pro Guitar ⚪️⚪️⚪️⚪️⚫️
   * Keys ⚪️⚪️⚫️⚫️⚫️
   * Pro Keys ⚪️⚪️⚫️⚫️⚫️
   * Vocals (3) ⚪️⚪️⚪️⚪️⚫️
@@ -30,4 +31,6 @@ Notes:
   * All instruments have overdrive/unison.
 
   * QA by [mazegeek999](http://pksage.com/ccc/IPS/index.php?/topic/13775-mazegeeks-customs-1117-tarkus-by-emerson-lake-palmer/).
+
+  * Pro guitar is not 100% checked/polished.
 

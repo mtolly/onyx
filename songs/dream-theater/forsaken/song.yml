@@ -11,11 +11,13 @@ metadata:
     pro-keys: 3
     bass: 2
     band: 3
+    pro-guitar: 5
   author: Onyxite, mazegeek999
   comments:
   - "Drums confidence: *high*. Written to Portnoy's DVD."
   - "All instruments have overdrive/unison."
   - "QA by [mazegeek999](http://pksage.com/ccc/IPS/index.php?/topic/13775-mazegeeks-customs-1117-tarkus-by-emerson-lake-palmer/)."
+  - "Pro guitar is not 100% checked/polished."
   rating: Supervision Recommended
 audio:
   album-track:
@@ -102,5 +104,6 @@ instruments:
   keys: true
   pro-keys: true
   bass: true
+  pro-guitar: true
 options:
   auto-2x-bass: true

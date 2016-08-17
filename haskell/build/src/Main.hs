@@ -85,6 +85,7 @@ import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as RBFive
 import           RockBand.Parse                   (unparseBlip, unparseCommand)
+import qualified RockBand.ProGuitar               as ProGtr
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as RBVox
 import qualified Sound.File.Sndfile               as Snd
@@ -840,18 +841,16 @@ main = do
                     $ mergeTracks [ t | RBFile.PartBass t <- trks ]
                 proGuitarTracks = if not $ _hasProGuitar $ _instruments songYaml
                   then []
-                  else let
-                    -- TODO: difficulty completion
-                    mustang = mergeTracks [ t | RBFile.PartRealGuitar   t <- trks ]
-                    squier  = mergeTracks [ t | RBFile.PartRealGuitar22 t <- trks ]
+                  else map RBFile.copyExpert $ let
+                    mustang = ProGtr.autoHandPosition $ mergeTracks [ t | RBFile.PartRealGuitar   t <- trks ]
+                    squier  = ProGtr.autoHandPosition $ mergeTracks [ t | RBFile.PartRealGuitar22 t <- trks ]
                     in [ RBFile.PartRealGuitar   mustang | not $ RTB.null mustang ]
                     ++ [ RBFile.PartRealGuitar22 squier  | not $ RTB.null squier  ]
                 proBassTracks = if not $ _hasProGuitar $ _instruments songYaml
                   then []
-                  else let
-                    -- TODO: difficulty completion
-                    mustang = mergeTracks [ t | RBFile.PartRealBass   t <- trks ]
-                    squier  = mergeTracks [ t | RBFile.PartRealBass22 t <- trks ]
+                  else map RBFile.copyExpert $ let
+                    mustang = ProGtr.autoHandPosition $ mergeTracks [ t | RBFile.PartRealBass   t <- trks ]
+                    squier  = ProGtr.autoHandPosition $ mergeTracks [ t | RBFile.PartRealBass22 t <- trks ]
                     in [ RBFile.PartRealBass   mustang | not $ RTB.null mustang ]
                     ++ [ RBFile.PartRealBass22 squier  | not $ RTB.null squier  ]
                 keysTracks = if not $ hasAnyKeys $ _instruments songYaml

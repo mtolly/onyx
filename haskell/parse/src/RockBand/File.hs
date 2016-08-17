@@ -228,14 +228,6 @@ copyExpert = \case
   PartRealBass22   t -> PartRealBass22   $  ProGuitar.copyExpert t
   trk                -> trk
 
-autoHandPosition :: (NNC.C t) => Track t -> Track t
-autoHandPosition = \case
-  PartRealGuitar   t -> PartRealGuitar   $ ProGuitar.autoHandPosition t
-  PartRealGuitar22 t -> PartRealGuitar22 $ ProGuitar.autoHandPosition t
-  PartRealBass     t -> PartRealBass     $ ProGuitar.autoHandPosition t
-  PartRealBass22   t -> PartRealBass22   $ ProGuitar.autoHandPosition t
-  trk                -> trk
-
 eachTrack :: (Track t -> Track t) -> Song t -> Song t
 eachTrack f s = s { s_tracks = map f $ s_tracks s }
 

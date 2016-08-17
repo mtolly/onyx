@@ -25,7 +25,7 @@ data Event
   | BREBass      Bool
   | Overdrive    Bool
   | Solo         Bool
-  | Mystery18    Bool -- ^ I think this switches between sharp and flat chords?
+  | FlatChords   Bool
   | Mystery45    Bool
   | Mystery69    Bool
   | Mystery93    Bool
@@ -173,10 +173,9 @@ instanceMIDIEvent [t| Event |] $ let
       , blip 14 [p| ChordRoot D  |]
       , blip 15 [p| ChordRoot Ds |]
 
-      , edge 16 $ \_b -> [p| SlashChords $(boolP _b) |]
+      , edge 16 $ \_b -> [p| SlashChords  $(boolP _b) |]
       , edge 17 $ \_b -> [p| NoChordNames $(boolP _b) |]
-      -- TODO
-      , edge 18 $ \_b -> [p| Mystery18 $(boolP _b) |]
+      , edge 18 $ \_b -> [p| FlatChords   $(boolP _b) |]
 
       ] ++ note 24  [p| Easy |] [p| S6 |]
         ++ note 25  [p| Easy |] [p| S5 |]
@@ -314,8 +313,10 @@ playGuitar tuning evts = let
   in map (\s -> (s, playString s)) [S6 .. S1]
 
 autoHandPosition :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
-autoHandPosition = RTB.flatten . fmap f . RTB.collectCoincident where
-  f evts = let
+autoHandPosition rtb = let
+  isHandPosition (HandPosition _) = True
+  isHandPosition _                = False
+  mapInstant evts = let
     frets = do
       (fret, ntype) <- evts >>= \case
         DiffEvent _ (Note (NoteOn fret (_, ntype))) -> [(fret, ntype)]
@@ -323,12 +324,12 @@ autoHandPosition = RTB.flatten . fmap f . RTB.collectCoincident where
         _ -> []
       guard $ ntype /= ArpeggioForm
       return fret
-    evts' = flip filter evts $ \case
-      HandPosition _ -> False
-      _              -> True
     in case frets of
-      [] -> evts'
-      _  -> HandPosition (minimum frets) : evts'
+      [] -> evts
+      _  -> HandPosition (minimum frets) : evts
+  in if any isHandPosition rtb
+    then rtb
+    else RTB.flatten $ fmap mapInstant $ RTB.collectCoincident rtb
 
 copyExpert :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
 copyExpert = baseCopyExpert DiffEvent $ \case
