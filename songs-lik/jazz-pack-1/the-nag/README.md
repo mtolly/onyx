@@ -11,6 +11,7 @@ Instruments:
   * (Pro) Drums 😈😈😈😈😈
   * Bass 😈😈😈😈😈
   * Guitar ⚪️⚪️⚪️⚪️⚪️
+  * Pro Keys ⚪️⚪️⚪️⚪️⚫️
 
 Supported audio:
 
@@ -18,7 +19,5 @@ Supported audio:
 
 Notes:
 
-  * Drums and tempo map by TheLieInKing.
-
-  * Minor drum adjustments & quantization by me.
+  * Drums by TheLieInKing, with minor adjustments and quantization by me.
 

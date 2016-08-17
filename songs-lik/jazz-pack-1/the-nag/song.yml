@@ -12,9 +12,9 @@ metadata:
     drums: 7
     guitar: 6
     bass: 7
+    pro-keys: 5
   comments:
-  - Drums and tempo map by TheLieInKing.
-  - Minor drum adjustments & quantization by me.
+  - Drums by TheLieInKing, with minor adjustments and quantization by me.
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -40,3 +40,4 @@ instruments:
   drums: true
   guitar: true
   bass: true
+  pro-keys: true
