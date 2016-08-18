@@ -22,3 +22,5 @@ Notes:
 
   * Drums by TheLieInKing, with minor adjustments and quantization by me.
 
+  * All instruments have overdrive/unison.
+
