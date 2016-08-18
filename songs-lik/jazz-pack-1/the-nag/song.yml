@@ -12,6 +12,7 @@ metadata:
     drums: 7
     guitar: 6
     bass: 7
+    keys: 5
     pro-keys: 5
   comments:
   - Drums by TheLieInKing, with minor adjustments and quantization by me.
@@ -40,4 +41,5 @@ instruments:
   drums: true
   guitar: true
   bass: true
+  keys: true
   pro-keys: true
