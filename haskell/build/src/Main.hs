@@ -8,103 +8,114 @@ module Main (main) where
 
 import           Audio
 import qualified C3
-import           Config                           hiding (Difficulty)
+import           Config                                hiding (Difficulty)
 import           Difficulty
-import           DryVox                           (clipDryVox, toDryVoxFormat,
-                                                   vocalTubes)
-import qualified FretsOnFire                      as FoF
-import           Genre                            (genreDisplay, magmaV1Genre)
+import           DryVox                                (clipDryVox,
+                                                        toDryVoxFormat,
+                                                        vocalTubes)
+import qualified FretsOnFire                           as FoF
+import           Genre                                 (genreDisplay,
+                                                        magmaV1Genre)
 import           Image
 import           Import
-import           JSONData                         (JSONEither (..), traceJSON)
-import           Magma                            hiding
-                                                   (withSystemTempDirectory)
+import           JSONData                              (JSONEither (..),
+                                                        traceJSON)
+import           Magma                                 hiding
+                                                        (withSystemTempDirectory)
 import qualified Magma
 import qualified MelodysEscape
 import           MoggDecrypt
 import           OneFoot
-import qualified OnyxiteDisplay.Process           as Proc
+import qualified OnyxiteDisplay.Process                as Proc
 import           PrettyDTA
 import           ProKeysRanges
-import           Reaper.Base                      (writeRPP)
-import qualified Reaper.Build                     as RPP
+import           Reaper.Base                           (writeRPP)
+import qualified Reaper.Build                          as RPP
 import           Reductions
-import           Resources                        (emptyMilo, emptyMiloRB2,
-                                                   emptyWeightsRB2, webDisplay)
-import qualified RockBand2                        as RB2
+import           Resources                             (emptyMilo, emptyMiloRB2,
+                                                        emptyWeightsRB2,
+                                                        webDisplay)
+import qualified RockBand2                             as RB2
 import           Scripts
-import qualified Sound.MIDI.Script.Base           as MS
-import qualified Sound.MIDI.Script.Parse          as MS
-import qualified Sound.MIDI.Script.Read           as MS
-import qualified Sound.MIDI.Script.Scan           as MS
+import qualified Sound.MIDI.Script.Base                as MS
+import qualified Sound.MIDI.Script.Parse               as MS
+import qualified Sound.MIDI.Script.Read                as MS
+import qualified Sound.MIDI.Script.Scan                as MS
 import           STFS.Extract
 import           X360
 import           YAMLTree
 
 import           Codec.Picture
-import           Control.Exception                as Exc
+import           Control.Exception                     as Exc
 import           Control.Monad.Extra
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
-import qualified Data.Aeson                       as A
-import qualified Data.ByteString                  as B
-import qualified Data.ByteString.Lazy             as BL
-import           Data.Char                        (isSpace, toLower)
+import qualified Data.Aeson                            as A
+import qualified Data.ByteString                       as B
+import qualified Data.ByteString.Lazy                  as BL
+import           Data.Char                             (isSpace, toLower)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.Sndfile
-import qualified Data.Digest.Pure.MD5             as MD5
-import qualified Data.DTA                         as D
-import qualified Data.DTA.Serialize               as D
-import qualified Data.DTA.Serialize.Magma         as Magma
-import qualified Data.DTA.Serialize.RB3           as D
-import qualified Data.EventList.Absolute.TimeBody as ATB
-import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Fixed                       (Centi, Milli)
-import           Data.Foldable                    (toList)
-import           Data.Functor.Identity            (runIdentity)
-import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (intercalate, isPrefixOf, nub,
-                                                   stripPrefix)
-import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, isJust, isNothing,
-                                                   listToMaybe, mapMaybe)
-import           Data.Monoid                      ((<>))
-import qualified Data.Set                         as Set
-import qualified Data.Text                        as T
-import           Development.Shake                hiding (phony, (%>), (&%>))
-import qualified Development.Shake                as Shake
+import qualified Data.Digest.Pure.MD5                  as MD5
+import qualified Data.DTA                              as D
+import qualified Data.DTA.Serialize                    as D
+import qualified Data.DTA.Serialize.Magma              as Magma
+import qualified Data.DTA.Serialize.RB3                as D
+import qualified Data.EventList.Absolute.TimeBody      as ATB
+import qualified Data.EventList.Relative.TimeBody      as RTB
+import           Data.Fixed                            (Centi, Milli)
+import           Data.Foldable                         (toList)
+import           Data.Functor.Identity                 (runIdentity)
+import qualified Data.HashMap.Strict                   as HM
+import           Data.List                             (intercalate, isPrefixOf,
+                                                        nub, stripPrefix)
+import qualified Data.Map                              as Map
+import           Data.Maybe                            (fromMaybe, isJust,
+                                                        isNothing, listToMaybe,
+                                                        mapMaybe)
+import           Data.Monoid                           ((<>))
+import qualified Data.Set                              as Set
+import qualified Data.Text                             as T
+import           Development.Shake                     hiding (phony, (%>),
+                                                        (&%>))
+import qualified Development.Shake                     as Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
-import qualified Numeric.NonNegative.Class        as NNC
-import           RockBand.Common                  (Difficulty (..),
-                                                   readCommand', showCommand')
-import qualified RockBand.Drums                   as RBDrums
-import qualified RockBand.Events                  as Events
-import qualified RockBand.File                    as RBFile
-import qualified RockBand.FiveButton              as RBFive
-import           RockBand.Parse                   (unparseBlip, unparseCommand)
-import qualified RockBand.ProGuitar               as ProGtr
-import qualified RockBand.ProKeys                 as ProKeys
-import qualified RockBand.Vocals                  as RBVox
-import qualified Sound.File.Sndfile               as Snd
-import qualified Sound.Jammit.Base                as J
-import qualified Sound.Jammit.Export              as J
-import qualified Sound.MIDI.File                  as F
-import qualified Sound.MIDI.File.Load             as Load
-import qualified Sound.MIDI.File.Save             as Save
-import qualified Sound.MIDI.Util                  as U
+import qualified Numeric.NonNegative.Class             as NNC
+import           RockBand.Common                       (Difficulty (..),
+                                                        readCommand',
+                                                        showCommand')
+import qualified RockBand.Drums                        as RBDrums
+import qualified RockBand.Events                       as Events
+import qualified RockBand.File                         as RBFile
+import qualified RockBand.FiveButton                   as RBFive
+import           RockBand.Parse                        (unparseBlip,
+                                                        unparseCommand)
+import qualified RockBand.ProGuitar                    as ProGtr
+import qualified RockBand.ProGuitar.Play               as PGPlay
+import qualified RockBand.ProKeys                      as ProKeys
+import qualified RockBand.Vocals                       as RBVox
+import qualified Sound.File.Sndfile                    as Snd
+import qualified Sound.Jammit.Base                     as J
+import qualified Sound.Jammit.Export                   as J
+import qualified Sound.MIDI.File                       as F
+import qualified Sound.MIDI.File.Event                 as E
+import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
+import qualified Sound.MIDI.File.Load                  as Load
+import qualified Sound.MIDI.File.Save                  as Save
+import qualified Sound.MIDI.Util                       as U
 import           System.Console.GetOpt
-import qualified System.Directory                 as Dir
-import           System.Environment               (getArgs)
-import           System.Environment.Executable    (getExecutablePath)
-import qualified System.Info                      as Info
-import           System.IO                        (IOMode (ReadMode), hFileSize,
-                                                   hPutStrLn, stderr,
-                                                   withBinaryFile)
-import           System.IO.Temp                   (withSystemTempDirectory)
-import           System.Process                   (callProcess)
+import qualified System.Directory                      as Dir
+import           System.Environment                    (getArgs)
+import           System.Environment.Executable         (getExecutablePath)
+import qualified System.Info                           as Info
+import           System.IO                             (IOMode (ReadMode),
+                                                        hFileSize, hPutStrLn,
+                                                        stderr, withBinaryFile)
+import           System.IO.Temp                        (withSystemTempDirectory)
+import           System.Process                        (callProcess)
 
 data Argument
   = AudioDir FilePath
@@ -115,8 +126,6 @@ data Argument
   | PositionMeasure
   | SeparateLines
   | Resolution Integer
-  | GtrTuning [Int]
-  | BassTuning [Int]
   deriving (Eq, Ord, Show, Read)
 
 optDescrs :: [OptDescr Argument]
@@ -127,8 +136,6 @@ optDescrs =
   , Option [] ["seconds"] (NoArg PositionSeconds) "midi to text: position non-tempo-track events in seconds"
   , Option [] ["measure"] (NoArg PositionMeasure) "midi to text: position non-tempo-track events in measures + beats"
   , Option [] ["separate-lines"] (NoArg SeparateLines) "midi to text: give every event on its own line"
-  , Option [] ["gtr-tuning"] (ReqArg (GtrTuning . map read . words) "tuning") "tuning offsets for pro guitar"
-  , Option [] ["bass-tuning"] (ReqArg (BassTuning . map read . words) "tuning") "tuning offsets for pro bass"
   , Option ['r'] ["resolution"] (ReqArg (Resolution . read) "int") "text to midi: how many ticks per beat"
   ]
 
@@ -969,11 +976,39 @@ main = do
             liftIO $ BL.writeFile out $ A.encode $ Proc.mapTime (realToFrac :: U.Seconds -> Milli)
               $ Proc.Processed gtr bass keys drums prokeys vox beat end
 
-          -- -- Guitar rules
-          -- dir </> "guitar.mid" %> \out -> do
-          --   input <- loadMIDI mid2p
-          --   saveMIDI out $ RBFile.playGuitarFile [0, 0, 0, 0, 0, 0] [0, 0, 0, 0] input
-          --   -- TODO: support different tunings again
+          -- Guitar rules
+          dir </> "protar-hear.mid" %> \out -> do
+            input <- loadMIDI mid2p
+            let goffs = case _proGuitarTuning $ _options songYaml of
+                  []   -> [0, 0, 0, 0, 0, 0]
+                  offs -> offs
+                boffs = case _proBassTuning $ _options songYaml of
+                  []   -> [0, 0, 0, 0]
+                  offs -> offs
+            saveMIDI out $ RBFile.playGuitarFile goffs boffs input
+          dir </> "protar-mpa.mid" %> \out -> do
+            input <- loadMIDI mid2p
+            let gtr17   = foldr RTB.merge RTB.empty [ t | RBFile.PartRealGuitar   t <- RBFile.s_tracks input ]
+                gtr22   = foldr RTB.merge RTB.empty [ t | RBFile.PartRealGuitar22 t <- RBFile.s_tracks input ]
+                bass17  = foldr RTB.merge RTB.empty [ t | RBFile.PartRealBass     t <- RBFile.s_tracks input ]
+                bass22  = foldr RTB.merge RTB.empty [ t | RBFile.PartRealBass22   t <- RBFile.s_tracks input ]
+                playTrack cont name t = let
+                  expert = flip RTB.mapMaybe t $ \case
+                    ProGtr.DiffEvent Expert devt -> Just devt
+                    _                            -> Nothing
+                  thres = fromIntegral (_hopoThreshold $ _options songYaml) / 480
+                  auto = PGPlay.autoplay thres expert
+                  msgToSysEx msg
+                    = E.SystemExclusive $ SysEx.Regular $ PGPlay.sendCommand (cont, msg) ++ [0xF7]
+                  in RBFile.RawTrack $ U.setTrackName name $ msgToSysEx <$> auto
+            saveMIDI out input
+              { RBFile.s_tracks =
+                  [ playTrack PGPlay.Mustang "GTR17"  $ if RTB.null gtr17  then gtr22  else gtr17
+                  , playTrack PGPlay.Squier  "GTR22"  $ if RTB.null gtr22  then gtr17  else gtr22
+                  , playTrack PGPlay.Mustang "BASS17" $ if RTB.null bass17 then bass22 else bass17
+                  , playTrack PGPlay.Squier  "BASS22" $ if RTB.null bass22 then bass17 else bass22
+                  ]
+              }
 
           -- Countin audio, and song+countin files
           let useCountin (Countin hits) = do
@@ -2241,17 +2276,6 @@ main = do
         let (mid, warnings) = MS.fromStandardMIDI midiTextOptions sf
         mapM_ (hPutStrLn stderr) warnings
         Save.toFile fout mid
-    "guitar" : args -> case inputOutput ".guitar.mid" args of
-      Nothing -> do
-        hPutStrLn stderr "Usage: onyx guitar in.mid [out.mid]"
-        hPutStrLn stderr "For tuning, add like: --gtr-tuning \"-2 0 0 0 0 0\" for drop D"
-        hPutStrLn stderr "                      --bass-tuning \"-2 0 0 0\""
-        error ""
-      Just (fin, fout) -> let
-        goffs = fromMaybe [] $ listToMaybe [ offs | GtrTuning  offs <- opts ]
-        boffs = fromMaybe [] $ listToMaybe [ offs | BassTuning offs <- opts ]
-        in loadMIDI_IO fin
-          >>= Save.toFile fout . RBFile.showMIDIFile . RBFile.playGuitarFile goffs boffs
     _ -> error "Invalid command"
 
 inputOutput :: String -> [String] -> Maybe (FilePath, FilePath)
