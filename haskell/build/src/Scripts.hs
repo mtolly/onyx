@@ -1,7 +1,10 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Scripts where
 
-import           Data.Maybe                       (listToMaybe, mapMaybe)
+import           Data.Maybe                       (fromMaybe, listToMaybe,
+                                                   mapMaybe)
+import qualified Data.Text                        as T
 
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -21,7 +24,8 @@ import qualified RockBand.ProGuitar               as ProGuitar
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as Vocals
 
-import           Config                           (Instrument (..), SongYaml,
+import           Config                           (Instrument (..),
+                                                   PreviewTime (..), SongYaml,
                                                    _metadata, _previewEnd,
                                                    _previewStart)
 import           Development.Shake
@@ -75,19 +79,26 @@ allEvents = foldr RTB.merge RTB.empty . mapMaybe getEvents . s_tracks where
 -- | Returns the start and end of the preview audio in milliseconds.
 previewBounds :: SongYaml -> Song U.Beats -> (Int, Int)
 previewBounds syaml song = let
-  starts = map Events.PracticeSection ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"]
+  len = songLengthMS song
+  secsToMS s = floor $ s * 1000
+  leadIn = max 0 . subtract 600
+  evalTime = \case
+    PreviewSeconds secs -> Just $ secsToMS secs
+    PreviewMIDI mb -> Just $ leadIn $ secsToMS $ U.applyTempoMap (s_tempos song) $ U.unapplyMeasureMap (s_signatures song) mb
+    PreviewSection str -> case find $ Events.PracticeSection $ T.unpack str of
+      Nothing  -> Nothing
+      Just bts -> Just $ leadIn $ secsToMS $ U.applyTempoMap (s_tempos song) bts
+  evalTime' pt = fromMaybe (error $ "Couldn't evaluate preview bound: " ++ show pt) $ evalTime pt
+  defStartTime = case mapMaybe (evalTime . PreviewSection) ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"] of
+    []    -> max 0 $ quot len 2 - 15000
+    t : _ -> min (len - 30000) t
   events = allEvents song
   find s = fmap (fst . fst) $ RTB.viewL $ RTB.filter (== s) events
-  start = case mapMaybe find starts of
-    []      -> 0
-    bts : _ -> max 0 $ U.applyTempoMap (s_tempos song) bts - 0.6
-  end = start + 30
-  ms n = floor $ n * 1000
   in case (_previewStart $ _metadata syaml, _previewEnd $ _metadata syaml) of
-    (Nothing, Nothing) -> (ms start, ms end)
-    (Just ps, Just pe) -> (ms ps, ms pe)
-    (Just ps, Nothing) -> (ms ps, ms $ ps + 30)
-    (Nothing, Just pe) -> (ms $ pe - 30, ms pe)
+    (Nothing, Nothing) -> (defStartTime, defStartTime + 30000)
+    (Just ps, Just pe) -> (evalTime' ps, evalTime' pe)
+    (Just ps, Nothing) -> let start = evalTime' ps in (start, start + 30000)
+    (Nothing, Just pe) -> let end = evalTime' pe in (end - 30000, end)
 
 songLengthBeats :: Song U.Beats -> U.Beats
 songLengthBeats s = case RTB.getTimes $ RTB.filter (== Events.End) $ allEvents s of

@@ -349,10 +349,13 @@ parseMeasureBeats = lift ask >>= \t -> let
     mb : _ -> return mb
     []     -> fatal "Couldn't parse as measure|beats"
 
+showMeasureBeats :: U.MeasureBeats -> T.Text
+showMeasureBeats (msr, bts) = T.pack $ show msr ++ "|" ++ show (realToFrac bts :: Scientific)
+
 instance A.ToJSON Countin where
   toJSON (Countin pairs) = A.Object $ Map.fromList $ flip map pairs $ \(t, v) -> let
     k = case t of
-      Left (msr, bts) -> T.pack $ show msr ++ "|" ++ show (realToFrac bts :: Scientific)
+      Left mb -> showMeasureBeats mb
       Right secs -> T.pack $ show (realToFrac secs :: Milli)
     in (k, A.toJSON v)
 
@@ -599,15 +602,18 @@ parseMinutes = lift ask >>= \case
     -> return seconds
   _ -> traceJSON -- will succeed if JSON number
 
+showTimestamp :: Milli -> A.Value
+showTimestamp s = let
+  mins = floor $ s / 60 :: Int
+  secs = s - fromIntegral mins * 60
+  in case mins of
+    0 -> A.toJSON s
+    _ -> A.toJSON $ show mins ++ ":" ++ (if secs < 10 then "0" else "") ++ show secs
+
 instance A.ToJSON Duration where
   toJSON = \case
     Frames f -> A.object ["frames" .= f]
-    Seconds s -> let
-      mins = floor $ s / 60 :: Int
-      secs = s - fromIntegral mins * 60
-      in case mins of
-        0 -> A.toJSON s
-        _ -> A.toJSON $ show mins ++ ":" ++ (if secs < 10 then "0" else "") ++ show secs
+    Seconds s -> showTimestamp $ realToFrac s
 
 data VocalCount = Vocal0 | Vocal1 | Vocal2 | Vocal3
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -739,8 +745,29 @@ instance A.ToJSON DrumLayout where
     StandardLayout -> "standard-layout"
     FlipYBToms     -> "flip-yb-toms"
 
+data PreviewTime
+  = PreviewSection T.Text
+  | PreviewMIDI    U.MeasureBeats
+  | PreviewSeconds U.Seconds
+  deriving (Eq, Ord, Show)
+
+instance TraceJSON PreviewTime where
+  traceJSON = do
+    str <- traceJSON
+    case T.stripPrefix "prc_" str of
+      Just prc -> return $ PreviewSection prc
+      Nothing -> let
+        p = parseFrom str $ either PreviewMIDI PreviewSeconds <$> parseCountinTime
+        in p `catch` \_ -> expected "a preview time: prc_something, timestamp, or measure|beats"
+
+instance A.ToJSON PreviewTime where
+  toJSON = \case
+    PreviewSection str -> A.toJSON $ "prc_" <> str
+    PreviewMIDI mb -> A.toJSON $ showMeasureBeats mb
+    PreviewSeconds secs -> showTimestamp $ realToFrac secs
+
 -- | Extra information with no gameplay affect.
-jsonRecord "Metadata" eosr $ do
+jsonRecord "Metadata" eos $ do
   warning "_title" "title" [t| Maybe T.Text |] [e| Nothing |]
   warning "_artist" "artist" [t| Maybe T.Text |] [e| Nothing |]
   warning "_album" "album" [t| Maybe T.Text |] [e| Nothing |]
@@ -758,8 +785,8 @@ jsonRecord "Metadata" eosr $ do
   opt "_rating" "rating" [t| Rating |] [e| Unrated |]
   opt "_drumKit" "drum-kit" [t| DrumKit |] [e| HardRockKit |]
   opt "_drumLayout" "drum-layout" [t| DrumLayout |] [e| StandardLayout |]
-  opt "_previewStart" "preview-start" [t| Maybe Double |] [e| Nothing |]
-  opt "_previewEnd" "preview-end" [t| Maybe Double |] [e| Nothing |]
+  opt "_previewStart" "preview-start" [t| Maybe PreviewTime |] [e| Nothing |]
+  opt "_previewEnd" "preview-end" [t| Maybe PreviewTime |] [e| Nothing |]
   opt "_songID" "song-id" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]
   opt "_languages" "languages" [t| [T.Text] |] [e| [] |]
   opt "_convert"    "convert"     [t| Bool |] [e| False |]

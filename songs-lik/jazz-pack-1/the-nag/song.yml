@@ -18,6 +18,7 @@ metadata:
   comments:
   - Drums by TheLieInKing, with minor adjustments and quantization by me.
   - All instruments have overdrive/unison.
+  preview-start: prc_main_riff_3
 audio:
   youtube:
     file-path: audio-youtube.wav
