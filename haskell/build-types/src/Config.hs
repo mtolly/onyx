@@ -752,13 +752,18 @@ data PreviewTime
   deriving (Eq, Ord, Show)
 
 instance TraceJSON PreviewTime where
-  traceJSON = do
-    str <- traceJSON
-    case T.stripPrefix "prc_" str of
-      Just prc -> return $ PreviewSection prc
-      Nothing -> let
-        p = parseFrom str $ either PreviewMIDI PreviewSeconds <$> parseCountinTime
-        in p `catch` \_ -> expected "a preview time: prc_something, timestamp, or measure|beats"
+  traceJSON = let
+    traceNum = do
+      d <- traceJSON
+      return $ PreviewSeconds $ realToFrac (d :: Double)
+    traceStr = do
+      str <- traceJSON
+      case T.stripPrefix "prc_" str of
+        Just prc -> return $ PreviewSection prc
+        Nothing -> let
+          p = parseFrom str $ either PreviewMIDI PreviewSeconds <$> parseCountinTime
+          in p `catch` \_ -> expected "a preview time: prc_something, timestamp, or measure|beats"
+    in traceNum `catch` \_ -> traceStr
 
 instance A.ToJSON PreviewTime where
   toJSON = \case

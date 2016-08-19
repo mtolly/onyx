@@ -28,12 +28,14 @@ import Song
 foreign import getWindowDims :: forall e. Eff (dom :: DOM | e) {w :: Number, h :: Number}
 
 type Settings =
-  { seeGuitar  :: Boolean
-  , seeBass    :: Boolean
-  , seeKeys    :: Boolean
-  , seeProKeys :: Boolean
-  , seeDrums   :: Boolean
-  , seeVocal   :: Boolean
+  { seeGuitar    :: Boolean
+  , seeBass      :: Boolean
+  , seeKeys      :: Boolean
+  , seeProKeys   :: Boolean
+  , seeProGuitar :: Boolean
+  , seeProBass   :: Boolean
+  , seeDrums     :: Boolean
+  , seeVocal     :: Boolean
   }
 
 data App
@@ -108,11 +110,13 @@ draw = do
             Just targetX' -> drawTracks targetX' trkt
             Nothing       -> drawTracks targetX  trkt
   drawTracks (_M + _B + _M + _B + _M)
-    [ drawPart (\(Song o) -> o.guitar ) _.seeGuitar  drawFive
-    , drawPart (\(Song o) -> o.bass   ) _.seeBass    drawFive
-    , drawPart (\(Song o) -> o.drums  ) _.seeDrums   drawDrums
-    , drawPart (\(Song o) -> o.keys   ) _.seeKeys    drawFive
-    , drawPart (\(Song o) -> o.prokeys) _.seeProKeys drawProKeys
+    [ drawPart (\(Song o) -> o.guitar   ) _.seeGuitar    drawFive
+    , drawPart (\(Song o) -> o.proguitar) _.seeProGuitar drawProtar
+    , drawPart (\(Song o) -> o.bass     ) _.seeBass      drawFive
+    , drawPart (\(Song o) -> o.probass  ) _.seeProBass   drawProtar
+    , drawPart (\(Song o) -> o.drums    ) _.seeDrums     drawDrums
+    , drawPart (\(Song o) -> o.keys     ) _.seeKeys      drawFive
+    , drawPart (\(Song o) -> o.prokeys  ) _.seeProKeys   drawProKeys
     ]
   void $ drawPart (\(Song o) -> o.vocal) _.seeVocal drawVocal 0
   let drawButtons _ L.Nil             = pure unit
@@ -128,7 +132,9 @@ draw = do
     , guard (isJust song.keys   ) *> [ if settings.seeKeys    then Image_button_keys    else Image_button_keys_off    ]
     , guard (isJust song.vocal  ) *> [ if settings.seeVocal   then Image_button_vocal   else Image_button_vocal_off   ]
     , guard (isJust song.drums  ) *> [ if settings.seeDrums   then Image_button_drums   else Image_button_drums_off   ]
+    , guard (isJust song.probass) *> [ if settings.seeProBass  then Image_button_probass  else Image_button_probass_off  ]
     , guard (isJust song.bass   ) *> [ if settings.seeBass    then Image_button_bass    else Image_button_bass_off    ]
+    , guard (isJust song.proguitar) *> [ if settings.seeProGuitar  then Image_button_proguitar  else Image_button_proguitar_off  ]
     , guard (isJust song.guitar ) *> [ if settings.seeGuitar  then Image_button_guitar  else Image_button_guitar_off  ]
     ]
   let playPause = case stuff.app of
@@ -320,6 +326,195 @@ drawFive (Five five) targetX = do
             Sustain Strum -> drawImage (if isEnergy then Image_gem_energy      else strumImage) (toNumber $ targetX + offsetX) (toNumber $ y - 5 )
             Note    HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) (toNumber $ targetX + offsetX) (toNumber $ y - 5 )
             Sustain HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) (toNumber $ targetX + offsetX) (toNumber $ y - 5 )
+  pure $ targetX + 182 + _M
+
+drawProtar :: forall e. Protar -> Int -> Draw e Int
+drawProtar (Protar protar) targetX = do
+  stuff <- askStuff
+  windowH <- map round $ lift $ C.getCanvasHeight stuff.canvas
+  let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
+      secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
+      maxSecs = pxToSecsVert (-100)
+      minSecs = pxToSecsVert $ windowH + 100
+      zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
+      zoomDesc = Map.zoomDescDo minSecs maxSecs
+      zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
+      zoomAsc = Map.zoomAscDo minSecs maxSecs
+      targetY = secsToPxVert stuff.time
+  -- Highway
+  setFillStyle "rgb(126,126,150)"
+  fillRect { x: toNumber targetX, y: 0.0, w: 182.0, h: toNumber windowH }
+  setFillStyle "rgb(184,185,204)"
+  for_ [0, 30, 60, 90, 120, 150, 180] $ \offsetX -> do
+    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
+  setFillStyle "black"
+  for_ [1, 31, 61, 91, 121, 151, 181] $ \offsetX -> do
+    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
+  -- Solo highway
+  setFillStyle "rgb(91,137,185)"
+  let startsAsSolo = case Map.lookupLE minSecs protar.solo of
+        Nothing           -> false
+        Just { value: v } -> v
+      soloEdges
+        = L.fromFoldable
+        $ cons (Tuple minSecs startsAsSolo)
+        $ flip snoc (Tuple maxSecs false)
+        $ Map.doTupleArray (zoomAsc protar.solo)
+      drawSolos L.Nil            = pure unit
+      drawSolos (L.Cons _ L.Nil) = pure unit
+      drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
+        let y1 = secsToPxVert s1
+            y2 = secsToPxVert s2
+        when b1 $ for_ [0, 32, 62, 92, 122, 152] $ \offsetX -> do
+          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 28.0, h: toNumber $ y1 - y2 }
+        drawSolos rest
+  drawSolos soloEdges
+  -- Solo edges
+  zoomDesc protar.solo $ \secs _ -> do
+    drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs)
+  -- Beats
+  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
+    let y = secsToPxVert secs
+    case evt of
+      Bar      -> drawImage Image_highway_grybo_bar       (toNumber targetX) (toNumber y - 1.0)
+      Beat     -> drawImage Image_highway_protar_beat     (toNumber targetX) (toNumber y - 1.0)
+      HalfBeat -> drawImage Image_highway_protar_halfbeat (toNumber targetX) (toNumber y)
+  -- Target
+  drawImage Image_highway_protar_target (toNumber targetX) (toNumber targetY - 5.0)
+  -- Sustains
+  let colors =
+        [ { c: _.s6, x: 1  , strum: Image_gem_red_pro   , hopo: Image_gem_red_pro_hopo
+          , shades: { light: "rgb(247,127,158)", normal: "rgb(218,  2, 62)", dark: "rgb(140,  2, 40)" }
+          , hit: \o -> "rgba(255,188,188," <> show o <> ")"
+          }
+        , { c: _.s5, x: 31 , strum: Image_gem_green_pro , hopo: Image_gem_green_pro_hopo
+          , shades: { light: "rgb(135,247,126)", normal: "rgb( 21,218,  2)", dark: "rgb( 13,140,  2)" }
+          , hit: \o -> "rgba(190,255,192," <> show o <> ")"
+          }
+        , { c: _.s4, x: 61 , strum: Image_gem_orange_pro, hopo: Image_gem_orange_pro_hopo
+          , shades: { light: "rgb(255,183,119)", normal: "rgb(218, 97,  4)", dark: "rgb(140, 63,  3)" }
+          , hit: \o -> "rgba(231,196,112," <> show o <> ")"
+          }
+        , { c: _.s3, x: 91, strum: Image_gem_blue_pro  , hopo: Image_gem_blue_pro_hopo
+          , shades: { light: "rgb(119,189,255)", normal: "rgb(  2,117,218)", dark: "rgb(  3, 76,140)" }
+          , hit: \o -> "rgba(190,198,255," <> show o <> ")"
+          }
+        , { c: _.s2, x: 121, strum: Image_gem_yellow_pro, hopo: Image_gem_yellow_pro_hopo
+          , shades: { light: "rgb(247,228,127)", normal: "rgb(218,180,  2)", dark: "rgb(140,115,  3)" }
+          , hit: \o -> "rgba(255,244,151," <> show o <> ")"
+          }
+        , { c: _.s1, x: 151, strum: Image_gem_purple_pro, hopo: Image_gem_purple_pro_hopo
+          , shades: { light: "rgb(214,154,242)", normal: "rgb(167, 25,241)", dark: "rgb(128, 12,188)" }
+          , hit: \o -> "rgba(210,162,255," <> show o <> ")"
+          }
+        ]
+  for_ colors $ \{ c: getColor, x: offsetX, shades: normalShades } -> do
+    let thisColor = getColor protar.notes
+        isEnergy secs = case Map.lookupLE secs protar.energy of
+          Nothing           -> false
+          Just { value: v } -> v
+        drawSustainBlock ystart yend energy = when (ystart < targetY || yend < targetY) do
+          let ystart' = min ystart targetY
+              yend'   = min yend   targetY
+              sustaining = targetY < ystart || targetY < yend
+              shades = if energy
+                then { light: "rgb(137,235,204)", normal: "rgb(138,192,175)", dark: "rgb(124,158,149)" }
+                else normalShades
+              h = yend' - ystart' + 1
+          setFillStyle "black"
+          fillRect { x: toNumber $ targetX + offsetX + 11, y: toNumber ystart', w: 1.0, h: toNumber h }
+          fillRect { x: toNumber $ targetX + offsetX + 19, y: toNumber ystart', w: 1.0, h: toNumber h }
+          setFillStyle shades.light
+          fillRect { x: toNumber $ targetX + offsetX + 12, y: toNumber ystart', w: 1.0, h: toNumber h }
+          setFillStyle shades.normal
+          fillRect { x: toNumber $ targetX + offsetX + 13, y: toNumber ystart', w: 5.0, h: toNumber h }
+          setFillStyle shades.dark
+          fillRect { x: toNumber $ targetX + offsetX + 18, y: toNumber ystart', w: 1.0, h: toNumber h }
+          when sustaining do
+            setFillStyle shades.light
+            fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 29.0, h: 8.0 }
+        go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisColor of
+          Just { key: secsStart, value: Sustain _ } -> do
+            drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
+            go false rest
+          _ -> unsafeThrow "during protar drawing: found a sustain end not preceded by sustain start"
+        go true (L.Cons (Tuple _ SustainEnd) rest) = go false rest
+        go _ (L.Cons (Tuple _ (Note _)) rest) = go false rest
+        go _ (L.Cons (Tuple secsStart (Sustain _)) rest) = do
+          let pxEnd = case rest of
+                L.Nil                      -> 0
+                L.Cons (Tuple secsEnd _) _ -> secsToPxVert secsEnd
+          drawSustainBlock pxEnd (secsToPxVert secsStart) $ isEnergy secsStart
+          go true rest
+        go _ L.Nil = pure unit
+    case L.fromFoldable $ Map.doTupleArray (zoomAsc thisColor) of
+      L.Nil -> case Map.lookupLT (pxToSecsVert windowH) thisColor of
+        -- handle the case where the entire screen is the middle of a sustain
+        Just { key: secsStart, value: Sustain _ } ->
+          drawSustainBlock 0 windowH $ isEnergy secsStart
+        _ -> pure unit
+      events -> go false events
+  -- Notes
+  for_ colors $ \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, hit: shadeHit } -> do
+    zoomDesc (getColor protar.notes) $ \secs evt -> do
+      let futureSecs = secToNum $ secs - stuff.time
+      if futureSecs <= 0.0
+        then do
+          -- note is in the past or being hit now
+          if (-0.1) < futureSecs
+            then case evt of
+              SustainEnd -> pure unit
+              _ -> do
+                setFillStyle $ shadeHit $ (futureSecs + 0.1) / 0.05
+                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 29.0, h: 8.0 }
+            else pure unit
+        else do
+          let y = secsToPxVert secs
+              isEnergy = case Map.lookupLE secs protar.energy of
+                Just {value: bool} -> bool
+                Nothing            -> false
+              fretImage  0 = Image_pro_fret_00
+              fretImage  1 = Image_pro_fret_01
+              fretImage  2 = Image_pro_fret_02
+              fretImage  3 = Image_pro_fret_03
+              fretImage  4 = Image_pro_fret_04
+              fretImage  5 = Image_pro_fret_05
+              fretImage  6 = Image_pro_fret_06
+              fretImage  7 = Image_pro_fret_07
+              fretImage  8 = Image_pro_fret_08
+              fretImage  9 = Image_pro_fret_09
+              fretImage 10 = Image_pro_fret_10
+              fretImage 11 = Image_pro_fret_11
+              fretImage 12 = Image_pro_fret_12
+              fretImage 13 = Image_pro_fret_13
+              fretImage 14 = Image_pro_fret_14
+              fretImage 15 = Image_pro_fret_15
+              fretImage 16 = Image_pro_fret_16
+              fretImage 17 = Image_pro_fret_17
+              fretImage 18 = Image_pro_fret_18
+              fretImage 19 = Image_pro_fret_19
+              fretImage 20 = Image_pro_fret_20
+              fretImage 21 = Image_pro_fret_21
+              fretImage 22 = Image_pro_fret_22
+              fretImage _  = unsafeThrow "invalid fret number"
+          case evt of
+            SustainEnd                               -> drawImage Image_sustain_end                                            (toNumber $ targetX + offsetX - 3) (toNumber   y      )
+            Note    (ProtarNote { noteType: Strum, fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute      else Image_gem_mute) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+            Sustain (ProtarNote { noteType: Strum, fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute      else Image_gem_mute) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+            Note    (ProtarNote { noteType: HOPO , fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+            Sustain (ProtarNote { noteType: HOPO , fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+            Note    (ProtarNote { noteType: Strum, fret: Just fret }) -> do
+              drawImage (if isEnergy then Image_gem_energy_pro      else strumImage) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+            Sustain (ProtarNote { noteType: Strum, fret: Just fret }) -> do
+              drawImage (if isEnergy then Image_gem_energy_pro      else strumImage) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+            Note    (ProtarNote { noteType: HOPO , fret: Just fret }) -> do
+              drawImage (if isEnergy then Image_gem_energy_pro_hopo else hopoImage ) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+            Sustain (ProtarNote { noteType: HOPO , fret: Just fret }) -> do
+              drawImage (if isEnergy then Image_gem_energy_pro_hopo else hopoImage ) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
   pure $ targetX + 182 + _M
 
 drawDrums :: forall e. Drums -> Int -> Draw e Int

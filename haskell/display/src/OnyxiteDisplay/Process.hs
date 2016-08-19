@@ -19,10 +19,11 @@ import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common                  (Difficulty (..),
-                                                   LongNote (..))
+                                                   LongNote (..), splitEdges)
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as PK
+import qualified RockBand.ProGuitar               as PG
 import qualified RockBand.Vocals                  as Vox
 import qualified Sound.MIDI.Util                  as U
 
@@ -138,6 +139,29 @@ instance (Real t) => A.ToJSON (ProKeys t) where
     , (,) "energy" $ eventList (proKeysEnergy x) A.toJSON
     ]
 
+data Protar t = Protar
+  { protarNotes  :: Map.Map PG.GtrString (Map.Map t (LongNote (Five.StrumHOPO, Maybe PG.GtrFret) ()))
+  , protarSolo   :: Map.Map t Bool
+  , protarEnergy :: Map.Map t Bool
+  } deriving (Eq, Ord, Show)
+
+instance TimeFunctor Protar where
+  mapTime f (Protar x y z) = Protar (Map.map (Map.mapKeys f) x) (Map.mapKeys f y) (Map.mapKeys f z)
+
+instance (Real t) => A.ToJSON (Protar t) where
+  toJSON x = A.object
+    [ (,) "notes" $ A.object $ flip map (Map.toList $ protarNotes x) $ \(string, notes) ->
+      (,) (T.pack $ map toLower $ show string) $ eventList notes $ A.String . \case
+        NoteOff () -> "end"
+        Blip (Five.Strum, fret) () -> "strum" <> showFret fret
+        Blip (Five.HOPO, fret) () -> "hopo" <> showFret fret
+        NoteOn (Five.Strum, fret) () -> "strum-sust" <> showFret fret
+        NoteOn (Five.HOPO, fret) () -> "hopo-sust" <> showFret fret
+    , (,) "solo" $ eventList (protarSolo x) A.toJSON
+    , (,) "energy" $ eventList (protarEnergy x) A.toJSON
+    ] where showFret Nothing  = "-x"
+            showFret (Just i) = "-" <> T.pack (show i)
+
 trackToMap :: (Ord a) => U.TempoMap -> RTB.T U.Beats a -> Map.Map U.Seconds a
 trackToMap tmap = Map.fromList . ATB.toPairList . RTB.toAbsoluteEventList 0 . U.applyTempoTrack tmap . RTB.normalize
 
@@ -181,6 +205,25 @@ processProKeys tmap trk = let
   solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Solo      b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Overdrive b -> Just b; _ -> Nothing
   in ProKeys notes ranges solo energy
+
+processProtar :: U.Beats -> U.TempoMap -> RTB.T U.Beats PG.Event -> Protar U.Seconds
+processProtar hopoThreshold tmap trk = let
+  expert = flip RTB.mapMaybe trk $ \case PG.DiffEvent Expert e -> Just e; _ -> Nothing
+  assigned = expandColors $ PG.guitarifyHOPO hopoThreshold expert
+  expandColors = splitEdges . RTB.flatten . fmap expandChord
+  expandChord (shopo, gems, len) = do
+    (str, fret, ntype) <- gems
+    return ((shopo, guard (ntype /= PG.Muted) >> Just fret), str, len)
+  getString string = trackToMap tmap $ flip RTB.mapMaybe assigned $ \case
+    Blip   ntype s -> guard (s == string) >> Just (Blip   ntype ())
+    NoteOn ntype s -> guard (s == string) >> Just (NoteOn ntype ())
+    NoteOff      s -> guard (s == string) >> Just (NoteOff      ())
+  notes = Map.fromList $ do
+    string <- [minBound .. maxBound]
+    return (string, getString string)
+  solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PG.Solo      b -> Just b; _ -> Nothing
+  energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PG.Overdrive b -> Just b; _ -> Nothing
+  in Protar notes solo energy
 
 data Beats t = Beats
   { beatLines :: Map.Map t Beat
@@ -323,35 +366,41 @@ processVocal tmap h1 h2 h3 tonic = let
     }
 
 data Processed t = Processed
-  { processedGuitar  :: Maybe (Five    t)
-  , processedBass    :: Maybe (Five    t)
-  , processedKeys    :: Maybe (Five    t)
-  , processedDrums   :: Maybe (Drums   t)
-  , processedProKeys :: Maybe (ProKeys t)
-  , processedVocal   :: Maybe (Vocal   t)
-  , processedBeats   ::        Beats   t
-  , processedEnd     :: t
+  { processedGuitar    :: Maybe (Five    t)
+  , processedBass      :: Maybe (Five    t)
+  , processedKeys      :: Maybe (Five    t)
+  , processedDrums     :: Maybe (Drums   t)
+  , processedProKeys   :: Maybe (ProKeys t)
+  , processedProGuitar :: Maybe (Protar  t)
+  , processedProBass   :: Maybe (Protar  t)
+  , processedVocal     :: Maybe (Vocal   t)
+  , processedBeats     ::        Beats   t
+  , processedEnd       :: t
   } deriving (Eq, Ord, Show)
 
 instance TimeFunctor Processed where
-  mapTime f (Processed g b k d v pk bts end) = Processed
+  mapTime f (Processed g b k d pk pg pb v bts end) = Processed
     (fmap (mapTime f) g)
     (fmap (mapTime f) b)
     (fmap (mapTime f) k)
     (fmap (mapTime f) d)
-    (fmap (mapTime f) v)
     (fmap (mapTime f) pk)
+    (fmap (mapTime f) pg)
+    (fmap (mapTime f) pb)
+    (fmap (mapTime f) v)
     (mapTime f bts)
     (f end)
 
 instance (Real t) => A.ToJSON (Processed t) where
   toJSON proc = A.object $ concat
-    [ case processedGuitar  proc of Nothing -> []; Just x -> [("guitar" , A.toJSON x)]
-    , case processedBass    proc of Nothing -> []; Just x -> [("bass"   , A.toJSON x)]
-    , case processedKeys    proc of Nothing -> []; Just x -> [("keys"   , A.toJSON x)]
-    , case processedDrums   proc of Nothing -> []; Just x -> [("drums"  , A.toJSON x)]
-    , case processedProKeys proc of Nothing -> []; Just x -> [("prokeys", A.toJSON x)]
-    , case processedVocal   proc of Nothing -> []; Just x -> [("vocal"  , A.toJSON x)]
+    [ case processedGuitar    proc of Nothing -> []; Just x -> [("guitar"   , A.toJSON x)]
+    , case processedBass      proc of Nothing -> []; Just x -> [("bass"     , A.toJSON x)]
+    , case processedKeys      proc of Nothing -> []; Just x -> [("keys"     , A.toJSON x)]
+    , case processedDrums     proc of Nothing -> []; Just x -> [("drums"    , A.toJSON x)]
+    , case processedProKeys   proc of Nothing -> []; Just x -> [("prokeys"  , A.toJSON x)]
+    , case processedProGuitar proc of Nothing -> []; Just x -> [("proguitar", A.toJSON x)]
+    , case processedProBass   proc of Nothing -> []; Just x -> [("probass"  , A.toJSON x)]
+    , case processedVocal     proc of Nothing -> []; Just x -> [("vocal"    , A.toJSON x)]
     , [("beats", A.toJSON $ processedBeats proc)]
     , [("end", A.Number $ realToFrac $ processedEnd proc)]
     ]

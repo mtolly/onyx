@@ -954,6 +954,14 @@ main = do
                   $ foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks song ]
                 prokeys = justIf (_hasProKeys $ _instruments songYaml) $ Proc.processProKeys (RBFile.s_tempos song)
                   $ foldr RTB.merge RTB.empty [ t | RBFile.PartRealKeys Expert t <- RBFile.s_tracks song ]
+                proguitar = justIf (_hasProGuitar $ _instruments songYaml) $ Proc.processProtar ht (RBFile.s_tempos song)
+                  $ let mustang = foldr RTB.merge RTB.empty [ t | RBFile.PartRealGuitar   t <- RBFile.s_tracks song ]
+                        squier  = foldr RTB.merge RTB.empty [ t | RBFile.PartRealGuitar22 t <- RBFile.s_tracks song ]
+                    in if RTB.null squier then mustang else squier
+                probass = justIf (_hasProBass $ _instruments songYaml) $ Proc.processProtar ht (RBFile.s_tempos song)
+                  $ let mustang = foldr RTB.merge RTB.empty [ t | RBFile.PartRealBass   t <- RBFile.s_tracks song ]
+                        squier  = foldr RTB.merge RTB.empty [ t | RBFile.PartRealBass22 t <- RBFile.s_tracks song ]
+                    in if RTB.null squier then mustang else squier
                 vox = case _hasVocal $ _instruments songYaml of
                   Vocal0 -> Nothing
                   Vocal1 -> makeVox
@@ -974,7 +982,7 @@ main = do
                 end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats song
                 justIf b x = guard b >> Just x
             liftIO $ BL.writeFile out $ A.encode $ Proc.mapTime (realToFrac :: U.Seconds -> Milli)
-              $ Proc.Processed gtr bass keys drums prokeys vox beat end
+              $ Proc.Processed gtr bass keys drums prokeys proguitar probass vox beat end
 
           -- Guitar rules
           dir </> "protar-hear.mid" %> \out -> do

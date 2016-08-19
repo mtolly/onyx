@@ -145,12 +145,14 @@ main = do
                                 else go (i + 1) rest
                             s = case song of Song o -> o
                             in go 1 $ L.fromFoldable $ concat
-                              [ guard (isJust s.prokeys) *> [ (\sets -> sets { seeProKeys = not sets.seeProKeys }) ]
-                              , guard (isJust s.keys   ) *> [ (\sets -> sets { seeKeys    = not sets.seeKeys    }) ]
-                              , guard (isJust s.vocal  ) *> [ (\sets -> sets { seeVocal   = not sets.seeVocal   }) ]
-                              , guard (isJust s.drums  ) *> [ (\sets -> sets { seeDrums   = not sets.seeDrums   }) ]
-                              , guard (isJust s.bass   ) *> [ (\sets -> sets { seeBass    = not sets.seeBass    }) ]
-                              , guard (isJust s.guitar ) *> [ (\sets -> sets { seeGuitar  = not sets.seeGuitar  }) ]
+                              [ guard (isJust s.prokeys  ) *> [ (\sets -> sets { seeProKeys    = not sets.seeProKeys   }) ]
+                              , guard (isJust s.keys     ) *> [ (\sets -> sets { seeKeys       = not sets.seeKeys      }) ]
+                              , guard (isJust s.vocal    ) *> [ (\sets -> sets { seeVocal      = not sets.seeVocal     }) ]
+                              , guard (isJust s.drums    ) *> [ (\sets -> sets { seeDrums      = not sets.seeDrums     }) ]
+                              , guard (isJust s.probass  ) *> [ (\sets -> sets { seeProBass    = not sets.seeProBass   }) ]
+                              , guard (isJust s.bass     ) *> [ (\sets -> sets { seeBass       = not sets.seeBass      }) ]
+                              , guard (isJust s.proguitar) *> [ (\sets -> sets { seeProGuitar  = not sets.seeProGuitar }) ]
+                              , guard (isJust s.guitar   ) *> [ (\sets -> sets { seeGuitar     = not sets.seeGuitar    }) ]
                               ]
                           else handle et app_
               case app of
@@ -164,11 +166,13 @@ main = do
         loop $ Paused
           { pausedSongTime: Seconds 0.0
           , settings:
-            { seeGuitar:  true
-            , seeBass:    true
-            , seeKeys:    true
-            , seeProKeys: true
-            , seeDrums:   true
-            , seeVocal:   true
+            { seeGuitar:    true
+            , seeBass:      true
+            , seeKeys:      true
+            , seeProKeys:   false
+            , seeProGuitar: false
+            , seeProBass:   false
+            , seeDrums:     true
+            , seeVocal:     true
             }
           }
