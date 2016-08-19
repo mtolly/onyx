@@ -1,0 +1,32 @@
+metadata:
+  title: Asturias
+  artist: John Williams
+  album: Spanish Guitar Music
+  track-number: 1
+  genre: classical
+  subgenre: classical
+  author: Onyxite
+  file-album-art: cover.jpg
+  year: 1990
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube TYjYJkA7T1s 140
+    md5: d86ac811b2b8cd7e59cf1c39394e4f72
+    frames: 16503808
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|1.5: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+    guitar:
+      pad: [3.019, gain: [1.5, youtube]]
+instruments:
+  pro-guitar: true
+published: false
