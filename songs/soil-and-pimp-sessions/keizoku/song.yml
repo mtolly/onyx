@@ -7,6 +7,8 @@ metadata:
     pro-keys: 7
     keys: 6
     drums: 7
+    guitar: 5
+    bass: 4
 audio:
   album-track:
     md5: 675dac1566809747687e43efe098918a
@@ -28,3 +30,5 @@ instruments:
   drums: true
   pro-keys: true
   keys: true
+  guitar: true
+  bass: true
