@@ -12,6 +12,7 @@ module Audio
 , audioLength
 , audioChannels
 , audioRate
+, audioSeconds
 , applyPansVols
 , applyVolsMono
 , crapMP3
@@ -45,6 +46,7 @@ import           Numeric                         (showHex)
 import           SndfileExtra
 import qualified Sound.File.Sndfile              as Snd
 import           System.IO
+import qualified Sound.MIDI.Util as U
 
 -- | Duplicates mono into stereo, or otherwise just tacks on silent channels to one source.
 sameChannels :: (Monad m, Num a, V.Storable a) => (AudioSource m a, AudioSource m a) -> (AudioSource m a, AudioSource m a)
@@ -178,6 +180,11 @@ audioRate :: FilePath -> IO (Maybe Int)
 audioRate f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
   then Just . Snd.samplerate <$> Snd.getFileInfo f
   else return Nothing
+
+audioSeconds :: FilePath -> IO U.Seconds
+audioSeconds f = do
+  info <- Snd.getFileInfo f
+  return $ realToFrac (Snd.frames info) / realToFrac (Snd.samplerate info)
 
 -- | Applies Rock Band's pan and volume lists
 -- to turn a multichannel OGG input into a stereo output.

@@ -719,6 +719,17 @@ main = do
                 , (crowdPV, dir </> "crowd.wav")
                 , (songPV, dir </> "song-countin.wav")
                 ]
+              allSourceAudio =
+                [ (dir </> "kick.wav")
+                , (dir </> "snare.wav")
+                , (dir </> "drums.wav")
+                , (dir </> "guitar.wav")
+                , (dir </> "bass.wav")
+                , (dir </> "keys.wav")
+                , (dir </> "vocal.wav")
+                , (dir </> "crowd.wav")
+                , (dir </> "song.wav")
+                ]
 
           dir </> "everything.wav" %> \out -> case plan of
             MoggPlan{..} -> do
@@ -787,20 +798,24 @@ main = do
               []    -> do
                 putNormal $ "[music_start] is missing. Placing at " ++ showPosition 2
                 return 2
-            -- A better default end position would take into account the audio length.
-            -- But, it's nice to not have notes.mid depend on any audio files.
+            -- If there's no [end], put it after all MIDI events and audio files.
             endPosn <- case [ t | (t, Events.End) <- eventsList ] of
               t : _ -> return t
               [] -> do
+                need allSourceAudio
+                audLen <- liftIO $ U.unapplyTempoMap tempos . maximum <$> mapM audioSeconds allSourceAudio
                 let absTimes = ATB.getTimes . RTB.toAbsoluteEventList 0
                     lastMIDIEvent = foldr max 0 $ concatMap (absTimes . RBFile.showTrack) trks ++ absTimes (U.tempoMapToBPS tempos)
+                    endPosition = fromInteger $ round $ max audLen lastMIDIEvent + 4
                 putNormal $ unwords
                   [ "[end] is missing. The last MIDI event is at"
                   , showPosition lastMIDIEvent
+                  , "and the longest audio file ends at"
+                  , showPosition audLen
                   , "so [end] will be at"
-                  , showPosition $ 4 + lastMIDIEvent
+                  , showPosition endPosition
                   ]
-                return $ 4 + lastMIDIEvent
+                return endPosition
             musicEndPosn <- case [ t | (t, Events.MusicEnd) <- eventsList ] of
               t : _ -> return t
               []    -> do
