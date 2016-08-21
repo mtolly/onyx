@@ -624,14 +624,13 @@ main = do
             makeReaper "notes.mid" tempo audios out
 
           -- Audio files
-          let maybePadAudio = if _padStart $ _options songYaml then Pad Start (Seconds 2.5) else id
           case plan of
             Plan{..} -> do
               let locate :: Audio Duration AudioInput -> Action (Audio Duration FilePath)
                   locate = fmap join . mapM manualLeaf
                   buildPart planPart fout = let
                     expr = maybe (Silence 2 $ Frames 0) _planExpr planPart
-                    in locate expr >>= \aud -> buildAudio (maybePadAudio aud) fout
+                    in locate expr >>= \aud -> buildAudio aud fout
               dir </> "song.wav"   %> buildPart _song
               dir </> "guitar.wav" %> buildPart _guitar
               dir </> "bass.wav"   %> buildPart _bass
@@ -647,7 +646,7 @@ main = do
               dir </> "crowd.wav"  %> buildAudio (Silence 1 $ Frames 0)
               let locate :: Maybe J.Instrument -> Action (Audio Duration FilePath)
                   locate inst = fmap join $ mapM (autoLeaf inst) $ _planExpr _each
-                  buildPart maybeInst fout = locate maybeInst >>= \aud -> buildAudio (maybePadAudio aud) fout
+                  buildPart maybeInst fout = locate maybeInst >>= \aud -> buildAudio aud fout
               forM_ (Nothing : map Just [minBound .. maxBound]) $ \maybeInst -> let
                 planAudioPath :: Maybe Instrument -> FilePath
                 planAudioPath (Just inst) = dir </> map toLower (show inst) <.> "wav"
@@ -931,9 +930,8 @@ main = do
                   putNormal "Generating a BEAT track..."
                   return $ RBFile.Beat $ U.trackTake endPosn $ makeBeatTrack $ RBFile.s_signatures input
                 else return $ RBFile.Beat trk
-            let maybePadMIDI = if _padStart $ _options songYaml then RBFile.padMIDI else id
             forM_ [(midPS, drumsPS), (mid1p, drums1p), (mid2p, drums2p)] $ \(midout, drumsTracks) ->
-              saveMIDI midout $ maybePadMIDI RBFile.Song
+              saveMIDI midout RBFile.Song
                 { RBFile.s_tempos = tempos
                 , RBFile.s_signatures = RBFile.s_signatures input
                 , RBFile.s_tracks = map fixRolls $ concat
@@ -949,7 +947,7 @@ main = do
                   , vocalTracks
                   ]
                 }
-            saveMIDI midraw $ maybePadMIDI RBFile.Song
+            saveMIDI midraw RBFile.Song
               { RBFile.s_tempos = tempos
               , RBFile.s_signatures = RBFile.s_signatures input
               , RBFile.s_tracks = RBFile.s_tracks input

@@ -4,7 +4,7 @@ module RockBand.File where
 import           Control.Monad                    (forM, forM_, liftM)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (sortOn)
+import           Data.List                        (partition, sortOn)
 import           Data.Maybe                       (catMaybes, fromJust)
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File                  as F
@@ -136,6 +136,21 @@ readMIDIFile mid = case U.decodeFile mid of
         , s_signatures = mmap
         , s_tracks     = catMaybes songTrks
         }
+
+-- | Does not attempt to parse any RB events; all tracks are kept as 'RawTrack'.
+readMIDIRaw :: F.T -> Song U.Beats
+readMIDIRaw mid = case U.decodeFile mid of
+  Right _ -> error "RockBand.File.readMIDIRaw: SMPTE tracks not supported"
+  Left trks -> let
+    (tempoTrk, restTrks) = case trks of
+      t : ts -> (t, ts)
+      []     -> (RTB.empty, [])
+    mmap = U.makeMeasureMap U.Truncate tempoTrk
+    in Song
+      { s_tempos     = U.makeTempoMap tempoTrk
+      , s_signatures = mmap
+      , s_tracks     = map RawTrack restTrks
+      }
 
 -- | Strips comments and track names from the track before handing it to a track parser.
 stripTrack :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
@@ -273,18 +288,20 @@ needsPad (Song temps _ trks) = let
   earlyPred fn t = any fn $ U.trackTake sec2_5 t
   in any early trks
 
--- | Adds 2.5 seconds of empty space to the start of the MIDI.
-padMIDI :: Song U.Beats -> Song U.Beats
-padMIDI (Song temps sigs trks) = let
+-- | Adds a given amount of 1 second increments to the start of the MIDI.
+padMIDI :: Int -> Song U.Beats -> Song U.Beats
+padMIDI 0       song                   = song
+padMIDI seconds (Song temps sigs trks) = let
+  beats = fromIntegral seconds * 2
   temps'
     = U.tempoMapFromBPS
-    $ RTB.cons 0 (2 :: U.BPS) -- 120 bpm
-    $ RTB.delay 5
+    $ RTB.cons 0 2 -- 120 bpm
+    $ RTB.delay beats
     $ U.tempoMapToBPS temps
   sigs'
     = U.measureMapFromTimeSigs U.Error
-    $ RTB.cons 0 (U.TimeSig 5 1) -- 5/4
-    $ RTB.delay 5
+    $ RTB.cons 0 (U.TimeSig 1 1) -- 1/4
+    $ RTB.delay beats
     $ U.measureMapToTimeSigs sigs
   trks' = flip map trks $ \case
     PartDrums         t -> PartDrums         $ padTrack t
@@ -307,14 +324,15 @@ padMIDI (Song temps sigs trks) = let
     Events            t -> Events            $ padTrack t
     Beat              t -> Beat              $ padBeat  t
     Venue             t -> Venue             $ padTrack t
-    RawTrack          t -> RawTrack          $ padTrack t
+    RawTrack          t -> RawTrack          $ padRaw   t
     MelodysEscape     t -> MelodysEscape     $ padTrack t
-  padTrack = RTB.delay 5
+  padTrack = RTB.delay beats
+  padRaw t = let
+    (z, nz) = U.trackSplitZero t
+    (names, notNames) = partition (\case E.MetaEvent (Meta.TrackName _) -> True; _ -> False) z
+    in U.trackGlueZero names $ RTB.delay beats $ U.trackGlueZero notNames nz
   padBeat
     = RTB.cons  0 Beat.Bar
-    . RTB.cons  1 Beat.Beat
-    . RTB.cons  1 Beat.Beat
-    . RTB.cons  1 Beat.Beat
-    . RTB.cons  1 Beat.Beat
+    . (foldr (.) id $ replicate (seconds * 2 - 1) $ RTB.cons 1 Beat.Beat)
     . RTB.delay 1
   in Song temps' sigs' trks'

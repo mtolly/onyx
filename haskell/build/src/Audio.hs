@@ -45,8 +45,8 @@ import           Development.Shake.FilePath      (takeExtension)
 import           Numeric                         (showHex)
 import           SndfileExtra
 import qualified Sound.File.Sndfile              as Snd
+import qualified Sound.MIDI.Util                 as U
 import           System.IO
-import qualified Sound.MIDI.Util as U
 
 -- | Duplicates mono into stereo, or otherwise just tacks on silent channels to one source.
 sameChannels :: (Monad m, Num a, V.Storable a) => (AudioSource m a, AudioSource m a) -> (AudioSource m a, AudioSource m a)

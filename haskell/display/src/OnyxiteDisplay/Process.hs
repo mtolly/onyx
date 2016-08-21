@@ -22,8 +22,8 @@ import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), splitEdges)
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.FiveButton              as Five
-import qualified RockBand.ProKeys                 as PK
 import qualified RockBand.ProGuitar               as PG
+import qualified RockBand.ProKeys                 as PK
 import qualified RockBand.Vocals                  as Vox
 import qualified Sound.MIDI.Util                  as U
 

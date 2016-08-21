@@ -34,6 +34,7 @@ import qualified RockBand.File                  as RBFile
 import           Scripts                        (loadMIDI_IO)
 import qualified Sound.MIDI.File                as F
 import qualified Sound.MIDI.File.Load           as Load
+import qualified Sound.MIDI.File.Save           as Save
 import qualified Sound.MIDI.Util                as U
 import           STFS.Extract                   (extractSTFS)
 import qualified System.Directory               as Dir
@@ -64,9 +65,8 @@ importAny krb2 src dest = do
 importFoF :: KeysRB2 -> FilePath -> FilePath -> IO ()
 importFoF krb2 src dest = do
   song <- FoF.loadSong $ src </> "song.ini"
-  F.Cons _ _ midtrks <- Load.fromFile $ src </> "notes.mid"
+  midi@(F.Cons _ _ midtrks) <- Load.fromFile $ src </> "notes.mid"
   let trackNames = mapMaybe U.trackName midtrks
-  Dir.copyFile (src </> "notes.mid") (dest </> "notes.mid")
 
   hasAlbumArt <- Dir.doesFileExist $ src </> "album.png"
   when hasAlbumArt $ Dir.copyFile (src </> "album.png") (dest </> "album.png")
@@ -90,16 +90,35 @@ importFoF krb2 src dest = do
         ["song.ogg"] -> "song.ogg"
         _ -> error $ "during FoF/PS import: unsupported audio configuration " ++ show songAudio
 
-  let toRank = fmap $ \n -> Rank $ max 1 $ min 7 $ fromIntegral n + 1
-      delay = case FoF.delay song of
-        Nothing -> id
+  pad <- fmap RBFile.needsPad $ loadMIDI_IO $ src </> "notes.mid"
+  let padDelay :: (Num a) => a
+      padDelay = if pad then 3 else 0
+      maybePadAudio = if pad then Pad Start $ CA.Seconds padDelay else id
+      (delayAudio, delayMIDI) = case FoF.delay song of
+        Nothing -> (maybePadAudio, RBFile.padMIDI padDelay)
         Just n -> case compare n 0 of
-          EQ -> id
-          GT -> Drop Start (CA.Seconds $ fromIntegral n / 1000)
-          LT -> Pad  Start (CA.Seconds $ fromIntegral (abs n) / 1000)
+          EQ -> (maybePadAudio, RBFile.padMIDI padDelay)
+          GT -> let
+            secs = fromIntegral n / 1000
+            midiDelay = ceiling secs
+            audioDelay = fromIntegral midiDelay - secs
+            padDelay' :: (Num a) => a
+            padDelay' = if midiDelay >= padDelay then 0 else padDelay - fromIntegral midiDelay
+            in (Pad Start $ CA.Seconds $ audioDelay + padDelay', RBFile.padMIDI $ midiDelay + padDelay')
+          LT ->
+            ( Pad Start $ CA.Seconds $ fromIntegral (abs n) / 1000 + padDelay
+            , RBFile.padMIDI padDelay
+            )
 
-  pad <- fmap RBFile.needsPad $ loadMIDI_IO $ dest </> "notes.mid"
-  when pad $ putStrLn "Padding song start by 2.5 seconds due to early notes."
+  let toRank = fmap $ \n -> Rank $ max 1 $ min 7 $ fromIntegral n + 1
+
+  let raw = RBFile.readMIDIRaw midi
+  Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile $ delayMIDI raw
+    { RBFile.s_tracks = flip filter (RBFile.s_tracks raw) $ \case
+      RBFile.RawTrack t -> U.trackName t /= Just "BEAT"
+      RBFile.Beat _ -> False
+      _ -> True
+    }
 
   Y.encodeFile (dest </> "song.yml") SongYaml
     { _metadata = Metadata
@@ -145,7 +164,6 @@ importFoF krb2 src dest = do
       { _auto2xBass      = False
       , _hopoThreshold   = 170
       , _keysRB2         = krb2
-      , _padStart        = pad
       , _proGuitarTuning = []
       , _proBassTuning   = []
       }
@@ -160,7 +178,7 @@ importFoF krb2 src dest = do
     , _jammit = HM.empty
     , _plans = HM.singleton "fof" Plan
       { _song         = Just PlanAudio
-        { _planExpr = delay $ Input $ Named $ T.pack songAudio
+        { _planExpr = delayAudio $ Input $ Named $ T.pack songAudio
         , _planPans = []
         , _planVols = []
         }
@@ -391,8 +409,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       , _cover        = not $ D.master pkg
       }
     , _options = Options
-      { _padStart = False
-      , _auto2xBass = is2x
+      { _auto2xBass = is2x
       , _hopoThreshold = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
       , _keysRB2 = krb2
       , _proGuitarTuning = fromMaybe [] $ map fromIntegral . D.fromInParens <$> D.realGuitarTuning pkg
