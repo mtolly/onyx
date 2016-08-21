@@ -125,6 +125,7 @@ track lenTicks lenSecs resn trk = let
         orange = (255, 128, 0)
     case lookup name
       [ ("PART DRUMS", yellow)
+      , ("PART DRUMS_2X", yellow)
       , ("PART REAL_DRUMS_PS", yellow)
       , ("PART GUITAR", blue)
       , ("PART REAL_GUITAR", blue)
@@ -160,6 +161,7 @@ track lenTicks lenSecs resn trk = let
     when isPitched $ line "FX" [if isGuitarPitch then "1" else "0"]
     case lookup name
       [ ("PART DRUMS", drumNoteNames)
+      , ("PART DRUMS_2X", drumNoteNames)
       , ("PART REAL_DRUMS_PS", drumNoteNames)
       , ("PART GUITAR", gryboNoteNames False)
       , ("PART BASS", gryboNoteNames False)

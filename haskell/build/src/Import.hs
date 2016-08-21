@@ -112,9 +112,26 @@ importFoF krb2 src dest = do
 
   let toRank = fmap $ \n -> Rank $ max 1 $ min 7 $ fromIntegral n + 1
 
+  let drumToDrums (RBFile.RawTrack t) = RBFile.RawTrack $ if U.trackName t == Just "PART DRUM"
+        then U.setTrackName "PART DRUMS" t
+        else t
+      drumToDrums trk                 = trk
+  mid2x <- Dir.doesFileExist $ src </> "expert+.mid"
+  add2x <- if mid2x
+    then do
+      raw2x <- RBFile.readMIDIRaw <$> Load.fromFile (src </> "expert+.mid")
+      let rawTracks = flip mapMaybe (RBFile.s_tracks raw2x) $ \case
+            RBFile.RawTrack t -> Just t
+            _                 -> Nothing
+          isDrums t = elem (U.trackName t) [Just "PART DRUMS", Just "PART DRUM"]
+      return $ case filter isDrums rawTracks of
+        []    -> id
+        d : _ -> (RBFile.RawTrack (U.setTrackName "PART DRUMS_2X" d) :)
+    else return id
+
   let raw = RBFile.readMIDIRaw midi
   Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile $ delayMIDI raw
-    { RBFile.s_tracks = flip filter (RBFile.s_tracks raw) $ \case
+    { RBFile.s_tracks = add2x $ map drumToDrums $ flip filter (RBFile.s_tracks raw) $ \case
       RBFile.RawTrack t -> U.trackName t /= Just "BEAT"
       RBFile.Beat _ -> False
       _ -> True
@@ -149,7 +166,9 @@ importFoF krb2 src dest = do
       , _rating       = Unrated
       , _drumKit      = HardRockKit
       , _drumLayout   = StandardLayout
-      , _previewStart = PreviewSeconds . (/ 1000) . fromIntegral <$> FoF.previewStartTime song
+      , _previewStart = case FoF.previewStartTime song of
+        Just ms | ms >= 0 -> Just $ PreviewSeconds $ fromIntegral ms / 1000
+        _                 -> Nothing
       , _previewEnd   = Nothing
       , _songID       = Nothing
       , _languages    = _languages def

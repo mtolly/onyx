@@ -837,20 +837,24 @@ main = do
                 (drumsPS, drums1p, drums2p, has2xNotes) = if not $ _hasDrums $ _instruments songYaml
                   then ([], [], [], False)
                   else let
-                    trk = mergeTracks [ t | RBFile.PartDrums t <- trks ]
+                    trk1x = mergeTracks [ t | RBFile.PartDrums   t <- trks ]
+                    trk2x = mergeTracks [ t | RBFile.PartDrums2x t <- trks ]
                     psKicks = if _auto2xBass $ _options songYaml
                       then U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
                       else id
                     sections = flip RTB.mapMaybe eventsRaw $ \case
                       Events.PracticeSection s -> Just s
                       _                        -> Nothing
-                    ps = psKicks $ drumMix mixMode $ drumsComplete (RBFile.s_signatures input) sections trk
+                    ps = psKicks . drumMix mixMode . drumsComplete (RBFile.s_signatures input) sections
+                    ps1x = ps $ if RTB.null trk1x then trk2x else trk1x
+                    ps2x = ps $ if RTB.null trk2x then trk1x else trk2x
+                    psPS = if elem RBDrums.Kick2x trk1x then ps1x else ps2x
                     -- Note: drumMix must be applied *after* drumsComplete.
                     -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
-                    in  ( [RBFile.PartDrums ps]
-                        , [RBFile.PartDrums $ rockBand1x ps]
-                        , [RBFile.PartDrums $ rockBand2x ps]
-                        , elem RBDrums.Kick2x ps
+                    in  ( [RBFile.PartDrums psPS]
+                        , [RBFile.PartDrums $ rockBand1x ps1x]
+                        , [RBFile.PartDrums $ rockBand2x ps2x]
+                        , elem RBDrums.Kick2x ps2x
                         )
                 guitarTracks = if not $ _hasGuitar $ _instruments songYaml
                   then []
