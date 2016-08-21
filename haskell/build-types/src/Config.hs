@@ -30,7 +30,6 @@ import           Data.Scientific                (Scientific, toRealFloat)
 import qualified Data.Text                      as T
 import           Data.Traversable
 import qualified Data.Vector                    as V
-import           Genre                          (defaultSubgenre)
 import           JSONData
 import           RockBand.Common                (Key (..))
 import qualified RockBand.Drums                 as Drums
@@ -800,12 +799,10 @@ jsonRecord "Metadata" eos $ do
   opt "_expertOnly" "expert-only" [t| Bool |] [e| False |]
   opt "_cover"      "cover"       [t| Bool |] [e| False |]
 
-getTitle, getArtist, getAlbum, getGenre, getSubgenre, getAuthor :: Metadata -> T.Text
+getTitle, getArtist, getAlbum, getAuthor :: Metadata -> T.Text
 getTitle = fromMaybe "Untitled" . _title
 getArtist = fromMaybe "Unknown Artist" . _artist
 getAlbum = fromMaybe "Unknown Album" . _album
-getGenre = fromMaybe "other" . _genre
-getSubgenre r = fromMaybe (defaultSubgenre $ getGenre r) $ _subgenre r
 getAuthor = fromMaybe "Unknown Author" . _author
 
 getYear, getTrackNumber :: Metadata -> Int

@@ -14,8 +14,7 @@ import           DryVox                                (clipDryVox,
                                                         toDryVoxFormat,
                                                         vocalTubes)
 import qualified FretsOnFire                           as FoF
-import           Genre                                 (genreDisplay,
-                                                        magmaV1Genre)
+import           Genre
 import           Image
 import           Import
 import           JSONData                              (JSONEither (..),
@@ -37,6 +36,7 @@ import           Resources                             (emptyMilo, emptyMiloRB2,
                                                         webDisplay)
 import qualified RockBand2                             as RB2
 import           Scripts
+import           Sections                              (makeRBN2Sections)
 import qualified Sound.MIDI.Script.Base                as MS
 import qualified Sound.MIDI.Script.Parse               as MS
 import qualified Sound.MIDI.Script.Read                as MS
@@ -70,7 +70,7 @@ import           Data.Foldable                         (toList)
 import           Data.Functor.Identity                 (runIdentity)
 import qualified Data.HashMap.Strict                   as HM
 import           Data.List                             (intercalate, isPrefixOf,
-                                                        nub, stripPrefix)
+                                                        nub)
 import qualified Data.Map                              as Map
 import           Data.Maybe                            (fromMaybe, isJust,
                                                         isNothing, listToMaybe,
@@ -234,6 +234,10 @@ main = do
       songYaml
         <-  readYAMLTree yamlPath
         >>= runReaderT (printStackTraceIO traceJSON)
+
+      let fullGenre = interpretGenre
+            (_genre    $ _metadata songYaml)
+            (_subgenre $ _metadata songYaml)
 
       -- make sure all audio leaves are defined, catch typos
       let definedLeaves = HM.keys (_audio songYaml) ++ HM.keys (_jammit songYaml)
@@ -825,12 +829,27 @@ main = do
                   , showPosition $ endPosn - 2
                   ]
                 return $ endPosn - 2
+            newSections <- let
+              sects = [ (t, T.pack s) | (t, Events.PracticeSection s) <- eventsList ]
+              (newSects, unrecognized) = makeRBN2Sections sects
+              in do
+                case unrecognized of
+                  [] -> return ()
+                  _  -> putNormal $ "The following sections were unrecognized and replaced: " ++ show unrecognized
+                return newSects
             let eventsTrack = RBFile.Events eventsRaw'
+                untouchedEvent = \case
+                  Events.MusicStart -> False
+                  Events.MusicEnd -> False
+                  Events.End -> False
+                  Events.PracticeSection _ -> False
+                  _ -> True
                 eventsRaw'
                   = RTB.insert musicStartPosn Events.MusicStart
                   $ RTB.insert musicEndPosn Events.MusicEnd
                   $ RTB.insert endPosn Events.End
-                  $ RTB.filter (`notElem` [Events.MusicStart, Events.MusicEnd, Events.End]) eventsRaw
+                  $ foldr (.) id [ RTB.insert t (Events.PracticeSection $ T.unpack s) | (t, s) <- newSections ]
+                  $ RTB.filter untouchedEvent eventsRaw
                 venueTracks = let
                   trk = mergeTracks [ t | RBFile.Venue t <- trks ]
                   in guard (not $ RTB.null trk) >> [RBFile.Venue trk]
@@ -854,7 +873,7 @@ main = do
                     in  ( [RBFile.PartDrums psPS]
                         , [RBFile.PartDrums $ rockBand1x ps1x]
                         , [RBFile.PartDrums $ rockBand2x ps2x]
-                        , elem RBDrums.Kick2x ps2x
+                        , elem RBDrums.Kick2x ps2x || any (not . RTB.null) [trk1x, trk2x]
                         )
                 guitarTracks = if not $ _hasGuitar $ _instruments songYaml
                   then []
@@ -1111,7 +1130,7 @@ main = do
               , FoF.album            = _album $ _metadata songYaml
               , FoF.charter          = _author $ _metadata songYaml
               , FoF.year             = _year $ _metadata songYaml
-              , FoF.genre            = fmap genreDisplay $ _genre $ _metadata songYaml
+              , FoF.genre            = Just $ fofGenre fullGenre
               , FoF.proDrums         = guard (_hasDrums $ _instruments songYaml) >> Just True
               , FoF.songLength       = Just len
               , FoF.previewStartTime = Just pstart
@@ -1293,8 +1312,8 @@ main = do
                   , D.version = 30
                   , D.gameOrigin = D.Keyword "ugc_plus"
                   , D.rating = fromIntegral $ fromEnum (_rating $ _metadata songYaml) + 1
-                  , D.genre = D.Keyword $ T.unpack $ getGenre $ _metadata songYaml
-                  , D.subGenre = Just $ D.Keyword $ "subgenre_" ++ T.unpack (getSubgenre $ _metadata songYaml)
+                  , D.genre = D.Keyword $ T.unpack $ rbn2Genre fullGenre
+                  , D.subGenre = Just $ D.Keyword $ "subgenre_" ++ T.unpack (rbn2Subgenre fullGenre)
                   , D.vocalGender = fromMaybe Magma.Female $ _vocalGender $ _metadata songYaml
                   , D.shortVersion = Nothing
                   , D.yearReleased = fromIntegral $ getYear $ _metadata songYaml
@@ -1534,8 +1553,8 @@ main = do
                       , Magma.metadata = Magma.Metadata
                         { Magma.songName = title
                         , Magma.artistName = T.unpack $ getArtist $ _metadata songYaml
-                        , Magma.genre = D.Keyword $ T.unpack $ getGenre $ _metadata songYaml
-                        , Magma.subGenre = D.Keyword $ "subgenre_" ++ T.unpack (getSubgenre $ _metadata songYaml)
+                        , Magma.genre = D.Keyword $ T.unpack $ rbn2Genre fullGenre
+                        , Magma.subGenre = D.Keyword $ "subgenre_" ++ T.unpack (rbn2Subgenre fullGenre)
                         , Magma.yearReleased = fromIntegral $ max 1960 $ getYear $ _metadata songYaml
                         , Magma.albumName = T.unpack $ getAlbum $ _metadata songYaml
                         , Magma.author = T.unpack $ getAuthor $ _metadata songYaml
@@ -1733,12 +1752,6 @@ main = do
                         , Magma.pan = [-1, 1]
                         , Magma.vol = [0, 0]
                         }
-                    (newGenre, newSubgenre) = case stripPrefix "subgenre_" $ D.fromKeyword $ Magma.subGenre $ Magma.metadata $ Magma.project p of
-                      Just sub -> magmaV1Genre
-                        ( T.pack $ D.fromKeyword $ Magma.genre $ Magma.metadata $ Magma.project p
-                        , T.pack sub
-                        )
-                      Nothing -> (T.pack "other", T.pack "other")
                     swapRanks gd = case _keysRB2 $ _options songYaml of
                       NoKeys     -> gd
                       KeysBass   -> gd { Magma.rankBass   = Magma.rankKeys gd }
@@ -1769,8 +1782,8 @@ main = do
                       }
                     , Magma.tracks = makeDummy $ Magma.tracks $ Magma.project p
                     , Magma.metadata = (Magma.metadata $ Magma.project p)
-                      { Magma.genre = D.Keyword $ T.unpack newGenre
-                      , Magma.subGenre = D.Keyword $ "subgenre_" ++ T.unpack newSubgenre
+                      { Magma.genre = D.Keyword $ T.unpack $ rbn1Genre fullGenre
+                      , Magma.subGenre = D.Keyword $ "subgenre_" ++ T.unpack (rbn1Subgenre fullGenre)
                       }
                     , Magma.gamedata = swapRanks $ (Magma.gamedata $ Magma.project p)
                       { Magma.previewStartMs = 0 -- for dummy audio. will reset after magma
@@ -1967,13 +1980,7 @@ main = do
                   else do
                     need [pathDta]
                     (_, rb3DTA, _) <- liftIO $ readRB3DTA pathDta
-                    let (newGenre, newSubgenre) = case D.subGenre rb3DTA >>= stripPrefix "subgenre_" . D.fromKeyword of
-                          Just sub -> magmaV1Genre
-                            ( T.pack $ D.fromKeyword $ D.genre rb3DTA
-                            , T.pack sub
-                            )
-                          Nothing -> (T.pack "other", T.pack "other")
-                        newDTA :: D.SongPackage
+                    let newDTA :: D.SongPackage
                         newDTA = D.SongPackage
                           { D.name = D.name rb3DTA
                           , D.artist = D.artist rb3DTA
@@ -2002,7 +2009,7 @@ main = do
                           , D.songLength = D.songLength rb3DTA
                           , D.preview = D.preview rb3DTA
                           , D.rank = fixDict $ D.rank rb3DTA
-                          , D.genre = D.Keyword $ T.unpack newGenre
+                          , D.genre = D.Keyword $ T.unpack $ rbn1Genre fullGenre
                           , D.decade = Just $ D.Keyword $ let y = D.yearReleased rb3DTA in if
                             | 1960 <= y && y < 1970 -> "the60s"
                             | 1970 <= y && y < 1980 -> "the70s"
@@ -2019,7 +2026,7 @@ main = do
                           , D.yearReleased = D.yearReleased rb3DTA
                           , D.basePoints = Just 0
                           , D.rating = D.rating rb3DTA
-                          , D.subGenre = Just $ D.Keyword $ T.unpack newSubgenre
+                          , D.subGenre = Just $ D.Keyword $ "subgenre_" ++ T.unpack (rbn1Subgenre fullGenre)
                           , D.songId = D.songId rb3DTA
                           , D.tuningOffsetCents = D.tuningOffsetCents rb3DTA
                           , D.context = Just 2000

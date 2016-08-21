@@ -40,7 +40,7 @@ instanceMIDIEvent [t| Event |]
   , commandPair ["crowd_noclap"] [p| CrowdNoclap |]
   , commandPair ["crowd_clap"] [p| CrowdClap |]
   , ( [e| firstEventWhich $ readCommand' >=> \case
-        ["section", s] -> Just $ PracticeSection s
+        "section" : ws -> Just $ PracticeSection $ unwords ws
         [s] -> PracticeSection <$> stripPrefix "prc_" s
         _   -> Nothing
       |]

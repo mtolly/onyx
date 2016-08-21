@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Genre where
+module Genre (interpretGenre, FullGenre(..)) where
 
 import           Control.Monad (guard)
 import qualified Data.Text     as T
@@ -11,15 +11,33 @@ data Genre = Genre T.Text T.Text [Subgenre]
 data Subgenre = Subgenre T.Text T.Text
   deriving (Eq, Ord, Show, Read)
 
-genreDisplay :: T.Text -> T.Text
-genreDisplay k = let
-  match = do
-    Genre key name _ <- allGenres
-    guard $ k == key
-    return name
-  in case match of
-    name : _ -> name
-    [] -> error $ "genreDisplay: couldn't recognize the genre " ++ show k
+data FullGenre = FullGenre
+  { fofGenre     :: T.Text
+  , rbn2Genre    :: T.Text
+  , rbn2Subgenre :: T.Text
+  , rbn1Genre    :: T.Text
+  , rbn1Subgenre :: T.Text
+  }
+
+interpretGenre :: Maybe T.Text -> Maybe T.Text -> FullGenre
+interpretGenre mg ms = let
+  defGenre = fill "Other" "other" "other"
+  fill fof gen sub = uncurry (FullGenre fof gen sub) $ magmaV1Genre (gen, sub)
+  findRBN2Genre g = [ gen | gen@(Genre key disp _) <- allGenres, elem g [key, disp] ]
+  findRBN2Subgenre subs s = [ sub | sub@(Subgenre key disp) <- subs, elem s [key, disp] ]
+  findSingle g = case findRBN2Genre g of
+    [] -> defGenre
+    Genre key disp _ : _ -> fill disp key $ defaultSubgenre key
+  findDouble g s = case findRBN2Genre g of
+    [] -> defGenre
+    Genre key disp subs : _ -> case findRBN2Subgenre subs s of
+      [] -> fill disp key $ defaultSubgenre key
+      Subgenre skey _ : _ -> fill disp key skey
+  in case (mg, ms) of
+    (Nothing, Nothing) -> defGenre
+    (Nothing, Just s) -> findSingle s
+    (Just g, Nothing) -> findSingle g
+    (Just g, Just s) -> findDouble g s
 
 magmaV1Genre :: (T.Text, T.Text) -> (T.Text, T.Text)
 magmaV1Genre p@(g, s) = case g of
