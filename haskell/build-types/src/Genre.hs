@@ -3,6 +3,8 @@
 module Genre (interpretGenre, FullGenre(..)) where
 
 import           Control.Monad (guard)
+import           Data.Char     (isAlphaNum)
+import           Data.Maybe    (catMaybes, fromMaybe, listToMaybe)
 import qualified Data.Text     as T
 
 data Genre = Genre T.Text T.Text [Subgenre]
@@ -17,24 +19,126 @@ data FullGenre = FullGenre
   , rbn2Subgenre :: T.Text
   , rbn1Genre    :: T.Text
   , rbn1Subgenre :: T.Text
-  }
+  } deriving (Eq, Ord, Show, Read)
 
 interpretGenre :: Maybe T.Text -> Maybe T.Text -> FullGenre
 interpretGenre mg ms = let
-  defGenre = fill "Other" "other" "other"
+  -- TODO: make sure e.g. prog metal is "Prog Metal" not "Metal" in FoF
+  defGenre fof = fill fof "other" "other"
   fill fof gen sub = uncurry (FullGenre fof gen sub) $ magmaV1Genre (gen, sub)
-  findRBN2Genre g = [ gen | gen@(Genre key disp _) <- allGenres, elem g [key, disp] ]
-  findRBN2Subgenre subs s = [ sub | sub@(Subgenre key disp) <- subs, elem s [key, disp] ]
-  findSingle g = case findRBN2Genre g of
-    [] -> defGenre
-    Genre key disp _ : _ -> fill disp key $ defaultSubgenre key
-  findDouble g s = case findRBN2Genre g of
-    [] -> defGenre
-    Genre key disp subs : _ -> case findRBN2Subgenre subs s of
+  std = T.filter isAlphaNum . T.toLower
+  findRBN2Genre g = [ gen | gen@(Genre key disp _) <- allGenres, elem (std g) [std key, std disp] ]
+  findRBN2Subgenre subs s = [ sub | sub@(Subgenre key disp) <- subs, elem (std s) [std key, std disp] ]
+  findSingle g = fromMaybe (defGenre g) $ listToMaybe $ catMaybes
+    -- first just check if it matches a top genre
+    [ case findRBN2Genre g of
+      [] -> Nothing
+      Genre key disp _ : _ -> Just $ fill disp key $ defaultSubgenre key
+    -- then check if it's something like "Doom Metal" where it's "Subgenre Genre"
+    , case T.words g of
+      [sub, gen] -> findStrict gen sub
+      _ -> Nothing
+    -- then, if it's not something super-generic, check if it's a subgenre
+    , case std g of
+        "college" -> findDoubleMaybe "alternative" "college"
+        "chicago" -> findDoubleMaybe "blues" "chicago"
+        "delta" -> findDoubleMaybe "blues" "delta"
+        "bluegrass" -> findDoubleMaybe "country" "bluegrass"
+        "honkytonk" -> findDoubleMaybe "country" "honkytonk"
+        "outlaw" -> findDoubleMaybe "country" "outlaw"
+        "traditionalfolk" -> findDoubleMaybe "country" "traditionalfolk"
+        "goth" -> findDoubleMaybe "glam" "goth"
+        "alternativerap" -> findDoubleMaybe "hiphoprap" "alternativerap"
+        "gangsta" -> findDoubleMaybe "hiphoprap" "gangsta"
+        "gangstarap" -> findDoubleMaybe "hiphoprap" "gangsta"
+        "hardcorerap" -> findDoubleMaybe "hiphoprap" "hardcorerap"
+        "hiphop" -> findDoubleMaybe "hiphoprap" "hiphop"
+        "oldschoolhiphop" -> findDoubleMaybe "hiphoprap" "oldschoolhiphop"
+        "rap" -> findDoubleMaybe "hiphoprap" "rap"
+        "triphop" -> findDoubleMaybe "hiphoptriphop" "triphop"
+        "undergroundrap" -> findDoubleMaybe "hiphoptriphop" "undergroundrap"
+        "indie" -> findDoubleMaybe "indierock" "indierock"
+        "lofi" -> findDoubleMaybe "indierock" "lofi"
+        "mathrock" -> findDoubleMaybe "indierock" "mathrock"
+        "noise" -> findDoubleMaybe "indierock" "noise"
+        "noiserock" -> findDoubleMaybe "indierock" "noise"
+        "postrock" -> findDoubleMaybe "indierock" "postrock"
+        "shoegazing" -> findDoubleMaybe "indierock" "shoegazing"
+        "shoegaze" -> findDoubleMaybe "indierock" "shoegazing"
+        "acidjazz" -> findDoubleMaybe "jazz" "acidjazz"
+        "ragtime" -> findDoubleMaybe "jazz" "ragtime"
+        "smooth" -> findDoubleMaybe "jazz" "smooth"
+        "death" -> findDoubleMaybe "metal" "death"
+        "hair" -> findDoubleMaybe "metal" "hair"
+        "speed" -> findDoubleMaybe "metal" "speed"
+        "thrash" -> findDoubleMaybe "metal" "thrash"
+        "darkwave" -> findDoubleMaybe "newwave" "darkwave"
+        "electroclash" -> findDoubleMaybe "newwave" "electroclash"
+        "synthpop" -> findDoubleMaybe "newwave" "synthpop"
+        "ambient" -> findDoubleMaybe "popdanceelectronic" "ambient"
+        "breakbeat" -> findDoubleMaybe "popdanceelectronic" "breakbeat"
+        "chiptune" -> findDoubleMaybe "popdanceelectronic" "chiptune"
+        "dance" -> findDoubleMaybe "popdanceelectronic" "dance"
+        "downtempo" -> findDoubleMaybe "popdanceelectronic" "downtempo"
+        "dub" -> findDoubleMaybe "popdanceelectronic" "dub"
+        "drumandbass" -> findDoubleMaybe "popdanceelectronic" "drumandbass"
+        "drumnbass" -> findDoubleMaybe "popdanceelectronic" "drumandbass"
+        "electronica" -> findDoubleMaybe "popdanceelectronic" "electronica"
+        "garage" -> findDoubleMaybe "popdanceelectronic" "garage"
+        "hardcoredance" -> findDoubleMaybe "popdanceelectronic" "hardcoredance"
+        "house" -> findDoubleMaybe "popdanceelectronic" "house"
+        "industrial" -> findDoubleMaybe "popdanceelectronic" "industrial"
+        "techno" -> findDoubleMaybe "popdanceelectronic" "techno"
+        "trance" -> findDoubleMaybe "popdanceelectronic" "trance"
+        "pop" -> findDoubleMaybe "poprock" "pop"
+        "softrock" -> findDoubleMaybe "poprock" "softrock"
+        "teen" -> findDoubleMaybe "poprock" "teen"
+        "dancepunk" -> findDoubleMaybe "punk" "dancepunk"
+        "poppunk" -> findDoubleMaybe "punk" "pop"
+        "disco" -> findDoubleMaybe "rbsoulfunk" "disco"
+        "funk" -> findDoubleMaybe "rbsoulfunk" "funk"
+        "motown" -> findDoubleMaybe "rbsoulfunk" "motown"
+        "rhythmandblues" -> findDoubleMaybe "rbsoulfunk" "rhythmandblues"
+        "rhythmnblues" -> findDoubleMaybe "rbsoulfunk" "rhythmandblues"
+        "reggae" -> findDoubleMaybe "reggaeska" "reggae"
+        "ska" -> findDoubleMaybe "reggaeska" "ska"
+        "arena" -> findDoubleMaybe "rock" "arena"
+        "folkrock" -> findDoubleMaybe "rock" "folkrock"
+        "psychedelic" -> findDoubleMaybe "rock" "psychedelic"
+        "rockabilly" -> findDoubleMaybe "rock" "rockabilly"
+        "rockandroll" -> findDoubleMaybe "rock" "rockandroll"
+        "surf" -> findDoubleMaybe "rock" "surf"
+        "acapella" -> findDoubleMaybe "other" "acapella"
+        "acoustic" -> findDoubleMaybe "other" "acoustic"
+        "contemporaryfolk" -> findDoubleMaybe "other" "contemporaryfolk"
+        "experimental" -> findDoubleMaybe "other" "experimental"
+        "oldies" -> findDoubleMaybe "other" "oldies"
+        _ -> Nothing
+    -- then, check if a subgenre and genre are both inside it
+    , listToMaybe $ do
+      Genre key disp subs <- allGenres
+      Subgenre skey sdisp <- subs
+      guard $ all (`T.isInfixOf` std g) [std disp, std sdisp]
+      return $ fill g key skey
+    -- finally, check if just a genre is inside it
+    , listToMaybe $ do
+      Genre key disp _ <- allGenres
+      guard $ std disp `T.isInfixOf` std g
+      return $ fill g key $ defaultSubgenre key
+    ]
+  findDoubleMaybe g s = case findRBN2Genre g of
+    [] -> Nothing
+    Genre key disp subs : _ -> Just $ case findRBN2Subgenre subs s of
       [] -> fill disp key $ defaultSubgenre key
       Subgenre skey _ : _ -> fill disp key skey
+  findStrict g s = case findRBN2Genre g of
+    [] -> Nothing
+    Genre key disp subs : _ -> case findRBN2Subgenre subs s of
+      [] -> Nothing
+      Subgenre skey _ : _ -> Just $ fill disp key skey
+  findDouble g s = fromMaybe (defGenre g) $ findDoubleMaybe g s
   in case (mg, ms) of
-    (Nothing, Nothing) -> defGenre
+    (Nothing, Nothing) -> defGenre "Other"
     (Nothing, Just s) -> findSingle s
     (Just g, Nothing) -> findSingle g
     (Just g, Just s) -> findDouble g s
