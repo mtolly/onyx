@@ -2,6 +2,7 @@
 module Sections where
 
 import           Control.Monad (guard)
+import           Data.Char     (isAlphaNum)
 import           Data.List     (sort)
 import           Data.List.HT  (partitionMaybe)
 import           Data.Maybe    (listToMaybe)
@@ -2524,10 +2525,10 @@ rbn2Sections =
 
 findRBN2Section :: T.Text -> Maybe T.Text
 findRBN2Section t = listToMaybe $ do
-  let standardize = T.replace " " "_" . T.toLower
+  let standardize = T.filter isAlphaNum . T.toLower
       t' = T.replace "guitar" "gtr" $ standardize t
   (k, v) <- rbn2Sections
-  guard $ t' == k || t' == standardize v
+  guard $ elem t' [standardize k, standardize v]
   return k
 
 makeRBN2Sections :: (Ord a) => [(a, T.Text)] -> ([(a, T.Text)], [T.Text])

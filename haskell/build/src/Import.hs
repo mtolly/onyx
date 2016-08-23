@@ -110,7 +110,7 @@ importFoF krb2 src dest = do
             , RBFile.padMIDI padDelay
             )
 
-  let toRank = fmap $ \n -> Rank $ max 1 $ min 7 $ fromIntegral n + 1
+  let toTier = fmap $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
 
   let drumToDrums (RBFile.RawTrack t) = RBFile.RawTrack $ if U.trackName t == Just "PART DRUM"
         then U.setTrackName "PART DRUMS" t
@@ -150,15 +150,15 @@ importFoF krb2 src dest = do
       , _comments     = []
       , _vocalGender  = Nothing
       , _difficulty   = Difficulties
-        { _difficultyDrums     = toRank $ FoF.diffDrums song
-        , _difficultyGuitar    = toRank $ FoF.diffGuitar song
-        , _difficultyBass      = toRank $ FoF.diffBass song
-        , _difficultyKeys      = toRank $ FoF.diffKeys song
-        , _difficultyProKeys   = toRank $ FoF.diffKeysReal song
-        , _difficultyProGuitar = toRank $ FoF.diffGuitarReal song
-        , _difficultyProBass   = toRank $ FoF.diffBassReal song
-        , _difficultyVocal     = toRank $ FoF.diffVocals song
-        , _difficultyBand      = toRank $ FoF.diffBand song
+        { _difficultyDrums     = toTier $ FoF.diffDrums song
+        , _difficultyGuitar    = toTier $ FoF.diffGuitar song
+        , _difficultyBass      = toTier $ FoF.diffBass song
+        , _difficultyKeys      = toTier $ FoF.diffKeys song
+        , _difficultyProKeys   = toTier $ FoF.diffKeysReal song
+        , _difficultyProGuitar = toTier $ FoF.diffGuitarReal song
+        , _difficultyProBass   = toTier $ FoF.diffBassReal song
+        , _difficultyVocal     = toTier $ FoF.diffVocals song
+        , _difficultyBand      = toTier $ FoF.diffBand song
         }
       , _key          = Nothing
       , _autogenTheme = AutogenDefault

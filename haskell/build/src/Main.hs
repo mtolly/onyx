@@ -790,19 +790,8 @@ main = do
                 mergeTracks = foldr RTB.merge RTB.empty
                 eventsRaw = mergeTracks [ t | RBFile.Events t <- trks ]
                 eventsList = ATB.toPairList $ RTB.toAbsoluteEventList 0 eventsRaw
-            -- If [music_start] is before 2 beats,
-            -- Magma will add auto [idle] events there in instrument tracks, and then error...
-            musicStartPosn <- case [ t | (t, Events.MusicStart) <- eventsList ] of
-              t : _ -> if t < 2
-                then do
-                  putNormal $ "[music_start] is too early. Moving to " ++ showPosition 2
-                  return 2
-                else return t
-              []    -> do
-                putNormal $ "[music_start] is missing. Placing at " ++ showPosition 2
-                return 2
             -- If there's no [end], put it after all MIDI events and audio files.
-            endPosn <- case [ t | (t, Events.End) <- eventsList ] of
+            endPosn' <- case [ t | (t, Events.End) <- eventsList ] of
               t : _ -> return t
               [] -> do
                 need allSourceAudio
@@ -819,6 +808,28 @@ main = do
                   , showPosition endPosition
                   ]
                 return endPosition
+            -- If we are generating an automatic BEAT track,
+            -- we have to round the [end] position up a bit,
+            -- to make sure the last BEAT note-off doesn't come after [end].
+            (beatTrack, endPosn) <- let
+              trk = mergeTracks [ t | RBFile.Beat t <- trks ]
+              in if RTB.null trk
+                then do
+                  putNormal "Generating a BEAT track..."
+                  let alignedEnd = fromInteger $ ceiling endPosn'
+                  return (RBFile.Beat $ U.trackTake alignedEnd $ makeBeatTrack $ RBFile.s_signatures input, alignedEnd)
+                else return (RBFile.Beat trk, endPosn')
+            -- If [music_start] is before 2 beats,
+            -- Magma will add auto [idle] events there in instrument tracks, and then error...
+            musicStartPosn <- case [ t | (t, Events.MusicStart) <- eventsList ] of
+              t : _ -> if t < 2
+                then do
+                  putNormal $ "[music_start] is too early. Moving to " ++ showPosition 2
+                  return 2
+                else return t
+              []    -> do
+                putNormal $ "[music_start] is missing. Placing at " ++ showPosition 2
+                return 2
             musicEndPosn <- case [ t | (t, Events.MusicEnd) <- eventsList ] of
               t : _ -> return t
               []    -> do
@@ -946,13 +957,6 @@ main = do
                         harm1   = windLyrics $ mergeTracks [ t | RBFile.Harm1      t <- trks ]
                         harm2   = windLyrics $ mergeTracks [ t | RBFile.Harm2      t <- trks ]
                         harm3   = windLyrics $ mergeTracks [ t | RBFile.Harm3      t <- trks ]
-            beatTrack <- let
-              trk = mergeTracks [ t | RBFile.Beat t <- trks ]
-              in if RTB.null trk
-                then do
-                  putNormal "Generating a BEAT track..."
-                  return $ RBFile.Beat $ U.trackTake endPosn $ makeBeatTrack $ RBFile.s_signatures input
-                else return $ RBFile.Beat trk
             forM_ [(midPS, drumsPS), (mid1p, drums1p), (mid2p, drums2p)] $ \(midout, drumsTracks) ->
               saveMIDI midout RBFile.Song
                 { RBFile.s_tempos = tempos
