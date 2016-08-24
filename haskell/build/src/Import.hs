@@ -80,15 +80,31 @@ importFoF krb2 src dest = do
           return $ Just x
         else return Nothing
     in mapMaybeM loadAudio
-      [ "drums.ogg", "drums_1.ogg", "drums_2.ogg", "drums_3.ogg"
-      , "guitar.ogg", "keys.ogg", "rhythm.ogg", "vocal.ogg"
+      [ "drums.ogg", "drums_1.ogg", "drums_2.ogg", "drums_3.ogg", "drums_4.ogg"
+      , "guitar.ogg", "keys.ogg", "rhythm.ogg", "vocals.ogg", "vocals_1.ogg", "vocals_2.ogg"
       , "crowd.ogg", "song.ogg"
       ]
 
-  let songAudio = case audioFiles of
-        ["guitar.ogg"] -> "guitar.ogg"
-        ["song.ogg"] -> "song.ogg"
-        _ -> error $ "during FoF/PS import: unsupported audio configuration " ++ show songAudio
+  let gtrAudio = case audioFiles of
+        ["guitar.ogg"] -> [] -- assume sole guitar is no-stems audio
+        _ -> filter (== "guitar.ogg") audioFiles
+      bassAudio = filter (== "rhythm.ogg") audioFiles
+      keysAudio = filter (== "keys.ogg") audioFiles
+      crowdAudio = filter (== "crowd.ogg") audioFiles
+      voxAudio = filter (`elem` ["vocals.ogg", "vocals_1.ogg", "vocals_2.ogg"]) audioFiles
+      d0 = "drums.ogg"
+      d1 = "drums_1.ogg"
+      d2 = "drums_2.ogg"
+      d3 = "drums_3.ogg"
+      d4 = "drums_4.ogg"
+      (drumsAudio, kickAudio, snareAudio)
+        | all (`elem` audioFiles) [d1, d2, d3, d4] = ([d3, d4], [d1], [d2])
+        | all (`elem` audioFiles) [d1, d2, d3] = ([d3], [d1], [d2])
+        | d0 `elem` audioFiles = ([d0], [], [])
+        | otherwise = ([], [], [])
+      songAudio = case audioFiles of
+        ["guitar.ogg"] -> ["guitar.ogg"]
+        _ -> filter (== "song.ogg") audioFiles
 
   pad <- fmap RBFile.needsPad $ loadMIDI_IO $ src </> "notes.mid"
   let padDelay :: (Num a) => a
@@ -109,6 +125,17 @@ importFoF krb2 src dest = do
             ( Pad Start $ CA.Seconds $ fromIntegral (abs n) / 1000 + padDelay
             , RBFile.padMIDI padDelay
             )
+      audioExpr [] = Nothing
+      audioExpr [aud] = Just PlanAudio
+        { _planExpr = delayAudio $ Input $ Named $ T.pack aud
+        , _planPans = []
+        , _planVols = []
+        }
+      audioExpr auds = Just PlanAudio
+        { _planExpr = delayAudio $ Concatenate $ map (Input . Named . T.pack) auds
+        , _planPans = []
+        , _planVols = []
+        }
 
   let toTier = fmap $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
 
@@ -196,20 +223,16 @@ importFoF krb2 src dest = do
       })
     , _jammit = HM.empty
     , _plans = HM.singleton "fof" Plan
-      { _song         = Just PlanAudio
-        { _planExpr = delayAudio $ Input $ Named $ T.pack songAudio
-        , _planPans = []
-        , _planVols = []
-        }
+      { _song         = audioExpr songAudio
       , _countin      = Countin []
-      , _guitar       = Nothing
-      , _bass         = Nothing
-      , _keys         = Nothing
-      , _kick         = Nothing
-      , _snare        = Nothing
-      , _drums        = Nothing
-      , _vocal        = Nothing
-      , _crowd        = Nothing
+      , _guitar       = audioExpr gtrAudio
+      , _bass         = audioExpr bassAudio
+      , _keys         = audioExpr keysAudio
+      , _kick         = audioExpr kickAudio
+      , _snare        = audioExpr snareAudio
+      , _drums        = audioExpr drumsAudio
+      , _vocal        = audioExpr voxAudio
+      , _crowd        = audioExpr crowdAudio
       , _planComments = []
       }
     , _instruments = Instruments
