@@ -483,7 +483,9 @@ main = do
                         6 -> " ⚪️⚪️⚪️⚪️⚪️"
                         7 -> " 😈😈😈😈😈"
                         _ -> ""
-          when (_hasDrums     $ _instruments songYaml) $ line $ "  * (Pro) Drums" ++ diffString _difficultyDrums     drumsDiffMap
+          when (_hasDrums     $ _instruments songYaml) $ line $ if _proDrums $ _options songYaml
+            then                                                "  * (Pro) Drums" ++ diffString _difficultyDrums     drumsDiffMap
+            else                                                "  * Basic Drums" ++ diffString _difficultyDrums     drumsDiffMap
           when (_hasBass      $ _instruments songYaml) $ line $ "  * Bass"        ++ diffString _difficultyBass      bassDiffMap
           when (_hasGuitar    $ _instruments songYaml) $ line $ "  * Guitar"      ++ diffString _difficultyGuitar    guitarDiffMap
           when (_hasProBass   $ _instruments songYaml) $ line $ "  * Pro Bass"    ++ diffString _difficultyProBass   proBassDiffMap
@@ -875,9 +877,18 @@ main = do
                     sections = flip RTB.mapMaybe eventsRaw $ \case
                       Events.PracticeSection s -> Just s
                       _                        -> Nothing
-                    ps = psKicks . drumMix mixMode . drumsComplete (RBFile.s_signatures input) sections
-                    ps1x = ps $ if RTB.null trk1x then trk2x else trk1x
-                    ps2x = ps $ if RTB.null trk2x then trk1x else trk2x
+                    finish = promarkers . psKicks . drumMix mixMode . drumsComplete (RBFile.s_signatures input) sections
+                    promarkers = if _proDrums $ _options songYaml
+                      then id
+                      else  RTB.insert 0       (RBDrums.ProType RBDrums.Yellow RBDrums.Tom   )
+                        .   RTB.insert 0       (RBDrums.ProType RBDrums.Blue   RBDrums.Tom   )
+                        .   RTB.insert 0       (RBDrums.ProType RBDrums.Green  RBDrums.Tom   )
+                        .   RTB.insert endPosn (RBDrums.ProType RBDrums.Yellow RBDrums.Cymbal)
+                        .   RTB.insert endPosn (RBDrums.ProType RBDrums.Blue   RBDrums.Cymbal)
+                        .   RTB.insert endPosn (RBDrums.ProType RBDrums.Green  RBDrums.Cymbal)
+                        .   RTB.filter (\case RBDrums.ProType _ _ -> False; _ -> True)
+                    ps1x = finish $ if RTB.null trk1x then trk2x else trk1x
+                    ps2x = finish $ if RTB.null trk2x then trk1x else trk2x
                     psPS = if elem RBDrums.Kick2x trk1x then ps1x else ps2x
                     -- Note: drumMix must be applied *after* drumsComplete.
                     -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
@@ -1135,7 +1146,7 @@ main = do
               , FoF.charter          = _author $ _metadata songYaml
               , FoF.year             = _year $ _metadata songYaml
               , FoF.genre            = Just $ fofGenre fullGenre
-              , FoF.proDrums         = guard (_hasDrums $ _instruments songYaml) >> Just True
+              , FoF.proDrums         = guard (_hasDrums $ _instruments songYaml) >> Just (_proDrums $ _options songYaml)
               , FoF.songLength       = Just len
               , FoF.previewStartTime = Just pstart
               -- difficulty tiers go from 0 to 6, or -1 for no part
@@ -1143,7 +1154,9 @@ main = do
               , FoF.diffGuitar       = Just $ fromIntegral $ guitarTier  - 1
               , FoF.diffBass         = Just $ fromIntegral $ bassTier    - 1
               , FoF.diffDrums        = Just $ fromIntegral $ drumsTier   - 1
-              , FoF.diffDrumsReal    = Just $ fromIntegral $ drumsTier   - 1
+              , FoF.diffDrumsReal    = Just $ if _proDrums $ _options songYaml
+                then fromIntegral $ drumsTier - 1
+                else -1
               , FoF.diffKeys         = Just $ fromIntegral $ keysTier    - 1
               , FoF.diffKeysReal     = Just $ fromIntegral $ proKeysTier - 1
               , FoF.diffVocals       = Just $ fromIntegral $ vocalTier   - 1

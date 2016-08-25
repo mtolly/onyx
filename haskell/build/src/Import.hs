@@ -3,49 +3,50 @@
 module Import where
 
 import           Audio
-import           Config                         hiding (Difficulty)
-import           Control.Applicative            ((<|>))
-import           Control.Monad                  (guard, when)
-import           Control.Monad.Extra            (mapMaybeM, replicateM)
-import           Control.Monad.Trans.StackTrace (printStackTraceIO)
-import           Data.Binary.Get                (getWord32le, runGet)
-import qualified Data.ByteString                as B
-import qualified Data.ByteString.Char8          as B8
-import qualified Data.ByteString.Lazy           as BL
-import qualified Data.Conduit.Audio             as CA
-import           Data.Default.Class             (def)
-import qualified Data.Digest.Pure.MD5           as MD5
-import qualified Data.DTA                       as D
-import qualified Data.DTA.Serialize             as D
-import qualified Data.DTA.Serialize.RB3         as D
-import           Data.Foldable                  (toList)
-import qualified Data.HashMap.Strict            as HM
-import           Data.List                      (nub, stripPrefix)
-import           Data.List.Split                (splitOn)
-import qualified Data.Map                       as Map
-import           Data.Maybe                     (fromMaybe, listToMaybe,
-                                                 mapMaybe)
-import qualified Data.Text                      as T
-import qualified Data.Yaml                      as Y
-import qualified FretsOnFire                    as FoF
-import           JSONData                       (JSONEither (..))
-import qualified RockBand.Drums                 as RBDrums
-import qualified RockBand.File                  as RBFile
-import           Scripts                        (loadMIDI_IO)
-import qualified Sound.MIDI.File                as F
-import qualified Sound.MIDI.File.Load           as Load
-import qualified Sound.MIDI.File.Save           as Save
-import qualified Sound.MIDI.Util                as U
-import           STFS.Extract                   (extractSTFS)
-import qualified System.Directory               as Dir
-import           System.FilePath                (takeDirectory, takeFileName,
-                                                 (<.>), (</>))
-import           System.IO                      (IOMode (..), SeekMode (..),
-                                                 hPutStrLn, hSeek, stderr,
-                                                 withBinaryFile)
-import           System.IO.Extra                (latin1, readFileEncoding',
-                                                 utf8)
-import           System.IO.Temp                 (withSystemTempDirectory)
+import           Config                           hiding (Difficulty)
+import           Control.Applicative              ((<|>))
+import           Control.Monad                    (guard, when)
+import           Control.Monad.Extra              (mapMaybeM, replicateM)
+import           Control.Monad.Trans.StackTrace   (printStackTraceIO)
+import           Data.Binary.Get                  (getWord32le, runGet)
+import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Char8            as B8
+import qualified Data.ByteString.Lazy             as BL
+import qualified Data.Conduit.Audio               as CA
+import           Data.Default.Class               (def)
+import qualified Data.Digest.Pure.MD5             as MD5
+import qualified Data.DTA                         as D
+import qualified Data.DTA.Serialize               as D
+import qualified Data.DTA.Serialize.RB3           as D
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
+import qualified Data.HashMap.Strict              as HM
+import           Data.List                        (nub, stripPrefix)
+import           Data.List.Split                  (splitOn)
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromMaybe, listToMaybe,
+                                                   mapMaybe)
+import qualified Data.Text                        as T
+import qualified Data.Yaml                        as Y
+import qualified FretsOnFire                      as FoF
+import           JSONData                         (JSONEither (..))
+import qualified RockBand.Drums                   as RBDrums
+import qualified RockBand.File                    as RBFile
+import           Scripts                          (loadMIDI_IO)
+import qualified Sound.MIDI.File                  as F
+import qualified Sound.MIDI.File.Load             as Load
+import qualified Sound.MIDI.File.Save             as Save
+import qualified Sound.MIDI.Util                  as U
+import           STFS.Extract                     (extractSTFS)
+import qualified System.Directory                 as Dir
+import           System.FilePath                  (takeDirectory, takeFileName,
+                                                   (<.>), (</>))
+import           System.IO                        (IOMode (..), SeekMode (..),
+                                                   hPutStrLn, hSeek, stderr,
+                                                   withBinaryFile)
+import           System.IO.Extra                  (latin1, readFileEncoding',
+                                                   utf8)
+import           System.IO.Temp                   (withSystemTempDirectory)
 
 -- | Convert a CON or RBA file (or FoF directory) to Onyx format.
 importAny :: KeysRB2 -> FilePath -> FilePath -> IO ()
@@ -106,8 +107,9 @@ importFoF krb2 src dest = do
         ["guitar.ogg"] -> ["guitar.ogg"]
         _ -> filter (== "song.ogg") audioFiles
 
-  pad <- fmap RBFile.needsPad $ loadMIDI_IO $ src </> "notes.mid"
-  let padDelay :: (Num a) => a
+  parsed <- loadMIDI_IO $ src </> "notes.mid"
+  let pad = RBFile.needsPad parsed
+      padDelay :: (Num a) => a
       padDelay = if pad then 3 else 0
       maybePadAudio = if pad then Pad Start $ CA.Seconds padDelay else id
       (delayAudio, delayMIDI) = case FoF.delay song of
@@ -212,6 +214,11 @@ importFoF krb2 src dest = do
       , _keysRB2         = krb2
       , _proGuitarTuning = []
       , _proBassTuning   = []
+      , _proDrums        = case FoF.proDrums song of
+        Just b  -> b
+        Nothing -> any
+          (\case RBDrums.ProType _ _ -> True; _ -> False)
+          (foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks parsed ])
       }
     , _audio = HM.fromList $ flip map audioFiles $ \aud -> (T.pack aud, AudioFile
       { _md5 = Nothing
@@ -451,11 +458,12 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       , _cover        = not $ D.master pkg
       }
     , _options = Options
-      { _auto2xBass = is2x
-      , _hopoThreshold = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
-      , _keysRB2 = krb2
+      { _auto2xBass      = is2x
+      , _hopoThreshold   = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
+      , _keysRB2         = krb2
       , _proGuitarTuning = fromMaybe [] $ map fromIntegral . D.fromInParens <$> D.realGuitarTuning pkg
       , _proBassTuning   = fromMaybe [] $ map fromIntegral . D.fromInParens <$> D.realBassTuning   pkg
+      , _proDrums        = True
       }
     , _audio = HM.empty
     , _jammit = HM.empty

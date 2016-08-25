@@ -173,6 +173,7 @@ parseTrack mmap t = case U.trackName t of
     warn "Track with no name"
     return $ RawTrack t
   Just s -> inside ("track named " ++ show s) $ case s of
+    "PART DRUM"           -> liftM PartDrums               $ makeTrackParser parseOne mmap t
     "PART DRUMS"          -> liftM PartDrums               $ makeTrackParser parseOne mmap t
     "PART DRUMS_2X"       -> liftM PartDrums2x             $ makeTrackParser parseOne mmap t
     "PART GUITAR"         -> liftM PartGuitar              $ makeTrackParser parseOne mmap t
