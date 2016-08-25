@@ -1,0 +1,27 @@
+published: false
+plans:
+  fof:
+    guitar: guitar.ogg
+    drums: drums.ogg
+metadata:
+  file-album-art: album.png
+  album: Drum Mixes and Overdubs
+  year: 2015
+  author: Wolferacing
+  title: Apologize (Wolfe Drum Mix)
+  genre: Pop
+  difficulty:
+    drums:
+      tier: 4
+  artist: OneRepublic
+options:
+  pro-drums: false
+jammit: {}
+audio:
+  drums.ogg:
+    channels: 2
+    file-path: drums.ogg
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments: {}

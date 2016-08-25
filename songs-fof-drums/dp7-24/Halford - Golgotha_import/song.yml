@@ -1,0 +1,24 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 0
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Crucible
+  year: 2002
+  author: Spirit in Black
+  title: Golgotha
+  genre: Heavy Metal
+  artist: Halford
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

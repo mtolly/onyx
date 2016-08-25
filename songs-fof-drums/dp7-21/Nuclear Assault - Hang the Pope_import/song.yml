@@ -1,0 +1,40 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 0.998
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  track-number: 6
+  album: Game Over
+  year: 1986
+  author: Sygenysis
+  title: Hang the Pope
+  genre: Thrash Metal
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 1
+    bass:
+      tier: 1
+    guitar:
+      tier: 1
+    keys:
+      tier: 1
+    drums:
+      tier: 7
+    pro-bass:
+      tier: 1
+  artist: Nuclear Assault
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

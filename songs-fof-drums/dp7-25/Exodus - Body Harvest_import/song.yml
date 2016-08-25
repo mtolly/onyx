@@ -1,0 +1,27 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 1.667
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Blood In, Blood Out
+  year: 2014
+  author: Spirit in Black
+  title: Body Harvest
+  genre: Thrash Metal
+  difficulty:
+    drums:
+      tier: 6
+  artist: Exodus
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

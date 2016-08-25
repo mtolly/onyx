@@ -1,0 +1,35 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  track-number: 1
+  album: Dead Ringer
+  year: 1981
+  author: Sygenysis
+  title: Peel Out
+  genre: Rock
+  difficulty:
+    pro-guitar:
+      tier: 1
+    bass:
+      tier: 1
+    guitar:
+      tier: 1
+    keys:
+      tier: 1
+    drums:
+      tier: 7
+    pro-bass:
+      tier: 1
+  artist: Meat Loaf
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  drums: true

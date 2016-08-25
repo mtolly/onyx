@@ -1,0 +1,47 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 2.959
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: A Change of Seasons
+  year: 1995
+  author: Italianstal1ion
+  title: A Change of Seasons
+  genre: Progressive Rock
+  difficulty:
+    pro-guitar:
+      tier: 1
+    pro-keys:
+      tier: 1
+    vocal:
+      tier: 6
+    bass:
+      tier: 7
+    guitar:
+      tier: 6
+    keys:
+      tier: 7
+    drums:
+      tier: 7
+    pro-bass:
+      tier: 1
+    band:
+      tier: 7
+  artist: Dream Theater
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  bass: true
+  guitar: true
+  keys: true
+  drums: true

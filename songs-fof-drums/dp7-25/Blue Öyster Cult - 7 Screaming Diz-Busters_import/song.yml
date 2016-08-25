@@ -1,0 +1,44 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  preview-start: 30
+  file-album-art: album.png
+  album: Tyranny and Mutation
+  year: 1973
+  author: Sygenysis + Nunchuck
+  title: 7 Screaming Diz-Busters
+  genre: Hard Rock
+  difficulty:
+    pro-guitar:
+      tier: 1
+    pro-keys:
+      tier: 1
+    vocal:
+      tier: 6
+    bass:
+      tier: 4
+    guitar:
+      tier: 7
+    keys:
+      tier: 7
+    drums:
+      tier: 7
+    pro-bass:
+      tier: 1
+    band:
+      tier: 6
+  artist: Blue Oyster Cult
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  bass: true
+  guitar: true
+  keys: true
+  drums: true

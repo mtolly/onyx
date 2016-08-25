@@ -1,0 +1,45 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 0.881
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: In Absentia
+  year: 2002
+  author: Meander
+  title: 10. Heartattack In A Layby
+  genre: Prog
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 4
+    bass:
+      tier: 1
+    guitar:
+      tier: 2
+    keys:
+      tier: 3
+    drums:
+      tier: 1
+    pro-bass:
+      tier: 1
+    band:
+      tier: 1
+  artist: Porcupine Tree
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  bass: true
+  guitar: true
+  keys: true
+  drums: true

@@ -1,0 +1,34 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  album: The Meaning Of I
+  year: 2011
+  author: italianstal1ion
+  title: The Meaning Of I
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 1
+    bass:
+      tier: 1
+    guitar:
+      tier: 1
+    keys:
+      tier: 1
+    drums:
+      tier: 5
+    pro-bass:
+      tier: 1
+  artist: Voyager
+options:
+  pro-drums: false
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

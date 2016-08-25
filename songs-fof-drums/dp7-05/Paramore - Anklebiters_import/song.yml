@@ -1,0 +1,38 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 0.762
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Paramore
+  year: 2013
+  author: Rex Voluntas
+  title: Anklebiters
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 1
+    bass:
+      tier: 1
+    guitar:
+      tier: 1
+    keys:
+      tier: 1
+    drums:
+      tier: 5
+    pro-bass:
+      tier: 1
+  artist: Paramore
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

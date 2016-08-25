@@ -1,0 +1,27 @@
+published: false
+plans:
+  fof:
+    guitar: guitar.ogg
+    drums: drums.ogg
+metadata:
+  file-album-art: album.png
+  album: Drum Mixes and Overdubs
+  year: 2015
+  author: Wolferacing
+  title: Remember Everything (Wolfe Drum Mix of a Remix)
+  genre: Rock
+  difficulty:
+    drums:
+      tier: 4
+  artist: Five Finger Death Punch
+options: {}
+jammit: {}
+audio:
+  drums.ogg:
+    channels: 2
+    file-path: drums.ogg
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

@@ -1,0 +1,23 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Nightfall In Middle-Earth
+  year: 1998
+  author: Homerrulz
+  title: Noldor (Dead Winter Reigns)
+  genre: Power Metal
+  difficulty:
+    drums:
+      tier: 4
+  artist: Blind Guardian
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

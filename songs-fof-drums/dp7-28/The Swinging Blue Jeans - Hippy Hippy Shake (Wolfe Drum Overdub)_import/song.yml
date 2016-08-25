@@ -1,0 +1,27 @@
+published: false
+plans:
+  fof:
+    guitar: guitar.ogg
+    drums: drums.ogg
+metadata:
+  file-album-art: album.png
+  album: Drum Mixes and Overdubs
+  year: 2015
+  author: Wolferacing
+  title: Hippy Hippy Shake (Wolfe Drum Overdub)
+  genre: Rock
+  difficulty:
+    drums:
+      tier: 3
+  artist: The Swinging Blue Jeans
+options: {}
+jammit: {}
+audio:
+  drums.ogg:
+    channels: 2
+    file-path: drums.ogg
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

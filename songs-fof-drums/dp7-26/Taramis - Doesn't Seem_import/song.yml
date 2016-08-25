@@ -1,0 +1,39 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 0.992
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  track-number: 2
+  album: Queen Of Thieves
+  year: 1987
+  author: Sygenysis
+  title: Doesn't Seem
+  genre: Progressive Metal
+  difficulty:
+    pro-guitar:
+      tier: 1
+    bass:
+      tier: 1
+    guitar:
+      tier: 1
+    keys:
+      tier: 1
+    drums:
+      tier: 7
+    pro-bass:
+      tier: 1
+  artist: Taramis
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  drums: true

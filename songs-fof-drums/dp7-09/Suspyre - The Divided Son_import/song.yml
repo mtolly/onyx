@@ -1,0 +1,23 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Suspyre
+  year: 2012
+  author: Homerrulz
+  title: The Divided Son
+  genre: Prog Metal
+  difficulty:
+    drums:
+      tier: 5
+  artist: Suspyre
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

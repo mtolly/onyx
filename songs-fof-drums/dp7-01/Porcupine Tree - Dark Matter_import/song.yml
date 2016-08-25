@@ -1,0 +1,45 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 0.299
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Signify
+  year: 1997
+  author: Meander
+  title: Dark Matter
+  genre: Prog
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 2
+    bass:
+      tier: 4
+    guitar:
+      tier: 6
+    keys:
+      tier: 3
+    drums:
+      tier: 5
+    pro-bass:
+      tier: 1
+    band:
+      tier: 5
+  artist: Porcupine Tree
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  bass: true
+  guitar: true
+  keys: true
+  drums: true

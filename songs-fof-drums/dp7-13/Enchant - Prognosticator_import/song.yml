@@ -1,0 +1,23 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: The Great Divide
+  year: 2014
+  author: Homerrulz
+  title: Prognosticator
+  genre: Prog Rock
+  difficulty:
+    drums:
+      tier: 4
+  artist: Enchant
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

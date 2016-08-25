@@ -1,0 +1,44 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 0.841
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: In Absentia
+  year: 2002
+  author: Meander
+  title: 12. Collapse The Light Into Earth
+  genre: Prog
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 3
+    bass:
+      tier: 1
+    guitar:
+      tier: 1
+    keys:
+      tier: 3
+    drums:
+      tier: 1
+    pro-bass:
+      tier: 1
+    band:
+      tier: 2
+  artist: Porcupine Tree
+options:
+  pro-drums: false
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  guitar: true
+  keys: true

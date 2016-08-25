@@ -1,0 +1,47 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 3
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Deadwing
+  year: 2005
+  author: Itialianstallion (D)/Mon01 (G)/Meander (B/K/V)
+  title: 02. Shallow
+  genre: Prog
+  difficulty:
+    pro-guitar:
+      tier: 5
+    vocal:
+      tier: 4
+    bass:
+      tier: 5
+    guitar:
+      tier: 5
+    keys:
+      tier: 1
+    drums:
+      tier: 4
+    pro-bass:
+      tier: 5
+    band:
+      tier: 4
+  artist: Porcupine Tree
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  pro-guitar: true
+  vocal: 1
+  bass: true
+  guitar: true
+  keys: true
+  drums: true
+  pro-bass: true

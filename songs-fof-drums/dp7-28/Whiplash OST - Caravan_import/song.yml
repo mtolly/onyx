@@ -1,0 +1,37 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 3
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Whiplash
+  year: 2014
+  author: italianstal1ion
+  title: Caravan
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 1
+    bass:
+      tier: 1
+    guitar:
+      tier: 1
+    keys:
+      tier: 1
+    pro-bass:
+      tier: 1
+  artist: Juan Tizol and Duke Ellington
+options:
+  pro-drums: false
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

@@ -1,0 +1,45 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 0.993
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  track-number: 1
+  album: Something in the Air
+  year: 1980
+  author: Sygenysis
+  title: Fantasia / Nightwing
+  genre: Progressive Rock
+  difficulty:
+    pro-guitar:
+      tier: 1
+    pro-keys:
+      tier: 1
+    vocal:
+      tier: 1
+    bass:
+      tier: 1
+    guitar:
+      tier: 1
+    keys:
+      tier: 1
+    drums:
+      tier: 5
+    pro-bass:
+      tier: 1
+    band:
+      tier: 1
+  artist: Nightwing
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  drums: true

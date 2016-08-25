@@ -1,0 +1,35 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: www.pitchshifter.com
+  year: 1998
+  author: Superfly360
+  title: Innit
+  genre: Industrial Rock
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 1
+    bass:
+      tier: 1
+    guitar:
+      tier: 1
+    keys:
+      tier: 1
+    drums:
+      tier: 7
+    pro-bass:
+      tier: 1
+  artist: Pitchshifter
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

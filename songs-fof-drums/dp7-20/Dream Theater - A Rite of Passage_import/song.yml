@@ -1,0 +1,64 @@
+published: false
+plans:
+  fof:
+    vocal: vocals.ogg
+    song: song.ogg
+    bass: rhythm.ogg
+    guitar: guitar.ogg
+    keys: keys.ogg
+    drums: drums.ogg
+metadata:
+  file-album-art: album.png
+  album: Black Clouds & Silver Linings
+  year: 2009
+  author: Unknown
+  title: 02. A Rite of Passage
+  genre: Prog
+  difficulty:
+    pro-guitar:
+      tier: 1
+    pro-keys:
+      tier: 7
+    vocal:
+      tier: 5
+    bass:
+      tier: 5
+    guitar:
+      tier: 7
+    keys:
+      tier: 7
+    drums:
+      tier: 6
+    pro-bass:
+      tier: 1
+    band:
+      tier: 7
+  artist: Dream Theater
+options: {}
+jammit: {}
+audio:
+  drums.ogg:
+    channels: 2
+    file-path: drums.ogg
+  keys.ogg:
+    channels: 2
+    file-path: keys.ogg
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+  song.ogg:
+    channels: 2
+    file-path: song.ogg
+  vocals.ogg:
+    channels: 2
+    file-path: vocals.ogg
+  rhythm.ogg:
+    channels: 2
+    file-path: rhythm.ogg
+instruments:
+  pro-keys: true
+  vocal: 3
+  bass: true
+  guitar: true
+  keys: true
+  drums: true

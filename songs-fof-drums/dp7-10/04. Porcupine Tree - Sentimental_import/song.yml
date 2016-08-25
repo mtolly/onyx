@@ -1,0 +1,40 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Fear Of A Blank Planet
+  year: 2007
+  author: Meander
+  title: 04. Sentimental
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 3
+    bass:
+      tier: 3
+    guitar:
+      tier: 4
+    keys:
+      tier: 5
+    drums:
+      tier: 5
+    pro-bass:
+      tier: 1
+    band:
+      tier: 4
+  artist: Porcupine Tree
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  bass: true
+  guitar: true
+  keys: true
+  drums: true

@@ -1,0 +1,46 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 3
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: In Absentia
+  year: 2002
+  author: CourtOfAPorcupine (G/D)/Meander (B/K/V)
+  title: 02. Trains
+  difficulty:
+    pro-guitar:
+      tier: 6
+    vocal:
+      tier: 5
+    bass:
+      tier: 3
+    guitar:
+      tier: 5
+    keys:
+      tier: 2
+    drums:
+      tier: 5
+    pro-bass:
+      tier: 3
+    band:
+      tier: 5
+  artist: Porcupine Tree
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  pro-guitar: true
+  vocal: 1
+  bass: true
+  guitar: true
+  keys: true
+  drums: true
+  pro-bass: true

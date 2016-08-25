@@ -1,0 +1,23 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Disciples Of The Sun
+  year: 2015
+  author: Homerrulz
+  title: The Battle Of Paridas
+  genre: Prog/Power Metal
+  difficulty:
+    drums:
+      tier: 5
+  artist: Pyramaze
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

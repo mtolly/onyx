@@ -1,0 +1,43 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Deadwing
+  year: 2005
+  author: Breadache (drums)/ Meander (Everything Ese)
+  title: 04. Halo (Live)
+  genre: Prog
+  difficulty:
+    pro-guitar:
+      tier: 5
+    vocal:
+      tier: 4
+    bass:
+      tier: 6
+    guitar:
+      tier: 4
+    keys:
+      tier: 7
+    drums:
+      tier: 7
+    pro-bass:
+      tier: 7
+    band:
+      tier: 7
+  artist: Porcupine Tree
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  pro-guitar: true
+  vocal: 1
+  bass: true
+  guitar: true
+  keys: true
+  drums: true
+  pro-bass: true

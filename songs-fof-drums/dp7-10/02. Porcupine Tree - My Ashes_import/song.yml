@@ -1,0 +1,43 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 0.774
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Fear Of A Blank Planet
+  year: 2007
+  author: Meander
+  title: 02. My Ashes
+  genre: Prog
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 4
+    bass:
+      tier: 2
+    guitar:
+      tier: 3
+    keys:
+      tier: 4
+    drums:
+      tier: 2
+    pro-bass:
+      tier: 1
+  artist: Porcupine Tree
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  bass: true
+  guitar: true
+  keys: true
+  drums: true

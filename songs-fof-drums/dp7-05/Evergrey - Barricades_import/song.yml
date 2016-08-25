@@ -1,0 +1,23 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Hymns For The Broken
+  year: 2014
+  author: Homerrulz
+  title: Barricades
+  genre: Prog Metal
+  difficulty:
+    drums:
+      tier: 5
+  artist: Evergrey
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

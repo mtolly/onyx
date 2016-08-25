@@ -1,0 +1,41 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: ! 'Act II: The Father Of Death'
+  year: 2009
+  author: Meander (G/B/D/K)
+  title: 03. The Hounds
+  genre: Indie
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 5
+    bass:
+      tier: 5
+    guitar:
+      tier: 6
+    keys:
+      tier: 4
+    drums:
+      tier: 6
+    pro-bass:
+      tier: 1
+    band:
+      tier: 6
+  artist: The Protomen
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  bass: true
+  guitar: true
+  keys: true
+  drums: true

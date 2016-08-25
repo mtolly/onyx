@@ -1,0 +1,23 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Sonic Highways
+  year: 2014
+  author: Homerrulz
+  title: Congregation
+  genre: Alternative Rock
+  difficulty:
+    drums:
+      tier: 4
+  artist: Foo Fighters
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

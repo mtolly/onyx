@@ -1,0 +1,45 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 0.644
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: ! 'Act II: The Father Of Death'
+  year: 2009
+  author: Meander (G/B/D/K/V)
+  title: 08. Light Up The Night
+  genre: Indie
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 5
+    bass:
+      tier: 3
+    guitar:
+      tier: 4
+    keys:
+      tier: 3
+    drums:
+      tier: 4
+    pro-bass:
+      tier: 1
+    band:
+      tier: 4
+  artist: The Protomen
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  bass: true
+  guitar: true
+  keys: true
+  drums: true

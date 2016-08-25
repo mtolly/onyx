@@ -1,0 +1,39 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 0.389
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Mmhmm
+  year: 2004
+  author: Rex Voluntas
+  title: Be My Escape
+  genre: Punk
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 1
+    bass:
+      tier: 1
+    guitar:
+      tier: 1
+    keys:
+      tier: 1
+    drums:
+      tier: 4
+    pro-bass:
+      tier: 1
+  artist: Relient K
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

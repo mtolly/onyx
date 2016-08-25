@@ -1,0 +1,23 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: For The Revolution
+  year: 2008
+  author: Homerrulz
+  title: For The Revolution
+  genre: Melodic Death Metal
+  difficulty:
+    drums:
+      tier: 5
+  artist: Kalmah
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

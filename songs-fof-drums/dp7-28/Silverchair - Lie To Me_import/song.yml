@@ -1,0 +1,39 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Freak Show
+  year: 1997
+  author: FrOoGle
+  title: Lie To Me
+  genre: Grunge
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 1
+    bass:
+      tier: 3
+    guitar:
+      tier: 3
+    keys:
+      tier: 1
+    drums:
+      tier: 3
+    pro-bass:
+      tier: 1
+    band:
+      tier: 3
+  artist: Silverchair
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  bass: true
+  guitar: true
+  drums: true

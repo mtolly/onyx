@@ -1,0 +1,43 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 0.179
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Parallels
+  year: 1991
+  author: Meander
+  title: 01. Leave The Past Behind
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 7
+    bass:
+      tier: 6
+    guitar:
+      tier: 6
+    keys:
+      tier: 1
+    drums:
+      tier: 7
+    pro-bass:
+      tier: 1
+    band:
+      tier: 7
+  artist: Fates Warning
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  bass: true
+  guitar: true
+  drums: true

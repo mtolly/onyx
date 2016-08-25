@@ -1,0 +1,44 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 2.214
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Figure Number Five
+  year: 2003
+  author: Yhughu
+  title: Distortion Sleep
+  genre: Melodic Death Metal
+  difficulty:
+    pro-guitar:
+      tier: 1
+    pro-keys:
+      tier: 1
+    vocal:
+      tier: 1
+    bass:
+      tier: 1
+    guitar:
+      tier: 4
+    keys:
+      tier: 1
+    drums:
+      tier: 5
+    pro-bass:
+      tier: 1
+    band:
+      tier: 1
+  artist: Soilwork
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  guitar: true
+  drums: true

@@ -1,0 +1,23 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: IV - One With The Storm
+  year: 2014
+  author: Homerrulz
+  title: Stones And Pillars
+  genre: Doom Metal
+  difficulty:
+    drums:
+      tier: 5
+  artist: Ghost Brigade
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

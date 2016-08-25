@@ -1,0 +1,43 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: Fear Of A Blank Planet
+  year: 2007
+  author: CourtOfAPorcupine (G/D)/Meander (B/K/V)
+  title: 04. Anesthenize
+  genre: Prog
+  difficulty:
+    pro-guitar:
+      tier: 7
+    vocal:
+      tier: 5
+    bass:
+      tier: 6
+    guitar:
+      tier: 6
+    keys:
+      tier: 5
+    drums:
+      tier: 7
+    pro-bass:
+      tier: 6
+    band:
+      tier: 7
+  artist: Porcupine Tree
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  pro-guitar: true
+  vocal: 1
+  bass: true
+  guitar: true
+  keys: true
+  drums: true
+  pro-bass: true

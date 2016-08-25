@@ -1,0 +1,23 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: The Final Frontier
+  year: 2010
+  author: Homerrulz
+  title: The Alchemist
+  genre: Heavy Metal
+  difficulty:
+    drums:
+      tier: 5
+  artist: Iron Maiden
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  drums: true

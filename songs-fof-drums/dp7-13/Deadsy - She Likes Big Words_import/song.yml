@@ -1,0 +1,35 @@
+published: false
+plans:
+  fof:
+    song: guitar.ogg
+metadata:
+  file-album-art: album.png
+  track-number: 9
+  album: Commencement
+  year: 2002
+  author: Sygenysis
+  title: She Likes Big Words
+  genre: Synthrock
+  difficulty:
+    pro-guitar:
+      tier: 1
+    bass:
+      tier: 1
+    guitar:
+      tier: 1
+    keys:
+      tier: 1
+    drums:
+      tier: 6
+    pro-bass:
+      tier: 1
+  artist: Deadsy
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  drums: true

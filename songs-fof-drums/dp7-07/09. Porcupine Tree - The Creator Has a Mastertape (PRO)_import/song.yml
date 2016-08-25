@@ -1,0 +1,45 @@
+published: false
+plans:
+  fof:
+    song:
+      pad:
+      - start
+      - 3
+      - guitar.ogg
+metadata:
+  file-album-art: album.png
+  album: In Absentia
+  year: 2002
+  author: Italianstal1ion (drums)/  Meander (G/B/K/V)
+  title: 09. The Creator Has a Mastertape
+  genre: Prog
+  difficulty:
+    pro-guitar:
+      tier: 1
+    vocal:
+      tier: 3
+    bass:
+      tier: 7
+    guitar:
+      tier: 6
+    keys:
+      tier: 4
+    drums:
+      tier: 7
+    pro-bass:
+      tier: 1
+    band:
+      tier: 7
+  artist: Porcupine Tree
+options: {}
+jammit: {}
+audio:
+  guitar.ogg:
+    channels: 2
+    file-path: guitar.ogg
+instruments:
+  vocal: 1
+  bass: true
+  guitar: true
+  keys: true
+  drums: true

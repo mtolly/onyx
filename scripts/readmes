@@ -5,5 +5,5 @@
 require_relative 'common'
 
 Dir['songs*/*/*/song.yml'].each do |f|
-  system_ "onyx build update-readme --song #{f}"
+  system_ "onyx build update-readme --song \"#{f}\""
 end
