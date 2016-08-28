@@ -3,6 +3,9 @@ metadata:
   file-include: ../../../albums/black-sands.yml
   track-number: 11
   author: Onyxite
+  difficulty:
+    drums: 5
+  preview-start: prc_verse_1a
 audio:
   album-track:
     md5: 7c24e6e97ac11b7b54274d285ca9ac6f
@@ -22,4 +25,3 @@ plans:
       pad: [3.465, album-track]
 instruments:
   drums: true
-published: false
