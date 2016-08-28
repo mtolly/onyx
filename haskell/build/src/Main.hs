@@ -895,7 +895,7 @@ main = do
                     in  ( [RBFile.PartDrums psPS]
                         , [RBFile.PartDrums $ rockBand1x ps1x]
                         , [RBFile.PartDrums $ rockBand2x ps2x]
-                        , elem RBDrums.Kick2x ps2x || any (not . RTB.null) [trk1x, trk2x]
+                        , elem RBDrums.Kick2x ps2x || all (not . RTB.null) [trk1x, trk2x]
                         )
                 guitarTracks = if not $ _hasGuitar $ _instruments songYaml
                   then []
