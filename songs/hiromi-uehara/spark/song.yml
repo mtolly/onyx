@@ -10,6 +10,7 @@ metadata:
   file-album-art: cover.jpg
   difficulty:
     drums: 7
+    pro-keys: 7
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -34,3 +35,4 @@ plans:
       - pad: [4.797, youtube]
 instruments:
   drums: true
+  pro-keys: true
