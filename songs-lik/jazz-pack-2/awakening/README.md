@@ -4,12 +4,13 @@
 
 Author: TheLieInKing
 
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=awakening&artist=jazz-pack-2)
 
 Instruments:
 
-  * (Pro) Drums
+  * (Pro) Drums 😈😈😈😈😈
 
 Supported audio:
 
-  * `mogg`
+  * `album` (The Inner Mounting Flame)
 
