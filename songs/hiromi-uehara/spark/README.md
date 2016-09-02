@@ -16,3 +16,7 @@ Supported audio:
 
   * `album` (Spark)
 
+Notes:
+
+  * All instruments have overdrive/unison.
+

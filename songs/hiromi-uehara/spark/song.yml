@@ -14,6 +14,8 @@ metadata:
     pro-keys: 7
     keys: 7
     bass: 3
+  comments:
+  - All instruments have overdrive/unison.
 audio:
   youtube:
     file-path: audio-youtube.wav
