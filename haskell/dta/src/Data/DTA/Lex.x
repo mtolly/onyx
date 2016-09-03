@@ -28,7 +28,7 @@ $white+ ;
 "kDataUnhandled" { \pn _ -> (pn, Unhandled) }
 -- Raw keywords. Note: these can start with digits, like "3sand7s", as long as
 -- they also have letters in them.
-($alpha | $digit | _ | \/ | \.)+ { \pn str -> (pn, Key str) }
+($alpha | $digit | _ | \/ | \. | \-)+ { \pn str -> (pn, Key str) }
 -- Quoted keywords.
 ' ([^'] | \\')* ' { \pn str -> (pn, Key $ readKey str) }
 
