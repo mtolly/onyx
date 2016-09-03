@@ -16,6 +16,8 @@ metadata:
     bass: 3
   comments:
   - All instruments have overdrive/unison.
+options:
+  keys-rb2: guitar
 audio:
   youtube:
     file-path: audio-youtube.wav

@@ -14,7 +14,6 @@ library
     Audio.Types
     Genre
     JSONData
-    Sections
   build-depends:
     base    >= 4.8    && < 4.10
     , aeson, text, unordered-containers, filepath, yaml
@@ -27,7 +26,6 @@ library
     , pretty
     , template-haskell
     , data-default-class
-    , utility-ht
     -- my libraries:
     , jammittools >= 0.5.0.3 && < 0.6
     , midi-util >= 0.2 && < 0.3

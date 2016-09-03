@@ -11,6 +11,7 @@ library
   exposed-modules:
     RockBand.Common
     RockBand.Parse
+    RockBand.Sections
     RockBand.Beat
     RockBand.Drums
     RockBand.Events
@@ -29,6 +30,8 @@ library
     , template-haskell
     , MonadRandom
     , containers
+    , utility-ht
+    , text
     -- my libraries:
     , midi-util >= 0.2 && < 0.3
     , onyxite-customs-stack-trace

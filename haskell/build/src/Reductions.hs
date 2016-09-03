@@ -11,6 +11,7 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isNothing,
                                                    mapMaybe)
 import qualified Data.Set                         as Set
+import qualified Data.Text                        as T
 import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
 import           ProKeysRanges                    (completeRanges)
@@ -365,7 +366,7 @@ pkReduce diff   mmap od diffEvents = let
 
 drumsComplete
   :: U.MeasureMap
-  -> RTB.T U.Beats String -- ^ Practice sections
+  -> RTB.T U.Beats T.Text -- ^ Practice sections
   -> RTB.T U.Beats Drums.Event
   -> RTB.T U.Beats Drums.Event
 drumsComplete mmap sections trk = let
@@ -421,7 +422,7 @@ drumsReduce
   :: Difficulty
   -> U.MeasureMap
   -> RTB.T U.Beats Bool                      -- ^ Overdrive phrases
-  -> RTB.T U.Beats String                    -- ^ Practice sections
+  -> RTB.T U.Beats T.Text                    -- ^ Practice sections
   -> RTB.T U.Beats (Drums.Gem Drums.ProType) -- ^ The source difficulty, one level up
   -> RTB.T U.Beats (Drums.Gem Drums.ProType) -- ^ The target difficulty
 drumsReduce Expert _    _  _        trk = trk

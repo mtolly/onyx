@@ -4,7 +4,6 @@ module Scripts where
 
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
-import qualified Data.Text                        as T
 
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -85,7 +84,7 @@ previewBounds syaml song = let
   evalTime = \case
     PreviewSeconds secs -> Just $ secsToMS secs
     PreviewMIDI mb -> Just $ leadIn $ secsToMS $ U.applyTempoMap (s_tempos song) $ U.unapplyMeasureMap (s_signatures song) mb
-    PreviewSection str -> case find $ Events.PracticeSection $ T.unpack str of
+    PreviewSection str -> case find $ Events.PracticeSection str of
       Nothing  -> Nothing
       Just bts -> Just $ leadIn $ secsToMS $ U.applyTempoMap (s_tempos song) bts
   evalTime' pt = fromMaybe (error $ "Couldn't evaluate preview bound: " ++ show pt) $ evalTime pt

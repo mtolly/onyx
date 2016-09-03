@@ -1,12 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Sections where
+module RockBand.Sections where
 
-import           Control.Monad (guard)
-import           Data.Char     (isAlphaNum)
-import           Data.List     (sort)
-import           Data.List.HT  (partitionMaybe)
-import           Data.Maybe    (listToMaybe)
-import qualified Data.Text     as T
+import           Control.Monad         (guard)
+import           Data.Char             (isAlphaNum)
+import           Data.List             (sort)
+import           Data.List.HT          (partitionMaybe)
+import           Data.Maybe            (listToMaybe)
+import qualified Data.Text             as T
+import           RockBand.Common       (showCommand')
+import qualified Sound.MIDI.File.Event as E
 
 rbn2Sections :: [(T.Text, T.Text)]
 rbn2Sections =
@@ -2552,6 +2554,21 @@ rbn2Sections =
   , ("ugc_section_5_90", "90%-95%")
   , ("ugc_section_5_95", "95%-100%")
   ]
+
+makeRB2Section :: T.Text -> E.T
+makeRB2Section t = showCommand'
+  [ "section"
+  , T.unpack
+  $ T.intercalate "_"
+  $ T.words
+  $ T.filter (\c -> isAlphaNum c || c == ' ')
+  $ T.replace "_" " " t
+  ]
+
+makeRB3Section :: T.Text -> E.T
+makeRB3Section t = case findRBN2Section t of
+  Just t' -> showCommand' ["prc_" ++ T.unpack t']
+  Nothing -> makeRB2Section t
 
 findRBN2Section :: T.Text -> Maybe T.Text
 findRBN2Section t = listToMaybe $ do

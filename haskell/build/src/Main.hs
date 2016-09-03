@@ -34,9 +34,10 @@ import           Reductions
 import           Resources                             (emptyMilo, emptyMiloRB2,
                                                         emptyWeightsRB2,
                                                         webDisplay)
+import           RockBand.Sections                     (makeRB2Section,
+                                                        makeRBN2Sections)
 import qualified RockBand2                             as RB2
 import           Scripts
-import           Sections                              (makeRBN2Sections)
 import qualified Sound.MIDI.Script.Base                as MS
 import qualified Sound.MIDI.Script.Parse               as MS
 import qualified Sound.MIDI.Script.Read                as MS
@@ -85,8 +86,7 @@ import           Development.Shake.Classes
 import           Development.Shake.FilePath
 import qualified Numeric.NonNegative.Class             as NNC
 import           RockBand.Common                       (Difficulty (..),
-                                                        readCommand',
-                                                        showCommand')
+                                                        readCommand')
 import qualified RockBand.Drums                        as RBDrums
 import qualified RockBand.Events                       as Events
 import qualified RockBand.File                         as RBFile
@@ -217,6 +217,121 @@ moggSearch md5search files = do
       return $ T.unpack md5search == md5
     _ -> return False
 
+-- make sure all audio leaves are defined, catch typos
+checkDefined :: (Monad m) => SongYaml -> m ()
+checkDefined songYaml = do
+  let definedLeaves = HM.keys (_audio songYaml) ++ HM.keys (_jammit songYaml)
+  forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
+    let leaves = case plan of
+          EachPlan{..} -> toList _each
+          MoggPlan{} -> []
+          Plan{..} -> let
+            getLeaves = \case
+              Named t -> t
+              JammitSelect _ t -> t
+            in map getLeaves
+              $ concatMap (maybe [] toList) [_song, _guitar, _bass, _keys, _drums, _vocal, _crowd]
+              ++ case _countin of Countin xs -> concatMap (toList . snd) xs
+    case filter (not . (`elem` definedLeaves)) leaves of
+      [] -> return ()
+      undefinedLeaves -> fail $
+        "Undefined leaves in plan " ++ show planName ++ " audio expression: " ++ show undefinedLeaves
+
+computeChannelsPlan :: SongYaml -> Audio Duration AudioInput -> Int
+computeChannelsPlan songYaml = let
+  toChannels ai = case ai of
+    Named name -> case HM.lookup name $ _audio songYaml of
+      Nothing               -> error
+        "panic! audio leaf not found, after it should've been checked"
+      Just AudioFile   {..} -> _channels
+      Just AudioSnippet{..} -> computeChannelsPlan songYaml _expr
+    JammitSelect _ _ -> 2
+  in computeChannels . fmap toChannels
+
+computeChannelsEachPlan :: SongYaml -> Audio Duration T.Text -> Int
+computeChannelsEachPlan songYaml = let
+  toChannels name = case HM.lookup name $ _jammit songYaml of
+    Just _ -> 2
+    Nothing -> case HM.lookup name $ _audio songYaml of
+      Nothing      -> error "panic! audio leaf not found, after it should've been checked"
+      Just AudioFile{..} -> _channels
+      Just AudioSnippet{..} -> computeChannelsPlan songYaml _expr
+  in computeChannels . fmap toChannels
+
+jammitSearch :: SongYaml -> JammitTrack -> J.Library -> Action [(J.AudioPart, FilePath)]
+jammitSearch songYaml jmt lib = do
+  let title  = fromMaybe (getTitle  $ _metadata songYaml) $ _jammitTitle  jmt
+      artist = fromMaybe (getArtist $ _metadata songYaml) $ _jammitArtist jmt
+  return $ J.getAudioParts
+    $ J.exactSearchBy J.title  (T.unpack title )
+    $ J.exactSearchBy J.artist (T.unpack artist) lib
+
+writeReadme :: SongYaml -> FilePath -> FilePath -> IO ()
+writeReadme songYaml yamlPath out = writeFile out $ execWriter $ do
+  let escape = concatMap $ \c -> if c `elem` "\\`*_{}[]()#+-.!"
+        then ['\\', c]
+        else [c]
+      line str = tell $ str ++ "\n"
+  line $ "# " ++ escape (T.unpack $ getTitle $ _metadata songYaml)
+  line ""
+  line $ "## " ++ escape (T.unpack $ getArtist $ _metadata songYaml)
+  line ""
+  case T.unpack $ getAuthor $ _metadata songYaml of
+    "Onyxite" -> return ()
+    auth      -> line $ "Author: " ++ auth
+  line ""
+  let titleDir  = takeFileName $ takeDirectory yamlPath
+      artistDir = takeFileName $ takeDirectory $ takeDirectory yamlPath
+      link = "http://pages.cs.wisc.edu/~tolly/customs/?title=" ++ titleDir ++ "&artist=" ++ artistDir
+  when (HM.member (T.pack "album") $ _plans songYaml) $ line $ "[Play in browser](" ++ link ++ ")"
+  line ""
+  line "Instruments:"
+  line ""
+  let diffString f dm = case f $ _difficulty $ _metadata songYaml of
+        Just (Rank rank) -> g $ rankToTier dm rank
+        Just (Tier tier) -> g tier
+        Nothing -> ""
+        where g = \case
+                1 -> " ⚫️⚫️⚫️⚫️⚫️"
+                2 -> " ⚪️⚫️⚫️⚫️⚫️"
+                3 -> " ⚪️⚪️⚫️⚫️⚫️"
+                4 -> " ⚪️⚪️⚪️⚫️⚫️"
+                5 -> " ⚪️⚪️⚪️⚪️⚫️"
+                6 -> " ⚪️⚪️⚪️⚪️⚪️"
+                7 -> " 😈😈😈😈😈"
+                _ -> ""
+  when (_hasDrums     $ _instruments songYaml) $ line $ if _proDrums $ _options songYaml
+    then                                                "  * (Pro) Drums" ++ diffString _difficultyDrums     drumsDiffMap
+    else                                                "  * Basic Drums" ++ diffString _difficultyDrums     drumsDiffMap
+  when (_hasBass      $ _instruments songYaml) $ line $ "  * Bass"        ++ diffString _difficultyBass      bassDiffMap
+  when (_hasGuitar    $ _instruments songYaml) $ line $ "  * Guitar"      ++ diffString _difficultyGuitar    guitarDiffMap
+  when (_hasProBass   $ _instruments songYaml) $ line $ "  * Pro Bass"    ++ diffString _difficultyProBass   proBassDiffMap
+  when (_hasProGuitar $ _instruments songYaml) $ line $ "  * Pro Guitar"  ++ diffString _difficultyProGuitar proGuitarDiffMap
+  when (_hasKeys      $ _instruments songYaml) $ line $ "  * Keys"        ++ diffString _difficultyKeys      keysDiffMap
+  when (_hasProKeys   $ _instruments songYaml) $ line $ "  * Pro Keys"    ++ diffString _difficultyProKeys   keysDiffMap
+  case _hasVocal $ _instruments songYaml of
+    Vocal0 -> return ()
+    Vocal1 -> line $ "  * Vocals (1)" ++ diffString _difficultyVocal vocalDiffMap
+    Vocal2 -> line $ "  * Vocals (2)" ++ diffString _difficultyVocal vocalDiffMap
+    Vocal3 -> line $ "  * Vocals (3)" ++ diffString _difficultyVocal vocalDiffMap
+  line ""
+  line "Supported audio:"
+  line ""
+  forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
+    line $ "  * `" ++ T.unpack planName ++ "`" ++ if planName == T.pack "album"
+      then " (" ++ escape (T.unpack $ getAlbum $ _metadata songYaml) ++ ")"
+      else ""
+    line ""
+    forM_ (_planComments plan) $ \cmt -> do
+      line $ "    * " ++ T.unpack cmt
+      line ""
+  unless (null $ _comments $ _metadata songYaml) $ do
+    line "Notes:"
+    line ""
+    forM_ (_comments $ _metadata songYaml) $ \cmt -> do
+      line $ "  * " ++ T.unpack cmt
+      line ""
+
 main :: IO ()
 main = do
   argv <- getArgs
@@ -239,52 +354,7 @@ main = do
             (_genre    $ _metadata songYaml)
             (_subgenre $ _metadata songYaml)
 
-      -- make sure all audio leaves are defined, catch typos
-      let definedLeaves = HM.keys (_audio songYaml) ++ HM.keys (_jammit songYaml)
-      forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
-        let leaves = case plan of
-              EachPlan{..} -> toList _each
-              MoggPlan{} -> []
-              Plan{..} -> let
-                getLeaves = \case
-                  Named t -> t
-                  JammitSelect _ t -> t
-                in map getLeaves
-                  $ concatMap (maybe [] toList) [_song, _guitar, _bass, _keys, _drums, _vocal, _crowd]
-                  ++ case _countin of Countin xs -> concatMap (toList . snd) xs
-        case filter (not . (`elem` definedLeaves)) leaves of
-          [] -> return ()
-          undefinedLeaves -> fail $
-            "Undefined leaves in plan " ++ show planName ++ " audio expression: " ++ show undefinedLeaves
-
-      let computeChannelsPlan :: Audio Duration AudioInput -> Int
-          computeChannelsPlan = let
-            toChannels ai = case ai of
-              Named name -> case HM.lookup name $ _audio songYaml of
-                Nothing               -> error
-                  "panic! audio leaf not found, after it should've been checked"
-                Just AudioFile   {..} -> _channels
-                Just AudioSnippet{..} -> computeChannelsPlan _expr
-              JammitSelect _ _ -> 2
-            in computeChannels . fmap toChannels
-
-          computeChannelsEachPlan :: Audio Duration T.Text -> Int
-          computeChannelsEachPlan = let
-            toChannels name = case HM.lookup name $ _jammit songYaml of
-              Just _ -> 2
-              Nothing -> case HM.lookup name $ _audio songYaml of
-                Nothing      -> error "panic! audio leaf not found, after it should've been checked"
-                Just AudioFile{..} -> _channels
-                Just AudioSnippet{..} -> computeChannelsPlan _expr
-            in computeChannels . fmap toChannels
-
-          jammitSearch :: JammitTrack -> J.Library -> Action [(J.AudioPart, FilePath)]
-          jammitSearch jmt lib = do
-            let title  = fromMaybe (getTitle  $ _metadata songYaml) $ _jammitTitle  jmt
-                artist = fromMaybe (getArtist $ _metadata songYaml) $ _jammitArtist jmt
-            return $ J.getAudioParts
-              $ J.exactSearchBy J.title  (T.unpack title )
-              $ J.exactSearchBy J.artist (T.unpack artist) lib
+      checkDefined songYaml
 
       origDirectory <- Dir.getCurrentDirectory
       Dir.setCurrentDirectory $ takeDirectory yamlPath
@@ -297,7 +367,7 @@ main = do
         allJammitInAudioDirs <- newCache $ \() -> liftIO $ concatMapM J.loadLibrary audioDirs
 
         audioOracle  <- addOracle $ \(AudioSearch  s) -> allFilesInAudioDirs () >>= audioSearch (read s)
-        jammitOracle <- addOracle $ \(JammitSearch s) -> fmap show $ allJammitInAudioDirs () >>= jammitSearch (read s)
+        jammitOracle <- addOracle $ \(JammitSearch s) -> fmap show $ allJammitInAudioDirs () >>= jammitSearch songYaml (read s)
         moggOracle   <- addOracle $ \(MoggSearch   s) -> allFilesInAudioDirs () >>= moggSearch s
 
         -- Make all rules depend on the parsed song.yml contents and onyx compile time
@@ -450,70 +520,7 @@ main = do
         phony "update-readme" $ if _published songYaml
           then need ["README.md"]
           else removeFilesAfter "." ["README.md"]
-        "README.md" %> \out -> liftIO $ writeFile out $ execWriter $ do
-          let escape = concatMap $ \c -> if c `elem` "\\`*_{}[]()#+-.!"
-                then ['\\', c]
-                else [c]
-              line str = tell $ str ++ "\n"
-          line $ "# " ++ escape (T.unpack $ getTitle $ _metadata songYaml)
-          line ""
-          line $ "## " ++ escape (T.unpack $ getArtist $ _metadata songYaml)
-          line ""
-          case T.unpack $ getAuthor $ _metadata songYaml of
-            "Onyxite" -> return ()
-            auth      -> line $ "Author: " ++ auth
-          line ""
-          let titleDir  = takeFileName $ takeDirectory yamlPath
-              artistDir = takeFileName $ takeDirectory $ takeDirectory yamlPath
-              link = "http://pages.cs.wisc.edu/~tolly/customs/?title=" ++ titleDir ++ "&artist=" ++ artistDir
-          when (HM.member (T.pack "album") $ _plans songYaml) $ line $ "[Play in browser](" ++ link ++ ")"
-          line ""
-          line "Instruments:"
-          line ""
-          let diffString f dm = case f $ _difficulty $ _metadata songYaml of
-                Just (Rank rank) -> g $ rankToTier dm rank
-                Just (Tier tier) -> g tier
-                Nothing -> ""
-                where g = \case
-                        1 -> " ⚫️⚫️⚫️⚫️⚫️"
-                        2 -> " ⚪️⚫️⚫️⚫️⚫️"
-                        3 -> " ⚪️⚪️⚫️⚫️⚫️"
-                        4 -> " ⚪️⚪️⚪️⚫️⚫️"
-                        5 -> " ⚪️⚪️⚪️⚪️⚫️"
-                        6 -> " ⚪️⚪️⚪️⚪️⚪️"
-                        7 -> " 😈😈😈😈😈"
-                        _ -> ""
-          when (_hasDrums     $ _instruments songYaml) $ line $ if _proDrums $ _options songYaml
-            then                                                "  * (Pro) Drums" ++ diffString _difficultyDrums     drumsDiffMap
-            else                                                "  * Basic Drums" ++ diffString _difficultyDrums     drumsDiffMap
-          when (_hasBass      $ _instruments songYaml) $ line $ "  * Bass"        ++ diffString _difficultyBass      bassDiffMap
-          when (_hasGuitar    $ _instruments songYaml) $ line $ "  * Guitar"      ++ diffString _difficultyGuitar    guitarDiffMap
-          when (_hasProBass   $ _instruments songYaml) $ line $ "  * Pro Bass"    ++ diffString _difficultyProBass   proBassDiffMap
-          when (_hasProGuitar $ _instruments songYaml) $ line $ "  * Pro Guitar"  ++ diffString _difficultyProGuitar proGuitarDiffMap
-          when (_hasKeys      $ _instruments songYaml) $ line $ "  * Keys"        ++ diffString _difficultyKeys      keysDiffMap
-          when (_hasProKeys   $ _instruments songYaml) $ line $ "  * Pro Keys"    ++ diffString _difficultyProKeys   keysDiffMap
-          case _hasVocal $ _instruments songYaml of
-            Vocal0 -> return ()
-            Vocal1 -> line $ "  * Vocals (1)" ++ diffString _difficultyVocal vocalDiffMap
-            Vocal2 -> line $ "  * Vocals (2)" ++ diffString _difficultyVocal vocalDiffMap
-            Vocal3 -> line $ "  * Vocals (3)" ++ diffString _difficultyVocal vocalDiffMap
-          line ""
-          line "Supported audio:"
-          line ""
-          forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
-            line $ "  * `" ++ T.unpack planName ++ "`" ++ if planName == T.pack "album"
-              then " (" ++ escape (T.unpack $ getAlbum $ _metadata songYaml) ++ ")"
-              else ""
-            line ""
-            forM_ (_planComments plan) $ \cmt -> do
-              line $ "    * " ++ T.unpack cmt
-              line ""
-          unless (null $ _comments $ _metadata songYaml) $ do
-            line "Notes:"
-            line ""
-            forM_ (_comments $ _metadata songYaml) $ \cmt -> do
-              line $ "  * " ++ T.unpack cmt
-              line ""
+        "README.md" %> liftIO . writeReadme songYaml yamlPath
 
         forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
 
@@ -522,7 +529,7 @@ main = do
               planPV :: Maybe (PlanAudio Duration AudioInput) -> [(Double, Double)]
               planPV Nothing = [(-1, 0), (1, 0)]
               planPV (Just paud) = let
-                chans = computeChannelsPlan $ _planExpr paud
+                chans = computeChannelsPlan songYaml $ _planExpr paud
                 pans = case _planPans paud of
                   [] -> case chans of
                     0 -> []
@@ -536,7 +543,7 @@ main = do
                 in zip pans vols
               eachPlanPV :: PlanAudio Duration T.Text -> [(Double, Double)]
               eachPlanPV paud = let
-                chans = computeChannelsEachPlan $ _planExpr paud
+                chans = computeChannelsEachPlan songYaml $ _planExpr paud
                 pans = case _planPans paud of
                   [] -> case chans of
                     0 -> []
@@ -594,7 +601,7 @@ main = do
                       RBDrums.D4 -> drop 1 _moggDrums
                     in (map getChannel kickChannels, map getChannel snareChannels, map getChannel drumsChannels, _drumMix)
                   Plan{..} -> let
-                    count = maybe 0 (computeChannelsPlan . _planExpr)
+                    count = maybe 0 (computeChannelsPlan songYaml . _planExpr)
                     matchingMix = case (count _kick, count _snare) of
                       (0, 0) -> RBDrums.D0
                       (1, 1) -> RBDrums.D1
@@ -842,26 +849,16 @@ main = do
                   , showPosition $ endPosn - 2
                   ]
                 return $ endPosn - 2
-            newSections <- let
-              sects = [ (t, T.pack s) | (t, Events.PracticeSection s) <- eventsList ]
-              (newSects, unrecognized) = makeRBN2Sections sects
-              in do
-                case unrecognized of
-                  [] -> return ()
-                  _  -> putNormal $ "The following sections were unrecognized and replaced: " ++ show unrecognized
-                return newSects
-            let eventsTrack = RBFile.Events eventsRaw'
-                untouchedEvent = \case
+            let untouchedEvent = \case
                   Events.MusicStart -> False
                   Events.MusicEnd -> False
                   Events.End -> False
-                  Events.PracticeSection _ -> False
                   _ -> True
-                eventsRaw'
-                  = RTB.insert musicStartPosn Events.MusicStart
+                eventsTrack
+                  = RBFile.Events
+                  $ RTB.insert musicStartPosn Events.MusicStart
                   $ RTB.insert musicEndPosn Events.MusicEnd
                   $ RTB.insert endPosn Events.End
-                  $ foldr (.) id [ RTB.insert t (Events.PracticeSection $ T.unpack s) | (t, s) <- newSections ]
                   $ RTB.filter untouchedEvent eventsRaw
                 venueTracks = let
                   trk = mergeTracks [ t | RBFile.Venue t <- trks ]
@@ -991,6 +988,12 @@ main = do
               , RBFile.s_tracks = RBFile.s_tracks input
               }
             liftIO $ writeFile has2p $ show $ _auto2xBass (_options songYaml) || has2xNotes
+
+          let getRealSections :: Action (RTB.T U.Beats T.Text)
+              getRealSections = do
+                raw <- loadMIDI midraw
+                let evts = foldr RTB.merge RTB.empty [ trk | RBFile.Events trk <- RBFile.s_tracks raw ]
+                return $ RTB.mapMaybe (\case Events.PracticeSection s -> Just s; _ -> Nothing) evts
 
           display %> \out -> do
             song <- loadMIDI mid2p
@@ -1734,7 +1737,24 @@ main = do
               song %> copyFile' (dir </> "song-countin.wav")
               cover %> copyFile' "gen/cover.bmp"
               coverV1 %> \out -> liftIO $ writeBitmap out $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
-              mid %> copyFile' (pedalDir </> "notes.mid")
+              mid %> \out -> do
+                src <- loadMIDI $ pedalDir </> "notes.mid"
+                sects <- ATB.toPairList . RTB.toAbsoluteEventList 0 <$> getRealSections
+                let (magmaSects, invalid) = makeRBN2Sections sects
+                    magmaSects' = RTB.fromAbsoluteEventList $ ATB.fromPairList magmaSects
+                    isSection (Events.PracticeSection _) = True
+                    isSection _                          = False
+                    adjustTrack = \case
+                      RBFile.Events t -> RBFile.Events
+                        $ RTB.merge (fmap Events.PracticeSection magmaSects')
+                        $ RTB.filter (not . isSection) t
+                      trk             -> trk
+                case invalid of
+                  [] -> return ()
+                  _  -> putNormal $ "The following sections were unrecognized and replaced: " ++ show invalid
+                saveMIDI out src
+                  { RBFile.s_tracks = map adjustTrack $ RBFile.s_tracks src
+                  }
               midV1 %> \out -> loadMIDI mid >>= saveMIDI out . RB2.convertMIDI
                 (_keysRB2 $ _options songYaml)
                 (fromIntegral (_hopoThreshold $ _options songYaml) / 480)
@@ -1911,6 +1931,7 @@ main = do
                 -- So, we now need to readd them back from the user MIDI (if they exist).
                 userMid <- loadMIDI mid
                 magmaMid <- loadMIDI export
+                sects <- getRealSections
                 let reauthor getTrack eventPredicates magmaTrack = let
                       authoredTrack = foldr RTB.merge RTB.empty $ mapMaybe getTrack $ RBFile.s_tracks userMid
                       applyEventFn isEvent t = let
@@ -1948,6 +1969,10 @@ main = do
                       getTrack = \case RBFile.Venue trk -> Just trk; _ -> Nothing
                       -- TODO: split up camera and lighting so you can author just one
                       in reauthor getTrack [const True] t
+                    RBFile.Events t -> RBFile.Events $ if RTB.null sects
+                      then t
+                      else RTB.merge (fmap Events.PracticeSection sects)
+                        $ RTB.filter (\case Events.PracticeSection _ -> False; _ -> True) t
                     -- Stuff "export midi" doesn't overwrite:
                     -- PART KEYS_ANIM_LH/RH
                     -- Crowd stuff in EVENTS
@@ -2098,14 +2123,9 @@ main = do
                   else Load.fromFile (pedalDir </> "magma/notes-v1.mid")
                 let Left beatTracks = U.decodeFile mid
                 -- add back practice sections
-                sectsMid <- loadMIDI $ pedalDir </> "notes.mid"
-                let sects = foldr RTB.merge RTB.empty $ flip mapMaybe (RBFile.s_tracks sectsMid) $ \case
-                      RBFile.Events t -> Just $ flip RTB.mapMaybe t $ \case
-                        Events.PracticeSection s -> Just $ showCommand' ["section", s]
-                        _                        -> Nothing
-                      _               -> Nothing
-                    modifyTrack t = if U.trackName t == Just "EVENTS"
-                      then RTB.merge sects $ flip RTB.filter t $ \e -> case readCommand' e of
+                sects <- getRealSections
+                let modifyTrack t = if U.trackName t == Just "EVENTS"
+                      then RTB.merge (fmap makeRB2Section sects) $ flip RTB.filter t $ \e -> case readCommand' e of
                         Just ["section", _] -> False
                         _                   -> True
                       else t
