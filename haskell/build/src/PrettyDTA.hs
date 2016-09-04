@@ -117,6 +117,7 @@ prettyDTA name meta plan is2x pkg = unlines $ execWriter $ do
       D.Major -> "0"
       D.Minor -> "1"
     -- the following keys, I'm not sure if they need to go in a certain place
+    forM_ (D.songKey pkg) $ inlineRaw "song_key" . show . fromEnum
     forM_ (D.bandFailCue pkg) $ inline "band_fail_cue" . show . either id fromKeyword
     forM_ (D.shortVersion pkg) $ inline "short_version" . show
     forM_ (D.realGuitarTuning pkg) $ inline "real_guitar_tuning" . parenthesize . unwords . map show . fromInParens

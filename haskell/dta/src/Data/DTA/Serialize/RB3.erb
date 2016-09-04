@@ -48,6 +48,7 @@ type Path = Either String Keyword
   ['album_track_number' , nil, maybe('Integer')           ],
   ['vocal_tonic_note'   , nil, maybe('Pitch')             ],
   ['song_tonality'      , nil, maybe('Tonality')          ],
+  ['song_key'           , nil, maybe('Pitch')             ],
   ['tuning_offset_cents', nil, maybe('Float')             ],
   ['real_guitar_tuning' , nil, maybe('InParens [Integer]')],
   ['real_bass_tuning'   , nil, maybe('InParens [Integer]')],

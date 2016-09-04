@@ -1342,6 +1342,7 @@ main = do
                   , D.albumTrackNumber = Just $ fromIntegral $ getTrackNumber $ _metadata songYaml
                   , D.vocalTonicNote = toEnum . fromEnum <$> _key (_metadata songYaml)
                   , D.songTonality = Nothing
+                  , D.songKey = Nothing
                   , D.tuningOffsetCents = Just 0
                   , D.realGuitarTuning = do
                     guard $ _hasProGuitar $ _instruments songYaml
@@ -2086,6 +2087,7 @@ main = do
                           , D.shortVersion = Nothing
                           , D.vocalTonicNote = Nothing
                           , D.songTonality = Nothing
+                          , D.songKey = Nothing
                           , D.realGuitarTuning = Nothing
                           , D.realBassTuning = Nothing
                           , D.guidePitchVolume = Nothing
