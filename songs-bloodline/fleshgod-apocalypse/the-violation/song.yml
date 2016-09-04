@@ -18,13 +18,15 @@ metadata:
   album: Agony
   year: 2011
   subgenre: prog # ???
-  author: xBLooDLiNEx808x
+  author: xBLooDLiNEx808x, Onyxite
   title: The Violation
   genre: metal
   difficulty:
     drums:
       rank: 448
   artist: Fleshgod Apocalypse
+  comments:
+  - Drums by xBLooDLiNEx808x.
 options: {}
 jammit: {}
 audio:
@@ -36,3 +38,4 @@ audio:
     frames: 11416020
 instruments:
   drums: true
+  pro-keys: true
