@@ -1,0 +1,40 @@
+old solo bonus info:
+
+  n = number of notes in the solo. Hold points mean nothing. Chords count as single notes.
+
+  Perfect Solo: 100%, 100n points
+  Awesome Solo: 95%-99%, 50n points
+  Great Solo: 90% - 94%, 30n points
+  Good Solo: 80% - 89%, 20n points
+  Solid Solo: 70% - 79%, 10n points
+  Okay Solo: 60% - 69%, 5n points
+  Messy Solo: 0% - 59%, 0 points
+
+drum scoring:
+  kick 30
+  red 30
+  ybg toms 25
+  ybg cymbals 30
+note: on discobeat w/ no yellow cymbal, red is 25 and yellow is 30.
+same goes for dnoflip (with any cymbal configuration).
+perfect drum solo bonus = 100 * number of individual gems in solo.
+on pro drums, the base score for star cutoffs assumes all cymbals enabled.
+
+basic gtr/bass/keys scoring:
+each gem is 25 points.
+2 note chords are 50, 3 note chords are 75.
+a fully held sustain in one lane is 12 * (sustain length in midi quarter notes).
+solo bonus is as above.
+on basic keys, number of notes means number of different times where there is at least 1 note-on.
+
+pro keys scoring:
+same as basic g/b/k, but each gem is 60 points, 30 per sustain beat.
+
+pro guitar scoring:
+same as basic g/b, but single gems are 60 points (30 per sustain beat), and *all* chords are 120 (60 per sustain beat).
+
+vox:
+expert - 1000 per phrase
+hard - 800
+medium - 400
+easy - 200

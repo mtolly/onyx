@@ -6,6 +6,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE TupleSections #-}
 module RockBand.Drums where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -13,6 +14,7 @@ import qualified Numeric.NonNegative.Class as NNC
 import qualified Sound.MIDI.Util as U
 import qualified Sound.MIDI.File.Event as E
 
+import RockBand.FiveButton (applyStatus)
 import RockBand.Common
 import RockBand.Parse
 
@@ -266,3 +268,16 @@ unparseNice defLength trk = let
       in a + b
     in RTB.cons NNC.zero (makeEdge pitch True) $ RTB.singleton len (makeEdge pitch False)
   in RTB.merge (U.trackJoin $ assignLengths notes) (unparseAll unparseOne notNotes)
+
+baseScore :: RTB.T U.Beats (Gem ProType) -> Int
+baseScore = sum . fmap gemScore where
+  gemScore = \case
+    Kick         -> 30
+    Red          -> 30
+    Pro _ Cymbal -> 30
+    Pro _ Tom    -> 25
+
+perfectSoloBonus :: (Ord a) => RTB.T U.Beats Bool -> RTB.T U.Beats (Gem a) -> Int
+perfectSoloBonus solo gems = sum $ fmap score $ applyStatus (fmap ((),) solo) gems where
+  score ([], _) = 0
+  score _       = 100
