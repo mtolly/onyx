@@ -1565,18 +1565,22 @@ main = do
                         , Magma.vol = map (realToFrac . snd) pv
                         , Magma.audioFile = f
                         }
+                      replaceŸ = map $ \case
+                        'ÿ' -> 'y'
+                        'Ÿ' -> 'Y'
+                        c   -> c
                   title <- map (\case '"' -> '\''; c -> c) <$> thisTitle
                   return Magma.RBProj
                     { Magma.project = Magma.Project
                       { Magma.toolVersion = "110411_A"
                       , Magma.projectVersion = 24
                       , Magma.metadata = Magma.Metadata
-                        { Magma.songName = title
-                        , Magma.artistName = T.unpack $ getArtist $ _metadata songYaml
+                        { Magma.songName = replaceŸ title
+                        , Magma.artistName = replaceŸ $ T.unpack $ getArtist $ _metadata songYaml
                         , Magma.genre = D.Keyword $ T.unpack $ rbn2Genre fullGenre
                         , Magma.subGenre = D.Keyword $ "subgenre_" ++ T.unpack (rbn2Subgenre fullGenre)
                         , Magma.yearReleased = fromIntegral $ max 1960 $ getYear $ _metadata songYaml
-                        , Magma.albumName = T.unpack $ getAlbum $ _metadata songYaml
+                        , Magma.albumName = replaceŸ $ T.unpack $ getAlbum $ _metadata songYaml
                         , Magma.author = T.unpack $ getAuthor $ _metadata songYaml
                         , Magma.releaseLabel = "Onyxite Customs"
                         , Magma.country = D.Keyword "ugc_country_us"
@@ -2094,7 +2098,10 @@ main = do
                 (_, rb3DTA, _) <- liftIO $ readRB3DTA pathDta
                 let newDTA :: D.SongPackage
                     newDTA = magmaDTA
-                      { D.master = not $ _cover $ _metadata songYaml
+                      { D.name = D.name rb3DTA
+                      , D.artist = D.artist rb3DTA
+                      , D.albumName = D.albumName rb3DTA
+                      , D.master = not $ _cover $ _metadata songYaml
                       , D.song = (D.song magmaDTA)
                         { D.tracksCount = Nothing
                         , D.tracks = fmap fixDict $ D.tracks $ D.song rb3DTA
