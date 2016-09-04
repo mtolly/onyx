@@ -1,0 +1,38 @@
+published: false
+plans:
+  album:
+    song:
+      fade:
+      - start
+      - 4.748
+      - fade:
+        - end
+        - 0.215
+        - drop:
+          - 5:11.544
+          - concatenate: [track-deceit, track-violation]
+metadata:
+  vocal-gender: male
+  file-album-art: cover.jpg
+  track-number: 5
+  album: Agony
+  year: 2011
+  subgenre: prog # ???
+  author: xBLooDLiNEx808x
+  title: The Violation
+  genre: metal
+  difficulty:
+    drums:
+      rank: 448
+  artist: Fleshgod Apocalypse
+options: {}
+jammit: {}
+audio:
+  track-deceit:
+    md5: b75d6d6fb015f00dbf55abbf997c5f2c
+    frames: 16017708
+  track-violation:
+    md5: c4633a0d8e7b7c7aed9c54a5c322db4f
+    frames: 11416020
+instruments:
+  drums: true
