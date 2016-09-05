@@ -46,7 +46,6 @@ import           Numeric                         (showHex)
 import           SndfileExtra
 import qualified Sound.File.Sndfile              as Snd
 import qualified Sound.MIDI.Util                 as U
-import           System.IO
 
 -- | Duplicates mono into stereo, or otherwise just tacks on silent channels to one source.
 sameChannels :: (Monad m, Num a, V.Storable a) => (AudioSource m a, AudioSource m a) -> (AudioSource m a, AudioSource m a)
@@ -138,10 +137,15 @@ clampFloat src = src { source = source src =$= CL.map clampVector } where
 
 audioMD5 :: FilePath -> IO (Maybe String)
 audioMD5 f = case takeExtension f of
-  ".flac" -> withBinaryFile f ReadMode $ \h -> do
-    hSeek h AbsoluteSeek 26
-    md5bytes <- BL.hGet h 16
-    let showByte :: Word8 -> String
+  ".flac" -> do
+    let dropUntilSubstr sub bs
+          | sub `BL.isPrefixOf` bs = bs
+          | otherwise              = case BL.uncons bs of
+            Nothing       -> bs
+            Just (_, bs') -> dropUntilSubstr sub bs'
+    flacFile <- dropUntilSubstr (BL8.pack "fLaC") <$> BL.readFile f
+    let md5bytes = BL.take 16 $ BL.drop 26 flacFile
+        showByte :: Word8 -> String
         showByte w8 = case map toLower $ showHex w8 "" of
           [c] -> ['0', c]
           s   -> s
