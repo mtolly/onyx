@@ -16,6 +16,14 @@ metadata:
     bass: 3
   comments:
   - All instruments have overdrive/unison.
+  autogen-theme: SynthPop
+  drum-kit: HardRockKit
+  preview-start: prc_chorus_1
+  rating: FamilyFriendly
+  key: A
+  song-id: 1660200009
+  # song-id-2x: 1660200010
+  # visualizer: http://i.imgur.com/J2aeifp.jpg
 options:
   keys-rb2: guitar
 audio:

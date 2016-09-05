@@ -854,8 +854,21 @@ main = do
                   Events.MusicEnd -> False
                   Events.End -> False
                   _ -> True
+                crowdEvents =
+                  [ Events.CrowdRealtime
+                  , Events.CrowdIntense
+                  , Events.CrowdNormal
+                  , Events.CrowdMellow
+                  , Events.CrowdNoclap
+                  , Events.CrowdClap
+                  ]
+                defaultNoCrowd evts = if any (`elem` evts) crowdEvents
+                  then evts
+                  else RTB.insert musicStartPosn Events.CrowdRealtime
+                    $  RTB.insert musicStartPosn Events.CrowdNoclap evts
                 eventsTrack
                   = RBFile.Events
+                  $ defaultNoCrowd
                   $ RTB.insert musicStartPosn Events.MusicStart
                   $ RTB.insert musicEndPosn Events.MusicEnd
                   $ RTB.insert endPosn Events.End

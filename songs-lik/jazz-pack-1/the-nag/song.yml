@@ -5,11 +5,11 @@ metadata:
   track-number: 7
   year: 1987
   author: TheLieInKing, Onyxite
-  genre: jazz
-  subgenre: other
+  genre: fusion
+  subgenre: fusion
   file-album-art: cover.jpg
   difficulty:
-    band: 6
+    band: 7
     drums: 7
     guitar: 6
     bass: 7
@@ -19,6 +19,11 @@ metadata:
   - Drums by TheLieInKing, with minor adjustments and quantization by me.
   - All instruments have overdrive/unison.
   preview-start: prc_main_riff_3
+  autogen-theme: PsychJamRock
+  drum-kit: HardRockKit
+  rating: FamilyFriendly
+  song-id: 1660200008
+  # visualizer: http://i.imgur.com/XplR74Q.jpg
 audio:
   youtube:
     file-path: audio-youtube.wav

@@ -22,6 +22,11 @@ metadata:
     Bass is tuba, keys is trombone plus backing chords, guitar is sax plus backing chords.
   - >-
     All instruments have overdrive/unison.
+  drum-kit: HardRockKit
+  preview-start: prc_bridge_1
+  key: C
+  song-id: 1660200004
+  # visualizer: http://i.imgur.com/WN0AdRq.jpg
 audio:
   album-track:
     md5: 410b38285daa0447d0c1cec8f5fbac1f

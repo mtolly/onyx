@@ -11,6 +11,8 @@ metadata:
   - >-
     Chart confidence: *medium-high*.
     There are a few places where I think two drum parts are overdubbed.
+  languages:
+  - Japanese
 audio:
   album-track:
     md5: ccdb32336a271b63517e43519617a943

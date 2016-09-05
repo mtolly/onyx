@@ -9,10 +9,20 @@ metadata:
     bass: 3
     guitar: 6
     vocal: 1
+    band: 6
   author: Onyxite
   comments:
   - "All instruments have overdrive/unison."
   - "Guitar part is sax and trumpet."
+  autogen-theme: PsychJamRock
+  drum-kit: VintageKit
+  preview-start: prc_break
+  rating: FamilyFriendly
+  key: F
+  languages:
+  - English
+  song-id: 1660200001
+  # visualizer: http://i.imgur.com/fVYkknX.jpg
 audio:
   album-track:
     md5: fa5dbe61d808c40d9d26c2d76ae30a1a

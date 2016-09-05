@@ -9,8 +9,9 @@ metadata:
     pro-keys: 5
     bass: 4
     vocal: 7
-    band: 6
+    band: 7
   author: Onyxite
+  autogen-theme: PsychJamRock
   comments:
   - >-
     Drums confidence: *medium-high*.
@@ -19,6 +20,13 @@ metadata:
     The vocals are violin, and probably could use a few more devil icons. Good luck!
   - >-
     All instruments have overdrive/unison.
+  drum-kit: VintageKit
+  preview-start: prc_synth_solo_2
+  rating: FamilyFriendly
+  key: G
+  song-id: 1660200005
+  # song-id-2x: 1660200006
+  # visualizer: http://i.imgur.com/edsVBLR.jpg
 audio:
   album-track:
     md5: 171abbfdc77ec2ef86a816994723e22d
