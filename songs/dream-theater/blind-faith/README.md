@@ -2,7 +2,7 @@
 
 ## Dream Theater
 
-Author: mazegeek999 (pro keys), Onyxite (drums, vocals, bass), unknown (guitar)
+Author: mazegeek999 (pro keys), Onyxite (drums, vocals, bass, keys), unknown (guitar)
 
 [Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=blind-faith&artist=dream-theater)
 
@@ -11,6 +11,7 @@ Instruments:
   * (Pro) Drums
   * Bass
   * Guitar
+  * Keys
   * Pro Keys
   * Vocals (3)
 

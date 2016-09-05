@@ -2186,7 +2186,11 @@ main = do
               rb2Pan %> \out -> liftIO $ B.writeFile out B.empty
               rb2CON %> \out -> do
                 need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
-                rb2pkg "title" "desc" (pedalDir </> "rb2") out
+                rb2pkg
+                  (T.unpack (getArtist $ _metadata songYaml) ++ ": " ++ T.unpack (getTitle $ _metadata songYaml))
+                  (T.unpack (getArtist $ _metadata songYaml) ++ ": " ++ T.unpack (getTitle $ _metadata songYaml))
+                  (pedalDir </> "rb2")
+                  out
 
         want buildables
 
