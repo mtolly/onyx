@@ -1198,7 +1198,7 @@ main = do
           dir </> "ps/guitar.ogg"  %> buildAudio (Input $ dir </> "guitar.wav"      )
           dir </> "ps/keys.ogg"    %> buildAudio (Input $ dir </> "keys.wav"        )
           dir </> "ps/rhythm.ogg"  %> buildAudio (Input $ dir </> "bass.wav"        )
-          dir </> "ps/vocal.ogg"   %> buildAudio (Input $ dir </> "vocal.wav"       )
+          dir </> "ps/vocals.ogg"  %> buildAudio (Input $ dir </> "vocal.wav"       )
           dir </> "ps/crowd.ogg"   %> buildAudio (Input $ dir </> "crowd.wav"       )
           dir </> "ps/song.ogg"    %> buildAudio (Input $ dir </> "song-countin.wav")
           dir </> "ps/album.png"   %> copyFile' "gen/cover.png"
@@ -1211,7 +1211,7 @@ main = do
             , ["guitar.ogg"  | hasAnyGuitar $ _instruments songYaml]
             , ["keys.ogg"    | hasAnyKeys   $ _instruments songYaml]
             , ["rhythm.ogg"  | hasAnyBass   $ _instruments songYaml]
-            , ["vocal.ogg"   | hasAnyVocal  $ _instruments songYaml]
+            , ["vocals.ogg"  | hasAnyVocal  $ _instruments songYaml]
             , ["crowd.ogg"   | case plan of Plan{..} -> isJust _crowd; _ -> False]
             ]
 
