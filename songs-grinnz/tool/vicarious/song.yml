@@ -3,15 +3,21 @@ metadata:
   file-include: "../../../albums/10000-days.yml"
   track-number: 1
   author: Grinnz
+  difficulty:
+    drums: 6
 audio:
   album-track:
     md5: f032101ce26dec13250017d459090c18
     frames: 18816588
+  c3:
+    frames: 20629778
+    channels: 16
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
     countin:
+      &countin
       0|0: hihat
       0|2.5: hihat
       1|0: hihat
@@ -21,6 +27,35 @@ plans:
       1|4: hihat
     song:
       pad: [4.180, album-track]
+  ghwt-c3:
+    comments:
+    - "Uses the C3 version of the audio from Guitar Hero: World Tour."
+    - "Under construction!"
+    countin: *countin
+    kick:
+      channels: [[0, 1], c3]
+    snare:
+      channels: [[2, 3], c3]
+    drums:
+      mix:
+      - channels: [[4, 5], c3]
+      - take:
+        - '5:40'
+        - channels: [[12, 13], c3]
+    bass:
+      channels: [[6, 7], c3]
+    guitar:
+      channels: [[8, 9], c3]
+    vocal:
+      channels: [[10, 11], c3]
+    song:
+      mix:
+      - pad:
+        - '5:40'
+        - drop:
+          - '5:40'
+          - channels: [[12, 13], c3]
+      - channels: [[14, 15], c3]
 instruments:
   drums: true
 options:

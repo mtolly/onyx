@@ -8,9 +8,15 @@ Author: Grinnz
 
 Instruments:
 
-  * (Pro) Drums
+  * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
 
 Supported audio:
 
   * `album` (10,000 Days)
+
+  * `ghwt-c3`
+
+    * Uses the C3 version of the audio from Guitar Hero: World Tour.
+
+    * Under construction!
 
