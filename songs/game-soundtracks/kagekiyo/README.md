@@ -17,3 +17,7 @@ Supported audio:
 
   * `album` (Taiko no Tatsujin Soundtrack 2008)
 
+Notes:
+
+  * All instruments have overdrive/unison.
+

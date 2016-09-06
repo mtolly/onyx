@@ -14,6 +14,8 @@ metadata:
     guitar: 5
     bass: 5
     keys: 5
+  comments:
+  - "All instruments have overdrive/unison."
 instruments:
   drums: true
   pro-keys: true
