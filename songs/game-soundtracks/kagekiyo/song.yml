@@ -11,9 +11,11 @@ metadata:
   difficulty:
     drums: 6
     pro-keys: 5
+    guitar: 5
 instruments:
   drums: true
   pro-keys: true
+  guitar: true
 audio:
   album-track:
     file-path: audio-youtube.wav
