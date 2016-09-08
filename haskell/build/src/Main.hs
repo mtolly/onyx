@@ -522,6 +522,31 @@ main = do
           else removeFilesAfter "." ["README.md"]
         "README.md" %> liftIO . writeReadme songYaml yamlPath
 
+        "gen/notes.mid" %> \out -> do
+          doesFileExist "notes.mid" >>= \b -> if b
+            then copyFile' "notes.mid" out
+            else saveMIDI out RBFile.Song
+              { RBFile.s_tempos = U.tempoMapFromBPS RTB.empty
+              , RBFile.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty
+              , RBFile.s_tracks =
+                [ RBFile.PartDrums RTB.empty
+                , RBFile.PartGuitar RTB.empty
+                , RBFile.PartBass RTB.empty
+                , RBFile.PartKeys RTB.empty
+                , RBFile.PartRealKeys Expert RTB.empty
+                , RBFile.PartRealKeys Hard RTB.empty
+                , RBFile.PartRealKeys Medium RTB.empty
+                , RBFile.PartRealKeys Easy RTB.empty
+                , RBFile.PartVocals RTB.empty
+                , RBFile.Harm1 RTB.empty
+                , RBFile.Harm2 RTB.empty
+                , RBFile.Harm3 RTB.empty
+                , RBFile.Events RTB.empty
+                , RBFile.Beat RTB.empty
+                , RBFile.Venue RTB.empty
+                ]
+              }
+
         forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
 
           let dir = "gen/plan" </> T.unpack planName
@@ -633,8 +658,8 @@ main = do
                     -- but it's better to not have to generate gen/plan/foo/xp/notes.mid
                 extraTempo = "tempo-" ++ T.unpack planName ++ ".mid"
             b <- doesFileExist extraTempo
-            let tempo = if b then extraTempo else "notes.mid"
-            makeReaper "notes.mid" tempo audios out
+            let tempo = if b then extraTempo else "gen/notes.mid"
+            makeReaper "gen/notes.mid" tempo audios out
 
           -- Audio files
           case plan of
@@ -789,7 +814,7 @@ main = do
               display = dir </> "display.json"
           [midPS, midraw, mid2p, mid1p, has2p] &%> \_ -> do
             putNormal "Loading the MIDI file..."
-            input <- loadMIDI "notes.mid"
+            input <- loadMIDI "gen/notes.mid"
             let extraTempo  = "tempo-" ++ T.unpack planName ++ ".mid"
                 showPosition = RBFile.showPosition . U.applyMeasureMap (RBFile.s_signatures input)
             tempos <- fmap RBFile.s_tempos $ doesFileExist extraTempo >>= \b -> if b
