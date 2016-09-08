@@ -1,0 +1,30 @@
+metadata:
+  title: Mosquiton wa Mou Kikoenai # lol romaji
+  file-include: ../../../albums/for-long-tomorrow.yml
+  track-number: 7 # and 8
+  author: Onyxite
+audio:
+  album-track-1:
+    md5: 3869af5f104d5345ce8067781c9c6e09
+    frames: 6682032
+  album-track-2:
+    md5: 0cf167f61686feff494aafdbdc3611e2
+    frames: 6154596
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad:
+      - 2.540
+      - concatenate: [album-track-1, album-track-2]
+instruments:
+  drums: true
+published: false
