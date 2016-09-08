@@ -1,6 +1,6 @@
 # KAGEKIYO ~Genpei Touma Den Medley~
 
-## Norio Nakagata
+## Yuji Masubuchi
 
 
 [Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=kagekiyo&artist=game-soundtracks)

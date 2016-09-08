@@ -1,32 +1,23 @@
 metadata:
-  title: "KAGEKIYO ~Genpei Touma Den Medley~"
+  title: Fantaisie-Impromptu # not sure of OST but real title has hyphen
   artist: Yuji Masubuchi
   file-include: ../../../albums/taiko-no-tatsujin-soundtrack-2008.yml
   author: Onyxite
-  track-number: 32 # disc 1
-  genre: jrock
+  track-number: 67 # 32 on disc 2; disc 1 has 35
+  genre: jrock # classical???
   subgenre: jrock
+  preview-start: prc_verse_2a
   difficulty:
     drums: 6
-    pro-keys: 5
-    guitar: 5
-    bass: 5
-    keys: 5
-  comments:
-  - "All instruments have overdrive/unison."
 instruments:
   drums: true
-  pro-keys: true
-  keys: true
-  guitar: true
-  bass: true
 audio:
   album-track:
     file-path: audio-youtube.wav
     commands:
-    - ../../../scripts/youtube W6Vm2KKACy8 140
-    md5: 58a957d214b5ca8ff454347059c87eef
-    frames: 6589440
+    - ../../../scripts/youtube a-AE98Adt0U 140
+    md5: 79f0ec506d2c2c3ebfabb48fe7341373
+    frames: 4324352
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
@@ -38,5 +29,6 @@ plans:
       1|1: hihat
       1|2: hihat
       1|3: hihat
+      # TODO swing countin
     song:
-      pad: [2.945, album-track]
+      pad: [3.617, album-track]
