@@ -14,6 +14,8 @@ metadata:
     bass: 4
     guitar: 7
     band: 6
+  comments:
+  - "All instruments have overdrive/unison."
 instruments:
   drums: true
   pro-keys: true
