@@ -1,0 +1,32 @@
+metadata:
+  title: Toccata and Fugue and Rock
+  artist: Yuji Masubuchi
+  file-include: ../../../albums/taiko-no-tatsujin-soundtrack-2008.yml
+  author: Onyxite
+  track-number: 66 # 31 on disc 2; disc 1 has 35
+  genre: jrock # classical???
+  subgenre: jrock
+  difficulty:
+    drums: 6
+instruments:
+  drums: true
+audio:
+  album-track:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube VEGh2yMEQkI 140
+    md5: 1f06d5a8cf35b04d47e603ce97994f9b
+    frames: 6719488
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [2.791, album-track]
