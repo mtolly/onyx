@@ -53,14 +53,16 @@ plans:
     - "Portnoy's sysDRUMatic Chaos DVD."
     countin: *countin
     song:
-      mix:
-      - fade:
-        - end
-        - 1
-        - take:
-          - '5:29.490'
-          - resample:
-              pad:
+      gain:
+      - 1.55
+      - mix:
+        - fade:
+          - end
+          - 1
+          - take:
+            - '5:29.490'
+            - resample:
+                pad:
                 - 3.515
                 - take:
                   - '5:37'
@@ -80,14 +82,14 @@ plans:
                           - drop:
                             - '5:24.340'
                             - *drums
-      - pad:
-        - '5:28.090'
-        - gain:
-          - 0.55
-          - fade:
-            - start
-            - 1
-            - drop: ['5:28.090', *album]
+        - pad:
+          - '5:28.090'
+          - gain:
+            - 0.55
+            - fade:
+              - start
+              - 1
+              - drop: ['5:28.090', *album]
     drums:
       gain:
         - -1

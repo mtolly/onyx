@@ -65,22 +65,24 @@ plans:
       (The DVD audio cuts out about 2 minutes before the end of the song.)
     countin: *countin
     song:
-      mix:
+      gain:
+      - 1.35
+      - mix:
         - pad:
           - 1
           - drop:
             - 1
             - resample:
                 mix:
-                  - fade:
-                    - end
-                    - 0.03
-                    - drop:
-                      - frames: 3911
-                      - take:
-                        - '12:50.531'
-                        - drop: ['47:31.200', drumcam-band]
-                  - gain: [-1, expr-drumcam-drums]
+                - fade:
+                  - end
+                  - 0.03
+                  - drop:
+                    - frames: 3911
+                    - take:
+                      - '12:50.531'
+                      - drop: ['47:31.200', drumcam-band]
+                - gain: [-1, expr-drumcam-drums]
         - gain:
           - 0.58
           - pad:

@@ -54,22 +54,24 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      resample:
-        take:
-        - '9:01.477'
-        - pad:
-          - 4.266
-          - mix:
-            - drop: ['21:50', drumcam-band]
-            - gain:
-              - -1
-              - &drums
-                drop:
-                - frames: 3065
-                - drop: ['21:50', drumcam-drums]
+      gain:
+      - 1.4
+      - resample:
+          take:
+          - '9:01.477'
+          - pad:
+            - 4.266
+            - mix:
+              - drop: ['21:50', drumcam-band]
+              - gain:
+                - -1
+                - &drums
+                  drop:
+                  - frames: 3065
+                  - drop: ['21:50', drumcam-drums]
     drums:
       gain:
-      - -1
+      - -0.9
       - resample:
           take:
           - '9:01.477'

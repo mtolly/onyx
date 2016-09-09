@@ -70,20 +70,22 @@ plans:
               - 1.909
               - take: ['8:50.723', drumcam-drums]
     song:
-      mix:
-      - take:
-        - '8:51'
-        - pad:
-          - 0.026
-          - fade:
-            - end
-            - 2.75
-            - take:
-              - '8:57.302'
-              - trim:
-                - 1.909
-                - resample:
-                    mix:
+      gain:
+      - 1.4
+      - mix:
+        - take:
+          - '8:51'
+          - pad:
+            - 0.026
+            - fade:
+              - end
+              - 2.75
+              - take:
+                - '8:57.302'
+                - trim:
+                  - 1.909
+                  - resample:
+                      mix:
                       - concatenate:
                         - take:
                           - '3:02'
@@ -106,11 +108,11 @@ plans:
                             - drop:
                               - '8:50.723'
                               - take: ['9:06', drumcam-drums]
-      - pad:
-        - '8:51'
-        - drop:
+        - pad:
           - '8:51'
-          - gain: [0.684, album-expr]
+          - drop:
+            - '8:51'
+            - gain: [0.684, album-expr]
 instruments:
   drums: true
   vocal: 3

@@ -61,8 +61,10 @@ plans:
       See the project README for help on extracting the DVD audio.
     countin: *countin
     song:
-      resample:
-        pad:
+      gain:
+      - 1.25
+      - resample:
+          pad:
           - 2.205
           - take:
             - '10:42.951'

@@ -51,26 +51,28 @@ plans:
       See the project README for help on extracting the DVD audio.
     countin: *countin
     song:
-      mix:
+      gain:
+      - 1.4
+      - mix:
         - pad:
           - "1:43.080"
           - resample:
               mix:
-                - take:
-                  - "14:52.713"
-                  - drop:
-                    - "60:52.669"
-                    - drumcam-band
-                - gain:
-                  - -1
-                  - &drums
-                    pad:
-                      - frames: 1026
-                      - take:
-                          - "14:52.713"
-                          - drop:
-                            - "60:52.669"
-                            - drumcam-drums
+              - take:
+                - "14:52.713"
+                - drop:
+                  - "60:52.669"
+                  - drumcam-band
+              - gain:
+                - -1
+                - &drums
+                  pad:
+                  - frames: 1026
+                  - take:
+                    - "14:52.713"
+                    - drop:
+                      - "60:52.669"
+                      - drumcam-drums
         - fade:
           - end
           - 2.160
@@ -81,10 +83,10 @@ plans:
               - album-track
     drums:
       pad:
-        - "1:43.080"
-        - gain:
-          - -1
-          - resample: *drums
+      - "1:43.080"
+      - gain:
+        - -1
+        - resample: *drums
 instruments:
   drums: true
   vocal: 2
