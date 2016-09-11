@@ -38,11 +38,19 @@ drumMix audio' trk = let
     Drums.DiffEvent diff (Drums.Mix audio disco) -> Just (diff, audio, disco)
     _                                            -> Nothing
   mixes' = fmap (\(diff, _, disco) -> (diff, audio', disco)) mixes
-  alreadyMixed = [ diff | (diff, _, _) <- U.trackTakeZero mixes' ]
+  getDiff diff = flip RTB.mapMaybe trk $ \case
+    Drums.DiffEvent d evt | d == diff -> Just evt
+    _                                 -> Nothing
+  alreadyMixed = go . RTB.getBodies . RTB.collectCoincident . getDiff
+  go [] = False
+  go (now : later)
+    | not $ null [ () | Drums.Mix _ _ <- now ] = True
+    | not $ null [ () | Drums.Note _  <- now ] = False
+    | otherwise                                = go later
   addedMixes =
     [ (diff, audio', Drums.NoDisco)
     | diff <- [Easy .. Expert]
-    , diff `notElem` alreadyMixed
+    , not $ alreadyMixed diff
     ]
   setMix (diff, audio, disco) = Drums.DiffEvent diff $ Drums.Mix audio disco
   in RTB.merge notMixes $ setMix <$> foldr addZero mixes' addedMixes
