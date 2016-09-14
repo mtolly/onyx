@@ -8,8 +8,10 @@ metadata:
   subgenre: jrock
   difficulty:
     drums: 6
+    pro-keys: 7
 instruments:
   drums: true
+  pro-keys: true
 audio:
   album-track:
     file-path: audio-youtube.wav
