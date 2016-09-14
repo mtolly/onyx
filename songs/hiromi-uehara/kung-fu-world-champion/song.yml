@@ -1,0 +1,38 @@
+metadata:
+  title: Kung-Fu World Champion
+  artist: Hiromi # not to be confused with "Hiromi: The Trio Project"...
+  author: Onyxite
+  genre: jazz
+  subgenre: contemporary
+  album: Brain
+  year: 2004
+  track-number: 1
+  autogen-theme: SynthPop
+  drum-kit: HardRockKit
+  rating: FamilyFriendly
+  key: F
+  file-album-art: cover.jpg
+  difficulty:
+    drums: 7
+  preview-start: prc_break_1
+options:
+  keys-rb2: guitar
+audio:
+  album-track:
+    md5: 884247128bc3dede8465d52903746fb3
+    frames: 18223884
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [3.324, album-track]
+instruments:
+  drums: true

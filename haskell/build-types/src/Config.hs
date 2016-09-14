@@ -778,7 +778,7 @@ jsonRecord "Metadata" eos $ do
   warning "_genre" "genre" [t| Maybe T.Text |] [e| Nothing |]
   warning "_subgenre" "subgenre" [t| Maybe T.Text |] [e| Nothing |]
   warning "_year" "year" [t| Maybe Int |] [e| Nothing |]
-  opt "_fileAlbumArt" "file-album-art" [t| Maybe FilePath |] [e| Nothing |]
+  warning "_fileAlbumArt" "file-album-art" [t| Maybe FilePath |] [e| Nothing |]
   warning "_trackNumber" "track-number" [t| Maybe Int |] [e| Nothing |]
   opt "_comments" "comments" [t| [T.Text] |] [e| [] |]
   opt "_vocalGender" "vocal-gender" [t| Maybe Magma.Gender |] [e| Nothing |]
