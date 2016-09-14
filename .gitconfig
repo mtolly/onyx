@@ -1,0 +1,9 @@
+# To install this and get nice .mid diffs, run:
+#   git config --local include.path ../.gitconfig
+
+[core]
+  attributesfile = .gitattributes
+[diff "midi"]
+  textconv = onyx mt --match-notes --measure
+  cachetextconv = true
+  xfuncname = "^\\S[^\\n]*\\{$"
