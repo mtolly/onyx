@@ -2,13 +2,16 @@
 
 ## Tool
 
-Author: Grinnz
+Author: Grinnz, GHtoRB3
 
 [Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=vicarious&artist=tool)
 
 Instruments:
 
   * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
+  * Bass
+  * Guitar
+  * Vocals (2)
 
 Supported audio:
 
@@ -18,5 +21,9 @@ Supported audio:
 
     * Uses the C3 version of the audio from Guitar Hero: World Tour.
 
-    * Under construction!
+Notes:
+
+  * Drums by Grinnz.
+
+  * Guitar, bass, vocals, and venue by GHtoRB3.
 

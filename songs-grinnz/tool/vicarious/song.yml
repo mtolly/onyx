@@ -2,9 +2,12 @@ metadata:
   title: Vicarious
   file-include: "../../../albums/10000-days.yml"
   track-number: 1
-  author: Grinnz
+  author: Grinnz, GHtoRB3
   difficulty:
     drums: 6
+  comments:
+  - Drums by Grinnz.
+  - Guitar, bass, vocals, and venue by GHtoRB3.
 audio:
   album-track:
     md5: f032101ce26dec13250017d459090c18
@@ -30,7 +33,6 @@ plans:
   ghwt-c3:
     comments:
     - "Uses the C3 version of the audio from Guitar Hero: World Tour."
-    - "Under construction!"
     countin: *countin
     kick:
       channels: [[0, 1], c3]
@@ -58,5 +60,8 @@ plans:
       - channels: [[14, 15], c3]
 instruments:
   drums: true
+  bass: true
+  guitar: true
+  vocal: 2
 options:
   auto-2x-bass: true
