@@ -2303,9 +2303,11 @@ main = do
         let getDTAInfo = do
               (_, pkg, _) <- readRB3DTA $ dir </> "songs/songs.dta"
               return (D.name pkg, D.name pkg ++ " (" ++ D.artist pkg ++ ")")
-            handler :: Exc.IOException -> IO (String, String)
-            handler _ = return (takeFileName stfs, stfs)
-        (title, desc) <- getDTAInfo `Exc.catch` handler
+            handler1 :: Exc.IOException -> IO (String, String)
+            handler1 _ = return (takeFileName stfs, stfs)
+            handler2 :: Exc.ErrorCall -> IO (String, String)
+            handler2 _ = return (takeFileName stfs, stfs)
+        (title, desc) <- getDTAInfo `Exc.catch` handler1 `Exc.catch` handler2
         shake shakeOptions $ action $ rb3pkg title desc dir stfs
     "stfs-rb2" : args -> case inputOutput "_rb2con" args of
       Nothing -> error "Usage: onyx stfs-rb2 in_dir/ [out_rb2con]"
@@ -2313,9 +2315,11 @@ main = do
         let getDTAInfo = do
               (_, pkg, _) <- readRB3DTA $ dir </> "songs/songs.dta"
               return (D.name pkg, D.name pkg ++ " (" ++ D.artist pkg ++ ")")
-            handler :: Exc.IOException -> IO (String, String)
-            handler _ = return (takeFileName stfs, stfs)
-        (title, desc) <- getDTAInfo `Exc.catch` handler
+            handler1 :: Exc.IOException -> IO (String, String)
+            handler1 _ = return (takeFileName stfs, stfs)
+            handler2 :: Exc.ErrorCall -> IO (String, String)
+            handler2 _ = return (takeFileName stfs, stfs)
+        (title, desc) <- getDTAInfo `Exc.catch` handler1 `Exc.catch` handler2
         shake shakeOptions $ action $ rb2pkg title desc dir stfs
     "unstfs" : args -> case inputOutput "_extract" args of
       Nothing -> error "Usage: onyx unstfs in_rb3con [outdir/]"
