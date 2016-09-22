@@ -2,7 +2,7 @@ metadata:
   title: The Tempest (The Siren's Song; The Banshee's Cry)
   artist: The Agonist
   album: Lullabies for the Dormant Mind
-  author: dertanz (TheCourtofaPorcupine), girldrummer, Onyxite
+  author: Tadracing99, dertanz, girldrummer, Onyxite
   vocal-gender: female
   drum-kit: Hard Rock Kit
   file-album-art: cover.bmp
@@ -19,15 +19,17 @@ metadata:
     keys: 2
     vocal: 7
   comments:
-  - "Drums by TheCourtofaPorcupine, guitar and bass by girldrummer."
+  - "Drums by Tadracing99, pro drums by dertanz, guitar and bass by girldrummer."
   - "All instruments have overdrive/unison."
   autogen-theme: Aggressive Metal
   key: D
   rating: Supervision Recommended
-  # visualizer: https://i.imgur.com/96nMWwB.jpg
-  # mediafire 1x: http://www.mediafire.com/download/cbbdzrdb3sy08k8/TheTempest_1p_v1_rb3con
-  # mediafire 2x: http://www.mediafire.com/download/f71451e01f4xs07/TheTempest_2p_v1_rb3con
-  # mediafire ps: http://www.mediafire.com/download/slt1tewru5z1z01/TheTempest_ps_v1.zip
+  song-id: 1660200011
+  # song-id-2x: 1660200012
+  # visualizer: http://i.imgur.com/SUGoZcv.jpg
+  # download: http://www.mediafire.com/download/4ycndc3eaf348vm/TheTempest_1p_v2_rb3con
+  # download-2x: http://www.mediafire.com/download/f3r9649fnn2l8hv/TheTempest_2p_v2_rb3con
+  # download-ps: http://www.mediafire.com/download/uzv3vs0xhbbojmd/TheTempest_ps_v2.zip
 instruments:
   drums: true
   guitar: true
@@ -52,5 +54,3 @@ plans:
       1|3: hihat
     song:
       pad: [3.587, album-track]
-options:
-  auto-2x-bass: true

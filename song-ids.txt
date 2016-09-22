@@ -10,3 +10,10 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200008 The Nag (John Scofield)
 1660200009 Spark (Hiromi: The Trio Project) 1x
 1660200010 Spark (Hiromi: The Trio Project) 2x
+  Onyxite's Jazz Pack 1
+  v1 (of all) published 2016-09-21
+
+1660200011 The Tempest (The Agonist) 1x
+1660200012 The Tempest (The Agonist) 2x
+  v1 published without numeric song ID
+  v2 published 2016-09-21: fixed release year, moved to numeric song ID
