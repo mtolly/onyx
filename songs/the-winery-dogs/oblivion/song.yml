@@ -4,6 +4,7 @@ metadata:
   track-number: 1
   difficulty:
     drums: 5
+    guitar: 6
   author: Onyxite
 audio:
   album-track:
@@ -24,3 +25,4 @@ plans:
       pad: [3.576, album-track]
 instruments:
   drums: true
+  guitar: true
