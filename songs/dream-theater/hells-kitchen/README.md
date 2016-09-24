@@ -3,7 +3,7 @@
 ## Dream Theater
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=hells-kitchen&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/hells-kitchen)
 
 Instruments:
 

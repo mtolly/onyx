@@ -4,7 +4,7 @@
 
 Author: TheLieInKing
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=take-five&artist=other)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/other/take-five)
 
 Instruments:
 

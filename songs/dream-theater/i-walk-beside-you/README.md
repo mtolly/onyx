@@ -3,7 +3,7 @@
 ## Dream Theater
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=i-walk-beside-you&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/i-walk-beside-you)
 
 Instruments:
 

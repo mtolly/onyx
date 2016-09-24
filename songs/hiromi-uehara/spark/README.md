@@ -3,7 +3,7 @@
 ## Hiromi: The Trio Project
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=spark&artist=hiromi-uehara)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/hiromi-uehara/spark)
 
 Instruments:
 

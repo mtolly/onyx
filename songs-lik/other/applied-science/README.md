@@ -4,7 +4,7 @@
 
 Author: TheLieInKing
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=applied-science&artist=other)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/other/applied-science)
 
 Instruments:
 

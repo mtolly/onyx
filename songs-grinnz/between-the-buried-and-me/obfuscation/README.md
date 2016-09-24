@@ -4,7 +4,7 @@
 
 Author: Grinnz
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=obfuscation&artist=between-the-buried-and-me)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/between-the-buried-and-me/obfuscation)
 
 Instruments:
 

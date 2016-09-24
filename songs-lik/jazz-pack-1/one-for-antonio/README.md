@@ -4,7 +4,7 @@
 
 Author: TheLieInKing
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=one-for-antonio&artist=jazz-pack-1)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/jazz-pack-1/one-for-antonio)
 
 Instruments:
 

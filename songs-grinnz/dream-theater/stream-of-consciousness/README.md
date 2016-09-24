@@ -4,7 +4,7 @@
 
 Author: Grinnz
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=stream-of-consciousness&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/stream-of-consciousness)
 
 Instruments:
 

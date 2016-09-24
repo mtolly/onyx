@@ -3,7 +3,7 @@
 ## Jordan Rudess
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=time-crunch&artist=jordan-rudess)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/jordan-rudess/time-crunch)
 
 Instruments:
 

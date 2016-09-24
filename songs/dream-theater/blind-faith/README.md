@@ -4,7 +4,7 @@
 
 Author: mazegeek999 (pro keys), Onyxite (drums, vocals, bass, keys), unknown (guitar)
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=blind-faith&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/blind-faith)
 
 Instruments:
 

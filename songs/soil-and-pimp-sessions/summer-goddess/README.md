@@ -3,7 +3,7 @@
 ## Soil & 'Pimp' Sessions
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=summer-goddess&artist=soil-and-pimp-sessions)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/soil-and-pimp-sessions/summer-goddess)
 
 Instruments:
 

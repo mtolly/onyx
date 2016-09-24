@@ -4,7 +4,7 @@
 
 Author: Harmonix, Grinnz, Onyxite
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=constant-motion&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/constant-motion)
 
 Instruments:
 

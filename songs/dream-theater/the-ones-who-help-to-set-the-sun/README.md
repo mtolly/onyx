@@ -3,7 +3,7 @@
 ## Dream Theater
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=the-ones-who-help-to-set-the-sun&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/the-ones-who-help-to-set-the-sun)
 
 Instruments:
 

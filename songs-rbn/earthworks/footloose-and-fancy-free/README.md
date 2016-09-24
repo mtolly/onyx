@@ -4,7 +4,7 @@
 
 Author: Mick Larkins
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=footloose-and-fancy-free&artist=earthworks)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/earthworks/footloose-and-fancy-free)
 
 Instruments:
 

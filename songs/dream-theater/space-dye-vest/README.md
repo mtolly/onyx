@@ -3,7 +3,7 @@
 ## Dream Theater
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=space-dye-vest&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/space-dye-vest)
 
 Instruments:
 

@@ -4,7 +4,7 @@
 
 Author: TheLieInKing
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=barracuda&artist=jazz-pack-2)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/jazz-pack-2/barracuda)
 
 Instruments:
 

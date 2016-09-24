@@ -4,7 +4,7 @@
 
 Author: Grinnz
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=as-i-am&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/as-i-am)
 
 Instruments:
 

@@ -3,7 +3,7 @@
 ## Dream Theater
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=the-answer-lies-within&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/the-answer-lies-within)
 
 Instruments:
 

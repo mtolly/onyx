@@ -3,7 +3,7 @@
 ## Yuji Masubuchi
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=fantaisie-impromptu&artist=game-soundtracks)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/game-soundtracks/fantaisie-impromptu)
 
 Instruments:
 

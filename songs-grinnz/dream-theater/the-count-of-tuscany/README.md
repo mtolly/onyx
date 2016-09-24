@@ -4,7 +4,7 @@
 
 Author: Grinnz
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=the-count-of-tuscany&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/the-count-of-tuscany)
 
 Instruments:
 

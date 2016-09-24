@@ -3,7 +3,7 @@
 ## Bad Salad
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=moonlight&artist=bad-salad)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/bad-salad/moonlight)
 
 Instruments:
 

@@ -3,7 +3,7 @@
 ## Tool
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=lost-keys-blame-hoffman-rosetta-stoned&artist=tool)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/tool/lost-keys-blame-hoffman-rosetta-stoned)
 
 Instruments:
 

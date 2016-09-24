@@ -3,7 +3,7 @@
 ## Andrew Jackson Jihad
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=fucc-the-devil&artist=andrew-jackson-jihad)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/andrew-jackson-jihad/fucc-the-devil)
 
 Instruments:
 

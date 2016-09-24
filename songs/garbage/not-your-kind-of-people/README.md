@@ -3,7 +3,7 @@
 ## Garbage
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=not-your-kind-of-people&artist=garbage)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/garbage/not-your-kind-of-people)
 
 Instruments:
 

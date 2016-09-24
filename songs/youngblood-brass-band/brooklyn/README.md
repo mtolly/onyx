@@ -3,7 +3,7 @@
 ## Youngblood Brass Band
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=brooklyn&artist=youngblood-brass-band)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/youngblood-brass-band/brooklyn)
 
 Instruments:
 

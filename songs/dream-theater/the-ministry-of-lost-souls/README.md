@@ -4,7 +4,7 @@
 
 Author: Onyxite, mazegeek999
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=the-ministry-of-lost-souls&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/the-ministry-of-lost-souls)
 
 Instruments:
 

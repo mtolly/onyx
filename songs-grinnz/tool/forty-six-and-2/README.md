@@ -4,7 +4,7 @@
 
 Author: Grinnz
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=forty-six-and-2&artist=tool)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/tool/forty-six-and-2)
 
 Instruments:
 

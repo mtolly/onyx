@@ -4,7 +4,7 @@
 
 Author: Onyxite, mazegeek999, Meander
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=in-the-presence-of-enemies-pt-1&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/in-the-presence-of-enemies-pt-1)
 
 Instruments:
 

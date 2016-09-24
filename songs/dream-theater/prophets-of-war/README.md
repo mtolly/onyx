@@ -4,7 +4,7 @@
 
 Author: Onyxite, mazegeek999
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=prophets-of-war&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/prophets-of-war)
 
 Instruments:
 

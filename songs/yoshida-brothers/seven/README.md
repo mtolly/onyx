@@ -3,7 +3,7 @@
 ## Yoshida Brothers
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=seven&artist=yoshida-brothers)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/yoshida-brothers/seven)
 
 Instruments:
 

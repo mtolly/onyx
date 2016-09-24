@@ -3,7 +3,7 @@
 ## Liquid Tension Experiment
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=chewbacca&artist=liquid-tension-experiment)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/liquid-tension-experiment/chewbacca)
 
 Instruments:
 

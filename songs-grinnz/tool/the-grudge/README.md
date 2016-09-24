@@ -4,7 +4,7 @@
 
 Author: Grinnz
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=the-grudge&artist=tool)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/tool/the-grudge)
 
 Instruments:
 

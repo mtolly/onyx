@@ -280,9 +280,9 @@ writeReadme songYaml yamlPath out = writeFile out $ execWriter $ do
     "Onyxite" -> return ()
     auth      -> line $ "Author: " ++ auth
   line ""
-  let titleDir  = takeFileName $ takeDirectory yamlPath
-      artistDir = takeFileName $ takeDirectory $ takeDirectory yamlPath
-      link = "http://pages.cs.wisc.edu/~tolly/customs/?title=" ++ titleDir ++ "&artist=" ++ artistDir
+  let titleDir = takeFileName $ takeDirectory yamlPath
+      groupDir = takeFileName $ takeDirectory $ takeDirectory yamlPath
+      link = "http://pages.cs.wisc.edu/~tolly/customs/" ++ groupDir ++ "/" ++ titleDir
   when (HM.member (T.pack "album") $ _plans songYaml) $ line $ "[Play in browser](" ++ link ++ ")"
   line ""
   line "Instruments:"

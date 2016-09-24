@@ -3,7 +3,7 @@
 ## Liquid Tension Experiment
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=chris-and-kevins-excellent-adventure&artist=liquid-tension-experiment)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/liquid-tension-experiment/chris-and-kevins-excellent-adventure)
 
 Instruments:
 

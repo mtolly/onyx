@@ -3,7 +3,7 @@
 ## Danimal Cannon
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=danimal-across-america&artist=danimal-cannon)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/danimal-cannon/danimal-across-america)
 
 Instruments:
 

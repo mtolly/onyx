@@ -3,7 +3,7 @@
 ## The Winery Dogs
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=oblivion&artist=the-winery-dogs)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/the-winery-dogs/oblivion)
 
 Instruments:
 

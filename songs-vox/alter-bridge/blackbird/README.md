@@ -4,7 +4,7 @@
 
 Author: Guyshenig, Onyxite
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=blackbird&artist=alter-bridge)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/alter-bridge/blackbird)
 
 Instruments:
 

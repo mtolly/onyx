@@ -4,7 +4,7 @@
 
 Author: Onyxite, Grinnz, mazegeek999
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=repentance&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/repentance)
 
 Instruments:
 

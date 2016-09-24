@@ -3,7 +3,7 @@
 ## toe
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=mosquiton-wa-mou-kikoenai&artist=toe)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/toe/mosquiton-wa-mou-kikoenai)
 
 Instruments:
 

@@ -4,7 +4,7 @@
 
 Author: Onyxite, mazegeek999
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=the-dark-eternal-night&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/the-dark-eternal-night)
 
 Instruments:
 

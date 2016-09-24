@@ -3,7 +3,7 @@
 ## Shnabubula
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=temple-zelda-2&artist=shnabubula)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/shnabubula/temple-zelda-2)
 
 Instruments:
 

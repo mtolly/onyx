@@ -4,7 +4,7 @@
 
 Author: TheLieInKing, Onyxite
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=a-crimson-rose-and-a-gin-tonic&artist=other)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/other/a-crimson-rose-and-a-gin-tonic)
 
 Instruments:
 

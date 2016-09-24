@@ -4,7 +4,7 @@
 
 Author: Harmonix
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=on-the-backs-of-angels&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/on-the-backs-of-angels)
 
 Instruments:
 

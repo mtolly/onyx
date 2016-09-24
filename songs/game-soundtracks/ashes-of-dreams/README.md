@@ -3,7 +3,7 @@
 ## Emi Evans
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=ashes-of-dreams&artist=game-soundtracks)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/game-soundtracks/ashes-of-dreams)
 
 Instruments:
 

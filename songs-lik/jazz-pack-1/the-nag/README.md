@@ -4,7 +4,7 @@
 
 Author: TheLieInKing, Onyxite
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=the-nag&artist=jazz-pack-1)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/jazz-pack-1/the-nag)
 
 Instruments:
 

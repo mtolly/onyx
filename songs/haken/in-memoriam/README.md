@@ -3,7 +3,7 @@
 ## Haken
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=in-memoriam&artist=haken)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/haken/in-memoriam)
 
 Instruments:
 

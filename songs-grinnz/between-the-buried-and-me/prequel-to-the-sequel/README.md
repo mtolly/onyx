@@ -4,7 +4,7 @@
 
 Author: Grinnz, Harmonix, Galhenig, Espher, Onyxite
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=prequel-to-the-sequel&artist=between-the-buried-and-me)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/between-the-buried-and-me/prequel-to-the-sequel)
 
 Instruments:
 

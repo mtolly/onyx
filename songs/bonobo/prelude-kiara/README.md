@@ -3,7 +3,7 @@
 ## Bonobo
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=prelude-kiara&artist=bonobo)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/bonobo/prelude-kiara)
 
 Instruments:
 

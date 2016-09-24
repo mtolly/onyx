@@ -3,7 +3,7 @@
 ## Bad Salad
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=crowded-sky&artist=bad-salad)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/bad-salad/crowded-sky)
 
 Instruments:
 

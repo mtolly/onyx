@@ -3,7 +3,7 @@
 ## Mahavishnu Orchestra
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=celestial-terrestrial-commuters&artist=mahavishnu-orchestra)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/mahavishnu-orchestra/celestial-terrestrial-commuters)
 
 Instruments:
 

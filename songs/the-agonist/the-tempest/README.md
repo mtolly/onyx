@@ -4,7 +4,7 @@
 
 Author: Tadracing99, dertanz, girldrummer, Onyxite
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=the-tempest&artist=the-agonist)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/the-agonist/the-tempest)
 
 Instruments:
 

@@ -3,7 +3,7 @@
 ## Jordan Rudess
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=go-wayne-earl&artist=jordan-rudess)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/jordan-rudess/go-wayne-earl)
 
 Instruments:
 

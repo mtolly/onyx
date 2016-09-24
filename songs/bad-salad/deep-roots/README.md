@@ -3,7 +3,7 @@
 ## Bad Salad
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=deep-roots&artist=bad-salad)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/bad-salad/deep-roots)
 
 Instruments:
 

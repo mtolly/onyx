@@ -3,7 +3,7 @@
 ## Maximum the Hormone
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=bikini-sports-ponchin&artist=maximum-the-hormone)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/maximum-the-hormone/bikini-sports-ponchin)
 
 Instruments:
 

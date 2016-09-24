@@ -3,7 +3,7 @@
 ## toe
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=last-night&artist=toe)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/toe/last-night)
 
 Instruments:
 

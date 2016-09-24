@@ -3,7 +3,7 @@
 ## Hiromi
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=kung-fu-world-champion&artist=hiromi-uehara)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/hiromi-uehara/kung-fu-world-champion)
 
 Instruments:
 

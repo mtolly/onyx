@@ -3,7 +3,7 @@
 ## David Bowie
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=life-on-mars&artist=david-bowie)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/david-bowie/life-on-mars)
 
 Instruments:
 

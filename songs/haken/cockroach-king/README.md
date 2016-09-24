@@ -3,7 +3,7 @@
 ## Haken
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=cockroach-king&artist=haken)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/haken/cockroach-king)
 
 Instruments:
 

@@ -3,7 +3,7 @@
 ## Yuji Masubuchi
 
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=toccata-and-fugue-and-rock&artist=game-soundtracks)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/game-soundtracks/toccata-and-fugue-and-rock)
 
 Instruments:
 

@@ -4,7 +4,7 @@
 
 Author: mazegeek999, Onyxite
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=the-great-debate&artist=dream-theater)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/dream-theater/the-great-debate)
 
 Instruments:
 

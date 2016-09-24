@@ -4,7 +4,7 @@
 
 Author: Onyxite, mazegeek999
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=pain-that-binds-us&artist=bad-salad)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/bad-salad/pain-that-binds-us)
 
 Instruments:
 

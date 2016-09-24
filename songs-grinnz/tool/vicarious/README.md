@@ -4,7 +4,7 @@
 
 Author: Grinnz, GHtoRB3
 
-[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/?title=vicarious&artist=tool)
+[Play in browser](http://pages.cs.wisc.edu/~tolly/customs/tool/vicarious)
 
 Instruments:
 
