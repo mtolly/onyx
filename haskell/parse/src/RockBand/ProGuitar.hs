@@ -293,7 +293,7 @@ standardGuitar :: [Int]
 standardGuitar = [40, 45, 50, 55, 59, 64]
 
 standardBass :: [Int]
-standardBass = [28, 33, 38, 43]
+standardBass = [28, 33, 38, 43, 47, 52] -- last 2 are just gtr one octave down, need to test in game
 
 playGuitar :: [Int] -> RTB.T U.Beats DiffEvent -> [(GtrString, RTB.T U.Beats E.T)]
 playGuitar tuning evts = let
