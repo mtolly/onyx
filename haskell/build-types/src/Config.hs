@@ -792,6 +792,7 @@ jsonRecord "Metadata" eos $ do
   opt "_previewStart" "preview-start" [t| Maybe PreviewTime |] [e| Nothing |]
   opt "_previewEnd" "preview-end" [t| Maybe PreviewTime |] [e| Nothing |]
   opt "_songID" "song-id" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]
+  opt "_songID2x" "song-id-2x" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]
   opt "_languages" "languages" [t| [T.Text] |] [e| [] |]
   opt "_convert"    "convert"     [t| Bool |] [e| False |]
   opt "_rhythmKeys" "rhythm-keys" [t| Bool |] [e| False |]

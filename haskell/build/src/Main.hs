@@ -19,8 +19,6 @@ import           Image
 import           Import
 import           JSONData                              (JSONEither (..),
                                                         traceJSON)
-import           Magma                                 hiding
-                                                        (withSystemTempDirectory)
 import qualified Magma
 import qualified MelodysEscape
 import           MoggDecrypt
@@ -47,6 +45,7 @@ import           X360
 import           YAMLTree
 
 import           Codec.Picture
+import Control.Applicative ((<|>))
 import           Control.Exception                     as Exc
 import           Control.Monad.Extra
 import           Control.Monad.Trans.Reader
@@ -1165,7 +1164,7 @@ main = do
                 copyFile' f out
             _ -> do
               need [ogg]
-              oggToMogg ogg out
+              Magma.oggToMogg ogg out
 
           -- Low-quality audio files for the online preview app
           forM_ [("mp3", crapMP3), ("ogg", crapVorbis)] $ \(ext, crap) -> do
@@ -1241,26 +1240,22 @@ main = do
             ]
 
           -- Rock Band 3 DTA file
-          let makeDTA :: String -> FilePath -> String -> Maybe Int -> Action D.SongPackage
-              makeDTA pkg mid title piracy = do
+          let makeDTA :: String -> FilePath -> String -> Bool -> Action D.SongPackage
+              makeDTA pkg mid title is2xBass = do
                 song <- loadMIDI mid
                 let (pstart, pend) = previewBounds songYaml song
                     len = songLengthMS song
+                    usedSongID = if is2xBass
+                      then _songID2x (_metadata songYaml) <|> _songID (_metadata songYaml)
+                      else _songID (_metadata songYaml)
                     perctype = getPercType song
-
-                let channels = concat [kickPV, snarePV, drumsPV, bassPV, guitarPV, keysPV, vocalPV, crowdPV, songPV]
-                    pans = piratePans $ case plan of
+                    channels = concat [kickPV, snarePV, drumsPV, bassPV, guitarPV, keysPV, vocalPV, crowdPV, songPV]
+                    pans = case plan of
                       MoggPlan{..} -> _pans
                       _ -> map fst channels
-                    vols = pirateVols $ case plan of
+                    vols = case plan of
                       MoggPlan{..} -> _vols
                       _ -> map snd channels
-                    piratePans = case piracy of
-                      Nothing -> id
-                      Just i  -> zipWith const $ map (\j -> if i == j then -1 else 1) [0..]
-                    pirateVols = case piracy of
-                      Nothing -> id
-                      Just _  -> map $ const 0
                     -- I still don't know what cores are...
                     -- All I know is guitar channels are usually (not always) 1 and all others are -1
                     cores = case plan of
@@ -1299,12 +1294,11 @@ main = do
                           0 -> go n rest
                           c -> (inst, Right $ D.InParens $ map fromIntegral $ take c [n..]) : go (n + c) rest
                         in go 0 counts
-
                 return D.SongPackage
                   { D.name = title
                   , D.artist = T.unpack $ getArtist $ _metadata songYaml
                   , D.master = not $ _cover $ _metadata songYaml
-                  , D.songId = case _songID $ _metadata songYaml of
+                  , D.songId = case usedSongID of
                     Nothing  -> Right $ D.Keyword pkg
                     Just (JSONEither sid) -> either Left (Right . D.Keyword . T.unpack) sid
                   , D.song = D.Song
@@ -1399,27 +1393,6 @@ main = do
                   , D.downloaded = Nothing
                   , D.basePoints = Nothing
                   }
-
-          -- CONs for recording MOGG channels
-          -- (pan one channel to left, all others to right)
-          case plan of
-            MoggPlan{..} -> forM_ (zipWith const [0..] $ _pans) $ \i -> do
-              dir </> ("mogg" ++ show (i :: Int) ++ ".con") %> \out -> do
-                Magma.withSystemTempDirectory "moggrecord" $ \tmp -> do
-                  let pkg = "mogg_" ++ T.unpack (T.take 6 _moggMD5) ++ "_" ++ show i
-                  liftIO $ Dir.createDirectoryIfMissing True (tmp </> "songs" </> pkg </> "gen")
-                  copyFile' (dir </> "audio.mogg"              ) $ tmp </> "songs" </> pkg </> pkg <.> "mogg"
-                  copyFile' (dir </> "2p/notes-magma-added.mid") $ tmp </> "songs" </> pkg </> pkg <.> "mid"
-                  copyFile' "gen/cover.png_xbox"                 $ tmp </> "songs" </> pkg </> "gen" </> (pkg ++ "_keep.png_xbox")
-                  songPkg <- makeDTA pkg (dir </> "2p/notes-magma-added.mid")
-                    (T.unpack (getTitle $ _metadata songYaml) ++ " - Channel " ++ show i)
-                    (Just i)
-                  liftIO $ do
-                    flip B.writeFile emptyMilo                   $ tmp </> "songs" </> pkg </> "gen" </> pkg <.> "milo_xbox"
-                    D.writeFileDTA_utf8                           (tmp </> "songs/songs.dta")
-                      $ D.serialize $ D.Dict $ Map.fromList [(pkg, D.toChunks songPkg)]
-                  rb3pkg (T.unpack (getTitle $ _metadata songYaml) ++ " MOGG " ++ show i) "" tmp out
-            _ -> return ()
 
           -- Warn about notes that might hang off before a pro keys range shift
           phony (dir </> "hanging") $ do
@@ -1559,8 +1532,8 @@ main = do
                 pathCon  = pedalDir </> "rb3.con"
             pathDta %> \out -> do
               title <- thisTitle
-              songPkg <- makeDTA pkg (pedalDir </> "notes.mid") title Nothing
               is2x <- is2xBass
+              songPkg <- makeDTA pkg (pedalDir </> "notes.mid") title is2x
               liftIO $ writeUtf8CRLF out $ prettyDTA pkg (_metadata songYaml) plan is2x songPkg
             pathMid  %> copyFile' (pedalDir </> "notes-magma-added.mid")
             pathMogg %> copyFile' (dir </> "audio.mogg")
@@ -1880,6 +1853,12 @@ main = do
                       v : vs -> if all (== v) vs
                         then Just v
                         else error $ "C3 doesn't support separate crowd volumes: " ++ show (v : vs)
+                    usedSongID = if is2x
+                      then _songID2x (_metadata songYaml) <|> _songID (_metadata songYaml)
+                      else _songID (_metadata songYaml)
+                    numSongID = usedSongID >>= \case
+                      JSONEither (Right _) -> Nothing
+                      JSONEither (Left  i) -> Just i
                 liftIO $ writeFile out $ C3.showC3 C3.C3
                   { C3.song = T.unpack $ getTitle $ _metadata songYaml
                   , C3.artist = T.unpack $ getArtist $ _metadata songYaml
@@ -1938,9 +1917,11 @@ main = do
                   , C3.packageThumb = ""
                   , C3.encodeANSI = True  -- is this right?
                   , C3.encodeUTF8 = False -- is this right?
-                  , C3.useNumericID = False
-                  , C3.uniqueNumericID = ""
-                  , C3.uniqueNumericID2X = ""
+                  , C3.useNumericID = isJust numSongID
+                  , C3.uniqueNumericID = case numSongID of
+                    Nothing -> ""
+                    Just i  -> show i
+                  , C3.uniqueNumericID2X = "" -- will use later if we ever create combined 1x/2x C3 Magma projects
                   , C3.toDoList = C3.defaultToDo
                   }
               phony setup $ need $ concat
@@ -1958,16 +1939,16 @@ main = do
                 ]
               rba %> \out -> do
                 need [setup]
-                runMagma proj out
+                Magma.runMagma proj out
               rbaV1 %> \out -> do
                 need [dummyMono, dummyStereo, dryvoxSine, coverV1, midV1, projV1]
-                good <- runMagmaV1 projV1 out
+                good <- Magma.runMagmaV1 projV1 out
                 unless good $ do
                   putNormal "Magma v1 failed; optimistically bypassing."
                   liftIO $ B.writeFile out B.empty
               export %> \out -> do
                 need [mid, proj]
-                runMagmaMIDI proj out
+                Magma.runMagmaMIDI proj out
               export2 %> \out -> do
                 -- Using Magma's "export MIDI" option overwrites all animations/venue
                 -- with autogenerated ones, even if they were actually authored.
@@ -2293,7 +2274,7 @@ main = do
     "build" : buildables -> shakeBuild buildables Nothing
     "mogg" : args -> case inputOutput ".mogg" args of
       Nothing -> error "Usage: onyx mogg in.ogg [out.mogg]"
-      Just (ogg, mogg) -> shake shakeOptions $ action $ oggToMogg ogg mogg
+      Just (ogg, mogg) -> shake shakeOptions $ action $ Magma.oggToMogg ogg mogg
     "unmogg" : args -> case inputOutput ".ogg" args of
       Nothing -> error "Usage: onyx unmogg in.mogg [out.ogg]"
       Just (mogg, ogg) -> moggToOgg mogg ogg

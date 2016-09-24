@@ -200,6 +200,7 @@ importFoF krb2 src dest = do
         _                 -> Nothing
       , _previewEnd   = Nothing
       , _songID       = Nothing
+      , _songID2x     = Nothing
       , _languages    = _languages def
       , _convert      = _convert def
       , _rhythmKeys   = _rhythmKeys def
@@ -449,6 +450,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       , _songID       = fmap JSONEither $ case D.songId pkg of
         Left  i -> guard (i /= 0) >> Just (Left i)
         Right k -> Just $ Right $ T.pack $ D.fromKeyword k
+      , _songID2x     = Nothing
       , _languages    = _languages meta
       , _convert      = _convert meta
       , _rhythmKeys   = _rhythmKeys meta
