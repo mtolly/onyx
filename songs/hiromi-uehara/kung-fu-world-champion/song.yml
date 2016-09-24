@@ -14,6 +14,7 @@ metadata:
   file-album-art: cover.jpg
   difficulty:
     drums: 7
+    pro-keys: 7
   preview-start: prc_break_1
 options:
   keys-rb2: guitar
@@ -36,3 +37,4 @@ plans:
       pad: [3.324, album-track]
 instruments:
   drums: true
+  pro-keys: true
