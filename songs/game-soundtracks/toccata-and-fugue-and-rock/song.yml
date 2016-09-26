@@ -8,11 +8,15 @@ metadata:
   subgenre: jrock
   difficulty:
     drums: 6
+    keys: 6
     pro-keys: 7
     guitar: 4
     bass: 5
+  comments:
+  - All instruments have overdrive/unison.
 instruments:
   drums: true
+  keys: true
   pro-keys: true
   guitar: true
   bass: true
