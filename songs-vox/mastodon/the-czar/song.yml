@@ -1,0 +1,19 @@
+metadata:
+  title: The Czar
+  artist: Mastodon
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube Jx2fp-kKOIw 140
+    md5: da536598a5b7262167867d146ca40af3
+    frames: 28875776
+plans:
+  album:
+    song:
+      pad: [4.929, youtube]
+instruments:
+  vocal: 3
+  drums: true
+  guitar: true
+published: false
