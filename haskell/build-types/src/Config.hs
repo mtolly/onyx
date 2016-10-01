@@ -561,6 +561,7 @@ instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
     , ("pad" , supplyEdge "pad"  Pad )
     , ("resample", algebraic1 "resample" Resample traceJSON)
     , ("channels", algebraic2 "channels" Channels traceJSON traceJSON)
+    , ("stretch", algebraic2 "stretch" Stretch traceJSON traceJSON)
     ] (fmap Input traceJSON `catch` \_ -> expected "an audio expression")
     where supplyEdge s f = lift ask >>= \case
             OneKey _ (A.Array v)
@@ -582,6 +583,7 @@ instance (A.ToJSON t, A.ToJSON a) => A.ToJSON (Audio t a) where
     Pad e t aud -> A.object ["pad" .= [A.toJSON e, A.toJSON t, A.toJSON aud]]
     Resample aud -> A.object ["resample" .= aud]
     Channels ns aud -> A.object ["channels" .= [A.toJSON ns, A.toJSON aud]]
+    Stretch d aud -> A.object ["stretch" .= [A.toJSON d, A.toJSON aud]]
 
 instance TraceJSON Duration where
   traceJSON = lift ask >>= \case

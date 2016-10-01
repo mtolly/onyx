@@ -28,7 +28,7 @@ import           Data.Binary.Get                 (getWord32le, runGetOrFail)
 import qualified Data.ByteString.Lazy            as BL
 import qualified Data.ByteString.Lazy.Char8      as BL8
 import           Data.Char                       (toLower)
-import           Data.Conduit                    ((=$=))
+import           Data.Conduit                    ((=$=), await, yield)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME
 import           Data.Conduit.Audio.LAME.Binding as L
@@ -46,6 +46,75 @@ import           Numeric                         (showHex)
 import           SndfileExtra
 import qualified Sound.File.Sndfile              as Snd
 import qualified Sound.MIDI.Util                 as U
+
+-- | Simple linear interpolation of an audio stream.
+stretch :: (MonadResource m) => Double -> AudioSource m Float -> AudioSource m Float
+stretch ratio src = AudioSource
+  { rate     = rate src
+  , frames   = ceiling $ fromIntegral (frames src) * ratio
+  , channels = channels src
+  , source   = source src =$= pipe 0 (repeat 0)
+  } where
+    stride = recip ratio
+    pipe phase prev = await >>= \case
+      Nothing -> return ()
+      Just v -> let
+        chans = deinterleave (channels src) v
+        len :: Double
+        len = fromIntegral $ V.length $ head chans
+        allIndexes = iterate (+ stride) phase
+        (usedIndexes, nextIndex : _) = span (<= len - 1) allIndexes
+        stretchChannel prevSample channel = let
+          doubleIndex d
+            | d >= 0 = case properFraction d of
+              (i, d') -> intIndex i * realToFrac (1 - d') + intIndex (i + 1) * realToFrac d'
+            | otherwise = case properFraction d of
+              (i, d') -> intIndex (i - 1) * realToFrac (negate d') + intIndex i * realToFrac (1 + d')
+          intIndex (-1) = prevSample
+          intIndex i    = channel V.! i
+          in V.fromList $ map doubleIndex usedIndexes
+        in do
+          yield $ interleave $ zipWith stretchChannel prev chans
+          pipe (nextIndex - len) $ map V.last chans
+
+{-
+-- To be used in the future. Stretches time and/or pitch separately.
+stretch2 :: (MonadResource m) => Double -> AudioSource m Float -> AudioSource m Float
+stretch2 ratio src = AudioSource
+  { rate     = rate src
+  , frames   = ceiling $ fromIntegral (frames src) * ratio
+  , channels = channels src
+  , source   = pipe $ source $ reorganize chunkSize src
+  } where
+    pipe upstream = do
+      rb <- liftIO $ RB.new (round $ rate src) (channels src) RB.defaultOptions ratio 1
+      liftIO $ RB.setMaxProcessSize rb chunkSize
+      upstream =$= studyAll rb
+      upstream =$= processAll rb
+    studyAll rb = await >>= \case
+      Nothing -> return ()
+      Just v -> await >>= \case
+        Nothing -> liftIO $ RB.study rb (deinterleave (channels src) v) True
+        Just v' -> do
+          leftover v'
+          liftIO $ RB.study rb (deinterleave (channels src) v) False
+          studyAll rb
+    processAll rb = liftIO (RB.available rb) >>= \case
+      Nothing -> return ()
+      Just 0 -> liftIO (RB.getSamplesRequired rb) >>= \case
+        0 -> liftIO (threadDelay 1000) >> processAll rb
+        _ -> await >>= \case
+          Nothing -> return ()
+          Just v -> await >>= \case
+            Nothing -> liftIO $ RB.process rb (deinterleave (channels src) v) True
+            Just v' -> do
+              leftover v'
+              liftIO $ RB.process rb (deinterleave (channels src) v) False
+              processAll rb
+      Just n -> do
+        liftIO (interleave <$> RB.retrieve rb (min n chunkSize)) >>= yield
+        processAll rb
+-}
 
 -- | Duplicates mono into stereo, or otherwise just tacks on silent channels to one source.
 sameChannels :: (Monad m, Num a, V.Storable a) => (AudioSource m a, AudioSource m a) -> (AudioSource m a, AudioSource m a)
@@ -99,6 +168,7 @@ buildSource aud = case aud of
     case map (chans !!) cs of
       [] -> error "buildSource: can't select 0 channels"
       s : ss -> return $ foldl merge s ss
+  Stretch d x -> stretch d <$> buildSource x
   where combine meth xs = mapM buildSource xs >>= \srcs -> case srcs of
           [] -> error "buildSource: can't combine 0 files"
           s : ss -> return $ foldl meth s ss

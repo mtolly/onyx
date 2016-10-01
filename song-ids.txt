@@ -17,3 +17,6 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200012 The Tempest (The Agonist) 2x
   v1 published without numeric song ID
   v2 published 2016-09-21: fixed release year, moved to numeric song ID
+
+ONE-OFFS
+1660299999 hacked c3 6:00 drum chart

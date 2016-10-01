@@ -12,5 +12,7 @@ Instruments:
 
 Supported audio:
 
+  * `drumcam`
+
   * `album` (Hot Streak)
 

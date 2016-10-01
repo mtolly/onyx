@@ -19,6 +19,7 @@ data Audio t a
   | Pad  Edge t    (Audio t a)
   | Resample       (Audio t a)
   | Channels [Int] (Audio t a)
+  | Stretch Double (Audio t a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
 instance Applicative (Audio t) where
@@ -41,6 +42,7 @@ instance Monad (Audio t) where
       Pad     e t aud  -> Pad e t $ join_ aud
       Resample    aud  -> Resample $ join_ aud
       Channels cs aud  -> Channels cs $ join_ aud
+      Stretch   d aud  -> Stretch d $ join_ aud
     in join_ $ fmap f x
 
 data Edge = Start | End
@@ -60,3 +62,4 @@ mapTime f aud = case aud of
   Pad  e t x      -> Pad  e (f t) $ mapTime f x
   Resample x      -> Resample     $ mapTime f x
   Channels cs x   -> Channels cs  $ mapTime f x
+  Stretch d x     -> Stretch d    $ mapTime f x
