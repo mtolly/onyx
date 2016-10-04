@@ -12,6 +12,8 @@ Instruments:
 
 Supported audio:
 
+  * `drumcam`
+
   * `album` (Train of Thought)
 
 Notes:
