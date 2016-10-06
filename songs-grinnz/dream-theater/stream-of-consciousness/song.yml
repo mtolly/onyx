@@ -20,6 +20,9 @@ audio:
     md5: 7f168a3c9c00b00374910d8c7d32e63e
     frames: 192898560
     rate: 48000
+  album-expr:
+    expr:
+      pad: [4.979, album-track]
   drumcam-band-expr:
     expr:
       drop:
@@ -51,26 +54,44 @@ plans:
       1|2: hihat
       1|3: hihat
       1|4: hihat
-    song:
-      pad: [4.979, album-track]
+    song: album-expr
   drumcam:
     countin: *countin
     song:
-      pad:
-      - 4.839
-      - resample:
-          gain:
-          - 3
-          - mix:
-            - drumcam-band-expr
-            - drumcam-drums-expr
+      # the top-level mix is to remove studio banter
+      mix:
+      - fade:
+        - end
+        - 1
+        - take:
+          - '11:07'
+          - pad:
+            - 4.839
+            - resample:
+                gain:
+                - 3
+                - mix:
+                  - drumcam-band-expr
+                  - drumcam-drums-expr
+      - pad:
+        - '11:06.15' # TODO this still needs a bit of cleaning up
+        - fade:
+          - start
+          - 1
+          - gain:
+            - 1.2
+            - drop:
+              - '11:06.15'
+              - album-expr
     drums:
-      pad:
-      - 4.839
-      - resample:
-          gain:
-          - -2.5
-          - drumcam-drums-expr
+      take:
+      - '11:07'
+      - pad:
+        - 4.839
+        - resample:
+            gain:
+            - -2.5
+            - drumcam-drums-expr
 instruments:
   drums: true
 options:
