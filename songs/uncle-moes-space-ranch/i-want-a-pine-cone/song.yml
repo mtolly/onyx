@@ -23,7 +23,12 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [3.275, album-track]
+      fade:
+      - end
+      - 0.721
+      - take:
+        - '6:41.637'
+        - pad: [3.275, album-track]
 instruments:
   drums: true
 published: false
