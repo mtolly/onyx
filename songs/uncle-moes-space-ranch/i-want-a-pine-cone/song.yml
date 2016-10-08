@@ -7,6 +7,9 @@ metadata:
   subgenre: fusion
   track-number: 7
   author: Onyxite
+  file-album-art: cover.jpg
+  difficulty:
+    drums: 5
 audio:
   album-track:
     md5: 36f9c97fa3b795d0f74afab76bfc79b4
@@ -31,4 +34,3 @@ plans:
         - pad: [3.275, album-track]
 instruments:
   drums: true
-published: false
