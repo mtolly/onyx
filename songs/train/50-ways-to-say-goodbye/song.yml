@@ -1,0 +1,41 @@
+metadata:
+  rating: SupervisionRecommended
+  vocal-gender: male
+  file-album-art: cover.jpg
+  languages:
+  - English
+  track-number: 5
+  album: California 37
+  year: 2012
+  subgenre: contemporary
+  author: CPURules, Onyxite
+  title: 50 Ways to Say Goodbye
+  genre: poprock
+  artist: Train
+audio:
+  youtube:
+    commands:
+    - ../../../scripts/youtube JAmbbFMmAGM 140
+    file-path: audio-youtube.wav
+    md5: 11f34c62480da4adf6b9bce475ec5569
+    frames: 11116544
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+instruments:
+  vocal: 1 # TODO: harmonies, slides/fixes
+  guitar: true # TODO: fix choruses/bridge
+  keys: true # TODO: match pro keys
+  pro-keys: true
+  drums: true
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [2.943, youtube]
+published: false
