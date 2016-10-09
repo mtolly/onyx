@@ -1,0 +1,19 @@
+metadata:
+  title: Quintessence
+  artist: Mastodon
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube RkyTqrfCF40 140
+    md5: cbcb5e0aabc94f4dc4ea1625b7e80ec1
+    frames: 14448640
+plans:
+  album:
+    song:
+      pad: [6.013, youtube]
+instruments:
+  vocal: 2
+  drums: true
+  guitar: true
+published: false
