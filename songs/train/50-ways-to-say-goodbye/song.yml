@@ -23,10 +23,11 @@ audio:
     file-path: ../../../sound/hihat-foot.wav
 instruments:
   vocal: 1 # TODO: harmonies, slides/fixes
-  guitar: true # TODO: fix choruses/bridge
+  guitar: true
   keys: true # TODO: match pro keys
   pro-keys: true
   drums: true
+  bass: true
 plans:
   album:
     countin:
