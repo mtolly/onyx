@@ -10,6 +10,7 @@ metadata:
   file-album-art: cover.jpg
   difficulty:
     vocal: 6
+    pro-keys: 4
 audio:
   youtube:
     commands:
@@ -29,3 +30,4 @@ plans:
       pad: [3.401, youtube]
 instruments:
   vocal: 1
+  pro-keys: true

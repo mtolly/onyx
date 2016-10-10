@@ -7,6 +7,7 @@
 
 Instruments:
 
+  * Pro Keys ⚪️⚪️⚪️⚫️⚫️
   * Vocals (1) ⚪️⚪️⚪️⚪️⚪️
 
 Supported audio:
