@@ -22,7 +22,7 @@ audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 instruments:
-  vocal: 1 # TODO: harmonies, slides/fixes
+  vocal: 3
   guitar: true
   keys: true # TODO: match pro keys
   pro-keys: true
