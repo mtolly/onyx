@@ -11,7 +11,7 @@ import Data.Foreign.Class
 import Data.Either
 import Control.Monad.Eff.Ref
 import Data.Array
-import DOM.RequestAnimationFrame
+import RequestAnimationFrame
 import Data.Date
 import Data.Time.Duration
 import Data.Int (round, toNumber)

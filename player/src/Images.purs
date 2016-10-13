@@ -1,12 +1,11 @@
 module Images (ImageID(..), withImages) where
 
 import Prelude
-import Data.Traversable (traverse)
-import Data.String (split, joinWith, drop)
+import Data.String (split, joinWith, drop, Pattern(..))
 import Graphics.Canvas (CanvasImageSource(), withImage)
 import Control.Monad.Eff (Eff())
 import Data.Tuple (Tuple(..))
-import Control.Parallel.Class (parallel, runParallel, Parallel())
+import Control.Parallel.Class (parTraverse)
 import Data.Maybe (Maybe(..))
 import OnyxMap as Map
 import Data.Generic (class Generic, gShow, gEq, gCompare)
@@ -133,11 +132,11 @@ allImageIDs = [Image_button_bass_off, Image_button_bass, Image_button_drums_off,
 
 withImages :: forall e. ((ImageID -> CanvasImageSource) -> Eff e Unit) -> Eff e Unit
 withImages = let
-  loadTuple :: forall e2. ImageID -> Parallel (ContT Unit (Eff e2)) (Tuple ImageID CanvasImageSource)
+  loadTuple :: forall e2. ImageID -> ContT Unit (Eff e2) (Tuple ImageID CanvasImageSource)
   loadTuple iid = let
-    path = "images/" <> joinWith "-" (split "_" $ drop 13 $ show iid) <> ".png"
+    path = "images/" <> joinWith "-" (split (Pattern "_") $ drop 13 $ show iid) <> ".png"
     -- TODO: the 13 is the length of "Images.Image_". do this better somehow
-    in map (Tuple iid) $ parallel <<< ContT $ withImage path
+    in map (Tuple iid) $ ContT $ withImage path
   pairsToFn :: Array (Tuple ImageID CanvasImageSource) -> ImageID -> CanvasImageSource
   pairsToFn pairs = let
     imageMap :: Map.Map ImageID CanvasImageSource
@@ -145,4 +144,4 @@ withImages = let
     in \iid -> case Map.lookup iid imageMap of
       Just img -> img
       Nothing  -> unsafeThrow $ "panic! loaded image not found for image ID " <> show iid
-  in runContT $ runParallel $ map pairsToFn $ traverse loadTuple allImageIDs
+  in runContT $ map pairsToFn $ parTraverse loadTuple allImageIDs

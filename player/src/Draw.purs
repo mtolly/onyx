@@ -20,6 +20,7 @@ import Data.Foldable (elem, sum, for_)
 import Control.Apply ((*>))
 import Control.MonadPlus (guard)
 import Data.String.Regex as R
+import Data.String.Regex.Flags (noFlags)
 import Math (pi)
 import Data.Either (either)
 
@@ -143,6 +144,7 @@ draw = do
   drawImage playPause (toNumber _M) (windowH - toNumber _M - toNumber _B)
   let timelineH = windowH - 3.0 * toNumber _M - toNumber _B - 2.0
       filled = unSeconds (stuff.time) / unSeconds (case stuff.song of Song o -> o.end)
+      unSeconds (Seconds s) = s
   setFillStyle "black"
   fillRect { x: toNumber _M, y: toNumber _M, w: toNumber _B, h: timelineH + 2.0 }
   setFillStyle "white"
@@ -959,11 +961,11 @@ drawVocal (Vocal v) targetY = do
         VocalEnd -> Nothing
         VocalStart lyric pitch
           | lyric == "+" -> Nothing
-          | R.test (either unsafeThrow id $ R.regex "\\$$" R.noFlags) lyric -> Nothing
+          | R.test (either unsafeThrow id $ R.regex "\\$$" noFlags) lyric -> Nothing
           | isHarm3 && harm2Lyric t == Just lyric -> Nothing
           | otherwise -> Just
             { time: t
-            , lyric: R.replace (either unsafeThrow id $ R.regex "=$" R.noFlags) "-" lyric
+            , lyric: R.replace (either unsafeThrow id $ R.regex "=$" noFlags) "-" lyric
             , isTalky: isNothing pitch
             }
           -- TODO: support §
