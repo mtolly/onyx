@@ -12,6 +12,16 @@ metadata:
   title: 50 Ways to Say Goodbye
   genre: poprock
   artist: Train
+  difficulty:
+    drums: 2
+    bass: 3
+    guitar: 3
+    keys: 4
+    pro-keys: 4
+    vocal: 5
+    band: 3
+  comments:
+  - All instruments have overdrive/unison.
 audio:
   youtube:
     commands:
@@ -24,7 +34,7 @@ audio:
 instruments:
   vocal: 3
   guitar: true
-  keys: true # TODO: match pro keys
+  keys: true
   pro-keys: true
   drums: true
   bass: true
@@ -39,4 +49,3 @@ plans:
       1|3: hihat
     song:
       pad: [2.943, youtube]
-published: false
