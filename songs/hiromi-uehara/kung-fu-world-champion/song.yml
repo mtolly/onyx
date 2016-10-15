@@ -18,6 +18,8 @@ metadata:
     keys: 7
     bass: 6
   preview-start: prc_break_1
+  comments:
+  - All instruments have overdrive/unison.
 options:
   keys-rb2: guitar
 audio:

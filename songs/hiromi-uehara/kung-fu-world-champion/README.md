@@ -16,3 +16,7 @@ Supported audio:
 
   * `album` (Brain)
 
+Notes:
+
+  * All instruments have overdrive/unison.
+
