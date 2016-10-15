@@ -15,6 +15,7 @@ metadata:
   difficulty:
     drums: 7
     pro-keys: 7
+    keys: 7
     bass: 6
   preview-start: prc_break_1
 options:
@@ -39,4 +40,5 @@ plans:
 instruments:
   drums: true
   pro-keys: true
+  keys: true
   bass: true
