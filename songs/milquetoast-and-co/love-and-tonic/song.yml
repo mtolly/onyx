@@ -1,0 +1,30 @@
+metadata:
+  title: Love and Tonic
+  track-number: 4
+  artist: Milquetoast & Co.
+  album: The Land of Milquebelieve
+  year: 2010
+  genre: blues
+  subgenre: contemporary
+  file-album-art: cover.jpg
+  author: Onyxite
+audio:
+  album-track:
+    md5: 31a265280f85ac772b2227fee171f9fb
+    frames: 11745280
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|1.5: hihat
+      1|0: hihat
+      1|0.5: hihat
+      1|1: hihat
+      1|1.5: hihat
+    song:
+      pad: [3.987, album-track]
+instruments:
+  drums: true
+published: false
