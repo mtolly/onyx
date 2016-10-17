@@ -8,6 +8,9 @@ metadata:
   subgenre: contemporary
   file-album-art: cover.jpg
   author: Onyxite
+  difficulty:
+    drums: 2
+    pro-keys: 2
 audio:
   album-track:
     md5: 31a265280f85ac772b2227fee171f9fb
@@ -27,4 +30,4 @@ plans:
       pad: [3.987, album-track]
 instruments:
   drums: true
-published: false
+  pro-keys: true
