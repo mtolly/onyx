@@ -7,6 +7,7 @@ metadata:
   difficulty:
     drums: 6
     pro-keys: 7
+    guitar: 6
   author: Onyxite
   comments:
   - >-
@@ -33,5 +34,4 @@ plans:
 instruments:
   drums: true
   pro-keys: true
-options:
-  auto-2x-bass: true
+  guitar: true
