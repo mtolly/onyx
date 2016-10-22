@@ -9,6 +9,7 @@ Instruments:
 
   * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
   * Guitar ⚪️⚪️⚪️⚪️⚪️
+  * Keys 😈😈😈😈😈
   * Pro Keys 😈😈😈😈😈
 
 Supported audio:
@@ -17,5 +18,5 @@ Supported audio:
 
 Notes:
 
-  * Pro keys chart mirrors guitar in several sections (even when keyboard is not actually played on the CD), to fill empty space and to match live performances.
+  * Keys charts mirror guitar in several sections (even when keyboard is not actually played on the CD), to fill empty space and to match live performances.
 

@@ -7,11 +7,12 @@ metadata:
   difficulty:
     drums: 6
     pro-keys: 7
+    keys: 7
     guitar: 6
   author: Onyxite
   comments:
   - >-
-    Pro keys chart mirrors guitar in several sections
+    Keys charts mirror guitar in several sections
     (even when keyboard is not actually played on the CD),
     to fill empty space and to match live performances.
 audio:
@@ -34,4 +35,5 @@ plans:
 instruments:
   drums: true
   pro-keys: true
+  keys: true
   guitar: true
