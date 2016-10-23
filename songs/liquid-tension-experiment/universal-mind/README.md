@@ -8,6 +8,7 @@
 Instruments:
 
   * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
+  * Bass ⚪️⚪️⚪️⚫️⚫️
   * Guitar ⚪️⚪️⚪️⚪️⚪️
   * Keys 😈😈😈😈😈
   * Pro Keys 😈😈😈😈😈
@@ -19,4 +20,6 @@ Supported audio:
 Notes:
 
   * Keys charts mirror guitar in several sections (even when keyboard is not actually played on the CD), to fill empty space and to match live performances.
+
+  * All instruments have overdrive/unison.
 
