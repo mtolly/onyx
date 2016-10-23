@@ -1,0 +1,30 @@
+metadata:
+  title: Jazz Crimes
+  artist: Joshua Redman
+  album: Elastic
+  file-album-art: cover.jpg
+  genre: jazz
+  subgenre: contemporary
+  year: 2002
+  author: Onyxite
+  track-number: 2
+instruments:
+  drums: true
+audio:
+  album-track:
+    md5: 018040c351e8cad6ac1885de79041a45
+    frames: 17800524
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [3.983, album-track]
+published: false
