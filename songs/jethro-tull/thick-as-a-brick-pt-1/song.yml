@@ -7,8 +7,8 @@ audio:
   # this is the fixed surround sound version
   # magnet:?xt=urn:btih:b9cc9d37876eadc53b89d2fc4c5dd2245d353334&dn=Jethro%20Tull%20-%201972%20-%20Thick%20As%20A%20Brick%2040th%20Anniversary%20Set%20%282012%29%20%5BADVD%5D&tr=http%3A%2F%2Fbt2.rutracker.cc%2Fann&tr=http%3A%2F%2Fretracker.local%2Fannounce
   album-track:
-    md5: d49e5e49fd04bf00c67cc2ae8129f63d
-    frames: 125842944
+    md5: 2112cc1e43de43de5b2a904e58853c58
+    frames: 125841408
     channels: 6
 plans:
   album:
