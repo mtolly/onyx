@@ -114,7 +114,7 @@ import           System.IO                             (IOMode (ReadMode),
                                                         hFileSize, hPutStrLn,
                                                         stderr, withBinaryFile)
 import           System.IO.Temp                        (withSystemTempDirectory)
-import           System.Process                        (callProcess)
+import           System.Process                        (callProcess, spawnCommand)
 
 data Argument
   = AudioDir FilePath
@@ -2364,8 +2364,10 @@ main = do
         shakeBuild [rpp] Nothing
         Dir.renameFile rpp "notes.RPP"
         case Info.os of
-          "darwin" -> callProcess "open" ["notes.RPP"]
-          _        -> return ()
+          "mingw32" -> void $ spawnCommand "notes.RPP"
+          "darwin"  -> callProcess "open" ["notes.RPP"]
+          "linux"   -> callProcess "exo-open" ["notes.RPP"]
+          _         -> return ()
       _ -> error "Usage: onyx reap plan"
     "mt" : fin : [] -> fmap MS.toStandardMIDI (Load.fromFile fin) >>= \case
       Left  err -> error err

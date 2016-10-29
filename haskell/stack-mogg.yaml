@@ -18,7 +18,7 @@ packages:
     git: git://github.com/mtolly/midi
     commit: fb36e91cbeaf3501342cb9c010ccb15647f7c3c2
   extra-dep: true
-- location: /Users/mtolly/git/mogg2ogg/hs-mogg2ogg
+- location: ../../mogg2ogg/hs-mogg2ogg
   extra-dep: true
 extra-deps:
 - conduit-audio-0.2.0.2
