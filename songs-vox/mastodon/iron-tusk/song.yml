@@ -1,0 +1,20 @@
+metadata:
+  title: Iron Tusk
+  artist: Mastodon
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube tzVcC0TAN8k 140
+    md5: 22657b19d43eccd2c7b43cd8dadfb9c9
+    frames: 8136704
+plans:
+  album:
+    song:
+      pad: [1.878, youtube]
+instruments:
+  vocal: 1
+  drums: true
+  guitar: true
+  bass: true
+published: false
