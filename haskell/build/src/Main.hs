@@ -332,6 +332,192 @@ writeReadme songYaml yamlPath out = writeFile out $ execWriter $ do
       line $ "  * " ++ T.unpack cmt
       line ""
 
+jammitPath :: T.Text -> J.AudioPart -> FilePath
+jammitPath name (J.Only part)
+  = "gen/jammit" </> T.unpack name </> "only" </> map toLower (drop 4 $ show part) <.> "wav"
+jammitPath name (J.Without inst)
+  = "gen/jammit" </> T.unpack name </> "without" </> map toLower (show inst) <.> "wav"
+
+-- Looking up single audio files and Jammit parts in the work directory
+manualLeaf :: SongYaml -> AudioInput -> Action (Audio Duration FilePath)
+manualLeaf songYaml (Named name) = case HM.lookup name $ _audio songYaml of
+  Just audioQuery -> case audioQuery of
+    AudioFile{..} -> do
+      putNormal $ "Looking for the audio file named " ++ show name
+      result <- askOracle $ AudioSearch $ show audioQuery
+      case result of
+        Nothing -> fail $ "Couldn't find a necessary audio file for query: " ++ show audioQuery
+        Just fp -> do
+          putNormal $ "Found " ++ show name ++ " located at: " ++ fp
+          return $ case _rate of
+            Nothing -> Resample $ Input fp
+            Just _  -> Input fp -- if rate is specified, don't auto-resample
+    AudioSnippet expr -> fmap join $ mapM (manualLeaf songYaml) expr
+  Nothing -> fail $ "Couldn't find an audio source named " ++ show name
+manualLeaf songYaml (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
+  Just _  -> return $ Input $ jammitPath name audpart
+  Nothing -> fail $ "Couldn't find a Jammit source named " ++ show name
+
+-- The "auto" mode of Jammit audio assignment, using EachPlan
+autoLeaf :: SongYaml -> Maybe J.Instrument -> T.Text -> Action (Audio Duration FilePath)
+autoLeaf songYaml minst name = case HM.lookup name $ _jammit songYaml of
+  Nothing -> manualLeaf songYaml $ Named name
+  Just jmtQuery -> do
+    result <- fmap read $ askOracle $ JammitSearch $ show jmtQuery
+    let _ = result :: [(J.AudioPart, FilePath)]
+    let backs = concat
+          [ [J.Drums    | _hasDrums    $ _instruments songYaml]
+          , [J.Bass     | hasAnyBass   $ _instruments songYaml]
+          , [J.Guitar   | hasAnyGuitar $ _instruments songYaml]
+          , [J.Keyboard | hasAnyKeys   $ _instruments songYaml]
+          , [J.Vocal    | hasAnyVocal  $ _instruments songYaml]
+          ]
+        -- audio that is used in the song and bought by the user
+        boughtInstrumentParts :: J.Instrument -> [FilePath]
+        boughtInstrumentParts inst = do
+          guard $ inst `elem` backs
+          J.Only part <- nub $ map fst result
+          guard $ J.partToInstrument part == inst
+          return $ jammitPath name $ J.Only part
+        mixOrStereo []    = Silence 2 $ Frames 0
+        mixOrStereo files = Mix $ map Input files
+    case minst of
+      Just inst -> return $ mixOrStereo $ boughtInstrumentParts inst
+      Nothing -> case filter (\inst -> J.Without inst `elem` map fst result) backs of
+        []       -> fail "No charted instruments with Jammit tracks found"
+        back : _ -> return $ let
+          negative = mixOrStereo $ do
+            otherInstrument <- filter (/= back) backs
+            boughtInstrumentParts otherInstrument
+          in Mix [Input $ jammitPath name $ J.Without back, Gain (-1) negative]
+
+makeDisplay :: SongYaml -> FilePath -> FilePath -> Action ()
+makeDisplay songYaml mid2p out = do
+  song <- loadMIDI mid2p
+  let ht = fromIntegral (_hopoThreshold $ _options songYaml) / 480
+      gtr = justIf (_hasGuitar $ _instruments songYaml) $ Proc.processFive (Just ht) (RBFile.s_tempos song)
+        $ foldr RTB.merge RTB.empty [ t | RBFile.PartGuitar t <- RBFile.s_tracks song ]
+      bass = justIf (_hasBass $ _instruments songYaml) $ Proc.processFive (Just ht) (RBFile.s_tempos song)
+        $ foldr RTB.merge RTB.empty [ t | RBFile.PartBass t <- RBFile.s_tracks song ]
+      keys = justIf (_hasKeys $ _instruments songYaml) $ Proc.processFive Nothing (RBFile.s_tempos song)
+        $ foldr RTB.merge RTB.empty [ t | RBFile.PartKeys t <- RBFile.s_tracks song ]
+      drums = justIf (_hasDrums $ _instruments songYaml) $ Proc.processDrums (RBFile.s_tempos song)
+        $ foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks song ]
+      prokeys = justIf (_hasProKeys $ _instruments songYaml) $ Proc.processProKeys (RBFile.s_tempos song)
+        $ foldr RTB.merge RTB.empty [ t | RBFile.PartRealKeys Expert t <- RBFile.s_tracks song ]
+      proguitar = justIf (_hasProGuitar $ _instruments songYaml) $ Proc.processProtar ht (RBFile.s_tempos song)
+        $ let mustang = foldr RTB.merge RTB.empty [ t | RBFile.PartRealGuitar   t <- RBFile.s_tracks song ]
+              squier  = foldr RTB.merge RTB.empty [ t | RBFile.PartRealGuitar22 t <- RBFile.s_tracks song ]
+          in if RTB.null squier then mustang else squier
+      probass = justIf (_hasProBass $ _instruments songYaml) $ Proc.processProtar ht (RBFile.s_tempos song)
+        $ let mustang = foldr RTB.merge RTB.empty [ t | RBFile.PartRealBass   t <- RBFile.s_tracks song ]
+              squier  = foldr RTB.merge RTB.empty [ t | RBFile.PartRealBass22 t <- RBFile.s_tracks song ]
+          in if RTB.null squier then mustang else squier
+      vox = case _hasVocal $ _instruments songYaml of
+        Vocal0 -> Nothing
+        Vocal1 -> makeVox
+          (foldr RTB.merge RTB.empty [ t | RBFile.PartVocals t <- RBFile.s_tracks song ])
+          RTB.empty
+          RTB.empty
+        Vocal2 -> makeVox
+          (foldr RTB.merge RTB.empty [ t | RBFile.Harm1 t <- RBFile.s_tracks song ])
+          (foldr RTB.merge RTB.empty [ t | RBFile.Harm2 t <- RBFile.s_tracks song ])
+          RTB.empty
+        Vocal3 -> makeVox
+          (foldr RTB.merge RTB.empty [ t | RBFile.Harm1 t <- RBFile.s_tracks song ])
+          (foldr RTB.merge RTB.empty [ t | RBFile.Harm2 t <- RBFile.s_tracks song ])
+          (foldr RTB.merge RTB.empty [ t | RBFile.Harm3 t <- RBFile.s_tracks song ])
+      makeVox h1 h2 h3 = Just $ Proc.processVocal (RBFile.s_tempos song) h1 h2 h3 (fmap fromEnum $ _key $ _metadata songYaml)
+      beat = Proc.processBeat (RBFile.s_tempos song)
+        $ foldr RTB.merge RTB.empty [ t | RBFile.Beat t <- RBFile.s_tracks song ]
+      end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats song
+      justIf b x = guard b >> Just x
+  liftIO $ BL.writeFile out $ A.encode $ Proc.mapTime (realToFrac :: U.Seconds -> Milli)
+    $ Proc.Processed gtr bass keys drums prokeys proguitar probass vox beat end
+
+printOverdrive :: FilePath -> Action ()
+printOverdrive midPS = do
+  song <- loadMIDI midPS
+  let trackTimes = Set.fromList . ATB.getTimes . RTB.toAbsoluteEventList 0
+      getTrack f = foldr RTB.merge RTB.empty $ mapMaybe f $ RBFile.s_tracks song
+      fiveOverdrive t = trackTimes $ RTB.filter (== RBFive.Overdrive True) t
+      drumOverdrive t = trackTimes $ RTB.filter (== RBDrums.Overdrive True) t
+      gtr = fiveOverdrive $ getTrack $ \case RBFile.PartGuitar t -> Just t; _ -> Nothing
+      bass = fiveOverdrive $ getTrack $ \case RBFile.PartBass t -> Just t; _ -> Nothing
+      keys = fiveOverdrive $ getTrack $ \case RBFile.PartKeys t -> Just t; _ -> Nothing
+      drums = drumOverdrive $ getTrack $ \case RBFile.PartDrums t -> Just t; _ -> Nothing
+  forM_ (Set.toAscList $ Set.unions [gtr, bass, keys, drums]) $ \t -> let
+    insts = intercalate "," $ concat
+      [ ["guitar" | Set.member t gtr]
+      , ["bass" | Set.member t bass]
+      , ["keys" | Set.member t keys]
+      , ["drums" | Set.member t drums]
+      ]
+    posn = RBFile.showPosition $ U.applyMeasureMap (RBFile.s_signatures song) t
+    in putNormal $ posn ++ ": " ++ insts
+  return ()
+
+printProblems :: FilePath -> Action ()
+printProblems mid = do
+  song <- loadMIDI mid
+  -- Don't have a kick at the start of a drum roll.
+  -- It screws up the roll somehow and causes spontaneous misses.
+  let drums = foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks song ]
+      kickSwells = flip RTB.mapMaybe (RTB.collectCoincident drums) $ \evts -> do
+        let kick = RBDrums.DiffEvent Expert $ RBDrums.Note RBDrums.Kick
+            swell1 = RBDrums.SingleRoll True
+            swell2 = RBDrums.DoubleRoll True
+        guard $ elem kick evts && (elem swell1 evts || elem swell2 evts)
+        return ()
+  -- Every discobeat mix event should be simultaneous with,
+  -- or immediately followed by, a set of notes not including red or yellow.
+  let discos = flip RTB.mapMaybe drums $ \case
+        RBDrums.DiffEvent d (RBDrums.Mix _ RBDrums.Disco) -> Just d
+        _ -> Nothing
+      badDiscos = fmap (const ()) $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ filter isBadDisco $ ATB.toPairList $ RTB.toAbsoluteEventList 0 discos
+      drumsDiff d = flip RTB.mapMaybe drums $ \case
+        RBDrums.DiffEvent d' (RBDrums.Note gem) | d == d' -> Just gem
+        _ -> Nothing
+      isBadDisco (t, diff) = case RTB.viewL $ RTB.collectCoincident $ U.trackDrop t $ drumsDiff diff of
+        Just ((_, evts), _) | any isDiscoGem evts -> True
+        _ -> False
+      isDiscoGem = \case
+        RBDrums.Red -> True
+        RBDrums.Pro RBDrums.Yellow _ -> True
+        _ -> False
+  -- Don't have a vocal phrase that ends simultaneous with a lyric event.
+  -- In static vocals, this puts the lyric in the wrong phrase.
+  let vox = foldr RTB.merge RTB.empty [ t | RBFile.PartVocals t <- RBFile.s_tracks song ]
+      harm1 = foldr RTB.merge RTB.empty [ t | RBFile.Harm1 t <- RBFile.s_tracks song ]
+      harm2 = foldr RTB.merge RTB.empty [ t | RBFile.Harm2 t <- RBFile.s_tracks song ]
+      harm3 = foldr RTB.merge RTB.empty [ t | RBFile.Harm3 t <- RBFile.s_tracks song ]
+      phraseOff = RBVox.Phrase False
+      isLyric = \case RBVox.Lyric _ -> True; _ -> False
+      voxBugs = flip RTB.mapMaybe (RTB.collectCoincident vox) $ \evts -> do
+        guard $ elem phraseOff evts && any isLyric evts
+        return ()
+      harm1Bugs = flip RTB.mapMaybe (RTB.collectCoincident harm1) $ \evts -> do
+        guard $ elem phraseOff evts && any isLyric evts
+        return ()
+      harm2Bugs = flip RTB.mapMaybe (RTB.collectCoincident $ RTB.merge harm2 harm3) $ \evts -> do
+        guard $ elem phraseOff evts && any isLyric evts
+        return ()
+  -- Put it all together and show the error positions.
+  let showPositions :: RTB.T U.Beats () -> [String]
+      showPositions
+        = map (RBFile.showPosition . U.applyMeasureMap (RBFile.s_signatures song))
+        . ATB.getTimes
+        . RTB.toAbsoluteEventList 0
+      message rtb msg = forM_ (showPositions rtb) $ \pos ->
+        putNormal $ pos ++ ": " ++ msg
+  message kickSwells "kick note is simultaneous with start of drum roll"
+  message badDiscos "discobeat drum event is followed immediately by red or yellow gem"
+  message voxBugs "PART VOCALS vocal phrase ends simultaneous with a lyric"
+  message harm1Bugs "HARM1 vocal phrase ends simultaneous with a lyric"
+  message harm2Bugs "HARM2 vocal phrase ends simultaneous with a (HARM2 or HARM3) lyric"
+  unless (all RTB.null [kickSwells, badDiscos, voxBugs, harm1Bugs, harm2Bugs]) $
+    fail "At least 1 problem was found in the MIDI."
+
 main :: IO ()
 main = do
   argv <- getArgs
@@ -366,7 +552,7 @@ main = do
             <$> concatMapM allFiles audioDirs
         allJammitInAudioDirs <- newCache $ \() -> liftIO $ concatMapM J.loadLibrary audioDirs
 
-        audioOracle  <- addOracle $ \(AudioSearch  s) -> allFilesInAudioDirs () >>= audioSearch (read s)
+        _            <- addOracle $ \(AudioSearch  s) -> allFilesInAudioDirs () >>= audioSearch (read s)
         jammitOracle <- addOracle $ \(JammitSearch s) -> fmap show $ allJammitInAudioDirs () >>= jammitSearch songYaml (read s)
         moggOracle   <- addOracle $ \(MoggSearch   s) -> allFilesInAudioDirs () >>= moggSearch s
 
@@ -394,12 +580,6 @@ main = do
         phony "audio" $ liftIO $ print audioDirs
         phony "clean" $ cmd "rm -rf gen"
 
-        let jammitPath :: T.Text -> J.AudioPart -> FilePath
-            jammitPath name (J.Only part)
-              = "gen/jammit" </> T.unpack name </> "only" </> map toLower (drop 4 $ show part) <.> "wav"
-            jammitPath name (J.Without inst)
-              = "gen/jammit" </> T.unpack name </> "without" </> map toLower (show inst) <.> "wav"
-
         let getRank has diff dmap = if has $ _instruments songYaml
               then case diff $ _difficulty $ _metadata songYaml of
                 Nothing       -> 1
@@ -426,59 +606,6 @@ main = do
             proGuitarTier = rankToTier proGuitarDiffMap proGuitarRank
             proBassTier   = rankToTier proBassDiffMap   proBassRank
             bandTier      = rankToTier bandDiffMap      bandRank
-
-        -- Looking up single audio files and Jammit parts in the work directory
-        let manualLeaf :: AudioInput -> Action (Audio Duration FilePath)
-            manualLeaf (Named name) = case HM.lookup name $ _audio songYaml of
-              Just audioQuery -> case audioQuery of
-                AudioFile{..} -> do
-                  putNormal $ "Looking for the audio file named " ++ show name
-                  result <- audioOracle $ AudioSearch $ show audioQuery
-                  case result of
-                    Nothing -> fail $ "Couldn't find a necessary audio file for query: " ++ show audioQuery
-                    Just fp -> do
-                      putNormal $ "Found " ++ show name ++ " located at: " ++ fp
-                      return $ case _rate of
-                        Nothing -> Resample $ Input fp
-                        Just _  -> Input fp -- if rate is specified, don't auto-resample
-                AudioSnippet expr -> fmap join $ mapM manualLeaf expr
-              Nothing -> fail $ "Couldn't find an audio source named " ++ show name
-            manualLeaf (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
-              Just _  -> return $ Input $ jammitPath name audpart
-              Nothing -> fail $ "Couldn't find a Jammit source named " ++ show name
-
-        -- The "auto" mode of Jammit audio assignment, using EachPlan
-        let autoLeaf :: Maybe J.Instrument -> T.Text -> Action (Audio Duration FilePath)
-            autoLeaf minst name = case HM.lookup name $ _jammit songYaml of
-              Nothing -> manualLeaf $ Named name
-              Just jmtQuery -> do
-                result <- fmap read $ jammitOracle $ JammitSearch $ show jmtQuery
-                let _ = result :: [(J.AudioPart, FilePath)]
-                let backs = concat
-                      [ [J.Drums    | _hasDrums    $ _instruments songYaml]
-                      , [J.Bass     | hasAnyBass   $ _instruments songYaml]
-                      , [J.Guitar   | hasAnyGuitar $ _instruments songYaml]
-                      , [J.Keyboard | hasAnyKeys   $ _instruments songYaml]
-                      , [J.Vocal    | hasAnyVocal  $ _instruments songYaml]
-                      ]
-                    -- audio that is used in the song and bought by the user
-                    boughtInstrumentParts :: J.Instrument -> [FilePath]
-                    boughtInstrumentParts inst = do
-                      guard $ inst `elem` backs
-                      J.Only part <- nub $ map fst result
-                      guard $ J.partToInstrument part == inst
-                      return $ jammitPath name $ J.Only part
-                    mixOrStereo []    = Silence 2 $ Frames 0
-                    mixOrStereo files = Mix $ map Input files
-                case minst of
-                  Just inst -> return $ mixOrStereo $ boughtInstrumentParts inst
-                  Nothing -> case filter (\inst -> J.Without inst `elem` map fst result) backs of
-                    []       -> fail "No charted instruments with Jammit tracks found"
-                    back : _ -> return $ let
-                      negative = mixOrStereo $ do
-                        otherInstrument <- filter (/= back) backs
-                        boughtInstrumentParts otherInstrument
-                      in Mix [Input $ jammitPath name $ J.Without back, Gain (-1) negative]
 
         -- Find and convert all Jammit audio into the work directory
         let jammitAudioParts = map J.Only    [minBound .. maxBound]
@@ -665,7 +792,7 @@ main = do
           case plan of
             Plan{..} -> do
               let locate :: Audio Duration AudioInput -> Action (Audio Duration FilePath)
-                  locate = fmap join . mapM manualLeaf
+                  locate = fmap join . mapM (manualLeaf songYaml)
                   buildPart planPart fout = let
                     expr = maybe (Silence 2 $ Frames 0) _planExpr planPart
                     in locate expr >>= \aud -> buildAudio aud fout
@@ -683,7 +810,7 @@ main = do
               dir </> "snare.wav"  %> buildAudio (Silence 1 $ Frames 0)
               dir </> "crowd.wav"  %> buildAudio (Silence 1 $ Frames 0)
               let locate :: Maybe J.Instrument -> Action (Audio Duration FilePath)
-                  locate inst = fmap join $ mapM (autoLeaf inst) $ _planExpr _each
+                  locate inst = fmap join $ mapM (autoLeaf songYaml inst) $ _planExpr _each
                   buildPart maybeInst fout = locate maybeInst >>= \aud -> buildAudio aud fout
               forM_ (Nothing : map Just [minBound .. maxBound]) $ \maybeInst -> let
                 planAudioPath :: Maybe Instrument -> FilePath
@@ -1033,48 +1160,7 @@ main = do
                 let evts = foldr RTB.merge RTB.empty [ trk | RBFile.Events trk <- RBFile.s_tracks raw ]
                 return $ RTB.mapMaybe (\case Events.PracticeSection s -> Just s; _ -> Nothing) evts
 
-          display %> \out -> do
-            song <- loadMIDI mid2p
-            let ht = fromIntegral (_hopoThreshold $ _options songYaml) / 480
-                gtr = justIf (_hasGuitar $ _instruments songYaml) $ Proc.processFive (Just ht) (RBFile.s_tempos song)
-                  $ foldr RTB.merge RTB.empty [ t | RBFile.PartGuitar t <- RBFile.s_tracks song ]
-                bass = justIf (_hasBass $ _instruments songYaml) $ Proc.processFive (Just ht) (RBFile.s_tempos song)
-                  $ foldr RTB.merge RTB.empty [ t | RBFile.PartBass t <- RBFile.s_tracks song ]
-                keys = justIf (_hasKeys $ _instruments songYaml) $ Proc.processFive Nothing (RBFile.s_tempos song)
-                  $ foldr RTB.merge RTB.empty [ t | RBFile.PartKeys t <- RBFile.s_tracks song ]
-                drums = justIf (_hasDrums $ _instruments songYaml) $ Proc.processDrums (RBFile.s_tempos song)
-                  $ foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks song ]
-                prokeys = justIf (_hasProKeys $ _instruments songYaml) $ Proc.processProKeys (RBFile.s_tempos song)
-                  $ foldr RTB.merge RTB.empty [ t | RBFile.PartRealKeys Expert t <- RBFile.s_tracks song ]
-                proguitar = justIf (_hasProGuitar $ _instruments songYaml) $ Proc.processProtar ht (RBFile.s_tempos song)
-                  $ let mustang = foldr RTB.merge RTB.empty [ t | RBFile.PartRealGuitar   t <- RBFile.s_tracks song ]
-                        squier  = foldr RTB.merge RTB.empty [ t | RBFile.PartRealGuitar22 t <- RBFile.s_tracks song ]
-                    in if RTB.null squier then mustang else squier
-                probass = justIf (_hasProBass $ _instruments songYaml) $ Proc.processProtar ht (RBFile.s_tempos song)
-                  $ let mustang = foldr RTB.merge RTB.empty [ t | RBFile.PartRealBass   t <- RBFile.s_tracks song ]
-                        squier  = foldr RTB.merge RTB.empty [ t | RBFile.PartRealBass22 t <- RBFile.s_tracks song ]
-                    in if RTB.null squier then mustang else squier
-                vox = case _hasVocal $ _instruments songYaml of
-                  Vocal0 -> Nothing
-                  Vocal1 -> makeVox
-                    (foldr RTB.merge RTB.empty [ t | RBFile.PartVocals t <- RBFile.s_tracks song ])
-                    RTB.empty
-                    RTB.empty
-                  Vocal2 -> makeVox
-                    (foldr RTB.merge RTB.empty [ t | RBFile.Harm1 t <- RBFile.s_tracks song ])
-                    (foldr RTB.merge RTB.empty [ t | RBFile.Harm2 t <- RBFile.s_tracks song ])
-                    RTB.empty
-                  Vocal3 -> makeVox
-                    (foldr RTB.merge RTB.empty [ t | RBFile.Harm1 t <- RBFile.s_tracks song ])
-                    (foldr RTB.merge RTB.empty [ t | RBFile.Harm2 t <- RBFile.s_tracks song ])
-                    (foldr RTB.merge RTB.empty [ t | RBFile.Harm3 t <- RBFile.s_tracks song ])
-                makeVox h1 h2 h3 = Just $ Proc.processVocal (RBFile.s_tempos song) h1 h2 h3 (fmap fromEnum $ _key $ _metadata songYaml)
-                beat = Proc.processBeat (RBFile.s_tempos song)
-                  $ foldr RTB.merge RTB.empty [ t | RBFile.Beat t <- RBFile.s_tracks song ]
-                end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats song
-                justIf b x = guard b >> Just x
-            liftIO $ BL.writeFile out $ A.encode $ Proc.mapTime (realToFrac :: U.Seconds -> Milli)
-              $ Proc.Processed gtr bass keys drums prokeys proguitar probass vox beat end
+          display %> makeDisplay songYaml mid2p
 
           -- Guitar rules
           dir </> "protar-hear.mid" %> \out -> do
@@ -1120,7 +1206,7 @@ main = do
                       let time = case posn of
                             Left  mb   -> Seconds $ realToFrac $ U.applyTempoMap (RBFile.s_tempos mid) $ U.unapplyMeasureMap (RBFile.s_signatures mid) mb
                             Right secs -> Seconds $ realToFrac secs
-                      aud' <- fmap join $ mapM manualLeaf aud
+                      aud' <- fmap join $ mapM (manualLeaf songYaml) aud
                       return $ Pad Start time aud'
                     buildAudio (Mix hits') out
                 dir </> "song-countin.wav" %> \out -> do
@@ -1401,26 +1487,7 @@ main = do
             putNormal $ closeShiftsFile song
 
           -- Print out a summary of (non-vocal) overdrive and unison phrases
-          phony (dir </> "overdrive") $ do
-            song <- loadMIDI $ dir </> "2p/notes.mid"
-            let trackTimes = Set.fromList . ATB.getTimes . RTB.toAbsoluteEventList 0
-                getTrack f = foldr RTB.merge RTB.empty $ mapMaybe f $ RBFile.s_tracks song
-                fiveOverdrive t = trackTimes $ RTB.filter (== RBFive.Overdrive True) t
-                drumOverdrive t = trackTimes $ RTB.filter (== RBDrums.Overdrive True) t
-                gtr = fiveOverdrive $ getTrack $ \case RBFile.PartGuitar t -> Just t; _ -> Nothing
-                bass = fiveOverdrive $ getTrack $ \case RBFile.PartBass t -> Just t; _ -> Nothing
-                keys = fiveOverdrive $ getTrack $ \case RBFile.PartKeys t -> Just t; _ -> Nothing
-                drums = drumOverdrive $ getTrack $ \case RBFile.PartDrums t -> Just t; _ -> Nothing
-            forM_ (Set.toAscList $ Set.unions [gtr, bass, keys, drums]) $ \t -> let
-              insts = intercalate "," $ concat
-                [ ["guitar" | Set.member t gtr]
-                , ["bass" | Set.member t bass]
-                , ["keys" | Set.member t keys]
-                , ["drums" | Set.member t drums]
-                ]
-              posn = RBFile.showPosition $ U.applyMeasureMap (RBFile.s_signatures song) t
-              in putNormal $ posn ++ ": " ++ insts
-            return ()
+          phony (dir </> "overdrive") $ printOverdrive $ dir </> "2p/notes.mid"
 
           -- Melody's Escape customs
           let melodyAudio = dir </> "melody/audio.ogg"
@@ -1464,65 +1531,7 @@ main = do
             let pkg = "onyx" ++ show (hash (pedalDir, _title $ _metadata songYaml, _artist $ _metadata songYaml) `mod` 1000000000)
 
             -- Check for some extra problems that Magma doesn't catch.
-            phony (pedalDir </> "problems") $ do
-              song <- loadMIDI $ pedalDir </> "notes.mid"
-              -- Don't have a kick at the start of a drum roll.
-              -- It screws up the roll somehow and causes spontaneous misses.
-              let drums = foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks song ]
-                  kickSwells = flip RTB.mapMaybe (RTB.collectCoincident drums) $ \evts -> do
-                    let kick = RBDrums.DiffEvent Expert $ RBDrums.Note RBDrums.Kick
-                        swell1 = RBDrums.SingleRoll True
-                        swell2 = RBDrums.DoubleRoll True
-                    guard $ elem kick evts && (elem swell1 evts || elem swell2 evts)
-                    return ()
-              -- Every discobeat mix event should be simultaneous with,
-              -- or immediately followed by, a set of notes not including red or yellow.
-              let discos = flip RTB.mapMaybe drums $ \case
-                    RBDrums.DiffEvent d (RBDrums.Mix _ RBDrums.Disco) -> Just d
-                    _ -> Nothing
-                  badDiscos = fmap (const ()) $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ filter isBadDisco $ ATB.toPairList $ RTB.toAbsoluteEventList 0 discos
-                  drumsDiff d = flip RTB.mapMaybe drums $ \case
-                    RBDrums.DiffEvent d' (RBDrums.Note gem) | d == d' -> Just gem
-                    _ -> Nothing
-                  isBadDisco (t, diff) = case RTB.viewL $ RTB.collectCoincident $ U.trackDrop t $ drumsDiff diff of
-                    Just ((_, evts), _) | any isDiscoGem evts -> True
-                    _ -> False
-                  isDiscoGem = \case
-                    RBDrums.Red -> True
-                    RBDrums.Pro RBDrums.Yellow _ -> True
-                    _ -> False
-              -- Don't have a vocal phrase that ends simultaneous with a lyric event.
-              -- In static vocals, this puts the lyric in the wrong phrase.
-              let vox = foldr RTB.merge RTB.empty [ t | RBFile.PartVocals t <- RBFile.s_tracks song ]
-                  harm1 = foldr RTB.merge RTB.empty [ t | RBFile.Harm1 t <- RBFile.s_tracks song ]
-                  harm2 = foldr RTB.merge RTB.empty [ t | RBFile.Harm2 t <- RBFile.s_tracks song ]
-                  harm3 = foldr RTB.merge RTB.empty [ t | RBFile.Harm3 t <- RBFile.s_tracks song ]
-                  phraseOff = RBVox.Phrase False
-                  isLyric = \case RBVox.Lyric _ -> True; _ -> False
-                  voxBugs = flip RTB.mapMaybe (RTB.collectCoincident vox) $ \evts -> do
-                    guard $ elem phraseOff evts && any isLyric evts
-                    return ()
-                  harm1Bugs = flip RTB.mapMaybe (RTB.collectCoincident harm1) $ \evts -> do
-                    guard $ elem phraseOff evts && any isLyric evts
-                    return ()
-                  harm2Bugs = flip RTB.mapMaybe (RTB.collectCoincident $ RTB.merge harm2 harm3) $ \evts -> do
-                    guard $ elem phraseOff evts && any isLyric evts
-                    return ()
-              -- Put it all together and show the error positions.
-              let showPositions :: RTB.T U.Beats () -> [String]
-                  showPositions
-                    = map (RBFile.showPosition . U.applyMeasureMap (RBFile.s_signatures song))
-                    . ATB.getTimes
-                    . RTB.toAbsoluteEventList 0
-                  message rtb msg = forM_ (showPositions rtb) $ \pos ->
-                    putNormal $ pos ++ ": " ++ msg
-              message kickSwells "kick note is simultaneous with start of drum roll"
-              message badDiscos "discobeat drum event is followed immediately by red or yellow gem"
-              message voxBugs "PART VOCALS vocal phrase ends simultaneous with a lyric"
-              message harm1Bugs "HARM1 vocal phrase ends simultaneous with a lyric"
-              message harm2Bugs "HARM2 vocal phrase ends simultaneous with a (HARM2 or HARM3) lyric"
-              unless (all RTB.null [kickSwells, badDiscos, voxBugs, harm1Bugs, harm2Bugs]) $
-                fail "At least 1 problem was found in the MIDI."
+            phony (pedalDir </> "problems") $ printProblems $ pedalDir </> "notes.mid"
 
             -- Rock Band 3 CON package
             let pathDta  = pedalDir </> "rb3/songs/songs.dta"
