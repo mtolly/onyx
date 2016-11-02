@@ -23,6 +23,7 @@ import qualified Magma
 import qualified MelodysEscape
 import           MoggDecrypt
 import           OneFoot
+import           OnyxFile
 import qualified OnyxiteDisplay.Process                as Proc
 import           PrettyDTA
 import           ProKeysRanges
@@ -1156,10 +1157,10 @@ main = do
             _ -> do
               need $ map snd allAudioWithPV
               srcs <- fmap concat $ forM allAudioWithPV $ \(pv, wav) -> case pv of
-                  [] -> return []
-                  _  -> do
-                    src <- liftIO $ sourceSnd wav
-                    return [applyPansVols (map (realToFrac . fst) pv) (map (realToFrac . snd) pv) src]
+                [] -> return []
+                _  -> do
+                  src <- liftIO $ sourceSnd wav
+                  return [applyPansVols (map (realToFrac . fst) pv) (map (realToFrac . snd) pv) src]
               let mixed = case srcs of
                     []     -> silent (Frames 0) 44100 2
                     s : ss -> foldr mix s ss
@@ -1175,10 +1176,10 @@ main = do
             _ -> do
               need $ map snd allAudioWithPV
               srcs <- fmap concat $ forM allAudioWithPV $ \(pv, wav) -> case pv of
-                  [] -> return []
-                  _  -> do
-                    src <- liftIO $ sourceSnd wav
-                    return [applyVolsMono (map (realToFrac . snd) pv) src]
+                [] -> return []
+                _  -> do
+                  src <- liftIO $ sourceSnd wav
+                  return [applyVolsMono (map (realToFrac . snd) pv) src]
               let mixed = case srcs of
                     []     -> silent (Frames 0) 44100 1
                     s : ss -> foldr mix s ss
@@ -1796,7 +1797,7 @@ main = do
               title <- thisTitle
               is2x <- is2xBass
               songPkg <- makeDTA pkg (pedalDir </> "notes.mid") title is2x
-              liftIO $ writeUtf8CRLF out $ prettyDTA pkg (_metadata songYaml) plan is2x songPkg
+              liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments (_metadata songYaml) plan is2x
             pathMid  %> copyFile' (pedalDir </> "notes-magma-added.mid")
             pathMogg %> copyFile' (dir </> "audio.mogg")
             pathPng  %> copyFile' "gen/cover.png_xbox"
@@ -2190,7 +2191,7 @@ main = do
                       , D.songLength = D.songLength rb3DTA -- magma v1 set this to 31s from the audio file lengths
                       }
                 is2x <- is2xBass
-                liftIO $ writeLatin1CRLF out $ prettyDTA pkg (_metadata songYaml) plan is2x newDTA
+                liftIO $ writeLatin1CRLF out $ prettyDTA pkg newDTA $ makeC3DTAComments (_metadata songYaml) plan is2x
               rb2Mid %> \out -> do
                 ex <- doesRBAExist
                 need [pedalDir </> "notes.mid"]

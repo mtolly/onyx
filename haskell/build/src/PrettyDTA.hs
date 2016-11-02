@@ -2,6 +2,7 @@
 Format a @songs.dta@ so that C3 CON Tools can read it.
 -}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RecordWildCards #-}
 module PrettyDTA where
 
 import           Config
@@ -28,8 +29,39 @@ writeLatin1CRLF fp = B.writeFile fp . B.pack . map (fromIntegral . fromEnum) . T
 stringLit :: String -> String
 stringLit s = "\"" ++ (s >>= \case '"' -> "\\q"; c -> [c]) ++ "\""
 
-prettyDTA :: String -> Metadata -> Plan -> Bool -> D.SongPackage -> String
-prettyDTA name meta plan is2x pkg = unlines $ execWriter $ do
+data C3DTAComments = C3DTAComments
+  { c3dtaCreatedUsing :: Maybe T.Text
+  , c3dtaAuthoredBy :: Maybe T.Text
+  , c3dtaSong :: Maybe T.Text
+  , c3dtaLanguages :: Maybe [T.Text]
+  , c3dtaKaraoke :: Maybe Bool
+  , c3dtaMultitrack :: Maybe Bool
+  , c3dtaConvert :: Maybe Bool
+  , c3dta2xBass :: Maybe Bool
+  , c3dtaRhythmKeys :: Maybe Bool
+  , c3dtaRhythmBass :: Maybe Bool
+  , c3dtaCATemh :: Maybe Bool
+  , c3dtaExpertOnly :: Maybe Bool
+  } deriving (Eq, Ord, Show, Read)
+
+makeC3DTAComments :: Metadata -> Plan -> Bool -> C3DTAComments
+makeC3DTAComments meta plan is2x = C3DTAComments
+  { c3dtaCreatedUsing = Just $ T.pack "Onyxite's Rock Band Tool"
+  , c3dtaAuthoredBy = Just $ getAuthor meta
+  , c3dtaSong = Just $ getTitle meta
+  , c3dtaLanguages = Just $ _languages meta
+  , c3dtaKaraoke = Just $ getKaraoke plan
+  , c3dtaMultitrack = Just $ getMultitrack plan
+  , c3dtaConvert = Just $ _convert meta
+  , c3dta2xBass = Just is2x
+  , c3dtaRhythmKeys = Just $ _rhythmKeys meta
+  , c3dtaRhythmBass = Just $ _rhythmBass meta
+  , c3dtaCATemh = Just $ _catEMH meta
+  , c3dtaExpertOnly = Just $ _expertOnly meta
+  }
+
+prettyDTA :: String -> D.SongPackage -> C3DTAComments -> String
+prettyDTA name pkg C3DTAComments{..} = unlines $ execWriter $ do
   ln "("
   indent $ do
     ln $ quote name
@@ -129,18 +161,18 @@ prettyDTA name meta plan is2x pkg = unlines $ execWriter $ do
     forM_ (D.basePoints pkg) $ inline "base_points" . show
   -- C3 comments
   ln ";DO NOT EDIT THE FOLLOWING LINES MANUALLY"
-  ln ";Created using Onyxite's Rock Band Tool"
-  ln $ ";Song authored by " ++ T.unpack (getAuthor meta)
-  ln $ ";Song=" ++ T.unpack (getTitle meta)
-  ln $ ";Language(s)=" ++ concatMap (\t -> T.unpack t ++ ",") (_languages meta)
-  ln $ ";Karaoke=" ++ if getKaraoke plan then "1" else "0"
-  ln $ ";Multitrack=" ++ if getMultitrack plan then "1" else "0"
-  ln $ ";Convert=" ++ if _convert meta then "1" else "0"
-  ln $ ";2xBass=" ++ if is2x then "1" else "0"
-  ln $ ";RhythmKeys=" ++ if _rhythmKeys meta then "1" else "0"
-  ln $ ";RhythmBass=" ++ if _rhythmBass meta then "1" else "0"
-  ln $ ";CATemh=" ++ if _catEMH meta then "1" else "0"
-  ln $ ";ExpertOnly=" ++ if _expertOnly meta then "1" else "0"
+  forM_ c3dtaCreatedUsing $ \t -> ln $ ";Created using " ++ T.unpack t
+  forM_ c3dtaAuthoredBy $ \t -> ln $ ";Song authored by " ++ T.unpack t
+  forM_ c3dtaSong $ \t -> ln $ ";Song=" ++ T.unpack t
+  forM_ c3dtaLanguages $ \ts -> ln $ concatMap (\t -> T.unpack t ++ ",") ts
+  forM_ c3dtaKaraoke $ \b -> ln $ ";Karaoke=" ++ if b then "1" else "0"
+  forM_ c3dtaMultitrack $ \b -> ln $ ";Multitrack=" ++ if b then "1" else "0"
+  forM_ c3dtaConvert $ \b -> ln $ ";Convert=" ++ if b then "1" else "0"
+  forM_ c3dta2xBass $ \b -> ln $ ";2xBass=" ++ if b then "1" else "0"
+  forM_ c3dtaRhythmKeys $ \b -> ln $ ";RhythmKeys=" ++ if b then "1" else "0"
+  forM_ c3dtaRhythmBass $ \b -> ln $ ";RhythmBass=" ++ if b then "1" else "0"
+  forM_ c3dtaCATemh $ \b -> ln $ ";CATemh=" ++ if b then "1" else "0"
+  forM_ c3dtaExpertOnly $ \b -> ln $ ";ExpertOnly=" ++ if b then "1" else "0"
   ln ")"
   where indent = mapWriter $ \(x, s) -> (x, map ("   " ++) s)
         parens act = do
