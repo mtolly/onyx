@@ -39,7 +39,6 @@ executable onyx
     RockBand2
     DryVox
     RockBand.ProGuitar.Play
-    OnyxFile
   build-depends:
     base    >= 4.8    && < 4.10
     , shake >= 0.15 && < 0.16

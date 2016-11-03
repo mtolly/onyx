@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Image where
+module Image (scaleBilinear, toDDS, toPNG_XBOX, readPNGXbox) where
 
 import           Codec.Picture
 import           Control.Monad              (forM_, guard, replicateM)
@@ -83,18 +83,6 @@ findPalette img = let
     return (score, (c0, c1, c2, c3))
   in snd $ minimumBy (comparing fst) choices
 
--- | Use this instead of findPalette for a sweet mosaic effect.
--- This was an accidental find before I wrote the current findPalette!
-findPalette' :: Image PixelRGB8 -> (PixelRGB8, PixelRGB8, PixelRGB8, PixelRGB8)
-findPalette' img = let
-  (_, pal) = palettize (PaletteOptions MedianMeanCut True 2) img
-  colors = [ pixelAt pal x y | x <- [0 .. imageWidth pal - 1], y <- [0 .. imageHeight pal - 1] ]
-  (cA, cB) = (head colors, last colors)
-  (c0, c1) = if pixel565 cA < pixel565 cB then (cB, cA) else (cA, cB)
-  c2 = mixProportions (2/3) (1/3) c0 c1
-  c3 = mixProportions (1/3) (2/3) c0 c1
-  in (c0, c1, c2, c3)
-
 contentDXT1 :: Image PixelRGB8 -> BL.ByteString
 contentDXT1 img_ = execWriter $ do
   forM_ [256, 128, 64, 32, 16, 8, 4] $ \size -> do
@@ -137,10 +125,6 @@ toDDS = let
 toPNG_XBOX :: Image PixelRGB8 -> BL.ByteString
 toPNG_XBOX = BL.append (BL.fromStrict pngXboxDXT1Signature) . flipWord16s . contentDXT1
 
--- | Writes 256x256 image to DXT1
-writeDDS :: FilePath -> Image PixelRGB8 -> IO ()
-writeDDS fout = BL.writeFile fout . toDDS
-
 readDXTChunk :: Bool -> Get (Image PixelRGB8)
 readDXTChunk isDXT1 = do
   c0w <- getWord16le
@@ -182,12 +166,6 @@ flipWord16s = let
   flipPairs (x : y : xs) = y : x : flipPairs xs
   flipPairs _ = []
   in BL.pack . flipPairs . BL.unpack
-
-flipWord16sStrict :: B.ByteString -> B.ByteString
-flipWord16sStrict = let
-  flipPairs (x : y : xs) = y : x : flipPairs xs
-  flipPairs _ = []
-  in B.pack . flipPairs . B.unpack
 
 -- | Supports both official DXT1 and C3 DXT2/3.
 readPNGXbox :: BL.ByteString -> Image PixelRGB8

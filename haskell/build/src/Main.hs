@@ -75,7 +75,6 @@ import qualified Data.Map                              as Map
 import           Data.Maybe                            (fromMaybe, isJust,
                                                         isNothing, listToMaybe,
                                                         mapMaybe)
-import           Data.Monoid                           ((<>))
 import qualified Data.Set                              as Set
 import qualified Data.Text                             as T
 import           Development.Shake                     hiding (phony)
@@ -1027,15 +1026,9 @@ main = do
               Nothing -> return $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
         "gen/cover.bmp" %> \out -> loadRGB8 >>= liftIO . writeBitmap out . scaleBilinear 256 256
         "gen/cover.png" %> \out -> loadRGB8 >>= liftIO . writePng    out . scaleBilinear 256 256
-        "gen/cover.dds" %> \out -> loadRGB8 >>= liftIO . writeDDS    out . scaleBilinear 256 256
         "gen/cover.png_xbox" %> \out -> case _fileAlbumArt $ _metadata songYaml of
           Just f | takeExtension f == ".png_xbox" -> copyFile' f out
-          _ -> do
-            let dds = out -<.> "dds"
-            need [dds]
-            liftIO $ do
-              b <- B.readFile dds
-              B.writeFile out $ pngXboxDXT1Signature <> flipWord16sStrict (B.drop 0x80 b)
+          _ -> loadRGB8 >>= liftIO . BL.writeFile out . toPNG_XBOX
 
         -- The Markdown README file, for GitHub purposes
         phony "update-readme" $ if _published songYaml
