@@ -23,7 +23,6 @@ import qualified Magma
 import qualified MelodysEscape
 import           MoggDecrypt
 import           OneFoot
-import           OnyxFile
 import qualified OnyxiteDisplay.Process                as Proc
 import           PrettyDTA
 import           ProKeysRanges
@@ -46,7 +45,7 @@ import           X360
 import           YAMLTree
 
 import           Codec.Picture
-import Control.Applicative ((<|>))
+import           Control.Applicative                   ((<|>))
 import           Control.Exception                     as Exc
 import           Control.Monad.Extra
 import           Control.Monad.Trans.Reader
@@ -79,8 +78,7 @@ import           Data.Maybe                            (fromMaybe, isJust,
 import           Data.Monoid                           ((<>))
 import qualified Data.Set                              as Set
 import qualified Data.Text                             as T
-import           Development.Shake                     hiding (phony, (%>),
-                                                        (&%>))
+import           Development.Shake                     hiding (phony)
 import qualified Development.Shake                     as Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
@@ -115,7 +113,11 @@ import           System.IO                             (IOMode (ReadMode),
                                                         hFileSize, hPutStrLn,
                                                         stderr, withBinaryFile)
 import           System.IO.Temp                        (withSystemTempDirectory)
-import           System.Process                        (callProcess, spawnCommand)
+import           System.Process                        (callProcess,
+                                                        spawnCommand)
+
+phony :: FilePath -> Action () -> Rules ()
+phony fp act = Shake.phony fp act >> Shake.phony (fp ++ "/") act
 
 data Argument
   = AudioDir FilePath
@@ -152,12 +154,6 @@ newtype JammitSearch = JammitSearch String
 -- | Oracle for an existing MOGG file search.
 -- The Text is an MD5 hash of the complete MOGG file.
 newtype MoggSearch = MoggSearch T.Text
-  deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
-
-newtype GetSongYaml = GetSongYaml ()
-  deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
-
-newtype CompileTime = CompileTime ()
   deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
 
 allFiles :: FilePath -> Action [FilePath]
@@ -267,8 +263,8 @@ jammitSearch songYaml jmt lib = do
     $ J.exactSearchBy J.title  (T.unpack title )
     $ J.exactSearchBy J.artist (T.unpack artist) lib
 
-writeReadme :: SongYaml -> FilePath -> FilePath -> IO ()
-writeReadme songYaml yamlPath out = writeFile out $ execWriter $ do
+makeReadme :: SongYaml -> FilePath -> String
+makeReadme songYaml yamlPath = execWriter $ do
   let escape = concatMap $ \c -> if c `elem` "\\`*_{}[]()#+-.!"
         then ['\\', c]
         else [c]
@@ -521,7 +517,7 @@ printProblems mid = do
 
 data PansVols = PansVols
   { bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, crowdPV, songPV :: [(Double, Double)]
-  , mixMode :: RBDrums.Audio
+  , mixMode                                                                      :: RBDrums.Audio
   } deriving (Eq, Ord, Show, Read)
 
 computePansVols :: SongYaml -> Plan -> PansVols
@@ -660,11 +656,8 @@ computeRanksTiers songYaml = let
 
   in RanksTiers{..}
 
-makeAudioFiles
-  :: SongYaml -> Plan -> FilePath -> RBDrums.Audio
-  -> (FilePath -> (FilePath -> Action ()) -> Rules ())
-  -> Rules ()
-makeAudioFiles songYaml plan dir mixMode makeRule = case plan of
+makeAudioFiles :: SongYaml -> Plan -> FilePath -> RBDrums.Audio -> Rules ()
+makeAudioFiles songYaml plan dir mixMode = case plan of
   Plan{..} -> do
     let locate :: Audio Duration AudioInput -> Action (Audio Duration FilePath)
         locate = fmap join . mapM (manualLeaf songYaml)
@@ -730,8 +723,6 @@ makeAudioFiles songYaml plan dir mixMode makeRule = case plan of
               [_moggGuitar, _moggBass, _moggKeys, _moggDrums, _moggVocal, _moggCrowd]
             return i
       oggChannels songChannels out
-  where (%>) = makeRule
-        infix 1 %>
 
 makeC3 :: SongYaml -> Plan -> String -> FilePath -> Action String -> Action Bool -> Action C3.C3
 makeC3 songYaml plan pkg mid thisTitle is2xBass = do
@@ -981,9 +972,13 @@ main = do
 
       checkDefined songYaml
 
+      exeTime <- getExecutablePath >>= Dir.getModificationTime
+      yamlTime <- Dir.getModificationTime yamlPath
+      let version = show exeTime ++ "," ++ show yamlTime
+
       origDirectory <- Dir.getCurrentDirectory
       Dir.setCurrentDirectory $ takeDirectory yamlPath
-      shakeArgsWith shakeOptions{ shakeThreads = 0, shakeFiles = "gen" } (map (fmap $ const (Right ())) optDescrs) $ \_ _ -> return $ Just $ do
+      shakeArgsWith shakeOptions{ shakeThreads = 0, shakeFiles = "gen", shakeVersion = version } (map (fmap $ const (Right ())) optDescrs) $ \_ _ -> return $ Just $ do
 
         allFilesInAudioDirs <- newCache $ \() -> do
           genAbsolute <- liftIO $ Dir.canonicalizePath "gen/"
@@ -994,21 +989,6 @@ main = do
         _            <- addOracle $ \(AudioSearch  s) -> allFilesInAudioDirs () >>= audioSearch (read s)
         jammitOracle <- addOracle $ \(JammitSearch s) -> fmap show $ allJammitInAudioDirs () >>= jammitSearch songYaml (read s)
         moggOracle   <- addOracle $ \(MoggSearch   s) -> allFilesInAudioDirs () >>= moggSearch s
-
-        -- Make all rules depend on the parsed song.yml contents and onyx compile time
-        strSongYaml    <- addOracle $ \(GetSongYaml ()) -> return $ show songYaml
-        ctime'         <- newCache $ \(CompileTime ()) -> liftIO $ fmap show $ getExecutablePath >>= Dir.getModificationTime
-        ctime          <- addOracle ctime'
-        let onyxDeps act = strSongYaml (GetSongYaml ()) >> ctime (CompileTime ()) >> act
-            (%>) :: FilePattern -> (FilePath -> Action ()) -> Rules ()
-            pat %> f = pat Shake.%> onyxDeps . f
-            (&%>) :: [FilePattern] -> ([FilePath] -> Action ()) -> Rules ()
-            pats &%> f = pats Shake.&%> onyxDeps . f
-            phony :: String -> Action () -> Rules ()
-            phony s f = do
-              Shake.phony s $ onyxDeps f
-              Shake.phony (s ++ "/") $ onyxDeps f
-            infix 1 %>, &%>
 
         forM_ (HM.elems $ _audio songYaml) $ \case
           AudioFile{ _filePath = Just fp, _commands = cmds } | not $ null cmds -> do
@@ -1061,7 +1041,7 @@ main = do
         phony "update-readme" $ if _published songYaml
           then need ["README.md"]
           else removeFilesAfter "." ["README.md"]
-        "README.md" %> liftIO . writeReadme songYaml yamlPath
+        "README.md" %> \out -> liftIO $ writeFile out $ makeReadme songYaml yamlPath
 
         "gen/notes.mid" %> \out -> do
           doesFileExist "notes.mid" >>= \b -> if b
@@ -1107,7 +1087,7 @@ main = do
             makeReaper "gen/notes.mid" tempo audios out
 
           -- Audio files
-          makeAudioFiles songYaml plan dir mixMode (%>)
+          makeAudioFiles songYaml plan dir mixMode
 
           dir </> "web/song.js" %> \out -> do
             let json = dir </> "display.json"

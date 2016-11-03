@@ -22,14 +22,15 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (nub, stripPrefix)
-import           Data.List.Split                  (splitOn)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, listToMaybe,
-                                                   mapMaybe)
+import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Text                        as T
 import qualified Data.Yaml                        as Y
 import qualified FretsOnFire                      as FoF
 import           JSONData                         (JSONEither (..))
+import           PrettyDTA                        (C3DTAComments (..),
+                                                   DTASingle (..),
+                                                   readDTASingle, readRB3DTA)
 import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.File                    as RBFile
 import           Scripts                          (loadMIDI_IO)
@@ -44,8 +45,6 @@ import           System.FilePath                  (takeDirectory, takeFileName,
 import           System.IO                        (IOMode (..), SeekMode (..),
                                                    hPutStrLn, hSeek, stderr,
                                                    withBinaryFile)
-import           System.IO.Extra                  (latin1, readFileEncoding',
-                                                   utf8)
 import           System.IO.Temp                   (withSystemTempDirectory)
 
 -- | Convert a CON or RBA file (or FoF directory) to Onyx format.
@@ -275,32 +274,23 @@ determine2xBass s = case stripSuffix " (2x Bass Pedal)" s <|> stripSuffix " (2X 
 importSTFS :: KeysRB2 -> FilePath -> FilePath -> IO ()
 importSTFS krb2 file dir = withSystemTempDirectory "onyx_con" $ \temp -> do
   extractSTFS file temp
-  (_, pkg, isUTF8) <- readRB3DTA $ temp </> "songs/songs.dta"
-  -- C3 puts extra info in DTA comments
-  dtaLines <- fmap (lines . filter (/= '\r')) $ readFileEncoding' (if isUTF8 then utf8 else latin1) $ temp </> "songs/songs.dta"
-  let findBool s
-        | elem (";" ++ s ++ "=0") dtaLines = Just False
-        | elem (";" ++ s ++ "=1") dtaLines = Just True
-        | otherwise                        = Nothing
-      gameTitle = D.name pkg
-      c3Title = fromMaybe gameTitle $ listToMaybe $ mapMaybe (stripPrefix ";Song=") dtaLines
-      (title, is2x) = case findBool "2xBass" of
-        Nothing -> determine2xBass c3Title
-        Just b  -> (fst $ determine2xBass c3Title, b)
+  DTASingle _ pkg comments <- readDTASingle $ temp </> "songs/songs.dta"
+  let c3Title = fromMaybe (T.pack $ D.name pkg) $ c3dtaSong comments
+      (title, is2x) = case c3dta2xBass comments of
+        Just b -> (fst $ determine2xBass $ T.unpack c3Title, b)
+        Nothing -> determine2xBass $ T.unpack c3Title
       meta = def
-        { _author = fmap T.pack $ listToMaybe $ mapMaybe (stripPrefix ";Song authored by ") dtaLines
+        { _author = c3dtaAuthoredBy comments
         , _title = Just $ T.pack title
-        , _convert = fromMaybe (_convert def) $ findBool "Convert"
-        , _rhythmKeys = fromMaybe (_rhythmKeys def) $ findBool "RhythmKeys"
-        , _rhythmBass = fromMaybe (_rhythmBass def) $ findBool "RhythmBass"
-        , _catEMH = fromMaybe (_catEMH def) $ findBool "CATemh"
-        , _expertOnly = fromMaybe (_expertOnly def) $ findBool "ExpertOnly"
-        , _languages = case listToMaybe $ mapMaybe (stripPrefix ";Language(s)=") dtaLines of
-          Nothing -> _languages def
-          Just s  -> map T.pack $ filter (not . null) $ splitOn "," s
+        , _convert = fromMaybe (_convert def) $ c3dtaConvert comments
+        , _rhythmKeys = fromMaybe (_rhythmKeys def) $ c3dtaRhythmKeys comments
+        , _rhythmBass = fromMaybe (_rhythmBass def) $ c3dtaRhythmBass comments
+        , _catEMH = fromMaybe (_catEMH def) $ c3dtaCATemh comments
+        , _expertOnly = fromMaybe (_expertOnly def) $ c3dtaExpertOnly comments
+        , _languages = fromMaybe (_languages def) $ c3dtaLanguages comments
         }
-      karaoke    = fromMaybe False $ findBool "Karaoke"
-      multitrack = fromMaybe True  $ findBool "Multitrack"
+      karaoke = fromMaybe False $ c3dtaKaraoke comments
+      multitrack = fromMaybe False $ c3dtaMultitrack comments
       base = D.songName $ D.song pkg
       -- Note: the base path does NOT necessarily have to be songs/foo/foo
       -- where foo is the top key of songs.dta. foo can be different!
@@ -359,40 +349,6 @@ importRBA krb2 file dir = withSystemTempDirectory "onyx_rba" $ \temp -> do
     (temp </> "cover.bmp")
     "cover.bmp"
     dir
-
--- | CONs put out by C3 Magma sometimes bizarrely have the @tracks_count@ key
--- completely removed from @songs.dta@, but the list of track counts is still
--- there. So, we have to put it back before parsing @song@ as a key-value map.
-fixTracksCount :: [D.Chunk String] -> [D.Chunk String]
-fixTracksCount = map findSong where
-  findSong = \case
-    D.Parens (D.Tree w (D.Key "song" : rest)) ->
-      D.Parens (D.Tree w (D.Key "song" : map findTracksCount rest))
-    x -> x
-  findTracksCount = \case
-    D.Parens (D.Tree w [D.Parens (D.Tree w2 nums)]) ->
-      D.Parens $ D.Tree w [D.Key "tracks_count", D.Parens $ D.Tree w2 nums]
-    x -> x
-
--- | Returns @(short song name, DTA file contents, is UTF8)@
-readRB3DTA :: FilePath -> IO (String, D.SongPackage, Bool)
-readRB3DTA dtaPath = do
-  -- Not sure what encoding it is, try both.
-  let readSongWith :: (FilePath -> IO (D.DTA String)) -> IO (String, D.SongPackage)
-      readSongWith rdr = do
-        dta <- rdr dtaPath
-        (k, chunks) <- case D.treeChunks $ D.topTree dta of
-          [D.Parens (D.Tree _ (D.Key k : chunks))] -> return (k, chunks)
-          _ -> error $ dtaPath ++ " is not a valid songs.dta with exactly one song"
-        case D.fromChunks $ fixTracksCount chunks of
-          Left e -> error $ dtaPath ++ " couldn't be unserialized: " ++ e
-          Right pkg -> return (k, pkg)
-  (k_l1, l1) <- readSongWith D.readFileDTA_latin1
-  case D.fromKeyword <$> D.encoding l1 of
-    Just "utf8" -> (\(k, pkg) -> (k, pkg, True)) <$> readSongWith D.readFileDTA_utf8
-    Just "latin1" -> return (k_l1, l1, False)
-    Nothing -> return (k_l1, l1, False)
-    Just enc -> error $ dtaPath ++ " specifies an unrecognized encoding: " ++ enc
 
 -- | Collects the contents of an RBA or CON file into an Onyx project.
 importRB3 :: KeysRB2 -> D.SongPackage -> Metadata -> Bool -> Bool -> Bool -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> IO ()

@@ -2,15 +2,15 @@
 module Image where
 
 import           Codec.Picture
-import           Control.Monad        (forM_, guard, replicateM)
+import           Control.Monad              (forM_, guard, replicateM)
+import           Control.Monad.Trans.Writer (execWriter, tell)
 import           Data.Binary.Get
-import           Data.Bits            (shiftL, shiftR, testBit, (.&.))
-import qualified Data.ByteString      as B
-import qualified Data.ByteString.Lazy as BL
-import           Data.List            (minimumBy)
-import           Data.Ord             (comparing)
-import           Data.Word            (Word16, Word8)
-import           System.IO            (IOMode (..), withBinaryFile)
+import           Data.Bits                  (shiftL, shiftR, testBit, (.&.))
+import qualified Data.ByteString            as B
+import qualified Data.ByteString.Lazy       as BL
+import           Data.List                  (minimumBy)
+import           Data.Ord                   (comparing)
+import           Data.Word                  (Word16, Word8)
 
 -- | Scales an image using the bilinear interpolation algorithm.
 scaleBilinear
@@ -95,43 +95,51 @@ findPalette' img = let
   c3 = mixProportions (1/3) (2/3) c0 c1
   in (c0, c1, c2, c3)
 
+contentDXT1 :: Image PixelRGB8 -> BL.ByteString
+contentDXT1 img_ = execWriter $ do
+  forM_ [256, 128, 64, 32, 16, 8, 4] $ \size -> do
+    let img = scaleBilinear size size img_
+    forM_ [0, 4 .. size - 4] $ \y ->
+      forM_ [0, 4 .. size - 4] $ \x -> do
+        let chunk = generateImage (\cx cy -> pixelAt img (x + cx) (y + cy)) 4 4
+            (c0, c1, c2, c3) = findPalette chunk
+        tell $ BL.pack
+          [ fromIntegral $ pixel565 c0
+          , fromIntegral $ pixel565 c0 `shiftR` 8
+          , fromIntegral $ pixel565 c1
+          , fromIntegral $ pixel565 c1 `shiftR` 8
+          ]
+        forM_ [y .. y + 3] $ \py -> do
+          let byte = if pixel565 c0 == pixel565 c1
+                then 0
+                else sum $ flip map
+                  [ (x    , 0x01)
+                  , (x + 1, 0x04)
+                  , (x + 2, 0x10)
+                  , (x + 3, 0x40)
+                  ] $ \(px, v) -> let
+                  score c = colorDiff c $ pixelAt img px py
+                  scoreTable =
+                    [ (score c0, v * 0)
+                    , (score c1, v * 1)
+                    , (score c2, v * 2)
+                    , (score c3, v * 3)
+                    ]
+                  in snd $ minimum scoreTable
+          tell $ BL.singleton byte
+
+toDDS :: Image PixelRGB8 -> BL.ByteString
+toDDS = let
+  -- header stolen from an imagemagick-output file
+  header = BL.pack [0x44,0x44,0x53,0x20,0x7C,0x00,0x00,0x00,0x07,0x10,0x0A,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0x09,0x00,0x00,0x00,0x49,0x4D,0x41,0x47,0x45,0x4D,0x41,0x47,0x49,0x43,0x4B,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x20,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0x44,0x58,0x54,0x31,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x08,0x10,0x40,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]
+  in BL.append header . contentDXT1
+
+toPNG_XBOX :: Image PixelRGB8 -> BL.ByteString
+toPNG_XBOX = BL.append (BL.fromStrict pngXboxDXT1Signature) . flipWord16s . contentDXT1
+
 -- | Writes 256x256 image to DXT1
 writeDDS :: FilePath -> Image PixelRGB8 -> IO ()
-writeDDS fout img_ = let
-  -- header stolen from an imagemagick-output file
-  header = B.pack [0x44,0x44,0x53,0x20,0x7C,0x00,0x00,0x00,0x07,0x10,0x0A,0x00,0x00,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0x09,0x00,0x00,0x00,0x49,0x4D,0x41,0x47,0x45,0x4D,0x41,0x47,0x49,0x43,0x4B,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x20,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0x44,0x58,0x54,0x31,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x08,0x10,0x40,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]
-  in withBinaryFile fout WriteMode $ \h -> do
-    B.hPut h header
-    forM_ [256, 128, 64, 32, 16, 8, 4] $ \size -> do
-      let img = scaleBilinear size size img_
-      forM_ [0, 4 .. size - 4] $ \y ->
-        forM_ [0, 4 .. size - 4] $ \x -> do
-          let chunk = generateImage (\cx cy -> pixelAt img (x + cx) (y + cy)) 4 4
-              (c0, c1, c2, c3) = findPalette chunk
-          B.hPut h $ B.pack
-            [ fromIntegral $ pixel565 c0
-            , fromIntegral $ pixel565 c0 `shiftR` 8
-            , fromIntegral $ pixel565 c1
-            , fromIntegral $ pixel565 c1 `shiftR` 8
-            ]
-          forM_ [y .. y + 3] $ \py -> do
-            let byte = if pixel565 c0 == pixel565 c1
-                  then 0
-                  else sum $ flip map
-                    [ (x    , 0x01)
-                    , (x + 1, 0x04)
-                    , (x + 2, 0x10)
-                    , (x + 3, 0x40)
-                    ] $ \(px, v) -> let
-                    score c = colorDiff c $ pixelAt img px py
-                    scoreTable =
-                      [ (score c0, v * 0)
-                      , (score c1, v * 1)
-                      , (score c2, v * 2)
-                      , (score c3, v * 3)
-                      ]
-                    in snd $ minimum scoreTable
-            B.hPut h $ B.singleton byte
+writeDDS fout = BL.writeFile fout . toDDS
 
 readDXTChunk :: Bool -> Get (Image PixelRGB8)
 readDXTChunk isDXT1 = do

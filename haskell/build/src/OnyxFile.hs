@@ -1,32 +1,35 @@
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs      #-}
 {-# LANGUAGE LambdaCase #-}
 module OnyxFile where
 
-import Data.Conduit.Audio
-import Data.Conduit.Audio.Sndfile
-import Control.Monad.Trans.Resource
-import Control.Monad.Trans.StackTrace (printStackTraceIO)
-import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
-import qualified Sound.Jammit.Base as J
-import System.FilePath ((</>), (<.>), takeExtension)
-import Data.Char (toLower)
-import Codec.Picture
-import Image
-import qualified Data.ByteString.Lazy as BL
-import qualified FretsOnFire as FoF
-import qualified Sound.File.Sndfile as Snd
-import Audio (clampFloat)
-import qualified RockBand.File as RBFile
-import qualified Sound.MIDI.Util as U
-import qualified Sound.MIDI.File.Load as Load
-import qualified Sound.MIDI.File.Save as Save
-import PrettyDTA
-import qualified Data.DTA.Serialize.RB3 as D
-import qualified Data.DTA.Serialize.Magma as D
+import           Audio                          (clampFloat)
 import qualified C3
-import Development.Shake
-import qualified Reaper.Base as RPP
+import           Codec.Picture
+import           Control.Monad.Trans.Resource
+import           Control.Monad.Trans.StackTrace (printStackTraceIO)
+import qualified Data.ByteString.Lazy           as BL
+import           Data.Char                      (toLower)
+import           Data.Conduit.Audio
+import           Data.Conduit.Audio.Sndfile
+import qualified Data.DTA                       as D
+import qualified Data.DTA.Serialize             as D
+import qualified Data.DTA.Serialize.Magma       as D
+import qualified Data.Text                      as T
+import qualified Data.Text.IO                   as TIO
+import           Development.Shake
+import qualified FretsOnFire                    as FoF
+import           Image
+import           PrettyDTA
+import qualified Reaper.Base                    as RPP
+import qualified Reaper.Parse                   as RPP
+import qualified Reaper.Scan                    as RPP
+import qualified RockBand.File                  as RBFile
+import qualified Sound.File.Sndfile             as Snd
+import qualified Sound.Jammit.Base              as J
+import qualified Sound.MIDI.File.Load           as Load
+import qualified Sound.MIDI.File.Save           as Save
+import qualified Sound.MIDI.Util                as U
+import           System.FilePath                (takeExtension, (<.>), (</>))
 
 data Channel
   = ChannelGuitar
@@ -45,7 +48,6 @@ data Channel
 data ImageFormat
   = BMP
   | PNG
-  | DDS
   | PNG_XBOX
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
@@ -53,7 +55,6 @@ type PlanName = T.Text
 type JammitSong = T.Text
 type AudioStore = AudioSource (ResourceT IO) Float
 type Is2x = Bool
-type DTASingle = (String, D.SongPackage, C3DTAComments)
 
 data PSChannel
   = PSChannelGuitar
@@ -97,6 +98,7 @@ newtype Pan = Pan BL.ByteString
 
 data OnyxFile a where
   OnyxReadme :: OnyxFile T.Text
+  OnyxNotes :: OnyxFile (RBFile.Song U.Beats)
   OnyxJammit :: JammitSong -> J.AudioPart -> OnyxFile AudioStore
   OnyxAudio :: PlanName -> Channel -> OnyxFile AudioStore
   OnyxRBOGG :: PlanName -> OnyxFile AudioStore
@@ -140,6 +142,7 @@ data OnyxFile a where
 onyxFilePath :: OnyxFile a -> FilePath
 onyxFilePath = \case
   OnyxReadme -> "README.md"
+  OnyxNotes -> "gen/notes.mid"
   OnyxJammit jammitSong jammitAudio ->
     "gen/jammit" </> T.unpack jammitSong </> case jammitAudio of
       J.Only    part -> "only" </> map toLower (drop 4 $ show part) <.> "wav"
@@ -225,12 +228,12 @@ onyxFilePath = \case
 readOnyxFile :: OnyxFile a -> IO a
 readOnyxFile f = case f of
   OnyxReadme{} -> TIO.readFile fp
+  OnyxNotes{} -> readNotes
   OnyxJammit{} -> sourceSnd fp
   OnyxAudio{} -> sourceSnd fp
   OnyxAlbumArt imageFormat -> case imageFormat of
     BMP -> readImage'
     PNG -> readImage'
-    DDS -> error "readOnyxFile: reading DDS files not implemented"
     PNG_XBOX -> ImageRGB8 . readPNGXbox <$> BL.readFile fp
   OnyxPSSongINI{} -> FoF.loadSong fp
   OnyxPSAudio{} -> sourceSnd fp
@@ -240,7 +243,11 @@ readOnyxFile f = case f of
   OnyxMagmaNotesV1{} -> readNotes
   OnyxRB3Notes{} -> readNotes
   OnyxRB3AlbumArt{} -> ImageRGB8 . readPNGXbox <$> BL.readFile fp
+  OnyxRB2AlbumArt{} -> ImageRGB8 . readPNGXbox <$> BL.readFile fp
   OnyxRB3Milo{} -> Milo <$> BL.readFile fp
+  OnyxRB2Milo{} -> Milo <$> BL.readFile fp
+  OnyxRB2Weights{} -> Weights <$> BL.readFile fp
+  OnyxRB2Pan{} -> Pan <$> BL.readFile fp
   OnyxRBOGG{} -> sourceSnd fp
   OnyxMelodyAudio{} -> sourceSnd fp
   OnyxRBMOGG{} -> MOGG <$> BL.readFile fp
@@ -254,6 +261,20 @@ readOnyxFile f = case f of
   OnyxMelodyTrack{} -> MelodyTrack <$> BL.readFile fp
   OnyxMagmaAlbumArt{} -> readImage'
   OnyxMagmaAlbumArtV1{} -> readImage'
+  OnyxMagmaNotesExport{} -> readNotes
+  OnyxMagmaNotesAdded{} -> readNotes
+  OnyxRB2Notes{} -> readNotes
+  OnyxMagmaC3{} -> error "TODO: implement .c3 file reading"
+  OnyxRB3DTA{} -> readDTASingle fp
+  OnyxRB2DTA{} -> readDTASingle fp
+  OnyxRB2OriginalDTA{} -> readDTASingle fp
+  OnyxRPP{} -> RPP.parse . RPP.scan <$> readFile fp
+  OnyxMagmaProject{} -> D.readFileDTA fp >>= \dta -> case D.unserialize dta of
+    Left err -> error $ "readOnyxFile: failed to load Magma project " ++ show fp ++ "; error: " ++ err
+    Right proj -> return proj
+  OnyxMagmaProjectV1{} -> D.readFileDTA fp >>= \dta -> case D.unserialize dta of
+    Left err -> error $ "readOnyxFile: failed to load Magma project " ++ show fp ++ "; error: " ++ err
+    Right proj -> return proj
   where fp = onyxFilePath f
         readImage' = readImage fp >>= \case
           Left  err -> error $
@@ -264,15 +285,19 @@ readOnyxFile f = case f of
 loadOnyxFile :: OnyxFile a -> Action a
 loadOnyxFile f = need [onyxFilePath f] >> liftIO (readOnyxFile f)
 
+loadOnyxFiles :: [OnyxFile a] -> Action [a]
+loadOnyxFiles fs = need (map onyxFilePath fs) >> liftIO (mapM readOnyxFile fs)
+
 writeOnyxFile :: OnyxFile a -> a -> IO ()
 writeOnyxFile f x = case f of
   OnyxReadme{} -> TIO.writeFile fp x
+  OnyxNotes{} -> writeNotes x
   OnyxJammit{} -> writeAudio x
   OnyxAudio{} -> writeAudio x
   OnyxAlbumArt imageFormat -> case imageFormat of
     BMP -> saveBmpImage fp x
     PNG -> savePngImage fp x
-    DDS -> writeDDS fp $ convertRGB8 x
+    PNG_XBOX -> BL.writeFile fp $ toPNG_XBOX $ convertRGB8 x
   OnyxPSSongINI{} -> FoF.saveSong fp x
   OnyxPSAudio{} -> writeAudio x
   OnyxPSAlbumArt{} -> savePngImage fp x
@@ -281,9 +306,9 @@ writeOnyxFile f x = case f of
   OnyxRB2Notes{} -> writeNotes x
   OnyxMagmaNotes{} -> writeNotes x
   OnyxMagmaNotesV1{} -> writeNotes x
-  OnyxRB3DTA{} -> writeDTA x
-  OnyxRB2OriginalDTA{} -> writeDTA x
-  OnyxRB2DTA{} -> writeDTA x
+  OnyxRB3DTA{} -> writeFile fp $ writeDTASingle x
+  OnyxRB2OriginalDTA{} -> writeFile fp $ writeDTASingle x
+  OnyxRB2DTA{} -> writeFile fp $ writeDTASingle x
   OnyxRBOGG{} -> writeAudio x
   OnyxMelodyAudio{} -> writeAudio x
   OnyxRBMOGG{} -> case x of MOGG bs -> BL.writeFile fp bs
@@ -301,6 +326,14 @@ writeOnyxFile f x = case f of
   OnyxMagmaC3{} -> writeFile fp $ C3.showC3 x
   OnyxMagmaNotesExport{} -> writeNotes x
   OnyxMagmaNotesAdded{} -> writeNotes x
+  OnyxRB2Weights{} -> case x of Weights bs -> BL.writeFile fp bs
+  OnyxRB2Milo{} -> case x of Milo bs -> BL.writeFile fp bs
+  OnyxRB2Pan{} -> case x of Pan bs -> BL.writeFile fp bs
+  OnyxRPP{} -> RPP.writeRPP fp x
+  OnyxRB3AlbumArt{} -> BL.writeFile fp $ toPNG_XBOX $ convertRGB8 x
+  OnyxRB2AlbumArt{} -> BL.writeFile fp $ toPNG_XBOX $ convertRGB8 x
+  OnyxMagmaProject{} -> D.writeFileDTA_utf8 fp $ D.serialize x
+  OnyxMagmaProjectV1{} -> D.writeFileDTA_utf8 fp $ D.serialize x
   where fp = onyxFilePath f
         writeAudio :: AudioStore -> IO ()
         writeAudio aud = let
@@ -310,7 +343,9 @@ writeOnyxFile f x = case f of
             _ -> error $ "writeOnyxFile: unknown audio output file format " ++ show fp
           in runResourceT $ sinkSnd fp fmt $ clampFloat aud
         writeNotes song = Save.toFile fp $ RBFile.showMIDIFile song
-        writeDTA (name, dta, comments) = writeFile fp $ prettyDTA name dta comments
 
 ruleOnyxFile :: OnyxFile a -> Action a -> Rules ()
 ruleOnyxFile f act = onyxFilePath f %> \_ -> act >>= liftIO . writeOnyxFile f
+
+copyOnyxFileTo :: OnyxFile a -> OnyxFile a -> Rules ()
+x `copyOnyxFileTo` y = onyxFilePath y %> \out -> copyFile' (onyxFilePath x) out

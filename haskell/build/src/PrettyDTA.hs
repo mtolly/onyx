@@ -1,7 +1,7 @@
 {- |
 Format a @songs.dta@ so that C3 CON Tools can read it.
 -}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RecordWildCards #-}
 module PrettyDTA where
 
@@ -9,14 +9,19 @@ import           Config
 
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString            as B
+import qualified Data.DTA                   as D
 import           Data.DTA.Serialize
 import           Data.DTA.Serialize.Magma   (Gender (..))
 import qualified Data.DTA.Serialize.RB3     as D
 import           Data.Foldable              (forM_)
 import           Data.List                  (sortOn)
+import           Data.List                  (stripPrefix)
+import           Data.List.Split            (splitOn)
 import qualified Data.Map                   as Map
+import           Data.Maybe                 (listToMaybe, mapMaybe)
 import qualified Data.Text                  as T
 import qualified Data.Text.Encoding         as TE
+import           System.IO.Extra            (latin1, readFileEncoding', utf8)
 
 writeUtf8CRLF :: FilePath -> String -> IO ()
 writeUtf8CRLF fp = B.writeFile fp . TE.encodeUtf8 . T.pack
@@ -31,34 +36,104 @@ stringLit s = "\"" ++ (s >>= \case '"' -> "\\q"; c -> [c]) ++ "\""
 
 data C3DTAComments = C3DTAComments
   { c3dtaCreatedUsing :: Maybe T.Text
-  , c3dtaAuthoredBy :: Maybe T.Text
-  , c3dtaSong :: Maybe T.Text
-  , c3dtaLanguages :: Maybe [T.Text]
-  , c3dtaKaraoke :: Maybe Bool
-  , c3dtaMultitrack :: Maybe Bool
-  , c3dtaConvert :: Maybe Bool
-  , c3dta2xBass :: Maybe Bool
-  , c3dtaRhythmKeys :: Maybe Bool
-  , c3dtaRhythmBass :: Maybe Bool
-  , c3dtaCATemh :: Maybe Bool
-  , c3dtaExpertOnly :: Maybe Bool
+  , c3dtaAuthoredBy   :: Maybe T.Text
+  , c3dtaSong         :: Maybe T.Text
+  , c3dtaLanguages    :: Maybe [T.Text]
+  , c3dtaKaraoke      :: Maybe Bool
+  , c3dtaMultitrack   :: Maybe Bool
+  , c3dtaConvert      :: Maybe Bool
+  , c3dta2xBass       :: Maybe Bool
+  , c3dtaRhythmKeys   :: Maybe Bool
+  , c3dtaRhythmBass   :: Maybe Bool
+  , c3dtaCATemh       :: Maybe Bool
+  , c3dtaExpertOnly   :: Maybe Bool
   } deriving (Eq, Ord, Show, Read)
 
 makeC3DTAComments :: Metadata -> Plan -> Bool -> C3DTAComments
 makeC3DTAComments meta plan is2x = C3DTAComments
   { c3dtaCreatedUsing = Just $ T.pack "Onyxite's Rock Band Tool"
-  , c3dtaAuthoredBy = Just $ getAuthor meta
-  , c3dtaSong = Just $ getTitle meta
-  , c3dtaLanguages = Just $ _languages meta
-  , c3dtaKaraoke = Just $ getKaraoke plan
-  , c3dtaMultitrack = Just $ getMultitrack plan
-  , c3dtaConvert = Just $ _convert meta
-  , c3dta2xBass = Just is2x
-  , c3dtaRhythmKeys = Just $ _rhythmKeys meta
-  , c3dtaRhythmBass = Just $ _rhythmBass meta
-  , c3dtaCATemh = Just $ _catEMH meta
-  , c3dtaExpertOnly = Just $ _expertOnly meta
+  , c3dtaAuthoredBy   = Just $ getAuthor meta
+  , c3dtaSong         = Just $ getTitle meta
+  , c3dtaLanguages    = Just $ _languages meta
+  , c3dtaKaraoke      = Just $ getKaraoke plan
+  , c3dtaMultitrack   = Just $ getMultitrack plan
+  , c3dtaConvert      = Just $ _convert meta
+  , c3dta2xBass       = Just is2x
+  , c3dtaRhythmKeys   = Just $ _rhythmKeys meta
+  , c3dtaRhythmBass   = Just $ _rhythmBass meta
+  , c3dtaCATemh       = Just $ _catEMH meta
+  , c3dtaExpertOnly   = Just $ _expertOnly meta
   }
+
+data DTASingle = DTASingle
+  { dtaTopKey      :: String
+  , dtaSongPackage :: D.SongPackage
+  , dtaC3Comments  :: C3DTAComments
+  } deriving (Eq, Ord, Show, Read)
+
+-- | CONs put out by C3 Magma sometimes bizarrely have the @tracks_count@ key
+-- completely removed from @songs.dta@, but the list of track counts is still
+-- there. So, we have to put it back before parsing @song@ as a key-value map.
+fixTracksCount :: [D.Chunk String] -> [D.Chunk String]
+fixTracksCount = map findSong where
+  findSong = \case
+    D.Parens (D.Tree w (D.Key "song" : rest)) ->
+      D.Parens (D.Tree w (D.Key "song" : map findTracksCount rest))
+    x -> x
+  findTracksCount = \case
+    D.Parens (D.Tree w [D.Parens (D.Tree w2 nums)]) ->
+      D.Parens $ D.Tree w [D.Key "tracks_count", D.Parens $ D.Tree w2 nums]
+    x -> x
+
+-- | Returns @(short song name, DTA file contents, is UTF8)@
+readRB3DTA :: FilePath -> IO (String, D.SongPackage, Bool)
+readRB3DTA dtaPath = do
+  -- Not sure what encoding it is, try both.
+  let readSongWith :: (FilePath -> IO (D.DTA String)) -> IO (String, D.SongPackage)
+      readSongWith rdr = do
+        dta <- rdr dtaPath
+        (k, chunks) <- case D.treeChunks $ D.topTree dta of
+          [D.Parens (D.Tree _ (D.Key k : chunks))] -> return (k, chunks)
+          _ -> error $ dtaPath ++ " is not a valid songs.dta with exactly one song"
+        case fromChunks $ fixTracksCount chunks of
+          Left e -> error $ dtaPath ++ " couldn't be unserialized: " ++ e
+          Right pkg -> return (k, pkg)
+  (k_l1, l1) <- readSongWith D.readFileDTA_latin1
+  case fromKeyword <$> D.encoding l1 of
+    Just "utf8" -> (\(k, pkg) -> (k, pkg, True)) <$> readSongWith D.readFileDTA_utf8
+    Just "latin1" -> return (k_l1, l1, False)
+    Nothing -> return (k_l1, l1, False)
+    Just enc -> error $ dtaPath ++ " specifies an unrecognized encoding: " ++ enc
+
+readDTASingle :: FilePath -> IO DTASingle
+readDTASingle file = do
+  (topKey, pkg, isUTF8) <- readRB3DTA file
+  -- C3 puts extra info in DTA comments
+  dtaLines <- fmap (lines . filter (/= '\r')) $ readFileEncoding' (if isUTF8 then utf8 else latin1) file
+  let findBool s
+        | elem (";" ++ s ++ "=0") dtaLines = Just False
+        | elem (";" ++ s ++ "=1") dtaLines = Just True
+        | otherwise                        = Nothing
+      comments = C3DTAComments
+        { c3dtaCreatedUsing = Just $ T.pack "Onyxite's Rock Band Tool"
+        , c3dtaAuthoredBy = fmap T.pack $ listToMaybe $ mapMaybe (stripPrefix ";Song authored by ") dtaLines
+        , c3dtaSong = fmap T.pack $ listToMaybe $ mapMaybe (stripPrefix ";Song=") dtaLines
+        , c3dtaLanguages
+          = fmap (map T.pack .  filter (not . null) . splitOn ",")
+          $ listToMaybe $ mapMaybe (stripPrefix ";Language(s)=") dtaLines
+        , c3dtaKaraoke = findBool "Karaoke"
+        , c3dtaMultitrack = findBool "Multitrack"
+        , c3dtaConvert = findBool "Convert"
+        , c3dta2xBass = findBool "2xBass"
+        , c3dtaRhythmKeys = findBool "RhythmKeys"
+        , c3dtaRhythmBass = findBool "RhythmBass"
+        , c3dtaCATemh = findBool "CATemh"
+        , c3dtaExpertOnly = findBool "ExpertOnly"
+        }
+  return $ DTASingle topKey pkg comments
+
+writeDTASingle :: DTASingle -> String
+writeDTASingle (DTASingle x y z) = prettyDTA x y z
 
 prettyDTA :: String -> D.SongPackage -> C3DTAComments -> String
 prettyDTA name pkg C3DTAComments{..} = unlines $ execWriter $ do
