@@ -1,13 +1,13 @@
-{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE LambdaCase #-}
 module Readme (makeReadme) where
 
-import qualified Data.HashMap.Strict                   as HM
-import           Difficulty
 import           Config
-import qualified Data.Text                             as T
-import Control.Monad (when, forM_, unless)
-import System.FilePath (takeDirectory, takeFileName)
-import Control.Monad.Trans.Writer (execWriter, tell)
+import           Control.Monad              (forM_, unless, when)
+import           Control.Monad.Trans.Writer (execWriter, tell)
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.Text                  as T
+import           Difficulty
+import           System.FilePath            (takeDirectory, takeFileName)
 
 makeReadme :: SongYaml -> FilePath -> String
 makeReadme songYaml yamlPath = execWriter $ do
@@ -33,7 +33,7 @@ makeReadme songYaml yamlPath = execWriter $ do
   let diffString f dm = case f $ _difficulty $ _metadata songYaml of
         Just (Rank rank) -> g $ rankToTier dm rank
         Just (Tier tier) -> g tier
-        Nothing -> ""
+        Nothing          -> ""
         where g = \case
                 1 -> " ⚫️⚫️⚫️⚫️⚫️"
                 2 -> " ⚪️⚫️⚫️⚫️⚫️"

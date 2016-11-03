@@ -88,7 +88,7 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
       Hard   -> case cols of
         [_, _, _] -> case (minimum cols, maximum cols) of
           (Five.Green, Five.Orange) -> [Five.Green, Five.Blue]
-          (mincol, maxcol) -> [mincol, maxcol]
+          (mincol, maxcol)          -> [mincol, maxcol]
         [Five.Green, Five.Orange] -> [Five.Green, Five.Blue]
         [Five.Orange, Five.Green] -> [Five.Green, Five.Blue]
         _ -> cols
@@ -192,8 +192,8 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
   -- Step: bring back sustains for quarter note gap on medium/easy
   gnotes9 = case diff of
     Expert -> gnotes8
-    Hard -> gnotes8
-    _ -> RTB.fromPairList $ pullBackSustains $ RTB.toPairList gnotes8
+    Hard   -> gnotes8
+    _      -> RTB.fromPairList $ pullBackSustains $ RTB.toPairList gnotes8
   pullBackSustains = \case
     [] -> []
     (t1, GuitarNote cols1 ntype1 (Just l1)) : rest@((t2, _) : _) -> let
@@ -351,8 +351,8 @@ pkReduce diff   mmap od diffEvents = let
   -- Step: bring back sustains for quarter note gap on medium/easy
   pknotes6 = case diff of
     Expert -> pknotes5
-    Hard -> pknotes5
-    _ -> RTB.fromPairList $ pullBackSustains $ RTB.toPairList pknotes5
+    Hard   -> pknotes5
+    _      -> RTB.fromPairList $ pullBackSustains $ RTB.toPairList pknotes5
   pullBackSustains = \case
     [] -> []
     (t1, PKNote ps1 (Just l1)) : rest@((t2, _) : _) -> let

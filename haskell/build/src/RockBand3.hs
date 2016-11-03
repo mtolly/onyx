@@ -1,25 +1,25 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 module RockBand3 (Kicks(..), processMIDI, findProblems) where
 
-import qualified RockBand.File as RBFile
-import Config
-import qualified Sound.MIDI.Util as U
-import Development.Shake
-import           Reductions
-import           ProKeysRanges
-import           Scripts
-import           OneFoot
+import           Config
 import           Control.Monad.Extra
-import qualified Data.EventList.Absolute.TimeBody      as ATB
-import qualified Data.EventList.Relative.TimeBody      as RTB
-import qualified RockBand.Drums                        as RBDrums
-import qualified RockBand.Events                       as Events
-import qualified RockBand.ProKeys                      as ProKeys
-import qualified RockBand.ProGuitar                      as ProGtr
-import qualified RockBand.Vocals                       as RBVox
-import      RockBand.Common
-import Control.Monad.Trans.Writer (execWriter, tell)
+import           Control.Monad.Trans.Writer       (execWriter, tell)
+import qualified Data.EventList.Absolute.TimeBody as ATB
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           Development.Shake
+import           OneFoot
+import           ProKeysRanges
+import           Reductions
+import           RockBand.Common
+import qualified RockBand.Drums                   as RBDrums
+import qualified RockBand.Events                  as Events
+import qualified RockBand.File                    as RBFile
+import qualified RockBand.ProGuitar               as ProGtr
+import qualified RockBand.ProKeys                 as ProKeys
+import qualified RockBand.Vocals                  as RBVox
+import           Scripts
+import qualified Sound.MIDI.Util                  as U
 
 data Kicks = Kicks1x | Kicks2x | KicksPS
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -255,7 +255,7 @@ findProblems song = execWriter $ do
         _ -> Nothing
       isBadDisco (t, diff) = case RTB.viewL $ RTB.collectCoincident $ U.trackDrop t $ drumsDiff diff of
         Just ((_, evts), _) | any isDiscoGem evts -> True
-        _ -> False
+        _                   -> False
       isDiscoGem = \case
         RBDrums.Red -> True
         RBDrums.Pro RBDrums.Yellow _ -> True

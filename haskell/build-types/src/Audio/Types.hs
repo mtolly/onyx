@@ -50,16 +50,16 @@ data Edge = Start | End
 
 mapTime :: (t -> u) -> Audio t a -> Audio u a
 mapTime f aud = case aud of
-  Silence c t     -> Silence c $ f t
-  Input   x       -> Input x
-  Mix         xs  -> Mix         $ map (mapTime f) xs
-  Merge       xs  -> Merge       $ map (mapTime f) xs
-  Concatenate xs  -> Concatenate $ map (mapTime f) xs
-  Gain g x        -> Gain g $ mapTime f x
-  Take e t x      -> Take e (f t) $ mapTime f x
-  Drop e t x      -> Drop e (f t) $ mapTime f x
-  Fade e t x      -> Fade e (f t) $ mapTime f x
-  Pad  e t x      -> Pad  e (f t) $ mapTime f x
-  Resample x      -> Resample     $ mapTime f x
-  Channels cs x   -> Channels cs  $ mapTime f x
-  Stretch d x     -> Stretch d    $ mapTime f x
+  Silence c t    -> Silence c $ f t
+  Input   x      -> Input x
+  Mix         xs -> Mix         $ map (mapTime f) xs
+  Merge       xs -> Merge       $ map (mapTime f) xs
+  Concatenate xs -> Concatenate $ map (mapTime f) xs
+  Gain g x       -> Gain g $ mapTime f x
+  Take e t x     -> Take e (f t) $ mapTime f x
+  Drop e t x     -> Drop e (f t) $ mapTime f x
+  Fade e t x     -> Fade e (f t) $ mapTime f x
+  Pad  e t x     -> Pad  e (f t) $ mapTime f x
+  Resample x     -> Resample     $ mapTime f x
+  Channels cs x  -> Channels cs  $ mapTime f x
+  Stretch d x    -> Stretch d    $ mapTime f x

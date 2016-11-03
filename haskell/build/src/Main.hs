@@ -6,7 +6,6 @@
 {-# LANGUAGE RecordWildCards            #-}
 module Main (main) where
 
-import Readme (makeReadme)
 import           Audio
 import qualified C3
 import           Config                                hiding (Difficulty)
@@ -26,7 +25,8 @@ import           MoggDecrypt
 import qualified OnyxiteDisplay.Process                as Proc
 import           PrettyDTA
 import           ProKeysRanges
-import Reaper.Build (makeReaper)
+import           Readme                                (makeReadme)
+import           Reaper.Build                          (makeReaper)
 import           Reductions
 import           Resources                             (emptyMilo, emptyMiloRB2,
                                                         emptyWeightsRB2,
@@ -34,7 +34,7 @@ import           Resources                             (emptyMilo, emptyMiloRB2,
 import           RockBand.Sections                     (makeRB2Section,
                                                         makeRBN2Sections)
 import qualified RockBand2                             as RB2
-import qualified RockBand3 as RB3
+import qualified RockBand3                             as RB3
 import           Scripts
 import qualified Sound.MIDI.Script.Base                as MS
 import qualified Sound.MIDI.Script.Parse               as MS
@@ -423,23 +423,23 @@ computePansVols songYaml plan = let
   mixMode :: RBDrums.Audio
   bassPV = guard (hasAnyBass $ _instruments songYaml) >> case plan of
     MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggBass
-    Plan{..} -> planPV _bass
+    Plan{..}     -> planPV _bass
     EachPlan{..} -> eachPlanPV _each
   guitarPV = guard (hasAnyGuitar $ _instruments songYaml) >> case plan of
     MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggGuitar
-    Plan{..} -> planPV _guitar
+    Plan{..}     -> planPV _guitar
     EachPlan{..} -> eachPlanPV _each
   keysPV = guard (hasAnyKeys $ _instruments songYaml) >> case plan of
     MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggKeys
-    Plan{..} -> planPV _keys
+    Plan{..}     -> planPV _keys
     EachPlan{..} -> eachPlanPV _each
   vocalPV = guard (hasAnyVocal $ _instruments songYaml) >> case plan of
     MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggVocal
-    Plan{..} -> planPV _vocal
+    Plan{..}     -> planPV _vocal
     EachPlan{..} -> eachPlanPV _each
   crowdPV = case plan of
     MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggCrowd
-    Plan{..} -> guard (isJust _crowd) >> planPV _crowd
+    Plan{..}     -> guard (isJust _crowd) >> planPV _crowd
     EachPlan{..} -> []
   (kickPV, snarePV, drumsPV, mixMode) = if _hasDrums $ _instruments songYaml
     then case plan of
@@ -744,7 +744,7 @@ makeMagmaProj songYaml plan pkg mid thisTitle = do
         { Magma.midiFile = "notes.mid"
         , Magma.autogenTheme = Right $ case _autogenTheme $ _metadata songYaml of
           AutogenDefault -> "Default.rbtheme"
-          theme -> show theme ++ ".rbtheme"
+          theme          -> show theme ++ ".rbtheme"
         }
       , Magma.dryVox = Magma.DryVox
         { Magma.part0 = case _hasVocal $ _instruments songYaml of
@@ -861,7 +861,7 @@ main = do
         "gen/cover.png" %> \out -> loadRGB8 >>= liftIO . writePng    out . scaleBilinear 256 256
         "gen/cover.png_xbox" %> \out -> case _fileAlbumArt $ _metadata songYaml of
           Just f | takeExtension f == ".png_xbox" -> copyFile' f out
-          _ -> loadRGB8 >>= liftIO . BL.writeFile out . toPNG_XBOX
+          _      -> loadRGB8 >>= liftIO . BL.writeFile out . toPNG_XBOX
 
         -- The Markdown README file, for GitHub purposes
         phony "update-readme" $ if _published songYaml
@@ -1216,10 +1216,10 @@ main = do
                     channels = concat [kickPV, snarePV, drumsPV, bassPV, guitarPV, keysPV, vocalPV, crowdPV, songPV]
                     pans = case plan of
                       MoggPlan{..} -> _pans
-                      _ -> map fst channels
+                      _            -> map fst channels
                     vols = case plan of
                       MoggPlan{..} -> _vols
-                      _ -> map snd channels
+                      _            -> map snd channels
                     -- I still don't know what cores are...
                     -- All I know is guitar channels are usually (not always) 1 and all others are -1
                     cores = case plan of
@@ -1703,14 +1703,14 @@ main = do
                     . mapMaybe (\(k, v) -> case k of
                       "guitar" -> case _keysRB2 $ _options songYaml of
                         KeysGuitar -> Nothing
-                        _ -> Just (k, v)
+                        _          -> Just (k, v)
                       "bass" -> case _keysRB2 $ _options songYaml of
                         KeysBass -> Nothing
-                        _ -> Just (k, v)
+                        _        -> Just (k, v)
                       "keys" -> case _keysRB2 $ _options songYaml of
-                        NoKeys -> Nothing
+                        NoKeys     -> Nothing
                         KeysGuitar -> Just ("guitar", v)
-                        KeysBass -> Just ("bass", v)
+                        KeysBass   -> Just ("bass", v)
                       "drum" -> Just (k, v)
                       "vocals" -> Just (k, v)
                       "band" -> Just (k, v)
@@ -1955,7 +1955,7 @@ main = do
       Nothing -> error "Usage: onyx mogg in.ogg [out.mogg]"
       Just (ogg, mogg) -> shake shakeOptions $ action $ Magma.oggToMogg ogg mogg
     "unmogg" : args -> case inputOutput ".ogg" args of
-      Nothing -> error "Usage: onyx unmogg in.mogg [out.ogg]"
+      Nothing          -> error "Usage: onyx unmogg in.mogg [out.ogg]"
       Just (mogg, ogg) -> moggToOgg mogg ogg
     "stfs" : args -> case inputOutput "_rb3con" args of
       Nothing -> error "Usage: onyx stfs in_dir/ [out_rb3con]"
@@ -1982,7 +1982,7 @@ main = do
         (title, desc) <- getDTAInfo `Exc.catch` handler1 `Exc.catch` handler2
         shake shakeOptions $ action $ rb2pkg title desc dir stfs
     "unstfs" : args -> case inputOutput "_extract" args of
-      Nothing -> error "Usage: onyx unstfs in_rb3con [outdir/]"
+      Nothing          -> error "Usage: onyx unstfs in_rb3con [outdir/]"
       Just (stfs, dir) -> extractSTFS stfs dir
     "import" : args -> case inputOutput "_import" args of
       Nothing -> error "Usage: onyx import in{_rb3con|.rba} [outdir/]"
@@ -2020,7 +2020,7 @@ main = do
         shakeBuild [planCon] $ Just $ dir </> "song.yml"
         Dir.copyFile (dir </> planCon) fout
     "reduce" : args -> case inputOutput ".reduced.mid" args of
-      Nothing -> error "Usage: onyx reduce in.mid [out.mid]"
+      Nothing          -> error "Usage: onyx reduce in.mid [out.mid]"
       Just (fin, fout) -> simpleReduce fin fout
     "player" : args -> case inputOutput "_player" args of
       Nothing -> error "Usage: onyx player in{_rb3con|.rba} [outdir/]"
@@ -2029,7 +2029,7 @@ main = do
       Nothing -> error "Usage: onyx rpp in.mid [out.RPP]"
       Just (mid, rpp) -> shake shakeOptions $ action $ makeReaper mid mid [] rpp
     "ranges" : args -> case inputOutput ".ranges.mid" args of
-      Nothing -> error "Usage: onyx ranges in.mid [out.mid]"
+      Nothing          -> error "Usage: onyx ranges in.mid [out.mid]"
       Just (fin, fout) -> completeFile fin fout
     "hanging" : args -> case inputOutput ".hanging.txt" args of
       Nothing -> error "Usage: onyx hanging in.mid [out.txt]"

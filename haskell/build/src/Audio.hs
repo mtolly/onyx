@@ -28,7 +28,8 @@ import           Data.Binary.Get                 (getWord32le, runGetOrFail)
 import qualified Data.ByteString.Lazy            as BL
 import qualified Data.ByteString.Lazy.Char8      as BL8
 import           Data.Char                       (toLower)
-import           Data.Conduit                    (await, yield, (=$=), awaitForever)
+import           Data.Conduit                    (await, awaitForever, yield,
+                                                  (=$=))
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME
 import           Data.Conduit.Audio.LAME.Binding as L
@@ -192,11 +193,11 @@ buildSource aud = case aud of
     src <- buildSource x
     let chans = splitChannels src
     case map (chans !!) cs of
-      [] -> error "buildSource: can't select 0 channels"
+      []     -> error "buildSource: can't select 0 channels"
       s : ss -> return $ foldl merge s ss
   Stretch d x -> stretch d <$> buildSource x
   where combine meth xs = mapM buildSource xs >>= \srcs -> case srcs of
-          [] -> error "buildSource: can't combine 0 files"
+          []     -> error "buildSource: can't combine 0 files"
           s : ss -> return $ foldl meth s ss
 
 -- | Assumes 16-bit 44100 Hz audio files.

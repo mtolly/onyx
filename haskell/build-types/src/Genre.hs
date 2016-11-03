@@ -32,12 +32,12 @@ interpretGenre mg ms = let
   findSingle g = fromMaybe (defGenre g) $ listToMaybe $ catMaybes
     -- first just check if it matches a top genre
     [ case findRBN2Genre g of
-      [] -> Nothing
+      []                   -> Nothing
       Genre key disp _ : _ -> Just $ fill disp key $ defaultSubgenre key
     -- then check if it's something like "Doom Metal" where it's "Subgenre Genre"
     , case T.words g of
       [sub, gen] -> findStrict gen sub
-      _ -> Nothing
+      _          -> Nothing
     -- then, if it's not something super-generic, check if it's a subgenre
     , case std g of
         "college" -> findDoubleMaybe "alternative" "college"
@@ -129,19 +129,19 @@ interpretGenre mg ms = let
   findDoubleMaybe g s = case findRBN2Genre g of
     [] -> Nothing
     Genre key disp subs : _ -> Just $ case findRBN2Subgenre subs s of
-      [] -> fill disp key $ defaultSubgenre key
+      []                  -> fill disp key $ defaultSubgenre key
       Subgenre skey _ : _ -> fill disp key skey
   findStrict g s = case findRBN2Genre g of
     [] -> Nothing
     Genre key disp subs : _ -> case findRBN2Subgenre subs s of
-      [] -> Nothing
+      []                  -> Nothing
       Subgenre skey _ : _ -> Just $ fill disp key skey
   findDouble g s = fromMaybe (defGenre g) $ findDoubleMaybe g s
   in case (mg, ms) of
     (Nothing, Nothing) -> defGenre "Other"
-    (Nothing, Just s) -> findSingle s
-    (Just g, Nothing) -> findSingle g
-    (Just g, Just s) -> findDouble g s
+    (Nothing, Just s)  -> findSingle s
+    (Just g, Nothing)  -> findSingle g
+    (Just g, Just s)   -> findDouble g s
 
 magmaV1Genre :: (T.Text, T.Text) -> (T.Text, T.Text)
 magmaV1Genre p@(g, s) = case g of
@@ -165,38 +165,38 @@ magmaV1Genre p@(g, s) = case g of
   "novelty" -> p
   "numetal" -> p
   "popdanceelectronic" -> case s of
-    "ambient" -> ("other", s)
-    "breakbeat" -> ("other", s)
-    "chiptune" -> ("other", s)
-    "dance" -> ("other", s)
-    "downtempo" -> ("other", "electronica")
-    "dub" -> ("rock", "reggae")
-    "drumandbass" -> ("other", s)
-    "electronica" -> ("other", s)
-    "garage" -> ("urban", s)
+    "ambient"       -> ("other", s)
+    "breakbeat"     -> ("other", s)
+    "chiptune"      -> ("other", s)
+    "dance"         -> ("other", s)
+    "downtempo"     -> ("other", "electronica")
+    "dub"           -> ("rock", "reggae")
+    "drumandbass"   -> ("other", s)
+    "electronica"   -> ("other", s)
+    "garage"        -> ("urban", s)
     "hardcoredance" -> ("urban", s)
-    "house" -> ("other", s)
-    "industrial" -> ("urban", s)
-    "techno" -> ("other", s)
-    "trance" -> ("other", s)
-    "other" -> ("other", "electronica")
-    _ -> ("other", "electronica")
+    "house"         -> ("other", s)
+    "industrial"    -> ("urban", s)
+    "techno"        -> ("other", s)
+    "trance"        -> ("other", s)
+    "other"         -> ("other", "electronica")
+    _               -> ("other", "electronica")
   "poprock" -> p
   "prog" -> p
   "punk" -> p
   "rbsoulfunk" -> case s of
-    "disco" -> ("poprock", s)
-    "funk" -> ("rock", s)
-    "motown" -> ("poprock", s)
+    "disco"          -> ("poprock", s)
+    "funk"           -> ("rock", s)
+    "motown"         -> ("poprock", s)
     "rhythmandblues" -> ("poprock", s)
-    "soul" -> ("poprock", s)
-    "other" -> ("poprock", "rhythmandblues")
-    _ -> ("poprock", "rhythmandblues")
+    "soul"           -> ("poprock", s)
+    "other"          -> ("poprock", "rhythmandblues")
+    _                -> ("poprock", "rhythmandblues")
   "reggaeska" -> case s of
     "reggae" -> ("rock", "reggae")
-    "ska" -> ("rock", "ska")
-    "other" -> ("rock", "reggae")
-    _ -> ("rock", "reggae")
+    "ska"    -> ("rock", "ska")
+    "other"  -> ("rock", "reggae")
+    _        -> ("rock", "reggae")
   "rock" -> p
   "southernrock" -> p
   "world" -> ("other", "other")

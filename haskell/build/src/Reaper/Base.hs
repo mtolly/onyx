@@ -21,10 +21,10 @@ showElement (Element k ks (Just sub)) = let
 
 showAtom :: String -> PP.Doc
 showAtom s = PP.text $ case (elem '"' s, elem '\'' s, elem ' ' s) of
-  (True, True, _) -> "`" ++ map removeTick s ++ "`"
+  (True, True, _)       -> "`" ++ map removeTick s ++ "`"
   (False, False, False) -> s
-  (False, _, True) -> wrap '"'
-  (False, True, False) -> wrap '"'
-  (True, False, _) -> wrap '\''
+  (False, _, True)      -> wrap '"'
+  (False, True, False)  -> wrap '"'
+  (True, False, _)      -> wrap '\''
   where wrap c = [c] ++ s ++ [c]
         removeTick = \case '`' -> '\''; c -> c

@@ -135,8 +135,8 @@ renumberFrom w (DTA b t) = DTA b $ S.evalState (renumberTree t) w where
     S.modify (+ 1) >> mapM renumberChunk sub
   renumberChunk :: Chunk s -> S.State Word32 (Chunk s)
   renumberChunk c = case c of
-    Parens tr -> Parens <$> renumberTree tr
-    Braces tr -> Braces <$> renumberTree tr
+    Parens tr   -> Parens <$> renumberTree tr
+    Braces tr   -> Braces <$> renumberTree tr
     Brackets tr -> Brackets <$> renumberTree tr
-    _ -> return c
+    _           -> return c
   -- alternately, with uniplate: renumberChunk = descendBiM renumberTree

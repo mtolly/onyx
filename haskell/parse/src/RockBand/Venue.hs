@@ -135,7 +135,7 @@ data PostProcess
 
 instance Command PostProcess where
   fromCommand PP_film_b_w = ["film_b+w.pp"]
-  fromCommand x = [drop (length "PP_") (show x) ++ ".pp"]
+  fromCommand x           = [drop (length "PP_") (show x) ++ ".pp"]
   toCommand = reverseLookup each fromCommand
 
 data Lighting

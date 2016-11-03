@@ -96,7 +96,7 @@ readRB3DTA dtaPath = do
           [D.Parens (D.Tree _ (D.Key k : chunks))] -> return (k, chunks)
           _ -> error $ dtaPath ++ " is not a valid songs.dta with exactly one song"
         case fromChunks $ fixTracksCount chunks of
-          Left e -> error $ dtaPath ++ " couldn't be unserialized: " ++ e
+          Left e    -> error $ dtaPath ++ " couldn't be unserialized: " ++ e
           Right pkg -> return (k, pkg)
   (k_l1, l1) <- readSongWith D.readFileDTA_latin1
   case fromKeyword <$> D.encoding l1 of
@@ -182,10 +182,10 @@ prettyDTA name pkg C3DTAComments{..} = unlines $ execWriter $ do
     forM_ (D.bank pkg) $ two "bank" . stringLit . either id fromKeyword
     forM_ (D.drumBank pkg) $ inlineRaw "drum_bank" . either id fromKeyword
     inline "anim_tempo" $ case D.animTempo pkg of
-      Left D.KTempoSlow -> "kTempoSlow"
+      Left D.KTempoSlow   -> "kTempoSlow"
       Left D.KTempoMedium -> "kTempoMedium"
-      Left D.KTempoFast -> "kTempoFast"
-      Right n -> show n
+      Left D.KTempoFast   -> "kTempoFast"
+      Right n             -> show n
     inline "song_length" $ show $ D.songLength pkg
     inline "preview" $ case D.preview pkg of (start, end) -> show start ++ " " ++ show end
     parens $ do
@@ -204,7 +204,7 @@ prettyDTA name pkg C3DTAComments{..} = unlines $ execWriter $ do
     inline "genre" $ quote $ fromKeyword $ D.genre pkg
     inline "vocal_gender" $ quote $ case D.vocalGender pkg of
       Female -> "female"
-      Male -> "male"
+      Male   -> "male"
     inline "version" $ show $ D.version pkg
     inline "format" $ show $ D.format pkg
     forM_ (D.albumArt pkg) $ \b -> inline "album_art" $ if b then "1" else "0"

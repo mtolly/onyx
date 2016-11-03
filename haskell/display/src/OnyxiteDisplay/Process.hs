@@ -124,7 +124,7 @@ pitchMap = do
 
 readPitch :: T.Text -> A.Parser PK.Pitch
 readPitch t = case lookup t pitchMap of
-  Just p -> return p
+  Just p  -> return p
   Nothing -> fail "invalid pro keys pitch name"
 
 instance (Real t) => A.ToJSON (ProKeys t) where

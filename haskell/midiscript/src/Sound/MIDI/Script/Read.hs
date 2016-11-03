@@ -89,7 +89,7 @@ readTrack msrs tmps trk = let
               Nothing -> 0
     SysEx sys -> E.SystemExclusive $ case sys of
       Regular ns -> SysEx.Regular $ map int ns
-      Escape ns -> SysEx.Escape $ map int ns
+      Escape ns  -> SysEx.Escape $ map int ns
   in RTB.fromAbsoluteEventList $ ATB.fromPairList $ sortBy (comparing fst)
     [ (NN.fromNumber $ num n, readEvent e) | (n, e) <- trk ]
 

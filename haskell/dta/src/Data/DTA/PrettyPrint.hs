@@ -33,22 +33,22 @@ ppTree (Tree _ chks)
   | all simpleChunk chks = PP.hsep $ map ppChunk chks
   | otherwise            = PP.vcat $ map ppChunk chks
   where simpleChunk c = case c of
-          Int _ -> True
-          Float _ -> True
-          Var _ -> True
-          Key _ -> True
+          Int _     -> True
+          Float _   -> True
+          Var _     -> True
+          Key _     -> True
           Unhandled -> True
-          _ -> False
+          _         -> False
 
 -- | Produces a single-quoted string literal.
 ppKey :: String -> PP.Doc
 ppKey = PP.text . f . show where
   -- simply convert a double-quoted string to single-quoted string
-  f "" = ""
-  f ('"':xs) = '\'' : f xs
-  f ('\'':xs) = '\\' : '\'' : f xs
+  f ""          = ""
+  f ('"':xs)    = '\'' : f xs
+  f ('\'':xs)   = '\\' : '\'' : f xs
   f ('\\':x:xs) = '\\' : x : f xs
-  f (x:xs) = x : f xs
+  f (x:xs)      = x : f xs
 
 ppDTA :: DTA String -> PP.Doc
 ppDTA = PP.vcat . map ppChunk . treeChunks . topTree

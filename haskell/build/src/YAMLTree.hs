@@ -37,8 +37,8 @@ readYAMLTree f = do
         go :: Y.Value -> IO Y.Value
         go v = case v of
           Y.Object o -> goPairs M.empty $ M.toList o
-          Y.Array a -> Y.Array <$> mapM go a
-          _ -> return v
+          Y.Array a  -> Y.Array <$> mapM go a
+          _          -> return v
         goPairs :: Y.Object -> [(T.Text, Y.Value)] -> IO Y.Value
         goPairs o [] = return $ Y.Object o
         goPairs o ((k, v) : rest) = case T.stripPrefix "file-" k of
@@ -49,7 +49,7 @@ readYAMLTree f = do
               case mapM A.fromJSON vs of
                 A.Success objs -> goPairs (foldl' M.union o objs) rest
                 -- TODO: M.union above should be edited so that sub-objects are merged
-                A.Error s -> fail s
+                A.Error s      -> fail s
             A.Error s -> fail s
           Just _ -> case stringOrStrings v of
             A.Success e -> let

@@ -61,8 +61,8 @@ data Difficulty = Easy | Medium | Hard | Expert
 
 readCommand' :: (Command a) => E.T -> Maybe a
 readCommand' (E.MetaEvent (Meta.TextEvent s)) = readCommand s
-readCommand' (E.MetaEvent (Meta.Lyric s)) = readCommand s
-readCommand' _ = Nothing
+readCommand' (E.MetaEvent (Meta.Lyric s))     = readCommand s
+readCommand' _                                = Nothing
 
 -- | Turns a string like @\"[foo bar baz]\"@ into some parsed type.
 readCommand :: (Command a) => String -> Maybe a
@@ -94,11 +94,11 @@ instance Command (Trainer, String) where
     (stripPrefix "begin_" -> Just s) -> f s TrainerBegin
     (stripSuffix "_norm"  -> Just s) -> f s TrainerNorm
     (stripPrefix "end_"   -> Just s) -> f s TrainerEnd
-    _ -> Nothing
+    _                                -> Nothing
     where f s con = case stripPrefix s y of
             Just ('_' : (readMaybe -> Just i)) -> Just (con i, s)
-            Just (readMaybe -> Just i) -> Just (con i, s)
-            _ -> Nothing
+            Just (readMaybe -> Just i)         -> Just (con i, s)
+            _                                  -> Nothing
           stripSuffix sfx s = fmap reverse $ stripPrefix (reverse sfx) (reverse s)
   toCommand _ = Nothing
 

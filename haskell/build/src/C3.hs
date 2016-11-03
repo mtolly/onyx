@@ -125,7 +125,7 @@ showC3 c3 = unlines $ execWriter $ do
         showPair key f = pair key $ show . f
         maybePair key f = case f c3 of
           Nothing -> return ()
-          Just v -> line $ key ++ "=" ++ v
+          Just v  -> line $ key ++ "=" ++ v
         maybeShowPair key f = maybePair key $ fmap show . f
 
 defaultToDo :: [(String, Bool, Bool)]

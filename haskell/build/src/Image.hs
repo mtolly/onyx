@@ -164,7 +164,7 @@ pngXboxDXT3Signature = B.pack
 flipWord16s :: BL.ByteString -> BL.ByteString
 flipWord16s = let
   flipPairs (x : y : xs) = y : x : flipPairs xs
-  flipPairs _ = []
+  flipPairs _            = []
   in BL.pack . flipPairs . BL.unpack
 
 -- | Supports both official DXT1 and C3 DXT2/3.

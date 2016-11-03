@@ -161,7 +161,7 @@ fixRolls = let
   drumsSingle = fixFreeform (== Drums.SingleRoll True) (== Drums.SingleRoll False) isHand
   drumsDouble = fixFreeform (== Drums.DoubleRoll True) (== Drums.DoubleRoll False) isHand
   isHand (Drums.DiffEvent Expert (Drums.Note gem)) = gem /= Drums.Kick
-  isHand _                       = False
+  isHand _                                         = False
   fiveTremolo = fixFreeform (== Five.Tremolo True) (== Five.Tremolo False) isGem
   fiveTrill   = fixFreeform (== Five.Trill   True) (== Five.Trill   False) isGem
   isGem (Five.DiffEvent Expert (Five.Note (NoteOn () _))) = True
@@ -227,9 +227,9 @@ getPercType song = let
   getVox (Harm1      t) = Just t
   getVox (Harm2      t) = Just t
   getVox (Harm3      t) = Just t
-  getVox _                     = Nothing
+  getVox _              = Nothing
   isPercType (Vocals.PercussionAnimation ptype _) = Just ptype
-  isPercType _                                   = Nothing
+  isPercType _                                    = Nothing
   in listToMaybe $ mapMaybe isPercType $ RTB.getBodies vox
 
 -- | Makes a dummy Basic Keys track, for songs with only Pro Keys charted.

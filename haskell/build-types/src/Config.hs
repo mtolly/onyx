@@ -78,7 +78,7 @@ keyNames = let
 
 instance TraceJSON Key where
   traceJSON = traceJSON >>= \t -> case lookup (T.toLower t) keyNames of
-    Just k -> return k
+    Just k  -> return k
     Nothing -> expected "the name of a pitch"
 
 instance A.ToJSON Key where
@@ -354,7 +354,7 @@ showMeasureBeats (msr, bts) = T.pack $ show msr ++ "|" ++ show (realToFrac bts :
 instance A.ToJSON Countin where
   toJSON (Countin pairs) = A.Object $ Map.fromList $ flip map pairs $ \(t, v) -> let
     k = case t of
-      Left mb -> showMeasureBeats mb
+      Left mb    -> showMeasureBeats mb
       Right secs -> T.pack $ show (realToFrac secs :: Milli)
     in (k, A.toJSON v)
 
@@ -544,7 +544,7 @@ decideKey :: (Monad m) => [(T.Text, Parser m A.Value a)] -> Parser m A.Value a -
 decideKey opts dft = lift ask >>= \case
   A.Object hm -> case [ p | (k, p) <- opts, Map.member k hm ] of
     p : _ -> p
-    [] -> dft
+    []    -> dft
   _ -> dft
 
 instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
@@ -699,7 +699,7 @@ instance TraceJSON Rating where
       "SupervisionRecommended" -> return SupervisionRecommended
       "Mature"                 -> return Mature
       "Unrated"                -> return Unrated
-      _ -> expected "a valid content rating or null"
+      _                        -> expected "a valid content rating or null"
     _          -> expected "a valid content rating or null"
 
 instance A.ToJSON Rating where
@@ -718,7 +718,7 @@ instance TraceJSON DrumKit where
     A.Null     -> return HardRockKit
     A.String t         -> case readMaybe $ filter (/= ' ') $ T.unpack t of
       Just kit -> return kit
-      Nothing    -> expected "the name of a drum kit or null"
+      Nothing  -> expected "the name of a drum kit or null"
     _                  -> expected "the name of a drum kit or null"
 
 instance A.ToJSON DrumKit where

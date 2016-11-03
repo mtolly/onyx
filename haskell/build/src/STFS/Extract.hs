@@ -100,7 +100,7 @@ extractSTFS stfs dir = withBinaryFile stfs ReadMode $ \fd -> do
 
   forM_ [0, 0x40 .. BL.length data_ - 1] $ \x -> do
     case newFileListing $ BL.take 0x40 $ BL.drop x data_ of
-      Left _ -> return ()
+      Left _   -> return ()
       Right fl -> modifyIORef filelistings (++ [fl])
   fls <- readIORef filelistings
   forM_ fls $ \fl -> do

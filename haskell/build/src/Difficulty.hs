@@ -1,7 +1,7 @@
 {-# LANGUAGE RecordWildCards #-}
 module Difficulty where
 
-import Config
+import           Config
 
 rankToTier :: DiffMap -> Integer -> Integer
 rankToTier dm rank = fromIntegral $ length $ takeWhile (<= rank) (1 : dm)

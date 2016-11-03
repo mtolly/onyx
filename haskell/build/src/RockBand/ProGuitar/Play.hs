@@ -117,7 +117,7 @@ receiveCommand :: [Word8] -> Maybe Command
 receiveCommand = magic where
   magic (8 : 64 : 10 : xs) = fmap ((,) Mustang) $ msg xs
   magic (8 : 64 : 8  : xs) = fmap ((,) Squier ) $ msg xs
-  magic _ = Nothing
+  magic _                  = Nothing
   msg [1, nstr, pitch] = do
     str <- reverseLookup each strNumber nstr
     let fret = fromIntegral pitch - basePitch str

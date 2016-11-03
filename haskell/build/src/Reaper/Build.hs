@@ -5,6 +5,8 @@ import           Reaper.Base
 
 import           Control.Monad                         (forM_, unless, when,
                                                         (>=>))
+import           Control.Monad.Extra                   (mapMaybeM)
+import           Control.Monad.IO.Class                (liftIO)
 import           Control.Monad.Trans.Class             (lift)
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                       as B
@@ -14,32 +16,32 @@ import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (toLower)
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
+import           Data.Functor.Identity                 (runIdentity)
 import           Data.List                             (elemIndex, sortOn)
 import           Data.Maybe                            (fromMaybe, listToMaybe)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
+import           Development.Shake                     (Action, need)
 import           Numeric                               (showHex)
 import qualified Numeric.NonNegative.Class             as NNC
 import qualified Numeric.NonNegative.Wrapper           as NN
 import           RockBand.Common                       (Key (..))
 import qualified RockBand.Vocals                       as Vox
-import qualified Sound.MIDI.File as F
-import qualified Sound.MIDI.File.Load as Load
+import           Scripts                               (loadTempos)
+import qualified Sound.File.Sndfile                    as Snd
+import qualified Sound.MIDI.File                       as F
 import qualified Sound.MIDI.File.Event                 as E
 import qualified Sound.MIDI.File.Event.Meta            as Meta
 import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
+import qualified Sound.MIDI.File.Load                  as Load
 import qualified Sound.MIDI.Message                    as Message
 import qualified Sound.MIDI.Message.Channel            as C
 import qualified Sound.MIDI.Message.Channel.Voice      as V
 import qualified Sound.MIDI.Util                       as U
-import           System.FilePath                       (takeExtension,
-                                                        takeFileName, takeDirectory, makeRelative)
-import qualified Sound.File.Sndfile as Snd
-import Development.Shake (Action, need)
-import Scripts (loadTempos)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Extra (mapMaybeM)
-import Data.Functor.Identity (runIdentity)
+import           System.FilePath                       (makeRelative,
+                                                        takeDirectory,
+                                                        takeExtension,
+                                                        takeFileName)
 
 line :: (Monad m) => String -> [String] -> WriterT [Element] m ()
 line k atoms = tell [Element k atoms Nothing]
@@ -62,8 +64,8 @@ processTempoTrack = go 500000 . RTB.collectCoincident where
       newTempo = listToMaybe [ t          | E.MetaEvent (Meta.SetTempo t     ) <- evts ]
       newSig   = listToMaybe [ (n, 2 ^ d) | E.MetaEvent (Meta.TimeSig n d _ _) <- evts ]
       in case (newTempo, newSig) of
-        (Nothing, Nothing) -> RTB.delay dt $ go tempo rtb'
-        (Just tempo', _) -> RTB.cons dt (tempo', newSig) $ go tempo' rtb'
+        (Nothing, Nothing)  -> RTB.delay dt $ go tempo rtb'
+        (Just tempo', _)    -> RTB.cons dt (tempo', newSig) $ go tempo' rtb'
         (Nothing, Just sig) -> RTB.cons dt (tempo, Just sig) $ go tempo rtb'
 
 tempoTrack :: (Monad m) =>
@@ -160,11 +162,11 @@ track lenTicks lenSecs resn trk = let
     let isProKeys = elem name ["PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X"]
         isVox = elem name ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
         isGuitarPitch = case name of
-          'G':'T':'R':'_':'S':_ -> True
-          'G':'T':'R':'2':'2':'_':'S':_ -> True
-          'B':'A':'S':'S':'_':'S':_ -> True
+          'G':'T':'R':'_':'S':_             -> True
+          'G':'T':'R':'2':'2':'_':'S':_     -> True
+          'B':'A':'S':'S':'_':'S':_         -> True
           'B':'A':'S':'S':'2':'2':'_':'S':_ -> True
-          _ -> False
+          _                                 -> False
         isPitched = isProKeys || isVox || isGuitarPitch
     when isPitched $ line "FX" [if isGuitarPitch then "1" else "0"]
     case lookup name
@@ -450,7 +452,7 @@ vocalNoteNames = execWriter $ do
           Vox.Octave48 p -> showPitch p
           Vox.Octave60 p -> showPitch p
           Vox.Octave72 p -> showPitch p
-          Vox.Octave84C -> "C (highest) (bugged)"
+          Vox.Octave84C  -> "C (highest) (bugged)"
         showPitch = map (\case 's' -> '#'; c -> c) . show
     o midpitch str
   x 35

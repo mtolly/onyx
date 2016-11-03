@@ -87,7 +87,7 @@ importFoF krb2 src dest = do
 
   let gtrAudio = case audioFiles of
         ["guitar.ogg"] -> [] -- assume sole guitar is no-stems audio
-        _ -> filter (== "guitar.ogg") audioFiles
+        _              -> filter (== "guitar.ogg") audioFiles
       bassAudio = filter (== "rhythm.ogg") audioFiles
       keysAudio = filter (== "keys.ogg") audioFiles
       crowdAudio = filter (== "crowd.ogg") audioFiles
@@ -104,7 +104,7 @@ importFoF krb2 src dest = do
         | otherwise = ([], [], [])
       songAudio = case audioFiles of
         ["guitar.ogg"] -> ["guitar.ogg"]
-        _ -> filter (== "song.ogg") audioFiles
+        _              -> filter (== "song.ogg") audioFiles
 
   parsed <- loadMIDI_IO $ src </> "notes.mid"
   let pad = RBFile.needsPad parsed
@@ -196,7 +196,7 @@ importFoF krb2 src dest = do
       , _drumLayout   = StandardLayout
       , _previewStart = case FoF.previewStartTime song of
         Just ms | ms >= 0 -> Just $ PreviewSeconds $ fromIntegral ms / 1000
-        _                 -> Nothing
+        _       -> Nothing
       , _previewEnd   = Nothing
       , _songID       = Nothing
       , _songID2x     = Nothing
@@ -277,7 +277,7 @@ importSTFS krb2 file dir = withSystemTempDirectory "onyx_con" $ \temp -> do
   DTASingle _ pkg comments <- readDTASingle $ temp </> "songs/songs.dta"
   let c3Title = fromMaybe (T.pack $ D.name pkg) $ c3dtaSong comments
       (title, is2x) = case c3dta2xBass comments of
-        Just b -> (fst $ determine2xBass $ T.unpack c3Title, b)
+        Just b  -> (fst $ determine2xBass $ T.unpack c3Title, b)
         Nothing -> determine2xBass $ T.unpack c3Title
       meta = def
         { _author = c3dtaAuthoredBy comments

@@ -68,7 +68,7 @@ data StandardMIDI a = StandardMIDI
 viewZero :: (NNC.C t) => RTB.T t a -> ([a], RTB.T t a)
 viewZero xs = case RTB.viewL xs of
   Just ((dt, x), xs') | dt == NNC.zero -> first (x :) $ viewZero xs'
-  _                                   -> ([], xs)
+  _                   -> ([], xs)
 
 -- | Attaches a list of events at position zero of the event list.
 unviewZero :: (NNC.C t) => [a] -> RTB.T t a -> RTB.T t a
@@ -258,7 +258,7 @@ findOff c p rtb = case RTB.viewL rtb of
       | (c, p) == (c', p')
       -> Just (dt, RTB.delay dt rtb')
     _ -> case findOff c p rtb' of
-      Nothing -> Nothing
+      Nothing         -> Nothing
       Just (t, rtb'') -> Just (NNC.add dt t, RTB.cons dt x rtb'')
 
 showEventOrNote :: EventOrNote NN.Rational -> String

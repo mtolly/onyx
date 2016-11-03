@@ -40,7 +40,7 @@ instance ToChunks (Chunk String) where
 
 instance FromChunks (Chunk String) where
   fromChunks [x] = Right x
-  fromChunks cs = Left $ "Expected 1 chunk, got: " ++ show cs
+  fromChunks cs  = Left $ "Expected 1 chunk, got: " ++ show cs
 
 -- | A key-value structure which is stored as a sequence of @(tag rest...)@
 -- chunks.
@@ -83,7 +83,7 @@ instance (FromChunks a) => FromChunks (InParens a) where
 
 -- | An integer 0 or 1.
 instance ToChunks Bool where
-  toChunks True = [Int 1]
+  toChunks True  = [Int 1]
   toChunks False = [Int 0]
 
 -- | An integer 0 or 1, or keyword TRUE or FALSE.
@@ -92,14 +92,14 @@ instance FromChunks Bool where
   fromChunks [Int 0      ] = Right False
   fromChunks [Key "TRUE" ] = Right True
   fromChunks [Key "FALSE"] = Right False
-  fromChunks cs = Left $ "Couldn't read as Bool: " ++ show cs
+  fromChunks cs            = Left $ "Couldn't read as Bool: " ++ show cs
 
 instance ToChunks Integer where
   toChunks i = [Int $ fromIntegral i]
 
 instance FromChunks Integer where
   fromChunks [Int i] = Right $ fromIntegral i
-  fromChunks cs = Left $ "Couldn't read as Integer: " ++ show cs
+  fromChunks cs      = Left $ "Couldn't read as Integer: " ++ show cs
 
 instance ToChunks Float where
   toChunks f = [Float f]
@@ -107,7 +107,7 @@ instance ToChunks Float where
 instance FromChunks Float where
   fromChunks [Int   i] = Right $ fromIntegral i
   fromChunks [Float f] = Right f
-  fromChunks cs = Left $ "Couldn't read as Float: " ++ show cs
+  fromChunks cs        = Left $ "Couldn't read as Float: " ++ show cs
 
 -- | A String, not a 'Key'.
 instance ToChunks Char where
@@ -117,7 +117,7 @@ instance ToChunks Char where
 -- | A String, not a 'Key'.
 instance FromChunks Char where
   fromChunks [String [c]] = Right c
-  fromChunks cs = Left $ "Couldn't read as Char: " ++ show cs
+  fromChunks cs           = Left $ "Couldn't read as Char: " ++ show cs
   listFromChunks [String s] = Right s
   listFromChunks cs = Left $ "Couldn't read as ByteString: " ++ show cs
 
@@ -128,11 +128,11 @@ instance (ToChunks a, ToChunks b) => ToChunks (a, b) where
 -- | Stored as two chunks. Each subtype should be a single chunk.
 instance (FromChunks a, FromChunks b) => FromChunks (a, b) where
   fromChunks [x, y] = liftA2 (,) (fromChunks [x]) (fromChunks [y])
-  fromChunks cs = Left $ "Couldn't read as pair: " ++ show cs
+  fromChunks cs     = Left $ "Couldn't read as pair: " ++ show cs
 
 -- | Represents 'Nothing' with an empty chunk list.
 instance (ToChunks a) => ToChunks (Maybe a) where
-  toChunks Nothing = []
+  toChunks Nothing  = []
   toChunks (Just x) = toChunks x
 
 -- | Represents 'Nothing' with an empty chunk list.
@@ -157,7 +157,7 @@ instance ToChunks Keyword where
 
 instance FromChunks Keyword where
   fromChunks [Key k] = Right $ Keyword k
-  fromChunks cs = Left $ "Couldn't read as Keyword: " ++ show cs
+  fromChunks cs      = Left $ "Couldn't read as Keyword: " ++ show cs
 
 -- | Uses whichever 'toChunks' is applicable. Does not tag which type is used.
 instance (ToChunks a, ToChunks b) => ToChunks (Either a b) where
