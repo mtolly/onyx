@@ -28,7 +28,7 @@ import           Data.Binary.Get                 (getWord32le, runGetOrFail)
 import qualified Data.ByteString.Lazy            as BL
 import qualified Data.ByteString.Lazy.Char8      as BL8
 import           Data.Char                       (toLower)
-import           Data.Conduit                    (await, yield, (=$=))
+import           Data.Conduit                    (await, yield, (=$=), awaitForever)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME
 import           Data.Conduit.Audio.LAME.Binding as L
@@ -134,6 +134,36 @@ sameChannels (a1, a2) = case (channels a1, channels a2) of
       n -> merge a2 $ silent (Frames 0) (rate a2) n
     in (a1', a2')
 
+fadeStart :: (Monad m, Ord a, Fractional a, V.Storable a) => Duration -> AudioSource m a -> AudioSource m a
+fadeStart dur (AudioSource s r c l) = let
+  fadeFrames = case dur of
+    Frames  fms  -> fms
+    Seconds secs -> secondsToFrames secs r
+  go i
+    | i > fadeFrames = awaitForever yield
+    | otherwise      = await >>= \mx -> case mx of
+      Nothing -> return ()
+      Just v  -> let
+        fader = V.generate (V.length v) $ \j ->
+          min 1 $ fromIntegral (i + quot j c) / fromIntegral fadeFrames
+        in yield (V.zipWith (*) v fader) >> go (i + vectorFrames v c)
+  in AudioSource (s =$= go 0) r c l
+
+fadeEnd :: (Monad m, Ord a, Fractional a, V.Storable a) => Duration -> AudioSource m a -> AudioSource m a
+fadeEnd dur (AudioSource s r c l) = let
+  fadeFrames = case dur of
+    Frames  fms  -> fms
+    Seconds secs -> secondsToFrames secs r
+  go i = await >>= \mx -> case mx of
+    Nothing -> return ()
+    Just v  -> if i + vectorFrames v c > l - fadeFrames
+      then let
+        fader = V.generate (V.length v) $ \j ->
+          min 1 $ fromIntegral (l - (i + quot j c)) / fromIntegral fadeFrames
+        in yield (V.zipWith (*) v fader) >> go (i + vectorFrames v c)
+      else yield v >> go (i + vectorFrames v c)
+  in AudioSource (s =$= go 0) r c l
+
 buildSource :: (MonadResource m) =>
   Audio Duration FilePath -> Action (AudioSource m Float)
 buildSource aud = case aud of
@@ -153,12 +183,8 @@ buildSource aud = case aud of
   Drop End t x -> dropEnd t <$> buildSource x
   Pad Start t x -> padStart t <$> buildSource x
   Pad End t x -> padEnd t <$> buildSource x
-  Fade Start t x -> buildSource x >>= \src -> return $ concatenate
-    (fadeIn $ takeStart t src)
-    (dropStart t src)
-  Fade End t x -> buildSource x >>= \src -> return $ concatenate
-    (dropEnd t src)
-    (fadeOut $ takeEnd t src)
+  Fade Start t x -> fadeStart t <$> buildSource x
+  Fade End t x -> fadeEnd t <$> buildSource x
   Resample x -> buildSource x >>= \src -> return $ if rate src == 44100
     then src
     else resampleTo 44100 SincMediumQuality src
