@@ -6,6 +6,7 @@
 {-# LANGUAGE RecordWildCards            #-}
 module Main (main) where
 
+import Readme (makeReadme)
 import           Audio
 import qualified C3
 import           Config                                hiding (Difficulty)
@@ -22,12 +23,10 @@ import           JSONData                              (JSONEither (..),
 import qualified Magma
 import qualified MelodysEscape
 import           MoggDecrypt
-import           OneFoot
 import qualified OnyxiteDisplay.Process                as Proc
 import           PrettyDTA
 import           ProKeysRanges
-import           Reaper.Base                           (writeRPP)
-import qualified Reaper.Build                          as RPP
+import Reaper.Build (makeReaper)
 import           Reductions
 import           Resources                             (emptyMilo, emptyMiloRB2,
                                                         emptyWeightsRB2,
@@ -35,6 +34,7 @@ import           Resources                             (emptyMilo, emptyMiloRB2,
 import           RockBand.Sections                     (makeRB2Section,
                                                         makeRBN2Sections)
 import qualified RockBand2                             as RB2
+import qualified RockBand3 as RB3
 import           Scripts
 import qualified Sound.MIDI.Script.Base                as MS
 import qualified Sound.MIDI.Script.Parse               as MS
@@ -51,7 +51,6 @@ import           Control.Monad.Extra
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
-import           Control.Monad.Trans.Writer
 import qualified Data.Aeson                            as A
 import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Lazy                  as BL
@@ -67,7 +66,6 @@ import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Fixed                            (Centi, Milli)
 import           Data.Foldable                         (toList)
-import           Data.Functor.Identity                 (runIdentity)
 import qualified Data.HashMap.Strict                   as HM
 import           Data.List                             (intercalate, isPrefixOf,
                                                         nub)
@@ -81,7 +79,6 @@ import           Development.Shake                     hiding (phony)
 import qualified Development.Shake                     as Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
-import qualified Numeric.NonNegative.Class             as NNC
 import           RockBand.Common                       (Difficulty (..),
                                                         readCommand')
 import qualified RockBand.Drums                        as RBDrums
@@ -92,7 +89,6 @@ import           RockBand.Parse                        (unparseBlip,
                                                         unparseCommand)
 import qualified RockBand.ProGuitar                    as ProGtr
 import qualified RockBand.ProGuitar.Play               as PGPlay
-import qualified RockBand.ProKeys                      as ProKeys
 import qualified RockBand.Vocals                       as RBVox
 import qualified Sound.File.Sndfile                    as Snd
 import qualified Sound.Jammit.Base                     as J
@@ -262,72 +258,6 @@ jammitSearch songYaml jmt lib = do
     $ J.exactSearchBy J.title  (T.unpack title )
     $ J.exactSearchBy J.artist (T.unpack artist) lib
 
-makeReadme :: SongYaml -> FilePath -> String
-makeReadme songYaml yamlPath = execWriter $ do
-  let escape = concatMap $ \c -> if c `elem` "\\`*_{}[]()#+-.!"
-        then ['\\', c]
-        else [c]
-      line str = tell $ str ++ "\n"
-  line $ "# " ++ escape (T.unpack $ getTitle $ _metadata songYaml)
-  line ""
-  line $ "## " ++ escape (T.unpack $ getArtist $ _metadata songYaml)
-  line ""
-  case T.unpack $ getAuthor $ _metadata songYaml of
-    "Onyxite" -> return ()
-    auth      -> line $ "Author: " ++ auth
-  line ""
-  let titleDir = takeFileName $ takeDirectory yamlPath
-      groupDir = takeFileName $ takeDirectory $ takeDirectory yamlPath
-      link = "http://pages.cs.wisc.edu/~tolly/customs/" ++ groupDir ++ "/" ++ titleDir
-  when (HM.member (T.pack "album") $ _plans songYaml) $ line $ "[Play in browser](" ++ link ++ ")"
-  line ""
-  line "Instruments:"
-  line ""
-  let diffString f dm = case f $ _difficulty $ _metadata songYaml of
-        Just (Rank rank) -> g $ rankToTier dm rank
-        Just (Tier tier) -> g tier
-        Nothing -> ""
-        where g = \case
-                1 -> " ⚫️⚫️⚫️⚫️⚫️"
-                2 -> " ⚪️⚫️⚫️⚫️⚫️"
-                3 -> " ⚪️⚪️⚫️⚫️⚫️"
-                4 -> " ⚪️⚪️⚪️⚫️⚫️"
-                5 -> " ⚪️⚪️⚪️⚪️⚫️"
-                6 -> " ⚪️⚪️⚪️⚪️⚪️"
-                7 -> " 😈😈😈😈😈"
-                _ -> ""
-  when (_hasDrums     $ _instruments songYaml) $ line $ if _proDrums $ _options songYaml
-    then                                                "  * (Pro) Drums" ++ diffString _difficultyDrums     drumsDiffMap
-    else                                                "  * Basic Drums" ++ diffString _difficultyDrums     drumsDiffMap
-  when (_hasBass      $ _instruments songYaml) $ line $ "  * Bass"        ++ diffString _difficultyBass      bassDiffMap
-  when (_hasGuitar    $ _instruments songYaml) $ line $ "  * Guitar"      ++ diffString _difficultyGuitar    guitarDiffMap
-  when (_hasProBass   $ _instruments songYaml) $ line $ "  * Pro Bass"    ++ diffString _difficultyProBass   proBassDiffMap
-  when (_hasProGuitar $ _instruments songYaml) $ line $ "  * Pro Guitar"  ++ diffString _difficultyProGuitar proGuitarDiffMap
-  when (_hasKeys      $ _instruments songYaml) $ line $ "  * Keys"        ++ diffString _difficultyKeys      keysDiffMap
-  when (_hasProKeys   $ _instruments songYaml) $ line $ "  * Pro Keys"    ++ diffString _difficultyProKeys   keysDiffMap
-  case _hasVocal $ _instruments songYaml of
-    Vocal0 -> return ()
-    Vocal1 -> line $ "  * Vocals (1)" ++ diffString _difficultyVocal vocalDiffMap
-    Vocal2 -> line $ "  * Vocals (2)" ++ diffString _difficultyVocal vocalDiffMap
-    Vocal3 -> line $ "  * Vocals (3)" ++ diffString _difficultyVocal vocalDiffMap
-  line ""
-  line "Supported audio:"
-  line ""
-  forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
-    line $ "  * `" ++ T.unpack planName ++ "`" ++ if planName == T.pack "album"
-      then " (" ++ escape (T.unpack $ getAlbum $ _metadata songYaml) ++ ")"
-      else ""
-    line ""
-    forM_ (_planComments plan) $ \cmt -> do
-      line $ "    * " ++ T.unpack cmt
-      line ""
-  unless (null $ _comments $ _metadata songYaml) $ do
-    line "Notes:"
-    line ""
-    forM_ (_comments $ _metadata songYaml) $ \cmt -> do
-      line $ "  * " ++ T.unpack cmt
-      line ""
-
 jammitPath :: T.Text -> J.AudioPart -> FilePath
 jammitPath name (J.Only part)
   = "gen/jammit" </> T.unpack name </> "only" </> map toLower (drop 4 $ show part) <.> "wav"
@@ -453,67 +383,6 @@ printOverdrive midPS = do
     in putNormal $ posn ++ ": " ++ insts
   return ()
 
-printProblems :: FilePath -> Action ()
-printProblems mid = do
-  song <- loadMIDI mid
-  -- Don't have a kick at the start of a drum roll.
-  -- It screws up the roll somehow and causes spontaneous misses.
-  let drums = foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks song ]
-      kickSwells = flip RTB.mapMaybe (RTB.collectCoincident drums) $ \evts -> do
-        let kick = RBDrums.DiffEvent Expert $ RBDrums.Note RBDrums.Kick
-            swell1 = RBDrums.SingleRoll True
-            swell2 = RBDrums.DoubleRoll True
-        guard $ elem kick evts && (elem swell1 evts || elem swell2 evts)
-        return ()
-  -- Every discobeat mix event should be simultaneous with,
-  -- or immediately followed by, a set of notes not including red or yellow.
-  let discos = flip RTB.mapMaybe drums $ \case
-        RBDrums.DiffEvent d (RBDrums.Mix _ RBDrums.Disco) -> Just d
-        _ -> Nothing
-      badDiscos = fmap (const ()) $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ filter isBadDisco $ ATB.toPairList $ RTB.toAbsoluteEventList 0 discos
-      drumsDiff d = flip RTB.mapMaybe drums $ \case
-        RBDrums.DiffEvent d' (RBDrums.Note gem) | d == d' -> Just gem
-        _ -> Nothing
-      isBadDisco (t, diff) = case RTB.viewL $ RTB.collectCoincident $ U.trackDrop t $ drumsDiff diff of
-        Just ((_, evts), _) | any isDiscoGem evts -> True
-        _ -> False
-      isDiscoGem = \case
-        RBDrums.Red -> True
-        RBDrums.Pro RBDrums.Yellow _ -> True
-        _ -> False
-  -- Don't have a vocal phrase that ends simultaneous with a lyric event.
-  -- In static vocals, this puts the lyric in the wrong phrase.
-  let vox = foldr RTB.merge RTB.empty [ t | RBFile.PartVocals t <- RBFile.s_tracks song ]
-      harm1 = foldr RTB.merge RTB.empty [ t | RBFile.Harm1 t <- RBFile.s_tracks song ]
-      harm2 = foldr RTB.merge RTB.empty [ t | RBFile.Harm2 t <- RBFile.s_tracks song ]
-      harm3 = foldr RTB.merge RTB.empty [ t | RBFile.Harm3 t <- RBFile.s_tracks song ]
-      phraseOff = RBVox.Phrase False
-      isLyric = \case RBVox.Lyric _ -> True; _ -> False
-      voxBugs = flip RTB.mapMaybe (RTB.collectCoincident vox) $ \evts -> do
-        guard $ elem phraseOff evts && any isLyric evts
-        return ()
-      harm1Bugs = flip RTB.mapMaybe (RTB.collectCoincident harm1) $ \evts -> do
-        guard $ elem phraseOff evts && any isLyric evts
-        return ()
-      harm2Bugs = flip RTB.mapMaybe (RTB.collectCoincident $ RTB.merge harm2 harm3) $ \evts -> do
-        guard $ elem phraseOff evts && any isLyric evts
-        return ()
-  -- Put it all together and show the error positions.
-  let showPositions :: RTB.T U.Beats () -> [String]
-      showPositions
-        = map (RBFile.showPosition . U.applyMeasureMap (RBFile.s_signatures song))
-        . ATB.getTimes
-        . RTB.toAbsoluteEventList 0
-      message rtb msg = forM_ (showPositions rtb) $ \pos ->
-        putNormal $ pos ++ ": " ++ msg
-  message kickSwells "kick note is simultaneous with start of drum roll"
-  message badDiscos "discobeat drum event is followed immediately by red or yellow gem"
-  message voxBugs "PART VOCALS vocal phrase ends simultaneous with a lyric"
-  message harm1Bugs "HARM1 vocal phrase ends simultaneous with a lyric"
-  message harm2Bugs "HARM2 vocal phrase ends simultaneous with a (HARM2 or HARM3) lyric"
-  unless (all RTB.null [kickSwells, badDiscos, voxBugs, harm1Bugs, harm2Bugs]) $
-    fail "At least 1 problem was found in the MIDI."
-
 data PansVols = PansVols
   { bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, crowdPV, songPV :: [(Double, Double)]
   , mixMode                                                                      :: RBDrums.Audio
@@ -618,42 +487,6 @@ computePansVols songYaml plan = let
     Plan{..} -> planPV _song
     EachPlan{..} -> eachPlanPV _each
   in PansVols{..}
-
-data RanksTiers = RanksTiers
-  { drumsRank, bassRank, guitarRank, vocalRank, keysRank, proKeysRank, proGuitarRank, proBassRank, bandRank :: Integer
-  , drumsTier, bassTier, guitarTier, vocalTier, keysTier, proKeysTier, proGuitarTier, proBassTier, bandTier :: Integer
-  } deriving (Eq, Ord, Show, Read)
-
-computeRanksTiers :: SongYaml -> RanksTiers
-computeRanksTiers songYaml = let
-  getRank has diff dmap = if has $ _instruments songYaml
-    then case diff $ _difficulty $ _metadata songYaml of
-      Nothing       -> 1
-      Just (Rank r) -> r
-      Just (Tier t) -> tierToRank dmap t
-    else 0
-
-  drumsRank     = getRank _hasDrums     _difficultyDrums     drumsDiffMap
-  bassRank      = getRank _hasBass      _difficultyBass      bassDiffMap
-  guitarRank    = getRank _hasGuitar    _difficultyGuitar    guitarDiffMap
-  vocalRank     = getRank hasAnyVocal   _difficultyVocal     vocalDiffMap
-  keysRank      = getRank hasAnyKeys    _difficultyKeys      keysDiffMap
-  proKeysRank   = getRank hasAnyKeys    _difficultyProKeys   keysDiffMap
-  proGuitarRank = getRank _hasProGuitar _difficultyProGuitar proGuitarDiffMap
-  proBassRank   = getRank _hasProBass   _difficultyProBass   proBassDiffMap
-  bandRank      = getRank (const True)  _difficultyBand      bandDiffMap
-
-  drumsTier     = rankToTier drumsDiffMap     drumsRank
-  bassTier      = rankToTier bassDiffMap      bassRank
-  guitarTier    = rankToTier guitarDiffMap    guitarRank
-  vocalTier     = rankToTier vocalDiffMap     vocalRank
-  keysTier      = rankToTier keysDiffMap      keysRank
-  proKeysTier   = rankToTier keysDiffMap      proKeysRank
-  proGuitarTier = rankToTier proGuitarDiffMap proGuitarRank
-  proBassTier   = rankToTier proBassDiffMap   proBassRank
-  bandTier      = rankToTier bandDiffMap      bandRank
-
-  in RanksTiers{..}
 
 makeAudioFiles :: SongYaml -> Plan -> FilePath -> RBDrums.Audio -> Rules ()
 makeAudioFiles songYaml plan dir mixMode = case plan of
@@ -1159,226 +992,44 @@ main = do
               runAudio mixed out
 
           -- MIDI files
+
           let midPS = dir </> "ps/notes.mid"
               mid2p = dir </> "2p/notes.mid"
               mid1p = dir </> "1p/notes.mid"
               midraw = dir </> "raw.mid"
               has2p = dir </> "has2p.txt"
               display = dir </> "display.json"
-          [midPS, midraw, mid2p, mid1p, has2p] &%> \_ -> do
+              getAudioLength :: Action U.Seconds
+              getAudioLength = do
+                need allSourceAudio
+                liftIO $ maximum <$> mapM audioSeconds allSourceAudio
+          midraw %> \out -> do
             putNormal "Loading the MIDI file..."
             input <- loadMIDI "gen/notes.mid"
             let extraTempo  = "tempo-" ++ T.unpack planName ++ ".mid"
-                showPosition = RBFile.showPosition . U.applyMeasureMap (RBFile.s_signatures input)
             tempos <- fmap RBFile.s_tempos $ doesFileExist extraTempo >>= \b -> if b
               then loadMIDI extraTempo
               else return input
-            let trks = RBFile.s_tracks input
-                mergeTracks = foldr RTB.merge RTB.empty
-                eventsRaw = mergeTracks [ t | RBFile.Events t <- trks ]
-                eventsList = ATB.toPairList $ RTB.toAbsoluteEventList 0 eventsRaw
-            -- If there's no [end], put it after all MIDI events and audio files.
-            endPosn' <- case [ t | (t, Events.End) <- eventsList ] of
-              t : _ -> return t
-              [] -> do
-                need allSourceAudio
-                audLen <- liftIO $ U.unapplyTempoMap tempos . maximum <$> mapM audioSeconds allSourceAudio
-                let absTimes = ATB.getTimes . RTB.toAbsoluteEventList 0
-                    lastMIDIEvent = foldr max 0 $ concatMap (absTimes . RBFile.showTrack) trks ++ absTimes (U.tempoMapToBPS tempos)
-                    endPosition = fromInteger $ round $ max audLen lastMIDIEvent + 4
-                putNormal $ unwords
-                  [ "[end] is missing. The last MIDI event is at"
-                  , showPosition lastMIDIEvent
-                  , "and the longest audio file ends at"
-                  , showPosition audLen
-                  , "so [end] will be at"
-                  , showPosition endPosition
-                  ]
-                return endPosition
-            -- If we are generating an automatic BEAT track,
-            -- we have to round the [end] position up a bit,
-            -- to make sure the last BEAT note-off doesn't come after [end].
-            (beatTrack, endPosn) <- let
-              trk = mergeTracks [ t | RBFile.Beat t <- trks ]
-              in if RTB.null trk
-                then do
-                  putNormal "Generating a BEAT track..."
-                  let alignedEnd = fromInteger $ ceiling endPosn'
-                  return (RBFile.Beat $ U.trackTake alignedEnd $ makeBeatTrack $ RBFile.s_signatures input, alignedEnd)
-                else return (RBFile.Beat trk, endPosn')
-            -- If [music_start] is before 2 beats,
-            -- Magma will add auto [idle] events there in instrument tracks, and then error...
-            musicStartPosn <- case [ t | (t, Events.MusicStart) <- eventsList ] of
-              t : _ -> if t < 2
-                then do
-                  putNormal $ "[music_start] is too early. Moving to " ++ showPosition 2
-                  return 2
-                else return t
-              []    -> do
-                putNormal $ "[music_start] is missing. Placing at " ++ showPosition 2
-                return 2
-            musicEndPosn <- case [ t | (t, Events.MusicEnd) <- eventsList ] of
-              t : _ -> return t
-              []    -> do
-                putNormal $ unwords
-                  [ "[music_end] is missing. [end] is at"
-                  , showPosition endPosn
-                  , "so [music_end] will be at"
-                  , showPosition $ endPosn - 2
-                  ]
-                return $ endPosn - 2
-            let untouchedEvent = \case
-                  Events.MusicStart -> False
-                  Events.MusicEnd -> False
-                  Events.End -> False
-                  _ -> True
-                crowdEvents =
-                  [ Events.CrowdRealtime
-                  , Events.CrowdIntense
-                  , Events.CrowdNormal
-                  , Events.CrowdMellow
-                  , Events.CrowdNoclap
-                  , Events.CrowdClap
-                  ]
-                defaultNoCrowd evts = if any (`elem` evts) crowdEvents
-                  then evts
-                  else RTB.insert musicStartPosn Events.CrowdRealtime
-                    $  RTB.insert musicStartPosn Events.CrowdNoclap evts
-                eventsTrack
-                  = RBFile.Events
-                  $ defaultNoCrowd
-                  $ RTB.insert musicStartPosn Events.MusicStart
-                  $ RTB.insert musicEndPosn Events.MusicEnd
-                  $ RTB.insert endPosn Events.End
-                  $ RTB.filter untouchedEvent eventsRaw
-                venueTracks = let
-                  trk = mergeTracks [ t | RBFile.Venue t <- trks ]
-                  in guard (not $ RTB.null trk) >> [RBFile.Venue trk]
-                (drumsPS, drums1p, drums2p, has2xNotes) = if not $ _hasDrums $ _instruments songYaml
-                  then ([], [], [], False)
-                  else let
-                    trk1x = mergeTracks [ t | RBFile.PartDrums   t <- trks ]
-                    trk2x = mergeTracks [ t | RBFile.PartDrums2x t <- trks ]
-                    psKicks = if _auto2xBass $ _options songYaml
-                      then U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
-                      else id
-                    sections = flip RTB.mapMaybe eventsRaw $ \case
-                      Events.PracticeSection s -> Just s
-                      _                        -> Nothing
-                    finish = promarkers . psKicks . drumMix mixMode . drumsComplete (RBFile.s_signatures input) sections
-                    promarkers = if _proDrums $ _options songYaml
-                      then id
-                      else  RTB.insert 0       (RBDrums.ProType RBDrums.Yellow RBDrums.Tom   )
-                        .   RTB.insert 0       (RBDrums.ProType RBDrums.Blue   RBDrums.Tom   )
-                        .   RTB.insert 0       (RBDrums.ProType RBDrums.Green  RBDrums.Tom   )
-                        .   RTB.insert endPosn (RBDrums.ProType RBDrums.Yellow RBDrums.Cymbal)
-                        .   RTB.insert endPosn (RBDrums.ProType RBDrums.Blue   RBDrums.Cymbal)
-                        .   RTB.insert endPosn (RBDrums.ProType RBDrums.Green  RBDrums.Cymbal)
-                        .   RTB.filter (\case RBDrums.ProType _ _ -> False; _ -> True)
-                    ps1x = finish $ if RTB.null trk1x then trk2x else trk1x
-                    ps2x = finish $ if RTB.null trk2x then trk1x else trk2x
-                    psPS = if elem RBDrums.Kick2x trk1x then ps1x else ps2x
-                    -- Note: drumMix must be applied *after* drumsComplete.
-                    -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
-                    in  ( [RBFile.PartDrums psPS]
-                        , [RBFile.PartDrums $ rockBand1x ps1x]
-                        , [RBFile.PartDrums $ rockBand2x ps2x]
-                        , elem RBDrums.Kick2x ps2x || all (not . RTB.null) [trk1x, trk2x]
-                        )
-                guitarTracks = if not $ _hasGuitar $ _instruments songYaml
-                  then []
-                  else (: []) $ RBFile.PartGuitar $ gryboComplete (Just $ _hopoThreshold $ _options songYaml) (RBFile.s_signatures input)
-                    $ mergeTracks [ t | RBFile.PartGuitar t <- trks ]
-                bassTracks = if not $ _hasBass $ _instruments songYaml
-                  then []
-                  else (: []) $ RBFile.PartBass $ gryboComplete (Just $ _hopoThreshold $ _options songYaml) (RBFile.s_signatures input)
-                    $ mergeTracks [ t | RBFile.PartBass t <- trks ]
-                proGuitarTracks = if not $ _hasProGuitar $ _instruments songYaml
-                  then []
-                  else map RBFile.copyExpert $ let
-                    mustang = ProGtr.autoHandPosition $ mergeTracks [ t | RBFile.PartRealGuitar   t <- trks ]
-                    squier  = ProGtr.autoHandPosition $ mergeTracks [ t | RBFile.PartRealGuitar22 t <- trks ]
-                    in [ RBFile.PartRealGuitar   mustang | not $ RTB.null mustang ]
-                    ++ [ RBFile.PartRealGuitar22 squier  | not $ RTB.null squier  ]
-                proBassTracks = if not $ _hasProGuitar $ _instruments songYaml
-                  then []
-                  else map RBFile.copyExpert $ let
-                    mustang = ProGtr.autoHandPosition $ mergeTracks [ t | RBFile.PartRealBass   t <- trks ]
-                    squier  = ProGtr.autoHandPosition $ mergeTracks [ t | RBFile.PartRealBass22 t <- trks ]
-                    in [ RBFile.PartRealBass   mustang | not $ RTB.null mustang ]
-                    ++ [ RBFile.PartRealBass22 squier  | not $ RTB.null squier  ]
-                keysTracks = if not $ hasAnyKeys $ _instruments songYaml
-                  then []
-                  else let
-                    basicKeys = gryboComplete Nothing (RBFile.s_signatures input) $ if _hasKeys $ _instruments songYaml
-                      then mergeTracks [ t | RBFile.PartKeys t <- trks ]
-                      else expertProKeysToKeys keysExpert
-                    keysDiff diff = if _hasProKeys $ _instruments songYaml
-                      then mergeTracks [ t | RBFile.PartRealKeys diff' t <- trks, diff == diff' ]
-                      else keysToProKeys diff basicKeys
-                    rtb1 `orIfNull` rtb2 = if length rtb1 < 5 then rtb2 else rtb1
-                    keysExpert = completeRanges $ keysDiff Expert
-                    keysHard   = completeRanges $ keysDiff Hard   `orIfNull` pkReduce Hard   (RBFile.s_signatures input) keysOD keysExpert
-                    keysMedium = completeRanges $ keysDiff Medium `orIfNull` pkReduce Medium (RBFile.s_signatures input) keysOD keysHard
-                    keysEasy   = completeRanges $ keysDiff Easy   `orIfNull` pkReduce Easy   (RBFile.s_signatures input) keysOD keysMedium
-                    keysOD = flip RTB.mapMaybe keysExpert $ \case
-                      ProKeys.Overdrive b -> Just b
-                      _                   -> Nothing
-                    keysAnim = flip RTB.filter keysExpert $ \case
-                      ProKeys.Note _ -> True
-                      _              -> False
-                    in  [ RBFile.PartKeys            basicKeys
-                        , RBFile.PartKeysAnimRH      keysAnim
-                        , RBFile.PartKeysAnimLH      RTB.empty
-                        , RBFile.PartRealKeys Expert keysExpert
-                        , RBFile.PartRealKeys Hard   keysHard
-                        , RBFile.PartRealKeys Medium keysMedium
-                        , RBFile.PartRealKeys Easy   keysEasy
-                        ]
-                vocalTracks = case _hasVocal $ _instruments songYaml of
-                  Vocal0 -> []
-                  Vocal1 ->
-                    [ RBFile.PartVocals partVox'
-                    ]
-                  Vocal2 ->
-                    [ RBFile.PartVocals partVox'
-                    , RBFile.Harm1 harm1
-                    , RBFile.Harm2 harm2
-                    ]
-                  Vocal3 ->
-                    [ RBFile.PartVocals partVox'
-                    , RBFile.Harm1 harm1
-                    , RBFile.Harm2 harm2
-                    , RBFile.Harm3 harm3
-                    ]
-                  where partVox = mergeTracks [ t | RBFile.PartVocals t <- trks ]
-                        partVox' = if RTB.null partVox then harm1ToPartVocals harm1 else partVox
-                        harm1   = mergeTracks [ t | RBFile.Harm1      t <- trks ]
-                        harm2   = mergeTracks [ t | RBFile.Harm2      t <- trks ]
-                        harm3   = mergeTracks [ t | RBFile.Harm3      t <- trks ]
-            forM_ [(midPS, drumsPS), (mid1p, drums1p), (mid2p, drums2p)] $ \(midout, drumsTracks) ->
-              saveMIDI midout RBFile.Song
-                { RBFile.s_tempos = tempos
-                , RBFile.s_signatures = RBFile.s_signatures input
-                , RBFile.s_tracks = map fixRolls $ concat
-                  [ [beatTrack]
-                  , [eventsTrack]
-                  , venueTracks
-                  , drumsTracks
-                  , guitarTracks
-                  , bassTracks
-                  , proGuitarTracks
-                  , proBassTracks
-                  , keysTracks
-                  , vocalTracks
-                  ]
-                }
-            saveMIDI midraw RBFile.Song
-              { RBFile.s_tempos = tempos
-              , RBFile.s_signatures = RBFile.s_signatures input
-              , RBFile.s_tracks = RBFile.s_tracks input
-              }
-            liftIO $ writeFile has2p $ show $ _auto2xBass (_options songYaml) || has2xNotes
+            saveMIDI out input { RBFile.s_tempos = tempos }
+          midPS %> \out -> do
+            input <- loadMIDI midraw
+            output <- RB3.processMIDI songYaml input RB3.KicksPS mixMode getAudioLength
+            saveMIDI out output
+          mid1p %> \out -> do
+            input <- loadMIDI midraw
+            output <- RB3.processMIDI songYaml input RB3.Kicks1x mixMode getAudioLength
+            saveMIDI out output
+          mid2p %> \out -> do
+            input <- loadMIDI midraw
+            output <- RB3.processMIDI songYaml input RB3.Kicks2x mixMode getAudioLength
+            saveMIDI out output
+          has2p %> \out -> do
+            b <- if _auto2xBass $ _options songYaml
+              then return True
+              else do
+                need [mid1p, mid2p]
+                liftM2 (/=) (loadMIDI mid1p) (loadMIDI mid2p)
+            liftIO $ writeFile out $ show b
 
           let getRealSections :: Action (RTB.T U.Beats T.Text)
               getRealSections = do
@@ -1757,7 +1408,11 @@ main = do
             let pkg = "onyx" ++ show (hash (pedalDir, _title $ _metadata songYaml, _artist $ _metadata songYaml) `mod` 1000000000)
 
             -- Check for some extra problems that Magma doesn't catch.
-            phony (pedalDir </> "problems") $ printProblems $ pedalDir </> "notes.mid"
+            phony (pedalDir </> "problems") $ do
+              song <- loadMIDI $ pedalDir </> "notes.mid"
+              let problems = RB3.findProblems song
+              mapM_ putNormal problems
+              unless (null problems) $ fail "At least 1 problem was found in the MIDI."
 
             -- Rock Band 3 CON package
             let pathDta  = pedalDir </> "rb3/songs/songs.dta"
@@ -2416,52 +2071,3 @@ inputOutput suffix args = case args of
     in Just (fin, dropSlash fin ++ suffix)
   [fin, fout] -> Just (fin, fout)
   _ -> Nothing
-
-makeReaper :: FilePath -> FilePath -> [FilePath] -> FilePath -> Action ()
-makeReaper evts tempo audios out = do
-  need $ evts : tempo : audios
-  lenAudios <- flip mapMaybeM audios $ \aud -> do
-    info <- liftIO $ Snd.getFileInfo aud
-    return $ case Snd.frames info of
-      0 -> Nothing
-      f -> Just (fromIntegral f / fromIntegral (Snd.samplerate info), aud)
-  mid <- liftIO $ Load.fromFile evts
-  tmap <- loadTempos tempo
-  tempoMid <- liftIO $ Load.fromFile tempo
-  let getLastTime :: (NNC.C t, Num t) => [RTB.T t a] -> t
-      getLastTime = foldr max NNC.zero . map getTrackLastTime
-      getTrackLastTime trk = case reverse $ ATB.getTimes $ RTB.toAbsoluteEventList NNC.zero trk of
-        []    -> NNC.zero
-        t : _ -> t
-      lastEventSecs = case U.decodeFile mid of
-        Left beatTracks -> U.applyTempoMap tmap $ getLastTime beatTracks
-        Right secTracks -> getLastTime secTracks
-      midiLenSecs = 5 + foldr max lastEventSecs (map fst lenAudios)
-      midiLenTicks resn = floor $ U.unapplyTempoMap tmap midiLenSecs * fromIntegral resn
-      writeTempoTrack = case tempoMid of
-        F.Cons F.Parallel (F.Ticks resn) (tempoTrack : _) -> let
-          t_ticks = RPP.processTempoTrack tempoTrack
-          t_beats = RTB.mapTime (\tks -> fromIntegral tks / fromIntegral resn) t_ticks
-          t_secs = U.applyTempoTrack tmap t_beats
-          in RPP.tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
-        F.Cons F.Mixed (F.Ticks resn) tracks -> let
-          track = foldr RTB.merge RTB.empty tracks
-          t_ticks = RPP.processTempoTrack track
-          t_beats = RTB.mapTime (\tks -> fromIntegral tks / fromIntegral resn) t_ticks
-          t_secs = U.applyTempoTrack tmap t_beats
-          in RPP.tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
-        _ -> error "Unsupported MIDI format for Reaper project generation"
-  liftIO $ writeRPP out $ runIdentity $
-    RPP.rpp "REAPER_PROJECT" ["0.1", "5.0/OSX64", "1449358215"] $ do
-      RPP.line "VZOOMEX" ["0"]
-      RPP.line "SAMPLERATE" ["44100", "0", "0"]
-      writeTempoTrack
-      case mid of
-        F.Cons F.Parallel (F.Ticks resn) (_ : trks) -> do
-          forM_ (RPP.sortTracks trks) $ RPP.track (midiLenTicks resn) midiLenSecs resn
-        F.Cons F.Mixed (F.Ticks resn) tracks -> let
-          track = foldr RTB.merge RTB.empty tracks
-          in RPP.track (midiLenTicks resn) midiLenSecs resn track
-        _ -> error "Unsupported MIDI format for Reaper project generation"
-      forM_ lenAudios $ \(len, aud) -> do
-        RPP.audio len $ makeRelative (takeDirectory out) aud

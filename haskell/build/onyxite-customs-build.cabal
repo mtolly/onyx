@@ -37,6 +37,8 @@ executable onyx
     Difficulty
     FretsOnFire
     RockBand2
+    RockBand3
+    Readme
     DryVox
     RockBand.ProGuitar.Play
   build-depends:

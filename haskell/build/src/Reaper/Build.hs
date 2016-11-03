@@ -1,5 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
-module Reaper.Build where
+module Reaper.Build (makeReaper) where
 
 import           Reaper.Base
 
@@ -23,6 +23,8 @@ import qualified Numeric.NonNegative.Class             as NNC
 import qualified Numeric.NonNegative.Wrapper           as NN
 import           RockBand.Common                       (Key (..))
 import qualified RockBand.Vocals                       as Vox
+import qualified Sound.MIDI.File as F
+import qualified Sound.MIDI.File.Load as Load
 import qualified Sound.MIDI.File.Event                 as E
 import qualified Sound.MIDI.File.Event.Meta            as Meta
 import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
@@ -31,7 +33,13 @@ import qualified Sound.MIDI.Message.Channel            as C
 import qualified Sound.MIDI.Message.Channel.Voice      as V
 import qualified Sound.MIDI.Util                       as U
 import           System.FilePath                       (takeExtension,
-                                                        takeFileName)
+                                                        takeFileName, takeDirectory, makeRelative)
+import qualified Sound.File.Sndfile as Snd
+import Development.Shake (Action, need)
+import Scripts (loadTempos)
+import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Extra (mapMaybeM)
+import Data.Functor.Identity (runIdentity)
 
 line :: (Monad m) => String -> [String] -> WriterT [Element] m ()
 line k atoms = tell [Element k atoms Nothing]
@@ -581,3 +589,52 @@ sortTracks = sortOn $ U.trackName >=> \name -> elemIndex name
   , "VENUE"
   , "BEAT"
   ]
+
+makeReaper :: FilePath -> FilePath -> [FilePath] -> FilePath -> Action ()
+makeReaper evts tempo audios out = do
+  need $ evts : tempo : audios
+  lenAudios <- flip mapMaybeM audios $ \aud -> do
+    info <- liftIO $ Snd.getFileInfo aud
+    return $ case Snd.frames info of
+      0 -> Nothing
+      f -> Just (fromIntegral f / fromIntegral (Snd.samplerate info), aud)
+  mid <- liftIO $ Load.fromFile evts
+  tmap <- loadTempos tempo
+  tempoMid <- liftIO $ Load.fromFile tempo
+  let getLastTime :: (NNC.C t, Num t) => [RTB.T t a] -> t
+      getLastTime = foldr max NNC.zero . map getTrackLastTime
+      getTrackLastTime trk = case reverse $ ATB.getTimes $ RTB.toAbsoluteEventList NNC.zero trk of
+        []    -> NNC.zero
+        t : _ -> t
+      lastEventSecs = case U.decodeFile mid of
+        Left beatTracks -> U.applyTempoMap tmap $ getLastTime beatTracks
+        Right secTracks -> getLastTime secTracks
+      midiLenSecs = 5 + foldr max lastEventSecs (map fst lenAudios)
+      midiLenTicks resn = floor $ U.unapplyTempoMap tmap midiLenSecs * fromIntegral resn
+      writeTempoTrack = case tempoMid of
+        F.Cons F.Parallel (F.Ticks resn) (theTempoTrack : _) -> let
+          t_ticks = processTempoTrack theTempoTrack
+          t_beats = RTB.mapTime (\tks -> fromIntegral tks / fromIntegral resn) t_ticks
+          t_secs = U.applyTempoTrack tmap t_beats
+          in tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
+        F.Cons F.Mixed (F.Ticks resn) tracks -> let
+          merged = foldr RTB.merge RTB.empty tracks
+          t_ticks = processTempoTrack merged
+          t_beats = RTB.mapTime (\tks -> fromIntegral tks / fromIntegral resn) t_ticks
+          t_secs = U.applyTempoTrack tmap t_beats
+          in tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
+        _ -> error "Unsupported MIDI format for Reaper project generation"
+  liftIO $ writeRPP out $ runIdentity $
+    rpp "REAPER_PROJECT" ["0.1", "5.0/OSX64", "1449358215"] $ do
+      line "VZOOMEX" ["0"]
+      line "SAMPLERATE" ["44100", "0", "0"]
+      writeTempoTrack
+      case mid of
+        F.Cons F.Parallel (F.Ticks resn) (_ : trks) -> do
+          forM_ (sortTracks trks) $ track (midiLenTicks resn) midiLenSecs resn
+        F.Cons F.Mixed (F.Ticks resn) tracks -> let
+          merged = foldr RTB.merge RTB.empty tracks
+          in track (midiLenTicks resn) midiLenSecs resn merged
+        _ -> error "Unsupported MIDI format for Reaper project generation"
+      forM_ lenAudios $ \(len, aud) -> do
+        audio len $ makeRelative (takeDirectory out) aud
