@@ -46,8 +46,8 @@ extractSTFS stfs dir = withBinaryFile stfs ReadMode $ \fd -> do
 
       fix_blocknum block_num = let
         block_adjust = sum
-          [ if block_num >= 0xAA then ((block_num `div` 0xAA)) + 1 `shiftL` table_size_shift else 0
-          , if block_num > 0x70E4 then ((block_num `div` 0x70E4)) + 1 `shiftL` table_size_shift else 0
+          [ if block_num >= 0xAA then (block_num `div` 0xAA) + 1 `shiftL` table_size_shift else 0
+          , if block_num > 0x70E4 then (block_num `div` 0x70E4) + 1 `shiftL` table_size_shift else 0
           ]
         in block_num + block_adjust
 
@@ -62,7 +62,7 @@ extractSTFS stfs dir = withBinaryFile stfs ReadMode $ \fd -> do
         let record = toInteger $ blocknum `mod` 0xAA
         -- Num tables * space blocks between each (0xAB or 0xAC for [0])
         let tablenum = sum
-              [ (blocknum `div` 0xAA) * (fst3 $ table_spacing !! table_size_shift)
+              [ (blocknum `div` 0xAA) * fst3 (table_spacing !! table_size_shift)
               , if blocknum >= 0xAA
                 then (blocknum `div` 0x70E4 + 1) `shiftL` table_size_shift -- skip level 1 tables
                 else 0
@@ -192,7 +192,7 @@ newFileListing data_ = let
     then Left "FileListing has empty filename"
     else Right FileListing
       { fl_filename = filename
-      , fl_isdirectory = 0x80 .&. (BL.index data_ 0x28) == 0x80
+      , fl_isdirectory = 0x80 .&. BL.index data_ 0x28 == 0x80
       , fl_numblocks = runGet getWord32le $ BL.snoc (BL.take 3 $ BL.drop 0x29 data_) 0 -- struct.unpack("<I", "%s\x00" % data[0x29:0x29+3])[0] # More little endian madness!
       , fl_firstblock = runGet getWord32le $ BL.snoc (BL.take 3 $ BL.drop 0x2F data_) 0 -- struct.unpack("<I", "%s\x00" % data[0x2F:0x2F+3])[0]# And again!
       , fl_pathindex = runGet getInt16be $ BL.take 2 $ BL.drop 0x32 data_ -- struct.unpack(">h", data[0x32:0x34])[0] # Signedness is important here

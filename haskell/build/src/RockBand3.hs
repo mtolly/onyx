@@ -249,7 +249,7 @@ findProblems song = execWriter $ do
   let discos = flip RTB.mapMaybe drums $ \case
         RBDrums.DiffEvent d (RBDrums.Mix _ RBDrums.Disco) -> Just d
         _ -> Nothing
-      badDiscos = fmap (const ()) $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ filter isBadDisco $ ATB.toPairList $ RTB.toAbsoluteEventList 0 discos
+      badDiscos = void $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ filter isBadDisco $ ATB.toPairList $ RTB.toAbsoluteEventList 0 discos
       drumsDiff d = flip RTB.mapMaybe drums $ \case
         RBDrums.DiffEvent d' (RBDrums.Note gem) | d == d' -> Just gem
         _ -> Nothing

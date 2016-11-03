@@ -36,7 +36,7 @@ warn s = StackTraceT $ lift $ do
 
 -- | Turns errors into warnings, and returns "Nothing".
 optional :: (Monad m) => StackTraceT m a -> StackTraceT m (Maybe a)
-optional p = liftM Just p `catch` \errs ->
+optional p = fmap Just p `catch` \errs ->
   StackTraceT (lift $ tell errs) >> return Nothing
 
 fatal :: (Monad m) => String -> StackTraceT m a

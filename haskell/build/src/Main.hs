@@ -278,7 +278,7 @@ manualLeaf songYaml (Named name) = case HM.lookup name $ _audio songYaml of
           return $ case _rate of
             Nothing -> Resample $ Input fp
             Just _  -> Input fp -- if rate is specified, don't auto-resample
-    AudioSnippet expr -> fmap join $ mapM (manualLeaf songYaml) expr
+    AudioSnippet expr -> join <$> mapM (manualLeaf songYaml) expr
   Nothing -> fail $ "Couldn't find an audio source named " ++ show name
 manualLeaf songYaml (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
   Just _  -> return $ Input $ jammitPath name audpart
@@ -943,15 +943,15 @@ main = do
                 , (songPV, dir </> "song-countin.wav")
                 ]
               allSourceAudio =
-                [ (dir </> "kick.wav")
-                , (dir </> "snare.wav")
-                , (dir </> "drums.wav")
-                , (dir </> "guitar.wav")
-                , (dir </> "bass.wav")
-                , (dir </> "keys.wav")
-                , (dir </> "vocal.wav")
-                , (dir </> "crowd.wav")
-                , (dir </> "song.wav")
+                [ dir </> "kick.wav"
+                , dir </> "snare.wav"
+                , dir </> "drums.wav"
+                , dir </> "guitar.wav"
+                , dir </> "bass.wav"
+                , dir </> "keys.wav"
+                , dir </> "vocal.wav"
+                , dir </> "crowd.wav"
+                , dir </> "song.wav"
                 ]
 
           dir </> "everything.wav" %> \out -> case plan of
@@ -1233,7 +1233,9 @@ main = do
                     crowdChannels = case plan of
                       MoggPlan{..} -> _moggCrowd
                       EachPlan{} -> []
-                      Plan{..} -> take (length crowdPV) $ drop (sum $ map length [kickPV, snarePV, drumsPV, bassPV, guitarPV, keysPV, vocalPV]) $ [0..]
+                      Plan{..} -> let
+                        notCrowd = sum $ map length [kickPV, snarePV, drumsPV, bassPV, guitarPV, keysPV, vocalPV]
+                        in take (length crowdPV) [notCrowd ..]
                     tracksAssocList = Map.fromList $ case plan of
                       MoggPlan{..} -> let
                         maybeChannelPair _   []    = []
@@ -1263,8 +1265,8 @@ main = do
                   , D.artist = T.unpack $ getArtist $ _metadata songYaml
                   , D.master = not $ _cover $ _metadata songYaml
                   , D.songId = case usedSongID of
-                    Nothing  -> Right $ D.Keyword pkg
-                    Just (JSONEither sid) -> either Left (Right . D.Keyword . T.unpack) sid
+                    Nothing               -> Right $ D.Keyword pkg
+                    Just (JSONEither sid) -> D.Keyword . T.unpack <$> sid
                   , D.song = D.Song
                     { D.songName = "songs/" ++ pkg ++ "/" ++ pkg
                     , D.tracksCount = Nothing
@@ -1813,8 +1815,8 @@ main = do
                         , D.crowdChannels = D.crowdChannels $ D.song rb3DTA
                         }
                       , D.songId = case _songID $ _metadata songYaml of
-                        Nothing -> Right $ D.Keyword pkg
-                        Just (JSONEither eis) -> either Left (Right . D.Keyword . T.unpack) eis
+                        Nothing               -> Right $ D.Keyword pkg
+                        Just (JSONEither eis) -> D.Keyword . T.unpack <$> eis
                       , D.preview = D.preview rb3DTA -- because we told magma preview was at 0s earlier
                       , D.songLength = D.songLength rb3DTA -- magma v1 set this to 31s from the audio file lengths
                       }
@@ -2047,7 +2049,7 @@ main = do
           "linux"   -> callProcess "exo-open" ["notes.RPP"]
           _         -> return ()
       _ -> error "Usage: onyx reap plan"
-    "mt" : fin : [] -> fmap MS.toStandardMIDI (Load.fromFile fin) >>= \case
+    ["mt", fin] -> fmap MS.toStandardMIDI (Load.fromFile fin) >>= \case
       Left  err -> error err
       Right mid -> putStr $ MS.showStandardMIDI midiTextOptions mid
     "mt" : args -> case inputOutput ".txt" args of

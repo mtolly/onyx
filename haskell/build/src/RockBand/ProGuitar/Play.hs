@@ -132,7 +132,7 @@ receiveCommand = magic where
     return KeepAlive
   msg [8, b1, b2, b3, 0] = do
     dpad <- reverseLookup each (fromIntegral . fromEnum) $ b3 .&. 15
-    return $ ChangeButtons $ Buttons
+    return $ ChangeButtons Buttons
       { buttonX = test 1 b1
       , buttonA = test 2 b1
       , buttonB = test 4 b1
@@ -154,7 +154,7 @@ autoplay thres = let
     xs = RTB.toPairList rtb
     remember Nothing                 (dt, this) = (dt, ([]      , this))
     remember (Just (_, prevGems, _)) (dt, this) = (dt, (prevGems, this))
-    in RTB.fromPairList $ zipWith remember (Nothing : map Just (map snd xs)) xs
+    in RTB.fromPairList $ zipWith remember (Nothing : map (Just . snd) xs) xs
   f (prevGems, (shopo, thisGems, _)) = let
     fst3 (x, _, _) = x
     strums = case shopo of

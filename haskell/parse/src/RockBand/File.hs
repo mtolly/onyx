@@ -131,7 +131,7 @@ readMIDIFile mid = case U.decodeFile mid of
     in do
       songTrks <- forM (zip ([1..] :: [Int]) restTrks) $ \(i, trk) ->
         inside ("track " ++ show i ++ " (0 is tempo track)") $ optional $ parseTrack mmap trk
-      return $ Song
+      return Song
         { s_tempos     = U.makeTempoMap tempoTrk
         , s_signatures = mmap
         , s_tracks     = catMaybes songTrks
@@ -173,34 +173,34 @@ parseTrack mmap t = case U.trackName t of
     warn "Track with no name"
     return $ RawTrack t
   Just s -> inside ("track named " ++ show s) $ case s of
-    "PART DRUM"           -> liftM PartDrums               $ makeTrackParser parseOne mmap t
-    "PART DRUMS"          -> liftM PartDrums               $ makeTrackParser parseOne mmap t
-    "PART DRUMS_2X"       -> liftM PartDrums2x             $ makeTrackParser parseOne mmap t
-    "PART GUITAR"         -> liftM PartGuitar              $ makeTrackParser parseOne mmap t
-    "PART BASS"           -> liftM PartBass                $ makeTrackParser parseOne mmap t
-    "PART KEYS"           -> liftM PartKeys                $ makeTrackParser parseOne mmap t
-    "PART REAL_GUITAR"    -> liftM PartRealGuitar          $ makeTrackParser parseOne mmap t
-    "PART REAL_GUITAR_22" -> liftM PartRealGuitar22        $ makeTrackParser parseOne mmap t
-    "PART REAL_BASS"      -> liftM PartRealBass            $ makeTrackParser parseOne mmap t
-    "PART REAL_BASS_22"   -> liftM PartRealBass22          $ makeTrackParser parseOne mmap t
-    "PART REAL_KEYS_E"    -> liftM (PartRealKeys   Easy  ) $ makeTrackParser parseOne mmap t
-    "PART REAL_KEYS_M"    -> liftM (PartRealKeys   Medium) $ makeTrackParser parseOne mmap t
-    "PART REAL_KEYS_H"    -> liftM (PartRealKeys   Hard  ) $ makeTrackParser parseOne mmap t
-    "PART REAL_KEYS_X"    -> liftM (PartRealKeys   Expert) $ makeTrackParser parseOne mmap t
-    "PART REAL_KEYS_PS_E" -> liftM (PartRealKeysPS Easy  ) $ makeTrackParser parseOne mmap t
-    "PART REAL_KEYS_PS_M" -> liftM (PartRealKeysPS Medium) $ makeTrackParser parseOne mmap t
-    "PART REAL_KEYS_PS_H" -> liftM (PartRealKeysPS Hard  ) $ makeTrackParser parseOne mmap t
-    "PART REAL_KEYS_PS_X" -> liftM (PartRealKeysPS Expert) $ makeTrackParser parseOne mmap t
-    "PART KEYS_ANIM_LH"   -> liftM PartKeysAnimLH          $ makeTrackParser parseOne mmap t
-    "PART KEYS_ANIM_RH"   -> liftM PartKeysAnimRH          $ makeTrackParser parseOne mmap t
-    "PART VOCALS"         -> liftM PartVocals              $ makeTrackParser parseOne mmap t
-    "HARM1"               -> liftM Harm1                   $ makeTrackParser parseOne mmap t
-    "HARM2"               -> liftM Harm2                   $ makeTrackParser parseOne mmap t
-    "HARM3"               -> liftM Harm3                   $ makeTrackParser parseOne mmap t
-    "EVENTS"              -> liftM Events                  $ makeTrackParser parseOne mmap t
-    "BEAT"                -> liftM Beat                    $ makeTrackParser parseOne mmap t
-    "VENUE"               -> liftM Venue                   $ makeTrackParser parseOne mmap t
-    "MELODY'S ESCAPE"     -> liftM MelodysEscape           $ makeTrackParser parseOne mmap t
+    "PART DRUM"           -> PartDrums             <$> makeTrackParser parseOne mmap t
+    "PART DRUMS"          -> PartDrums             <$> makeTrackParser parseOne mmap t
+    "PART DRUMS_2X"       -> PartDrums2x           <$> makeTrackParser parseOne mmap t
+    "PART GUITAR"         -> PartGuitar            <$> makeTrackParser parseOne mmap t
+    "PART BASS"           -> PartBass              <$> makeTrackParser parseOne mmap t
+    "PART KEYS"           -> PartKeys              <$> makeTrackParser parseOne mmap t
+    "PART REAL_GUITAR"    -> PartRealGuitar        <$> makeTrackParser parseOne mmap t
+    "PART REAL_GUITAR_22" -> PartRealGuitar22      <$> makeTrackParser parseOne mmap t
+    "PART REAL_BASS"      -> PartRealBass          <$> makeTrackParser parseOne mmap t
+    "PART REAL_BASS_22"   -> PartRealBass22        <$> makeTrackParser parseOne mmap t
+    "PART REAL_KEYS_E"    -> PartRealKeys   Easy   <$> makeTrackParser parseOne mmap t
+    "PART REAL_KEYS_M"    -> PartRealKeys   Medium <$> makeTrackParser parseOne mmap t
+    "PART REAL_KEYS_H"    -> PartRealKeys   Hard   <$> makeTrackParser parseOne mmap t
+    "PART REAL_KEYS_X"    -> PartRealKeys   Expert <$> makeTrackParser parseOne mmap t
+    "PART REAL_KEYS_PS_E" -> PartRealKeysPS Easy   <$> makeTrackParser parseOne mmap t
+    "PART REAL_KEYS_PS_M" -> PartRealKeysPS Medium <$> makeTrackParser parseOne mmap t
+    "PART REAL_KEYS_PS_H" -> PartRealKeysPS Hard   <$> makeTrackParser parseOne mmap t
+    "PART REAL_KEYS_PS_X" -> PartRealKeysPS Expert <$> makeTrackParser parseOne mmap t
+    "PART KEYS_ANIM_LH"   -> PartKeysAnimLH        <$> makeTrackParser parseOne mmap t
+    "PART KEYS_ANIM_RH"   -> PartKeysAnimRH        <$> makeTrackParser parseOne mmap t
+    "PART VOCALS"         -> PartVocals            <$> makeTrackParser parseOne mmap t
+    "HARM1"               -> Harm1                 <$> makeTrackParser parseOne mmap t
+    "HARM2"               -> Harm2                 <$> makeTrackParser parseOne mmap t
+    "HARM3"               -> Harm3                 <$> makeTrackParser parseOne mmap t
+    "EVENTS"              -> Events                <$> makeTrackParser parseOne mmap t
+    "BEAT"                -> Beat                  <$> makeTrackParser parseOne mmap t
+    "VENUE"               -> Venue                 <$> makeTrackParser parseOne mmap t
+    "MELODY'S ESCAPE"     -> MelodysEscape         <$> makeTrackParser parseOne mmap t
     _ -> do
       warn "Unrecognized track name"
       return $ RawTrack t
@@ -278,13 +278,13 @@ needsPad (Song temps _ trks) = let
     ProGuitar.DiffEvent _ (ProGuitar.Note _) -> True
     _ -> False
   earlyProKeys = earlyPred $ \case
-    ProKeys.Note _ -> True
+    ProKeys.Note{} -> True
     _ -> False
   earlyPSKeys = earlyPred $ \case
-    PSKeys.Note _ _ _ -> True
+    PSKeys.Note{} -> True
     _ -> False
   earlyVox = earlyPred $ \case
-    Vocals.Note _ _ -> True
+    Vocals.Note{} -> True
     _ -> False
   earlyPred fn t = any fn $ U.trackTake sec2_5 t
   in any early trks
@@ -334,6 +334,6 @@ padMIDI seconds (Song temps sigs trks) = let
     in U.trackGlueZero names $ RTB.delay beats $ U.trackGlueZero notNames nz
   padBeat
     = RTB.cons  0 Beat.Bar
-    . (foldr (.) id $ replicate (seconds * 2 - 1) $ RTB.cons 1 Beat.Beat)
+    . foldr (.) id (replicate (seconds * 2 - 1) $ RTB.cons 1 Beat.Beat)
     . RTB.delay 1
   in Song temps' sigs' trks'

@@ -110,7 +110,7 @@ cryptTable key = do
   liftM3 CryptTable (newSTRef 0) (newSTRef 0x67) (return tbl)
 
 oldNext :: CryptTable s -> ST s Word8
-oldNext (CryptTable { idx1 = i1ref, idx2 = i2ref, table = tbl }) = do
+oldNext CryptTable{ idx1 = i1ref, idx2 = i2ref, table = tbl } = do
   i1 <- readSTRef i1ref
   i2 <- readSTRef i2ref
   next <- liftM2 xor (readArray tbl i1) (readArray tbl i2)

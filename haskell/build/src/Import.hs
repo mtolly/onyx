@@ -269,7 +269,7 @@ determine2xBass :: String -> (String, Bool)
 determine2xBass s = case stripSuffix " (2x Bass Pedal)" s <|> stripSuffix " (2X Bass Pedal)" s of
   Nothing -> (s , False)
   Just s' -> (s', True )
-  where stripSuffix a b = fmap reverse $ stripPrefix (reverse a) (reverse b)
+  where stripSuffix a b = reverse <$> stripPrefix (reverse a) (reverse b)
 
 importSTFS :: KeysRB2 -> FilePath -> FilePath -> IO ()
 importSTFS krb2 file dir = withSystemTempDirectory "onyx_con" $ \temp -> do

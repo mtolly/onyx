@@ -14,8 +14,7 @@ import           Data.DTA.Serialize
 import           Data.DTA.Serialize.Magma   (Gender (..))
 import qualified Data.DTA.Serialize.RB3     as D
 import           Data.Foldable              (forM_)
-import           Data.List                  (sortOn)
-import           Data.List                  (stripPrefix)
+import           Data.List                  (sortOn, stripPrefix)
 import           Data.List.Split            (splitOn)
 import qualified Data.Map                   as Map
 import           Data.Maybe                 (listToMaybe, mapMaybe)

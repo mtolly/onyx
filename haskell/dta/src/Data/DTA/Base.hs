@@ -9,9 +9,6 @@ module Data.DTA.Base
 , renumberFrom
 ) where
 
-#if __GLASGOW_HASKELL__ < 710
-import           Control.Applicative       ((<$>))
-#endif
 import           Control.Applicative       (liftA2)
 import           Control.Monad             (replicateM)
 import qualified Data.ByteString           as B
