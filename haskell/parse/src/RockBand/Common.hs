@@ -4,6 +4,7 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TupleSections     #-}
@@ -16,6 +17,8 @@ import           Data.Char                        (isSpace)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (stripPrefix)
 import           Data.Maybe                       (fromMaybe)
+import           Data.Monoid                      ((<>))
+import qualified Data.Text                        as T
 import           Language.Haskell.TH
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File.Event            as E
@@ -25,8 +28,8 @@ import           Text.Read                        (readMaybe)
 
 -- | Class for events which are stored as a @\"[x y z]\"@ text event.
 class Command a where
-  toCommand :: [String] -> Maybe a
-  fromCommand :: a -> [String]
+  toCommand :: [T.Text] -> Maybe a
+  fromCommand :: a -> [T.Text]
 
 reverseLookup :: (Eq b) => [a] -> (a -> b) -> b -> Maybe a
 reverseLookup xs f y = let
@@ -47,12 +50,14 @@ data Mood
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command Mood where
-  fromCommand x = [drop (length "Mood_") $ show x]
+  fromCommand x = case T.stripPrefix "Mood_" $ T.pack $ show x of
+    Nothing -> error "panic! couldn't strip Mood_ from event string"
+    Just s  -> [s]
   toCommand = \case
     ["play", "solo"] -> Just Mood_play_solo
     cmd -> reverseLookup each fromCommand cmd
 
-instance Command [String] where
+instance Command [T.Text] where
   toCommand   = Just
   fromCommand = id
 
@@ -60,24 +65,27 @@ data Difficulty = Easy | Medium | Hard | Expert
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 readCommand' :: (Command a) => E.T -> Maybe a
-readCommand' (E.MetaEvent (Meta.TextEvent s)) = readCommand s
-readCommand' (E.MetaEvent (Meta.Lyric s))     = readCommand s
+readCommand' (E.MetaEvent (Meta.TextEvent s)) = readCommand $ T.pack s
+readCommand' (E.MetaEvent (Meta.Lyric s))     = readCommand $ T.pack s
 readCommand' _                                = Nothing
 
+readCommandList :: E.T -> Maybe [T.Text]
+readCommandList = readCommand'
+
 -- | Turns a string like @\"[foo bar baz]\"@ into some parsed type.
-readCommand :: (Command a) => String -> Maybe a
-readCommand s =  case dropWhile isSpace s of
-  '[' : s'    -> case dropWhile isSpace $ reverse s' of
-    ']' : s'' -> toCommand $ words $ reverse s''
-    _         -> Nothing
-  _           -> Nothing
+readCommand :: (Command a) => T.Text -> Maybe a
+readCommand s =  case T.dropWhile isSpace s of
+  (T.uncons -> Just ('[', s'))    -> case T.dropWhile isSpace $ T.reverse s' of
+    (T.uncons -> Just (']', s'')) -> toCommand $ T.words $ T.reverse s''
+    _                             -> Nothing
+  _                               -> Nothing
 
 showCommand' :: (Command a) => a -> E.T
-showCommand' = E.MetaEvent . Meta.TextEvent . showCommand
+showCommand' = E.MetaEvent . Meta.TextEvent . T.unpack . showCommand
 
 -- | Opposite of 'readCommand'.
-showCommand :: (Command a) => a -> String
-showCommand ws = "[" ++ unwords (fromCommand ws) ++ "]"
+showCommand :: (Command a) => a -> T.Text
+showCommand ws = "[" <> T.unwords (fromCommand ws) <> "]"
 
 data Trainer
   = TrainerBegin Int
@@ -85,21 +93,20 @@ data Trainer
   | TrainerEnd Int
   deriving (Eq, Ord, Show, Read)
 
-instance Command (Trainer, String) where
+instance Command (Trainer, T.Text) where
   fromCommand (t, s) = case t of
-    TrainerBegin i -> ["begin_" ++ s, "song_trainer_" ++ s ++ "_" ++ show i]
-    TrainerNorm  i -> [ s ++ "_norm", "song_trainer_" ++ s ++ "_" ++ show i]
-    TrainerEnd   i -> [  "end_" ++ s, "song_trainer_" ++ s ++ "_" ++ show i]
-  toCommand [x, stripPrefix "song_trainer_" -> Just y] = case x of
-    (stripPrefix "begin_" -> Just s) -> f s TrainerBegin
-    (stripSuffix "_norm"  -> Just s) -> f s TrainerNorm
-    (stripPrefix "end_"   -> Just s) -> f s TrainerEnd
+    TrainerBegin i -> ["begin_" <> s, "song_trainer_" <> s <> "_" <> T.pack (show i)]
+    TrainerNorm  i -> [ s <> "_norm", "song_trainer_" <> s <> "_" <> T.pack (show i)]
+    TrainerEnd   i -> [  "end_" <> s, "song_trainer_" <> s <> "_" <> T.pack (show i)]
+  toCommand [x, T.stripPrefix "song_trainer_" -> Just y] = case x of
+    (T.stripPrefix "begin_" -> Just s) -> f s TrainerBegin
+    (T.stripSuffix "_norm"  -> Just s) -> f s TrainerNorm
+    (T.stripPrefix "end_"   -> Just s) -> f s TrainerEnd
     _                                -> Nothing
-    where f s con = case stripPrefix s y of
+    where f s con = case stripPrefix (T.unpack s) (T.unpack y) of
             Just ('_' : (readMaybe -> Just i)) -> Just (con i, s)
             Just (readMaybe -> Just i)         -> Just (con i, s)
             _                                  -> Nothing
-          stripSuffix sfx s = fmap reverse $ stripPrefix (reverse sfx) (reverse s)
   toCommand _ = Nothing
 
 data Key = C | Cs | D | Ds | E | F | Fs | G | Gs | A | As | B

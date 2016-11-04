@@ -7,12 +7,15 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE OverloadedStrings #-}
 module RockBand.Drums where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import qualified Sound.MIDI.Util as U
 import qualified Sound.MIDI.File.Event as E
+import qualified Data.Text as T
+import Data.Monoid ((<>))
 
 import RockBand.FiveButton (applyStatus)
 import RockBand.Common
@@ -92,12 +95,12 @@ data Disco
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command (Difficulty, Audio, Disco) where
-  fromCommand (diff, audio, disco) = ["mix", show $ fromEnum diff, showMix audio disco]
+  fromCommand (diff, audio, disco) = ["mix", T.pack (show $ fromEnum diff), showMix audio disco]
   toCommand = reverseLookup ((,,) <$> each <*> each <*> each) fromCommand
 
 -- | e.g. turns 'D2' and 'Disco' into @\"drums2d\"@
-showMix :: Audio -> Disco -> String
-showMix audio disco = "drums" ++ show (fromEnum audio) ++ case disco of
+showMix :: Audio -> Disco -> T.Text
+showMix audio disco = "drums" <> T.pack (show $ fromEnum audio) <> case disco of
   NoDisco     -> ""
   Disco       -> "d"
   DiscoNoFlip -> "dnoflip"

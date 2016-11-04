@@ -1,6 +1,7 @@
 -- | Phase Shift's Real Keys (full keyboard) mode.
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module RockBand.PhaseShiftKeys
 ( Event(..)
 , Hand(..)
@@ -9,6 +10,7 @@ module RockBand.PhaseShiftKeys
 import           Control.Monad                    (guard)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (isJust)
+import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
 import           RockBand.Drums                   (Hand (..))
@@ -72,9 +74,9 @@ instanceMIDIEvent [t| Event |]
     , [e| \case Mood m -> unparseCommand m |]
     )
   , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
-        (t, "key") -> Just $ Trainer t
-        _          -> Nothing
+        (t, s) | s == T.pack "key" -> Just $ Trainer t
+        _                          -> Nothing
       |]
-    , [e| \case Trainer t -> RTB.singleton NNC.zero $ showCommand' (t, "key") |]
+    , [e| \case Trainer t -> RTB.singleton NNC.zero $ showCommand' (t, T.pack "key") |]
     )
   ]

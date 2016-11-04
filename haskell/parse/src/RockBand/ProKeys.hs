@@ -3,6 +3,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE OverloadedStrings #-}
 module RockBand.ProKeys where
 
 import RockBand.Common
@@ -12,6 +13,7 @@ import qualified Numeric.NonNegative.Class as NNC
 import RockBand.Parse
 import qualified Sound.MIDI.File.Event as E
 import qualified Sound.MIDI.Util as U
+import qualified Data.Text as T
 
 data Event
   = LaneShift LaneRange
@@ -138,9 +140,9 @@ instanceMIDIEvent [t| Event |] $
     , [e| \case Mood m -> unparseCommand m |]
     )
   , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
-        (t, "key") -> Just $ Trainer t
-        _          -> Nothing
+        (t, s) | s == T.pack "key" -> Just $ Trainer t
+        _                          -> Nothing
       |]
-    , [e| \case Trainer t -> RTB.singleton NNC.zero $ showCommand' (t, "key") |]
+    , [e| \case Trainer t -> RTB.singleton NNC.zero $ showCommand' (t, T.pack "key") |]
     )
   ]

@@ -21,7 +21,7 @@ import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (nub, stripPrefix)
+import           Data.List                        (nub)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, mapMaybe)
 import qualified Data.Text                        as T

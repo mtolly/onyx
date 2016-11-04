@@ -4,6 +4,8 @@ module Scripts where
 
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
+import           Data.Monoid                      ((<>))
+import qualified Data.Text                        as T
 
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -324,8 +326,8 @@ windLyrics = RTB.flatten . fmap f . RTB.collectCoincident where
     notlyrics = flip filter evts $ \case Vocals.Lyric _ -> False; _ -> True
     in case (ps, lyrics) of
       ([p], [   ]) -> Vocals.Lyric (noteName p       ) : evts
-      ([p], ["$"]) -> Vocals.Lyric (noteName p ++ "$") : notlyrics
+      ([p], ["$"]) -> Vocals.Lyric (noteName p <> "$") : notlyrics
       _            -> evts
 
-noteName :: Vocals.Pitch -> String
-noteName = concatMap (\case 's' -> "# "; c -> [c]) . show . Vocals.pitchToKey
+noteName :: Vocals.Pitch -> T.Text
+noteName = T.concatMap (\case 's' -> "# "; c -> T.singleton c) . T.pack . show . Vocals.pitchToKey

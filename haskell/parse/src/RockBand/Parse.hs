@@ -12,6 +12,7 @@ import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Message.Channel       as C
 import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util                  as U
+import qualified Data.Text as T
 
 import           RockBand.Common
 
@@ -256,21 +257,24 @@ parseCommand = U.extractFirst readCommand'
 unparseCommand :: (Command a, NNC.C t) => UnparseOne t E.T a
 unparseCommand = RTB.singleton NNC.zero . showCommand'
 
+unparseList :: (NNC.C t) => UnparseOne t E.T [T.Text]
+unparseList = unparseCommand
+
 firstEventWhich :: (NNC.C t) => (a -> Maybe b) -> ParseOne t a b
 firstEventWhich f rtb = do
   ((t, x), rtb') <- RTB.viewL rtb
   y <- f x
   return $ ((t, y), RTB.delay t rtb')
 
-commandPair :: [String] -> Q Pat -> (Q Exp, Q Exp)
+commandPair :: [T.Text] -> Q Pat -> (Q Exp, Q Exp)
 commandPair cmd pat =
   ( [e| firstEventWhich $ readCommand' >=> \x ->
-      if x == cmd then Just $(fmap patToExp pat) else Nothing
+      if map T.unpack x == cmd' then Just $(fmap patToExp pat) else Nothing
     |]
   , lamCaseE
-    [ match pat (normalB [e| unparseCommand cmd |]) []
+    [ match pat (normalB [e| unparseCommand (map T.pack cmd') |]) []
     ]
-  )
+  ) where cmd' = map T.unpack cmd
 
 boolP :: Bool -> Q Pat
 boolP True  = [p| True  |]

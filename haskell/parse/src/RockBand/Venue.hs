@@ -1,8 +1,11 @@
 -- | The RB3 (RBN2) VENUE track format.
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module RockBand.Venue where
 
+import           Data.Monoid     ((<>))
+import qualified Data.Text       as T
 import           RockBand.Common
 import           RockBand.Parse
 
@@ -95,7 +98,9 @@ data Camera
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command Camera where
-  fromCommand x = [drop (length "Camera_") (show x)]
+  fromCommand x = case T.stripPrefix "Camera_" $ T.pack $ show x of
+    Just s  -> [s]
+    Nothing -> error "panic! couldn't strip Camera_ from venue event"
   toCommand = reverseLookup each fromCommand
 
 data PostProcess
@@ -135,7 +140,9 @@ data PostProcess
 
 instance Command PostProcess where
   fromCommand PP_film_b_w = ["film_b+w.pp"]
-  fromCommand x           = [drop (length "PP_") (show x) ++ ".pp"]
+  fromCommand x           = case T.stripPrefix "PP_" $ T.pack $ show x of
+    Just s  -> [s <> ".pp"]
+    Nothing -> error "panic! couldn't strip PP_ from venue event"
   toCommand = reverseLookup each fromCommand
 
 data Lighting
@@ -167,7 +174,9 @@ data Lighting
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command Lighting where
-  fromCommand x = ["lighting", "(" ++ drop (length "Lighting_") (show x) ++ ")"]
+  fromCommand x = case T.stripPrefix "Lighting_" $ T.pack $ show x of
+    Just s  -> ["lighting", "(" <> s <> ")"]
+    Nothing -> error "panic! couldn't strip Lighting_ from venue event"
   toCommand = reverseLookup each fromCommand
 
 data Event

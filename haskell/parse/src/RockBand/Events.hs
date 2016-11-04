@@ -1,11 +1,11 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module RockBand.Events where
 
 import           Control.Monad                    ((>=>))
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (stripPrefix)
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
@@ -42,8 +42,8 @@ instanceMIDIEvent [t| Event |]
   , commandPair ["crowd_noclap"] [p| CrowdNoclap |]
   , commandPair ["crowd_clap"] [p| CrowdClap |]
   , ( [e| firstEventWhich $ readCommand' >=> \case
-        "section" : ws -> Just $ PracticeSection $ T.pack $ unwords ws
-        [s] -> PracticeSection . T.pack <$> stripPrefix "prc_" s
+        "section" : ws -> Just $ PracticeSection $ T.unwords ws
+        [s] -> PracticeSection <$> T.stripPrefix "prc_" s
         _   -> Nothing
       |]
     , [e| \case PracticeSection s -> RTB.singleton NNC.zero $ makeRB3Section s |]

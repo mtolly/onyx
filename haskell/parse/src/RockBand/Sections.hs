@@ -6,6 +6,7 @@ import           Data.Char             (isAlphaNum)
 import           Data.List             (sort)
 import           Data.List.HT          (partitionMaybe)
 import           Data.Maybe            (listToMaybe)
+import           Data.Monoid           ((<>))
 import qualified Data.Text             as T
 import           RockBand.Common       (showCommand')
 import qualified Sound.MIDI.File.Event as E
@@ -2558,8 +2559,7 @@ rbn2Sections =
 makeRB2Section :: T.Text -> E.T
 makeRB2Section t = showCommand'
   [ "section"
-  , T.unpack
-  $ T.intercalate "_"
+  , T.intercalate "_"
   $ T.words
   $ T.filter (\c -> isAlphaNum c || c == ' ')
   $ T.replace "_" " " t
@@ -2567,7 +2567,7 @@ makeRB2Section t = showCommand'
 
 makeRB3Section :: T.Text -> E.T
 makeRB3Section t = case findRBN2Section t of
-  Just t' -> showCommand' ["prc_" ++ T.unpack t']
+  Just t' -> showCommand' ["prc_" <> t']
   Nothing -> makeRB2Section t
 
 findRBN2Section :: T.Text -> Maybe T.Text

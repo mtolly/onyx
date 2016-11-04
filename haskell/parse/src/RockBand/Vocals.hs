@@ -3,6 +3,7 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 module RockBand.Vocals where
 
 import qualified Sound.MIDI.File.Event as E
@@ -10,13 +11,14 @@ import qualified Sound.MIDI.File.Event.Meta as Meta
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class as NNC
 import RockBand.Common
-import Data.Char (toLower)
 import RockBand.Parse
+import qualified Data.Text as T
+import Data.Monoid ((<>))
 
 data Event
   = LyricShift
   | Mood Mood
-  | Lyric String
+  | Lyric T.Text
   | Percussion -- ^ playable percussion note
   | PercussionSound -- ^ nonplayable percussion note, only triggers sound sample
   | PercussionAnimation PercussionType Bool
@@ -68,7 +70,7 @@ data PercussionType
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command (PercussionType, Bool) where
-  fromCommand (typ, b) = [map toLower (show typ) ++ if b then "_start" else "_end"]
+  fromCommand (typ, b) = [T.toLower (T.pack $ show typ) <> if b then "_start" else "_end"]
   toCommand = reverseLookup ((,) <$> each <*> each) fromCommand
 
 instanceMIDIEvent [t| Event |]
@@ -95,12 +97,12 @@ instanceMIDIEvent [t| Event |]
     , [e| \case PercussionAnimation t b -> unparseCommand (t, b) |]
     )
   , ( [e| firstEventWhich $ \case
-        E.MetaEvent (Meta.Lyric s) -> Just $ Lyric s
-        E.MetaEvent (Meta.TextEvent s) -> Just $ Lyric s
+        E.MetaEvent (Meta.Lyric s) -> Just $ Lyric $ T.pack s
+        E.MetaEvent (Meta.TextEvent s) -> Just $ Lyric $ T.pack s
         -- unrecognized text events are lyrics by default.
         -- but note that this must come after the mood and perc-anim parsers!
         _ -> Nothing
       |]
-    , [e| \case Lyric s -> RTB.singleton NNC.zero $ E.MetaEvent $ Meta.Lyric s |]
+    , [e| \case Lyric s -> RTB.singleton NNC.zero $ E.MetaEvent $ Meta.Lyric $ T.unpack s |]
     )
   ]

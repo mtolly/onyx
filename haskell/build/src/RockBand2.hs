@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
 module RockBand2 (convertMIDI, dryVoxAudio) where
 
 import           Config                           (Instrument (..),
@@ -22,7 +23,7 @@ import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as F
 import qualified RockBand.FiveButton              as Five
 import           RockBand.Parse                   (unparseBlip, unparseCommand,
-                                                   unparseOne)
+                                                   unparseList, unparseOne)
 import qualified RockBand.Venue                   as V
 import qualified RockBand.Vocals                  as Vox
 import           Scripts                          (trackGlue)
@@ -228,8 +229,8 @@ convertVenueInstant canMakeBlips evts = let
   lighting l = case l of
     V.Lighting_                 -> unparseCommand l
     V.Lighting_intro            -> unparseCommand V.Lighting_
-    V.Lighting_verse            -> unparseCommand ["verse"]
-    V.Lighting_chorus           -> unparseCommand ["chorus"]
+    V.Lighting_verse            -> unparseList ["verse"]
+    V.Lighting_chorus           -> unparseList ["chorus"]
     V.Lighting_manual_cool      -> unparseCommand l
     V.Lighting_manual_warm      -> unparseCommand l
     V.Lighting_dischord         -> unparseCommand l
@@ -250,7 +251,7 @@ convertVenueInstant canMakeBlips evts = let
     V.Lighting_flare_slow       -> unparseCommand l
     V.Lighting_flare_fast       -> unparseCommand l
     V.Lighting_bre              -> unparseCommand l
-  directed d = unparseCommand ["do_directed_cut", d]
+  directed d = unparseList ["do_directed_cut", d]
   behind = cut [73]
   far = cut [70, 72]
   close = cut [70, 71, 73]

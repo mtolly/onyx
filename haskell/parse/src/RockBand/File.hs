@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 module RockBand.File where
 
-import           Control.Monad                    (forM, forM_, liftM)
+import           Control.Monad                    (forM, forM_)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (partition, sortOn)

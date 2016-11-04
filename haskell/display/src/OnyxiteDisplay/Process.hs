@@ -267,7 +267,7 @@ data VocalRange
   deriving (Eq, Ord, Show)
 
 data VocalNote
-  = VocalStart String (Maybe Int)
+  = VocalStart T.Text (Maybe Int)
   | VocalEnd
   deriving (Eq, Ord, Show)
 
@@ -337,10 +337,10 @@ processVocal tmap h1 h2 h3 tonic = let
     in case (lyric, note, end) of
       -- Note: the _ in the first pattern below should be Nothing,
       -- but we allow Just () for sloppy vox charts with no gap between notes
-      (Just l, Just p, _) -> Just $ case stripSuffix "#" l <|> stripSuffix "^" l of
-        Nothing -> case stripSuffix "#$" l <|> stripSuffix "^$" l of
+      (Just l, Just p, _) -> Just $ case T.stripSuffix "#" l <|> T.stripSuffix "^" l of
+        Nothing -> case T.stripSuffix "#$" l <|> T.stripSuffix "^$" l of
           Nothing -> VocalStart l $ Just $ pitchToInt p -- non-talky
-          Just l' -> VocalStart (l' ++ "$") Nothing     -- hidden lyric talky
+          Just l' -> VocalStart (l' <> "$") Nothing     -- hidden lyric talky
         Just l' -> VocalStart l' Nothing                -- talky
       (Nothing, Nothing, Just ()) -> Just VocalEnd
       (Nothing, Nothing, Nothing) -> Nothing

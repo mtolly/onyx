@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 module RockBand.ProGuitar where
 
 import RockBand.Common
@@ -12,6 +13,8 @@ import Language.Haskell.TH
 import Data.Maybe (isJust)
 import qualified Sound.MIDI.Util as U
 import RockBand.FiveButton (StrumHOPO(..), trackState, applyStatus, guitarify)
+import qualified Data.Text as T
+import Data.Monoid ((<>))
 
 data Event
   = TrainerGtr   Trainer
@@ -34,7 +37,7 @@ data Event
   deriving (Eq, Ord, Show)
 
 data DiffEvent
-  = ChordName (Maybe String)
+  = ChordName (Maybe T.Text)
   | ForceHOPO    Bool
   | Slide        Bool SlideType
   | Arpeggio     Bool
@@ -257,13 +260,13 @@ instanceMIDIEvent [t| Event |] $ let
       , edge 127           $ \_b -> [p| Trill     $(boolP _b) |]
 
       , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
-            (t, "pg") -> Just $ TrainerGtr  t
-            (t, "pb") -> Just $ TrainerBass t
-            _          -> Nothing
+            (t, s) | s == T.pack "pg" -> Just $ TrainerGtr  t
+            (t, s) | s == T.pack "pb" -> Just $ TrainerBass t
+            _                         -> Nothing
           |]
         , [e| \case
-            TrainerGtr  t -> RTB.singleton NNC.zero $ showCommand' (t, "pg")
-            TrainerBass t -> RTB.singleton NNC.zero $ showCommand' (t, "pb")
+            TrainerGtr  t -> RTB.singleton NNC.zero $ showCommand' (t, T.pack "pg")
+            TrainerBass t -> RTB.singleton NNC.zero $ showCommand' (t, T.pack "pb")
           |]
         )
       -- TODO: "[begin_pb song_trainer_pg_1]"
@@ -273,15 +276,15 @@ instanceMIDIEvent [t| Event |] $ let
             ["chrd1"   ] -> Just $ DiffEvent Medium $ ChordName Nothing
             ["chrd2"   ] -> Just $ DiffEvent Hard   $ ChordName Nothing
             ["chrd3"   ] -> Just $ DiffEvent Expert $ ChordName Nothing
-            "chrd0" : ws -> Just $ DiffEvent Easy   $ ChordName $ Just $ unwords ws
-            "chrd1" : ws -> Just $ DiffEvent Medium $ ChordName $ Just $ unwords ws
-            "chrd2" : ws -> Just $ DiffEvent Hard   $ ChordName $ Just $ unwords ws
-            "chrd3" : ws -> Just $ DiffEvent Expert $ ChordName $ Just $ unwords ws
+            "chrd0" : ws -> Just $ DiffEvent Easy   $ ChordName $ Just $ T.unwords ws
+            "chrd1" : ws -> Just $ DiffEvent Medium $ ChordName $ Just $ T.unwords ws
+            "chrd2" : ws -> Just $ DiffEvent Hard   $ ChordName $ Just $ T.unwords ws
+            "chrd3" : ws -> Just $ DiffEvent Expert $ ChordName $ Just $ T.unwords ws
             _            -> Nothing
           |]
         , [e| \case
             DiffEvent diff (ChordName s) -> RTB.singleton 0 $ showCommand' $ let
-              x = "chrd" ++ show (fromEnum diff)
+              x = "chrd" <> T.pack (show $ fromEnum diff)
               in case s of
                 Nothing  -> [x]
                 Just str -> [x, str]

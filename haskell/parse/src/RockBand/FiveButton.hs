@@ -1,6 +1,7 @@
 -- | Parser used for all the GRYBO instruments (basic guitar, bass, and keys).
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE OverloadedStrings #-}
 module RockBand.FiveButton where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -12,6 +13,7 @@ import qualified Sound.MIDI.Util as U
 import qualified Data.Set as Set
 import Data.List (sort)
 import Data.Bifunctor (first)
+import qualified Data.Text as T
 
 data Color = Green | Red | Yellow | Blue | Orange
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -81,7 +83,7 @@ data HandMap
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command HandMap where
-  fromCommand hm = ["map", show hm]
+  fromCommand hm = ["map", T.pack $ show hm]
   toCommand = reverseLookup each fromCommand
 
 -- | Controls the strumming animation for a bassist.
@@ -92,7 +94,7 @@ data StrumMap
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command StrumMap where
-  fromCommand sm = ["map", show sm]
+  fromCommand sm = ["map", T.pack $ show sm]
   toCommand = reverseLookup each fromCommand
 
 instanceMIDIEvent [t| Event |] $

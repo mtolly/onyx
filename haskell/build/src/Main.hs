@@ -84,13 +84,13 @@ import qualified Development.Shake                     as Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
 import           RockBand.Common                       (Difficulty (..),
-                                                        readCommand')
+                                                        readCommandList)
 import qualified RockBand.Drums                        as RBDrums
 import qualified RockBand.Events                       as Events
 import qualified RockBand.File                         as RBFile
 import qualified RockBand.FiveButton                   as RBFive
 import           RockBand.Parse                        (unparseBlip,
-                                                        unparseCommand)
+                                                        unparseList)
 import qualified RockBand.ProGuitar                    as ProGtr
 import qualified RockBand.ProGuitar.Play               as PGPlay
 import qualified RockBand.Vocals                       as RBVox
@@ -1839,16 +1839,13 @@ main = do
                 -- add back practice sections
                 sects <- getRealSections
                 let modifyTrack t = if U.trackName t == Just "EVENTS"
-                      then RTB.merge (fmap makeRB2Section sects) $ flip RTB.filter t $ \e -> let
-                        maybeCmd :: Maybe [String]
-                        maybeCmd = readCommand' e
-                        in case maybeCmd of
-                          Just ["section", _] -> False
-                          _                   -> True
+                      then RTB.merge (fmap makeRB2Section sects) $ flip RTB.filter t $ \e -> case readCommandList e of
+                        Just ["section", _] -> False
+                        _                   -> True
                       else t
                     defaultVenue = U.setTrackName "VENUE" $ U.trackJoin $ RTB.flatten $ RTB.singleton 0
-                      [ unparseCommand (["lighting", "()"] :: [String])
-                      , unparseCommand (["verse"] :: [String])
+                      [ unparseList ["lighting", "()"]
+                      , unparseList ["verse"]
                       , unparseBlip 60
                       , unparseBlip 61
                       , unparseBlip 62
