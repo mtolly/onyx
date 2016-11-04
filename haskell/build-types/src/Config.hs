@@ -116,7 +116,7 @@ fromJammitInstrument = \case
   J.Vocal    -> Vocal
 
 instance TraceJSON Instrument where
-  traceJSON = traceJSON >>= \s -> case s :: String of
+  traceJSON = traceJSON >>= \s -> case s :: T.Text of
     "guitar" -> return Guitar
     "bass"   -> return Bass
     "drums"  -> return Drums
@@ -149,9 +149,9 @@ instance TraceJSON KeysRB2 where
 
 instance A.ToJSON KeysRB2 where
   toJSON = \case
-    NoKeys -> A.Null
+    NoKeys     -> A.Null
     KeysGuitar -> A.String "guitar"
-    KeysBass -> A.String "bass"
+    KeysBass   -> A.String "bass"
 
 -- | Options that affect gameplay.
 jsonRecord "Options" eosr $ do
@@ -178,7 +178,7 @@ data AudioFile
     { _md5      :: Maybe T.Text
     , _frames   :: Maybe Integer
     , _filePath :: Maybe FilePath
-    , _commands :: [String]
+    , _commands :: [T.Text]
     , _rate     :: Maybe Int
     , _channels :: Int
     }
@@ -487,7 +487,7 @@ instance A.ToJSON AudioInput where
     JammitSelect (J.Only p) t -> A.object ["only" .= [A.toJSON $ jammitPartToTitle p, A.toJSON t]]
     JammitSelect (J.Without i) t -> A.object ["without" .= [A.toJSON $ fromJammitInstrument i, A.toJSON t]]
 
-jammitPartToTitle :: J.Part -> String
+jammitPartToTitle :: J.Part -> T.Text
 jammitPartToTitle = \case
   J.PartGuitar1 -> "Guitar 1"
   J.PartGuitar2 -> "Guitar 2"

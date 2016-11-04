@@ -2,12 +2,10 @@
 {-# LANGUAGE CPP #-}
 module Data.DTA.Serialize.RB3 where
 
-#if __GLASGOW_HASKELL__ < 710
-import Control.Applicative ((<$>), (<*>))
-#endif
 import Control.Monad ((>=>))
 
 import qualified Data.Map as Map
+import qualified Data.Text as T
 
 import Data.DTA
 import Data.DTA.Serialize
@@ -17,11 +15,11 @@ import Data.DTA.Serialize.Magma (Gender(..))
 require File.expand_path(File.dirname(__FILE__) + '/make_data')
 %>
 
-type Path = Either String Keyword
+type Path = Either T.Text Keyword
 
 <%= makeRecord('SongPackage', [
-  ['name'               , nil, 'String'                   ],
-  ['artist'             , nil, 'String'                   ],
+  ['name'               , nil, 'T.Text'                   ],
+  ['artist'             , nil, 'T.Text'                   ],
   ['master'             , nil, 'Bool'                     ],
   ['song_id'            , nil, 'Either Integer Keyword'   ],
   ['song'               , nil, 'Song'                     ],
@@ -44,7 +42,7 @@ type Path = Either String Keyword
   ['short_version'      , nil, maybe('Integer')           ],
   ['year_released'      , nil, 'Integer'                  ],
   ['album_art'          , nil, maybe('Bool')              ],
-  ['album_name'         , nil, maybe('String')            ],
+  ['album_name'         , nil, maybe('T.Text')            ],
   ['album_track_number' , nil, maybe('Integer')           ],
   ['vocal_tonic_note'   , nil, maybe('Pitch')             ],
   ['song_tonality'      , nil, maybe('Tonality')          ],
@@ -88,7 +86,7 @@ type Path = Either String Keyword
   ]) %>
 
 <%= makeRecord('Song', [
-  ['name'              , 'songName', 'String'                   ],
+  ['name'              , 'songName', 'T.Text'                   ],
   ['tracks_count'      , nil       , maybe('InParens [Integer]')],
   ['tracks'            , nil       , 'InParens (Dict (Either Integer (InParens [Integer])))' ],
   ['vocal_parts'       , nil       , maybe('Integer')           ],
@@ -102,7 +100,7 @@ type Path = Either String Keyword
   ['mute_volume'       , nil       , maybe('Integer')           ],
   ['mute_volume_vocals', nil       , maybe('Integer')           ],
   # seen in magma v1 / rb2:
-  ['midi_file'         , nil       , maybe('String')            ],
+  ['midi_file'         , nil       , maybe('T.Text')            ],
   ]) %>
 
 <%= makeRecord('DrumSounds', [

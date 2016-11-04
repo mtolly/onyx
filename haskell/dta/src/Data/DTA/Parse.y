@@ -3,11 +3,12 @@
 module Data.DTA.Parse (parse) where
 
 import Data.DTA.Base
+import qualified Data.Text as T
 import qualified Data.DTA.Lex as L
 }
 
 %name parse
-%tokentype { (L.AlexPosn, L.Token) }
+%tokentype { (L.AlexPosn, L.Token T.Text) }
 %error { parseError }
 
 %token
@@ -61,7 +62,7 @@ Chunk : int { Int $1 }
 
 -- | If instead of this error, "Internal Happy error" is sometimes printed, make
 -- sure you are using Happy 1.18.7 or later.
-parseError :: [(L.AlexPosn, L.Token)] -> a
+parseError :: [(L.AlexPosn, L.Token T.Text)] -> a
 parseError [] = error "Parse error at EOF"
 parseError ((L.AlexPn _ ln col, tok) : _) = error $
   "Parse error at " ++ show ln ++ ":" ++ show col ++ ", token " ++ show tok

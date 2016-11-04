@@ -4,6 +4,7 @@
 module Data.DTA.Lex (scan, Token(..), AlexPosn(..)) where
 
 import Data.Int (Int32)
+import qualified Data.Text as T
 }
 
 %wrapper "posn"
@@ -22,18 +23,18 @@ $white+ ;
 \-? $digit+ (\. $digit+)? (e \-? $digit+)? { \pn str -> (pn, Float $ read str) }
 
 -- Variable names.
-\$ ($alpha | $digit | _)+ { \pn str -> (pn, Var $ tail str) }
+\$ ($alpha | $digit | _)+ { \pn str -> (pn, Var $ T.pack $ tail str) }
 
 -- This reserved word needs to come before the general keyword rule.
 "kDataUnhandled" { \pn _ -> (pn, Unhandled) }
 -- Raw keywords. Note: these can start with digits, like "3sand7s", as long as
 -- they also have letters in them.
-($alpha | $digit | _ | \/ | \. | \-)+ { \pn str -> (pn, Key str) }
+($alpha | $digit | _ | \/ | \. | \-)+ { \pn str -> (pn, Key $ T.pack str) }
 -- Quoted keywords.
-' ([^'] | \\')* ' { \pn str -> (pn, Key $ readKey str) }
+' ([^'] | \\')* ' { \pn str -> (pn, Key $ T.pack $ readKey str) }
 
 -- Quoted strings.
-\" [^\"]* \" { \pn str -> (pn, String $ readString str) }
+\" [^\"]* \" { \pn str -> (pn, String $ T.pack $ readString str) }
 
 -- Preprocessor commands.
 \#ifdef { \pn _ -> (pn, IfDef) }
@@ -54,11 +55,11 @@ $white+ ;
 
 {
 
-data Token
+data Token s
   = Int Int32
   | Float Float
-  | Var String
-  | Key String
+  | Var s
+  | Key s
   | Unhandled
   | IfDef
   | Else
@@ -67,7 +68,7 @@ data Token
   | RParen
   | LBrace
   | RBrace
-  | String String
+  | String s
   | LBracket
   | RBracket
   | Define
@@ -92,7 +93,7 @@ readString = read . go where
   go ""                  = ""
   go (c : rest)          = c : go rest
 
-scan :: String -> [(AlexPosn, Token)]
-scan = alexScanTokens
+scan :: T.Text -> [(AlexPosn, Token T.Text)]
+scan = alexScanTokens . T.unpack
 
 }

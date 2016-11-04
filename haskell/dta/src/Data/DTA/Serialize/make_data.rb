@@ -117,7 +117,7 @@ def makeEnum(name, fields, cons = 'Key')
   to_instance = "instance ToChunks #{name} where { #{to_lines.join('; ')} }"
 
   from_lines = fields.map { |f| "fromChunks [#{cons} #{f[0].inspect}] = Right #{f[1]}" }
-  from_lines << "fromChunks cs = Left $ \"Couldn't read as #{name}: \" ++ show cs"
+  from_lines << "fromChunks cs = Left $ T.pack $ \"Couldn't read as #{name}: \" ++ show cs"
   from_instance = "instance FromChunks #{name} where { #{from_lines.join('; ')} }"
 
   [data, to_instance, from_instance].join("\n\n")

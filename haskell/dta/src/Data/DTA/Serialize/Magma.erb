@@ -2,12 +2,10 @@
 {-# LANGUAGE CPP #-}
 module Data.DTA.Serialize.Magma where
 
-#if __GLASGOW_HASKELL__ < 710
-import Control.Applicative ((<$>), (<*>))
-#endif
 import Control.Monad ((>=>))
 
 import qualified Data.Map as Map
+import qualified Data.Text as T
 
 import Data.DTA
 import Data.DTA.Serialize
@@ -21,12 +19,12 @@ require File.expand_path(File.dirname(__FILE__) + '/make_data')
   ]) %>
 
 <%= makeRecord('Project', [
-  ['tool_version'    , nil, 'String'   ],
+  ['tool_version'    , nil, 'T.Text'   ],
   ['project_version' , nil, 'Integer'  ],
   ['metadata'        , nil, 'Metadata' ],
   ['gamedata'        , nil, 'Gamedata' ],
   ['languages'       , nil, 'Languages'],
-  ['destination_file', nil, 'String'   ],
+  ['destination_file', nil, 'T.Text'   ],
   ['midi'            , nil, 'Midi'     ],
   ['dry_vox'         , nil, 'DryVox'   ],
   ['album_art'       , nil, 'AlbumArt' ],
@@ -34,7 +32,7 @@ require File.expand_path(File.dirname(__FILE__) + '/make_data')
   ]) %>
 
 <%= makeRecord('AlbumArt', [
-  ['file', 'albumArtFile', 'String'],
+  ['file', 'albumArtFile', 'T.Text'],
   ]) %>
 
 <%= makeRecord('Languages', [
@@ -75,14 +73,14 @@ require File.expand_path(File.dirname(__FILE__) + '/make_data')
   ]) %>
 
 <%= makeRecord('Metadata', [
-  ['song_name'    , nil, 'String' ],
-  ['artist_name'  , nil, 'String' ],
+  ['song_name'    , nil, 'T.Text' ],
+  ['artist_name'  , nil, 'T.Text' ],
   ['genre'        , nil, 'Keyword'],
   ['sub_genre'    , nil, 'Keyword'],
   ['year_released', nil, 'Integer'],
-  ['album_name'   , nil, 'String' ],
-  ['author'       , nil, 'String' ],
-  ['release_label', nil, 'String' ],
+  ['album_name'   , nil, 'T.Text' ],
+  ['author'       , nil, 'T.Text' ],
+  ['release_label', nil, 'T.Text' ],
   ['country'      , nil, 'Keyword'],
   ['price'        , nil, 'Integer'],
   ['track_number' , nil, 'Integer'],
@@ -90,8 +88,8 @@ require File.expand_path(File.dirname(__FILE__) + '/make_data')
   ]) %>
 
 <%= makeRecord('Midi', [
-  ['file'         , 'midiFile', 'String'],
-  ['autogen_theme', nil       , 'Either AutogenTheme String'],
+  ['file'         , 'midiFile', 'T.Text'],
+  ['autogen_theme', nil       , 'Either AutogenTheme T.Text'],
   ]) %>
 
 <%= makeEnum('AutogenTheme', [
@@ -109,7 +107,7 @@ require File.expand_path(File.dirname(__FILE__) + '/make_data')
   ], 'String') %>
 
 <%= makeRecord('DryVox', [
-  ['file'               , 'dryVoxFileRB2', maybe('String')],
+  ['file'               , 'dryVoxFileRB2', maybe('T.Text')],
   ['part0'              , nil, 'DryVoxPart'],
   ['part1'              , nil, 'DryVoxPart'],
   ['part2'              , nil, 'DryVoxPart'],
@@ -117,7 +115,7 @@ require File.expand_path(File.dirname(__FILE__) + '/make_data')
   ]) %>
 
 <%= makeRecord('DryVoxPart', [
-  ['file'   , 'dryVoxFile'   , 'String'],
+  ['file'   , 'dryVoxFile'   , 'T.Text'],
   ['enabled', 'dryVoxEnabled', 'Bool'  ],
   ]) %>
 
@@ -145,5 +143,5 @@ require File.expand_path(File.dirname(__FILE__) + '/make_data')
   ['channels', nil           , 'Integer'       ],
   ['pan'     , nil           , '[Float]'       ],
   ['vol'     , nil           , '[Float]'       ],
-  ['file'    , 'audioFile'   , 'String' ],
+  ['file'    , 'audioFile'   , 'T.Text'        ],
   ]) %>

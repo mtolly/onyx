@@ -2,71 +2,71 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE ViewPatterns               #-}
 module Data.DTA.Serialize where
 
 import           Control.Applicative (liftA2)
 import           Data.DTA.Base
-import qualified Data.Foldable       as F
 import qualified Data.Map            as Map
-import qualified Data.Traversable    as T
+import qualified Data.Text           as T
 
-unserialize :: (FromChunks a) => DTA String -> Either String a
+unserialize :: (FromChunks a) => DTA T.Text -> Either T.Text a
 unserialize (DTA _ (Tree _ cs)) = fromChunks cs
 
-serialize :: (ToChunks a) => a -> DTA String
+serialize :: (ToChunks a) => a -> DTA T.Text
 serialize = DTA 0 . Tree 0 . toChunks
 
 -- | Values which are stored as one or many chunks. Scalar types become one
 -- chunk, while lists and record types can make more.
 class ToChunks a where
-  toChunks :: a -> [Chunk String]
-  listToChunks :: [a] -> [Chunk String]
+  toChunks :: a -> [Chunk T.Text]
+  listToChunks :: [a] -> [Chunk T.Text]
   listToChunks = concatMap toChunks
 
 -- | Values which can be read from one or many chunks.
 class FromChunks a where
-  fromChunks :: [Chunk String] -> Either String a
-  listFromChunks :: [Chunk String] -> Either String [a]
+  fromChunks :: [Chunk T.Text] -> Either T.Text a
+  listFromChunks :: [Chunk T.Text] -> Either T.Text [a]
   listFromChunks = mapM $ \x -> fromChunks [x]
 
-instance ToChunks (DTA String) where
+instance ToChunks (DTA T.Text) where
   toChunks = treeChunks . topTree
 
-instance FromChunks (DTA String) where
+instance FromChunks (DTA T.Text) where
   fromChunks = Right . DTA 0 . Tree 0
 
-instance ToChunks (Chunk String) where
+instance ToChunks (Chunk T.Text) where
   toChunks x = [x]
 
-instance FromChunks (Chunk String) where
+instance FromChunks (Chunk T.Text) where
   fromChunks [x] = Right x
-  fromChunks cs  = Left $ "Expected 1 chunk, got: " ++ show cs
+  fromChunks cs  = Left $ T.pack $ "Expected 1 chunk, got: " ++ show cs
 
 -- | A key-value structure which is stored as a sequence of @(tag rest...)@
 -- chunks.
-newtype Dict a = Dict { fromDict :: Map.Map String a }
-  deriving (Eq, Ord, Show, Read, Functor, F.Foldable, T.Traversable)
+newtype Dict a = Dict { fromDict :: Map.Map T.Text a }
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
 instance (ToChunks a) => ToChunks (Dict a) where
   toChunks = makeDict . fmap toChunks
 
 instance (FromChunks a) => FromChunks (Dict a) where
-  fromChunks cs = getDict cs >>= T.mapM fromChunks
+  fromChunks cs = getDict cs >>= mapM fromChunks
 
-getDict :: [Chunk String] -> Either String (Dict [Chunk String])
+getDict :: [Chunk T.Text] -> Either T.Text (Dict [Chunk T.Text])
 getDict cs = let
   toPair c = case c of
     Parens (Tree _ (Key k : rest)) -> Right (k, rest)
-    _ -> Left $ "Expected (tag rest...), got: " ++ show c
+    _ -> Left $ T.pack $ "Expected (tag rest...), got: " ++ show c
   in fmap (Dict . Map.fromList) $ mapM toPair cs
 
-makeDict :: Dict [Chunk String] -> [Chunk String]
+makeDict :: Dict [Chunk T.Text] -> [Chunk T.Text]
 makeDict (Dict m) =
   [ Parens $ Tree 0 $ Key k : v | (k, v) <- Map.toList m ]
 
-dictLookup :: String -> Dict v -> Either String v
+dictLookup :: T.Text -> Dict v -> Either T.Text v
 dictLookup k (Dict m) = case Map.lookup k m of
-  Nothing -> Left $ "Couldn't find key " ++ show k
+  Nothing -> Left $ T.pack $ "Couldn't find key " ++ show k
   Just v  -> Right v
 
 -- | A value which is DTA-stored as a parenthesized subtree around the normal
@@ -79,7 +79,7 @@ instance (ToChunks a) => ToChunks (InParens a) where
 
 instance (FromChunks a) => FromChunks (InParens a) where
   fromChunks [Parens (Tree _ cs)] = fmap InParens $ fromChunks cs
-  fromChunks cs = Left $ "Couldn't read as InParens: " ++ show cs
+  fromChunks cs = Left $ T.pack $ "Couldn't read as InParens: " ++ show cs
 
 -- | An integer 0 or 1.
 instance ToChunks Bool where
@@ -92,14 +92,14 @@ instance FromChunks Bool where
   fromChunks [Int 0      ] = Right False
   fromChunks [Key "TRUE" ] = Right True
   fromChunks [Key "FALSE"] = Right False
-  fromChunks cs            = Left $ "Couldn't read as Bool: " ++ show cs
+  fromChunks cs            = Left $ T.pack $ "Couldn't read as Bool: " ++ show cs
 
 instance ToChunks Integer where
   toChunks i = [Int $ fromIntegral i]
 
 instance FromChunks Integer where
   fromChunks [Int i] = Right $ fromIntegral i
-  fromChunks cs      = Left $ "Couldn't read as Integer: " ++ show cs
+  fromChunks cs      = Left $ T.pack $ "Couldn't read as Integer: " ++ show cs
 
 instance ToChunks Float where
   toChunks f = [Float f]
@@ -107,19 +107,28 @@ instance ToChunks Float where
 instance FromChunks Float where
   fromChunks [Int   i] = Right $ fromIntegral i
   fromChunks [Float f] = Right f
-  fromChunks cs        = Left $ "Couldn't read as Float: " ++ show cs
+  fromChunks cs        = Left $ T.pack $ "Couldn't read as Float: " ++ show cs
 
 -- | A String, not a 'Key'.
 instance ToChunks Char where
-  toChunks c = [String [c]]
-  listToChunks s = [String s]
+  toChunks c = [String $ T.singleton c]
+  listToChunks s = [String $ T.pack s]
 
 -- | A String, not a 'Key'.
 instance FromChunks Char where
-  fromChunks [String [c]] = Right c
-  fromChunks cs           = Left $ "Couldn't read as Char: " ++ show cs
-  listFromChunks [String s] = Right s
-  listFromChunks cs = Left $ "Couldn't read as ByteString: " ++ show cs
+  fromChunks [String (T.unpack -> [c])] = Right c
+  fromChunks cs                         = Left $ T.pack $ "Couldn't read as Char: " ++ show cs
+  listFromChunks [String s] = Right $ T.unpack s
+  listFromChunks cs         = Left $ T.pack $ "Couldn't read as String: " ++ show cs
+
+-- | A String, not a 'Key'.
+instance ToChunks T.Text where
+  toChunks t = [String t]
+
+-- | A String, not a 'Key'.
+instance FromChunks T.Text where
+  fromChunks [String t] = Right t
+  fromChunks cs         = Left $ T.pack $ "Couldn't read as Text: " ++ show cs
 
 -- | Stored as two chunks. Each subtype should be a single chunk.
 instance (ToChunks a, ToChunks b) => ToChunks (a, b) where
@@ -128,7 +137,7 @@ instance (ToChunks a, ToChunks b) => ToChunks (a, b) where
 -- | Stored as two chunks. Each subtype should be a single chunk.
 instance (FromChunks a, FromChunks b) => FromChunks (a, b) where
   fromChunks [x, y] = liftA2 (,) (fromChunks [x]) (fromChunks [y])
-  fromChunks cs     = Left $ "Couldn't read as pair: " ++ show cs
+  fromChunks cs     = Left $ T.pack $ "Couldn't read as pair: " ++ show cs
 
 -- | Represents 'Nothing' with an empty chunk list.
 instance (ToChunks a) => ToChunks (Maybe a) where
@@ -148,8 +157,8 @@ instance (ToChunks a) => ToChunks [a] where
 instance (FromChunks a) => FromChunks [a] where
   fromChunks = listFromChunks
 
--- | Stored as a 'Key', unlike the 'String' instance which is a String.
-newtype Keyword = Keyword { fromKeyword :: String }
+-- | Stored as a 'Key', unlike the 'T.Text' instance which is a String.
+newtype Keyword = Keyword { fromKeyword :: T.Text }
   deriving (Eq, Ord, Show, Read)
 
 instance ToChunks Keyword where
@@ -157,7 +166,7 @@ instance ToChunks Keyword where
 
 instance FromChunks Keyword where
   fromChunks [Key k] = Right $ Keyword k
-  fromChunks cs      = Left $ "Couldn't read as Keyword: " ++ show cs
+  fromChunks cs      = Left $ T.pack $ "Couldn't read as Keyword: " ++ show cs
 
 -- | Uses whichever 'toChunks' is applicable. Does not tag which type is used.
 instance (ToChunks a, ToChunks b) => ToChunks (Either a b) where
@@ -168,4 +177,4 @@ instance (FromChunks a, FromChunks b) => FromChunks (Either a b) where
   fromChunks cs = case (fromChunks cs, fromChunks cs) of
     (Right l, _      ) -> Right $ Left l
     (_      , Right r) -> Right $ Right r
-    (Left  _, Left  _) -> Left $ "Couldn't read as Either: " ++ show cs
+    (Left  _, Left  _) -> Left $ T.pack $ "Couldn't read as Either: " ++ show cs

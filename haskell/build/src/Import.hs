@@ -265,23 +265,22 @@ importFoF krb2 src dest = do
     , _published = True
     }
 
-determine2xBass :: String -> (String, Bool)
-determine2xBass s = case stripSuffix " (2x Bass Pedal)" s <|> stripSuffix " (2X Bass Pedal)" s of
+determine2xBass :: T.Text -> (T.Text, Bool)
+determine2xBass s = case T.stripSuffix " (2x Bass Pedal)" s <|> T.stripSuffix " (2X Bass Pedal)" s of
   Nothing -> (s , False)
   Just s' -> (s', True )
-  where stripSuffix a b = reverse <$> stripPrefix (reverse a) (reverse b)
 
 importSTFS :: KeysRB2 -> FilePath -> FilePath -> IO ()
 importSTFS krb2 file dir = withSystemTempDirectory "onyx_con" $ \temp -> do
   extractSTFS file temp
   DTASingle _ pkg comments <- readDTASingle $ temp </> "songs/songs.dta"
-  let c3Title = fromMaybe (T.pack $ D.name pkg) $ c3dtaSong comments
+  let c3Title = fromMaybe (D.name pkg) $ c3dtaSong comments
       (title, is2x) = case c3dta2xBass comments of
-        Just b  -> (fst $ determine2xBass $ T.unpack c3Title, b)
-        Nothing -> determine2xBass $ T.unpack c3Title
+        Just b  -> (fst $ determine2xBass c3Title, b)
+        Nothing -> determine2xBass c3Title
       meta = def
         { _author = c3dtaAuthoredBy comments
-        , _title = Just $ T.pack title
+        , _title = Just title
         , _convert = fromMaybe (_convert def) $ c3dtaConvert comments
         , _rhythmKeys = fromMaybe (_rhythmKeys def) $ c3dtaRhythmKeys comments
         , _rhythmBass = fromMaybe (_rhythmBass def) $ c3dtaRhythmBass comments
@@ -291,7 +290,7 @@ importSTFS krb2 file dir = withSystemTempDirectory "onyx_con" $ \temp -> do
         }
       karaoke = fromMaybe False $ c3dtaKaraoke comments
       multitrack = fromMaybe False $ c3dtaMultitrack comments
-      base = D.songName $ D.song pkg
+      base = T.unpack $ D.songName $ D.song pkg
       -- Note: the base path does NOT necessarily have to be songs/foo/foo
       -- where foo is the top key of songs.dta. foo can be different!
       -- e.g. C3's "Escape from the City" has a top key 'SonicAdvCityEscape2x'
@@ -336,8 +335,8 @@ importRBA krb2 file dir = withSystemTempDirectory "onyx_rba" $ \temp -> do
       (title, is2x) = determine2xBass $ D.name pkg
       -- TODO: import more stuff from the extra dta
       meta = def
-        { _author = fmap T.pack author
-        , _title = Just $ T.pack title
+        { _author = author
+        , _title = Just title
         }
   importRB3 krb2 pkg
     meta
@@ -371,18 +370,18 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
         return HardRockKit
   Y.encodeFile (dir </> "song.yml") SongYaml
     { _metadata = Metadata
-      { _title        = _title meta <|> Just (T.pack $ D.name pkg)
-      , _artist       = Just $ T.pack $ D.artist pkg
-      , _album        = Just $ T.pack $ fromMaybe "Unknown Album" $ D.albumName pkg
-      , _genre        = Just $ T.pack $ D.fromKeyword $ D.genre pkg
-      , _subgenre     = D.subGenre pkg >>= T.stripPrefix "subgenre_" . T.pack . D.fromKeyword
+      { _title        = _title meta <|> Just (D.name pkg)
+      , _artist       = Just $ D.artist pkg
+      , _album        = Just $ fromMaybe "Unknown Album" $ D.albumName pkg
+      , _genre        = Just $ D.fromKeyword $ D.genre pkg
+      , _subgenre     = D.subGenre pkg >>= T.stripPrefix "subgenre_" . D.fromKeyword
       , _year         = Just $ fromIntegral $ D.yearReleased pkg
       , _fileAlbumArt = Just coverName
       , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
       , _comments     = []
       , _vocalGender  = Just $ D.vocalGender pkg
       , _difficulty   = let
-        diffMap :: Map.Map String Integer
+        diffMap :: Map.Map T.Text Integer
         diffMap = D.fromDict $ D.rank pkg
         in Difficulties
           { _difficultyDrums     = Rank <$> Map.lookup "drum" diffMap
@@ -405,7 +404,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       , _previewEnd   = Just $ PreviewSeconds $ fromIntegral (snd $ D.preview pkg) / 1000
       , _songID       = fmap JSONEither $ case D.songId pkg of
         Left  i -> guard (i /= 0) >> Just (Left i)
-        Right k -> Just $ Right $ T.pack $ D.fromKeyword k
+        Right k -> Just $ Right $ D.fromKeyword k
       , _songID2x     = Nothing
       , _languages    = _languages meta
       , _convert      = _convert meta
@@ -425,8 +424,8 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       }
     , _audio = HM.empty
     , _jammit = HM.empty
-    , _plans = HM.singleton (T.pack "mogg") $ let
-      instChans :: Map.Map String [Integer]
+    , _plans = HM.singleton "mogg" $ let
+      instChans :: Map.Map T.Text [Integer]
       instChans = fmap chanList $ D.fromDict $ D.fromInParens $ D.tracks $ D.song pkg
       chanList :: Either Integer (D.InParens [Integer]) -> [Integer]
       chanList (Left n)                = [n]
@@ -454,7 +453,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
         , _multitrack = multitrack
         }
     , _instruments = let
-      diffMap :: Map.Map String Integer
+      diffMap :: Map.Map T.Text Integer
       diffMap = D.fromDict $ D.rank pkg
       in Instruments
         { _hasDrums     = maybe False (/= 0) $ Map.lookup "drum" diffMap

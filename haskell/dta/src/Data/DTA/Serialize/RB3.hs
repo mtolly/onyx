@@ -2,12 +2,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Data.DTA.Serialize.RB3 where
 
-#if __GLASGOW_HASKELL__ < 710
-import           Control.Applicative      ((<$>), (<*>))
-#endif
 import           Control.Monad            ((>=>))
 
 import qualified Data.Map                 as Map
+import qualified Data.Text                as T
 
 import           Data.DTA
 import           Data.DTA.Serialize
@@ -15,9 +13,9 @@ import           Data.DTA.Serialize.Magma (Gender (..))
 
 
 
-type Path = Either String Keyword
+type Path = Either T.Text Keyword
 
-data SongPackage = SongPackage { name :: String, artist :: String, master :: Bool, songId :: Either Integer Keyword, song :: Song, bank :: Maybe (Path), drumBank :: Maybe (Path), animTempo :: Either AnimTempo Integer, bandFailCue :: Maybe (Path), songScrollSpeed :: Integer, preview :: (Integer, Integer), songLength :: Integer, rank :: Dict Integer, solo :: Maybe (InParens [Keyword]), format :: Integer, version :: Integer, gameOrigin :: Keyword, rating :: Integer, genre :: Keyword, subGenre :: Maybe (Keyword), vocalGender :: Gender, shortVersion :: Maybe (Integer), yearReleased :: Integer, albumArt :: Maybe (Bool), albumName :: Maybe (String), albumTrackNumber :: Maybe (Integer), vocalTonicNote :: Maybe (Pitch), songTonality :: Maybe (Tonality), songKey :: Maybe (Pitch), tuningOffsetCents :: Maybe (Float), realGuitarTuning :: Maybe (InParens [Integer]), realBassTuning :: Maybe (InParens [Integer]), guidePitchVolume :: Maybe (Float), encoding :: Maybe (Keyword), context :: Maybe (Integer), decade :: Maybe (Keyword), downloaded :: Maybe (Bool), basePoints :: Maybe (Integer) } deriving (Eq, Ord, Read, Show)
+data SongPackage = SongPackage { name :: T.Text, artist :: T.Text, master :: Bool, songId :: Either Integer Keyword, song :: Song, bank :: Maybe (Path), drumBank :: Maybe (Path), animTempo :: Either AnimTempo Integer, bandFailCue :: Maybe (Path), songScrollSpeed :: Integer, preview :: (Integer, Integer), songLength :: Integer, rank :: Dict Integer, solo :: Maybe (InParens [Keyword]), format :: Integer, version :: Integer, gameOrigin :: Keyword, rating :: Integer, genre :: Keyword, subGenre :: Maybe (Keyword), vocalGender :: Gender, shortVersion :: Maybe (Integer), yearReleased :: Integer, albumArt :: Maybe (Bool), albumName :: Maybe (T.Text), albumTrackNumber :: Maybe (Integer), vocalTonicNote :: Maybe (Pitch), songTonality :: Maybe (Tonality), songKey :: Maybe (Pitch), tuningOffsetCents :: Maybe (Float), realGuitarTuning :: Maybe (InParens [Integer]), realBassTuning :: Maybe (InParens [Integer]), guidePitchVolume :: Maybe (Float), encoding :: Maybe (Keyword), context :: Maybe (Integer), decade :: Maybe (Keyword), downloaded :: Maybe (Bool), basePoints :: Maybe (Integer) } deriving (Eq, Ord, Read, Show)
 
 instance ToChunks SongPackage where { toChunks x = makeDict $ Dict $ Map.fromList $ [("name", toChunks $ name x)] ++ [("artist", toChunks $ artist x)] ++ [("master", toChunks $ master x)] ++ [("song_id", toChunks $ songId x)] ++ [("song", toChunks $ song x)] ++ (case bank x of { Nothing -> []; Just v -> [("bank", toChunks v)] }) ++ (case drumBank x of { Nothing -> []; Just v -> [("drum_bank", toChunks v)] }) ++ [("anim_tempo", toChunks $ animTempo x)] ++ (case bandFailCue x of { Nothing -> []; Just v -> [("band_fail_cue", toChunks v)] }) ++ [("song_scroll_speed", toChunks $ songScrollSpeed x)] ++ [("preview", toChunks $ preview x)] ++ [("song_length", toChunks $ songLength x)] ++ [("rank", toChunks $ rank x)] ++ (case solo x of { Nothing -> []; Just v -> [("solo", toChunks v)] }) ++ [("format", toChunks $ format x)] ++ [("version", toChunks $ version x)] ++ [("game_origin", toChunks $ gameOrigin x)] ++ [("rating", toChunks $ rating x)] ++ [("genre", toChunks $ genre x)] ++ (case subGenre x of { Nothing -> []; Just v -> [("sub_genre", toChunks v)] }) ++ [("vocal_gender", toChunks $ vocalGender x)] ++ (case shortVersion x of { Nothing -> []; Just v -> [("short_version", toChunks v)] }) ++ [("year_released", toChunks $ yearReleased x)] ++ (case albumArt x of { Nothing -> []; Just v -> [("album_art", toChunks v)] }) ++ (case albumName x of { Nothing -> []; Just v -> [("album_name", toChunks v)] }) ++ (case albumTrackNumber x of { Nothing -> []; Just v -> [("album_track_number", toChunks v)] }) ++ (case vocalTonicNote x of { Nothing -> []; Just v -> [("vocal_tonic_note", toChunks v)] }) ++ (case songTonality x of { Nothing -> []; Just v -> [("song_tonality", toChunks v)] }) ++ (case songKey x of { Nothing -> []; Just v -> [("song_key", toChunks v)] }) ++ (case tuningOffsetCents x of { Nothing -> []; Just v -> [("tuning_offset_cents", toChunks v)] }) ++ (case realGuitarTuning x of { Nothing -> []; Just v -> [("real_guitar_tuning", toChunks v)] }) ++ (case realBassTuning x of { Nothing -> []; Just v -> [("real_bass_tuning", toChunks v)] }) ++ (case guidePitchVolume x of { Nothing -> []; Just v -> [("guide_pitch_volume", toChunks v)] }) ++ (case encoding x of { Nothing -> []; Just v -> [("encoding", toChunks v)] }) ++ (case context x of { Nothing -> []; Just v -> [("context", toChunks v)] }) ++ (case decade x of { Nothing -> []; Just v -> [("decade", toChunks v)] }) ++ (case downloaded x of { Nothing -> []; Just v -> [("downloaded", toChunks v)] }) ++ (case basePoints x of { Nothing -> []; Just v -> [("base_points", toChunks v)] }) }
 
@@ -27,21 +25,21 @@ data Pitch = C | CSharp | D | DSharp | E | F | FSharp | G | GSharp | A | ASharp 
 
 instance ToChunks Pitch where { toChunks C = [Int 0]; toChunks CSharp = [Int 1]; toChunks D = [Int 2]; toChunks DSharp = [Int 3]; toChunks E = [Int 4]; toChunks F = [Int 5]; toChunks FSharp = [Int 6]; toChunks G = [Int 7]; toChunks GSharp = [Int 8]; toChunks A = [Int 9]; toChunks ASharp = [Int 10]; toChunks B = [Int 11] }
 
-instance FromChunks Pitch where { fromChunks [Int 0] = Right C; fromChunks [Int 1] = Right CSharp; fromChunks [Int 2] = Right D; fromChunks [Int 3] = Right DSharp; fromChunks [Int 4] = Right E; fromChunks [Int 5] = Right F; fromChunks [Int 6] = Right FSharp; fromChunks [Int 7] = Right G; fromChunks [Int 8] = Right GSharp; fromChunks [Int 9] = Right A; fromChunks [Int 10] = Right ASharp; fromChunks [Int 11] = Right B; fromChunks cs = Left $ "Couldn't read as Pitch: " ++ show cs }
+instance FromChunks Pitch where { fromChunks [Int 0] = Right C; fromChunks [Int 1] = Right CSharp; fromChunks [Int 2] = Right D; fromChunks [Int 3] = Right DSharp; fromChunks [Int 4] = Right E; fromChunks [Int 5] = Right F; fromChunks [Int 6] = Right FSharp; fromChunks [Int 7] = Right G; fromChunks [Int 8] = Right GSharp; fromChunks [Int 9] = Right A; fromChunks [Int 10] = Right ASharp; fromChunks [Int 11] = Right B; fromChunks cs = Left $ T.pack $ "Couldn't read as Pitch: " ++ show cs }
 
 data Tonality = Major | Minor deriving (Eq, Ord, Read, Show, Enum, Bounded)
 
 instance ToChunks Tonality where { toChunks Major = [Int 0]; toChunks Minor = [Int 1] }
 
-instance FromChunks Tonality where { fromChunks [Int 0] = Right Major; fromChunks [Int 1] = Right Minor; fromChunks cs = Left $ "Couldn't read as Tonality: " ++ show cs }
+instance FromChunks Tonality where { fromChunks [Int 0] = Right Major; fromChunks [Int 1] = Right Minor; fromChunks cs = Left $ T.pack $ "Couldn't read as Tonality: " ++ show cs }
 
 data AnimTempo = KTempoSlow | KTempoMedium | KTempoFast deriving (Eq, Ord, Read, Show, Enum, Bounded)
 
 instance ToChunks AnimTempo where { toChunks KTempoSlow = [Key "kTempoSlow"]; toChunks KTempoMedium = [Key "kTempoMedium"]; toChunks KTempoFast = [Key "kTempoFast"] }
 
-instance FromChunks AnimTempo where { fromChunks [Key "kTempoSlow"] = Right KTempoSlow; fromChunks [Key "kTempoMedium"] = Right KTempoMedium; fromChunks [Key "kTempoFast"] = Right KTempoFast; fromChunks cs = Left $ "Couldn't read as AnimTempo: " ++ show cs }
+instance FromChunks AnimTempo where { fromChunks [Key "kTempoSlow"] = Right KTempoSlow; fromChunks [Key "kTempoMedium"] = Right KTempoMedium; fromChunks [Key "kTempoFast"] = Right KTempoFast; fromChunks cs = Left $ T.pack $ "Couldn't read as AnimTempo: " ++ show cs }
 
-data Song = Song { songName :: String, tracksCount :: Maybe (InParens [Integer]), tracks :: InParens (Dict (Either Integer (InParens [Integer]))), vocalParts :: Maybe (Integer), pans :: InParens [Float], vols :: InParens [Float], cores :: InParens [Integer], drumSolo :: DrumSounds, drumFreestyle :: DrumSounds, crowdChannels :: Maybe ([Integer]), hopoThreshold :: Maybe (Integer), muteVolume :: Maybe (Integer), muteVolumeVocals :: Maybe (Integer), midiFile :: Maybe (String) } deriving (Eq, Ord, Read, Show)
+data Song = Song { songName :: T.Text, tracksCount :: Maybe (InParens [Integer]), tracks :: InParens (Dict (Either Integer (InParens [Integer]))), vocalParts :: Maybe (Integer), pans :: InParens [Float], vols :: InParens [Float], cores :: InParens [Integer], drumSolo :: DrumSounds, drumFreestyle :: DrumSounds, crowdChannels :: Maybe ([Integer]), hopoThreshold :: Maybe (Integer), muteVolume :: Maybe (Integer), muteVolumeVocals :: Maybe (Integer), midiFile :: Maybe (T.Text) } deriving (Eq, Ord, Read, Show)
 
 instance ToChunks Song where { toChunks x = makeDict $ Dict $ Map.fromList $ [("name", toChunks $ songName x)] ++ (case tracksCount x of { Nothing -> []; Just v -> [("tracks_count", toChunks v)] }) ++ [("tracks", toChunks $ tracks x)] ++ (case vocalParts x of { Nothing -> []; Just v -> [("vocal_parts", toChunks v)] }) ++ [("pans", toChunks $ pans x)] ++ [("vols", toChunks $ vols x)] ++ [("cores", toChunks $ cores x)] ++ [("drum_solo", toChunks $ drumSolo x)] ++ [("drum_freestyle", toChunks $ drumFreestyle x)] ++ (case crowdChannels x of { Nothing -> []; Just v -> [("crowd_channels", toChunks v)] }) ++ (case hopoThreshold x of { Nothing -> []; Just v -> [("hopo_threshold", toChunks v)] }) ++ (case muteVolume x of { Nothing -> []; Just v -> [("mute_volume", toChunks v)] }) ++ (case muteVolumeVocals x of { Nothing -> []; Just v -> [("mute_volume_vocals", toChunks v)] }) ++ (case midiFile x of { Nothing -> []; Just v -> [("midi_file", toChunks v)] }) }
 

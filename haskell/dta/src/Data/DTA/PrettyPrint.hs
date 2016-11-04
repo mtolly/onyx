@@ -1,9 +1,9 @@
 -- | Pretty-print text (DTA) files with the HughesPJ library.
 module Data.DTA.PrettyPrint (showDTA) where
 
-import qualified Text.PrettyPrint.HughesPJ as PP
-
 import           Data.DTA.Base
+import qualified Data.Text                 as T
+import qualified Text.PrettyPrint.HughesPJ as PP
 
 ppChunk :: Chunk String -> PP.Doc
 ppChunk c = case c of
@@ -53,5 +53,5 @@ ppKey = PP.text . f . show where
 ppDTA :: DTA String -> PP.Doc
 ppDTA = PP.vcat . map ppChunk . treeChunks . topTree
 
-showDTA :: DTA String -> String
-showDTA = PP.render . ppDTA
+showDTA :: DTA T.Text -> T.Text
+showDTA = T.pack . PP.render . ppDTA . fmap T.unpack

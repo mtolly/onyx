@@ -3,6 +3,7 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiWayIf                 #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
+{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
 module Main (main) where
 
@@ -73,8 +74,11 @@ import qualified Data.Map                              as Map
 import           Data.Maybe                            (fromMaybe, isJust,
                                                         isNothing, listToMaybe,
                                                         mapMaybe)
+import           Data.Monoid                           ((<>))
 import qualified Data.Set                              as Set
+import           Data.String                           (IsString, fromString)
 import qualified Data.Text                             as T
+import qualified Data.Text.IO                          as TIO
 import           Development.Shake                     hiding (phony)
 import qualified Development.Shake                     as Shake
 import           Development.Shake.Classes
@@ -556,7 +560,7 @@ makeAudioFiles songYaml plan dir mixMode = case plan of
             return i
       oggChannels songChannels out
 
-makeC3 :: SongYaml -> Plan -> String -> FilePath -> Action String -> Action Bool -> Action C3.C3
+makeC3 :: SongYaml -> Plan -> T.Text -> FilePath -> Action T.Text -> Action Bool -> Action C3.C3
 makeC3 songYaml plan pkg mid thisTitle is2xBass = do
   midi <- loadMIDI mid
   let (pstart, _) = previewBounds songYaml midi
@@ -576,9 +580,9 @@ makeC3 songYaml plan pkg mid thisTitle is2xBass = do
         JSONEither (Right _) -> Nothing
         JSONEither (Left  i) -> Just i
   return C3.C3
-    { C3.song = T.unpack $ getTitle $ _metadata songYaml
-    , C3.artist = T.unpack $ getArtist $ _metadata songYaml
-    , C3.album = T.unpack $ getAlbum $ _metadata songYaml
+    { C3.song = getTitle $ _metadata songYaml
+    , C3.artist = getArtist $ _metadata songYaml
+    , C3.album = getAlbum $ _metadata songYaml
     , C3.customID = pkg
     , C3.version = 1
     , C3.isMaster = not $ _cover $ _metadata songYaml
@@ -596,13 +600,13 @@ makeC3 songYaml plan pkg mid thisTitle is2xBass = do
     , C3.proBassTuning = if _hasProBass $ _instruments songYaml
       then Just $ case _proBassTuning $ _options songYaml of
         []   -> "(real_bass_tuning (0 0 0 0))"
-        tune -> "(real_bass_tuning (" ++ unwords (map show tune) ++ "))"
+        tune -> "(real_bass_tuning (" <> T.unwords (map (T.pack . show) tune) <> "))"
       else Nothing
     , C3.proGuitarDiff = guard (_hasProGuitar $ _instruments songYaml) >> Just (fromIntegral proGuitarTier)
     , C3.proGuitarTuning = if _hasProGuitar $ _instruments songYaml
       then Just $ case _proGuitarTuning $ _options songYaml of
         []   -> "(real_guitar_tuning (0 0 0 0 0 0))"
-        tune -> "(real_guitar_tuning (" ++ unwords (map show tune) ++ "))"
+        tune -> "(real_guitar_tuning (" <> T.unwords (map (T.pack . show) tune) <> "))"
       else Nothing
     , C3.disableProKeys =
         _hasKeys (_instruments songYaml) && not (_hasProKeys $ _instruments songYaml)
@@ -627,7 +631,7 @@ makeC3 songYaml plan pkg mid thisTitle is2xBass = do
     , C3.checkTempoMap = True
     , C3.wiiMode = False
     , C3.doDrumMixEvents = True -- is this a good idea?
-    , C3.packageDisplay = T.unpack (getArtist $ _metadata songYaml) ++ " - " ++ title
+    , C3.packageDisplay = getArtist (_metadata songYaml) <> " - " <> title
     , C3.packageDescription = "Created with Magma: C3 Roks Edition (forums.customscreators.com) and Onyxite's Build Tool."
     , C3.songAlbumArt = "cover.bmp"
     , C3.packageThumb = ""
@@ -636,13 +640,13 @@ makeC3 songYaml plan pkg mid thisTitle is2xBass = do
     , C3.useNumericID = isJust numSongID
     , C3.uniqueNumericID = case numSongID of
       Nothing -> ""
-      Just i  -> show i
+      Just i  -> T.pack $ show i
     , C3.uniqueNumericID2X = "" -- will use later if we ever create combined 1x/2x C3 Magma projects
     , C3.toDoList = C3.defaultToDo
     }
 
 -- Magma RBProj rules
-makeMagmaProj :: SongYaml -> Plan -> String -> FilePath -> Action String -> Action Magma.RBProj
+makeMagmaProj :: SongYaml -> Plan -> T.Text -> FilePath -> Action T.Text -> Action Magma.RBProj
 makeMagmaProj songYaml plan pkg mid thisTitle = do
   song <- loadMIDI mid
   let (pstart, _) = previewBounds songYaml song
@@ -654,7 +658,7 @@ makeMagmaProj songYaml plan pkg mid thisTitle = do
       perctype = getPercType song
       silentDryVox :: Int -> Magma.DryVoxPart
       silentDryVox n = Magma.DryVoxPart
-        { Magma.dryVoxFile = "dryvox" ++ show n ++ ".wav"
+        { Magma.dryVoxFile = "dryvox" <> T.pack (show n) <> ".wav"
         , Magma.dryVoxEnabled = True
         }
       emptyDryVox = Magma.DryVoxPart
@@ -676,23 +680,23 @@ makeMagmaProj songYaml plan pkg mid thisTitle = do
         , Magma.vol = map (realToFrac . snd) pv
         , Magma.audioFile = f
         }
-      replaceŸ = map $ \case
+      replaceŸ = T.map $ \case
         'ÿ' -> 'y'
         'Ÿ' -> 'Y'
         c   -> c
-  title <- map (\case '"' -> '\''; c -> c) <$> thisTitle
+  title <- T.map (\case '"' -> '\''; c -> c) <$> thisTitle
   return Magma.RBProj
     { Magma.project = Magma.Project
       { Magma.toolVersion = "110411_A"
       , Magma.projectVersion = 24
       , Magma.metadata = Magma.Metadata
         { Magma.songName = replaceŸ title
-        , Magma.artistName = replaceŸ $ T.unpack $ getArtist $ _metadata songYaml
-        , Magma.genre = D.Keyword $ T.unpack $ rbn2Genre fullGenre
-        , Magma.subGenre = D.Keyword $ "subgenre_" ++ T.unpack (rbn2Subgenre fullGenre)
+        , Magma.artistName = replaceŸ $ getArtist $ _metadata songYaml
+        , Magma.genre = D.Keyword $ rbn2Genre fullGenre
+        , Magma.subGenre = D.Keyword $ "subgenre_" <> rbn2Subgenre fullGenre
         , Magma.yearReleased = fromIntegral $ max 1960 $ getYear $ _metadata songYaml
-        , Magma.albumName = replaceŸ $ T.unpack $ getAlbum $ _metadata songYaml
-        , Magma.author = T.unpack $ getAuthor $ _metadata songYaml
+        , Magma.albumName = replaceŸ $ getAlbum $ _metadata songYaml
+        , Magma.author = getAuthor $ _metadata songYaml
         , Magma.releaseLabel = "Onyxite Customs"
         , Magma.country = D.Keyword "ugc_country_us"
         , Magma.price = 160
@@ -724,7 +728,7 @@ makeMagmaProj songYaml plan pkg mid thisTitle = do
         , Magma.guidePitchVolume = -3
         }
       , Magma.languages = let
-        lang s = elem (T.pack s) $ _languages $ _metadata songYaml
+        lang s = elem s $ _languages $ _metadata songYaml
         eng = lang "English"
         fre = lang "French"
         ita = lang "Italian"
@@ -739,12 +743,12 @@ makeMagmaProj songYaml plan pkg mid thisTitle = do
           , Magma.german   = Just ger
           , Magma.japanese = Just jap
           }
-      , Magma.destinationFile = pkg <.> "rba"
+      , Magma.destinationFile = T.pack $ T.unpack pkg <.> "rba"
       , Magma.midi = Magma.Midi
         { Magma.midiFile = "notes.mid"
         , Magma.autogenTheme = Right $ case _autogenTheme $ _metadata songYaml of
           AutogenDefault -> "Default.rbtheme"
-          theme          -> show theme ++ ".rbtheme"
+          theme          -> T.pack (show theme) <> ".rbtheme"
         }
       , Magma.dryVox = Magma.DryVox
         { Magma.part0 = case _hasVocal $ _instruments songYaml of
@@ -824,12 +828,12 @@ main = do
 
         forM_ (HM.elems $ _audio songYaml) $ \case
           AudioFile{ _filePath = Just fp, _commands = cmds } | not $ null cmds -> do
-            fp %> \_ -> mapM_ (Shake.unit . Shake.cmd) cmds
+            fp %> \_ -> mapM_ (Shake.unit . Shake.cmd . T.unpack) cmds
           _ -> return ()
 
         phony "yaml"  $ liftIO $ print songYaml
         phony "audio" $ liftIO $ print audioDirs
-        phony "clean" $ cmd "rm -rf gen"
+        phony "clean" $ cmd ("rm -rf gen" :: String)
 
         let RanksTiers{..} = computeRanksTiers songYaml
 
@@ -1204,7 +1208,7 @@ main = do
             ]
 
           -- Rock Band 3 DTA file
-          let makeDTA :: String -> FilePath -> String -> Bool -> Action D.SongPackage
+          let makeDTA :: T.Text -> FilePath -> T.Text -> Bool -> Action D.SongPackage
               makeDTA pkg mid title is2xBass = do
                 song <- loadMIDI mid
                 let (pstart, pend) = previewBounds songYaml song
@@ -1262,13 +1266,13 @@ main = do
                         in go 0 counts
                 return D.SongPackage
                   { D.name = title
-                  , D.artist = T.unpack $ getArtist $ _metadata songYaml
+                  , D.artist = getArtist $ _metadata songYaml
                   , D.master = not $ _cover $ _metadata songYaml
                   , D.songId = case usedSongID of
                     Nothing               -> Right $ D.Keyword pkg
-                    Just (JSONEither sid) -> D.Keyword . T.unpack <$> sid
+                    Just (JSONEither sid) -> D.Keyword <$> sid
                   , D.song = D.Song
-                    { D.songName = "songs/" ++ pkg ++ "/" ++ pkg
+                    { D.songName = "songs/" <> pkg <> "/" <> pkg
                     , D.tracksCount = Nothing
                     , D.tracks = D.InParens $ D.Dict tracksAssocList
                     , D.vocalParts = Just $ case _hasVocal $ _instruments songYaml of
@@ -1279,10 +1283,10 @@ main = do
                     , D.pans = D.InParens $ map realToFrac pans
                     , D.vols = D.InParens $ map realToFrac vols
                     , D.cores = D.InParens cores
-                    , D.drumSolo = D.DrumSounds $ D.InParens $ map D.Keyword $ words $ case _drumLayout $ _metadata songYaml of
+                    , D.drumSolo = D.DrumSounds $ D.InParens $ map D.Keyword $ T.words $ case _drumLayout $ _metadata songYaml of
                       StandardLayout -> "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
                       FlipYBToms     -> "kick.cue snare.cue tom2.cue tom1.cue crash.cue"
-                    , D.drumFreestyle = D.DrumSounds $ D.InParens $ map D.Keyword $ words
+                    , D.drumFreestyle = D.DrumSounds $ D.InParens $ map D.Keyword $ T.words
                       "kick.cue snare.cue hat.cue ride.cue crash.cue"
                     , D.crowdChannels = guard (not $ null crowdChannels) >> Just (map fromIntegral crowdChannels)
                     , D.hopoThreshold = Just $ fromIntegral $ _hopoThreshold $ _options songYaml
@@ -1330,13 +1334,13 @@ main = do
                   , D.version = 30
                   , D.gameOrigin = D.Keyword "ugc_plus"
                   , D.rating = fromIntegral $ fromEnum (_rating $ _metadata songYaml) + 1
-                  , D.genre = D.Keyword $ T.unpack $ rbn2Genre fullGenre
-                  , D.subGenre = Just $ D.Keyword $ "subgenre_" ++ T.unpack (rbn2Subgenre fullGenre)
+                  , D.genre = D.Keyword $ rbn2Genre fullGenre
+                  , D.subGenre = Just $ D.Keyword $ "subgenre_" <> rbn2Subgenre fullGenre
                   , D.vocalGender = fromMaybe Magma.Female $ _vocalGender $ _metadata songYaml
                   , D.shortVersion = Nothing
                   , D.yearReleased = fromIntegral $ getYear $ _metadata songYaml
                   , D.albumArt = Just True
-                  , D.albumName = Just $ T.unpack $ getAlbum $ _metadata songYaml
+                  , D.albumName = Just $ getAlbum $ _metadata songYaml
                   , D.albumTrackNumber = Just $ fromIntegral $ getTrackNumber $ _metadata songYaml
                   , D.vocalTonicNote = toEnum . fromEnum <$> _key (_metadata songYaml)
                   , D.songTonality = Nothing
@@ -1393,11 +1397,11 @@ main = do
             liftIO $ writeFile out str
           phony (dir </> "melody") $ need [melodyAudio, melodyChart]
 
-          let get1xTitle, get2xTitle :: Action String
-              get1xTitle = return $ T.unpack $ getTitle $ _metadata songYaml
+          let get1xTitle, get2xTitle :: Action T.Text
+              get1xTitle = return $ getTitle $ _metadata songYaml
               get2xTitle = flip fmap get2xBass $ \b -> if b
-                  then T.unpack (getTitle $ _metadata songYaml) ++ " (2x Bass Pedal)"
-                  else T.unpack (getTitle $ _metadata songYaml)
+                  then getTitle (_metadata songYaml) <> " (2x Bass Pedal)"
+                  else getTitle (_metadata songYaml)
               get2xBass :: Action Bool
               get2xBass = read <$> readFile' has2p
 
@@ -1407,7 +1411,8 @@ main = do
                 ]
           forM_ pedalVersions $ \(pedalDir, thisTitle, is2xBass) -> do
 
-            let pkg = "onyx" ++ show (hash (pedalDir, _title $ _metadata songYaml, _artist $ _metadata songYaml) `mod` 1000000000)
+            let pkg :: (IsString s) => s
+                pkg = fromString $ "onyx" <> show (hash (pedalDir, _title $ _metadata songYaml, _artist $ _metadata songYaml) `mod` 1000000000)
 
             -- Check for some extra problems that Magma doesn't catch.
             phony (pedalDir </> "problems") $ do
@@ -1435,8 +1440,8 @@ main = do
             pathCon  %> \out -> do
               need [pathDta, pathMid, pathMogg, pathPng, pathMilo]
               rb3pkg
-                (T.unpack (getArtist $ _metadata songYaml) ++ ": " ++ T.unpack (getTitle $ _metadata songYaml))
-                ("Version: " ++ pedalDir)
+                (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
+                ("Version: " <> T.pack pedalDir)
                 (pedalDir </> "rb3")
                 out
 
@@ -1576,7 +1581,7 @@ main = do
                       }
                     , Magma.projectVersion = 5
                     , Magma.languages = let
-                        lang s = elem (T.pack s) $ _languages $ _metadata songYaml
+                        lang s = elem s $ _languages $ _metadata songYaml
                         eng = lang "English"
                         fre = lang "French"
                         ita = lang "Italian"
@@ -1594,8 +1599,8 @@ main = do
                       }
                     , Magma.tracks = makeDummy $ Magma.tracks $ Magma.project p
                     , Magma.metadata = (Magma.metadata $ Magma.project p)
-                      { Magma.genre = D.Keyword $ T.unpack $ rbn1Genre fullGenre
-                      , Magma.subGenre = D.Keyword $ "subgenre_" ++ T.unpack (rbn1Subgenre fullGenre)
+                      { Magma.genre = D.Keyword $ rbn1Genre fullGenre
+                      , Magma.subGenre = D.Keyword $ "subgenre_" <> rbn1Subgenre fullGenre
                       }
                     , Magma.gamedata = swapRanks $ (Magma.gamedata $ Magma.project p)
                       { Magma.previewStartMs = 0 -- for dummy audio. will reset after magma
@@ -1604,7 +1609,7 @@ main = do
                   }
               c3 %> \out -> do
                 contents <- makeC3 songYaml plan pkg mid thisTitle is2xBass
-                liftIO $ writeFile out $ C3.showC3 contents
+                liftIO $ TIO.writeFile out $ C3.showC3 contents
               phony setup $ need $ concat
                 -- Just make all the Magma prereqs, but don't actually run Magma
                 [ guard (_hasDrums    $ _instruments songYaml) >> [drums, kick, snare]
@@ -1756,7 +1761,7 @@ main = do
                           , D.songLength = D.songLength rb3DTA
                           , D.preview = D.preview rb3DTA
                           , D.rank = fixDict $ D.rank rb3DTA
-                          , D.genre = D.Keyword $ T.unpack $ rbn1Genre fullGenre
+                          , D.genre = D.Keyword $ rbn1Genre fullGenre
                           , D.decade = Just $ D.Keyword $ let y = D.yearReleased rb3DTA in if
                             | 1960 <= y && y < 1970 -> "the60s"
                             | 1970 <= y && y < 1980 -> "the70s"
@@ -1773,7 +1778,7 @@ main = do
                           , D.yearReleased = D.yearReleased rb3DTA
                           , D.basePoints = Just 0
                           , D.rating = D.rating rb3DTA
-                          , D.subGenre = Just $ D.Keyword $ "subgenre_" ++ T.unpack (rbn1Subgenre fullGenre)
+                          , D.subGenre = Just $ D.Keyword $ "subgenre_" <> rbn1Subgenre fullGenre
                           , D.songId = D.songId rb3DTA
                           , D.tuningOffsetCents = D.tuningOffsetCents rb3DTA
                           , D.context = Just 2000
@@ -1807,8 +1812,8 @@ main = do
                       , D.song = (D.song magmaDTA)
                         { D.tracksCount = Nothing
                         , D.tracks = fmap fixDict $ D.tracks $ D.song rb3DTA
-                        , D.midiFile = Just $ "songs/" ++ pkg ++ "/" ++ pkg ++ ".mid"
-                        , D.songName = "songs/" ++ pkg ++ "/" ++ pkg
+                        , D.midiFile = Just $ "songs/" <> pkg <> "/" <> pkg <> ".mid"
+                        , D.songName = "songs/" <> pkg <> "/" <> pkg
                         , D.pans = D.pans $ D.song rb3DTA
                         , D.vols = D.vols $ D.song rb3DTA
                         , D.cores = D.cores $ D.song rb3DTA
@@ -1816,7 +1821,7 @@ main = do
                         }
                       , D.songId = case _songID $ _metadata songYaml of
                         Nothing               -> Right $ D.Keyword pkg
-                        Just (JSONEither eis) -> D.Keyword . T.unpack <$> eis
+                        Just (JSONEither eis) -> D.Keyword <$> eis
                       , D.preview = D.preview rb3DTA -- because we told magma preview was at 0s earlier
                       , D.songLength = D.songLength rb3DTA -- magma v1 set this to 31s from the audio file lengths
                       }
@@ -1834,13 +1839,16 @@ main = do
                 -- add back practice sections
                 sects <- getRealSections
                 let modifyTrack t = if U.trackName t == Just "EVENTS"
-                      then RTB.merge (fmap makeRB2Section sects) $ flip RTB.filter t $ \e -> case readCommand' e of
-                        Just ["section", _] -> False
-                        _                   -> True
+                      then RTB.merge (fmap makeRB2Section sects) $ flip RTB.filter t $ \e -> let
+                        maybeCmd :: Maybe [String]
+                        maybeCmd = readCommand' e
+                        in case maybeCmd of
+                          Just ["section", _] -> False
+                          _                   -> True
                       else t
                     defaultVenue = U.setTrackName "VENUE" $ U.trackJoin $ RTB.flatten $ RTB.singleton 0
-                      [ unparseCommand ["lighting", "()"]
-                      , unparseCommand ["verse"]
+                      [ unparseCommand (["lighting", "()"] :: [String])
+                      , unparseCommand (["verse"] :: [String])
                       , unparseBlip 60
                       , unparseBlip 61
                       , unparseBlip 62
@@ -1874,8 +1882,8 @@ main = do
               rb2CON %> \out -> do
                 need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
                 rb2pkg
-                  (T.unpack (getArtist $ _metadata songYaml) ++ ": " ++ T.unpack (getTitle $ _metadata songYaml))
-                  (T.unpack (getArtist $ _metadata songYaml) ++ ": " ++ T.unpack (getTitle $ _metadata songYaml))
+                  (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
+                  (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                   (pedalDir </> "rb2")
                   out
 
@@ -1964,11 +1972,11 @@ main = do
       Just (dir, stfs) -> do
         let getDTAInfo = do
               (_, pkg, _) <- readRB3DTA $ dir </> "songs/songs.dta"
-              return (D.name pkg, D.name pkg ++ " (" ++ D.artist pkg ++ ")")
-            handler1 :: Exc.IOException -> IO (String, String)
-            handler1 _ = return (takeFileName stfs, stfs)
-            handler2 :: Exc.ErrorCall -> IO (String, String)
-            handler2 _ = return (takeFileName stfs, stfs)
+              return (D.name pkg, D.name pkg <> " (" <> D.artist pkg <> ")")
+            handler1 :: Exc.IOException -> IO (T.Text, T.Text)
+            handler1 _ = return (T.pack $ takeFileName stfs, T.pack stfs)
+            handler2 :: Exc.ErrorCall -> IO (T.Text, T.Text)
+            handler2 _ = return (T.pack $ takeFileName stfs, T.pack stfs)
         (title, desc) <- getDTAInfo `Exc.catch` handler1 `Exc.catch` handler2
         shake shakeOptions $ action $ rb3pkg title desc dir stfs
     "stfs-rb2" : args -> case inputOutput "_rb2con" args of
@@ -1976,11 +1984,11 @@ main = do
       Just (dir, stfs) -> do
         let getDTAInfo = do
               (_, pkg, _) <- readRB3DTA $ dir </> "songs/songs.dta"
-              return (D.name pkg, D.name pkg ++ " (" ++ D.artist pkg ++ ")")
-            handler1 :: Exc.IOException -> IO (String, String)
-            handler1 _ = return (takeFileName stfs, stfs)
-            handler2 :: Exc.ErrorCall -> IO (String, String)
-            handler2 _ = return (takeFileName stfs, stfs)
+              return (D.name pkg, D.name pkg <> " (" <> D.artist pkg <> ")")
+            handler1 :: Exc.IOException -> IO (T.Text, T.Text)
+            handler1 _ = return (T.pack $ takeFileName stfs, T.pack stfs)
+            handler2 :: Exc.ErrorCall -> IO (T.Text, T.Text)
+            handler2 _ = return (T.pack $ takeFileName stfs, T.pack stfs)
         (title, desc) <- getDTAInfo `Exc.catch` handler1 `Exc.catch` handler2
         shake shakeOptions $ action $ rb2pkg title desc dir stfs
     "unstfs" : args -> case inputOutput "_extract" args of
@@ -2040,7 +2048,7 @@ main = do
         writeFile fout $ closeShiftsFile song
     "reap" : args -> case args of
       [plan] -> do
-        let rpp = "notes-" ++ plan ++ ".RPP"
+        let rpp = "notes-" <> plan <> ".RPP"
         shakeBuild [rpp] Nothing
         Dir.renameFile rpp "notes.RPP"
         case Info.os of
@@ -2069,7 +2077,7 @@ main = do
 inputOutput :: String -> [String] -> Maybe (FilePath, FilePath)
 inputOutput suffix args = case args of
   [fin] -> let
-    dropSlash = reverse . dropWhile (`elem` "/\\") . reverse
-    in Just (fin, dropSlash fin ++ suffix)
+    dropSlash = reverse . dropWhile (`elem` ("/\\" :: String)) . reverse
+    in Just (fin, dropSlash fin <> suffix)
   [fin, fout] -> Just (fin, fout)
   _ -> Nothing
