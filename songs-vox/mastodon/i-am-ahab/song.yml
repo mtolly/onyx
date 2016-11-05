@@ -1,0 +1,20 @@
+metadata:
+  title: I Am Ahab
+  artist: Mastodon
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube dy8NdJTOR9E 140
+    md5: 5533831fdfd9b4ed83a7ddd262e2d0c3
+    frames: 7340032
+plans:
+  album:
+    song:
+      pad: [3.227, youtube]
+instruments:
+  vocal: 2
+  drums: true
+  guitar: true
+  bass: true
+published: false
