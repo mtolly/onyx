@@ -40,6 +40,7 @@ executable onyx
     RockBand3
     Readme
     DryVox
+    RenderAudio
     RockBand.ProGuitar.Play
   build-depends:
     base    >= 4.8    && < 4.10
