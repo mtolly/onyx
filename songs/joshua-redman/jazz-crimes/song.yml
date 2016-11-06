@@ -8,6 +8,8 @@ metadata:
   year: 2002
   author: Onyxite
   track-number: 2
+  difficulty:
+    drums: 6
 instruments:
   drums: true
 audio:
@@ -27,4 +29,3 @@ plans:
       1|3: hihat
     song:
       pad: [3.983, album-track]
-published: false
