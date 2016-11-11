@@ -1,4 +1,4 @@
-<REAPER_PROJECT 0.1 "5.27" 1478319856
+<REAPER_PROJECT 0.1 "5.27/OSX64" 1478839230
   RIPPLE 0
   GROUPOVERRIDE 0 0 0
   AUTOXFADE 1
@@ -11,13 +11,13 @@
   MAXPROJLEN 0 600
   GRID 1151 8 1 8 1 0 0
   TIMEMODE 1 0 -1 24 2
-  CURSOR 52.761311548663
-  ZOOM 4.71605493124785 0 0
+  CURSOR 115.56964077317106
+  ZOOM 1.73014300698056 0 0
   VZOOMEX 0
   USE_REC_CFG 0
   RECMODE 1
   SMPTESYNC 0 30 100 40 1000 300 0 0 0
-  LOOP 0
+  LOOP 1
   LOOPGRAN 0 4
   RECORD_PATH "" ""
   <RECORD_CFG
@@ -25,7 +25,7 @@
   >
   <APPLYFX_CFG
   >
-  RENDER_FILE "C:\Users\AJFOne23\Downloads\RB3\Metal\Mastodon\2004 Leviathan\I Am Ahab\I Am Ahab-FINAL.wav"
+  RENDER_FILE "C:\Users\AJFOne23\Downloads\RB3\Metal\Mastodon\2004 Leviathan\I Am Ahab/I Am Ahab-FINAL.wav"
   RENDER_FMT 0 2 44100
   RENDER_1X 0
   RENDER_RANGE 1 0 0 18 1000
@@ -702,7 +702,7 @@
       LASTSEL 1
       DOCKED 0
       BYPASS 1 0 0
-      <VST "VSTi: ReaSynth (Cockos)" reasynth.dll 0 "" 1919251321
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
         eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
         776t3g3wrd4AAAAAAAAAAAAAAAAAAAAAObRIPn3L2z61tLE5AAAAALbz/T5VpCs6AAAAAAAAAAAAAIA/
         AAAAAAAA
@@ -727,7 +727,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      COLOR 19150555 R
+      COLOR 31143460 B
       SEL 0
       IGUID {9FF11F36-E94F-4396-9C0E-8449C916EC21}
       IID 8
@@ -9307,7 +9307,7 @@
       LASTSEL 1
       DOCKED 0
       BYPASS 1 0 0
-      <VST "VSTi: ReaSynth (Cockos)" reasynth.dll 0 "" 1919251321
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
         eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
         776t3g3wrd4AAAAAAAAAAAAAAAAAAAAAObRIPn3L2z61tLE5AAAAALbz/T5VpCs6AAAAAAAAAAAAAIA/
         AAAAAAAA
@@ -9332,7 +9332,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      COLOR 19150555 R
+      COLOR 31143460 B
       SEL 0
       IGUID {9FF11F36-E94F-4396-9C0E-8449C916EC21}
       IID 9
@@ -18106,7 +18106,7 @@
       LASTSEL 1
       DOCKED 0
       BYPASS 1 0 0
-      <VST "VSTi: ReaSynth (Cockos)" reasynth.dll 0 "" 1919251321
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
         eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
         776t3g3wrd4AAAAAAAAAAAAAAAAAAAAAObRIPn3L2z61tLE5AAAAALbz/T5VpCs6AAAAAAAAAAAAAIA/
         AAAAAAAA
@@ -20261,7 +20261,7 @@
       LASTSEL 1
       DOCKED 0
       BYPASS 1 0 0
-      <VST "VSTi: ReaSynth (Cockos)" reasynth.dll 0 "" 1919251321
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
         eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
         776t3g3wrd4AAAAAAAAAAAAAAAAAAAAAObRIPn3L2z61tLE5AAAAALbz/T5VpCs6AAAAAAAAAAAAAIA/
         AAAAAAAA
@@ -22072,12 +22072,12 @@
     BUSCOMP 1 0
     SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
-    SEL 0
+    SEL 1
     REC 0 4096 1 7 0 0 0
-    TRACKHEIGHT 0 0
+    TRACKHEIGHT 61 0
     INQ 0 0 0 0.5 100 0 0 100
     NCHAN 2
-    FX 1
+    FX 0
     TRACKID {C298A11E-8E06-44B8-AA31-429ECCE3F0AF}
     PERF 0
     MIDIOUT -1
@@ -22143,7 +22143,7 @@
     >
     MAINSEND 1 0
     <FXCHAIN
-      WNDRECT 459 134 544 464
+      WNDRECT 459 134 611 463
       SHOW 0
       LASTSEL 1
       DOCKED 0
@@ -22155,7 +22155,7 @@
       FXID {CA785021-0433-497E-9A6C-EE23A1BC21B0}
       WAK 0
       BYPASS 0 0 0
-      <VST "VSTi: ReaSynth (Cockos)" reasynth.dll 0 "" 1919251321
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
         eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
         776t3g3wrd6mm8Q7F7fROvhTYz8AAAAAAAAAAMybgD7pZ4g9AAAAAAAAAD8AAIA/AAAAAAAAAD8AAIA/
         AAAAAAAA
@@ -22173,7 +22173,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 0
+      SEL 1
       IGUID {9C9617EC-369A-41B9-80F6-31F4222F13F6}
       IID 12
       NAME "PART VOCALS"
@@ -22216,6 +22216,7 @@
         E 1020 80 3c 00
         E 60 80 69 00
         E 300 90 69 60
+        e 0 90 74 60
         <X 60 0
           /wVXYS0=
         >
@@ -22256,7 +22257,8 @@
         >
         E 0 90 3e 60
         E 180 80 3e 00
-        E 90 80 69 00
+        e 90 80 74 00
+        E 0 80 69 00
         E 540 90 69 60
         <X 90 0
           /wVBbGw=
@@ -22359,6 +22361,7 @@
         E 120 80 40 00
         E 90 80 69 00
         E 3150 90 69 60
+        e 0 90 74 60
         <X 90 0
           /wVPZg==
         >
@@ -22384,7 +22387,8 @@
         >
         E 0 90 3e 60
         E 1920 80 3e 00
-        E 90 80 69 00
+        e 90 80 74 00
+        E 0 80 69 00
         E 30030 90 69 60
         <X 120 0
           /wVPdXQt
@@ -22462,6 +22466,7 @@
         E 1110 80 41 00
         E 60 80 69 00
         E 630 90 69 60
+        e 0 90 74 60
         <X 90 0
           /wVCZWF1LQ==
         >
@@ -22487,7 +22492,8 @@
         >
         E 0 90 3e 60
         E 1860 80 3e 00
-        E 60 80 69 00
+        e 60 80 74 00
+        E 0 80 69 00
         E 120 90 69 60
         <X 60 0
           /wVMaWdodCM=
@@ -22750,11 +22756,11 @@
         VELLANE 132 128 128
         COLORMAP "C:\Users\AJFOne23\AppData\Roaming\REAPER\Data\color_maps\rockband_vox-other.png"
         TEXTSTRINGFILE "Text Events List.txt"
-        CFGEDITVIEW 122540.389334 256.15127 0 13 0 -1 0 0 0 0.5
+        CFGEDITVIEW -9473.458463 4.762343 0 13 0 -1 0 0 0 0.5
         KEYSNAP 0
-        TRACKSEL 0
+        TRACKSEL -252
         EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
-        CFGEDIT 1 1 0 0 1 1 1 1 1 1 1 0.0625 161 173 1861 978 0 2 2 2 0 0 0 0 0 0.5 1 0 1 64
+        CFGEDIT 1 1 0 0 1 1 1 1 1 1 1 0.0625 52 72 1440 877 0 2 2 2 0 0 0 0 0 0.5 1 0 1 64
       >
     >
   >
@@ -22772,7 +22778,7 @@
     FREEMODE 0
     SEL 0
     REC 0 0 0 0 0 0 0
-    TRACKHEIGHT 0 0
+    TRACKHEIGHT 70 0
     INQ 0 0 0 0.5 100 0 0 100
     NCHAN 2
     FX 1
@@ -22841,6 +22847,7 @@
     >
     MAINSEND 1 0
     <FXCHAIN
+      WNDRECT 86 414 611 463
       SHOW 0
       LASTSEL 1
       DOCKED 0
@@ -22852,9 +22859,9 @@
       FXID {2E79298C-F056-441C-A64B-722C2599E1AA}
       WAK 0
       BYPASS 0 0 0
-      <VST "VSTi: ReaSynth (Cockos)" reasynth.dll 0 "" 1919251321
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
         eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
-        776t3g3wrd6mm8Q7F7fROpzEoD4AAAAAAAAAAMybgD7pZ4g9AAAAAAAAAD8AAIA/6SaxPgAAAD8AAIA/
+        776t3g3wrd6mm8Q7F7fROhSuRz8AAAAAAAAAAMybgD7pZ4g9AAAAAAAAAD8AAIA/6SaxPgAAAD8AAIA/
         AAAAAAAA
       >
       FLOATPOS 0 0 0 0
@@ -22913,6 +22920,7 @@
         E 1020 80 3c 00
         E 60 80 69 00
         E 300 90 69 60
+        e 0 90 74 60
         <X 60 0
           /wVXYS0=
         >
@@ -22954,6 +22962,7 @@
         E 0 90 3e 60
         E 180 80 3e 00
         E 90 80 69 00
+        e 0 80 74 00
         E 540 90 69 60
         <X 90 0
           /wVBbGw=
@@ -23041,6 +23050,7 @@
         E 120 80 40 00
         E 90 80 69 00
         E 3150 90 69 60
+        e 0 90 74 60
         <X 90 0
           /wVPZg==
         >
@@ -23067,6 +23077,7 @@
         E 0 90 3e 60
         E 1920 80 3e 00
         E 90 80 69 00
+        e 0 80 74 00
         E 30030 90 69 60
         <X 120 0
           /wVPdXQt
@@ -23143,7 +23154,8 @@
         E 0 90 41 60
         E 1110 80 41 00
         E 60 80 69 00
-        E 630 90 69 60
+        e 630 90 74 60
+        E 0 90 69 60
         <X 90 0
           /wVCZWF1LQ==
         >
@@ -23169,7 +23181,8 @@
         >
         E 0 90 3e 60
         E 1860 80 3e 00
-        E 60 80 69 00
+        e 60 80 74 00
+        E 0 80 69 00
         E 120 90 69 60
         E 4230 80 69 00
         <X 21750 0
@@ -23405,11 +23418,11 @@
         IGNTEMPO 0 120 4 4
         SRCCOLOR 10
         VELLANE 132 128 128
-        CFGEDITVIEW 126220.27714 90.418041 0 13 0 -1 0 0 0 0.5
+        CFGEDITVIEW 15941.082117 6.345579 0 13 0 -1 0 0 0 0.5
         KEYSNAP 0
-        TRACKSEL 0
+        TRACKSEL -252
         EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
-        CFGEDIT 1 1 0 0 1 1 1 1 1 1 1 0.0625 167 179 1855 972 0 2 2 2 0 0 0 0 0 0.5 0 0 1 64
+        CFGEDIT 1 1 0 0 1 1 1 1 1 1 1 0.0625 52 84 1440 877 0 2 2 2 0 0 0 0 0 0.5 0 0 1 64
       >
     >
   >
@@ -23425,9 +23438,9 @@
     BUSCOMP 0 0
     SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
-    SEL 1
+    SEL 0
     REC 0 0 0 0 0 0 0
-    TRACKHEIGHT 0 0
+    TRACKHEIGHT 69 0
     INQ 0 0 0 0.5 100 0 0 100
     NCHAN 2
     FX 1
@@ -23497,6 +23510,7 @@
     >
     MAINSEND 1 0
     <FXCHAIN
+      WNDRECT 86 414 611 463
       SHOW 0
       LASTSEL 1
       DOCKED 0
@@ -23508,9 +23522,9 @@
       FXID {0D2127EF-90E6-4278-AB57-59BADA75D3A0}
       WAK 0
       BYPASS 0 0 0
-      <VST "VSTi: ReaSynth (Cockos)" reasynth.dll 0 "" 1919251321
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
         eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
-        776t3g3wrd6mm8Q7F7fROgAAAAAAAAAAAAAAAMybgD7pZ4g9AAAAAAAAAD8AAIA/AAAAAAAAAD8AAIA/
+        776t3g3wrd6mm8Q7F7fROlYOTT8AAAAAAAAAAMybgD7pZ4g9AAAAAAAAAD8AAIA/AAAAAAAAAD8AAIA/
         AAAAAAAA
       >
       FLOATPOS 0 0 0 0
@@ -23526,7 +23540,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
+      SEL 0
       IGUID {795D7270-77E4-45B9-A4DE-54EC2F750F39}
       IID 12
       NAME "PART VOCALS"
