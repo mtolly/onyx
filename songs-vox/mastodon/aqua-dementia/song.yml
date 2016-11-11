@@ -1,0 +1,19 @@
+metadata:
+  title: Aqua Dementia
+  artist: Mastodon
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube z1Nv0YSGYR0 140
+    md5: 9ffe8875e33c9ca81b53e22fdaaf88f7
+    frames: 11048960
+plans:
+  album:
+    song:
+      pad: [5.576, youtube]
+instruments:
+  vocal: 2
+  drums: true
+  guitar: true
+published: false
