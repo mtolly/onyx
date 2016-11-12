@@ -1,4 +1,4 @@
-name:                 onyxite-customs-build
+name:                 onyxite-customs-tool
 version:              0.4
 homepage:             https://github.com/mtolly/onyxite-customs
 author:               Michael Tolly
@@ -28,10 +28,10 @@ extra-source-files:
   vendors/empty.milo_xbox
   vendors/empty-rb2.milo_xbox
   vendors/empty-rb2_weights.bin
-  ../../player/www/index.html
-  ../../player/www/app.min.js
-  ../../player/www/images/*.png
-  ../../player/www/lib/howler/howler.min.js
+  ../player/www/index.html
+  ../player/www/app.min.js
+  ../player/www/images/*.png
+  ../player/www/lib/howler/howler.min.js
 
 flag MoggDecrypt
   default:             False

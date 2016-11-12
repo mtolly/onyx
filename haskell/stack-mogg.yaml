@@ -1,5 +1,5 @@
 packages:
-- build
+- '.'
 - location:
     git: git://github.com/mtolly/midi
     commit: fb36e91cbeaf3501342cb9c010ccb15647f7c3c2
@@ -19,5 +19,5 @@ extra-deps:
 - monoid-transformer-0.0.3
 resolver: lts-7.7
 flags:
-  onyxite-customs-build:
+  onyxite-customs-tool:
     MoggDecrypt: true
