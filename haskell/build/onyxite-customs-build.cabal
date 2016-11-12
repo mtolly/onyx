@@ -7,6 +7,32 @@ category:             Distribution
 build-type:           Simple
 cabal-version:        >= 1.10
 
+extra-source-files:
+  vendors/magma/hellskitchen.rbproj
+  vendors/magma/MagmaCompilerC3.exe
+  vendors/magma/notes.mid
+  vendors/magma/oggenc-redirect.exe
+  vendors/magma/oggenc.exe
+  vendors/magma/gen/main_pc.hdr
+  vendors/magma/gen/main_pc_0.ark
+  vendors/magma-v1/MagmaCompiler.exe
+  vendors/magma-v1/oggenc.exe
+  vendors/magma-v1/gen/main_pc.hdr
+  vendors/magma-v1/gen/main_pc_0.ark
+  vendors/magma-v1/facefx/FonixData.cdf
+  vendors/magma-v1/facefx/singer.fxa
+  vendors/xbox/rb3pkg/bin/Release/KV.bin
+  vendors/xbox/rb3pkg/bin/Release/rb3.png
+  vendors/xbox/rb3pkg/bin/Release/rb3pkg.exe
+  vendors/xbox/rb3pkg/bin/Release/X360.dll
+  vendors/empty.milo_xbox
+  vendors/empty-rb2.milo_xbox
+  vendors/empty-rb2_weights.bin
+  ../../player/www/index.html
+  ../../player/www/app.min.js
+  ../../player/www/images/*.png
+  ../../player/www/lib/howler/howler.min.js
+
 flag MoggDecrypt
   default:             False
   description:         Enable external MOGG decryptor
@@ -42,12 +68,54 @@ executable onyx
     DryVox
     RenderAudio
     RockBand.ProGuitar.Play
+    -- midiscript
+    Sound.MIDI.Script.Base
+    Sound.MIDI.Script.Scan
+    Sound.MIDI.Script.Parse
+    Sound.MIDI.Script.Read
+    -- resources
+    Resources
+    -- build-types
+    Config
+    Audio.Types
+    Genre
+    JSONData
+    -- display
+    OnyxiteDisplay.Process
+    -- parse
+    RockBand.Common
+    RockBand.Parse
+    RockBand.Sections
+    RockBand.Beat
+    RockBand.Drums
+    RockBand.Events
+    RockBand.File
+    RockBand.FiveButton
+    RockBand.Vocals
+    RockBand.ProKeys
+    RockBand.ProGuitar
+    RockBand.Venue
+    RockBand.PhaseShiftKeys
+    MelodysEscape
+    -- stack-trace
+    Control.Monad.Trans.StackTrace
+    -- dta
+    Data.DTA
+    Data.DTA.Crypt
+    Data.DTA.Serialize
+    Data.DTA.Serialize.Magma
+    Data.DTA.Serialize.RB3
+    Data.DTA.Base
+    Data.DTA.Lex
+    Data.DTA.Parse
+    Data.DTA.PrettyPrint
   build-depends:
     base    >= 4.8    && < 4.10
     , shake >= 0.15 && < 0.16
     , directory
     , temporary
     , aeson, text, unordered-containers, filepath, yaml
+    , file-embed
     , event-list, non-negative, midi
     , containers
     , bytestring
@@ -70,6 +138,11 @@ executable onyx
     , executable-path
     , split
     , data-default-class
+    , utility-ht   >= 0.0.1 && < 0.1
+    , scientific
+    , template-haskell
+    , MonadRandom
+    , data-binary-ieee754 >= 0.4.4    && < 0.5
     -- my libraries:
     , jammittools >= 0.5.0.3 && < 0.6
     , midi-util >= 0.2 && < 0.3
@@ -77,15 +150,8 @@ executable onyx
     , conduit-audio-sndfile
     , conduit-audio-samplerate
     , conduit-audio-lame
-    , onyxite-customs-parse
-    , onyx-resources
-    , onyxite-customs-dta
-    , onyxite-customs-stack-trace
-    , onyxite-customs-display
-    , onyxite-customs-build-types
-    , midiscript
   default-language:     Haskell2010
-  ghc-options:          -Wall -threaded -O2
+  ghc-options:          -Wall -threaded -O
   build-tools: c2hs >= 0.27.1, alex, happy
   if flag(MoggDecrypt)
     cpp-options: -DMOGGDECRYPT
