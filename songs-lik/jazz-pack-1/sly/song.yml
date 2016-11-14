@@ -10,6 +10,8 @@ audio:
     file-path: audio-youtube.wav
     commands:
     - ../../../scripts/youtube ngi_qHGsVsU 140
+    md5: 304027a6418d7d34371c803968011c9b
+    frames: 27392000
 instruments:
   drums: true
 plans:
