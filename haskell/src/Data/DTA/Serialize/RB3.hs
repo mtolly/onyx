@@ -1,52 +1,107 @@
-{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module Data.DTA.Serialize.RB3 where
 
-import           Control.Monad            ((>=>))
-
-import qualified Data.Map                 as Map
+import           Control.Applicative      ((<|>))
+import           Data.DTA
+import           Data.DTA.Serialize.Magma (Gender (..))
+import           Data.DTA.Serialize2
 import qualified Data.Text                as T
 
-import           Data.DTA
-import           Data.DTA.Serialize
-import           Data.DTA.Serialize.Magma (Gender (..))
+dtaEnum "Pitch" eosreb $ do
+  val "C"      [e| [Int 0 ] |]
+  val "CSharp" [e| [Int 1 ] |]
+  val "D"      [e| [Int 2 ] |]
+  val "DSharp" [e| [Int 3 ] |]
+  val "E"      [e| [Int 4 ] |]
+  val "F"      [e| [Int 5 ] |]
+  val "FSharp" [e| [Int 6 ] |]
+  val "G"      [e| [Int 7 ] |]
+  val "GSharp" [e| [Int 8 ] |]
+  val "A"      [e| [Int 9 ] |]
+  val "ASharp" [e| [Int 10] |]
+  val "B"      [e| [Int 11] |]
 
+dtaEnum "Tonality" eosreb $ do
+  val "Major" [e| [Int 0] |]
+  val "Minor" [e| [Int 1] |]
 
+dtaEnum "AnimTempo" eosreb $ do
+  val "KTempoSlow"   [e| [Key "kTempoSlow"  ] |]
+  val "KTempoMedium" [e| [Key "kTempoMedium"] |]
+  val "KTempoFast"   [e| [Key "kTempoFast"  ] |]
 
-type Path = Either T.Text Keyword
+dtaRecord "DrumSounds" eosr $ do
+  req "seqs" "seqs" [t| [T.Text] |] [e| chunksParens $ chunksList chunksKey |]
 
-data SongPackage = SongPackage { name :: T.Text, artist :: T.Text, master :: Bool, songId :: Either Integer Keyword, song :: Song, bank :: Maybe (Path), drumBank :: Maybe (Path), animTempo :: Either AnimTempo Integer, bandFailCue :: Maybe (Path), songScrollSpeed :: Integer, preview :: (Integer, Integer), songLength :: Integer, rank :: Dict Integer, solo :: Maybe (InParens [Keyword]), format :: Integer, version :: Integer, gameOrigin :: Keyword, rating :: Integer, genre :: Keyword, subGenre :: Maybe (Keyword), vocalGender :: Gender, shortVersion :: Maybe (Integer), yearReleased :: Integer, albumArt :: Maybe (Bool), albumName :: Maybe (T.Text), albumTrackNumber :: Maybe (Integer), vocalTonicNote :: Maybe (Pitch), songTonality :: Maybe (Tonality), songKey :: Maybe (Pitch), tuningOffsetCents :: Maybe (Float), realGuitarTuning :: Maybe (InParens [Integer]), realBassTuning :: Maybe (InParens [Integer]), guidePitchVolume :: Maybe (Float), encoding :: Maybe (Keyword), context :: Maybe (Integer), decade :: Maybe (Keyword), downloaded :: Maybe (Bool), basePoints :: Maybe (Integer) } deriving (Eq, Ord, Read, Show)
+channelList :: ChunkFormat [Integer]
+channelList = ChunkFormat
+  { toChunks = toChunks fmt
+  , fromChunks = fromChunks fmt <|> fmap (: []) (fromChunks fmt')
+    <|> expected "a number or a list of numbers"
+  } where fmt  = format :: ChunkFormat [Integer]
+          fmt' = format :: ChunkFormat Integer
 
-instance ToChunks SongPackage where { toChunks x = makeDict $ Dict $ Map.fromList $ [("name", toChunks $ name x)] ++ [("artist", toChunks $ artist x)] ++ [("master", toChunks $ master x)] ++ [("song_id", toChunks $ songId x)] ++ [("song", toChunks $ song x)] ++ (case bank x of { Nothing -> []; Just v -> [("bank", toChunks v)] }) ++ (case drumBank x of { Nothing -> []; Just v -> [("drum_bank", toChunks v)] }) ++ [("anim_tempo", toChunks $ animTempo x)] ++ (case bandFailCue x of { Nothing -> []; Just v -> [("band_fail_cue", toChunks v)] }) ++ [("song_scroll_speed", toChunks $ songScrollSpeed x)] ++ [("preview", toChunks $ preview x)] ++ [("song_length", toChunks $ songLength x)] ++ [("rank", toChunks $ rank x)] ++ (case solo x of { Nothing -> []; Just v -> [("solo", toChunks v)] }) ++ [("format", toChunks $ format x)] ++ [("version", toChunks $ version x)] ++ [("game_origin", toChunks $ gameOrigin x)] ++ [("rating", toChunks $ rating x)] ++ [("genre", toChunks $ genre x)] ++ (case subGenre x of { Nothing -> []; Just v -> [("sub_genre", toChunks v)] }) ++ [("vocal_gender", toChunks $ vocalGender x)] ++ (case shortVersion x of { Nothing -> []; Just v -> [("short_version", toChunks v)] }) ++ [("year_released", toChunks $ yearReleased x)] ++ (case albumArt x of { Nothing -> []; Just v -> [("album_art", toChunks v)] }) ++ (case albumName x of { Nothing -> []; Just v -> [("album_name", toChunks v)] }) ++ (case albumTrackNumber x of { Nothing -> []; Just v -> [("album_track_number", toChunks v)] }) ++ (case vocalTonicNote x of { Nothing -> []; Just v -> [("vocal_tonic_note", toChunks v)] }) ++ (case songTonality x of { Nothing -> []; Just v -> [("song_tonality", toChunks v)] }) ++ (case songKey x of { Nothing -> []; Just v -> [("song_key", toChunks v)] }) ++ (case tuningOffsetCents x of { Nothing -> []; Just v -> [("tuning_offset_cents", toChunks v)] }) ++ (case realGuitarTuning x of { Nothing -> []; Just v -> [("real_guitar_tuning", toChunks v)] }) ++ (case realBassTuning x of { Nothing -> []; Just v -> [("real_bass_tuning", toChunks v)] }) ++ (case guidePitchVolume x of { Nothing -> []; Just v -> [("guide_pitch_volume", toChunks v)] }) ++ (case encoding x of { Nothing -> []; Just v -> [("encoding", toChunks v)] }) ++ (case context x of { Nothing -> []; Just v -> [("context", toChunks v)] }) ++ (case decade x of { Nothing -> []; Just v -> [("decade", toChunks v)] }) ++ (case downloaded x of { Nothing -> []; Just v -> [("downloaded", toChunks v)] }) ++ (case basePoints x of { Nothing -> []; Just v -> [("base_points", toChunks v)] }) }
+dtaRecord "Song" eosr $ do
+  req "songName" "name" [t| T.Text |] [e| chunksString |]
+  opt "tracksCount" "tracks_count" [t| Maybe [Integer] |] [e| Nothing |] [e| chunksMaybe $ chunksParens format |]
+  req "tracks" "tracks" [t| Dict [Integer] |] [e| chunksParens $ chunksDict channelList |]
+  opt "vocalParts" "vocal_parts" [t| Maybe Integer |] [e| Nothing |] [e| format |]
+  req "pans" "pans" [t| [Float] |] [e| chunksParens format |]
+  req "vols" "vols" [t| [Float] |] [e| chunksParens format |]
+  req "cores" "cores" [t| [Integer] |] [e| chunksParens format |]
+  req "drumSolo" "drum_solo" [t| DrumSounds |] [e| format |]
+  req "drumFreestyle" "drum_freestyle" [t| DrumSounds |] [e| format |]
+  opt "crowdChannels" "crowd_channels" [t| Maybe [Integer] |] [e| Nothing |] [e| format |]
+  opt "hopoThreshold" "hopo_threshold" [t| Maybe Integer |] [e| Nothing |] [e| format |]
+  opt "muteVolume" "mute_volume" [t| Maybe Integer |] [e| Nothing |] [e| format |]
+  opt "muteVolumeVocals" "mute_volume_vocals" [t| Maybe Integer |] [e| Nothing |] [e| format |]
+  -- seen in magma v1 / rb2:
+  opt "midiFile" "midi_file" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksString |]
 
-instance FromChunks SongPackage where { fromChunks = getDict >=> \d -> SongPackage <$> (dictLookup "name" d >>= fromChunks) <*> (dictLookup "artist" d >>= fromChunks) <*> (dictLookup "master" d >>= fromChunks) <*> (dictLookup "song_id" d >>= fromChunks) <*> (dictLookup "song" d >>= fromChunks) <*> (case dictLookup "bank" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "drum_bank" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (dictLookup "anim_tempo" d >>= fromChunks) <*> (case dictLookup "band_fail_cue" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (dictLookup "song_scroll_speed" d >>= fromChunks) <*> (dictLookup "preview" d >>= fromChunks) <*> (dictLookup "song_length" d >>= fromChunks) <*> (dictLookup "rank" d >>= fromChunks) <*> (case dictLookup "solo" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (dictLookup "format" d >>= fromChunks) <*> (dictLookup "version" d >>= fromChunks) <*> (dictLookup "game_origin" d >>= fromChunks) <*> (dictLookup "rating" d >>= fromChunks) <*> (dictLookup "genre" d >>= fromChunks) <*> (case dictLookup "sub_genre" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (dictLookup "vocal_gender" d >>= fromChunks) <*> (case dictLookup "short_version" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (dictLookup "year_released" d >>= fromChunks) <*> (case dictLookup "album_art" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "album_name" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "album_track_number" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "vocal_tonic_note" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "song_tonality" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "song_key" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "tuning_offset_cents" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "real_guitar_tuning" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "real_bass_tuning" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "guide_pitch_volume" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "encoding" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "context" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "decade" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "downloaded" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "base_points" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) }
+chunksStringOrKey :: ChunkFormat T.Text
+chunksStringOrKey = ChunkFormat
+  { toChunks   = toChunks chunksString
+  , fromChunks = fromChunks chunksString <|> fromChunks chunksKey <|> expected "a string or keyword"
+  }
 
-data Pitch = C | CSharp | D | DSharp | E | F | FSharp | G | GSharp | A | ASharp | B deriving (Eq, Ord, Read, Show, Enum, Bounded)
-
-instance ToChunks Pitch where { toChunks C = [Int 0]; toChunks CSharp = [Int 1]; toChunks D = [Int 2]; toChunks DSharp = [Int 3]; toChunks E = [Int 4]; toChunks F = [Int 5]; toChunks FSharp = [Int 6]; toChunks G = [Int 7]; toChunks GSharp = [Int 8]; toChunks A = [Int 9]; toChunks ASharp = [Int 10]; toChunks B = [Int 11] }
-
-instance FromChunks Pitch where { fromChunks [Int 0] = Right C; fromChunks [Int 1] = Right CSharp; fromChunks [Int 2] = Right D; fromChunks [Int 3] = Right DSharp; fromChunks [Int 4] = Right E; fromChunks [Int 5] = Right F; fromChunks [Int 6] = Right FSharp; fromChunks [Int 7] = Right G; fromChunks [Int 8] = Right GSharp; fromChunks [Int 9] = Right A; fromChunks [Int 10] = Right ASharp; fromChunks [Int 11] = Right B; fromChunks cs = Left $ T.pack $ "Couldn't read as Pitch: " ++ show cs }
-
-data Tonality = Major | Minor deriving (Eq, Ord, Read, Show, Enum, Bounded)
-
-instance ToChunks Tonality where { toChunks Major = [Int 0]; toChunks Minor = [Int 1] }
-
-instance FromChunks Tonality where { fromChunks [Int 0] = Right Major; fromChunks [Int 1] = Right Minor; fromChunks cs = Left $ T.pack $ "Couldn't read as Tonality: " ++ show cs }
-
-data AnimTempo = KTempoSlow | KTempoMedium | KTempoFast deriving (Eq, Ord, Read, Show, Enum, Bounded)
-
-instance ToChunks AnimTempo where { toChunks KTempoSlow = [Key "kTempoSlow"]; toChunks KTempoMedium = [Key "kTempoMedium"]; toChunks KTempoFast = [Key "kTempoFast"] }
-
-instance FromChunks AnimTempo where { fromChunks [Key "kTempoSlow"] = Right KTempoSlow; fromChunks [Key "kTempoMedium"] = Right KTempoMedium; fromChunks [Key "kTempoFast"] = Right KTempoFast; fromChunks cs = Left $ T.pack $ "Couldn't read as AnimTempo: " ++ show cs }
-
-data Song = Song { songName :: T.Text, tracksCount :: Maybe (InParens [Integer]), tracks :: InParens (Dict (Either Integer (InParens [Integer]))), vocalParts :: Maybe (Integer), pans :: InParens [Float], vols :: InParens [Float], cores :: InParens [Integer], drumSolo :: DrumSounds, drumFreestyle :: DrumSounds, crowdChannels :: Maybe ([Integer]), hopoThreshold :: Maybe (Integer), muteVolume :: Maybe (Integer), muteVolumeVocals :: Maybe (Integer), midiFile :: Maybe (T.Text) } deriving (Eq, Ord, Read, Show)
-
-instance ToChunks Song where { toChunks x = makeDict $ Dict $ Map.fromList $ [("name", toChunks $ songName x)] ++ (case tracksCount x of { Nothing -> []; Just v -> [("tracks_count", toChunks v)] }) ++ [("tracks", toChunks $ tracks x)] ++ (case vocalParts x of { Nothing -> []; Just v -> [("vocal_parts", toChunks v)] }) ++ [("pans", toChunks $ pans x)] ++ [("vols", toChunks $ vols x)] ++ [("cores", toChunks $ cores x)] ++ [("drum_solo", toChunks $ drumSolo x)] ++ [("drum_freestyle", toChunks $ drumFreestyle x)] ++ (case crowdChannels x of { Nothing -> []; Just v -> [("crowd_channels", toChunks v)] }) ++ (case hopoThreshold x of { Nothing -> []; Just v -> [("hopo_threshold", toChunks v)] }) ++ (case muteVolume x of { Nothing -> []; Just v -> [("mute_volume", toChunks v)] }) ++ (case muteVolumeVocals x of { Nothing -> []; Just v -> [("mute_volume_vocals", toChunks v)] }) ++ (case midiFile x of { Nothing -> []; Just v -> [("midi_file", toChunks v)] }) }
-
-instance FromChunks Song where { fromChunks = getDict >=> \d -> Song <$> (dictLookup "name" d >>= fromChunks) <*> (case dictLookup "tracks_count" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (dictLookup "tracks" d >>= fromChunks) <*> (case dictLookup "vocal_parts" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (dictLookup "pans" d >>= fromChunks) <*> (dictLookup "vols" d >>= fromChunks) <*> (dictLookup "cores" d >>= fromChunks) <*> (dictLookup "drum_solo" d >>= fromChunks) <*> (dictLookup "drum_freestyle" d >>= fromChunks) <*> (case dictLookup "crowd_channels" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "hopo_threshold" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "mute_volume" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "mute_volume_vocals" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "midi_file" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) }
-
-data DrumSounds = DrumSounds { seqs :: InParens [Keyword] } deriving (Eq, Ord, Read, Show)
-
-instance ToChunks DrumSounds where { toChunks x = makeDict $ Dict $ Map.fromList $ [("seqs", toChunks $ seqs x)] }
-
-instance FromChunks DrumSounds where { fromChunks = getDict >=> \d -> DrumSounds <$> (dictLookup "seqs" d >>= fromChunks) }
+dtaRecord "SongPackage" eosr $ do
+  req "name" "name" [t| T.Text |] [e| chunksString |]
+  req "artist" "artist" [t| T.Text |] [e| chunksString |]
+  req "master" "master" [t| Bool |] [e| format |]
+  req "songId" "song_id" [t| Either Integer T.Text |] [e| chunksEither format chunksKey |]
+  req "song" "song" [t| Song |] [e| format |]
+  opt "bank" "bank" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksStringOrKey |]
+  opt "drumBank" "drum_bank" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksStringOrKey |]
+  req "animTempo" "anim_tempo" [t| Either AnimTempo Integer |] [e| format |]
+  opt "bandFailCue" "band_fail_cue" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksStringOrKey |]
+  req "songScrollSpeed" "song_scroll_speed" [t| Integer |] [e| format |]
+  req "preview" "preview" [t| (Integer, Integer) |] [e| format |]
+  req "songLength" "song_length" [t| Integer |] [e| format |]
+  req "rank" "rank" [t| Dict Integer |] [e| format |]
+  opt "solo" "solo" [t| Maybe [T.Text] |] [e| Nothing |] [e| chunksMaybe $ chunksParens $ chunksList chunksKey |]
+  req "songFormat" "format" [t| Integer |] [e| format |]
+  req "version" "version" [t| Integer |] [e| format |]
+  req "gameOrigin" "game_origin" [t| T.Text |] [e| chunksKey |]
+  req "rating" "rating" [t| Integer |] [e| format |]
+  req "genre" "genre" [t| T.Text |] [e| chunksKey |]
+  opt "subGenre" "sub_genre" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksKey |]
+  req "vocalGender" "vocal_gender" [t| Gender |] [e| format |]
+  opt "shortVersion" "short_version" [t| Maybe Integer |] [e| Nothing |] [e| format |]
+  req "yearReleased" "year_released" [t| Integer |] [e| format |]
+  opt "albumArt" "album_art" [t| Maybe Bool |] [e| Nothing |] [e| format |]
+  opt "albumName" "album_name" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksString |]
+  opt "albumTrackNumber" "album_track_number" [t| Maybe Integer |] [e| Nothing |] [e| format |]
+  opt "vocalTonicNote" "vocal_tonic_note" [t| Maybe Pitch |] [e| Nothing |] [e| format |]
+  opt "songTonality" "song_tonality" [t| Maybe Tonality |] [e| Nothing |] [e| format |]
+  opt "songKey" "song_key" [t| Maybe Pitch |] [e| Nothing |] [e| format |]
+  opt "tuningOffsetCents" "tuning_offset_cents" [t| Maybe Float |] [e| Nothing |] [e| format |]
+  opt "realGuitarTuning" "real_guitar_tuning" [t| Maybe [Integer] |] [e| Nothing |] [e| chunksMaybe $ chunksParens format |]
+  opt "realBassTuning" "real_bass_tuning" [t| Maybe [Integer] |] [e| Nothing |] [e| chunksMaybe $ chunksParens format |]
+  opt "guidePitchVolume" "guide_pitch_volume" [t| Maybe Float |] [e| Nothing |] [e| format |]
+  opt "encoding" "encoding" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksKey |]
+  -- seen in magma v1 / rb2:
+  opt "context" "context" [t| Maybe Integer |] [e| Nothing |] [e| format |]
+  opt "decade" "decade" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksKey |]
+  opt "downloaded" "downloaded" [t| Maybe Bool |] [e| Nothing |] [e| format |]
+  opt "basePoints" "base_points" [t| Maybe Integer |] [e| Nothing |] [e| format |]

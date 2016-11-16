@@ -1,103 +1,130 @@
-{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module Data.DTA.Serialize.Magma where
 
-import           Control.Monad      ((>=>))
-
-import qualified Data.Map           as Map
-import qualified Data.Text          as T
-
 import           Data.DTA
-import           Data.DTA.Serialize
+import           Data.DTA.Serialize2
+import           Data.Monoid         ((<>))
+import qualified Data.Text           as T
+import           Language.Haskell.TH (stringE)
 
+dtaRecord "Metadata" eosr $ do
+  req "songName" "song_name" [t| T.Text |] [e| chunksString |]
+  req "artistName" "artist_name" [t| T.Text |] [e| chunksString |]
+  req "genre" "genre" [t| T.Text |] [e| chunksKey |]
+  req "subGenre" "sub_genre" [t| T.Text |] [e| chunksKey |]
+  req "yearReleased" "year_released" [t| Integer |] [e| format |]
+  req "albumName" "album_name" [t| T.Text |] [e| chunksString |]
+  req "author" "author" [t| T.Text |] [e| chunksString |]
+  req "releaseLabel" "release_label" [t| T.Text |] [e| chunksString |]
+  req "country" "country" [t| T.Text |] [e| chunksKey |]
+  req "price" "price" [t| Integer |] [e| format |]
+  req "trackNumber" "track_number" [t| Integer |] [e| format |]
+  req "hasAlbum" "has_album" [t| Bool |] [e| format |]
 
+dtaRecord "AudioFile" eosr $ do
+  req "audioEnabled" "enabled" [t| Bool |] [e| format |]
+  req "channels" "channels" [t| Integer |] [e| format |]
+  req "pan" "pan" [t| [Float] |] [e| format |]
+  req "vol" "vol" [t| [Float] |] [e| format |]
+  req "audioFile" "file" [t| T.Text |] [e| chunksString |]
 
-data RBProj = RBProj { project :: Project } deriving (Eq, Ord, Read, Show)
+dtaRecord "DryVoxPart" eosr $ do
+  req "dryVoxFile" "file" [t| T.Text |] [e| chunksString |]
+  req "dryVoxEnabled" "enabled" [t| Bool |] [e| format |]
 
-instance ToChunks RBProj where { toChunks x = makeDict $ Dict $ Map.fromList $ [("project", toChunks $ project x)] }
+dtaRecord "DryVox" eosr $ do
+  opt "dryVoxFileRB2" "file" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksString |]
+  req "part0" "part0" [t| DryVoxPart |] [e| format |]
+  req "part1" "part1" [t| DryVoxPart |] [e| format |]
+  req "part2" "part2" [t| DryVoxPart |] [e| format |]
+  req "tuningOffsetCents" "tuning_offset_cents" [t| Float |] [e| format |]
 
-instance FromChunks RBProj where { fromChunks = getDict >=> \d -> RBProj <$> (dictLookup "project" d >>= fromChunks) }
+dtaEnum "AutogenTheme" eosreb $ do
+  val "DefaultTheme" [e| [String ""] |]
+  let theme s = val s [e| [String ($(stringE s) <> ".rbtheme")] |]
+  theme "AggressiveMetal"
+  theme "ArenaRock"
+  theme "DarkHeavyRock"
+  theme "DustyVintage"
+  theme "EdgyProgRock"
+  theme "FeelGoodPopRock"
+  theme "GaragePunkRock"
+  theme "PsychJamRock"
+  theme "SlowJam"
+  theme "SynthPop"
 
-data Project = Project { toolVersion :: T.Text, projectVersion :: Integer, metadata :: Metadata, gamedata :: Gamedata, languages :: Languages, destinationFile :: T.Text, midi :: Midi, dryVox :: DryVox, albumArt :: AlbumArt, tracks :: Tracks } deriving (Eq, Ord, Read, Show)
+dtaRecord "Midi" eosr $ do
+  req "midiFile" "file" [t| T.Text |] [e| chunksString |]
+  req "autogenTheme" "autogen_theme" [t| Either AutogenTheme T.Text |] [e| chunksEither format chunksString |]
 
-instance ToChunks Project where { toChunks x = makeDict $ Dict $ Map.fromList $ [("tool_version", toChunks $ toolVersion x)] ++ [("project_version", toChunks $ projectVersion x)] ++ [("metadata", toChunks $ metadata x)] ++ [("gamedata", toChunks $ gamedata x)] ++ [("languages", toChunks $ languages x)] ++ [("destination_file", toChunks $ destinationFile x)] ++ [("midi", toChunks $ midi x)] ++ [("dry_vox", toChunks $ dryVox x)] ++ [("album_art", toChunks $ albumArt x)] ++ [("tracks", toChunks $ tracks x)] }
+dtaEnum "DrumLayout" eosreb $ do
+  val "Kit"          [e| [Key "drum_layout_kit"             ] |]
+  val "KitSnare"     [e| [Key "drum_layout_kit_snare"       ] |]
+  val "KitKick"      [e| [Key "drum_layout_kit_kick"        ] |]
+  val "KitKickSnare" [e| [Key "drum_layout_kit_kick_snare"  ] |]
 
-instance FromChunks Project where { fromChunks = getDict >=> \d -> Project <$> (dictLookup "tool_version" d >>= fromChunks) <*> (dictLookup "project_version" d >>= fromChunks) <*> (dictLookup "metadata" d >>= fromChunks) <*> (dictLookup "gamedata" d >>= fromChunks) <*> (dictLookup "languages" d >>= fromChunks) <*> (dictLookup "destination_file" d >>= fromChunks) <*> (dictLookup "midi" d >>= fromChunks) <*> (dictLookup "dry_vox" d >>= fromChunks) <*> (dictLookup "album_art" d >>= fromChunks) <*> (dictLookup "tracks" d >>= fromChunks) }
+dtaRecord "Tracks" eosr $ do
+  req "drumLayout" "drum_layout" [t| DrumLayout |] [e| format |]
+  req "drumKit" "drum_kit" [t| AudioFile |] [e| format |]
+  req "drumKick" "drum_kick" [t| AudioFile |] [e| format |]
+  req "drumSnare" "drum_snare" [t| AudioFile |] [e| format |]
+  req "bass" "bass" [t| AudioFile |] [e| format |]
+  req "guitar" "guitar" [t| AudioFile |] [e| format |]
+  req "vocals" "vocals" [t| AudioFile |] [e| format |]
+  req "keys" "keys" [t| AudioFile |] [e| format |]
+  req "backing" "backing" [t| AudioFile |] [e| format |]
 
-data AlbumArt = AlbumArt { albumArtFile :: T.Text } deriving (Eq, Ord, Read, Show)
+dtaEnum "Percussion" eosreb $ do
+  val "Tambourine" [e| [Key "tambourine"] |]
+  val "Cowbell"    [e| [Key "cowbell"   ] |]
+  val "Handclap"   [e| [Key "handclap"  ] |]
 
-instance ToChunks AlbumArt where { toChunks x = makeDict $ Dict $ Map.fromList $ [("file", toChunks $ albumArtFile x)] }
+dtaEnum "Gender" eosreb $ do
+  val "Male"   [e| [Key "male"  ] |]
+  val "Female" [e| [Key "female"] |]
 
-instance FromChunks AlbumArt where { fromChunks = getDict >=> \d -> AlbumArt <$> (dictLookup "file" d >>= fromChunks) }
+dtaRecord "Languages" eosr $ do
+  opt "english" "english" [t| Maybe Bool |] [e| Nothing |] [e| format |]
+  opt "french" "french" [t| Maybe Bool |] [e| Nothing |] [e| format |]
+  opt "italian" "italian" [t| Maybe Bool |] [e| Nothing |] [e| format |]
+  opt "spanish" "spanish" [t| Maybe Bool |] [e| Nothing |] [e| format |]
+  opt "german" "german" [t| Maybe Bool |] [e| Nothing |] [e| format |]
+  opt "japanese" "japanese" [t| Maybe Bool |] [e| Nothing |] [e| format |]
 
-data Languages = Languages { english :: Maybe (Bool), french :: Maybe (Bool), italian :: Maybe (Bool), spanish :: Maybe (Bool), german :: Maybe (Bool), japanese :: Maybe (Bool) } deriving (Eq, Ord, Read, Show)
+dtaRecord "AlbumArt" eosr $ do
+  req "albumArtFile" "file" [t| T.Text |] [e| chunksString |]
 
-instance ToChunks Languages where { toChunks x = makeDict $ Dict $ Map.fromList $ (case english x of { Nothing -> []; Just v -> [("english", toChunks v)] }) ++ (case french x of { Nothing -> []; Just v -> [("french", toChunks v)] }) ++ (case italian x of { Nothing -> []; Just v -> [("italian", toChunks v)] }) ++ (case spanish x of { Nothing -> []; Just v -> [("spanish", toChunks v)] }) ++ (case german x of { Nothing -> []; Just v -> [("german", toChunks v)] }) ++ (case japanese x of { Nothing -> []; Just v -> [("japanese", toChunks v)] }) }
+dtaRecord "Gamedata" eosr $ do
+  req "previewStartMs" "preview_start_ms" [t| Integer |] [e| format |]
+  -- ranks: 1 is no dots, 7 is devils
+  req "rankGuitar" "rank_guitar" [t| Integer |] [e| format |]
+  req "rankBass" "rank_bass" [t| Integer |] [e| format |]
+  req "rankDrum" "rank_drum" [t| Integer |] [e| format |]
+  req "rankVocals" "rank_vocals" [t| Integer |] [e| format |]
+  req "rankKeys" "rank_keys" [t| Integer |] [e| format |]
+  req "rankProKeys" "rank_pro_keys" [t| Integer |] [e| format |]
+  req "rankBand" "rank_band" [t| Integer |] [e| format |]
+  -- scroll speed: normal = 2300, fast = 2000
+  req "vocalScrollSpeed" "vocal_scroll_speed" [t| Integer |] [e| format |]
+  -- Slow (under 100bpm) = 16. Medium (100-160bpm) = 32. Fast (over 160bpm) = 64.
+  req "animTempo" "anim_tempo" [t| Integer |] [e| format |]
+  req "vocalGender" "vocal_gender" [t| Gender |] [e| format |]
+  req "vocalPercussion" "vocal_percussion" [t| Percussion |] [e| format |]
+  req "vocalParts" "vocal_parts" [t| Integer |] [e| format |]
+  req "guidePitchVolume" "guide_pitch_volume" [t| Float |] [e| format |]
 
-instance FromChunks Languages where { fromChunks = getDict >=> \d -> Languages <$> (case dictLookup "english" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "french" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "italian" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "spanish" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "german" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (case dictLookup "japanese" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) }
+dtaRecord "Project" eosr $ do
+  req "toolVersion" "tool_version" [t| T.Text |] [e| chunksString |]
+  req "projectVersion" "project_version" [t| Integer |] [e| format |]
+  req "metadata" "metadata" [t| Metadata |] [e| format |]
+  req "gamedata" "gamedata" [t| Gamedata |] [e| format |]
+  req "languages" "languages" [t| Languages |] [e| format |]
+  req "destinationFile" "destination_file" [t| T.Text |] [e| chunksString |]
+  req "midi" "midi" [t| Midi |] [e| format |]
+  req "dryVox" "dry_vox" [t| DryVox |] [e| format |]
+  req "albumArt" "album_art" [t| AlbumArt |] [e| format |]
+  req "tracks" "tracks" [t| Tracks |] [e| format |]
 
-data Gamedata = Gamedata { previewStartMs :: Integer, rankGuitar :: Integer {- ^ 1 is no dots, 7 is devils. -}, rankBass :: Integer, rankDrum :: Integer, rankVocals :: Integer, rankKeys :: Integer, rankProKeys :: Integer, rankBand :: Integer, vocalScrollSpeed :: Integer {- ^ Normal = 2300. Fast = 2000. -}, animTempo :: Integer {- ^ Slow (under 100bpm) = 16. Medium (100-160bpm) = 32. Fast (over 160bpm) = 64. -}, vocalGender :: Gender, vocalPercussion :: Percussion, vocalParts :: Integer, guidePitchVolume :: Float } deriving (Eq, Ord, Read, Show)
-
-instance ToChunks Gamedata where { toChunks x = makeDict $ Dict $ Map.fromList $ [("preview_start_ms", toChunks $ previewStartMs x)] ++ [("rank_guitar", toChunks $ rankGuitar x)] ++ [("rank_bass", toChunks $ rankBass x)] ++ [("rank_drum", toChunks $ rankDrum x)] ++ [("rank_vocals", toChunks $ rankVocals x)] ++ [("rank_keys", toChunks $ rankKeys x)] ++ [("rank_pro_keys", toChunks $ rankProKeys x)] ++ [("rank_band", toChunks $ rankBand x)] ++ [("vocal_scroll_speed", toChunks $ vocalScrollSpeed x)] ++ [("anim_tempo", toChunks $ animTempo x)] ++ [("vocal_gender", toChunks $ vocalGender x)] ++ [("vocal_percussion", toChunks $ vocalPercussion x)] ++ [("vocal_parts", toChunks $ vocalParts x)] ++ [("guide_pitch_volume", toChunks $ guidePitchVolume x)] }
-
-instance FromChunks Gamedata where { fromChunks = getDict >=> \d -> Gamedata <$> (dictLookup "preview_start_ms" d >>= fromChunks) <*> (dictLookup "rank_guitar" d >>= fromChunks) <*> (dictLookup "rank_bass" d >>= fromChunks) <*> (dictLookup "rank_drum" d >>= fromChunks) <*> (dictLookup "rank_vocals" d >>= fromChunks) <*> (dictLookup "rank_keys" d >>= fromChunks) <*> (dictLookup "rank_pro_keys" d >>= fromChunks) <*> (dictLookup "rank_band" d >>= fromChunks) <*> (dictLookup "vocal_scroll_speed" d >>= fromChunks) <*> (dictLookup "anim_tempo" d >>= fromChunks) <*> (dictLookup "vocal_gender" d >>= fromChunks) <*> (dictLookup "vocal_percussion" d >>= fromChunks) <*> (dictLookup "vocal_parts" d >>= fromChunks) <*> (dictLookup "guide_pitch_volume" d >>= fromChunks) }
-
-data Gender = Male | Female deriving (Eq, Ord, Read, Show, Enum, Bounded)
-
-instance ToChunks Gender where { toChunks Male = [Key "male"]; toChunks Female = [Key "female"] }
-
-instance FromChunks Gender where { fromChunks [Key "male"] = Right Male; fromChunks [Key "female"] = Right Female; fromChunks cs = Left $ T.pack $ "Couldn't read as Gender: " ++ show cs }
-
-data Percussion = Tambourine | Cowbell | Handclap deriving (Eq, Ord, Read, Show, Enum, Bounded)
-
-instance ToChunks Percussion where { toChunks Tambourine = [Key "tambourine"]; toChunks Cowbell = [Key "cowbell"]; toChunks Handclap = [Key "handclap"] }
-
-instance FromChunks Percussion where { fromChunks [Key "tambourine"] = Right Tambourine; fromChunks [Key "cowbell"] = Right Cowbell; fromChunks [Key "handclap"] = Right Handclap; fromChunks cs = Left $ T.pack $ "Couldn't read as Percussion: " ++ show cs }
-
-data Metadata = Metadata { songName :: T.Text, artistName :: T.Text, genre :: Keyword, subGenre :: Keyword, yearReleased :: Integer, albumName :: T.Text, author :: T.Text, releaseLabel :: T.Text, country :: Keyword, price :: Integer, trackNumber :: Integer, hasAlbum :: Bool } deriving (Eq, Ord, Read, Show)
-
-instance ToChunks Metadata where { toChunks x = makeDict $ Dict $ Map.fromList $ [("song_name", toChunks $ songName x)] ++ [("artist_name", toChunks $ artistName x)] ++ [("genre", toChunks $ genre x)] ++ [("sub_genre", toChunks $ subGenre x)] ++ [("year_released", toChunks $ yearReleased x)] ++ [("album_name", toChunks $ albumName x)] ++ [("author", toChunks $ author x)] ++ [("release_label", toChunks $ releaseLabel x)] ++ [("country", toChunks $ country x)] ++ [("price", toChunks $ price x)] ++ [("track_number", toChunks $ trackNumber x)] ++ [("has_album", toChunks $ hasAlbum x)] }
-
-instance FromChunks Metadata where { fromChunks = getDict >=> \d -> Metadata <$> (dictLookup "song_name" d >>= fromChunks) <*> (dictLookup "artist_name" d >>= fromChunks) <*> (dictLookup "genre" d >>= fromChunks) <*> (dictLookup "sub_genre" d >>= fromChunks) <*> (dictLookup "year_released" d >>= fromChunks) <*> (dictLookup "album_name" d >>= fromChunks) <*> (dictLookup "author" d >>= fromChunks) <*> (dictLookup "release_label" d >>= fromChunks) <*> (dictLookup "country" d >>= fromChunks) <*> (dictLookup "price" d >>= fromChunks) <*> (dictLookup "track_number" d >>= fromChunks) <*> (dictLookup "has_album" d >>= fromChunks) }
-
-data Midi = Midi { midiFile :: T.Text, autogenTheme :: Either AutogenTheme T.Text } deriving (Eq, Ord, Read, Show)
-
-instance ToChunks Midi where { toChunks x = makeDict $ Dict $ Map.fromList $ [("file", toChunks $ midiFile x)] ++ [("autogen_theme", toChunks $ autogenTheme x)] }
-
-instance FromChunks Midi where { fromChunks = getDict >=> \d -> Midi <$> (dictLookup "file" d >>= fromChunks) <*> (dictLookup "autogen_theme" d >>= fromChunks) }
-
-data AutogenTheme = DefaultTheme | AggressiveMetal | ArenaRock | DarkHeavyRock | DustyVintage | EdgyProgRock | FeelGoodPopRock | GaragePunkRock | PsychJamRock | SlowJam | SynthPop deriving (Eq, Ord, Read, Show, Enum, Bounded)
-
-instance ToChunks AutogenTheme where { toChunks DefaultTheme = [String ""]; toChunks AggressiveMetal = [String "AggressiveMetal.rbtheme"]; toChunks ArenaRock = [String "ArenaRock.rbtheme"]; toChunks DarkHeavyRock = [String "DarkHeavyRock.rbtheme"]; toChunks DustyVintage = [String "DustyVintage.rbtheme"]; toChunks EdgyProgRock = [String "EdgyProgRock.rbtheme"]; toChunks FeelGoodPopRock = [String "FeelGoodPopRock.rbtheme"]; toChunks GaragePunkRock = [String "GaragePunkRock.rbtheme"]; toChunks PsychJamRock = [String "PsychJamRock.rbtheme"]; toChunks SlowJam = [String "SlowJam.rbtheme"]; toChunks SynthPop = [String "SynthPop.rbtheme"] }
-
-instance FromChunks AutogenTheme where { fromChunks [String ""] = Right DefaultTheme; fromChunks [String "AggressiveMetal.rbtheme"] = Right AggressiveMetal; fromChunks [String "ArenaRock.rbtheme"] = Right ArenaRock; fromChunks [String "DarkHeavyRock.rbtheme"] = Right DarkHeavyRock; fromChunks [String "DustyVintage.rbtheme"] = Right DustyVintage; fromChunks [String "EdgyProgRock.rbtheme"] = Right EdgyProgRock; fromChunks [String "FeelGoodPopRock.rbtheme"] = Right FeelGoodPopRock; fromChunks [String "GaragePunkRock.rbtheme"] = Right GaragePunkRock; fromChunks [String "PsychJamRock.rbtheme"] = Right PsychJamRock; fromChunks [String "SlowJam.rbtheme"] = Right SlowJam; fromChunks [String "SynthPop.rbtheme"] = Right SynthPop; fromChunks cs = Left $ T.pack $ "Couldn't read as AutogenTheme: " ++ show cs }
-
-data DryVox = DryVox { dryVoxFileRB2 :: Maybe (T.Text), part0 :: DryVoxPart, part1 :: DryVoxPart, part2 :: DryVoxPart, tuningOffsetCents :: Float } deriving (Eq, Ord, Read, Show)
-
-instance ToChunks DryVox where { toChunks x = makeDict $ Dict $ Map.fromList $ (case dryVoxFileRB2 x of { Nothing -> []; Just v -> [("file", toChunks v)] }) ++ [("part0", toChunks $ part0 x)] ++ [("part1", toChunks $ part1 x)] ++ [("part2", toChunks $ part2 x)] ++ [("tuning_offset_cents", toChunks $ tuningOffsetCents x)] }
-
-instance FromChunks DryVox where { fromChunks = getDict >=> \d -> DryVox <$> (case dictLookup "file" d of { Left _ -> Right Nothing; Right v -> fmap Just $ fromChunks v }) <*> (dictLookup "part0" d >>= fromChunks) <*> (dictLookup "part1" d >>= fromChunks) <*> (dictLookup "part2" d >>= fromChunks) <*> (dictLookup "tuning_offset_cents" d >>= fromChunks) }
-
-data DryVoxPart = DryVoxPart { dryVoxFile :: T.Text, dryVoxEnabled :: Bool } deriving (Eq, Ord, Read, Show)
-
-instance ToChunks DryVoxPart where { toChunks x = makeDict $ Dict $ Map.fromList $ [("file", toChunks $ dryVoxFile x)] ++ [("enabled", toChunks $ dryVoxEnabled x)] }
-
-instance FromChunks DryVoxPart where { fromChunks = getDict >=> \d -> DryVoxPart <$> (dictLookup "file" d >>= fromChunks) <*> (dictLookup "enabled" d >>= fromChunks) }
-
-data Tracks = Tracks { drumLayout :: DrumLayout, drumKit :: AudioFile, drumKick :: AudioFile, drumSnare :: AudioFile, bass :: AudioFile, guitar :: AudioFile, vocals :: AudioFile, keys :: AudioFile, backing :: AudioFile } deriving (Eq, Ord, Read, Show)
-
-instance ToChunks Tracks where { toChunks x = makeDict $ Dict $ Map.fromList $ [("drum_layout", toChunks $ drumLayout x)] ++ [("drum_kit", toChunks $ drumKit x)] ++ [("drum_kick", toChunks $ drumKick x)] ++ [("drum_snare", toChunks $ drumSnare x)] ++ [("bass", toChunks $ bass x)] ++ [("guitar", toChunks $ guitar x)] ++ [("vocals", toChunks $ vocals x)] ++ [("keys", toChunks $ keys x)] ++ [("backing", toChunks $ backing x)] }
-
-instance FromChunks Tracks where { fromChunks = getDict >=> \d -> Tracks <$> (dictLookup "drum_layout" d >>= fromChunks) <*> (dictLookup "drum_kit" d >>= fromChunks) <*> (dictLookup "drum_kick" d >>= fromChunks) <*> (dictLookup "drum_snare" d >>= fromChunks) <*> (dictLookup "bass" d >>= fromChunks) <*> (dictLookup "guitar" d >>= fromChunks) <*> (dictLookup "vocals" d >>= fromChunks) <*> (dictLookup "keys" d >>= fromChunks) <*> (dictLookup "backing" d >>= fromChunks) }
-
-data DrumLayout = Kit | KitSnare | KitKick | KitKickSnare deriving (Eq, Ord, Read, Show, Enum, Bounded)
-
-instance ToChunks DrumLayout where { toChunks Kit = [Key "drum_layout_kit"]; toChunks KitSnare = [Key "drum_layout_kit_snare"]; toChunks KitKick = [Key "drum_layout_kit_kick"]; toChunks KitKickSnare = [Key "drum_layout_kit_kick_snare"] }
-
-instance FromChunks DrumLayout where { fromChunks [Key "drum_layout_kit"] = Right Kit; fromChunks [Key "drum_layout_kit_snare"] = Right KitSnare; fromChunks [Key "drum_layout_kit_kick"] = Right KitKick; fromChunks [Key "drum_layout_kit_kick_snare"] = Right KitKickSnare; fromChunks cs = Left $ T.pack $ "Couldn't read as DrumLayout: " ++ show cs }
-
-data AudioFile = AudioFile { audioEnabled :: Bool, channels :: Integer, pan :: [Float], vol :: [Float], audioFile :: T.Text } deriving (Eq, Ord, Read, Show)
-
-instance ToChunks AudioFile where { toChunks x = makeDict $ Dict $ Map.fromList $ [("enabled", toChunks $ audioEnabled x)] ++ [("channels", toChunks $ channels x)] ++ [("pan", toChunks $ pan x)] ++ [("vol", toChunks $ vol x)] ++ [("file", toChunks $ audioFile x)] }
-
-instance FromChunks AudioFile where { fromChunks = getDict >=> \d -> AudioFile <$> (dictLookup "enabled" d >>= fromChunks) <*> (dictLookup "channels" d >>= fromChunks) <*> (dictLookup "pan" d >>= fromChunks) <*> (dictLookup "vol" d >>= fromChunks) <*> (dictLookup "file" d >>= fromChunks) }
+dtaRecord "RBProj" eosr $ do
+  req "project" "project" [t| Project |] [e| format |]

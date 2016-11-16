@@ -9,22 +9,24 @@ module PrettyDTA where
 
 import           Config
 
+import           Control.Monad.Trans.StackTrace (inside, printStackTraceIO)
 import           Control.Monad.Trans.Writer
-import qualified Data.ByteString            as B
-import qualified Data.ByteString.Char8      as B8
-import qualified Data.DTA                   as D
-import           Data.DTA.Serialize
-import           Data.DTA.Serialize.Magma   (Gender (..))
-import qualified Data.DTA.Serialize.RB3     as D
-import           Data.Foldable              (forM_)
-import           Data.List                  (sortOn, stripPrefix)
-import           Data.List.Split            (splitOn)
-import qualified Data.Map                   as Map
-import           Data.Maybe                 (listToMaybe, mapMaybe)
-import           Data.Monoid                ((<>))
-import qualified Data.Text                  as T
-import qualified Data.Text.Encoding         as TE
-import           System.IO.Extra            (latin1, readFileEncoding', utf8)
+import qualified Data.ByteString                as B
+import qualified Data.ByteString.Char8          as B8
+import qualified Data.DTA                       as D
+import           Data.DTA.Serialize.Magma       (Gender (..))
+import qualified Data.DTA.Serialize.RB3         as D
+import           Data.DTA.Serialize2
+import           Data.Foldable                  (forM_)
+import           Data.List                      (sortOn, stripPrefix)
+import           Data.List.Split                (splitOn)
+import qualified Data.Map                       as Map
+import           Data.Maybe                     (listToMaybe, mapMaybe)
+import           Data.Monoid                    ((<>))
+import qualified Data.Text                      as T
+import qualified Data.Text.Encoding             as TE
+import           System.IO.Extra                (latin1, readFileEncoding',
+                                                 utf8)
 
 writeUtf8CRLF :: FilePath -> T.Text -> IO ()
 writeUtf8CRLF fp = B.writeFile fp . TE.encodeUtf8
@@ -98,11 +100,11 @@ readRB3DTA dtaPath = do
         (k, chunks) <- case D.treeChunks $ D.topTree dta of
           [D.Parens (D.Tree _ (D.Key k : chunks))] -> return (k, chunks)
           _ -> error $ dtaPath ++ " is not a valid songs.dta with exactly one song"
-        case fromChunks $ fixTracksCount chunks of
-          Left e    -> error $ dtaPath ++ " couldn't be unserialized: " ++ T.unpack e
-          Right pkg -> return (k, pkg)
+        pkg <- printStackTraceIO $ inside ("loading DTA file " ++ show dtaPath) $
+          unserialize format $ D.DTA 0 $ D.Tree 0 $ fixTracksCount chunks
+        return (k, pkg)
   (k_l1, l1) <- readSongWith D.readFileDTA_latin1
-  case fromKeyword <$> D.encoding l1 of
+  case D.encoding l1 of
     Just "utf8" -> (\(k, pkg) -> (k, pkg, True)) <$> readSongWith D.readFileDTA_utf8
     Just "latin1" -> return (k_l1, l1, False)
     Nothing -> return (k_l1, l1, False)
@@ -149,7 +151,7 @@ prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
     parens $ do
       ln $ quote "song"
       two "name" $ stringLit $ D.songName $ D.song pkg
-      forM_ (D.tracksCount $ D.song pkg) $ \(InParens ns) -> do
+      forM_ (D.tracksCount $ D.song pkg) $ \ns -> do
         two "tracks_count" $ parenthesize $ T.unwords $ map showT ns
       parens $ do
         ln $ quote "tracks"
@@ -161,29 +163,27 @@ prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
                 "vocals" -> Left 3
                 "keys"   -> Left 4
                 _        -> Right k
-          forM_ (sortOn trackOrder $ Map.toList $ fromDict $ fromInParens $ D.tracks $ D.song pkg) $ \(k, v) -> do
-            two k $ parenthesize $ case v of
-              Left  n             -> showT n
-              Right (InParens ns) -> T.unwords $ map showT ns
-      two "pans" $ parenthesize $ T.unwords $ map showT $ fromInParens $ D.pans $ D.song pkg
-      two "vols" $ parenthesize $ T.unwords $ map showT $ fromInParens $ D.vols $ D.song pkg
-      two "cores" $ parenthesize $ T.unwords $ map showT $ fromInParens $ D.cores $ D.song pkg
+          forM_ (sortOn trackOrder $ Map.toList $ fromDict $ D.tracks $ D.song pkg) $ \(k, v) -> do
+            two k $ parenthesize $ T.unwords $ map showT v
+      two "pans" $ parenthesize $ T.unwords $ map showT $ D.pans $ D.song pkg
+      two "vols" $ parenthesize $ T.unwords $ map showT $ D.vols $ D.song pkg
+      two "cores" $ parenthesize $ T.unwords $ map showT $ D.cores $ D.song pkg
       forM_ (D.crowdChannels $ D.song pkg) $ inline "crowd_channels" . T.unwords . map showT -- C3 unindents this for some reason but whatever
       forM_ (D.vocalParts $ D.song pkg) $ inline "vocal_parts" . showT
       parens $ do
         ln $ quote "drum_solo"
-        two "seqs" $ parenthesize $ T.unwords $ map (quote . fromKeyword) $ fromInParens $ D.seqs $ D.drumSolo $ D.song pkg
+        two "seqs" $ parenthesize $ T.unwords $ map quote $ D.seqs $ D.drumSolo $ D.song pkg
       parens $ do
         ln $ quote "drum_freestyle"
-        two "seqs" $ parenthesize $ T.unwords $ map (quote . fromKeyword) $ fromInParens $ D.seqs $ D.drumFreestyle $ D.song pkg
+        two "seqs" $ parenthesize $ T.unwords $ map quote $ D.seqs $ D.drumFreestyle $ D.song pkg
       forM_ (D.muteVolume       $ D.song pkg) $ inlineRaw "mute_volume"        . showT
       forM_ (D.muteVolumeVocals $ D.song pkg) $ inlineRaw "mute_volume_vocals" . showT
       forM_ (D.hopoThreshold    $ D.song pkg) $ inlineRaw "hopo_threshold"     . showT
       -- rb2
       forM_ (D.midiFile         $ D.song pkg) $ inline "midi_file" . showT
     inline "song_scroll_speed" $ showT $ D.songScrollSpeed pkg
-    forM_ (D.bank pkg) $ two "bank" . stringLit . either id fromKeyword
-    forM_ (D.drumBank pkg) $ inlineRaw "drum_bank" . either id fromKeyword
+    forM_ (D.bank pkg) $ two "bank" . stringLit
+    forM_ (D.drumBank pkg) $ inlineRaw "drum_bank"
     inline "anim_tempo" $ case D.animTempo pkg of
       Left D.KTempoSlow   -> "kTempoSlow"
       Left D.KTempoMedium -> "kTempoMedium"
@@ -204,22 +204,22 @@ prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
             _           -> Right k
       forM_ (sortOn rankOrder $ Map.toList $ fromDict $ D.rank pkg) $ \(k, v) -> do
         inline k $ showT v
-    inline "genre" $ quote $ fromKeyword $ D.genre pkg
+    inline "genre" $ quote $ D.genre pkg
     inline "vocal_gender" $ quote $ case D.vocalGender pkg of
       Female -> "female"
       Male   -> "male"
     inline "version" $ showT $ D.version pkg
-    inline "format" $ showT $ D.format pkg
+    inline "format" $ showT $ D.songFormat pkg
     forM_ (D.albumArt pkg) $ \b -> inline "album_art" $ if b then "1" else "0"
     inline "year_released" $ showT $ D.yearReleased pkg
     inline "rating" $ showT $ D.rating pkg
-    forM_ (D.subGenre pkg) $ inline "sub_genre" . quote . fromKeyword
-    inline "song_id" $ either showT fromKeyword $ D.songId pkg
-    forM_ (D.solo pkg) $ inlineRaw "solo" . parenthesize . T.unwords . map fromKeyword . fromInParens
+    forM_ (D.subGenre pkg) $ inline "sub_genre" . quote
+    inline "song_id" $ either showT id $ D.songId pkg
+    forM_ (D.solo pkg) $ inlineRaw "solo" . parenthesize . T.unwords
     forM_ (D.tuningOffsetCents pkg) $ inline "tuning_offset_cents" . showT -- TODO: should this be an int?
     forM_ (D.guidePitchVolume pkg) $ inline "guide_pitch_volume" . showT
-    inline "game_origin" $ quote $ fromKeyword $ D.gameOrigin pkg
-    forM_ (D.encoding pkg) $ inline "encoding" . quote . fromKeyword
+    inline "game_origin" $ quote $ D.gameOrigin pkg
+    forM_ (D.encoding pkg) $ inline "encoding" . quote
     forM_ (D.albumName pkg) $ two "album_name" . stringLit
     forM_ (D.albumTrackNumber pkg) $ inline "album_track_number" . showT
     forM_ (D.vocalTonicNote pkg) $ inlineRaw "vocal_tonic_note" . showT . fromEnum
@@ -228,13 +228,13 @@ prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
       D.Minor -> "1"
     -- the following keys, I'm not sure if they need to go in a certain place
     forM_ (D.songKey pkg) $ inlineRaw "song_key" . showT . fromEnum
-    forM_ (D.bandFailCue pkg) $ inline "band_fail_cue" . showT . either id fromKeyword
+    forM_ (D.bandFailCue pkg) $ inline "band_fail_cue" . showT
     forM_ (D.shortVersion pkg) $ inline "short_version" . showT
-    forM_ (D.realGuitarTuning pkg) $ inline "real_guitar_tuning" . parenthesize . T.unwords . map showT . fromInParens
-    forM_ (D.realBassTuning pkg) $ inline "real_bass_tuning" . parenthesize . T.unwords . map showT . fromInParens
+    forM_ (D.realGuitarTuning pkg) $ inline "real_guitar_tuning" . parenthesize . T.unwords . map showT
+    forM_ (D.realBassTuning pkg) $ inline "real_bass_tuning" . parenthesize . T.unwords . map showT
     -- rb2 stuff
     forM_ (D.context pkg) $ inline "context" . showT
-    forM_ (D.decade pkg) $ inline "decade" . fromKeyword
+    forM_ (D.decade pkg) $ inline "decade"
     forM_ (D.downloaded pkg) $ inline "downloaded" . \case True -> "1"; False -> "0"
     forM_ (D.basePoints pkg) $ inline "base_points" . showT
   -- C3 comments

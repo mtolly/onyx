@@ -23,9 +23,9 @@ import           Data.Char                             (isSpace)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.Sndfile
 import qualified Data.DTA                              as D
-import qualified Data.DTA.Serialize                    as D
 import qualified Data.DTA.Serialize.Magma              as Magma
 import qualified Data.DTA.Serialize.RB3                as D
+import qualified Data.DTA.Serialize2                   as D2
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Fixed                            (Centi, Milli)
@@ -343,13 +343,13 @@ makeMagmaProj songYaml plan pkg mid thisTitle = do
       , Magma.metadata = Magma.Metadata
         { Magma.songName = replaceŸ title
         , Magma.artistName = replaceŸ $ getArtist $ _metadata songYaml
-        , Magma.genre = D.Keyword $ rbn2Genre fullGenre
-        , Magma.subGenre = D.Keyword $ "subgenre_" <> rbn2Subgenre fullGenre
+        , Magma.genre = rbn2Genre fullGenre
+        , Magma.subGenre = "subgenre_" <> rbn2Subgenre fullGenre
         , Magma.yearReleased = fromIntegral $ max 1960 $ getYear $ _metadata songYaml
         , Magma.albumName = replaceŸ $ getAlbum $ _metadata songYaml
         , Magma.author = getAuthor $ _metadata songYaml
         , Magma.releaseLabel = "Onyxite Customs"
-        , Magma.country = D.Keyword "ugc_country_us"
+        , Magma.country = "ugc_country_us"
         , Magma.price = 160
         , Magma.trackNumber = fromIntegral $ getTrackNumber $ _metadata songYaml
         , Magma.hasAlbum = True
@@ -894,7 +894,7 @@ main = do
                     tracksAssocList = Map.fromList $ case plan of
                       MoggPlan{..} -> let
                         maybeChannelPair _   []    = []
-                        maybeChannelPair str chans = [(str, Right $ D.InParens $ map fromIntegral chans)]
+                        maybeChannelPair str chans = [(str, map fromIntegral chans)]
                         in concat
                           [ maybeChannelPair "drum" _moggDrums
                           , maybeChannelPair "guitar" _moggGuitar
@@ -913,31 +913,31 @@ main = do
                         go _ [] = []
                         go n ((inst, chans) : rest) = case length chans of
                           0 -> go n rest
-                          c -> (inst, Right $ D.InParens $ map fromIntegral $ take c [n..]) : go (n + c) rest
+                          c -> (inst, map fromIntegral $ take c [n..]) : go (n + c) rest
                         in go 0 counts
                 return D.SongPackage
                   { D.name = title
                   , D.artist = getArtist $ _metadata songYaml
                   , D.master = not $ _cover $ _metadata songYaml
                   , D.songId = case usedSongID of
-                    Nothing               -> Right $ D.Keyword pkg
-                    Just (JSONEither sid) -> D.Keyword <$> sid
+                    Nothing               -> Right pkg
+                    Just (JSONEither sid) -> sid
                   , D.song = D.Song
                     { D.songName = "songs/" <> pkg <> "/" <> pkg
                     , D.tracksCount = Nothing
-                    , D.tracks = D.InParens $ D.Dict tracksAssocList
+                    , D.tracks = D2.Dict tracksAssocList
                     , D.vocalParts = Just $ case _hasVocal $ _instruments songYaml of
                       Vocal0 -> 0
                       Vocal1 -> 1
                       Vocal2 -> 2
                       Vocal3 -> 3
-                    , D.pans = D.InParens $ map realToFrac pans
-                    , D.vols = D.InParens $ map realToFrac vols
-                    , D.cores = D.InParens cores
-                    , D.drumSolo = D.DrumSounds $ D.InParens $ map D.Keyword $ T.words $ case _drumLayout $ _metadata songYaml of
+                    , D.pans = map realToFrac pans
+                    , D.vols = map realToFrac vols
+                    , D.cores = cores
+                    , D.drumSolo = D.DrumSounds $ T.words $ case _drumLayout $ _metadata songYaml of
                       StandardLayout -> "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
                       FlipYBToms     -> "kick.cue snare.cue tom2.cue tom1.cue crash.cue"
-                    , D.drumFreestyle = D.DrumSounds $ D.InParens $ map D.Keyword $ T.words
+                    , D.drumFreestyle = D.DrumSounds $ T.words
                       "kick.cue snare.cue hat.cue ride.cue crash.cue"
                     , D.crowdChannels = guard (not $ null crowdChannels) >> Just (map fromIntegral crowdChannels)
                     , D.hopoThreshold = Just $ fromIntegral $ _hopoThreshold $ _options songYaml
@@ -945,12 +945,12 @@ main = do
                     , D.muteVolumeVocals = Nothing
                     , D.midiFile = Nothing
                     }
-                  , D.bank = Just $ Left $ case perctype of
+                  , D.bank = Just $ case perctype of
                     Nothing               -> "sfx/tambourine_bank.milo"
                     Just RBVox.Tambourine -> "sfx/tambourine_bank.milo"
                     Just RBVox.Cowbell    -> "sfx/cowbell_bank.milo"
                     Just RBVox.Clap       -> "sfx/handclap_bank.milo"
-                  , D.drumBank = Just $ Right $ D.Keyword $ case _drumKit $ _metadata songYaml of
+                  , D.drumBank = Just $ case _drumKit $ _metadata songYaml of
                     HardRockKit   -> "sfx/kit01_bank.milo"
                     ArenaKit      -> "sfx/kit02_bank.milo"
                     VintageKit    -> "sfx/kit03_bank.milo"
@@ -961,7 +961,7 @@ main = do
                   , D.songScrollSpeed = 2300
                   , D.preview = (fromIntegral pstart, fromIntegral pend)
                   , D.songLength = fromIntegral len
-                  , D.rank = D.Dict $ Map.fromList
+                  , D.rank = D2.Dict $ Map.fromList
                     [ ("drum"       , drumsRank    )
                     , ("bass"       , bassRank     )
                     , ("guitar"     , guitarRank   )
@@ -973,20 +973,21 @@ main = do
                     , ("band"       , bandRank     )
                     ]
                   , D.solo = let
+                    kwds :: [T.Text]
                     kwds = concat
-                      [ [D.Keyword "guitar" | hasSolo Guitar song]
-                      , [D.Keyword "bass" | hasSolo Bass song]
-                      , [D.Keyword "drum" | hasSolo Drums song]
-                      , [D.Keyword "keys" | hasSolo Keys song]
-                      , [D.Keyword "vocal_percussion" | hasSolo Vocal song]
+                      [ ["guitar" | hasSolo Guitar song]
+                      , ["bass" | hasSolo Bass song]
+                      , ["drum" | hasSolo Drums song]
+                      , ["keys" | hasSolo Keys song]
+                      , ["vocal_percussion" | hasSolo Vocal song]
                       ]
-                    in guard (not $ null kwds) >> Just (D.InParens kwds)
-                  , D.format = 10
+                    in guard (not $ null kwds) >> Just kwds
+                  , D.songFormat = 10
                   , D.version = 30
-                  , D.gameOrigin = D.Keyword "ugc_plus"
+                  , D.gameOrigin = "ugc_plus"
                   , D.rating = fromIntegral $ fromEnum (_rating $ _metadata songYaml) + 1
-                  , D.genre = D.Keyword $ rbn2Genre fullGenre
-                  , D.subGenre = Just $ D.Keyword $ "subgenre_" <> rbn2Subgenre fullGenre
+                  , D.genre = rbn2Genre fullGenre
+                  , D.subGenre = Just $ "subgenre_" <> rbn2Subgenre fullGenre
                   , D.vocalGender = fromMaybe Magma.Female $ _vocalGender $ _metadata songYaml
                   , D.shortVersion = Nothing
                   , D.yearReleased = fromIntegral $ getYear $ _metadata songYaml
@@ -999,16 +1000,16 @@ main = do
                   , D.tuningOffsetCents = Just 0
                   , D.realGuitarTuning = do
                     guard $ _hasProGuitar $ _instruments songYaml
-                    Just $ D.InParens $ map fromIntegral $ case _proGuitarTuning $ _options songYaml of
+                    Just $ map fromIntegral $ case _proGuitarTuning $ _options songYaml of
                       []   -> [0, 0, 0, 0, 0, 0]
                       tune -> tune
                   , D.realBassTuning = do
                     guard $ _hasProBass $ _instruments songYaml
-                    Just $ D.InParens $ map fromIntegral $ case _proBassTuning $ _options songYaml of
+                    Just $ map fromIntegral $ case _proBassTuning $ _options songYaml of
                       []   -> [0, 0, 0, 0]
                       tune -> tune
                   , D.guidePitchVolume = Just (-3)
-                  , D.encoding = Just $ D.Keyword "utf8"
+                  , D.encoding = Just "utf8"
                   , D.context = Nothing
                   , D.decade = Nothing
                   , D.downloaded = Nothing
@@ -1191,7 +1192,7 @@ main = do
                 (fromIntegral (_hopoThreshold $ _options songYaml) / 480)
               proj %> \out -> do
                 p <- makeMagmaProj songYaml plan pkg (pedalDir </> "magma/notes.mid") thisTitle
-                liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
+                liftIO $ D.writeFileDTA_latin1 out $ D2.serialize D2.format p
               projV1 %> \out -> do
                 p <- makeMagmaProj songYaml plan pkg (pedalDir </> "magma/notes.mid") thisTitle
                 let makeDummy (Magma.Tracks dl dkt dk ds b g v k bck) = Magma.Tracks
@@ -1224,7 +1225,7 @@ main = do
                       NoKeys     -> gd
                       KeysBass   -> gd { Magma.rankBass   = Magma.rankKeys gd }
                       KeysGuitar -> gd { Magma.rankGuitar = Magma.rankKeys gd }
-                liftIO $ D.writeFileDTA_latin1 out $ D.serialize p
+                liftIO $ D.writeFileDTA_latin1 out $ D2.serialize D2.format p
                   { Magma.project = (Magma.project p)
                     { Magma.albumArt = Magma.AlbumArt "cover-v1.bmp"
                     , Magma.midi = (Magma.midi $ Magma.project p)
@@ -1250,8 +1251,8 @@ main = do
                       }
                     , Magma.tracks = makeDummy $ Magma.tracks $ Magma.project p
                     , Magma.metadata = (Magma.metadata $ Magma.project p)
-                      { Magma.genre = D.Keyword $ rbn1Genre fullGenre
-                      , Magma.subGenre = D.Keyword $ "subgenre_" <> rbn1Subgenre fullGenre
+                      { Magma.genre = rbn1Genre fullGenre
+                      , Magma.subGenre = "subgenre_" <> rbn1Subgenre fullGenre
                       }
                     , Magma.gamedata = swapRanks $ (Magma.gamedata $ Magma.project p)
                       { Magma.previewStartMs = 0 -- for dummy audio. will reset after magma
@@ -1356,7 +1357,7 @@ main = do
                   rb2Milo = pedalDir </> "rb2/songs" </> pkg </> "gen" </> pkg <.> "milo_xbox"
                   rb2Pan = pedalDir </> "rb2/songs" </> pkg </> pkg <.> "pan"
                   fixDict
-                    = D.Dict
+                    = D2.Dict
                     . Map.fromList
                     . mapMaybe (\(k, v) -> case k of
                       "guitar" -> case _keysRB2 $ _options songYaml of
@@ -1375,7 +1376,7 @@ main = do
                       _ -> Nothing
                     )
                     . Map.toList
-                    . D.fromDict
+                    . D2.fromDict
               rb2OriginalDTA %> \out -> do
                 ex <- doesRBAExist
                 if ex
@@ -1412,8 +1413,8 @@ main = do
                           , D.songLength = D.songLength rb3DTA
                           , D.preview = D.preview rb3DTA
                           , D.rank = fixDict $ D.rank rb3DTA
-                          , D.genre = D.Keyword $ rbn1Genre fullGenre
-                          , D.decade = Just $ D.Keyword $ let y = D.yearReleased rb3DTA in if
+                          , D.genre = rbn1Genre fullGenre
+                          , D.decade = Just $ let y = D.yearReleased rb3DTA in if
                             | 1960 <= y && y < 1970 -> "the60s"
                             | 1970 <= y && y < 1980 -> "the70s"
                             | 1980 <= y && y < 1990 -> "the80s"
@@ -1424,16 +1425,16 @@ main = do
                           , D.vocalGender = D.vocalGender rb3DTA
                           , D.version = 0
                           , D.downloaded = Just True
-                          , D.format = 4
+                          , D.songFormat = 4
                           , D.albumArt = Just True
                           , D.yearReleased = D.yearReleased rb3DTA
                           , D.basePoints = Just 0
                           , D.rating = D.rating rb3DTA
-                          , D.subGenre = Just $ D.Keyword $ "subgenre_" <> rbn1Subgenre fullGenre
+                          , D.subGenre = Just $ "subgenre_" <> rbn1Subgenre fullGenre
                           , D.songId = D.songId rb3DTA
                           , D.tuningOffsetCents = D.tuningOffsetCents rb3DTA
                           , D.context = Just 2000
-                          , D.gameOrigin = D.Keyword "rb2"
+                          , D.gameOrigin = "rb2"
                           , D.albumName = D.albumName rb3DTA
                           , D.albumTrackNumber = D.albumTrackNumber rb3DTA
                           -- not present
@@ -1449,7 +1450,7 @@ main = do
                           , D.guidePitchVolume = Nothing
                           , D.encoding = Nothing
                           }
-                    liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : D.toChunks newDTA))]
+                    liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : D2.toChunks D2.format newDTA))]
               rb2DTA %> \out -> do
                 need [rb2OriginalDTA, pathDta]
                 (_, magmaDTA, _) <- liftIO $ readRB3DTA rb2OriginalDTA
@@ -1462,7 +1463,7 @@ main = do
                       , D.master = not $ _cover $ _metadata songYaml
                       , D.song = (D.song magmaDTA)
                         { D.tracksCount = Nothing
-                        , D.tracks = fmap fixDict $ D.tracks $ D.song rb3DTA
+                        , D.tracks = fixDict $ D.tracks $ D.song rb3DTA
                         , D.midiFile = Just $ "songs/" <> pkg <> "/" <> pkg <> ".mid"
                         , D.songName = "songs/" <> pkg <> "/" <> pkg
                         , D.pans = D.pans $ D.song rb3DTA
@@ -1471,8 +1472,8 @@ main = do
                         , D.crowdChannels = D.crowdChannels $ D.song rb3DTA
                         }
                       , D.songId = case _songID $ _metadata songYaml of
-                        Nothing               -> Right $ D.Keyword pkg
-                        Just (JSONEither eis) -> D.Keyword <$> eis
+                        Nothing               -> Right pkg
+                        Just (JSONEither eis) -> eis
                       , D.preview = D.preview rb3DTA -- because we told magma preview was at 0s earlier
                       , D.songLength = D.songLength rb3DTA -- magma v1 set this to 31s from the audio file lengths
                       }

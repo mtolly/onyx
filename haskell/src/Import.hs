@@ -16,8 +16,8 @@ import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
 import qualified Data.Digest.Pure.MD5             as MD5
 import qualified Data.DTA                         as D
-import qualified Data.DTA.Serialize               as D
 import qualified Data.DTA.Serialize.RB3           as D
+import qualified Data.DTA.Serialize2              as D2
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
@@ -359,7 +359,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
   rb3mid <- Load.fromFile (dir </> "notes.mid") >>= printStackTraceIO . RBFile.readMIDIFile
   drumkit <- case D.drumBank pkg of
     Nothing -> return HardRockKit
-    Just x -> case either id D.fromKeyword x of
+    Just x -> case x of
       "sfx/kit01_bank.milo" -> return HardRockKit
       "sfx/kit02_bank.milo" -> return ArenaKit
       "sfx/kit03_bank.milo" -> return VintageKit
@@ -373,8 +373,8 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       { _title        = _title meta <|> Just (D.name pkg)
       , _artist       = Just $ D.artist pkg
       , _album        = Just $ fromMaybe "Unknown Album" $ D.albumName pkg
-      , _genre        = Just $ D.fromKeyword $ D.genre pkg
-      , _subgenre     = D.subGenre pkg >>= T.stripPrefix "subgenre_" . D.fromKeyword
+      , _genre        = Just $ D.genre pkg
+      , _subgenre     = D.subGenre pkg >>= T.stripPrefix "subgenre_"
       , _year         = Just $ fromIntegral $ D.yearReleased pkg
       , _fileAlbumArt = Just coverName
       , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
@@ -382,7 +382,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       , _vocalGender  = Just $ D.vocalGender pkg
       , _difficulty   = let
         diffMap :: Map.Map T.Text Integer
-        diffMap = D.fromDict $ D.rank pkg
+        diffMap = D2.fromDict $ D.rank pkg
         in Difficulties
           { _difficultyDrums     = Rank <$> Map.lookup "drum" diffMap
           , _difficultyGuitar    = Rank <$> Map.lookup "guitar" diffMap
@@ -404,7 +404,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       , _previewEnd   = Just $ PreviewSeconds $ fromIntegral (snd $ D.preview pkg) / 1000
       , _songID       = fmap JSONEither $ case D.songId pkg of
         Left  i -> guard (i /= 0) >> Just (Left i)
-        Right k -> Just $ Right $ D.fromKeyword k
+        Right k -> Just $ Right k
       , _songID2x     = Nothing
       , _languages    = _languages meta
       , _convert      = _convert meta
@@ -418,18 +418,15 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       { _auto2xBass      = is2x
       , _hopoThreshold   = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
       , _keysRB2         = krb2
-      , _proGuitarTuning = fromMaybe [] $ map fromIntegral . D.fromInParens <$> D.realGuitarTuning pkg
-      , _proBassTuning   = fromMaybe [] $ map fromIntegral . D.fromInParens <$> D.realBassTuning   pkg
+      , _proGuitarTuning = fromMaybe [] $ map fromIntegral <$> D.realGuitarTuning pkg
+      , _proBassTuning   = fromMaybe [] $ map fromIntegral <$> D.realBassTuning   pkg
       , _proDrums        = True
       }
     , _audio = HM.empty
     , _jammit = HM.empty
     , _plans = HM.singleton "mogg" $ let
       instChans :: Map.Map T.Text [Integer]
-      instChans = fmap chanList $ D.fromDict $ D.fromInParens $ D.tracks $ D.song pkg
-      chanList :: Either Integer (D.InParens [Integer]) -> [Integer]
-      chanList (Left n)                = [n]
-      chanList (Right (D.InParens ns)) = ns
+      instChans = D2.fromDict $ D.tracks $ D.song pkg
       in MoggPlan
         { _moggMD5 = T.pack md5
         , _moggGuitar = maybe [] (map fromIntegral) $ Map.lookup "guitar" instChans
@@ -438,8 +435,8 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
         , _moggDrums  = maybe [] (map fromIntegral) $ Map.lookup "drum" instChans
         , _moggVocal  = maybe [] (map fromIntegral) $ Map.lookup "vocals" instChans
         , _moggCrowd  = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
-        , _pans = map realToFrac $ D.fromInParens $ D.pans $ D.song pkg
-        , _vols = map realToFrac $ D.fromInParens $ D.vols $ D.song pkg
+        , _pans = map realToFrac $ D.pans $ D.song pkg
+        , _vols = map realToFrac $ D.vols $ D.song pkg
         , _planComments = []
         , _drumMix = let
           drumEvents = concat [ toList t | RBFile.PartDrums t <- RBFile.s_tracks rb3mid ]
@@ -454,7 +451,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
         }
     , _instruments = let
       diffMap :: Map.Map T.Text Integer
-      diffMap = D.fromDict $ D.rank pkg
+      diffMap = D2.fromDict $ D.rank pkg
       in Instruments
         { _hasDrums     = maybe False (/= 0) $ Map.lookup "drum" diffMap
         , _hasGuitar    = maybe False (/= 0) $ Map.lookup "guitar" diffMap
