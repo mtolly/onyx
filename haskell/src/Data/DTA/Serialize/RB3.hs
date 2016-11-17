@@ -39,7 +39,7 @@ channelList = ChunkFormat
   { toChunks = toChunks fmt
   , fromChunks = fromChunks fmt <|> fmap (: []) (fromChunks fmt')
     <|> expected "a number or a list of numbers"
-  } where fmt  = format :: ChunkFormat [Integer]
+  } where fmt  = chunksParens (format :: ChunkFormat [Integer])
           fmt' = format :: ChunkFormat Integer
 
 dtaRecord "Song" eosr $ do

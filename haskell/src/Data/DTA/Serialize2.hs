@@ -137,7 +137,7 @@ chunksDict cf = ChunkFormat
   { toChunks = \mp ->
     [ Parens $ Tree 0 $ Key k : toChunks cf v | (k, v) <- Map.toList $ fromDict mp ]
   , fromChunks = lift ask >>= \chunks -> fmap (Dict . Map.fromList) $ forM chunks $ \case
-    Parens (Tree _ (Key k : chunks')) -> inside "a key-value structure" $
+    Parens (Tree _ (Key k : chunks')) -> inside ("dict key " ++ show k) $
       (\v -> (k, v)) <$> readFrom chunks' (fromChunks cf)
     _ -> expected "a key-value pair (parenthesized list starting with a keyword)"
   }
