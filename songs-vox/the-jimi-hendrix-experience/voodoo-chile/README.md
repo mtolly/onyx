@@ -2,7 +2,7 @@
 
 ## The Jimi Hendrix Experience
 
-Author: mazegeek999
+Author: mazegeek999, Onyxite (vocals)
 
 
 Instruments:
@@ -11,12 +11,9 @@ Instruments:
   * Guitar 😈😈😈😈😈
   * Keys 😈😈😈😈😈
   * Pro Keys 😈😈😈😈😈
+  * Vocals (1)
 
 Supported audio:
 
   * `mogg`
-
-Notes:
-
-  * Vocals to be authored soon.
 

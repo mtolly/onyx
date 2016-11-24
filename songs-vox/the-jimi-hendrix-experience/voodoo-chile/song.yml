@@ -41,7 +41,7 @@ metadata:
   album: Electric Ladyland
   year: 1968
   subgenre: classicrock
-  author: mazegeek999
+  author: mazegeek999, Onyxite (vocals)
   title: Voodoo Chile
   preview-end: 127.853
   genre: classicrock
@@ -61,8 +61,6 @@ metadata:
     band:
       rank: 345
   artist: The Jimi Hendrix Experience
-  comments:
-  - "Vocals to be authored soon."
 jammit: {}
 audio: {}
 instruments:
@@ -70,3 +68,4 @@ instruments:
   guitar: true
   keys: true
   drums: true
+  vocal: 1
