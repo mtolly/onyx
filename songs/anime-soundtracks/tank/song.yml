@@ -1,0 +1,28 @@
+metadata:
+  title: Tank!
+  artist: Seatbelts
+  year: 1998
+  track-number: 1
+  album: Cowboy Bebop
+  author: Onyxite
+audio:
+  album-track:
+    # remastered (2014)
+    md5: c3abb7884bc3a6cc9adc25bb82acdee0
+    frames: 20192000
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [2.438, album-track]
+instruments:
+  drums: true
+published: false

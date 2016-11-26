@@ -9,6 +9,8 @@ metadata:
   year: 1973
   file-album-art: cover.jpg
   track-number: 3
+  difficulty:
+    drums: 7
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -30,4 +32,4 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [4.565, youtube]
+      pad: [4.560, youtube]

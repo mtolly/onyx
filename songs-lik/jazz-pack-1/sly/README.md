@@ -8,7 +8,7 @@ Author: TheLieInKing, Onyxite
 
 Instruments:
 
-  * (Pro) Drums
+  * (Pro) Drums 😈😈😈😈😈
 
 Supported audio:
 
