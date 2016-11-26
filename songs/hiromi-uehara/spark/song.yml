@@ -56,10 +56,12 @@ targets:
   rb3:
     game: rb3
     song-id: 1660200009
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     song-id: 1660200010
+    version: 1
   rb2:
     game: rb2
     keys: guitar

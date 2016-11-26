@@ -62,15 +62,15 @@ importAny krb2 src dest = do
         "RBSF" -> importRBA  krb2 src dest
         _      -> error $ src ++ " is not in a supported song format"
 
-standardTargets :: Maybe (JSONEither Integer T.Text) -> Bool -> KeysRB2 -> HM.HashMap T.Text Target
-standardTargets songID is2x krb2 = let
+standardTargets :: Maybe (JSONEither Integer T.Text) -> Maybe Integer -> Bool -> KeysRB2 -> HM.HashMap T.Text Target
+standardTargets songID version is2x krb2 = let
   targets1x =
     [ ("rb3", RB3 TargetRB3
         { rb3_Plan = Nothing
         , rb3_2xBassPedal = False
         , rb3_SongID = songID
         , rb3_Label = Nothing
-        , rb3_Version = Nothing
+        , rb3_Version = version
         }
       )
     , ("rb2", RB2 TargetRB2
@@ -79,7 +79,7 @@ standardTargets songID is2x krb2 = let
         , rb2_SongID = songID
         , rb2_Label = Nothing
         , rb2_Keys = krb2
-        , rb2_Version = Nothing
+        , rb2_Version = version
         }
       )
     , ("ps", PS TargetPS
@@ -94,7 +94,7 @@ standardTargets songID is2x krb2 = let
         , rb3_2xBassPedal = True
         , rb3_SongID = songID
         , rb3_Label = Nothing
-        , rb3_Version = Nothing
+        , rb3_Version = version
         }
       )
     , ("rb2-2x", RB2 TargetRB2
@@ -103,7 +103,7 @@ standardTargets songID is2x krb2 = let
         , rb2_SongID = songID
         , rb2_Label = Nothing
         , rb2_Keys = krb2
-        , rb2_Version = Nothing
+        , rb2_Version = version
         }
       )
     ]
@@ -286,7 +286,7 @@ importFoF krb2 src dest = do
       , _crowd        = audioExpr crowdAudio
       , _planComments = []
       }
-    , _targets = standardTargets Nothing True krb2
+    , _targets = standardTargets Nothing Nothing True krb2
     , _instruments = Instruments
       { _hasDrums   = elem "PART DRUMS" trackNames && FoF.diffDrums song /= Just (-1)
       , _hasGuitar  = elem "PART GUITAR" trackNames && FoF.diffGuitar song /= Just (-1)
@@ -493,7 +493,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       songID = fmap JSONEither $ case D.songId pkg of
         Left  i -> guard (i /= 0) >> Just (Left i)
         Right k -> Just $ Right k
-      in standardTargets songID is2x krb2
+      in standardTargets songID (songID >> Just (D.version pkg)) is2x krb2
     , _instruments = let
       diffMap :: Map.Map T.Text Integer
       diffMap = D2.fromDict $ D.rank pkg
