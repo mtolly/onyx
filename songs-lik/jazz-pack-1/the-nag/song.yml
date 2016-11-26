@@ -22,10 +22,6 @@ metadata:
   autogen-theme: PsychJamRock
   drum-kit: HardRockKit
   rating: FamilyFriendly
-  song-id: 1660200008
-  # visualizer: http://i.imgur.com/XplR74Q.jpg
-  # download: http://www.mediafire.com/?34w66f5zf7hw4jf
-  # download-ps: http://www.mediafire.com/?2o7og0e5o3rtqlp
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -53,3 +49,12 @@ instruments:
   bass: true
   keys: true
   pro-keys: true
+targets:
+  # visualizer: http://i.imgur.com/XplR74Q.jpg
+  # download: http://www.mediafire.com/?34w66f5zf7hw4jf
+  # download-ps: http://www.mediafire.com/?2o7og0e5o3rtqlp
+  rb3:
+    game: rb3
+    song-id: 1660200008
+  ps:
+    game: ps

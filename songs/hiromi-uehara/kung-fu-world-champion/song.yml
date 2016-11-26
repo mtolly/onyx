@@ -20,8 +20,6 @@ metadata:
   preview-start: prc_break_1
   comments:
   - All instruments have overdrive/unison.
-options:
-  keys-rb2: guitar
 audio:
   album-track:
     md5: 884247128bc3dede8465d52903746fb3
@@ -44,3 +42,18 @@ instruments:
   pro-keys: true
   keys: true
   bass: true
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  rb2:
+    game: rb2
+    keys: guitar
+  rb2-2x:
+    game: rb2
+    2x-bass-pedal: true
+    keys: guitar
+  ps:
+    game: ps

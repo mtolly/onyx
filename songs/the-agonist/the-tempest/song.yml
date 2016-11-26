@@ -24,12 +24,6 @@ metadata:
   autogen-theme: Aggressive Metal
   key: D
   rating: Supervision Recommended
-  song-id: 1660200011
-  song-id-2x: 1660200012
-  # visualizer: http://i.imgur.com/SUGoZcv.jpg
-  # download: http://www.mediafire.com/download/4ycndc3eaf348vm/TheTempest_1p_v2_rb3con
-  # download-2x: http://www.mediafire.com/download/f3r9649fnn2l8hv/TheTempest_2p_v2_rb3con
-  # download-ps: http://www.mediafire.com/download/uzv3vs0xhbbojmd/TheTempest_ps_v2.zip
 instruments:
   drums: true
   guitar: true
@@ -54,3 +48,17 @@ plans:
       1|3: hihat
     song:
       pad: [3.587, album-track]
+targets:
+  # visualizer: http://i.imgur.com/SUGoZcv.jpg
+  # download: http://www.mediafire.com/download/4ycndc3eaf348vm/TheTempest_1p_v2_rb3con
+  # download-2x: http://www.mediafire.com/download/f3r9649fnn2l8hv/TheTempest_2p_v2_rb3con
+  # download-ps: http://www.mediafire.com/download/uzv3vs0xhbbojmd/TheTempest_ps_v2.zip
+  rb3:
+    game: rb3
+    song-id: 1660200011
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 1660200012
+  ps:
+    game: ps

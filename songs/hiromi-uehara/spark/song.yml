@@ -21,14 +21,6 @@ metadata:
   preview-start: prc_chorus_1
   rating: FamilyFriendly
   key: A
-  song-id: 1660200009
-  song-id-2x: 1660200010
-  # visualizer: http://i.imgur.com/J2aeifp.jpg
-  # download: http://www.mediafire.com/?h2o57o26d6o8041
-  # download-2x: http://www.mediafire.com/?n0us2y202742c4a
-  # download-ps: http://www.mediafire.com/?as3cs8azr9b2p6v
-options:
-  keys-rb2: guitar
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -56,3 +48,24 @@ instruments:
   pro-keys: true
   keys: true
   bass: true
+targets:
+  # visualizer: http://i.imgur.com/J2aeifp.jpg
+  # download: http://www.mediafire.com/?h2o57o26d6o8041
+  # download-2x: http://www.mediafire.com/?n0us2y202742c4a
+  # download-ps: http://www.mediafire.com/?as3cs8azr9b2p6v
+  rb3:
+    game: rb3
+    song-id: 1660200009
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 1660200010
+  rb2:
+    game: rb2
+    keys: guitar
+  rb2-2x:
+    game: rb2
+    2x-bass-pedal: true
+    keys: guitar
+  ps:
+    game: ps

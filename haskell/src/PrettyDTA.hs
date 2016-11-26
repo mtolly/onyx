@@ -242,7 +242,7 @@ prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
   forM_ c3dtaCreatedUsing $ \t -> ln $ ";Created using " <> t
   forM_ c3dtaAuthoredBy $ \t -> ln $ ";Song authored by " <> t
   forM_ c3dtaSong $ \t -> ln $ ";Song=" <> t
-  forM_ c3dtaLanguages $ \ts -> ln $ T.concat $ map (<> ",") ts
+  forM_ c3dtaLanguages $ \ts -> ln $ ";Languages=" <> T.concat (map (<> ",") ts)
   forM_ c3dtaKaraoke $ \b -> ln $ ";Karaoke=" <> if b then "1" else "0"
   forM_ c3dtaMultitrack $ \b -> ln $ ";Multitrack=" <> if b then "1" else "0"
   forM_ c3dtaConvert $ \b -> ln $ ";Convert=" <> if b then "1" else "0"

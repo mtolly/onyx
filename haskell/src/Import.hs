@@ -62,6 +62,53 @@ importAny krb2 src dest = do
         "RBSF" -> importRBA  krb2 src dest
         _      -> error $ src ++ " is not in a supported song format"
 
+standardTargets :: Maybe (JSONEither Integer T.Text) -> Bool -> KeysRB2 -> HM.HashMap T.Text Target
+standardTargets songID is2x krb2 = let
+  targets1x =
+    [ ("rb3", RB3 TargetRB3
+        { rb3_Plan = Nothing
+        , rb3_2xBassPedal = False
+        , rb3_SongID = songID
+        , rb3_Label = Nothing
+        , rb3_Version = Nothing
+        }
+      )
+    , ("rb2", RB2 TargetRB2
+        { rb2_Plan = Nothing
+        , rb2_2xBassPedal = False
+        , rb2_SongID = songID
+        , rb2_Label = Nothing
+        , rb2_Keys = krb2
+        , rb2_Version = Nothing
+        }
+      )
+    , ("ps", PS TargetPS
+        { ps_Plan = Nothing
+        , ps_Label = Nothing
+        }
+      )
+    ]
+  targets2x =
+    [ ("rb3-2x", RB3 TargetRB3
+        { rb3_Plan = Nothing
+        , rb3_2xBassPedal = True
+        , rb3_SongID = songID
+        , rb3_Label = Nothing
+        , rb3_Version = Nothing
+        }
+      )
+    , ("rb2-2x", RB2 TargetRB2
+        { rb2_Plan = Nothing
+        , rb2_2xBassPedal = True
+        , rb2_SongID = songID
+        , rb2_Label = Nothing
+        , rb2_Keys = krb2
+        , rb2_Version = Nothing
+        }
+      )
+    ]
+  in HM.fromList $ targets1x ++ if is2x then targets2x else []
+
 importFoF :: KeysRB2 -> FilePath -> FilePath -> IO ()
 importFoF krb2 src dest = do
   song <- FoF.loadSong $ src </> "song.ini"
@@ -198,8 +245,6 @@ importFoF krb2 src dest = do
         Just ms | ms >= 0 -> Just $ PreviewSeconds $ fromIntegral ms / 1000
         _       -> Nothing
       , _previewEnd   = Nothing
-      , _songID       = Nothing
-      , _songID2x     = Nothing
       , _languages    = _languages def
       , _convert      = _convert def
       , _rhythmKeys   = _rhythmKeys def
@@ -211,7 +256,6 @@ importFoF krb2 src dest = do
     , _options = Options
       { _auto2xBass      = False
       , _hopoThreshold   = 170
-      , _keysRB2         = krb2
       , _proGuitarTuning = []
       , _proBassTuning   = []
       , _proDrums        = case FoF.proDrums song of
@@ -242,6 +286,7 @@ importFoF krb2 src dest = do
       , _crowd        = audioExpr crowdAudio
       , _planComments = []
       }
+    , _targets = standardTargets Nothing True krb2
     , _instruments = Instruments
       { _hasDrums   = elem "PART DRUMS" trackNames && FoF.diffDrums song /= Just (-1)
       , _hasGuitar  = elem "PART GUITAR" trackNames && FoF.diffGuitar song /= Just (-1)
@@ -402,10 +447,6 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       , _drumLayout   = StandardLayout -- TODO import this
       , _previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ D.preview pkg) / 1000
       , _previewEnd   = Just $ PreviewSeconds $ fromIntegral (snd $ D.preview pkg) / 1000
-      , _songID       = fmap JSONEither $ case D.songId pkg of
-        Left  i -> guard (i /= 0) >> Just (Left i)
-        Right k -> Just $ Right k
-      , _songID2x     = Nothing
       , _languages    = _languages meta
       , _convert      = _convert meta
       , _rhythmKeys   = _rhythmKeys meta
@@ -417,7 +458,6 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
     , _options = Options
       { _auto2xBass      = is2x
       , _hopoThreshold   = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
-      , _keysRB2         = krb2
       , _proGuitarTuning = fromMaybe [] $ map fromIntegral <$> D.realGuitarTuning pkg
       , _proBassTuning   = fromMaybe [] $ map fromIntegral <$> D.realBassTuning   pkg
       , _proDrums        = True
@@ -449,6 +489,11 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
         , _karaoke = karaoke
         , _multitrack = multitrack
         }
+    , _targets = let
+      songID = fmap JSONEither $ case D.songId pkg of
+        Left  i -> guard (i /= 0) >> Just (Left i)
+        Right k -> Just $ Right k
+      in standardTargets songID is2x krb2
     , _instruments = let
       diffMap :: Map.Map T.Text Integer
       diffMap = D2.fromDict $ D.rank pkg

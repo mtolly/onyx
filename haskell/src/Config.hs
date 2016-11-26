@@ -156,7 +156,6 @@ instance A.ToJSON KeysRB2 where
 -- | Options that affect gameplay.
 jsonRecord "Options" eosr $ do
   opt "_hopoThreshold"   "hopo-threshold"    [t| Int |]     [e| 170 |]
-  opt "_keysRB2"         "keys-rb2"          [t| KeysRB2 |] [e| NoKeys |]
   opt "_auto2xBass"      "auto-2x-bass"      [t| Bool |]    [e| False |]
   opt "_proGuitarTuning" "pro-guitar-tuning" [t| [Int] |]   [e| [] |]
   opt "_proBassTuning"   "pro-bass-tuning"   [t| [Int] |]   [e| [] |]
@@ -793,8 +792,6 @@ jsonRecord "Metadata" eos $ do
   opt "_drumLayout" "drum-layout" [t| DrumLayout |] [e| StandardLayout |]
   opt "_previewStart" "preview-start" [t| Maybe PreviewTime |] [e| Nothing |]
   opt "_previewEnd" "preview-end" [t| Maybe PreviewTime |] [e| Nothing |]
-  opt "_songID" "song-id" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]
-  opt "_songID2x" "song-id-2x" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]
   opt "_languages" "languages" [t| [T.Text] |] [e| [] |]
   opt "_convert"    "convert"     [t| Bool |] [e| False |]
   opt "_rhythmKeys" "rhythm-keys" [t| Bool |] [e| False |]
@@ -813,12 +810,58 @@ getYear, getTrackNumber :: Metadata -> Int
 getYear = fromMaybe 1960 . _year
 getTrackNumber = fromMaybe 1 . _trackNumber
 
+jsonRecord "TargetRB3" eosr $ do
+  opt "rb3_Plan" "plan" [t| Maybe T.Text |] [e| Nothing |]
+  opt "rb3_2xBassPedal" "2x-bass-pedal" [t| Bool |] [e| False |]
+  opt "rb3_SongID" "song-id" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]
+  opt "rb3_Label" "label" [t| Maybe T.Text |] [e| Nothing |]
+  opt "rb3_Version" "version" [t| Maybe Integer |] [e| Nothing |]
+
+jsonRecord "TargetRB2" eosr $ do
+  opt "rb2_Plan" "plan" [t| Maybe T.Text |] [e| Nothing |]
+  opt "rb2_2xBassPedal" "2x-bass-pedal" [t| Bool |] [e| False |]
+  opt "rb2_SongID" "song-id" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]
+  opt "rb2_Label" "label" [t| Maybe T.Text |] [e| Nothing |]
+  opt "rb2_Keys" "keys" [t| KeysRB2 |] [e| NoKeys |]
+  opt "rb2_Version" "version" [t| Maybe Integer |] [e| Nothing |]
+
+jsonRecord "TargetPS" eosr $ do
+  opt "ps_Plan" "plan" [t| Maybe T.Text |] [e| Nothing |]
+  opt "ps_Label" "label" [t| Maybe T.Text |] [e| Nothing |]
+
+data Target
+  = RB3    TargetRB3
+  | RB2    TargetRB2
+  | PS     TargetPS
+  deriving (Eq, Ord, Show, Read)
+
+addKey :: (A.ToJSON a) => T.Text -> A.Value -> a -> A.Value
+addKey k v t = case A.toJSON t of
+  A.Object o -> A.Object $ Map.insert k v o
+  x -> error $ "panic! expected JSON object, but got: " ++ show x
+
+instance A.ToJSON Target where
+  toJSON (RB3 rb3) = addKey "game" "rb3" rb3
+  toJSON (RB2 rb2) = addKey "game" "rb2" rb2
+  toJSON (PS  ps ) = addKey "game" "ps"  ps
+
+instance TraceJSON Target where
+  traceJSON = object $ do
+    target <- required "game" traceJSON
+    hm <- lift ask
+    parseFrom (A.Object $ Map.delete "game" hm) $ case target :: T.Text of
+      "rb3" -> fmap RB3 traceJSON
+      "rb2" -> fmap RB2 traceJSON
+      "ps"  -> fmap PS  traceJSON
+      _ -> fatal $ "Unrecognized target game: " ++ show target
+
 data SongYaml = SongYaml
   { _metadata    :: Metadata
   , _options     :: Options
   , _audio       :: Map.HashMap T.Text AudioFile
   , _jammit      :: Map.HashMap T.Text JammitTrack
   , _plans       :: Map.HashMap T.Text Plan
+  , _targets     :: Map.HashMap T.Text Target
   , _instruments :: Instruments
   , _published   :: Bool
   } deriving (Eq, Show)
@@ -831,9 +874,10 @@ instance TraceJSON SongYaml where
     _audio       <- defaultEmptyMap $ optional "audio"  $ mapping traceJSON
     _jammit      <- defaultEmptyMap $ optional "jammit" $ mapping traceJSON
     _plans       <- defaultEmptyMap $ optional "plans"  $ mapping traceJSON
+    _targets     <- defaultEmptyMap $ optional "targets"  $ mapping traceJSON
     _instruments <- required "instruments" traceJSON
     _published   <- fromMaybe True <$> optional "published" traceJSON
-    expectedKeys ["metadata", "options", "audio", "jammit", "plans", "instruments", "published"]
+    expectedKeys ["metadata", "options", "audio", "jammit", "plans", "targets", "instruments", "published"]
     return SongYaml{..}
 
 instance A.ToJSON SongYaml where
@@ -843,6 +887,7 @@ instance A.ToJSON SongYaml where
     , "audio" .= A.Object (fmap A.toJSON _audio)
     , "jammit" .= A.Object (fmap A.toJSON _jammit)
     , "plans" .= A.Object (fmap A.toJSON _plans)
+    , "targets" .= A.Object (fmap A.toJSON _targets)
     , "instruments" .= _instruments
     , "published" .= _published
     ]

@@ -2,10 +2,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module OnyxiteDisplay.Process where
 
+import qualified Config                           as C
 import           Control.Applicative              ((<|>))
 import           Control.Monad                    (forM, guard)
 import qualified Data.Aeson                       as A
 import qualified Data.Aeson.Types                 as A
+import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (toLower)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -21,10 +23,12 @@ import qualified RockBand.Beat                    as Beat
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), splitEdges)
 import qualified RockBand.Drums                   as Drums
+import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProGuitar               as PG
 import qualified RockBand.ProKeys                 as PK
 import qualified RockBand.Vocals                  as Vox
+import           Scripts                          (songLengthBeats)
 import qualified Sound.MIDI.Util                  as U
 
 class TimeFunctor f where
@@ -404,3 +408,46 @@ instance (Real t) => A.ToJSON (Processed t) where
     , [("beats", A.toJSON $ processedBeats proc)]
     , [("end", A.Number $ realToFrac $ processedEnd proc)]
     ]
+
+makeDisplay :: C.SongYaml -> RBFile.Song U.Beats -> BL.ByteString
+makeDisplay songYaml song = let
+  ht = fromIntegral (C._hopoThreshold $ C._options songYaml) / 480
+  gtr = justIf (C._hasGuitar $ C._instruments songYaml) $ processFive (Just ht) (RBFile.s_tempos song)
+    $ foldr RTB.merge RTB.empty [ t | RBFile.PartGuitar t <- RBFile.s_tracks song ]
+  bass = justIf (C._hasBass $ C._instruments songYaml) $ processFive (Just ht) (RBFile.s_tempos song)
+    $ foldr RTB.merge RTB.empty [ t | RBFile.PartBass t <- RBFile.s_tracks song ]
+  keys = justIf (C._hasKeys $ C._instruments songYaml) $ processFive Nothing (RBFile.s_tempos song)
+    $ foldr RTB.merge RTB.empty [ t | RBFile.PartKeys t <- RBFile.s_tracks song ]
+  drums = justIf (C._hasDrums $ C._instruments songYaml) $ processDrums (RBFile.s_tempos song)
+    $ foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks song ]
+  prokeys = justIf (C._hasProKeys $ C._instruments songYaml) $ processProKeys (RBFile.s_tempos song)
+    $ foldr RTB.merge RTB.empty [ t | RBFile.PartRealKeys Expert t <- RBFile.s_tracks song ]
+  proguitar = justIf (C._hasProGuitar $ C._instruments songYaml) $ processProtar ht (RBFile.s_tempos song)
+    $ let mustang = foldr RTB.merge RTB.empty [ t | RBFile.PartRealGuitar   t <- RBFile.s_tracks song ]
+          squier  = foldr RTB.merge RTB.empty [ t | RBFile.PartRealGuitar22 t <- RBFile.s_tracks song ]
+      in if RTB.null squier then mustang else squier
+  probass = justIf (C._hasProBass $ C._instruments songYaml) $ processProtar ht (RBFile.s_tempos song)
+    $ let mustang = foldr RTB.merge RTB.empty [ t | RBFile.PartRealBass   t <- RBFile.s_tracks song ]
+          squier  = foldr RTB.merge RTB.empty [ t | RBFile.PartRealBass22 t <- RBFile.s_tracks song ]
+      in if RTB.null squier then mustang else squier
+  vox = case C._hasVocal $ C._instruments songYaml of
+    C.Vocal0 -> Nothing
+    C.Vocal1 -> makeVox
+      (foldr RTB.merge RTB.empty [ t | RBFile.PartVocals t <- RBFile.s_tracks song ])
+      RTB.empty
+      RTB.empty
+    C.Vocal2 -> makeVox
+      (foldr RTB.merge RTB.empty [ t | RBFile.Harm1 t <- RBFile.s_tracks song ])
+      (foldr RTB.merge RTB.empty [ t | RBFile.Harm2 t <- RBFile.s_tracks song ])
+      RTB.empty
+    C.Vocal3 -> makeVox
+      (foldr RTB.merge RTB.empty [ t | RBFile.Harm1 t <- RBFile.s_tracks song ])
+      (foldr RTB.merge RTB.empty [ t | RBFile.Harm2 t <- RBFile.s_tracks song ])
+      (foldr RTB.merge RTB.empty [ t | RBFile.Harm3 t <- RBFile.s_tracks song ])
+  makeVox h1 h2 h3 = Just $ processVocal (RBFile.s_tempos song) h1 h2 h3 (fmap fromEnum $ C._key $ C._metadata songYaml)
+  beat = processBeat (RBFile.s_tempos song)
+    $ foldr RTB.merge RTB.empty [ t | RBFile.Beat t <- RBFile.s_tracks song ]
+  end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats song
+  justIf b x = guard b >> Just x
+  in A.encode $ mapTime (realToFrac :: U.Seconds -> Milli)
+    $ Processed gtr bass keys drums prokeys proguitar probass vox beat end

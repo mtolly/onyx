@@ -21,10 +21,6 @@ metadata:
   key: F
   languages:
   - English
-  song-id: 1660200001
-  # visualizer: http://i.imgur.com/fVYkknX.jpg
-  # download: http://www.mediafire.com/?owa0jt5twmc74jm
-  # download-ps: http://www.mediafire.com/?11alb85tqpmwr9n
 audio:
   album-track:
     md5: fa5dbe61d808c40d9d26c2d76ae30a1a
@@ -49,3 +45,12 @@ instruments:
   bass: true
   guitar: true
   vocal: 1
+targets:
+  # visualizer: http://i.imgur.com/fVYkknX.jpg
+  # download: http://www.mediafire.com/?owa0jt5twmc74jm
+  # download-ps: http://www.mediafire.com/?11alb85tqpmwr9n
+  rb3:
+    game: rb3
+    song-id: 1660200001
+  ps:
+    game: ps

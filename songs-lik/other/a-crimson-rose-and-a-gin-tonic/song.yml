@@ -28,10 +28,6 @@ metadata:
   languages:
   - Japanese
   key: C
-  song-id: 1660200007
-  # visualizer: http://i.imgur.com/X2ebG9V.jpg
-  # download: http://www.mediafire.com/?ovrq3ob8l3pqbux
-  # download-ps: http://www.mediafire.com/?vxk34ojzfq1sot1
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -59,3 +55,12 @@ instruments:
   bass: true
   guitar: true
   vocal: 2
+targets:
+  # visualizer: http://i.imgur.com/X2ebG9V.jpg
+  # download: http://www.mediafire.com/?ovrq3ob8l3pqbux
+  # download-ps: http://www.mediafire.com/?vxk34ojzfq1sot1
+  rb3:
+    game: rb3
+    song-id: 1660200007
+  ps:
+    game: ps
