@@ -6,6 +6,7 @@ metadata:
   difficulty:
     pro-keys: 7
     bass: 7
+    guitar: 5
 audio:
   album:
     md5: 019d6ca36ef0e10841404568fa275df6
@@ -26,3 +27,4 @@ plans:
 instruments:
   pro-keys: true
   bass: true
+  guitar: true

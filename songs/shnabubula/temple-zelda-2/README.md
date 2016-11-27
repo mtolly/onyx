@@ -8,6 +8,7 @@
 Instruments:
 
   * Bass 😈😈😈😈😈
+  * Guitar ⚪️⚪️⚪️⚪️⚫️
   * Pro Keys 😈😈😈😈😈
 
 Supported audio:
