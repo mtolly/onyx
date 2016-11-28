@@ -1,0 +1,27 @@
+metadata:
+  title: Bite of the Mosquito
+  author: Onyxite
+  artist: "John Petrucci & Jordan Rudess"
+  track-number: 10
+  year: 2000
+  album: "An Evening with John Petrucci & Jordan Rudess"
+audio:
+  album-track:
+    md5: da0df85b1acf508ab98eb82e4ef829fd
+    frames: 4989180
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [2.649, album-track]
+instruments:
+  guitar: true
+published: false

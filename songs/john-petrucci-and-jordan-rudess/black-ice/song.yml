@@ -1,0 +1,35 @@
+metadata:
+  title: Black Ice (Live)
+  author: Onyxite
+  artist: "John Petrucci & Jordan Rudess"
+  track-number: 9
+  year: 2000
+  album: "An Evening with John Petrucci & Jordan Rudess"
+audio:
+  album-track:
+    md5: 36ef8aa7c4f82273c5ae7243c7a1153a
+    frames: 28847868
+  album-prev: # In the Moment
+    md5: 4e60fdc74480e3347989e0f5a63dbac9
+    frames: 17103156
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      concatenate:
+      - fade:
+        - start
+        - 4.0
+        - take: [end, 4.547, album-prev]
+      - album-track
+instruments:
+  pro-keys: true
+published: false
