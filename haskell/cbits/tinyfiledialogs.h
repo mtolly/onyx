@@ -175,6 +175,7 @@ char const * tinyfd_colorChooser(
 		/* aDefaultRGB and aoResultRGB can be the same array */
 		/* returns NULL on cancel */
 
+#if 0
 
 /************ NOT CROSS PLATFORM SECTION STARTS HERE ************************/
 #ifdef _WIN32
@@ -241,6 +242,8 @@ char const * tinyfd_arrayDialog(
 		/* {"Row1 Col1","Row1 Col2","Row2 Col1","Row2 Col2"} */
 
 #endif /*_WIN32 */
+
+#endif
 
 #ifdef	__cplusplus
 }

@@ -8,14 +8,7 @@ usage:
 	@echo "  make win"
 
 mac:
-	rm -rf mac/
-	mkdir mac/
-	stack build .
-	cp "$(shell stack exec which onyx)" mac/
-	dylibbundler -x mac/onyx -b -d mac/ -p '@executable_path' -of
-	strip mac/onyx
-
-mac-app:
+	# stack build .
 	cp $(shell stack exec which onyx) Onyx.app/Contents/MacOS/onyx
 	strip Onyx.app/Contents/MacOS/onyx
 	rm -rf Onyx.app/Contents/libs/*.dylib
@@ -23,12 +16,12 @@ mac-app:
 
 mac-deps:
 	stack setup
-	brew install libsndfile libsamplerate lame
+	brew install libsndfile libsamplerate lame sdl2
 
 win:
 	rm -rf win/
 	mkdir win/
-	stack build .
+	# stack build .
 	cp "$(shell stack exec which onyx)" win/
 	cp /mingw32/bin/*.dll win/
 	stack exec strip win/onyx.exe
@@ -36,5 +29,4 @@ win:
 
 win-deps:
 	stack setup
-	pacman -Sy
-	pacman -S mingw-w64-i686-libsndfile mingw-w64-i686-libsamplerate mingw-w64-i686-lame
+	pacman -Sy mingw-w64-i686-libsndfile mingw-w64-i686-libsamplerate mingw-w64-i686-lame mingw-w64-i686-SDL2 mingw-w64-i686-pkg-config

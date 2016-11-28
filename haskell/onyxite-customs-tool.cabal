@@ -163,3 +163,5 @@ executable onyx
   include-dirs: cbits/
   c-sources:
     cbits/tinyfiledialogs.c
+  if os(mingw32)
+    extra-libraries: comdlg32, ole32
