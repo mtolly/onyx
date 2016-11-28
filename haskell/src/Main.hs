@@ -45,6 +45,14 @@ import           System.Process                 (callProcess, spawnCommand)
 import           X360
 import           YAMLTree
 
+import qualified SDL
+import SDL (($=))
+import Control.Exception (bracket, bracket_)
+import Control.Concurrent (threadDelay, forkIO)
+import System.Exit (exitSuccess)
+import Foreign.C (peekCString)
+import TinyFileDialogs
+
 main :: IO ()
 main = do
   argv <- getArgs
@@ -96,7 +104,8 @@ main = do
       }
 
   case nonopts of
-    [] -> do
+    [] -> launchGUI
+    ["help"] -> do
       let p = hPutStrLn stderr
       p "Onyxite's Rock Band Custom Song Toolkit"
       p "By Michael Tolly, licensed under the GPL"
@@ -244,6 +253,28 @@ main = do
         mapM_ (hPutStrLn stderr) warnings
         Save.toFile fout mid
     _ -> error "Invalid command"
+
+launchGUI :: IO ()
+launchGUI = bracket_ SDL.initializeAll SDL.quit $ do
+  let windowConf = SDL.defaultWindow { SDL.windowResizable = True, SDL.windowHighDPI = True }
+  bracket (SDL.createWindow "Onyx" windowConf) SDL.destroyWindow $ \window -> do
+    bracket (SDL.createRenderer window (-1) SDL.defaultRenderer) SDL.destroyRenderer $ \rend -> do
+      SDL.rendererDrawColor rend $= SDL.V4 255 0 0 255
+      forever $ do
+        SDL.clear rend
+        SDL.present rend
+        threadDelay 5000
+        evts <- SDL.pollEvents
+        forM_ evts $ \e -> case SDL.eventPayload e of
+          SDL.QuitEvent -> exitSuccess
+          SDL.DropEvent (SDL.DropEventData cstr) -> do
+            peekCString cstr >>= putStrLn
+            SDL.rendererDrawColor rend $= SDL.V4 0 0 255 255
+          SDL.MouseButtonEvent SDL.MouseButtonEventData{ SDL.mouseButtonEventMotion = SDL.Pressed } -> void $ forkIO $ do
+            colorChooser "Pick a window color." (255, 255, 255) >>= \case
+              Nothing -> return ()
+              Just (r, g, b) -> SDL.rendererDrawColor rend $= SDL.V4 r g b 255
+          _ -> return ()
 
 firstPresentTarget :: FilePath -> [T.Text] -> IO T.Text
 firstPresentTarget yamlPath targets = do

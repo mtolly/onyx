@@ -1,0 +1,11 @@
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>onyx</string>
+  <key>CFBundleName</key>
+  <string>onyx</string>
+  <!-- This isn't working for some reason -->
+  <Key>NSHighResolutionCapable</key>
+  <String>True</string>
+</dict>
+</plist>

@@ -15,6 +15,12 @@ mac:
 	dylibbundler -x mac/onyx -b -d mac/ -p '@executable_path' -of
 	strip mac/onyx
 
+mac-app:
+	cp $(shell stack exec which onyx) Onyx.app/Contents/MacOS/onyx
+	strip Onyx.app/Contents/MacOS/onyx
+	rm -rf Onyx.app/Contents/libs/*.dylib
+	dylibbundler -cd -of -b -x Onyx.app/Contents/MacOS/onyx -d Onyx.app/Contents/libs/
+
 mac-deps:
 	stack setup
 	brew install libsndfile libsamplerate lame

@@ -32,6 +32,7 @@ extra-source-files:
   ../player/www/app.min.js
   ../player/www/images/*.png
   ../player/www/lib/howler/howler.min.js
+  cbits/tinyfiledialogs.h
 
 flag MoggDecrypt
   default:             False
@@ -42,6 +43,7 @@ executable onyx
   main-is:              Main.hs
   other-modules:
     Build
+    TinyFileDialogs
     YAMLTree
     Audio
     Scripts
@@ -144,6 +146,7 @@ executable onyx
     , template-haskell
     , MonadRandom
     , data-binary-ieee754 >= 0.4.4    && < 0.5
+    , sdl2
     -- my libraries:
     , jammittools >= 0.5.0.3 && < 0.6
     , midi-util >= 0.2 && < 0.3
@@ -157,3 +160,6 @@ executable onyx
   if flag(MoggDecrypt)
     cpp-options: -DMOGGDECRYPT
     build-depends: mogg2ogg
+  include-dirs: cbits/
+  c-sources:
+    cbits/tinyfiledialogs.c
