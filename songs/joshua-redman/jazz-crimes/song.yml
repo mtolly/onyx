@@ -10,8 +10,10 @@ metadata:
   track-number: 2
   difficulty:
     drums: 6
+    guitar: 5
 instruments:
   drums: true
+  guitar: true
 audio:
   album-track:
     md5: 018040c351e8cad6ac1885de79041a45
