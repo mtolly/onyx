@@ -1,17 +1,12 @@
 metadata:
-  title: Temple (Zelda 2)
+  title: Alien Lair (Contra)
   file-include: ../../../albums/nes-jams.yml
-  track-number: 2
+  track-number: 3
   author: Onyxite
-  difficulty:
-    pro-keys: 7
-    bass: 7
-    guitar: 5
-    drums: 7
 audio:
   album:
-    md5: 019d6ca36ef0e10841404568fa275df6
-    frames: 8654848
+    md5: da860ab369d4e070e14081a0918d09ff
+    frames: 8232239
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
@@ -24,8 +19,7 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [2.957, album]
+      pad: [3.694, album]
 instruments:
   pro-keys: true
-  bass: true
-  guitar: true
+published: false
