@@ -1,0 +1,72 @@
+metadata:
+  title: Ripple Star
+  artist: Jun Ishikawa
+  album: "Kirby 64: The Crystal Shards Original Soundtrack"
+  track-number: 29 # on the official ost at least
+  file-album-art: cover.jpg
+  genre: jazz
+  subgenre: other
+  year: 2000
+  author: Onyxite
+audio:
+  stem-bass:
+    file-path: audio-bass.wav
+  stem-kick:
+    file-path: audio-kick.wav
+  stem-snare:
+    # includes the "soft snare", "hard snare" during the solo, and then 2 high toms at end of solo
+    file-path: audio-snare.wav
+  stem-kit:
+    file-path: audio-kit.wav
+  stem-simplebacking:
+    # the instruments which are not played anywhere
+    file-path: audio-simplebacking.wav
+  stem-simplekeys:
+    # the instruments which are played on keys every time
+    file-path: audio-simplekeys.wav
+  stem-strings:
+    # strings are played on keys in the first half but in backing for second
+    file-path: audio-strings.wav
+  stem-stringskeys:
+    expr:
+      concatenate:
+      - take:
+        - '1:23.385' # 1:26.665 - 3.280
+        - stem-strings
+      - pad:
+        - '13.333' # 1:39.998 - 1:26.665
+        - drop:
+          - '1:36.718' # 1:39.998 - 3.280
+          - stem-strings
+  stem-stringsbacking:
+    expr:
+      pad:
+      - '1:23.385' # 1:26.665 - 3.280
+      - take:
+        - '13.333' # 1:39.998 - 1:26.665
+        - drop:
+          - '1:23.385' # 1:26.665 - 3.280
+          - stem-strings
+plans:
+  stems:
+    bass:
+      pad: [3.280, stem-bass]
+    kick:
+      pad: [3.280, stem-kick]
+    snare:
+      pad: [3.280, stem-snare]
+    drums:
+      pad: [3.280, stem-kit]
+    keys:
+      pad:
+      - 3.280
+      - mix: [stem-simplekeys, stem-stringskeys]
+    song:
+      pad:
+      - 3.280
+      - mix: [stem-simplebacking, stem-stringsbacking]
+instruments:
+  drums: true
+  bass: true
+  pro-keys: true
+published: false
