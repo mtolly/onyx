@@ -67,102 +67,103 @@ main = do
               nowHowler <- case app of
                 Paused o -> pure o.pausedSongTime
                 Playing o -> getPosition audio
-              -- So, we slightly correct nowTheory towards nowHowler when needed
-              let isClose = abs (case nowHowler - nowTheory of Seconds n -> n) < 0.08
-                  nowSeconds = if isClose then nowTheory else
-                    nowTheory + if nowTheory < nowHowler
-                      then min (Seconds 0.01) $ nowHowler - nowTheory
-                      else max (Seconds (-0.01)) $ nowHowler - nowTheory
-                  app' = if isClose then app else case app of
-                    Paused o -> Paused o -- this should never happen
-                    Playing o -> Playing
-                      { startedPageTime: convertDuration ms
-                      , startedSongTime: nowSeconds
-                      , settings: o.settings
+              let continue app' = do
+                    runReaderT draw
+                      { time: nowTheory
+                      , app: app'
+                      , song: song
+                      , getImage: imageGetter
+                      , canvas: canvas
+                      , context: ctx
+                      , pxToSecsVert: \px -> Seconds $ toNumber (px - 50) * 0.003
+                      , secsToPxVert: \(Seconds secs) -> round (secs / 0.003) + 50
+                      , pxToSecsHoriz: \px -> Seconds $ toNumber (px - 225) * 0.003
+                      , secsToPxHoriz: \(Seconds secs) -> round (secs / 0.003) + 225
                       }
-              runReaderT draw
-                { time: nowSeconds
-                , app: app'
-                , song: song
-                , getImage: imageGetter
-                , canvas: canvas
-                , context: ctx
-                , pxToSecsVert: \px -> Seconds $ toNumber (px - 50) * 0.003
-                , secsToPxVert: \(Seconds secs) -> round (secs / 0.003) + 50
-                , pxToSecsHoriz: \px -> Seconds $ toNumber (px - 225) * 0.003
-                , secsToPxHoriz: \(Seconds secs) -> round (secs / 0.003) + 225
-                }
-              {h: windowH'} <- getWindowDims
-              let windowH = round windowH'
-              evts <- modifyRef' clicks $ \evts -> {state: [], value: evts}
-              let handle es app_ = case uncons es of
-                    Nothing -> requestAnimationFrame $ loop app_
-                    Just {head: {x: x, y: y}, tail: et} -> do
-                      if _M <= x && x <= _M + _B
-                        then if windowH - _M - _B <= y && y <= windowH - _M
-                          then case app_ of -- play/pause button
-                            Paused o -> do
-                              ms <- unInstant <$> now
-                              playFrom audio nowSeconds do
-                                handle et $ Playing
-                                  { startedPageTime: convertDuration ms
-                                  , startedSongTime: nowSeconds
-                                  , settings: o.settings
-                                  }
-                            Playing o -> do
-                              stop audio
-                              handle et $ Paused
-                                { pausedSongTime: nowSeconds
-                                , settings: o.settings
-                                }
-                          else if _M <= y && y <= windowH - 2*_M - _B
-                            then let -- progress bar
-                              frac = 1.0 - toNumber (y - _M) / toNumber (windowH - 3*_M - _B)
-                              t = Seconds frac * case song of Song o -> o.end
-                              in case app_ of
-                                Paused o -> handle et $ Paused $ o
-                                  { pausedSongTime = t
-                                  }
-                                Playing o -> do
-                                  ms <- unInstant <$> now
-                                  stop audio
-                                  playFrom audio t do
-                                    handle et $ Playing $ o
-                                      { startedPageTime = convertDuration ms
-                                      , startedSongTime = t
+                    {h: windowH'} <- getWindowDims
+                    let windowH = round windowH'
+                    evts <- modifyRef' clicks $ \evts -> {state: [], value: evts}
+                    let handle es app_ = case uncons es of
+                          Nothing -> requestAnimationFrame $ loop app_
+                          Just {head: {x: x, y: y}, tail: et} -> do
+                            if _M <= x && x <= _M + _B
+                              then if windowH - _M - _B <= y && y <= windowH - _M
+                                then case app_ of -- play/pause button
+                                  Paused o -> do
+                                    ms <- unInstant <$> now
+                                    playFrom audio nowTheory do
+                                      handle et $ Playing
+                                        { startedPageTime: convertDuration ms
+                                        , startedSongTime: nowTheory
+                                        , settings: o.settings
+                                        }
+                                  Playing o -> do
+                                    stop audio
+                                    handle et $ Paused
+                                      { pausedSongTime: nowTheory
+                                      , settings: o.settings
                                       }
-                            else handle et app_
-                        else if 2*_M + _B <= x && x <= 2*_M + 2*_B
-                          then let
-                            go _ L.Nil                = handle et app_
-                            go i (L.Cons action rest) = do
-                              let ystart = windowH - i * (_M + _B)
-                                  yend   = ystart + _B
-                              if ystart <= y && y <= yend
-                                then handle et $ case app_ of
-                                  Paused  o -> Paused  o { settings = action o.settings }
-                                  Playing o -> Playing o { settings = action o.settings }
-                                else go (i + 1) rest
-                            s = case song of Song o -> o
-                            in go 1 $ L.fromFoldable $ concat
-                              [ guard (isJust s.prokeys  ) *> [ (\sets -> sets { seeProKeys    = not sets.seeProKeys   }) ]
-                              , guard (isJust s.keys     ) *> [ (\sets -> sets { seeKeys       = not sets.seeKeys      }) ]
-                              , guard (isJust s.vocal    ) *> [ (\sets -> sets { seeVocal      = not sets.seeVocal     }) ]
-                              , guard (isJust s.drums    ) *> [ (\sets -> sets { seeDrums      = not sets.seeDrums     }) ]
-                              , guard (isJust s.probass  ) *> [ (\sets -> sets { seeProBass    = not sets.seeProBass   }) ]
-                              , guard (isJust s.bass     ) *> [ (\sets -> sets { seeBass       = not sets.seeBass      }) ]
-                              , guard (isJust s.proguitar) *> [ (\sets -> sets { seeProGuitar  = not sets.seeProGuitar }) ]
-                              , guard (isJust s.guitar   ) *> [ (\sets -> sets { seeGuitar     = not sets.seeGuitar    }) ]
-                              ]
-                          else handle et app_
-              case app of
-                Playing o | nowSeconds >= (case song of Song o -> o.end) -> do
-                  stop audio
-                  handle evts $ Paused
-                    { pausedSongTime: nowSeconds
-                    , settings: o.settings
-                    }
-                _ -> handle evts app'
+                                else if _M <= y && y <= windowH - 2*_M - _B
+                                  then let -- progress bar
+                                    frac = 1.0 - toNumber (y - _M) / toNumber (windowH - 3*_M - _B)
+                                    t = Seconds frac * case song of Song o -> o.end
+                                    in case app_ of
+                                      Paused o -> handle et $ Paused $ o
+                                        { pausedSongTime = t
+                                        }
+                                      Playing o -> do
+                                        ms <- unInstant <$> now
+                                        stop audio
+                                        playFrom audio t do
+                                          handle et $ Playing $ o
+                                            { startedPageTime = convertDuration ms
+                                            , startedSongTime = t
+                                            }
+                                  else handle et app_
+                              else if 2*_M + _B <= x && x <= 2*_M + 2*_B
+                                then let
+                                  go _ L.Nil                = handle et app_
+                                  go i (L.Cons action rest) = do
+                                    let ystart = windowH - i * (_M + _B)
+                                        yend   = ystart + _B
+                                    if ystart <= y && y <= yend
+                                      then handle et $ case app_ of
+                                        Paused  o -> Paused  o { settings = action o.settings }
+                                        Playing o -> Playing o { settings = action o.settings }
+                                      else go (i + 1) rest
+                                  s = case song of Song o -> o
+                                  in go 1 $ L.fromFoldable $ concat
+                                    [ guard (isJust s.prokeys  ) *> [ (\sets -> sets { seeProKeys    = not sets.seeProKeys   }) ]
+                                    , guard (isJust s.keys     ) *> [ (\sets -> sets { seeKeys       = not sets.seeKeys      }) ]
+                                    , guard (isJust s.vocal    ) *> [ (\sets -> sets { seeVocal      = not sets.seeVocal     }) ]
+                                    , guard (isJust s.drums    ) *> [ (\sets -> sets { seeDrums      = not sets.seeDrums     }) ]
+                                    , guard (isJust s.probass  ) *> [ (\sets -> sets { seeProBass    = not sets.seeProBass   }) ]
+                                    , guard (isJust s.bass     ) *> [ (\sets -> sets { seeBass       = not sets.seeBass      }) ]
+                                    , guard (isJust s.proguitar) *> [ (\sets -> sets { seeProGuitar  = not sets.seeProGuitar }) ]
+                                    , guard (isJust s.guitar   ) *> [ (\sets -> sets { seeGuitar     = not sets.seeGuitar    }) ]
+                                    ]
+                                else handle et app_
+                    case app' of
+                      Playing o | nowTheory >= (case song of Song o -> o.end) -> do
+                        stop audio
+                        handle evts $ Paused
+                          { pausedSongTime: nowTheory
+                          , settings: o.settings
+                          }
+                      _ -> handle evts app'
+              if abs (case nowHowler - nowTheory of Seconds n -> n) < 0.08
+                then continue app
+                else case app of
+                  Paused _ -> continue app -- should never happen
+                  Playing o -> do
+                    stop audio
+                    log "restarting audio..."
+                    playFrom audio nowTheory do
+                      continue $ Playing
+                        { startedPageTime: convertDuration ms
+                        , startedSongTime: nowTheory
+                        , settings: o.settings
+                        }
         loop $ Paused
           { pausedSongTime: Seconds 0.0
           , settings:
