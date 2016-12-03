@@ -1256,16 +1256,16 @@ shakeBuild optDescrs audioDirs yamlPath buildables = do
                 , FoF.starPowerNote    = Just 116
                 , FoF.track            = _trackNumber $ _metadata songYaml
                 }
-            dir </> "ps/drums.ogg"   %> buildAudio (Input $ dir </> "drums.wav"       )
-            dir </> "ps/drums_1.ogg" %> buildAudio (Input $ dir </> "kick.wav"        )
-            dir </> "ps/drums_2.ogg" %> buildAudio (Input $ dir </> "snare.wav"       )
-            dir </> "ps/drums_3.ogg" %> buildAudio (Input $ dir </> "drums.wav"       )
-            dir </> "ps/guitar.ogg"  %> buildAudio (Input $ dir </> "guitar.wav"      )
-            dir </> "ps/keys.ogg"    %> buildAudio (Input $ dir </> "keys.wav"        )
-            dir </> "ps/rhythm.ogg"  %> buildAudio (Input $ dir </> "bass.wav"        )
-            dir </> "ps/vocals.ogg"  %> buildAudio (Input $ dir </> "vocal.wav"       )
-            dir </> "ps/crowd.ogg"   %> buildAudio (Input $ dir </> "crowd.wav"       )
-            dir </> "ps/song.ogg"    %> buildAudio (Input $ dir </> "song-countin.wav")
+            dir </> "ps/drums.ogg"   %> buildAudio (Input $ planDir </> "drums.wav"       )
+            dir </> "ps/drums_1.ogg" %> buildAudio (Input $ planDir </> "kick.wav"        )
+            dir </> "ps/drums_2.ogg" %> buildAudio (Input $ planDir </> "snare.wav"       )
+            dir </> "ps/drums_3.ogg" %> buildAudio (Input $ planDir </> "drums.wav"       )
+            dir </> "ps/guitar.ogg"  %> buildAudio (Input $ planDir </> "guitar.wav"      )
+            dir </> "ps/keys.ogg"    %> buildAudio (Input $ planDir </> "keys.wav"        )
+            dir </> "ps/rhythm.ogg"  %> buildAudio (Input $ planDir </> "bass.wav"        )
+            dir </> "ps/vocals.ogg"  %> buildAudio (Input $ planDir </> "vocal.wav"       )
+            dir </> "ps/crowd.ogg"   %> buildAudio (Input $ planDir </> "crowd.wav"       )
+            dir </> "ps/song.ogg"    %> buildAudio (Input $ planDir </> "song-countin.wav")
             dir </> "ps/album.png"   %> copyFile' "gen/cover.png"
             phony (dir </> "ps") $ need $ map (\f -> dir </> "ps" </> f) $ concat
               [ ["song.ini", "notes.mid", "song.ogg", "album.png"]

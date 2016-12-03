@@ -2,12 +2,15 @@ metadata:
   title: "Chris and Kevin's Excellent Adventure"
   file-include: ../../../albums/liquid-tension-experiment.yml
   track-number: 6
+  autogen-theme: Psych Jam Rock
+  rating: Family Friendly # ???
   difficulty:
     drums: 5
-    bass: 7
+    bass: 6
     vocal: 4
     band: 5
   author: Onyxite
+  key: D # ???
   comments:
   - "All instruments have overdrive/unison."
 audio:
@@ -31,5 +34,20 @@ instruments:
   drums: true
   bass: true
   vocal: 2
-options:
-  auto-2x-bass: true
+targets:
+  # visualizer: http://i.imgur.com/8GOj4WY.jpg
+  # video: https://www.youtube.com/watch?v=LEbXbnMTBdg
+  # 1x: http://www.mediafire.com/file/ue2kj3okc5hjbac/onyx_ChrisKevin1x_v1_rb3con
+  # 2x: http://www.mediafire.com/file/z7ea75zanu43gb4/onyx_ChrisKevin2x_v1_rb3con
+  # ps: http://www.mediafire.com/file/7bm2bclumgef7zo/onyx_ChrisKevin_v1_ps.zip
+  rb3:
+    game: rb3
+    song-id: 1660200021
+    version: 1
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 1660200022
+    version: 1
+  ps:
+    game: ps

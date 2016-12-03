@@ -10,7 +10,9 @@ metadata:
     keys: 7
     guitar: 6
     bass: 4
+    band: 6
   author: Onyxite
+  key: F
   comments:
   - >-
     Keys charts mirror guitar in several sections
@@ -41,3 +43,20 @@ instruments:
   keys: true
   guitar: true
   bass: true
+targets:
+  # visualizer: http://i.imgur.com/RSVyWGj.jpg
+  # video: https://www.youtube.com/watch?v=_XH8quUCM5Y
+  # 1x: http://www.mediafire.com/file/7mnt1jh4350gf6t/onyx_Universal1x_fbv1_rb3con
+  # 2x: http://www.mediafire.com/file/uoodk93n3cbih54/onyx_Universal2x_fbv1_rb3con
+  # ps: http://www.mediafire.com/file/3i7d0k89qoviaxx/onyx_Universal_fbv1_ps.zip
+  rb3:
+    game: rb3
+    song-id: 1660200017
+    version: 1
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 1660200018
+    version: 1
+  ps:
+    game: ps

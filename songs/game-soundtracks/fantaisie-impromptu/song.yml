@@ -7,6 +7,8 @@ metadata:
   genre: jrock # classical???
   subgenre: jrock
   preview-start: prc_verse_2a
+  rating: Family Friendly
+  autogen-theme: Dark Heavy Rock
   difficulty:
     drums: 6
     pro-keys: 7
@@ -14,6 +16,7 @@ metadata:
     bass: 4
     guitar: 7
     band: 6
+  key: C sharp
   comments:
   - "All instruments have overdrive/unison."
 instruments:
@@ -40,6 +43,22 @@ plans:
       1|1: hihat
       1|2: hihat
       1|3: hihat
-      # TODO swing countin
     song:
       pad: [3.617, album-track]
+targets:
+  # visualizer: http://i.imgur.com/XyvqAF6.jpg
+  # video: https://www.youtube.com/watch?v=PDe9EiIOT2E
+  # 1x: http://www.mediafire.com/file/67dxo508c0o2h3i/onyx_Fantaisie1x_v1_rb3con
+  # 2x: http://www.mediafire.com/file/1wkqmu6ckusagfc/onyx_Fantaisie2x_v1_rb3con
+  # ps: http://www.mediafire.com/file/g9qdb4z1kpdao94/onyx_Fantaisie_v1_ps.zip
+  rb3:
+    game: rb3
+    song-id: 1660200015
+    version: 1
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 1660200016
+    version: 1
+  ps:
+    game: ps

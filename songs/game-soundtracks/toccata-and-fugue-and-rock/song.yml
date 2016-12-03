@@ -6,12 +6,16 @@ metadata:
   track-number: 66 # 31 on disc 2; disc 1 has 35
   genre: jrock # classical???
   subgenre: jrock
+  rating: Family Friendly
+  autogen-theme: Dark Heavy Rock
   difficulty:
     drums: 6
     keys: 6
     pro-keys: 7
     guitar: 4
     bass: 5
+    band: 6
+  key: D
   comments:
   - All instruments have overdrive/unison.
 instruments:
@@ -40,3 +44,14 @@ plans:
       1|3: hihat
     song:
       pad: [2.791, album-track]
+targets:
+  # visualizer: http://i.imgur.com/55AXhwl.jpg
+  # video: https://www.youtube.com/watch?v=WATwNE28ek0
+  # 1x: http://www.mediafire.com/file/jh6sngyu3q9pqq4/onyx_Toccata_v1_rb3con
+  # ps: http://www.mediafire.com/file/d2fhc3xq2qgqbgm/onyx_Toccata_v1_ps.zip
+  rb3:
+    game: rb3
+    song-id: 1660200014
+    version: 1
+  ps:
+    game: ps

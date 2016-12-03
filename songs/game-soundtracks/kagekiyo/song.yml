@@ -6,12 +6,16 @@ metadata:
   track-number: 32 # disc 1
   genre: jrock
   subgenre: jrock
+  rating: Family Friendly
+  autogen-theme: Feel Good Pop Rock
   difficulty:
     drums: 6
     pro-keys: 5
     guitar: 5
     bass: 5
     keys: 5
+    band: 6
+  key: E
   comments:
   - "All instruments have overdrive/unison."
 instruments:
@@ -40,3 +44,14 @@ plans:
       1|3: hihat
     song:
       pad: [2.945, album-track]
+targets:
+  # visualizer: http://i.imgur.com/ZVMUoES.jpg
+  # video: https://www.youtube.com/watch?v=6jq7LyIalcM
+  # 1x: http://www.mediafire.com/file/mavpa846wopf4fm/onyx_Kagekiyo_v1_rb3con
+  # ps: http://www.mediafire.com/file/2cdz24zp2oyo25p/onyx_Kagekiyo_v1_ps.zip
+  rb3:
+    game: rb3
+    song-id: 1660200013
+    version: 1
+  ps:
+    game: ps

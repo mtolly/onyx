@@ -18,5 +18,18 @@ onyxite's C3-format Song IDs (16602xxxxx)
   v1 published without numeric song ID
   v2 published 2016-09-21: fixed release year, moved to numeric song ID
 
+1660200013 KAGEKIYO (Taiko no Tatsujin)
+1660200014 Toccata and Fugue and Rock (Taiko no Tatsujin)
+1660200015 Fantaisie-Impromptu (Taiko no Tatsujin) 1x
+1660200016 Fantaisie-Impromptu (Taiko no Tatsujin) 2x
+1660200017 Universal Mind (Liquid Tension Experiment) 1x
+1660200018 Universal Mind (Liquid Tension Experiment) 2x
+1660200019 Another Dimension (Liquid Tension Experiment) 1x
+1660200020 Another Dimension (Liquid Tension Experiment) 2x
+1660200021 Chris & Kevin's Excellent Adventure (Liquid Tension Experiment) 1x
+1660200022 Chris & Kevin's Excellent Adventure (Liquid Tension Experiment) 2x
+  Taiko + LTE pack
+  v1 (of all) published 2016-12-02
+
 ONE-OFFS
 1660299999 hacked c3 6:00 drum chart
