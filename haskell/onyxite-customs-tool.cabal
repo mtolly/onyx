@@ -34,6 +34,7 @@ extra-source-files:
   ../player/www/lib/howler/howler.min.js
   cbits/tinyfiledialogs.h
   cbits/stb_image_resize.h
+  cbits/encode_vag.h
 
 flag MoggDecrypt
   default:             False
@@ -68,6 +69,7 @@ executable onyx
     FretsOnFire
     RockBand2
     RockBand3
+    GuitarHeroII
     Readme
     DryVox
     RenderAudio
@@ -165,5 +167,6 @@ executable onyx
   c-sources:
     cbits/tinyfiledialogs.c
     cbits/stb_image_resize.c
+    cbits/encode_vag.c
   if os(mingw32)
     extra-libraries: comdlg32, ole32

@@ -838,7 +838,7 @@ data Target
 addKey :: (A.ToJSON a) => T.Text -> A.Value -> a -> A.Value
 addKey k v t = case A.toJSON t of
   A.Object o -> A.Object $ Map.insert k v o
-  x -> error $ "panic! expected JSON object, but got: " ++ show x
+  x          -> error $ "panic! expected JSON object, but got: " ++ show x
 
 instance A.ToJSON Target where
   toJSON (RB3 rb3) = addKey "game" "rb3" rb3
@@ -853,7 +853,7 @@ instance TraceJSON Target where
       "rb3" -> fmap RB3 traceJSON
       "rb2" -> fmap RB2 traceJSON
       "ps"  -> fmap PS  traceJSON
-      _ -> fatal $ "Unrecognized target game: " ++ show target
+      _     -> fatal $ "Unrecognized target game: " ++ show target
 
 data SongYaml = SongYaml
   { _metadata    :: Metadata

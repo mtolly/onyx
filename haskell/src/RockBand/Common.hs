@@ -102,7 +102,7 @@ instance Command (Trainer, T.Text) where
     (T.stripPrefix "begin_" -> Just s) -> f s TrainerBegin
     (T.stripSuffix "_norm"  -> Just s) -> f s TrainerNorm
     (T.stripPrefix "end_"   -> Just s) -> f s TrainerEnd
-    _                                -> Nothing
+    _                                  -> Nothing
     where f s con = case stripPrefix (T.unpack s) (T.unpack y) of
             Just ('_' : (readMaybe -> Just i)) -> Just (con i, s)
             Just (readMaybe -> Just i)         -> Just (con i, s)

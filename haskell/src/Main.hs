@@ -1,8 +1,8 @@
-{-# LANGUAGE CPP                       #-}
-{-# LANGUAGE LambdaCase                #-}
-{-# LANGUAGE MultiWayIf                #-}
-{-# LANGUAGE OverloadedStrings         #-}
-{-# LANGUAGE RecordWildCards           #-}
+{-# LANGUAGE CPP               #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE MultiWayIf        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Main (main) where
 
 import           Build                          (shakeBuild)
@@ -45,13 +45,17 @@ import           System.Process                 (callProcess, spawnCommand)
 import           X360
 import           YAMLTree
 
+import           Control.Concurrent             (forkIO, threadDelay)
+import           Control.Exception              (bracket, bracket_)
+import           Foreign.C                      (peekCString)
+import           SDL                            (($=))
 import qualified SDL
-import SDL (($=))
-import Control.Exception (bracket, bracket_)
-import Control.Concurrent (threadDelay, forkIO)
-import System.Exit (exitSuccess)
-import Foreign.C (peekCString)
-import TinyFileDialogs
+import           System.Exit                    (exitSuccess)
+import           TinyFileDialogs
+
+import           Control.Monad.Trans.Resource   (runResourceT)
+import           Data.Conduit.Audio.Sndfile     (sourceSnd)
+import           GuitarHeroII
 
 main :: IO ()
 main = do
@@ -252,6 +256,11 @@ main = do
         let (mid, warnings) = MS.fromStandardMIDI midiTextOptions sf
         mapM_ (hPutStrLn stderr) warnings
         Save.toFile fout mid
+    "vgs" : args -> case inputOutput ".vgs" args of
+      Nothing -> error "Usage: onyx vgs in.wav [out.vgs]"
+      Just (fin, fout) -> do
+        src <- sourceSnd fin
+        runResourceT $ writeVGS fout src
     _ -> error "Invalid command"
 
 launchGUI :: IO ()
