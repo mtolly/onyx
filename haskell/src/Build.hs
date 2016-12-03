@@ -601,8 +601,8 @@ shakeBuild optDescrs audioDirs yamlPath buildables = do
                   Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
                   Right dyn -> return $ convertRGB8 dyn
             Nothing -> return $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
-      "gen/cover.bmp" %> \out -> loadRGB8 >>= liftIO . writeBitmap out . scaleBilinear 256 256
-      "gen/cover.png" %> \out -> loadRGB8 >>= liftIO . writePng    out . scaleBilinear 256 256
+      "gen/cover.bmp" %> \out -> loadRGB8 >>= liftIO . writeBitmap out . scaleSTBIR 256 256
+      "gen/cover.png" %> \out -> loadRGB8 >>= liftIO . writePng    out . scaleSTBIR 256 256
       "gen/cover.png_xbox" %> \out -> case _fileAlbumArt $ _metadata songYaml of
         Just f | takeExtension f == ".png_xbox" -> copyFile' f out
         _      -> loadRGB8 >>= liftIO . BL.writeFile out . toPNG_XBOX

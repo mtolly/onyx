@@ -15,7 +15,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Foreign as T
 import Data.Char (toLower)
 
-#include <tinyfiledialogs.h>
+#include "tinyfiledialogs.h"
 
 {#context prefix = "tinyfd_" #}
 

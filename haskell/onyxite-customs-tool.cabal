@@ -33,6 +33,7 @@ extra-source-files:
   ../player/www/images/*.png
   ../player/www/lib/howler/howler.min.js
   cbits/tinyfiledialogs.h
+  cbits/stb_image_resize.h
 
 flag MoggDecrypt
   default:             False
@@ -163,5 +164,6 @@ executable onyx
   include-dirs: cbits/
   c-sources:
     cbits/tinyfiledialogs.c
+    cbits/stb_image_resize.c
   if os(mingw32)
     extra-libraries: comdlg32, ole32

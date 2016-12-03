@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Image (scaleBilinear, toDDS, toPNG_XBOX, readPNGXbox) where
+module Image (scaleSTBIR, toDDS, toPNG_XBOX, readPNGXbox) where
 
 import           Codec.Picture
 import           Control.Monad              (forM_, guard, replicateM)
@@ -10,28 +10,47 @@ import qualified Data.ByteString            as B
 import qualified Data.ByteString.Lazy       as BL
 import           Data.List                  (minimumBy)
 import           Data.Ord                   (comparing)
+import qualified Data.Vector.Storable       as V
 import           Data.Word                  (Word16, Word8)
+import           Foreign
+import           Foreign.C
+import           System.IO.Unsafe           (unsafePerformIO)
 
--- | Scales an image using the bilinear interpolation algorithm.
-scaleBilinear
-  :: (Pixel a, Integral (PixelBaseComponent a))
-  => Int -> Int -> Image a -> Image a
-scaleBilinear w' h' img = generateImage f w' h' where
-  f x' y' = let
-    x, y :: Rational
-    x = fromIntegral x' / fromIntegral (w' - 1) * fromIntegral (imageWidth  img - 1)
-    y = fromIntegral y' / fromIntegral (h' - 1) * fromIntegral (imageHeight img - 1)
-    (xi, xf) = properFraction x
-    (yi, yf) = properFraction y
-    gx _ c1 c2 = round $ fromIntegral c1 * (1 - xf) + fromIntegral c2 * xf
-    gy _ c1 c2 = round $ fromIntegral c1 * (1 - yf) + fromIntegral c2 * yf
-    in case (xf, yf) of
-      (0, 0) -> pixelAt img xi yi
-      (0, _) -> mixWith gy (pixelAt img xi yi) (pixelAt img xi (yi + 1))
-      (_, 0) -> mixWith gx (pixelAt img xi yi) (pixelAt img (xi + 1) yi)
-      (_, _) -> mixWith gy
-        (mixWith gx (pixelAt img xi yi      ) (pixelAt img (xi + 1) yi      ))
-        (mixWith gx (pixelAt img xi (yi + 1)) (pixelAt img (xi + 1) (yi + 1)))
+#include "stb_image_resize.h"
+
+{#fun stbir_resize_uint8
+  { id `Ptr CUChar'
+  , `CInt'
+  , `CInt'
+  , `CInt'
+  , id `Ptr CUChar'
+  , `CInt'
+  , `CInt'
+  , `CInt'
+  , `CInt'
+  } -> `CInt'
+#}
+
+scaleSTBIR
+  :: Int -> Int -> Image PixelRGB8 -> Image PixelRGB8
+scaleSTBIR w' h' (Image w h v) = unsafePerformIO $ do
+  V.unsafeWith v $ \p -> do
+    let parts = 3 :: Int
+    fp <- mallocForeignPtrBytes $ w' * h' * parts
+    let cast = castPtr :: Ptr Word8 -> Ptr CUChar
+    res <- withForeignPtr fp $ \p' -> stbir_resize_uint8
+      (cast p)
+      (fromIntegral w)
+      (fromIntegral h)
+      0
+      (cast p')
+      (fromIntegral w')
+      (fromIntegral h')
+      0
+      (fromIntegral parts)
+    if res == 0
+      then error "stbir_resize_uint8 returned error"
+      else return $ Image w' h' $ V.unsafeFromForeignPtr0 fp $ w' * h' * parts
 
 pixel565 :: PixelRGB8 -> Word16
 pixel565 (PixelRGB8 r g b) = sum
@@ -86,7 +105,7 @@ findPalette img = let
 contentDXT1 :: Image PixelRGB8 -> BL.ByteString
 contentDXT1 img_ = execWriter $ do
   forM_ [256, 128, 64, 32, 16, 8, 4] $ \size -> do
-    let img = scaleBilinear size size img_
+    let img = scaleSTBIR size size img_
     forM_ [0, 4 .. size - 4] $ \y ->
       forM_ [0, 4 .. size - 4] $ \x -> do
         let chunk = generateImage (\cx cy -> pixelAt img (x + cx) (y + cy)) 4 4
