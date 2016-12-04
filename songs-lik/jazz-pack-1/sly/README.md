@@ -2,13 +2,14 @@
 
 ## Herbie Hancock
 
-Author: TheLieInKing, Onyxite
+Author: TheLieInKing, Mazegeek999, Onyxite
 
 [Play in browser](http://pages.cs.wisc.edu/~tolly/customs/jazz-pack-1/sly)
 
 Instruments:
 
   * (Pro) Drums 😈😈😈😈😈
+  * Pro Keys 😈😈😈😈😈
 
 Supported audio:
 
