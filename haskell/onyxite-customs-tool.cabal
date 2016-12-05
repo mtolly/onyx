@@ -163,10 +163,22 @@ executable onyx
   if flag(MoggDecrypt)
     cpp-options: -DMOGGDECRYPT
     build-depends: mogg2ogg
-  include-dirs: cbits/
+  include-dirs:
+    cbits/
+    cbits/ArkTool_v6.1
   c-sources:
     cbits/tinyfiledialogs.c
     cbits/stb_image_resize.c
     cbits/encode_vag.c
+    cbits/ArkTool_v6.1/xyssl/aes.c
+    cbits/ArkTool_v6.1/ArkFile.cpp
+    cbits/ArkTool_v6.1/ArkHdrPair.cpp
+    cbits/ArkTool_v6.1/DtbCrypt.cpp
+    cbits/ArkTool_v6.1/FileCollection.cpp
+    cbits/ArkTool_v6.1/FileEntry.cpp
+    cbits/ArkTool_v6.1/HdrFile.cpp
+    cbits/ArkTool_v6.1/PssVgsAccess.cpp
+    cbits/ArkTool_v6.1/SongCrypt.cpp
+  extra-libraries: stdc++
   if os(mingw32)
     extra-libraries: comdlg32, ole32
