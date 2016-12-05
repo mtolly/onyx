@@ -5,6 +5,7 @@ http://www.scorehero.com/forum/viewtopic.php?t=17309
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <math.h>
 #include "encode_vag.h"
 
 double filter[5][2] =  {
@@ -48,8 +49,8 @@ void encodeVAGBlock(int16_t *in, unsigned char *out, unsigned char flagcheck, do
                 s_0 = -30720.0;
             ds = s_0 + s_1 * filter[i][0] + s_2 * filter[i][1];
             buffer[j][i] = ds;
-            if ( abs( ds ) > max[i] ) {
-                max[i] = abs( ds );
+            if ( fabs( ds ) > max[i] ) {
+                max[i] = fabs( ds );
             }
             s_2 = s_1;
             s_1 = s_0;
