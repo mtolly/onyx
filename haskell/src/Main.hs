@@ -261,7 +261,6 @@ main = do
       Just (fin, fout) -> do
         src <- sourceSnd fin
         runResourceT $ writeVGS fout src
-    ["ark", dir] -> arkListTest dir >>= mapM_ print
     _ -> error "Invalid command"
 
 launchGUI :: IO ()

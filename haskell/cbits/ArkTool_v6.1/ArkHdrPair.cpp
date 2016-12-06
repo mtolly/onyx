@@ -96,7 +96,7 @@ bool ArkHdrPair::Open(const char* arkDirpath)
 	// open header and read it in
 	std::vector<s64> ark_sizes;
 	char hdr_filename[260];
-	sprintf(hdr_filename, "%s%cmain.hdr", arkDirpath, DIRSEPCHAR);
+	sprintf(hdr_filename, "%s%cMAIN.HDR", arkDirpath, DIRSEPCHAR);
 	if( !mHdrFile.Read(hdr_filename, mFileCollection, ark_sizes, mNewStyle, mVersion) )
 		return false;
 	
@@ -170,7 +170,7 @@ bool ArkHdrPair::Save()
 	
 	// write out hdr
 	char hdr_filename[260];
-	sprintf(hdr_filename, "%s%cmain.hdr", mArkDirpath, DIRSEPCHAR);
+	sprintf(hdr_filename, "%s%cMAIN.HDR", mArkDirpath, DIRSEPCHAR);
 	if( !mHdrFile.Write(hdr_filename, mFileCollection, ark_sizes, mNewStyle, mVersion) )
 		return false;
 	
@@ -249,7 +249,7 @@ bool ArkHdrPair::SaveAs(const char* newArkDirpath, bool removeGaps)
 	
 	// write out header
 	char hdr_filename[260];
-	sprintf(hdr_filename, "%s%cmain.hdr", newArkDirpath, DIRSEPCHAR);
+	sprintf(hdr_filename, "%s%cMAIN.HDR", newArkDirpath, DIRSEPCHAR);
 	if( !mHdrFile.Write(hdr_filename, mFileCollection, ark_sizes, mNewStyle, mVersion) )
 		return false;
 	

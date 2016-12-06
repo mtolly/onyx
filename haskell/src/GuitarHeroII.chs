@@ -2,9 +2,9 @@
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NondecreasingIndentation #-}
 {-# LANGUAGE OverloadedStrings #-}
-module GuitarHeroII (writeVGS, arkListTest) where
+module GuitarHeroII (writeVGS, replaceSong) where
 
-import           Control.Monad                (liftM4, replicateM_)
+import           Control.Monad                (liftM4, replicateM_, unless, forM_)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Trans.Resource
 import           Data.Binary.Put
@@ -14,15 +14,15 @@ import qualified Data.ByteString.Lazy         as BL
 import qualified Data.Conduit                 as C
 import qualified Data.Conduit.Audio           as A
 import           Data.Int                     (Int16)
-import qualified Data.Text                    as T
-import qualified Data.Text.Foreign            as T
 import qualified Data.Vector.Storable         as V
 import           Foreign
 import Control.Exception (bracket, bracket_)
-import Control.Applicative (liftA2)
 import           Foreign.C
 import qualified System.IO                    as IO
 import           System.IO.Unsafe             (unsafePerformIO)
+import qualified Data.DTA as D
+import System.IO.Temp (withSystemTempFile)
+import Data.Monoid ((<>))
 
 #include "encode_vag.h"
 
@@ -105,15 +105,15 @@ writeVGS fp src = let
   } -> `()'
 #}
 
-withCText :: T.Text -> (CString -> IO a) -> IO a
-withCText t f = T.withCStringLen (T.snoc t '\0') (f . fst)
+withByteString :: B.ByteString -> (CString -> IO a) -> IO a
+withByteString = B.useAsCString
 
-peekText :: CString -> IO T.Text
-peekText cstr = T.pack <$> peekCString cstr
+peekByteString :: CString -> IO B.ByteString
+peekByteString = B.packCString
 
 {#fun ark_Open
   { `ArkTool'
-  , withCText* `T.Text'
+  , withCString* `FilePath' -- ^ ark directory
   } -> `Bool'
 #}
 
@@ -129,70 +129,91 @@ peekText cstr = T.pack <$> peekCString cstr
 
 {#fun ark_GetFile
   { `ArkTool'
-  , withCText* `T.Text'
-  , withCText* `T.Text'
-  , `Bool'
+  , withCString* `FilePath' -- ^ destination filepath
+  , withByteString* `B.ByteString' -- ^ filename in ark
+  , `Bool' -- ^ whether to perform decryption
   } -> `Bool'
 #}
 
 {#fun ark_AddFile
   { `ArkTool'
-  , withCText* `T.Text'
-  , withCText* `T.Text'
-  , `Bool'
+  , withCString* `FilePath' -- ^ source filepath
+  , withByteString* `B.ByteString' -- ^ filename in ark
+  , `Bool' -- ^ whether to perform encryption
   } -> `Bool'
 #}
 
 {#fun ark_RemoveFile
   { `ArkTool'
-  , withCText* `T.Text'
+  , withByteString* `B.ByteString' -- ^ filename in ark
   } -> `Bool'
 #}
 
 {#fun ark_ReplaceAFile
   { `ArkTool'
-  , withCText* `T.Text'
-  , withCText* `T.Text'
-  , `Bool'
-  } -> `Bool'
-#}
-
-{#fun ark_RenameFile
-  { `ArkTool'
-  , withCText* `T.Text'
-  , withCText* `T.Text'
+  , withCString* `FilePath' -- ^ source filepath
+  , withByteString* `B.ByteString' -- ^ filename in ark
+  , `Bool' -- ^ whether to perform encryption
   } -> `Bool'
 #}
 
 {#fun ark_First
   { `ArkTool'
   , `ArkFileIterator'
-  , withCText* `T.Text'
+  , withByteString* `B.ByteString' -- ^ search filepath
   } -> `ArkFileEntry'
 #}
 
 {#fun ark_Next
   { `ArkTool'
   , `ArkFileIterator'
-  , withCText* `T.Text'
+  , withByteString* `B.ByteString' -- ^ search filepath
   } -> `ArkFileEntry'
-#}
-
-{#fun ark_Filename
-  { `ArkFileEntry'
-  } -> `T.Text' peekText*
 #}
 
 {#fun ark_Arkname
   { `ArkFileEntry'
-  } -> `T.Text' peekText*
+  } -> `B.ByteString' peekByteString*
 #}
 
-arkListTest :: FilePath -> IO [T.Text]
-arkListTest dir = bracket ark_new ark_delete $ \ark -> do
-  bracket_ (ark_Open ark $ T.pack dir) (ark_Close ark) $ do
-    bracket ark_new_iterator ark_delete_iterator $ \iter -> do
-      let go entry@(ArkFileEntry p) = if p == nullPtr
-            then return []
-            else liftA2 (:) (ark_Arkname entry) (ark_Next ark iter "*" >>= go)
-      ark_First ark iter "*" >>= go
+searchFiles :: ArkTool -> B.ByteString -> IO [ArkFileEntry]
+searchFiles ark pat = bracket ark_new_iterator ark_delete_iterator $ \iter -> do
+  let go entry@(ArkFileEntry p) = if p == nullPtr
+        then return []
+        else (entry :) <$> (ark_Next ark iter pat >>= go)
+  ark_First ark iter pat >>= go
+
+-- | Replaces a song in Guitar Hero II (U).
+replaceSong
+  :: FilePath -- ^ the @GEN@ folder containing ark and hdr files
+  -> B.ByteString -- ^ the folder name (and DTB key) of the song to replace
+  -> [D.Chunk B.ByteString] -- ^ the DTB snippet to insert into @config/gen/songs.dtb@
+  -> [(B.ByteString, FilePath)] -- ^ the files to copy into the song folder, e.g. @("yyz.mid", "some/dir/notes.mid")@
+  -> IO ()
+replaceSong gen key snippet files = do
+  let wrap msg f = f >>= \b -> unless b $ fail msg
+  bracket ark_new ark_delete $ \ark -> do
+    let open = wrap "Couldn't open the ARK file" $ ark_Open ark gen
+    bracket_ open (ark_Close ark) $ do
+      withSystemTempFile "songs.dtb" $ \fdtb hdl -> do
+        IO.hClose hdl
+        wrap "Couldn't find songs.dtb in the ARK." $
+          ark_GetFile ark fdtb "config/gen/songs.dtb" True
+        D.DTA z (D.Tree _ chunks) <- D.readFileDTB fdtb
+        let adjust chunk = case chunk of
+              D.Parens (D.Tree _ (D.Key k : _)) | k == key ->
+                D.Parens $ D.Tree 0 $ D.Key k : snippet
+              _ -> chunk
+        D.writeFileDTB fdtb $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 $ map adjust chunks
+        wrap "Couldn't update songs.dtb in the ARK." $
+          ark_ReplaceAFile ark fdtb "config/gen/songs.dtb" True
+        entries <- searchFiles ark $ "songs/" <> key <> "/*"
+        forM_ entries $ \entry -> do
+          name <- ark_Arkname entry
+          wrap ("Couldn't remove file from ARK: " <> show name) $
+            ark_RemoveFile ark name
+        forM_ files $ \(arkName, localPath) -> do
+          let arkPath = "songs/" <> key <> "/" <> arkName
+          wrap ("Couldn't add file " <> show localPath <> " to ARK as " <> show arkPath) $
+            ark_AddFile ark localPath arkPath True -- encryption doesn't matter
+        wrap "Couldn't save the updated ARK file." $ ark_Save ark

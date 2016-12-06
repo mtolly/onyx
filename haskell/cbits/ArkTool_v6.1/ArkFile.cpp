@@ -44,7 +44,7 @@ bool ArkFile::New(const char* dirname, s64 maxArkSize, bool newEncryption)
 	Close();
 	
 	char filename[260];
-	sprintf(filename, "%s%cmain_%d.ark", dirname, DIRSEPCHAR, 0);
+	sprintf(filename, "%s%cMAIN_%d.ARK", dirname, DIRSEPCHAR, 0);
 	FILE* fd = fopen(filename, "w+b");
 	if(fd == NULL)
 		return false;
@@ -70,7 +70,7 @@ bool ArkFile::Open(const char* dirname, s64 maxArkSize, bool newEncryption)
 	char filename[260];
 	for(int i=0; 1; i++)
 	{
-		sprintf(filename, "%s%cmain_%d.ark", dirname, DIRSEPCHAR, i);
+		sprintf(filename, "%s%cMAIN_%d.ARK", dirname, DIRSEPCHAR, i);
 		FILE* fd = fopen(filename, "r+b");
 		if(fd == NULL)
 			break;
@@ -481,7 +481,7 @@ FILE* ArkFile::GetHandleFromOffset(s64 offset, bool offsetMustExist)
 		}
 		offset -= mMaxArkSize;
 		char new_filename[260];
-		sprintf(new_filename, "%s%cmain_%d.ark", mDirname, DIRSEPCHAR, (int) mArkHandles.size());
+		sprintf(new_filename, "%s%cMAIN_%d.ARK", mDirname, DIRSEPCHAR, (int) mArkHandles.size());
 		FILE* fd = fopen(new_filename, "w+b");
 		if(fd == NULL)
 			return NULL;
