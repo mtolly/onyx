@@ -28,7 +28,7 @@
 
 #if defined(XYSSL_AES_C)
 
-#include "xyssl/aes.h"
+#include "aes.h"
 //#include "xyssl/padlock.h"
 
 #include <string.h>

@@ -165,7 +165,6 @@ executable onyx
     build-depends: mogg2ogg
   include-dirs:
     cbits/
-    cbits/ArkTool_v6.1
   c-sources:
     cbits/tinyfiledialogs.c
     cbits/stb_image_resize.c
@@ -179,6 +178,7 @@ executable onyx
     cbits/ArkTool_v6.1/HdrFile.cpp
     cbits/ArkTool_v6.1/PssVgsAccess.cpp
     cbits/ArkTool_v6.1/SongCrypt.cpp
+    cbits/ArkTool_v6.1/Onyx.cpp
   extra-libraries: stdc++
   if os(mingw32)
     extra-libraries: comdlg32, ole32

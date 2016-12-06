@@ -1,7 +1,8 @@
 {-# LANGUAGE BangPatterns             #-}
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NondecreasingIndentation #-}
-module GuitarHeroII (writeVGS) where
+{-# LANGUAGE OverloadedStrings #-}
+module GuitarHeroII (writeVGS, arkListTest) where
 
 import           Control.Monad                (liftM4, replicateM_)
 import           Control.Monad.IO.Class       (liftIO)
@@ -13,8 +14,13 @@ import qualified Data.ByteString.Lazy         as BL
 import qualified Data.Conduit                 as C
 import qualified Data.Conduit.Audio           as A
 import           Data.Int                     (Int16)
+import qualified Data.Text                    as T
+import qualified Data.Text.Foreign            as T
 import qualified Data.Vector.Storable         as V
 import           Foreign
+import Control.Exception (bracket, bracket_)
+import Control.Applicative (liftA2)
+import           Foreign.C
 import qualified System.IO                    as IO
 import           System.IO.Unsafe             (unsafePerformIO)
 
@@ -74,3 +80,119 @@ writeVGS fp src = let
     liftIO $ IO.hSeek h IO.AbsoluteSeek 0
     liftIO $ BL.hPut h $ header blocksPerChannel
   in s C.$$ C.bracketP (IO.openBinaryFile fp IO.WriteMode) IO.hClose go
+
+#include "ArkTool_v6.1/Onyx.h"
+
+{#pointer ArkTool as ArkTool newtype #}
+{#pointer ArkFileIterator as ArkFileIterator newtype #}
+{#pointer ArkFileEntry as ArkFileEntry newtype #}
+
+{#fun ark_new
+  {} -> `ArkTool'
+#}
+
+{#fun ark_delete
+  { `ArkTool'
+  } -> `()'
+#}
+
+{#fun ark_new_iterator
+  {} -> `ArkFileIterator'
+#}
+
+{#fun ark_delete_iterator
+  { `ArkFileIterator'
+  } -> `()'
+#}
+
+withCText :: T.Text -> (CString -> IO a) -> IO a
+withCText t f = T.withCStringLen (T.snoc t '\0') (f . fst)
+
+peekText :: CString -> IO T.Text
+peekText cstr = T.pack <$> peekCString cstr
+
+{#fun ark_Open
+  { `ArkTool'
+  , withCText* `T.Text'
+  } -> `Bool'
+#}
+
+{#fun ark_Save
+  { `ArkTool'
+  } -> `Bool'
+#}
+
+{#fun ark_Close
+  { `ArkTool'
+  } -> `()'
+#}
+
+{#fun ark_GetFile
+  { `ArkTool'
+  , withCText* `T.Text'
+  , withCText* `T.Text'
+  , `Bool'
+  } -> `Bool'
+#}
+
+{#fun ark_AddFile
+  { `ArkTool'
+  , withCText* `T.Text'
+  , withCText* `T.Text'
+  , `Bool'
+  } -> `Bool'
+#}
+
+{#fun ark_RemoveFile
+  { `ArkTool'
+  , withCText* `T.Text'
+  } -> `Bool'
+#}
+
+{#fun ark_ReplaceAFile
+  { `ArkTool'
+  , withCText* `T.Text'
+  , withCText* `T.Text'
+  , `Bool'
+  } -> `Bool'
+#}
+
+{#fun ark_RenameFile
+  { `ArkTool'
+  , withCText* `T.Text'
+  , withCText* `T.Text'
+  } -> `Bool'
+#}
+
+{#fun ark_First
+  { `ArkTool'
+  , `ArkFileIterator'
+  , withCText* `T.Text'
+  } -> `ArkFileEntry'
+#}
+
+{#fun ark_Next
+  { `ArkTool'
+  , `ArkFileIterator'
+  , withCText* `T.Text'
+  } -> `ArkFileEntry'
+#}
+
+{#fun ark_Filename
+  { `ArkFileEntry'
+  } -> `T.Text' peekText*
+#}
+
+{#fun ark_Arkname
+  { `ArkFileEntry'
+  } -> `T.Text' peekText*
+#}
+
+arkListTest :: FilePath -> IO [T.Text]
+arkListTest dir = bracket ark_new ark_delete $ \ark -> do
+  bracket_ (ark_Open ark $ T.pack dir) (ark_Close ark) $ do
+    bracket ark_new_iterator ark_delete_iterator $ \iter -> do
+      let go entry@(ArkFileEntry p) = if p == nullPtr
+            then return []
+            else liftA2 (:) (ark_Arkname entry) (ark_Next ark iter "*" >>= go)
+      ark_First ark iter "*" >>= go
