@@ -45,6 +45,7 @@ executable onyx
   main-is:              Main.hs
   other-modules:
     Build
+    CommandLine
     TinyFileDialogs
     YAMLTree
     Audio

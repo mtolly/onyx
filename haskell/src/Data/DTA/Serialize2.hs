@@ -99,7 +99,7 @@ chunksKey = ChunkFormat
     _ -> expected "keyword"
   }
 
-readFrom :: (Monad m) => c -> Parser m c a -> Parser m d a
+readFrom :: c -> Parser m c a -> Parser m d a
 readFrom ctxt = mapStackTraceT $ withReaderT $ const ctxt
 
 chunksList :: ChunkFormat a -> ChunkFormat [a]

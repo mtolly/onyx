@@ -47,7 +47,7 @@ fatal s = StackTraceT $ do
 catch :: (Monad m) => StackTraceT m a -> ([Message] -> StackTraceT m a) -> StackTraceT m a
 StackTraceT ex `catch` f = StackTraceT $ ex `catchE` (fromStackTraceT . f)
 
-inside :: (Monad m) => String -> StackTraceT m a -> StackTraceT m a
+inside :: String -> StackTraceT m a -> StackTraceT m a
 inside s (StackTraceT (ExceptT rwst)) = StackTraceT $ ExceptT $ local (s :) rwst
 
 runStackTraceT :: (Monad m) => StackTraceT m a -> m (Either [Message] a, [Message])
@@ -84,7 +84,7 @@ liftMaybe f x = lift (f x) >>= \case
   Nothing -> fatal $ "Unrecognized input: " ++ show x
   Just y  -> return y
 
-mapStackTraceT :: (Monad m)
-  => (m (Either [Message] a, (), [Message]) -> n (Either [Message] b, (), [Message]))
+mapStackTraceT
+  :: (m (Either [Message] a, (), [Message]) -> n (Either [Message] b, (), [Message]))
   -> StackTraceT m a -> StackTraceT n b
 mapStackTraceT f (StackTraceT st) = StackTraceT $ mapExceptT (mapRWST f) st
