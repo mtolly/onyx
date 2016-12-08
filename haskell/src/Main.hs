@@ -5,6 +5,8 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Main (main) where
 
+import           CommandLine
+
 import           Build                          (shakeBuild)
 import           Config                         hiding (Difficulty)
 import           Control.Exception              as Exc
@@ -145,7 +147,7 @@ main = do
       p "  tm - convert plain text format back to MIDI"
     "build" : buildables -> shakeBuild' buildables Nothing
     "mogg" : args -> case inputOutput ".mogg" args of
-      Nothing -> error "Usage: onyx mogg in.ogg [out.mogg]"
+      Nothing          -> error "Usage: onyx mogg in.ogg [out.mogg]"
       Just (ogg, mogg) -> Magma.oggToMogg ogg mogg
     "unmogg" : args -> case inputOutput ".ogg" args of
       Nothing          -> error "Usage: onyx unmogg in.mogg [out.ogg]"
@@ -219,7 +221,7 @@ main = do
       Nothing -> error "Usage: onyx player in{_rb3con|.rba} [outdir/]"
       Just (fin, dout) -> makePlayer fin dout
     "rpp" : args -> case inputOutput ".RPP" args of
-      Nothing -> error "Usage: onyx rpp in.mid [out.RPP]"
+      Nothing         -> error "Usage: onyx rpp in.mid [out.RPP]"
       Just (mid, rpp) -> makeReaperIO mid mid [] rpp
     "ranges" : args -> case inputOutput ".ranges.mid" args of
       Nothing          -> error "Usage: onyx ranges in.mid [out.mid]"

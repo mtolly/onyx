@@ -14,19 +14,19 @@ The reference to @D.png@ is actually @B/D.png@ because it is relative to @B/C.ym
 So, when the contents of @B/C.yml@ get glued into @A.yml@,
 the filename will be edited into @B/D.png@.
 -}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module YAMLTree (readYAMLTree, readYAMLTreeStack) where
 
-import           Control.Applicative ((<|>))
-import qualified Data.Aeson          as A
-import qualified Data.HashMap.Strict as M
-import           Data.List           (foldl')
-import qualified Data.Text           as T
-import qualified Data.Yaml           as Y
-import           System.FilePath     (takeDirectory, (</>))
-import Control.Monad.Trans.StackTrace
-import Control.Monad.IO.Class (MonadIO(..))
+import           Control.Applicative            ((<|>))
+import           Control.Monad.IO.Class         (MonadIO (..))
+import           Control.Monad.Trans.StackTrace
+import qualified Data.Aeson                     as A
+import qualified Data.HashMap.Strict            as M
+import           Data.List                      (foldl')
+import qualified Data.Text                      as T
+import qualified Data.Yaml                      as Y
+import           System.FilePath                (takeDirectory, (</>))
 
 stringOrStrings :: Y.Value -> A.Result (Either String [String])
 stringOrStrings v =

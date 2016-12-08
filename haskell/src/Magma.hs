@@ -9,16 +9,15 @@ import           Data.Conduit.Audio           (AudioSource, Duration (..),
 import           Data.Conduit.Audio.Sndfile   (sinkSnd)
 import           Data.Int                     (Int16)
 import           Data.Word                    (Word32)
-import           Development.Shake
 import           Resources                    (magmaFiles, magmaV1Files)
 import qualified Sound.File.Sndfile           as Snd
 import qualified System.Directory             as Dir
-import           System.Exit                  (ExitCode(..))
+import           System.Exit                  (ExitCode (..))
 import           System.FilePath              ((</>))
 import           System.Info                  (os)
-import System.Process
 import qualified System.IO                    as IO
 import           System.IO.Temp               (withSystemTempDirectory)
+import           System.Process
 
 withWin32Exe :: (FilePath -> [String] -> a) -> FilePath -> [String] -> a
 withWin32Exe f exe args = if os == "mingw32"

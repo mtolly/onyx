@@ -1,15 +1,14 @@
 module X360 (rb3pkg, rb2pkg) where
 
-import           Control.Monad     (forM_)
-import qualified Data.ByteString   as B
-import qualified Data.Text         as T
-import           Development.Shake
-import           Magma             (presentExitCode)
-import           Resources         (rb3pkgFiles)
-import           System.FilePath   ((</>))
-import           System.Info       (os)
-import System.Process
-import System.IO.Temp (withSystemTempDirectory)
+import           Control.Monad   (forM_)
+import qualified Data.ByteString as B
+import qualified Data.Text       as T
+import           Magma           (presentExitCode)
+import           Resources       (rb3pkgFiles)
+import           System.FilePath ((</>))
+import           System.Info     (os)
+import           System.IO.Temp  (withSystemTempDirectory)
+import           System.Process
 
 withDotNetExe :: (FilePath -> [String] -> a) -> FilePath -> [String] -> a
 withDotNetExe f exe args = if os == "mingw32"
