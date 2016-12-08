@@ -16,15 +16,13 @@ import qualified Data.HashMap.Strict            as HM
 import           Data.Maybe                     (fromMaybe, listToMaybe)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
-import           Development.Shake              hiding (phony)
-import           Development.Shake.FilePath
 import           Import
 import           JSONData                       (traceJSON)
 import qualified Magma
 import           MoggDecrypt
 import           PrettyDTA
 import           ProKeysRanges
-import           Reaper.Build                   (makeReaper)
+import           Reaper.Build                   (makeReaperIO)
 import           Reductions
 import qualified RockBand.File                  as RBFile
 import qualified Sound.Jammit.Base              as J
@@ -38,6 +36,7 @@ import           STFS.Extract
 import           System.Console.GetOpt
 import qualified System.Directory               as Dir
 import           System.Environment             (getArgs)
+import           System.FilePath
 import qualified System.Info                    as Info
 import           System.IO                      (hPutStrLn, stderr)
 import           System.IO.Temp                 (withSystemTempDirectory)
@@ -147,7 +146,7 @@ main = do
     "build" : buildables -> shakeBuild' buildables Nothing
     "mogg" : args -> case inputOutput ".mogg" args of
       Nothing -> error "Usage: onyx mogg in.ogg [out.mogg]"
-      Just (ogg, mogg) -> shake shakeOptions $ action $ Magma.oggToMogg ogg mogg
+      Just (ogg, mogg) -> Magma.oggToMogg ogg mogg
     "unmogg" : args -> case inputOutput ".ogg" args of
       Nothing          -> error "Usage: onyx unmogg in.mogg [out.ogg]"
       Just (mogg, ogg) -> moggToOgg mogg ogg
@@ -162,7 +161,7 @@ main = do
             handler2 :: Exc.ErrorCall -> IO (T.Text, T.Text)
             handler2 _ = return (T.pack $ takeFileName stfs, T.pack stfs)
         (title, desc) <- getDTAInfo `Exc.catch` handler1 `Exc.catch` handler2
-        shake shakeOptions $ action $ rb3pkg title desc dir stfs
+        rb3pkg title desc dir stfs >>= putStrLn
     "stfs-rb2" : args -> case inputOutput "_rb2con" args of
       Nothing -> error "Usage: onyx stfs-rb2 in_dir/ [out_rb2con]"
       Just (dir, stfs) -> do
@@ -174,7 +173,7 @@ main = do
             handler2 :: Exc.ErrorCall -> IO (T.Text, T.Text)
             handler2 _ = return (T.pack $ takeFileName stfs, T.pack stfs)
         (title, desc) <- getDTAInfo `Exc.catch` handler1 `Exc.catch` handler2
-        shake shakeOptions $ action $ rb2pkg title desc dir stfs
+        rb2pkg title desc dir stfs >>= putStrLn
     "unstfs" : args -> case inputOutput "_extract" args of
       Nothing          -> error "Usage: onyx unstfs in_rb3con [outdir/]"
       Just (stfs, dir) -> extractSTFS stfs dir
@@ -221,7 +220,7 @@ main = do
       Just (fin, dout) -> makePlayer fin dout
     "rpp" : args -> case inputOutput ".RPP" args of
       Nothing -> error "Usage: onyx rpp in.mid [out.RPP]"
-      Just (mid, rpp) -> shake shakeOptions $ action $ makeReaper mid mid [] rpp
+      Just (mid, rpp) -> makeReaperIO mid mid [] rpp
     "ranges" : args -> case inputOutput ".ranges.mid" args of
       Nothing          -> error "Usage: onyx ranges in.mid [out.mid]"
       Just (fin, fout) -> completeFile fin fout

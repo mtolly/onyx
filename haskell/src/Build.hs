@@ -756,10 +756,12 @@ shakeBuild optDescrs audioDirs yamlPath buildables = do
               ]
             pathMagmaRba %> \out -> do
               need [pathMagmaSetup]
-              Magma.runMagma pathMagmaProj out
+              putNormal "# Running Magma v2 (C3)"
+              liftIO (Magma.runMagma pathMagmaProj out) >>= putNormal
             pathMagmaExport %> \out -> do
               need [pathMagmaMid, pathMagmaProj]
-              Magma.runMagmaMIDI pathMagmaProj out
+              putNormal "# Running Magma v2 to export MIDI"
+              liftIO (Magma.runMagmaMIDI pathMagmaProj out) >>= putNormal
             let getRealSections :: Action (RTB.T U.Beats T.Text)
                 getRealSections = do
                   raw <- loadMIDI $ planDir </> "raw.mid"
@@ -862,11 +864,13 @@ shakeBuild optDescrs audioDirs yamlPath buildables = do
             pathMilo %> \out -> liftIO $ B.writeFile out emptyMilo
             pathCon %> \out -> do
               need [pathDta, pathMid, pathMogg, pathPng, pathMilo]
-              rb3pkg
+              putNormal "# Calling rb3pkg to make RB3 CON file"
+              s <- liftIO $ rb3pkg
                 (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                 ("Version: " <> targetName)
                 (dir </> "stfs")
                 out
+              putNormal s
 
             case mrb2 of
               Nothing -> return ()
@@ -945,7 +949,9 @@ shakeBuild optDescrs audioDirs yamlPath buildables = do
 
                 pathMagmaRbaV1 %> \out -> do
                   need [pathMagmaDummyMono, pathMagmaDummyStereo, pathMagmaDryvoxSine, pathMagmaCoverV1, pathMagmaMidV1, pathMagmaProjV1]
-                  good <- Magma.runMagmaV1 pathMagmaProjV1 out
+                  putNormal "# Running Magma v1 (without 10 min limit)"
+                  (str, good) <- liftIO $ Magma.runMagmaV1 pathMagmaProjV1 out
+                  putNormal str
                   unless good $ do
                     putNormal "Magma v1 failed; optimistically bypassing."
                     liftIO $ B.writeFile out B.empty
@@ -1138,11 +1144,13 @@ shakeBuild optDescrs audioDirs yamlPath buildables = do
                   rb2Pan %> \out -> liftIO $ B.writeFile out B.empty
                   rb2CON %> \out -> do
                     need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
-                    rb2pkg
+                    putNormal "# Calling rb3pkg to make RB2 CON file"
+                    s <- liftIO $ rb2pkg
                       (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                       (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                       (dir </> "rb2")
                       out
+                    putNormal s
 
       let defaultTargets = HM.fromList $ do
             maybePlan <- map Just (HM.keys $ _plans songYaml) ++ case HM.keys $ _plans songYaml of
@@ -1477,7 +1485,8 @@ shakeBuild optDescrs audioDirs yamlPath buildables = do
               copyFile' f out
           _ -> do
             need [ogg]
-            Magma.oggToMogg ogg out
+            putNormal "# Wrapping OGG into unencrypted MOGG with Magma hack"
+            liftIO $ Magma.oggToMogg ogg out
 
         -- Low-quality audio files for the online preview app
         forM_ [("mp3", crapMP3), ("ogg", crapVorbis)] $ \(ext, crap) -> do

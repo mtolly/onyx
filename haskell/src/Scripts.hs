@@ -68,14 +68,16 @@ loadMIDI fp = need [fp] >> liftIO (loadMIDI_IO fp)
 loadMIDI_IO :: FilePath -> IO (Song U.Beats)
 loadMIDI_IO fp = Load.fromFile fp >>= printStackTraceIO . readMIDIFile
 
-loadTempos :: FilePath -> Action U.TempoMap
-loadTempos fp = do
-  need [fp]
-  mid <- liftIO $ Load.fromFile fp
+loadTemposIO :: FilePath -> IO U.TempoMap
+loadTemposIO fp = do
+  mid <- Load.fromFile fp
   case U.decodeFile mid of
     Left []               -> return $ U.makeTempoMap RTB.empty
     Left (tempoTrack : _) -> return $ U.makeTempoMap tempoTrack
     Right _               -> error "Scripts.loadTempos: SMPTE midi not supported"
+
+loadTempos :: FilePath -> Action U.TempoMap
+loadTempos fp = need [fp] >> liftIO (loadTemposIO fp)
 
 saveMIDI :: FilePath -> Song U.Beats -> Action ()
 saveMIDI fp song = liftIO $ Save.toFile fp $ showMIDIFile song
