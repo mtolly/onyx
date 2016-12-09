@@ -1,10 +1,12 @@
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module CommandLine where
 
 import           Config
 import qualified Control.Exception              as Exc
-import           Control.Monad                  (forM_)
+import           Control.Monad                  (forM_, guard)
+import           Control.Monad.Extra            (mapMaybeM)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.Trans.Reader     (runReaderT)
 import           Control.Monad.Trans.StackTrace
@@ -12,13 +14,18 @@ import           Control.Monad.Trans.Writer
 import           Data.Binary                    (Binary, decodeFileOrFail)
 import qualified Data.ByteString.Lazy           as BL
 import           Data.ByteString.Lazy.Char8     ()
-import qualified Data.DTA                       as D
+import qualified Data.Digest.Pure.MD5           as MD5
+import           Data.DTA.Lex                   (scanEither)
+import           Data.DTA.Parse                 (parseEither)
 import qualified Data.DTA.Serialize.Magma       as RBProj
 import qualified Data.DTA.Serialize.RB3         as D
 import qualified Data.DTA.Serialize2            as D
 import qualified Data.HashMap.Strict            as Map
+import           Data.List                      (isPrefixOf)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
+import qualified Data.Text.IO                   as T
+import           Data.Word                      (Word32)
 import           JSONData                       (traceJSON)
 import           Magma                          (oggToMogg, runMagma)
 import           MoggDecrypt                    (moggToOgg)
@@ -29,15 +36,22 @@ import           Reductions                     (simpleReduce)
 import qualified RockBand.File                  as RBFile
 import qualified Sound.MIDI.File.Load           as Load
 import           STFS.Extract                   (extractSTFS)
-import           System.Directory               (doesDirectoryExist,
+import           System.Directory               (copyFile, doesDirectoryExist,
                                                  doesFileExist)
 import           System.FilePath                (takeExtension, takeFileName,
                                                  (-<.>), (</>))
 import           System.IO.Error                (ioeGetErrorString, tryIOError)
-import           X360                           (rb2pkg, rb3pkg)
+import           Text.Printf                    (printf)
+import           X360                           (rb2pkg, rb3pkg, stfsFolder)
 import           YAMLTree                       (readYAMLTreeStack)
 
-type Match = Writer [Matcher]
+#ifdef WINDOWS
+-- TODO
+#else
+import           System.MountPoints
+#endif
+
+type Match = WriterT [Matcher] IO
 
 data Matcher = Matcher
   { matcherTest  :: T.Text -> StackTraceT IO (Match ())
@@ -51,7 +65,7 @@ data Click
   | ClickPick [T.Text] -- ^ Launch an Open File dialog, with patterns
   | ClickPickDir -- ^ Launch an Open Folder dialog
   | ClickSave -- ^ Launch a Save File dialog
-  | ClickEnd (IO T.Text) -- ^ Do a thing
+  | ClickEnd (StackTraceT IO T.Text) -- ^ Do a thing
 
 matchSongYml :: (FilePath -> SongYaml -> Match ()) -> Match ()
 matchSongYml cont = tell $ (: []) $ Matcher
@@ -102,13 +116,12 @@ matchMagma cont = tell $ (: []) $ Matcher
     liftIO (doesFileExist f) >>= \case
       True -> return ()
       False -> fatal "File does not exist"
-    -- TODO
-    if takeExtension (T.unpack $ T.toLower t) == ".rbproj"
-      then do
-        dta <- liftIO $ D.readFileDTA f
-        rbproj <- D.unserialize D.format dta
-        return $ cont f rbproj
-      else fatal "Not a .rbproj file"
+    txt <- liftIO $ T.readFile f
+    inside f $ do
+      toks <- either fatal return $ scanEither txt
+      dta <- either fatal return $ parseEither toks
+      rbproj <- D.unserialize D.format dta
+      return $ cont f rbproj
   , matcherClick = ClickPick ["*.rbproj"]
   , matcherDesc = "A Magma .rbproj file"
   }
@@ -130,7 +143,7 @@ matchDir desc cont = tell $ (: []) $ Matcher
   , matcherDesc = desc
   }
 
-end :: T.Text -> IO T.Text -> Match ()
+end :: T.Text -> StackTraceT IO T.Text -> Match ()
 end desc act = tell $ (: []) $ Matcher
   { matcherTest = const $ fatal "Expected end of input"
   , matcherClick = ClickEnd act
@@ -206,10 +219,33 @@ getInfoForSTFS dir stfs = do
       handler2 _ = return (T.pack $ takeFileName stfs, T.pack stfs)
   getDTAInfo `Exc.catch` handler1 `Exc.catch` handler2
 
-withDefaultFilename :: FilePath -> T.Text -> (FilePath -> IO T.Text) -> Match ()
+withDefaultFilename :: FilePath -> T.Text -> (FilePath -> StackTraceT IO T.Text) -> Match ()
 withDefaultFilename f desc cont = do
   end (T.pack f) $ cont f
   outputFile desc $ \out -> end "" $ cont out
+
+findXbox360USB :: IO [FilePath]
+#ifdef WINDOWS
+findXbox360USB = return [] -- TODO
+#else
+findXbox360USB = do
+  mnts <- getMounts
+  let drives = flip filter mnts $ \mnt ->
+        ("/dev/" `isPrefixOf` mnt_fsname mnt) && (mnt_dir mnt /= "/")
+  flip mapMaybeM drives $ \drive -> do
+    xbox <- doesDirectoryExist $ mnt_dir drive </> "Content"
+    return $ guard xbox >> Just (mnt_dir drive)
+#endif
+
+installSTFS :: FilePath -> FilePath -> IO ()
+installSTFS stfs usb = do
+  (titleID, sign) <- stfsFolder stfs
+  stfsHash <- take 10 . show . MD5.md5 <$> BL.readFile stfs
+  let folder = "Content/0000000000000000" </> w32 titleID </> w32 sign
+      w32 :: Word32 -> FilePath
+      w32 = printf "%08x"
+      file = "onyx_" ++ stfsHash
+  copyFile stfs $ usb </> folder </> file
 
 commandLine :: Match ()
 commandLine = do
@@ -224,7 +260,7 @@ commandLine = do
         undefined
       outputFile "RBA file to save to" $ \rba -> do
         end "" $ do
-          T.pack <$> runMagma rbprojPath rba
+          liftIO $ T.pack <$> runMagma rbprojPath rba
     word "con" "Create an Xbox 360 CON-STFS package" $ do
       end "Use the CON path listed in the .rbproj" $ do
         undefined
@@ -233,11 +269,11 @@ commandLine = do
           undefined
   matchSTFS $ \stfs -> do
     word "install" "Install the CON file to an Xbox 360 USB drive" $ do
-      end "Find the plugged-in Xbox 360 drive automatically" $ do
-        undefined
-      matchDir "The USB drive to install to" $ \out -> do
-        end "" $ do
-          undefined
+      liftIO findXbox360USB >>= \case
+        [usb] -> end (T.pack usb) $ liftIO $ installSTFS stfs usb >> return ""
+        _     -> return ()
+      matchDir "USB drive to install to" $ \usb -> do
+        end "" $ liftIO $ installSTFS stfs usb >> return ""
     word "player" "Generates a browser chart preview app" $ do
       end "Opens the preview in a browser" $ do
         undefined
@@ -246,41 +282,41 @@ commandLine = do
           undefined
     word "unstfs" "Extract the contents of the STFS package" $ do
       withDefaultFilename (stfs ++ "_extract") "New folder to extract to" $ \dir -> do
-        extractSTFS stfs dir
+        liftIO $ extractSTFS stfs dir
         return ""
   matchRBA $ \rba -> do
     undefined
   matchMIDI $ \mid -> do
     word "reduce" "Fill in missing difficulties in the MIDI" $ do
       withDefaultFilename (mid -<.> "reduced.mid") "New MIDI location" $ \new -> do
-        simpleReduce mid new
+        liftIO $ simpleReduce mid new
         return ""
     word "rpp" "Convert the MIDI to a Reaper project (.RPP)" $ do
       withDefaultFilename (mid -<.> "RPP") "New RPP location" $ \rpp -> do
-        makeReaperIO mid mid [] rpp
+        liftIO $ makeReaperIO mid mid [] rpp
         return ""
     word "hanging" "List pro keys range shifts with hanging notes" $ do
       end "" $ do
-        song <- Load.fromFile mid >>= printStackTraceIO . RBFile.readMIDIFile
+        song <- liftIO (Load.fromFile mid) >>= RBFile.readMIDIFile
         return $ T.pack $ closeShiftsFile song
   matchDir "A folder" $ \dir -> do
     word "stfs" "Make an RB3 CON package from the folder" $ do
-      withDefaultFilename (dir ++ "_rb3con") "New CON location" $ \stfs -> do
+      withDefaultFilename (dir ++ "_rb3con") "New CON location" $ \stfs -> liftIO $ do
         (title, desc) <- getInfoForSTFS dir stfs
         T.pack <$> rb3pkg title desc dir stfs
     word "stfs-rb2" "Make an RB2 CON package from the folder" $ do
-      withDefaultFilename (dir ++ "_rb2con") "New CON location" $ \stfs -> do
+      withDefaultFilename (dir ++ "_rb2con") "New CON location" $ \stfs -> liftIO $ do
         (title, desc) <- getInfoForSTFS dir stfs
         T.pack <$> rb2pkg title desc dir stfs
   matchMOGG $ \mogg -> do
     word "unmogg" "Unwrap an unencrypted MOGG file into an OGG Vorbis file" $ do
       withDefaultFilename (mogg -<.> "ogg") "New OGG location" $ \ogg -> do
-        moggToOgg mogg ogg
+        liftIO $ moggToOgg mogg ogg
         return ""
   matchOGG $ \ogg -> do
     word "mogg" "Wrap an OGG Vorbis file into an unencrypted MOGG file" $ do
       withDefaultFilename (ogg -<.> "mogg") "New OGG location" $ \mogg -> do
-        oggToMogg ogg mogg
+        liftIO $ oggToMogg ogg mogg
         return ""
   matchFoF $ \ini -> do
     undefined

@@ -1,13 +1,13 @@
 {
 -- | Generated lexer for text @.dta@ files.
 {-# OPTIONS_GHC -w #-}
-module Data.DTA.Lex (scan, Token(..), AlexPosn(..)) where
+module Data.DTA.Lex (scan, scanEither, Token(..), AlexPosn(..)) where
 
 import Data.Int (Int32)
 import qualified Data.Text as T
 }
 
-%wrapper "posn"
+%wrapper "monad"
 
 $digit = 0-9
 $alpha = [a-zA-Z]
@@ -19,41 +19,44 @@ $white+ ;
 \; [^\n]* ;
 
 -- Numbers. Longest match rule means N.N is float, not int.
-\-? $digit+ { \pn str -> (pn, Int $ read str) }
-\-? $digit+ (\. $digit+)? (e \-? $digit+)? { \pn str -> (pn, Float $ read str) }
+\-? $digit+ { emit $ Int . read }
+\-? $digit+ (\. $digit+)? (e \-? $digit+)? { emit $ Float . read }
 
 -- Variable names.
-\$ ($alpha | $digit | _)+ { \pn str -> (pn, Var $ T.pack $ tail str) }
+\$ ($alpha | $digit | _)+ { emit $ Var . T.pack . tail }
 
 -- This reserved word needs to come before the general keyword rule.
-"kDataUnhandled" { \pn _ -> (pn, Unhandled) }
+"kDataUnhandled" { emit $ const Unhandled }
 -- Raw keywords. Note: these can start with digits, like "3sand7s", as long as
 -- they also have letters in them.
-($alpha | $digit | _ | \/ | \. | \-)+ { \pn str -> (pn, Key $ T.pack str) }
+($alpha | $digit | _ | \/ | \. | \-)+ { emit $ Key . T.pack }
 -- Quoted keywords.
-' ([^'] | \\')* ' { \pn str -> (pn, Key $ T.pack $ readKey str) }
+' ([^'] | \\')* ' { emit $ Key . T.pack . readKey }
 
 -- Quoted strings.
-\" [^\"]* \" { \pn str -> (pn, String $ T.pack $ readString str) }
+\" [^\"]* \" { emit $ String . T.pack . readString }
 
 -- Preprocessor commands.
-\#ifdef { \pn _ -> (pn, IfDef) }
-\#else { \pn _ -> (pn, Else) }
-\#endif { \pn _ -> (pn, EndIf) }
-\#define { \pn _ -> (pn, Define) }
-\#include { \pn _ -> (pn, Include) }
-\#merge { \pn _ -> (pn, Merge) }
-\#ifndef { \pn _ -> (pn, IfNDef) }
+\#ifdef { emit $ const IfDef }
+\#else { emit $ const Else }
+\#endif { emit $ const EndIf }
+\#define { emit $ const Define }
+\#include { emit $ const Include }
+\#merge { emit $ const Merge }
+\#ifndef { emit $ const IfNDef }
 
 -- Subtrees.
-\( { \pn _ -> (pn, LParen) }
-\) { \pn _ -> (pn, RParen) }
-\{ { \pn _ -> (pn, LBrace) }
-\} { \pn _ -> (pn, RBrace) }
-\[ { \pn _ -> (pn, LBracket) }
-\] { \pn _ -> (pn, RBracket) }
+\( { emit $ const LParen }
+\) { emit $ const RParen }
+\{ { emit $ const LBrace }
+\} { emit $ const RBrace }
+\[ { emit $ const LBracket }
+\] { emit $ const RBracket }
 
 {
+
+emit :: (String -> a) -> AlexInput -> Int -> Alex (Maybe (AlexPosn, a))
+emit f (pn, _, _, str) len = return $ Just $ (pn, f $ take len str)
 
 data Token s
   = Int Int32
@@ -93,7 +96,22 @@ readString = read . go where
   go ""                  = ""
   go (c : rest)          = c : go rest
 
+scanAll :: Alex [(AlexPosn, Token T.Text)]
+scanAll = do
+  res <- alexMonadScan
+  case res of
+    Nothing   -> return []
+    Just pair -> (pair :) <$> scanAll
+
+scanEither :: T.Text -> Either String [(AlexPosn, Token T.Text)]
+scanEither t = runAlex (T.unpack t) scanAll
+
 scan :: T.Text -> [(AlexPosn, Token T.Text)]
-scan = alexScanTokens . T.unpack
+scan t = case scanEither t of
+  Right xs -> xs
+  Left err -> error err
+
+alexEOF :: Alex (Maybe (AlexPosn, Token T.Text))
+alexEOF = return Nothing
 
 }

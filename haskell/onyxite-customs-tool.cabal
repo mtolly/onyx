@@ -183,3 +183,7 @@ executable onyx
   extra-libraries: stdc++
   if os(mingw32)
     extra-libraries: comdlg32, ole32
+    cpp-options: -DWINDOWS
+    build-depends: Win32
+  else
+    build-depends: mountpoints
