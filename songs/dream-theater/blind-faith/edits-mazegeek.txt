@@ -1,0 +1,160 @@
+DRUMS
+
+*Make sure you edit 2x and 1x for each one.
+
+0:52 - It would feel a lot more natural if the tom pattern was Y-Y-B instead of B-Y-B in my opinion. I get that you want to 
+	differentiate between the first and second toms, but that also makes the third tom the 'same' as the first tom, so
+	there's a compromise needed to be made either way. This pattern also appears at 1:44 and 9:27.
+(pitches. but this one could be changed, not important)
+
+1:58 - Missing ghost snare before blue tom?
+FIXED
+
+2:46 - I'm hearing the toms like this: https://gyazo.com/22750b022c34318b5fc34d5cd4213cae
+(pitches)
+
+2:58 - Missing bass pedal.
+FIXED
+
+3:04 - I feel that the BB and GG toms should be moved to YY and BB, just a preference though.
+FIXED
+
+3:10 - Toms are opposite pitches, should be YYBBYY (the RRYYBB fill is good as is).
+(pitches)
+
+3:14 - Again, I hear YY BB BR as BB YY YR.
+(pitches)
+
+3:18 - G B Y should be G Y B based on tom pitches.
+(pitches)
+
+4:21 - Missing bass note on green.
+FIXED. Man, these bass notes are not audible at all on full speed but crystal clear slowed down. Very odd
+
+4:36 - Personal preference, but that BG tom hit sounds high enough to be YB.
+FIXED
+
+4:43 - That last bass hit of the measure should instead be a ghost snare.
+I honestly can't hear either a snare or kick when slowed down. But snare works so FIXED
+
+7:57 - That 32nd kick as a triplet kick instead?
+FIXED
+
+8:05 - G B Y B G toms instead as G B G Y B?
+(pitches, but honestly I dunno)
+
+8:37 - I don't hear that bass hit right before the double kick.
+Nope, it is clear when slowed down
+
+8:44 - Missing double kick.
+It would make sense and it definitely sounds possible at full speed. But slowed down I clearly hear 1
+
+GUITAR
+
+*In general I feel that the sustains should be cut to a 16th instead of a 32nd. If you do agree feel free to fix them or I
+ can if you want.
+
+4:36 - G B Y G~~ should be G Y R G~~. Also, I feel that each of those pickup notes (like at 4:41 where you have two
+       consecutive yellows on different pitches), I would move each first yellow to red, even every other yellow that
+       has a blue after it instead of another yellow. This is until the move to the F major chord where the bass note
+       changes to the red note.
+FIXED. The second part I fixed when making guitar and bass match in this section
+
+5:26 - The OYBRYG should be OBRYRG (A-G-D-Eb-D-C).
+FIXED
+
+5:32 - That last quick BYR G could be shifted up to OBY R.
+FIXED
+
+5:40 - Not hearing a note where my cursor is: https://gyazo.com/ac78eca49e8dbec4ed8e709c624bb08a
+FIXED
+
+5:47 - I'm not hearing power chords in this riff, although I get it's to differentiate between the palm muted notes, so
+       I don't know of a better solution.
+Ok, so what the sheet music claims is that only the first note of m147, m148, and m149 are power chords.
+And then, measures 150-156 are all power chords.
+Then m158 and m159, just the first note is a power chord.
+I honestly dunno if this is accurate. The sheet music also fails to chart a bunch of obvious bends in this section (146.6.00, 148.6.00, etc.)
+
+6:41 - That last blue in the measure should be orange.
+FIXED, I recharted m170-178 on both guitar/bass (matching)
+
+8:13 - This measure should look like this: https://gyazo.com/8a9148f09f0ed4b85f36aad33692226a (change to keys as well).
+FIXED
+       After that, copy the first two measures of the unison and just paste it back into measures 216-217.
+Reworked a bit (in both places on both gtr/keys), but FIXED
+       Then, copy 212-213 and paste it into 218-219.
+FIXED
+
+8:26 - That last guitar repeat (which the keys doesn't have) is D-E-F#-G-A-B-C-D, so 8 notes. As a result, I would
+       change GRYRYBYBO to GRYBRYBO (it will end a 16th triplet earlier than before).
+Slowed this down -- there is actually a C at the start!
+
+*After all edits, verify that the guitar and keys unisons are exactly the same (until the end of course), I will also check myself.
+
+8:57 - There should be an extra blue eighth note before the orange.
+FIXED - actually the sheet music claims it is Bb-C-E-F. So I made it RYBO
+
+VOCALS
+
+8:39 - I swear that "how", he is saying "now", even though no lyric site agrees with me and it doesn't really make sense
+       in this lyrical context, I don't know.
+Yeah, agreed. I can kind of hear either one. And I can't find live footage that clears it up much.
+
+KEYS
+
+1:12 - RO-GO should be RB-GB to be consistent with later iterations.
+FIXED
+
+1:47 - Alright, the sheet music says no but I disagree, there's a D note being hit at the start of measure 50 and it always
+       feels weird not playing it. Please put a D note on pro keys there as well as a blue note on standard keys.
+FIXED - but actually I agree with the sheet music.
+I think it's an echo from the D at 49.4.50.
+You can hear another fainter echo at 50.1.50.
+Probably still makes sense to chart though.
+
+2:27 - HOPO off marker on the YB chord.
+FIXED
+
+2:38 - HOPO off on the blue hammeron.
+FIXED
+
+2:58 - The B Y R G should be G B Y R.
+FIXED
+
+6:14 - Every other OBO I would ask you change to YBY, as well as the two notes after it from B Y to Y R.
+FIXED
+
+6:20 - That specific green at the start of the measure should be red, even though inconsistent with the general pattern.
+FIXED
+
+*Make sure keys unison has been edited and is the same as guitar.
+
+9:21 - Last 3 notes of measure should be G B Y, not G Y R.
+FIXED - I assume you mean YRG for what it was
+
+BASS
+
+*Same sustain problem as guitar, should be cut to a 16th in my opinion.
+
+1:29 - That red after the BO hopo sounds like it should be a yellow instead.
+FIXED - Reworked the whole measure. It looks a bit odd using just YBO
+
+2:58 - B Y R G to G B Y G.
+I actually think BYRG is appropriate on bass only. On keys and guitar it is lowA-F-E-D but on bass it's highA-F-E-D, straight descending.
+
+4:33 - The riff is charted differently on bass when it shouldn't be, I would copy the guitar riff onto bass until 4:49 and
+       then check for any inconcsistencies in the rest of the riff between guitar/bass until 5:01.
+FIXED - mostly changed the guitar riff to match bass.
+From m132 any differences are intentional due to guitar power chords.
+
+8:15 - Those reds should be yellows.
+FIXED
+
+8:24 - Notice this "prechorus" section had the D-C#-C-B bass notes charted as O-B-Y-R in its previous instances, but charted
+       as B-Y-R-G here. I would fix that (and the Bb yellows at 8:50 were actually greens).
+Ah, the reason I did this was due to the octave-higher Ds in m229 which weren't there last time.
+But you're correct. So instead I made only the normal-octave Ds in m228 blue (but all the others are orange). And moved the end of m229 to R so m230 starts Y.
+
+9:21 - G Y R G to G B Y G.
+I actually changed it to BYRG to match the last time. Again, I hear straight descending A-F-E-D
