@@ -43,7 +43,7 @@ channelList = ChunkFormat
           fmt' = format :: ChunkFormat Integer
 
 dtaRecord "Song" eosr $ do
-  req "songName" "name" [t| T.Text |] [e| chunksString |]
+  req "songName" "name" [t| T.Text |] [e| chunksStringOrKey |]
   opt "tracksCount" "tracks_count" [t| Maybe [Integer] |] [e| Nothing |] [e| chunksMaybe $ chunksParens format |]
   req "tracks" "tracks" [t| Dict [Integer] |] [e| chunksParens $ chunksDict channelList |]
   opt "vocalParts" "vocal_parts" [t| Maybe Integer |] [e| Nothing |] [e| format |]
@@ -57,7 +57,7 @@ dtaRecord "Song" eosr $ do
   opt "muteVolume" "mute_volume" [t| Maybe Integer |] [e| Nothing |] [e| format |]
   opt "muteVolumeVocals" "mute_volume_vocals" [t| Maybe Integer |] [e| Nothing |] [e| format |]
   -- seen in magma v1 / rb2:
-  opt "midiFile" "midi_file" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksString |]
+  opt "midiFile" "midi_file" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksStringOrKey |]
 
 chunksStringOrKey :: ChunkFormat T.Text
 chunksStringOrKey = ChunkFormat
@@ -77,7 +77,7 @@ dtaRecord "SongPackage" eosr $ do
   opt "bandFailCue" "band_fail_cue" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksStringOrKey |]
   req "songScrollSpeed" "song_scroll_speed" [t| Integer |] [e| format |]
   req "preview" "preview" [t| (Integer, Integer) |] [e| format |]
-  req "songLength" "song_length" [t| Integer |] [e| format |]
+  opt "songLength" "song_length" [t| Maybe Integer |] [e| Nothing |] [e| format |]
   req "rank" "rank" [t| Dict Integer |] [e| format |]
   opt "solo" "solo" [t| Maybe [T.Text] |] [e| Nothing |] [e| chunksMaybe $ chunksParens $ chunksList chunksKey |]
   req "songFormat" "format" [t| Integer |] [e| format |]

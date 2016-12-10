@@ -189,7 +189,7 @@ prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
       Left D.KTempoMedium -> "kTempoMedium"
       Left D.KTempoFast   -> "kTempoFast"
       Right n             -> showT n
-    inline "song_length" $ showT $ D.songLength pkg
+    forM_ (D.songLength pkg) $ inline "song_length" . showT
     inline "preview" $ case D.preview pkg of (start, end) -> showT start <> " " <> showT end
     parens $ do
       ln $ quote "rank"

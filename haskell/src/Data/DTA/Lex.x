@@ -29,7 +29,7 @@ $white+ ;
 "kDataUnhandled" { emit $ const Unhandled }
 -- Raw keywords. Note: these can start with digits, like "3sand7s", as long as
 -- they also have letters in them.
-($alpha | $digit | _ | \/ | \. | \-)+ { emit $ Key . T.pack }
+($alpha | $digit | _ | \/ | \. | \- | \=)+ { emit $ Key . T.pack }
 -- Quoted keywords.
 ' ([^'] | \\')* ' { emit $ Key . T.pack . readKey }
 

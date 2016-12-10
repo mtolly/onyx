@@ -224,7 +224,7 @@ makeRB3DTA songYaml plan rb3 song filename = let
     , D.bandFailCue = Nothing
     , D.songScrollSpeed = 2300
     , D.preview = (fromIntegral pstart, fromIntegral pend)
-    , D.songLength = fromIntegral len
+    , D.songLength = Just $ fromIntegral len
     , D.rank = D2.Dict $ Map.fromList
       [ ("drum"       , drumsRank    )
       , ("bass"       , bassRank     )
