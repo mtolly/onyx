@@ -12,10 +12,12 @@ metadata:
     drums: 6
     guitar: 5
     pro-keys: 6
+    bass: 4
 instruments:
   drums: true
   guitar: true
   pro-keys: true
+  bass: true
 audio:
   album-track:
     md5: 018040c351e8cad6ac1885de79041a45
