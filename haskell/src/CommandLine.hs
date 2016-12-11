@@ -3,14 +3,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 module CommandLine where
 
+import           Build                          (shakeBuild)
 import           Config
 import qualified Control.Exception              as Exc
 import           Control.Monad                  (forM_, guard)
 import           Control.Monad.Extra            (mapMaybeM)
 import           Control.Monad.IO.Class         (liftIO)
+import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader     (runReaderT)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
+import           Data.Aeson                     ((.:))
+import qualified Data.Aeson.Types               as A
 import           Data.Binary                    (Binary, decodeFileOrFail)
 import qualified Data.ByteString.Lazy           as BL
 import           Data.ByteString.Lazy.Char8     ()
@@ -26,20 +30,23 @@ import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import qualified Data.Text.IO                   as T
 import           Data.Word                      (Word32)
+import qualified Data.Yaml                      as Y
+import           Import                         (importFoF, importRBA,
+                                                 importSTFS)
 import           JSONData                       (traceJSON)
 import           Magma                          (oggToMogg, runMagma)
 import           MoggDecrypt                    (moggToOgg)
 import           PrettyDTA                      (readRB3DTA)
-import           ProKeysRanges                  (closeShiftsFile)
+import           ProKeysRanges                  (closeShiftsFile, completeFile)
 import           Reaper.Build                   (makeReaperIO)
 import           Reductions                     (simpleReduce)
 import qualified RockBand.File                  as RBFile
+import qualified Sound.Jammit.Base              as J
 import qualified Sound.MIDI.File.Load           as Load
 import           STFS.Extract                   (extractSTFS)
-import           System.Directory               (copyFile, doesDirectoryExist,
-                                                 doesFileExist)
-import           System.FilePath                (takeExtension, takeFileName,
-                                                 (-<.>), (</>))
+import qualified System.Directory               as Dir
+import           System.FilePath                (takeDirectory, takeExtension,
+                                                 takeFileName, (-<.>), (</>))
 import           System.IO.Error                (ioeGetErrorString, tryIOError)
 import           Text.Printf                    (printf)
 import           X360                           (rb2pkg, rb3pkg, stfsFolder)
@@ -51,7 +58,7 @@ import           YAMLTree                       (readYAMLTreeStack)
 import           System.MountPoints
 #endif
 
-type Match = WriterT [Matcher] IO
+type Match = WriterT [Matcher] (StackTraceT IO)
 
 data Matcher = Matcher
   { matcherTest  :: T.Text -> StackTraceT IO (Match ())
@@ -78,8 +85,12 @@ matchSongYml cont = tell $ (: []) $ Matcher
 
 matchTarget :: SongYaml -> (T.Text -> Target -> Match ()) -> Match ()
 matchTarget songYaml cont
-  = forM_ (Map.toList $ _targets songYaml) $ \(targetName, target)
-  -> word targetName "Target" $ cont targetName target
+  = forM_ (Map.toList $ _targets songYaml) $ \(targetName, target) -> let
+    desc = case target of
+      RB3{} -> "Rock Band 3 target"
+      RB2{} -> "Rock Band 2 target"
+      PS {} -> "Phase Shift target"
+    in word targetName desc $ cont targetName target
 
 matchPlan :: SongYaml -> (T.Text -> Plan -> Match ()) -> Match ()
 matchPlan songYaml cont
@@ -99,7 +110,7 @@ matchBinary :: (Binary a) => T.Text -> (FilePath -> a -> Match ()) -> Match ()
 matchBinary desc cont = tell $ (: []) $ Matcher
   { matcherTest = \t -> do
     let f = T.unpack t
-    liftIO (doesFileExist f) >>= \case
+    liftIO (Dir.doesFileExist f) >>= \case
       True -> return ()
       False -> fatal "File does not exist"
     liftIO (decodeFileOrFail f) >>= \case
@@ -113,7 +124,7 @@ matchMagma :: (FilePath -> RBProj.RBProj -> Match ()) -> Match ()
 matchMagma cont = tell $ (: []) $ Matcher
   { matcherTest = \t -> do
     let f = T.unpack t
-    liftIO (doesFileExist f) >>= \case
+    liftIO (Dir.doesFileExist f) >>= \case
       True -> return ()
       False -> fatal "File does not exist"
     txt <- liftIO $ T.readFile f
@@ -136,7 +147,7 @@ outputFile desc cont = tell $ (: []) $ Matcher
 -- | Can be an input directory, or directory to save things into
 matchDir :: T.Text -> (FilePath -> Match ()) -> Match ()
 matchDir desc cont = tell $ (: []) $ Matcher
-  { matcherTest = \fp -> liftIO (doesDirectoryExist $ T.unpack fp) >>= \case
+  { matcherTest = \fp -> liftIO (Dir.doesDirectoryExist $ T.unpack fp) >>= \case
     True  -> return $ cont $ T.unpack fp
     False -> fatal "Not a directory"
   , matcherClick = ClickPickDir
@@ -201,9 +212,11 @@ matchOGG cont = tell $ (: []) $ Matcher
 
 matchRBA :: (FilePath -> Match ()) -> Match ()
 matchRBA cont = tell $ (: []) $ Matcher
-  { matcherTest = \fp -> if takeExtension (T.unpack $ T.toLower fp) == ".rba"
-    then return $ cont $ T.unpack fp
-    else fatal "Not an RBA file"
+  { matcherTest = \fp -> liftIO (tryIOError $ BL.readFile $ T.unpack fp) >>= \case
+    Left ioe -> fatal $ ioeGetErrorString ioe
+    Right lbs -> if BL.take 4 lbs == "RBSF"
+      then return $ cont $ T.unpack fp
+      else fatal "Not an RBA file"
   , matcherClick = ClickPick ["*.rba"]
   , matcherDesc = "A Magma RBA file"
   }
@@ -233,7 +246,7 @@ findXbox360USB = do
   let drives = flip filter mnts $ \mnt ->
         ("/dev/" `isPrefixOf` mnt_fsname mnt) && (mnt_dir mnt /= "/")
   flip mapMaybeM drives $ \drive -> do
-    xbox <- doesDirectoryExist $ mnt_dir drive </> "Content"
+    xbox <- Dir.doesDirectoryExist $ mnt_dir drive </> "Content"
     return $ guard xbox >> Just (mnt_dir drive)
 #endif
 
@@ -245,51 +258,116 @@ installSTFS stfs usb = do
       w32 :: Word32 -> FilePath
       w32 = printf "%08x"
       file = "onyx_" ++ stfsHash
-  copyFile stfs $ usb </> folder </> file
+  Dir.copyFile stfs $ usb </> folder </> file
+
+slurpArgs :: ([FilePath] -> StackTraceT IO T.Text) -> Match ()
+slurpArgs cont = go [] where
+  go args = do
+    end "" $ cont args
+    tell $ (: []) $ Matcher
+      { matcherTest = \t -> return $ go $ args ++ [T.unpack t]
+      , matcherClick = ClickSave -- ???
+      , matcherDesc = ""
+      }
+
+selectUSB :: (FilePath -> StackTraceT IO T.Text) -> Match ()
+selectUSB cont = do
+  liftIO findXbox360USB >>= \case
+    [usb] -> end (T.pack usb) $ cont usb
+    _     -> return ()
+  matchDir "USB drive to install to" $ \usb -> do
+    end "" $ cont usb
+
+readConfig :: Match (Map.HashMap T.Text Y.Value)
+readConfig = do
+  cfg <- liftIO $ Dir.getXdgDirectory Dir.XdgConfig "onyx.yml"
+  liftIO (Dir.doesFileExist cfg) >>= \case
+    False -> return Map.empty
+    True  -> liftIO (Y.decodeFileEither cfg) >>= \case
+      Left err -> lift $ fatal $ show err
+      Right x  -> return x
 
 commandLine :: Match ()
 commandLine = do
+
+  config <- readConfig
+  addJammitDir <- maybe id (:) <$> liftIO J.findJammitDir
+  audioDirs <- lift $
+    either fatal return (A.parseEither (.: "audio-dirs") config)
+    >>= mapM (liftIO . Dir.canonicalizePath) . addJammitDir
+
   matchSongYml $ \yamlPath songYaml -> do
+    word "file" "Don't click this" $ do
+      slurpArgs $ \args -> do
+        yamlDir <- liftIO $ Dir.canonicalizePath $ takeDirectory yamlPath
+        liftIO $ shakeBuild [] (yamlDir : audioDirs) yamlPath args
+        return ""
     matchPlan songYaml $ \planName plan -> do
       undefined
     matchTarget songYaml $ \targetName target -> do
-      undefined
+      case target of
+        RB3 rb3 -> do
+          word "con" "Create an Xbox 360 CON-STFS package" $ do
+            outputFile "CON file to save to" $ \con -> do
+              end "" $ do
+                undefined rb3 con
+          word "install" "Install to an Xbox 360 USB drive" $ do
+            selectUSB $ \usb -> do
+              undefined rb3 usb
+        RB2 rb2 -> do
+          word "con" "Create an Xbox 360 CON-STFS package" $ do
+            outputFile "CON file to save to" $ \con -> do
+              end "" $ do
+                undefined rb2 con
+          word "install" "Install to an Xbox 360 USB drive" $ do
+            selectUSB $ \usb -> do
+              undefined rb2 usb
+        PS  ps  -> do
+          word "zip" "Create a .zip file for distribution" $ do
+            outputFile "ZIP file to create" $ \zipPath -> do
+              undefined ps zipPath
+          word "install" "Install to a Phase Shift installation" $ do
+            undefined ps
   matchMagma $ \rbprojPath rbproj -> do
     word "rba" "Create an RBA file for Audition mode" $ do
-      end "Use the RBA path listed in the .rbproj" $ do
-        undefined
-      outputFile "RBA file to save to" $ \rba -> do
-        end "" $ do
-          liftIO $ T.pack <$> runMagma rbprojPath rba
+      withDefaultFilename (T.unpack $ RBProj.destinationFile $ RBProj.project rbproj) "RBA file to build to" $ \rba -> do
+        liftIO $ T.pack <$> runMagma rbprojPath rba
     word "con" "Create an Xbox 360 CON-STFS package" $ do
       end "Use the CON path listed in the .rbproj" $ do
         undefined
       outputFile "CON file to save to" $ \con -> do
         end "" $ do
           undefined
+    word "import" "Convert a Magma project to an Onyx project" $ do
+      withDefaultFilename (rbprojPath ++ "_import") "Folder to import into" $ \dir -> do
+        undefined rbprojPath rbproj dir
   matchSTFS $ \stfs -> do
     word "install" "Install the CON file to an Xbox 360 USB drive" $ do
-      liftIO findXbox360USB >>= \case
-        [usb] -> end (T.pack usb) $ liftIO $ installSTFS stfs usb >> return ""
-        _     -> return ()
-      matchDir "USB drive to install to" $ \usb -> do
-        end "" $ liftIO $ installSTFS stfs usb >> return ""
+      selectUSB $ \usb -> liftIO (installSTFS stfs usb) >> return ""
     word "player" "Generates a browser chart preview app" $ do
-      end "Opens the preview in a browser" $ do
-        undefined
-      outputFile "The new folder to create for the preview app" $ \out -> do
-        end "" $ do
-          undefined
+      withDefaultFilename (stfs ++ "_player") "Folder to build a web player in" $ \dir -> do
+        undefined stfs dir
     word "unstfs" "Extract the contents of the STFS package" $ do
       withDefaultFilename (stfs ++ "_extract") "New folder to extract to" $ \dir -> do
         liftIO $ extractSTFS stfs dir
         return ""
+    word "import" "Convert an STFS package to an Onyx project" $ do
+      withDefaultFilename (stfs ++ "_import") "Folder to import into" $ \dir -> do
+        liftIO $ importSTFS NoKeys stfs dir
+        return ""
   matchRBA $ \rba -> do
-    undefined
+    word "import" "Convert an RBA to an Onyx project" $ do
+      withDefaultFilename (rba ++ "_import") "Folder to import into" $ \dir -> do
+        liftIO $ importRBA NoKeys rba dir
+        return ""
   matchMIDI $ \mid -> do
     word "reduce" "Fill in missing difficulties in the MIDI" $ do
       withDefaultFilename (mid -<.> "reduced.mid") "New MIDI location" $ \new -> do
         liftIO $ simpleReduce mid new
+        return ""
+    word "ranges" "Fill in automatic Pro Keys ranges" $ do
+      withDefaultFilename (mid -<.> "ranges.mid") "New MIDI location" $ \new -> do
+        liftIO $ completeFile mid new
         return ""
     word "rpp" "Convert the MIDI to a Reaper project (.RPP)" $ do
       withDefaultFilename (mid -<.> "RPP") "New RPP location" $ \rpp -> do
@@ -319,4 +397,8 @@ commandLine = do
         liftIO $ oggToMogg ogg mogg
         return ""
   matchFoF $ \ini -> do
-    undefined
+    word "import" "Convert an FoF/PS song to an Onyx project" $ do
+      let fof = takeDirectory ini
+      withDefaultFilename (fof ++ "_import") "Folder to import into" $ \dir -> do
+        liftIO $ importFoF NoKeys fof dir
+        return ""
