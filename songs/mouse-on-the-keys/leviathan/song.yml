@@ -3,6 +3,8 @@ metadata:
   author: Onyxite
   artist: mouse on the keys
   album: the flowers of romance
+  difficulty:
+    drums: 7
 audio:
   youtube:
     file-path: audio-youtube.wav

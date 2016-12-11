@@ -1,0 +1,29 @@
+metadata:
+  title: Sky Run
+  artist: An Endless Sporadic
+  album: Magic Machine
+  track-number: 7
+  author: Onyxite
+  year: 2016
+  genre: prog
+  subgenre: prog
+audio:
+  album-track:
+    md5: ec4444025a112c9e1233355feb746fad
+    frames: 23588208
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      # TODO: maybe fix tempo map so there can be a countin for 140bpm part
+      2|0: hihat
+      2|2: hihat
+      3|0: hihat
+      3|1: hihat
+      3|2: hihat
+      3|3: hihat
+    song: album-track
+instruments:
+  drums: true
+published: false
