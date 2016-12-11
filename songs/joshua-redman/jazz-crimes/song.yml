@@ -12,11 +12,13 @@ metadata:
     drums: 6
     guitar: 5
     pro-keys: 6
+    keys: 5
     bass: 4
 instruments:
   drums: true
   guitar: true
   pro-keys: true
+  keys: true
   bass: true
 audio:
   album-track:
