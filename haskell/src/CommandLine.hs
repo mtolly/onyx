@@ -6,8 +6,8 @@ module CommandLine where
 import           Build                          (shakeBuild)
 import           Config
 import qualified Control.Exception              as Exc
-import           Control.Monad                  (forM_, guard)
-import           Control.Monad.Extra            (mapMaybeM)
+import           Control.Monad                  (forM_)
+import           Control.Monad.Extra            (filterM)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader     (runReaderT)
@@ -25,7 +25,7 @@ import qualified Data.DTA.Serialize.Magma       as RBProj
 import qualified Data.DTA.Serialize.RB3         as D
 import qualified Data.DTA.Serialize2            as D
 import qualified Data.HashMap.Strict            as Map
-import           Data.List                      (isPrefixOf)
+
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import qualified Data.Text.IO                   as T
@@ -53,8 +53,10 @@ import           X360                           (rb2pkg, rb3pkg, stfsFolder)
 import           YAMLTree                       (readYAMLTreeStack)
 
 #ifdef WINDOWS
--- TODO
+import           Data.Bits                      (testBit)
+import           System.Win32.File              (getLogicalDrives)
 #else
+import           Data.List                      (isPrefixOf)
 import           System.MountPoints
 #endif
 
@@ -238,17 +240,16 @@ withDefaultFilename f desc cont = do
   outputFile desc $ \out -> end "" $ cont out
 
 findXbox360USB :: IO [FilePath]
-#ifdef WINDOWS
-findXbox360USB = return [] -- TODO
-#else
 findXbox360USB = do
+#ifdef WINDOWS
+  dword <- getLogicalDrives
+  let drives = [ letter : ":\\" | (letter, i) <- zip ['A'..'Z'] [0..], dword `testBit` i ]
+#else
   mnts <- getMounts
-  let drives = flip filter mnts $ \mnt ->
+  let drives = map mnt_dir $ flip filter mnts $ \mnt ->
         ("/dev/" `isPrefixOf` mnt_fsname mnt) && (mnt_dir mnt /= "/")
-  flip mapMaybeM drives $ \drive -> do
-    xbox <- Dir.doesDirectoryExist $ mnt_dir drive </> "Content"
-    return $ guard xbox >> Just (mnt_dir drive)
 #endif
+  filterM (\drive -> Dir.doesDirectoryExist $ drive </> "Content") drives
 
 installSTFS :: FilePath -> FilePath -> IO ()
 installSTFS stfs usb = do
