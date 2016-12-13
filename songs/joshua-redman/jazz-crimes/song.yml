@@ -8,12 +8,16 @@ metadata:
   year: 2002
   author: Onyxite
   track-number: 2
+  key: F sharp
+  autogen-theme: SynthPop
   difficulty:
     drums: 6
     guitar: 5
     pro-keys: 6
     keys: 5
     bass: 4
+  comments:
+  - "All instruments have overdrive/unison."
 instruments:
   drums: true
   guitar: true

@@ -17,3 +17,7 @@ Supported audio:
 
   * `album` (Elastic)
 
+Notes:
+
+  * All instruments have overdrive/unison.
+
