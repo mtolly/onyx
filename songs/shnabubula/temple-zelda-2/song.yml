@@ -5,9 +5,12 @@ metadata:
   author: Onyxite
   difficulty:
     pro-keys: 7
+    keys: 6
     bass: 7
     guitar: 5
     drums: 7
+  comments:
+  - "All instruments have overdrive/unison."
 audio:
   album:
     md5: 019d6ca36ef0e10841404568fa275df6
@@ -27,5 +30,7 @@ plans:
       pad: [2.957, album]
 instruments:
   pro-keys: true
+  keys: true
   bass: true
   guitar: true
+  drums: true

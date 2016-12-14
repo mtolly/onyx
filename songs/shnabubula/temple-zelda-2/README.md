@@ -7,11 +7,17 @@
 
 Instruments:
 
+  * (Pro) Drums 😈😈😈😈😈
   * Bass 😈😈😈😈😈
   * Guitar ⚪️⚪️⚪️⚪️⚫️
+  * Keys ⚪️⚪️⚪️⚪️⚪️
   * Pro Keys 😈😈😈😈😈
 
 Supported audio:
 
   * `album` (NES Jams)
+
+Notes:
+
+  * All instruments have overdrive/unison.
 
