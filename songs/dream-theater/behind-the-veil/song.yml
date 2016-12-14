@@ -6,30 +6,31 @@ metadata:
   difficulty:
     drums: 6
     bass: 4
+    pro-keys: 6
 audio:
   hdtracks-track:
     md5: 8ec1b6619eecd454b7166c016f7e18bf
     frames: 39612622
   stem-bass:
-    md5: 63872a345480636746574b43dea4f47e
+    md5: e3916b665b8712705efabeb97fa7b5ae
     frames: 14521583
   stem-bgv:
-    md5: 8a27f1b03447897e083b5a15b77bb866
+    md5: 8fe6c5c8f9945fdb1bdc834684e38192
     frames: 14521583
   stem-drum:
-    md5: 0e7c0402fcd8fd43ac5a69d355cd0679
+    md5: e2e8e8ad2d3bab0813c6603f7894c424
     frames: 14521583
   stem-guitar:
-    md5: a8509bc73334e9d2c872478bff8aaaf0
+    md5: 8d0ca3dc1ade08b05cbcf5151c90a271
     frames: 14521583
   stem-keys:
-    md5: fdca04a6931424028bdc44271c2d1a49
+    md5: 8cdcf9fd596e7312034c82f7a4eab444
     frames: 14521583
   stem-solo:
-    md5: e0c83ebf0bdaf5685b5a3ca79223677b
+    md5: 9da61f745b151b2bc93dfa56b7f3cb21
     frames: 14521583
   stem-vocal:
-    md5: fa624d25d527dad980b47488daaf4500
+    md5: fd10221322eb6728952e23a2e0dfd6c2
     frames: 14521583
   hihat:
     file-path: ../../../sound/hihat-foot.wav
@@ -59,6 +60,7 @@ plans:
       pad:
       - '1:22.684'
       - gain: [0.8, stem-bass]
+    # TODO: keys audio
     song:
       mix:
       - take:
@@ -79,3 +81,12 @@ plans:
 instruments:
   drums: true
   bass: true
+  pro-keys: true
+targets:
+  rb3:
+    plan: stems
+    game: rb3
+  rb3-2x:
+    plan: stems
+    game: rb3
+    2x-bass-pedal: true
