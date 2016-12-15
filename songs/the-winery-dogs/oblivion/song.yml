@@ -5,6 +5,7 @@ metadata:
   difficulty:
     drums: 5
     guitar: 6
+    bass: 6
   author: Onyxite
 audio:
   album-track:
@@ -71,3 +72,12 @@ plans:
 instruments:
   drums: true
   guitar: true
+  bass: true
+targets:
+  rb3:
+    game: rb3
+    plan: drumcam
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: drumcam
