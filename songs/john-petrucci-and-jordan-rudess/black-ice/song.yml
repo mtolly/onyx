@@ -32,4 +32,5 @@ plans:
       - album-track
 instruments:
   pro-keys: true
+  guitar: true
 published: false
