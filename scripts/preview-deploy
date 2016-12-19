@@ -53,7 +53,6 @@ Net::SFTP.start(url, username, password: password) do |sftp|
   log " => Connected #{username}@#{url} via SFTP."
   first_option = ARGV.index { |arg| arg.start_with? '-' }
   not_options = first_option ? ARGV[0 ... first_option] : ARGV
-  onyx_options = first_option ? ARGV[first_option .. -1].reject { |x| x == '--only-midi' } : []
   only_midi = ARGV.include?('--only-midi')
   if not_options.include?('app')
     upload_rf sftp, "player/www/index.html", "#{remote_dir}/app/index.html"
@@ -71,9 +70,9 @@ Net::SFTP.start(url, username, password: password) do |sftp|
 
     Dir.chdir(songdir) do
       if only_midi
-        system_('onyx', 'build', 'gen/plan/album/web/song.js', *onyx_options)
+        system_('onyx', '.', 'file', 'gen/plan/album/web/song.js')
       else
-        system_('onyx', 'build', 'gen/plan/album/web', *onyx_options)
+        system_('onyx', '.', 'file', 'gen/plan/album/web')
       end
     end
     remote_songdir = songdir.match(/\Asongs[^\/]*\/([^\/]+)\/([^\/]+)\/?\Z/) do |md|

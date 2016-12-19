@@ -26,6 +26,7 @@ import qualified Data.HashMap.Strict            as M
 import           Data.List                      (foldl')
 import qualified Data.Text                      as T
 import qualified Data.Yaml                      as Y
+import           System.Directory               (canonicalizePath)
 import           System.FilePath                (takeDirectory, (</>))
 
 stringOrStrings :: Y.Value -> A.Result (Either String [String])
@@ -87,10 +88,10 @@ readYAMLTree f = do
                 A.Error s      -> fail s
             A.Error s -> fail s
           Just _ -> case stringOrStrings v of
-            A.Success e -> let
-              v' = case e of
-                Left  s  -> A.toJSON $ dir </> s
-                Right ss -> A.toJSON $ map (dir </>) ss
-              in goPairs (M.insert k v' o) rest
+            A.Success e -> do
+              v' <- case e of
+                Left  s  -> fmap A.toJSON $ canonicalizePath $ dir </> s
+                Right ss -> fmap A.toJSON $ mapM (canonicalizePath . (dir </>)) ss
+              goPairs (M.insert k v' o) rest
             A.Error s -> fail s
           _ -> go v >>= \v' -> goPairs (M.insert k v' o) rest

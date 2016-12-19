@@ -3,7 +3,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
-module Build (shakeBuild) where
+module Build (shakeBuild, targetTitle) where
 
 import           Audio
 import qualified C3
@@ -95,12 +95,19 @@ import           System.IO                             (IOMode (ReadMode),
 import           X360
 import           YAMLTree
 
-targetTitle :: SongYaml -> TargetRB3 -> T.Text
-targetTitle songYaml rb3 = case rb3_Label rb3 of
-  Just lbl | not (T.all isSpace lbl) -> getTitle (_metadata songYaml) <> " " <> lbl
-  _ -> if rb3_2xBassPedal rb3
-    then getTitle (_metadata songYaml) <> " (2x Bass Pedal)"
-    else getTitle (_metadata songYaml)
+targetTitle :: SongYaml -> Target -> T.Text
+targetTitle songYaml target = case target of
+  RB3 rb3 -> case rb3_Label rb3 of
+    Just lbl | not (T.all isSpace lbl) -> getTitle (_metadata songYaml) <> " " <> lbl
+    _ -> if rb3_2xBassPedal rb3
+      then getTitle (_metadata songYaml) <> " (2x Bass Pedal)"
+      else getTitle (_metadata songYaml)
+  RB2 rb2 -> case rb2_Label rb2 of
+    Just lbl | not (T.all isSpace lbl) -> getTitle (_metadata songYaml) <> " " <> lbl
+    _ -> if rb2_2xBassPedal rb2
+      then getTitle (_metadata songYaml) <> " (2x Bass Pedal)"
+      else getTitle (_metadata songYaml)
+  _ -> undefined
 
 hashRB3 :: SongYaml -> TargetRB3 -> Int
 hashRB3 songYaml rb3 = let
@@ -180,7 +187,7 @@ makeRB3DTA songYaml plan rb3 song filename = let
     (_genre    $ _metadata songYaml)
     (_subgenre $ _metadata songYaml)
   songPkg = D.SongPackage
-    { D.name = targetTitle songYaml rb3
+    { D.name = targetTitle songYaml $ RB3 rb3
     , D.artist = getArtist $ _metadata songYaml
     , D.master = not $ _cover $ _metadata songYaml
     , D.songId = case rb3_SongID rb3 of
@@ -321,7 +328,7 @@ makeC3 songYaml plan rb3 midi pkg = let
   (pstart, _) = previewBounds songYaml midi
   PansVols{..} = computePansVols songYaml plan
   RanksTiers{..} = computeRanksTiers songYaml
-  title = targetTitle songYaml rb3
+  title = targetTitle songYaml $ RB3 rb3
   crowdVol = case map snd crowdPV of
     [] -> Nothing
     v : vs -> if all (== v) vs
@@ -554,7 +561,7 @@ shakeBuild optDescrs audioDirs yamlPath buildables = do
 
   Dir.withCurrentDirectory (takeDirectory yamlPath) $ do
 
-    shakeArgsWith shakeOptions{ shakeThreads = 0, shakeFiles = "gen", shakeVersion = version } (map (fmap Right) optDescrs) $ \_ _ -> return $ Just $ do
+    shake shakeOptions{ shakeThreads = 0, shakeFiles = "gen", shakeVersion = version } $ do
 
       allFilesInAudioDirs <- newCache $ \() -> do
         genAbsolute <- liftIO $ Dir.canonicalizePath "gen/"
@@ -734,7 +741,7 @@ shakeBuild optDescrs audioDirs yamlPath buildables = do
             pathMagmaDummyStereo %> buildAudio (Silence 2 $ Seconds 31)
             pathMagmaCover %> copyFile' "gen/cover.bmp"
             pathMagmaCoverV1 %> \out -> liftIO $ writeBitmap out $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
-            let title = targetTitle songYaml rb3
+            let title = targetTitle songYaml $ RB3 rb3
             pathMagmaProj %> \out -> do
               p <- makeMagmaProj songYaml plan pkg pathMagmaMid $ return title
               liftIO $ D.writeFileDTA_latin1 out $ D2.serialize D2.format p

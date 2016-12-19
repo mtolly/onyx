@@ -3,10 +3,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 module CommandLine where
 
-import           Build                          (shakeBuild)
+import           Build                          (shakeBuild, targetTitle)
 import           Config
 import qualified Control.Exception              as Exc
-import           Control.Monad                  (forM_)
+import           Control.Monad                  (forM, forM_)
 import           Control.Monad.Extra            (filterM)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.Trans.Class      (lift)
@@ -18,14 +18,18 @@ import qualified Data.Aeson.Types               as A
 import           Data.Binary                    (Binary, decodeFileOrFail)
 import qualified Data.ByteString.Lazy           as BL
 import           Data.ByteString.Lazy.Char8     ()
+import           Data.Char                      (isAscii, isPrint, isSpace)
 import qualified Data.Digest.Pure.MD5           as MD5
 import           Data.DTA.Lex                   (scanEither)
 import           Data.DTA.Parse                 (parseEither)
 import qualified Data.DTA.Serialize.Magma       as RBProj
 import qualified Data.DTA.Serialize.RB3         as D
 import qualified Data.DTA.Serialize2            as D
+import           Data.Either                    (rights)
+import           Data.Functor                   (void)
+import           Data.Hashable                  (hash)
 import qualified Data.HashMap.Strict            as Map
-
+import           Data.Maybe                     (fromMaybe, mapMaybe)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import qualified Data.Text.IO                   as T
@@ -43,14 +47,23 @@ import           Reductions                     (simpleReduce)
 import qualified RockBand.File                  as RBFile
 import qualified Sound.Jammit.Base              as J
 import qualified Sound.MIDI.File.Load           as Load
+import qualified Sound.MIDI.File.Save           as Save
+import qualified Sound.MIDI.Script.Base         as MS
+import qualified Sound.MIDI.Script.Parse        as MS
+import qualified Sound.MIDI.Script.Read         as MS
+import qualified Sound.MIDI.Script.Scan         as MS
 import           STFS.Extract                   (extractSTFS)
 import qualified System.Directory               as Dir
 import           System.FilePath                (takeDirectory, takeExtension,
                                                  takeFileName, (-<.>), (</>))
+import           System.Info                    (os)
 import           System.IO.Error                (ioeGetErrorString, tryIOError)
+import           System.IO.Temp                 (withSystemTempDirectory)
+import           System.Process                 (callProcess, spawnCommand)
 import           Text.Printf                    (printf)
 import           X360                           (rb2pkg, rb3pkg, stfsFolder)
-import           YAMLTree                       (readYAMLTreeStack)
+import           YAMLTree                       (readYAMLTree,
+                                                 readYAMLTreeStack)
 
 #ifdef WINDOWS
 import           Data.Bits                      (testBit)
@@ -76,11 +89,25 @@ data Click
   | ClickSave -- ^ Launch a Save File dialog
   | ClickEnd (StackTraceT IO T.Text) -- ^ Do a thing
 
+inputFile :: (FilePath -> Match ()) -> Match ()
+inputFile cont = tell $ (: []) $ Matcher
+  { matcherTest = \t -> do
+    let f = T.unpack t
+    liftIO (Dir.doesFileExist f) >>= \b -> if b
+      then return $ cont f
+      else fatal "Expected an existing file"
+  , matcherClick = ClickPick ["*"]
+  , matcherDesc = "File"
+  }
+
 matchSongYml :: (FilePath -> SongYaml -> Match ()) -> Match ()
 matchSongYml cont = tell $ (: []) $ Matcher
-  { matcherTest = \t -> cont (T.unpack t) <$> do
-    yaml <- readYAMLTreeStack $ T.unpack t
-    mapStackTraceT (`runReaderT` yaml) traceJSON
+  { matcherTest = \t -> do
+    let f = T.unpack t
+    isDir <- liftIO $ Dir.doesDirectoryExist f
+    let path = if isDir then f </> "song.yml" else f
+    yaml <- readYAMLTreeStack path
+    cont path <$> mapStackTraceT (`runReaderT` yaml) traceJSON
   , matcherClick = ClickPick ["*.yml", "*.yaml"]
   , matcherDesc = "An Onyx song.yml file"
   }
@@ -126,22 +153,22 @@ matchMagma :: (FilePath -> RBProj.RBProj -> Match ()) -> Match ()
 matchMagma cont = tell $ (: []) $ Matcher
   { matcherTest = \t -> do
     let f = T.unpack t
-    liftIO (Dir.doesFileExist f) >>= \case
-      True -> return ()
-      False -> fatal "File does not exist"
-    txt <- liftIO $ T.readFile f
-    inside f $ do
-      toks <- either fatal return $ scanEither txt
-      dta <- either fatal return $ parseEither toks
-      rbproj <- D.unserialize D.format dta
-      return $ cont f rbproj
+    liftIO (tryIOError $ T.readFile f) >>= \case
+      Left err -> fatal $ show err
+      Right txt -> inside f $ do
+        toks <- either fatal return $ scanEither txt
+        dta <- either fatal return $ parseEither toks
+        rbproj <- D.unserialize D.format dta
+        return $ cont f rbproj
   , matcherClick = ClickPick ["*.rbproj"]
   , matcherDesc = "A Magma .rbproj file"
   }
 
 outputFile :: T.Text -> (FilePath -> Match ()) -> Match ()
 outputFile desc cont = tell $ (: []) $ Matcher
-  { matcherTest = return . cont . T.unpack
+  { matcherTest = \t -> if "--" `T.isPrefixOf` t
+    then fatal "Parsed as an option (starts with --)"
+    else return $ cont $ T.unpack t
   , matcherClick = ClickSave
   , matcherDesc = desc
   }
@@ -187,9 +214,18 @@ matchMIDI cont = tell $ (: []) $ Matcher
 
 matchFoF :: (FilePath -> Match ()) -> Match ()
 matchFoF cont = tell $ (: []) $ Matcher
-  { matcherTest = \fp -> if takeFileName (T.unpack $ T.toLower fp) == "song.ini"
-    then return $ cont $ T.unpack fp
-    else fatal "Not a song.ini"
+  { matcherTest = \t -> do
+    let f = T.unpack t
+    liftIO (Dir.doesDirectoryExist f) >>= \case
+      True -> do
+        let path = f </> "song.ini"
+        hasFile <- liftIO $ Dir.doesFileExist path
+        if hasFile
+          then return $ cont path
+          else fatal "Directory does not have a song.ini"
+      False -> if takeFileName f == "song.ini"
+        then return $ cont f
+        else fatal "Not a song.ini file"
   , matcherClick = ClickPick ["*.ini"]
   , matcherDesc = "A song.ini for Frets on Fire or Phase Shift"
   }
@@ -275,7 +311,9 @@ selectUSB :: (FilePath -> StackTraceT IO T.Text) -> Match ()
 selectUSB cont = do
   liftIO findXbox360USB >>= \case
     [usb] -> end (T.pack usb) $ cont usb
-    _     -> return ()
+    _     -> let
+      err = "0 or multiple Xbox 360 USB drives detected"
+      in end err $ fatal $ T.unpack err
   matchDir "USB drive to install to" $ \usb -> do
     end "" $ cont usb
 
@@ -288,41 +326,123 @@ readConfig = do
       Left err -> lift $ fatal $ show err
       Right x  -> return x
 
+firstPresentTarget :: FilePath -> [T.Text] -> IO T.Text
+firstPresentTarget yamlPath targets = do
+  songYaml
+    <-  readYAMLTree yamlPath
+    >>= runReaderT (printStackTraceIO traceJSON)
+  let present = Map.keys $ _targets songYaml
+  case filter (`elem` present) targets of
+    []    -> fail $ "panic! couldn't find any of these targets: " ++ show targets
+    t : _ -> return t
+
+makeFilename :: T.Text -> T.Text -> FilePath
+makeFilename title artist = let
+  hashed = hash (title, artist) `mod` 10000000
+  safeInfo = T.filter (\c -> isPrint c && isAscii c && not (isSpace c)) $ title <> artist
+  in take 32 $ "o" <> show hashed <> "_" <> T.unpack safeInfo
+
+lookupArgs :: [T.Text] -> Match () -> StackTraceT IO (StackTraceT IO T.Text)
+lookupArgs []       m = do
+  matchers <- execWriterT m
+  let ends = flip mapMaybe matchers $ \matcher -> case matcherClick matcher of
+        ClickEnd act -> Just act
+        _            -> Nothing
+  case ends of
+    []  -> fatal "Unexpected end of arguments"
+    [x] -> return x
+    n   -> fatal $ "Panic! Command line was ambiguous, matched " <> show (length n) <> " patterns"
+lookupArgs (t : ts) m = do
+  matchers <- execWriterT m
+  results <- liftIO $ forM matchers $ \matcher ->
+    runStackTraceT $ matcherTest matcher t
+  case rights $ map fst results of
+    []   -> fatal $ "Unrecognized argument: " ++ show t
+    good -> inside ("Argument " ++ show t) $ lookupArgs ts $ sequence_ good
+
+copyDirRecursive :: FilePath -> FilePath -> IO ()
+copyDirRecursive src dst = do
+  Dir.createDirectoryIfMissing False dst
+  ents <- Dir.listDirectory src
+  forM_ ents $ \ent -> do
+    let pathFrom = src </> ent
+        pathTo = dst </> ent
+    isDir <- Dir.doesDirectoryExist pathFrom
+    if isDir
+      then copyDirRecursive pathFrom pathTo
+      else Dir.copyFile     pathFrom pathTo
+
+osOpenFile :: FilePath -> IO ()
+osOpenFile f = case os of
+  "mingw32" -> void $ spawnCommand f
+  "darwin"  -> callProcess "open" [f]
+  "linux"   -> callProcess "exo-open" [f]
+  _         -> return ()
+
 commandLine :: Match ()
 commandLine = do
 
   config <- readConfig
   addJammitDir <- maybe id (:) <$> liftIO J.findJammitDir
-  audioDirs <- lift $
-    either fatal return (A.parseEither (.: "audio-dirs") config)
-    >>= mapM (liftIO . Dir.canonicalizePath) . addJammitDir
+  audioDirs <- lift $ case A.parseEither (.: "audio-dirs") config of
+    Left _ -> return []
+    Right obj -> do
+      dirs <- either fatal return $ A.parseEither A.parseJSON obj
+      mapM (liftIO . Dir.canonicalizePath) $ addJammitDir dirs
 
   matchSongYml $ \yamlPath songYaml -> do
+    yamlDir <- liftIO $ Dir.canonicalizePath $ takeDirectory yamlPath
+    let shakeIt = liftIO . shakeBuild [] (yamlDir : audioDirs) yamlPath
     word "file" "Don't click this" $ do
       slurpArgs $ \args -> do
-        yamlDir <- liftIO $ Dir.canonicalizePath $ takeDirectory yamlPath
-        liftIO $ shakeBuild [] (yamlDir : audioDirs) yamlPath args
+        shakeIt args
         return ""
-    matchPlan songYaml $ \planName plan -> do
-      undefined
+    matchPlan songYaml $ \planName _plan -> do
+      word "reap" "Open plan in REAPER" $ do
+        end "" $ do
+          let rpp = "notes-" <> T.unpack planName <> ".RPP"
+          shakeIt [rpp]
+          liftIO $ do
+            let rppFull = yamlDir </> "notes.RPP"
+            Dir.renameFile (yamlDir </> rpp) rppFull
+            osOpenFile rppFull
+          return ""
+      word "player" "Open web player" $ do
+        end "" $ do
+          let player = "gen/plan" </> T.unpack planName </> "web"
+          shakeIt [player]
+          liftIO $ osOpenFile $ player </> "index.html"
+          return ""
     matchTarget songYaml $ \targetName target -> do
       case target of
         RB3 rb3 -> do
+          let built = "gen/target" </> T.unpack targetName </> "rb3con"
+              filename = makeFilename (targetTitle songYaml $ RB3 rb3) (fromMaybe "" $ _artist $ _metadata songYaml)
           word "con" "Create an Xbox 360 CON-STFS package" $ do
             outputFile "CON file to save to" $ \con -> do
               end "" $ do
-                undefined rb3 con
+                shakeIt [built]
+                liftIO $ Dir.copyFile (yamlDir </> built) con
+                return ""
           word "install" "Install to an Xbox 360 USB drive" $ do
             selectUSB $ \usb -> do
-              undefined rb3 usb
+              shakeIt [built]
+              liftIO $ Dir.copyFile (yamlDir </> built) $ usb </> "Content/0000000000000000/45410914/00000001" </> filename
+              return ""
         RB2 rb2 -> do
+          let built = "gen/target" </> T.unpack targetName </> "rb2con"
+              filename = makeFilename (targetTitle songYaml $ RB2 rb2) (fromMaybe "" $ _artist $ _metadata songYaml)
           word "con" "Create an Xbox 360 CON-STFS package" $ do
             outputFile "CON file to save to" $ \con -> do
               end "" $ do
-                undefined rb2 con
+                shakeIt [built]
+                liftIO $ Dir.copyFile (yamlDir </> built) con
+                return ""
           word "install" "Install to an Xbox 360 USB drive" $ do
             selectUSB $ \usb -> do
-              undefined rb2 usb
+              shakeIt [built]
+              liftIO $ Dir.copyFile (yamlDir </> built) $ usb </> "Content/0000000000000000/45410869/00000001" </> filename
+              return ""
         PS  ps  -> do
           word "zip" "Create a .zip file for distribution" $ do
             outputFile "ZIP file to create" $ \zipPath -> do
@@ -338,7 +458,7 @@ commandLine = do
         undefined
       outputFile "CON file to save to" $ \con -> do
         end "" $ do
-          undefined
+          undefined con
     word "import" "Convert a Magma project to an Onyx project" $ do
       withDefaultFilename (rbprojPath ++ "_import") "Folder to import into" $ \dir -> do
         undefined rbprojPath rbproj dir
@@ -347,19 +467,47 @@ commandLine = do
       selectUSB $ \usb -> liftIO (installSTFS stfs usb) >> return ""
     word "player" "Generates a browser chart preview app" $ do
       withDefaultFilename (stfs ++ "_player") "Folder to build a web player in" $ \dir -> do
-        undefined stfs dir
+        liftIO $ withSystemTempDirectory "onyx_player" $ \tmp -> do
+          importSTFS NoKeys stfs tmp
+          let player = "gen/plan/mogg/web"
+          shakeBuild [] [tmp] (tmp </> "song.yml") [player]
+          Dir.createDirectoryIfMissing False dir
+          copyDirRecursive (tmp </> player) dir
+        return ""
     word "unstfs" "Extract the contents of the STFS package" $ do
       withDefaultFilename (stfs ++ "_extract") "New folder to extract to" $ \dir -> do
         liftIO $ extractSTFS stfs dir
         return ""
     word "import" "Convert an STFS package to an Onyx project" $ do
       withDefaultFilename (stfs ++ "_import") "Folder to import into" $ \dir -> do
+        liftIO $ Dir.createDirectoryIfMissing False dir
         liftIO $ importSTFS NoKeys stfs dir
         return ""
+    word "convert-rb2" "Converts an RB3 song to RB2 format" $ do
+      let go keysMode = withDefaultFilename (stfs ++ "_rb2con") "New RB2 song to create" $ \rb2 -> do
+            liftIO $ withSystemTempDirectory "onyx_convert" $ \dir -> do
+              importSTFS keysMode stfs dir
+              target <- firstPresentTarget (dir </> "song.yml") ["rb2-2x", "rb2"]
+              let planCon = "gen/target" </> T.unpack target </> "rb2con"
+              shakeBuild [] [dir] (dir </> "song.yml") [planCon]
+              Dir.copyFile (dir </> planCon) rb2
+            return ""
+      word "no-keys" "Drops the Keys part (if any)" $ go NoKeys
+      word "keys-guitar" "Assigns RB3 Keys to RB2 Guitar" $ go KeysGuitar
+      word "keys-bass" "Assigns RB3 Keys to RB2 Bass" $ go KeysBass
   matchRBA $ \rba -> do
     word "import" "Convert an RBA to an Onyx project" $ do
       withDefaultFilename (rba ++ "_import") "Folder to import into" $ \dir -> do
         liftIO $ importRBA NoKeys rba dir
+        return ""
+    word "convert" "Convert an RBA to a CON file" $ do
+      withDefaultFilename (rba ++ "_rb3con") "New RB3 CON file to create" $ \con -> do
+        liftIO $ withSystemTempDirectory "onyx_convert" $ \dir -> do
+          importRBA NoKeys rba dir
+          target <- firstPresentTarget (dir </> "song.yml") ["rb3-2x", "rb3"]
+          let planCon = "gen/target" </> T.unpack target </> "rb3con"
+          shakeBuild [] [dir] (dir </> "song.yml") [planCon]
+          Dir.copyFile (dir </> planCon) con
         return ""
   matchMIDI $ \mid -> do
     word "reduce" "Fill in missing difficulties in the MIDI" $ do
@@ -378,6 +526,42 @@ commandLine = do
       end "" $ do
         song <- liftIO (Load.fromFile mid) >>= RBFile.readMIDIFile
         return $ T.pack $ closeShiftsFile song
+    word "text" "Convert MIDI file to an editable plaintext format" $ do
+      let go opts = do
+            word "--in-measures" "Write MIDI event positions using measure + beats format" $ do
+              go opts { MS.showFormat = MS.ShowMeasures }
+            word "--in-seconds" "Write MIDI event positions using real time in seconds" $ do
+              go opts { MS.showFormat = MS.ShowSeconds }
+            word "--separate-lines" "Write each MIDI event on its own line" $ do
+              go opts { MS.separateLines = True }
+            word "--match-note-off" "Join note on/off events into a single event" $ do
+              go opts { MS.matchNoteOff = True }
+            withDefaultFilename (mid -<.> "txt") "New text file location" $ \fout -> do
+              res <- liftIO $ MS.toStandardMIDI <$> Load.fromFile mid
+              case res of
+                Left  err -> fatal err
+                Right sm  -> liftIO $ writeFile fout $ MS.showStandardMIDI opts sm
+              return ""
+      go MS.Options
+        { MS.showFormat = MS.ShowBeats
+        , MS.resolution = Nothing
+        , MS.separateLines = False
+        , MS.matchNoteOff = False
+        }
+  word "git-midi-text" "Convert next arg (MIDI file) to plaintext on stdout" $ do
+    let opts = MS.Options
+          { MS.showFormat = MS.ShowMeasures
+          , MS.resolution = Nothing
+          , MS.separateLines = False
+          , MS.matchNoteOff = True
+          }
+    matchMIDI $ \mid -> do
+      end "" $ do
+        res <- liftIO $ MS.toStandardMIDI <$> Load.fromFile mid
+        case res of
+          Left  err -> fatal err
+          Right sm  -> liftIO $ putStrLn $ MS.showStandardMIDI opts sm
+        return ""
   matchDir "A folder" $ \dir -> do
     word "stfs" "Make an RB3 CON package from the folder" $ do
       withDefaultFilename (dir ++ "_rb3con") "New CON location" $ \stfs -> liftIO $ do
@@ -403,3 +587,19 @@ commandLine = do
       withDefaultFilename (fof ++ "_import") "Folder to import into" $ \dir -> do
         liftIO $ importFoF NoKeys fof dir
         return ""
+  inputFile $ \fin -> do
+    word "midi" "Convert MIDI plaintext format back to a binary MIDI file" $ do
+      withDefaultFilename (fin -<.> "mid") "New MIDI file location" $ \fout -> do
+        liftIO $ do
+          sf <- MS.readStandardFile . MS.parse . MS.scan <$> readFile fin
+          let (mid, warnings) = MS.fromStandardMIDI opts sf
+              opts = MS.Options
+                { MS.showFormat = MS.ShowBeats
+                , MS.resolution = Just 480 -- TODO allow overriding this
+                , MS.separateLines = False
+                , MS.matchNoteOff = False
+                }
+          Save.toFile fout mid
+          case warnings of
+            Nothing -> return ""
+            Just s  -> return $ T.pack s
