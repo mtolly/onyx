@@ -86,7 +86,6 @@ import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
 import qualified Sound.MIDI.File.Load                  as Load
 import qualified Sound.MIDI.File.Save                  as Save
 import qualified Sound.MIDI.Util                       as U
-import           System.Console.GetOpt
 import qualified System.Directory                      as Dir
 import           System.Environment.Executable         (getExecutablePath)
 import           System.IO                             (IOMode (ReadMode),
@@ -542,8 +541,8 @@ makeMagmaProj songYaml plan pkg mid thisTitle = do
       }
     }
 
-shakeBuild :: [OptDescr ()] -> [FilePath] -> FilePath -> [FilePath] -> IO ()
-shakeBuild optDescrs audioDirs yamlPath buildables = do
+shakeBuild :: [FilePath] -> FilePath -> [FilePath] -> IO ()
+shakeBuild audioDirs yamlPath buildables = do
 
   songYaml
     <-  readYAMLTree yamlPath

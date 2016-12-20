@@ -392,7 +392,7 @@ commandLine = do
 
   matchSongYml $ \yamlPath songYaml -> do
     yamlDir <- liftIO $ Dir.canonicalizePath $ takeDirectory yamlPath
-    let shakeIt = liftIO . shakeBuild [] (yamlDir : audioDirs) yamlPath
+    let shakeIt = liftIO . shakeBuild (yamlDir : audioDirs) yamlPath
     word "file" "Don't click this" $ do
       slurpArgs $ \args -> do
         shakeIt args
@@ -470,7 +470,7 @@ commandLine = do
         liftIO $ withSystemTempDirectory "onyx_player" $ \tmp -> do
           importSTFS NoKeys stfs tmp
           let player = "gen/plan/mogg/web"
-          shakeBuild [] [tmp] (tmp </> "song.yml") [player]
+          shakeBuild [tmp] (tmp </> "song.yml") [player]
           Dir.createDirectoryIfMissing False dir
           copyDirRecursive (tmp </> player) dir
         return ""
@@ -489,7 +489,7 @@ commandLine = do
               importSTFS keysMode stfs dir
               target <- firstPresentTarget (dir </> "song.yml") ["rb2-2x", "rb2"]
               let planCon = "gen/target" </> T.unpack target </> "rb2con"
-              shakeBuild [] [dir] (dir </> "song.yml") [planCon]
+              shakeBuild [dir] (dir </> "song.yml") [planCon]
               Dir.copyFile (dir </> planCon) rb2
             return ""
       word "no-keys" "Drops the Keys part (if any)" $ go NoKeys
@@ -506,7 +506,7 @@ commandLine = do
           importRBA NoKeys rba dir
           target <- firstPresentTarget (dir </> "song.yml") ["rb3-2x", "rb3"]
           let planCon = "gen/target" </> T.unpack target </> "rb3con"
-          shakeBuild [] [dir] (dir </> "song.yml") [planCon]
+          shakeBuild [dir] (dir </> "song.yml") [planCon]
           Dir.copyFile (dir </> planCon) con
         return ""
   matchMIDI $ \mid -> do
@@ -555,7 +555,7 @@ commandLine = do
           , MS.separateLines = False
           , MS.matchNoteOff = True
           }
-    matchMIDI $ \mid -> do
+    inputFile $ \mid -> do
       end "" $ do
         res <- liftIO $ MS.toStandardMIDI <$> Load.fromFile mid
         case res of
