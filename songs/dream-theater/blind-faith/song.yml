@@ -2,11 +2,22 @@ metadata:
   title: Blind Faith
   file-include: ../../../albums/six-degrees-of-inner-turbulence.yml
   track-number: 2
-  author: "mazegeek999 (pro keys), Onyxite (drums, vocals, bass, keys), unknown (guitar)"
+  author: "mazegeek999, onyxite, GHFreak46"
   drum-layout: flip-yb-toms # as demonstrated on ten degrees dvd
+  difficulty:
+    guitar: 7
+    pro-keys: 7
+    keys: 7
+    bass: 6
+    drums: 7
+    vocal: 4
   comments:
   - >-
     All instruments have overdrive/unison.
+  autogen-theme: SynthPop
+  key: D # choruses are in A
+  rating: SR # ???
+  drum-kit: HardRockKit
 audio:
   album-track:
     md5: bb640697c680c06882276305c29191ed
@@ -16,9 +27,21 @@ plans:
     song:
       trim: [4.744, album-track]
 instruments:
-  drums: true
-  guitar: true
-  bass: true
-  keys: true
-  pro-keys: true
-  vocal: 3
+  drums: true # onyxite
+  guitar: true # GHFreak46
+  bass: true # onyxite
+  keys: true # onyxite
+  pro-keys: true # mazegeek999
+  vocal: 3 # onyxite
+targets:
+  rb3:
+    game: rb3
+    song-id: 1660200023
+    version: 1
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 1660200024
+    version: 1
+  ps:
+    game: ps

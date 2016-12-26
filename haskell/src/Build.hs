@@ -617,7 +617,9 @@ shakeBuild audioDirs yamlPath buildables = do
       phony "update-readme" $ if _published songYaml
         then need ["README.md"]
         else removeFilesAfter "." ["README.md"]
-      "README.md" %> \out -> liftIO $ writeFile out $ makeReadme songYaml yamlPath
+      "README.md" %> \out -> do
+        yamlAbs <- liftIO $ Dir.canonicalizePath yamlPath
+        liftIO $ writeFile out $ makeReadme songYaml yamlAbs
 
       "gen/notes.mid" %> \out -> do
         doesFileExist "notes.mid" >>= \b -> if b
