@@ -33,7 +33,7 @@ onyxite's C3-format Song IDs (16602xxxxx)
 
 1660200023 Blind Faith 1x
 1660200024 Blind Faith 2x
-  v1 published ???
+  v1 published 2016-12-29 (database entry by mazegeek999)
 
 ONE-OFFS
 1660299999 hacked c3 6:00 drum chart
