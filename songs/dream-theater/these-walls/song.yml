@@ -33,5 +33,3 @@ plans:
       trim: [19.991, album-track]
 instruments:
   drums: true
-options:
-  auto-2x-bass: true
