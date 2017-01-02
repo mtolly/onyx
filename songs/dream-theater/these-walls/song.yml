@@ -33,3 +33,4 @@ plans:
       trim: [19.991, album-track]
 instruments:
   drums: true
+  pro-keys: true
