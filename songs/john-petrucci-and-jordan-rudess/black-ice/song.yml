@@ -5,6 +5,14 @@ metadata:
   track-number: 9
   year: 2000
   album: "An Evening with John Petrucci & Jordan Rudess"
+  genre: prog
+  subgenre: progrock
+  file-album-art: cover.jpg
+  difficulty:
+    guitar: 7
+    pro-keys: 7
+    keys: 7
+  preview-start: prc_gtr_break_a
 audio:
   album-track:
     md5: 36ef8aa7c4f82273c5ae7243c7a1153a
@@ -27,10 +35,14 @@ plans:
       concatenate:
       - fade:
         - start
-        - 4.0
+        - 4
         - take: [end, 4.547, album-prev]
-      - album-track
+      - fade:
+        - end
+        - 2
+        - trim:
+          - end
+          - 3
+          - album-track
 instruments:
-  pro-keys: true
   guitar: true
-published: false
