@@ -4,6 +4,7 @@ metadata:
   author: Onyxite
   difficulty:
     drums: 4
+    bass: 4
   file-include: ../../../albums/prism.yml
 audio:
   youtube:
@@ -25,3 +26,4 @@ plans:
       pad: [2.050, gain: [1.8, youtube]]
 instruments:
   drums: true
+  bass: true
