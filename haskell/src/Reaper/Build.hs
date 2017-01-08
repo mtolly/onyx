@@ -17,7 +17,8 @@ import           Data.Char                             (toLower)
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Functor.Identity                 (runIdentity)
-import           Data.List                             (elemIndex, sortOn)
+import           Data.List                             (elemIndex, isPrefixOf,
+                                                        sortOn)
 import           Data.Maybe                            (fromMaybe, listToMaybe)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
@@ -159,16 +160,74 @@ track lenTicks lenSecs resn trk = let
         encoded = 0x1000000 + 0x10000 * b + 0x100 * g + r
         in line "PEAKCOL" [show encoded]
     line "TRACKHEIGHT" ["0", "0"]
-    let isProKeys = elem name ["PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X"]
-        isVox = elem name ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
-        isGuitarPitch = case name of
-          'G':'T':'R':'_':'S':_             -> True
-          'G':'T':'R':'2':'2':'_':'S':_     -> True
-          'B':'A':'S':'S':'_':'S':_         -> True
-          'B':'A':'S':'S':'2':'2':'_':'S':_ -> True
-          _                                 -> False
-        isPitched = isProKeys || isVox || isGuitarPitch
-    when isPitched $ line "FX" [if isGuitarPitch then "1" else "0"]
+    let (fxActive, fxPresent, fx)
+          | "PART REAL_KEYS_" `isPrefixOf` name
+          = (False, True, mutePitches 0 47 >> mutePitches 73 127 >> pitchProKeys)
+          | elem name ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
+          = (False, True, mutePitches 0 35 >> mutePitches 85 127 >> pitchVox)
+          | any (`isPrefixOf` name) ["GTR S", "GTR22 S", "BASS S", "BASS22 S"]
+          = (True, True, pitchProGtr)
+          | elem name ["PART GUITAR", "PART BASS"]
+          = (True, True, previewGtr)
+          | name == "PART KEYS"
+          = (True, True, previewKeys)
+          | elem name ["PART DRUMS", "PART DRUMS_2X", "PART REAL_DRUMS_PS"]
+          = (True, True, previewDrums)
+          | otherwise
+          = (False, False, return ())
+        mutePitches pmin pmax = do
+          line "BYPASS" ["0", "0", "0"]
+          block "JS" ["IX/MIDI_Tool II", ""] $ do
+            line "0.000000" $ show (pmin :: Int) : show (pmax :: Int) : words "0.000000 0.000000 0.000000 100.000000 0.000000 0.000000 127.000000 0.000000 0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+          line "FLOATPOS" ["0", "0", "0", "0"]
+          line "WAK" ["0"]
+        pitchProKeys = do
+          line "BYPASS" ["0", "0", "0"]
+          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
+            line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
+            line "AACAPwAAgD8AABAAAAA=" [] -- pro keys: tuned up one octave
+          line "FLOATPOS" ["0", "0", "0", "0"]
+          line "WAK" ["0"]
+        pitchVox = do
+          line "BYPASS" ["0", "0", "0"]
+          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
+            line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
+            line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
+          line "FLOATPOS" ["0", "0", "0", "0"]
+          line "WAK" ["0"]
+        pitchProGtr = do
+          line "BYPASS" ["0", "0", "0"]
+          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
+            line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA=" []
+            line "776t3g3wrd6mm8Q7F7fROqjGCz8AAAAAAAAAAM5NAD/O4BA8AAAAAAAAAD+nViw+AACAPwAAAD8AAAAA" []
+            line "AAAQAAAA" [] -- pro guitar pitches: normal tuning, square + decay
+          line "FLOATPOS" ["0", "0", "0", "0"]
+          line "WAK" ["0"]
+        previewGtr = do
+          line "BYPASS" ["0", "0", "0"]
+          block "VST" ["VSTi: RBN Preview (RBN)", "rbprev_vst.dll", "0", "", "1919053942"] $ do
+            line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
+            line "AwCqAA==" []
+            line "AAAQAAAA" []
+          line "FLOATPOS" ["0", "0", "0", "0"]
+          line "WAK" ["0"]
+        previewKeys = do
+          line "BYPASS" ["0", "0", "0"]
+          block "VST" ["VSTi: RBN Preview (RBN)", "rbprev_vst.dll", "0", "", "1919053942"] $ do
+            line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
+            line "AwOqAA==" []
+            line "AAAQAAAA" []
+          line "FLOATPOS" ["0", "0", "0", "0"]
+          line "WAK" ["0"]
+        previewDrums = do
+          line "BYPASS" ["0", "0", "0"]
+          block "VST" ["VSTi: RBN Preview (RBN)", "rbprev_vst.dll", "0", "", "1919053942"] $ do
+            line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
+            line "AwGqAA==" []
+            line "AAAQAAAA" []
+          line "FLOATPOS" ["0", "0", "0", "0"]
+          line "WAK" ["0"]
+    line "FX" [if fxActive then "1" else "0"]
     case lookup name
       [ ("PART DRUMS", drumNoteNames)
       , ("PART DRUMS_2X", drumNoteNames)
@@ -194,46 +253,15 @@ track lenTicks lenSecs resn trk = let
       Nothing -> return ()
       Just names -> do
         block "MIDINOTENAMES" [] $ do
-          forM_ names $ \(pitch, noteName) -> line "-1" [show pitch, noteName]
-    -- note: even if not pitched, you still need empty FXCHAIN so note names work
-    block "FXCHAIN" [] $ when isPitched $ do
+          -- Reaper 5 (or some newer version) supports starting these lines with -1, meaning all channels.
+          -- Reaper 4.22 (C3 recommended) does not, so we have to stick with 0 (first channel).
+          forM_ names $ \(pitch, noteName) -> line "0" [show pitch, noteName]
+    -- note: even if no FX, you still need empty FXCHAIN so note names work
+    block "FXCHAIN" [] $ when fxPresent $ do
       line "SHOW" ["0"]
       line "LASTSEL" ["0"]
       line "DOCKED" ["0"]
-      let mutePitches pmin pmax = do
-            line "BYPASS" ["0", "0", "0"]
-            block "JS" ["IX/MIDI_Tool II", ""] $ do
-              line "0.000000" $ show (pmin :: Int) : show (pmax :: Int) : words "0.000000 0.000000 0.000000 100.000000 0.000000 0.000000 127.000000 0.000000 0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
-            line "FLOATPOS" ["0", "0", "0", "0"]
-            line "WAK" ["0"]
-      if isProKeys
-        then do
-          mutePitches 0 47
-          mutePitches 73 127
-          line "BYPASS" ["0", "0", "0"]
-          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
-            line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
-            line "AACAPwAAgD8AABAAAAA=" [] -- pro keys: tuned up one octave
-          line "FLOATPOS" ["0", "0", "0", "0"]
-          line "WAK" ["0"]
-        else if isVox
-          then do
-            mutePitches 0 35
-            mutePitches 85 127
-            line "BYPASS" ["0", "0", "0"]
-            block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
-              line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
-              line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
-            line "FLOATPOS" ["0", "0", "0", "0"]
-            line "WAK" ["0"]
-          else do
-            line "BYPASS" ["0", "0", "0"]
-            block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
-              line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA=" []
-              line "776t3g3wrd6mm8Q7F7fROqjGCz8AAAAAAAAAAM5NAD/O4BA8AAAAAAAAAD+nViw+AACAPwAAAD8AAAAA" []
-              line "AAAQAAAA" [] -- pro guitar pitches: normal tuning, square + decay
-            line "FLOATPOS" ["0", "0", "0", "0"]
-            line "WAK" ["0"]
+      fx
     block "ITEM" [] $ do
       line "POSITION" ["0"]
       line "LOOP" ["0"]
