@@ -4,6 +4,7 @@ metadata:
   track-number: 2
   difficulty:
     pro-keys: 7
+    drums: 6
   author: Onyxite
 audio:
   album-track:
@@ -24,3 +25,4 @@ plans:
       pad: [0.650, album-track]
 instruments:
   pro-keys: true
+  drums: true
