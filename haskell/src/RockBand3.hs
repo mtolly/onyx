@@ -163,7 +163,7 @@ processMIDI songYaml input kicks mixMode getAudioLength = do
           squier  = ProGtr.autoHandPosition $ mergeTracks [ t | RBFile.PartRealGuitar22 t <- trks ]
           in [ RBFile.PartRealGuitar   mustang | not $ RTB.null mustang ]
           ++ [ RBFile.PartRealGuitar22 squier  | not $ RTB.null squier  ]
-      proBassTracks = if not $ _hasProGuitar $ _instruments songYaml
+      proBassTracks = if not $ _hasProBass $ _instruments songYaml
         then []
         else map RBFile.copyExpert $ let
           mustang = ProGtr.autoHandPosition $ mergeTracks [ t | RBFile.PartRealBass   t <- trks ]

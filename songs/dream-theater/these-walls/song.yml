@@ -34,3 +34,5 @@ plans:
 instruments:
   drums: true
   pro-keys: true
+  bass: true
+  pro-bass: true
