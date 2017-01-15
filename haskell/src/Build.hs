@@ -769,6 +769,7 @@ shakeBuild audioDirs yamlPath buildables = do
             pathMagmaExport %> \out -> do
               need [pathMagmaMid, pathMagmaProj]
               putNormal "# Running Magma v2 to export MIDI"
+              -- TODO: bypass Magma if it fails due to over !MB midi
               liftIO (Magma.runMagmaMIDI pathMagmaProj out) >>= putNormal
             let getRealSections :: Action (RTB.T U.Beats T.Text)
                 getRealSections = do
@@ -1083,7 +1084,9 @@ shakeBuild audioDirs yamlPath buildables = do
                           , D.artist = D.artist rb3DTA
                           , D.albumName = D.albumName rb3DTA
                           , D.master = not $ _cover $ _metadata songYaml
-                          , D.version = fromMaybe 1 $ rb2_Version rb2
+                          , D.version = 0
+                          -- if version is not 0, you get a message
+                          -- "can't play this song until all players in your session purchase it!"
                           , D.song = (D.song magmaDTA)
                             { D.tracksCount = Nothing
                             , D.tracks = fixDict $ D.tracks $ D.song rb3DTA
