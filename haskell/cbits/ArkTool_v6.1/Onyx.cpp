@@ -26,7 +26,7 @@ bool ark_Save(ArkTool p) {
   return ((ArkHdrPair *)p)->Save();
 }
 void ark_Close(ArkTool p) {
-  return;
+  ((ArkHdrPair *)p)->Close();
 }
 bool ark_GetFile(ArkTool p, const char* destFilepath, const char* arkFilename, bool performDecrypts) {
   return ((ArkHdrPair *)p)->GetFile(destFilepath, arkFilename, performDecrypts);
