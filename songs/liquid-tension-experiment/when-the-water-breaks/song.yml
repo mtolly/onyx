@@ -7,6 +7,7 @@ metadata:
   difficulty:
     drums: 7
     guitar: 6
+    pro-keys: 7
   author: Onyxite
   # author: Onyxite, JackeShan
   comments:
@@ -30,6 +31,7 @@ plans:
     song: album-track
 instruments:
   drums: true
+  pro-keys: true
   # guitar: true
 options:
   auto-2x-bass: true
