@@ -10,9 +10,15 @@ Instruments:
   * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
   * Bass ⚪️⚪️⚫️⚫️⚫️
   * Guitar ⚪️⚪️⚪️⚫️⚫️
-  * Pro Keys 😈😈😈😈😈
+  * Keys ⚪️⚪️⚪️⚪️⚪️
+  * Pro Keys ⚪️⚪️⚪️⚪️⚪️
+  * Vocals (1) ⚫️⚫️⚫️⚫️⚫️
 
 Supported audio:
 
   * `album` (Pimp of the Year)
+
+Notes:
+
+  * All instruments have overdrive/unison.
 

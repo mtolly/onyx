@@ -3,11 +3,15 @@ metadata:
   file-include: ../../../albums/pimp-of-the-year.yml
   track-number: 2
   difficulty:
-    pro-keys: 7
+    pro-keys: 6
+    keys: 6
     drums: 6
     bass: 3
     guitar: 4
+    vocal: 1
   author: Onyxite
+  comments:
+  - All instruments have overdrive/unison.
 audio:
   album-track:
     md5: e96fc8412693ac582bcd3aa21fcfbd4e
@@ -27,6 +31,8 @@ plans:
       pad: [0.650, album-track]
 instruments:
   pro-keys: true
+  keys: true
   drums: true
   bass: true
   guitar: true
+  vocal: 1
