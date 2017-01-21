@@ -90,5 +90,3 @@ instruments:
   bass: true
   keys: true
   pro-keys: true
-options:
-  auto-2x-bass: true
