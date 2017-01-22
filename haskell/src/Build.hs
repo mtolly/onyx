@@ -7,6 +7,7 @@ module Build (shakeBuild, targetTitle) where
 
 import           Audio
 import qualified C3
+import qualified Codec.Archive.Zip                     as Zip
 import           Codec.Picture
 import           Config                                hiding (Difficulty)
 import           Control.Monad.Extra
@@ -15,7 +16,8 @@ import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Lazy                  as BL
-import           Data.Char                             (isSpace)
+import           Data.Char                             (isAscii, isControl,
+                                                        isSpace)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.Sndfile
 import qualified Data.DTA                              as D
@@ -106,7 +108,21 @@ targetTitle songYaml target = case target of
     _ -> if rb2_2xBassPedal rb2
       then getTitle (_metadata songYaml) <> " (2x Bass Pedal)"
       else getTitle (_metadata songYaml)
-  _ -> undefined
+  PS ps -> case ps_Label ps of
+    Just lbl | not (T.all isSpace lbl) -> getTitle (_metadata songYaml) <> " " <> lbl
+    _                                  -> getTitle (_metadata songYaml)
+
+toValidFileName :: T.Text -> T.Text
+toValidFileName t = let
+  eachChar c = if isAscii c && not (isControl c) && c /= '/' && c /= '\\'
+    then c
+    else '_'
+  -- TODO better char filter
+  in case T.map eachChar t of
+    ""   -> "nothing"
+    "."  -> "dot"
+    ".." -> "dots"
+    t'   -> t'
 
 hashRB3 :: SongYaml -> TargetRB3 -> Int
 hashRB3 songYaml rb3 = let
@@ -1241,7 +1257,7 @@ shakeBuild audioDirs yamlPath buildables = do
                   len = songLengthMS song
               liftIO $ FoF.saveSong out FoF.Song
                 { FoF.artist           = _artist $ _metadata songYaml
-                , FoF.name             = _title $ _metadata songYaml
+                , FoF.name             = Just $ targetTitle songYaml target
                 , FoF.album            = _album $ _metadata songYaml
                 , FoF.charter          = _author $ _metadata songYaml
                 , FoF.year             = _year $ _metadata songYaml
@@ -1288,16 +1304,42 @@ shakeBuild audioDirs yamlPath buildables = do
             dir </> "ps/album.png"   %> copyFile' "gen/cover.png"
             phony (dir </> "ps") $ need $ map (\f -> dir </> "ps" </> f) $ concat
               [ ["song.ini", "notes.mid", "song.ogg", "album.png"]
-              , ["drums.ogg"   | _hasDrums     (_instruments songYaml) && mixMode pv == RBDrums.D0]
-              , ["drums_1.ogg" | _hasDrums     (_instruments songYaml) && mixMode pv /= RBDrums.D0]
-              , ["drums_2.ogg" | _hasDrums     (_instruments songYaml) && mixMode pv /= RBDrums.D0]
-              , ["drums_3.ogg" | _hasDrums     (_instruments songYaml) && mixMode pv /= RBDrums.D0]
-              , ["guitar.ogg"  | hasAnyGuitar $ _instruments songYaml]
-              , ["keys.ogg"    | hasAnyKeys   $ _instruments songYaml]
-              , ["rhythm.ogg"  | hasAnyBass   $ _instruments songYaml]
-              , ["vocals.ogg"  | hasAnyVocal  $ _instruments songYaml]
-              , ["crowd.ogg"   | case plan of Plan{..} -> isJust _crowd; _ -> False]
+              , ["drums.ogg"   | _hasDrums    (_instruments songYaml) && mixMode pv == RBDrums.D0 && case plan of
+                  Plan{..} -> isJust _drums
+                  _        -> True
+                ]
+              , ["drums_1.ogg" | _hasDrums    (_instruments songYaml) && mixMode pv /= RBDrums.D0]
+              , ["drums_2.ogg" | _hasDrums    (_instruments songYaml) && mixMode pv /= RBDrums.D0]
+              , ["drums_3.ogg" | _hasDrums    (_instruments songYaml) && mixMode pv /= RBDrums.D0]
+              , ["guitar.ogg"  | hasAnyGuitar (_instruments songYaml) && case plan of
+                  Plan{..} -> isJust _guitar
+                  _        -> True
+                ]
+              , ["keys.ogg"    | hasAnyKeys   (_instruments songYaml) && case plan of
+                  Plan{..} -> isJust _keys
+                  _        -> True
+                ]
+              , ["rhythm.ogg"  | hasAnyBass   (_instruments songYaml) && case plan of
+                  Plan{..} -> isJust _bass
+                  _        -> True
+                ]
+              , ["vocals.ogg"  | hasAnyVocal  (_instruments songYaml) && case plan of
+                  Plan{..} -> isJust _vocal
+                  _        -> True
+                ]
+              , ["crowd.ogg"   | case plan of
+                  Plan{..}     -> isJust _crowd
+                  MoggPlan{..} -> not $ null _moggCrowd
+                  _            -> False
+                ]
               ]
+            dir </> "ps.zip" %> \out -> do
+              let d = dir </> "ps"
+              need [d]
+              files <- map (d </>) <$> getDirectoryContents d
+              let folderInZip = T.unpack $ toValidFileName $ targetTitle songYaml target <> " (" <> getArtist (_metadata songYaml) <> ")"
+              z <- liftIO $ Zip.addFilesToArchive [Zip.OptLocation folderInZip False] Zip.emptyArchive files
+              liftIO $ BL.writeFile out $ Zip.fromArchive z
 
       forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
 

@@ -12,6 +12,7 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200010 Spark (Hiromi: The Trio Project) 2x
   Onyxite's Jazz Pack 1
   v1 (of all) published 2016-09-21
+  v2 Scoop Out published 2017-01-21: added missing double snares; fixed wrong pro keys note
 
 1660200011 The Tempest (The Agonist) 1x
 1660200012 The Tempest (The Agonist) 2x
@@ -31,9 +32,19 @@ onyxite's C3-format Song IDs (16602xxxxx)
   Taiko + LTE pack
   v1 (of all) published 2016-12-02
 
-1660200023 Blind Faith 1x
-1660200024 Blind Faith 2x
+1660200023 Blind Faith (Dream Theater) 1x
+1660200024 Blind Faith (Dream Theater) 2x
   v1 published 2016-12-29 (database entry by mazegeek999)
+
+1660200025 Paradigm Shift (Liquid Tension Experiment) 1x
+1660200026 Paradigm Shift (Liquid Tension Experiment) 2x
+  v1-2 published without numeric song ID
+  v3 published 2017-01-21: fixed 1x kicks and other small drum things
+
+1660200027 914 (Liquid Tension Experiment) 1x
+1660200028 914 (Liquid Tension Experiment) 2x
+  v1-4 published without numeric song ID
+  v5 published 2017-01-21: fixed 1x kicks and other small drum things
 
 ONE-OFFS
 1660299999 hacked c3 6:00 drum chart

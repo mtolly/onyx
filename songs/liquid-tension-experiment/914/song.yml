@@ -20,6 +20,7 @@ metadata:
     band: 5
   rating: Family Friendly
   author: Onyxite
+  key: E
 audio:
   album-track:
     md5: 409af3c3a13f04aa6d2d05606c1f44c8
@@ -46,5 +47,21 @@ instruments:
   bass: true
   keys: true
   pro-keys: true
-options:
-  auto-2x-bass: true
+targets:
+  # 1x:
+  # 2x:
+  # ps:
+  rb3:
+    game: rb3
+    song-id: 1660200027
+    version: 5
+    # url: http://www.mediafire.com/file/z5a19wz954gn3di/914_1x_v5_rb3con
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 1660200028
+    version: 5
+    # url: http://www.mediafire.com/file/ykaefbf5b0i0v74/914_2x_v5_rb3con
+  ps:
+    game: ps
+    # url: http://www.mediafire.com/file/jzunni7j4joe1mm/914_v5_ps.zip
