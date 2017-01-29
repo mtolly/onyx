@@ -12,6 +12,7 @@ Instruments:
   * Guitar
   * Pro Bass
   * Pro Keys
+  * Vocals (3)
 
 Supported audio:
 
