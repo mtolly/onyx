@@ -6,13 +6,10 @@ metadata:
   rating: Family Friendly
   difficulty:
     drums: 7
-    guitar: 6
     pro-keys: 7
   author: Onyxite
-  # author: Onyxite, JackeShan
   comments:
   - "Chart confidence: *medium-high*."
-  # - "Guitar by [JackeShan](http://www.fretsonfire.net/forums/viewtopic.php?f=5&t=51334&p=579173#p579173), not quantized yet."
 audio:
   album-track:
     md5: 46262fa66f94bda9b20a5f86944d1b10
@@ -32,6 +29,3 @@ plans:
 instruments:
   drums: true
   pro-keys: true
-  # guitar: true
-options:
-  auto-2x-bass: true
