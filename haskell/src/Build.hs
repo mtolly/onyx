@@ -307,14 +307,7 @@ phony :: FilePath -> Action () -> Rules ()
 phony fp act = Shake.phony fp act >> Shake.phony (fp ++ "/") act
 
 allFiles :: FilePath -> Action [FilePath]
-allFiles absolute = do
-  entries <- getDirectoryContents absolute
-  flip concatMapM entries $ \entry -> do
-    let full = absolute </> entry
-    isDir <- doesDirectoryExist full
-    if  | entry `elem` [".", ".."] -> return []
-        | isDir                    -> allFiles full
-        | otherwise                -> return [full]
+allFiles dir = map (dir </>) <$> getDirectoryFiles dir ["//*"]
 
 printOverdrive :: FilePath -> Action ()
 printOverdrive mid = do
@@ -574,6 +567,13 @@ shakeBuild audioDirs yamlPath buildables = do
   yamlTime <- Dir.getModificationTime yamlPath
   let version = show exeTime ++ "," ++ show yamlTime
 
+  audioDirs' <- flip concatMapM audioDirs $ \dir ->
+    Dir.doesDirectoryExist dir >>= \ex -> if ex
+      then return [dir]
+      else do
+        putStrLn $ "Warning - audio directory does not exist: " ++ dir
+        return []
+
   Dir.withCurrentDirectory (takeDirectory yamlPath) $ do
 
     shake shakeOptions{ shakeThreads = 0, shakeFiles = "gen", shakeVersion = version } $ do
@@ -581,8 +581,8 @@ shakeBuild audioDirs yamlPath buildables = do
       allFilesInAudioDirs <- newCache $ \() -> do
         genAbsolute <- liftIO $ Dir.canonicalizePath "gen/"
         filter (\f -> not $ genAbsolute `isPrefixOf` f)
-          <$> concatMapM allFiles audioDirs
-      allJammitInAudioDirs <- newCache $ \() -> liftIO $ concatMapM J.loadLibrary audioDirs
+          <$> concatMapM allFiles audioDirs'
+      allJammitInAudioDirs <- newCache $ \() -> liftIO $ concatMapM J.loadLibrary audioDirs'
 
       _            <- addOracle $ \(AudioSearch  s) -> allFilesInAudioDirs () >>= audioSearch (read s)
       jammitOracle <- addOracle $ \(JammitSearch s) -> fmap show $ allJammitInAudioDirs () >>= jammitSearch songYaml (read s)
