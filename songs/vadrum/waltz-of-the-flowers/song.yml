@@ -1,0 +1,33 @@
+metadata:
+  title: Waltz of the Flowers
+  track-number: 9
+  author: Onyxite
+  album: Classical Drumming
+  artist: Andrea Vadrucci (Vadrum)
+  difficulty:
+    drums: 5
+  file-album-art: cover.jpg
+  genre: classical
+  subgenre: classical
+  year: 2011
+audio:
+  album-track:
+    md5: ab6c5dbee59dacfa5184e1f5af5fe688
+    frames: 13150032
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|1.5: hihat
+      1|0: hihat
+      1|0.5: hihat
+      1|1: hihat
+      1|1.5: hihat
+    song:
+      pad: [3.649, album-track]
+instruments:
+  drums: true
+options:
+  auto-2x-bass: true
