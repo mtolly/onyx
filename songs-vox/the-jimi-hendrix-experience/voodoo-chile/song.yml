@@ -14,9 +14,11 @@ plans:
     mogg-md5: d6b61ca276451be5e8ff15da8eda0a0d
     guitar:
     - 2
+    bass:
     - 3
     keys:
     - 4
+    vocal:
     - 5
     drums:
     - 0
@@ -41,17 +43,13 @@ metadata:
   album: Electric Ladyland
   year: 1968
   subgenre: classicrock
-  author: mazegeek999, Onyxite (vocals)
+  author: mazegeek999, Onyxite
   title: Voodoo Chile
   preview-end: 127.853
   genre: classicrock
   difficulty:
     pro-keys:
       rank: 443
-    vocal:
-      rank: 0
-    bass:
-      rank: 0
     guitar:
       rank: 409
     keys:
@@ -61,11 +59,10 @@ metadata:
     band:
       rank: 345
   artist: The Jimi Hendrix Experience
-jammit: {}
-audio: {}
 instruments:
-  pro-keys: true
-  guitar: true
-  keys: true
-  drums: true
-  vocal: 1
+  pro-keys: true # mazegeek999
+  guitar: true # mazegeek999
+  keys: true # mazegeek999
+  drums: true # mazegeek999
+  vocal: 1 # onyxite
+  bass: true # onyxite
