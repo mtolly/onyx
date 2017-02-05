@@ -8,13 +8,10 @@
 Instruments:
 
   * (Pro) Drums 😈😈😈😈😈
+  * Guitar 😈😈😈😈😈
   * Pro Keys 😈😈😈😈😈
 
 Supported audio:
 
   * `album` (Liquid Tension Experiment 2)
-
-Notes:
-
-  * Chart confidence: *medium-high*.
 

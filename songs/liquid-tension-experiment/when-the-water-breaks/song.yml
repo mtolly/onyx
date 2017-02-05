@@ -7,9 +7,8 @@ metadata:
   difficulty:
     drums: 7
     pro-keys: 7
+    guitar: 7
   author: Onyxite
-  comments:
-  - "Chart confidence: *medium-high*."
 audio:
   album-track:
     md5: 46262fa66f94bda9b20a5f86944d1b10
@@ -29,3 +28,4 @@ plans:
 instruments:
   drums: true
   pro-keys: true
+  guitar: true
