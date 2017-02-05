@@ -66,11 +66,15 @@ instance Bounded Pitch where
 
 -- | Stretches out each range shift event until the next one.
 -- Thanks to mazegeek999 for showing me that this is allowed!
-unparseNice :: RTB.T U.Beats Event -> RTB.T U.Beats E.T
-unparseNice trk = let
+unparseNice :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats E.T
+unparseNice defLength trk = let
   (ranges, notRanges) = flip RTB.partitionMaybe trk $ \case
     LaneShift r -> Just r
     _           -> Nothing
+  (notes, notNotes) = flip RTB.partitionMaybe notRanges $ \case
+    Note ln -> Just ln
+    _       -> Nothing
+  notRanges' = RTB.merge (Note <$> showEdgesNice' defLength notes) notNotes
   rangeEvents = go Nothing ranges
   lastTime rtb = case reverse $ ATB.toPairList $ RTB.toAbsoluteEventList 0 rtb of
     []         -> 0
@@ -93,7 +97,7 @@ unparseNice trk = let
     RangeF -> 5
     RangeG -> 7
     RangeA -> 9
-  notRangeEvents = unparseAll unparseOne notRanges
+  notRangeEvents = unparseAll unparseOne notRanges'
   in RTB.merge rangeEvents notRangeEvents
 
 instanceMIDIEvent [t| Event |] $

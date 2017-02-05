@@ -250,6 +250,23 @@ keysToGuitar threshold evts = let
     , notEasy
     ]
 
+showBlipsNice :: (NNC.C t) => t -> RTB.T t Event -> RTB.T t Event
+showBlipsNice defLength evts = let
+  getDiffNotes diff = \case
+    DiffEvent d (Note ln) | d == diff -> Just ln
+    _                                 -> Nothing
+  (expert, notExpert) = RTB.partitionMaybe (getDiffNotes Expert) evts
+  (hard  , notHard  ) = RTB.partitionMaybe (getDiffNotes Hard  ) notExpert
+  (medium, notMedium) = RTB.partitionMaybe (getDiffNotes Medium) notHard
+  (easy  , notEasy  ) = RTB.partitionMaybe (getDiffNotes Easy  ) notMedium
+  in foldr RTB.merge RTB.empty
+    [ DiffEvent Expert . Note <$> showEdgesNice' defLength expert
+    , DiffEvent Hard   . Note <$> showEdgesNice' defLength hard
+    , DiffEvent Medium . Note <$> showEdgesNice' defLength medium
+    , DiffEvent Easy   . Note <$> showEdgesNice' defLength easy
+    , notEasy
+    ]
+
 -- | Takes a track of individual notes, possibly with overlaps,
 -- and returns a guitar-controller-playable sequence where chords are
 -- grouped together and overlaps are removed.

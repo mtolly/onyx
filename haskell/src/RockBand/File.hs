@@ -93,17 +93,17 @@ showTrack :: Track U.Beats -> RTB.T U.Beats E.T
 showTrack = fixEventOrder . \case
   PartDrums             t -> U.setTrackName "PART DRUMS"          $ Drums.unparseNice (1/8) t
   PartDrums2x           t -> U.setTrackName "PART DRUMS_2X"       $ Drums.unparseNice (1/8) t
-  PartGuitar            t -> U.setTrackName "PART GUITAR"         $ unparseAll unparseOne t
-  PartBass              t -> U.setTrackName "PART BASS"           $ unparseAll unparseOne t
-  PartKeys              t -> U.setTrackName "PART KEYS"           $ unparseAll unparseOne t
+  PartGuitar            t -> U.setTrackName "PART GUITAR"         $ unparseAll unparseOne $ FiveButton.showBlipsNice (1/8) t
+  PartBass              t -> U.setTrackName "PART BASS"           $ unparseAll unparseOne $ FiveButton.showBlipsNice (1/8) t
+  PartKeys              t -> U.setTrackName "PART KEYS"           $ unparseAll unparseOne $ FiveButton.showBlipsNice (1/8) t
   PartRealGuitar        t -> U.setTrackName "PART REAL_GUITAR"    $ unparseAll unparseOne t
   PartRealGuitar22      t -> U.setTrackName "PART REAL_GUITAR_22" $ unparseAll unparseOne t
   PartRealBass          t -> U.setTrackName "PART REAL_BASS"      $ unparseAll unparseOne t
   PartRealBass22        t -> U.setTrackName "PART REAL_BASS_22"   $ unparseAll unparseOne t
-  PartRealKeys   Easy   t -> U.setTrackName "PART REAL_KEYS_E"    $ ProKeys.unparseNice   t
-  PartRealKeys   Medium t -> U.setTrackName "PART REAL_KEYS_M"    $ ProKeys.unparseNice   t
-  PartRealKeys   Hard   t -> U.setTrackName "PART REAL_KEYS_H"    $ ProKeys.unparseNice   t
-  PartRealKeys   Expert t -> U.setTrackName "PART REAL_KEYS_X"    $ ProKeys.unparseNice   t
+  PartRealKeys   Easy   t -> U.setTrackName "PART REAL_KEYS_E"    $ ProKeys.unparseNice (1/8) t
+  PartRealKeys   Medium t -> U.setTrackName "PART REAL_KEYS_M"    $ ProKeys.unparseNice (1/8) t
+  PartRealKeys   Hard   t -> U.setTrackName "PART REAL_KEYS_H"    $ ProKeys.unparseNice (1/8) t
+  PartRealKeys   Expert t -> U.setTrackName "PART REAL_KEYS_X"    $ ProKeys.unparseNice (1/8) t
   PartRealKeysPS Easy   t -> U.setTrackName "PART REAL_KEYS_PS_E" $ unparseAll unparseOne t
   PartRealKeysPS Medium t -> U.setTrackName "PART REAL_KEYS_PS_M" $ unparseAll unparseOne t
   PartRealKeysPS Hard   t -> U.setTrackName "PART REAL_KEYS_PS_H" $ unparseAll unparseOne t

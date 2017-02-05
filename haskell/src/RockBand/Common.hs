@@ -157,6 +157,29 @@ instance Bifunctor LongNote where
     NoteOn s x -> NoteOn (f s) x
   second = fmap
 
+showEdgesNice :: (NNC.C t, Ord s, Ord a) => t -> RTB.T t (LongNote s a) -> RTB.T t (Maybe s, a)
+showEdgesNice defLength = U.trackJoin . go . RTB.collectCoincident where
+  go rtb = case RTB.viewL rtb of
+    Nothing -> RTB.empty
+    Just ((dt, xs), rtb') -> let
+      blipLength = case RTB.viewL ons of
+        Just ((dt', _), _) -> min defLength dt'
+        Nothing            -> defLength
+      ons = RTB.filter (\case NoteOff{} -> False; _ -> True) $ RTB.flatten rtb'
+      f = \case
+        NoteOff  a -> RTB.singleton NNC.zero (Nothing, a)
+        NoteOn s a -> RTB.singleton NNC.zero ( Just s, a)
+        Blip   s a -> RTB.fromPairList
+          [ (NNC.zero  , ( Just s, a))
+          , (blipLength, (Nothing, a))
+          ]
+      in RTB.cons dt (foldr RTB.merge RTB.empty $ map f xs) $ go rtb'
+
+showEdgesNice' :: (NNC.C t, Ord s, Ord a) => t -> RTB.T t (LongNote s a) -> RTB.T t (LongNote s a)
+showEdgesNice' defLength trk = flip fmap (showEdgesNice defLength trk) $ \case
+  (Nothing, a) -> NoteOff  a
+  ( Just s, a) -> NoteOn s a
+
 joinEdges :: (NNC.C t, Eq a) => RTB.T t (LongNote s a) -> RTB.T t (s, a, Maybe t)
 joinEdges rtb = case RTB.viewL rtb of
   Nothing -> RTB.empty
