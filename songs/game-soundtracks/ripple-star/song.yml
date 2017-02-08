@@ -8,65 +8,45 @@ metadata:
   subgenre: other
   year: 2000
   author: Onyxite
+  difficulty:
+    drums: 7
+    pro-keys: 7
+    keys: 7
+    bass: 7
+  comments:
+  - "All instruments have overdrive/unison."
 audio:
   stem-bass:
-    file-path: audio-bass.wav
+    file-path: stems_stems_BASS.wav
   stem-kick:
-    file-path: audio-kick.wav
+    file-path: stems_stems_KICK.wav
   stem-snare:
-    # includes the "soft snare", "hard snare" during the solo, and then 2 high toms at end of solo
-    file-path: audio-snare.wav
+    file-path: stems_stems_SNARE.wav
   stem-kit:
-    file-path: audio-kit.wav
-  stem-simplebacking:
-    # the instruments which are not played anywhere
-    file-path: audio-simplebacking.wav
-  stem-simplekeys:
-    # the instruments which are played on keys every time
-    file-path: audio-simplekeys.wav
-  stem-strings:
-    # strings are played on keys in the first half but in backing for second
-    file-path: audio-strings.wav
-  stem-stringskeys:
-    expr:
-      concatenate:
-      - take:
-        - '1:23.385' # 1:26.665 - 3.280
-        - stem-strings
-      - pad:
-        - '13.333' # 1:39.998 - 1:26.665
-        - drop:
-          - '1:36.718' # 1:39.998 - 3.280
-          - stem-strings
-  stem-stringsbacking:
-    expr:
-      pad:
-      - '1:23.385' # 1:26.665 - 3.280
-      - take:
-        - '13.333' # 1:39.998 - 1:26.665
-        - drop:
-          - '1:23.385' # 1:26.665 - 3.280
-          - stem-strings
+    file-path: stems_stems_KIT.wav
+  stem-keys:
+    file-path: stems_stems_KEYS.wav
+  stem-backing:
+    file-path: stems_stems_BACKING.wav
+  snare-hit:
+    file-path: snare-hit.wav
 plans:
   stems:
-    bass:
-      pad: [3.280, stem-bass]
-    kick:
-      pad: [3.280, stem-kick]
-    snare:
-      pad: [3.280, stem-snare]
-    drums:
-      pad: [3.280, stem-kit]
-    keys:
-      pad:
-      - 3.280
-      - mix: [stem-simplekeys, stem-stringskeys]
-    song:
-      pad:
-      - 3.280
-      - mix: [stem-simplebacking, stem-stringsbacking]
+    countin:
+      0|0: snare-hit
+      0|2: snare-hit
+      1|0: snare-hit
+      1|1: snare-hit
+      1|2: snare-hit
+      1|3: snare-hit
+    bass: stem-bass
+    kick: stem-kick
+    snare: stem-snare
+    drums: stem-kit
+    keys: stem-keys
+    song: stem-backing
 instruments:
   drums: true
   bass: true
+  keys: true
   pro-keys: true
-published: false
