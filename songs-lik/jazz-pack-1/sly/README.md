@@ -9,6 +9,7 @@ Author: TheLieInKing, Mazegeek999, Onyxite
 Instruments:
 
   * (Pro) Drums 😈😈😈😈😈
+  * Bass ⚪️⚪️⚪️⚪️⚫️
   * Pro Keys 😈😈😈😈😈
 
 Supported audio:

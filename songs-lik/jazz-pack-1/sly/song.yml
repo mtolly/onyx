@@ -12,6 +12,7 @@ metadata:
   difficulty:
     drums: 7
     pro-keys: 7
+    bass: 5
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -24,6 +25,7 @@ audio:
 instruments:
   drums: true
   pro-keys: true
+  bass: true
 plans:
   album:
     countin:
