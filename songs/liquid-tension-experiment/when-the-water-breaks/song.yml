@@ -8,6 +8,7 @@ metadata:
     drums: 7
     pro-keys: 7
     guitar: 7
+    bass: 5
   author: Onyxite
 audio:
   album-track:
@@ -29,3 +30,4 @@ instruments:
   drums: true
   pro-keys: true
   guitar: true
+  bass: true
