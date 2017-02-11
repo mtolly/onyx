@@ -70,9 +70,9 @@ Net::SFTP.start(url, username, password: password) do |sftp|
 
     Dir.chdir(songdir) do
       if only_midi
-        system_('onyx', '.', 'file', 'gen/plan/album/web/song.js')
+        system_('onyx', 'shake', '.', 'gen/plan/album/web/song.js')
       else
-        system_('onyx', '.', 'file', 'gen/plan/album/web')
+        system_('onyx', 'shake', '.', 'gen/plan/album/web')
       end
     end
     remote_songdir = songdir.match(/\Asongs[^\/]*\/([^\/]+)\/([^\/]+)\/?\Z/) do |md|

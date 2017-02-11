@@ -29,7 +29,7 @@ rb3pkg title desc dir fout = withSystemTempDirectory "rb3pkg" $ \tmp -> do
         , "-f", dir
         , fout
         ]
-  readCreateProcessWithExitCode createProc "" >>= presentExitCode "rb3pkgIO"
+  readCreateProcessWithExitCode createProc "" >>= presentExitCode "rb3pkg"
 
 rb2pkg :: T.Text -> T.Text -> FilePath -> FilePath -> IO String
 rb2pkg title desc dir fout = withSystemTempDirectory "rb2pkg" $ \tmp -> do

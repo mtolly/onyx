@@ -7,8 +7,6 @@ import           Control.Concurrent             (forkIO, threadDelay)
 import           Control.Exception              (bracket, bracket_)
 import           Control.Monad.Extra
 import           Control.Monad.Trans.StackTrace
-import qualified Data.Text                      as T
-import qualified Data.Text.IO                   as T
 import           Foreign.C                      (peekCString)
 import           SDL                            (($=))
 import qualified SDL
@@ -21,11 +19,7 @@ main = do
   argv <- getArgs
   case argv of
     [] -> launchGUI
-    _  -> do
-      action <- printStackTraceIO $ lookupArgs (map T.pack argv) commandLine
-      printStackTraceIO action >>= \case
-        "" -> return ()
-        s  -> T.putStrLn s
+    _  -> printStackTraceIO $ commandLine argv
 
 launchGUI :: IO ()
 launchGUI = bracket_ SDL.initializeAll SDL.quit $ do
