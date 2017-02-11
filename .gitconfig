@@ -4,6 +4,6 @@
 [core]
   attributesfile = .gitattributes
 [diff "midi"]
-  textconv = onyx git-midi-text
+  textconv = onyx midi-text-git --match-notes --in-measures
   cachetextconv = true
   xfuncname = "^\\S[^\\n]*\\{$"

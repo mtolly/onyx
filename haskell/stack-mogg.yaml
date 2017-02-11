@@ -17,7 +17,7 @@ extra-deps:
 - midi-util-0.2
 - non-negative-0.1.1
 - monoid-transformer-0.0.3
-resolver: lts-7.10
+resolver: lts-7.19
 flags:
   onyxite-customs-tool:
     MoggDecrypt: true
