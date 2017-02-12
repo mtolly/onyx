@@ -36,7 +36,7 @@ import qualified Data.Text.IO                   as T
 import           Data.Word                      (Word32)
 import qualified Data.Yaml                      as Y
 import           Import                         (importFoF, importRBA,
-                                                 importSTFS)
+                                                 importSTFS, simpleRBAtoCON)
 import           JSONData                       (TraceJSON (traceJSON))
 import           Magma                          (oggToMogg, runMagma,
                                                  runMagmaV1)
@@ -397,7 +397,6 @@ commands =
               liftIO $ makeReaperIO mid mid audio rpp
             (_    , notAudio) -> fatal $ "onyx reap given non-MIDI, non-audio files: " <> show notAudio
           (mids, _) -> fatal $ "onyx reap expected 1 MIDI file, given " <> show (length mids)
-
     }
 
   , Command
@@ -447,7 +446,7 @@ commands =
     , commandUsage = ""
     , commandRun = \files _opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
       FileSongYaml -> liftIO $ shakeBuild [] fpath ["update-readme"]
-      _ -> unrecognized ftype fpath
+      _            -> unrecognized ftype fpath
     }
 
   , Command
@@ -482,23 +481,28 @@ commands =
       ]
     , commandRun = \files opts -> tempDir "onyx_convert" $ \tmp -> do
       (ftype, fpath) <- optionalFile files
-      case ftype of
-        FileSTFS -> liftIO $ importSTFS (getKeysRB2 opts) fpath tmp
-        FileRBA -> liftIO $ importRBA (getKeysRB2 opts) fpath tmp
-        FilePS -> liftIO $ importFoF (getKeysRB2 opts) (takeDirectory fpath) tmp
-        FileZip -> undefined
-        _ -> unrecognized ftype fpath
       let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
           conSuffix = case game of GameRB3 -> "rb3con"; GameRB2 -> "rb2con"
-      targetName <- firstPresentTarget (tmp </> "song.yml") $ case game of
-        GameRB3 -> ["rb3-2x", "rb3"]
-        GameRB2 -> ["rb2-2x", "rb2"]
-      let con = "gen/target" </> T.unpack targetName </> conSuffix
-      out <- outputFile opts $ do
-        fpathAbs <- liftIO $ Dir.makeAbsolute fpath
-        return $ dropTrailingPathSeparator fpathAbs <> "_" <> conSuffix
-      liftIO $ shakeBuild [tmp] (tmp </> "song.yml") [con]
-      liftIO $ Dir.copyFile (tmp </> con) out
+      if game == GameRB3 && ftype == FileRBA
+        then do
+          out <- outputFile opts $ return $ fpath ++ "_rb3con"
+          liftIO $ simpleRBAtoCON fpath out
+        else do
+          case ftype of
+            FileSTFS -> liftIO $ importSTFS (getKeysRB2 opts) fpath tmp
+            FileRBA -> liftIO $ importRBA (getKeysRB2 opts) fpath tmp
+            FilePS -> liftIO $ importFoF (getKeysRB2 opts) (takeDirectory fpath) tmp
+            FileZip -> undefined
+            _ -> unrecognized ftype fpath
+          targetName <- firstPresentTarget (tmp </> "song.yml") $ case game of
+            GameRB3 -> ["rb3-2x", "rb3"]
+            GameRB2 -> ["rb2-2x", "rb2"]
+          let con = "gen/target" </> T.unpack targetName </> conSuffix
+          out <- outputFile opts $ do
+            fpathAbs <- liftIO $ Dir.makeAbsolute fpath
+            return $ dropTrailingPathSeparator fpathAbs <> "_" <> conSuffix
+          liftIO $ shakeBuild [tmp] (tmp </> "song.yml") [con]
+          liftIO $ Dir.copyFile (tmp </> con) out
     }
 
   , Command
@@ -509,12 +513,12 @@ commands =
       withMIDI mid = liftIO (Load.fromFile mid) >>= RBFile.readMIDIFile >>= liftIO . putStrLn . closeShiftsFile
       in case ftype of
         FileSongYaml -> undefined
-        FileRBProj -> undefined
-        FileSTFS -> undefined
-        FileRBA -> undefined
-        FilePS -> undefined
-        FileMidi -> withMIDI fpath
-        _ -> unrecognized ftype fpath
+        FileRBProj   -> undefined
+        FileSTFS     -> undefined
+        FileRBA      -> undefined
+        FilePS       -> undefined
+        FileMidi     -> withMIDI fpath
+        _            -> unrecognized ftype fpath
     }
 
   , Command

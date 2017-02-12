@@ -3,8 +3,10 @@
 module Import where
 
 import           Audio
+import           Codec.Picture                    (convertRGB8, readImage)
 import           Config                           hiding (Difficulty)
 import           Control.Applicative              ((<|>))
+import           Control.Exception                (evaluate)
 import           Control.Monad                    (guard, when)
 import           Control.Monad.Extra              (mapMaybeM, replicateM)
 import           Control.Monad.Trans.StackTrace   (printStackTraceIO)
@@ -24,13 +26,17 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (nub)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, mapMaybe)
+import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
+import qualified Data.Text.IO                     as TIO
 import qualified Data.Yaml                        as Y
 import qualified FretsOnFire                      as FoF
+import           Image                            (toPNG_XBOX)
 import           JSONData                         (JSONEither (..))
 import           PrettyDTA                        (C3DTAComments (..),
                                                    DTASingle (..),
-                                                   readDTASingle, readRB3DTA)
+                                                   readDTASingle, readRB3DTA,
+                                                   writeDTASingle)
 import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.File                    as RBFile
 import           Scripts                          (loadMIDI_IO)
@@ -46,6 +52,7 @@ import           System.IO                        (IOMode (..), SeekMode (..),
                                                    hPutStrLn, hSeek, stderr,
                                                    withBinaryFile)
 import           System.IO.Temp                   (withSystemTempDirectory)
+import           X360                             (rb3pkg)
 
 -- | Convert a CON or RBA file (or FoF directory) to Onyx format.
 importAny :: KeysRB2 -> FilePath -> FilePath -> IO ()
@@ -359,6 +366,62 @@ getRBAFile i rba out = withBinaryFile rba ReadMode $ \h -> do
   sizes <- read7words
   hSeek h AbsoluteSeek $ fromIntegral $ offsets !! i
   BL.hGet h (fromIntegral $ sizes !! i) >>= BL.writeFile out
+
+-- | Converts a Magma v2 RBA to CON without going through an import + recompile.
+simpleRBAtoCON :: FilePath -> FilePath -> IO ()
+simpleRBAtoCON rba con = withSystemTempDirectory "onyx_rba2con" $ \temp -> do
+  md5 <- BL.readFile rba >>= evaluate . MD5.md5
+  let shortName = "onyx" ++ take 10 (show md5)
+  Dir.createDirectoryIfMissing True $ temp </> "songs" </> shortName </> "gen"
+  getRBAFile 0 rba $ temp </> "temp_songs.dta"
+  getRBAFile 1 rba $ temp </> "songs" </> shortName </> shortName <.> "mid"
+  getRBAFile 2 rba $ temp </> "songs" </> shortName </> shortName <.> "mogg"
+  getRBAFile 3 rba $ temp </> "songs" </> shortName </> "gen" </> shortName <.> "milo_xbox"
+  getRBAFile 4 rba $ temp </> "temp_cover.bmp"
+  -- 5 is weights.bin (empty in magma v2)
+  getRBAFile 6 rba $ temp </> "temp_extra.dta"
+  (_, pkg, isUTF8) <- readRB3DTA $ temp </> "temp_songs.dta"
+  extra <- (if isUTF8 then D.readFileDTA_utf8 else D.readFileDTA_latin1) $ temp </> "temp_extra.dta"
+  TIO.writeFile (temp </> "songs/songs.dta") $ writeDTASingle DTASingle
+    { dtaTopKey = T.pack shortName
+    , dtaSongPackage = pkg
+      { D.song = (D.song pkg)
+        { D.songName = T.pack $ "songs" </> shortName </> shortName
+        }
+      , D.songId = Right $ T.pack shortName
+      }
+    , dtaC3Comments = C3DTAComments
+      { c3dtaCreatedUsing = Nothing
+      , c3dtaAuthoredBy   = case extra of
+        D.DTA _ (D.Tree _ [D.Parens (D.Tree _
+          ( D.String "backend"
+          : D.Parens (D.Tree _ [D.Key "author", D.String s])
+          : _
+          ))])
+          -> Just s
+        _ -> Nothing
+      , c3dtaSong         = Nothing
+      , c3dtaLanguages    = Nothing -- TODO
+      , c3dtaKaraoke      = Nothing
+      , c3dtaMultitrack   = Nothing
+      , c3dtaConvert      = Nothing
+      , c3dta2xBass       = Nothing
+      , c3dtaRhythmKeys   = Nothing
+      , c3dtaRhythmBass   = Nothing
+      , c3dtaCATemh       = Nothing
+      , c3dtaExpertOnly   = Nothing
+      }
+    }
+  readImage (temp </> "temp_cover.bmp") >>= \case
+    Left err -> error err -- TODO
+    Right dyn -> let
+      out = temp </> "songs" </> shortName </> "gen" </> (shortName ++ "_keep.png_xbox")
+      in BL.writeFile out $ toPNG_XBOX $ convertRGB8 dyn
+  Dir.removeFile $ temp </> "temp_songs.dta"
+  Dir.removeFile $ temp </> "temp_cover.bmp"
+  Dir.removeFile $ temp </> "temp_extra.dta"
+  let label = D.name pkg <> " (" <> D.artist pkg <> ")"
+  rb3pkg label label temp con >>= putStrLn
 
 importRBA :: KeysRB2 -> FilePath -> FilePath -> IO ()
 importRBA krb2 file dir = withSystemTempDirectory "onyx_rba" $ \temp -> do
