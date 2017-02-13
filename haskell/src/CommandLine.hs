@@ -10,9 +10,7 @@ import qualified Control.Exception              as Exc
 import           Control.Monad                  (forM_, guard, unless)
 import           Control.Monad.Extra            (filterM)
 import           Control.Monad.IO.Class         (liftIO)
-import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader     (runReaderT)
-import           Control.Monad.Trans.Resource   (allocate, runResourceT)
 import           Control.Monad.Trans.StackTrace
 import           Data.Aeson                     ((.:))
 import qualified Data.Aeson.Types               as A
@@ -35,8 +33,9 @@ import qualified Data.Text                      as T
 import qualified Data.Text.IO                   as T
 import           Data.Word                      (Word32)
 import qualified Data.Yaml                      as Y
-import           Import                         (importFoF, importRBA,
-                                                 importSTFS, simpleRBAtoCON)
+import           Import                         (getRBAFile, importFoF,
+                                                 importRBA, importSTFS,
+                                                 simpleRBAtoCON)
 import           JSONData                       (TraceJSON (traceJSON))
 import           Magma                          (oggToMogg, runMagma,
                                                  runMagmaV1)
@@ -62,8 +61,6 @@ import           System.FilePath                (dropTrailingPathSeparator,
 import           System.Info                    (os)
 import qualified System.IO                      as IO
 import           System.IO.Error                (tryIOError)
-import           System.IO.Temp                 (createTempDirectory,
-                                                 withSystemTempDirectory)
 import           System.Process                 (callProcess, spawnCommand)
 import           Text.Printf                    (printf)
 import           X360                           (rb2pkg, rb3pkg, stfsFolder)
@@ -288,12 +285,15 @@ getPlanName yamlPath opts = case [ p | OptPlan p <- opts ] of
       [p]   -> return p
       plans -> fatal $ "No --plan given, and YAML file doesn't have exactly 1 plan: " <> show plans
 
-tempDir :: String -> (FilePath -> StackTraceT IO a) -> StackTraceT IO a
-tempDir template cb = StackTraceT $ runResourceT $ do
-  tmp <- liftIO Dir.getTemporaryDirectory
-  let ignoringIOErrors ioe = ioe `Exc.catch` (\e -> const (return ()) (e :: IOError))
-  (_, dir) <- allocate (createTempDirectory tmp template) (ignoringIOErrors . Dir.removeDirectoryRecursive)
-  lift $ fromStackTraceT $ cb dir
+getInputMIDI :: [FilePath] -> StackTraceT IO FilePath
+getInputMIDI files = optionalFile files >>= \case
+  (FileSongYaml, yamlPath) -> return $ takeDirectory yamlPath </> "notes.mid"
+  (FileRBProj, rbprojPath) -> do
+    rbproj <- loadDTA rbprojPath
+    return $ T.unpack $ RBProj.midiFile $ RBProj.midi $ RBProj.project rbproj
+  (FileMidi, mid) -> return mid
+  (FilePS, ini) -> return $ takeDirectory ini </> "notes.mid"
+  (ftype, fpath) -> unrecognized ftype fpath
 
 commands :: [Command]
 commands =
@@ -322,10 +322,8 @@ commands =
               5  -> False -- v1
               _  -> True -- need to do more testing
         if isMagmaV2
-          then liftIO $ runMagma rbprojPath out >>= putStrLn -- TODO move error to StackTraceT
-          else liftIO (runMagmaV1 rbprojPath out) >>= \case
-            (str, True ) -> liftIO $ putStrLn str
-            (str, False) ->          fatal    str
+          then runMagma   rbprojPath out >>= liftIO . putStrLn
+          else runMagmaV1 rbprojPath out >>= liftIO . putStrLn
         -- TODO: handle CON conversion
       (ftype, fpath) -> unrecognized ftype fpath
     }
@@ -416,17 +414,22 @@ commands =
         planName <- getPlanName fpath opts
         let player = "gen/plan" </> T.unpack planName </> "web"
         liftIO $ shakeBuild audioDirs fpath [player]
-        -- TODO: support --to
-        unless (elem OptNoOpen opts) $ liftIO $ osOpenFile $ player </> "index.html"
+        player' <- liftIO $ case [ to | OptTo to <- opts ] of
+          []      -> return player
+          out : _ -> do
+            Dir.createDirectoryIfMissing False out
+            copyDirRecursive player out
+            return out
+        unless (elem OptNoOpen opts) $ liftIO $ osOpenFile $ player' </> "index.html"
       FileRBProj -> undefined
-      FileSTFS -> liftIO $ withSystemTempDirectory "onyx_player" $ \tmp -> do
+      FileSTFS -> tempDir "onyx_player" $ \tmp -> liftIO $ do
         out <- outputFile opts $ return $ fpath ++ "_player"
         importSTFS NoKeys fpath tmp
         let player = "gen/plan/mogg/web"
         shakeBuild [tmp] (tmp </> "song.yml") [player]
         Dir.createDirectoryIfMissing False out
         copyDirRecursive (tmp </> player) out
-        unless (elem OptNoOpen opts) $ liftIO $ osOpenFile $ out </> "index.html"
+        unless (elem OptNoOpen opts) $ osOpenFile $ out </> "index.html"
       FileRBA -> undefined
       FilePS -> undefined
       FileMidi -> undefined
@@ -508,15 +511,27 @@ commands =
   , Command
     { commandWord = "hanging"
     , commandDesc = "Find pro keys range shifts with hanging notes."
-    , commandUsage = ""
+    , commandUsage = T.unlines
+      [ "onyx hanging mysong.yml"
+      , "onyx hanging notes.mid"
+      ]
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> let
       withMIDI mid = liftIO (Load.fromFile mid) >>= RBFile.readMIDIFile >>= liftIO . putStrLn . closeShiftsFile
       in case ftype of
-        FileSongYaml -> undefined
-        FileRBProj   -> undefined
+        FileSongYaml -> do
+          audioDirs <- getAudioDirs fpath
+          planName <- getPlanName fpath opts
+          liftIO $ shakeBuild audioDirs fpath ["gen/plan" </> T.unpack planName </> "hanging"]
+        FileRBProj   -> do
+          rbproj <- loadDTA fpath
+          let midPath = T.unpack $ RBProj.midiFile $ RBProj.midi $ RBProj.project rbproj
+          withMIDI (takeDirectory fpath </> midPath)
         FileSTFS     -> undefined
-        FileRBA      -> undefined
-        FilePS       -> undefined
+        FileRBA      -> tempDir "onyx_hanging_rba" $ \tmp -> do
+          let midPath = tmp </> "notes.mid"
+          liftIO $ getRBAFile 1 fpath midPath
+          withMIDI midPath
+        FilePS       -> withMIDI $ takeDirectory fpath </> "notes.mid"
         FileMidi     -> withMIDI fpath
         _            -> unrecognized ftype fpath
     }
@@ -525,32 +540,32 @@ commands =
     { commandWord = "reduce"
     , commandDesc = "Fill in missing difficulties in a MIDI file."
     , commandUsage = T.unlines
-      [ "onyx reduce song.mid"
-      , "onyx reduce song.mid --to reduced.mid"
+      [ "onyx reduce [notes.mid|song.yml|magma.rbproj|song.ini]"
+      , "# or run on current directory"
       , "onyx reduce"
+      , "# by default, modifies the midi in-place. or specify --out"
+      , "onyx reduce notes.mid --to reduced.mid"
       ]
-    , commandRun = \files opts -> optionalFile files >>= \case
-      (FileSongYaml, yamlPath) -> do
-        let mid = takeDirectory yamlPath </> "notes.mid"
-        liftIO $ simpleReduce mid mid
-      (FileMidi, mid) -> do
-        out <- outputFile opts $ return $ mid -<.> "reduced.mid"
-        liftIO $ simpleReduce mid out
-      (ftype, fpath) -> unrecognized ftype fpath
+    , commandRun = \files opts -> do
+      mid <- getInputMIDI files
+      out <- outputFile opts $ return mid
+      liftIO $ simpleReduce mid out
     }
 
   , Command
     { commandWord = "ranges"
     , commandDesc = "Generate an automatic set of pro keys range shifts."
-    , commandUsage = ""
-    , commandRun = \files opts -> optionalFile files >>= \case
-      (FileSongYaml, yamlPath) -> do
-        let mid = takeDirectory yamlPath </> "notes.mid"
-        liftIO $ completeFile mid mid
-      (FileMidi, mid) -> do
-        out <- outputFile opts $ return $ mid -<.> "ranges.mid"
-        liftIO $ completeFile mid out
-      (ftype, fpath) -> unrecognized ftype fpath
+    , commandUsage = T.unlines
+      [ "onyx ranges [notes.mid|song.yml|magma.rbproj]"
+      , "# or run on current directory"
+      , "onyx ranges"
+      , "# by default, modifies the midi in-place. or specify --out"
+      , "onyx ranges notes.mid --to ranges.mid"
+      ]
+    , commandRun = \files opts -> do
+      mid <- getInputMIDI files
+      out <- outputFile opts $ return mid
+      liftIO $ completeFile mid out
     }
 
   , Command

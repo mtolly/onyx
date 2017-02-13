@@ -781,7 +781,7 @@ shakeBuild audioDirs yamlPath buildables = do
             pathMagmaRba %> \out -> do
               need [pathMagmaSetup]
               putNormal "# Running Magma v2 (C3)"
-              liftIO (Magma.runMagma pathMagmaProj out) >>= putNormal
+              liftIO (printStackTraceIO $ Magma.runMagma pathMagmaProj out) >>= putNormal
             pathMagmaExport %> \out -> do
               need [pathMagmaMid, pathMagmaProj]
               putNormal "# Running Magma v2 to export MIDI"
@@ -975,11 +975,11 @@ shakeBuild audioDirs yamlPath buildables = do
                 pathMagmaRbaV1 %> \out -> do
                   need [pathMagmaDummyMono, pathMagmaDummyStereo, pathMagmaDryvoxSine, pathMagmaCoverV1, pathMagmaMidV1, pathMagmaProjV1]
                   putNormal "# Running Magma v1 (without 10 min limit)"
-                  (str, good) <- liftIO $ Magma.runMagmaV1 pathMagmaProjV1 out
-                  putNormal str
-                  unless good $ do
-                    putNormal "Magma v1 failed; optimistically bypassing."
-                    liftIO $ B.writeFile out B.empty
+                  liftIO (printStackTraceIO $ optional $ Magma.runMagmaV1 pathMagmaProjV1 out) >>= \case
+                    Just output -> putNormal output
+                    Nothing     -> do
+                      putNormal "Magma v1 failed; optimistically bypassing."
+                      liftIO $ B.writeFile out B.empty
 
                 -- Magma v1 rba to con
                 do

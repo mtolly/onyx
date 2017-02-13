@@ -11,8 +11,6 @@ import           Control.Monad                    (guard, when)
 import           Control.Monad.Extra              (mapMaybeM, replicateM)
 import           Control.Monad.Trans.StackTrace   (printStackTraceIO)
 import           Data.Binary.Get                  (getWord32le, runGet)
-import qualified Data.ByteString                  as B
-import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
@@ -53,21 +51,6 @@ import           System.IO                        (IOMode (..), SeekMode (..),
                                                    withBinaryFile)
 import           System.IO.Temp                   (withSystemTempDirectory)
 import           X360                             (rb3pkg)
-
--- | Convert a CON or RBA file (or FoF directory) to Onyx format.
-importAny :: KeysRB2 -> FilePath -> FilePath -> IO ()
-importAny krb2 src dest = do
-  Dir.createDirectoryIfMissing True dest
-  isDir <- Dir.doesDirectoryExist src
-  if isDir
-    then importFoF krb2 src dest
-    else do
-      magic <- withBinaryFile src ReadMode $ \h -> B.hGet h 4
-      case B8.unpack magic of
-        "CON " -> importSTFS krb2 src dest
-        "STFS" -> importSTFS krb2 src dest
-        "RBSF" -> importRBA  krb2 src dest
-        _      -> error $ src ++ " is not in a supported song format"
 
 standardTargets :: Maybe (JSONEither Integer T.Text) -> Maybe Integer -> Bool -> KeysRB2 -> HM.HashMap T.Text Target
 standardTargets songID version is2x krb2 = let

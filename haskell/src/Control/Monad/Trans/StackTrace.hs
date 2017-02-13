@@ -3,13 +3,19 @@
 module Control.Monad.Trans.StackTrace where
 
 import           Control.Applicative
+import qualified Control.Exception            as Exc
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
+import           Control.Monad.Trans.Resource (allocate, runResourceT)
 import           Control.Monad.Trans.RWS
 import           Data.Functor.Identity
+import qualified System.Directory             as Dir
+import           System.Exit                  (ExitCode (..))
 import           System.IO
+import           System.IO.Temp               (createTempDirectory)
+import           System.Process
 
 -- | This can represent an error (required input was not found) or a warning
 -- (given input was not completely recognized).
@@ -88,3 +94,21 @@ mapStackTraceT
   :: (m (Either [Message] a, (), [Message]) -> n (Either [Message] b, (), [Message]))
   -> StackTraceT m a -> StackTraceT n b
 mapStackTraceT f (StackTraceT st) = StackTraceT $ mapExceptT (mapRWST f) st
+
+tempDir :: String -> (FilePath -> StackTraceT IO a) -> StackTraceT IO a
+tempDir template cb = StackTraceT $ runResourceT $ do
+  tmp <- liftIO Dir.getTemporaryDirectory
+  let ignoringIOErrors ioe = ioe `Exc.catch` (\e -> const (return ()) (e :: IOError))
+  (_, dir) <- allocate (createTempDirectory tmp template) (ignoringIOErrors . Dir.removeDirectoryRecursive)
+  lift $ fromStackTraceT $ cb dir
+
+stackProcess :: CreateProcess -> String -> StackTraceT IO String
+stackProcess cp input = liftIO (readCreateProcessWithExitCode cp input) >>= \case
+  (ExitSuccess  , out, _  ) -> return out
+  (ExitFailure n, out, err) -> fatal $ unlines
+    [ "process exited with code " ++ show n
+    , "stdout:"
+    , out
+    , "stderr:"
+    , err
+    ]

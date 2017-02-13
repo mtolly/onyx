@@ -1,22 +1,24 @@
 module Magma (runMagmaMIDI, runMagma, runMagmaV1, oggToMogg, presentExitCode) where
 
-import           Control.Monad                (forM_)
-import           Control.Monad.Trans.Resource (ResourceT, runResourceT)
-import           Data.Bits                    (shiftL)
-import qualified Data.ByteString              as B
-import           Data.Conduit.Audio           (AudioSource, Duration (..),
-                                               silent)
-import           Data.Conduit.Audio.Sndfile   (sinkSnd)
-import           Data.Int                     (Int16)
-import           Data.Word                    (Word32)
-import           Resources                    (magmaFiles, magmaV1Files)
-import qualified Sound.File.Sndfile           as Snd
-import qualified System.Directory             as Dir
-import           System.Exit                  (ExitCode (..))
-import           System.FilePath              ((</>))
-import           System.Info                  (os)
-import qualified System.IO                    as IO
-import           System.IO.Temp               (withSystemTempDirectory)
+import           Control.Monad                  (forM_)
+import           Control.Monad.IO.Class         (liftIO)
+import           Control.Monad.Trans.Resource   (ResourceT, runResourceT)
+import           Control.Monad.Trans.StackTrace
+import           Data.Bits                      (shiftL)
+import qualified Data.ByteString                as B
+import           Data.Conduit.Audio             (AudioSource, Duration (..),
+                                                 silent)
+import           Data.Conduit.Audio.Sndfile     (sinkSnd)
+import           Data.Int                       (Int16)
+import           Data.Word                      (Word32)
+import           Resources                      (magmaFiles, magmaV1Files)
+import qualified Sound.File.Sndfile             as Snd
+import qualified System.Directory               as Dir
+import           System.Exit                    (ExitCode (..))
+import           System.FilePath                ((</>))
+import           System.Info                    (os)
+import qualified System.IO                      as IO
+import           System.IO.Temp                 (withSystemTempDirectory)
 import           System.Process
 
 withWin32Exe :: (FilePath -> [String] -> a) -> FilePath -> [String] -> a
@@ -48,38 +50,28 @@ presentExitCode fn (ExitFailure n, out, err) = fail $ unlines
   , err
   ]
 
-presentExitCodeBool :: String -> (ExitCode, String, String) -> IO (String, Bool)
-presentExitCodeBool _  (ExitSuccess  , out, _  ) = return (out, True)
-presentExitCodeBool fn (ExitFailure n, out, err) = return (unlines
-  [ fn ++ ": process exited with code " ++ show n
-  , "stdout:"
-  , out
-  , "stderr:"
-  , err
-  ], False)
-
-runMagma :: FilePath -> FilePath -> IO String
-runMagma proj rba = withSystemTempDirectory "magma" $ \tmp -> do
-  wd <- Dir.getCurrentDirectory
+runMagma :: FilePath -> FilePath -> StackTraceT IO String
+runMagma proj rba = tempDir "magma" $ \tmp -> do
+  wd <- liftIO $ Dir.getCurrentDirectory
   let proj' = wd </> proj
       rba'  = wd </> rba
-  Dir.createDirectory $ tmp </> "gen"
-  forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
+  liftIO $ Dir.createDirectory $ tmp </> "gen"
+  liftIO $ forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
   let createProc = withWin32Exe (\exe args -> (proc exe args) { cwd = Just tmp })
         (tmp </> "MagmaCompilerC3.exe") [proj', rba']
-  readCreateProcessWithExitCode createProc "" >>= presentExitCode "runMagma"
+  inside "running Magma v2" $ stackProcess createProc ""
 
-runMagmaV1 :: FilePath -> FilePath -> IO (String, Bool)
-runMagmaV1 proj rba = withSystemTempDirectory "magma-v1" $ \tmp -> do
-  wd <- Dir.getCurrentDirectory
+runMagmaV1 :: FilePath -> FilePath -> StackTraceT IO String
+runMagmaV1 proj rba = tempDir "magma-v1" $ \tmp -> do
+  wd <- liftIO $ Dir.getCurrentDirectory
   let proj' = wd </> proj
       rba'  = wd </> rba
-  Dir.createDirectory $ tmp </> "gen"
-  Dir.createDirectory $ tmp </> "facefx"
-  forM_ magmaV1Files $ \(path, bs) -> B.writeFile (tmp </> path) bs
+  liftIO $ Dir.createDirectory $ tmp </> "gen"
+  liftIO $ Dir.createDirectory $ tmp </> "facefx"
+  liftIO $ forM_ magmaV1Files $ \(path, bs) -> B.writeFile (tmp </> path) bs
   let createProc = withWin32Exe (\exe args -> (proc exe args) { cwd = Just tmp })
         (tmp </> "MagmaCompiler.exe") [proj', rba']
-  readCreateProcessWithExitCode createProc "" >>= presentExitCodeBool "runMagmaV1"
+  inside "running Magma v1" $ stackProcess createProc ""
 
 oggToMogg :: FilePath -> FilePath -> IO ()
 oggToMogg ogg mogg = withSystemTempDirectory "ogg2mogg" $ \tmp -> do
