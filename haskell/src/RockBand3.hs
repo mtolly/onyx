@@ -220,7 +220,7 @@ processMIDI songYaml input kicks mixMode getAudioLength = do
               harm2   = mergeTracks [ t | RBFile.Harm2      t <- trks ]
               harm3   = mergeTracks [ t | RBFile.Harm3      t <- trks ]
   return input
-    { RBFile.s_tracks = map fixRolls $ concat
+    { RBFile.s_tracks = map (if _fixFreeform $ _options songYaml then fixRolls else id) $ concat
       [ [beatTrack, eventsTrack]
       , venueTracks
       , drumsTracks

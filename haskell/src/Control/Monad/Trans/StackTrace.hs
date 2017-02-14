@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 module Control.Monad.Trans.StackTrace where
@@ -10,6 +11,7 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Resource (allocate, runResourceT)
 import           Control.Monad.Trans.RWS
+import           Data.Data
 import           Data.Functor.Identity
 import qualified System.Directory             as Dir
 import           System.Exit                  (ExitCode (..))
@@ -22,7 +24,13 @@ import           System.Process
 data Message = Message
   { messageString  :: String
   , messageContext :: [String] -- ^ The first element is the innermost context
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show, Read, Data, Typeable)
+
+instance Exc.Exception Message where
+  displayException (Message str ctx) = unlines
+    $ str
+    : "Context (innermost first):"
+    : map ("  - " ++) ctx
 
 -- | Attaches warnings and fatal errors to a monad. Both warnings and errors
 -- keep track of their \"call stack\" of where the message occurred.
@@ -45,10 +53,13 @@ optional :: (Monad m) => StackTraceT m a -> StackTraceT m (Maybe a)
 optional p = fmap Just p `catch` \errs ->
   StackTraceT (lift $ tell errs) >> return Nothing
 
+fatalMessage :: (Monad m) => Message -> StackTraceT m a
+fatalMessage (Message s ctx) = StackTraceT $ do
+  upper <- lift ask
+  throwE [Message s $ ctx ++ upper]
+
 fatal :: (Monad m) => String -> StackTraceT m a
-fatal s = StackTraceT $ do
-  ctx <- lift ask
-  throwE [Message s ctx]
+fatal s = fatalMessage $ Message s []
 
 catch :: (Monad m) => StackTraceT m a -> ([Message] -> StackTraceT m a) -> StackTraceT m a
 StackTraceT ex `catch` f = StackTraceT $ ex `catchE` (fromStackTraceT . f)
@@ -64,10 +75,7 @@ runStackTrace = runIdentity . runStackTraceT
 
 -- | Prints the message and its context stack to standard error.
 printMessage :: Message -> IO ()
-printMessage (Message s ctx) = do
-  hPutStrLn stderr s
-  hPutStrLn stderr "Context (innermost first):"
-  forM_ ctx $ \c -> hPutStrLn stderr $ "  - " ++ c
+printMessage = hPutStrLn stderr . Exc.displayException
 
 -- | Prints warnings and errors to standard error, and then throws an exception
 -- if there were errors.

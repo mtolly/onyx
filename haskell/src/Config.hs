@@ -160,6 +160,7 @@ jsonRecord "Options" eosr $ do
   opt "_proGuitarTuning" "pro-guitar-tuning" [t| [Int] |]   [e| [] |]
   opt "_proBassTuning"   "pro-bass-tuning"   [t| [Int] |]   [e| [] |]
   opt "_proDrums"        "pro-drums"         [t| Bool |]    [e| True |]
+  opt "_fixFreeform"     "fix-freeform"      [t| Bool |]    [e| True |]
 
 instance TraceJSON Magma.Gender where
   traceJSON = lift ask >>= \case

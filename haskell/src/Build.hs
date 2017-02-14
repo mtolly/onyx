@@ -3,14 +3,16 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
-module Build (shakeBuild, targetTitle) where
+module Build (shakeStack, targetTitle) where
 
 import           Audio
 import qualified C3
 import qualified Codec.Archive.Zip                     as Zip
 import           Codec.Picture
 import           Config                                hiding (Difficulty)
+import qualified Control.Exception                     as Exc
 import           Control.Monad.Extra
+import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
@@ -550,6 +552,18 @@ makeMagmaProj songYaml plan pkg mid thisTitle = do
       }
     }
 
+shakeStack :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT m ()
+shakeStack audioDirs yamlPath buildables = let
+  io :: IO (Maybe ShakeException)
+  io = shakeBuild audioDirs yamlPath buildables >> return Nothing
+  handler :: ShakeException -> IO (Maybe ShakeException)
+  handler = return . Just
+  go [] (Exc.SomeException e) = fatal $ Exc.displayException e
+  go (layer : layers) exc = inside ("shake: " ++ layer) $ go layers exc
+  in liftIO (io `Exc.catch` handler) >>= \case
+    Nothing -> return ()
+    Just se -> go (shakeExceptionStack se) (shakeExceptionInner se)
+
 shakeBuild :: [FilePath] -> FilePath -> [FilePath] -> IO ()
 shakeBuild audioDirs yamlPath buildables = do
 
@@ -785,8 +799,8 @@ shakeBuild audioDirs yamlPath buildables = do
             pathMagmaExport %> \out -> do
               need [pathMagmaMid, pathMagmaProj]
               putNormal "# Running Magma v2 to export MIDI"
-              -- TODO: bypass Magma if it fails due to over !MB midi
-              liftIO (Magma.runMagmaMIDI pathMagmaProj out) >>= putNormal
+              -- TODO: bypass Magma if it fails due to over 1MB midi
+              liftIO (printStackTraceIO $ Magma.runMagmaMIDI pathMagmaProj out) >>= putNormal
             let getRealSections :: Action (RTB.T U.Beats T.Text)
                 getRealSections = do
                   raw <- loadMIDI $ planDir </> "raw.mid"
@@ -890,7 +904,7 @@ shakeBuild audioDirs yamlPath buildables = do
             pathCon %> \out -> do
               need [pathDta, pathMid, pathMogg, pathPng, pathMilo]
               putNormal "# Calling rb3pkg to make RB3 CON file"
-              s <- liftIO $ rb3pkg
+              s <- liftIO $ printStackTraceIO $ rb3pkg
                 (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                 ("Version: " <> targetName)
                 (dir </> "stfs")
@@ -1172,7 +1186,7 @@ shakeBuild audioDirs yamlPath buildables = do
                   rb2CON %> \out -> do
                     need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
                     putNormal "# Calling rb3pkg to make RB2 CON file"
-                    s <- liftIO $ rb2pkg
+                    s <- liftIO $ printStackTraceIO $ rb2pkg
                       (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                       (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                       (dir </> "rb2")
@@ -1513,7 +1527,7 @@ shakeBuild audioDirs yamlPath buildables = do
         ogg %> \out -> case plan of
           MoggPlan{} -> do
             need [mogg]
-            liftIO $ moggToOgg mogg out
+            liftIO $ printStackTraceIO $ moggToOgg mogg out
           _ -> let
             hasCrowd = case plan of
               Plan{..} -> isJust _crowd
@@ -1539,7 +1553,7 @@ shakeBuild audioDirs yamlPath buildables = do
           _ -> do
             need [ogg]
             putNormal "# Wrapping OGG into unencrypted MOGG with Magma hack"
-            liftIO $ Magma.oggToMogg ogg out
+            liftIO $ printStackTraceIO $ Magma.oggToMogg ogg out
 
         -- Low-quality audio files for the online preview app
         forM_ [("mp3", crapMP3), ("ogg", crapVorbis)] $ \(ext, crap) -> do

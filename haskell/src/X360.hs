@@ -2,17 +2,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 module X360 (rb3pkg, rb2pkg, stfsFolder) where
 
-import           Control.Monad   (forM_)
-import qualified Data.ByteString as B
-import qualified Data.Text       as T
-import           Data.Word       (Word32)
-import           Magma           (presentExitCode)
-import           Resources       (rb3pkgFiles)
-import           System.FilePath ((</>))
-import           System.Info     (os)
-import           System.IO       (IOMode (ReadMode), SeekMode (AbsoluteSeek),
-                                  hSeek, withBinaryFile)
-import           System.IO.Temp  (withSystemTempDirectory)
+import           Control.Monad                  (forM_)
+import           Control.Monad.IO.Class         (liftIO)
+import           Control.Monad.Trans.StackTrace
+import qualified Data.ByteString                as B
+import qualified Data.Text                      as T
+import           Data.Word                      (Word32)
+import           Resources                      (rb3pkgFiles)
+import           System.FilePath                ((</>))
+import           System.Info                    (os)
+import           System.IO                      (IOMode (ReadMode),
+                                                 SeekMode (AbsoluteSeek), hSeek,
+                                                 withBinaryFile)
 import           System.Process
 
 withDotNetExe :: (FilePath -> [String] -> a) -> FilePath -> [String] -> a
@@ -20,20 +21,20 @@ withDotNetExe f exe args = if os == "mingw32"
   then f exe args
   else f "mono" $ exe : args
 
-rb3pkg :: T.Text -> T.Text -> FilePath -> FilePath -> IO String
-rb3pkg title desc dir fout = withSystemTempDirectory "rb3pkg" $ \tmp -> do
-  forM_ rb3pkgFiles $ \(fp, bs) -> B.writeFile (tmp </> fp) bs
+rb3pkg :: T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT IO String
+rb3pkg title desc dir fout = tempDir "rb3pkg" $ \tmp -> do
+  liftIO $ forM_ rb3pkgFiles $ \(fp, bs) -> B.writeFile (tmp </> fp) bs
   let createProc = withDotNetExe proc (tmp </> "rb3pkg.exe")
         [ "-p", T.unpack title
         , "-d", T.unpack desc
         , "-f", dir
         , fout
         ]
-  readCreateProcessWithExitCode createProc "" >>= presentExitCode "rb3pkg"
+  inside "making RB3 CON package with X360" $ stackProcess createProc ""
 
-rb2pkg :: T.Text -> T.Text -> FilePath -> FilePath -> IO String
-rb2pkg title desc dir fout = withSystemTempDirectory "rb2pkg" $ \tmp -> do
-  forM_ rb3pkgFiles $ \(fp, bs) -> B.writeFile (tmp </> fp) bs
+rb2pkg :: T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT IO String
+rb2pkg title desc dir fout = tempDir "rb2pkg" $ \tmp -> do
+  liftIO $ forM_ rb3pkgFiles $ \(fp, bs) -> B.writeFile (tmp </> fp) bs
   let createProc = withDotNetExe proc (tmp </> "rb3pkg.exe")
         [ "-p", T.unpack title
         , "-d", T.unpack desc
@@ -41,7 +42,7 @@ rb2pkg title desc dir fout = withSystemTempDirectory "rb2pkg" $ \tmp -> do
         , "-i", show (0x45410869 :: Integer)
         , fout
         ]
-  readCreateProcessWithExitCode createProc "" >>= presentExitCode "rb2pkg"
+  inside "making RB2 CON package with X360" $ stackProcess createProc ""
 
 stfsFolder :: FilePath -> IO (Word32, Word32)
 stfsFolder f = withBinaryFile f ReadMode $ \h -> do
