@@ -558,7 +558,9 @@ shakeStack audioDirs yamlPath buildables = let
   io = shakeBuild audioDirs yamlPath buildables >> return Nothing
   handler :: ShakeException -> IO (Maybe ShakeException)
   handler = return . Just
-  go [] (Exc.SomeException e) = fatal $ Exc.displayException e
+  go [] exc = case Exc.fromException exc of
+    Nothing   -> fatal $ Exc.displayException exc
+    Just msgs -> fatalMessages msgs
   go (layer : layers) exc = inside ("shake: " ++ layer) $ go layers exc
   in liftIO (io `Exc.catch` handler) >>= \case
     Nothing -> return ()

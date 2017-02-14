@@ -4,14 +4,16 @@ module Main (main) where
 
 import           CommandLine
 import           Control.Concurrent             (forkIO, threadDelay)
-import           Control.Exception              (bracket, bracket_)
+import           Control.Exception              (bracket, bracket_,
+                                                 displayException)
 import           Control.Monad.Extra
 import           Control.Monad.Trans.StackTrace
 import           Foreign.C                      (peekCString)
 import           SDL                            (($=))
 import qualified SDL
 import           System.Environment             (getArgs)
-import           System.Exit                    (exitSuccess)
+import           System.Exit                    (exitFailure, exitSuccess)
+import           System.IO                      (hPutStr, hPutStrLn, stderr)
 import           TinyFileDialogs
 
 main :: IO ()
@@ -19,7 +21,14 @@ main = do
   argv <- getArgs
   case argv of
     [] -> launchGUI
-    _  -> printStackTraceIO $ commandLine argv
+    _  -> runStackTraceT (commandLine argv) >>= \(res, warns) -> do
+      hPutStr stderr $ displayException warns
+      case res of
+        Right () -> return ()
+        Left errs -> do
+          hPutStrLn stderr "ERROR:"
+          hPutStr stderr $ displayException errs
+          exitFailure
 
 launchGUI :: IO ()
 launchGUI = bracket_ SDL.initializeAll SDL.quit $ do
