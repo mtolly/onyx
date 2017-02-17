@@ -91,8 +91,8 @@ instance (TraceJSON a) => TraceJSON (Maybe a) where
     A.Null -> return Nothing
     _      -> fmap Just traceJSON
 
-parseFrom :: v -> Parser m v a -> Parser m v' a
-parseFrom = mapStackTraceT . withReaderT . const
+parseFrom :: (Monad m) => v -> Parser m v a -> Parser m v' a
+parseFrom v = mapStackTraceT $ withReaderT $ const v
 
 object :: (Monad m) => Parser m (Map.HashMap T.Text A.Value) a -> Parser m A.Value a
 object p = lift ask >>= \case

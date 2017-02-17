@@ -18,8 +18,7 @@ import Language.Haskell.TH
 import qualified Language.Haskell.TH.Syntax     as TH
 import Control.Monad.Trans.Writer
 import qualified Data.Text as T
-
-type Parser m context = StackTraceT (ReaderT context m)
+import JSONData (Parser, parseFrom)
 
 expected :: (Monad m, Show context) => String -> Parser m context a
 expected x = lift ask >>= \v -> fatal $ "Expected " ++ x ++ ", but found: " ++ show v
@@ -99,16 +98,13 @@ chunksKey = ChunkFormat
     _ -> expected "keyword"
   }
 
-readFrom :: c -> Parser m c a -> Parser m d a
-readFrom ctxt = mapStackTraceT $ withReaderT $ const ctxt
-
 chunksList :: ChunkFormat a -> ChunkFormat [a]
 chunksList cf = ChunkFormat
   { toChunks = concatMap $ toChunks cf
   , fromChunks = do
     chunks <- lift ask
     forM (zip [0..] chunks) $ \(i, chunk) ->
-      inside ("list element " ++ show (i :: Int)) $ readFrom [chunk] $ fromChunks cf
+      inside ("list element " ++ show (i :: Int)) $ parseFrom [chunk] $ fromChunks cf
   }
 
 instance (DTASerialize a) => DTASerialize [a] where
@@ -138,7 +134,7 @@ chunksDict cf = ChunkFormat
     [ Parens $ Tree 0 $ Key k : toChunks cf v | (k, v) <- Map.toList $ fromDict mp ]
   , fromChunks = lift ask >>= \chunks -> fmap (Dict . Map.fromList) $ forM chunks $ \case
     Parens (Tree _ (Key k : chunks')) -> inside ("dict key " ++ show k) $
-      (\v -> (k, v)) <$> readFrom chunks' (fromChunks cf)
+      (\v -> (k, v)) <$> parseFrom chunks' (fromChunks cf)
     _ -> expected "a key-value pair (parenthesized list starting with a keyword)"
   }
 
@@ -149,7 +145,7 @@ chunksParens :: ChunkFormat a -> ChunkFormat a
 chunksParens cf = ChunkFormat
   { toChunks = \x -> [Parens $ Tree 0 $ toChunks cf x]
   , fromChunks = lift ask >>= \case
-    [Parens (Tree _ chunks)] -> readFrom chunks $ fromChunks cf
+    [Parens (Tree _ chunks)] -> parseFrom chunks $ fromChunks cf
     _ -> expected "a set of parentheses"
   }
 
@@ -158,8 +154,8 @@ chunksPair xf yf = ChunkFormat
   { toChunks = \(x, y) -> toChunks xf x ++ toChunks yf y
   , fromChunks = lift ask >>= \case
     [x, y] -> liftA2 (,)
-      (inside "first item of a pair" $ readFrom [x] $ fromChunks xf)
-      (inside "second item of a pair" $ readFrom [y] $ fromChunks yf)
+      (inside "first item of a pair" $ parseFrom [x] $ fromChunks xf)
+      (inside "second item of a pair" $ parseFrom [y] $ fromChunks yf)
     _ -> expected "exactly 2 chunks"
   }
 
@@ -239,12 +235,12 @@ dtaRecord rec derivs writ = do
                   Nothing -> do
                     when $(TH.lift (warnMissing field)) (warn $ "missing " ++ $(TH.lift key))
                     return $dft
-                  Just x -> inside $(TH.lift key) $ readFrom x $ fromChunks $(fieldFormat field)
+                  Just x -> inside $(TH.lift key) $ parseFrom x $ fromChunks $(fieldFormat field)
                 |]
               Nothing -> [e|
                 case Map.lookup (T.pack $(TH.lift (dtaKey field))) mapping of
                   Nothing -> fatal $ "missing " ++ $(TH.lift key)
-                  Just x -> inside $(TH.lift key) $ readFrom x $ fromChunks $(fieldFormat field)
+                  Just x -> inside $(TH.lift key) $ parseFrom x $ fromChunks $(fieldFormat field)
                 |]
             )
         }

@@ -21,13 +21,13 @@ main = do
   argv <- getArgs
   case argv of
     [] -> launchGUI
-    _  -> runStackTraceT (commandLine argv) >>= \(res, warns) -> do
-      hPutStr stderr $ displayException warns
+    _  -> runStackTraceT (commandLine argv) >>= \(res, Messages warns) -> do
+      mapM_ printWarning warns
       case res of
         Right () -> return ()
-        Left errs -> do
-          hPutStrLn stderr "ERROR:"
-          hPutStr stderr $ displayException errs
+        Left msgs -> do
+          hPutStrLn stderr "ERROR!"
+          hPutStr stderr $ displayException msgs
           exitFailure
 
 launchGUI :: IO ()

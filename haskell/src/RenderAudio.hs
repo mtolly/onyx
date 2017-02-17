@@ -15,26 +15,27 @@ module RenderAudio
 
 import           Audio
 import           Config
-import           Control.Monad              (forM_, guard, join)
-import           Control.Monad.Extra        (filterM, findM)
-import qualified Data.ByteString.Lazy       as BL
-import           Data.Char                  (toLower)
+import           Control.Monad                  (forM_, guard, join)
+import           Control.Monad.Extra            (filterM, findM)
+import           Control.Monad.Trans.StackTrace (StackTraceT, fatal)
+import qualified Data.ByteString.Lazy           as BL
+import           Data.Char                      (toLower)
 import           Data.Conduit.Audio
-import qualified Data.Digest.Pure.MD5       as MD5
-import           Data.Foldable              (toList)
-import qualified Data.HashMap.Strict        as HM
-import           Data.List                  (nub)
-import           Data.Maybe                 (fromMaybe, isJust, isNothing,
-                                             listToMaybe)
-import qualified Data.Text                  as T
+import qualified Data.Digest.Pure.MD5           as MD5
+import           Data.Foldable                  (toList)
+import qualified Data.HashMap.Strict            as HM
+import           Data.List                      (nub)
+import           Data.Maybe                     (fromMaybe, isJust, isNothing,
+                                                 listToMaybe)
+import qualified Data.Text                      as T
 import           Development.Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
-import qualified RockBand.Drums             as RBDrums
-import qualified Sound.File.Sndfile         as Snd
-import qualified Sound.Jammit.Base          as J
-import qualified Sound.Jammit.Export        as J
-import qualified System.Directory           as Dir
+import qualified RockBand.Drums                 as RBDrums
+import qualified Sound.File.Sndfile             as Snd
+import qualified Sound.Jammit.Base              as J
+import qualified Sound.Jammit.Export            as J
+import qualified System.Directory               as Dir
 
 -- | Oracle for an audio file search.
 -- The String is the 'show' of a value of type 'AudioFile'.
@@ -100,7 +101,7 @@ moggSearch md5search files = do
     _ -> return False
 
 -- make sure all audio leaves are defined, catch typos
-checkDefined :: (Monad m) => SongYaml -> m ()
+checkDefined :: (Monad m) => SongYaml -> StackTraceT m ()
 checkDefined songYaml = do
   let definedLeaves = HM.keys (_audio songYaml) ++ HM.keys (_jammit songYaml)
   forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
@@ -116,7 +117,7 @@ checkDefined songYaml = do
               ++ case _countin of Countin xs -> concatMap (toList . snd) xs
     case filter (not . (`elem` definedLeaves)) leaves of
       [] -> return ()
-      undefinedLeaves -> fail $
+      undefinedLeaves -> fatal $
         "Undefined leaves in plan " ++ show planName ++ " audio expression: " ++ show undefinedLeaves
 
 computeChannelsPlan :: SongYaml -> Audio Duration AudioInput -> Int

@@ -3,7 +3,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
-module Build (shakeStack, targetTitle) where
+module Build (shakeBuild, targetTitle, loadYaml) where
 
 import           Audio
 import qualified C3
@@ -13,6 +13,7 @@ import           Config                                hiding (Difficulty)
 import qualified Control.Exception                     as Exc
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Class             (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
@@ -52,7 +53,7 @@ import           Genre
 import           Image
 import           Import
 import           JSONData                              (JSONEither (..),
-                                                        traceJSON)
+                                                        TraceJSON (traceJSON))
 import qualified Magma
 import qualified MelodysEscape
 import           MoggDecrypt
@@ -97,6 +98,12 @@ import           System.IO                             (IOMode (ReadMode),
                                                         withBinaryFile)
 import           X360
 import           YAMLTree
+
+actionWarn :: Message -> Action ()
+actionWarn msg = putNormal $ "Warning: " ++ Exc.displayException msg
+
+staction :: (MonadIO m) => StackTraceT IO a -> StackTraceT m a
+staction = mapStackTraceT liftIO
 
 targetTitle :: SongYaml -> Target -> T.Text
 targetTitle songYaml target = case target of
@@ -552,26 +559,23 @@ makeMagmaProj songYaml plan pkg mid thisTitle = do
       }
     }
 
-shakeStack :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT m ()
-shakeStack audioDirs yamlPath buildables = let
-  io :: IO (Maybe ShakeException)
-  io = shakeBuild audioDirs yamlPath buildables >> return Nothing
-  handler :: ShakeException -> IO (Maybe ShakeException)
-  handler = return . Just
-  go [] exc = case Exc.fromException exc of
-    Nothing   -> fatal $ Exc.displayException exc
-    Just msgs -> fatalMessages msgs
-  go (layer : layers) exc = inside ("shake: " ++ layer) $ go layers exc
-  in liftIO (io `Exc.catch` handler) >>= \case
-    Nothing -> return ()
-    Just se -> go (shakeExceptionStack se) (shakeExceptionInner se)
+(≡>) :: FilePattern -> (FilePath -> StackTraceT Action ()) -> Rules ()
+pat ≡> f = pat %> \fp -> runStackTraceT (f fp) >>= \(res, Messages warns) -> do
+  mapM_ actionWarn warns
+  case res of
+    Right () -> return ()
+    Left err -> liftIO $ Exc.throwIO err
+infix 1 ≡>
 
-shakeBuild :: [FilePath] -> FilePath -> [FilePath] -> IO ()
+loadYaml :: (TraceJSON a, MonadIO m) => FilePath -> StackTraceT m a
+loadYaml fp = do
+  yaml <- readYAMLTreeStack fp
+  mapStackTraceT (`runReaderT` yaml) traceJSON
+
+shakeBuild :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT m ()
 shakeBuild audioDirs yamlPath buildables = do
 
-  songYaml
-    <-  readYAMLTree yamlPath
-    >>= runReaderT (printStackTraceIO traceJSON)
+  songYaml <- loadYaml yamlPath
 
   let fullGenre = interpretGenre
         (_genre    $ _metadata songYaml)
@@ -579,18 +583,32 @@ shakeBuild audioDirs yamlPath buildables = do
 
   checkDefined songYaml
 
-  exeTime <- getExecutablePath >>= Dir.getModificationTime
-  yamlTime <- Dir.getModificationTime yamlPath
+  exeTime <- liftIO $ getExecutablePath >>= Dir.getModificationTime
+  yamlTime <- liftIO $ Dir.getModificationTime yamlPath
   let version = show exeTime ++ "," ++ show yamlTime
 
   audioDirs' <- flip concatMapM audioDirs $ \dir ->
-    Dir.doesDirectoryExist dir >>= \ex -> if ex
+    liftIO (Dir.doesDirectoryExist dir) >>= \ex -> if ex
       then return [dir]
       else do
-        putStrLn $ "Warning - audio directory does not exist: " ++ dir
+        warn $ "Audio directory does not exist: " ++ dir
         return []
 
-  Dir.withCurrentDirectory (takeDirectory yamlPath) $ do
+  let liftIO' :: (MonadIO m) => IO () -> StackTraceT m ()
+      liftIO' act = let
+        io :: IO (Maybe ShakeException)
+        io = act >> return Nothing
+        handler :: ShakeException -> IO (Maybe ShakeException)
+        handler = return . Just
+        go [] exc = case Exc.fromException exc of
+          Nothing   -> fatal $ Exc.displayException exc
+          Just msgs -> fatalMessages msgs
+        go (layer : layers) exc = inside ("shake: " ++ layer) $ go layers exc
+        in liftIO (io `Exc.catch` handler) >>= \case
+          Nothing -> return ()
+          Just se -> go (shakeExceptionStack se) (shakeExceptionInner se)
+
+  liftIO' $ Dir.withCurrentDirectory (takeDirectory yamlPath) $ do
 
     shake shakeOptions{ shakeThreads = 0, shakeFiles = "gen", shakeVersion = version } $ do
 
@@ -794,15 +812,15 @@ shakeBuild audioDirs yamlPath buildables = do
                 Vocal3 -> [pathMagmaVocal, pathMagmaDryvox1, pathMagmaDryvox2, pathMagmaDryvox3]
               , [pathMagmaSong, pathMagmaCrowd, pathMagmaCover, pathMagmaMid, pathMagmaProj, pathMagmaC3]
               ]
-            pathMagmaRba %> \out -> do
-              need [pathMagmaSetup]
-              putNormal "# Running Magma v2 (C3)"
-              liftIO (printStackTraceIO $ Magma.runMagma pathMagmaProj out) >>= putNormal
-            pathMagmaExport %> \out -> do
-              need [pathMagmaMid, pathMagmaProj]
-              putNormal "# Running Magma v2 to export MIDI"
+            pathMagmaRba ≡> \out -> do
+              lift $ need [pathMagmaSetup]
+              lift $ putNormal "# Running Magma v2 (C3)"
+              staction (Magma.runMagma pathMagmaProj out) >>= lift . putNormal
+            pathMagmaExport ≡> \out -> do
+              lift $ need [pathMagmaMid, pathMagmaProj]
+              lift $ putNormal "# Running Magma v2 to export MIDI"
               -- TODO: bypass Magma if it fails due to over 1MB midi
-              liftIO (printStackTraceIO $ Magma.runMagmaMIDI pathMagmaProj out) >>= putNormal
+              staction (Magma.runMagmaMIDI pathMagmaProj out) >>= lift . putNormal
             let getRealSections :: Action (RTB.T U.Beats T.Text)
                 getRealSections = do
                   raw <- loadMIDI $ planDir </> "raw.mid"
@@ -903,15 +921,15 @@ shakeBuild audioDirs yamlPath buildables = do
             pathMogg %> copyFile' (planDir </> "audio.mogg")
             pathPng  %> copyFile' "gen/cover.png_xbox"
             pathMilo %> \out -> liftIO $ B.writeFile out emptyMilo
-            pathCon %> \out -> do
-              need [pathDta, pathMid, pathMogg, pathPng, pathMilo]
-              putNormal "# Calling rb3pkg to make RB3 CON file"
-              s <- liftIO $ printStackTraceIO $ rb3pkg
+            pathCon ≡> \out -> do
+              lift $ need [pathDta, pathMid, pathMogg, pathPng, pathMilo]
+              lift $ putNormal "# Calling rb3pkg to make RB3 CON file"
+              s <- staction $ rb3pkg
                 (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                 ("Version: " <> targetName)
                 (dir </> "stfs")
                 out
-              putNormal s
+              lift $ putNormal s
 
             case mrb2 of
               Nothing -> return ()
@@ -988,10 +1006,10 @@ shakeBuild audioDirs yamlPath buildables = do
                       }
                     }
 
-                pathMagmaRbaV1 %> \out -> do
-                  need [pathMagmaDummyMono, pathMagmaDummyStereo, pathMagmaDryvoxSine, pathMagmaCoverV1, pathMagmaMidV1, pathMagmaProjV1]
-                  putNormal "# Running Magma v1 (without 10 min limit)"
-                  liftIO (printStackTraceIO $ optional $ Magma.runMagmaV1 pathMagmaProjV1 out) >>= \case
+                pathMagmaRbaV1 ≡> \out -> do
+                  lift $ need [pathMagmaDummyMono, pathMagmaDummyStereo, pathMagmaDryvoxSine, pathMagmaCoverV1, pathMagmaMidV1, pathMagmaProjV1]
+                  lift $ putNormal "# Running Magma v1 (without 10 min limit)"
+                  staction (optional $ Magma.runMagmaV1 pathMagmaProjV1 out) >>= lift . \case
                     Just output -> putNormal output
                     Nothing     -> do
                       putNormal "Magma v1 failed; optimistically bypassing."
@@ -1185,15 +1203,15 @@ shakeBuild audioDirs yamlPath buildables = do
                       else B.writeFile out emptyWeightsRB2
                   rb2Art %> copyFile' "gen/cover.png_xbox"
                   rb2Pan %> \out -> liftIO $ B.writeFile out B.empty
-                  rb2CON %> \out -> do
-                    need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
-                    putNormal "# Calling rb3pkg to make RB2 CON file"
-                    s <- liftIO $ printStackTraceIO $ rb2pkg
+                  rb2CON ≡> \out -> do
+                    lift $ need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
+                    lift $ putNormal "# Calling rb3pkg to make RB2 CON file"
+                    s <- staction $ rb2pkg
                       (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                       (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                       (dir </> "rb2")
                       out
-                    putNormal s
+                    lift $ putNormal s
 
       let defaultTargets = HM.fromList $ do
             maybePlan <- map Just (HM.keys $ _plans songYaml) ++ case HM.keys $ _plans songYaml of
@@ -1526,36 +1544,37 @@ shakeBuild audioDirs yamlPath buildables = do
         -- Rock Band OGG and MOGG
         let ogg  = dir </> "audio.ogg"
             mogg = dir </> "audio.mogg"
-        ogg %> \out -> case plan of
-          MoggPlan{} -> do
-            need [mogg]
-            liftIO $ printStackTraceIO $ moggToOgg mogg out
-          _ -> let
-            hasCrowd = case plan of
-              Plan{..} -> isJust _crowd
-              _        -> False
-            parts = map Input $ concat
-              [ [dir </> "kick.wav"   | _hasDrums     (_instruments songYaml) && mixMode /= RBDrums.D0]
-              , [dir </> "snare.wav"  | _hasDrums     (_instruments songYaml) && elem mixMode [RBDrums.D1, RBDrums.D2, RBDrums.D3]]
-              , [dir </> "drums.wav"  | _hasDrums    $ _instruments songYaml]
-              , [dir </> "bass.wav"   | hasAnyBass   $ _instruments songYaml]
-              , [dir </> "guitar.wav" | hasAnyGuitar $ _instruments songYaml]
-              , [dir </> "keys.wav"   | hasAnyKeys   $ _instruments songYaml]
-              , [dir </> "vocal.wav"  | hasAnyVocal  $ _instruments songYaml]
-              , [dir </> "crowd.wav"  | hasCrowd                            ]
-              , [dir </> "song-countin.wav"]
-              ]
-            in buildAudio (Merge parts) out
-        mogg %> \out -> case plan of
-          MoggPlan{..} -> moggOracle (MoggSearch _moggMD5) >>= \case
-            Nothing -> fail "Couldn't find the MOGG file"
-            Just f -> do
-              putNormal $ "Found the MOGG file: " ++ f
-              copyFile' f out
+        case plan of
+          MoggPlan{..} -> do
+            ogg ≡> \out -> do
+              lift $ need [mogg]
+              staction $ moggToOgg mogg out
+            mogg %> \out -> moggOracle (MoggSearch _moggMD5) >>= \case
+              Nothing -> fail "Couldn't find the MOGG file"
+              Just f -> do
+                putNormal $ "Found the MOGG file: " ++ f
+                copyFile' f out
           _ -> do
-            need [ogg]
-            putNormal "# Wrapping OGG into unencrypted MOGG with Magma hack"
-            liftIO $ printStackTraceIO $ Magma.oggToMogg ogg out
+            ogg %> \out -> let
+              hasCrowd = case plan of
+                Plan{..} -> isJust _crowd
+                _        -> False
+              parts = map Input $ concat
+                [ [dir </> "kick.wav"   | _hasDrums     (_instruments songYaml) && mixMode /= RBDrums.D0]
+                , [dir </> "snare.wav"  | _hasDrums     (_instruments songYaml) && elem mixMode [RBDrums.D1, RBDrums.D2, RBDrums.D3]]
+                , [dir </> "drums.wav"  | _hasDrums    $ _instruments songYaml]
+                , [dir </> "bass.wav"   | hasAnyBass   $ _instruments songYaml]
+                , [dir </> "guitar.wav" | hasAnyGuitar $ _instruments songYaml]
+                , [dir </> "keys.wav"   | hasAnyKeys   $ _instruments songYaml]
+                , [dir </> "vocal.wav"  | hasAnyVocal  $ _instruments songYaml]
+                , [dir </> "crowd.wav"  | hasCrowd                            ]
+                , [dir </> "song-countin.wav"]
+                ]
+              in buildAudio (Merge parts) out
+            mogg ≡> \out -> do
+              lift $ need [ogg]
+              lift $ putNormal "# Wrapping OGG into unencrypted MOGG with Magma hack"
+              staction $ Magma.oggToMogg ogg out
 
         -- Low-quality audio files for the online preview app
         forM_ [("mp3", crapMP3), ("ogg", crapVorbis)] $ \(ext, crap) -> do

@@ -13,6 +13,7 @@ import           Control.Monad.Trans.Resource (allocate, runResourceT)
 import           Control.Monad.Trans.RWS
 import           Data.Data
 import           Data.Functor.Identity
+import           Data.Monoid                  ((<>))
 import qualified System.Directory             as Dir
 import           System.Exit                  (ExitCode (..))
 import           System.IO
@@ -41,7 +42,7 @@ instance Exc.Exception Messages where
 -- | Attaches warnings and fatal errors to a monad. Both warnings and errors
 -- keep track of their \"call stack\" of where the message occurred.
 newtype StackTraceT m a = StackTraceT
-  { fromStackTraceT :: ExceptT Messages (RWST [String] Messages () m) a
+  { fromStackTraceT :: ExceptT Messages (RWST [String] () Messages m) a
   } deriving (Functor, Applicative, Monad, MonadIO, Alternative, MonadPlus)
 
 type StackTrace = StackTraceT Identity
@@ -50,14 +51,20 @@ instance MonadTrans StackTraceT where
   lift = StackTraceT . lift . lift
 
 warn :: (Monad m) => String -> StackTraceT m ()
-warn s = StackTraceT $ lift $ do
-  ctx <- ask
-  tell $ Messages [Message s ctx]
+warn s = warnMessage $ Message s []
+
+warnMessage :: (Monad m) => Message -> StackTraceT m ()
+warnMessage (Message s ctx) = StackTraceT $ lift $ do
+  upper <- ask
+  modify (<> Messages [Message s $ ctx ++ upper])
 
 -- | Turns errors into warnings, and returns "Nothing".
 optional :: (Monad m) => StackTraceT m a -> StackTraceT m (Maybe a)
-optional p = fmap Just p `catch` \errs ->
-  StackTraceT (lift $ tell errs) >> return Nothing
+optional p = fmap Just p `catch` \(Messages msgs) ->
+  mapM_ warnMessage msgs >> return Nothing
+
+optional' :: (Monad m) => StackTraceT m a -> StackTraceT m (Either Messages a)
+optional' p = fmap Right p `catch` (return . Left)
 
 fatalMessages :: (Monad m) => Messages -> StackTraceT m a
 fatalMessages (Messages msgs) = StackTraceT $ do
@@ -71,20 +78,27 @@ catch :: (Monad m) => StackTraceT m a -> (Messages -> StackTraceT m a) -> StackT
 StackTraceT ex `catch` f = StackTraceT $ ex `catchE` (fromStackTraceT . f)
 
 inside :: String -> StackTraceT m a -> StackTraceT m a
-inside s (StackTraceT (ExceptT rwst)) = StackTraceT $ ExceptT $ local (s :) rwst
+inside s (StackTraceT (ExceptT rdr)) = StackTraceT $ ExceptT $ local (s :) rdr
 
 runStackTraceT :: (Monad m) => StackTraceT m a -> m (Either Messages a, Messages)
-runStackTraceT (StackTraceT ex) = evalRWST (runExceptT ex) [] ()
+runStackTraceT (StackTraceT ex) = do
+  (res, warns, ()) <- runRWST (runExceptT ex) [] (Messages [])
+  return (res, warns)
 
-runStackTrace :: StackTrace a -> (Either Messages a, Messages)
-runStackTrace = runIdentity . runStackTraceT
+processWarnings :: (Monad m) => StackTraceT m Messages
+processWarnings = StackTraceT $ lift $ do
+  warns <- get
+  put $ Messages []
+  return warns
+
+printWarning :: (MonadIO m) => Message -> m ()
+printWarning msg = liftIO $ hPutStr stderr $ "Warning: " ++ Exc.displayException msg
 
 -- | Prints warnings to standard error, and then throws any errors as an exception.
 printStackTraceIO :: (MonadIO m) => StackTraceT m a -> m a
-printStackTraceIO p = do
-  (result, Messages warnings) <- runStackTraceT p
-  liftIO $ forM_ warnings $ \msg -> hPutStr stderr $ "Warning: " ++ Exc.displayException msg
-  case result of
+printStackTraceIO p = runStackTraceT p >>= \(res, Messages warns) -> do
+  mapM_ printWarning warns
+  case res of
     Left msgs -> liftIO $ do
       hPutStrLn stderr "printStackTraceIO: fatal errors occurred!"
       Exc.throwIO msgs
@@ -96,7 +110,8 @@ liftMaybe f x = lift (f x) >>= \case
   Just y  -> return y
 
 mapStackTraceT
-  :: (m (Either Messages a, (), Messages) -> n (Either Messages b, (), Messages))
+  :: (Monad m, Monad n)
+  => (m (Either Messages a, Messages, ()) -> n (Either Messages b, Messages, ()))
   -> StackTraceT m a -> StackTraceT n b
 mapStackTraceT f (StackTraceT st) = StackTraceT $ mapExceptT (mapRWST f) st
 

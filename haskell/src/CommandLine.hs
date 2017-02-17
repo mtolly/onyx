@@ -4,13 +4,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 module CommandLine (commandLine) where
 
-import           Build                          (shakeStack)
+import           Build                          (loadYaml, shakeBuild)
 import           Config
 import qualified Control.Exception              as Exc
 import           Control.Monad                  (forM_, guard, unless)
 import           Control.Monad.Extra            (filterM)
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Reader     (runReaderT)
 import           Control.Monad.Trans.StackTrace
 import           Data.Aeson                     ((.:))
 import qualified Data.Aeson.Types               as A
@@ -36,7 +35,6 @@ import qualified Data.Yaml                      as Y
 import           Import                         (getRBAFile, importFoF,
                                                  importRBA, importSTFS,
                                                  simpleRBAtoCON)
-import           JSONData                       (TraceJSON (traceJSON))
 import           Magma                          (oggToMogg, runMagma,
                                                  runMagmaV1)
 import           MoggDecrypt                    (moggToOgg)
@@ -64,7 +62,6 @@ import           System.IO.Error                (tryIOError)
 import           System.Process                 (callProcess, spawnCommand)
 import           Text.Printf                    (printf)
 import           X360                           (rb2pkg, rb3pkg, stfsFolder)
-import           YAMLTree                       (readYAMLTreeStack)
 
 #ifdef WINDOWS
 import           Data.Bits                      (testBit)
@@ -73,11 +70,6 @@ import           System.Win32.File              (getLogicalDrives)
 import           Data.List                      (isPrefixOf)
 import           System.MountPoints
 #endif
-
-loadYaml :: (TraceJSON a, MonadIO m) => FilePath -> StackTraceT m a
-loadYaml fp = do
-  yaml <- readYAMLTreeStack fp
-  mapStackTraceT (`runReaderT` yaml) traceJSON
 
 loadDTA :: (D.DTASerialize a, MonadIO m) => FilePath -> StackTraceT m a
 loadDTA f = inside f $ liftIO (tryIOError $ T.readFile f) >>= \case
@@ -267,7 +259,7 @@ buildTarget yamlPath opts = do
         RB3{} -> "gen/target" </> T.unpack targetName </> "rb3con"
         RB2{} -> "gen/target" </> T.unpack targetName </> "rb2con"
         PS {} -> "gen/target" </> T.unpack targetName </> "ps.zip"
-  shakeStack audioDirs yamlPath [built]
+  shakeBuild audioDirs yamlPath [built]
   return (target, takeDirectory yamlPath </> built)
 
 getKeysRB2 :: [OnyxOption] -> KeysRB2
@@ -337,7 +329,7 @@ commands =
       yml : builds -> identifyFile' yml >>= \case
         (FileSongYaml, yml') -> do
           audioDirs <- getAudioDirs yml
-          shakeStack audioDirs yml' builds
+          shakeBuild audioDirs yml' builds
         (ftype, fpath) -> unrecognized ftype fpath
     }
 
@@ -383,7 +375,7 @@ commands =
           planName <- getPlanName yamlPath opts
           let rpp = "notes-" <> T.unpack planName <> ".RPP"
               yamlDir = takeDirectory yamlPath
-          shakeStack audioDirs yamlPath [rpp]
+          shakeBuild audioDirs yamlPath [rpp]
           let rppFull = yamlDir </> "notes.RPP"
           liftIO $ Dir.renameFile (yamlDir </> rpp) rppFull
           unless (elem OptNoOpen opts) $ osOpenFile rppFull
@@ -412,7 +404,7 @@ commands =
         audioDirs <- getAudioDirs fpath
         planName <- getPlanName fpath opts
         let player = "gen/plan" </> T.unpack planName </> "web"
-        shakeStack audioDirs fpath [player]
+        shakeBuild audioDirs fpath [player]
         player' <- liftIO $ case [ to | OptTo to <- opts ] of
           []      -> return player
           out : _ -> do
@@ -425,7 +417,7 @@ commands =
         out <- outputFile opts $ return $ fpath ++ "_player"
         liftIO $ importSTFS NoKeys fpath tmp
         let player = "gen/plan/mogg/web"
-        shakeStack [tmp] (tmp </> "song.yml") [player]
+        shakeBuild [tmp] (tmp </> "song.yml") [player]
         liftIO $ Dir.createDirectoryIfMissing False out
         copyDirRecursive (tmp </> player) out
         unless (elem OptNoOpen opts) $ osOpenFile $ out </> "index.html"
@@ -447,7 +439,7 @@ commands =
     , commandDesc = "Generate a GitHub README file for a song."
     , commandUsage = ""
     , commandRun = \files _opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
-      FileSongYaml -> shakeStack [] fpath ["update-readme"]
+      FileSongYaml -> shakeBuild [] fpath ["update-readme"]
       _            -> unrecognized ftype fpath
     }
 
@@ -505,7 +497,7 @@ commands =
           out <- outputFile opts $ do
             fpathAbs <- liftIO $ Dir.makeAbsolute fpath
             return $ dropTrailingPathSeparator fpathAbs <> "_" <> conSuffix
-          shakeStack [tmp] (tmp </> "song.yml") [con]
+          shakeBuild [tmp] (tmp </> "song.yml") [con]
           liftIO $ Dir.copyFile (tmp </> con) out
     }
 
@@ -522,7 +514,7 @@ commands =
         FileSongYaml -> do
           audioDirs <- getAudioDirs fpath
           planName <- getPlanName fpath opts
-          shakeStack audioDirs fpath ["gen/plan" </> T.unpack planName </> "hanging"]
+          shakeBuild audioDirs fpath ["gen/plan" </> T.unpack planName </> "hanging"]
         FileRBProj   -> do
           rbproj <- loadDTA fpath
           let midPath = T.unpack $ RBProj.midiFile $ RBProj.midi $ RBProj.project rbproj
@@ -657,7 +649,7 @@ commands =
 
   ]
 
-commandLine :: (MonadIO m) => [String] -> StackTraceT m ()
+commandLine :: [String] -> StackTraceT IO ()
 commandLine args = let
   (opts, nonopts, errors) = getOpt Permute optDescrs args
   printIntro = liftIO $ mapM_ T.putStrLn
@@ -682,9 +674,11 @@ commandLine args = let
             , "Usage:"
             , commandUsage c
             ]
-          else mapStackTraceT liftIO $ commandRun c nonopts' opts
+          -- else mapStackTraceT liftIO undefined $ commandRun c nonopts' opts
+          else commandRun c nonopts' opts
         _ -> printIntro >> fatal ("Unrecognized command: " ++ show cmd)
-    _ -> fatal $ unlines $ "Errors occurred during command line parsing:" : errors
+    _ -> inside "command line parsing" $ do
+      fatalMessages $ Messages [ Message e [] | e <- errors ]
 
 optDescrs :: [OptDescr OnyxOption]
 optDescrs =
