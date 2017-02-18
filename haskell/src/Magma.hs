@@ -1,16 +1,16 @@
-module Magma (runMagmaMIDI, runMagma, runMagmaV1, oggToMogg) where
+module Magma (runMagmaMIDI, runMagma, runMagmaV1, oggToMogg, getRBAFile) where
 
-import           Control.Monad                  (forM_)
+import           Control.Monad                  (forM_, replicateM)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource   (ResourceT, runResourceT)
 import           Control.Monad.Trans.StackTrace
-import           Data.Bits                      (shiftL)
+import           Data.Binary.Get                (getWord32le, runGet)
 import qualified Data.ByteString                as B
+import qualified Data.ByteString.Lazy           as BL
 import           Data.Conduit.Audio             (AudioSource, Duration (..),
                                                  silent)
 import           Data.Conduit.Audio.Sndfile     (sinkSnd)
 import           Data.Int                       (Int16)
-import           Data.Word                      (Word32)
 import           Resources                      (magmaFiles, magmaV1Files)
 import qualified Sound.File.Sndfile             as Snd
 import qualified System.Directory               as Dir
@@ -61,34 +61,31 @@ runMagmaV1 proj rba = tempDir "magma-v1" $ \tmp -> do
         (tmp </> "MagmaCompiler.exe") [proj', rba']
   inside "running Magma v1" $ stackProcess createProc ""
 
+getRBAFile :: (MonadIO m) => Int -> FilePath -> FilePath -> m ()
+getRBAFile i rba out = liftIO $ IO.withBinaryFile rba IO.ReadMode $ \h -> do
+  IO.hSeek h IO.AbsoluteSeek 0x08
+  let read7words = runGet (replicateM 7 getWord32le) <$> BL.hGet h (7 * 4)
+  offsets <- read7words
+  sizes <- read7words
+  IO.hSeek h IO.AbsoluteSeek $ fromIntegral $ offsets !! i
+  BL.hGet h (fromIntegral $ sizes !! i) >>= BL.writeFile out
+
 oggToMogg :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 oggToMogg ogg mogg = tempDir "ogg2mogg" $ \tmp -> do
   wd <- liftIO $ Dir.getCurrentDirectory
   let ogg'  = wd </> ogg
       mogg' = wd </> mogg
-  liftIO $ Dir.createDirectory $ tmp </> "gen"
-  liftIO $ forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
-  liftIO $ Dir.renameFile (tmp </> "oggenc-redirect.exe") (tmp </> "oggenc.exe")
-  liftIO $ Dir.copyFile ogg' $ tmp </> "audio.ogg"
+  liftIO $ do
+    Dir.createDirectory $ tmp </> "gen"
+    forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
+    Dir.renameFile (tmp </> "oggenc-redirect.exe") (tmp </> "oggenc.exe")
+    Dir.copyFile ogg' $ tmp </> "audio.ogg"
   let proj = "hellskitchen.rbproj"
       rba = "out.rba"
-  liftIO $ runResourceT
-    $ sinkSnd (tmp </> "silence.wav")
+  liftIO $ runResourceT $ sinkSnd (tmp </> "silence.wav")
     (Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile)
     (silent (Seconds 31) 44100 2 :: AudioSource (ResourceT IO) Int16)
   let createProc = withWin32Exe (\exe args -> (proc exe args) { cwd = Just tmp })
         (tmp </> "MagmaCompilerC3.exe") [proj, rba]
   _ <- inside "running Magma v2 to convert OGG to MOGG" $ stackProcess createProc ""
-  liftIO $ IO.withBinaryFile (tmp </> rba) IO.ReadMode $ \hrba -> do
-    IO.hSeek hrba IO.AbsoluteSeek $ 4 + (4 * 3)
-    moggOffset <- hReadWord32le hrba
-    IO.hSeek hrba IO.AbsoluteSeek $ 4 + (4 * 10)
-    moggLength <- hReadWord32le hrba
-    IO.hSeek hrba IO.AbsoluteSeek $ fromIntegral moggOffset
-    moggData <- B.hGet hrba $ fromIntegral moggLength
-    B.writeFile mogg' moggData
-
-hReadWord32le :: IO.Handle -> IO Word32
-hReadWord32le h = do
-  [a, b, c, d] <- map fromIntegral . B.unpack <$> B.hGet h 4
-  return $ a + (b `shiftL` 8) + (c `shiftL` 16) + (d `shiftL` 24)
+  getRBAFile 2 (tmp </> rba) mogg'

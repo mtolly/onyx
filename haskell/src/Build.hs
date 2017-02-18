@@ -51,7 +51,6 @@ import           DryVox                                (clipDryVox,
 import qualified FretsOnFire                           as FoF
 import           Genre
 import           Image
-import           Import
 import           JSONData                              (JSONEither (..),
                                                         TraceJSON (traceJSON))
 import qualified Magma
@@ -568,7 +567,7 @@ infix 1 ≡>
 
 loadYaml :: (TraceJSON a, MonadIO m) => FilePath -> StackTraceT m a
 loadYaml fp = do
-  yaml <- readYAMLTreeStack fp
+  yaml <- readYAMLTree fp
   mapStackTraceT (`runReaderT` yaml) traceJSON
 
 shakeBuild :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT m ()
@@ -1052,7 +1051,7 @@ shakeBuild audioDirs yamlPath buildables = do
                   rb2OriginalDTA ≡> \out -> do
                     ex <- lift doesRBAExist
                     if ex
-                      then getRBAFile 0 pathMagmaRbaV1 out
+                      then Magma.getRBAFile 0 pathMagmaRbaV1 out
                       else do
                         lift $ need [pathDta]
                         (_, rb3DTA, _) <- readRB3DTA pathDta
@@ -1158,7 +1157,7 @@ shakeBuild audioDirs yamlPath buildables = do
                     lift $ need [pathMagmaMid]
                     mid <- liftIO $ if ex
                       then do
-                        getRBAFile 1 pathMagmaRbaV1 out
+                        Magma.getRBAFile 1 pathMagmaRbaV1 out
                         Load.fromFile out
                       else Load.fromFile pathMagmaMidV1
                     let Left beatTracks = U.decodeFile mid
@@ -1193,12 +1192,12 @@ shakeBuild audioDirs yamlPath buildables = do
                   rb2Milo %> \out -> do
                     ex <- doesRBAExist
                     liftIO $ if ex
-                      then getRBAFile 3 pathMagmaRbaV1 out
+                      then Magma.getRBAFile 3 pathMagmaRbaV1 out
                       else B.writeFile out emptyMiloRB2
                   rb2Weights %> \out -> do
                     ex <- doesRBAExist
                     liftIO $ if ex
-                      then getRBAFile 5 pathMagmaRbaV1 out
+                      then Magma.getRBAFile 5 pathMagmaRbaV1 out
                       else B.writeFile out emptyWeightsRB2
                   rb2Art %> copyFile' "gen/cover.png_xbox"
                   rb2Pan %> \out -> liftIO $ B.writeFile out B.empty

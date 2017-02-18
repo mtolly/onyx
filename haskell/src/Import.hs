@@ -8,10 +8,9 @@ import           Config                           hiding (Difficulty)
 import           Control.Applicative              ((<|>))
 import           Control.Exception                (evaluate)
 import           Control.Monad                    (guard, when)
-import           Control.Monad.Extra              (mapMaybeM, replicateM)
+import           Control.Monad.Extra              (mapMaybeM)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
-import           Data.Binary.Get                  (getWord32le, runGet)
 import qualified Data.ByteString.Lazy             as BL
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
@@ -32,6 +31,7 @@ import qualified Data.Yaml                        as Y
 import qualified FretsOnFire                      as FoF
 import           Image                            (toPNG_XBOX)
 import           JSONData                         (JSONEither (..))
+import           Magma                            (getRBAFile)
 import           PrettyDTA                        (C3DTAComments (..),
                                                    DTASingle (..),
                                                    readDTASingle, readRB3DTA,
@@ -47,8 +47,6 @@ import           STFS.Extract                     (extractSTFS)
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (takeDirectory, takeFileName,
                                                    (<.>), (</>))
-import           System.IO                        (IOMode (..), SeekMode (..),
-                                                   hSeek, withBinaryFile)
 import           X360                             (rb3pkg)
 
 standardTargets :: Maybe (JSONEither Integer T.Text) -> Maybe Integer -> Bool -> KeysRB2 -> HM.HashMap T.Text Target
@@ -340,15 +338,6 @@ importSTFS krb2 file dir = tempDir "onyx_con" $ \temp -> do
     (temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox"))
     "cover.png_xbox"
     dir
-
-getRBAFile :: (MonadIO m) => Int -> FilePath -> FilePath -> m ()
-getRBAFile i rba out = liftIO $ withBinaryFile rba ReadMode $ \h -> do
-  hSeek h AbsoluteSeek 0x08
-  let read7words = runGet (replicateM 7 getWord32le) <$> BL.hGet h (7 * 4)
-  offsets <- read7words
-  sizes <- read7words
-  hSeek h AbsoluteSeek $ fromIntegral $ offsets !! i
-  BL.hGet h (fromIntegral $ sizes !! i) >>= BL.writeFile out
 
 -- | Converts a Magma v2 RBA to CON without going through an import + recompile.
 simpleRBAtoCON :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m String

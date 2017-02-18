@@ -32,11 +32,10 @@ import qualified Data.Text                      as T
 import qualified Data.Text.IO                   as T
 import           Data.Word                      (Word32)
 import qualified Data.Yaml                      as Y
-import           Import                         (getRBAFile, importFoF,
-                                                 importRBA, importSTFS,
-                                                 simpleRBAtoCON)
-import           Magma                          (oggToMogg, runMagma,
-                                                 runMagmaV1)
+import           Import                         (importFoF, importRBA,
+                                                 importSTFS, simpleRBAtoCON)
+import           Magma                          (getRBAFile, oggToMogg,
+                                                 runMagma, runMagmaV1)
 import           MoggDecrypt                    (moggToOgg)
 import           PrettyDTA                      (readRB3DTA)
 import           ProKeysRanges                  (closeShiftsFile, completeFile)
@@ -286,6 +285,9 @@ getInputMIDI files = optionalFile files >>= \case
   (FilePS, ini) -> return $ takeDirectory ini </> "notes.mid"
   (ftype, fpath) -> unrecognized ftype fpath
 
+undone :: (Monad m) => StackTraceT m ()
+undone = fatal "Feature not built yet..."
+
 commands :: [Command]
 commands =
 
@@ -345,16 +347,16 @@ commands =
                 RB3{} -> FileSTFS
                 RB2{} -> FileSTFS
           doInstall ftype' built
-        FileRBProj -> undefined -- install con to usb drive
+        FileRBProj -> undone -- install con to usb drive
         FileSTFS -> do
           drive <- outputFile opts $ findXbox360USB >>= \case
             [d] -> return d
             [ ] -> fatal "onyx install (stfs): no Xbox 360 USB drives found"
             _   -> fatal "onyx install (stfs): more than 1 Xbox 360 USB drive found"
           liftIO $ installSTFS fpath drive
-        FileRBA -> undefined -- convert to con, install to usb drive
-        FilePS -> undefined -- install to PS music dir
-        FileZip -> undefined -- install to PS music dir
+        FileRBA -> undone -- convert to con, install to usb drive
+        FilePS -> undone -- install to PS music dir
+        FileZip -> undone -- install to PS music dir
         _ -> unrecognized ftype fpath
       in optionalFile files >>= uncurry doInstall
     }
@@ -391,7 +393,7 @@ commands =
     { commandWord = "new"
     , commandDesc = "Start a new project from an audio file."
     , commandUsage = "onyx new song.flac"
-    , commandRun = undefined
+    , commandRun = \_ _ -> undone
     }
 
   , Command
@@ -411,7 +413,7 @@ commands =
             copyDirRecursive player out
             return out
         unless (elem OptNoOpen opts) $ osOpenFile $ player' </> "index.html"
-      FileRBProj -> undefined
+      FileRBProj -> undone
       FileSTFS -> tempDir "onyx_player" $ \tmp -> do
         out <- outputFile opts $ return $ fpath ++ "_player"
         importSTFS NoKeys fpath tmp
@@ -420,9 +422,9 @@ commands =
         liftIO $ Dir.createDirectoryIfMissing False out
         copyDirRecursive (tmp </> player) out
         unless (elem OptNoOpen opts) $ osOpenFile $ out </> "index.html"
-      FileRBA -> undefined
-      FilePS -> undefined
-      FileMidi -> undefined
+      FileRBA -> undone
+      FilePS -> undone
+      FileMidi -> undone
       _ -> unrecognized ftype fpath
     }
 
@@ -430,7 +432,7 @@ commands =
     { commandWord = "check"
     , commandDesc = "Check for any authoring errors in a project."
     , commandUsage = ""
-    , commandRun = undefined
+    , commandRun = \_ _ -> undone
     }
 
   , Command
@@ -448,7 +450,7 @@ commands =
     , commandUsage = ""
     -- TODO: support --2x
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
-      FileRBProj -> undefined
+      FileRBProj -> undone
       FileSTFS -> do
         out <- outputFile opts $ return $ fpath ++ "_import"
         liftIO $ Dir.createDirectoryIfMissing False out
@@ -487,7 +489,7 @@ commands =
             FileSTFS -> importSTFS (getKeysRB2 opts) fpath tmp
             FileRBA -> importRBA (getKeysRB2 opts) fpath tmp
             FilePS -> importFoF (getKeysRB2 opts) (takeDirectory fpath) tmp
-            FileZip -> undefined
+            FileZip -> undone
             _ -> unrecognized ftype fpath
           targetName <- firstPresentTarget (tmp </> "song.yml") $ case game of
             GameRB3 -> ["rb3-2x", "rb3"]
@@ -518,7 +520,7 @@ commands =
           rbproj <- loadDTA fpath
           let midPath = T.unpack $ RBProj.midiFile $ RBProj.midi $ RBProj.project rbproj
           withMIDI (takeDirectory fpath </> midPath)
-        FileSTFS     -> undefined
+        FileSTFS     -> undone
         FileRBA      -> tempDir "onyx_hanging_rba" $ \tmp -> do
           let midPath = tmp </> "notes.mid"
           getRBAFile 1 fpath midPath
