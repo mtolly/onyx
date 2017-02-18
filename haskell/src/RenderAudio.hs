@@ -24,7 +24,7 @@ import           Data.Conduit.Audio
 import qualified Data.Digest.Pure.MD5           as MD5
 import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as HM
-import           Data.List                      (nub)
+import           Data.List                      (nub, partition)
 import           Data.Maybe                     (fromMaybe, isJust, isNothing,
                                                  listToMaybe)
 import qualified Data.Text                      as T
@@ -71,22 +71,23 @@ computeChannels = \case
 audioSearch :: AudioFile -> [FilePath] -> Action (Maybe FilePath)
 audioSearch AudioSnippet{} _     = fail "panic! called audioSearch on a snippet. report this bug"
 audioSearch AudioFile{..}  files = do
+  let sortForMD5 = uncurry (++) . partition (\f -> takeExtension f == ".flac")
   files1 <- case _filePath of
-    Nothing   -> return files
+    Nothing   -> return $ sortForMD5 files
     Just path -> do
       need [path]
       liftIO $ fmap (:[]) $ Dir.canonicalizePath path
-  files2 <- liftIO $ case _md5 of
+  files2 <- case _md5 of
     Nothing  -> return files1
     Just md5 -> fmap toList $ findM (fmap (== Just (T.unpack md5)) . audioMD5) files1
-  files3 <- liftIO $ case _frames of
+  files3 <- case _frames of
     Nothing  -> return files2
     Just len -> filterM (fmap (== Just len) . audioLength) files2
   files4 <- if isNothing _filePath && isNothing _md5
     then fail "audioSearch: you must specify either file-path or md5"
     else return files3
-  files5 <- liftIO $ filterM (fmap (== Just _channels) . audioChannels) files4
-  files6 <- liftIO $ case _rate of
+  files5 <- filterM (fmap (== Just _channels) . audioChannels) files4
+  files6 <- case _rate of
     Nothing   -> return files5
     Just rate -> filterM (fmap (== Just rate) . audioRate) files5
   need files6

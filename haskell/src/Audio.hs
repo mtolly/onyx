@@ -20,8 +20,8 @@ module Audio
 ) where
 
 import           Audio.Types
-
 import           Control.Exception               (evaluate)
+import           Control.Monad.IO.Class          (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource    (MonadResource, ResourceT,
                                                   runResourceT)
 import           Data.Binary.Get                 (getWord32le, runGetOrFail)
@@ -40,8 +40,7 @@ import qualified Data.Digest.Pure.MD5            as MD5
 import           Data.Foldable                   (toList)
 import qualified Data.Vector.Storable            as V
 import           Data.Word                       (Word8)
-import           Development.Shake               (Action, liftIO, need,
-                                                  putNormal)
+import           Development.Shake               (Action, need, putNormal)
 import           Development.Shake.FilePath      (takeExtension)
 import           Numeric                         (showHex)
 import           SndfileExtra
@@ -232,8 +231,8 @@ clampFloat src = src { source = source src =$= CL.map clampVector } where
     | s > 1     -> 1
     | otherwise -> s
 
-audioMD5 :: FilePath -> IO (Maybe String)
-audioMD5 f = case takeExtension f of
+audioMD5 :: (MonadIO m) => FilePath -> m (Maybe String)
+audioMD5 f = liftIO $ case takeExtension f of
   ".flac" -> do
     let dropUntilSubstr sub bs
           | sub `BL.isPrefixOf` bs = bs
@@ -267,24 +266,24 @@ audioMD5 f = case takeExtension f of
         return $ show $ MD5.md5 data_
   _ -> return Nothing
 
-audioLength :: FilePath -> IO (Maybe Integer)
+audioLength :: (MonadIO m) => FilePath -> m (Maybe Integer)
 audioLength f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
-  then Just . fromIntegral . Snd.frames <$> Snd.getFileInfo f
+  then liftIO $ Just . fromIntegral . Snd.frames <$> Snd.getFileInfo f
   else return Nothing
 
-audioChannels :: FilePath -> IO (Maybe Int)
+audioChannels :: (MonadIO m) => FilePath -> m (Maybe Int)
 audioChannels f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
-  then Just . Snd.channels <$> Snd.getFileInfo f
+  then liftIO $ Just . Snd.channels <$> Snd.getFileInfo f
   else return Nothing
 
-audioRate :: FilePath -> IO (Maybe Int)
+audioRate :: (MonadIO m) => FilePath -> m (Maybe Int)
 audioRate f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
-  then Just . Snd.samplerate <$> Snd.getFileInfo f
+  then liftIO $ Just . Snd.samplerate <$> Snd.getFileInfo f
   else return Nothing
 
-audioSeconds :: FilePath -> IO U.Seconds
+audioSeconds :: (MonadIO m) => FilePath -> m U.Seconds
 audioSeconds f = do
-  info <- Snd.getFileInfo f
+  info <- liftIO $ Snd.getFileInfo f
   return $ realToFrac (Snd.frames info) / realToFrac (Snd.samplerate info)
 
 -- | Applies Rock Band's pan and volume lists
