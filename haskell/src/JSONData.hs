@@ -8,7 +8,7 @@ import           Control.Applicative            ((<|>))
 import           Control.Monad                  (forM)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
-import           Control.Monad.Trans.StackTrace hiding (optional)
+import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
 import           Data.Aeson                     ((.=))
 import qualified Data.Aeson                     as A
@@ -99,19 +99,19 @@ object p = lift ask >>= \case
   A.Object o -> parseFrom o p
   _          -> expected "an object"
 
-required :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) a
-required k p = lift ask >>= \hm -> case Map.lookup k hm of
+requiredKey :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) a
+requiredKey k p = lift ask >>= \hm -> case Map.lookup k hm of
   Nothing -> parseFrom (A.Object hm) $
     expected $ "to find required key " ++ show k ++ " in object"
   Just v  -> inside ("required key " ++ show k) $ parseFrom v p
 
-optional :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) (Maybe a)
-optional k p = lift ask >>= \hm -> case Map.lookup k hm of
+optionalKey :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) (Maybe a)
+optionalKey k p = lift ask >>= \hm -> case Map.lookup k hm of
   Nothing -> return Nothing
   Just v  -> fmap Just $ inside ("optional key " ++ show k) $ parseFrom v p
 
-theKey :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) a
-theKey k p = lift ask >>= \hm -> case Map.toList hm of
+onlyKey :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) a
+onlyKey k p = lift ask >>= \hm -> case Map.toList hm of
   [(k', v)] | k == k' -> inside ("only key " ++ show k) $ parseFrom v p
   _ -> parseFrom (A.Object hm) $
     expected $ "to find only key " ++ show k ++ " in object"
@@ -171,14 +171,14 @@ jsonRecord rec derivs writ = do
     tracer = foldl apply [e| pure $(conE (mkName rec)) |] $ flip map fields $ \field ->
       case defaultValue field of
         Just dft -> [e|
-          optional $(TH.lift (jsonKey field)) traceJSON >>= \case
+          optionalKey $(TH.lift (jsonKey field)) traceJSON >>= \case
             Nothing -> do
               when $(TH.lift (warnMissing field))
                 (warn ("missing key " ++ show ($(TH.lift (jsonKey field)) :: String)))
               return $dft
             Just x -> return x
           |]
-        Nothing -> [e| required $(TH.lift (jsonKey field)) traceJSON |]
+        Nothing -> [e| requiredKey $(TH.lift (jsonKey field)) traceJSON |]
     in [d|
       instance TraceJSON $(conT (mkName rec)) where
         traceJSON = object (expectedKeys $keys >> $tracer)

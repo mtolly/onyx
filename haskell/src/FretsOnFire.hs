@@ -2,14 +2,16 @@
 {-# LANGUAGE RecordWildCards   #-}
 module FretsOnFire where
 
-import           Control.Applicative        ((<|>))
+import           Control.Applicative            ((<|>))
+import           Control.Monad.IO.Class         (MonadIO (liftIO))
+import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
-import qualified Data.ByteString            as B
-import qualified Data.HashMap.Strict        as HM
+import qualified Data.ByteString                as B
+import qualified Data.HashMap.Strict            as HM
 import           Data.Ini
-import           Data.List                  (sortOn)
-import qualified Data.Text                  as T
-import qualified Data.Text.Encoding         as TE
+import           Data.List                      (sortOn)
+import qualified Data.Text                      as T
+import qualified Data.Text.Encoding             as TE
 
 data Song = Song
   { name             :: Maybe T.Text
@@ -44,9 +46,9 @@ data Song = Song
   , track            :: Maybe Int
   } deriving (Eq, Ord, Show, Read)
 
-loadSong :: FilePath -> IO Song
+loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
 loadSong fp = do
-  ini <- readIniFile fp >>= either error return
+  ini <- inside fp $ liftIO (readIniFile fp) >>= either fatal return
 
   let str :: T.Text -> Maybe T.Text
       str k = either (const Nothing) Just $ lookupValue "song" k ini
@@ -88,7 +90,7 @@ loadSong fp = do
 
   return Song{..}
 
-saveSong :: FilePath -> Song -> IO ()
+saveSong :: (MonadIO m) => FilePath -> Song -> m ()
 saveSong fp Song{..} = writePSIni fp $
   Ini $ HM.singleton "song" $ HM.fromList $ execWriter $ do
     let str k = maybe (return ()) $ \v -> tell [(k, v)]
@@ -126,10 +128,10 @@ saveSong fp Song{..} = writePSIni fp $
     shown "multiplier_note" starPowerNote
     shown "track" track
 
-writePSIni :: FilePath -> Ini -> IO ()
+writePSIni :: (MonadIO m) => FilePath -> Ini -> m ()
 writePSIni fp (Ini hmap) = let
   txt = T.intercalate "\r\n" $ map section $ sortOn fst $ HM.toList hmap
   section (title, pairs) = T.intercalate "\r\n" $
     T.concat ["[", title, "]"] : map line (sortOn fst $ HM.toList pairs)
   line (k, v) = T.concat [k, " = ", v]
-  in B.writeFile fp $ TE.encodeUtf8 $ T.append txt "\r\n"
+  in liftIO $ B.writeFile fp $ TE.encodeUtf8 $ T.append txt "\r\n"

@@ -2,7 +2,8 @@
 module Reductions (gryboComplete, pkReduce, drumsComplete, simpleReduce) where
 
 import           Control.Monad                    (guard)
-import           Control.Monad.Trans.StackTrace   (printStackTraceIO)
+import           Control.Monad.IO.Class           (MonadIO (liftIO))
+import           Control.Monad.Trans.StackTrace
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     (($>))
@@ -516,13 +517,13 @@ drumsReduce diff   mmap od sections trk = let
       in foldr f keptAll sectionBounds
   in ensureODNotes od trk $ RTB.flatten $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ Map.toAscList sectioned
 
-simpleReduce :: FilePath -> FilePath -> IO ()
+simpleReduce :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleReduce fin fout = do
-  mid@(F.Cons typ dvn trks) <- Load.fromFile fin
+  mid@(F.Cons typ dvn trks) <- liftIO $ Load.fromFile fin
   res <- case dvn of
     F.Ticks res -> return res
-    _           -> error "unsupported smpte time"
-  song <- printStackTraceIO $ RBFile.readMIDIFile mid
+    _           -> fatal "Unsupported SMPTE time"
+  song <- RBFile.readMIDIFile mid
   let mid' = F.Cons typ dvn trks'
       trks' = concatMap reduce trks ++ proKeys
       findTrack ftrk = foldr RTB.merge RTB.empty $ mapMaybe ftrk $ RBFile.s_tracks song
@@ -559,4 +560,4 @@ simpleReduce fin fout = do
               , RBFile.PartRealKeys Medium medium
               , RBFile.PartRealKeys Easy easy
               ]
-  Save.toFile fout mid'
+  liftIO $ Save.toFile fout mid'

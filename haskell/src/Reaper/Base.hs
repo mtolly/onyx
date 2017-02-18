@@ -1,15 +1,16 @@
 {-# LANGUAGE LambdaCase #-}
 module Reaper.Base where
 
-import           Data.List        (foldl')
-import           Text.PrettyPrint ((<+>), (<>))
-import qualified Text.PrettyPrint as PP
+import           Control.Monad.IO.Class (MonadIO (liftIO))
+import           Data.List              (foldl')
+import           Text.PrettyPrint       ((<+>), (<>))
+import qualified Text.PrettyPrint       as PP
 
 data Element = Element String [String] (Maybe [Element])
   deriving (Eq, Ord, Show, Read)
 
-writeRPP :: FilePath -> Element -> IO ()
-writeRPP path = writeFile path . PP.render . showElement
+writeRPP :: (MonadIO m) => FilePath -> Element -> m ()
+writeRPP path = liftIO . writeFile path . PP.render . showElement
 
 showElement :: Element -> PP.Doc
 showElement (Element k ks Nothing) = foldl' (<+>) (showAtom k) (map showAtom ks)

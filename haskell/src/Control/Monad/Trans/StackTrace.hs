@@ -1,11 +1,27 @@
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
-module Control.Monad.Trans.StackTrace where
+{-# LANGUAGE MultiParamTypeClasses      #-}
+module Control.Monad.Trans.StackTrace
+( Message(..), Messages(..)
+, StackTraceT(..), StackTrace
+, warn, warnMessage
+, errorToWarning, errorToEither
+, fatal
+, MonadError(..)
+, inside
+, runStackTraceT
+, processWarnings, printWarning
+, liftMaybe
+, mapStackTraceT
+, tempDir
+, stackProcess
+) where
 
 import           Control.Applicative
 import qualified Control.Exception            as Exc
 import           Control.Monad
+import           Control.Monad.Except         (MonadError (..))
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
@@ -59,23 +75,22 @@ warnMessage (Message s ctx) = StackTraceT $ lift $ do
   modify (<> Messages [Message s $ ctx ++ upper])
 
 -- | Turns errors into warnings, and returns "Nothing".
-optional :: (Monad m) => StackTraceT m a -> StackTraceT m (Maybe a)
-optional p = fmap Just p `catch` \(Messages msgs) ->
-  mapM_ warnMessage msgs >> return Nothing
+errorToWarning :: (Monad m) => StackTraceT m a -> StackTraceT m (Maybe a)
+errorToWarning p = errorToEither p >>= \case
+  Left (Messages msgs) -> mapM_ warnMessage msgs >> return Nothing
+  Right x              -> return $ Just x
 
-optional' :: (Monad m) => StackTraceT m a -> StackTraceT m (Either Messages a)
-optional' p = fmap Right p `catch` (return . Left)
-
-fatalMessages :: (Monad m) => Messages -> StackTraceT m a
-fatalMessages (Messages msgs) = StackTraceT $ do
-  upper <- lift ask
-  throwE $ Messages [ Message s (ctx ++ upper) | Message s ctx <- msgs ]
+errorToEither :: (Monad m) => StackTraceT m a -> StackTraceT m (Either Messages a)
+errorToEither p = fmap Right p `catchError` (return . Left)
 
 fatal :: (Monad m) => String -> StackTraceT m a
-fatal s = fatalMessages $ Messages [Message s []]
+fatal s = throwError $ Messages [Message s []]
 
-catch :: (Monad m) => StackTraceT m a -> (Messages -> StackTraceT m a) -> StackTraceT m a
-StackTraceT ex `catch` f = StackTraceT $ ex `catchE` (fromStackTraceT . f)
+instance (Monad m) => MonadError Messages (StackTraceT m) where
+  throwError (Messages msgs) = StackTraceT $ do
+    upper <- lift ask
+    throwE $ Messages [ Message s (ctx ++ upper) | Message s ctx <- msgs ]
+  StackTraceT ex `catchError` f = StackTraceT $ ex `catchE` (fromStackTraceT . f)
 
 inside :: String -> StackTraceT m a -> StackTraceT m a
 inside s (StackTraceT (ExceptT rdr)) = StackTraceT $ ExceptT $ local (s :) rdr
@@ -94,16 +109,6 @@ processWarnings = StackTraceT $ lift $ do
 printWarning :: (MonadIO m) => Message -> m ()
 printWarning msg = liftIO $ hPutStr stderr $ "Warning: " ++ Exc.displayException msg
 
--- | Prints warnings to standard error, and then throws any errors as an exception.
-printStackTraceIO :: (MonadIO m) => StackTraceT m a -> m a
-printStackTraceIO p = runStackTraceT p >>= \(res, Messages warns) -> do
-  mapM_ printWarning warns
-  case res of
-    Left msgs -> liftIO $ do
-      hPutStrLn stderr "printStackTraceIO: fatal errors occurred!"
-      Exc.throwIO msgs
-    Right x -> return x
-
 liftMaybe :: (Monad m, Show a) => (a -> m (Maybe b)) -> a -> StackTraceT m b
 liftMaybe f x = lift (f x) >>= \case
   Nothing -> fatal $ "Unrecognized input: " ++ show x
@@ -115,20 +120,21 @@ mapStackTraceT
   -> StackTraceT m a -> StackTraceT n b
 mapStackTraceT f (StackTraceT st) = StackTraceT $ mapExceptT (mapRWST f) st
 
-tempDir :: String -> (FilePath -> StackTraceT IO a) -> StackTraceT IO a
-tempDir template cb = StackTraceT $ runResourceT $ do
+tempDir :: (MonadIO m) => String -> (FilePath -> StackTraceT IO a) -> StackTraceT m a
+tempDir template cb = mapStackTraceT liftIO $ StackTraceT $ runResourceT $ do
   tmp <- liftIO Dir.getTemporaryDirectory
   let ignoringIOErrors ioe = ioe `Exc.catch` (\e -> const (return ()) (e :: IOError))
   (_, dir) <- allocate (createTempDirectory tmp template) (ignoringIOErrors . Dir.removeDirectoryRecursive)
   lift $ fromStackTraceT $ cb dir
 
-stackProcess :: CreateProcess -> String -> StackTraceT IO String
-stackProcess cp input = liftIO (readCreateProcessWithExitCode cp input) >>= \case
-  (ExitSuccess  , out, _  ) -> return out
-  (ExitFailure n, out, err) -> fatal $ unlines
-    [ "process exited with code " ++ show n
-    , "stdout:"
-    , out
-    , "stderr:"
-    , err
-    ]
+stackProcess :: (MonadIO m) => CreateProcess -> String -> StackTraceT m String
+stackProcess cp input = mapStackTraceT liftIO $ do
+  liftIO (readCreateProcessWithExitCode cp input) >>= \case
+    (ExitSuccess  , out, _  ) -> return out
+    (ExitFailure n, out, err) -> fatal $ unlines
+      [ "process exited with code " ++ show n
+      , "stdout:"
+      , out
+      , "stderr:"
+      , err
+      ]

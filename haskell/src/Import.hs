@@ -9,7 +9,7 @@ import           Control.Applicative              ((<|>))
 import           Control.Exception                (evaluate)
 import           Control.Monad                    (guard, when)
 import           Control.Monad.Extra              (mapMaybeM, replicateM)
-import           Control.Monad.IO.Class           (liftIO)
+import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
 import           Data.Binary.Get                  (getWord32le, runGet)
 import qualified Data.ByteString.Lazy             as BL
@@ -38,7 +38,7 @@ import           PrettyDTA                        (C3DTAComments (..),
                                                    writeDTASingle)
 import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.File                    as RBFile
-import           Scripts                          (loadMIDI_IO)
+import           Scripts                          (loadMIDI)
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
@@ -48,9 +48,7 @@ import qualified System.Directory                 as Dir
 import           System.FilePath                  (takeDirectory, takeFileName,
                                                    (<.>), (</>))
 import           System.IO                        (IOMode (..), SeekMode (..),
-                                                   hPutStrLn, hSeek, stderr,
-                                                   withBinaryFile)
-import           System.IO.Temp                   (withSystemTempDirectory)
+                                                   hSeek, withBinaryFile)
 import           X360                             (rb3pkg)
 
 standardTargets :: Maybe (JSONEither Integer T.Text) -> Maybe Integer -> Bool -> KeysRB2 -> HM.HashMap T.Text Target
@@ -100,16 +98,16 @@ standardTargets songID version is2x krb2 = let
     ]
   in HM.fromList $ targets1x ++ if is2x then targets2x else []
 
-importFoF :: KeysRB2 -> FilePath -> FilePath -> IO ()
+importFoF :: (MonadIO m) => KeysRB2 -> FilePath -> FilePath -> StackTraceT m ()
 importFoF krb2 src dest = do
   song <- FoF.loadSong $ src </> "song.ini"
-  midi@(F.Cons _ _ midtrks) <- Load.fromFile $ src </> "notes.mid"
+  midi@(F.Cons _ _ midtrks) <- liftIO $ Load.fromFile $ src </> "notes.mid"
   let trackNames = mapMaybe U.trackName midtrks
 
-  hasAlbumArt <- Dir.doesFileExist $ src </> "album.png"
-  when hasAlbumArt $ Dir.copyFile (src </> "album.png") (dest </> "album.png")
+  hasAlbumArt <- liftIO $ Dir.doesFileExist $ src </> "album.png"
+  when hasAlbumArt $ liftIO $ Dir.copyFile (src </> "album.png") (dest </> "album.png")
 
-  audioFiles <- let
+  audioFiles <- liftIO $ let
     loadAudio x = do
       b <- Dir.doesFileExist $ src </> x
       if b
@@ -144,7 +142,7 @@ importFoF krb2 src dest = do
         ["guitar.ogg"] -> ["guitar.ogg"]
         _              -> filter (== "song.ogg") audioFiles
 
-  parsed <- loadMIDI_IO $ src </> "notes.mid"
+  parsed <- loadMIDI $ src </> "notes.mid"
   let pad = RBFile.needsPad parsed
       padDelay :: (Num a) => a
       padDelay = if pad then 3 else 0
@@ -182,9 +180,9 @@ importFoF krb2 src dest = do
         then U.setTrackName "PART DRUMS" t
         else t
       drumToDrums trk                 = trk
-  mid2x <- Dir.doesFileExist $ src </> "expert+.mid"
+  mid2x <- liftIO $ Dir.doesFileExist $ src </> "expert+.mid"
   add2x <- if mid2x
-    then do
+    then liftIO $ do
       raw2x <- RBFile.readMIDIRaw <$> Load.fromFile (src </> "expert+.mid")
       let rawTracks = flip mapMaybe (RBFile.s_tracks raw2x) $ \case
             RBFile.RawTrack t -> Just t
@@ -196,14 +194,14 @@ importFoF krb2 src dest = do
     else return id
 
   let raw = RBFile.readMIDIRaw midi
-  Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile $ delayMIDI raw
+  liftIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile $ delayMIDI raw
     { RBFile.s_tracks = add2x $ map drumToDrums $ flip filter (RBFile.s_tracks raw) $ \case
       RBFile.RawTrack t -> U.trackName t /= Just "BEAT"
       RBFile.Beat _ -> False
       _ -> True
     }
 
-  Y.encodeFile (dest </> "song.yml") SongYaml
+  liftIO $ Y.encodeFile (dest </> "song.yml") SongYaml
     { _metadata = Metadata
       { _title        = FoF.name song
       , _artist       = FoF.artist song
@@ -307,9 +305,9 @@ determine2xBass s = case T.stripSuffix " (2x Bass Pedal)" s <|> T.stripSuffix " 
   Nothing -> (s , False)
   Just s' -> (s', True )
 
-importSTFS :: KeysRB2 -> FilePath -> FilePath -> IO ()
-importSTFS krb2 file dir = withSystemTempDirectory "onyx_con" $ \temp -> do
-  extractSTFS file temp
+importSTFS :: (MonadIO m) => KeysRB2 -> FilePath -> FilePath -> StackTraceT m ()
+importSTFS krb2 file dir = tempDir "onyx_con" $ \temp -> do
+  liftIO $ extractSTFS file temp
   DTASingle _ pkg comments <- readDTASingle $ temp </> "songs/songs.dta"
   let c3Title = fromMaybe (D.name pkg) $ c3dtaSong comments
       (title, is2x) = case c3dta2xBass comments of
@@ -343,8 +341,8 @@ importSTFS krb2 file dir = withSystemTempDirectory "onyx_con" $ \temp -> do
     "cover.png_xbox"
     dir
 
-getRBAFile :: Int -> FilePath -> FilePath -> IO ()
-getRBAFile i rba out = withBinaryFile rba ReadMode $ \h -> do
+getRBAFile :: (MonadIO m) => Int -> FilePath -> FilePath -> m ()
+getRBAFile i rba out = liftIO $ withBinaryFile rba ReadMode $ \h -> do
   hSeek h AbsoluteSeek 0x08
   let read7words = runGet (replicateM 7 getWord32le) <$> BL.hGet h (7 * 4)
   offsets <- read7words
@@ -353,21 +351,20 @@ getRBAFile i rba out = withBinaryFile rba ReadMode $ \h -> do
   BL.hGet h (fromIntegral $ sizes !! i) >>= BL.writeFile out
 
 -- | Converts a Magma v2 RBA to CON without going through an import + recompile.
-simpleRBAtoCON :: FilePath -> FilePath -> StackTraceT IO ()
+simpleRBAtoCON :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m String
 simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ show con) $ do
   tempDir "onyx_rba2con" $ \temp -> do
     md5 <- liftIO $ BL.readFile rba >>= evaluate . MD5.md5
     let shortName = "onyx" ++ take 10 (show md5)
-    liftIO $ do
-      Dir.createDirectoryIfMissing True $ temp </> "songs" </> shortName </> "gen"
-      getRBAFile 0 rba $ temp </> "temp_songs.dta"
-      getRBAFile 1 rba $ temp </> "songs" </> shortName </> shortName <.> "mid"
-      getRBAFile 2 rba $ temp </> "songs" </> shortName </> shortName <.> "mogg"
-      getRBAFile 3 rba $ temp </> "songs" </> shortName </> "gen" </> shortName <.> "milo_xbox"
-      getRBAFile 4 rba $ temp </> "temp_cover.bmp"
-      -- 5 is weights.bin (empty in magma v2)
-      getRBAFile 6 rba $ temp </> "temp_extra.dta"
-    (_, pkg, isUTF8) <- liftIO $ readRB3DTA $ temp </> "temp_songs.dta"
+    liftIO $ Dir.createDirectoryIfMissing True $ temp </> "songs" </> shortName </> "gen"
+    getRBAFile 0 rba $ temp </> "temp_songs.dta"
+    getRBAFile 1 rba $ temp </> "songs" </> shortName </> shortName <.> "mid"
+    getRBAFile 2 rba $ temp </> "songs" </> shortName </> shortName <.> "mogg"
+    getRBAFile 3 rba $ temp </> "songs" </> shortName </> "gen" </> shortName <.> "milo_xbox"
+    getRBAFile 4 rba $ temp </> "temp_cover.bmp"
+    -- 5 is weights.bin (empty in magma v2)
+    getRBAFile 6 rba $ temp </> "temp_extra.dta"
+    (_, pkg, isUTF8) <- readRB3DTA $ temp </> "temp_songs.dta"
     extra <- liftIO $ (if isUTF8 then D.readFileDTA_utf8 else D.readFileDTA_latin1) $ temp </> "temp_extra.dta"
     liftIO $ TIO.writeFile (temp </> "songs/songs.dta") $ writeDTASingle DTASingle
       { dtaTopKey = T.pack shortName
@@ -409,17 +406,17 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
       Dir.removeFile $ temp </> "temp_cover.bmp"
       Dir.removeFile $ temp </> "temp_extra.dta"
     let label = D.name pkg <> " (" <> D.artist pkg <> ")"
-    rb3pkg label label temp con >>= liftIO . putStrLn
+    rb3pkg label label temp con
 
-importRBA :: KeysRB2 -> FilePath -> FilePath -> IO ()
-importRBA krb2 file dir = withSystemTempDirectory "onyx_rba" $ \temp -> do
+importRBA :: (MonadIO m) => KeysRB2 -> FilePath -> FilePath -> StackTraceT m ()
+importRBA krb2 file dir = tempDir "onyx_rba" $ \temp -> do
   getRBAFile 0 file $ temp </> "songs.dta"
   getRBAFile 1 file $ temp </> "notes.mid"
   getRBAFile 2 file $ temp </> "audio.mogg"
   getRBAFile 4 file $ temp </> "cover.bmp"
   getRBAFile 6 file $ temp </> "extra.dta"
   (_, pkg, isUTF8) <- readRB3DTA $ temp </> "songs.dta"
-  extra <- (if isUTF8 then D.readFileDTA_utf8 else D.readFileDTA_latin1) $ temp </> "extra.dta"
+  extra <- liftIO $ (if isUTF8 then D.readFileDTA_utf8 else D.readFileDTA_latin1) $ temp </> "extra.dta"
   let author = case extra of
         D.DTA _ (D.Tree _ [D.Parens (D.Tree _
           ( D.String "backend"
@@ -446,13 +443,13 @@ importRBA krb2 file dir = withSystemTempDirectory "onyx_rba" $ \temp -> do
     dir
 
 -- | Collects the contents of an RBA or CON file into an Onyx project.
-importRB3 :: KeysRB2 -> D.SongPackage -> Metadata -> Bool -> Bool -> Bool -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> IO ()
+importRB3 :: (MonadIO m) => KeysRB2 -> D.SongPackage -> Metadata -> Bool -> Bool -> Bool -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
 importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = do
-  Dir.copyFile mogg $ dir </> "audio.mogg"
-  Dir.copyFile mid $ dir </> "notes.mid"
-  Dir.copyFile cover $ dir </> coverName
-  md5 <- show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
-  rb3mid <- Load.fromFile (dir </> "notes.mid") >>= printStackTraceIO . RBFile.readMIDIFile
+  liftIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
+  liftIO $ Dir.copyFile mid $ dir </> "notes.mid"
+  liftIO $ Dir.copyFile cover $ dir </> coverName
+  md5 <- liftIO $ show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
+  rb3mid <- liftIO (Load.fromFile $ dir </> "notes.mid") >>= RBFile.readMIDIFile
   drumkit <- case D.drumBank pkg of
     Nothing -> return HardRockKit
     Just x -> case x of
@@ -462,9 +459,9 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       "sfx/kit04_bank.milo" -> return TrashyKit
       "sfx/kit05_bank.milo" -> return ElectronicKit
       s -> do
-        hPutStrLn stderr $ "Warning: when importing a CON file, unrecognized drum bank " ++ show s
+        warn $ "During CON file import, unrecognized drum bank " ++ show s
         return HardRockKit
-  Y.encodeFile (dir </> "song.yml") SongYaml
+  liftIO $ Y.encodeFile (dir </> "song.yml") SongYaml
     { _metadata = Metadata
       { _title        = _title meta <|> Just (D.name pkg)
       , _artist       = Just $ D.artist pkg

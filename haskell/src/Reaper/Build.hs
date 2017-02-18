@@ -6,7 +6,7 @@ import           Reaper.Base
 import           Control.Monad                         (forM_, unless, when,
                                                         (>=>))
 import           Control.Monad.Extra                   (mapMaybeM)
-import           Control.Monad.IO.Class                (liftIO)
+import           Control.Monad.IO.Class                (MonadIO (liftIO))
 import           Control.Monad.Trans.Class             (lift)
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                       as B
@@ -620,8 +620,8 @@ sortTracks = sortOn $ U.trackName >=> \name -> elemIndex name
   , "BEAT"
   ]
 
-makeReaperIO :: FilePath -> FilePath -> [FilePath] -> FilePath -> IO ()
-makeReaperIO evts tempo audios out = do
+makeReaperIO :: (MonadIO m) => FilePath -> FilePath -> [FilePath] -> FilePath -> m ()
+makeReaperIO evts tempo audios out = liftIO $ do
   lenAudios <- flip mapMaybeM audios $ \aud -> do
     info <- Snd.getFileInfo aud
     return $ case Snd.frames info of

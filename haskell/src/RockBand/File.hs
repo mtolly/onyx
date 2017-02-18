@@ -130,7 +130,7 @@ readMIDIFile mid = case U.decodeFile mid of
     mmap = U.makeMeasureMap U.Truncate tempoTrk
     in do
       songTrks <- forM (zip ([1..] :: [Int]) restTrks) $ \(i, trk) ->
-        inside ("track " ++ show i ++ " (0 is tempo track)") $ optional $ parseTrack mmap trk
+        inside ("track " ++ show i ++ " (0 is tempo track)") $ errorToWarning $ parseTrack mmap trk
       return Song
         { s_tempos     = U.makeTempoMap tempoTrk
         , s_signatures = mmap

@@ -14,7 +14,7 @@ import           Audio.Types
 import           Control.Monad                  (when)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
-import           Control.Monad.Trans.StackTrace hiding (optional)
+import           Control.Monad.Trans.StackTrace
 import           Data.Aeson                     ((.=))
 import qualified Data.Aeson                     as A
 import           Data.Char                      (isDigit, isSpace)
@@ -190,17 +190,17 @@ data AudioFile
 instance TraceJSON AudioFile where
   traceJSON = decideKey
     [ ("expr", object $ do
-      _expr <- required "expr" traceJSON
+      _expr <- requiredKey "expr" traceJSON
       expectedKeys ["expr"]
       return AudioSnippet{..}
       )
     ] $ object $ do
-      _md5      <- optional "md5"       traceJSON
-      _frames   <- optional "frames"    traceJSON
-      _filePath <- optional "file-path" traceJSON
-      _commands <- fromMaybe [] <$> optional "commands" traceJSON
-      _rate     <- optional "rate"      traceJSON
-      _channels <- fromMaybe 2 <$> optional "channels" traceJSON
+      _md5      <- optionalKey "md5"       traceJSON
+      _frames   <- optionalKey "frames"    traceJSON
+      _filePath <- optionalKey "file-path" traceJSON
+      _commands <- fromMaybe [] <$> optionalKey "commands" traceJSON
+      _rate     <- optionalKey "rate"      traceJSON
+      _channels <- fromMaybe 2 <$> optionalKey "channels" traceJSON
       expectedKeys ["md5", "frames", "file-path", "commands", "rate", "channels"]
       return AudioFile{..}
 
@@ -224,8 +224,8 @@ data JammitTrack = JammitTrack
 
 instance TraceJSON JammitTrack where
   traceJSON = object $ do
-    _jammitTitle  <- optional "title"  traceJSON
-    _jammitArtist <- optional "artist" traceJSON
+    _jammitTitle  <- optionalKey "title"  traceJSON
+    _jammitArtist <- optionalKey "artist" traceJSON
     expectedKeys ["title", "artist"]
     return JammitTrack{..}
 
@@ -244,9 +244,9 @@ data PlanAudio t a = PlanAudio
 instance (TraceJSON t, TraceJSON a) => TraceJSON (PlanAudio t a) where
   traceJSON = decideKey
     [ ("expr", object $ do
-      _planExpr <- required "expr" traceJSON
-      _planPans <- fromMaybe [] <$> optional "pans" traceJSON
-      _planVols <- fromMaybe [] <$> optional "vols" traceJSON
+      _planExpr <- requiredKey "expr" traceJSON
+      _planPans <- fromMaybe [] <$> optionalKey "pans" traceJSON
+      _planVols <- fromMaybe [] <$> optionalKey "vols" traceJSON
       expectedKeys ["expr", "pans", "vols"]
       return PlanAudio{..}
       )
@@ -319,9 +319,9 @@ parseCountinTime :: (Monad m) => Parser m T.Text (Either U.MeasureBeats U.Second
 parseCountinTime = do
   t <- lift ask
   inside ("Countin timestamp " ++ show t)
-    $             fmap Left                 parseMeasureBeats
-    `catch` \_ -> fmap (Right . realToFrac) (parseFrom (A.String t) parseMinutes)
-    `catch` \_ -> parseFrom (A.String t) $ expected "a timestamp in measure|beats, seconds, or minutes:seconds"
+    $                  fmap Left                 parseMeasureBeats
+    `catchError` \_ -> fmap (Right . realToFrac) (parseFrom (A.String t) parseMinutes)
+    `catchError` \_ -> parseFrom (A.String t) $ expected "a timestamp in measure|beats, seconds, or minutes:seconds"
 
 parseMeasureBeats :: (Monad m) => Parser m T.Text U.MeasureBeats
 parseMeasureBeats = lift ask >>= \t -> let
@@ -361,26 +361,26 @@ instance A.ToJSON Countin where
 instance TraceJSON Plan where
   traceJSON = decideKey
     [ ("each", object $ do
-      _each <- required "each" traceJSON
-      _countin <- fromMaybe (Countin []) <$> optional "countin" traceJSON
-      _planComments <- fromMaybe [] <$> optional "comments" traceJSON
+      _each <- requiredKey "each" traceJSON
+      _countin <- fromMaybe (Countin []) <$> optionalKey "countin" traceJSON
+      _planComments <- fromMaybe [] <$> optionalKey "comments" traceJSON
       expectedKeys ["each", "countin", "comments"]
       return EachPlan{..}
       )
     , ("mogg-md5", object $ do
-      _moggMD5 <- required "mogg-md5" traceJSON
-      _moggGuitar <- fromMaybe [] <$> optional "guitar" traceJSON
-      _moggBass   <- fromMaybe [] <$> optional "bass" traceJSON
-      _moggKeys   <- fromMaybe [] <$> optional "keys" traceJSON
-      _moggDrums  <- fromMaybe [] <$> optional "drums" traceJSON
-      _moggVocal  <- fromMaybe [] <$> optional "vocal" traceJSON
-      _moggCrowd  <- fromMaybe [] <$> optional "crowd" traceJSON
-      _pans <- required "pans" traceJSON
-      _vols <- required "vols" traceJSON
-      _drumMix <- required "drum-mix" traceJSON
-      _planComments <- fromMaybe [] <$> optional "comments" traceJSON
-      _karaoke    <- fromMaybe False          <$> optional "karaoke"    traceJSON
-      _multitrack <- fromMaybe (not _karaoke) <$> optional "multitrack" traceJSON
+      _moggMD5 <- requiredKey "mogg-md5" traceJSON
+      _moggGuitar <- fromMaybe [] <$> optionalKey "guitar" traceJSON
+      _moggBass   <- fromMaybe [] <$> optionalKey "bass" traceJSON
+      _moggKeys   <- fromMaybe [] <$> optionalKey "keys" traceJSON
+      _moggDrums  <- fromMaybe [] <$> optionalKey "drums" traceJSON
+      _moggVocal  <- fromMaybe [] <$> optionalKey "vocal" traceJSON
+      _moggCrowd  <- fromMaybe [] <$> optionalKey "crowd" traceJSON
+      _pans <- requiredKey "pans" traceJSON
+      _vols <- requiredKey "vols" traceJSON
+      _drumMix <- requiredKey "drum-mix" traceJSON
+      _planComments <- fromMaybe [] <$> optionalKey "comments" traceJSON
+      _karaoke    <- fromMaybe False          <$> optionalKey "karaoke"    traceJSON
+      _multitrack <- fromMaybe (not _karaoke) <$> optionalKey "multitrack" traceJSON
       expectedKeys ["mogg-md5", "guitar", "bass", "keys", "drums", "vocal", "crowd", "pans", "vols", "drum-mix", "comments", "karaoke", "multitrack"]
       return MoggPlan{..}
       )
@@ -395,17 +395,17 @@ instance TraceJSON Plan where
     , ("crowd", normalPlan)
     ] (expected "an instrument to audio plan (standard, each, or mogg)")
     where normalPlan = object $ do
-            _song    <- optional "song"    traceJSON
-            _countin <- fromMaybe (Countin []) <$> optional "countin" traceJSON
-            _guitar  <- optional "guitar"  traceJSON
-            _bass    <- optional "bass"    traceJSON
-            _keys    <- optional "keys"    traceJSON
-            _kick    <- optional "kick"    traceJSON
-            _snare   <- optional "snare"   traceJSON
-            _drums   <- optional "drums"   traceJSON
-            _vocal   <- optional "vocal"   traceJSON
-            _crowd   <- optional "crowd"   traceJSON
-            _planComments <- fromMaybe [] <$> optional "comments" traceJSON
+            _song    <- optionalKey "song"    traceJSON
+            _countin <- fromMaybe (Countin []) <$> optionalKey "countin" traceJSON
+            _guitar  <- optionalKey "guitar"  traceJSON
+            _bass    <- optionalKey "bass"    traceJSON
+            _keys    <- optionalKey "keys"    traceJSON
+            _kick    <- optionalKey "kick"    traceJSON
+            _snare   <- optionalKey "snare"   traceJSON
+            _drums   <- optionalKey "drums"   traceJSON
+            _vocal   <- optionalKey "vocal"   traceJSON
+            _crowd   <- optionalKey "crowd"   traceJSON
+            _planComments <- fromMaybe [] <$> optionalKey "comments" traceJSON
             expectedKeys ["song", "countin", "guitar", "bass", "keys", "kick", "snare", "drums", "vocal", "crowd", "comments"]
             return Plan{..}
 
@@ -491,7 +491,8 @@ jammitPartToTitle :: J.Part -> T.Text
 jammitPartToTitle = \case
   J.PartGuitar1 -> "Guitar 1"
   J.PartGuitar2 -> "Guitar 2"
-  J.PartBass -> "Bass"
+  J.PartBass1 -> "Bass 1"
+  J.PartBass2 -> "Bass 2"
   J.PartDrums1 -> "Drums 1"
   J.PartDrums2 -> "Drums 2"
   J.PartKeys1 -> "Keys 1"
@@ -515,13 +516,13 @@ instance A.ToJSON Edge where
     End -> "end"
 
 algebraic1 :: (Monad m) => T.Text -> (a -> b) -> Parser m A.Value a -> Parser m A.Value b
-algebraic1 k f p1 = object $ theKey k $ do
+algebraic1 k f p1 = object $ onlyKey k $ do
   x <- lift ask
   fmap f $ inside "ADT field 1 of 1" $ parseFrom x p1
 
 algebraic2 :: (Monad m) => T.Text -> (a -> b -> c) ->
   Parser m A.Value a -> Parser m A.Value b -> Parser m A.Value c
-algebraic2 k f p1 p2 = object $ theKey k $ lift ask >>= \case
+algebraic2 k f p1 p2 = object $ onlyKey k $ lift ask >>= \case
   A.Array v -> case V.toList v of
     [x, y] -> f
       <$> do inside "ADT field 1 of 2" $ parseFrom x p1
@@ -531,7 +532,7 @@ algebraic2 k f p1 p2 = object $ theKey k $ lift ask >>= \case
 
 algebraic3 :: (Monad m) => T.Text -> (a -> b -> c -> d) ->
   Parser m A.Value a -> Parser m A.Value b -> Parser m A.Value c -> Parser m A.Value d
-algebraic3 k f p1 p2 p3 = object $ theKey k $ lift ask >>= \case
+algebraic3 k f p1 p2 p3 = object $ onlyKey k $ lift ask >>= \case
   A.Array v -> case V.toList v of
     [x, y, z] -> f
       <$> do inside "ADT field 1 of 3" $ parseFrom x p1
@@ -550,9 +551,9 @@ decideKey opts dft = lift ask >>= \case
 instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
   traceJSON = decideKey
     [ ("silence", algebraic2 "silence" Silence traceJSON traceJSON)
-    , ("mix"        , object $ theKey "mix"         $ Mix         <$> traceJSON)
-    , ("merge"      , object $ theKey "merge"       $ Merge       <$> traceJSON)
-    , ("concatenate", object $ theKey "concatenate" $ Concatenate <$> traceJSON)
+    , ("mix"        , object $ onlyKey "mix"         $ Mix         <$> traceJSON)
+    , ("merge"      , object $ onlyKey "merge"       $ Merge       <$> traceJSON)
+    , ("concatenate", object $ onlyKey "concatenate" $ Concatenate <$> traceJSON)
     , ("gain", algebraic2 "gain" Gain traceJSON traceJSON)
     , ("take", supplyEdge "take" Take)
     , ("drop", supplyEdge "drop" Drop)
@@ -562,7 +563,7 @@ instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
     , ("resample", algebraic1 "resample" Resample traceJSON)
     , ("channels", algebraic2 "channels" Channels traceJSON traceJSON)
     , ("stretch", algebraic2 "stretch" Stretch traceJSON traceJSON)
-    ] (fmap Input traceJSON `catch` \_ -> expected "an audio expression")
+    ] (fmap Input traceJSON `catchError` \_ -> expected "an audio expression")
     where supplyEdge s f = lift ask >>= \case
             OneKey _ (A.Array v)
               | V.length v == 2 -> algebraic2 s (f Start   ) traceJSON traceJSON
@@ -590,7 +591,7 @@ instance TraceJSON Duration where
     OneKey "frames" v -> inside "frames duration" $ Frames <$> parseFrom v traceJSON
     OneKey "seconds" v -> inside "seconds duration" $ Seconds . toRealFloat <$> parseFrom v parseMinutes
     _ -> inside "unitless (seconds) duration" (Seconds . toRealFloat <$> parseMinutes)
-      `catch` \_ -> expected "a duration in frames or seconds"
+      `catchError` \_ -> expected "a duration in frames or seconds"
 
 parseMinutes :: (Monad m) => Parser m A.Value Scientific
 parseMinutes = lift ask >>= \case
@@ -763,8 +764,8 @@ instance TraceJSON PreviewTime where
         Just prc -> return $ PreviewSection prc
         Nothing -> let
           p = parseFrom str $ either PreviewMIDI PreviewSeconds <$> parseCountinTime
-          in p `catch` \_ -> expected "a preview time: prc_something, timestamp, or measure|beats"
-    in traceNum `catch` \_ -> traceStr
+          in p `catchError` \_ -> expected "a preview time: prc_something, timestamp, or measure|beats"
+    in traceNum `catchError` \_ -> traceStr
 
 instance A.ToJSON PreviewTime where
   toJSON = \case
@@ -848,7 +849,7 @@ instance A.ToJSON Target where
 
 instance TraceJSON Target where
   traceJSON = object $ do
-    target <- required "game" traceJSON
+    target <- requiredKey "game" traceJSON
     hm <- lift ask
     parseFrom (A.Object $ Map.delete "game" hm) $ case target :: T.Text of
       "rb3" -> fmap RB3 traceJSON
@@ -870,14 +871,14 @@ data SongYaml = SongYaml
 instance TraceJSON SongYaml where
   traceJSON = object $ do
     let defaultEmptyMap = fmap $ fromMaybe Map.empty
-    _metadata    <- fromMaybe def <$> optional "metadata" traceJSON
-    _options     <- fromMaybe def <$> optional "options" traceJSON
-    _audio       <- defaultEmptyMap $ optional "audio"  $ mapping traceJSON
-    _jammit      <- defaultEmptyMap $ optional "jammit" $ mapping traceJSON
-    _plans       <- defaultEmptyMap $ optional "plans"  $ mapping traceJSON
-    _targets     <- defaultEmptyMap $ optional "targets"  $ mapping traceJSON
-    _instruments <- required "instruments" traceJSON
-    _published   <- fromMaybe True <$> optional "published" traceJSON
+    _metadata    <- fromMaybe def <$> optionalKey "metadata" traceJSON
+    _options     <- fromMaybe def <$> optionalKey "options" traceJSON
+    _audio       <- defaultEmptyMap $ optionalKey "audio"  $ mapping traceJSON
+    _jammit      <- defaultEmptyMap $ optionalKey "jammit" $ mapping traceJSON
+    _plans       <- defaultEmptyMap $ optionalKey "plans"  $ mapping traceJSON
+    _targets     <- defaultEmptyMap $ optionalKey "targets"  $ mapping traceJSON
+    _instruments <- requiredKey "instruments" traceJSON
+    _published   <- fromMaybe True <$> optionalKey "published" traceJSON
     expectedKeys ["metadata", "options", "audio", "jammit", "plans", "targets", "instruments", "published"]
     return SongYaml{..}
 

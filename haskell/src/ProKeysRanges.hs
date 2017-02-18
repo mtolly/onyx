@@ -2,7 +2,8 @@
 {-# LANGUAGE LambdaCase    #-}
 module ProKeysRanges (completeFile, completeRanges, closeShifts, closeShiftsFile) where
 
-import           Control.Monad.Trans.StackTrace   (printStackTraceIO)
+import           Control.Monad.IO.Class           (MonadIO (liftIO))
+import           Control.Monad.Trans.StackTrace
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
@@ -19,13 +20,13 @@ import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 
-completeFile :: FilePath -> FilePath -> IO ()
+completeFile :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 completeFile fin fout = do
-  mid@(F.Cons typ dvn trks) <- Load.fromFile fin
+  mid@(F.Cons typ dvn trks) <- liftIO $ Load.fromFile fin
   res <- case dvn of
     F.Ticks res -> return res
-    _           -> error "unsupported smpte time"
-  song <- printStackTraceIO $ RBFile.readMIDIFile mid
+    _           -> fatal "Unsupported SMPTE time"
+  song <- RBFile.readMIDIFile mid
   let mid' = F.Cons typ dvn trks'
       trks' = filter notProKeys trks ++ map (ticks . RBFile.showTrack) proKeys
       ticks :: RTB.T U.Beats a -> RTB.T F.ElapsedTime a
@@ -39,7 +40,7 @@ completeFile fin fout = do
       proKeys = RBFile.s_tracks song >>= \case
         RBFile.PartRealKeys diff trk -> [RBFile.PartRealKeys diff $ completeRanges trk]
         _                            -> []
-  Save.toFile fout mid'
+  liftIO $ Save.toFile fout mid'
 
 -- | Adds ranges if there are none.
 completeRanges :: RTB.T U.Beats Event -> RTB.T U.Beats Event

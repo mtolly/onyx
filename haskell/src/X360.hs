@@ -3,7 +3,7 @@
 module X360 (rb3pkg, rb2pkg, stfsFolder) where
 
 import           Control.Monad                  (forM_)
-import           Control.Monad.IO.Class         (liftIO)
+import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                as B
 import qualified Data.Text                      as T
@@ -21,7 +21,7 @@ withDotNetExe f exe args = if os == "mingw32"
   then f exe args
   else f "mono" $ exe : args
 
-rb3pkg :: T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT IO String
+rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m String
 rb3pkg title desc dir fout = tempDir "rb3pkg" $ \tmp -> do
   liftIO $ forM_ rb3pkgFiles $ \(fp, bs) -> B.writeFile (tmp </> fp) bs
   let createProc = withDotNetExe proc (tmp </> "rb3pkg.exe")
@@ -32,7 +32,7 @@ rb3pkg title desc dir fout = tempDir "rb3pkg" $ \tmp -> do
         ]
   inside "making RB3 CON package with X360" $ stackProcess createProc ""
 
-rb2pkg :: T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT IO String
+rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m String
 rb2pkg title desc dir fout = tempDir "rb2pkg" $ \tmp -> do
   liftIO $ forM_ rb3pkgFiles $ \(fp, bs) -> B.writeFile (tmp </> fp) bs
   let createProc = withDotNetExe proc (tmp </> "rb3pkg.exe")
@@ -44,8 +44,8 @@ rb2pkg title desc dir fout = tempDir "rb2pkg" $ \tmp -> do
         ]
   inside "making RB2 CON package with X360" $ stackProcess createProc ""
 
-stfsFolder :: FilePath -> IO (Word32, Word32)
-stfsFolder f = withBinaryFile f ReadMode $ \h -> do
+stfsFolder :: (MonadIO m) => FilePath -> m (Word32, Word32)
+stfsFolder f = liftIO $ withBinaryFile f ReadMode $ \h -> do
   sign <- B.hGet h 4 >>= \case
     "CON " -> return 1
     "LIVE" -> return 2

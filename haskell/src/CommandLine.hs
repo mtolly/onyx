@@ -2,11 +2,11 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes        #-}
 module CommandLine (commandLine) where
 
 import           Build                          (loadYaml, shakeBuild)
 import           Config
-import qualified Control.Exception              as Exc
 import           Control.Monad                  (forM_, guard, unless)
 import           Control.Monad.Extra            (filterM)
 import           Control.Monad.IO.Class
@@ -86,16 +86,15 @@ firstPresentTarget yamlPath targets = do
     []    -> fail $ "panic! couldn't find any of these targets: " ++ show targets
     t : _ -> return t
 
-getInfoForSTFS :: (MonadIO m) => FilePath -> FilePath -> m (T.Text, T.Text)
-getInfoForSTFS dir stfs = liftIO $ do
-  let getDTAInfo = do
-        (_, pkg, _) <- readRB3DTA $ dir </> "songs/songs.dta"
-        return (D.name pkg, D.name pkg <> " (" <> D.artist pkg <> ")")
-      handler1 :: Exc.IOException -> IO (T.Text, T.Text)
-      handler1 _ = return (T.pack $ takeFileName stfs, T.pack stfs)
-      handler2 :: Exc.ErrorCall -> IO (T.Text, T.Text)
-      handler2 _ = return (T.pack $ takeFileName stfs, T.pack stfs)
-  getDTAInfo `Exc.catch` handler1 `Exc.catch` handler2
+getInfoForSTFS :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m (T.Text, T.Text)
+getInfoForSTFS dir stfs = do
+  let dta = dir </> "songs/songs.dta"
+  ex <- liftIO $ Dir.doesFileExist dta
+  fromMaybe (T.pack $ takeFileName stfs, T.pack stfs) <$> if ex
+    then errorToWarning $ do
+      (_, pkg, _) <- readRB3DTA dta
+      return (D.name pkg, D.name pkg <> " (" <> D.artist pkg <> ")")
+    else return Nothing
 
 installSTFS :: (MonadIO m) => FilePath -> FilePath -> m ()
 installSTFS stfs usb = liftIO $ do
@@ -155,7 +154,7 @@ osOpenFile f = liftIO $ case os of
 
 data Command = Command
   { commandWord  :: T.Text
-  , commandRun   :: [FilePath] -> [OnyxOption] -> StackTraceT IO ()
+  , commandRun   :: forall m. (MonadIO m) => [FilePath] -> [OnyxOption] -> StackTraceT m ()
   , commandDesc  :: T.Text
   , commandUsage :: T.Text
   }
@@ -383,7 +382,7 @@ commands =
           ([mid], notMid) -> case partitionMaybe (isType [FileOGG, FileWAV, FileFLAC]) notMid of
             (audio, []      ) -> do
               rpp <- outputFile opts $ return $ mid -<.> "RPP"
-              liftIO $ makeReaperIO mid mid audio rpp
+              makeReaperIO mid mid audio rpp
             (_    , notAudio) -> fatal $ "onyx reap given non-MIDI, non-audio files: " <> show notAudio
           (mids, _) -> fatal $ "onyx reap expected 1 MIDI file, given " <> show (length mids)
     }
@@ -405,9 +404,9 @@ commands =
         planName <- getPlanName fpath opts
         let player = "gen/plan" </> T.unpack planName </> "web"
         shakeBuild audioDirs fpath [player]
-        player' <- liftIO $ case [ to | OptTo to <- opts ] of
+        player' <- case [ to | OptTo to <- opts ] of
           []      -> return player
-          out : _ -> do
+          out : _ -> liftIO $ do
             Dir.createDirectoryIfMissing False out
             copyDirRecursive player out
             return out
@@ -415,7 +414,7 @@ commands =
       FileRBProj -> undefined
       FileSTFS -> tempDir "onyx_player" $ \tmp -> do
         out <- outputFile opts $ return $ fpath ++ "_player"
-        liftIO $ importSTFS NoKeys fpath tmp
+        importSTFS NoKeys fpath tmp
         let player = "gen/plan/mogg/web"
         shakeBuild [tmp] (tmp </> "song.yml") [player]
         liftIO $ Dir.createDirectoryIfMissing False out
@@ -453,15 +452,15 @@ commands =
       FileSTFS -> do
         out <- outputFile opts $ return $ fpath ++ "_import"
         liftIO $ Dir.createDirectoryIfMissing False out
-        liftIO $ importSTFS (getKeysRB2 opts) fpath out
+        importSTFS (getKeysRB2 opts) fpath out
       FileRBA -> do
         out <- outputFile opts $ return $ fpath ++ "_import"
         liftIO $ Dir.createDirectoryIfMissing False out
-        liftIO $ importRBA (getKeysRB2 opts) fpath out
+        importRBA (getKeysRB2 opts) fpath out
       FilePS -> do
         out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
         liftIO $ Dir.createDirectoryIfMissing False out
-        liftIO $ importFoF (getKeysRB2 opts) (takeDirectory fpath) out
+        importFoF (getKeysRB2 opts) (takeDirectory fpath) out
       _ -> unrecognized ftype fpath
     }
 
@@ -482,12 +481,12 @@ commands =
         then do
           -- TODO make sure that the RBA is actually RB3 not RB2
           out <- outputFile opts $ return $ fpath ++ "_rb3con"
-          simpleRBAtoCON fpath out
+          simpleRBAtoCON fpath out >>= liftIO . putStrLn
         else do
           case ftype of
-            FileSTFS -> liftIO $ importSTFS (getKeysRB2 opts) fpath tmp
-            FileRBA -> liftIO $ importRBA (getKeysRB2 opts) fpath tmp
-            FilePS -> liftIO $ importFoF (getKeysRB2 opts) (takeDirectory fpath) tmp
+            FileSTFS -> importSTFS (getKeysRB2 opts) fpath tmp
+            FileRBA -> importRBA (getKeysRB2 opts) fpath tmp
+            FilePS -> importFoF (getKeysRB2 opts) (takeDirectory fpath) tmp
             FileZip -> undefined
             _ -> unrecognized ftype fpath
           targetName <- firstPresentTarget (tmp </> "song.yml") $ case game of
@@ -522,7 +521,7 @@ commands =
         FileSTFS     -> undefined
         FileRBA      -> tempDir "onyx_hanging_rba" $ \tmp -> do
           let midPath = tmp </> "notes.mid"
-          liftIO $ getRBAFile 1 fpath midPath
+          getRBAFile 1 fpath midPath
           withMIDI midPath
         FilePS       -> withMIDI $ takeDirectory fpath </> "notes.mid"
         FileMidi     -> withMIDI fpath
@@ -542,7 +541,7 @@ commands =
     , commandRun = \files opts -> do
       mid <- getInputMIDI files
       out <- outputFile opts $ return mid
-      liftIO $ simpleReduce mid out
+      simpleReduce mid out
     }
 
   , Command
@@ -558,7 +557,7 @@ commands =
     , commandRun = \files opts -> do
       mid <- getInputMIDI files
       out <- outputFile opts $ return mid
-      liftIO $ completeFile mid out
+      completeFile mid out
     }
 
   , Command
@@ -649,7 +648,7 @@ commands =
 
   ]
 
-commandLine :: [String] -> StackTraceT IO ()
+commandLine :: (MonadIO m) => [String] -> StackTraceT m ()
 commandLine args = let
   (opts, nonopts, errors) = getOpt Permute optDescrs args
   printIntro = liftIO $ mapM_ T.putStrLn
@@ -674,11 +673,11 @@ commandLine args = let
             , "Usage:"
             , commandUsage c
             ]
-          -- else mapStackTraceT liftIO undefined $ commandRun c nonopts' opts
           else commandRun c nonopts' opts
         _ -> printIntro >> fatal ("Unrecognized command: " ++ show cmd)
     _ -> inside "command line parsing" $ do
-      fatalMessages $ Messages [ Message e [] | e <- errors ]
+      printIntro
+      throwError $ Messages [ Message e [] | e <- errors ]
 
 optDescrs :: [OptDescr OnyxOption]
 optDescrs =

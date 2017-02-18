@@ -2,7 +2,7 @@
 {-# LANGUAGE LambdaCase #-}
 module MoggDecrypt (moggToOgg) where
 
-import           Control.Monad.IO.Class         (liftIO)
+import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
 #ifdef MOGGDECRYPT
 import qualified Sound.MOGG
@@ -13,7 +13,7 @@ import qualified Data.ByteString.Lazy           as BL
 #endif
 
 -- | Only supports unencrypted MOGGs, unless you provide an external decryptor.
-moggToOgg :: FilePath -> FilePath -> StackTraceT IO ()
+moggToOgg :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 #ifdef MOGGDECRYPT
 moggToOgg mogg ogg = liftIO (Sound.MOGG.moggToOgg mogg ogg) >>= \case
   True  -> return ()

@@ -133,7 +133,8 @@ executable onyx
     , JuicyPixels >= 3.2.3.1
     , conduit
     , vector
-    , transformers >= 0.4
+    , transformers >= 0.5
+    , mtl
     , extra
     , pureMD5
     , binary

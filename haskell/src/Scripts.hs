@@ -2,19 +2,21 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Scripts where
 
+import           Config                           (Instrument (..),
+                                                   PreviewTime (..), SongYaml,
+                                                   _metadata, _previewEnd,
+                                                   _previewStart)
+import           Control.Monad.IO.Class           (MonadIO (liftIO))
+import           Control.Monad.Trans.Class        (lift)
+import           Control.Monad.Trans.StackTrace
+import qualified Data.EventList.Absolute.TimeBody as ATB
+import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
-
-import qualified Data.EventList.Absolute.TimeBody as ATB
-import qualified Data.EventList.Relative.TimeBody as RTB
+import           Development.Shake
 import qualified Numeric.NonNegative.Class        as NNC
-import qualified Sound.MIDI.File.Load             as Load
-import qualified Sound.MIDI.File.Save             as Save
-import qualified Sound.MIDI.Util                  as U
-
-import           Control.Monad.Trans.StackTrace
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common
 import qualified RockBand.Drums                   as Drums
@@ -24,12 +26,9 @@ import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProGuitar               as ProGuitar
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as Vocals
-
-import           Config                           (Instrument (..),
-                                                   PreviewTime (..), SongYaml,
-                                                   _metadata, _previewEnd,
-                                                   _previewStart)
-import           Development.Shake
+import qualified Sound.MIDI.File.Load             as Load
+import qualified Sound.MIDI.File.Save             as Save
+import qualified Sound.MIDI.Util                  as U
 
 -- | Changes all existing drum mix events to use the given config (not changing
 -- stuff like discobeat), and places ones at the beginning if they don't exist
@@ -62,11 +61,11 @@ addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
 addZero x rtb = case U.trackSplitZero rtb of
   (zero, rest) -> U.trackGlueZero (zero ++ [x]) rest
 
-loadMIDI :: FilePath -> Action (Song U.Beats)
-loadMIDI fp = need [fp] >> liftIO (loadMIDI_IO fp)
+loadMIDI :: (MonadIO m) => FilePath -> StackTraceT m (Song U.Beats)
+loadMIDI fp = liftIO (Load.fromFile fp) >>= readMIDIFile
 
-loadMIDI_IO :: FilePath -> IO (Song U.Beats)
-loadMIDI_IO fp = Load.fromFile fp >>= printStackTraceIO . readMIDIFile
+shakeMIDI :: FilePath -> StackTraceT Action (Song U.Beats)
+shakeMIDI fp = lift (need [fp]) >> loadMIDI fp
 
 loadTemposIO :: FilePath -> IO U.TempoMap
 loadTemposIO fp = do

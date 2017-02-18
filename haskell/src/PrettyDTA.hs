@@ -9,7 +9,8 @@ module PrettyDTA where
 
 import           Config
 
-import           Control.Monad.Trans.StackTrace (inside, printStackTraceIO)
+import           Control.Monad.IO.Class         (MonadIO (liftIO))
+import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
@@ -28,12 +29,12 @@ import qualified Data.Text.Encoding             as TE
 import           System.IO.Extra                (latin1, readFileEncoding',
                                                  utf8)
 
-writeUtf8CRLF :: FilePath -> T.Text -> IO ()
-writeUtf8CRLF fp = B.writeFile fp . TE.encodeUtf8
+writeUtf8CRLF :: (MonadIO m) => FilePath -> T.Text -> m ()
+writeUtf8CRLF fp = liftIO . B.writeFile fp . TE.encodeUtf8
   . T.concatMap (\case '\n' -> "\r\n"; c -> T.singleton c)
 
-writeLatin1CRLF :: FilePath -> T.Text -> IO ()
-writeLatin1CRLF fp = B.writeFile fp . B8.pack . T.unpack
+writeLatin1CRLF :: (MonadIO m) => FilePath -> T.Text -> m ()
+writeLatin1CRLF fp = liftIO . B.writeFile fp . B8.pack . T.unpack
   . T.concatMap (\case '\n' -> "\r\n"; c -> T.singleton c)
 
 stringLit :: T.Text -> T.Text
@@ -91,16 +92,15 @@ fixTracksCount = map findSong where
     x -> x
 
 -- | Returns @(short song name, DTA file contents, is UTF8)@
-readRB3DTA :: FilePath -> IO (T.Text, D.SongPackage, Bool)
+readRB3DTA :: (MonadIO m) => FilePath -> StackTraceT m (T.Text, D.SongPackage, Bool)
 readRB3DTA dtaPath = do
   -- Not sure what encoding it is, try both.
-  let readSongWith :: (FilePath -> IO (D.DTA T.Text)) -> IO (T.Text, D.SongPackage)
-      readSongWith rdr = do
-        dta <- rdr dtaPath
+  let readSongWith rdr = do
+        dta <- liftIO $ rdr dtaPath
         (k, chunks) <- case D.treeChunks $ D.topTree dta of
           [D.Parens (D.Tree _ (D.Key k : chunks))] -> return (k, chunks)
-          _ -> error $ dtaPath ++ " is not a valid songs.dta with exactly one song"
-        pkg <- printStackTraceIO $ inside ("loading DTA file " ++ show dtaPath) $
+          _ -> fatal $ dtaPath ++ " is not a valid songs.dta with exactly one song"
+        pkg <- inside ("loading DTA file " ++ show dtaPath) $
           unserialize format $ D.DTA 0 $ D.Tree 0 $ fixTracksCount chunks
         return (k, pkg)
   (k_l1, l1) <- readSongWith D.readFileDTA_latin1
@@ -108,13 +108,13 @@ readRB3DTA dtaPath = do
     Just "utf8" -> (\(k, pkg) -> (k, pkg, True)) <$> readSongWith D.readFileDTA_utf8
     Just "latin1" -> return (k_l1, l1, False)
     Nothing -> return (k_l1, l1, False)
-    Just enc -> error $ dtaPath ++ " specifies an unrecognized encoding: " ++ T.unpack enc
+    Just enc -> fatal $ dtaPath ++ " specifies an unrecognized encoding: " ++ T.unpack enc
 
-readDTASingle :: FilePath -> IO DTASingle
+readDTASingle :: (MonadIO m) => FilePath -> StackTraceT m DTASingle
 readDTASingle file = do
   (topKey, pkg, isUTF8) <- readRB3DTA file
   -- C3 puts extra info in DTA comments
-  dtaLines <- fmap (lines . filter (/= '\r')) $ readFileEncoding' (if isUTF8 then utf8 else latin1) file
+  dtaLines <- liftIO $ fmap (lines . filter (/= '\r')) $ readFileEncoding' (if isUTF8 then utf8 else latin1) file
   let findBool s
         | elem (";" ++ s ++ "=0") dtaLines = Just False
         | elem (";" ++ s ++ "=1") dtaLines = Just True
