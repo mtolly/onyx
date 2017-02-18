@@ -7,21 +7,36 @@ import           Control.Concurrent             (forkIO, threadDelay)
 import           Control.Exception              (bracket, bracket_,
                                                  displayException)
 import           Control.Monad.Extra
+import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
 import           Foreign.C                      (peekCString)
 import           SDL                            (($=))
 import qualified SDL
 import           System.Environment             (getArgs)
-import           System.Exit                    (exitFailure, exitSuccess)
+import           System.Exit
+import           System.Info                    (os)
 import           System.IO                      (hPutStr, hPutStrLn, stderr)
+import           System.Process
 import           TinyFileDialogs
+
+checkShell :: (MonadIO m) => String -> StackTraceT m ()
+checkShell s = liftIO (readCreateProcessWithExitCode (shell s) "") >>= \case
+  (ExitSuccess  , _, _) -> return ()
+  (ExitFailure _, _, _) -> warn "An external program was not found on your PATH."
 
 main :: IO ()
 main = do
   argv <- getArgs
   case argv of
     [] -> launchGUI
-    _  -> runStackTraceT (commandLine argv) >>= \(res, Messages warns) -> do
+    _  -> do
+      (res, Messages warns) <- runStackTraceT $ do
+        case os of
+          "mingw32" -> return ()
+          _ -> do
+            inside "checking if Wine is installed" $ checkShell "wine --version"
+            inside "checking if Mono is installed" $ checkShell "mono --version"
+        commandLine argv
       mapM_ printWarning warns
       case res of
         Right () -> return ()
