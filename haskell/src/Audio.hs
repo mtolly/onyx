@@ -302,10 +302,11 @@ applyPansVols pans vols src = AudioSource
           pvx = zip3 pans vols $ V.toList $ V.drop (frame * channels src) v
           wire (pan, volDB, sample) = let
             volRatio = 10 ** (volDB / 20)
+            -- constant power panning: http://dsp.stackexchange.com/a/21736
+            theta = pan * (pi / 4)
             panRatio = if chan == 0
-              then (negate pan + 1) * 0.5
-              else (       pan + 1) * 0.5
-              -- TODO: this should be improved. panning should be in dB (logarithmic)
+              then (sqrt 2 / 2) * (cos theta - sin theta)
+              else (sqrt 2 / 2) * (cos theta + sin theta)
             in panRatio * volRatio * sample
           in sum $ map wire pvx
 
