@@ -10,7 +10,7 @@
 {-# LANGUAGE TupleSections     #-}
 module Config where
 
-import           Audio.Types
+import           Audio
 import           Control.Monad                  (when)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
@@ -563,6 +563,7 @@ instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
     , ("resample", algebraic1 "resample" Resample traceJSON)
     , ("channels", algebraic2 "channels" Channels traceJSON traceJSON)
     , ("stretch", algebraic2 "stretch" Stretch traceJSON traceJSON)
+    , ("mask", algebraic3 "mask" Mask traceJSON traceJSON traceJSON)
     ] (fmap Input traceJSON `catchError` \_ -> expected "an audio expression")
     where supplyEdge s f = lift ask >>= \case
             OneKey _ (A.Array v)
@@ -585,6 +586,23 @@ instance (A.ToJSON t, A.ToJSON a) => A.ToJSON (Audio t a) where
     Resample aud -> A.object ["resample" .= aud]
     Channels ns aud -> A.object ["channels" .= [A.toJSON ns, A.toJSON aud]]
     Stretch d aud -> A.object ["stretch" .= [A.toJSON d, A.toJSON aud]]
+    Mask tags seams aud -> A.object ["mask" .= [A.toJSON tags, A.toJSON seams, A.toJSON aud]]
+
+instance (TraceJSON t) => TraceJSON (Seam t) where
+  traceJSON = object $ do
+    seamCenter <- requiredKey "center" traceJSON
+    valueFade <- fromMaybe (A.Number 0) <$> optionalKey "fade" traceJSON
+    seamFade <- parseFrom valueFade traceJSON
+    seamTag <- requiredKey "tag" traceJSON
+    expectedKeys ["center", "fade", "tag"]
+    return Seam{..}
+
+instance (A.ToJSON t) => A.ToJSON (Seam t) where
+  toJSON Seam{..} = A.object
+    [ "center" .= seamCenter
+    , "fade" .= seamFade
+    , "tag" .= seamTag
+    ]
 
 instance TraceJSON Duration where
   traceJSON = lift ask >>= \case

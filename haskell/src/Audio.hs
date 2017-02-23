@@ -1,8 +1,14 @@
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE MultiWayIf      #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE DeriveTraversable #-}
 module Audio
-( module Audio.Types
+( Audio(..)
+, Edge(..)
+, Seam(..)
+, mapTime
 , sameChannels
 , buildSource
 , buildAudio
@@ -19,7 +25,6 @@ module Audio
 , crapVorbis
 ) where
 
-import           Audio.Types
 import           Control.Exception               (evaluate)
 import           Control.Monad.IO.Class          (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource    (MonadResource, ResourceT,
@@ -29,13 +34,14 @@ import qualified Data.ByteString.Lazy            as BL
 import qualified Data.ByteString.Lazy.Char8      as BL8
 import           Data.Char                       (toLower)
 import           Data.Conduit                    (await, awaitForever, yield,
-                                                  (=$=))
+                                                  (=$=), leftover)
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME
 import           Data.Conduit.Audio.LAME.Binding as L
 import           Data.Conduit.Audio.SampleRate
 import           Data.Conduit.Audio.Sndfile
 import qualified Data.Conduit.List               as CL
+import Data.List (sortOn)
 import qualified Data.Digest.Pure.MD5            as MD5
 import           Data.Foldable                   (toList)
 import qualified Data.Vector.Storable            as V
@@ -46,6 +52,75 @@ import           Numeric                         (showHex)
 import           SndfileExtra
 import qualified Sound.File.Sndfile              as Snd
 import qualified Sound.MIDI.Util                 as U
+import           Control.Monad (ap)
+import qualified Data.Text as T
+
+data Audio t a
+  = Silence Int t
+  | Input a
+  | Mix                    [Audio t a]
+  | Merge                  [Audio t a]
+  | Concatenate            [Audio t a]
+  | Gain Double            (Audio t a)
+  | Take Edge t            (Audio t a)
+  | Drop Edge t            (Audio t a)
+  | Fade Edge t            (Audio t a)
+  | Pad  Edge t            (Audio t a)
+  | Resample               (Audio t a)
+  | Channels [Int]         (Audio t a)
+  | Stretch Double         (Audio t a)
+  | Mask [T.Text] [Seam t] (Audio t a)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+
+data Seam t = Seam
+  { seamCenter :: t
+  , seamFade   :: t
+  , seamTag    :: T.Text
+  } deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+
+instance Applicative (Audio t) where
+  pure = Input
+  (<*>) = ap
+
+instance Monad (Audio t) where
+  return = Input
+  x >>= f = let
+    join_ = \case
+      Silence c t          -> Silence c t
+      Input           sub  -> sub
+      Mix             auds -> Mix $ map join_ auds
+      Merge           auds -> Merge $ map join_ auds
+      Concatenate     auds -> Concatenate $ map join_ auds
+      Gain      d     aud  -> Gain d $ join_ aud
+      Take    e t     aud  -> Take e t $ join_ aud
+      Drop    e t     aud  -> Drop e t $ join_ aud
+      Fade    e t     aud  -> Fade e t $ join_ aud
+      Pad     e t     aud  -> Pad e t $ join_ aud
+      Resample        aud  -> Resample $ join_ aud
+      Channels cs     aud  -> Channels cs $ join_ aud
+      Stretch   d     aud  -> Stretch d $ join_ aud
+      Mask tags seams aud  -> Mask tags seams $ join_ aud
+    in join_ $ fmap f x
+
+data Edge = Start | End
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+mapTime :: (t -> u) -> Audio t a -> Audio u a
+mapTime f aud = case aud of
+  Silence c t       -> Silence c $ f t
+  Input   x         -> Input x
+  Mix         xs    -> Mix         $ map (mapTime f) xs
+  Merge       xs    -> Merge       $ map (mapTime f) xs
+  Concatenate xs    -> Concatenate $ map (mapTime f) xs
+  Gain g x          -> Gain g $ mapTime f x
+  Take e t x        -> Take e (f t) $ mapTime f x
+  Drop e t x        -> Drop e (f t) $ mapTime f x
+  Fade e t x        -> Fade e (f t) $ mapTime f x
+  Pad  e t x        -> Pad  e (f t) $ mapTime f x
+  Resample x        -> Resample     $ mapTime f x
+  Channels cs x     -> Channels cs  $ mapTime f x
+  Stretch d x       -> Stretch d    $ mapTime f x
+  Mask tags seams x -> Mask tags (map (fmap f) seams) $ mapTime f x
 
 -- | Simple linear interpolation of an audio stream.
 stretch :: (MonadResource m) => Double -> AudioSource m Float -> AudioSource m Float
@@ -164,6 +239,70 @@ fadeEnd dur (AudioSource s r c l) = let
       else yield v >> go (i + vectorFrames v c)
   in AudioSource (s =$= go 0) r c l
 
+data MaskSections
+  = MaskFade Bool Frames Frames MaskSections
+  | MaskStay Bool Frames MaskSections
+  | MaskEnd Bool
+  deriving (Eq, Ord, Show, Read)
+
+seamsToSections :: [T.Text] -> [Seam Frames] -> MaskSections
+seamsToSections tags seams = let
+  seams1 :: [(Frames, Frames, Bool)]
+  seams1 = flip map (sortOn seamCenter seams) $ \seam ->
+    ( seamCenter seam - (seamFade seam `quot` 2) -- seam start
+    , seamFade seam -- seam length
+    , seamTag seam `elem` tags -- is audio active after seam
+    )
+  go _   st [] = MaskEnd st
+  go now st ((start, len, st') : rest) = MaskStay st (start - now) $ if st == st'
+    then go start st rest
+    else if len == 0
+      then go start st' rest
+      else MaskFade st' 0 len $ go (start + len) st' rest
+  in go 0 False seams1
+
+renderMask :: (Monad m) => [T.Text] -> [Seam Duration] -> AudioSource m Float -> AudioSource m Float
+renderMask tags seams (AudioSource s r c l) = let
+  sections = seamsToSections tags $ flip map seams $ fmap $ \case
+    Seconds secs -> secondsToFrames secs r
+    Frames  fms  -> fms
+  masker   (MaskEnd  b) = if b then CL.map id else return ()
+  masker   (MaskStay _ 0   rest) = masker rest
+  masker m@(MaskStay b fms rest) = await >>= \case
+    Nothing -> return ()
+    Just chunk -> let
+      len = vectorFrames chunk c
+      in if len <= fms
+        then do
+          if b
+            then yield chunk
+            else yield $ V.replicate (V.length chunk) 0
+          masker $ MaskStay b (fms - len) rest
+        else do
+          let (chunkA, chunkB) = V.splitAt (fms * c) chunk
+          leftover chunkB
+          leftover chunkA
+          masker m
+  masker m@(MaskFade b done total rest) = if done == total
+    then masker rest
+    else await >>= \case
+      Nothing -> return ()
+      Just chunk -> let
+        len = vectorFrames chunk c
+        in if len <= total - done
+          then do
+            yield $ V.generate (V.length chunk) $ \i -> let
+              mult = fromIntegral (done + quot i c + 1) / fromIntegral total
+              mult' = if b then mult else 1 - mult
+              in (chunk V.! i) * mult'
+            masker $ MaskFade b (done + len) total rest
+          else do
+            let (chunkA, chunkB) = V.splitAt ((done - total) * c) chunk
+            leftover chunkB
+            leftover chunkA
+            masker m
+  in AudioSource (s =$= masker sections) r c l
+
 buildSource :: (MonadResource m) =>
   Audio Duration FilePath -> Action (AudioSource m Float)
 buildSource aud = case aud of
@@ -195,6 +334,7 @@ buildSource aud = case aud of
       []     -> error "buildSource: can't select 0 channels"
       s : ss -> return $ foldl merge s ss
   Stretch d x -> stretch d <$> buildSource x
+  Mask tags seams x -> renderMask tags seams <$> buildSource x
   where combine meth xs = mapM buildSource xs >>= \srcs -> case srcs of
           []     -> error "buildSource: can't combine 0 files"
           s : ss -> return $ foldl meth s ss

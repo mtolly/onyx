@@ -84,7 +84,6 @@ executable onyx
     Resources
     -- build-types
     Config
-    Audio.Types
     Genre
     JSONData
     -- display
