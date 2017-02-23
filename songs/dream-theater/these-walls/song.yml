@@ -4,7 +4,7 @@ metadata:
   track-number: 3
   author: Onyxite
   comments:
-  - "Chart confidence: *high*. Written to Jammit stems and Portnoy's DVD."
+  - "All instruments have overdrive/unison."
 audio:
   album-track:
     md5: d0168a7020211436743ffef91c474e37
@@ -47,6 +47,24 @@ audio:
   mixed-guitar1:
     expr:
       trim: [11.711, gain: [1.678, only: [Guitar 1, jammit-track]]]
+  mixed-guitar1-unchanged:
+    expr:
+      mask:
+      - [unchanged]
+      - &guitar1-mask
+        - center: 0
+          tag: unchanged
+        - center: 5:35.565
+          tag: backing
+        - center: 6:07.058
+          tag: unchanged
+      - mixed-guitar1
+  mixed-guitar1-backing:
+    expr:
+      mask:
+      - [backing]
+      - *guitar1-mask
+      - mixed-guitar1
   mixed-guitar2:
     expr:
       trim: [11.711, gain: [1.653, only: [Guitar 2, jammit-track]]]
@@ -82,17 +100,20 @@ plans:
     vocal:
       mix: [mixed-vocal, mixed-bvocals-unchanged, mixed-bvocals-faded]
     guitar:
-      mix: [mixed-guitar1, mixed-guitar2]
+      mix: [mixed-guitar1-unchanged, mixed-guitar2]
     keys:
       mix: [mixed-keys1, mixed-keys2]
     drums:
       mixed-drums
+    song:
+      mix: [mixed-guitar1-backing]
   album:
     countin: *countin
     song:
       trim: [19.991, album-track]
 instruments:
   drums: true
+  keys: true
   pro-keys: true
   bass: true
   pro-bass: true

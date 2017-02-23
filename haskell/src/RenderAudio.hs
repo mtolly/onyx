@@ -67,6 +67,7 @@ computeChannels = \case
   Resample aud -> computeChannels aud
   Channels chans _ -> length chans
   Stretch _ aud -> computeChannels aud
+  Mask _ _ aud -> computeChannels aud
 
 audioSearch :: AudioFile -> [FilePath] -> Action (Maybe FilePath)
 audioSearch AudioSnippet{} _     = fail "panic! called audioSearch on a snippet. report this bug"

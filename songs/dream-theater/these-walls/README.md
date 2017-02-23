@@ -11,6 +11,7 @@ Instruments:
   * Bass
   * Guitar
   * Pro Bass
+  * Keys
   * Pro Keys
   * Vocals (3)
 
@@ -18,9 +19,11 @@ Supported audio:
 
   * `album` (Octavarium)
 
+  * `jammit-all`
+
   * `jammit`
 
 Notes:
 
-  * Chart confidence: *high*. Written to Jammit stems and Portnoy's DVD.
+  * All instruments have overdrive/unison.
 
