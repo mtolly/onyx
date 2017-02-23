@@ -11,6 +11,54 @@ audio:
     frames: 20110776
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  mixed-bass:
+    expr:
+      trim: [11.711, gain: [1.4, only: [Bass, jammit-track]]]
+  mixed-drums:
+    expr:
+      trim: [11.711, gain: [1.244, only: [Drums, jammit-track]]]
+  mixed-bvocals:
+    expr:
+      trim: [11.711, gain: [1.433, only: [B Vocals, jammit-track]]]
+  mixed-bvocals-unchanged:
+    expr:
+      mask:
+      - [unchanged]
+      - - center: 0
+          tag: unchanged
+        - center: 4:15.703
+          tag: faded
+        - center: 4:17.329
+          tag: unchanged
+      - mixed-bvocals
+  # the "-ime" before guitar solo is missing its fade-in effect on Jammit for some reason
+  mixed-bvocals-faded:
+    expr:
+      pad:
+      - 4:15.703
+      - fade:
+        - start
+        - 1.626 # 4:17.329 - 4:15.703
+        - take:
+          - 1.626 # 4:17.329 - 4:15.703
+          - drop:
+            - 4:15.703
+            - mixed-bvocals
+  mixed-guitar1:
+    expr:
+      trim: [11.711, gain: [1.678, only: [Guitar 1, jammit-track]]]
+  mixed-guitar2:
+    expr:
+      trim: [11.711, gain: [1.653, only: [Guitar 2, jammit-track]]]
+  mixed-keys1:
+    expr:
+      trim: [11.711, gain: [1.653, only: [Keys 1, jammit-track]]]
+  mixed-keys2:
+    expr:
+      trim: [11.711, gain: [1.711, only: [Keys 2, jammit-track]]]
+  mixed-vocal:
+    expr:
+      trim: [11.711, gain: [1.885, only: [Vocal, jammit-track]]]
 jammit:
   jammit-track: {}
 plans:
@@ -27,6 +75,18 @@ plans:
       1|2.5: hihat
     each:
       trim: [11.711, jammit-track]
+  jammit-all:
+    countin: *countin
+    bass:
+      mixed-bass
+    vocal:
+      mix: [mixed-vocal, mixed-bvocals-unchanged, mixed-bvocals-faded]
+    guitar:
+      mix: [mixed-guitar1, mixed-guitar2]
+    keys:
+      mix: [mixed-keys1, mixed-keys2]
+    drums:
+      mixed-drums
   album:
     countin: *countin
     song:
