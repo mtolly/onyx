@@ -1,20 +1,21 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module RockBand.ProGuitar where
 
-import RockBand.Common
-import RockBand.Parse
+import           Control.Monad                    (guard)
 import qualified Data.EventList.Relative.TimeBody as RTB
-import Control.Monad (guard)
-import qualified Sound.MIDI.File.Event as E
-import qualified Numeric.NonNegative.Class as NNC
-import Language.Haskell.TH
-import Data.Maybe (isJust)
-import qualified Sound.MIDI.Util as U
-import RockBand.FiveButton (StrumHOPO(..), trackState, applyStatus, guitarify)
-import qualified Data.Text as T
-import Data.Monoid ((<>))
+import           Data.Maybe                       (isJust)
+import           Data.Monoid                      ((<>))
+import qualified Data.Text                        as T
+import           Language.Haskell.TH
+import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Common
+import           RockBand.FiveButton              (StrumHOPO (..), applyStatus,
+                                                   guitarify, trackState)
+import           RockBand.Parse
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.Util                  as U
 
 data Event
   = TrainerGtr   Trainer
@@ -103,7 +104,7 @@ parseLongNoteEdge pitch diff str rtb = do
   guard $ maybe True (>= 100) v
   ntype <- lookup c channelMap
   let e = DiffEvent diff $ Note $ case v of
-        Nothing -> NoteOff (str, ntype)
+        Nothing  -> NoteOff (str, ntype)
         Just vel -> NoteOn (vel - 100) (str, ntype)
   return ((t, e), rtb')
 

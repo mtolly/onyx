@@ -1,19 +1,19 @@
 -- | Parser used for all the GRYBO instruments (basic guitar, bass, and keys).
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module RockBand.FiveButton where
 
+import           Control.Monad                    (guard)
+import           Data.Bifunctor                   (first)
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Numeric.NonNegative.Class as NNC
-import RockBand.Common
-import RockBand.Parse
-import Control.Monad (guard)
-import qualified Sound.MIDI.Util as U
-import qualified Data.Set as Set
-import Data.List (sort)
-import Data.Bifunctor (first)
-import qualified Data.Text as T
+import           Data.List                        (sort)
+import qualified Data.Set                         as Set
+import qualified Data.Text                        as T
+import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Common
+import           RockBand.Parse
+import qualified Sound.MIDI.Util                  as U
 
 data Color = Green | Red | Yellow | Blue | Orange
   deriving (Eq, Ord, Show, Read, Enum, Bounded)

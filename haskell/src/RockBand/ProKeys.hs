@@ -1,19 +1,18 @@
 -- | The contents of the \"PART REAL_KEYS_?\" and \"PART KEYS_ANIM_?H\" tracks.
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module RockBand.ProKeys where
 
-import RockBand.Common
-import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.EventList.Absolute.TimeBody as ATB
-import qualified Numeric.NonNegative.Class as NNC
-import RockBand.Parse
-import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.Util as U
-import qualified Data.Text as T
+import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.Text                        as T
+import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Common
+import           RockBand.Parse
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.Util                  as U
 
 data Event
   = LaneShift LaneRange

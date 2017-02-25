@@ -1,25 +1,24 @@
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE TupleSections     #-}
 module RockBand.Drums where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Numeric.NonNegative.Class as NNC
-import qualified Sound.MIDI.Util as U
-import qualified Sound.MIDI.File.Event as E
-import qualified Data.Text as T
-import Data.Monoid ((<>))
+import           Data.Monoid                      ((<>))
+import qualified Data.Text                        as T
+import qualified Numeric.NonNegative.Class        as NNC
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.Util                  as U
 
-import RockBand.FiveButton (applyStatus)
-import RockBand.Common
-import RockBand.Parse
+import           RockBand.Common
+import           RockBand.FiveButton              (applyStatus)
+import           RockBand.Parse
 
 data ProColor = Yellow | Blue | Green
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -232,9 +231,9 @@ assignToms = go defDrumState . RTB.normalize where
             Green  -> Pro Green $ greenType ds
           in RTB.cons dt (diff, new) $ go ds rtb'
         where isDisco = case diff of
-                Easy -> easyDisco ds
+                Easy   -> easyDisco ds
                 Medium -> mediumDisco ds
-                Hard -> hardDisco ds
+                Hard   -> hardDisco ds
                 Expert -> expertDisco ds
       _ -> RTB.delay dt $ go ds rtb'
 
@@ -262,12 +261,12 @@ unparseNice defLength trk = let
         Hard   -> 84
         Expert -> 96
       b = case gem of
-        Nothing -> -1
-        Just Kick -> 0
-        Just Red -> 1
+        Nothing              -> -1
+        Just Kick            -> 0
+        Just Red             -> 1
         Just (Pro Yellow ()) -> 2
-        Just (Pro Blue ()) -> 3
-        Just (Pro Green ()) -> 4
+        Just (Pro Blue ())   -> 3
+        Just (Pro Green ())  -> 4
       in a + b
     in RTB.cons NNC.zero (makeEdge pitch True) $ RTB.singleton len (makeEdge pitch False)
   in RTB.merge (U.trackJoin $ assignLengths notes) (unparseAll unparseOne notNotes)

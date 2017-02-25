@@ -1,9 +1,9 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE MultiWayIf      #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE MultiWayIf        #-}
+{-# LANGUAGE PatternSynonyms   #-}
 module Audio
 ( Audio(..)
 , Edge(..)
@@ -26,6 +26,7 @@ module Audio
 ) where
 
 import           Control.Exception               (evaluate)
+import           Control.Monad                   (ap)
 import           Control.Monad.IO.Class          (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource    (MonadResource, ResourceT,
                                                   runResourceT)
@@ -33,17 +34,18 @@ import           Data.Binary.Get                 (getWord32le, runGetOrFail)
 import qualified Data.ByteString.Lazy            as BL
 import qualified Data.ByteString.Lazy.Char8      as BL8
 import           Data.Char                       (toLower)
-import           Data.Conduit                    (await, awaitForever, yield,
-                                                  (=$=), leftover)
+import           Data.Conduit                    (await, awaitForever, leftover,
+                                                  yield, (=$=))
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME
 import           Data.Conduit.Audio.LAME.Binding as L
 import           Data.Conduit.Audio.SampleRate
 import           Data.Conduit.Audio.Sndfile
 import qualified Data.Conduit.List               as CL
-import Data.List (sortOn)
 import qualified Data.Digest.Pure.MD5            as MD5
 import           Data.Foldable                   (toList)
+import           Data.List                       (sortOn)
+import qualified Data.Text                       as T
 import qualified Data.Vector.Storable            as V
 import           Data.Word                       (Word8)
 import           Development.Shake               (Action, need, putNormal)
@@ -52,8 +54,6 @@ import           Numeric                         (showHex)
 import           SndfileExtra
 import qualified Sound.File.Sndfile              as Snd
 import qualified Sound.MIDI.Util                 as U
-import           Control.Monad (ap)
-import qualified Data.Text as T
 
 data Audio t a
   = Silence Int t

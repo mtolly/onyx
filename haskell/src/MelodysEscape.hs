@@ -1,15 +1,15 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE TemplateHaskell #-}
 module MelodysEscape where
 
-import RockBand.Parse
-import qualified Sound.MIDI.Util as U
+import           Control.Monad.Random
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import Data.List (intercalate, partition)
-import Data.Maybe (mapMaybe)
-import Control.Monad.Random
-import qualified Numeric.NonNegative.Class as NNC
+import           Data.List                        (intercalate, partition)
+import           Data.Maybe                       (mapMaybe)
+import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Parse
+import qualified Sound.MIDI.Util                  as U
 
 data Event
   = Intensity        Bool  Intensity
@@ -86,7 +86,7 @@ writeTransitions = let
     [ [intensityCharacter i1]
     , ":"
     , show (max 1 $ secondsToTicks t1)
-    , "-" 
+    , "-"
     , [intensityCharacter i2]
     , ":"
     , show (max 1 $ secondsToTicks t2)

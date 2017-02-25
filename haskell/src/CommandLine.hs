@@ -487,10 +487,10 @@ commands =
         else do
           case ftype of
             FileSTFS -> importSTFS (getKeysRB2 opts) fpath tmp
-            FileRBA -> importRBA (getKeysRB2 opts) fpath tmp
-            FilePS -> importFoF (getKeysRB2 opts) (takeDirectory fpath) tmp
-            FileZip -> undone
-            _ -> unrecognized ftype fpath
+            FileRBA  -> importRBA (getKeysRB2 opts) fpath tmp
+            FilePS   -> importFoF (getKeysRB2 opts) (takeDirectory fpath) tmp
+            FileZip  -> undone
+            _        -> unrecognized ftype fpath
           targetName <- firstPresentTarget (tmp </> "song.yml") $ case game of
             GameRB3 -> ["rb3-2x", "rb3"]
             GameRB2 -> ["rb2-2x", "rb2"]

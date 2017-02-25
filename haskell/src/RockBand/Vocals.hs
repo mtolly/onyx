@@ -1,19 +1,18 @@
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module RockBand.Vocals where
 
-import qualified Sound.MIDI.File.Event as E
-import qualified Sound.MIDI.File.Event.Meta as Meta
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Numeric.NonNegative.Class as NNC
-import RockBand.Common
-import RockBand.Parse
-import qualified Data.Text as T
-import Data.Monoid ((<>))
+import           Data.Monoid                      ((<>))
+import qualified Data.Text                        as T
+import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Common
+import           RockBand.Parse
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
 
 data Event
   = LyricShift

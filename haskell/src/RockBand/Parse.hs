@@ -6,13 +6,13 @@ import           Control.Monad                    (guard, (>=>))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (asum)
 import           Data.Maybe                       (isJust)
+import qualified Data.Text                        as T
 import           Language.Haskell.TH
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Message.Channel       as C
 import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util                  as U
-import qualified Data.Text as T
 
 import           RockBand.Common
 
@@ -212,7 +212,7 @@ parsePredicates ps rtb = RTB.viewL rtb >>= \case
 isNoteEdgeB :: Bool -> Int -> E.T -> Bool
 isNoteEdgeB b i e = case isNoteEdge e of
   Just (i', b') | b == b' && i == i' -> True
-  _                                  -> False
+  _             -> False
 
 makeEdges :: (NNC.C t) => [Int] -> Bool -> RTB.T t E.T
 makeEdges is b = foldr (RTB.cons NNC.zero) RTB.empty $ map (`makeEdge` b) is

@@ -1,10 +1,10 @@
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE TemplateHaskell        #-}
-{-# LANGUAGE DeriveFunctor        #-}
-{-# LANGUAGE DeriveFoldable        #-}
-{-# LANGUAGE DeriveTraversable        #-}
-{-# LANGUAGE OverloadedStrings        #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module Data.DTA.Serialize2 where
 
 import           Control.Applicative
@@ -12,13 +12,13 @@ import           Control.Monad
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
+import           Control.Monad.Trans.Writer
 import           Data.DTA.Base
 import qualified Data.Map                       as Map
-import Language.Haskell.TH
+import qualified Data.Text                      as T
+import           JSONData                       (Parser, parseFrom)
+import           Language.Haskell.TH
 import qualified Language.Haskell.TH.Syntax     as TH
-import Control.Monad.Trans.Writer
-import qualified Data.Text as T
-import JSONData (Parser, parseFrom)
 
 expected :: (Monad m, Show context) => String -> Parser m context a
 expected x = lift ask >>= \v -> fatal $ "Expected " ++ x ++ ", but found: " ++ show v
@@ -174,13 +174,13 @@ instance (DTASerialize a, DTASerialize b) => DTASerialize (Either a b) where
   format = chunksEither format format
 
 data DTAField = DTAField
-  { hsField :: String
-  , dtaKey :: String
-  , fieldType :: TypeQ
+  { hsField      :: String
+  , dtaKey       :: String
+  , fieldType    :: TypeQ
   , defaultValue :: Maybe ExpQ
   , warnMissing  :: Bool
   , writeDefault :: Bool
-  , fieldFormat :: ExpQ
+  , fieldFormat  :: ExpQ
   }
 
 req :: String -> String -> TypeQ -> ExpQ -> Writer [DTAField] ()
@@ -248,7 +248,7 @@ dtaRecord rec derivs writ = do
   return $ dataDecl : formatDecls
 
 data DTAValue = DTAValue
-  { hsCon :: String
+  { hsCon    :: String
   , dtaValue :: ExpQ
   }
 
@@ -278,7 +278,7 @@ dtaEnum typ derivs writ = do
                 )
           case lookup x mapping of
             Nothing -> fatal $ "unhandled enum value: " ++ show x
-            Just v -> return v
+            Just v  -> return v
         }
     |]
   return $ dataDecl : formatDecls
