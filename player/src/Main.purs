@@ -62,12 +62,7 @@ main = do
               let nowTheory = case app of
                     Paused o -> o.pausedSongTime
                     Playing o -> o.startedSongTime + convertDuration ms - o.startedPageTime
-              -- This is what Howler says the audio position really is,
-              -- it accounts for all sorts of audio hiccups but it's a bit choppy
-              nowHowler <- case app of
-                Paused o -> pure o.pausedSongTime
-                Playing o -> getPosition audio
-              let continue app' = do
+                  continue app' = do
                     runReaderT draw
                       { time: nowTheory
                       , app: app'
@@ -151,19 +146,7 @@ main = do
                           , settings: o.settings
                           }
                       _ -> handle evts app'
-              if abs (case nowHowler - nowTheory of Seconds n -> n) < 0.08
-                then continue app
-                else case app of
-                  Paused _ -> continue app -- should never happen
-                  Playing o -> do
-                    stop audio
-                    log "restarting audio..."
-                    playFrom audio nowTheory do
-                      continue $ Playing
-                        { startedPageTime: convertDuration ms
-                        , startedSongTime: nowTheory
-                        , settings: o.settings
-                        }
+              continue app
         loop $ Paused
           { pausedSongTime: Seconds 0.0
           , settings:
