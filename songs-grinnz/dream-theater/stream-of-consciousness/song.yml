@@ -69,17 +69,17 @@ plans:
             - 4.839
             - resample:
                 gain:
-                - 3
+                - 3.78
                 - mix:
                   - drumcam-band-expr
                   - drumcam-drums-expr
       - pad:
-        - '11:06.15' # TODO this still needs a bit of cleaning up
+        - '11:06.15'
         - fade:
           - start
           - 1
           - gain:
-            - 1.2
+            - 1.512
             - drop:
               - '11:06.15'
               - album-expr
@@ -90,7 +90,7 @@ plans:
         - 4.839
         - resample:
             gain:
-            - -2.5
+            - -3.6
             - drumcam-drums-expr
 instruments:
   drums: true
