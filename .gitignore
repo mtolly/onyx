@@ -13,6 +13,4 @@ songs*/*/*/gen/
 .shake/
 .cabal-sandbox/
 cabal.sandbox.config
-dist/
 .stack-work/
-
