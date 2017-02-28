@@ -12,8 +12,8 @@ function AudioHandle(audio){
         self.audio.off('play');
         cb();
       });
-      var sound_id = self.audio.play();
       self.audio.seek(t);
+      var sound_id = self.audio.play();
       self.stop = function(){
         self.audio.stop(sound_id);
       };

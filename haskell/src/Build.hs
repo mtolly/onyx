@@ -622,7 +622,7 @@ shakeBuild audioDirs yamlPath buildables = do
 
       forM_ (HM.elems $ _audio songYaml) $ \case
         AudioFile{ _filePath = Just fp, _commands = cmds } | not $ null cmds -> do
-          fp %> \_ -> mapM_ (Shake.unit . Shake.cmd . T.unpack) cmds
+          normaliseEx fp %> \_ -> mapM_ (Shake.unit . Shake.cmd . T.unpack) cmds
         _ -> return ()
 
       phony "yaml"  $ liftIO $ print songYaml
