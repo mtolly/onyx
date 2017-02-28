@@ -1,0 +1,31 @@
+metadata:
+  title: Ripped Apart and Reassembled
+  track-number: 5
+  artist: Nova Collective
+  album: The Further Side
+  author: Onyxite
+  genre: fusion
+  subgenre: fusion
+  year: 2017
+  file-album-art: cover.jpg
+audio:
+  album-track:
+    # https://novacollectivefusion.bandcamp.com
+    md5: 7e0309a3f39d551f90bfb7066082cec5
+    frames: 15090432
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [4.143, album-track]
+instruments:
+  drums: true
+published: false
