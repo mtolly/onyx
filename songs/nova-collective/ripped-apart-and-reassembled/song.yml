@@ -8,6 +8,8 @@ metadata:
   subgenre: fusion
   year: 2017
   file-album-art: cover.jpg
+  difficulty:
+    drums: 7
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
@@ -28,4 +30,9 @@ plans:
       pad: [4.143, album-track]
 instruments:
   drums: true
-published: false
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
