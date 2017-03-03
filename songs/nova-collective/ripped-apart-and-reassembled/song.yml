@@ -10,6 +10,7 @@ metadata:
   file-album-art: cover.jpg
   difficulty:
     drums: 7
+    guitar: 5
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
@@ -30,6 +31,7 @@ plans:
       pad: [4.143, album-track]
 instruments:
   drums: true
+  guitar: true
 targets:
   rb3:
     game: rb3
