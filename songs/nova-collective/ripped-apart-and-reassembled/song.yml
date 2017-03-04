@@ -11,6 +11,7 @@ metadata:
   difficulty:
     drums: 7
     guitar: 5
+    bass: 4
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
@@ -32,6 +33,7 @@ plans:
 instruments:
   drums: true
   guitar: true
+  bass: true
 targets:
   rb3:
     game: rb3
