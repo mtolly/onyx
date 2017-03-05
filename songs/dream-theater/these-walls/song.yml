@@ -5,19 +5,19 @@ metadata:
   author: Onyxite
   comments:
   - "All instruments have overdrive/unison."
-  - "Pro bass and pro guitar are in progress."
   difficulty:
     drums: 6
     guitar: 2
-    pro-guitar: 2
+    pro-guitar: 3
     bass: 3
     pro-bass: 3
     vocal: 4
     keys: 3
     pro-keys: 5
+  autogen-theme: EdgyProgRock
 options:
   # pro-guitar-tuning is A standard but pretending E standard for game
-  pro-bass-tuning: [-7, -5, -5, -5, -4] # EADGB to AEADG
+  pro-bass-tuning: [-7, -5, -5, -5] # EADG to AEAD
 audio:
   album-track:
     md5: d0168a7020211436743ffef91c474e37
@@ -26,7 +26,7 @@ audio:
     file-path: ../../../sound/hihat-foot.wav
   mixed-bass:
     expr:
-      trim: [11.711, gain: [1.4, only: [Bass, jammit-track]]]
+      trim: [11.711, gain: [1.6, only: [Bass, jammit-track]]]
   mixed-drums:
     expr:
       trim: [11.711, gain: [1.244, only: [Drums, jammit-track]]]
@@ -59,7 +59,7 @@ audio:
             - mixed-bvocals
   mixed-guitar1:
     expr:
-      trim: [11.711, gain: [1.678, only: [Guitar 1, jammit-track]]]
+      trim: [11.711, gain: [1.70, only: [Guitar 1, jammit-track]]]
   mixed-guitar1-unchanged:
     expr:
       mask:
@@ -72,6 +72,18 @@ audio:
         - center: 6:07.058
           tag: unchanged
       - mixed-guitar1
+  mixed-guitar1-missing:
+    expr:
+      pad:
+      - start
+      - 4:59.663
+      - gain:
+        - 0.6
+        - take:
+          - 4.122
+          - drop:
+            - 1:40.321
+            - mixed-guitar1
   mixed-guitar1-backing:
     expr:
       mask:
@@ -113,7 +125,7 @@ plans:
     vocal:
       mix: [mixed-vocal, mixed-bvocals-unchanged, mixed-bvocals-faded]
     guitar:
-      mix: [mixed-guitar1-unchanged, mixed-guitar2]
+      mix: [mixed-guitar1-unchanged, mixed-guitar1-missing, mixed-guitar2]
     keys:
       mix: [mixed-keys1, mixed-keys2]
     drums:
