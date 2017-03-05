@@ -35,7 +35,7 @@ import qualified Data.Yaml                      as Y
 import           Import                         (importFoF, importRBA,
                                                  importSTFS, simpleRBAtoCON)
 import           Magma                          (getRBAFile, oggToMogg,
-                                                 runMagma, runMagmaV1)
+                                                 runMagma, runMagmaV1, runMagmaMIDI)
 import           MoggDecrypt                    (moggToOgg)
 import           PrettyDTA                      (readRB3DTA)
 import           ProKeysRanges                  (closeShiftsFile, completeFile)
@@ -432,7 +432,24 @@ commands =
     { commandWord = "check"
     , commandDesc = "Check for any authoring errors in a project."
     , commandUsage = ""
-    , commandRun = \_ _ -> undone
+    , commandRun = \files opts -> optionalFile files >>= \case
+      (FileSongYaml, yamlPath) -> do
+        targetName <- case [ t | OptTarget t <- opts ] of
+          []    -> fatal "command requires --target, none given"
+          t : _ -> return t
+        -- TODO: handle non-RB3 targets
+        let built = "gen/target" </> T.unpack targetName </> "notes-magma-export.mid"
+        shakeBuild [] yamlPath [built]
+      (FileRBProj, rbprojPath) -> do
+        rbproj <- loadDTA rbprojPath
+        let isMagmaV2 = case RBProj.projectVersion $ RBProj.project rbproj of
+              24 -> True
+              5  -> False -- v1
+              _  -> True -- need to do more testing
+        tempDir "onyx_check" $ \tmp -> if isMagmaV2
+          then runMagmaMIDI rbprojPath (tmp </> "out.mid") >>= liftIO . putStrLn
+          else undone
+      (ftype, fpath) -> unrecognized ftype fpath
     }
 
   , Command
