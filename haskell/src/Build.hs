@@ -366,13 +366,13 @@ makeC3 songYaml plan rb3 midi pkg = let
     , C3.multitrack = getMultitrack plan
     , C3.convert = _convert $ _metadata songYaml
     , C3.expertOnly = _expertOnly $ _metadata songYaml
-    , C3.proBassDiff = guard (_hasProBass $ _instruments songYaml) >> Just (fromIntegral proBassTier)
+    , C3.proBassDiff = guard (_hasProBass $ _instruments songYaml) >> Just (fromIntegral proBassRank)
     , C3.proBassTuning = if _hasProBass $ _instruments songYaml
       then Just $ case _proBassTuning $ _options songYaml of
         []   -> "(real_bass_tuning (0 0 0 0))"
         tune -> "(real_bass_tuning (" <> T.unwords (map (T.pack . show) tune) <> "))"
       else Nothing
-    , C3.proGuitarDiff = guard (_hasProGuitar $ _instruments songYaml) >> Just (fromIntegral proGuitarTier)
+    , C3.proGuitarDiff = guard (_hasProGuitar $ _instruments songYaml) >> Just (fromIntegral proGuitarRank)
     , C3.proGuitarTuning = if _hasProGuitar $ _instruments songYaml
       then Just $ case _proGuitarTuning $ _options songYaml of
         []   -> "(real_guitar_tuning (0 0 0 0 0 0))"

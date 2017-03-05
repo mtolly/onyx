@@ -149,12 +149,13 @@ instanceMIDIEvent [t| Event |] $ let
         |]
       )
     ]
+  -- Nemo's MIDI checker complains (incorrectly) if slide notes have velocity < 100.
   slide :: Int -> Q Pat -> (Q Exp, Q Exp)
   slide pitch diff =
     ( [e| parseSlide pitch $(fmap patToExp diff) |]
     , [e| \case
       DiffEvent $diff (Slide b stype) ->
-        RTB.singleton 0 $ makeEdgeCPV (encodeChannel stype) pitch $ guard b >> Just 96
+        RTB.singleton 0 $ makeEdgeCPV (encodeChannel stype) pitch $ guard b >> Just 100
       |]
     )
   partialChord :: Int -> Q Pat -> (Q Exp, Q Exp)
@@ -162,7 +163,7 @@ instanceMIDIEvent [t| Event |] $ let
     ( [e| parsePartialChord pitch $(fmap patToExp diff) |]
     , [e| \case
       DiffEvent $diff (PartialChord b area) ->
-        RTB.singleton 0 $ makeEdgeCPV (encodeChannel area) pitch $ guard b >> Just 96
+        RTB.singleton 0 $ makeEdgeCPV (encodeChannel area) pitch $ guard b >> Just 100
       |]
     )
   in  [ blip 4  [p| ChordRoot E  |]
