@@ -7,13 +7,14 @@
 
 Instruments:
 
-  * (Pro) Drums
-  * Bass
-  * Guitar
-  * Pro Bass
-  * Keys
-  * Pro Keys
-  * Vocals (3)
+  * (Pro) Drums ⚪️⚪️⚪️⚪️⚪️
+  * Bass ⚪️⚪️⚫️⚫️⚫️
+  * Guitar ⚪️⚫️⚫️⚫️⚫️
+  * Pro Bass ⚪️⚪️⚫️⚫️⚫️
+  * Pro Guitar ⚪️⚫️⚫️⚫️⚫️
+  * Keys ⚪️⚪️⚫️⚫️⚫️
+  * Pro Keys ⚪️⚪️⚪️⚪️⚫️
+  * Vocals (3) ⚪️⚪️⚪️⚫️⚫️
 
 Supported audio:
 
@@ -26,4 +27,6 @@ Supported audio:
 Notes:
 
   * All instruments have overdrive/unison.
+
+  * Pro bass and pro guitar are in progress.
 
