@@ -2,13 +2,14 @@
 
 ## The Bad Plus
 
-Author: TheLieInKing
+Author: TheLieInKing (drums), Onyxite
 
 [Play in browser](http://pages.cs.wisc.edu/~tolly/customs/jazz-pack-2/barracuda)
 
 Instruments:
 
   * (Pro) Drums
+  * Pro Keys
 
 Supported audio:
 
