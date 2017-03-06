@@ -7,6 +7,7 @@ metadata:
   difficulty:
     drums: 7
     pro-keys: 7
+    keys: 7
     guitar: 7
     bass: 5
   author: Onyxite
@@ -29,5 +30,14 @@ plans:
 instruments:
   drums: true
   pro-keys: true
+  keys: true
   guitar: true
   bass: true
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
