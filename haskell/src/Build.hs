@@ -149,7 +149,7 @@ getPlan (Just p) songYaml = case HM.lookup p $ _plans songYaml of
   Just found -> Just (p, found)
   Nothing    -> Nothing
 
-makeRB3DTA :: SongYaml -> Plan -> TargetRB3 -> RBFile.Song U.Beats -> T.Text -> D.SongPackage
+makeRB3DTA :: SongYaml -> Plan -> TargetRB3 -> RBFile.Song [RBFile.Track U.Beats] -> T.Text -> D.SongPackage
 makeRB3DTA songYaml plan rb3 song filename = let
   (pstart, pend) = previewBounds songYaml song
   PansVols{..} = computePansVols songYaml plan
@@ -335,7 +335,7 @@ printOverdrive mid = do
     posn = RBFile.showPosition $ U.applyMeasureMap (RBFile.s_signatures song) t
     in putNormal $ posn ++ ": " ++ insts
 
-makeC3 :: SongYaml -> Plan -> TargetRB3 -> RBFile.Song U.Beats -> T.Text -> C3.C3
+makeC3 :: SongYaml -> Plan -> TargetRB3 -> RBFile.Song [RBFile.Track U.Beats] -> T.Text -> C3.C3
 makeC3 songYaml plan rb3 midi pkg = let
   (pstart, _) = previewBounds songYaml midi
   PansVols{..} = computePansVols songYaml plan

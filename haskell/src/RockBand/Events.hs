@@ -1,10 +1,12 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE PatternSynonyms    #-}
+{-# LANGUAGE TemplateHaskell    #-}
 module RockBand.Events where
 
 import           Control.Monad                    ((>=>))
+import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
@@ -27,9 +29,9 @@ data Event
   | PracticeKick
   | PracticeSnare
   | PracticeHihat
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Typeable, Data)
 
-instanceMIDIEvent [t| Event |]
+instanceMIDIEvent [t| Event |] Nothing
 
   [ commandPair ["music_start"] [p| MusicStart |]
   , commandPair ["music_end"] [p| MusicEnd |]

@@ -409,7 +409,7 @@ instance (Real t) => A.ToJSON (Processed t) where
     , [("end", A.Number $ realToFrac $ processedEnd proc)]
     ]
 
-makeDisplay :: C.SongYaml -> RBFile.Song U.Beats -> BL.ByteString
+makeDisplay :: C.SongYaml -> RBFile.Song [RBFile.Track U.Beats] -> BL.ByteString
 makeDisplay songYaml song = let
   ht = fromIntegral (C._hopoThreshold $ C._options songYaml) / 480
   gtr = justIf (C._hasGuitar $ C._instruments songYaml) $ processFive (Just ht) (RBFile.s_tempos song)

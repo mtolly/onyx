@@ -1,8 +1,10 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE TemplateHaskell    #-}
 module MelodysEscape where
 
 import           Control.Monad.Random
+import           Data.Data
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (intercalate, partition)
@@ -14,21 +16,21 @@ import qualified Sound.MIDI.Util                  as U
 data Event
   = Intensity        Bool  Intensity
   | Note      (Maybe Bool) NoteType
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Typeable, Data)
 
 data NoteType
   = Obstacle Direction
   | Color    Direction
   | Cutscene
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Typeable, Data)
 
 data Intensity = Low | Neutral | High | ExtraHigh
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 data Direction = U | R | L | D
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
-instanceMIDIEvent [t| Event |]
+instanceMIDIEvent [t| Event |] Nothing
 
   [ blipMax (1/4) 60 [p| Note Nothing (Obstacle D) |]
   , blipMax (1/4) 61 [p| Note Nothing (Obstacle L) |]

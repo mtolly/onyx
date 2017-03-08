@@ -1,9 +1,11 @@
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE TemplateHaskell    #-}
 module RockBand.ProGuitar where
 
 import           Control.Monad                    (guard)
+import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (isJust)
 import           Data.Monoid                      ((<>))
@@ -35,7 +37,7 @@ data Event
   | Mystery69    Bool
   | Mystery93    Bool
   | DiffEvent Difficulty DiffEvent
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 data DiffEvent
   = ChordName (Maybe T.Text)
@@ -46,7 +48,7 @@ data DiffEvent
   | AllFrets     Bool
   | MysteryBFlat Bool
   | Note (LongNote GtrFret (GtrString, NoteType))
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
 
 data NoteType
   = NormalNote
@@ -56,18 +58,18 @@ data NoteType
   | Tapped
   | Harmonic
   | PinchHarmonic
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Data, Typeable)
 
 data SlideType = NormalSlide | ReversedSlide | MysterySlide3 | MysterySlide2
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Data, Typeable)
 
 data StrumArea = High | Mid | Low | MysteryStrum0
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Data, Typeable)
 
 type GtrFret = Int
 
 data GtrString = S6 | S5 | S4 | S3 | S2 | S1
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Data, Typeable)
 
 class (Enum a, Bounded a) => GtrChannel a where
   encodeChannel :: a -> Int
@@ -131,7 +133,7 @@ parseHandPosition rtb = do
   guard $ v >= 100
   return ((t, HandPosition $ v - 100), rtb')
 
-instanceMIDIEvent [t| Event |] $ let
+instanceMIDIEvent [t| Event |] Nothing $ let
   note :: Int -> Q Pat -> Q Pat -> [(Q Exp, Q Exp)]
   note pitch diff str =
     [ ( [e| parseNoteBlip pitch $(fmap patToExp diff) $(fmap patToExp str) |]

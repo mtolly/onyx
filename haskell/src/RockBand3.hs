@@ -26,11 +26,11 @@ data Kicks = Kicks1x | Kicks2x | KicksPS
 
 processMIDI
   :: SongYaml
-  -> RBFile.Song U.Beats
+  -> RBFile.Song [RBFile.Track U.Beats]
   -> Kicks
   -> RBDrums.Audio
   -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
-  -> Action (RBFile.Song U.Beats)
+  -> Action (RBFile.Song [RBFile.Track U.Beats])
 processMIDI songYaml input kicks mixMode getAudioLength = do
   let showPosition = RBFile.showPosition . U.applyMeasureMap (RBFile.s_signatures input)
       trks = RBFile.s_tracks input
@@ -233,7 +233,7 @@ processMIDI songYaml input kicks mixMode getAudioLength = do
       ]
     }
 
-findProblems :: RBFile.Song U.Beats -> [String]
+findProblems :: RBFile.Song [RBFile.Track U.Beats] -> [String]
 findProblems song = execWriter $ do
   -- Don't have a kick at the start of a drum roll.
   -- It screws up the roll somehow and causes spontaneous misses.

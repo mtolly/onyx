@@ -1,10 +1,12 @@
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveFoldable     #-}
+{-# LANGUAGE DeriveFunctor      #-}
+{-# LANGUAGE DeriveTraversable  #-}
+{-# LANGUAGE LambdaCase         #-}
 module RockBand.PhaseShiftMessage where
 
 import           Control.Applicative                   ((<|>))
+import           Data.Data
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import qualified Numeric.NonNegative.Class             as NNC
 import           RockBand.Common                       (Difficulty (..))
@@ -16,7 +18,7 @@ data PSMessage = PSMessage
   { psDifficulty :: Maybe Difficulty
   , psPhraseID   :: PhraseID
   , psEdge       :: Bool -- ^ True for start, False for end
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show, Read, Typeable, Data)
 
 data PhraseID
   = OpenStrum
@@ -38,7 +40,7 @@ data PhraseID
   | YellowTomCymbal
   | BlueTomCymbal
   | GreenTomCymbal
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 instance MIDIEvent PSMessage where
   parseOne = firstEventWhich $ \evt -> do
@@ -72,10 +74,15 @@ instance MIDIEvent PSMessage where
 data PSWrap a
   = PS PSMessage
   | RB a
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable, Data)
 
 instance (MIDIEvent a) => MIDIEvent (PSWrap a) where
   parseOne rtb = mapParseOne PS parseOne rtb <|> mapParseOne RB parseOne rtb
   unparseOne = \case
     PS x -> unparseOne x
     RB x -> unparseOne x
+
+discardPS :: (NNC.C t) => RTB.T t (PSWrap a) -> RTB.T t a
+discardPS = RTB.mapMaybe $ \case
+  PS _ -> Nothing
+  RB x -> Just x

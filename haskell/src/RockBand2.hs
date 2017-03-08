@@ -30,7 +30,7 @@ import           Scripts                          (trackGlue)
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
 
-dryVoxAudio :: (Monad m) => F.Song U.Beats -> AudioSource m Float
+dryVoxAudio :: (Monad m) => F.Song [F.Track U.Beats] -> AudioSource m Float
 dryVoxAudio f = sineDryVox $ U.applyTempoTrack (F.s_tempos f)
   $ foldr RTB.merge RTB.empty [ t | F.PartVocals t <- F.s_tracks f ]
 
@@ -62,7 +62,7 @@ fixOverdrive tracks = let
   panic s = error $ "RockBand2.fixOverdrive: panic! this shouldn't happen: " ++ s
   in map (fmap longToBool . splitEdges) $ go $ map (joinEdges . fmap boolToLong) tracks
 
-convertMIDI :: KeysRB2 -> U.Beats -> F.Song U.Beats -> F.Song U.Beats
+convertMIDI :: KeysRB2 -> U.Beats -> F.Song [F.Track U.Beats] -> F.Song [F.Track U.Beats]
 convertMIDI keysrb2 hopoThresh mid = mid
   { F.s_tracks = fixUnisons $ flip mapMaybe (F.s_tracks mid) $ \case
     F.PartDrums  t -> Just $ F.PartDrums $ fixDrumColors $ fixDoubleEvents $ flip RTB.mapMaybe t $ \case

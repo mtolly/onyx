@@ -61,10 +61,10 @@ addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
 addZero x rtb = case U.trackSplitZero rtb of
   (zero, rest) -> U.trackGlueZero (zero ++ [x]) rest
 
-loadMIDI :: (MonadIO m) => FilePath -> StackTraceT m (Song U.Beats)
+loadMIDI :: (MonadIO m) => FilePath -> StackTraceT m (Song [Track U.Beats])
 loadMIDI fp = liftIO (Load.fromFile fp) >>= readMIDIFile
 
-shakeMIDI :: FilePath -> StackTraceT Action (Song U.Beats)
+shakeMIDI :: FilePath -> StackTraceT Action (Song [Track U.Beats])
 shakeMIDI fp = lift (need [fp]) >> loadMIDI fp
 
 loadTemposIO :: FilePath -> IO U.TempoMap
@@ -78,16 +78,16 @@ loadTemposIO fp = do
 loadTempos :: FilePath -> Action U.TempoMap
 loadTempos fp = need [fp] >> liftIO (loadTemposIO fp)
 
-saveMIDI :: FilePath -> Song U.Beats -> Action ()
+saveMIDI :: FilePath -> Song [Track U.Beats] -> Action ()
 saveMIDI fp song = liftIO $ Save.toFile fp $ showMIDIFile song
 
-allEvents :: (NNC.C t) => Song t -> RTB.T t Events.Event
+allEvents :: (NNC.C t) => Song [Track t] -> RTB.T t Events.Event
 allEvents = foldr RTB.merge RTB.empty . mapMaybe getEvents . s_tracks where
   getEvents (Events trk) = Just trk
   getEvents _            = Nothing
 
 -- | Returns the start and end of the preview audio in milliseconds.
-previewBounds :: SongYaml -> Song U.Beats -> (Int, Int)
+previewBounds :: SongYaml -> Song [Track U.Beats] -> (Int, Int)
 previewBounds syaml song = let
   len = songLengthMS song
   secsToMS s = floor $ s * 1000
@@ -110,13 +110,13 @@ previewBounds syaml song = let
     (Just ps, Nothing) -> let start = evalTime' ps in (start, start + 30000)
     (Nothing, Just pe) -> let end = evalTime' pe in (end - 30000, end)
 
-songLengthBeats :: Song U.Beats -> U.Beats
+songLengthBeats :: Song [Track U.Beats] -> U.Beats
 songLengthBeats s = case RTB.getTimes $ RTB.filter (== Events.End) $ allEvents s of
   [bts] -> bts
   _     -> 0 -- eh
 
 -- | Returns the time of the [end] event in milliseconds.
-songLengthMS :: Song U.Beats -> Int
+songLengthMS :: Song [Track U.Beats] -> Int
 songLengthMS song = floor $ U.applyTempoMap (s_tempos song) (songLengthBeats song) * 1000
 
 -- | Given a measure map, produces an infinite BEAT track.
@@ -223,7 +223,7 @@ harm1ToPartVocals = go . RTB.normalize where
     _                   -> Nothing
   isNote = \case Vocals.Note _ _ -> True; _ -> False
 
-getPercType :: Song U.Beats -> Maybe Vocals.PercussionType
+getPercType :: Song [Track U.Beats] -> Maybe Vocals.PercussionType
 getPercType song = let
   vox = foldr RTB.merge RTB.empty $ mapMaybe getVox $ s_tracks song
   getVox (PartVocals t) = Just t
@@ -276,7 +276,7 @@ keysToProKeys d = let
     _                                -> Nothing
   in RTB.cons 0 (ProKeys.LaneShift ProKeys.RangeA) . RTB.mapMaybe basicToPK
 
-hasSolo :: Instrument -> Song t -> Bool
+hasSolo :: Instrument -> Song [Track t] -> Bool
 hasSolo Guitar song = not $ null
   $ do
     PartGuitar t <- s_tracks song

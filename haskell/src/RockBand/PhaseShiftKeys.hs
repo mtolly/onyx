@@ -1,13 +1,15 @@
 -- | Phase Shift's Real Keys (full keyboard) mode.
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE TemplateHaskell    #-}
 module RockBand.PhaseShiftKeys
 ( Event(..)
 , Hand(..)
 ) where
 
 import           Control.Monad                    (guard)
+import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (isJust)
 import qualified Data.Text                        as T
@@ -27,7 +29,7 @@ data Event
   | Overdrive       Bool -- ^ An energy phrase.
   | BRE             Bool -- ^ Fill lanes for a Big Rock Ending.
   | Note       Hand Bool Int
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Typeable, Data)
 
 parseRange :: (NNC.C t) => Int -> Int -> Hand -> ParseOne t E.T Event
 parseRange pitch chan hand rtb = do
@@ -46,7 +48,7 @@ parseNote rtb = do
     _ -> Nothing
   return ((t, Note hand (isJust v) p), rtb')
 
-instanceMIDIEvent [t| Event |]
+instanceMIDIEvent [t| Event |] Nothing
 
   [ ( [e| parseRange 12 1 LH |]
     , [e| \case LaneShift LH p -> unparseBlipCPV (1, 12, p) |]

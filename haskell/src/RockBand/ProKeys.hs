@@ -1,10 +1,12 @@
 -- | The contents of the \"PART REAL_KEYS_?\" and \"PART KEYS_ANIM_?H\" tracks.
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE PatternSynonyms    #-}
+{-# LANGUAGE TemplateHaskell    #-}
 module RockBand.ProKeys where
 
+import           Data.Data
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Text                        as T
@@ -26,15 +28,15 @@ data Event
   | Overdrive  Bool -- ^ An energy phrase.
   | BRE        Bool -- ^ Fill lanes for a Big Rock Ending.
   | Note (LongNote () Pitch)
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Read, Typeable, Data)
 
 -- | There are six playable ranges, each of which covers 10 white keys, plus
 -- all the black keys within. They are named here according to their lowest key.
 data LaneRange = RangeC | RangeD | RangeE | RangeF | RangeG | RangeA
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 data Pitch = RedYellow Key | BlueGreen Key | OrangeC
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Typeable, Data)
 
 instance Enum Pitch where
   fromEnum (RedYellow k) = fromEnum k
@@ -96,10 +98,10 @@ unparseNice defLength trk = let
     RangeF -> 5
     RangeG -> 7
     RangeA -> 9
-  notRangeEvents = unparseAll unparseOne notRanges'
+  notRangeEvents = unparseAll notRanges'
   in RTB.merge rangeEvents notRangeEvents
 
-instanceMIDIEvent [t| Event |] $
+instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
 
   [ blip 0 [p| LaneShift RangeC |]
   , blip 2 [p| LaneShift RangeD |]

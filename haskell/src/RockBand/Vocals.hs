@@ -1,10 +1,12 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE PatternSynonyms    #-}
+{-# LANGUAGE TemplateHaskell    #-}
 module RockBand.Vocals where
 
+import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
@@ -26,7 +28,7 @@ data Event
   | Overdrive  Bool
   | RangeShift Bool
   | Note       Bool Pitch
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Typeable, Data)
 
 data Pitch
   = Octave36 Key
@@ -34,7 +36,7 @@ data Pitch
   | Octave60 Key
   | Octave72 Key
   | Octave84C
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Typeable, Data)
 
 pitchToKey :: Pitch -> Key
 pitchToKey = \case
@@ -66,13 +68,13 @@ data PercussionType
   = Tambourine
   | Cowbell
   | Clap
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 instance Command (PercussionType, Bool) where
   fromCommand (typ, b) = [T.toLower (T.pack $ show typ) <> if b then "_start" else "_end"]
   toCommand = reverseLookup ((,) <$> each <*> each) fromCommand
 
-instanceMIDIEvent [t| Event |]
+instanceMIDIEvent [t| Event |] Nothing
 
   [ edge 0 $ applyB [p| RangeShift |]
   , blip 1 [p| LyricShift |]

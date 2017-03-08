@@ -135,7 +135,7 @@ keyInPreRange RangeF p = RedYellow F  <= p && p <= BlueGreen As
 keyInPreRange RangeG p = RedYellow Fs <= p && p <= BlueGreen B
 keyInPreRange RangeA p = RedYellow Gs <= p && p <= OrangeC
 
-closeShiftsFile :: RBFile.Song U.Beats -> String
+closeShiftsFile :: RBFile.Song [RBFile.Track U.Beats] -> String
 closeShiftsFile song = let
   xpk = foldr RTB.merge RTB.empty [ trk | RBFile.PartRealKeys Expert trk <- RBFile.s_tracks song ]
   close = U.unapplyTempoTrack (RBFile.s_tempos song) $ closeShifts 1 $ U.applyTempoTrack (RBFile.s_tempos song) xpk

@@ -33,19 +33,22 @@ parseAll p rtb = case p rtb of
 combineParseOne :: [ParseOne t e a] -> ParseOne t e a
 combineParseOne ps rtb = asum $ map ($ rtb) ps
 
-unparseAll :: (NNC.C t, Ord e) => UnparseOne t e a -> UnparseAll t e a
-unparseAll u rtb = U.trackJoin $ fmap u rtb
-
 class MIDIEvent a where
   parseOne   ::   ParseOne U.Beats E.T a
   unparseOne :: UnparseOne U.Beats E.T a
+  unparseAll :: UnparseAll U.Beats E.T a
+  unparseAll = U.trackJoin . fmap unparseOne
+
+instance MIDIEvent E.T where
+  parseOne   = firstEventWhich Just
+  unparseOne = RTB.singleton NNC.zero
 
 -- | The first element of each pair should be an expression of type @ParseOne t e a@.
 -- The second element should be a lambda-case expression which forms
 -- a partial function of type @UnparseOne t e a@.
 -- The result is an instance of 'MIDIEvent'.
-instanceMIDIEvent :: Q Type -> [(Q Exp, Q Exp)] -> Q [Dec]
-instanceMIDIEvent typ cases = let
+instanceMIDIEvent :: Q Type -> Maybe (Q Exp) -> [(Q Exp, Q Exp)] -> Q [Dec]
+instanceMIDIEvent typ upall cases = let
   parser = [e| combineParseOne $(listE $ map fst cases) |]
   unparser = do
     es <- mapM snd cases :: Q [Exp]
@@ -54,11 +57,18 @@ instanceMIDIEvent typ cases = let
       case e of
         LamCaseE matches -> matches
         _ -> error "instanceMIDIEvent: improper form for event unparser. must be lambda-case"
-  in [d|
-    instance MIDIEvent $(typ) where
-      parseOne   = $(  parser)
-      unparseOne = $(unparser)
-  |]
+  in case upall of
+    Nothing -> [d|
+      instance MIDIEvent $(typ) where
+        parseOne   = $(  parser)
+        unparseOne = $(unparser)
+      |]
+    Just unparserAll -> [d|
+      instance MIDIEvent $(typ) where
+        parseOne   = $(     parser)
+        unparseOne = $(   unparser)
+        unparseAll = $(unparserAll)
+      |]
 
 isNoteEdgeCPV :: E.T -> Maybe (Int, Int, Maybe Int)
 isNoteEdgeCPV = \case

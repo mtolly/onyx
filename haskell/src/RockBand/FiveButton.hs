@@ -1,11 +1,13 @@
 -- | Parser used for all the GRYBO instruments (basic guitar, bass, and keys).
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE TemplateHaskell    #-}
 module RockBand.FiveButton where
 
 import           Control.Monad                    (guard)
 import           Data.Bifunctor                   (first)
+import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (sort)
 import qualified Data.Set                         as Set
@@ -13,10 +15,11 @@ import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
 import           RockBand.Parse
+import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
 
 data Color = Green | Red | Yellow | Blue | Orange
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 data Event
   = Mood                      Mood
@@ -31,7 +34,7 @@ data Event
   | Player1                   Bool
   | Player2                   Bool
   | DiffEvent Difficulty DiffEvent
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Typeable, Data)
 
 -- | These don't actually correspond to 20 different frets;
 -- see http://i.imgur.com/fRg6Vo9.png by Orange Harrison
@@ -56,15 +59,15 @@ data FretPosition
   | Fret57
   | Fret58
   | Fret59 -- ^ roughly fret 13
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 data DiffEvent
   = Force StrumHOPO Bool
   | Note (LongNote () Color)
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Typeable, Data)
 
 data StrumHOPO = Strum | HOPO
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 -- | Controls the fretting hand animation of a guitarist/bassist.
 data HandMap
@@ -80,7 +83,7 @@ data HandMap
   | HandMap_Chord_C   -- ^ All C chord shape.
   | HandMap_Chord_D   -- ^ All D chord shape.
   | HandMap_Chord_A   -- ^ All A minor chord shape.
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 instance Command HandMap where
   fromCommand hm = ["map", T.pack $ show hm]
@@ -91,13 +94,13 @@ data StrumMap
   = StrumMap_Default
   | StrumMap_Pick
   | StrumMap_SlapBass
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 instance Command StrumMap where
   fromCommand sm = ["map", T.pack $ show sm]
   toCommand = reverseLookup each fromCommand
 
-instanceMIDIEvent [t| Event |] $
+instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
 
   [ edge 40 $ applyB [p| FretPosition Fret40 |]
   , edge 41 $ applyB [p| FretPosition Fret41 |]
@@ -249,6 +252,9 @@ keysToGuitar threshold evts = let
     , DiffEvent Easy   <$> longToEvents (guitarifyHOPO threshold True easy  )
     , notEasy
     ]
+
+unparseNice :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats E.T
+unparseNice defLength = U.trackJoin . fmap unparseOne . showBlipsNice defLength
 
 showBlipsNice :: (NNC.C t) => t -> RTB.T t Event -> RTB.T t Event
 showBlipsNice defLength evts = let

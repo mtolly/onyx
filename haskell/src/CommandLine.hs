@@ -35,7 +35,8 @@ import qualified Data.Yaml                      as Y
 import           Import                         (importFoF, importRBA,
                                                  importSTFS, simpleRBAtoCON)
 import           Magma                          (getRBAFile, oggToMogg,
-                                                 runMagma, runMagmaV1, runMagmaMIDI)
+                                                 runMagma, runMagmaMIDI,
+                                                 runMagmaV1)
 import           MoggDecrypt                    (moggToOgg)
 import           PrettyDTA                      (readRB3DTA)
 import           ProKeysRanges                  (closeShiftsFile, completeFile)

@@ -1,33 +1,34 @@
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveFoldable     #-}
+{-# LANGUAGE DeriveFunctor      #-}
+{-# LANGUAGE DeriveTraversable  #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE PatternSynonyms    #-}
+{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE TupleSections      #-}
 module RockBand.Drums where
 
+import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
-import qualified Sound.MIDI.File.Event            as E
-import qualified Sound.MIDI.Util                  as U
-
 import           RockBand.Common
 import           RockBand.FiveButton              (applyStatus)
 import           RockBand.Parse
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.Util                  as U
 
 data ProColor = Yellow | Blue | Green
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 data ProType = Cymbal | Tom
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 data Gem a = Kick | Red | Pro ProColor a
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable, Data)
 
 -- | Constructors are ordered for optimal processing with 'RTB.normalize'.
 -- For example, 'Note' comes last so that everything else is processed first.
@@ -46,12 +47,12 @@ data Event
   | DiffEvent  Difficulty DiffEvent
   | Kick2x -- ^ Used as input to the build tool for 2x Bass Pedal notes
   | Animation  Animation
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Typeable, Data)
 
 data DiffEvent
   = Mix Audio Disco
   | Note (Gem ())
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Typeable, Data)
 
 data Animation
   = Tom1       Hand -- ^ The high tom.
@@ -70,10 +71,13 @@ data Animation
   | PercussionRH
   | HihatOpen Bool
   | RideSide Bool -- ^ Causes slow 'Ride' hits to animate differently.
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Typeable, Data)
 
-data Hit = SoftHit | HardHit deriving (Eq, Ord, Show, Read, Enum, Bounded)
-data Hand = LH | RH deriving (Eq, Ord, Show, Read, Enum, Bounded)
+data Hit = SoftHit | HardHit
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
+
+data Hand = LH | RH
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 -- | Controls the audio files used for the drum track.
 data Audio
@@ -82,7 +86,7 @@ data Audio
   | D2 -- ^ Mono kick, stereo snare, stereo kit.
   | D3 -- ^ Stereo kick, stereo snare, stereo kit.
   | D4 -- ^ Mono kick, stereo kit (including snare).
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 -- | Special options that can affect drum audio and pad settings.
 data Disco
@@ -91,7 +95,7 @@ data Disco
   | DiscoNoFlip -- ^ New in RB3: snare beats where accented hits are 'Yellow'.
   | EasyMix     -- ^ Pre-RB3. 'Easy' sections with only 'Red' and 'Kick' notes.
   | EasyNoKick  -- ^ Pre-RB3. 'Easy' sections with no 'Kick' notes.
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 instance Command (Difficulty, Audio, Disco) where
   fromCommand (diff, audio, disco) = ["mix", T.pack (show $ fromEnum diff), showMix audio disco]
@@ -106,7 +110,7 @@ showMix audio disco = "drums" <> T.pack (show $ fromEnum audio) <> case disco of
   EasyMix     -> "easy"
   EasyNoKick  -> "easynokick"
 
-instanceMIDIEvent [t| Event |]
+instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |])
 
   [ blip 24  [p| Animation KickRF |]
   , edge 25  $ \_b -> [p| Animation (HihatOpen $(boolP _b)) |]
@@ -197,7 +201,7 @@ data DrumState = DrumState
   , mediumDisco :: Bool
   , hardDisco   :: Bool
   , expertDisco :: Bool
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Ord, Show, Read, Typeable, Data)
 
 defDrumState :: DrumState
 defDrumState = DrumState Cymbal Cymbal Cymbal False False False False
@@ -269,7 +273,7 @@ unparseNice defLength trk = let
         Just (Pro Green ())  -> 4
       in a + b
     in RTB.cons NNC.zero (makeEdge pitch True) $ RTB.singleton len (makeEdge pitch False)
-  in RTB.merge (U.trackJoin $ assignLengths notes) (unparseAll unparseOne notNotes)
+  in RTB.merge (U.trackJoin $ assignLengths notes) (unparseAll notNotes)
 
 baseScore :: RTB.T U.Beats (Gem ProType) -> Int
 baseScore = sum . fmap gemScore where
