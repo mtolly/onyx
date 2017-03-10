@@ -9,8 +9,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     (($>))
 import           Data.List                        (nub, sort, sortOn)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, isNothing,
-                                                   mapMaybe)
+import           Data.Maybe                       (fromMaybe, isNothing)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import           Numeric.NonNegative.Class        ((-|))
@@ -23,9 +22,9 @@ import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
 import           RockBand.FiveButton              (StrumHOPO (..))
 import qualified RockBand.FiveButton              as Five
+import           RockBand.PhaseShiftMessage       (discardPS, withRB)
 import qualified RockBand.ProKeys                 as PK
 import           Scripts                          (trackGlue)
-import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
@@ -519,45 +518,29 @@ drumsReduce diff   mmap od sections trk = let
 
 simpleReduce :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleReduce fin fout = do
-  mid@(F.Cons typ dvn trks) <- liftIO $ Load.fromFile fin
-  res <- case dvn of
-    F.Ticks res -> return res
-    _           -> fatal "Unsupported SMPTE time"
-  song <- RBFile.readMIDIFile mid
-  let mid' = F.Cons typ dvn trks'
-      trks' = concatMap reduce trks ++ proKeys
-      findTrack ftrk = foldr RTB.merge RTB.empty $ mapMaybe ftrk $ RBFile.s_tracks song
-      findPK diff = findTrack $ \case RBFile.PartRealKeys d t | d == diff -> Just t; _ -> Nothing
-      diff `pkOr` x = let trk = findPK diff in if RTB.null trk then x else trk
-      ticks = RTB.discretize . RTB.mapTime (* fromIntegral res)
+  RBFile.Song tempos mmap trks <- liftIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+  let pkX = RBFile.onyxPartRealKeysX trks
+      pkH = RBFile.onyxPartRealKeysH trks `pkOr` withRB (pkReduce Hard   mmap od) pkX
+      pkM = RBFile.onyxPartRealKeysM trks `pkOr` withRB (pkReduce Medium mmap od) pkH
+      pkE = RBFile.onyxPartRealKeysE trks `pkOr` withRB (pkReduce Easy   mmap od) pkM
+      od = flip RTB.mapMaybe (discardPS pkX) $ \case
+        PK.Overdrive b -> Just b
+        _              -> Nothing
+      trkX `pkOr` trkY
+        | RTB.null pkX  = RTB.empty
+        | RTB.null trkX = trkY
+        | otherwise     = trkX
       sections = let
-        evts = findTrack $ \case RBFile.Events t -> Just t; _ -> Nothing
+        evts = discardPS $ RBFile.onyxEvents trks
         getSection = \case Events.PracticeSection s -> Just s; _ -> Nothing
         in RTB.mapMaybe getSection evts
-      reduce trk = case U.trackName trk of
-        Nothing -> [trk]
-        Just n -> case n of
-          "PART GUITAR" -> [ticks $ RBFile.showTrack $ RBFile.PartGuitar $ gryboComplete (Just 170) (RBFile.s_signatures song) $ findTrack $ \case RBFile.PartGuitar t -> Just t; _ -> Nothing]
-          "PART BASS" -> [ticks $ RBFile.showTrack $ RBFile.PartBass $ gryboComplete (Just 170) (RBFile.s_signatures song) $ findTrack $ \case RBFile.PartBass t -> Just t; _ -> Nothing]
-          "PART KEYS" -> [ticks $ RBFile.showTrack $ RBFile.PartKeys $ gryboComplete Nothing (RBFile.s_signatures song) $ findTrack $ \case RBFile.PartKeys t -> Just t; _ -> Nothing]
-          "PART DRUMS" -> [ticks $ RBFile.showTrack $ RBFile.PartDrums $ drumsComplete (RBFile.s_signatures song) sections $ findTrack $ \case RBFile.PartDrums t -> Just t; _ -> Nothing]
-          "PART REAL_KEYS_X" -> []
-          "PART REAL_KEYS_H" -> []
-          "PART REAL_KEYS_M" -> []
-          "PART REAL_KEYS_E" -> []
-          _ -> [trk]
-      proKeys = if RTB.null $ findPK Expert
-        then []
-        else let
-          expert = findPK Expert
-          od = flip RTB.mapMaybe expert $ \case PK.Overdrive b -> Just b; _ -> Nothing
-          hard   = Hard   `pkOr` pkReduce Hard   (RBFile.s_signatures song) od expert
-          medium = Medium `pkOr` pkReduce Medium (RBFile.s_signatures song) od hard
-          easy   = Easy   `pkOr` pkReduce Easy   (RBFile.s_signatures song) od medium
-          in map (ticks . RBFile.showTrack)
-              [ RBFile.PartRealKeys Expert expert
-              , RBFile.PartRealKeys Hard hard
-              , RBFile.PartRealKeys Medium medium
-              , RBFile.PartRealKeys Easy easy
-              ]
-  liftIO $ Save.toFile fout mid'
+  liftIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap trks
+    { RBFile.onyxPartGuitar = withRB (gryboComplete (Just 170) mmap) $ RBFile.onyxPartGuitar trks
+    , RBFile.onyxPartBass = withRB (gryboComplete (Just 170) mmap) $ RBFile.onyxPartBass trks
+    , RBFile.onyxPartKeys = withRB (gryboComplete Nothing mmap) $ RBFile.onyxPartKeys trks
+    , RBFile.onyxPartDrums = withRB (drumsComplete mmap sections) $ RBFile.onyxPartDrums trks
+    , RBFile.onyxPartRealKeysX = pkX
+    , RBFile.onyxPartRealKeysH = pkH
+    , RBFile.onyxPartRealKeysM = pkM
+    , RBFile.onyxPartRealKeysE = pkE
+    }

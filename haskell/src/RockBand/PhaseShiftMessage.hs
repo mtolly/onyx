@@ -86,3 +86,8 @@ discardPS :: (NNC.C t) => RTB.T t (PSWrap a) -> RTB.T t a
 discardPS = RTB.mapMaybe $ \case
   PS _ -> Nothing
   RB x -> Just x
+
+withRB :: (NNC.C t, Ord a) => (RTB.T t a -> RTB.T t a) -> RTB.T t (PSWrap a) -> RTB.T t (PSWrap a)
+withRB f rtb = let
+  (rb, ps) = RTB.partitionMaybe (\case PS _ -> Nothing; RB x -> Just x) rtb
+  in RTB.merge (fmap RB $ f rb) ps

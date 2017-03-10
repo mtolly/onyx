@@ -3,51 +3,50 @@
 module Import where
 
 import           Audio
-import           Codec.Picture                    (convertRGB8, readImage)
-import           Config                           hiding (Difficulty)
-import           Control.Applicative              ((<|>))
-import           Control.Exception                (evaluate)
-import           Control.Monad                    (guard, when)
-import           Control.Monad.Extra              (mapMaybeM)
-import           Control.Monad.IO.Class           (MonadIO (liftIO))
+import           Codec.Picture                  (convertRGB8, readImage)
+import           Config                         hiding (Difficulty)
+import           Control.Applicative            ((<|>))
+import           Control.Exception              (evaluate)
+import           Control.Monad                  (guard, when)
+import           Control.Monad.Extra            (mapMaybeM)
+import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
-import qualified Data.ByteString.Lazy             as BL
-import qualified Data.Conduit.Audio               as CA
-import           Data.Default.Class               (def)
-import qualified Data.Digest.Pure.MD5             as MD5
-import qualified Data.DTA                         as D
-import qualified Data.DTA.Serialize.RB3           as D
-import qualified Data.DTA.Serialize2              as D2
-import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Foldable                    (toList)
-import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (nub)
-import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, mapMaybe)
-import           Data.Monoid                      ((<>))
-import qualified Data.Text                        as T
-import qualified Data.Text.IO                     as TIO
-import qualified Data.Yaml                        as Y
-import qualified FretsOnFire                      as FoF
-import           Image                            (toPNG_XBOX)
-import           JSONData                         (JSONEither (..))
-import           Magma                            (getRBAFile)
-import           PrettyDTA                        (C3DTAComments (..),
-                                                   DTASingle (..),
-                                                   readDTASingle, readRB3DTA,
-                                                   writeDTASingle)
-import qualified RockBand.Drums                   as RBDrums
-import qualified RockBand.File                    as RBFile
-import           Scripts                          (loadMIDI)
-import qualified Sound.MIDI.File                  as F
-import qualified Sound.MIDI.File.Load             as Load
-import qualified Sound.MIDI.File.Save             as Save
-import qualified Sound.MIDI.Util                  as U
-import           STFS.Extract                     (extractSTFS)
-import qualified System.Directory                 as Dir
-import           System.FilePath                  (takeDirectory, takeFileName,
-                                                   (<.>), (</>))
-import           X360                             (rb3pkg)
+import qualified Data.ByteString.Lazy           as BL
+import qualified Data.Conduit.Audio             as CA
+import           Data.Default.Class             (def)
+import qualified Data.Digest.Pure.MD5           as MD5
+import qualified Data.DTA                       as D
+import qualified Data.DTA.Serialize.RB3         as D
+import qualified Data.DTA.Serialize2            as D2
+import           Data.Foldable                  (toList)
+import qualified Data.HashMap.Strict            as HM
+import           Data.List                      (nub)
+import qualified Data.Map                       as Map
+import           Data.Maybe                     (fromMaybe, mapMaybe)
+import           Data.Monoid                    ((<>))
+import qualified Data.Text                      as T
+import qualified Data.Text.IO                   as TIO
+import qualified Data.Yaml                      as Y
+import qualified FretsOnFire                    as FoF
+import           Image                          (toPNG_XBOX)
+import           JSONData                       (JSONEither (..))
+import           Magma                          (getRBAFile)
+import           PrettyDTA                      (C3DTAComments (..),
+                                                 DTASingle (..), readDTASingle,
+                                                 readRB3DTA, writeDTASingle)
+import qualified RockBand.Drums                 as RBDrums
+import qualified RockBand.File                  as RBFile
+import           RockBand.PhaseShiftMessage     (discardPS)
+import           Scripts                        (loadMIDI)
+import qualified Sound.MIDI.File                as F
+import qualified Sound.MIDI.File.Load           as Load
+import qualified Sound.MIDI.File.Save           as Save
+import qualified Sound.MIDI.Util                as U
+import           STFS.Extract                   (extractSTFS)
+import qualified System.Directory               as Dir
+import           System.FilePath                (takeDirectory, takeFileName,
+                                                 (<.>), (</>))
+import           X360                           (rb3pkg)
 
 standardTargets :: Maybe (JSONEither Integer T.Text) -> Maybe Integer -> Bool -> KeysRB2 -> HM.HashMap T.Text Target
 standardTargets songID version is2x krb2 = let
@@ -174,29 +173,25 @@ importFoF krb2 src dest = do
 
   let toTier = fmap $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
 
-  let drumToDrums (RBFile.RawTrack t) = RBFile.RawTrack $ if U.trackName t == Just "PART DRUM"
+  let drumToDrums t = if U.trackName t == Just "PART DRUM"
         then U.setTrackName "PART DRUMS" t
         else t
-      drumToDrums trk                 = trk
   mid2x <- liftIO $ Dir.doesFileExist $ src </> "expert+.mid"
   add2x <- if mid2x
-    then liftIO $ do
-      raw2x <- RBFile.readMIDIRaw <$> Load.fromFile (src </> "expert+.mid")
-      let rawTracks = flip mapMaybe (RBFile.s_tracks raw2x) $ \case
-            RBFile.RawTrack t -> Just t
-            _                 -> Nothing
+    then do
+      raw2x <- liftIO (Load.fromFile $ src </> "expert+.mid") >>= RBFile.readMIDIFile'
+      let rawTracks = RBFile.rawTracks $ RBFile.s_tracks raw2x
           isDrums t = elem (U.trackName t) [Just "PART DRUMS", Just "PART DRUM"]
       return $ case filter isDrums rawTracks of
         []    -> id
-        d : _ -> (RBFile.RawTrack (U.setTrackName "PART DRUMS_2X" d) :)
+        d : _ -> (U.setTrackName "PART DRUMS_2X" d :)
     else return id
 
-  let raw = RBFile.readMIDIRaw midi
-  liftIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile $ delayMIDI raw
-    { RBFile.s_tracks = add2x $ map drumToDrums $ flip filter (RBFile.s_tracks raw) $ \case
-      RBFile.RawTrack t -> U.trackName t /= Just "BEAT"
-      RBFile.Beat _ -> False
-      _ -> True
+  raw <- RBFile.readMIDIFile' midi
+  liftIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI raw
+    { RBFile.s_tracks = RBFile.RawFile $ add2x $ map drumToDrums $ filter
+      (\t -> U.trackName t /= Just "BEAT")
+      (RBFile.rawTracks $ RBFile.s_tracks raw)
     }
 
   liftIO $ Y.encodeFile (dest </> "song.yml") SongYaml
@@ -250,7 +245,7 @@ importFoF krb2 src dest = do
         Just b  -> b
         Nothing -> any
           (\case RBDrums.ProType _ _ -> True; _ -> False)
-          (foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks parsed ])
+          (discardPS $ RBFile.onyxPartDrums $ RBFile.s_tracks parsed)
       }
     , _audio = HM.fromList $ flip map audioFiles $ \aud -> (T.pack aud, AudioFile
       { _md5 = Nothing
@@ -438,7 +433,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
   liftIO $ Dir.copyFile mid $ dir </> "notes.mid"
   liftIO $ Dir.copyFile cover $ dir </> coverName
   md5 <- liftIO $ show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
-  rb3mid <- liftIO (Load.fromFile $ dir </> "notes.mid") >>= RBFile.readMIDIFile
+  rb3mid <- liftIO (Load.fromFile $ dir </> "notes.mid") >>= RBFile.readMIDIFile'
   drumkit <- case D.drumBank pkg of
     Nothing -> return HardRockKit
     Just x -> case x of
@@ -517,7 +512,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
         , _vols = map realToFrac $ D.vols $ D.song pkg
         , _planComments = []
         , _drumMix = let
-          drumEvents = concat [ toList t | RBFile.PartDrums t <- RBFile.s_tracks rb3mid ]
+          drumEvents = toList $ RBFile.rb3PartDrums $ RBFile.s_tracks rb3mid
           drumMixes = [ aud | RBDrums.DiffEvent _ (RBDrums.Mix aud _) <- drumEvents ]
           in case drumMixes of
             [] -> RBDrums.D0

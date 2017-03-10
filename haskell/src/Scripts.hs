@@ -23,6 +23,7 @@ import qualified RockBand.Drums                   as Drums
 import qualified RockBand.Events                  as Events
 import           RockBand.File
 import qualified RockBand.FiveButton              as Five
+import           RockBand.PhaseShiftMessage       (discardPS, withRB)
 import qualified RockBand.ProGuitar               as ProGuitar
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as Vocals
@@ -61,10 +62,10 @@ addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
 addZero x rtb = case U.trackSplitZero rtb of
   (zero, rest) -> U.trackGlueZero (zero ++ [x]) rest
 
-loadMIDI :: (MonadIO m) => FilePath -> StackTraceT m (Song [Track U.Beats])
-loadMIDI fp = liftIO (Load.fromFile fp) >>= readMIDIFile
+loadMIDI :: (MonadIO m, MIDIFileFormat f) => FilePath -> StackTraceT m (Song (f U.Beats))
+loadMIDI fp = liftIO (Load.fromFile fp) >>= readMIDIFile'
 
-shakeMIDI :: FilePath -> StackTraceT Action (Song [Track U.Beats])
+shakeMIDI :: (MIDIFileFormat f) => FilePath -> StackTraceT Action (Song (f U.Beats))
 shakeMIDI fp = lift (need [fp]) >> loadMIDI fp
 
 loadTemposIO :: FilePath -> IO U.TempoMap
@@ -78,16 +79,14 @@ loadTemposIO fp = do
 loadTempos :: FilePath -> Action U.TempoMap
 loadTempos fp = need [fp] >> liftIO (loadTemposIO fp)
 
-saveMIDI :: FilePath -> Song [Track U.Beats] -> Action ()
-saveMIDI fp song = liftIO $ Save.toFile fp $ showMIDIFile song
+saveMIDI :: (MonadIO m, MIDIFileFormat f) => FilePath -> Song (f U.Beats) -> m ()
+saveMIDI fp song = liftIO $ Save.toFile fp $ showMIDIFile' song
 
-allEvents :: (NNC.C t) => Song [Track t] -> RTB.T t Events.Event
-allEvents = foldr RTB.merge RTB.empty . mapMaybe getEvents . s_tracks where
-  getEvents (Events trk) = Just trk
-  getEvents _            = Nothing
+allEvents :: (NNC.C t) => Song (OnyxFile t) -> RTB.T t Events.Event
+allEvents = discardPS . onyxEvents . s_tracks
 
 -- | Returns the start and end of the preview audio in milliseconds.
-previewBounds :: SongYaml -> Song [Track U.Beats] -> (Int, Int)
+previewBounds :: SongYaml -> Song (OnyxFile U.Beats) -> (Int, Int)
 previewBounds syaml song = let
   len = songLengthMS song
   secsToMS s = floor $ s * 1000
@@ -110,13 +109,13 @@ previewBounds syaml song = let
     (Just ps, Nothing) -> let start = evalTime' ps in (start, start + 30000)
     (Nothing, Just pe) -> let end = evalTime' pe in (end - 30000, end)
 
-songLengthBeats :: Song [Track U.Beats] -> U.Beats
+songLengthBeats :: Song (OnyxFile U.Beats) -> U.Beats
 songLengthBeats s = case RTB.getTimes $ RTB.filter (== Events.End) $ allEvents s of
   [bts] -> bts
   _     -> 0 -- eh
 
 -- | Returns the time of the [end] event in milliseconds.
-songLengthMS :: Song [Track U.Beats] -> Int
+songLengthMS :: Song (OnyxFile U.Beats) -> Int
 songLengthMS song = floor $ U.applyTempoMap (s_tempos song) (songLengthBeats song) * 1000
 
 -- | Given a measure map, produces an infinite BEAT track.
@@ -159,8 +158,8 @@ trackGlue t xs ys = let
 
 -- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
 --- their last gem note-on.
-fixRolls :: Track U.Beats -> Track U.Beats
-fixRolls = let
+fixRolls :: Song (OnyxFile U.Beats) -> Song (OnyxFile U.Beats)
+fixRolls (Song tempos mmap trks) = let
   drumsSingle = fixFreeform (== Drums.SingleRoll True) (== Drums.SingleRoll False) isHand
   drumsDouble = fixFreeform (== Drums.DoubleRoll True) (== Drums.DoubleRoll False) isHand
   isHand (Drums.DiffEvent Expert (Drums.Note gem)) = gem /= Drums.Kick
@@ -175,13 +174,18 @@ fixRolls = let
   isPKNote (ProKeys.Note (NoteOn _ _)) = True
   isPKNote (ProKeys.Note (Blip   _ _)) = True
   isPKNote _                           = False
-  in \case
-    PartDrums         t -> PartDrums         $ drumsSingle $ drumsDouble t
-    PartGuitar        t -> PartGuitar        $ fiveTremolo $ fiveTrill   t
-    PartBass          t -> PartBass          $ fiveTremolo $ fiveTrill   t
-    PartKeys          t -> PartKeys          $               fiveTrill   t
-    PartRealKeys diff t -> PartRealKeys diff $ pkGlissando $ pkTrill     t
-    trk                 -> trk
+  in Song tempos mmap trks
+    -- TODO don't discard ps events
+    { onyxPartDrums     = withRB (drumsSingle . drumsDouble) $ onyxPartDrums     trks
+    , onyxPartDrums2x   = withRB (drumsSingle . drumsDouble) $ onyxPartDrums2x   trks
+    , onyxPartGuitar    = withRB (fiveTremolo . fiveTrill  ) $ onyxPartGuitar    trks
+    , onyxPartBass      = withRB (fiveTremolo . fiveTrill  ) $ onyxPartBass      trks
+    , onyxPartKeys      = withRB (              fiveTrill  ) $ onyxPartKeys      trks
+    , onyxPartRealKeysE = withRB (pkGlissando . pkTrill    ) $ onyxPartRealKeysE trks
+    , onyxPartRealKeysM = withRB (pkGlissando . pkTrill    ) $ onyxPartRealKeysM trks
+    , onyxPartRealKeysH = withRB (pkGlissando . pkTrill    ) $ onyxPartRealKeysH trks
+    , onyxPartRealKeysX = withRB (pkGlissando . pkTrill    ) $ onyxPartRealKeysX trks
+    }
 
 fixFreeform
   :: (Ord a)
@@ -223,14 +227,14 @@ harm1ToPartVocals = go . RTB.normalize where
     _                   -> Nothing
   isNote = \case Vocals.Note _ _ -> True; _ -> False
 
-getPercType :: Song [Track U.Beats] -> Maybe Vocals.PercussionType
+getPercType :: (NNC.C t) => Song (OnyxFile t) -> Maybe Vocals.PercussionType
 getPercType song = let
-  vox = foldr RTB.merge RTB.empty $ mapMaybe getVox $ s_tracks song
-  getVox (PartVocals t) = Just t
-  getVox (Harm1      t) = Just t
-  getVox (Harm2      t) = Just t
-  getVox (Harm3      t) = Just t
-  getVox _              = Nothing
+  vox = foldr RTB.merge RTB.empty $ map discardPS
+    [ onyxPartVocals $ s_tracks song
+    , onyxHarm1      $ s_tracks song
+    , onyxHarm2      $ s_tracks song
+    , onyxHarm3      $ s_tracks song
+    ]
   isPercType (Vocals.PercussionAnimation ptype _) = Just ptype
   isPercType _                                    = Nothing
   in listToMaybe $ mapMaybe isPercType $ RTB.getBodies vox
@@ -276,45 +280,45 @@ keysToProKeys d = let
     _                                -> Nothing
   in RTB.cons 0 (ProKeys.LaneShift ProKeys.RangeA) . RTB.mapMaybe basicToPK
 
-hasSolo :: Instrument -> Song [Track t] -> Bool
+hasSolo :: (NNC.C t) => Instrument -> Song (OnyxFile t) -> Bool
 hasSolo Guitar song = not $ null
   $ do
-    PartGuitar t <- s_tracks song
+    let t = discardPS $ onyxPartGuitar $ s_tracks song
     Five.Solo _ <- RTB.getBodies t
     return ()
   ++ do
-    PartRealGuitar t <- s_tracks song
+    let t = discardPS $ onyxPartRealGuitar $ s_tracks song
     ProGuitar.Solo _ <- RTB.getBodies t
     return ()
 hasSolo Bass song = not $ null
   $ do
-    PartBass t <- s_tracks song
+    let t = discardPS $ onyxPartBass $ s_tracks song
     Five.Solo _ <- RTB.getBodies t
     return ()
   ++ do
-    PartRealBass t <- s_tracks song
+    let t = discardPS $ onyxPartRealBass $ s_tracks song
     ProGuitar.Solo _ <- RTB.getBodies t
     return ()
 hasSolo Drums song = not $ null $ do
-  PartDrums t <- s_tracks song
+  let t = discardPS $ onyxPartDrums $ s_tracks song
   Drums.Solo _ <- RTB.getBodies t
   return ()
 hasSolo Keys song = not $ null
   $ do
-    PartKeys t <- s_tracks song
+    let t = discardPS $ onyxPartKeys $ s_tracks song
     Five.Solo _ <- RTB.getBodies t
     return ()
   ++ do
-    PartRealKeys Expert t <- s_tracks song
+    let t = discardPS $ onyxPartRealKeysX $ s_tracks song
     ProKeys.Solo _ <- RTB.getBodies t
     return ()
 hasSolo Vocal song = not $ null
   $ do
-    PartVocals t <- s_tracks song
+    let t = discardPS $ onyxPartVocals $ s_tracks song
     Vocals.Percussion <- RTB.getBodies t
     return ()
   ++ do
-    Harm1 t <- s_tracks song
+    let t = discardPS $ onyxHarm1 $ s_tracks song
     Vocals.Percussion <- RTB.getBodies t
     return ()
 

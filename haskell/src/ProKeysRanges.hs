@@ -14,33 +14,21 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           OnyxiteDisplay.Process           (showTimestamp)
 import           RockBand.Common
 import qualified RockBand.File                    as RBFile
+import           RockBand.PhaseShiftMessage       (discardPS, withRB)
 import           RockBand.ProKeys
-import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 
 completeFile :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 completeFile fin fout = do
-  mid@(F.Cons typ dvn trks) <- liftIO $ Load.fromFile fin
-  res <- case dvn of
-    F.Ticks res -> return res
-    _           -> fatal "Unsupported SMPTE time"
-  song <- RBFile.readMIDIFile mid
-  let mid' = F.Cons typ dvn trks'
-      trks' = filter notProKeys trks ++ map (ticks . RBFile.showTrack) proKeys
-      ticks :: RTB.T U.Beats a -> RTB.T F.ElapsedTime a
-      ticks = RTB.discretize . RTB.mapTime (* fromIntegral res)
-      notProKeys trk = case U.trackName trk of
-        Just "PART REAL_KEYS_X" -> False
-        Just "PART REAL_KEYS_H" -> False
-        Just "PART REAL_KEYS_M" -> False
-        Just "PART REAL_KEYS_E" -> False
-        _                       -> True
-      proKeys = RBFile.s_tracks song >>= \case
-        RBFile.PartRealKeys diff trk -> [RBFile.PartRealKeys diff $ completeRanges trk]
-        _                            -> []
-  liftIO $ Save.toFile fout mid'
+  RBFile.Song tempos mmap trks <- liftIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+  liftIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap trks
+    { RBFile.onyxPartRealKeysE = withRB completeRanges $ RBFile.onyxPartRealKeysE trks
+    , RBFile.onyxPartRealKeysM = withRB completeRanges $ RBFile.onyxPartRealKeysM trks
+    , RBFile.onyxPartRealKeysH = withRB completeRanges $ RBFile.onyxPartRealKeysH trks
+    , RBFile.onyxPartRealKeysX = withRB completeRanges $ RBFile.onyxPartRealKeysX trks
+    }
 
 -- | Adds ranges if there are none.
 completeRanges :: RTB.T U.Beats Event -> RTB.T U.Beats Event
@@ -135,9 +123,9 @@ keyInPreRange RangeF p = RedYellow F  <= p && p <= BlueGreen As
 keyInPreRange RangeG p = RedYellow Fs <= p && p <= BlueGreen B
 keyInPreRange RangeA p = RedYellow Gs <= p && p <= OrangeC
 
-closeShiftsFile :: RBFile.Song [RBFile.Track U.Beats] -> String
+closeShiftsFile :: RBFile.Song (RBFile.OnyxFile U.Beats) -> String
 closeShiftsFile song = let
-  xpk = foldr RTB.merge RTB.empty [ trk | RBFile.PartRealKeys Expert trk <- RBFile.s_tracks song ]
+  xpk = discardPS $ RBFile.onyxPartRealKeysX $ RBFile.s_tracks song
   close = U.unapplyTempoTrack (RBFile.s_tempos song) $ closeShifts 1 $ U.applyTempoTrack (RBFile.s_tempos song) xpk
   showSeconds secs = show (realToFrac secs :: Milli) ++ "s"
   showClose (t, (rng1, rng2, dt, p)) = unwords

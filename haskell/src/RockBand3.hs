@@ -15,6 +15,7 @@ import           RockBand.Common
 import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
+import           RockBand.PhaseShiftMessage       (discardPS)
 import qualified RockBand.ProGuitar               as ProGtr
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as RBVox
@@ -26,25 +27,27 @@ data Kicks = Kicks1x | Kicks2x | KicksPS
 
 processMIDI
   :: SongYaml
-  -> RBFile.Song [RBFile.Track U.Beats]
+  -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> Kicks
   -> RBDrums.Audio
   -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
-  -> Action (RBFile.Song [RBFile.Track U.Beats])
+  -> Action (RBFile.Song (RBFile.RB3File U.Beats))
 processMIDI songYaml input kicks mixMode getAudioLength = do
-  let showPosition = RBFile.showPosition . U.applyMeasureMap (RBFile.s_signatures input)
-      trks = RBFile.s_tracks input
-      tempos = RBFile.s_tempos input
-      mergeTracks = foldr RTB.merge RTB.empty
-      eventsRaw = mergeTracks [ t | RBFile.Events t <- trks ]
+  let showPosition = RBFile.showPosition . U.applyMeasureMap mmap
+      eventsRaw = discardPS $ RBFile.onyxEvents trks
       eventsList = ATB.toPairList $ RTB.toAbsoluteEventList 0 eventsRaw
+      input'@(RBFile.Song tempos mmap trks) = if _fixFreeform $ _options songYaml
+        then fixRolls input
+        else input
   -- If there's no [end], put it after all MIDI events and audio files.
   endPosn' <- case [ t | (t, Events.End) <- eventsList ] of
     t : _ -> return t
     [] -> do
       audLen <- U.unapplyTempoMap tempos <$> getAudioLength
       let absTimes = ATB.getTimes . RTB.toAbsoluteEventList 0
-          lastMIDIEvent = foldr max 0 $ concatMap (absTimes . RBFile.showTrack) trks ++ absTimes (U.tempoMapToBPS tempos)
+          lastMIDIEvent = foldr max 0
+            $ concatMap absTimes (RBFile.s_tracks $ RBFile.showMIDITracks input')
+            ++ absTimes (U.tempoMapToBPS tempos)
           endPosition = fromInteger $ round $ max audLen lastMIDIEvent + 4
       putNormal $ unwords
         [ "[end] is missing. The last MIDI event is at"
@@ -59,13 +62,13 @@ processMIDI songYaml input kicks mixMode getAudioLength = do
   -- we have to round the [end] position up a bit,
   -- to make sure the last BEAT note-off doesn't come after [end].
   (beatTrack, endPosn) <- let
-    trk = mergeTracks [ t | RBFile.Beat t <- trks ]
+    trk = discardPS $ RBFile.onyxBeat trks
     in if RTB.null trk
       then do
         putNormal "Generating a BEAT track..."
         let alignedEnd = fromInteger $ ceiling endPosn'
-        return (RBFile.Beat $ U.trackTake alignedEnd $ makeBeatTrack $ RBFile.s_signatures input, alignedEnd)
-      else return (RBFile.Beat trk, endPosn')
+        return (U.trackTake alignedEnd $ makeBeatTrack mmap, alignedEnd)
+      else return (trk, endPosn')
   -- If [music_start] is before 2 beats,
   -- Magma will add auto [idle] events there in instrument tracks, and then error...
   musicStartPosn <- case [ t | (t, Events.MusicStart) <- eventsList ] of
@@ -105,31 +108,23 @@ processMIDI songYaml input kicks mixMode getAudioLength = do
         else RTB.insert musicStartPosn Events.CrowdRealtime
           $  RTB.insert musicStartPosn Events.CrowdNoclap evts
       eventsTrack
-        = RBFile.Events
-        $ defaultNoCrowd
+        = defaultNoCrowd
         $ RTB.insert musicStartPosn Events.MusicStart
         $ RTB.insert musicEndPosn Events.MusicEnd
         $ RTB.insert endPosn Events.End
         $ RTB.filter untouchedEvent eventsRaw
-      venueTracks = let
-        trk = mergeTracks [ t | RBFile.Venue t <- trks ]
-        in guard (not $ RTB.null trk) >> [RBFile.Venue trk]
-      drumsTracks = case kicks of
-        Kicks1x -> drums1p
-        Kicks2x -> drums2p
-        KicksPS -> drumsPS
-      (drumsPS, drums1p, drums2p) = if not $ _hasDrums $ _instruments songYaml
-        then ([], [], [])
+      drumsTrack = if not $ _hasDrums $ _instruments songYaml
+        then RTB.empty
         else let
-          trk1x = mergeTracks [ t | RBFile.PartDrums   t <- trks ]
-          trk2x = mergeTracks [ t | RBFile.PartDrums2x t <- trks ]
+          trk1x = discardPS $ RBFile.onyxPartDrums trks
+          trk2x = discardPS $ RBFile.onyxPartDrums2x trks
           psKicks = if _auto2xBass $ _options songYaml
             then U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
             else id
           sections = flip RTB.mapMaybe eventsRaw $ \case
             Events.PracticeSection s -> Just s
             _                        -> Nothing
-          finish = promarkers . psKicks . drumMix mixMode . drumsComplete (RBFile.s_signatures input) sections
+          finish = promarkers . psKicks . drumMix mixMode . drumsComplete mmap sections
           promarkers = if _proDrums $ _options songYaml
             then id
             else  RTB.insert 0       (RBDrums.ProType RBDrums.Yellow RBDrums.Tom   )
@@ -144,100 +139,101 @@ processMIDI songYaml input kicks mixMode getAudioLength = do
           psPS = if elem RBDrums.Kick2x trk1x then ps1x else ps2x
           -- Note: drumMix must be applied *after* drumsComplete.
           -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
-          in  ( [RBFile.PartDrums psPS]
-              , [RBFile.PartDrums $ rockBand1x ps1x]
-              , [RBFile.PartDrums $ rockBand2x ps2x]
-              )
-      guitarTracks = if not $ _hasGuitar $ _instruments songYaml
-        then []
-        else (: []) $ RBFile.PartGuitar $ gryboComplete (Just $ _hopoThreshold $ _options songYaml) (RBFile.s_signatures input)
-          $ mergeTracks [ t | RBFile.PartGuitar t <- trks ]
-      bassTracks = if not $ _hasBass $ _instruments songYaml
-        then []
-        else (: []) $ RBFile.PartBass $ gryboComplete (Just $ _hopoThreshold $ _options songYaml) (RBFile.s_signatures input)
-          $ mergeTracks [ t | RBFile.PartBass t <- trks ]
-      proGuitarTracks = if not $ _hasProGuitar $ _instruments songYaml
-        then []
-        else map RBFile.copyExpert $ let
-          mustang = ProGtr.autoHandPosition $ mergeTracks [ t | RBFile.PartRealGuitar   t <- trks ]
-          squier  = ProGtr.autoHandPosition $ mergeTracks [ t | RBFile.PartRealGuitar22 t <- trks ]
-          in [ RBFile.PartRealGuitar   mustang | not $ RTB.null mustang ]
-          ++ [ RBFile.PartRealGuitar22 squier  | not $ RTB.null squier  ]
-      proBassTracks = if not $ _hasProBass $ _instruments songYaml
-        then []
-        else map RBFile.copyExpert $ let
-          mustang = ProGtr.autoHandPosition $ mergeTracks [ t | RBFile.PartRealBass   t <- trks ]
-          squier  = ProGtr.autoHandPosition $ mergeTracks [ t | RBFile.PartRealBass22 t <- trks ]
-          in [ RBFile.PartRealBass   mustang | not $ RTB.null mustang ]
-          ++ [ RBFile.PartRealBass22 squier  | not $ RTB.null squier  ]
-      keysTracks = if not $ hasAnyKeys $ _instruments songYaml
-        then []
+          in case kicks of
+            KicksPS -> psPS
+            Kicks1x -> rockBand1x ps1x
+            Kicks2x -> rockBand2x ps2x
+      guitarTrack = if not $ _hasGuitar $ _instruments songYaml
+        then RTB.empty
+        else gryboComplete (Just $ _hopoThreshold $ _options songYaml) mmap
+          $ discardPS $ RBFile.onyxPartGuitar trks
+      bassTrack = if not $ _hasBass $ _instruments songYaml
+        then RTB.empty
+        else gryboComplete (Just $ _hopoThreshold $ _options songYaml) mmap
+          $ discardPS $ RBFile.onyxPartBass trks
+      (proGtr, proGtr22) = if not $ _hasProGuitar $ _instruments songYaml
+        then (RTB.empty, RTB.empty)
+        else
+          ( ProGtr.copyExpert $ ProGtr.autoHandPosition $ discardPS $ RBFile.onyxPartRealGuitar   trks
+          , ProGtr.copyExpert $ ProGtr.autoHandPosition $ discardPS $ RBFile.onyxPartRealGuitar22 trks
+          )
+      (proBass, proBass22) = if not $ _hasProBass $ _instruments songYaml
+        then (RTB.empty, RTB.empty)
+        else
+          ( ProGtr.copyExpert $ ProGtr.autoHandPosition $ discardPS $ RBFile.onyxPartRealBass   trks
+          , ProGtr.copyExpert $ ProGtr.autoHandPosition $ discardPS $ RBFile.onyxPartRealBass22 trks
+          )
+      (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = if not $ hasAnyKeys $ _instruments songYaml
+        then (RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty)
         else let
-          basicKeys = gryboComplete Nothing (RBFile.s_signatures input) $ if _hasKeys $ _instruments songYaml
-            then mergeTracks [ t | RBFile.PartKeys t <- trks ]
+          basicKeys = gryboComplete Nothing mmap $ if _hasKeys $ _instruments songYaml
+            then discardPS $ RBFile.onyxPartKeys trks
             else expertProKeysToKeys keysExpert
           keysDiff diff = if _hasProKeys $ _instruments songYaml
-            then mergeTracks [ t | RBFile.PartRealKeys diff' t <- trks, diff == diff' ]
+            then discardPS $ case diff of
+              Easy   -> RBFile.onyxPartRealKeysE trks
+              Medium -> RBFile.onyxPartRealKeysM trks
+              Hard   -> RBFile.onyxPartRealKeysH trks
+              Expert -> RBFile.onyxPartRealKeysX trks
             else keysToProKeys diff basicKeys
           rtb1 `orIfNull` rtb2 = if length rtb1 < 5 then rtb2 else rtb1
           keysExpert = completeRanges $ keysDiff Expert
-          keysHard   = completeRanges $ keysDiff Hard   `orIfNull` pkReduce Hard   (RBFile.s_signatures input) keysOD keysExpert
-          keysMedium = completeRanges $ keysDiff Medium `orIfNull` pkReduce Medium (RBFile.s_signatures input) keysOD keysHard
-          keysEasy   = completeRanges $ keysDiff Easy   `orIfNull` pkReduce Easy   (RBFile.s_signatures input) keysOD keysMedium
+          keysHard   = completeRanges $ keysDiff Hard   `orIfNull` pkReduce Hard   mmap keysOD keysExpert
+          keysMedium = completeRanges $ keysDiff Medium `orIfNull` pkReduce Medium mmap keysOD keysHard
+          keysEasy   = completeRanges $ keysDiff Easy   `orIfNull` pkReduce Easy   mmap keysOD keysMedium
           keysOD = flip RTB.mapMaybe keysExpert $ \case
             ProKeys.Overdrive b -> Just b
             _                   -> Nothing
           keysAnim = flip RTB.filter keysExpert $ \case
             ProKeys.Note _ -> True
             _              -> False
-          in  [ RBFile.PartKeys            basicKeys
-              , RBFile.PartKeysAnimRH      keysAnim
-              , RBFile.PartKeysAnimLH      RTB.empty
-              , RBFile.PartRealKeys Expert keysExpert
-              , RBFile.PartRealKeys Hard   keysHard
-              , RBFile.PartRealKeys Medium keysMedium
-              , RBFile.PartRealKeys Easy   keysEasy
-              ]
-      vocalTracks = case _hasVocal $ _instruments songYaml of
-        Vocal0 -> []
-        Vocal1 ->
-          [ RBFile.PartVocals partVox'
-          ]
-        Vocal2 ->
-          [ RBFile.PartVocals partVox'
-          , RBFile.Harm1 harm1
-          , RBFile.Harm2 harm2
-          ]
-        Vocal3 ->
-          [ RBFile.PartVocals partVox'
-          , RBFile.Harm1 harm1
-          , RBFile.Harm2 harm2
-          , RBFile.Harm3 harm3
-          ]
-        where partVox = mergeTracks [ t | RBFile.PartVocals t <- trks ]
+          in  ( basicKeys
+              , keysAnim
+              , RTB.empty
+              , keysExpert
+              , keysHard
+              , keysMedium
+              , keysEasy
+              )
+      (trkVox, trkHarm1, trkHarm2, trkHarm3) = case _hasVocal $ _instruments songYaml of
+        Vocal0 -> (RTB.empty, RTB.empty, RTB.empty, RTB.empty)
+        Vocal1 -> (partVox', RTB.empty, RTB.empty, RTB.empty)
+        Vocal2 -> (partVox', harm1, harm2, RTB.empty)
+        Vocal3 -> (partVox', harm1, harm2, harm3)
+        where partVox = discardPS $ RBFile.onyxPartVocals trks
               partVox' = if RTB.null partVox then harm1ToPartVocals harm1 else partVox
-              harm1   = mergeTracks [ t | RBFile.Harm1      t <- trks ]
-              harm2   = mergeTracks [ t | RBFile.Harm2      t <- trks ]
-              harm3   = mergeTracks [ t | RBFile.Harm3      t <- trks ]
-  return input
-    { RBFile.s_tracks = map (if _fixFreeform $ _options songYaml then fixRolls else id) $ concat
-      [ [beatTrack, eventsTrack]
-      , venueTracks
-      , drumsTracks
-      , guitarTracks
-      , bassTracks
-      , proGuitarTracks
-      , proBassTracks
-      , keysTracks
-      , vocalTracks
-      ]
+              harm1   = discardPS $ RBFile.onyxHarm1 trks
+              harm2   = discardPS $ RBFile.onyxHarm2 trks
+              harm3   = discardPS $ RBFile.onyxHarm3 trks
+  return $ RBFile.Song tempos mmap $ RBFile.RB3File
+    { RBFile.rb3Beat = beatTrack
+    , RBFile.rb3Events = eventsTrack
+    , RBFile.rb3Venue = discardPS $ RBFile.onyxVenue trks
+    , RBFile.rb3PartDrums = drumsTrack
+    , RBFile.rb3PartGuitar = guitarTrack
+    , RBFile.rb3PartBass = bassTrack
+    , RBFile.rb3PartRealGuitar   = proGtr
+    , RBFile.rb3PartRealGuitar22 = proGtr22
+    , RBFile.rb3PartRealBass     = proBass
+    , RBFile.rb3PartRealBass22   = proBass22
+    , RBFile.rb3PartKeys = tk
+    , RBFile.rb3PartKeysAnimRH = tkRH
+    , RBFile.rb3PartKeysAnimLH = tkLH
+    , RBFile.rb3PartRealKeysE = tpkE
+    , RBFile.rb3PartRealKeysM = tpkM
+    , RBFile.rb3PartRealKeysH = tpkH
+    , RBFile.rb3PartRealKeysX = tpkX
+    , RBFile.rb3PartVocals = trkVox
+    , RBFile.rb3Harm1 = trkHarm1
+    , RBFile.rb3Harm2 = trkHarm2
+    , RBFile.rb3Harm3 = trkHarm3
     }
 
-findProblems :: RBFile.Song [RBFile.Track U.Beats] -> [String]
+findProblems :: RBFile.Song (RBFile.OnyxFile U.Beats) -> [String]
 findProblems song = execWriter $ do
   -- Don't have a kick at the start of a drum roll.
   -- It screws up the roll somehow and causes spontaneous misses.
-  let drums = foldr RTB.merge RTB.empty [ t | RBFile.PartDrums t <- RBFile.s_tracks song ]
+  let drums = discardPS $ RBFile.onyxPartDrums $ RBFile.s_tracks song
       kickSwells = flip RTB.mapMaybe (RTB.collectCoincident drums) $ \evts -> do
         let kick = RBDrums.DiffEvent Expert $ RBDrums.Note RBDrums.Kick
             swell1 = RBDrums.SingleRoll True
@@ -262,10 +258,10 @@ findProblems song = execWriter $ do
         _ -> False
   -- Don't have a vocal phrase that ends simultaneous with a lyric event.
   -- In static vocals, this puts the lyric in the wrong phrase.
-  let vox = foldr RTB.merge RTB.empty [ t | RBFile.PartVocals t <- RBFile.s_tracks song ]
-      harm1 = foldr RTB.merge RTB.empty [ t | RBFile.Harm1 t <- RBFile.s_tracks song ]
-      harm2 = foldr RTB.merge RTB.empty [ t | RBFile.Harm2 t <- RBFile.s_tracks song ]
-      harm3 = foldr RTB.merge RTB.empty [ t | RBFile.Harm3 t <- RBFile.s_tracks song ]
+  let vox = discardPS $ RBFile.onyxPartVocals $ RBFile.s_tracks song
+      harm1 = discardPS $ RBFile.onyxHarm1 $ RBFile.s_tracks song
+      harm2 = discardPS $ RBFile.onyxHarm2 $ RBFile.s_tracks song
+      harm3 = discardPS $ RBFile.onyxHarm3 $ RBFile.s_tracks song
       phraseOff = RBVox.Phrase False
       isLyric = \case RBVox.Lyric _ -> True; _ -> False
       voxBugs = flip RTB.mapMaybe (RTB.collectCoincident vox) $ \evts -> do

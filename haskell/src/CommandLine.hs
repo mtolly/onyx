@@ -528,7 +528,7 @@ commands =
       , "onyx hanging notes.mid"
       ]
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> let
-      withMIDI mid = liftIO (Load.fromFile mid) >>= RBFile.readMIDIFile >>= liftIO . putStrLn . closeShiftsFile
+      withMIDI mid = liftIO (Load.fromFile mid) >>= RBFile.readMIDIFile' >>= liftIO . putStrLn . closeShiftsFile
       in case ftype of
         FileSongYaml -> do
           audioDirs <- getAudioDirs fpath

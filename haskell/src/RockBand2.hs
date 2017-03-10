@@ -24,15 +24,16 @@ import qualified RockBand.File                    as F
 import qualified RockBand.FiveButton              as Five
 import           RockBand.Parse                   (unparseBlip, unparseCommand,
                                                    unparseList, unparseOne)
+import           RockBand.PhaseShiftMessage       (discardPS)
 import qualified RockBand.Venue                   as V
 import qualified RockBand.Vocals                  as Vox
 import           Scripts                          (trackGlue)
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
 
-dryVoxAudio :: (Monad m) => F.Song [F.Track U.Beats] -> AudioSource m Float
+dryVoxAudio :: (Monad m) => F.Song (F.OnyxFile U.Beats) -> AudioSource m Float
 dryVoxAudio f = sineDryVox $ U.applyTempoTrack (F.s_tempos f)
-  $ foldr RTB.merge RTB.empty [ t | F.PartVocals t <- F.s_tracks f ]
+  $ discardPS $ F.onyxPartVocals $ F.s_tracks f
 
 -- | Removes OD phrases to ensures that no phrases overlap on different tracks,
 -- except for precisely matching unison phrases on all tracks.
@@ -62,48 +63,44 @@ fixOverdrive tracks = let
   panic s = error $ "RockBand2.fixOverdrive: panic! this shouldn't happen: " ++ s
   in map (fmap longToBool . splitEdges) $ go $ map (joinEdges . fmap boolToLong) tracks
 
-convertMIDI :: KeysRB2 -> U.Beats -> F.Song [F.Track U.Beats] -> F.Song [F.Track U.Beats]
+convertMIDI :: KeysRB2 -> U.Beats -> F.Song (F.RB3File U.Beats) -> F.Song (F.RB2File U.Beats)
 convertMIDI keysrb2 hopoThresh mid = mid
-  { F.s_tracks = fixUnisons $ flip mapMaybe (F.s_tracks mid) $ \case
-    F.PartDrums  t -> Just $ F.PartDrums $ fixDrumColors $ fixDoubleEvents $ flip RTB.mapMaybe t $ \case
-      -- Drums.ProType{} -> Nothing -- Magma is fine with pro markers
-      Drums.SingleRoll{} -> Nothing
-      Drums.DoubleRoll{} -> Nothing
-      Drums.Kick2x -> Nothing
-      Drums.DiffEvent diff (Drums.Mix aud Drums.DiscoNoFlip) ->
-        Just $ Drums.DiffEvent diff $ Drums.Mix aud Drums.NoDisco
-      Drums.Animation a -> Just $ Drums.Animation $ case a of
-        -- these were added in RB3
-        Drums.Snare Drums.SoftHit hand -> Drums.Snare Drums.HardHit hand
-        Drums.Ride Drums.LH            -> Drums.Hihat Drums.LH
-        Drums.Crash2 hit Drums.LH      -> Drums.Crash1 hit Drums.LH
-        _                              -> a
-      x -> Just x
-    F.PartGuitar t -> case keysrb2 of
-      KeysGuitar -> Nothing
-      _          -> Just $ F.PartGuitar $ fixFiveColors $ fixGB True  t
-    F.PartBass   t -> case keysrb2 of
-      KeysBass -> Nothing
-      _        -> Just $ F.PartBass $ fixFiveColors $ fixGB False t
-    F.PartKeys   t -> case keysrb2 of
-      NoKeys     -> Nothing
-      KeysGuitar -> Just $ F.PartGuitar $ fixFiveColors $ fixGB True  $ Five.keysToGuitar hopoThresh t
-      KeysBass   -> Just $ F.PartBass   $ fixFiveColors $ fixGB False $ Five.keysToGuitar hopoThresh t
-    F.PartVocals t -> Just $ F.PartVocals $ flip RTB.mapMaybe t $ \case
-      Vox.LyricShift -> Nothing
-      Vox.RangeShift{} -> Nothing
-      x -> Just x
-    F.Events     t -> Just $ F.Events $ flip RTB.mapMaybe t $ \case
-      Events.PracticeSection _ -> Nothing
-      e -> Just e
-    F.Beat  t -> Just $ F.Beat t
-    F.Venue v -> Just $ F.RawTrack $ convertVenue endPosn v
-    _ -> Nothing
+  { F.s_tracks = fixUnisons $ F.RB2File
+    { F.rb2PartDrums = fixDrumColors $ fixDoubleEvents $
+      flip RTB.mapMaybe (F.rb3PartDrums $ F.s_tracks mid) $ \case
+        -- Drums.ProType{} -> Nothing -- Magma is fine with pro markers
+        Drums.SingleRoll{} -> Nothing
+        Drums.DoubleRoll{} -> Nothing
+        Drums.Kick2x -> Nothing
+        Drums.DiffEvent diff (Drums.Mix aud Drums.DiscoNoFlip) ->
+          Just $ Drums.DiffEvent diff $ Drums.Mix aud Drums.NoDisco
+        Drums.Animation a -> Just $ Drums.Animation $ case a of
+          -- these were added in RB3
+          Drums.Snare Drums.SoftHit hand -> Drums.Snare Drums.HardHit hand
+          Drums.Ride Drums.LH            -> Drums.Hihat Drums.LH
+          Drums.Crash2 hit Drums.LH      -> Drums.Crash1 hit Drums.LH
+          _                              -> a
+        x -> Just x
+    , F.rb2PartGuitar = fixFiveColors $ fixGB True $ case keysrb2 of
+      KeysGuitar -> Five.keysToGuitar hopoThresh $ F.rb3PartKeys $ F.s_tracks mid
+      _ -> F.rb3PartGuitar $ F.s_tracks mid
+    , F.rb2PartBass = fixFiveColors $ fixGB False $ case keysrb2 of
+      KeysBass -> Five.keysToGuitar hopoThresh $ F.rb3PartKeys $ F.s_tracks mid
+      _ -> F.rb3PartBass $ F.s_tracks mid
+    , F.rb2PartVocals = flip RTB.filter (F.rb3PartVocals $ F.s_tracks mid) $ \case
+      Vox.LyricShift -> False
+      Vox.RangeShift{} -> False
+      _ -> True
+    , F.rb2Events = flip RTB.filter (F.rb3Events $ F.s_tracks mid) $ \case
+      Events.PracticeSection _ -> False
+      _                        -> True
+    , F.rb2Beat = F.rb3Beat $ F.s_tracks mid
+    , F.rb2Venue = convertVenue endPosn $ F.rb3Venue $ F.s_tracks mid
+    }
   } where
     endPosn :: Maybe U.Beats
-    endPosn = listToMaybe $ do
-      F.Events t <- F.s_tracks mid
-      toList $ fmap (fst . fst) $ RTB.viewL $ RTB.filter (== Events.End) t
+    endPosn = listToMaybe $ toList $ fmap (fst . fst) $ RTB.viewL
+      $ RTB.filter (== Events.End) $ F.rb3Events $ F.s_tracks mid
     fixGB hasSolos t = flip RTB.mapMaybe t $ \case
       Five.Tremolo{} -> Nothing
       Five.Trill{} -> Nothing
@@ -114,9 +111,9 @@ convertMIDI keysrb2 hopoThresh mid = mid
     -- the complicated dance to extract OD phrases, fix partial unisons,
     -- and put the phrases back
     fixUnisons trks = let
-      gtr  = foldr RTB.merge RTB.empty [ t | F.PartGuitar t <- trks ]
-      bass = foldr RTB.merge RTB.empty [ t | F.PartBass   t <- trks ]
-      drum = foldr RTB.merge RTB.empty [ t | F.PartDrums  t <- trks ]
+      gtr  = F.rb2PartGuitar trks
+      bass = F.rb2PartBass   trks
+      drum = F.rb2PartDrums  trks
       gtrOD  = RTB.mapMaybe getFiveOD gtr
       bassOD = RTB.mapMaybe getFiveOD bass
       drumOD = RTB.mapMaybe getDrumOD drum
@@ -133,29 +130,29 @@ convertMIDI keysrb2 hopoThresh mid = mid
         (False, False,  True) -> trks
         ( True,  True, False) -> let
           [gtrOD', bassOD'] = fixOverdrive [gtrOD, bassOD]
-          in flip map trks $ \case
-            F.PartGuitar t -> F.PartGuitar $ replaceFiveOD gtrOD'  t
-            F.PartBass   t -> F.PartBass   $ replaceFiveOD bassOD' t
-            trk            -> trk
+          in trks
+            { F.rb2PartGuitar = replaceFiveOD gtrOD'  $ F.rb2PartGuitar trks
+            , F.rb2PartBass   = replaceFiveOD bassOD' $ F.rb2PartBass   trks
+            }
         ( True, False,  True) -> let
           [drumOD', gtrOD'] = fixOverdrive [drumOD, gtrOD]
-          in flip map trks $ \case
-            F.PartGuitar t -> F.PartGuitar $ replaceFiveOD  gtrOD'  t
-            F.PartDrums  t -> F.PartDrums  $ replaceDrumsOD drumOD' t
-            trk            -> trk
+          in trks
+            { F.rb2PartGuitar = replaceFiveOD  gtrOD'  $ F.rb2PartGuitar trks
+            , F.rb2PartDrums  = replaceDrumsOD drumOD' $ F.rb2PartDrums  trks
+            }
         (False,  True,  True) -> let
           [drumOD', bassOD'] = fixOverdrive [drumOD, bassOD]
-          in flip map trks $ \case
-            F.PartBass   t -> F.PartBass  $ replaceFiveOD  bassOD' t
-            F.PartDrums  t -> F.PartDrums $ replaceDrumsOD drumOD' t
-            trk            -> trk
+          in trks
+            { F.rb2PartBass   = replaceFiveOD  bassOD' $ F.rb2PartBass   trks
+            , F.rb2PartDrums  = replaceDrumsOD drumOD' $ F.rb2PartDrums  trks
+            }
         ( True,  True,  True) -> let
           [drumOD', gtrOD', bassOD'] = fixOverdrive [drumOD, gtrOD, bassOD]
-          in flip map trks $ \case
-            F.PartGuitar t -> F.PartGuitar $ replaceFiveOD  gtrOD'  t
-            F.PartBass   t -> F.PartBass   $ replaceFiveOD  bassOD' t
-            F.PartDrums  t -> F.PartDrums  $ replaceDrumsOD drumOD' t
-            trk            -> trk
+          in trks
+            { F.rb2PartGuitar = replaceFiveOD  gtrOD'  $ F.rb2PartGuitar trks
+            , F.rb2PartBass   = replaceFiveOD  bassOD' $ F.rb2PartBass   trks
+            , F.rb2PartDrums  = replaceDrumsOD drumOD' $ F.rb2PartDrums  trks
+            }
 
 convertVenue :: Maybe U.Beats -> RTB.T U.Beats V.Event -> RTB.T U.Beats E.T
 convertVenue endPosn rtb = let
