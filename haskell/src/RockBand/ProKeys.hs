@@ -98,7 +98,7 @@ unparseNice defLength trk = let
     RangeF -> 5
     RangeG -> 7
     RangeA -> 9
-  notRangeEvents = unparseAll notRanges'
+  notRangeEvents = U.trackJoin $ fmap unparseOne notRanges'
   in RTB.merge rangeEvents notRangeEvents
 
 instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $

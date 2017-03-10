@@ -273,7 +273,7 @@ unparseNice defLength trk = let
         Just (Pro Green ())  -> 4
       in a + b
     in RTB.cons NNC.zero (makeEdge pitch True) $ RTB.singleton len (makeEdge pitch False)
-  in RTB.merge (U.trackJoin $ assignLengths notes) (unparseAll notNotes)
+  in RTB.merge (U.trackJoin $ assignLengths notes) (U.trackJoin $ fmap unparseOne notNotes)
 
 baseScore :: RTB.T U.Beats (Gem ProType) -> Int
 baseScore = sum . fmap gemScore where
