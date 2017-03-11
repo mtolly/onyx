@@ -23,7 +23,6 @@ import qualified Data.DTA.Serialize.Magma       as RBProj
 import qualified Data.DTA.Serialize.RB3         as D
 import qualified Data.DTA.Serialize2            as D
 import           Data.Functor                   (void)
-import           Data.Hashable                  (hash)
 import qualified Data.HashMap.Strict            as Map
 import           Data.List.HT                   (partitionMaybe)
 import           Data.Maybe                     (fromMaybe, listToMaybe)
@@ -96,15 +95,27 @@ getInfoForSTFS dir stfs = do
       return (D.name pkg, D.name pkg <> " (" <> D.artist pkg <> ")")
     else return Nothing
 
-installSTFS :: (MonadIO m) => FilePath -> FilePath -> m ()
-installSTFS stfs usb = liftIO $ do
+installSTFS :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
+installSTFS stfs usb = do
   (titleID, sign) <- stfsFolder stfs
-  stfsHash <- take 10 . show . MD5.md5 <$> BL.readFile stfs
+  maybeInfo <- tempDir "onyx_install_stfs" $ \tmp -> do
+    liftIO $ extractSTFS stfs tmp
+    let dta = tmp </> "songs/songs.dta"
+    liftIO (Dir.doesFileExist dta) >>= \case
+      True -> errorToWarning $ do
+        (_, pkg, _) <- readRB3DTA dta
+        return (D.name pkg, D.artist pkg)
+      False -> return Nothing
+  stfsHash <- liftIO $ show . MD5.md5 <$> BL.readFile stfs
   let folder = "Content/0000000000000000" </> w32 titleID </> w32 sign
       w32 :: Word32 -> FilePath
       w32 = printf "%08x"
-      file = "onyx_" ++ stfsHash
-  Dir.copyFile stfs $ usb </> folder </> file
+      file = take 32 $ "o" ++ take 7 stfsHash ++ case maybeInfo of
+        Nothing              -> ""
+        Just (title, artist) -> T.unpack $
+          T.filter (\c -> isPrint c && isAscii c && not (isSpace c)) $ title <> artist
+  liftIO $ Dir.createDirectoryIfMissing True $ usb </> folder
+  liftIO $ Dir.copyFile stfs $ usb </> folder </> file
 
 findXbox360USB :: (MonadIO m) => m [FilePath]
 findXbox360USB = liftIO $ do
@@ -117,12 +128,6 @@ findXbox360USB = liftIO $ do
         ("/dev/" `isPrefixOf` mnt_fsname mnt) && (mnt_dir mnt /= "/")
 #endif
   filterM (\drive -> Dir.doesDirectoryExist $ drive </> "Content") drives
-
-makeFilename :: T.Text -> T.Text -> FilePath
-makeFilename title artist = let
-  hashed = hash (title, artist) `mod` 10000000
-  safeInfo = T.filter (\c -> isPrint c && isAscii c && not (isSpace c)) $ title <> artist
-  in take 32 $ "o" <> show hashed <> "_" <> T.unpack safeInfo
 
 copyDirRecursive :: (MonadIO m) => FilePath -> FilePath -> m ()
 copyDirRecursive src dst = liftIO $ do
@@ -354,7 +359,7 @@ commands =
             [d] -> return d
             [ ] -> fatal "onyx install (stfs): no Xbox 360 USB drives found"
             _   -> fatal "onyx install (stfs): more than 1 Xbox 360 USB drive found"
-          liftIO $ installSTFS fpath drive
+          installSTFS fpath drive
         FileRBA -> undone -- convert to con, install to usb drive
         FilePS -> undone -- install to PS music dir
         FileZip -> undone -- install to PS music dir
@@ -423,7 +428,14 @@ commands =
         liftIO $ Dir.createDirectoryIfMissing False out
         copyDirRecursive (tmp </> player) out
         unless (elem OptNoOpen opts) $ osOpenFile $ out </> "index.html"
-      FileRBA -> undone
+      FileRBA -> tempDir "onyx_player" $ \tmp -> do
+        out <- outputFile opts $ return $ fpath ++ "_player"
+        importRBA NoKeys fpath tmp
+        let player = "gen/plan/mogg/web"
+        shakeBuild [tmp] (tmp </> "song.yml") [player]
+        liftIO $ Dir.createDirectoryIfMissing False out
+        copyDirRecursive (tmp </> player) out
+        unless (elem OptNoOpen opts) $ osOpenFile $ out </> "index.html"
       FilePS -> undone
       FileMidi -> undone
       _ -> unrecognized ftype fpath
