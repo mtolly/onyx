@@ -17,3 +17,7 @@ Supported audio:
 
   * `album` (Liquid Tension Experiment 2)
 
+Notes:
+
+  * All instruments have overdrive/unison.
+

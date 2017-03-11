@@ -11,6 +11,9 @@ metadata:
     guitar: 7
     bass: 5
   author: Onyxite
+  key: G # I mean, there's a lot of keys in this song
+  comments:
+  - "All instruments have overdrive/unison."
 audio:
   album-track:
     md5: 46262fa66f94bda9b20a5f86944d1b10
