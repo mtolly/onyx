@@ -4,3 +4,5 @@ songs.yml
 Makefile
 .sass-cache
 template/
+rsync-exclude
+*.sass

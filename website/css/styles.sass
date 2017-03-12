@@ -1,3 +1,54 @@
+*
+  box-sizing: border-box
+
 body
   background-color: #222
   color: #eee
+
+h1, h2, h3, h4, p, ul, ol, li
+  margin: 0
+
+@font-face
+  font-family: Pentatonic
+  src: url('../Pentatonic.ttf')
+
+.onyx-artists
+  margin: 0 auto
+  width: 100%
+  max-width: 800px
+  background-color: #555
+
+.onyx-artist-header, .onyx-album-header, .onyx-song-header
+  font-family: Pentatonic
+  letter-spacing: 0.02em
+  font-weight: normal
+
+.onyx-artist-header
+  font-style: italic
+
+.onyx-album-art
+  border: 3px solid #ccc
+  width: 170px
+
+.onyx-artist-header
+  text-align: center
+  margin: 20px 0
+  padding: 6px 0
+  background: linear-gradient(to bottom, #111 0%, #ddd 10%, #ddd 90%, #111 100%)
+  color: #222
+
+.onyx-album
+  display: flex
+  flex-direction: row
+  align-items: stretch
+  justify-content: space-between
+  @media screen and (max-width: 600px)
+    display: block
+
+.onyx-album-art-div
+  flex: 0
+  padding: 8px
+
+.onyx-album-songs-div
+  flex: 1
+  padding: 8px

@@ -7,32 +7,41 @@
 </head>
 <body>
 
-{{#artists}}
-  <div class="onyx-artist">
-    <h2>{{ artist }}</h2>
-    {{#albums}}
-      <div class="onyx-album">
-        <h3>{{ album }}</h3>
-        {{#songs}}
-          <div class="onyx-song">
-            <h4>{{ title }}</h4>
-            {{#comments}}
-              <p>{{{ . }}}</p>
-            {{/comments}}
-            <ul>
-              {{#targets}}
-                <li>
-                  <code>{{ name }}</code>
-                  (<a href="{{ url }}">download</a>)
-                </li>
-              {{/targets}}
-            </ul>
+<div class="onyx-artists">
+  {{#artists}}
+    <div class="onyx-artist">
+      <h2 class="onyx-artist-header">{{ artist }}</h2>
+      {{#albums}}
+        <div class="onyx-album">
+          <div class="onyx-album-art-div">
+            <img class="onyx-album-art" src="{{ art }}" alt="album cover">
           </div>
-        {{/songs}}
-      </div>
-    {{/albums}}
-  </div>
-{{/artists}}
+          <div class="onyx-album-songs-div">
+            <h3 class="onyx-album-header">{{ album }} ({{ year }})</h3>
+            <div class="onyx-album-songs">
+              {{#songs}}
+                <div class="onyx-song">
+                  <h4 class="onyx-song-header">{{ title }}</h4>
+                  {{#comments}}
+                    {{{ . }}}
+                  {{/comments}}
+                  <ul>
+                    {{#targets}}
+                      <li>
+                        <code>{{ name }}</code>
+                        (<a href="{{ url }}">download</a>)
+                      </li>
+                    {{/targets}}
+                  </ul>
+                </div>
+              {{/songs}}
+            </div>
+          </div>
+        </div>
+      {{/albums}}
+    </div>
+  {{/artists}}
+</div>
 
 </body>
 </html>
