@@ -1,0 +1,6 @@
+.gitignore
+compile.rb
+songs.yml
+Makefile
+.sass-cache
+template/
