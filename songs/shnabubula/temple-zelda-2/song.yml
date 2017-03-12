@@ -11,6 +11,7 @@ metadata:
     drums: 7
   comments:
   - "All instruments have overdrive/unison."
+  key: G
 audio:
   album:
     md5: 019d6ca36ef0e10841404568fa275df6
@@ -34,3 +35,15 @@ instruments:
   bass: true
   guitar: true
   drums: true
+targets:
+  rb3:
+    game: rb3
+    song-id: 1660200035
+    version: 1
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 1660200036
+    version: 1
+  ps:
+    game: ps

@@ -12,6 +12,7 @@ metadata:
   author: Onyxite
   comments:
   - All instruments have overdrive/unison.
+  key: C
 audio:
   album-track:
     md5: e96fc8412693ac582bcd3aa21fcfbd4e
@@ -36,3 +37,10 @@ instruments:
   bass: true
   guitar: true
   vocal: 1
+targets:
+  rb3:
+    game: rb3
+    song-id: 1660200037
+    version: 1
+  ps:
+    game: ps

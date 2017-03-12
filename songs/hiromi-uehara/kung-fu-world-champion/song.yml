@@ -45,15 +45,7 @@ instruments:
 targets:
   rb3:
     game: rb3
-  rb3-2x:
-    game: rb3
-    2x-bass-pedal: true
-  rb2:
-    game: rb2
-    keys: guitar
-  rb2-2x:
-    game: rb2
-    2x-bass-pedal: true
-    keys: guitar
+    song-id: 1660200033
+    version: 1
   ps:
     game: ps

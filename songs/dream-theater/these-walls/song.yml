@@ -15,6 +15,7 @@ metadata:
     keys: 3
     pro-keys: 5
   autogen-theme: EdgyProgRock
+  key: A
 options:
   # pro-guitar-tuning is A standard but pretending E standard for game
   pro-bass-tuning: [-7, -5, -5, -5] # EADG to AEAD
@@ -149,10 +150,14 @@ targets:
   rb3:
     game: rb3
     plan: jammit-all
+    song-id: 1660200029
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: jammit-all
+    song-id: 1660200030
+    version: 1
   ps:
     game: ps
     plan: jammit-all

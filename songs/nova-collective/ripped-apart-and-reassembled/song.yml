@@ -12,6 +12,7 @@ metadata:
     drums: 7
     guitar: 5
     bass: 4
+  key: B
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
@@ -37,6 +38,12 @@ instruments:
 targets:
   rb3:
     game: rb3
+    song-id: 1660200042
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    song-id: 1660200043
+    version: 1
+  ps:
+    game: ps

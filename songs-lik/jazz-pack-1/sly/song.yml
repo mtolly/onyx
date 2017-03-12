@@ -13,6 +13,7 @@ metadata:
     drums: 7
     pro-keys: 7
     bass: 5
+  key: E
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -37,3 +38,10 @@ plans:
       1|3: hihat
     song:
       pad: [4.560, youtube]
+targets:
+  rb3:
+    game: rb3
+    song-id: 1660200041
+    version: 1
+  ps:
+    game: ps

@@ -41,3 +41,10 @@ plans:
       1|3: hihat
     song:
       pad: [3.983, album-track]
+targets:
+  rb3:
+    game: rb3
+    song-id: 1660200034
+    version: 1
+  ps:
+    game: ps

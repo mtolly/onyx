@@ -39,8 +39,12 @@ instruments:
 targets:
   rb3:
     game: rb3
+    song-id: 1660200031
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    song-id: 1660200032
+    version: 1
   ps:
     game: ps
