@@ -190,10 +190,10 @@ processMIDI songYaml input kicks mixMode getAudioLength = do
           in  ( basicKeys
               , keysAnim
               , RTB.empty
-              , keysExpert
-              , keysHard
-              , keysMedium
-              , keysEasy
+              , ProKeys.fixPSRange keysExpert
+              , ProKeys.fixPSRange keysHard
+              , ProKeys.fixPSRange keysMedium
+              , ProKeys.fixPSRange keysEasy
               )
       (trkVox, trkHarm1, trkHarm2, trkHarm3) = case _hasVocal $ _instruments songYaml of
         Vocal0 -> (RTB.empty, RTB.empty, RTB.empty, RTB.empty)

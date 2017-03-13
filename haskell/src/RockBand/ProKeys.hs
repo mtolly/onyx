@@ -65,6 +65,20 @@ instance Bounded Pitch where
   minBound = RedYellow minBound
   maxBound = OrangeC
 
+-- | Moves the first range event to time zero, to work around a Phase Shift bug.
+fixPSRange :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
+fixPSRange trk = let
+  (ranges, notRanges) = flip RTB.partitionMaybe trk $ \case
+    LaneShift r -> Just r
+    _           -> Nothing
+  rangesFixed = case RTB.viewL ranges of
+    Just ((t1, range1), ranges') -> case RTB.viewL ranges' of
+      Just ((t2, range2), ranges'') ->
+        RTB.cons NNC.zero range1 $ RTB.cons (NNC.add t1 t2) range2 ranges''
+      Nothing -> RTB.singleton NNC.zero range1
+    Nothing -> RTB.empty
+  in RTB.merge (fmap LaneShift rangesFixed) notRanges
+
 -- | Stretches out each range shift event until the next one.
 -- Thanks to mazegeek999 for showing me that this is allowed!
 unparseNice :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats E.T

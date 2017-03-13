@@ -4,15 +4,16 @@ metadata:
   track-number: 9
   author: Onyxite
   difficulty:
-    drums: 6
-    guitar: 4
-    bass: 4
+    drums: 5
+    guitar: 3
+    bass: 3
     keys: 4
-    pro-keys: 5
+    pro-keys: 4
     band: 5
   comments:
   - "All instruments have overdrive/unison."
   key: E
+  autogen-theme: SynthPop
 audio:
   album-track:
     md5: 0f025d8ca6fb648c2ecef0830f280959
