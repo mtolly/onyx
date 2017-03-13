@@ -1,11 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Onyxite Customs</title>
+  <title>Onyxite's Customs</title>
+  <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
   <link rel="stylesheet" type="text/css" href="css/normalize.css">
   <link rel="stylesheet" type="text/css" href="css/styles.css">
 </head>
 <body>
+
+<div class="onyx-intro">
+  <h1>Onyxite's Customs</h1>
+  <p>Custom songs created for use in Harmonix's Rock Band 3 and similar games.</p>
+  <p>
+    This site is not entirely finished yet.
+    See also <a href="http://customscreators.com/index.php?/topic/14398-onyxites-customs">my thread at the C3 Forums</a>.
+  </p>
+</div>
 
 <div class="onyx-artists">
   {{#artists}}
@@ -17,11 +27,13 @@
             <img class="onyx-album-art" src="{{ art }}" alt="album cover">
           </div>
           <div class="onyx-album-songs-div">
-            <h3 class="onyx-album-header">{{ album }} ({{ year }})</h3>
-            <div class="onyx-album-songs">
+            <h4 class="onyx-album-header">{{ album }} ({{ year }})</h4>
+            <ul class="onyx-album-songs">
               {{#songs}}
-                <div class="onyx-song">
-                  <h4 class="onyx-song-header">{{ title }}</h4>
+                <li class="onyx-song">
+                  <h3 class="onyx-song-header">
+                    <span class="onyx-song-header-inner">{{ title }}</span>
+                  </h3>
                   {{#comments}}
                     {{{ . }}}
                   {{/comments}}
@@ -33,9 +45,9 @@
                       </li>
                     {{/targets}}
                   </ul>
-                </div>
+                </li>
               {{/songs}}
-            </div>
+            </ul>
           </div>
         </div>
       {{/albums}}

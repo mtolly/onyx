@@ -34,6 +34,7 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
             'comments' => (song['project']['metadata']['comments'] || []).map do |comment|
               Kramdown::Document.new(comment).to_html
             end,
+            'track-number' => song['project']['metadata']['track-number'],
             'targets' => (song['project']['targets'] || {}).map do |target_name, target|
               {
                 'name' => target_name,
@@ -41,13 +42,13 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
               }
             end.select { |obj| not obj['url'].nil? },
           }
-        end,
+        end.sort_by { |song| song['track-number'] },
         'art' => png_site,
         'year' => album_songs[0]['project']['metadata']['year'],
       }
     end.sort_by { |album| album['year'] },
   }
-end
+end.sort_by { |artist| artist['artist'] }
 data = {'artists' => artists}
 
 page = Mustache.render(File.read('template/page.mustache'), data)
