@@ -40,6 +40,7 @@ rb2pkg title desc dir fout = tempDir "rb2pkg" $ \tmp -> do
         , "-d", T.unpack desc
         , "-f", dir
         , "-i", show (0x45410869 :: Integer)
+        , "-t", "Rock Band 2"
         , fout
         ]
   inside "making RB2 CON package with X360" $ stackProcess createProc ""
