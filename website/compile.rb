@@ -14,6 +14,24 @@ load_yaml_tree('songs.yml').each do |song|
   })
 end
 
+def makeDifficulties(instruments, difficulties)
+  instruments.map do |instrument, val|
+    val = 0 if val == false
+    val = 1 if val == true
+    if val != 0
+      instrument_image =
+        if instrument == 'vocal'
+          "vocal-#{val}"
+        elsif instrument == 'drums'
+          "pro-drums"
+        else
+          instrument
+        end
+      %{<img src="img/icons-alpha/#{instrument_image}.png" class="onyx-instrument-icon">}
+    end
+  end
+end
+
 artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |artist_name, artist_songs|
   {
     'artist' => artist_name,
@@ -41,6 +59,7 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
                 'url' => song['urls'][target_name],
               }
             end.select { |obj| not obj['url'].nil? },
+            'difficulties' => makeDifficulties(song['project']['instruments'] || {}, song['project']['metadata']['difficulty'] || {}),
           }
         end.sort_by { |song| song['track-number'] },
         'art' => png_site,

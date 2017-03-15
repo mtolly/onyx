@@ -2,6 +2,8 @@
 <html>
 <head>
   <title>Onyxite's Customs</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
   <link rel="stylesheet" type="text/css" href="css/normalize.css">
   <link rel="stylesheet" type="text/css" href="css/styles.css">
@@ -34,6 +36,11 @@
                   <h3 class="onyx-song-header">
                     <span class="onyx-song-header-inner">{{ title }}</span>
                   </h3>
+                  <p>
+                    {{#difficulties}}
+                      <span>{{{.}}}</span>
+                    {{/difficulties}}
+                  </p>
                   {{#comments}}
                     {{{ . }}}
                   {{/comments}}
