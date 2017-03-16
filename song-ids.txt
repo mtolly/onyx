@@ -61,13 +61,15 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200036 Temple [Zelda 2] (Shnabubula) 2x
 1660200037 Summer Goddess (Soil & 'Pimp' Sessions)
 1660200038 Last Night (toe)
-1660200039 Ripple Star (Jun Ishikawa) 1x
-1660200040 Ripple Star (Jun Ishikawa) 2x
 1660200041 Sly (Herbie Hancock)
 1660200042 Ripped Apart and Reassembled (Nova Collective) 1x
 1660200043 Ripped Apart and Reassembled (Nova Collective) 2x
 1660200044 Barracuda (The Bad Plus)
   Onyxite's Jazz Pack 2
+  v1 TO BE PUBLISHED
+
+1660200039 Ripple Star (Jun Ishikawa) 1x
+1660200040 Ripple Star (Jun Ishikawa) 2x
   v1 TO BE PUBLISHED
 
 ONE-OFFS

@@ -33,6 +33,7 @@ plans:
 instruments:
   drums: true
   pro-keys: true
+  bass: true
 targets:
   rb3:
     game: rb3
