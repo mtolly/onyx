@@ -34,6 +34,7 @@ instruments:
   drums: true
   pro-keys: true
   bass: true
+  vocal: 1
 targets:
   rb3:
     game: rb3
