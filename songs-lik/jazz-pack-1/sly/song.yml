@@ -12,8 +12,11 @@ metadata:
   difficulty:
     drums: 7
     pro-keys: 7
+    keys: 7
     bass: 5
   key: E
+  comments:
+  - "All instruments have overdrive/unison."
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -26,6 +29,7 @@ audio:
 instruments:
   drums: true
   pro-keys: true
+  keys: true
   bass: true
 plans:
   album:
