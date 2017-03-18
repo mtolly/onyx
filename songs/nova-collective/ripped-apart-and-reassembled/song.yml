@@ -12,6 +12,7 @@ metadata:
     drums: 7
     guitar: 5
     bass: 4
+    pro-keys: 6
   key: B
 audio:
   album-track:
@@ -35,6 +36,7 @@ instruments:
   drums: true
   guitar: true
   bass: true
+  pro-keys: true
 targets:
   rb3:
     game: rb3
