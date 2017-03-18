@@ -13,7 +13,10 @@ metadata:
     guitar: 5
     bass: 4
     pro-keys: 6
+    keys: 5
   key: B
+  comments:
+  - "All instruments have overdrive/unison."
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
@@ -37,6 +40,7 @@ instruments:
   guitar: true
   bass: true
   pro-keys: true
+  keys: true
 targets:
   rb3:
     game: rb3

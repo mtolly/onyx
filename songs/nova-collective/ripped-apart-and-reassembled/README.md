@@ -10,9 +10,14 @@ Instruments:
   * (Pro) Drums 😈😈😈😈😈
   * Bass ⚪️⚪️⚪️⚫️⚫️
   * Guitar ⚪️⚪️⚪️⚪️⚫️
+  * Keys ⚪️⚪️⚪️⚪️⚫️
   * Pro Keys ⚪️⚪️⚪️⚪️⚪️
 
 Supported audio:
 
   * `album` (The Further Side)
+
+Notes:
+
+  * All instruments have overdrive/unison.
 
