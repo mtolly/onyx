@@ -1,16 +1,17 @@
 {
 -- | Generated parser for text @.dta@ files.
-module Data.DTA.Parse (parse, parseEither) where
+module Data.DTA.Parse (parse, parseEither, parseStack) where
 
 import Data.DTA.Base
 import qualified Data.Text as T
 import qualified Data.DTA.Lex as L
+import Control.Monad.Trans.StackTrace (StackTraceT, fatal, inside)
 }
 
 %name parseEither
 %tokentype { (L.AlexPosn, L.Token T.Text) }
 %error { parseError }
-%monad { Either String }
+%monad { Either [(L.AlexPosn, L.Token T.Text)] }
 
 %token
   int { (_, L.Int $$) }
@@ -63,12 +64,25 @@ Chunk : int { Int $1 }
 
 -- | If instead of this error, "Internal Happy error" is sometimes printed, make
 -- sure you are using Happy 1.18.7 or later.
-parseError :: [(L.AlexPosn, L.Token T.Text)] -> Either String a
-parseError [] = Left "Parse error at end of file"
-parseError ((L.AlexPn _ ln col, tok) : _) = Left $
+parseError :: e -> Either e a
+parseError = Left
+
+showError :: [(L.AlexPosn, L.Token T.Text)] -> String
+showError [] = "Parse error at end of file"
+showError ((L.AlexPn _ ln col, tok) : _) =
   "Parse error at " ++ show ln ++ ":" ++ show col ++ ", token " ++ show tok
 
+fatalError :: (Monad m) => [(L.AlexPosn, L.Token T.Text)] -> StackTraceT m a
+fatalError [] = inside "End of file" $ fatal "Parse error"
+fatalError ((L.AlexPn _ ln col, tok) : _)
+  = inside ("Line " ++ show ln ++ ", column " ++ show col)
+  $ inside ("Token " ++ show tok)
+  $ fatal "Parse error"
+
 parse :: [(L.AlexPosn, L.Token T.Text)] -> DTA T.Text
-parse = either error id . parseEither
+parse = either (error . showError) id . parseEither
+
+parseStack :: (Monad m) => [(L.AlexPosn, L.Token T.Text)] -> StackTraceT m (DTA T.Text)
+parseStack = either fatalError return . parseEither
 
 }

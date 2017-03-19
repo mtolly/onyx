@@ -349,7 +349,7 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
     -- 5 is weights.bin (empty in magma v2)
     getRBAFile 6 rba $ temp </> "temp_extra.dta"
     (_, pkg, isUTF8) <- readRB3DTA $ temp </> "temp_songs.dta"
-    extra <- liftIO $ (if isUTF8 then D.readFileDTA_utf8 else D.readFileDTA_latin1) $ temp </> "temp_extra.dta"
+    extra <- (if isUTF8 then D.readFileDTA_utf8' else D.readFileDTA_latin1') $ temp </> "temp_extra.dta"
     liftIO $ TIO.writeFile (temp </> "songs/songs.dta") $ writeDTASingle DTASingle
       { dtaTopKey = T.pack shortName
       , dtaSongPackage = pkg
@@ -400,7 +400,7 @@ importRBA krb2 file dir = tempDir "onyx_rba" $ \temp -> do
   getRBAFile 4 file $ temp </> "cover.bmp"
   getRBAFile 6 file $ temp </> "extra.dta"
   (_, pkg, isUTF8) <- readRB3DTA $ temp </> "songs.dta"
-  extra <- liftIO $ (if isUTF8 then D.readFileDTA_utf8 else D.readFileDTA_latin1) $ temp </> "extra.dta"
+  extra <- (if isUTF8 then D.readFileDTA_utf8' else D.readFileDTA_latin1') $ temp </> "extra.dta"
   let author = case extra of
         D.DTA _ (D.Tree _ [D.Parens (D.Tree _
           ( D.String "backend"

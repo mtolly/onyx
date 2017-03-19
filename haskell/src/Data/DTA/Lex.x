@@ -1,10 +1,11 @@
 {
 -- | Generated lexer for text @.dta@ files.
 {-# OPTIONS_GHC -w #-}
-module Data.DTA.Lex (scan, scanEither, Token(..), AlexPosn(..)) where
+module Data.DTA.Lex (scan, scanEither, scanStack, Token(..), AlexPosn(..)) where
 
 import Data.Int (Int32)
 import qualified Data.Text as T
+import Control.Monad.Trans.StackTrace (StackTraceT, fatal)
 }
 
 %wrapper "monad"
@@ -107,9 +108,10 @@ scanEither :: T.Text -> Either String [(AlexPosn, Token T.Text)]
 scanEither t = runAlex (T.unpack t) scanAll
 
 scan :: T.Text -> [(AlexPosn, Token T.Text)]
-scan t = case scanEither t of
-  Right xs -> xs
-  Left err -> error err
+scan = either error id . scanEither
+
+scanStack :: (Monad m) => T.Text -> StackTraceT m [(AlexPosn, Token T.Text)]
+scanStack = either fatal return . scanEither
 
 alexEOF :: Alex (Maybe (AlexPosn, Token T.Text))
 alexEOF = return Nothing

@@ -96,16 +96,16 @@ readRB3DTA :: (MonadIO m) => FilePath -> StackTraceT m (T.Text, D.SongPackage, B
 readRB3DTA dtaPath = do
   -- Not sure what encoding it is, try both.
   let readSongWith rdr = do
-        dta <- liftIO $ rdr dtaPath
+        dta <- rdr dtaPath
         (k, chunks) <- case D.treeChunks $ D.topTree dta of
           [D.Parens (D.Tree _ (D.Key k : chunks))] -> return (k, chunks)
           _ -> fatal $ dtaPath ++ " is not a valid songs.dta with exactly one song"
         pkg <- inside ("loading DTA file " ++ show dtaPath) $
           unserialize format $ D.DTA 0 $ D.Tree 0 $ fixTracksCount chunks
         return (k, pkg)
-  (k_l1, l1) <- readSongWith D.readFileDTA_latin1
+  (k_l1, l1) <- readSongWith D.readFileDTA_latin1'
   case D.encoding l1 of
-    Just "utf8" -> (\(k, pkg) -> (k, pkg, True)) <$> readSongWith D.readFileDTA_utf8
+    Just "utf8" -> (\(k, pkg) -> (k, pkg, True)) <$> readSongWith D.readFileDTA_utf8'
     Just "latin1" -> return (k_l1, l1, False)
     Nothing -> return (k_l1, l1, False)
     Just enc -> fatal $ dtaPath ++ " specifies an unrecognized encoding: " ++ T.unpack enc

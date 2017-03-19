@@ -17,8 +17,8 @@ import qualified Data.ByteString.Lazy           as BL
 import           Data.ByteString.Lazy.Char8     ()
 import           Data.Char                      (isAscii, isPrint, isSpace)
 import qualified Data.Digest.Pure.MD5           as MD5
-import           Data.DTA.Lex                   (scanEither)
-import           Data.DTA.Parse                 (parseEither)
+import           Data.DTA.Lex                   (scanStack)
+import           Data.DTA.Parse                 (parseStack)
 import qualified Data.DTA.Serialize.Magma       as RBProj
 import qualified Data.DTA.Serialize.RB3         as D
 import qualified Data.DTA.Serialize2            as D
@@ -73,10 +73,8 @@ import           System.MountPoints
 loadDTA :: (D.DTASerialize a, MonadIO m) => FilePath -> StackTraceT m a
 loadDTA f = inside f $ liftIO (tryIOError $ T.readFile f) >>= \case
   Left err -> fatal $ show err
-  Right txt -> do
-    toks <- either fatal return $ scanEither txt
-    dta <- either fatal return $ parseEither toks
-    D.unserialize D.format dta
+  Right txt -> scanStack txt >>= parseStack >>= D.unserialize D.format
+  -- TODO I don't think this handles utf8/latin1 properly
 
 firstPresentTarget :: (MonadIO m) => FilePath -> [T.Text] -> StackTraceT m T.Text
 firstPresentTarget yamlPath targets = do
