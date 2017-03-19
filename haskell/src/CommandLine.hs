@@ -15,7 +15,7 @@ import           Data.Aeson                     ((.:))
 import qualified Data.Aeson.Types               as A
 import qualified Data.ByteString.Lazy           as BL
 import           Data.ByteString.Lazy.Char8     ()
-import           Data.Char                      (isAscii, isPrint, isSpace)
+import           Data.Char                      (isAlphaNum, isAscii)
 import qualified Data.Digest.Pure.MD5           as MD5
 import           Data.DTA.Lex                   (scanStack)
 import           Data.DTA.Parse                 (parseStack)
@@ -111,7 +111,7 @@ installSTFS stfs usb = do
       file = take 32 $ "o" ++ take 7 stfsHash ++ case maybeInfo of
         Nothing              -> ""
         Just (title, artist) -> T.unpack $
-          T.filter (\c -> isPrint c && isAscii c && not (isSpace c)) $ title <> artist
+          T.filter (\c -> isAscii c && isAlphaNum c) $ title <> artist
   liftIO $ Dir.createDirectoryIfMissing True $ usb </> folder
   liftIO $ Dir.copyFile stfs $ usb </> folder </> file
 
