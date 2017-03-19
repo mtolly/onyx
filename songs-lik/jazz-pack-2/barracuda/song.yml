@@ -10,6 +10,8 @@ metadata:
   author: TheLieInKing (drums), Onyxite
   file-album-art: cover.jpg
   key: C
+  comments:
+  - "All instruments have overdrive/unison."
 audio:
   youtube:
     file-path: audio-youtube.wav

@@ -17,3 +17,7 @@ Supported audio:
 
   * `album` (For All I Care)
 
+Notes:
+
+  * All instruments have overdrive/unison.
+
