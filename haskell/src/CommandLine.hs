@@ -13,6 +13,7 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.StackTrace
 import           Data.Aeson                     ((.:))
 import qualified Data.Aeson.Types               as A
+import qualified Data.ByteString                as B
 import qualified Data.ByteString.Lazy           as BL
 import           Data.ByteString.Lazy.Char8     ()
 import           Data.Char                      (isAlphaNum, isAscii)
@@ -28,6 +29,7 @@ import           Data.List.HT                   (partitionMaybe)
 import           Data.Maybe                     (fromMaybe, listToMaybe)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
+import           Data.Text.Encoding             (decodeUtf16BE)
 import qualified Data.Text.IO                   as T
 import           Data.Word                      (Word32)
 import qualified Data.Yaml                      as Y
@@ -96,22 +98,16 @@ getInfoForSTFS dir stfs = do
 installSTFS :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 installSTFS stfs usb = do
   (titleID, sign) <- stfsFolder stfs
-  maybeInfo <- tempDir "onyx_install_stfs" $ \tmp -> do
-    liftIO $ extractSTFS stfs tmp
-    let dta = tmp </> "songs/songs.dta"
-    liftIO (Dir.doesFileExist dta) >>= \case
-      True -> errorToWarning $ do
-        (_, pkg, _) <- readRB3DTA dta
-        return (D.name pkg, D.artist pkg)
-      False -> return Nothing
+  packageTitle <- liftIO $ IO.withBinaryFile stfs IO.ReadMode $ \h -> do
+    IO.hSeek h IO.AbsoluteSeek 0x411
+    bs <- B.hGet h 0x80
+    return $ T.takeWhile (/= '\0') $ decodeUtf16BE bs
   stfsHash <- liftIO $ show . MD5.md5 <$> BL.readFile stfs
   let folder = "Content/0000000000000000" </> w32 titleID </> w32 sign
       w32 :: Word32 -> FilePath
       w32 = printf "%08x"
-      file = take 32 $ "o" ++ take 7 stfsHash ++ case maybeInfo of
-        Nothing              -> ""
-        Just (title, artist) -> T.unpack $
-          T.filter (\c -> isAscii c && isAlphaNum c) $ title <> artist
+      file = take 32 $ "o" ++ take 7 stfsHash ++ T.unpack
+        (T.filter (\c -> isAscii c && isAlphaNum c) packageTitle)
   liftIO $ Dir.createDirectoryIfMissing True $ usb </> folder
   liftIO $ Dir.copyFile stfs $ usb </> folder </> file
 
