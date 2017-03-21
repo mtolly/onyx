@@ -14,6 +14,7 @@ metadata:
     vocal: 4
     keys: 3
     pro-keys: 5
+    band: 4
   autogen-theme: EdgyProgRock
   key: A
 options:
