@@ -430,7 +430,14 @@ commands =
         liftIO $ Dir.createDirectoryIfMissing False out
         copyDirRecursive (tmp </> player) out
         unless (elem OptNoOpen opts) $ osOpenFile $ out </> "index.html"
-      FilePS -> undone
+      FilePS -> tempDir "onyx_player" $ \tmp -> do
+        out <- outputFile opts $ return $ takeDirectory fpath ++ "_player"
+        importFoF NoKeys (takeDirectory fpath) tmp
+        let player = "gen/plan/fof/web"
+        shakeBuild [tmp] (tmp </> "song.yml") [player]
+        liftIO $ Dir.createDirectoryIfMissing False out
+        copyDirRecursive (tmp </> player) out
+        unless (elem OptNoOpen opts) $ osOpenFile $ out </> "index.html"
       FileMidi -> undone
       _ -> unrecognized ftype fpath
     }

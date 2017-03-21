@@ -7,7 +7,7 @@ import           Codec.Picture                  (convertRGB8, readImage)
 import           Config                         hiding (Difficulty)
 import           Control.Applicative            ((<|>))
 import           Control.Exception              (evaluate)
-import           Control.Monad                  (guard, when)
+import           Control.Monad                  (forM, guard, when)
 import           Control.Monad.Extra            (mapMaybeM)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
@@ -117,6 +117,9 @@ importFoF krb2 src dest = do
       , "guitar.ogg", "keys.ogg", "rhythm.ogg", "vocals.ogg", "vocals_1.ogg", "vocals_2.ogg"
       , "crowd.ogg", "song.ogg"
       ]
+  audioFilesWithChannels <- forM audioFiles $ \af -> audioChannels (dest </> af) >>= \case
+    Nothing    -> fatal $ "Couldn't get channel count of audio file: " <> af
+    Just chans -> return (af, chans)
 
   let gtrAudio = case audioFiles of
         ["guitar.ogg"] -> [] -- assume sole guitar is no-stems audio
@@ -247,14 +250,16 @@ importFoF krb2 src dest = do
           (\case RBDrums.ProType _ _ -> True; _ -> False)
           (discardPS $ RBFile.onyxPartDrums $ RBFile.s_tracks parsed)
       }
-    , _audio = HM.fromList $ flip map audioFiles $ \aud -> (T.pack aud, AudioFile
-      { _md5 = Nothing
-      , _frames = Nothing
-      , _commands = []
-      , _filePath = Just aud
-      , _rate = Nothing
-      , _channels = 2 -- TODO
-      })
+    , _audio = HM.fromList $ flip map audioFilesWithChannels $ \(aud, chans) ->
+      (T.pack aud, AudioFile
+        { _md5 = Nothing
+        , _frames = Nothing
+        , _commands = []
+        , _filePath = Just aud
+        , _rate = Nothing
+        , _channels = chans
+        }
+      )
     , _jammit = HM.empty
     , _plans = HM.singleton "fof" Plan
       { _song         = audioExpr songAudio

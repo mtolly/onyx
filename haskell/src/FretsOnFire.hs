@@ -3,6 +3,7 @@
 module FretsOnFire where
 
 import           Control.Applicative            ((<|>))
+import           Control.Monad                  ((>=>))
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
@@ -12,6 +13,7 @@ import           Data.Ini
 import           Data.List                      (sortOn)
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
+import           Text.Read                      (readMaybe)
 
 data Song = Song
   { name             :: Maybe T.Text
@@ -53,9 +55,9 @@ loadSong fp = do
   let str :: T.Text -> Maybe T.Text
       str k = either (const Nothing) Just $ lookupValue "song" k ini
       int :: T.Text -> Maybe Int
-      int = fmap (read . T.unpack) . str
+      int = str >=> readMaybe . T.unpack
       bool :: T.Text -> Maybe Bool
-      bool = fmap (read . T.unpack) . str
+      bool = str >=> readMaybe . T.unpack
 
       name = str "name"
       artist = str "artist"
