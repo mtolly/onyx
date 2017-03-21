@@ -8,10 +8,11 @@ Author: TheLieInKing (drums), Onyxite
 
 Instruments:
 
-  * (Pro) Drums
-  * Bass
-  * Pro Keys
-  * Vocals (1)
+  * (Pro) Drums ⚪️⚪️⚪️⚫️⚫️
+  * Bass ⚪️⚪️⚪️⚫️⚫️
+  * Keys ⚪️⚪️⚪️⚪️⚫️
+  * Pro Keys ⚪️⚪️⚪️⚪️⚫️
+  * Vocals (1) ⚪️⚪️⚪️⚪️⚫️
 
 Supported audio:
 

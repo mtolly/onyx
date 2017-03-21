@@ -12,6 +12,14 @@ metadata:
   key: C
   comments:
   - "All instruments have overdrive/unison."
+  difficulty:
+    drums: 4
+    pro-keys: 5
+    keys: 5
+    bass: 4
+    vocal: 5
+    band: 5
+  autogen-theme: DustyVintage
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -35,6 +43,7 @@ plans:
 instruments:
   drums: true
   pro-keys: true
+  keys: true
   bass: true
   vocal: 1
 targets:

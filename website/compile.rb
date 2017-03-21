@@ -56,7 +56,7 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
             'targets' => (song['project']['targets'] || {}).map do |target_name, target|
               {
                 'name' => target_name,
-                'url' => song['urls'][target_name],
+                'url' => (song['urls'] || {})[target_name],
               }
             end.select { |obj| not obj['url'].nil? },
             'difficulties' => makeDifficulties(song['project']['instruments'] || {}, song['project']['metadata']['difficulty'] || {}),

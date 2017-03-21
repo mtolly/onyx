@@ -9,6 +9,7 @@ metadata:
     bass: 3
     guitar: 4
     vocal: 1
+    band: 5
   author: Onyxite
   comments:
   - All instruments have overdrive/unison.

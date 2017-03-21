@@ -14,9 +14,11 @@ metadata:
     bass: 4
     pro-keys: 6
     keys: 5
+    band: 6
   key: B
   comments:
   - "All instruments have overdrive/unison."
+  autogen-theme: PsychJamRock
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com

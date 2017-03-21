@@ -9,6 +9,7 @@ metadata:
     bass: 7
     guitar: 6
     drums: 7
+    band: 7
   comments:
   - "All instruments have overdrive/unison."
   key: G
