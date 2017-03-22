@@ -23,14 +23,14 @@ audio:
 plans:
   album:
     countin:
-      0|0: hihat
-      0|2: hihat
       1|0: hihat
-      1|1: hihat
       1|2: hihat
-      1|3: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
     song:
-      pad: [0.650, album-track]
+      pad: [2.525, album-track]
 instruments:
   pro-keys: true
   keys: true
