@@ -13,10 +13,11 @@ metadata:
     pro-bass: 3
     vocal: 4
     keys: 3
-    pro-keys: 5
+    pro-keys: 4
     band: 4
   autogen-theme: EdgyProgRock
   key: A
+  rating: SupervisionRecommended
 options:
   # pro-guitar-tuning is A standard but pretending E standard for game
   pro-bass-tuning: [-7, -5, -5, -5] # EADG to AEAD
@@ -127,7 +128,10 @@ plans:
     vocal:
       mix: [mixed-vocal, mixed-bvocals-unchanged, mixed-bvocals-faded]
     guitar:
-      mix: [mixed-guitar1-unchanged, mixed-guitar1-missing, mixed-guitar2]
+      fade:
+      - start
+      - 2.4
+      - mix: [mixed-guitar1-unchanged, mixed-guitar1-missing, mixed-guitar2]
     keys:
       mix: [mixed-keys1, mixed-keys2]
     drums:
@@ -137,7 +141,10 @@ plans:
   album:
     countin: *countin
     song:
-      trim: [19.991, album-track]
+      fade:
+      - start
+      - 2.4
+      - trim: [19.991, album-track]
 instruments:
   drums: true
   keys: true

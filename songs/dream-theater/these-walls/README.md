@@ -13,7 +13,7 @@ Instruments:
   * Pro Bass ⚪️⚪️⚫️⚫️⚫️
   * Pro Guitar ⚪️⚪️⚫️⚫️⚫️
   * Keys ⚪️⚪️⚫️⚫️⚫️
-  * Pro Keys ⚪️⚪️⚪️⚪️⚫️
+  * Pro Keys ⚪️⚪️⚪️⚫️⚫️
   * Vocals (3) ⚪️⚪️⚪️⚫️⚫️
 
 Supported audio:

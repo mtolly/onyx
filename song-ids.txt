@@ -48,12 +48,12 @@ onyxite's C3-format Song IDs (16602xxxxx)
 
 1660200029 These Walls (Dream Theater) 1x
 1660200030 These Walls (Dream Theater) 2x
-  TO BE PUBLISHED
+  v1 published 2017-03-22
 
 1660200031 When the Water Breaks (Liquid Tension Experiment) 1x
 1660200032 When the Water Breaks (Liquid Tension Experiment) 2x
   v1 (just drums) published without numeric song ID
-  v2 TO BE PUBLISHED
+  v2 published 2017-03-22
 
 1660200033 Kung-Fu World Champion (Hiromi)
 1660200034 Jazz Crimes (Joshua Redman)
