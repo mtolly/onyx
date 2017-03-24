@@ -2,7 +2,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 module RockBand3 (Kicks(..), processMIDI, findProblems) where
 
-import           Config
+import           Config                           hiding (Target (PS))
 import           Control.Monad.Extra
 import           Control.Monad.Trans.Writer       (execWriter, tell)
 import qualified Data.EventList.Absolute.TimeBody as ATB
@@ -15,7 +15,8 @@ import           RockBand.Common
 import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
-import           RockBand.PhaseShiftMessage       (discardPS)
+import           RockBand.PhaseShiftMessage       (PSWrap (..), discardPS,
+                                                   psMessages)
 import qualified RockBand.ProGuitar               as ProGtr
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as RBVox
@@ -31,7 +32,7 @@ processMIDI
   -> Kicks
   -> RBDrums.Audio
   -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
-  -> Action (RBFile.Song (RBFile.RB3File U.Beats))
+  -> Action (RBFile.Song (RBFile.RB3File U.Beats, RBFile.PSFile U.Beats))
 processMIDI songYaml input kicks mixMode getAudioLength = do
   let showPosition = RBFile.showPosition . U.applyMeasureMap mmap
       eventsRaw = discardPS $ RBFile.onyxEvents trks
@@ -143,10 +144,12 @@ processMIDI songYaml input kicks mixMode getAudioLength = do
             KicksPS -> psPS
             Kicks1x -> rockBand1x ps1x
             Kicks2x -> rockBand2x ps2x
+      guitarMsgs = psMessages $ RBFile.onyxPartGuitar trks
       guitarTrack = if not $ _hasGuitar $ _instruments songYaml
         then RTB.empty
         else gryboComplete (Just $ _hopoThreshold $ _options songYaml) mmap
           $ discardPS $ RBFile.onyxPartGuitar trks
+      bassMsgs = psMessages $ RBFile.onyxPartBass trks
       bassTrack = if not $ _hasBass $ _instruments songYaml
         then RTB.empty
         else gryboComplete (Just $ _hopoThreshold $ _options songYaml) mmap
@@ -205,29 +208,58 @@ processMIDI songYaml input kicks mixMode getAudioLength = do
               harm1   = discardPS $ RBFile.onyxHarm1 trks
               harm2   = discardPS $ RBFile.onyxHarm2 trks
               harm3   = discardPS $ RBFile.onyxHarm3 trks
-  return $ RBFile.Song tempos mmap $ RBFile.RB3File
-    { RBFile.rb3Beat = beatTrack
-    , RBFile.rb3Events = eventsTrack
-    , RBFile.rb3Venue = discardPS $ RBFile.onyxVenue trks
-    , RBFile.rb3PartDrums = drumsTrack
-    , RBFile.rb3PartGuitar = guitarTrack
-    , RBFile.rb3PartBass = bassTrack
-    , RBFile.rb3PartRealGuitar   = proGtr
-    , RBFile.rb3PartRealGuitar22 = proGtr22
-    , RBFile.rb3PartRealBass     = proBass
-    , RBFile.rb3PartRealBass22   = proBass22
-    , RBFile.rb3PartKeys = tk
-    , RBFile.rb3PartKeysAnimRH = tkRH
-    , RBFile.rb3PartKeysAnimLH = tkLH
-    , RBFile.rb3PartRealKeysE = tpkE
-    , RBFile.rb3PartRealKeysM = tpkM
-    , RBFile.rb3PartRealKeysH = tpkH
-    , RBFile.rb3PartRealKeysX = tpkX
-    , RBFile.rb3PartVocals = trkVox
-    , RBFile.rb3Harm1 = trkHarm1
-    , RBFile.rb3Harm2 = trkHarm2
-    , RBFile.rb3Harm3 = trkHarm3
-    }
+  return $ RBFile.Song tempos mmap $
+    ( RBFile.RB3File
+      { RBFile.rb3Beat = beatTrack
+      , RBFile.rb3Events = eventsTrack
+      , RBFile.rb3Venue = discardPS $ RBFile.onyxVenue trks
+      , RBFile.rb3PartDrums = drumsTrack
+      , RBFile.rb3PartGuitar = guitarTrack
+      , RBFile.rb3PartBass = bassTrack
+      , RBFile.rb3PartRealGuitar   = proGtr
+      , RBFile.rb3PartRealGuitar22 = proGtr22
+      , RBFile.rb3PartRealBass     = proBass
+      , RBFile.rb3PartRealBass22   = proBass22
+      , RBFile.rb3PartKeys = tk
+      , RBFile.rb3PartKeysAnimRH = tkRH
+      , RBFile.rb3PartKeysAnimLH = tkLH
+      , RBFile.rb3PartRealKeysE = tpkE
+      , RBFile.rb3PartRealKeysM = tpkM
+      , RBFile.rb3PartRealKeysH = tpkH
+      , RBFile.rb3PartRealKeysX = tpkX
+      , RBFile.rb3PartVocals = trkVox
+      , RBFile.rb3Harm1 = trkHarm1
+      , RBFile.rb3Harm2 = trkHarm2
+      , RBFile.rb3Harm3 = trkHarm3
+      }
+    , RBFile.PSFile
+      { RBFile.psBeat = fmap RB beatTrack
+      , RBFile.psEvents = fmap RB eventsTrack
+      , RBFile.psVenue = RBFile.onyxVenue trks
+      , RBFile.psPartDrums = fmap RB drumsTrack
+      , RBFile.psPartGuitar = RTB.merge (fmap RB guitarTrack) (fmap PS guitarMsgs)
+      , RBFile.psPartBass = RTB.merge (fmap RB bassTrack) (fmap PS bassMsgs)
+      , RBFile.psPartRealGuitar   = fmap RB proGtr
+      , RBFile.psPartRealGuitar22 = fmap RB proGtr22
+      , RBFile.psPartRealBass     = fmap RB proBass
+      , RBFile.psPartRealBass22   = fmap RB proBass22
+      , RBFile.psPartKeys = fmap RB tk
+      , RBFile.psPartKeysAnimRH = fmap RB tkRH
+      , RBFile.psPartKeysAnimLH = fmap RB tkLH
+      , RBFile.psPartRealKeysE = fmap RB tpkE
+      , RBFile.psPartRealKeysM = fmap RB tpkM
+      , RBFile.psPartRealKeysH = fmap RB tpkH
+      , RBFile.psPartRealKeysX = fmap RB tpkX
+      , RBFile.psPartRealKeysPsE = RTB.empty
+      , RBFile.psPartRealKeysPsM = RTB.empty
+      , RBFile.psPartRealKeysPsH = RTB.empty
+      , RBFile.psPartRealKeysPsX = RTB.empty
+      , RBFile.psPartVocals = fmap RB trkVox
+      , RBFile.psHarm1 = fmap RB trkHarm1
+      , RBFile.psHarm2 = fmap RB trkHarm2
+      , RBFile.psHarm3 = fmap RB trkHarm3
+      }
+    )
 
 findProblems :: RBFile.Song (RBFile.OnyxFile U.Beats) -> [String]
 findProblems song = execWriter $ do

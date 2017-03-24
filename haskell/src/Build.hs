@@ -74,6 +74,7 @@ import qualified RockBand.FiveButton                   as RBFive
 import           RockBand.Parse                        (unparseBlip,
                                                         unparseList)
 import           RockBand.PhaseShiftMessage            (discardPS)
+import qualified RockBand.PhaseShiftMessage            as PSM
 import qualified RockBand.ProGuitar                    as ProGtr
 import qualified RockBand.ProGuitar.Play               as PGPlay
 import           RockBand.Sections                     (makeRB2Section,
@@ -903,7 +904,7 @@ shakeBuild audioDirs yamlPath buildables = do
                 [] -> return ()
                 _  -> putNormal $ "The following sections were unrecognized and replaced: " ++ show invalid
               lift $ saveMIDI out output
-                { RBFile.s_tracks = adjustEvents $ RBFile.s_tracks output
+                { RBFile.s_tracks = adjustEvents $ fst $ RBFile.s_tracks output
                 }
 
             let pathDta = dir </> "stfs/songs/songs.dta"
@@ -1283,7 +1284,7 @@ shakeBuild audioDirs yamlPath buildables = do
                 RB3.KicksPS
                 (mixMode pv)
                 (getAudioLength planName)
-              lift $ saveMIDI out output
+              lift $ saveMIDI out $ fmap snd output
 
             dir </> "ps/song.ini" ≡> \out -> do
               song <- shakeMIDI $ dir </> "ps/notes.mid"
@@ -1324,6 +1325,13 @@ shakeBuild audioDirs yamlPath buildables = do
                 , FoF.delay            = Nothing
                 , FoF.starPowerNote    = Just 116
                 , FoF.track            = _trackNumber $ _metadata songYaml
+                , FoF.sysexSlider      = Just $ let
+                  gtr   = RBFile.onyxPartGuitar $ RBFile.s_tracks song
+                  bass  = RBFile.onyxPartBass   $ RBFile.s_tracks song
+                  isTap = \case
+                    PSM.PS (PSM.PSMessage _ PSM.TapNotes _) -> True
+                    _                                       -> False
+                  in any (any isTap) [gtr, bass]
                 }
             dir </> "ps/drums.ogg"   %> buildAudio (Input $ planDir </> "drums.wav"       )
             dir </> "ps/drums_1.ogg" %> buildAudio (Input $ planDir </> "kick.wav"        )
@@ -1478,7 +1486,7 @@ shakeBuild audioDirs yamlPath buildables = do
         midprocessed ≡> \out -> do
           input <- shakeMIDI midraw
           output <- lift $ RB3.processMIDI songYaml input RB3.Kicks2x mixMode $ getAudioLength planName
-          lift $ saveMIDI out output
+          lift $ saveMIDI out $ fmap fst output
 
         display ≡> \out -> do
           song <- shakeMIDI midprocessed

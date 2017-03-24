@@ -87,6 +87,11 @@ discardPS = RTB.mapMaybe $ \case
   PS _ -> Nothing
   RB x -> Just x
 
+psMessages :: (NNC.C t) => RTB.T t (PSWrap a) -> RTB.T t PSMessage
+psMessages = RTB.mapMaybe $ \case
+  PS msg -> Just msg
+  RB _   -> Nothing
+
 withRB :: (NNC.C t, Ord a) => (RTB.T t a -> RTB.T t a) -> RTB.T t (PSWrap a) -> RTB.T t (PSWrap a)
 withRB f rtb = let
   (rb, ps) = RTB.partitionMaybe (\case PS _ -> Nothing; RB x -> Just x) rtb
