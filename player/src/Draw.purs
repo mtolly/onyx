@@ -4,7 +4,6 @@ import Prelude
 import Graphics.Canvas as C
 import Data.Time.Duration
 import Images
-import Control.Monad.Reader.Trans
 import Control.Monad.Eff
 import Data.Int (toNumber, round)
 import DOM
@@ -63,10 +62,7 @@ type DrawStuff =
   , secsToPxHoriz :: Seconds -> Int -- now-offset in seconds -> pixels from left
   }
 
-type Draw e = ReaderT DrawStuff (Eff (canvas :: C.CANVAS | e))
-
-askStuff :: forall e. Draw e DrawStuff
-askStuff = ask
+type Draw e a = DrawStuff -> Eff (canvas :: C.CANVAS | e) a
 
 setFillStyle :: forall e. String -> Draw e Unit
 setFillStyle s = onContext $ C.setFillStyle s
@@ -75,33 +71,31 @@ fillRect :: forall e. C.Rectangle -> Draw e Unit
 fillRect rect = onContext $ \ctx -> C.fillRect ctx rect
 
 fillCircle :: forall e. { x :: Number, y :: Number, r :: Number } -> Draw e Unit
-fillCircle o = do
-  ctx <- map _.context ask
-  lift $ void do
+fillCircle o dstuff = do
+  let ctx = dstuff.context
+  void do
     C.beginPath ctx
     C.arc ctx { x: o.x, y: o.y, r: o.r, start: 0.0, end: 2.0 * pi }
     C.fill ctx
     C.closePath ctx
 
 drawImage :: forall e. ImageID -> Number -> Number -> Draw e Unit
-drawImage iid x y = do
-  img <- map _.getImage ask
-  onContext $ \ctx -> C.drawImage ctx (img iid) x y
+drawImage iid x y dstuff =
+  onContext (\ctx -> C.drawImage ctx (dstuff.getImage iid) x y) dstuff
 
 onContext :: forall e. (C.Context2D -> Eff (canvas :: C.CANVAS | e) C.Context2D) -> Draw e Unit
-onContext act = map _.context ask >>= act >>> void >>> lift
+onContext act dstuff = void $ act dstuff.context
 
 measureText :: forall e. String -> Draw e C.TextMetrics
-measureText str = map _.context ask >>= \ctx -> lift $ C.measureText ctx str
+measureText str dstuff = C.measureText dstuff.context str
 
 draw :: forall e. Draw (dom :: DOM | e) Unit
-draw = do
-  stuff <- ask
-  {w: windowW, h: windowH} <- lift getWindowDims
-  lift $ C.setCanvasWidth  windowW stuff.canvas
-  lift $ C.setCanvasHeight windowH stuff.canvas
-  setFillStyle "rgb(54,59,123)"
-  fillRect { x: 0.0, y: 0.0, w: windowW, h: windowH }
+draw stuff = do
+  {w: windowW, h: windowH} <- getWindowDims
+  C.setCanvasWidth  windowW stuff.canvas
+  C.setCanvasHeight windowH stuff.canvas
+  setFillStyle "rgb(54,59,123)" stuff
+  fillRect { x: 0.0, y: 0.0, w: windowW, h: windowH } stuff
   -- Draw the visible instrument tracks in sequence
   let drawTracks targetX trks = case uncons trks of
         Nothing -> pure unit
@@ -111,18 +105,18 @@ draw = do
             Just targetX' -> drawTracks targetX' trkt
             Nothing       -> drawTracks targetX  trkt
   drawTracks (_M + _B + _M + _B + _M)
-    [ drawPart (\(Song o) -> o.guitar   ) _.seeGuitar    drawFive
-    , drawPart (\(Song o) -> o.proguitar) _.seeProGuitar drawProtar
-    , drawPart (\(Song o) -> o.bass     ) _.seeBass      drawFive
-    , drawPart (\(Song o) -> o.probass  ) _.seeProBass   drawProtar
-    , drawPart (\(Song o) -> o.drums    ) _.seeDrums     drawDrums
-    , drawPart (\(Song o) -> o.keys     ) _.seeKeys      drawFive
-    , drawPart (\(Song o) -> o.prokeys  ) _.seeProKeys   drawProKeys
+    [ \i -> drawPart (\(Song o) -> o.guitar   ) _.seeGuitar    drawFive    i stuff
+    , \i -> drawPart (\(Song o) -> o.proguitar) _.seeProGuitar drawProtar  i stuff
+    , \i -> drawPart (\(Song o) -> o.bass     ) _.seeBass      drawFive    i stuff
+    , \i -> drawPart (\(Song o) -> o.probass  ) _.seeProBass   drawProtar  i stuff
+    , \i -> drawPart (\(Song o) -> o.drums    ) _.seeDrums     drawDrums   i stuff
+    , \i -> drawPart (\(Song o) -> o.keys     ) _.seeKeys      drawFive    i stuff
+    , \i -> drawPart (\(Song o) -> o.prokeys  ) _.seeProKeys   drawProKeys i stuff
     ]
-  void $ drawPart (\(Song o) -> o.vocal) _.seeVocal drawVocal 0
+  void $ drawPart (\(Song o) -> o.vocal) _.seeVocal drawVocal 0 stuff
   let drawButtons _ L.Nil             = pure unit
       drawButtons y (L.Cons iid iids) = do
-        drawImage iid (toNumber $ _M + _B + _M) (toNumber y)
+        drawImage iid (toNumber $ _M + _B + _M) (toNumber y) stuff
         drawButtons (y - _M - _B) iids
       song = case stuff.song of Song s -> s
       settings = case stuff.app of
@@ -141,21 +135,21 @@ draw = do
   let playPause = case stuff.app of
         Paused  _ -> Image_button_play
         Playing _ -> Image_button_pause
-  drawImage playPause (toNumber _M) (windowH - toNumber _M - toNumber _B)
+  drawImage playPause (toNumber _M) (windowH - toNumber _M - toNumber _B) stuff
   let timelineH = windowH - 3.0 * toNumber _M - toNumber _B - 2.0
       filled = unSeconds (stuff.time) / unSeconds (case stuff.song of Song o -> o.end)
       unSeconds (Seconds s) = s
-  setFillStyle "black"
-  fillRect { x: toNumber _M, y: toNumber _M, w: toNumber _B, h: timelineH + 2.0 }
-  setFillStyle "white"
-  fillRect { x: toNumber _M + 1.0, y: toNumber _M + 1.0, w: toNumber _B - 2.0, h: timelineH }
-  setFillStyle "rgb(100,130,255)"
+  setFillStyle "black" stuff
+  fillRect { x: toNumber _M, y: toNumber _M, w: toNumber _B, h: timelineH + 2.0 } stuff
+  setFillStyle "white" stuff
+  fillRect { x: toNumber _M + 1.0, y: toNumber _M + 1.0, w: toNumber _B - 2.0, h: timelineH } stuff
+  setFillStyle "rgb(100,130,255)" stuff
   fillRect
     { x: toNumber _M + 1.0
     , y: toNumber _M + 1.0 + timelineH * (1.0 - filled)
     , w: toNumber _B - 2.0
     , h: timelineH * filled
-    }
+    } stuff
 
 -- | Height/width of margins
 _M :: Int
@@ -172,19 +166,17 @@ drawPart
   -> (a -> Int -> Draw e r)
   -> Int
   -> Draw e (Maybe r)
-drawPart getPart see drawIt targetX = do
-  stuff <- askStuff
+drawPart getPart see drawIt targetX stuff = do
   let settings = case stuff.app of
         Paused  o -> o.settings
         Playing o -> o.settings
   case getPart stuff.song of
-    Just part | see settings -> map Just $ drawIt part targetX
+    Just part | see settings -> map Just $ drawIt part targetX stuff
     _                        -> pure Nothing
 
 drawFive :: forall e. Five -> Int -> Draw e Int
-drawFive (Five five) targetX = do
-  stuff <- askStuff
-  windowH <- map round $ lift $ C.getCanvasHeight stuff.canvas
+drawFive (Five five) targetX stuff = do
+  windowH <- map round $ C.getCanvasHeight stuff.canvas
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
       maxSecs = pxToSecsVert (-100)
@@ -195,16 +187,16 @@ drawFive (Five five) targetX = do
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
   -- Highway
-  setFillStyle "rgb(126,126,150)"
-  fillRect { x: toNumber targetX, y: 0.0, w: 182.0, h: toNumber windowH }
-  setFillStyle "rgb(184,185,204)"
+  setFillStyle "rgb(126,126,150)" stuff
+  fillRect { x: toNumber targetX, y: 0.0, w: 182.0, h: toNumber windowH } stuff
+  setFillStyle "rgb(184,185,204)" stuff
   for_ [0, 36, 72, 108, 144, 180] $ \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
-  setFillStyle "black"
+    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
+  setFillStyle "black" stuff
   for_ [1, 37, 73, 109, 145, 181] $ \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
+    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
-  setFillStyle "rgb(91,137,185)"
+  setFillStyle "rgb(91,137,185)" stuff
   let startsAsSolo = case Map.lookupLE minSecs five.solo of
         Nothing           -> false
         Just { value: v } -> v
@@ -219,21 +211,21 @@ drawFive (Five five) targetX = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
         when b1 $ for_ [2, 38, 74, 110, 146] $ \offsetX -> do
-          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 }
+          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
   zoomDesc five.solo $ \secs _ -> do
-    drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs)
+    drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
   -- Beats
   zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
     let y = secsToPxVert secs
     case evt of
-      Bar      -> drawImage Image_highway_grybo_bar      (toNumber targetX) (toNumber y - 1.0)
-      Beat     -> drawImage Image_highway_grybo_beat     (toNumber targetX) (toNumber y - 1.0)
-      HalfBeat -> drawImage Image_highway_grybo_halfbeat (toNumber targetX) (toNumber y)
+      Bar      -> drawImage Image_highway_grybo_bar      (toNumber targetX) (toNumber y - 1.0) stuff
+      Beat     -> drawImage Image_highway_grybo_beat     (toNumber targetX) (toNumber y - 1.0) stuff
+      HalfBeat -> drawImage Image_highway_grybo_halfbeat (toNumber targetX) (toNumber y      ) stuff
   -- Target
-  drawImage Image_highway_grybo_target (toNumber targetX) (toNumber targetY - 5.0)
+  drawImage Image_highway_grybo_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Sustains
   let colors =
         [ { c: _.green , x: 1  , strum: Image_gem_green , hopo: Image_gem_green_hopo 
@@ -270,18 +262,18 @@ drawFive (Five five) targetX = do
                 then { light: "rgb(137,235,204)", normal: "rgb(138,192,175)", dark: "rgb(124,158,149)" }
                 else normalShades
               h = yend' - ystart' + 1
-          setFillStyle "black"
-          fillRect { x: toNumber $ targetX + offsetX + 14, y: toNumber ystart', w: 1.0, h: toNumber h }
-          fillRect { x: toNumber $ targetX + offsetX + 22, y: toNumber ystart', w: 1.0, h: toNumber h }
-          setFillStyle shades.light
-          fillRect { x: toNumber $ targetX + offsetX + 15, y: toNumber ystart', w: 1.0, h: toNumber h }
-          setFillStyle shades.normal
-          fillRect { x: toNumber $ targetX + offsetX + 16, y: toNumber ystart', w: 5.0, h: toNumber h }
-          setFillStyle shades.dark
-          fillRect { x: toNumber $ targetX + offsetX + 21, y: toNumber ystart', w: 1.0, h: toNumber h }
+          setFillStyle "black" stuff
+          fillRect { x: toNumber $ targetX + offsetX + 14, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX + 22, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          setFillStyle shades.light stuff
+          fillRect { x: toNumber $ targetX + offsetX + 15, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          setFillStyle shades.normal stuff
+          fillRect { x: toNumber $ targetX + offsetX + 16, y: toNumber ystart', w: 5.0, h: toNumber h } stuff
+          setFillStyle shades.dark stuff
+          fillRect { x: toNumber $ targetX + offsetX + 21, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           when sustaining do
-            setFillStyle shades.light
-            fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
+            setFillStyle shades.light stuff
+            fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
         go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisColor of
           Just { key: secsStart, value: Sustain _ } -> do
             drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
@@ -314,8 +306,8 @@ drawFive (Five five) targetX = do
             then case evt of
               SustainEnd -> pure unit
               _ -> do
-                setFillStyle $ shadeHit $ (futureSecs + 0.1) / 0.05
-                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
+                setFillStyle (shadeHit $ (futureSecs + 0.1) / 0.05) stuff
+                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
             else pure unit
         else do
           let y = secsToPxVert secs
@@ -323,17 +315,16 @@ drawFive (Five five) targetX = do
                 Just {value: bool} -> bool
                 Nothing            -> false
           case evt of
-            SustainEnd    -> drawImage Image_sustain_end                                        (toNumber $ targetX + offsetX) (toNumber   y     )
-            Note    Strum -> drawImage (if isEnergy then Image_gem_energy      else strumImage) (toNumber $ targetX + offsetX) (toNumber $ y - 5 )
-            Sustain Strum -> drawImage (if isEnergy then Image_gem_energy      else strumImage) (toNumber $ targetX + offsetX) (toNumber $ y - 5 )
-            Note    HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) (toNumber $ targetX + offsetX) (toNumber $ y - 5 )
-            Sustain HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) (toNumber $ targetX + offsetX) (toNumber $ y - 5 )
+            SustainEnd    -> drawImage Image_sustain_end                                        (toNumber $ targetX + offsetX) (toNumber   y     ) stuff
+            Note    Strum -> drawImage (if isEnergy then Image_gem_energy      else strumImage) (toNumber $ targetX + offsetX) (toNumber $ y - 5 ) stuff
+            Sustain Strum -> drawImage (if isEnergy then Image_gem_energy      else strumImage) (toNumber $ targetX + offsetX) (toNumber $ y - 5 ) stuff
+            Note    HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) (toNumber $ targetX + offsetX) (toNumber $ y - 5 ) stuff
+            Sustain HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) (toNumber $ targetX + offsetX) (toNumber $ y - 5 ) stuff
   pure $ targetX + 182 + _M
 
 drawProtar :: forall e. Protar -> Int -> Draw e Int
-drawProtar (Protar protar) targetX = do
-  stuff <- askStuff
-  windowH <- map round $ lift $ C.getCanvasHeight stuff.canvas
+drawProtar (Protar protar) targetX stuff = do
+  windowH <- map round $ C.getCanvasHeight stuff.canvas
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
       maxSecs = pxToSecsVert (-100)
@@ -344,16 +335,16 @@ drawProtar (Protar protar) targetX = do
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
   -- Highway
-  setFillStyle "rgb(126,126,150)"
-  fillRect { x: toNumber targetX, y: 0.0, w: 182.0, h: toNumber windowH }
-  setFillStyle "rgb(184,185,204)"
+  setFillStyle "rgb(126,126,150)" stuff
+  fillRect { x: toNumber targetX, y: 0.0, w: 182.0, h: toNumber windowH } stuff
+  setFillStyle "rgb(184,185,204)" stuff
   for_ [0, 30, 60, 90, 120, 150, 180] $ \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
-  setFillStyle "black"
+    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
+  setFillStyle "black" stuff
   for_ [1, 31, 61, 91, 121, 151, 181] $ \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
+    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
-  setFillStyle "rgb(91,137,185)"
+  setFillStyle "rgb(91,137,185)" stuff
   let startsAsSolo = case Map.lookupLE minSecs protar.solo of
         Nothing           -> false
         Just { value: v } -> v
@@ -368,21 +359,21 @@ drawProtar (Protar protar) targetX = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
         when b1 $ for_ [0, 32, 62, 92, 122, 152] $ \offsetX -> do
-          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 28.0, h: toNumber $ y1 - y2 }
+          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 28.0, h: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
   zoomDesc protar.solo $ \secs _ -> do
-    drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs)
+    drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
   -- Beats
   zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
     let y = secsToPxVert secs
     case evt of
-      Bar      -> drawImage Image_highway_grybo_bar       (toNumber targetX) (toNumber y - 1.0)
-      Beat     -> drawImage Image_highway_protar_beat     (toNumber targetX) (toNumber y - 1.0)
-      HalfBeat -> drawImage Image_highway_protar_halfbeat (toNumber targetX) (toNumber y)
+      Bar      -> drawImage Image_highway_grybo_bar       (toNumber targetX) (toNumber y - 1.0) stuff
+      Beat     -> drawImage Image_highway_protar_beat     (toNumber targetX) (toNumber y - 1.0) stuff
+      HalfBeat -> drawImage Image_highway_protar_halfbeat (toNumber targetX) (toNumber y      ) stuff
   -- Target
-  drawImage Image_highway_protar_target (toNumber targetX) (toNumber targetY - 5.0)
+  drawImage Image_highway_protar_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Sustains
   let colors =
         [ { c: _.s6, x: 1  , strum: Image_gem_red_pro   , hopo: Image_gem_red_pro_hopo
@@ -423,18 +414,18 @@ drawProtar (Protar protar) targetX = do
                 then { light: "rgb(137,235,204)", normal: "rgb(138,192,175)", dark: "rgb(124,158,149)" }
                 else normalShades
               h = yend' - ystart' + 1
-          setFillStyle "black"
-          fillRect { x: toNumber $ targetX + offsetX + 11, y: toNumber ystart', w: 1.0, h: toNumber h }
-          fillRect { x: toNumber $ targetX + offsetX + 19, y: toNumber ystart', w: 1.0, h: toNumber h }
-          setFillStyle shades.light
-          fillRect { x: toNumber $ targetX + offsetX + 12, y: toNumber ystart', w: 1.0, h: toNumber h }
-          setFillStyle shades.normal
-          fillRect { x: toNumber $ targetX + offsetX + 13, y: toNumber ystart', w: 5.0, h: toNumber h }
-          setFillStyle shades.dark
-          fillRect { x: toNumber $ targetX + offsetX + 18, y: toNumber ystart', w: 1.0, h: toNumber h }
+          setFillStyle "black" stuff
+          fillRect { x: toNumber $ targetX + offsetX + 11, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX + 19, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          setFillStyle shades.light stuff
+          fillRect { x: toNumber $ targetX + offsetX + 12, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          setFillStyle shades.normal stuff
+          fillRect { x: toNumber $ targetX + offsetX + 13, y: toNumber ystart', w: 5.0, h: toNumber h } stuff
+          setFillStyle shades.dark stuff
+          fillRect { x: toNumber $ targetX + offsetX + 18, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           when sustaining do
-            setFillStyle shades.light
-            fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 29.0, h: 8.0 }
+            setFillStyle shades.light stuff
+            fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 29.0, h: 8.0 } stuff
         go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisColor of
           Just { key: secsStart, value: Sustain _ } -> do
             drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
@@ -467,8 +458,8 @@ drawProtar (Protar protar) targetX = do
             then case evt of
               SustainEnd -> pure unit
               _ -> do
-                setFillStyle $ shadeHit $ (futureSecs + 0.1) / 0.05
-                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 29.0, h: 8.0 }
+                setFillStyle (shadeHit $ (futureSecs + 0.1) / 0.05) stuff
+                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 29.0, h: 8.0 } stuff
             else pure unit
         else do
           let y = secsToPxVert secs
@@ -500,29 +491,28 @@ drawProtar (Protar protar) targetX = do
               fretImage 22 = Image_pro_fret_22
               fretImage _  = unsafeThrow "invalid fret number"
           case evt of
-            SustainEnd                               -> drawImage Image_sustain_end                                            (toNumber $ targetX + offsetX - 3) (toNumber   y      )
-            Note    (ProtarNote { noteType: Strum, fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute      else Image_gem_mute) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
-            Sustain (ProtarNote { noteType: Strum, fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute      else Image_gem_mute) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
-            Note    (ProtarNote { noteType: HOPO , fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
-            Sustain (ProtarNote { noteType: HOPO , fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+            SustainEnd                                                -> drawImage Image_sustain_end                                                      (toNumber $ targetX + offsetX - 3) (toNumber   y      ) stuff
+            Note    (ProtarNote { noteType: Strum, fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute      else Image_gem_mute)      (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
+            Sustain (ProtarNote { noteType: Strum, fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute      else Image_gem_mute)      (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
+            Note    (ProtarNote { noteType: HOPO , fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
+            Sustain (ProtarNote { noteType: HOPO , fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
             Note    (ProtarNote { noteType: Strum, fret: Just fret }) -> do
-              drawImage (if isEnergy then Image_gem_energy_pro      else strumImage) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
-              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+              drawImage (if isEnergy then Image_gem_energy_pro      else strumImage) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
+              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
             Sustain (ProtarNote { noteType: Strum, fret: Just fret }) -> do
-              drawImage (if isEnergy then Image_gem_energy_pro      else strumImage) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
-              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+              drawImage (if isEnergy then Image_gem_energy_pro      else strumImage) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
+              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
             Note    (ProtarNote { noteType: HOPO , fret: Just fret }) -> do
-              drawImage (if isEnergy then Image_gem_energy_pro_hopo else hopoImage ) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
-              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+              drawImage (if isEnergy then Image_gem_energy_pro_hopo else hopoImage ) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
+              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
             Sustain (ProtarNote { noteType: HOPO , fret: Just fret }) -> do
-              drawImage (if isEnergy then Image_gem_energy_pro_hopo else hopoImage ) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
-              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 )
+              drawImage (if isEnergy then Image_gem_energy_pro_hopo else hopoImage ) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
+              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
   pure $ targetX + 182 + _M
 
 drawDrums :: forall e. Drums -> Int -> Draw e Int
-drawDrums (Drums drums) targetX = do
-  stuff <- askStuff
-  windowH <- map round $ lift $ C.getCanvasHeight stuff.canvas
+drawDrums (Drums drums) targetX stuff = do
+  windowH <- map round $ C.getCanvasHeight stuff.canvas
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
       maxSecs = pxToSecsVert (-100)
@@ -533,16 +523,16 @@ drawDrums (Drums drums) targetX = do
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
   -- Highway
-  setFillStyle "rgb(126,126,150)"
-  fillRect { x: toNumber targetX, y: 0.0, w: 146.0, h: toNumber windowH }
-  setFillStyle "rgb(184,185,204)"
+  setFillStyle "rgb(126,126,150)" stuff
+  fillRect { x: toNumber targetX, y: 0.0, w: 146.0, h: toNumber windowH } stuff
+  setFillStyle "rgb(184,185,204)" stuff
   for_ [0, 36, 72, 108, 144] $ \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
-  setFillStyle "black"
+    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
+  setFillStyle "black" stuff
   for_ [1, 37, 73, 109, 145] $ \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH }
+    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
-  setFillStyle "rgb(91,137,185)"
+  setFillStyle "rgb(91,137,185)" stuff
   let startsAsSolo = case Map.lookupLE minSecs drums.solo of
         Nothing           -> false
         Just { value: v } -> v
@@ -557,21 +547,21 @@ drawDrums (Drums drums) targetX = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
         when b1 $ for_ [2, 38, 74, 110] $ \offsetX -> do
-          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 }
+          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
   zoomDesc drums.solo $ \secs _ -> do
-    drawImage Image_highway_drums_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs)
+    drawImage Image_highway_drums_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
   -- Beats
   zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
     let y = secsToPxVert secs
     case evt of
-      Bar      -> drawImage Image_highway_drums_bar      (toNumber targetX) (toNumber y - 1.0)
-      Beat     -> drawImage Image_highway_drums_beat     (toNumber targetX) (toNumber y - 1.0)
-      HalfBeat -> drawImage Image_highway_drums_halfbeat (toNumber targetX) (toNumber y)
+      Bar      -> drawImage Image_highway_drums_bar      (toNumber targetX) (toNumber y - 1.0) stuff
+      Beat     -> drawImage Image_highway_drums_beat     (toNumber targetX) (toNumber y - 1.0) stuff
+      HalfBeat -> drawImage Image_highway_drums_halfbeat (toNumber targetX) (toNumber y      ) stuff
   -- Target
-  drawImage Image_highway_drums_target (toNumber targetX) (toNumber targetY - 5.0)
+  drawImage Image_highway_drums_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Notes
   zoomDesc drums.notes $ \secs evts -> do
     let futureSecs = secToNum $ secs - stuff.time
@@ -582,21 +572,21 @@ drawDrums (Drums drums) targetX = do
           then do
             let opacity = (futureSecs + 0.1) / 0.05
                 kick = do
-                  setFillStyle $ "rgba(231, 196, 112, " <> show opacity <> ")"
-                  fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY - 5, w: 143.0, h: 1.0 }
-                  fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY + 4, w: 143.0, h: 1.0 }
+                  setFillStyle ("rgba(231, 196, 112, " <> show opacity <> ")") stuff
+                  fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY - 5, w: 143.0, h: 1.0 } stuff
+                  fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY + 4, w: 143.0, h: 1.0 } stuff
                 red = do
-                  setFillStyle $ "rgba(255, 188, 188, " <> show opacity <> ")"
-                  fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
+                  setFillStyle ("rgba(255, 188, 188, " <> show opacity <> ")") stuff
+                  fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
                 yellow = do
-                  setFillStyle $ "rgba(255, 244, 151, " <> show opacity <> ")"
-                  fillRect { x: toNumber $ targetX + 38, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
+                  setFillStyle ("rgba(255, 244, 151, " <> show opacity <> ")") stuff
+                  fillRect { x: toNumber $ targetX + 38, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
                 blue = do
-                  setFillStyle $ "rgba(190, 198, 255, " <> show opacity <> ")"
-                  fillRect { x: toNumber $ targetX + 74, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
+                  setFillStyle ("rgba(190, 198, 255, " <> show opacity <> ")") stuff
+                  fillRect { x: toNumber $ targetX + 74, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
                 green = do
-                  setFillStyle $ "rgba(190, 255, 192, " <> show opacity <> ")"
-                  fillRect { x: toNumber $ targetX + 110, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 }
+                  setFillStyle ("rgba(190, 255, 192, " <> show opacity <> ")") stuff
+                  fillRect { x: toNumber $ targetX + 110, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
             for_ evts $ \e -> case e of
               Kick -> kick
               Red  -> red
@@ -614,14 +604,14 @@ drawDrums (Drums drums) targetX = do
               Just {value: bool} -> bool
               Nothing            -> false
         for_ evts $ \e -> case e of
-          Kick -> drawImage (if isEnergy then Image_gem_kick_energy   else Image_gem_kick         ) (toNumber $ targetX + 1  ) (toNumber $ y - 3)
-          Red  -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_red          ) (toNumber $ targetX + 1  ) (toNumber $ y - 5)
-          YTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_yellow       ) (toNumber $ targetX + 37 ) (toNumber $ y - 5)
-          YCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) (toNumber $ targetX + 37 ) (toNumber $ y - 8)
-          BTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_blue         ) (toNumber $ targetX + 73 ) (toNumber $ y - 5)
-          BCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal  ) (toNumber $ targetX + 73 ) (toNumber $ y - 8)
-          GTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_green        ) (toNumber $ targetX + 109) (toNumber $ y - 5)
-          GCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) (toNumber $ targetX + 109) (toNumber $ y - 8)
+          Kick -> drawImage (if isEnergy then Image_gem_kick_energy   else Image_gem_kick         ) (toNumber $ targetX + 1  ) (toNumber $ y - 3) stuff
+          Red  -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_red          ) (toNumber $ targetX + 1  ) (toNumber $ y - 5) stuff
+          YTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_yellow       ) (toNumber $ targetX + 37 ) (toNumber $ y - 5) stuff
+          YCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) (toNumber $ targetX + 37 ) (toNumber $ y - 8) stuff
+          BTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_blue         ) (toNumber $ targetX + 73 ) (toNumber $ y - 5) stuff
+          BCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal  ) (toNumber $ targetX + 73 ) (toNumber $ y - 8) stuff
+          GTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_green        ) (toNumber $ targetX + 109) (toNumber $ y - 5) stuff
+          GCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) (toNumber $ targetX + 109) (toNumber $ y - 8) stuff
   -- TODO: draw all kicks before starting hand gems
   -- Return targetX of next track
   pure $ targetX + 146 + _M
@@ -660,9 +650,8 @@ pitchList = do
 data HackBool = False | True
 
 drawProKeys :: forall e. ProKeys -> Int -> Draw e Int
-drawProKeys (ProKeys pk) targetX = do
-  stuff <- askStuff
-  windowH <- map round $ lift $ C.getCanvasHeight stuff.canvas
+drawProKeys (ProKeys pk) targetX stuff = do
+  windowH <- map round $ C.getCanvasHeight stuff.canvas
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
       maxSecs = pxToSecsVert (-100)
@@ -681,8 +670,8 @@ drawProKeys (ProKeys pk) targetX = do
               WhiteKey      -> { color: "rgb(126,126,150)", width: 11 }
               WhiteKeyShort -> { color: "rgb(126,126,150)", width: 10 }
               BlackKey      -> { color: "rgb(105,105,129)", width: 11 }
-        setFillStyle params.color
-        fillRect { x: toNumber xpos, y: 0.0, w: toNumber params.width, h: toNumber windowH }
+        setFillStyle params.color stuff
+        fillRect { x: toNumber xpos, y: 0.0, w: toNumber params.width, h: toNumber windowH } stuff
         drawHighway (xpos + params.width) chunks
   drawHighway targetX pkHighway
   -- Solo highway
@@ -705,8 +694,8 @@ drawProKeys (ProKeys pk) targetX = do
         case params.color of
           Nothing -> pure unit
           Just c  -> do
-            setFillStyle c
-            fillRect { x: toNumber xpos, y: toNumber y1, w: toNumber params.width, h: toNumber $ y2 - y1 }
+            setFillStyle c stuff
+            fillRect { x: toNumber xpos, y: toNumber y1, w: toNumber params.width, h: toNumber $ y2 - y1 } stuff
         drawSoloHighway (xpos + params.width) y1 y2 chunks
       drawSolos L.Nil            = pure unit
       drawSolos (L.Cons _ L.Nil) = pure unit
@@ -716,18 +705,18 @@ drawProKeys (ProKeys pk) targetX = do
   drawSolos soloEdges
   -- Solo edges
   zoomDesc pk.solo $ \secs _ -> do
-    drawImage Image_highway_prokeys_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs)
+    drawImage Image_highway_prokeys_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
   -- Beats
   zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
     let y = secsToPxVert secs
     case evt of
-      Bar      -> drawImage Image_highway_prokeys_bar      (toNumber targetX) (toNumber y - 1.0)
-      Beat     -> drawImage Image_highway_prokeys_beat     (toNumber targetX) (toNumber y - 1.0)
-      HalfBeat -> drawImage Image_highway_prokeys_halfbeat (toNumber targetX) (toNumber y)
+      Bar      -> drawImage Image_highway_prokeys_bar      (toNumber targetX) (toNumber y - 1.0) stuff
+      Beat     -> drawImage Image_highway_prokeys_beat     (toNumber targetX) (toNumber y - 1.0) stuff
+      HalfBeat -> drawImage Image_highway_prokeys_halfbeat (toNumber targetX) (toNumber y      ) stuff
   -- Target
-  drawImage Image_highway_prokeys_target (toNumber targetX) (toNumber targetY - 5.0)
+  drawImage Image_highway_prokeys_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Ranges
-  setFillStyle "rgba(0,0,0,0.3)"
+  setFillStyle "rgba(0,0,0,0.3)" stuff
   let rangeEdges
         = L.fromFoldable
         $ cons (Tuple minSecs $ map _.value $ Map.lookupLE minSecs pk.ranges)
@@ -748,7 +737,7 @@ drawProKeys (ProKeys pk) targetX = do
               RangeF -> [{x: toNumber $ targetX + 2, y: y, w: 56.0, h: h}, {x: toNumber $ targetX + 247, y: y, w: 35.0, h: h}]
               RangeG -> [{x: toNumber $ targetX + 2, y: y, w: 78.0, h: h}, {x: toNumber $ targetX + 270, y: y, w: 12.0, h: h}]
               RangeA -> [{x: toNumber $ targetX + 2, y: y, w: 100.0, h: h}]
-            in for_ rects fillRect
+            in for_ rects $ \rect -> fillRect rect stuff
         drawRanges rest
   drawRanges rangeEdges
   -- Sustains
@@ -770,18 +759,18 @@ drawProKeys (ProKeys pk) targetX = do
                   else { light: "rgb(199,134,218)", normal: "rgb(184,102,208)", dark: "rgb(178, 86,204)" }
               h = yend' - ystart' + 1
               offsetX' = offsetX + if isBlack then 0 else 0
-          setFillStyle "black"
-          fillRect { x: toNumber $ targetX + offsetX' + 2, y: toNumber ystart', w: 1.0, h: toNumber h }
-          fillRect { x: toNumber $ targetX + offsetX' + 8, y: toNumber ystart', w: 1.0, h: toNumber h }
-          setFillStyle shades.light
-          fillRect { x: toNumber $ targetX + offsetX' + 3, y: toNumber ystart', w: 1.0, h: toNumber h }
-          setFillStyle shades.normal
-          fillRect { x: toNumber $ targetX + offsetX' + 4, y: toNumber ystart', w: 3.0, h: toNumber h }
-          setFillStyle shades.dark
-          fillRect { x: toNumber $ targetX + offsetX' + 7, y: toNumber ystart', w: 1.0, h: toNumber h }
+          setFillStyle "black" stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 2, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 8, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          setFillStyle shades.light stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 3, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          setFillStyle shades.normal stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 4, y: toNumber ystart', w: 3.0, h: toNumber h } stuff
+          setFillStyle shades.dark stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 7, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           when sustaining do
-            setFillStyle shades.light
-            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 }
+            setFillStyle shades.light stuff
+            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 } stuff
         go False (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisPitch of
           Just { key: secsStart, value: Sustain _ } -> do
             drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
@@ -814,8 +803,8 @@ drawProKeys (ProKeys pk) targetX = do
             then case evt of
               SustainEnd -> pure unit
               _ -> do
-                setFillStyle $ "rgba(227,193,238," <> show ((futureSecs + 0.1) / 0.05) <> ")"
-                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 }
+                setFillStyle ("rgba(227,193,238," <> show ((futureSecs + 0.1) / 0.05) <> ")") stuff
+                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 } stuff
             else pure unit
         else do
           let y = secsToPxVert secs
@@ -826,9 +815,9 @@ drawProKeys (ProKeys pk) targetX = do
                 then if isBlack then Image_gem_blackkey_energy else Image_gem_whitekey_energy
                 else if isBlack then Image_gem_blackkey        else Image_gem_whitekey
           case evt of
-            SustainEnd   -> drawImage Image_sustain_key_end (toNumber $ targetX + offsetX - if isBlack then 1 else 0) (toNumber   y    )
-            Note    (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5)
-            Sustain (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5)
+            SustainEnd          -> drawImage Image_sustain_key_end (toNumber $ targetX + offsetX - if isBlack then 1 else 0) (toNumber   y    ) stuff
+            Note    (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5) stuff
+            Sustain (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5) stuff
   pure $ targetX + 282 + _M
 
 zoomAscDoPadding :: forall k a m. (Ord k, Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
@@ -866,9 +855,8 @@ secToNum :: Seconds -> Number
 secToNum (Seconds n) = n
 
 drawVocal :: forall e. Vocal -> Int -> Draw e Int
-drawVocal (Vocal v) targetY = do
-  stuff <- askStuff
-  windowW <- map round $ lift $ C.getCanvasWidth stuff.canvas
+drawVocal (Vocal v) targetY stuff = do
+  windowW <- map round $ C.getCanvasWidth stuff.canvas
   let pxToSecsHoriz px = stuff.pxToSecsHoriz px + stuff.time
       secsToPxHoriz secs = stuff.secsToPxHoriz $ secs - stuff.time
       minSecs = pxToSecsHoriz (-100)
@@ -878,12 +866,12 @@ drawVocal (Vocal v) targetY = do
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = zoomAscDoPadding minSecs maxSecs
       targetX = secsToPxHoriz stuff.time
-  setFillStyle "rgba(0,0,0,0.6)"
-  fillRect { x: 0.0, y: toNumber targetY + 25.0, w: toNumber windowW, h: 130.0 }
-  setFillStyle "rgba(0,27,89,0.85)"
-  fillRect { x: 0.0, y: toNumber targetY + 155.0, w: toNumber windowW, h: 25.0 }
-  setFillStyle "rgba(87,55,0,0.85)"
-  fillRect { x: 0.0, y: toNumber targetY, w: toNumber windowW, h: 25.0 }
+  setFillStyle "rgba(0,0,0,0.6)" stuff
+  fillRect { x: 0.0, y: toNumber targetY + 25.0, w: toNumber windowW, h: 130.0 } stuff
+  setFillStyle "rgba(0,27,89,0.85)" stuff
+  fillRect { x: 0.0, y: toNumber targetY + 155.0, w: toNumber windowW, h: 25.0 } stuff
+  setFillStyle "rgba(87,55,0,0.85)" stuff
+  fillRect { x: 0.0, y: toNumber targetY, w: toNumber windowW, h: 25.0 } stuff
   -- Draw note pitches
   -- TODO: draw all pitch lines before talkies
   -- TODO: draw harmony unisons better
@@ -899,32 +887,32 @@ drawVocal (Vocal v) targetY = do
             _ -> unsafeThrow "not a valid range shift"
           _ -> unsafeThrow "not a valid range shift"
       pitchToY p = toNumber targetY + slide thisRange.min thisRange.max (toNumber p) 143.0 37.0
-      drawLines :: Maybe (Tuple Seconds Int) -> L.List (Tuple Seconds VocalNote) -> Draw e Unit
+      drawLines :: Maybe (Tuple Seconds Int) -> L.List (Tuple Seconds VocalNote) -> Eff (canvas :: C.CANVAS | e) Unit
       drawLines (Just (Tuple t1 p1)) evts@(L.Cons (Tuple t2 (VocalStart lyric (Just p2))) _) | lyric == "+" || lyric == "+$" = do
         -- draw line from (t1,p1) to (t2,p2)
-        onContext $ \ctx -> C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p1)
-        onContext $ \ctx -> C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p2)
+        onContext (\ctx -> C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p1)) stuff
+        onContext (\ctx -> C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p2)) stuff
         drawLines Nothing evts
       drawLines (Just _) evts = drawLines Nothing evts -- ignore last note-off because no slide
       drawLines Nothing (L.Cons (Tuple t1 (VocalStart _ (Just p))) (L.Cons (Tuple t2 VocalEnd) rest)) = do
         -- draw line from (t1,p) to (t2,p)
-        onContext $ \ctx -> C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p)
-        onContext $ \ctx -> C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p)
+        onContext (\ctx -> C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p)) stuff
+        onContext (\ctx -> C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p)) stuff
         drawLines (Just (Tuple t2 p)) rest
       drawLines Nothing (L.Cons (Tuple t1 (VocalStart _ (Just p))) rest@(L.Cons (Tuple t2 (VocalStart _ _)) _)) = do
         -- draw line from (t1,p) to (t2,p)
         -- this case only happens in sloppy vox charts with no gap between notes
-        onContext $ \ctx -> C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p)
-        onContext $ \ctx -> C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p)
+        onContext (\ctx -> C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p)) stuff
+        onContext (\ctx -> C.lineTo ctx (toNumber $ secsToPxHoriz t2) (pitchToY p)) stuff
         drawLines (Just (Tuple t2 p)) rest
       drawLines Nothing (L.Cons (Tuple t1 (VocalStart _ Nothing)) (L.Cons (Tuple t2 VocalEnd) rest)) = do
         -- draw talky from t1 to t2
-        fillRect { x: toNumber $ secsToPxHoriz t1, y: toNumber targetY + 25.0, w: toNumber $ secsToPxHoriz t2 - secsToPxHoriz t1, h: 130.0 }
+        fillRect { x: toNumber $ secsToPxHoriz t1, y: toNumber targetY + 25.0, w: toNumber $ secsToPxHoriz t2 - secsToPxHoriz t1, h: 130.0 } stuff
         drawLines Nothing rest
       drawLines Nothing (L.Cons (Tuple t1 (VocalStart _ Nothing)) rest@(L.Cons (Tuple t2 (VocalStart _ _)) _)) = do
         -- draw talky from t1 to t2
         -- this case only happens in sloppy vox charts with no gap between notes
-        fillRect { x: toNumber $ secsToPxHoriz t1, y: toNumber targetY + 25.0, w: toNumber $ secsToPxHoriz t2 - secsToPxHoriz t1, h: 130.0 }
+        fillRect { x: toNumber $ secsToPxHoriz t1, y: toNumber targetY + 25.0, w: toNumber $ secsToPxHoriz t2 - secsToPxHoriz t1, h: 130.0 } stuff
         drawLines Nothing rest
       drawLines Nothing (L.Cons (Tuple _ (VocalStart _ _)) L.Nil) = pure unit -- off-screen
       drawLines _ L.Nil = pure unit
@@ -934,15 +922,15 @@ drawVocal (Vocal v) targetY = do
         , { part: v.harm3, line: "rgb(225,148,22)", talky: "rgba(225,148,22,0.6)", width: 5.0 }
         , { part: v.harm1, line: "rgb(46,229,223)", talky: "rgba(46,229,223,0.6)", width: 4.0 }
         ]
-  onContext $ C.setLineCap C.Round
+  onContext (C.setLineCap C.Round) stuff
   for_ lineParts $ \o -> do
-    onContext C.beginPath
-    onContext $ C.setStrokeStyle o.line
-    onContext $ C.setLineWidth o.width
-    onContext $ C.setFillStyle o.talky
+    onContext C.beginPath stuff
+    onContext (C.setStrokeStyle o.line) stuff
+    onContext (C.setLineWidth o.width) stuff
+    onContext (C.setFillStyle o.talky) stuff
     drawLines Nothing $ L.fromFoldable $ Map.doTupleArray (zoomAsc o.part)
-    onContext $ C.stroke
-    onContext $ C.closePath
+    onContext C.stroke stuff
+    onContext C.closePath stuff
   -- Draw text
   let lyricParts =
         [ { part: v.harm1, y: targetY + 174, isHarm3: false }
@@ -973,18 +961,20 @@ drawVocal (Vocal v) targetY = do
         :: Number
         -> Number
         -> L.List {time :: Seconds, lyric :: String, isTalky :: Boolean}
-        -> Draw e Unit
+        -> Eff (canvas :: C.CANVAS | e) Unit
       drawLyrics _    _     L.Nil           = pure unit
       drawLyrics minX textY (L.Cons o rest) = do
         let textX = max minX $ toNumber $ secsToPxHoriz o.time
-        onContext $ C.setFont $ if o.isTalky
+        onContext (C.setFont $ if o.isTalky
           then "bold italic 17px sans-serif"
           else "bold 17px sans-serif"
-        setFillStyle $ case Map.lookupLE o.time v.energy of
+          ) stuff
+        setFillStyle (case Map.lookupLE o.time v.energy of
           Nothing -> "white"
           Just { value: v } -> if v then "yellow" else "white"
-        metric <- measureText o.lyric
-        onContext $ \ctx -> C.fillText ctx o.lyric textX textY
+          ) stuff
+        metric <- measureText o.lyric stuff
+        onContext (\ctx -> C.fillText ctx o.lyric textX textY) stuff
         drawLyrics (textX + metric.width + 5.0) textY rest
       mergeTime
         :: forall a t. (Ord t)
@@ -1004,20 +994,20 @@ drawVocal (Vocal v) targetY = do
   -- Draw percussion notes
   zoomDesc v.percussion $ \t (_ :: Unit) -> if t > stuff.time
     then do
-      setFillStyle "#d9d9d9"
-      fillCircle { x: toNumber $ secsToPxHoriz t, y: toNumber targetY + 90.0, r: 11.0 }
-      setFillStyle "#00b9c9"
-      fillCircle { x: toNumber $ secsToPxHoriz t, y: toNumber targetY + 90.0, r: 9.0 }
+      setFillStyle "#d9d9d9" stuff
+      fillCircle { x: toNumber $ secsToPxHoriz t, y: toNumber targetY + 90.0, r: 11.0 } stuff
+      setFillStyle "#00b9c9" stuff
+      fillCircle { x: toNumber $ secsToPxHoriz t, y: toNumber targetY + 90.0, r: 9.0 } stuff
     else do
       let opacity = (secToNum (t - stuff.time) + 0.1) / 0.05
       when (opacity > 0.0) $ do
-        setFillStyle $ "rgba(255, 255, 255, " <> show opacity <> ")"
-        fillCircle { x: toNumber $ secsToPxHoriz stuff.time, y: toNumber targetY + 90.0, r: 11.0 }
+        setFillStyle ("rgba(255, 255, 255, " <> show opacity <> ")") stuff
+        fillCircle { x: toNumber $ secsToPxHoriz stuff.time, y: toNumber targetY + 90.0, r: 11.0 } stuff
   -- Draw phrase ends
-  setFillStyle "#bbb"
+  setFillStyle "#bbb" stuff
   zoomDesc v.phrases $ \t (_ :: Unit) -> do
-    fillRect { x: toNumber (secsToPxHoriz t) - 1.0, y: toNumber targetY + 25.0, w: 3.0, h: 130.0 }
+    fillRect { x: toNumber (secsToPxHoriz t) - 1.0, y: toNumber targetY + 25.0, w: 3.0, h: 130.0 } stuff
   -- Draw target line
-  setFillStyle "#ddd"
-  fillRect { x: toNumber targetX - 1.0, y: toNumber targetY + 25.0, w: 3.0, h: 130.0 }
+  setFillStyle "#ddd" stuff
+  fillRect { x: toNumber targetX - 1.0, y: toNumber targetY + 25.0, w: 3.0, h: 130.0 } stuff
   pure $ targetY + 180 + _M

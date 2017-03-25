@@ -12,15 +12,10 @@ import Data.Either
 import Control.Monad.Eff.Ref
 import Data.Array
 import RequestAnimationFrame
-import Data.Date
 import Data.Time.Duration
 import Data.Int (round, toNumber)
-import Data.Ord (min, max)
-import Control.Monad.Reader.Trans (runReaderT)
 import Data.List as L
-import Control.Apply ((*>))
 import Control.MonadPlus (guard)
-import Math (abs)
 import Control.Monad.Eff.Now
 import Data.DateTime.Instant
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
@@ -63,7 +58,7 @@ main = do
                     Paused o -> o.pausedSongTime
                     Playing o -> o.startedSongTime + convertDuration ms - o.startedPageTime
                   continue app' = do
-                    runReaderT draw
+                    draw
                       { time: nowTheory
                       , app: app'
                       , song: song
