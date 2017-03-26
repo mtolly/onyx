@@ -1,13 +1,8 @@
 metadata:
   title: Spark
-  artist: "Hiromi: The Trio Project" # not sure of punct/caps
+  file-include: ../../../albums/spark.yml
   author: Onyxite
-  genre: jazz
-  subgenre: contemporary
-  album: Spark
-  year: 2016
   track-number: 1
-  file-album-art: cover.jpg
   difficulty:
     band: 7
     drums: 7
@@ -16,18 +11,14 @@ metadata:
     bass: 3
   comments:
   - All instruments have overdrive/unison.
-  autogen-theme: SynthPop
   drum-kit: HardRockKit
   preview-start: prc_chorus_1
   rating: FamilyFriendly
   key: A
 audio:
-  youtube:
-    file-path: audio-youtube.wav
-    commands:
-    - ../../../scripts/youtube 37XkrrjAyNQ 140
-    md5: 1e48a92e1f54868d23db222adc2043ff
-    frames: 24009728
+  album-track:
+    md5: 6719436a5a50baacf729423fad25c566
+    frames: 24002160
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
@@ -42,7 +33,7 @@ plans:
     song:
       gain:
       - 1.1
-      - pad: [4.797, youtube]
+      - pad: [4.823, album-track]
 instruments:
   drums: true
   pro-keys: true
@@ -62,12 +53,5 @@ targets:
     2x-bass-pedal: true
     song-id: 1660200010
     version: 1
-  rb2:
-    game: rb2
-    keys: guitar
-  rb2-2x:
-    game: rb2
-    2x-bass-pedal: true
-    keys: guitar
   ps:
     game: ps
