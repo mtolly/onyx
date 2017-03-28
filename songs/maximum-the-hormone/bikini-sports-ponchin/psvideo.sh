@@ -4,6 +4,7 @@ set -u
 
 # Downloads the music video for use as Phase Shift background.
 
+# TODO fix because copyright claim...
 rm -f video.avi video.webm
 youtube-dl "https://www.youtube.com/watch?v=Xbvz8v0fHWA" -f 43 -o video.webm
 ffmpeg -ss 3.559 -i video.webm -an -qscale:v 5 video.avi

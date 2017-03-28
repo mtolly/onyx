@@ -848,6 +848,7 @@ jsonRecord "TargetRB2" eosr $ do
 jsonRecord "TargetPS" eosr $ do
   opt "ps_Plan" "plan" [t| Maybe T.Text |] [e| Nothing |]
   opt "ps_Label" "label" [t| Maybe T.Text |] [e| Nothing |]
+  opt "ps_FileVideo" "file-video" [t| Maybe FilePath |] [e| Nothing |]
 
 data Target
   = RB3    TargetRB3

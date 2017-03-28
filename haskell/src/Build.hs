@@ -1252,6 +1252,7 @@ shakeBuild audioDirs yamlPath buildables = do
               , (addPlan "ps", PS TargetPS
                 { ps_Plan = maybePlan
                 , ps_Label = Nothing
+                , ps_FileVideo = Nothing
                 })
               ]
 
@@ -1285,6 +1286,10 @@ shakeBuild audioDirs yamlPath buildables = do
                 (mixMode pv)
                 (getAudioLength planName)
               lift $ saveMIDI out $ fmap snd output
+
+            dir </> "ps/video.avi" ≡> \out -> case ps_FileVideo ps of
+              Nothing  -> fatal "requested Phase Shift video background, but target doesn't have one"
+              Just vid -> lift $ copyFile' vid out
 
             dir </> "ps/song.ini" ≡> \out -> do
               song <- shakeMIDI $ dir </> "ps/notes.mid"
@@ -1332,6 +1337,7 @@ shakeBuild audioDirs yamlPath buildables = do
                     PSM.PS (PSM.PSMessage _ PSM.TapNotes _) -> True
                     _                                       -> False
                   in any (any isTap) [gtr, bass]
+                , FoF.video            = const "video.avi" <$> ps_FileVideo ps
                 }
             dir </> "ps/drums.ogg"   %> buildAudio (Input $ planDir </> "drums.wav"       )
             dir </> "ps/drums_1.ogg" %> buildAudio (Input $ planDir </> "kick.wav"        )
@@ -1374,6 +1380,7 @@ shakeBuild audioDirs yamlPath buildables = do
                   MoggPlan{..} -> not $ null _moggCrowd
                   _            -> False
                 ]
+              , ["video.avi" | isJust $ ps_FileVideo ps]
               ]
             dir </> "ps.zip" %> \out -> do
               let d = dir </> "ps"

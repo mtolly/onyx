@@ -47,6 +47,7 @@ data Song = Song
   , starPowerNote    :: Maybe Int -- ^ can be @star_power_note@ or @multiplier_note@
   , track            :: Maybe Int
   , sysexSlider      :: Maybe Bool
+  , video            :: Maybe FilePath
   } deriving (Eq, Ord, Show, Read)
 
 loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
@@ -91,6 +92,7 @@ loadSong fp = do
       starPowerNote = int "star_power_note" <|> int "multiplier_note"
       track = int "track"
       sysexSlider = bool "sysex_slider"
+      video = fmap T.unpack $ str "video"
 
   return Song{..}
 
@@ -132,6 +134,7 @@ saveSong fp Song{..} = writePSIni fp $
     shown "multiplier_note" starPowerNote
     shown "track" track
     shown "sysex_slider" sysexSlider
+    str "video" $ fmap T.pack video
 
 writePSIni :: (MonadIO m) => FilePath -> Ini -> m ()
 writePSIni fp (Ini hmap) = let

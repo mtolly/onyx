@@ -45,3 +45,4 @@ targets:
     version: 1
   ps:
     game: ps
+    file-video: video.avi

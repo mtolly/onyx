@@ -48,8 +48,8 @@ import           System.FilePath                (takeDirectory, takeFileName,
                                                  (<.>), (</>))
 import           X360                           (rb3pkg)
 
-standardTargets :: Maybe (JSONEither Integer T.Text) -> Maybe Integer -> Bool -> KeysRB2 -> HM.HashMap T.Text Target
-standardTargets songID version is2x krb2 = let
+standardTargets :: Maybe (JSONEither Integer T.Text) -> Maybe Integer -> Bool -> KeysRB2 -> Maybe FilePath -> HM.HashMap T.Text Target
+standardTargets songID version is2x krb2 vid = let
   targets1x =
     [ ("rb3", RB3 TargetRB3
         { rb3_Plan = Nothing
@@ -71,6 +71,7 @@ standardTargets songID version is2x krb2 = let
     , ("ps", PS TargetPS
         { ps_Plan = Nothing
         , ps_Label = Nothing
+        , ps_FileVideo = vid
         }
       )
     ]
@@ -197,6 +198,12 @@ importFoF krb2 src dest = do
       (RBFile.rawTracks $ RBFile.s_tracks raw)
     }
 
+  vid <- case FoF.video song of
+    Nothing -> return Nothing
+    Just v -> inside "copying PS video file to onyx project" $ do
+      liftIO $ Dir.copyFile (src </> v) (dest </> "video.avi")
+      return $ Just "video.avi"
+
   liftIO $ Y.encodeFile (dest </> "song.yml") SongYaml
     { _metadata = Metadata
       { _title        = FoF.name song
@@ -274,7 +281,7 @@ importFoF krb2 src dest = do
       , _crowd        = audioExpr crowdAudio
       , _planComments = []
       }
-    , _targets = standardTargets Nothing Nothing True krb2
+    , _targets = standardTargets Nothing Nothing True krb2 vid
     , _instruments = Instruments
       { _hasDrums   = elem "PART DRUMS" trackNames && FoF.diffDrums song /= Just (-1)
       , _hasGuitar  = elem "PART GUITAR" trackNames && FoF.diffGuitar song /= Just (-1)
@@ -531,7 +538,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       songID = fmap JSONEither $ case D.songId pkg of
         Left  i -> guard (i /= 0) >> Just (Left i)
         Right k -> Just $ Right k
-      in standardTargets songID (songID >> Just (D.version pkg)) is2x krb2
+      in standardTargets songID (songID >> Just (D.version pkg)) is2x krb2 Nothing
     , _instruments = let
       diffMap :: Map.Map T.Text Integer
       diffMap = D2.fromDict $ D.rank pkg
