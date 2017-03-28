@@ -19,6 +19,7 @@ metadata:
   comments:
   - "All instruments have overdrive/unison."
   autogen-theme: PsychJamRock
+  rating: FF
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com

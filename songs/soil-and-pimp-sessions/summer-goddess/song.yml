@@ -14,6 +14,7 @@ metadata:
   comments:
   - All instruments have overdrive/unison.
   key: C
+  rating: SR
 audio:
   album-track:
     md5: e96fc8412693ac582bcd3aa21fcfbd4e

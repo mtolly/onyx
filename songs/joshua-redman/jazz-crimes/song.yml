@@ -19,6 +19,7 @@ metadata:
     band: 6
   comments:
   - "All instruments have overdrive/unison."
+  rating: FF
 instruments:
   drums: true
   guitar: true

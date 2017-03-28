@@ -14,6 +14,7 @@ metadata:
   - "All instruments have overdrive/unison."
   key: E
   autogen-theme: SynthPop
+  rating: FF
 audio:
   album-track:
     md5: 0f025d8ca6fb648c2ecef0830f280959

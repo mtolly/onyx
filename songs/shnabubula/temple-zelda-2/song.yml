@@ -13,6 +13,7 @@ metadata:
   comments:
   - "All instruments have overdrive/unison."
   key: G
+  rating: FF
 audio:
   album:
     md5: 019d6ca36ef0e10841404568fa275df6
