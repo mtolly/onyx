@@ -50,7 +50,9 @@ Dramatic up is only available on Running - on other intensities it turns into a 
 On Flying, non-sustained obstacle arrows turn into colors
 On Walking, all obstacle arrows turn into colors
 
-Cache on Mac is located at "~/Library/Application Support/MelodyEscape/TracksCache/"
+Cache is located at:
+- Mac: "~/Library/Application Support/MelodyEscape/TracksCache/"
+- Linux: "~/.config/MelodyEscape/TracksCache/"
 Files inside take the following names:
 EP_1_filenamehere.track (energy peaks, low density, used on relaxing/medium)
 EP_2_filenamehere.track (energy peaks, regular density, used on intense)
