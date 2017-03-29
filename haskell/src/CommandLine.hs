@@ -527,7 +527,9 @@ commands =
             GameRB2 -> ["rb2-2x", "rb2"]
           let con = "gen/target" </> T.unpack targetName </> conSuffix
           out <- outputFile opts $ do
-            fpathAbs <- liftIO $ Dir.makeAbsolute fpath
+            fpathAbs <- liftIO $ Dir.makeAbsolute $ case ftype of
+              FilePS -> takeDirectory fpath
+              _      -> fpath
             return $ dropTrailingPathSeparator fpathAbs <> "_" <> conSuffix
           shakeBuild [tmp] (tmp </> "song.yml") [con]
           liftIO $ Dir.copyFile (tmp </> con) out

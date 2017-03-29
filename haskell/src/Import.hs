@@ -35,6 +35,7 @@ import           PrettyDTA                      (C3DTAComments (..),
                                                  DTASingle (..), readDTASingle,
                                                  readRB3DTA, writeDTASingle)
 import qualified RockBand.Drums                 as RBDrums
+import qualified RockBand.Vocals                as RBVox
 import qualified RockBand.File                  as RBFile
 import           RockBand.PhaseShiftMessage     (discardPS)
 import           Scripts                        (loadMIDI)
@@ -174,6 +175,12 @@ importFoF krb2 src dest = do
         , _planPans = []
         , _planVols = []
         }
+      hasVocalNotes = not $ null $ do
+        trk <- [RBFile.onyxPartVocals, RBFile.onyxHarm1, RBFile.onyxHarm2, RBFile.onyxHarm3]
+        RBVox.Note _ _ <- toList $ discardPS $ trk $ RBFile.s_tracks parsed
+        return ()
+
+  when pad $ warn $ "Padding FoF/PS song by " ++ show (padDelay :: Int) ++ " seconds due to early start."
 
   let toTier = fmap $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
 
@@ -190,6 +197,11 @@ importFoF krb2 src dest = do
         []    -> id
         d : _ -> (U.setTrackName "PART DRUMS_2X" d :)
     else return id
+  let has2x = or
+        [ mid2x
+        , not $ null $ RBFile.onyxPartDrums2x $ RBFile.s_tracks parsed
+        , elem RBDrums.Kick2x $ discardPS $ RBFile.onyxPartDrums $ RBFile.s_tracks parsed
+        ]
 
   raw <- RBFile.readMIDIFile' midi
   liftIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI raw
@@ -281,7 +293,7 @@ importFoF krb2 src dest = do
       , _crowd        = audioExpr crowdAudio
       , _planComments = []
       }
-    , _targets = standardTargets Nothing Nothing True krb2 vid
+    , _targets = standardTargets Nothing Nothing has2x krb2 vid
     , _instruments = Instruments
       { _hasDrums   = elem "PART DRUMS" trackNames && FoF.diffDrums song /= Just (-1)
       , _hasGuitar  = elem "PART GUITAR" trackNames && FoF.diffGuitar song /= Just (-1)
@@ -294,7 +306,7 @@ importFoF krb2 src dest = do
       , _hasProBass =
         (elem "PART REAL_BASS" trackNames && FoF.diffBassReal song /= Just (-1)) ||
         (elem "PART REAL_BASS_22" trackNames && FoF.diffBassReal22 song /= Just (-1))
-      , _hasVocal   = if elem "PART VOCALS" trackNames && FoF.diffVocals song /= Just (-1)
+      , _hasVocal   = if elem "PART VOCALS" trackNames && FoF.diffVocals song /= Just (-1) && hasVocalNotes && FoF.charter song /= Just "Sodamlazy"
         then if elem "HARM2" trackNames && FoF.diffVocalsHarm song /= Just (-1)
           then if elem "HARM3" trackNames
             then Vocal3
