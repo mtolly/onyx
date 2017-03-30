@@ -14,14 +14,9 @@ metadata:
   author: Onyxite
   comments:
   - >-
-    The drums are performed by 2 or 3 percussionists,
-    so I did my best to arrange it into a playable drumkit part.
-    Ghost notes are everywhere and they are often difficult to make out in the mix,
-    so there may be some small errors but nothing major.
+    The drums part is an arrangement of the band's two percussionists.
   - >-
     Bass is tuba, keys is trombone plus backing chords, guitar is sax plus backing chords.
-  - >-
-    All instruments have overdrive/unison.
   drum-kit: HardRockKit
   preview-start: prc_bridge_1
   key: C

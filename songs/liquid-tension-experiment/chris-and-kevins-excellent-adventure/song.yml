@@ -11,8 +11,6 @@ metadata:
     band: 5
   author: Onyxite
   key: D # ???
-  comments:
-  - "All instruments have overdrive/unison."
 audio:
   album-track:
     md5: 0aae8dce8159e9f81f78c8833e560525

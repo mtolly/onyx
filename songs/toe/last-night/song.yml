@@ -10,8 +10,6 @@ metadata:
     keys: 4
     pro-keys: 4
     band: 5
-  comments:
-  - "All instruments have overdrive/unison."
   key: E
   autogen-theme: SynthPop
   rating: FF

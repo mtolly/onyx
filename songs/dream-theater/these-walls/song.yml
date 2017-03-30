@@ -3,8 +3,6 @@ metadata:
   file-include: ../../../albums/octavarium.yml
   track-number: 3
   author: Onyxite
-  comments:
-  - "All instruments have overdrive/unison."
   difficulty:
     drums: 6
     guitar: 2

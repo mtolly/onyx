@@ -19,8 +19,11 @@ metadata:
     keys: 2
     vocal: 7
   comments:
-  - "Drums by Tadracing99, pro drums by dertanz, guitar and bass by girldrummer."
-  - "All instruments have overdrive/unison."
+  - >-
+    Drums by Tadracing99,
+    pro drums by dertanz,
+    guitar and bass by girldrummer,
+    and all other parts by Onyxite.
   autogen-theme: Aggressive Metal
   key: D
   rating: Supervision Recommended

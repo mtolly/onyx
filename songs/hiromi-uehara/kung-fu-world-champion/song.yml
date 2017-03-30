@@ -19,8 +19,6 @@ metadata:
     bass: 6
     band: 7
   preview-start: prc_break_1
-  comments:
-  - All instruments have overdrive/unison.
 audio:
   album-track:
     md5: 884247128bc3dede8465d52903746fb3

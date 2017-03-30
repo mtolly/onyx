@@ -12,7 +12,6 @@ metadata:
     band: 6
   author: Onyxite
   comments:
-  - "All instruments have overdrive/unison."
   - "Guitar part is sax and trumpet."
   autogen-theme: PsychJamRock
   drum-kit: VintageKit

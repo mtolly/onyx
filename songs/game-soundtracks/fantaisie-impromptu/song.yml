@@ -17,8 +17,6 @@ metadata:
     guitar: 7
     band: 6
   key: C sharp
-  comments:
-  - "All instruments have overdrive/unison."
 instruments:
   drums: true
   pro-keys: true

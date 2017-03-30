@@ -17,8 +17,6 @@ metadata:
     keys: 5
     bass: 4
     band: 6
-  comments:
-  - "All instruments have overdrive/unison."
   rating: FF
 instruments:
   drums: true

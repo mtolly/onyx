@@ -4,7 +4,7 @@
   <title>Onyxite's Customs</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Lato:400,700" rel="stylesheet">
   <link rel="stylesheet" type="text/css" href="css/normalize.css">
   <link rel="stylesheet" type="text/css" href="css/styles.css">
 </head>
@@ -13,6 +13,7 @@
 <div class="onyx-intro">
   <h1>Onyxite's Customs</h1>
   <p>Custom songs created for use in Harmonix's Rock Band 3 and similar games.</p>
+  <p>All songs include expert difficulty, auto-generated (probably bad) lower difficulties, overdrive/unison phrases on all instruments, and practice sections.</p>
   <p>
     This site is not entirely finished yet.
     See also <a href="http://customscreators.com/index.php?/topic/14398-onyxites-customs">my thread at the C3 Forums</a>.
@@ -41,14 +42,22 @@
                       <span>{{{.}}}</span>
                     {{/difficulties}}
                   </p>
+                  <ul>
+                    <li>
+                      <strong>Author:</strong>
+                      {{author}}
+                    </li>
+                  </ul>
                   {{#comments}}
                     {{{ . }}}
                   {{/comments}}
+                  <p>Downloads:</p>
                   <ul>
                     {{#targets}}
                       <li>
-                        <code>{{ name }}</code>
-                        (<a href="{{ url }}">download</a>)
+                        <a href="{{ url }}">
+                          {{ name }}
+                        </a>
                       </li>
                     {{/targets}}
                   </ul>

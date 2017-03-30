@@ -16,8 +16,6 @@ metadata:
     bass: 5
     band: 6
   key: D
-  comments:
-  - All instruments have overdrive/unison.
 instruments:
   drums: true
   keys: true

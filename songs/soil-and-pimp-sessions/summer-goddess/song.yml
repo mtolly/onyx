@@ -11,10 +11,10 @@ metadata:
     vocal: 1
     band: 5
   author: Onyxite
-  comments:
-  - All instruments have overdrive/unison.
   key: C
   rating: SR
+  comments:
+  - "Guitar part is sax and trumpet."
 audio:
   album-track:
     md5: e96fc8412693ac582bcd3aa21fcfbd4e

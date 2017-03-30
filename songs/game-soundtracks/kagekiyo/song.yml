@@ -16,8 +16,6 @@ metadata:
     keys: 5
     band: 6
   key: E
-  comments:
-  - "All instruments have overdrive/unison."
 instruments:
   drums: true
   pro-keys: true

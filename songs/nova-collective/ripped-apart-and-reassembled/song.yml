@@ -16,8 +16,6 @@ metadata:
     keys: 5
     band: 6
   key: B
-  comments:
-  - "All instruments have overdrive/unison."
   autogen-theme: PsychJamRock
   rating: FF
 audio:

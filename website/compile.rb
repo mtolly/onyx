@@ -32,6 +32,20 @@ def makeDifficulties(instruments, difficulties)
   end
 end
 
+def makeTargetName(target_name, target)
+  if target['game'] == 'rb3'
+    if target['2x-bass-pedal']
+      'Rock Band 3 (2x Bass Pedal)'
+    else
+      'Rock Band 3'
+    end
+  elsif target['game'] == 'ps'
+    'Phase Shift'
+  else
+    target_name
+  end
+end
+
 artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |artist_name, artist_songs|
   {
     'artist' => artist_name,
@@ -49,13 +63,14 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
         'songs' => album_songs.map do |song|
           {
             'title' => song['project']['metadata']['title'],
+            'author' => song['project']['metadata']['author'],
             'comments' => (song['project']['metadata']['comments'] || []).map do |comment|
               Kramdown::Document.new(comment).to_html
             end,
             'track-number' => song['project']['metadata']['track-number'],
             'targets' => (song['project']['targets'] || {}).map do |target_name, target|
               {
-                'name' => target_name,
+                'name' => makeTargetName(target_name, target),
                 'url' => (song['urls'] || {})[target_name],
               }
             end.select { |obj| not obj['url'].nil? },

@@ -9,8 +9,6 @@ metadata:
     pro-keys: 7
     keys: 7
     bass: 3
-  comments:
-  - All instruments have overdrive/unison.
   drum-kit: HardRockKit
   preview-start: prc_chorus_1
   rating: FamilyFriendly

@@ -7,11 +7,9 @@ metadata:
   vocal-gender: female
   genre: jazz
   subgenre: experimental
-  author: TheLieInKing (drums), Onyxite
+  author: TheLieInKing, Onyxite
   file-album-art: cover.jpg
   key: C
-  comments:
-  - "All instruments have overdrive/unison."
   difficulty:
     drums: 4
     pro-keys: 5
@@ -21,6 +19,8 @@ metadata:
     band: 5
   autogen-theme: DustyVintage
   rating: FF
+  comments:
+  - Drums by TheLieInKing (minor edits by Onyxite), all other parts by Onyxite.
 audio:
   youtube:
     file-path: audio-youtube.wav

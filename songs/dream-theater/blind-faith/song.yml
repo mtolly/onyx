@@ -12,13 +12,12 @@ metadata:
     drums: 7
     vocal: 4
     band: 7
-  comments:
-  - >-
-    All instruments have overdrive/unison.
   autogen-theme: SynthPop
   key: D # choruses are in A
   rating: SR # ???
   drum-kit: HardRockKit
+  comments:
+  - Pro keys by Mazegeek999, guitar by GHFreak46, and all other parts by Onyxite.
 audio:
   album-track:
     md5: bb640697c680c06882276305c29191ed

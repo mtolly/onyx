@@ -16,10 +16,13 @@ metadata:
     bass: 5
     band: 7
   key: E
-  comments:
-  - "All instruments have overdrive/unison."
   autogen-theme: PsychJamRock
   rating: FF
+  comments:
+  - >-
+    Drums by TheLieInKing (edits and additions by Onyxite and Mazegeek999),
+    pro keys by Mazegeek999,
+    and bass and basic keys by Onyxite.
 audio:
   youtube:
     file-path: audio-youtube.wav
