@@ -11,23 +11,53 @@ load_yaml_tree('songs.yml').each do |song|
     'dir' => song['file-path'],
     'project' => load_yaml_tree("#{song['file-path']}/song.yml"),
     'urls' => song['urls'],
+    'video' => song['video'],
   })
 end
 
 def makeDifficulties(instruments, difficulties)
-  instruments.map do |instrument, val|
+  def instrument_index(inst)
+    case inst
+    when 'guitar'     then '1'
+    when 'pro-guitar' then '2'
+    when 'bass'       then '3'
+    when 'pro-bass'   then '4'
+    when 'drums'      then '5'
+    when 'keys'       then '6'
+    when 'pro-keys'   then '7'
+    when 'vocal'      then '8'
+    else                   '9' + inst
+    end
+  end
+  instruments.sort_by { |inst, val| instrument_index(inst) }.map do |inst, val|
     val = 0 if val == false
     val = 1 if val == true
+    dots =
+      case difficulties[inst]
+      when 1 then '⚫️⚫️⚫️⚫️⚫️'
+      when 2 then '⚪️⚫️⚫️⚫️⚫️'
+      when 3 then '⚪️⚪️⚫️⚫️⚫️'
+      when 4 then '⚪️⚪️⚪️⚫️⚫️'
+      when 5 then '⚪️⚪️⚪️⚪️⚫️'
+      when 6 then '⚪️⚪️⚪️⚪️⚪️'
+      when 7 then '😈😈😈😈😈'
+      else        ''
+      end
     if val != 0
       instrument_image =
-        if instrument == 'vocal'
+        if inst == 'vocal'
           "vocal-#{val}"
-        elsif instrument == 'drums'
+        elsif inst == 'drums'
           "pro-drums"
         else
-          instrument
+          inst
         end
-      %{<img src="img/icons-alpha/#{instrument_image}.png" class="onyx-instrument-icon">}
+      %{
+        <span class="onyx-instrument">
+          <img src="img/icons-alpha/#{instrument_image}.png" class="onyx-instrument-icon">
+          <span class="onyx-instrument-difficulty">#{dots}</span>
+        </span>
+      }
     end
   end
 end
@@ -75,6 +105,7 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
               }
             end.select { |obj| not obj['url'].nil? },
             'difficulties' => makeDifficulties(song['project']['instruments'] || {}, song['project']['metadata']['difficulty'] || {}),
+            'video' => song['video']
           }
         end.sort_by { |song| song['track-number'] },
         'art' => png_site,

@@ -36,6 +36,9 @@
                 <li class="onyx-song">
                   <h3 class="onyx-song-header">
                     <span class="onyx-song-header-inner">{{ title }}</span>
+                    {{#video}}
+                      <a href="{{ . }}" class="onyx-song-header-video" target="_blank">▶</a>
+                    {{/video}}
                   </h3>
                   <p>
                     {{#difficulties}}

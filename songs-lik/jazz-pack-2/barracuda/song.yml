@@ -7,7 +7,7 @@ metadata:
   vocal-gender: female
   genre: jazz
   subgenre: experimental
-  author: TheLieInKing, Onyxite
+  author: TheLieInKing, Onyxite, Mazegeek999
   file-album-art: cover.jpg
   key: C
   difficulty:
@@ -21,6 +21,7 @@ metadata:
   rating: FF
   comments:
   - Drums by TheLieInKing (minor edits by Onyxite), all other parts by Onyxite.
+  - Minor edits to pro keys by Mazegeek999.
 audio:
   youtube:
     file-path: audio-youtube.wav
