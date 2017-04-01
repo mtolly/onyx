@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <title>Onyxite's Customs</title>
   <meta charset="utf-8">
@@ -10,7 +10,7 @@
 </head>
 <body>
 
-<div class="onyx-intro">
+<header class="onyx-intro">
   <h1>Onyxite's Customs</h1>
   <p>Custom songs created for use in Harmonix's Rock Band 3 and similar games.</p>
   <p>All songs include expert difficulty, auto-generated (probably bad) lower difficulties, overdrive/unison phrases on all instruments, and practice sections.</p>
@@ -18,7 +18,7 @@
     This site is not entirely finished yet.
     See also <a href="http://customscreators.com/index.php?/topic/14398-onyxites-customs">my thread at the C3 Forums</a>.
   </p>
-</div>
+</header>
 
 <div class="onyx-artists">
   {{#artists}}
@@ -27,19 +27,19 @@
       {{#albums}}
         <div class="onyx-album">
           <div class="onyx-album-art-div">
-            <img class="onyx-album-art" src="{{ art }}" alt="album cover">
+            <img class="onyx-album-art" src="{{ art }}" alt="">
           </div>
           <div class="onyx-album-songs-div">
-            <h4 class="onyx-album-header">{{ album }} ({{ year }})</h4>
+            <h3 class="onyx-album-header">{{ album }} ({{ year }})</h3>
             <ul class="onyx-album-songs">
               {{#songs}}
                 <li class="onyx-song">
-                  <h3 class="onyx-song-header">
+                  <h4 class="onyx-song-header">
                     <span class="onyx-song-header-inner">{{ title }}</span>
                     {{#video}}
-                      <a href="{{ . }}" class="onyx-song-header-video" target="_blank">▶</a>
+                      <a href="{{ . }}" title="Video" class="onyx-song-header-video" target="_blank">▶</a>
                     {{/video}}
-                  </h3>
+                  </h4>
                   <p>
                     {{#difficulties}}
                       <span>{{{.}}}</span>

@@ -43,6 +43,18 @@ def makeDifficulties(instruments, difficulties)
       when 7 then '😈😈😈😈😈'
       else        ''
       end
+    diff_name = %w{
+      Warmup Apprentice Solid Moderate Challenging Nightmare Impossible
+    }[difficulties[inst] - 1]
+    inst_name =
+      case inst
+      when 'drums'
+        '(Pro) Drums'
+      when 'vocal'
+        "Vocals (#{ val })"
+      else
+        inst.split('-').map(&:capitalize).join(' ')
+      end
     if val != 0
       instrument_image =
         if inst == 'vocal'
@@ -54,8 +66,8 @@ def makeDifficulties(instruments, difficulties)
         end
       %{
         <span class="onyx-instrument">
-          <img src="img/icons-alpha/#{instrument_image}.png" class="onyx-instrument-icon">
-          <span class="onyx-instrument-difficulty">#{dots}</span>
+          <img alt="#{inst_name}" title="#{inst_name}" src="img/icons-alpha/#{instrument_image}.png" class="onyx-instrument-icon">
+          <span class="onyx-instrument-difficulty" title="#{diff_name}">#{dots}</span>
         </span>
       }
     end
