@@ -1,13 +1,10 @@
 metadata:
   title: Ripped Apart and Reassembled
+  file-include: ../../../albums/the-further-side.yml
   track-number: 5
-  artist: Nova Collective
-  album: The Further Side
   author: Onyxite
-  genre: fusion
-  subgenre: fusion
-  year: 2017
-  file-album-art: cover.jpg
+  key: B
+  rating: FF
   difficulty:
     drums: 7
     guitar: 5
@@ -15,9 +12,6 @@ metadata:
     pro-keys: 6
     keys: 5
     band: 6
-  key: B
-  autogen-theme: PsychJamRock
-  rating: FF
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
