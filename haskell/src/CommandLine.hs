@@ -467,15 +467,6 @@ commands =
     }
 
   , Command
-    { commandWord = "readme"
-    , commandDesc = "Generate a GitHub README file for a song."
-    , commandUsage = ""
-    , commandRun = \files _opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
-      FileSongYaml -> shakeBuild [] fpath ["update-readme"]
-      _            -> unrecognized ftype fpath
-    }
-
-  , Command
     { commandWord = "import"
     , commandDesc = "Import a file into onyx's project format."
     , commandUsage = ""

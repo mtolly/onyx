@@ -35,9 +35,9 @@ import           PrettyDTA                      (C3DTAComments (..),
                                                  DTASingle (..), readDTASingle,
                                                  readRB3DTA, writeDTASingle)
 import qualified RockBand.Drums                 as RBDrums
-import qualified RockBand.Vocals                as RBVox
 import qualified RockBand.File                  as RBFile
 import           RockBand.PhaseShiftMessage     (discardPS)
+import qualified RockBand.Vocals                as RBVox
 import           Scripts                        (loadMIDI)
 import qualified Sound.MIDI.File                as F
 import qualified Sound.MIDI.File.Load           as Load

@@ -59,7 +59,6 @@ import           MoggDecrypt
 import           OnyxiteDisplay.Process                (makeDisplay)
 import           PrettyDTA
 import           ProKeysRanges
-import           Readme                                (makeReadme)
 import           Reaper.Build                          (makeReaper)
 import           RenderAudio
 import           Resources                             (emptyMilo, emptyMiloRB2,
@@ -661,14 +660,6 @@ shakeBuild audioDirs yamlPath buildables = do
       "gen/cover.png_xbox" %> \out -> case _fileAlbumArt $ _metadata songYaml of
         Just f | takeExtension f == ".png_xbox" -> copyFile' f out
         _      -> loadRGB8 >>= liftIO . BL.writeFile out . toPNG_XBOX
-
-      -- The Markdown README file, for GitHub purposes
-      phony "update-readme" $ if _published songYaml
-        then need ["README.md"]
-        else removeFilesAfter "." ["README.md"]
-      "README.md" %> \out -> do
-        yamlAbs <- liftIO $ Dir.canonicalizePath yamlPath
-        liftIO $ writeFile out $ makeReadme songYaml yamlAbs
 
       "gen/notes.mid" %> \out -> do
         doesFileExist "notes.mid" >>= \b -> if b

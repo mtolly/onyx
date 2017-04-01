@@ -1,9 +1,0 @@
-#!/usr/bin/env ruby
-
-# Remakes all the GitHub README.md files for the song directories.
-
-require_relative 'common'
-
-Dir['songs*/*/*/song.yml'].each do |f|
-  system_ "onyx readme \"#{f}\""
-end

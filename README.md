@@ -3,7 +3,7 @@
 I transcribe songs for use in Harmonix's *Rock Band 3* and other similar rhythm games, mostly for drums.
 Along the way, I've written a powerful command-line tool to streamline the build process.
 
-This repository contains the "source" for charts which (once finished) are available from [my thread on the Customs Creators forum](http://customscreators.com/index.php?/topic/14398-onyxites-customs-june-17-the-tempest-the-agonist/).
+This repository contains the "source" for charts which (once finished) are available from [my thread on the Customs Creators forum](http://customscreators.com/index.php?/topic/14398-onyxites-customs/), or from [my own website](https://onyxite.org/customs/) (work in progress).
 
 My build tool, which features its own project format but can also be used as part of a typical Magma-centered workflow, is not quite ready for public use, but should be released sometime in the near future!
 
