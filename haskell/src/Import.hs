@@ -176,8 +176,8 @@ importFoF krb2 src dest = do
         , _planVols = []
         }
       hasVocalNotes = not $ null $ do
-        trk <- [RBFile.onyxPartVocals, RBFile.onyxHarm1, RBFile.onyxHarm2, RBFile.onyxHarm3]
-        RBVox.Note _ _ <- toList $ discardPS $ trk $ RBFile.s_tracks parsed
+        trk <- [RBFile.flexPartVocals, RBFile.flexHarm1, RBFile.flexHarm2, RBFile.flexHarm3]
+        RBVox.Note _ _ <- toList $ discardPS $ trk $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks parsed
         return ()
 
   when pad $ warn $ "Padding FoF/PS song by " ++ show (padDelay :: Int) ++ " seconds due to early start."
@@ -199,8 +199,8 @@ importFoF krb2 src dest = do
     else return id
   let has2x = or
         [ mid2x
-        , not $ null $ RBFile.onyxPartDrums2x $ RBFile.s_tracks parsed
-        , elem RBDrums.Kick2x $ discardPS $ RBFile.onyxPartDrums $ RBFile.s_tracks parsed
+        , not $ null $ RBFile.flexPartDrums2x $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks parsed
+        , elem RBDrums.Kick2x $ discardPS $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks parsed
         ]
 
   raw <- RBFile.readMIDIFile' midi
@@ -267,7 +267,7 @@ importFoF krb2 src dest = do
         Just b  -> b
         Nothing -> any
           (\case RBDrums.ProType _ _ -> True; _ -> False)
-          (discardPS $ RBFile.onyxPartDrums $ RBFile.s_tracks parsed)
+          (discardPS $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks parsed)
       }
     , _audio = HM.fromList $ flip map audioFilesWithChannels $ \(aud, chans) ->
       (T.pack aud, AudioFile

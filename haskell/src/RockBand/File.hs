@@ -2,15 +2,21 @@
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module RockBand.File where
 
-import           Control.Monad                    (forM_, unless)
+import           Control.Monad                    (forM, forM_, unless)
 import           Control.Monad.Trans.StackTrace
+import           Data.Default.Class               (Default (..))
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (partition, sortOn)
-import           Data.Maybe                       (fromJust, mapMaybe)
+import           Data.List                        (nub, partition, sortOn,
+                                                   stripPrefix)
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromJust, fromMaybe,
+                                                   mapMaybe)
+import qualified Data.Text                        as T
 import qualified MelodysEscape                    as Melody
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified RockBand.Beat                    as Beat
@@ -247,84 +253,154 @@ instance MIDIFileFormat PSFile where
     , showMIDITrack "VENUE" psVenue
     ]
 
-data OnyxFile t = OnyxFile
-  { onyxPartDrums        :: RTB.T t (PSWrap      Drums.Event)
-  , onyxPartDrums2x      :: RTB.T t (PSWrap      Drums.Event)
-  , onyxPartGuitar       :: RTB.T t (PSWrap FiveButton.Event)
-  , onyxPartBass         :: RTB.T t (PSWrap FiveButton.Event)
-  , onyxPartKeys         :: RTB.T t (PSWrap FiveButton.Event)
-  , onyxPartRealGuitar   :: RTB.T t (PSWrap  ProGuitar.Event)
-  , onyxPartRealGuitar22 :: RTB.T t (PSWrap  ProGuitar.Event)
-  , onyxPartRealBass     :: RTB.T t (PSWrap  ProGuitar.Event)
-  , onyxPartRealBass22   :: RTB.T t (PSWrap  ProGuitar.Event)
-  , onyxPartRealKeysE    :: RTB.T t (PSWrap    ProKeys.Event)
-  , onyxPartRealKeysM    :: RTB.T t (PSWrap    ProKeys.Event)
-  , onyxPartRealKeysH    :: RTB.T t (PSWrap    ProKeys.Event)
-  , onyxPartRealKeysX    :: RTB.T t (PSWrap    ProKeys.Event)
-  , onyxPartKeysAnimLH   :: RTB.T t (PSWrap    ProKeys.Event)
-  , onyxPartKeysAnimRH   :: RTB.T t (PSWrap    ProKeys.Event)
-  , onyxPartVocals       :: RTB.T t (PSWrap     Vocals.Event)
-  , onyxHarm1            :: RTB.T t (PSWrap     Vocals.Event)
-  , onyxHarm2            :: RTB.T t (PSWrap     Vocals.Event)
-  , onyxHarm3            :: RTB.T t (PSWrap     Vocals.Event)
-  , onyxEvents           :: RTB.T t (PSWrap     Events.Event)
-  , onyxBeat             :: RTB.T t (PSWrap       Beat.Event)
-  , onyxVenue            :: RTB.T t (PSWrap      Venue.Event)
-  , onyxMelodysEscape    :: RTB.T t             Melody.Event
-  -- , onyxRaw              :: [RTB.T t E.T]
+data FlexPartName
+  = FlexGuitar
+  | FlexBass
+  | FlexDrums
+  | FlexKeys
+  | FlexVocal
+  | FlexExtra T.Text
+  deriving (Eq, Ord, Show, Read)
+
+getPartName :: FlexPartName -> T.Text
+getPartName = \case
+  FlexGuitar -> "guitar"
+  FlexBass -> "bass"
+  FlexDrums -> "drums"
+  FlexKeys -> "keys"
+  FlexVocal -> "vocal"
+  FlexExtra t -> t
+
+data FlexPart t = FlexPart
+  { flexPartDrums        :: RTB.T t (PSWrap      Drums.Event)
+  , flexPartDrums2x      :: RTB.T t (PSWrap      Drums.Event)
+  , flexFiveButton       :: RTB.T t (PSWrap FiveButton.Event)
+  , flexFiveIsKeys       :: Bool
+  , flexPartRealGuitar   :: RTB.T t (PSWrap  ProGuitar.Event)
+  , flexPartRealGuitar22 :: RTB.T t (PSWrap  ProGuitar.Event)
+  , flexPartRealKeysE    :: RTB.T t (PSWrap    ProKeys.Event)
+  , flexPartRealKeysM    :: RTB.T t (PSWrap    ProKeys.Event)
+  , flexPartRealKeysH    :: RTB.T t (PSWrap    ProKeys.Event)
+  , flexPartRealKeysX    :: RTB.T t (PSWrap    ProKeys.Event)
+  , flexPartKeysAnimLH   :: RTB.T t (PSWrap    ProKeys.Event)
+  , flexPartKeysAnimRH   :: RTB.T t (PSWrap    ProKeys.Event)
+  , flexPartVocals       :: RTB.T t (PSWrap     Vocals.Event)
+  , flexHarm1            :: RTB.T t (PSWrap     Vocals.Event)
+  , flexHarm2            :: RTB.T t (PSWrap     Vocals.Event)
+  , flexHarm3            :: RTB.T t (PSWrap     Vocals.Event)
   } deriving (Eq, Ord, Show)
+
+instance Default (FlexPart t) where
+  def = FlexPart
+    RTB.empty RTB.empty RTB.empty False
+    RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty
+
+data OnyxFile t = OnyxFile
+  { onyxFlexParts     :: Map.Map FlexPartName (FlexPart t)
+  , onyxEvents        :: RTB.T t (PSWrap     Events.Event)
+  , onyxBeat          :: RTB.T t (PSWrap       Beat.Event)
+  , onyxVenue         :: RTB.T t (PSWrap      Venue.Event)
+  , onyxMelodysEscape :: RTB.T t             Melody.Event
+  } deriving (Eq, Ord, Show)
+
+getFlexPart :: FlexPartName -> OnyxFile t -> FlexPart t
+getFlexPart part = fromMaybe def . Map.lookup part . onyxFlexParts
 
 instance MIDIFileFormat OnyxFile where
   readMIDITracks (Song tempos mmap trks) = do
-    onyxPartDrums        <- parseTracks mmap trks ["PART DRUMS"]
-    onyxPartDrums2x      <- parseTracks mmap trks ["PART DRUMS_2X"]
-    onyxPartGuitar       <- parseTracks mmap trks ["PART GUITAR"]
-    onyxPartBass         <- parseTracks mmap trks ["PART BASS"]
-    onyxPartKeys         <- parseTracks mmap trks ["PART KEYS"]
-    onyxPartRealGuitar   <- parseTracks mmap trks ["PART REAL_GUITAR"]
-    onyxPartRealGuitar22 <- parseTracks mmap trks ["PART REAL_GUITAR_22"]
-    onyxPartRealBass     <- parseTracks mmap trks ["PART REAL_BASS"]
-    onyxPartRealBass22   <- parseTracks mmap trks ["PART REAL_BASS_22"]
-    onyxPartRealKeysE    <- parseTracks mmap trks ["PART REAL_KEYS_E"]
-    onyxPartRealKeysM    <- parseTracks mmap trks ["PART REAL_KEYS_M"]
-    onyxPartRealKeysH    <- parseTracks mmap trks ["PART REAL_KEYS_H"]
-    onyxPartRealKeysX    <- parseTracks mmap trks ["PART REAL_KEYS_X"]
-    onyxPartKeysAnimLH   <- parseTracks mmap trks ["PART KEYS_ANIM_LH"]
-    onyxPartKeysAnimRH   <- parseTracks mmap trks ["PART KEYS_ANIM_RH"]
-    onyxPartVocals       <- parseTracks mmap trks ["PART VOCALS"]
-    onyxHarm1            <- parseTracks mmap trks ["HARM1"]
-    onyxHarm2            <- parseTracks mmap trks ["HARM2"]
-    onyxHarm3            <- parseTracks mmap trks ["HARM3"]
+    let extraNames = map FlexExtra $ nub $ flip mapMaybe trks $ \trk -> do
+          name <- U.trackName trk
+          name' <- stripPrefix "[" name
+          return $ T.pack $ takeWhile (/= ']') name'
+        allNames = [FlexGuitar, FlexBass, FlexDrums, FlexKeys, FlexVocal] ++ extraNames
+    onyxFlexParts <- fmap Map.fromList $ forM allNames $ \partName -> do
+      let prefix = "[" ++ T.unpack (getPartName partName) ++ "] "
+          optPrefix defPart name = if partName == defPart
+            then [name, prefix ++ name]
+            else [prefix ++ name]
+      flexPartDrums        <- parseTracks mmap trks $ optPrefix FlexDrums  "PART DRUMS"
+      flexPartDrums2x      <- parseTracks mmap trks $ optPrefix FlexDrums  "PART DRUMS_2X"
+      gtr                  <- parseTracks mmap trks $ optPrefix FlexGuitar "PART GUITAR"
+      bass                 <- parseTracks mmap trks $ optPrefix FlexBass   "PART BASS"
+      keys                 <- parseTracks mmap trks $ optPrefix FlexKeys   "PART KEYS"
+      (flexFiveButton, flexFiveIsKeys) <- case (RTB.null gtr, RTB.null bass, RTB.null keys) of
+        (False,  True,  True) -> return (      gtr, False)
+        ( True, False,  True) -> return (     bass, False)
+        ( True,  True, False) -> return (     keys,  True)
+        ( True,  True,  True) -> return (RTB.empty, False)
+        _ -> fatal $ show partName ++ " has more than one GRYBO track authored!"
+      progtr  <- parseTracks mmap trks $ optPrefix FlexGuitar "PART REAL_GUITAR"
+      probass <- parseTracks mmap trks $ optPrefix FlexBass   "PART REAL_BASS"
+      flexPartRealGuitar <- case (RTB.null progtr, RTB.null probass) of
+        (False,  True) -> return progtr
+        ( True, False) -> return probass
+        ( True,  True) -> return RTB.empty
+        _ -> fatal $ show partName ++ " has more than one protar (17) track authored!"
+      progtr22  <- parseTracks mmap trks $ optPrefix FlexGuitar "PART REAL_GUITAR_22"
+      probass22 <- parseTracks mmap trks $ optPrefix FlexBass   "PART REAL_BASS_22"
+      flexPartRealGuitar22 <- case (RTB.null progtr22, RTB.null probass22) of
+        (False,  True) -> return progtr22
+        ( True, False) -> return probass22
+        ( True,  True) -> return RTB.empty
+        _ -> fatal $ show partName ++ " has more than one protar (22) track authored!"
+      flexPartRealKeysE    <- parseTracks mmap trks $ optPrefix FlexKeys  "PART REAL_KEYS_E"
+      flexPartRealKeysM    <- parseTracks mmap trks $ optPrefix FlexKeys  "PART REAL_KEYS_M"
+      flexPartRealKeysH    <- parseTracks mmap trks $ optPrefix FlexKeys  "PART REAL_KEYS_H"
+      flexPartRealKeysX    <- parseTracks mmap trks $ optPrefix FlexKeys  "PART REAL_KEYS_X"
+      flexPartKeysAnimLH   <- parseTracks mmap trks $ optPrefix FlexKeys  "PART KEYS_ANIM_LH"
+      flexPartKeysAnimRH   <- parseTracks mmap trks $ optPrefix FlexKeys  "PART KEYS_ANIM_RH"
+      flexPartVocals       <- parseTracks mmap trks $ optPrefix FlexVocal "PART VOCALS"
+      flexHarm1            <- parseTracks mmap trks $ optPrefix FlexVocal "HARM1"
+      flexHarm2            <- parseTracks mmap trks $ optPrefix FlexVocal "HARM2"
+      flexHarm3            <- parseTracks mmap trks $ optPrefix FlexVocal "HARM3"
+      return (partName, FlexPart{..})
     onyxEvents           <- parseTracks mmap trks ["EVENTS"]
     onyxBeat             <- parseTracks mmap trks ["BEAT"]
     onyxVenue            <- parseTracks mmap trks ["VENUE"]
     onyxMelodysEscape    <- parseTracks mmap trks ["MELODY'S ESCAPE"]
-    knownTracks trks ["PART DRUMS", "PART DRUMS_2X", "PART GUITAR", "PART BASS", "PART KEYS", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3", "EVENTS", "BEAT", "VENUE", "MELODY'S ESCAPE"]
+    knownTracks trks $ ["EVENTS", "BEAT", "VENUE", "MELODY'S ESCAPE"] ++ do
+      trkName <- ["PART DRUMS", "PART DRUMS_2X", "PART GUITAR", "PART BASS", "PART KEYS", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3"]
+      prefix <- "" : map (\flex -> "[" ++ T.unpack (getPartName flex) ++ "] ") extraNames
+      return $ prefix ++ trkName
     return $ Song tempos mmap OnyxFile{..}
   showMIDITracks (Song tempos mmap OnyxFile{..}) = Song tempos mmap $ concat
-    [ showMIDITrack "PART DRUMS" onyxPartDrums
-    , showMIDITrack "PART DRUMS_2X" onyxPartDrums2x
-    , showMIDITrack "PART GUITAR" onyxPartGuitar
-    , showMIDITrack "PART BASS" onyxPartBass
-    , showMIDITrack "PART KEYS" onyxPartKeys
-    , showMIDITrack "PART REAL_GUITAR" onyxPartRealGuitar
-    , showMIDITrack "PART REAL_GUITAR_22" onyxPartRealGuitar22
-    , showMIDITrack "PART REAL_BASS" onyxPartRealBass
-    , showMIDITrack "PART REAL_BASS_22" onyxPartRealBass22
-    , showMIDITrack "PART REAL_KEYS_E" onyxPartRealKeysE
-    , showMIDITrack "PART REAL_KEYS_M" onyxPartRealKeysM
-    , showMIDITrack "PART REAL_KEYS_H" onyxPartRealKeysH
-    , showMIDITrack "PART REAL_KEYS_X" onyxPartRealKeysX
-    , showMIDITrack "PART KEYS_ANIM_LH" onyxPartKeysAnimLH
-    , showMIDITrack "PART KEYS_ANIM_RH" onyxPartKeysAnimRH
-    , showMIDITrack "PART VOCALS" onyxPartVocals
-    , showMIDITrack "HARM1" onyxHarm1
-    , showMIDITrack "HARM2" onyxHarm2
-    , showMIDITrack "HARM3" onyxHarm3
-    , showMIDITrack "EVENTS" onyxEvents
+    [ showMIDITrack "EVENTS" onyxEvents
     , showMIDITrack "BEAT" onyxBeat
     , showMIDITrack "VENUE" onyxVenue
     , showMIDITrack "MELODY'S ESCAPE" onyxMelodysEscape
+    , Map.toList onyxFlexParts >>= \(partName, FlexPart{..}) -> let
+      prefix str = "[" ++ T.unpack (getPartName partName) ++ "] " ++ str
+      prefixSwitch inst str = if partName == inst then str else prefix str
+      in concat
+        [ flip showMIDITrack flexPartDrums        $ prefixSwitch FlexDrums "PART DRUMS"
+        , flip showMIDITrack flexPartDrums2x      $ prefixSwitch FlexDrums "PART DRUMS_2X"
+        , flip showMIDITrack flexFiveButton       $ if flexFiveIsKeys
+          then prefixSwitch FlexKeys "PART KEYS"
+          else case partName of
+            FlexGuitar ->        "PART GUITAR"
+            FlexBass   ->        "PART BASS"
+            _          -> prefix "PART GUITAR"
+        , flip showMIDITrack flexPartRealGuitar   $ case partName of
+          FlexGuitar ->        "PART REAL_GUITAR"
+          FlexBass   ->        "PART REAL_BASS"
+          _          -> prefix "PART REAL_GUITAR"
+        , flip showMIDITrack flexPartRealGuitar22 $ case partName of
+          FlexGuitar ->        "PART REAL_GUITAR_22"
+          FlexBass   ->        "PART REAL_BASS_22"
+          _          -> prefix "PART REAL_GUITAR_22"
+        , flip showMIDITrack flexPartRealKeysE    $ prefixSwitch FlexKeys "PART REAL_KEYS_E"
+        , flip showMIDITrack flexPartRealKeysM    $ prefixSwitch FlexKeys "PART REAL_KEYS_M"
+        , flip showMIDITrack flexPartRealKeysH    $ prefixSwitch FlexKeys "PART REAL_KEYS_H"
+        , flip showMIDITrack flexPartRealKeysX    $ prefixSwitch FlexKeys "PART REAL_KEYS_X"
+        , flip showMIDITrack flexPartKeysAnimLH   $ prefixSwitch FlexKeys "PART KEYS_ANIM_LH"
+        , flip showMIDITrack flexPartKeysAnimRH   $ prefixSwitch FlexKeys "PART KEYS_ANIM_RH"
+        , flip showMIDITrack flexPartVocals       $ prefixSwitch FlexVocal "PART VOCALS"
+        , flip showMIDITrack flexHarm1            $ prefixSwitch FlexVocal "HARM1"
+        , flip showMIDITrack flexHarm2            $ prefixSwitch FlexVocal "HARM2"
+        , flip showMIDITrack flexHarm3            $ prefixSwitch FlexVocal "HARM3"
+        ]
     ]
 
 newtype RawFile t = RawFile { rawTracks :: [RTB.T t E.T] }
@@ -412,10 +488,10 @@ playGuitarFile goffs boffs (Song tempos mmap trks) = Song tempos mmap $ RawFile 
       (str, notes) <- ProGuitar.playGuitar tuning expert
       return $ U.setTrackName (name ++ "_" ++ show str) notes
   in concat
-    [ gtr  "GTR"    $ discardPS $ onyxPartRealGuitar   trks
-    , gtr  "GTR22"  $ discardPS $ onyxPartRealGuitar22 trks
-    , bass "BASS"   $ discardPS $ onyxPartRealBass     trks
-    , bass "BASS22" $ discardPS $ onyxPartRealBass22   trks
+    [ gtr  "GTR"    $ discardPS $ flexPartRealGuitar   $ getFlexPart FlexGuitar trks
+    , gtr  "GTR22"  $ discardPS $ flexPartRealGuitar22 $ getFlexPart FlexGuitar trks
+    , bass "BASS"   $ discardPS $ flexPartRealGuitar   $ getFlexPart FlexBass   trks
+    , bass "BASS22" $ discardPS $ flexPartRealGuitar22 $ getFlexPart FlexBass   trks
     ]
 
 -- | True if there are any playable notes in the first 2.5 seconds.
@@ -438,24 +514,20 @@ needsPad (Song temps _ trks) = let
     Vocals.Note{} -> True
     _ -> False
   earlyPred fn t = any fn $ U.trackTake sec2_5 t
-  in or
-    [ earlyDrums   $ discardPS $ onyxPartDrums        trks
-    , earlyDrums   $ discardPS $ onyxPartDrums2x      trks
-    , earlyFive    $ discardPS $ onyxPartGuitar       trks
-    , earlyFive    $ discardPS $ onyxPartBass         trks
-    , earlyFive    $ discardPS $ onyxPartKeys         trks
-    , earlyProGtr  $ discardPS $ onyxPartRealGuitar   trks
-    , earlyProGtr  $ discardPS $ onyxPartRealGuitar22 trks
-    , earlyProGtr  $ discardPS $ onyxPartRealBass     trks
-    , earlyProGtr  $ discardPS $ onyxPartRealBass22   trks
-    , earlyProKeys $ discardPS $ onyxPartRealKeysE    trks
-    , earlyProKeys $ discardPS $ onyxPartRealKeysM    trks
-    , earlyProKeys $ discardPS $ onyxPartRealKeysH    trks
-    , earlyProKeys $ discardPS $ onyxPartRealKeysX    trks
-    , earlyVox     $ discardPS $ onyxPartVocals       trks
-    , earlyVox     $ discardPS $ onyxHarm1            trks
-    , earlyVox     $ discardPS $ onyxHarm2            trks
-    , earlyVox     $ discardPS $ onyxHarm3            trks
+  in flip any (Map.elems $ onyxFlexParts trks) $ \FlexPart{..} -> or
+    [ earlyDrums   $ discardPS flexPartDrums
+    , earlyDrums   $ discardPS flexPartDrums2x
+    , earlyFive    $ discardPS flexFiveButton
+    , earlyProGtr  $ discardPS flexPartRealGuitar
+    , earlyProGtr  $ discardPS flexPartRealGuitar22
+    , earlyProKeys $ discardPS flexPartRealKeysE
+    , earlyProKeys $ discardPS flexPartRealKeysM
+    , earlyProKeys $ discardPS flexPartRealKeysH
+    , earlyProKeys $ discardPS flexPartRealKeysX
+    , earlyVox     $ discardPS flexPartVocals
+    , earlyVox     $ discardPS flexHarm1
+    , earlyVox     $ discardPS flexHarm2
+    , earlyVox     $ discardPS flexHarm3
     ]
 
 -- | Adds a given amount of 1 second increments to the start of the MIDI.

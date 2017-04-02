@@ -33,7 +33,7 @@ import qualified Sound.MIDI.Util                  as U
 
 dryVoxAudio :: (Monad m) => F.Song (F.OnyxFile U.Beats) -> AudioSource m Float
 dryVoxAudio f = sineDryVox $ U.applyTempoTrack (F.s_tempos f)
-  $ discardPS $ F.onyxPartVocals $ F.s_tracks f
+  $ discardPS $ F.flexPartVocals $ F.getFlexPart F.FlexVocal $ F.s_tracks f
 
 -- | Removes OD phrases to ensures that no phrases overlap on different tracks,
 -- except for precisely matching unison phrases on all tracks.

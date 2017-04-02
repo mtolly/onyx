@@ -11,6 +11,7 @@ import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
 import           Data.Monoid                      ((<>))
@@ -175,16 +176,15 @@ fixRolls (Song tempos mmap trks) = let
   isPKNote (ProKeys.Note (Blip   _ _)) = True
   isPKNote _                           = False
   in Song tempos mmap trks
-    -- TODO don't discard ps events
-    { onyxPartDrums     = withRB (drumsSingle . drumsDouble) $ onyxPartDrums     trks
-    , onyxPartDrums2x   = withRB (drumsSingle . drumsDouble) $ onyxPartDrums2x   trks
-    , onyxPartGuitar    = withRB (fiveTremolo . fiveTrill  ) $ onyxPartGuitar    trks
-    , onyxPartBass      = withRB (fiveTremolo . fiveTrill  ) $ onyxPartBass      trks
-    , onyxPartKeys      = withRB (              fiveTrill  ) $ onyxPartKeys      trks
-    , onyxPartRealKeysE = withRB (pkGlissando . pkTrill    ) $ onyxPartRealKeysE trks
-    , onyxPartRealKeysM = withRB (pkGlissando . pkTrill    ) $ onyxPartRealKeysM trks
-    , onyxPartRealKeysH = withRB (pkGlissando . pkTrill    ) $ onyxPartRealKeysH trks
-    , onyxPartRealKeysX = withRB (pkGlissando . pkTrill    ) $ onyxPartRealKeysX trks
+    { onyxFlexParts = flip fmap (onyxFlexParts trks) $ \flex -> flex
+      { flexPartDrums     = withRB (drumsSingle . drumsDouble) $ flexPartDrums     flex
+      , flexPartDrums2x   = withRB (drumsSingle . drumsDouble) $ flexPartDrums2x   flex
+      , flexFiveButton    = withRB (fiveTremolo . fiveTrill  ) $ flexFiveButton    flex
+      , flexPartRealKeysE = withRB (pkGlissando . pkTrill    ) $ flexPartRealKeysE flex
+      , flexPartRealKeysM = withRB (pkGlissando . pkTrill    ) $ flexPartRealKeysM flex
+      , flexPartRealKeysH = withRB (pkGlissando . pkTrill    ) $ flexPartRealKeysH flex
+      , flexPartRealKeysX = withRB (pkGlissando . pkTrill    ) $ flexPartRealKeysX flex
+      }
     }
 
 fixFreeform
@@ -229,15 +229,18 @@ harm1ToPartVocals = go . RTB.normalize where
 
 getPercType :: (NNC.C t) => Song (OnyxFile t) -> Maybe Vocals.PercussionType
 getPercType song = let
-  vox = foldr RTB.merge RTB.empty $ map discardPS
-    [ onyxPartVocals $ s_tracks song
-    , onyxHarm1      $ s_tracks song
-    , onyxHarm2      $ s_tracks song
-    , onyxHarm3      $ s_tracks song
-    ]
+  vox = do
+    part <- Map.elems $ onyxFlexParts $ s_tracks song
+    trk <-
+      [ flexPartVocals part
+      , flexHarm1      part
+      , flexHarm2      part
+      , flexHarm3      part
+      ]
+    RTB.getBodies $ discardPS trk
   isPercType (Vocals.PercussionAnimation ptype _) = Just ptype
   isPercType _                                    = Nothing
-  in listToMaybe $ mapMaybe isPercType $ RTB.getBodies vox
+  in listToMaybe $ mapMaybe isPercType vox
 
 -- | Makes a dummy Basic Keys track, for songs with only Pro Keys charted.
 expertProKeysToKeys :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats Five.Event
@@ -283,42 +286,42 @@ keysToProKeys d = let
 hasSolo :: (NNC.C t) => Instrument -> Song (OnyxFile t) -> Bool
 hasSolo Guitar song = not $ null
   $ do
-    let t = discardPS $ onyxPartGuitar $ s_tracks song
+    let t = discardPS $ flexFiveButton $ getFlexPart FlexGuitar $ s_tracks song
     Five.Solo _ <- RTB.getBodies t
     return ()
   ++ do
-    let t = discardPS $ onyxPartRealGuitar $ s_tracks song
+    let t = discardPS $ flexPartRealGuitar $ getFlexPart FlexGuitar $ s_tracks song
     ProGuitar.Solo _ <- RTB.getBodies t
     return ()
 hasSolo Bass song = not $ null
   $ do
-    let t = discardPS $ onyxPartBass $ s_tracks song
+    let t = discardPS $ flexFiveButton $ getFlexPart FlexBass $ s_tracks song
     Five.Solo _ <- RTB.getBodies t
     return ()
   ++ do
-    let t = discardPS $ onyxPartRealBass $ s_tracks song
+    let t = discardPS $ flexPartRealGuitar $ getFlexPart FlexBass $ s_tracks song
     ProGuitar.Solo _ <- RTB.getBodies t
     return ()
 hasSolo Drums song = not $ null $ do
-  let t = discardPS $ onyxPartDrums $ s_tracks song
+  let t = discardPS $ flexPartDrums $ getFlexPart FlexDrums $ s_tracks song
   Drums.Solo _ <- RTB.getBodies t
   return ()
 hasSolo Keys song = not $ null
   $ do
-    let t = discardPS $ onyxPartKeys $ s_tracks song
+    let t = discardPS $ flexFiveButton $ getFlexPart FlexKeys $ s_tracks song
     Five.Solo _ <- RTB.getBodies t
     return ()
   ++ do
-    let t = discardPS $ onyxPartRealKeysX $ s_tracks song
+    let t = discardPS $ flexPartRealKeysX $ getFlexPart FlexKeys $ s_tracks song
     ProKeys.Solo _ <- RTB.getBodies t
     return ()
 hasSolo Vocal song = not $ null
   $ do
-    let t = discardPS $ onyxPartVocals $ s_tracks song
+    let t = discardPS $ flexPartVocals $ getFlexPart FlexVocal $ s_tracks song
     Vocals.Percussion <- RTB.getBodies t
     return ()
   ++ do
-    let t = discardPS $ onyxHarm1 $ s_tracks song
+    let t = discardPS $ flexHarm1 $ getFlexPart FlexVocal $ s_tracks song
     Vocals.Percussion <- RTB.getBodies t
     return ()
 

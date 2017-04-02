@@ -321,10 +321,10 @@ printOverdrive mid = do
   let trackTimes = Set.fromList . ATB.getTimes . RTB.toAbsoluteEventList 0
       fiveOverdrive t = trackTimes $ RTB.filter (== RBFive.Overdrive True) t
       drumOverdrive t = trackTimes $ RTB.filter (== RBDrums.Overdrive True) t
-      gtr = fiveOverdrive $ discardPS $ RBFile.onyxPartGuitar $ RBFile.s_tracks song
-      bass = fiveOverdrive $ discardPS $ RBFile.onyxPartBass $ RBFile.s_tracks song
-      keys = fiveOverdrive $ discardPS $ RBFile.onyxPartKeys $ RBFile.s_tracks song
-      drums = drumOverdrive $ discardPS $ RBFile.onyxPartDrums $ RBFile.s_tracks song
+      gtr = fiveOverdrive $ discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks song
+      bass = fiveOverdrive $ discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks song
+      keys = fiveOverdrive $ discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexKeys $ RBFile.s_tracks song
+      drums = drumOverdrive $ discardPS $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
   lift $ forM_ (Set.toAscList $ Set.unions [gtr, bass, keys, drums]) $ \t -> let
     insts = intercalate "," $ concat
       [ ["guitar" | Set.member t gtr]
@@ -1322,12 +1322,11 @@ shakeBuild audioDirs yamlPath buildables = do
                 , FoF.starPowerNote    = Just 116
                 , FoF.track            = _trackNumber $ _metadata songYaml
                 , FoF.sysexSlider      = Just $ let
-                  gtr   = RBFile.onyxPartGuitar $ RBFile.s_tracks song
-                  bass  = RBFile.onyxPartBass   $ RBFile.s_tracks song
                   isTap = \case
                     PSM.PS (PSM.PSMessage _ PSM.TapNotes _) -> True
                     _                                       -> False
-                  in any (any isTap) [gtr, bass]
+                  in any (any isTap . RBFile.flexFiveButton)
+                    $ RBFile.onyxFlexParts $ RBFile.s_tracks song
                 , FoF.video            = const "video.avi" <$> ps_FileVideo ps
                 }
             dir </> "ps/drums.ogg"   %> buildAudio (Input $ planDir </> "drums.wav"       )
@@ -1502,10 +1501,10 @@ shakeBuild audioDirs yamlPath buildables = do
           lift $ saveMIDI out $ RBFile.playGuitarFile goffs boffs input
         dir </> "protar-mpa.mid" ≡> \out -> do
           input <- shakeMIDI midprocessed
-          let gtr17   = discardPS $ RBFile.onyxPartRealGuitar   $ RBFile.s_tracks input
-              gtr22   = discardPS $ RBFile.onyxPartRealGuitar22 $ RBFile.s_tracks input
-              bass17  = discardPS $ RBFile.onyxPartRealBass     $ RBFile.s_tracks input
-              bass22  = discardPS $ RBFile.onyxPartRealBass22   $ RBFile.s_tracks input
+          let gtr17   = discardPS $ RBFile.flexPartRealGuitar   $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks input
+              gtr22   = discardPS $ RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks input
+              bass17  = discardPS $ RBFile.flexPartRealGuitar   $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks input
+              bass22  = discardPS $ RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks input
               playTrack cont name t = let
                 expert = flip RTB.mapMaybe t $ \case
                   ProGtr.DiffEvent Expert devt -> Just devt

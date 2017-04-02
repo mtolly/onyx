@@ -117,8 +117,8 @@ processMIDI songYaml input kicks mixMode getAudioLength = do
       drumsTrack = if not $ _hasDrums $ _instruments songYaml
         then RTB.empty
         else let
-          trk1x = discardPS $ RBFile.onyxPartDrums trks
-          trk2x = discardPS $ RBFile.onyxPartDrums2x trks
+          trk1x = discardPS $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums trks
+          trk2x = discardPS $ RBFile.flexPartDrums2x $ RBFile.getFlexPart RBFile.FlexDrums trks
           psKicks = if _auto2xBass $ _options songYaml
             then U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
             else id
@@ -144,40 +144,40 @@ processMIDI songYaml input kicks mixMode getAudioLength = do
             KicksPS -> psPS
             Kicks1x -> rockBand1x ps1x
             Kicks2x -> rockBand2x ps2x
-      guitarMsgs = psMessages $ RBFile.onyxPartGuitar trks
+      guitarMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexGuitar trks
       guitarTrack = if not $ _hasGuitar $ _instruments songYaml
         then RTB.empty
         else gryboComplete (Just $ _hopoThreshold $ _options songYaml) mmap
-          $ discardPS $ RBFile.onyxPartGuitar trks
-      bassMsgs = psMessages $ RBFile.onyxPartBass trks
+          $ discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexGuitar trks
+      bassMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexBass trks
       bassTrack = if not $ _hasBass $ _instruments songYaml
         then RTB.empty
         else gryboComplete (Just $ _hopoThreshold $ _options songYaml) mmap
-          $ discardPS $ RBFile.onyxPartBass trks
+          $ discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexBass trks
       (proGtr, proGtr22) = if not $ _hasProGuitar $ _instruments songYaml
         then (RTB.empty, RTB.empty)
         else
-          ( ProGtr.copyExpert $ ProGtr.autoHandPosition $ discardPS $ RBFile.onyxPartRealGuitar   trks
-          , ProGtr.copyExpert $ ProGtr.autoHandPosition $ discardPS $ RBFile.onyxPartRealGuitar22 trks
+          ( ProGtr.copyExpert $ ProGtr.autoHandPosition $ discardPS $ RBFile.flexPartRealGuitar   $ RBFile.getFlexPart RBFile.FlexGuitar trks
+          , ProGtr.copyExpert $ ProGtr.autoHandPosition $ discardPS $ RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart RBFile.FlexGuitar trks
           )
       (proBass, proBass22) = if not $ _hasProBass $ _instruments songYaml
         then (RTB.empty, RTB.empty)
         else
-          ( ProGtr.copyExpert $ ProGtr.autoHandPosition $ discardPS $ RBFile.onyxPartRealBass   trks
-          , ProGtr.copyExpert $ ProGtr.autoHandPosition $ discardPS $ RBFile.onyxPartRealBass22 trks
+          ( ProGtr.copyExpert $ ProGtr.autoHandPosition $ discardPS $ RBFile.flexPartRealGuitar   $ RBFile.getFlexPart RBFile.FlexBass trks
+          , ProGtr.copyExpert $ ProGtr.autoHandPosition $ discardPS $ RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart RBFile.FlexBass trks
           )
       (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = if not $ hasAnyKeys $ _instruments songYaml
         then (RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty)
         else let
           basicKeys = gryboComplete Nothing mmap $ if _hasKeys $ _instruments songYaml
-            then discardPS $ RBFile.onyxPartKeys trks
+            then discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexKeys trks
             else expertProKeysToKeys keysExpert
           keysDiff diff = if _hasProKeys $ _instruments songYaml
             then discardPS $ case diff of
-              Easy   -> RBFile.onyxPartRealKeysE trks
-              Medium -> RBFile.onyxPartRealKeysM trks
-              Hard   -> RBFile.onyxPartRealKeysH trks
-              Expert -> RBFile.onyxPartRealKeysX trks
+              Easy   -> RBFile.flexPartRealKeysE $ RBFile.getFlexPart RBFile.FlexKeys trks
+              Medium -> RBFile.flexPartRealKeysM $ RBFile.getFlexPart RBFile.FlexKeys trks
+              Hard   -> RBFile.flexPartRealKeysH $ RBFile.getFlexPart RBFile.FlexKeys trks
+              Expert -> RBFile.flexPartRealKeysX $ RBFile.getFlexPart RBFile.FlexKeys trks
             else keysToProKeys diff basicKeys
           rtb1 `orIfNull` rtb2 = if length rtb1 < 5 then rtb2 else rtb1
           keysExpert = completeRanges $ keysDiff Expert
@@ -203,11 +203,11 @@ processMIDI songYaml input kicks mixMode getAudioLength = do
         Vocal1 -> (partVox', RTB.empty, RTB.empty, RTB.empty)
         Vocal2 -> (partVox', harm1, harm2, RTB.empty)
         Vocal3 -> (partVox', harm1, harm2, harm3)
-        where partVox = discardPS $ RBFile.onyxPartVocals trks
+        where partVox = discardPS $ RBFile.flexPartVocals $ RBFile.getFlexPart RBFile.FlexVocal trks
               partVox' = if RTB.null partVox then harm1ToPartVocals harm1 else partVox
-              harm1   = discardPS $ RBFile.onyxHarm1 trks
-              harm2   = discardPS $ RBFile.onyxHarm2 trks
-              harm3   = discardPS $ RBFile.onyxHarm3 trks
+              harm1   = discardPS $ RBFile.flexHarm1 $ RBFile.getFlexPart RBFile.FlexVocal trks
+              harm2   = discardPS $ RBFile.flexHarm2 $ RBFile.getFlexPart RBFile.FlexVocal trks
+              harm3   = discardPS $ RBFile.flexHarm3 $ RBFile.getFlexPart RBFile.FlexVocal trks
   return $ RBFile.Song tempos mmap $
     ( RBFile.RB3File
       { RBFile.rb3Beat = beatTrack
@@ -265,7 +265,7 @@ findProblems :: RBFile.Song (RBFile.OnyxFile U.Beats) -> [String]
 findProblems song = execWriter $ do
   -- Don't have a kick at the start of a drum roll.
   -- It screws up the roll somehow and causes spontaneous misses.
-  let drums = discardPS $ RBFile.onyxPartDrums $ RBFile.s_tracks song
+  let drums = discardPS $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
       kickSwells = flip RTB.mapMaybe (RTB.collectCoincident drums) $ \evts -> do
         let kick = RBDrums.DiffEvent Expert $ RBDrums.Note RBDrums.Kick
             swell1 = RBDrums.SingleRoll True
@@ -290,10 +290,10 @@ findProblems song = execWriter $ do
         _ -> False
   -- Don't have a vocal phrase that ends simultaneous with a lyric event.
   -- In static vocals, this puts the lyric in the wrong phrase.
-  let vox = discardPS $ RBFile.onyxPartVocals $ RBFile.s_tracks song
-      harm1 = discardPS $ RBFile.onyxHarm1 $ RBFile.s_tracks song
-      harm2 = discardPS $ RBFile.onyxHarm2 $ RBFile.s_tracks song
-      harm3 = discardPS $ RBFile.onyxHarm3 $ RBFile.s_tracks song
+  let vox = discardPS $ RBFile.flexPartVocals $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song
+      harm1 = discardPS $ RBFile.flexHarm1 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song
+      harm2 = discardPS $ RBFile.flexHarm2 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song
+      harm3 = discardPS $ RBFile.flexHarm3 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song
       phraseOff = RBVox.Phrase False
       isLyric = \case RBVox.Lyric _ -> True; _ -> False
       voxBugs = flip RTB.mapMaybe (RTB.collectCoincident vox) $ \evts -> do

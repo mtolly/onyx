@@ -24,10 +24,12 @@ completeFile :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 completeFile fin fout = do
   RBFile.Song tempos mmap trks <- liftIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
   liftIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap trks
-    { RBFile.onyxPartRealKeysE = withRB completeRanges $ RBFile.onyxPartRealKeysE trks
-    , RBFile.onyxPartRealKeysM = withRB completeRanges $ RBFile.onyxPartRealKeysM trks
-    , RBFile.onyxPartRealKeysH = withRB completeRanges $ RBFile.onyxPartRealKeysH trks
-    , RBFile.onyxPartRealKeysX = withRB completeRanges $ RBFile.onyxPartRealKeysX trks
+    { RBFile.onyxFlexParts = flip fmap (RBFile.onyxFlexParts trks) $ \flex -> flex
+      { RBFile.flexPartRealKeysE = withRB completeRanges $ RBFile.flexPartRealKeysE flex
+      , RBFile.flexPartRealKeysM = withRB completeRanges $ RBFile.flexPartRealKeysM flex
+      , RBFile.flexPartRealKeysH = withRB completeRanges $ RBFile.flexPartRealKeysH flex
+      , RBFile.flexPartRealKeysX = withRB completeRanges $ RBFile.flexPartRealKeysX flex
+      }
     }
 
 -- | Adds ranges if there are none.
@@ -125,7 +127,7 @@ keyInPreRange RangeA p = RedYellow Gs <= p && p <= OrangeC
 
 closeShiftsFile :: RBFile.Song (RBFile.OnyxFile U.Beats) -> String
 closeShiftsFile song = let
-  xpk = discardPS $ RBFile.onyxPartRealKeysX $ RBFile.s_tracks song
+  xpk = discardPS $ RBFile.flexPartRealKeysX $ RBFile.getFlexPart RBFile.FlexKeys $ RBFile.s_tracks song
   close = U.unapplyTempoTrack (RBFile.s_tempos song) $ closeShifts 1 $ U.applyTempoTrack (RBFile.s_tempos song) xpk
   showSeconds secs = show (realToFrac secs :: Milli) ++ "s"
   showClose (t, (rng1, rng2, dt, p)) = unwords
