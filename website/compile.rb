@@ -34,15 +34,18 @@ def makeDifficulties(instruments, difficulties)
     val = 1 if val == true
     dots =
       case difficulties[inst]
-      when 1 then '⚫️⚫️⚫️⚫️⚫️'
-      when 2 then '⚪️⚫️⚫️⚫️⚫️'
-      when 3 then '⚪️⚪️⚫️⚫️⚫️'
-      when 4 then '⚪️⚪️⚪️⚫️⚫️'
-      when 5 then '⚪️⚪️⚪️⚪️⚫️'
-      when 6 then '⚪️⚪️⚪️⚪️⚪️'
-      when 7 then '😈😈😈😈😈'
+      when 1 then 'BBBBB'
+      when 2 then 'WBBBB'
+      when 3 then 'WWBBB'
+      when 4 then 'WWWBB'
+      when 5 then 'WWWWB'
+      when 6 then 'WWWWW'
+      when 7 then 'DDDDD'
       else        ''
       end
+    dots.gsub!('B', '<img alt="" class="onyx-instrument-difficulty-dot" src="img/black.png">')
+    dots.gsub!('W', '<img alt="" class="onyx-instrument-difficulty-dot" src="img/white.png">')
+    dots.gsub!('D', '<img alt="" class="onyx-instrument-difficulty-dot" src="img/devil.png">')
     diff_name = %w{
       Warmup Apprentice Solid Moderate Challenging Nightmare Impossible
     }[difficulties[inst] - 1]
