@@ -119,35 +119,43 @@
 
 # Onyxite's Jazz Pack 2
 - file-path: ../songs/hiromi-uehara/kung-fu-world-champion
+  video: https://www.youtube.com/watch?v=MkrKJjHL0mA
   urls:
     rb3: download/OJP2_KungFuWC_v1_rb3con
     ps: download/OJP2_KungFuWC_v1_ps.zip
 - file-path: ../songs/joshua-redman/jazz-crimes
+  video: https://www.youtube.com/watch?v=laVwTzD9ud4
   urls:
     rb3: download/OJP2_JazzCrimes_v1_rb3con
     ps: download/OJP2_JazzCrimes_v1_ps.zip
 - file-path: ../songs/toe/last-night
+  video: https://www.youtube.com/watch?v=mOk-JipSKgg
   urls:
     rb3: download/OJP2_LastNight_v1_rb3con
     ps: download/OJP2_LastNight_v1_ps.zip
 - file-path: ../songs/shnabubula/temple-zelda-2
+  video: https://www.youtube.com/watch?v=cHjkRN0bt60
   urls:
     rb3: download/OJP2_TempleZ2_v1_1x_rb3con
     rb3-2x: download/OJP2_TempleZ2_v1_2x_rb3con
     ps: download/OJP2_TempleZ2_v1_ps.zip
 - file-path: ../songs-lik/jazz-pack-1/sly
+  video: https://www.youtube.com/watch?v=1jfbbKjtFqk
   urls:
     rb3: download/OJP2_Sly_v1_rb3con
     ps: download/OJP2_Sly_v1_ps.zip
 - file-path: ../songs-lik/jazz-pack-2/barracuda
+  video: https://www.youtube.com/watch?v=DxSU0zrT0bc
   urls:
     rb3: download/OJP2_Barracuda_v1_rb3con
     ps: download/OJP2_Barracuda_v1_ps.zip
 - file-path: ../songs/soil-and-pimp-sessions/summer-goddess
+  video: https://vimeo.com/211213777
   urls:
     rb3: download/OJP2_SummerGoddess_v1_rb3con
     ps: download/OJP2_SummerGoddess_v1_ps.zip
 - file-path: ../songs/nova-collective/ripped-apart-and-reassembled
+  video: https://www.youtube.com/watch?v=Ja4KRbGHKQU
   urls:
     rb3: download/OJP2_RippedApart_v1_1x_rb3con
     rb3-2x: download/OJP2_RippedApart_v1_2x_rb3con
