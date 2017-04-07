@@ -11,6 +11,7 @@
 module Config where
 
 import           Audio
+import           Control.Arrow                  (first)
 import           Control.Monad                  (when)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
@@ -23,6 +24,7 @@ import           Data.Default.Class
 import qualified Data.DTA.Serialize.Magma       as Magma
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
+import           Data.Hashable                  (Hashable (..))
 import qualified Data.HashMap.Strict            as Map
 import           Data.Maybe                     (fromMaybe, isJust, isNothing)
 import           Data.Monoid                    ((<>))
@@ -33,39 +35,13 @@ import qualified Data.Vector                    as V
 import           JSONData
 import           RockBand.Common                (Key (..))
 import qualified RockBand.Drums                 as Drums
+import           RockBand.File                  (FlexPartName (..), getPartName,
+                                                 readPartName)
 import qualified Sound.Jammit.Base              as J
 import qualified Sound.MIDI.Util                as U
 import qualified Text.ParserCombinators.ReadP   as ReadP
 import           Text.Read                      (readMaybe)
 import qualified Text.Read.Lex                  as Lex
-
-data Difficulty
-  = Tier Integer -- ^ [1..7]: 1 = no dots, 7 = devil dots
-  | Rank Integer -- ^ [1..]
-  deriving (Eq, Ord, Show, Read)
-
-instance TraceJSON Difficulty where
-  traceJSON = lift ask >>= \case
-    OneKey "tier" (A.Number n) -> return $ Tier $ round n
-    OneKey "rank" (A.Number n) -> return $ Rank $ round n
-    A.Number n -> return $ Tier $ round n
-    _ -> expected "a difficulty value (tier or rank)"
-
-instance A.ToJSON Difficulty where
-  toJSON = \case
-    Tier i -> A.object ["tier" .= i]
-    Rank i -> A.object ["rank" .= i]
-
-jsonRecord "Difficulties" eosr $ do
-  opt "_difficultyDrums"     "drums"      [t| Maybe Difficulty |] [e| Nothing |]
-  opt "_difficultyGuitar"    "guitar"     [t| Maybe Difficulty |] [e| Nothing |]
-  opt "_difficultyBass"      "bass"       [t| Maybe Difficulty |] [e| Nothing |]
-  opt "_difficultyKeys"      "keys"       [t| Maybe Difficulty |] [e| Nothing |]
-  opt "_difficultyProKeys"   "pro-keys"   [t| Maybe Difficulty |] [e| Nothing |]
-  opt "_difficultyProGuitar" "pro-guitar" [t| Maybe Difficulty |] [e| Nothing |]
-  opt "_difficultyProBass"   "pro-bass"   [t| Maybe Difficulty |] [e| Nothing |]
-  opt "_difficultyVocal"     "vocal"      [t| Maybe Difficulty |] [e| Nothing |]
-  opt "_difficultyBand"      "band"       [t| Maybe Difficulty |] [e| Nothing |]
 
 keyNames :: [(T.Text, Key)]
 keyNames = let
@@ -137,21 +113,6 @@ data KeysRB2
   | KeysGuitar
   | KeysBass
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-instance TraceJSON KeysRB2 where
-  traceJSON = lift ask >>= \case
-    A.Null             -> return NoKeys
-    A.String "no-keys" -> return NoKeys
-    A.String "guitar"  -> return KeysGuitar
-    A.String "bass"    -> return KeysBass
-    _                  -> expected
-      "a location for the keys part on RB2: null/\"no-keys\", \"guitar\", \"bass\""
-
-instance A.ToJSON KeysRB2 where
-  toJSON = \case
-    NoKeys     -> A.Null
-    KeysGuitar -> A.String "guitar"
-    KeysBass   -> A.String "bass"
 
 -- | Options that affect gameplay.
 jsonRecord "Options" eosr $ do
@@ -651,27 +612,95 @@ instance TraceJSON VocalCount where
 instance A.ToJSON VocalCount where
   toJSON = A.toJSON . fromEnum
 
-jsonRecord "Instruments" eosr $ do
-  opt "_hasDrums" "drums" [t| Bool |] [e| False |]
-  opt "_hasGuitar" "guitar" [t| Bool |] [e| False |]
-  opt "_hasBass" "bass" [t| Bool |] [e| False |]
-  opt "_hasKeys" "keys" [t| Bool |] [e| False |]
-  opt "_hasProKeys" "pro-keys" [t| Bool |] [e| False |]
-  opt "_hasVocal" "vocal" [t| VocalCount |] [e| Vocal0 |]
-  opt "_hasProGuitar" "pro-guitar" [t| Bool |] [e| False |]
-  opt "_hasProBass" "pro-bass" [t| Bool |] [e| False |]
+instance TraceJSON FlexPartName where
+  traceJSON = fmap readPartName traceJSON
 
-hasAnyGuitar :: Instruments -> Bool
-hasAnyGuitar insts = _hasGuitar insts || _hasProGuitar insts
+instance A.ToJSON FlexPartName where
+  toJSON = A.toJSON . getPartName
 
-hasAnyBass :: Instruments -> Bool
-hasAnyBass insts = _hasBass insts || _hasProBass insts
+data PlayMode = PlayGRYBO | PlayProKeys | PlayProGuitar | PlayDrums | PlayVocal1 | PlayVocal2 | PlayVocal3
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-hasAnyKeys :: Instruments -> Bool
-hasAnyKeys insts = _hasKeys insts || _hasProKeys insts
+instance TraceJSON PlayMode where
+  traceJSON = lift ask >>= \case
+    "grybo"      -> return PlayGRYBO
+    "pro-keys"   -> return PlayProKeys
+    "pro-guitar" -> return PlayProGuitar
+    "drums"      -> return PlayDrums
+    "vocal"      -> return PlayVocal1
+    "vocal-1"    -> return PlayVocal1
+    "vocal-2"    -> return PlayVocal2
+    "vocal-3"    -> return PlayVocal3
+    _            -> expected "a play mode (grybo, pro-keys, pro-guitar, drums, vocal-1, vocal-2, vocal-3)"
 
-hasAnyVocal :: Instruments -> Bool
-hasAnyVocal insts = _hasVocal insts /= Vocal0
+instance A.ToJSON PlayMode where
+  toJSON = \case
+    PlayGRYBO     -> "grybo"
+    PlayProKeys   -> "pro-keys"
+    PlayProGuitar -> "pro-guitar"
+    PlayDrums     -> "drums"
+    PlayVocal1    -> "vocal-1"
+    PlayVocal2    -> "vocal-2"
+    PlayVocal3    -> "vocal-3"
+
+instance Hashable PlayMode where
+  hashWithSalt salt = hashWithSalt salt . fromEnum
+
+data Difficulty
+  = Tier Integer -- ^ [1..7]: 1 = no dots, 7 = devil dots
+  | Rank Integer -- ^ [1..]
+  deriving (Eq, Ord, Show, Read)
+
+instance TraceJSON Difficulty where
+  traceJSON = lift ask >>= \case
+    OneKey "tier" (A.Number n) -> return $ Tier $ round n
+    OneKey "rank" (A.Number n) -> return $ Rank $ round n
+    A.Number n -> return $ Tier $ round n
+    _ -> expected "a difficulty value (tier or rank)"
+
+instance A.ToJSON Difficulty where
+  toJSON = \case
+    Tier i -> A.object ["tier" .= i]
+    Rank i -> A.object ["rank" .= i]
+
+newtype Difficulties = Difficulties (Map.HashMap (Maybe (FlexPartName, PlayMode)) Difficulty)
+  deriving (Eq, Show)
+
+instance TraceJSON Difficulties where
+  traceJSON = object $ do
+    bandDiff <- optionalKey "band" traceJSON
+    hm <- lift ask
+    parseFrom (A.Object $ Map.delete "band" hm) $ do
+      diffs <- mapping $ mapping traceJSON
+      let paired = do
+            (fpart, modes) <- Map.toList diffs
+            (mode, diff) <- Map.toList modes
+            return ((fpart, mode), diff)
+      diffs' <- forM paired $ \((fpart, mode), diff) -> do
+        fpart' <- parseFrom (A.String fpart) traceJSON
+        mode' <- parseFrom (A.String mode) traceJSON
+        return (Just (fpart', mode'), diff)
+      return $ Difficulties $ Map.fromList $ case bandDiff of
+        Nothing -> diffs'
+        Just bd -> (Nothing, bd) : diffs'
+
+instance A.ToJSON Difficulties where
+  toJSON = undefined
+
+instance Default Difficulties where
+  def = Difficulties Map.empty
+
+newtype Instruments = Instruments (Map.HashMap FlexPartName [PlayMode])
+  deriving (Eq, Show)
+
+instance TraceJSON Instruments where
+  traceJSON = Instruments . Map.fromList . map (first readPartName) . Map.toList <$> mapping traceJSON
+
+instance A.ToJSON Instruments where
+  toJSON (Instruments hm) = A.toJSON $ Map.fromList $ map (first getPartName) $ Map.toList hm
+
+playModes :: FlexPartName -> Instruments -> [PlayMode]
+playModes fpart (Instruments hm) = Map.lookupDefault [] fpart hm
 
 data AutogenTheme
   = AutogenDefault
@@ -792,7 +821,7 @@ instance A.ToJSON PreviewTime where
     PreviewSeconds secs -> showTimestamp $ realToFrac secs
 
 -- | Extra information with no gameplay affect.
-jsonRecord "Metadata" eos $ do
+jsonRecord "Metadata" eqshow $ do
   warning "_title" "title" [t| Maybe T.Text |] [e| Nothing |]
   warning "_artist" "artist" [t| Maybe T.Text |] [e| Nothing |]
   warning "_album" "album" [t| Maybe T.Text |] [e| Nothing |]
@@ -836,19 +865,33 @@ jsonRecord "TargetRB3" eosr $ do
   opt "rb3_SongID" "song-id" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]
   opt "rb3_Label" "label" [t| Maybe T.Text |] [e| Nothing |]
   opt "rb3_Version" "version" [t| Maybe Integer |] [e| Nothing |]
+  opt "rb3_Guitar" "guitar" [t| FlexPartName |] [e| FlexGuitar |]
+  opt "rb3_Bass" "bass" [t| FlexPartName |] [e| FlexBass |]
+  opt "rb3_Drums" "drums" [t| FlexPartName |] [e| FlexDrums |]
+  opt "rb3_Keys" "keys" [t| FlexPartName |] [e| FlexKeys |]
+  opt "rb3_Vocal" "vocal" [t| FlexPartName |] [e| FlexVocal |]
 
 jsonRecord "TargetRB2" eosr $ do
   opt "rb2_Plan" "plan" [t| Maybe T.Text |] [e| Nothing |]
   opt "rb2_2xBassPedal" "2x-bass-pedal" [t| Bool |] [e| False |]
   opt "rb2_SongID" "song-id" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]
   opt "rb2_Label" "label" [t| Maybe T.Text |] [e| Nothing |]
-  opt "rb2_Keys" "keys" [t| KeysRB2 |] [e| NoKeys |]
   opt "rb2_Version" "version" [t| Maybe Integer |] [e| Nothing |]
+  opt "rb2_Guitar" "guitar" [t| FlexPartName |] [e| FlexGuitar |]
+  opt "rb2_Bass" "bass" [t| FlexPartName |] [e| FlexBass |]
+  opt "rb2_Drums" "drums" [t| FlexPartName |] [e| FlexDrums |]
+  opt "rb2_Vocal" "vocal" [t| FlexPartName |] [e| FlexVocal |]
 
 jsonRecord "TargetPS" eosr $ do
   opt "ps_Plan" "plan" [t| Maybe T.Text |] [e| Nothing |]
   opt "ps_Label" "label" [t| Maybe T.Text |] [e| Nothing |]
   opt "ps_FileVideo" "file-video" [t| Maybe FilePath |] [e| Nothing |]
+  opt "ps_Guitar" "guitar" [t| FlexPartName |] [e| FlexGuitar |]
+  opt "ps_Bass" "bass" [t| FlexPartName |] [e| FlexBass |]
+  opt "ps_Drums" "drums" [t| FlexPartName |] [e| FlexDrums |]
+  opt "ps_Keys" "keys" [t| FlexPartName |] [e| FlexKeys |]
+  opt "ps_Vocal" "vocal" [t| FlexPartName |] [e| FlexVocal |]
+  -- TODO non-rb3 parts: rhythm, coop guitar
 
 data Target
   = RB3    TargetRB3

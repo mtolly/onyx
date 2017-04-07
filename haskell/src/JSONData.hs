@@ -149,6 +149,9 @@ warning hs js t dft = tell [JSONField hs js t (Just dft) True  False]
 fill    hs js t dft = tell [JSONField hs js t (Just dft) False True ]
 opt     hs js t dft = tell [JSONField hs js t (Just dft) False False]
 
+eqshow :: CxtQ
+eqshow = cxt [[t| Eq |], [t| Show |]]
+
 eos :: CxtQ
 eos = cxt [[t| Eq |], [t| Ord |], [t| Show |]]
 

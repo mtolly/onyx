@@ -35,6 +35,7 @@ import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
+import Data.Hashable (Hashable(..))
 
 data Song t = Song
   { s_tempos     :: U.TempoMap
@@ -262,14 +263,26 @@ data FlexPartName
   | FlexExtra T.Text
   deriving (Eq, Ord, Show, Read)
 
+readPartName :: T.Text -> FlexPartName
+readPartName = \case
+  "guitar" -> FlexGuitar
+  "bass"   -> FlexBass
+  "drums"  -> FlexDrums
+  "keys"   -> FlexKeys
+  "vocal"  -> FlexVocal
+  t        -> FlexExtra t
+
 getPartName :: FlexPartName -> T.Text
 getPartName = \case
-  FlexGuitar -> "guitar"
-  FlexBass -> "bass"
-  FlexDrums -> "drums"
-  FlexKeys -> "keys"
-  FlexVocal -> "vocal"
+  FlexGuitar  -> "guitar"
+  FlexBass    -> "bass"
+  FlexDrums   -> "drums"
+  FlexKeys    -> "keys"
+  FlexVocal   -> "vocal"
   FlexExtra t -> t
+
+instance Hashable FlexPartName where
+  hashWithSalt salt = hashWithSalt salt . getPartName
 
 data FlexPart t = FlexPart
   { flexPartDrums        :: RTB.T t (PSWrap      Drums.Event)

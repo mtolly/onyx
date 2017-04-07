@@ -17,7 +17,8 @@ import           Data.Char                             (toLower)
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Functor.Identity                 (runIdentity)
-import           Data.List                             (elemIndex, isPrefixOf,
+import           Data.List                             (elemIndex, find,
+                                                        isPrefixOf, isSuffixOf,
                                                         sortOn)
 import           Data.Maybe                            (fromMaybe, listToMaybe)
 import qualified Data.Text                             as T
@@ -228,7 +229,7 @@ track lenTicks lenSecs resn trk = let
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
     line "FX" [if fxActive then "1" else "0"]
-    case lookup name
+    case find (\(sfx, _) -> sfx `isSuffixOf` name)
       [ ("PART DRUMS", drumNoteNames)
       , ("PART DRUMS_2X", drumNoteNames)
       , ("PART REAL_DRUMS_PS", drumNoteNames)
@@ -251,7 +252,7 @@ track lenTicks lenSecs resn trk = let
       , ("MELODY'S ESCAPE", melodyNoteNames)
       ] of
       Nothing -> return ()
-      Just names -> do
+      Just (_, names) -> do
         block "MIDINOTENAMES" [] $ do
           -- Reaper 5 (or some newer version) supports starting these lines with -1, meaning all channels.
           -- Reaper 4.22 (C3 recommended) does not, so we have to stick with 0 (first channel).
