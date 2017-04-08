@@ -66,7 +66,7 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200043 Ripped Apart and Reassembled (Nova Collective) 2x
 1660200044 Barracuda (The Bad Plus)
   Onyxite's Jazz Pack 2
-  v1 TO BE PUBLISHED
+  v1 published 2017-04-07
 
 1660200039 Ripple Star (Jun Ishikawa) 1x
 1660200040 Ripple Star (Jun Ishikawa) 2x
