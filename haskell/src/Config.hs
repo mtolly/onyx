@@ -12,10 +12,11 @@ module Config where
 
 import           Audio
 import           Control.Arrow                  (first)
-import           Control.Monad                  (when)
+import           Control.Monad                  (forM_, when)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
+import           Control.Monad.Trans.Writer     (execWriter, tell)
 import           Data.Aeson                     ((.=))
 import qualified Data.Aeson                     as A
 import           Data.Char                      (isDigit, isSpace)
@@ -29,6 +30,7 @@ import qualified Data.HashMap.Strict            as Map
 import           Data.Maybe                     (fromMaybe, isJust, isNothing)
 import           Data.Monoid                    ((<>))
 import           Data.Scientific                (Scientific, toRealFloat)
+import           Data.String                    (IsString)
 import qualified Data.Text                      as T
 import           Data.Traversable
 import qualified Data.Vector                    as V
@@ -238,11 +240,6 @@ data Plan
     , _crowd        :: Maybe (PlanAudio Duration AudioInput)
     , _planComments :: [T.Text]
     }
-  | EachPlan
-    { _each         :: PlanAudio Duration T.Text
-    , _countin      :: Countin
-    , _planComments :: [T.Text]
-    }
   | MoggPlan
     { _moggMD5      :: T.Text
     , _moggGuitar   :: [Int]
@@ -264,11 +261,9 @@ getKaraoke, getMultitrack :: Plan -> Bool
 getKaraoke = \case
   Plan{..} -> isJust _vocal && all isNothing [_guitar, _bass, _keys, _drums]
   MoggPlan{..} -> _karaoke
-  EachPlan{} -> False
 getMultitrack = \case
   Plan{..} -> any isJust [_guitar, _bass, _keys, _drums]
   MoggPlan{..} -> _multitrack
-  EachPlan{} -> True
 
 instance TraceJSON Countin where
   traceJSON = do
@@ -321,14 +316,7 @@ instance A.ToJSON Countin where
 
 instance TraceJSON Plan where
   traceJSON = decideKey
-    [ ("each", object $ do
-      _each <- requiredKey "each" traceJSON
-      _countin <- fromMaybe (Countin []) <$> optionalKey "countin" traceJSON
-      _planComments <- fromMaybe [] <$> optionalKey "comments" traceJSON
-      expectedKeys ["each", "countin", "comments"]
-      return EachPlan{..}
-      )
-    , ("mogg-md5", object $ do
+    [ ("mogg-md5", object $ do
       _moggMD5 <- requiredKey "mogg-md5" traceJSON
       _moggGuitar <- fromMaybe [] <$> optionalKey "guitar" traceJSON
       _moggBass   <- fromMaybe [] <$> optionalKey "bass" traceJSON
@@ -383,11 +371,6 @@ instance A.ToJSON Plan where
       , map ("drums" .=) $ toList _drums
       , map ("vocal" .=) $ toList _vocal
       , map ("crowd" .=) $ toList _crowd
-      , ["comments" .= _planComments | not $ null _planComments]
-      ]
-    EachPlan{..} -> A.object $ concat
-      [ map ("each" .=) $ toList _each
-      , ["countin" .= _countin | _countin /= Countin []]
       , ["comments" .= _planComments | not $ null _planComments]
       ]
     MoggPlan{..} -> A.object $ concat
@@ -596,22 +579,6 @@ instance A.ToJSON Duration where
     Frames f -> A.object ["frames" .= f]
     Seconds s -> showTimestamp $ realToFrac s
 
-data VocalCount = Vocal0 | Vocal1 | Vocal2 | Vocal3
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-instance TraceJSON VocalCount where
-  traceJSON = lift ask >>= \case
-    A.Bool False -> return Vocal0
-    A.Bool True  -> return Vocal1
-    A.Number 0   -> return Vocal0
-    A.Number 1   -> return Vocal1
-    A.Number 2   -> return Vocal2
-    A.Number 3   -> return Vocal3
-    _            -> expected "a vocal part count (0 to 3)"
-
-instance A.ToJSON VocalCount where
-  toJSON = A.toJSON . fromEnum
-
 instance TraceJSON FlexPartName where
   traceJSON = fmap readPartName traceJSON
 
@@ -633,15 +600,18 @@ instance TraceJSON PlayMode where
     "vocal-3"    -> return PlayVocal3
     _            -> expected "a play mode (grybo, pro-keys, pro-guitar, drums, vocal-1, vocal-2, vocal-3)"
 
+showPlayMode :: (IsString s) => PlayMode -> s
+showPlayMode = \case
+  PlayGRYBO     -> "grybo"
+  PlayProKeys   -> "pro-keys"
+  PlayProGuitar -> "pro-guitar"
+  PlayDrums     -> "drums"
+  PlayVocal1    -> "vocal-1"
+  PlayVocal2    -> "vocal-2"
+  PlayVocal3    -> "vocal-3"
+
 instance A.ToJSON PlayMode where
-  toJSON = \case
-    PlayGRYBO     -> "grybo"
-    PlayProKeys   -> "pro-keys"
-    PlayProGuitar -> "pro-guitar"
-    PlayDrums     -> "drums"
-    PlayVocal1    -> "vocal-1"
-    PlayVocal2    -> "vocal-2"
-    PlayVocal3    -> "vocal-3"
+  toJSON = showPlayMode
 
 instance Hashable PlayMode where
   hashWithSalt salt = hashWithSalt salt . fromEnum
@@ -685,10 +655,20 @@ instance TraceJSON Difficulties where
         Just bd -> (Nothing, bd) : diffs'
 
 instance A.ToJSON Difficulties where
-  toJSON = undefined
+  toJSON (Difficulties hm) = A.object $ execWriter $ do
+    forM_ (Map.lookup Nothing hm) $ \bandDiff -> tell ["band" .= bandDiff]
+    forM_ [ part | Just (part, _) <- Map.keys hm ] $ \part -> do
+      let modes = A.object $ execWriter $ do
+            forM_ (Map.toList hm) $ \(k, diff) -> case k of
+              Just (part', mode) | part == part' -> tell [showPlayMode mode .= diff]
+              _                                  -> return ()
+      tell [getPartName part .= modes]
 
 instance Default Difficulties where
   def = Difficulties Map.empty
+
+getDifficulty :: Maybe (FlexPartName, PlayMode) -> Difficulties -> Difficulty
+getDifficulty x (Difficulties hm) = fromMaybe (Tier 1) $ Map.lookup x hm
 
 newtype Instruments = Instruments (Map.HashMap FlexPartName [PlayMode])
   deriving (Eq, Show)

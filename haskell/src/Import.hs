@@ -35,6 +35,7 @@ import           PrettyDTA                      (C3DTAComments (..),
                                                  DTASingle (..), readDTASingle,
                                                  readRB3DTA, writeDTASingle)
 import qualified RockBand.Drums                 as RBDrums
+import           RockBand.File                  (FlexPartName (..))
 import qualified RockBand.File                  as RBFile
 import           RockBand.PhaseShiftMessage     (discardPS)
 import qualified RockBand.Vocals                as RBVox
@@ -58,6 +59,11 @@ standardTargets songID version is2x krb2 vid = let
         , rb3_SongID = songID
         , rb3_Label = Nothing
         , rb3_Version = version
+        , rb3_Guitar = FlexGuitar
+        , rb3_Bass = FlexBass
+        , rb3_Drums = FlexDrums
+        , rb3_Vocal = FlexVocal
+        , rb3_Keys = FlexKeys
         }
       )
     , ("rb2", RB2 TargetRB2
@@ -65,14 +71,22 @@ standardTargets songID version is2x krb2 vid = let
         , rb2_2xBassPedal = False
         , rb2_SongID = songID
         , rb2_Label = Nothing
-        , rb2_Keys = krb2
         , rb2_Version = version
+        , rb2_Guitar = case krb2 of KeysGuitar -> FlexKeys; _ -> FlexGuitar
+        , rb2_Bass = case krb2 of KeysBass -> FlexKeys; _ -> FlexBass
+        , rb2_Drums = FlexDrums
+        , rb2_Vocal = FlexVocal
         }
       )
     , ("ps", PS TargetPS
         { ps_Plan = Nothing
         , ps_Label = Nothing
         , ps_FileVideo = vid
+        , ps_Guitar = FlexGuitar
+        , ps_Bass = FlexBass
+        , ps_Drums = FlexDrums
+        , ps_Vocal = FlexVocal
+        , ps_Keys = FlexKeys
         }
       )
     ]
@@ -83,6 +97,11 @@ standardTargets songID version is2x krb2 vid = let
         , rb3_SongID = songID
         , rb3_Label = Nothing
         , rb3_Version = version
+        , rb3_Guitar = FlexGuitar
+        , rb3_Bass = FlexBass
+        , rb3_Drums = FlexDrums
+        , rb3_Vocal = FlexVocal
+        , rb3_Keys = FlexKeys
         }
       )
     , ("rb2-2x", RB2 TargetRB2
@@ -90,8 +109,11 @@ standardTargets songID version is2x krb2 vid = let
         , rb2_2xBassPedal = True
         , rb2_SongID = songID
         , rb2_Label = Nothing
-        , rb2_Keys = krb2
         , rb2_Version = version
+        , rb2_Guitar = case krb2 of KeysGuitar -> FlexKeys; _ -> FlexGuitar
+        , rb2_Bass = case krb2 of KeysBass -> FlexKeys; _ -> FlexBass
+        , rb2_Drums = FlexDrums
+        , rb2_Vocal = FlexVocal
         }
       )
     ]
@@ -182,7 +204,7 @@ importFoF krb2 src dest = do
 
   when pad $ warn $ "Padding FoF/PS song by " ++ show (padDelay :: Int) ++ " seconds due to early start."
 
-  let toTier = fmap $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
+  let toTier = fromMaybe (Tier 1) . fmap (\n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1)
 
   let drumToDrums t = if U.trackName t == Just "PART DRUM"
         then U.setTrackName "PART DRUMS" t
@@ -216,6 +238,14 @@ importFoF krb2 src dest = do
       liftIO $ Dir.copyFile (src </> v) (dest </> "video.avi")
       return $ Just "video.avi"
 
+  let vocalMode = if elem "PART VOCALS" trackNames && FoF.diffVocals song /= Just (-1) && hasVocalNotes && FoF.charter song /= Just "Sodamlazy"
+        then if elem "HARM2" trackNames && FoF.diffVocalsHarm song /= Just (-1)
+          then if elem "HARM3" trackNames
+            then Just PlayVocal3
+            else Just PlayVocal2
+          else Just PlayVocal1
+        else Nothing
+
   liftIO $ Y.encodeFile (dest </> "song.yml") SongYaml
     { _metadata = Metadata
       { _title        = FoF.name song
@@ -228,17 +258,19 @@ importFoF krb2 src dest = do
       , _trackNumber  = FoF.track song
       , _comments     = []
       , _vocalGender  = Nothing
-      , _difficulty   = Difficulties
-        { _difficultyDrums     = toTier $ FoF.diffDrums song
-        , _difficultyGuitar    = toTier $ FoF.diffGuitar song
-        , _difficultyBass      = toTier $ FoF.diffBass song
-        , _difficultyKeys      = toTier $ FoF.diffKeys song
-        , _difficultyProKeys   = toTier $ FoF.diffKeysReal song
-        , _difficultyProGuitar = toTier $ FoF.diffGuitarReal song
-        , _difficultyProBass   = toTier $ FoF.diffBassReal song
-        , _difficultyVocal     = toTier $ FoF.diffVocals song
-        , _difficultyBand      = toTier $ FoF.diffBand song
-        }
+      , _difficulty   = Difficulties $ HM.fromList $ concat
+        [ [(Just (RBFile.FlexDrums , PlayDrums    ), toTier $ FoF.diffDrums song)]
+        , [(Just (RBFile.FlexGuitar, PlayGRYBO    ), toTier $ FoF.diffGuitar song)]
+        , [(Just (RBFile.FlexBass  , PlayGRYBO    ), toTier $ FoF.diffBass song)]
+        , [(Just (RBFile.FlexKeys  , PlayGRYBO    ), toTier $ FoF.diffKeys song)]
+        , [(Just (RBFile.FlexKeys  , PlayProKeys  ), toTier $ FoF.diffKeysReal song)]
+        , [(Just (RBFile.FlexGuitar, PlayProGuitar), toTier $ FoF.diffGuitarReal song)]
+        , [(Just (RBFile.FlexBass  , PlayProGuitar), toTier $ FoF.diffBassReal song)]
+        , case vocalMode of
+          Nothing -> []
+          Just vm -> [(Just (RBFile.FlexVocal, vm), toTier $ FoF.diffVocals song)]
+        , [(Nothing, toTier $ FoF.diffBand song)]
+        ]
       , _key          = Nothing
       , _autogenTheme = AutogenDefault
       , _author       = FoF.charter song
@@ -294,26 +326,28 @@ importFoF krb2 src dest = do
       , _planComments = []
       }
     , _targets = standardTargets Nothing Nothing has2x krb2 vid
-    , _instruments = Instruments
-      { _hasDrums   = elem "PART DRUMS" trackNames && FoF.diffDrums song /= Just (-1)
-      , _hasGuitar  = elem "PART GUITAR" trackNames && FoF.diffGuitar song /= Just (-1)
-      , _hasBass    = elem "PART BASS" trackNames && FoF.diffBass song /= Just (-1)
-      , _hasKeys    = elem "PART KEYS" trackNames && FoF.diffKeys song /= Just (-1)
-      , _hasProKeys = elem "PART REAL_KEYS_X" trackNames && FoF.diffKeysReal song /= Just (-1)
-      , _hasProGuitar =
-        (elem "PART REAL_GUITAR" trackNames && FoF.diffGuitarReal song /= Just (-1)) ||
-        (elem "PART REAL_GUITAR_22" trackNames && FoF.diffGuitarReal22 song /= Just (-1))
-      , _hasProBass =
-        (elem "PART REAL_BASS" trackNames && FoF.diffBassReal song /= Just (-1)) ||
-        (elem "PART REAL_BASS_22" trackNames && FoF.diffBassReal22 song /= Just (-1))
-      , _hasVocal   = if elem "PART VOCALS" trackNames && FoF.diffVocals song /= Just (-1) && hasVocalNotes && FoF.charter song /= Just "Sodamlazy"
-        then if elem "HARM2" trackNames && FoF.diffVocalsHarm song /= Just (-1)
-          then if elem "HARM3" trackNames
-            then Vocal3
-            else Vocal2
-          else Vocal1
-        else Vocal0
-      }
+    , _instruments = Instruments $ HM.fromList
+      [ ( FlexDrums, [PlayDrums | elem "PART DRUMS" trackNames && FoF.diffDrums song /= Just (-1)] )
+      , ( FlexGuitar
+        ,   [ PlayGRYBO | elem "PART GUITAR" trackNames && FoF.diffGuitar song /= Just (-1) ]
+        ++  [ PlayProGuitar
+            |  (elem "PART REAL_GUITAR"    trackNames && FoF.diffGuitarReal   song /= Just (-1))
+            || (elem "PART REAL_GUITAR_22" trackNames && FoF.diffGuitarReal22 song /= Just (-1))
+            ]
+        )
+      , ( FlexBass
+        ,   [ PlayGRYBO | elem "PART BASS" trackNames && FoF.diffBass song /= Just (-1) ]
+        ++  [ PlayProGuitar
+            |  (elem "PART REAL_BASS"    trackNames && FoF.diffBassReal   song /= Just (-1))
+            || (elem "PART REAL_BASS_22" trackNames && FoF.diffBassReal22 song /= Just (-1))
+            ]
+        )
+      , ( FlexKeys
+        ,   [ PlayGRYBO   | elem "PART KEYS"        trackNames && FoF.diffKeys     song /= Just (-1) ]
+        ++  [ PlayProKeys | elem "PART REAL_KEYS_X" trackNames && FoF.diffKeysReal song /= Just (-1) ]
+        )
+      , ( FlexVocal, toList vocalMode )
+      ]
     , _published = True
     }
 
@@ -469,6 +503,17 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       s -> do
         warn $ "During CON file import, unrecognized drum bank " ++ show s
         return HardRockKit
+  let diffMap :: Map.Map T.Text Integer
+      diffMap = D2.fromDict $ D.rank pkg
+  vocalMode <- if maybe False (/= 0) $ Map.lookup "vocals" diffMap
+    then case D.vocalParts $ D.song pkg of
+      Nothing -> return $ Just PlayVocal1
+      Just 0 -> return Nothing
+      Just 1 -> return $ Just PlayVocal1
+      Just 2 -> return $ Just PlayVocal2
+      Just 3 -> return $ Just PlayVocal3
+      n -> fatal $ "When importing a CON file: invalid vocal count of " ++ show n
+    else return Nothing
   liftIO $ Y.encodeFile (dir </> "song.yml") SongYaml
     { _metadata = Metadata
       { _title        = _title meta <|> Just (D.name pkg)
@@ -481,20 +526,19 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
       , _comments     = []
       , _vocalGender  = Just $ D.vocalGender pkg
-      , _difficulty   = let
-        diffMap :: Map.Map T.Text Integer
-        diffMap = D2.fromDict $ D.rank pkg
-        in Difficulties
-          { _difficultyDrums     = Rank <$> Map.lookup "drum" diffMap
-          , _difficultyGuitar    = Rank <$> Map.lookup "guitar" diffMap
-          , _difficultyBass      = Rank <$> Map.lookup "bass" diffMap
-          , _difficultyKeys      = Rank <$> Map.lookup "keys" diffMap
-          , _difficultyProKeys   = Rank <$> Map.lookup "real_keys" diffMap
-          , _difficultyProGuitar = Rank <$> Map.lookup "real_guitar" diffMap
-          , _difficultyProBass   = Rank <$> Map.lookup "real_bass" diffMap
-          , _difficultyVocal     = Rank <$> Map.lookup "vocals" diffMap
-          , _difficultyBand      = Rank <$> Map.lookup "band" diffMap
-          }
+      , _difficulty   = Difficulties $ HM.fromList $ concat
+        [ [(Just (RBFile.FlexDrums , PlayDrums    ), Rank $ fromMaybe 1 $ Map.lookup "drum" diffMap)]
+        , [(Just (RBFile.FlexGuitar, PlayGRYBO    ), Rank $ fromMaybe 1 $ Map.lookup "guitar" diffMap)]
+        , [(Just (RBFile.FlexBass  , PlayGRYBO    ), Rank $ fromMaybe 1 $ Map.lookup "bass" diffMap)]
+        , [(Just (RBFile.FlexKeys  , PlayGRYBO    ), Rank $ fromMaybe 1 $ Map.lookup "keys" diffMap)]
+        , [(Just (RBFile.FlexKeys  , PlayProKeys  ), Rank $ fromMaybe 1 $ Map.lookup "real_keys" diffMap)]
+        , [(Just (RBFile.FlexGuitar, PlayProGuitar), Rank $ fromMaybe 1 $ Map.lookup "real_guitar" diffMap)]
+        , [(Just (RBFile.FlexBass  , PlayProGuitar), Rank $ fromMaybe 1 $ Map.lookup "real_bass" diffMap)]
+        , case vocalMode of
+          Nothing -> []
+          Just vm -> [(Just (RBFile.FlexVocal, vm), Rank $ fromMaybe 1 $ Map.lookup "vocals" diffMap)]
+        , [(Nothing, Rank $ fromMaybe 1 $ Map.lookup "band" diffMap)]
+        ]
       , _key          = toEnum . fromEnum <$> D.vocalTonicNote pkg
       , _autogenTheme = AutogenDefault
       , _author       = _author meta
@@ -551,26 +595,21 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
         Left  i -> guard (i /= 0) >> Just (Left i)
         Right k -> Just $ Right k
       in standardTargets songID (songID >> Just (D.version pkg)) is2x krb2 Nothing
-    , _instruments = let
-      diffMap :: Map.Map T.Text Integer
-      diffMap = D2.fromDict $ D.rank pkg
-      in Instruments
-        { _hasDrums     = maybe False (/= 0) $ Map.lookup "drum" diffMap
-        , _hasGuitar    = maybe False (/= 0) $ Map.lookup "guitar" diffMap
-        , _hasBass      = maybe False (/= 0) $ Map.lookup "bass" diffMap
-        , _hasKeys      = maybe False (/= 0) $ Map.lookup "keys" diffMap
-        , _hasProKeys   = maybe False (/= 0) $ Map.lookup "real_keys" diffMap
-        , _hasProGuitar = maybe False (/= 0) $ Map.lookup "real_guitar" diffMap
-        , _hasProBass   = maybe False (/= 0) $ Map.lookup "real_bass" diffMap
-        , _hasVocal     = if maybe False (/= 0) $ Map.lookup "vocals" diffMap
-          then case D.vocalParts $ D.song pkg of
-            Nothing -> Vocal1
-            Just 0 -> Vocal0
-            Just 1 -> Vocal1
-            Just 2 -> Vocal2
-            Just 3 -> Vocal3
-            n -> error $ "When importing a CON file: invalid vocal count of " ++ show n
-          else Vocal0
-        }
+    , _instruments = Instruments $ HM.fromList
+      [ ( FlexDrums, [ PlayDrums | maybe False (/= 0) $ Map.lookup "drum" diffMap ] )
+      , ( FlexGuitar
+        ,   [ PlayGRYBO     | maybe False (/= 0) $ Map.lookup "guitar"      diffMap ]
+        ++  [ PlayProGuitar | maybe False (/= 0) $ Map.lookup "real_guitar" diffMap ]
+        )
+      , ( FlexBass
+        ,   [ PlayGRYBO     | maybe False (/= 0) $ Map.lookup "bass"      diffMap ]
+        ++  [ PlayProGuitar | maybe False (/= 0) $ Map.lookup "real_bass" diffMap ]
+        )
+      , ( FlexKeys
+        ,   [ PlayGRYBO   | maybe False (/= 0) $ Map.lookup "keys"      diffMap ]
+        ++  [ PlayProKeys | maybe False (/= 0) $ Map.lookup "real_keys" diffMap ]
+        )
+      , ( FlexVocal, toList vocalMode )
+      ]
     , _published = True
     }

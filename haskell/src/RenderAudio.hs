@@ -108,7 +108,6 @@ checkDefined songYaml = do
   let definedLeaves = HM.keys (_audio songYaml) ++ HM.keys (_jammit songYaml)
   forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
     let leaves = case plan of
-          EachPlan{..} -> toList _each
           MoggPlan{} -> []
           Plan{..} -> let
             getLeaves = \case
@@ -131,16 +130,6 @@ computeChannelsPlan songYaml = let
       Just AudioFile   {..} -> _channels
       Just AudioSnippet{..} -> computeChannelsPlan songYaml _expr
     JammitSelect _ _ -> 2
-  in computeChannels . fmap toChannels
-
-computeChannelsEachPlan :: SongYaml -> Audio Duration T.Text -> Int
-computeChannelsEachPlan songYaml = let
-  toChannels name = case HM.lookup name $ _jammit songYaml of
-    Just _ -> 2
-    Nothing -> case HM.lookup name $ _audio songYaml of
-      Nothing      -> error "panic! audio leaf not found, after it should've been checked"
-      Just AudioFile{..} -> _channels
-      Just AudioSnippet{..} -> computeChannelsPlan songYaml _expr
   in computeChannels . fmap toChannels
 
 jammitSearch :: SongYaml -> JammitTrack -> J.Library -> Action [(J.AudioPart, FilePath)]
@@ -177,39 +166,6 @@ manualLeaf songYaml (JammitSelect audpart name) = case HM.lookup name $ _jammit 
   Just _  -> return $ Input $ jammitPath name audpart
   Nothing -> fail $ "Couldn't find a Jammit source named " ++ show name
 
--- The "auto" mode of Jammit audio assignment, using EachPlan
-autoLeaf :: SongYaml -> Maybe J.Instrument -> T.Text -> Action (Audio Duration FilePath)
-autoLeaf songYaml minst name = case HM.lookup name $ _jammit songYaml of
-  Nothing -> manualLeaf songYaml $ Named name
-  Just jmtQuery -> do
-    result <- fmap read $ askOracle $ JammitSearch $ show jmtQuery
-    let _ = result :: [(J.AudioPart, FilePath)]
-    let backs = concat
-          [ [J.Drums    | _hasDrums    $ _instruments songYaml]
-          , [J.Bass     | hasAnyBass   $ _instruments songYaml]
-          , [J.Guitar   | hasAnyGuitar $ _instruments songYaml]
-          , [J.Keyboard | hasAnyKeys   $ _instruments songYaml]
-          , [J.Vocal    | hasAnyVocal  $ _instruments songYaml]
-          ]
-        -- audio that is used in the song and bought by the user
-        boughtInstrumentParts :: J.Instrument -> [FilePath]
-        boughtInstrumentParts inst = do
-          guard $ inst `elem` backs
-          J.Only part <- nub $ map fst result
-          guard $ J.partToInstrument part == inst
-          return $ jammitPath name $ J.Only part
-        mixOrStereo []    = Silence 2 $ Frames 0
-        mixOrStereo files = Mix $ map Input files
-    case minst of
-      Just inst -> return $ mixOrStereo $ boughtInstrumentParts inst
-      Nothing -> case filter (\inst -> J.Without inst `elem` map fst result) backs of
-        []       -> fail "No charted instruments with Jammit tracks found"
-        back : _ -> return $ let
-          negative = mixOrStereo $ do
-            otherInstrument <- filter (/= back) backs
-            boughtInstrumentParts otherInstrument
-          in Mix [Input $ jammitPath name $ J.Without back, Gain (-1) negative]
-
 data PansVols = PansVols
   { bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, crowdPV, songPV :: [(Double, Double)]
   , mixMode                                                                      :: RBDrums.Audio
@@ -232,42 +188,23 @@ computePansVols songYaml plan = let
       [] -> replicate chans 0
       vs -> vs
     in zip pans vols
-  eachPlanPV :: PlanAudio Duration T.Text -> [(Double, Double)]
-  eachPlanPV paud = let
-    chans = computeChannelsEachPlan songYaml $ _planExpr paud
-    pans = case _planPans paud of
-      [] -> case chans of
-        0 -> []
-        1 -> [0]
-        2 -> [-1, 1]
-        c -> error $ "Error: I don't know what pans to use for " ++ show c ++ "-channel audio"
-      ps -> ps
-    vols = case _planVols paud of
-      [] -> replicate chans 0
-      vs -> vs
-    in zip pans vols
   bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, crowdPV, songPV :: [(Double, Double)]
   mixMode :: RBDrums.Audio
   bassPV = guard (hasAnyBass $ _instruments songYaml) >> case plan of
     MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggBass
     Plan{..}     -> planPV _bass
-    EachPlan{..} -> eachPlanPV _each
   guitarPV = guard (hasAnyGuitar $ _instruments songYaml) >> case plan of
     MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggGuitar
     Plan{..}     -> planPV _guitar
-    EachPlan{..} -> eachPlanPV _each
   keysPV = guard (hasAnyKeys $ _instruments songYaml) >> case plan of
     MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggKeys
     Plan{..}     -> planPV _keys
-    EachPlan{..} -> eachPlanPV _each
   vocalPV = guard (hasAnyVocal $ _instruments songYaml) >> case plan of
     MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggVocal
     Plan{..}     -> planPV _vocal
-    EachPlan{..} -> eachPlanPV _each
   crowdPV = case plan of
     MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggCrowd
     Plan{..}     -> guard (isJust _crowd) >> planPV _crowd
-    EachPlan{..} -> []
   (kickPV, snarePV, drumsPV, mixMode) = if _hasDrums $ _instruments songYaml
     then case plan of
       MoggPlan{..} -> let
@@ -305,14 +242,12 @@ computePansVols songYaml plan = let
             , planPV _drums
             , matchingMix
             )
-      EachPlan{..} -> ([], [], eachPlanPV _each, RBDrums.D0)
     else ([], [], [], RBDrums.D0)
   songPV = case plan of
     MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ let
       notSong = concat [_moggGuitar, _moggBass, _moggKeys, _moggDrums, _moggVocal, _moggCrowd]
       in filter (`notElem` notSong) [0 .. length _pans - 1]
     Plan{..} -> planPV _song
-    EachPlan{..} -> eachPlanPV _each
   in PansVols{..}
 
 makeAudioFiles :: SongYaml -> Plan -> FilePath -> RBDrums.Audio -> Rules ()
@@ -332,18 +267,6 @@ makeAudioFiles songYaml plan dir mixMode = case plan of
     dir </> "drums.wav"  %> buildPart _drums
     dir </> "vocal.wav"  %> buildPart _vocal
     dir </> "crowd.wav"  %> buildPart _crowd
-  EachPlan{..} -> do
-    dir </> "kick.wav"   %> buildAudio (Silence 1 $ Frames 0)
-    dir </> "snare.wav"  %> buildAudio (Silence 1 $ Frames 0)
-    dir </> "crowd.wav"  %> buildAudio (Silence 1 $ Frames 0)
-    let locate :: Maybe J.Instrument -> Action (Audio Duration FilePath)
-        locate inst = fmap join $ mapM (autoLeaf songYaml inst) $ _planExpr _each
-        buildPart maybeInst fout = locate maybeInst >>= \aud -> buildAudio aud fout
-    forM_ (Nothing : map Just [minBound .. maxBound]) $ \maybeInst -> let
-      planAudioPath :: Maybe Instrument -> FilePath
-      planAudioPath (Just inst) = dir </> map toLower (show inst) <.> "wav"
-      planAudioPath Nothing     = dir </> "song.wav"
-      in planAudioPath maybeInst %> buildPart (fmap jammitInstrument maybeInst)
   MoggPlan{..} -> do
     let oggChannels []    = buildAudio $ Silence 2 $ Frames 0
         oggChannels chans = buildAudio $ Channels chans $ Input $ dir </> "audio.ogg"

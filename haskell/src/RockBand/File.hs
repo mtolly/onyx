@@ -11,6 +11,7 @@ import           Control.Monad.Trans.StackTrace
 import           Data.Default.Class               (Default (..))
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Hashable                    (Hashable (..))
 import           Data.List                        (nub, partition, sortOn,
                                                    stripPrefix)
 import qualified Data.Map                         as Map
@@ -35,7 +36,6 @@ import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
-import Data.Hashable (Hashable(..))
 
 data Song t = Song
   { s_tempos     :: U.TempoMap
