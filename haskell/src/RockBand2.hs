@@ -2,8 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module RockBand2 (convertMIDI, dryVoxAudio) where
 
-import           Config                           (Instrument (..),
-                                                   KeysRB2 (..))
+import           Config                           (Instrument (..))
 import           Control.Monad                    (guard)
 import           Data.Conduit.Audio               (AudioSource)
 import           Data.Either                      (lefts, rights)
@@ -439,3 +438,9 @@ useColorDrums expert gem rtb = let
     guard $ elem gem xgems
     guard $ all (`elem` otherGems) gems
     return $ RTB.fromPairList $ reverse $ map removeX before ++ [(t, [gem])] ++ map removeX after
+
+data KeysRB2
+  = NoKeys
+  | KeysGuitar
+  | KeysBass
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)

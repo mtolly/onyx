@@ -32,6 +32,7 @@ import           Development.Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
 import qualified RockBand.Drums                 as RBDrums
+import           RockBand.File                  (FlexPartName (..))
 import qualified Sound.File.Sndfile             as Snd
 import qualified Sound.Jammit.Base              as J
 import qualified Sound.Jammit.Export            as J
@@ -171,8 +172,8 @@ data PansVols = PansVols
   , mixMode                                                                      :: RBDrums.Audio
   } deriving (Eq, Ord, Show, Read)
 
-computePansVols :: SongYaml -> Plan -> PansVols
-computePansVols songYaml plan = let
+computePansVols :: TargetRB3 -> Plan -> SongYaml -> PansVols
+computePansVols TargetRB3{..} plan songYaml = let
   planPV :: Maybe (PlanAudio Duration AudioInput) -> [(Double, Double)]
   planPV Nothing = [(-1, 0), (1, 0)]
   planPV (Just paud) = let
@@ -190,7 +191,7 @@ computePansVols songYaml plan = let
     in zip pans vols
   bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, crowdPV, songPV :: [(Double, Double)]
   mixMode :: RBDrums.Audio
-  bassPV = guard (hasAnyBass $ _instruments songYaml) >> case plan of
+  bassPV = guard (not $ null $ playModes  $ _instruments songYaml) >> case plan of
     MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggBass
     Plan{..}     -> planPV _bass
   guitarPV = guard (hasAnyGuitar $ _instruments songYaml) >> case plan of

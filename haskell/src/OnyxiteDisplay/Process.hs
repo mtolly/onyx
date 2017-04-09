@@ -413,43 +413,41 @@ instance (Real t) => A.ToJSON (Processed t) where
 
 makeDisplay :: C.SongYaml -> RBFile.Song (RBFile.OnyxFile U.Beats) -> BL.ByteString
 makeDisplay songYaml song = let
-  ht = fromIntegral (C._hopoThreshold $ C._options songYaml) / 480
-  gtr = justIf (elem C.PlayGRYBO $ C.playModes RBFile.FlexGuitar $ C._instruments songYaml) $ processFive (Just ht) (RBFile.s_tempos song)
+  ht n = fromIntegral n / 480
+  gtr = flip fmap (C.getPart RBFile.FlexGuitar songYaml >>= C.partGRYBO) $ \grybo -> processFive (Just $ ht $ C.gryboHopoThreshold grybo) (RBFile.s_tempos song)
     $ discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks song
-  bass = justIf (elem C.PlayGRYBO $ C.playModes RBFile.FlexBass $ C._instruments songYaml) $ processFive (Just ht) (RBFile.s_tempos song)
+  bass = flip fmap (C.getPart RBFile.FlexBass songYaml >>= C.partGRYBO) $ \grybo -> processFive (Just $ ht $ C.gryboHopoThreshold grybo) (RBFile.s_tempos song)
     $ discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks song
-  keys = justIf (elem C.PlayGRYBO $ C.playModes RBFile.FlexKeys $ C._instruments songYaml) $ processFive Nothing (RBFile.s_tempos song)
+  keys = flip fmap (C.getPart RBFile.FlexKeys songYaml >>= C.partGRYBO) $ \_ -> processFive Nothing (RBFile.s_tempos song)
     $ discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexKeys $ RBFile.s_tracks song
-  drums = justIf (elem C.PlayGRYBO $ C.playModes RBFile.FlexDrums $ C._instruments songYaml) $ processDrums (RBFile.s_tempos song)
+  drums = flip fmap (C.getPart RBFile.FlexDrums songYaml >>= C.partDrums) $ \_ -> processDrums (RBFile.s_tempos song)
     $ discardPS $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
-  prokeys = justIf (elem C.PlayProKeys $ C.playModes RBFile.FlexKeys $ C._instruments songYaml) $ processProKeys (RBFile.s_tempos song)
+  prokeys = flip fmap (C.getPart RBFile.FlexKeys songYaml >>= C.partProKeys) $ \_ -> processProKeys (RBFile.s_tempos song)
     $ discardPS $ RBFile.flexPartRealKeysX $ RBFile.getFlexPart RBFile.FlexKeys $ RBFile.s_tracks song
-  proguitar = justIf (elem C.PlayProGuitar $ C.playModes RBFile.FlexGuitar $ C._instruments songYaml) $ processProtar ht (RBFile.s_tempos song)
+  proguitar = flip fmap (C.getPart RBFile.FlexGuitar songYaml >>= C.partProGuitar) $ \pg -> processProtar (ht $ C.pgHopoThreshold pg) (RBFile.s_tempos song)
     $ let mustang = discardPS $ RBFile.flexPartRealGuitar   $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks song
           squier  = discardPS $ RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks song
       in if RTB.null squier then mustang else squier
-  probass = justIf (elem C.PlayProGuitar $ C.playModes RBFile.FlexBass $ C._instruments songYaml) $ processProtar ht (RBFile.s_tempos song)
+  probass = flip fmap (C.getPart RBFile.FlexBass songYaml >>= C.partProGuitar) $ \pg -> processProtar (ht $ C.pgHopoThreshold pg) (RBFile.s_tempos song)
     $ let mustang = discardPS $ RBFile.flexPartRealGuitar   $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks song
           squier  = discardPS $ RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks song
       in if RTB.null squier then mustang else squier
-  vox = if
-    | elem C.PlayVocal3 $ C.playModes RBFile.FlexVocal $ C._instruments songYaml -> makeVox
+  vox = flip fmap (C.getPart RBFile.FlexVocal songYaml >>= C.partVocal) $ \pvox -> case C.vocalCount pvox of
+    C.Vocal3 -> makeVox
       (discardPS $ RBFile.flexHarm1 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
       (discardPS $ RBFile.flexHarm2 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
       (discardPS $ RBFile.flexHarm3 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
-    | elem C.PlayVocal2 $ C.playModes RBFile.FlexVocal $ C._instruments songYaml -> makeVox
+    C.Vocal2 -> makeVox
       (discardPS $ RBFile.flexHarm1 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
       (discardPS $ RBFile.flexHarm2 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
       RTB.empty
-    | elem C.PlayVocal1 $ C.playModes RBFile.FlexVocal $ C._instruments songYaml -> makeVox
+    C.Vocal1 -> makeVox
       (discardPS $ RBFile.flexPartVocals $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
       RTB.empty
       RTB.empty
-    | otherwise -> Nothing
-  makeVox h1 h2 h3 = Just $ processVocal (RBFile.s_tempos song) h1 h2 h3 (fmap fromEnum $ C._key $ C._metadata songYaml)
+  makeVox h1 h2 h3 = processVocal (RBFile.s_tempos song) h1 h2 h3 (fmap fromEnum $ C._key $ C._metadata songYaml)
   beat = processBeat (RBFile.s_tempos song)
     $ discardPS $ RBFile.onyxBeat $ RBFile.s_tracks song
   end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats song
-  justIf b x = guard b >> Just x
   in A.encode $ mapTime (realToFrac :: U.Seconds -> Milli)
     $ Processed gtr bass keys drums prokeys proguitar probass vox beat end

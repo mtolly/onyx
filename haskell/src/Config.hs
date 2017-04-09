@@ -12,11 +12,10 @@ module Config where
 
 import           Audio
 import           Control.Arrow                  (first)
-import           Control.Monad                  (forM_, when)
+import           Control.Monad                  (when)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
-import           Control.Monad.Trans.Writer     (execWriter, tell)
 import           Data.Aeson                     ((.=))
 import qualified Data.Aeson                     as A
 import           Data.Char                      (isDigit, isSpace)
@@ -25,12 +24,10 @@ import           Data.Default.Class
 import qualified Data.DTA.Serialize.Magma       as Magma
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
-import           Data.Hashable                  (Hashable (..))
 import qualified Data.HashMap.Strict            as Map
 import           Data.Maybe                     (fromMaybe, isJust, isNothing)
 import           Data.Monoid                    ((<>))
 import           Data.Scientific                (Scientific, toRealFloat)
-import           Data.String                    (IsString)
 import qualified Data.Text                      as T
 import           Data.Traversable
 import qualified Data.Vector                    as V
@@ -109,21 +106,6 @@ instance A.ToJSON Instrument where
     Drums  -> "drums"
     Keys   -> "keys"
     Vocal  -> "vocal"
-
-data KeysRB2
-  = NoKeys
-  | KeysGuitar
-  | KeysBass
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
--- | Options that affect gameplay.
-jsonRecord "Options" eosr $ do
-  opt "_hopoThreshold"   "hopo-threshold"    [t| Int |]     [e| 170 |]
-  opt "_auto2xBass"      "auto-2x-bass"      [t| Bool |]    [e| False |]
-  opt "_proGuitarTuning" "pro-guitar-tuning" [t| [Int] |]   [e| [] |]
-  opt "_proBassTuning"   "pro-bass-tuning"   [t| [Int] |]   [e| [] |]
-  opt "_proDrums"        "pro-drums"         [t| Bool |]    [e| True |]
-  opt "_fixFreeform"     "fix-freeform"      [t| Bool |]    [e| True |]
 
 instance TraceJSON Magma.Gender where
   traceJSON = lift ask >>= \case
@@ -585,37 +567,6 @@ instance TraceJSON FlexPartName where
 instance A.ToJSON FlexPartName where
   toJSON = A.toJSON . getPartName
 
-data PlayMode = PlayGRYBO | PlayProKeys | PlayProGuitar | PlayDrums | PlayVocal1 | PlayVocal2 | PlayVocal3
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-instance TraceJSON PlayMode where
-  traceJSON = lift ask >>= \case
-    "grybo"      -> return PlayGRYBO
-    "pro-keys"   -> return PlayProKeys
-    "pro-guitar" -> return PlayProGuitar
-    "drums"      -> return PlayDrums
-    "vocal"      -> return PlayVocal1
-    "vocal-1"    -> return PlayVocal1
-    "vocal-2"    -> return PlayVocal2
-    "vocal-3"    -> return PlayVocal3
-    _            -> expected "a play mode (grybo, pro-keys, pro-guitar, drums, vocal-1, vocal-2, vocal-3)"
-
-showPlayMode :: (IsString s) => PlayMode -> s
-showPlayMode = \case
-  PlayGRYBO     -> "grybo"
-  PlayProKeys   -> "pro-keys"
-  PlayProGuitar -> "pro-guitar"
-  PlayDrums     -> "drums"
-  PlayVocal1    -> "vocal-1"
-  PlayVocal2    -> "vocal-2"
-  PlayVocal3    -> "vocal-3"
-
-instance A.ToJSON PlayMode where
-  toJSON = showPlayMode
-
-instance Hashable PlayMode where
-  hashWithSalt salt = hashWithSalt salt . fromEnum
-
 data Difficulty
   = Tier Integer -- ^ [1..7]: 1 = no dots, 7 = devil dots
   | Rank Integer -- ^ [1..]
@@ -633,54 +584,103 @@ instance A.ToJSON Difficulty where
     Tier i -> A.object ["tier" .= i]
     Rank i -> A.object ["rank" .= i]
 
-newtype Difficulties = Difficulties (Map.HashMap (Maybe (FlexPartName, PlayMode)) Difficulty)
+jsonRecord "PartGRYBO" eosr $ do
+  fill "gryboDifficulty" "difficulty" [t| Difficulty |] [e| Tier 1 |]
+  opt "gryboHopoThreshold" "hopo-threshold" [t| Int |] [e| 170 |]
+  opt "gryboFixFreeform" "fix-freeform" [t| Bool |] [e| False |]
+
+jsonRecord "PartProKeys" eosr $ do
+  fill "pkDifficulty" "difficulty" [t| Difficulty |] [e| Tier 1 |]
+  opt "pkFixFreeform" "fix-freeform" [t| Bool |] [e| False |]
+
+jsonRecord "PartProGuitar" eosr $ do
+  fill "pgDifficulty" "difficulty" [t| Difficulty |] [e| Tier 1 |]
+  opt "pgHopoThreshold" "hopo-threshold" [t| Int |] [e| 170 |]
+  opt "pgTuning" "tuning" [t| [Int] |] [e| [] |]
+  opt "pgFixFreeform" "fix-freeform" [t| Bool |] [e| False |]
+
+data DrumKit
+  = HardRockKit
+  | ArenaKit
+  | VintageKit
+  | TrashyKit
+  | ElectronicKit
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance TraceJSON DrumKit where
+  traceJSON = lift ask >>= \case
+    A.Null     -> return HardRockKit
+    A.String t         -> case readMaybe $ filter (/= ' ') $ T.unpack t of
+      Just kit -> return kit
+      Nothing  -> expected "the name of a drum kit or null"
+    _                  -> expected "the name of a drum kit or null"
+
+instance A.ToJSON DrumKit where
+  toJSON = \case
+    HardRockKit -> "Hard Rock Kit"
+    ArenaKit -> "Arena Kit"
+    VintageKit -> "Vintage Kit"
+    TrashyKit -> "Trashy Kit"
+    ElectronicKit -> "Electronic Kit"
+
+data DrumLayout
+  = StandardLayout
+  | FlipYBToms
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance TraceJSON DrumLayout where
+  traceJSON = lift ask >>= \case
+    A.Null                     -> return StandardLayout
+    A.String "standard-layout" -> return StandardLayout
+    A.String "flip-yb-toms"    -> return FlipYBToms
+    _                          -> expected "the name of a drum kit layout or null"
+
+instance A.ToJSON DrumLayout where
+  toJSON = \case
+    StandardLayout -> "standard-layout"
+    FlipYBToms     -> "flip-yb-toms"
+
+jsonRecord "PartDrums" eosr $ do
+  fill "drumsDifficulty" "difficulty" [t| Difficulty |] [e| Tier 1 |]
+  opt "drumsPro" "pro" [t| Bool |] [e| True |]
+  opt "drumsAuto2xBass" "auto-2x-bass" [t| Bool |] [e| False |]
+  opt "drumsFixFreeform" "fix-freeform" [t| Bool |] [e| False |]
+  opt "drumsKit" "kit" [t| DrumKit |] [e| HardRockKit |]
+  opt "drumsLayout" "layout" [t| DrumLayout |] [e| StandardLayout |]
+
+data VocalCount = Vocal1 | Vocal2 | Vocal3
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance TraceJSON VocalCount where
+  traceJSON = lift ask >>= \case
+    A.Number 1   -> return Vocal1
+    A.Number 2   -> return Vocal2
+    A.Number 3   -> return Vocal3
+    _            -> expected "a vocal part count (1 to 3)"
+
+instance A.ToJSON VocalCount where
+  toJSON c = A.toJSON $ fromEnum c + 1
+
+jsonRecord "PartVocal" eosr $ do
+  fill "vocalDifficulty" "difficulty" [t| Difficulty |] [e| Tier 1 |]
+  fill "vocalCount" "count" [t| VocalCount |] [e| Vocal1 |]
+  opt "vocalGender" "gender" [t| Maybe Magma.Gender |] [e| Nothing |]
+
+jsonRecord "Part" eosr $ do
+  opt "partGRYBO"     "grybo"      [t| Maybe PartGRYBO     |] [e| Nothing |]
+  opt "partProKeys"   "pro-keys"   [t| Maybe PartProKeys   |] [e| Nothing |]
+  opt "partProGuitar" "pro-guitar" [t| Maybe PartProGuitar |] [e| Nothing |]
+  opt "partDrums"     "drums"      [t| Maybe PartDrums     |] [e| Nothing |]
+  opt "partVocal"     "vocal"      [t| Maybe PartVocal     |] [e| Nothing |]
+
+newtype Parts = Parts { getParts :: Map.HashMap FlexPartName Part }
   deriving (Eq, Show)
 
-instance TraceJSON Difficulties where
-  traceJSON = object $ do
-    bandDiff <- optionalKey "band" traceJSON
-    hm <- lift ask
-    parseFrom (A.Object $ Map.delete "band" hm) $ do
-      diffs <- mapping $ mapping traceJSON
-      let paired = do
-            (fpart, modes) <- Map.toList diffs
-            (mode, diff) <- Map.toList modes
-            return ((fpart, mode), diff)
-      diffs' <- forM paired $ \((fpart, mode), diff) -> do
-        fpart' <- parseFrom (A.String fpart) traceJSON
-        mode' <- parseFrom (A.String mode) traceJSON
-        return (Just (fpart', mode'), diff)
-      return $ Difficulties $ Map.fromList $ case bandDiff of
-        Nothing -> diffs'
-        Just bd -> (Nothing, bd) : diffs'
+instance TraceJSON Parts where
+  traceJSON = Parts . Map.fromList . map (first readPartName) . Map.toList <$> mapping traceJSON
 
-instance A.ToJSON Difficulties where
-  toJSON (Difficulties hm) = A.object $ execWriter $ do
-    forM_ (Map.lookup Nothing hm) $ \bandDiff -> tell ["band" .= bandDiff]
-    forM_ [ part | Just (part, _) <- Map.keys hm ] $ \part -> do
-      let modes = A.object $ execWriter $ do
-            forM_ (Map.toList hm) $ \(k, diff) -> case k of
-              Just (part', mode) | part == part' -> tell [showPlayMode mode .= diff]
-              _                                  -> return ()
-      tell [getPartName part .= modes]
-
-instance Default Difficulties where
-  def = Difficulties Map.empty
-
-getDifficulty :: Maybe (FlexPartName, PlayMode) -> Difficulties -> Difficulty
-getDifficulty x (Difficulties hm) = fromMaybe (Tier 1) $ Map.lookup x hm
-
-newtype Instruments = Instruments (Map.HashMap FlexPartName [PlayMode])
-  deriving (Eq, Show)
-
-instance TraceJSON Instruments where
-  traceJSON = Instruments . Map.fromList . map (first readPartName) . Map.toList <$> mapping traceJSON
-
-instance A.ToJSON Instruments where
-  toJSON (Instruments hm) = A.toJSON $ Map.fromList $ map (first getPartName) $ Map.toList hm
-
-playModes :: FlexPartName -> Instruments -> [PlayMode]
-playModes fpart (Instruments hm) = Map.lookupDefault [] fpart hm
+instance A.ToJSON Parts where
+  toJSON (Parts hm) = A.toJSON $ Map.fromList $ map (first getPartName) $ Map.toList hm
 
 data AutogenTheme
   = AutogenDefault
@@ -733,47 +733,6 @@ instance TraceJSON Rating where
 instance A.ToJSON Rating where
   toJSON = A.toJSON . show -- maybe put spaces in here later
 
-data DrumKit
-  = HardRockKit
-  | ArenaKit
-  | VintageKit
-  | TrashyKit
-  | ElectronicKit
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-instance TraceJSON DrumKit where
-  traceJSON = lift ask >>= \case
-    A.Null     -> return HardRockKit
-    A.String t         -> case readMaybe $ filter (/= ' ') $ T.unpack t of
-      Just kit -> return kit
-      Nothing  -> expected "the name of a drum kit or null"
-    _                  -> expected "the name of a drum kit or null"
-
-instance A.ToJSON DrumKit where
-  toJSON = \case
-    HardRockKit -> "Hard Rock Kit"
-    ArenaKit -> "Arena Kit"
-    VintageKit -> "Vintage Kit"
-    TrashyKit -> "Trashy Kit"
-    ElectronicKit -> "Electronic Kit"
-
-data DrumLayout
-  = StandardLayout
-  | FlipYBToms
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-instance TraceJSON DrumLayout where
-  traceJSON = lift ask >>= \case
-    A.Null                     -> return StandardLayout
-    A.String "standard-layout" -> return StandardLayout
-    A.String "flip-yb-toms"    -> return FlipYBToms
-    _                          -> expected "the name of a drum kit layout or null"
-
-instance A.ToJSON DrumLayout where
-  toJSON = \case
-    StandardLayout -> "standard-layout"
-    FlipYBToms     -> "flip-yb-toms"
-
 data PreviewTime
   = PreviewSection T.Text
   | PreviewMIDI    U.MeasureBeats
@@ -811,14 +770,10 @@ jsonRecord "Metadata" eqshow $ do
   warning "_fileAlbumArt" "file-album-art" [t| Maybe FilePath |] [e| Nothing |]
   warning "_trackNumber" "track-number" [t| Maybe Int |] [e| Nothing |]
   opt "_comments" "comments" [t| [T.Text] |] [e| [] |]
-  opt "_vocalGender" "vocal-gender" [t| Maybe Magma.Gender |] [e| Nothing |]
-  opt "_difficulty" "difficulty" [t| Difficulties |] [e| def |]
   opt "_key" "key" [t| Maybe Key |] [e| Nothing |]
   opt "_autogenTheme" "autogen-theme" [t| AutogenTheme |] [e| AutogenDefault |]
   warning "_author" "author" [t| Maybe T.Text |] [e| Nothing |]
   opt "_rating" "rating" [t| Rating |] [e| Unrated |]
-  opt "_drumKit" "drum-kit" [t| DrumKit |] [e| HardRockKit |]
-  opt "_drumLayout" "drum-layout" [t| DrumLayout |] [e| StandardLayout |]
   opt "_previewStart" "preview-start" [t| Maybe PreviewTime |] [e| Nothing |]
   opt "_previewEnd" "preview-end" [t| Maybe PreviewTime |] [e| Nothing |]
   opt "_languages" "languages" [t| [T.Text] |] [e| [] |]
@@ -828,6 +783,7 @@ jsonRecord "Metadata" eqshow $ do
   opt "_catEMH"     "cat-emh"     [t| Bool |] [e| False |]
   opt "_expertOnly" "expert-only" [t| Bool |] [e| False |]
   opt "_cover"      "cover"       [t| Bool |] [e| False |]
+  fill "_difficulty" "difficulty"  [t| Difficulty |] [e| Tier 1 |]
 
 getTitle, getArtist, getAlbum, getAuthor :: Metadata -> T.Text
 getTitle = fromMaybe "Untitled" . _title
@@ -900,38 +856,38 @@ instance TraceJSON Target where
       _     -> fatal $ "Unrecognized target game: " ++ show target
 
 data SongYaml = SongYaml
-  { _metadata    :: Metadata
-  , _options     :: Options
-  , _audio       :: Map.HashMap T.Text AudioFile
-  , _jammit      :: Map.HashMap T.Text JammitTrack
-  , _plans       :: Map.HashMap T.Text Plan
-  , _targets     :: Map.HashMap T.Text Target
-  , _instruments :: Instruments
-  , _published   :: Bool
+  { _metadata  :: Metadata
+  , _audio     :: Map.HashMap T.Text AudioFile
+  , _jammit    :: Map.HashMap T.Text JammitTrack
+  , _plans     :: Map.HashMap T.Text Plan
+  , _targets   :: Map.HashMap T.Text Target
+  , _parts     :: Parts
+  , _published :: Bool
   } deriving (Eq, Show)
 
 instance TraceJSON SongYaml where
   traceJSON = object $ do
     let defaultEmptyMap = fmap $ fromMaybe Map.empty
     _metadata    <- fromMaybe def <$> optionalKey "metadata" traceJSON
-    _options     <- fromMaybe def <$> optionalKey "options" traceJSON
     _audio       <- defaultEmptyMap $ optionalKey "audio"  $ mapping traceJSON
     _jammit      <- defaultEmptyMap $ optionalKey "jammit" $ mapping traceJSON
     _plans       <- defaultEmptyMap $ optionalKey "plans"  $ mapping traceJSON
     _targets     <- defaultEmptyMap $ optionalKey "targets"  $ mapping traceJSON
-    _instruments <- requiredKey "instruments" traceJSON
+    _parts       <- requiredKey "parts" traceJSON
     _published   <- fromMaybe True <$> optionalKey "published" traceJSON
-    expectedKeys ["metadata", "options", "audio", "jammit", "plans", "targets", "instruments", "published"]
+    expectedKeys ["metadata", "audio", "jammit", "plans", "targets", "parts", "published"]
     return SongYaml{..}
 
 instance A.ToJSON SongYaml where
   toJSON SongYaml{..} = A.object
     [ "metadata" .= _metadata
-    , "options" .= _options
     , "audio" .= A.Object (fmap A.toJSON _audio)
     , "jammit" .= A.Object (fmap A.toJSON _jammit)
     , "plans" .= A.Object (fmap A.toJSON _plans)
     , "targets" .= A.Object (fmap A.toJSON _targets)
-    , "instruments" .= _instruments
+    , "parts" .= _parts
     , "published" .= _published
     ]
+
+getPart :: FlexPartName -> SongYaml -> Maybe Part
+getPart fpart = Map.lookup fpart . getParts . _parts

@@ -2,7 +2,6 @@
 module Difficulty where
 
 import           Config
-import           RockBand.File (FlexPartName (..))
 
 rankToTier :: DiffMap -> Integer -> Integer
 rankToTier dm rank = fromIntegral $ length $ takeWhile (<= rank) (1 : dm)
@@ -30,23 +29,23 @@ data DifficultyRB3 = DifficultyRB3
   } deriving (Eq, Ord, Show, Read)
 
 difficultyRB3 :: TargetRB3 -> SongYaml -> DifficultyRB3
-difficultyRB3 TargetRB3{..} SongYaml{..} = let
+difficultyRB3 TargetRB3{..} songYaml = let
 
-  simpleRank flex play dmap flexDef = if play `elem` playModes flex _instruments
-    then case getDifficulty (Just (flex, play)) $ _difficulty _metadata of
+  simpleRank flex getMode getDiff dmap = case getPart flex songYaml >>= getMode of
+    Nothing -> 0
+    Just mode -> case getDiff mode of
+      Rank r -> r
       Tier t -> tierToRank dmap t
-      Rank r -> if flex == flexDef then r else 1
-    else 0
 
-  rb3DrumsRank     = simpleRank rb3_Drums  PlayDrums drumsDiffMap  FlexDrums
-  rb3BassRank      = simpleRank rb3_Bass   PlayGRYBO bassDiffMap   FlexBass
-  rb3GuitarRank    = simpleRank rb3_Guitar PlayGRYBO guitarDiffMap FlexGuitar
-  rb3VocalRank     = undefined
-  rb3KeysRank      = undefined
-  rb3ProKeysRank   = undefined
-  rb3ProBassRank   = simpleRank rb3_Bass   PlayProGuitar bassDiffMap   FlexBass
-  rb3ProGuitarRank = simpleRank rb3_Guitar PlayProGuitar guitarDiffMap FlexGuitar
-  rb3BandRank      = case getDifficulty Nothing $ _difficulty _metadata of
+  rb3DrumsRank     = simpleRank rb3_Drums  partDrums     drumsDifficulty drumsDiffMap
+  rb3BassRank      = simpleRank rb3_Bass   partGRYBO     gryboDifficulty bassDiffMap
+  rb3GuitarRank    = simpleRank rb3_Guitar partGRYBO     gryboDifficulty guitarDiffMap
+  rb3VocalRank     = simpleRank rb3_Vocal  partVocal     vocalDifficulty vocalDiffMap
+  rb3KeysRank      = simpleRank rb3_Keys   partGRYBO     gryboDifficulty keysDiffMap
+  rb3ProKeysRank   = simpleRank rb3_Keys   partProKeys   pkDifficulty    keysDiffMap
+  rb3ProBassRank   = simpleRank rb3_Bass   partProGuitar pgDifficulty    proBassDiffMap
+  rb3ProGuitarRank = simpleRank rb3_Guitar   partProGuitar pgDifficulty    proBassDiffMap
+  rb3BandRank      = case _difficulty $ _metadata songYaml of
     Tier t -> tierToRank bandDiffMap t
     Rank r -> r
 
@@ -61,36 +60,3 @@ difficultyRB3 TargetRB3{..} SongYaml{..} = let
   rb3BandTier      = rankToTier bandDiffMap      rb3BandRank
 
   in DifficultyRB3{..}
-
-{-
-computeRanksTiers :: SongYaml -> RanksTiers
-computeRanksTiers songYaml = let
-  getRank has diff dmap = if has $ _instruments songYaml
-    then case diff $ _difficulty $ _metadata songYaml of
-      Nothing       -> 1
-      Just (Rank r) -> r
-      Just (Tier t) -> tierToRank dmap t
-    else 0
-
-  drumsRank     = getRank _hasDrums     _difficultyDrums     drumsDiffMap
-  bassRank      = getRank _hasBass      _difficultyBass      bassDiffMap
-  guitarRank    = getRank _hasGuitar    _difficultyGuitar    guitarDiffMap
-  vocalRank     = getRank hasAnyVocal   _difficultyVocal     vocalDiffMap
-  keysRank      = getRank hasAnyKeys    _difficultyKeys      keysDiffMap
-  proKeysRank   = getRank hasAnyKeys    _difficultyProKeys   keysDiffMap
-  proGuitarRank = getRank _hasProGuitar _difficultyProGuitar proGuitarDiffMap
-  proBassRank   = getRank _hasProBass   _difficultyProBass   proBassDiffMap
-  bandRank      = getRank (const True)  _difficultyBand      bandDiffMap
-
-  drumsTier     = rankToTier drumsDiffMap     drumsRank
-  bassTier      = rankToTier bassDiffMap      bassRank
-  guitarTier    = rankToTier guitarDiffMap    guitarRank
-  vocalTier     = rankToTier vocalDiffMap     vocalRank
-  keysTier      = rankToTier keysDiffMap      keysRank
-  proKeysTier   = rankToTier keysDiffMap      proKeysRank
-  proGuitarTier = rankToTier proGuitarDiffMap proGuitarRank
-  proBassTier   = rankToTier proBassDiffMap   proBassRank
-  bandTier      = rankToTier bandDiffMap      bandRank
-
-  in RanksTiers{..}
--}
