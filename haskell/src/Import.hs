@@ -306,7 +306,7 @@ importFoF krb2 src dest = do
       , _hasProBass =
         (elem "PART REAL_BASS" trackNames && FoF.diffBassReal song /= Just (-1)) ||
         (elem "PART REAL_BASS_22" trackNames && FoF.diffBassReal22 song /= Just (-1))
-      , _hasVocal   = if elem "PART VOCALS" trackNames && FoF.diffVocals song /= Just (-1) && hasVocalNotes && FoF.charter song /= Just "Sodamlazy"
+      , _hasVocal   = if elem "PART VOCALS" trackNames && FoF.diffVocals song /= Just (-1) && hasVocalNotes && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
         then if elem "HARM2" trackNames && FoF.diffVocalsHarm song /= Just (-1)
           then if elem "HARM3" trackNames
             then Vocal3
