@@ -596,7 +596,7 @@ commands =
       , "onyx stfs my_folder --to new_rb3con --game rb2"
       ]
     , commandRun = \files opts -> case files of
-      [dir] -> liftIO (Dir.doesFileExist dir) >>= \case
+      [dir] -> liftIO (Dir.doesDirectoryExist dir) >>= \case
         True -> do
           let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
               suffix = case game of GameRB3 -> "_rb3con"; GameRB2 -> "_rb2con"
