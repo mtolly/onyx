@@ -39,6 +39,7 @@ import           RockBand.File                  (FlexPartName (..))
 import qualified RockBand.File                  as RBFile
 import           RockBand.PhaseShiftMessage     (discardPS)
 import qualified RockBand.Vocals                as RBVox
+import           RockBand2                      (KeysRB2 (..))
 import           Scripts                        (loadMIDI)
 import qualified Sound.MIDI.File                as F
 import qualified Sound.MIDI.File.Load           as Load
@@ -193,7 +194,7 @@ importFoF krb2 src dest = do
         , _planVols = []
         }
       audioExpr auds = Just PlanAudio
-        { _planExpr = delayAudio $ Concatenate $ map (Input . Named . T.pack) auds
+        { _planExpr = delayAudio $ Mix $ map (Input . Named . T.pack) auds
         , _planPans = []
         , _planVols = []
         }
@@ -241,9 +242,9 @@ importFoF krb2 src dest = do
   let vocalMode = if elem "PART VOCALS" trackNames && FoF.diffVocals song /= Just (-1) && hasVocalNotes && FoF.charter song /= Just "Sodamlazy"
         then if elem "HARM2" trackNames && FoF.diffVocalsHarm song /= Just (-1)
           then if elem "HARM3" trackNames
-            then Just PlayVocal3
-            else Just PlayVocal2
-          else Just PlayVocal1
+            then Just Vocal3
+            else Just Vocal2
+          else Just Vocal1
         else Nothing
 
   liftIO $ Y.encodeFile (dest </> "song.yml") SongYaml
@@ -257,26 +258,10 @@ importFoF krb2 src dest = do
       , _fileAlbumArt = guard hasAlbumArt >> Just "album.png"
       , _trackNumber  = FoF.track song
       , _comments     = []
-      , _vocalGender  = Nothing
-      , _difficulty   = Difficulties $ HM.fromList $ concat
-        [ [(Just (RBFile.FlexDrums , PlayDrums    ), toTier $ FoF.diffDrums song)]
-        , [(Just (RBFile.FlexGuitar, PlayGRYBO    ), toTier $ FoF.diffGuitar song)]
-        , [(Just (RBFile.FlexBass  , PlayGRYBO    ), toTier $ FoF.diffBass song)]
-        , [(Just (RBFile.FlexKeys  , PlayGRYBO    ), toTier $ FoF.diffKeys song)]
-        , [(Just (RBFile.FlexKeys  , PlayProKeys  ), toTier $ FoF.diffKeysReal song)]
-        , [(Just (RBFile.FlexGuitar, PlayProGuitar), toTier $ FoF.diffGuitarReal song)]
-        , [(Just (RBFile.FlexBass  , PlayProGuitar), toTier $ FoF.diffBassReal song)]
-        , case vocalMode of
-          Nothing -> []
-          Just vm -> [(Just (RBFile.FlexVocal, vm), toTier $ FoF.diffVocals song)]
-        , [(Nothing, toTier $ FoF.diffBand song)]
-        ]
       , _key          = Nothing
       , _autogenTheme = AutogenDefault
       , _author       = FoF.charter song
       , _rating       = Unrated
-      , _drumKit      = HardRockKit
-      , _drumLayout   = StandardLayout
       , _previewStart = case FoF.previewStartTime song of
         Just ms | ms >= 0 -> Just $ PreviewSeconds $ fromIntegral ms / 1000
         _       -> Nothing
@@ -288,18 +273,7 @@ importFoF krb2 src dest = do
       , _catEMH       = _catEMH def
       , _expertOnly   = _expertOnly def
       , _cover        = _cover def
-      }
-    , _options = Options
-      { _auto2xBass      = False
-      , _fixFreeform     = False
-      , _hopoThreshold   = 170
-      , _proGuitarTuning = []
-      , _proBassTuning   = []
-      , _proDrums        = case FoF.proDrums song of
-        Just b  -> b
-        Nothing -> any
-          (\case RBDrums.ProType _ _ -> True; _ -> False)
-          (discardPS $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks parsed)
+      , _difficulty   = toTier $ FoF.diffBand song
       }
     , _audio = HM.fromList $ flip map audioFilesWithChannels $ \(aud, chans) ->
       (T.pack aud, AudioFile
@@ -315,38 +289,107 @@ importFoF krb2 src dest = do
     , _plans = HM.singleton "fof" Plan
       { _song         = audioExpr songAudio
       , _countin      = Countin []
-      , _guitar       = audioExpr gtrAudio
-      , _bass         = audioExpr bassAudio
-      , _keys         = audioExpr keysAudio
-      , _kick         = audioExpr kickAudio
-      , _snare        = audioExpr snareAudio
-      , _drums        = audioExpr drumsAudio
-      , _vocal        = audioExpr voxAudio
-      , _crowd        = audioExpr crowdAudio
+      , _planParts    = Parts $ HM.fromList $ concat
+        [ case audioExpr gtrAudio of Nothing -> []; Just x -> [(FlexGuitar, PartSingle x)]
+        , case audioExpr bassAudio of Nothing -> []; Just x -> [(FlexBass, PartSingle x)]
+        , case audioExpr keysAudio of Nothing -> []; Just x -> [(FlexKeys, PartSingle x)]
+        , case audioExpr voxAudio of Nothing -> []; Just x -> [(FlexVocal, PartSingle x)]
+        , case (audioExpr drumsAudio, audioExpr kickAudio, audioExpr snareAudio) of
+          (Nothing, Nothing, Nothing) -> []
+          (Just kit, Nothing, Nothing) -> [(FlexDrums, PartSingle kit)]
+          (Just kit, kick, snare) -> [(FlexDrums, PartDrumKit
+            { drumsSplitKit = kit
+            , drumsSplitKick = kick
+            , drumsSplitSnare = snare
+            })]
+          _ -> error "FoF import: unsupported drums audio configuration (kick/snare but no kit)"
+        ]
+      , _crowd = audioExpr crowdAudio
       , _planComments = []
       }
     , _targets = standardTargets Nothing Nothing has2x krb2 vid
-    , _instruments = Instruments $ HM.fromList
-      [ ( FlexDrums, [PlayDrums | elem "PART DRUMS" trackNames && FoF.diffDrums song /= Just (-1)] )
-      , ( FlexGuitar
-        ,   [ PlayGRYBO | elem "PART GUITAR" trackNames && FoF.diffGuitar song /= Just (-1) ]
-        ++  [ PlayProGuitar
-            |  (elem "PART REAL_GUITAR"    trackNames && FoF.diffGuitarReal   song /= Just (-1))
+    , _parts = Parts $ HM.fromList
+      [ ( FlexDrums, Part
+        { partGRYBO = Nothing
+        , partProKeys = Nothing
+        , partProGuitar = Nothing
+        , partDrums = guard (elem "PART DRUMS" trackNames && FoF.diffDrums song /= Just (-1)) >> Just PartDrums
+          { drumsDifficulty = toTier $ FoF.diffDrums song
+          , drumsPro = case FoF.proDrums song of
+            Just b  -> b
+            Nothing -> any
+              (\case RBDrums.ProType _ _ -> True; _ -> False)
+              (discardPS $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks parsed)
+          , drumsAuto2xBass = False
+          , drumsFixFreeform = False
+          , drumsKit = HardRockKit
+          , drumsLayout = StandardLayout
+          }
+        , partVocal = Nothing
+        })
+      , ( FlexGuitar, Part
+        { partGRYBO = guard (elem "PART GUITAR" trackNames && FoF.diffGuitar song /= Just (-1)) >> Just PartGRYBO
+          { gryboDifficulty = toTier $ FoF.diffGuitar song
+          , gryboHopoThreshold = 170
+          , gryboFixFreeform = False
+          }
+        , partProKeys = Nothing
+        , partProGuitar = let
+          b =  (elem "PART REAL_GUITAR"    trackNames && FoF.diffGuitarReal   song /= Just (-1))
             || (elem "PART REAL_GUITAR_22" trackNames && FoF.diffGuitarReal22 song /= Just (-1))
-            ]
-        )
-      , ( FlexBass
-        ,   [ PlayGRYBO | elem "PART BASS" trackNames && FoF.diffBass song /= Just (-1) ]
-        ++  [ PlayProGuitar
-            |  (elem "PART REAL_BASS"    trackNames && FoF.diffBassReal   song /= Just (-1))
+          in guard b >> Just PartProGuitar
+            { pgDifficulty = toTier $ FoF.diffGuitarReal song
+            , pgHopoThreshold = 170
+            , pgTuning = []
+            , pgFixFreeform = False
+            }
+        , partDrums = Nothing
+        , partVocal = Nothing
+        })
+      , ( FlexBass, Part
+        { partGRYBO = guard (elem "PART BASS" trackNames && FoF.diffBass song /= Just (-1)) >> Just PartGRYBO
+          { gryboDifficulty = toTier $ FoF.diffBass song
+          , gryboHopoThreshold = 170
+          , gryboFixFreeform = False
+          }
+        , partProKeys = Nothing
+        , partProGuitar = let
+          b =  (elem "PART REAL_BASS"    trackNames && FoF.diffBassReal   song /= Just (-1))
             || (elem "PART REAL_BASS_22" trackNames && FoF.diffBassReal22 song /= Just (-1))
-            ]
-        )
-      , ( FlexKeys
-        ,   [ PlayGRYBO   | elem "PART KEYS"        trackNames && FoF.diffKeys     song /= Just (-1) ]
-        ++  [ PlayProKeys | elem "PART REAL_KEYS_X" trackNames && FoF.diffKeysReal song /= Just (-1) ]
-        )
-      , ( FlexVocal, toList vocalMode )
+          in guard b >> Just PartProGuitar
+            { pgDifficulty = toTier $ FoF.diffBassReal song
+            , pgHopoThreshold = 170
+            , pgTuning = []
+            , pgFixFreeform = False
+            }
+        , partDrums = Nothing
+        , partVocal = Nothing
+        })
+      , ( FlexKeys, Part
+        { partGRYBO = guard (elem "PART KEYS" trackNames && FoF.diffKeys song /= Just (-1)) >> Just PartGRYBO
+          { gryboDifficulty = toTier $ FoF.diffKeys song
+          , gryboHopoThreshold = 170
+          , gryboFixFreeform = False
+          }
+        , partProKeys = guard (elem "PART REAL_KEYS_X" trackNames && FoF.diffKeysReal song /= Just (-1)) >> Just PartProKeys
+          { pkDifficulty = toTier $ FoF.diffKeysReal song
+          , pkFixFreeform = False
+          }
+        , partProGuitar = Nothing
+        , partDrums = Nothing
+        , partVocal = Nothing
+        })
+      , ( FlexVocal, Part
+        { partGRYBO = Nothing
+        , partProKeys = Nothing
+        , partProGuitar = Nothing
+        , partDrums = Nothing
+        , partVocal = flip fmap vocalMode $ \vc -> PartVocal
+          { vocalDifficulty = toTier $ FoF.diffVocals song
+          , vocalCount = vc
+          , vocalGender = Nothing
+          }
+        })
       ]
     , _published = True
     }
@@ -501,19 +544,47 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       "sfx/kit04_bank.milo" -> return TrashyKit
       "sfx/kit05_bank.milo" -> return ElectronicKit
       s -> do
-        warn $ "During CON file import, unrecognized drum bank " ++ show s
+        warn $ "Unrecognized drum bank " ++ show s
         return HardRockKit
   let diffMap :: Map.Map T.Text Integer
       diffMap = D2.fromDict $ D.rank pkg
   vocalMode <- if maybe False (/= 0) $ Map.lookup "vocals" diffMap
     then case D.vocalParts $ D.song pkg of
-      Nothing -> return $ Just PlayVocal1
-      Just 0 -> return Nothing
-      Just 1 -> return $ Just PlayVocal1
-      Just 2 -> return $ Just PlayVocal2
-      Just 3 -> return $ Just PlayVocal3
-      n -> fatal $ "When importing a CON file: invalid vocal count of " ++ show n
+      Nothing -> return $ Just Vocal1
+      Just 0  -> return Nothing
+      Just 1  -> return $ Just Vocal1
+      Just 2  -> return $ Just Vocal2
+      Just 3  -> return $ Just Vocal3
+      n       -> fatal $ "Invalid vocal count of " ++ show n
     else return Nothing
+  let hopoThresh = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
+  drumMix <- let
+    drumEvents = toList $ RBFile.rb3PartDrums $ RBFile.s_tracks rb3mid
+    drumMixes = [ aud | RBDrums.DiffEvent _ (RBDrums.Mix aud _) <- drumEvents ]
+    in case drumMixes of
+      [] -> return RBDrums.D0
+      aud : auds -> if all (== aud) auds
+        then return aud
+        else fatal $ "Inconsistent drum mixes: " ++ show (nub drumMixes)
+  let instChans :: Map.Map T.Text [Int]
+      instChans = fmap (map fromIntegral) $ D2.fromDict $ D.tracks $ D.song pkg
+      drumChans = fromMaybe [] $ Map.lookup "drums" instChans
+  drumSplit <- case drumMix of
+    RBDrums.D0 -> case drumChans of
+      [kitL, kitR] -> return $ PartSingle [kitL, kitR]
+      _ -> fatal $ "mix 0 needs 2 drums channels, " ++ show (length drumChans) ++ " given"
+    RBDrums.D1 -> case drumChans of
+      [kick, snare, kitL, kitR] -> return $ PartDrumKit (Just [kick]) (Just [snare]) [kitL, kitR]
+      _ -> fatal $ "mix 1 needs 4 drums channels, " ++ show (length drumChans) ++ " given"
+    RBDrums.D2 -> case drumChans of
+      [kick, snareL, snareR, kitL, kitR] -> return $ PartDrumKit (Just [kick]) (Just [snareL, snareR]) [kitL, kitR]
+      _ -> fatal $ "mix 2 needs 5 drums channels, " ++ show (length drumChans) ++ " given"
+    RBDrums.D3 -> case drumChans of
+      [kickL, kickR, snareL, snareR, kitL, kitR] -> return $ PartDrumKit (Just [kickL, kickR]) (Just [snareL, snareR]) [kitL, kitR]
+      _ -> fatal $ "mix 3 needs 6 drums channels, " ++ show (length drumChans) ++ " given"
+    RBDrums.D4 -> case drumChans of
+      [kick, kitL, kitR] -> return $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
+      _ -> fatal $ "mix 4 needs 3 drums channels, " ++ show (length drumChans) ++ " given"
   liftIO $ Y.encodeFile (dir </> "song.yml") SongYaml
     { _metadata = Metadata
       { _title        = _title meta <|> Just (D.name pkg)
@@ -525,26 +596,11 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       , _fileAlbumArt = Just coverName
       , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
       , _comments     = []
-      , _vocalGender  = Just $ D.vocalGender pkg
-      , _difficulty   = Difficulties $ HM.fromList $ concat
-        [ [(Just (RBFile.FlexDrums , PlayDrums    ), Rank $ fromMaybe 1 $ Map.lookup "drum" diffMap)]
-        , [(Just (RBFile.FlexGuitar, PlayGRYBO    ), Rank $ fromMaybe 1 $ Map.lookup "guitar" diffMap)]
-        , [(Just (RBFile.FlexBass  , PlayGRYBO    ), Rank $ fromMaybe 1 $ Map.lookup "bass" diffMap)]
-        , [(Just (RBFile.FlexKeys  , PlayGRYBO    ), Rank $ fromMaybe 1 $ Map.lookup "keys" diffMap)]
-        , [(Just (RBFile.FlexKeys  , PlayProKeys  ), Rank $ fromMaybe 1 $ Map.lookup "real_keys" diffMap)]
-        , [(Just (RBFile.FlexGuitar, PlayProGuitar), Rank $ fromMaybe 1 $ Map.lookup "real_guitar" diffMap)]
-        , [(Just (RBFile.FlexBass  , PlayProGuitar), Rank $ fromMaybe 1 $ Map.lookup "real_bass" diffMap)]
-        , case vocalMode of
-          Nothing -> []
-          Just vm -> [(Just (RBFile.FlexVocal, vm), Rank $ fromMaybe 1 $ Map.lookup "vocals" diffMap)]
-        , [(Nothing, Rank $ fromMaybe 1 $ Map.lookup "band" diffMap)]
-        ]
+      , _difficulty   = Rank $ fromMaybe 1 $ Map.lookup "band" diffMap
       , _key          = toEnum . fromEnum <$> D.vocalTonicNote pkg
       , _autogenTheme = AutogenDefault
       , _author       = _author meta
       , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
-      , _drumKit      = drumkit
-      , _drumLayout   = StandardLayout -- TODO import this
       , _previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ D.preview pkg) / 1000
       , _previewEnd   = Just $ PreviewSeconds $ fromIntegral (snd $ D.preview pkg) / 1000
       , _languages    = _languages meta
@@ -555,61 +611,101 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
       , _expertOnly   = _expertOnly meta
       , _cover        = not $ D.master pkg
       }
-    , _options = Options
-      { _auto2xBass      = is2x
-      , _fixFreeform     = False
-      , _hopoThreshold   = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
-      , _proGuitarTuning = fromMaybe [] $ map fromIntegral <$> D.realGuitarTuning pkg
-      , _proBassTuning   = fromMaybe [] $ map fromIntegral <$> D.realBassTuning   pkg
-      , _proDrums        = True
-      }
     , _audio = HM.empty
     , _jammit = HM.empty
-    , _plans = HM.singleton "mogg" $ let
-      instChans :: Map.Map T.Text [Integer]
-      instChans = D2.fromDict $ D.tracks $ D.song pkg
-      in MoggPlan
-        { _moggMD5 = T.pack md5
-        , _moggGuitar = maybe [] (map fromIntegral) $ Map.lookup "guitar" instChans
-        , _moggBass   = maybe [] (map fromIntegral) $ Map.lookup "bass" instChans
-        , _moggKeys   = maybe [] (map fromIntegral) $ Map.lookup "keys" instChans
-        , _moggDrums  = maybe [] (map fromIntegral) $ Map.lookup "drum" instChans
-        , _moggVocal  = maybe [] (map fromIntegral) $ Map.lookup "vocals" instChans
-        , _moggCrowd  = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
-        , _pans = map realToFrac $ D.pans $ D.song pkg
-        , _vols = map realToFrac $ D.vols $ D.song pkg
-        , _planComments = []
-        , _drumMix = let
-          drumEvents = toList $ RBFile.rb3PartDrums $ RBFile.s_tracks rb3mid
-          drumMixes = [ aud | RBDrums.DiffEvent _ (RBDrums.Mix aud _) <- drumEvents ]
-          in case drumMixes of
-            [] -> RBDrums.D0
-            aud : auds -> if all (== aud) auds
-              then aud
-              else error $ "When importing a CON file: inconsistent drum mixes: " ++ show (nub drumMixes)
-        , _karaoke = karaoke
-        , _multitrack = multitrack
-        }
+    , _plans = HM.singleton "mogg" $ MoggPlan
+      { _moggMD5 = T.pack md5
+      , _moggParts = Parts $ HM.fromList $ concat
+        [ [ (FlexGuitar, PartSingle ns) | ns <- toList $ Map.lookup "guitar" instChans ]
+        , [ (FlexBass  , PartSingle ns) | ns <- toList $ Map.lookup "bass"   instChans ]
+        , [ (FlexKeys  , PartSingle ns) | ns <- toList $ Map.lookup "keys"   instChans ]
+        , [ (FlexVocal , PartSingle ns) | ns <- toList $ Map.lookup "vocals" instChans ]
+        , [ (FlexDrums , drumSplit) ]
+        ]
+      , _moggCrowd  = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
+      , _pans = map realToFrac $ D.pans $ D.song pkg
+      , _vols = map realToFrac $ D.vols $ D.song pkg
+      , _planComments = []
+      , _karaoke = karaoke
+      , _multitrack = multitrack
+      }
     , _targets = let
       songID = fmap JSONEither $ case D.songId pkg of
         Left  i -> guard (i /= 0) >> Just (Left i)
         Right k -> Just $ Right k
       in standardTargets songID (songID >> Just (D.version pkg)) is2x krb2 Nothing
-    , _instruments = Instruments $ HM.fromList
-      [ ( FlexDrums, [ PlayDrums | maybe False (/= 0) $ Map.lookup "drum" diffMap ] )
-      , ( FlexGuitar
-        ,   [ PlayGRYBO     | maybe False (/= 0) $ Map.lookup "guitar"      diffMap ]
-        ++  [ PlayProGuitar | maybe False (/= 0) $ Map.lookup "real_guitar" diffMap ]
-        )
-      , ( FlexBass
-        ,   [ PlayGRYBO     | maybe False (/= 0) $ Map.lookup "bass"      diffMap ]
-        ++  [ PlayProGuitar | maybe False (/= 0) $ Map.lookup "real_bass" diffMap ]
-        )
-      , ( FlexKeys
-        ,   [ PlayGRYBO   | maybe False (/= 0) $ Map.lookup "keys"      diffMap ]
-        ++  [ PlayProKeys | maybe False (/= 0) $ Map.lookup "real_keys" diffMap ]
-        )
-      , ( FlexVocal, toList vocalMode )
+    , _parts = Parts $ HM.fromList
+      [ ( FlexDrums, Part
+        { partGRYBO = Nothing
+        , partProKeys = Nothing
+        , partProGuitar = Nothing
+        , partDrums = guard (maybe False (/= 0) $ Map.lookup "drum" diffMap) >> Just PartDrums
+          { drumsDifficulty = Rank $ fromMaybe 1 $ Map.lookup "drum" diffMap
+          , drumsPro = True
+          , drumsAuto2xBass = is2x
+          , drumsFixFreeform = False
+          , drumsKit = drumkit
+          , drumsLayout = StandardLayout -- TODO import this
+          }
+        , partVocal = Nothing
+        })
+      , ( FlexGuitar, Part
+        { partGRYBO = guard (maybe False (/= 0) $ Map.lookup "guitar" diffMap) >> Just PartGRYBO
+          { gryboDifficulty = Rank $ fromMaybe 1 $ Map.lookup "guitar" diffMap
+          , gryboHopoThreshold = hopoThresh
+          , gryboFixFreeform = False
+          }
+        , partProKeys = Nothing
+        , partProGuitar = guard (maybe False (/= 0) $ Map.lookup "real_guitar" diffMap) >> Just PartProGuitar
+          { pgDifficulty = Rank $ fromMaybe 1 $ Map.lookup "real_guitar" diffMap
+          , pgHopoThreshold = hopoThresh
+          , pgTuning = fromMaybe [] $ map fromIntegral <$> D.realGuitarTuning pkg
+          , pgFixFreeform = False
+          }
+        , partDrums = Nothing
+        , partVocal = Nothing
+        })
+      , ( FlexBass, Part
+        { partGRYBO = guard (maybe False (/= 0) $ Map.lookup "bass" diffMap) >> Just PartGRYBO
+          { gryboDifficulty = Rank $ fromMaybe 1 $ Map.lookup "bass" diffMap
+          , gryboHopoThreshold = hopoThresh
+          , gryboFixFreeform = False
+          }
+        , partProKeys = Nothing
+        , partProGuitar = guard (maybe False (/= 0) $ Map.lookup "real_bass" diffMap) >> Just PartProGuitar
+          { pgDifficulty = Rank $ fromMaybe 1 $ Map.lookup "real_bass" diffMap
+          , pgHopoThreshold = hopoThresh
+          , pgTuning = fromMaybe [] $ map fromIntegral <$> D.realBassTuning pkg
+          , pgFixFreeform = False
+          }
+        , partDrums = Nothing
+        , partVocal = Nothing
+        })
+      , ( FlexKeys, Part
+        { partGRYBO = guard (maybe False (/= 0) $ Map.lookup "keys" diffMap) >> Just PartGRYBO
+          { gryboDifficulty = Rank $ fromMaybe 1 $ Map.lookup "keys" diffMap
+          , gryboHopoThreshold = hopoThresh
+          , gryboFixFreeform = False
+          }
+        , partProKeys = guard (maybe False (/= 0) $ Map.lookup "real_keys" diffMap) >> Just PartProKeys
+          { pkDifficulty = Rank $ fromMaybe 1 $ Map.lookup "real_keys" diffMap
+          , pkFixFreeform = False
+          }
+        , partProGuitar = Nothing
+        , partDrums = Nothing
+        , partVocal = Nothing
+        })
+      , ( FlexVocal, Part
+        { partGRYBO = Nothing
+        , partProKeys = Nothing
+        , partProGuitar = Nothing
+        , partDrums = Nothing
+        , partVocal = flip fmap vocalMode $ \vc -> PartVocal
+          { vocalDifficulty = Rank $ fromMaybe 1 $ Map.lookup "vocals" diffMap
+          , vocalCount = vc
+          , vocalGender = Just $ D.vocalGender pkg
+          }
+        })
       ]
     , _published = True
     }

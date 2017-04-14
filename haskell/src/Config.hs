@@ -25,7 +25,7 @@ import qualified Data.DTA.Serialize.Magma       as Magma
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as Map
-import           Data.Maybe                     (fromMaybe, isJust, isNothing)
+import           Data.Maybe                     (fromMaybe)
 import           Data.Monoid                    ((<>))
 import           Data.Scientific                (Scientific, toRealFloat)
 import qualified Data.Text                      as T
@@ -199,52 +199,78 @@ instance (TraceJSON t, TraceJSON a) => TraceJSON (PlanAudio t a) where
 
 instance (A.ToJSON t, A.ToJSON a) => A.ToJSON (PlanAudio t a) where
   toJSON (PlanAudio expr [] []) = A.toJSON expr
-  toJSON PlanAudio{..} = A.object
-    [ "expr" .= _planExpr
-    , "pans" .= _planPans
-    , "vols" .= _planVols
+  toJSON PlanAudio{..} = A.object $ concat
+    [ ["expr" .= _planExpr]
+    , ["pans" .= _planPans]
+    , ["vols" .= _planVols]
+    ]
+
+data PartAudio a
+  = PartSingle a
+  | PartDrumKit
+    { drumsSplitKick  :: Maybe a
+    , drumsSplitSnare :: Maybe a
+    , drumsSplitKit   :: a
+    }
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+
+instance (TraceJSON a) => TraceJSON (PartAudio a) where
+  traceJSON = decideKey
+    [ ("kit", object $ do
+      drumsSplitKick <- optionalKey "kick" traceJSON
+      drumsSplitSnare <- optionalKey "snare" traceJSON
+      drumsSplitKit <- requiredKey "kit" traceJSON
+      expectedKeys ["kick", "snare", "kit"]
+      return PartDrumKit{..}
+      )
+    ] $ PartSingle <$> traceJSON
+
+instance (A.ToJSON a) => A.ToJSON (PartAudio a) where
+  toJSON (PartSingle x) = A.toJSON x
+  toJSON PartDrumKit{..} = A.object $ concat
+    [ map ("kick"  .=) $ toList drumsSplitKick
+    , map ("snare" .=) $ toList drumsSplitSnare
+    , ["kit" .= drumsSplitKit]
     ]
 
 newtype Countin = Countin [(Either U.MeasureBeats U.Seconds, Audio Duration AudioInput)]
   deriving (Eq, Ord, Show)
 
+newtype Parts a = Parts { getParts :: Map.HashMap FlexPartName a }
+  deriving (Eq, Show, Functor, Foldable, Traversable)
+
+instance (TraceJSON a) => TraceJSON (Parts a) where
+  traceJSON = Parts . Map.fromList . map (first readPartName) . Map.toList <$> mapping traceJSON
+
+instance (A.ToJSON a) => A.ToJSON (Parts a) where
+  toJSON (Parts hm) = A.toJSON $ Map.fromList $ map (first getPartName) $ Map.toList hm
+
 data Plan
   = Plan
     { _song         :: Maybe (PlanAudio Duration AudioInput)
     , _countin      :: Countin
-    , _guitar       :: Maybe (PlanAudio Duration AudioInput)
-    , _bass         :: Maybe (PlanAudio Duration AudioInput)
-    , _keys         :: Maybe (PlanAudio Duration AudioInput)
-    , _kick         :: Maybe (PlanAudio Duration AudioInput)
-    , _snare        :: Maybe (PlanAudio Duration AudioInput)
-    , _drums        :: Maybe (PlanAudio Duration AudioInput)
-    , _vocal        :: Maybe (PlanAudio Duration AudioInput)
+    , _planParts    :: Parts (PartAudio (PlanAudio Duration AudioInput))
     , _crowd        :: Maybe (PlanAudio Duration AudioInput)
     , _planComments :: [T.Text]
     }
   | MoggPlan
     { _moggMD5      :: T.Text
-    , _moggGuitar   :: [Int]
-    , _moggBass     :: [Int]
-    , _moggKeys     :: [Int]
-    , _moggDrums    :: [Int]
-    , _moggVocal    :: [Int]
+    , _moggParts    :: Parts (PartAudio [Int])
     , _moggCrowd    :: [Int]
     , _pans         :: [Double]
     , _vols         :: [Double]
     , _planComments :: [T.Text]
-    , _drumMix      :: Drums.Audio
     , _karaoke      :: Bool
     , _multitrack   :: Bool
     }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Show)
 
 getKaraoke, getMultitrack :: Plan -> Bool
 getKaraoke = \case
-  Plan{..} -> isJust _vocal && all isNothing [_guitar, _bass, _keys, _drums]
+  Plan{..} -> Map.keys (getParts _planParts) == [FlexVocal]
   MoggPlan{..} -> _karaoke
 getMultitrack = \case
-  Plan{..} -> any isJust [_guitar, _bass, _keys, _drums]
+  Plan{..} -> not $ Map.null $ Map.delete FlexVocal $ getParts _planParts
   MoggPlan{..} -> _multitrack
 
 instance TraceJSON Countin where
@@ -300,73 +326,41 @@ instance TraceJSON Plan where
   traceJSON = decideKey
     [ ("mogg-md5", object $ do
       _moggMD5 <- requiredKey "mogg-md5" traceJSON
-      _moggGuitar <- fromMaybe [] <$> optionalKey "guitar" traceJSON
-      _moggBass   <- fromMaybe [] <$> optionalKey "bass" traceJSON
-      _moggKeys   <- fromMaybe [] <$> optionalKey "keys" traceJSON
-      _moggDrums  <- fromMaybe [] <$> optionalKey "drums" traceJSON
-      _moggVocal  <- fromMaybe [] <$> optionalKey "vocal" traceJSON
-      _moggCrowd  <- fromMaybe [] <$> optionalKey "crowd" traceJSON
+      _moggParts <- requiredKey "parts" traceJSON
+      _moggCrowd <- fromMaybe [] <$> optionalKey "crowd" traceJSON
       _pans <- requiredKey "pans" traceJSON
       _vols <- requiredKey "vols" traceJSON
-      _drumMix <- requiredKey "drum-mix" traceJSON
       _planComments <- fromMaybe [] <$> optionalKey "comments" traceJSON
       _karaoke    <- fromMaybe False          <$> optionalKey "karaoke"    traceJSON
       _multitrack <- fromMaybe (not _karaoke) <$> optionalKey "multitrack" traceJSON
-      expectedKeys ["mogg-md5", "guitar", "bass", "keys", "drums", "vocal", "crowd", "pans", "vols", "drum-mix", "comments", "karaoke", "multitrack"]
+      expectedKeys ["mogg-md5", "parts", "crowd", "pans", "vols", "comments", "karaoke", "multitrack"]
       return MoggPlan{..}
       )
-    , ("song", normalPlan)
-    , ("guitar", normalPlan)
-    , ("bass", normalPlan)
-    , ("keys", normalPlan)
-    , ("kick", normalPlan)
-    , ("snare", normalPlan)
-    , ("drums", normalPlan)
-    , ("vocal", normalPlan)
-    , ("crowd", normalPlan)
-    ] (expected "an instrument to audio plan (standard, each, or mogg)")
-    where normalPlan = object $ do
-            _song    <- optionalKey "song"    traceJSON
-            _countin <- fromMaybe (Countin []) <$> optionalKey "countin" traceJSON
-            _guitar  <- optionalKey "guitar"  traceJSON
-            _bass    <- optionalKey "bass"    traceJSON
-            _keys    <- optionalKey "keys"    traceJSON
-            _kick    <- optionalKey "kick"    traceJSON
-            _snare   <- optionalKey "snare"   traceJSON
-            _drums   <- optionalKey "drums"   traceJSON
-            _vocal   <- optionalKey "vocal"   traceJSON
-            _crowd   <- optionalKey "crowd"   traceJSON
-            _planComments <- fromMaybe [] <$> optionalKey "comments" traceJSON
-            expectedKeys ["song", "countin", "guitar", "bass", "keys", "kick", "snare", "drums", "vocal", "crowd", "comments"]
-            return Plan{..}
+    ] $ object $ do
+      _song <- optionalKey "song" traceJSON
+      _countin <- fromMaybe (Countin []) <$> optionalKey "countin" traceJSON
+      _planParts <- requiredKey "parts" traceJSON
+      _crowd <- optionalKey "crowd" traceJSON
+      _planComments <- fromMaybe [] <$> optionalKey "comments" traceJSON
+      expectedKeys ["song", "countin", "parts", "crowd", "comments"]
+      return Plan{..}
 
 instance A.ToJSON Plan where
   toJSON = \case
     Plan{..} -> A.object $ concat
       [ map ("song" .=) $ toList _song
       , ["countin" .= _countin | _countin /= Countin []]
-      , map ("guitar" .=) $ toList _guitar
-      , map ("bass" .=) $ toList _bass
-      , map ("keys" .=) $ toList _keys
-      , map ("kick" .=) $ toList _kick
-      , map ("snare" .=) $ toList _snare
-      , map ("drums" .=) $ toList _drums
-      , map ("vocal" .=) $ toList _vocal
+      , ["parts" .= _planParts]
       , map ("crowd" .=) $ toList _crowd
       , ["comments" .= _planComments | not $ null _planComments]
       ]
     MoggPlan{..} -> A.object $ concat
       [ ["mogg-md5" .= _moggMD5]
-      , ["guitar" .= _moggGuitar | not $ null _moggGuitar]
-      , ["bass" .= _moggBass | not $ null _moggBass]
-      , ["keys" .= _moggKeys | not $ null _moggKeys]
-      , ["drums" .= _moggDrums | not $ null _moggDrums]
-      , ["vocal" .= _moggVocal | not $ null _moggVocal]
+      , ["parts" .= _moggParts]
       , ["crowd" .= _moggCrowd | not $ null _moggCrowd]
       , ["pans" .= _pans]
       , ["vols" .= _vols]
       , ["comments" .= _planComments | not $ null _planComments]
-      , ["drum-mix" .= _drumMix]
       , ["karaoke" .= _karaoke]
       , ["multitrack" .= _multitrack]
       ]
@@ -673,15 +667,6 @@ jsonRecord "Part" eosr $ do
   opt "partDrums"     "drums"      [t| Maybe PartDrums     |] [e| Nothing |]
   opt "partVocal"     "vocal"      [t| Maybe PartVocal     |] [e| Nothing |]
 
-newtype Parts = Parts { getParts :: Map.HashMap FlexPartName Part }
-  deriving (Eq, Show)
-
-instance TraceJSON Parts where
-  traceJSON = Parts . Map.fromList . map (first readPartName) . Map.toList <$> mapping traceJSON
-
-instance A.ToJSON Parts where
-  toJSON (Parts hm) = A.toJSON $ Map.fromList $ map (first getPartName) $ Map.toList hm
-
 data AutogenTheme
   = AutogenDefault
   | AggressiveMetal
@@ -861,7 +846,7 @@ data SongYaml = SongYaml
   , _jammit    :: Map.HashMap T.Text JammitTrack
   , _plans     :: Map.HashMap T.Text Plan
   , _targets   :: Map.HashMap T.Text Target
-  , _parts     :: Parts
+  , _parts     :: Parts Part
   , _published :: Bool
   } deriving (Eq, Show)
 

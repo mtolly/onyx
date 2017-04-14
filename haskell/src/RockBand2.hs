@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-module RockBand2 (convertMIDI, dryVoxAudio) where
+module RockBand2 (convertMIDI, dryVoxAudio, KeysRB2(..)) where
 
 import           Config                           (Instrument (..))
 import           Control.Monad                    (guard)
@@ -62,8 +62,8 @@ fixOverdrive tracks = let
   panic s = error $ "RockBand2.fixOverdrive: panic! this shouldn't happen: " ++ s
   in map (fmap longToBool . splitEdges) $ go $ map (joinEdges . fmap boolToLong) tracks
 
-convertMIDI :: KeysRB2 -> U.Beats -> F.Song (F.RB3File U.Beats) -> F.Song (F.RB2File U.Beats)
-convertMIDI keysrb2 hopoThresh mid = mid
+convertMIDI :: F.Song (F.RB3File U.Beats) -> F.Song (F.RB2File U.Beats)
+convertMIDI mid = mid
   { F.s_tracks = fixUnisons $ F.RB2File
     { F.rb2PartDrums = fixDrumColors $ fixDoubleEvents $
       flip RTB.mapMaybe (F.rb3PartDrums $ F.s_tracks mid) $ \case
@@ -80,12 +80,8 @@ convertMIDI keysrb2 hopoThresh mid = mid
           Drums.Crash2 hit Drums.LH      -> Drums.Crash1 hit Drums.LH
           _                              -> a
         x -> Just x
-    , F.rb2PartGuitar = fixFiveColors $ fixGB True $ case keysrb2 of
-      KeysGuitar -> Five.keysToGuitar hopoThresh $ F.rb3PartKeys $ F.s_tracks mid
-      _ -> F.rb3PartGuitar $ F.s_tracks mid
-    , F.rb2PartBass = fixFiveColors $ fixGB False $ case keysrb2 of
-      KeysBass -> Five.keysToGuitar hopoThresh $ F.rb3PartKeys $ F.s_tracks mid
-      _ -> F.rb3PartBass $ F.s_tracks mid
+    , F.rb2PartGuitar = fixFiveColors $ fixGB True $ F.rb3PartGuitar $ F.s_tracks mid
+    , F.rb2PartBass = fixFiveColors $ fixGB False $ F.rb3PartBass $ F.s_tracks mid
     , F.rb2PartVocals = flip RTB.filter (F.rb3PartVocals $ F.s_tracks mid) $ \case
       Vox.LyricShift -> False
       Vox.RangeShift{} -> False

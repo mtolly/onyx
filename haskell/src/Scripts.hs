@@ -24,7 +24,7 @@ import qualified RockBand.Drums                   as Drums
 import qualified RockBand.Events                  as Events
 import           RockBand.File
 import qualified RockBand.FiveButton              as Five
-import           RockBand.PhaseShiftMessage       (discardPS, withRB)
+import           RockBand.PhaseShiftMessage       (discardPS)
 import qualified RockBand.ProGuitar               as ProGuitar
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as Vocals
@@ -157,36 +157,34 @@ trackGlue t xs ys = let
   gap = t NNC.-| NNC.sum (RTB.getTimes xs')
   in RTB.append xs' $ RTB.delay gap ys
 
--- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
---- their last gem note-on.
-fixRolls :: Song (OnyxFile U.Beats) -> Song (OnyxFile U.Beats)
-fixRolls (Song tempos mmap trks) = let
+fixFreeformDrums :: RTB.T U.Beats Drums.Event -> RTB.T U.Beats Drums.Event
+fixFreeformDrums = let
   drumsSingle = fixFreeform (== Drums.SingleRoll True) (== Drums.SingleRoll False) isHand
   drumsDouble = fixFreeform (== Drums.DoubleRoll True) (== Drums.DoubleRoll False) isHand
   isHand (Drums.DiffEvent Expert (Drums.Note gem)) = gem /= Drums.Kick
   isHand _                                         = False
+  in drumsSingle . drumsDouble
+
+fixFreeformFive :: RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
+fixFreeformFive = let
   fiveTremolo = fixFreeform (== Five.Tremolo True) (== Five.Tremolo False) isGem
   fiveTrill   = fixFreeform (== Five.Trill   True) (== Five.Trill   False) isGem
   isGem (Five.DiffEvent Expert (Five.Note (NoteOn () _))) = True
   isGem (Five.DiffEvent Expert (Five.Note (Blip   () _))) = True
   isGem _                                                 = False
+  in fiveTremolo . fiveTrill
+
+fixFreeformPK :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats ProKeys.Event
+fixFreeformPK = let
   pkGlissando = fixFreeform (== ProKeys.Glissando True) (== ProKeys.Glissando False) isPKNote
   pkTrill     = fixFreeform (== ProKeys.Trill     True) (== ProKeys.Trill     False) isPKNote
   isPKNote (ProKeys.Note (NoteOn _ _)) = True
   isPKNote (ProKeys.Note (Blip   _ _)) = True
   isPKNote _                           = False
-  in Song tempos mmap trks
-    { onyxFlexParts = flip fmap (onyxFlexParts trks) $ \flex -> flex
-      { flexPartDrums     = withRB (drumsSingle . drumsDouble) $ flexPartDrums     flex
-      , flexPartDrums2x   = withRB (drumsSingle . drumsDouble) $ flexPartDrums2x   flex
-      , flexFiveButton    = withRB (fiveTremolo . fiveTrill  ) $ flexFiveButton    flex
-      , flexPartRealKeysE = withRB (pkGlissando . pkTrill    ) $ flexPartRealKeysE flex
-      , flexPartRealKeysM = withRB (pkGlissando . pkTrill    ) $ flexPartRealKeysM flex
-      , flexPartRealKeysH = withRB (pkGlissando . pkTrill    ) $ flexPartRealKeysH flex
-      , flexPartRealKeysX = withRB (pkGlissando . pkTrill    ) $ flexPartRealKeysX flex
-      }
-    }
+  in pkGlissando . pkTrill
 
+-- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
+--- their last gem note-on.
 fixFreeform
   :: (Ord a)
   => (a -> Bool) -- ^ start of a freeform section
