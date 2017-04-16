@@ -557,10 +557,10 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
           RBDrums.D2 -> Magma.KitKickSnare
           RBDrums.D3 -> Magma.KitKickSnare
           RBDrums.D4 -> Magma.KitKick
-        , Magma.drumKick = if rb3DrumsRank == 0
+        , Magma.drumKick = if rb3DrumsRank == 0 || mixMode == RBDrums.D0
           then disabledFile
           else pvFile kickPVs "kick.wav"
-        , Magma.drumSnare = if rb3DrumsRank == 0
+        , Magma.drumSnare = if rb3DrumsRank == 0 || elem mixMode [RBDrums.D0, RBDrums.D4]
           then disabledFile
           else pvFile snarePVs "snare.wav"
         , Magma.drumKit = if rb3DrumsRank == 0
@@ -725,10 +725,51 @@ shakeBuild audioDirs yamlPath buildables = do
             need [allSourceAudio]
             liftIO $ audioSeconds allSourceAudio
 
-      let rbRules :: FilePath -> T.Text -> TargetRB3 -> Maybe TargetRB2 -> Rules ()
+          writeKick, writeSnare, writeKit, writeSimplePart :: Plan -> RBFile.FlexPartName -> Integer -> FilePath -> StackTraceT Action ()
+          writeKick plan fpart rank out = do
+            ((spec, _, _), _) <- computeDrumsPart fpart plan songYaml
+            src <- buildAudioToSpec songYaml spec $ do
+              guard (rank /= 0)
+              case plan of
+                MoggPlan{..} -> undefined
+                Plan{..}     -> undefined
+            lift $ runAudio src out
+          writeSnare plan fpart rank out = do
+            ((_, spec, _), _) <- computeDrumsPart fpart plan songYaml
+            src <- buildAudioToSpec songYaml spec $ do
+              guard (rank /= 0)
+              case plan of
+                MoggPlan{..} -> undefined
+                Plan{..}     -> undefined
+            lift $ runAudio src out
+          writeKit plan fpart rank out = do
+            ((_, _, spec), _) <- computeDrumsPart fpart plan songYaml
+            src <- buildAudioToSpec songYaml spec $ do
+              guard (rank /= 0)
+              case plan of
+                MoggPlan{..} -> undefined
+                Plan{..}     -> undefined
+            lift $ runAudio src out
+          writeSimplePart plan fpart rank out = do
+            let spec = computeSimplePart fpart plan songYaml
+            src <- buildPartAudioToSpec songYaml spec $ do
+              guard (rank /= 0)
+              case plan of
+                MoggPlan{..} -> flip fmap (HM.lookup fpart $ getParts _moggParts) $ fmap $ \ixs -> do
+                  undefined ixs
+                Plan{..} -> HM.lookup fpart $ getParts _planParts
+            lift $ runAudio src out
+          writeCrowd plan out = do
+            src <- buildAudioToSpec songYaml [(-1, 0), (1, 0)] $ case plan of
+              MoggPlan{..} -> undefined _moggCrowd
+              Plan{..}     -> _crowd
+            lift $ runAudio src out
+
+          rbRules :: FilePath -> T.Text -> TargetRB3 -> Maybe TargetRB2 -> Rules ()
           rbRules dir targetName rb3 mrb2 = do
             let pkg :: (IsString a) => a
                 pkg = fromString $ "onyx" <> show (hashRB3 songYaml rb3)
+                DifficultyRB3{..} = difficultyRB3 rb3 songYaml
             (planName, plan) <- case getPlan (rb3_Plan rb3) songYaml of
               Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show rb3
               Just pair -> return pair
@@ -763,14 +804,14 @@ shakeBuild audioDirs yamlPath buildables = do
                 pathMagmaDummyMono   = dir </> "magma/dummy-mono.wav"
                 pathMagmaDummyStereo = dir </> "magma/dummy-stereo.wav"
 
-            pathMagmaKick   %> undefined
-            pathMagmaSnare  %> undefined
-            pathMagmaDrums  %> undefined
-            pathMagmaBass   %> undefined
-            pathMagmaGuitar %> undefined
-            pathMagmaKeys   %> undefined
-            pathMagmaVocal  %> undefined
-            pathMagmaCrowd  %> undefined
+            pathMagmaKick   ≡> writeKick       plan (rb3_Drums  rb3) rb3DrumsRank
+            pathMagmaSnare  ≡> writeSnare      plan (rb3_Drums  rb3) rb3DrumsRank
+            pathMagmaDrums  ≡> writeKit        plan (rb3_Drums  rb3) rb3DrumsRank
+            pathMagmaBass   ≡> writeSimplePart plan (rb3_Bass   rb3) rb3BassRank
+            pathMagmaGuitar ≡> writeSimplePart plan (rb3_Guitar rb3) rb3GuitarRank
+            pathMagmaKeys   ≡> writeSimplePart plan (rb3_Keys   rb3) rb3KeysRank
+            pathMagmaVocal  ≡> writeSimplePart plan (rb3_Vocal  rb3) rb3VocalRank
+            pathMagmaCrowd  ≡> writeCrowd      plan
             pathMagmaSong   %> undefined
             let saveClip m out vox = lift $ do
                   let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
@@ -1347,15 +1388,16 @@ shakeBuild audioDirs yamlPath buildables = do
                     $ RBFile.onyxFlexParts $ RBFile.s_tracks song
                 , FoF.video            = const "video.avi" <$> ps_FileVideo ps
                 }
-            dir </> "ps/drums.ogg"   %> undefined
-            dir </> "ps/drums_1.ogg" %> undefined
-            dir </> "ps/drums_2.ogg" %> undefined
-            dir </> "ps/drums_3.ogg" %> undefined
-            dir </> "ps/guitar.ogg"  %> undefined
-            dir </> "ps/keys.ogg"    %> undefined
-            dir </> "ps/rhythm.ogg"  %> undefined
-            dir </> "ps/vocals.ogg"  %> undefined
-            dir </> "ps/crowd.ogg"   %> undefined
+
+            dir </> "ps/drums.ogg"   ≡> writeSimplePart plan (ps_Drums  ps) rb3DrumsRank
+            dir </> "ps/drums_1.ogg" ≡> writeKick       plan (ps_Drums  ps) rb3DrumsRank
+            dir </> "ps/drums_2.ogg" ≡> writeSnare      plan (ps_Drums  ps) rb3DrumsRank
+            dir </> "ps/drums_3.ogg" ≡> writeKit        plan (ps_Drums  ps) rb3DrumsRank
+            dir </> "ps/guitar.ogg"  ≡> writeSimplePart plan (ps_Guitar ps) rb3GuitarRank
+            dir </> "ps/keys.ogg"    ≡> writeSimplePart plan (ps_Keys   ps) rb3KeysRank
+            dir </> "ps/rhythm.ogg"  ≡> writeSimplePart plan (ps_Bass   ps) rb3BassRank
+            dir </> "ps/vocals.ogg"  ≡> writeSimplePart plan (ps_Vocal  ps) rb3VocalRank
+            dir </> "ps/crowd.ogg"   ≡> writeCrowd      plan
             dir </> "ps/song.ogg"    %> undefined
             dir </> "ps/album.png"   %> copyFile' "gen/cover.png"
             phony (dir </> "ps") $ shakeTrace $ do
@@ -1433,8 +1475,8 @@ shakeBuild audioDirs yamlPath buildables = do
             , dir </> "web/song.js"
             ]
 
-        dir </> "everything.wav" %> \out -> case plan of
-          MoggPlan{..} -> do
+        dir </> "everything.wav" ≡> \out -> case plan of
+          MoggPlan{..} -> lift $ do
             let ogg = dir </> "audio.ogg"
             need [ogg]
             src <- liftIO $ sourceSnd ogg
@@ -1445,25 +1487,11 @@ shakeBuild audioDirs yamlPath buildables = do
                   , toList _crowd
                   , toList _planParts >>= toList
                   ]
-            srcs <- flip mapM planAudios $ \pa -> let
-              chans = computeChannelsPlan songYaml $ _planExpr pa
-              pans = map realToFrac $ case _planPans pa of
-                [] -> case chans of
-                  0 -> []
-                  1 -> [0]
-                  2 -> [-1, 1]
-                  n -> error $ "don't know what pans to use for " ++ show n ++ " channels"
-                xs -> xs
-              vols = map realToFrac $ case _planVols pa of
-                [] -> replicate chans 0
-                xs -> xs
-              in do
-                src <- fmap join $ mapM (manualLeaf songYaml) $ _planExpr pa
-                fmap (applyPansVols pans vols) $ buildSource src
+            srcs <- mapM (buildAudioToSpec songYaml [(-1, 0), (1, 0)] . Just) planAudios
             let mixed = case srcs of
                   []     -> silent (Frames 0) 44100 2
                   s : ss -> foldr mix s ss
-            runAudio mixed out
+            lift $ runAudio mixed out
         dir </> "everything.ogg" %> buildAudio (Input $ dir </> "everything.wav")
 
         dir </> "everything-mono.wav" %> \out -> case plan of

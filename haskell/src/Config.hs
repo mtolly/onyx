@@ -339,7 +339,7 @@ instance TraceJSON Plan where
     ] $ object $ do
       _song <- optionalKey "song" traceJSON
       _countin <- fromMaybe (Countin []) <$> optionalKey "countin" traceJSON
-      _planParts <- requiredKey "parts" traceJSON
+      _planParts <- fromMaybe (Parts Map.empty) <$> optionalKey "parts" traceJSON
       _crowd <- optionalKey "crowd" traceJSON
       _planComments <- fromMaybe [] <$> optionalKey "comments" traceJSON
       expectedKeys ["song", "countin", "parts", "crowd", "comments"]

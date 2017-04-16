@@ -3,6 +3,7 @@
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE TupleSections              #-}
 module RenderAudio
 ( AudioSearch(..), JammitSearch(..), MoggSearch(..)
 , audioSearch, jammitSearch, moggSearch
@@ -11,12 +12,17 @@ module RenderAudio
 , manualLeaf
 , computeSimplePart, computeDrumsPart
 , computeChannelsPlan
+, completePlanAudio
+, buildAudioToSpec
+, buildPartAudioToSpec
 ) where
 
 import           Audio
 import           Config
 import           Control.Monad                  (forM_, join)
 import           Control.Monad.Extra            (filterM, findM)
+import           Control.Monad.Trans.Class      (lift)
+import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace (StackTraceT, fatal, inside)
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Char                      (toLower)
@@ -183,6 +189,62 @@ computeSimplePart fpart plan songYaml = case plan of
       _ -> [(-1, 0), (1, 0)]
     Just (PartDrumKit _ _ _) -> [(-1, 0), (1, 0)]
 
+completePlanAudio :: (Monad m) => SongYaml -> PlanAudio Duration AudioInput -> StackTraceT m (Audio Duration AudioInput, [Double], [Double])
+completePlanAudio songYaml pa = do
+  let chans = computeChannelsPlan songYaml $ _planExpr pa
+      vols = map realToFrac $ case _planVols pa of
+        [] -> replicate chans 0
+        xs -> xs
+  pans <- case _planPans pa of
+    [] -> case chans of
+      0 -> return []
+      1 -> return [0]
+      2 -> return [-1, 1]
+      n -> fatal $ "No automatic pan choice for " ++ show n ++ " channels"
+    xs -> return $ map realToFrac xs
+  return (_planExpr pa, pans, vols)
+
+buildAudioToSpec
+  :: (MonadResource m)
+  => SongYaml
+  -> [(Double, Double)]
+  -> Maybe (PlanAudio Duration AudioInput)
+  -> StackTraceT Action (AudioSource m Float)
+buildAudioToSpec songYaml specPV mpa = inside "conforming audio file to output spec" $ do
+  (expr, pans, vols) <- completePlanAudio songYaml $ case mpa of
+    Nothing -> PlanAudio (Silence 1 $ Frames 0) [] []
+    Just pa -> pa
+  src <- lift $ do
+    aud <- join <$> mapM (manualLeaf songYaml) expr
+    need $ toList aud
+    buildSource aud
+  case specPV of
+    [(pan, 0)] -> if [pan] == pans
+      then return $ case fromMaybe 0 $ listToMaybe vols of
+        0   -> src
+        vol -> gain (10 ** (realToFrac vol / 20)) src -- just apply vol to single channel and we're done
+      else fatal $ "Mono output (" ++ show specPV ++ ") does not match input pans: " ++ show pans
+    [(-1, 0), (1, 0)] -> return
+      $ applyPansVols (map realToFrac pans) (map realToFrac vols) src -- simple stereo remix
+    _ -> if specPV == zip pans vols
+      then return src -- input == output, we're good
+      else fatal $ "Unrecognized audio spec: " ++ show specPV
+
+buildPartAudioToSpec
+  :: (MonadResource m)
+  => SongYaml
+  -> [(Double, Double)]
+  -> Maybe (PartAudio (PlanAudio Duration AudioInput))
+  -> StackTraceT Action (AudioSource m Float)
+buildPartAudioToSpec songYaml specPV = \case
+  Nothing -> buildAudioToSpec songYaml specPV Nothing
+  Just (PartSingle pa) -> buildAudioToSpec songYaml specPV $ Just pa
+  Just (PartDrumKit kick snare kit) -> do
+    kickSrc  <- buildAudioToSpec songYaml specPV kick
+    snareSrc <- buildAudioToSpec songYaml specPV snare
+    kitSrc   <- buildAudioToSpec songYaml specPV $ Just kit
+    return $ mix kickSrc $ mix snareSrc kitSrc
+
 -- | Computing a drums instrument's audio for CON/Magma.
 -- Always returns a valid drum mix configuration, with all volumes 0.
 computeDrumsPart
@@ -199,7 +261,13 @@ computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case
       n -> fatal $ "MOGG plan has single drums audio with " ++ show n ++ " channels (2 required)"
     Just (PartDrumKit kick snare kit) -> do
       mixMode <- lookupSplit (maybe 0 length kick, maybe 0 length snare, length kit)
-      return (undefined, mixMode)
+      return
+        ( ( standardIndexes _pans $ fromMaybe [] kick
+          , standardIndexes _pans $ fromMaybe [] snare
+          , standardIndexes _pans kit
+          )
+        , mixMode
+        )
   Plan{..} -> case HM.lookup fpart $ getParts _planParts of
     Nothing -> return stereo
     Just (PartSingle _) -> return stereo -- any number will be remixed to stereo
@@ -209,7 +277,14 @@ computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case
         , maybe 0 (computeChannelsPlan songYaml . _planExpr) snare
         , computeChannelsPlan songYaml $ _planExpr kit
         )
-      return (undefined, mixMode)
+      kickPV <- case kick of
+        Nothing -> return []
+        Just pa -> (\(_, pans, _) -> map (, 0) pans) <$> completePlanAudio songYaml pa
+      snarePV <- case snare of
+        Nothing -> return []
+        Just pa -> (\(_, pans, _) -> map (, 0) pans) <$> completePlanAudio songYaml pa
+      kitPV <- (\(_, pans, _) -> map (, 0) pans) <$> completePlanAudio songYaml kit
+      return ((kickPV, snarePV, kitPV), mixMode)
   where lookupSplit = \case
           (0, 0, 2) -> return RBDrums.D0
           (1, 1, 2) -> return RBDrums.D1
@@ -218,3 +293,7 @@ computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case
           (1, 0, 2) -> return RBDrums.D4
           trio -> fatal $ "Plan with split drum kit has invalid channel counts: (kick,snare,kit) = " ++ show trio
         stereo = (([], [], [(-1, 0), (1, 0)]), RBDrums.D0)
+        standardIndexes pans = \case
+          []  -> []
+          [i] -> [(pans !! i, 0)]
+          _   -> [(-1, 0), (1, 0)]
