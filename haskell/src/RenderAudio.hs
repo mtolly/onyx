@@ -9,32 +9,30 @@ module RenderAudio
 , checkDefined
 , jammitPath
 , manualLeaf
-, MOGGChannel(..), buildMOGG
-, makeAudioFiles
+, computeSimplePart, computeDrumsPart
+, computeChannelsPlan
 ) where
 
 import           Audio
 import           Config
-import           Control.Monad                  (forM_, guard, join)
+import           Control.Monad                  (forM_, join)
 import           Control.Monad.Extra            (filterM, findM)
-import           Control.Monad.Trans.StackTrace (StackTraceT, fatal)
+import           Control.Monad.Trans.StackTrace (StackTraceT, fatal, inside)
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Char                      (toLower)
 import           Data.Conduit.Audio
-import           Data.Default.Class             (def)
 import qualified Data.Digest.Pure.MD5           as MD5
 import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as HM
 import           Data.List                      (partition)
-import           Data.Maybe                     (fromMaybe, isJust, isNothing,
+import           Data.Maybe                     (fromMaybe, isNothing,
                                                  listToMaybe)
 import qualified Data.Text                      as T
 import           Development.Shake
 import           Development.Shake.Classes
 import           Development.Shake.FilePath
 import qualified RockBand.Drums                 as RBDrums
-import           RockBand.File                  (FlexPartName, getPartName)
-import qualified Sound.File.Sndfile             as Snd
+import           RockBand.File                  (FlexPartName)
 import qualified Sound.Jammit.Base              as J
 import qualified Sound.Jammit.Export            as J
 import qualified System.Directory               as Dir
@@ -104,7 +102,7 @@ moggSearch md5search files = do
       return $ T.unpack md5search == md5
     _ -> return False
 
--- make sure all audio leaves are defined, catch typos
+-- | make sure all audio leaves are defined, catch typos
 checkDefined :: (Monad m) => SongYaml -> StackTraceT m ()
 checkDefined songYaml = do
   let definedLeaves = HM.keys (_audio songYaml) ++ HM.keys (_jammit songYaml)
@@ -151,7 +149,7 @@ jammitPath name (J.Only part)
 jammitPath name (J.Without inst)
   = "gen/jammit" </> T.unpack name </> "without" </> map toLower (show inst) <.> "wav"
 
--- Looking up single audio files and Jammit parts in the work directory
+-- | Looking up single audio files and Jammit parts in the work directory
 manualLeaf :: SongYaml -> AudioInput -> Action (Audio Duration FilePath)
 manualLeaf songYaml (Named name) = case HM.lookup name $ _audio songYaml of
   Just audioQuery -> case audioQuery of
@@ -171,180 +169,52 @@ manualLeaf songYaml (JammitSelect audpart name) = case HM.lookup name $ _jammit 
   Just _  -> return $ Input $ jammitPath name audpart
   Nothing -> fail $ "Couldn't find a Jammit source named " ++ show name
 
-data MOGGChannel = ChannelSong | ChannelCrowd | ChannelPart FlexPartName
-  deriving (Eq, Ord, Show, Read)
-
-buildMOGG :: Plan -> SongYaml -> ([(MOGGChannel, Double, Double)], RBDrums.Audio)
-buildMOGG plan songYaml = case plan of
+-- | Computing a non-drums instrument's audio for CON/Magma.
+-- Always returns 1 or 2 channels, with all volumes 0.
+computeSimplePart :: FlexPartName -> Plan -> SongYaml -> [(Double, Double)]
+computeSimplePart fpart plan songYaml = case plan of
   MoggPlan{..} -> let
-    chans = undefined
-    mixMode = undefined
-    in (chans, mixMode)
-  Plan{..} -> let
-    chans = undefined
-    mixMode = undefined
-    in (chans, mixMode)
+    inds = maybe [] (concat . toList) $ HM.lookup fpart $ getParts _moggParts
+    in zip (map (_pans !!) inds) (map (_vols !!) inds)
+  Plan{..} -> case HM.lookup fpart $ getParts _planParts of
+    Nothing -> [(0, 0)]
+    Just (PartSingle pa) -> case computeChannelsPlan songYaml $ _planExpr pa of
+      1 -> [(fromMaybe 0 $ listToMaybe $ _planPans pa, 0)]
+      _ -> [(-1, 0), (1, 0)]
+    Just (PartDrumKit _ _ _) -> [(-1, 0), (1, 0)]
 
-    {-
-    ogg %> \out -> let
-      parts = map Input $ concat
-        [ [dir </> "drums-kick.wav"   | _hasDrums     (_instruments songYaml) && mixMode /= RBDrums.D0]
-        , [dir </> "drums-snare.wav"  | _hasDrums     (_instruments songYaml) && elem mixMode [RBDrums.D1, RBDrums.D2, RBDrums.D3]]
-        , [dir </> "drums-kit.wav"    | _hasDrums    $ _instruments songYaml]
-        , [dir </> "bass.wav"         | hasAnyBass   $ _instruments songYaml]
-        , [dir </> "guitar.wav"       | hasAnyGuitar $ _instruments songYaml]
-        , [dir </> "keys.wav"         | hasAnyKeys   $ _instruments songYaml]
-        , [dir </> "vocal.wav"        | hasAnyVocal  $ _instruments songYaml]
-        , [dir </> "crowd.wav"        | isJust _crowd                       ]
-        , [dir </> "song-countin.wav"]
-        ]
-      in buildAudio (Merge parts) out
-    -}
-
-data PansVols = PansVols
-  { bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, crowdPV, songPV :: [(Double, Double)]
-  , mixMode                                                                      :: RBDrums.Audio
-  } deriving (Eq, Ord, Show, Read)
-
-computePansVols :: TargetRB3 -> Plan -> SongYaml -> PansVols
-computePansVols TargetRB3{..} plan songYaml = let
-  planPV :: Maybe (PlanAudio Duration AudioInput) -> [(Double, Double)]
-  planPV Nothing = [(-1, 0), (1, 0)]
-  planPV (Just paud) = let
-    chans = computeChannelsPlan songYaml $ _planExpr paud
-    pans = case _planPans paud of
-      [] -> case chans of
-        0 -> []
-        1 -> [0]
-        2 -> [-1, 1]
-        c -> error $ "Error: I don't know what pans to use for " ++ show c ++ "-channel audio"
-      ps -> ps
-    vols = case _planVols paud of
-      [] -> replicate chans 0
-      vs -> vs
-    in zip pans vols
-  makeSingleAudio :: PartAudio (PlanAudio t a) -> PlanAudio t a
-  makeSingleAudio = undefined
-  makeSingleChans :: PartAudio [Int] -> [Int]
-  makeSingleChans = concat . toList
-  matchingMix kick snare = case (kick, snare) of
-    (0, 0) -> RBDrums.D0
-    (1, 1) -> RBDrums.D1
-    (1, 2) -> RBDrums.D2
-    (2, 2) -> RBDrums.D3
-    (1, 0) -> RBDrums.D4
-    _      -> error $ "No matching drum mix mode for (kick,snare) == " ++ show (kick, snare)
-  bassPV, guitarPV, keysPV, vocalPV, drumsPV, kickPV, snarePV, crowdPV, songPV :: [(Double, Double)]
-  mixMode :: RBDrums.Audio
-  bassPV = guard (maybe False (/= def) $ getPart rb3_Bass songYaml) >> case plan of
-    MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ maybe [] makeSingleChans $ HM.lookup rb3_Bass $ getParts _moggParts
-    Plan{..}     -> planPV $ fmap makeSingleAudio $ HM.lookup rb3_Bass $ getParts _planParts
-  guitarPV = guard (maybe False (/= def) $ getPart rb3_Guitar songYaml) >> case plan of
-    MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ maybe [] makeSingleChans $ HM.lookup rb3_Guitar $ getParts _moggParts
-    Plan{..}     -> planPV $ fmap makeSingleAudio $ HM.lookup rb3_Guitar $ getParts _planParts
-  keysPV = guard (maybe False (/= def) $ getPart rb3_Keys songYaml) >> case plan of
-    MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ maybe [] makeSingleChans $ HM.lookup rb3_Keys $ getParts _moggParts
-    Plan{..}     -> planPV $ fmap makeSingleAudio $ HM.lookup rb3_Keys $ getParts _planParts
-  vocalPV = guard (maybe False (/= def) $ getPart rb3_Vocal songYaml) >> case plan of
-    MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ maybe [] makeSingleChans $ HM.lookup rb3_Vocal $ getParts _moggParts
-    Plan{..}     -> planPV $ fmap makeSingleAudio $ HM.lookup rb3_Vocal $ getParts _planParts
-  crowdPV = case plan of
-    MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) _moggCrowd
-    Plan{..}     -> guard (isJust _crowd) >> planPV _crowd
-  (kickPV, snarePV, drumsPV, mixMode) = if maybe False (/= def) $ getPart rb3_Drums songYaml
-    then case plan of
-      MoggPlan{..} -> let
-        getChannel i = (_pans !! i, _vols !! i)
-        in case HM.lookup rb3_Bass $ getParts _moggParts of
-          Nothing -> ([], [], [], RBDrums.D0)
-          Just (PartSingle kit) -> ([], [], map getChannel kit, RBDrums.D0)
-          Just (PartDrumKit kick snare kit) ->
-            ( map getChannel $ fromMaybe [] kick
-            , map getChannel $ fromMaybe [] snare
-            , map getChannel kit
-            , matchingMix (length kick) (length snare)
-            )
-      Plan{..} -> let
-        count = maybe 0 (computeChannelsPlan songYaml . _planExpr)
-        (srcKick, srcSnare, srcKit) = case HM.lookup rb3_Drums $ getParts _planParts of
-          Nothing                           -> (Nothing, Nothing, Nothing)
-          Just (PartSingle x)               -> (Nothing, Nothing, Just x)
-          Just (PartDrumKit kick snare kit) -> (kick, snare, Just kit)
-        theMix = matchingMix (count srcKick) (count srcSnare)
-        in  ( guard (theMix /= RBDrums.D0) >> planPV srcKick
-            , guard (theMix `elem` [RBDrums.D1, RBDrums.D2, RBDrums.D3]) >> planPV srcSnare
-            , planPV srcKit
-            , theMix
-            )
-    else ([], [], [], RBDrums.D0)
-  songPV = case plan of
-    MoggPlan{..} -> map (\i -> (_pans !! i, _vols !! i)) $ let
-      notSong = concat $ _moggCrowd : do
-        (fpart, chans) <- HM.toList $ getParts _moggParts
-        guard $ fpart `elem` [rb3_Guitar, rb3_Bass, rb3_Drums, rb3_Keys, rb3_Vocal]
-        return $ makeSingleChans chans
-      in filter (`notElem` notSong) [0 .. length _pans - 1]
-    Plan{..} -> planPV _song
-  in PansVols{..}
-
-makeAudioFiles :: SongYaml -> Plan -> FilePath -> Rules ()
-makeAudioFiles songYaml plan dir = case plan of
-  Plan{..} -> do
-    let locate :: Audio Duration AudioInput -> Action (Audio Duration FilePath)
-        locate = fmap join . mapM (manualLeaf songYaml)
-        buildPart planPart fout = let
-          expr = maybe (Silence 2 $ Frames 0) _planExpr planPart
-          in locate expr >>= \aud -> buildAudio aud fout
-    dir </> "song.wav"   %> buildPart _song
-    dir </> "crowd.wav"  %> buildPart _crowd
-    forM_ (HM.keys $ getParts $ _parts songYaml) $ \k -> do
-      let name = T.unpack $ getPartName k
-      case HM.lookup k $ getParts _planParts of
-        Nothing -> do
-          dir </> (name ++ "-kick.wav" ) %> buildPart Nothing
-          dir </> (name ++ "-snare.wav") %> buildPart Nothing
-          dir </> (name ++ "-kit.wav"  ) %> buildPart Nothing
-          dir </> (name ++ ".wav"      ) %> buildPart Nothing
-        Just (PartSingle pa) -> do
-          dir </> (name ++ "-kick.wav" ) %> buildPart Nothing
-          dir </> (name ++ "-snare.wav") %> buildPart Nothing
-          dir </> (name ++ "-kit.wav"  ) %> buildPart (Just pa)
-          dir </> (name ++ ".wav"      ) %> buildPart (Just pa)
-        Just (PartDrumKit kick snare kit) -> do
-          dir </> (name ++ "-kick.wav" ) %> buildPart kick
-          dir </> (name ++ "-snare.wav") %> buildPart snare
-          dir </> (name ++ "-kit.wav"  ) %> buildPart (Just kit)
-          dir </> (name ++ ".wav"      ) %> buildAudio (Mix
-            [ Input $ dir </> (name ++ "-kick.wav" )
-            , Input $ dir </> (name ++ "-snare.wav")
-            , Input $ dir </> (name ++ "-kit.wav"  )
-            ])
-  MoggPlan{..} -> do
-    let oggChannels []    = buildAudio $ Silence 2 $ Frames 0
-        oggChannels chans = buildAudio $ Channels chans $ Input $ dir </> "audio.ogg"
-    forM_ (HM.keys $ getParts $ _parts songYaml) $ \k -> do
-      let name = T.unpack $ getPartName k
-      case HM.lookup k $ getParts _moggParts of
-        Nothing -> do
-          dir </> (name ++ "-kick.wav" ) %> oggChannels []
-          dir </> (name ++ "-snare.wav") %> oggChannels []
-          dir </> (name ++ ".wav"      ) %> oggChannels []
-        Just (PartSingle pa) -> do
-          dir </> (name ++ "-kick.wav" ) %> oggChannels []
-          dir </> (name ++ "-snare.wav") %> oggChannels []
-          dir </> (name ++ ".wav"      ) %> oggChannels pa
-        Just (PartDrumKit kick snare kit) -> do
-          dir </> (name ++ "-kick.wav" ) %> oggChannels (join $ toList kick)
-          dir </> (name ++ "-snare.wav") %> oggChannels (join $ toList snare)
-          dir </> (name ++ ".wav"      ) %> oggChannels kit
-    dir </> "crowd.wav" %> oggChannels _moggCrowd
-    dir </> "song-countin.wav" %> \out -> do
-      need [dir </> "audio.ogg"]
-      chanCount <- liftIO $ Snd.channels <$> Snd.getFileInfo (dir </> "audio.ogg")
-      let usedChannels :: [Int]
-          usedChannels = join (toList (getParts _moggParts) >>= toList) ++ _moggCrowd
-          songChannels = do
-            i <- [0 .. chanCount - 1]
-            guard $ notElem i usedChannels
-            return i
-      oggChannels songChannels out
+-- | Computing a drums instrument's audio for CON/Magma.
+-- Always returns a valid drum mix configuration, with all volumes 0.
+computeDrumsPart
+  :: (Monad m)
+  => FlexPartName
+  -> Plan
+  -> SongYaml
+  -> StackTraceT m (([(Double, Double)], [(Double, Double)], [(Double, Double)]), RBDrums.Audio)
+computeDrumsPart fpart plan songYaml = inside "Computing drums audio mix" $ case plan of
+  MoggPlan{..} -> case HM.lookup fpart $ getParts _moggParts of
+    Nothing -> return stereo
+    Just (PartSingle kit) -> case length kit of
+      2 -> return stereo
+      n -> fatal $ "MOGG plan has single drums audio with " ++ show n ++ " channels (2 required)"
+    Just (PartDrumKit kick snare kit) -> do
+      mixMode <- lookupSplit (maybe 0 length kick, maybe 0 length snare, length kit)
+      return (undefined, mixMode)
+  Plan{..} -> case HM.lookup fpart $ getParts _planParts of
+    Nothing -> return stereo
+    Just (PartSingle _) -> return stereo -- any number will be remixed to stereo
+    Just (PartDrumKit kick snare kit) -> do
+      mixMode <- lookupSplit
+        ( maybe 0 (computeChannelsPlan songYaml . _planExpr) kick
+        , maybe 0 (computeChannelsPlan songYaml . _planExpr) snare
+        , computeChannelsPlan songYaml $ _planExpr kit
+        )
+      return (undefined, mixMode)
+  where lookupSplit = \case
+          (0, 0, 2) -> return RBDrums.D0
+          (1, 1, 2) -> return RBDrums.D1
+          (1, 2, 2) -> return RBDrums.D2
+          (2, 2, 2) -> return RBDrums.D3
+          (1, 0, 2) -> return RBDrums.D4
+          trio -> fatal $ "Plan with split drum kit has invalid channel counts: (kick,snare,kit) = " ++ show trio
+        stereo = (([], [], [(-1, 0), (1, 0)]), RBDrums.D0)

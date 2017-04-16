@@ -3,6 +3,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
+{-# LANGUAGE TupleSections             #-}
 module Build (shakeBuild, targetTitle, loadYaml) where
 
 import           Audio
@@ -154,27 +155,51 @@ getPlan (Just p) songYaml = case HM.lookup p $ _plans songYaml of
   Just found -> Just (p, found)
   Nothing    -> Nothing
 
--- TODO make this not suck
-simpleHOPOThreshold :: (Num a) => SongYaml -> a
-simpleHOPOThreshold songYaml = fromIntegral $ let
+simpleHOPOThreshold :: (Monad m, Num a) => SongYaml -> StackTraceT m a
+simpleHOPOThreshold songYaml = let
   parts = toList $ getParts $ _parts songYaml
   grybo = map gryboHopoThreshold $ mapMaybe partGRYBO parts
   pg = map pgHopoThreshold $ mapMaybe partProGuitar parts
-  in case grybo ++ pg of
-    []     -> 170
-    n : ns -> if all (== n) ns then n else error "simpleHOPOThreshold: different thresholds not supported yet!"
+  in case nub $ grybo ++ pg of
+    []  -> return 170
+    [n] -> return $ fromIntegral n
+    ns  -> fatal $ "more than 1 HOPO threshold found: " ++ show ns
 
-makeRB3DTA :: SongYaml -> Plan -> TargetRB3 -> RBFile.Song (RBFile.OnyxFile U.Beats) -> T.Text -> D.SongPackage
-makeRB3DTA songYaml plan rb3 song filename = let
-  (pstart, pend) = previewBounds songYaml song
-  (moggChannels, _) = buildMOGG plan songYaml
-  DifficultyRB3{..} = difficultyRB3 rb3 songYaml
-  len = songLengthMS song
-  perctype = getPercType song
-  fullGenre = interpretGenre
-    (_genre    $ _metadata songYaml)
-    (_subgenre $ _metadata songYaml)
-  songPkg = D.SongPackage
+makeRB3DTA :: (Monad m) => SongYaml -> Plan -> TargetRB3 -> RBFile.Song (RBFile.OnyxFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
+makeRB3DTA songYaml plan rb3 song filename = do
+  (_, mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
+  thresh <- simpleHOPOThreshold songYaml
+  let (pstart, pend) = previewBounds songYaml song
+      DifficultyRB3{..} = difficultyRB3 rb3 songYaml
+      len = songLengthMS song
+      perctype = getPercType song
+      fullGenre = interpretGenre
+        (_genre    $ _metadata songYaml)
+        (_subgenre $ _metadata songYaml)
+      lookupPart rank part parts = guard (rank /= 0) >> HM.lookup part (getParts parts)
+      -- following 3 are only used for Plan not MoggPlan
+      partChannels :: [(RBFile.FlexPartName, (Double, Double))]
+      partChannels = concat
+        [ case rb3DrumsRank of
+          0 -> []
+          _ -> case mixMode of
+            RBDrums.D0 -> map (rb3_Drums rb3 ,) [(-1, 0), (1, 0)]
+            RBDrums.D1 -> map (rb3_Drums rb3 ,) [(0, 0), (0, 0), (-1, 0), (1, 0)]
+            RBDrums.D2 -> map (rb3_Drums rb3 ,) [(0, 0), (-1, 0), (1, 0), (-1, 0), (1, 0)]
+            RBDrums.D3 -> map (rb3_Drums rb3 ,) [(-1, 0), (1, 0), (-1, 0), (1, 0), (-1, 0), (1, 0)]
+            RBDrums.D4 -> map (rb3_Drums rb3 ,) [(0, 0), (-1, 0), (1, 0)]
+            -- TODO: handle mono pans
+        , case rb3BassRank   of 0 -> []; _ -> map (rb3_Bass   rb3 ,) $ computeSimplePart (rb3_Bass   rb3) plan songYaml
+        , case rb3GuitarRank of 0 -> []; _ -> map (rb3_Guitar rb3 ,) $ computeSimplePart (rb3_Guitar rb3) plan songYaml
+        , case rb3KeysRank   of 0 -> []; _ -> map (rb3_Keys   rb3 ,) $ computeSimplePart (rb3_Keys   rb3) plan songYaml
+        , case rb3VocalRank  of 0 -> []; _ -> map (rb3_Vocal  rb3 ,) $ computeSimplePart (rb3_Vocal  rb3) plan songYaml
+        ]
+      crowdChannels, songChannels :: [(Double, Double)]
+      crowdChannels = case plan of
+        MoggPlan{..} -> []
+        Plan    {..} -> [(-1, 0), (1, 0)]
+      songChannels = [(-1, 0), (1, 0)]
+  return D.SongPackage
     { D.name = targetTitle songYaml $ RB3 rb3
     , D.artist = getArtist $ _metadata songYaml
     , D.master = not $ _cover $ _metadata songYaml
@@ -184,31 +209,48 @@ makeRB3DTA songYaml plan rb3 song filename = let
     , D.song = D.Song
       { D.songName = "songs/" <> filename <> "/" <> filename
       , D.tracksCount = Nothing
-      , D.tracks = fmap (map fromIntegral) $ D2.Dict $ Map.fromList $ filter (not . null . snd)
-        [ ("drum"  , findIndices (\(part, _, _) -> part == ChannelPart (rb3_Drums  rb3)) moggChannels)
-        , ("bass"  , findIndices (\(part, _, _) -> part == ChannelPart (rb3_Bass   rb3)) moggChannels)
-        , ("guitar", findIndices (\(part, _, _) -> part == ChannelPart (rb3_Guitar rb3)) moggChannels)
-        , ("keys"  , findIndices (\(part, _, _) -> part == ChannelPart (rb3_Keys   rb3)) moggChannels)
-        , ("vocals", findIndices (\(part, _, _) -> part == ChannelPart (rb3_Vocal  rb3)) moggChannels)
-        ]
+      , D.tracks = fmap (map fromIntegral) $ D2.Dict $ Map.fromList $ filter (not . null . snd) $ case plan of
+        MoggPlan{..} ->
+          [ ("drum"  , maybe [] (concat . toList) $ lookupPart rb3DrumsRank  (rb3_Drums  rb3) _moggParts)
+          , ("bass"  , maybe [] (concat . toList) $ lookupPart rb3BassRank   (rb3_Bass   rb3) _moggParts)
+          , ("guitar", maybe [] (concat . toList) $ lookupPart rb3GuitarRank (rb3_Guitar rb3) _moggParts)
+          , ("keys"  , maybe [] (concat . toList) $ lookupPart rb3KeysRank   (rb3_Keys   rb3) _moggParts)
+          , ("vocals", maybe [] (concat . toList) $ lookupPart rb3VocalRank  (rb3_Vocal  rb3) _moggParts)
+          ]
+        Plan{..} ->
+          [ ("drum"  , findIndices (\(fpart, _) -> fpart == rb3_Drums  rb3) partChannels)
+          , ("bass"  , findIndices (\(fpart, _) -> fpart == rb3_Bass   rb3) partChannels)
+          , ("guitar", findIndices (\(fpart, _) -> fpart == rb3_Guitar rb3) partChannels)
+          , ("keys"  , findIndices (\(fpart, _) -> fpart == rb3_Keys   rb3) partChannels)
+          , ("vocals", findIndices (\(fpart, _) -> fpart == rb3_Vocal  rb3) partChannels)
+          ]
       , D.vocalParts = Just $ case fmap vocalCount $ getPart (rb3_Vocal rb3) songYaml >>= partVocal of
         Nothing     -> 0
         Just Vocal1 -> 1
         Just Vocal2 -> 2
         Just Vocal3 -> 3
-      , D.pans = map realToFrac [ pan | (_, pan, _) <- moggChannels ]
-      , D.vols = map realToFrac [ vol | (_, _, vol) <- moggChannels ]
-      , D.cores = map (const (-1)) moggChannels -- TODO: 1 for guitar channels?
+      , D.pans = map realToFrac $ case plan of
+        MoggPlan{..} -> _pans
+        Plan{..}     -> map fst $ map snd partChannels ++ crowdChannels ++ songChannels
+      , D.vols = map realToFrac $ case plan of
+        MoggPlan{..} -> _vols
+        Plan{..}     -> map snd $ map snd partChannels ++ crowdChannels ++ songChannels
+      , D.cores = case plan of
+        MoggPlan{..} -> map (const (-1)) _pans
+        Plan{..}     -> map (const (-1)) $ map snd partChannels ++ crowdChannels ++ songChannels
+        -- TODO: 1 for guitar channels?
       , D.drumSolo = D.DrumSounds $ T.words $ case fmap drumsLayout $ getPart (rb3_Drums rb3) songYaml >>= partDrums of
         Nothing             -> "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
         Just StandardLayout -> "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
         Just FlipYBToms     -> "kick.cue snare.cue tom2.cue tom1.cue crash.cue"
       , D.drumFreestyle = D.DrumSounds $ T.words
         "kick.cue snare.cue hat.cue ride.cue crash.cue"
-      , D.crowdChannels = case findIndices (\(part, _, _) -> part == ChannelCrowd) moggChannels of
-        []    -> Nothing
-        chans -> Just $ map fromIntegral chans
-      , D.hopoThreshold = Just $ simpleHOPOThreshold songYaml
+      , D.crowdChannels = let
+        chans = case plan of
+          MoggPlan{..} -> _moggCrowd
+          Plan{..}     -> take (length crowdChannels) [length partChannels ..]
+        in guard (not $ null chans) >> Just (map fromIntegral chans)
+      , D.hopoThreshold = Just thresh
       , D.muteVolume = Nothing
       , D.muteVolumeVocals = Nothing
       , D.midiFile = Nothing
@@ -282,7 +324,6 @@ makeRB3DTA songYaml plan rb3 song filename = let
     , D.downloaded = Nothing
     , D.basePoints = Nothing
     }
-  in songPkg
 
 phony :: FilePath -> Action () -> Rules ()
 phony fp act = Shake.phony fp act >> Shake.phony (fp ++ "/") act
@@ -290,6 +331,7 @@ phony fp act = Shake.phony fp act >> Shake.phony (fp ++ "/") act
 allFiles :: FilePath -> Action [FilePath]
 allFiles dir = map (dir </>) <$> getDirectoryFiles dir ["//*"]
 
+-- TODO use parts from target
 printOverdrive :: FilePath -> StackTraceT Action ()
 printOverdrive mid = do
   song <- shakeMIDI mid
@@ -310,18 +352,24 @@ printOverdrive mid = do
     posn = RBFile.showPosition $ U.applyMeasureMap (RBFile.s_signatures song) t
     in putNormal $ posn ++ ": " ++ insts
 
-makeC3 :: SongYaml -> Plan -> TargetRB3 -> RBFile.Song (RBFile.OnyxFile U.Beats) -> T.Text -> C3.C3
-makeC3 songYaml plan rb3 midi pkg = let
-  (pstart, _) = previewBounds songYaml midi
-  DifficultyRB3{..} = difficultyRB3 rb3 songYaml
-  title = targetTitle songYaml $ RB3 rb3
-  numSongID = case rb3_SongID rb3 of
-    Just (JSONEither (Left i)) -> Just i
-    _                          -> Nothing
-  hasCrowd = case plan of
-    MoggPlan{..} -> not $ null _moggCrowd
-    Plan{..}     -> isJust _crowd
-  in C3.C3
+makeC3 :: (Monad m) => SongYaml -> Plan -> TargetRB3 -> RBFile.Song (RBFile.OnyxFile U.Beats) -> T.Text -> StackTraceT m C3.C3
+makeC3 songYaml plan rb3 midi pkg = do
+  let (pstart, _) = previewBounds songYaml midi
+      DifficultyRB3{..} = difficultyRB3 rb3 songYaml
+      title = targetTitle songYaml $ RB3 rb3
+      numSongID = case rb3_SongID rb3 of
+        Just (JSONEither (Left i)) -> Just i
+        _                          -> Nothing
+      hasCrowd = case plan of
+        MoggPlan{..} -> not $ null _moggCrowd
+        Plan{..}     -> isJust _crowd
+  threshIndex <- simpleHOPOThreshold songYaml >>= \case
+    90  -> return 0
+    130 -> return 1
+    170 -> return 2
+    250 -> return 3
+    ht  -> fatal $ "C3 Magma does not support the HOPO threshold " ++ show (ht :: Int)
+  return C3.C3
     { C3.song = getTitle $ _metadata songYaml
     , C3.artist = getArtist $ _metadata songYaml
     , C3.album = getAlbum $ _metadata songYaml
@@ -355,12 +403,7 @@ makeC3 songYaml plan rb3 midi pkg = let
     , C3.tuningCents = 0
     , C3.songRating = fromEnum (_rating $ _metadata songYaml) + 1
     , C3.drumKitSFX = maybe 0 (fromEnum . drumsKit) $ getPart (rb3_Drums rb3) songYaml >>= partDrums
-    , C3.hopoThresholdIndex = case simpleHOPOThreshold songYaml :: Int of
-      90  -> 0
-      130 -> 1
-      170 -> 2
-      250 -> 3
-      ht  -> error $ "C3 Magma does not support the HOPO threshold " ++ show ht
+    , C3.hopoThresholdIndex = threshIndex
     , C3.muteVol = -96
     , C3.vocalMuteVol = -12
     , C3.soloDrums = hasSolo Drums midi
@@ -390,9 +433,9 @@ makeC3 songYaml plan rb3 midi pkg = let
 makeMagmaProj :: SongYaml -> TargetRB3 -> Plan -> T.Text -> FilePath -> Action T.Text -> StackTraceT Action Magma.RBProj
 makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
   song <- shakeMIDI mid
+  ((kickPVs, snarePVs, kitPVs), mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
   let (pstart, _) = previewBounds songYaml song
       DifficultyRB3{..} = difficultyRB3 rb3 songYaml
-      (moggChannels, mixMode) = buildMOGG plan songYaml
       fullGenre = interpretGenre
         (_genre    $ _metadata songYaml)
         (_subgenre $ _metadata songYaml)
@@ -413,38 +456,19 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
         , Magma.vol = []
         , Magma.audioFile = ""
         }
-      pvFile [] _ = disabledFile
-      pvFile pv f = Magma.AudioFile
-        { Magma.audioEnabled = True
-        , Magma.channels = fromIntegral $ length pv
-        , Magma.pan = map (realToFrac . fst) pv
-        , Magma.vol = map (realToFrac . snd) pv
-        , Magma.audioFile = f
-        }
       replaceŸ = T.map $ \case
         'ÿ' -> 'y'
         'Ÿ' -> 'Y'
         c   -> c
       voxCount = fmap vocalCount $ getPart (rb3_Vocal rb3) songYaml >>= partVocal
-      findPV x = [ (pan, vol) | (y, pan, vol) <- moggChannels, x == y ]
-      getKick = case mixMode of
-        RBDrums.D0 -> const []
-        RBDrums.D1 -> take 1
-        RBDrums.D2 -> take 1
-        RBDrums.D3 -> take 2
-        RBDrums.D4 -> take 1
-      getSnare = case mixMode of
-        RBDrums.D0 -> const []
-        RBDrums.D1 -> take 1 . drop 1
-        RBDrums.D2 -> take 2 . drop 1
-        RBDrums.D3 -> take 2 . drop 2
-        RBDrums.D4 -> const []
-      getKit = case mixMode of
-        RBDrums.D0 -> id
-        RBDrums.D1 -> drop 2
-        RBDrums.D2 -> drop 3
-        RBDrums.D3 -> drop 4
-        RBDrums.D4 -> drop 1
+      pvFile :: [(Double, Double)] -> T.Text -> Magma.AudioFile
+      pvFile pvs f = Magma.AudioFile
+        { Magma.audioEnabled = True
+        , Magma.channels = fromIntegral $ length pvs
+        , Magma.pan = map (realToFrac . fst) pvs
+        , Magma.vol = map (realToFrac . snd) pvs
+        , Magma.audioFile = f
+        }
   title <- T.map (\case '"' -> '\''; c -> c) <$> lift thisTitle
   return Magma.RBProj
     { Magma.project = Magma.Project
@@ -533,14 +557,28 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
           RBDrums.D2 -> Magma.KitKickSnare
           RBDrums.D3 -> Magma.KitKickSnare
           RBDrums.D4 -> Magma.KitKick
-        , Magma.drumKit = pvFile (getKit $ findPV $ ChannelPart $ rb3_Drums rb3) "drums.wav"
-        , Magma.drumKick = pvFile (getKick $ findPV $ ChannelPart $ rb3_Drums rb3) "kick.wav"
-        , Magma.drumSnare = pvFile (getSnare $ findPV $ ChannelPart $ rb3_Drums rb3) "snare.wav"
-        , Magma.bass = pvFile (findPV $ ChannelPart $ rb3_Bass rb3) "bass.wav"
-        , Magma.guitar = pvFile (findPV $ ChannelPart $ rb3_Guitar rb3) "guitar.wav"
-        , Magma.vocals = pvFile (findPV $ ChannelPart $ rb3_Vocal rb3) "vocal.wav"
-        , Magma.keys = pvFile (findPV $ ChannelPart $ rb3_Keys rb3) "keys.wav"
-        , Magma.backing = pvFile (findPV ChannelSong) "song-countin.wav"
+        , Magma.drumKick = if rb3DrumsRank == 0
+          then disabledFile
+          else pvFile kickPVs "kick.wav"
+        , Magma.drumSnare = if rb3DrumsRank == 0
+          then disabledFile
+          else pvFile snarePVs "snare.wav"
+        , Magma.drumKit = if rb3DrumsRank == 0
+          then disabledFile
+          else pvFile kitPVs "drums.wav"
+        , Magma.bass = if rb3BassRank == 0
+          then disabledFile
+          else pvFile (computeSimplePart (rb3_Bass rb3) plan songYaml) "bass.wav"
+        , Magma.guitar = if rb3GuitarRank == 0
+          then disabledFile
+          else pvFile (computeSimplePart (rb3_Guitar rb3) plan songYaml) "guitar.wav"
+        , Magma.vocals = if rb3VocalRank == 0
+          then disabledFile
+          else pvFile (computeSimplePart (rb3_Vocal rb3) plan songYaml) "vocal.wav"
+        , Magma.keys = if rb3KeysRank == 0
+          then disabledFile
+          else pvFile (computeSimplePart (rb3_Keys rb3) plan songYaml) "keys.wav"
+        , Magma.backing = pvFile [(-1, 0), (1, 0)] "song-countin.wav"
         }
       }
     }
@@ -683,19 +721,9 @@ shakeBuild audioDirs yamlPath buildables = do
 
       let getAudioLength :: T.Text -> Action U.Seconds
           getAudioLength planName = do
-            let allSourceAudio =
-                  [ "gen/plan" </> T.unpack planName </> "kick.wav"
-                  , "gen/plan" </> T.unpack planName </> "snare.wav"
-                  , "gen/plan" </> T.unpack planName </> "drums.wav"
-                  , "gen/plan" </> T.unpack planName </> "guitar.wav"
-                  , "gen/plan" </> T.unpack planName </> "bass.wav"
-                  , "gen/plan" </> T.unpack planName </> "keys.wav"
-                  , "gen/plan" </> T.unpack planName </> "vocal.wav"
-                  , "gen/plan" </> T.unpack planName </> "crowd.wav"
-                  , "gen/plan" </> T.unpack planName </> "song.wav"
-                  ]
-            need allSourceAudio
-            liftIO $ maximum <$> mapM audioSeconds allSourceAudio
+            let allSourceAudio = "gen/plan" </> T.unpack planName </> "everything.wav"
+            need [allSourceAudio]
+            liftIO $ audioSeconds allSourceAudio
 
       let rbRules :: FilePath -> T.Text -> TargetRB3 -> Maybe TargetRB2 -> Rules ()
           rbRules dir targetName rb3 mrb2 = do
@@ -735,15 +763,15 @@ shakeBuild audioDirs yamlPath buildables = do
                 pathMagmaDummyMono   = dir </> "magma/dummy-mono.wav"
                 pathMagmaDummyStereo = dir </> "magma/dummy-stereo.wav"
 
-            pathMagmaKick   %> copyFile' (planDir </> T.unpack (RBFile.getPartName $ rb3_Drums rb3) ++ "-kick.wav")
-            pathMagmaSnare  %> copyFile' (planDir </> T.unpack (RBFile.getPartName $ rb3_Drums rb3) ++ "-snare.wav")
-            pathMagmaDrums  %> copyFile' (planDir </> T.unpack (RBFile.getPartName $ rb3_Drums rb3) ++ "-kit.wav")
-            pathMagmaBass   %> copyFile' (planDir </> T.unpack (RBFile.getPartName $ rb3_Bass rb3) <.> "wav")
-            pathMagmaGuitar %> copyFile' (planDir </> T.unpack (RBFile.getPartName $ rb3_Guitar rb3) <.> "wav")
-            pathMagmaKeys   %> copyFile' (planDir </> T.unpack (RBFile.getPartName $ rb3_Keys rb3) <.> "wav")
-            pathMagmaVocal  %> copyFile' (planDir </> T.unpack (RBFile.getPartName $ rb3_Vocal rb3) <.> "wav")
-            pathMagmaCrowd  %> copyFile' (planDir </> "crowd.wav" )
-            pathMagmaSong   %> copyFile' (planDir </> "song-countin.wav")
+            pathMagmaKick   %> undefined
+            pathMagmaSnare  %> undefined
+            pathMagmaDrums  %> undefined
+            pathMagmaBass   %> undefined
+            pathMagmaGuitar %> undefined
+            pathMagmaKeys   %> undefined
+            pathMagmaVocal  %> undefined
+            pathMagmaCrowd  %> undefined
+            pathMagmaSong   %> undefined
             let saveClip m out vox = lift $ do
                   let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
                       clip = clipDryVox $ U.applyTempoTrack (RBFile.s_tempos m) $ vocalTubes vox
@@ -783,7 +811,8 @@ shakeBuild audioDirs yamlPath buildables = do
               liftIO $ D.writeFileDTA_latin1 out $ D2.serialize D2.format p
             pathMagmaC3 ≡> \out -> do
               midi <- shakeMIDI pathMagmaMid
-              liftIO $ TIO.writeFile out $ C3.showC3 $ makeC3 songYaml plan rb3 midi pkg
+              c3 <- makeC3 songYaml plan rb3 midi pkg
+              liftIO $ TIO.writeFile out $ C3.showC3 c3
             phony pathMagmaSetup $ need $ concat
               -- Just make all the Magma prereqs, but don't actually run Magma
               [ guard (maybe False (/= def) $ getPart (rb3_Drums  rb3) songYaml) >> [pathMagmaDrums, pathMagmaKick, pathMagmaSnare]
@@ -862,7 +891,7 @@ shakeBuild audioDirs yamlPath buildables = do
 
             pathMagmaMid ≡> \out -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
-              let (_, mixMode) = buildMOGG plan songYaml
+              (_, mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
               output <- lift $ RB3.processMIDI
                 rb3
                 songYaml
@@ -896,10 +925,12 @@ shakeBuild audioDirs yamlPath buildables = do
 
             pathDta ≡> \out -> do
               song <- shakeMIDI pathMid
-              let songPkg = makeRB3DTA songYaml plan rb3 song pkg
+              songPkg <- makeRB3DTA songYaml plan rb3 song pkg
               liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments (_metadata songYaml) plan $ rb3_2xBassPedal rb3
             pathMid %> copyFile' pathMagmaExport2
-            pathMogg %> copyFile' (planDir </> "audio.mogg")
+            pathMogg %> case plan of
+              MoggPlan{} -> copyFile' (planDir </> "audio.mogg")
+              Plan{}     -> undefined
             pathPng  %> copyFile' "gen/cover.png_xbox"
             pathMilo %> \out -> liftIO $ B.writeFile out emptyMilo
             pathCon ≡> \out -> do
@@ -911,6 +942,41 @@ shakeBuild audioDirs yamlPath buildables = do
                 (dir </> "stfs")
                 out
               lift $ putNormal s
+
+            -- Guitar rules
+            dir </> "protar-hear.mid" ≡> \out -> do
+              input <- shakeMIDI pathMagmaMid
+              let goffs = case maybe [] pgTuning $ getPart (rb3_Guitar rb3) songYaml >>= partProGuitar of
+                    []   -> [0, 0, 0, 0, 0, 0]
+                    offs -> offs
+                  boffs = case maybe [] pgTuning $ getPart (rb3_Bass   rb3) songYaml >>= partProGuitar of
+                    []   -> [0, 0, 0, 0]
+                    offs -> offs
+              lift $ saveMIDI out $ RBFile.playGuitarFile goffs boffs input
+            dir </> "protar-mpa.mid" ≡> \out -> do
+              input <- shakeMIDI pathMagmaMid
+              let gtr17   = discardPS $ RBFile.flexPartRealGuitar   $ RBFile.getFlexPart (rb3_Guitar rb3) $ RBFile.s_tracks input
+                  gtr22   = discardPS $ RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart (rb3_Guitar rb3) $ RBFile.s_tracks input
+                  bass17  = discardPS $ RBFile.flexPartRealGuitar   $ RBFile.getFlexPart (rb3_Bass   rb3) $ RBFile.s_tracks input
+                  bass22  = discardPS $ RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart (rb3_Bass   rb3) $ RBFile.s_tracks input
+                  pgThres = maybe 170 pgHopoThreshold $ getPart (rb3_Guitar rb3) songYaml >>= partProGuitar
+                  pbThres = maybe 170 pgHopoThreshold $ getPart (rb3_Bass   rb3) songYaml >>= partProGuitar
+                  playTrack thres cont name t = let
+                    expert = flip RTB.mapMaybe t $ \case
+                      ProGtr.DiffEvent Expert devt -> Just devt
+                      _                            -> Nothing
+                    auto = PGPlay.autoplay (fromIntegral thres / 480) expert
+                    msgToSysEx msg
+                      = E.SystemExclusive $ SysEx.Regular $ PGPlay.sendCommand (cont, msg) ++ [0xF7]
+                    in U.setTrackName name $ msgToSysEx <$> auto
+              lift $ saveMIDI out input
+                { RBFile.s_tracks = RBFile.RawFile
+                    [ playTrack pgThres PGPlay.Mustang "GTR17"  $ if RTB.null gtr17  then gtr22  else gtr17
+                    , playTrack pgThres PGPlay.Squier  "GTR22"  $ if RTB.null gtr22  then gtr17  else gtr22
+                    , playTrack pbThres PGPlay.Mustang "BASS17" $ if RTB.null bass17 then bass22 else bass17
+                    , playTrack pbThres PGPlay.Squier  "BASS22" $ if RTB.null bass22 then bass17 else bass22
+                    ]
+                }
 
             case mrb2 of
               Nothing -> return ()
@@ -1205,7 +1271,6 @@ shakeBuild audioDirs yamlPath buildables = do
               Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show ps
               Just pair -> return pair
             let planDir = "gen/plan" </> T.unpack planName
-                (_, mixMode) = buildMOGG plan songYaml
                 rb3 = TargetRB3
                   { rb3_Drums = ps_Drums ps
                   , rb3_Guitar = ps_Guitar ps
@@ -1222,6 +1287,7 @@ shakeBuild audioDirs yamlPath buildables = do
 
             dir </> "ps/notes.mid" ≡> \out -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
+              (_, mixMode) <- computeDrumsPart (ps_Drums ps) plan songYaml
               output <- lift $ RB3.processMIDI
                 ps
                 songYaml
@@ -1281,48 +1347,51 @@ shakeBuild audioDirs yamlPath buildables = do
                     $ RBFile.onyxFlexParts $ RBFile.s_tracks song
                 , FoF.video            = const "video.avi" <$> ps_FileVideo ps
                 }
-            dir </> "ps/drums.ogg"   %> buildAudio (Input $ planDir </> T.unpack (RBFile.getPartName $ rb3_Drums rb3) <.> "wav")
-            dir </> "ps/drums_1.ogg" %> buildAudio (Input $ planDir </> T.unpack (RBFile.getPartName $ rb3_Drums rb3) ++ "-kick.wav")
-            dir </> "ps/drums_2.ogg" %> buildAudio (Input $ planDir </> T.unpack (RBFile.getPartName $ rb3_Drums rb3) ++ "-snare.wav")
-            dir </> "ps/drums_3.ogg" %> buildAudio (Input $ planDir </> T.unpack (RBFile.getPartName $ rb3_Drums rb3) ++ "-kit.wav")
-            dir </> "ps/guitar.ogg"  %> buildAudio (Input $ planDir </> T.unpack (RBFile.getPartName $ rb3_Bass rb3) <.> "wav")
-            dir </> "ps/keys.ogg"    %> buildAudio (Input $ planDir </> T.unpack (RBFile.getPartName $ rb3_Guitar rb3) <.> "wav")
-            dir </> "ps/rhythm.ogg"  %> buildAudio (Input $ planDir </> T.unpack (RBFile.getPartName $ rb3_Keys rb3) <.> "wav")
-            dir </> "ps/vocals.ogg"  %> buildAudio (Input $ planDir </> T.unpack (RBFile.getPartName $ rb3_Vocal rb3) <.> "wav")
-            dir </> "ps/crowd.ogg"   %> buildAudio (Input $ planDir </> "crowd.wav"       )
-            dir </> "ps/song.ogg"    %> buildAudio (Input $ planDir </> "song-countin.wav")
+            dir </> "ps/drums.ogg"   %> undefined
+            dir </> "ps/drums_1.ogg" %> undefined
+            dir </> "ps/drums_2.ogg" %> undefined
+            dir </> "ps/drums_3.ogg" %> undefined
+            dir </> "ps/guitar.ogg"  %> undefined
+            dir </> "ps/keys.ogg"    %> undefined
+            dir </> "ps/rhythm.ogg"  %> undefined
+            dir </> "ps/vocals.ogg"  %> undefined
+            dir </> "ps/crowd.ogg"   %> undefined
+            dir </> "ps/song.ogg"    %> undefined
             dir </> "ps/album.png"   %> copyFile' "gen/cover.png"
-            phony (dir </> "ps") $ need $ map (\f -> dir </> "ps" </> f) $ concat
-              [ ["song.ini", "notes.mid", "song.ogg", "album.png"]
-              , ["drums.ogg"   | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode == RBDrums.D0 && case plan of
-                  Plan{..} -> HM.member (ps_Drums ps) $ getParts $ _planParts
-                  _        -> True
+            phony (dir </> "ps") $ shakeTrace $ do
+              (_, mixMode) <- computeDrumsPart (ps_Drums ps) plan songYaml
+              lift $ need $ map (\f -> dir </> "ps" </> f) $ concat
+                -- TODO replace (/= def), should actually check whether the right PS play mode is present
+                [ ["song.ini", "notes.mid", "song.ogg", "album.png"]
+                , ["drums.ogg"   | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode == RBDrums.D0 && case plan of
+                    Plan{..} -> HM.member (ps_Drums ps) $ getParts $ _planParts
+                    _        -> True
+                  ]
+                , ["drums_1.ogg" | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode /= RBDrums.D0]
+                , ["drums_2.ogg" | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode /= RBDrums.D0]
+                , ["drums_3.ogg" | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode /= RBDrums.D0]
+                , ["guitar.ogg"  | maybe False (/= def) (getPart (ps_Guitar ps) songYaml) && case plan of
+                    Plan{..} -> HM.member (ps_Guitar ps) $ getParts $ _planParts
+                    _        -> True
+                  ]
+                , ["keys.ogg"    | maybe False (/= def) (getPart (ps_Keys ps) songYaml) && case plan of
+                    Plan{..} -> HM.member (ps_Keys ps) $ getParts $ _planParts
+                    _        -> True
+                  ]
+                , ["rhythm.ogg"  | maybe False (/= def) (getPart (ps_Bass ps) songYaml) && case plan of
+                    Plan{..} -> HM.member (ps_Bass ps) $ getParts $ _planParts
+                    _        -> True
+                  ]
+                , ["vocals.ogg"  | maybe False (/= def) (getPart (ps_Vocal ps) songYaml) && case plan of
+                    Plan{..} -> HM.member (ps_Vocal ps) $ getParts $ _planParts
+                    _        -> True
+                  ]
+                , ["crowd.ogg"   | case plan of
+                    Plan{..}     -> isJust _crowd
+                    MoggPlan{..} -> not $ null _moggCrowd
+                  ]
+                , ["video.avi" | isJust $ ps_FileVideo ps]
                 ]
-              , ["drums_1.ogg" | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode /= RBDrums.D0]
-              , ["drums_2.ogg" | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode /= RBDrums.D0]
-              , ["drums_3.ogg" | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode /= RBDrums.D0]
-              , ["guitar.ogg"  | maybe False (/= def) (getPart (ps_Guitar ps) songYaml) && case plan of
-                  Plan{..} -> HM.member (ps_Guitar ps) $ getParts $ _planParts
-                  _        -> True
-                ]
-              , ["keys.ogg"    | maybe False (/= def) (getPart (ps_Keys ps) songYaml) && case plan of
-                  Plan{..} -> HM.member (ps_Keys ps) $ getParts $ _planParts
-                  _        -> True
-                ]
-              , ["rhythm.ogg"  | maybe False (/= def) (getPart (ps_Bass ps) songYaml) && case plan of
-                  Plan{..} -> HM.member (ps_Bass ps) $ getParts $ _planParts
-                  _        -> True
-                ]
-              , ["vocals.ogg"  | maybe False (/= def) (getPart (ps_Vocal ps) songYaml) && case plan of
-                  Plan{..} -> HM.member (ps_Vocal ps) $ getParts $ _planParts
-                  _        -> True
-                ]
-              , ["crowd.ogg"   | case plan of
-                  Plan{..}     -> isJust _crowd
-                  MoggPlan{..} -> not $ null _moggCrowd
-                ]
-              , ["video.avi" | isJust $ ps_FileVideo ps]
-              ]
             dir </> "ps.zip" %> \out -> do
               let d = dir </> "ps"
               need [d]
@@ -1334,7 +1403,6 @@ shakeBuild audioDirs yamlPath buildables = do
       forM_ (HM.toList $ _plans songYaml) $ \(planName, plan) -> do
 
         let dir = "gen/plan" </> T.unpack planName
-            (moggChannels, mixMode) = buildMOGG plan songYaml
 
         -- REAPER project
         "notes-" ++ T.unpack planName ++ ".RPP" %> \out -> do
@@ -1348,9 +1416,6 @@ shakeBuild audioDirs yamlPath buildables = do
           b <- doesFileExist extraTempo
           let tempo = if b then extraTempo else "gen/notes.mid"
           makeReaper "gen/notes.mid" tempo audios out
-
-        -- Audio files
-        makeAudioFiles songYaml plan dir
 
         dir </> "web/song.js" %> \out -> do
           let json = dir </> "display.json"
@@ -1368,28 +1433,33 @@ shakeBuild audioDirs yamlPath buildables = do
             , dir </> "web/song.js"
             ]
 
-        let allAudioWithPV = do
-              k <- [ k | (k, _, _) <- moggChannels ]
-              let chans = [ (p, v) | (k', p, v) <- moggChannels, k == k' ]
-              return (chans, dir </> case k of
-                ChannelSong -> dir </> "song-countin.wav"
-                ChannelCrowd -> dir </> "crowd.wav"
-                ChannelPart fpart -> dir </> T.unpack (RBFile.getPartName fpart) <.> "wav"
-                )
-
         dir </> "everything.wav" %> \out -> case plan of
           MoggPlan{..} -> do
             let ogg = dir </> "audio.ogg"
             need [ogg]
             src <- liftIO $ sourceSnd ogg
             runAudio (applyPansVols (map realToFrac _pans) (map realToFrac _vols) src) out
-          _ -> do
-            need $ map snd allAudioWithPV
-            srcs <- fmap concat $ forM allAudioWithPV $ \(pv, wav) -> case pv of
-              [] -> return []
-              _  -> do
-                src <- liftIO $ sourceSnd wav
-                return [applyPansVols (map (realToFrac . fst) pv) (map (realToFrac . snd) pv) src]
+          Plan{..} -> do
+            let planAudios = concat
+                  [ toList _song
+                  , toList _crowd
+                  , toList _planParts >>= toList
+                  ]
+            srcs <- flip mapM planAudios $ \pa -> let
+              chans = computeChannelsPlan songYaml $ _planExpr pa
+              pans = map realToFrac $ case _planPans pa of
+                [] -> case chans of
+                  0 -> []
+                  1 -> [0]
+                  2 -> [-1, 1]
+                  n -> error $ "don't know what pans to use for " ++ show n ++ " channels"
+                xs -> xs
+              vols = map realToFrac $ case _planVols pa of
+                [] -> replicate chans 0
+                xs -> xs
+              in do
+                src <- fmap join $ mapM (manualLeaf songYaml) $ _planExpr pa
+                fmap (applyPansVols pans vols) $ buildSource src
             let mixed = case srcs of
                   []     -> silent (Frames 0) 44100 2
                   s : ss -> foldr mix s ss
@@ -1402,13 +1472,20 @@ shakeBuild audioDirs yamlPath buildables = do
             need [ogg]
             src <- liftIO $ sourceSnd ogg
             runAudio (applyVolsMono (map realToFrac _vols) src) out
-          _ -> do
-            need $ map snd allAudioWithPV
-            srcs <- fmap concat $ forM allAudioWithPV $ \(pv, wav) -> case pv of
-              [] -> return []
-              _  -> do
-                src <- liftIO $ sourceSnd wav
-                return [applyVolsMono (map (realToFrac . snd) pv) src]
+          Plan{..} -> do
+            let planAudios = concat
+                  [ toList _song
+                  , toList _crowd
+                  , toList _planParts >>= toList
+                  ]
+            srcs <- flip mapM planAudios $ \pa -> let
+              chans = computeChannelsPlan songYaml $ _planExpr pa
+              vols = map realToFrac $ case _planVols pa of
+                [] -> replicate chans 0
+                xs -> xs
+              in do
+                src <- fmap join $ mapM (manualLeaf songYaml) $ _planExpr pa
+                fmap (applyVolsMono vols) $ buildSource src
             let mixed = case srcs of
                   []     -> silent (Frames 0) 44100 1
                   s : ss -> foldr mix s ss
@@ -1431,75 +1508,36 @@ shakeBuild audioDirs yamlPath buildables = do
         midprocessed ≡> \out -> do
           input <- shakeMIDI midraw
           let defTarget = def { rb3_2xBassPedal = True }
-          output <- lift $ RB3.processMIDI defTarget songYaml input mixMode $ getAudioLength planName
+          output <- lift $ RB3.processMIDI defTarget songYaml input RBDrums.D0 $ getAudioLength planName
           lift $ saveMIDI out output
 
         display ≡> \out -> do
           song <- shakeMIDI midprocessed
           liftIO $ BL.writeFile out $ makeDisplay songYaml song
 
-        -- Guitar rules
-        dir </> "protar-hear.mid" ≡> \out -> do
-          input <- shakeMIDI midprocessed
-          let goffs = case [] of -- TODO
-                []   -> [0, 0, 0, 0, 0, 0]
-                offs -> offs
-              boffs = case [] of -- TODO
-                []   -> [0, 0, 0, 0]
-                offs -> offs
-          lift $ saveMIDI out $ RBFile.playGuitarFile goffs boffs input
-        dir </> "protar-mpa.mid" ≡> \out -> do
-          input <- shakeMIDI midprocessed
-          let gtr17   = discardPS $ RBFile.flexPartRealGuitar   $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks input
-              gtr22   = discardPS $ RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks input
-              bass17  = discardPS $ RBFile.flexPartRealGuitar   $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks input
-              bass22  = discardPS $ RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks input
-              playTrack cont name t = let
-                expert = flip RTB.mapMaybe t $ \case
-                  ProGtr.DiffEvent Expert devt -> Just devt
-                  _                            -> Nothing
-                thres = simpleHOPOThreshold songYaml / 480
-                auto = PGPlay.autoplay thres expert
-                msgToSysEx msg
-                  = E.SystemExclusive $ SysEx.Regular $ PGPlay.sendCommand (cont, msg) ++ [0xF7]
-                in U.setTrackName name $ msgToSysEx <$> auto
-          lift $ saveMIDI out input
-            { RBFile.s_tracks = RBFile.RawFile
-                [ playTrack PGPlay.Mustang "GTR17"  $ if RTB.null gtr17  then gtr22  else gtr17
-                , playTrack PGPlay.Squier  "GTR22"  $ if RTB.null gtr22  then gtr17  else gtr22
-                , playTrack PGPlay.Mustang "BASS17" $ if RTB.null bass17 then bass22 else bass17
-                , playTrack PGPlay.Squier  "BASS22" $ if RTB.null bass22 then bass17 else bass22
-                ]
-            }
-
-        -- Countin audio, and song+countin files
-        let useCountin (Countin hits) = do
-              dir </> "countin.wav" ≡> \out -> case hits of
-                [] -> lift $ buildAudio (Silence 1 $ Frames 0) out
-                _  -> do
-                  mid <- shakeMIDI $ dir </> "raw.mid"
-                  let _ = mid :: RBFile.Song (RBFile.RawFile U.Beats)
-                  hits' <- lift $ forM hits $ \(posn, aud) -> do
-                    let time = case posn of
-                          Left  mb   -> Seconds $ realToFrac $ U.applyTempoMap (RBFile.s_tempos mid) $ U.unapplyMeasureMap (RBFile.s_signatures mid) mb
-                          Right secs -> Seconds $ realToFrac secs
-                    aud' <- fmap join $ mapM (manualLeaf songYaml) aud
-                    return $ Pad Start time aud'
-                  lift $ buildAudio (Mix hits') out
-              dir </> "song-countin.wav" %> \out -> do
-                let song = Input $ dir </> "song.wav"
-                    countin = Input $ dir </> "countin.wav"
-                buildAudio (Mix [song, countin]) out
+        -- count-in audio
         case plan of
-          MoggPlan{} -> return () -- handled by makeAudioFiles
-          Plan{..}   -> useCountin _countin
-        dir </> "song-countin.ogg" %> \out ->
-          buildAudio (Input $ out -<.> "wav") out
+          MoggPlan{} -> return ()
+          Plan{..}   -> do
+            let Countin hits = _countin
+            dir </> "countin.wav" ≡> \out -> case hits of
+              [] -> lift $ buildAudio (Silence 1 $ Frames 0) out
+              _  -> do
+                mid <- shakeMIDI $ dir </> "raw.mid"
+                let _ = mid :: RBFile.Song (RBFile.RawFile U.Beats)
+                hits' <- lift $ forM hits $ \(posn, aud) -> do
+                  let time = case posn of
+                        Left  mb   -> Seconds $ realToFrac $ U.applyTempoMap (RBFile.s_tempos mid) $ U.unapplyMeasureMap (RBFile.s_signatures mid) mb
+                        Right secs -> Seconds $ realToFrac secs
+                  aud' <- fmap join $ mapM (manualLeaf songYaml) aud
+                  return $ Pad Start time aud'
+                lift $ buildAudio (Mix hits') out
 
-        -- Rock Band OGG and MOGG
+        -- Getting MOGG/OGG from MoggPlan
         let ogg  = dir </> "audio.ogg"
             mogg = dir </> "audio.mogg"
         case plan of
+          Plan{} -> return ()
           MoggPlan{..} -> do
             ogg ≡> \out -> do
               lift $ need [mogg]
@@ -1509,20 +1547,6 @@ shakeBuild audioDirs yamlPath buildables = do
               Just f -> do
                 putNormal $ "Found the MOGG file: " ++ f
                 copyFile' f out
-          Plan{..} -> do
-            ogg %> \out -> let
-              parts = map Input $ do
-                (k, _, _) <- nub moggChannels
-                return $ case k of
-                  ChannelSong -> dir </> "song-countin.wav"
-                  ChannelCrowd -> dir </> "crowd.wav"
-                  ChannelPart fpart -> dir </> T.unpack (RBFile.getPartName fpart) <.> "wav"
-                  -- TODO handle split drumkit
-              in buildAudio (Merge parts) out
-            mogg ≡> \out -> do
-              lift $ need [ogg]
-              lift $ putNormal "# Wrapping OGG into unencrypted MOGG with Magma hack"
-              Magma.oggToMogg ogg out
 
         -- Low-quality audio files for the online preview app
         forM_ [("mp3", crapMP3), ("ogg", crapVorbis)] $ \(ext, crap) -> do

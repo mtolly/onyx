@@ -430,7 +430,8 @@ audioSeconds f = do
 -- | Applies Rock Band's pan and volume lists
 -- to turn a multichannel OGG input into a stereo output.
 applyPansVols :: (Monad m) => [Float] -> [Float] -> AudioSource m Float -> AudioSource m Float
-applyPansVols pans vols src = AudioSource
+applyPansVols [-1, 1] [0, 0] src = src
+applyPansVols pans    vols   src = AudioSource
   { rate     = rate src
   , frames   = frames src
   , channels = 2
