@@ -44,7 +44,7 @@ difficultyRB3 TargetRB3{..} songYaml = let
   rb3KeysRank      = simpleRank rb3_Keys   partGRYBO     gryboDifficulty keysDiffMap
   rb3ProKeysRank   = simpleRank rb3_Keys   partProKeys   pkDifficulty    keysDiffMap
   rb3ProBassRank   = simpleRank rb3_Bass   partProGuitar pgDifficulty    proBassDiffMap
-  rb3ProGuitarRank = simpleRank rb3_Guitar   partProGuitar pgDifficulty    proBassDiffMap
+  rb3ProGuitarRank = simpleRank rb3_Guitar partProGuitar pgDifficulty    proBassDiffMap
   rb3BandRank      = case _difficulty $ _metadata songYaml of
     Tier t -> tierToRank bandDiffMap t
     Rank r -> r

@@ -192,6 +192,7 @@ stretch2 ratio src = AudioSource
 -}
 
 -- | Duplicates mono into stereo, or otherwise just tacks on silent channels to one source.
+-- TODO: change this to only do mono->stereo, and use proper volume adjustment (see applyPansVols)
 sameChannels :: (Monad m, Num a, V.Storable a) => (AudioSource m a, AudioSource m a) -> (AudioSource m a, AudioSource m a)
 sameChannels (a1, a2) = case (channels a1, channels a2) of
   (1, c2) | c2 /= 1 -> let

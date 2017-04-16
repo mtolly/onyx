@@ -44,6 +44,7 @@ import           ProKeysRanges                  (closeShiftsFile, completeFile)
 import           Reaper.Build                   (makeReaperIO)
 import           Reductions                     (simpleReduce)
 import qualified RockBand.File                  as RBFile
+import           RockBand2                      (KeysRB2 (..))
 import qualified Sound.Jammit.Base              as J
 import qualified Sound.MIDI.File.Load           as Load
 import qualified Sound.MIDI.File.Save           as Save
