@@ -239,7 +239,7 @@ importFoF krb2 src dest = do
       liftIO $ Dir.copyFile (src </> v) (dest </> "video.avi")
       return $ Just "video.avi"
 
-  let vocalMode = if elem "PART VOCALS" trackNames && FoF.diffVocals song /= Just (-1) && hasVocalNotes && FoF.charter song /= Just "Sodamlazy"
+  let vocalMode = if elem "PART VOCALS" trackNames && FoF.diffVocals song /= Just (-1) && hasVocalNotes && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
         then if elem "HARM2" trackNames && FoF.diffVocalsHarm song /= Just (-1)
           then if elem "HARM3" trackNames
             then Just Vocal3

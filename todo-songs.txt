@@ -1,13 +1,4 @@
 JAZZ
-- kung-fu world champion (hiromi)
-- jazz crimes (joshua redman)
-- temple [zelda 2] (shnabubula)
-- summer goddess (soil&pimp)
-- last night (toe)
-- sly (herbie hancock)
-- ripped apart and reasssembled (nova collective)
-- barracuda (the bad plus)
-========
 - ripple star (kirby 64)
 > tank! (seatbelts) saxguitar + vox (lol) done
 > i want a pine cone (uncle moe) drums done
@@ -16,13 +7,14 @@ JAZZ
 > mosquiton wa mou kikoenai (toe) drums done
 > animals (bonobo) drums done
 > tom sawyer (alex skolnick trio) drums by blitzbob
-# footloose & fancy free (earthworks) needs pro keys, can't release on c3
+> footloose & fancy free (earthworks) needs pro keys + record mogg, can't release on c3
+> blast off (trioscapes) fix up drums by porcupinkfloyd
+# take five (dave brubeck) drums done by LIK+me, already one in c3 though
 # mario circuit (oneups)
 # it could happen to you (ryo fukui)
 # round one (youngblood)
 # more S&P? memai, pop korn
 # one for antonio??? or did you get it
-# take five (dave brubeck) drums done by LIK+me, already one in c3 though
 
 LTE
 > rhapsody in blue - drums done, AJF offered to do bass + venue
@@ -42,7 +34,7 @@ DREAM THEATER
 > the great debate - drums + pro keys (jarod) done
 FALLING INTO INFINITY
   > peruvian skies - drums done, have all stems now
-  > trial of tears - drums/prokeys done, waiting on nsw1-6 for gtr/bass
+  > trial of tears - drums/prokeys done
   > new millennium - drums done, have all stems now
   > you {or,not} me (...) - stems
   > burning my soul - stems
