@@ -6,13 +6,16 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200004 Brooklyn (Youngblood Brass Band)
 1660200005 Celestial Terrestrial Commuters (Mahavishnu Orchestra) 1x
 1660200006 Celestial Terrestrial Commuters (Mahavishnu Orchestra) 2x
+1660200041 Celestial Terrestrial Commuters (Mahavishnu Orchestra) 1x (Violin)
+1660200042 Celestial Terrestrial Commuters (Mahavishnu Orchestra) 2x (Violin)
 1660200007 A Crimson Rose and a Gin Tonic (Asuka Sakai, Ado Mizumori)
 1660200008 The Nag (John Scofield)
 1660200009 Spark (Hiromi: The Trio Project) 1x
 1660200010 Spark (Hiromi: The Trio Project) 2x
   Onyxite's Jazz Pack 1
-  v1 (of all) published 2016-09-21
+  v1 (of all except violin CTC) published 2016-09-21
   v2 Scoop Out published 2017-01-21: added missing double snares; fixed wrong pro keys note
+  v2 of CTC inc. violin TO BE PUBLISHED
 
 1660200011 The Tempest (The Agonist) 1x
 1660200012 The Tempest (The Agonist) 2x
@@ -71,6 +74,8 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200039 Ripple Star (Jun Ishikawa) 1x
 1660200040 Ripple Star (Jun Ishikawa) 2x
   v1 TO BE PUBLISHED
+
+next id: 1660200043
 
 ONE-OFFS
 1660299999 hacked c3 6:00 drum chart

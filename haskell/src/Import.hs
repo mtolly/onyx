@@ -568,7 +568,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
         else fatal $ "Inconsistent drum mixes: " ++ show (nub drumMixes)
   let instChans :: Map.Map T.Text [Int]
       instChans = fmap (map fromIntegral) $ D2.fromDict $ D.tracks $ D.song pkg
-      drumChans = fromMaybe [] $ Map.lookup "drums" instChans
+      drumChans = fromMaybe [] $ Map.lookup "drum" instChans
   drumSplit <- case drumMix of
     RBDrums.D0 -> case drumChans of
       [kitL, kitR] -> return $ PartSingle [kitL, kitR]

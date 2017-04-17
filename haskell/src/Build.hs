@@ -794,9 +794,12 @@ shakeBuild audioDirs yamlPath buildables = do
                   guard $ notElem fpart usedParts
                   return pa
                 partAudios = maybe id (\pa -> (PartSingle pa :)) _song unusedParts
-                in mapM (buildPartAudioToSpec songYaml spec . Just) partAudios >>= \case
-                  []     -> buildPartAudioToSpec songYaml spec Nothing
-                  s : ss -> return $ foldr mix s ss
+                countinPath = "gen/plan" </> T.unpack planName </> "countin.wav"
+                in do
+                  lift $ need [countinPath]
+                  countinSrc <- lift $ buildSource $ Input countinPath
+                  unusedSrcs <- mapM (buildPartAudioToSpec songYaml spec . Just) partAudios
+                  return $ foldr mix countinSrc unusedSrcs
             lift $ runAudio src out
 
           rbRules :: FilePath -> T.Text -> TargetRB3 -> Maybe TargetRB2 -> Rules ()
@@ -1612,22 +1615,19 @@ shakeBuild audioDirs yamlPath buildables = do
           liftIO $ BL.writeFile out $ makeDisplay songYaml song
 
         -- count-in audio
-        case plan of
-          MoggPlan{} -> return ()
-          Plan{..}   -> do
-            let Countin hits = _countin
-            dir </> "countin.wav" ≡> \out -> case hits of
-              [] -> lift $ buildAudio (Silence 1 $ Frames 0) out
-              _  -> do
-                mid <- shakeMIDI $ dir </> "raw.mid"
-                let _ = mid :: RBFile.Song (RBFile.RawFile U.Beats)
-                hits' <- lift $ forM hits $ \(posn, aud) -> do
-                  let time = case posn of
-                        Left  mb   -> Seconds $ realToFrac $ U.applyTempoMap (RBFile.s_tempos mid) $ U.unapplyMeasureMap (RBFile.s_signatures mid) mb
-                        Right secs -> Seconds $ realToFrac secs
-                  aud' <- fmap join $ mapM (manualLeaf songYaml) aud
-                  return $ Pad Start time aud'
-                lift $ buildAudio (Mix hits') out
+        dir </> "countin.wav" ≡> \out -> do
+          let hits = case plan of MoggPlan{} -> []; Plan{..} -> case _countin of Countin h -> h
+          src <- buildAudioToSpec songYaml [(-1, 0), (1, 0)] =<< case hits of
+            [] -> return Nothing
+            _  -> Just . (\expr -> PlanAudio expr [] []) <$> do
+              mid <- shakeMIDI $ dir </> "raw.mid"
+              let _ = mid :: RBFile.Song (RBFile.RawFile U.Beats)
+              return $ Mix $ flip map hits $ \(posn, aud) -> let
+                time = Seconds $ realToFrac $ case posn of
+                  Left  mb   -> U.applyTempoMap (RBFile.s_tempos mid) $ U.unapplyMeasureMap (RBFile.s_signatures mid) mb
+                  Right secs -> secs
+                in Pad Start time aud
+          lift $ runAudio src out
 
         -- Getting MOGG/OGG from MoggPlan
         let ogg  = dir </> "audio.ogg"
