@@ -15,6 +15,7 @@ module RenderAudio
 , completePlanAudio
 , buildAudioToSpec
 , buildPartAudioToSpec
+, channelsToSpec
 ) where
 
 import           Audio
@@ -204,13 +205,50 @@ completePlanAudio songYaml pa = do
     xs -> return $ map realToFrac xs
   return (_planExpr pa, pans, vols)
 
+fitToSpec
+  :: (Monad m, MonadResource r)
+  => [(Double, Double)]
+  -> [(Double, Double)]
+  -> AudioSource r Float
+  -> StackTraceT m (AudioSource r Float)
+fitToSpec pvIn pvOut src = let
+  pans = map fst pvIn
+  vols = map fst pvOut
+  in case pvOut of
+    [(pan, 0)] -> if [pan] == pans
+      then return $ case fromMaybe 0 $ listToMaybe vols of
+        0   -> src
+        vol -> gain (10 ** (realToFrac vol / 20)) src -- just apply vol to single channel and we're done
+      else fatal $ "Mono output (" ++ show pvOut ++ ") does not match input pans: " ++ show pans
+    [(-1, 0), (1, 0)] -> return
+      $ applyPansVols (map realToFrac pans) (map realToFrac vols) src -- simple stereo remix
+    _ -> if pvIn == pvOut
+      then return src -- input == output, we're good
+      else fatal $ "Unrecognized audio spec: " ++ show pvOut
+
+channelsToSpec
+  :: (MonadResource m)
+  => [(Double, Double)]
+  -> T.Text
+  -> [(Double, Double)]
+  -> [Int]
+  -> StackTraceT Action (AudioSource m Float)
+channelsToSpec pvOut planName pvIn chans = inside "conforming MOGG channels to output spec" $ do
+  let partPVIn = map (pvIn !!) chans
+      mogg = "gen/plan" </> T.unpack planName </> "audio.ogg"
+  lift $ need [mogg]
+  src <- lift $ buildSource $ case chans of
+    [] -> Silence 1 $ Frames 0
+    _  -> Channels chans $ Input mogg
+  fitToSpec partPVIn pvOut src
+
 buildAudioToSpec
   :: (MonadResource m)
   => SongYaml
   -> [(Double, Double)]
   -> Maybe (PlanAudio Duration AudioInput)
   -> StackTraceT Action (AudioSource m Float)
-buildAudioToSpec songYaml specPV mpa = inside "conforming audio file to output spec" $ do
+buildAudioToSpec songYaml pvOut mpa = inside "conforming audio file to output spec" $ do
   (expr, pans, vols) <- completePlanAudio songYaml $ case mpa of
     Nothing -> PlanAudio (Silence 1 $ Frames 0) [] []
     Just pa -> pa
@@ -218,17 +256,7 @@ buildAudioToSpec songYaml specPV mpa = inside "conforming audio file to output s
     aud <- join <$> mapM (manualLeaf songYaml) expr
     need $ toList aud
     buildSource aud
-  case specPV of
-    [(pan, 0)] -> if [pan] == pans
-      then return $ case fromMaybe 0 $ listToMaybe vols of
-        0   -> src
-        vol -> gain (10 ** (realToFrac vol / 20)) src -- just apply vol to single channel and we're done
-      else fatal $ "Mono output (" ++ show specPV ++ ") does not match input pans: " ++ show pans
-    [(-1, 0), (1, 0)] -> return
-      $ applyPansVols (map realToFrac pans) (map realToFrac vols) src -- simple stereo remix
-    _ -> if specPV == zip pans vols
-      then return src -- input == output, we're good
-      else fatal $ "Unrecognized audio spec: " ++ show specPV
+  fitToSpec (zip pans vols) pvOut src
 
 buildPartAudioToSpec
   :: (MonadResource m)
