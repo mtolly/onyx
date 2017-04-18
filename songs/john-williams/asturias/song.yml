@@ -25,8 +25,10 @@ plans:
       1|0: hihat
       1|1: hihat
       1|2: hihat
-    guitar:
-      pad: [3.019, gain: [1.5, youtube]]
-instruments:
-  pro-guitar: true
-published: false
+    parts:
+      guitar:
+        pad: [3.019, gain: [1.5, youtube]]
+parts:
+  guitar:
+    pro-guitar:
+      difficulty: 7

@@ -1,4 +1,3 @@
-published: true
 audio:
   youtube:
     commands:
@@ -21,7 +20,6 @@ plans:
       pad: [2.412, youtube]
 metadata:
   rating: Family Friendly
-  drum-kit: Hard Rock Kit
   track-number: 8
   year: 1971
   author: TheLieInKing
@@ -31,7 +29,8 @@ metadata:
   artist: Mahavishnu Orchestra
   album: The Inner Mounting Flame
   file-album-art: cover.jpg
-  difficulty:
-    drums: 7
-instruments:
-  drums: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+      kit: Hard Rock Kit

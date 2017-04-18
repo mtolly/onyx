@@ -3,8 +3,6 @@ metadata:
   file-include: ../../../albums/black-sands.yml
   track-number: 11
   author: Onyxite
-  difficulty:
-    drums: 5
   preview-start: prc_verse_1a
 audio:
   album-track:
@@ -23,5 +21,7 @@ plans:
       1|3: hihat
     song:
       pad: [3.465, album-track]
-instruments:
-  drums: true
+parts:
+  drums:
+    drums:
+      difficulty: 5

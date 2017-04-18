@@ -1,4 +1,3 @@
-published: true
 plans:
   album:
     song:
@@ -8,36 +7,15 @@ plans:
         - take: ['1:23.924', youtube]
         - drop: ['5:05.137', youtube]
   mogg:
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    drum-mix: 0
+    pans: [-1, 1, -1, 1]
     mogg-md5: d86bc737f97505d5707b58a5bf3b05f3
-    drums:
-    - 0
-    - 1
-    vols:
-    - -1.5
-    - -1.5
-    - -3
-    - -3
+    parts:
+      drums: [0, 1]
+    vols: [-1.5, -1.5, -3, -3]
 metadata:
-  autogen-theme: AutogenDefault
-  rating: Unrated
-  preview-start: 0.0
-  vocal-gender: male
-  drum-kit: Hard Rock Kit
-  track-number: 0
-  year: 2009
-  subgenre: rock
   author: TheLieInKing
   title: One for Antonio
-  preview-end: 30
-  genre: rock
   artist: Chick Corea and Antonio Sanchez
-jammit: {}
 audio:
   youtube:
     commands:
@@ -45,5 +23,6 @@ audio:
     file-path: audio-youtube.wav
     md5: ec4fe71853a5e152967a52e15078d282
     frames: 23981056
-instruments:
-  drums: true
+parts:
+  drums:
+    drums: {}

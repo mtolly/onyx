@@ -12,9 +12,10 @@ plans:
   album:
     song:
       pad: [5.436, youtube]
-instruments:
-  drums: true
-  vocal: 2
-published: false
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+  vocal:
+    vocal:
+      count: 2

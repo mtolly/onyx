@@ -23,6 +23,9 @@ plans:
       1|3: hihat
     song:
       pad: [2.438, album-track]
-instruments:
-  guitar: true
-  vocal: 1
+parts:
+  guitar:
+    grybo: {}
+  vocal:
+    vocal:
+      count: 1

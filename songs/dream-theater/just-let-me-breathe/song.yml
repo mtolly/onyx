@@ -2,8 +2,6 @@ metadata:
   title: Just Let Me Breathe
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 9
-  difficulty:
-    drums: 6
   author: Onyxite
   comments:
   - >-
@@ -29,13 +27,17 @@ plans:
       1|1: hihat
       1|2: hihat
       1|3: hihat
-    each:
-      pad: [1.901, jammit-track]
+    parts:
+      drums:
+        pad: [1.901, only: [Drums, jammit-track]]
+    song:
+      pad: [1.901, without: [drums, jammit-track]]
   album:
     countin: *countin
     song:
       pad: [3.591, album-track]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      difficulty: 6

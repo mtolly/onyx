@@ -2,42 +2,46 @@ metadata:
   title: Battery
   artist: Metallica
   album: Master of Puppets
-  vocal-gender: male
   year: 1986
   track-number: 1
   author: Harmonix
   file-album-art: battery_keep.png_xbox
   genre: metal
   difficulty:
-    drums:
-      rank: 510
-    guitar:
-      rank: 483
-    bass:
-      rank: 553
-    vocal:
-      rank: 261
-    band:
-      rank: 520
+    rank: 520
   comments:
   - "2x Bass Pedal upgrade."
   preview-start: 101.7
-  preview-end: 131.7
 plans:
   mogg:
     mogg-md5: 73110576d257431d143467733214b6c7 # unenc: 23ebed7a65bad03fd278b43453a5a6c6
-    drums: [0, 1, 2, 3, 4]
-    bass: [5]
-    guitar: [6, 7]
-    vocal: [8, 9]
+    parts:
+      drums:
+        kick: [0]
+        snare: [1, 2]
+        kit: [3, 4]
+      bass: [5]
+      guitar: [6, 7]
+      vocal: [8, 9]
     pans: [0.0, -1.0, 1.0, -1.0, 1.0, 0.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0]
     vols: [-0.5, -1.0, -1.0, -3.0, -3.0, -4.0, -6.0, -6.0, -4.5, -4.5, -5.5, -5.5]
-    drum-mix: 2
-instruments:
-  drums: true
-  guitar: true
-  bass: true
-  vocal: 1
-published: false
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      difficulty:
+        rank: 510
+  bass:
+    grybo:
+      difficulty:
+        rank: 553
+  guitar:
+    grybo:
+      difficulty:
+        rank: 483
+  vocal:
+    vocal:
+      difficulty:
+        rank: 261
+      count: 1
+      gender: male

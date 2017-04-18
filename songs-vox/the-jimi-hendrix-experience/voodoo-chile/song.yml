@@ -1,43 +1,18 @@
-published: true
 plans:
   mogg:
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    drum-mix: 0
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0]
     mogg-md5: d6b61ca276451be5e8ff15da8eda0a0d
-    guitar:
-    - 2
-    bass:
-    - 3
-    keys:
-    - 4
-    vocal:
-    - 5
-    drums:
-    - 0
-    - 1
-    vols:
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
+    parts:
+      drums: [0, 1]
+      guitar: [2]
+      bass: [3]
+      keys: [4]
+      vocal: [5]
 metadata:
   autogen-theme: AutogenDefault
   rating: SupervisionRecommended
   preview-start: 97.853
-  vocal-gender: male
-  drum-kit: Hard Rock Kit
   file-album-art: cover.png_xbox
   track-number: 4
   album: Electric Ladyland
@@ -45,24 +20,25 @@ metadata:
   subgenre: classicrock
   author: mazegeek999, Onyxite
   title: Voodoo Chile
-  preview-end: 127.853
   genre: classicrock
-  difficulty:
-    pro-keys:
-      rank: 443
-    guitar:
-      rank: 409
-    keys:
-      rank: 443
-    drums:
-      rank: 448
-    band:
-      rank: 345
+  difficulty: 7
   artist: The Jimi Hendrix Experience
-instruments:
-  pro-keys: true # mazegeek999
-  guitar: true # mazegeek999
-  keys: true # mazegeek999
-  drums: true # mazegeek999
-  vocal: 1 # onyxite
-  bass: true # onyxite
+parts:
+  keys:
+    grybo: # mazegeek999
+      difficulty: 7
+    pro-keys: # mazegeek999
+      difficulty: 7
+  guitar:
+    grybo: # mazegeek999
+      difficulty: 7
+  drums:
+    drums: # mazegeek999
+      difficulty: 7
+      kit: Hard Rock Kit
+  vocal:
+    vocal: # onyxite
+      gender: male
+  bass:
+    grybo: # onyxite
+      {}

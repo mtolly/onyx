@@ -2,8 +2,6 @@ metadata:
   title: Cockroach King
   file-include: ../../../albums/the-mountain.yml
   track-number: 3
-  difficulty:
-    drums: 4
   author: Onyxite
   comments:
   - "Chart confidence: *high*. No stems but nice clear mixing for the most part."
@@ -23,7 +21,8 @@ plans:
       1|2: hihat
     song:
       pad: [4.941, album-track]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 4
+      auto-2x-bass: true

@@ -36,12 +36,17 @@ plans:
           - pad:
             - 4.800
             - concatenate: [album-prequel-to-the-sequel, album-viridian]
-instruments:
-  drums: true
-  guitar: true
-  bass: true
-  vocal: 3
-  pro-keys: true
-  keys: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+  guitar:
+    grybo: {}
+  bass:
+    grybo: {}
+  vocal:
+    vocal:
+      count: 3
+  keys:
+    grybo: {}
+    pro-keys: {}

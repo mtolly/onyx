@@ -2,8 +2,6 @@ metadata:
   title: A Fortune in Lies
   file-include: ../../../albums/when-dream-and-day-unite.yml
   track-number: 1
-  difficulty:
-    drums: 6
   author: Onyxite
   comments:
   - "Chart confidence: *medium-high*."
@@ -22,9 +20,12 @@ plans:
       1|1: hihat
     song:
       pad: [1.724, gain: [1.8, album-track]]
-instruments:
-  drums: true
-  guitar: true
-  pro-keys: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      difficulty: 6
+  guitar:
+    grybo: {}
+  keys:
+    pro-keys: {}

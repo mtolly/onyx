@@ -14,5 +14,6 @@ plans:
         - end
         - 1.856
         - pad: [0.641, album-track]
-instruments:
-  drums: true
+parts:
+  drums:
+    drums: {}

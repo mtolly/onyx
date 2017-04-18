@@ -28,12 +28,38 @@ plans:
       pad: [2.960, album-track]
   jammit:
     countin: *countin
-    each:
-      pad: [1.193, jammit-track]
-instruments:
-  drums: true
-  bass: true
-  guitar: true
-  pro-keys: true
-options:
-  auto-2x-bass: true
+    parts:
+      drums:
+        pad: [1.193, only: [Drums, jammit-track]]
+      bass:
+        pad: [1.193, only: [Bass, jammit-track]]
+      keys:
+        pad: [1.193, only: [Keys, jammit-track]]
+      guitar:
+        pad:
+        - 1.193
+        - mix:
+          - only: [Guitar 1, jammit-track]
+          - only: [Guitar 2, jammit-track]
+    song:
+      pad:
+      - 1.193
+      - mix:
+        - without: [drums, jammit-track]
+        - gain:
+          - -1
+          - mix:
+            - only: [Bass, jammit-track]
+            - only: [Keys, jammit-track]
+            - only: [Guitar 1, jammit-track]
+            - only: [Guitar 2, jammit-track]
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+  bass:
+    grybo: {}
+  guitar:
+    grybo: {}
+  keys:
+    pro-keys: {}

@@ -1,6 +1,5 @@
 metadata:
   rating: SupervisionRecommended
-  vocal-gender: male
   file-album-art: cover.jpg
   languages:
   - English
@@ -12,14 +11,7 @@ metadata:
   title: 50 Ways to Say Goodbye
   genre: poprock
   artist: Train
-  difficulty:
-    drums: 2
-    bass: 3
-    guitar: 3
-    keys: 4
-    pro-keys: 4
-    vocal: 5
-    band: 3
+  difficulty: 3
   comments:
   - All instruments have overdrive/unison.
 audio:
@@ -31,13 +23,26 @@ audio:
     frames: 11116544
   hihat:
     file-path: ../../../sound/hihat-foot.wav
-instruments:
-  vocal: 3
-  guitar: true
-  keys: true
-  pro-keys: true
-  drums: true
-  bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 2
+  bass:
+    grybo:
+      difficulty: 3
+  guitar:
+    grybo:
+      difficulty: 3
+  keys:
+    grybo:
+      difficulty: 4
+    pro-keys:
+      difficulty: 4
+  vocal:
+    vocal:
+      difficulty: 5
+      count: 3
+      gender: male
 plans:
   album:
     countin:

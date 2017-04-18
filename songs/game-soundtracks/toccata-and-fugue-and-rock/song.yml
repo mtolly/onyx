@@ -8,20 +8,23 @@ metadata:
   subgenre: jrock
   rating: Family Friendly
   autogen-theme: Dark Heavy Rock
-  difficulty:
-    drums: 6
-    keys: 6
-    pro-keys: 7
-    guitar: 4
-    bass: 5
-    band: 6
+  difficulty: 6
   key: D
-instruments:
-  drums: true
-  keys: true
-  pro-keys: true
-  guitar: true
-  bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 6
+  bass:
+    grybo:
+      difficulty: 5
+  guitar:
+    grybo:
+      difficulty: 4
+  keys:
+    grybo:
+      difficulty: 6
+    pro-keys:
+      difficulty: 7
 audio:
   album-track:
     file-path: audio-youtube.wav

@@ -21,7 +21,7 @@ plans:
       79|1: hihat
       79|2: hihat
     song: album-track
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true

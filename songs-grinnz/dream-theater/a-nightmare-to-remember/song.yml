@@ -50,10 +50,11 @@ plans:
   #   # TODO: mix
   #   #   beginning: no thunderstorm
   #   #   14:32 - 14:47: 2nd keyboard part (the one playing 16th notes) is missing
-  #   drums:
-  #     pad:
-  #       - 28.173
-  #       - deluxe-drum
+  #   parts:
+  #     drums:
+  #       pad:
+  #         - 28.173
+  #         - deluxe-drum
   #   song:
   #     pad:
   #       - 28.173
@@ -67,7 +68,7 @@ plans:
   #           - deluxe-vocal
   #   comments:
   #   - "Stems from the deluxe edition of Black Clouds & Silver Linings."
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true

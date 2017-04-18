@@ -2,8 +2,6 @@ metadata:
   title: "Hell's Kitchen"
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 6
-  difficulty:
-    drums: 4
   author: Onyxite
   comments:
   - "Chart confidence: *high* (Jammit stems)."
@@ -29,7 +27,11 @@ plans:
       1|1: hihat
       1|2: hihat
       1|3: hihat
-    each: jammit-track
+    parts:
+      drums:
+        only: [Drums, jammit-track]
+    song:
+      without: [drums, jammit-track]
   album:
     countin: *countin
     song:
@@ -41,7 +43,8 @@ plans:
           - concatenate:
             - album-track
             - take: [5.696, album-next]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      difficulty: 4

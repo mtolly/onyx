@@ -4,19 +4,12 @@ metadata:
   album: For All I Care
   track-number: 8
   year: 2008
-  vocal-gender: female
   genre: jazz
   subgenre: experimental
   author: TheLieInKing, Onyxite, Mazegeek999
   file-album-art: cover.jpg
   key: C
-  difficulty:
-    drums: 4
-    pro-keys: 5
-    keys: 5
-    bass: 4
-    vocal: 5
-    band: 5
+  difficulty: 5
   autogen-theme: DustyVintage
   rating: FF
   comments:
@@ -42,12 +35,23 @@ plans:
       1|3: hihat
     song:
       pad: [3.097, youtube]
-instruments:
-  drums: true
-  pro-keys: true
-  keys: true
-  bass: true
-  vocal: 1
+parts:
+  drums:
+    drums:
+      difficulty: 4
+  bass:
+    grybo:
+      difficulty: 4
+  keys:
+    grybo:
+      difficulty: 5
+    pro-keys:
+      difficulty: 5
+  vocal:
+    vocal:
+      difficulty: 5
+      count: 1
+      gender: female
 targets:
   rb3:
     game: rb3

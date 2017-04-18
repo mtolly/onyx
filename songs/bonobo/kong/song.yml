@@ -20,6 +20,6 @@ plans:
       1|3: hihat
     song:
       pad: [5.048, album-track]
-instruments:
-  drums: true
-published: false
+parts:
+  drums:
+    drums: {}

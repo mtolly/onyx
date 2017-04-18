@@ -11,6 +11,6 @@ plans:
   album:
     song:
       pad: [1.828, album-track]
-instruments:
-  drums: true
-published: false
+parts:
+  drums:
+    drums: {}

@@ -12,7 +12,9 @@ plans:
   album:
     song:
       pad: [2.248, youtube]
-instruments:
-  vocal: 1
-  drums: true
-published: false
+parts:
+  vocal:
+    vocal:
+      count: 1
+  drums:
+    drums: {}

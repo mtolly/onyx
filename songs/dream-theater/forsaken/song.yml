@@ -3,16 +3,7 @@ metadata:
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 2
   key: D
-  difficulty:
-    drums: 3
-    guitar: 4
-    vocal: 5
-    keys: 3
-    pro-keys: 3
-    bass: 2
-    band: 3
-    pro-guitar: 5
-    pro-bass: 2
+  difficulty: 3
   author: Onyxite, mazegeek999
   comments:
   - "Drums confidence: *high*. Written to Portnoy's DVD."
@@ -90,24 +81,39 @@ plans:
               - start
               - 1
               - drop: ['5:28.090', *album]
+    parts:
+      drums:
+        gain:
+          - -1
+          - resample:
+              pad:
+                - 3.515
+                - take:
+                  - '5:24.358' # 5:37 - 12.642
+                  - *drums
+parts:
+  drums:
     drums:
-      gain:
-        - -1
-        - resample:
-            pad:
-              - 3.515
-              - take:
-                - '5:24.358' # 5:37 - 12.642
-                - *drums
-instruments:
-  drums: true
-  vocal: 3
-  guitar: true
-  keys: true
-  pro-keys: true
-  bass: true
-  pro-guitar: true
-  pro-bass: true
-options:
-  pro-guitar-tuning: [0, 0, 0, 0, 0, 0] # real tuning is all -2
-  pro-bass-tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
+      difficulty: 3
+  bass:
+    grybo:
+      difficulty: 2
+    pro-guitar:
+      tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
+      difficulty: 2
+  guitar:
+    grybo:
+      difficulty: 4
+    pro-guitar:
+      tuning: [0, 0, 0, 0, 0, 0] # real tuning is all -2
+      difficulty: 5
+  keys:
+    grybo:
+      difficulty: 3
+    pro-keys:
+      difficulty: 3
+  vocal:
+    vocal:
+      difficulty: 5
+      count: 3
+      gender: male

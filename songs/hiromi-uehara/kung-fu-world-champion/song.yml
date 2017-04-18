@@ -8,16 +8,10 @@ metadata:
   year: 2004
   track-number: 1
   autogen-theme: SynthPop
-  drum-kit: HardRockKit
   rating: FamilyFriendly
   key: F
   file-album-art: cover.jpg
-  difficulty:
-    drums: 7
-    pro-keys: 7
-    keys: 7
-    bass: 6
-    band: 7
+  difficulty: 7
   preview-start: prc_break_1
 audio:
   album-track:
@@ -36,11 +30,19 @@ plans:
       1|3: hihat
     song:
       pad: [3.324, album-track]
-instruments:
-  drums: true
-  pro-keys: true
-  keys: true
-  bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+      kit: HardRockKit
+  bass:
+    grybo:
+      difficulty: 6
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
 targets:
   rb3:
     game: rb3

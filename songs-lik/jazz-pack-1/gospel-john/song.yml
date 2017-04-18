@@ -1,51 +1,17 @@
-published: true
 plans:
   mogg:
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    drum-mix: 0
+    pans: [-1, 1, -1, 1]
     mogg-md5: b75e6b4d9b93558ba03a5a46e1bbe584
-    drums:
-    - 0
-    - 1
-    vols:
-    - -6
-    - -6
-    - 0.0
-    - 0.0
+    parts:
+      drums: [0, 1]
+    vols: [-6, -6, 0, 0]
 metadata:
-  autogen-theme: AutogenDefault
-  rating: Unrated
-  preview-start: 0.0
-  vocal-gender: male
-  drum-kit: Hard Rock Kit
-  track-number: 0
   year: 1966
-  subgenre: other
   author: CyclopsDragon
   title: Gospel John
-  preview-end: 30
   genre: jazz
-  difficulty:
-    pro-keys:
-      rank: 0
-    vocal:
-      rank: 0
-    bass:
-      rank: 0
-    guitar:
-      rank: 0
-    keys:
-      rank: 0
-    drums:
-      rank: 345
-    band:
-      rank: 292
   artist: Maynard Ferguson
-jammit: {}
-audio: {}
-instruments:
-  drums: true
+parts:
+  drums:
+    drums:
+      difficulty: 5

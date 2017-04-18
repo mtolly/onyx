@@ -1,6 +1,4 @@
 metadata:
-  vocal-gender: female
-  drum-kit: Vintage Kit
   file-album-art: cover.jpg
   track-number: 10
   album: Katamari Fortissimo Damacy
@@ -13,14 +11,7 @@ metadata:
   comments:
   - "Drums and tempo map by TheLieInKing."
   - "Flute charted to guitar."
-  difficulty:
-    drums: 6
-    pro-keys: 7
-    keys: 6
-    bass: 3
-    guitar: 5
-    vocal: 6
-    band: 6
+  difficulty: 6
   autogen-theme: FeelGoodPopRock
   preview-start: prc_chorus_1
   rating: FamilyFriendly
@@ -47,13 +38,27 @@ plans:
       1|3: hihat
     song:
       pad: [3.664, gain: [1.5, youtube]]
-instruments:
-  drums: true
-  pro-keys: true
-  keys: true
-  bass: true
-  guitar: true
-  vocal: 2
+parts:
+  drums:
+    drums:
+      difficulty: 6
+      kit: Vintage Kit
+  bass:
+    grybo:
+      difficulty: 3
+  guitar:
+    grybo:
+      difficulty: 5
+  keys:
+    grybo:
+      difficulty: 6
+    pro-keys:
+      difficulty: 7
+  vocal:
+    vocal:
+      difficulty: 6
+      count: 2
+      gender: female
 targets:
   # visualizer: http://i.imgur.com/X2ebG9V.jpg
   # download: http://www.mediafire.com/?ovrq3ob8l3pqbux

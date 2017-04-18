@@ -15,7 +15,61 @@ load_yaml_tree('songs.yml').each do |song|
   })
 end
 
-def makeDifficulties(instruments, difficulties)
+def makeDifficulties(parts)
+  instruments = {}
+  difficulties = {}
+  if parts['guitar']
+    if parts['guitar']['grybo']
+      instruments['guitar'] = true
+      difficulties['guitar'] = parts['guitar']['grybo']['difficulty']
+    end
+    if parts['guitar']['pro-guitar']
+      instruments['pro-guitar'] = true
+      difficulties['pro-guitar'] = parts['guitar']['pro-guitar']['difficulty']
+    end
+  end
+  if parts['bass']
+    if parts['bass']['grybo']
+      instruments['bass'] = true
+      difficulties['bass'] = parts['bass']['grybo']['difficulty']
+    end
+    if parts['bass']['pro-guitar']
+      instruments['pro-bass'] = true
+      difficulties['pro-bass'] = parts['bass']['pro-guitar']['difficulty']
+    end
+  end
+  if parts['keys']
+    if parts['keys']['grybo']
+      instruments['keys'] = true
+      difficulties['keys'] = parts['keys']['grybo']['difficulty']
+    end
+    if parts['keys']['pro-keys']
+      instruments['pro-keys'] = true
+      difficulties['pro-keys'] = parts['keys']['pro-keys']['difficulty']
+    end
+  end
+  if parts['drums']
+    if parts['drums']['drums']
+      instruments['drums'] = true
+      difficulties['drums'] = parts['drums']['drums']['difficulty']
+    end
+  end
+  if parts['vocal']
+    if parts['vocal']['vocal']
+      instruments['vocal'] = parts['vocal']['vocal']['count']
+      difficulties['vocal'] = parts['vocal']['vocal']['difficulty']
+    end
+  end
+  if parts['violin']
+    # if parts['violin']['grybo']
+    #   instruments['violin-grybo'] = true
+    #   difficulties['violin-grybo'] = parts['violin']['grybo']['difficulty']
+    # end
+    if parts['violin']['vocal']
+      instruments['violin-vocal'] = parts['violin']['vocal']['count']
+      difficulties['violin-vocal'] = parts['violin']['vocal']['difficulty']
+    end
+  end
   def instrument_index(inst)
     case inst
     when 'guitar'     then '1'
@@ -55,6 +109,10 @@ def makeDifficulties(instruments, difficulties)
         '(Pro) Drums'
       when 'vocal'
         "Vocals (#{ val })"
+      when 'violin-grybo'
+        'Violin (GRYBO)'
+      when 'violin-vocal'
+        'Violin (Vocals)'
       else
         inst.split('-').map(&:capitalize).join(' ')
       end
@@ -119,7 +177,7 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
                 'url' => (song['urls'] || {})[target_name],
               }
             end.select { |obj| not obj['url'].nil? },
-            'difficulties' => makeDifficulties(song['project']['instruments'] || {}, song['project']['metadata']['difficulty'] || {}),
+            'difficulties' => makeDifficulties(song['project']['parts'] || {}),
             'video' => song['video']
           }
         end.sort_by { |song| song['track-number'] },

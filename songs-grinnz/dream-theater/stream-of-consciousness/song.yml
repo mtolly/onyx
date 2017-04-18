@@ -3,7 +3,6 @@ metadata:
   file-include: ../../../albums/train-of-thought.yml
   track-number: 6
   author: Grinnz
-  drum-layout: flip-yb-toms
   comments:
   - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:
@@ -83,16 +82,18 @@ plans:
             - drop:
               - '11:06.15'
               - album-expr
+    parts:
+      drums:
+        take:
+        - '11:07'
+        - pad:
+          - 4.839
+          - resample:
+              gain:
+              - -3.6
+              - drumcam-drums-expr
+parts:
+  drums:
     drums:
-      take:
-      - '11:07'
-      - pad:
-        - 4.839
-        - resample:
-            gain:
-            - -3.6
-            - drumcam-drums-expr
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+      auto-2x-bass: true
+      layout: flip-yb-toms

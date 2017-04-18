@@ -4,13 +4,7 @@ metadata:
   track-number: 4
   autogen-theme: Psych Jam Rock
   rating: Family Friendly
-  difficulty:
-    drums: 6
-    guitar: 5
-    keys: 7
-    pro-keys: 7
-    bass: 5
-    band: 6
+  difficulty: 6
   author: Onyxite
   key: E
 audio:
@@ -32,12 +26,21 @@ plans:
       pad:
       - 4.067
       - fade: [0.5, album-track]
-instruments:
-  drums: true
-  guitar: true
-  keys: true
-  pro-keys: true
-  bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 6
+  bass:
+    grybo:
+      difficulty: 5
+  guitar:
+    grybo:
+      difficulty: 5
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
 targets:
   # visualizer: http://i.imgur.com/AiebR4s.jpg
   # video: https://www.youtube.com/watch?v=mPiR5lq__fU

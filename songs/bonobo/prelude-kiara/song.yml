@@ -3,13 +3,7 @@ metadata:
   file-include: ../../../albums/black-sands.yml
   track-number: 1
   author: Onyxite
-  difficulty:
-    drums: 3
-    bass: 2
-    guitar: 2
-    keys: 3
-    pro-keys: 3
-    band: 2
+  difficulty: 2
   comments:
   - "All instruments have overdrive/unison."
 audio:
@@ -34,9 +28,18 @@ plans:
       pad:
       - 3.954
       - concatenate: [album-prelude, album-kiara]
-instruments:
-  drums: true
-  bass: true
-  guitar: true
-  keys: true
-  pro-keys: true
+parts:
+  drums:
+    drums:
+      difficulty: 3
+  bass:
+    grybo:
+      difficulty: 2
+  guitar:
+    grybo:
+      difficulty: 2
+  keys:
+    grybo:
+      difficulty: 3
+    pro-keys:
+      difficulty: 3

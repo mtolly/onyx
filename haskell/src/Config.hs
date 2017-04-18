@@ -847,7 +847,6 @@ data SongYaml = SongYaml
   , _plans     :: Map.HashMap T.Text Plan
   , _targets   :: Map.HashMap T.Text Target
   , _parts     :: Parts Part
-  , _published :: Bool
   } deriving (Eq, Show)
 
 instance TraceJSON SongYaml where
@@ -859,8 +858,7 @@ instance TraceJSON SongYaml where
     _plans       <- defaultEmptyMap $ optionalKey "plans"  $ mapping traceJSON
     _targets     <- defaultEmptyMap $ optionalKey "targets"  $ mapping traceJSON
     _parts       <- requiredKey "parts" traceJSON
-    _published   <- fromMaybe True <$> optionalKey "published" traceJSON
-    expectedKeys ["metadata", "audio", "jammit", "plans", "targets", "parts", "published"]
+    expectedKeys ["metadata", "audio", "jammit", "plans", "targets", "parts"]
     return SongYaml{..}
 
 instance A.ToJSON SongYaml where
@@ -871,7 +869,6 @@ instance A.ToJSON SongYaml where
     , "plans" .= A.Object (fmap A.toJSON _plans)
     , "targets" .= A.Object (fmap A.toJSON _targets)
     , "parts" .= _parts
-    , "published" .= _published
     ]
 
 getPart :: FlexPartName -> SongYaml -> Maybe Part

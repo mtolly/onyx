@@ -5,20 +5,10 @@ metadata:
   year: 2007
   file-album-art: visions_keep.png_xbox
   genre: metal
-  vocal-gender: female
   track-number: 2
   author: Harmonix
   difficulty:
-    drums:
-      rank: 530
-    guitar:
-      rank: 500
-    bass:
-      rank: 576
-    vocal:
-      rank: 155
-    band:
-      rank: 530
+    rank: 530
   preview-start: 61.894
   preview-end: 90.725
   comments:
@@ -26,18 +16,33 @@ metadata:
 plans:
   mogg:
     mogg-md5: 65f3c3075362d7863797079c825d23f2 # unenc: e32ac49442a08aaf324e2886846c2b70
-    drums: [0, 1, 2, 3]
-    bass: [4]
-    guitar: [5, 6]
-    vocal: [7, 8]
+    parts:
+      drums:
+        kick: [0]
+        snare: [1]
+        kit: [2, 3]
+      bass: [4]
+      guitar: [5, 6]
+      vocal: [7, 8]
     pans: [0.0, 0.0, -1.0, 1.0, 0.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0]
     vols: [-1.0, -1.0, -2.0, -2.0, -3.0, -4.0, -4.0, -3.0, -3.0, -3.0, -3.0]
-    drum-mix: 1
-instruments:
-  drums: true
-  guitar: true
-  bass: true
-  vocal: 1
-published: false
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      difficulty:
+        rank: 530
+  bass:
+    grybo:
+      difficulty:
+        rank: 576
+  guitar:
+    grybo:
+      difficulty:
+        rank: 500
+  vocal:
+    vocal:
+      difficulty:
+        rank: 155
+      count: 1
+      gender: female

@@ -1,4 +1,3 @@
-published: true
 plans:
   mogg:
     pans:
@@ -6,31 +5,20 @@ plans:
     - 1
     - -1
     - 1
-    drum-mix: 0
     mogg-md5: 13f80d112ed8bb47707a1fd16cbed414
-    drums:
-    - 0
-    - 1
+    parts:
+      drums:
+      - 0
+      - 1
     vols:
     - -1.5
     - -1.5
     - -3
     - -3
 metadata:
-  autogen-theme: AutogenDefault
-  rating: Unrated
-  preview-start: 0.0
-  vocal-gender: male
-  drum-kit: Hard Rock Kit
-  track-number: 0
-  year: 2011
-  subgenre: rock
   author: TheLieInKing
   title: Wintertime Love
-  preview-end: 30
-  genre: rock
   artist: The Doors
-jammit: {}
-audio: {}
-instruments:
-  drums: true
+parts:
+  drums:
+    drums: {}

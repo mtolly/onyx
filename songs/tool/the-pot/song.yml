@@ -22,8 +22,7 @@ plans:
       1|3: hihat
     song:
       pad: [3.123, album-track]
-instruments:
-  drums: true
-published: false
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true

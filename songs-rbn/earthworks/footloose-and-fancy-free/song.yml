@@ -3,11 +3,6 @@ metadata:
   file-include: ../../../albums/a-part-and-yet-apart.yml
   track-number: 4
   author: Mick Larkins
-  difficulty:
-    drums: 5
-    bass: 2
-    keys: 6
-    vocal: 6
   comments:
   - "In progress: fixing up the pulled RBN chart."
 audio:
@@ -27,8 +22,17 @@ plans:
       1|3: hihat
     song:
       pad: [4.787, album-track]
-instruments:
-  drums: true
-  bass: true
-  keys: true
-  vocal: 1
+parts:
+  drums:
+    drums:
+      difficulty: 5
+  bass:
+    grybo:
+      difficulty: 2
+  keys:
+    grybo:
+      difficulty: 6
+  vocal:
+    vocal:
+      difficulty: 6
+      count: 1

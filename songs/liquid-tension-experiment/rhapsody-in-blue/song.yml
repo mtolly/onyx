@@ -4,8 +4,6 @@ metadata:
   track-number: 13 # first disc has 10 tracks, this is track 3 on disc 2
   rating: Family Friendly
   author: Onyxite
-  difficulty:
-    drums: 4
 audio:
   album-improv-jam-2:
     md5: b645ba1ff15e04116bb595a062c25c9d
@@ -27,5 +25,7 @@ plans:
           - drop:
             - '12:43.463'
             - concatenate: [album-improv-jam-2, album-track]
-instruments:
-  drums: true
+parts:
+  drums:
+    drums:
+      difficulty: 4

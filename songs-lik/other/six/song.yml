@@ -1,4 +1,3 @@
-published: true
 plans:
   mogg:
     pans:
@@ -6,31 +5,20 @@ plans:
     - 1
     - -1
     - 1
-    drum-mix: 0
     mogg-md5: 54870f91b6de1f300245165fb06e57f0
-    drums:
-    - 0
-    - 1
+    parts:
+      drums:
+      - 0
+      - 1
     vols:
     - -1.5
     - -1.5
     - -3
     - -3
 metadata:
-  autogen-theme: AutogenDefault
-  rating: Unrated
-  preview-start: 0.0
-  vocal-gender: male
-  drum-kit: Hard Rock Kit
-  track-number: 0
-  year: 2011
-  subgenre: rock
   author: TheLieInKing
   title: Six
-  preview-end: 30
-  genre: rock
   artist: All That Remains
-jammit: {}
-audio: {}
-instruments:
-  drums: true
+parts:
+  drums:
+    drums: {}

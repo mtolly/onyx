@@ -1,19 +1,17 @@
 plans:
   mogg:
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
-    vocal: [6, 7]
-    drum-mix: 0
-    bass: [2, 3]
-    mogg-md5: 3da0250d17cd74a52d483c22c27d89dd
-    guitar: [4, 5]
-    keys: [8, 9]
-    drums: [0, 1]
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    mogg-md5: 3da0250d17cd74a52d483c22c27d89dd
+    parts:
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+      keys: [8, 9]
 metadata:
   comments:
   - "2x Bass Pedal upgrade, plus some added ghost notes."
-  vocal-gender: male
-  drum-kit: Hard Rock Kit
   file-album-art: ../../../covers/the-immunity-zone.png_xbox
   track-number: 10
   album: The Immunity Zone
@@ -23,29 +21,34 @@ metadata:
   title: Veil of Illumination (Part 2)
   genre: prog
   difficulty:
-    pro-keys:
-      rank: 443
-    vocal:
-      rank: 353
-    bass:
-      rank: 436
-    guitar:
-      rank: 409
-    keys:
-      rank: 443
-    drums:
-      rank: 448
-    band:
-      rank: 345
+    rank: 345
   artist: Andromeda
   preview-start: 390
-  preview-end: 420
-instruments:
-  pro-keys: true
-  vocal: 3
-  bass: true
-  guitar: true
-  keys: true
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      kit: Hard Rock Kit
+      difficulty:
+        rank: 448
+  bass:
+    grybo:
+      difficulty:
+        rank: 436
+  guitar:
+    grybo:
+      difficulty:
+        rank: 409
+  keys:
+    grybo:
+      difficulty:
+        rank: 443
+    pro-keys:
+      difficulty:
+        rank: 443
+  vocal:
+    vocal:
+      difficulty:
+        rank: 353
+      count: 3
+      gender: male

@@ -5,8 +5,6 @@ metadata:
   autogen-theme: Psych Jam Rock
   rating: Family Friendly
   author: Onyxite
-  difficulty:
-    drums: 5
 audio:
   album-track:
     md5: 1fb31cd90b974415208d2cac28e5c301
@@ -18,7 +16,8 @@ plans:
       - end
       - 0.482
       - album-track
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 5
+      auto-2x-bass: true

@@ -6,7 +6,6 @@ metadata:
   genre: alternative
   subgenre: alternative
   file-album-art: cover.png
-  vocal-gender: female
   author: Onyxite
 audio:
   youtube:
@@ -28,5 +27,8 @@ plans:
       1|3: hihat
     song:
       pad: [3.683, youtube]
-instruments:
-  vocal: 3
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: female

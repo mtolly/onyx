@@ -24,6 +24,6 @@ plans:
       3|2: hihat
       3|3: hihat
     song: album-track
-instruments:
-  drums: true
-published: false
+parts:
+  drums:
+    drums: {}

@@ -8,9 +8,6 @@ metadata:
   subgenre: classical
   year: 2010
   file-album-art: cover.jpg
-  difficulty:
-    vocal: 6
-    pro-keys: 4
 audio:
   youtube:
     commands:
@@ -28,6 +25,11 @@ plans:
       1|2: hihat
     song:
       pad: [3.401, youtube]
-instruments:
-  vocal: 1
-  pro-keys: true
+parts:
+  vocal:
+    vocal:
+      count: 1
+      difficulty: 6
+  keys:
+    pro-keys:
+      difficulty: 4

@@ -21,10 +21,14 @@ plans:
       2|4: hihat
     song:
       pad: [1.351, album-track]
-instruments:
-  drums: true
-  bass: true
-  guitar: true
-  vocal: 1
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+  bass:
+    grybo: {}
+  guitar:
+    grybo: {}
+  vocal:
+    vocal:
+      count: 1

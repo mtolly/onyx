@@ -5,8 +5,6 @@ metadata:
   author: Onyxite
   comments:
   - "Drums confidence: *medium*. Drums are mixed a bit low, and several sections mix acoustic and electronic drums."
-  difficulty:
-    drums: 6
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -27,7 +25,8 @@ plans:
       1|3: hihat
     song:
       pad: [3, youtube]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      difficulty: 6

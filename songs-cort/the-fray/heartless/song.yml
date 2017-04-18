@@ -19,6 +19,6 @@ plans:
       1|3: hihat
     song:
       pad: [5.910, youtube]
-instruments:
-  bass: true
-published: false
+parts:
+  bass:
+    grybo: {}

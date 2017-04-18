@@ -6,13 +6,7 @@ metadata:
   comments:
   - "Guitar is the cello part."
   - "All instruments have overdrive/unison."
-  difficulty:
-    vocal: 2
-    bass: 1
-    guitar: 1
-    pro-keys: 4
-    keys: 3
-    band: 2
+  difficulty: 2
 audio:
   album-track:
     md5: 9211f41070f889aaa468008349f5efdf
@@ -29,9 +23,19 @@ plans:
       2|2: hihat
     song:
       fade: [end, 4, album-track]
-instruments:
-  bass: true
-  guitar: true
-  vocal: 1
-  pro-keys: true
-  keys: true
+parts:
+  bass:
+    grybo:
+      difficulty: 1
+  guitar:
+    grybo:
+      difficulty: 1
+  vocal:
+    vocal:
+      difficulty: 2
+      count: 1
+  keys:
+    grybo:
+      difficulty: 3
+    pro-keys:
+      difficulty: 4

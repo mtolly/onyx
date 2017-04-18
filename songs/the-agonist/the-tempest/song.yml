@@ -3,21 +3,12 @@ metadata:
   artist: The Agonist
   album: Lullabies for the Dormant Mind
   author: Tadracing99, dertanz, girldrummer, Onyxite
-  vocal-gender: female
-  drum-kit: Hard Rock Kit
   file-album-art: cover.bmp
   track-number: 1
   year: 2009
   genre: metal
   subgenre: death
-  difficulty:
-    band: 6
-    drums: 7
-    guitar: 5
-    bass: 5
-    pro-keys: 2
-    keys: 2
-    vocal: 7
+  difficulty: 6
   comments:
   - >-
     Drums by Tadracing99,
@@ -27,13 +18,27 @@ metadata:
   autogen-theme: Aggressive Metal
   key: D
   rating: Supervision Recommended
-instruments:
-  drums: true
-  guitar: true
-  bass: true
-  pro-keys: true
-  keys: true
-  vocal: 3
+parts:
+  drums:
+    drums:
+      difficulty: 7
+      kit: Hard Rock Kit
+  guitar:
+    grybo:
+      difficulty: 5
+  bass:
+    grybo:
+      difficulty: 5
+  keys:
+    grybo:
+      difficulty: 2
+    pro-keys:
+      difficulty: 2
+  vocal:
+    vocal:
+      count: 3
+      gender: female
+      difficulty: 7
 audio:
   album-track:
     md5: bfacc282cb6b9c92edb8561c16a10cb5

@@ -38,5 +38,6 @@ plans:
       - pad:
         - 3.162
         - gain: [1.2, youtube]
-instruments:
-  drums: true
+parts:
+  drums:
+    drums: {}

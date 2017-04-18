@@ -3,17 +3,10 @@ metadata:
   file-include: ../../../albums/pimp-of-the-year.yml
   track-number: 6
   author: Onyxite
-  difficulty:
-    drums: 6
-    keys: 7
-    pro-keys: 7
-    bass: 2
-    guitar: 4
-    band: 5
+  difficulty: 5
   comments:
   - "Guitar part is sax and trumpet."
   autogen-theme: SynthPop
-  drum-kit: HardRockKit
   preview-start: prc_verse_3a
   rating: FamilyFriendly
   key: F # mainly the solo
@@ -34,12 +27,22 @@ plans:
       1|3: hihat
     song:
       pad: [3.324, album-track]
-instruments:
-  drums: true
-  keys: true
-  pro-keys: true
-  bass: true
-  guitar: true
+parts:
+  drums:
+    drums:
+      difficulty: 6
+      kit: HardRockKit
+  bass:
+    grybo:
+      difficulty: 2
+  guitar:
+    grybo:
+      difficulty: 4
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
 targets:
   # visualizer: http://i.imgur.com/8yJijIA.jpg
   rb3:

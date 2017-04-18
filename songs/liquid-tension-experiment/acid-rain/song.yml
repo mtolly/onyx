@@ -22,9 +22,11 @@ plans:
       1|3: hihat
     song:
       pad: [2.945, album-track]
-instruments:
-  drums: true
-  guitar: true
-  pro-keys: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+  guitar:
+    grybo: {}
+  keys:
+    pro-keys: {}

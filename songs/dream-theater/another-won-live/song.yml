@@ -2,8 +2,6 @@ metadata:
   title: Another Won (Live)
   file-include: ../../../albums/score.yml
   track-number: 3
-  difficulty:
-    drums: 5
   author: Onyxite
   comments:
   - "Chart confidence: *high*."
@@ -29,7 +27,8 @@ plans:
           - end
           - 5.656
           - fade: [begin, 1.051, album-track]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      difficulty: 5

@@ -4,20 +4,13 @@ metadata:
   track-number: 4
   autogen-theme: Feel Good Pop Rock # no idea lol
   rating: Family Friendly
-  difficulty:
-    drums: 5
-    bass: 6
-    guitar: 4
-    pro-keys: 5
-    keys: 4
-    band: 5
+  difficulty: 5
   author: Onyxite
   comments:
   - >-
     The drums part is an arrangement of the band's two percussionists.
   - >-
     Bass is tuba, keys is trombone plus backing chords, guitar is sax plus backing chords.
-  drum-kit: HardRockKit
   preview-start: prc_bridge_1
   key: C
 audio:
@@ -37,12 +30,22 @@ plans:
       1|3: hihat
     song:
       pad: [4.739, album-track]
-instruments:
-  drums: true
-  bass: true
-  pro-keys: true
-  guitar: true
-  keys: true
+parts:
+  drums:
+    drums:
+      difficulty: 5
+      kit: HardRockKit
+  bass:
+    grybo:
+      difficulty: 6
+  guitar:
+    grybo:
+      difficulty: 4
+  keys:
+    grybo:
+      difficulty: 4
+    pro-keys:
+      difficulty: 5
 targets:
   # visualizer: http://i.imgur.com/WN0AdRq.jpg
   # download: http://www.mediafire.com/?4pw9jaaq1q9qjuj

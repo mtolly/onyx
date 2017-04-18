@@ -391,7 +391,6 @@ importFoF krb2 src dest = do
           }
         })
       ]
-    , _published = True
     }
 
 determine2xBass :: T.Text -> (T.Text, Bool)
@@ -707,5 +706,4 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = d
           }
         })
       ]
-    , _published = True
     }

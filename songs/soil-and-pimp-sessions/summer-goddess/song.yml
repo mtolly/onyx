@@ -2,14 +2,7 @@ metadata:
   title: Summer Goddess
   file-include: ../../../albums/pimp-of-the-year.yml
   track-number: 2
-  difficulty:
-    pro-keys: 6
-    keys: 6
-    drums: 6
-    bass: 3
-    guitar: 4
-    vocal: 1
-    band: 5
+  difficulty: 5
   author: Onyxite
   key: C
   rating: SR
@@ -32,13 +25,25 @@ plans:
       2|3: hihat
     song:
       pad: [2.525, album-track]
-instruments:
-  pro-keys: true
-  keys: true
-  drums: true
-  bass: true
-  guitar: true
-  vocal: 1
+parts:
+  drums:
+    drums:
+      difficulty: 6
+  bass:
+    grybo:
+      difficulty: 3
+  guitar:
+    grybo:
+      difficulty: 4
+  keys:
+    grybo:
+      difficulty: 6
+    pro-keys:
+      difficulty: 6
+  vocal:
+    vocal:
+      difficulty: 1
+      count: 1
 targets:
   rb3:
     game: rb3

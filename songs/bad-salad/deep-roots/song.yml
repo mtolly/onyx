@@ -2,8 +2,6 @@ metadata:
   title: Deep Roots
   file-include: ../../../albums/puzzled.yml
   track-number: 3
-  difficulty:
-    drums: 6
   author: Onyxite
   comments:
   - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
@@ -49,17 +47,19 @@ plans:
     comments:
     - "Stems from [the PledgeMusic campaign](http://www.pledgemusic.com/projects/badsalad2013)."
     countin: *countin
+    parts:
+      drums:
+        gain: [0.65, pledgemusic-drums]
+      guitar:
+        gain: [0.65, pledgemusic-guitars]
+      bass:
+        gain: [0.65, pledgemusic-bass]
+      vocal:
+        gain: [0.65, pledgemusic-vocals]
+      keys:
+        gain: [0.65, pledgemusic-keyboards]
+parts:
+  drums:
     drums:
-      gain: [0.65, pledgemusic-drums]
-    song:
-      gain:
-        - 0.65
-        - mix:
-          - pledgemusic-bass
-          - pledgemusic-guitars
-          - pledgemusic-keyboards
-          - pledgemusic-vocals
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+      difficulty: 6
+      auto-2x-bass: true

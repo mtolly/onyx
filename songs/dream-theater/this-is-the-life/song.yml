@@ -2,8 +2,6 @@ metadata:
   title: This Is the Life
   file-include: ../../../albums/a-dramatic-turn-of-events.yml
   track-number: 4
-  difficulty:
-    drums: 3
   author: Onyxite
   comments:
   - >-
@@ -26,5 +24,7 @@ plans:
       1|3: hihat
     song:
       pad: [3.066, album-track]
-instruments:
-  drums: true
+parts:
+  drums:
+    drums:
+      difficulty: 3

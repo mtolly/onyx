@@ -25,6 +25,6 @@ plans:
         - end
         - 0.2
         - album-track
-instruments:
-  drums: true
-published: false
+parts:
+  drums:
+    drums: {}

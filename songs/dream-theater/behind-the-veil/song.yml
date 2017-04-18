@@ -3,10 +3,6 @@ metadata:
   file-include: ../../../albums/dream-theater.yml
   track-number: 6
   author: Onyxite
-  difficulty:
-    drums: 6
-    bass: 4
-    pro-keys: 6
 audio:
   hdtracks-track:
     md5: 8ec1b6619eecd454b7166c016f7e18bf
@@ -52,15 +48,16 @@ plans:
       37|1: hihat
       37|2: hihat
       37|3: hihat
-    drums:
-      pad:
-      - '1:22.684'
-      - stem-drum
-    bass:
-      pad:
-      - '1:22.684'
-      - gain: [0.8, stem-bass]
-    # TODO: keys audio
+    parts:
+      drums:
+        pad:
+        - '1:22.684'
+        - stem-drum
+      bass:
+        pad:
+        - '1:22.684'
+        - gain: [0.8, stem-bass]
+      # TODO: keys audio
     song:
       mix:
       - take:
@@ -78,10 +75,16 @@ plans:
     countin: *countin
     song:
       gain: [1.2, hdtracks-track]
-instruments:
-  drums: true
-  bass: true
-  pro-keys: true
+parts:
+  drums:
+    drums:
+      difficulty: 6
+  bass:
+    grybo:
+      difficulty: 4
+  keys:
+    pro-keys:
+      difficulty: 6
 targets:
   rb3:
     plan: stems
@@ -90,3 +93,6 @@ targets:
     plan: stems
     game: rb3
     2x-bass-pedal: true
+  ps:
+    plan: stems
+    game: ps

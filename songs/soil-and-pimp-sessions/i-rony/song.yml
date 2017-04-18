@@ -3,8 +3,6 @@ metadata:
   file-include: ../../../albums/pimp-of-the-year.yml
   track-number: 11
   author: Onyxite
-  difficulty:
-    drums: 5
 audio:
   album-track:
     md5: 9432333f3a5ecc4498bac0110461bb94
@@ -22,5 +20,7 @@ plans:
       2|3: hihat
     song:
       pad: [3.303, album-track]
-instruments:
-  drums: true
+parts:
+  drums:
+    drums:
+      difficulty: 5

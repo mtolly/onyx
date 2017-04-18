@@ -11,6 +11,6 @@ plans:
   album:
     song:
       pad: [3.702, album]
-instruments:
-  pro-keys: true
-published: false
+parts:
+  keys:
+    pro-keys: {}

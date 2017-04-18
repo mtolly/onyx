@@ -28,7 +28,7 @@ plans:
       - trim:
         - '9:11.247'
         - concatenate: [album-obfuscation, album-disease]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true

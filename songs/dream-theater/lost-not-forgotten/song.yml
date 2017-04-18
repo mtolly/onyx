@@ -2,8 +2,6 @@ metadata:
   title: Lost Not Forgotten
   file-include: ../../../albums/a-dramatic-turn-of-events.yml
   track-number: 3
-  difficulty:
-    drums: 7
   author: Onyxite
   comments:
   - >-
@@ -30,7 +28,8 @@ plans:
         - begin
         - 3.088
         - trim: [7.088, album-track]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+      auto-2x-bass: true

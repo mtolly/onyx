@@ -22,6 +22,6 @@ plans:
       1|3: hihat
     song:
       pad: [2.649, album-track]
-instruments:
-  guitar: true
-published: false
+parts:
+  guitar:
+    grybo: {}

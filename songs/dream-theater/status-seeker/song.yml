@@ -2,8 +2,6 @@ metadata:
   title: Status Seeker
   file-include: ../../../albums/when-dream-and-day-unite.yml
   track-number: 2
-  difficulty:
-    drums: 4
   author: Onyxite
   comments:
   - "Chart confidence: *high*."
@@ -24,7 +22,8 @@ plans:
       1|3: hihat
     song:
       pad: [3.166, gain: [1.8, album-track]]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 4
+      auto-2x-bass: true

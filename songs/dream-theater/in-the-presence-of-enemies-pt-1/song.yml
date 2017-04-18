@@ -3,14 +3,7 @@ metadata:
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 1
   key: D
-  difficulty:
-    drums: 6
-    vocal: 3
-    guitar: 7
-    bass: 4
-    keys: 7
-    pro-keys: 7
-    band: 6
+  difficulty: 6
   author: "Onyxite, mazegeek999, Meander"
   comments:
   - "Keys, pro keys, and QA by [mazegeek999](http://pksage.com/ccc/IPS/index.php?/topic/13775-mazegeeks-customs-1117-tarkus-by-emerson-lake-palmer/)."
@@ -60,15 +53,16 @@ plans:
       Portnoy's sysDRUMatic Chaos DVD.
       See the project README for help on extracting the DVD audio.
     countin: *countin
-    drums:
-      gain:
-        - -1
-        - resample:
-            pad:
-            - 0.026
-            - trim:
-              - 1.909
-              - take: ['8:50.723', drumcam-drums]
+    parts:
+      drums:
+        gain:
+          - -1
+          - resample:
+              pad:
+              - 0.026
+              - trim:
+                - 1.909
+                - take: ['8:50.723', drumcam-drums]
     song:
       gain:
       - 1.4
@@ -113,10 +107,23 @@ plans:
           - drop:
             - '8:51'
             - gain: [0.684, album-expr]
-instruments:
-  drums: true
-  vocal: 3
-  guitar: true
-  bass: true
-  keys: true
-  pro-keys: true
+parts:
+  drums:
+    drums:
+      difficulty: 6
+  vocal:
+    vocal:
+      difficulty: 3
+      count: 3
+      gender: male
+  guitar:
+    grybo:
+      difficulty: 7
+  bass:
+    grybo:
+      difficulty: 4
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7

@@ -25,5 +25,7 @@ plans:
       pad:
       - 2.540
       - concatenate: [album-track-1, album-track-2]
-instruments:
-  drums: true
+parts:
+  drums:
+    drums:
+      difficulty: 4

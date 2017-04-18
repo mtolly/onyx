@@ -3,9 +3,6 @@ metadata:
   file-include: ../../../albums/puzzled.yml
   track-number: 1
   author: Onyxite, mazegeek999
-  difficulty:
-    drums: 6
-    pro-keys: 7
   comments:
   - "Pro keys by mazegeek999."
   - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
@@ -51,26 +48,34 @@ plans:
     comments:
     - "Stems from [the PledgeMusic campaign](http://www.pledgemusic.com/projects/badsalad2013)."
     countin: *countin
+    parts:
+      drums:
+        pad:
+        - 4.371
+        - gain: [0.65, pledgemusic-drums]
+      keys:
+        pad:
+        - 4.371
+        - gain: [0.65, pledgemusic-keyboards]
+      guitar:
+        pad:
+        - 4.371
+        - gain: [0.65, pledgemusic-guitars]
+      vocal:
+        pad:
+        - 4.371
+        - gain: [0.65, pledgemusic-vocals]
+      bass:
+        pad:
+        - 4.371
+        - gain: [0.65, pledgemusic-bass]
+parts:
+  drums:
     drums:
-      pad:
-      - 4.371
-      - gain: [0.65, pledgemusic-drums]
-    keys:
-      pad:
-      - 4.371
-      - gain: [0.65, pledgemusic-keyboards]
-    song:
-      pad:
-      - 4.371
-      - gain:
-        - 0.65
-        - mix:
-          - pledgemusic-bass
-          - pledgemusic-guitars
-          - pledgemusic-vocals
-instruments:
-  drums: true
-  pro-keys: true
+      difficulty: 6
+  keys:
+    pro-keys:
+      difficulty: 7
 targets:
   rb3:
     game: rb3

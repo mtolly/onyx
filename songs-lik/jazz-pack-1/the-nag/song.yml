@@ -8,18 +8,11 @@ metadata:
   genre: fusion
   subgenre: fusion
   file-album-art: cover.jpg
-  difficulty:
-    band: 7
-    drums: 7
-    guitar: 6
-    bass: 7
-    keys: 5
-    pro-keys: 5
+  difficulty: 7
   comments:
   - Drums by TheLieInKing (minor adjustments by Onyxite), and all other parts by Onyxite.
   preview-start: prc_main_riff_3
   autogen-theme: PsychJamRock
-  drum-kit: HardRockKit
   rating: FamilyFriendly
 audio:
   youtube:
@@ -42,12 +35,22 @@ plans:
       gain:
       - 1.7
       - pad: [2.508, youtube]
-instruments:
-  drums: true
-  guitar: true
-  bass: true
-  keys: true
-  pro-keys: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+      kit: HardRockKit
+  bass:
+    grybo:
+      difficulty: 7
+  guitar:
+    grybo:
+      difficulty: 6
+  keys:
+    grybo:
+      difficulty: 5
+    pro-keys:
+      difficulty: 5
 targets:
   # visualizer: http://i.imgur.com/XplR74Q.jpg
   # download: http://www.mediafire.com/?34w66f5zf7hw4jf

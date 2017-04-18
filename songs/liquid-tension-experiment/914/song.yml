@@ -6,12 +6,7 @@ metadata:
   - >-
     CAT reductions for all instruments except pro keys contributed by
     [beard216](http://pksage.com/ccc/IPS/index.php?/topic/12749-beard216s-conversions-silence-in-the-snow-full-album-by-trivium-and-proxy-by-tesseract-1125/).
-  difficulty:
-    drums: 4
-    bass: 3
-    keys: 7
-    pro-keys: 7
-    band: 5
+  difficulty: 5
   rating: Family Friendly
   author: Onyxite
   key: E
@@ -36,11 +31,18 @@ plans:
         - end
         - 0.4
         - album-track
-instruments:
-  drums: true
-  bass: true
-  keys: true
-  pro-keys: true
+parts:
+  drums:
+    drums:
+      difficulty: 4
+  bass:
+    grybo:
+      difficulty: 3
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
 targets:
   # 1x:
   # 2x:

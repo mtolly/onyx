@@ -25,11 +25,17 @@ plans:
       4|1.5: hihat
       4|2: hihat
       4|2.5: hihat
-    each:
+    parts:
+      drums:
+        fade:
+          - begin
+          - 6.866
+          - trim: [46.526, only: [Drums, jammit-track]]
+    song:
       fade:
         - begin
         - 6.866
-        - trim: [46.526, jammit-track]
+        - trim: [46.526, without: [drums, jammit-track]]
   album:
     countin: *countin
     song:
@@ -37,7 +43,7 @@ plans:
         - begin
         - 6.866
         - trim: [45.914, album-track]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true

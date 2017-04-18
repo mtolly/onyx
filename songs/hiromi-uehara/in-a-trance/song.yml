@@ -3,7 +3,6 @@ metadata:
   file-include: ../../../albums/spark.yml
   author: Onyxite
   track-number: 2
-  drum-kit: HardRockKit
   rating: FamilyFriendly
   key: E
 audio:
@@ -25,8 +24,10 @@ plans:
       gain:
       - 1.1
       - pad: [2.651, album-track]
-instruments:
-  drums: true
+parts:
+  drums:
+    drums:
+      kit: HardRockKit
 targets:
   rb3:
     game: rb3
@@ -37,4 +38,3 @@ targets:
     version: 1
   ps:
     game: ps
-published: false

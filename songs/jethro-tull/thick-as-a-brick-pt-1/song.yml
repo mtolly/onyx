@@ -19,6 +19,6 @@ plans:
         - take: ['22:42.597', album-track]
       pans: [-1, 1, 0, 0, -1, 1]
       vols: [0, 0, 0, 0, 0, 0]
-instruments:
-  drums: true
-published: false
+parts:
+  drums:
+    drums: {}

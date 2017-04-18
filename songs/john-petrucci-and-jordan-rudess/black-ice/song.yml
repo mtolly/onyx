@@ -8,10 +8,6 @@ metadata:
   genre: prog
   subgenre: progrock
   file-album-art: cover.jpg
-  difficulty:
-    guitar: 7
-    pro-keys: 7
-    keys: 7
   preview-start: prc_gtr_break_a
 audio:
   album-track:
@@ -44,5 +40,12 @@ plans:
           - end
           - 3
           - album-track
-instruments:
-  guitar: true
+parts:
+  guitar:
+    grybo:
+      difficulty: 7
+  # keys:
+  #   grybo:
+  #     difficulty: 7
+  #   pro-keys:
+  #     difficulty: 7

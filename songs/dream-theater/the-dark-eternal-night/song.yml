@@ -3,14 +3,7 @@ metadata:
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 4
   key: B
-  difficulty:
-    guitar: 7
-    bass: 7
-    drums: 7
-    keys: 7
-    pro-keys: 7
-    vocal: 2
-    band: 7
+  difficulty: 7
   author: Onyxite, mazegeek999
   comments:
   - "Drums confidence: *high*. Written to Portnoy's recording session DVD."
@@ -69,15 +62,16 @@ plans:
                   drop:
                   - frames: 3065
                   - drop: ['21:50', drumcam-drums]
-    drums:
-      gain:
-      - -0.9
-      - resample:
-          take:
-          - '9:01.477'
-          - pad:
-            - 4.266
-            - *drums
+    parts:
+      drums:
+        gain:
+        - -0.9
+        - resample:
+            take:
+            - '9:01.477'
+            - pad:
+              - 4.266
+              - *drums
   album:
     comments:
     - >-
@@ -92,10 +86,23 @@ plans:
         - pad:
           - 4.266
           - drop: ['21:50', drumcam-band]
-instruments:
-  drums: true
-  vocal: 2
-  guitar: true
-  bass: true
-  keys: true
-  pro-keys: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+  bass:
+    grybo:
+      difficulty: 7
+  guitar:
+    grybo:
+      difficulty: 7
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
+  vocal:
+    vocal:
+      difficulty: 2
+      count: 2
+      gender: male

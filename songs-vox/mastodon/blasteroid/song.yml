@@ -12,11 +12,14 @@ plans:
   album:
     song:
       pad: [2.001, youtube]
-instruments:
-  vocal: 2
-  guitar: true
-  bass: true
-  drums: true
-published: false
-options:
-  auto-2x-bass: true
+parts:
+  vocal:
+    vocal:
+      count: 2
+  guitar:
+    grybo: {}
+  bass:
+    grybo: {}
+  drums:
+    drums:
+      auto-2x-bass: true

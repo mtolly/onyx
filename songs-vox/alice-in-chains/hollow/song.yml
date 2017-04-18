@@ -13,10 +13,11 @@ plans:
   album:
     song:
       pad: [3.478, youtube]
-instruments:
-  guitar: true
-  bass: true
-  drums: true
-published: false
-options:
-  auto-2x-bass: true
+parts:
+  guitar:
+    grybo: {}
+  bass:
+    grybo: {}
+  drums:
+    drums:
+      auto-2x-bass: true

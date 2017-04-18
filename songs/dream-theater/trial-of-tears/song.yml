@@ -4,9 +4,6 @@ metadata:
   track-number: 11
   autogen-theme: Slow Jam
   rating: Family Friendly
-  difficulty:
-    drums: 6
-    pro-keys: 7
   author: Onyxite
   comments:
   - >-
@@ -25,12 +22,29 @@ jammit:
   jammit-track: {}
 plans:
   jammit:
-    each: jammit-track
+    parts:
+      drums:
+        only: [Drums, jammit-track]
+      keys:
+        mix:
+        - only: [Keys 1, jammit-track]
+        - only: [Keys 2, jammit-track]
+    song:
+      mix:
+      - without: [drums, jammit-track]
+      - gain:
+        - -1
+        - mix:
+          - only: [Keys 1, jammit-track]
+          - only: [Keys 2, jammit-track]
   album:
     song:
       trim: [0.072, album-track]
-instruments:
-  drums: true
-  pro-keys: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      difficulty: 6
+  keys:
+    pro-keys:
+      difficulty: 7

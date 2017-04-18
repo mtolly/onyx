@@ -5,12 +5,9 @@ metadata:
   year: 2004
   track-number: 2
   author: TheLieInKing
-  drum-kit: Vintage Kit # ???
   genre: classical
   subgenre: classical
-  difficulty:
-    drums: 7
-    band: 7
+  difficulty: 7
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -20,8 +17,11 @@ audio:
     frames: 15137792
   hihat:
     file-path: ../../../sound/hihat-foot.wav
-instruments:
-  drums: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+      kit: Vintage Kit # ???
 plans:
   mogg:
     pans:
@@ -29,14 +29,14 @@ plans:
     - 1
     - -1
     - 1
-    drum-mix: 0
-    bass:
-    - 2
-    - 3
     mogg-md5: 883e4e0ccc9cd99dde9bacba30a7586c
-    drums:
-    - 0
-    - 1
+    parts:
+      bass:
+      - 2
+      - 3
+      drums:
+      - 0
+      - 1
     vols:
     - -3
     - -3
@@ -44,5 +44,6 @@ plans:
     - -1.5
   # TODO retime this
   # album:
-  #   drums:
-  #     pad: [0, youtube]
+  #   parts:
+  #     drums:
+  #       pad: [0, youtube]

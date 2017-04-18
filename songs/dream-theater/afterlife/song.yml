@@ -2,8 +2,6 @@ metadata:
   title: Afterlife
   file-include: ../../../albums/when-dream-and-day-unite.yml
   track-number: 6
-  difficulty:
-    drums: 7
   author: Onyxite
   comments:
   - "Chart confidence: *medium-high*."
@@ -39,7 +37,8 @@ plans:
             - take:
               - 10.383
               - album-next
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      difficulty: 7

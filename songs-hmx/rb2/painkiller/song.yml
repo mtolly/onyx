@@ -2,38 +2,43 @@ metadata:
   title: Painkiller
   artist: Judas Priest
   album: Painkiller
-  vocal-gender: male
   year: 1990
   track-number: 1
   author: Harmonix
   file-album-art: painkiller_keep.png_xbox
   genre: metal
   difficulty:
-    drums:
-      rank: 540
-    guitar:
-      rank: 505
-    bass:
-      rank: 436
-    vocal:
-      rank: 430
-    band:
-      rank: 550
+    rank: 550
 plans:
   mogg:
     mogg-md5: 9c45fd3ccb7a8daece740c690c5169db
-    drums: [0, 1, 2, 3, 4]
-    bass: [5]
-    guitar: [6, 7]
-    vocal: [8, 9]
+    parts:
+      drums:
+        kick: [0]
+        snare: [1, 2]
+        kit: [3, 4]
+      bass: [5]
+      guitar: [6, 7]
+      vocal: [8, 9]
     pans: [0.0, -1.0, 1.0, -1.0, 1.0, 0.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0]
     vols: [-2.0, -3.5, -3.5, -2.0, -2.0, -3.0, -3.8, -3.8, -1.8, -1.8, -3.5, -3.5]
-    drum-mix: 2
-instruments:
-  drums: true
-  guitar: true
-  bass: true
-  vocal: 1
-published: false
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      difficulty:
+        rank: 540
+  bass:
+    grybo:
+      difficulty:
+        rank: 436
+  guitar:
+    grybo:
+      difficulty:
+        rank: 505
+  vocal:
+    vocal:
+      difficulty:
+        rank: 430
+      count: 1
+      gender: male

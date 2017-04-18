@@ -1,20 +1,20 @@
-published: true
 plans:
   mogg:
-    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
-    vocal: [8, 9]
-    drum-mix: 2
-    bass: [5]
     mogg-md5: 9ee4cd3289ed2e2048c2368e6508dede
-    guitar: [6, 7]
-    drums: [0, 1, 2, 3, 4]
+    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
     vols: [-2, -5, -5, -5, -5, -2, -5, -5, -5, -5, -5, -5]
+    parts:
+      vocal: [8, 9]
+      bass: [5]
+      guitar: [6, 7]
+      drums:
+        kick: [0]
+        snare: [1, 2]
+        kit: [3, 4]
 metadata:
   autogen-theme: AggressiveMetal
   rating: SupervisionRecommended
   preview-start: 166.088
-  vocal-gender: male
-  drum-kit: Trashy Kit
   file-album-art: cover.png_xbox
   track-number: 10
   key: D sharp
@@ -23,32 +23,36 @@ metadata:
   subgenre: thrash
   author: Harmonix
   title: Raining Blood
-  preview-end: 196.088
   genre: metal
   comments:
   - "2x Bass Pedal upgrade."
   difficulty:
-    vocal:
-      rank: 120
-    bass:
-      rank: 342
-    guitar:
-      rank: 430
-    drums:
-      rank: 484
-    band:
-      rank: 389
-    pro-guitar:
-      rank: 461
-    pro-bass:
-      rank: 322
+    rank: 389
   artist: Slayer
-instruments:
-  vocal: 1
-  bass: true
-  guitar: true
-  drums: true
-  pro-guitar: true
-  pro-bass: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      kit: Trashy Kit
+      auto-2x-bass: true
+      difficulty:
+        rank: 484
+  bass:
+    grybo:
+      difficulty:
+        rank: 342
+    pro-guitar:
+      difficulty:
+        rank: 322
+  guitar:
+    grybo:
+      difficulty:
+        rank: 430
+    pro-guitar:
+      difficulty:
+        rank: 461
+  vocal:
+    vocal:
+      difficulty:
+        rank: 120
+      count: 1
+      gender: male

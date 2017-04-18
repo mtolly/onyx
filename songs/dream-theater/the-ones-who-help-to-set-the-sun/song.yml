@@ -2,8 +2,6 @@ metadata:
   title: The Ones Who Help to Set the Sun
   file-include: ../../../albums/when-dream-and-day-unite.yml
   track-number: 7
-  difficulty:
-    drums: 6
   author: Onyxite
   comments:
   - "Chart confidence: *high*."
@@ -24,7 +22,8 @@ plans:
       60|5: hihat
     song:
       trim: [0.231, gain: [1.8, album-track]]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      difficulty: 6

@@ -3,14 +3,7 @@ metadata:
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 5
   key: B # for vocals
-  difficulty:
-    drums: 4
-    vocal: 6
-    guitar: 2
-    bass: 2
-    pro-keys: 5
-    keys: 3
-    band: 4
+  difficulty: 4
   author: "Onyxite, Grinnz, mazegeek999"
   comments:
   - "Timing and drums by Grinnz."
@@ -20,7 +13,6 @@ metadata:
   - "Restitution spoken word transcribed from the isolated audio on Chaos in Progress."
   rating: Supervision Recommended
   autogen-theme: Dusty Vintage
-  drum-kit: Vintage Kit
 audio:
   album-track:
     md5: f95cbe0b2005c3b5a1387814a0c813bf
@@ -105,19 +97,34 @@ plans:
                         - drop:
                           - '30:48.852'
                           - drumcam-drums
+    parts:
+      drums:
+        gain:
+        - -1
+        - resample:
+            pad:
+              - 2.205
+              - take:
+                - '10:42.951'
+                - *drums
+parts:
+  drums:
     drums:
-      gain:
-      - -1
-      - resample:
-          pad:
-            - 2.205
-            - take:
-              - '10:42.951'
-              - *drums
-instruments:
-  drums: true
-  vocal: 3
-  guitar: true
-  bass: true
-  pro-keys: true
-  keys: true
+      difficulty: 4
+      kit: Vintage Kit
+  bass:
+    grybo:
+      difficulty: 2
+  guitar:
+    grybo:
+      difficulty: 2
+  keys:
+    grybo:
+      difficulty: 3
+    pro-keys:
+      difficulty: 5
+  vocal:
+    vocal:
+      difficulty: 6
+      count: 3
+      gender: male

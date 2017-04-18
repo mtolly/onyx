@@ -4,13 +4,7 @@ metadata:
   track-number: 5
   autogen-theme: Psych Jam Rock
   rating: Family Friendly
-  difficulty:
-    drums: 7
-    pro-keys: 7
-    keys: 7
-    guitar: 7
-    bass: 5
-    band: 7
+  difficulty: 7
   author: Onyxite
   key: G # I mean, there's a lot of keys in this song
 audio:
@@ -29,12 +23,21 @@ plans:
       2|2: hihat
       2|3: hihat
     song: album-track
-instruments:
-  drums: true
-  pro-keys: true
-  keys: true
-  guitar: true
-  bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+  bass:
+    grybo:
+      difficulty: 5
+  guitar:
+    grybo:
+      difficulty: 7
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
 targets:
   rb3:
     game: rb3

@@ -8,18 +8,8 @@ metadata:
   - "Drums by Grinnz."
   - "Chart confidence: *high*, written to stems and Portnoy's DVD."
   difficulty:
-    drums:
-      rank: 550
-    guitar:
-      rank: 491
-    bass:
-      rank: 600
-    vocal:
-      rank: 359
-    band:
-      rank: 540
+    rank: 540
   preview-start: 106.2
-  preview-end: 136.2
 audio:
   album-track:
     md5: f1f401028b8c8b3788fecbf817953145
@@ -45,18 +35,33 @@ plans:
           - pad: [3.778, album-track]
   mogg:
     mogg-md5: 84d8e9d6896c9d15069b7c7651c6493a
-    drums: [0, 1, 2, 3, 4]
-    bass: [5]
-    guitar: [6, 7]
-    vocal: [8, 9]
+    parts:
+      drums:
+        kick: [0]
+        snare: [1, 2]
+        kit: [3, 4]
+      bass: [5]
+      guitar: [6, 7]
+      vocal: [8, 9]
     pans: [ 0.0, -1.0,  1.0, -1.0,  1.0,  0.0, -1.0,  1.0, -1.0,  1.0, -1.0,  1.0]
     vols: [-0.5, -3.0, -3.0, -2.0, -2.0, -5.0, -3.5, -3.5, -5.2, -5.2, -6.2, -6.2]
-    drum-mix: 2
-instruments:
-  drums: true
-  guitar: true
-  bass: true
-  vocal: 1
-published: false
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      difficulty:
+        rank: 550
+  bass:
+    grybo:
+      difficulty:
+        rank: 600
+  guitar:
+    grybo:
+      difficulty:
+        rank: 491
+  vocal:
+    vocal:
+      difficulty:
+        rank: 359
+      count: 1
+      gender: male

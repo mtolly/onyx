@@ -2,14 +2,7 @@ metadata:
   title: Crowded Sky
   file-include: ../../../albums/uncivilized.yml
   track-number: 1
-  difficulty:
-    drums: 7
-    guitar: 7
-    bass: 5
-    pro-keys: 7
-    keys: 7
-    vocal: 5
-    band: 7
+  difficulty: 7
   author: Onyxite
   comments:
   - "Chart confidence: *medium-high*. Mixing is a bit muddy. Bass was a lot of guessing."
@@ -29,10 +22,22 @@ plans:
       5|1: hihat
       5|2: hihat
     song: album-track
-instruments:
-  drums: true
-  guitar: true
-  bass: true
-  pro-keys: true
-  keys: true
-  vocal: 3
+parts:
+  drums:
+    drums:
+      difficulty: 7
+  guitar:
+    grybo:
+      difficulty: 7
+  bass:
+    grybo:
+      difficulty: 5
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
+  vocal:
+    vocal:
+      count: 3
+      difficulty: 5

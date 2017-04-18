@@ -22,12 +22,16 @@ plans:
       1|0: hihat
       1|1: hihat
       1|2: hihat
-    each: jammit-track
+    parts:
+      drums:
+        only: [Drums, jammit-track]
+    song:
+      without: [drums, jammit-track]
   album:
     countin: *countin
     song:
       pad: [3.255, album-track]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true

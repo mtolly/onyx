@@ -11,8 +11,7 @@ plans:
   album:
     song:
       pad: [3.929, album-track]
-instruments:
-  drums: true
-published: false
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true

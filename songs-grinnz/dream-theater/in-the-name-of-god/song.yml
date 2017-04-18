@@ -3,7 +3,6 @@ metadata:
   file-include: ../../../albums/train-of-thought.yml
   track-number: 7
   author: Grinnz
-  drum-layout: flip-yb-toms
   comments:
   - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:
@@ -23,7 +22,8 @@ plans:
       1|3: hihat
     song:
       pad: [6.645, album-track]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      layout: flip-yb-toms

@@ -3,22 +3,10 @@ metadata:
   file-include: ../../../albums/octavarium.yml
   track-number: 3
   author: Onyxite
-  difficulty:
-    drums: 6
-    guitar: 2
-    pro-guitar: 3
-    bass: 3
-    pro-bass: 3
-    vocal: 4
-    keys: 3
-    pro-keys: 4
-    band: 4
+  difficulty: 4
   autogen-theme: EdgyProgRock
   key: A
   rating: SupervisionRecommended
-options:
-  # pro-guitar-tuning is A standard but pretending E standard for game
-  pro-bass-tuning: [-7, -5, -5, -5] # EADG to AEAD
 audio:
   album-track:
     md5: d0168a7020211436743ffef91c474e37
@@ -106,7 +94,7 @@ audio:
 jammit:
   jammit-track: {}
 plans:
-  jammit:
+  jammit-all:
     countin:
       &countin
       0|0: hihat
@@ -117,23 +105,20 @@ plans:
       1|1.5: hihat
       1|2: hihat
       1|2.5: hihat
-    each:
-      trim: [11.711, jammit-track]
-  jammit-all:
-    countin: *countin
-    bass:
-      mixed-bass
-    vocal:
-      mix: [mixed-vocal, mixed-bvocals-unchanged, mixed-bvocals-faded]
-    guitar:
-      fade:
-      - start
-      - 2.4
-      - mix: [mixed-guitar1-unchanged, mixed-guitar1-missing, mixed-guitar2]
-    keys:
-      mix: [mixed-keys1, mixed-keys2]
-    drums:
-      mixed-drums
+    parts:
+      bass:
+        mixed-bass
+      vocal:
+        mix: [mixed-vocal, mixed-bvocals-unchanged, mixed-bvocals-faded]
+      guitar:
+        fade:
+        - start
+        - 2.4
+        - mix: [mixed-guitar1-unchanged, mixed-guitar1-missing, mixed-guitar2]
+      keys:
+        mix: [mixed-keys1, mixed-keys2]
+      drums:
+        mixed-drums
     song:
       mix: [mixed-guitar1-backing]
   album:
@@ -143,15 +128,32 @@ plans:
       - start
       - 2.4
       - trim: [19.991, album-track]
-instruments:
-  drums: true
-  keys: true
-  pro-keys: true
-  bass: true
-  pro-bass: true
-  guitar: true
-  pro-guitar: true
-  vocal: 3
+parts:
+  drums:
+    drums:
+      difficulty: 6
+  bass:
+    grybo:
+      difficulty: 3
+    pro-guitar:
+      difficulty: 3
+      tuning: [-7, -5, -5, -5] # EADG to AEAD
+  guitar:
+    grybo:
+      difficulty: 2
+    pro-guitar:
+      difficulty: 3
+      # tuning is A standard but pretending E standard for game
+  keys:
+    grybo:
+      difficulty: 3
+    pro-keys:
+      difficulty: 4
+  vocal:
+    vocal:
+      difficulty: 4
+      count: 3
+      gender: male
 targets:
   rb3:
     game: rb3

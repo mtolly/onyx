@@ -1,5 +1,4 @@
 metadata:
-  drum-kit: Vintage Kit
   author: TheLieInKing, Mazegeek999, Onyxite
   title: Sly
   artist: Herbie Hancock
@@ -9,12 +8,7 @@ metadata:
   year: 1973
   file-album-art: cover.jpg
   track-number: 3
-  difficulty:
-    drums: 7
-    pro-keys: 7
-    keys: 7
-    bass: 5
-    band: 7
+  difficulty: 7
   key: E
   autogen-theme: PsychJamRock
   rating: FF
@@ -32,11 +26,19 @@ audio:
     frames: 27139072
   hihat:
     file-path: ../../../sound/hihat-foot.wav
-instruments:
-  drums: true
-  pro-keys: true
-  keys: true
-  bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+      kit: Vintage Kit
+  bass:
+    grybo:
+      difficulty: 5
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
 plans:
   album:
     countin:

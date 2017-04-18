@@ -8,8 +8,6 @@ metadata:
   track-number: 7
   author: Onyxite
   file-album-art: cover.jpg
-  difficulty:
-    drums: 5
 audio:
   album-track:
     md5: 36f9c97fa3b795d0f74afab76bfc79b4
@@ -32,5 +30,7 @@ plans:
       - take:
         - '6:41.637'
         - pad: [3.275, album-track]
-instruments:
-  drums: true
+parts:
+  drums:
+    drums:
+      difficulty: 6

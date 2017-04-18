@@ -2,14 +2,7 @@ metadata:
   title: Moonlight
   file-include: ../../../albums/puzzled.yml
   track-number: 2
-  difficulty:
-    drums: 4
-    bass: 3
-    guitar: 5
-    pro-keys: 5
-    keys: 4
-    vocal: 5
-    band: 4
+  difficulty: 4
   author: Onyxite
   comments:
   - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
@@ -57,30 +50,44 @@ plans:
     comments:
     - "Stems from [the PledgeMusic campaign](http://www.pledgemusic.com/projects/badsalad2013)."
     countin: *countin
+    parts:
+      drums:
+        trim:
+          - 0.326
+          - gain: [0.8, pledgemusic-drums]
+      bass:
+        trim:
+          - 0.326
+          - gain: [0.8, pledgemusic-bass]
+      guitar:
+        trim:
+          - 0.326
+          - gain: [0.8, pledgemusic-guitars]
+      keys:
+        trim:
+          - 0.326
+          - gain: [0.8, pledgemusic-keyboards]
+      vocal:
+        trim:
+          - 0.326
+          - gain: [0.8, pledgemusic-vocals]
+parts:
+  drums:
     drums:
-      trim:
-        - 0.326
-        - gain: [0.8, pledgemusic-drums]
-    bass:
-      trim:
-        - 0.326
-        - gain: [0.8, pledgemusic-bass]
-    guitar:
-      trim:
-        - 0.326
-        - gain: [0.8, pledgemusic-guitars]
-    keys:
-      trim:
-        - 0.326
-        - gain: [0.8, pledgemusic-keyboards]
+      difficulty: 4
+  bass:
+    grybo:
+      difficulty: 3
+  guitar:
+    grybo:
+      difficulty: 5
+  keys:
+    grybo:
+      difficulty: 4
+    pro-keys:
+      difficulty: 5
+  vocal:
     vocal:
-      trim:
-        - 0.326
-        - gain: [0.8, pledgemusic-vocals]
-instruments:
-  drums: true
-  bass: true
-  guitar: true
-  pro-keys: true
-  keys: true
-  vocal: 3
+      count: 3
+      difficulty: 5
+      gender: male

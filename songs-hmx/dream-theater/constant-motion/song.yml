@@ -3,12 +3,7 @@ metadata:
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 3
   key: E
-  difficulty:
-    guitar: 7
-    bass: 6
-    vocal: 4
-    drums: 7
-    band: 6
+  difficulty: 6
   author: "Harmonix, Grinnz, Onyxite"
   comments:
   - "Drums by Grinnz."
@@ -35,17 +30,29 @@ plans:
       pad: [3.593, album-track]
   mogg:
     mogg-md5: e9657cb623ede70d2930c98ac6c4c243
-    drums: [0, 1, 2, 3, 4]
-    bass: [5]
-    guitar: [6, 7]
-    vocal: [8, 9]
     pans: [ 0.0, -1.0,  1.0, -1.0,  1.0,  0.0, -1.0,  1.0, -1.0,  1.0, -1.0,  1.0]
     vols: [-0.5, -1.0, -1.0, -2.0, -2.0, -1.5, -3.5, -3.5, -4.0, -4.0, -3.0, -3.0]
-    drum-mix: 2
-instruments:
-  drums: true
-  bass: true
-  guitar: true
-  vocal: 2
-options:
-  auto-2x-bass: true
+    parts:
+      drums:
+        kick: [0]
+        snare: [1, 2]
+        kit: [3, 4]
+      bass: [5]
+      guitar: [6, 7]
+      vocal: [8, 9]
+parts:
+  drums:
+    drums:
+      difficulty: 7
+      auto-2x-bass: true
+  bass:
+    grybo:
+      difficulty: 6
+  guitar:
+    grybo:
+      difficulty: 7
+  vocal:
+    vocal:
+      difficulty: 4
+      count: 2
+      gender: male

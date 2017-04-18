@@ -3,8 +3,6 @@ metadata:
   author: Onyxite
   artist: mouse on the keys
   album: the flowers of romance
-  difficulty:
-    drums: 7
   genre: jazz
   subgenre: contemporary
   file-album-art: cover.jpg
@@ -32,5 +30,7 @@ plans:
       1|2.5: hihat
     song:
       pad: [2.089, youtube]
-instruments:
-  drums: true
+parts:
+  drums:
+    drums:
+      difficulty: 7

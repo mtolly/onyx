@@ -4,13 +4,7 @@ metadata:
   track-number: 8
   autogen-theme: Psych Jam Rock
   rating: Family Friendly
-  difficulty:
-    drums: 6
-    pro-keys: 7
-    keys: 7
-    guitar: 6
-    bass: 4
-    band: 6
+  difficulty: 6
   author: Onyxite
   key: F
   comments:
@@ -35,12 +29,21 @@ plans:
       1|3: hihat
     song:
       pad: [2.830, album-track]
-instruments:
-  drums: true
-  pro-keys: true
-  keys: true
-  guitar: true
-  bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 6
+  bass:
+    grybo:
+      difficulty: 4
+  guitar:
+    grybo:
+      difficulty: 6
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
 targets:
   # visualizer: http://i.imgur.com/RSVyWGj.jpg
   # video: https://www.youtube.com/watch?v=_XH8quUCM5Y

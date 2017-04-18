@@ -70,14 +70,15 @@ plans:
               - drop:
                 - frames: 4252478
                 - drumcam-drums-expr
+    parts:
+      drums:
+        pad:
+        - 1.523
+        - resample:
+            gain:
+            - -2.5
+            - drumcam-drums-expr
+parts:
+  drums:
     drums:
-      pad:
-      - 1.523
-      - resample:
-          gain:
-          - -2.5
-          - drumcam-drums-expr
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+      auto-2x-bass: true

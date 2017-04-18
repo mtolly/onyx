@@ -3,15 +3,8 @@ metadata:
   file-include: ../../../albums/6.yml
   track-number: 2
   author: Onyxite
-  difficulty:
-    pro-keys: 7
-    keys: 6
-    drums: 7
-    guitar: 5
-    bass: 4
-    band: 6
+  difficulty: 6
   autogen-theme: PsychJamRock
-  drum-kit: HardRockKit
   preview-start: prc_verse_1
   rating: FamilyFriendly
   key: A # at least in chorus
@@ -34,12 +27,22 @@ plans:
       1|3: hihat
     song:
       pad: [2.764, album-track]
-instruments:
-  drums: true
-  pro-keys: true
-  keys: true
-  guitar: true
-  bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+      kit: HardRockKit
+  keys:
+    grybo:
+      difficulty: 6
+    pro-keys:
+      difficulty: 7
+  guitar:
+    grybo:
+      difficulty: 5
+  bass:
+    grybo:
+      difficulty: 4
 targets:
   # visualizer: http://i.imgur.com/CDtjku3.jpg
   # download: http://www.mediafire.com/?a592c7cbpp70q5m

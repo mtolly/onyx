@@ -9,20 +9,23 @@ metadata:
   preview-start: prc_verse_2a
   rating: Family Friendly
   autogen-theme: Dark Heavy Rock
-  difficulty:
-    drums: 6
-    pro-keys: 7
-    keys: 6
-    bass: 4
-    guitar: 7
-    band: 6
+  difficulty: 6
   key: C sharp
-instruments:
-  drums: true
-  pro-keys: true
-  bass: true
-  guitar: true
-  keys: true
+parts:
+  drums:
+    drums:
+      difficulty: 6
+  bass:
+    grybo:
+      difficulty: 4
+  guitar:
+    grybo:
+      difficulty: 7
+  keys:
+    grybo:
+      difficulty: 6
+    pro-keys:
+      difficulty: 7
 audio:
   album-track:
     file-path: audio-youtube.wav

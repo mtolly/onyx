@@ -1,4 +1,3 @@
-published: false
 plans:
   album:
     song:
@@ -12,7 +11,6 @@ plans:
           - 5:11.544
           - concatenate: [track-deceit, track-violation]
 metadata:
-  vocal-gender: male
   file-album-art: cover.jpg
   track-number: 5
   album: Agony
@@ -21,13 +19,9 @@ metadata:
   author: xBLooDLiNEx808x, Onyxite
   title: The Violation
   genre: metal
-  difficulty:
-    drums:
-      rank: 448
   artist: Fleshgod Apocalypse
   comments:
   - Drums by xBLooDLiNEx808x.
-options: {}
 jammit: {}
 audio:
   track-deceit:
@@ -36,6 +30,12 @@ audio:
   track-violation:
     md5: c4633a0d8e7b7c7aed9c54a5c322db4f
     frames: 11416020
-instruments:
-  drums: true
-  pro-keys: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+  keys:
+    pro-keys: {}
+  # vocal:
+  #   vocal:
+  #     gender: male

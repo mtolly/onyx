@@ -3,14 +3,7 @@ metadata:
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 7
   key: A
-  difficulty:
-    drums: 7
-    vocal: 6
-    guitar: 7
-    bass: 6
-    pro-keys: 7
-    keys: 7
-    band: 7
+  difficulty: 7
   author: "Onyxite, mazegeek999"
   comments:
   - "Drums confidence: *high*, written to Portnoy's DVD."
@@ -91,14 +84,28 @@ plans:
               - start
               - 0.03
               - drop: ["12:50.401", expr-album-song]
+    parts:
+      drums:
+        gain:
+        - -1
+        - resample: expr-drumcam-drums
+parts:
+  drums:
     drums:
-      gain:
-      - -1
-      - resample: expr-drumcam-drums
-instruments:
-  drums: true
-  vocal: 2
-  guitar: true
-  bass: true
-  pro-keys: true
-  keys: true
+      difficulty: 7
+  bass:
+    grybo:
+      difficulty: 6
+  guitar:
+    grybo:
+      difficulty: 7
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
+  vocal:
+    vocal:
+      difficulty: 6
+      count: 2
+      gender: male

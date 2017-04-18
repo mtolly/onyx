@@ -4,8 +4,6 @@ metadata:
   track-number: 2
   autogen-theme: Feel Good Pop Rock
   rating: Family Friendly
-  difficulty:
-    drums: 3
   author: Onyxite
   comments:
   - >-
@@ -28,5 +26,7 @@ plans:
       1|3: hihat
     song:
       pad: [5.028, album-track]
-instruments:
-  drums: true
+parts:
+  drums:
+    drums:
+      difficulty: 3

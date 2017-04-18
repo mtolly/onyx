@@ -2,8 +2,6 @@ metadata:
   title: Enigma Machine
   file-include: ../../../albums/dream-theater.yml
   track-number: 4
-  difficulty:
-    drums: 7
   author: Onyxite
   comments:
   - >-
@@ -37,7 +35,8 @@ plans:
     countin: *countin
     song:
       pad: [2.483, hdtracks-track]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+      auto-2x-bass: true

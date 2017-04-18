@@ -3,18 +3,12 @@ metadata:
   # HMX style is consistent: no spaces around the slash
   file-include: "../../../albums/10000-days.yml"
   track-number: 7 # and 8
-  difficulty:
-    drums: 7
-    bass: 6
-    guitar: 6
-    vocal: 5
-    band: 7
+  difficulty: 7
   rating: Supervision Recommended
   key: D
   author: Onyxite
   comments:
-  - "Without a doubt, the hardest (non-Mahavishnu) drum chart I've made."
-  - "Could not have been done without [this drum clinic footage](https://www.youtube.com/watch?v=Dh3z__10bhg)."
+  - "Made with reference to [this drum clinic footage](https://www.youtube.com/watch?v=Dh3z__10bhg)."
   - "All instruments have overdrive/unison."
 audio:
   album-lost-keys:
@@ -29,10 +23,18 @@ plans:
       pad:
       - 4.391
       - concatenate: [album-lost-keys, album-rosetta-stoned]
-instruments:
-  drums: true
-  bass: true
-  guitar: true
-  vocal: 2
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+  bass:
+    grybo:
+      difficulty: 6
+  guitar:
+    grybo:
+      difficulty: 6
+  vocal:
+    vocal:
+      count: 2
+      difficulty: 5
+      gender: male

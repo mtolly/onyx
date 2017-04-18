@@ -23,14 +23,23 @@ plans:
       1|1: hihat
       1|2: hihat
       1|3: hihat
-    each:
+    parts:
+      drums:
+        fade:
+          - end
+          - 3.125
+          - trim:
+            - end
+            - 4.017
+            - pad: [1.699, only: [Drums, jammit-track]]
+    song:
       fade:
         - end
         - 3.125
         - trim:
           - end
           - 4.017
-          - pad: [1.699, jammit-track]
+          - pad: [1.699, without: [drums, jammit-track]]
   album:
     countin: *countin
     song:
@@ -41,5 +50,6 @@ plans:
           - end
           - 13.208
           - pad: [2.990, album-track]
-instruments:
-  drums: true
+parts:
+  drums:
+    drums: {}

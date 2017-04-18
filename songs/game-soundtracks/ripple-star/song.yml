@@ -8,11 +8,7 @@ metadata:
   subgenre: other
   year: 2000
   author: Onyxite
-  difficulty:
-    drums: 7
-    pro-keys: 7
-    keys: 7
-    bass: 7
+  difficulty: 7
   comments:
   - "All instruments have overdrive/unison."
 audio:
@@ -39,17 +35,26 @@ plans:
       1|1: snare-hit
       1|2: snare-hit
       1|3: snare-hit
-    bass: stem-bass
-    kick: stem-kick
-    snare: stem-snare
-    drums: stem-kit
-    keys: stem-keys
     song: stem-backing
-instruments:
-  drums: true
-  bass: true
-  keys: true
-  pro-keys: true
+    parts:
+      bass: stem-bass
+      drums:
+        kick: stem-kick
+        snare: stem-snare
+        kit: stem-kit
+      keys: stem-keys
+parts:
+  drums:
+    drums:
+      difficulty: 7
+  bass:
+    grybo:
+      difficulty: 7
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
 targets:
   rb3:
     game: rb3

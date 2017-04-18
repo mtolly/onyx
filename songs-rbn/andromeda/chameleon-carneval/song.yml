@@ -1,8 +1,6 @@
 metadata:
   comments:
   - 2x Bass Pedal upgrade; no other changes.
-  vocal-gender: male
-  drum-kit: Hard Rock Kit
   file-album-art: ../../../covers/extension-of-the-wish.png_xbox
   track-number: 4
   album: Extension of the Wish
@@ -12,40 +10,41 @@ metadata:
   title: Chameleon Carneval
   genre: prog
   difficulty:
-    pro-keys:
-      rank: 443
-    vocal:
-      rank: 0
-    bass:
-      rank: 364
-    guitar:
-      rank: 409
-    keys:
-      rank: 443
-    drums:
-      rank: 448
-    band:
-      rank: 345
+    rank: 345
   artist: Andromeda
   preview-start: 51
-  preview-end: 81
-jammit: {}
-audio: {}
-instruments:
-  pro-keys: true
-  bass: true
-  guitar: true
-  keys: true
-  drums: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      kit: Hard Rock Kit
+      difficulty:
+        rank: 448
+  bass:
+    grybo:
+      difficulty:
+        rank: 364
+  guitar:
+    grybo:
+      difficulty:
+        rank: 409
+  keys:
+    grybo:
+      difficulty:
+        rank: 443
+    pro-keys:
+      difficulty:
+        rank: 443
 plans:
   mogg:
     pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
-    drum-mix: 3
-    bass: [6, 7]
-    mogg-md5: 38e18f67dded555839f866aa70d6eadb
-    guitar: [8, 9]
-    keys: [10, 11]
-    drums: [0, 1, 2, 3, 4, 5]
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-options:
-  auto-2x-bass: true
+    mogg-md5: 38e18f67dded555839f866aa70d6eadb
+    parts:
+      drums:
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6, 7]
+      guitar: [8, 9]
+      keys: [10, 11]

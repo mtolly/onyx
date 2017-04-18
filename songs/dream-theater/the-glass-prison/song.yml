@@ -24,7 +24,7 @@ plans:
       13|3: hihat
     song:
       pad: [0.057, album-track]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true

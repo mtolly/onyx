@@ -3,14 +3,7 @@ metadata:
   file-include: ../../../albums/systematic-chaos.yml
   track-number: 8
   key: D
-  difficulty:
-    drums: 7
-    vocal: 5
-    guitar: 7
-    band: 7
-    keys: 7
-    pro-keys: 7
-    bass: 6
+  difficulty: 7
   author: "Onyxite, mazegeek999, Meander"
   comments:
   - "Keys, pro keys, and QA by [mazegeek999](http://pksage.com/ccc/IPS/index.php?/topic/13775-mazegeeks-customs-1117-tarkus-by-emerson-lake-palmer/)."
@@ -81,16 +74,30 @@ plans:
             - take:
               - "1:47.596"
               - album-track
+    parts:
+      drums:
+        pad:
+        - "1:43.080"
+        - gain:
+          - -1
+          - resample: *drums
+parts:
+  drums:
     drums:
-      pad:
-      - "1:43.080"
-      - gain:
-        - -1
-        - resample: *drums
-instruments:
-  drums: true
-  vocal: 2
-  guitar: true
-  bass: true
-  keys: true
-  pro-keys: true
+      difficulty: 7
+  bass:
+    grybo:
+      difficulty: 6
+  guitar:
+    grybo:
+      difficulty: 7
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
+  vocal:
+    vocal:
+      difficulty: 5
+      count: 2
+      gender: male

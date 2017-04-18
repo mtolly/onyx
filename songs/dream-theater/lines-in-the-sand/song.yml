@@ -2,8 +2,6 @@ metadata:
   title: Lines in the Sand
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 7
-  difficulty:
-    drums: 6
   author: Onyxite
   comments:
   - "Chart confidence: *high* (Jammit stems)."
@@ -15,21 +13,59 @@ jammit:
   jammit-track: {}
 plans:
   jammit:
-    each:
+    parts:
+      drums:
+        pad:
+          - 2.849
+          - fade:
+            - begin
+            - 4.180
+            - trim: [2.222, only: [Drums, jammit-track]]
+      bass:
+        pad:
+          - 2.849
+          - fade:
+            - begin
+            - 4.180
+            - trim: [2.222, only: [Bass, jammit-track]]
+      guitar:
+        pad:
+          - 2.849
+          - fade:
+            - begin
+            - 4.180
+            - trim:
+              - 2.222
+              - mix:
+                - only: [Guitar 1, jammit-track]
+                - only: [Guitar 2, jammit-track]
+    song:
       pad:
         - 2.849
         - fade:
           - begin
           - 4.180
-          - trim: [2.222, jammit-track]
+          - trim:
+            - 2.222
+            - mix:
+              - without: [drums, jammit-track]
+              - gain:
+                - -1
+                - mix:
+                  - only: [Bass, jammit-track]
+                  - only: [Guitar 1, jammit-track]
+                  - only: [Guitar 2, jammit-track]
   album:
     song:
       pad:
         - 2.510
         - fade: [begin, 4.261, album-track]
-instruments:
-  drums: true
-  guitar: true
-  bass: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      difficulty: 6
+  guitar:
+    grybo: {}
+  bass:
+    grybo: {}

@@ -2,8 +2,6 @@ metadata:
   title: Outcry
   file-include: ../../../albums/a-dramatic-turn-of-events.yml
   track-number: 6
-  difficulty:
-    drums: 7
   author: Onyxite
   comments:
   - >-
@@ -26,7 +24,8 @@ plans:
       7|2: hihat
       7|3: hihat
     song: album-track
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+      auto-2x-bass: true

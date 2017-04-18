@@ -10,20 +10,23 @@ metadata:
   track-number: 2
   key: F sharp
   autogen-theme: SynthPop
-  difficulty:
-    drums: 6
-    guitar: 5
-    pro-keys: 6
-    keys: 5
-    bass: 4
-    band: 6
+  difficulty: 6
   rating: FF
-instruments:
-  drums: true
-  guitar: true
-  pro-keys: true
-  keys: true
-  bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 6
+  bass:
+    grybo:
+      difficulty: 4
+  guitar:
+    grybo:
+      difficulty: 5
+  keys:
+    grybo:
+      difficulty: 5
+    pro-keys:
+      difficulty: 6
 audio:
   album-track:
     md5: 018040c351e8cad6ac1885de79041a45

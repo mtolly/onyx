@@ -8,20 +8,23 @@ metadata:
   subgenre: jrock
   rating: Family Friendly
   autogen-theme: Feel Good Pop Rock
-  difficulty:
-    drums: 6
-    pro-keys: 5
-    guitar: 5
-    bass: 5
-    keys: 5
-    band: 6
+  difficulty: 6
   key: E
-instruments:
-  drums: true
-  pro-keys: true
-  keys: true
-  guitar: true
-  bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 6
+  bass:
+    grybo:
+      difficulty: 5
+  guitar:
+    grybo:
+      difficulty: 5
+  keys:
+    grybo:
+      difficulty: 5
+    pro-keys:
+      difficulty: 5
 audio:
   album-track:
     file-path: audio-youtube.wav

@@ -12,13 +12,18 @@ plans:
   album:
     song:
       pad: [7.209, youtube]
-instruments:
-  drums: true
-  guitar: true
-  bass: true
-  vocal: 2
-  keys: true
-  pro-keys: true
-published: false
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+  guitar:
+    grybo: {}
+  bass:
+    grybo: {}
+  vocal:
+    vocal:
+      count: 2
+  keys:
+    grybo: {}
+    pro-keys: {}
+  

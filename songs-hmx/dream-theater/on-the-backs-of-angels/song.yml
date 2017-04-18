@@ -8,24 +8,7 @@ metadata:
   - "2x Bass Pedal and other minor drum edits by me."
   - "Chart confidence: *high*, from stems."
   difficulty:
-    drums:
-      rank: 463
-    guitar:
-      rank: 422
-    bass:
-      rank: 450
-    vocal:
-      rank: 189
-    keys:
-      rank: 495
-    pro-keys:
-      rank: 505
-    band:
-      rank: 445
-    pro-guitar:
-      rank: 461
-    pro-bass:
-      rank: 460
+    rank: 445
 audio:
   album-track:
     md5: 63dbffdd93645e41d4bf7413e6665c52
@@ -48,20 +31,46 @@ plans:
         - drop: [10.201, album-track]
   mogg:
     mogg-md5: 6d567a62087b53a3a93ad22df69f564f
-    drums: [0, 1, 2, 3, 4, 5]
-    bass: [6, 7]
-    guitar: [8, 9]
-    vocal: [10, 11]
-    keys: [12, 13]
     pans: [-1.0,  1.0, -1.0,  1.0, -1.0,  1.0, -1.0,  1.0, -1.0,  1.0, -1.0,  1.0, -1.0,  1.0, -1.0,  1.0]
     vols: [-5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -5.0, -4.5, -4.5, -5.0, -5.0]
-    drum-mix: 3
-instruments:
-  drums: true
-  bass: true
-  guitar: true
-  keys: true
-  pro-keys: true
-  vocal: 2
-  pro-guitar: true
-  pro-bass: true
+    parts:
+      drums:
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6, 7]
+      guitar: [8, 9]
+      vocal: [10, 11]
+      keys: [12, 13]
+parts:
+  drums:
+    drums:
+      difficulty:
+        rank: 463
+  bass:
+    grybo:
+      difficulty:
+        rank: 450
+    pro-guitar:
+      difficulty:
+        rank: 460
+  guitar:
+    grybo:
+      difficulty:
+        rank: 422
+    pro-guitar:
+      difficulty:
+        rank: 461
+  keys:
+    grybo:
+      difficulty:
+        rank: 495
+    pro-keys:
+      difficulty:
+        rank: 505
+  vocal:
+    vocal:
+      difficulty:
+        rank: 189
+      count: 2
+      gender: male

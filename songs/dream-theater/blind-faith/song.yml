@@ -3,19 +3,10 @@ metadata:
   file-include: ../../../albums/six-degrees-of-inner-turbulence.yml
   track-number: 2
   author: Mazegeek999, Onyxite, GHFreak46
-  drum-layout: flip-yb-toms # as demonstrated on ten degrees dvd
-  difficulty:
-    guitar: 7
-    pro-keys: 7
-    keys: 7
-    bass: 6
-    drums: 7
-    vocal: 4
-    band: 7
+  difficulty: 7
   autogen-theme: SynthPop
   key: D # choruses are in A
   rating: SR # ???
-  drum-kit: HardRockKit
   comments:
   - Pro keys by Mazegeek999, guitar by GHFreak46, and all other parts by Onyxite.
 audio:
@@ -26,13 +17,28 @@ plans:
   album:
     song:
       trim: [4.744, album-track]
-instruments:
-  drums: true # onyxite
-  guitar: true # GHFreak46
-  bass: true # onyxite
-  keys: true # onyxite
-  pro-keys: true # mazegeek999
-  vocal: 3 # onyxite
+parts:
+  drums:
+    drums: # onyxite
+      difficulty: 7
+      layout: flip-yb-toms # as demonstrated on ten degrees dvd
+      kit: HardRockKit
+  bass:
+    grybo: # onyxite
+      difficulty: 6
+  guitar:
+    grybo: # GHFreak46
+      difficulty: 7
+  keys:
+    grybo: # onyxite
+      difficulty: 7
+    pro-keys: # mazegeek999
+      difficulty: 7
+  vocal:
+    vocal: # onyxite
+      difficulty: 4
+      count: 3
+      gender: male
 targets:
   rb3:
     game: rb3

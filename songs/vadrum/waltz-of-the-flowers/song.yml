@@ -4,8 +4,6 @@ metadata:
   author: Onyxite
   album: Classical Drumming
   artist: Andrea Vadrucci (Vadrum)
-  difficulty:
-    drums: 5
   file-album-art: cover.jpg
   genre: classical
   subgenre: classical
@@ -27,7 +25,8 @@ plans:
       1|1.5: hihat
     song:
       pad: [3.649, album-track]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+      difficulty: 5

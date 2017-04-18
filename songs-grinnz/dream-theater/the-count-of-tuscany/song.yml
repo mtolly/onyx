@@ -54,10 +54,11 @@ plans:
     # 2:19 - 2:37: guitar is missing
     # 3:04 - 3:20: guitar is missing
     countin: *countin
-    drums:
-      pad:
-        - 2.496
-        - gain: [0.9, deluxe-drum]
+    parts:
+      drums:
+        pad:
+          - 2.496
+          - gain: [0.9, deluxe-drum]
     song:
       pad:
         - 2.496
@@ -69,7 +70,7 @@ plans:
             - gain: [1.0, deluxe-keys]
             - gain: [1.5, deluxe-solo]
             - gain: [2.6, deluxe-vocal]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true

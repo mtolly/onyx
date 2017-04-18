@@ -36,7 +36,7 @@ plans:
             - drop:
               - '10:54.968'
               - concatenate: [album-sun-of-nothing, album-ants-of-the-sky, album-prequel-to-the-sequel]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true

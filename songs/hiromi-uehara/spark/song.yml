@@ -3,13 +3,7 @@ metadata:
   file-include: ../../../albums/spark.yml
   author: Onyxite
   track-number: 1
-  difficulty:
-    band: 7
-    drums: 7
-    pro-keys: 7
-    keys: 7
-    bass: 3
-  drum-kit: HardRockKit
+  difficulty: 7
   preview-start: prc_chorus_1
   rating: FamilyFriendly
   key: A
@@ -32,11 +26,19 @@ plans:
       gain:
       - 1.1
       - pad: [4.823, album-track]
-instruments:
-  drums: true
-  pro-keys: true
-  keys: true
-  bass: true
+parts:
+  drums:
+    drums:
+      kit: HardRockKit
+      difficulty: 7
+  keys:
+    grybo:
+      difficulty: 7
+    pro-keys:
+      difficulty: 7
+  bass:
+    grybo:
+      difficulty: 3
 targets:
   # visualizer: http://i.imgur.com/J2aeifp.jpg
   # download: http://www.mediafire.com/?h2o57o26d6o8041

@@ -5,13 +5,7 @@ metadata:
   author: Onyxite
   key: B
   rating: FF
-  difficulty:
-    drums: 7
-    guitar: 5
-    bass: 4
-    pro-keys: 6
-    keys: 5
-    band: 6
+  difficulty: 6
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
@@ -30,12 +24,21 @@ plans:
       1|3: hihat
     song:
       pad: [4.143, album-track]
-instruments:
-  drums: true
-  guitar: true
-  bass: true
-  pro-keys: true
-  keys: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+  bass:
+    grybo:
+      difficulty: 4
+  guitar:
+    grybo:
+      difficulty: 5
+  keys:
+    grybo:
+      difficulty: 5
+    pro-keys:
+      difficulty: 6
 targets:
   rb3:
     game: rb3

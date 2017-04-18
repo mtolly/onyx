@@ -3,13 +3,7 @@ metadata:
   file-include: ../../../albums/nes-jams.yml
   track-number: 2
   author: Onyxite
-  difficulty:
-    pro-keys: 7
-    keys: 6
-    bass: 7
-    guitar: 6
-    drums: 7
-    band: 7
+  difficulty: 7
   key: G
   rating: FF
 audio:
@@ -29,12 +23,21 @@ plans:
       1|3: hihat
     song:
       pad: [2.957, album]
-instruments:
-  pro-keys: true
-  keys: true
-  bass: true
-  guitar: true
-  drums: true
+parts:
+  drums:
+    drums:
+      difficulty: 7
+  bass:
+    grybo:
+      difficulty: 7
+  guitar:
+    grybo:
+      difficulty: 6
+  keys:
+    grybo:
+      difficulty: 6
+    pro-keys:
+      difficulty: 7
 targets:
   rb3:
     game: rb3

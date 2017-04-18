@@ -30,6 +30,6 @@ plans:
         - pad:
           - 3.615
           - concatenate: [album-eyesdown, album-el-toro]
-instruments:
-  drums: true
-published: false
+parts:
+  drums:
+    drums: {}

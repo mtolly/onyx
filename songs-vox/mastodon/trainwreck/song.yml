@@ -14,10 +14,12 @@ plans:
       fade:
       - 11.111
       - trim: [27.714, youtube]
-instruments:
-  vocal: 2
-  drums: true
-  guitar: true
-published: false
-options:
-  auto-2x-bass: true
+parts:
+  vocal:
+    vocal:
+      count: 2
+  drums:
+    drums:
+      auto-2x-bass: true
+  guitar:
+    grybo: {}

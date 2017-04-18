@@ -32,7 +32,8 @@ plans:
           - drop:
             - '5:19.485'
             - concatenate: [album-the-decade-of-statues, album-informal-gluttony, album-sun-of-nothing]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+

@@ -19,13 +19,33 @@ jammit:
     title: "Metropolis Pt. 1"
 plans:
   jammit:
-    each: jammit-track
+    parts:
+      drums:
+        only: [Drums, jammit-track]
+      bass:
+        only: [Bass, jammit-track]
+      guitar:
+        mix:
+        - only: [Guitar 1, jammit-track]
+        - only: [Guitar 2, jammit-track]
+    song:
+      mix:
+        - without: [drums, jammit-track]
+        - gain:
+          - -1
+          - mix:
+            - only: [Bass, jammit-track]
+            - only: [Guitar 1, jammit-track]
+            - only: [Guitar 2, jammit-track]
+
   album:
     song:
       trim: [0.379, album-track]
-instruments:
-  drums: true
-  bass: true
-  guitar: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      auto-2x-bass: true
+  bass:
+    grybo: {}
+  guitar:
+    grybo: {}

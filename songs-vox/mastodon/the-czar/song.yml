@@ -12,8 +12,11 @@ plans:
   album:
     song:
       pad: [4.929, youtube]
-instruments:
-  vocal: 3
-  drums: true
-  guitar: true
-published: false
+parts:
+  vocal:
+    vocal:
+      count: 3
+  drums:
+    drums: {}
+  guitar:
+    grybo: {}

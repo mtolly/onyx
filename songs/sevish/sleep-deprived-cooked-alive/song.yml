@@ -78,64 +78,68 @@ plans:
       - pad:
         - 2.817
         - stem-crowd
-    guitar:
-      gain:
-      - 2.5
-      - pad:
-        - 2.817
-        - mix:
-          - pad: ['3:00', drop: ['3:00', stem-starpad-group]]
-          - stem-dulcimer
-          - stem-lead-descending
-          - stem-square
-    keys:
-      gain:
-      - 2.5
-      - pad:
-        - 2.817
-        - mix:
-          - take: ['3:00', stem-starpad-group]
-          - stem-vibes-group
-          - concatenate:
-            - take: [21, stem-strings-group]
-            - drop:
+    parts:
+      guitar:
+        gain:
+        - 2.5
+        - pad:
+          - 2.817
+          - mix:
+            - pad: ['3:00', drop: ['3:00', stem-starpad-group]]
+            - stem-dulcimer
+            - stem-lead-descending
+            - stem-square
+      keys:
+        gain:
+        - 2.5
+        - pad:
+          - 2.817
+          - mix:
+            - take: ['3:00', stem-starpad-group]
+            - stem-vibes-group
+            - concatenate:
+              - take: [21, stem-strings-group]
+              - drop:
+                - 21
+                # only left channel of strings
+                - merge:
+                  - channels:
+                    - [0]
+                    - stem-strings-group
+                  - silence: [1, 0]
+      bass:
+        gain:
+        - 2.5
+        - pad:
+          - 2.817
+          - mix:
+            - stem-bass-1
+            - stem-bass-dark-sub
+            - stem-bass-fm
+            - stem-bass-wide
+            - stem-stab
+            - pad:
               - 21
-              # only left channel of strings
-              - merge:
-                - channels:
-                  - [0]
-                  - stem-strings-group
-                - silence: [1, 0]
-    bass:
-      gain:
-      - 2.5
-      - pad:
-        - 2.817
-        - mix:
-          - stem-bass-1
-          - stem-bass-dark-sub
-          - stem-bass-fm
-          - stem-bass-wide
-          - stem-stab
-          - pad:
-            - 21
-            - drop:
-              - 21
-              # only right channel of strings
-              - merge:
-                - silence: [1, 0]
-                - channels:
-                  - [1]
-                  - stem-strings-group
-    drums:
-      gain:
-      - 2.5
-      - pad:
-        - 2.817
-        - stem-drums
-instruments:
-  drums: true
-  keys: true
-  bass: true
-  guitar: true
-published: false
+              - drop:
+                - 21
+                # only right channel of strings
+                - merge:
+                  - silence: [1, 0]
+                  - channels:
+                    - [1]
+                    - stem-strings-group
+      drums:
+        gain:
+        - 2.5
+        - pad:
+          - 2.817
+          - stem-drums
+parts:
+  drums:
+    drums: {}
+  keys:
+    grybo: {}
+  bass:
+    grybo: {}
+  guitar:
+    grybo: {}

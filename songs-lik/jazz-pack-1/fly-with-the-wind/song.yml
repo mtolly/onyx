@@ -1,36 +1,14 @@
-published: true
 plans:
   mogg:
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    drum-mix: 0
+    pans: [-1, 1, -1, 1]
     mogg-md5: cd683fc92fd291016e1b139d40a47674
-    drums:
-    - 0
-    - 1
-    vols:
-    - -1.5
-    - -1.5
-    - -3
-    - -3
+    parts:
+      drums: [0, 1]
+    vols: [-1.5, -1.5, -3, -3]
 metadata:
-  autogen-theme: AutogenDefault
-  rating: Unrated
-  preview-start: 0.0
-  vocal-gender: male
-  drum-kit: Hard Rock Kit
-  track-number: 0
-  year: 2009
-  subgenre: rock
   author: TheLieInKing
   title: Fly with the Wind
-  preview-end: 30
-  genre: rock
   artist: McCoy Tyner
-jammit: {}
-audio: {}
-instruments:
-  drums: true
+parts:
+  drums:
+    drums: {}

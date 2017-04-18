@@ -2,8 +2,6 @@ metadata:
   title: A Change of Seasons
   file-include: ../../../albums/a-change-of-seasons.yml
   track-number: 1
-  difficulty:
-    drums: 5
   author: Onyxite
 audio:
   album-track:
@@ -22,7 +20,8 @@ plans:
       1|3: hihat
     song:
       pad: [4.874, album-track]
-instruments:
-  drums: true
-options:
-  auto-2x-bass: true
+parts:
+  drums:
+    drums:
+      difficulty: 5
+      auto-2x-bass: true

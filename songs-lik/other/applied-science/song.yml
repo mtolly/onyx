@@ -4,7 +4,6 @@ metadata:
   album: Live
   track-number: 7
   year: 1998
-  vocal-gender: male
   genre: rock
   subgenre: rock
   author: TheLieInKing
@@ -39,5 +38,6 @@ plans:
             - start
             - 0.655
             - youtube
-instruments:
-  drums: true
+parts:
+  drums:
+    drums: {}
