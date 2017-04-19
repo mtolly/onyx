@@ -841,12 +841,12 @@ instance TraceJSON Target where
       _     -> fatal $ "Unrecognized target game: " ++ show target
 
 data SongYaml = SongYaml
-  { _metadata  :: Metadata
-  , _audio     :: Map.HashMap T.Text AudioFile
-  , _jammit    :: Map.HashMap T.Text JammitTrack
-  , _plans     :: Map.HashMap T.Text Plan
-  , _targets   :: Map.HashMap T.Text Target
-  , _parts     :: Parts Part
+  { _metadata :: Metadata
+  , _audio    :: Map.HashMap T.Text AudioFile
+  , _jammit   :: Map.HashMap T.Text JammitTrack
+  , _plans    :: Map.HashMap T.Text Plan
+  , _targets  :: Map.HashMap T.Text Target
+  , _parts    :: Parts Part
   } deriving (Eq, Show)
 
 instance TraceJSON SongYaml where

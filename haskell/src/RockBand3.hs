@@ -161,20 +161,22 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
             Right _ -> psPS
       guitarPart = either rb3_Guitar ps_Guitar target
       guitarMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart guitarPart trks
+      guitarSrc = RBFile.getFlexPart guitarPart trks
       guitarTrack = case getPart guitarPart songYaml >>= partGRYBO of
         Nothing -> RTB.empty
-        Just grybo -> (if guitarPart == RBFile.FlexKeys then Five.keysToGuitar (fromIntegral (gryboHopoThreshold grybo) / 480) else id)
+        Just grybo -> (if RBFile.flexFiveIsKeys guitarSrc then Five.keysToGuitar (fromIntegral (gryboHopoThreshold grybo) / 480) else id)
           $ (if gryboFixFreeform grybo then fixFreeformFive else id)
           $ gryboComplete (Just $ gryboHopoThreshold grybo) mmap
-          $ discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart guitarPart trks
+          $ discardPS $ RBFile.flexFiveButton guitarSrc
       bassPart = either rb3_Bass ps_Bass target
       bassMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart bassPart trks
+      bassSrc = RBFile.getFlexPart bassPart trks
       bassTrack = case getPart bassPart songYaml >>= partGRYBO of
         Nothing -> RTB.empty
-        Just grybo -> (if bassPart == RBFile.FlexKeys then Five.keysToGuitar (fromIntegral (gryboHopoThreshold grybo) / 480) else id)
+        Just grybo -> (if RBFile.flexFiveIsKeys bassSrc then Five.keysToGuitar $ fromIntegral (gryboHopoThreshold grybo) / 480 else id)
           $ (if gryboFixFreeform grybo then fixFreeformFive else id)
           $ gryboComplete (Just $ gryboHopoThreshold grybo) mmap
-          $ discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart bassPart trks
+          $ discardPS $ RBFile.flexFiveButton bassSrc
       (proGtr, proGtr22) = case getPart guitarPart songYaml >>= partProGuitar of
         Nothing -> (RTB.empty, RTB.empty)
         Just _pg -> let
@@ -195,9 +197,12 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
         Just part -> case (partGRYBO part, partProKeys part) of
           (Nothing, Nothing) -> (RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty)
           _ -> let
-            basicKeys = gryboComplete Nothing mmap $ if isJust $ partGRYBO part
-              then discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart keysPart trks
-              else expertProKeysToKeys keysExpert
+            basicKeysSrc = RBFile.getFlexPart keysPart trks
+            basicKeys = gryboComplete Nothing mmap $ case partGRYBO part of
+              Nothing -> expertProKeysToKeys keysExpert
+              Just grybo
+                -> (if RBFile.flexFiveIsKeys basicKeysSrc then id else Five.forceAllNotes $ fromIntegral (gryboHopoThreshold grybo) / 480)
+                $ discardPS $ RBFile.flexFiveButton basicKeysSrc
             keysDiff diff = if isJust $ partProKeys part
               then discardPS $ case diff of
                 Easy   -> RBFile.flexPartRealKeysE $ RBFile.getFlexPart keysPart trks

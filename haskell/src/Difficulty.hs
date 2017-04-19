@@ -41,8 +41,10 @@ difficultyRB3 TargetRB3{..} songYaml = let
   rb3BassRank      = simpleRank rb3_Bass   partGRYBO     gryboDifficulty bassDiffMap
   rb3GuitarRank    = simpleRank rb3_Guitar partGRYBO     gryboDifficulty guitarDiffMap
   rb3VocalRank     = simpleRank rb3_Vocal  partVocal     vocalDifficulty vocalDiffMap
-  rb3KeysRank      = simpleRank rb3_Keys   partGRYBO     gryboDifficulty keysDiffMap
-  rb3ProKeysRank   = simpleRank rb3_Keys   partProKeys   pkDifficulty    keysDiffMap
+  rb3KeysRank'     = simpleRank rb3_Keys   partGRYBO     gryboDifficulty keysDiffMap
+  rb3ProKeysRank'  = simpleRank rb3_Keys   partProKeys   pkDifficulty    keysDiffMap
+  rb3KeysRank      = if rb3KeysRank' == 0 then rb3ProKeysRank' else rb3KeysRank'
+  rb3ProKeysRank   = if rb3ProKeysRank' == 0 then rb3KeysRank' else rb3ProKeysRank'
   rb3ProBassRank   = simpleRank rb3_Bass   partProGuitar pgDifficulty    proBassDiffMap
   rb3ProGuitarRank = simpleRank rb3_Guitar partProGuitar pgDifficulty    proBassDiffMap
   rb3BandRank      = case _difficulty $ _metadata songYaml of

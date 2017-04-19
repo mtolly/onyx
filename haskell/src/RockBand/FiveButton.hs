@@ -228,8 +228,8 @@ guitarifyHOPO threshold keys rtb = let
     in (Just colors, Just (ntype, colors, len))
   in splitEdges $ trackState Nothing fn withForce
 
-keysToGuitar :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats Event
-keysToGuitar threshold evts = let
+eachDifficulty :: (NNC.C t) => (RTB.T t DiffEvent -> RTB.T t DiffEvent) -> RTB.T t Event -> RTB.T t Event
+eachDifficulty f evts = let
   getDiffEvent diff = \case
     DiffEvent d e | d == diff -> Just e
     _                         -> Nothing
@@ -237,6 +237,19 @@ keysToGuitar threshold evts = let
   (hard  , notHard  ) = RTB.partitionMaybe (getDiffEvent Hard  ) notExpert
   (medium, notMedium) = RTB.partitionMaybe (getDiffEvent Medium) notHard
   (easy  , notEasy  ) = RTB.partitionMaybe (getDiffEvent Easy  ) notMedium
+  in foldr RTB.merge RTB.empty
+    [ DiffEvent Expert <$> f expert
+    , DiffEvent Hard   <$> f hard
+    , DiffEvent Medium <$> f medium
+    , DiffEvent Easy   <$> f easy
+    , notEasy
+    ]
+
+-- | A similar process to what RB3 does when playing a keys chart on guitar.
+-- Namely, cuts off overlapping sustains, and applies auto-HOPOs even to chords.
+-- Not guaranteed to be exactly the same (RB3's algorithm is kind of buggy).
+keysToGuitar :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats Event
+keysToGuitar threshold = let
   forceNote ntype = RTB.fromPairList
     [ (0   , Force ntype True )
     , (1/32, Force ntype False)
@@ -245,13 +258,23 @@ keysToGuitar threshold evts = let
     Blip   ntype colors -> RTB.merge (forceNote ntype) $ foldr (RTB.cons 0) RTB.empty $ map (Note . Blip   ()) colors
     NoteOn ntype colors -> RTB.merge (forceNote ntype) $ foldr (RTB.cons 0) RTB.empty $ map (Note . NoteOn ()) colors
     NoteOff      colors ->                               foldr (RTB.cons 0) RTB.empty $ map (Note . NoteOff  ) colors
-  in foldr RTB.merge RTB.empty
-    [ DiffEvent Expert <$> longToEvents (guitarifyHOPO threshold True expert)
-    , DiffEvent Hard   <$> longToEvents (guitarifyHOPO threshold True hard  )
-    , DiffEvent Medium <$> longToEvents (guitarifyHOPO threshold True medium)
-    , DiffEvent Easy   <$> longToEvents (guitarifyHOPO threshold True easy  )
-    , notEasy
+  in eachDifficulty $ longToEvents . guitarifyHOPO threshold True
+
+-- | Adds force events to every note according to the normal guitar (not keys) algorithm,
+-- so that the keytar algorithm does not apply when placing a guitar-authored part on @PART KEYS@.
+forceAllNotes :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats Event
+forceAllNotes threshold = eachDifficulty $ \diff -> let
+  isForce = \case Force{} -> True; _ -> False
+  forceNote ntype = RTB.fromPairList
+    [ (0   , Force ntype True )
+    , (1/32, Force ntype False)
     ]
+  longToEvents longs = U.trackJoin $ flip fmap longs $ \case
+    Blip   ntype _ -> forceNote ntype
+    NoteOn ntype _ -> forceNote ntype
+    NoteOff      _ -> RTB.empty
+  in RTB.merge (RTB.filter (not . isForce) diff)
+    $ longToEvents $ guitarifyHOPO threshold False diff
 
 unparseNice :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats E.T
 unparseNice defLength = U.trackJoin . fmap unparseOne . showBlipsNice defLength
