@@ -897,19 +897,25 @@ shakeBuild audioDirs yamlPath buildables = do
               midi <- shakeMIDI pathMagmaMid
               c3 <- makeC3 songYaml plan rb3 midi pkg
               liftIO $ TIO.writeFile out $ C3.showC3 c3
-            phony pathMagmaSetup $ need $ concat
-              -- Just make all the Magma prereqs, but don't actually run Magma
-              [ guard (maybe False (/= def) $ getPart (rb3_Drums  rb3) songYaml) >> [pathMagmaDrums, pathMagmaKick, pathMagmaSnare]
-              , guard (maybe False (/= def) $ getPart (rb3_Bass   rb3) songYaml) >> [pathMagmaBass  ]
-              , guard (maybe False (/= def) $ getPart (rb3_Guitar rb3) songYaml) >> [pathMagmaGuitar]
-              , guard (maybe False (/= def) $ getPart (rb3_Keys   rb3) songYaml) >> [pathMagmaKeys  ]
-              , case fmap vocalCount $ getPart (rb3_Vocal rb3) songYaml >>= partVocal of
-                Nothing     -> []
-                Just Vocal1 -> [pathMagmaVocal, pathMagmaDryvox0]
-                Just Vocal2 -> [pathMagmaVocal, pathMagmaDryvox1, pathMagmaDryvox2]
-                Just Vocal3 -> [pathMagmaVocal, pathMagmaDryvox1, pathMagmaDryvox2, pathMagmaDryvox3]
-              , [pathMagmaSong, pathMagmaCrowd, pathMagmaCover, pathMagmaMid, pathMagmaProj, pathMagmaC3]
-              ]
+            phony pathMagmaSetup $ shakeTrace $ do
+              ((kickSpec, snareSpec, _), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
+              lift $ need $ concat
+                -- Just make all the Magma prereqs, but don't actually run Magma
+                [ guard (maybe False (/= def) $ getPart (rb3_Drums  rb3) songYaml) >> concat
+                  [ [pathMagmaDrums]
+                  , [pathMagmaKick | not $ null kickSpec]
+                  , [pathMagmaSnare | not $ null snareSpec]
+                  ]
+                , guard (maybe False (/= def) $ getPart (rb3_Bass   rb3) songYaml) >> [pathMagmaBass  ]
+                , guard (maybe False (/= def) $ getPart (rb3_Guitar rb3) songYaml) >> [pathMagmaGuitar]
+                , guard (maybe False (/= def) $ getPart (rb3_Keys   rb3) songYaml) >> [pathMagmaKeys  ]
+                , case fmap vocalCount $ getPart (rb3_Vocal rb3) songYaml >>= partVocal of
+                  Nothing     -> []
+                  Just Vocal1 -> [pathMagmaVocal, pathMagmaDryvox0]
+                  Just Vocal2 -> [pathMagmaVocal, pathMagmaDryvox1, pathMagmaDryvox2]
+                  Just Vocal3 -> [pathMagmaVocal, pathMagmaDryvox1, pathMagmaDryvox2, pathMagmaDryvox3]
+                , [pathMagmaSong, pathMagmaCrowd, pathMagmaCover, pathMagmaMid, pathMagmaProj, pathMagmaC3]
+                ]
             pathMagmaRba ≡> \out -> do
               lift $ need [pathMagmaSetup]
               lift $ putNormal "# Running Magma v2 (C3)"
