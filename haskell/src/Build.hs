@@ -779,8 +779,8 @@ shakeBuild audioDirs yamlPath buildables = do
               MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] planName (zip _pans _vols) _moggCrowd
               Plan{..}     -> buildAudioToSpec songYaml [(-1, 0), (1, 0)] _crowd
             lift $ runAudio src out
-          writeSongCountin :: T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> StackTraceT Action ()
-          writeSongCountin planName plan fparts out = do
+          writeSongCountin :: Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> StackTraceT Action ()
+          writeSongCountin includeCountin planName plan fparts out = do
             let usedParts = [ fpart | (fpart, rank) <- fparts, rank /= 0 ]
                 spec = [(-1, 0), (1, 0)]
             src <- case plan of
@@ -796,10 +796,16 @@ shakeBuild audioDirs yamlPath buildables = do
                 partAudios = maybe id (\pa -> (PartSingle pa :)) _song unusedParts
                 countinPath = "gen/plan" </> T.unpack planName </> "countin.wav"
                 in do
-                  lift $ need [countinPath]
-                  countinSrc <- lift $ buildSource $ Input countinPath
                   unusedSrcs <- mapM (buildPartAudioToSpec songYaml spec . Just) partAudios
-                  return $ foldr mix countinSrc unusedSrcs
+                  if includeCountin
+                    then do
+                      lift $ need [countinPath]
+                      countinSrc <- lift $ buildSource $ Input countinPath
+                      return $ foldr mix countinSrc unusedSrcs
+                    else case unusedSrcs of
+                      []     -> buildPartAudioToSpec songYaml spec Nothing
+                      s : ss -> return $ foldr mix s ss
+
             lift $ runAudio src out
 
           rbRules :: FilePath -> T.Text -> TargetRB3 -> Maybe TargetRB2 -> Rules ()
@@ -849,7 +855,7 @@ shakeBuild audioDirs yamlPath buildables = do
             pathMagmaKeys   ≡> writeSimplePart  planName plan (rb3_Keys   rb3) rb3KeysRank
             pathMagmaVocal  ≡> writeSimplePart  planName plan (rb3_Vocal  rb3) rb3VocalRank
             pathMagmaCrowd  ≡> writeCrowd       planName plan
-            pathMagmaSong   ≡> writeSongCountin planName plan
+            pathMagmaSong   ≡> writeSongCountin True planName plan
               [ (rb3_Drums  rb3, rb3DrumsRank )
               , (rb3_Guitar rb3, rb3GuitarRank)
               , (rb3_Bass   rb3, rb3BassRank  )
@@ -1469,7 +1475,7 @@ shakeBuild audioDirs yamlPath buildables = do
             dir </> "ps/rhythm.ogg"  ≡> writeSimplePart  planName plan (ps_Bass   ps) rb3BassRank
             dir </> "ps/vocals.ogg"  ≡> writeSimplePart  planName plan (ps_Vocal  ps) rb3VocalRank
             dir </> "ps/crowd.ogg"   ≡> writeCrowd       planName plan
-            dir </> "ps/song.ogg"    ≡> writeSongCountin planName plan
+            dir </> "ps/song.ogg"    ≡> writeSongCountin True planName plan
               [ (ps_Drums  ps, rb3DrumsRank )
               , (ps_Guitar ps, rb3GuitarRank)
               , (ps_Bass   ps, rb3BassRank  )
@@ -1523,18 +1529,51 @@ shakeBuild audioDirs yamlPath buildables = do
 
         let dir = "gen/plan" </> T.unpack planName
 
+        -- plan audio, currently only used for REAPER project
+        let allPlanParts :: [(RBFile.FlexPartName, PartAudio ())]
+            allPlanParts = case plan of
+              Plan{..}     -> HM.toList $ getParts $ fmap (const ()) <$> _planParts
+              MoggPlan{..} -> HM.toList $ getParts $ fmap (const ()) <$> _moggParts
+        dir </> "song.wav" ≡>
+          writeSongCountin False planName plan [ (fpart, 1) | (fpart, _) <- allPlanParts ]
+        dir </> "crowd.wav" ≡> writeCrowd planName plan
+        forM_ allPlanParts $ \(fpart, pa) -> do
+          let name = T.unpack $ RBFile.getPartName fpart
+          case pa of
+            PartSingle () -> do
+              dir </> name <.> "wav" ≡> writeSimplePart planName plan fpart 1
+            PartDrumKit mkick msnare () -> do
+              forM_ mkick $ \() -> do
+                dir </> (name ++ "-kick") <.> "wav" ≡>
+                  writeKick planName plan fpart 1
+              forM_ msnare $ \() -> do
+                dir </> (name ++ "-snare") <.> "wav" ≡>
+                  writeSnare planName plan fpart 1
+              dir </> (name ++ "-kit") <.> "wav" ≡>
+                writeKit planName plan fpart 1
+        let allPlanAudio :: [FilePath]
+            allPlanAudio = map (dir </>) $ concat
+              [ [ "song.wav" ]
+              , [ "crowd.wav"
+                | case plan of Plan{..} -> isJust _crowd; MoggPlan{..} -> not $ null _moggCrowd
+                ]
+              , allPlanParts >>= \(fpart, pa) -> let
+                name = T.unpack $ RBFile.getPartName fpart
+                in case pa of
+                  PartSingle () -> [name <.> "wav"]
+                  PartDrumKit mkick msnare () -> concat
+                    [ map (\() -> (name ++ "-kick") <.> "wav") $ toList mkick
+                    , map (\() -> (name ++ "-snare") <.> "wav") $ toList msnare
+                    , [(name ++ "-kit") <.> "wav"]
+                    ]
+              ]
+
         -- REAPER project
         "notes-" ++ T.unpack planName ++ ".RPP" %> \out -> do
-          let audios = map (\x -> "gen/plan" </> T.unpack planName </> x <.> "wav")
-                $ ["guitar", "bass", "drums", "kick", "snare", "keys", "vocal", "crowd"] ++ case plan of
-                  MoggPlan{} -> ["song-countin"]
-                  _          -> ["song"]
-                  -- Previously this relied on countin,
-                  -- but it's better to not have to generate gen/plan/foo/xp/notes.mid
-              extraTempo = "tempo-" ++ T.unpack planName ++ ".mid"
+          let extraTempo = "tempo-" ++ T.unpack planName ++ ".mid"
           b <- doesFileExist extraTempo
           let tempo = if b then extraTempo else "gen/notes.mid"
-          makeReaper "gen/notes.mid" tempo audios out
+          makeReaper "gen/notes.mid" tempo allPlanAudio out
 
         dir </> "web/song.js" %> \out -> do
           let json = dir </> "display.json"
@@ -1660,11 +1699,13 @@ shakeBuild audioDirs yamlPath buildables = do
             putNormal $ "Finished writing a crappy audio file to " ++ out
 
         -- Warn about notes that might hang off before a pro keys range shift
+        -- TODO flex parts
         phony (dir </> "hanging") $ shakeTrace $ do
           song <- shakeMIDI midprocessed
           lift $ putNormal $ closeShiftsFile song
 
         -- Print out a summary of (non-vocal) overdrive and unison phrases
+        -- TODO flex parts
         phony (dir </> "overdrive") $ shakeTrace $ printOverdrive midprocessed
 
         -- Melody's Escape customs
