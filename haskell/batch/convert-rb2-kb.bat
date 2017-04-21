@@ -1,2 +1,2 @@
-"%~dp0onyx.exe" convert-rb2-kb %1
+"%~dp0onyx.exe" convert %1 --game rb2 --keys-on-bass
 IF %ERRORLEVEL% NEQ 0 (pause)

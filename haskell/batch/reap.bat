@@ -1,2 +1,2 @@
-"%~dp0onyx.exe" rpp %1
+"%~dp0onyx.exe" reap %1
 IF %ERRORLEVEL% NEQ 0 (pause)

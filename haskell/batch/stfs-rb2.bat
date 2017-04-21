@@ -1,2 +1,2 @@
-"%~dp0onyx.exe" stfs-rb2 %1
+"%~dp0onyx.exe" stfs %1 --game rb2
 IF %ERRORLEVEL% NEQ 0 (pause)

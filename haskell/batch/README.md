@@ -50,7 +50,7 @@ Even if Magma fails, the song should (in theory) work; you just won't get lipsyn
 
   * `mogg.bat` (takes .ogg, creates .mogg)
 
-  * `rpp.bat` (takes MIDI file, creates Reaper project)
+  * `reap.bat` (takes MIDI file, creates Reaper project)
 
     Imports a MIDI file into a Reaper project.
     Avoids a few bugs in Reaper's own MIDI import function.
