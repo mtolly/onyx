@@ -417,7 +417,7 @@ commands =
       FileRBProj -> undone
       FileSTFS -> tempDir "onyx_player" $ \tmp -> do
         out <- outputFile opts $ return $ fpath ++ "_player"
-        importSTFS NoKeys fpath tmp
+        importSTFS NoKeys fpath Nothing tmp
         let player = "gen/plan/mogg/web"
         shakeBuild [tmp] (tmp </> "song.yml") [player]
         liftIO $ Dir.createDirectoryIfMissing False out
@@ -425,7 +425,7 @@ commands =
         unless (elem OptNoOpen opts) $ osOpenFile $ out </> "index.html"
       FileRBA -> tempDir "onyx_player" $ \tmp -> do
         out <- outputFile opts $ return $ fpath ++ "_player"
-        importRBA NoKeys fpath tmp
+        importRBA NoKeys fpath Nothing tmp
         let player = "gen/plan/mogg/web"
         shakeBuild [tmp] (tmp </> "song.yml") [player]
         liftIO $ Dir.createDirectoryIfMissing False out
@@ -471,17 +471,18 @@ commands =
     { commandWord = "import"
     , commandDesc = "Import a file into onyx's project format."
     , commandUsage = ""
-    -- TODO: support --2x
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
       FileRBProj -> undone
       FileSTFS -> do
         out <- outputFile opts $ return $ fpath ++ "_import"
         liftIO $ Dir.createDirectoryIfMissing False out
-        importSTFS (getKeysRB2 opts) fpath out
+        let f2x = listToMaybe [ f | Opt2x f <- opts ]
+        importSTFS (getKeysRB2 opts) fpath f2x out
       FileRBA -> do
         out <- outputFile opts $ return $ fpath ++ "_import"
         liftIO $ Dir.createDirectoryIfMissing False out
-        importRBA (getKeysRB2 opts) fpath out
+        let f2x = listToMaybe [ f | Opt2x f <- opts ]
+        importRBA (getKeysRB2 opts) fpath f2x out
       FilePS -> do
         out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
         liftIO $ Dir.createDirectoryIfMissing False out
@@ -509,8 +510,8 @@ commands =
           simpleRBAtoCON fpath out >>= liftIO . putStrLn
         else do
           case ftype of
-            FileSTFS -> importSTFS (getKeysRB2 opts) fpath tmp
-            FileRBA  -> importRBA (getKeysRB2 opts) fpath tmp
+            FileSTFS -> importSTFS (getKeysRB2 opts) fpath Nothing tmp
+            FileRBA  -> importRBA (getKeysRB2 opts) fpath Nothing tmp
             FilePS   -> importFoF (getKeysRB2 opts) (takeDirectory fpath) tmp
             FileZip  -> undone
             _        -> unrecognized ftype fpath

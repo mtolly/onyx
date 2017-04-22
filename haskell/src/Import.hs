@@ -398,8 +398,8 @@ determine2xBass s = case T.stripSuffix " (2x Bass Pedal)" s <|> T.stripSuffix " 
   Nothing -> (s , False)
   Just s' -> (s', True )
 
-importSTFS :: (MonadIO m) => KeysRB2 -> FilePath -> FilePath -> StackTraceT m ()
-importSTFS krb2 file dir = tempDir "onyx_con" $ \temp -> do
+importSTFS :: (MonadIO m) => KeysRB2 -> FilePath -> Maybe FilePath -> FilePath -> StackTraceT m ()
+importSTFS krb2 file file2x dir = tempDir "onyx_con" $ \temp -> do
   liftIO $ extractSTFS file temp
   DTASingle _ pkg comments <- readDTASingle $ temp </> "songs/songs.dta"
   let c3Title = fromMaybe (D.name pkg) $ c3dtaSong comments
@@ -423,16 +423,17 @@ importSTFS krb2 file dir = tempDir "onyx_con" $ \temp -> do
       -- where foo is the top key of songs.dta. foo can be different!
       -- e.g. C3's "Escape from the City" has a top key 'SonicAdvCityEscape2x'
       -- and a 'name' of "songs/sonicadv2cityescape2x/sonicadv2cityescape2x"
-  importRB3 krb2 pkg
-    meta
-    karaoke
-    multitrack
-    is2x
-    (temp </> base <.> "mid")
-    (temp </> base <.> "mogg")
-    (temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox"))
-    "cover.png_xbox"
-    dir
+      with2xPath maybe2x = importRB3 krb2 pkg meta karaoke multitrack is2x
+        (temp </> base <.> "mid") maybe2x (temp </> base <.> "mogg")
+        (temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox"))
+        "cover.png_xbox" dir
+  case file2x of
+    Nothing -> with2xPath Nothing
+    Just f2x -> tempDir "onyx_con2x" $ \temp2x -> do
+      liftIO $ extractSTFS f2x temp2x
+      DTASingle _ pkg2x _ <- readDTASingle $ temp2x </> "songs/songs.dta"
+      let base2x = T.unpack $ D.songName $ D.song pkg2x
+      with2xPath $ Just $ temp2x </> base2x <.> "mid"
 
 -- | Converts a Magma v2 RBA to CON without going through an import + recompile.
 simpleRBAtoCON :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m String
@@ -492,8 +493,8 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
     let label = D.name pkg <> " (" <> D.artist pkg <> ")"
     rb3pkg label label temp con
 
-importRBA :: (MonadIO m) => KeysRB2 -> FilePath -> FilePath -> StackTraceT m ()
-importRBA krb2 file dir = tempDir "onyx_rba" $ \temp -> do
+importRBA :: (MonadIO m) => KeysRB2 -> FilePath -> Maybe FilePath -> FilePath -> StackTraceT m ()
+importRBA krb2 file file2x dir = tempDir "onyx_rba" $ \temp -> do
   getRBAFile 0 file $ temp </> "songs.dta"
   getRBAFile 1 file $ temp </> "notes.mid"
   getRBAFile 2 file $ temp </> "audio.mogg"
@@ -515,25 +516,32 @@ importRBA krb2 file dir = tempDir "onyx_rba" $ \temp -> do
         { _author = author
         , _title = Just title
         }
-  importRB3 krb2 pkg
-    meta
-    False
-    True
-    is2x
-    (temp </> "notes.mid")
-    (temp </> "audio.mogg")
-    (temp </> "cover.bmp")
-    "cover.bmp"
-    dir
+  mid2x <- forM file2x $ \f2x -> do
+    let mid2x = temp </> "notes-2x.mid"
+    getRBAFile 1 f2x mid2x
+    return mid2x
+  importRB3 krb2 pkg meta False True is2x
+    (temp </> "notes.mid") mid2x (temp </> "audio.mogg")
+    (temp </> "cover.bmp") "cover.bmp" dir
 
 -- | Collects the contents of an RBA or CON file into an Onyx project.
-importRB3 :: (MonadIO m) => KeysRB2 -> D.SongPackage -> Metadata -> Bool -> Bool -> Bool -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
-importRB3 krb2 pkg meta karaoke multitrack is2x mid mogg cover coverName dir = do
+importRB3 :: (MonadIO m) => KeysRB2 -> D.SongPackage -> Metadata -> Bool -> Bool -> Bool -> FilePath -> Maybe FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
+importRB3 krb2 pkg meta karaoke multitrack is2x mid mid2x mogg cover coverName dir = do
   liftIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
-  liftIO $ Dir.copyFile mid $ dir </> "notes.mid"
+  case mid2x of
+    Nothing  -> liftIO $ Dir.copyFile mid $ dir </> "notes.mid"
+    Just f2x -> do
+      RBFile.Song temps sigs (RBFile.RawFile trks1x) <- liftIO (Load.fromFile mid) >>= RBFile.readMIDIFile'
+      RBFile.Song _     _    (RBFile.RawFile trks2x) <- liftIO (Load.fromFile f2x) >>= RBFile.readMIDIFile'
+      let trks = trks1x ++ mapMaybe make2xTrack trks2x
+          make2xTrack trk = case U.trackName trk of
+            Just "PART DRUMS" -> Just $ U.setTrackName "PART DRUMS_2X" trk
+            _                 -> Nothing
+      liftIO $ Save.toFile (dir </> "notes.mid") $ RBFile.showMIDIFile'
+        $ RBFile.Song temps sigs $ RBFile.RawFile trks
   liftIO $ Dir.copyFile cover $ dir </> coverName
   md5 <- liftIO $ show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
-  rb3mid <- liftIO (Load.fromFile $ dir </> "notes.mid") >>= RBFile.readMIDIFile'
+  rb3mid <- liftIO (Load.fromFile mid) >>= RBFile.readMIDIFile'
   drumkit <- case D.drumBank pkg of
     Nothing -> return HardRockKit
     Just x -> case x of
