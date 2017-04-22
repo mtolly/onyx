@@ -1,0 +1,35 @@
+metadata:
+  title: Freedom of Speech
+  file-include: ../../../albums/liquid-tension-experiment.yml
+  track-number: 5
+  rating: Family Friendly
+  author: Onyxite
+  key: D
+audio:
+  album-track:
+    md5: 2679a29c9975adcf2334ef77842fa2dc
+    frames: 24667776
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
+    song:
+      pad: [6.419, album-track]
+parts:
+  drums:
+    drums: {}
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
