@@ -306,7 +306,7 @@ renderMask tags seams (AudioSource s r c l) = let
 
 buildSource :: (MonadResource m) =>
   Audio Duration FilePath -> Action (AudioSource m Float)
-buildSource aud = case aud of
+buildSource aud = need (toList aud) >> case aud of
   -- optimizations
   Drop Start t (Input fin) -> liftIO $ sourceSndFrom t fin
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource $ Resample $ Drop Start (Seconds s) (Input fin)
@@ -343,7 +343,6 @@ buildSource aud = case aud of
 -- | Assumes 16-bit 44100 Hz audio files.
 buildAudio :: Audio Duration FilePath -> FilePath -> Action ()
 buildAudio aud out = do
-  need $ toList aud
   src <- buildSource aud
   runAudio src out
 
@@ -352,7 +351,7 @@ runAudio src out = do
   let fmt = case takeExtension out of
         ".ogg" -> Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
         ".wav" -> Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-        ext -> error $ "buildAudio: unknown audio output file extension " ++ ext
+        ext -> error $ "runAudio: unknown audio output file extension " ++ ext
       src' = if takeExtension out == ".ogg" && channels src == 6
         then merge src $ silent (Frames 0) (rate src) 1
         -- this works around an issue with oggenc:

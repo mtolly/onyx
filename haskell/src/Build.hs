@@ -799,7 +799,6 @@ shakeBuild audioDirs yamlPath buildables = do
                   unusedSrcs <- mapM (buildPartAudioToSpec songYaml spec . Just) partAudios
                   if includeCountin
                     then do
-                      lift $ need [countinPath]
                       countinSrc <- lift $ buildSource $ Input countinPath
                       return $ foldr mix countinSrc unusedSrcs
                     else case unusedSrcs of
@@ -865,12 +864,9 @@ shakeBuild audioDirs yamlPath buildables = do
             let saveClip m out vox = lift $ do
                   let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
                       clip = clipDryVox $ U.applyTempoTrack (RBFile.s_tempos m) $ vocalTubes vox
-                  need [pathMagmaVocal]
-                  unclippedVox <- liftIO $ sourceSnd pathMagmaVocal
+                  unclippedVox <- buildSource $ Input pathMagmaVocal
                   unclipped <- case frames unclippedVox of
-                    0 -> do
-                      need [pathMagmaSong]
-                      liftIO $ sourceSnd pathMagmaSong
+                    0 -> buildSource $ Input pathMagmaSong
                     _ -> return unclippedVox
                   putNormal $ "Writing a clipped dry vocals file to " ++ out
                   liftIO $ runResourceT $ sinkSnd out fmt $ toDryVoxFormat $ clip unclipped
@@ -1041,7 +1037,6 @@ shakeBuild audioDirs yamlPath buildables = do
                       , [pathMagmaSong]
                       ]
                 lift $ do
-                  need parts
                   src <- buildSource $ Merge $ map Input parts
                   runAudio src out
             pathMogg ≡> \out -> case plan of
@@ -1593,9 +1588,7 @@ shakeBuild audioDirs yamlPath buildables = do
 
         dir </> "everything.wav" ≡> \out -> case plan of
           MoggPlan{..} -> lift $ do
-            let ogg = dir </> "audio.ogg"
-            need [ogg]
-            src <- liftIO $ sourceSnd ogg
+            src <- buildSource $ Input $ dir </> "audio.ogg"
             runAudio (applyPansVols (map realToFrac _pans) (map realToFrac _vols) src) out
           Plan{..} -> do
             let planAudios = concat
@@ -1604,17 +1597,13 @@ shakeBuild audioDirs yamlPath buildables = do
                   , toList _planParts >>= toList
                   ]
             srcs <- mapM (buildAudioToSpec songYaml [(-1, 0), (1, 0)] . Just) planAudios
-            let mixed = case srcs of
-                  []     -> silent (Frames 0) 44100 2
-                  s : ss -> foldr mix s ss
-            lift $ runAudio mixed out
+            count <- lift $ buildSource $ Input $ dir </> "countin.wav"
+            lift $ runAudio (foldr mix count srcs) out
         dir </> "everything.ogg" %> buildAudio (Input $ dir </> "everything.wav")
 
         dir </> "everything-mono.wav" %> \out -> case plan of
           MoggPlan{..} -> do
-            let ogg = dir </> "audio.ogg"
-            need [ogg]
-            src <- liftIO $ sourceSnd ogg
+            src <- buildSource $ Input $ dir </> "audio.ogg"
             runAudio (applyVolsMono (map realToFrac _vols) src) out
           Plan{..} -> do
             let planAudios = concat
@@ -1630,10 +1619,10 @@ shakeBuild audioDirs yamlPath buildables = do
               in do
                 src <- fmap join $ mapM (manualLeaf songYaml) $ _planExpr pa
                 fmap (applyVolsMono vols) $ buildSource src
-            let mixed = case srcs of
-                  []     -> silent (Frames 0) 44100 1
-                  s : ss -> foldr mix s ss
-            runAudio mixed out
+            count <- do
+              csrc <- buildSource $ Input $ dir </> "countin.wav"
+              return $ applyVolsMono [0, 0] csrc
+            runAudio (foldr mix count srcs) out
 
         -- MIDI files
 
@@ -1692,8 +1681,7 @@ shakeBuild audioDirs yamlPath buildables = do
         -- Low-quality audio files for the online preview app
         forM_ [("mp3", crapMP3), ("ogg", crapVorbis)] $ \(ext, crap) -> do
           dir </> "web/preview-audio" <.> ext %> \out -> do
-            need [dir </> "everything-mono.wav"]
-            src <- liftIO $ sourceSnd $ dir </> "everything-mono.wav"
+            src <- buildSource $ Input $ dir </> "everything-mono.wav"
             putNormal $ "Writing a crappy audio file to " ++ out
             liftIO $ runResourceT $ crap out src
             putNormal $ "Finished writing a crappy audio file to " ++ out

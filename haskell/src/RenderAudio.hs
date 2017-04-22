@@ -236,7 +236,6 @@ channelsToSpec
 channelsToSpec pvOut planName pvIn chans = inside "conforming MOGG channels to output spec" $ do
   let partPVIn = map (pvIn !!) chans
       mogg = "gen/plan" </> T.unpack planName </> "audio.ogg"
-  lift $ need [mogg]
   src <- lift $ buildSource $ case chans of
     [] -> Silence 1 $ Frames 0
     _  -> Channels chans $ Input mogg
@@ -252,10 +251,7 @@ buildAudioToSpec songYaml pvOut mpa = inside "conforming audio file to output sp
   (expr, pans, vols) <- completePlanAudio songYaml $ case mpa of
     Nothing -> PlanAudio (Silence 1 $ Frames 0) [] []
     Just pa -> pa
-  src <- lift $ do
-    aud <- join <$> mapM (manualLeaf songYaml) expr
-    need $ toList aud
-    buildSource aud
+  src <- lift $ mapM (manualLeaf songYaml) expr >>= buildSource . join
   fitToSpec (zip pans vols) pvOut src
 
 buildPartAudioToSpec
