@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                       #-}
 {-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE MultiWayIf                #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
@@ -1045,7 +1046,18 @@ shakeBuild audioDirs yamlPath buildables = do
                 lift $ need [pathOgg]
                 Magma.oggToMogg pathOgg out
             pathPng  %> copyFile' "gen/cover.png_xbox"
-            pathMilo %> \out -> liftIO $ B.writeFile out emptyMilo
+            pathMilo %> \out -> do
+#ifdef WINDOWS
+              -- TODO: make sure onyx itself isn't running in Wine
+              let isWindows = True
+#else
+              let isWindows = False
+#endif
+              if isWindows
+                then do
+                  need [pathMagmaRba]
+                  liftIO $ Magma.getRBAFile 3 pathMagmaRba out
+                else liftIO $ B.writeFile out emptyMilo
             pathCon ≡> \out -> do
               lift $ need [pathDta, pathMid, pathMogg, pathPng, pathMilo]
               lift $ putNormal "# Calling rb3pkg to make RB3 CON file"
