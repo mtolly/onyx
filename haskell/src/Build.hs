@@ -1053,7 +1053,7 @@ shakeBuild audioDirs yamlPath buildables = do
 #else
               let isWindows = False
 #endif
-              if isWindows
+              if isWindows && rb3VocalRank /= 0
                 then do
                   need [pathMagmaRba]
                   liftIO $ Magma.getRBAFile 3 pathMagmaRba out
