@@ -62,3 +62,33 @@ difficultyRB3 TargetRB3{..} songYaml = let
   rb3BandTier      = rankToTier bandDiffMap      rb3BandRank
 
   in DifficultyRB3{..}
+
+data DifficultyPS = DifficultyPS
+  { psDifficultyRB3  :: DifficultyRB3
+  , psRhythmTier     :: Integer
+  , psGuitarCoopTier :: Integer
+  } deriving (Eq, Ord, Show, Read)
+
+difficultyPS :: TargetPS -> SongYaml -> DifficultyPS
+difficultyPS TargetPS{..} songYaml = let
+  rb3 = TargetRB3
+    { rb3_Drums = ps_Drums
+    , rb3_Guitar = ps_Guitar
+    , rb3_Keys = ps_Keys
+    , rb3_Vocal = ps_Vocal
+    , rb3_Bass = ps_Bass
+    , rb3_Plan = ps_Plan
+    , rb3_Label = ps_Label
+    , rb3_2xBassPedal = False
+    , rb3_SongID = Nothing
+    , rb3_Version = Nothing
+    }
+  psDifficultyRB3 = difficultyRB3 rb3 songYaml
+  simpleTier flex getMode getDiff dmap = case getPart flex songYaml >>= getMode of
+    Nothing -> 0
+    Just mode -> case getDiff mode of
+      Tier t -> t
+      Rank r -> rankToTier dmap r
+  psRhythmTier     = simpleTier ps_Rhythm     partGRYBO gryboDifficulty guitarDiffMap
+  psGuitarCoopTier = simpleTier ps_GuitarCoop partGRYBO gryboDifficulty guitarDiffMap
+  in DifficultyPS{..}

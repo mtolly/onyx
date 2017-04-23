@@ -812,7 +812,8 @@ jsonRecord "TargetPS" eosr $ do
   opt "ps_Drums" "drums" [t| FlexPartName |] [e| FlexDrums |]
   opt "ps_Keys" "keys" [t| FlexPartName |] [e| FlexKeys |]
   opt "ps_Vocal" "vocal" [t| FlexPartName |] [e| FlexVocal |]
-  -- TODO non-rb3 parts: rhythm, coop guitar
+  opt "ps_Rhythm" "rhythm" [t| FlexPartName |] [e| FlexExtra "rhythm" |]
+  opt "ps_GuitarCoop" "guitar-coop" [t| FlexPartName |] [e| FlexExtra "guitar-coop" |]
 
 data Target
   = RB3    TargetRB3

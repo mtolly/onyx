@@ -1,6 +1,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE LambdaCase             #-}
 {-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE OverloadedStrings      #-}
 module RockBand3 (MIDIProcessor(..), findProblems) where
 
 import           Config                           hiding (Target (PS))
@@ -159,24 +160,24 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
               then rockBand2x ps2x
               else rockBand1x ps1x
             Right _ -> psPS
+      makeGRYBOTrack fpart src = case getPart fpart songYaml >>= partGRYBO of
+        Nothing -> RTB.empty
+        Just grybo -> (if RBFile.flexFiveIsKeys src then Five.keysToGuitar (fromIntegral (gryboHopoThreshold grybo) / 480) else id)
+          $ (if gryboFixFreeform grybo then fixFreeformFive else id)
+          $ gryboComplete (Just $ gryboHopoThreshold grybo) mmap
+          $ discardPS $ RBFile.flexFiveButton src
       guitarPart = either rb3_Guitar ps_Guitar target
       guitarMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart guitarPart trks
-      guitarSrc = RBFile.getFlexPart guitarPart trks
-      guitarTrack = case getPart guitarPart songYaml >>= partGRYBO of
-        Nothing -> RTB.empty
-        Just grybo -> (if RBFile.flexFiveIsKeys guitarSrc then Five.keysToGuitar (fromIntegral (gryboHopoThreshold grybo) / 480) else id)
-          $ (if gryboFixFreeform grybo then fixFreeformFive else id)
-          $ gryboComplete (Just $ gryboHopoThreshold grybo) mmap
-          $ discardPS $ RBFile.flexFiveButton guitarSrc
+      guitarTrack = makeGRYBOTrack guitarPart $ RBFile.getFlexPart guitarPart trks
       bassPart = either rb3_Bass ps_Bass target
       bassMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart bassPart trks
-      bassSrc = RBFile.getFlexPart bassPart trks
-      bassTrack = case getPart bassPart songYaml >>= partGRYBO of
-        Nothing -> RTB.empty
-        Just grybo -> (if RBFile.flexFiveIsKeys bassSrc then Five.keysToGuitar $ fromIntegral (gryboHopoThreshold grybo) / 480 else id)
-          $ (if gryboFixFreeform grybo then fixFreeformFive else id)
-          $ gryboComplete (Just $ gryboHopoThreshold grybo) mmap
-          $ discardPS $ RBFile.flexFiveButton bassSrc
+      bassTrack = makeGRYBOTrack bassPart $ RBFile.getFlexPart bassPart trks
+      rhythmPart = either (const $ RBFile.FlexExtra "undefined") ps_Rhythm target
+      rhythmMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart rhythmPart trks
+      rhythmTrack = makeGRYBOTrack rhythmPart $ RBFile.getFlexPart rhythmPart trks
+      guitarCoopPart = either (const $ RBFile.FlexExtra "undefined") ps_GuitarCoop target
+      guitarCoopMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart guitarCoopPart trks
+      guitarCoopTrack = makeGRYBOTrack guitarCoopPart $ RBFile.getFlexPart guitarCoopPart trks
       (proGtr, proGtr22) = case getPart guitarPart songYaml >>= partProGuitar of
         Nothing -> (RTB.empty, RTB.empty)
         Just _pg -> let
@@ -203,6 +204,7 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
               Just grybo
                 -> (if RBFile.flexFiveIsKeys basicKeysSrc then id else Five.forceAllNotes $ fromIntegral (gryboHopoThreshold grybo) / 480)
                 $ discardPS $ RBFile.flexFiveButton basicKeysSrc
+            -- TODO remove tremolo (+ hand positions?) from basic keys, nemo's checker doesn't like them
             keysDiff diff = if isJust $ partProKeys part
               then discardPS $ case diff of
                 Easy   -> RBFile.flexPartRealKeysE $ RBFile.getFlexPart keysPart trks
@@ -276,8 +278,11 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
       , RBFile.psEvents = fmap RB eventsTrack
       , RBFile.psVenue = RBFile.onyxVenue trks
       , RBFile.psPartDrums = fmap RB drumsTrack
+      , RBFile.psPartRealDrumsPS = RTB.empty
       , RBFile.psPartGuitar = RTB.merge (fmap RB guitarTrack) (fmap PS guitarMsgs)
       , RBFile.psPartBass = RTB.merge (fmap RB bassTrack) (fmap PS bassMsgs)
+      , RBFile.psPartRhythm = RTB.merge (fmap RB rhythmTrack) (fmap PS rhythmMsgs)
+      , RBFile.psPartGuitarCoop = RTB.merge (fmap RB guitarCoopTrack) (fmap PS guitarCoopMsgs)
       , RBFile.psPartRealGuitar   = fmap RB proGtr
       , RBFile.psPartRealGuitar22 = fmap RB proGtr22
       , RBFile.psPartRealBass     = fmap RB proBass
@@ -289,10 +294,10 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
       , RBFile.psPartRealKeysM = fmap RB tpkM
       , RBFile.psPartRealKeysH = fmap RB tpkH
       , RBFile.psPartRealKeysX = fmap RB tpkX
-      , RBFile.psPartRealKeysPsE = RTB.empty
-      , RBFile.psPartRealKeysPsM = RTB.empty
-      , RBFile.psPartRealKeysPsH = RTB.empty
-      , RBFile.psPartRealKeysPsX = RTB.empty
+      , RBFile.psPartRealKeysPS_E = RTB.empty
+      , RBFile.psPartRealKeysPS_M = RTB.empty
+      , RBFile.psPartRealKeysPS_H = RTB.empty
+      , RBFile.psPartRealKeysPS_X = RTB.empty
       , RBFile.psPartVocals = fmap RB trkVox
       , RBFile.psHarm1 = fmap RB trkHarm1
       , RBFile.psHarm2 = fmap RB trkHarm2

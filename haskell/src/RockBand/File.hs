@@ -171,9 +171,12 @@ instance MIDIFileFormat RB2File where
 
 data PSFile t = PSFile
   { psPartDrums        :: RTB.T t (PSWrap      Drums.Event)
+  , psPartRealDrumsPS  :: RTB.T t (PSWrap      Drums.Event)
   , psPartGuitar       :: RTB.T t (PSWrap FiveButton.Event)
   , psPartBass         :: RTB.T t (PSWrap FiveButton.Event)
   , psPartKeys         :: RTB.T t (PSWrap FiveButton.Event)
+  , psPartRhythm       :: RTB.T t (PSWrap FiveButton.Event)
+  , psPartGuitarCoop   :: RTB.T t (PSWrap FiveButton.Event)
   , psPartRealGuitar   :: RTB.T t (PSWrap  ProGuitar.Event)
   , psPartRealGuitar22 :: RTB.T t (PSWrap  ProGuitar.Event)
   , psPartRealBass     :: RTB.T t (PSWrap  ProGuitar.Event)
@@ -182,10 +185,10 @@ data PSFile t = PSFile
   , psPartRealKeysM    :: RTB.T t (PSWrap    ProKeys.Event)
   , psPartRealKeysH    :: RTB.T t (PSWrap    ProKeys.Event)
   , psPartRealKeysX    :: RTB.T t (PSWrap    ProKeys.Event)
-  , psPartRealKeysPsE  :: RTB.T t (PSWrap     PSKeys.Event)
-  , psPartRealKeysPsM  :: RTB.T t (PSWrap     PSKeys.Event)
-  , psPartRealKeysPsH  :: RTB.T t (PSWrap     PSKeys.Event)
-  , psPartRealKeysPsX  :: RTB.T t (PSWrap     PSKeys.Event)
+  , psPartRealKeysPS_E :: RTB.T t (PSWrap     PSKeys.Event)
+  , psPartRealKeysPS_M :: RTB.T t (PSWrap     PSKeys.Event)
+  , psPartRealKeysPS_H :: RTB.T t (PSWrap     PSKeys.Event)
+  , psPartRealKeysPS_X :: RTB.T t (PSWrap     PSKeys.Event)
   , psPartKeysAnimLH   :: RTB.T t (PSWrap    ProKeys.Event)
   , psPartKeysAnimRH   :: RTB.T t (PSWrap    ProKeys.Event)
   , psPartVocals       :: RTB.T t (PSWrap     Vocals.Event)
@@ -200,9 +203,12 @@ data PSFile t = PSFile
 instance MIDIFileFormat PSFile where
   readMIDITracks (Song tempos mmap trks) = do
     psPartDrums        <- parseTracks mmap trks ["PART DRUMS", "PART DRUM"]
+    psPartRealDrumsPS  <- parseTracks mmap trks ["PART REAL_DRUMS_PS"]
     psPartGuitar       <- parseTracks mmap trks ["PART GUITAR"]
     psPartBass         <- parseTracks mmap trks ["PART BASS"]
     psPartKeys         <- parseTracks mmap trks ["PART KEYS"]
+    psPartRhythm       <- parseTracks mmap trks ["PART RHYTHM"]
+    psPartGuitarCoop   <- parseTracks mmap trks ["PART GUITAR COOP"]
     psPartRealGuitar   <- parseTracks mmap trks ["PART REAL_GUITAR"]
     psPartRealGuitar22 <- parseTracks mmap trks ["PART REAL_GUITAR_22"]
     psPartRealBass     <- parseTracks mmap trks ["PART REAL_BASS"]
@@ -211,10 +217,10 @@ instance MIDIFileFormat PSFile where
     psPartRealKeysM    <- parseTracks mmap trks ["PART REAL_KEYS_M"]
     psPartRealKeysH    <- parseTracks mmap trks ["PART REAL_KEYS_H"]
     psPartRealKeysX    <- parseTracks mmap trks ["PART REAL_KEYS_X"]
-    psPartRealKeysPsE  <- parseTracks mmap trks ["PART REAL_KEYS_PS_E"]
-    psPartRealKeysPsM  <- parseTracks mmap trks ["PART REAL_KEYS_PS_M"]
-    psPartRealKeysPsH  <- parseTracks mmap trks ["PART REAL_KEYS_PS_H"]
-    psPartRealKeysPsX  <- parseTracks mmap trks ["PART REAL_KEYS_PS_X"]
+    psPartRealKeysPS_E <- parseTracks mmap trks ["PART REAL_KEYS_PS_E"]
+    psPartRealKeysPS_M <- parseTracks mmap trks ["PART REAL_KEYS_PS_M"]
+    psPartRealKeysPS_H <- parseTracks mmap trks ["PART REAL_KEYS_PS_H"]
+    psPartRealKeysPS_X <- parseTracks mmap trks ["PART REAL_KEYS_PS_X"]
     psPartKeysAnimLH   <- parseTracks mmap trks ["PART KEYS_ANIM_LH"]
     psPartKeysAnimRH   <- parseTracks mmap trks ["PART KEYS_ANIM_RH"]
     psPartVocals       <- parseTracks mmap trks ["PART VOCALS"]
@@ -224,13 +230,16 @@ instance MIDIFileFormat PSFile where
     psEvents           <- parseTracks mmap trks ["EVENTS"]
     psBeat             <- parseTracks mmap trks ["BEAT"]
     psVenue            <- parseTracks mmap trks ["VENUE"]
-    knownTracks trks ["PART DRUMS", "PART GUITAR", "PART BASS", "PART KEYS", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART REAL_KEYS_PS_E", "PART REAL_KEYS_PS_M", "PART REAL_KEYS_PS_H", "PART REAL_KEYS_PS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3", "EVENTS", "BEAT", "VENUE"]
+    knownTracks trks ["PART DRUMS", "PART DRUM", "PART REAL_DRUMS_PS", "PART GUITAR", "PART BASS", "PART KEYS", "PART RHYTHM", "PART GUITAR COOP", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART REAL_KEYS_PS_E", "PART REAL_KEYS_PS_M", "PART REAL_KEYS_PS_H", "PART REAL_KEYS_PS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3", "EVENTS", "BEAT", "VENUE"]
     return $ Song tempos mmap $ PSFile{..}
   showMIDITracks (Song tempos mmap PSFile{..}) = Song tempos mmap $ concat
     [ showMIDITrack "PART DRUMS" psPartDrums
+    , showMIDITrack "PART REAL_DRUMS_PS" psPartRealDrumsPS
     , showMIDITrack "PART GUITAR" psPartGuitar
     , showMIDITrack "PART BASS" psPartBass
     , showMIDITrack "PART KEYS" psPartKeys
+    , showMIDITrack "PART RHYTHM" psPartRhythm
+    , showMIDITrack "PART GUITAR COOP" psPartGuitarCoop
     , showMIDITrack "PART REAL_GUITAR" psPartRealGuitar
     , showMIDITrack "PART REAL_GUITAR_22" psPartRealGuitar22
     , showMIDITrack "PART REAL_BASS" psPartRealBass
@@ -239,10 +248,10 @@ instance MIDIFileFormat PSFile where
     , showMIDITrack "PART REAL_KEYS_M" psPartRealKeysM
     , showMIDITrack "PART REAL_KEYS_H" psPartRealKeysH
     , showMIDITrack "PART REAL_KEYS_X" psPartRealKeysX
-    , showMIDITrack "PART REAL_KEYS_PS_E" psPartRealKeysPsE
-    , showMIDITrack "PART REAL_KEYS_PS_M" psPartRealKeysPsM
-    , showMIDITrack "PART REAL_KEYS_PS_H" psPartRealKeysPsH
-    , showMIDITrack "PART REAL_KEYS_PS_X" psPartRealKeysPsX
+    , showMIDITrack "PART REAL_KEYS_PS_E" psPartRealKeysPS_E
+    , showMIDITrack "PART REAL_KEYS_PS_M" psPartRealKeysPS_M
+    , showMIDITrack "PART REAL_KEYS_PS_H" psPartRealKeysPS_H
+    , showMIDITrack "PART REAL_KEYS_PS_X" psPartRealKeysPS_X
     , showMIDITrack "PART KEYS_ANIM_LH" psPartKeysAnimLH
     , showMIDITrack "PART KEYS_ANIM_RH" psPartKeysAnimRH
     , showMIDITrack "PART VOCALS" psPartVocals

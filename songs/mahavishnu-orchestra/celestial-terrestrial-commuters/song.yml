@@ -157,4 +157,4 @@ targets:
   ps:
     game: ps
     plan: jammit-all
-    # TODO: rhythm: violin
+    rhythm: violin
