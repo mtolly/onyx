@@ -2,14 +2,12 @@
 module Image (scaleSTBIR, toDDS, toPNG_XBOX, readPNGXbox) where
 
 import           Codec.Picture
-import           Control.Monad              (forM_, guard, replicateM)
+import           Control.Monad              (forM_, replicateM)
 import           Control.Monad.Trans.Writer (execWriter, tell)
 import           Data.Binary.Get
 import           Data.Bits                  (shiftL, shiftR, testBit, (.&.))
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Lazy       as BL
-import           Data.List                  (minimumBy)
-import           Data.Ord                   (comparing)
 import qualified Data.Vector.Storable       as V
 import           Data.Word                  (Word16, Word8)
 import           Foreign
@@ -17,6 +15,7 @@ import           Foreign.C
 import           System.IO.Unsafe           (unsafePerformIO)
 
 #include "stb_image_resize.h"
+#include "stb_dxt.h"
 
 {#fun stbir_resize_uint8
   { id `Ptr CUChar'
@@ -30,6 +29,33 @@ import           System.IO.Unsafe           (unsafePerformIO)
   , `CInt'
   } -> `CInt'
 #}
+
+{#fun stb_compress_dxt_block
+  { id `Ptr CUChar'
+  , id `Ptr CUChar'
+  , `CInt'
+  , `CInt'
+  } -> `()'
+#}
+
+compressDXTBlock :: Image PixelRGB8 -> B.ByteString
+compressDXTBlock img = unsafePerformIO $ do
+  let bs = B.pack $ do
+        y <- [0..3]
+        x <- [0..3]
+        let PixelRGB8 r g b = pixelAt img x y
+        [r, g, b, 0]
+  allocaBytes 8 $ \dst -> do
+    B.useAsCString bs $ \src -> do
+      let cast1 = castPtr :: Ptr Word8 -> Ptr CUChar
+          cast2 = castPtr :: Ptr CChar -> Ptr CUChar
+          cast3 = castPtr :: Ptr Word8 -> Ptr CChar
+      stb_compress_dxt_block
+        (cast1 dst)
+        (cast2 src)
+        0
+        2 -- high quality
+      B.packCStringLen (cast3 dst, 8)
 
 scaleSTBIR
   :: Int -> Int -> Image PixelRGB8 -> Image PixelRGB8
@@ -52,13 +78,6 @@ scaleSTBIR w' h' (Image w h v) = unsafePerformIO $ do
       then error "stbir_resize_uint8 returned error"
       else return $ Image w' h' $ V.unsafeFromForeignPtr0 fp $ w' * h' * parts
 
-pixel565 :: PixelRGB8 -> Word16
-pixel565 (PixelRGB8 r g b) = sum
-  [ (fromIntegral r `shiftR` 3) `shiftL` 11 -- 5 bits
-  , (fromIntegral g `shiftR` 2) `shiftL` 5  -- 6 bits
-  ,  fromIntegral b `shiftR` 3              -- 5 bits
-  ]
-
 bits5to8 :: Word16 -> Word8
 bits5to8 w = fromIntegral $ shiftL w' 3 + shiftR w' 2
   where w' = w .&. 0x1F
@@ -73,34 +92,10 @@ pixelFrom565 w = PixelRGB8
   (bits6to8 $ w `shiftR` 5 )
   (bits5to8   w            )
 
-colorDiff :: PixelRGB8 -> PixelRGB8 -> Int
-colorDiff (PixelRGB8 r0 g0 b0) (PixelRGB8 r1 g1 b1) = sum
-  [ fromIntegral $ max r0 r1 - min r0 r1
-  , fromIntegral $ max g0 g1 - min g0 g1
-  , fromIntegral $ max b0 b1 - min b0 b1
-  ]
-
 mixProportions :: (Pixel a, Integral (PixelBaseComponent a)) =>
   Float -> Float -> a -> a -> a
 mixProportions f0 f1 = mixWith $ \_ p0 p1 ->
   floor $ fromIntegral p0 * f0 + fromIntegral p1 * f1
-
--- | Computes a valid palette for DXT1 encoding a 4x4 chunk.
--- In (c0, c1, c2, c3), c0 and c1 are the two stated colors for the chunk,
--- and c2 and c3 are at third-intervals between c0 and c1
--- (c2 closer to c0, c3 closer to c1).
-findPalette :: Image PixelRGB8 -> (PixelRGB8, PixelRGB8, PixelRGB8, PixelRGB8)
-findPalette img = let
-  pixels = [ pixelAt img x y | x <- [0 .. imageWidth img - 1], y <- [0 .. imageHeight img - 1] ]
-  choices = do
-    c0 <- pixels
-    c1 <- pixels
-    guard $ pixel565 c0 >= pixel565 c1
-    let c2 = mixProportions (2/3) (1/3) c0 c1
-        c3 = mixProportions (1/3) (2/3) c0 c1
-        score = sum $ map (\p -> minimum $ map (colorDiff p) [c0,c1,c2,c3]) pixels
-    return (score, (c0, c1, c2, c3))
-  in snd $ minimumBy (comparing fst) choices
 
 contentDXT1 :: Image PixelRGB8 -> BL.ByteString
 contentDXT1 img_ = execWriter $ do
@@ -109,31 +104,7 @@ contentDXT1 img_ = execWriter $ do
     forM_ [0, 4 .. size - 4] $ \y ->
       forM_ [0, 4 .. size - 4] $ \x -> do
         let chunk = generateImage (\cx cy -> pixelAt img (x + cx) (y + cy)) 4 4
-            (c0, c1, c2, c3) = findPalette chunk
-        tell $ BL.pack
-          [ fromIntegral $ pixel565 c0
-          , fromIntegral $ pixel565 c0 `shiftR` 8
-          , fromIntegral $ pixel565 c1
-          , fromIntegral $ pixel565 c1 `shiftR` 8
-          ]
-        forM_ [y .. y + 3] $ \py -> do
-          let byte = if pixel565 c0 == pixel565 c1
-                then 0
-                else sum $ flip map
-                  [ (x    , 0x01)
-                  , (x + 1, 0x04)
-                  , (x + 2, 0x10)
-                  , (x + 3, 0x40)
-                  ] $ \(px, v) -> let
-                  score c = colorDiff c $ pixelAt img px py
-                  scoreTable =
-                    [ (score c0, v * 0)
-                    , (score c1, v * 1)
-                    , (score c2, v * 2)
-                    , (score c3, v * 3)
-                    ]
-                  in snd $ minimum scoreTable
-          tell $ BL.singleton byte
+        tell $ BL.fromStrict $ compressDXTBlock chunk
 
 toDDS :: Image PixelRGB8 -> BL.ByteString
 toDDS = let

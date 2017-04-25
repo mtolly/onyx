@@ -171,6 +171,7 @@ executable onyx
   c-sources:
     cbits/tinyfiledialogs.c
     cbits/stb_image_resize.c
+    cbits/stb_dxt.c
     cbits/encode_vag.c
     cbits/ArkTool_v6.1/xyssl/aes.c
     cbits/ArkTool_v6.1/ArkFile.cpp
