@@ -68,7 +68,7 @@ import           Reaper.Build                          (makeReaper)
 import           RenderAudio
 import           Resources                             (emptyMilo, emptyMiloRB2,
                                                         emptyWeightsRB2,
-                                                        webDisplay)
+                                                        onyxAlbum, webDisplay)
 import           RockBand.Common                       (Difficulty (..),
                                                         readCommandList)
 import qualified RockBand.Drums                        as RBDrums
@@ -675,7 +675,7 @@ shakeBuild audioDirs yamlPath buildables = do
                 else readImage img >>= \case
                   Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
                   Right dyn -> return $ convertRGB8 dyn
-            Nothing -> return $ generateImage (\_ _ -> PixelRGB8 0 0 255) 256 256
+            Nothing -> return onyxAlbum
       "gen/cover.bmp" %> \out -> loadRGB8 >>= liftIO . writeBitmap out . scaleSTBIR 256 256
       "gen/cover.png" %> \out -> loadRGB8 >>= liftIO . writePng    out . scaleSTBIR 256 256
       "gen/cover.png_xbox" %> \out -> case _fileAlbumArt $ _metadata songYaml of

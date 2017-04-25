@@ -79,15 +79,8 @@ standardTargets songID version is2x krb2 vid = let
         , rb2_Vocal = FlexVocal
         }
       )
-    , ("ps", PS TargetPS
-        { ps_Plan = Nothing
-        , ps_Label = Nothing
-        , ps_FileVideo = vid
-        , ps_Guitar = FlexGuitar
-        , ps_Bass = FlexBass
-        , ps_Drums = FlexDrums
-        , ps_Vocal = FlexVocal
-        , ps_Keys = FlexKeys
+    , ("ps", PS def
+        { ps_FileVideo = vid
         }
       )
     ]
