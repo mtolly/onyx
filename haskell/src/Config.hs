@@ -581,17 +581,17 @@ instance A.ToJSON Difficulty where
 jsonRecord "PartGRYBO" eosr $ do
   fill "gryboDifficulty" "difficulty" [t| Difficulty |] [e| Tier 1 |]
   opt "gryboHopoThreshold" "hopo-threshold" [t| Int |] [e| 170 |]
-  opt "gryboFixFreeform" "fix-freeform" [t| Bool |] [e| False |]
+  opt "gryboFixFreeform" "fix-freeform" [t| Bool |] [e| True |]
 
 jsonRecord "PartProKeys" eosr $ do
   fill "pkDifficulty" "difficulty" [t| Difficulty |] [e| Tier 1 |]
-  opt "pkFixFreeform" "fix-freeform" [t| Bool |] [e| False |]
+  opt "pkFixFreeform" "fix-freeform" [t| Bool |] [e| True |]
 
 jsonRecord "PartProGuitar" eosr $ do
   fill "pgDifficulty" "difficulty" [t| Difficulty |] [e| Tier 1 |]
   opt "pgHopoThreshold" "hopo-threshold" [t| Int |] [e| 170 |]
   opt "pgTuning" "tuning" [t| [Int] |] [e| [] |]
-  opt "pgFixFreeform" "fix-freeform" [t| Bool |] [e| False |]
+  opt "pgFixFreeform" "fix-freeform" [t| Bool |] [e| True |]
 
 data DrumKit
   = HardRockKit
@@ -638,7 +638,7 @@ jsonRecord "PartDrums" eosr $ do
   fill "drumsDifficulty" "difficulty" [t| Difficulty |] [e| Tier 1 |]
   opt "drumsPro" "pro" [t| Bool |] [e| True |]
   opt "drumsAuto2xBass" "auto-2x-bass" [t| Bool |] [e| False |]
-  opt "drumsFixFreeform" "fix-freeform" [t| Bool |] [e| False |]
+  opt "drumsFixFreeform" "fix-freeform" [t| Bool |] [e| True |]
   opt "drumsKit" "kit" [t| DrumKit |] [e| HardRockKit |]
   opt "drumsLayout" "layout" [t| DrumLayout |] [e| StandardLayout |]
 
