@@ -27,8 +27,19 @@ plans:
     parts:
       drums:
         only: [Drums, jammit-track]
+      keys:
+        # TODO: remove some of Keys 2
+        mix:
+        - only: [Keys 1, jammit-track]
+        - only: [Keys 2, jammit-track]
     song:
-      without: [drums, jammit-track]
+      mix:
+      - without: [drums, jammit-track]
+      - gain:
+        - -1
+        - mix:
+          - only: [Keys 1, jammit-track]
+          - only: [Keys 2, jammit-track]
   album:
     countin: *countin
     song:
@@ -37,6 +48,8 @@ parts:
   drums:
     drums:
       difficulty: 5
+  keys:
+    pro-keys: {}
 targets:
   rb3:
     game: rb3
