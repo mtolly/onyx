@@ -6,6 +6,10 @@ metadata:
   author: Onyxite
   rating: FamilyFriendly
   key: A # I think?
+  genre: fusion
+  subgenre: fusion
+  year: 1976
+  file-album-art: cover.jpg
 audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
