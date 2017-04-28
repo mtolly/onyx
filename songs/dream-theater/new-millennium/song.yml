@@ -13,8 +13,33 @@ audio:
     frames: 22073520
   hihat:
     file-path: ../../../sound/hihat-foot.wav
-jammit:
-  jammit-track: {}
+  jammit-nodrums:
+    md5: 57e1c62f1aca7839ae074608bb789c31
+    frames: 22257728
+  jammit-drums:
+    md5: f9144e74b912dbe5342366f6fcfdf324
+    frames: 22257728
+  jammit-bass:
+    md5: 607b825e743e7c1bec4510ecaf3e1a41
+    frames: 22257728
+  jammit-gtr1:
+    md5: 657a95cc9eaa0b719c781b9886805a18
+    frames: 22257728
+  jammit-gtr2:
+    md5: fb3f978b0b7c5e73e1173a076cc90f41
+    frames: 22257728
+  jammit-keys1:
+    md5: b81ff9a8c274c2b58f80eaa2b9deea68
+    frames: 22257728
+  jammit-keys2:
+    md5: 2fb24519cb406703a171d6b0063a36b0
+    frames: 22257728
+  jammit-vox1:
+    md5: e33fa50e609f001b4748a36b649ad236
+    frames: 22257728
+  jammit-vox2:
+    md5: a23a8aed8673e9a5758eaad8891e8e3e
+    frames: 22257728
 plans:
   jammit:
     countin:
@@ -25,21 +50,22 @@ plans:
       1|1: hihat
       1|2: hihat
     parts:
-      drums:
-        only: [Drums, jammit-track]
+      drums: jammit-drums
+      bass: jammit-bass
+      vocal:
+        mix: [jammit-vox1, jammit-vox2]
+      guitar:
+        # TODO: remove some parts
+        mix: [jammit-gtr1, jammit-gtr2]
       keys:
         # TODO: remove some of Keys 2
-        mix:
-        - only: [Keys 1, jammit-track]
-        - only: [Keys 2, jammit-track]
+        mix: [jammit-keys1, jammit-keys2]
     song:
       mix:
-      - without: [drums, jammit-track]
+      - jammit-nodrums
       - gain:
         - -1
-        - mix:
-          - only: [Keys 1, jammit-track]
-          - only: [Keys 2, jammit-track]
+        - mix: [jammit-keys1, jammit-keys2, jammit-gtr1, jammit-gtr2, jammit-bass, jammit-vox1, jammit-vox2]
   album:
     countin: *countin
     song:
