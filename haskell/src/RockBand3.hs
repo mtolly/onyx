@@ -278,6 +278,7 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
       , RBFile.psEvents = fmap RB eventsTrack
       , RBFile.psVenue = RBFile.onyxVenue trks
       , RBFile.psPartDrums = fmap RB drumsTrack
+      , RBFile.psPartDrums2x = RTB.empty
       , RBFile.psPartRealDrumsPS = RTB.empty
       , RBFile.psPartGuitar = RTB.merge (fmap RB guitarTrack) (fmap PS guitarMsgs)
       , RBFile.psPartBass = RTB.merge (fmap RB bassTrack) (fmap PS bassMsgs)

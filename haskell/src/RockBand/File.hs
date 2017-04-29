@@ -12,8 +12,7 @@ import           Data.Default.Class               (Default (..))
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Hashable                    (Hashable (..))
-import           Data.List                        (nub, partition, sortOn,
-                                                   stripPrefix)
+import           Data.List                        (nub, sortOn, stripPrefix)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromJust, fromMaybe,
                                                    mapMaybe)
@@ -27,7 +26,8 @@ import qualified RockBand.Events                  as Events
 import qualified RockBand.FiveButton              as FiveButton
 import           RockBand.Parse
 import qualified RockBand.PhaseShiftKeys          as PSKeys
-import           RockBand.PhaseShiftMessage       (PSWrap (..), discardPS)
+import           RockBand.PhaseShiftMessage       (PSWrap (..), discardPS,
+                                                   withRB)
 import qualified RockBand.ProGuitar               as ProGuitar
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Venue                   as Venue
@@ -171,6 +171,7 @@ instance MIDIFileFormat RB2File where
 
 data PSFile t = PSFile
   { psPartDrums        :: RTB.T t (PSWrap      Drums.Event)
+  , psPartDrums2x      :: RTB.T t (PSWrap      Drums.Event) -- hack for import
   , psPartRealDrumsPS  :: RTB.T t (PSWrap      Drums.Event)
   , psPartGuitar       :: RTB.T t (PSWrap FiveButton.Event)
   , psPartBass         :: RTB.T t (PSWrap FiveButton.Event)
@@ -203,6 +204,7 @@ data PSFile t = PSFile
 instance MIDIFileFormat PSFile where
   readMIDITracks (Song tempos mmap trks) = do
     psPartDrums        <- parseTracks mmap trks ["PART DRUMS", "PART DRUM"]
+    psPartDrums2x      <- parseTracks mmap trks ["PART DRUMS_2X"]
     psPartRealDrumsPS  <- parseTracks mmap trks ["PART REAL_DRUMS_PS"]
     psPartGuitar       <- parseTracks mmap trks ["PART GUITAR"]
     psPartBass         <- parseTracks mmap trks ["PART BASS"]
@@ -234,6 +236,7 @@ instance MIDIFileFormat PSFile where
     return $ Song tempos mmap $ PSFile{..}
   showMIDITracks (Song tempos mmap PSFile{..}) = Song tempos mmap $ concat
     [ showMIDITrack "PART DRUMS" psPartDrums
+    , showMIDITrack "PART DRUMS_2X" psPartDrums2x
     , showMIDITrack "PART REAL_DRUMS_PS" psPartRealDrumsPS
     , showMIDITrack "PART GUITAR" psPartGuitar
     , showMIDITrack "PART BASS" psPartBass
@@ -517,8 +520,8 @@ playGuitarFile goffs boffs (Song tempos mmap trks) = Song tempos mmap $ RawFile 
     ]
 
 -- | True if there are any playable notes in the first 2.5 seconds.
-needsPad :: Song (OnyxFile U.Beats) -> Bool
-needsPad (Song temps _ trks) = let
+needsPad :: Song (PSFile U.Beats) -> Bool
+needsPad (Song temps _ PSFile{..}) = let
   sec2_5 = U.unapplyTempoMap temps (2.5 :: U.Seconds)
   earlyDrums = earlyPred $ \case
     Drums.DiffEvent _ (Drums.Note _) -> True
@@ -532,30 +535,44 @@ needsPad (Song temps _ trks) = let
   earlyProKeys = earlyPred $ \case
     ProKeys.Note{} -> True
     _ -> False
+  earlyPSKeys = earlyPred $ \case
+    PSKeys.Note{} -> True
+    _ -> False
   earlyVox = earlyPred $ \case
     Vocals.Note{} -> True
     _ -> False
   earlyPred fn t = any fn $ U.trackTake sec2_5 t
-  in flip any (Map.elems $ onyxFlexParts trks) $ \FlexPart{..} -> or
-    [ earlyDrums   $ discardPS flexPartDrums
-    , earlyDrums   $ discardPS flexPartDrums2x
-    , earlyFive    $ discardPS flexFiveButton
-    , earlyProGtr  $ discardPS flexPartRealGuitar
-    , earlyProGtr  $ discardPS flexPartRealGuitar22
-    , earlyProKeys $ discardPS flexPartRealKeysE
-    , earlyProKeys $ discardPS flexPartRealKeysM
-    , earlyProKeys $ discardPS flexPartRealKeysH
-    , earlyProKeys $ discardPS flexPartRealKeysX
-    , earlyVox     $ discardPS flexPartVocals
-    , earlyVox     $ discardPS flexHarm1
-    , earlyVox     $ discardPS flexHarm2
-    , earlyVox     $ discardPS flexHarm3
+  in or
+    [ earlyDrums $ discardPS psPartDrums
+    , earlyDrums $ discardPS psPartDrums2x
+    , earlyDrums $ discardPS psPartRealDrumsPS
+    , earlyFive $ discardPS psPartGuitar
+    , earlyFive $ discardPS psPartBass
+    , earlyFive $ discardPS psPartKeys
+    , earlyFive $ discardPS psPartRhythm
+    , earlyFive $ discardPS psPartGuitarCoop
+    , earlyProGtr $ discardPS psPartRealGuitar
+    , earlyProGtr $ discardPS psPartRealGuitar22
+    , earlyProGtr $ discardPS psPartRealBass
+    , earlyProGtr $ discardPS psPartRealBass22
+    , earlyProKeys $ discardPS psPartRealKeysE
+    , earlyProKeys $ discardPS psPartRealKeysM
+    , earlyProKeys $ discardPS psPartRealKeysH
+    , earlyProKeys $ discardPS psPartRealKeysX
+    , earlyPSKeys $ discardPS psPartRealKeysPS_E
+    , earlyPSKeys $ discardPS psPartRealKeysPS_M
+    , earlyPSKeys $ discardPS psPartRealKeysPS_H
+    , earlyPSKeys $ discardPS psPartRealKeysPS_X
+    , earlyVox $ discardPS psPartVocals
+    , earlyVox $ discardPS psHarm1
+    , earlyVox $ discardPS psHarm2
+    , earlyVox $ discardPS psHarm3
     ]
 
 -- | Adds a given amount of 1 second increments to the start of the MIDI.
-padMIDI :: Int -> Song (RawFile U.Beats) -> Song (RawFile U.Beats)
-padMIDI 0       song                   = song
-padMIDI seconds (Song temps sigs (RawFile trks)) = let
+padMIDI :: Int -> Song (PSFile U.Beats) -> Song (PSFile U.Beats)
+padMIDI 0       song                         = song
+padMIDI seconds (Song temps sigs PSFile{..}) = let
   beats = fromIntegral seconds * 2
   temps'
     = U.tempoMapFromBPS
@@ -567,17 +584,39 @@ padMIDI seconds (Song temps sigs (RawFile trks)) = let
     $ RTB.cons 0 (U.TimeSig 1 1) -- 1/4
     $ RTB.delay beats
     $ U.measureMapToTimeSigs sigs
-  trks' = flip mapMaybe trks $ \trk -> case U.trackName trk of
-    Just "BEAT" -> Nothing -- TODO
-    _           -> Just $ padRaw trk
-  padRaw t = let
-    (z, nz) = U.trackSplitZero t
-    (names, notNames) = partition (\case E.MetaEvent (Meta.TrackName _) -> True; _ -> False) z
-    in U.trackGlueZero names $ RTB.delay beats $ U.trackGlueZero notNames nz
-  {-
-  padBeat
-    = RTB.cons  0 Beat.Bar
+  padSimple = RTB.delay beats
+  padBeat = withRB
+    $ RTB.cons  0 Beat.Bar
     . foldr (.) id (replicate (seconds * 2 - 1) $ RTB.cons 1 Beat.Beat)
     . RTB.delay 1
-  -}
-  in Song temps' sigs' $ RawFile trks'
+  in Song temps' sigs' PSFile
+    { psPartDrums        = padSimple psPartDrums
+    , psPartDrums2x      = padSimple psPartDrums2x
+    , psPartRealDrumsPS  = padSimple psPartRealDrumsPS
+    , psPartGuitar       = padSimple psPartGuitar
+    , psPartBass         = padSimple psPartBass
+    , psPartKeys         = padSimple psPartKeys
+    , psPartRhythm       = padSimple psPartRhythm
+    , psPartGuitarCoop   = padSimple psPartGuitarCoop
+    , psPartRealGuitar   = padSimple psPartRealGuitar
+    , psPartRealGuitar22 = padSimple psPartRealGuitar22
+    , psPartRealBass     = padSimple psPartRealBass
+    , psPartRealBass22   = padSimple psPartRealBass22
+    , psPartRealKeysE    = padSimple psPartRealKeysE
+    , psPartRealKeysM    = padSimple psPartRealKeysM
+    , psPartRealKeysH    = padSimple psPartRealKeysH
+    , psPartRealKeysX    = padSimple psPartRealKeysX
+    , psPartRealKeysPS_E = padSimple psPartRealKeysPS_E
+    , psPartRealKeysPS_M = padSimple psPartRealKeysPS_M
+    , psPartRealKeysPS_H = padSimple psPartRealKeysPS_H
+    , psPartRealKeysPS_X = padSimple psPartRealKeysPS_X
+    , psPartKeysAnimLH   = padSimple psPartKeysAnimLH
+    , psPartKeysAnimRH   = padSimple psPartKeysAnimRH
+    , psPartVocals       = padSimple psPartVocals
+    , psHarm1            = padSimple psHarm1
+    , psHarm2            = padSimple psHarm2
+    , psHarm3            = padSimple psHarm3
+    , psEvents           = padSimple psEvents
+    , psBeat             = if RTB.null psBeat then RTB.empty else padBeat psBeat
+    , psVenue            = padSimple psVenue
+    }

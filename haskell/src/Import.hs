@@ -1,55 +1,59 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections     #-}
 module Import where
 
 import           Audio
-import           Codec.Picture                  (convertRGB8, readImage)
-import           Config                         hiding (Difficulty)
-import           Control.Applicative            ((<|>))
-import           Control.Exception              (evaluate)
-import           Control.Monad                  (forM, guard, when)
-import           Control.Monad.Extra            (mapMaybeM)
-import           Control.Monad.IO.Class         (MonadIO (liftIO))
+import           Codec.Picture                    (convertRGB8, readImage)
+import           Config                           hiding (Difficulty)
+import           Control.Applicative              ((<|>))
+import           Control.Exception                (evaluate)
+import           Control.Monad                    (forM, guard, when)
+import           Control.Monad.Extra              (mapMaybeM)
+import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
-import qualified Data.ByteString.Lazy           as BL
-import qualified Data.Conduit.Audio             as CA
-import           Data.Default.Class             (def)
-import qualified Data.Digest.Pure.MD5           as MD5
-import qualified Data.DTA                       as D
-import qualified Data.DTA.Serialize.RB3         as D
-import qualified Data.DTA.Serialize2            as D2
-import           Data.Foldable                  (toList)
-import qualified Data.HashMap.Strict            as HM
-import           Data.List                      (nub)
-import qualified Data.Map                       as Map
-import           Data.Maybe                     (fromMaybe, mapMaybe)
-import           Data.Monoid                    ((<>))
-import qualified Data.Text                      as T
-import qualified Data.Text.IO                   as TIO
-import qualified Data.Yaml                      as Y
-import qualified FretsOnFire                    as FoF
-import           Image                          (toPNG_XBOX)
-import           JSONData                       (JSONEither (..))
-import           Magma                          (getRBAFile)
-import           PrettyDTA                      (C3DTAComments (..),
-                                                 DTASingle (..), readDTASingle,
-                                                 readRB3DTA, writeDTASingle)
-import qualified RockBand.Drums                 as RBDrums
-import           RockBand.File                  (FlexPartName (..))
-import qualified RockBand.File                  as RBFile
-import           RockBand.PhaseShiftMessage     (discardPS)
-import qualified RockBand.Vocals                as RBVox
-import           RockBand2                      (KeysRB2 (..))
-import           Scripts                        (loadMIDI)
-import qualified Sound.MIDI.File                as F
-import qualified Sound.MIDI.File.Load           as Load
-import qualified Sound.MIDI.File.Save           as Save
-import qualified Sound.MIDI.Util                as U
-import           STFS.Extract                   (extractSTFS)
-import qualified System.Directory               as Dir
-import           System.FilePath                (takeDirectory, takeFileName,
-                                                 (<.>), (</>))
-import           X360                           (rb3pkg)
+import qualified Data.ByteString.Lazy             as BL
+import qualified Data.Conduit.Audio               as CA
+import           Data.Default.Class               (def)
+import qualified Data.Digest.Pure.MD5             as MD5
+import qualified Data.DTA                         as D
+import qualified Data.DTA.Serialize.RB3           as D
+import qualified Data.DTA.Serialize2              as D2
+import qualified Data.EventList.Absolute.TimeBody as ATB
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
+import qualified Data.HashMap.Strict              as HM
+import           Data.List                        (nub)
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromMaybe, mapMaybe)
+import           Data.Monoid                      ((<>))
+import qualified Data.Text                        as T
+import qualified Data.Text.IO                     as TIO
+import qualified Data.Yaml                        as Y
+import qualified FretsOnFire                      as FoF
+import           Image                            (toPNG_XBOX)
+import           JSONData                         (JSONEither (..))
+import           Magma                            (getRBAFile)
+import           PrettyDTA                        (C3DTAComments (..),
+                                                   DTASingle (..),
+                                                   readDTASingle, readRB3DTA,
+                                                   writeDTASingle)
+import           RockBand.Common                  (Difficulty (..),
+                                                   LongNote (..), joinEdges)
+import qualified RockBand.Drums                   as RBDrums
+import           RockBand.File                    (FlexPartName (..))
+import qualified RockBand.File                    as RBFile
+import           RockBand.PhaseShiftMessage       (discardPS, withRB)
+import qualified RockBand.Vocals                  as RBVox
+import           RockBand2                        (KeysRB2 (..))
+import           Scripts                          (loadMIDI)
+import qualified Sound.MIDI.File.Save             as Save
+import qualified Sound.MIDI.Util                  as U
+import           STFS.Extract                     (extractSTFS)
+import qualified System.Directory                 as Dir
+import           System.FilePath                  (takeDirectory, takeFileName,
+                                                   (<.>), (</>))
+import           X360                             (rb3pkg)
 
 standardTargets :: Maybe (JSONEither Integer T.Text) -> Maybe Integer -> Bool -> KeysRB2 -> Maybe FilePath -> HM.HashMap T.Text Target
 standardTargets songID version is2x krb2 vid = let
@@ -113,11 +117,35 @@ standardTargets songID version is2x krb2 vid = let
     ]
   in HM.fromList $ targets1x ++ if is2x then targets2x else []
 
+fixDoubleSwells :: RBFile.PSFile U.Beats -> RBFile.PSFile U.Beats
+fixDoubleSwells ps = let
+  fixTrack trk = let
+    (lanes, notLanes) = flip RTB.partitionMaybe trk $ \case
+      RBDrums.SingleRoll b -> Just b
+      _                    -> Nothing
+    notes = flip RTB.mapMaybe trk $ \case
+      RBDrums.DiffEvent Expert (RBDrums.Note gem) -> Just gem
+      _                                           -> Nothing
+    lanesAbs = RTB.toAbsoluteEventList 0 $ joinEdges $ fmap (\b -> if b then NoteOn () () else NoteOff ()) lanes
+    lanesAbs' = ATB.fromPairList $ flip map (ATB.toPairList lanesAbs) $ \(startTime, lane) -> case lane of
+      ((), (), Nothing ) -> error "fixDoubleSwells: panic! blip in swells list"
+      ((), (), Just len) -> let
+        shouldBeDouble = case toList $ U.trackTake len $ U.trackDrop startTime notes of
+          g1 : g2 : g3 : g4 : _ | g1 == g3 && g2 == g4 && g1 /= g2 -> True
+          _                                                        -> False
+        in (startTime,) $ RTB.fromPairList $ if shouldBeDouble
+          then [(0, RBDrums.DoubleRoll True), (len, RBDrums.DoubleRoll False)]
+          else [(0, RBDrums.SingleRoll True), (len, RBDrums.SingleRoll False)]
+    in RTB.merge (U.trackJoin $ RTB.fromAbsoluteEventList lanesAbs') notLanes
+  in ps
+    { RBFile.psPartDrums       = withRB fixTrack $ RBFile.psPartDrums       ps
+    , RBFile.psPartDrums2x     = withRB fixTrack $ RBFile.psPartDrums2x     ps
+    , RBFile.psPartRealDrumsPS = withRB fixTrack $ RBFile.psPartRealDrumsPS ps
+    }
+
 importFoF :: (MonadIO m) => KeysRB2 -> FilePath -> FilePath -> StackTraceT m ()
 importFoF krb2 src dest = do
   song <- FoF.loadSong $ src </> "song.ini"
-  midi@(F.Cons _ _ midtrks) <- liftIO $ Load.fromFile $ src </> "notes.mid"
-  let trackNames = mapMaybe U.trackName midtrks
 
   hasAlbumArt <- liftIO $ Dir.doesFileExist $ src </> "album.png"
   when hasAlbumArt $ liftIO $ Dir.copyFile (src </> "album.png") (dest </> "album.png")
@@ -192,38 +220,30 @@ importFoF krb2 src dest = do
         , _planVols = []
         }
       hasVocalNotes = not $ null $ do
-        trk <- [RBFile.flexPartVocals, RBFile.flexHarm1, RBFile.flexHarm2, RBFile.flexHarm3]
-        RBVox.Note _ _ <- toList $ discardPS $ trk $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks parsed
+        trk <- [RBFile.psPartVocals, RBFile.psHarm1, RBFile.psHarm2, RBFile.psHarm3]
+        RBVox.Note _ _ <- toList $ discardPS $ trk $ RBFile.s_tracks parsed
         return ()
 
   when pad $ warn $ "Padding FoF/PS song by " ++ show (padDelay :: Int) ++ " seconds due to early start."
 
   let toTier = fromMaybe (Tier 1) . fmap (\n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1)
 
-  let drumToDrums t = if U.trackName t == Just "PART DRUM"
-        then U.setTrackName "PART DRUMS" t
-        else t
   mid2x <- liftIO $ Dir.doesFileExist $ src </> "expert+.mid"
   add2x <- if mid2x
     then do
-      raw2x <- liftIO (Load.fromFile $ src </> "expert+.mid") >>= RBFile.readMIDIFile'
-      let rawTracks = RBFile.rawTracks $ RBFile.s_tracks raw2x
-          isDrums t = elem (U.trackName t) [Just "PART DRUMS", Just "PART DRUM"]
-      return $ case filter isDrums rawTracks of
-        []    -> id
-        d : _ -> (U.setTrackName "PART DRUMS_2X" d :)
+      parsed2x <- loadMIDI $ src </> "expert+.mid"
+      let trk2x = RBFile.psPartDrums $ RBFile.s_tracks parsed2x
+      return $ if RTB.null trk2x
+        then id
+        else \mid -> mid { RBFile.psPartDrums2x = trk2x }
     else return id
   let has2x = or
         [ mid2x
-        , not $ null $ RBFile.flexPartDrums2x $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks parsed
-        , elem RBDrums.Kick2x $ discardPS $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks parsed
+        , elem RBDrums.Kick2x $ discardPS $ RBFile.psPartDrums $ RBFile.s_tracks parsed
         ]
 
-  raw <- RBFile.readMIDIFile' midi
-  liftIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI raw
-    { RBFile.s_tracks = RBFile.RawFile $ add2x $ map drumToDrums $ filter
-      (\t -> U.trackName t /= Just "BEAT")
-      (RBFile.rawTracks $ RBFile.s_tracks raw)
+  liftIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI parsed
+    { RBFile.s_tracks = fixDoubleSwells $ add2x $ RBFile.s_tracks parsed
     }
 
   vid <- case FoF.video song of
@@ -232,9 +252,11 @@ importFoF krb2 src dest = do
       liftIO $ Dir.copyFile (src </> v) (dest </> "video.avi")
       return $ Just "video.avi"
 
-  let vocalMode = if elem "PART VOCALS" trackNames && FoF.diffVocals song /= Just (-1) && hasVocalNotes && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
-        then if elem "HARM2" trackNames && FoF.diffVocalsHarm song /= Just (-1)
-          then if elem "HARM3" trackNames
+  let hasTrack :: (RBFile.PSFile U.Beats -> RTB.T U.Beats a) -> Bool
+      hasTrack f = not $ null $ f $ RBFile.s_tracks parsed
+      vocalMode = if hasTrack RBFile.psPartVocals && FoF.diffVocals song /= Just (-1) && hasVocalNotes && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
+        then if hasTrack RBFile.psHarm2 && FoF.diffVocalsHarm song /= Just (-1)
+          then if hasTrack RBFile.psHarm3
             then Just Vocal3
             else Just Vocal2
           else Just Vocal1
@@ -302,82 +324,65 @@ importFoF krb2 src dest = do
       }
     , _targets = standardTargets Nothing Nothing has2x krb2 vid
     , _parts = Parts $ HM.fromList
-      [ ( FlexDrums, Part
-        { partGRYBO = Nothing
-        , partProKeys = Nothing
-        , partProGuitar = Nothing
-        , partDrums = guard (elem "PART DRUMS" trackNames && FoF.diffDrums song /= Just (-1)) >> Just PartDrums
+      [ ( FlexDrums, def
+        { partDrums = guard (hasTrack RBFile.psPartDrums && FoF.diffDrums song /= Just (-1)) >> Just PartDrums
           { drumsDifficulty = toTier $ FoF.diffDrums song
           , drumsPro = case FoF.proDrums song of
             Just b  -> b
             Nothing -> any
               (\case RBDrums.ProType _ _ -> True; _ -> False)
-              (discardPS $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks parsed)
+              (discardPS $ RBFile.psPartDrums $ RBFile.s_tracks parsed)
           , drumsAuto2xBass = False
           , drumsFixFreeform = False
           , drumsKit = HardRockKit
           , drumsLayout = StandardLayout
           }
-        , partVocal = Nothing
         })
-      , ( FlexGuitar, Part
-        { partGRYBO = guard (elem "PART GUITAR" trackNames && FoF.diffGuitar song /= Just (-1)) >> Just PartGRYBO
+      , ( FlexGuitar, def
+        { partGRYBO = guard (hasTrack RBFile.psPartGuitar && FoF.diffGuitar song /= Just (-1)) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffGuitar song
           , gryboHopoThreshold = 170
           , gryboFixFreeform = False
           }
-        , partProKeys = Nothing
         , partProGuitar = let
-          b =  (elem "PART REAL_GUITAR"    trackNames && FoF.diffGuitarReal   song /= Just (-1))
-            || (elem "PART REAL_GUITAR_22" trackNames && FoF.diffGuitarReal22 song /= Just (-1))
+          b =  (hasTrack RBFile.psPartRealGuitar   && FoF.diffGuitarReal   song /= Just (-1))
+            || (hasTrack RBFile.psPartRealGuitar22 && FoF.diffGuitarReal22 song /= Just (-1))
           in guard b >> Just PartProGuitar
             { pgDifficulty = toTier $ FoF.diffGuitarReal song
             , pgHopoThreshold = 170
             , pgTuning = []
             , pgFixFreeform = False
             }
-        , partDrums = Nothing
-        , partVocal = Nothing
         })
-      , ( FlexBass, Part
-        { partGRYBO = guard (elem "PART BASS" trackNames && FoF.diffBass song /= Just (-1)) >> Just PartGRYBO
+      , ( FlexBass, def
+        { partGRYBO = guard (hasTrack RBFile.psPartBass && FoF.diffBass song /= Just (-1)) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffBass song
           , gryboHopoThreshold = 170
           , gryboFixFreeform = False
           }
-        , partProKeys = Nothing
         , partProGuitar = let
-          b =  (elem "PART REAL_BASS"    trackNames && FoF.diffBassReal   song /= Just (-1))
-            || (elem "PART REAL_BASS_22" trackNames && FoF.diffBassReal22 song /= Just (-1))
+          b =  (hasTrack RBFile.psPartRealBass   && FoF.diffBassReal   song /= Just (-1))
+            || (hasTrack RBFile.psPartRealBass22 && FoF.diffBassReal22 song /= Just (-1))
           in guard b >> Just PartProGuitar
             { pgDifficulty = toTier $ FoF.diffBassReal song
             , pgHopoThreshold = 170
             , pgTuning = []
             , pgFixFreeform = False
             }
-        , partDrums = Nothing
-        , partVocal = Nothing
         })
-      , ( FlexKeys, Part
-        { partGRYBO = guard (elem "PART KEYS" trackNames && FoF.diffKeys song /= Just (-1)) >> Just PartGRYBO
+      , ( FlexKeys, def
+        { partGRYBO = guard (hasTrack RBFile.psPartKeys && FoF.diffKeys song /= Just (-1)) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffKeys song
           , gryboHopoThreshold = 170
           , gryboFixFreeform = False
           }
-        , partProKeys = guard (elem "PART REAL_KEYS_X" trackNames && FoF.diffKeysReal song /= Just (-1)) >> Just PartProKeys
+        , partProKeys = guard (hasTrack RBFile.psPartRealKeysX && FoF.diffKeysReal song /= Just (-1)) >> Just PartProKeys
           { pkDifficulty = toTier $ FoF.diffKeysReal song
           , pkFixFreeform = False
           }
-        , partProGuitar = Nothing
-        , partDrums = Nothing
-        , partVocal = Nothing
         })
-      , ( FlexVocal, Part
-        { partGRYBO = Nothing
-        , partProKeys = Nothing
-        , partProGuitar = Nothing
-        , partDrums = Nothing
-        , partVocal = flip fmap vocalMode $ \vc -> PartVocal
+      , ( FlexVocal, def
+        { partVocal = flip fmap vocalMode $ \vc -> PartVocal
           { vocalDifficulty = toTier $ FoF.diffVocals song
           , vocalCount = vc
           , vocalGender = Nothing
@@ -524,8 +529,8 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mid2x mogg cover coverName d
   case mid2x of
     Nothing  -> liftIO $ Dir.copyFile mid $ dir </> "notes.mid"
     Just f2x -> do
-      RBFile.Song temps sigs (RBFile.RawFile trks1x) <- liftIO (Load.fromFile mid) >>= RBFile.readMIDIFile'
-      RBFile.Song _     _    (RBFile.RawFile trks2x) <- liftIO (Load.fromFile f2x) >>= RBFile.readMIDIFile'
+      RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI mid
+      RBFile.Song _     _    (RBFile.RawFile trks2x) <- loadMIDI f2x
       let trks = trks1x ++ mapMaybe make2xTrack trks2x
           make2xTrack trk = case U.trackName trk of
             Just "PART DRUMS" -> Just $ U.setTrackName "PART DRUMS_2X" trk
@@ -534,7 +539,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mid2x mogg cover coverName d
         $ RBFile.Song temps sigs $ RBFile.RawFile trks
   liftIO $ Dir.copyFile cover $ dir </> coverName
   md5 <- liftIO $ show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
-  rb3mid <- liftIO (Load.fromFile mid) >>= RBFile.readMIDIFile'
+  rb3mid <- loadMIDI mid
   drumkit <- case D.drumBank pkg of
     Nothing -> return HardRockKit
     Just x -> case x of
