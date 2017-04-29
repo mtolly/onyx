@@ -190,8 +190,10 @@ makeRB3DTA songYaml plan rb3 song filename = do
         ]
       crowdChannels, songChannels :: [(Double, Double)]
       crowdChannels = case plan of
-        MoggPlan{..} -> []
-        Plan    {..} -> [(-1, 0), (1, 0)]
+        MoggPlan{..} -> undefined -- not used
+        Plan    {..} -> case _crowd of
+          Nothing -> []
+          Just _  -> [(-1, 0), (1, 0)]
       songChannels = [(-1, 0), (1, 0)]
   return D.SongPackage
     { D.name = targetTitle songYaml $ RB3 rb3

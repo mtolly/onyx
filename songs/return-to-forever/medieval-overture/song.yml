@@ -10,6 +10,7 @@ metadata:
   subgenre: fusion
   year: 1976
   file-album-art: cover.jpg
+  preview-start: prc_big_riff
 audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
@@ -37,6 +38,7 @@ parts:
   drums:
     drums:
       kit: VintageKit
+      difficulty: 7
 targets:
   rb3:
     game: rb3
