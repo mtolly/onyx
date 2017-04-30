@@ -53,10 +53,14 @@ plans:
       drums: jammit-drums
       bass: jammit-bass
       vocal:
+        # TODO: bump up volume of verse 2 (keep your head up)
         mix: [jammit-vox1, jammit-vox2]
-      guitar:
+      guitar1:
         # TODO: remove some parts
-        mix: [jammit-gtr1, jammit-gtr2]
+        jammit-gtr1
+      guitar2:
+        # TODO: remove some parts
+        jammit-gtr2
       keys:
         # TODO: remove some of Keys 2
         mix: [jammit-keys1, jammit-keys2]
@@ -77,6 +81,8 @@ parts:
   keys:
     pro-keys: {}
   bass:
+    grybo: {}
+  guitar:
     grybo: {}
 targets:
   rb3:
