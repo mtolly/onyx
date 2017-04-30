@@ -76,6 +76,8 @@ parts:
       difficulty: 5
   keys:
     pro-keys: {}
+  bass:
+    grybo: {}
 targets:
   rb3:
     game: rb3
