@@ -147,7 +147,7 @@ readConfig = do
 
 osOpenFile :: (MonadIO m) => FilePath -> m ()
 osOpenFile f = liftIO $ case os of
-  "mingw32" -> void $ spawnCommand f
+  "mingw32" -> void $ spawnCommand $ "\"" ++ f ++ "\""
   "darwin"  -> callProcess "open" [f]
   "linux"   -> callProcess "exo-open" [f]
   _         -> return ()
