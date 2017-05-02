@@ -50,7 +50,7 @@ plans:
       1|1: hihat
       1|2: hihat
     parts:
-      drums: jammit-drums
+      drums: jammit-drums # TODO: add all bells in beginning
       bass: jammit-bass
       vocal:
         # TODO: bump up volume of verse 2 (keep your head up)

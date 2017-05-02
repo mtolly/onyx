@@ -1,0 +1,26 @@
+7|0.0: drums
+17|0.0: drums YES
+31|0.0: drums
+39|0.0: drums
+48|0.0: drums YES
+56|0.0: drums YES
+67|3.0: drums
+76|0.0: drums YES
+88|0.0: drums
+97|0.0: drums YES
+105|0.0: drums
+117|0.0: drums YES
+125|0.0: drums
+138|0.0: drums YES
+146|0.0: drums YES
+158|0.0: drums
+170|0.0: drums
+182|0.0: drums YES
+190|0.0: drums
+202|0.0: drums YES
+214|0.0: drums
+222|0.0: drums YES
+234|0.0: drums
+243|0.0: drums YES
+252|0.0: drums
+260|0.0: drums YES
