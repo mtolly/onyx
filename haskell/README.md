@@ -5,7 +5,7 @@
   * `stack` (32-bit version)
   * .NET Framework v3.5
   * Visual C++ 2008 Runtime
-  * `make` (`stack exec pacman -Sy make`)
+  * `make` (`stack exec -- pacman -Sy make`)
 
 ## Steps
 

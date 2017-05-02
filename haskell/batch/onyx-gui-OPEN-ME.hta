@@ -1,0 +1,92 @@
+<html>
+<head>
+<title>Onyx Music Game Toolkit</title>
+<hta:application
+  applicationname="Onyx Music Game Toolkit"
+  scroll="yes"
+  singleinstance="yes"
+  windowstate="Normal"
+></hta:application>
+</head>
+
+<style>
+@font-face {
+    font-family: "Pentatonic";
+    src: url("Pentatonic.eot?");
+}
+
+body {
+  text-align: center;
+  font-family: sans-serif;
+  background-color: #4B1C4E;
+  color: #eee;
+}
+
+h2 {
+  font-family: Pentatonic;
+  font-weight: normal;
+}
+
+button {
+  background-color: #dbc0dd;
+  color: #180019;
+}
+</style>
+
+<script language="VBScript">
+Sub RunProg(prog, arg)
+  Set objShell = CreateObject("Wscript.Shell")
+  objShell.Run """" & prog & """ """ & arg & """"
+End Sub
+</script>
+
+<script type="text/javascript">
+function RunProgram(prog) {
+  document.all.fileForm.reset();
+  document.getElementById("file-in").click();
+  var rb3con = document.getElementById('file-in').value;
+  if (rb3con !== '') {
+    RunProg(prog, rb3con);
+  }
+}
+</script>
+
+<script language="VBScript">
+Sub Window_onLoad
+  window.resizeTo 450, 550
+End Sub
+</script>
+
+<body>
+
+<form>
+  <h2>FoF/PS to RB3 converter</h2>
+  <p>
+    <button type="button" onClick="RunProgram('convert-rb3.bat')">Select song.ini</button>
+  </p>
+  <h2>RB3 to RB2 converter</h2>
+  <p>
+    <button type="button" onClick="RunProgram('convert-rb2.bat')">No Keys</button>
+  </p>
+  <p>
+    <button type="button" onClick="RunProgram('convert-rb2-kg.bat')">Keys on Guitar</button>
+  </p>
+  <p>
+    <button type="button" onClick="RunProgram('convert-rb2-kb.bat')">Keys on Bass</button>
+  </p>
+  <h2>Browser Song Preview</h2>
+  <p>
+    <button type="button" onClick="RunProgram('player.bat')">Select CON/RBA/song.ini</button>
+  </p>
+  <h2>MIDI to Reaper project</h2>
+  <p>
+    <button type="button" onClick="RunProgram('reap.bat')">Select .mid</button>
+  </p>
+</form>
+
+<form name="fileForm" style="display: none;">
+  <input type="file" id="file-in">
+</form>
+
+</body>
+</html>
