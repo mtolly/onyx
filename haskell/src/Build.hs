@@ -1689,13 +1689,10 @@ shakeBuild audioDirs yamlPath buildables = do
                 putNormal $ "Found the MOGG file: " ++ f
                 copyFile' f out
 
-        -- Low-quality audio files for the online preview app
-        forM_ [("mp3", crapMP3), ("ogg", crapVorbis)] $ \(ext, crap) -> do
-          dir </> "web/preview-audio" <.> ext %> \out -> do
-            src <- buildSource $ Input $ dir </> "everything-mono.wav"
-            putNormal $ "Writing a crappy audio file to " ++ out
-            liftIO $ runResourceT $ crap out src
-            putNormal $ "Finished writing a crappy audio file to " ++ out
+        -- Audio files for the online preview app
+        forM_ ["mp3", "ogg"] $ \(ext) -> do
+          dir </> "web/preview-audio" <.> ext %>
+            buildAudio (Input $ dir </> "everything.wav")
 
         -- Warn about notes that might hang off before a pro keys range shift
         -- TODO flex parts

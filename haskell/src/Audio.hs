@@ -347,20 +347,25 @@ buildAudio aud out = do
   runAudio src out
 
 runAudio :: AudioSource (ResourceT IO) Float -> FilePath -> Action ()
-runAudio src out = do
-  let fmt = case takeExtension out of
-        ".ogg" -> Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
-        ".wav" -> Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-        ext -> error $ "runAudio: unknown audio output file extension " ++ ext
-      src' = if takeExtension out == ".ogg" && channels src == 6
-        then merge src $ silent (Frames 0) (rate src) 1
-        -- this works around an issue with oggenc:
-        -- it assumes 6 channels is 5.1 surround where the last channel
-        -- is LFE, so instead we add a silent 7th channel
-        else src
-  putNormal $ "Writing an audio expression to " ++ out
-  liftIO $ runResourceT $ sinkSnd out fmt $ clampFloat src'
-  putNormal $ "Finished writing an audio expression to " ++ out
+runAudio src out = let
+  src' = clampFloat $ if takeExtension out == ".ogg" && channels src == 6
+    then merge src $ silent (Frames 0) (rate src) 1
+    -- this works around an issue with oggenc:
+    -- it assumes 6 channels is 5.1 surround where the last channel
+    -- is LFE, so instead we add a silent 7th channel
+    else src
+  withSndFormat fmt = do
+    putNormal $ "Writing an audio expression to " ++ out
+    liftIO $ runResourceT $ sinkSnd out fmt src'
+    putNormal $ "Finished writing an audio expression to " ++ out
+  in case takeExtension out of
+    ".ogg" -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
+    ".wav" -> withSndFormat $ Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
+    ".mp3" -> do
+      putNormal $ "Writing an audio expression to " ++ out
+      liftIO $ runResourceT $ sinkMP3 out src'
+      putNormal $ "Finished writing an audio expression to " ++ out
+    ext -> error $ "runAudio: unknown audio output file extension " ++ ext
 
 -- | Forces floating point samples to be in @[-1, 1]@.
 -- libsndfile should do this, after https://github.com/kaoskorobase/hsndfile/pull/12
