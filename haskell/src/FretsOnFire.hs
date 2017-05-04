@@ -48,6 +48,7 @@ data Song = Song
   , track            :: Maybe Int
   , sysexSlider      :: Maybe Bool
   , video            :: Maybe FilePath
+  -- TODO: video_start_time, five_lane_drums
   } deriving (Eq, Ord, Show, Read)
 
 loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song

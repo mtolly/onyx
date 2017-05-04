@@ -13,6 +13,7 @@ import           Control.Monad.Extra              (mapMaybeM)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString.Lazy             as BL
+import           Data.Char                        (isSpace)
 import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
 import qualified Data.Digest.Pure.MD5             as MD5
@@ -248,6 +249,7 @@ importFoF krb2 src dest = do
 
   vid <- case FoF.video song of
     Nothing -> return Nothing
+    Just s | all isSpace s -> return Nothing
     Just v -> inside "copying PS video file to onyx project" $ do
       liftIO $ Dir.copyFile (src </> v) (dest </> "video.avi")
       return $ Just "video.avi"
