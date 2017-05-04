@@ -576,21 +576,22 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mid2x mogg cover coverName d
   let instChans :: Map.Map T.Text [Int]
       instChans = fmap (map fromIntegral) $ D2.fromDict $ D.tracks $ D.song pkg
       drumChans = fromMaybe [] $ Map.lookup "drum" instChans
-  drumSplit <- case drumMix of
+      hasRankStr s = maybe False (/= 0) $ Map.lookup s diffMap
+  drumSplit <- if not $ hasRankStr "drum" then return Nothing else case drumMix of
     RBDrums.D0 -> case drumChans of
-      [kitL, kitR] -> return $ PartSingle [kitL, kitR]
+      [kitL, kitR] -> return $ Just $ PartSingle [kitL, kitR]
       _ -> fatal $ "mix 0 needs 2 drums channels, " ++ show (length drumChans) ++ " given"
     RBDrums.D1 -> case drumChans of
-      [kick, snare, kitL, kitR] -> return $ PartDrumKit (Just [kick]) (Just [snare]) [kitL, kitR]
+      [kick, snare, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) (Just [snare]) [kitL, kitR]
       _ -> fatal $ "mix 1 needs 4 drums channels, " ++ show (length drumChans) ++ " given"
     RBDrums.D2 -> case drumChans of
-      [kick, snareL, snareR, kitL, kitR] -> return $ PartDrumKit (Just [kick]) (Just [snareL, snareR]) [kitL, kitR]
+      [kick, snareL, snareR, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) (Just [snareL, snareR]) [kitL, kitR]
       _ -> fatal $ "mix 2 needs 5 drums channels, " ++ show (length drumChans) ++ " given"
     RBDrums.D3 -> case drumChans of
-      [kickL, kickR, snareL, snareR, kitL, kitR] -> return $ PartDrumKit (Just [kickL, kickR]) (Just [snareL, snareR]) [kitL, kitR]
+      [kickL, kickR, snareL, snareR, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kickL, kickR]) (Just [snareL, snareR]) [kitL, kitR]
       _ -> fatal $ "mix 3 needs 6 drums channels, " ++ show (length drumChans) ++ " given"
     RBDrums.D4 -> case drumChans of
-      [kick, kitL, kitR] -> return $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
+      [kick, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
       _ -> fatal $ "mix 4 needs 3 drums channels, " ++ show (length drumChans) ++ " given"
   liftIO $ Y.encodeFile (dir </> "song.yml") SongYaml
     { _metadata = Metadata
@@ -627,7 +628,7 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mid2x mogg cover coverName d
         , [ (FlexBass  , PartSingle ns) | ns <- toList $ Map.lookup "bass"   instChans ]
         , [ (FlexKeys  , PartSingle ns) | ns <- toList $ Map.lookup "keys"   instChans ]
         , [ (FlexVocal , PartSingle ns) | ns <- toList $ Map.lookup "vocals" instChans ]
-        , [ (FlexDrums , drumSplit) ]
+        , [ (FlexDrums , ds           ) | Just ds <- [drumSplit] ]
         ]
       , _moggCrowd  = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
       , _pans = map realToFrac $ D.pans $ D.song pkg
@@ -642,11 +643,8 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mid2x mogg cover coverName d
         Right k -> Just $ Right k
       in standardTargets songID (songID >> Just (D.version pkg)) is2x krb2 Nothing
     , _parts = Parts $ HM.fromList
-      [ ( FlexDrums, Part
-        { partGRYBO = Nothing
-        , partProKeys = Nothing
-        , partProGuitar = Nothing
-        , partDrums = guard (maybe False (/= 0) $ Map.lookup "drum" diffMap) >> Just PartDrums
+      [ ( FlexDrums, def
+        { partDrums = guard (hasRankStr "drum") >> Just PartDrums
           { drumsDifficulty = Rank $ fromMaybe 1 $ Map.lookup "drum" diffMap
           , drumsPro = True
           , drumsAuto2xBass = is2x
@@ -654,60 +652,46 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mid2x mogg cover coverName d
           , drumsKit = drumkit
           , drumsLayout = StandardLayout -- TODO import this
           }
-        , partVocal = Nothing
         })
-      , ( FlexGuitar, Part
-        { partGRYBO = guard (maybe False (/= 0) $ Map.lookup "guitar" diffMap) >> Just PartGRYBO
+      , ( FlexGuitar, def
+        { partGRYBO = guard (hasRankStr "guitar") >> Just PartGRYBO
           { gryboDifficulty = Rank $ fromMaybe 1 $ Map.lookup "guitar" diffMap
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
           }
-        , partProKeys = Nothing
-        , partProGuitar = guard (maybe False (/= 0) $ Map.lookup "real_guitar" diffMap) >> Just PartProGuitar
+        , partProGuitar = guard (hasRankStr "real_guitar") >> Just PartProGuitar
           { pgDifficulty = Rank $ fromMaybe 1 $ Map.lookup "real_guitar" diffMap
           , pgHopoThreshold = hopoThresh
           , pgTuning = fromMaybe [] $ map fromIntegral <$> D.realGuitarTuning pkg
           , pgFixFreeform = False
           }
-        , partDrums = Nothing
-        , partVocal = Nothing
         })
-      , ( FlexBass, Part
-        { partGRYBO = guard (maybe False (/= 0) $ Map.lookup "bass" diffMap) >> Just PartGRYBO
+      , ( FlexBass, def
+        { partGRYBO = guard (hasRankStr "bass") >> Just PartGRYBO
           { gryboDifficulty = Rank $ fromMaybe 1 $ Map.lookup "bass" diffMap
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
           }
-        , partProKeys = Nothing
-        , partProGuitar = guard (maybe False (/= 0) $ Map.lookup "real_bass" diffMap) >> Just PartProGuitar
+        , partProGuitar = guard (hasRankStr "real_bass") >> Just PartProGuitar
           { pgDifficulty = Rank $ fromMaybe 1 $ Map.lookup "real_bass" diffMap
           , pgHopoThreshold = hopoThresh
           , pgTuning = fromMaybe [] $ map fromIntegral <$> D.realBassTuning pkg
           , pgFixFreeform = False
           }
-        , partDrums = Nothing
-        , partVocal = Nothing
         })
-      , ( FlexKeys, Part
-        { partGRYBO = guard (maybe False (/= 0) $ Map.lookup "keys" diffMap) >> Just PartGRYBO
+      , ( FlexKeys, def
+        { partGRYBO = guard (hasRankStr "keys") >> Just PartGRYBO
           { gryboDifficulty = Rank $ fromMaybe 1 $ Map.lookup "keys" diffMap
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
           }
-        , partProKeys = guard (maybe False (/= 0) $ Map.lookup "real_keys" diffMap) >> Just PartProKeys
+        , partProKeys = guard (hasRankStr "real_keys") >> Just PartProKeys
           { pkDifficulty = Rank $ fromMaybe 1 $ Map.lookup "real_keys" diffMap
           , pkFixFreeform = False
           }
-        , partProGuitar = Nothing
-        , partDrums = Nothing
-        , partVocal = Nothing
         })
-      , ( FlexVocal, Part
-        { partGRYBO = Nothing
-        , partProKeys = Nothing
-        , partProGuitar = Nothing
-        , partDrums = Nothing
-        , partVocal = flip fmap vocalMode $ \vc -> PartVocal
+      , ( FlexVocal, def
+        { partVocal = flip fmap vocalMode $ \vc -> PartVocal
           { vocalDifficulty = Rank $ fromMaybe 1 $ Map.lookup "vocals" diffMap
           , vocalCount = vc
           , vocalGender = Just $ D.vocalGender pkg
