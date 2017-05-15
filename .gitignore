@@ -4,6 +4,8 @@ audio.*
 video-*.*
 video.*
 preview-audio.*
+*_rb3con
+*_rb2con
 songs*/*/*/gen/
 *.[Rr][Pp][Pp]
 *.[Rr][Pp][Pp]-bak

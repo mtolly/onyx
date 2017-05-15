@@ -1,0 +1,98 @@
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty: 7
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty: 7
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty: 7
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty: 7
+    grybo:
+      fix-freeform: false
+      difficulty: 7
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty: 7
+  onyxite-2x:
+    # eventually we'll have a real way to author more than 1 chart for a part.
+    # but this hack works for now
+    drums:
+      fix-freeform: false
+      difficulty: 7
+plans:
+  stems:
+    song: song
+    parts:
+      vocal: vocal
+      bass: bass
+      guitar: guitar
+      keys: keys
+      drums: drums
+  stems-onyxite-2x:
+    song: song
+    parts:
+      vocal: vocal
+      bass: bass
+      guitar: guitar
+      keys: keys
+      onyxite-2x: drums
+targets:
+  rb3:
+    # song-id:
+    game: rb3
+    plan: stems
+  rb3-2x:
+    # song-id:
+    game: rb3
+    plan: stems-onyxite-2x
+    drums: onyxite-2x
+    2x-bass-pedal: true
+  ps:
+    game: ps
+    plan: stems-onyxite-2x
+    drums: onyxite-2x
+metadata:
+  preview-start: 1:37.000
+  file-album-art: ../../../covers/the-immunity-zone.png_xbox
+  track-number: 9
+  album: The Immunity Zone
+  year: 2008
+  subgenre: progrock
+  title: Veil of Illumination
+  genre: prog
+  difficulty: 7
+  artist: Andromeda
+  author: Rhythm Authors
+  comments:
+  - Parts 1 and 2 from RBN glued together by Onyxite.
+  - Target `rb3` is almost pristine, with only one change (to work around the RB3 discobeat bug).
+  - Targets `rb3-2x` and `ps`, in addition to 2x kicks, use my edited drums chart with some ghost notes and missing notes added.
+audio:
+  keys:
+    md5: c7cc9ddffad1702d6adfb11f662a851c
+    frames: 46316942
+  guitar:
+    md5: ac636fb52f1105e07510b6b6adc527d9
+    frames: 46316942
+  bass:
+    md5: bf985bb5f773e1006d3d7a081c7bbd0d
+    frames: 46316942
+  vocal:
+    md5: 102838ab4820f27bcb03951574b182a7
+    frames: 46316942
+  song:
+    md5: 593eed7baf88962eba93ddfa69613372
+    frames: 46316942
+  drums:
+    md5: d6dcd609cd45346fdbc466ab3b6ba42d
+    frames: 46316942

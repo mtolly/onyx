@@ -3,8 +3,8 @@ module Reaper.Build (makeReaper, makeReaperIO) where
 
 import           Reaper.Base
 
-import           Control.Monad                         (forM_, unless, when,
-                                                        (>=>))
+import           Control.Monad                         (forM_, guard, unless,
+                                                        when, (>=>))
 import           Control.Monad.Extra                   (mapMaybeM)
 import           Control.Monad.IO.Class                (MonadIO (liftIO))
 import           Control.Monad.Trans.Class             (lift)
@@ -17,10 +17,11 @@ import           Data.Char                             (toLower)
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Functor.Identity                 (runIdentity)
-import           Data.List                             (elemIndex, find,
-                                                        isPrefixOf, isSuffixOf,
+import           Data.List                             (find, findIndex,
+                                                        isInfixOf, isSuffixOf,
                                                         sortOn)
-import           Data.Maybe                            (fromMaybe, listToMaybe)
+import           Data.Maybe                            (fromMaybe, listToMaybe,
+                                                        mapMaybe)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
 import           Development.Shake                     (Action, need)
@@ -135,7 +136,7 @@ track lenTicks lenSecs resn trk = let
         red = (255, 0, 0)
         blue = (0, 0, 255)
         orange = (255, 128, 0)
-    case lookup name
+    case mapMaybe (\(n, c) -> guard (n `isSuffixOf` name) >> Just c)
       [ ("PART DRUMS", yellow)
       , ("PART DRUMS_2X", yellow)
       , ("PART REAL_DRUMS_PS", yellow)
@@ -155,24 +156,24 @@ track lenTicks lenSecs resn trk = let
       , ("PART REAL_KEYS_M", green)
       , ("PART REAL_KEYS_E", green)
       ] of
-      Nothing -> return ()
-      Just (r, g, b) -> let
+      [] -> return ()
+      (r, g, b) : _ -> let
         encoded :: Int
         encoded = 0x1000000 + 0x10000 * b + 0x100 * g + r
         in line "PEAKCOL" [show encoded]
     line "TRACKHEIGHT" ["0", "0"]
     let (fxActive, fxPresent, fx)
-          | "PART REAL_KEYS_" `isPrefixOf` name
+          | "PART REAL_KEYS_" `isInfixOf` name
           = (False, True, mutePitches 0 47 >> mutePitches 73 127 >> pitchProKeys)
-          | elem name ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
+          | any (`isSuffixOf` name) ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
           = (False, True, mutePitches 0 35 >> mutePitches 85 127 >> pitchVox)
-          | any (`isPrefixOf` name) ["GTR S", "GTR22 S", "BASS S", "BASS22 S"]
+          | any (`isInfixOf` name) ["GTR S", "GTR22 S", "BASS S", "BASS22 S"]
           = (True, True, pitchProGtr)
-          | elem name ["PART GUITAR", "PART BASS"]
+          | any (`isSuffixOf` name) ["PART GUITAR", "PART BASS"]
           = (True, True, previewGtr)
-          | name == "PART KEYS"
+          | "PART KEYS" `isSuffixOf` name
           = (True, True, previewKeys)
-          | elem name ["PART DRUMS", "PART DRUMS_2X", "PART REAL_DRUMS_PS"]
+          | any (`isSuffixOf` name) ["PART DRUMS", "PART DRUMS_2X", "PART REAL_DRUMS_PS"]
           = (True, True, previewDrums)
           | otherwise
           = (False, False, return ())
@@ -595,7 +596,7 @@ melodyNoteNames = execWriter $ do
         x k = tell [(k, "----")]
 
 sortTracks :: (NNC.C t) => [RTB.T t E.T] -> [RTB.T t E.T]
-sortTracks = sortOn $ U.trackName >=> \name -> elemIndex name
+sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`isSuffixOf` name)
   [ "PART DRUMS"
   , "PART DRUMS_2X"
   , "PART REAL_DRUMS_PS"
