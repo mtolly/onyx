@@ -8,10 +8,10 @@ Or drag a file onto the appropriate `.bat` file if the GUI does not work.
 
   * `convert-rb3.bat` (takes song.ini, creates _rb3con)
 
-  	Attempts to convert a Frets on Fire / Phase Shift song to Rock Band 3.
-  	Here is a sample of the steps performed:
+    Attempts to convert a Frets on Fire / Phase Shift song to Rock Band 3.
+    Here is a sample of the steps performed:
 
-  	  * Adds appropriate `[music_start]`, `[music_end]`, and `[end]` events
+      * Adds appropriate `[music_start]`, `[music_end]`, and `[end]` events
       * Generates an automatic `BEAT` track from MIDI time signatures
       * Adds auto-generated (roughly CAT-quality) lower difficulties if missing
       * Imports as much metadata as possible from `song.ini`
