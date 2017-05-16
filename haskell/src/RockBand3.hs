@@ -205,12 +205,13 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
                 -> (if RBFile.flexFiveIsKeys basicKeysSrc then id else Five.forceAllNotes $ fromIntegral (gryboHopoThreshold grybo) / 480)
                 $ discardPS $ RBFile.flexFiveButton basicKeysSrc
             -- TODO remove tremolo (+ hand positions?) from basic keys, nemo's checker doesn't like them
+            fpart = RBFile.getFlexPart keysPart trks
             keysDiff diff = if isJust $ partProKeys part
               then discardPS $ case diff of
-                Easy   -> RBFile.flexPartRealKeysE $ RBFile.getFlexPart keysPart trks
-                Medium -> RBFile.flexPartRealKeysM $ RBFile.getFlexPart keysPart trks
-                Hard   -> RBFile.flexPartRealKeysH $ RBFile.getFlexPart keysPart trks
-                Expert -> RBFile.flexPartRealKeysX $ RBFile.getFlexPart keysPart trks
+                Easy   -> RBFile.flexPartRealKeysE fpart
+                Medium -> RBFile.flexPartRealKeysM fpart
+                Hard   -> RBFile.flexPartRealKeysH fpart
+                Expert -> RBFile.flexPartRealKeysX fpart
               else keysToProKeys diff basicKeys
             rtb1 `orIfNull` rtb2 = if length rtb1 < 5 then rtb2 else rtb1
             keysExpert = completeRanges $ keysDiff Expert
@@ -220,9 +221,11 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
             keysOD = flip RTB.mapMaybe keysExpert $ \case
               ProKeys.Overdrive b -> Just b
               _                   -> Nothing
-            keysAnim = flip RTB.filter keysExpert $ \case
-              ProKeys.Note _ -> True
-              _              -> False
+            originalRH = discardPS $ RBFile.flexPartKeysAnimRH fpart
+            originalLH = discardPS $ RBFile.flexPartKeysAnimLH fpart
+            (animRH, animLH) = if RTB.null originalRH && RTB.null originalLH
+              then (RTB.filter (\case ProKeys.Note _ -> True; _ -> False) keysExpert, RTB.empty)
+              else (originalRH, originalLH)
             ffBasic = if fmap gryboFixFreeform (partGRYBO part) == Just True
               then fixFreeformFive
               else id
@@ -230,8 +233,8 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
               then fixFreeformPK
               else id
             in  ( ffBasic basicKeys
-                , keysAnim
-                , RTB.empty
+                , animRH
+                , animLH
                 , ffPro $ ProKeys.fixPSRange keysExpert
                 ,         ProKeys.fixPSRange keysHard
                 ,         ProKeys.fixPSRange keysMedium

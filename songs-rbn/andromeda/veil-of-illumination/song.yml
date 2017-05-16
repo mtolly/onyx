@@ -48,11 +48,13 @@ plans:
       onyxite-2x: drums
 targets:
   rb3:
-    # song-id:
+    song-id: 1660299998
+    version: 1
     game: rb3
     plan: stems
   rb3-2x:
-    # song-id:
+    song-id: 1660299997
+    version: 1
     game: rb3
     plan: stems-onyxite-2x
     drums: onyxite-2x
@@ -72,11 +74,15 @@ metadata:
   genre: prog
   difficulty: 7
   artist: Andromeda
-  author: Rhythm Authors
+  author: Rhythm Authors, Onyxite
+  key: D # most of part 1 at least
+  rating: SR
   comments:
   - Parts 1 and 2 from RBN glued together by Onyxite.
-  - Target `rb3` is almost pristine, with only one change (to work around the RB3 discobeat bug).
-  - Targets `rb3-2x` and `ps`, in addition to 2x kicks, use my edited drums chart with some ghost notes and missing notes added.
+  - Target `rb3` is almost pristine,
+    with only one change (to work around the RB3 discobeat bug).
+  - Targets `rb3-2x` and `ps`, in addition to 2x kicks,
+    use my edited drums chart with some ghost notes and missing notes added.
 audio:
   keys:
     md5: c7cc9ddffad1702d6adfb11f662a851c
