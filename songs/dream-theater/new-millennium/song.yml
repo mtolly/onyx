@@ -80,6 +80,7 @@ parts:
       difficulty: 5
   keys:
     pro-keys: {}
+    grybo: {}
   bass:
     grybo: {}
   guitar:
