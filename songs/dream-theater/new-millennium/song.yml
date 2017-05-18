@@ -82,6 +82,9 @@ parts:
     grybo: {}
   guitar:
     grybo: {}
+  vocal:
+    vocal:
+      count: 3
 targets:
   rb3:
     game: rb3
