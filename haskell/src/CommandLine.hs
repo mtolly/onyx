@@ -371,16 +371,23 @@ commands =
         [] -> ["."]
         _  -> files
       let isType types (ftype, fpath) = guard (elem ftype types) >> Just fpath
+          withSongYaml yamlPath = do
+            audioDirs <- getAudioDirs yamlPath
+            planName <- getPlanName yamlPath opts
+            let rpp = "notes-" <> T.unpack planName <> ".RPP"
+                yamlDir = takeDirectory yamlPath
+            shakeBuild audioDirs yamlPath [rpp]
+            let rppFull = yamlDir </> "notes.RPP"
+            liftIO $ Dir.renameFile (yamlDir </> rpp) rppFull
+            unless (elem OptNoOpen opts) $ osOpenFile rppFull
       case files' of
-        [(FileSongYaml, yamlPath)] -> do
-          audioDirs <- getAudioDirs yamlPath
-          planName <- getPlanName yamlPath opts
-          let rpp = "notes-" <> T.unpack planName <> ".RPP"
-              yamlDir = takeDirectory yamlPath
-          shakeBuild audioDirs yamlPath [rpp]
-          let rppFull = yamlDir </> "notes.RPP"
-          liftIO $ Dir.renameFile (yamlDir </> rpp) rppFull
-          unless (elem OptNoOpen opts) $ osOpenFile rppFull
+        [(FileSTFS, stfsPath)] -> do
+          let out = stfsPath ++ "_reaper"
+          liftIO $ Dir.createDirectoryIfMissing False out
+          let f2x = listToMaybe [ f | Opt2x f <- opts ]
+          importSTFS NoKeys stfsPath f2x out
+          withSongYaml $ out </> "song.yml"
+        [(FileSongYaml, yamlPath)] -> withSongYaml yamlPath
         _ -> case partitionMaybe (isType [FileMidi]) files' of
           ([mid], notMid) -> case partitionMaybe (isType [FileOGG, FileWAV, FileFLAC]) notMid of
             (audio, []      ) -> do
@@ -498,6 +505,8 @@ commands =
       , "onyx convert in_rb3con --to out_rb2con --game rb2"
       , "onyx convert in_rb3con --to out_rb2con --game rb2 --keys-on-guitar"
       , "onyx convert in_rb3con --to out_rb2con --game rb2 --keys-on-bass"
+      -- TODO , "onyx convert in_ps/song.ini --to out_1x_rb3con --2x out_2x_rb3con"
+      -- TODO , "onyx convert in_1x_rb3con --2x in_2x_rb3con --to out/ --game ps"
       ]
     , commandRun = \files opts -> tempDir "onyx_convert" $ \tmp -> do
       (ftype, fpath) <- optionalFile files
