@@ -75,7 +75,9 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200040 Ripple Star (Jun Ishikawa) 2x
   v1 TO BE PUBLISHED
 
-next id: 1660200043
+1660200045 New Millennium (Dream Theater) 1x
+1660200046 New Millennium (Dream Theater) 2x
+  v1 TO BE PUBLISHED
 
 BONUS SONGS (counting down from max)
 

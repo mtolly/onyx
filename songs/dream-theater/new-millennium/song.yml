@@ -5,8 +5,8 @@ metadata:
   autogen-theme: Edgy Prog Rock
   rating: Supervision Recommended
   author: Onyxite
-  comments:
-  - "Chart confidence: *high* (Jammit stems)."
+  key: C sharp
+  difficulty: 5
 audio:
   album-track:
     md5: a8a08bbf75f939397f79246983c4bd9c
@@ -198,23 +198,32 @@ parts:
     drums:
       difficulty: 5
   keys:
-    pro-keys: {}
-    grybo: {}
+    pro-keys:
+      difficulty: 5
+    grybo:
+      difficulty: 5
   bass:
-    grybo: {}
+    grybo:
+      difficulty: 5
   guitar:
-    grybo: {}
+    grybo:
+      difficulty: 5
   vocal:
     vocal:
       count: 3
+      difficulty: 4
 targets:
   rb3:
     game: rb3
     plan: jammit
+    song-id: 1660200045
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: jammit
+    song-id: 1660200046
+    version: 1
   ps:
     game: ps
     plan: jammit
