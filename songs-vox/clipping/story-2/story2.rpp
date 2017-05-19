@@ -1,4 +1,4 @@
-<REAPER_PROJECT 0.1 "5.40" 1493697357
+<REAPER_PROJECT 0.1 "5.28/OSX64" 1495165751
   RIPPLE 0
   GROUPOVERRIDE 0 0 0
   AUTOXFADE 1
@@ -9,14 +9,14 @@
   PANLAW 1
   PROJOFFS 0 0
   MAXPROJLEN 0 600
-  GRID 1151 8 1 8 1 0 0 0
+  GRID 1151 8 1 8 1 0 0
   TIMEMODE 1 0 -1 24 2
-  CURSOR 6.52272727272727
-  ZOOM 41.9416299919892 98 0
+  CURSOR 0
+  ZOOM 3.34199284439642 0 0
   VZOOMEX 2
   USE_REC_CFG 0
   RECMODE 1
-  SMPTESYNC 0 30 100 40 1000 300 0 0 0 0 0
+  SMPTESYNC 0 30 100 40 1000 300 0 0 0
   LOOP 0
   LOOPGRAN 0 4
   RECORD_PATH "" ""
@@ -240,7 +240,7 @@
       LASTSEL 1
       DOCKED 0
       BYPASS 1 0 0
-      <VST "VSTi: ReaSynth (Cockos)" reasynth.dll 0 "" 1919251321
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
         eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
         776t3g3wrd4AAAAAAAAAAAAAAAAAAAAAObRIPn3L2z61tLE5AAAAALbz/T5VpCs6AAAAAAAAAAAAAIA/
         AAAAAAAA
@@ -250,9 +250,7 @@
       WAK 0
       BYPASS 0 0 0
       <VST "VSTi: RBN Preview (RBN)" rbprev_vst.dll 0 "" 1919053942
-        dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAAAA=
-        AwGqAA==
-        AAAAAAAA
+        dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAAAADAaoAAAAAAAAA
       >
       FLOATPOS 32 32 659 497
       FXID {D7126437-AB1E-4109-A0FA-F2D5D0AC68DC}
@@ -267,7 +265,7 @@
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      COLOR 19150555 R
+      COLOR 31143460 B
       SEL 0
       IGUID {9FF11F36-E94F-4396-9C0E-8449C916EC21}
       IID 1
@@ -280,7 +278,7 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {F02BC819-B36E-4AC9-967F-76BBDBEC284D}
-        <X 0 0 0 0 3 "PART DRUMS"
+        <X 0 0
           /wNQQVJUIERSVU1T
         >
         E 6720 90 60 60
@@ -1678,7 +1676,7 @@
       LASTSEL 1
       DOCKED 0
       BYPASS 1 0 0
-      <VST "VSTi: ReaSynth (Cockos)" reasynth.dll 0 "" 1919251321
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
         eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
         776t3g3wrd4AAAAAAAAAAAAAAAAAAAAAObRIPn3L2z61tLE5AAAAALbz/T5VpCs6AAAAAAAAAAAAAIA/
         AAAAAAAA
@@ -1688,9 +1686,7 @@
       WAK 0
       BYPASS 0 0 0
       <VST "VSTi: RBN Preview (RBN)" rbprev_vst.dll 0 "" 1919053942
-        dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAAAA=
-        AwCqAA==
-        AAAAAAAA
+        dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAAAADAKoAAAAAAAAA
       >
       FLOATPOS 32 32 659 497
       FXID {72D22271-4F4F-4081-90C4-66415E7AEC47}
@@ -1717,7 +1713,7 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {A7D937BC-A624-40CD-B787-12392BD897F8}
-        <X 0 0 0 0 3 "PART BASS"
+        <X 0 0
           /wNQQVJUIEJBU1M=
         >
         E 3840 90 60 60
@@ -2782,7 +2778,7 @@
       LASTSEL 1
       DOCKED 0
       BYPASS 0 0 0
-      <VST "VSTi: ReaSynth (Cockos)" reasynth.dll 0 "" 1919251321
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
         eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
         776t3g3wrd4AAAAAAAAAAAAAAAAAAAAAObRIPn3L2z61tLE5AAAAALbz/T5VpCs6AAAAAAAAAAAAAIA/
         AAAAAAAA
@@ -2792,9 +2788,7 @@
       WAK 0
       BYPASS 0 0 0
       <VST "VSTi: RBN Preview (RBN)" rbprev_vst.dll 0 "" 1919053942
-        dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAAAA=
-        AwCqAA==
-        AAAAAAAA
+        dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAAAADAKoAAAAAAAAA
       >
       FLOATPOS 32 32 659 497
       FXID {190BBB08-7A86-476B-BD07-5F71F5CD6F7C}
@@ -2821,7 +2815,7 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {492A03A9-98A5-4625-8283-A39EEDE2B504}
-        <X 0 0 0 0 3 "PART GUITAR"
+        <X 0 0
           /wNQQVJUIEdVSVRBUg==
         >
         E 3840 90 60 60
@@ -3730,7 +3724,7 @@
     BUSCOMP 1 0
     SHOWINMIX 1 0.6667 0.5 1 0.5 0 0 0
     FREEMODE 0
-    SEL 1
+    SEL 0
     REC 0 4096 1 7 0 0 0
     TRACKHEIGHT 0 0
     INQ 0 0 0 0.5 100 0 0 100
@@ -3813,7 +3807,7 @@
       FXID {CA785021-0433-497E-9A6C-EE23A1BC21B0}
       WAK 0
       BYPASS 0 0 0
-      <VST "VSTi: ReaSynth (Cockos)" reasynth.dll 0 "" 1919251321
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
         eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
         776t3g3wrd5HG6k8F7fROjm0SD8rhxY+AAAAAMybgD5zu7c7AAAAAAAAAD88vw4/6SaxPgAAAD8AAIA/
         AAAAAAAA
@@ -3825,3275 +3819,3272 @@
     <ITEM
       POSITION 0
       SNAPOFFS 0
-      LENGTH 261.81818181823166
+      LENGTH 266.63636863639852
       LOOP 0
       ALLTAKES 0
       FADEIN 1 0 0 1 0 0
       FADEOUT 1 0 0 1 0 0
       MUTE 0
-      SEL 1
-      IGUID {9C9617EC-369A-41B9-80F6-31F4222F13F6}
+      SEL 0
+      IGUID {31BFCCAC-DDF3-FD4B-B1B8-EF091E27A0F0}
       IID 4
       NAME "PART VOCALS"
       VOLPAN 1 0 1 -1
       SOFFS 0 0
-      PLAYRATE 1 1 0 -65536 0 0.0025
+      PLAYRATE 1 1 0 -1 0 0.0025
       CHANMODE 0
-      GUID {8E872349-00D8-4243-95D7-0B92852E4EE5}
+      GUID {981A91DF-7CFD-C84D-89F5-44A4AA3C134C}
       <SOURCE MIDI
         HASDATA 1 480 QN
-        POOLEDEVTS {3F4A3F61-6410-45F8-9202-755D26DCBC5F}
-        <X 0 0 0 0 3 "PART VOCALS"
+        POOLEDEVTS {4B814FD6-78FF-8E4F-93C3-87DB8DF0386A}
+        <X 0 0
           /wNQQVJUIFZPQ0FMUw==
         >
         E 6720 90 69 60
-        <X 30 0 0 0 5 God-
-          /wVHb2Qt
+        <X 30 0
+          /wVHb2QtIw==
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 smack
-          /wVzbWFjaw==
+        E 180 80 42 60
+        <X 60 0
+          /wVzbWFjayM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 is
-          /wVpcw==
+        E 90 80 42 60
+        <X 30 0
+          /wVpcyM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 how
-          /wVob3c=
+        E 90 80 42 60
+        <X 30 0
+          /wVob3cj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 the
-          /wV0aGU=
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGUj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 wind
-          /wV3aW5k
+        E 90 80 42 60
+        <X 30 0
+          /wV3aW5kIw==
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 30 0 0 0 5 feels
-          /wVmZWVscw==
+        E 180 80 42 60
+        <X 30 0
+          /wVmZWVscyM=
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 on
-          /wVvbg==
+        E 180 80 42 60
+        <X 60 0
+          /wVvbiM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 the
-          /wV0aGU=
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGUj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 face
-          /wVmYWNl
+        E 90 80 42 60
+        <X 30 0
+          /wVmYWNlIw==
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 of
-          /wVvZg==
+        E 180 80 42 60
+        <X 60 0
+          /wVvZiM=
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 Mike
-          /wVNaWtl
+        E 180 80 42 60
+        <X 60 0
+          /wVNaWtlIw==
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 Win-
-          /wVXaW4t
+        E 180 80 42 60
+        <X 60 0
+          /wVXaW4tIw==
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 field
-          /wVmaWVsZA==
+        E 180 80 42 60
+        <X 60 0
+          /wVmaWVsZCM=
         >
         E 0 90 42 60
-        E 180 80 42 00
-        E 30 80 69 00
-        <X 30 0 0 0 5 On
-          /wVPbg==
-        >
-        E 0 90 42 60
-        E 0 90 69 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 his
-          /wVoaXM=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 way
-          /wV3YXk=
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 home
-          /wVob21l
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 from
-          /wVmcm9t
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 the
-          /wV0aGU=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 bar
-          /wViYXI=
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 where
-          /wV3aGVyZQ==
-        >
-        E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 he
-          /wVoZQ==
-        >
-        E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 works
-          /wV3b3Jrcw==
-        >
-        E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 nights
-          /wVuaWdodHM=
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        E 60 80 69 00
-        <X 120 0 0 0 5 The
-          /wVUaGU=
-        >
-        E 0 90 69 60
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 worst
-          /wV3b3JzdA==
-        >
-        E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 nights
-          /wVuaWdodHM=
-        >
-        E 0 90 42 60
-        E 150 80 42 00
-        <X 330 0 0 0 5 don't
-          /wVkb24ndA==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 no-
-          /wVuby0=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 bo-
-          /wViby0=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 dy
-          /wVkeQ==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 tip
-          /wV0aXA=
-        >
-        E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 right
-          /wVyaWdodA==
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        E 60 80 69 00
-        <X 240 0 0 0 5 And
-          /wVBbmQ=
+        E 180 80 42 60
+        E 30 80 69 60
+        <X 30 0
+          /wVPbiM=
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 be-
-          /wViZS0=
+        E 90 80 42 60
+        <X 30 0
+          /wVoaXMj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 tween
-          /wV0d2Vlbg==
+        E 90 80 42 60
+        <X 30 0
+          /wV3YXkj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 the
-          /wV0aGU=
+        E 180 80 42 60
+        <X 60 0
+          /wVob21lIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 mar-
-          /wVtYXIt
+        E 180 80 42 60
+        <X 60 0
+          /wVmcm9tIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 riage
-          /wVyaWFnZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGUj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 of-
-          /wVvZi0=
+        E 90 80 42 60
+        <X 30 0
+          /wViYXIj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 fers
-          /wVmZXJz
+        E 180 80 42 60
+        <X 60 0
+          /wV3aGVyZSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 and
-          /wVhbmQ=
+        E 150 80 42 60
+        <X 90 0
+          /wVoZSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 the
-          /wV0aGU=
+        E 120 80 42 60
+        <X 120 0
+          /wV3b3JrcyM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 fist
-          /wVmaXN0
+        E 120 80 42 60
+        <X 120 0
+          /wVuaWdodHMj
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 fights
-          /wVmaWdodHM=
+        E 180 80 42 60
+        E 60 80 69 60
+        <X 120 0
+          /wVUaGUj
         >
         E 0 90 42 60
-        E 150 80 42 00
-        E 90 80 69 00
+        E 0 90 69 60
+        E 90 80 42 60
+        <X 30 0
+          /wV3b3JzdCM=
+        >
+        E 0 90 42 60
+        E 150 80 42 60
+        <X 90 0
+          /wVuaWdodHMj
+        >
+        E 0 90 42 60
+        E 150 80 42 60
+        <X 330 0
+          /wVkb24ndCM=
+        >
+        E 0 90 42 60
+        E 90 80 42 60
+        <X 30 0
+          /wVuby0j
+        >
+        E 0 90 42 60
+        E 90 80 42 60
+        <X 30 0
+          /wViby0j
+        >
+        E 0 90 42 60
+        E 90 80 42 60
+        <X 30 0
+          /wVkeSM=
+        >
+        E 0 90 42 60
+        E 90 80 42 60
+        <X 30 0
+          /wV0aXAj
+        >
+        E 0 90 42 60
+        E 150 80 42 60
+        <X 90 0
+          /wVyaWdodCM=
+        >
+        E 0 90 42 60
+        E 180 80 42 60
+        E 60 80 69 60
+        <X 240 0
+          /wVBbmQj
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 90 80 42 60
+        <X 30 0
+          /wViZS0j
+        >
+        E 0 90 42 60
+        E 90 80 42 60
+        <X 30 0
+          /wV0d2VlbiM=
+        >
+        E 0 90 42 60
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGUj
+        >
+        E 0 90 42 60
+        E 90 80 42 60
+        <X 30 0
+          /wVtYXItIw==
+        >
+        E 0 90 42 60
+        E 90 80 42 60
+        <X 30 0
+          /wVyaWFnZSM=
+        >
+        E 0 90 42 60
+        E 90 80 42 60
+        <X 30 0
+          /wVvZi0j
+        >
+        E 0 90 42 60
+        E 90 80 42 60
+        <X 30 0
+          /wVmZXJzIw==
+        >
+        E 0 90 42 60
+        E 90 80 42 60
+        <X 30 0
+          /wVhbmQj
+        >
+        E 0 90 42 60
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGUj
+        >
+        E 0 90 42 60
+        E 90 80 42 60
+        <X 30 0
+          /wVmaXN0Iw==
+        >
+        E 0 90 42 60
+        E 120 80 42 60
+        <X 120 0
+          /wVmaWdodHMj
+        >
+        E 0 90 42 60
+        E 150 80 42 60
+        E 90 80 69 60
         E 120 90 69 60
-        <X 30 0 0 0 5 And
-          /wVBbmQ=
+        <X 30 0
+          /wVBbmQj
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 30 0 0 0 5 if
-          /wVpZg==
+        E 60 80 42 60
+        <X 30 0
+          /wVpZiM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 a-
-          /wVhLQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVhLSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 no-
-          /wVuby0=
+        E 90 80 42 60
+        <X 30 0
+          /wVuby0j
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ther
-          /wV0aGVy
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGVyIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 mo-
-          /wVtby0=
+        E 90 80 42 60
+        <X 30 0
+          /wVtby0j
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ther-
-          /wV0aGVyLQ==
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGVyLSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 fuck-
-          /wVmdWNrLQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVmdWNrLSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 er
-          /wVlcg==
+        E 90 80 42 60
+        <X 30 0
+          /wVlciM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 touch
-          /wV0b3VjaA==
+        E 90 80 42 60
+        <X 30 0
+          /wV0b3VjaCM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 his
-          /wVoaXM=
+        E 90 80 42 60
+        <X 30 0
+          /wVoaXMj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 wrist
-          /wV3cmlzdA==
+        E 90 80 42 60
+        <X 30 0
+          /wV3cmlzdCM=
         >
         E 0 90 42 60
-        E 150 80 69 00
-        E 0 80 42 00
-        <X 90 0 0 0 5 Try-
-          /wVUcnkt
-        >
-        E 0 90 69 60
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 na
-          /wVuYQ==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 pull
-          /wVwdWxs
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 him
-          /wVoaW0=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 in
-          /wVpbg==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 to
-          /wV0bw==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 whis-
-          /wV3aGlzLQ==
-        >
-        E 0 90 42 60
-        E 120 80 42 00
-        <X 30 0 0 0 5 per
-          /wVwZXI=
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 30 0 0 0 5 he
-          /wVoZQ==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ain't
-          /wVhaW4ndA==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 mak-
-          /wVtYWst
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ing
-          /wVpbmc=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 it
-          /wVpdA==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 to
-          /wV0bw==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 mid-
-          /wVtaWQt
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 night
-          /wVuaWdodA==
-        >
-        E 0 90 42 60
-        E 120 80 69 00
-        E 0 80 42 00
-        <X 360 0 0 0 5 Don't
-          /wVEb24ndA==
+        E 150 80 69 60
+        E 0 80 42 60
+        <X 90 0
+          /wVUcnktIw==
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 they
-          /wV0aGV5
+        E 90 80 42 60
+        <X 30 0
+          /wVuYSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 know
-          /wVrbm93
+        E 90 80 42 60
+        <X 30 0
+          /wVwdWxsIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 he
-          /wVoZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVoaW0j
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 got
-          /wVnb3Q=
+        E 90 80 42 60
+        <X 30 0
+          /wVpbiM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 a
-          /wVh
+        E 90 80 42 60
+        <X 30 0
+          /wV0byM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 light-
-          /wVsaWdodC0=
+        E 90 80 42 60
+        <X 30 0
+          /wV3aGlzLSM=
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 er
-          /wVlcg==
+        E 120 80 42 60
+        <X 30 0
+          /wVwZXIj
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 in
-          /wVpbg==
+        E 60 80 42 60
+        <X 30 0
+          /wVoZSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 his
-          /wVoaXM=
+        E 90 80 42 60
+        <X 30 0
+          /wVhaW4ndCM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 pock-
-          /wVwb2NrLQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVtYWstIw==
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 et
-          /wVldA==
+        E 90 80 42 60
+        <X 30 0
+          /wVpbmcj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 a
-          /wVh
+        E 90 80 42 60
+        <X 30 0
+          /wVpdCM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 match-
-          /wVtYXRjaC0=
+        E 90 80 42 60
+        <X 30 0
+          /wV0byM=
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 book
-          /wVib29r
+        E 90 80 42 60
+        <X 30 0
+          /wVtaWQtIw==
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 in
-          /wVpbg==
+        E 180 80 42 60
+        <X 60 0
+          /wVuaWdodCM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 his
-          /wVoaXM=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 sock?
-          /wVzb2NrPw==
-        >
-        E 0 90 42 60
-        E 180 80 69 00
-        E 0 80 42 00
-        <X 60 0 0 0 5 And
-          /wVBbmQ=
+        E 120 80 69 60
+        E 0 80 42 60
+        <X 360 0
+          /wVEb24ndCM=
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 a
-          /wVh
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGV5Iw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 block
-          /wVibG9jaw==
+        E 90 80 42 60
+        <X 30 0
+          /wVrbm93Iw==
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 full
-          /wVmdWxs
+        E 90 80 42 60
+        <X 30 0
+          /wVoZSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 of
-          /wVvZg==
+        E 90 80 42 60
+        <X 30 0
+          /wVnb3Qj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 charred
-          /wVjaGFycmVk
+        E 90 80 42 60
+        <X 30 0
+          /wVhIw==
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 ske-
-          /wVza2Ut
+        E 90 80 42 60
+        <X 30 0
+          /wVsaWdodC0j
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 le-
-          /wVsZS0=
+        E 180 80 42 60
+        <X 60 0
+          /wVlciM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 tons
-          /wV0b25z
+        E 180 80 42 60
+        <X 60 0
+          /wVpbiM=
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 clo-
-          /wVjbG8t
+        E 90 80 42 60
+        <X 30 0
+          /wVoaXMj
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 set-
-          /wVzZXQt
+        E 90 80 42 60
+        <X 30 0
+          /wVwb2NrLSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ed
-          /wVlZA==
+        E 180 80 42 60
+        <X 60 0
+          /wVldCM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 beg-
-          /wViZWct
+        E 90 80 42 60
+        <X 30 0
+          /wVhIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ging
-          /wVnaW5n
+        E 90 80 42 60
+        <X 30 0
+          /wVtYXRjaC0j
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 to
-          /wV0bw==
+        E 180 80 42 60
+        <X 60 0
+          /wVib29rIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 get
-          /wVnZXQ=
+        E 180 80 42 60
+        <X 60 0
+          /wVpbiM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 out
-          /wVvdXQ=
+        E 90 80 42 60
+        <X 30 0
+          /wVoaXMj
         >
         E 0 90 42 60
-        E 90 80 69 00
-        E 0 80 42 00
-        <X 30 0 0 0 5 He
-          /wVIZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVzb2NrPyM=
         >
         E 0 90 42 60
-        E 0 90 69 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 paused
-          /wVwYXVzZWQ=
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 "'cause"
-          /wUnY2F1c2U=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 he's
-          /wVoZSdz
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 scared
-          /wVzY2FyZWQ=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 of
-          /wVvZg==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 air-
-          /wVhaXIt
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 in'
-          /wVpbic=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 out
-          /wVvdXQ=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 the
-          /wV0aGU=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 thoughts
-          /wV0aG91Z2h0cw==
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 he
-          /wVoZQ==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 can
-          /wVjYW4=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 taste
-          /wV0YXN0ZQ==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 it
-          /wVpdA==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 in
-          /wVpbg==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 his
-          /wVoaXM=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 mouth
-          /wVtb3V0aA==
-        >
-        E 0 90 42 60
-        E 90 80 69 00
-        E 0 80 42 00
-        <X 30 0 0 0 5 The
-          /wVUaGU=
+        E 180 80 69 60
+        E 0 80 42 60
+        <X 60 0
+          /wVBbmQj
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 sul-
-          /wVzdWwt
+        E 90 80 42 60
+        <X 30 0
+          /wVhIw==
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 fur
-          /wVmdXI=
+        E 90 80 42 60
+        <X 30 0
+          /wVibG9jayM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 and
-          /wVhbmQ=
+        E 180 80 42 60
+        <X 60 0
+          /wVmdWxsIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 bit-
-          /wViaXQt
+        E 90 80 42 60
+        <X 30 0
+          /wVvZiM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ter
-          /wV0ZXI=
+        E 90 80 42 60
+        <X 30 0
+          /wVjaGFycmVkIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 car-
-          /wVjYXIt
+        E 180 80 42 60
+        <X 60 0
+          /wVza2UtIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 bon
-          /wVib24=
+        E 90 80 42 60
+        <X 30 0
+          /wVsZS0j
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 hear-
-          /wVoZWFyLQ==
+        E 90 80 42 60
+        <X 30 0
+          /wV0b25zIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 in'
-          /wVpbic=
+        E 120 80 42 60
+        <X 120 0
+          /wVjbG8tIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 all
-          /wVhbGw=
+        E 180 80 42 60
+        <X 60 0
+          /wVzZXQtIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 the
-          /wV0aGU=
+        E 90 80 42 60
+        <X 30 0
+          /wVlZCM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 burn-
-          /wVidXJuLQ==
+        E 90 80 42 60
+        <X 30 0
+          /wViZWctIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 in'
-          /wVpbic=
+        E 90 80 42 60
+        <X 30 0
+          /wVnaW5nIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 bod-
-          /wVib2Qt
+        E 90 80 42 60
+        <X 30 0
+          /wV0byM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ies
-          /wVpZXM=
+        E 90 80 42 60
+        <X 30 0
+          /wVnZXQj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 shout
-          /wVzaG91dA==
+        E 90 80 42 60
+        <X 30 0
+          /wVvdXQj
         >
         E 0 90 42 60
-        E 120 80 69 00
-        E 0 80 42 00
-        <X 120 0 0 0 5 But
-          /wVCdXQ=
-        >
-        E 0 90 42 60
-        E 0 90 69 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 no
-          /wVubw==
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 that
-          /wV0aGF0
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 was
-          /wV3YXM=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 a
-          /wVh
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 150 0 0 0 5 full
-          /wVmdWxs
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 life-
-          /wVsaWZlLQ==
-        >
-        E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 time
-          /wV0aW1l
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 a-
-          /wVhLQ==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 go
-          /wVnbw==
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 and
-          /wVhbmQ=
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 no-
-          /wVuby0=
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 bo-
-          /wViby0=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 dy
-          /wVkeQ==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ev-
-          /wVldi0=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 er
-          /wVlcg==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 has
-          /wVoYXM=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 to
-          /wV0bw==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 know
-          /wVrbm93
-        >
-        E 0 90 42 60
-        E 180 80 69 00
-        E 0 80 42 00
-        <X 60 0 0 0 5 He
-          /wVIZQ==
+        E 90 80 69 60
+        E 0 80 42 60
+        <X 30 0
+          /wVIZSM=
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 has
-          /wVoYXM=
+        E 90 80 42 60
+        <X 30 0
+          /wVwYXVzZWQj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 nev-
-          /wVuZXYt
+        E 180 80 42 60
+        <X 60 0
+          /wUnY2F1c2Uj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 er
-          /wVlcg==
+        E 90 80 42 60
+        <X 30 0
+          /wVoZSdzIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 told
-          /wV0b2xk
+        E 90 80 42 60
+        <X 30 0
+          /wVzY2FyZWQj
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 well
-          /wV3ZWxs
+        E 90 80 42 60
+        <X 30 0
+          /wVvZiM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ex-
-          /wVleC0=
+        E 90 80 42 60
+        <X 30 0
+          /wVhaXItIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 cept
-          /wVjZXB0
+        E 90 80 42 60
+        <X 30 0
+          /wVpbicj
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 Ron-
-          /wVSb24t
+        E 90 80 42 60
+        <X 30 0
+          /wVvdXQj
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 30 0 0 0 5 ald
-          /wVhbGQ=
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGUj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 360 0 0 0 5 but
-          /wVidXQ=
+        E 90 80 42 60
+        <X 30 0
+          /wV0aG91Z2h0cyM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 that
-          /wV0aGF0
+        E 180 80 42 60
+        <X 60 0
+          /wVoZSM=
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 don't
-          /wVkb24ndA==
+        E 90 80 42 60
+        <X 30 0
+          /wVjYW4j
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 count
-          /wVjb3VudA==
+        E 90 80 42 60
+        <X 30 0
+          /wV0YXN0ZSM=
         >
         E 0 90 42 60
-        E 120 80 69 00
-        E 0 80 42 00
-        <X 120 0 0 0 5 He
-          /wVIZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVpdCM=
         >
         E 0 90 42 60
-        E 0 90 69 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 was
-          /wV3YXM=
+        E 90 80 42 60
+        <X 30 0
+          /wVpbiM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 60 0 0 0 5 sweet
-          /wVzd2VldA==
+        E 90 80 42 60
+        <X 30 0
+          /wVoaXMj
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 30 0 0 0 5 and
-          /wVhbmQ=
+        E 90 80 42 60
+        <X 30 0
+          /wVtb3V0aCM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ex-
-          /wVleC0=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 act-
-          /wVhY3Qt
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 ly
-          /wVseQ==
-        >
-        E 0 90 42 60
-        E 210 80 42 00
-        <X 30 0 0 0 5 what
-          /wV3aGF0
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 he
-          /wVoZQ==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 need-
-          /wVuZWVkLQ==
-        >
-        E 0 90 42 60
-        E 210 80 42 00
-        <X 30 0 0 0 5 ed
-          /wVlZA==
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 him
-          /wVoaW0=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 to
-          /wV0bw==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 be
-          /wViZQ==
-        >
-        E 0 90 42 60
-        E 210 80 42 00
-        <X 30 0 0 0 5 at
-          /wVhdA==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 the
-          /wV0aGU=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 time
-          /wV0aW1l
-        >
-        E 0 90 42 60
-        E 180 80 69 00
-        E 0 80 42 00
-        <X 60 0 0 0 5 wine
-          /wV3aW5l
+        E 90 80 69 60
+        E 0 80 42 60
+        <X 30 0
+          /wVUaGUj
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 and
-          /wVhbmQ=
+        E 90 80 42 60
+        <X 30 0
+          /wVzdWwtIw==
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 can-
-          /wVjYW4t
+        E 180 80 42 60
+        <X 60 0
+          /wVmdXIj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 dle-
-          /wVkbGUt
+        E 90 80 42 60
+        <X 30 0
+          /wVhbmQj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 light
-          /wVsaWdodA==
+        E 90 80 42 60
+        <X 30 0
+          /wViaXQtIw==
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 and
-          /wVhbmQ=
+        E 90 80 42 60
+        <X 30 0
+          /wV0ZXIj
         >
         E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 nice
-          /wVuaWNl
+        E 90 80 42 60
+        <X 30 0
+          /wVjYXItIw==
         >
         E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 texts
-          /wV0ZXh0cw==
+        E 90 80 42 60
+        <X 30 0
+          /wVib24j
         >
         E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 at
-          /wVhdA==
+        E 90 80 42 60
+        <X 30 0
+          /wVoZWFyLSM=
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 lunch-
-          /wVsdW5jaC0=
+        E 90 80 42 60
+        <X 30 0
+          /wVpbicj
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 time
-          /wV0aW1l
+        E 90 80 42 60
+        <X 30 0
+          /wVhbGwj
         >
         E 0 90 42 60
-        E 240 80 69 00
-        E 0 80 42 00
-        <X 480 0 0 0 5 Why
-          /wVXaHk=
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGUj
         >
         E 0 90 42 60
-        E 0 90 69 60
-        E 90 80 42 00
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 60 0 0 0 5 had
-          /wVoYWQ=
+        E 90 80 42 60
+        <X 30 0
+          /wVidXJuLSM=
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 he
-          /wVoZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVpbicj
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 not
-          /wVub3Q=
+        E 90 80 42 60
+        <X 30 0
+          /wVib2QtIw==
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 called
-          /wVjYWxsZWQ=
+        E 90 80 42 60
+        <X 30 0
+          /wVpZXMj
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 Ron
-          /wVSb24=
+        E 90 80 42 60
+        <X 30 0
+          /wVzaG91dCM=
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 back?
-          /wViYWNrPw==
-        >
-        E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 Guess
-          /wVHdWVzcw==
-        >
-        E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 there
-          /wV0aGVyZQ==
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 just
-          /wVqdXN0
-        >
-        E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 was-
-          /wV3YXMt
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 n't
-          /wVuJ3Q=
-        >
-        E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 a
-          /wVh
-        >
-        E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 spark
-          /wVzcGFyaw==
-        >
-        E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 ha!
-          /wVoYSE=
-        >
-        E 0 90 42 60
-        E 90 80 69 00
-        E 0 80 42 00
-        <X 390 0 0 0 5 No
-          /wVObw==
+        E 120 80 69 60
+        E 0 80 42 60
+        <X 120 0
+          /wVCdXQj
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 no
-          /wVubw==
+        E 120 80 42 60
+        <X 120 0
+          /wVubyM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 must-
-          /wVtdXN0LQ==
+        E 180 80 42 60
+        <X 60 0
+          /wV0aGF0Iw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 n't
-          /wVuJ3Q=
+        E 90 80 42 60
+        <X 30 0
+          /wV3YXMj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 joke
-          /wVqb2tl
+        E 90 80 42 60
+        <X 30 0
+          /wVhIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 a-
-          /wVhLQ==
+        E 90 80 42 60
+        <X 150 0
+          /wVmdWxsIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 bout
-          /wVib3V0
+        E 180 80 42 60
+        <X 60 0
+          /wVsaWZlLSM=
         >
         E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 these
-          /wV0aGVzZQ==
+        E 120 80 42 60
+        <X 120 0
+          /wV0aW1lIw==
         >
         E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 things
-          /wV0aGluZ3M=
+        E 90 80 42 60
+        <X 30 0
+          /wVhLSM=
         >
         E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 would-
-          /wV3b3VsZC0=
+        E 90 80 42 60
+        <X 30 0
+          /wVnbyM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 n't
-          /wVuJ3Q=
+        E 180 80 42 60
+        <X 60 0
+          /wVhbmQj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 wan-
-          /wV3YW4t
+        E 180 80 42 60
+        <X 60 0
+          /wVuby0j
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 na
-          /wVuYQ==
+        E 180 80 42 60
+        <X 60 0
+          /wViby0j
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 dis-
-          /wVkaXMt
+        E 90 80 42 60
+        <X 30 0
+          /wVkeSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ap-
-          /wVhcC0=
+        E 90 80 42 60
+        <X 30 0
+          /wVldi0j
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 point
-          /wVwb2ludA==
+        E 90 80 42 60
+        <X 30 0
+          /wVlciM=
         >
         E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 Doc
-          /wVEb2M=
+        E 90 80 42 60
+        <X 30 0
+          /wVoYXMj
         >
         E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 Clark
-          /wVDbGFyaw==
+        E 90 80 42 60
+        <X 30 0
+          /wV0byM=
         >
         E 0 90 42 60
-        E 150 80 69 00
-        E 0 80 42 00
-        <X 90 0 0 0 5 So
-          /wVTbw==
+        E 90 80 42 60
+        <X 30 0
+          /wVrbm93Iw==
         >
         E 0 90 42 60
-        E 0 90 69 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 ma-
-          /wVtYS0=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ny
-          /wVueQ==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ho-
-          /wVoby0=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 urs
-          /wV1cnM=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 on
-          /wVvbg==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 the
-          /wV0aGU=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 couch
-          /wVjb3VjaA==
-        >
-        E 0 90 42 60
-        E 180 80 69 00
-        E 0 80 42 00
-        <X 540 0 0 0 5 So
-          /wVTbw==
+        E 180 80 69 60
+        E 0 80 42 60
+        <X 60 0
+          /wVIZSM=
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 ma-
-          /wVtYS0=
+        E 90 80 42 60
+        <X 30 0
+          /wVoYXMj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ny
-          /wVueQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVuZXYtIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 bur-
-          /wVidXIt
+        E 90 80 42 60
+        <X 30 0
+          /wVlciM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ied
-          /wVpZWQ=
+        E 90 80 42 60
+        <X 30 0
+          /wV0b2xkIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 me-
-          /wVtZS0=
+        E 180 80 42 60
+        <X 60 0
+          /wV3ZWxsIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 mo-
-          /wVtby0=
+        E 90 80 42 60
+        <X 30 0
+          /wVleC0j
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ries
-          /wVyaWVz
+        E 90 80 42 60
+        <X 30 0
+          /wVjZXB0Iw==
         >
         E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 that
-          /wV0aGF0
+        E 120 80 42 60
+        <X 120 0
+          /wVSb24tIw==
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 take
-          /wV0YWtl
+        E 120 80 42 60
+        <X 30 0
+          /wVhbGQj
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 so
-          /wVzbw==
+        E 90 80 42 60
+        <X 360 0
+          /wVidXQj
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 ma-
-          /wVtYS0=
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGF0Iw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ny
-          /wVueQ==
+        E 120 80 42 60
+        <X 120 0
+          /wVkb24ndCM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 tears
-          /wV0ZWFycw==
+        E 120 80 42 60
+        <X 120 0
+          /wVjb3VudCM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 to
-          /wV0bw==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 get
-          /wVnZXQ=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 "'em"
-          /wUnZW0=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 out
-          /wVvdXQ=
-        >
-        E 0 90 42 60
-        E 180 80 69 00
-        E 0 80 42 00
-        <X 540 0 0 0 5 Wa-
-          /wVXYS0=
+        E 120 80 69 60
+        E 0 80 42 60
+        <X 120 0
+          /wVIZSM=
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ter
-          /wV0ZXI=
+        E 90 80 42 60
+        <X 30 0
+          /wV3YXMj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 had-
-          /wVoYWQt
+        E 90 80 42 60
+        <X 60 0
+          /wVzd2VldCM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 n't
-          /wVuJ3Q=
+        E 180 80 42 60
+        <X 30 0
+          /wVhbmQj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 nev-
-          /wVuZXYt
+        E 90 80 42 60
+        <X 30 0
+          /wVleC0j
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 er
-          /wVlcg==
+        E 90 80 42 60
+        <X 30 0
+          /wVhY3QtIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 been
-          /wViZWVu
+        E 180 80 42 60
+        <X 60 0
+          /wVseSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 a
-          /wVh
+        E 210 80 42 60
+        <X 30 0
+          /wV3aGF0Iw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 friend
-          /wVmcmllbmQ=
+        E 90 80 42 60
+        <X 30 0
+          /wVoZSM=
         >
         E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 hold
-          /wVob2xk
+        E 90 80 42 60
+        <X 30 0
+          /wVuZWVkLSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 up
-          /wV1cA==
+        E 210 80 42 60
+        <X 30 0
+          /wVlZCM=
         >
         E 0 90 42 60
-        E 90 80 69 00
-        E 0 80 42 00
-        <X 270 0 0 0 5 Where
-          /wVXaGVyZQ==
+        E 180 80 42 60
+        <X 60 0
+          /wVoaW0j
         >
         E 0 90 42 60
-        E 0 90 69 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 had
-          /wVoYWQ=
+        E 90 80 42 60
+        <X 30 0
+          /wV0byM=
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 he
-          /wVoZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wViZSM=
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 seen
-          /wVzZWVu
+        E 210 80 42 60
+        <X 30 0
+          /wVhdCM=
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 that
-          /wV0aGF0
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGUj
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 car
-          /wVjYXI=
+        E 90 80 42 60
+        <X 30 0
+          /wV0aW1lIw==
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 be-
-          /wViZS0=
-        >
-        E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 fore?
-          /wVmb3JlPw==
-        >
-        E 0 90 42 60
-        E 180 80 69 00
-        E 0 80 42 00
-        <X 300 0 0 0 5 Blue
-          /wVCbHVl
+        E 180 80 69 60
+        E 0 80 42 60
+        <X 60 0
+          /wV3aW5lIw==
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 A-
-          /wVBLQ==
+        E 180 80 42 60
+        <X 60 0
+          /wVhbmQj
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 40 0 0 0 5 cu-
-          /wVjdS0=
+        E 120 80 42 60
+        <X 120 0
+          /wVjYW4tIw==
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 40 0 0 0 5 ra
-          /wVyYQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVkbGUtIw==
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 40 0 0 0 5 dent
-          /wVkZW50
+        E 90 80 42 60
+        <X 30 0
+          /wVsaWdodCM=
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 on
-          /wVvbg==
+        E 180 80 42 60
+        <X 60 0
+          /wVhbmQj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 the
-          /wV0aGU=
+        E 150 80 42 60
+        <X 90 0
+          /wVuaWNlIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 left
-          /wVsZWZ0
+        E 150 80 42 60
+        <X 90 0
+          /wV0ZXh0cyM=
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 rear
-          /wVyZWFy
+        E 150 80 42 60
+        <X 90 0
+          /wVhdCM=
         >
         E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 fen-
-          /wVmZW4t
+        E 120 80 42 60
+        <X 120 0
+          /wVsdW5jaC0j
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 der
-          /wVkZXI=
+        E 120 80 42 60
+        <X 120 0
+          /wV0aW1lIw==
         >
         E 0 90 42 60
-        E 120 80 69 00
-        E 0 80 42 00
-        <X 360 0 0 0 5 Back
-          /wVCYWNr
-        >
-        E 0 90 42 60
-        E 0 90 69 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 a-
-          /wVhLQ==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 gain
-          /wVnYWlu
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 the
-          /wV0aGU=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 sense
-          /wVzZW5zZQ==
-        >
-        E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 of
-          /wVvZg==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 390 0 0 0 5 dé-
-          /wVkw6kt
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 jà
-          /wVqw6A=
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 vu
-          /wV2dQ==
-        >
-        E 0 90 42 60
-        E 180 80 69 00
-        E 0 80 42 00
-        <X 300 0 0 0 5 Strange
-          /wVTdHJhbmdl
+        E 240 80 69 60
+        E 0 80 42 60
+        <X 480 0
+          /wVXaHkj
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 things
-          /wV0aGluZ3M=
+        E 180 80 42 60
+        <X 60 0
+          /wVoYWQj
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 you
-          /wV5b3U=
+        E 180 80 42 60
+        <X 60 0
+          /wVoZSM=
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 300 0 0 0 5 nev-
-          /wVuZXYt
+        E 180 80 42 60
+        <X 60 0
+          /wVub3Qj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 er
-          /wVlcg==
+        E 180 80 42 60
+        <X 60 0
+          /wVjYWxsZWQj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 shake
-          /wVzaGFrZQ==
+        E 180 80 42 60
+        <X 60 0
+          /wVSb24j
         >
         E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 when
-          /wV3aGVu
+        E 180 80 42 60
+        <X 60 0
+          /wViYWNrPyM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 you
-          /wV5b3U=
+        E 120 80 42 60
+        <X 120 0
+          /wVHdWVzcyM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 wake
-          /wV3YWtl
+        E 150 80 42 60
+        <X 90 0
+          /wV0aGVyZSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 up
-          /wV1cA==
+        E 180 80 42 60
+        <X 60 0
+          /wVqdXN0Iw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 in
-          /wVpbg==
+        E 120 80 42 60
+        <X 120 0
+          /wV3YXMtIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 re-
-          /wVyZS0=
+        E 180 80 42 60
+        <X 60 0
+          /wVuJ3Qj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 co-
-          /wVjby0=
+        E 150 80 42 60
+        <X 90 0
+          /wVhIw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ver-
-          /wV2ZXIt
+        E 120 80 42 60
+        <X 120 0
+          /wVzcGFyayM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 y
-          /wV5
+        E 150 80 42 60
+        <X 90 0
+          /wVoYSEj
         >
         E 0 90 42 60
-        E 120 80 69 00
-        E 0 80 42 00
-        <X 240 0 0 0 5 But
-          /wVCdXQ=
-        >
-        E 0 90 42 60
-        E 0 90 69 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 sud-
-          /wVzdWQt
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 den-
-          /wVkZW4t
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ly
-          /wVseQ==
-        >
-        E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 no-
-          /wVuby0=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 tic-
-          /wV0aWMt
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 in'
-          /wVpbic=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ash
-          /wVhc2g=
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 is
-          /wVpcw==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 co-
-          /wVjby0=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ver-
-          /wV2ZXIt
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 in'
-          /wVpbic=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 his
-          /wVoaXM=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 head
-          /wVoZWFk
-        >
-        E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 "'cause"
-          /wUnY2F1c2U=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 it's
-          /wVpdCdz
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 rain-
-          /wVyYWluLQ==
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 in'
-          /wVpbic=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 from
-          /wVmcm9t
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 the
-          /wV0aGU=
-        >
-        E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 sky
-          /wVza3k=
-        >
-        E 0 90 42 60
-        E 180 80 69 00
-        E 0 80 42 00
-        <X 60 0 0 0 5 Dials
-          /wVEaWFscw==
+        E 90 80 69 60
+        E 0 80 42 60
+        <X 390 0
+          /wVObyM=
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 home
-          /wVob21l
+        E 90 80 42 60
+        <X 30 0
+          /wVubyM=
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 60 0 0 0 5 on
-          /wVvbg==
+        E 90 80 42 60
+        <X 30 0
+          /wVtdXN0LSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 his
-          /wVoaXM=
+        E 90 80 42 60
+        <X 30 0
+          /wVuJ3Qj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 cell
-          /wVjZWxs
+        E 90 80 42 60
+        <X 30 0
+          /wVqb2tlIw==
         >
         E 0 90 42 60
-        E 150 80 42 00
-        <X 90 0 0 0 5 phone
-          /wVwaG9uZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVhLSM=
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 and
-          /wVhbmQ=
+        E 90 80 42 60
+        <X 30 0
+          /wVib3V0Iw==
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 gets
-          /wVnZXRz
+        E 150 80 42 60
+        <X 90 0
+          /wV0aGVzZSM=
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 120 0 0 0 5 no
-          /wVubw==
+        E 150 80 42 60
+        <X 90 0
+          /wV0aGluZ3Mj
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 re-
-          /wVyZS0=
+        E 150 80 42 60
+        <X 90 0
+          /wV3b3VsZC0j
         >
         E 0 90 42 60
-        E 90 80 42 00
-        <X 30 0 0 0 5 ply
-          /wVwbHk=
+        E 90 80 42 60
+        <X 30 0
+          /wVuJ3Qj
         >
         E 0 90 42 60
-        E 180 80 42 00
-        <X 300 0 0 0 5 what
-          /wV3aGF0
+        E 90 80 42 60
+        <X 30 0
+          /wV3YW4tIw==
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 40 0 0 0 5 the
-          /wV0aGU=
+        E 90 80 42 60
+        <X 30 0
+          /wVuYSM=
         >
         E 0 90 42 60
-        E 120 80 42 00
-        <X 40 0 0 0 5 fuck?
-          /wVmdWNrPw==
+        E 90 80 42 60
+        <X 30 0
+          /wVkaXMtIw==
         >
         E 0 90 42 60
-        E 120 80 69 00
-        E 0 80 42 00
-        <X 40 0 0 0 5 where
-          /wV3aGVyZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVhcC0j
         >
         E 0 90 42 60
-        E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 is
-          /wVpcw==
+        E 90 80 42 60
+        <X 30 0
+          /wVwb2ludCM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 the
-          /wV0aGU=
+        E 150 80 42 60
+        <X 90 0
+          /wVEb2Mj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ba-
-          /wViYS0=
+        E 150 80 42 60
+        <X 90 0
+          /wVDbGFyayM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 by-
-          /wVieS0=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 sit-
-          /wVzaXQt
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ter
-          /wV0ZXI=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 that
-          /wV0aGF0
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 he
-          /wVoZQ==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 o-
-          /wVvLQ==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ver-
-          /wV2ZXIt
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 pays?
-          /wVwYXlzPw==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        E 40 80 69 00
-        <X 40 0 0 0 5 Bo-
-          /wVCby0=
+        E 150 80 69 60
+        E 0 80 42 60
+        <X 90 0
+          /wVTbyM=
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 dy
-          /wVkeQ==
+        E 180 80 42 60
+        <X 60 0
+          /wVtYS0j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 takes
-          /wV0YWtlcw==
+        E 90 80 42 60
+        <X 30 0
+          /wVueSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 o-
-          /wVvLQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVoby0j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ver
-          /wV2ZXI=
+        E 90 80 42 60
+        <X 30 0
+          /wV1cnMj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 and
-          /wVhbmQ=
+        E 90 80 42 60
+        <X 30 0
+          /wVvbiM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 brain
-          /wVicmFpbg==
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGUj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 be-
-          /wViZS0=
+        E 90 80 42 60
+        <X 30 0
+          /wVjb3VjaCM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 comes
-          /wVjb21lcw==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 dis-
-          /wVkaXMt
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 en-
-          /wVlbi0=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 gaged
-          /wVnYWdlZA==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        E 40 80 69 00
-        <X 40 0 0 0 5 Mi-
-          /wVNaS0=
+        E 180 80 69 60
+        E 0 80 42 60
+        <X 540 0
+          /wVTbyM=
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 chael
-          /wVjaGFlbA==
+        E 180 80 42 60
+        <X 60 0
+          /wVtYS0j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 is
-          /wVpcw==
+        E 90 80 42 60
+        <X 30 0
+          /wVueSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 run-
-          /wVydW4t
+        E 90 80 42 60
+        <X 30 0
+          /wVidXItIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ning
-          /wVuaW5n
+        E 90 80 42 60
+        <X 30 0
+          /wVpZWQj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 his
-          /wVoaXM=
+        E 90 80 42 60
+        <X 30 0
+          /wVtZS0j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 house
-          /wVob3VzZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVtby0j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 is
-          /wVpcw==
+        E 90 80 42 60
+        <X 30 0
+          /wVyaWVzIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 three
-          /wV0aHJlZQ==
+        E 150 80 42 60
+        <X 90 0
+          /wV0aGF0Iw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 blocks
-          /wVibG9ja3M=
+        E 120 80 42 60
+        <X 120 0
+          /wV0YWtlIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 a-
-          /wVhLQ==
+        E 120 80 42 60
+        <X 120 0
+          /wVzbyM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 way
-          /wV3YXk=
+        E 180 80 42 60
+        <X 60 0
+          /wVtYS0j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        E 40 80 69 00
-        <X 40 0 0 0 5 A-
-          /wVBLQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVueSM=
         >
         E 0 90 42 60
-        E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 dren-
-          /wVkcmVuLQ==
+        E 90 80 42 60
+        <X 30 0
+          /wV0ZWFycyM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 a-
-          /wVhLQ==
+        E 90 80 42 60
+        <X 30 0
+          /wV0byM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 line
-          /wVsaW5l
+        E 90 80 42 60
+        <X 30 0
+          /wVnZXQj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 com-
-          /wVjb20t
+        E 90 80 42 60
+        <X 30 0
+          /wUnZW0j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 pen-
-          /wVwZW4t
+        E 90 80 42 60
+        <X 30 0
+          /wVvdXQj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 sat-
-          /wVzYXQt
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ing
-          /wVpbmc=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 for
-          /wVmb3I=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 change
-          /wVjaGFuZ2U=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 in
-          /wVpbg==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 age
-          /wVhZ2U=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        E 40 80 69 00
-        <X 40 0 0 0 5 Since
-          /wVTaW5jZQ==
+        E 180 80 69 60
+        E 0 80 42 60
+        <X 540 0
+          /wVXYS0j
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 the
-          /wV0aGU=
+        E 90 80 42 60
+        <X 30 0
+          /wV0ZXIj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 last
-          /wVsYXN0
+        E 90 80 42 60
+        <X 30 0
+          /wVoYWQtIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 time
-          /wV0aW1l
+        E 90 80 42 60
+        <X 30 0
+          /wVuJ3Qj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 that
-          /wV0aGF0
+        E 90 80 42 60
+        <X 30 0
+          /wVuZXYtIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 he
-          /wVoZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVlciM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ran
-          /wVyYW4=
+        E 90 80 42 60
+        <X 30 0
+          /wViZWVuIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 it
-          /wVpdA==
+        E 90 80 42 60
+        <X 30 0
+          /wVhIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 god-
-          /wVnb2Qt
+        E 90 80 42 60
+        <X 30 0
+          /wVmcmllbmQj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 dam-
-          /wVkYW0t
+        E 150 80 42 60
+        <X 90 0
+          /wVob2xkIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 mit
-          /wVtaXQ=
+        E 90 80 42 60
+        <X 30 0
+          /wV1cCM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        E 40 80 69 00
-        <X 40 0 0 0 5 Mike
-          /wVNaWtl
-        >
-        E 0 90 42 60
-        E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 knows
-          /wVrbm93cw==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 he
-          /wVoZQ==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 got-
-          /wVnb3Qt
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ta
-          /wV0YQ==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 get
-          /wVnZXQ=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 home
-          /wVob21l
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 fast
-          /wVmYXN0
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 as
-          /wVhcw==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 he
-          /wVoZQ==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 can
-          /wVjYW4=
-        >
-        E 0 90 42 60
-        E 320 80 69 00
-        E 0 80 42 00
-        <X 400 0 0 0 5 Looks
-          /wVMb29rcw==
+        E 90 80 69 60
+        E 0 80 42 60
+        <X 270 0
+          /wVXaGVyZSM=
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 up
-          /wV1cA==
+        E 180 80 42 60
+        <X 60 0
+          /wVoYWQj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 in
-          /wVpbg==
+        E 120 80 42 60
+        <X 120 0
+          /wVoZSM=
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 the
-          /wV0aGU=
+        E 120 80 42 60
+        <X 120 0
+          /wVzZWVuIw==
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 sky
-          /wVza3k=
+        E 180 80 42 60
+        <X 60 0
+          /wV0aGF0Iw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 glow's
-          /wVnbG93J3M=
+        E 120 80 42 60
+        <X 120 0
+          /wVjYXIj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 fa-
-          /wVmYS0=
+        E 180 80 42 60
+        <X 60 0
+          /wViZS0j
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 mi-
-          /wVtaS0=
+        E 120 80 42 60
+        <X 120 0
+          /wVmb3JlPyM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 li-
-          /wVsaS0=
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 ar
-          /wVhcg==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        E 20 80 69 00
-        <X 60 0 0 0 5 Knows
-          /wVLbm93cw==
+        E 180 80 69 60
+        E 0 80 42 60
+        <X 300 0
+          /wVCbHVlIw==
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 those
-          /wV0aG9zZQ==
+        E 180 80 42 60
+        <X 60 0
+          /wVBLSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 fa-
-          /wVmYS0=
+        E 120 80 42 60
+        <X 40 0
+          /wVjdS0j
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 mi-
-          /wVtaS0=
+        E 120 80 42 60
+        <X 40 0
+          /wVyYSM=
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 lies
-          /wVsaWVz
+        E 120 80 42 60
+        <X 40 0
+          /wVkZW50Iw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 die
-          /wVkaWU=
+        E 180 80 42 60
+        <X 60 0
+          /wVvbiM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 with
-          /wV3aXRo
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGUj
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 si-
-          /wVzaS0=
+        E 90 80 42 60
+        <X 30 0
+          /wVsZWZ0Iw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 mi-
-          /wVtaS0=
+        E 120 80 42 60
+        <X 120 0
+          /wVyZWFyIw==
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 lar
-          /wVsYXI=
+        E 150 80 42 60
+        <X 90 0
+          /wVmZW4tIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 awn-
-          /wVhd24t
+        E 180 80 42 60
+        <X 60 0
+          /wVkZXIj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ings
-          /wVpbmdz
-        >
-        E 0 90 42 60
-        E 60 80 69 00
-        E 0 80 42 00
-        <X 60 0 0 0 5 And
-          /wVBbmQ=
+        E 120 80 69 60
+        E 0 80 42 60
+        <X 360 0
+          /wVCYWNrIw==
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 on
-          /wVvbg==
+        E 150 80 42 60
+        <X 90 0
+          /wVhLSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 and
-          /wVhbmQ=
+        E 90 80 42 60
+        <X 30 0
+          /wVnYWluIw==
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 on
-          /wVvbg==
+        E 180 80 42 60
+        <X 60 0
+          /wV0aGUj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 he
-          /wVoZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVzZW5zZSM=
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 keeps
-          /wVrZWVwcw==
+        E 120 80 42 60
+        <X 120 0
+          /wVvZiM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 go-
-          /wVnby0=
+        E 90 80 42 60
+        <X 390 0
+          /wVkw6ktIw==
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 ing
-          /wVpbmc=
+        E 180 80 42 60
+        <X 60 0
+          /wVqw6Aj
         >
         E 0 90 42 60
-        E 60 80 42 00
-        E 60 80 69 00
-        <X 240 0 0 0 5 Hits
-          /wVIaXRz
+        E 180 80 42 60
+        <X 60 0
+          /wV2dSM=
         >
         E 0 90 42 60
-        E 0 90 69 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 the
-          /wV0aGU=
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 cor-
-          /wVjb3It
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 ner
-          /wVuZXI=
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 just
-          /wVqdXN0
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 as
-          /wVhcw==
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 he
-          /wVoZQ==
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 hears
-          /wVoZWFycw==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 the
-          /wV0aGU=
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 ex-
-          /wVleC0=
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 plo-
-          /wVwbG8t
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 sion
-          /wVzaW9u
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        E 20 80 69 00
-        <X 60 0 0 0 5 Screams
-          /wVTY3JlYW1z
+        E 180 80 69 60
+        E 0 80 42 60
+        <X 300 0
+          /wVTdHJhbmdlIw==
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 come
-          /wVjb21l
+        E 180 80 42 60
+        <X 60 0
+          /wV0aGluZ3Mj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 from
-          /wVmcm9t
+        E 180 80 42 60
+        <X 60 0
+          /wV5b3Uj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 the
-          /wV0aGU=
+        E 180 80 42 60
+        <X 300 0
+          /wVuZXYtIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 house
-          /wVob3VzZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVlciM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 did
-          /wVkaWQ=
+        E 90 80 42 60
+        <X 30 0
+          /wVzaGFrZSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 you
-          /wV5b3U=
+        E 150 80 42 60
+        <X 90 0
+          /wV3aGVuIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 get
-          /wVnZXQ=
+        E 90 80 42 60
+        <X 30 0
+          /wV5b3Uj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 them
-          /wV0aGVt
+        E 90 80 42 60
+        <X 30 0
+          /wV3YWtlIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 out
-          /wVvdXQ=
+        E 90 80 42 60
+        <X 30 0
+          /wV1cCM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        E 20 80 69 00
-        <X 60 0 0 0 5 Mike
-          /wVNaWtl
+        E 90 80 42 60
+        <X 30 0
+          /wVpbiM=
         >
         E 0 90 42 60
-        E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ask-
-          /wVhc2st
+        E 90 80 42 60
+        <X 30 0
+          /wVyZS0j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ing
-          /wVpbmc=
+        E 90 80 42 60
+        <X 30 0
+          /wVjby0j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 the
-          /wV0aGU=
+        E 90 80 42 60
+        <X 30 0
+          /wV2ZXItIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 crowd
-          /wVjcm93ZA==
+        E 90 80 42 60
+        <X 30 0
+          /wV5Iw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 that
-          /wV0aGF0
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 has
-          /wVoYXM=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ga-
-          /wVnYS0=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 thered
-          /wV0aGVyZWQ=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 "'round"
-          /wUncm91bmQ=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        E 20 80 69 00
-        <X 60 0 0 0 5 Tears
-          /wVUZWFycw==
+        E 120 80 69 60
+        E 0 80 42 60
+        <X 240 0
+          /wVCdXQj
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 run-
-          /wVydW4t
+        E 90 80 42 60
+        <X 30 0
+          /wVzdWQtIw==
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 ning
-          /wVuaW5n
+        E 90 80 42 60
+        <X 30 0
+          /wVkZW4tIw==
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 down
-          /wVkb3du
+        E 90 80 42 60
+        <X 30 0
+          /wVseSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 his
-          /wVoaXM=
+        E 150 80 42 60
+        <X 90 0
+          /wVuby0j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 face
-          /wVmYWNl
+        E 90 80 42 60
+        <X 30 0
+          /wV0aWMtIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 there's
-          /wV0aGVyZSdz
+        E 90 80 42 60
+        <X 30 0
+          /wVpbicj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 that
-          /wV0aGF0
+        E 90 80 42 60
+        <X 30 0
+          /wVhc2gj
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 fa-
-          /wVmYS0=
+        E 180 80 42 60
+        <X 60 0
+          /wVpcyM=
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 mi-
-          /wVtaS0=
+        E 90 80 42 60
+        <X 30 0
+          /wVjby0j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 liar
-          /wVsaWFy
+        E 90 80 42 60
+        <X 30 0
+          /wV2ZXItIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 taste
-          /wV0YXN0ZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVpbicj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        E 20 80 69 00
-        <X 60 0 0 0 5 He
-          /wVIZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVoaXMj
         >
         E 0 90 42 60
-        E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 wish-
-          /wV3aXNoLQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVoZWFkIw==
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 es
-          /wVlcw==
+        E 180 80 42 60
+        <X 60 0
+          /wUnY2F1c2Uj
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 it
-          /wVpdA==
+        E 90 80 42 60
+        <X 30 0
+          /wVpdCdzIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 would
-          /wV3b3VsZA==
+        E 90 80 42 60
+        <X 30 0
+          /wVyYWluLSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 take
-          /wV0YWtl
+        E 90 80 42 60
+        <X 30 0
+          /wVpbicj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 him
-          /wVoaW0=
+        E 90 80 42 60
+        <X 30 0
+          /wVmcm9tIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 to
-          /wV0bw==
+        E 90 80 42 60
+        <X 30 0
+          /wV0aGUj
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 a-
-          /wVhLQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVza3kj
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 no-
-          /wVuby0=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ther
-          /wV0aGVy
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 place
-          /wVwbGFjZQ==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        E 20 80 69 00
-        <X 60 0 0 0 5 Son
-          /wVTb24=
+        E 180 80 69 60
+        E 0 80 42 60
+        <X 60 0
+          /wVEaWFscyM=
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 and
-          /wVhbmQ=
+        E 180 80 42 60
+        <X 60 0
+          /wVob21lIw==
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 his
-          /wVoaXM=
+        E 180 80 42 60
+        <X 60 0
+          /wVvbiM=
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 ba-
-          /wViYS0=
+        E 90 80 42 60
+        <X 30 0
+          /wVoaXMj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 by
-          /wVieQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVjZWxsIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 girl
-          /wVnaXJs
+        E 150 80 42 60
+        <X 90 0
+          /wVwaG9uZSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 and
-          /wVhbmQ=
+        E 90 80 42 60
+        <X 30 0
+          /wVhbmQj
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 his
-          /wVoaXM=
+        E 90 80 42 60
+        <X 30 0
+          /wVnZXRzIw==
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 home
-          /wVob21l
+        E 120 80 42 60
+        <X 120 0
+          /wVubyM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 and
-          /wVhbmQ=
+        E 90 80 42 60
+        <X 30 0
+          /wVyZS0j
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 he
-          /wVoZQ==
+        E 90 80 42 60
+        <X 30 0
+          /wVwbHkj
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 can't
-          /wVjYW4ndA==
+        E 180 80 42 60
+        <X 300 0
+          /wV3aGF0Iw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 be-
-          /wViZS0=
+        E 120 80 42 60
+        <X 40 0
+          /wV0aGUj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 lieve
-          /wVsaWV2ZQ==
+        E 120 80 42 60
+        <X 40 0
+          /wVmdWNrPyM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        E 20 80 69 00
-        <X 60 0 0 0 5 That
-          /wVUaGF0
-        >
-        E 0 90 42 60
-        E 0 90 69 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 it's
-          /wVpdCdz
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 gone
-          /wVnb25l
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 in
-          /wVpbg==
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 a
-          /wVh
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 cloud
-          /wVjbG91ZA==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 of
-          /wVvZg==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 smoke
-          /wVzbW9rZQ==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 and
-          /wVhbmQ=
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 he's
-          /wVoZSdz
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 chok-
-          /wVjaG9rLQ==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ing
-          /wVpbmc=
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 and
-          /wVhbmQ=
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 run-
-          /wVydW4t
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ning
-          /wVuaW5n
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 for-
-          /wVmb3It
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ward
-          /wV3YXJk
-        >
-        E 0 90 42 60
-        E 60 80 69 00
-        E 0 80 42 00
-        <X 60 0 0 0 5 And
-          /wVBbmQ=
+        E 120 80 69 60
+        E 0 80 42 60
+        <X 40 0
+          /wVXaGVyZSM=
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 hop-
-          /wVob3At
+        E 160 80 42 60
+        <X 80 0
+          /wVpcyM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ing
-          /wVpbmc=
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGUj
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 a-
-          /wVhLQ==
+        E 160 80 42 60
+        <X 80 0
+          /wViYS0j
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 gainst
-          /wVnYWluc3Q=
+        E 160 80 42 60
+        <X 80 0
+          /wVieS0j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 hope
-          /wVob3Bl
+        E 160 80 42 60
+        <X 80 0
+          /wVzaXQtIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 that
-          /wV0aGF0
+        E 160 80 42 60
+        <X 80 0
+          /wV0ZXIj
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 he
-          /wVoZQ==
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGF0Iw==
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 might
-          /wVtaWdodA==
+        E 160 80 42 60
+        <X 80 0
+          /wVoZSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 find
-          /wVmaW5k
+        E 160 80 42 60
+        <X 80 0
+          /wVvLSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 them
-          /wV0aGVt
+        E 160 80 42 60
+        <X 80 0
+          /wV2ZXItIw==
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 a-
-          /wVhLQ==
+        E 160 80 42 60
+        <X 80 0
+          /wVwYXlzPyM=
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 live
-          /wVsaXZl
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 and
-          /wVhbmQ=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 well
-          /wV3ZWxs
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        E 20 80 69 00
-        <X 60 0 0 0 5 When
-          /wVXaGVu
+        E 160 80 42 60
+        E 40 80 69 60
+        <X 40 0
+          /wVCby0j
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 he
-          /wVoZQ==
+        E 160 80 42 60
+        <X 80 0
+          /wVkeSM=
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 knows
-          /wVrbm93cw==
+        E 160 80 42 60
+        <X 80 0
+          /wV0YWtlcyM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 the
-          /wV0aGU=
+        E 160 80 42 60
+        <X 80 0
+          /wVvLSM=
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 re-
-          /wVyZS0=
+        E 160 80 42 60
+        <X 80 0
+          /wV2ZXIj
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 sults
-          /wVzdWx0cw==
+        E 160 80 42 60
+        <X 80 0
+          /wVhbmQj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 too
-          /wV0b28=
+        E 160 80 42 60
+        <X 80 0
+          /wVicmFpbiM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 well
-          /wV3ZWxs
+        E 160 80 42 60
+        <X 80 0
+          /wViZS0j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 and
-          /wVhbmQ=
+        E 160 80 42 60
+        <X 80 0
+          /wVjb21lcyM=
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 he
-          /wVoZQ==
+        E 160 80 42 60
+        <X 80 0
+          /wVkaXMtIw==
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 knows
-          /wVrbm93cw==
+        E 160 80 42 60
+        <X 80 0
+          /wVlbi0j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 that
-          /wV0aGF0
+        E 160 80 42 60
+        <X 80 0
+          /wVnYWdlZCM=
         >
         E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 he
-          /wVoZQ==
-        >
-        E 0 90 42 60
-        E 60 80 42 00
-        <X 60 0 0 0 5 fooled
-          /wVmb29sZWQ=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 him-
-          /wVoaW0t
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 self
-          /wVzZWxm
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        E 20 80 69 00
-        <X 60 0 0 0 5 And
-          /wVBbmQ=
+        E 160 80 42 60
+        E 40 80 69 60
+        <X 40 0
+          /wVNaS0j
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 he
-          /wVoZQ==
+        E 160 80 42 60
+        <X 80 0
+          /wVjaGFlbCM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 keeps
-          /wVrZWVwcw==
+        E 160 80 42 60
+        <X 80 0
+          /wVpcyM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 walk-
-          /wV3YWxrLQ==
+        E 160 80 42 60
+        <X 80 0
+          /wVydW4tIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ing
-          /wVpbmc=
+        E 160 80 42 60
+        <X 80 0
+          /wVuaW5nIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 towards
-          /wV0b3dhcmRz
+        E 160 80 42 60
+        <X 80 0
+          /wVoaXMj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 the
-          /wV0aGU=
+        E 160 80 42 60
+        <X 80 0
+          /wVob3VzZSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 house
-          /wVob3VzZQ==
+        E 160 80 42 60
+        <X 80 0
+          /wVpcyM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 rath-
-          /wVyYXRoLQ==
+        E 160 80 42 60
+        <X 80 0
+          /wV0aHJlZSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 er
-          /wVlcg==
+        E 160 80 42 60
+        <X 80 0
+          /wVibG9ja3Mj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 what
-          /wV3aGF0
+        E 160 80 42 60
+        <X 80 0
+          /wVhLSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 house
-          /wVob3VzZQ==
+        E 160 80 42 60
+        <X 80 0
+          /wV3YXkj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 is
-          /wVpcw==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 still
-          /wVzdGlsbA==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 left
-          /wVsZWZ0
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        E 20 80 69 00
-        <X 60 0 0 0 5 No
-          /wVObw==
+        E 160 80 42 60
+        E 40 80 69 60
+        <X 40 0
+          /wVBLSM=
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 in-
-          /wVpbi0=
+        E 160 80 42 60
+        <X 80 0
+          /wVkcmVuLSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ten-
-          /wV0ZW4t
+        E 160 80 42 60
+        <X 80 0
+          /wVhLSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 tion
-          /wV0aW9u
+        E 160 80 42 60
+        <X 80 0
+          /wVsaW5lIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 of
-          /wVvZg==
+        E 160 80 42 60
+        <X 80 0
+          /wVjb20tIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 stop-
-          /wVzdG9wLQ==
+        E 160 80 42 60
+        <X 80 0
+          /wVwZW4tIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ping
-          /wVwaW5n
+        E 160 80 42 60
+        <X 80 0
+          /wVzYXQtIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 let-
-          /wVsZXQt
+        E 160 80 42 60
+        <X 80 0
+          /wVpbmcj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ting
-          /wV0aW5n
+        E 160 80 42 60
+        <X 80 0
+          /wVmb3Ij
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 the
-          /wV0aGU=
+        E 160 80 42 60
+        <X 80 0
+          /wVjaGFuZ2Uj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 smoke
-          /wVzbW9rZQ==
+        E 160 80 42 60
+        <X 80 0
+          /wVpbiM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 take
-          /wV0YWtl
+        E 160 80 42 60
+        <X 80 0
+          /wVhZ2Uj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 his
-          /wVoaXM=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 breath
-          /wVicmVhdGg=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        E 20 80 69 00
-        <X 60 0 0 0 5 Some
-          /wVTb21l
+        E 160 80 42 60
+        E 40 80 69 60
+        <X 40 0
+          /wVTaW5jZSM=
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 strong
-          /wVzdHJvbmc=
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGUj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 arm
-          /wVhcm0=
+        E 160 80 42 60
+        <X 80 0
+          /wVsYXN0Iw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 knocks
-          /wVrbm9ja3M=
+        E 160 80 42 60
+        <X 80 0
+          /wV0aW1lIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 him
-          /wVoaW0=
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGF0Iw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 a-
-          /wVhLQ==
+        E 160 80 42 60
+        <X 80 0
+          /wVoZSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 side
-          /wVzaWRl
+        E 160 80 42 60
+        <X 80 0
+          /wVyYW4j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 Mike
-          /wVNaWtl
+        E 160 80 42 60
+        <X 80 0
+          /wVpdCM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 falls
-          /wVmYWxscw==
+        E 160 80 42 60
+        <X 80 0
+          /wVnb2QtIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 to
-          /wV0bw==
+        E 160 80 42 60
+        <X 80 0
+          /wVkYW0tIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 the
-          /wV0aGU=
+        E 160 80 42 60
+        <X 80 0
+          /wVtaXQj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 ground
-          /wVncm91bmQ=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 and
-          /wVhbmQ=
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 cries
-          /wVjcmllcw==
-        >
-        E 0 90 42 60
-        E 160 80 42 00
-        E 20 80 69 00
-        <X 60 0 0 0 5 Why
-          /wVXaHk=
+        E 160 80 42 60
+        E 40 80 69 60
+        <X 40 0
+          /wVNaWtlIw==
         >
         E 0 90 42 60
         E 0 90 69 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 won't
-          /wV3b24ndA==
+        E 160 80 42 60
+        <X 80 0
+          /wVrbm93cyM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 you
-          /wV5b3U=
+        E 160 80 42 60
+        <X 80 0
+          /wVoZSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 just
-          /wVqdXN0
+        E 160 80 42 60
+        <X 80 0
+          /wVnb3QtIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 let
-          /wVsZXQ=
+        E 160 80 42 60
+        <X 80 0
+          /wV0YSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 me
-          /wVtZQ==
+        E 160 80 42 60
+        <X 80 0
+          /wVnZXQj
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 die?
-          /wVkaWU/
+        E 160 80 42 60
+        <X 80 0
+          /wVob21lIw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 Why
-          /wVXaHk=
+        E 160 80 42 60
+        <X 80 0
+          /wVmYXN0Iw==
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 won't
-          /wV3b24ndA==
+        E 160 80 42 60
+        <X 80 0
+          /wVhcyM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 you
-          /wV5b3U=
+        E 160 80 42 60
+        <X 80 0
+          /wVoZSM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 just
-          /wVqdXN0
+        E 160 80 42 60
+        <X 80 0
+          /wVjYW4j
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 let
-          /wVsZXQ=
+        E 320 80 69 60
+        E 0 80 42 60
+        <X 400 0
+          /wVMb29rcyM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 me
-          /wVtZQ==
+        E 0 90 69 60
+        E 160 80 42 60
+        <X 80 0
+          /wV1cCM=
         >
         E 0 90 42 60
-        E 160 80 42 00
-        <X 80 0 0 0 5 die?
-          /wVkaWU/
+        E 160 80 42 60
+        <X 80 0
+          /wVpbiM=
         >
         E 0 90 42 60
-        E 320 80 42 00
-        E 40 80 69 00
-        E 181320 b0 7b 00
-        GUID {C9A1A4CA-4224-4672-91C0-075BEB2A8650}
+        E 60 80 42 60
+        <X 60 0
+          /wV0aGUj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVza3kj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVnbG93J3Mj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVmYS0j
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVtaS0j
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVsaS0j
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVhciM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        E 20 80 69 60
+        <X 60 0
+          /wVLbm93cyM=
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aG9zZSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVmYS0j
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVtaS0j
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVsaWVzIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVkaWVkIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV3aXRoIw==
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVzaS0j
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVtaS0j
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVsYXIj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVhd24tIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVpbmdzIw==
+        >
+        E 0 90 42 60
+        E 60 80 69 60
+        E 0 80 42 60
+        <X 60 0
+          /wVBbmQj
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 60 80 42 60
+        <X 60 0
+          /wVvbiM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVhbmQj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVvbiM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVoZSM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVrZWVwcyM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVnby0j
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVpbmcj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        E 60 80 69 60
+        <X 240 0
+          /wVIaXRzIw==
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 60 80 42 60
+        <X 60 0
+          /wV0aGUj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVjb3ItIw==
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVuZXIj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVqdXN0Iw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVhcyM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVoZSM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVoZWFycyM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGUj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVleC0j
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVwbG8tIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVzaW9uIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        E 20 80 69 60
+        <X 60 0
+          /wVTY3JlYW1zIw==
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 160 80 42 60
+        <X 80 0
+          /wVjb21lIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVmcm9tIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGUj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVob3VzZSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVkaWQj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV5b3Uj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVnZXQj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGVtIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVvdXQj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        E 20 80 69 60
+        <X 60 0
+          /wVNaWtlIw==
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 160 80 42 60
+        <X 80 0
+          /wVhc2stIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVpbmcj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGUj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVjcm93ZCM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGF0Iw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVoYXMj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVnYS0j
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGVyZWQj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wUncm91bmQj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        E 20 80 69 60
+        <X 60 0
+          /wVUZWFycyM=
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 160 80 42 60
+        <X 80 0
+          /wVydW4tIw==
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVuaW5nIw==
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVkb3duIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVoaXMj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVmYWNlIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGVyZSdzIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGF0Iw==
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVmYS0j
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVtaS0j
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVsaWFyIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0YXN0ZSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        E 20 80 69 60
+        <X 60 0
+          /wVIZSM=
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 160 80 42 60
+        <X 80 0
+          /wV3aXNoLSM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVlcyM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVpdCM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV3b3VsZCM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0YWtlIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVoaW0j
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0byM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVhLSM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVuby0j
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGVyIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVwbGFjZSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        E 20 80 69 60
+        <X 60 0
+          /wVTb24j
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 160 80 42 60
+        <X 80 0
+          /wVhbmQj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVoaXMj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wViYS0j
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVieSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVnaXJsIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVhbmQj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVoaXMj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVob21lIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVhbmQj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVoZSM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVjYW4ndCM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wViZS0j
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVsaWV2ZSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        E 20 80 69 60
+        <X 60 0
+          /wVUaGF0Iw==
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 60 80 42 60
+        <X 60 0
+          /wVpdCdzIw==
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVnb25lIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVpbiM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVhIw==
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVjbG91ZCM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVvZiM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVzbW9rZSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVhbmQj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVoZSdzIw==
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVjaG9rLSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVpbmcj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVhbmQj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVydW4tIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVuaW5nIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVmb3ItIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV3YXJkIw==
+        >
+        E 0 90 42 60
+        E 60 80 69 60
+        E 0 80 42 60
+        <X 60 0
+          /wVBbmQj
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 60 80 42 60
+        <X 60 0
+          /wVob3AtIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVpbmcj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVhLSM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVnYWluc3Qj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVob3BlIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGF0Iw==
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVoZSM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVtaWdodCM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVmaW5kIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGVtIw==
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVhLSM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVsaXZlIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVhbmQj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV3ZWxsIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        E 20 80 69 60
+        <X 60 0
+          /wVXaGVuIw==
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 60 80 42 60
+        <X 60 0
+          /wVoZSM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVrbm93cyM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGUj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVyZS0j
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVzdWx0cyM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0b28j
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV3ZWxsIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVhbmQj
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVoZSM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVrbm93cyM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGF0Iw==
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVoZSM=
+        >
+        E 0 90 42 60
+        E 60 80 42 60
+        <X 60 0
+          /wVmb29sZWQj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVoaW0tIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVzZWxmIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        E 20 80 69 60
+        <X 60 0
+          /wVBbmQj
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 160 80 42 60
+        <X 80 0
+          /wVoZSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVrZWVwcyM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV3YWxrLSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVpbmcj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0b3dhcmRzIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGUj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVob3VzZSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVyYXRoLSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVlciM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV3aGF0Iw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVob3VzZSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVpcyM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVzdGlsbCM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVsZWZ0Iw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        E 20 80 69 60
+        <X 60 0
+          /wVObyM=
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 160 80 42 60
+        <X 80 0
+          /wVpbi0j
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0ZW4tIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aW9uIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVvZiM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVzdG9wLSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVwaW5nIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVsZXQtIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aW5nIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGUj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVzbW9rZSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0YWtlIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVoaXMj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVicmVhdGgj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        E 20 80 69 60
+        <X 60 0
+          /wVTb21lIw==
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 160 80 42 60
+        <X 80 0
+          /wVzdHJvbmcj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVhcm0j
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVrbm9ja3Mj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVoaW0j
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVhLSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVzaWRlIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVNaWtlIw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVmYWxscyM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0byM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV0aGUj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVncm91bmQj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVhbmQj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVjcmllcyM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        E 20 80 69 60
+        <X 60 0
+          /wVXaHkj
+        >
+        E 0 90 42 60
+        E 0 90 69 60
+        E 160 80 42 60
+        <X 80 0
+          /wV3b24ndCM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV5b3Uj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVqdXN0Iw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVsZXQj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVtZSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVkaWU/Iw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVXaHkj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV3b24ndCM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wV5b3Uj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVqdXN0Iw==
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVsZXQj
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVtZSM=
+        >
+        E 0 90 42 60
+        E 160 80 42 60
+        <X 80 0
+          /wVkaWU/Iw==
+        >
+        E 0 90 42 60
+        E 320 80 42 60
+        E 40 80 69 60
+        E 187680 b0 7b 00
+        GUID {C1AFA6BC-E3F8-D045-BF9E-C5F76A558528}
         IGNTEMPO 0 120 4 4
-        SRCCOLOR 275
+        SRCCOLOR 3
         VELLANE 132 128 128
-        COLORMAP "M:\RGS Documents\ColorMaps\rockband_vox-other.png"
-        TEXTSTRINGFILE "Text Events List.txt"
-        CFGEDITVIEW -6806.532106 5.589973 0 12 0 -1 0 0 0 0.5
+        COLORMAP "/Users/mtolly/Library/Application Support/REAPER/Data/color_maps/rockband_guitarbass.png"
+        CFGEDITVIEW -8862.233073 4.30668 35 12 0 -1 0 0 0 0.5
         KEYSNAP 0
-        TRACKSEL 0
-        EVTFILTER 0 -1 -1 -1 -1 0 1 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
-        CFGEDIT 1 1 0 0 1 1 1 1 1 1 1 0.125 231 98 1566 906 0 2 2 2 0 0 0 0 0 0.5 1 0 1 64
+        TRACKSEL -252
+        EVTFILTER 0 -1 -1 -1 -1 0 0 0 0 -1 -1 -1 -1 0 -1 0 -1 -1
+        CFGEDIT 1 1 0 0 0 1 1 1 1 1 1 0.125 87 70 1422 878 0 0 2 2 0 0 0 0 0 0.5 0 0 1 64
       >
     >
   >
@@ -7267,7 +7258,7 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {3DF8AA51-03D3-41B1-9512-5797B86736C1}
-        <X 0 0 0 0 3 "PART HARM1"
+        <X 0 0
           /wNQQVJUIEhBUk0x
         >
         E 311040 b0 7b 00
@@ -7388,7 +7379,7 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {2A6020CA-77C4-4A31-B790-37472E09F1D5}
-        <X 0 0 0 0 3 "PART HARM2"
+        <X 0 0
           /wNQQVJUIEhBUk0y
         >
         E 311040 b0 7b 00
@@ -7508,7 +7499,7 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {4F27C5B6-099E-4216-8A80-C1FAA282BF0E}
-        <X 0 0 0 0 3 "PART HARM3"
+        <X 0 0
           /wNQQVJUIEhBUk0z
         >
         E 311040 b0 7b 00
@@ -7592,9 +7583,7 @@
       DOCKED 0
       BYPASS 0 0 0
       <VST "VSTi: RBN Preview (RBN)" rbprev_vst.dll 0 "" 1919053942
-        dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAAAA=
-        AwCqAA==
-        AAAAAAAA
+        dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAAAADAKoAAAAAAAAA
       >
       FLOATPOS 0 0 0 0
       FXID {EE0C80EE-5E5F-4EA2-B367-78AAAB3793F5}
@@ -7621,7 +7610,7 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {7C59978F-BC7C-4DCD-9984-2797F463D5F9}
-        <X 0 0 0 0 3 "PART KEYS"
+        <X 0 0
           /wNQQVJUIEtFWVM=
         >
         E 346560 b0 7b 00
@@ -7711,7 +7700,7 @@
       FXID {A891DAA7-5D8A-4720-AA8F-E43D2ABA2AE5}
       WAK 0
       BYPASS 0 0 0
-      <VST "VSTi: ReaSynth (Cockos)" reasynth.dll 0 "" 1919251321
+      <VST "VSTi: ReaSynth (Cockos)" reasynth.vst.dylib 0 "" 1919251321
         eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAAAA=
         776t3g3wrd6mm8Q7F7fROpzEoD5zaNE+AAAAAMybgD7pZ4g9AAAAAAAAAD8AAIA/6SaxPgAAAD8AAIA/
         AAAAAAAA
@@ -7741,7 +7730,7 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {4C7A03B6-DF65-46C5-9728-C85754155485}
-        <X 0 0 0 0 3 "PART REAL_KEYS_X"
+        <X 0 0
           /wNQQVJUIFJFQUxfS0VZU19Y
         >
         E 346560 b0 7b 00
@@ -7844,7 +7833,7 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {48B6626A-5E25-4DDA-8103-F0516A225ED3}
-        <X 0 0 0 0 3 "PART REAL_KEYS_H"
+        <X 0 0
           /wNQQVJUIFJFQUxfS0VZU19I
         >
         E 346560 b0 7b 00
@@ -7947,7 +7936,7 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {5A3FE028-C647-4163-98D2-D77A16D0A118}
-        <X 0 0 0 0 3 "PART REAL_KEYS_M"
+        <X 0 0
           /wNQQVJUIFJFQUxfS0VZU19N
         >
         E 346560 b0 7b 00
@@ -8050,7 +8039,7 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {DB61A1BD-5924-4A74-AE2E-37CFC143BB79}
-        <X 0 0 0 0 3 "PART REAL_KEYS_E"
+        <X 0 0
           /wNQQVJUIFJFQUxfS0VZU19F
         >
         E 346560 b0 7b 00
@@ -8153,7 +8142,7 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {00B27148-E636-456A-B83C-A821E07E83A0}
-        <X 120 0 0 0 3 "PART KEYS_ANIM_RH"
+        <X 120 0
           /wNQQVJUIEtFWVNfQU5JTV9SSA==
         >
         E 346440 b0 7b 00
@@ -8256,7 +8245,7 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {01086A8A-7CA0-4BC8-B1E9-02AA8B3EE3D2}
-        <X 0 0 0 0 3 "PART KEYS_ANIM_LH"
+        <X 0 0
           /wNQQVJUIEtFWVNfQU5JTV9MSA==
         >
         E 346560 b0 7b 00
@@ -8345,22 +8334,22 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {90C22143-A639-485A-9C34-04E00EEBD370}
-        <X 0 0 0 0 3 EVENTS
+        <X 0 0
           /wNFVkVOVFM=
         >
-        <X 0 0 0 0 1 [crowd_normal]
+        <X 0 0
           /wFbY3Jvd2Rfbm9ybWFsXQ==
         >
-        <X 6720 0 0 0 1 [music_start]
+        <X 6720 0
           /wFbbXVzaWNfc3RhcnRd
         >
-        <X 300240 0 0 0 5 [crowd_noclap]
+        <X 300240 0
           /wVbY3Jvd2Rfbm9jbGFwXQ==
         >
-        <X 960 0 0 0 5 [music_end]
+        <X 960 0
           /wVbbXVzaWNfZW5kXQ==
         >
-        <X 2880 0 0 0 5 [end]
+        <X 2880 0
           /wVbZW5kXQ==
         >
         E 240 b0 7b 00
@@ -8467,13 +8456,13 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {F10031A5-5138-4030-88E2-944E2289BD6F}
-        <X 0 0 0 0 3 VENUE
+        <X 0 0
           /wNWRU5VRQ==
         >
-        <X 0 0 0 0 1 [verse]
+        <X 0 0
           /wFbdmVyc2Vd
         >
-        <X 0 0 0 0 1 "[lighting ()]"
+        <X 0 0
           /wFbbGlnaHRpbmcgKCld
         >
         E 0 90 3c 60
@@ -8559,7 +8548,7 @@
       <SOURCE MIDI
         HASDATA 1 480 QN
         POOLEDEVTS {FA5B6CF1-C643-4AB9-B656-FC4415EFED7A}
-        <X 0 0 0 0 3 BEAT
+        <X 0 0
           /wNCRUFU
         >
         E 0 96 0c 64
