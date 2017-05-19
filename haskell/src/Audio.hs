@@ -298,7 +298,7 @@ renderMask tags seams (AudioSource s r c l) = let
               in (chunk V.! i) * mult'
             masker $ MaskFade b (done + len) total rest
           else do
-            let (chunkA, chunkB) = V.splitAt ((done - total) * c) chunk
+            let (chunkA, chunkB) = V.splitAt ((total - done) * c) chunk
             leftover chunkB
             leftover chunkA
             masker m

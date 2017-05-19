@@ -40,6 +40,119 @@ audio:
   jammit-vox2:
     md5: a23a8aed8673e9a5758eaad8891e8e3e
     frames: 22257728
+
+  jammit-vox1-unchanged:
+    expr:
+      mask:
+      - [unchanged]
+      - &vox1-mask
+        - center: 0
+          tag: unchanged
+        - center: 3:34
+          tag: bumped
+        - center: 4:05.048
+          tag: unchanged
+      - jammit-vox1
+  jammit-vox1-bumped:
+    expr:
+      mask:
+      - [bumped]
+      - *vox1-mask
+      - jammit-vox1
+
+  jammit-backing:
+    expr:
+      mix:
+      - jammit-nodrums
+      - gain:
+        - -1
+        - mix: [jammit-keys1, jammit-keys2, jammit-gtr1, jammit-gtr2, jammit-bass, jammit-vox1, jammit-vox2]
+  jammit-backing-bells:
+    expr:
+      mask:
+      - [bells]
+      - &backing-mask
+        - center: 0
+          tag: bells
+        - center: 0:32.003
+          tag: unused
+      - jammit-backing
+  jammit-backing-unused:
+    expr:
+      mask:
+      - [unused]
+      - *backing-mask
+      - jammit-backing
+
+  jammit-gtr1-used:
+    expr:
+      mask:
+      - [used]
+      - &gtr1-mask
+        - center: 0
+          tag: used
+        - center: 1:39.998
+          fade: 0.050
+          tag: unused
+        - center: 1:54.421
+          tag: used
+        - center: 6:11.188
+          tag: unused
+        - center: 6:34.172
+          tag: used
+        - center: 7:59.083
+          fade: 0.050
+          tag: unused
+        - center: 8:13.500
+          tag: used
+      - jammit-gtr1
+  jammit-gtr1-unused:
+    expr:
+      mask:
+      - [unused]
+      - *gtr1-mask
+      - jammit-gtr1
+
+  jammit-gtr2-used:
+    expr:
+      mask:
+      - [used]
+      - &gtr2-mask
+        - center: 0
+          tag: used
+        - center: 5:19
+          tag: unused
+        - center: 5:30.650
+          tag: used
+      - jammit-gtr2
+  jammit-gtr2-unused:
+    expr:
+      mask:
+      - [unused]
+      - *gtr2-mask
+      - jammit-gtr2
+
+  jammit-keys2-used:
+    expr:
+      mask:
+      - [used]
+      - &keys2-mask
+        - center: 0
+          tag: unused
+        - center: 1:15
+          tag: used
+        - center: 4:51
+          tag: unused
+        - center: 7:14.055
+          tag: used
+      - jammit-keys2
+  jammit-keys2-unused:
+    expr:
+      mask:
+      - [unused]
+      - *keys2-mask
+      - jammit-keys2
+
 plans:
   jammit:
     countin:
@@ -50,23 +163,32 @@ plans:
       1|1: hihat
       1|2: hihat
     parts:
-      drums: jammit-drums # TODO: add all bells in beginning
+      drums:
+        mix:
+        - jammit-drums
+        - jammit-backing-bells
       bass: jammit-bass
       vocal:
-        # TODO: bump up volume of verse 2 (keep your head up)
-        mix: [jammit-vox1, jammit-vox2]
+        mix:
+        - jammit-vox1-unchanged
+        - gain:
+          - 1.7
+          - jammit-vox1-bumped
+        - jammit-vox2
       guitar:
-        # TODO: remove some parts
-        mix: [jammit-gtr1, jammit-gtr2]
+        mix:
+        - jammit-gtr1-used
+        - jammit-gtr2-used
       keys:
-        # TODO: remove some of Keys 2
-        mix: [jammit-keys1, jammit-keys2]
+        mix:
+        - jammit-keys1
+        - jammit-keys2-used
     song:
       mix:
-      - jammit-nodrums
-      - gain:
-        - -1
-        - mix: [jammit-keys1, jammit-keys2, jammit-gtr1, jammit-gtr2, jammit-bass, jammit-vox1, jammit-vox2]
+      - jammit-backing-unused
+      - jammit-gtr1-unused
+      - jammit-gtr2-unused
+      - jammit-keys2-unused
   album:
     countin: *countin
     song:
