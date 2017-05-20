@@ -117,6 +117,13 @@
     rb3-2x: download/TheseWalls_v1_2x_rb3con
     ps: download/TheseWalls_v1_ps.zip
 
+- file-path: ../songs/dream-theater/new-millennium
+  # video:
+  urls:
+    rb3: download/NewMillennium_v1_1x_rb3con
+    rb3-2x: download/NewMillennium_v1_2x_rb3con
+    ps: download/NewMillennium_v1_ps.zip
+
 # Onyxite's Jazz Pack 2
 - file-path: ../songs/hiromi-uehara/kung-fu-world-champion
   video: https://www.youtube.com/watch?v=MkrKJjHL0mA
