@@ -302,10 +302,10 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
       , RBFile.psPartRealKeysPS_M = RTB.empty
       , RBFile.psPartRealKeysPS_H = RTB.empty
       , RBFile.psPartRealKeysPS_X = RTB.empty
-      , RBFile.psPartVocals = fmap RB trkVox
-      , RBFile.psHarm1 = fmap RB trkHarm1
-      , RBFile.psHarm2 = fmap RB trkHarm2
-      , RBFile.psHarm3 = fmap RB trkHarm3
+      , RBFile.psPartVocals = fmap RB $ fmap RBVox.asciiLyrics trkVox
+      , RBFile.psHarm1 = fmap RB $ fmap RBVox.asciiLyrics trkHarm1
+      , RBFile.psHarm2 = fmap RB $ fmap RBVox.asciiLyrics trkHarm2
+      , RBFile.psHarm3 = fmap RB $ fmap RBVox.asciiLyrics trkHarm3
       }
     )
 

@@ -107,3 +107,19 @@ instanceMIDIEvent [t| Event |] Nothing
     , [e| \case Lyric s -> RTB.singleton NNC.zero $ E.MetaEvent $ Meta.Lyric $ T.unpack s |]
     )
   ]
+
+-- | Phase Shift doesn't support non-ASCII chars in lyrics.
+-- (RB text events are always Latin-1, even if .dta encoding is UTF-8.)
+asciiLyrics :: Event -> Event
+asciiLyrics (Lyric t) = let
+  oneToOne = zip
+    "ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝàáâãäåçèéêëìíîïðñòóôõö÷øùúûüýÿ"
+    "AAAAAACEEEEIIIIDNOOOOOxOUUUUYaaaaaaceeeeiiiidnooooo/ouuuuyy"
+  f 'Æ' = "AE"
+  f 'Þ' = "Th"
+  f 'ß' = "ss"
+  f 'æ' = "ae"
+  f 'þ' = "th"
+  f c = T.singleton $ maybe c id $ lookup c oneToOne
+  in Lyric $ T.concatMap f t
+asciiLyrics e = e
