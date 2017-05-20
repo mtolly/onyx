@@ -212,6 +212,7 @@ parts:
     vocal:
       count: 3
       difficulty: 4
+      gender: male
 targets:
   rb3:
     game: rb3
