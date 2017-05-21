@@ -19,6 +19,15 @@ tokens :-
 $white+ ;
 \; [^\n]* ;
 
+-- Preprocessor commands.
+\#ifdef { emit $ const IfDef }
+\#else { emit $ const Else }
+\#endif { emit $ const EndIf }
+\#define { emit $ const Define }
+\#include { emit $ const Include }
+\#merge { emit $ const Merge }
+\#ifndef { emit $ const IfNDef }
+
 -- Numbers. Longest match rule means N.N is float, not int.
 \-? $digit+ { emit $ Int . read }
 \-? $digit+ (\. $digit+)? (e \-? $digit+)? { emit $ Float . read }
@@ -30,21 +39,12 @@ $white+ ;
 "kDataUnhandled" { emit $ const Unhandled }
 -- Raw keywords. Note: these can start with digits, like "3sand7s", as long as
 -- they also have letters in them.
-($alpha | $digit | _ | \/ | \. | \- | \=)+ { emit $ Key . T.pack }
+($alpha | $digit | _ | \/ | \. | \- | \= | \#)+ { emit $ Key . T.pack }
 -- Quoted keywords.
 ' ([^'] | \\')* ' { emit $ Key . T.pack . readKey }
 
 -- Quoted strings.
 \" [^\"]* \" { emit $ String . T.pack . readString }
-
--- Preprocessor commands.
-\#ifdef { emit $ const IfDef }
-\#else { emit $ const Else }
-\#endif { emit $ const EndIf }
-\#define { emit $ const Define }
-\#include { emit $ const Include }
-\#merge { emit $ const Merge }
-\#ifndef { emit $ const IfNDef }
 
 -- Subtrees.
 \( { emit $ const LParen }
