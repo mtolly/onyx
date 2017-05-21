@@ -7,6 +7,8 @@ metadata:
   author: Onyxite
   key: C sharp
   difficulty: 5
+  comments:
+  - Phase Shift download features tap notes on bass to emulate John Myung's Chapman Stick.
 audio:
   album-track:
     md5: a8a08bbf75f939397f79246983c4bd9c
