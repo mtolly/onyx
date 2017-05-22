@@ -25,10 +25,20 @@ plans:
     parts:
       drums:
         only: [Drums, jammit-track]
-      keys:
-        mix:
-        - only: [Keys 1, jammit-track]
-        - only: [Keys 2, jammit-track]
+      bass:
+        only: [Bass, jammit-track]
+      vocal1:
+        only: [Vocal 1, jammit-track]
+      vocal2:
+        only: [Vocal 2, jammit-track]
+      keys1:
+        only: [Keys 1, jammit-track]
+      keys2:
+        only: [Keys 2, jammit-track]
+      guitar1:
+        only: [Guitar 1, jammit-track]
+      guitar2:
+        only: [Guitar 2, jammit-track]
     song:
       mix:
       - without: [drums, jammit-track]
@@ -37,6 +47,11 @@ plans:
         - mix:
           - only: [Keys 1, jammit-track]
           - only: [Keys 2, jammit-track]
+          - only: [Guitar 1, jammit-track]
+          - only: [Guitar 2, jammit-track]
+          - only: [Vocal 1, jammit-track]
+          - only: [Vocal 2, jammit-track]
+          - only: [Bass, jammit-track]
   album:
     song:
       trim: [0.072, album-track]
