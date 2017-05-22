@@ -4,13 +4,11 @@ metadata:
   track-number: 5
   key: B # for vocals
   difficulty: 4
-  author: "Onyxite, Grinnz, mazegeek999"
+  author: "Onyxite, Grinnz, Mazegeek999"
   comments:
   - "Timing and drums by Grinnz."
-  - "QA by [mazegeek999](http://pksage.com/ccc/IPS/index.php?/topic/13775-mazegeeks-customs-1117-tarkus-by-emerson-lake-palmer/)."
-  - "All instruments have overdrive/unison."
-  - "Drums confidence: *high*, written to Portnoy's DVD."
-  - "Restitution spoken word transcribed from the isolated audio on Chaos in Progress."
+  - "QA by Mazegeek999."
+  - "*Restitution* spoken word transcribed with the help of *Chaos in Progress*."
   rating: Supervision Recommended
   autogen-theme: Dusty Vintage
 audio:
@@ -128,3 +126,14 @@ parts:
       difficulty: 6
       count: 3
       gender: male
+targets:
+  rb3:
+    game: rb3
+    plan: drumcam
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: drumcam
+  ps:
+    game: ps
+    plan: drumcam

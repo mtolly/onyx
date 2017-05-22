@@ -4,9 +4,9 @@ metadata:
   track-number: 9
   key: D
   difficulty: 7
-  author: "Onyxite, mazegeek999, Meander"
+  author: "Onyxite, Mazegeek999, Meander"
   comments:
-  - "The two parts, glued together. See individual part READMEs for comments."
+  - "The two parts, glued together."
   rating: Supervision Recommended
 audio:
   pt1-song:
@@ -65,3 +65,14 @@ parts:
       difficulty: 5
       count: 3
       gender: male
+targets:
+  rb3:
+    game: rb3
+    plan: drumcam
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: drumcam
+  ps:
+    game: ps
+    plan: drumcam

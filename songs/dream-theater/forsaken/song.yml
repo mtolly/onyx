@@ -4,11 +4,9 @@ metadata:
   track-number: 2
   key: D
   difficulty: 3
-  author: Onyxite, mazegeek999
+  author: Onyxite, Mazegeek999
   comments:
-  - "Drums confidence: *high*. Written to Portnoy's DVD."
-  - "All instruments have overdrive/unison."
-  - "QA by [mazegeek999](http://pksage.com/ccc/IPS/index.php?/topic/13775-mazegeeks-customs-1117-tarkus-by-emerson-lake-palmer/)."
+  - "QA by Mazegeek999."
   rating: Supervision Recommended
 audio:
   album-track:
@@ -117,3 +115,14 @@ parts:
       difficulty: 5
       count: 3
       gender: male
+targets:
+  rb3:
+    game: rb3
+    plan: drumcam
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: drumcam
+  ps:
+    game: ps
+    plan: drumcam

@@ -4,11 +4,10 @@ metadata:
   track-number: 8
   key: D
   difficulty: 7
-  author: "Onyxite, mazegeek999, Meander"
+  author: "Onyxite, Mazegeek999, Meander"
   comments:
-  - "Keys, pro keys, and QA by [mazegeek999](http://pksage.com/ccc/IPS/index.php?/topic/13775-mazegeeks-customs-1117-tarkus-by-emerson-lake-palmer/)."
+  - "Keys, pro keys, and QA by Mazegeek999."
   - "Guitar and bass by Meander, with some edits by me."
-  - "All instruments have overdrive/unison."
   rating: Supervision Recommended
 audio:
   album-track:
@@ -101,3 +100,14 @@ parts:
       difficulty: 5
       count: 2
       gender: male
+targets:
+  rb3:
+    game: rb3
+    plan: drumcam
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: drumcam
+  ps:
+    game: ps
+    plan: drumcam

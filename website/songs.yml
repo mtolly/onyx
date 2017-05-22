@@ -117,13 +117,6 @@
     rb3-2x: download/TheseWalls_v1_2x_rb3con
     ps: download/TheseWalls_v1_ps.zip
 
-- file-path: ../songs/dream-theater/new-millennium
-  video: https://www.youtube.com/watch?v=-IsTXpLyQ94
-  urls:
-    rb3: download/NewMillennium_v1_1x_rb3con
-    rb3-2x: download/NewMillennium_v1_2x_rb3con
-    ps: download/NewMillennium_v1_ps.zip
-
 # Onyxite's Jazz Pack 2
 - file-path: ../songs/hiromi-uehara/kung-fu-world-champion
   video: https://www.youtube.com/watch?v=MkrKJjHL0mA
@@ -167,3 +160,51 @@
     rb3: download/OJP2_RippedApart_v1_1x_rb3con
     rb3-2x: download/OJP2_RippedApart_v1_2x_rb3con
     ps: download/OJP2_RippedApart_v1_ps.zip
+
+- file-path: ../songs/dream-theater/new-millennium
+  video: https://www.youtube.com/watch?v=-IsTXpLyQ94
+  urls:
+    rb3: download/NewMillennium_v1_1x_rb3con
+    rb3-2x: download/NewMillennium_v1_2x_rb3con
+    ps: download/NewMillennium_v1_ps.zip
+
+- file-path: ../songs/dream-theater/in-the-presence-of-enemies-pt-1
+  urls:
+    rb3: download/itpoe1_1p_rc2_rb3con
+    rb3-2x: download/itpoe1_2p_rc2_rb3con
+    ps: download/itpoe1_rc2_ps_fixed.zip
+- file-path: ../songs/dream-theater/forsaken
+  urls:
+    rb3: download/forsaken_1p_rc2_rb3con
+    rb3-2x: download/forsaken_2p_rc2_rb3con
+    ps: download/forsaken_rc2_ps_fixed.zip
+- file-path: ../songs/dream-theater/the-dark-eternal-night
+  urls:
+    rb3: download/tden_1p_rc2_rb3con
+    rb3-2x: download/tden_2p_rc2_rb3con
+    ps: download/tden_rc2_ps_fixed.zip
+- file-path: ../songs/dream-theater/repentance
+  urls:
+    rb3: download/repentance_1p_rc2_rb3con
+    rb3-2x: download/repentance_2p_rc2_rb3con
+    ps: download/repentance_rc2_ps_fixed.zip
+- file-path: ../songs/dream-theater/prophets-of-war
+  urls:
+    rb3: download/pow_1p_rc3_rb3con
+    rb3-2x: download/pow_2p_rc3_rb3con
+    ps: download/pow_rc3_ps_fixed.zip
+- file-path: ../songs/dream-theater/the-ministry-of-lost-souls
+  urls:
+    rb3: download/tmols_1p_rc2_rb3con
+    rb3-2x: download/tmols_2p_rc2_rb3con
+    ps: download/tmols_rc2_ps_fixed.zip
+- file-path: ../songs/dream-theater/in-the-presence-of-enemies-pt-2
+  urls:
+    rb3: download/itpoe2_1p_rc2_rb3con
+    rb3-2x: download/itpoe2_2p_rc2_rb3con
+    ps: download/itpoe2_rc2_ps_fixed.zip
+- file-path: ../songs/dream-theater/in-the-presence-of-enemies
+  urls:
+    rb3: download/itpoe_1p_rc3_rb3con
+    rb3-2x: download/itpoe_2p_rc3_rb3con
+    ps: download/itpoe_rc3_ps_fixed.zip

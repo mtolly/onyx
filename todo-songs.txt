@@ -33,8 +33,6 @@ BAD SALAD
 > deep roots - drums done
 
 DREAM THEATER
-- vacant
-> forsaken - fix basic gtr/bass from pro
 > behind the veil - just needs rest of gtr, basic keys, vox, OD, and audio exprs
 > another won - drums done, should set up portnoy dvd audio
 > the great debate - drums + pro keys (jarod) done
@@ -43,11 +41,15 @@ FALLING INTO INFINITY (have all stems now)
   > trial of tears - drums/prokeys done
   > you {or,not} me (...) - stems
   > burning my soul - stems
+TRAIN OF THOUGHT - DRUMLESS AUDIO!!
+  - vacant
+SYSTEMATIC CHAOS
+  new release with numeric song IDs, lipsync, video backgrounds, other minor fixes
+  > forsaken - fix basic gtr/bass to match pro
 SOLO STUFF
   > go wayne earl (rudess) needs polish + basic keys
   > time crunch (rudess) drums done, pkeys started
   > black ice (petrucci+rudess) gtr done
-* TRAIN OF THOUGHT - DRUMLESS AUDIO!!
 
 OTHER
 - 50 ways to say goodbye (train)
