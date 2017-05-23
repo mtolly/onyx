@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/hot-streak.yml
   track-number: 1
   author: Onyxite
+  key: D
 audio:
   album-track:
     md5: 825fe29f6780d07f51cf9d93f2da155c
@@ -78,7 +79,8 @@ parts:
       difficulty: 6
   vocal:
     vocal:
-      count: 1
+      count: 3
+      difficulty: 5
 targets:
   rb3:
     game: rb3
