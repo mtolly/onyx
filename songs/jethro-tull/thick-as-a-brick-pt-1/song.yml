@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/thick-as-a-brick.yml
   track-number: 1
   author: Onyxite
+  preview-start: 0 # TODO
 audio:
   # this is the fixed surround sound ADVD
   # magnet:?xt=urn:btih:b9cc9d37876eadc53b89d2fc4c5dd2245d353334&dn=Jethro%20Tull%20-%201972%20-%20Thick%20As%20A%20Brick%2040th%20Anniversary%20Set%20%282012%29%20%5BADVD%5D&tr=http%3A%2F%2Fbt2.rutracker.cc%2Fann&tr=http%3A%2F%2Fretracker.local%2Fannounce
@@ -54,3 +55,7 @@ plans:
 parts:
   drums:
     drums: {}
+targets:
+  rb3:
+    game: rb3
+    plan: stereo

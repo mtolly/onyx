@@ -461,7 +461,8 @@ commands =
           t : _ -> return t
         -- TODO: handle non-RB3 targets
         let built = "gen/target" </> T.unpack targetName </> "notes-magma-export.mid"
-        shakeBuild [] yamlPath [built]
+        audioDirs <- getAudioDirs yamlPath
+        shakeBuild audioDirs yamlPath [built]
       (FileRBProj, rbprojPath) -> do
         rbproj <- loadDTA rbprojPath
         let isMagmaV2 = case RBProj.projectVersion $ RBProj.project rbproj of
