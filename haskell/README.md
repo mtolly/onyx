@@ -15,7 +15,11 @@
 
 3. In there, remove (or move somewhere else) all `.a` files under `lib/`, except for `libSDL2main.a`.
 
-4. Also in there, copy all `.dll` files from `bin/` to `lib/` and remove the number suffixes in the `lib/` versions (so e.g. copy `bin/libmp3lame-0.dll` to `lib/libmp3lame.dll`)
+4. Also in there, copy all `.dll` files from `bin/` to `lib/` and make the following renames:
+
+  * `libmp3lame-0.dll` to `libmp3lame.dll`
+  * `libsndfile-1.dll` to `libsndfile.dll`
+  * `libsamplerate-0.dll` to `libsamplerate.dll`
 
 5. `stack build` (do this from outside `bash` so the lib+include paths are set up right)
 
