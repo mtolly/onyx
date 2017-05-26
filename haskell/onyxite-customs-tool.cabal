@@ -8,6 +8,7 @@ build-type:           Simple
 cabal-version:        >= 1.10
 
 extra-source-files:
+  vendors/Pentatonic.ttf
   vendors/magma/hellskitchen.rbproj
   vendors/magma/MagmaCompilerC3.exe
   vendors/magma/notes.mid
@@ -74,6 +75,7 @@ executable onyx
     DryVox
     RenderAudio
     RockBand.ProGuitar.Play
+    GUI
     -- midiscript
     Sound.MIDI.Script.Base
     Sound.MIDI.Script.Scan
@@ -152,6 +154,7 @@ executable onyx
     , MonadRandom
     , data-binary-ieee754 >= 0.4.4    && < 0.5
     , sdl2
+    , sdl2-ttf
     , zip-archive
     -- my libraries:
     , jammittools >= 0.5.0.3 && < 0.6
