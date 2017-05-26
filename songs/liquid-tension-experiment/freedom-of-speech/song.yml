@@ -5,6 +5,7 @@ metadata:
   rating: Family Friendly
   author: Onyxite
   key: D
+  preview-start: prc_gtr_solo_1b
 audio:
   album-track:
     md5: 2679a29c9975adcf2334ef77842fa2dc
@@ -14,12 +15,12 @@ audio:
 plans:
   album:
     countin:
+      0|0: hihat
+      0|2: hihat
       1|0: hihat
+      1|1: hihat
       1|2: hihat
-      2|0: hihat
-      2|1: hihat
-      2|2: hihat
-      2|3: hihat
+      1|3: hihat
     song:
       pad: [6.419, album-track]
 parts:
