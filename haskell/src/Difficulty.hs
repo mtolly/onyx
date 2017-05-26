@@ -79,6 +79,7 @@ difficultyPS TargetPS{..} songYaml = let
     , rb3_Bass = ps_Bass
     , rb3_Plan = ps_Plan
     , rb3_Label = ps_Label
+    , rb3_Speed = ps_Speed
     , rb3_2xBassPedal = False
     , rb3_SongID = Nothing
     , rb3_Version = Nothing

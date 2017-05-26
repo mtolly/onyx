@@ -73,7 +73,8 @@ computeChannels = \case
   Pad _ _ aud -> computeChannels aud
   Resample aud -> computeChannels aud
   Channels chans _ -> length chans
-  Stretch _ aud -> computeChannels aud
+  StretchSimple _ aud -> computeChannels aud
+  StretchFull _ _ aud -> computeChannels aud
   Mask _ _ aud -> computeChannels aud
 
 audioSearch :: AudioFile -> [FilePath] -> Action (Maybe FilePath)

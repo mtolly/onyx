@@ -59,29 +59,18 @@ import           X360                             (rb3pkg)
 standardTargets :: Maybe (JSONEither Integer T.Text) -> Maybe Integer -> Bool -> KeysRB2 -> Maybe FilePath -> HM.HashMap T.Text Target
 standardTargets songID version is2x krb2 vid = let
   targets1x =
-    [ ("rb3", RB3 TargetRB3
-        { rb3_Plan = Nothing
-        , rb3_2xBassPedal = False
+    [ ("rb3", RB3 def
+        { rb3_2xBassPedal = False
         , rb3_SongID = songID
-        , rb3_Label = Nothing
         , rb3_Version = version
-        , rb3_Guitar = FlexGuitar
-        , rb3_Bass = FlexBass
-        , rb3_Drums = FlexDrums
-        , rb3_Vocal = FlexVocal
-        , rb3_Keys = FlexKeys
         }
       )
-    , ("rb2", RB2 TargetRB2
-        { rb2_Plan = Nothing
-        , rb2_2xBassPedal = False
+    , ("rb2", RB2 def
+        { rb2_2xBassPedal = False
         , rb2_SongID = songID
-        , rb2_Label = Nothing
         , rb2_Version = version
         , rb2_Guitar = case krb2 of KeysGuitar -> FlexKeys; _ -> FlexGuitar
         , rb2_Bass = case krb2 of KeysBass -> FlexKeys; _ -> FlexBass
-        , rb2_Drums = FlexDrums
-        , rb2_Vocal = FlexVocal
         }
       )
     , ("ps", PS def
@@ -90,29 +79,18 @@ standardTargets songID version is2x krb2 vid = let
       )
     ]
   targets2x =
-    [ ("rb3-2x", RB3 TargetRB3
-        { rb3_Plan = Nothing
-        , rb3_2xBassPedal = True
+    [ ("rb3-2x", RB3 def
+        { rb3_2xBassPedal = True
         , rb3_SongID = songID
-        , rb3_Label = Nothing
         , rb3_Version = version
-        , rb3_Guitar = FlexGuitar
-        , rb3_Bass = FlexBass
-        , rb3_Drums = FlexDrums
-        , rb3_Vocal = FlexVocal
-        , rb3_Keys = FlexKeys
         }
       )
-    , ("rb2-2x", RB2 TargetRB2
-        { rb2_Plan = Nothing
-        , rb2_2xBassPedal = True
+    , ("rb2-2x", RB2 def
+        { rb2_2xBassPedal = True
         , rb2_SongID = songID
-        , rb2_Label = Nothing
         , rb2_Version = version
         , rb2_Guitar = case krb2 of KeysGuitar -> FlexKeys; _ -> FlexGuitar
         , rb2_Bass = case krb2 of KeysBass -> FlexKeys; _ -> FlexBass
-        , rb2_Drums = FlexDrums
-        , rb2_Vocal = FlexVocal
         }
       )
     ]

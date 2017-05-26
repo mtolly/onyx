@@ -1,4 +1,4 @@
-.PHONY: mac mac-deps win win-deps usage
+.PHONY: mac mac-deps win win-deps ubuntu-deps usage
 
 usage:
 	@echo "Targets:"
@@ -6,6 +6,7 @@ usage:
 	@echo "  make mac"
 	@echo "  make win-deps"
 	@echo "  make win"
+	@echo "  make ubuntu-deps"
 
 mac:
 	# stack build .
@@ -16,7 +17,7 @@ mac:
 
 mac-deps:
 	stack setup
-	brew install libsndfile libsamplerate lame sdl2 sdl2_ttf
+	brew install libsndfile libsamplerate lame sdl2 sdl2_ttf rubberband
 
 win:
 	rm -rf win/
@@ -29,4 +30,7 @@ win:
 
 win-deps:
 	stack setup
-	pacman -Sy mingw-w64-i686-libsndfile mingw-w64-i686-libsamplerate mingw-w64-i686-lame mingw-w64-i686-SDL2 mingw-w64-i686-SDL2_ttf mingw-w64-i686-pkg-config
+	pacman -Sy mingw-w64-i686-pkg-config mingw-w64-i686-libsndfile mingw-w64-i686-libsamplerate mingw-w64-i686-lame mingw-w64-i686-SDL2 mingw-w64-i686-SDL2_ttf mingw-w64-i686-rubberband
+
+ubuntu-deps:
+	apt install libsndfile-dev libsamplerate-dev libmp3lame-dev libsdl2-dev libsdl2-ttf-dev librubberband-dev

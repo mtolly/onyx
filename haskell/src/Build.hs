@@ -108,20 +108,24 @@ actionWarn :: Message -> Action ()
 actionWarn msg = putNormal $ "Warning: " ++ Exc.displayException msg
 
 targetTitle :: SongYaml -> Target -> T.Text
-targetTitle songYaml target = case target of
-  RB3 rb3 -> case rb3_Label rb3 of
-    Just lbl | not (T.all isSpace lbl) -> getTitle (_metadata songYaml) <> " " <> lbl
-    _ -> if rb3_2xBassPedal rb3
-      then getTitle (_metadata songYaml) <> " (2x Bass Pedal)"
-      else getTitle (_metadata songYaml)
-  RB2 rb2 -> case rb2_Label rb2 of
-    Just lbl | not (T.all isSpace lbl) -> getTitle (_metadata songYaml) <> " " <> lbl
-    _ -> if rb2_2xBassPedal rb2
-      then getTitle (_metadata songYaml) <> " (2x Bass Pedal)"
-      else getTitle (_metadata songYaml)
-  PS ps -> case ps_Label ps of
-    Just lbl | not (T.all isSpace lbl) -> getTitle (_metadata songYaml) <> " " <> lbl
-    _                                  -> getTitle (_metadata songYaml)
+targetTitle songYaml target = let
+  segments = getTitle (_metadata songYaml) : case target of
+    RB3 TargetRB3{..} -> makeLabel rb3_Label rb3_2xBassPedal rb3_Speed
+    RB2 TargetRB2{..} -> makeLabel rb2_Label rb2_2xBassPedal rb2_Speed
+    PS  TargetPS {..} -> makeLabel ps_Label  False           ps_Speed
+  makeLabel explicit is2x speed = case explicit of
+    Just lbl -> [lbl]
+    Nothing  -> concat
+      [ case speed of
+        Nothing  -> []
+        Just 1   -> []
+        Just spd -> let
+          intSpeed :: Int
+          intSpeed = round $ spd * 100
+          in ["(" <> T.pack (show intSpeed) <> "% Speed)"]
+      , ["(2x Bass Pedal)" | is2x]
+      ]
+  in T.intercalate " " segments
 
 toValidFileName :: T.Text -> T.Text
 toValidFileName t = let
@@ -1384,7 +1388,8 @@ shakeBuild audioDirs yamlPath buildables = do
           RB3 rb3 -> rbRules dir targetName rb3 Nothing
           RB2 rb2 -> let
             rb3 = TargetRB3
-              { rb3_Plan = rb2_Plan rb2
+              { rb3_Speed = rb2_Speed rb2
+              , rb3_Plan = rb2_Plan rb2
               , rb3_2xBassPedal = rb2_2xBassPedal rb2
               , rb3_SongID = rb2_SongID rb2
               , rb3_Label = rb2_Label rb2

@@ -482,7 +482,8 @@ instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
     , ("pad" , supplyEdge "pad"  Pad )
     , ("resample", algebraic1 "resample" Resample traceJSON)
     , ("channels", algebraic2 "channels" Channels traceJSON traceJSON)
-    , ("stretch", algebraic2 "stretch" Stretch traceJSON traceJSON)
+    , ("stretch", algebraic2 "stretch" StretchSimple traceJSON traceJSON)
+    , ("stretch", algebraic3 "stretch" StretchFull traceJSON traceJSON traceJSON)
     , ("mask", algebraic3 "mask" Mask traceJSON traceJSON traceJSON)
     ] (fmap Input traceJSON `catchError` \_ -> expected "an audio expression")
     where supplyEdge s f = lift ask >>= \case
@@ -505,7 +506,8 @@ instance (A.ToJSON t, A.ToJSON a) => A.ToJSON (Audio t a) where
     Pad e t aud -> A.object ["pad" .= [A.toJSON e, A.toJSON t, A.toJSON aud]]
     Resample aud -> A.object ["resample" .= aud]
     Channels ns aud -> A.object ["channels" .= [A.toJSON ns, A.toJSON aud]]
-    Stretch d aud -> A.object ["stretch" .= [A.toJSON d, A.toJSON aud]]
+    StretchSimple d aud -> A.object ["stretch" .= [A.toJSON d, A.toJSON aud]]
+    StretchFull t p aud -> A.object ["stretch" .= [A.toJSON t, A.toJSON p, A.toJSON aud]]
     Mask tags seams aud -> A.object ["mask" .= [A.toJSON tags, A.toJSON seams, A.toJSON aud]]
 
 instance (TraceJSON t) => TraceJSON (Seam t) where
@@ -781,6 +783,7 @@ getYear = fromMaybe 1960 . _year
 getTrackNumber = fromMaybe 1 . _trackNumber
 
 jsonRecord "TargetRB3" eosr $ do
+  opt "rb3_Speed" "speed" [t| Maybe Double |] [e| Nothing |]
   opt "rb3_Plan" "plan" [t| Maybe T.Text |] [e| Nothing |]
   opt "rb3_2xBassPedal" "2x-bass-pedal" [t| Bool |] [e| False |]
   opt "rb3_SongID" "song-id" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]
@@ -793,6 +796,7 @@ jsonRecord "TargetRB3" eosr $ do
   opt "rb3_Vocal" "vocal" [t| FlexPartName |] [e| FlexVocal |]
 
 jsonRecord "TargetRB2" eosr $ do
+  opt "rb2_Speed" "speed" [t| Maybe Double |] [e| Nothing |]
   opt "rb2_Plan" "plan" [t| Maybe T.Text |] [e| Nothing |]
   opt "rb2_2xBassPedal" "2x-bass-pedal" [t| Bool |] [e| False |]
   opt "rb2_SongID" "song-id" [t| Maybe (JSONEither Integer T.Text) |] [e| Nothing |]
@@ -804,6 +808,7 @@ jsonRecord "TargetRB2" eosr $ do
   opt "rb2_Vocal" "vocal" [t| FlexPartName |] [e| FlexVocal |]
 
 jsonRecord "TargetPS" eosr $ do
+  opt "ps_Speed" "speed" [t| Maybe Double |] [e| Nothing |]
   opt "ps_Plan" "plan" [t| Maybe T.Text |] [e| Nothing |]
   opt "ps_Label" "label" [t| Maybe T.Text |] [e| Nothing |]
   opt "ps_FileVideo" "file-video" [t| Maybe FilePath |] [e| Nothing |]

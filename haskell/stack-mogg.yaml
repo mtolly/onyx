@@ -19,6 +19,7 @@ extra-deps:
 - non-negative-0.1.1
 - monoid-transformer-0.0.3
 - sdl2-ttf-1.0.0
+- rubberband-0.1.0.2
 resolver: lts-8.0
 flags:
   onyxite-customs-tool:

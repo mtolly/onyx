@@ -23,8 +23,10 @@ module Audio
 , applyVolsMono
 , crapMP3
 , crapVorbis
+, stretchFull
 ) where
 
+import           Control.Concurrent              (threadDelay)
 import           Control.Exception               (evaluate)
 import           Control.Monad                   (ap)
 import           Control.Monad.IO.Class          (MonadIO (liftIO))
@@ -54,21 +56,23 @@ import           Numeric                         (showHex)
 import           SndfileExtra
 import qualified Sound.File.Sndfile              as Snd
 import qualified Sound.MIDI.Util                 as U
+import qualified Sound.RubberBand                as RB
 
 data Audio t a
   = Silence Int t
   | Input a
-  | Mix                    [Audio t a]
-  | Merge                  [Audio t a]
-  | Concatenate            [Audio t a]
-  | Gain Double            (Audio t a)
-  | Take Edge t            (Audio t a)
-  | Drop Edge t            (Audio t a)
-  | Fade Edge t            (Audio t a)
-  | Pad  Edge t            (Audio t a)
-  | Resample               (Audio t a)
-  | Channels [Int]         (Audio t a)
-  | Stretch Double         (Audio t a)
+  | Mix                       [Audio t a]
+  | Merge                     [Audio t a]
+  | Concatenate               [Audio t a]
+  | Gain Double               (Audio t a)
+  | Take Edge t               (Audio t a)
+  | Drop Edge t               (Audio t a)
+  | Fade Edge t               (Audio t a)
+  | Pad  Edge t               (Audio t a)
+  | Resample                  (Audio t a)
+  | Channels [Int]            (Audio t a)
+  | StretchSimple Double      (Audio t a)
+  | StretchFull Double Double (Audio t a)
   | Mask [T.Text] [Seam t] (Audio t a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
@@ -98,7 +102,8 @@ instance Monad (Audio t) where
       Pad     e t     aud  -> Pad e t $ join_ aud
       Resample        aud  -> Resample $ join_ aud
       Channels cs     aud  -> Channels cs $ join_ aud
-      Stretch   d     aud  -> Stretch d $ join_ aud
+      StretchSimple d aud  -> StretchSimple d $ join_ aud
+      StretchFull t p aud  -> StretchFull t p $ join_ aud
       Mask tags seams aud  -> Mask tags seams $ join_ aud
     in join_ $ fmap f x
 
@@ -119,12 +124,16 @@ mapTime f aud = case aud of
   Pad  e t x        -> Pad  e (f t) $ mapTime f x
   Resample x        -> Resample     $ mapTime f x
   Channels cs x     -> Channels cs  $ mapTime f x
-  Stretch d x       -> Stretch d    $ mapTime f x
+  StretchSimple d x -> StretchSimple d $ mapTime f x
+  StretchFull t p x -> StretchFull t p $ mapTime f x
   Mask tags seams x -> Mask tags (map (fmap f) seams) $ mapTime f x
 
--- | Simple linear interpolation of an audio stream.
-stretch :: (MonadResource m) => Double -> AudioSource m Float -> AudioSource m Float
-stretch ratio src = AudioSource
+{- |
+Simple linear interpolation of an audio stream.
+This is intended to make very small duration adjustments.
+-}
+stretchSimple :: (MonadResource m) => Double -> AudioSource m Float -> AudioSource m Float
+stretchSimple ratio src = AudioSource
   { rate     = rate src
   , frames   = ceiling $ fromIntegral (frames src) * ratio
   , channels = channels src
@@ -152,17 +161,16 @@ stretch ratio src = AudioSource
           yield $ interleave $ zipWith stretchChannel prev chans
           pipe (nextIndex - len) $ map V.last chans
 
-{-
--- To be used in the future. Stretches time and/or pitch separately.
-stretch2 :: (MonadResource m) => Double -> AudioSource m Float -> AudioSource m Float
-stretch2 ratio src = AudioSource
+-- | Proper audio stretching of time and/or pitch separately.
+stretchFull :: (MonadResource m) => Double -> Double -> AudioSource m Float -> AudioSource m Float
+stretchFull timeRatio pitchRatio src = AudioSource
   { rate     = rate src
-  , frames   = ceiling $ fromIntegral (frames src) * ratio
+  , frames   = ceiling $ fromIntegral (frames src) * timeRatio
   , channels = channels src
   , source   = pipe $ source $ reorganize chunkSize src
   } where
     pipe upstream = do
-      rb <- liftIO $ RB.new (round $ rate src) (channels src) RB.defaultOptions ratio 1
+      rb <- liftIO $ RB.new (round $ rate src) (channels src) RB.defaultOptions timeRatio pitchRatio
       liftIO $ RB.setMaxProcessSize rb chunkSize
       upstream =$= studyAll rb
       upstream =$= processAll rb
@@ -189,7 +197,6 @@ stretch2 ratio src = AudioSource
       Just n -> do
         liftIO (interleave <$> RB.retrieve rb (min n chunkSize)) >>= yield
         processAll rb
--}
 
 -- | Duplicates mono into stereo, or otherwise just tacks on silent channels to one source.
 -- TODO: change this to only do mono->stereo, and use proper volume adjustment (see applyPansVols)
@@ -334,7 +341,8 @@ buildSource aud = need (toList aud) >> case aud of
     case map (chans !!) cs of
       []     -> error "buildSource: can't select 0 channels"
       s : ss -> return $ foldl merge s ss
-  Stretch d x -> stretch d <$> buildSource x
+  StretchSimple d x -> stretchSimple d <$> buildSource x
+  StretchFull t p x -> stretchFull t p <$> buildSource x
   Mask tags seams x -> renderMask tags seams <$> buildSource x
   where combine meth xs = mapM buildSource xs >>= \srcs -> case srcs of
           []     -> error "buildSource: can't combine 0 files"
