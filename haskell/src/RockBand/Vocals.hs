@@ -120,6 +120,6 @@ asciiLyrics (Lyric t) = let
   f 'ß' = "ss"
   f 'æ' = "ae"
   f 'þ' = "th"
-  f c = T.singleton $ maybe c id $ lookup c oneToOne
+  f c   = T.singleton $ maybe c id $ lookup c oneToOne
   in Lyric $ T.concatMap f t
 asciiLyrics e = e

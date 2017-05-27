@@ -7,6 +7,7 @@ import           Audio
 import           Codec.Picture                    (convertRGB8, readImage)
 import           Config                           hiding (Difficulty)
 import           Control.Applicative              ((<|>))
+import           Control.Arrow                    (first)
 import           Control.Exception                (evaluate)
 import           Control.Monad                    (forM, guard, when)
 import           Control.Monad.Extra              (mapMaybeM)
@@ -26,7 +27,7 @@ import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (nub)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, mapMaybe)
+import           Data.Maybe                       (fromMaybe, isJust, mapMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Data.Text.IO                     as TIO
@@ -46,7 +47,6 @@ import           RockBand.File                    (FlexPartName (..))
 import qualified RockBand.File                    as RBFile
 import           RockBand.PhaseShiftMessage       (discardPS, withRB)
 import qualified RockBand.Vocals                  as RBVox
-import           RockBand2                        (KeysRB2 (..))
 import           Scripts                          (loadMIDI)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
@@ -56,45 +56,27 @@ import           System.FilePath                  (takeDirectory, takeFileName,
                                                    (<.>), (</>))
 import           X360                             (rb3pkg)
 
-standardTargets :: Maybe (JSONEither Integer T.Text) -> Maybe Integer -> Bool -> KeysRB2 -> Maybe FilePath -> HM.HashMap T.Text Target
-standardTargets songID version is2x krb2 vid = let
-  targets1x =
-    [ ("rb3", RB3 def
-        { rb3_2xBassPedal = False
-        , rb3_SongID = songID
-        , rb3_Version = version
-        }
-      )
-    , ("rb2", RB2 def
-        { rb2_2xBassPedal = False
-        , rb2_SongID = songID
-        , rb2_Version = version
-        , rb2_Guitar = case krb2 of KeysGuitar -> FlexKeys; _ -> FlexGuitar
-        , rb2_Bass = case krb2 of KeysBass -> FlexKeys; _ -> FlexBass
-        }
-      )
-    , ("ps", PS def
-        { ps_FileVideo = vid
-        }
-      )
+standardTargets :: Maybe (JSONEither Integer T.Text) -> Maybe Integer -> HasKicks -> Maybe FilePath -> HM.HashMap T.Text Target
+standardTargets songID version hasKicks vid = HM.fromList $ concat
+  [ [ ( "rb3", RB3 def
+      { rb3_2xBassPedal = False
+      , rb3_SongID = songID
+      , rb3_Version = version
+      } )
+    | hasKicks /= Has2x
     ]
-  targets2x =
-    [ ("rb3-2x", RB3 def
-        { rb3_2xBassPedal = True
-        , rb3_SongID = songID
-        , rb3_Version = version
-        }
-      )
-    , ("rb2-2x", RB2 def
-        { rb2_2xBassPedal = True
-        , rb2_SongID = songID
-        , rb2_Version = version
-        , rb2_Guitar = case krb2 of KeysGuitar -> FlexKeys; _ -> FlexGuitar
-        , rb2_Bass = case krb2 of KeysBass -> FlexKeys; _ -> FlexBass
-        }
-      )
+  , [ ( "rb3-2x", RB3 def
+      { rb3_2xBassPedal = True
+      , rb3_SongID = songID
+      , rb3_Version = version
+      } )
+    | hasKicks /= Has1x
     ]
-  in HM.fromList $ targets1x ++ if is2x then targets2x else []
+  , [ ( "ps", PS def
+      { ps_FileVideo = vid
+      } )
+    ]
+  ]
 
 fixDoubleSwells :: RBFile.PSFile U.Beats -> RBFile.PSFile U.Beats
 fixDoubleSwells ps = let
@@ -111,7 +93,7 @@ fixDoubleSwells ps = let
       ((), (), Just len) -> let
         shouldBeDouble = case toList $ U.trackTake len $ U.trackDrop startTime notes of
           g1 : g2 : g3 : g4 : _ | g1 == g3 && g2 == g4 && g1 /= g2 -> True
-          _                                                        -> False
+          _                     -> False
         in (startTime,) $ RTB.fromPairList $ if shouldBeDouble
           then [(0, RBDrums.DoubleRoll True), (len, RBDrums.DoubleRoll False)]
           else [(0, RBDrums.SingleRoll True), (len, RBDrums.SingleRoll False)]
@@ -122,8 +104,8 @@ fixDoubleSwells ps = let
     , RBFile.psPartRealDrumsPS = withRB fixTrack $ RBFile.psPartRealDrumsPS ps
     }
 
-importFoF :: (MonadIO m) => KeysRB2 -> FilePath -> FilePath -> StackTraceT m ()
-importFoF krb2 src dest = do
+importFoF :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m HasKicks
+importFoF src dest = do
   song <- FoF.loadSong $ src </> "song.ini"
 
   hasAlbumArt <- liftIO $ Dir.doesFileExist $ src </> "album.png"
@@ -216,10 +198,12 @@ importFoF krb2 src dest = do
         then id
         else \mid -> mid { RBFile.psPartDrums2x = trk2x }
     else return id
-  let has2x = or
-        [ mid2x
-        , elem RBDrums.Kick2x $ discardPS $ RBFile.psPartDrums $ RBFile.s_tracks parsed
-        ]
+  let (title, is2x) = case FoF.name song of
+        Nothing   -> (Nothing, False)
+        Just name -> first Just $ determine2xBass name
+      hasKicks = if mid2x || elem RBDrums.Kick2x (discardPS $ RBFile.psPartDrums $ RBFile.s_tracks parsed)
+        then HasBoth
+        else if is2x then Has2x else Has1x
 
   liftIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI parsed
     { RBFile.s_tracks = fixDoubleSwells $ add2x $ RBFile.s_tracks parsed
@@ -244,7 +228,7 @@ importFoF krb2 src dest = do
 
   liftIO $ Y.encodeFile (dest </> "song.yml") SongYaml
     { _metadata = Metadata
-      { _title        = FoF.name song
+      { _title        = title
       , _artist       = FoF.artist song
       , _album        = FoF.album song
       , _genre        = FoF.genre song
@@ -302,7 +286,7 @@ importFoF krb2 src dest = do
       , _crowd = audioExpr crowdAudio
       , _planComments = []
       }
-    , _targets = standardTargets Nothing Nothing has2x krb2 vid
+    , _targets = standardTargets Nothing Nothing hasKicks vid
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
         { partDrums = guard (hasTrack RBFile.psPartDrums && FoF.diffDrums song /= Just (-1)) >> Just PartDrums
@@ -371,13 +355,18 @@ importFoF krb2 src dest = do
       ]
     }
 
+  return hasKicks
+
 determine2xBass :: T.Text -> (T.Text, Bool)
 determine2xBass s = case T.stripSuffix " (2x Bass Pedal)" s <|> T.stripSuffix " (2X Bass Pedal)" s of
   Nothing -> (s , False)
   Just s' -> (s', True )
 
-importSTFS :: (MonadIO m) => KeysRB2 -> FilePath -> Maybe FilePath -> FilePath -> StackTraceT m ()
-importSTFS krb2 file file2x dir = tempDir "onyx_con" $ \temp -> do
+data HasKicks = Has1x | Has2x | HasBoth
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+importSTFS :: (MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
+importSTFS file file2x dir = tempDir "onyx_con" $ \temp -> do
   liftIO $ extractSTFS file temp
   DTASingle _ pkg comments <- readDTASingle $ temp </> "songs/songs.dta"
   let c3Title = fromMaybe (D.name pkg) $ c3dtaSong comments
@@ -401,10 +390,13 @@ importSTFS krb2 file file2x dir = tempDir "onyx_con" $ \temp -> do
       -- where foo is the top key of songs.dta. foo can be different!
       -- e.g. C3's "Escape from the City" has a top key 'SonicAdvCityEscape2x'
       -- and a 'name' of "songs/sonicadv2cityescape2x/sonicadv2cityescape2x"
-      with2xPath maybe2x = importRB3 krb2 pkg meta karaoke multitrack is2x
-        (temp </> base <.> "mid") maybe2x (temp </> base <.> "mogg")
-        (temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox"))
-        "cover.png_xbox" dir
+      with2xPath maybe2x = do
+        let hasKicks = if isJust file2x then HasBoth else if is2x then Has2x else Has1x
+        importRB3 pkg meta karaoke multitrack hasKicks
+          (temp </> base <.> "mid") maybe2x (temp </> base <.> "mogg")
+          (temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox"))
+          "cover.png_xbox" dir
+        return hasKicks
   case file2x of
     Nothing -> with2xPath Nothing
     Just f2x -> tempDir "onyx_con2x" $ \temp2x -> do
@@ -471,8 +463,8 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
     let label = D.name pkg <> " (" <> D.artist pkg <> ")"
     rb3pkg label label temp con
 
-importRBA :: (MonadIO m) => KeysRB2 -> FilePath -> Maybe FilePath -> FilePath -> StackTraceT m ()
-importRBA krb2 file file2x dir = tempDir "onyx_rba" $ \temp -> do
+importRBA :: (MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
+importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
   getRBAFile 0 file $ temp </> "songs.dta"
   getRBAFile 1 file $ temp </> "notes.mid"
   getRBAFile 2 file $ temp </> "audio.mogg"
@@ -498,13 +490,15 @@ importRBA krb2 file file2x dir = tempDir "onyx_rba" $ \temp -> do
     let mid2x = temp </> "notes-2x.mid"
     getRBAFile 1 f2x mid2x
     return mid2x
-  importRB3 krb2 pkg meta False True is2x
+  let hasKicks = if isJust file2x then HasBoth else if is2x then Has2x else Has1x
+  importRB3 pkg meta False True hasKicks
     (temp </> "notes.mid") mid2x (temp </> "audio.mogg")
     (temp </> "cover.bmp") "cover.bmp" dir
+  return hasKicks
 
 -- | Collects the contents of an RBA or CON file into an Onyx project.
-importRB3 :: (MonadIO m) => KeysRB2 -> D.SongPackage -> Metadata -> Bool -> Bool -> Bool -> FilePath -> Maybe FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
-importRB3 krb2 pkg meta karaoke multitrack is2x mid mid2x mogg cover coverName dir = do
+importRB3 :: (MonadIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKicks -> FilePath -> Maybe FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
+importRB3 pkg meta karaoke multitrack hasKicks mid mid2x mogg cover coverName dir = do
   liftIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
   case mid2x of
     Nothing  -> liftIO $ Dir.copyFile mid $ dir </> "notes.mid"
@@ -619,13 +613,13 @@ importRB3 krb2 pkg meta karaoke multitrack is2x mid mid2x mogg cover coverName d
       songID = fmap JSONEither $ case D.songId pkg of
         Left  i -> guard (i /= 0) >> Just (Left i)
         Right k -> Just $ Right k
-      in standardTargets songID (songID >> Just (D.version pkg)) is2x krb2 Nothing
+      in standardTargets songID (songID >> Just (D.version pkg)) hasKicks Nothing
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
         { partDrums = guard (hasRankStr "drum") >> Just PartDrums
           { drumsDifficulty = Rank $ fromMaybe 1 $ Map.lookup "drum" diffMap
           , drumsPro = True
-          , drumsAuto2xBass = is2x
+          , drumsAuto2xBass = False
           , drumsFixFreeform = False
           , drumsKit = drumkit
           , drumsLayout = StandardLayout -- TODO import this

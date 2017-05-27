@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-module RockBand2 (convertMIDI, dryVoxAudio, KeysRB2(..)) where
+module RockBand2 (convertMIDI, dryVoxAudio) where
 
 import           Config                           (Instrument (..))
 import           Control.Monad                    (guard)
@@ -434,9 +434,3 @@ useColorDrums expert gem rtb = let
     guard $ elem gem xgems
     guard $ all (`elem` otherGems) gems
     return $ RTB.fromPairList $ reverse $ map removeX before ++ [(t, [gem])] ++ map removeX after
-
-data KeysRB2
-  = NoKeys
-  | KeysGuitar
-  | KeysBass
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)

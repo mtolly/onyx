@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
 {-# LANGUAGE TupleSections             #-}
-module Build (shakeBuild, targetTitle, loadYaml) where
+module Build (shakeBuildTarget, shakeBuildFiles, targetTitle, loadYaml) where
 
 import           Audio
 import qualified C3
@@ -599,8 +599,20 @@ loadYaml fp = do
   yaml <- readYAMLTree fp
   mapStackTraceT (`runReaderT` yaml) traceJSON
 
-shakeBuild :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT m ()
-shakeBuild audioDirs yamlPath buildables = do
+shakeBuildTarget :: (MonadIO m) => [FilePath] -> FilePath -> Target -> StackTraceT m FilePath
+shakeBuildTarget audioDirs yamlPath target = do
+  let buildable = case target of
+        RB3{} -> "gen/target/onyx-wanted/rb3con"
+        RB2{} -> "gen/target/onyx-wanted/rb2con"
+        PS {} -> "gen/target/onyx-wanted/ps.zip"
+  shakeBuild audioDirs yamlPath [("onyx-wanted", target)] [buildable]
+  return $ takeDirectory yamlPath </> buildable
+
+shakeBuildFiles :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT m ()
+shakeBuildFiles audioDirs yamlPath = shakeBuild audioDirs yamlPath []
+
+shakeBuild :: (MonadIO m) => [FilePath] -> FilePath -> [(T.Text, Target)] -> [FilePath] -> StackTraceT m ()
+shakeBuild audioDirs yamlPath extraTargets buildables = do
 
   songYaml <- loadYaml yamlPath
 
@@ -1382,7 +1394,7 @@ shakeBuild audioDirs yamlPath buildables = do
                       out
                     lift $ putNormal s
 
-      forM_ (HM.toList $ _targets songYaml) $ \(targetName, target) -> do
+      forM_ (extraTargets ++ HM.toList (_targets songYaml)) $ \(targetName, target) -> do
         let dir = "gen/target" </> T.unpack targetName
         case target of
           RB3 rb3 -> rbRules dir targetName rb3 Nothing

@@ -5,7 +5,8 @@
 {-# LANGUAGE RankNTypes        #-}
 module CommandLine (commandLine) where
 
-import           Build                          (loadYaml, shakeBuild)
+import           Build                          (loadYaml, shakeBuildFiles,
+                                                 shakeBuildTarget)
 import           Config
 import           Control.Monad                  (forM_, guard, unless)
 import           Control.Monad.Extra            (filterM)
@@ -17,6 +18,7 @@ import qualified Data.ByteString                as B
 import qualified Data.ByteString.Lazy           as BL
 import           Data.ByteString.Lazy.Char8     ()
 import           Data.Char                      (isAlphaNum, isAscii)
+import           Data.Default.Class             (def)
 import qualified Data.Digest.Pure.MD5           as MD5
 import           Data.DTA.Lex                   (scanStack)
 import           Data.DTA.Parse                 (parseStack)
@@ -33,8 +35,9 @@ import           Data.Text.Encoding             (decodeUtf16BE)
 import qualified Data.Text.IO                   as T
 import           Data.Word                      (Word32)
 import qualified Data.Yaml                      as Y
-import           Import                         (importFoF, importRBA,
-                                                 importSTFS, simpleRBAtoCON)
+import           Import                         (HasKicks (..), importFoF,
+                                                 importRBA, importSTFS,
+                                                 simpleRBAtoCON)
 import           Magma                          (getRBAFile, oggToMogg,
                                                  runMagma, runMagmaMIDI,
                                                  runMagmaV1)
@@ -44,7 +47,6 @@ import           ProKeysRanges                  (closeShiftsFile, completeFile)
 import           Reaper.Build                   (makeReaperIO)
 import           Reductions                     (simpleReduce)
 import qualified RockBand.File                  as RBFile
-import           RockBand2                      (KeysRB2 (..))
 import qualified Sound.Jammit.Base              as J
 import qualified Sound.MIDI.File.Load           as Load
 import qualified Sound.MIDI.File.Save           as Save
@@ -78,13 +80,6 @@ loadDTA f = inside f $ liftIO (tryIOError $ T.readFile f) >>= \case
   Left err -> fatal $ show err
   Right txt -> scanStack txt >>= parseStack >>= D.unserialize D.format
   -- TODO I don't think this handles utf8/latin1 properly
-
-firstPresentTarget :: (MonadIO m) => FilePath -> [T.Text] -> StackTraceT m T.Text
-firstPresentTarget yamlPath targets = do
-  songYaml <- loadYaml yamlPath
-  case filter (`elem` Map.keys (_targets songYaml)) targets of
-    []    -> fail $ "panic! couldn't find any of these targets: " ++ show targets
-    t : _ -> return t
 
 getInfoForSTFS :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m (T.Text, T.Text)
 getInfoForSTFS dir stfs = do
@@ -258,8 +253,14 @@ buildTarget yamlPath opts = do
         RB3{} -> "gen/target" </> T.unpack targetName </> "rb3con"
         RB2{} -> "gen/target" </> T.unpack targetName </> "rb2con"
         PS {} -> "gen/target" </> T.unpack targetName </> "ps.zip"
-  shakeBuild audioDirs yamlPath [built]
+  shakeBuildFiles audioDirs yamlPath [built]
   return (target, takeDirectory yamlPath </> built)
+
+data KeysRB2
+  = NoKeys
+  | KeysGuitar
+  | KeysBass
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 getKeysRB2 :: [OnyxOption] -> KeysRB2
 getKeysRB2 opts
@@ -286,7 +287,7 @@ getInputMIDI files = optionalFile files >>= \case
   (FilePS, ini) -> return $ takeDirectory ini </> "notes.mid"
   (ftype, fpath) -> unrecognized ftype fpath
 
-undone :: (Monad m) => StackTraceT m ()
+undone :: (Monad m) => StackTraceT m a
 undone = fatal "Feature not built yet..."
 
 commands :: [Command]
@@ -331,7 +332,7 @@ commands =
       yml : builds -> identifyFile' yml >>= \case
         (FileSongYaml, yml') -> do
           audioDirs <- getAudioDirs yml
-          shakeBuild audioDirs yml' builds
+          shakeBuildFiles audioDirs yml' builds
         (ftype, fpath) -> unrecognized ftype fpath
     }
 
@@ -376,7 +377,7 @@ commands =
             planName <- getPlanName yamlPath opts
             let rpp = "notes-" <> T.unpack planName <> ".RPP"
                 yamlDir = takeDirectory yamlPath
-            shakeBuild audioDirs yamlPath [rpp]
+            shakeBuildFiles audioDirs yamlPath [rpp]
             let rppFull = yamlDir </> "notes.RPP"
             liftIO $ Dir.renameFile (yamlDir </> rpp) rppFull
             unless (elem OptNoOpen opts) $ osOpenFile rppFull
@@ -385,7 +386,7 @@ commands =
           let out = stfsPath ++ "_reaper"
           liftIO $ Dir.createDirectoryIfMissing False out
           let f2x = listToMaybe [ f | Opt2x f <- opts ]
-          importSTFS NoKeys stfsPath f2x out
+          void $ importSTFS stfsPath f2x out
           withSongYaml $ out </> "song.yml"
         [(FileSongYaml, yamlPath)] -> withSongYaml yamlPath
         _ -> case partitionMaybe (isType [FileMidi]) files' of
@@ -413,7 +414,7 @@ commands =
         audioDirs <- getAudioDirs fpath
         planName <- getPlanName fpath opts
         let player = "gen/plan" </> T.unpack planName </> "web"
-        shakeBuild audioDirs fpath [player]
+        shakeBuildFiles audioDirs fpath [player]
         player' <- case [ to | OptTo to <- opts ] of
           []      -> return player
           out : _ -> liftIO $ do
@@ -424,25 +425,25 @@ commands =
       FileRBProj -> undone
       FileSTFS -> tempDir "onyx_player" $ \tmp -> do
         out <- outputFile opts $ return $ fpath ++ "_player"
-        importSTFS NoKeys fpath Nothing tmp
+        void $ importSTFS fpath Nothing tmp
         let player = "gen/plan/mogg/web"
-        shakeBuild [tmp] (tmp </> "song.yml") [player]
+        shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
         liftIO $ Dir.createDirectoryIfMissing False out
         copyDirRecursive (tmp </> player) out
         unless (elem OptNoOpen opts) $ osOpenFile $ out </> "index.html"
       FileRBA -> tempDir "onyx_player" $ \tmp -> do
         out <- outputFile opts $ return $ fpath ++ "_player"
-        importRBA NoKeys fpath Nothing tmp
+        void $ importRBA fpath Nothing tmp
         let player = "gen/plan/mogg/web"
-        shakeBuild [tmp] (tmp </> "song.yml") [player]
+        shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
         liftIO $ Dir.createDirectoryIfMissing False out
         copyDirRecursive (tmp </> player) out
         unless (elem OptNoOpen opts) $ osOpenFile $ out </> "index.html"
       FilePS -> tempDir "onyx_player" $ \tmp -> do
         out <- outputFile opts $ return $ takeDirectory fpath ++ "_player"
-        importFoF NoKeys (takeDirectory fpath) tmp
+        void $ importFoF (takeDirectory fpath) tmp
         let player = "gen/plan/fof/web"
-        shakeBuild [tmp] (tmp </> "song.yml") [player]
+        shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
         liftIO $ Dir.createDirectoryIfMissing False out
         copyDirRecursive (tmp </> player) out
         unless (elem OptNoOpen opts) $ osOpenFile $ out </> "index.html"
@@ -462,7 +463,7 @@ commands =
         -- TODO: handle non-RB3 targets
         let built = "gen/target" </> T.unpack targetName </> "notes-magma-export.mid"
         audioDirs <- getAudioDirs yamlPath
-        shakeBuild audioDirs yamlPath [built]
+        shakeBuildFiles audioDirs yamlPath [built]
       (FileRBProj, rbprojPath) -> do
         rbproj <- loadDTA rbprojPath
         let isMagmaV2 = case RBProj.projectVersion $ RBProj.project rbproj of
@@ -485,16 +486,16 @@ commands =
         out <- outputFile opts $ return $ fpath ++ "_import"
         liftIO $ Dir.createDirectoryIfMissing False out
         let f2x = listToMaybe [ f | Opt2x f <- opts ]
-        importSTFS (getKeysRB2 opts) fpath f2x out
+        void $ importSTFS fpath f2x out
       FileRBA -> do
         out <- outputFile opts $ return $ fpath ++ "_import"
         liftIO $ Dir.createDirectoryIfMissing False out
         let f2x = listToMaybe [ f | Opt2x f <- opts ]
-        importRBA (getKeysRB2 opts) fpath f2x out
+        void $ importRBA fpath f2x out
       FilePS -> do
         out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
         liftIO $ Dir.createDirectoryIfMissing False out
-        importFoF (getKeysRB2 opts) (takeDirectory fpath) out
+        void $ importFoF (takeDirectory fpath) out
       _ -> unrecognized ftype fpath
     }
 
@@ -512,30 +513,37 @@ commands =
     , commandRun = \files opts -> tempDir "onyx_convert" $ \tmp -> do
       (ftype, fpath) <- optionalFile files
       let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
-          conSuffix = case game of GameRB3 -> "rb3con"; GameRB2 -> "rb2con"
       if game == GameRB3 && ftype == FileRBA
         then do
           -- TODO make sure that the RBA is actually RB3 not RB2
           out <- outputFile opts $ return $ fpath ++ "_rb3con"
           simpleRBAtoCON fpath out >>= liftIO . putStrLn
         else do
-          case ftype of
-            FileSTFS -> importSTFS (getKeysRB2 opts) fpath Nothing tmp
-            FileRBA  -> importRBA (getKeysRB2 opts) fpath Nothing tmp
-            FilePS   -> importFoF (getKeysRB2 opts) (takeDirectory fpath) tmp
+          hasKicks <- case ftype of
+            FileSTFS -> importSTFS fpath Nothing tmp
+            FileRBA  -> importRBA fpath Nothing tmp
+            FilePS   -> importFoF (takeDirectory fpath) tmp
             FileZip  -> undone
             _        -> unrecognized ftype fpath
-          targetName <- firstPresentTarget (tmp </> "song.yml") $ case game of
-            GameRB3 -> ["rb3-2x", "rb3"]
-            GameRB2 -> ["rb2-2x", "rb2"]
-          let con = "gen/target" </> T.unpack targetName </> conSuffix
+          let krb2 = getKeysRB2 opts
+              target = case game of
+                GameRB3 -> RB3 def
+                  { rb3_2xBassPedal = hasKicks /= Has1x
+                  }
+                GameRB2 -> RB2 def
+                  { rb2_2xBassPedal = hasKicks /= Has1x
+                  , rb2_Guitar = if krb2 == KeysGuitar then RBFile.FlexKeys else RBFile.FlexGuitar
+                  , rb2_Bass = if krb2 == KeysBass then RBFile.FlexKeys else RBFile.FlexBass
+                  }
           out <- outputFile opts $ do
             fpathAbs <- liftIO $ Dir.makeAbsolute $ case ftype of
               FilePS -> takeDirectory fpath
               _      -> fpath
-            return $ dropTrailingPathSeparator fpathAbs <> "_" <> conSuffix
-          shakeBuild [tmp] (tmp </> "song.yml") [con]
-          liftIO $ Dir.copyFile (tmp </> con) out
+            return $ dropTrailingPathSeparator fpathAbs <> "_" <> case game of
+              GameRB3 -> "rb3con"
+              GameRB2 -> "rb2con"
+          con <- shakeBuildTarget [tmp] (tmp </> "song.yml") target
+          liftIO $ Dir.copyFile con out
     }
 
   , Command
@@ -551,7 +559,7 @@ commands =
         FileSongYaml -> do
           audioDirs <- getAudioDirs fpath
           planName <- getPlanName fpath opts
-          shakeBuild audioDirs fpath ["gen/plan" </> T.unpack planName </> "hanging"]
+          shakeBuildFiles audioDirs fpath ["gen/plan" </> T.unpack planName </> "hanging"]
         FileRBProj   -> do
           rbproj <- loadDTA fpath
           let midPath = T.unpack $ RBProj.midiFile $ RBProj.midi $ RBProj.project rbproj
