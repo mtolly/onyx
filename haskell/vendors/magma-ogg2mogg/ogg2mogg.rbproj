@@ -9,18 +9,18 @@
       'metadata'
       (
          'song_name'
-         "Hell's Kitchen"
+         "OGG to MOGG dummy project"
       )
       (
          'artist_name'
-         "Dream Theater"
+         "Onyxite"
       )
       ('genre' 'metal')
       ('sub_genre' 'subgenre_prog')
       ('year_released' 1997)
       (
          'album_name'
-         "Falling into Infinity"
+         "Onyx Music Game Toolkit"
       )
       (
          'author'
@@ -28,7 +28,7 @@
       )
       (
          'release_label'
-         "East West Records"
+         "Onyxite"
       )
       ('country' 'ugc_country_us')
       ('price' 160)

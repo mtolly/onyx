@@ -1,17 +1,18 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Resources where
 
-import qualified Codec.Picture   as P
-import           Control.Arrow   (first)
-import qualified Data.ByteString as B
-import           Data.FileEmbed  (embedDir, embedFile, makeRelativeToProject)
-import           System.FilePath ((</>))
+import qualified Codec.Picture      as P
+import           Control.Arrow      (first)
+import qualified Data.ByteString    as B
+import           Data.FileEmbed     (embedDir, embedFile, makeRelativeToProject)
+import           System.Environment (getExecutablePath)
+import           System.FilePath    (takeDirectory, (</>))
 
-magmaFiles :: [(FilePath, B.ByteString)]
-magmaFiles = $(makeRelativeToProject "vendors/magma/" >>= embedDir)
-
-magmaV1Files :: [(FilePath, B.ByteString)]
-magmaV1Files = $(makeRelativeToProject "vendors/magma-v1/" >>= embedDir)
+magmaV1Dir, magmaV2Dir, magmaCommonDir, magmaOgg2MoggDir :: IO FilePath
+magmaV1Dir       = (</> "magma-v1")       . takeDirectory <$> getExecutablePath
+magmaV2Dir       = (</> "magma-v2")       . takeDirectory <$> getExecutablePath
+magmaCommonDir   = (</> "magma-common")   . takeDirectory <$> getExecutablePath
+magmaOgg2MoggDir = (</> "magma-ogg2mogg") . takeDirectory <$> getExecutablePath
 
 rb3pkgFiles :: [(FilePath, B.ByteString)]
 rb3pkgFiles = $(makeRelativeToProject "vendors/xbox/rb3pkg/bin/Release/" >>= embedDir)

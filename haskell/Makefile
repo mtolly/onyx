@@ -1,12 +1,21 @@
-.PHONY: mac mac-deps win win-deps ubuntu-deps usage
+.PHONY: usage install-magma mac mac-deps win win-deps ubuntu-deps
+SHELL=/bin/bash
 
 usage:
 	@echo "Targets:"
+	@echo "  make install-magma"
+	@echo "    puts Magma files in ~/.local/bin"
 	@echo "  make mac-deps"
-	@echo "  make mac"
 	@echo "  make win-deps"
-	@echo "  make win"
 	@echo "  make ubuntu-deps"
+	@echo "    installs C libs via homebrew/pacman/apt"
+	@echo "  make mac"
+	@echo "  make win"
+	@echo "    packages app for distribution"
+
+install-magma:
+	rm -rf $(HOME)/.local/bin/magma-{v1,v2,common,ogg2mogg}
+	cp -R vendors/magma-{v1,v2,common,ogg2mogg} $(HOME)/.local/bin/
 
 mac:
 	# stack build .
@@ -14,9 +23,10 @@ mac:
 	strip Onyx.app/Contents/MacOS/onyx
 	rm -rf Onyx.app/Contents/libs/*.dylib
 	dylibbundler -cd -of -b -x Onyx.app/Contents/MacOS/onyx -d Onyx.app/Contents/libs/
+	rm -rf Onyx.app/Contents/MacOS/magma-{v1,v2,common,ogg2mogg}
+	cp -R vendors/magma-{v1,v2,common,ogg2mogg} Onyx.app/Contents/MacOS/
 
 mac-deps:
-	stack setup
 	brew install libsndfile libsamplerate lame sdl2 sdl2_ttf rubberband
 
 win:
@@ -27,9 +37,9 @@ win:
 	cp /mingw32/bin/*.dll win/
 	stack exec strip win/onyx.exe
 	cp batch/*.bat batch/*.hta batch/*.eot batch/*.txt win/
+	cp -R vendors/magma-{v1,v2,common,ogg2mogg} win/
 
 win-deps:
-	stack setup
 	pacman -Sy mingw-w64-i686-pkg-config mingw-w64-i686-libsndfile mingw-w64-i686-libsamplerate mingw-w64-i686-lame mingw-w64-i686-SDL2 mingw-w64-i686-SDL2_ttf mingw-w64-i686-rubberband
 
 ubuntu-deps:
