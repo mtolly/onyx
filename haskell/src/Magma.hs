@@ -1,6 +1,6 @@
 module Magma (runMagmaMIDI, runMagma, runMagmaV1, oggToMogg, getRBAFile) where
 
-import           Control.Monad                  (forM_, replicateM)
+import           Control.Monad                  (forM_, replicateM, when)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource   (ResourceT, runResourceT)
 import           Control.Monad.Trans.StackTrace
@@ -11,6 +11,7 @@ import           Data.Conduit.Audio             (AudioSource, Duration (..),
                                                  silent)
 import           Data.Conduit.Audio.Sndfile     (sinkSnd)
 import           Data.Int                       (Int16)
+import           Data.List                      (isPrefixOf)
 import           Resources                      (magmaFiles, magmaV1Files)
 import qualified Sound.File.Sndfile             as Snd
 import qualified System.Directory               as Dir
@@ -44,7 +45,10 @@ runMagma proj rba = tempDir "magma" $ \tmp -> do
   let proj' = wd </> proj
       rba'  = wd </> rba
   liftIO $ Dir.createDirectory $ tmp </> "gen"
+  liftIO $ Dir.createDirectory $ tmp </> "facefx"
   liftIO $ forM_ magmaFiles $ \(path, bs) -> B.writeFile (tmp </> path) bs
+  liftIO $ forM_ magmaV1Files $ \(path, bs) ->
+    when ("facefx" `isPrefixOf` path) $ B.writeFile (tmp </> path) bs
   let createProc = withWin32Exe (\exe args -> (proc exe args) { cwd = Just tmp })
         (tmp </> "MagmaCompilerC3.exe") [proj', rba']
   inside "running Magma v2" $ stackProcess createProc ""
