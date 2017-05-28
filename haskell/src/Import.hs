@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
-module Import where
+module Import (importFoF, importRBA, importSTFS, simpleRBAtoCON, HasKicks(..)) where
 
 import           Audio
 import           Codec.Picture                    (convertRGB8, readImage)
@@ -55,28 +55,6 @@ import qualified System.Directory                 as Dir
 import           System.FilePath                  (takeDirectory, takeFileName,
                                                    (<.>), (</>))
 import           X360                             (rb3pkg)
-
-standardTargets :: Maybe (JSONEither Integer T.Text) -> Maybe Integer -> HasKicks -> Maybe FilePath -> HM.HashMap T.Text Target
-standardTargets songID version hasKicks vid = HM.fromList $ concat
-  [ [ ( "rb3", RB3 def
-      { rb3_2xBassPedal = False
-      , rb3_SongID = songID
-      , rb3_Version = version
-      } )
-    | hasKicks /= Has2x
-    ]
-  , [ ( "rb3-2x", RB3 def
-      { rb3_2xBassPedal = True
-      , rb3_SongID = songID
-      , rb3_Version = version
-      } )
-    | hasKicks /= Has1x
-    ]
-  , [ ( "ps", PS def
-      { ps_FileVideo = vid
-      } )
-    ]
-  ]
 
 fixDoubleSwells :: RBFile.PSFile U.Beats -> RBFile.PSFile U.Beats
 fixDoubleSwells ps = let
@@ -286,7 +264,7 @@ importFoF src dest = do
       , _crowd = audioExpr crowdAudio
       , _planComments = []
       }
-    , _targets = standardTargets Nothing Nothing hasKicks vid
+    , _targets = HM.singleton "ps" $ PS def { ps_FileVideo = vid }
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
         { partDrums = guard (hasTrack RBFile.psPartDrums && FoF.diffDrums song /= Just (-1)) >> Just PartDrums
@@ -403,7 +381,7 @@ importSTFS file file2x dir = tempDir "onyx_con" $ \temp -> do
       liftIO $ extractSTFS f2x temp2x
       DTASingle _ pkg2x _ <- readDTASingle $ temp2x </> "songs/songs.dta"
       let base2x = T.unpack $ D.songName $ D.song pkg2x
-      with2xPath $ Just $ temp2x </> base2x <.> "mid"
+      with2xPath $ Just (pkg2x, temp2x </> base2x <.> "mid")
 
 -- | Converts a Magma v2 RBA to CON without going through an import + recompile.
 simpleRBAtoCON :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m String
@@ -486,25 +464,28 @@ importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
         { _author = author
         , _title = Just title
         }
-  mid2x <- forM file2x $ \f2x -> do
+  files2x <- forM file2x $ \f2x -> do
     let mid2x = temp </> "notes-2x.mid"
+        dta2x = temp </> "songs-2x.dta"
+    getRBAFile 0 f2x dta2x
     getRBAFile 1 f2x mid2x
-    return mid2x
+    (_, pkg2x, _) <- readRB3DTA dta2x
+    return (pkg2x, mid2x)
   let hasKicks = if isJust file2x then HasBoth else if is2x then Has2x else Has1x
   importRB3 pkg meta False True hasKicks
-    (temp </> "notes.mid") mid2x (temp </> "audio.mogg")
+    (temp </> "notes.mid") files2x (temp </> "audio.mogg")
     (temp </> "cover.bmp") "cover.bmp" dir
   return hasKicks
 
 -- | Collects the contents of an RBA or CON file into an Onyx project.
-importRB3 :: (MonadIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKicks -> FilePath -> Maybe FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
-importRB3 pkg meta karaoke multitrack hasKicks mid mid2x mogg cover coverName dir = do
+importRB3 :: (MonadIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKicks -> FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
+importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName dir = do
   liftIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
-  case mid2x of
+  case files2x of
     Nothing  -> liftIO $ Dir.copyFile mid $ dir </> "notes.mid"
-    Just f2x -> do
+    Just (_pkg2x, mid2x) -> do
       RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI mid
-      RBFile.Song _     _    (RBFile.RawFile trks2x) <- loadMIDI f2x
+      RBFile.Song _     _    (RBFile.RawFile trks2x) <- loadMIDI mid2x
       let trks = trks1x ++ mapMaybe make2xTrack trks2x
           make2xTrack trk = case U.trackName trk of
             Just "PART DRUMS" -> Just $ U.setTrackName "PART DRUMS_2X" trk
@@ -610,10 +591,24 @@ importRB3 pkg meta karaoke multitrack hasKicks mid mid2x mogg cover coverName di
       , _multitrack = multitrack
       }
     , _targets = let
-      songID = fmap JSONEither $ case D.songId pkg of
+      getSongID = fmap JSONEither . \case
         Left  i -> guard (i /= 0) >> Just (Left i)
         Right k -> Just $ Right k
-      in standardTargets songID (songID >> Just (D.version pkg)) hasKicks Nothing
+      songID1x = getSongID $ D.songId pkg
+      songID2x = files2x >>= getSongID . D.songId . fst
+      version1x = songID1x >> Just (D.version pkg)
+      version2x = songID2x >> fmap (D.version . fst) files2x
+      target1x = ("rb3", RB3 def
+        { rb3_2xBassPedal = False
+        , rb3_SongID = songID1x
+        , rb3_Version = version1x
+        })
+      target2x = ("rb3-2x", RB3 def
+        { rb3_2xBassPedal = True
+        , rb3_SongID = songID2x
+        , rb3_Version = version2x
+        })
+      in HM.fromList $ concat [[target1x | hasKicks /= Has2x], [target2x | hasKicks /= Has1x]]
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
         { partDrums = guard (hasRankStr "drum") >> Just PartDrums
