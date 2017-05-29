@@ -4,7 +4,8 @@
 module GUI where
 
 import           CommandLine                    (commandLine)
-import           Control.Concurrent             (forkIO, threadDelay)
+import           Control.Concurrent             (ThreadId, forkIO, killThread,
+                                                 threadDelay)
 import           Control.Concurrent.MVar
 import           Control.Exception              (bracket, bracket_)
 import           Control.Monad.Extra
@@ -63,7 +64,9 @@ topMenu = Choice
 
 data GUIState
   = InMenu (Menu, Int) [(Menu, Int)]
-  | TaskRunning
+  | TaskRunning ThreadId
+  | TaskComplete
+  | TaskFailed
 
 launchGUI :: IO ()
 launchGUI = do
@@ -76,9 +79,6 @@ launchGUI = do
   bracket (SDL.createRenderer window (-1) SDL.defaultRenderer) SDL.destroyRenderer $ \rend -> do
 
   let purple = SDL.V4 0x4B 0x1C 0x4E 0xFF
-      clearPurple = do
-        SDL.rendererDrawColor rend $= purple
-        SDL.clear rend
 
   varSelectedFile <- newEmptyMVar
   varTaskComplete <- newEmptyMVar
@@ -87,33 +87,29 @@ launchGUI = do
 
     initialState = InMenu (topMenu, 0) []
 
-    draw TaskRunning = do
-      bracket (TTF.renderUTF8Blended penta "Running..." $ Color 0xEE 0xEE 0xEE 255) SDL.freeSurface $ \surf -> do
+    simpleText txt = do
+      bracket (TTF.renderUTF8Blended penta (T.unpack txt) $ Color 0xEE 0xEE 0xEE 255) SDL.freeSurface $ \surf -> do
         dims <- SDL.surfaceDimensions surf
         bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
-          clearPurple
           SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 0 0)) dims
-    draw (InMenu (menu, selected) _) = case menu of
-      Go _ -> do
-        bracket (TTF.renderUTF8Blended penta "Go!" $ Color 0xEE 0xEE 0xEE 255) SDL.freeSurface $ \surf -> do
-          dims <- SDL.surfaceDimensions surf
-          bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
-            clearPurple
-            SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 0 0)) dims
-      File label _ -> do
-        bracket (TTF.renderUTF8Blended penta (T.unpack label) $ Color 0xEE 0xEE 0xEE 255) SDL.freeSurface $ \surf -> do
-          dims <- SDL.surfaceDimensions surf
-          bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
-            clearPurple
-            SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 0 0)) dims
-      Choice choices -> do
-        clearPurple
-        forM_ (zip [0..] $ map fst choices) $ \(index, label) -> do
-          let color = if index == selected then Color 0xEE 0xEE 0xEE 255 else Color 0xD0 0xB4 0xD2 255
-          bracket (TTF.renderUTF8Blended penta (T.unpack label) color) SDL.freeSurface $ \surf -> do
-            dims <- SDL.surfaceDimensions surf
-            bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
-              SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 0 (fromIntegral index * 50))) dims
+
+    draw guiState = do
+      SDL.rendererDrawColor rend $= purple
+      SDL.clear rend
+      case guiState of
+        TaskRunning _ -> simpleText "Running..."
+        TaskComplete -> simpleText "Complete!"
+        TaskFailed -> simpleText "Failed..."
+        InMenu (menu, selected) _ -> case menu of
+          Go _ -> simpleText "Go!"
+          File label _ -> simpleText label
+          Choice choices -> do
+            forM_ (zip [0..] $ map fst choices) $ \(index, label) -> do
+              let color = if index == selected then Color 0xEE 0xEE 0xEE 255 else Color 0xD0 0xB4 0xD2 255
+              bracket (TTF.renderUTF8Blended penta (T.unpack label) color) SDL.freeSurface $ \surf -> do
+                dims <- SDL.surfaceDimensions surf
+                bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
+                  SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 0 (fromIntegral index * 50))) dims
 
     tick guiState = do
       draw guiState
@@ -125,16 +121,24 @@ launchGUI = do
     processEvents [] guiState = checkVars guiState
     processEvents (e : es) guiState = case SDL.eventPayload e of
       SDL.QuitEvent -> return ()
-      SDL.DropEvent (SDL.DropEventData cstr) -> case guiState of
-        InMenu m@(File _ useFile, _) prevMenus -> do
-          fp <- peekCString cstr
-          processEvents es $ InMenu (useFile fp, 0) (m : prevMenus)
-        _ -> processEvents es guiState
+      SDL.DropEvent (SDL.DropEventData cstr) -> do
+        peekCString cstr >>= putMVar varSelectedFile
+        processEvents es guiState
       SDL.KeyboardEvent (SDL.KeyboardEventData
         { SDL.keyboardEventKeyMotion = SDL.Pressed
         , SDL.keyboardEventKeysym = ksym
         }) -> case guiState of
-          TaskRunning -> processEvents es guiState
+          TaskComplete -> processEvents es $ case SDL.keysymScancode ksym of
+            SDL.ScancodeReturn -> initialState
+            _                  -> guiState
+          TaskFailed -> processEvents es $ case SDL.keysymScancode ksym of
+            SDL.ScancodeReturn -> initialState
+            _                  -> guiState
+          TaskRunning tid -> case SDL.keysymScancode ksym of
+            SDL.ScancodeBackspace -> do
+              killThread tid
+              processEvents es initialState
+            _ -> processEvents es guiState
           InMenu m@(menu, selected) prevMenus -> case SDL.keysymScancode ksym of
             SDL.ScancodeDown -> let
               maxIndex = case menu of
@@ -153,10 +157,10 @@ launchGUI = do
                   _ -> return ()
                 processEvents es guiState
               Go task -> do
-                void $ forkIO $ do
-                  (_res, _warns) <- runStackTraceT task
-                  putMVar varTaskComplete ()
-                processEvents es TaskRunning
+                tid <- forkIO $ do
+                  (res, _warns) <- runStackTraceT task
+                  putMVar varTaskComplete $ case res of Left _ -> False; Right _ -> True
+                processEvents es $ TaskRunning tid
             _ -> processEvents es guiState
       _ -> processEvents es guiState
 
@@ -169,9 +173,9 @@ launchGUI = do
           _ -> s0
       s2 <- tryTakeMVar varTaskComplete >>= return . \case
         Nothing -> s1
-        Just () -> case s1 of
-          TaskRunning -> initialState
-          _           -> s1
+        Just b -> case s1 of
+          TaskRunning _ -> if b then TaskComplete else TaskFailed
+          _             -> s1
       tick s2
 
   tick initialState
