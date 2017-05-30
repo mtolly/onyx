@@ -63,7 +63,7 @@ import           System.FilePath                (dropTrailingPathSeparator,
 import           System.Info                    (os)
 import qualified System.IO                      as IO
 import           System.IO.Error                (tryIOError)
-import           System.Process                 (callProcess, spawnCommand)
+import           System.Process                 (callProcess, system)
 import           Text.Printf                    (printf)
 import           X360                           (rb2pkg, rb3pkg, stfsFolder)
 
@@ -142,7 +142,7 @@ readConfig = do
 
 osOpenFile :: (MonadIO m) => FilePath -> m ()
 osOpenFile f = liftIO $ case os of
-  "mingw32" -> void $ spawnCommand $ "\"" ++ f ++ "\""
+  "mingw32" -> void $ system $ "\"" ++ f ++ "\""
   "darwin"  -> callProcess "open" [f]
   "linux"   -> callProcess "exo-open" [f]
   _         -> return ()
