@@ -1,12 +1,13 @@
 # Onyx Music Game Toolkit
 
-Very early alpha release! Many functions are undocumented.
+By Michael Tolly <onyxite@gmail.com>
+
+Early alpha release!
 Requires .NET and Visual C++. (If you can run C3 CON Tools, you're good.)
 
-Open `onyx-gui-OPEN-ME.hta` to run.
-Or drag a file onto the appropriate `.bat` file if the GUI does not work.
+Open `onyx.exe` to run.
 
-  * `convert-rb3.bat` (takes song.ini, creates _rb3con)
+  * Convert to RB3 (takes song.ini, creates _rb3con)
 
     Attempts to convert a Frets on Fire / Phase Shift song to Rock Band 3.
     Here is a sample of the steps performed:
@@ -19,7 +20,7 @@ Or drag a file onto the appropriate `.bat` file if the GUI does not work.
       * Delays the song start by a few seconds if notes are present too early
       * Detects double drum roll lanes using the single lane note, and fixes them
 
-  * `convert-rb2.bat` (takes _rb3con, creates _rb2con)
+  * Convert to RB2 (takes _rb3con, creates _rb2con)
 
     Converts a Rock Band 3 CON file to Rock Band 2.
     RB2-ification includes the following steps:
@@ -35,19 +36,11 @@ Or drag a file onto the appropriate `.bat` file if the GUI does not work.
     If it fails, it will still continue and simply copy the MIDI as-is.
     The result will still probably work in-game; you just won't get lipsync animations.
 
-    This option will simply drop the Keys part if present.
-
-  * `convert-rb2-kg.bat` (takes _rb3con, creates _rb2con)
-
-    As above, but moves the Keys part to Guitar, and drops Guitar if present.
-    The RB3 "keytar" algorithm is more-or-less applied,
+    You can choose to drop the Keys part, or move it to Guitar or Bass.
+    In the latter two cases, the RB3 "keytar" algorithm is more-or-less applied,
     so fast chords will become HOPOs, and overlapping sustains will be shortened.
 
-  * `convert-rb2-kb.bat` (takes _rb3con, creates _rb2con)
-
-    As above, but moves the Keys part to Bass, and drops Bass if present.
-
-  * `player.bat` (takes _rb3con, creates web app folder)
+  * Browser song preview (takes _rb3con, creates web app folder)
 
     Generates a JavaScript chart preview app for web browsers,
     which plays back the audio and displays all gameplay tracks.
@@ -55,7 +48,7 @@ Or drag a file onto the appropriate `.bat` file if the GUI does not work.
     To use, open CON file with batch file. A player app folder will be placed next to it.
     Open `index.html` to play (can be run locally via `file://`, or hosted on a web server).
 
-  * `reap.bat` (takes MIDI file, creates Reaper project)
+  * Open in REAPER (takes CON or MIDI file, creates Reaper project)
 
     Imports a MIDI file into a Reaper project.
     Avoids a few bugs in Reaper's own MIDI import function.

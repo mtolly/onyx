@@ -143,6 +143,7 @@ executable onyx
     , sdl2
     , sdl2-ttf
     , zip-archive
+    , silently
     -- my libraries:
     , jammittools >= 0.5.0.3 && < 0.6
     , midi-util >= 0.2 && < 0.3
@@ -179,5 +180,6 @@ executable onyx
     extra-libraries: comdlg32, ole32
     cpp-options: -DWINDOWS
     build-depends: Win32
+    ld-options: -mwindows
   else
     build-depends: mountpoints

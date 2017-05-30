@@ -36,7 +36,7 @@ win:
 	cp "$(shell stack exec which onyx)" win/
 	cp /mingw32/bin/*.dll win/
 	stack exec strip win/onyx.exe
-	cp batch/*.bat batch/*.hta batch/*.eot batch/*.txt win/
+	cp README-windows.md win/README.txt
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} win/
 
 win-deps:

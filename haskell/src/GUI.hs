@@ -22,6 +22,7 @@ import           SDL.Raw                        (Color (..), RWops,
                                                  rwFromConstMem)
 import qualified SDL.TTF                        as TTF
 import           SDL.TTF.FFI                    (TTFFont)
+import           System.IO.Silently             (capture)
 import           TinyFileDialogs
 
 foreign import ccall unsafe "TTF_OpenFontRW"
@@ -59,6 +60,10 @@ topMenu = Choice
   , ( "Song preview"
     , File "Select rb3con" $ \f ->
       Go $ commandLine ["player", f]
+    )
+  , ( "Make REAPER project"
+    , File "Select _rb3con or .mid" $ \f ->
+      Go $ commandLine ["reap", f]
     )
   ]
 
@@ -158,8 +163,8 @@ launchGUI = do
                 processEvents es guiState
               Go task -> do
                 tid <- forkIO $ do
-                  (res, _warns) <- runStackTraceT task
-                  putMVar varTaskComplete $ case res of Left _ -> False; Right _ -> True
+                  results <- capture $ runStackTraceT task
+                  putMVar varTaskComplete results
                 processEvents es $ TaskRunning tid
             _ -> processEvents es guiState
       _ -> processEvents es guiState
@@ -173,8 +178,8 @@ launchGUI = do
           _ -> s0
       s2 <- tryTakeMVar varTaskComplete >>= return . \case
         Nothing -> s1
-        Just b -> case s1 of
-          TaskRunning _ -> if b then TaskComplete else TaskFailed
+        Just (_strOut, (res, _warns)) -> case s1 of
+          TaskRunning _ -> case res of Right _ -> TaskComplete; Left _ -> TaskFailed
           _             -> s1
       tick s2
 
