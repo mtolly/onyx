@@ -29,7 +29,9 @@ main = do
           _ -> do
             inside "checking if Wine is installed" $ checkShell "wine --version"
             inside "checking if Mono is installed" $ checkShell "mono --version"
-        commandLine argv
+        commandLine argv >>= \case
+          [f] -> useResultFile f
+          _   -> return ()
       mapM_ printWarning warns
       case res of
         Right () -> return ()

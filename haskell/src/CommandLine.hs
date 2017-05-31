@@ -3,12 +3,12 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
-module CommandLine (commandLine) where
+module CommandLine (commandLine, useResultFile) where
 
 import           Build                          (loadYaml, shakeBuildFiles,
                                                  shakeBuildTarget)
 import           Config
-import           Control.Monad                  (forM_, guard, unless)
+import           Control.Monad                  (forM_, guard)
 import           Control.Monad.Extra            (filterM)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.StackTrace
@@ -42,6 +42,7 @@ import           Magma                          (getRBAFile, oggToMogg,
                                                  runMagma, runMagmaMIDI,
                                                  runMagmaV1)
 import           MoggDecrypt                    (moggToOgg)
+import           OSFiles                        (osOpenFile)
 import           PrettyDTA                      (readRB3DTA)
 import           ProKeysRanges                  (closeShiftsFile, completeFile)
 import           Reaper.Build                   (makeReaperIO)
@@ -60,10 +61,8 @@ import qualified System.Directory               as Dir
 import           System.FilePath                (dropTrailingPathSeparator,
                                                  takeDirectory, takeExtension,
                                                  takeFileName, (-<.>), (</>))
-import           System.Info                    (os)
 import qualified System.IO                      as IO
 import           System.IO.Error                (tryIOError)
-import           System.Process                 (callProcess, system)
 import           Text.Printf                    (printf)
 import           X360                           (rb2pkg, rb3pkg, stfsFolder)
 
@@ -140,16 +139,15 @@ readConfig = do
       Left err -> fatal $ show err
       Right x  -> return x
 
-osOpenFile :: (MonadIO m) => FilePath -> m ()
-osOpenFile f = liftIO $ case os of
-  "mingw32" -> void $ system $ "\"" ++ f ++ "\""
-  "darwin"  -> callProcess "open" [f]
-  "linux"   -> callProcess "exo-open" [f]
-  _         -> return ()
+useResultFile :: (MonadIO m) => FilePath -> m ()
+useResultFile f = case takeExtension f of
+  ".html" -> osOpenFile f
+  ".RPP" -> osOpenFile f
+  _ -> return ()
 
 data Command = Command
   { commandWord  :: T.Text
-  , commandRun   :: forall m. (MonadIO m) => [FilePath] -> [OnyxOption] -> StackTraceT m ()
+  , commandRun   :: forall m. (MonadIO m) => [FilePath] -> [OnyxOption] -> StackTraceT m [FilePath]
   , commandDesc  :: T.Text
   , commandUsage :: T.Text
   }
@@ -309,6 +307,7 @@ commands =
         out <- outputFile opts $ fatal "onyx build (yaml) requires --to, none given"
         (_, built) <- buildTarget yamlPath opts
         liftIO $ Dir.copyFile built out
+        return [out]
       (FileRBProj, rbprojPath) -> do
         rbproj <- loadDTA rbprojPath
         out <- outputFile opts $ return $ T.unpack $ RBProj.destinationFile $ RBProj.project rbproj
@@ -320,6 +319,7 @@ commands =
           then runMagma   rbprojPath out >>= liftIO . putStrLn
           else runMagmaV1 rbprojPath out >>= liftIO . putStrLn
         -- TODO: handle CON conversion
+        return [out]
       (ftype, fpath) -> unrecognized ftype fpath
     }
 
@@ -328,11 +328,12 @@ commands =
     , commandDesc = "For debug use only."
     , commandUsage = "onyx file mysong.yml file1 [file2...]"
     , commandRun = \files _opts -> case files of
-      [] -> return ()
+      [] -> return []
       yml : builds -> identifyFile' yml >>= \case
         (FileSongYaml, yml') -> do
           audioDirs <- getAudioDirs yml
           shakeBuildFiles audioDirs yml' builds
+          return $ map (takeDirectory yml' </>) builds
         (ftype, fpath) -> unrecognized ftype fpath
     }
 
@@ -360,7 +361,7 @@ commands =
         FilePS -> undone -- install to PS music dir
         FileZip -> undone -- install to PS music dir
         _ -> unrecognized ftype fpath
-      in optionalFile files >>= uncurry doInstall
+      in optionalFile files >>= uncurry doInstall >> return []
     }
 
   , Command
@@ -380,7 +381,7 @@ commands =
             shakeBuildFiles audioDirs yamlPath [rpp]
             let rppFull = yamlDir </> "notes.RPP"
             liftIO $ Dir.renameFile (yamlDir </> rpp) rppFull
-            unless (elem OptNoOpen opts) $ osOpenFile rppFull
+            return [rppFull]
       case files' of
         [(FileSTFS, stfsPath)] -> do
           let out = stfsPath ++ "_reaper"
@@ -394,6 +395,7 @@ commands =
             (audio, []      ) -> do
               rpp <- outputFile opts $ return $ mid -<.> "RPP"
               makeReaperIO mid mid audio rpp
+              return [rpp]
             (_    , notAudio) -> fatal $ "onyx reap given non-MIDI, non-audio files: " <> show notAudio
           (mids, _) -> fatal $ "onyx reap expected 1 MIDI file, given " <> show (length mids)
     }
@@ -421,7 +423,7 @@ commands =
             Dir.createDirectoryIfMissing False out
             copyDirRecursive player out
             return out
-        unless (elem OptNoOpen opts) $ osOpenFile $ player' </> "index.html"
+        return [player' </> "index.html"]
       FileRBProj -> undone
       FileSTFS -> tempDir "onyx_player" $ \tmp -> do
         out <- outputFile opts $ return $ fpath ++ "_player"
@@ -430,7 +432,7 @@ commands =
         shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
         liftIO $ Dir.createDirectoryIfMissing False out
         copyDirRecursive (tmp </> player) out
-        unless (elem OptNoOpen opts) $ osOpenFile $ out </> "index.html"
+        return [out </> "index.html"]
       FileRBA -> tempDir "onyx_player" $ \tmp -> do
         out <- outputFile opts $ return $ fpath ++ "_player"
         void $ importRBA fpath Nothing tmp
@@ -438,7 +440,7 @@ commands =
         shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
         liftIO $ Dir.createDirectoryIfMissing False out
         copyDirRecursive (tmp </> player) out
-        unless (elem OptNoOpen opts) $ osOpenFile $ out </> "index.html"
+        return [out </> "index.html"]
       FilePS -> tempDir "onyx_player" $ \tmp -> do
         out <- outputFile opts $ return $ takeDirectory fpath ++ "_player"
         void $ importFoF (takeDirectory fpath) tmp
@@ -446,7 +448,7 @@ commands =
         shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
         liftIO $ Dir.createDirectoryIfMissing False out
         copyDirRecursive (tmp </> player) out
-        unless (elem OptNoOpen opts) $ osOpenFile $ out </> "index.html"
+        return [out </> "index.html"]
       FileMidi -> undone
       _ -> unrecognized ftype fpath
     }
@@ -464,6 +466,7 @@ commands =
         let built = "gen/target" </> T.unpack targetName </> "notes-magma-export.mid"
         audioDirs <- getAudioDirs yamlPath
         shakeBuildFiles audioDirs yamlPath [built]
+        return []
       (FileRBProj, rbprojPath) -> do
         rbproj <- loadDTA rbprojPath
         let isMagmaV2 = case RBProj.projectVersion $ RBProj.project rbproj of
@@ -473,6 +476,7 @@ commands =
         tempDir "onyx_check" $ \tmp -> if isMagmaV2
           then runMagmaMIDI rbprojPath (tmp </> "out.mid") >>= liftIO . putStrLn
           else undone
+        return []
       (ftype, fpath) -> unrecognized ftype fpath
     }
 
@@ -487,15 +491,18 @@ commands =
         liftIO $ Dir.createDirectoryIfMissing False out
         let f2x = listToMaybe [ f | Opt2x f <- opts ]
         void $ importSTFS fpath f2x out
+        return [out]
       FileRBA -> do
         out <- outputFile opts $ return $ fpath ++ "_import"
         liftIO $ Dir.createDirectoryIfMissing False out
         let f2x = listToMaybe [ f | Opt2x f <- opts ]
         void $ importRBA fpath f2x out
+        return [out]
       FilePS -> do
         out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
         liftIO $ Dir.createDirectoryIfMissing False out
         void $ importFoF (takeDirectory fpath) out
+        return [out]
       _ -> unrecognized ftype fpath
     }
 
@@ -518,6 +525,7 @@ commands =
           -- TODO make sure that the RBA is actually RB3 not RB2
           out <- outputFile opts $ return $ fpath ++ "_rb3con"
           simpleRBAtoCON fpath out >>= liftIO . putStrLn
+          return [out]
         else do
           hasKicks <- case ftype of
             FileSTFS -> importSTFS fpath Nothing tmp
@@ -544,6 +552,7 @@ commands =
               GameRB2 -> "rb2con"
           con <- shakeBuildTarget [tmp] (tmp </> "song.yml") target
           liftIO $ Dir.copyFile con out
+          return [out]
     }
 
   , Command
@@ -553,9 +562,9 @@ commands =
       [ "onyx hanging mysong.yml"
       , "onyx hanging notes.mid"
       ]
-    , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> let
-      withMIDI mid = liftIO (Load.fromFile mid) >>= RBFile.readMIDIFile' >>= liftIO . putStrLn . closeShiftsFile
-      in case ftype of
+    , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> do
+      let withMIDI mid = liftIO (Load.fromFile mid) >>= RBFile.readMIDIFile' >>= liftIO . putStrLn . closeShiftsFile
+      case ftype of
         FileSongYaml -> do
           audioDirs <- getAudioDirs fpath
           planName <- getPlanName fpath opts
@@ -572,6 +581,7 @@ commands =
         FilePS       -> withMIDI $ takeDirectory fpath </> "notes.mid"
         FileMidi     -> withMIDI fpath
         _            -> unrecognized ftype fpath
+      return []
     }
 
   , Command
@@ -588,6 +598,7 @@ commands =
       mid <- getInputMIDI files
       out <- outputFile opts $ return mid
       simpleReduce mid out
+      return [out]
     }
 
   , Command
@@ -604,6 +615,7 @@ commands =
       mid <- getInputMIDI files
       out <- outputFile opts $ return mid
       completeFile mid out
+      return [out]
     }
 
   , Command
@@ -624,6 +636,7 @@ commands =
           stfs <- outputFile opts $ (++ suffix) . dropTrailingPathSeparator <$> liftIO (Dir.makeAbsolute dir)
           (title, desc) <- getInfoForSTFS dir stfs
           pkg title desc dir stfs >>= liftIO . putStrLn
+          return [stfs]
         False -> fatal $ "onyx stfs expected directory; given: " <> dir
       _ -> fatal $ "onyx stfs expected 1 argument, given " <> show (length files)
     }
@@ -639,6 +652,7 @@ commands =
       [(FileSTFS, stfs)] -> do
         out <- outputFile opts $ return $ stfs ++ "_extract"
         liftIO $ extractSTFS stfs out
+        return [out]
       _ -> fatal $ "onyx unstfs expected a single STFS argument, given: " <> show files
     }
 
@@ -653,12 +667,14 @@ commands =
         case res of
           Left  err -> fatal err
           Right sm  -> liftIO $ writeFile out $ MS.showStandardMIDI (midiOptions opts) sm
+        return [out]
       FileMidiText -> do
         out <- outputFile opts $ return $ fpath -<.> "mid"
         sf <- liftIO $ MS.readStandardFile . MS.parse . MS.scan <$> readFile fpath
         let (mid, warnings) = MS.fromStandardMIDI (midiOptions opts) sf
         mapM_ warn warnings
         liftIO $ Save.toFile out mid
+        return [out]
       _ -> unrecognized ftype fpath
     }
 
@@ -672,6 +688,7 @@ commands =
         case res of
           Left  err -> fatal err
           Right sm  -> liftIO $ putStrLn $ MS.showStandardMIDI (midiOptions opts) sm
+        return []
       _ -> fatal $ "onyx midi-text-git expected 1 argument, given " <> show (length files)
     }
 
@@ -686,15 +703,17 @@ commands =
       FileOGG -> do
         mogg <- outputFile opts $ return $ fpath -<.> "mogg"
         oggToMogg fpath mogg
+        return [mogg]
       FileMOGG -> do
         ogg <- outputFile opts $ return $ fpath -<.> "ogg"
         moggToOgg fpath ogg
+        return [ogg]
       _ -> unrecognized ftype fpath
     }
 
   ]
 
-commandLine :: (MonadIO m) => [String] -> StackTraceT m ()
+commandLine :: (MonadIO m) => [String] -> StackTraceT m [FilePath]
 commandLine args = let
   (opts, nonopts, errors) = getOpt Permute optDescrs args
   printIntro = liftIO $ mapM_ T.putStrLn
@@ -708,17 +727,19 @@ commandLine args = let
   in case errors of
     [] -> case nonopts of
       [] -> if elem OptHelp opts
-        then printIntro
+        then printIntro >> return []
         else printIntro >> fatal "No command given."
       cmd : nonopts' -> case [ c | c <- commands, commandWord c == T.pack cmd ] of
         [c] -> inside ("command: onyx " <> cmd) $ if elem OptHelp opts
-          then liftIO $ mapM_ T.putStrLn
-            [ "onyx " <> commandWord c
-            , commandDesc c
-            , ""
-            , "Usage:"
-            , commandUsage c
-            ]
+          then do
+            liftIO $ mapM_ T.putStrLn
+              [ "onyx " <> commandWord c
+              , commandDesc c
+              , ""
+              , "Usage:"
+              , commandUsage c
+              ]
+            return []
           else commandRun c nonopts' opts
         _ -> printIntro >> fatal ("Unrecognized command: " ++ show cmd)
     _ -> inside "command line parsing" $ do

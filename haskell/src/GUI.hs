@@ -3,7 +3,7 @@
 {-# LANGUAGE OverloadedStrings        #-}
 module GUI where
 
-import           CommandLine                    (commandLine)
+import           CommandLine                    (commandLine, useResultFile)
 import           Control.Concurrent             (ThreadId, forkIO, killThread,
                                                  threadDelay)
 import           Control.Concurrent.MVar
@@ -36,7 +36,7 @@ withBSFont bs pts act = unsafeUseAsCStringLen bs $ \(ptr, len) -> do
 data Menu
   = Choice [(T.Text, Menu)]
   | File T.Text (FilePath -> Menu)
-  | Go (StackTraceT IO ())
+  | Go (StackTraceT IO [FilePath])
 
 topMenu :: Menu
 topMenu = Choice
@@ -176,11 +176,17 @@ launchGUI = do
           InMenu m@(File _ useFile, _) prevMenus ->
             InMenu (useFile fp, 0) (m : prevMenus)
           _ -> s0
-      s2 <- tryTakeMVar varTaskComplete >>= return . \case
-        Nothing -> s1
+      s2 <- tryTakeMVar varTaskComplete >>= \case
+        Nothing -> return s1
         Just (_strOut, (res, _warns)) -> case s1 of
-          TaskRunning _ -> case res of Right _ -> TaskComplete; Left _ -> TaskFailed
-          _             -> s1
+          TaskRunning _ -> case res of
+            Right files -> do
+              case files of
+                [f] -> useResultFile f
+                _   -> return ()
+              return TaskComplete
+            Left _err -> return TaskFailed
+          _ -> return s1
       tick s2
 
   tick initialState

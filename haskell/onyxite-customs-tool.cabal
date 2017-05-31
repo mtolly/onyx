@@ -63,6 +63,7 @@ executable onyx
     RenderAudio
     RockBand.ProGuitar.Play
     GUI
+    OSFiles
     -- midiscript
     Sound.MIDI.Script.Base
     Sound.MIDI.Script.Scan
@@ -177,7 +178,7 @@ executable onyx
     cbits/ArkTool_v6.1/Onyx.cpp
   extra-libraries: stdc++
   if os(mingw32)
-    extra-libraries: comdlg32, ole32
+    extra-libraries: comdlg32, ole32, shell32
     cpp-options: -DWINDOWS
     build-depends: Win32
     ld-options: -mwindows
