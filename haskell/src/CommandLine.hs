@@ -142,8 +142,8 @@ readConfig = do
 useResultFile :: (MonadIO m) => FilePath -> m ()
 useResultFile f = case takeExtension f of
   ".html" -> osOpenFile f
-  ".RPP" -> osOpenFile f
-  _ -> return ()
+  ".RPP"  -> osOpenFile f
+  _       -> return ()
 
 data Command = Command
   { commandWord  :: T.Text

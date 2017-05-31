@@ -2,17 +2,17 @@
 -- | OS-specific functions to open and show files.
 module OSFiles (osOpenFile) where
 
-import Control.Monad.IO.Class (MonadIO(..))
+import           Control.Monad.IO.Class   (MonadIO (..))
 #ifdef WINDOWS
-import System.Win32.Types (LPCWSTR, INT, HINSTANCE)
-import Graphics.Win32.GDI.Types (HWND)
-import Foreign (nullPtr, ptrToIntPtr)
-import Foreign.C (withCWString)
+import           Foreign                  (nullPtr, ptrToIntPtr)
+import           Foreign.C                (withCWString)
+import           Graphics.Win32.GDI.Types (HWND)
+import           System.Win32.Types       (HINSTANCE, INT, LPCWSTR)
 #else
-import           System.Info                    (os)
-import           System.Process                 (callProcess)
-import           System.IO.Silently             (hSilence)
-import System.IO (stdout, stderr)
+import           System.Info              (os)
+import           System.IO                (stderr, stdout)
+import           System.IO.Silently       (hSilence)
+import           System.Process           (callProcess)
 #endif
 
 #ifdef WINDOWS
@@ -33,8 +33,8 @@ osOpenFile f = liftIO $ withCWString f $ \wstr -> do
 osOpenFile :: (MonadIO m) => FilePath -> m ()
 osOpenFile f = liftIO $ case os of
   -- "mingw32" -> void $ spawnCommand $ "\"" ++ f ++ "\""
-  "darwin"  -> callProcess "open" [f]
-  "linux"   -> hSilence [stdout, stderr] $ callProcess "exo-open" [f]
-  _         -> return ()
+  "darwin" -> callProcess "open" [f]
+  "linux"  -> hSilence [stdout, stderr] $ callProcess "exo-open" [f]
+  _        -> return ()
 
 #endif
