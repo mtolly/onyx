@@ -158,51 +158,65 @@ launchGUI = do
       evts <- SDL.pollEvents
       processEvents evts guiState
 
+    doSelect es guiState = case guiState of
+      TaskComplete -> processEvents es initialState
+      TaskFailed -> processEvents es initialState
+      TaskRunning _ -> processEvents es guiState
+      InMenu menu prevMenus -> case menu of
+        Choices _ choice _ -> processEvents es $ InMenu (choiceMenu choice) (menu : prevMenus)
+        File _ _ -> do
+          void $ forkIO $ openFileDialog "" "" [] "" False >>= \case
+            Just (file : _) -> putMVar varSelectedFile $ T.unpack file
+            _ -> return ()
+          processEvents es guiState
+        Go task -> do
+          tid <- forkIO $ do
+            results <- capture $ runStackTraceT task
+            putMVar varTaskComplete results
+          processEvents es $ TaskRunning tid
+
     processEvents [] guiState = checkVars guiState
     processEvents (e : es) guiState = case SDL.eventPayload e of
       SDL.QuitEvent -> return ()
       SDL.DropEvent (SDL.DropEventData cstr) -> do
         peekCString cstr >>= putMVar varSelectedFile
         processEvents es guiState
+      SDL.MouseMotionEvent (SDL.MouseMotionEventData
+        { SDL.mouseMotionEventPos = SDL.P (SDL.V2 x y)
+        }) -> processEvents es $ case guiState of
+          InMenu (Choices ps this ns) prevMenus -> let
+            choices = reverse ps ++ [this] ++ ns
+            ix = max 0 $ min (length choices - 1) $ quot (fromIntegral y - 10) 70
+            (revps', this' : ns') = splitAt ix choices
+            in InMenu (Choices (reverse revps') this' ns') prevMenus
+          _ -> guiState
+      SDL.MouseButtonEvent (SDL.MouseButtonEventData
+        { SDL.mouseButtonEventMotion = SDL.Pressed
+        , SDL.mouseButtonEventButton = SDL.ButtonLeft
+        }) -> doSelect es guiState
       SDL.KeyboardEvent (SDL.KeyboardEventData
         { SDL.keyboardEventKeyMotion = SDL.Pressed
         , SDL.keyboardEventKeysym = ksym
         , SDL.keyboardEventRepeat = False
-        }) -> case guiState of
-          TaskComplete -> processEvents es $ case SDL.keysymScancode ksym of
-            SDL.ScancodeReturn -> initialState
-            _                  -> guiState
-          TaskFailed -> processEvents es $ case SDL.keysymScancode ksym of
-            SDL.ScancodeReturn -> initialState
-            _                  -> guiState
-          TaskRunning tid -> case SDL.keysymScancode ksym of
-            SDL.ScancodeBackspace -> do
+        }) -> case SDL.keysymScancode ksym of
+          SDL.ScancodeBackspace -> case guiState of
+            TaskRunning tid -> do
               killThread tid
               processEvents es initialState
+            InMenu _ (pm : pms) -> processEvents es $ InMenu pm pms
             _ -> processEvents es guiState
-          InMenu menu prevMenus -> case SDL.keysymScancode ksym of
-            SDL.ScancodeDown -> processEvents es $ case menu of
+          SDL.ScancodeReturn -> doSelect es guiState
+          SDL.ScancodeDown -> processEvents es $ case guiState of
+            InMenu menu prevMenus -> case menu of
               Choices prev this (n : next) -> InMenu (Choices (this : prev) n next) prevMenus
               _                            -> guiState
-            SDL.ScancodeUp -> processEvents es $ case menu of
+            _ -> guiState
+          SDL.ScancodeUp -> processEvents es $ case guiState of
+            InMenu menu prevMenus -> case menu of
               Choices (p : prev) this next -> InMenu (Choices prev p (this : next)) prevMenus
               _                            -> guiState
-            SDL.ScancodeBackspace -> case prevMenus of
-              pm : pms -> processEvents es $ InMenu pm pms
-              []       -> processEvents es guiState
-            SDL.ScancodeReturn -> case menu of
-              Choices _ choice _ -> processEvents es $ InMenu (choiceMenu choice) (menu : prevMenus)
-              File _ _ -> do
-                void $ forkIO $ openFileDialog "" "" [] "" False >>= \case
-                  Just (file : _) -> putMVar varSelectedFile $ T.unpack file
-                  _ -> return ()
-                processEvents es guiState
-              Go task -> do
-                tid <- forkIO $ do
-                  results <- capture $ runStackTraceT task
-                  putMVar varTaskComplete results
-                processEvents es $ TaskRunning tid
-            _ -> processEvents es guiState
+            _ -> guiState
+          _ -> processEvents es guiState
       _ -> processEvents es guiState
 
     checkVars s0 = do
