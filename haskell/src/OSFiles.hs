@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 -- | OS-specific functions to open and show files.
-module OSFiles (osOpenFile) where
+module OSFiles (osOpenFile, osShowFiles) where
 
 import           Control.Monad.IO.Class   (MonadIO (..))
 #ifdef WINDOWS
@@ -9,6 +9,10 @@ import           Foreign.C                (withCWString)
 import           Graphics.Win32.GDI.Types (HWND)
 import           System.Win32.Types       (HINSTANCE, INT, LPCWSTR)
 #else
+#ifdef MACOSX
+import           Foreign                  (Ptr, withArrayLen, withMany)
+import           Foreign.C                (CInt (..), CString, withCString)
+#endif
 import           System.Info              (os)
 import           System.IO                (stderr, stdout)
 import           System.IO.Silently       (hSilence)
@@ -16,6 +20,7 @@ import           System.Process           (callProcess)
 #endif
 
 osOpenFile :: (MonadIO m) => FilePath -> m ()
+osShowFiles :: (MonadIO m) => [FilePath] -> m ()
 
 #ifdef WINDOWS
 
@@ -37,5 +42,20 @@ osOpenFile f = liftIO $ case os of
   "darwin" -> callProcess "open" [f]
   "linux"  -> hSilence [stdout, stderr] $ callProcess "exo-open" [f]
   _        -> return ()
+
+#endif
+
+#ifdef MACOSX
+
+foreign import ccall unsafe "onyx_ShowFiles"
+  c_ShowFiles :: Ptr CString -> CInt -> IO ()
+
+osShowFiles files = liftIO $ withMany withCString files $ \cstrs -> do
+  withArrayLen cstrs $ \len pcstrs -> do
+    c_ShowFiles pcstrs $ fromIntegral len
+
+#else
+
+osShowFiles _ = return ()
 
 #endif

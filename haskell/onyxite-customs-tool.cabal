@@ -184,3 +184,7 @@ executable onyx
     ld-options: -mwindows
   else
     build-depends: mountpoints
+  if os(darwin)
+    cpp-options: -DMACOSX
+    c-sources: cbits/macfiles.m
+    frameworks: AppKit
