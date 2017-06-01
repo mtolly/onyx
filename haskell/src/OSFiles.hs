@@ -15,14 +15,16 @@ import           System.IO.Silently       (hSilence)
 import           System.Process           (callProcess)
 #endif
 
+osOpenFile :: (MonadIO m) => FilePath -> m ()
+
 #ifdef WINDOWS
 
 -- TODO this should be ccall on 64-bit, see Win32 package
 foreign import stdcall unsafe "ShellExecuteW"
   c_ShellExecute :: HWND -> LPCWSTR -> LPCWSTR -> LPCWSTR -> LPCWSTR -> INT -> IO HINSTANCE
 
-osOpenFile :: (MonadIO m) => FilePath -> m ()
 osOpenFile f = liftIO $ withCWString f $ \wstr -> do
+  -- TODO do we need to open COM? I think SDL does it for us
   n <- c_ShellExecute nullPtr nullPtr wstr nullPtr nullPtr 5
   if ptrToIntPtr n > 32
     then return ()
@@ -30,7 +32,6 @@ osOpenFile f = liftIO $ withCWString f $ \wstr -> do
 
 #else
 
-osOpenFile :: (MonadIO m) => FilePath -> m ()
 osOpenFile f = liftIO $ case os of
   -- "mingw32" -> void $ spawnCommand $ "\"" ++ f ++ "\""
   "darwin" -> callProcess "open" [f]

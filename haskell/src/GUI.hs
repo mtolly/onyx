@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NondecreasingIndentation #-}
 {-# LANGUAGE OverloadedStrings        #-}
+{-# LANGUAGE TupleSections            #-}
 module GUI where
 
 import           CommandLine                    (commandLine, useResultFile)
@@ -13,6 +14,7 @@ import           Control.Monad.Trans.StackTrace (StackTraceT, runStackTraceT)
 import qualified Data.ByteString                as B
 import           Data.ByteString.Unsafe         (unsafeUseAsCStringLen)
 import qualified Data.Text                      as T
+import           Data.Word                      (Word8)
 import           Foreign                        (Ptr, castPtr)
 import           Foreign.C                      (CInt (..), peekCString)
 import           Resources                      (pentatonicTTF)
@@ -34,41 +36,47 @@ withBSFont bs pts act = unsafeUseAsCStringLen bs $ \(ptr, len) -> do
   bracket (openFontRW rw 1 $ fromIntegral pts) TTF.closeFont act
 
 data Menu
-  = Choice [(T.Text, Menu)]
+  = Choices [Choice] Choice [Choice]
   | File T.Text (FilePath -> Menu)
   | Go (StackTraceT IO [FilePath])
 
+data Choice = Choice
+  { choiceTitle       :: T.Text
+  , choiceDescription :: T.Text
+  , choiceMenu        :: Menu
+  }
+
 topMenu :: Menu
-topMenu = Choice
-  [ ( "PS to RB3"
-    , File "Select song.ini" $ \f ->
-      Go $ commandLine ["convert", "--game", "rb3", f]
-    )
-  , ( "RB3 to RB2"
-    , File "Select rb3con" $ \f -> Choice
-      [ ( "No keys"
-        , Go $ commandLine ["convert", "--game", "rb2", f]
+topMenu = Choices []
+  ( Choice "PS to RB3" "Attempts to convert a Frets on Fire/Phase Shift song to Rock Band 3."
+  $ File "Select song.ini" $ \f ->
+    Go $ commandLine ["convert", "--game", "rb3", f]
+  )
+  [ ( Choice "RB3 to RB2" "Converts a song from Rock Band 3 to Rock Band 2."
+    $ File "Select rb3con" $ \f -> Choices []
+      ( Choice "No keys" "Drops the Keys part if present."
+      $ Go $ commandLine ["convert", "--game", "rb2", f]
+      )
+      [ ( Choice "Keys on guitar" "Drops Guitar if present, and puts Keys on Guitar (like RB3 keytar mode)."
+        $ Go $ commandLine ["convert", "--game", "rb2", f, "--keys-on-guitar"]
         )
-      , ( "Keys on guitar"
-        , Go $ commandLine ["convert", "--game", "rb2", f, "--keys-on-guitar"]
-        )
-      , ( "Keys on bass"
-        , Go $ commandLine ["convert", "--game", "rb2", f, "--keys-on-bass"]
+      , ( Choice "Keys on bass" "Drops Bass if present, and puts Keys on Bass (like RB3 keytar mode)."
+        $ Go $ commandLine ["convert", "--game", "rb2", f, "--keys-on-bass"]
         )
       ]
     )
-  , ( "Song preview"
-    , File "Select rb3con" $ \f ->
+  , ( Choice "Web preview" "Produces a web browser app to preview a song."
+    $ File "Select rb3con" $ \f ->
       Go $ commandLine ["player", f]
     )
-  , ( "Make REAPER project"
-    , File "Select _rb3con or .mid" $ \f ->
+  , ( Choice "REAPER project" "Converts a MIDI or song (RB3/RB2/PS) to a REAPER project."
+    $ File "Select _rb3con or .mid" $ \f ->
       Go $ commandLine ["reap", f]
     )
   ]
 
 data GUIState
-  = InMenu (Menu, Int) [(Menu, Int)]
+  = InMenu Menu [Menu]
   | TaskRunning ThreadId
   | TaskComplete
   | TaskFailed
@@ -78,48 +86,75 @@ launchGUI = do
 
   bracket_ SDL.initializeAll SDL.quit $ do
   TTF.withInit $ do
-  withBSFont pentatonicTTF 50 $ \penta -> do
-  let windowConf = SDL.defaultWindow { SDL.windowResizable = True, SDL.windowHighDPI = False }
+  withBSFont pentatonicTTF 40 $ \penta -> do
+  withBSFont pentatonicTTF 20 $ \pentaSmall -> do
+  let windowConf = SDL.defaultWindow
+        { SDL.windowResizable = True
+        , SDL.windowHighDPI = False
+        , SDL.windowInitialSize = SDL.V2 800 600
+        }
   bracket (SDL.createWindow "Onyx" windowConf) SDL.destroyWindow $ \window -> do
+  SDL.windowMinimumSize window $= SDL.V2 800 600
   bracket (SDL.createRenderer window (-1) SDL.defaultRenderer) SDL.destroyRenderer $ \rend -> do
 
-  let purple = SDL.V4 0x4B 0x1C 0x4E 0xFF
+  let purple :: Double -> SDL.V4 Word8
+      purple frac = SDL.V4 (floor $ 0x4B * frac) (floor $ 0x1C * frac) (floor $ 0x4E * frac) 0xFF
+      v4ToColor :: SDL.V4 Word8 -> Color
+      v4ToColor (SDL.V4 r g b a) = Color r g b a
 
   varSelectedFile <- newEmptyMVar
   varTaskComplete <- newEmptyMVar
 
+  bracket (TTF.renderUTF8Blended penta "ONYX" $ v4ToColor $ purple 0.5) SDL.freeSurface $ \surfBrand -> do
+  bracket (SDL.createTextureFromSurface rend surfBrand) SDL.destroyTexture $ \texBrand -> do
+  dimsBrand@(SDL.V2 brandW brandH) <- SDL.surfaceDimensions surfBrand
+
   let
 
-    initialState = InMenu (topMenu, 0) []
+    initialState = InMenu topMenu []
 
-    simpleText txt = do
+    simpleText offset txt = do
       bracket (TTF.renderUTF8Blended penta (T.unpack txt) $ Color 0xEE 0xEE 0xEE 255) SDL.freeSurface $ \surf -> do
         dims <- SDL.surfaceDimensions surf
         bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
-          SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 0 0)) dims
+          SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 (offset + 10) 10)) dims
 
     draw guiState = do
-      SDL.rendererDrawColor rend $= purple
+      SDL.V2 windW windH <- SDL.get $ SDL.windowSize window
+      SDL.rendererDrawColor rend $= purple 1
       SDL.clear rend
+      SDL.copy rend texBrand Nothing $ Just $ SDL.Rectangle
+        (SDL.P (SDL.V2 (windW - brandW - 10) (windH - brandH - 10)))
+        dimsBrand
       case guiState of
-        TaskRunning _ -> simpleText "Running..."
-        TaskComplete -> simpleText "Complete!"
-        TaskFailed -> simpleText "Failed..."
-        InMenu (menu, selected) _ -> case menu of
-          Go _ -> simpleText "Go!"
-          File label _ -> simpleText label
-          Choice choices -> do
-            forM_ (zip [0..] $ map fst choices) $ \(index, label) -> do
-              let color = if index == selected then Color 0xEE 0xEE 0xEE 255 else Color 0xD0 0xB4 0xD2 255
-              bracket (TTF.renderUTF8Blended penta (T.unpack label) color) SDL.freeSurface $ \surf -> do
-                dims <- SDL.surfaceDimensions surf
-                bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
-                  SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 0 (fromIntegral index * 50))) dims
+        TaskRunning _ -> simpleText 0 "Running..."
+        TaskComplete -> simpleText 0 "Complete!"
+        TaskFailed -> simpleText 0 "Failed..."
+        InMenu menu prevMenus -> do
+          let offset = fromIntegral $ length prevMenus * 20
+          forM_ (zip [0.88, 0.76 ..] [offset - 20, offset - 40 .. 0]) $ \(frac, x) -> do
+            SDL.rendererDrawColor rend $= purple frac
+            SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 x 0) $ SDL.V2 20 windH
+          case menu of
+            Go _ -> simpleText offset "Go!"
+            File label _ -> simpleText offset label
+            Choices prev this next -> do
+              let choices = map (False,) (reverse prev) ++ [(True, this)] ++ map (False,) next
+              forM_ (zip [0..] choices) $ \(index, (selected, choice)) -> do
+                let color = if selected then Color 0xEE 0xEE 0xEE 255 else Color 0x80 0x54 0x82 255
+                bracket (TTF.renderUTF8Blended penta (T.unpack $ choiceTitle choice) color) SDL.freeSurface $ \surf -> do
+                  dims <- SDL.surfaceDimensions surf
+                  bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
+                    SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 (offset + 10) (index * 70 + 10))) dims
+                bracket (TTF.renderUTF8Blended pentaSmall (T.unpack $ choiceDescription choice) color) SDL.freeSurface $ \surf -> do
+                  dims <- SDL.surfaceDimensions surf
+                  bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
+                    SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 (offset + 10) (index * 70 + 50))) dims
 
     tick guiState = do
       draw guiState
       SDL.present rend
-      threadDelay 5000
+      threadDelay 10000
       evts <- SDL.pollEvents
       processEvents evts guiState
 
@@ -132,6 +167,7 @@ launchGUI = do
       SDL.KeyboardEvent (SDL.KeyboardEventData
         { SDL.keyboardEventKeyMotion = SDL.Pressed
         , SDL.keyboardEventKeysym = ksym
+        , SDL.keyboardEventRepeat = False
         }) -> case guiState of
           TaskComplete -> processEvents es $ case SDL.keysymScancode ksym of
             SDL.ScancodeReturn -> initialState
@@ -144,18 +180,18 @@ launchGUI = do
               killThread tid
               processEvents es initialState
             _ -> processEvents es guiState
-          InMenu m@(menu, selected) prevMenus -> case SDL.keysymScancode ksym of
-            SDL.ScancodeDown -> let
-              maxIndex = case menu of
-                Choice xs -> length xs - 1
-                _         -> 0
-              in processEvents es $ InMenu (menu, min maxIndex $ selected + 1) prevMenus
-            SDL.ScancodeUp -> processEvents es $ InMenu (menu, max 0 $ selected - 1) prevMenus
+          InMenu menu prevMenus -> case SDL.keysymScancode ksym of
+            SDL.ScancodeDown -> processEvents es $ case menu of
+              Choices prev this (n : next) -> InMenu (Choices (this : prev) n next) prevMenus
+              _                            -> guiState
+            SDL.ScancodeUp -> processEvents es $ case menu of
+              Choices (p : prev) this next -> InMenu (Choices prev p (this : next)) prevMenus
+              _                            -> guiState
             SDL.ScancodeBackspace -> case prevMenus of
               pm : pms -> processEvents es $ InMenu pm pms
               []       -> processEvents es guiState
             SDL.ScancodeReturn -> case menu of
-              Choice choices -> processEvents es $ InMenu (snd $ choices !! selected, 0) (m : prevMenus)
+              Choices _ choice _ -> processEvents es $ InMenu (choiceMenu choice) (menu : prevMenus)
               File _ _ -> do
                 void $ forkIO $ openFileDialog "" "" [] "" False >>= \case
                   Just (file : _) -> putMVar varSelectedFile $ T.unpack file
@@ -173,8 +209,8 @@ launchGUI = do
       s1 <- tryTakeMVar varSelectedFile >>= return . \case
         Nothing -> s0
         Just fp -> case s0 of
-          InMenu m@(File _ useFile, _) prevMenus ->
-            InMenu (useFile fp, 0) (m : prevMenus)
+          InMenu m@(File _ useFile) prevMenus ->
+            InMenu (useFile fp) (m : prevMenus)
           _ -> s0
       s2 <- tryTakeMVar varTaskComplete >>= \case
         Nothing -> return s1
