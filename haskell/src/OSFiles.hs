@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 -- | OS-specific functions to open and show files.
-module OSFiles (osOpenFile, osShowFiles) where
+module OSFiles (osOpenFile, osShowFiles, osShowFolder) where
 
 import           Control.Monad.IO.Class   (MonadIO (..))
 #ifdef WINDOWS
@@ -21,6 +21,7 @@ import           System.Process           (callProcess)
 
 osOpenFile :: (MonadIO m) => FilePath -> m ()
 osShowFiles :: (MonadIO m) => [FilePath] -> m ()
+osShowFolder :: (MonadIO m) => FilePath -> m ()
 
 #ifdef WINDOWS
 
@@ -35,17 +36,15 @@ osOpenFile f = liftIO $ withCWString f $ \wstr -> do
     then return ()
     else error $ "osOpenFile: ShellExecuteW return code " ++ show n
 
+osShowFiles _ = return () -- TODO
+
+osShowFolder _ = return () -- TODO
+
 #else
 
-osOpenFile f = liftIO $ case os of
-  -- "mingw32" -> void $ spawnCommand $ "\"" ++ f ++ "\""
-  "darwin" -> callProcess "open" [f]
-  "linux"  -> hSilence [stdout, stderr] $ callProcess "exo-open" [f]
-  _        -> return ()
-
-#endif
-
 #ifdef MACOSX
+
+osOpenFile f = liftIO $ callProcess "open" [f]
 
 foreign import ccall unsafe "onyx_ShowFiles"
   c_ShowFiles :: Ptr CString -> CInt -> IO ()
@@ -54,8 +53,22 @@ osShowFiles files = liftIO $ withMany withCString files $ \cstrs -> do
   withArrayLen cstrs $ \len pcstrs -> do
     c_ShowFiles pcstrs $ fromIntegral len
 
+osShowFolder dir = liftIO $ callProcess "open" [dir]
+
 #else
 
-osShowFiles _ = return ()
+osOpenFile f = liftIO $ case os of
+  "linux"  -> hSilence [stdout, stderr] $ callProcess "exo-open" [f]
+  _        -> return ()
+
+osShowFiles files = liftIO $ case os of
+  "linux" -> callProcess "nautilus" files
+  _       -> return ()
+
+osShowFolder dir = liftIO $ case os of
+  "linux" -> callProcess "nautilus" [dir]
+  _       -> return ()
+
+#endif
 
 #endif

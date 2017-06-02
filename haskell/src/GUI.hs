@@ -13,6 +13,7 @@ import           Control.Monad.Extra
 import           Control.Monad.Trans.StackTrace (StackTraceT, runStackTraceT)
 import qualified Data.ByteString                as B
 import           Data.ByteString.Unsafe         (unsafeUseAsCStringLen)
+import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import           Data.Word                      (Word8)
 import           Foreign                        (Ptr, castPtr)
@@ -37,8 +38,8 @@ withBSFont bs pts act = unsafeUseAsCStringLen bs $ \(ptr, len) -> do
 
 data Menu
   = Choices [Choice] Choice [Choice]
-  | File T.Text (FilePath -> Menu)
-  | Go (StackTraceT IO [FilePath])
+  | Files FilePicker [FilePath] ([FilePath] -> Menu)
+  | Go [StackTraceT IO [FilePath]]
 
 data Choice = Choice
   { choiceTitle       :: T.Text
@@ -46,32 +47,37 @@ data Choice = Choice
   , choiceMenu        :: Menu
   }
 
+data FilePicker = FilePicker
+  { filePatterns    :: [T.Text]
+  , fileDescription :: T.Text
+  } deriving (Eq, Ord, Show, Read)
+
 topMenu :: Menu
 topMenu = Choices []
   ( Choice "PS to RB3" "Attempts to convert a Frets on Fire/Phase Shift song to Rock Band 3."
-  $ File "Select song.ini" $ \f ->
-    Go $ commandLine ["convert", "--game", "rb3", f]
+  $ Files (FilePicker ["*.ini"] "Frets on Fire/Phase Shift song.ini") [] $ \fs ->
+    Go $ map (\f -> commandLine ["convert", "--game", "rb3", f]) fs
   )
   [ ( Choice "RB3 to RB2" "Converts a song from Rock Band 3 to Rock Band 2."
-    $ File "Select rb3con" $ \f -> Choices []
+    $ Files (FilePicker ["*_rb3con"] "Rock Band 3 CON file") [] $ \fs -> Choices []
       ( Choice "No keys" "Drops the Keys part if present."
-      $ Go $ commandLine ["convert", "--game", "rb2", f]
+      $ Go $ map (\f -> commandLine ["convert", "--game", "rb2", f]) fs
       )
       [ ( Choice "Keys on guitar" "Drops Guitar if present, and puts Keys on Guitar (like RB3 keytar mode)."
-        $ Go $ commandLine ["convert", "--game", "rb2", f, "--keys-on-guitar"]
+        $ Go $ map (\f -> commandLine ["convert", "--game", "rb2", f, "--keys-on-guitar"]) fs
         )
       , ( Choice "Keys on bass" "Drops Bass if present, and puts Keys on Bass (like RB3 keytar mode)."
-        $ Go $ commandLine ["convert", "--game", "rb2", f, "--keys-on-bass"]
+        $ Go $ map (\f -> commandLine ["convert", "--game", "rb2", f, "--keys-on-bass"]) fs
         )
       ]
     )
   , ( Choice "Web preview" "Produces a web browser app to preview a song."
-    $ File "Select rb3con" $ \f ->
-      Go $ commandLine ["player", f]
+    $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Song (RB3/RB2/PS)") [] $ \fs ->
+      Go $ map (\f -> commandLine ["player", f]) fs
     )
   , ( Choice "REAPER project" "Converts a MIDI or song (RB3/RB2/PS) to a REAPER project."
-    $ File "Select _rb3con or .mid" $ \f ->
-      Go $ commandLine ["reap", f]
+    $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini", "*.mid"] "Song (RB3/RB2/PS) or MIDI file") [] $ \fs ->
+      Go $ map (\f -> commandLine ["reap", f]) fs
     )
   ]
 
@@ -137,7 +143,10 @@ launchGUI = do
             SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 x 0) $ SDL.V2 20 windH
           case menu of
             Go _ -> simpleText offset "Go!"
-            File label _ -> simpleText offset label
+            Files _ files _ -> simpleText offset $ case length files of
+              0 -> "Select files..."
+              1 -> "1 file loaded"
+              n -> T.pack (show n) <> " files loaded"
             Choices prev this next -> do
               let choices = map (False,) (reverse prev) ++ [(True, this)] ++ map (False,) next
               forM_ (zip [0..] choices) $ \(index, (selected, choice)) -> do
@@ -164,14 +173,16 @@ launchGUI = do
       TaskRunning _ -> processEvents es guiState
       InMenu menu prevMenus -> case menu of
         Choices _ choice _ -> processEvents es $ InMenu (choiceMenu choice) (menu : prevMenus)
-        File _ _ -> do
-          void $ forkIO $ openFileDialog "" "" [] "" False >>= \case
-            Just (file : _) -> putMVar varSelectedFile $ T.unpack file
-            _ -> return ()
-          processEvents es guiState
+        Files fpick loaded useFiles -> if null loaded
+          then do
+            void $ forkIO $ openFileDialog "" "" (filePatterns fpick) (fileDescription fpick) True >>= \case
+              Just files -> putMVar varSelectedFile $ map T.unpack files
+              _ -> return ()
+            processEvents es guiState
+          else processEvents es $ InMenu (useFiles loaded) (menu : prevMenus)
         Go task -> do
           tid <- forkIO $ do
-            results <- capture $ runStackTraceT task
+            results <- capture $ runStackTraceT $ sequence task
             putMVar varTaskComplete results
           processEvents es $ TaskRunning tid
 
@@ -179,7 +190,8 @@ launchGUI = do
     processEvents (e : es) guiState = case SDL.eventPayload e of
       SDL.QuitEvent -> return ()
       SDL.DropEvent (SDL.DropEventData cstr) -> do
-        peekCString cstr >>= putMVar varSelectedFile
+        str <- peekCString cstr
+        void $ forkIO $ putMVar varSelectedFile [str]
         processEvents es guiState
       SDL.MouseMotionEvent (SDL.MouseMotionEventData
         { SDL.mouseMotionEventPos = SDL.P (SDL.V2 x y)
@@ -193,7 +205,18 @@ launchGUI = do
       SDL.MouseButtonEvent (SDL.MouseButtonEventData
         { SDL.mouseButtonEventMotion = SDL.Pressed
         , SDL.mouseButtonEventButton = SDL.ButtonLeft
-        }) -> doSelect es guiState
+        , SDL.mouseButtonEventPos = SDL.P (SDL.V2 x y)
+        }) -> case guiState of
+          InMenu menu prevMenus -> let
+            offset = fromIntegral $ length prevMenus * 20
+            in if offset <= x
+              then doSelect es guiState
+              else let
+                backPages = fromIntegral $ quot (offset - x) 20 + 1
+                in case drop backPages $ menu : prevMenus of
+                  [] -> processEvents es guiState -- shouldn't happen
+                  m : pms -> processEvents es $ InMenu m pms
+          _ -> doSelect es guiState
       SDL.KeyboardEvent (SDL.KeyboardEventData
         { SDL.keyboardEventKeyMotion = SDL.Pressed
         , SDL.keyboardEventKeysym = ksym
@@ -222,16 +245,16 @@ launchGUI = do
     checkVars s0 = do
       s1 <- tryTakeMVar varSelectedFile >>= return . \case
         Nothing -> s0
-        Just fp -> case s0 of
-          InMenu m@(File _ useFile) prevMenus ->
-            InMenu (useFile fp) (m : prevMenus)
+        Just fps -> case s0 of
+          InMenu (Files fpick files useFiles) prevMenus ->
+            InMenu (Files fpick (files ++ fps) useFiles) prevMenus
           _ -> s0
       s2 <- tryTakeMVar varTaskComplete >>= \case
         Nothing -> return s1
         Just (_strOut, (res, _warns)) -> case s1 of
           TaskRunning _ -> case res of
             Right files -> do
-              case files of
+              case concat files of
                 [f] -> useResultFile f
                 _   -> return ()
               return TaskComplete
