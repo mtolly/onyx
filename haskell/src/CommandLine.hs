@@ -382,13 +382,15 @@ commands =
             let rppFull = yamlDir </> "notes.RPP"
             liftIO $ Dir.renameFile (yamlDir </> rpp) rppFull
             return [rppFull]
+          doImport fn inputPath = do
+            let out = inputPath ++ "_reaper"
+            liftIO $ Dir.createDirectoryIfMissing False out
+            let f2x = listToMaybe [ f | Opt2x f <- opts ]
+            void $ fn inputPath f2x out
+            withSongYaml $ out </> "song.yml"
       case files' of
-        [(FileSTFS, stfsPath)] -> do
-          let out = stfsPath ++ "_reaper"
-          liftIO $ Dir.createDirectoryIfMissing False out
-          let f2x = listToMaybe [ f | Opt2x f <- opts ]
-          void $ importSTFS stfsPath f2x out
-          withSongYaml $ out </> "song.yml"
+        [(FileSTFS, stfsPath)] -> doImport importSTFS stfsPath
+        [(FileRBA, rbaPath)] -> doImport importRBA rbaPath
         [(FileSongYaml, yamlPath)] -> withSongYaml yamlPath
         _ -> case partitionMaybe (isType [FileMidi]) files' of
           ([mid], notMid) -> case partitionMaybe (isType [FileOGG, FileWAV, FileFLAC]) notMid of

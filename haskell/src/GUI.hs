@@ -83,9 +83,8 @@ topMenu = Choices []
 
 data GUIState
   = InMenu Menu [Menu]
-  | TaskRunning ThreadId
-  | TaskComplete
-  | TaskFailed
+  | TaskRunning ThreadId Int Int Int [FilePath]
+  | TaskComplete Int Int
 
 launchGUI :: IO ()
 launchGUI = do
@@ -133,9 +132,9 @@ launchGUI = do
         (SDL.P (SDL.V2 (windW - brandW - 10) (windH - brandH - 10)))
         dimsBrand
       case guiState of
-        TaskRunning _ -> simpleText 0 "Running..."
-        TaskComplete -> simpleText 0 "Complete!"
-        TaskFailed -> simpleText 0 "Failed..."
+        TaskRunning _ total good bad _ -> simpleText 0 $
+          "Running " <> T.pack (show total) <> " tasks... " <> T.pack (show good) <> " ok, " <> T.pack (show bad) <> " failed"
+        TaskComplete good bad -> simpleText 0 $ T.pack (show good) <> " ok, " <> T.pack (show bad) <> " failed"
         InMenu menu prevMenus -> do
           let offset = fromIntegral $ length prevMenus * 20
           forM_ (zip [0.88, 0.76 ..] [offset - 20, offset - 40 .. 0]) $ \(frac, x) -> do
@@ -168,9 +167,8 @@ launchGUI = do
       processEvents evts guiState
 
     doSelect es guiState = case guiState of
-      TaskComplete -> processEvents es initialState
-      TaskFailed -> processEvents es initialState
-      TaskRunning _ -> processEvents es guiState
+      TaskComplete{} -> processEvents es initialState
+      TaskRunning{} -> processEvents es guiState
       InMenu menu prevMenus -> case menu of
         Choices _ choice _ -> processEvents es $ InMenu (choiceMenu choice) (menu : prevMenus)
         Files fpick loaded useFiles -> if null loaded
@@ -180,11 +178,11 @@ launchGUI = do
               _ -> return ()
             processEvents es guiState
           else processEvents es $ InMenu (useFiles loaded) (menu : prevMenus)
-        Go task -> do
-          tid <- forkIO $ do
-            results <- capture $ runStackTraceT $ sequence task
-            putMVar varTaskComplete results
-          processEvents es $ TaskRunning tid
+        Go tasks -> do
+          tid <- forkIO $ forM_ tasks $ \task -> do
+            result <- capture $ runStackTraceT task
+            putMVar varTaskComplete result
+          processEvents es $ TaskRunning tid (length tasks) 0 0 []
 
     processEvents [] guiState = checkVars guiState
     processEvents (e : es) guiState = case SDL.eventPayload e of
@@ -223,7 +221,7 @@ launchGUI = do
         , SDL.keyboardEventRepeat = False
         }) -> case SDL.keysymScancode ksym of
           SDL.ScancodeBackspace -> case guiState of
-            TaskRunning tid -> do
+            TaskRunning tid _ _ _ _ -> do
               killThread tid
               processEvents es initialState
             InMenu _ (pm : pms) -> processEvents es $ InMenu pm pms
@@ -252,13 +250,18 @@ launchGUI = do
       s2 <- tryTakeMVar varTaskComplete >>= \case
         Nothing -> return s1
         Just (_strOut, (res, _warns)) -> case s1 of
-          TaskRunning _ -> case res of
-            Right files -> do
-              case concat files of
-                [f] -> useResultFile f
-                _   -> return ()
-              return TaskComplete
-            Left _err -> return TaskFailed
+          TaskRunning tid total good bad files -> let
+            (good', bad', addFiles) = case res of
+              Right newFiles -> (good + 1, bad, newFiles)
+              Left _err -> (good, bad + 1, [])
+            files' = files ++ addFiles
+            in if good' + bad' == total
+              then do
+                case files' of
+                  [f] -> useResultFile f
+                  _   -> return ()
+                return $ TaskComplete good' bad'
+              else return $ TaskRunning tid total good' bad' files'
           _ -> return s1
       tick s2
 
