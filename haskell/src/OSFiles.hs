@@ -9,14 +9,15 @@ import           Foreign.C                (withCWString)
 import           Graphics.Win32.GDI.Types (HWND)
 import           System.Win32.Types       (HINSTANCE, INT, LPCWSTR)
 #else
+import           System.Process           (callProcess)
 #ifdef MACOSX
 import           Foreign                  (Ptr, withArrayLen, withMany)
 import           Foreign.C                (CInt (..), CString, withCString)
-#endif
+#else
 import           System.Info              (os)
 import           System.IO                (stderr, stdout)
 import           System.IO.Silently       (hSilence)
-import           System.Process           (callProcess)
+#endif
 #endif
 
 osOpenFile :: (MonadIO m) => FilePath -> m ()

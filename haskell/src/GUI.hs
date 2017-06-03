@@ -25,6 +25,7 @@ import           SDL.Raw                        (Color (..), RWops,
                                                  rwFromConstMem)
 import qualified SDL.TTF                        as TTF
 import           SDL.TTF.FFI                    (TTFFont)
+import           System.Info                    (os)
 import           System.IO.Silently             (capture)
 import           TinyFileDialogs
 
@@ -173,7 +174,12 @@ launchGUI = do
         Choices _ choice _ -> processEvents es $ InMenu (choiceMenu choice) (menu : prevMenus)
         Files fpick loaded useFiles -> if null loaded
           then do
-            void $ forkIO $ openFileDialog "" "" (filePatterns fpick) (fileDescription fpick) True >>= \case
+            let pats = if os /= "darwin"
+                  then filePatterns fpick
+                  else if all ("*." `T.isPrefixOf`) $ filePatterns fpick
+                    then filePatterns fpick
+                    else []
+            void $ forkIO $ openFileDialog "" "" pats (fileDescription fpick) True >>= \case
               Just files -> putMVar varSelectedFile $ map T.unpack files
               _ -> return ()
             processEvents es guiState
@@ -212,7 +218,7 @@ launchGUI = do
               else let
                 backPages = fromIntegral $ quot (offset - x) 20 + 1
                 in case drop backPages $ menu : prevMenus of
-                  [] -> processEvents es guiState -- shouldn't happen
+                  []      -> processEvents es guiState -- shouldn't happen
                   m : pms -> processEvents es $ InMenu m pms
           _ -> doSelect es guiState
       SDL.KeyboardEvent (SDL.KeyboardEventData
@@ -253,7 +259,7 @@ launchGUI = do
           TaskRunning tid total good bad files -> let
             (good', bad', addFiles) = case res of
               Right newFiles -> (good + 1, bad, newFiles)
-              Left _err -> (good, bad + 1, [])
+              Left _err      -> (good, bad + 1, [])
             files' = files ++ addFiles
             in if good' + bad' == total
               then do
