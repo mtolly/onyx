@@ -391,6 +391,11 @@ commands =
       case files' of
         [(FileSTFS, stfsPath)] -> doImport importSTFS stfsPath
         [(FileRBA, rbaPath)] -> doImport importRBA rbaPath
+        [(FilePS, iniPath)] -> do
+          let out = takeDirectory iniPath ++ "_reaper"
+          liftIO $ Dir.createDirectoryIfMissing False out
+          void $ importFoF (takeDirectory iniPath) out
+          withSongYaml $ out </> "song.yml"
         [(FileSongYaml, yamlPath)] -> withSongYaml yamlPath
         _ -> case partitionMaybe (isType [FileMidi]) files' of
           ([mid], notMid) -> case partitionMaybe (isType [FileOGG, FileWAV, FileFLAC]) notMid of

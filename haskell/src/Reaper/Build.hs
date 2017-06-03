@@ -185,21 +185,21 @@ track lenTicks lenSecs resn trk = let
           line "WAK" ["0"]
         pitchProKeys = do
           line "BYPASS" ["0", "0", "0"]
-          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
+          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "VSTi: ReaSynth (Cockos)", "1919251321"] $ do
             line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
             line "AACAPwAAgD8AABAAAAA=" [] -- pro keys: tuned up one octave
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
         pitchVox = do
           line "BYPASS" ["0", "0", "0"]
-          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
+          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "VSTi: ReaSynth (Cockos)", "1919251321"] $ do
             line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
             line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
         pitchProGtr = do
           line "BYPASS" ["0", "0", "0"]
-          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "", "1919251321"] $ do
+          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "VSTi: ReaSynth (Cockos)", "1919251321"] $ do
             line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA=" []
             line "776t3g3wrd6mm8Q7F7fROqjGCz8AAAAAAAAAAM5NAD/O4BA8AAAAAAAAAD+nViw+AACAPwAAAD8AAAAA" []
             line "AAAQAAAA" [] -- pro guitar pitches: normal tuning, square + decay
@@ -207,7 +207,7 @@ track lenTicks lenSecs resn trk = let
           line "WAK" ["0"]
         previewGtr = do
           line "BYPASS" ["0", "0", "0"]
-          block "VST" ["VSTi: RBN Preview (RBN)", "rbprev_vst.dll", "0", "", "1919053942"] $ do
+          block "VST" ["VSTi: RBN Preview (RBN)", "rbprev_vst.dll", "0", "VSTi: RBN Preview (RBN)", "1919053942"] $ do
             line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
             line "AwCqAA==" []
             line "AAAQAAAA" []
@@ -215,7 +215,7 @@ track lenTicks lenSecs resn trk = let
           line "WAK" ["0"]
         previewKeys = do
           line "BYPASS" ["0", "0", "0"]
-          block "VST" ["VSTi: RBN Preview (RBN)", "rbprev_vst.dll", "0", "", "1919053942"] $ do
+          block "VST" ["VSTi: RBN Preview (RBN)", "rbprev_vst.dll", "0", "VSTi: RBN Preview (RBN)", "1919053942"] $ do
             line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
             line "AwOqAA==" []
             line "AAAQAAAA" []
@@ -223,7 +223,7 @@ track lenTicks lenSecs resn trk = let
           line "WAK" ["0"]
         previewDrums = do
           line "BYPASS" ["0", "0", "0"]
-          block "VST" ["VSTi: RBN Preview (RBN)", "rbprev_vst.dll", "0", "", "1919053942"] $ do
+          block "VST" ["VSTi: RBN Preview (RBN)", "rbprev_vst.dll", "0", "VSTi: RBN Preview (RBN)", "1919053942"] $ do
             line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
             line "AwGqAA==" []
             line "AAAQAAAA" []
