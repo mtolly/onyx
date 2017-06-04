@@ -122,6 +122,10 @@ topMenu = Choices
     $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini", "*.mid"] "Songs (RB3/RB2/PS) or MIDI files") [] $ \fs ->
       TasksStart $ map (\f -> commandLine' ["reap", f]) fs
     )
+  , ( Choice "Auto reductions" "Fills empty difficulties in a MIDI file with CAT-quality reductions."
+    $ Files (FilePicker ["*.mid"] "MIDI files") [] $ \fs ->
+      TasksStart $ map (\f -> commandLine' ["reduce", f]) fs
+    )
   ]
 
 data GUIState = GUIState
@@ -144,7 +148,7 @@ launchGUI = do
         , SDL.windowHighDPI = False
         , SDL.windowInitialSize = SDL.V2 800 600
         }
-  bracket (SDL.createWindow "Onyx" windowConf) SDL.destroyWindow $ \window -> do
+  bracket (SDL.createWindow "Onyx Music Game Toolkit" windowConf) SDL.destroyWindow $ \window -> do
   SDL.windowMinimumSize window $= SDL.V2 800 600
   bracket (SDL.createRenderer window (-1) SDL.defaultRenderer) SDL.destroyRenderer $ \rend -> do
 

@@ -29,11 +29,7 @@ useResultFiles [f] = case takeExtension f of
   ".html" -> osOpenFile f
   ".RPP"  -> osOpenFile f
   _       -> osShowFiles [f]
-useResultFiles fs = do
-  fs' <- liftIO $ mapM makeAbsolute fs
-  case map takeDirectory fs' of
-    dir : dirs | all (== dir) dirs -> osShowFiles fs'
-    _          -> return ()
+useResultFiles fs = osShowFiles fs
 
 osOpenFile :: (MonadIO m) => FilePath -> m ()
 osShowFiles :: (MonadIO m) => [FilePath] -> m ()
@@ -52,9 +48,14 @@ osOpenFile f = liftIO $ withCWString f $ \wstr -> do
     then return ()
     else error $ "osOpenFile: ShellExecuteW return code " ++ show n
 
-osShowFiles _ = return () -- TODO
+-- TODO actually select the files
+osShowFiles fs = do
+  fs' <- liftIO $ mapM makeAbsolute fs
+  case map takeDirectory fs' of
+    dir : dirs | all (== dir) dirs -> osShowFolder dir
+    _          -> return ()
 
-osShowFolder _ = return () -- TODO
+osShowFolder = osOpenFile
 
 #else
 

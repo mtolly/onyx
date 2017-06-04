@@ -1,12 +1,16 @@
-# Onyx Music Game Toolkit
+# Onyx Music Game Toolkit (version 20170604)
 
 By Michael Tolly <onyxite@gmail.com>
-Built on work by Harmonix, TrojanNemo/C3, xorloser, deimos, DJ Shepherd, arkem, and others
+Built on work by:
+Harmonix, TrojanNemo/C3, xorloser, deimos, DJ Shepherd, arkem, and others
 
 Early alpha release!
 Requires .NET and Visual C++. (If you can run C3 CON Tools, you're good.)
 
 Open `onyx.exe` to run.
+Click on menu options to select them.
+Click on previous pages on the left to go back.
+Keyboard controls also work (arrow keys, enter, backspace).
 
   * Convert to RB3 (takes song.ini, creates _rb3con)
 
@@ -19,7 +23,10 @@ Open `onyx.exe` to run.
       * Imports as much metadata as possible from `song.ini`
       * Applies the correct `delay` value from `song.ini` to the audio
       * Delays the song start by a few seconds if notes are present too early
-      * Detects double drum roll lanes using the single lane note, and fixes them
+      * Detects double drum roll lanes using the single lane note and fixes them
+
+    Note: to do a batch process of many songs, drag and drop song folders
+    (the folders with song.ini immediately inside) onto the file loading screen.
 
   * Convert to RB2 (takes _rb3con, creates _rb2con)
 
@@ -35,19 +42,19 @@ Open `onyx.exe` to run.
     Then it will attempt to validate the song through Magma v1.
     If this succeeds, you're good to go.
     If it fails, it will still continue and simply copy the MIDI as-is.
-    The result will still probably work in-game; you just won't get lipsync animations.
+    The result will still probably work; you just won't get lipsync animations.
 
     You can choose to drop the Keys part, or move it to Guitar or Bass.
     In the latter two cases, the RB3 "keytar" algorithm is more-or-less applied,
-    so fast chords will become HOPOs, and overlapping sustains will be shortened.
+    so fast chords become HOPOs, and overlapping sustains are shortened.
 
   * Browser song preview (takes _rb3con, creates web app folder)
 
     Generates a JavaScript chart preview app for web browsers,
     which plays back the audio and displays all gameplay tracks.
 
-    To use, open CON file with batch file. A player app folder will be placed next to it.
-    Open `index.html` to play (can be run locally via `file://`, or hosted on a web server).
+    A player folder will appear next to the CON; open `index.html` to run.
+    It can be run locally via `file://`, or hosted on a web server.
 
   * Open in REAPER (takes CON or MIDI file, creates Reaper project)
 
@@ -55,3 +62,11 @@ Open `onyx.exe` to run.
     Avoids a few bugs in Reaper's own MIDI import function.
     Also applies most of the C3 template to the MIDI tracks,
     so you get note names, colored tracks, and RBN preview windows.
+
+  * Auto reductions (takes MIDI files, creates MIDI file)
+
+    Generates CAT-like automatic reductions for empty difficulties in a MIDI.
+    Quality is not guaranteed, but they should pass Magma.
+
+    To use, ensure that there are no notes or events authored
+    for a difficulty you want to be filled in.

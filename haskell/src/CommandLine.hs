@@ -591,12 +591,12 @@ commands =
       [ "onyx reduce [notes.mid|song.yml|magma.rbproj|song.ini]"
       , "# or run on current directory"
       , "onyx reduce"
-      , "# by default, modifies the midi in-place. or specify --out"
-      , "onyx reduce notes.mid --to reduced.mid"
+      , "# by default, creates .reduced.mid. or specify --to"
+      , "onyx reduce notes.mid --to new.mid"
       ]
     , commandRun = \files opts -> do
       mid <- getInputMIDI files
-      out <- outputFile opts $ return mid
+      out <- outputFile opts $ return $ mid -<.> "reduced.mid"
       simpleReduce mid out
       return [out]
     }
@@ -608,12 +608,12 @@ commands =
       [ "onyx ranges [notes.mid|song.yml|magma.rbproj]"
       , "# or run on current directory"
       , "onyx ranges"
-      , "# by default, modifies the midi in-place. or specify --out"
-      , "onyx ranges notes.mid --to ranges.mid"
+      , "# by default, creates .ranges.mid. or specify --to"
+      , "onyx ranges notes.mid --to new.mid"
       ]
     , commandRun = \files opts -> do
       mid <- getInputMIDI files
-      out <- outputFile opts $ return mid
+      out <- outputFile opts $ return $ mid -<.> "ranges.mid"
       completeFile mid out
       return [out]
     }
