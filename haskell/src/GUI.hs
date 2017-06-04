@@ -1,8 +1,11 @@
+{-# LANGUAGE DeriveFoldable           #-}
+{-# LANGUAGE DeriveFunctor            #-}
+{-# LANGUAGE DeriveTraversable        #-}
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NondecreasingIndentation #-}
 {-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE TupleSections            #-}
-module GUI where
+module GUI (launchGUI) where
 
 import           CommandLine                    (commandLine, useResultFile)
 import           Control.Concurrent             (ThreadId, forkIO, killThread,
@@ -10,7 +13,9 @@ import           Control.Concurrent             (ThreadId, forkIO, killThread,
 import           Control.Concurrent.MVar
 import           Control.Exception              (bracket, bracket_)
 import           Control.Monad.Extra
+import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.StackTrace (StackTraceT, runStackTraceT)
+import           Control.Monad.Trans.State
 import qualified Data.ByteString                as B
 import           Data.ByteString.Unsafe         (unsafeUseAsCStringLen)
 import           Data.Monoid                    ((<>))
@@ -44,17 +49,17 @@ data Selection
   deriving (Eq, Ord, Show, Read)
 
 data Menu
-  = Choices [Choice]
+  = Choices [Choice Menu]
   | Files FilePicker [FilePath] ([FilePath] -> Menu)
   | TasksStart [StackTraceT IO [FilePath]]
   | TasksRunning ThreadId TasksStatus
   | TasksDone TasksStatus
 
-data Choice = Choice
+data Choice a = Choice
   { choiceTitle       :: T.Text
   , choiceDescription :: T.Text
-  , choiceMenu        :: Menu
-  }
+  , choiceMenu        :: a
+  } deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
 data FilePicker = FilePicker
   { filePatterns    :: [T.Text]
@@ -97,7 +102,13 @@ topMenu = Choices
     )
   ]
 
-data GUIState = InMenu Menu [Menu] Selection
+data GUIState = GUIState
+  { currentScreen    :: Menu
+  , previousScreens  :: [Menu]
+  , currentSelection :: Selection
+  }
+
+type Onyx = StateT GUIState IO
 
 launchGUI :: IO ()
 launchGUI = do
@@ -129,15 +140,39 @@ launchGUI = do
 
   let
 
-    initialState = InMenu topMenu [] NoSelect
+    initialState = GUIState topMenu [] NoSelect
 
-    simpleText offset txt = do
+    simpleText offset txt = liftIO $ do
       bracket (TTF.renderUTF8Blended penta (T.unpack txt) $ Color 0xEE 0xEE 0xEE 255) SDL.freeSurface $ \surf -> do
         dims <- SDL.surfaceDimensions surf
         bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
           SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 (offset + 10) 10)) dims
 
-    draw guiState = do
+    -- TODO
+    getChoices :: GUIState -> [Choice ()]
+    getChoices (GUIState menu _ _) = case menu of
+      Choices cs -> map void cs
+      Files fpick files _ ->
+        [ Choice "Select files..." (fileDescription fpick) ()
+        , Choice "Clear selection" "" ()
+        ] ++ if null files then [] else let
+          desc = case length files of
+            1 -> "1 file loaded"
+            n -> T.pack (show n) <> " files loaded"
+            in [Choice "Continue" desc ()]
+      TasksStart _ -> [Choice "Go!" "" ()]
+      TasksRunning _ _ -> [Choice "Running..." "" ()] -- TODO
+      TasksDone (TasksStatus _ ok failed _) ->
+        [ let
+          desc = T.pack (show ok) <> " succeeded, " <> T.pack (show failed) <> " failed"
+          in Choice "Tasks finished" desc ()
+        , Choice "View logs" "" ()
+        , Choice "Main menu" "" ()
+        ]
+
+    draw :: Onyx ()
+    draw = do
+      guiState <- get
       SDL.V2 windW windH <- SDL.get $ SDL.windowSize window
       SDL.rendererDrawColor rend $= purple 1
       SDL.clear rend
@@ -145,7 +180,7 @@ launchGUI = do
         (SDL.P (SDL.V2 (windW - brandW - 10) (windH - brandH - 10)))
         dimsBrand
       case guiState of
-        InMenu menu prevMenus sel -> do
+        GUIState menu prevMenus sel -> do
           let offset = fromIntegral $ length prevMenus * 25
           forM_ (zip [0..] $ zip [0.88, 0.76 ..] [offset - 25, offset - 50 .. 0]) $ \(i, (frac, x)) -> do
             SDL.rendererDrawColor rend $= if sel == SelectPage i
@@ -163,7 +198,7 @@ launchGUI = do
               0 -> "Select files..."
               1 -> "1 file loaded"
               n -> T.pack (show n) <> " files loaded"
-            Choices cs -> do
+            Choices cs -> liftIO $ do
               let choices = zip [ (i, sel == SelectMenu i) | i <- [0..] ] cs
               forM_ choices $ \((index, selected), choice) -> do
                 let color = if selected then Color 0xEE 0xEE 0xEE 255 else Color 0x80 0x54 0x82 255
@@ -176,42 +211,51 @@ launchGUI = do
                   bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
                     SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 (offset + 10) (fromIntegral index * 70 + 50))) dims
 
-    tick guiState = do
-      draw guiState
+    tick :: Onyx ()
+    tick = do
+      draw
       SDL.present rend
-      threadDelay 10000
+      liftIO $ threadDelay 10000
       evts <- SDL.pollEvents
-      processEvents evts guiState
+      processEvents evts
 
-    newSelect mousePos (InMenu menu prevMenus _) = InMenu menu prevMenus $ case mousePos of
-      Nothing -> SelectMenu 0
-      Just (x, y) -> let
-        offset = fromIntegral $ length prevMenus * 25
-        in if offset > x
-          then let
-            dropPrev = fromIntegral $ quot (offset - x) 25
-            in SelectPage dropPrev
-          else case menu of
-            Choices choices -> let
-              i = max 0 $ min (length choices - 1) $ quot (fromIntegral y - 10) 70
-              in SelectMenu i -- TODO noselect
-            _ -> SelectMenu 0 -- TODO noselect
+    newSelect :: Maybe (Int, Int) -> Onyx ()
+    newSelect mousePos = modify $ \(GUIState menu prevMenus _) ->
+      GUIState menu prevMenus $ case mousePos of
+        Nothing -> SelectMenu 0
+        Just (x, y) -> let
+          offset = length prevMenus * 25
+          in if offset > x
+            then let
+              dropPrev = quot (offset - x) 25
+              in SelectPage dropPrev
+            else let
+              numIndexes = case menu of
+                Choices choices -> length choices
+                _               -> 1
+              i = div (y - 10) 70
+              in if 0 <= i && i < numIndexes
+                then SelectMenu i
+                else NoSelect
 
-    doSelect es guiState mousePos = case guiState of
-      InMenu menu prevMenus sel -> case sel of
-        NoSelect -> processEvents es $ newSelect mousePos guiState
+    doSelect :: Maybe (Int, Int) -> Onyx ()
+    doSelect mousePos = do
+      GUIState menu prevMenus sel <- get
+      case sel of
+        NoSelect -> return ()
         SelectPage i -> case drop i prevMenus of
           pm : pms -> do
             case menu of
-              TasksRunning tid _ -> killThread tid
+              TasksRunning tid _ -> liftIO $ killThread tid
               _                  -> return ()
-            processEvents es $ newSelect mousePos $ InMenu pm pms $ NoSelect
-          [] -> processEvents es $ newSelect mousePos guiState
+            put $ GUIState pm pms NoSelect
+          [] -> return ()
         SelectMenu i -> case menu of
-          TasksDone{} -> processEvents es $ newSelect mousePos initialState
-          TasksRunning{} -> processEvents es $ newSelect mousePos guiState
-          Choices choices -> processEvents es $ newSelect mousePos $
-            InMenu (choiceMenu $ choices !! i) (menu : prevMenus) NoSelect
+          TasksDone{} -> do
+            put initialState
+          TasksRunning{} -> return ()
+          Choices choices -> do
+            put $ GUIState (choiceMenu $ choices !! i) (menu : prevMenus) NoSelect
           Files fpick loaded useFiles -> if null loaded
             then do
               let pats = if os /= "darwin"
@@ -219,80 +263,97 @@ launchGUI = do
                     else if all ("*." `T.isPrefixOf`) $ filePatterns fpick
                       then filePatterns fpick
                       else []
-              void $ forkIO $ openFileDialog "" "" pats (fileDescription fpick) True >>= \case
+              liftIO $ void $ forkIO $ openFileDialog "" "" pats (fileDescription fpick) True >>= \case
                 Just files -> putMVar varSelectedFile $ map T.unpack files
                 _ -> return ()
-              processEvents es $ newSelect mousePos guiState
-            else processEvents es $ newSelect mousePos $ InMenu (useFiles loaded) (menu : prevMenus) NoSelect
+            else do
+              put $ GUIState (useFiles loaded) (menu : prevMenus) NoSelect
           TasksStart tasks -> do
-            tid <- forkIO $ forM_ tasks $ \task -> do
+            tid <- liftIO $ forkIO $ forM_ tasks $ \task -> do
               result <- capture $ runStackTraceT task
               putMVar varTaskComplete result
-            processEvents es $ newSelect mousePos $ InMenu (TasksRunning tid $ TasksStatus (length tasks) 0 0 []) (menu : prevMenus) sel
+            put $ GUIState (TasksRunning tid $ TasksStatus (length tasks) 0 0 []) (menu : prevMenus) sel
+      newSelect mousePos
 
-    processEvents [] guiState = checkVars guiState
-    processEvents (e : es) guiState = case SDL.eventPayload e of
+    processEvents :: [SDL.Event] -> Onyx ()
+    processEvents [] = checkVars
+    processEvents (e : es) = case SDL.eventPayload e of
       SDL.QuitEvent -> return ()
       SDL.DropEvent (SDL.DropEventData cstr) -> do
-        str <- peekCString cstr
-        void $ forkIO $ putMVar varSelectedFile [str]
-        processEvents es guiState
+        liftIO $ do
+          str <- peekCString cstr
+          void $ forkIO $ putMVar varSelectedFile [str]
+        processEvents es
       SDL.MouseMotionEvent (SDL.MouseMotionEventData
         { SDL.mouseMotionEventPos = SDL.P (SDL.V2 x y)
-        }) -> processEvents es $ newSelect (Just (x, y)) guiState
+        }) -> do
+          newSelect $ Just (fromIntegral x, fromIntegral y)
+          processEvents es
       SDL.MouseButtonEvent (SDL.MouseButtonEventData
         { SDL.mouseButtonEventMotion = SDL.Pressed
         , SDL.mouseButtonEventButton = SDL.ButtonLeft
         , SDL.mouseButtonEventPos = SDL.P (SDL.V2 x y)
-        }) -> doSelect es guiState (Just (x, y))
+        }) -> do
+          doSelect $ Just (fromIntegral x, fromIntegral y)
+          processEvents es
       SDL.KeyboardEvent (SDL.KeyboardEventData
         { SDL.keyboardEventKeyMotion = SDL.Pressed
         , SDL.keyboardEventKeysym = ksym
         , SDL.keyboardEventRepeat = False
         }) -> case SDL.keysymScancode ksym of
-          SDL.ScancodeBackspace -> case guiState of
-            InMenu menu (pm : pms) _ -> do
+          SDL.ScancodeBackspace -> get >>= \case
+            GUIState menu (pm : pms) _ -> do
               case menu of
-                TasksRunning tid _ -> killThread tid
+                TasksRunning tid _ -> liftIO $ killThread tid
                 _                  -> return ()
-              processEvents es $ InMenu pm pms $ SelectMenu 0
-            _ -> processEvents es guiState
-          SDL.ScancodeReturn -> doSelect es guiState Nothing
-          SDL.ScancodeLeft -> processEvents es $ case guiState of
-            InMenu menu prevMenus sel -> InMenu menu prevMenus $ case sel of
-              SelectMenu _ -> if null prevMenus then sel else SelectPage 0
-              SelectPage i -> SelectPage $ min (length prevMenus - 1) $ i + 1
-              NoSelect     -> SelectMenu 0
-          SDL.ScancodeRight -> processEvents es $ case guiState of
-            InMenu menu prevMenus sel -> InMenu menu prevMenus $ case sel of
+              put $ GUIState pm pms $ SelectMenu 0
+              processEvents es
+            _ -> processEvents es
+          SDL.ScancodeReturn -> do
+            doSelect Nothing
+            processEvents es
+          SDL.ScancodeLeft -> do
+            modify $ \(GUIState menu prevMenus sel) -> GUIState menu prevMenus $ case sel of
+                SelectMenu _ -> if null prevMenus then sel else SelectPage 0
+                SelectPage i -> SelectPage $ min (length prevMenus - 1) $ i + 1
+                NoSelect     -> SelectMenu 0
+            processEvents es
+          SDL.ScancodeRight -> do
+            modify $ \(GUIState menu prevMenus sel) -> GUIState menu prevMenus $ case sel of
               SelectMenu _ -> sel
               SelectPage 0 -> SelectMenu 0
               SelectPage i -> SelectPage $ i - 1
               NoSelect     -> SelectMenu 0
-          SDL.ScancodeDown -> processEvents es $ case guiState of
-            InMenu menu@(Choices choices) prevMenus (SelectMenu i) ->
-              InMenu menu prevMenus $ SelectMenu $ min (length choices - 1) $ i + 1
-            InMenu menu prevMenus NoSelect -> InMenu menu prevMenus $ SelectMenu 0
-            _ -> guiState
-          SDL.ScancodeUp -> processEvents es $ case guiState of
-            InMenu menu prevMenus (SelectMenu i) ->
-              InMenu menu prevMenus $ SelectMenu $ max 0 $ i - 1
-            InMenu menu prevMenus NoSelect -> InMenu menu prevMenus $ SelectMenu 0
-            _ -> guiState
-          _ -> processEvents es guiState
-      _ -> processEvents es guiState
+            processEvents es
+          SDL.ScancodeDown -> do
+            modify $ \case
+              GUIState menu@(Choices choices) prevMenus (SelectMenu i) ->
+                GUIState menu prevMenus $ SelectMenu $ min (length choices - 1) $ i + 1
+              GUIState menu prevMenus NoSelect -> GUIState menu prevMenus $ SelectMenu 0
+              s -> s
+            processEvents es
+          SDL.ScancodeUp -> do
+            modify $ \case
+              GUIState menu prevMenus (SelectMenu i) ->
+                GUIState menu prevMenus $ SelectMenu $ max 0 $ i - 1
+              GUIState menu prevMenus NoSelect -> GUIState menu prevMenus $ SelectMenu 0
+              s -> s
+            processEvents es
+          _ -> processEvents es
+      _ -> processEvents es
 
-    checkVars s0 = do
-      s1 <- tryTakeMVar varSelectedFile >>= return . \case
-        Nothing -> s0
-        Just fps -> case s0 of
-          InMenu (Files fpick files useFiles) prevMenus sel ->
-            InMenu (Files fpick (files ++ fps) useFiles) prevMenus sel
-          _ -> s0
-      s2 <- tryTakeMVar varTaskComplete >>= \case
-        Nothing -> return s1
-        Just (_strOut, (res, _warns)) -> case s1 of
-          InMenu (TasksRunning tid (TasksStatus total good bad files)) prevMenus sel -> let
+    checkVars :: Onyx ()
+    checkVars = do
+      liftIO (tryTakeMVar varSelectedFile) >>= \case
+        Nothing -> return ()
+        Just fps -> modify $ \case
+          GUIState (Files fpick files useFiles) prevMenus sel ->
+            GUIState (Files fpick (files ++ fps) useFiles) prevMenus sel
+          s -> s
+      liftIO (tryTakeMVar varTaskComplete) >>= \case
+        Nothing -> return ()
+        Just (_strOut, (res, _warns)) -> get >>= \case
+          GUIState (TasksRunning tid (TasksStatus total good bad files)) prevMenus sel -> let
             (good', bad', addFiles) = case res of
               Right newFiles -> (good + 1, bad, newFiles)
               Left _err      -> (good, bad + 1, [])
@@ -302,9 +363,9 @@ launchGUI = do
                 case files' of
                   [f] -> useResultFile f
                   _   -> return ()
-                return $ InMenu (TasksDone (TasksStatus total good' bad' files')) prevMenus sel
-              else return $ InMenu (TasksRunning tid (TasksStatus total good' bad' files')) prevMenus sel
-          _ -> return s1
-      tick s2
+                put $ GUIState (TasksDone (TasksStatus total good' bad' files')) prevMenus sel
+              else put $ GUIState (TasksRunning tid (TasksStatus total good' bad' files')) prevMenus sel
+          _ -> return ()
+      tick
 
-  tick initialState
+  evalStateT tick initialState
