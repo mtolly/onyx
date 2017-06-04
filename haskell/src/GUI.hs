@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFunctor            #-}
 {-# LANGUAGE DeriveTraversable        #-}
 {-# LANGUAGE LambdaCase               #-}
+{-# LANGUAGE MultiWayIf               #-}
 {-# LANGUAGE NondecreasingIndentation #-}
 {-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE RecordWildCards          #-}
@@ -231,7 +232,7 @@ launchGUI = do
       SDL.copy rend texBrand Nothing $ Just $ SDL.Rectangle
         (SDL.P (SDL.V2 (windW - brandW - 10) (windH - brandH - 10)))
         dimsBrand
-      GUIState _ prevMenus sel <- get
+      GUIState menu prevMenus sel <- get
       let offset = fromIntegral $ length prevMenus * 25
       forM_ (zip [0..] $ zip [0.88, 0.76 ..] [offset - 25, offset - 50 .. 0]) $ \(i, (frac, x)) -> do
         SDL.rendererDrawColor rend $= if sel == SelectPage i
@@ -254,7 +255,36 @@ launchGUI = do
             dims <- SDL.surfaceDimensions surf
             bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
               SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 (offset + 10) (fromIntegral index * 70 + 50))) dims
-        return ()
+      case menu of
+        TasksRunning{} -> do
+          -- square spinner animation
+          t <- fmap (`rem` 2000) $ SDL.ticks
+          let smallSide = 50
+              bigX = quot windW 2 - smallSide
+              bigY = quot windH 2 - smallSide
+              bigSide = smallSide * 2
+              smallRect = SDL.V2 smallSide smallSide
+              smallDraw x y = SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 x y) smallRect
+          SDL.rendererDrawColor rend $= purple 0.5
+          SDL.fillRect rend $ Just $ SDL.Rectangle
+            (SDL.P $ SDL.V2 bigX bigY)
+            (SDL.V2 bigSide bigSide)
+          SDL.rendererDrawColor rend $= SDL.V4 0xCC 0x8E 0xD1 0xFF
+          if  | t < 250 -> do
+                smallDraw bigX bigY
+                smallDraw (bigX + smallSide) (bigY + smallSide)
+              | t < 1000 -> do
+                let moved = floor ((fromIntegral (t - 250) / 750) * fromIntegral smallSide :: Double)
+                smallDraw (bigX + moved) bigY
+                smallDraw (bigX + smallSide - moved) (bigY + smallSide)
+              | t < 1250 -> do
+                smallDraw (bigX + smallSide) bigY
+                smallDraw bigX (bigY + smallSide)
+              | otherwise -> do
+                let moved = floor ((fromIntegral (t - 1250) / 750) * fromIntegral smallSide :: Double)
+                smallDraw bigX (bigY + smallSide - moved)
+                smallDraw (bigX + smallSide) (bigY + moved)
+        _ -> return ()
 
     tick :: Onyx ()
     tick = do
