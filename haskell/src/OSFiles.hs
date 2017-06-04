@@ -1,8 +1,10 @@
 {-# LANGUAGE CPP #-}
 -- | OS-specific functions to open and show files.
-module OSFiles (osOpenFile, osShowFiles, osShowFolder) where
+module OSFiles (osOpenFile, osShowFiles, osShowFolder, useResultFiles) where
 
 import           Control.Monad.IO.Class   (MonadIO (..))
+import           System.Directory         (makeAbsolute)
+import           System.FilePath          (takeDirectory, takeExtension)
 #ifdef WINDOWS
 import           Foreign                  (nullPtr, ptrToIntPtr)
 import           Foreign.C                (withCWString)
@@ -19,6 +21,19 @@ import           System.IO                (stderr, stdout)
 import           System.IO.Silently       (hSilence)
 #endif
 #endif
+
+-- | Does a sensible thing for the result files from a task or set of tasks.
+useResultFiles :: (MonadIO m) => [FilePath] -> m ()
+useResultFiles [] = return ()
+useResultFiles [f] = case takeExtension f of
+  ".html" -> osOpenFile f
+  ".RPP"  -> osOpenFile f
+  _       -> osShowFiles [f]
+useResultFiles fs = do
+  fs' <- liftIO $ mapM makeAbsolute fs
+  case map takeDirectory fs' of
+    dir : dirs | all (== dir) dirs -> osShowFiles fs'
+    _          -> return ()
 
 osOpenFile :: (MonadIO m) => FilePath -> m ()
 osShowFiles :: (MonadIO m) => [FilePath] -> m ()

@@ -9,7 +9,7 @@
 {-# LANGUAGE TupleSections            #-}
 module GUI (launchGUI) where
 
-import           CommandLine                    (commandLine, useResultFile)
+import           CommandLine                    (commandLine)
 import           Control.Concurrent             (ThreadId, forkIO, killThread,
                                                  threadDelay)
 import           Control.Concurrent.MVar
@@ -29,7 +29,7 @@ import           Data.Time
 import           Data.Word                      (Word8)
 import           Foreign                        (Ptr, castPtr)
 import           Foreign.C                      (CInt (..), peekCString)
-import           OSFiles                        (osOpenFile)
+import           OSFiles                        (osOpenFile, useResultFiles)
 import           Resources                      (pentatonicTTF)
 import           SDL                            (($=))
 import qualified SDL
@@ -40,6 +40,7 @@ import           SDL.TTF.FFI                    (TTFFont)
 import           System.Directory               (XdgDirectory (..),
                                                  createDirectoryIfMissing,
                                                  getXdgDirectory)
+import           System.Environment             (getEnv)
 import           System.FilePath                ((<.>), (</>))
 import           System.Info                    (os)
 import           System.IO.Silently             (capture)
@@ -164,7 +165,7 @@ launchGUI = do
     initialState = GUIState topMenu [] NoSelect
 
     setMenu :: Menu -> Onyx ()
-    setMenu menu = modify $ \(GUIState _ prevMenus sel) -> GUIState menu prevMenus sel
+    setMenu menu = modify $ \GUIState{..} -> GUIState{ currentScreen = menu, .. }
 
     pushMenu :: Menu -> Onyx ()
     pushMenu menu = modify $ \(GUIState m pms sel) -> GUIState menu (m : pms) sel
@@ -172,7 +173,7 @@ launchGUI = do
     popMenu :: Onyx ()
     popMenu = modify $ \case
       GUIState _ (m : pms) sel -> GUIState m pms sel
-      s -> s
+      s                        -> s
 
     modifySelect :: (Selection -> Selection) -> Onyx ()
     modifySelect f = modify $ \(GUIState m pms sel) -> GUIState m pms $ f sel
@@ -190,12 +191,13 @@ launchGUI = do
           liftIO $ void $ forkIO $ openFileDialog "" "" pats (fileDescription fpick) True >>= \case
             Just chosen -> putMVar varSelectedFile $ map T.unpack chosen
             _           -> return ()
-        , Choice "Clear selection" "" $ setMenu $ Files fpick [] useFiles
         ] ++ if null files then [] else let
           desc = case length files of
             1 -> "1 file loaded"
             n -> T.pack (show n) <> " files loaded"
-          in [Choice "Continue" desc $ pushMenu $ useFiles files]
+          in  [ Choice "Continue" desc $ pushMenu $ useFiles files
+              , Choice "Clear selection" "" $ setMenu $ Files fpick [] useFiles
+              ]
       TasksStart tasks -> let
         go = do
           tid <- liftIO $ forkIO $ forM_ tasks $ \task -> do
@@ -232,10 +234,10 @@ launchGUI = do
       SDL.copy rend texBrand Nothing $ Just $ SDL.Rectangle
         (SDL.P (SDL.V2 (windW - brandW - 10) (windH - brandH - 10)))
         dimsBrand
-      GUIState menu prevMenus sel <- get
-      let offset = fromIntegral $ length prevMenus * 25
+      GUIState{..} <- get
+      let offset = fromIntegral $ length previousScreens * 25
       forM_ (zip [0..] $ zip [0.88, 0.76 ..] [offset - 25, offset - 50 .. 0]) $ \(i, (frac, x)) -> do
-        SDL.rendererDrawColor rend $= if sel == SelectPage i
+        SDL.rendererDrawColor rend $= if currentSelection == SelectPage i
           then purple 1.8
           else purple frac
         SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 x 0) $ SDL.V2 25 windH
@@ -243,7 +245,7 @@ launchGUI = do
         SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 (x + 24) 0) $ SDL.V2 1 windH
       choices <- getChoices
       forM_ (zip [0..] choices) $ \(index, choice) -> liftIO $ do
-        let selected = sel == SelectMenu index
+        let selected = currentSelection == SelectMenu index
             color = if selected then Color 0xEE 0xEE 0xEE 255 else Color 0x80 0x54 0x82 255
         bracket (TTF.renderUTF8Blended penta (T.unpack $ choiceTitle choice) color) SDL.freeSurface $ \surf -> do
           dims <- SDL.surfaceDimensions surf
@@ -255,7 +257,7 @@ launchGUI = do
             dims <- SDL.surfaceDimensions surf
             bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
               SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 (offset + 10) (fromIntegral index * 70 + 50))) dims
-      case menu of
+      case currentScreen of
         TasksRunning{} -> do
           -- square spinner animation
           t <- fmap (`rem` 2000) $ SDL.ticks
@@ -297,29 +299,29 @@ launchGUI = do
     newSelect :: Maybe (Int, Int) -> Onyx ()
     newSelect mousePos = do
       choices <- getChoices
-      modify $ \(GUIState menu prevMenus _) ->
-        GUIState menu prevMenus $ case mousePos of
-          Nothing -> SelectMenu 0
-          Just (x, y) -> let
-            offset = length prevMenus * 25
-            in if offset > x
-              then let
-                dropPrev = quot (offset - x) 25
-                in SelectPage dropPrev
-              else let
-                i = div (y - 10) 70
-                in if 0 <= i && i < length choices
-                  then SelectMenu i
-                  else NoSelect
+      GUIState{..} <- get
+      modifySelect $ \_ -> case mousePos of
+        Nothing -> SelectMenu 0
+        Just (x, y) -> let
+          offset = length previousScreens * 25
+          in if offset > x
+            then let
+              dropPrev = quot (offset - x) 25
+              in SelectPage dropPrev
+            else let
+              i = div (y - 10) 70
+              in if 0 <= i && i < length choices
+                then SelectMenu i
+                else NoSelect
 
     doSelect :: Maybe (Int, Int) -> Onyx ()
     doSelect mousePos = do
-      GUIState menu prevMenus sel <- get
-      case sel of
+      GUIState{..} <- get
+      case currentSelection of
         NoSelect -> return ()
-        SelectPage i -> case drop i prevMenus of
+        SelectPage i -> case drop i previousScreens of
           pm : pms -> do
-            case menu of
+            case currentScreen of
               TasksRunning tid _ -> liftIO $ killThread tid
               _                  -> return ()
             put $ GUIState pm pms NoSelect
@@ -367,10 +369,10 @@ launchGUI = do
             doSelect Nothing
             processEvents es
           SDL.ScancodeLeft -> do
-            GUIState _ prevMenus _ <- get
+            GUIState{..} <- get
             modifySelect $ \case
-              SelectMenu i -> if null prevMenus then SelectMenu i else SelectPage 0
-              SelectPage i -> SelectPage $ min (length prevMenus - 1) $ i + 1
+              SelectMenu i -> if null previousScreens then SelectMenu i else SelectPage 0
+              SelectPage i -> SelectPage $ min (length previousScreens - 1) $ i + 1
               NoSelect     -> SelectMenu 0
             processEvents es
           SDL.ScancodeRight -> do
@@ -401,8 +403,8 @@ launchGUI = do
       liftIO (tryTakeMVar varSelectedFile) >>= \case
         Nothing -> return ()
         Just fps -> modify $ \case
-          GUIState (Files fpick files useFiles) prevMenus sel ->
-            GUIState (Files fpick (files ++ fps) useFiles) prevMenus sel
+          GUIState{ currentScreen = Files fpick files useFiles, .. } ->
+            GUIState{ currentScreen = Files fpick (files ++ fps) useFiles, .. }
           s -> s
       liftIO (tryTakeMVar varTaskComplete) >>= \case
         Nothing -> return ()
@@ -430,16 +432,15 @@ launchGUI = do
                   }
             in if tasksOK newStatus + tasksFailed newStatus == tasksTotal newStatus
               then do
-                case tasksOutput newStatus of
-                  [(_, Just [f])] -> useResultFile f
-                  _               -> return ()
+                useResultFiles $ tasksOutput newStatus >>= concatMap concat
                 logFile <- liftIO $ do
                   logDir <- getXdgDirectory XdgCache "onyx-log"
                   createDirectoryIfMissing False logDir
                   time <- getCurrentTime
                   let logFile = logDir </> fmt time <.> "txt"
                       fmt = formatTime defaultTimeLocale $ iso8601DateFormat $ Just "%H%M%S"
-                  writeFile logFile $ unlines $ map fst $ tasksOutput newStatus
+                  path <- getEnv "PATH"
+                  writeFile logFile $ unlines $ (["PATH:", path] ++) $ map fst $ tasksOutput newStatus
                   return logFile
                 put $ GUIState (TasksDone logFile newStatus) prevMenus sel
               else put $ GUIState (TasksRunning tid newStatus) prevMenus sel

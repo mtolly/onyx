@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
-module CommandLine (commandLine, useResultFile) where
+module CommandLine (commandLine) where
 
 import           Build                          (loadYaml, shakeBuildFiles,
                                                  shakeBuildTarget)
@@ -42,7 +42,6 @@ import           Magma                          (getRBAFile, oggToMogg,
                                                  runMagma, runMagmaMIDI,
                                                  runMagmaV1)
 import           MoggDecrypt                    (moggToOgg)
-import           OSFiles                        (osOpenFile)
 import           PrettyDTA                      (readRB3DTA)
 import           ProKeysRanges                  (closeShiftsFile, completeFile)
 import           Reaper.Build                   (makeReaperIO)
@@ -138,12 +137,6 @@ readConfig = do
     True  -> liftIO (Y.decodeFileEither cfg) >>= \case
       Left err -> fatal $ show err
       Right x  -> return x
-
-useResultFile :: (MonadIO m) => FilePath -> m ()
-useResultFile f = case takeExtension f of
-  ".html" -> osOpenFile f
-  ".RPP"  -> osOpenFile f
-  _       -> return ()
 
 data Command = Command
   { commandWord  :: T.Text
