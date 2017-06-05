@@ -8,6 +8,7 @@ module CommandLine (commandLine) where
 import           Build                          (loadYaml, shakeBuildFiles,
                                                  shakeBuildTarget)
 import           Config
+import           Control.Applicative            (liftA2)
 import           Control.Monad                  (forM_, guard)
 import           Control.Monad.Extra            (filterM)
 import           Control.Monad.IO.Class
@@ -246,18 +247,6 @@ buildTarget yamlPath opts = do
         PS {} -> "gen/target" </> T.unpack targetName </> "ps.zip"
   shakeBuildFiles audioDirs yamlPath [built]
   return (target, takeDirectory yamlPath </> built)
-
-data KeysRB2
-  = NoKeys
-  | KeysGuitar
-  | KeysBass
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-getKeysRB2 :: [OnyxOption] -> KeysRB2
-getKeysRB2 opts
-  | elem OptKeysOnGuitar opts = KeysGuitar
-  | elem OptKeysOnBass   opts = KeysBass
-  | otherwise                 = NoKeys
 
 getPlanName :: (MonadIO m) => FilePath -> [OnyxOption] -> StackTraceT m T.Text
 getPlanName yamlPath opts = case [ p | OptPlan p <- opts ] of
@@ -514,7 +503,7 @@ commands =
       , "onyx convert in_rb3con --to out_rb2con --game rb2"
       , "onyx convert in_rb3con --to out_rb2con --game rb2 --keys-on-guitar"
       , "onyx convert in_rb3con --to out_rb2con --game rb2 --keys-on-bass"
-      -- TODO , "onyx convert in_ps/song.ini --to out_1x_rb3con --2x out_2x_rb3con"
+      , "onyx convert in_ps/song.ini --to out_1x_rb3con --2x out_2x_rb3con"
       -- TODO , "onyx convert in_1x_rb3con --2x in_2x_rb3con --to out/ --game ps"
       ]
     , commandRun = \files opts -> tempDir "onyx_convert" $ \tmp -> do
@@ -533,26 +522,48 @@ commands =
             FilePS   -> importFoF (takeDirectory fpath) tmp
             FileZip  -> undone
             _        -> unrecognized ftype fpath
-          let krb2 = getKeysRB2 opts
-              target = case game of
+          let (gtr, bass)
+                | elem OptKeysOnGuitar opts = (RBFile.FlexKeys  , RBFile.FlexBass)
+                | elem OptKeysOnBass   opts = (RBFile.FlexGuitar, RBFile.FlexKeys)
+                | otherwise                 = (RBFile.FlexGuitar, RBFile.FlexBass)
+              specified1x = listToMaybe [ f | OptTo f <- opts ]
+              specified2x = listToMaybe [ f | Opt2x f <- opts ]
+              target1x = makeTarget False
+              target2x = makeTarget True
+              makeTarget is2x = case game of
                 GameRB3 -> RB3 def
-                  { rb3_2xBassPedal = hasKicks /= Has1x
+                  { rb3_2xBassPedal = is2x
                   }
                 GameRB2 -> RB2 def
-                  { rb2_2xBassPedal = hasKicks /= Has1x
-                  , rb2_Guitar = if krb2 == KeysGuitar then RBFile.FlexKeys else RBFile.FlexGuitar
-                  , rb2_Bass = if krb2 == KeysBass then RBFile.FlexKeys else RBFile.FlexBass
+                  { rb2_2xBassPedal = is2x
+                  , rb2_Guitar = gtr
+                  , rb2_Bass = bass
                   }
-          out <- outputFile opts $ do
-            fpathAbs <- liftIO $ Dir.makeAbsolute $ case ftype of
-              FilePS -> takeDirectory fpath
-              _      -> fpath
-            return $ dropTrailingPathSeparator fpathAbs <> "_" <> case game of
-              GameRB3 -> "rb3con"
-              GameRB2 -> "rb2con"
-          con <- shakeBuildTarget [tmp] (tmp </> "song.yml") target
-          liftIO $ Dir.copyFile con out
-          return [out]
+              suffix = case game of GameRB3 -> "rb3con"; GameRB2 -> "rb2con"
+          prefix <- fmap dropTrailingPathSeparator $ liftIO $ Dir.makeAbsolute $ case ftype of
+            FilePS -> takeDirectory fpath
+            _      -> fpath
+          let out1x = flip fromMaybe specified1x $ case hasKicks of
+                Has1x -> prefix <> "_" <> suffix
+                _     -> prefix <> "_1x_" <> suffix
+              out2x = flip fromMaybe specified2x $ case hasKicks of
+                Has2x -> prefix <> "_" <> suffix
+                _     -> prefix <> "_2x_" <> suffix
+              go target out = do
+                con <- shakeBuildTarget [tmp] (tmp </> "song.yml") target
+                liftIO $ Dir.copyFile con out
+                return [out]
+              go1x = go target1x out1x
+              go2x = go target2x out2x
+              goBoth = liftA2 (++) go1x go2x
+          case (specified1x, specified2x) of
+            (Nothing, Nothing) -> case hasKicks of
+              Has1x   -> go1x
+              Has2x   -> go2x
+              HasBoth -> goBoth
+            (Just _ , Nothing) -> go1x
+            (Nothing, Just _ ) -> go2x
+            (Just _ , Just _ ) -> goBoth
     }
 
   , Command

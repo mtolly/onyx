@@ -3,12 +3,13 @@
 module OSFiles (osOpenFile, osShowFiles, osShowFolder, useResultFiles) where
 
 import           Control.Monad.IO.Class   (MonadIO (..))
-import           System.Directory         (makeAbsolute)
-import           System.FilePath          (takeDirectory, takeExtension)
+import           System.FilePath          (takeExtension)
 #ifdef WINDOWS
 import           Foreign                  (nullPtr, ptrToIntPtr)
 import           Foreign.C                (withCWString)
 import           Graphics.Win32.GDI.Types (HWND)
+import           System.Directory         (makeAbsolute)
+import           System.FilePath          (takeDirectory)
 import           System.Win32.Types       (HINSTANCE, INT, LPCWSTR)
 #else
 import           System.Process           (callProcess)
@@ -79,11 +80,11 @@ osOpenFile f = liftIO $ case os of
   _       -> return ()
 
 osShowFiles files = liftIO $ case os of
-  "linux" -> callProcess "nautilus" files
+  -- "linux" -> callProcess "nautilus" files
   _       -> return ()
 
 osShowFolder dir = liftIO $ case os of
-  "linux" -> callProcess "nautilus" [dir]
+  -- "linux" -> callProcess "nautilus" [dir]
   _       -> return ()
 
 #endif

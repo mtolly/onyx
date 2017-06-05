@@ -1,13 +1,16 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE DeriveAnyClass     #-}
+{-# LANGUAGE DeriveFoldable     #-}
+{-# LANGUAGE DeriveFunctor      #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE DeriveTraversable  #-}
+{-# LANGUAGE LambdaCase         #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE PatternSynonyms    #-}
+{-# LANGUAGE RecordWildCards    #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE TupleSections      #-}
 module Config where
 
 import           Audio
@@ -24,6 +27,7 @@ import           Data.Default.Class
 import qualified Data.DTA.Serialize.Magma       as Magma
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
+import           Data.Hashable                  (Hashable (..))
 import qualified Data.HashMap.Strict            as Map
 import           Data.Maybe                     (fromMaybe)
 import           Data.Monoid                    ((<>))
@@ -31,6 +35,7 @@ import           Data.Scientific                (Scientific, toRealFloat)
 import qualified Data.Text                      as T
 import           Data.Traversable
 import qualified Data.Vector                    as V
+import           GHC.Generics                   (Generic (..))
 import           JSONData
 import           RockBand.Common                (Key (..))
 import qualified RockBand.Drums                 as Drums
@@ -820,11 +825,19 @@ jsonRecord "TargetPS" eosr $ do
   opt "ps_Rhythm" "rhythm" [t| FlexPartName |] [e| FlexExtra "rhythm" |]
   opt "ps_GuitarCoop" "guitar-coop" [t| FlexPartName |] [e| FlexExtra "guitar-coop" |]
 
+deriving instance Generic TargetRB3
+deriving instance Generic TargetRB2
+deriving instance Generic TargetPS
+
+deriving instance Hashable TargetRB3
+deriving instance Hashable TargetRB2
+deriving instance Hashable TargetPS
+
 data Target
-  = RB3    TargetRB3
-  | RB2    TargetRB2
-  | PS     TargetPS
-  deriving (Eq, Ord, Show, Read)
+  = RB3 TargetRB3
+  | RB2 TargetRB2
+  | PS  TargetPS
+  deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
 addKey :: (A.ToJSON a) => T.Text -> A.Value -> a -> A.Value
 addKey k v t = case A.toJSON t of

@@ -1,7 +1,8 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ViewPatterns    #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE PatternSynonyms            #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE ViewPatterns               #-}
 module JSONData where
 
 import           Control.Applicative            ((<|>))
@@ -14,6 +15,7 @@ import           Data.Aeson                     ((.=))
 import qualified Data.Aeson                     as A
 import qualified Data.ByteString.Lazy.Char8     as BL8
 import           Data.Default.Class
+import           Data.Hashable                  (Hashable (..))
 import qualified Data.HashMap.Strict            as Map
 import           Data.List                      ((\\))
 import           Data.Scientific
@@ -74,7 +76,7 @@ instance TraceJSON Int where
     Just i  -> return i
 
 newtype JSONEither a b = JSONEither (Either a b)
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Hashable)
 
 instance (TraceJSON a, TraceJSON b) => TraceJSON (JSONEither a b) where
   traceJSON = fmap JSONEither $ fmap Left traceJSON <|> fmap Right traceJSON

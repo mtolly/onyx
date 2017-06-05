@@ -33,6 +33,7 @@ import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Fixed                            (Centi)
 import           Data.Foldable                         (toList)
+import           Data.Hashable                         (hash)
 import qualified Data.HashMap.Strict                   as HM
 import           Data.List                             (findIndices,
                                                         intercalate, isPrefixOf,
@@ -47,7 +48,6 @@ import qualified Data.Text                             as T
 import qualified Data.Text.IO                          as TIO
 import           Development.Shake                     hiding (phony)
 import qualified Development.Shake                     as Shake
-import           Development.Shake.Classes             (hash)
 import           Development.Shake.FilePath
 import           Difficulty
 import           DryVox                                (clipDryVox,
@@ -602,10 +602,11 @@ loadYaml fp = do
 shakeBuildTarget :: (MonadIO m) => [FilePath] -> FilePath -> Target -> StackTraceT m FilePath
 shakeBuildTarget audioDirs yamlPath target = do
   let buildable = case target of
-        RB3{} -> "gen/target/onyx-wanted/rb3con"
-        RB2{} -> "gen/target/onyx-wanted/rb2con"
-        PS {} -> "gen/target/onyx-wanted/ps.zip"
-  shakeBuild audioDirs yamlPath [("onyx-wanted", target)] [buildable]
+        RB3{} -> "gen/target" </> targetHash </> "rb3con"
+        RB2{} -> "gen/target" </> targetHash </> "rb2con"
+        PS {} -> "gen/target" </> targetHash </> "ps.zip"
+      targetHash = show $ hash target `mod` 100000000
+  shakeBuild audioDirs yamlPath [(T.pack targetHash, target)] [buildable]
   return $ takeDirectory yamlPath </> buildable
 
 shakeBuildFiles :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT m ()
