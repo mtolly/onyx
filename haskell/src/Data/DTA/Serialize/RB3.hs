@@ -7,6 +7,7 @@ import           Data.DTA
 import           Data.DTA.Serialize.Magma (Gender (..))
 import           Data.DTA.Serialize2
 import qualified Data.Text                as T
+import           JSONData                 (StackCodec (..), eitherCodec)
 
 dtaEnum "Pitch" eosreb $ do
   val "C"      [e| [Int 0 ] |]
@@ -34,13 +35,13 @@ dtaEnum "AnimTempo" eosreb $ do
 dtaRecord "DrumSounds" eosr $ do
   req "seqs" "seqs" [t| [T.Text] |] [e| chunksParens $ chunksList chunksKey |]
 
-channelList :: ChunkFormat [Integer]
-channelList = ChunkFormat
-  { toChunks = toChunks fmt
-  , fromChunks = fromChunks fmt <|> fmap (: []) (fromChunks fmt')
+channelList :: ChunksCodec [Integer]
+channelList = StackCodec
+  { stackShow = stackShow fmt
+  , stackParse = stackParse fmt <|> fmap (: []) (stackParse fmt')
     <|> expected "a number or a list of numbers"
-  } where fmt  = chunksParens (format :: ChunkFormat [Integer])
-          fmt' = format :: ChunkFormat Integer
+  } where fmt  = chunksParens (format :: ChunksCodec [Integer])
+          fmt' = format :: ChunksCodec Integer
 
 dtaRecord "Song" eosr $ do
   req "songName" "name" [t| T.Text |] [e| chunksStringOrKey |]
@@ -59,17 +60,17 @@ dtaRecord "Song" eosr $ do
   -- seen in magma v1 / rb2:
   opt "midiFile" "midi_file" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksStringOrKey |]
 
-chunksStringOrKey :: ChunkFormat T.Text
-chunksStringOrKey = ChunkFormat
-  { toChunks   = toChunks chunksString
-  , fromChunks = fromChunks chunksString <|> fromChunks chunksKey <|> expected "a string or keyword"
+chunksStringOrKey :: ChunksCodec T.Text
+chunksStringOrKey = StackCodec
+  { stackShow   = stackShow chunksString
+  , stackParse = stackParse chunksString <|> stackParse chunksKey <|> expected "a string or keyword"
   }
 
 dtaRecord "SongPackage" eosr $ do
   req "name" "name" [t| T.Text |] [e| chunksString |]
   req "artist" "artist" [t| T.Text |] [e| chunksString |]
   req "master" "master" [t| Bool |] [e| format |]
-  req "songId" "song_id" [t| Either Integer T.Text |] [e| chunksEither format chunksKey |]
+  req "songId" "song_id" [t| Either Integer T.Text |] [e| eitherCodec format chunksKey |]
   req "song" "song" [t| Song |] [e| format |]
   opt "bank" "bank" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksStringOrKey |]
   opt "drumBank" "drum_bank" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe chunksStringOrKey |]

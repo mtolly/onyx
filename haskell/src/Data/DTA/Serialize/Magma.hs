@@ -7,6 +7,7 @@ import           Data.DTA.Serialize2
 import           Data.Monoid         ((<>))
 import qualified Data.Text           as T
 import           Language.Haskell.TH (stringE)
+import JSONData (eitherCodec)
 
 dtaRecord "Metadata" eosr $ do
   req "songName" "song_name" [t| T.Text |] [e| chunksString |]
@@ -56,7 +57,7 @@ dtaEnum "AutogenTheme" eosreb $ do
 
 dtaRecord "Midi" eosr $ do
   req "midiFile" "file" [t| T.Text |] [e| chunksString |]
-  req "autogenTheme" "autogen_theme" [t| Either AutogenTheme T.Text |] [e| chunksEither format chunksString |]
+  req "autogenTheme" "autogen_theme" [t| Either AutogenTheme T.Text |] [e| eitherCodec format chunksString |]
 
 dtaEnum "DrumLayout" eosreb $ do
   val "Kit"          [e| [Key "drum_layout_kit"             ] |]

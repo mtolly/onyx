@@ -7,6 +7,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TupleSections     #-}
 module Config where
@@ -53,8 +54,8 @@ keyNames = let
     ++ [(letter k <> " flat" , toEnum $ (fromEnum k - 1) `mod` numKeys) | k <- keys]
     ++ [(letter k <> " sharp", toEnum $ (fromEnum k + 1) `mod` numKeys) | k <- keys]
 
-instance TraceJSON Key where
-  traceCodec = JSONCodec
+instance StackJSON Key where
+  stackJSON = StackCodec
     { stackShow = \case
       C  -> "C"
       Cs -> "C sharp"
@@ -68,7 +69,7 @@ instance TraceJSON Key where
       A  -> "A"
       As -> "A sharp"
       B  -> "B"
-    , stackParse = stackParse traceCodec >>= \t -> case lookup (T.toLower t) keyNames of
+    , stackParse = stackParse stackJSON >>= \t -> case lookup (T.toLower t) keyNames of
       Just k  -> return k
       Nothing -> expected "the name of a pitch"
     }
@@ -92,9 +93,9 @@ fromJammitInstrument = \case
   J.Keyboard -> Keys
   J.Vocal    -> Vocal
 
-instance TraceJSON Instrument where
-  traceCodec = JSONCodec
-    { stackParse = stackParse traceCodec >>= \s -> case s :: T.Text of
+instance StackJSON Instrument where
+  stackJSON = StackCodec
+    { stackParse = stackParse stackJSON >>= \s -> case s :: T.Text of
       "guitar" -> return Guitar
       "bass"   -> return Bass
       "drums"  -> return Drums
@@ -109,8 +110,8 @@ instance TraceJSON Instrument where
       Vocal  -> "vocal"
     }
 
-instance TraceJSON Magma.Gender where
-  traceCodec = JSONCodec
+instance StackJSON Magma.Gender where
+  stackJSON = StackCodec
     { stackParse = lift ask >>= \case
       A.String "female" -> return Magma.Female
       A.String "male"   -> return Magma.Male
@@ -134,8 +135,8 @@ data AudioFile
     }
   deriving (Eq, Ord, Show, Read)
 
-instance TraceJSON AudioFile where
-  traceCodec = JSONCodec
+instance StackJSON AudioFile where
+  stackJSON = StackCodec
     { stackParse = decideKey
       [ ("expr", object $ do
         _expr <- requiredKey "expr" fromJSON
@@ -170,10 +171,10 @@ data JammitTrack = JammitTrack
   , _jammitArtist :: Maybe T.Text
   } deriving (Eq, Ord, Show, Read)
 
-instance TraceJSON JammitTrack where
-  traceCodec = asStrictObject "JammitTrack" $ do
-    _jammitTitle  <- _jammitTitle  =. opt Nothing "title"  traceCodec
-    _jammitArtist <- _jammitArtist =. opt Nothing "artist" traceCodec
+instance StackJSON JammitTrack where
+  stackJSON = asStrictObject "JammitTrack" $ do
+    _jammitTitle  <- _jammitTitle  =. opt Nothing "title"  stackJSON
+    _jammitArtist <- _jammitArtist =. opt Nothing "artist" stackJSON
     return JammitTrack{..}
 
 data PlanAudio t a = PlanAudio
@@ -182,8 +183,8 @@ data PlanAudio t a = PlanAudio
   , _planVols :: [Double]
   } deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
-instance (TraceJSON t, TraceJSON a) => TraceJSON (PlanAudio t a) where
-  traceCodec = JSONCodec
+instance (StackJSON t, StackJSON a) => StackJSON (PlanAudio t a) where
+  stackJSON = StackCodec
     { stackParse = decideKey
       [ ("expr", object $ do
         _planExpr <- requiredKey "expr" fromJSON
@@ -211,8 +212,8 @@ data PartAudio a
     }
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
-instance (TraceJSON a) => TraceJSON (PartAudio a) where
-  traceCodec = JSONCodec
+instance (StackJSON a) => StackJSON (PartAudio a) where
+  stackJSON = StackCodec
     { stackParse = decideKey
       [ ("kit", object $ do
         drumsSplitKick <- optionalKey "kick" fromJSON
@@ -234,8 +235,8 @@ instance (TraceJSON a) => TraceJSON (PartAudio a) where
 newtype Parts a = Parts { getParts :: Map.HashMap FlexPartName a }
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
-instance (TraceJSON a) => TraceJSON (Parts a) where
-  traceCodec = JSONCodec
+instance (StackJSON a) => StackJSON (Parts a) where
+  stackJSON = StackCodec
     { stackParse = Parts . Map.fromList . map (first readPartName) . Map.toList <$> mapping fromJSON
     , stackShow = \(Parts hm) -> mappingToJSON $ Map.fromList $ map (first getPartName) $ Map.toList hm
     }
@@ -271,8 +272,8 @@ getMultitrack = \case
 newtype Countin = Countin [(Either U.MeasureBeats U.Seconds, Audio Duration AudioInput)]
   deriving (Eq, Ord, Show)
 
-instance TraceJSON Countin where
-  traceCodec = JSONCodec
+instance StackJSON Countin where
+  stackJSON = StackCodec
     { stackParse = do
       hm <- mapping fromJSON
       fmap Countin $ forM (Map.toList hm) $ \(k, v) -> (, v) <$> parseFrom k parseCountinTime
@@ -320,8 +321,8 @@ parseMeasureBeats = lift ask >>= \t -> let
 showMeasureBeats :: U.MeasureBeats -> T.Text
 showMeasureBeats (msr, bts) = T.pack $ show msr ++ "|" ++ show (realToFrac bts :: Scientific)
 
-instance TraceJSON Plan where
-  traceCodec = JSONCodec
+instance StackJSON Plan where
+  stackJSON = StackCodec
     { stackParse = decideKey
       [ ("mogg-md5", object $ do
         _moggMD5 <- requiredKey "mogg-md5" fromJSON
@@ -363,8 +364,8 @@ instance TraceJSON Plan where
         ]
     }
 
-instance TraceJSON Drums.Audio where
-  traceCodec = JSONCodec
+instance StackJSON Drums.Audio where
+  stackJSON = StackCodec
     { stackParse = fromJSON >>= \n -> case n :: Int of
       0 -> return Drums.D0
       1 -> return Drums.D1
@@ -380,8 +381,8 @@ data AudioInput
   | JammitSelect J.AudioPart T.Text
   deriving (Eq, Ord, Show, Read)
 
-instance TraceJSON AudioInput where
-  traceCodec = JSONCodec
+instance StackJSON AudioInput where
+  stackJSON = StackCodec
     { stackParse = decideKey
       [ ("only", do
         algebraic2 "only"
@@ -421,8 +422,8 @@ jammitPartToTitle = \case
   J.PartVocal -> "Vocal"
   J.PartBVocals -> "B Vocals"
 
-instance TraceJSON Edge where
-  traceCodec = JSONCodec
+instance StackJSON Edge where
+  stackJSON = StackCodec
     { stackParse = lift ask >>= \case
       A.String "start" -> return Start
       A.String "begin" -> return Start
@@ -466,8 +467,8 @@ decideKey opts dft = lift ask >>= \case
     []    -> dft
   _ -> dft
 
-instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
-  traceCodec = JSONCodec
+instance (StackJSON t, StackJSON a) => StackJSON (Audio t a) where
+  stackJSON = StackCodec
     { stackParse = let
       supplyEdge s f = lift ask >>= \case
         OneKey _ (A.Array v)
@@ -509,16 +510,16 @@ instance (TraceJSON t, TraceJSON a) => TraceJSON (Audio t a) where
       Mask tags seams aud -> A.object ["mask" .= [toJSON tags, toJSON seams, toJSON aud]]
     }
 
-(.=) :: (TraceJSON a) => T.Text -> a -> (T.Text, A.Value)
+(.=) :: (StackJSON a) => T.Text -> a -> (T.Text, A.Value)
 k .= x = (k, toJSON x)
 
-instance (TraceJSON t) => TraceJSON (Seam t) where
-  traceCodec = JSONCodec
+instance (StackJSON t) => StackJSON (Seam t) where
+  stackJSON = StackCodec
     { stackParse = object $ do
-      seamCenter <- requiredKey "center" (stackParse traceCodec)
-      valueFade <- fromMaybe (A.Number 0) <$> optionalKey "fade" (stackParse traceCodec)
-      seamFade <- parseFrom valueFade (stackParse traceCodec)
-      seamTag <- requiredKey "tag" (stackParse traceCodec)
+      seamCenter <- requiredKey "center" (stackParse stackJSON)
+      valueFade <- fromMaybe (A.Number 0) <$> optionalKey "fade" (stackParse stackJSON)
+      seamFade <- parseFrom valueFade (stackParse stackJSON)
+      seamTag <- requiredKey "tag" (stackParse stackJSON)
       expectedKeys ["center", "fade", "tag"]
       return Seam{..}
     , stackShow = \Seam{..} -> A.object
@@ -537,7 +538,7 @@ parseMinutes = lift ask >>= \case
   A.String secstr
     | Just seconds <- readMaybe $ T.unpack secstr
     -> return seconds
-  _ -> stackParse traceCodec -- will succeed if JSON number
+  _ -> stackParse stackJSON -- will succeed if JSON number
 
 showTimestamp :: Milli -> A.Value
 showTimestamp s = let
@@ -547,8 +548,8 @@ showTimestamp s = let
     0 -> A.toJSON s
     _ -> A.toJSON $ show mins ++ ":" ++ (if secs < 10 then "0" else "") ++ show secs
 
-instance TraceJSON Duration where
-  traceCodec = JSONCodec
+instance StackJSON Duration where
+  stackJSON = StackCodec
     { stackParse = lift ask >>= \case
       OneKey "frames" v -> inside "frames duration" $ Frames <$> parseFrom v fromJSON
       OneKey "seconds" v -> inside "seconds duration" $ Seconds . toRealFloat <$> parseFrom v parseMinutes
@@ -559,8 +560,8 @@ instance TraceJSON Duration where
       Seconds s -> showTimestamp $ realToFrac s
     }
 
-instance TraceJSON FlexPartName where
-  traceCodec = JSONCodec
+instance StackJSON FlexPartName where
+  stackJSON = StackCodec
     { stackParse = fmap readPartName fromJSON
     , stackShow = A.toJSON . getPartName
     }
@@ -570,8 +571,8 @@ data Difficulty
   | Rank Integer -- ^ [1..]
   deriving (Eq, Ord, Show, Read)
 
-instance TraceJSON Difficulty where
-  traceCodec = JSONCodec
+instance StackJSON Difficulty where
+  stackJSON = StackCodec
     { stackShow = \case
       Tier i -> A.object ["tier" .= i]
       Rank i -> A.object ["rank" .= i]
@@ -588,11 +589,11 @@ data PartGRYBO = PartGRYBO
   , gryboFixFreeform   :: Bool
   } deriving (Eq, Ord, Show, Read)
 
-instance TraceJSON PartGRYBO where
-  traceCodec = asStrictObject "PartGRYBO" $ do
-    gryboDifficulty    <- gryboDifficulty    =. fill (Tier 1) "difficulty"     traceCodec
-    gryboHopoThreshold <- gryboHopoThreshold =. opt  170      "hopo-threshold" traceCodec
-    gryboFixFreeform   <- gryboFixFreeform   =. opt  True     "fix-freeform"   traceCodec
+instance StackJSON PartGRYBO where
+  stackJSON = asStrictObject "PartGRYBO" $ do
+    gryboDifficulty    <- gryboDifficulty    =. fill (Tier 1) "difficulty"     stackJSON
+    gryboHopoThreshold <- gryboHopoThreshold =. opt  170      "hopo-threshold" stackJSON
+    gryboFixFreeform   <- gryboFixFreeform   =. opt  True     "fix-freeform"   stackJSON
     return PartGRYBO{..}
 
 data PartProKeys = PartProKeys
@@ -600,10 +601,10 @@ data PartProKeys = PartProKeys
   , pkFixFreeform :: Bool
   } deriving (Eq, Ord, Show, Read)
 
-instance TraceJSON PartProKeys where
-  traceCodec = asStrictObject "PartProKeys" $ do
-    pkDifficulty  <- pkDifficulty  =. fill (Tier 1) "difficulty"   traceCodec
-    pkFixFreeform <- pkFixFreeform =. opt  True     "fix-freeform" traceCodec
+instance StackJSON PartProKeys where
+  stackJSON = asStrictObject "PartProKeys" $ do
+    pkDifficulty  <- pkDifficulty  =. fill (Tier 1) "difficulty"   stackJSON
+    pkFixFreeform <- pkFixFreeform =. opt  True     "fix-freeform" stackJSON
     return PartProKeys{..}
 
 data PartProGuitar = PartProGuitar
@@ -613,12 +614,12 @@ data PartProGuitar = PartProGuitar
   , pgFixFreeform   :: Bool
   } deriving (Eq, Ord, Show, Read)
 
-instance TraceJSON PartProGuitar where
-  traceCodec = asStrictObject "PartProGuitar" $ do
-    pgDifficulty    <- pgDifficulty    =. fill (Tier 1) "difficulty"     traceCodec
-    pgHopoThreshold <- pgHopoThreshold =. opt  170      "hopo-threshold" traceCodec
-    pgTuning        <- pgTuning        =. opt  []       "tuning"         traceCodec
-    pgFixFreeform   <- pgFixFreeform   =. opt  True     "fix-freeform"   traceCodec
+instance StackJSON PartProGuitar where
+  stackJSON = asStrictObject "PartProGuitar" $ do
+    pgDifficulty    <- pgDifficulty    =. fill (Tier 1) "difficulty"     stackJSON
+    pgHopoThreshold <- pgHopoThreshold =. opt  170      "hopo-threshold" stackJSON
+    pgTuning        <- pgTuning        =. opt  []       "tuning"         stackJSON
+    pgFixFreeform   <- pgFixFreeform   =. opt  True     "fix-freeform"   stackJSON
     return PartProGuitar{..}
 
 data DrumKit
@@ -629,8 +630,8 @@ data DrumKit
   | ElectronicKit
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-instance TraceJSON DrumKit where
-  traceCodec = JSONCodec
+instance StackJSON DrumKit where
+  stackJSON = StackCodec
     { stackParse = lift ask >>= \case
       A.Null     -> return HardRockKit
       A.String t         -> case readMaybe $ filter (/= ' ') $ T.unpack t of
@@ -650,8 +651,8 @@ data DrumLayout
   | FlipYBToms
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-instance TraceJSON DrumLayout where
-  traceCodec = JSONCodec
+instance StackJSON DrumLayout where
+  stackJSON = StackCodec
     { stackParse = lift ask >>= \case
       A.Null                     -> return StandardLayout
       A.String "standard-layout" -> return StandardLayout
@@ -671,21 +672,21 @@ data PartDrums = PartDrums
   , drumsLayout      :: DrumLayout
   } deriving (Eq, Ord, Show, Read)
 
-instance TraceJSON PartDrums where
-  traceCodec = asStrictObject "PartDrums" $ do
-    drumsDifficulty  <- drumsDifficulty  =. fill (Tier 1)       "difficulty"   traceCodec
-    drumsPro         <- drumsPro         =. opt  True           "pro"          traceCodec
-    drumsAuto2xBass  <- drumsAuto2xBass  =. opt  False          "auto-2x-bass" traceCodec
-    drumsFixFreeform <- drumsFixFreeform =. opt  True           "fix-freeform" traceCodec
-    drumsKit         <- drumsKit         =. opt  HardRockKit    "kit"          traceCodec
-    drumsLayout      <- drumsLayout      =. opt  StandardLayout "layout"       traceCodec
+instance StackJSON PartDrums where
+  stackJSON = asStrictObject "PartDrums" $ do
+    drumsDifficulty  <- drumsDifficulty  =. fill (Tier 1)       "difficulty"   stackJSON
+    drumsPro         <- drumsPro         =. opt  True           "pro"          stackJSON
+    drumsAuto2xBass  <- drumsAuto2xBass  =. opt  False          "auto-2x-bass" stackJSON
+    drumsFixFreeform <- drumsFixFreeform =. opt  True           "fix-freeform" stackJSON
+    drumsKit         <- drumsKit         =. opt  HardRockKit    "kit"          stackJSON
+    drumsLayout      <- drumsLayout      =. opt  StandardLayout "layout"       stackJSON
     return PartDrums{..}
 
 data VocalCount = Vocal1 | Vocal2 | Vocal3
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-instance TraceJSON VocalCount where
-  traceCodec = JSONCodec
+instance StackJSON VocalCount where
+  stackJSON = StackCodec
     { stackParse = lift ask >>= \case
       A.Number 1   -> return Vocal1
       A.Number 2   -> return Vocal2
@@ -700,11 +701,11 @@ data PartVocal = PartVocal
   , vocalGender     :: Maybe Magma.Gender
   } deriving (Eq, Ord, Show, Read)
 
-instance TraceJSON PartVocal where
-  traceCodec = asStrictObject "PartVocal" $ do
-    vocalDifficulty <- vocalDifficulty =. fill (Tier 1) "difficulty" traceCodec
-    vocalCount      <- vocalCount      =. opt  Vocal1   "count"      traceCodec
-    vocalGender     <- vocalGender     =. opt  Nothing  "gender"     traceCodec
+instance StackJSON PartVocal where
+  stackJSON = asStrictObject "PartVocal" $ do
+    vocalDifficulty <- vocalDifficulty =. fill (Tier 1) "difficulty" stackJSON
+    vocalCount      <- vocalCount      =. opt  Vocal1   "count"      stackJSON
+    vocalGender     <- vocalGender     =. opt  Nothing  "gender"     stackJSON
     return PartVocal{..}
 
 data Part = Part
@@ -715,13 +716,13 @@ data Part = Part
   , partVocal     :: Maybe PartVocal
   } deriving (Eq, Ord, Show, Read)
 
-instance TraceJSON Part where
-  traceCodec = asStrictObject "Part" $ do
-    partGRYBO     <- partGRYBO     =. opt Nothing "grybo"      traceCodec
-    partProKeys   <- partProKeys   =. opt Nothing "pro-keys"   traceCodec
-    partProGuitar <- partProGuitar =. opt Nothing "pro-guitar" traceCodec
-    partDrums     <- partDrums     =. opt Nothing "drums"      traceCodec
-    partVocal     <- partVocal     =. opt Nothing "vocal"      traceCodec
+instance StackJSON Part where
+  stackJSON = asStrictObject "Part" $ do
+    partGRYBO     <- partGRYBO     =. opt Nothing "grybo"      stackJSON
+    partProKeys   <- partProKeys   =. opt Nothing "pro-keys"   stackJSON
+    partProGuitar <- partProGuitar =. opt Nothing "pro-guitar" stackJSON
+    partDrums     <- partDrums     =. opt Nothing "drums"      stackJSON
+    partVocal     <- partVocal     =. opt Nothing "vocal"      stackJSON
     return Part{..}
 
 instance Default Part where
@@ -741,8 +742,8 @@ data AutogenTheme
   | SynthPop
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-instance TraceJSON AutogenTheme where
-  traceCodec = JSONCodec
+instance StackJSON AutogenTheme where
+  stackJSON = StackCodec
     { stackParse = lift ask >>= \case
       A.Null             -> return AutogenDefault
       A.String "Default" -> return AutogenDefault
@@ -760,8 +761,8 @@ data Rating
   | Unrated
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-instance TraceJSON Rating where
-  traceCodec = JSONCodec
+instance StackJSON Rating where
+  stackJSON = StackCodec
     { stackParse = lift ask >>= \case
       A.Null     -> return Unrated
       A.String t -> case T.filter (/= ' ') t of
@@ -784,8 +785,8 @@ data PreviewTime
   | PreviewSeconds U.Seconds
   deriving (Eq, Ord, Show)
 
-instance TraceJSON PreviewTime where
-  traceCodec = JSONCodec
+instance StackJSON PreviewTime where
+  stackJSON = StackCodec
     { stackParse = let
       traceNum = do
         d <- fromJSON
@@ -831,31 +832,31 @@ data Metadata = Metadata
   , _difficulty   :: Difficulty
   } deriving (Eq, Show)
 
-instance TraceJSON Metadata where
-  traceCodec = asStrictObject "Metadata" $ do
-    _title        <- _title        =. warning Nothing        "title"          traceCodec
-    _artist       <- _artist       =. warning Nothing        "artist"         traceCodec
-    _album        <- _album        =. warning Nothing        "album"          traceCodec
-    _genre        <- _genre        =. warning Nothing        "genre"          traceCodec
-    _subgenre     <- _subgenre     =. warning Nothing        "subgenre"       traceCodec
-    _year         <- _year         =. warning Nothing        "year"           traceCodec
-    _fileAlbumArt <- _fileAlbumArt =. warning Nothing        "file-album-art" traceCodec
-    _trackNumber  <- _trackNumber  =. warning Nothing        "track-number"   traceCodec
-    _comments     <- _comments     =. opt     []             "comments"       traceCodec
-    _key          <- _key          =. opt     Nothing        "key"            traceCodec
-    _autogenTheme <- _autogenTheme =. opt     AutogenDefault "autogen-theme"  traceCodec
-    _author       <- _author       =. warning Nothing        "author"         traceCodec
-    _rating       <- _rating       =. opt     Unrated        "rating"         traceCodec
-    _previewStart <- _previewStart =. opt     Nothing        "preview-start"  traceCodec
-    _previewEnd   <- _previewEnd   =. opt     Nothing        "preview-end"    traceCodec
-    _languages    <- _languages    =. opt     []             "languages"      traceCodec
-    _convert      <- _convert      =. opt     False          "convert"        traceCodec
-    _rhythmKeys   <- _rhythmKeys   =. opt     False          "rhythm-keys"    traceCodec
-    _rhythmBass   <- _rhythmBass   =. opt     False          "rhythm-bass"    traceCodec
-    _catEMH       <- _catEMH       =. opt     False          "cat-emh"        traceCodec
-    _expertOnly   <- _expertOnly   =. opt     False          "expert-only"    traceCodec
-    _cover        <- _cover        =. opt     False          "cover"          traceCodec
-    _difficulty   <- _difficulty   =. fill    (Tier 1)       "difficulty"     traceCodec
+instance StackJSON Metadata where
+  stackJSON = asStrictObject "Metadata" $ do
+    _title        <- _title        =. warning Nothing        "title"          stackJSON
+    _artist       <- _artist       =. warning Nothing        "artist"         stackJSON
+    _album        <- _album        =. warning Nothing        "album"          stackJSON
+    _genre        <- _genre        =. warning Nothing        "genre"          stackJSON
+    _subgenre     <- _subgenre     =. warning Nothing        "subgenre"       stackJSON
+    _year         <- _year         =. warning Nothing        "year"           stackJSON
+    _fileAlbumArt <- _fileAlbumArt =. warning Nothing        "file-album-art" stackJSON
+    _trackNumber  <- _trackNumber  =. warning Nothing        "track-number"   stackJSON
+    _comments     <- _comments     =. opt     []             "comments"       stackJSON
+    _key          <- _key          =. opt     Nothing        "key"            stackJSON
+    _autogenTheme <- _autogenTheme =. opt     AutogenDefault "autogen-theme"  stackJSON
+    _author       <- _author       =. warning Nothing        "author"         stackJSON
+    _rating       <- _rating       =. opt     Unrated        "rating"         stackJSON
+    _previewStart <- _previewStart =. opt     Nothing        "preview-start"  stackJSON
+    _previewEnd   <- _previewEnd   =. opt     Nothing        "preview-end"    stackJSON
+    _languages    <- _languages    =. opt     []             "languages"      stackJSON
+    _convert      <- _convert      =. opt     False          "convert"        stackJSON
+    _rhythmKeys   <- _rhythmKeys   =. opt     False          "rhythm-keys"    stackJSON
+    _rhythmBass   <- _rhythmBass   =. opt     False          "rhythm-bass"    stackJSON
+    _catEMH       <- _catEMH       =. opt     False          "cat-emh"        stackJSON
+    _expertOnly   <- _expertOnly   =. opt     False          "expert-only"    stackJSON
+    _cover        <- _cover        =. opt     False          "cover"          stackJSON
+    _difficulty   <- _difficulty   =. fill    (Tier 1)       "difficulty"     stackJSON
     return Metadata{..}
 
 instance Default Metadata where
@@ -885,20 +886,23 @@ data TargetRB3 = TargetRB3
   , rb3_Vocal       :: FlexPartName
   } deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
-instance TraceJSON TargetRB3 where
-  traceCodec = asStrictObject "TargetRB3" $ do
-    rb3_Speed       <- rb3_Speed       =. opt Nothing    "speed"         traceCodec
-    rb3_Plan        <- rb3_Plan        =. opt Nothing    "plan"          traceCodec
-    rb3_2xBassPedal <- rb3_2xBassPedal =. opt False      "2x-bass-pedal" traceCodec
-    rb3_SongID      <- rb3_SongID      =. opt Nothing    "song-id"       traceCodec
-    rb3_Label       <- rb3_Label       =. opt Nothing    "label"         traceCodec
-    rb3_Version     <- rb3_Version     =. opt Nothing    "version"       traceCodec
-    rb3_Guitar      <- rb3_Guitar      =. opt FlexGuitar "guitar"        traceCodec
-    rb3_Bass        <- rb3_Bass        =. opt FlexBass   "bass"          traceCodec
-    rb3_Drums       <- rb3_Drums       =. opt FlexDrums  "drums"         traceCodec
-    rb3_Keys        <- rb3_Keys        =. opt FlexKeys   "keys"          traceCodec
-    rb3_Vocal       <- rb3_Vocal       =. opt FlexVocal  "vocal"         traceCodec
-    return TargetRB3{..}
+parseTargetRB3 :: (Monad m) => ObjectCodec m TargetRB3
+parseTargetRB3 = do
+  rb3_Speed       <- rb3_Speed       =. opt Nothing    "speed"         stackJSON
+  rb3_Plan        <- rb3_Plan        =. opt Nothing    "plan"          stackJSON
+  rb3_2xBassPedal <- rb3_2xBassPedal =. opt False      "2x-bass-pedal" stackJSON
+  rb3_SongID      <- rb3_SongID      =. opt Nothing    "song-id"       stackJSON
+  rb3_Label       <- rb3_Label       =. opt Nothing    "label"         stackJSON
+  rb3_Version     <- rb3_Version     =. opt Nothing    "version"       stackJSON
+  rb3_Guitar      <- rb3_Guitar      =. opt FlexGuitar "guitar"        stackJSON
+  rb3_Bass        <- rb3_Bass        =. opt FlexBass   "bass"          stackJSON
+  rb3_Drums       <- rb3_Drums       =. opt FlexDrums  "drums"         stackJSON
+  rb3_Keys        <- rb3_Keys        =. opt FlexKeys   "keys"          stackJSON
+  rb3_Vocal       <- rb3_Vocal       =. opt FlexVocal  "vocal"         stackJSON
+  return TargetRB3{..}
+
+instance StackJSON TargetRB3 where
+  stackJSON = asStrictObject "TargetRB3" parseTargetRB3
 
 instance Default TargetRB3 where
   def = fromEmptyObject
@@ -916,19 +920,22 @@ data TargetRB2 = TargetRB2
   , rb2_Vocal       :: FlexPartName
   } deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
-instance TraceJSON TargetRB2 where
-  traceCodec = asStrictObject "TargetRB2" $ do
-    rb2_Speed       <- rb2_Speed       =. opt Nothing    "speed"         traceCodec
-    rb2_Plan        <- rb2_Plan        =. opt Nothing    "plan"          traceCodec
-    rb2_2xBassPedal <- rb2_2xBassPedal =. opt False      "2x-bass-pedal" traceCodec
-    rb2_SongID      <- rb2_SongID      =. opt Nothing    "song-id"       traceCodec
-    rb2_Label       <- rb2_Label       =. opt Nothing    "label"         traceCodec
-    rb2_Version     <- rb2_Version     =. opt Nothing    "version"       traceCodec
-    rb2_Guitar      <- rb2_Guitar      =. opt FlexGuitar "guitar"        traceCodec
-    rb2_Bass        <- rb2_Bass        =. opt FlexBass   "bass"          traceCodec
-    rb2_Drums       <- rb2_Drums       =. opt FlexDrums  "drums"         traceCodec
-    rb2_Vocal       <- rb2_Vocal       =. opt FlexVocal  "vocal"         traceCodec
-    return TargetRB2{..}
+parseTargetRB2 :: (Monad m) => ObjectCodec m TargetRB2
+parseTargetRB2 = do
+  rb2_Speed       <- rb2_Speed       =. opt Nothing    "speed"         stackJSON
+  rb2_Plan        <- rb2_Plan        =. opt Nothing    "plan"          stackJSON
+  rb2_2xBassPedal <- rb2_2xBassPedal =. opt False      "2x-bass-pedal" stackJSON
+  rb2_SongID      <- rb2_SongID      =. opt Nothing    "song-id"       stackJSON
+  rb2_Label       <- rb2_Label       =. opt Nothing    "label"         stackJSON
+  rb2_Version     <- rb2_Version     =. opt Nothing    "version"       stackJSON
+  rb2_Guitar      <- rb2_Guitar      =. opt FlexGuitar "guitar"        stackJSON
+  rb2_Bass        <- rb2_Bass        =. opt FlexBass   "bass"          stackJSON
+  rb2_Drums       <- rb2_Drums       =. opt FlexDrums  "drums"         stackJSON
+  rb2_Vocal       <- rb2_Vocal       =. opt FlexVocal  "vocal"         stackJSON
+  return TargetRB2{..}
+
+instance StackJSON TargetRB2 where
+  stackJSON = asStrictObject "TargetRB2" parseTargetRB2
 
 instance Default TargetRB2 where
   def = fromEmptyObject
@@ -947,20 +954,23 @@ data TargetPS = TargetPS
   , ps_GuitarCoop :: FlexPartName
   } deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
-instance TraceJSON TargetPS where
-  traceCodec = asStrictObject "TargetPS" $ do
-    ps_Speed      <- ps_Speed      =. opt Nothing                   "speed"       traceCodec
-    ps_Plan       <- ps_Plan       =. opt Nothing                   "plan"        traceCodec
-    ps_Label      <- ps_Label      =. opt Nothing                   "label"       traceCodec
-    ps_FileVideo  <- ps_FileVideo  =. opt Nothing                   "file-video"  traceCodec
-    ps_Guitar     <- ps_Guitar     =. opt FlexGuitar                "guitar"      traceCodec
-    ps_Bass       <- ps_Bass       =. opt FlexBass                  "bass"        traceCodec
-    ps_Drums      <- ps_Drums      =. opt FlexDrums                 "drums"       traceCodec
-    ps_Keys       <- ps_Keys       =. opt FlexKeys                  "keys"        traceCodec
-    ps_Vocal      <- ps_Vocal      =. opt FlexVocal                 "vocal"       traceCodec
-    ps_Rhythm     <- ps_Rhythm     =. opt (FlexExtra "rhythm"     ) "rhythm"      traceCodec
-    ps_GuitarCoop <- ps_GuitarCoop =. opt (FlexExtra "guitar-coop") "guitar-coop" traceCodec
-    return TargetPS{..}
+parseTargetPS :: (Monad m) => ObjectCodec m TargetPS
+parseTargetPS = do
+  ps_Speed      <- ps_Speed      =. opt Nothing                   "speed"       stackJSON
+  ps_Plan       <- ps_Plan       =. opt Nothing                   "plan"        stackJSON
+  ps_Label      <- ps_Label      =. opt Nothing                   "label"       stackJSON
+  ps_FileVideo  <- ps_FileVideo  =. opt Nothing                   "file-video"  stackJSON
+  ps_Guitar     <- ps_Guitar     =. opt FlexGuitar                "guitar"      stackJSON
+  ps_Bass       <- ps_Bass       =. opt FlexBass                  "bass"        stackJSON
+  ps_Drums      <- ps_Drums      =. opt FlexDrums                 "drums"       stackJSON
+  ps_Keys       <- ps_Keys       =. opt FlexKeys                  "keys"        stackJSON
+  ps_Vocal      <- ps_Vocal      =. opt FlexVocal                 "vocal"       stackJSON
+  ps_Rhythm     <- ps_Rhythm     =. opt (FlexExtra "rhythm"     ) "rhythm"      stackJSON
+  ps_GuitarCoop <- ps_GuitarCoop =. opt (FlexExtra "guitar-coop") "guitar-coop" stackJSON
+  return TargetPS{..}
+
+instance StackJSON TargetPS where
+  stackJSON = asStrictObject "TargetPS" parseTargetPS
 
 instance Default TargetPS where
   def = fromEmptyObject
@@ -971,13 +981,11 @@ data Target
   | PS  TargetPS
   deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
-addKey :: (TraceJSON a) => T.Text -> A.Value -> a -> A.Value
-addKey k v t = case toJSON t of
-  A.Object o -> A.Object $ Map.insert k v o
-  x          -> error $ "panic! expected JSON object, but got: " ++ show x
+addKey :: (forall m. (Monad m) => ObjectCodec m a) -> T.Text -> A.Value -> a -> A.Value
+addKey codec k v x = A.Object $ Map.insert k v $ makeObject codec x
 
-instance TraceJSON Target where
-  traceCodec = JSONCodec
+instance StackJSON Target where
+  stackJSON = StackCodec
     { stackParse = object $ do
       target <- requiredKey "game" fromJSON
       hm <- lift ask
@@ -987,9 +995,9 @@ instance TraceJSON Target where
         "ps"  -> fmap PS  fromJSON
         _     -> fatal $ "Unrecognized target game: " ++ show target
     , stackShow = \case
-      RB3 rb3 -> addKey "game" "rb3" rb3
-      RB2 rb2 -> addKey "game" "rb2" rb2
-      PS  ps  -> addKey "game" "ps"  ps
+      RB3 rb3 -> addKey parseTargetRB3 "game" "rb3" rb3
+      RB2 rb2 -> addKey parseTargetRB2 "game" "rb2" rb2
+      PS  ps  -> addKey parseTargetPS  "game" "ps"  ps
     }
 
 data SongYaml = SongYaml
@@ -1001,14 +1009,14 @@ data SongYaml = SongYaml
   , _parts    :: Parts Part
   } deriving (Eq, Show)
 
-instance TraceJSON SongYaml where
-  traceCodec = asStrictObject "SongYaml" $ do
-    _metadata <- _metadata =. opt def       "metadata" traceCodec
-    _audio    <- _audio    =. opt Map.empty "audio"    (dict traceCodec)
-    _jammit   <- _jammit   =. opt Map.empty "jammit"   (dict traceCodec)
-    _plans    <- _plans    =. opt Map.empty "plans"    (dict traceCodec)
-    _targets  <- _targets  =. opt Map.empty "targets"  (dict traceCodec)
-    _parts    <- _parts    =. req           "parts"    traceCodec
+instance StackJSON SongYaml where
+  stackJSON = asStrictObject "SongYaml" $ do
+    _metadata <- _metadata =. opt def       "metadata" stackJSON
+    _audio    <- _audio    =. opt Map.empty "audio"    (dict stackJSON)
+    _jammit   <- _jammit   =. opt Map.empty "jammit"   (dict stackJSON)
+    _plans    <- _plans    =. opt Map.empty "plans"    (dict stackJSON)
+    _targets  <- _targets  =. opt Map.empty "targets"  (dict stackJSON)
+    _parts    <- _parts    =. req           "parts"    stackJSON
     return SongYaml{..}
 
 getPart :: FlexPartName -> SongYaml -> Maybe Part

@@ -56,7 +56,8 @@ import           DryVox                                (clipDryVox,
 import qualified FretsOnFire                           as FoF
 import           Genre
 import           Image
-import           JSONData                              (TraceJSON (..),
+import           JSONData                              (stackShow)
+import           JSONData                              (StackJSON (..),
                                                         fromJSON)
 import qualified Magma
 import qualified MelodysEscape
@@ -592,7 +593,7 @@ shakeTrace stk = runStackTraceT stk >>= \(res, Messages warns) -> do
 pat ≡> f = pat %> shakeTrace . f
 infix 1 ≡>
 
-loadYaml :: (TraceJSON a, MonadIO m) => FilePath -> StackTraceT m a
+loadYaml :: (StackJSON a, MonadIO m) => FilePath -> StackTraceT m a
 loadYaml fp = do
   yaml <- readYAMLTree fp
   mapStackTraceT (`runReaderT` yaml) fromJSON
@@ -1303,7 +1304,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                               , D.guidePitchVolume = Nothing
                               , D.encoding = Nothing
                               }
-                        liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : D2.toChunks D2.format newDTA))]
+                        liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : stackShow D2.format newDTA))]
                   rb2DTA ≡> \out -> do
                     lift $ need [rb2OriginalDTA, pathDta]
                     (_, magmaDTA, _) <- readRB3DTA rb2OriginalDTA
