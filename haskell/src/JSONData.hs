@@ -1,212 +1,216 @@
+{-# LANGUAGE DefaultSignatures          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE PatternSynonyms            #-}
-{-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE ViewPatterns               #-}
 module JSONData where
 
 import           Control.Applicative            ((<|>))
-import           Control.Monad                  (forM)
+import qualified Control.Exception              as Exc
+import           Control.Monad                  (forM, unless, when)
+import           Control.Monad.Codec
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
+import qualified Control.Monad.Trans.RWS        as RWS
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
-import           Data.Aeson                     ((.=))
 import qualified Data.Aeson                     as A
+import qualified Data.Aeson.Types               as A
 import qualified Data.ByteString.Lazy.Char8     as BL8
-import           Data.Default.Class
-import           Data.Hashable                  (Hashable (..))
+import           Data.Functor.Identity          (Identity (..))
 import qualified Data.HashMap.Strict            as Map
-import           Data.List                      ((\\))
+import qualified Data.HashSet                   as Set
 import           Data.Scientific
 import qualified Data.Text                      as T
 import qualified Data.Vector                    as V
-import           Language.Haskell.TH
-import qualified Language.Haskell.TH.Syntax     as TH
 
-type Parser m context = StackTraceT (ReaderT context m)
+type StackParser m context = StackTraceT (ReaderT context m)
 
-expected :: (Monad m) => String -> Parser m A.Value a
+type ObjectParserT m = StackTraceT (RWS.RWST A.Object () (Set.HashSet T.Text) m)
+type ObjectBuilder = Writer [A.Pair]
+type ObjectCodec m a = Codec (ObjectParserT m) ObjectBuilder a
+
+data JSONCodec m a = JSONCodec
+  { stackParse :: StackParser m A.Value a
+  , stackShow  :: a -> A.Value
+  }
+
+expected :: (Monad m) => String -> StackParser m A.Value a
 expected x = lift ask >>= \v -> fatal $ "Expected " ++ x ++ ", but found: " ++ BL8.unpack (A.encode v)
 
+expectedObj :: (Monad m) => String -> ObjectParserT m a
+expectedObj x = lift RWS.ask >>= \v -> fatal $ "Expected " ++ x ++ ", but found: " ++ BL8.unpack (A.encode $ A.Object v)
+
 class TraceJSON a where
-  traceJSON :: (Monad m) => Parser m A.Value a
-  traceJSONList :: (Monad m) => Parser m A.Value [a]
-  traceJSONList = lift ask >>= \case
-    A.Array v -> forM (zip [0..] $ V.toList v) $ \(i, x) ->
-      inside ("array element " ++ show (i :: Int)) $ parseFrom x traceJSON
-    _         -> expected "an array"
+  traceCodec :: (Monad m) => JSONCodec m a
+  default traceCodec :: (A.ToJSON a, A.FromJSON a, Monad m) => JSONCodec m a
+  traceCodec = aesonCodec
 
-instance (TraceJSON a) => TraceJSON [a] where
-  traceJSON = traceJSONList
+  traceCodecList :: (Monad m) => JSONCodec m [a]
+  traceCodecList = listCodec traceCodec
 
-instance TraceJSON A.Value where
-  traceJSON = lift ask
+aesonCodec :: (A.ToJSON a, A.FromJSON a, Monad m) => JSONCodec m a
+aesonCodec = JSONCodec
+  { stackShow = A.toJSON
+  , stackParse = lift ask >>= \v -> case A.fromJSON v of
+    A.Success x -> return x
+    A.Error err -> fatal err
+  }
 
-instance TraceJSON Bool where
-  traceJSON = lift ask >>= \case
-    A.Bool b -> return b
-    _        -> expected "a boolean"
+listCodec :: (Monad m) => JSONCodec m a -> JSONCodec m [a]
+listCodec elt = JSONCodec
+  { stackShow = A.Array . V.fromList . map (stackShow elt)
+  , stackParse = lift ask >>= \case
+    A.Array vect -> forM (zip [0..] $ V.toList vect) $ \(i, x) ->
+      inside ("array element " ++ show (i :: Int)) $
+        parseFrom x $ stackParse elt
+    _ -> expected "array"
+  }
 
-instance TraceJSON T.Text where
-  traceJSON = lift ask >>= \case
-    A.String s -> return s
-    _          -> expected "a string"
-
-instance TraceJSON Char where
-  traceJSON = traceJSON >>= \case
-    [c] -> return c
-    _   -> expected "a string of a single character"
-  traceJSONList = fmap T.unpack traceJSON
-
-instance TraceJSON Scientific where
-  traceJSON = lift ask >>= \case
-    A.Number n -> return n
-    _          -> expected "a number"
-
-instance TraceJSON Integer where
-  traceJSON = fmap (round :: Scientific -> Integer) traceJSON
-
-instance TraceJSON Double where
-  traceJSON = fmap toRealFloat traceJSON
-
-instance TraceJSON Int where
-  traceJSON = traceJSON >>= \n -> case toBoundedInteger n of
-    Nothing -> expected "a number in Int range"
-    Just i  -> return i
-
-newtype JSONEither a b = JSONEither (Either a b)
-  deriving (Eq, Ord, Show, Read, Hashable)
-
-instance (TraceJSON a, TraceJSON b) => TraceJSON (JSONEither a b) where
-  traceJSON = fmap JSONEither $ fmap Left traceJSON <|> fmap Right traceJSON
-
-instance (A.ToJSON a, A.ToJSON b) => A.ToJSON (JSONEither a b) where
-  toJSON (JSONEither (Left  x)) = A.toJSON x
-  toJSON (JSONEither (Right y)) = A.toJSON y
-
-instance (TraceJSON a, TraceJSON b) => TraceJSON (Either a b) where
-  traceJSON = fmap Left traceJSON <|> fmap Right traceJSON
-
-instance (TraceJSON a) => TraceJSON (Maybe a) where
-  traceJSON = lift ask >>= \case
-    A.Null -> return Nothing
-    _      -> fmap Just traceJSON
-
-parseFrom :: (Monad m) => v -> Parser m v a -> Parser m v' a
+parseFrom :: (Monad m) => v1 -> StackParser m v1 a -> StackParser m v2 a
 parseFrom v = mapStackTraceT $ withReaderT $ const v
 
-object :: (Monad m) => Parser m (Map.HashMap T.Text A.Value) a -> Parser m A.Value a
+-- | Should be run as the last action in an object parser.
+-- Raises an error if the object has a key that wasn't parsed.
+strictKeys :: (Monad m) => ObjectParserT m ()
+strictKeys = do
+  obj <- lift RWS.ask
+  known <- lift RWS.get
+  let unknown = Set.fromList (Map.keys obj) `Set.difference` known
+  unless (Set.null unknown) $ fatal $ "Unrecognized object keys: " ++ show (Set.toList unknown)
+
+asObject :: (Monad m) => T.Text -> ObjectCodec m a -> JSONCodec m a
+asObject err codec = JSONCodec
+  { stackParse = lift ask >>= \case
+    A.Object obj -> let
+      f rws = lift $ fmap fst $ RWS.evalRWST rws obj Set.empty
+      in mapStackTraceT f $ codecIn codec
+    _ -> expected $ T.unpack err ++ " object"
+  , stackShow = A.object . execWriter . codecOut codec
+  }
+
+asStrictObject :: (Monad m) => T.Text -> Codec (ObjectParserT m) ObjectBuilder a -> JSONCodec m a
+asStrictObject err codec = asObject err codec{ codecIn = codecIn codec <* strictKeys }
+
+object :: (Monad m) => StackParser m (Map.HashMap T.Text A.Value) a -> StackParser m A.Value a
 object p = lift ask >>= \case
   A.Object o -> parseFrom o p
   _          -> expected "an object"
 
-requiredKey :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) a
+objectKey :: (Monad m, Eq a) => Maybe a -> Bool -> Bool -> T.Text -> JSONCodec m a -> ObjectCodec m a
+objectKey dflt shouldWarn shouldFill key valCodec = Codec
+  { codecIn = do
+    obj <- lift RWS.ask
+    case Map.lookup key obj of
+      Nothing -> case dflt of
+        Nothing -> expectedObj $ "to find required key " ++ show key ++ " in object"
+        Just x  -> do
+          when shouldWarn $ warn $ "missing key " ++ show key
+          return x
+      Just v  -> inside ("required key " ++ show key) $ do
+        lift $ RWS.modify $ Set.insert key
+        let f rdr = lift $ runReaderT rdr v
+        mapStackTraceT f $ stackParse valCodec
+  , codecOut = \val -> writer
+    ( val
+    , [ (key, stackShow valCodec val) | shouldFill || dflt == Just val ]
+    )
+  }
+
+req :: (Monad m, Eq a) => T.Text -> JSONCodec m a -> ObjectCodec m a
+req = objectKey Nothing False False
+
+warning, fill, opt :: (Monad m, Eq a) => a -> T.Text -> JSONCodec m a -> ObjectCodec m a
+warning x = objectKey (Just x) True  True
+fill    x = objectKey (Just x) False True
+opt     x = objectKey (Just x) False False
+
+-- TODO cleanup
+requiredKey :: (Monad m) => T.Text -> StackParser m A.Value a -> StackParser m (Map.HashMap T.Text A.Value) a
 requiredKey k p = lift ask >>= \hm -> case Map.lookup k hm of
   Nothing -> parseFrom (A.Object hm) $
     expected $ "to find required key " ++ show k ++ " in object"
   Just v  -> inside ("required key " ++ show k) $ parseFrom v p
 
-optionalKey :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) (Maybe a)
+-- TODO cleanup
+optionalKey :: (Monad m) => T.Text -> StackParser m A.Value a -> StackParser m (Map.HashMap T.Text A.Value) (Maybe a)
 optionalKey k p = lift ask >>= \hm -> case Map.lookup k hm of
   Nothing -> return Nothing
   Just v  -> fmap Just $ inside ("optional key " ++ show k) $ parseFrom v p
 
-onlyKey :: (Monad m) => T.Text -> Parser m A.Value a -> Parser m (Map.HashMap T.Text A.Value) a
+-- TODO cleanup
+expectedKeys :: (Monad m) => [T.Text] -> StackParser m (Map.HashMap T.Text A.Value) ()
+expectedKeys keys = do
+  hm <- lift ask
+  let unknown = Set.fromList (Map.keys hm) `Set.difference` Set.fromList keys
+  unless (Set.null unknown) $ fatal $ "Unrecognized object keys: " ++ show (Set.toList unknown)
+
+instance TraceJSON Int
+instance TraceJSON Integer
+instance TraceJSON Scientific
+instance TraceJSON Double
+instance TraceJSON T.Text
+instance TraceJSON Bool
+instance TraceJSON A.Value
+
+instance (TraceJSON a) => TraceJSON [a] where
+  traceCodec = traceCodecList
+
+instance TraceJSON Char where
+  traceCodecList = aesonCodec
+
+eitherCodec :: (Monad m) => JSONCodec m a -> JSONCodec m b -> JSONCodec m (Either a b)
+eitherCodec ca cb = JSONCodec
+  { stackShow  = either (stackShow ca) (stackShow cb)
+  , stackParse = fmap Left (stackParse ca) <|> fmap Right (stackParse cb)
+  }
+
+instance (TraceJSON a, TraceJSON b) => TraceJSON (Either a b) where
+  traceCodec = eitherCodec traceCodec traceCodec
+
+maybeCodec :: (Monad m) => JSONCodec m a -> JSONCodec m (Maybe a)
+maybeCodec c = JSONCodec
+  { stackShow = maybe A.Null $ stackShow c
+  , stackParse = lift ask >>= \case
+    A.Null -> return Nothing
+    _      -> fmap Just $ stackParse c
+  }
+
+instance (TraceJSON a) => TraceJSON (Maybe a) where
+  traceCodec = maybeCodec traceCodec
+
+onlyKey :: (Monad m) => T.Text -> StackParser m A.Value a -> StackParser m (Map.HashMap T.Text A.Value) a
 onlyKey k p = lift ask >>= \hm -> case Map.toList hm of
   [(k', v)] | k == k' -> inside ("only key " ++ show k) $ parseFrom v p
   _ -> parseFrom (A.Object hm) $
     expected $ "to find only key " ++ show k ++ " in object"
 
-expectedKeys :: (Monad m) => [T.Text] -> Parser m (Map.HashMap T.Text A.Value) ()
-expectedKeys keys = do
-  hm <- lift ask
-  case Map.keys hm \\ keys of
-    []    -> return ()
-    unrec -> fatal $ "Unrecognized object keys: " ++ show unrec
-
-mapping :: (Monad m) => Parser m A.Value a -> Parser m A.Value (Map.HashMap T.Text a)
+mapping :: (Monad m) => StackParser m A.Value a -> StackParser m A.Value (Map.HashMap T.Text a)
 mapping p = lift ask >>= \case
   A.Object o -> Map.traverseWithKey (\k x -> inside ("mapping key " ++ show k) $ parseFrom x p) o
   _          -> expected "an object"
+
+mappingToJSON :: (TraceJSON a) => Map.HashMap T.Text a -> A.Value
+mappingToJSON = A.toJSON . fmap toJSON
+
+dict :: (Monad m) => JSONCodec m a -> JSONCodec m (Map.HashMap T.Text a)
+dict c = JSONCodec
+  { stackShow = A.toJSON . fmap (stackShow c)
+  , stackParse = mapping $ stackParse c
+  }
 
 pattern OneKey :: T.Text -> A.Value -> A.Value
 pattern OneKey k v <- A.Object (Map.toList -> [(k, v)]) where
   OneKey k v = A.Object $ Map.fromList [(k, v)]
 
-data JSONField = JSONField
-  { hsField      :: String
-  , jsonKey      :: String
-  , fieldType    :: TypeQ
-  , defaultValue :: Maybe ExpQ
-  , warnMissing  :: Bool
-  , writeDefault :: Bool
-  }
+-- TODO find a safer way to do this
+fromEmptyObject :: (TraceJSON a) => a
+fromEmptyObject = case runReader (runStackTraceT $ stackParse traceCodec) $ A.object [] of
+  (Right x , _) -> x
+  (Left err, _) -> error $ Exc.displayException err
 
-req :: String -> String -> TypeQ -> Writer [JSONField] ()
-req hs js t = tell [JSONField hs js t Nothing False False]
+toJSON :: (TraceJSON a) => a -> A.Value
+toJSON x = stackShow (traceCodec :: (TraceJSON b) => JSONCodec Identity b) x
 
-warning, fill, opt :: String -> String -> TypeQ -> ExpQ -> Writer [JSONField] ()
-warning hs js t dft = tell [JSONField hs js t (Just dft) True  False]
-fill    hs js t dft = tell [JSONField hs js t (Just dft) False True ]
-opt     hs js t dft = tell [JSONField hs js t (Just dft) False False]
-
-eqshow :: CxtQ
-eqshow = cxt [[t| Eq |], [t| Show |]]
-
-eos :: CxtQ
-eos = cxt [[t| Eq |], [t| Ord |], [t| Show |]]
-
-eosr :: CxtQ
-eosr = cxt [[t| Eq |], [t| Ord |], [t| Show |], [t| Read |]]
-
-jsonRecord :: String -> CxtQ -> Writer [JSONField] () -> DecsQ
-jsonRecord rec derivs writ = do
-  let fields = execWriter writ
-      apply x y = [e| $x <*> $y |]
-      fn x y = [e| $x $y |]
-  dec1 <- dataD (cxt []) (mkName rec) [] Nothing
-    [ recC (mkName rec) $ flip map fields $ \field ->
-      varBangType (mkName $ hsField field)
-      $ bangType (bang sourceNoUnpack noSourceStrictness) (fieldType field)
-    ]
-    derivs
-  decs2 <- let
-    keys = TH.lift $ map jsonKey fields
-    tracer = foldl apply [e| pure $(conE (mkName rec)) |] $ flip map fields $ \field ->
-      case defaultValue field of
-        Just dft -> [e|
-          optionalKey $(TH.lift (jsonKey field)) traceJSON >>= \case
-            Nothing -> do
-              when $(TH.lift (warnMissing field))
-                (warn ("missing key " ++ show ($(TH.lift (jsonKey field)) :: String)))
-              return $dft
-            Just x -> return x
-          |]
-        Nothing -> [e| requiredKey $(TH.lift (jsonKey field)) traceJSON |]
-    in [d|
-      instance TraceJSON $(conT (mkName rec)) where
-        traceJSON = object (expectedKeys $keys >> $tracer)
-    |]
-  recName <- newName "rec"
-  decs3 <- let
-    parts = listE $ flip map fields $ \field -> let
-      getField = varE (mkName (hsField field))
-      in case defaultValue field of
-        Just dft | not $ writeDefault field -> [e|
-          if $getField $(varE recName) == $dft
-            then []
-            else [$(TH.lift (jsonKey field)) .= $getField $(varE recName)]
-          |]
-        _ -> [e| [$(TH.lift (jsonKey field)) .= $getField $(varE recName)] |]
-    in [d|
-      instance A.ToJSON $(conT (mkName rec)) where
-        toJSON $(varP recName) = A.object (concat $parts)
-    |]
-  decs4 <- case mapM defaultValue fields of
-    Nothing   -> return []
-    Just defs -> [d|
-      instance Default $(conT (mkName rec)) where
-        def = $(foldl fn (conE (mkName rec)) defs)
-      |]
-  return $ [dec1] ++ decs2 ++ decs3 ++ decs4
+fromJSON :: (Monad m, TraceJSON a) => StackParser m A.Value a
+fromJSON = stackParse traceCodec

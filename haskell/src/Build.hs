@@ -56,8 +56,8 @@ import           DryVox                                (clipDryVox,
 import qualified FretsOnFire                           as FoF
 import           Genre
 import           Image
-import           JSONData                              (JSONEither (..),
-                                                        TraceJSON (traceJSON))
+import           JSONData                              (TraceJSON (..),
+                                                        fromJSON)
 import qualified Magma
 import qualified MelodysEscape
 import           MoggDecrypt
@@ -144,7 +144,7 @@ hashRB3 songYaml rb3 = let
   hashed =
     ( rb3_Plan rb3
     , rb3_2xBassPedal rb3
-    , (\(JSONEither e) -> e) <$> rb3_SongID rb3
+    , rb3_SongID rb3
     , rb3_Label rb3
     , _title $ _metadata songYaml
     , _artist $ _metadata songYaml
@@ -203,9 +203,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
     { D.name = targetTitle songYaml $ RB3 rb3
     , D.artist = getArtist $ _metadata songYaml
     , D.master = not $ _cover $ _metadata songYaml
-    , D.songId = case rb3_SongID rb3 of
-      Nothing               -> Right filename
-      Just (JSONEither sid) -> sid
+    , D.songId = fromMaybe (Right filename) $ rb3_SongID rb3
     , D.song = D.Song
       { D.songName = "songs/" <> filename <> "/" <> filename
       , D.tracksCount = Nothing
@@ -358,8 +356,8 @@ makeC3 songYaml plan rb3 midi pkg = do
       DifficultyRB3{..} = difficultyRB3 rb3 songYaml
       title = targetTitle songYaml $ RB3 rb3
       numSongID = case rb3_SongID rb3 of
-        Just (JSONEither (Left i)) -> Just i
-        _                          -> Nothing
+        Just (Left i) -> Just i
+        _             -> Nothing
       hasCrowd = case plan of
         MoggPlan{..} -> not $ null _moggCrowd
         Plan{..}     -> isJust _crowd
@@ -597,7 +595,7 @@ infix 1 ≡>
 loadYaml :: (TraceJSON a, MonadIO m) => FilePath -> StackTraceT m a
 loadYaml fp = do
   yaml <- readYAMLTree fp
-  mapStackTraceT (`runReaderT` yaml) traceJSON
+  mapStackTraceT (`runReaderT` yaml) fromJSON
 
 shakeBuildTarget :: (MonadIO m) => [FilePath] -> FilePath -> Target -> StackTraceT m FilePath
 shakeBuildTarget audioDirs yamlPath target = do
@@ -1329,9 +1327,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                             , D.cores = D.cores $ D.song rb3DTA
                             , D.crowdChannels = D.crowdChannels $ D.song rb3DTA
                             }
-                          , D.songId = case rb2_SongID rb2 of
-                            Nothing               -> Right pkg
-                            Just (JSONEither eis) -> eis
+                          , D.songId = fromMaybe (Right pkg) $ rb2_SongID rb2
                           , D.preview = D.preview rb3DTA -- because we told magma preview was at 0s earlier
                           , D.songLength = D.songLength rb3DTA -- magma v1 set this to 31s from the audio file lengths
                           }

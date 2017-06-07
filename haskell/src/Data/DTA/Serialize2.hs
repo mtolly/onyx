@@ -16,16 +16,16 @@ import           Control.Monad.Trans.Writer
 import           Data.DTA.Base
 import qualified Data.Map                       as Map
 import qualified Data.Text                      as T
-import           JSONData                       (Parser, parseFrom)
+import           JSONData                       (StackParser, parseFrom)
 import           Language.Haskell.TH
 import qualified Language.Haskell.TH.Syntax     as TH
 
-expected :: (Monad m, Show context) => String -> Parser m context a
+expected :: (Monad m, Show context) => String -> StackParser m context a
 expected x = lift ask >>= \v -> fatal $ "Expected " ++ x ++ ", but found: " ++ show v
 
 data ChunkFormat a = ChunkFormat
   { toChunks   :: a -> [Chunk T.Text]
-  , fromChunks :: forall m. (Monad m) => Parser m [Chunk T.Text] a
+  , fromChunks :: forall m. (Monad m) => StackParser m [Chunk T.Text] a
   }
 
 unserialize :: (Monad m) => ChunkFormat a -> DTA T.Text -> StackTraceT m a

@@ -34,7 +34,7 @@ import qualified Data.Text.IO                     as TIO
 import qualified Data.Yaml                        as Y
 import qualified FretsOnFire                      as FoF
 import           Image                            (toPNG_XBOX)
-import           JSONData                         (JSONEither (..))
+import           JSONData                         (toJSON)
 import           Magma                            (getRBAFile)
 import           PrettyDTA                        (C3DTAComments (..),
                                                    DTASingle (..),
@@ -204,7 +204,7 @@ importFoF src dest = do
           else Just Vocal1
         else Nothing
 
-  liftIO $ Y.encodeFile (dest </> "song.yml") SongYaml
+  liftIO $ Y.encodeFile (dest </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
       { _title        = title
       , _artist       = FoF.artist song
@@ -546,7 +546,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
     RBDrums.D4 -> case drumChans of
       [kick, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
       _ -> fatal $ "mix 4 needs 3 drums channels, " ++ show (length drumChans) ++ " given"
-  liftIO $ Y.encodeFile (dir </> "song.yml") SongYaml
+  liftIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
       { _title        = _title meta <|> Just (D.name pkg)
       , _artist       = Just $ D.artist pkg
@@ -591,7 +591,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
       , _multitrack = multitrack
       }
     , _targets = let
-      getSongID = fmap JSONEither . \case
+      getSongID = \case
         Left  i -> guard (i /= 0) >> Just (Left i)
         Right k -> Just $ Right k
       songID1x = getSongID $ D.songId pkg
