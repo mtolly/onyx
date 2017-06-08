@@ -1,28 +1,25 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Data.DTA.Serialize.RB3 where
 
 import           Control.Applicative      ((<|>))
+import           Control.Monad.Codec      ((=.))
 import           Data.DTA
+import           Data.DTA.Serialize
 import           Data.DTA.Serialize.Magma (Gender (..))
-import           Data.DTA.Serialize2
 import qualified Data.HashMap.Strict      as Map
 import qualified Data.Text                as T
-import           JSONData                 (StackCodec (..), eitherCodec)
+import           JSONData                 (StackCodec (..), eitherCodec,
+                                           expected, opt, req)
 
 data Pitch
-  = C
-  | CSharp
-  | D
-  | DSharp
+  = C | CSharp
+  | D | DSharp
   | E
-  | F
-  | FSharp
-  | G
-  | GSharp
-  | A
-  | ASharp
+  | F | FSharp
+  | G | GSharp
+  | A | ASharp
   | B
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
@@ -47,8 +44,14 @@ instance StackChunk AnimTempo where
     KTempoFast   -> Key "kTempoFast"
 instance StackChunks AnimTempo
 
-dtaRecord "DrumSounds" eosr $ do
-  req "seqs" "seqs" [t| [T.Text] |] [e| chunksParens $ chunksList chunkKey |]
+data DrumSounds = DrumSounds
+  { seqs :: [T.Text]
+  } deriving (Eq, Ord, Show, Read)
+
+instance StackChunks DrumSounds where
+  stackChunks = asStrictAssoc "DrumSounds" $ do
+    seqs <- seqs =. req "seqs" (chunksParens $ chunksList chunkKey)
+    return DrumSounds{..}
 
 channelList :: ChunksCodec [Integer]
 channelList = StackCodec
@@ -58,60 +61,122 @@ channelList = StackCodec
   } where fmt  = chunksParens (stackChunks :: ChunksCodec [Integer])
           fmt' = stackChunks :: ChunksCodec Integer
 
-dtaRecord "Song" esr $ do
-  req "songName" "name" [t| T.Text |] [e| single chunkStringOrKey |]
-  opt "tracksCount" "tracks_count" [t| Maybe [Integer] |] [e| Nothing |] [e| chunksMaybe $ chunksParens stackChunks |]
-  req "tracks" "tracks" [t| Map.HashMap T.Text [Integer] |] [e| chunksParens $ chunksDict chunkKey channelList |]
-  opt "vocalParts" "vocal_parts" [t| Maybe Integer |] [e| Nothing |] [e| stackChunks |]
-  req "pans" "pans" [t| [Float] |] [e| chunksParens stackChunks |]
-  req "vols" "vols" [t| [Float] |] [e| chunksParens stackChunks |]
-  req "cores" "cores" [t| [Integer] |] [e| chunksParens stackChunks |]
-  req "drumSolo" "drum_solo" [t| DrumSounds |] [e| stackChunks |]
-  req "drumFreestyle" "drum_freestyle" [t| DrumSounds |] [e| stackChunks |]
-  opt "crowdChannels" "crowd_channels" [t| Maybe [Integer] |] [e| Nothing |] [e| stackChunks |]
-  opt "hopoThreshold" "hopo_threshold" [t| Maybe Integer |] [e| Nothing |] [e| stackChunks |]
-  opt "muteVolume" "mute_volume" [t| Maybe Integer |] [e| Nothing |] [e| stackChunks |]
-  opt "muteVolumeVocals" "mute_volume_vocals" [t| Maybe Integer |] [e| Nothing |] [e| stackChunks |]
+data Song = Song
+  { songName         :: T.Text
+  , tracksCount      :: Maybe [Integer]
+  , tracks           :: Map.HashMap T.Text [Integer]
+  , vocalParts       :: Maybe Integer
+  , pans             :: [Float]
+  , vols             :: [Float]
+  , cores            :: [Integer]
+  , drumSolo         :: DrumSounds
+  , drumFreestyle    :: DrumSounds
+  , crowdChannels    :: Maybe [Integer]
+  , hopoThreshold    :: Maybe Integer
+  , muteVolume       :: Maybe Integer
+  , muteVolumeVocals :: Maybe Integer
   -- seen in magma v1 / rb2:
-  opt "midiFile" "midi_file" [t| Maybe T.Text |] [e| Nothing |] [e| stackChunks |]
+  , midiFile         :: Maybe T.Text
+  } deriving (Eq, Show, Read)
 
-dtaRecord "SongPackage" esr $ do
-  req "name" "name" [t| T.Text |] [e| single chunkString |]
-  req "artist" "artist" [t| T.Text |] [e| single chunkString |]
-  req "master" "master" [t| Bool |] [e| stackChunks |]
-  req "songId" "song_id" [t| Either Integer T.Text |] [e| eitherCodec stackChunks $ single chunkKey |]
-  req "song" "song" [t| Song |] [e| stackChunks |]
-  opt "bank" "bank" [t| Maybe T.Text |] [e| Nothing |] [e| stackChunks |]
-  opt "drumBank" "drum_bank" [t| Maybe T.Text |] [e| Nothing |] [e| stackChunks |]
-  req "animTempo" "anim_tempo" [t| Either AnimTempo Integer |] [e| stackChunks |]
-  opt "bandFailCue" "band_fail_cue" [t| Maybe T.Text |] [e| Nothing |] [e| stackChunks |]
-  req "songScrollSpeed" "song_scroll_speed" [t| Integer |] [e| stackChunks |]
-  req "preview" "preview" [t| (Integer, Integer) |] [e| stackChunks |]
-  opt "songLength" "song_length" [t| Maybe Integer |] [e| Nothing |] [e| stackChunks |]
-  req "rank" "rank" [t| Map.HashMap T.Text Integer |] [e| stackChunks |]
-  opt "solo" "solo" [t| Maybe [T.Text] |] [e| Nothing |] [e| chunksMaybe $ chunksParens $ chunksList chunkKey |]
-  req "songFormat" "format" [t| Integer |] [e| stackChunks |]
-  req "version" "version" [t| Integer |] [e| stackChunks |]
-  req "gameOrigin" "game_origin" [t| T.Text |] [e| single chunkKey |]
-  req "rating" "rating" [t| Integer |] [e| stackChunks |]
-  req "genre" "genre" [t| T.Text |] [e| single chunkKey |]
-  opt "subGenre" "sub_genre" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe $ single chunkKey |]
-  req "vocalGender" "vocal_gender" [t| Gender |] [e| stackChunks |]
-  opt "shortVersion" "short_version" [t| Maybe Integer |] [e| Nothing |] [e| stackChunks |]
-  req "yearReleased" "year_released" [t| Integer |] [e| stackChunks |]
-  opt "albumArt" "album_art" [t| Maybe Bool |] [e| Nothing |] [e| stackChunks |]
-  opt "albumName" "album_name" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe $ single chunkString |]
-  opt "albumTrackNumber" "album_track_number" [t| Maybe Integer |] [e| Nothing |] [e| stackChunks |]
-  opt "vocalTonicNote" "vocal_tonic_note" [t| Maybe Pitch |] [e| Nothing |] [e| stackChunks |]
-  opt "songTonality" "song_tonality" [t| Maybe Tonality |] [e| Nothing |] [e| stackChunks |]
-  opt "songKey" "song_key" [t| Maybe Pitch |] [e| Nothing |] [e| stackChunks |]
-  opt "tuningOffsetCents" "tuning_offset_cents" [t| Maybe Float |] [e| Nothing |] [e| stackChunks |]
-  opt "realGuitarTuning" "real_guitar_tuning" [t| Maybe [Integer] |] [e| Nothing |] [e| chunksMaybe $ chunksParens stackChunks |]
-  opt "realBassTuning" "real_bass_tuning" [t| Maybe [Integer] |] [e| Nothing |] [e| chunksMaybe $ chunksParens stackChunks |]
-  opt "guidePitchVolume" "guide_pitch_volume" [t| Maybe Float |] [e| Nothing |] [e| stackChunks |]
-  opt "encoding" "encoding" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe $ single chunkKey |]
+instance StackChunks Song where
+  stackChunks = asStrictAssoc "Song" $ do
+    songName         <- songName         =. req         "name"               (single chunkStringOrKey)
+    tracksCount      <- tracksCount      =. opt Nothing "tracks_count"       (chunksMaybe $ chunksParens stackChunks)
+    tracks           <- tracks           =. req         "tracks"             (chunksParens $ chunksDict chunkKey channelList)
+    vocalParts       <- vocalParts       =. opt Nothing "vocal_parts"        stackChunks
+    pans             <- pans             =. req         "pans"               (chunksParens stackChunks)
+    vols             <- vols             =. req         "vols"               (chunksParens stackChunks)
+    cores            <- cores            =. req         "cores"              (chunksParens stackChunks)
+    drumSolo         <- drumSolo         =. req         "drum_solo"          stackChunks
+    drumFreestyle    <- drumFreestyle    =. req         "drum_freestyle"     stackChunks
+    crowdChannels    <- crowdChannels    =. opt Nothing "crowd_channels"     stackChunks
+    hopoThreshold    <- hopoThreshold    =. opt Nothing "hopo_threshold"     stackChunks
+    muteVolume       <- muteVolume       =. opt Nothing "mute_volume"        stackChunks
+    muteVolumeVocals <- muteVolumeVocals =. opt Nothing "mute_volume_vocals" stackChunks
+    midiFile         <- midiFile         =. opt Nothing "midi_file"          stackChunks
+    return Song{..}
+
+data SongPackage = SongPackage
+  { name              :: T.Text
+  , artist            :: T.Text
+  , master            :: Bool
+  , songId            :: Either Integer T.Text
+  , song              :: Song
+  , bank              :: Maybe T.Text
+  , drumBank          :: Maybe T.Text
+  , animTempo         :: Either AnimTempo Integer
+  , bandFailCue       :: Maybe T.Text
+  , songScrollSpeed   :: Integer
+  , preview           :: (Integer, Integer)
+  , songLength        :: Maybe Integer
+  , rank              :: Map.HashMap T.Text Integer
+  , solo              :: Maybe [T.Text]
+  , songFormat        :: Integer
+  , version           :: Integer
+  , gameOrigin        :: T.Text
+  , rating            :: Integer
+  , genre             :: T.Text
+  , subGenre          :: Maybe T.Text
+  , vocalGender       :: Gender
+  , shortVersion      :: Maybe Integer
+  , yearReleased      :: Integer
+  , albumArt          :: Maybe Bool
+  , albumName         :: Maybe T.Text
+  , albumTrackNumber  :: Maybe Integer
+  , vocalTonicNote    :: Maybe Pitch
+  , songTonality      :: Maybe Tonality
+  , songKey           :: Maybe Pitch
+  , tuningOffsetCents :: Maybe Float
+  , realGuitarTuning  :: Maybe [Integer]
+  , realBassTuning    :: Maybe [Integer]
+  , guidePitchVolume  :: Maybe Float
+  , encoding          :: Maybe T.Text
   -- seen in magma v1 / rb2:
-  opt "context" "context" [t| Maybe Integer |] [e| Nothing |] [e| stackChunks |]
-  opt "decade" "decade" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe $ single chunkKey |]
-  opt "downloaded" "downloaded" [t| Maybe Bool |] [e| Nothing |] [e| stackChunks |]
-  opt "basePoints" "base_points" [t| Maybe Integer |] [e| Nothing |] [e| stackChunks |]
+  , context           :: Maybe Integer
+  , decade            :: Maybe T.Text
+  , downloaded        :: Maybe Bool
+  , basePoints        :: Maybe Integer
+  } deriving (Eq, Show, Read)
+
+instance StackChunks SongPackage where
+  stackChunks = asStrictAssoc "SongPackage" $ do
+    name              <- name              =. req         "name"                (single chunkString)
+    artist            <- artist            =. req         "artist"              (single chunkString)
+    master            <- master            =. req         "master"              (stackChunks)
+    songId            <- songId            =. req         "song_id"             (eitherCodec stackChunks $ single chunkKey)
+    song              <- song              =. req         "song"                (stackChunks)
+    bank              <- bank              =. opt Nothing "bank"                (stackChunks)
+    drumBank          <- drumBank          =. opt Nothing "drum_bank"           (stackChunks)
+    animTempo         <- animTempo         =. req         "anim_tempo"          (stackChunks)
+    bandFailCue       <- bandFailCue       =. opt Nothing "band_fail_cue"       (stackChunks)
+    songScrollSpeed   <- songScrollSpeed   =. req         "song_scroll_speed"   (stackChunks)
+    preview           <- preview           =. req         "preview"             (stackChunks)
+    songLength        <- songLength        =. opt Nothing "song_length"         (stackChunks)
+    rank              <- rank              =. req         "rank"                (stackChunks)
+    solo              <- solo              =. opt Nothing "solo"                (chunksMaybe $ chunksParens $ chunksList chunkKey)
+    songFormat        <- songFormat        =. req         "format"              (stackChunks)
+    version           <- version           =. req         "version"             (stackChunks)
+    gameOrigin        <- gameOrigin        =. req         "game_origin"         (single chunkKey)
+    rating            <- rating            =. req         "rating"              (stackChunks)
+    genre             <- genre             =. req         "genre"               (single chunkKey)
+    subGenre          <- subGenre          =. opt Nothing "sub_genre"           (chunksMaybe $ single chunkKey)
+    vocalGender       <- vocalGender       =. req         "vocal_gender"        (stackChunks)
+    shortVersion      <- shortVersion      =. opt Nothing "short_version"       (stackChunks)
+    yearReleased      <- yearReleased      =. req         "year_released"       (stackChunks)
+    albumArt          <- albumArt          =. opt Nothing "album_art"           (stackChunks)
+    albumName         <- albumName         =. opt Nothing "album_name"          (chunksMaybe $ single chunkString)
+    albumTrackNumber  <- albumTrackNumber  =. opt Nothing "album_track_number"  (stackChunks)
+    vocalTonicNote    <- vocalTonicNote    =. opt Nothing "vocal_tonic_note"    (stackChunks)
+    songTonality      <- songTonality      =. opt Nothing "song_tonality"       (stackChunks)
+    songKey           <- songKey           =. opt Nothing "song_key"            (stackChunks)
+    tuningOffsetCents <- tuningOffsetCents =. opt Nothing "tuning_offset_cents" (stackChunks)
+    realGuitarTuning  <- realGuitarTuning  =. opt Nothing "real_guitar_tuning"  (chunksMaybe $ chunksParens stackChunks)
+    realBassTuning    <- realBassTuning    =. opt Nothing "real_bass_tuning"    (chunksMaybe $ chunksParens stackChunks)
+    guidePitchVolume  <- guidePitchVolume  =. opt Nothing "guide_pitch_volume"  (stackChunks)
+    encoding          <- encoding          =. opt Nothing "encoding"            (chunksMaybe $ single chunkKey)
+    context           <- context           =. opt Nothing "context"             (stackChunks)
+    decade            <- decade            =. opt Nothing "decade"              (chunksMaybe $ single chunkKey)
+    downloaded        <- downloaded        =. opt Nothing "downloaded"          (stackChunks)
+    basePoints        <- basePoints        =. opt Nothing "base_points"         (stackChunks)
+    return SongPackage{..}

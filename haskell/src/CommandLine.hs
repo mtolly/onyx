@@ -23,9 +23,9 @@ import           Data.Default.Class             (def)
 import qualified Data.Digest.Pure.MD5           as MD5
 import           Data.DTA.Lex                   (scanStack)
 import           Data.DTA.Parse                 (parseStack)
+import qualified Data.DTA.Serialize             as D
 import qualified Data.DTA.Serialize.Magma       as RBProj
 import qualified Data.DTA.Serialize.RB3         as D
-import qualified Data.DTA.Serialize2            as D
 import           Data.Functor                   (void)
 import qualified Data.HashMap.Strict            as Map
 import           Data.List.HT                   (partitionMaybe)

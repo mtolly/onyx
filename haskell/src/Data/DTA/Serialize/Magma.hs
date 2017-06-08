@@ -1,45 +1,90 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE RecordWildCards   #-}
 module Data.DTA.Serialize.Magma where
 
+import           Control.Monad.Codec ((=.))
 import           Data.DTA
-import           Data.DTA.Serialize2
+import           Data.DTA.Serialize
 import           Data.Monoid         ((<>))
 import qualified Data.Text           as T
-import           JSONData            (eitherCodec)
+import           JSONData            (eitherCodec, opt, req)
 
-dtaRecord "Metadata" eosr $ do
-  req "songName" "song_name" [t| T.Text |] [e| single chunkString |]
-  req "artistName" "artist_name" [t| T.Text |] [e| single chunkString |]
-  req "genre" "genre" [t| T.Text |] [e| single chunkKey |]
-  req "subGenre" "sub_genre" [t| T.Text |] [e| single chunkKey |]
-  req "yearReleased" "year_released" [t| Integer |] [e| stackChunks |]
-  req "albumName" "album_name" [t| T.Text |] [e| single chunkString |]
-  req "author" "author" [t| T.Text |] [e| single chunkString |]
-  req "releaseLabel" "release_label" [t| T.Text |] [e| single chunkString |]
-  req "country" "country" [t| T.Text |] [e| single chunkKey |]
-  req "price" "price" [t| Integer |] [e| stackChunks |]
-  req "trackNumber" "track_number" [t| Integer |] [e| stackChunks |]
-  req "hasAlbum" "has_album" [t| Bool |] [e| stackChunks |]
+data Metadata = Metadata
+  { songName     :: T.Text
+  , artistName   :: T.Text
+  , genre        :: T.Text
+  , subGenre     :: T.Text
+  , yearReleased :: Integer
+  , albumName    :: T.Text
+  , author       :: T.Text
+  , releaseLabel :: T.Text
+  , country      :: T.Text
+  , price        :: Integer
+  , trackNumber  :: Integer
+  , hasAlbum     :: Bool
+  } deriving (Eq, Ord, Show, Read)
 
-dtaRecord "AudioFile" eosr $ do
-  req "audioEnabled" "enabled" [t| Bool |] [e| stackChunks |]
-  req "channels" "channels" [t| Integer |] [e| stackChunks |]
-  req "pan" "pan" [t| [Float] |] [e| stackChunks |]
-  req "vol" "vol" [t| [Float] |] [e| stackChunks |]
-  req "audioFile" "file" [t| T.Text |] [e| single chunkString |]
+instance StackChunks Metadata where
+  stackChunks = asStrictAssoc "Metadata" $ do
+    songName     <- songName     =. req "song_name"     (single chunkString)
+    artistName   <- artistName   =. req "artist_name"   (single chunkString)
+    genre        <- genre        =. req "genre"         (single chunkKey)
+    subGenre     <- subGenre     =. req "sub_genre"     (single chunkKey)
+    yearReleased <- yearReleased =. req "year_released" (stackChunks)
+    albumName    <- albumName    =. req "album_name"    (single chunkString)
+    author       <- author       =. req "author"        (single chunkString)
+    releaseLabel <- releaseLabel =. req "release_label" (single chunkString)
+    country      <- country      =. req "country"       (single chunkKey)
+    price        <- price        =. req "price"         (stackChunks)
+    trackNumber  <- trackNumber  =. req "track_number"  (stackChunks)
+    hasAlbum     <- hasAlbum     =. req "has_album"     (stackChunks)
+    return Metadata{..}
 
-dtaRecord "DryVoxPart" eosr $ do
-  req "dryVoxFile" "file" [t| T.Text |] [e| single chunkString |]
-  req "dryVoxEnabled" "enabled" [t| Bool |] [e| stackChunks |]
+data AudioFile = AudioFile
+  { audioEnabled :: Bool
+  , channels     :: Integer
+  , pan          :: [Float]
+  , vol          :: [Float]
+  , audioFile    :: T.Text
+  } deriving (Eq, Ord, Show, Read)
 
-dtaRecord "DryVox" eosr $ do
-  opt "dryVoxFileRB2" "file" [t| Maybe T.Text |] [e| Nothing |] [e| chunksMaybe $ single chunkString |]
-  req "part0" "part0" [t| DryVoxPart |] [e| stackChunks |]
-  req "part1" "part1" [t| DryVoxPart |] [e| stackChunks |]
-  req "part2" "part2" [t| DryVoxPart |] [e| stackChunks |]
-  req "tuningOffsetCents" "tuning_offset_cents" [t| Float |] [e| stackChunks |]
+instance StackChunks AudioFile where
+  stackChunks = asStrictAssoc "AudioFile" $ do
+    audioEnabled <- audioEnabled =. req "enabled"  stackChunks
+    channels     <- channels     =. req "channels" stackChunks
+    pan          <- pan          =. req "pan"      stackChunks
+    vol          <- vol          =. req "vol"      stackChunks
+    audioFile    <- audioFile    =. req "file"     (single chunkString)
+    return AudioFile{..}
+
+data DryVoxPart = DryVoxPart
+  { dryVoxFile    :: T.Text
+  , dryVoxEnabled :: Bool
+  } deriving (Eq, Ord, Show, Read)
+
+instance StackChunks DryVoxPart where
+  stackChunks = asStrictAssoc "DryVoxPart" $ do
+    dryVoxFile    <- dryVoxFile    =. req "file"    (single chunkString)
+    dryVoxEnabled <- dryVoxEnabled =. req "enabled" stackChunks
+    return DryVoxPart{..}
+
+data DryVox = DryVox
+  { dryVoxFileRB2     :: Maybe T.Text
+  , part0             :: DryVoxPart
+  , part1             :: DryVoxPart
+  , part2             :: DryVoxPart
+  , tuningOffsetCents :: Float
+  } deriving (Eq, Ord, Show, Read)
+
+instance StackChunks DryVox where
+  stackChunks = asStrictAssoc "DryVox" $ do
+    dryVoxFileRB2     <- dryVoxFileRB2     =. opt Nothing "file"                (chunksMaybe $ single chunkString)
+    part0             <- part0             =. req         "part0"               stackChunks
+    part1             <- part1             =. req         "part1"               stackChunks
+    part2             <- part2             =. req         "part2"               stackChunks
+    tuningOffsetCents <- tuningOffsetCents =. req         "tuning_offset_cents" stackChunks
+    return DryVox{..}
 
 data AutogenTheme
   = DefaultTheme
@@ -61,9 +106,16 @@ instance StackChunk AutogenTheme where
     theme        -> String $ T.pack (show theme) <> ".rbtheme"
 instance StackChunks AutogenTheme
 
-dtaRecord "Midi" eosr $ do
-  req "midiFile" "file" [t| T.Text |] [e| single chunkString |]
-  req "autogenTheme" "autogen_theme" [t| Either AutogenTheme T.Text |] [e| eitherCodec stackChunks $ single chunkString |]
+data Midi = Midi
+  { midiFile     :: T.Text
+  , autogenTheme :: Either AutogenTheme T.Text
+  } deriving (Eq, Ord, Show, Read)
+
+instance StackChunks Midi where
+  stackChunks = asStrictAssoc "Midi" $ do
+    midiFile     <- midiFile     =. req "file"          (single chunkString)
+    autogenTheme <- autogenTheme =. req "autogen_theme" (eitherCodec stackChunks $ single chunkString)
+    return Midi{..}
 
 data DrumLayout
   = Kit
@@ -80,16 +132,30 @@ instance StackChunk DrumLayout where
     KitKickSnare -> Key "drum_layout_kit_kick_snare"
 instance StackChunks DrumLayout
 
-dtaRecord "Tracks" eosr $ do
-  req "drumLayout" "drum_layout" [t| DrumLayout |] [e| stackChunks |]
-  req "drumKit" "drum_kit" [t| AudioFile |] [e| stackChunks |]
-  req "drumKick" "drum_kick" [t| AudioFile |] [e| stackChunks |]
-  req "drumSnare" "drum_snare" [t| AudioFile |] [e| stackChunks |]
-  req "bass" "bass" [t| AudioFile |] [e| stackChunks |]
-  req "guitar" "guitar" [t| AudioFile |] [e| stackChunks |]
-  req "vocals" "vocals" [t| AudioFile |] [e| stackChunks |]
-  req "keys" "keys" [t| AudioFile |] [e| stackChunks |]
-  req "backing" "backing" [t| AudioFile |] [e| stackChunks |]
+data Tracks = Tracks
+  { drumLayout :: DrumLayout
+  , drumKit    :: AudioFile
+  , drumKick   :: AudioFile
+  , drumSnare  :: AudioFile
+  , bass       :: AudioFile
+  , guitar     :: AudioFile
+  , vocals     :: AudioFile
+  , keys       :: AudioFile
+  , backing    :: AudioFile
+  } deriving (Eq, Ord, Show, Read)
+
+instance StackChunks Tracks where
+  stackChunks = asStrictAssoc "Tracks" $ do
+    drumLayout <- drumLayout =. req "drum_layout" stackChunks
+    drumKit    <- drumKit    =. req "drum_kit"    stackChunks
+    drumKick   <- drumKick   =. req "drum_kick"   stackChunks
+    drumSnare  <- drumSnare  =. req "drum_snare"  stackChunks
+    bass       <- bass       =. req "bass"        stackChunks
+    guitar     <- guitar     =. req "guitar"      stackChunks
+    vocals     <- vocals     =. req "vocals"      stackChunks
+    keys       <- keys       =. req "keys"        stackChunks
+    backing    <- backing    =. req "backing"     stackChunks
+    return Tracks{..}
 
 data Percussion
   = Tambourine
@@ -113,47 +179,104 @@ instance StackChunk Gender where
     Female -> Key "female"
 instance StackChunks Gender
 
-dtaRecord "Languages" eosr $ do
-  opt "english" "english" [t| Maybe Bool |] [e| Nothing |] [e| stackChunks |]
-  opt "french" "french" [t| Maybe Bool |] [e| Nothing |] [e| stackChunks |]
-  opt "italian" "italian" [t| Maybe Bool |] [e| Nothing |] [e| stackChunks |]
-  opt "spanish" "spanish" [t| Maybe Bool |] [e| Nothing |] [e| stackChunks |]
-  opt "german" "german" [t| Maybe Bool |] [e| Nothing |] [e| stackChunks |]
-  opt "japanese" "japanese" [t| Maybe Bool |] [e| Nothing |] [e| stackChunks |]
+data Languages = Languages
+  { english  :: Maybe Bool
+  , french   :: Maybe Bool
+  , italian  :: Maybe Bool
+  , spanish  :: Maybe Bool
+  , german   :: Maybe Bool
+  , japanese :: Maybe Bool
+  } deriving (Eq, Ord, Show, Read)
 
-dtaRecord "AlbumArt" eosr $ do
-  req "albumArtFile" "file" [t| T.Text |] [e| single chunkString |]
+instance StackChunks Languages where
+  stackChunks = asStrictAssoc "Languages" $ do
+    english  <- english  =. opt Nothing "english"  stackChunks
+    french   <- french   =. opt Nothing "french"   stackChunks
+    italian  <- italian  =. opt Nothing "italian"  stackChunks
+    spanish  <- spanish  =. opt Nothing "spanish"  stackChunks
+    german   <- german   =. opt Nothing "german"   stackChunks
+    japanese <- japanese =. opt Nothing "japanese" stackChunks
+    return Languages{..}
 
-dtaRecord "Gamedata" eosr $ do
-  req "previewStartMs" "preview_start_ms" [t| Integer |] [e| stackChunks |]
-  -- ranks: 1 is no dots, 7 is devils
-  req "rankGuitar" "rank_guitar" [t| Integer |] [e| stackChunks |]
-  req "rankBass" "rank_bass" [t| Integer |] [e| stackChunks |]
-  req "rankDrum" "rank_drum" [t| Integer |] [e| stackChunks |]
-  req "rankVocals" "rank_vocals" [t| Integer |] [e| stackChunks |]
-  req "rankKeys" "rank_keys" [t| Integer |] [e| stackChunks |]
-  req "rankProKeys" "rank_pro_keys" [t| Integer |] [e| stackChunks |]
-  req "rankBand" "rank_band" [t| Integer |] [e| stackChunks |]
-  -- scroll speed: normal = 2300, fast = 2000
-  req "vocalScrollSpeed" "vocal_scroll_speed" [t| Integer |] [e| stackChunks |]
-  -- Slow (under 100bpm) = 16. Medium (100-160bpm) = 32. Fast (over 160bpm) = 64.
-  req "animTempo" "anim_tempo" [t| Integer |] [e| stackChunks |]
-  req "vocalGender" "vocal_gender" [t| Gender |] [e| stackChunks |]
-  req "vocalPercussion" "vocal_percussion" [t| Percussion |] [e| stackChunks |]
-  req "vocalParts" "vocal_parts" [t| Integer |] [e| stackChunks |]
-  req "guidePitchVolume" "guide_pitch_volume" [t| Float |] [e| stackChunks |]
+data AlbumArt = AlbumArt
+  { albumArtFile :: T.Text
+  } deriving (Eq, Ord, Show, Read)
 
-dtaRecord "Project" eosr $ do
-  req "toolVersion" "tool_version" [t| T.Text |] [e| single chunkString |]
-  req "projectVersion" "project_version" [t| Integer |] [e| stackChunks |]
-  req "metadata" "metadata" [t| Metadata |] [e| stackChunks |]
-  req "gamedata" "gamedata" [t| Gamedata |] [e| stackChunks |]
-  req "languages" "languages" [t| Languages |] [e| stackChunks |]
-  req "destinationFile" "destination_file" [t| T.Text |] [e| single chunkString |]
-  req "midi" "midi" [t| Midi |] [e| stackChunks |]
-  req "dryVox" "dry_vox" [t| DryVox |] [e| stackChunks |]
-  req "albumArt" "album_art" [t| AlbumArt |] [e| stackChunks |]
-  req "tracks" "tracks" [t| Tracks |] [e| stackChunks |]
+instance StackChunks AlbumArt where
+  stackChunks = asStrictAssoc "AlbumArt" $ do
+    albumArtFile <- albumArtFile =. req "file" (single chunkString)
+    return AlbumArt{..}
 
-dtaRecord "RBProj" eosr $ do
-  req "project" "project" [t| Project |] [e| stackChunks |]
+data Gamedata = Gamedata
+  { previewStartMs   :: Integer
+  -- | ranks: 1 is no dots, 7 is devils
+  , rankGuitar       :: Integer
+  , rankBass         :: Integer
+  , rankDrum         :: Integer
+  , rankVocals       :: Integer
+  , rankKeys         :: Integer
+  , rankProKeys      :: Integer
+  , rankBand         :: Integer
+  -- | scroll speed: normal = 2300, fast = 2000
+  , vocalScrollSpeed :: Integer
+  -- | Slow (under 100bpm) = 16. Medium (100-160bpm) = 32. Fast (over 160bpm) = 64.
+  , animTempo        :: Integer
+  , vocalGender      :: Gender
+  , vocalPercussion  :: Percussion
+  , vocalParts       :: Integer
+  , guidePitchVolume :: Float
+  } deriving (Eq, Ord, Show, Read)
+
+instance StackChunks Gamedata where
+  stackChunks = asStrictAssoc "Gamedata" $ do
+    previewStartMs   <- previewStartMs   =. req "preview_start_ms"   stackChunks
+    rankGuitar       <- rankGuitar       =. req "rank_guitar"        stackChunks
+    rankBass         <- rankBass         =. req "rank_bass"          stackChunks
+    rankDrum         <- rankDrum         =. req "rank_drum"          stackChunks
+    rankVocals       <- rankVocals       =. req "rank_vocals"        stackChunks
+    rankKeys         <- rankKeys         =. req "rank_keys"          stackChunks
+    rankProKeys      <- rankProKeys      =. req "rank_pro_keys"      stackChunks
+    rankBand         <- rankBand         =. req "rank_band"          stackChunks
+    vocalScrollSpeed <- vocalScrollSpeed =. req "vocal_scroll_speed" stackChunks
+    animTempo        <- animTempo        =. req "anim_tempo"         stackChunks
+    vocalGender      <- vocalGender      =. req "vocal_gender"       stackChunks
+    vocalPercussion  <- vocalPercussion  =. req "vocal_percussion"   stackChunks
+    vocalParts       <- vocalParts       =. req "vocal_parts"        stackChunks
+    guidePitchVolume <- guidePitchVolume =. req "guide_pitch_volume" stackChunks
+    return Gamedata{..}
+
+data Project = Project
+  { toolVersion     :: T.Text
+  , projectVersion  :: Integer
+  , metadata        :: Metadata
+  , gamedata        :: Gamedata
+  , languages       :: Languages
+  , destinationFile :: T.Text
+  , midi            :: Midi
+  , dryVox          :: DryVox
+  , albumArt        :: AlbumArt
+  , tracks          :: Tracks
+  } deriving (Eq, Ord, Show, Read)
+
+instance StackChunks Project where
+  stackChunks = asStrictAssoc "Project" $ do
+    toolVersion     <- toolVersion     =. req "tool_version"     (single chunkString)
+    projectVersion  <- projectVersion  =. req "project_version"  stackChunks
+    metadata        <- metadata        =. req "metadata"         stackChunks
+    gamedata        <- gamedata        =. req "gamedata"         stackChunks
+    languages       <- languages       =. req "languages"        stackChunks
+    destinationFile <- destinationFile =. req "destination_file" (single chunkString)
+    midi            <- midi            =. req "midi"             stackChunks
+    dryVox          <- dryVox          =. req "dry_vox"          stackChunks
+    albumArt        <- albumArt        =. req "album_art"        stackChunks
+    tracks          <- tracks          =. req "tracks"           stackChunks
+    return Project{..}
+
+data RBProj = RBProj
+  { project :: Project
+  } deriving (Eq, Ord, Show, Read)
+
+instance StackChunks RBProj where
+  stackChunks = asStrictAssoc "RBProj" $ do
+    project <- project =. req "project" stackChunks
+    return RBProj{..}

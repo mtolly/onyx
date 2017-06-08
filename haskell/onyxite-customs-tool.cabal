@@ -98,7 +98,7 @@ executable onyx
     -- dta
     Data.DTA
     Data.DTA.Crypt
-    Data.DTA.Serialize2
+    Data.DTA.Serialize
     Data.DTA.Serialize.Magma
     Data.DTA.Serialize.RB3
     Data.DTA.Base

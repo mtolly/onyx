@@ -26,9 +26,9 @@ import           Data.Conduit.Audio
 import           Data.Conduit.Audio.Sndfile
 import           Data.Default.Class                    (def)
 import qualified Data.DTA                              as D
+import qualified Data.DTA.Serialize                    as D
 import qualified Data.DTA.Serialize.Magma              as Magma
 import qualified Data.DTA.Serialize.RB3                as D
-import qualified Data.DTA.Serialize2                   as D2
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Fixed                            (Centi)
@@ -927,7 +927,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             let title = targetTitle songYaml $ RB3 rb3
             pathMagmaProj ≡> \out -> do
               p <- makeMagmaProj songYaml rb3 plan pkg pathMagmaMid $ return title
-              liftIO $ D.writeFileDTA_latin1 out $ D2.serialize D2.stackChunks p
+              liftIO $ D.writeFileDTA_latin1 out $ D.serialize D.stackChunks p
             pathMagmaC3 ≡> \out -> do
               midi <- shakeMIDI pathMagmaMid
               c3 <- makeC3 songYaml plan rb3 midi pkg
@@ -1158,7 +1158,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                           , Magma.pan = [-1, 1]
                           , Magma.vol = [0, 0]
                           }
-                  liftIO $ D.writeFileDTA_latin1 out $ D2.serialize D2.stackChunks p
+                  liftIO $ D.writeFileDTA_latin1 out $ D.serialize D.stackChunks p
                     { Magma.project = (Magma.project p)
                       { Magma.albumArt = Magma.AlbumArt "cover-v1.bmp"
                       , Magma.midi = (Magma.midi $ Magma.project p)
@@ -1301,7 +1301,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                               , D.guidePitchVolume = Nothing
                               , D.encoding = Nothing
                               }
-                        liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : stackShow D2.stackChunks newDTA))]
+                        liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : stackShow D.stackChunks newDTA))]
                   rb2DTA ≡> \out -> do
                     lift $ need [rb2OriginalDTA, pathDta]
                     (_, magmaDTA, _) <- readRB3DTA rb2OriginalDTA

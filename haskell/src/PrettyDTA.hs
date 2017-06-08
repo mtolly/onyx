@@ -15,9 +15,9 @@ import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
 import qualified Data.DTA                       as D
+import           Data.DTA.Serialize
 import           Data.DTA.Serialize.Magma       (Gender (..))
 import qualified Data.DTA.Serialize.RB3         as D
-import           Data.DTA.Serialize2
 import           Data.Foldable                  (forM_)
 import qualified Data.HashMap.Strict            as Map
 import           Data.List                      (sortOn, stripPrefix)

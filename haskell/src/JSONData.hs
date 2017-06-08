@@ -91,11 +91,11 @@ makeObject codec x = let
 
 asObject :: T.Text -> (forall m. (Monad m) => ObjectCodec m A.Value a) -> JSONCodec a
 asObject err codec = StackCodec
-  { stackParse = lift ask >>= \case
+  { stackParse = inside ("parsing " ++ T.unpack err) $ lift ask >>= \case
     A.Object obj -> let
       f = withReaderT (const obj) . mapReaderT (`evalStateT` Set.empty)
       in mapStackTraceT f $ codecIn codec
-    _ -> expected $ T.unpack err ++ " object"
+    _ -> expected "object"
   , stackShow = A.Object . makeObject codec
   }
 

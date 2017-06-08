@@ -5,27 +5,22 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE TemplateHaskell   #-}
-module Data.DTA.Serialize2 where
+module Data.DTA.Serialize where
 
 import           Control.Applicative
 import           Control.Monad
+import           Control.Monad.Codec
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
-import           Control.Monad.Trans.Writer
+import           Control.Monad.Trans.State      (evalStateT)
 import           Data.DTA.Base
+import           Data.Functor.Identity          (Identity)
 import           Data.Hashable                  (Hashable)
 import qualified Data.HashMap.Strict            as Map
+import qualified Data.HashSet                   as Set
 import qualified Data.Text                      as T
-import           JSONData                       (StackCodec (..), StackParser,
-                                                 eitherCodec, identityCodec,
-                                                 parseFrom)
-import           Language.Haskell.TH
-import qualified Language.Haskell.TH.Syntax     as TH
-
-expected :: (Monad m, Show context) => String -> StackParser m context a
-expected x = lift ask >>= \v -> fatal $ "Expected " ++ x ++ ", but found: " ++ show v
+import           JSONData
 
 type ChunksCodec = StackCodec [Chunk T.Text]
 type ChunkCodec  = StackCodec (Chunk T.Text)
@@ -183,89 +178,27 @@ instance (StackChunk a, StackChunk b) => StackChunks (a, b) where
 instance (StackChunks a, StackChunks b) => StackChunks (Either a b) where
   stackChunks = eitherCodec stackChunks stackChunks
 
-data DTAField = DTAField
-  { hsField      :: String
-  , dtaKey       :: String
-  , fieldType    :: TypeQ
-  , defaultValue :: Maybe ExpQ
-  , warnMissing  :: Bool
-  , writeDefault :: Bool
-  , fieldFormat  :: ExpQ
-  }
-
-req :: String -> String -> TypeQ -> ExpQ -> Writer [DTAField] ()
-req hs dta t fmt = tell [DTAField hs dta t Nothing False False fmt]
-
-warning, fill, opt :: String -> String -> TypeQ -> ExpQ -> ExpQ -> Writer [DTAField] ()
-warning hs dta t dft fmt = tell [DTAField hs dta t (Just dft) True  False fmt]
-fill    hs dta t dft fmt = tell [DTAField hs dta t (Just dft) False True  fmt]
-opt     hs dta t dft fmt = tell [DTAField hs dta t (Just dft) False False fmt]
-
-esr :: CxtQ
-esr = cxt [[t| Eq |], [t| Show |], [t| Read |]]
-
-eosr :: CxtQ
-eosr = cxt [[t| Eq |], [t| Ord |], [t| Show |], [t| Read |]]
-
-eosreb :: CxtQ
-eosreb = cxt [[t| Eq |], [t| Ord |], [t| Show |], [t| Read |], [t| Enum |], [t| Bounded |]]
-
-dtaRecord :: String -> CxtQ -> Writer [DTAField] () -> DecsQ
-dtaRecord rec derivs writ = do
-  let fields = execWriter writ
-      apply x y = [e| $x <*> $y |]
-  dataDecl <- dataD (cxt []) (mkName rec) [] Nothing
-    [ recC (mkName rec) $ flip map fields $ \field ->
-      varBangType (mkName $ hsField field)
-      $ bangType (bang sourceNoUnpack noSourceStrictness) (fieldType field)
-    ]
-    derivs
-  recName <- newName "rec"
-  formatDecls <- [d|
-    instance StackChunks $(conT (mkName rec)) where
-      stackChunks = StackCodec
-        { stackShow = \($(varP recName)) -> stackShow (chunksDict chunkString $ chunksList identityCodec) $ Map.fromList $ concat $(
-            listE $ flip map fields $ \field -> [e|
-              let v = $(varE (mkName (hsField field))) $(varE recName)
-              in $(
-                case defaultValue field of
-                  Just dft | not $ writeDefault field -> [e|
-                    if v == $dft
-                      then []
-                      else [(T.pack $(TH.lift $ dtaKey field), stackShow $(fieldFormat field) v)]
-                    |]
-                  _ -> [e| [(T.pack $(TH.lift $ dtaKey field), stackShow $(fieldFormat field) v)] |]
-              )
-            |]
-          )
-        , stackParse = do
-          mapping <- stackParse (chunksDict chunkString $ chunksList identityCodec)
-          $( foldl apply [e| pure $(conE (mkName rec)) |] $ flip map fields $ \field ->
-            let key = "key " ++ show (dtaKey field)
-            in case defaultValue field of
-              Just dft -> [e|
-                case Map.lookup (T.pack $(TH.lift (dtaKey field))) mapping of
-                  Nothing -> do
-                    when $(TH.lift (warnMissing field)) (warn $ "missing " ++ $(TH.lift key))
-                    return $dft
-                  Just x -> inside $(TH.lift key) $ parseFrom x $ stackParse $(fieldFormat field)
-                |]
-              Nothing -> [e|
-                case Map.lookup (T.pack $(TH.lift (dtaKey field))) mapping of
-                  Nothing -> fatal $ "missing " ++ $(TH.lift key)
-                  Just x -> inside $(TH.lift key) $ parseFrom x $ stackParse $(fieldFormat field)
-                |]
-            )
-        }
-    |]
-  return $ dataDecl : formatDecls
-
 dtaEnum :: (Enum a, Bounded a) => String -> (a -> Chunk T.Text) -> ChunkCodec a
 dtaEnum err f = let
-  mapping = Map.fromList [ (f x, x) | x <- [minBound .. maxBound] ]
+  kv = Map.fromList [ (f x, x) | x <- [minBound .. maxBound] ]
   in StackCodec
     { stackShow  = f
-    , stackParse = lift ask >>= \v -> case Map.lookup v mapping of
+    , stackParse = lift ask >>= \v -> case Map.lookup v kv of
       Nothing -> expected $ err ++ " enumeration value"
       Just x  -> return x
     }
+
+asAssoc :: T.Text -> (forall m. (Monad m) => ObjectCodec m [Chunk T.Text] a) -> ChunksCodec a
+asAssoc err codec = StackCodec
+  { stackParse = inside ("parsing " ++ T.unpack err) $ do
+    obj <- stackParse cdc
+    let f = withReaderT (const obj) . mapReaderT (`evalStateT` Set.empty)
+    mapStackTraceT f $ codecIn codec
+  , stackShow = stackShow cdc . makeObject codec
+  } where cdc = chunksDict chunkKey identityCodec
+
+asStrictAssoc :: T.Text -> (forall m. (Monad m) => ObjectCodec m [Chunk T.Text] a) -> ChunksCodec a
+asStrictAssoc err codec = asAssoc err Codec
+  { codecOut = codecOut ((id :: ObjectCodec Identity v a -> ObjectCodec Identity v a) codec)
+  , codecIn = codecIn codec <* strictKeys
+  }
