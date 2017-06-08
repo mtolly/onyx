@@ -38,7 +38,6 @@ import qualified Data.HashMap.Strict                   as HM
 import           Data.List                             (findIndices,
                                                         intercalate, isPrefixOf,
                                                         nub)
-import qualified Data.Map                              as Map
 import           Data.Maybe                            (fromMaybe, isJust,
                                                         isNothing, mapMaybe)
 import           Data.Monoid                           ((<>))
@@ -208,7 +207,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
     , D.song = D.Song
       { D.songName = "songs/" <> filename <> "/" <> filename
       , D.tracksCount = Nothing
-      , D.tracks = fmap (map fromIntegral) $ D2.Dict $ Map.fromList $ filter (not . null . snd) $ case plan of
+      , D.tracks = fmap (map fromIntegral) $ HM.fromList $ filter (not . null . snd) $ case plan of
         MoggPlan{..} ->
           [ ("drum"  , maybe [] (concat . toList) $ lookupPart rb3DrumsRank  (rb3_Drums  rb3) _moggParts)
           , ("bass"  , maybe [] (concat . toList) $ lookupPart rb3BassRank   (rb3_Bass   rb3) _moggParts)
@@ -271,7 +270,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
     , D.songScrollSpeed = 2300
     , D.preview = (fromIntegral pstart, fromIntegral pend)
     , D.songLength = Just $ fromIntegral len
-    , D.rank = D2.Dict $ Map.fromList
+    , D.rank = HM.fromList
       [ ("drum"       , rb3DrumsRank    )
       , ("bass"       , rb3BassRank     )
       , ("guitar"     , rb3GuitarRank   )
@@ -928,7 +927,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             let title = targetTitle songYaml $ RB3 rb3
             pathMagmaProj ≡> \out -> do
               p <- makeMagmaProj songYaml rb3 plan pkg pathMagmaMid $ return title
-              liftIO $ D.writeFileDTA_latin1 out $ D2.serialize D2.format p
+              liftIO $ D.writeFileDTA_latin1 out $ D2.serialize D2.stackChunks p
             pathMagmaC3 ≡> \out -> do
               midi <- shakeMIDI pathMagmaMid
               c3 <- makeC3 songYaml plan rb3 midi pkg
@@ -1159,7 +1158,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                           , Magma.pan = [-1, 1]
                           , Magma.vol = [0, 0]
                           }
-                  liftIO $ D.writeFileDTA_latin1 out $ D2.serialize D2.format p
+                  liftIO $ D.writeFileDTA_latin1 out $ D2.serialize D2.stackChunks p
                     { Magma.project = (Magma.project p)
                       { Magma.albumArt = Magma.AlbumArt "cover-v1.bmp"
                       , Magma.midi = (Magma.midi $ Magma.project p)
@@ -1218,8 +1217,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                       rb2Milo = dir </> "rb2/songs" </> pkg </> "gen" </> pkg <.> "milo_xbox"
                       rb2Pan = dir </> "rb2/songs" </> pkg </> pkg <.> "pan"
                       fixDict
-                        = D2.Dict
-                        . Map.fromList
+                        = HM.fromList
                         . mapMaybe (\(k, v) -> case k of
                           "guitar" -> Just (k, v)
                           "bass"   -> Just (k, v)
@@ -1229,8 +1227,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                           "band"   -> Just (k, v)
                           _        -> Nothing
                         )
-                        . Map.toList
-                        . D2.fromDict
+                        . HM.toList
                   rb2OriginalDTA ≡> \out -> do
                     ex <- lift doesRBAExist
                     if ex
@@ -1304,7 +1301,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                               , D.guidePitchVolume = Nothing
                               , D.encoding = Nothing
                               }
-                        liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : stackShow D2.format newDTA))]
+                        liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : stackShow D2.stackChunks newDTA))]
                   rb2DTA ≡> \out -> do
                     lift $ need [rb2OriginalDTA, pathDta]
                     (_, magmaDTA, _) <- readRB3DTA rb2OriginalDTA

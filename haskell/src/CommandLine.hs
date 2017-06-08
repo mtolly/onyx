@@ -74,10 +74,10 @@ import           Data.List                      (isPrefixOf)
 import           System.MountPoints
 #endif
 
-loadDTA :: (D.DTASerialize a, MonadIO m) => FilePath -> StackTraceT m a
+loadDTA :: (D.StackChunks a, MonadIO m) => FilePath -> StackTraceT m a
 loadDTA f = inside f $ liftIO (tryIOError $ T.readFile f) >>= \case
   Left err -> fatal $ show err
-  Right txt -> scanStack txt >>= parseStack >>= D.unserialize D.format
+  Right txt -> scanStack txt >>= parseStack >>= D.unserialize D.stackChunks
   -- TODO I don't think this handles utf8/latin1 properly
 
 getInfoForSTFS :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m (T.Text, T.Text)

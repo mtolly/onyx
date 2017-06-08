@@ -886,7 +886,7 @@ data TargetRB3 = TargetRB3
   , rb3_Vocal       :: FlexPartName
   } deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
-parseTargetRB3 :: (Monad m) => ObjectCodec m TargetRB3
+parseTargetRB3 :: (Monad m) => ObjectCodec m A.Value TargetRB3
 parseTargetRB3 = do
   rb3_Speed       <- rb3_Speed       =. opt Nothing    "speed"         stackJSON
   rb3_Plan        <- rb3_Plan        =. opt Nothing    "plan"          stackJSON
@@ -920,7 +920,7 @@ data TargetRB2 = TargetRB2
   , rb2_Vocal       :: FlexPartName
   } deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
-parseTargetRB2 :: (Monad m) => ObjectCodec m TargetRB2
+parseTargetRB2 :: (Monad m) => ObjectCodec m A.Value TargetRB2
 parseTargetRB2 = do
   rb2_Speed       <- rb2_Speed       =. opt Nothing    "speed"         stackJSON
   rb2_Plan        <- rb2_Plan        =. opt Nothing    "plan"          stackJSON
@@ -954,7 +954,7 @@ data TargetPS = TargetPS
   , ps_GuitarCoop :: FlexPartName
   } deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
-parseTargetPS :: (Monad m) => ObjectCodec m TargetPS
+parseTargetPS :: (Monad m) => ObjectCodec m A.Value TargetPS
 parseTargetPS = do
   ps_Speed      <- ps_Speed      =. opt Nothing                   "speed"       stackJSON
   ps_Plan       <- ps_Plan       =. opt Nothing                   "plan"        stackJSON
@@ -981,7 +981,7 @@ data Target
   | PS  TargetPS
   deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
-addKey :: (forall m. (Monad m) => ObjectCodec m a) -> T.Text -> A.Value -> a -> A.Value
+addKey :: (forall m. (Monad m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
 addKey codec k v x = A.Object $ Map.insert k v $ makeObject codec x
 
 instance StackJSON Target where

@@ -19,9 +19,9 @@ import           Data.DTA.Serialize.Magma       (Gender (..))
 import qualified Data.DTA.Serialize.RB3         as D
 import           Data.DTA.Serialize2
 import           Data.Foldable                  (forM_)
+import qualified Data.HashMap.Strict            as Map
 import           Data.List                      (sortOn, stripPrefix)
 import           Data.List.Split                (splitOn)
-import qualified Data.Map                       as Map
 import           Data.Maybe                     (listToMaybe, mapMaybe)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
@@ -75,7 +75,7 @@ data DTASingle = DTASingle
   { dtaTopKey      :: T.Text
   , dtaSongPackage :: D.SongPackage
   , dtaC3Comments  :: C3DTAComments
-  } deriving (Eq, Ord, Show, Read)
+  } deriving (Eq, Show, Read)
 
 -- | CONs put out by C3 Magma sometimes bizarrely have the @tracks_count@ key
 -- completely removed from @songs.dta@, but the list of track counts is still
@@ -101,7 +101,7 @@ readRB3DTA dtaPath = do
           [D.Parens (D.Tree _ (D.Key k : chunks))] -> return (k, chunks)
           _ -> fatal $ dtaPath ++ " is not a valid songs.dta with exactly one song"
         pkg <- inside ("loading DTA file " ++ show dtaPath) $
-          unserialize format $ D.DTA 0 $ D.Tree 0 $ fixTracksCount chunks
+          unserialize stackChunks $ D.DTA 0 $ D.Tree 0 $ fixTracksCount chunks
         return (k, pkg)
   (k_l1, l1) <- readSongWith D.readFileDTA_latin1'
   case D.encoding l1 of
@@ -163,7 +163,7 @@ prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
                 "vocals" -> Left 3
                 "keys"   -> Left 4
                 _        -> Right k
-          forM_ (sortOn trackOrder $ Map.toList $ fromDict $ D.tracks $ D.song pkg) $ \(k, v) -> do
+          forM_ (sortOn trackOrder $ Map.toList $ D.tracks $ D.song pkg) $ \(k, v) -> do
             two k $ parenthesize $ T.unwords $ map showT v
       two "pans" $ parenthesize $ T.unwords $ map showT $ D.pans $ D.song pkg
       two "vols" $ parenthesize $ T.unwords $ map showT $ D.vols $ D.song pkg
@@ -202,7 +202,7 @@ prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
             "real_keys" -> Left 5
             "band"      -> Left 6
             _           -> Right k
-      forM_ (sortOn rankOrder $ Map.toList $ fromDict $ D.rank pkg) $ \(k, v) -> do
+      forM_ (sortOn rankOrder $ Map.toList $ D.rank pkg) $ \(k, v) -> do
         inline k $ showT v
     inline "genre" $ quote $ D.genre pkg
     inline "vocal_gender" $ quote $ case D.vocalGender pkg of

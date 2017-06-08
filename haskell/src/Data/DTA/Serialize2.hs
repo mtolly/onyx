@@ -1,3 +1,4 @@
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -14,7 +15,8 @@ import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
 import           Data.DTA.Base
-import qualified Data.Map                       as Map
+import           Data.Hashable                  (Hashable)
+import qualified Data.HashMap.Strict            as Map
 import qualified Data.Text                      as T
 import           JSONData                       (StackCodec (..), StackParser,
                                                  eitherCodec, identityCodec,
@@ -42,17 +44,31 @@ unserialize cf (DTA _ (Tree _ cs)) = mapStackTraceT (`runReaderT` cs) (stackPars
 serialize :: ChunksCodec a -> a -> DTA T.Text
 serialize cf = DTA 0 . Tree 0 . stackShow cf
 
-class DTASerialize a where
-  format :: ChunksCodec a
+class StackChunks a where
+  stackChunks :: ChunksCodec a
+  default stackChunks :: (StackChunk a) => ChunksCodec a
+  stackChunks = single stackChunk
+
+class StackChunk a where
+  stackChunk :: ChunkCodec a
+
+chunksList :: ChunkCodec a -> ChunksCodec [a]
+chunksList cf = StackCodec
+  { stackShow = map $ stackShow cf
+  , stackParse = do
+    chunks <- lift ask
+    forM (zip [0..] chunks) $ \(i, chunk) ->
+      inside ("list element " ++ show (i :: Int)) $ parseFrom chunk $ stackParse cf
+  }
+
+instance (StackChunk a) => StackChunks [a] where
+  stackChunks = chunksList stackChunk
 
 chunksDTA :: ChunksCodec (DTA T.Text)
 chunksDTA = StackCodec
   { stackShow  = treeChunks . topTree
   , stackParse = DTA 0 . Tree 0 <$> lift ask
   }
-
-chunksChunk :: ChunksCodec (Chunk T.Text)
-chunksChunk = single identityCodec
 
 chunkInt :: (Integral a) => ChunkCodec a
 chunkInt = StackCodec
@@ -62,56 +78,58 @@ chunkInt = StackCodec
     _     -> expected "integer"
   }
 
-instance DTASerialize Int     where format = single chunkInt
-instance DTASerialize Integer where format = single chunkInt
+instance StackChunk  Int     where stackChunk = chunkInt
+instance StackChunks Int
+instance StackChunk  Integer where stackChunk = chunkInt
+instance StackChunks Integer
 
-instance DTASerialize Float where
-  format = StackCodec
-    { stackShow = \f -> [Float f]
+instance StackChunk Float where
+  stackChunk = StackCodec
+    { stackShow = Float
     , stackParse = lift ask >>= \case
-      [Float f] -> return f
-      [Int i] -> return $ fromIntegral i
+      Float f -> return f
+      Int i -> return $ fromIntegral i
       _ -> expected "float"
     }
+instance StackChunks Float
 
-instance DTASerialize Bool where
-  format = StackCodec
-    { stackShow = \b -> [Int $ if b then 1 else 0]
+instance StackChunk Bool where
+  stackChunk = StackCodec
+    { stackShow = \b -> Int $ if b then 1 else 0
     , stackParse = lift ask >>= \case
-      [Int 1] -> return True
-      [Int 0] -> return False
-      [Key "TRUE"] -> return True
-      [Key "FALSE"] -> return False
+      Int 1 -> return True
+      Int 0 -> return False
+      Key "TRUE" -> return True
+      Key "FALSE" -> return False
       _ -> expected "bool"
     }
+instance StackChunks Bool
 
-chunksString :: ChunksCodec T.Text
-chunksString = StackCodec
-  { stackShow = \s -> [String s]
+chunkString :: ChunkCodec T.Text
+chunkString = StackCodec
+  { stackShow = \s -> String s
   , stackParse = lift ask >>= \case
-    [String s] -> return s
+    String s -> return s
     _ -> expected "string"
   }
 
-chunksKey :: ChunksCodec T.Text
-chunksKey = StackCodec
-  { stackShow = \s -> [Key s]
+chunkKey :: ChunkCodec T.Text
+chunkKey = StackCodec
+  { stackShow = \s -> Key s
   , stackParse = lift ask >>= \case
-    [Key s] -> return s
+    Key s -> return s
     _ -> expected "keyword"
   }
 
-chunksList :: ChunksCodec a -> ChunksCodec [a]
-chunksList cf = StackCodec
-  { stackShow = concatMap $ stackShow cf
-  , stackParse = do
-    chunks <- lift ask
-    forM (zip [0..] chunks) $ \(i, chunk) ->
-      inside ("list element " ++ show (i :: Int)) $ parseFrom [chunk] $ stackParse cf
+chunkStringOrKey :: ChunkCodec T.Text
+chunkStringOrKey = StackCodec
+  { stackShow  = stackShow  chunkString
+  , stackParse = stackParse chunkString <|> stackParse chunkKey <|> expected "a string or keyword"
   }
 
-instance (DTASerialize a) => DTASerialize [a] where
-  format = chunksList format
+instance StackChunk T.Text where
+  stackChunk = chunkStringOrKey
+instance StackChunks T.Text
 
 chunksMaybe :: ChunksCodec a -> ChunksCodec (Maybe a)
 chunksMaybe cf = StackCodec
@@ -123,26 +141,23 @@ chunksMaybe cf = StackCodec
     _  -> Just <$> stackParse cf
   }
 
-instance (DTASerialize a) => DTASerialize (Maybe a) where
-  format = chunksMaybe format
+instance (StackChunks a) => StackChunks (Maybe a) where
+  stackChunks = chunksMaybe stackChunks
 
--- | A key-value structure which is stored as a sequence of @(tag rest...)@
--- chunks.
-newtype Dict a = Dict { fromDict :: Map.Map T.Text a }
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
-
-chunksDict :: ChunksCodec a -> ChunksCodec (Dict a)
-chunksDict cf = StackCodec
+chunksDict :: (Eq k, Hashable k) => ChunkCodec k -> ChunksCodec a -> ChunksCodec (Map.HashMap k a)
+chunksDict ck cv = StackCodec
   { stackShow = \mp ->
-    [ Parens $ Tree 0 $ Key k : stackShow cf v | (k, v) <- Map.toList $ fromDict mp ]
-  , stackParse = lift ask >>= \chunks -> fmap (Dict . Map.fromList) $ forM chunks $ \case
-    Parens (Tree _ (Key k : chunks')) -> inside ("dict key " ++ show k) $
-      (\v -> (k, v)) <$> parseFrom chunks' (stackParse cf)
-    _ -> expected "a key-value pair (parenthesized list starting with a keyword)"
+    [ Parens $ Tree 0 $ stackShow ck k : stackShow cv v | (k, v) <- Map.toList mp ]
+  , stackParse = lift ask >>= \chunks -> fmap Map.fromList $ forM chunks $ \case
+    Parens (Tree _ (k : chunks')) -> do
+      k' <- inside "parsing dict key" $ parseFrom k $ stackParse ck
+      v' <- inside ("dict key " ++ show k) $ parseFrom chunks' $ stackParse cv
+      return (k', v')
+    _ -> expected "a key-value pair (parenthesized list starting with a key)"
   }
 
-instance (DTASerialize a) => DTASerialize (Dict a) where
-  format = chunksDict format
+instance (Eq k, Hashable k, StackChunk k, StackChunks a) => StackChunks (Map.HashMap k a) where
+  stackChunks = chunksDict stackChunk stackChunks
 
 chunksParens :: ChunksCodec a -> ChunksCodec a
 chunksParens cf = StackCodec
@@ -152,21 +167,21 @@ chunksParens cf = StackCodec
     _ -> expected "a set of parentheses"
   }
 
-chunksPair :: ChunksCodec a -> ChunksCodec b -> ChunksCodec (a, b)
+chunksPair :: ChunkCodec a -> ChunkCodec b -> ChunksCodec (a, b)
 chunksPair xf yf = StackCodec
-  { stackShow = \(x, y) -> stackShow xf x ++ stackShow yf y
+  { stackShow = \(x, y) -> [stackShow xf x, stackShow yf y]
   , stackParse = lift ask >>= \case
     [x, y] -> liftA2 (,)
-      (inside "first item of a pair" $ parseFrom [x] $ stackParse xf)
-      (inside "second item of a pair" $ parseFrom [y] $ stackParse yf)
+      (inside "first item of a pair"  $ parseFrom x $ stackParse xf)
+      (inside "second item of a pair" $ parseFrom y $ stackParse yf)
     _ -> expected "exactly 2 chunks"
   }
 
-instance (DTASerialize a, DTASerialize b) => DTASerialize (a, b) where
-  format = chunksPair format format
+instance (StackChunk a, StackChunk b) => StackChunks (a, b) where
+  stackChunks = chunksPair stackChunk stackChunk
 
-instance (DTASerialize a, DTASerialize b) => DTASerialize (Either a b) where
-  format = eitherCodec format format
+instance (StackChunks a, StackChunks b) => StackChunks (Either a b) where
+  stackChunks = eitherCodec stackChunks stackChunks
 
 data DTAField = DTAField
   { hsField      :: String
@@ -186,6 +201,9 @@ warning hs dta t dft fmt = tell [DTAField hs dta t (Just dft) True  False fmt]
 fill    hs dta t dft fmt = tell [DTAField hs dta t (Just dft) False True  fmt]
 opt     hs dta t dft fmt = tell [DTAField hs dta t (Just dft) False False fmt]
 
+esr :: CxtQ
+esr = cxt [[t| Eq |], [t| Show |], [t| Read |]]
+
 eosr :: CxtQ
 eosr = cxt [[t| Eq |], [t| Ord |], [t| Show |], [t| Read |]]
 
@@ -204,9 +222,9 @@ dtaRecord rec derivs writ = do
     derivs
   recName <- newName "rec"
   formatDecls <- [d|
-    instance DTASerialize $(conT (mkName rec)) where
-      format = StackCodec
-        { stackShow = \($(varP recName)) -> stackShow (chunksDict $ chunksList chunksChunk) $ Dict $ Map.fromList $ concat $(
+    instance StackChunks $(conT (mkName rec)) where
+      stackChunks = StackCodec
+        { stackShow = \($(varP recName)) -> stackShow (chunksDict chunkString $ chunksList identityCodec) $ Map.fromList $ concat $(
             listE $ flip map fields $ \field -> [e|
               let v = $(varE (mkName (hsField field))) $(varE recName)
               in $(
@@ -221,7 +239,7 @@ dtaRecord rec derivs writ = do
             |]
           )
         , stackParse = do
-          Dict mapping <- stackParse (chunksDict $ chunksList chunksChunk)
+          mapping <- stackParse (chunksDict chunkString $ chunksList identityCodec)
           $( foldl apply [e| pure $(conE (mkName rec)) |] $ flip map fields $ \field ->
             let key = "key " ++ show (dtaKey field)
             in case defaultValue field of
@@ -242,38 +260,12 @@ dtaRecord rec derivs writ = do
     |]
   return $ dataDecl : formatDecls
 
-data DTAValue = DTAValue
-  { hsCon    :: String
-  , dtaValue :: ExpQ
-  }
-
-val :: String -> ExpQ -> Writer [DTAValue] ()
-val hs dta = tell [DTAValue hs dta]
-
-dtaEnum :: String -> CxtQ -> Writer [DTAValue] () -> DecsQ
-dtaEnum typ derivs writ = do
-  let vals = execWriter writ
-  dataDecl <- dataD (cxt []) (mkName typ) [] Nothing
-    [ normalC (mkName $ hsCon v) []
-    | v <- vals
-    ]
-    derivs
-  formatDecls <- [d|
-    instance DTASerialize $(conT (mkName typ)) where
-      format = StackCodec
-        { stackShow = $(lamCaseE $ do
-          v <- vals
-          return $ match (conP (mkName (hsCon v)) []) (normalB (dtaValue v)) []
-          )
-        , stackParse = do
-          x <- lift ask
-          let mapping = $(listE $ do
-                v <- vals
-                return $ tupE [dtaValue v, conE $ mkName $ hsCon v]
-                )
-          case lookup x mapping of
-            Nothing -> fatal $ "unhandled enum value: " ++ show x
-            Just v  -> return v
-        }
-    |]
-  return $ dataDecl : formatDecls
+dtaEnum :: (Enum a, Bounded a) => String -> (a -> Chunk T.Text) -> ChunkCodec a
+dtaEnum err f = let
+  mapping = Map.fromList [ (f x, x) | x <- [minBound .. maxBound] ]
+  in StackCodec
+    { stackShow  = f
+    , stackParse = lift ask >>= \v -> case Map.lookup v mapping of
+      Nothing -> expected $ err ++ " enumeration value"
+      Just x  -> return x
+    }

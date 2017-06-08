@@ -16,8 +16,6 @@ import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
 import           Control.Monad.Trans.Writer
 import qualified Data.Aeson                     as A
-import qualified Data.Aeson.Types               as A
-import qualified Data.ByteString.Lazy.Char8     as BL8
 import           Data.Functor.Identity          (Identity (..))
 import qualified Data.HashMap.Strict            as Map
 import qualified Data.HashSet                   as Set
@@ -27,9 +25,9 @@ import qualified Data.Vector                    as V
 
 type StackParser m v = StackTraceT (ReaderT v m)
 
-type ObjectParserT m = StackParser (StateT (Set.HashSet T.Text) m) A.Object
-type ObjectBuilder = Writer [A.Pair]
-type ObjectCodec m a = Codec (ObjectParserT m) ObjectBuilder a
+type ObjectParser m v = StackParser (StateT (Set.HashSet T.Text) m) (Map.HashMap T.Text v)
+type ObjectBuilder v = Writer (Map.HashMap T.Text v)
+type ObjectCodec m v a = Codec (ObjectParser m v) (ObjectBuilder v) a
 
 data StackCodec v a = StackCodec
   { stackParse :: forall m. (Monad m) => StackParser m v a
@@ -52,11 +50,8 @@ class StackJSON a where
   stackJSONList :: JSONCodec [a]
   stackJSONList = listCodec stackJSON
 
-expected :: (Monad m) => String -> StackParser m A.Value a
-expected x = lift ask >>= \v -> fatal $ "Expected " ++ x ++ ", but found: " ++ BL8.unpack (A.encode v)
-
-expectedObj :: (Monad m) => String -> ObjectParserT m a
-expectedObj x = lift ask >>= \v -> fatal $ "Expected " ++ x ++ ", but found: " ++ BL8.unpack (A.encode $ A.Object v)
+expected :: (Monad m, Show v) => String -> StackParser m v a
+expected x = lift ask >>= \v -> fatal $ "Expected " ++ x ++ ", but found: " ++ show v
 
 aesonCodec :: (A.ToJSON a, A.FromJSON a) => JSONCodec a
 aesonCodec = StackCodec
@@ -81,20 +76,20 @@ parseFrom v = mapStackTraceT $ withReaderT $ const v
 
 -- | Should be run as the last action in an object parser.
 -- Raises an error if the object has a key that wasn't parsed.
-strictKeys :: (Monad m) => ObjectParserT m ()
+strictKeys :: (Monad m) => ObjectParser m v ()
 strictKeys = do
   obj <- lift ask
   known <- lift $ lift get
   let unknown = Set.fromList (Map.keys obj) `Set.difference` known
   unless (Set.null unknown) $ fatal $ "Unrecognized object keys: " ++ show (Set.toList unknown)
 
-makeObject :: (forall m. (Monad m) => ObjectCodec m a) -> a -> A.Object
+makeObject :: (forall m. (Monad m) => ObjectCodec m v a) -> a -> Map.HashMap T.Text v
 makeObject codec x = let
-  forceIdentity :: (forall m. (Monad m) => ObjectCodec m a) -> ObjectCodec Identity a
+  forceIdentity :: (forall m. (Monad m) => ObjectCodec m v a) -> ObjectCodec Identity v a
   forceIdentity = id
-  in Map.fromList $ execWriter $ codecOut (forceIdentity codec) x
+  in execWriter $ codecOut (forceIdentity codec) x
 
-asObject :: T.Text -> (forall m. (Monad m) => ObjectCodec m a) -> JSONCodec a
+asObject :: T.Text -> (forall m. (Monad m) => ObjectCodec m A.Value a) -> JSONCodec a
 asObject err codec = StackCodec
   { stackParse = lift ask >>= \case
     A.Object obj -> let
@@ -104,9 +99,9 @@ asObject err codec = StackCodec
   , stackShow = A.Object . makeObject codec
   }
 
-asStrictObject :: T.Text -> (forall m. (Monad m) => ObjectCodec m a) -> JSONCodec a
+asStrictObject :: T.Text -> (forall m. (Monad m) => ObjectCodec m A.Value a) -> JSONCodec a
 asStrictObject err codec = asObject err Codec
-  { codecOut = codecOut ((id :: ObjectCodec Identity a -> ObjectCodec Identity a) codec)
+  { codecOut = codecOut ((id :: ObjectCodec Identity v a -> ObjectCodec Identity v a) codec)
   , codecIn = codecIn codec <* strictKeys
   }
 
@@ -115,13 +110,13 @@ object p = lift ask >>= \case
   A.Object o -> parseFrom o p
   _          -> expected "an object"
 
-objectKey :: (Monad m, Eq a) => Maybe a -> Bool -> Bool -> T.Text -> JSONCodec a -> ObjectCodec m a
+objectKey :: (Monad m, Eq a, Show v) => Maybe a -> Bool -> Bool -> T.Text -> StackCodec v a -> ObjectCodec m v a
 objectKey dflt shouldWarn shouldFill key valCodec = Codec
   { codecIn = do
     obj <- lift ask
     case Map.lookup key obj of
       Nothing -> case dflt of
-        Nothing -> expectedObj $ "to find required key " ++ show key ++ " in object"
+        Nothing -> expected $ "to find required key " ++ show key ++ " in object"
         Just x  -> do
           when shouldWarn $ warn $ "missing key " ++ show key
           return x
@@ -131,14 +126,16 @@ objectKey dflt shouldWarn shouldFill key valCodec = Codec
         mapStackTraceT f $ stackParse valCodec
   , codecOut = \val -> writer
     ( val
-    , [ (key, stackShow valCodec val) | shouldFill || dflt == Just val ]
+    , if shouldFill || dflt /= Just val
+      then Map.singleton key $ stackShow valCodec val
+      else Map.empty
     )
   }
 
-req :: (Monad m, Eq a) => T.Text -> JSONCodec a -> ObjectCodec m a
+req :: (Monad m, Show v, Eq a) => T.Text -> StackCodec v a -> ObjectCodec m v a
 req = objectKey Nothing False False
 
-warning, fill, opt :: (Monad m, Eq a) => a -> T.Text -> JSONCodec a -> ObjectCodec m a
+warning, fill, opt :: (Monad m, Show v, Eq a) => a -> T.Text -> StackCodec v a -> ObjectCodec m v a
 warning x = objectKey (Just x) True  True
 fill    x = objectKey (Just x) False True
 opt     x = objectKey (Just x) False False

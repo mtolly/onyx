@@ -1,6 +1,8 @@
+{-# LANGUAGE DeriveAnyClass     #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveFoldable     #-}
 {-# LANGUAGE DeriveFunctor      #-}
+{-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE DeriveTraversable  #-}
 {-# LANGUAGE FlexibleInstances  #-}
 module Data.DTA.Base
@@ -23,6 +25,8 @@ import           Data.Binary.Get           (getByteString, getWord16le,
 import           Data.Binary.IEEE754       (getFloat32le, putFloat32le)
 import           Data.Binary.Put           (putByteString, putWord16le,
                                             putWord32le)
+import           Data.Hashable             (Hashable (..))
+import           GHC.Generics              (Generic (..))
 
 --
 -- Type definitions
@@ -30,11 +34,11 @@ import           Data.Binary.Put           (putByteString, putWord16le,
 
 -- | A top-level file.
 data DTA s = DTA { byteZero :: Word8, topTree :: Tree s }
-  deriving (Eq, Ord, Show, Read, Typeable, Data, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Read, Typeable, Data, Functor, Foldable, Traversable, Generic, Hashable)
 
 -- | A list of chunks, for either the top-level tree or a subtree.
 data Tree s = Tree { nodeID :: Word32, treeChunks :: [Chunk s] }
-  deriving (Eq, Ord, Show, Read, Typeable, Data, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Read, Typeable, Data, Functor, Foldable, Traversable, Generic, Hashable)
 
 -- | A data value, which may be a subtree. The constructors are ordered by their
 -- chunk identification tag in the binary format.
@@ -55,7 +59,7 @@ data Chunk s
   | Include s
   | Merge s
   | IfNDef s
-  deriving (Eq, Ord, Show, Read, Typeable, Data, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Read, Typeable, Data, Functor, Foldable, Traversable, Generic, Hashable)
 
 --
 -- Binary (DTB) instances
