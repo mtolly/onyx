@@ -529,7 +529,7 @@ void XContentHeader::ResignHeader(BaseIO& kvIo)
     Botan::BigInt q = Botan::BigInt::decode(qData, 0x40);
 
     Botan::AutoSeeded_RNG rng;
-    Botan::RSA_PrivateKey pkey(rng, p, q, 0x10001, 0, n);
+    Botan::RSA_PrivateKey pkey(p, q, 0x10001, 0, n);
 
     // Write the console id
     io->SetPosition(consoleIDLoc);
@@ -556,20 +556,20 @@ void XContentHeader::ResignHeader(BaseIO& kvIo)
     BYTE *dataToSign = new BYTE[size];
     io->ReadBytes(dataToSign, size);
 
-    Botan::PK_Signer signer(pkey, "EMSA3(SHA-160)");
+    Botan::PK_Signer signer(pkey, rng, "EMSA3(SHA-160)");
 
-    Botan::SecureVector<Botan::byte> signature = signer.sign_message((unsigned char*)dataToSign, size,
+    std::vector<uint8_t> signature = signer.sign_message((unsigned char*)dataToSign, size,
             rng);
 
     // 8 byte swap the new signature
-    XeCrypt::BnQw_SwapDwQwLeBe(signature, 0x80);
+    XeCrypt::BnQw_SwapDwQwLeBe(signature.data(), 0x80);
 
     // reverse the new signature every 8 bytes
     for (int i = 0; i < 0x10; i++)
         FileIO::ReverseGenericArray(&signature[i * 8], 1, 8);
 
     // Write the certficate
-    memcpy(certificate.signature, signature, 0x80);
+    memcpy(certificate.signature, signature.data(), 0x80);
     WriteCertificate();
 
     delete[] dataToSign;

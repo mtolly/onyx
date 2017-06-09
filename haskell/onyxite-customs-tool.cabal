@@ -162,6 +162,7 @@ executable onyx
     build-depends: mogg2ogg
   include-dirs:
     cbits/
+    cbits/XboxInternals/
   c-sources:
     cbits/tinyfiledialogs.c
     cbits/stb_image_resize.c
@@ -177,7 +178,37 @@ executable onyx
     cbits/ArkTool_v6.1/PssVgsAccess.cpp
     cbits/ArkTool_v6.1/SongCrypt.cpp
     cbits/ArkTool_v6.1/Onyx.cpp
+    -- cbits/XboxInternals/Account/Account.cpp
+    -- cbits/XboxInternals/Account/AccountHelpers.cpp
+    cbits/XboxInternals/AvatarAsset/AssetHelpers.cpp
+    -- cbits/XboxInternals/AvatarAsset/AvatarAsset.cpp
+    -- cbits/XboxInternals/AvatarAsset/Ytgr.cpp
+    cbits/XboxInternals/Cryptography/XeCrypt.cpp
+    -- cbits/XboxInternals/Cryptography/XeKeys.cpp
+    -- cbits/XboxInternals/Disc/Gdfx.cpp
+    -- cbits/XboxInternals/Disc/Svod.cpp
+    -- cbits/XboxInternals/Fatx/FatxDrive.cpp
+    -- cbits/XboxInternals/Fatx/FatxDriveDetection.cpp
+    -- cbits/XboxInternals/Gpd/AvatarAwardGpd.cpp
+    -- cbits/XboxInternals/Gpd/DashboardGpd.cpp
+    -- cbits/XboxInternals/Gpd/GameGpd.cpp
+    -- cbits/XboxInternals/Gpd/GpdBase.cpp
+    -- cbits/XboxInternals/Gpd/Xdbf.cpp
+    cbits/XboxInternals/Gpd/XdbfHelpers.cpp
+    cbits/XboxInternals/IO/BaseIO.cpp
+    -- cbits/XboxInternals/IO/DeviceIO.cpp
+    -- cbits/XboxInternals/IO/FatxIO.cpp
+    cbits/XboxInternals/IO/FileIO.cpp
+    cbits/XboxInternals/IO/MemoryIO.cpp
+    -- cbits/XboxInternals/IO/MultiFileIO.cpp
+    -- cbits/XboxInternals/IO/SvodIO.cpp
+    -- cbits/XboxInternals/IO/SvodMultiFileIO.cpp
+    cbits/XboxInternals/Stfs/StfsDefinitions.cpp
+    cbits/XboxInternals/Stfs/StfsPackage.cpp
+    cbits/XboxInternals/Stfs/XContentHeader.cpp
+  pkgconfig-depends: botan-2
   extra-libraries: stdc++
+  cc-options: -std=c++11
   if os(mingw32)
     extra-libraries: comdlg32, ole32, shell32
     cpp-options: -DWINDOWS
