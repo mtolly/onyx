@@ -12,6 +12,7 @@ import           System.Exit
 import           System.Info                    (os)
 import           System.IO                      (hPutStr, hPutStrLn, stderr)
 import           System.Process
+import           XboxInternals                  ()
 
 checkShell :: (MonadIO m) => String -> StackTraceT m ()
 checkShell s = liftIO (readCreateProcessWithExitCode (shell s) "") >>= \case
