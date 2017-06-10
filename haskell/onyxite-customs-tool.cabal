@@ -9,10 +9,8 @@ cabal-version:        >= 1.10
 
 extra-source-files:
   vendors/Pentatonic.ttf
-  vendors/xbox/rb3pkg/bin/Release/KV.bin
-  vendors/xbox/rb3pkg/bin/Release/rb3.png
-  vendors/xbox/rb3pkg/bin/Release/rb3pkg.exe
-  vendors/xbox/rb3pkg/bin/Release/X360.dll
+  vendors/KV.bin
+  vendors/rb3.png
   vendors/empty.milo_xbox
   vendors/empty-rb2.milo_xbox
   vendors/empty-rb2_weights.bin

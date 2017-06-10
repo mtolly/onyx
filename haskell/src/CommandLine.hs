@@ -513,7 +513,7 @@ commands =
         then do
           -- TODO make sure that the RBA is actually RB3 not RB2
           out <- outputFile opts $ return $ fpath ++ "_rb3con"
-          simpleRBAtoCON fpath out >>= liftIO . putStrLn
+          simpleRBAtoCON fpath out
           return [out]
         else do
           hasKicks <- case ftype of
@@ -646,7 +646,7 @@ commands =
               pkg    = case game of GameRB3 -> rb3pkg   ; GameRB2 -> rb2pkg
           stfs <- outputFile opts $ (++ suffix) . dropTrailingPathSeparator <$> liftIO (Dir.makeAbsolute dir)
           (title, desc) <- getInfoForSTFS dir stfs
-          pkg title desc dir stfs >>= liftIO . putStrLn
+          pkg title desc dir stfs
           return [stfs]
         False -> fatal $ "onyx stfs expected directory; given: " <> dir
       _ -> fatal $ "onyx stfs expected 1 argument, given " <> show (length files)

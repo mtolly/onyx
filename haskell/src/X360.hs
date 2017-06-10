@@ -2,48 +2,50 @@
 {-# LANGUAGE OverloadedStrings #-}
 module X360 (rb3pkg, rb2pkg, stfsFolder) where
 
-import           Control.Monad                  (forM_)
+import           Control.Monad                  (unless)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                as B
+import           Data.List                      (inits, intercalate, nub, sort)
 import qualified Data.Text                      as T
 import           Data.Word                      (Word32)
-import           Resources                      (rb3pkgFiles)
-import           System.FilePath                ((</>))
-import           System.Info                    (os)
+import           Resources                      (rb3Thumbnail, xboxKV)
+import           System.Directory.Extra         (listFilesRecursive)
+import           System.FilePath                (makeRelative, splitDirectories)
 import           System.IO                      (IOMode (ReadMode),
                                                  SeekMode (AbsoluteSeek), hSeek,
                                                  withBinaryFile)
-import           System.Process
+import           XboxInternals                  (buildSTFSPackage)
 
-withDotNetExe :: (FilePath -> [String] -> a) -> FilePath -> [String] -> a
-withDotNetExe f exe args = if os == "mingw32"
-  then f exe args
-  else f "mono" $ exe : args
+directoryChain :: FilePath -> [FilePath]
+directoryChain f = let
+  chain = splitDirectories f
+  good = filter (\c -> not $ null c || length c == length chain) $ inits chain
+  in map (intercalate "/") good
 
-rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m String
-rb3pkg title desc dir fout = tempDir "rb3pkg" $ \tmp -> do
-  liftIO $ forM_ rb3pkgFiles $ \(fp, bs) -> B.writeFile (tmp </> fp) bs
-  let createProc = withDotNetExe proc (tmp </> "rb3pkg.exe")
-        [ "-p", T.unpack title
-        , "-d", T.unpack desc
-        , "-f", dir
-        , fout
-        ]
-  inside "making RB3 CON package with X360" $ stackProcess createProc ""
+rbpkg :: (MonadIO m) => String -> Word32 -> T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
+rbpkg game tid title desc dir fout = do
+  files <- liftIO $ listFilesRecursive dir
+  let dirs = sort $ nub $ concatMap (directoryChain . makeRelative dir) files
+  b <- liftIO $ buildSTFSPackage
+    (T.unpack title)
+    (T.unpack desc)
+    "Harmonix"
+    game
+    tid
+    dirs
+    [ (f, makeRelative dir f) | f <- files ]
+    rb3Thumbnail
+    rb3Thumbnail
+    xboxKV
+    fout
+  unless b $ fatal "XboxInternals encountered an error"
 
-rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m String
-rb2pkg title desc dir fout = tempDir "rb2pkg" $ \tmp -> do
-  liftIO $ forM_ rb3pkgFiles $ \(fp, bs) -> B.writeFile (tmp </> fp) bs
-  let createProc = withDotNetExe proc (tmp </> "rb3pkg.exe")
-        [ "-p", T.unpack title
-        , "-d", T.unpack desc
-        , "-f", dir
-        , "-i", show (0x45410869 :: Integer)
-        , "-g", "Rock Band 2"
-        , fout
-        ]
-  inside "making RB2 CON package with X360" $ stackProcess createProc ""
+rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
+rb3pkg = rbpkg "Rock Band 3" 0x45410914
+
+rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
+rb2pkg = rbpkg "Rock Band 2" 0x45410869
 
 stfsFolder :: (MonadIO m) => FilePath -> m (Word32, Word32)
 stfsFolder f = liftIO $ withBinaryFile f ReadMode $ \h -> do

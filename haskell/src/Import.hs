@@ -382,7 +382,7 @@ importSTFS file file2x dir = tempDir "onyx_con" $ \temp -> do
       with2xPath $ Just (pkg2x, temp2x </> base2x <.> "mid")
 
 -- | Converts a Magma v2 RBA to CON without going through an import + recompile.
-simpleRBAtoCON :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m String
+simpleRBAtoCON :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ show con) $ do
   tempDir "onyx_rba2con" $ \temp -> do
     md5 <- liftIO $ BL.readFile rba >>= evaluate . MD5.md5

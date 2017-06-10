@@ -5,7 +5,7 @@ Built on work by:
 Harmonix, TrojanNemo/C3, xorloser, deimos, DJ Shepherd, arkem, and others
 
 Early alpha release!
-Requires .NET and Visual C++. (If you can run C3 CON Tools, you're good.)
+Requires Visual C++. (If you can run Magma, you're good.)
 
 Open `onyx.exe` to run.
 Click on menu options to select them.

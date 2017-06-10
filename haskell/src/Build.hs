@@ -1082,12 +1082,11 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             pathCon ≡> \out -> do
               lift $ need [pathDta, pathMid, pathMogg, pathPng, pathMilo]
               lift $ putNormal "# Calling rb3pkg to make RB3 CON file"
-              s <- rb3pkg
+              rb3pkg
                 (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                 ("Version: " <> targetName)
                 (dir </> "stfs")
                 out
-              lift $ putNormal s
 
             -- Guitar rules
             dir </> "protar-hear.mid" ≡> \out -> do
@@ -1382,12 +1381,11 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   rb2CON ≡> \out -> do
                     lift $ need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
                     lift $ putNormal "# Calling rb3pkg to make RB2 CON file"
-                    s <- rb2pkg
+                    rb2pkg
                       (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                       (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                       (dir </> "rb2")
                       out
-                    lift $ putNormal s
 
       forM_ (extraTargets ++ HM.toList (_targets songYaml)) $ \(targetName, target) -> do
         let dir = "gen/target" </> T.unpack targetName

@@ -14,8 +14,11 @@ magmaV2Dir       = (</> "magma-v2")       . takeDirectory <$> getExecutablePath
 magmaCommonDir   = (</> "magma-common")   . takeDirectory <$> getExecutablePath
 magmaOgg2MoggDir = (</> "magma-ogg2mogg") . takeDirectory <$> getExecutablePath
 
-rb3pkgFiles :: [(FilePath, B.ByteString)]
-rb3pkgFiles = $(makeRelativeToProject "vendors/xbox/rb3pkg/bin/Release/" >>= embedDir)
+xboxKV :: B.ByteString
+xboxKV = $(makeRelativeToProject "vendors/KV.bin" >>= embedFile)
+
+rb3Thumbnail :: B.ByteString
+rb3Thumbnail = $(makeRelativeToProject "vendors/rb3.png" >>= embedFile)
 
 emptyMilo :: B.ByteString
 emptyMilo = $(makeRelativeToProject "vendors/empty.milo_xbox" >>= embedFile)

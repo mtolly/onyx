@@ -7,7 +7,7 @@ library
   hs-source-dirs:       src
   exposed-modules:
     XboxInternals
-  build-depends: base
+  build-depends: base, bytestring
   default-language: Haskell2010
   ghc-options: -Wall
   build-tools: c2hs >= 0.27.1
