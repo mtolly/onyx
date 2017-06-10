@@ -42,6 +42,7 @@ library
     cbits/Stfs/StfsDefinitions.cpp
     cbits/Stfs/StfsPackage.cpp
     cbits/Stfs/XContentHeader.cpp
+    cbits/XboxInternals_onyx.cpp
   pkgconfig-depends: botan-2
   extra-libraries: stdc++
-  cc-options: -std=c++11
+  cc-options: -std=c++11 -DXBOXINTERNALS_STATIC

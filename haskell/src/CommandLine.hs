@@ -656,12 +656,13 @@ commands =
     { commandWord = "unstfs"
     , commandDesc = "Extract the contents of an Xbox 360 STFS file."
     , commandUsage = T.unlines
-      [ "onyx stfs song_rb3con"
-      , "onyx stfs song_rb3con --to a_folder"
+      [ "onyx unstfs song_rb3con"
+      , "onyx unstfs song_rb3con --to a_folder"
       ]
     , commandRun = \files opts -> mapM identifyFile' files >>= \case
       [(FileSTFS, stfs)] -> do
         out <- outputFile opts $ return $ stfs ++ "_extract"
+        liftIO $ Dir.createDirectoryIfMissing False out
         liftIO $ extractSTFS stfs out
         return [out]
       _ -> fatal $ "onyx unstfs expected a single STFS argument, given: " <> show files
