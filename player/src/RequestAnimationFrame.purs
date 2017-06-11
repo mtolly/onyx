@@ -4,9 +4,9 @@ module RequestAnimationFrame
   , requestAnimationFrame_
   ) where
 
-import Prelude
+import Prelude (Unit, bind)
 
-import Control.Monad.Eff
+import Control.Monad.Eff (Eff)
 
 import DOM (DOM())
 import DOM.HTML (window)

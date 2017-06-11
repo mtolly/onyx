@@ -53,7 +53,7 @@ import Data.Traversable (traverse, class Traversable)
 import Data.Tuple (Tuple(Tuple), snd, uncurry)
 import Data.Unfoldable (class Unfoldable, unfoldr)
 import Partial.Unsafe (unsafePartial)
-import Control.Monad.Eff (Eff(..), runPure)
+import Control.Monad.Eff (Eff, runPure)
 import Data.Array.ST (runSTArray, emptySTArray, pushSTArray)
 
 -- | `Map k v` represents maps from keys of type `k` to values of type `v`.

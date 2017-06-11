@@ -2,21 +2,16 @@ module Draw (Settings(), App(..), DrawStuff(), draw, _M, _B, getWindowDims) wher
 
 import Prelude
 import Graphics.Canvas as C
-import Data.Time.Duration
-import Images
-import Control.Monad.Eff
+import Data.Time.Duration (Seconds(..))
+import Control.Monad.Eff (Eff)
 import Data.Int (toNumber, round)
-import DOM
-import OnyxMap as Map
-import Data.Maybe
+import DOM (DOM)
+import Data.Maybe (Maybe(..), fromMaybe, isJust, isNothing)
 import Data.Array (uncons, cons, snoc, take, zip, (..), length, concat)
 import Data.List as L
-import Data.Tuple
-import Control.Monad (when)
+import Data.Tuple (Tuple(..))
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-import Data.Ord (min, max)
 import Data.Foldable (elem, sum, for_)
-import Control.Apply ((*>))
 import Control.MonadPlus (guard)
 import Data.String.Regex as R
 import Data.String.Regex.Flags (noFlags)
@@ -24,6 +19,8 @@ import Math (pi)
 import Data.Either (either)
 
 import Song
+import Images (ImageID(..))
+import OnyxMap as Map
 
 foreign import getWindowDims :: forall e. Eff (dom :: DOM | e) {w :: Number, h :: Number}
 
@@ -970,7 +967,7 @@ drawVocal (Vocal v) targetY stuff = do
           ) stuff
         setFillStyle (case Map.lookupLE o.time v.energy of
           Nothing -> "white"
-          Just { value: v } -> if v then "yellow" else "white"
+          Just { value: isEnergy } -> if isEnergy then "yellow" else "white"
           ) stuff
         metric <- measureText o.lyric stuff
         onContext (\ctx -> C.fillText ctx o.lyric textX textY) stuff

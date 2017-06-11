@@ -1,14 +1,13 @@
 module Song where
 
 import Prelude
-import Data.Time.Duration
+import Data.Time.Duration (Seconds(..))
 import Data.Foreign
 import Data.Foreign.Index (readProp, readIndex)
 import OnyxMap as Map
-import Data.Maybe
-import Data.Traversable
-import Data.Tuple
-import Data.Either
+import Data.Maybe (Maybe(..))
+import Data.Traversable (sequence, traverse)
+import Data.Tuple (Tuple(..))
 import Data.Generic (class Generic, gShow, gEq, gCompare)
 import Control.Monad.Except (throwError)
 

@@ -1,30 +1,30 @@
 module Main where
 
 import Prelude
-import Data.Maybe
-import Control.Monad.Eff
+import Data.Maybe (Maybe(..), isJust)
+import Control.Monad.Eff (Eff)
 import Graphics.Canvas as C
-import DOM
-import Control.Monad.Eff.Console
-import Data.Foreign
-import Data.Either
-import Control.Monad.Eff.Ref
-import Data.Array
-import RequestAnimationFrame
-import Data.Time.Duration
+import DOM (DOM)
+import Control.Monad.Eff.Console (CONSOLE, log)
+import Data.Foreign (Foreign)
+import Data.Either (Either(..))
+import Control.Monad.Eff.Ref (REF, modifyRef, modifyRef', newRef)
+import Data.Array (concat, uncons, (:))
+import RequestAnimationFrame (requestAnimationFrame)
+import Data.Time.Duration (Seconds(..), convertDuration)
 import Data.Int (round, toNumber)
 import Data.List as L
 import Control.MonadPlus (guard)
-import Control.Monad.Eff.Now
-import Data.DateTime.Instant
+import Control.Monad.Eff.Now (NOW, now)
+import Data.DateTime.Instant (unInstant)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import Control.Monad.Except (runExcept)
 
-import Audio
-import Images
-import Draw
-import Song
+import Audio (AUDIO, loadAudio, playFrom, stop)
+import Images (withImages)
+import Draw (App(..), _B, _M, draw, getWindowDims)
+import Song (Song(..), isForeignSong)
 
 foreign import onyxSong :: Foreign
 
@@ -82,10 +82,10 @@ main = do
                               then if windowH - _M - _B <= y && y <= windowH - _M
                                 then case app_ of -- play/pause button
                                   Paused o -> do
-                                    ms <- unInstant <$> now
+                                    ms' <- unInstant <$> now
                                     playFrom audio nowTheory do
                                       handle et $ Playing
-                                        { startedPageTime: convertDuration ms
+                                        { startedPageTime: convertDuration ms'
                                         , startedSongTime: nowTheory
                                         , settings: o.settings
                                         }
@@ -104,11 +104,11 @@ main = do
                                         { pausedSongTime = t
                                         }
                                       Playing o -> do
-                                        ms <- unInstant <$> now
+                                        ms' <- unInstant <$> now
                                         stop audio
                                         playFrom audio t do
                                           handle et $ Playing $ o
-                                            { startedPageTime = convertDuration ms
+                                            { startedPageTime = convertDuration ms'
                                             , startedSongTime = t
                                             }
                                   else handle et app_
@@ -136,7 +136,7 @@ main = do
                                     ]
                                 else handle et app_
                     case app' of
-                      Playing o | nowTheory >= (case song of Song o -> o.end) -> do
+                      Playing o | nowTheory >= (case song of Song obj -> obj.end) -> do
                         stop audio
                         handle evts $ Paused
                           { pausedSongTime: nowTheory
