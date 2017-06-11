@@ -7,7 +7,6 @@ import Graphics.Canvas as C
 import DOM
 import Control.Monad.Eff.Console
 import Data.Foreign
-import Data.Foreign.Class
 import Data.Either
 import Control.Monad.Eff.Ref
 import Data.Array
@@ -18,7 +17,9 @@ import Data.List as L
 import Control.MonadPlus (guard)
 import Control.Monad.Eff.Now
 import Data.DateTime.Instant
+import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
+import Control.Monad.Except (runExcept)
 
 import Audio
 import Images
@@ -33,12 +34,13 @@ foreign import onPoint
   -> Eff (dom :: DOM | e) Unit
 
 main :: Eff
-  ( canvas  :: C.CANVAS
-  , dom     :: DOM
-  , console :: CONSOLE
-  , ref     :: REF
-  , now     :: NOW
-  , audio   :: AUDIO
+  ( canvas    :: C.CANVAS
+  , dom       :: DOM
+  , console   :: CONSOLE
+  , ref       :: REF
+  , now       :: NOW
+  , audio     :: AUDIO
+  , exception :: EXCEPTION
   ) Unit
 main = do
   canvas <- C.getCanvasElementById "the-canvas" >>= \mc -> case mc of
@@ -48,7 +50,7 @@ main = do
   clicks <- newRef []
   onPoint $ \e -> modifyRef clicks (e : _)
   withImages $ \imageGetter -> do
-    case read onyxSong of
+    case runExcept $ isForeignSong onyxSong of
       Left  e    -> log $ show e
       Right song -> loadAudio $ \audio -> do
         let loop app = do

@@ -73,11 +73,10 @@ fillRect rect = onContext $ \ctx -> C.fillRect ctx rect
 fillCircle :: forall e. { x :: Number, y :: Number, r :: Number } -> Draw e Unit
 fillCircle o dstuff = do
   let ctx = dstuff.context
-  void do
-    C.beginPath ctx
-    C.arc ctx { x: o.x, y: o.y, r: o.r, start: 0.0, end: 2.0 * pi }
-    C.fill ctx
-    C.closePath ctx
+  void $ C.beginPath ctx
+  void $ C.arc ctx { x: o.x, y: o.y, r: o.r, start: 0.0, end: 2.0 * pi }
+  void $ C.fill ctx
+  void $ C.closePath ctx
 
 drawImage :: forall e. ImageID -> Number -> Number -> Draw e Unit
 drawImage iid x y dstuff =
@@ -92,8 +91,8 @@ measureText str dstuff = C.measureText dstuff.context str
 draw :: forall e. Draw (dom :: DOM | e) Unit
 draw stuff = do
   {w: windowW, h: windowH} <- getWindowDims
-  C.setCanvasWidth  windowW stuff.canvas
-  C.setCanvasHeight windowH stuff.canvas
+  void $ C.setCanvasWidth  windowW stuff.canvas
+  void $ C.setCanvasHeight windowH stuff.canvas
   setFillStyle "rgb(54,59,123)" stuff
   fillRect { x: 0.0, y: 0.0, w: windowW, h: windowH } stuff
   -- Draw the visible instrument tracks in sequence
@@ -820,7 +819,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
             Sustain (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5) stuff
   pure $ targetX + 282 + _M
 
-zoomAscDoPadding :: forall k a m. (Ord k, Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
+zoomAscDoPadding :: forall k a m. (Ord k) => (Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
 zoomAscDoPadding k1 k2 m act = do
   case Map.lookupLE k1 m of
     Nothing -> pure unit
@@ -836,7 +835,7 @@ zoomAscDoPadding k1 k2 m act = do
     Nothing -> pure unit
     Just { key: k, value: v } -> act k v
 
-zoomDescDoPadding :: forall k a m. (Ord k, Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
+zoomDescDoPadding :: forall k a m. (Ord k) => (Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
 zoomDescDoPadding k1 k2 m act = do
   case Map.lookupGE k2 m of
     Nothing -> pure unit
