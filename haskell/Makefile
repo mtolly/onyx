@@ -27,7 +27,7 @@ mac:
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} Onyx.app/Contents/MacOS/
 
 mac-deps:
-	brew install libsndfile libsamplerate lame sdl2 sdl2_ttf rubberband
+	brew install libsndfile libsamplerate lame sdl2 sdl2_ttf rubberband botan
 
 win:
 	rm -rf win/

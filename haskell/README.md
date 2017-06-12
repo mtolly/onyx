@@ -20,12 +20,37 @@
   * `libmp3lame-0.dll` to `libmp3lame.dll`
   * `libsndfile-1.dll` to `libsndfile.dll`
   * `libsamplerate-0.dll` to `libsamplerate.dll`
+  * `librubberband-2.dll` to `librubberband.dll`
 
-5. `stack build` (do this from outside `bash` so the lib+include paths are set up right)
+5. (temporary until I figure out something better) Do the following to install `libbotan`.
 
-6. `stack exec make win`
+  * Download source for `botan 2.1.0`
+  * Modify `src/build-data/os/mingw.txt`: replace `building_shared_supported no` with `soname_pattern_base "libbotan-2.dll"`
+  * From within stack's msys2 bash: `./configure.py --os=mingw --cpu=x86 --link-method=copy`
+  * In the `Makefile`, remove the lines `$(LN) $(SONAME_PATCH) ./$(SONAME_ABI)` and `$(LN) $(SONAME_PATCH) ./$(SONAME_BASE)`
+  * From within stack's msys2 bash: `make`
+  * Copy `libbotan-2.dll` to Stack's `/mingw32/bin` and `/mingw32/lib`
+  * Copy `build/include/botan` to Stack's `/mingw32/include`
+  * Make the following `/mingw32/lib/pkgconfig/botan-2.pc`:
 
-7. Program and DLLs will now be in `win/`.
+        prefix=/mingw32
+        exec_prefix=${prefix}
+        libdir=${exec_prefix}/lib
+        includedir=${prefix}/include
+
+        Name: Botan
+        Description: Crypto and TLS for C++11
+        Version: 2.1.0
+
+        Libs: -L${libdir} -lbotan-2 -fstack-protector -pthread
+        Libs.private: -ladvapi32
+        Cflags: -I${includedir}
+
+6. `stack build` (do this from outside `bash` so the lib+include paths are set up right)
+
+7. `stack exec make win`
+
+8. Program and DLLs will now be in `win/`.
 
 # Mac
 

@@ -53,10 +53,7 @@ buildSTFSPackage
   -> B.ByteString -- ^ kv data
   -> FilePath -- ^ stfs out
   -> IO Bool
-buildSTFSPackage pn pd pub game tid dirs files thumb title kv out =
-  B.useAsCStringLen thumb $ \(pthumb, lenthumb) ->
-  B.useAsCStringLen title $ \(ptitle, lentitle) ->
-  B.useAsCStringLen kv $ \(pkv, lenkv) -> let
+buildSTFSPackage pn pd pub game tid dirs files thumb title kv out = let
   fixSlashes = map $ \case '/' -> '\\'; c -> c
   in (/= 0) <$> buildSTFSPackage_c pn pd pub game tid
     (map fixSlashes dirs)

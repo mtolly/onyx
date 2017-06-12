@@ -45,4 +45,6 @@ library
     cbits/XboxInternals_onyx.cpp
   pkgconfig-depends: botan-2
   extra-libraries: stdc++
+  if os(mingw32)
+    extra-libraries: gcc_s_dw2-1
   cc-options: -std=c++11 -DXBOXINTERNALS_STATIC
