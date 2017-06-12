@@ -2,21 +2,16 @@ module Draw (Settings(), App(..), DrawStuff(), draw, _M, _B, getWindowDims) wher
 
 import Prelude
 import Graphics.Canvas as C
-import Data.Time.Duration
-import Images
-import Control.Monad.Eff
+import Data.Time.Duration (Seconds(..))
+import Control.Monad.Eff (Eff)
 import Data.Int (toNumber, round)
-import DOM
-import OnyxMap as Map
-import Data.Maybe
+import DOM (DOM)
+import Data.Maybe (Maybe(..), fromMaybe, isJust, isNothing)
 import Data.Array (uncons, cons, snoc, take, zip, (..), length, concat)
 import Data.List as L
-import Data.Tuple
-import Control.Monad (when)
+import Data.Tuple (Tuple(..))
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-import Data.Ord (min, max)
 import Data.Foldable (elem, sum, for_)
-import Control.Apply ((*>))
 import Control.MonadPlus (guard)
 import Data.String.Regex as R
 import Data.String.Regex.Flags (noFlags)
@@ -24,6 +19,8 @@ import Math (pi)
 import Data.Either (either)
 
 import Song
+import Images (ImageID(..))
+import OnyxMap as Map
 
 foreign import getWindowDims :: forall e. Eff (dom :: DOM | e) {w :: Number, h :: Number}
 
@@ -73,11 +70,10 @@ fillRect rect = onContext $ \ctx -> C.fillRect ctx rect
 fillCircle :: forall e. { x :: Number, y :: Number, r :: Number } -> Draw e Unit
 fillCircle o dstuff = do
   let ctx = dstuff.context
-  void do
-    C.beginPath ctx
-    C.arc ctx { x: o.x, y: o.y, r: o.r, start: 0.0, end: 2.0 * pi }
-    C.fill ctx
-    C.closePath ctx
+  void $ C.beginPath ctx
+  void $ C.arc ctx { x: o.x, y: o.y, r: o.r, start: 0.0, end: 2.0 * pi }
+  void $ C.fill ctx
+  void $ C.closePath ctx
 
 drawImage :: forall e. ImageID -> Number -> Number -> Draw e Unit
 drawImage iid x y dstuff =
@@ -92,8 +88,8 @@ measureText str dstuff = C.measureText dstuff.context str
 draw :: forall e. Draw (dom :: DOM | e) Unit
 draw stuff = do
   {w: windowW, h: windowH} <- getWindowDims
-  C.setCanvasWidth  windowW stuff.canvas
-  C.setCanvasHeight windowH stuff.canvas
+  void $ C.setCanvasWidth  windowW stuff.canvas
+  void $ C.setCanvasHeight windowH stuff.canvas
   setFillStyle "rgb(54,59,123)" stuff
   fillRect { x: 0.0, y: 0.0, w: windowW, h: windowH } stuff
   -- Draw the visible instrument tracks in sequence
@@ -820,7 +816,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
             Sustain (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5) stuff
   pure $ targetX + 282 + _M
 
-zoomAscDoPadding :: forall k a m. (Ord k, Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
+zoomAscDoPadding :: forall k a m. (Ord k) => (Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
 zoomAscDoPadding k1 k2 m act = do
   case Map.lookupLE k1 m of
     Nothing -> pure unit
@@ -836,7 +832,7 @@ zoomAscDoPadding k1 k2 m act = do
     Nothing -> pure unit
     Just { key: k, value: v } -> act k v
 
-zoomDescDoPadding :: forall k a m. (Ord k, Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
+zoomDescDoPadding :: forall k a m. (Ord k) => (Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
 zoomDescDoPadding k1 k2 m act = do
   case Map.lookupGE k2 m of
     Nothing -> pure unit
@@ -971,7 +967,7 @@ drawVocal (Vocal v) targetY stuff = do
           ) stuff
         setFillStyle (case Map.lookupLE o.time v.energy of
           Nothing -> "white"
-          Just { value: v } -> if v then "yellow" else "white"
+          Just { value: isEnergy } -> if isEnergy then "yellow" else "white"
           ) stuff
         metric <- measureText o.lyric stuff
         onContext (\ctx -> C.fillText ctx o.lyric textX textY) stuff

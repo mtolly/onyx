@@ -18,7 +18,6 @@ extra-source-files:
   ../player/www/app.min.js
   ../player/www/images/*.png
   ../player/www/lib/howler/dist/howler.min.js
-  cbits/tinyfiledialogs.h
   cbits/stb_image_resize.h
   cbits/encode_vag.h
 
@@ -32,7 +31,6 @@ executable onyx
   other-modules:
     Build
     CommandLine
-    TinyFileDialogs
     YAMLTree
     Audio
     Scripts
@@ -153,6 +151,7 @@ executable onyx
     , conduit-audio-samplerate
     , conduit-audio-lame
     , rubberband >= 0.1.0.2 && < 0.2
+    , tinyfiledialogs
   default-language:     Haskell2010
   ghc-options:          -Wall -threaded -O
   build-tools: c2hs >= 0.27.1, alex, happy
@@ -162,7 +161,6 @@ executable onyx
   include-dirs:
     cbits/
   c-sources:
-    cbits/tinyfiledialogs.c
     cbits/stb_image_resize.c
     cbits/stb_dxt.c
     cbits/encode_vag.c
@@ -178,7 +176,7 @@ executable onyx
     cbits/ArkTool_v6.1/Onyx.cpp
   extra-libraries: stdc++
   if os(mingw32)
-    extra-libraries: comdlg32, ole32, shell32
+    extra-libraries: shell32
     cpp-options: -DWINDOWS
     build-depends: Win32
     ld-options: -mwindows

@@ -18,11 +18,8 @@ module OnyxMap
   , findMax
   , fromFoldable
   , fromFoldableWith
-  , toList
-  , toAscList
-  , toDescList
-  , fromList
-  , fromListWith
+  , toUnfoldable
+  , toAscUnfoldable
   , delete
   , pop
   , member
@@ -33,24 +30,31 @@ module OnyxMap
   , union
   , unionWith
   , unions
+  , isSubmap
   , size
+  , mapWithKey
+  , filterWithKey
+  , filterKeys
+  , filter
   , zoomAscDo
   , zoomDescDo
   , doTupleArray
   ) where
 
 import Prelude
-
+import Data.Eq (class Eq1)
 import Data.Foldable (foldl, foldMap, foldr, class Foldable)
-import Data.List (List(..), length, nub)
+import Data.List (List(..), (:), length, nub)
+import Data.List.Lazy as LL
 import Data.Maybe (Maybe(..), maybe, isJust, fromMaybe)
 import Data.Monoid (class Monoid)
+import Data.Ord (class Ord1)
 import Data.Traversable (traverse, class Traversable)
-import Data.Tuple (Tuple(..), uncurry, snd)
-import Control.Monad.Eff (runPure, Eff())
-import Data.Array.ST (runSTArray, emptySTArray, pushSTArray)
-
+import Data.Tuple (Tuple(Tuple), snd, uncurry)
+import Data.Unfoldable (class Unfoldable, unfoldr)
 import Partial.Unsafe (unsafePartial)
+import Control.Monad.Eff (Eff, runPure)
+import Data.Array.ST (runSTArray, emptySTArray, pushSTArray)
 
 -- | `Map k v` represents maps from keys of type `k` to values of type `v`.
 data Map k v
@@ -58,19 +62,29 @@ data Map k v
   | Two (Map k v) k v (Map k v)
   | Three (Map k v) k v (Map k v) k v (Map k v)
 
-instance eqMap :: (Eq k, Eq v) => Eq (Map k v) where
-  eq m1 m2 = toList m1 == toList m2
+-- Internal use
+toAscArray :: forall k v. Map k v -> Array (Tuple k v)
+toAscArray = toAscUnfoldable
 
-instance showMap :: (Show k, Show v) => Show (Map k v) where
-  show m = "(fromList " <> show (toList m) <> ")"
+instance eq1Map :: Eq k => Eq1 (Map k) where
+  eq1 = eq
+
+instance eqMap :: (Eq k, Eq v) => Eq (Map k v) where
+  eq m1 m2 = toAscArray m1 == toAscArray m2
+
+instance ord1Map :: Ord k => Ord1 (Map k) where
+  compare1 = compare
 
 instance ordMap :: (Ord k, Ord v) => Ord (Map k v) where
-  compare m1 m2 = compare (toList m1) (toList m2)
+  compare m1 m2 = compare (toAscArray m1) (toAscArray m2)
 
-instance semigroupMap :: (Ord k) => Semigroup (Map k v) where
+instance showMap :: (Show k, Show v) => Show (Map k v) where
+  show m = "(fromFoldable " <> show (toAscArray m) <> ")"
+
+instance semigroupMap :: Ord k => Semigroup (Map k v) where
   append = union
 
-instance monoidMap :: (Ord k) => Monoid (Map k v) where
+instance monoidMap :: Ord k => Monoid (Map k v) where
   mempty = empty
 
 instance functorMap :: Functor (Map k) where
@@ -83,12 +97,25 @@ instance foldableMap :: Foldable (Map k) where
   foldr   f z m = foldr   f z (values m)
   foldMap f   m = foldMap f   (values m)
 
-instance traversableMap :: (Ord k) => Traversable (Map k) where
-  traverse f ms = foldr (\x acc -> union <$> x <*> acc) (pure empty) ((map (uncurry singleton)) <$> (traverse f <$> toList ms))
+instance traversableMap :: Traversable (Map k) where
+  traverse f Leaf = pure Leaf
+  traverse f (Two left k v right) =
+    Two <$> traverse f left
+        <*> pure k
+        <*> f v
+        <*> traverse f right
+  traverse f (Three left k1 v1 mid k2 v2 right) =
+    Three <$> traverse f left
+          <*> pure k1
+          <*> f v1
+          <*> traverse f mid
+          <*> pure k2
+          <*> f v2
+          <*> traverse f right
   sequence = traverse id
 
 -- | Render a `Map` as a `String`
-showTree :: forall k v. (Show k, Show v) => Map k v -> String
+showTree :: forall k v. Show k => Show v => Map k v -> String
 showTree Leaf = "Leaf"
 showTree (Two left k v right) =
   "Two (" <> showTree left <>
@@ -128,78 +155,97 @@ checkValid tree = length (nub (allHeights tree)) == one
   allHeights (Two left _ _ right) = map (\n -> n + one) (allHeights left <> allHeights right)
   allHeights (Three left _ _ mid _ _ right) = map (\n -> n + one) (allHeights left <> allHeights mid <> allHeights right)
 
--- | Lookup a value for the specified key
+-- | Look up a value for the specified key
 lookup :: forall k v. Ord k => k -> Map k v -> Maybe v
-lookup = unsafePartial \k tree ->
-  case tree of
-    Leaf -> Nothing
-    _ ->
-      let comp :: k -> k -> Ordering
-          comp = compare
-      in case tree of
-        Two left k1 v right ->
-          case comp k k1 of
-            EQ -> Just v
-            LT -> lookup k left
-            _  -> lookup k right
-        Three left k1 v1 mid k2 v2 right ->
-          case comp k k1 of
-            EQ -> Just v1
-            c1 ->
-              case c1, comp k k2 of
-                _ , EQ -> Just v2
-                LT, _  -> lookup k left
-                _ , GT -> lookup k right
-                _ , _  -> lookup k mid
+lookup k = go
+  where
+    comp :: k -> k -> Ordering
+    comp = compare
+
+    go Leaf = Nothing
+    go (Two left k1 v right) =
+      case comp k k1 of
+        EQ -> Just v
+        LT -> go left
+        _  -> go right
+    go (Three left k1 v1 mid k2 v2 right) =
+      case comp k k1 of
+        EQ -> Just v1
+        c1 ->
+          case c1, comp k k2 of
+            _ , EQ -> Just v2
+            LT, _  -> go left
+            _ , GT -> go right
+            _ , _  -> go mid
 
 
--- | Lookup a value for the specified key, or the greatest one less than it
-lookupLE :: forall k v. (Ord k) => k -> Map k v -> Maybe { key :: k, value :: v }
-lookupLE _ Leaf = Nothing
-lookupLE k (Two left k1 v1 right) = case compare k k1 of
-  EQ -> Just { key: k1, value: v1 }
-  GT -> Just $ fromMaybe { key: k1, value: v1 } $ lookupLE k right
-  LT -> lookupLE k left
-lookupLE k (Three left k1 v1 mid k2 v2 right) = case compare k k2 of
-  EQ -> Just { key: k2, value: v2 }
-  GT -> Just $ fromMaybe { key: k2, value: v2 } $ lookupLE k right
-  LT -> lookupLE k $ Two left k1 v1 mid
+-- | Look up a value for the specified key, or the greatest one less than it
+lookupLE :: forall k v. Ord k => k -> Map k v -> Maybe { key :: k, value :: v }
+lookupLE k = go
+  where
+    comp :: k -> k -> Ordering
+    comp = compare
 
--- | Lookup a value for the greatest key less than the specified key
-lookupLT :: forall k v. (Ord k) => k -> Map k v -> Maybe { key :: k, value :: v }
-lookupLT _ Leaf = Nothing
-lookupLT k (Two left k1 v1 right) = case compare k k1 of
-  EQ -> findMax left
-  GT -> Just $ fromMaybe { key: k1, value: v1 } $ lookupLT k right
-  LT -> lookupLT k left
-lookupLT k (Three left k1 v1 mid k2 v2 right) = case compare k k2 of
-  EQ -> findMax $ Two left k1 v1 mid
-  GT -> Just $ fromMaybe { key: k2, value: v2 } $ lookupLT k right
-  LT -> lookupLT k $ Two left k1 v1 mid
+    go Leaf = Nothing
+    go (Two left k1 v1 right) = case comp k k1 of
+      EQ -> Just { key: k1, value: v1 }
+      GT -> Just $ fromMaybe { key: k1, value: v1 } $ go right
+      LT -> go left
+    go (Three left k1 v1 mid k2 v2 right) = case comp k k2 of
+      EQ -> Just { key: k2, value: v2 }
+      GT -> Just $ fromMaybe { key: k2, value: v2 } $ go right
+      LT -> go $ Two left k1 v1 mid
 
--- | Lookup a value for the specified key, or the least one greater than it
-lookupGE :: forall k v. (Ord k) => k -> Map k v -> Maybe { key :: k, value :: v }
-lookupGE _ Leaf = Nothing
-lookupGE k (Two left k1 v1 right) = case compare k k1 of
-  EQ -> Just { key: k1, value: v1 }
-  LT -> Just $ fromMaybe { key: k1, value: v1 } $ lookupGE k left
-  GT -> lookupGE k right
-lookupGE k (Three left k1 v1 mid k2 v2 right) = case compare k k1 of
-  EQ -> Just { key: k1, value: v1 }
-  LT -> Just $ fromMaybe { key: k1, value: v1 } $ lookupGE k left
-  GT -> lookupGE k $ Two mid k2 v2 right
+-- | Look up a value for the greatest key less than the specified key
+lookupLT :: forall k v. Ord k => k -> Map k v -> Maybe { key :: k, value :: v }
+lookupLT k = go
+  where
+    comp :: k -> k -> Ordering
+    comp = compare
 
--- | Lookup a value for the least key greater than the specified key
-lookupGT :: forall k v. (Ord k) => k -> Map k v -> Maybe { key :: k, value :: v }
-lookupGT _ Leaf = Nothing
-lookupGT k (Two left k1 v1 right) = case compare k k1 of
-  EQ -> findMin right
-  LT -> Just $ fromMaybe { key: k1, value: v1 } $ lookupGT k left
-  GT -> lookupGT k right
-lookupGT k (Three left k1 v1 mid k2 v2 right) = case compare k k1 of
-  EQ -> findMin $ Two mid k2 v2 right
-  LT -> Just $ fromMaybe { key: k1, value: v1 } $ lookupGT k left
-  GT -> lookupGT k $ Two mid k2 v2 right
+    go Leaf = Nothing
+    go (Two left k1 v1 right) = case comp k k1 of
+      EQ -> findMax left
+      GT -> Just $ fromMaybe { key: k1, value: v1 } $ go right
+      LT -> go left
+    go (Three left k1 v1 mid k2 v2 right) = case comp k k2 of
+      EQ -> findMax $ Two left k1 v1 mid
+      GT -> Just $ fromMaybe { key: k2, value: v2 } $ go right
+      LT -> go $ Two left k1 v1 mid
+
+-- | Look up a value for the specified key, or the least one greater than it
+lookupGE :: forall k v. Ord k => k -> Map k v -> Maybe { key :: k, value :: v }
+lookupGE k = go
+  where
+    comp :: k -> k -> Ordering
+    comp = compare
+
+    go Leaf = Nothing
+    go (Two left k1 v1 right) = case comp k k1 of
+      EQ -> Just { key: k1, value: v1 }
+      LT -> Just $ fromMaybe { key: k1, value: v1 } $ go left
+      GT -> go right
+    go (Three left k1 v1 mid k2 v2 right) = case comp k k1 of
+      EQ -> Just { key: k1, value: v1 }
+      LT -> Just $ fromMaybe { key: k1, value: v1 } $ go left
+      GT -> go $ Two mid k2 v2 right
+
+-- | Look up a value for the least key greater than the specified key
+lookupGT :: forall k v. Ord k => k -> Map k v -> Maybe { key :: k, value :: v }
+lookupGT k = go
+  where
+    comp :: k -> k -> Ordering
+    comp = compare
+
+    go Leaf = Nothing
+    go (Two left k1 v1 right) = case comp k k1 of
+      EQ -> findMin right
+      LT -> Just $ fromMaybe { key: k1, value: v1 } $ go left
+      GT -> go right
+    go (Three left k1 v1 mid k2 v2 right) = case comp k k1 of
+      EQ -> findMin $ Two mid k2 v2 right
+      LT -> Just $ fromMaybe { key: k1, value: v1 } $ go left
+      GT -> go $ Two mid k2 v2 right
 
 -- | Returns the pair with the greatest key
 findMax :: forall k v. Map k v -> Maybe { key :: k, value :: v }
@@ -236,39 +282,39 @@ fromZipper (Cons x ctx) tree =
 
 data KickUp k v = KickUp (Map k v) k v (Map k v)
 
--- | Insert a key/value pair into a map
+-- | Insert or replace a key/value pair in a map
 insert :: forall k v. Ord k => k -> v -> Map k v -> Map k v
-insert = down Nil
+insert k v = down Nil
   where
   comp :: k -> k -> Ordering
   comp = compare
 
-  down :: List (TreeContext k v) -> k -> v -> Map k v -> Map k v
-  down ctx k v Leaf = up ctx (KickUp Leaf k v Leaf)
-  down ctx k v (Two left k1 v1 right) =
+  down :: List (TreeContext k v) -> Map k v -> Map k v
+  down ctx Leaf = up ctx (KickUp Leaf k v Leaf)
+  down ctx (Two left k1 v1 right) =
     case comp k k1 of
       EQ -> fromZipper ctx (Two left k v right)
-      LT -> down (Cons (TwoLeft k1 v1 right) ctx) k v left
-      _  -> down (Cons (TwoRight left k1 v1) ctx) k v right
-  down ctx k v (Three left k1 v1 mid k2 v2 right) =
+      LT -> down (Cons (TwoLeft k1 v1 right) ctx) left
+      _  -> down (Cons (TwoRight left k1 v1) ctx) right
+  down ctx (Three left k1 v1 mid k2 v2 right) =
     case comp k k1 of
       EQ -> fromZipper ctx (Three left k v mid k2 v2 right)
       c1 ->
         case c1, comp k k2 of
           _ , EQ -> fromZipper ctx (Three left k1 v1 mid k v right)
-          LT, _  -> down (Cons (ThreeLeft k1 v1 mid k2 v2 right) ctx) k v left
-          GT, LT -> down (Cons (ThreeMiddle left k1 v1 k2 v2 right) ctx) k v mid
-          _ , _  -> down (Cons (ThreeRight left k1 v1 mid k2 v2) ctx) k v right
+          LT, _  -> down (Cons (ThreeLeft k1 v1 mid k2 v2 right) ctx) left
+          GT, LT -> down (Cons (ThreeMiddle left k1 v1 k2 v2 right) ctx) mid
+          _ , _  -> down (Cons (ThreeRight left k1 v1 mid k2 v2) ctx) right
 
   up :: List (TreeContext k v) -> KickUp k v -> Map k v
-  up Nil (KickUp left k v right) = Two left k v right
+  up Nil (KickUp left k' v' right) = Two left k' v' right
   up (Cons x ctx) kup =
     case x, kup of
-      TwoLeft k1 v1 right, KickUp left k v mid -> fromZipper ctx (Three left k v mid k1 v1 right)
-      TwoRight left k1 v1, KickUp mid k v right -> fromZipper ctx (Three left k1 v1 mid k v right)
-      ThreeLeft k1 v1 c k2 v2 d, KickUp a k v b -> up ctx (KickUp (Two a k v b) k1 v1 (Two c k2 v2 d))
-      ThreeMiddle a k1 v1 k2 v2 d, KickUp b k v c -> up ctx (KickUp (Two a k1 v1 b) k v (Two c k2 v2 d))
-      ThreeRight a k1 v1 b k2 v2, KickUp c k v d -> up ctx (KickUp (Two a k1 v1 b) k2 v2 (Two c k v d))
+      TwoLeft k1 v1 right, KickUp left k' v' mid -> fromZipper ctx (Three left k' v' mid k1 v1 right)
+      TwoRight left k1 v1, KickUp mid k' v' right -> fromZipper ctx (Three left k1 v1 mid k' v' right)
+      ThreeLeft k1 v1 c k2 v2 d, KickUp a k' v' b -> up ctx (KickUp (Two a k' v' b) k1 v1 (Two c k2 v2 d))
+      ThreeMiddle a k1 v1 k2 v2 d, KickUp b k' v' c -> up ctx (KickUp (Two a k1 v1 b) k' v' (Two c k2 v2 d))
+      ThreeRight a k1 v1 b k2 v2, KickUp c k' v' d -> up ctx (KickUp (Two a k1 v1 b) k2 v2 (Two c k' v' d))
 
 -- | Delete a key and its corresponding value from a map.
 delete :: forall k v. Ord k => k -> Map k v -> Map k v
@@ -277,21 +323,21 @@ delete k m = maybe m snd (pop k m)
 -- | Delete a key and its corresponding value from a map, returning the value
 -- | as well as the subsequent map.
 pop :: forall k v. Ord k => k -> Map k v -> Maybe (Tuple v (Map k v))
-pop = down Nil
+pop k = down Nil
   where
   comp :: k -> k -> Ordering
   comp = compare
 
-  down :: List (TreeContext k v) -> k -> Map k v -> Maybe (Tuple v (Map k v))
-  down = unsafePartial \ctx k m -> case m of
+  down :: List (TreeContext k v) -> Map k v -> Maybe (Tuple v (Map k v))
+  down = unsafePartial \ctx m -> case m of
     Leaf -> Nothing
     Two left k1 v1 right ->
       case right, comp k k1 of
         Leaf, EQ -> Just (Tuple v1 (up ctx Leaf))
         _   , EQ -> let max = maxNode left
                      in Just (Tuple v1 (removeMaxNode (Cons (TwoLeft max.key max.value right) ctx) left))
-        _   , LT -> down (Cons (TwoLeft k1 v1 right) ctx) k left
-        _   , _  -> down (Cons (TwoRight left k1 v1) ctx) k right
+        _   , LT -> down (Cons (TwoLeft k1 v1 right) ctx) left
+        _   , _  -> down (Cons (TwoRight left k1 v1) ctx) right
     Three left k1 v1 mid k2 v2 right ->
       let leaves =
             case left, mid, right of
@@ -304,9 +350,9 @@ pop = down Nil
                          in Just (Tuple v1 (removeMaxNode (Cons (ThreeLeft max.key max.value mid k2 v2 right) ctx) left))
         _   , _ , EQ -> let max = maxNode mid
                          in Just (Tuple v2 (removeMaxNode (Cons (ThreeMiddle left k1 v1 max.key max.value right) ctx) mid))
-        _   , LT, _  -> down (Cons (ThreeLeft k1 v1 mid k2 v2 right) ctx) k left
-        _   , GT, LT -> down (Cons (ThreeMiddle left k1 v1 k2 v2 right) ctx) k mid
-        _   , _ , _  -> down (Cons (ThreeRight left k1 v1 mid k2 v2) ctx) k right
+        _   , LT, _  -> down (Cons (ThreeLeft k1 v1 mid k2 v2 right) ctx) left
+        _   , GT, LT -> down (Cons (ThreeMiddle left k1 v1 k2 v2 right) ctx) mid
+        _   , _ , _  -> down (Cons (ThreeRight left k1 v1 mid k2 v2) ctx) right
 
   up :: List (TreeContext k v) -> Map k v -> Map k v
   up = unsafePartial \ctxs tree ->
@@ -334,9 +380,9 @@ pop = down Nil
 
   maxNode :: Map k v -> { key :: k, value :: v }
   maxNode = unsafePartial \m -> case m of
-    Two _ k v Leaf -> { key: k, value: v }
+    Two _ k' v Leaf -> { key: k', value: v }
     Two _ _ _ right -> maxNode right
-    Three _ _ _ _ k v Leaf -> { key: k, value: v }
+    Three _ _ _ _ k' v Leaf -> { key: k', value: v }
     Three _ _ _ _ _ _ right -> maxNode right
 
 
@@ -344,7 +390,7 @@ pop = down Nil
   removeMaxNode = unsafePartial \ctx m ->
     case m of
       Two Leaf _ _ Leaf -> up ctx Leaf
-      Two left k v right -> removeMaxNode (Cons (TwoRight left k v) ctx) right
+      Two left k' v right -> removeMaxNode (Cons (TwoRight left k' v) ctx) right
       Three Leaf k1 v1 Leaf _ _ Leaf -> up (Cons (TwoRight Leaf k1 v1) ctx) Leaf
       Three left k1 v1 mid k2 v2 right -> removeMaxNode (Cons (ThreeRight left k1 v1 mid k2 v2) ctx) right
 
@@ -361,38 +407,41 @@ update f k m = alter (maybe Nothing f) k m
 
 -- | Convert any foldable collection of key/value pairs to a map.
 -- | On key collision, later values take precedence over earlier ones.
-fromFoldable :: forall f k v. (Ord k, Foldable f) => f (Tuple k v) -> Map k v
+fromFoldable :: forall f k v. Ord k => Foldable f => f (Tuple k v) -> Map k v
 fromFoldable = foldl (\m (Tuple k v) -> insert k v m) empty
 
 -- | Convert any foldable collection of key/value pairs to a map.
 -- | On key collision, the values are configurably combined.
-fromFoldableWith :: forall f k v. (Ord k, Foldable f) => (v -> v -> v) -> f (Tuple k v) -> Map k v
+fromFoldableWith :: forall f k v. Ord k => Foldable f => (v -> v -> v) -> f (Tuple k v) -> Map k v
 fromFoldableWith f = foldl (\m (Tuple k v) -> alter (combine v) k m) empty where
   combine v (Just v') = Just $ f v v'
   combine v Nothing = Just v
 
--- | Convert a map to a list of key/value pairs
-toList :: forall k v. Map k v -> List (Tuple k v)
-toList = toAscList
+-- | Convert a map to an unfoldable structure of key/value pairs
+toUnfoldable :: forall f k v. Unfoldable f => Map k v -> f (Tuple k v)
+toUnfoldable m = unfoldr go (m : Nil) where
+  go Nil = Nothing
+  go (hd : tl) = case hd of
+    Leaf -> go tl
+    Two left k v right ->
+      Just $ Tuple (Tuple k v) (left : right : tl)
+    Three left k1 v1 mid k2 v2 right ->
+      Just $ Tuple (Tuple k1 v1) (singleton k2 v2 : left : mid : right : tl)
 
-toAscList :: forall k v. Map k v -> List (Tuple k v)
-toAscList Leaf = Nil
-toAscList (Two left k v right) = toAscList left <> pure (Tuple k v) <> toAscList right
-toAscList (Three left k1 v1 mid k2 v2 right) = toAscList left <> pure (Tuple k1 v1) <> toAscList mid <> pure (Tuple k2 v2) <> toAscList right
-
-toDescList :: forall k v. Map k v -> List (Tuple k v)
-toDescList Leaf = Nil
-toDescList (Two left k v right) = toDescList right <> pure (Tuple k v) <> toDescList left
-toDescList (Three left k1 v1 mid k2 v2 right) = toDescList right <> pure (Tuple k2 v2) <> toDescList mid <> pure (Tuple k1 v1) <> toDescList left
-
--- | Create a map from a list of key/value pairs
-fromList :: forall k v. Ord k => List (Tuple k v) -> Map k v
-fromList = fromFoldable
-
--- | Create a map from a list of key/value pairs, using the specified function
--- | to combine values for duplicate keys.
-fromListWith :: forall k v. Ord k => (v -> v -> v) -> List (Tuple k v) -> Map k v
-fromListWith = fromFoldableWith
+-- | Convert a map to an unfoldable structure of key/value pairs where the keys are in ascending order
+toAscUnfoldable :: forall f k v. Unfoldable f => Map k v -> f (Tuple k v)
+toAscUnfoldable m = unfoldr go (m : Nil) where
+  go Nil = Nothing
+  go (hd : tl) = case hd of
+    Leaf -> go tl
+    Two Leaf k v Leaf ->
+      Just $ Tuple (Tuple k v) tl
+    Two Leaf k v right ->
+      Just $ Tuple (Tuple k v) (right : tl)
+    Two left k v right ->
+      go $ left : singleton k v : right : tl
+    Three left k1 v1 mid k2 v2 right ->
+      go $ left : singleton k1 v1 : mid : singleton k2 v2 : right : tl
 
 -- | Get a list of the keys contained in a map
 keys :: forall k v. Map k v -> List k
@@ -409,7 +458,7 @@ values (Three left _ v1 mid _ v2 right) = values left <> pure v1 <> values mid <
 -- | Compute the union of two maps, using the specified function
 -- | to combine values for duplicate keys.
 unionWith :: forall k v. Ord k => (v -> v -> v) -> Map k v -> Map k v -> Map k v
-unionWith f m1 m2 = foldl go m2 (toList m1)
+unionWith f m1 m2 = foldl go m2 (toUnfoldable m1 :: List (Tuple k v))
   where
   go m (Tuple k v) = alter (Just <<< maybe v (f v)) k m
 
@@ -419,16 +468,45 @@ union :: forall k v. Ord k => Map k v -> Map k v -> Map k v
 union = unionWith const
 
 -- | Compute the union of a collection of maps
-unions :: forall k v f. (Ord k, Foldable f) => f (Map k v) -> Map k v
+unions :: forall k v f. Ord k => Foldable f => f (Map k v) -> Map k v
 unions = foldl union empty
+
+-- | Test whether one map contains all of the keys and values contained in another map
+isSubmap :: forall k v. Ord k => Eq v => Map k v -> Map k v -> Boolean
+isSubmap m1 m2 = LL.all f $ (toUnfoldable m1 :: LL.List (Tuple k v))
+  where f (Tuple k v) = lookup k m2 == Just v
 
 -- | Calculate the number of key/value pairs in a map
 size :: forall k v. Map k v -> Int
-size = length <<< values
+size Leaf = 0
+size (Two m1 _ _ m2) = 1 + size m1 + size m2
+size (Three m1 _ _ m2 _ _ m3) = 2 + size m1 + size m2 + size m3
+
+-- | Apply a function of two arguments to each key/value pair, producing a new map
+mapWithKey :: forall k v v'. (k -> v -> v') -> Map k v -> Map k v'
+mapWithKey _ Leaf = Leaf
+mapWithKey f (Two left k v right) = Two (mapWithKey f left) k (f k v) (mapWithKey f right)
+mapWithKey f (Three left k1 v1 mid k2 v2 right) = Three (mapWithKey f left) k1 (f k1 v1) (mapWithKey f mid) k2 (f k2 v2) (mapWithKey f right)
+
+-- | Filter out those key/value pairs of a map for which a predicate
+-- | fails to hold.
+filterWithKey :: forall k v. Ord k => (k -> v -> Boolean) -> Map k v -> Map k v
+filterWithKey predicate =
+  fromFoldable <<< LL.filter (uncurry predicate) <<< toUnfoldable
+
+-- | Filter out those key/value pairs of a map for which a predicate
+-- | on the key fails to hold.
+filterKeys :: forall k. Ord k => (k -> Boolean) -> Map k ~> Map k
+filterKeys predicate = filterWithKey $ const <<< predicate
+
+-- | Filter out those key/value pairs of a map for which a predicate
+-- | on the value fails to hold.
+filter :: forall k v. Ord k => (v -> Boolean) -> Map k v -> Map k v
+filter predicate = filterWithKey $ const predicate
 
 -- | Executes an action for key-value pairs with the key within certain bounds,
 -- in ascending key order
-zoomAscDo :: forall k v m. (Ord k, Monad m) => k -> k -> Map k v -> (k -> v -> m Unit) -> m Unit
+zoomAscDo :: forall k v m. (Ord k) => (Monad m) => k -> k -> Map k v -> (k -> v -> m Unit) -> m Unit
 zoomAscDo kmin kmax m act = case m of
   Leaf -> pure unit
   Two left k v right -> do
@@ -444,7 +522,7 @@ zoomAscDo kmin kmax m act = case m of
 
 -- | Executes an action for key-value pairs with the key within certain bounds,
 -- in descending key order
-zoomDescDo :: forall k v m. (Ord k, Monad m) => k -> k -> Map k v -> (k -> v -> m Unit) -> m Unit
+zoomDescDo :: forall k v m. (Ord k) => (Monad m) => k -> k -> Map k v -> (k -> v -> m Unit) -> m Unit
 zoomDescDo kmin kmax m act = case m of
   Leaf -> pure unit
   Two left k v right -> do

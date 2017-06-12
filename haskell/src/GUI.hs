@@ -29,6 +29,7 @@ import           Data.Time
 import           Data.Word                      (Word8)
 import           Foreign                        (Ptr, castPtr)
 import           Foreign.C                      (CInt (..), peekCString)
+import           Graphics.UI.TinyFileDialogs
 import           OSFiles                        (osOpenFile, useResultFiles)
 import           Resources                      (pentatonicTTF)
 import           SDL                            (($=))
@@ -44,7 +45,6 @@ import           System.Environment             (getEnv)
 import           System.FilePath                ((<.>), (</>))
 import           System.Info                    (os)
 import           System.IO.Silently             (capture)
-import           TinyFileDialogs
 
 foreign import ccall unsafe "TTF_OpenFontRW"
   openFontRW :: Ptr RWops -> CInt -> CInt -> IO TTFFont
