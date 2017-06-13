@@ -6,10 +6,8 @@
   <string>en</string>
   <key>CFBundleExecutable</key>
   <string>onyx</string>
-  <!--
   <key>CFBundleIconFile</key>
   <string>onyx</string>
-  -->
   <key>CFBundleIdentifier</key>
   <string>com.onyxite.onyx</string>
   <key>CFBundleInfoDictionaryVersion</key>
