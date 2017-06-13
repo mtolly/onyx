@@ -9,6 +9,7 @@ Built on work and research by:
   * No1mann (Magma v1 mod)
   * xorloser (ArkTool/DtbCrypt)
   * deimos (dtb2dta)
+  * qwertymodo (Magma MOGG redirect)
   * Hetelek, Experiment5X (XboxInternals/Velocity)
   * DJ Shepherd (X360)
   * arkem (py360)

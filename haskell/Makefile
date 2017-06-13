@@ -45,13 +45,16 @@ win:
 	cp /mingw32/bin/*.dll win/
 	stack exec strip win/onyx.exe
 	cp LICENSE.txt win/LICENSE.txt
-	cp README-windows.md win/README.txt
+	cp README.md win/README.txt
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} win/
-	sed -i '' 's/_ONYXVERSION_/$(ONYXVERSION)/' win/README.txt # TODO check this
+	sed -i 's/_ONYXVERSION_/$(ONYXVERSION)/' win/README.txt
 
 win-deps:
 	pacman -Sy mingw-w64-i686-pkg-config mingw-w64-i686-libsndfile mingw-w64-i686-libsamplerate mingw-w64-i686-lame mingw-w64-i686-SDL2 mingw-w64-i686-SDL2_ttf mingw-w64-i686-rubberband
 	# TODO mingw-w64-i686-libbotan doesn't make .dll, see BUILD.md
+
+icon/icon.o:
+	stack exec -- windres -i icon/icon.rc icon/icon.o
 
 ubuntu-deps:
 	apt install libsndfile-dev libsamplerate-dev libmp3lame-dev libsdl2-dev libsdl2-ttf-dev librubberband-dev

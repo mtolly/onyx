@@ -180,7 +180,7 @@ executable onyx
     extra-libraries: shell32
     cpp-options: -DWINDOWS
     build-depends: Win32
-    ld-options: -mwindows
+    ld-options: icon/icon.o -mwindows
   else
     build-depends: mountpoints
   if os(darwin)
