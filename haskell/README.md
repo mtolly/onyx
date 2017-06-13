@@ -1,73 +1,96 @@
-# Windows
+# Onyx Music Game Toolkit (version _ONYXVERSION_)
 
-## Requirements
+By Michael Tolly <onyxite@gmail.com>
 
-  * `stack` (32-bit version)
-  * .NET Framework v3.5
-  * Visual C++ 2008 Runtime
-  * `make` (`stack exec -- pacman -Sy make`)
+Built on work and research by:
 
-## Steps
+  * Harmonix
+  * TrojanNemo, emist (C3 CON Tools, Magma v2 mod)
+  * No1mann (Magma v1 mod)
+  * xorloser (ArkTool/DtbCrypt)
+  * deimos (dtb2dta)
+  * Hetelek, Experiment5X (XboxInternals/Velocity)
+  * DJ Shepherd (X360)
+  * arkem (py360)
+  * and many others!
 
-1. `stack exec make win-deps`
+Onyx is free software via the GNU General Public License v3, see LICENSE.txt.
 
-2. Find your Stack MSYS2 mingw32 directory, something like: `C:\Users\YourNameHere\AppData\Local\Programs\stack\i386-windows\msys2-20150512\mingw32`
+Source at: https://github.com/mtolly/onyxite-customs
 
-3. In there, remove (or move somewhere else) all `.a` files under `lib/`, except for `libSDL2main.a`.
+## Dependencies
 
-4. Also in there, copy all `.dll` files from `bin/` to `lib/` and make the following renames:
+Windows version requires (I think) the Visual C++ runtime.
+(If you can run Magma, you're good.)
 
-  * `libmp3lame-0.dll` to `libmp3lame.dll`
-  * `libsndfile-1.dll` to `libsndfile.dll`
-  * `libsamplerate-0.dll` to `libsamplerate.dll`
-  * `librubberband-2.dll` to `librubberband.dll`
+Mac version requires Wine. You can use one of the official Mac installers
+(stable or development) or install via Homebrew.
 
-5. (temporary until I figure out something better) Do the following to install `libbotan`.
+## Instructions
 
-  * Download source for `botan 2.1.0`
-  * Modify `src/build-data/os/mingw.txt`: replace `building_shared_supported no` with `soname_pattern_base "libbotan-2.dll"`
-  * From within stack's msys2 bash: `./configure.py --os=mingw --cpu=x86 --link-method=copy`
-  * In the `Makefile`, remove the lines `$(LN) $(SONAME_PATCH) ./$(SONAME_ABI)` and `$(LN) $(SONAME_PATCH) ./$(SONAME_BASE)`
-  * From within stack's msys2 bash: `make`
-  * Copy `libbotan-2.dll` to Stack's `/mingw32/bin` and `/mingw32/lib`
-  * Copy `build/include/botan` to Stack's `/mingw32/include`
-  * Make the following `/mingw32/lib/pkgconfig/botan-2.pc`:
+Open `onyx.exe`/`Onyx.app` to run.
 
-        prefix=/mingw32
-        exec_prefix=${prefix}
-        libdir=${exec_prefix}/lib
-        includedir=${prefix}/include
+  * Click on menu options to select them.
+  * Click on previous pages on the left to go back.
+  * Keyboard controls also work (arrow keys, enter, backspace).
 
-        Name: Botan
-        Description: Crypto and TLS for C++11
-        Version: 2.1.0
+## Functions
 
-        Libs: -L${libdir} -lbotan-2 -fstack-protector -pthread
-        Libs.private: -ladvapi32
-        Cflags: -I${includedir}
+  * Convert to RB3 (takes song.ini, creates _rb3con)
 
-6. `stack build` (do this from outside `bash` so the lib+include paths are set up right)
+    Attempts to convert a Frets on Fire / Phase Shift song to Rock Band 3.
+    Here is a sample of the steps performed:
 
-7. `stack exec make win`
+      * Adds appropriate `[music_start]`, `[music_end]`, and `[end]` events
+      * Generates an automatic `BEAT` track from MIDI time signatures
+      * Adds auto-generated (roughly CAT-quality) lower difficulties if missing
+      * Imports as much metadata as possible from `song.ini`
+      * Applies the correct `delay` value from `song.ini` to the audio
+      * Delays the song start by a few seconds if notes are present too early
+      * Detects double drum roll lanes using the single lane note and fixes them
 
-8. Program and DLLs will now be in `win/`.
+    Note: to do a batch process of many songs, drag and drop song folders
+    (the folders with song.ini immediately inside) onto the file loading screen.
 
-# Mac
+  * Convert to RB2 (takes _rb3con, creates _rb2con)
 
-## Requirements
+    Converts a Rock Band 3 CON file to Rock Band 2.
+    RB2-ification includes the following steps:
 
-  * `stack`
-  * Xcode dev tools
-  * Mono
-  * Wine
-  * Homebrew
+      * removes RB3 added features like pro instruments, harmonies, bass solos,
+        trill/tremolo, new drum animations
+      * any 2-instrument unisons are made into 1-instrument OD phrases
+      * converts your VENUE to RB2 format
+      * ensures your lower difficulties have all colors used on Expert
 
-## Steps
+    Then it will attempt to validate the song through Magma v1.
+    If this succeeds, you're good to go.
+    If it fails, it will still continue and simply copy the MIDI as-is.
+    The result will still probably work; you just won't get lipsync animations.
 
-1. `make mac-deps`
+    You can choose to drop the Keys part, or move it to Guitar or Bass.
+    In the latter two cases, the RB3 "keytar" algorithm is more-or-less applied,
+    so fast chords become HOPOs, and overlapping sustains are shortened.
 
-2. `stack build`
+  * Browser song preview (takes _rb3con, creates web app folder)
 
-3. `make mac`
+    Generates a JavaScript chart preview app for web browsers,
+    which plays back the audio and displays all gameplay tracks.
 
-4. Program is packaged as `Onyx.app`.
+    A player folder will appear next to the CON; open `index.html` to run.
+    It can be run locally via `file://`, or hosted on a web server.
+
+  * Open in REAPER (takes CON or MIDI file, creates Reaper project)
+
+    Imports a MIDI file into a Reaper project.
+    Avoids a few bugs in Reaper's own MIDI import function.
+    Also applies most of the C3 template to the MIDI tracks,
+    so you get note names, colored tracks, and RBN preview windows.
+
+  * Auto reductions (takes MIDI files, creates MIDI file)
+
+    Generates CAT-like automatic reductions for empty difficulties in a MIDI.
+    Quality is not guaranteed, but they should pass Magma.
+
+    To use, ensure that there are no notes or events authored
+    for a difficulty you want to be filled in.

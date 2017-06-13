@@ -6,6 +6,8 @@ maintainer:           miketolly@gmail.com
 category:             Distribution
 build-type:           Simple
 cabal-version:        >= 1.10
+license:              GPL-3
+license-file:         LICENSE.txt
 
 extra-source-files:
   vendors/Pentatonic.ttf
@@ -18,8 +20,7 @@ extra-source-files:
   ../player/www/app.min.js
   ../player/www/images/*.png
   ../player/www/lib/howler/dist/howler.min.js
-  cbits/stb_image_resize.h
-  cbits/encode_vag.h
+  cbits/*.h
 
 flag MoggDecrypt
   default:             False

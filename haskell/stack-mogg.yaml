@@ -18,6 +18,7 @@ packages:
 - location:
     git: git://github.com/haskell-game/sdl2-ttf
     commit: 71eeb468baf745bcf5ef392a5e713346a6cc168a
+  extra-dep: true
 - location: ../../mogg2ogg/hs-mogg2ogg
   extra-dep: true
 extra-deps:

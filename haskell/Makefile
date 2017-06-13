@@ -1,6 +1,8 @@
 .PHONY: usage install-magma mac mac-deps win win-deps ubuntu-deps
 SHELL=/bin/bash
 
+ONYXVERSION=20170612
+
 usage:
 	@echo "Targets:"
 	@echo "  make install-magma"
@@ -25,6 +27,12 @@ mac:
 	dylibbundler -cd -of -b -x Onyx.app/Contents/MacOS/onyx -d Onyx.app/Contents/libs/
 	rm -rf Onyx.app/Contents/MacOS/magma-{v1,v2,common,ogg2mogg}
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} Onyx.app/Contents/MacOS/
+	rm -rf mac/
+	mkdir mac/
+	cp -R Onyx.app LICENSE.txt mac/
+	cp README.md mac/README.txt
+	sed -i '' 's/_ONYXVERSION_/$(ONYXVERSION)/' mac/Onyx.app/Contents/Info.plist
+	sed -i '' 's/_ONYXVERSION_/$(ONYXVERSION)/' mac/README.txt
 
 mac-deps:
 	brew install libsndfile libsamplerate lame sdl2 sdl2_ttf rubberband botan
@@ -36,11 +44,15 @@ win:
 	cp "$(shell stack exec which onyx)" win/
 	cp /mingw32/bin/*.dll win/
 	stack exec strip win/onyx.exe
+	cp LICENSE.txt win/LICENSE.txt
 	cp README-windows.md win/README.txt
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} win/
+	sed -i '' 's/_ONYXVERSION_/$(ONYXVERSION)/' win/README.txt # TODO check this
 
 win-deps:
 	pacman -Sy mingw-w64-i686-pkg-config mingw-w64-i686-libsndfile mingw-w64-i686-libsamplerate mingw-w64-i686-lame mingw-w64-i686-SDL2 mingw-w64-i686-SDL2_ttf mingw-w64-i686-rubberband
+	# TODO mingw-w64-i686-libbotan doesn't make .dll, see BUILD.md
 
 ubuntu-deps:
 	apt install libsndfile-dev libsamplerate-dev libmp3lame-dev libsdl2-dev libsdl2-ttf-dev librubberband-dev
+	# install libbotan from source, ubuntu package is v1 but we need v2

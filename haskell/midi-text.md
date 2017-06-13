@@ -1,3 +1,5 @@
+This is the README for the format used by the `onyx midi-text` command.
+
 # MIDIScript
 
 `midiscript` is a program to translate MIDI files to/from a readable, editable

@@ -18,6 +18,7 @@ packages:
 - location:
     git: git://github.com/haskell-game/sdl2-ttf
     commit: 71eeb468baf745bcf5ef392a5e713346a6cc168a
+  extra-dep: true
 extra-deps:
 - conduit-audio-0.2.0.2
 - conduit-audio-lame-0.1.2
