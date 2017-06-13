@@ -566,7 +566,7 @@ void FatxDrive::CreateBackup(std::string outPath, void (*progress)(void *, DWORD
 
     outBackup.Close();
 
-    delete buffer;
+    delete[] buffer;
 }
 
 void FatxDrive::RestoreFromBackup(std::string backupPath, void (*progress)(void *, DWORD, DWORD),
