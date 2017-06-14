@@ -28,7 +28,7 @@ module Audio
 
 import           Control.Concurrent              (threadDelay)
 import           Control.Exception               (evaluate)
-import           Control.Monad                   (ap)
+import           Control.Monad                   (ap, when)
 import           Control.Monad.IO.Class          (MonadIO (liftIO))
 import           Control.Monad.Trans.Resource    (MonadResource, ResourceT,
                                                   runResourceT)
@@ -274,7 +274,7 @@ renderMask tags seams (AudioSource s r c l) = let
   sections = seamsToSections tags $ flip map seams $ fmap $ \case
     Seconds secs -> secondsToFrames secs r
     Frames  fms  -> fms
-  masker   (MaskEnd  b) = if b then CL.map id else return ()
+  masker   (MaskEnd  b) = when b $ CL.map id
   masker   (MaskStay _ 0   rest) = masker rest
   masker m@(MaskStay b fms rest) = await >>= \case
     Nothing -> return ()

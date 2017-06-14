@@ -44,7 +44,7 @@ instance StackChunk AnimTempo where
     KTempoFast   -> Key "kTempoFast"
 instance StackChunks AnimTempo
 
-data DrumSounds = DrumSounds
+newtype DrumSounds = DrumSounds
   { seqs :: [T.Text]
   } deriving (Eq, Ord, Show, Read)
 
@@ -143,40 +143,40 @@ instance StackChunks SongPackage where
   stackChunks = asStrictAssoc "SongPackage" $ do
     name              <- name              =. req         "name"                (single chunkString)
     artist            <- artist            =. req         "artist"              (single chunkString)
-    master            <- master            =. req         "master"              (stackChunks)
+    master            <- master            =. req         "master"              stackChunks
     songId            <- songId            =. req         "song_id"             (eitherCodec stackChunks $ single chunkKey)
-    song              <- song              =. req         "song"                (stackChunks)
-    bank              <- bank              =. opt Nothing "bank"                (stackChunks)
-    drumBank          <- drumBank          =. opt Nothing "drum_bank"           (stackChunks)
-    animTempo         <- animTempo         =. req         "anim_tempo"          (stackChunks)
-    bandFailCue       <- bandFailCue       =. opt Nothing "band_fail_cue"       (stackChunks)
-    songScrollSpeed   <- songScrollSpeed   =. req         "song_scroll_speed"   (stackChunks)
-    preview           <- preview           =. req         "preview"             (stackChunks)
-    songLength        <- songLength        =. opt Nothing "song_length"         (stackChunks)
-    rank              <- rank              =. req         "rank"                (stackChunks)
+    song              <- song              =. req         "song"                stackChunks
+    bank              <- bank              =. opt Nothing "bank"                stackChunks
+    drumBank          <- drumBank          =. opt Nothing "drum_bank"           stackChunks
+    animTempo         <- animTempo         =. req         "anim_tempo"          stackChunks
+    bandFailCue       <- bandFailCue       =. opt Nothing "band_fail_cue"       stackChunks
+    songScrollSpeed   <- songScrollSpeed   =. req         "song_scroll_speed"   stackChunks
+    preview           <- preview           =. req         "preview"             stackChunks
+    songLength        <- songLength        =. opt Nothing "song_length"         stackChunks
+    rank              <- rank              =. req         "rank"                stackChunks
     solo              <- solo              =. opt Nothing "solo"                (chunksMaybe $ chunksParens $ chunksList chunkKey)
-    songFormat        <- songFormat        =. req         "format"              (stackChunks)
-    version           <- version           =. req         "version"             (stackChunks)
+    songFormat        <- songFormat        =. req         "format"              stackChunks
+    version           <- version           =. req         "version"             stackChunks
     gameOrigin        <- gameOrigin        =. req         "game_origin"         (single chunkKey)
-    rating            <- rating            =. req         "rating"              (stackChunks)
+    rating            <- rating            =. req         "rating"              stackChunks
     genre             <- genre             =. req         "genre"               (single chunkKey)
     subGenre          <- subGenre          =. opt Nothing "sub_genre"           (chunksMaybe $ single chunkKey)
-    vocalGender       <- vocalGender       =. req         "vocal_gender"        (stackChunks)
-    shortVersion      <- shortVersion      =. opt Nothing "short_version"       (stackChunks)
-    yearReleased      <- yearReleased      =. req         "year_released"       (stackChunks)
-    albumArt          <- albumArt          =. opt Nothing "album_art"           (stackChunks)
+    vocalGender       <- vocalGender       =. req         "vocal_gender"        stackChunks
+    shortVersion      <- shortVersion      =. opt Nothing "short_version"       stackChunks
+    yearReleased      <- yearReleased      =. req         "year_released"       stackChunks
+    albumArt          <- albumArt          =. opt Nothing "album_art"           stackChunks
     albumName         <- albumName         =. opt Nothing "album_name"          (chunksMaybe $ single chunkString)
-    albumTrackNumber  <- albumTrackNumber  =. opt Nothing "album_track_number"  (stackChunks)
-    vocalTonicNote    <- vocalTonicNote    =. opt Nothing "vocal_tonic_note"    (stackChunks)
-    songTonality      <- songTonality      =. opt Nothing "song_tonality"       (stackChunks)
-    songKey           <- songKey           =. opt Nothing "song_key"            (stackChunks)
-    tuningOffsetCents <- tuningOffsetCents =. opt Nothing "tuning_offset_cents" (stackChunks)
+    albumTrackNumber  <- albumTrackNumber  =. opt Nothing "album_track_number"  stackChunks
+    vocalTonicNote    <- vocalTonicNote    =. opt Nothing "vocal_tonic_note"    stackChunks
+    songTonality      <- songTonality      =. opt Nothing "song_tonality"       stackChunks
+    songKey           <- songKey           =. opt Nothing "song_key"            stackChunks
+    tuningOffsetCents <- tuningOffsetCents =. opt Nothing "tuning_offset_cents" stackChunks
     realGuitarTuning  <- realGuitarTuning  =. opt Nothing "real_guitar_tuning"  (chunksMaybe $ chunksParens stackChunks)
     realBassTuning    <- realBassTuning    =. opt Nothing "real_bass_tuning"    (chunksMaybe $ chunksParens stackChunks)
-    guidePitchVolume  <- guidePitchVolume  =. opt Nothing "guide_pitch_volume"  (stackChunks)
+    guidePitchVolume  <- guidePitchVolume  =. opt Nothing "guide_pitch_volume"  stackChunks
     encoding          <- encoding          =. opt Nothing "encoding"            (chunksMaybe $ single chunkKey)
-    context           <- context           =. opt Nothing "context"             (stackChunks)
+    context           <- context           =. opt Nothing "context"             stackChunks
     decade            <- decade            =. opt Nothing "decade"              (chunksMaybe $ single chunkKey)
-    downloaded        <- downloaded        =. opt Nothing "downloaded"          (stackChunks)
-    basePoints        <- basePoints        =. opt Nothing "base_points"         (stackChunks)
+    downloaded        <- downloaded        =. opt Nothing "downloaded"          stackChunks
+    basePoints        <- basePoints        =. opt Nothing "base_points"         stackChunks
     return SongPackage{..}

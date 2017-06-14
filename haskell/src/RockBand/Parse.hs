@@ -274,7 +274,7 @@ firstEventWhich :: (NNC.C t) => (a -> Maybe b) -> ParseOne t a b
 firstEventWhich f rtb = do
   ((t, x), rtb') <- RTB.viewL rtb
   y <- f x
-  return $ ((t, y), RTB.delay t rtb')
+  return ((t, y), RTB.delay t rtb')
 
 commandPair :: [T.Text] -> Q Pat -> (Q Exp, Q Exp)
 commandPair cmd pat =

@@ -83,7 +83,7 @@ getRBAFile i rba out = liftIO $ IO.withBinaryFile rba IO.ReadMode $ \h -> do
 
 oggToMogg :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 oggToMogg ogg mogg = tempDir "ogg2mogg" $ \tmp -> do
-  wd <- liftIO $ Dir.getCurrentDirectory
+  wd <- liftIO Dir.getCurrentDirectory
   let ogg'  = wd </> ogg
       mogg' = wd </> mogg
   liftIO $ forM_ [magmaV2Dir, magmaCommonDir, magmaOgg2MoggDir] (>>= \dir -> copyDirContents dir tmp)

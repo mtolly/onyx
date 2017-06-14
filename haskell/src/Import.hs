@@ -163,7 +163,7 @@ importFoF src dest = do
 
   when pad $ warn $ "Padding FoF/PS song by " ++ show (padDelay :: Int) ++ " seconds due to early start."
 
-  let toTier = fromMaybe (Tier 1) . fmap (\n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1)
+  let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
 
   mid2x <- liftIO $ Dir.doesFileExist $ src </> "expert+.mid"
   add2x <- if mid2x
@@ -572,7 +572,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
       }
     , _audio = HM.empty
     , _jammit = HM.empty
-    , _plans = HM.singleton "mogg" $ MoggPlan
+    , _plans = HM.singleton "mogg" MoggPlan
       { _moggMD5 = T.pack md5
       , _moggParts = Parts $ HM.fromList $ concat
         [ [ (FlexGuitar, PartSingle ns) | ns <- toList $ HM.lookup "guitar" instChans ]

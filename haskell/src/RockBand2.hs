@@ -8,7 +8,8 @@ import           Data.Conduit.Audio               (AudioSource)
 import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
-import           Data.List                        (inits, nub, sort, tails)
+import           Data.List                        (inits, nub, sort, sortBy,
+                                                   tails)
 import           Data.Maybe                       (isNothing, listToMaybe,
                                                    mapMaybe)
 import qualified Data.Set                         as Set
@@ -256,7 +257,7 @@ convertVenueInstant canMakeBlips evts = let
     Guitar -> 63
     Vocal -> 64
     Keys -> 63
-  cameraEvents = case reverse $ sort $ lefts changed of
+  cameraEvents = case sortBy (flip compare) $ lefts changed of
     [] -> RTB.empty
     cam : _ -> case cam of
       -- generic 4 camera shots

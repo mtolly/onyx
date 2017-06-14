@@ -231,7 +231,7 @@ processProtar hopoThreshold tmap trk = let
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PG.Overdrive b -> Just b; _ -> Nothing
   in Protar notes solo energy
 
-data Beats t = Beats
+newtype Beats t = Beats
   { beatLines :: Map.Map t Beat
   } deriving (Eq, Ord, Show)
 

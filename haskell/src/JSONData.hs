@@ -1,9 +1,8 @@
-{-# LANGUAGE DefaultSignatures          #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase                 #-}
-{-# LANGUAGE PatternSynonyms            #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE ViewPatterns      #-}
 module JSONData where
 
 import           Control.Applicative            ((<|>))

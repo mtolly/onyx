@@ -20,6 +20,7 @@ module RenderAudio
 
 import           Audio
 import           Config
+import           Control.Arrow                  ((&&&))
 import           Control.Monad                  (forM_, join)
 import           Control.Monad.Extra            (filterM, findM)
 import           Control.Monad.Trans.Class      (lift)
@@ -183,7 +184,7 @@ computeSimplePart :: FlexPartName -> Plan -> SongYaml -> [(Double, Double)]
 computeSimplePart fpart plan songYaml = case plan of
   MoggPlan{..} -> let
     inds = maybe [] (concat . toList) $ HM.lookup fpart $ getParts _moggParts
-    in zip (map (_pans !!) inds) (map (_vols !!) inds)
+    in map ((_pans !!) &&& (_vols !!)) inds
   Plan{..} -> case HM.lookup fpart $ getParts _planParts of
     Nothing -> [(0, 0)]
     Just (PartSingle pa) -> case computeChannelsPlan songYaml $ _planExpr pa of

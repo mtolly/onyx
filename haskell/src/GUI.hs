@@ -22,7 +22,6 @@ import           Control.Monad.Trans.StackTrace (Messages (..), StackTraceT,
 import           Control.Monad.Trans.State
 import qualified Data.ByteString                as B
 import           Data.ByteString.Unsafe         (unsafeUseAsCStringLen)
-import           Data.List                      (intercalate)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import           Data.Time
@@ -90,7 +89,7 @@ commandLine' args = do
   let args' = flip map args $ \arg -> if ' ' `elem` arg then "\"" ++ arg ++ "\"" else arg
   liftIO $ mapM_ putStrLn
     [ ""
-    , ">>> Command: " ++ intercalate " " args'
+    , ">>> Command: " ++ unwords args'
     , ""
     ]
   commandLine args
@@ -264,7 +263,7 @@ launchGUI = do
       case currentScreen of
         TasksRunning{} -> do
           -- square spinner animation
-          t <- fmap (`rem` 2000) $ SDL.ticks
+          t <- (`rem` 2000) <$> SDL.ticks
           let smallSide = 50
               bigX = quot windW 2 - smallSide
               bigY = quot windH 2 - smallSide
@@ -344,23 +343,23 @@ launchGUI = do
           str <- peekCString cstr
           void $ forkIO $ putMVar varSelectedFile [str]
         processEvents es
-      SDL.MouseMotionEvent (SDL.MouseMotionEventData
+      SDL.MouseMotionEvent SDL.MouseMotionEventData
         { SDL.mouseMotionEventPos = SDL.P (SDL.V2 x y)
-        }) -> do
+        } -> do
           newSelect $ Just (fromIntegral x, fromIntegral y)
           processEvents es
-      SDL.MouseButtonEvent (SDL.MouseButtonEventData
+      SDL.MouseButtonEvent SDL.MouseButtonEventData
         { SDL.mouseButtonEventMotion = SDL.Pressed
         , SDL.mouseButtonEventButton = SDL.ButtonLeft
         , SDL.mouseButtonEventPos = SDL.P (SDL.V2 x y)
-        }) -> do
+        } -> do
           doSelect $ Just (fromIntegral x, fromIntegral y)
           processEvents es
-      SDL.KeyboardEvent (SDL.KeyboardEventData
+      SDL.KeyboardEvent SDL.KeyboardEventData
         { SDL.keyboardEventKeyMotion = SDL.Pressed
         , SDL.keyboardEventKeysym = ksym
         , SDL.keyboardEventRepeat = False
-        }) -> case SDL.keysymScancode ksym of
+        } -> case SDL.keysymScancode ksym of
           SDL.ScancodeBackspace -> get >>= \case
             GUIState menu (pm : pms) _ -> do
               case menu of

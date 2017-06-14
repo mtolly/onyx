@@ -55,9 +55,8 @@ import           DryVox                                (clipDryVox,
 import qualified FretsOnFire                           as FoF
 import           Genre
 import           Image
-import           JSONData                              (stackShow)
 import           JSONData                              (StackJSON (..),
-                                                        fromJSON)
+                                                        fromJSON, stackShow)
 import qualified Magma
 import qualified MelodysEscape
 import           MoggDecrypt
@@ -1505,26 +1504,26 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 -- TODO replace (/= def), should actually check whether the right PS play mode is present
                 [ ["song.ini", "notes.mid", "song.ogg", "album.png"]
                 , ["drums.ogg"   | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode == RBDrums.D0 && case plan of
-                    Plan{..} -> HM.member (ps_Drums ps) $ getParts $ _planParts
+                    Plan{..} -> HM.member (ps_Drums ps) $ getParts _planParts
                     _        -> True
                   ]
                 , ["drums_1.ogg" | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode /= RBDrums.D0]
                 , ["drums_2.ogg" | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode /= RBDrums.D0]
                 , ["drums_3.ogg" | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode /= RBDrums.D0]
                 , ["guitar.ogg"  | maybe False (/= def) (getPart (ps_Guitar ps) songYaml) && case plan of
-                    Plan{..} -> HM.member (ps_Guitar ps) $ getParts $ _planParts
+                    Plan{..} -> HM.member (ps_Guitar ps) $ getParts _planParts
                     _        -> True
                   ]
                 , ["keys.ogg"    | maybe False (/= def) (getPart (ps_Keys ps) songYaml) && case plan of
-                    Plan{..} -> HM.member (ps_Keys ps) $ getParts $ _planParts
+                    Plan{..} -> HM.member (ps_Keys ps) $ getParts _planParts
                     _        -> True
                   ]
                 , ["rhythm.ogg"  | maybe False (/= def) (getPart (ps_Bass ps) songYaml) && case plan of
-                    Plan{..} -> HM.member (ps_Bass ps) $ getParts $ _planParts
+                    Plan{..} -> HM.member (ps_Bass ps) $ getParts _planParts
                     _        -> True
                   ]
                 , ["vocals.ogg"  | maybe False (/= def) (getPart (ps_Vocal ps) songYaml) && case plan of
-                    Plan{..} -> HM.member (ps_Vocal ps) $ getParts $ _planParts
+                    Plan{..} -> HM.member (ps_Vocal ps) $ getParts _planParts
                     _        -> True
                   ]
                 , ["crowd.ogg"   | case plan of
@@ -1548,8 +1547,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
         -- plan audio, currently only used for REAPER project
         let allPlanParts :: [(RBFile.FlexPartName, PartAudio ())]
             allPlanParts = case plan of
-              Plan{..}     -> HM.toList $ getParts $ fmap (const ()) <$> _planParts
-              MoggPlan{..} -> HM.toList $ getParts $ fmap (const ()) <$> _moggParts
+              Plan{..}     -> HM.toList $ getParts $ void <$> _planParts
+              MoggPlan{..} -> HM.toList $ getParts $ void <$> _moggParts
         dir </> "song.wav" ≡>
           writeSongCountin False planName plan [ (fpart, 1) | (fpart, _) <- allPlanParts ]
         dir </> "crowd.wav" ≡> writeCrowd planName plan
@@ -1632,7 +1631,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   , toList _crowd
                   , toList _planParts >>= toList
                   ]
-            srcs <- flip mapM planAudios $ \pa -> let
+            srcs <- forM planAudios $ \pa -> let
               chans = computeChannelsPlan songYaml $ _planExpr pa
               vols = map realToFrac $ case _planVols pa of
                 [] -> replicate chans 0
@@ -1700,7 +1699,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 copyFile' f out
 
         -- Audio files for the online preview app
-        forM_ ["mp3", "ogg"] $ \(ext) -> do
+        forM_ ["mp3", "ogg"] $ \ext -> do
           dir </> "web/preview-audio" <.> ext %>
             buildAudio (Input $ dir </> "everything.wav")
 

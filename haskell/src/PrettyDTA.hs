@@ -38,7 +38,7 @@ writeLatin1CRLF fp = liftIO . B.writeFile fp . B8.pack . T.unpack
   . T.concatMap (\case '\n' -> "\r\n"; c -> T.singleton c)
 
 stringLit :: T.Text -> T.Text
-stringLit s = "\"" <> (T.concatMap (\case '"' -> "\\q"; c -> T.singleton c) s) <> "\""
+stringLit s = "\"" <> T.concatMap (\case '"' -> "\\q"; c -> T.singleton c) s <> "\""
 
 data C3DTAComments = C3DTAComments
   { c3dtaCreatedUsing :: Maybe T.Text

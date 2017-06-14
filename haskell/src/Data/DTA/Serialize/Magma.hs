@@ -31,14 +31,14 @@ instance StackChunks Metadata where
     artistName   <- artistName   =. req "artist_name"   (single chunkString)
     genre        <- genre        =. req "genre"         (single chunkKey)
     subGenre     <- subGenre     =. req "sub_genre"     (single chunkKey)
-    yearReleased <- yearReleased =. req "year_released" (stackChunks)
+    yearReleased <- yearReleased =. req "year_released" stackChunks
     albumName    <- albumName    =. req "album_name"    (single chunkString)
     author       <- author       =. req "author"        (single chunkString)
     releaseLabel <- releaseLabel =. req "release_label" (single chunkString)
     country      <- country      =. req "country"       (single chunkKey)
-    price        <- price        =. req "price"         (stackChunks)
-    trackNumber  <- trackNumber  =. req "track_number"  (stackChunks)
-    hasAlbum     <- hasAlbum     =. req "has_album"     (stackChunks)
+    price        <- price        =. req "price"         stackChunks
+    trackNumber  <- trackNumber  =. req "track_number"  stackChunks
+    hasAlbum     <- hasAlbum     =. req "has_album"     stackChunks
     return Metadata{..}
 
 data AudioFile = AudioFile
@@ -198,7 +198,7 @@ instance StackChunks Languages where
     japanese <- japanese =. opt Nothing "japanese" stackChunks
     return Languages{..}
 
-data AlbumArt = AlbumArt
+newtype AlbumArt = AlbumArt
   { albumArtFile :: T.Text
   } deriving (Eq, Ord, Show, Read)
 
@@ -272,7 +272,7 @@ instance StackChunks Project where
     tracks          <- tracks          =. req "tracks"           stackChunks
     return Project{..}
 
-data RBProj = RBProj
+newtype RBProj = RBProj
   { project :: Project
   } deriving (Eq, Ord, Show, Read)
 

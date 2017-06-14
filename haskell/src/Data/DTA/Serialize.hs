@@ -1,7 +1,4 @@
 {-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
@@ -83,8 +80,8 @@ instance StackChunk Float where
     { stackShow = Float
     , stackParse = lift ask >>= \case
       Float f -> return f
-      Int i -> return $ fromIntegral i
-      _ -> expected "float"
+      Int   i -> return $ fromIntegral i
+      _       -> expected "float"
     }
 instance StackChunks Float
 
@@ -92,9 +89,9 @@ instance StackChunk Bool where
   stackChunk = StackCodec
     { stackShow = \b -> Int $ if b then 1 else 0
     , stackParse = lift ask >>= \case
-      Int 1 -> return True
-      Int 0 -> return False
-      Key "TRUE" -> return True
+      Int 1       -> return True
+      Int 0       -> return False
+      Key "TRUE"  -> return True
       Key "FALSE" -> return False
       _ -> expected "bool"
     }
@@ -102,18 +99,18 @@ instance StackChunks Bool
 
 chunkString :: ChunkCodec T.Text
 chunkString = StackCodec
-  { stackShow = \s -> String s
+  { stackShow = String
   , stackParse = lift ask >>= \case
     String s -> return s
-    _ -> expected "string"
+    _        -> expected "string"
   }
 
 chunkKey :: ChunkCodec T.Text
 chunkKey = StackCodec
-  { stackShow = \s -> Key s
+  { stackShow = Key
   , stackParse = lift ask >>= \case
     Key s -> return s
-    _ -> expected "keyword"
+    _     -> expected "keyword"
   }
 
 chunkStringOrKey :: ChunkCodec T.Text

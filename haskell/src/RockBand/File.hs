@@ -113,7 +113,7 @@ instance MIDIFileFormat RB3File where
     rb3Beat             <- parseTracks mmap trks ["BEAT"]
     rb3Venue            <- parseTracks mmap trks ["VENUE"]
     knownTracks trks ["PART DRUMS", "PART GUITAR", "PART BASS", "PART KEYS", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3", "EVENTS", "BEAT", "VENUE"]
-    return $ Song tempos mmap $ RB3File{..}
+    return $ Song tempos mmap RB3File{..}
   showMIDITracks (Song tempos mmap RB3File{..}) = Song tempos mmap $ concat
     [ showMIDITrack "PART DRUMS" rb3PartDrums
     , showMIDITrack "PART GUITAR" rb3PartGuitar
@@ -158,7 +158,7 @@ instance MIDIFileFormat RB2File where
     rb2Beat       <- parseTracks mmap trks ["BEAT"]
     rb2Venue      <- parseTracks mmap trks ["VENUE"]
     knownTracks trks ["PART DRUMS", "PART GUITAR", "PART BASS", "PART VOCALS", "EVENTS", "BEAT", "VENUE"]
-    return $ Song tempos mmap $ RB2File{..}
+    return $ Song tempos mmap RB2File{..}
   showMIDITracks (Song tempos mmap RB2File{..}) = Song tempos mmap $ concat
     [ showMIDITrack "PART DRUMS"  rb2PartDrums
     , showMIDITrack "PART GUITAR" rb2PartGuitar
@@ -233,7 +233,7 @@ instance MIDIFileFormat PSFile where
     psBeat             <- parseTracks mmap trks ["BEAT"]
     psVenue            <- parseTracks mmap trks ["VENUE"]
     knownTracks trks ["PART DRUMS", "PART DRUM", "PART REAL_DRUMS_PS", "PART GUITAR", "PART BASS", "PART KEYS", "PART RHYTHM", "PART GUITAR COOP", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART REAL_KEYS_PS_E", "PART REAL_KEYS_PS_M", "PART REAL_KEYS_PS_H", "PART REAL_KEYS_PS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3", "EVENTS", "BEAT", "VENUE"]
-    return $ Song tempos mmap $ PSFile{..}
+    return $ Song tempos mmap PSFile{..}
   showMIDITracks (Song tempos mmap PSFile{..}) = Song tempos mmap $ concat
     [ showMIDITrack "PART DRUMS" psPartDrums
     , showMIDITrack "PART DRUMS_2X" psPartDrums2x
