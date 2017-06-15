@@ -31,7 +31,8 @@ import           System.Directory               (makeAbsolute)
 import           System.FilePath                (takeDirectory, (</>))
 
 stringOrStrings :: Y.Value -> A.Result (Either String [String])
-stringOrStrings v =
+stringOrStrings Y.Null = return $ Right []
+stringOrStrings v      =
   fmap Left (A.fromJSON v) <|> fmap Right (A.fromJSON v)
 
 readYAMLTree :: (MonadIO m) => FilePath -> StackTraceT m Y.Value
@@ -58,6 +59,7 @@ readYAMLTree f = inside ("YAML file " ++ show f) $ let
       A.Success e -> do
         v' <- liftIO $ case e of
           Left  s  -> fmap A.toJSON $ makeAbsolute $ dir </> s
+          Right [] -> return A.Null
           Right ss -> fmap A.toJSON $ forM ss $ \s -> makeAbsolute $ dir </> s
         goPairs (M.insert k v' o) rest
       A.Error s -> fail s
