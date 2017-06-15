@@ -219,6 +219,7 @@ prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
     forM_ (D.tuningOffsetCents pkg) $ inline "tuning_offset_cents" . showT -- TODO: should this be an int?
     forM_ (D.guidePitchVolume pkg) $ inline "guide_pitch_volume" . showT
     inline "game_origin" $ quote $ D.gameOrigin pkg
+    forM_ (D.ugc pkg) $ inline "ugc" . \case True -> "1"; False -> "0"
     forM_ (D.encoding pkg) $ inline "encoding" . quote
     forM_ (D.albumName pkg) $ two "album_name" . stringLit
     forM_ (D.albumTrackNumber pkg) $ inline "album_track_number" . showT

@@ -80,8 +80,8 @@ fixDoubleSwells ps = let
     , RBFile.psPartRealDrumsPS = withRB fixTrack $ RBFile.psPartRealDrumsPS ps
     }
 
-importFoF :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m HasKicks
-importFoF src dest = do
+importFoF :: (MonadIO m) => Bool -> FilePath -> FilePath -> StackTraceT m HasKicks
+importFoF detectBasicDrums src dest = do
   song <- FoF.loadSong $ src </> "song.ini"
 
   hasAlbumArt <- liftIO $ Dir.doesFileExist $ src </> "album.png"
@@ -267,7 +267,7 @@ importFoF src dest = do
       [ ( FlexDrums, def
         { partDrums = guard (hasTrack RBFile.psPartDrums && FoF.diffDrums song /= Just (-1)) >> Just PartDrums
           { drumsDifficulty = toTier $ FoF.diffDrums song
-          , drumsPro = case FoF.proDrums song of
+          , drumsPro = not detectBasicDrums || case FoF.proDrums song of
             Just b  -> b
             Nothing -> any
               (\case RBDrums.ProType _ _ -> True; _ -> False)

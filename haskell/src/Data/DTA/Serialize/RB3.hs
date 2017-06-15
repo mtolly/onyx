@@ -115,6 +115,7 @@ data SongPackage = SongPackage
   , songFormat        :: Integer
   , version           :: Integer
   , gameOrigin        :: T.Text
+  , ugc               :: Maybe Bool
   , rating            :: Integer
   , genre             :: T.Text
   , subGenre          :: Maybe T.Text
@@ -158,6 +159,7 @@ instance StackChunks SongPackage where
     songFormat        <- songFormat        =. req         "format"              stackChunks
     version           <- version           =. req         "version"             stackChunks
     gameOrigin        <- gameOrigin        =. req         "game_origin"         (single chunkKey)
+    ugc               <- ugc               =. opt Nothing "ugc"                 stackChunks
     rating            <- rating            =. req         "rating"              stackChunks
     genre             <- genre             =. req         "genre"               (single chunkKey)
     subGenre          <- subGenre          =. opt Nothing "sub_genre"           (chunksMaybe $ single chunkKey)

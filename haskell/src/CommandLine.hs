@@ -376,7 +376,7 @@ commands =
         [(FilePS, iniPath)] -> do
           let out = takeDirectory iniPath ++ "_reaper"
           liftIO $ Dir.createDirectoryIfMissing False out
-          void $ importFoF (takeDirectory iniPath) out
+          void $ importFoF (OptForceProDrums `notElem` opts) (takeDirectory iniPath) out
           withSongYaml $ out </> "song.yml"
         [(FileSongYaml, yamlPath)] -> withSongYaml yamlPath
         _ -> case partitionMaybe (isType [FileMidi]) files' of
@@ -432,7 +432,7 @@ commands =
         return [out </> "index.html"]
       FilePS -> tempDir "onyx_player" $ \tmp -> do
         out <- outputFile opts $ return $ takeDirectory fpath ++ "_player"
-        void $ importFoF (takeDirectory fpath) tmp
+        void $ importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
         let player = "gen/plan/fof/web"
         shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
         liftIO $ Dir.createDirectoryIfMissing False out
@@ -490,7 +490,7 @@ commands =
       FilePS -> do
         out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
         liftIO $ Dir.createDirectoryIfMissing False out
-        void $ importFoF (takeDirectory fpath) out
+        void $ importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) out
         return [out]
       _ -> unrecognized ftype fpath
     }
@@ -519,7 +519,7 @@ commands =
           hasKicks <- case ftype of
             FileSTFS -> importSTFS fpath Nothing tmp
             FileRBA  -> importRBA fpath Nothing tmp
-            FilePS   -> importFoF (takeDirectory fpath) tmp
+            FilePS   -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
             FileZip  -> undone
             _        -> unrecognized ftype fpath
           let (gtr, bass)
@@ -760,21 +760,22 @@ commandLine args = let
 
 optDescrs :: [OptDescr OnyxOption]
 optDescrs =
-  [ Option []   ["target"        ] (ReqArg (OptTarget . T.pack)   "TARGET"   ) ""
-  , Option []   ["plan"          ] (ReqArg (OptPlan   . T.pack)   "PLAN"     ) ""
-  , Option []   ["to"            ] (ReqArg OptTo                  "PATH"     ) ""
-  , Option []   ["no-open"       ] (NoArg  OptNoOpen                         ) ""
-  , Option []   ["2x"            ] (ReqArg Opt2x                  "PATH"     ) ""
-  , Option []   ["game"          ] (ReqArg (OptGame . readGame)   "{rb3,rb2}") ""
-  , Option []   ["separate-lines"] (NoArg  OptSeparateLines                  ) ""
-  , Option []   ["in-beats"      ] (NoArg  OptInBeats                        ) ""
-  , Option []   ["in-seconds"    ] (NoArg  OptInSeconds                      ) ""
-  , Option []   ["in-measures"   ] (NoArg  OptInMeasures                     ) ""
-  , Option []   ["match-notes"   ] (NoArg  OptMatchNotes                     ) ""
-  , Option []   ["resolution"    ] (ReqArg (OptResolution . read) "int"      ) ""
-  , Option []   ["keys-on-guitar"] (NoArg  OptKeysOnGuitar                   ) ""
-  , Option []   ["keys-on-bass"  ] (NoArg  OptKeysOnBass                     ) ""
-  , Option "h?" ["help"          ] (NoArg  OptHelp                           ) ""
+  [ Option []   ["target"         ] (ReqArg (OptTarget . T.pack)   "TARGET"   ) ""
+  , Option []   ["plan"           ] (ReqArg (OptPlan   . T.pack)   "PLAN"     ) ""
+  , Option []   ["to"             ] (ReqArg OptTo                  "PATH"     ) ""
+  , Option []   ["no-open"        ] (NoArg  OptNoOpen                         ) ""
+  , Option []   ["2x"             ] (ReqArg Opt2x                  "PATH"     ) ""
+  , Option []   ["game"           ] (ReqArg (OptGame . readGame)   "{rb3,rb2}") ""
+  , Option []   ["separate-lines" ] (NoArg  OptSeparateLines                  ) ""
+  , Option []   ["in-beats"       ] (NoArg  OptInBeats                        ) ""
+  , Option []   ["in-seconds"     ] (NoArg  OptInSeconds                      ) ""
+  , Option []   ["in-measures"    ] (NoArg  OptInMeasures                     ) ""
+  , Option []   ["match-notes"    ] (NoArg  OptMatchNotes                     ) ""
+  , Option []   ["resolution"     ] (ReqArg (OptResolution . read) "int"      ) ""
+  , Option []   ["keys-on-guitar" ] (NoArg  OptKeysOnGuitar                   ) ""
+  , Option []   ["keys-on-bass"   ] (NoArg  OptKeysOnBass                     ) ""
+  , Option []   ["force-pro-drums"] (NoArg  OptForceProDrums                  ) ""
+  , Option "h?" ["help"           ] (NoArg  OptHelp                           ) ""
   ] where
     readGame = \case
       "rb3" -> GameRB3
@@ -796,6 +797,7 @@ data OnyxOption
   | OptMatchNotes
   | OptKeysOnGuitar
   | OptKeysOnBass
+  | OptForceProDrums
   | OptHelp
   deriving (Eq, Ord, Show, Read)
 

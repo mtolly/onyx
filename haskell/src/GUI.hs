@@ -60,7 +60,7 @@ data Selection
   deriving (Eq, Ord, Show, Read)
 
 data Menu
-  = Choices [Choice Menu]
+  = Choices [Choice (Onyx ())]
   | Files FilePicker [FilePath] ([FilePath] -> Menu)
   | TasksStart [StackTraceT IO [FilePath]]
   | TasksRunning ThreadId TasksStatus
@@ -84,6 +84,20 @@ data TasksStatus = TasksStatus
   , tasksOutput :: [(String, Maybe [FilePath])]
   } deriving (Eq, Ord, Show, Read)
 
+setMenu :: Menu -> Onyx ()
+setMenu menu = modify $ \GUIState{..} -> GUIState{ currentScreen = menu, .. }
+
+pushMenu :: Menu -> Onyx ()
+pushMenu menu = modify $ \(GUIState m pms sel) -> GUIState menu (m : pms) sel
+
+popMenu :: Onyx ()
+popMenu = modify $ \case
+  GUIState _ (m : pms) sel -> GUIState m pms sel
+  s                        -> s
+
+modifySelect :: (Selection -> Selection) -> Onyx ()
+modifySelect f = modify $ \(GUIState m pms sel) -> GUIState m pms $ f sel
+
 commandLine' :: (MonadIO m) => [String] -> StackTraceT m [FilePath]
 commandLine' args = do
   let args' = flip map args $ \arg -> if ' ' `elem` arg then "\"" ++ arg ++ "\"" else arg
@@ -94,35 +108,77 @@ commandLine' args = do
     ]
   commandLine args
 
+data ConvertRB3Options = ConvertRB3Options
+  { detectBasicDrums :: Bool
+  } deriving (Eq, Ord, Show, Read)
+
+optionsMenu :: a -> (a -> ([Choice [Choice (a -> a)]], Menu)) -> Menu
+optionsMenu current getOptions = let
+  (topChoices, continue) = getOptions current
+  topChoices' = flip map topChoices $ fmap $ \optionValues -> pushMenu $ Choices $ do
+    optionValue <- optionValues
+    return $ flip fmap optionValue $ \fn -> do
+      popMenu
+      setMenu $ optionsMenu (fn current) getOptions
+  continueChoice = Choice
+    { choiceValue = pushMenu continue
+    , choiceTitle = "Continue..."
+    , choiceDescription = ""
+    }
+  in Choices $ topChoices' ++ [continueChoice]
+
 topMenu :: Menu
 topMenu = Choices
   [ ( Choice "PS to RB3" "Attempts to convert a Frets on Fire/Phase Shift song to Rock Band 3."
-    $ Files (FilePicker ["*.ini"] "Frets on Fire/Phase Shift song.ini") [] $ \fs ->
-      TasksStart $ map (\f -> commandLine' ["convert", "--game", "rb3", f]) fs
+    $ pushMenu $ Files (FilePicker ["*.ini"] "Frets on Fire/Phase Shift song.ini") []
+    $ \fs -> optionsMenu (ConvertRB3Options True)
+    $ \ConvertRB3Options{..} -> let
+      continue = TasksStart $ flip map fs $ \f -> commandLine' $ if detectBasicDrums
+        then ["convert", "--game", "rb3", f]
+        else ["convert", "--game", "rb3", "--force-pro-drums", f]
+      opts =
+        [ Choice
+          { choiceTitle = "(option) Automatic tom markers"
+          , choiceDescription = if detectBasicDrums then "Yes" else "No"
+          , choiceValue =
+            [ Choice
+              { choiceTitle = "Yes"
+              , choiceDescription = "If no Pro Drums are found, tom markers will be added over the whole song."
+              , choiceValue = \convOpts -> convOpts { detectBasicDrums = True }
+              }
+            , Choice
+              { choiceTitle = "No"
+              , choiceDescription = "No tom markers will be added."
+              , choiceValue = \convOpts -> convOpts { detectBasicDrums = False }
+              }
+            ]
+          }
+        ]
+      in (opts, continue)
     )
   , ( Choice "RB3 to RB2" "Converts a song from Rock Band 3 to Rock Band 2."
-    $ Files (FilePicker ["*_rb3con"] "Rock Band 3 CON files") [] $ \fs -> Choices
+    $ pushMenu $ Files (FilePicker ["*_rb3con"] "Rock Band 3 CON files") [] $ \fs -> Choices
       [ ( Choice "No keys" "Drops the Keys part if present."
-        $ TasksStart $ map (\f -> commandLine' ["convert", "--game", "rb2", f]) fs
+        $ pushMenu $ TasksStart $ map (\f -> commandLine' ["convert", "--game", "rb2", f]) fs
         )
       , ( Choice "Keys on guitar" "Drops Guitar if present, and puts Keys on Guitar (like RB3 keytar mode)."
-        $ TasksStart $ map (\f -> commandLine' ["convert", "--game", "rb2", f, "--keys-on-guitar"]) fs
+        $ pushMenu $ TasksStart $ map (\f -> commandLine' ["convert", "--game", "rb2", f, "--keys-on-guitar"]) fs
         )
       , ( Choice "Keys on bass" "Drops Bass if present, and puts Keys on Bass (like RB3 keytar mode)."
-        $ TasksStart $ map (\f -> commandLine' ["convert", "--game", "rb2", f, "--keys-on-bass"]) fs
+        $ pushMenu $ TasksStart $ map (\f -> commandLine' ["convert", "--game", "rb2", f, "--keys-on-bass"]) fs
         )
       ]
     )
   , ( Choice "Web preview" "Produces a web browser app to preview a song."
-    $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)") [] $ \fs ->
+    $ pushMenu $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)") [] $ \fs ->
       TasksStart $ map (\f -> commandLine' ["player", f]) fs
     )
   , ( Choice "REAPER project" "Converts a MIDI or song (RB3/RB2/PS) to a REAPER project."
-    $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini", "*.mid"] "Songs (RB3/RB2/PS) or MIDI files") [] $ \fs ->
+    $ pushMenu $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini", "*.mid"] "Songs (RB3/RB2/PS) or MIDI files") [] $ \fs ->
       TasksStart $ map (\f -> commandLine' ["reap", f]) fs
     )
   , ( Choice "Auto reductions" "Fills empty difficulties in a MIDI file with CAT-quality reductions."
-    $ Files (FilePicker ["*.mid"] "MIDI files") [] $ \fs ->
+    $ pushMenu $ Files (FilePicker ["*.mid"] "MIDI files") [] $ \fs ->
       TasksStart $ map (\f -> commandLine' ["reduce", f]) fs
     )
   ]
@@ -132,6 +188,9 @@ data GUIState = GUIState
   , previousScreens  :: [Menu] -- TODO should add Selection
   , currentSelection :: Selection
   }
+
+initialState :: GUIState
+initialState = GUIState topMenu [] NoSelect
 
 type Onyx = StateT GUIState IO
 
@@ -165,25 +224,9 @@ launchGUI = do
 
   let
 
-    initialState = GUIState topMenu [] NoSelect
-
-    setMenu :: Menu -> Onyx ()
-    setMenu menu = modify $ \GUIState{..} -> GUIState{ currentScreen = menu, .. }
-
-    pushMenu :: Menu -> Onyx ()
-    pushMenu menu = modify $ \(GUIState m pms sel) -> GUIState menu (m : pms) sel
-
-    popMenu :: Onyx ()
-    popMenu = modify $ \case
-      GUIState _ (m : pms) sel -> GUIState m pms sel
-      s                        -> s
-
-    modifySelect :: (Selection -> Selection) -> Onyx ()
-    modifySelect f = modify $ \(GUIState m pms sel) -> GUIState m pms $ f sel
-
     getChoices :: Onyx [Choice (Onyx ())]
     getChoices = gets $ \(GUIState menu _ _) -> case menu of
-      Choices cs -> flip map cs $ fmap pushMenu
+      Choices cs -> cs
       Files fpick files useFiles ->
         [ Choice "Select files... (or drag and drop)" (fileDescription fpick) $ do
           let pats = if os /= "darwin"

@@ -293,6 +293,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
     , D.songFormat = 10
     , D.version = fromMaybe 1 $ rb3_Version rb3
     , D.gameOrigin = "ugc_plus"
+    , D.ugc = Nothing
     , D.rating = fromIntegral $ fromEnum (_rating $ _metadata songYaml) + 1
     , D.genre = rbn2Genre fullGenre
     , D.subGenre = Just $ "subgenre_" <> rbn2Subgenre fullGenre
@@ -1284,6 +1285,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                               , D.tuningOffsetCents = D.tuningOffsetCents rb3DTA
                               , D.context = Just 2000
                               , D.gameOrigin = "rb2"
+                              , D.ugc = Nothing
                               , D.albumName = D.albumName rb3DTA
                               , D.albumTrackNumber = D.albumTrackNumber rb3DTA
                               -- not present
