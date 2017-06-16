@@ -23,7 +23,10 @@ int buildSTFSPackage
 , uint8_t *kvBin
 , size_t kvBinLen
 , char *stfsOut
+, char *errOut
 ) {
+
+  memset(errOut, 0, 1000);
 
   try {
 
@@ -56,12 +59,13 @@ int buildSTFSPackage
 
   } catch (std::string &s) {
 
-    std::cout << s << "\n";
+    s.copy(errOut, 999);
     return 0;
 
   } catch (...) {
 
-    std::cout << "Unknown C++ exception\n";
+    std::string s = std::string("Unknown C++ exception");
+    s.copy(errOut, 999);
     return 0;
 
   }

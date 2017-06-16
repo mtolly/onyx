@@ -23,6 +23,7 @@ int buildSTFSPackage
 , uint8_t *kvBin
 , size_t kvBinLen
 , char *stfsOut
+, char *errOut
 );
 
 #ifdef __cplusplus

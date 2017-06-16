@@ -1081,7 +1081,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             pathMilo %> \out -> liftIO $ B.writeFile out emptyMilo
             pathCon ≡> \out -> do
               lift $ need [pathDta, pathMid, pathMogg, pathPng, pathMilo]
-              lift $ putNormal "# Calling rb3pkg to make RB3 CON file"
+              lift $ putNormal "# Producing RB3 CON file via XboxInternals"
               rb3pkg
                 (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                 ("Version: " <> targetName)
@@ -1381,7 +1381,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   rb2Pan %> \out -> liftIO $ B.writeFile out B.empty
                   rb2CON ≡> \out -> do
                     lift $ need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
-                    lift $ putNormal "# Calling rb3pkg to make RB2 CON file"
+                    lift $ putNormal "# Producing RB2 CON file via XboxInternals"
                     rb2pkg
                       (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
                       (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))

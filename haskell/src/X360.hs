@@ -2,7 +2,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 module X360 (rb3pkg, rb2pkg, stfsFolder) where
 
-import           Control.Monad                  (unless)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                as B
@@ -27,7 +26,7 @@ rbpkg :: (MonadIO m) => String -> Word32 -> T.Text -> T.Text -> FilePath -> File
 rbpkg game tid title desc dir fout = do
   files <- liftIO $ listFilesRecursive dir
   let dirs = sort $ nub $ concatMap (directoryChain . makeRelative dir) files
-  b <- liftIO $ buildSTFSPackage
+  merr <- liftIO $ buildSTFSPackage
     (T.unpack title)
     (T.unpack desc)
     "Harmonix"
@@ -39,7 +38,7 @@ rbpkg game tid title desc dir fout = do
     rb3Thumbnail
     xboxKV
     fout
-  unless b $ fatal "XboxInternals encountered an error"
+  inside "XboxInternals STFS package creation" $ mapM_ fatal merr
 
 rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
 rb3pkg = rbpkg "Rock Band 3" 0x45410914

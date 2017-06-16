@@ -37,6 +37,7 @@ withBS bs f = B.useAsCStringLen bs $ \(p, len) -> f (castPtr p, fromIntegral len
   , withBS* `B.ByteString'& -- ^ title thumbnail data
   , withBS* `B.ByteString'& -- ^ kv data
   , withCString* `FilePath' -- ^ stfs out
+  , `CString' -- ^ error string buffer
   } -> `CInt'
 #}
 
@@ -52,14 +53,19 @@ buildSTFSPackage
   -> B.ByteString -- ^ title thumbnail data
   -> B.ByteString -- ^ kv data
   -> FilePath -- ^ stfs out
-  -> IO Bool
-buildSTFSPackage pn pd pub game tid dirs files thumb title kv out = let
-  fixSlashes = map $ \case '/' -> '\\'; c -> c
-  in (/= 0) <$> buildSTFSPackage_c pn pd pub game tid
-    (map fixSlashes dirs)
-    (fromIntegral $ length dirs)
-    (map fst files)
-    (map (fixSlashes . snd) files)
-    (fromIntegral $ length files)
-    thumb title kv
-    out
+  -> IO (Maybe String)
+buildSTFSPackage pn pd pub game tid dirs files thumb title kv out = do
+  let fixSlashes = map $ \case '/' -> '\\'; c -> c
+  allocaArray 1000 $ \errbuf -> do
+    code <- buildSTFSPackage_c pn pd pub game tid
+      (map fixSlashes dirs)
+      (fromIntegral $ length dirs)
+      (map fst files)
+      (map (fixSlashes . snd) files)
+      (fromIntegral $ length files)
+      thumb title kv
+      out
+      errbuf
+    if code == 0
+      then fmap Just $ peekCString errbuf
+      else return Nothing
