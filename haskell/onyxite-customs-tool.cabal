@@ -187,3 +187,6 @@ executable onyx
     cpp-options: -DMACOSX
     c-sources: cbits/macfiles.m
     frameworks: AppKit
+    ld-options: -lto_library
+    -- ^ this fixes C++ exception catching on mac.
+    -- see https://ghc.haskell.org/trac/ghc/ticket/11829

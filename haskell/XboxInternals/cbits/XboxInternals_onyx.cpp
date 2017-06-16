@@ -54,9 +54,14 @@ int buildSTFSPackage
 
     pkg.Close();
 
-  } catch (string s) {
+  } catch (std::string &s) {
 
     std::cout << s << "\n";
+    return 0;
+
+  } catch (...) {
+
+    std::cout << "Unknown C++ exception\n";
     return 0;
 
   }
