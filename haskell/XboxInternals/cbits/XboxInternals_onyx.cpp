@@ -44,6 +44,8 @@ int buildSTFSPackage
 
     for (int i = 0; i < countDirs; i++) {
       pkg.CreateFolder(dirs[i]);
+      pkg.GetFileListing(true);
+      // The above line somehow avoids a crash when running from .app on Mac
     }
     for (int i = 0; i < countFiles; i++) {
       pkg.InjectFile(paths[i], pathsInPackage[i]);
