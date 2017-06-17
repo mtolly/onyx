@@ -109,7 +109,14 @@ commandLine' args = do
   commandLine args
 
 data ConvertRB3Options = ConvertRB3Options
-  { detectBasicDrums :: Bool
+  { forceProDrums :: Bool
+  } deriving (Eq, Ord, Show, Read)
+
+data KeysRB2 = NoKeys | KeysGuitar | KeysBass
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data ConvertRB2Options = ConvertRB2Options
+  { keysRB2 :: KeysRB2
   } deriving (Eq, Ord, Show, Read)
 
 optionsMenu :: a -> (a -> ([Choice [Choice (a -> a)]], Menu)) -> Menu
@@ -133,23 +140,24 @@ topMenu = Choices
     $ pushMenu $ Files (FilePicker ["*.ini"] "Frets on Fire/Phase Shift song.ini") []
     $ \fs -> optionsMenu (ConvertRB3Options True)
     $ \ConvertRB3Options{..} -> let
-      continue = TasksStart $ flip map fs $ \f -> commandLine' $ if detectBasicDrums
-        then ["convert", "--game", "rb3", f]
-        else ["convert", "--game", "rb3", "--force-pro-drums", f]
+      continue = TasksStart $ flip map fs $ \f -> commandLine' $ concat
+        [ ["convert", f, "--game", "rb3"]
+        , ["--force-pro-drums" | forceProDrums]
+        ]
       opts =
         [ Choice
           { choiceTitle = "(option) Automatic tom markers"
-          , choiceDescription = if detectBasicDrums then "Yes" else "No"
+          , choiceDescription = if forceProDrums then "No" else "Yes"
           , choiceValue =
             [ Choice
               { choiceTitle = "Yes"
               , choiceDescription = "If no Pro Drums are found, tom markers will be added over the whole song."
-              , choiceValue = \convOpts -> convOpts { detectBasicDrums = True }
+              , choiceValue = \convOpts -> convOpts { forceProDrums = False }
               }
             , Choice
               { choiceTitle = "No"
               , choiceDescription = "No tom markers will be added."
-              , choiceValue = \convOpts -> convOpts { detectBasicDrums = False }
+              , choiceValue = \convOpts -> convOpts { forceProDrums = True }
               }
             ]
           }
@@ -157,17 +165,37 @@ topMenu = Choices
       in (opts, continue)
     )
   , ( Choice "RB3 to RB2" "Converts a song from Rock Band 3 to Rock Band 2."
-    $ pushMenu $ Files (FilePicker ["*_rb3con"] "Rock Band 3 CON files") [] $ \fs -> Choices
-      [ ( Choice "No keys" "Drops the Keys part if present."
-        $ pushMenu $ TasksStart $ map (\f -> commandLine' ["convert", "--game", "rb2", f]) fs
-        )
-      , ( Choice "Keys on guitar" "Drops Guitar if present, and puts Keys on Guitar (like RB3 keytar mode)."
-        $ pushMenu $ TasksStart $ map (\f -> commandLine' ["convert", "--game", "rb2", f, "--keys-on-guitar"]) fs
-        )
-      , ( Choice "Keys on bass" "Drops Bass if present, and puts Keys on Bass (like RB3 keytar mode)."
-        $ pushMenu $ TasksStart $ map (\f -> commandLine' ["convert", "--game", "rb2", f, "--keys-on-bass"]) fs
-        )
-      ]
+    $ pushMenu $ Files (FilePicker ["*_rb3con"] "Rock Band 3 CON files") []
+    $ \fs -> optionsMenu (ConvertRB2Options NoKeys)
+    $ \ConvertRB2Options{..} -> let
+      continue = TasksStart $ flip map fs $ \f -> commandLine' $ concat
+        [ ["convert", f, "--game", "rb2"]
+        , case keysRB2 of NoKeys -> []; KeysGuitar -> ["--keys-on-guitar"]; KeysBass -> ["--keys-on-bass"]
+        ]
+      opts =
+        [ Choice
+          { choiceTitle = "(option) Keys"
+          , choiceDescription = case keysRB2 of NoKeys -> "No keys"; KeysGuitar -> "Keys on guitar"; KeysBass -> "Keys on bass"
+          , choiceValue =
+            [ Choice
+              { choiceTitle = "No keys"
+              , choiceDescription = "Drops the Keys part if present."
+              , choiceValue = \convOpts -> convOpts { keysRB2 = NoKeys }
+              }
+            , Choice
+              { choiceTitle = "Keys on guitar"
+              , choiceDescription = "Drops Guitar if present, and puts Keys on Guitar (like RB3 keytar mode)."
+              , choiceValue = \convOpts -> convOpts { keysRB2 = KeysGuitar }
+              }
+            , Choice
+              { choiceTitle = "Keys on bass"
+              , choiceDescription = "Drops Bass if present, and puts Keys on Bass (like RB3 keytar mode)."
+              , choiceValue = \convOpts -> convOpts { keysRB2 = KeysBass }
+              }
+            ]
+          }
+        ]
+      in (opts, continue)
     )
   , ( Choice "Web preview" "Produces a web browser app to preview a song."
     $ pushMenu $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)") [] $ \fs ->
