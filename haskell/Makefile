@@ -38,16 +38,16 @@ mac-deps:
 	brew install libsndfile libsamplerate lame sdl2 sdl2_ttf rubberband botan
 
 win:
+	# stack build .
 	rm -rf win/
 	mkdir win/
-	# stack build .
 	cp "$(shell stack exec which onyx)" win/
 	cp /mingw32/bin/*.dll win/
 	stack exec strip win/onyx.exe
 	cp LICENSE.txt win/LICENSE.txt
 	cp README.md win/README.txt
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} win/
-	sed -i 's/_ONYXVERSION_/$(ONYXVERSION)/' win/README.txt
+	sed -b -i 's/_ONYXVERSION_/$(ONYXVERSION)/' win/README.txt
 
 win-deps:
 	pacman -Sy mingw-w64-i686-pkg-config mingw-w64-i686-libsndfile mingw-w64-i686-libsamplerate mingw-w64-i686-lame mingw-w64-i686-SDL2 mingw-w64-i686-SDL2_ttf mingw-w64-i686-rubberband

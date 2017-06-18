@@ -8,7 +8,7 @@ packages:
   extra-dep: true
 - location:
     git: git://github.com/mtolly/tinyfiledialogs
-    commit: 0012e8e2b341350a30cbd0e4bc765b431e3061a0
+    commit: a19c13ee40700ce13984d72c024b1092b592be21
   extra-dep: true
 # following 2 are for windows SDL_MAIN fix
 - location:
