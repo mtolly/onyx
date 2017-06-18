@@ -53,6 +53,11 @@ Open `onyx.exe`/`Onyx.app` to run.
     Note: to do a batch process of many songs, drag and drop song folders
     (the folders with song.ini immediately inside) onto the file loading screen.
 
+    If the "automatic tom markers" option is turned on, a song that does not
+    have any tom markers and that does not have "pro_drums = True" in the
+    song.ini will have tom markers added over the whole drum part, under the
+    assumption that Pro Drums have not been authored for the chart.
+
   * Convert to RB2 (takes _rb3con, creates _rb2con)
 
     Converts a Rock Band 3 CON file to Rock Band 2.
