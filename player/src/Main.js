@@ -17,3 +17,9 @@ exports.onPoint = function(onclick) {
     });
   };
 };
+
+exports.numMod = function(x) {
+  return function(y) {
+    return x % y;
+  };
+};

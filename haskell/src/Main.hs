@@ -29,7 +29,6 @@ main = do
           "mingw32" -> return ()
           _ -> do
             inside "checking if Wine is installed" $ checkShell "wine --version"
-            inside "checking if Mono is installed" $ checkShell "mono --version"
         commandLine argv >>= useResultFiles
       mapM_ printWarning warns
       case res of
