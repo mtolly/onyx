@@ -9,7 +9,6 @@ This repository contains the "source" for charts which (once finished) are avail
 
 [![Creative Commons License](https://i.creativecommons.org/l/by-sa/4.0/88x31.png)](http://creativecommons.org/licenses/by-sa/4.0/)
 [![GNU GPL License](https://www.gnu.org/graphics/gplv3-88x31.png)](https://www.gnu.org/licenses/gpl.html)
-[![GNU LGPL License](https://www.gnu.org/graphics/lgplv3-88x31.png)](https://www.gnu.org/licenses/lgpl.html)
 
 The Onyx software is free software via the [GNU GPL v3](https://www.gnu.org/licenses/gpl.html).
 
