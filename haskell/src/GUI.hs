@@ -24,17 +24,17 @@ import qualified Data.ByteString                as B
 import           Data.ByteString.Unsafe         (unsafeUseAsCStringLen)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
+import           Data.Text.Encoding             (decodeUtf8)
 import           Data.Time
 import           Data.Word                      (Word8)
 import           Foreign                        (Ptr, castPtr)
-import           Foreign.C                      (CInt (..), peekCString)
+import           Foreign.C                      (CInt (..))
 import           Graphics.UI.TinyFileDialogs
 import           OSFiles                        (osOpenFile, useResultFiles)
 import           Resources                      (pentatonicTTF)
 import           SDL                            (($=))
 import qualified SDL
-import           SDL.Raw                        (Color (..), RWops,
-                                                 rwFromConstMem)
+import qualified SDL.Raw                        as Raw
 import qualified SDL.TTF                        as TTF
 import           SDL.TTF.FFI                    (TTFFont)
 import           System.Directory               (XdgDirectory (..),
@@ -46,11 +46,11 @@ import           System.Info                    (os)
 import           System.IO.Silently             (capture)
 
 foreign import ccall unsafe "TTF_OpenFontRW"
-  openFontRW :: Ptr RWops -> CInt -> CInt -> IO TTFFont
+  openFontRW :: Ptr Raw.RWops -> CInt -> CInt -> IO TTFFont
 
 withBSFont :: B.ByteString -> Int -> (TTFFont -> IO a) -> IO a
 withBSFont bs pts act = unsafeUseAsCStringLen bs $ \(ptr, len) -> do
-  rw  <- rwFromConstMem (castPtr ptr) (fromIntegral len)
+  rw  <- Raw.rwFromConstMem (castPtr ptr) (fromIntegral len)
   bracket (openFontRW rw 1 $ fromIntegral pts) TTF.closeFont act
 
 data Selection
@@ -240,8 +240,8 @@ launchGUI = do
 
   let purple :: Double -> SDL.V4 Word8
       purple frac = SDL.V4 (floor $ 0x4B * frac) (floor $ 0x1C * frac) (floor $ 0x4E * frac) 0xFF
-      v4ToColor :: SDL.V4 Word8 -> Color
-      v4ToColor (SDL.V4 r g b a) = Color r g b a
+      v4ToColor :: SDL.V4 Word8 -> Raw.Color
+      v4ToColor (SDL.V4 r g b a) = Raw.Color r g b a
 
   varSelectedFile <- newEmptyMVar
   varTaskComplete <- newEmptyMVar
@@ -320,7 +320,7 @@ launchGUI = do
       choices <- getChoices
       forM_ (zip [0..] choices) $ \(index, choice) -> liftIO $ do
         let selected = currentSelection == SelectMenu index
-            color = if selected then Color 0xEE 0xEE 0xEE 255 else Color 0x80 0x54 0x82 255
+            color = if selected then Raw.Color 0xEE 0xEE 0xEE 255 else Raw.Color 0x80 0x54 0x82 255
         bracket (TTF.renderUTF8Blended penta (T.unpack $ choiceTitle choice) color) SDL.freeSurface $ \surf -> do
           dims <- SDL.surfaceDimensions surf
           bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
@@ -411,7 +411,9 @@ launchGUI = do
       SDL.QuitEvent -> return ()
       SDL.DropEvent (SDL.DropEventData cstr) -> do
         liftIO $ do
-          str <- peekCString cstr
+          -- IIUC, SDL2 guarantees the char* is utf-8 on all platforms
+          str <- T.unpack . decodeUtf8 <$> B.packCString cstr
+          Raw.free $ castPtr cstr
           void $ forkIO $ putMVar varSelectedFile [str]
         processEvents es
       SDL.MouseMotionEvent SDL.MouseMotionEventData
