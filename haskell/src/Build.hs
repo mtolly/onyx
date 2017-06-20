@@ -840,10 +840,10 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
 
             lift $ runAudio src out
 
-          rbRules :: FilePath -> T.Text -> TargetRB3 -> Maybe TargetRB2 -> Rules ()
-          rbRules dir targetName rb3 mrb2 = do
+          rbRules :: FilePath -> TargetRB3 -> Maybe TargetRB2 -> Rules ()
+          rbRules dir rb3 mrb2 = do
             let pkg :: (IsString a) => a
-                pkg = fromString $ "onyx" <> show (hashRB3 songYaml rb3)
+                pkg = fromString $ "o" <> show (hashRB3 songYaml rb3)
                 DifficultyRB3{..} = difficultyRB3 rb3 songYaml
             (planName, plan) <- case getPlan (rb3_Plan rb3) songYaml of
               Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show rb3
@@ -1083,8 +1083,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               lift $ need [pathDta, pathMid, pathMogg, pathPng, pathMilo]
               lift $ putNormal "# Producing RB3 CON file via XboxInternals"
               rb3pkg
-                (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
-                ("Version: " <> targetName)
+                (getArtist (_metadata songYaml) <> ": " <> title)
+                ("Compiled by Onyx Music Game Toolkit")
                 (dir </> "stfs")
                 out
 
@@ -1391,7 +1391,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
       forM_ (extraTargets ++ HM.toList (_targets songYaml)) $ \(targetName, target) -> do
         let dir = "gen/target" </> T.unpack targetName
         case target of
-          RB3 rb3 -> rbRules dir targetName rb3 Nothing
+          RB3 rb3 -> rbRules dir rb3 Nothing
           RB2 rb2 -> let
             rb3 = TargetRB3
               { rb3_Speed = rb2_Speed rb2
@@ -1406,7 +1406,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               , rb3_Vocal = rb2_Vocal rb2
               , rb3_Keys = RBFile.FlexKeys
               }
-            in rbRules dir targetName rb3 $ Just rb2
+            in rbRules dir rb3 $ Just rb2
           PS ps -> do
 
             (planName, plan) <- case getPlan (ps_Plan ps) songYaml of

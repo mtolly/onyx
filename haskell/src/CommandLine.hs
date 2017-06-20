@@ -59,8 +59,9 @@ import           STFS.Extract                   (extractSTFS)
 import           System.Console.GetOpt
 import qualified System.Directory               as Dir
 import           System.FilePath                (dropTrailingPathSeparator,
-                                                 takeDirectory, takeExtension,
-                                                 takeFileName, (-<.>), (</>))
+                                                 splitFileName, takeDirectory,
+                                                 takeExtension, takeFileName,
+                                                 (-<.>), (</>))
 import qualified System.IO                      as IO
 import           System.IO.Error                (tryIOError)
 import           Text.Printf                    (printf)
@@ -269,6 +270,13 @@ getInputMIDI files = optionalFile files >>= \case
 
 undone :: (Monad m) => StackTraceT m a
 undone = fatal "Feature not built yet..."
+
+-- | Ensure that a \"dir/original-file_suffix\" filename stays within a length limit
+-- by trimming \"original-file\".
+trimFileName :: FilePath -> Int -> String -> FilePath
+trimFileName fp len sfx = let
+  (dir, file) = splitFileName fp
+  in dir </> take (len - length sfx) file ++ sfx
 
 commands :: [Command]
 commands =
@@ -512,7 +520,7 @@ commands =
       if game == GameRB3 && ftype == FileRBA
         then do
           -- TODO make sure that the RBA is actually RB3 not RB2
-          out <- outputFile opts $ return $ fpath ++ "_rb3con"
+          out <- outputFile opts $ return $ trimFileName fpath 42 "_rb3con"
           simpleRBAtoCON fpath out
           return [out]
         else do
@@ -544,11 +552,11 @@ commands =
             FilePS -> takeDirectory fpath
             _      -> fpath
           let out1x = flip fromMaybe specified1x $ case hasKicks of
-                Has1x -> prefix <> "_" <> suffix
-                _     -> prefix <> "_1x_" <> suffix
+                Has1x -> trimFileName prefix 42 $ "_" <> suffix
+                _     -> trimFileName prefix 42 $ "_1x_" <> suffix
               out2x = flip fromMaybe specified2x $ case hasKicks of
-                Has2x -> prefix <> "_" <> suffix
-                _     -> prefix <> "_2x_" <> suffix
+                Has2x -> trimFileName prefix 42 $ "_" <> suffix
+                _     -> trimFileName prefix 42 $ "_2x_" <> suffix
               go target out = do
                 con <- shakeBuildTarget [tmp] (tmp </> "song.yml") target
                 liftIO $ Dir.copyFile con out
@@ -644,7 +652,9 @@ commands =
           let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
               suffix = case game of GameRB3 -> "_rb3con"; GameRB2 -> "_rb2con"
               pkg    = case game of GameRB3 -> rb3pkg   ; GameRB2 -> rb2pkg
-          stfs <- outputFile opts $ (++ suffix) . dropTrailingPathSeparator <$> liftIO (Dir.makeAbsolute dir)
+          stfs <- outputFile opts
+            $   (\f -> trimFileName f 42 suffix) . dropTrailingPathSeparator
+            <$> liftIO (Dir.makeAbsolute dir)
           (title, desc) <- getInfoForSTFS dir stfs
           pkg title desc dir stfs
           return [stfs]
