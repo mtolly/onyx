@@ -30,7 +30,7 @@ int buildSTFSPackage
 
   try {
 
-    StfsPackage pkg(stfsOut, StfsPackageCreate);
+    StfsPackage pkg(stfsOut, StfsPackageCreate | StfsPackageFemale);
     pkg.metaData->titleID = titleID;
     pkg.metaData->displayName = packageName;
     pkg.metaData->displayDescription = packageDescription;
