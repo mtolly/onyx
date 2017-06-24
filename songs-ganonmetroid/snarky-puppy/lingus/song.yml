@@ -1,0 +1,44 @@
+metadata:
+  title: Lingus
+  artist: Snarky Puppy
+  album: We Like It Here
+  track-number: 8
+  genre: fusion
+  subgenre: fusion
+  author: GanonMetroid, Onyxite
+  rating: FF
+audio:
+  album-track:
+    # https://snarkypuppyeu.bandcamp.com/album/we-like-it-here
+    md5: bde2640ec98cac82c91dc6f0392f1793
+    frames: 28475592
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2.5: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+      1|4: hihat
+    song:
+      pad: [4.557, album-track]
+parts:
+  drums:
+    drums: {}
+  bass:
+    grybo: {}
+  guitar:
+    # guitar + horns + keyboard solos
+    grybo: {}
+  keys:
+    grybo: {}
+    pro-keys: {}
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
