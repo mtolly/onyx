@@ -46,8 +46,8 @@ extractSTFS stfs dir = withBinaryFile stfs ReadMode $ \fd -> do
 
       fix_blocknum block_num = let
         block_adjust = sum
-          [ if block_num >= 0xAA then (block_num `div` 0xAA) + 1 `shiftL` table_size_shift else 0
-          , if block_num > 0x70E4 then (block_num `div` 0x70E4) + 1 `shiftL` table_size_shift else 0
+          [ if block_num >= 0xAA then ((block_num `div` 0xAA) + 1) `shiftL` table_size_shift else 0
+          , if block_num > 0x70E4 then ((block_num `div` 0x70E4) + 1) `shiftL` table_size_shift else 0
           ]
         in block_num + block_adjust
 
