@@ -8,6 +8,7 @@ metadata:
   author: GanonMetroid, Onyxite
   rating: FF
   year: 2014
+  file-album-art: cover.jpg
 audio:
   album-track:
     # https://snarkypuppyeu.bandcamp.com/album/we-like-it-here
@@ -37,7 +38,7 @@ parts:
     grybo: {}
   keys:
     grybo: {}
-    pro-keys: {}
+    # pro-keys: {}
 targets:
   rb3:
     game: rb3
