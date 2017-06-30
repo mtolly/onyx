@@ -621,32 +621,27 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
 
   checkDefined songYaml
 
-  exeTime <- liftIO $ getExecutablePath >>= Dir.getModificationTime
-  yamlTime <- liftIO $ Dir.getModificationTime yamlPath
+  exeTime <- stackIO $ getExecutablePath >>= Dir.getModificationTime
+  yamlTime <- stackIO $ Dir.getModificationTime yamlPath
   let version = show exeTime ++ "," ++ show yamlTime
 
   audioDirs' <- flip concatMapM audioDirs $ \dir ->
-    liftIO (Dir.doesDirectoryExist dir) >>= \ex -> if ex
+    stackIO (Dir.doesDirectoryExist dir) >>= \ex -> if ex
       then return [dir]
       else do
         warn $ "Audio directory does not exist: " ++ dir
         return []
 
-  let liftIO' :: (MonadIO m) => IO () -> StackTraceT m ()
-      liftIO' act = let
-        io :: IO (Maybe ShakeException)
-        io = act >> return Nothing
-        handler :: ShakeException -> IO (Maybe ShakeException)
-        handler = return . Just
-        go [] exc = case Exc.fromException exc of
-          Nothing   -> fatal $ Exc.displayException exc
-          Just msgs -> throwError msgs
+  -- we translate ShakeException (which may or may not have a StackTraceT fatal inside)
+  -- to a StackTraceT fatal with layers
+  let handleShakeErr se = let
         go (layer : layers) exc = inside ("shake: " ++ layer) $ go layers exc
-        in liftIO (io `Exc.catch` handler) >>= \case
-          Nothing -> return ()
-          Just se -> go (shakeExceptionStack se) (shakeExceptionInner se)
+        go []               exc = case Exc.fromException exc of
+          Nothing   -> stackShowException exc
+          Just msgs -> throwError msgs
+        in go (shakeExceptionStack se) (shakeExceptionInner se)
 
-  liftIO' $ Dir.withCurrentDirectory (takeDirectory yamlPath) $ do
+  stackCatchIO handleShakeErr $ Dir.withCurrentDirectory (takeDirectory yamlPath) $ do
 
     shake shakeOptions{ shakeThreads = 0, shakeFiles = "gen", shakeVersion = version } $ do
 

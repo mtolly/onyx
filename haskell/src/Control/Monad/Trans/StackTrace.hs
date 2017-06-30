@@ -16,6 +16,9 @@ module Control.Monad.Trans.StackTrace
 , mapStackTraceT
 , tempDir
 , stackProcess
+, stackCatchIO
+, stackShowException
+, stackIO
 ) where
 
 import           Control.Applicative
@@ -138,3 +141,15 @@ stackProcess cp input = mapStackTraceT liftIO $ do
       , "stderr:"
       , err
       ]
+
+stackCatchIO :: (MonadIO m, Exc.Exception e) => (e -> StackTraceT m a) -> IO a -> StackTraceT m a
+stackCatchIO handler io = do
+  exc <- liftIO $ fmap Right io `Exc.catch` (return . Left)
+  either handler return exc
+
+stackShowException :: (Exc.Exception e, Monad m) => e -> StackTraceT m a
+stackShowException = fatal . Exc.displayException
+
+-- | Like 'liftIO', but 'IOError' are caught and rethrown with 'fatal'.
+stackIO :: (MonadIO m) => IO a -> StackTraceT m a
+stackIO = stackCatchIO $ stackShowException . (id :: IOError -> IOError)

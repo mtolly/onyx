@@ -18,7 +18,7 @@ import           Control.Exception              (bracket, bracket_,
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.StackTrace (Messages (..), StackTraceT,
-                                                 runStackTraceT)
+                                                 runStackTraceT, stackIO)
 import           Control.Monad.Trans.State
 import qualified Data.ByteString                as B
 import           Data.ByteString.Unsafe         (unsafeUseAsCStringLen)
@@ -101,7 +101,7 @@ modifySelect f = modify $ \(GUIState m pms sel) -> GUIState m pms $ f sel
 commandLine' :: (MonadIO m) => [String] -> StackTraceT m [FilePath]
 commandLine' args = do
   let args' = flip map args $ \arg -> if ' ' `elem` arg then "\"" ++ arg ++ "\"" else arg
-  liftIO $ mapM_ putStrLn
+  stackIO $ mapM_ putStrLn
     [ ""
     , ">>> Command: " ++ unwords args'
     , ""
