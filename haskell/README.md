@@ -21,11 +21,12 @@ Source at: https://github.com/mtolly/onyxite-customs
 
 ## Dependencies
 
-Windows version requires (I think) the Visual C++ runtime.
+Windows version requires .NET and (I think) the Visual C++ runtime.
 (If you can run Magma, you're good.)
 
-Mac version requires Wine. You can use one of the official Mac installers
-(stable or development) or install via Homebrew.
+Mac version requires Wine and Mono.
+For both, you should be able to use one of the official Mac installers
+or install via Homebrew.
 
 ## Instructions
 

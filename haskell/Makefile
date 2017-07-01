@@ -1,7 +1,7 @@
 .PHONY: usage install-magma mac mac-deps win win-deps ubuntu-deps
 SHELL=/bin/bash
 
-ONYXVERSION=20170624
+ONYXVERSION=20170701
 
 usage:
 	@echo "Targets:"
