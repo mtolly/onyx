@@ -1614,7 +1614,7 @@ StfsFileEntry StfsPackage::InjectFile(string path, string pathInPackage,
         // find the directory we'd like to inject to
         FindDirectoryListing(split, &fileListing, &folder);
         if(folder == NULL)
-            throw string("STFS: The given folder could not be found.\n");
+            throw string("STFS: (InjectFile) The given folder could not be found.\n");
     }
     else
     {
@@ -1745,7 +1745,7 @@ StfsFileEntry StfsPackage::InjectData(BYTE *data, DWORD length, string pathInPac
         // find the directory we'd like to inject to
         FindDirectoryListing(split, &fileListing, &folder);
         if(folder == NULL)
-            throw string("STFS: The given folder could not be found.\n");
+            throw string("STFS: (InjectData) The given folder could not be found.\n");
     }
     else
     {
@@ -2020,7 +2020,7 @@ void StfsPackage::CreateFolder(string pathInPackage)
         // find the directory we'd like to inject to
         FindDirectoryListing(split, &fileListing, &folder);
         if(folder == NULL)
-            throw string("STFS: The given folder could not be found.\n");
+            throw string("STFS: (CreateFolder) The given folder could not be found.\n");
     }
     else
     {
@@ -2043,6 +2043,11 @@ void StfsPackage::CreateFolder(string pathInPackage)
     entry.blocksForFile = 0;
     entry.createdTimeStamp = MSTimeToDWORD(TimetToMSTime(time(NULL)));
     entry.accessTimeStamp = entry.createdTimeStamp;
+    // MT added:
+    entry.fileEntryAddress = -1;
+    entry.entryIndex = -1;
+    // The above lines are for some reason necessary;
+    // otherwise it will sometimes forget about folders you've created
 
     StfsFileListing newFolder;
     newFolder.folder = entry;

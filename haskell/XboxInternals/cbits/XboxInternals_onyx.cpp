@@ -6,15 +6,15 @@
 extern "C" {
 
 int buildSTFSPackage
-( wchar_t *packageName
-, wchar_t *packageDescription
-, wchar_t *publisherName
-, wchar_t *titleName
+( const wchar_t *packageName
+, const wchar_t *packageDescription
+, const wchar_t *publisherName
+, const wchar_t *titleName
 , uint32_t titleID
-, char **dirs
+, const char **dirs
 , int countDirs
-, char **paths
-, char **pathsInPackage
+, const char **paths
+, const char **pathsInPackage
 , int countFiles
 , uint8_t *thumb
 , size_t thumbLen
@@ -22,7 +22,7 @@ int buildSTFSPackage
 , size_t thumbTitleLen
 , uint8_t *kvBin
 , size_t kvBinLen
-, char *stfsOut
+, const char *stfsOut
 , char *errOut
 ) {
 
@@ -43,9 +43,8 @@ int buildSTFSPackage
     pkg.metaData->contentType = SavedGame;
 
     for (int i = 0; i < countDirs; i++) {
-      pkg.CreateFolder(dirs[i]);
-      pkg.GetFileListing(true);
-      // The above line somehow avoids a crash when running from .app on Mac
+      string s = string(dirs[i]);
+      pkg.CreateFolder(s);
     }
     for (int i = 0; i < countFiles; i++) {
       pkg.InjectFile(paths[i], pathsInPackage[i]);
