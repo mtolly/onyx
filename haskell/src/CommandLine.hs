@@ -64,7 +64,7 @@ import           System.FilePath                (dropTrailingPathSeparator,
                                                  (-<.>), (</>))
 import qualified System.IO                      as IO
 import           Text.Printf                    (printf)
-import           X360                           (rb2pkg, rb3pkg, stfsFolder)
+import           X360DotNet                     (rb2pkg, rb3pkg, stfsFolder)
 
 #ifdef WINDOWS
 import           Data.Bits                      (testBit)

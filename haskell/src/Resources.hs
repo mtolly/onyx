@@ -8,11 +8,12 @@ import           Data.FileEmbed     (embedDir, embedFile, makeRelativeToProject)
 import           System.Environment (getExecutablePath)
 import           System.FilePath    (takeDirectory, (</>))
 
-magmaV1Dir, magmaV2Dir, magmaCommonDir, magmaOgg2MoggDir :: IO FilePath
+magmaV1Dir, magmaV2Dir, magmaCommonDir, magmaOgg2MoggDir, x360RB3pkgDir :: IO FilePath
 magmaV1Dir       = (</> "magma-v1")       . takeDirectory <$> getExecutablePath
 magmaV2Dir       = (</> "magma-v2")       . takeDirectory <$> getExecutablePath
 magmaCommonDir   = (</> "magma-common")   . takeDirectory <$> getExecutablePath
 magmaOgg2MoggDir = (</> "magma-ogg2mogg") . takeDirectory <$> getExecutablePath
+x360RB3pkgDir    = (</> "x360-rb3pkg")    . takeDirectory <$> getExecutablePath
 
 xboxKV :: B.ByteString
 xboxKV = $(makeRelativeToProject "vendors/KV.bin" >>= embedFile)

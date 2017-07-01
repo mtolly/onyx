@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-module X360 (rb3pkg, rb2pkg, stfsFolder) where
+module X360Cpp (rb3pkg, rb2pkg, stfsFolder) where
 
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace

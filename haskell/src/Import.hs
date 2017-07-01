@@ -52,7 +52,7 @@ import           STFS.Extract                     (extractSTFS)
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (takeDirectory, takeFileName,
                                                    (<.>), (</>))
-import           X360                             (rb3pkg)
+import           X360DotNet                       (rb3pkg)
 
 fixDoubleSwells :: RBFile.PSFile U.Beats -> RBFile.PSFile U.Beats
 fixDoubleSwells ps = let

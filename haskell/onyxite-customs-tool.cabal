@@ -37,7 +37,7 @@ executable onyx
     Scripts
     OneFoot
     Magma
-    X360
+    X360DotNet
     Image
     C3
     Reductions
@@ -144,7 +144,6 @@ executable onyx
     , silently
     , codec
     -- my libraries:
-    , XboxInternals
     , jammittools >= 0.5.0.3 && < 0.6
     , midi-util >= 0.2 && < 0.3
     , conduit-audio >= 0.2 && < 0.3

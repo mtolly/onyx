@@ -17,7 +17,9 @@ usage:
 
 install-magma:
 	rm -rf $(HOME)/.local/bin/magma-{v1,v2,common,ogg2mogg}
+	rm -rf $(HOME)/.local/bin/x360-rb3pkg
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} $(HOME)/.local/bin/
+	cp -R vendors/x360-rb3pkg $(HOME)/.local/bin/
 
 mac:
 	# stack build .
@@ -26,7 +28,9 @@ mac:
 	rm -rf Onyx.app/Contents/libs/*.dylib
 	dylibbundler -cd -of -b -x Onyx.app/Contents/MacOS/onyx -d Onyx.app/Contents/libs/
 	rm -rf Onyx.app/Contents/MacOS/magma-{v1,v2,common,ogg2mogg}
+	rm -rf Onyx.app/Contents/MacOS/x360-rb3pkg
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} Onyx.app/Contents/MacOS/
+	cp -R vendors/x360-rb3pkg Onyx.app/Contents/MacOS/
 	rm -rf mac/
 	mkdir mac/
 	cp -R Onyx.app LICENSE.txt mac/
@@ -47,6 +51,7 @@ win:
 	cp LICENSE.txt win/LICENSE.txt
 	cp README.md win/README.txt
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} win/
+	cp -R vendors/x360-rb3pkg win/
 	sed -b -i 's/_ONYXVERSION_/$(ONYXVERSION)/' win/README.txt
 
 win-deps:

@@ -100,7 +100,7 @@ import           System.Environment.Executable         (getExecutablePath)
 import           System.IO                             (IOMode (ReadMode),
                                                         hFileSize,
                                                         withBinaryFile)
-import           X360
+import           X360DotNet
 import           YAMLTree
 
 actionWarn :: Message -> Action ()
