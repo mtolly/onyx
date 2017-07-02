@@ -27,3 +27,7 @@ parts:
     drums:
       difficulty: 4
       auto-2x-bass: true
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true

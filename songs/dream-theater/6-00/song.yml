@@ -51,3 +51,8 @@ parts:
   vocal:
     vocal:
       count: 3
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: jammit

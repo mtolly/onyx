@@ -39,3 +39,6 @@ parts:
       difficulty: 3
     pro-keys:
       difficulty: 4
+targets:
+  rb3:
+    game: rb3

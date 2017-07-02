@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/falling-into-infinity.yml
   track-number: 7
   author: Onyxite
+  key: D
   comments:
   - "Chart confidence: *high* (Jammit stems)."
 audio:
@@ -69,3 +70,8 @@ parts:
     grybo: {}
   bass:
     grybo: {}
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: jammit

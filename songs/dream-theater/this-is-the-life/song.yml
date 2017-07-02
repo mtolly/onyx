@@ -28,3 +28,6 @@ parts:
   drums:
     drums:
       difficulty: 3
+targets:
+  rb3:
+    game: rb3

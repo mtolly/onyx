@@ -41,3 +41,8 @@ parts:
     drums:
       auto-2x-bass: true
       difficulty: 6
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: jammit

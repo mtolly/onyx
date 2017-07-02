@@ -5,6 +5,7 @@ metadata:
   autogen-theme: Dusty Vintage
   rating: Supervision Recommended
   author: Onyxite
+  key: E
   comments:
   - "Chart confidence: *high* (Jammit stems)."
 audio:
@@ -39,3 +40,8 @@ parts:
     drums:
       auto-2x-bass: true
       difficulty: 4
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: jammit

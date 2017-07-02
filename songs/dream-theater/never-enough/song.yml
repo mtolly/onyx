@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/octavarium.yml
   track-number: 6
   author: Onyxite
+  key: D
   comments:
   - "Chart confidence: *high*. Written to Jammit stems and Portnoy's DVD."
 audio:
@@ -35,3 +36,7 @@ plans:
 parts:
   drums:
     drums: {}
+targets:
+  rb3:
+    game: rb3
+    plan: jammit

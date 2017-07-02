@@ -37,7 +37,6 @@ plans:
             - only: [Bass, jammit-track]
             - only: [Guitar 1, jammit-track]
             - only: [Guitar 2, jammit-track]
-
   album:
     song:
       trim: [0.379, album-track]
@@ -49,3 +48,8 @@ parts:
     grybo: {}
   guitar:
     grybo: {}
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: jammit

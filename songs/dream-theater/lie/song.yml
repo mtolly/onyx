@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/awake.yml
   track-number: 8
   author: Onyxite
+  key: D
   comments:
   - "Chart confidence: *high* (Jammit stems)."
 audio:
@@ -39,3 +40,8 @@ parts:
   drums:
     drums:
       auto-2x-bass: true
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: jammit

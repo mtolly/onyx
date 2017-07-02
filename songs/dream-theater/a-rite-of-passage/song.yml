@@ -76,3 +76,8 @@ parts:
     drums:
       difficulty: 5
       auto-2x-bass: true
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: album # change to deluxe once keyboard solo is fixed
