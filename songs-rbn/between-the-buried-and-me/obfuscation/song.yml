@@ -1,0 +1,49 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 1
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 298
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 406
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        rank: 401
+plans:
+  mogg:
+    parts:
+      drums:
+        kick: [0]
+        snare: [1, 2]
+        kit: [3, 4]
+      bass: [5, 6]
+      guitar: [7, 8]
+      vocal: [9, 10]
+    pans: [0, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    karaoke: false
+    mogg-md5: dd59e7f31b80c6077cad7818fd80c6aa
+    multitrack: false
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+targets:
+  rb3:
+    song-id: 5004365
+    game: rb3
+    version: 11
+metadata:
+  preview-start: 0:54
+  track-number: 2
+  author: RhythmAuthors
+  title: Obfuscation
+  difficulty:
+    rank: 383
+  file-include: ../../../albums/the-great-misdirect.yml
