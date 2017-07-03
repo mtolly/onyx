@@ -36,9 +36,10 @@ plans:
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 targets:
   rb3:
-    song-id: 5004365
     game: rb3
-    version: 11
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
 metadata:
   preview-start: 0:54
   track-number: 2
