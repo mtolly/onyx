@@ -40,6 +40,8 @@ targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    song-id: 1660299996
+    version: 1
 metadata:
   preview-start: 0:54
   track-number: 2
