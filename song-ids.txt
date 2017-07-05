@@ -79,6 +79,21 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200046 New Millennium (Dream Theater) 2x
   v1 published 2017-05-20
 
+1660200047 Foam Born (BTBAM) 1x
+1660200048 Foam Born (BTBAM) 2x
+1660200049 Informal Gluttony (BTBAM) 1x
+1660200050 Informal Gluttony (BTBAM) 2x
+1660200051 Sun of Nothing (BTBAM) 1x
+1660200052 Sun of Nothing (BTBAM) 2x
+1660200053 Ants of the Sky (BTBAM) 1x
+1660200054 Ants of the Sky (BTBAM) 2x
+1660200055 Prequel to the Sequel (BTBAM) 1x
+1660200056 Prequel to the Sequel (BTBAM) 2x
+1660200057 Viridian/White Walls (BTBAM) 1x
+1660200058 Viridian/White Walls (BTBAM) 2x
+  Full band Colors (Grinnz/AlexTaylor/Harmonix/Galhenig/Onyxite)
+  v1 (unfinished: AlexTaylor parts not quantized) sent to Jarod 2017-07-04
+
 BONUS SONGS (counting down from max)
 
 1660299999 hacked c3 6:00 drum chart

@@ -2,7 +2,7 @@ metadata:
   title: "Viridian/White Walls"
   file-include: "../../../albums/colors.yml"
   track-number: 7
-  author: Grinnz
+  author: Grinnz (drums), AlexTaylor (rest)
 audio:
   album-prequel-to-the-sequel:
     md5: a1c2cc16b9119b5e1bb4a6d2d3890b17
@@ -35,3 +35,15 @@ parts:
   drums:
     drums:
       auto-2x-bass: true
+  guitar:
+    grybo: {}
+  bass:
+    grybo: {}
+  keys:
+    grybo: {}
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 1660200058
+    version: 1

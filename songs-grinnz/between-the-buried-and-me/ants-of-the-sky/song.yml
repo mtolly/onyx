@@ -2,7 +2,7 @@ metadata:
   title: Ants of the Sky
   file-include: "../../../albums/colors.yml"
   track-number: 5
-  author: Grinnz
+  author: Grinnz (drums), AlexTaylor (rest)
 audio:
   album-sun-of-nothing:
     md5: bc09bcb9a21fc6c0d8fcc06f63c8fbc8
@@ -40,3 +40,16 @@ parts:
   drums:
     drums:
       auto-2x-bass: true
+  guitar:
+    grybo: {}
+  bass:
+    grybo: {}
+  keys:
+    grybo: {}
+    # pro-keys: {}
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 1660200054
+    version: 1

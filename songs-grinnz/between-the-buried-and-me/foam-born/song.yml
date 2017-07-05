@@ -2,7 +2,7 @@ metadata:
   title: "Foam Born (a) The Backtrack (b) The Decade of Statues"
   file-include: "../../../albums/colors.yml"
   track-number: 1
-  author: Grinnz
+  author: Grinnz (drums), AlexTaylor (rest)
 audio:
   album-the-backtrack:
     md5: 04f58a2602f6544aa625beaa4665a2de
@@ -33,4 +33,16 @@ parts:
   drums:
     drums:
       auto-2x-bass: true
-
+  guitar:
+    grybo: {}
+  bass:
+    grybo: {}
+  keys:
+    grybo: {}
+    pro-keys: {}
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 1660200048
+    version: 1

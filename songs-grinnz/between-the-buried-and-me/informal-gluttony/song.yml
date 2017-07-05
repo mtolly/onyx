@@ -2,7 +2,7 @@ metadata:
   title: Informal Gluttony
   file-include: "../../../albums/colors.yml"
   track-number: 3
-  author: Grinnz
+  author: Grinnz (drums), AlexTaylor (rest)
 audio:
   album-the-decade-of-statues:
     md5: ff456218898121bc232d908de3f9457f
@@ -36,4 +36,16 @@ parts:
   drums:
     drums:
       auto-2x-bass: true
-
+  guitar:
+    grybo: {}
+  bass:
+    grybo: {}
+  keys:
+    grybo: {}
+    pro-keys: {}
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 1660200050
+    version: 1

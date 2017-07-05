@@ -64,6 +64,7 @@ import           System.FilePath                (dropTrailingPathSeparator,
                                                  (-<.>), (</>))
 import qualified System.IO                      as IO
 import           Text.Printf                    (printf)
+import           Text.Read                      (readMaybe)
 import           X360DotNet                     (rb2pkg, rb3pkg, stfsFolder)
 
 #ifdef WINDOWS
@@ -729,6 +730,44 @@ commands =
         moggToOgg fpath ogg
         return [ogg]
       _ -> unrecognized ftype fpath
+    }
+
+  , Command
+    { commandWord = "merge"
+    , commandDesc = "Take tracks from one MIDI file, and convert them to a different file's tempo map."
+    , commandUsage = T.unlines
+      [ "onyx merge base.mid tracks.mid pad  n --to out.mid"
+      , "onyx merge base.mid tracks.mid drop n --to out.mid"
+      ]
+    , commandRun = \args opts -> case args of
+      [base, tracks] -> do
+        baseMid <- stackIO (Load.fromFile base) >>= RBFile.readMIDIFile'
+        tracksMid <- stackIO (Load.fromFile tracks) >>= RBFile.readMIDIFile'
+        out <- outputFile opts $ return $ tracks ++ ".merged.mid"
+        let newMid = RBFile.mergeCharts (RBFile.TrackPad 0) baseMid tracksMid
+        stackIO $ Save.toFile out $ RBFile.showMIDIFile' newMid
+        return [out]
+      [base, tracks, "pad", n] -> do
+        baseMid <- stackIO (Load.fromFile base) >>= RBFile.readMIDIFile'
+        tracksMid <- stackIO (Load.fromFile tracks) >>= RBFile.readMIDIFile'
+        out <- outputFile opts $ return $ tracks ++ ".merged.mid"
+        n' <- case readMaybe n of
+          Nothing -> fatal "Invalid merge pad amount"
+          Just d  -> return $ realToFrac (d :: Double)
+        let newMid = RBFile.mergeCharts (RBFile.TrackPad n') baseMid tracksMid
+        stackIO $ Save.toFile out $ RBFile.showMIDIFile' newMid
+        return [out]
+      [base, tracks, "drop", n] -> do
+        baseMid <- stackIO (Load.fromFile base) >>= RBFile.readMIDIFile'
+        tracksMid <- stackIO (Load.fromFile tracks) >>= RBFile.readMIDIFile'
+        out <- outputFile opts $ return $ tracks ++ ".merged.mid"
+        n' <- case readMaybe n of
+          Nothing -> fatal "Invalid merge drop amount"
+          Just d  -> return $ realToFrac (d :: Double)
+        let newMid = RBFile.mergeCharts (RBFile.TrackDrop n') baseMid tracksMid
+        stackIO $ Save.toFile out $ RBFile.showMIDIFile' newMid
+        return [out]
+      _ -> fatal "Invalid merge syntax"
     }
 
   ]

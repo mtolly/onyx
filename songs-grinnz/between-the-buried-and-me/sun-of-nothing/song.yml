@@ -2,7 +2,7 @@ metadata:
   title: Sun of Nothing
   file-include: "../../../albums/colors.yml"
   track-number: 4
-  author: Grinnz
+  author: Grinnz (drums), AlexTaylor (rest)
 audio:
   album-informal-gluttony:
     md5: d468595b781ed178479d2183f72f9333
@@ -43,3 +43,15 @@ parts:
   drums:
     drums:
       auto-2x-bass: true
+  guitar:
+    grybo: {}
+  bass:
+    grybo: {}
+  keys:
+    grybo: {}
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    song-id: 1660200052
+    version: 1

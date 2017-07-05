@@ -519,6 +519,26 @@ playGuitarFile goffs boffs (Song tempos mmap trks) = Song tempos mmap $ RawFile 
     , bass "BASS22" $ discardPS $ flexPartRealGuitar22 $ getFlexPart FlexBass   trks
     ]
 
+data TrackOffset = TrackPad U.Seconds | TrackDrop U.Seconds
+  deriving (Eq, Ord, Show)
+
+-- | Copies tracks from the second file into the first, repositioning events by timestamp.
+mergeCharts :: TrackOffset -> Song (RawFile U.Beats) -> Song (RawFile U.Beats) -> Song (RawFile U.Beats)
+mergeCharts offset base new = let
+  newTracks = flip map (rawTracks $ s_tracks new) $ \trk -> let
+    name = U.trackName trk
+    applyOffset = case offset of
+      TrackPad  t -> RTB.delay t
+      TrackDrop t -> U.trackDrop t
+    removeTrackName = RTB.filter $ \case E.MetaEvent (Meta.TrackName _) -> False; _ -> True
+    -- TODO: need to ensure notes don't have 0 length
+    in maybe id U.setTrackName name
+      $ removeTrackName
+      $ U.unapplyTempoTrack (s_tempos base)
+      $ applyOffset
+      $ U.applyTempoTrack (s_tempos new) trk
+  in base { s_tracks = RawFile newTracks }
+
 -- | True if there are any playable notes in the first 2.5 seconds.
 needsPad :: Song (PSFile U.Beats) -> Bool
 needsPad (Song temps _ PSFile{..}) = let
