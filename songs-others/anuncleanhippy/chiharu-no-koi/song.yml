@@ -1,0 +1,28 @@
+metadata:
+  track-number: 6
+  album: Hello everyone. Nice to meet you. We are Midori
+  year: 2008
+  author: An Unclean Hippy, Onyxite
+  title: Chiharu no Koi
+  artist: Midori
+plans:
+  album:
+    song:
+      pad: [2.871, youtube]
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube fQ9yy1m_Cm8 140
+    md5: a95d6d74b951fbf9861b206d79cc4b63
+    frames: 9224192
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+parts:
+  drums:
+    drums: {}
+  bass:
+    grybo: {}
+targets:
+  rb3:
+    game: rb3
