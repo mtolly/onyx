@@ -91,3 +91,16 @@ parts:
       count: 3
       difficulty: 5
       gender: male
+targets:
+  rb3:
+    game: rb3
+    version: 1
+    plan: pledgemusic
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    version: 1
+    plan: pledgemusic
+  ps:
+    game: ps
+    plan: pledgemusic

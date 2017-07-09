@@ -30,3 +30,11 @@ parts:
     drums:
       auto-2x-bass: true
       difficulty: 5
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
