@@ -30,6 +30,11 @@
     "purescript-either": "^3.0.0",
     "purescript-now": "^3.0.0",
     "purescript-parallel": "^3.0.0",
-    "purescript-eff": "^3.1.0"
+    "purescript-eff": "^3.1.0",
+    "purescript-maps": "https://github.com/purescript/purescript-maps.git#e52b2f111afb3a12135697bd0914d62132aec149",
+    "purescript-functors": "^2.2.0"
+  },
+  "resolutions": {
+    "purescript-maps": "e52b2f111afb3a12135697bd0914d62132aec149"
   }
 }
