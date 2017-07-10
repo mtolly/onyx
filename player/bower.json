@@ -12,29 +12,26 @@
   ],
   "dependencies": {
     "purescript-console": "^3.0.0",
-    "purescript-canvas": "^3.0.0",
+    "purescript-canvas": "^3.1.0",
     "purescript-foreign": "^4.0.1",
     "purescript-tuples": "^4.1.0",
     "purescript-refs": "^3.0.0",
-    "purescript-datetime": "^3.2.0",
-    "purescript-foldable-traversable": "^3.3.0",
+    "purescript-datetime": "^3.3.0",
+    "purescript-foldable-traversable": "^3.4.0",
     "purescript-strings": "^3.2.1",
     "purescript-generics": "^4.0.0",
     "purescript-orders": "^3.0.0",
     "purescript-transformers": "^3.4.0",
-    "purescript-monoid": "^3.0.0",
+    "purescript-monoid": "^3.1.0",
     "purescript-st": "^3.0.0",
-    "purescript-arrays": "^4.1.0",
-    "purescript-lists": "^4.6.1",
-    "purescript-dom": "^4.4.1",
-    "purescript-either": "^3.0.0",
+    "purescript-arrays": "^4.1.2",
+    "purescript-lists": "^4.9.0",
+    "purescript-dom": "^4.5.0",
+    "purescript-either": "^3.1.0",
     "purescript-now": "^3.0.0",
     "purescript-parallel": "^3.0.0",
     "purescript-eff": "^3.1.0",
-    "purescript-maps": "https://github.com/purescript/purescript-maps.git#e52b2f111afb3a12135697bd0914d62132aec149",
+    "purescript-maps": "^3.4.0",
     "purescript-functors": "^2.2.0"
-  },
-  "resolutions": {
-    "purescript-maps": "e52b2f111afb3a12135697bd0914d62132aec149"
   }
 }
