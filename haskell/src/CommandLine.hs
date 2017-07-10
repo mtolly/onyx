@@ -810,7 +810,6 @@ optDescrs =
   [ Option []   ["target"         ] (ReqArg (OptTarget . T.pack)   "TARGET"   ) ""
   , Option []   ["plan"           ] (ReqArg (OptPlan   . T.pack)   "PLAN"     ) ""
   , Option []   ["to"             ] (ReqArg OptTo                  "PATH"     ) ""
-  , Option []   ["no-open"        ] (NoArg  OptNoOpen                         ) ""
   , Option []   ["2x"             ] (ReqArg Opt2x                  "PATH"     ) ""
   , Option []   ["game"           ] (ReqArg (OptGame . readGame)   "{rb3,rb2}") ""
   , Option []   ["separate-lines" ] (NoArg  OptSeparateLines                  ) ""
@@ -833,7 +832,6 @@ data OnyxOption
   = OptTarget T.Text
   | OptPlan T.Text
   | OptTo FilePath
-  | OptNoOpen
   | Opt2x FilePath
   | OptGame Game
   | OptSeparateLines
