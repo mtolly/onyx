@@ -3,6 +3,7 @@ module Main (main) where
 
 import           CommandLine                    (commandLine)
 import           Control.Exception              (displayException)
+import           Control.Monad                  (unless)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
 import           GUI                            (launchGUI)
@@ -30,7 +31,7 @@ main = do
             inside "checking if Wine is installed" $ checkShell "wine --version"
             inside "checking if Mono is installed" $ checkShell "mono --version"
         files <- commandLine argv
-        stackIO $ do
+        unless (null files) $ stackIO $ do
           putStrLn "Done! Created files:"
           mapM_ putStrLn files
       mapM_ printWarning warns
