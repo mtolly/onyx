@@ -1,7 +1,7 @@
 module Main where
 
 import           Control.Monad.Eff           (Eff)
-import           Control.Monad.Eff.Exception (EXCEPTION, error, throwException)
+import           Control.Monad.Eff.Exception (EXCEPTION, error, throwException, catchException)
 import           Control.Monad.Eff.Now       (NOW, now)
 import           Control.Monad.Eff.Ref       (REF, modifyRef, modifyRef',
                                               newRef, writeRef, readRef)
@@ -10,7 +10,7 @@ import           Control.MonadPlus           (guard)
 import           Data.Array                  (concat, uncons, (:))
 import           Data.DateTime.Instant       (unInstant)
 import           Data.Either                 (Either (..))
-import           Data.Foreign                (Foreign)
+import           Data.Foreign                (Foreign, isUndefined)
 import           Data.Int                    (round, toNumber)
 import           Data.List                   as L
 import           Data.Maybe                  (Maybe (..), isJust)
@@ -34,6 +34,8 @@ foreign import onPoint
   -> Eff (dom :: DOM | e) Unit
 
 foreign import numMod :: Number -> Number -> Number
+
+foreign import displayError :: forall e. String -> Eff (dom :: DOM | e) Unit
 
 drawLoading :: forall e. C.CanvasElement -> Eff (dom :: DOM, canvas :: C.CANVAS, now :: NOW | e) Unit
 drawLoading canvas = do
@@ -81,7 +83,7 @@ main :: Eff
   , audio     :: AUDIO
   , exception :: EXCEPTION
   ) Unit
-main = do
+main = catchException (\e -> displayError (show e) *> throwException e) do
   canvas <- C.getCanvasElementById "the-canvas" >>= \mc -> case mc of
     Just canvas -> pure canvas
     Nothing     -> throwException $ error "Canvas element not found"
@@ -89,7 +91,9 @@ main = do
   clicks <- newRef []
   onPoint $ \e -> modifyRef clicks (e : _)
   song <- case runExcept $ isForeignSong onyxSong of
-    Left  e    -> throwException $ error $ show e
+    Left  e    -> throwException $ error $ if isUndefined onyxSong
+      then "No song data was found. Is there a song.js present?"
+      else show e
     Right song -> pure song
   imageGetterRef <- newRef Nothing
   withImages $ writeRef imageGetterRef <<< Just

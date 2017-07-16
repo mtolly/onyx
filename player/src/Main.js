@@ -23,3 +23,10 @@ exports.numMod = function(x) {
     return x % y;
   };
 };
+
+exports.displayError = function(err) {
+  return function() {
+    document.getElementById('the-error-message').innerHTML = err;
+    document.getElementById('the-canvas').style.display = 'none';
+  };
+};
