@@ -87,6 +87,7 @@ executable onyx
     RockBand.ProKeys
     RockBand.ProGuitar
     RockBand.Venue
+    RockBand.VenueRB2
     RockBand.PhaseShiftKeys
     RockBand.PhaseShiftMessage
     MelodysEscape

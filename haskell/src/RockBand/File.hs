@@ -31,6 +31,7 @@ import           RockBand.PhaseShiftMessage       (PSWrap (..), discardPS,
 import qualified RockBand.ProGuitar               as ProGuitar
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Venue                   as Venue
+import qualified RockBand.VenueRB2                as VenueRB2
 import qualified RockBand.Vocals                  as Vocals
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Event            as E
@@ -145,7 +146,7 @@ data RB2File t = RB2File
   , rb2PartVocals :: RTB.T t     Vocals.Event
   , rb2Events     :: RTB.T t     Events.Event
   , rb2Beat       :: RTB.T t       Beat.Event
-  , rb2Venue      :: RTB.T t              E.T -- TODO
+  , rb2Venue      :: RTB.T t   VenueRB2.Event
   } deriving (Eq, Ord, Show)
 
 instance MIDIFileFormat RB2File where
@@ -327,6 +328,7 @@ data OnyxFile t = OnyxFile
   , onyxEvents        :: RTB.T t (PSWrap     Events.Event)
   , onyxBeat          :: RTB.T t (PSWrap       Beat.Event)
   , onyxVenue         :: RTB.T t (PSWrap      Venue.Event)
+  , onyxVenueRB2      :: RTB.T t (PSWrap   VenueRB2.Event)
   , onyxMelodysEscape :: RTB.T t             Melody.Event
   } deriving (Eq, Ord, Show)
 
@@ -384,6 +386,7 @@ instance MIDIFileFormat OnyxFile where
     onyxEvents           <- parseTracks mmap trks ["EVENTS"]
     onyxBeat             <- parseTracks mmap trks ["BEAT"]
     onyxVenue            <- parseTracks mmap trks ["VENUE"]
+    onyxVenueRB2         <- parseTracks mmap trks ["VENUE RB2"]
     onyxMelodysEscape    <- parseTracks mmap trks ["MELODY'S ESCAPE"]
     knownTracks trks $ ["EVENTS", "BEAT", "VENUE", "MELODY'S ESCAPE"] ++ do
       trkName <- ["PART DRUMS", "PART DRUMS_2X", "PART GUITAR", "PART BASS", "PART KEYS", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3"]
