@@ -479,17 +479,31 @@ importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
 importRB3 :: (MonadIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKicks -> FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
 importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName dir = do
   liftIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
-  case files2x of
-    Nothing  -> liftIO $ Dir.copyFile mid $ dir </> "notes.mid"
+
+  isRB2 <- case D.songFormat pkg of
+    10 -> return False
+    4  -> return True
+    -- TODO catalog other values from DLC
+    n  -> do
+      warn $ "Unrecognized 'format' value (" ++ show n ++ "), assuming RB3 VENUE format"
+      return False
+  RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI mid
+  trksAdd2x <- case files2x of
+    Nothing -> return trks1x
     Just (_pkg2x, mid2x) -> do
-      RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI mid
-      RBFile.Song _     _    (RBFile.RawFile trks2x) <- loadMIDI mid2x
-      let trks = trks1x ++ mapMaybe make2xTrack trks2x
-          make2xTrack trk = case U.trackName trk of
+      RBFile.Song _ _ (RBFile.RawFile trks2x) <- loadMIDI mid2x
+      let make2xTrack trk = case U.trackName trk of
             Just "PART DRUMS" -> Just $ U.setTrackName "PART DRUMS_2X" trk
             _                 -> Nothing
-      liftIO $ Save.toFile (dir </> "notes.mid") $ RBFile.showMIDIFile'
-        $ RBFile.Song temps sigs $ RBFile.RawFile trks
+      return $ trks1x ++ mapMaybe make2xTrack trks2x
+  let trksRenameVenue = if isRB2
+        then flip map trksAdd2x $ \trk -> case U.trackName trk of
+          Just "VENUE" -> U.setTrackName "VENUE RB2" trk
+          _            -> trk
+        else trksAdd2x
+  liftIO $ Save.toFile (dir </> "notes.mid") $ RBFile.showMIDIFile'
+    $ RBFile.Song temps sigs $ RBFile.RawFile trksRenameVenue
+
   liftIO $ Dir.copyFile cover $ dir </> coverName
   md5 <- liftIO $ show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
   rb3mid <- loadMIDI mid
