@@ -1,0 +1,35 @@
+metadata:
+  title: Beehive
+  artist: "Dr. Lonnie Smith"
+  album: Spiral
+  year: 2010
+  author: Onyxite
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube eyaO4t0wXXw 140
+    md5: c9353b4f275d2bb0b5c27afdcbfb710b
+    frames: 17730560
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [3.066, youtube]
+parts:
+  drums:
+    drums: {}
+targets:
+  rb3:
+    game: rb3
+    version: 1
+  ps:
+    game: ps
