@@ -1,0 +1,39 @@
+metadata:
+  title: "The Black Widow Blues/The White Widow"
+  file-include: ../../../albums/pimp-of-the-year.yml
+  track-number: 9 # and 10
+  author: Onyxite
+  rating: FamilyFriendly
+  key: B
+audio:
+  album-black:
+    md5: 4dadfd4b1235c7c77f9ba50d7229427d
+    frames: 10973256
+  album-white:
+    md5: ef67d159d4a0135c77c4ddc5d50ee255
+    frames: 4174212
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad:
+      - 4.765
+      - concatenate: [album-black, album-white]
+parts:
+  drums:
+    drums:
+      kit: VintageKit
+targets:
+  rb3:
+    game: rb3
+    version: 1
+  ps:
+    game: ps
