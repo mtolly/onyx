@@ -46,3 +46,7 @@ parts:
         rank: 141
       count: 1
       gender: male
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
