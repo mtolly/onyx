@@ -19,6 +19,8 @@ module Control.Monad.Trans.StackTrace
 , stackCatchIO
 , stackShowException
 , stackIO
+, shakeTrace
+, (≡>)
 ) where
 
 import           Control.Applicative
@@ -38,6 +40,7 @@ import           System.Exit                  (ExitCode (..))
 import           System.IO
 import           System.IO.Temp               (createTempDirectory)
 import           System.Process
+import qualified Development.Shake as Shake
 
 -- | This can represent an error (required input was not found) or a warning
 -- (given input was not completely recognized).
@@ -153,3 +156,17 @@ stackShowException = fatal . Exc.displayException
 -- | Like 'liftIO', but 'IOError' are caught and rethrown with 'fatal'.
 stackIO :: (MonadIO m) => IO a -> StackTraceT m a
 stackIO = stackCatchIO $ stackShowException . (id :: IOError -> IOError)
+
+actionWarn :: Message -> Shake.Action ()
+actionWarn msg = Shake.putNormal $ "Warning: " ++ Exc.displayException msg
+
+shakeTrace :: StackTraceT Shake.Action a -> Shake.Action a
+shakeTrace stk = runStackTraceT stk >>= \(res, Messages warns) -> do
+  mapM_ actionWarn warns
+  case res of
+    Right x  -> return x
+    Left err -> liftIO $ Exc.throwIO err
+
+(≡>) :: Shake.FilePattern -> (FilePath -> StackTraceT Shake.Action ()) -> Shake.Rules ()
+pat ≡> f = pat Shake.%> shakeTrace . f
+infix 1 ≡>

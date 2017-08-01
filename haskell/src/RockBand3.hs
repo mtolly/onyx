@@ -6,6 +6,7 @@ module RockBand3 (MIDIProcessor(..), findProblems) where
 
 import           Config                           hiding (Target (PS))
 import           Control.Monad.Extra
+import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer       (execWriter, tell)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -37,7 +38,7 @@ class MIDIProcessor target output | target -> output where
     -> Action (RBFile.Song (output U.Beats))
 
 instance MIDIProcessor TargetRB3 RBFile.RB3File where
-  processMIDI a b c d e = fmap (fmap fst) $ processRB3 (Left a) b c d e
+  processMIDI a b c d e = processRB3 (Left a) b c d e >>= shakeTrace . magmaLegalTempos . fmap fst
 
 instance MIDIProcessor TargetPS RBFile.PSFile where
   processMIDI a b c d e = fmap (fmap snd) $ processRB3 (Right a) b c d e
@@ -308,6 +309,48 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
       , RBFile.psHarm3 = RB . RBVox.asciiLyrics <$> trkHarm3
       }
     )
+
+{-
+if a measure has a <40bpm tempo:
+- double all tempos inside
+- stretch it out to twice the length, moving events appropriately
+- bump up the numerator of the measure's time signature by 2, so e.g. 5/4 becomes 10/4
+if a measure has a >300bpm tempo:
+- halve all tempos inside
+- squish it to half the length, moving events appropriately
+- bump up the denominator of the measure's time signature by 2, so e.g. 5/4 becomes 5/8
+finally, make new default BEAT track if we changed anything
+-}
+magmaLegalTempos :: (Monad m) => RBFile.Song (RBFile.RB3File U.Beats) -> StackTraceT m (RBFile.Song (RBFile.RB3File U.Beats))
+magmaLegalTempos rb3 = do
+  let allTempos = RTB.mapMaybe U.readTempo $ U.unmakeTempoMap $ RBFile.s_tempos rb3
+      allSigs = RTB.mapMaybe U.readSignatureFull $ U.unmakeMeasureMap $ RBFile.s_signatures rb3
+      endTime = case RTB.viewL $ RTB.filter (== Events.End) $ RBFile.rb3Events $ RBFile.s_tracks rb3 of
+        Nothing           -> 0 -- shouldn't happen
+        Just ((dt, _), _) -> dt
+      numMeasures = fst (U.applyMeasureMap (RBFile.s_signatures rb3) endTime) + 1
+      minTempo =  40 / 60 :: U.BPS
+      maxTempo = 300 / 60 :: U.BPS
+  measureChanges <- forM [0 .. numMeasures - 1] $ \msr -> do
+    let msrStart = U.unapplyMeasureMap (RBFile.s_signatures rb3) (msr, 0)
+        msrLength = U.unapplyMeasureMap (RBFile.s_signatures rb3) (msr + 1, 0) - msrStart
+        initialTempo = case RTB.viewR $ U.trackTake msrStart allTempos of
+          Nothing            -> id
+          Just (_, (_, bps)) -> (bps :)
+        msrTempos = initialTempo $ RTB.getBodies (U.trackTake msrLength $ U.trackDrop msrStart allTempos)
+        go :: (Monad m) => Int -> U.BPS -> U.BPS -> StackTraceT m Int
+        go currentPower2 slowest fastest
+          | slowest < minTempo = if maxTempo / 2 < fastest
+            then fatal $ "Can't make measure " ++ show msr ++ " tempos Magma-legal"
+            else go (currentPower2 + 1) (slowest * 2) (fastest * 2)
+          | maxTempo < fastest = if slowest < minTempo * 2
+            then fatal $ "Can't make measure " ++ show msr ++ " tempos Magma-legal"
+            else go (currentPower2 - 1) (slowest / 2) (fastest / 2)
+          | otherwise = return currentPower2
+    go 0 (minimum msrTempos) (maximum msrTempos)
+  if all (== 0) measureChanges
+    then return rb3
+    else return rb3 -- TODO
 
 findProblems :: RBFile.Song (RBFile.OnyxFile U.Beats) -> [String]
 findProblems song = execWriter $ do

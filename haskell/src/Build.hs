@@ -103,9 +103,6 @@ import           System.IO                             (IOMode (ReadMode),
 import           X360DotNet
 import           YAMLTree
 
-actionWarn :: Message -> Action ()
-actionWarn msg = putNormal $ "Warning: " ++ Exc.displayException msg
-
 targetTitle :: SongYaml -> Target -> T.Text
 targetTitle songYaml target = let
   segments = getTitle (_metadata songYaml) : case target of
@@ -580,17 +577,6 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
         }
       }
     }
-
-shakeTrace :: StackTraceT Action () -> Action ()
-shakeTrace stk = runStackTraceT stk >>= \(res, Messages warns) -> do
-  mapM_ actionWarn warns
-  case res of
-    Right () -> return ()
-    Left err -> liftIO $ Exc.throwIO err
-
-(≡>) :: FilePattern -> (FilePath -> StackTraceT Action ()) -> Rules ()
-pat ≡> f = pat %> shakeTrace . f
-infix 1 ≡>
 
 loadYaml :: (StackJSON a, MonadIO m) => FilePath -> StackTraceT m a
 loadYaml fp = do

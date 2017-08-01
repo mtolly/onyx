@@ -360,18 +360,10 @@ instance MIDIFileFormat OnyxFile where
         _ -> fatal $ show partName ++ " has more than one GRYBO track authored!"
       progtr  <- parseTracks mmap trks $ optPrefix FlexGuitar "PART REAL_GUITAR"
       probass <- parseTracks mmap trks $ optPrefix FlexBass   "PART REAL_BASS"
-      flexPartRealGuitar <- case (RTB.null progtr, RTB.null probass) of
-        (False,  True) -> return progtr
-        ( True, False) -> return probass
-        ( True,  True) -> return RTB.empty
-        _ -> fatal $ show partName ++ " has more than one protar (17) track authored!"
+      let flexPartRealGuitar = RTB.merge progtr probass
       progtr22  <- parseTracks mmap trks $ optPrefix FlexGuitar "PART REAL_GUITAR_22"
       probass22 <- parseTracks mmap trks $ optPrefix FlexBass   "PART REAL_BASS_22"
-      flexPartRealGuitar22 <- case (RTB.null progtr22, RTB.null probass22) of
-        (False,  True) -> return progtr22
-        ( True, False) -> return probass22
-        ( True,  True) -> return RTB.empty
-        _ -> fatal $ show partName ++ " has more than one protar (22) track authored!"
+      let flexPartRealGuitar22 = RTB.merge progtr22 probass22
       flexPartRealKeysE    <- parseTracks mmap trks $ optPrefix FlexKeys  "PART REAL_KEYS_E"
       flexPartRealKeysM    <- parseTracks mmap trks $ optPrefix FlexKeys  "PART REAL_KEYS_M"
       flexPartRealKeysH    <- parseTracks mmap trks $ optPrefix FlexKeys  "PART REAL_KEYS_H"
