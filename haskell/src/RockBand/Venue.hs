@@ -210,8 +210,8 @@ instanceMIDIEvent [t| Event |] Nothing
   , edge 41 $ applyB [p| SpotlightKeys |]
   , edge 40 $ applyB [p| SpotlightVocal |]
   , edge 39 $ applyB [p| SpotlightGuitar |]
-  , edge 38 $ applyB [p| SpotlightBass |]
-  , edge 37 $ applyB [p| SpotlightDrums |]
+  , edge 38 $ applyB [p| SpotlightDrums |] -- RBN2 docs incorrectly say this is bass
+  , edge 37 $ applyB [p| SpotlightBass |] -- RBN2 docs incorrectly say this is drums
   , ( [e| mapParseOne PostProcess parseCommand |]
     , [e| \case PostProcess m -> unparseCommand m |]
     )

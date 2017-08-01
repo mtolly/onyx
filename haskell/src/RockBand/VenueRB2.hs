@@ -182,7 +182,6 @@ instanceMIDIEvent [t| Event |] Nothing
   , edge 85 $ applyB [p| SingalongBass |]
   , edge 40 $ applyB [p| SpotlightVocal |]
   , edge 39 $ applyB [p| SpotlightGuitar |]
-  -- Did HMX actually swap bass and drums spotlight pitches from RBN1 to RBN2 like docs claim? Should test
   , edge 38 $ applyB [p| SpotlightDrums |]
   , edge 37 $ applyB [p| SpotlightBass |]
 
