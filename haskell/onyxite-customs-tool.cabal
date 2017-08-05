@@ -30,6 +30,7 @@ executable onyx
   hs-source-dirs:       src
   main-is:              Main.hs
   other-modules:
+    Resources
     Build
     CommandLine
     YAMLTree
@@ -61,19 +62,15 @@ executable onyx
     RockBand.ProGuitar.Play
     GUI
     OSFiles
+    WebPlayer
+    Config
+    Genre
+    JSONData
     -- midiscript
     Sound.MIDI.Script.Base
     Sound.MIDI.Script.Scan
     Sound.MIDI.Script.Parse
     Sound.MIDI.Script.Read
-    -- resources
-    Resources
-    -- build-types
-    Config
-    Genre
-    JSONData
-    -- display
-    OnyxiteDisplay.Process
     -- parse
     RockBand.Common
     RockBand.Parse

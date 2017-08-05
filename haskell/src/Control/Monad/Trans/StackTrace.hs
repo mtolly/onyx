@@ -35,12 +35,12 @@ import           Control.Monad.Trans.RWS
 import           Data.Data
 import           Data.Functor.Identity
 import           Data.Monoid                  ((<>))
+import qualified Development.Shake            as Shake
 import qualified System.Directory             as Dir
 import           System.Exit                  (ExitCode (..))
 import           System.IO
 import           System.IO.Temp               (createTempDirectory)
 import           System.Process
-import qualified Development.Shake as Shake
 
 -- | This can represent an error (required input was not found) or a warning
 -- (given input was not completely recognized).

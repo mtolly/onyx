@@ -1,7 +1,10 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
-module OnyxiteDisplay.Process where
+module WebPlayer
+( makeDisplay
+, showTimestamp
+) where
 
 import qualified Config                           as C
 import           Control.Applicative              ((<|>))
@@ -15,7 +18,6 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (stripPrefix)
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (listToMaybe)
 import           Data.Monoid                      ((<>))
@@ -65,16 +67,16 @@ instance (Real t) => A.ToJSON (Five t) where
     , (,) "energy" $ eventList (fiveEnergy x) A.toJSON
     ]
 
-readEventList :: (Ord t, Fractional t) => (A.Value -> A.Parser a) -> A.Value -> A.Parser (Map.Map t a)
-readEventList f v = do
+_readEventList :: (Ord t, Fractional t) => (A.Value -> A.Parser a) -> A.Value -> A.Parser (Map.Map t a)
+_readEventList f v = do
   dblValPairs <- A.parseJSON v
   fmap Map.fromList $ forM dblValPairs $ \(dbl, val) -> do
     let _ = dbl :: Double
     x <- f val
     return (realToFrac dbl, x)
 
-readKeyMapping :: (Ord k) => (T.Text -> A.Parser k) -> (A.Value -> A.Parser a) -> A.Value -> A.Parser (Map.Map k a)
-readKeyMapping readKey readVal = A.withObject "object with key->notes mapping" $ \obj -> do
+_readKeyMapping :: (Ord k) => (T.Text -> A.Parser k) -> (A.Value -> A.Parser a) -> A.Value -> A.Parser (Map.Map k a)
+_readKeyMapping readKey readVal = A.withObject "object with key->notes mapping" $ \obj -> do
   fmap Map.fromList $ forM (HM.toList obj) $ \(k, v) -> do
     key <- readKey k
     val <- readVal v
@@ -123,13 +125,13 @@ showPitch = \case
   PK.OrangeC -> "o-c"
   where showKey = T.pack . map toLower . show
 
-pitchMap :: [(T.Text, PK.Pitch)]
-pitchMap = do
+_pitchMap :: [(T.Text, PK.Pitch)]
+_pitchMap = do
   p <- [minBound .. maxBound]
   return (showPitch p, p)
 
-readPitch :: T.Text -> A.Parser PK.Pitch
-readPitch t = case lookup t pitchMap of
+_readPitch :: T.Text -> A.Parser PK.Pitch
+_readPitch t = case lookup t _pitchMap of
   Just p  -> return p
   Nothing -> fail "invalid pro keys pitch name"
 
@@ -302,9 +304,6 @@ instance TimeFunctor Vocal where
     (Map.mapKeys f ranges)
     (Map.mapKeys f energy)
     tonic
-
-stripSuffix :: (Eq a) => [a] -> [a] -> Maybe [a]
-stripSuffix sfx str = fmap reverse $ stripPrefix (reverse sfx) (reverse str)
 
 rtbMapMaybeWithAbsoluteTime :: (Num t) => (t -> a -> Maybe b) -> RTB.T t a -> RTB.T t b
 rtbMapMaybeWithAbsoluteTime f = RTB.fromAbsoluteEventList . ATB.foldrPair g ATB.empty . RTB.toAbsoluteEventList 0 where

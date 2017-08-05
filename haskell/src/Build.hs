@@ -60,7 +60,6 @@ import           JSONData                              (StackJSON (..),
 import qualified Magma
 import qualified MelodysEscape
 import           MoggDecrypt
-import           OnyxiteDisplay.Process                (makeDisplay)
 import           PrettyDTA
 import           ProKeysRanges
 import           Reaper.Build                          (makeReaper)
@@ -100,6 +99,7 @@ import           System.Environment.Executable         (getExecutablePath)
 import           System.IO                             (IOMode (ReadMode),
                                                         hFileSize,
                                                         withBinaryFile)
+import           WebPlayer                             (makeDisplay)
 import           X360DotNet
 import           YAMLTree
 

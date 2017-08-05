@@ -323,8 +323,8 @@ finally, make new default BEAT track if we changed anything
 -}
 magmaLegalTempos :: (Monad m) => RBFile.Song (RBFile.RB3File U.Beats) -> StackTraceT m (RBFile.Song (RBFile.RB3File U.Beats))
 magmaLegalTempos rb3 = do
-  let allTempos = RTB.mapMaybe U.readTempo $ U.unmakeTempoMap $ RBFile.s_tempos rb3
-      allSigs = RTB.mapMaybe U.readSignatureFull $ U.unmakeMeasureMap $ RBFile.s_signatures rb3
+  let allTempos = U.tempoMapToBPS $ RBFile.s_tempos rb3
+      allSigs = U.measureMapToTimeSigs $ RBFile.s_signatures rb3
       endTime = case RTB.viewL $ RTB.filter (== Events.End) $ RBFile.rb3Events $ RBFile.s_tracks rb3 of
         Nothing           -> 0 -- shouldn't happen
         Just ((dt, _), _) -> dt
@@ -347,10 +347,79 @@ magmaLegalTempos rb3 = do
             then fatal $ "Can't make measure " ++ show msr ++ " tempos Magma-legal"
             else go (currentPower2 - 1) (slowest / 2) (fastest / 2)
           | otherwise = return currentPower2
-    go 0 (minimum msrTempos) (maximum msrTempos)
-  if all (== 0) measureChanges
+    change <- go 0 (minimum msrTempos) (maximum msrTempos)
+    return (msrLength, change)
+  let numChanges = length $ filter ((/= 0) . snd) measureChanges
+  if numChanges == 0
     then return rb3
-    else return rb3 -- TODO
+    else let
+      stretchTrack [] trk = trk
+      stretchTrack ((len, change) : changes) trk = let
+        (msr, rest) = U.trackSplit len trk
+        stretch = (* (2 ^^ change))
+        in trackGlue (stretch len) (RTB.mapTime stretch msr)
+          $ stretchTrack changes rest
+      stretchTempos [] _ trk = trk
+      stretchTempos ((len, change) : changes) tempo trk = let
+        (msr, rest) = U.trackSplit len trk
+        stretch :: (Fractional a) => a -> a
+        stretch = (* (2 ^^ change))
+        tempo' = case RTB.viewR msr of
+          Just (_, (_, tmp)) -> tmp
+          Nothing            -> tempo
+        msr' = case RTB.viewL msr of
+          Just ((0, _), _) -> msr
+          _                -> RTB.cons 0 tempo msr
+        in trackGlue (stretch len) (RTB.mapTime stretch $ RTB.mapBody stretch msr')
+          $ stretchTempos changes tempo' rest
+      stretchSigs [] _ trk = trk
+      stretchSigs ((len, change) : changes) sig trk = let
+        (msr, rest) = U.trackSplit len trk
+        stretch :: (Fractional a) => a -> a
+        stretch = (* (2 ^^ change))
+        stretchSig tsig = case compare change 0 of
+          EQ -> tsig
+          GT -> tsig { U.timeSigLength = stretch $ U.timeSigLength tsig }
+          LT -> U.TimeSig
+            { U.timeSigLength = stretch $ U.timeSigLength tsig
+            , U.timeSigUnit   = stretch $ U.timeSigUnit   tsig
+            }
+        sig' = case U.trackTakeZero msr of
+          s : _ -> s
+          []    -> sig
+        in trackGlue (stretch len) (RTB.singleton 0 $ stretchSig sig')
+          $ stretchSigs changes sig' rest
+      in do
+        warn $ "Stretching/squashing " ++ show numChanges ++ " measures to keep tempos in Magma-legal range"
+        return RBFile.Song
+          { RBFile.s_tracks = RBFile.RB3File
+            { RBFile.rb3PartDrums        = stretchTrack measureChanges $ RBFile.rb3PartDrums        $ RBFile.s_tracks rb3
+            , RBFile.rb3PartGuitar       = stretchTrack measureChanges $ RBFile.rb3PartGuitar       $ RBFile.s_tracks rb3
+            , RBFile.rb3PartBass         = stretchTrack measureChanges $ RBFile.rb3PartBass         $ RBFile.s_tracks rb3
+            , RBFile.rb3PartKeys         = stretchTrack measureChanges $ RBFile.rb3PartKeys         $ RBFile.s_tracks rb3
+            , RBFile.rb3PartRealGuitar   = stretchTrack measureChanges $ RBFile.rb3PartRealGuitar   $ RBFile.s_tracks rb3
+            , RBFile.rb3PartRealGuitar22 = stretchTrack measureChanges $ RBFile.rb3PartRealGuitar22 $ RBFile.s_tracks rb3
+            , RBFile.rb3PartRealBass     = stretchTrack measureChanges $ RBFile.rb3PartRealBass     $ RBFile.s_tracks rb3
+            , RBFile.rb3PartRealBass22   = stretchTrack measureChanges $ RBFile.rb3PartRealBass22   $ RBFile.s_tracks rb3
+            , RBFile.rb3PartRealKeysE    = stretchTrack measureChanges $ RBFile.rb3PartRealKeysE    $ RBFile.s_tracks rb3
+            , RBFile.rb3PartRealKeysM    = stretchTrack measureChanges $ RBFile.rb3PartRealKeysM    $ RBFile.s_tracks rb3
+            , RBFile.rb3PartRealKeysH    = stretchTrack measureChanges $ RBFile.rb3PartRealKeysH    $ RBFile.s_tracks rb3
+            , RBFile.rb3PartRealKeysX    = stretchTrack measureChanges $ RBFile.rb3PartRealKeysX    $ RBFile.s_tracks rb3
+            , RBFile.rb3PartKeysAnimLH   = stretchTrack measureChanges $ RBFile.rb3PartKeysAnimLH   $ RBFile.s_tracks rb3
+            , RBFile.rb3PartKeysAnimRH   = stretchTrack measureChanges $ RBFile.rb3PartKeysAnimRH   $ RBFile.s_tracks rb3
+            , RBFile.rb3PartVocals       = stretchTrack measureChanges $ RBFile.rb3PartVocals       $ RBFile.s_tracks rb3
+            , RBFile.rb3Harm1            = stretchTrack measureChanges $ RBFile.rb3Harm1            $ RBFile.s_tracks rb3
+            , RBFile.rb3Harm2            = stretchTrack measureChanges $ RBFile.rb3Harm2            $ RBFile.s_tracks rb3
+            , RBFile.rb3Harm3            = stretchTrack measureChanges $ RBFile.rb3Harm3            $ RBFile.s_tracks rb3
+            , RBFile.rb3Events           = stretchTrack measureChanges $ RBFile.rb3Events           $ RBFile.s_tracks rb3
+            -- Might want to replace BEAT track in the future.
+            -- But I think just stretching it should work with our autogenerated ones
+            , RBFile.rb3Beat             = stretchTrack measureChanges $ RBFile.rb3Beat             $ RBFile.s_tracks rb3
+            , RBFile.rb3Venue            = stretchTrack measureChanges $ RBFile.rb3Venue            $ RBFile.s_tracks rb3
+            }
+          , RBFile.s_tempos = U.tempoMapFromBPS $ stretchTempos measureChanges 2 allTempos
+          , RBFile.s_signatures = U.measureMapFromTimeSigs U.Truncate $ stretchSigs measureChanges (U.TimeSig 4 1) allSigs
+          }
 
 findProblems :: RBFile.Song (RBFile.OnyxFile U.Beats) -> [String]
 findProblems song = execWriter $ do

@@ -11,7 +11,6 @@ import           Data.List                        (sortOn)
 import           Data.Maybe                       (listToMaybe, mapMaybe)
 import qualified Data.Set                         as Set
 import qualified Numeric.NonNegative.Class        as NNC
-import           OnyxiteDisplay.Process           (showTimestamp)
 import           RockBand.Common
 import qualified RockBand.File                    as RBFile
 import           RockBand.PhaseShiftMessage       (discardPS, withRB)
@@ -19,6 +18,7 @@ import           RockBand.ProKeys
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
+import           WebPlayer                        (showTimestamp)
 
 completeFile :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 completeFile fin fout = do
