@@ -21,7 +21,7 @@
   * `libsamplerate-0.dll` to `libsamplerate.dll`
   * `librubberband-2.dll` to `librubberband.dll`
 
-5. (temporary until I figure out something better) Do the following to install `libbotan`.
+5. (not currently required) Do the following to install `libbotan`.
 
   * Download source for `botan 2.1.0`
   * Modify `src/build-data/os/mingw.txt`: replace `building_shared_supported no` with `soname_pattern_base "libbotan-2.dll"`

@@ -17,7 +17,7 @@ Built on work and research by:
 
 Onyx is free software via the GNU General Public License v3, see LICENSE.txt.
 
-Source at: https://github.com/mtolly/onyxite-customs
+New versions and source at: https://github.com/mtolly/onyxite-customs/releases
 
 ## Dependencies
 
@@ -50,6 +50,7 @@ Open `onyx.exe`/`Onyx.app` to run.
       * Applies the correct `delay` value from `song.ini` to the audio
       * Delays the song start by a few seconds if notes are present too early
       * Detects double drum roll lanes using the single lane note and fixes them
+      * In some cases, can alter the tempo map to fix too-slow/too-fast tempos
 
     Note: to do a batch process of many songs, drag and drop song folders
     (the folders with song.ini immediately inside) onto the file loading screen.
@@ -69,6 +70,7 @@ Open `onyx.exe`/`Onyx.app` to run.
       * any 2-instrument unisons are made into 1-instrument OD phrases
       * converts your VENUE to RB2 format
       * ensures your lower difficulties have all colors used on Expert
+      * adds (RB2 version) to the title to disambiguate when in RB3
 
     Then it will attempt to validate the song through Magma v1.
     If this succeeds, you're good to go.
@@ -79,6 +81,20 @@ Open `onyx.exe`/`Onyx.app` to run.
     In the latter two cases, the RB3 "keytar" algorithm is more-or-less applied,
     so fast chords become HOPOs, and overlapping sustains are shortened.
 
+  * Import to Magma project (takes CON/RBA/PS, creates Magma project folder)
+
+    Creates a Magma project ready to (attempt to) compile a song for RB3,
+    using Magma: C3 Roks Edition. (It should also work using standard Magma v2.)
+
+    When importing from FoF/PS, this performs all the steps listed
+    in "Convert to RB3" above.
+
+    Also generates a REAPER project so any remaining problems can be quickly
+    edited and re-exported to MIDI.
+
+    Because this must generate WAV audio files to give to Magma,
+    encrypted MOGG files in input rb3cons are unsupported.
+
   * Browser song preview (takes _rb3con, creates web app folder)
 
     Generates a JavaScript chart preview app for web browsers,
@@ -87,10 +103,10 @@ Open `onyx.exe`/`Onyx.app` to run.
     A player folder will appear next to the CON; open `index.html` to run.
     It can be run locally via `file://`, or hosted on a web server.
 
-  * Open in REAPER (takes CON or MIDI file, creates Reaper project)
+  * Open in REAPER (takes CON or MIDI file, creates REAPER project)
 
-    Imports a MIDI file into a Reaper project.
-    Avoids a few bugs in Reaper's own MIDI import function.
+    Imports a MIDI file into a REAPER project.
+    Avoids a few bugs in REAPER's own MIDI import function.
     Also applies most of the C3 template to the MIDI tracks,
     so you get note names, colored tracks, and RBN preview windows.
 
