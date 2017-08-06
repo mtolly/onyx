@@ -334,10 +334,13 @@ magmaLegalTempos rb3 = do
   measureChanges <- forM [0 .. numMeasures - 1] $ \msr -> do
     let msrStart = U.unapplyMeasureMap (RBFile.s_signatures rb3) (msr, 0)
         msrLength = U.unapplyMeasureMap (RBFile.s_signatures rb3) (msr + 1, 0) - msrStart
-        initialTempo = case RTB.viewR $ U.trackTake msrStart allTempos of
-          Nothing            -> id
-          Just (_, (_, bps)) -> (bps :)
-        msrTempos = initialTempo $ RTB.getBodies (U.trackTake msrLength $ U.trackDrop msrStart allTempos)
+        msrEvents = U.trackTake msrLength $ U.trackDrop msrStart allTempos
+        initialTempo = case RTB.viewL msrEvents of
+          Just ((0, _), _) -> id
+          _ -> case RTB.viewR $ U.trackTake msrStart allTempos of
+            Nothing            -> id
+            Just (_, (_, bps)) -> (bps :)
+        msrTempos = initialTempo $ RTB.getBodies msrEvents
         go :: (Monad m) => Int -> U.BPS -> U.BPS -> StackTraceT m Int
         go currentPower2 slowest fastest
           | slowest < minTempo = if maxTempo / 2 < fastest
