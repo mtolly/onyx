@@ -106,10 +106,10 @@ import           YAMLTree
 targetTitle :: SongYaml -> Target -> T.Text
 targetTitle songYaml target = let
   segments = getTitle (_metadata songYaml) : case target of
-    RB3 TargetRB3{..} -> makeLabel rb3_Label rb3_2xBassPedal rb3_Speed
-    RB2 TargetRB2{..} -> makeLabel rb2_Label rb2_2xBassPedal rb2_Speed
-    PS  TargetPS {..} -> makeLabel ps_Label  False           ps_Speed
-  makeLabel explicit is2x speed = case explicit of
+    RB3 TargetRB3{..} -> makeLabel []                rb3_Label rb3_2xBassPedal rb3_Speed
+    RB2 TargetRB2{..} -> makeLabel ["(RB2 version)"] rb2_Label rb2_2xBassPedal rb2_Speed
+    PS  TargetPS {..} -> makeLabel []                ps_Label  False           ps_Speed
+  makeLabel sfxs explicit is2x speed = case explicit of
     Just lbl -> [lbl]
     Nothing  -> concat
       [ case speed of
@@ -120,6 +120,7 @@ targetTitle songYaml target = let
           intSpeed = round $ spd * 100
           in ["(" <> T.pack (show intSpeed) <> "% Speed)"]
       , ["(2x Bass Pedal)" | is2x]
+      , sfxs
       ]
   in T.intercalate " " segments
 
@@ -1289,7 +1290,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                     (_, rb3DTA, _) <- readRB3DTA pathDta
                     let newDTA :: D.SongPackage
                         newDTA = magmaDTA
-                          { D.name = D.name rb3DTA
+                          { D.name = targetTitle songYaml $ RB2 rb2
                           , D.artist = D.artist rb3DTA
                           , D.albumName = D.albumName rb3DTA
                           , D.master = not $ _cover $ _metadata songYaml
