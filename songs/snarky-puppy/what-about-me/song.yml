@@ -1,0 +1,40 @@
+metadata:
+  title: What About Me # no question mark
+  track-number: 2
+  author: Onyxite
+  file-include: ../../../albums/we-like-it-here.yml
+audio:
+  # https://snarkypuppyeu.bandcamp.com/album/we-like-it-here
+  album-prev:
+    md5: 1147f0000d9c134c426fcd5b6833d484
+    frames: 17334074
+  album-track:
+    md5: 229e5a7f7c46b15b344d09545459830e
+    frames: 17739777
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      fade:
+      - start
+      - 2.64
+      - concatenate:
+        - take:
+          - end
+          - 2.800
+          - album-prev
+        - album-track
+parts:
+  drums:
+    drums: {}
+targets:
+  rb3:
+    game: rb3

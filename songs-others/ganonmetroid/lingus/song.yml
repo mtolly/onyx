@@ -1,14 +1,8 @@
 metadata:
   title: Lingus
-  artist: Snarky Puppy
-  album: We Like It Here
   track-number: 8
-  genre: fusion
-  subgenre: fusion
   author: GanonMetroid, Onyxite
-  rating: FF
-  year: 2014
-  file-album-art: cover.jpg
+  file-include: ../../../albums/we-like-it-here.yml
 audio:
   album-track:
     # https://snarkypuppyeu.bandcamp.com/album/we-like-it-here
