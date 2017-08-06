@@ -28,6 +28,7 @@ import qualified Data.DTA.Serialize.Magma       as RBProj
 import qualified Data.DTA.Serialize.RB3         as D
 import           Data.Functor                   (void)
 import qualified Data.HashMap.Strict            as Map
+import           Data.List.Extra                (stripSuffix)
 import           Data.List.HT                   (partitionMaybe)
 import           Data.Maybe                     (fromMaybe, listToMaybe)
 import           Data.Monoid                    ((<>))
@@ -272,9 +273,12 @@ undone = fatal "Feature not built yet..."
 
 -- | Ensure that a \"dir/original-file_suffix\" filename stays within a length limit
 -- by trimming \"original-file\".
-trimFileName :: FilePath -> Int -> String -> FilePath
-trimFileName fp len sfx = let
-  (dir, file) = splitFileName fp
+trimFileName :: FilePath -> Int -> String -> String -> FilePath
+trimFileName fp len sfxOld sfx = let
+  fp' = case stripSuffix sfxOld fp of
+    Nothing       -> fp
+    Just stripped -> stripped
+  (dir, file) = splitFileName fp'
   in dir </> take (len - length sfx) file ++ sfx
 
 commands :: [Command]
@@ -519,7 +523,7 @@ commands =
       if game == GameRB3 && ftype == FileRBA
         then do
           -- TODO make sure that the RBA is actually RB3 not RB2
-          out <- outputFile opts $ return $ trimFileName fpath 42 "_rb3con"
+          out <- outputFile opts $ return $ trimFileName fpath 42 ".rba" "_rb3con"
           simpleRBAtoCON fpath out
           return [out]
         else do
@@ -551,11 +555,11 @@ commands =
             FilePS -> takeDirectory fpath
             _      -> fpath
           let out1x = flip fromMaybe specified1x $ case hasKicks of
-                Has1x -> trimFileName prefix 42 $ "_" <> suffix
-                _     -> trimFileName prefix 42 $ "_1x_" <> suffix
+                Has1x -> trimFileName prefix 42 "_rb3con" $ "_" <> suffix
+                _     -> trimFileName prefix 42 "_rb3con" $ "_1x_" <> suffix
               out2x = flip fromMaybe specified2x $ case hasKicks of
-                Has2x -> trimFileName prefix 42 $ "_" <> suffix
-                _     -> trimFileName prefix 42 $ "_2x_" <> suffix
+                Has2x -> trimFileName prefix 42 "_rb3con" $ "_" <> suffix
+                _     -> trimFileName prefix 42 "_rb3con" $ "_2x_" <> suffix
               go target out = do
                 con <- shakeBuildTarget [tmp] (tmp </> "song.yml") target
                 stackIO $ Dir.copyFile con out
@@ -652,7 +656,7 @@ commands =
               suffix = case game of GameRB3 -> "_rb3con"; GameRB2 -> "_rb2con"
               pkg    = case game of GameRB3 -> rb3pkg   ; GameRB2 -> rb2pkg
           stfs <- outputFile opts
-            $   (\f -> trimFileName f 42 suffix) . dropTrailingPathSeparator
+            $   (\f -> trimFileName f 42 "" suffix) . dropTrailingPathSeparator
             <$> stackIO (Dir.makeAbsolute dir)
           (title, desc) <- getInfoForSTFS dir stfs
           pkg title desc dir stfs
