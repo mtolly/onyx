@@ -6,6 +6,7 @@
 module CommandLine (commandLine) where
 
 import           Build                          (loadYaml, shakeBuildFiles,
+                                                 shakeBuildMagmaProject,
                                                  shakeBuildTarget)
 import           Config
 import           Control.Applicative            (liftA2)
@@ -504,6 +505,56 @@ commands =
         void $ importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) out
         return [out]
       _ -> unrecognized ftype fpath
+    }
+
+  , Command
+    { commandWord = "magma"
+    , commandDesc = "Import a file into a Magma project."
+    , commandUsage = T.unlines
+      [ "onyx magma in_rb3con"
+      , "onyx magma in_rb3con --to project/"
+      , "onyx magma in_ps/song.ini"
+      , "onyx magma in_ps/song.ini --to project_1x/ --2x project_2x/"
+      ]
+    , commandRun = \files opts -> tempDir "onyx_magma" $ \tmp -> do
+      (ftype, fpath) <- optionalFile files
+      hasKicks <- case ftype of
+        FileSTFS -> importSTFS fpath Nothing tmp
+        FileRBA  -> importRBA fpath Nothing tmp
+        FilePS   -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
+        FileZip  -> undone
+        _        -> unrecognized ftype fpath
+      let specified1x = listToMaybe [ f | OptTo f <- opts ]
+          specified2x = listToMaybe [ f | Opt2x f <- opts ]
+          target1x = makeTarget False
+          target2x = makeTarget True
+          makeTarget is2x = RB3 def
+            { rb3_2xBassPedal = is2x
+            }
+      prefix <- fmap dropTrailingPathSeparator $ stackIO $ Dir.makeAbsolute $ case ftype of
+        FilePS -> takeDirectory fpath
+        _      -> fpath
+      let out1x = flip fromMaybe specified1x $ case hasKicks of
+            Has1x -> prefix <> "_project"
+            _     -> prefix <> "_1x_project"
+          out2x = flip fromMaybe specified2x $ case hasKicks of
+            Has1x -> prefix <> "_project"
+            _     -> prefix <> "_2x_project"
+          go target out = do
+            magma <- shakeBuildMagmaProject [tmp] (tmp </> "song.yml") target
+            copyDirRecursive magma out
+            return [out]
+          go1x = go target1x out1x
+          go2x = go target2x out2x
+          goBoth = liftA2 (++) go1x go2x
+      case (specified1x, specified2x) of
+        (Nothing, Nothing) -> case hasKicks of
+          Has1x   -> go1x
+          Has2x   -> go2x
+          HasBoth -> goBoth
+        (Just _ , Nothing) -> go1x
+        (Nothing, Just _ ) -> go2x
+        (Just _ , Just _ ) -> goBoth
     }
 
   , Command

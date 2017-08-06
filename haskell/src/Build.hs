@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
 {-# LANGUAGE TupleSections             #-}
-module Build (shakeBuildTarget, shakeBuildFiles, targetTitle, loadYaml) where
+module Build (shakeBuildTarget, shakeBuildMagmaProject, shakeBuildFiles, targetTitle, loadYaml) where
 
 import           Audio
 import qualified C3
@@ -594,6 +594,13 @@ shakeBuildTarget audioDirs yamlPath target = do
   shakeBuild audioDirs yamlPath [(T.pack targetHash, target)] [buildable]
   return $ takeDirectory yamlPath </> buildable
 
+shakeBuildMagmaProject :: (MonadIO m) => [FilePath] -> FilePath -> Target -> StackTraceT m FilePath
+shakeBuildMagmaProject audioDirs yamlPath target = do
+  let buildable = "gen/target" </> targetHash </> "magma"
+      targetHash = show $ hash target `mod` 100000000
+  shakeBuild audioDirs yamlPath [(T.pack targetHash, target)] [buildable]
+  return $ takeDirectory yamlPath </> buildable
+
 shakeBuildFiles :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT m ()
 shakeBuildFiles audioDirs yamlPath = shakeBuild audioDirs yamlPath []
 
@@ -849,6 +856,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 pathMagmaCover       = dir </> "magma/cover.bmp"
                 pathMagmaCoverV1     = dir </> "magma/cover-v1.bmp"
                 pathMagmaMid         = dir </> "magma/notes.mid"
+                pathMagmaRPP         = dir </> "magma/notes.RPP"
                 pathMagmaMidV1       = dir </> "magma/notes-v1.mid"
                 pathMagmaProj        = dir </> "magma/magma.rbproj"
                 pathMagmaProjV1      = dir </> "magma/magma-v1.rbproj"
@@ -914,25 +922,31 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               midi <- shakeMIDI pathMagmaMid
               c3 <- makeC3 songYaml plan rb3 midi pkg
               liftIO $ TIO.writeFile out $ C3.showC3 c3
+            let magmaNeededAudio = do
+                  ((kickSpec, snareSpec, _), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
+                  return $ concat
+                    [ guard (maybe False (/= def) $ getPart (rb3_Drums  rb3) songYaml) >> concat
+                      [ [pathMagmaDrums]
+                      , [pathMagmaKick | not $ null kickSpec]
+                      , [pathMagmaSnare | not $ null snareSpec]
+                      ]
+                    , guard (maybe False (/= def) $ getPart (rb3_Bass   rb3) songYaml) >> [pathMagmaBass  ]
+                    , guard (maybe False (/= def) $ getPart (rb3_Guitar rb3) songYaml) >> [pathMagmaGuitar]
+                    , guard (maybe False (/= def) $ getPart (rb3_Keys   rb3) songYaml) >> [pathMagmaKeys  ]
+                    , case fmap vocalCount $ getPart (rb3_Vocal rb3) songYaml >>= partVocal of
+                      Nothing     -> []
+                      Just Vocal1 -> [pathMagmaVocal, pathMagmaDryvox0]
+                      Just Vocal2 -> [pathMagmaVocal, pathMagmaDryvox1, pathMagmaDryvox2]
+                      Just Vocal3 -> [pathMagmaVocal, pathMagmaDryvox1, pathMagmaDryvox2, pathMagmaDryvox3]
+                    , [pathMagmaSong, pathMagmaCrowd]
+                    ]
+            pathMagmaRPP ≡> \out -> do
+              auds <- magmaNeededAudio
+              lift $ makeReaper pathMagmaMid pathMagmaMid auds out
             phony pathMagmaSetup $ shakeTrace $ do
-              ((kickSpec, snareSpec, _), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
-              lift $ need $ concat
-                -- Just make all the Magma prereqs, but don't actually run Magma
-                [ guard (maybe False (/= def) $ getPart (rb3_Drums  rb3) songYaml) >> concat
-                  [ [pathMagmaDrums]
-                  , [pathMagmaKick | not $ null kickSpec]
-                  , [pathMagmaSnare | not $ null snareSpec]
-                  ]
-                , guard (maybe False (/= def) $ getPart (rb3_Bass   rb3) songYaml) >> [pathMagmaBass  ]
-                , guard (maybe False (/= def) $ getPart (rb3_Guitar rb3) songYaml) >> [pathMagmaGuitar]
-                , guard (maybe False (/= def) $ getPart (rb3_Keys   rb3) songYaml) >> [pathMagmaKeys  ]
-                , case fmap vocalCount $ getPart (rb3_Vocal rb3) songYaml >>= partVocal of
-                  Nothing     -> []
-                  Just Vocal1 -> [pathMagmaVocal, pathMagmaDryvox0]
-                  Just Vocal2 -> [pathMagmaVocal, pathMagmaDryvox1, pathMagmaDryvox2]
-                  Just Vocal3 -> [pathMagmaVocal, pathMagmaDryvox1, pathMagmaDryvox2, pathMagmaDryvox3]
-                , [pathMagmaSong, pathMagmaCrowd, pathMagmaCover, pathMagmaMid, pathMagmaProj, pathMagmaC3]
-                ]
+              -- Just make all the Magma prereqs, but don't actually run Magma
+              auds <- magmaNeededAudio
+              lift $ need $ auds ++ [pathMagmaCover, pathMagmaMid, pathMagmaProj, pathMagmaC3, pathMagmaRPP]
             pathMagmaRba ≡> \out -> do
               lift $ need [pathMagmaSetup]
               lift $ putNormal "# Running Magma v2 (C3)"

@@ -197,6 +197,10 @@ topMenu = Choices
         ]
       in (opts, continue)
     )
+  , ( Choice "Magma project" "Imports a song (RB3/RB2/PS) to a Magma v2 project."
+    $ pushMenu $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)") [] $ \fs ->
+      TasksStart $ map (\f -> commandLine' ["magma", f]) fs
+    )
   , ( Choice "Web preview" "Produces a web browser app to preview a song."
     $ pushMenu $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)") [] $ \fs ->
       TasksStart $ map (\f -> commandLine' ["player", f]) fs

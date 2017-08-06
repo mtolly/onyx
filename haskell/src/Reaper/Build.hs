@@ -24,7 +24,7 @@ import           Data.Maybe                            (fromMaybe, listToMaybe,
                                                         mapMaybe)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
-import           Development.Shake                     (Action, need)
+import           Development.Shake                     (Action, need, putNormal)
 import           Numeric                               (showHex)
 import qualified Numeric.NonNegative.Class             as NNC
 import qualified Numeric.NonNegative.Wrapper           as NN
@@ -673,4 +673,5 @@ makeReaperIO evts tempo audios out = liftIO $ do
 makeReaper :: FilePath -> FilePath -> [FilePath] -> FilePath -> Action ()
 makeReaper evts tempo audios out = do
   need $ evts : tempo : audios
+  putNormal $ "Generating a REAPER project at " ++ out
   liftIO $ makeReaperIO evts tempo audios out
