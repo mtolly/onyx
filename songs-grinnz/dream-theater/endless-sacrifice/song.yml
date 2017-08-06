@@ -2,7 +2,7 @@ metadata:
   title: Endless Sacrifice
   file-include: ../../../albums/train-of-thought.yml
   track-number: 3
-  author: Grinnz
+  author: Grinnz, Mazegeek999
   comments:
   - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:
@@ -26,3 +26,6 @@ parts:
   drums:
     drums:
       auto-2x-bass: true
+  keys:
+    pro-keys:
+      difficulty: 7

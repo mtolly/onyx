@@ -4,9 +4,10 @@ metadata:
   track-number: 3
   key: E
   difficulty: 6
-  author: "Harmonix, Grinnz, Onyxite"
+  author: "Harmonix, Grinnz, Mazegeek999, Onyxite"
   comments:
   - "Drums by Grinnz."
+  - "Pro keys by Mazegeek999."
   - "Timing, guitar, bass, and original vocals by Harmonix."
   - "Vocals fixed up and split into harmonies by me."
   - "Drums confidence: *high*, written to stems and Portnoy's DVD."
@@ -56,3 +57,6 @@ parts:
       difficulty: 4
       count: 2
       gender: male
+  keys:
+    pro-keys:
+      difficulty: 7

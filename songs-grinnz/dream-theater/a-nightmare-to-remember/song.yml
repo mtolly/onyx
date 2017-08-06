@@ -2,7 +2,7 @@ metadata:
   title: A Nightmare to Remember
   file-include: ../../../albums/black-clouds-silver-linings.yml
   track-number: 1
-  author: Grinnz
+  author: Grinnz, Mazegeek999
   comments:
   - "Chart confidence: *high*, transcribed from Portnoy's DVD."
 audio:
@@ -72,3 +72,7 @@ parts:
   drums:
     drums:
       auto-2x-bass: true
+      difficulty: 7
+  keys:
+    pro-keys:
+      difficulty: 7
