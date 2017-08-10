@@ -1,5 +1,6 @@
 metadata:
-  title: What About Me # no question mark
+  title: What About Me?
+  # bandcamp page doesn't have question mark. but youtube title does
   track-number: 2
   author: Onyxite
   file-include: ../../../albums/we-like-it-here.yml
