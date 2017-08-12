@@ -82,6 +82,10 @@ parts:
   bass:
     grybo:
       difficulty: 5
+  vocal:
+    vocal:
+      count: 3
+      difficulty: 4
 targets:
   rb3:
     game: rb3
