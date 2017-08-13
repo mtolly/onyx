@@ -23,14 +23,19 @@ plans:
       1|1: hihat
     song:
       fade:
-      - start
-      - 2.64
-      - concatenate:
-        - take:
-          - end
-          - 2.800
-          - album-prev
-        - album-track
+      - end
+      - 5
+      - take:
+        - 6:33
+        - fade:
+          - start
+          - 2.64
+          - concatenate:
+            - take:
+              - end
+              - 2.800
+              - album-prev
+            - album-track
 parts:
   drums:
     drums: {}
