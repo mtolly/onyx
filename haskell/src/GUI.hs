@@ -409,6 +409,15 @@ launchGUI = do
           choiceValue $ choices !! i
       newSelect mousePos
 
+    goBack :: Onyx ()
+    goBack = get >>= \case
+      GUIState menu (pm : pms) _ -> do
+        case menu of
+          TasksRunning tid _ -> liftIO $ killThread tid
+          _                  -> return ()
+        put $ GUIState pm pms $ SelectMenu 0
+      _ -> return ()
+
     processEvents :: [SDL.Event] -> Onyx ()
     processEvents [] = checkVars
     processEvents (e : es) = case SDL.eventPayload e of
@@ -432,19 +441,20 @@ launchGUI = do
         } -> do
           doSelect $ Just (fromIntegral x, fromIntegral y)
           processEvents es
+      SDL.MouseButtonEvent SDL.MouseButtonEventData
+        { SDL.mouseButtonEventMotion = SDL.Pressed
+        , SDL.mouseButtonEventButton = SDL.ButtonX1 -- back button at least for me
+        } -> do
+          goBack
+          processEvents es
       SDL.KeyboardEvent SDL.KeyboardEventData
         { SDL.keyboardEventKeyMotion = SDL.Pressed
         , SDL.keyboardEventKeysym = ksym
         , SDL.keyboardEventRepeat = False
         } -> case SDL.keysymScancode ksym of
-          SDL.ScancodeBackspace -> get >>= \case
-            GUIState menu (pm : pms) _ -> do
-              case menu of
-                TasksRunning tid _ -> liftIO $ killThread tid
-                _                  -> return ()
-              put $ GUIState pm pms $ SelectMenu 0
-              processEvents es
-            _ -> processEvents es
+          SDL.ScancodeBackspace -> do
+            goBack
+            processEvents es
           SDL.ScancodeReturn -> do
             doSelect Nothing
             processEvents es
