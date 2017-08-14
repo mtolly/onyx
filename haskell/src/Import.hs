@@ -34,6 +34,7 @@ import qualified FretsOnFire                      as FoF
 import           Image                            (toPNG_XBOX)
 import           JSONData                         (toJSON)
 import           Magma                            (getRBAFile)
+import           MoggDecrypt                      (moggToOgg)
 import           PrettyDTA                        (C3DTAComments (..),
                                                    DTASingle (..),
                                                    readDTASingle, readRB3DTA,
@@ -530,6 +531,21 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
       n       -> fatal $ "Invalid vocal count of " ++ show n
     else return Nothing
   let hopoThresh = fromIntegral $ fromMaybe 170 $ D.hopoThreshold $ D.song pkg
+
+  -- try to scan MOGG file for silent channels
+  silentChannels <- tempDir "moggscan" $ \temp -> do
+    let ogg = temp </> "audio.ogg"
+    res <- errorToEither $ moggToOgg (dir </> "audio.mogg") ogg
+    case res of
+      Left  _err -> do
+        warn "Couldn't decrypt MOGG to scan for empty channels."
+        return []
+      Right ()   -> emptyChannels ogg
+  let removeSilent ns = ns -- guard (not $ all (`elem` silentChannels) ns) >> ns
+  -- TODO: uncomment above after solving problems in
+  -- Magma compilation (0 channels) and drum mix calculation (must be stereo)
+  liftIO $ putStrLn $ "Detected the following channels as silent: " ++ show silentChannels
+
   drumMix <- let
     drumEvents = toList $ RBFile.rb3PartDrums $ RBFile.s_tracks rb3mid
     drumMixes = [ aud | RBDrums.DiffEvent _ (RBDrums.Mix aud _) <- drumEvents ]
@@ -544,7 +560,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
       hasRankStr s = maybe False (/= 0) $ HM.lookup s diffMap
   drumSplit <- if not $ hasRankStr "drum" then return Nothing else case drumMix of
     RBDrums.D0 -> case drumChans of
-      [kitL, kitR] -> return $ Just $ PartSingle [kitL, kitR]
+      [kitL, kitR] -> return $ Just $ PartSingle $ removeSilent [kitL, kitR]
       _ -> fatal $ "mix 0 needs 2 drums channels, " ++ show (length drumChans) ++ " given"
     RBDrums.D1 -> case drumChans of
       [kick, snare, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) (Just [snare]) [kitL, kitR]
@@ -558,6 +574,8 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
     RBDrums.D4 -> case drumChans of
       [kick, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
       _ -> fatal $ "mix 4 needs 3 drums channels, " ++ show (length drumChans) ++ " given"
+    -- we'll just assume that if mix 1-4 were used, no need to removeSilent
+
   liftIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
       { _title        = _title meta <|> Just (D.name pkg)
@@ -589,11 +607,11 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
     , _plans = HM.singleton "mogg" MoggPlan
       { _moggMD5 = T.pack md5
       , _moggParts = Parts $ HM.fromList $ concat
-        [ [ (FlexGuitar, PartSingle ns) | ns <- toList $ HM.lookup "guitar" instChans ]
-        , [ (FlexBass  , PartSingle ns) | ns <- toList $ HM.lookup "bass"   instChans ]
-        , [ (FlexKeys  , PartSingle ns) | ns <- toList $ HM.lookup "keys"   instChans ]
-        , [ (FlexVocal , PartSingle ns) | ns <- toList $ HM.lookup "vocals" instChans ]
-        , [ (FlexDrums , ds           ) | Just ds <- [drumSplit] ]
+        [ [ (FlexGuitar, PartSingle $ removeSilent ns) | ns <- toList $ HM.lookup "guitar" instChans ]
+        , [ (FlexBass  , PartSingle $ removeSilent ns) | ns <- toList $ HM.lookup "bass"   instChans ]
+        , [ (FlexKeys  , PartSingle $ removeSilent ns) | ns <- toList $ HM.lookup "keys"   instChans ]
+        , [ (FlexVocal , PartSingle $ removeSilent ns) | ns <- toList $ HM.lookup "vocals" instChans ]
+        , [ (FlexDrums , ds                          ) | Just ds <- [drumSplit] ]
         ]
       , _moggCrowd  = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
       , _pans = map realToFrac $ D.pans $ D.song pkg

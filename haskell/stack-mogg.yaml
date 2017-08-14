@@ -29,11 +29,9 @@ extra-deps:
 - event-list-0.1.1.3
 - explicit-exception-0.1.8
 - jammittools-0.5.3
-- midi-0.2.2.1
 - midi-util-0.2
 - non-negative-0.1.1
 - monoid-transformer-0.0.3
-- sdl2-ttf-1.0.0
 - rubberband-0.1.0.2
 - codec-0.2.1
 resolver: lts-8.0

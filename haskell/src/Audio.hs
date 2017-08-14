@@ -24,6 +24,7 @@ module Audio
 , crapMP3
 , crapVorbis
 , stretchFull
+, emptyChannels
 ) where
 
 import           Control.Concurrent              (threadDelay)
@@ -37,7 +38,7 @@ import qualified Data.ByteString.Lazy            as BL
 import qualified Data.ByteString.Lazy.Char8      as BL8
 import           Data.Char                       (toLower)
 import           Data.Conduit                    (await, awaitForever, leftover,
-                                                  yield, (=$=))
+                                                  yield, ($$), (=$=))
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME
 import           Data.Conduit.Audio.LAME.Binding as L
@@ -495,3 +496,18 @@ crapVorbis out src = let
     False -> error "crapVorbis: couldn't set crappy encoding quality"
   fmt = Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
   in sinkSndWithHandle out fmt setup $ resampleTo 16000 SincMediumQuality src
+
+-- | Loads an OGG file and returns channel indexes which are silent.
+emptyChannels :: (MonadIO m) => FilePath -> m [Int]
+emptyChannels ogg = liftIO $ do
+  src <- sourceSnd ogg
+  runResourceT $ let
+    loop []    = return []
+    loop chans = await >>= \case
+      Nothing  -> return chans
+      Just blk -> let
+        chans' = flip filter chans $ \chan -> let
+          indexes = [chan, chan + channels src .. V.length blk - 1]
+          in flip all indexes $ \i -> abs (blk V.! i :: Float) < 0.01
+        in loop chans'
+    in source src $$ loop [0 .. channels src - 1]
