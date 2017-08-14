@@ -234,14 +234,18 @@ channelsToSpec
   -> T.Text
   -> [(Double, Double)]
   -> [Int]
+  -> [Int]
   -> StackTraceT Action (AudioSource m Float)
-channelsToSpec pvOut planName pvIn chans = inside "conforming MOGG channels to output spec" $ do
+channelsToSpec pvOut planName pvIn silentChans chans = inside "conforming MOGG channels to output spec" $ do
   let partPVIn = map (pvIn !!) chans
       mogg = "gen/plan" </> T.unpack planName </> "audio.ogg"
   src <- lift $ buildSource $ case chans of
     [] -> Silence 1 $ Frames 0
     _  -> Channels chans $ Input mogg
-  fitToSpec partPVIn pvOut src
+  let zeroIfSilent = if all (`elem` silentChans) chans
+        then takeStart (Frames 0)
+        else id
+  zeroIfSilent <$> fitToSpec partPVIn pvOut src
 
 buildAudioToSpec
   :: (MonadResource m)

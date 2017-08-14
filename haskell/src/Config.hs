@@ -258,6 +258,7 @@ data Plan
     , _planComments :: [T.Text]
     , _karaoke      :: Bool
     , _multitrack   :: Bool
+    , _silent       :: [Int]
     }
   deriving (Eq, Show)
 
@@ -333,7 +334,8 @@ instance StackJSON Plan where
         _planComments <- fromMaybe [] <$> optionalKey "comments" fromJSON
         _karaoke    <- fromMaybe False          <$> optionalKey "karaoke"    fromJSON
         _multitrack <- fromMaybe (not _karaoke) <$> optionalKey "multitrack" fromJSON
-        expectedKeys ["mogg-md5", "parts", "crowd", "pans", "vols", "comments", "karaoke", "multitrack"]
+        _silent     <- fromMaybe []             <$> optionalKey "silent"     fromJSON
+        expectedKeys ["mogg-md5", "parts", "crowd", "pans", "vols", "comments", "karaoke", "multitrack", "silent"]
         return MoggPlan{..}
         )
       ] $ object $ do
@@ -361,6 +363,7 @@ instance StackJSON Plan where
         , ["comments" .= _planComments | not $ null _planComments]
         , ["karaoke" .= _karaoke]
         , ["multitrack" .= _multitrack]
+        , ["silent" .= _silent | not $ null _silent]
         ]
     }
 

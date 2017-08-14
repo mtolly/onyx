@@ -735,7 +735,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             ((spec', _, _), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) $ do
+              MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit kick _ _) -> fromMaybe [] kick
@@ -750,7 +750,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             ((_, spec', _), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) $ do
+              MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit _ snare _) -> fromMaybe [] snare
@@ -765,7 +765,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             ((_, _, spec'), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) $ do
+              MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit _ _ kit) -> kit
@@ -779,7 +779,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   _                          -> Nothing
             lift $ runAudio src out
           getPartSource spec planName plan fpart rank = case plan of
-            MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) $ do
+            MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ do
               guard $ rank /= 0
               toList (HM.lookup fpart $ getParts _moggParts) >>= toList >>= toList
             Plan{..} -> buildPartAudioToSpec songYaml spec $ do
@@ -798,7 +798,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             lift $ runAudio src out
           writeCrowd planName plan out = do
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] planName (zip _pans _vols) _moggCrowd
+              MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] planName (zip _pans _vols) _silent _moggCrowd
               Plan{..}     -> buildAudioToSpec songYaml [(-1, 0), (1, 0)] _crowd
             lift $ runAudio src out
           writeSongCountin :: Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> StackTraceT Action ()
@@ -806,7 +806,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             let usedParts = [ fpart | (fpart, rank) <- fparts, rank /= 0 ]
                 spec = [(-1, 0), (1, 0)]
             src <- case plan of
-              MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) $ let
+              MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ let
                 channelsFor fpart = toList (HM.lookup fpart $ getParts _moggParts) >>= toList >>= toList
                 usedChannels = concatMap channelsFor usedParts ++ _moggCrowd
                 in filter (`notElem` usedChannels) [0 .. length _pans - 1]
