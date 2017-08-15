@@ -431,6 +431,7 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
   song <- shakeMIDI mid
   ((kickPVs, snarePVs, kitPVs), mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
   let (pstart, _) = previewBounds songYaml song
+      maxPStart = 570000 :: Int -- 9:39.000
       DifficultyRB3{..} = difficultyRB3 rb3 songYaml
       fullGenre = interpretGenre
         (_genre    $ _metadata songYaml)
@@ -466,6 +467,11 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
         , Magma.audioFile = f
         }
   title <- T.map (\case '"' -> '\''; c -> c) <$> lift thisTitle
+  pstart' <- if pstart > maxPStart
+    then do
+      warn $ "Preview start time of " ++ show pstart ++ "ms too late for C3 Magma; changed to " ++ show maxPStart ++ "ms"
+      return maxPStart
+    else return pstart
   return Magma.RBProj
     { Magma.project = Magma.Project
       { Magma.toolVersion = "110411_A"
@@ -485,7 +491,7 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
         , Magma.hasAlbum = True
         }
       , Magma.gamedata = Magma.Gamedata
-        { Magma.previewStartMs = fromIntegral pstart
+        { Magma.previewStartMs = fromIntegral pstart'
         , Magma.rankDrum    = max 1 rb3DrumsTier
         , Magma.rankBass    = max 1 rb3BassTier
         , Magma.rankGuitar  = max 1 rb3GuitarTier
