@@ -1,24 +1,38 @@
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube igDSyZMy8_E 140
+    md5: cdaf18d19afd0205a77463fca7ee1164
+    frames: 10130432
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 plans:
-  mogg:
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    mogg-md5: b4ed0f2857ad50cd7ba4131325e551b2
-    parts:
-      drums:
-      - 0
-      - 1
-    vols:
-    - -1.5
-    - -1.5
-    - -3
-    - -3
+  album:
+    song:
+      fade:
+      - end
+      - 1.6
+      - take:
+        - 3:48.590
+        - fade:
+          - start
+          - 4
+          - drop: [start, 0.574, youtube]
+    countin:
+      7|0: hihat
+      7|2: hihat
+      8|0: hihat
+      8|1: hihat
+      8|2: hihat
+      8|3: hihat
 metadata:
   author: TheLieInKing
-  title: Drum Solo (Live on Letterman)
+  title: The Chicken (Live on Letterman)
   artist: Gavin Harrison
 parts:
   drums:
     drums: {}
+targets:
+  rb3:
+    game: rb3
