@@ -27,9 +27,18 @@ plans:
       8|2: hihat
       8|3: hihat
 metadata:
-  author: TheLieInKing
+  author: TheLieInKing, Onyxite
   title: The Chicken (Live on Letterman)
   artist: Gavin Harrison
+  album: Drum Solo Week II
+  year: 2011 # 2011-8-23
+  genre: prog
+  subgenre: prog
+  file-album-art: cover.jpg
+  track-number: 2 # royster, harrison, copeland, chambers
+  comments:
+  - Original chart by TheLieInKing.
+  - Minor fixes and 2x Bass Pedal by Onyxite.
 parts:
   drums:
     drums: {}
