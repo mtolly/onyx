@@ -736,6 +736,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
           adjustSpec False [(0, 0)] = [(0, 0)]
           adjustSpec False _        = [(-1, 0), (1, 0)]
 
+          -- TODO: these all need speed adjustments, for both Plan and MoggPlan
+
           writeKick, writeSnare, writeKit, writeSimplePart :: Bool -> T.Text -> Plan -> RBFile.FlexPartName -> Integer -> FilePath -> StackTraceT Action ()
           writeKick supportsOffMono planName plan fpart rank out = do
             ((spec', _, _), _) <- computeDrumsPart fpart plan songYaml
@@ -1036,10 +1038,19 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                       $ RTB.filter (not . isSection)
                       $ RBFile.rb3Events trks
                     }
+                  adjustSpeed mid = case rb3_Speed rb3 of
+                    Just n | n /= 1 -> mid
+                      { RBFile.s_tempos
+                        = U.tempoMapFromBPS
+                        $ fmap (* realToFrac n)
+                        $ U.tempoMapToBPS
+                        $ RBFile.s_tempos mid
+                      }
+                    _               -> mid
               lift $ case invalid of
                 [] -> return ()
                 _  -> putNormal $ "The following sections were unrecognized and replaced: " ++ show invalid
-              lift $ saveMIDI out output
+              lift $ saveMIDI out $ adjustSpeed output
                 { RBFile.s_tracks = adjustEvents $ RBFile.s_tracks output
                 }
 
@@ -1057,7 +1068,11 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments (_metadata songYaml) plan $ rb3_2xBassPedal rb3
             pathMid %> copyFile' pathMagmaExport2
             pathOgg ≡> \out -> case plan of
-              MoggPlan{} -> lift $ copyFile' (planDir </> "audio.ogg") out
+              MoggPlan{} -> lift $ case rb3_Speed rb3 of
+                Just n | n /= 1 -> do
+                  src <- buildSource (StretchFull (1 / n) 1 $ Input $ planDir </> "audio.ogg")
+                  runAudio src out
+                _ -> copyFile' (planDir </> "audio.ogg") out
               Plan{..}   -> do
                 (_, mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
                 let parts = concat
@@ -1075,7 +1090,11 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   src <- buildSource $ Merge $ map Input parts
                   runAudio src out
             pathMogg ≡> \out -> case plan of
-              MoggPlan{} -> lift $ copyFile' (planDir </> "audio.mogg") out
+              MoggPlan{} -> case rb3_Speed rb3 of
+                Just n | n /= 1 -> do
+                  lift $ need [pathOgg]
+                  Magma.oggToMogg pathOgg out
+                _ -> lift $ copyFile' (planDir </> "audio.mogg") out
               Plan{..}   -> do
                 lift $ need [pathOgg]
                 Magma.oggToMogg pathOgg out

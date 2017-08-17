@@ -306,6 +306,7 @@ allGenres =
     , Subgenre "newwave" "New Wave"
     , Subgenre "synthpop" "Synthpop"
     , Subgenre "other" "Other"
+    -- TODO: saw ('genre' 'new_wave') ('sub_genre' 'subgenre_synth') in Confury's Night of Fate
     ]
   , Genre "novelty" "Novelty"
     [ Subgenre "novelty" "Novelty"

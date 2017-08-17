@@ -60,3 +60,12 @@ parts:
   keys:
     pro-keys:
       difficulty: 7
+targets:
+  # TODO: fix keys getting 0 channels in magma
+  rb3:
+    game: rb3
+    plan: mogg
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: mogg
