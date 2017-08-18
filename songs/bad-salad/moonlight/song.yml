@@ -96,11 +96,6 @@ targets:
     game: rb3
     version: 1
     plan: pledgemusic
-  rb3-2x:
-    game: rb3
-    2x-bass-pedal: true
-    version: 1
-    plan: pledgemusic
   ps:
     game: ps
     plan: pledgemusic

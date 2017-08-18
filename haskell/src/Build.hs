@@ -181,6 +181,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
       -- following 3 are only used for Plan not MoggPlan
       partChannels :: [(RBFile.FlexPartName, (Double, Double))]
       partChannels = concat
+        -- TODO: if a flex part maps to more than 1 game part, it should get no audio
         [ case rb3DrumsRank of
           0 -> []
           _ -> map (rb3_Drums rb3 ,) $ kickPV ++ snarePV ++ kitPV
@@ -205,13 +206,17 @@ makeRB3DTA songYaml plan rb3 song filename = do
       { D.songName = "songs/" <> filename <> "/" <> filename
       , D.tracksCount = Nothing
       , D.tracks = fmap (map fromIntegral) $ HM.fromList $ filter (not . null . snd) $ case plan of
-        MoggPlan{..} ->
-          [ ("drum"  , maybe [] (concat . toList) $ lookupPart rb3DrumsRank  (rb3_Drums  rb3) _moggParts)
-          , ("bass"  , maybe [] (concat . toList) $ lookupPart rb3BassRank   (rb3_Bass   rb3) _moggParts)
-          , ("guitar", maybe [] (concat . toList) $ lookupPart rb3GuitarRank (rb3_Guitar rb3) _moggParts)
-          , ("keys"  , maybe [] (concat . toList) $ lookupPart rb3KeysRank   (rb3_Keys   rb3) _moggParts)
-          , ("vocals", maybe [] (concat . toList) $ lookupPart rb3VocalRank  (rb3_Vocal  rb3) _moggParts)
-          ]
+        MoggPlan{..} -> let
+          allParts = map ($ rb3) [rb3_Drums, rb3_Bass, rb3_Guitar, rb3_Keys, rb3_Vocal]
+          getChannels rank fpart = case filter (== fpart) allParts of
+            _ : _ : _ -> [] -- more than 1 game part maps to this flex part
+            _         -> maybe [] (concat . toList) $ lookupPart rank fpart _moggParts
+          in  [ ("drum"  , getChannels rb3DrumsRank  $ rb3_Drums  rb3)
+              , ("bass"  , getChannels rb3BassRank   $ rb3_Bass   rb3)
+              , ("guitar", getChannels rb3GuitarRank $ rb3_Guitar rb3)
+              , ("keys"  , getChannels rb3KeysRank   $ rb3_Keys   rb3)
+              , ("vocals", getChannels rb3VocalRank  $ rb3_Vocal  rb3)
+              ]
         Plan{..} ->
           [ ("drum"  , findIndices (\(fpart, _) -> fpart == rb3_Drums  rb3) partChannels)
           , ("bass"  , findIndices (\(fpart, _) -> fpart == rb3_Bass   rb3) partChannels)
@@ -882,6 +887,9 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 pathMagmaDummyMono   = dir </> "magma/dummy-mono.wav"
                 pathMagmaDummyStereo = dir </> "magma/dummy-stereo.wav"
 
+            -- TODO: if a flex part maps to more than 1 game part,
+            -- all the game parts should be silent,
+            -- and that flex part's audio should go to the backing track
             pathMagmaKick   ≡> writeKick        (rb3_Speed rb3) True planName plan (rb3_Drums  rb3) rb3DrumsRank
             pathMagmaSnare  ≡> writeSnare       (rb3_Speed rb3) True planName plan (rb3_Drums  rb3) rb3DrumsRank
             pathMagmaDrums  ≡> writeKit         (rb3_Speed rb3) True planName plan (rb3_Drums  rb3) rb3DrumsRank
@@ -1505,6 +1513,9 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 , FoF.video            = const "video.avi" <$> ps_FileVideo ps
                 }
 
+            -- TODO: if a flex part maps to more than 1 game part,
+            -- all the game parts should be silent,
+            -- and that flex part's audio should go to the backing track
             dir </> "ps/drums.ogg"   ≡> writeStereoParts (ps_Speed ps) planName plan [(ps_Drums  ps, rb3DrumsRank)]
             dir </> "ps/drums_1.ogg" ≡> writeKick  (ps_Speed ps) False planName plan  (ps_Drums  ps) rb3DrumsRank
             dir </> "ps/drums_2.ogg" ≡> writeSnare (ps_Speed ps) False planName plan  (ps_Drums  ps) rb3DrumsRank
@@ -1538,6 +1549,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 , ["drums_1.ogg" | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode /= RBDrums.D0]
                 , ["drums_2.ogg" | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode /= RBDrums.D0]
                 , ["drums_3.ogg" | maybe False (/= def) (getPart (ps_Drums ps) songYaml) && mixMode /= RBDrums.D0]
+                -- TODO also check ps_GuitarCoop
                 , ["guitar.ogg"  | maybe False (/= def) (getPart (ps_Guitar ps) songYaml) && case plan of
                     Plan{..} -> HM.member (ps_Guitar ps) $ getParts _planParts
                     _        -> True
@@ -1546,6 +1558,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                     Plan{..} -> HM.member (ps_Keys ps) $ getParts _planParts
                     _        -> True
                   ]
+                -- TODO also check ps_Rhythm
                 , ["rhythm.ogg"  | maybe False (/= def) (getPart (ps_Bass ps) songYaml) && case plan of
                     Plan{..} -> HM.member (ps_Bass ps) $ getParts _planParts
                     _        -> True
@@ -1723,6 +1736,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             mogg %> \out -> moggOracle (MoggSearch _moggMD5) >>= \case
               Nothing -> fail "Couldn't find the MOGG file"
               Just f -> do
+                -- TODO: check if it's actually an OGG (starts with OggS)
                 putNormal $ "Found the MOGG file: " ++ f
                 copyFile' f out
 
