@@ -184,7 +184,9 @@ computeSimplePart :: FlexPartName -> Plan -> SongYaml -> [(Double, Double)]
 computeSimplePart fpart plan songYaml = case plan of
   MoggPlan{..} -> let
     inds = maybe [] (concat . toList) $ HM.lookup fpart $ getParts _moggParts
-    in map ((_pans !!) &&& (_vols !!)) inds
+    in case inds of
+      [] -> [(0, 0)] -- this is only used for Magma
+      _  -> map ((_pans !!) &&& (_vols !!)) inds
   Plan{..} -> case HM.lookup fpart $ getParts _planParts of
     Nothing -> [(0, 0)]
     Just (PartSingle pa) -> case computeChannelsPlan songYaml $ _planExpr pa of

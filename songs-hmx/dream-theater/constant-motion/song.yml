@@ -19,7 +19,7 @@ audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
-  # TODO: DVD, maybe?
+  # could set up DVD but not much point
   album:
     countin:
       1|0: hihat
@@ -61,7 +61,6 @@ parts:
     pro-keys:
       difficulty: 7
 targets:
-  # TODO: fix keys getting 0 channels in magma
   rb3:
     game: rb3
     plan: mogg
