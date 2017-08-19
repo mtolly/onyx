@@ -74,6 +74,8 @@ parts:
     drums:
       difficulty: 6
   keys:
+    grybo:
+      difficulty: 7
     pro-keys:
       difficulty: 7
   guitar:
