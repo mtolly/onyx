@@ -4,9 +4,10 @@ metadata:
   track-number: 2
   difficulty: 4
   author: Onyxite
+  rating: FF
+  key: B flat
   comments:
   - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
-  - "All instruments have overdrive/unison."
   autogen-theme: Slow Jam
 audio:
   album-track:

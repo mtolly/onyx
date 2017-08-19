@@ -2,9 +2,12 @@ metadata:
   title: Pain that Binds Us
   file-include: ../../../albums/puzzled.yml
   track-number: 1
-  author: Onyxite, mazegeek999
+  author: Onyxite, Mazegeek999
+  rating: SR
+  difficulty: 6
+  key: A
   comments:
-  - "Pro keys by mazegeek999."
+  - "Pro keys by Mazegeek999."
   - "Chart confidence: *high*. Transcribed from the PledgeMusic stems."
 audio:
   album-track:
@@ -88,6 +91,7 @@ parts:
     vocal:
       count: 3
       difficulty: 4
+      gender: male
 targets:
   rb3:
     game: rb3

@@ -4,9 +4,10 @@ metadata:
   track-number: 1
   difficulty: 7
   author: Onyxite
+  rating: SR
+  key: D
   comments:
   - "Chart confidence: *medium-high*. Mixing is a bit muddy. Bass was a lot of guessing."
-  - "All instruments have overdrive/unison."
 audio:
   album-track:
     md5: 549b025c2388557ebcc6faf625174da8
@@ -41,6 +42,7 @@ parts:
     vocal:
       count: 3
       difficulty: 5
+      gender: male
 targets:
   rb3:
     game: rb3
