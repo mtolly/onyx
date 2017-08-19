@@ -96,6 +96,7 @@ targets:
     game: rb3
     version: 1
     plan: pledgemusic
+    song-id: 1660200063
   ps:
     game: ps
     plan: pledgemusic
