@@ -38,7 +38,8 @@ plans:
             - album-track
 parts:
   drums:
-    drums: {}
+    drums:
+      difficulty: 6
 targets:
   rb3:
     game: rb3

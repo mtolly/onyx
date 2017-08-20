@@ -26,7 +26,7 @@ plans:
 parts:
   drums:
     drums:
-      difficulty: 7
+      difficulty: 6
 targets:
   rb3:
     game: rb3
