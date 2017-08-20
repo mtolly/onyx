@@ -60,6 +60,8 @@ plans:
         trim:
           - 0.326
           - gain: [0.8, pledgemusic-bass]
+      # TODO: probably move two-guitar sections to backing track,
+      # especially ones with sustains
       guitar:
         trim:
           - 0.326

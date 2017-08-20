@@ -60,6 +60,8 @@ plans:
         pad:
         - 4.371
         - gain: [0.65, pledgemusic-keyboards]
+      # TODO: probably move two-guitar sections to backing track,
+      # especially ones with sustains
       guitar:
         pad:
         - 4.371
