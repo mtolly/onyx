@@ -1,0 +1,42 @@
+metadata:
+  title: Blast Off
+  album: Separate Realities
+  artist: Trioscapes
+  track-number: 1
+  author: dertanz, Onyxite
+  key: B
+  rating: FF
+  comments:
+  - Drums chart done by dertanz for
+    [live version](https://www.youtube.com/watch?v=reyZ5DqSyvs),
+    adapted by Onyxite for
+    [album version](https://trioscapes.bandcamp.com).
+audio:
+  album-track:
+    # https://trioscapes.bandcamp.com
+    md5: 5747f9c45dfc4393216b1cbd0d7394e8
+    frames: 14499492
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
+    song:
+      pad: [4.526, album-track]
+parts:
+  drums:
+    drums: {}
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
