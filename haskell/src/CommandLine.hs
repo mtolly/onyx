@@ -29,7 +29,7 @@ import qualified Data.DTA.Serialize.Magma       as RBProj
 import qualified Data.DTA.Serialize.RB3         as D
 import           Data.Functor                   (void)
 import qualified Data.HashMap.Strict            as Map
-import           Data.List.Extra                (stripSuffix)
+import           Data.List.Extra                (intercalate, stripSuffix)
 import           Data.List.HT                   (partitionMaybe)
 import           Data.Maybe                     (fromMaybe, listToMaybe)
 import           Data.Monoid                    ((<>))
@@ -588,20 +588,32 @@ commands =
                 | elem OptKeysOnGuitar opts = (RBFile.FlexKeys  , RBFile.FlexBass)
                 | elem OptKeysOnBass   opts = (RBFile.FlexGuitar, RBFile.FlexKeys)
                 | otherwise                 = (RBFile.FlexGuitar, RBFile.FlexBass)
+              keys
+                | elem OptGuitarOnKeys opts = RBFile.FlexGuitar
+                | otherwise                 = RBFile.FlexKeys
               specified1x = listToMaybe [ f | OptTo f <- opts ]
               specified2x = listToMaybe [ f | Opt2x f <- opts ]
               target1x = makeTarget False
               target2x = makeTarget True
+              speed = listToMaybe [ d | OptSpeed d <- opts ]
+              speedPercent = round $ fromMaybe 1 speed * 100 :: Int
               makeTarget is2x = case game of
                 GameRB3 -> RB3 def
                   { rb3_2xBassPedal = is2x
+                  , rb3_Speed = speed
+                  , rb3_Keys = keys
                   }
                 GameRB2 -> RB2 def
                   { rb2_2xBassPedal = is2x
+                  , rb2_Speed = speed
                   , rb2_Guitar = gtr
                   , rb2_Bass = bass
                   }
-              suffix = case game of GameRB3 -> "rb3con"; GameRB2 -> "rb2con"
+              suffix = intercalate "_" $ concat
+                [ ["gk" | keys == RBFile.FlexGuitar]
+                , case speedPercent of 100 -> []; _ -> [show speedPercent]
+                , [case game of GameRB3 -> "rb3con"; GameRB2 -> "rb2con"]
+                ]
           prefix <- fmap dropTrailingPathSeparator $ stackIO $ Dir.makeAbsolute $ case ftype of
             FilePS -> takeDirectory fpath
             _      -> fpath
@@ -876,6 +888,8 @@ optDescrs =
   , Option []   ["keys-on-guitar" ] (NoArg  OptKeysOnGuitar                   ) ""
   , Option []   ["keys-on-bass"   ] (NoArg  OptKeysOnBass                     ) ""
   , Option []   ["force-pro-drums"] (NoArg  OptForceProDrums                  ) ""
+  , Option []   ["speed"          ] (ReqArg (OptSpeed . read)      "real"     ) ""
+  , Option []   ["guitar-on-keys" ] (NoArg  OptGuitarOnKeys                   ) ""
   , Option "h?" ["help"           ] (NoArg  OptHelp                           ) ""
   ] where
     readGame = \case
@@ -898,6 +912,8 @@ data OnyxOption
   | OptKeysOnGuitar
   | OptKeysOnBass
   | OptForceProDrums
+  | OptSpeed Double
+  | OptGuitarOnKeys
   | OptHelp
   deriving (Eq, Ord, Show, Read)
 
