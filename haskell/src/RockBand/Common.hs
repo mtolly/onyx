@@ -77,10 +77,10 @@ readCommandList = readCommand'
 -- | Turns a string like @\"[foo bar baz]\"@ into some parsed type.
 readCommand :: (Command a) => T.Text -> Maybe a
 readCommand s =  case T.dropWhile isSpace s of
-  (T.uncons -> Just ('[', s'))    -> case T.dropWhile isSpace $ T.reverse s' of
-    (T.uncons -> Just (']', s'')) -> toCommand $ T.words $ T.reverse s''
-    _                             -> Nothing
-  _                               -> Nothing
+  (T.uncons -> Just ('[', s'))       -> case T.span (/= ']') s' of
+    (s'', T.uncons -> Just (']', _)) -> toCommand $ T.words s''
+    _                                -> Nothing
+  _                                  -> Nothing
 
 showCommand' :: (Command a) => a -> E.T
 showCommand' = E.MetaEvent . Meta.TextEvent . T.unpack . showCommand
