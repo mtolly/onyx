@@ -40,6 +40,9 @@ parts:
   drums:
     drums:
       difficulty: 6
+  bass:
+    grybo:
+      difficulty: 5
 targets:
   rb3:
     game: rb3
