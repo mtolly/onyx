@@ -1,0 +1,112 @@
+parts:
+  vocal:
+    vocal:
+      gender: female
+      difficulty:
+        rank: 1
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 228
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 333
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        rank: 327
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 327
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        rank: 345
+plans:
+  mogg:
+    parts:
+      vocal:
+      - 6
+      - 7
+      bass:
+      - 2
+      - 3
+      guitar:
+      - 4
+      - 5
+      keys:
+      - 8
+      - 9
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 0f983f8fa7edd060ed3eb17390beea2e
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+targets:
+  rb3:
+    song-id: 1050200004
+    game: rb3
+    version: 30
+metadata:
+  rating: FamilyFriendly
+  preview-start: 17.777
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 3
+  album: Anika Nilles - EP
+  year: 2014
+  subgenre: other
+  author: I Have Friendzz, GreenPanda12, Onyxite
+  title: Alter Ego
+  preview-end: 47.777
+  genre: alternative
+  difficulty:
+    rank: 267
+  artist: Anika Nilles
+  comments:
+  - C3 release with fixed up drum chart by Onyxite.
