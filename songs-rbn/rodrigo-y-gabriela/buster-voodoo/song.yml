@@ -1,0 +1,39 @@
+parts:
+  bass:
+    grybo:
+      difficulty:
+        rank: 401
+    # to finish: pro bass
+  guitar:
+    grybo:
+      difficulty:
+        rank: 406
+    pro-guitar: {}
+plans:
+  mogg:
+    parts:
+      bass: [0, 1]
+      guitar: [2, 3]
+    pans: [-1, 1, -1, 1, -1, 1]
+    mogg-md5: 40e8ccea6f877249407d383b410cf07b
+    vols: [-5.5, -5.5, -5.5, -5.5, -5, -5]
+targets:
+  rb3:
+    # song-id: 5003011
+    game: rb3
+metadata:
+  preview-start: 1:25.000
+  file-album-art: cover.png_xbox
+  track-number: 2
+  album: 11:11
+  year: 2009
+  subgenre: rock
+  author: The Authority, Onyxite
+  title: Buster Voodoo
+  preview-end: 1:55.000
+  genre: rock
+  difficulty:
+    rank: 454
+  artist: Rodrigo y Gabriela
+  comments:
+  - "Pro Guitar/Bass upgrade."
