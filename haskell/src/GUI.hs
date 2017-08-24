@@ -108,25 +108,50 @@ commandLine' args = do
     ]
   commandLine args
 
-data ConvertRB3Options = ConvertRB3Options
-  { forceProDrums :: Bool
-  } deriving (Eq, Ord, Show, Read)
-
 data KeysRB2 = NoKeys | KeysGuitar | KeysBass
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-data ConvertRB2Options = ConvertRB2Options
-  { keysRB2 :: KeysRB2
-  } deriving (Eq, Ord, Show, Read)
+data ConvertOptions
+  = ConvertRB3
+    { crb3Speed :: Int -- ^ in percent
+    , crb3Project :: Bool -- ^ make a Magma v2 + REAPER project instead of CON
+    , crb3AutoToms :: Bool -- ^ tom markers over whole song if no pro authored
+    , crb3CopyGuitar :: Bool -- ^ copy guitar to keys
+    }
+  | ConvertRB2
+    { crb2Speed :: Int -- ^ in percent
+    , crb2Keys :: KeysRB2 -- ^ if keys should be dropped or moved to gtr or bass
+    }
+  deriving (Eq, Ord, Show, Read)
 
-optionsMenu :: a -> (a -> ([Choice [Choice (a -> a)]], Menu)) -> Menu
+convertRB3 :: ConvertOptions
+convertRB3 = ConvertRB3
+  { crb3Speed = 100
+  , crb3Project = False
+  , crb3AutoToms = False
+  , crb3CopyGuitar = False
+  }
+
+convertRB2 :: ConvertOptions
+convertRB2 = ConvertRB2
+  { crb2Speed = 100
+  , crb2Keys = NoKeys
+  }
+
+data OptionInput a
+  = OptionEnum [Choice a]
+  | OptionInt Int (Int -> a)
+
+optionsMenu :: a -> (a -> ([Choice (OptionInput a)], Menu)) -> Menu
 optionsMenu current getOptions = let
   (topChoices, continue) = getOptions current
-  topChoices' = flip map topChoices $ fmap $ \optionValues -> pushMenu $ Choices $ do
-    optionValue <- optionValues
-    return $ flip fmap optionValue $ \fn -> do
-      popMenu
-      setMenu $ optionsMenu (fn current) getOptions
+  topChoices' = flip map topChoices $ fmap $ \case
+    OptionInt _ _ -> undefined
+    OptionEnum optionValues -> pushMenu $ Choices $ do
+      optionValue <- optionValues
+      return $ flip fmap optionValue $ \new -> do
+        popMenu
+        setMenu $ optionsMenu new getOptions
   continueChoice = Choice
     { choiceValue = pushMenu continue
     , choiceTitle = "Continue..."
@@ -136,82 +161,154 @@ optionsMenu current getOptions = let
 
 topMenu :: Menu
 topMenu = Choices
-  [ ( Choice "PS to RB3" "Attempts to convert a Frets on Fire/Phase Shift song to Rock Band 3."
-    $ pushMenu $ Files (FilePicker ["*.ini"] "Frets on Fire/Phase Shift song.ini") []
-    $ \fs -> optionsMenu (ConvertRB3Options True)
-    $ \ConvertRB3Options{..} -> let
-      continue = TasksStart $ flip map fs $ \f -> commandLine' $ concat
-        [ ["convert", f, "--game", "rb3"]
-        , ["--force-pro-drums" | forceProDrums]
-        ]
-      opts =
-        [ Choice
-          { choiceTitle = "(option) Automatic tom markers"
-          , choiceDescription = if forceProDrums then "No" else "Yes"
-          , choiceValue =
-            [ Choice
-              { choiceTitle = "Yes"
-              , choiceDescription = "If no Pro Drums are found, tom markers will be added over the whole song."
-              , choiceValue = \convOpts -> convOpts { forceProDrums = False }
-              }
-            , Choice
-              { choiceTitle = "No"
-              , choiceDescription = "No tom markers will be added."
-              , choiceValue = \convOpts -> convOpts { forceProDrums = True }
-              }
-            ]
-          }
-        ]
-      in (opts, continue)
+  [ ( Choice "Convert" "Modifies a song or converts between games."
+    $ pushMenu $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)") []
+    $ \fs -> optionsMenu convertRB3
+    $ \case
+      ConvertRB3{..} -> let
+        continue = TasksStart $ flip map fs $ \f -> commandLine' $ concat
+          [ [if crb3Project then "magma" else "convert", f, "--game", "rb3"]
+          , ["--force-pro-drums" | not crb3AutoToms]
+          , case crb3Speed of
+            100 -> []
+            _   -> ["--speed", show (fromIntegral crb3Speed / 100 :: Double)]
+          , ["--guitar-on-keys" | crb3CopyGuitar]
+          ]
+        opts =
+          [ Choice
+            { choiceTitle = "Target game"
+            , choiceDescription = "Rock Band 3"
+            , choiceValue = OptionEnum
+              [ Choice
+                { choiceTitle = "Rock Band 3"
+                , choiceDescription = ""
+                , choiceValue = ConvertRB3{..}
+                }
+              , Choice
+                { choiceTitle = "Rock Band 2"
+                , choiceDescription = ""
+                , choiceValue = convertRB2
+                  { crb2Speed = crb3Speed
+                  }
+                }
+              ]
+            }
+          , Choice
+            { choiceTitle = "[option] Make project: " <> if crb3Project then "Yes" else "No"
+            , choiceDescription = "Make a Magma v2 + REAPER project instead of a CON file."
+            , choiceValue = OptionEnum
+              [ Choice
+                { choiceTitle = "Yes"
+                , choiceDescription = "Produce a Magma project. (Unencrypted audio only)"
+                , choiceValue = ConvertRB3 { crb3Project = True, .. }
+                }
+              , Choice
+                { choiceTitle = "No"
+                , choiceDescription = "Produce a CON file."
+                , choiceValue = ConvertRB3 { crb3Project = False, .. }
+                }
+              ]
+            }
+          , Choice
+            { choiceTitle = "[option] Speed: " <> T.pack (show crb3Speed) <> "%"
+            , choiceDescription = "Speed up or slow down the song. (Unencrypted audio only)"
+            , choiceValue = OptionInt crb3Speed
+              $ \newSpeed -> ConvertRB3 { crb3Speed = newSpeed, .. }
+            }
+          , Choice
+            { choiceTitle = "[option] Automatic tom markers: " <> if crb3AutoToms then "Yes" else "No"
+            , choiceDescription = "For FoF/PS songs with no Pro Drums, mark everything as toms."
+            , choiceValue = OptionEnum
+              [ Choice
+                { choiceTitle = "Yes"
+                , choiceDescription = "If no Pro Drums are found, tom markers will be added over the whole song."
+                , choiceValue = ConvertRB3 { crb3AutoToms = True, .. }
+                }
+              , Choice
+                { choiceTitle = "No"
+                , choiceDescription = "No tom markers will be added."
+                , choiceValue = ConvertRB3 { crb3AutoToms = False, .. }
+                }
+              ]
+            }
+          , Choice
+            { choiceTitle = "[option] Copy guitar to keys: " <> if crb3CopyGuitar then "Yes" else "No"
+            , choiceDescription = "Copy the guitar chart to keys so two people can play it."
+            , choiceValue = OptionEnum
+              [ Choice
+                { choiceTitle = "Yes"
+                , choiceDescription = "Copy the guitar chart to keys"
+                , choiceValue = ConvertRB3 { crb3CopyGuitar = True, .. }
+                }
+              , Choice
+                { choiceTitle = "No"
+                , choiceDescription = "No change"
+                , choiceValue = ConvertRB3 { crb3CopyGuitar = False, .. }
+                }
+              ]
+            }
+          ]
+        in (opts, continue)
+      ConvertRB2{..} -> let
+        continue = TasksStart $ flip map fs $ \f -> commandLine' $ concat
+          [ ["convert", f, "--game", "rb2"]
+          , case crb2Keys of NoKeys -> []; KeysGuitar -> ["--keys-on-guitar"]; KeysBass -> ["--keys-on-bass"]
+          , case crb2Speed of
+            100 -> []
+            _   -> ["--speed", show (fromIntegral crb2Speed / 100 :: Double)]
+          ]
+        opts =
+          [ Choice
+            { choiceTitle = "Target game"
+            , choiceDescription = "Rock Band 2"
+            , choiceValue = OptionEnum
+              [ Choice
+                { choiceTitle = "Rock Band 3"
+                , choiceDescription = ""
+                , choiceValue = convertRB3
+                  { crb3Speed = crb2Speed
+                  }
+                }
+              , Choice
+                { choiceTitle = "Rock Band 2"
+                , choiceDescription = ""
+                , choiceValue = ConvertRB2{..}
+                }
+              ]
+            }
+          , Choice
+            { choiceTitle = "[option] Speed: " <> T.pack (show crb2Speed) <> "%"
+            , choiceDescription = "Speed up or slow down the song. (Unencrypted audio only)"
+            , choiceValue = OptionInt crb2Speed
+              $ \newSpeed -> ConvertRB2 { crb2Speed = newSpeed, .. }
+            }
+          , Choice
+            { choiceTitle = "[option] Keys: " <> case crb2Keys of NoKeys -> "No keys"; KeysGuitar -> "Keys on guitar"; KeysBass -> "Keys on bass"
+            , choiceDescription = "Should Keys replace Guitar or Bass, or be removed?"
+            , choiceValue = OptionEnum
+              [ Choice
+                { choiceTitle = "No keys"
+                , choiceDescription = "Drops the Keys part if present."
+                , choiceValue = ConvertRB2 { crb2Keys = NoKeys, .. }
+                }
+              , Choice
+                { choiceTitle = "Keys on guitar"
+                , choiceDescription = "Drops Guitar if present, and puts Keys on Guitar (like RB3 keytar mode)."
+                , choiceValue = ConvertRB2 { crb2Keys = KeysGuitar, .. }
+                }
+              , Choice
+                { choiceTitle = "Keys on bass"
+                , choiceDescription = "Drops Bass if present, and puts Keys on Bass (like RB3 keytar mode)."
+                , choiceValue = ConvertRB2 { crb2Keys = KeysBass, .. }
+                }
+              ]
+            }
+          ]
+        in (opts, continue)
     )
-  , ( Choice "RB3 to RB2" "Converts a song from Rock Band 3 to Rock Band 2."
-    $ pushMenu $ Files (FilePicker ["*_rb3con"] "Rock Band 3 CON files") []
-    $ \fs -> optionsMenu (ConvertRB2Options NoKeys)
-    $ \ConvertRB2Options{..} -> let
-      continue = TasksStart $ flip map fs $ \f -> commandLine' $ concat
-        [ ["convert", f, "--game", "rb2"]
-        , case keysRB2 of NoKeys -> []; KeysGuitar -> ["--keys-on-guitar"]; KeysBass -> ["--keys-on-bass"]
-        ]
-      opts =
-        [ Choice
-          { choiceTitle = "(option) Keys"
-          , choiceDescription = case keysRB2 of NoKeys -> "No keys"; KeysGuitar -> "Keys on guitar"; KeysBass -> "Keys on bass"
-          , choiceValue =
-            [ Choice
-              { choiceTitle = "No keys"
-              , choiceDescription = "Drops the Keys part if present."
-              , choiceValue = \convOpts -> convOpts { keysRB2 = NoKeys }
-              }
-            , Choice
-              { choiceTitle = "Keys on guitar"
-              , choiceDescription = "Drops Guitar if present, and puts Keys on Guitar (like RB3 keytar mode)."
-              , choiceValue = \convOpts -> convOpts { keysRB2 = KeysGuitar }
-              }
-            , Choice
-              { choiceTitle = "Keys on bass"
-              , choiceDescription = "Drops Bass if present, and puts Keys on Bass (like RB3 keytar mode)."
-              , choiceValue = \convOpts -> convOpts { keysRB2 = KeysBass }
-              }
-            ]
-          }
-        ]
-      in (opts, continue)
-    )
-  , ( Choice "Magma project" "Imports a song (RB3/RB2/PS) to a Magma v2 project."
-    $ pushMenu $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)") [] $ \fs ->
-      TasksStart $ map (\f -> commandLine' ["magma", f]) fs
-    )
-  , ( Choice "Web preview" "Produces a web browser app to preview a song."
+  , ( Choice "Preview" "Produces a web browser app to preview a song."
     $ pushMenu $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)") [] $ \fs ->
       TasksStart $ map (\f -> commandLine' ["player", f]) fs
-    )
-  , ( Choice "REAPER project" "Converts a MIDI or song (RB3/RB2/PS) to a REAPER project."
-    $ pushMenu $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini", "*.mid"] "Songs (RB3/RB2/PS) or MIDI files") [] $ \fs ->
-      TasksStart $ map (\f -> commandLine' ["reap", f]) fs
-    )
-  , ( Choice "Auto reductions" "Fills empty difficulties in a MIDI file with CAT-quality reductions."
-    $ pushMenu $ Files (FilePicker ["*.mid"] "MIDI files") [] $ \fs ->
-      TasksStart $ map (\f -> commandLine' ["reduce", f]) fs
     )
   ]
 
