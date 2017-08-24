@@ -1,0 +1,38 @@
+metadata:
+  title: Ligamentous Laxity
+  artist: Jazz Robots
+  album: "Jazz Robots Learn to Ride a Bike (With Training Wheels)"
+  genre: jazz
+  subgenre: contemporary
+  rating: FF
+  file-album-art: cover.jpg
+  year: 2016
+  author: Onyxite
+  track-number: 1
+  key: G
+parts:
+  drums:
+    drums: {}
+audio:
+  # https://jazzrobots.bandcamp.com/album/jazz-robots-learn-to-ride-a-bike-with-training-wheels
+  album-track:
+    md5: 5dede71c94e5eab63d16384b2a6c5c6a
+    frames: 15535052
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [5.575, album-track]
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
