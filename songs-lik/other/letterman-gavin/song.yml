@@ -10,7 +10,7 @@ audio:
   aligned-audio:
     expr:
       gain:
-      - 3.25
+      - 4
       - fade:
         - end
         - 1.6
@@ -80,10 +80,17 @@ metadata:
   comments:
   - Original chart by TheLieInKing.
   - Minor fixes and 2x Bass Pedal by Onyxite.
+  # TODO: check over and fix (carefully) LIK's tempo map
 parts:
   drums:
     drums:
       difficulty: 7
+  bass:
+    grybo:
+      difficulty: 5
+  keys:
+    pro-keys:
+      difficulty: 4
 targets:
   rb3:
     game: rb3
