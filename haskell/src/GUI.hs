@@ -65,6 +65,7 @@ data Menu
   | TasksStart [StackTraceT IO [FilePath]]
   | TasksRunning ThreadId TasksStatus
   | TasksDone FilePath TasksStatus
+  | EnterInt T.Text Int (Int -> Onyx ())
 
 data Choice a = Choice
   { choiceTitle       :: T.Text
@@ -140,13 +141,15 @@ convertRB2 = ConvertRB2
 
 data OptionInput a
   = OptionEnum [Choice a]
-  | OptionInt Int (Int -> a)
+  | OptionInt T.Text Int (Int -> a)
 
 optionsMenu :: a -> (a -> ([Choice (OptionInput a)], Menu)) -> Menu
 optionsMenu current getOptions = let
   (topChoices, continue) = getOptions current
   topChoices' = flip map topChoices $ fmap $ \case
-    OptionInt _ _ -> undefined
+    OptionInt label start cont -> pushMenu $ EnterInt label start $ \int -> do
+      popMenu
+      setMenu $ optionsMenu (cont int) getOptions
     OptionEnum optionValues -> pushMenu $ Choices $ do
       optionValue <- optionValues
       return $ flip fmap optionValue $ \new -> do
@@ -212,7 +215,7 @@ topMenu = Choices
           , Choice
             { choiceTitle = "[option] Speed: " <> T.pack (show crb3Speed) <> "%"
             , choiceDescription = "Speed up or slow down the song. (Unencrypted audio only)"
-            , choiceValue = OptionInt crb3Speed
+            , choiceValue = OptionInt "Song speed (%)" crb3Speed
               $ \newSpeed -> ConvertRB3 { crb3Speed = newSpeed, .. }
             }
           , Choice
@@ -279,7 +282,7 @@ topMenu = Choices
           , Choice
             { choiceTitle = "[option] Speed: " <> T.pack (show crb2Speed) <> "%"
             , choiceDescription = "Speed up or slow down the song. (Unencrypted audio only)"
-            , choiceValue = OptionInt crb2Speed
+            , choiceValue = OptionInt "Song speed (%)" crb2Speed
               $ \newSpeed -> ConvertRB2 { crb2Speed = newSpeed, .. }
             }
           , Choice
@@ -400,6 +403,14 @@ launchGUI = do
         , Choice "View log" "" $ osOpenFile logFile
         , Choice "Main menu" "" $ put initialState
         ]
+      EnterInt label int useInt ->
+        [ Choice "+ 5" "" $ setMenu $ EnterInt label (int + 5) useInt
+        , Choice "+ 1" "" $ setMenu $ EnterInt label (int + 1) useInt
+        , Choice (T.pack $ show int) label $ return ()
+        , Choice "- 1" "" $ setMenu $ EnterInt label (max 1 $ int - 1) useInt
+        , Choice "- 5" "" $ setMenu $ EnterInt label (max 1 $ int - 5) useInt
+        , Choice "Save" "" $ useInt int
+        ]
 
     draw :: Onyx ()
     draw = do
@@ -491,12 +502,13 @@ launchGUI = do
 
     doSelect :: Maybe (Int, Int) -> Onyx ()
     doSelect mousePos = do
-      GUIState{..} <- get
-      case currentSelection of
+      wasInt <- (\case EnterInt{} -> True; _ -> False) <$> gets currentScreen
+      gs <- get
+      case currentSelection gs of
         NoSelect -> return ()
-        SelectPage i -> case drop i previousScreens of
+        SelectPage i -> case drop i $ previousScreens gs of
           pm : pms -> do
-            case currentScreen of
+            case currentScreen gs of
               TasksRunning tid _ -> liftIO $ killThread tid
               _                  -> return ()
             put $ GUIState pm pms NoSelect
@@ -504,7 +516,8 @@ launchGUI = do
         SelectMenu i -> do
           choices <- getChoices
           choiceValue $ choices !! i
-      newSelect mousePos
+      isInt <- (\case EnterInt{} -> True; _ -> False) <$> gets currentScreen
+      unless (wasInt && isInt) $ newSelect mousePos
 
     goBack :: Onyx ()
     goBack = get >>= \case
