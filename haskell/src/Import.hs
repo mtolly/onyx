@@ -127,24 +127,18 @@ importFoF detectBasicDrums src dest = do
         _              -> filter (== "song.ogg") audioFiles
 
   parsed <- loadMIDI $ src </> "notes.mid"
-  let pad = RBFile.needsPad parsed
-      padDelay :: (Num a) => a
-      padDelay = if pad then 3 else 0
-      maybePadAudio = if pad then Pad Start $ CA.Seconds padDelay else id
-      (delayAudio, delayMIDI) = case FoF.delay song of
-        Nothing -> (maybePadAudio, RBFile.padMIDI padDelay)
+  let (delayAudio, delayMIDI) = case FoF.delay song of
+        Nothing -> (id, id)
         Just n -> case compare n 0 of
-          EQ -> (maybePadAudio, RBFile.padMIDI padDelay)
+          EQ -> (id, id)
           GT -> let
             secs = fromIntegral n / 1000
             midiDelay = ceiling secs
             audioDelay = fromIntegral midiDelay - secs
-            padDelay' :: (Num a) => a
-            padDelay' = if midiDelay >= padDelay then 0 else padDelay - fromIntegral midiDelay
-            in (Pad Start $ CA.Seconds $ audioDelay + padDelay', RBFile.padMIDI $ midiDelay + padDelay')
+            in (Pad Start $ CA.Seconds audioDelay, RBFile.padMIDI midiDelay)
           LT ->
-            ( Pad Start $ CA.Seconds $ fromIntegral (abs n) / 1000 + padDelay
-            , RBFile.padMIDI padDelay
+            ( Pad Start $ CA.Seconds $ fromIntegral (abs n) / 1000
+            , id
             )
       audioExpr [] = Nothing
       audioExpr [aud] = Just PlanAudio
@@ -161,8 +155,6 @@ importFoF detectBasicDrums src dest = do
         trk <- [RBFile.psPartVocals, RBFile.psHarm1, RBFile.psHarm2, RBFile.psHarm3]
         RBVox.Note _ _ <- toList $ discardPS $ trk $ RBFile.s_tracks parsed
         return ()
-
-  when pad $ warn $ "Padding FoF/PS song by " ++ show (padDelay :: Int) ++ " seconds due to early start."
 
   let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
 
