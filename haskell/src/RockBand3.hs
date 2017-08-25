@@ -205,7 +205,6 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
               Just grybo
                 -> (if RBFile.flexFiveIsKeys basicKeysSrc then id else Five.forceAllNotes $ fromIntegral (gryboHopoThreshold grybo) / 480)
                 $ discardPS $ RBFile.flexFiveButton basicKeysSrc
-            -- TODO remove tremolo (+ hand positions?) from basic keys, nemo's checker doesn't like them
             fpart = RBFile.getFlexPart keysPart trks
             keysDiff diff = if isJust $ partProKeys part
               then discardPS $ case diff of
@@ -233,6 +232,7 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
             ffPro = if fmap pkFixFreeform (partProKeys part) == Just True
               then fixFreeformPK
               else id
+            -- nemo's checker doesn't like if you include this stuff on PART KEYS
             removeGtrStuff = RTB.filter $ \case
               Five.FretPosition{} -> False
               Five.HandMap     {} -> False
