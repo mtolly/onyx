@@ -35,8 +35,7 @@ import           Data.Fixed                            (Centi)
 import           Data.Foldable                         (toList)
 import           Data.Hashable                         (hash)
 import qualified Data.HashMap.Strict                   as HM
-import           Data.List                             (findIndices,
-                                                        intercalate, isPrefixOf,
+import           Data.List                             (intercalate, isPrefixOf,
                                                         nub)
 import           Data.Maybe                            (fromMaybe, isJust,
                                                         isNothing, mapMaybe)
@@ -178,19 +177,23 @@ makeRB3DTA songYaml plan rb3 song filename = do
         (_genre    $ _metadata songYaml)
         (_subgenre $ _metadata songYaml)
       lookupPart rank part parts = guard (rank /= 0) >> HM.lookup part (getParts parts)
-      -- following 3 are only used for Plan not MoggPlan
-      partChannels :: [(RBFile.FlexPartName, (Double, Double))]
+      -- all the following are only used for Plan, not MoggPlan.
+      -- we don't need to handle more than 1 game part mapping to the same flex part,
+      -- because no specs will change - we'll just zero out the game parts
+      channelIndices before inst = take (length inst) $ drop (length $ concat before) $ [0..]
+      partChannels, drumChannels, bassChannels, guitarChannels, keysChannels, vocalChannels, crowdChannels, songChannels :: [(Double, Double)]
       partChannels = concat
-        -- TODO: if a flex part maps to more than 1 game part, it should get no audio
-        [ case rb3DrumsRank of
-          0 -> []
-          _ -> map (rb3_Drums rb3 ,) $ kickPV ++ snarePV ++ kitPV
-        , case rb3BassRank   of 0 -> []; _ -> map (rb3_Bass   rb3 ,) $ computeSimplePart (rb3_Bass   rb3) plan songYaml
-        , case rb3GuitarRank of 0 -> []; _ -> map (rb3_Guitar rb3 ,) $ computeSimplePart (rb3_Guitar rb3) plan songYaml
-        , case rb3KeysRank   of 0 -> []; _ -> map (rb3_Keys   rb3 ,) $ computeSimplePart (rb3_Keys   rb3) plan songYaml
-        , case rb3VocalRank  of 0 -> []; _ -> map (rb3_Vocal  rb3 ,) $ computeSimplePart (rb3_Vocal  rb3) plan songYaml
+        [ drumChannels
+        , bassChannels
+        , guitarChannels
+        , keysChannels
+        , vocalChannels
         ]
-      crowdChannels, songChannels :: [(Double, Double)]
+      drumChannels   = case rb3DrumsRank  of 0 -> []; _ -> kickPV ++ snarePV ++ kitPV
+      bassChannels   = case rb3BassRank   of 0 -> []; _ -> computeSimplePart (rb3_Bass   rb3) plan songYaml
+      guitarChannels = case rb3GuitarRank of 0 -> []; _ -> computeSimplePart (rb3_Guitar rb3) plan songYaml
+      keysChannels   = case rb3KeysRank   of 0 -> []; _ -> computeSimplePart (rb3_Keys   rb3) plan songYaml
+      vocalChannels  = case rb3VocalRank  of 0 -> []; _ -> computeSimplePart (rb3_Vocal  rb3) plan songYaml
       crowdChannels = case plan of
         MoggPlan{..} -> undefined -- not used
         Plan    {..} -> case _crowd of
@@ -218,11 +221,11 @@ makeRB3DTA songYaml plan rb3 song filename = do
               , ("vocals", getChannels rb3VocalRank  $ rb3_Vocal  rb3)
               ]
         Plan{..} ->
-          [ ("drum"  , findIndices (\(fpart, _) -> fpart == rb3_Drums  rb3) partChannels)
-          , ("bass"  , findIndices (\(fpart, _) -> fpart == rb3_Bass   rb3) partChannels)
-          , ("guitar", findIndices (\(fpart, _) -> fpart == rb3_Guitar rb3) partChannels)
-          , ("keys"  , findIndices (\(fpart, _) -> fpart == rb3_Keys   rb3) partChannels)
-          , ("vocals", findIndices (\(fpart, _) -> fpart == rb3_Vocal  rb3) partChannels)
+          [ ("drum"  , channelIndices [] drumChannels)
+          , ("bass"  , channelIndices [drumChannels] bassChannels)
+          , ("guitar", channelIndices [drumChannels, bassChannels] guitarChannels)
+          , ("keys"  , channelIndices [drumChannels, bassChannels, guitarChannels] keysChannels)
+          , ("vocals", channelIndices [drumChannels, bassChannels, guitarChannels, keysChannels] vocalChannels)
           ]
       , D.vocalParts = Just $ case fmap vocalCount $ getPart (rb3_Vocal rb3) songYaml >>= partVocal of
         Nothing     -> 0
@@ -231,13 +234,13 @@ makeRB3DTA songYaml plan rb3 song filename = do
         Just Vocal3 -> 3
       , D.pans = map realToFrac $ case plan of
         MoggPlan{..} -> _pans
-        Plan{..}     -> map fst $ map snd partChannels ++ crowdChannels ++ songChannels
+        Plan{..}     -> map fst $ partChannels ++ crowdChannels ++ songChannels
       , D.vols = map realToFrac $ case plan of
         MoggPlan{..} -> _vols
-        Plan{..}     -> map snd $ map snd partChannels ++ crowdChannels ++ songChannels
+        Plan{..}     -> map snd $ partChannels ++ crowdChannels ++ songChannels
       , D.cores = case plan of
         MoggPlan{..} -> map (const (-1)) _pans
-        Plan{..}     -> map (const (-1)) $ map snd partChannels ++ crowdChannels ++ songChannels
+        Plan{..}     -> map (const (-1)) $ partChannels ++ crowdChannels ++ songChannels
         -- TODO: 1 for guitar channels?
       , D.drumSolo = D.DrumSounds $ T.words $ case fmap drumsLayout $ getPart (rb3_Drums rb3) songYaml >>= partDrums of
         Nothing             -> "kick.cue snare.cue tom1.cue tom2.cue crash.cue"
@@ -741,15 +744,18 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
           adjustSpec False [(0, 0)] = [(0, 0)]
           adjustSpec False _        = [(-1, 0), (1, 0)]
 
-          -- TODO: these all need speed adjustments, for both Plan and MoggPlan
-
           adjustAudioSpeed speed src = case speed of
             Nothing -> src
             Just 1  -> src
             Just n  -> stretchFull (1 / n) 1 src
+          -- Silences out an audio stream if more than 1 game part maps to the same flex part
+          zeroIfMultiple fparts fpart src = case filter (== fpart) fparts of
+            _ : _ : _ -> takeStart (Frames 0) src
+            _         -> src
 
-          writeKick, writeSnare, writeKit, writeSimplePart :: Maybe Double -> Bool -> T.Text -> Plan -> RBFile.FlexPartName -> Integer -> FilePath -> StackTraceT Action ()
-          writeKick speed supportsOffMono planName plan fpart rank out = do
+          writeKick, writeSnare, writeKit, writeSimplePart
+            :: [RBFile.FlexPartName] -> Maybe Double -> Bool -> T.Text -> Plan -> RBFile.FlexPartName -> Integer -> FilePath -> StackTraceT Action ()
+          writeKick gameParts speed supportsOffMono planName plan fpart rank out = do
             ((spec', _, _), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
@@ -763,8 +769,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit kick _ _) -> kick
                   _                           -> Nothing
-            lift $ runAudio (adjustAudioSpeed speed src) out
-          writeSnare speed supportsOffMono planName plan fpart rank out = do
+            lift $ runAudio (zeroIfMultiple gameParts fpart $ adjustAudioSpeed speed src) out
+          writeSnare gameParts speed supportsOffMono planName plan fpart rank out = do
             ((_, spec', _), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
@@ -778,8 +784,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit _ snare _) -> snare
                   _                            -> Nothing
-            lift $ runAudio (adjustAudioSpeed speed src) out
-          writeKit speed supportsOffMono planName plan fpart rank out = do
+            lift $ runAudio (zeroIfMultiple gameParts fpart $ adjustAudioSpeed speed src) out
+          writeKit gameParts speed supportsOffMono planName plan fpart rank out = do
             ((_, _, spec'), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
@@ -795,7 +801,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   Just (PartDrumKit _ _ kit) -> Just kit
                   Just (PartSingle      kit) -> Just kit
                   _                          -> Nothing
-            lift $ runAudio (adjustAudioSpeed speed src) out
+            lift $ runAudio (zeroIfMultiple gameParts fpart $ adjustAudioSpeed speed src) out
           getPartSource spec planName plan fpart rank = case plan of
             MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ do
               guard $ rank /= 0
@@ -803,17 +809,19 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             Plan{..} -> buildPartAudioToSpec songYaml spec $ do
               guard $ rank /= 0
               HM.lookup fpart $ getParts _planParts
-          writeStereoParts speed planName plan fpartranks out = do
+          writeStereoParts gameParts speed planName plan fpartranks out = do
             let spec = [(-1, 0), (1, 0)]
-            srcs <- mapM (uncurry $ getPartSource spec planName plan) fpartranks
+            srcs <- forM fpartranks $ \(fpart, rank)
+              -> zeroIfMultiple gameParts fpart
+              <$> getPartSource spec planName plan fpart rank
             src <- case srcs of
               []     -> buildAudioToSpec songYaml spec Nothing
               s : ss -> return $ foldr mix s ss
             lift $ runAudio (adjustAudioSpeed speed src) out
-          writeSimplePart speed supportsOffMono planName plan fpart rank out = do
+          writeSimplePart gameParts speed supportsOffMono planName plan fpart rank out = do
             let spec = adjustSpec supportsOffMono $ computeSimplePart fpart plan songYaml
             src <- getPartSource spec planName plan fpart rank
-            lift $ runAudio (adjustAudioSpeed speed src) out
+            lift $ runAudio (zeroIfMultiple gameParts fpart $ adjustAudioSpeed speed src) out
           writeCrowd speed planName plan out = do
             src <- case plan of
               MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] planName (zip _pans _vols) _silent _moggCrowd
@@ -821,7 +829,16 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             lift $ runAudio (adjustAudioSpeed speed src) out
           writeSongCountin :: Maybe Double -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> StackTraceT Action ()
           writeSongCountin speed includeCountin planName plan fparts out = do
-            let usedParts = [ fpart | (fpart, rank) <- fparts, rank /= 0 ]
+            let usedParts' = [ fpart | (fpart, rank) <- fparts, rank /= 0 ]
+                usedParts =
+                  [ fpart
+                  | fpart <- usedParts'
+                  , case filter (== fpart) usedParts' of
+                    -- if more than 1 game part maps to this flex part,
+                    -- the flex part's audio should go in backing track
+                    _ : _ : _ -> False
+                    _         -> True
+                  ]
                 spec = [(-1, 0), (1, 0)]
             src <- case plan of
               MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ let
@@ -887,18 +904,16 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 pathMagmaDummyMono   = dir </> "magma/dummy-mono.wav"
                 pathMagmaDummyStereo = dir </> "magma/dummy-stereo.wav"
 
-            -- TODO: if a flex part maps to more than 1 game part,
-            -- all the game parts should be silent,
-            -- and that flex part's audio should go to the backing track
-            pathMagmaKick   ≡> writeKick        (rb3_Speed rb3) True planName plan (rb3_Drums  rb3) rb3DrumsRank
-            pathMagmaSnare  ≡> writeSnare       (rb3_Speed rb3) True planName plan (rb3_Drums  rb3) rb3DrumsRank
-            pathMagmaDrums  ≡> writeKit         (rb3_Speed rb3) True planName plan (rb3_Drums  rb3) rb3DrumsRank
-            pathMagmaBass   ≡> writeSimplePart  (rb3_Speed rb3) True planName plan (rb3_Bass   rb3) rb3BassRank
-            pathMagmaGuitar ≡> writeSimplePart  (rb3_Speed rb3) True planName plan (rb3_Guitar rb3) rb3GuitarRank
-            pathMagmaKeys   ≡> writeSimplePart  (rb3_Speed rb3) True planName plan (rb3_Keys   rb3) rb3KeysRank
-            pathMagmaVocal  ≡> writeSimplePart  (rb3_Speed rb3) True planName plan (rb3_Vocal  rb3) rb3VocalRank
-            pathMagmaCrowd  ≡> writeCrowd       (rb3_Speed rb3)      planName plan
-            pathMagmaSong   ≡> writeSongCountin (rb3_Speed rb3) True planName plan
+            let magmaParts = map ($ rb3) [rb3_Drums, rb3_Bass, rb3_Guitar, rb3_Keys, rb3_Vocal]
+            pathMagmaKick   ≡> writeKick        magmaParts (rb3_Speed rb3) True planName plan (rb3_Drums  rb3) rb3DrumsRank
+            pathMagmaSnare  ≡> writeSnare       magmaParts (rb3_Speed rb3) True planName plan (rb3_Drums  rb3) rb3DrumsRank
+            pathMagmaDrums  ≡> writeKit         magmaParts (rb3_Speed rb3) True planName plan (rb3_Drums  rb3) rb3DrumsRank
+            pathMagmaBass   ≡> writeSimplePart  magmaParts (rb3_Speed rb3) True planName plan (rb3_Bass   rb3) rb3BassRank
+            pathMagmaGuitar ≡> writeSimplePart  magmaParts (rb3_Speed rb3) True planName plan (rb3_Guitar rb3) rb3GuitarRank
+            pathMagmaKeys   ≡> writeSimplePart  magmaParts (rb3_Speed rb3) True planName plan (rb3_Keys   rb3) rb3KeysRank
+            pathMagmaVocal  ≡> writeSimplePart  magmaParts (rb3_Speed rb3) True planName plan (rb3_Vocal  rb3) rb3VocalRank
+            pathMagmaCrowd  ≡> writeCrowd                  (rb3_Speed rb3)      planName plan
+            pathMagmaSong   ≡> writeSongCountin            (rb3_Speed rb3) True planName plan
               [ (rb3_Drums  rb3, rb3DrumsRank )
               , (rb3_Guitar rb3, rb3GuitarRank)
               , (rb3_Bass   rb3, rb3BassRank  )
@@ -1513,19 +1528,17 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 , FoF.video            = const "video.avi" <$> ps_FileVideo ps
                 }
 
-            -- TODO: if a flex part maps to more than 1 game part,
-            -- all the game parts should be silent,
-            -- and that flex part's audio should go to the backing track
-            dir </> "ps/drums.ogg"   ≡> writeStereoParts (ps_Speed ps) planName plan [(ps_Drums  ps, rb3DrumsRank)]
-            dir </> "ps/drums_1.ogg" ≡> writeKick  (ps_Speed ps) False planName plan  (ps_Drums  ps) rb3DrumsRank
-            dir </> "ps/drums_2.ogg" ≡> writeSnare (ps_Speed ps) False planName plan  (ps_Drums  ps) rb3DrumsRank
-            dir </> "ps/drums_3.ogg" ≡> writeKit   (ps_Speed ps) False planName plan  (ps_Drums  ps) rb3DrumsRank
-            dir </> "ps/guitar.ogg"  ≡> writeStereoParts (ps_Speed ps) planName plan
+            let psParts = map ($ ps) [ps_Drums, ps_Guitar, ps_Bass, ps_Keys, ps_Vocal, ps_Rhythm, ps_GuitarCoop]
+            dir </> "ps/drums.ogg"   ≡> writeStereoParts psParts (ps_Speed ps) planName plan [(ps_Drums  ps, rb3DrumsRank)]
+            dir </> "ps/drums_1.ogg" ≡> writeKick  psParts (ps_Speed ps) False planName plan  (ps_Drums  ps) rb3DrumsRank
+            dir </> "ps/drums_2.ogg" ≡> writeSnare psParts (ps_Speed ps) False planName plan  (ps_Drums  ps) rb3DrumsRank
+            dir </> "ps/drums_3.ogg" ≡> writeKit   psParts (ps_Speed ps) False planName plan  (ps_Drums  ps) rb3DrumsRank
+            dir </> "ps/guitar.ogg"  ≡> writeStereoParts psParts (ps_Speed ps) planName plan
               [(ps_Guitar ps, rb3GuitarRank), (ps_GuitarCoop ps, psGuitarCoopTier)]
-            dir </> "ps/keys.ogg"    ≡> writeStereoParts (ps_Speed ps) planName plan [(ps_Keys   ps, rb3KeysRank)]
-            dir </> "ps/rhythm.ogg"  ≡> writeStereoParts (ps_Speed ps) planName plan
+            dir </> "ps/keys.ogg"    ≡> writeStereoParts psParts (ps_Speed ps) planName plan [(ps_Keys   ps, rb3KeysRank)]
+            dir </> "ps/rhythm.ogg"  ≡> writeStereoParts psParts (ps_Speed ps) planName plan
               [(ps_Bass ps, rb3BassRank), (ps_Rhythm ps, psRhythmTier)]
-            dir </> "ps/vocals.ogg"  ≡> writeStereoParts (ps_Speed ps) planName plan [(ps_Vocal  ps, rb3VocalRank)]
+            dir </> "ps/vocals.ogg"  ≡> writeStereoParts psParts (ps_Speed ps) planName plan [(ps_Vocal  ps, rb3VocalRank)]
             dir </> "ps/crowd.ogg"   ≡> writeCrowd       (ps_Speed ps) planName plan
             dir </> "ps/song.ogg"    ≡> writeSongCountin (ps_Speed ps) True planName plan
               [ (ps_Drums      ps, rb3DrumsTier    )
@@ -1597,16 +1610,16 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
           let name = T.unpack $ RBFile.getPartName fpart
           case pa of
             PartSingle () -> do
-              dir </> name <.> "wav" ≡> writeSimplePart Nothing False planName plan fpart 1
+              dir </> name <.> "wav" ≡> writeSimplePart [fpart] Nothing False planName plan fpart 1
             PartDrumKit mkick msnare () -> do
               forM_ mkick $ \() -> do
                 dir </> (name ++ "-kick") <.> "wav" ≡>
-                  writeKick Nothing False planName plan fpart 1
+                  writeKick [fpart] Nothing False planName plan fpart 1
               forM_ msnare $ \() -> do
                 dir </> (name ++ "-snare") <.> "wav" ≡>
-                  writeSnare Nothing False planName plan fpart 1
+                  writeSnare [fpart] Nothing False planName plan fpart 1
               dir </> (name ++ "-kit") <.> "wav" ≡>
-                writeKit Nothing False planName plan fpart 1
+                writeKit [fpart] Nothing False planName plan fpart 1
         let allPlanAudio :: [FilePath]
             allPlanAudio = map (dir </>) $ concat
               [ [ "song.wav" ]

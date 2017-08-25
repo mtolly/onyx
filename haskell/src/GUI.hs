@@ -113,14 +113,14 @@ data KeysRB2 = NoKeys | KeysGuitar | KeysBass
 
 data ConvertOptions
   = ConvertRB3
-    { crb3Speed :: Int -- ^ in percent
-    , crb3Project :: Bool -- ^ make a Magma v2 + REAPER project instead of CON
-    , crb3AutoToms :: Bool -- ^ tom markers over whole song if no pro authored
+    { crb3Speed      :: Int -- ^ in percent
+    , crb3Project    :: Bool -- ^ make a Magma v2 + REAPER project instead of CON
+    , crb3AutoToms   :: Bool -- ^ tom markers over whole song if no pro authored
     , crb3CopyGuitar :: Bool -- ^ copy guitar to keys
     }
   | ConvertRB2
     { crb2Speed :: Int -- ^ in percent
-    , crb2Keys :: KeysRB2 -- ^ if keys should be dropped or moved to gtr or bass
+    , crb2Keys  :: KeysRB2 -- ^ if keys should be dropped or moved to gtr or bass
     }
   deriving (Eq, Ord, Show, Read)
 

@@ -233,7 +233,13 @@ processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudio
             ffPro = if fmap pkFixFreeform (partProKeys part) == Just True
               then fixFreeformPK
               else id
-            in  ( ffBasic basicKeys
+            removeGtrStuff = RTB.filter $ \case
+              Five.FretPosition{} -> False
+              Five.HandMap     {} -> False
+              Five.StrumMap    {} -> False
+              Five.Tremolo     {} -> False
+              _                   -> True
+            in  ( ffBasic $ removeGtrStuff basicKeys
                 , animRH
                 , animLH
                 , ffPro $ ProKeys.fixPSRange keysExpert
