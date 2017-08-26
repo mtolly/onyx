@@ -1,0 +1,39 @@
+metadata:
+  album: "Thoughts, Vol. 3"
+  year: 2016
+  author: Onyxite
+  title: Thoughts
+  artist: Kaz Rodriguez
+plans:
+  album:
+    # TODO: get isolated drums
+    song:
+      pad: [3.419, drumless]
+    parts:
+      drums:
+        pad: [0.493, youtube]
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube bhYqiIl1Tec 140
+    # md5:
+    # frames:
+  drumless:
+    md5: 1be2f6270a88c1e947bf74b5aa641b6c
+    frames: 15552000
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+parts:
+  drums:
+    drums: {}
+targets:
+  rb3:
+    game: rb3
