@@ -6,12 +6,28 @@ metadata:
   artist: Kaz Rodriguez
 plans:
   album:
-    # TODO: get isolated drums
     song:
-      pad: [3.419, drumless]
+      pad:
+      - 3.419
+      - gain: [1.75, drumless]
     parts:
+      mixed:
+        pad:
+        - 0.493
+        - youtube
+      # TODO: isolate drums more
       drums:
-        pad: [0.493, youtube]
+        pad:
+        - 0.493
+        - mix:
+          - gain:
+            - -1
+            - youtube
+          - pad:
+            - frames: 129095
+            - gain:
+              - 1.2589 # 2 dB
+              - drumless
     countin:
       0|0: hihat
       0|2: hihat
