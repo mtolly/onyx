@@ -708,29 +708,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
           else saveMIDI out RBFile.Song
             { RBFile.s_tempos = U.tempoMapFromBPS RTB.empty
             , RBFile.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty
-            , RBFile.s_tracks = RBFile.RB3File
-              { RBFile.rb3PartDrums = RTB.empty
-              , RBFile.rb3PartGuitar = RTB.empty
-              , RBFile.rb3PartRealGuitar = RTB.empty
-              , RBFile.rb3PartRealGuitar22 = RTB.empty
-              , RBFile.rb3PartBass = RTB.empty
-              , RBFile.rb3PartRealBass = RTB.empty
-              , RBFile.rb3PartRealBass22 = RTB.empty
-              , RBFile.rb3PartKeys = RTB.empty
-              , RBFile.rb3PartRealKeysX = RTB.empty
-              , RBFile.rb3PartRealKeysH = RTB.empty
-              , RBFile.rb3PartRealKeysM = RTB.empty
-              , RBFile.rb3PartRealKeysE = RTB.empty
-              , RBFile.rb3PartKeysAnimRH = RTB.empty
-              , RBFile.rb3PartKeysAnimLH = RTB.empty
-              , RBFile.rb3PartVocals = RTB.empty
-              , RBFile.rb3Harm1 = RTB.empty
-              , RBFile.rb3Harm2 = RTB.empty
-              , RBFile.rb3Harm3 = RTB.empty
-              , RBFile.rb3Events = RTB.empty
-              , RBFile.rb3Beat = RTB.empty
-              , RBFile.rb3Venue = RTB.empty
-              }
+            , RBFile.s_tracks = def :: RBFile.OnyxFile U.Beats
             }
 
       let getAudioLength :: T.Text -> Action U.Seconds
@@ -744,6 +722,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
           adjustSpec False [(0, 0)] = [(0, 0)]
           adjustSpec False _        = [(-1, 0), (1, 0)]
 
+          padAudio pad = padStart $ Seconds $ realToFrac (pad :: Int)
           adjustAudioSpeed speed src = case speed of
             Nothing -> src
             Just 1  -> src
@@ -754,8 +733,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             _         -> src
 
           writeKick, writeSnare, writeKit, writeSimplePart
-            :: [RBFile.FlexPartName] -> Maybe Double -> Bool -> T.Text -> Plan -> RBFile.FlexPartName -> Integer -> FilePath -> StackTraceT Action ()
-          writeKick gameParts speed supportsOffMono planName plan fpart rank out = do
+            :: [RBFile.FlexPartName] -> Maybe Double -> Int -> Bool -> T.Text -> Plan -> RBFile.FlexPartName -> Integer -> FilePath -> StackTraceT Action ()
+          writeKick gameParts speed pad supportsOffMono planName plan fpart rank out = do
             ((spec', _, _), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
@@ -769,8 +748,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit kick _ _) -> kick
                   _                           -> Nothing
-            lift $ runAudio (zeroIfMultiple gameParts fpart $ adjustAudioSpeed speed src) out
-          writeSnare gameParts speed supportsOffMono planName plan fpart rank out = do
+            lift $ runAudio (zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
+          writeSnare gameParts speed pad supportsOffMono planName plan fpart rank out = do
             ((_, spec', _), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
@@ -784,8 +763,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit _ snare _) -> snare
                   _                            -> Nothing
-            lift $ runAudio (zeroIfMultiple gameParts fpart $ adjustAudioSpeed speed src) out
-          writeKit gameParts speed supportsOffMono planName plan fpart rank out = do
+            lift $ runAudio (zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
+          writeKit gameParts speed pad supportsOffMono planName plan fpart rank out = do
             ((_, _, spec'), _) <- computeDrumsPart fpart plan songYaml
             let spec = adjustSpec supportsOffMono spec'
             src <- case plan of
@@ -801,7 +780,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   Just (PartDrumKit _ _ kit) -> Just kit
                   Just (PartSingle      kit) -> Just kit
                   _                          -> Nothing
-            lift $ runAudio (zeroIfMultiple gameParts fpart $ adjustAudioSpeed speed src) out
+            lift $ runAudio (zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
           getPartSource spec planName plan fpart rank = case plan of
             MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ do
               guard $ rank /= 0
@@ -809,7 +788,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             Plan{..} -> buildPartAudioToSpec songYaml spec $ do
               guard $ rank /= 0
               HM.lookup fpart $ getParts _planParts
-          writeStereoParts gameParts speed planName plan fpartranks out = do
+          writeStereoParts gameParts speed pad planName plan fpartranks out = do
             let spec = [(-1, 0), (1, 0)]
             srcs <- forM fpartranks $ \(fpart, rank)
               -> zeroIfMultiple gameParts fpart
@@ -817,18 +796,18 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             src <- case srcs of
               []     -> buildAudioToSpec songYaml spec Nothing
               s : ss -> return $ foldr mix s ss
-            lift $ runAudio (adjustAudioSpeed speed src) out
-          writeSimplePart gameParts speed supportsOffMono planName plan fpart rank out = do
+            lift $ runAudio (padAudio pad $ adjustAudioSpeed speed src) out
+          writeSimplePart gameParts speed pad supportsOffMono planName plan fpart rank out = do
             let spec = adjustSpec supportsOffMono $ computeSimplePart fpart plan songYaml
             src <- getPartSource spec planName plan fpart rank
-            lift $ runAudio (zeroIfMultiple gameParts fpart $ adjustAudioSpeed speed src) out
-          writeCrowd speed planName plan out = do
+            lift $ runAudio (zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
+          writeCrowd speed pad planName plan out = do
             src <- case plan of
               MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] planName (zip _pans _vols) _silent _moggCrowd
               Plan{..}     -> buildAudioToSpec songYaml [(-1, 0), (1, 0)] _crowd
-            lift $ runAudio (adjustAudioSpeed speed src) out
-          writeSongCountin :: Maybe Double -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> StackTraceT Action ()
-          writeSongCountin speed includeCountin planName plan fparts out = do
+            lift $ runAudio (padAudio pad $ adjustAudioSpeed speed src) out
+          writeSongCountin :: Maybe Double -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> StackTraceT Action ()
+          writeSongCountin speed pad includeCountin planName plan fparts out = do
             let usedParts' = [ fpart | (fpart, rank) <- fparts, rank /= 0 ]
                 usedParts =
                   [ fpart
@@ -862,7 +841,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                       []     -> buildPartAudioToSpec songYaml spec Nothing
                       s : ss -> return $ foldr mix s ss
 
-            lift $ runAudio (adjustAudioSpeed speed src) out
+            lift $ runAudio (padAudio pad $ adjustAudioSpeed speed src) out
 
           rbRules :: FilePath -> TargetRB3 -> Maybe TargetRB2 -> Rules ()
           rbRules dir rb3 mrb2 = do
@@ -903,23 +882,42 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 pathMagmaExport2     = dir </> "notes-magma-added.mid"
                 pathMagmaDummyMono   = dir </> "magma/dummy-mono.wav"
                 pathMagmaDummyStereo = dir </> "magma/dummy-stereo.wav"
+                pathMagmaPad         = dir </> "magma/pad.txt"
 
             let magmaParts = map ($ rb3) [rb3_Drums, rb3_Bass, rb3_Guitar, rb3_Keys, rb3_Vocal]
-            pathMagmaKick   ≡> writeKick        magmaParts (rb3_Speed rb3) True planName plan (rb3_Drums  rb3) rb3DrumsRank
-            pathMagmaSnare  ≡> writeSnare       magmaParts (rb3_Speed rb3) True planName plan (rb3_Drums  rb3) rb3DrumsRank
-            pathMagmaDrums  ≡> writeKit         magmaParts (rb3_Speed rb3) True planName plan (rb3_Drums  rb3) rb3DrumsRank
-            pathMagmaBass   ≡> writeSimplePart  magmaParts (rb3_Speed rb3) True planName plan (rb3_Bass   rb3) rb3BassRank
-            pathMagmaGuitar ≡> writeSimplePart  magmaParts (rb3_Speed rb3) True planName plan (rb3_Guitar rb3) rb3GuitarRank
-            pathMagmaKeys   ≡> writeSimplePart  magmaParts (rb3_Speed rb3) True planName plan (rb3_Keys   rb3) rb3KeysRank
-            pathMagmaVocal  ≡> writeSimplePart  magmaParts (rb3_Speed rb3) True planName plan (rb3_Vocal  rb3) rb3VocalRank
-            pathMagmaCrowd  ≡> writeCrowd                  (rb3_Speed rb3)      planName plan
-            pathMagmaSong   ≡> writeSongCountin            (rb3_Speed rb3) True planName plan
-              [ (rb3_Drums  rb3, rb3DrumsRank )
-              , (rb3_Guitar rb3, rb3GuitarRank)
-              , (rb3_Bass   rb3, rb3BassRank  )
-              , (rb3_Keys   rb3, rb3KeysRank  )
-              , (rb3_Vocal  rb3, rb3VocalRank )
-              ]
+            pathMagmaKick   ≡> \out -> do
+              pad <- lift $ read <$> readFile' pathMagmaPad
+              writeKick        magmaParts (rb3_Speed rb3) pad True planName plan (rb3_Drums  rb3) rb3DrumsRank out
+            pathMagmaSnare  ≡> \out -> do
+              pad <- lift $ read <$> readFile' pathMagmaPad
+              writeSnare       magmaParts (rb3_Speed rb3) pad True planName plan (rb3_Drums  rb3) rb3DrumsRank out
+            pathMagmaDrums  ≡> \out -> do
+              pad <- lift $ read <$> readFile' pathMagmaPad
+              writeKit         magmaParts (rb3_Speed rb3) pad True planName plan (rb3_Drums  rb3) rb3DrumsRank out
+            pathMagmaBass   ≡> \out -> do
+              pad <- lift $ read <$> readFile' pathMagmaPad
+              writeSimplePart  magmaParts (rb3_Speed rb3) pad True planName plan (rb3_Bass   rb3) rb3BassRank out
+            pathMagmaGuitar ≡> \out -> do
+              pad <- lift $ read <$> readFile' pathMagmaPad
+              writeSimplePart  magmaParts (rb3_Speed rb3) pad True planName plan (rb3_Guitar rb3) rb3GuitarRank out
+            pathMagmaKeys   ≡> \out -> do
+              pad <- lift $ read <$> readFile' pathMagmaPad
+              writeSimplePart  magmaParts (rb3_Speed rb3) pad True planName plan (rb3_Keys   rb3) rb3KeysRank out
+            pathMagmaVocal  ≡> \out -> do
+              pad <- lift $ read <$> readFile' pathMagmaPad
+              writeSimplePart  magmaParts (rb3_Speed rb3) pad True planName plan (rb3_Vocal  rb3) rb3VocalRank out
+            pathMagmaCrowd  ≡> \out -> do
+              pad <- lift $ read <$> readFile' pathMagmaPad
+              writeCrowd                  (rb3_Speed rb3) pad      planName plan out
+            pathMagmaSong   ≡> \out -> do
+              pad <- lift $ read <$> readFile' pathMagmaPad
+              writeSongCountin            (rb3_Speed rb3) pad True planName plan
+                [ (rb3_Drums  rb3, rb3DrumsRank )
+                , (rb3_Guitar rb3, rb3GuitarRank)
+                , (rb3_Bass   rb3, rb3BassRank  )
+                , (rb3_Keys   rb3, rb3KeysRank  )
+                , (rb3_Vocal  rb3, rb3VocalRank )
+                ] out
             let saveClip m out vox = lift $ do
                   let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
                       clip = clipDryVox $ U.applyTempoTrack (RBFile.s_tempos m) $ vocalTubes vox
@@ -1046,15 +1044,25 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                     }
                 }
 
-            pathMagmaMid ≡> \out -> do
+            [pathMagmaMid, pathMagmaPad] &%> \[out, outPad] -> shakeTrace $ do
               input <- shakeMIDI $ planDir </> "raw.mid"
               (_, mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
-              output <- lift $ RB3.processMIDI
+              let adjustMIDISpeed mid = case rb3_Speed rb3 of
+                    Just n | n /= 1 -> mid
+                      { RBFile.s_tempos
+                        = U.tempoMapFromBPS
+                        $ fmap (* realToFrac n)
+                        $ U.tempoMapToBPS
+                        $ RBFile.s_tempos mid
+                      }
+                    _               -> mid
+              (output, pad) <- RB3.processRB3Pad
                 rb3
                 songYaml
-                input
+                (adjustMIDISpeed input)
                 mixMode
                 (getAudioLength planName)
+              liftIO $ writeFile outPad $ show pad
               sects <- ATB.toPairList . RTB.toAbsoluteEventList 0 <$> getRealSections
               let (magmaSects, invalid) = makeRBN2Sections sects
                   magmaSects' = RTB.fromAbsoluteEventList $ ATB.fromPairList magmaSects
@@ -1066,19 +1074,10 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                       $ RTB.filter (not . isSection)
                       $ RBFile.rb3Events trks
                     }
-                  adjustMIDISpeed mid = case rb3_Speed rb3 of
-                    Just n | n /= 1 -> mid
-                      { RBFile.s_tempos
-                        = U.tempoMapFromBPS
-                        $ fmap (* realToFrac n)
-                        $ U.tempoMapToBPS
-                        $ RBFile.s_tempos mid
-                      }
-                    _               -> mid
               lift $ case invalid of
                 [] -> return ()
                 _  -> putNormal $ "The following sections were unrecognized and replaced: " ++ show invalid
-              lift $ saveMIDI out $ adjustMIDISpeed output
+              lift $ saveMIDI out output
                 { RBFile.s_tracks = adjustEvents $ RBFile.s_tracks output
                 }
 
@@ -1096,11 +1095,18 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments (_metadata songYaml) plan $ rb3_2xBassPedal rb3
             pathMid %> copyFile' pathMagmaExport2
             pathOgg ≡> \out -> case plan of
-              MoggPlan{} -> lift $ case rb3_Speed rb3 of
-                Just n | n /= 1 -> do
-                  src <- buildSource (StretchFull (1 / n) 1 $ Input $ planDir </> "audio.ogg")
-                  runAudio src out
-                _ -> copyFile' (planDir </> "audio.ogg") out
+              MoggPlan{} -> lift $ do
+                let speed = fromMaybe 1 $ rb3_Speed rb3
+                pad <- read <$> readFile' (dir </> "magma/pad.txt")
+                case (speed, pad) of
+                  (1, 0) -> copyFile' (planDir </> "audio.ogg") out
+                  _      -> do
+                    src <- buildSource
+                      ( Pad Start (Seconds $ realToFrac (pad :: Int))
+                      $ StretchFull (1 / speed) 1
+                      $ Input $ planDir </> "audio.ogg"
+                      )
+                    runAudio src out
               Plan{..}   -> do
                 (_, mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
                 let parts = concat
@@ -1468,7 +1474,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             dir </> "ps/notes.mid" ≡> \out -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
               (_, mixMode) <- computeDrumsPart (ps_Drums ps) plan songYaml
-              output <- lift $ RB3.processMIDI
+              output <- RB3.processPS
                 ps
                 songYaml
                 input
@@ -1529,18 +1535,18 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 }
 
             let psParts = map ($ ps) [ps_Drums, ps_Guitar, ps_Bass, ps_Keys, ps_Vocal, ps_Rhythm, ps_GuitarCoop]
-            dir </> "ps/drums.ogg"   ≡> writeStereoParts psParts (ps_Speed ps) planName plan [(ps_Drums  ps, rb3DrumsRank)]
-            dir </> "ps/drums_1.ogg" ≡> writeKick  psParts (ps_Speed ps) False planName plan  (ps_Drums  ps) rb3DrumsRank
-            dir </> "ps/drums_2.ogg" ≡> writeSnare psParts (ps_Speed ps) False planName plan  (ps_Drums  ps) rb3DrumsRank
-            dir </> "ps/drums_3.ogg" ≡> writeKit   psParts (ps_Speed ps) False planName plan  (ps_Drums  ps) rb3DrumsRank
-            dir </> "ps/guitar.ogg"  ≡> writeStereoParts psParts (ps_Speed ps) planName plan
+            dir </> "ps/drums.ogg"   ≡> writeStereoParts psParts (ps_Speed ps) 0 planName plan [(ps_Drums  ps, rb3DrumsRank)]
+            dir </> "ps/drums_1.ogg" ≡> writeKick  psParts (ps_Speed ps) 0 False planName plan  (ps_Drums  ps) rb3DrumsRank
+            dir </> "ps/drums_2.ogg" ≡> writeSnare psParts (ps_Speed ps) 0 False planName plan  (ps_Drums  ps) rb3DrumsRank
+            dir </> "ps/drums_3.ogg" ≡> writeKit   psParts (ps_Speed ps) 0 False planName plan  (ps_Drums  ps) rb3DrumsRank
+            dir </> "ps/guitar.ogg"  ≡> writeStereoParts psParts (ps_Speed ps) 0 planName plan
               [(ps_Guitar ps, rb3GuitarRank), (ps_GuitarCoop ps, psGuitarCoopTier)]
-            dir </> "ps/keys.ogg"    ≡> writeStereoParts psParts (ps_Speed ps) planName plan [(ps_Keys   ps, rb3KeysRank)]
-            dir </> "ps/rhythm.ogg"  ≡> writeStereoParts psParts (ps_Speed ps) planName plan
+            dir </> "ps/keys.ogg"    ≡> writeStereoParts psParts (ps_Speed ps) 0 planName plan [(ps_Keys   ps, rb3KeysRank)]
+            dir </> "ps/rhythm.ogg"  ≡> writeStereoParts psParts (ps_Speed ps) 0 planName plan
               [(ps_Bass ps, rb3BassRank), (ps_Rhythm ps, psRhythmTier)]
-            dir </> "ps/vocals.ogg"  ≡> writeStereoParts psParts (ps_Speed ps) planName plan [(ps_Vocal  ps, rb3VocalRank)]
-            dir </> "ps/crowd.ogg"   ≡> writeCrowd       (ps_Speed ps) planName plan
-            dir </> "ps/song.ogg"    ≡> writeSongCountin (ps_Speed ps) True planName plan
+            dir </> "ps/vocals.ogg"  ≡> writeStereoParts psParts (ps_Speed ps) 0 planName plan [(ps_Vocal  ps, rb3VocalRank)]
+            dir </> "ps/crowd.ogg"   ≡> writeCrowd       (ps_Speed ps) 0 planName plan
+            dir </> "ps/song.ogg"    ≡> writeSongCountin (ps_Speed ps) 0 True planName plan
               [ (ps_Drums      ps, rb3DrumsTier    )
               , (ps_Guitar     ps, rb3GuitarTier   )
               , (ps_GuitarCoop ps, psGuitarCoopTier)
@@ -1604,22 +1610,22 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               Plan{..}     -> HM.toList $ getParts $ void <$> _planParts
               MoggPlan{..} -> HM.toList $ getParts $ void <$> _moggParts
         dir </> "song.wav" ≡>
-          writeSongCountin Nothing False planName plan [ (fpart, 1) | (fpart, _) <- allPlanParts ]
-        dir </> "crowd.wav" ≡> writeCrowd Nothing planName plan
+          writeSongCountin Nothing 0 False planName plan [ (fpart, 1) | (fpart, _) <- allPlanParts ]
+        dir </> "crowd.wav" ≡> writeCrowd Nothing 0 planName plan
         forM_ allPlanParts $ \(fpart, pa) -> do
           let name = T.unpack $ RBFile.getPartName fpart
           case pa of
             PartSingle () -> do
-              dir </> name <.> "wav" ≡> writeSimplePart [fpart] Nothing False planName plan fpart 1
+              dir </> name <.> "wav" ≡> writeSimplePart [fpart] Nothing 0 False planName plan fpart 1
             PartDrumKit mkick msnare () -> do
               forM_ mkick $ \() -> do
                 dir </> (name ++ "-kick") <.> "wav" ≡>
-                  writeKick [fpart] Nothing False planName plan fpart 1
+                  writeKick [fpart] Nothing 0 False planName plan fpart 1
               forM_ msnare $ \() -> do
                 dir </> (name ++ "-snare") <.> "wav" ≡>
-                  writeSnare [fpart] Nothing False planName plan fpart 1
+                  writeSnare [fpart] Nothing 0 False planName plan fpart 1
               dir </> (name ++ "-kit") <.> "wav" ≡>
-                writeKit [fpart] Nothing False planName plan fpart 1
+                writeKit [fpart] Nothing 0 False planName plan fpart 1
         let allPlanAudio :: [FilePath]
             allPlanAudio = map (dir </>) $ concat
               [ [ "song.wav" ]
@@ -1715,7 +1721,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
         midprocessed ≡> \out -> do
           input <- shakeMIDI midraw
           let defTarget = def { rb3_2xBassPedal = True }
-          output <- lift $ RB3.processMIDI defTarget songYaml input RBDrums.D0 $ getAudioLength planName
+          output <- RB3.processRB3 defTarget songYaml input RBDrums.D0 $ getAudioLength planName
           lift $ saveMIDI out output
 
         display ≡> \out -> do

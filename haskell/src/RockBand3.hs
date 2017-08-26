@@ -1,11 +1,10 @@
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE LambdaCase             #-}
-{-# LANGUAGE MultiParamTypeClasses  #-}
-{-# LANGUAGE OverloadedStrings      #-}
-module RockBand3 (MIDIProcessor(..), findProblems) where
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+module RockBand3 (processRB3, processRB3Pad, processPS, findProblems) where
 
 import           Config                           hiding (Target (PS))
 import           Control.Monad.Extra
+import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer       (execWriter, tell)
 import qualified Data.EventList.Absolute.TimeBody as ATB
@@ -28,29 +27,45 @@ import qualified RockBand.Vocals                  as RBVox
 import           Scripts
 import qualified Sound.MIDI.Util                  as U
 
-class MIDIProcessor target output | target -> output where
-  processMIDI
-    :: target
-    -> SongYaml
-    -> RBFile.Song (RBFile.OnyxFile U.Beats)
-    -> RBDrums.Audio
-    -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
-    -> Action (RBFile.Song (output U.Beats))
-
-instance MIDIProcessor TargetRB3 RBFile.RB3File where
-  processMIDI a b c d e = processRB3 (Left a) b c d e >>= shakeTrace . magmaLegalTempos . fmap fst
-
-instance MIDIProcessor TargetPS RBFile.PSFile where
-  processMIDI a b c d e = fmap (fmap snd) $ processRB3 (Right a) b c d e
-
 processRB3
+  :: TargetRB3
+  -> SongYaml
+  -> RBFile.Song (RBFile.OnyxFile U.Beats)
+  -> RBDrums.Audio
+  -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
+  -> StackTraceT Action (RBFile.Song (RBFile.RB3File U.Beats))
+processRB3 a b c d e = do
+  res <- lift $ processMIDI (Left a) b c d e
+  magmaLegalTempos $ fmap fst res
+
+processRB3Pad
+  :: TargetRB3
+  -> SongYaml
+  -> RBFile.Song (RBFile.OnyxFile U.Beats)
+  -> RBDrums.Audio
+  -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
+  -> StackTraceT Action (RBFile.Song (RBFile.RB3File U.Beats), Int)
+processRB3Pad a b c d e = do
+  res <- lift $ processMIDI (Left a) b c d e
+  magmaLegalTempos (fmap fst res) >>= magmaPad
+
+processPS
+  :: TargetPS
+  -> SongYaml
+  -> RBFile.Song (RBFile.OnyxFile U.Beats)
+  -> RBDrums.Audio
+  -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
+  -> StackTraceT Action (RBFile.Song (RBFile.PSFile U.Beats))
+processPS a b c d e = lift $ fmap (fmap snd) $ processMIDI (Right a) b c d e
+
+processMIDI
   :: Either TargetRB3 TargetPS
   -> SongYaml
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio
   -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
   -> Action (RBFile.Song (RBFile.RB3File U.Beats, RBFile.PSFile U.Beats))
-processRB3 target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudioLength = do
+processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudioLength = do
   let showPosition = RBFile.showPosition . U.applyMeasureMap mmap
       eventsRaw = discardPS $ RBFile.onyxEvents trks
       eventsList = ATB.toPairList $ RTB.toAbsoluteEventList 0 eventsRaw
@@ -429,6 +444,47 @@ magmaLegalTempos rb3 = do
           , RBFile.s_tempos = U.tempoMapFromBPS $ stretchTempos measureChanges 2 allTempos
           , RBFile.s_signatures = U.measureMapFromTimeSigs U.Truncate $ stretchSigs measureChanges (U.TimeSig 4 1) allSigs
           }
+
+magmaPad
+  :: (Monad m)
+  => RBFile.Song (RBFile.RB3File U.Beats)
+  -> StackTraceT m (RBFile.Song (RBFile.RB3File U.Beats), Int)
+magmaPad rb3@(RBFile.Song tmap _ trks) = let
+  firstEvent rtb = case RTB.viewL rtb of
+    Just ((dt, _), _) -> dt
+    Nothing           -> 999
+  firstNoteBeats = foldr min 999
+    [ firstEvent $ RTB.filter drumNote  $ RBFile.rb3PartDrums        trks
+    , firstEvent $ RTB.filter gryboNote $ RBFile.rb3PartGuitar       trks
+    , firstEvent $ RTB.filter gryboNote $ RBFile.rb3PartBass         trks
+    , firstEvent $ RTB.filter gryboNote $ RBFile.rb3PartKeys         trks
+    , firstEvent $ RTB.filter ptarNote  $ RBFile.rb3PartRealGuitar   trks
+    , firstEvent $ RTB.filter ptarNote  $ RBFile.rb3PartRealGuitar22 trks
+    , firstEvent $ RTB.filter ptarNote  $ RBFile.rb3PartRealBass     trks
+    , firstEvent $ RTB.filter ptarNote  $ RBFile.rb3PartRealBass22   trks
+    , firstEvent $ RTB.filter pkeyNote  $ RBFile.rb3PartRealKeysE    trks
+    , firstEvent $ RTB.filter pkeyNote  $ RBFile.rb3PartRealKeysM    trks
+    , firstEvent $ RTB.filter pkeyNote  $ RBFile.rb3PartRealKeysH    trks
+    , firstEvent $ RTB.filter pkeyNote  $ RBFile.rb3PartRealKeysX    trks
+    , firstEvent $ RTB.filter voxNote   $ RBFile.rb3PartVocals       trks
+    , firstEvent $ RTB.filter voxNote   $ RBFile.rb3Harm1            trks
+    , firstEvent $ RTB.filter voxNote   $ RBFile.rb3Harm2            trks
+    , firstEvent $ RTB.filter voxNote   $ RBFile.rb3Harm3            trks
+    ]
+  drumNote = \case RBDrums.DiffEvent _ (RBDrums.Note _) -> True; _ -> False
+  gryboNote = \case Five.DiffEvent _ (Five.Note _) -> True; _ -> False
+  ptarNote = \case ProGtr.DiffEvent _ (ProGtr.Note _) -> True; _ -> False
+  pkeyNote = \case ProKeys.Note{} -> True; _ -> False
+  voxNote = \case RBVox.Note{} -> True; _ -> False
+  firstNoteSeconds = U.applyTempoMap tmap firstNoteBeats
+  -- magma says 2.45s but account for some float error
+  padSeconds = max 0 $ ceiling $ 2.451 - (realToFrac firstNoteSeconds :: Rational)
+  in case padSeconds of
+    0 -> do
+      return (rb3, 0)
+    _ -> do
+      warn $ "Padding song by " ++ show padSeconds ++ "s due to early notes."
+      return (RBFile.padRB3MIDI padSeconds rb3, padSeconds)
 
 findProblems :: RBFile.Song (RBFile.OnyxFile U.Beats) -> [String]
 findProblems song = execWriter $ do

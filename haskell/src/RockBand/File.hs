@@ -332,6 +332,9 @@ data OnyxFile t = OnyxFile
   , onyxMelodysEscape :: RTB.T t             Melody.Event
   } deriving (Eq, Ord, Show)
 
+instance Default (OnyxFile t) where
+  def = OnyxFile Map.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+
 getFlexPart :: FlexPartName -> OnyxFile t -> FlexPart t
 getFlexPart part = fromMaybe def . Map.lookup part . onyxFlexParts
 
@@ -534,60 +537,54 @@ mergeCharts offset base new = let
       $ U.applyTempoTrack (s_tempos new) trk
   in base { s_tracks = RawFile newTracks }
 
--- | True if there are any playable notes in the first 2.5 seconds.
-needsPad :: Song (PSFile U.Beats) -> Bool
-needsPad (Song temps _ PSFile{..}) = let
-  sec2_5 = U.unapplyTempoMap temps (2.5 :: U.Seconds)
-  earlyDrums = earlyPred $ \case
-    Drums.DiffEvent _ (Drums.Note _) -> True
-    _ -> False
-  earlyFive = earlyPred $ \case
-    FiveButton.DiffEvent _ (FiveButton.Note _) -> True
-    _ -> False
-  earlyProGtr = earlyPred $ \case
-    ProGuitar.DiffEvent _ (ProGuitar.Note _) -> True
-    _ -> False
-  earlyProKeys = earlyPred $ \case
-    ProKeys.Note{} -> True
-    _ -> False
-  earlyPSKeys = earlyPred $ \case
-    PSKeys.Note{} -> True
-    _ -> False
-  earlyVox = earlyPred $ \case
-    Vocals.Note{} -> True
-    _ -> False
-  earlyPred fn t = any fn $ U.trackTake sec2_5 t
-  in or
-    [ earlyDrums $ discardPS psPartDrums
-    , earlyDrums $ discardPS psPartDrums2x
-    , earlyDrums $ discardPS psPartRealDrumsPS
-    , earlyFive $ discardPS psPartGuitar
-    , earlyFive $ discardPS psPartBass
-    , earlyFive $ discardPS psPartKeys
-    , earlyFive $ discardPS psPartRhythm
-    , earlyFive $ discardPS psPartGuitarCoop
-    , earlyProGtr $ discardPS psPartRealGuitar
-    , earlyProGtr $ discardPS psPartRealGuitar22
-    , earlyProGtr $ discardPS psPartRealBass
-    , earlyProGtr $ discardPS psPartRealBass22
-    , earlyProKeys $ discardPS psPartRealKeysE
-    , earlyProKeys $ discardPS psPartRealKeysM
-    , earlyProKeys $ discardPS psPartRealKeysH
-    , earlyProKeys $ discardPS psPartRealKeysX
-    , earlyPSKeys $ discardPS psPartRealKeysPS_E
-    , earlyPSKeys $ discardPS psPartRealKeysPS_M
-    , earlyPSKeys $ discardPS psPartRealKeysPS_H
-    , earlyPSKeys $ discardPS psPartRealKeysPS_X
-    , earlyVox $ discardPS psPartVocals
-    , earlyVox $ discardPS psHarm1
-    , earlyVox $ discardPS psHarm2
-    , earlyVox $ discardPS psHarm3
-    ]
+-- | Adds a given amount of 1 second increments to the start of the MIDI.
+padRB3MIDI :: Int -> Song (RB3File U.Beats) -> Song (RB3File U.Beats)
+padRB3MIDI 0       song                         = song
+padRB3MIDI seconds (Song temps sigs RB3File{..}) = let
+  beats = fromIntegral seconds * 2
+  temps'
+    = U.tempoMapFromBPS
+    $ RTB.cons 0 2 -- 120 bpm
+    $ RTB.delay beats
+    $ U.tempoMapToBPS temps
+  sigs'
+    = U.measureMapFromTimeSigs U.Error
+    $ RTB.cons 0 (U.TimeSig 1 1) -- 1/4
+    $ RTB.delay beats
+    $ U.measureMapToTimeSigs sigs
+  padSimple = RTB.delay beats
+  padBeat
+    = RTB.cons  0 Beat.Bar
+    . foldr (.) id (replicate (seconds * 2 - 1) $ RTB.cons 1 Beat.Beat)
+    . RTB.delay 1
+  in Song temps' sigs' RB3File
+    { rb3PartDrums        = padSimple rb3PartDrums
+    , rb3PartGuitar       = padSimple rb3PartGuitar
+    , rb3PartBass         = padSimple rb3PartBass
+    , rb3PartKeys         = padSimple rb3PartKeys
+    , rb3PartRealGuitar   = padSimple rb3PartRealGuitar
+    , rb3PartRealGuitar22 = padSimple rb3PartRealGuitar22
+    , rb3PartRealBass     = padSimple rb3PartRealBass
+    , rb3PartRealBass22   = padSimple rb3PartRealBass22
+    , rb3PartRealKeysE    = padSimple rb3PartRealKeysE
+    , rb3PartRealKeysM    = padSimple rb3PartRealKeysM
+    , rb3PartRealKeysH    = padSimple rb3PartRealKeysH
+    , rb3PartRealKeysX    = padSimple rb3PartRealKeysX
+    , rb3PartKeysAnimLH   = padSimple rb3PartKeysAnimLH
+    , rb3PartKeysAnimRH   = padSimple rb3PartKeysAnimRH
+    , rb3PartVocals       = padSimple rb3PartVocals
+    , rb3Harm1            = padSimple rb3Harm1
+    , rb3Harm2            = padSimple rb3Harm2
+    , rb3Harm3            = padSimple rb3Harm3
+    , rb3Events           = padSimple rb3Events
+    , rb3Beat             = if RTB.null rb3Beat then RTB.empty else padBeat rb3Beat
+    , rb3Venue            = padSimple rb3Venue
+    }
 
 -- | Adds a given amount of 1 second increments to the start of the MIDI.
-padMIDI :: Int -> Song (PSFile U.Beats) -> Song (PSFile U.Beats)
-padMIDI 0       song                         = song
-padMIDI seconds (Song temps sigs PSFile{..}) = let
+padPSMIDI :: Int -> Song (PSFile U.Beats) -> Song (PSFile U.Beats)
+padPSMIDI 0       song                         = song
+padPSMIDI seconds (Song temps sigs PSFile{..}) = let
   beats = fromIntegral seconds * 2
   temps'
     = U.tempoMapFromBPS
@@ -634,4 +631,4 @@ padMIDI seconds (Song temps sigs PSFile{..}) = let
     , psEvents           = padSimple psEvents
     , psBeat             = if RTB.null psBeat then RTB.empty else padBeat psBeat
     , psVenue            = padSimple psVenue
-    }
+}

@@ -236,6 +236,8 @@ track lenTicks lenSecs resn trk = let
       , ("PART REAL_DRUMS_PS", drumNoteNames)
       , ("PART GUITAR", gryboNoteNames False)
       , ("PART BASS", gryboNoteNames False)
+      , ("PART RHYTHM", gryboNoteNames False)
+      , ("PART GUITAR COOP", gryboNoteNames False)
       , ("PART KEYS", gryboNoteNames True)
       , ("PART REAL_KEYS_X", proKeysNoteNames)
       , ("PART REAL_KEYS_H", proKeysNoteNames)

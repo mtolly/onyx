@@ -135,7 +135,7 @@ importFoF detectBasicDrums src dest = do
             secs = fromIntegral n / 1000
             midiDelay = ceiling secs
             audioDelay = fromIntegral midiDelay - secs
-            in (Pad Start $ CA.Seconds audioDelay, RBFile.padMIDI midiDelay)
+            in (Pad Start $ CA.Seconds audioDelay, RBFile.padPSMIDI midiDelay)
           LT ->
             ( Pad Start $ CA.Seconds $ fromIntegral (abs n) / 1000
             , id
