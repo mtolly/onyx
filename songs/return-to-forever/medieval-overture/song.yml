@@ -29,11 +29,22 @@ plans:
         pad:
         - 2.634
         - only: [Drums, jammit-track]
+      bass:
+        pad:
+        - 2.634
+        - mix:
+          - only: [Bass 1, jammit-track]
+          - only: [Bass 2, jammit-track]
     song:
       pad:
       - 2.634
       - mix:
         - without: [drums, jammit-track]
+        - gain:
+          - -1
+          - mix:
+            - only: [Bass 1, jammit-track]
+            - only: [Bass 2, jammit-track]
 parts:
   drums:
     drums:
