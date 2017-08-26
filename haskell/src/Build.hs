@@ -420,7 +420,7 @@ makeC3 songYaml plan rb3 midi pkg = do
     , C3.wiiMode = False
     , C3.doDrumMixEvents = True -- is this a good idea?
     , C3.packageDisplay = getArtist (_metadata songYaml) <> " - " <> title
-    , C3.packageDescription = "Created with Magma: C3 Roks Edition (forums.customscreators.com) and Onyxite's Build Tool."
+    , C3.packageDescription = "Created with Magma: C3 Roks Edition (forums.customscreators.com) and ONYX (git.io/onyx)."
     , C3.songAlbumArt = "cover.bmp"
     , C3.packageThumb = ""
     , C3.encodeANSI = True  -- is this right?
@@ -722,7 +722,9 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
           adjustSpec False [(0, 0)] = [(0, 0)]
           adjustSpec False _        = [(-1, 0), (1, 0)]
 
-          padAudio pad = padStart $ Seconds $ realToFrac (pad :: Int)
+          padAudio pad src = if frames src == 0
+            then src
+            else padStart (Seconds $ realToFrac (pad :: Int)) src
           adjustAudioSpeed speed src = case speed of
             Nothing -> src
             Just 1  -> src

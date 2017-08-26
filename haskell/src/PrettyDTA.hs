@@ -57,7 +57,7 @@ data C3DTAComments = C3DTAComments
 
 makeC3DTAComments :: Metadata -> Plan -> Bool -> C3DTAComments
 makeC3DTAComments meta plan is2x = C3DTAComments
-  { c3dtaCreatedUsing = Just "Onyxite's Rock Band Tool"
+  { c3dtaCreatedUsing = Just "Onyx Music Game Toolkit"
   , c3dtaAuthoredBy   = Just $ getAuthor meta
   , c3dtaSong         = Just $ getTitle meta
   , c3dtaLanguages    = Just $ _languages meta
@@ -120,7 +120,7 @@ readDTASingle file = do
         | elem (";" ++ s ++ "=1") dtaLines = Just True
         | otherwise                        = Nothing
       comments = C3DTAComments
-        { c3dtaCreatedUsing = Just "Onyxite's Rock Band Tool"
+        { c3dtaCreatedUsing = Just "Onyx Music Game Toolkit"
         , c3dtaAuthoredBy = fmap T.pack $ listToMaybe $ mapMaybe (stripPrefix ";Song authored by ") dtaLines
         , c3dtaSong = fmap T.pack $ listToMaybe $ mapMaybe (stripPrefix ";Song=") dtaLines
         , c3dtaLanguages

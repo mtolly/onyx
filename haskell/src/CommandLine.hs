@@ -528,18 +528,29 @@ commands =
           specified2x = listToMaybe [ f | Opt2x f <- opts ]
           target1x = makeTarget False
           target2x = makeTarget True
+          speed = listToMaybe [ d | OptSpeed d <- opts ]
+          speedPercent = round $ fromMaybe 1 speed * 100 :: Int
           makeTarget is2x = RB3 def
             { rb3_2xBassPedal = is2x
+            , rb3_Speed = speed
+            , rb3_Keys = if elem OptGuitarOnKeys opts
+              then RBFile.FlexGuitar
+              else RBFile.FlexKeys
             }
       prefix <- fmap dropTrailingPathSeparator $ stackIO $ Dir.makeAbsolute $ case ftype of
         FilePS -> takeDirectory fpath
         _      -> fpath
       let out1x = flip fromMaybe specified1x $ case hasKicks of
-            Has1x -> prefix <> "_project"
-            _     -> prefix <> "_1x_project"
+            Has1x -> prefix <> "_" <> suffix
+            _     -> prefix <> "_1x_" <> suffix
           out2x = flip fromMaybe specified2x $ case hasKicks of
-            Has1x -> prefix <> "_project"
-            _     -> prefix <> "_2x_project"
+            Has2x -> prefix <> "_" <> suffix
+            _     -> prefix <> "_2x_" <> suffix
+          suffix = intercalate "_" $ concat
+            [ ["gk" | elem OptGuitarOnKeys opts]
+            , case speedPercent of 100 -> []; _ -> [show speedPercent]
+            , ["project"]
+            ]
           go target out = do
             magma <- shakeBuildMagmaProject [tmp] (tmp </> "song.yml") target
             copyDirRecursive magma out
@@ -572,6 +583,7 @@ commands =
       (ftype, fpath) <- optionalFile files
       let game = fromMaybe GameRB3 $ listToMaybe [ g | OptGame g <- opts ]
       if game == GameRB3 && ftype == FileRBA
+        && all (\case OptSpeed{} -> False; OptGuitarOnKeys -> False; _ -> True) opts
         then do
           -- TODO make sure that the RBA is actually RB3 not RB2
           out <- outputFile opts $ return $ trimFileName fpath 42 ".rba" "_rb3con"
@@ -843,7 +855,7 @@ commandLine :: (MonadIO m) => [String] -> StackTraceT m [FilePath]
 commandLine args = let
   (opts, nonopts, errors) = getOpt Permute optDescrs args
   printIntro = stackIO $ mapM_ T.putStrLn
-    [ "Onyxite's Rock Band Custom Song Toolkit"
+    [ "Onyx Music Game Toolkit"
     , ""
     , "Usage: onyx [command] [files] [options]"
     , "Commands: " <> T.unwords (map commandWord commands)

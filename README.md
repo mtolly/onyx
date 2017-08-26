@@ -1,7 +1,11 @@
-# Onyxite's Custom Songs & Build Tool for *Rock Band 3*
+# Onyx Music Game Toolkit
 
-I transcribe songs for use in Harmonix's *Rock Band 3* and other similar rhythm games, mostly for drums.
-Along the way, I've written a powerful command-line tool to streamline the build process.
+I transcribe songs for use in Harmonix's *Rock Band 3* and other similar rhythm games.
+Along the way, I've written a helpful program to streamline the build process, and do all sorts of useful conversions and transformations.
+
+Download from the [releases page](https://github.com/mtolly/onyxite-customs/releases).
+
+# Onyxite's Custom Songs
 
 This repository contains the "source" for charts which (once finished) are available from [my thread on the Customs Creators forum](http://customscreators.com/index.php?/topic/14398-onyxites-customs/), or from [my own website](https://onyxite.org/customs/) (work in progress).
 

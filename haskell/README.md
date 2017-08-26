@@ -15,11 +15,11 @@ Built on work and research by:
   * arkem (py360)
   * and many others!
 
-Onyx is free software via the GNU General Public License v3, see LICENSE.txt.
+Onyx is free software via the GNU General Public License v3; see LICENSE.txt.
 
 New versions and source at: https://github.com/mtolly/onyxite-customs/releases
 
-## Dependencies
+## Requirements
 
 Windows version requires .NET and (I think) the Visual C++ runtime.
 (If you can run Magma, you're good.)
@@ -38,10 +38,12 @@ Open `onyx.exe`/`Onyx.app` to run.
 
 ## Functions
 
-  * Convert to RB3 (takes song.ini, creates _rb3con)
+  * Convert to RB3 (takes CON/RBA/song.ini, creates _rb3con)
 
-    Attempts to convert a Frets on Fire / Phase Shift song to Rock Band 3.
-    Here is a sample of the steps performed:
+    Imports from a Rock Band 3, Frets on Fire, or Phase Shift song,
+    and creates either a Rock Band 3 CON file or a Magma v2 project.
+
+    Here is a sample of the steps performed when importing from FoF/PS:
 
       * Adds appropriate `[music_start]`, `[music_end]`, and `[end]` events
       * Generates an automatic `BEAT` track from MIDI time signatures
@@ -55,10 +57,32 @@ Open `onyx.exe`/`Onyx.app` to run.
     Note: to do a batch process of many songs, drag and drop song folders
     (the folders with song.ini immediately inside) onto the file loading screen.
 
-    If the "automatic tom markers" option is turned on, a song that does not
+    If the "automatic tom markers" option is turned on, an FoF song that doesn't
     have any tom markers and that does not have "pro_drums = True" in the
     song.ini will have tom markers added over the whole drum part, under the
     assumption that Pro Drums have not been authored for the chart.
+
+    The song speed can be modified to produce sped up or slowed down songs.
+    This will modify both the audio and MIDI, and add (X% Speed) to the title.
+    For CON inputs this only works with unencrypted MOGG files.
+    Different speed versions may not pass Magma in all cases, for example
+    if a roll becomes too slow, or if drum fills become too close together.
+    If this happens, you can produce a Magma project and then make the needed
+    changes before compiling with Magma.
+
+    Also available is an option to copy the Guitar chart to Keys,
+    so that two people can play it. This will add force notes to the chart to
+    make the Keys chart have the right strum/HOPO notes when played on a guitar.
+    For songs with stems, it will also move the guitar audio to the backing
+    track, so it won't cut out when either instrument misses.
+
+    When creating a Magma project, a REAPER project will also be generated
+    so any remaining problems can be quickly edited and re-exported to MIDI.
+    This avoids a few bugs in REAPER's own MIDI import function.
+    Also applies most of the C3 template to the MIDI tracks,
+    so you get note names, colored tracks, and RBN preview windows.
+    Because this must generate WAV audio files to give to Magma,
+    encrypted MOGG files in input rb3cons are unsupported.
 
   * Convert to RB2 (takes _rb3con, creates _rb2con)
 
@@ -81,20 +105,6 @@ Open `onyx.exe`/`Onyx.app` to run.
     In the latter two cases, the RB3 "keytar" algorithm is more-or-less applied,
     so fast chords become HOPOs, and overlapping sustains are shortened.
 
-  * Import to Magma project (takes CON/RBA/PS, creates Magma project folder)
-
-    Creates a Magma project ready to (attempt to) compile a song for RB3,
-    using Magma: C3 Roks Edition. (It should also work using standard Magma v2.)
-
-    When importing from FoF/PS, this performs all the steps listed
-    in "Convert to RB3" above.
-
-    Also generates a REAPER project so any remaining problems can be quickly
-    edited and re-exported to MIDI.
-
-    Because this must generate WAV audio files to give to Magma,
-    encrypted MOGG files in input rb3cons are unsupported.
-
   * Browser song preview (takes _rb3con, creates web app folder)
 
     Generates a JavaScript chart preview app for web browsers,
@@ -103,13 +113,6 @@ Open `onyx.exe`/`Onyx.app` to run.
     A player folder will appear next to the CON; open `index.html` to run.
     It can be run locally via `file://`, or hosted on a web server.
 
-  * Open in REAPER (takes CON or MIDI file, creates REAPER project)
-
-    Imports a MIDI file into a REAPER project.
-    Avoids a few bugs in REAPER's own MIDI import function.
-    Also applies most of the C3 template to the MIDI tracks,
-    so you get note names, colored tracks, and RBN preview windows.
-
   * Auto reductions (takes MIDI files, creates MIDI file)
 
     Generates CAT-like automatic reductions for empty difficulties in a MIDI.
@@ -117,3 +120,4 @@ Open `onyx.exe`/`Onyx.app` to run.
 
     To use, ensure that there are no notes or events authored
     for a difficulty you want to be filled in.
+    (For Pro Keys, remove the `PART REAL_KEYS_?` track entirely.)

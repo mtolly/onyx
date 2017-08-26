@@ -70,7 +70,7 @@ data C3 = C3
 
 showC3 :: C3 -> T.Text
 showC3 c3 = T.unlines $ execWriter $ do
-  line "//Created by Onyxite's Build Tool"
+  line "//Created by Onyx Music Game Toolkit"
   line "//Feel free to edit manually if you know what you're doing!"
   pair "Song" song
   pair "Artist" artist

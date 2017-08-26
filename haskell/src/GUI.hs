@@ -313,6 +313,10 @@ topMenu = Choices
     $ pushMenu $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)") [] $ \fs ->
       TasksStart $ map (\f -> commandLine' ["player", f]) fs
     )
+  , ( Choice "Reduce" "Fills empty difficulties in a MIDI file with CAT-quality reductions."
+    $ pushMenu $ Files (FilePicker ["*.mid"] "MIDI files") [] $ \fs ->
+      TasksStart $ map (\f -> commandLine' ["reduce", f]) fs
+    )
   ]
 
 data GUIState = GUIState

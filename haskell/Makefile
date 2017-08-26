@@ -1,7 +1,7 @@
 .PHONY: usage install-magma mac mac-deps win win-deps ubuntu-deps
 SHELL=/bin/bash
 
-ONYXVERSION=20170806
+ONYXVERSION=20170826
 
 usage:
 	@echo "Targets:"
@@ -35,6 +35,7 @@ mac:
 	mkdir mac/
 	cp -R Onyx.app LICENSE.txt mac/
 	cp README.md mac/README.txt
+	cp CHANGES.md mac/CHANGES.txt
 	sed -i '' 's/_ONYXVERSION_/$(ONYXVERSION)/' mac/Onyx.app/Contents/Info.plist
 	sed -i '' 's/_ONYXVERSION_/$(ONYXVERSION)/' mac/README.txt
 
@@ -50,6 +51,7 @@ win:
 	stack exec strip win/onyx.exe
 	cp LICENSE.txt win/LICENSE.txt
 	cp README.md win/README.txt
+	cp CHANGES.md win/CHANGES.txt
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} win/
 	cp -R vendors/x360-rb3pkg win/
 	sed -b -i 's/_ONYXVERSION_/$(ONYXVERSION)/' win/README.txt
