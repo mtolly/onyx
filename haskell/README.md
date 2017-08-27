@@ -84,6 +84,10 @@ Open `onyx.exe`/`Onyx.app` to run.
     Because this must generate WAV audio files to give to Magma,
     encrypted MOGG files in input rb3cons are unsupported.
 
+    Tip: to process a song with an encrypted MOGG, one option is to use
+    the Phase Shift converter in C3 CON Tools which mixes the audio down to a
+    single file, and then just supply the Phase Shift song to Onyx.
+
   * Convert to RB2 (takes _rb3con, creates _rb2con)
 
     Converts a Rock Band 3 CON file to Rock Band 2.

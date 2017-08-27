@@ -28,6 +28,7 @@ module Audio
 ) where
 
 import           Control.Concurrent              (threadDelay)
+import           Control.DeepSeq                 (($!!))
 import           Control.Exception               (evaluate)
 import           Control.Monad                   (ap, when)
 import           Control.Monad.IO.Class          (MonadIO (liftIO))
@@ -509,5 +510,5 @@ emptyChannels ogg = liftIO $ do
         chans' = flip filter chans $ \chan -> let
           indexes = [chan, chan + channels src .. V.length blk - 1]
           in flip all indexes $ \i -> abs (blk V.! i :: Float) < 0.01
-        in loop chans'
+        in loop $!! chans'
     in source src $$ loop [0 .. channels src - 1]

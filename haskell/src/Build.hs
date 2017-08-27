@@ -978,7 +978,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                     ]
             pathMagmaRPP ≡> \out -> do
               auds <- magmaNeededAudio
-              lift $ makeReaper pathMagmaMid pathMagmaMid auds out
+              let auds' = filter (`notElem` [pathMagmaDryvox1, pathMagmaDryvox2, pathMagmaDryvox3]) auds
+              lift $ makeReaper pathMagmaMid pathMagmaMid auds' out
             phony pathMagmaSetup $ shakeTrace $ do
               -- Just make all the Magma prereqs, but don't actually run Magma
               auds <- magmaNeededAudio
