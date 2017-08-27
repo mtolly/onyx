@@ -5,8 +5,8 @@ module OSFiles (osOpenFile, osShowFiles, osShowFolder, useResultFiles) where
 import           Control.Monad.IO.Class   (MonadIO (..))
 import           System.FilePath          (takeExtension)
 #ifdef WINDOWS
-import           Foreign                  (nullPtr, ptrToIntPtr)
-import           Foreign.C                (withCWString)
+import           Foreign                  (withMany, withArrayLen, Ptr, nullPtr, ptrToIntPtr)
+import           Foreign.C                (CInt (..), CWString, withCWString)
 import           Graphics.Win32.GDI.Types (HWND)
 import           System.Directory         (makeAbsolute)
 import           System.FilePath          (takeDirectory)
@@ -42,18 +42,24 @@ osShowFolder :: (MonadIO m) => FilePath -> m ()
 foreign import stdcall unsafe "ShellExecuteW"
   c_ShellExecute :: HWND -> LPCWSTR -> LPCWSTR -> LPCWSTR -> LPCWSTR -> INT -> IO HINSTANCE
 
+foreign import ccall unsafe "onyx_ShowFiles"
+  c_ShowFiles :: CWString -> Ptr CWString -> CInt -> IO ()
+
 osOpenFile f = liftIO $ withCWString f $ \wstr -> do
-  -- TODO do we need to open COM? I think SDL does it for us
+  -- COM must be init'd before this. SDL does it for us
   n <- c_ShellExecute nullPtr nullPtr wstr nullPtr nullPtr 5
   if ptrToIntPtr n > 32
     then return ()
     else error $ "osOpenFile: ShellExecuteW return code " ++ show n
 
--- TODO actually select the files
 osShowFiles fs = do
   fs' <- liftIO $ mapM makeAbsolute fs
   case map takeDirectory fs' of
-    dir : dirs | all (== dir) dirs -> osShowFolder dir
+    dir : dirs | all (== dir) dirs -> liftIO $
+      withCWString dir $ \cdir ->
+      withMany withCWString fs' $ \cfiles ->
+      withArrayLen cfiles $ \len pcfiles ->
+      c_ShowFiles cdir pcfiles $ fromIntegral len
     _          -> return ()
 
 osShowFolder = osOpenFile

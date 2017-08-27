@@ -177,6 +177,7 @@ executable onyx
   if os(mingw32)
     extra-libraries: shell32
     cpp-options: -DWINDOWS
+    c-sources: cbits/winfiles.c
     build-depends: Win32
     ld-options: icon/icon.o -mwindows
   else
