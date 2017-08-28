@@ -108,6 +108,7 @@ targetTitle songYaml target = let
     RB3 TargetRB3{..} -> makeLabel []                rb3_Label rb3_2xBassPedal rb3_Speed
     RB2 TargetRB2{..} -> makeLabel ["(RB2 version)"] rb2_Label rb2_2xBassPedal rb2_Speed
     PS  TargetPS {..} -> makeLabel []                ps_Label  False           ps_Speed
+    GH2 TargetGH2{..} -> []
   makeLabel sfxs explicit is2x speed = case explicit of
     Just lbl -> [lbl]
     Nothing  -> concat
@@ -604,6 +605,7 @@ shakeBuildTarget audioDirs yamlPath target = do
         RB3{} -> "gen/target" </> targetHash </> "rb3con"
         RB2{} -> "gen/target" </> targetHash </> "rb2con"
         PS {} -> "gen/target" </> targetHash </> "ps.zip"
+        GH2{} -> "gen/target" </> targetHash </> undefined -- TODO
       targetHash = show $ hash target `mod` 100000000
   shakeBuild audioDirs yamlPath [(T.pack targetHash, target)] [buildable]
   return $ takeDirectory yamlPath </> buildable
@@ -1465,6 +1467,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               , rb3_Keys = RBFile.FlexKeys
               }
             in rbRules dir rb3 $ Just rb2
+          GH2 _ -> return () -- TODO
           PS ps -> do
 
             (planName, plan) <- case getPlan (ps_Plan ps) songYaml of

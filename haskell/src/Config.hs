@@ -22,6 +22,7 @@ import qualified Data.Aeson                     as A
 import           Data.Char                      (isDigit, isSpace)
 import           Data.Conduit.Audio             (Duration (..))
 import           Data.Default.Class
+import qualified Data.DTA.Serialize.GH2         as GH2
 import qualified Data.DTA.Serialize.Magma       as Magma
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
@@ -978,10 +979,66 @@ instance StackJSON TargetPS where
 instance Default TargetPS where
   def = fromEmptyObject
 
+data GH2Coop = GH2Bass | GH2Rhythm
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Generic, Hashable)
+
+instance StackJSON GH2Coop where
+  stackJSON = StackCodec
+    { stackParse = lift ask >>= \case
+      A.Null            -> return GH2Bass
+      A.String "bass"   -> return GH2Bass
+      A.String "rhythm" -> return GH2Rhythm
+      _                 -> expected "bass or rhythm"
+    , stackShow = \case
+      GH2Bass   -> "bass"
+      GH2Rhythm -> "rhythm"
+    }
+
+data TargetGH2 = TargetGH2
+  { gh2_Plan      :: Maybe T.Text
+  , gh2_Guitar    :: FlexPartName
+  , gh2_Bass      :: FlexPartName
+  , gh2_Rhythm    :: FlexPartName
+  , gh2_Drums     :: FlexPartName
+  , gh2_Vocal     :: FlexPartName
+  , gh2_Keys      :: FlexPartName
+  , gh2_Coop      :: GH2Coop
+  , gh2_Quickplay :: GH2.Quickplay
+  } deriving (Eq, Ord, Show, Read, Generic, Hashable)
+
+instance Default GH2.Quickplay where
+  def = GH2.Quickplay GH2.Classic GH2.LesPaul GH2.Big -- whatever
+
+instance StackJSON GH2.Quickplay where
+  stackJSON = StackCodec
+    { stackParse = return def
+    , stackShow = const A.Null
+    } -- TODO actual parser
+
+parseTargetGH2 :: (Monad m) => ObjectCodec m A.Value TargetGH2
+parseTargetGH2 = do
+  gh2_Plan      <- gh2_Plan      =. opt Nothing              "plan"      stackJSON
+  gh2_Guitar    <- gh2_Guitar    =. opt FlexGuitar           "guitar"    stackJSON
+  gh2_Bass      <- gh2_Bass      =. opt FlexBass             "bass"      stackJSON
+  gh2_Rhythm    <- gh2_Rhythm    =. opt (FlexExtra "rhythm") "rhythm"    stackJSON
+  gh2_Drums     <- gh2_Drums     =. opt FlexDrums            "drums"     stackJSON
+  gh2_Keys      <- gh2_Keys      =. opt FlexKeys             "keys"      stackJSON
+  gh2_Vocal     <- gh2_Vocal     =. opt FlexVocal            "vocal"     stackJSON
+  gh2_Coop      <- gh2_Coop      =. opt GH2Bass              "coop"      stackJSON
+  gh2_Quickplay <- gh2_Quickplay =. opt def                  "quickplay" stackJSON
+  return TargetGH2{..}
+
+instance StackJSON TargetGH2 where
+  stackJSON = asStrictObject "TargetGH2" parseTargetGH2
+
+instance Default TargetGH2 where
+  def = fromEmptyObject
+
 data Target
   = RB3 TargetRB3
   | RB2 TargetRB2
   | PS  TargetPS
+  | GH2 TargetGH2
   deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
 addKey :: (forall m. (Monad m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
@@ -996,11 +1053,13 @@ instance StackJSON Target where
         "rb3" -> fmap RB3 fromJSON
         "rb2" -> fmap RB2 fromJSON
         "ps"  -> fmap PS  fromJSON
+        "gh2" -> fmap GH2 fromJSON
         _     -> fatal $ "Unrecognized target game: " ++ show target
     , stackShow = \case
       RB3 rb3 -> addKey parseTargetRB3 "game" "rb3" rb3
       RB2 rb2 -> addKey parseTargetRB2 "game" "rb2" rb2
       PS  ps  -> addKey parseTargetPS  "game" "ps"  ps
+      GH2 gh2 -> addKey parseTargetGH2 "game" "gh2" gh2
     }
 
 data SongYaml = SongYaml

@@ -247,6 +247,7 @@ buildTarget yamlPath opts = do
         RB3{} -> "gen/target" </> T.unpack targetName </> "rb3con"
         RB2{} -> "gen/target" </> T.unpack targetName </> "rb2con"
         PS {} -> "gen/target" </> T.unpack targetName </> "ps.zip"
+        GH2{} -> "gen/target" </> T.unpack targetName </> "gh2.zip"
   shakeBuildFiles audioDirs yamlPath [built]
   return (target, takeDirectory yamlPath </> built)
 
@@ -343,6 +344,7 @@ commands =
                 PS {} -> FileZip
                 RB3{} -> FileSTFS
                 RB2{} -> FileSTFS
+                GH2{} -> undefined -- TODO
           doInstall ftype' built
         FileRBProj -> undone -- install con to usb drive
         FileSTFS -> do

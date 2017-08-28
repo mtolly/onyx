@@ -103,6 +103,7 @@ executable onyx
     Data.DTA.Serialize
     Data.DTA.Serialize.Magma
     Data.DTA.Serialize.RB3
+    Data.DTA.Serialize.GH2
     Data.DTA.Base
     Data.DTA.Lex
     Data.DTA.Parse
