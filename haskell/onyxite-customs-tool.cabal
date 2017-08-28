@@ -88,6 +88,13 @@ executable onyx
     RockBand.PhaseShiftKeys
     RockBand.PhaseShiftMessage
     MelodysEscape
+    GuitarHeroII.PartGuitar
+    GuitarHeroII.BandDrums
+    GuitarHeroII.BandBass
+    GuitarHeroII.BandKeys
+    GuitarHeroII.BandSinger
+    GuitarHeroII.Triggers
+    GuitarHeroII.Events
     -- stack-trace
     Control.Monad.Trans.StackTrace
     -- dta

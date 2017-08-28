@@ -5,7 +5,8 @@ module OSFiles (osOpenFile, osShowFiles, osShowFolder, useResultFiles) where
 import           Control.Monad.IO.Class   (MonadIO (..))
 import           System.FilePath          (takeExtension)
 #ifdef WINDOWS
-import           Foreign                  (withMany, withArrayLen, Ptr, nullPtr, ptrToIntPtr)
+import           Foreign                  (Ptr, nullPtr, ptrToIntPtr,
+                                           withArrayLen, withMany)
 import           Foreign.C                (CInt (..), CWString, withCWString)
 import           Graphics.Win32.GDI.Types (HWND)
 import           System.Directory         (makeAbsolute)

@@ -17,8 +17,12 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromJust, fromMaybe,
                                                    mapMaybe)
 import qualified Data.Text                        as T
-import qualified MelodysEscape                    as Melody
 import qualified Numeric.NonNegative.Class        as NNC
+import qualified Sound.MIDI.File                  as F
+import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
+import qualified Sound.MIDI.Util                  as U
+
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common
 import qualified RockBand.Drums                   as Drums
@@ -33,10 +37,16 @@ import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Venue                   as Venue
 import qualified RockBand.VenueRB2                as VenueRB2
 import qualified RockBand.Vocals                  as Vocals
-import qualified Sound.MIDI.File                  as F
-import qualified Sound.MIDI.File.Event            as E
-import qualified Sound.MIDI.File.Event.Meta       as Meta
-import qualified Sound.MIDI.Util                  as U
+
+import qualified MelodysEscape                    as Melody
+
+import qualified GuitarHeroII.BandBass            as GH2Bass
+import qualified GuitarHeroII.BandDrums           as GH2Drums
+import qualified GuitarHeroII.BandKeys            as GH2Keys
+import qualified GuitarHeroII.BandSinger          as GH2Singer
+import qualified GuitarHeroII.Events              as GH2Events
+import qualified GuitarHeroII.PartGuitar          as GH2Guitar
+import qualified GuitarHeroII.Triggers            as GH2Triggers
 
 data Song t = Song
   { s_tempos     :: U.TempoMap
@@ -265,6 +275,46 @@ instance MIDIFileFormat PSFile where
     , showMIDITrack "EVENTS" psEvents
     , showMIDITrack "BEAT" psBeat
     , showMIDITrack "VENUE" psVenue
+    ]
+
+data GH2File t = GH2File
+  { gh2PartGuitar     :: RTB.T t GH2Guitar.Event
+  , gh2PartBass       :: RTB.T t GH2Guitar.Event
+  , gh2PartRhythm     :: RTB.T t GH2Guitar.Event
+  , gh2PartGuitarCoop :: RTB.T t GH2Guitar.Event
+  , gh2BandBass       :: RTB.T t GH2Bass.Event
+  , gh2BandDrums      :: RTB.T t GH2Drums.Event
+  , gh2BandKeys       :: RTB.T t GH2Keys.Event
+  , gh2BandSinger     :: RTB.T t GH2Singer.Event
+  , gh2Events         :: RTB.T t GH2Events.Event
+  , gh2Triggers       :: RTB.T t GH2Triggers.Event
+  } deriving (Eq, Ord, Show)
+
+instance MIDIFileFormat GH2File where
+  readMIDITracks (Song tempos mmap trks) = do
+    gh2PartGuitar     <- parseTracks mmap trks ["PART GUITAR"]
+    gh2PartBass       <- parseTracks mmap trks ["PART BASS"]
+    gh2PartRhythm     <- parseTracks mmap trks ["PART RHYTHM"]
+    gh2PartGuitarCoop <- parseTracks mmap trks ["PART GUITAR COOP"]
+    gh2BandBass       <- parseTracks mmap trks ["BAND BASS"]
+    gh2BandDrums      <- parseTracks mmap trks ["BAND DRUMS"]
+    gh2BandKeys       <- parseTracks mmap trks ["BAND KEYS"]
+    gh2BandSinger     <- parseTracks mmap trks ["BAND SINGER"]
+    gh2Events         <- parseTracks mmap trks ["EVENTS"]
+    gh2Triggers       <- parseTracks mmap trks ["TRIGGERS"]
+    knownTracks trks ["PART GUITAR", "PART BASS", "PART RHYTHM", "PART GUITAR COOP", "BAND BASS", "BAND DRUMS", "BAND KEYS", "BAND SINGER", "EVENTS", "TRIGGERS"]
+    return $ Song tempos mmap GH2File{..}
+  showMIDITracks (Song tempos mmap GH2File{..}) = Song tempos mmap $ concat
+    [ showMIDITrack "PART GUITAR" gh2PartGuitar
+    , showMIDITrack "PART BASS" gh2PartBass
+    , showMIDITrack "PART RHYTHM" gh2PartRhythm
+    , showMIDITrack "PART GUITAR COOP" gh2PartGuitarCoop
+    , showMIDITrack "BAND BASS" gh2BandBass
+    , showMIDITrack "BAND DRUMS" gh2BandDrums
+    , showMIDITrack "BAND KEYS" gh2BandKeys
+    , showMIDITrack "BAND SINGER" gh2BandSinger
+    , showMIDITrack "EVENTS" gh2Events
+    , showMIDITrack "TRIGGERS" gh2Triggers
     ]
 
 data FlexPartName
