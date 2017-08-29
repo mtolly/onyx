@@ -56,7 +56,8 @@ executable onyx
     FretsOnFire
     RockBand2
     RockBand3
-    GuitarHeroII
+    GuitarHeroII.Ark
+    GuitarHeroII.Audio
     DryVox
     RenderAudio
     RockBand.ProGuitar.Play

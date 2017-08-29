@@ -111,6 +111,7 @@ data SongPackage = SongPackage
   , preview        :: (Integer, Integer)
   , quickplay      :: Quickplay
   , practiceSpeeds :: [Integer]
+  , songCoop       :: Maybe Song
   , songPractice1  :: Song
   , songPractice2  :: Song
   , songPractice3  :: Song
@@ -126,6 +127,7 @@ instance StackChunks SongPackage where
     preview        <- preview        =. req         "preview"         stackChunks
     quickplay      <- quickplay      =. req         "quickplay"       stackChunks
     practiceSpeeds <- practiceSpeeds =. req         "practice_speeds" stackChunks
+    songCoop       <- songCoop       =. opt Nothing "song_coop"       stackChunks
     songPractice1  <- songPractice1  =. req         "song_practice1"  stackChunks
     songPractice2  <- songPractice2  =. req         "song_practice2"  stackChunks
     songPractice3  <- songPractice3  =. req         "song_practice3"  stackChunks
