@@ -1,3 +1,9 @@
+# band: 1456947
+# drums: 1462668
+
+# band: 31481474
+# drums: 31486973
+
 metadata:
   title: In the Name of God
   file-include: ../../../albums/train-of-thought.yml
@@ -11,6 +17,32 @@ audio:
     frames: 37693740
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  drumcam-band:
+    md5: 694c99e4867e4a4691a963d92a77d432
+    frames: 192898560
+    rate: 48000
+  drumcam-drums:
+    md5: 7f168a3c9c00b00374910d8c7d32e63e
+    frames: 192898560
+    rate: 48000
+  drumcam-band-expr:
+    expr:
+      drop:
+      - frames: 150330761
+      - drumcam-band
+  drumcam-drums-expr:
+    # TODO this subtracts great for most of the song except the intro
+    expr:
+      gain:
+      - -0.79
+      - drop:
+        - frames: 5732
+        - stretch:
+          - 1.00000739400962
+          # (31481474 - 1456947) / (31486973 - 1462668)
+          - drop:
+            - frames: 150330761
+            - drumcam-drums
 plans:
   album:
     countin:
@@ -22,6 +54,7 @@ plans:
       1|3: hihat
     song:
       pad: [6.645, album-track]
+  # TODO drumcam
 parts:
   drums:
     drums:
