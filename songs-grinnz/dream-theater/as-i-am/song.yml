@@ -1,3 +1,12 @@
+# band:
+# initial dip at 1728266 samples
+# end dip at 20557116 samples
+
+# drums:
+# (silence until 1726270 samples)
+# initial dip at 1730071 samples
+# end dip at 20558785 samples
+
 metadata:
   title: As I Am
   file-include: ../../../albums/train-of-thought.yml
@@ -11,6 +20,34 @@ audio:
     frames: 20631156
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  drumcam-band:
+    md5: 694c99e4867e4a4691a963d92a77d432
+    frames: 192898560
+    rate: 48000
+  drumcam-drums:
+    md5: 7f168a3c9c00b00374910d8c7d32e63e
+    frames: 192898560
+    rate: 48000
+  drumcam-band-expr:
+    expr:
+      take: [{frames: 22481213}, drumcam-band]
+  drumcam-drums-expr:
+    # TODO: either remove backwards cymbal noise at end, or chart it
+    expr:
+      gain:
+      - -0.7
+      - drop:
+        - frames: 1818
+        - stretch:
+          - 1.0000072230105572
+          # (20557116 - 1728266) / (20558785 - 1730071)
+          - mask:
+            - [drums]
+            - - center: 0
+                tag: banter
+              - center: {frames: 1726270}
+                tag: drums
+            - take: [{frames: 22481213}, drumcam-drums]
 plans:
   album:
     countin:
@@ -22,6 +59,21 @@ plans:
       7|3: hihat
     song:
       pad: [3.181, album-track]
+  drumcam:
+    song:
+      gain:
+      - 2.75
+      - pad:
+        - 3.129
+        - resample:
+            mix: [drumcam-band-expr, drumcam-drums-expr]
+    parts:
+      drums:
+        gain:
+        - 2.75
+        - pad:
+          - 3.129
+          - resample: drumcam-drums-expr
 parts:
   drums:
     drums:

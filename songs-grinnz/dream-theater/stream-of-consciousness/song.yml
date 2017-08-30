@@ -9,6 +9,9 @@ audio:
   album-track:
     md5: 8f1a01eac65add10b94efa1dd41fa32e
     frames: 29823360
+  album-vacant:
+    md5: 9211f41070f889aaa468008349f5efdf
+    frames: 7822164
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   drumcam-band:
@@ -57,31 +60,46 @@ plans:
   drumcam:
     countin: *countin
     song:
-      # the top-level mix is to remove studio banter
       mix:
-      - fade:
-        - end
-        - 1
-        - take:
-          - '11:07'
-          - pad:
-            - 4.839
-            - resample:
-                gain:
-                - 3.78
-                - mix:
-                  - drumcam-band-expr
-                  - drumcam-drums-expr
-      - pad:
-        - '11:06.15'
+      - mask:
+        - [vacant]
+        - &vacant-to-stream
+          - center: 0
+            tag: vacant
+          - center: 5.02
+            fade: 0.09
+            tag: stream
         - fade:
           - start
-          - 1
-          - gain:
-            - 1.512
-            - drop:
-              - '11:06.15'
-              - album-expr
+          - 3
+          - drop: ['2:52.303', album-vacant]
+      - mask:
+        - [stream]
+        - *vacant-to-stream
+        - mix: # remove studio banter
+          - fade:
+            - end
+            - 1
+            - take:
+              - '11:07'
+              - pad:
+                - 4.839
+                - resample:
+                    gain:
+                    - 3.78
+                    - mix:
+                      - drumcam-band-expr
+                      - drumcam-drums-expr
+          - pad:
+            - '11:06.15'
+            - fade:
+              - start
+              - 1
+              - gain:
+                - 1.512
+                - drop:
+                  - '11:06.15'
+                  - album-expr
     parts:
       drums:
         take:
