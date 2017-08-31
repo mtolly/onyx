@@ -80,3 +80,12 @@ parts:
   drums:
     drums:
       auto-2x-bass: true
+      layout: flip-yb-toms
+  # guitar:
+  #   pro-guitar:
+  #     tuning: [-4, -4, -4, -4, -4, -4]
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: drumcam
