@@ -32,7 +32,6 @@ audio:
     expr:
       take: [{frames: 22481213}, drumcam-band]
   drumcam-drums-expr:
-    # TODO: either remove backwards cymbal noise at end, or chart it
     expr:
       gain:
       - -0.7
@@ -51,6 +50,7 @@ audio:
 plans:
   album:
     countin:
+      &countin
       6|0: hihat
       6|2: hihat
       7|0: hihat
@@ -60,6 +60,8 @@ plans:
     song:
       pad: [3.181, album-track]
   drumcam:
+    # TODO: either move backwards cymbal noise in end to backing, or chart it on drums
+    countin: *countin
     song:
       gain:
       - 2.75

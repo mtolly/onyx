@@ -98,6 +98,8 @@ targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    label: (2x)
+    # (default 2x label goes over 100 chars, which fails magma)
   ps:
     game: ps
 metadata:
