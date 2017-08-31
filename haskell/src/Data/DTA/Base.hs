@@ -116,6 +116,7 @@ instance Binary (Chunk B.ByteString) where
     0x21 -> Include <$> getLenStr
     0x22 -> Merge <$> getLenStr
     0x23 -> IfNDef <$> getLenStr
+    -- TODO: 0x24 seen in Beatles config/gen/process_clips_func.dtb
     _    -> fail $ "Unidentified DTB chunk with ID " ++ show cid
 
 -- | DTB string format: 4-byte length, then a string in latin-1.
