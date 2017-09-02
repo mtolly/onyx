@@ -6,6 +6,7 @@ module Import (importFoF, importRBA, importSTFS, simpleRBAtoCON, HasKicks(..)) w
 import           Audio
 import           Codec.Picture                    (convertRGB8, readImage)
 import           Config                           hiding (Difficulty)
+import qualified Config
 import           Control.Applicative              ((<|>))
 import           Control.Arrow                    (first)
 import           Control.Exception                (evaluate)
@@ -24,12 +25,13 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (nub)
+import           Data.List                        (elemIndex, nub)
 import           Data.Maybe                       (fromMaybe, isJust, mapMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Data.Text.IO                     as TIO
 import qualified Data.Yaml                        as Y
+import           Difficulty
 import qualified FretsOnFire                      as FoF
 import           Image                            (toPNG_XBOX)
 import           JSONData                         (toJSON)
@@ -511,9 +513,27 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
       s -> do
         warn $ "Unrecognized drum bank " ++ show s
         return HardRockKit
-  let diffMap :: HM.HashMap T.Text Integer
-      diffMap = D.rank pkg
-  vocalMode <- if maybe False (/= 0) $ HM.lookup "vocals" diffMap
+  let diffMap :: HM.HashMap T.Text Config.Difficulty
+      diffMap = let
+        -- We assume that if every rank value is a tier boundary,
+        -- it's a Magma-produced song where the author selected tiers.
+        -- So we should import to tiers, not ranks.
+        isTierBoundary (k, v) = case k of
+          "drum"        -> (k,) <$> elemIndex v (0 : 1 : drumsDiffMap)
+          "guitar"      -> (k,) <$> elemIndex v (0 : 1 : guitarDiffMap)
+          "bass"        -> (k,) <$> elemIndex v (0 : 1 : bassDiffMap)
+          "vocals"      -> (k,) <$> elemIndex v (0 : 1 : vocalDiffMap)
+          "keys"        -> (k,) <$> elemIndex v (0 : 1 : keysDiffMap)
+          "real_keys"   -> (k,) <$> elemIndex v (0 : 1 : keysDiffMap)
+          "real_guitar" -> (k,) <$> elemIndex v (0 : 1 : proGuitarDiffMap)
+          "real_bass"   -> (k,) <$> elemIndex v (0 : 1 : proBassDiffMap)
+          "band"        -> (k,) <$> elemIndex v (0 : 1 : bandDiffMap)
+          _             -> Nothing
+        in case mapM isTierBoundary $ HM.toList $ D.rank pkg of
+          Nothing    -> Rank                <$> D.rank pkg
+          Just tiers -> Tier . fromIntegral <$> HM.fromList tiers
+      hasRankStr s = maybe False (/= 0) $ HM.lookup s $ D.rank pkg
+  vocalMode <- if hasRankStr "vocals"
     then case D.vocalParts $ D.song pkg of
       Nothing -> return $ Just Vocal1
       Just 0  -> return Nothing
@@ -546,7 +566,6 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
   let instChans :: HM.HashMap T.Text [Int]
       instChans = fmap (map fromIntegral) $ D.tracks $ D.song pkg
       drumChans = fromMaybe [] $ HM.lookup "drum" instChans
-      hasRankStr s = maybe False (/= 0) $ HM.lookup s diffMap
   drumSplit <- if not $ hasRankStr "drum" then return Nothing else case drumMix of
     RBDrums.D0 -> case drumChans of
       [kitL, kitR] -> return $ Just $ PartSingle [kitL, kitR]
@@ -575,7 +594,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
       , _fileAlbumArt = Just coverName
       , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
       , _comments     = []
-      , _difficulty   = Rank $ fromMaybe 1 $ HM.lookup "band" diffMap
+      , _difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
       , _key          = toEnum . fromEnum <$> D.vocalTonicNote pkg
       , _autogenTheme = AutogenDefault
       , _author       = _author meta
@@ -631,7 +650,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
         { partDrums = guard (hasRankStr "drum") >> Just PartDrums
-          { drumsDifficulty = Rank $ fromMaybe 1 $ HM.lookup "drum" diffMap
+          { drumsDifficulty = fromMaybe (Tier 1) $ HM.lookup "drum" diffMap
           , drumsPro = True
           , drumsAuto2xBass = False
           , drumsFixFreeform = False
@@ -641,12 +660,12 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
         })
       , ( FlexGuitar, def
         { partGRYBO = guard (hasRankStr "guitar") >> Just PartGRYBO
-          { gryboDifficulty = Rank $ fromMaybe 1 $ HM.lookup "guitar" diffMap
+          { gryboDifficulty = fromMaybe (Tier 1) $ HM.lookup "guitar" diffMap
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
           }
         , partProGuitar = guard (hasRankStr "real_guitar") >> Just PartProGuitar
-          { pgDifficulty = Rank $ fromMaybe 1 $ HM.lookup "real_guitar" diffMap
+          { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_guitar" diffMap
           , pgHopoThreshold = hopoThresh
           , pgTuning = fromMaybe [] $ map fromIntegral <$> D.realGuitarTuning pkg
           , pgFixFreeform = False
@@ -654,12 +673,12 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
         })
       , ( FlexBass, def
         { partGRYBO = guard (hasRankStr "bass") >> Just PartGRYBO
-          { gryboDifficulty = Rank $ fromMaybe 1 $ HM.lookup "bass" diffMap
+          { gryboDifficulty = fromMaybe (Tier 1) $ HM.lookup "bass" diffMap
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
           }
         , partProGuitar = guard (hasRankStr "real_bass") >> Just PartProGuitar
-          { pgDifficulty = Rank $ fromMaybe 1 $ HM.lookup "real_bass" diffMap
+          { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_bass" diffMap
           , pgHopoThreshold = hopoThresh
           , pgTuning = fromMaybe [] $ map fromIntegral <$> D.realBassTuning pkg
           , pgFixFreeform = False
@@ -667,18 +686,18 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
         })
       , ( FlexKeys, def
         { partGRYBO = guard (hasRankStr "keys") >> Just PartGRYBO
-          { gryboDifficulty = Rank $ fromMaybe 1 $ HM.lookup "keys" diffMap
+          { gryboDifficulty = fromMaybe (Tier 1) $ HM.lookup "keys" diffMap
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
           }
         , partProKeys = guard (hasRankStr "real_keys") >> Just PartProKeys
-          { pkDifficulty = Rank $ fromMaybe 1 $ HM.lookup "real_keys" diffMap
+          { pkDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_keys" diffMap
           , pkFixFreeform = False
           }
         })
       , ( FlexVocal, def
         { partVocal = flip fmap vocalMode $ \vc -> PartVocal
-          { vocalDifficulty = Rank $ fromMaybe 1 $ HM.lookup "vocals" diffMap
+          { vocalDifficulty = fromMaybe (Tier 1) $ HM.lookup "vocals" diffMap
           , vocalCount = vc
           , vocalGender = Just $ D.vocalGender pkg
           }
