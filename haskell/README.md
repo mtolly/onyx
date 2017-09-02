@@ -73,8 +73,8 @@ Open `onyx.exe`/`Onyx.app` to run.
     Also available is an option to copy the Guitar chart to Keys,
     so that two people can play it. This will add force notes to the chart to
     make the Keys chart have the right strum/HOPO notes when played on a guitar.
-    For songs with stems, it will also move the guitar audio to the backing
-    track, so it won't cut out when either instrument misses.
+    For songs with stems, the guitar audio will be linked to both the guitar
+    and keys tracks, so if either instrument misses it will cut out.
 
     When creating a Magma project, a REAPER project will also be generated
     so any remaining problems can be quickly edited and re-exported to MIDI.
