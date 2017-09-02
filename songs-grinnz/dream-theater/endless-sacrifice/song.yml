@@ -77,7 +77,18 @@ plans:
 parts:
   drums:
     drums:
-      auto-2x-bass: true
+      difficulty: 6
   keys:
     pro-keys:
       difficulty: 7
+targets:
+  rb3:
+    game: rb3
+    plan: drumcam
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: drumcam
+  ps:
+    game: ps
+    plan: drumcam

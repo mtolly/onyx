@@ -56,7 +56,6 @@ plans:
     song:
       pad: [6.645, album-track]
   drumcam:
-    # TODO: either move synth drum bit to drums, or chart it on keys instead
     countin: *countin
     song:
       pad:
