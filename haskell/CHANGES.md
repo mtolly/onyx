@@ -1,5 +1,12 @@
 # Version history
 
+## 20170902
+
+* Fix guitar-on-keys freezing the game: guitar and keys will share the guitar
+  audio channels (audio cuts out if either player misses)
+* Also fixes guitar tier when copying to keys
+* Selects result files in explorer window upon completion
+
 ## 20170826
 
 * Revamped the menu organization (convert to RB3/RB2/Magma now a single menu)
