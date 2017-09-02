@@ -46,7 +46,7 @@ difficultyRB3 TargetRB3{..} songYaml = let
   rb3KeysRank      = if rb3KeysRank' == 0 then rb3ProKeysRank' else rb3KeysRank'
   rb3ProKeysRank   = if rb3ProKeysRank' == 0 then rb3KeysRank' else rb3ProKeysRank'
   rb3ProBassRank   = simpleRank rb3_Bass   partProGuitar pgDifficulty    proBassDiffMap
-  rb3ProGuitarRank = simpleRank rb3_Guitar partProGuitar pgDifficulty    proBassDiffMap
+  rb3ProGuitarRank = simpleRank rb3_Guitar partProGuitar pgDifficulty    proGuitarDiffMap
   rb3BandRank      = case _difficulty $ _metadata songYaml of
     Tier t -> tierToRank bandDiffMap t
     Rank r -> r

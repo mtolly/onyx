@@ -211,10 +211,14 @@ makeRB3DTA songYaml plan rb3 song filename = do
       , D.tracksCount = Nothing
       , D.tracks = fmap (map fromIntegral) $ HM.fromList $ filter (not . null . snd) $ case plan of
         MoggPlan{..} -> let
-          allParts = map ($ rb3) [rb3_Drums, rb3_Bass, rb3_Guitar, rb3_Keys, rb3_Vocal]
-          getChannels rank fpart = case filter (== fpart) allParts of
-            _ : _ : _ -> [] -- more than 1 game part maps to this flex part
-            _         -> maybe [] (concat . toList) $ lookupPart rank fpart _moggParts
+          getChannels rank fpart = maybe [] (concat . toList) $ lookupPart rank fpart _moggParts
+          -- * the below trick does not work. RB3 freezes if a part doesn't have any channels.
+          -- * so instead above we just allow doubling up on channels.
+          -- * this works ok; the audio will cut out if either player misses, and whammy does not bend pitch.
+          -- allParts = map ($ rb3) [rb3_Drums, rb3_Bass, rb3_Guitar, rb3_Keys, rb3_Vocal]
+          -- getChannels rank fpart = case filter (== fpart) allParts of
+          --   _ : _ : _ -> [] -- more than 1 game part maps to this flex part
+          --   _         -> maybe [] (concat . toList) $ lookupPart rank fpart _moggParts
           in  [ ("drum"  , getChannels rb3DrumsRank  $ rb3_Drums  rb3)
               , ("bass"  , getChannels rb3BassRank   $ rb3_Bass   rb3)
               , ("guitar", getChannels rb3GuitarRank $ rb3_Guitar rb3)
