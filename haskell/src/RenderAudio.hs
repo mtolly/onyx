@@ -198,8 +198,9 @@ completePlanAudio :: (Monad m) => SongYaml -> PlanAudio Duration AudioInput -> S
 completePlanAudio songYaml pa = do
   let chans = computeChannelsPlan songYaml $ _planExpr pa
       vols = map realToFrac $ case _planVols pa of
-        [] -> replicate chans 0
-        xs -> xs
+        []  -> replicate chans 0
+        [x] -> replicate chans x
+        xs  -> xs
   pans <- case _planPans pa of
     [] -> case chans of
       0 -> return []

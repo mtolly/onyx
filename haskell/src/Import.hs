@@ -29,7 +29,8 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (elemIndex, nub)
-import           Data.Maybe                       (fromMaybe, isJust, mapMaybe)
+import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
+                                                   mapMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Data.Text.IO                     as TIO
@@ -56,8 +57,9 @@ import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Extract                     (extractSTFS)
 import qualified System.Directory                 as Dir
-import           System.FilePath                  (takeDirectory, takeFileName,
-                                                   (-<.>), (<.>), (</>), takeExtension)
+import           System.FilePath                  (takeDirectory, takeExtension,
+                                                   takeFileName, (-<.>), (<.>),
+                                                   (</>))
 import           X360DotNet                       (rb3pkg)
 
 fixDoubleSwells :: RBFile.PSFile U.Beats -> RBFile.PSFile U.Beats
@@ -712,8 +714,8 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
 importMagma :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 importMagma fin dir = do
 
-  let relDir = takeDirectory fin
-  rbproj <- stackIO (D.readFileDTA fin) >>= D.unserialize D.stackChunks
+  let oldDir = takeDirectory fin
+  RBProj.RBProj rbproj <- stackIO (D.readFileDTA fin) >>= D.unserialize D.stackChunks
 
   c3 <- do
     let pathC3 = fin -<.> "c3"
@@ -725,7 +727,7 @@ importMagma fin dir = do
   let art = fromMaybe (T.unpack $ RBProj.albumArtFile $ RBProj.albumArt rbproj)
         $ C3.songAlbumArt <$> c3
       art' = "album" <.> takeExtension art
-  stackIO $ Dir.copyFile art $ dir </> art'
+  stackIO $ Dir.copyFile (oldDir </> art) (dir </> art')
 
   let hopoThresh = case fmap C3.hopoThresholdIndex c3 of
         Nothing -> 170
@@ -740,10 +742,26 @@ importMagma fin dir = do
         in if RBProj.audioEnabled aud
           then return Nothing
           else do
-            let src = T.unpack $ RBProj.audioFile aud
+            let src = oldDir </> T.unpack (RBProj.audioFile aud)
                 dst = s -<.> takeExtension src
-            stackIO $ Dir.copyFile src $ dir </> dst
-            return $ Just aud { RBProj.audioFile = T.pack dst }
+            stackIO $ Dir.copyFile src (dir </> dst)
+            return $ Just
+              ( PlanAudio
+                { _planExpr = Input $ Named $ T.pack s
+                , _planPans = map realToFrac $ RBProj.pan aud
+                , _planVols = map realToFrac $ RBProj.vol aud
+                }
+              , ( T.pack s
+                , AudioFile
+                  { _md5 = Nothing
+                  , _frames = Nothing
+                  , _filePath = Just dst
+                  , _commands = []
+                  , _rate = Nothing
+                  , _channels = fromIntegral $ RBProj.channels aud
+                  }
+                )
+              )
   drums <- getTrack "drums" RBProj.drumKit
   kick <- getTrack "kick" RBProj.drumKick
   snare <- getTrack "snare" RBProj.drumSnare
@@ -751,7 +769,37 @@ importMagma fin dir = do
   bass <- getTrack "bass" RBProj.bass
   keys <- getTrack "keys" RBProj.keys
   vox <- getTrack "vocal" RBProj.vocals
-  back <- getTrack "song" RBProj.backing
+  song <- getTrack "song" RBProj.backing
+  crowd <- case c3 >>= C3.crowdAudio of
+    Nothing -> return Nothing
+    Just f  -> do
+      let src = oldDir </> T.unpack f
+          s = "crowd"
+          dst = s -<.> takeExtension src
+      stackIO $ Dir.copyFile src (dir </> dst)
+      chans <- audioChannels src >>= \case
+        Just c -> return c
+        Nothing -> do
+          warn "Couldn't detect crowd audio channels; assuming 2."
+          return 2
+      return $ Just
+        ( PlanAudio
+          { _planExpr = Input $ Named $ T.pack s
+          , _planPans = []
+          , _planVols = toList $ c3 >>= C3.crowdVol
+          }
+        , ( T.pack s
+          , AudioFile
+            { _md5 = Nothing
+            , _frames = Nothing
+            , _filePath = Just dst
+            , _commands = []
+            , _rate = Nothing
+            , _channels = chans
+            }
+          )
+        )
+  let allAudio = map snd $ catMaybes [drums, kick, snare, gtr, bass, keys, vox, song, crowd]
 
   stackIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
@@ -796,9 +844,27 @@ importMagma fin dir = do
       , _expertOnly   = maybe False C3.expertOnly c3
       , _cover        = maybe False (not . C3.isMaster) c3
       }
-    , _audio = undefined
+    , _audio = HM.fromList allAudio
     , _jammit = HM.empty
-    , _plans = undefined
+    , _plans = HM.singleton "rbproj" Plan
+      { _song = fmap fst song
+      , _countin = Countin []
+      , _planParts = Parts $ HM.fromList $ concat
+        [ case drums of
+          Nothing -> []
+          Just (drumsAud, _) ->
+            [(FlexDrums, case (kick, snare) of
+              (Nothing, Nothing) -> PartSingle drumsAud
+              _ -> PartDrumKit (fmap fst kick) (fmap fst snare) drumsAud
+            )]
+        , toList $ fmap (\(aud, _) -> (FlexGuitar, PartSingle aud)) gtr
+        , toList $ fmap (\(aud, _) -> (FlexBass  , PartSingle aud)) bass
+        , toList $ fmap (\(aud, _) -> (FlexKeys  , PartSingle aud)) keys
+        , toList $ fmap (\(aud, _) -> (FlexVocal , PartSingle aud)) vox
+        ]
+      , _crowd = fmap fst crowd
+      , _planComments = []
+      }
     , _targets = undefined
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
