@@ -732,25 +732,11 @@ instance StackJSON Part where
 instance Default Part where
   def = fromEmptyObject
 
-data AutogenTheme
-  = AutogenDefault
-  | AggressiveMetal
-  | ArenaRock
-  | DarkHeavyRock
-  | DustyVintage
-  | EdgyProgRock
-  | FeelGoodPopRock
-  | GaragePunkRock
-  | PsychJamRock
-  | SlowJam
-  | SynthPop
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-instance StackJSON AutogenTheme where
+instance StackJSON Magma.AutogenTheme where
   stackJSON = StackCodec
     { stackParse = lift ask >>= \case
-      A.Null             -> return AutogenDefault
-      A.String "Default" -> return AutogenDefault
+      A.Null             -> return Magma.DefaultTheme
+      A.String "Default" -> return Magma.DefaultTheme
       A.String t         -> case readMaybe $ filter (/= ' ') $ T.unpack t of
         Just theme -> return theme
         Nothing    -> expected "the name of an autogen theme or null"
@@ -821,7 +807,7 @@ data Metadata = Metadata
   , _trackNumber  :: Maybe Int
   , _comments     :: [T.Text]
   , _key          :: Maybe Key
-  , _autogenTheme :: AutogenTheme
+  , _autogenTheme :: Magma.AutogenTheme
   , _author       :: Maybe T.Text
   , _rating       :: Rating
   , _previewStart :: Maybe PreviewTime
@@ -848,7 +834,7 @@ instance StackJSON Metadata where
     _trackNumber  <- _trackNumber  =. warning Nothing        "track-number"   stackJSON
     _comments     <- _comments     =. opt     []             "comments"       stackJSON
     _key          <- _key          =. opt     Nothing        "key"            stackJSON
-    _autogenTheme <- _autogenTheme =. opt     AutogenDefault "autogen-theme"  stackJSON
+    _autogenTheme <- _autogenTheme =. opt     Magma.DefaultTheme "autogen-theme"  stackJSON
     _author       <- _author       =. warning Nothing        "author"         stackJSON
     _rating       <- _rating       =. opt     Unrated        "rating"         stackJSON
     _previewStart <- _previewStart =. opt     Nothing        "preview-start"  stackJSON

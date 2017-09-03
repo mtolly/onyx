@@ -102,7 +102,7 @@ data AutogenTheme
 
 instance StackChunk AutogenTheme where
   stackChunk = dtaEnum "AutogenTheme" $ \case
-    DefaultTheme -> String ""
+    DefaultTheme -> String "" -- TODO also allow "Default.rbtheme"
     theme        -> String $ T.pack (show theme) <> ".rbtheme"
 instance StackChunks AutogenTheme
 
@@ -209,7 +209,7 @@ instance StackChunks AlbumArt where
 
 data Gamedata = Gamedata
   { previewStartMs   :: Integer
-  -- | ranks: 1 is no dots, 7 is devils
+  -- | tiers (not really ranks): 1 is no dots, 7 is devils
   , rankGuitar       :: Integer
   , rankBass         :: Integer
   , rankDrum         :: Integer

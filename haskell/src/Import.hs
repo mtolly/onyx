@@ -4,6 +4,7 @@
 module Import (importFoF, importRBA, importSTFS, simpleRBAtoCON, HasKicks(..)) where
 
 import           Audio
+import qualified C3
 import           Codec.Picture                    (convertRGB8, readImage)
 import           Config                           hiding (Difficulty)
 import qualified Config
@@ -20,6 +21,8 @@ import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
 import qualified Data.Digest.Pure.MD5             as MD5
 import qualified Data.DTA                         as D
+import qualified Data.DTA.Serialize               as D
+import qualified Data.DTA.Serialize.Magma         as RBProj
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -54,7 +57,7 @@ import qualified Sound.MIDI.Util                  as U
 import           STFS.Extract                     (extractSTFS)
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (takeDirectory, takeFileName,
-                                                   (<.>), (</>))
+                                                   (-<.>), (<.>), (</>))
 import           X360DotNet                       (rb3pkg)
 
 fixDoubleSwells :: RBFile.PSFile U.Beats -> RBFile.PSFile U.Beats
@@ -209,7 +212,7 @@ importFoF detectBasicDrums src dest = do
       , _trackNumber  = FoF.track song
       , _comments     = []
       , _key          = Nothing
-      , _autogenTheme = AutogenDefault
+      , _autogenTheme = RBProj.DefaultTheme
       , _author       = FoF.charter song
       , _rating       = Unrated
       , _previewStart = case FoF.previewStartTime song of
@@ -596,7 +599,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
       , _comments     = []
       , _difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
       , _key          = toEnum . fromEnum <$> D.vocalTonicNote pkg
-      , _autogenTheme = AutogenDefault
+      , _autogenTheme = RBProj.DefaultTheme
       , _author       = _author meta
       , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
       , _previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ D.preview pkg) / 1000
@@ -701,6 +704,80 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
           , vocalCount = vc
           , vocalGender = Just $ D.vocalGender pkg
           }
+        })
+      ]
+    }
+
+-- | TODO
+importMagma :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
+importMagma fin dir = do
+
+  let relDir = takeDirectory fin
+  rbproj <- stackIO (D.readFileDTA fin) >>= D.unserialize D.stackChunks
+
+  c3 <- do
+    let pathC3 = fin -<.> "c3"
+    hasC3 <- stackIO $ Dir.doesFileExist pathC3
+    if hasC3
+      then fmap Just $ stackIO (TIO.readFile pathC3) >>= C3.readC3
+      else return Nothing
+
+  liftIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
+    { _metadata = Metadata
+      { _title        = Just $ RBProj.songName $ RBProj.metadata rbproj
+      , _artist       = Just $ RBProj.artistName $ RBProj.metadata rbproj
+      , _album        = Just $ RBProj.albumName $ RBProj.metadata rbproj
+      , _genre        = Just $ RBProj.genre $ RBProj.metadata rbproj
+      , _subgenre     = Just $ RBProj.subGenre $ RBProj.metadata rbproj
+      , _year         = Just $ fromIntegral $ RBProj.yearReleased $ RBProj.metadata rbproj
+      , _fileAlbumArt = undefined
+      , _trackNumber  = Just $ fromIntegral $ RBProj.trackNumber $ RBProj.metadata rbproj
+      , _comments     = []
+      , _difficulty   = Tier $ RBProj.rankBand $ RBProj.gamedata rbproj
+      , _key          = c3 >>= C3.tonicNote
+      , _autogenTheme = case RBProj.autogenTheme $ RBProj.midi rbproj of
+        Left theme -> theme
+        Right _str -> RBProj.DefaultTheme -- TODO
+      , _author       = Just $ RBProj.author $ RBProj.metadata rbproj
+      , _rating       = case fmap C3.songRating c3 of
+        Nothing -> Unrated
+        Just 1  -> FamilyFriendly
+        Just 2  -> SupervisionRecommended
+        Just 3  -> Mature
+        Just 4  -> Unrated
+        Just _  -> Unrated
+      , _previewStart = Just $ PreviewSeconds $ fromIntegral (RBProj.previewStartMs $ RBProj.gamedata rbproj) / 1000
+      , _previewEnd   = Nothing
+      , _languages    = undefined
+      , _convert      = maybe False C3.convert c3
+      , _rhythmKeys   = maybe False C3.rhythmKeys c3
+      , _rhythmBass   = maybe False C3.rhythmBass c3
+      , _catEMH       = False -- not stored in .c3 file
+      , _expertOnly   = maybe False C3.expertOnly c3
+      , _cover        = maybe False (not . C3.isMaster) c3
+      }
+    , _audio = undefined
+    , _jammit = HM.empty
+    , _plans = undefined
+    , _targets = undefined
+    , _parts = Parts $ HM.fromList
+      [ ( FlexDrums, def
+        { partDrums = undefined
+        })
+      , ( FlexGuitar, def
+        { partGRYBO = undefined
+        , partProGuitar = undefined
+        })
+      , ( FlexBass, def
+        { partGRYBO = undefined
+        , partProGuitar = undefined
+        })
+      , ( FlexKeys, def
+        { partGRYBO = undefined
+        , partProKeys = undefined
+        })
+      , ( FlexVocal, def
+        { partVocal = undefined
         })
       ]
     }

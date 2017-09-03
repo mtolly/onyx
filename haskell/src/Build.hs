@@ -546,9 +546,7 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
       , Magma.destinationFile = T.pack $ T.unpack pkg <.> "rba"
       , Magma.midi = Magma.Midi
         { Magma.midiFile = "notes.mid"
-        , Magma.autogenTheme = Right $ case _autogenTheme $ _metadata songYaml of
-          AutogenDefault -> "Default.rbtheme"
-          theme          -> T.pack (show theme) <> ".rbtheme"
+        , Magma.autogenTheme = Left $ _autogenTheme $ _metadata songYaml
         }
       , Magma.dryVox = Magma.DryVox
         { Magma.part0 = case voxCount of
