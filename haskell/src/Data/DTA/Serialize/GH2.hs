@@ -126,7 +126,7 @@ instance StackChunks SongPackage where
     animTempo      <- animTempo      =. req         "anim_tempo"      stackChunks
     preview        <- preview        =. req         "preview"         stackChunks
     quickplay      <- quickplay      =. req         "quickplay"       stackChunks
-    practiceSpeeds <- practiceSpeeds =. req         "practice_speeds" stackChunks
+    practiceSpeeds <- practiceSpeeds =. req         "practice_speeds" (chunksParens stackChunks)
     songCoop       <- songCoop       =. opt Nothing "song_coop"       stackChunks
     songPractice1  <- songPractice1  =. req         "song_practice1"  stackChunks
     songPractice2  <- songPractice2  =. req         "song_practice2"  stackChunks

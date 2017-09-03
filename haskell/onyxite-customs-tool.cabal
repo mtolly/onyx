@@ -58,6 +58,7 @@ executable onyx
     RockBand3
     GuitarHeroII.Ark
     GuitarHeroII.Audio
+    GuitarHeroII.Convert
     DryVox
     RenderAudio
     RockBand.ProGuitar.Play

@@ -53,6 +53,8 @@ import           DryVox                                (clipDryVox,
                                                         vocalTubes)
 import qualified FretsOnFire                           as FoF
 import           Genre
+import           GuitarHeroII.Audio                    (writeVGS)
+import           GuitarHeroII.Convert
 import           Image
 import           JSONData                              (StackJSON (..),
                                                         fromJSON, stackShow)
@@ -787,6 +789,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   Just (PartSingle      kit) -> Just kit
                   _                          -> Nothing
             lift $ runAudio (zeroIfMultiple gameParts fpart $ padAudio pad $ adjustAudioSpeed speed src) out
+          getPartSource :: (MonadResource m) => [(Double, Double)] -> T.Text -> Plan -> RBFile.FlexPartName -> Integer -> StackTraceT Action (AudioSource m Float)
           getPartSource spec planName plan fpart rank = case plan of
             MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ do
               guard $ rank /= 0
@@ -812,8 +815,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] planName (zip _pans _vols) _silent _moggCrowd
               Plan{..}     -> buildAudioToSpec songYaml [(-1, 0), (1, 0)] _crowd
             lift $ runAudio (padAudio pad $ adjustAudioSpeed speed src) out
-          writeSongCountin :: Maybe Double -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> StackTraceT Action ()
-          writeSongCountin speed pad includeCountin planName plan fparts out = do
+          sourceSongCountin :: (MonadResource m) => Maybe Double -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> StackTraceT Action (AudioSource m Float)
+          sourceSongCountin speed pad includeCountin planName plan fparts = do
             let usedParts' = [ fpart | (fpart, rank) <- fparts, rank /= 0 ]
                 usedParts =
                   [ fpart
@@ -846,8 +849,11 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                     else case unusedSrcs of
                       []     -> buildPartAudioToSpec songYaml spec Nothing
                       s : ss -> return $ foldr mix s ss
-
-            lift $ runAudio (padAudio pad $ adjustAudioSpeed speed src) out
+            return $ padAudio pad $ adjustAudioSpeed speed src
+          writeSongCountin :: Maybe Double -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> StackTraceT Action ()
+          writeSongCountin speed pad includeCountin planName plan fparts out = do
+            src <- sourceSongCountin speed pad includeCountin planName plan fparts
+            lift $ runAudio src out
 
           rbRules :: FilePath -> TargetRB3 -> Maybe TargetRB2 -> Rules ()
           rbRules dir rb3 mrb2 = do
@@ -1469,7 +1475,32 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               , rb3_Keys = RBFile.FlexKeys
               }
             in rbRules dir rb3 $ Just rb2
-          GH2 _ -> return () -- TODO
+          GH2 gh2 -> do
+
+            (planName, plan) <- case getPlan (gh2_Plan gh2) songYaml of
+              Nothing   -> fail $ "Couldn't locate a plan for this target: " ++ show gh2
+              Just pair -> return pair
+            let planDir = "gen/plan" </> T.unpack planName
+
+            dir </> "gh2/notes.mid" ≡> \out -> do
+              input <- shakeMIDI $ planDir </> "raw.mid"
+              lift $ saveMIDI out $ midiRB3toGH2 songYaml gh2 input
+
+            dir </> "gh2/audio.vgs" ≡> \out -> do
+              let coopPart = case gh2_Coop gh2 of
+                    GH2Bass   -> gh2_Bass   gh2
+                    GH2Rhythm -> gh2_Rhythm gh2
+              -- TODO support no coop part
+              srcGtr <- getPartSource [(-1, 0), (1, 0)] planName plan (gh2_Guitar gh2) 1
+              srcCoop <- getPartSource [(-1, 0), (1, 0)] planName plan coopPart 1
+              srcSong <- sourceSongCountin Nothing 0 True planName plan [(gh2_Guitar gh2, 1), (coopPart, 1)]
+              stackIO $ runResourceT $ writeVGS out $ mapSamples integralSample $ merge (merge srcGtr srcCoop) srcSong
+
+            -- dta
+            let dta = makeGH2DTA songYaml gh2
+            dir </> "gh2/songs.dta" ≡> \out -> do
+              stackIO $ D.writeFileDTA_latin1 out $ D.serialize D.stackChunks dta
+
           PS ps -> do
 
             (planName, plan) <- case getPlan (ps_Plan ps) songYaml of
