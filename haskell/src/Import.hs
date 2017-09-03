@@ -13,7 +13,7 @@ import           Control.Arrow                    (first)
 import           Control.Exception                (evaluate)
 import           Control.Monad                    (forM, guard, when)
 import           Control.Monad.Extra              (mapMaybeM)
-import           Control.Monad.IO.Class           (MonadIO (liftIO))
+import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isSpace)
@@ -57,7 +57,7 @@ import qualified Sound.MIDI.Util                  as U
 import           STFS.Extract                     (extractSTFS)
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (takeDirectory, takeFileName,
-                                                   (-<.>), (<.>), (</>))
+                                                   (-<.>), (<.>), (</>), takeExtension)
 import           X360DotNet                       (rb3pkg)
 
 fixDoubleSwells :: RBFile.PSFile U.Beats -> RBFile.PSFile U.Beats
@@ -90,10 +90,10 @@ importFoF :: (MonadIO m) => Bool -> FilePath -> FilePath -> StackTraceT m HasKic
 importFoF detectBasicDrums src dest = do
   song <- FoF.loadSong $ src </> "song.ini"
 
-  hasAlbumArt <- liftIO $ Dir.doesFileExist $ src </> "album.png"
-  when hasAlbumArt $ liftIO $ Dir.copyFile (src </> "album.png") (dest </> "album.png")
+  hasAlbumArt <- stackIO $ Dir.doesFileExist $ src </> "album.png"
+  when hasAlbumArt $ stackIO $ Dir.copyFile (src </> "album.png") (dest </> "album.png")
 
-  audioFiles <- liftIO $ let
+  audioFiles <- stackIO $ let
     loadAudio x = do
       b <- Dir.doesFileExist $ src </> x
       if b
@@ -163,7 +163,7 @@ importFoF detectBasicDrums src dest = do
 
   let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
 
-  mid2x <- liftIO $ Dir.doesFileExist $ src </> "expert+.mid"
+  mid2x <- stackIO $ Dir.doesFileExist $ src </> "expert+.mid"
   add2x <- if mid2x
     then do
       parsed2x <- loadMIDI $ src </> "expert+.mid"
@@ -179,7 +179,7 @@ importFoF detectBasicDrums src dest = do
         then HasBoth
         else if is2x then Has2x else Has1x
 
-  liftIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI parsed
+  stackIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI parsed
     { RBFile.s_tracks = fixDoubleSwells $ add2x $ RBFile.s_tracks parsed
     }
 
@@ -187,7 +187,7 @@ importFoF detectBasicDrums src dest = do
     Nothing -> return Nothing
     Just s | all isSpace s -> return Nothing
     Just v -> inside "copying PS video file to onyx project" $ do
-      liftIO $ Dir.copyFile (src </> v) (dest </> "video.avi")
+      stackIO $ Dir.copyFile (src </> v) (dest </> "video.avi")
       return $ Just "video.avi"
 
   let hasTrack :: (RBFile.PSFile U.Beats -> RTB.T U.Beats a) -> Bool
@@ -200,7 +200,7 @@ importFoF detectBasicDrums src dest = do
           else Just Vocal1
         else Nothing
 
-  liftIO $ Y.encodeFile (dest </> "song.yml") $ toJSON SongYaml
+  stackIO $ Y.encodeFile (dest </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
       { _title        = title
       , _artist       = FoF.artist song
@@ -341,7 +341,7 @@ data HasKicks = Has1x | Has2x | HasBoth
 
 importSTFS :: (MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
 importSTFS file file2x dir = tempDir "onyx_con" $ \temp -> do
-  liftIO $ extractSTFS file temp
+  stackIO $ extractSTFS file temp
   DTASingle _ pkg comments <- readDTASingle $ temp </> "songs/songs.dta"
   let c3Title = fromMaybe (D.name pkg) $ c3dtaSong comments
       (title, is2x) = case c3dta2xBass comments of
@@ -374,7 +374,7 @@ importSTFS file file2x dir = tempDir "onyx_con" $ \temp -> do
   case file2x of
     Nothing -> with2xPath Nothing
     Just f2x -> tempDir "onyx_con2x" $ \temp2x -> do
-      liftIO $ extractSTFS f2x temp2x
+      stackIO $ extractSTFS f2x temp2x
       DTASingle _ pkg2x _ <- readDTASingle $ temp2x </> "songs/songs.dta"
       let base2x = T.unpack $ D.songName $ D.song pkg2x
       with2xPath $ Just (pkg2x, temp2x </> base2x <.> "mid")
@@ -383,9 +383,9 @@ importSTFS file file2x dir = tempDir "onyx_con" $ \temp -> do
 simpleRBAtoCON :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ show con) $ do
   tempDir "onyx_rba2con" $ \temp -> do
-    md5 <- liftIO $ BL.readFile rba >>= evaluate . MD5.md5
+    md5 <- stackIO $ BL.readFile rba >>= evaluate . MD5.md5
     let shortName = "onyx" ++ take 10 (show md5)
-    liftIO $ Dir.createDirectoryIfMissing True $ temp </> "songs" </> shortName </> "gen"
+    stackIO $ Dir.createDirectoryIfMissing True $ temp </> "songs" </> shortName </> "gen"
     getRBAFile 0 rba $ temp </> "temp_songs.dta"
     getRBAFile 1 rba $ temp </> "songs" </> shortName </> shortName <.> "mid"
     getRBAFile 2 rba $ temp </> "songs" </> shortName </> shortName <.> "mogg"
@@ -395,7 +395,7 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
     getRBAFile 6 rba $ temp </> "temp_extra.dta"
     (_, pkg, isUTF8) <- readRB3DTA $ temp </> "temp_songs.dta"
     extra <- (if isUTF8 then D.readFileDTA_utf8' else D.readFileDTA_latin1') $ temp </> "temp_extra.dta"
-    liftIO $ TIO.writeFile (temp </> "songs/songs.dta") $ writeDTASingle DTASingle
+    stackIO $ TIO.writeFile (temp </> "songs/songs.dta") $ writeDTASingle DTASingle
       { dtaTopKey = T.pack shortName
       , dtaSongPackage = pkg
         { D.song = (D.song pkg)
@@ -425,12 +425,12 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
         , c3dtaExpertOnly   = Nothing
         }
       }
-    liftIO $ readImage (temp </> "temp_cover.bmp") >>= \case
+    stackIO $ readImage (temp </> "temp_cover.bmp") >>= \case
       Left err -> error err -- TODO
       Right dyn -> let
         out = temp </> "songs" </> shortName </> "gen" </> (shortName ++ "_keep.png_xbox")
         in BL.writeFile out $ toPNG_XBOX $ convertRGB8 dyn
-    liftIO $ do
+    stackIO $ do
       Dir.removeFile $ temp </> "temp_songs.dta"
       Dir.removeFile $ temp </> "temp_cover.bmp"
       Dir.removeFile $ temp </> "temp_extra.dta"
@@ -476,7 +476,7 @@ importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
 -- | Collects the contents of an RBA or CON file into an Onyx project.
 importRB3 :: (MonadIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKicks -> FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
 importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName dir = do
-  liftIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
+  stackIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
 
   isRB2 <- case D.songFormat pkg of
     10 -> return False
@@ -499,11 +499,11 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
           Just "VENUE" -> U.setTrackName "VENUE RB2" trk
           _            -> trk
         else trksAdd2x
-  liftIO $ Save.toFile (dir </> "notes.mid") $ RBFile.showMIDIFile'
+  stackIO $ Save.toFile (dir </> "notes.mid") $ RBFile.showMIDIFile'
     $ RBFile.Song temps sigs $ RBFile.RawFile trksRenameVenue
 
-  liftIO $ Dir.copyFile cover $ dir </> coverName
-  md5 <- liftIO $ show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
+  stackIO $ Dir.copyFile cover $ dir </> coverName
+  md5 <- stackIO $ show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
   rb3mid <- loadMIDI mid
   drumkit <- case D.drumBank pkg of
     Nothing -> return HardRockKit
@@ -556,7 +556,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
         warn "Couldn't decrypt MOGG to scan for empty channels."
         return []
       Right ()   -> emptyChannels ogg
-  liftIO $ putStrLn $ "Detected the following channels as silent: " ++ show silentChannels
+  stackIO $ putStrLn $ "Detected the following channels as silent: " ++ show silentChannels
 
   drumMix <- let
     drumEvents = toList $ RBFile.rb3PartDrums $ RBFile.s_tracks rb3mid
@@ -586,7 +586,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
       [kick, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
       _ -> fatal $ "mix 4 needs 3 drums channels, " ++ show (length drumChans) ++ " given"
 
-  liftIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
+  stackIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
       { _title        = _title meta <|> Just (D.name pkg)
       , _artist       = Just $ D.artist pkg
@@ -722,7 +722,38 @@ importMagma fin dir = do
       then fmap Just $ stackIO (TIO.readFile pathC3) >>= C3.readC3
       else return Nothing
 
-  liftIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
+  let art = fromMaybe (T.unpack $ RBProj.albumArtFile $ RBProj.albumArt rbproj)
+        $ C3.songAlbumArt <$> c3
+      art' = "album" <.> takeExtension art
+  stackIO $ Dir.copyFile art $ dir </> art'
+
+  let hopoThresh = case fmap C3.hopoThresholdIndex c3 of
+        Nothing -> 170
+        Just 0  -> 90
+        Just 1  -> 130
+        Just 2  -> 170
+        Just 3  -> 250
+        Just _  -> 170
+
+  let getTrack s f = let
+        aud = f $ RBProj.tracks rbproj
+        in if RBProj.audioEnabled aud
+          then return Nothing
+          else do
+            let src = T.unpack $ RBProj.audioFile aud
+                dst = s -<.> takeExtension src
+            stackIO $ Dir.copyFile src $ dir </> dst
+            return $ Just aud { RBProj.audioFile = T.pack dst }
+  drums <- getTrack "drums" RBProj.drumKit
+  kick <- getTrack "kick" RBProj.drumKick
+  snare <- getTrack "snare" RBProj.drumSnare
+  gtr <- getTrack "guitar" RBProj.guitar
+  bass <- getTrack "bass" RBProj.bass
+  keys <- getTrack "keys" RBProj.keys
+  vox <- getTrack "vocal" RBProj.vocals
+  back <- getTrack "song" RBProj.backing
+
+  stackIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
       { _title        = Just $ RBProj.songName $ RBProj.metadata rbproj
       , _artist       = Just $ RBProj.artistName $ RBProj.metadata rbproj
@@ -730,7 +761,7 @@ importMagma fin dir = do
       , _genre        = Just $ RBProj.genre $ RBProj.metadata rbproj
       , _subgenre     = Just $ RBProj.subGenre $ RBProj.metadata rbproj
       , _year         = Just $ fromIntegral $ RBProj.yearReleased $ RBProj.metadata rbproj
-      , _fileAlbumArt = undefined
+      , _fileAlbumArt = Just art'
       , _trackNumber  = Just $ fromIntegral $ RBProj.trackNumber $ RBProj.metadata rbproj
       , _comments     = []
       , _difficulty   = Tier $ RBProj.rankBand $ RBProj.gamedata rbproj
@@ -748,7 +779,16 @@ importMagma fin dir = do
         Just _  -> Unrated
       , _previewStart = Just $ PreviewSeconds $ fromIntegral (RBProj.previewStartMs $ RBProj.gamedata rbproj) / 1000
       , _previewEnd   = Nothing
-      , _languages    = undefined
+      , _languages    = let
+        lang s f = [s | fromMaybe False $ f $ RBProj.languages rbproj]
+        in concat
+          [ lang "English"  RBProj.english
+          , lang "French"   RBProj.french
+          , lang "Italian"  RBProj.italian
+          , lang "Spanish"  RBProj.spanish
+          , lang "German"   RBProj.german
+          , lang "Japanese" RBProj.japanese
+          ]
       , _convert      = maybe False C3.convert c3
       , _rhythmKeys   = maybe False C3.rhythmKeys c3
       , _rhythmBass   = maybe False C3.rhythmBass c3
@@ -762,19 +802,48 @@ importMagma fin dir = do
     , _targets = undefined
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
-        { partDrums = undefined
+        { partDrums = guard (isJust drums) >> Just PartDrums
+          { drumsDifficulty = Tier $ RBProj.rankDrum $ RBProj.gamedata rbproj
+          , drumsPro = True -- TODO set to false for magma v1?
+          , drumsAuto2xBass = False
+          , drumsFixFreeform = False
+          , drumsKit = case fmap C3.drumKitSFX c3 of
+            Nothing -> HardRockKit
+            Just 0  -> HardRockKit
+            Just 1  -> ArenaKit
+            Just 2  -> VintageKit
+            Just 3  -> TrashyKit
+            Just 4  -> ElectronicKit
+            Just _  -> HardRockKit
+          , drumsLayout = StandardLayout
+          }
         })
       , ( FlexGuitar, def
-        { partGRYBO = undefined
+        { partGRYBO = guard (isJust gtr) >> Just PartGRYBO
+          { gryboDifficulty = Tier $ RBProj.rankGuitar $ RBProj.gamedata rbproj
+          , gryboHopoThreshold = hopoThresh
+          , gryboFixFreeform = False
+          }
         , partProGuitar = undefined
         })
       , ( FlexBass, def
-        { partGRYBO = undefined
+        { partGRYBO = guard (isJust bass) >> Just PartGRYBO
+          { gryboDifficulty = Tier $ RBProj.rankBass $ RBProj.gamedata rbproj
+          , gryboHopoThreshold = hopoThresh
+          , gryboFixFreeform = False
+          }
         , partProGuitar = undefined
         })
       , ( FlexKeys, def
-        { partGRYBO = undefined
-        , partProKeys = undefined
+        { partGRYBO = guard (isJust keys) >> Just PartGRYBO
+          { gryboDifficulty = Tier $ RBProj.rankKeys $ RBProj.gamedata rbproj
+          , gryboHopoThreshold = hopoThresh
+          , gryboFixFreeform = False
+          }
+        , partProKeys = guard (isJust keys && maybe False (not . C3.disableProKeys) c3) >> Just PartProKeys
+          { pkDifficulty = Tier $ RBProj.rankProKeys $ RBProj.gamedata rbproj
+          , pkFixFreeform = False
+          }
         })
       , ( FlexVocal, def
         { partVocal = undefined
