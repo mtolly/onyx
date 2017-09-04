@@ -132,8 +132,18 @@ replaceSong gen key snippet files = do
         D.DTA z (D.Tree _ chunks) <- D.readFileDTB fdtb
         let adjust chunk = case chunk of
               D.Parens (D.Tree _ (D.Key k : _)) | k == key ->
-                D.Parens $ D.Tree 0 $ D.Key k : snippet
+                D.Parens $ D.Tree 0 $ D.Key k : map adjustSnippet snippet
               _ -> chunk
+            adjustSnippet = \case
+              String s -> String $ adjustString s
+              Parens t -> Parens $ adjustTree t
+              Braces t -> Braces $ adjustTree t
+              Brackets t -> Brackets $ adjustTree t
+              chunk -> chunk
+            adjustTree (Tree tid chunks) = Tree tid $ map adjustSnippet chunks
+            adjustString str = case B.breakSubstring "$SONGKEY" str of
+              (h, t) | not $ T.null t -> adjustString $ h <> key <> T.drop 8 t
+              _ -> str
         D.writeFileDTB fdtb $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 $ map adjust chunks
         wrap "Couldn't update songs.dtb in the ARK." $
           ark_ReplaceAFile ark fdtb "config/gen/songs.dtb" True

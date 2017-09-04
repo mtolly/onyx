@@ -106,6 +106,7 @@ instance StackChunks BandMember
 data SongPackage = SongPackage
   { name           :: T.Text
   , artist         :: T.Text
+  , caption        :: Maybe T.Text
   , song           :: Song
   , animTempo      :: AnimTempo
   , preview        :: (Integer, Integer)
@@ -122,6 +123,7 @@ instance StackChunks SongPackage where
   stackChunks = asStrictAssoc "SongPackage" $ do
     name           <- name           =. req         "name"            (single chunkString)
     artist         <- artist         =. req         "artist"          (single chunkString)
+    caption        <- caption        =. opt Nothing "caption"         (chunksMaybe $ single chunkKey)
     song           <- song           =. req         "song"            stackChunks
     animTempo      <- animTempo      =. req         "anim_tempo"      stackChunks
     preview        <- preview        =. req         "preview"         stackChunks

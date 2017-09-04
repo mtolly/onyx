@@ -1,8 +1,13 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
 module GuitarHeroII.Convert where
 
 import           Config
+import           Control.Monad                    (guard)
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.HashMap.Strict              as HM
+import           Data.Monoid                      ((<>))
+import qualified Data.Text                        as T
 import qualified RockBand.File                    as F
 import           RockBand.PhaseShiftMessage       (discardPS)
 import qualified Sound.MIDI.Util                  as U
@@ -110,18 +115,36 @@ midiRB3toGH2 song target (F.Song tmap mmap onyx) = let
     }
   in F.Song tmap mmap gh2
 
-makeGH2DTA :: SongYaml -> TargetGH2 -> D.SongPackage
-makeGH2DTA song target = D.SongPackage
+makeGH2DTA :: SongYaml -> (Int, Int) -> TargetGH2 -> D.SongPackage
+makeGH2DTA song preview target = D.SongPackage
   { D.name = getTitle $ _metadata song
   , D.artist = getArtist $ _metadata song
-  , D.song = undefined
+  , D.caption = guard (not $ _cover $ _metadata song) >> Just "performed_by"
+  , D.song = D.Song
+    { D.songName = "songs/$SONGKEY/$SONGKEY"
+    , D.tracks   = HM.fromList [("guitar", [2, 3]), (coop, [4, 5])]
+    , D.pans     = [-1, 1, -1, 1, -1, 1]
+    , D.vols     = [0, 0, 0, 0, 0, 0]
+    , D.cores    = [-1, -1, 1, 1, -1, -1]
+    , D.midiFile = "songs/$SONGKEY/$SONGKEY.mid"
+    }
   , D.animTempo = KTempoMedium
-  , D.preview = undefined
-  , D.quickplay = undefined
-  , D.practiceSpeeds = undefined
-  , D.songCoop = undefined
-  , D.songPractice1 = undefined
-  , D.songPractice2 = undefined
-  , D.songPractice3 = undefined
-  , D.band = undefined
-  }
+  , D.preview = (fromIntegral $ fst preview, fromIntegral $ snd preview)
+  , D.quickplay = gh2_Quickplay target
+  , D.practiceSpeeds = [100, 90, 75, 60]
+  , D.songCoop = Nothing
+  , D.songPractice1 = prac 90
+  , D.songPractice2 = prac 75
+  , D.songPractice3 = prac 60
+  , D.band = Nothing -- TODO
+  } where
+    coop = case gh2_Coop target of GH2Bass -> "bass"; GH2Rhythm -> "rhythm"
+    prac :: Int -> D.Song
+    prac speed = D.Song
+      { D.songName = "songs/$SONGKEY/$SONGKEY_p" <> T.pack (show speed)
+      , D.tracks = HM.fromList [(coop, [0]), ("guitar", [1])]
+      , D.pans = [0, 0]
+      , D.vols = [0, 0]
+      , D.cores = [-1, -1]
+      , D.midiFile = "songs/$SONGKEY/$SONGKEY.mid"
+      }

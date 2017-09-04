@@ -218,7 +218,7 @@ fitToSpec
   -> StackTraceT m (AudioSource r Float)
 fitToSpec pvIn pvOut src = let
   pans = map fst pvIn
-  vols = map snd pvOut
+  vols = map snd pvIn
   in case pvOut of
     [(pan, 0)] -> if [pan] == pans
       then return $ case fromMaybe 0 $ listToMaybe vols of

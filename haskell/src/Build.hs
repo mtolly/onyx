@@ -23,6 +23,7 @@ import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (isAscii, isControl,
                                                         isSpace)
 import           Data.Conduit.Audio
+import           Data.Conduit.Audio.SampleRate
 import           Data.Conduit.Audio.Sndfile
 import           Data.Default.Class                    (def)
 import qualified Data.DTA                              as D
@@ -1488,15 +1489,47 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                     GH2Bass   -> gh2_Bass   gh2
                     GH2Rhythm -> gh2_Rhythm gh2
               -- TODO support no coop part
-              srcGtr <- getPartSource [(-1, 0), (1, 0)] planName plan (gh2_Guitar gh2) 1
+              srcGtr  <- getPartSource [(-1, 0), (1, 0)] planName plan (gh2_Guitar gh2) 1
               srcCoop <- getPartSource [(-1, 0), (1, 0)] planName plan coopPart 1
               srcSong <- sourceSongCountin Nothing 0 True planName plan [(gh2_Guitar gh2, 1), (coopPart, 1)]
               stackIO $ runResourceT $ writeVGS out $ mapSamples integralSample $ merge (merge srcGtr srcCoop) srcSong
 
-            -- dta
-            let dta = makeGH2DTA songYaml gh2
+            forM_ ([90, 75, 60] :: [Int]) $ \speed -> do
+              dir </> ("gh2/audio_p" ++ show speed ++ ".vgs") ≡> \out -> do
+                let coopPart = case gh2_Coop gh2 of
+                      GH2Bass   -> gh2_Bass   gh2
+                      GH2Rhythm -> gh2_Rhythm gh2
+                srcCoop <- applyVolsMono [0] <$> getPartSource [(-1, 0), (1, 0)] planName plan coopPart 1
+                srcGtr  <- applyVolsMono [0] <$> getPartSource [(-1, 0), (1, 0)] planName plan (gh2_Guitar gh2) 1
+                rate <- case speed of
+                  60 -> return 19875
+                  75 -> return 16125
+                  90 -> return 13500
+                  50 -> return 24000
+                  65 -> return 18375
+                  85 -> return 14250
+                  _  -> fatal $ "No known rate for GH2 practice speed: " ++ show speed ++ "%"
+                lift $ putNormal $ "Writing GH2 practice audio for " ++ show speed ++ "% speed"
+                stackIO $ runResourceT $ writeVGS out
+                  $ mapSamples integralSample
+                  $ resampleTo rate SincMediumQuality
+                  $ stretchFull 1 (100 / fromIntegral speed)
+                  $ merge srcCoop srcGtr
+                lift $ putNormal $ "Finished writing GH2 practice audio for " ++ show speed ++ "% speed"
+
             dir </> "gh2/songs.dta" ≡> \out -> do
+              input <- shakeMIDI $ planDir </> "raw.mid"
+              let dta = makeGH2DTA songYaml (previewBounds songYaml input) gh2
               stackIO $ D.writeFileDTA_latin1 out $ D.serialize D.stackChunks dta
+
+            phony (dir </> "gh2") $ need
+              [ dir </> "gh2/notes.mid"
+              , dir </> "gh2/audio.vgs"
+              , dir </> "gh2/audio_p90.vgs"
+              , dir </> "gh2/audio_p75.vgs"
+              , dir </> "gh2/audio_p60.vgs"
+              , dir </> "gh2/songs.dta"
+              ]
 
           PS ps -> do
 
