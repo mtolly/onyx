@@ -141,10 +141,7 @@ toValidFileName t = let
 hashRB3 :: SongYaml -> TargetRB3 -> Int
 hashRB3 songYaml rb3 = let
   hashed =
-    ( rb3_Plan rb3
-    , rb3_2xBassPedal rb3
-    , rb3_SongID rb3
-    , rb3_Label rb3
+    ( rb3
     , _title $ _metadata songYaml
     , _artist $ _metadata songYaml
     )
