@@ -1,5 +1,9 @@
 # Version history
 
+## 20170903
+
+* Fix different speed versions of the same song sharing a song ID
+
 ## 20170902
 
 * Fix guitar-on-keys freezing the game: guitar and keys will share the guitar
