@@ -60,10 +60,32 @@ plans:
         trim:
           - 0.326
           - gain: [0.8, pledgemusic-bass]
-      # TODO: probably move two-guitar sections to backing track,
-      # especially ones with sustains
       guitar:
-        trim:
+        mask:
+        # move two-guitar sections to backing track, especially ones w/ sustains
+        - [isolated]
+        - &mask
+          - center: 0
+            tag: isolated
+          - center: '2:15.606'
+            fade: 0.03
+            tag: mixed
+          - center: '2:41.070'
+            fade: 0.03
+            tag: isolated
+          - center: '4:08.353'
+            fade: 0.03
+            tag: mixed
+          - center: '4:33.773'
+            fade: 0.03
+            tag: isolated
+          - center: '4:40.560'
+            fade: 0.03
+            tag: mixed
+          - center: '5:47.422'
+            fade: 0.03
+            tag: isolated
+        - trim:
           - 0.326
           - gain: [0.8, pledgemusic-guitars]
       keys:
@@ -74,6 +96,13 @@ plans:
         trim:
           - 0.326
           - gain: [0.8, pledgemusic-vocals]
+    song:
+      mask:
+      - [mixed]
+      - *mask
+      - trim:
+        - 0.326
+        - gain: [0.8, pledgemusic-guitars]
 parts:
   drums:
     drums:
