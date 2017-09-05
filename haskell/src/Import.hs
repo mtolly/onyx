@@ -638,7 +638,9 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
         Left  i -> guard (i /= 0) >> Just (Left i)
         Right k -> Just $ Right k
       songID1x = getSongID $ D.songId pkg
-      songID2x = files2x >>= getSongID . D.songId . fst
+      songID2x = if hasKicks == Has2x
+        then songID1x
+        else files2x >>= getSongID . D.songId . fst
       version1x = songID1x >> Just (D.version pkg)
       version2x = songID2x >> fmap (D.version . fst) files2x
       target1x = ("rb3", RB3 def
