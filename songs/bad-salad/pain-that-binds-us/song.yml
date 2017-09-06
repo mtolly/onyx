@@ -60,12 +60,38 @@ plans:
         pad:
         - 4.371
         - gain: [0.65, pledgemusic-keyboards]
-      # TODO: probably move two-guitar sections to backing track,
-      # especially ones with sustains
       guitar:
         pad:
         - 4.371
         - gain: [0.65, pledgemusic-guitars]
+      guitar:
+        mask:
+        # move two-guitar sections to backing track, especially ones w/ sustains
+        - [isolated]
+        - &mask
+          - center: 0
+            tag: isolated
+          - center: '1:09.865'
+            fade: 0.03
+            tag: mixed
+          - center: '1:36.542'
+            fade: 0.03
+            tag: isolated
+          - center: '2:17.735'
+            fade: 0.03
+            tag: mixed
+          - center: '2:43.824'
+            fade: 0.03
+            tag: isolated
+          - center: '8:23.425'
+            fade: 0.03
+            tag: mixed
+          - center: '9:23.673'
+            fade: 0.03
+            tag: isolated
+        - pad:
+          - 4.371
+          - gain: [0.65, pledgemusic-guitars]
       vocal:
         pad:
         - 4.371
@@ -74,6 +100,13 @@ plans:
         pad:
         - 4.371
         - gain: [0.65, pledgemusic-bass]
+    song:
+      mask:
+      - [mixed]
+      - *mask
+      - pad:
+        - 4.371
+        - gain: [0.65, pledgemusic-guitars]
 parts:
   drums:
     drums:
