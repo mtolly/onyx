@@ -9,9 +9,11 @@ metadata:
   - "Drums by Grinnz."
   - "Pro keys by Mazegeek999."
   - "Timing, guitar, bass, and original vocals by Harmonix."
+  - "Edits to guitar chart (including a mostly redone solo) by me."
   - "Vocals fixed up and split into harmonies by me."
   - "Drums confidence: *high*, written to stems and Portnoy's DVD."
-  rating: Family Friendly # HMX
+  rating: Family Friendly # so says HMX
+  # TODO: clean up HMX's tempo map
 audio:
   album-track:
     md5: 8c906ac9ee62cccb895a0daaf5001049
@@ -41,6 +43,9 @@ plans:
       bass: [5]
       guitar: [6, 7]
       vocal: [8, 9]
+      keys: [10, 11]
+      # ^ includes countin - should remove in real plan.
+      # also includes rhythm gtr but that makes sense for keys
 parts:
   drums:
     drums:
@@ -67,4 +72,7 @@ targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    plan: mogg
+  ps:
+    game: ps
     plan: mogg
