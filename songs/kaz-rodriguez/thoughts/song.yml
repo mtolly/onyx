@@ -8,11 +8,23 @@ metadata:
   genre: world # I feel dirty choosing this
   subgenre: world
   author: Onyxite
+audio:
+  youtube:
+    file-path: audio-youtube.wav
+    commands:
+    - ../../../scripts/youtube bhYqiIl1Tec 140
+    md5: 5ec4cb4c185c8a3bcdf392fb5d84bba6
+    frames: 14290944
+  drumless:
+    md5: 1be2f6270a88c1e947bf74b5aa641b6c
+    frames: 15552000
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   youtube:
     song:
       gain:
-      - 1.3
+      - 1.6
       - mix:
         - mask:
           - [drumless]
@@ -31,6 +43,11 @@ plans:
           - pad:
             - 0.493
             - youtube
+    # parts:
+    #   drumless:
+    #     pad:
+    #     - 3.419
+    #     - gain: [2.96, drumless]
     countin:
       0|0: hihat
       0|2: hihat
@@ -38,18 +55,6 @@ plans:
       1|1: hihat
       1|2: hihat
       1|3: hihat
-audio:
-  youtube:
-    file-path: audio-youtube.wav
-    commands:
-    - ../../../scripts/youtube bhYqiIl1Tec 140
-    md5: 5ec4cb4c185c8a3bcdf392fb5d84bba6
-    frames: 14290944
-  drumless:
-    md5: 1be2f6270a88c1e947bf74b5aa641b6c
-    frames: 15552000
-  hihat:
-    file-path: ../../../sound/hihat-foot.wav
 parts:
   drums:
     drums:
