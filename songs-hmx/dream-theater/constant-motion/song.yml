@@ -13,7 +13,7 @@ metadata:
   - "Vocals fixed up and split into harmonies by me."
   - "Drums confidence: *high*, written to stems and Portnoy's DVD."
   rating: Family Friendly # so says HMX
-  # TODO: clean up HMX's tempo map
+  # TODO: chart sound effects on keys; make sure OD/unisons are good
 audio:
   album-track:
     md5: 8c906ac9ee62cccb895a0daaf5001049
