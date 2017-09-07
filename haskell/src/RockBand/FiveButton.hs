@@ -64,7 +64,8 @@ data FretPosition
 
 data DiffEvent
   = Force StrumHOPO Bool
-  | OnyxOpen Int
+  | OnyxClose Int
+  | OpenNote (LongNote () ())
   | Note (LongNote () Color)
   deriving (Eq, Ord, Show, Read, Typeable, Data)
 
@@ -102,16 +103,16 @@ instance Command StrumMap where
   fromCommand sm = ["map", T.pack $ show sm]
   toCommand = reverseLookup each fromCommand
 
-data OnyxOpenEvent = OnyxOpenEvent Difficulty Int
+data OnyxCloseEvent = OnyxCloseEvent Difficulty Int
 
-instance Command OnyxOpenEvent where
-  fromCommand (OnyxOpenEvent diff offset) =
-    ["onyx", "open", T.toLower $ T.pack $ show diff, T.pack $ show offset]
+instance Command OnyxCloseEvent where
+  fromCommand (OnyxCloseEvent diff offset) =
+    ["onyx", "close", T.toLower $ T.pack $ show diff, T.pack $ show offset]
   toCommand cmd = do
-    ["onyx", "open", d, n] <- Just cmd
+    ["onyx", "close", d, n] <- Just cmd
     diff <- reverseLookup each (T.toLower . T.pack . show) d
     offset <- readMaybe $ T.unpack n
-    return $ OnyxOpenEvent diff offset
+    return $ OnyxCloseEvent diff offset
 
 instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
 
@@ -160,7 +161,8 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
   [ edge 89 $ \_b -> [p| DiffEvent Hard (Force HOPO  $(boolP _b)) |]
   , edge 90 $ \_b -> [p| DiffEvent Hard (Force Strum $(boolP _b)) |]
 
-  ] ++ noteParser 96 [p| Green |] (\p -> [p| DiffEvent Expert (Note $p) |])
+  ] ++ noteParser 95 [p| () |] (\p -> [p| DiffEvent Expert (OpenNote $p) |])
+    ++ noteParser 96 [p| Green |] (\p -> [p| DiffEvent Expert (Note $p) |])
     ++ noteParser 97 [p| Red |] (\p -> [p| DiffEvent Expert (Note $p) |])
     ++ noteParser 98 [p| Yellow |] (\p -> [p| DiffEvent Expert (Note $p) |])
     ++ noteParser 99 [p| Blue |] (\p -> [p| DiffEvent Expert (Note $p) |])
@@ -192,8 +194,8 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
     )
   -- TODO: "[map HandMap_Pick]"
 
-  , ( [e| mapParseOne (\(OnyxOpenEvent d o) -> DiffEvent d $ OnyxOpen o) parseCommand |]
-    , [e| \case DiffEvent d (OnyxOpen o) -> unparseCommand $ OnyxOpenEvent d o |]
+  , ( [e| mapParseOne (\(OnyxCloseEvent d o) -> DiffEvent d $ OnyxClose o) parseCommand |]
+    , [e| \case DiffEvent d (OnyxClose o) -> unparseCommand $ OnyxCloseEvent d o |]
     )
 
   ]

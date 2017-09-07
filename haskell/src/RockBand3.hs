@@ -10,7 +10,7 @@ import           Control.Monad.Trans.State        (evalState, get, put)
 import           Control.Monad.Trans.Writer       (execWriter, tell)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Maybe                       (fromMaybe, isJust)
+import           Data.Maybe                       (isJust)
 import           Development.Shake
 import           OneFoot
 import           ProKeysRanges
@@ -60,9 +60,6 @@ processPS
   -> StackTraceT Action (RBFile.Song (RBFile.PSFile U.Beats))
 processPS a b c d e = lift $ fmap (fmap snd) $ processMIDI (Right a) b c d e
 
-data ColorModifier = ColorOffset Int | GreenToOpen Bool
-  deriving (Eq, Ord)
-
 applyOpenNotes
   :: RTB.T U.Beats Five.Event
   -> RTB.T U.Beats PSMessage
@@ -70,38 +67,40 @@ applyOpenNotes
      , RTB.T U.Beats (PSWrap Five.Event)
      )
 applyOpenNotes trk originalMessages = let
-  rb3Events = flip RTB.filter trk $ \case
-    Five.DiffEvent _ (Five.OnyxOpen _) -> False
-    _                                  -> True
+  psEvents = RTB.merge (fmap PS originalMessages) $ U.trackJoin $ flip fmap trk $ \case
+    Five.DiffEvent _ (Five.OnyxClose _) -> RTB.empty
+    Five.DiffEvent d (Five.OpenNote ln) -> let
+      green = RTB.singleton 0 $ RB $ Five.DiffEvent d $ Five.Note $ fmap (const Five.Green) ln
+      sysex = case ln of
+        NoteOff () -> RTB.empty
+        _ -> RTB.fromPairList [(0, sysexEdge True), (1/32, sysexEdge False)]
+      sysexEdge = PS . PSMessage (Just d) OpenStrum
+      in RTB.merge green sysex
+    e -> RTB.singleton 0 $ RB e
   getDiff d = flip RTB.mapMaybe trk $ \case
     Five.DiffEvent d' devt | d == d' -> Just devt
     _ -> Nothing
-  untouchedMessages = flip RTB.filter originalMessages $ \case
-    PSMessage _ OpenStrum _ -> False
-    _ -> True
-  psEvents = foldr RTB.merge RTB.empty
-    [ applyOpenNotesDiff Easy $ getDiff Easy
-    , applyOpenNotesDiff Medium $ getDiff Medium
-    , applyOpenNotesDiff Hard $ getDiff Hard
-    , applyOpenNotesDiff Expert $ getDiff Expert
-    , fmap RB $ flip RTB.filter trk $ \case Five.DiffEvent{} -> False; _ -> True
-    , fmap PS untouchedMessages
+  rb3Events = foldr RTB.merge RTB.empty
+    [ fmap (Five.DiffEvent Easy  ) $ applyClose $ getDiff Easy
+    , fmap (Five.DiffEvent Medium) $ applyClose $ getDiff Medium
+    , fmap (Five.DiffEvent Hard  ) $ applyClose $ getDiff Hard
+    , fmap (Five.DiffEvent Expert) $ applyClose $ getDiff Expert
+    , flip RTB.filter trk $ \case Five.DiffEvent{} -> False; _ -> True
     ]
-  applyOpenNotesDiff
-    :: RockBand.Common.Difficulty
+  applyClose
+    :: RTB.T U.Beats Five.DiffEvent
     -> RTB.T U.Beats Five.DiffEvent
-    -> RTB.T U.Beats (PSWrap Five.Event)
-  applyOpenNotesDiff diff devts = let
+  applyClose devts = let
     untouched = flip RTB.filter devts $ \case
-      Five.OnyxOpen{} -> False
+      Five.OnyxClose{} -> False
+      Five.OpenNote{} -> False
       Five.Note{} -> False
       _ -> True
-    edges = flip RTB.mapMaybe devts $ \case Five.Note edge -> Just edge; _ -> Nothing
+    edges = RTB.merge
+      (fmap (fmap Just) $ flip RTB.mapMaybe devts $ \case Five.Note edge -> Just edge; _ -> Nothing)
+      (fmap (fmap $ const Nothing) $ flip RTB.mapMaybe devts $ \case Five.OpenNote edge -> Just edge; _ -> Nothing)
     offsets = flip RTB.mapMaybe devts $ \case
-      Five.OnyxOpen o -> Just $ ColorOffset o
-      _ -> Nothing
-    greenToOpen = flip RTB.mapMaybe originalMessages $ \case
-      PSMessage d OpenStrum b | elem d [Nothing, Just diff] -> Just $ GreenToOpen b
+      Five.OnyxClose o -> Just o
       _ -> Nothing
     consider = \case
       -- note: order here is important, Left (offsets) normalizes before Right (notes)
@@ -109,28 +108,16 @@ applyOpenNotes trk originalMessages = let
       Left o -> put o >> return RTB.empty
       Right ((), color, len) -> do
         o <- get
-        let newNote
-              = fmap (RB . Five.DiffEvent diff . Five.Note)
-              $ splitEdges $ RTB.singleton 0 ((), newColor, len)
-            (newColor, msgs) = case o of
-              ColorOffset add -> case fromEnum color + add of
-                -1 -> (Five.Green , makeOpen )
-                0  -> (Five.Green , RTB.empty)
-                1  -> (Five.Red   , RTB.empty)
-                2  -> (Five.Yellow, RTB.empty)
-                3  -> (Five.Blue  , RTB.empty)
-                4  -> (Five.Orange, RTB.empty)
-                n  -> error $ "applyOpenNotes: note wound up having an invalid fret of " ++ show n
-              GreenToOpen b -> (color, if b && color == Five.Green then makeOpen else RTB.empty)
-            makeOpen = RTB.fromPairList
-              [ (0, PS $ PSMessage (Just diff) OpenStrum True)
-              , (fromMaybe (1/32) len, PS $ PSMessage (Just diff) OpenStrum False)
-              ]
-        return $ RTB.merge newNote msgs
-    in RTB.merge (RB . Five.DiffEvent diff <$> untouched)
-      $ U.trackJoin $ (`evalState` ColorOffset 0)
+        let newColor = case maybe (-1) fromEnum color + o of
+              1 -> Five.Red
+              2 -> Five.Yellow
+              3 -> Five.Blue
+              n -> if n <= 0 then Five.Green else Five.Orange
+        return $ fmap Five.Note $ splitEdges $ RTB.singleton 0 ((), newColor, len)
+    in RTB.merge untouched
+      $ U.trackJoin $ (`evalState` 0)
       $ mapM consider
-      $ RTB.merge (fmap Left $ RTB.merge offsets greenToOpen) (fmap Right $ joinEdges edges)
+      $ RTB.merge (fmap Left offsets) (fmap Right $ joinEdges edges)
   in (rb3Events, psEvents)
 
 processMIDI

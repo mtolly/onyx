@@ -28,7 +28,6 @@ data PhraseID
   = OpenStrum
   -- ^ Note: in PS this (I think) only makes green notes into open notes.
   -- However in Clone Hero it makes all notes into open notes.
-  -- During processing (see module RockBand3) we force the PS interpretation.
   | ProSlideUp
   | ProSlideDown
   | TapNotes
