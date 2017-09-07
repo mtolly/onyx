@@ -65,7 +65,9 @@ gryboReduce
 gryboReduce Expert _         _    _  diffEvents = diffEvents
 gryboReduce diff   hopoThres mmap od diffEvents = let
   odMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.normalize od
-  gnotes1 = readGuitarNotes hopoThres diffEvents
+  gnotes1 = readGuitarNotes hopoThres $ flip fmap diffEvents $ \case
+    Five.OpenNote ln -> Five.Note $ fmap (const Five.Green) ln
+    e                -> e
   isOD bts = maybe False snd $ Map.lookupLE bts odMap
   -- TODO: replace the next 2 with BEAT track
   isMeasure bts = snd (U.applyMeasureMap mmap bts) == 0
