@@ -17,6 +17,7 @@ import           RockBand.Common
 import           RockBand.Parse
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
+import           Text.Read                        (readMaybe)
 
 data Color = Green | Red | Yellow | Blue | Orange
   deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
@@ -58,11 +59,12 @@ data FretPosition
   | Fret56
   | Fret57
   | Fret58
-  | Fret59 -- ^ roughly fret 13
+  | Fret59 -- ^ roughly fret 12
   deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 data DiffEvent
   = Force StrumHOPO Bool
+  | OnyxOpen Int
   | Note (LongNote () Color)
   deriving (Eq, Ord, Show, Read, Typeable, Data)
 
@@ -99,6 +101,17 @@ data StrumMap
 instance Command StrumMap where
   fromCommand sm = ["map", T.pack $ show sm]
   toCommand = reverseLookup each fromCommand
+
+data OnyxOpenEvent = OnyxOpenEvent Difficulty Int
+
+instance Command OnyxOpenEvent where
+  fromCommand (OnyxOpenEvent diff offset) =
+    ["onyx", "open", T.toLower $ T.pack $ show diff, T.pack $ show offset]
+  toCommand cmd = do
+    ["onyx", "open", d, n] <- Just cmd
+    diff <- reverseLookup each (T.toLower . T.pack . show) d
+    offset <- readMaybe $ T.unpack n
+    return $ OnyxOpenEvent diff offset
 
 instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
 
@@ -178,6 +191,11 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
     , [e| \case StrumMap m -> unparseCommand m |]
     )
   -- TODO: "[map HandMap_Pick]"
+
+  , ( [e| mapParseOne (\(OnyxOpenEvent d o) -> DiffEvent d $ OnyxOpen o) parseCommand |]
+    , [e| \case DiffEvent d (OnyxOpen o) -> unparseCommand $ OnyxOpenEvent d o |]
+    )
+
   ]
 
 copyExpert :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
@@ -187,8 +205,8 @@ copyExpert = baseCopyExpert DiffEvent $ \case
 
 assignKeys :: (NNC.C t) => RTB.T t DiffEvent -> RTB.T t (LongNote StrumHOPO Color)
 assignKeys = RTB.mapMaybe $ \case
-  Force _ _ -> Nothing
   Note note -> Just $ first (const Strum) note
+  _ -> Nothing
 
 trackState :: (NNC.C t) => s -> (s -> t -> a -> (s, Maybe b)) -> RTB.T t a -> RTB.T t b
 trackState state step rtb = case RTB.viewL rtb of

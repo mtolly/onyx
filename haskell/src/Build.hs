@@ -129,7 +129,7 @@ targetTitle songYaml target = let
 
 toValidFileName :: T.Text -> T.Text
 toValidFileName t = let
-  eachChar c = if isAscii c && not (isControl c) && c /= '/' && c /= '\\'
+  eachChar c = if isAscii c && not (isControl c) && notElem c ['/', '\\', '?']
     then c
     else '_'
   -- TODO better char filter
@@ -1599,6 +1599,12 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                     PSM.PS (PSM.PSMessage _ PSM.TapNotes _) -> True
                     _                                       -> False
                   in any (any isTap . RBFile.flexFiveButton)
+                    $ RBFile.onyxFlexParts $ RBFile.s_tracks song
+                , FoF.sysexOpenBass    = Just $ let
+                  isOpen = \case
+                    PSM.PS (PSM.PSMessage _ PSM.OpenStrum _) -> True
+                    _                                        -> False
+                  in any (any isOpen . RBFile.flexFiveButton)
                     $ RBFile.onyxFlexParts $ RBFile.s_tracks song
                 , FoF.video            = const "video.avi" <$> ps_FileVideo ps
                 }

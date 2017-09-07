@@ -6,10 +6,11 @@ import           Config                           hiding (Target (PS))
 import           Control.Monad.Extra
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
+import           Control.Monad.Trans.State        (evalState, get, put)
 import           Control.Monad.Trans.Writer       (execWriter, tell)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Maybe                       (isJust)
+import           Data.Maybe                       (fromMaybe, isJust)
 import           Development.Shake
 import           OneFoot
 import           ProKeysRanges
@@ -19,8 +20,9 @@ import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as Five
-import           RockBand.PhaseShiftMessage       (PSWrap (..), discardPS,
-                                                   psMessages)
+import           RockBand.PhaseShiftMessage       (PSMessage (..), PSWrap (..),
+                                                   PhraseID (OpenStrum),
+                                                   discardPS, psMessages)
 import qualified RockBand.ProGuitar               as ProGtr
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as RBVox
@@ -57,6 +59,79 @@ processPS
   -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
   -> StackTraceT Action (RBFile.Song (RBFile.PSFile U.Beats))
 processPS a b c d e = lift $ fmap (fmap snd) $ processMIDI (Right a) b c d e
+
+data ColorModifier = ColorOffset Int | GreenToOpen Bool
+  deriving (Eq, Ord)
+
+applyOpenNotes
+  :: RTB.T U.Beats Five.Event
+  -> RTB.T U.Beats PSMessage
+  -> ( RTB.T U.Beats Five.Event
+     , RTB.T U.Beats (PSWrap Five.Event)
+     )
+applyOpenNotes trk originalMessages = let
+  rb3Events = flip RTB.filter trk $ \case
+    Five.DiffEvent _ (Five.OnyxOpen _) -> False
+    _                                  -> True
+  getDiff d = flip RTB.mapMaybe trk $ \case
+    Five.DiffEvent d' devt | d == d' -> Just devt
+    _ -> Nothing
+  untouchedMessages = flip RTB.filter originalMessages $ \case
+    PSMessage _ OpenStrum _ -> False
+    _ -> True
+  psEvents = foldr RTB.merge RTB.empty
+    [ applyOpenNotesDiff Easy $ getDiff Easy
+    , applyOpenNotesDiff Medium $ getDiff Medium
+    , applyOpenNotesDiff Hard $ getDiff Hard
+    , applyOpenNotesDiff Expert $ getDiff Expert
+    , fmap RB $ flip RTB.filter trk $ \case Five.DiffEvent{} -> False; _ -> True
+    , fmap PS untouchedMessages
+    ]
+  applyOpenNotesDiff
+    :: RockBand.Common.Difficulty
+    -> RTB.T U.Beats Five.DiffEvent
+    -> RTB.T U.Beats (PSWrap Five.Event)
+  applyOpenNotesDiff diff devts = let
+    untouched = flip RTB.filter devts $ \case
+      Five.OnyxOpen{} -> False
+      Five.Note{} -> False
+      _ -> True
+    edges = flip RTB.mapMaybe devts $ \case Five.Note edge -> Just edge; _ -> Nothing
+    offsets = flip RTB.mapMaybe devts $ \case
+      Five.OnyxOpen o -> Just $ ColorOffset o
+      _ -> Nothing
+    greenToOpen = flip RTB.mapMaybe originalMessages $ \case
+      PSMessage d OpenStrum b | elem d [Nothing, Just diff] -> Just $ GreenToOpen b
+      _ -> Nothing
+    consider = \case
+      -- note: order here is important, Left (offsets) normalizes before Right (notes)
+      -- due to RTB.merging the two
+      Left o -> put o >> return RTB.empty
+      Right ((), color, len) -> do
+        o <- get
+        let newNote
+              = fmap (RB . Five.DiffEvent diff . Five.Note)
+              $ splitEdges $ RTB.singleton 0 ((), newColor, len)
+            (newColor, msgs) = case o of
+              ColorOffset add -> case fromEnum color + add of
+                -1 -> (Five.Green , makeOpen )
+                0  -> (Five.Green , RTB.empty)
+                1  -> (Five.Red   , RTB.empty)
+                2  -> (Five.Yellow, RTB.empty)
+                3  -> (Five.Blue  , RTB.empty)
+                4  -> (Five.Orange, RTB.empty)
+                n  -> error $ "applyOpenNotes: note wound up having an invalid fret of " ++ show n
+              GreenToOpen b -> (color, if b && color == Five.Green then makeOpen else RTB.empty)
+            makeOpen = RTB.fromPairList
+              [ (0, PS $ PSMessage (Just diff) OpenStrum True)
+              , (fromMaybe (1/32) len, PS $ PSMessage (Just diff) OpenStrum False)
+              ]
+        return $ RTB.merge newNote msgs
+    in RTB.merge (RB . Five.DiffEvent diff <$> untouched)
+      $ U.trackJoin $ (`evalState` ColorOffset 0)
+      $ mapM consider
+      $ RTB.merge (fmap Left $ RTB.merge offsets greenToOpen) (fmap Right $ joinEdges edges)
+  in (rb3Events, psEvents)
 
 processMIDI
   :: Either TargetRB3 TargetPS
@@ -182,18 +257,27 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           $ (if gryboFixFreeform grybo then fixFreeformFive else id)
           $ gryboComplete (Just $ gryboHopoThreshold grybo) mmap
           $ discardPS $ RBFile.flexFiveButton src
+
       guitarPart = either rb3_Guitar ps_Guitar target
       guitarMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart guitarPart trks
       guitarTrack = makeGRYBOTrack guitarPart $ RBFile.getFlexPart guitarPart trks
+      (guitarRB3, guitarPS) = applyOpenNotes guitarTrack guitarMsgs
+
       bassPart = either rb3_Bass ps_Bass target
       bassMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart bassPart trks
       bassTrack = makeGRYBOTrack bassPart $ RBFile.getFlexPart bassPart trks
+      (bassRB3, bassPS) = applyOpenNotes bassTrack bassMsgs
+
       rhythmPart = either (const $ RBFile.FlexExtra "undefined") ps_Rhythm target
       rhythmMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart rhythmPart trks
       rhythmTrack = makeGRYBOTrack rhythmPart $ RBFile.getFlexPart rhythmPart trks
+      (_, rhythmPS) = applyOpenNotes rhythmTrack rhythmMsgs
+
       guitarCoopPart = either (const $ RBFile.FlexExtra "undefined") ps_GuitarCoop target
       guitarCoopMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart guitarCoopPart trks
       guitarCoopTrack = makeGRYBOTrack guitarCoopPart $ RBFile.getFlexPart guitarCoopPart trks
+      (_, guitarCoopPS) = applyOpenNotes guitarCoopTrack guitarCoopMsgs
+
       (proGtr, proGtr22) = case getPart guitarPart songYaml >>= partProGuitar of
         Nothing -> (RTB.empty, RTB.empty)
         Just _pg -> let
@@ -254,7 +338,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
               Five.StrumMap    {} -> False
               Five.Tremolo     {} -> False
               _                   -> True
-            in  ( ffBasic $ removeGtrStuff basicKeys
+            in  ( fst $ applyOpenNotes (ffBasic $ removeGtrStuff basicKeys) RTB.empty
                 , animRH
                 , animLH
                 , ffPro $ ProKeys.fixPSRange keysExpert
@@ -280,8 +364,8 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       , RBFile.rb3Events = eventsTrack
       , RBFile.rb3Venue = discardPS $ RBFile.onyxVenue trks
       , RBFile.rb3PartDrums = drumsTrack
-      , RBFile.rb3PartGuitar = guitarTrack
-      , RBFile.rb3PartBass = bassTrack
+      , RBFile.rb3PartGuitar = guitarRB3
+      , RBFile.rb3PartBass = bassRB3
       , RBFile.rb3PartRealGuitar   = proGtr
       , RBFile.rb3PartRealGuitar22 = proGtr22
       , RBFile.rb3PartRealBass     = proBass
@@ -305,10 +389,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       , RBFile.psPartDrums = fmap RB drumsTrack
       , RBFile.psPartDrums2x = RTB.empty
       , RBFile.psPartRealDrumsPS = RTB.empty
-      , RBFile.psPartGuitar = RTB.merge (fmap RB guitarTrack) (fmap PS guitarMsgs)
-      , RBFile.psPartBass = RTB.merge (fmap RB bassTrack) (fmap PS bassMsgs)
-      , RBFile.psPartRhythm = RTB.merge (fmap RB rhythmTrack) (fmap PS rhythmMsgs)
-      , RBFile.psPartGuitarCoop = RTB.merge (fmap RB guitarCoopTrack) (fmap PS guitarCoopMsgs)
+      , RBFile.psPartGuitar = guitarPS
+      , RBFile.psPartBass = bassPS
+      , RBFile.psPartRhythm = rhythmPS
+      , RBFile.psPartGuitarCoop = guitarCoopPS
       , RBFile.psPartRealGuitar   = fmap RB proGtr
       , RBFile.psPartRealGuitar22 = fmap RB proGtr22
       , RBFile.psPartRealBass     = fmap RB proBass
