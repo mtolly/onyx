@@ -172,7 +172,12 @@ stretchFull timeRatio pitchRatio src = AudioSource
   , source   = pipe $ source $ reorganize chunkSize src
   } where
     pipe upstream = do
-      rb <- liftIO $ RB.new (round $ rate src) (channels src) RB.defaultOptions timeRatio pitchRatio
+      rb <- liftIO $ RB.new
+        (round $ rate src)
+        (channels src)
+        RB.defaultOptions{ RB.oStretch = RB.Precise }
+        timeRatio
+        pitchRatio
       liftIO $ RB.setMaxProcessSize rb chunkSize
       upstream =$= studyAll rb
       upstream =$= processAll rb
