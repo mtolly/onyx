@@ -1,5 +1,9 @@
 # Version history
 
+## 20170908
+
+* Fix different speed audio sometimes getting desynced from the MIDI
+
 ## 20170903
 
 * Fix different speed versions of the same song sharing a song ID
