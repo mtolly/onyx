@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
-module Import (importFoF, importRBA, importSTFS, simpleRBAtoCON, HasKicks(..)) where
+module Import (importFoF, importRBA, importSTFSDir, importSTFS, simpleRBAtoCON, HasKicks(..)) where
 
 import           Audio
 import qualified C3
@@ -341,9 +341,8 @@ determine2xBass s = case T.stripSuffix " (2x Bass Pedal)" s <|> T.stripSuffix " 
 data HasKicks = Has1x | Has2x | HasBoth
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-importSTFS :: (MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
-importSTFS file file2x dir = tempDir "onyx_con" $ \temp -> do
-  stackIO $ extractSTFS file temp
+importSTFSDir :: (MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
+importSTFSDir temp mtemp2x dir = do
   DTASingle _ pkg comments <- readDTASingle $ temp </> "songs/songs.dta"
   let c3Title = fromMaybe (D.name pkg) $ c3dtaSong comments
       (title, is2x) = case c3dta2xBass comments of
@@ -367,19 +366,28 @@ importSTFS file file2x dir = tempDir "onyx_con" $ \temp -> do
       -- e.g. C3's "Escape from the City" has a top key 'SonicAdvCityEscape2x'
       -- and a 'name' of "songs/sonicadv2cityescape2x/sonicadv2cityescape2x"
       with2xPath maybe2x = do
-        let hasKicks = if isJust file2x then HasBoth else if is2x then Has2x else Has1x
+        let hasKicks = if isJust mtemp2x then HasBoth else if is2x then Has2x else Has1x
         importRB3 pkg meta karaoke multitrack hasKicks
           (temp </> base <.> "mid") maybe2x (temp </> base <.> "mogg")
           (temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox"))
           "cover.png_xbox" dir
         return hasKicks
+  case mtemp2x of
+    Nothing -> with2xPath Nothing
+    Just temp2x -> do
+      DTASingle _ pkg2x _ <- readDTASingle $ temp2x </> "songs/songs.dta"
+      let base2x = T.unpack $ D.songName $ D.song pkg2x
+      with2xPath $ Just (pkg2x, temp2x </> base2x <.> "mid")
+
+importSTFS :: (MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
+importSTFS file file2x dir = tempDir "onyx_con" $ \temp -> do
+  stackIO $ extractSTFS file temp
+  let with2xPath mtemp2x = importSTFSDir temp mtemp2x dir
   case file2x of
     Nothing -> with2xPath Nothing
     Just f2x -> tempDir "onyx_con2x" $ \temp2x -> do
       stackIO $ extractSTFS f2x temp2x
-      DTASingle _ pkg2x _ <- readDTASingle $ temp2x </> "songs/songs.dta"
-      let base2x = T.unpack $ D.songName $ D.song pkg2x
-      with2xPath $ Just (pkg2x, temp2x </> base2x <.> "mid")
+      with2xPath $ Just temp2x
 
 -- | Converts a Magma v2 RBA to CON without going through an import + recompile.
 simpleRBAtoCON :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()

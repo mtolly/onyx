@@ -40,7 +40,7 @@ import           Data.Word                      (Word32)
 import qualified Data.Yaml                      as Y
 import           Import                         (HasKicks (..), importFoF,
                                                  importRBA, importSTFS,
-                                                 simpleRBAtoCON)
+                                                 importSTFSDir, simpleRBAtoCON)
 import           Magma                          (getRBAFile, oggToMogg,
                                                  runMagma, runMagmaMIDI,
                                                  runMagmaV1)
@@ -178,7 +178,9 @@ identifyFile fp = stackIO $ Dir.doesFileExist fp >>= \case
           ents <- Dir.listDirectory fp
           case filter (\ent -> takeExtension ent == ".rbproj") ents of
             [ent] -> return $ FileType FileRBProj $ fp </> ent
-            _     -> return FileUnrecognized
+            _     -> Dir.doesFileExist (fp </> "songs/songs.dta") >>= \case
+              True -> return $ FileType FileDTA $ fp </> "songs/songs.dta"
+              False -> return FileUnrecognized
     False -> return FileDoesNotExist
 
 data FileResult
@@ -190,6 +192,7 @@ data FileResult
 data FileType
   = FileSongYaml
   | FileSTFS
+  | FileDTA
   | FileRBA
   | FilePS
   | FileMidi
@@ -386,6 +389,7 @@ commands =
             withSongYaml $ out </> "song.yml"
       case files' of
         [(FileSTFS, stfsPath)] -> doImport importSTFS stfsPath
+        [(FileDTA, dtaPath)] -> doImport importSTFSDir $ takeDirectory $ takeDirectory dtaPath
         [(FileRBA, rbaPath)] -> doImport importRBA rbaPath
         [(FilePS, iniPath)] -> do
           let out = takeDirectory iniPath ++ "_reaper"
@@ -494,6 +498,13 @@ commands =
         stackIO $ Dir.createDirectoryIfMissing False out
         let f2x = listToMaybe [ f | Opt2x f <- opts ]
         void $ importSTFS fpath f2x out
+        return [out]
+      FileDTA -> do
+        let topDir = takeDirectory $ takeDirectory fpath
+        out <- outputFile opts $ return $ topDir ++ "_import"
+        stackIO $ Dir.createDirectoryIfMissing False out
+        let f2x = listToMaybe [ f | Opt2x f <- opts ]
+        void $ importSTFSDir topDir f2x out
         return [out]
       FileRBA -> do
         out <- outputFile opts $ return $ fpath ++ "_import"
