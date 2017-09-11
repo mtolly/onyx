@@ -1,27 +1,36 @@
 JAZZ
+ready:
 - ripple star (kirby 64)
+- (update) celestial terrestrial commuters (mahavishnu) with grybo violin
+- (update) keizoku (s&p) fixed wrong keys/pk notes. maybe should also fix sax trills
+- (update) kung fu world champion (hiromi) drum fixes + animations
+at least 2 parts done:
 > what about me (snarky puppy) drums + bass done
 > tank! (seatbelts) saxguitar + vox (lol) done
+> footloose & fancy free (earthworks) needs pro keys, can't release on c3
+> the chicken (gavin harrison) drums/bass/pk done; needs gtr, keys, OD, fix tempo map
+at least 1 part done:
 > i want a pine cone (uncle moe) drums done
 > i-rony (soil&pimp) drums done
 > leviathan (mouse on the keys) drums done
 > mosquiton wa mou kikoenai (toe) drums done
 > medieval overture (return to forever) drums done
 > cascades (nova collective) drums done
+> animals (bonobo) drums done
+> thoughts (kaz rodriguez) drums done
+> take five (dave brubeck) drums done by LIK+me, already one in c3 though
+started:
 > in a trance (hiromi) started drums
 > beehive (lonnie smith) started drums
 > blast off (trioscapes) fix up drums by porcupinkfloyd
 > tom sawyer (alex skolnick trio) drums by blitzbob
-> animals (bonobo) drums done
-> footloose & fancy free (earthworks) needs pro keys + record mogg, can't release on c3
-> take five (dave brubeck) drums done by LIK+me, already one in c3 though
+planning:
 # mario circuit (oneups)
 # it could happen to you (ryo fukui)
 # round one (youngblood)
 # more S&P? memai, pop korn
 # one for antonio??? or did you get it
 # one word (mahavishnu) should redo tempos but LIK's chart is good
-- release updated celestial terrestrial commuters (mahavishnu) with grybo violin
 
 LTE
 > rhapsody in blue - drums done, AJF offered to do bass + venue
@@ -41,6 +50,7 @@ DREAM THEATER
 > another won - drums fixed up w/ portnoy dvd audio
 > the great debate - drums + pro keys (jarod) done
 FALLING INTO INFINITY (have all stems now)
+  > anna lee - needs vox, basic keys
   > peruvian skies - drums done
   > trial of tears - drums/prokeys done
   > you {or,not} me (...) - stems
