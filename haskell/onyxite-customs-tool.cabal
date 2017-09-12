@@ -111,7 +111,7 @@ executable onyx
     Data.DTA.Parse
     Data.DTA.PrettyPrint
   build-depends:
-    base    >= 4.8    && < 4.10
+    base
     , shake >= 0.15 && < 0.16
     , hashable
     , directory
@@ -121,7 +121,7 @@ executable onyx
     , event-list, non-negative, midi
     , containers
     , bytestring
-    , process >= 1.2.0.0 && < 1.5
+    , process >= 1.2.0.0 && < 1.7
     , resourcet
     , hsndfile
     , JuicyPixels >= 3.2.3.1

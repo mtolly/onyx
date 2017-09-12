@@ -120,6 +120,7 @@ patToExp = \case
   VarP _ -> error "patToExp: free variable in pattern can't be expression-ified"
   TupP ps -> TupE $ map patToExp ps
   UnboxedTupP ps -> UnboxedTupE $ map patToExp ps
+  UnboxedSumP p s a -> UnboxedSumE (patToExp p) s a
   ConP n ps -> foldl AppE (ConE n) $ map patToExp ps
   InfixP p1 n p2 -> InfixE (Just $ patToExp p1) (VarE n) (Just $ patToExp p2)
   UInfixP p1 n p2 -> UInfixE (patToExp p1) (VarE n) (patToExp p2)

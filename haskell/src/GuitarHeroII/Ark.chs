@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 module GuitarHeroII.Ark (replaceSong) where
 
@@ -135,14 +136,14 @@ replaceSong gen key snippet files = do
                 D.Parens $ D.Tree 0 $ D.Key k : map adjustSnippet snippet
               _ -> chunk
             adjustSnippet = \case
-              String s -> String $ adjustString s
-              Parens t -> Parens $ adjustTree t
-              Braces t -> Braces $ adjustTree t
-              Brackets t -> Brackets $ adjustTree t
+              D.String s -> D.String $ adjustString s
+              D.Parens t -> D.Parens $ adjustTree t
+              D.Braces t -> D.Braces $ adjustTree t
+              D.Brackets t -> D.Brackets $ adjustTree t
               chunk -> chunk
-            adjustTree (Tree tid chunks) = Tree tid $ map adjustSnippet chunks
+            adjustTree (D.Tree tid cks) = D.Tree tid $ map adjustSnippet cks
             adjustString str = case B.breakSubstring "$SONGKEY" str of
-              (h, t) | not $ T.null t -> adjustString $ h <> key <> T.drop 8 t
+              (h, t) | not $ B.null t -> adjustString $ h <> key <> B.drop 8 t
               _ -> str
         D.writeFileDTB fdtb $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 $ map adjust chunks
         wrap "Couldn't update songs.dtb in the ARK." $
