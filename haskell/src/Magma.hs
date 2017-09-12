@@ -50,7 +50,7 @@ runMagmaMIDI proj mid = tempDir "magma" $ \tmp -> do
   liftIO $ forM_ [magmaV2Dir, magmaCommonDir] (>>= \dir -> copyDirContents dir tmp)
   let createProc = withWin32Exe (\exe args -> (proc exe args) { cwd = Just tmp })
         (tmp </> "MagmaCompilerC3.exe") ["-export_midi", proj', mid']
-  inside "running Magma v2 to export MIDI" $ stackProcess createProc ""
+  inside "running Magma v2 to export MIDI" $ stackProcess createProc
 
 runMagma :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m String
 runMagma proj rba = tempDir "magma" $ \tmp -> do
@@ -60,7 +60,7 @@ runMagma proj rba = tempDir "magma" $ \tmp -> do
   liftIO $ forM_ [magmaV2Dir, magmaCommonDir] (>>= \dir -> copyDirContents dir tmp)
   let createProc = withWin32Exe (\exe args -> (proc exe args) { cwd = Just tmp })
         (tmp </> "MagmaCompilerC3.exe") [proj', rba']
-  inside "running Magma v2" $ stackProcess createProc ""
+  inside "running Magma v2" $ stackProcess createProc
 
 runMagmaV1 :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m String
 runMagmaV1 proj rba = tempDir "magma-v1" $ \tmp -> do
@@ -70,7 +70,7 @@ runMagmaV1 proj rba = tempDir "magma-v1" $ \tmp -> do
   liftIO $ forM_ [magmaV1Dir, magmaCommonDir] (>>= \dir -> copyDirContents dir tmp)
   let createProc = withWin32Exe (\exe args -> (proc exe args) { cwd = Just tmp })
         (tmp </> "MagmaCompiler.exe") [proj', rba']
-  inside "running Magma v1" $ stackProcess createProc ""
+  inside "running Magma v1" $ stackProcess createProc
 
 getRBAFile :: (MonadIO m) => Int -> FilePath -> FilePath -> m ()
 getRBAFile i rba out = liftIO $ IO.withBinaryFile rba IO.ReadMode $ \h -> do
@@ -96,5 +96,5 @@ oggToMogg ogg mogg = tempDir "ogg2mogg" $ \tmp -> do
   liftIO $ writeBitmap (tmp </> "cover.bmp") onyxAlbum
   let createProc = withWin32Exe (\exe args -> (proc exe args) { cwd = Just tmp })
         (tmp </> "MagmaCompilerC3.exe") [proj, rba]
-  _ <- inside "running Magma v2 to convert OGG to MOGG" $ stackProcess createProc ""
+  _ <- inside "running Magma v2 to convert OGG to MOGG" $ stackProcess createProc
   getRBAFile 2 (tmp </> rba) mogg'

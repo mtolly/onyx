@@ -32,6 +32,7 @@ import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Resource (allocate, runResourceT)
 import           Control.Monad.Trans.RWS
+import qualified Data.ByteString.Char8        as B8
 import           Data.Data
 import           Data.Functor.Identity
 import           Data.Monoid                  ((<>))
@@ -40,7 +41,8 @@ import qualified System.Directory             as Dir
 import           System.Exit                  (ExitCode (..))
 import           System.IO
 import           System.IO.Temp               (createTempDirectory)
-import           System.Process
+import           System.Process               (CreateProcess)
+import           System.Process.ByteString    (readCreateProcessWithExitCode)
 
 -- | This can represent an error (required input was not found) or a warning
 -- (given input was not completely recognized).
@@ -133,16 +135,18 @@ tempDir template cb = mapStackTraceT liftIO $ StackTraceT $ runResourceT $ do
   (_, dir) <- allocate (createTempDirectory tmp template) (ignoringIOErrors . Dir.removeDirectoryRecursive)
   lift $ fromStackTraceT $ cb dir
 
-stackProcess :: (MonadIO m) => CreateProcess -> String -> StackTraceT m String
-stackProcess cp input = mapStackTraceT liftIO $ do
-  liftIO (readCreateProcessWithExitCode cp input) >>= \case
-    (ExitSuccess  , out, _  ) -> return out
+stackProcess :: (MonadIO m) => CreateProcess -> StackTraceT m String
+stackProcess cp = mapStackTraceT liftIO $ do
+  -- Magma's output is Latin-1, so we read it as ByteString and B8.unpack.
+  -- otherwise non-utf-8 chars crash with "invalid byte sequence".
+  liftIO (readCreateProcessWithExitCode cp B8.empty) >>= \case
+    (ExitSuccess  , out, _  ) -> return $ B8.unpack out
     (ExitFailure n, out, err) -> fatal $ unlines
       [ "process exited with code " ++ show n
       , "stdout:"
-      , out
+      , B8.unpack out
       , "stderr:"
-      , err
+      , B8.unpack err
       ]
 
 stackCatchIO :: (MonadIO m, Exc.Exception e) => (e -> StackTraceT m a) -> IO a -> StackTraceT m a

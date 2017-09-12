@@ -29,7 +29,7 @@ rb3pkg title desc dir fout = do
         , "-f", dir
         , fout
         ]
-  str <- inside "making RB3 CON package with X360" $ stackProcess createProc ""
+  str <- inside "making RB3 CON package with X360" $ stackProcess createProc
   stackIO $ putStrLn str
 
 rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
@@ -43,7 +43,7 @@ rb2pkg title desc dir fout = do
         , "-g", "Rock Band 2"
         , fout
         ]
-  str <- inside "making RB2 CON package with X360" $ stackProcess createProc ""
+  str <- inside "making RB2 CON package with X360" $ stackProcess createProc
   stackIO $ putStrLn str
 
 stfsFolder :: (MonadIO m) => FilePath -> m (Word32, Word32)
