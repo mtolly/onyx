@@ -33,6 +33,7 @@ planning:
 # one word (mahavishnu) should redo tempos but LIK's chart is good
 
 LTE
+- (update) another dimension: fixed triplet section on gtr/bass
 > rhapsody in blue - drums done, AJF offered to do bass + venue
 > chewbacca - drums done
 > biaxident - drums done

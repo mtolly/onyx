@@ -37,7 +37,7 @@ processRB3
   -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
   -> StackTraceT Action (RBFile.Song (RBFile.RB3File U.Beats))
 processRB3 a b c d e = do
-  res <- lift $ processMIDI (Left a) b c d e
+  res <- processMIDI (Left a) b c d e
   magmaLegalTempos $ fmap fst res
 
 processRB3Pad
@@ -48,7 +48,7 @@ processRB3Pad
   -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
   -> StackTraceT Action (RBFile.Song (RBFile.RB3File U.Beats), Int)
 processRB3Pad a b c d e = do
-  res <- lift $ processMIDI (Left a) b c d e
+  res <- processMIDI (Left a) b c d e
   magmaLegalTempos (fmap fst res) >>= magmaPad
 
 processPS
@@ -58,7 +58,7 @@ processPS
   -> RBDrums.Audio
   -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
   -> StackTraceT Action (RBFile.Song (RBFile.PSFile U.Beats))
-processPS a b c d e = lift $ fmap (fmap snd) $ processMIDI (Right a) b c d e
+processPS a b c d e = fmap (fmap snd) $ processMIDI (Right a) b c d e
 
 applyOpenNotes
   :: RTB.T U.Beats Five.Event
@@ -126,8 +126,8 @@ processMIDI
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio
   -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
-  -> Action (RBFile.Song (RBFile.RB3File U.Beats, RBFile.PSFile U.Beats))
-processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudioLength = do
+  -> StackTraceT Action (RBFile.Song (RBFile.RB3File U.Beats, RBFile.PSFile U.Beats))
+processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudioLength = inside "Processing MIDI for RB3/PS" $ do
   let showPosition = RBFile.showPosition . U.applyMeasureMap mmap
       eventsRaw = discardPS $ RBFile.onyxEvents trks
       eventsList = ATB.toPairList $ RTB.toAbsoluteEventList 0 eventsRaw
@@ -136,13 +136,13 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
   endPosn' <- case [ t | (t, Events.End) <- eventsList ] of
     t : _ -> return t
     [] -> do
-      audLen <- U.unapplyTempoMap tempos <$> getAudioLength
+      audLen <- U.unapplyTempoMap tempos <$> lift getAudioLength
       let absTimes = ATB.getTimes . RTB.toAbsoluteEventList 0
           lastMIDIEvent = foldr max 0
             $ concatMap absTimes (RBFile.s_tracks $ RBFile.showMIDITracks input)
             ++ absTimes (U.tempoMapToBPS tempos)
           endPosition = fromInteger $ round $ max audLen lastMIDIEvent + 4
-      putNormal $ unwords
+      warn $ unwords
         [ "[end] is missing. The last MIDI event is at"
         , showPosition lastMIDIEvent
         , "and the longest audio file ends at"
@@ -158,25 +158,26 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
     trk = discardPS $ RBFile.onyxBeat trks
     in if RTB.null trk
       then do
-        putNormal "Generating a BEAT track..."
+        warn "No BEAT track found; automatic one generated from time signatures."
         let alignedEnd = fromInteger $ ceiling endPosn'
         return (U.trackTake alignedEnd $ makeBeatTrack mmap, alignedEnd)
       else return (trk, endPosn')
   -- If [music_start] is before 2 beats,
   -- Magma will add auto [idle] events there in instrument tracks, and then error...
+  let musicStartMin = 2 :: U.Beats
   musicStartPosn <- case [ t | (t, Events.MusicStart) <- eventsList ] of
-    t : _ -> if t < 2
+    t : _ -> if t < musicStartMin
       then do
-        putNormal $ "[music_start] is too early. Moving to " ++ showPosition 2
-        return 2
+        warn $ "[music_start] is too early. Moving to " ++ showPosition musicStartMin
+        return musicStartMin
       else return t
     []    -> do
-      putNormal $ "[music_start] is missing. Placing at " ++ showPosition 2
-      return 2
+      warn $ "[music_start] is missing. Placing at " ++ showPosition musicStartMin
+      return musicStartMin
   musicEndPosn <- case [ t | (t, Events.MusicEnd) <- eventsList ] of
     t : _ -> return t
     []    -> do
-      putNormal $ unwords
+      warn $ unwords
         [ "[music_end] is missing. [end] is at"
         , showPosition endPosn
         , "so [music_end] will be at"
@@ -345,12 +346,32 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
               harm1   = discardPS $ RBFile.flexHarm1 $ RBFile.getFlexPart vocalPart trks
               harm2   = discardPS $ RBFile.flexHarm2 $ RBFile.getFlexPart vocalPart trks
               harm3   = discardPS $ RBFile.flexHarm3 $ RBFile.getFlexPart vocalPart trks
+
+  drumsTrack' <- let
+    (fills, notFills) = flip RTB.partitionMaybe drumsTrack $ \case
+      RBDrums.Activation b -> Just b
+      _ -> Nothing
+    fills' = RTB.normalize fills
+    fixCloseFills rtb = case RTB.viewL rtb of
+      Just ((tx, True), rtb') -> case RTB.viewL rtb' of
+        Just ((ty, False), rtb'')
+          | tx < 2.5
+          -> fixCloseFills $ RTB.delay (tx + ty) rtb''
+        _ -> RTB.cons tx True $ fixCloseFills rtb'
+      Just ((tx, False), rtb') -> RTB.cons tx False $ fixCloseFills rtb'
+      Nothing -> RTB.empty
+    fixedFills = U.unapplyTempoTrack tempos $ fixCloseFills $ U.applyTempoTrack tempos fills'
+    in do
+      when (fills' /= fixedFills) $ warn
+        "Removing some drum fills because they are too close (within 2.5 seconds)"
+      return $ RTB.merge (fmap RBDrums.Activation fixedFills) notFills
+
   return $ RBFile.Song tempos mmap
     ( RBFile.RB3File
       { RBFile.rb3Beat = beatTrack
       , RBFile.rb3Events = eventsTrack
       , RBFile.rb3Venue = discardPS $ RBFile.onyxVenue trks
-      , RBFile.rb3PartDrums = drumsTrack
+      , RBFile.rb3PartDrums = drumsTrack'
       , RBFile.rb3PartGuitar = guitarRB3
       , RBFile.rb3PartBass = bassRB3
       , RBFile.rb3PartRealGuitar   = proGtr
@@ -373,7 +394,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       { RBFile.psBeat = fmap RB beatTrack
       , RBFile.psEvents = fmap RB eventsTrack
       , RBFile.psVenue = RBFile.onyxVenue trks
-      , RBFile.psPartDrums = fmap RB drumsTrack
+      , RBFile.psPartDrums = fmap RB drumsTrack'
       , RBFile.psPartDrums2x = RTB.empty
       , RBFile.psPartRealDrumsPS = RTB.empty
       , RBFile.psPartGuitar = guitarPS
