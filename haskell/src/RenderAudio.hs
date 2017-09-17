@@ -99,7 +99,9 @@ manualLeaf :: (MonadIO m) => AudioLibrary -> SongYaml -> AudioInput -> StackTrac
 manualLeaf alib songYaml (Named name) = case HM.lookup name $ _audio songYaml of
   Just audioQuery -> case audioQuery of
     AudioFile ainfo -> inside ("Looking for the audio file named " ++ show name) $ do
-      searchInfo alib ainfo
+      aud <- searchInfo alib ainfo
+      liftIO $ putStrLn $ "Found audio file " ++ show name ++ " at: " ++ show (toList aud)
+      return aud
     AudioSnippet expr -> join <$> mapM (manualLeaf alib songYaml) expr
   Nothing -> fail $ "Couldn't find an audio source named " ++ show name
 manualLeaf _ songYaml (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
