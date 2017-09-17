@@ -668,7 +668,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
       moggOracle   <- addOracle $ \(MoggSearch   s) -> allFilesInAudioDirs () >>= moggSearch s
 
       forM_ (HM.elems $ _audio songYaml) $ \case
-        AudioFile{ _filePath = Just fp, _commands = cmds } | not $ null cmds -> do
+        AudioFile AudioInfo{ _filePath = Just fp, _commands = cmds } | not $ null cmds -> do
           normaliseEx fp %> \_ -> mapM_ (Shake.unit . Shake.cmd . T.unpack) cmds
         _ -> return ()
 

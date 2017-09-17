@@ -79,8 +79,8 @@ computeChannels = \case
   Mask _ _ aud -> computeChannels aud
 
 audioSearch :: AudioFile -> [FilePath] -> Action (Maybe FilePath)
-audioSearch AudioSnippet{} _     = fail "panic! called audioSearch on a snippet. report this bug"
-audioSearch AudioFile{..}  files = do
+audioSearch AudioSnippet{}            _     = fail "panic! called audioSearch on a snippet. report this bug"
+audioSearch (AudioFile AudioInfo{..}) files = do
   let sortForMD5 = uncurry (++) . partition (\f -> takeExtension f == ".flac")
   files1 <- case _filePath of
     Nothing   -> return $ sortForMD5 files
@@ -139,8 +139,8 @@ computeChannelsPlan songYaml = let
     Named name -> case HM.lookup name $ _audio songYaml of
       Nothing               -> error
         "panic! audio leaf not found, after it should've been checked"
-      Just AudioFile   {..} -> _channels
-      Just AudioSnippet{..} -> computeChannelsPlan songYaml _expr
+      Just (AudioFile AudioInfo{..}) -> _channels
+      Just AudioSnippet{..}          -> computeChannelsPlan songYaml _expr
     JammitSelect _ _ -> 2
   in computeChannels . fmap toChannels
 
@@ -162,7 +162,7 @@ jammitPath name (J.Without inst)
 manualLeaf :: SongYaml -> AudioInput -> Action (Audio Duration FilePath)
 manualLeaf songYaml (Named name) = case HM.lookup name $ _audio songYaml of
   Just audioQuery -> case audioQuery of
-    AudioFile{..} -> do
+    AudioFile AudioInfo{..} -> do
       putNormal $ "Looking for the audio file named " ++ show name
       result <- askOracle $ AudioSearch $ show audioQuery
       case result of

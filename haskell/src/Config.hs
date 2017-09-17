@@ -122,15 +122,17 @@ instance StackJSON Magma.Gender where
       Magma.Male   -> "male"
     }
 
+data AudioInfo = AudioInfo
+  { _md5      :: Maybe T.Text
+  , _frames   :: Maybe Integer
+  , _filePath :: Maybe FilePath
+  , _commands :: [T.Text]
+  , _rate     :: Maybe Int
+  , _channels :: Int
+  } deriving (Eq, Ord, Show, Read)
+
 data AudioFile
-  = AudioFile
-    { _md5      :: Maybe T.Text
-    , _frames   :: Maybe Integer
-    , _filePath :: Maybe FilePath
-    , _commands :: [T.Text]
-    , _rate     :: Maybe Int
-    , _channels :: Int
-    }
+  = AudioFile AudioInfo
   | AudioSnippet
     { _expr :: Audio Duration AudioInput
     }
@@ -152,9 +154,9 @@ instance StackJSON AudioFile where
         _rate     <- optionalKey "rate"      fromJSON
         _channels <- fromMaybe 2 <$> optionalKey "channels" fromJSON
         expectedKeys ["md5", "frames", "file-path", "commands", "rate", "channels"]
-        return AudioFile{..}
+        return $ AudioFile AudioInfo{..}
     , stackShow = \case
-      AudioFile{..} -> A.object $ concat
+      AudioFile AudioInfo{..} -> A.object $ concat
         [ map ("md5"       .=) $ toList _md5
         , map ("frames"    .=) $ toList _frames
         , map ("file-path" .=) $ toList _filePath

@@ -231,7 +231,7 @@ importFoF detectBasicDrums src dest = do
       , _difficulty   = toTier $ FoF.diffBand song
       }
     , _audio = HM.fromList $ flip map audioFilesWithChannels $ \(aud, chans) ->
-      (T.pack aud, AudioFile
+      (T.pack aud, AudioFile AudioInfo
         { _md5 = Nothing
         , _frames = Nothing
         , _commands = []
@@ -762,7 +762,7 @@ importMagma fin dir = do
                 , _planVols = map realToFrac $ RBProj.vol aud
                 }
               , ( T.pack s
-                , AudioFile
+                , AudioFile AudioInfo
                   { _md5 = Nothing
                   , _frames = Nothing
                   , _filePath = Just dst
@@ -799,7 +799,7 @@ importMagma fin dir = do
           , _planVols = toList $ c3 >>= C3.crowdVol
           }
         , ( T.pack s
-          , AudioFile
+          , AudioFile AudioInfo
             { _md5 = Nothing
             , _frames = Nothing
             , _filePath = Just dst
