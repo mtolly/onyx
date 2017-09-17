@@ -5,9 +5,7 @@
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE TupleSections              #-}
 module RenderAudio
-( AudioSearch(..), JammitSearch(..), MoggSearch(..)
-, audioSearch, jammitSearch, moggSearch
-, checkDefined
+( checkDefined
 , jammitPath
 , manualLeaf
 , computeSimplePart, computeDrumsPart
@@ -19,46 +17,25 @@ module RenderAudio
 ) where
 
 import           Audio
+import           AudioSearch
 import           Config
 import           Control.Arrow                  ((&&&))
 import           Control.Monad                  (forM_, join)
-import           Control.Monad.Extra            (filterM, findM)
+import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Resource   (MonadResource)
 import           Control.Monad.Trans.StackTrace (StackTraceT, fatal, inside)
-import qualified Data.ByteString.Lazy           as BL
 import           Data.Char                      (toLower)
 import           Data.Conduit.Audio
-import qualified Data.Digest.Pure.MD5           as MD5
 import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as HM
-import           Data.List                      (partition)
-import           Data.Maybe                     (fromMaybe, isNothing,
-                                                 listToMaybe)
+import           Data.Maybe                     (fromMaybe, listToMaybe)
 import qualified Data.Text                      as T
 import           Development.Shake
-import           Development.Shake.Classes
 import           Development.Shake.FilePath
 import qualified RockBand.Drums                 as RBDrums
 import           RockBand.File                  (FlexPartName)
 import qualified Sound.Jammit.Base              as J
-import qualified Sound.Jammit.Export            as J
-import qualified System.Directory               as Dir
-
--- | Oracle for an audio file search.
--- The String is the 'show' of a value of type 'AudioFile'.
-newtype AudioSearch = AudioSearch String
-  deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
-
--- | Oracle for a Jammit track search.
--- The String is the 'show' of a value of type 'JammitTrack'.
-newtype JammitSearch = JammitSearch String
-  deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
-
--- | Oracle for an existing MOGG file search.
--- The Text is an MD5 hash of the complete MOGG file.
-newtype MoggSearch = MoggSearch T.Text
-  deriving (Show, Typeable, Eq, Hashable, Binary, NFData)
 
 computeChannels :: Audio Duration Int -> Int
 computeChannels = \case
@@ -77,39 +54,6 @@ computeChannels = \case
   StretchSimple _ aud -> computeChannels aud
   StretchFull _ _ aud -> computeChannels aud
   Mask _ _ aud -> computeChannels aud
-
-audioSearch :: AudioFile -> [FilePath] -> Action (Maybe FilePath)
-audioSearch AudioSnippet{}            _     = fail "panic! called audioSearch on a snippet. report this bug"
-audioSearch (AudioFile AudioInfo{..}) files = do
-  let sortForMD5 = uncurry (++) . partition (\f -> takeExtension f == ".flac")
-  files1 <- case _filePath of
-    Nothing   -> return $ sortForMD5 files
-    Just path -> do
-      need [path]
-      liftIO $ fmap (:[]) $ Dir.canonicalizePath path
-  files2 <- case _md5 of
-    Nothing  -> return files1
-    Just md5 -> fmap toList $ findM (fmap (== Just (T.unpack md5)) . audioMD5) files1
-  files3 <- case _frames of
-    Nothing  -> return files2
-    Just len -> filterM (fmap (== Just len) . audioLength) files2
-  files4 <- if isNothing _filePath && isNothing _md5
-    then fail "audioSearch: you must specify either file-path or md5"
-    else return files3
-  files5 <- filterM (fmap (== Just _channels) . audioChannels) files4
-  files6 <- case _rate of
-    Nothing   -> return files5
-    Just rate -> filterM (fmap (== Just rate) . audioRate) files5
-  need files6
-  return $ listToMaybe files6
-
-moggSearch :: T.Text -> [FilePath] -> Action (Maybe FilePath)
-moggSearch md5search files = do
-  flip findM files $ \f -> case takeExtension f of
-    ".mogg" -> do
-      md5 <- liftIO $ show . MD5.md5 <$> BL.readFile f
-      return $ T.unpack md5search == md5
-    _ -> return False
 
 -- | make sure all audio leaves are defined, catch typos
 checkDefined :: (Monad m) => SongYaml -> StackTraceT m ()
@@ -144,14 +88,6 @@ computeChannelsPlan songYaml = let
     JammitSelect _ _ -> 2
   in computeChannels . fmap toChannels
 
-jammitSearch :: SongYaml -> JammitTrack -> J.Library -> Action [(J.AudioPart, FilePath)]
-jammitSearch songYaml jmt lib = do
-  let title  = fromMaybe (getTitle  $ _metadata songYaml) $ _jammitTitle  jmt
-      artist = fromMaybe (getArtist $ _metadata songYaml) $ _jammitArtist jmt
-  return $ J.getAudioParts
-    $ J.exactSearchBy J.title  (T.unpack title )
-    $ J.exactSearchBy J.artist (T.unpack artist) lib
-
 jammitPath :: T.Text -> J.AudioPart -> FilePath
 jammitPath name (J.Only part)
   = "gen/jammit" </> T.unpack name </> "only" </> map toLower (drop 4 $ show part) <.> "wav"
@@ -159,22 +95,14 @@ jammitPath name (J.Without inst)
   = "gen/jammit" </> T.unpack name </> "without" </> map toLower (show inst) <.> "wav"
 
 -- | Looking up single audio files and Jammit parts in the work directory
-manualLeaf :: SongYaml -> AudioInput -> Action (Audio Duration FilePath)
-manualLeaf songYaml (Named name) = case HM.lookup name $ _audio songYaml of
+manualLeaf :: (MonadIO m) => AudioLibrary -> SongYaml -> AudioInput -> StackTraceT m (Audio Duration FilePath)
+manualLeaf alib songYaml (Named name) = case HM.lookup name $ _audio songYaml of
   Just audioQuery -> case audioQuery of
-    AudioFile AudioInfo{..} -> do
-      putNormal $ "Looking for the audio file named " ++ show name
-      result <- askOracle $ AudioSearch $ show audioQuery
-      case result of
-        Nothing -> fail $ "Couldn't find a necessary audio file for query: " ++ show audioQuery
-        Just fp -> do
-          putNormal $ "Found " ++ show name ++ " located at: " ++ fp
-          return $ case _rate of
-            Nothing -> Resample $ Input fp
-            Just _  -> Input fp -- if rate is specified, don't auto-resample
-    AudioSnippet expr -> join <$> mapM (manualLeaf songYaml) expr
+    AudioFile ainfo -> inside ("Looking for the audio file named " ++ show name) $ do
+      searchInfo alib ainfo
+    AudioSnippet expr -> join <$> mapM (manualLeaf alib songYaml) expr
   Nothing -> fail $ "Couldn't find an audio source named " ++ show name
-manualLeaf songYaml (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
+manualLeaf _ songYaml (JammitSelect audpart name) = case HM.lookup name $ _jammit songYaml of
   Just _  -> return $ Input $ jammitPath name audpart
   Nothing -> fail $ "Couldn't find a Jammit source named " ++ show name
 
@@ -252,30 +180,32 @@ channelsToSpec pvOut planName pvIn silentChans chans = inside "conforming MOGG c
 
 buildAudioToSpec
   :: (MonadResource m)
-  => SongYaml
+  => AudioLibrary
+  -> SongYaml
   -> [(Double, Double)]
   -> Maybe (PlanAudio Duration AudioInput)
   -> StackTraceT Action (AudioSource m Float)
-buildAudioToSpec songYaml pvOut mpa = inside "conforming audio file to output spec" $ do
+buildAudioToSpec alib songYaml pvOut mpa = inside "conforming audio file to output spec" $ do
   (expr, pans, vols) <- completePlanAudio songYaml $ case mpa of
     Nothing -> PlanAudio (Silence 1 $ Frames 0) [] []
     Just pa -> pa
-  src <- lift $ mapM (manualLeaf songYaml) expr >>= buildSource . join
+  src <- mapM (manualLeaf alib songYaml) expr >>= lift . buildSource . join
   fitToSpec (zip pans vols) pvOut src
 
 buildPartAudioToSpec
   :: (MonadResource m)
-  => SongYaml
+  => AudioLibrary
+  -> SongYaml
   -> [(Double, Double)]
   -> Maybe (PartAudio (PlanAudio Duration AudioInput))
   -> StackTraceT Action (AudioSource m Float)
-buildPartAudioToSpec songYaml specPV = \case
-  Nothing -> buildAudioToSpec songYaml specPV Nothing
-  Just (PartSingle pa) -> buildAudioToSpec songYaml specPV $ Just pa
+buildPartAudioToSpec alib songYaml specPV = \case
+  Nothing -> buildAudioToSpec alib songYaml specPV Nothing
+  Just (PartSingle pa) -> buildAudioToSpec alib songYaml specPV $ Just pa
   Just (PartDrumKit kick snare kit) -> do
-    kickSrc  <- buildAudioToSpec songYaml specPV kick
-    snareSrc <- buildAudioToSpec songYaml specPV snare
-    kitSrc   <- buildAudioToSpec songYaml specPV $ Just kit
+    kickSrc  <- buildAudioToSpec alib songYaml specPV kick
+    snareSrc <- buildAudioToSpec alib songYaml specPV snare
+    kitSrc   <- buildAudioToSpec alib songYaml specPV $ Just kit
     return $ mix kickSrc $ mix snareSrc kitSrc
 
 -- | Computing a drums instrument's audio for CON/Magma.

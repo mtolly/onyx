@@ -78,6 +78,9 @@ instance StackJSON Key where
 data Instrument = Guitar | Bass | Drums | Keys | Vocal
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
+instance Hashable Instrument where
+  hashWithSalt s = hashWithSalt s . fromEnum
+
 jammitInstrument :: Instrument -> J.Instrument
 jammitInstrument = \case
   Guitar -> J.Guitar

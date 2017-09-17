@@ -7,6 +7,7 @@
 module Build (shakeBuildTarget, shakeBuildMagmaProject, shakeBuildFiles, targetTitle, loadYaml) where
 
 import           Audio
+import           AudioSearch
 import qualified C3
 import qualified Codec.Archive.Zip                     as Zip
 import           Codec.Picture
@@ -36,8 +37,7 @@ import           Data.Fixed                            (Centi)
 import           Data.Foldable                         (toList)
 import           Data.Hashable                         (hash)
 import qualified Data.HashMap.Strict                   as HM
-import           Data.List                             (intercalate, isPrefixOf,
-                                                        nub)
+import           Data.List                             (intercalate, nub)
 import           Data.Maybe                            (fromMaybe, isJust,
                                                         isNothing, mapMaybe)
 import           Data.Monoid                           ((<>))
@@ -62,6 +62,7 @@ import           JSONData                              (StackJSON (..),
 import qualified Magma
 import qualified MelodysEscape
 import           MoggDecrypt
+import           Path                                  (parseAbsDir, toFilePath)
 import           PrettyDTA
 import           ProKeysRanges
 import           Reaper.Build                          (makeReaper)
@@ -336,9 +337,6 @@ makeRB3DTA songYaml plan rb3 song filename = do
 
 phony :: FilePath -> Action () -> Rules ()
 phony fp act = Shake.phony fp act >> Shake.phony (fp ++ "/") act
-
-allFiles :: FilePath -> Action [FilePath]
-allFiles dir = map (dir </>) <$> getDirectoryFiles dir ["//*"]
 
 -- TODO use parts from target
 printOverdrive :: FilePath -> StackTraceT Action ()
@@ -637,12 +635,10 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
   yamlTime <- stackIO $ Dir.getModificationTime yamlPath
   let version = show exeTime ++ "," ++ show yamlTime
 
-  audioDirs' <- flip concatMapM audioDirs $ \dir ->
-    stackIO (Dir.doesDirectoryExist dir) >>= \ex -> if ex
-      then return [dir]
-      else do
-        warn $ "Audio directory does not exist: " ++ dir
-        return []
+  audioLib <- newAudioLibrary
+  forM_ audioDirs $ \dir -> do
+    p <- parseAbsDir dir
+    addAudioDir audioLib p
 
   -- we translate ShakeException (which may or may not have a StackTraceT fatal inside)
   -- to a StackTraceT fatal with layers
@@ -656,16 +652,6 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
   stackCatchIO handleShakeErr $ Dir.withCurrentDirectory (takeDirectory yamlPath) $ do
 
     shake shakeOptions{ shakeThreads = 0, shakeFiles = "gen", shakeVersion = version } $ do
-
-      allFilesInAudioDirs <- newCache $ \() -> do
-        genAbsolute <- liftIO $ Dir.canonicalizePath "gen/"
-        filter (\f -> not $ genAbsolute `isPrefixOf` f)
-          <$> concatMapM allFiles audioDirs'
-      allJammitInAudioDirs <- newCache $ \() -> liftIO $ concatMapM J.loadLibrary audioDirs'
-
-      _            <- addOracle $ \(AudioSearch  s) -> allFilesInAudioDirs () >>= audioSearch (read s)
-      jammitOracle <- addOracle $ \(JammitSearch s) -> fmap show $ allJammitInAudioDirs () >>= jammitSearch songYaml (read s)
-      moggOracle   <- addOracle $ \(MoggSearch   s) -> allFilesInAudioDirs () >>= moggSearch s
 
       forM_ (HM.elems $ _audio songYaml) $ \case
         AudioFile AudioInfo{ _filePath = Just fp, _commands = cmds } | not $ null cmds -> do
@@ -681,14 +667,18 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                           ++ map J.Without [minBound .. maxBound]
       forM_ (HM.toList $ _jammit songYaml) $ \(jammitName, jammitQuery) ->
         forM_ jammitAudioParts $ \audpart ->
-          jammitPath jammitName audpart %> \out -> do
-            putNormal $ "Looking for the Jammit track named " ++ show jammitName ++ ", part " ++ show audpart
-            result <- fmap read $ jammitOracle $ JammitSearch $ show jammitQuery
-            case [ jcfx | (audpart', jcfx) <- result, audpart == audpart' ] of
-              jcfx : _ -> do
-                putNormal $ "Found the Jammit track named " ++ show jammitName ++ ", part " ++ show audpart
-                liftIO $ J.runAudio [jcfx] [] out
-              []       -> fail "Couldn't find a necessary Jammit track"
+          jammitPath jammitName audpart ≡> \out -> do
+            inside ("Looking for the Jammit track named " ++ show jammitName ++ ", part " ++ show audpart) $ do
+              let title  = fromMaybe (getTitle  $ _metadata songYaml) $ _jammitTitle  jammitQuery
+                  artist = fromMaybe (getArtist $ _metadata songYaml) $ _jammitArtist jammitQuery
+                  inst   = fromJammitInstrument $ J.audioPartToInstrument audpart
+              p <- searchJammit audioLib (title, artist, inst)
+              result <- stackIO $ fmap J.getAudioParts $ J.loadLibrary $ toFilePath p
+              case [ jcfx | (audpart', jcfx) <- result, audpart == audpart' ] of
+                jcfx : _ -> do
+                  lift $ putNormal $ "Found the Jammit track named " ++ show jammitName ++ ", part " ++ show audpart
+                  stackIO $ J.runAudio [jcfx] [] out
+                []       -> fail "Couldn't find a necessary Jammit track"
 
       -- Cover art
       let loadRGB8 = case _fileAlbumArt $ _metadata songYaml of
@@ -749,7 +739,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit kick _ _) -> fromMaybe [] kick
                   _                           -> []
-              Plan{..}     -> buildAudioToSpec songYaml spec $ do
+              Plan{..}     -> buildAudioToSpec audioLib songYaml spec $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit kick _ _) -> kick
@@ -764,7 +754,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 case HM.lookup fpart $ getParts _moggParts of
                   Just (PartDrumKit _ snare _) -> fromMaybe [] snare
                   _                            -> []
-              Plan{..}     -> buildAudioToSpec songYaml spec $ do
+              Plan{..}     -> buildAudioToSpec audioLib songYaml spec $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit _ snare _) -> snare
@@ -780,7 +770,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   Just (PartDrumKit _ _ kit) -> kit
                   Just (PartSingle      kit) -> kit
                   _                          -> []
-              Plan{..}     -> buildAudioToSpec songYaml spec $ do
+              Plan{..}     -> buildAudioToSpec audioLib songYaml spec $ do
                 guard $ rank /= 0
                 case HM.lookup fpart $ getParts _planParts of
                   Just (PartDrumKit _ _ kit) -> Just kit
@@ -792,7 +782,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             MoggPlan{..} -> channelsToSpec spec planName (zip _pans _vols) _silent $ do
               guard $ rank /= 0
               toList (HM.lookup fpart $ getParts _moggParts) >>= toList >>= toList
-            Plan{..} -> buildPartAudioToSpec songYaml spec $ do
+            Plan{..} -> buildPartAudioToSpec audioLib songYaml spec $ do
               guard $ rank /= 0
               HM.lookup fpart $ getParts _planParts
           writeStereoParts gameParts speed pad planName plan fpartranks out = do
@@ -801,7 +791,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               -> zeroIfMultiple gameParts fpart
               <$> getPartSource spec planName plan fpart rank
             src <- case srcs of
-              []     -> buildAudioToSpec songYaml spec Nothing
+              []     -> buildAudioToSpec audioLib songYaml spec Nothing
               s : ss -> return $ foldr mix s ss
             lift $ runAudio (padAudio pad $ adjustAudioSpeed speed src) out
           writeSimplePart gameParts speed pad supportsOffMono planName plan fpart rank out = do
@@ -811,7 +801,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
           writeCrowd speed pad planName plan out = do
             src <- case plan of
               MoggPlan{..} -> channelsToSpec [(-1, 0), (1, 0)] planName (zip _pans _vols) _silent _moggCrowd
-              Plan{..}     -> buildAudioToSpec songYaml [(-1, 0), (1, 0)] _crowd
+              Plan{..}     -> buildAudioToSpec audioLib songYaml [(-1, 0), (1, 0)] _crowd
             lift $ runAudio (padAudio pad $ adjustAudioSpeed speed src) out
           sourceSongCountin :: (MonadResource m) => Maybe Double -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> StackTraceT Action (AudioSource m Float)
           sourceSongCountin speed pad includeCountin planName plan fparts = do
@@ -839,13 +829,13 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 partAudios = maybe id (\pa -> (PartSingle pa :)) _song unusedParts
                 countinPath = "gen/plan" </> T.unpack planName </> "countin.wav"
                 in do
-                  unusedSrcs <- mapM (buildPartAudioToSpec songYaml spec . Just) partAudios
+                  unusedSrcs <- mapM (buildPartAudioToSpec audioLib songYaml spec . Just) partAudios
                   if includeCountin
                     then do
                       countinSrc <- lift $ buildSource $ Input countinPath
                       return $ foldr mix countinSrc unusedSrcs
                     else case unusedSrcs of
-                      []     -> buildPartAudioToSpec songYaml spec Nothing
+                      []     -> buildPartAudioToSpec audioLib songYaml spec Nothing
                       s : ss -> return $ foldr mix s ss
             return $ padAudio pad $ adjustAudioSpeed speed src
           writeSongCountin :: Maybe Double -> Int -> Bool -> T.Text -> Plan -> [(RBFile.FlexPartName, Integer)] -> FilePath -> StackTraceT Action ()
@@ -1751,13 +1741,13 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   , toList _crowd
                   , toList _planParts >>= toList
                   ]
-            srcs <- mapM (buildAudioToSpec songYaml [(-1, 0), (1, 0)] . Just) planAudios
+            srcs <- mapM (buildAudioToSpec audioLib songYaml [(-1, 0), (1, 0)] . Just) planAudios
             count <- lift $ buildSource $ Input $ dir </> "countin.wav"
             lift $ runAudio (foldr mix count srcs) out
         dir </> "everything.ogg" %> buildAudio (Input $ dir </> "everything.wav")
 
-        dir </> "everything-mono.wav" %> \out -> case plan of
-          MoggPlan{..} -> do
+        dir </> "everything-mono.wav" ≡> \out -> case plan of
+          MoggPlan{..} -> lift $ do
             src <- buildSource $ Input $ dir </> "audio.ogg"
             runAudio (applyVolsMono (map realToFrac _vols) src) out
           Plan{..} -> do
@@ -1772,12 +1762,12 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 [] -> replicate chans 0
                 xs -> xs
               in do
-                src <- fmap join $ mapM (manualLeaf songYaml) $ _planExpr pa
-                fmap (applyVolsMono vols) $ buildSource src
+                src <- fmap join $ mapM (manualLeaf audioLib songYaml) $ _planExpr pa
+                fmap (applyVolsMono vols) $ lift $ buildSource src
             count <- do
-              csrc <- buildSource $ Input $ dir </> "countin.wav"
+              csrc <- lift $ buildSource $ Input $ dir </> "countin.wav"
               return $ applyVolsMono [0, 0] csrc
-            runAudio (foldr mix count srcs) out
+            lift $ runAudio (foldr mix count srcs) out
 
         -- MIDI files
 
@@ -1806,7 +1796,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
         -- count-in audio
         dir </> "countin.wav" ≡> \out -> do
           let hits = case plan of MoggPlan{} -> []; Plan{..} -> case _countin of Countin h -> h
-          src <- buildAudioToSpec songYaml [(-1, 0), (1, 0)] =<< case hits of
+          src <- buildAudioToSpec audioLib songYaml [(-1, 0), (1, 0)] =<< case hits of
             [] -> return Nothing
             _  -> Just . (\expr -> PlanAudio expr [] []) <$> do
               mid <- shakeMIDI $ dir </> "raw.mid"
@@ -1827,12 +1817,11 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             ogg ≡> \out -> do
               lift $ need [mogg]
               moggToOgg mogg out
-            mogg %> \out -> moggOracle (MoggSearch _moggMD5) >>= \case
-              Nothing -> fail "Couldn't find the MOGG file"
-              Just f -> do
-                -- TODO: check if it's actually an OGG (starts with OggS)
-                putNormal $ "Found the MOGG file: " ++ f
-                copyFile' f out
+            mogg ≡> \out -> do
+              p <- inside "Searching for MOGG file" $ searchMOGG audioLib _moggMD5
+              lift $ putNormal $ "Found the MOGG file: " ++ toFilePath p
+              -- TODO: check if it's actually an OGG (starts with OggS)
+              lift $ copyFile' (toFilePath p) out
 
         -- Audio files for the online preview app
         forM_ ["mp3", "ogg"] $ \ext -> do

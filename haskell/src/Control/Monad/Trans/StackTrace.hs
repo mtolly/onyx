@@ -26,6 +26,7 @@ module Control.Monad.Trans.StackTrace
 import           Control.Applicative
 import qualified Control.Exception            as Exc
 import           Control.Monad
+import           Control.Monad.Catch          (MonadThrow (..))
 import           Control.Monad.Except         (MonadError (..))
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
@@ -99,6 +100,9 @@ instance (Monad m) => MonadError Messages (StackTraceT m) where
     upper <- lift ask
     throwE $ Messages [ Message s (ctx ++ upper) | Message s ctx <- msgs ]
   StackTraceT ex `catchError` f = StackTraceT $ ex `catchE` (fromStackTraceT . f)
+
+instance (Monad m) => MonadThrow (StackTraceT m) where
+  throwM = stackShowException
 
 inside :: String -> StackTraceT m a -> StackTraceT m a
 inside s (StackTraceT (ExceptT rdr)) = StackTraceT $ ExceptT $ local (s :) rdr

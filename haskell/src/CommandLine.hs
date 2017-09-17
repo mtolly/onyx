@@ -225,11 +225,10 @@ getAudioDirs yamlPath = do
   config <- readConfig
   jmt <- stackIO J.findJammitDir
   let addons = maybe id (:) jmt [takeDirectory yamlPath]
-  case A.parseEither (.: "audio-dirs") config of
-    Left _ -> return $ addons ++ []
-    Right obj -> do
-      dirs <- either fatal return $ A.parseEither A.parseJSON obj
-      mapM (stackIO . Dir.canonicalizePath) $ addons ++ dirs
+  dirs <- case A.parseEither (.: "audio-dirs") config of
+    Left _    -> return []
+    Right obj -> either fatal return $ A.parseEither A.parseJSON obj
+  mapM (stackIO . Dir.canonicalizePath) $ addons ++ dirs
 
 outputFile :: (Monad m) => [OnyxOption] -> m FilePath -> m FilePath
 outputFile opts dft = case [ to | OptTo to <- opts ] of

@@ -156,6 +156,7 @@ executable onyx
     , process-extras
     , path
     , path-io
+    , exceptions
     -- my libraries:
     , jammittools >= 0.5.0.3 && < 0.6
     , midi-util >= 0.2 && < 0.3
