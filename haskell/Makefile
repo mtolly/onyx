@@ -47,7 +47,7 @@ win:
 	rm -rf win/
 	mkdir win/
 	cp "$(shell stack exec which onyx)" win/
-	cp /mingw32/bin/*.dll win/
+	cp /mingw64/bin/*.dll win/
 	stack exec strip win/onyx.exe
 	cp LICENSE.txt win/LICENSE.txt
 	cp README.md win/README.txt
@@ -57,12 +57,10 @@ win:
 	sed -b -i 's/_ONYXVERSION_/$(ONYXVERSION)/' win/README.txt
 
 win-deps:
-	pacman -Sy mingw-w64-i686-pkg-config mingw-w64-i686-libsndfile mingw-w64-i686-libsamplerate mingw-w64-i686-lame mingw-w64-i686-SDL2 mingw-w64-i686-SDL2_ttf mingw-w64-i686-rubberband
-	# TODO mingw-w64-i686-libbotan doesn't make .dll, see BUILD.md
+	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate mingw-w64-x86_64-lame mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_ttf mingw-w64-x86_64-rubberband
 
 icon/icon.o:
 	stack exec -- windres -i icon/icon.rc icon/icon.o
 
 ubuntu-deps:
 	apt install libsndfile-dev libsamplerate-dev libmp3lame-dev libsdl2-dev libsdl2-ttf-dev librubberband-dev
-	# install libbotan from source, ubuntu package is v1 but we need v2
