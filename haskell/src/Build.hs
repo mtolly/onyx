@@ -1096,17 +1096,15 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments (_metadata songYaml) plan $ rb3_2xBassPedal rb3
             pathMid %> copyFile' pathMagmaExport2
             pathOgg ≡> \out -> case plan of
-              MoggPlan{} -> lift $ do
+              MoggPlan{..} -> lift $ do
                 let speed = fromMaybe 1 $ rb3_Speed rb3
                 pad <- read <$> readFile' (dir </> "magma/pad.txt")
                 case (speed, pad) of
                   (1, 0) -> copyFile' (planDir </> "audio.ogg") out
                   _      -> do
-                    src <- buildSource
-                      ( Pad Start (Seconds $ realToFrac (pad :: Int))
-                      $ StretchFull (1 / speed) 1
-                      $ Input $ planDir </> "audio.ogg"
-                      )
+                    input <- buildSource $ Input $ planDir </> "audio.ogg"
+                    let src = padStart (Seconds $ realToFrac (pad :: Int))
+                          $ stretchFullSmart _silent (1 / speed) 1 input
                     runAudio src out
               Plan{..}   -> do
                 (_, mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml

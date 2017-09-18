@@ -24,6 +24,7 @@ module Audio
 , crapMP3
 , crapVorbis
 , stretchFull
+, stretchFullSmart
 , emptyChannels
 ) where
 
@@ -48,7 +49,7 @@ import           Data.Conduit.Audio.Sndfile
 import qualified Data.Conduit.List               as CL
 import qualified Data.Digest.Pure.MD5            as MD5
 import           Data.Foldable                   (toList)
-import           Data.List                       (sortOn)
+import           Data.List                       (elemIndex, sortOn)
 import qualified Data.Text                       as T
 import qualified Data.Vector.Storable            as V
 import           Data.Word                       (Word8)
@@ -162,6 +163,15 @@ stretchSimple ratio src = AudioSource
         in do
           yield $ interleave $ zipWith stretchChannel prev chans
           pipe (nextIndex - len) $ map V.last chans
+
+-- | Avoids giving silent channels to the audio stretcher.
+stretchFullSmart :: (MonadResource m) => [Int] -> Double -> Double -> AudioSource m Float -> AudioSource m Float
+stretchFullSmart [] tr pr src = stretchFull tr pr src
+stretchFullSmart silentChannels tr pr src = let
+  soundChannels = filter (`notElem` silentChannels) [0 .. channels src - 1]
+  transformIn = remapChannels $ map Just soundChannels
+  transformOut = remapChannels $ map (`elemIndex` soundChannels) [0 .. channels src - 1]
+  in transformOut $ stretchFull tr pr $ transformIn src
 
 -- | Proper audio stretching of time and/or pitch separately.
 stretchFull :: (MonadResource m) => Double -> Double -> AudioSource m Float -> AudioSource m Float
@@ -318,6 +328,14 @@ renderMask tags seams (AudioSource s r c l) = let
             masker m
   in AudioSource (s =$= masker sections) r c l
 
+remapChannels :: (Monad m) => [Maybe Int] -> AudioSource m Float -> AudioSource m Float
+remapChannels cs (AudioSource s r c f) = let
+  adjustBlock v = let
+    chans = deinterleave c v
+    zero = V.replicate (V.length $ head chans) 0
+    in interleave $ map (maybe zero (chans !!)) cs
+  in AudioSource (s =$= CL.map adjustBlock) r (length cs) f
+
 buildSource :: (MonadResource m) =>
   Audio Duration FilePath -> Action (AudioSource m Float)
 buildSource aud = need (toList aud) >> case aud of
@@ -342,12 +360,7 @@ buildSource aud = need (toList aud) >> case aud of
   Resample x -> buildSource x >>= \src -> return $ if rate src == 44100
     then src
     else resampleTo 44100 SincMediumQuality src
-  Channels cs x -> do
-    src <- buildSource x
-    let chans = splitChannels src
-    case map (chans !!) cs of
-      []     -> error "buildSource: can't select 0 channels"
-      s : ss -> return $ foldl merge s ss
+  Channels cs x -> remapChannels (map Just cs) <$> buildSource x
   StretchSimple d x -> stretchSimple d <$> buildSource x
   StretchFull t p x -> stretchFull t p <$> buildSource x
   Mask tags seams x -> renderMask tags seams <$> buildSource x
