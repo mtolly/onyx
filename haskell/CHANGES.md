@@ -1,5 +1,10 @@
 # Version history
 
+## 20170917
+
+* Remove drum fills that are too close for Magma, to allow higher speedups
+* Switch to 64-bit for Windows build
+
 ## 20170908
 
 * Fix different speed audio sometimes getting desynced from the MIDI
