@@ -116,6 +116,8 @@ instance Command OnyxCloseEvent where
 
 instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
 
+  -- TODO: unknown notes on pitch 12, 13, 15
+
   [ edge 40 $ applyB [p| FretPosition Fret40 |]
   , edge 41 $ applyB [p| FretPosition Fret41 |]
   , edge 42 $ applyB [p| FretPosition Fret42 |]

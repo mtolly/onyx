@@ -411,7 +411,7 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
         { D.song = (D.song pkg)
           { D.songName = T.pack $ "songs" </> shortName </> shortName
           }
-        , D.songId = Right $ T.pack shortName
+        , D.songId = Just $ Right $ T.pack shortName
         }
       , dtaC3Comments = C3DTAComments
         { c3dtaCreatedUsing = Nothing
@@ -491,6 +491,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
   isRB2 <- case D.songFormat pkg of
     10 -> return False
     4  -> return True
+    3  -> return True
     -- TODO catalog other values from DLC
     n  -> do
       warn $ "Unrecognized 'format' value (" ++ show n ++ "), assuming RB3 VENUE format"
@@ -514,7 +515,6 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
 
   stackIO $ Dir.copyFile cover $ dir </> coverName
   md5 <- stackIO $ show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
-  rb3mid <- loadMIDI mid
   drumkit <- case D.drumBank pkg of
     Nothing -> return HardRockKit
     Just x -> case x of
@@ -568,8 +568,10 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
       Right ()   -> emptyChannels ogg
   stackIO $ putStrLn $ "Detected the following channels as silent: " ++ show silentChannels
 
+  drumEvents <- if isRB2
+    then toList . RBFile.rb2PartDrums . RBFile.s_tracks <$> loadMIDI mid
+    else toList . RBFile.rb3PartDrums . RBFile.s_tracks <$> loadMIDI mid
   drumMix <- let
-    drumEvents = toList $ RBFile.rb3PartDrums $ RBFile.s_tracks rb3mid
     drumMixes = [ aud | RBDrums.DiffEvent _ (RBDrums.Mix aud _) <- drumEvents ]
     in case drumMixes of
       [] -> return RBDrums.D0
@@ -645,10 +647,10 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
       getSongID = \case
         Left  i -> guard (i /= 0) >> Just (Left i)
         Right k -> Just $ Right k
-      songID1x = getSongID $ D.songId pkg
+      songID1x = D.songId pkg >>= getSongID
       songID2x = if hasKicks == Has2x
         then songID1x
-        else files2x >>= getSongID . D.songId . fst
+        else files2x >>= D.songId . fst >>= getSongID
       version1x = songID1x >> Just (D.version pkg)
       version2x = songID2x >> fmap (D.version . fst) files2x
       target1x = ("rb3", RB3 def
@@ -714,7 +716,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
         { partVocal = flip fmap vocalMode $ \vc -> PartVocal
           { vocalDifficulty = fromMaybe (Tier 1) $ HM.lookup "vocals" diffMap
           , vocalCount = vc
-          , vocalGender = Just $ D.vocalGender pkg
+          , vocalGender = D.vocalGender pkg
           }
         })
       ]

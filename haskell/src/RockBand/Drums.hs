@@ -112,6 +112,8 @@ showMix audio disco = "drums" <> T.pack (show $ fromEnum audio) <> case disco of
 
 instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |])
 
+  -- TODO: unknown notes on pitch 12, 14, 15
+
   [ blip 24  [p| Animation KickRF |]
   , edge 25  $ \_b -> [p| Animation (HihatOpen $(boolP _b)) |]
   , blip 26  [p| Animation (Snare HardHit LH) |]

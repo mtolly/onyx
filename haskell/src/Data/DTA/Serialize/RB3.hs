@@ -11,7 +11,7 @@ import           Data.DTA.Serialize.Magma (Gender (..))
 import qualified Data.HashMap.Strict      as Map
 import qualified Data.Text                as T
 import           JSONData                 (StackCodec (..), eitherCodec,
-                                           expected, opt, req)
+                                           expected, fill, opt, req)
 
 data Pitch
   = C | CSharp
@@ -101,7 +101,7 @@ data SongPackage = SongPackage
   { name              :: T.Text
   , artist            :: T.Text
   , master            :: Bool
-  , songId            :: Either Integer T.Text
+  , songId            :: Maybe (Either Integer T.Text)
   , song              :: Song
   , bank              :: Maybe T.Text
   , drumBank          :: Maybe T.Text
@@ -114,17 +114,19 @@ data SongPackage = SongPackage
   , solo              :: Maybe [T.Text]
   , songFormat        :: Integer
   , version           :: Integer
-  , gameOrigin        :: T.Text
+  , fake              :: Maybe Bool
+  , gameOrigin        :: Maybe T.Text
   , ugc               :: Maybe Bool
   , rating            :: Integer
   , genre             :: T.Text
   , subGenre          :: Maybe T.Text
-  , vocalGender       :: Gender
+  , vocalGender       :: Maybe Gender
   , shortVersion      :: Maybe Integer
   , yearReleased      :: Integer
   , albumArt          :: Maybe Bool
   , albumName         :: Maybe T.Text
   , albumTrackNumber  :: Maybe Integer
+  , packName          :: Maybe T.Text
   , vocalTonicNote    :: Maybe Pitch
   , songTonality      :: Maybe Tonality
   , songKey           :: Maybe Pitch
@@ -145,7 +147,7 @@ instance StackChunks SongPackage where
     name              <- name              =. req         "name"                (single chunkString)
     artist            <- artist            =. req         "artist"              (single chunkString)
     master            <- master            =. req         "master"              stackChunks
-    songId            <- songId            =. req         "song_id"             (eitherCodec stackChunks $ single chunkKey)
+    songId            <- songId            =. opt Nothing "song_id"             (chunksMaybe $ eitherCodec stackChunks $ single chunkKey)
     song              <- song              =. req         "song"                stackChunks
     bank              <- bank              =. opt Nothing "bank"                stackChunks
     drumBank          <- drumBank          =. opt Nothing "drum_bank"           stackChunks
@@ -158,17 +160,19 @@ instance StackChunks SongPackage where
     solo              <- solo              =. opt Nothing "solo"                (chunksMaybe $ chunksParens $ chunksList chunkKey)
     songFormat        <- songFormat        =. req         "format"              stackChunks
     version           <- version           =. req         "version"             stackChunks
-    gameOrigin        <- gameOrigin        =. req         "game_origin"         (single chunkKey)
+    fake              <- fake              =. opt Nothing "fake"                stackChunks
+    gameOrigin        <- gameOrigin        =. opt Nothing "game_origin"         (chunksMaybe $ single chunkKey)
     ugc               <- ugc               =. opt Nothing "ugc"                 stackChunks
-    rating            <- rating            =. req         "rating"              stackChunks
+    rating            <- rating            =. fill 4      "rating"              stackChunks -- 4 is Unrated
     genre             <- genre             =. req         "genre"               (single chunkKey)
     subGenre          <- subGenre          =. opt Nothing "sub_genre"           (chunksMaybe $ single chunkKey)
-    vocalGender       <- vocalGender       =. req         "vocal_gender"        stackChunks
+    vocalGender       <- vocalGender       =. opt Nothing "vocal_gender"        stackChunks
     shortVersion      <- shortVersion      =. opt Nothing "short_version"       stackChunks
     yearReleased      <- yearReleased      =. req         "year_released"       stackChunks
     albumArt          <- albumArt          =. opt Nothing "album_art"           stackChunks
     albumName         <- albumName         =. opt Nothing "album_name"          (chunksMaybe $ single chunkString)
     albumTrackNumber  <- albumTrackNumber  =. opt Nothing "album_track_number"  stackChunks
+    packName          <- packName          =. opt Nothing "pack_name"           (chunksMaybe $ single chunkString)
     vocalTonicNote    <- vocalTonicNote    =. opt Nothing "vocal_tonic_note"    stackChunks
     songTonality      <- songTonality      =. opt Nothing "song_tonality"       stackChunks
     songKey           <- songKey           =. opt Nothing "song_key"            stackChunks

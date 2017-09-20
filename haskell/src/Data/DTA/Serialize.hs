@@ -93,6 +93,10 @@ instance StackChunk Bool where
       Int 0       -> return False
       Key "TRUE"  -> return True
       Key "FALSE" -> return False
+      Braces (Tree _ [Key "==", Var "SONG_VERSION", Int 0]) -> return False
+      -- so we can parse (fake {== $SONG_VERSION 0})
+      Braces (Tree _ [Key ">", Var "SONG_VERSION", Int 0]) -> return True
+      -- so we can parse (downloaded {> $SONG_VERSION 0})
       _ -> expected "bool"
     }
 instance StackChunks Bool

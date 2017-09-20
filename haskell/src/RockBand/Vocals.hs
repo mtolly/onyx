@@ -80,6 +80,8 @@ instanceMIDIEvent [t| Event |] Nothing
   [ edge 0 $ applyB [p| RangeShift |]
   , blip 1 [p| LyricShift |]
 
+  -- TODO: unknown notes on pitch 12, 13, 14
+
   , edgeRange [36..47] $ \_i _b -> [p| Note $(boolP _b) (Octave36 $(keyP $ _i - 36)) |]
   , edgeRange [48..59] $ \_i _b -> [p| Note $(boolP _b) (Octave48 $(keyP $ _i - 48)) |]
   , edgeRange [60..71] $ \_i _b -> [p| Note $(boolP _b) (Octave60 $(keyP $ _i - 60)) |]

@@ -205,24 +205,26 @@ prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
       forM_ (sortOn rankOrder $ Map.toList $ D.rank pkg) $ \(k, v) -> do
         inline k $ showT v
     inline "genre" $ quote $ D.genre pkg
-    inline "vocal_gender" $ quote $ case D.vocalGender pkg of
+    forM_ (D.vocalGender pkg) $ inline "vocal_gender" . quote . \case
       Female -> "female"
       Male   -> "male"
     inline "version" $ showT $ D.version pkg
     inline "format" $ showT $ D.songFormat pkg
+    forM_ (D.fake pkg) $ \b -> inline "fake" $ if b then "1" else "0"
     forM_ (D.albumArt pkg) $ \b -> inline "album_art" $ if b then "1" else "0"
     inline "year_released" $ showT $ D.yearReleased pkg
     inline "rating" $ showT $ D.rating pkg
     forM_ (D.subGenre pkg) $ inline "sub_genre" . quote
-    inline "song_id" $ either showT id $ D.songId pkg
+    forM_ (D.songId pkg) $ inline "song_id" . either showT id
     forM_ (D.solo pkg) $ inlineRaw "solo" . parenthesize . T.unwords
     forM_ (D.tuningOffsetCents pkg) $ inline "tuning_offset_cents" . showT -- TODO: should this be an int?
     forM_ (D.guidePitchVolume pkg) $ inline "guide_pitch_volume" . showT
-    inline "game_origin" $ quote $ D.gameOrigin pkg
+    forM_ (D.gameOrigin pkg) $ inline "game_origin" . quote
     forM_ (D.ugc pkg) $ inline "ugc" . \case True -> "1"; False -> "0"
     forM_ (D.encoding pkg) $ inline "encoding" . quote
     forM_ (D.albumName pkg) $ two "album_name" . stringLit
     forM_ (D.albumTrackNumber pkg) $ inline "album_track_number" . showT
+    forM_ (D.packName pkg) $ two "pack_name" . stringLit
     forM_ (D.vocalTonicNote pkg) $ inlineRaw "vocal_tonic_note" . showT . fromEnum
     forM_ (D.songTonality pkg) $ inlineRaw "song_tonality" . \case
       D.Major -> "0"

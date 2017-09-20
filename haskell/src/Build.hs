@@ -206,7 +206,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
     { D.name = targetTitle songYaml $ RB3 rb3
     , D.artist = getArtist $ _metadata songYaml
     , D.master = not $ _cover $ _metadata songYaml
-    , D.songId = fromMaybe (Right filename) $ rb3_SongID rb3
+    , D.songId = Just $ fromMaybe (Right filename) $ rb3_SongID rb3
     , D.song = D.Song
       { D.songName = "songs/" <> filename <> "/" <> filename
       , D.tracksCount = Nothing
@@ -304,17 +304,20 @@ makeRB3DTA songYaml plan rb3 song filename = do
       in guard (not $ null kwds) >> Just kwds
     , D.songFormat = 10
     , D.version = fromMaybe 1 $ rb3_Version rb3
-    , D.gameOrigin = "ugc_plus"
+    , D.fake = Nothing
+    , D.gameOrigin = Just "ugc_plus"
     , D.ugc = Nothing
     , D.rating = fromIntegral $ fromEnum (_rating $ _metadata songYaml) + 1
     , D.genre = rbn2Genre fullGenre
     , D.subGenre = Just $ "subgenre_" <> rbn2Subgenre fullGenre
-    , D.vocalGender = fromMaybe Magma.Female $ getPart (rb3_Vocal rb3) songYaml >>= partVocal >>= vocalGender
+    , D.vocalGender = Just $ fromMaybe Magma.Female $ getPart (rb3_Vocal rb3) songYaml >>= partVocal >>= vocalGender
+    -- TODO is it safe to have no vocal_gender?
     , D.shortVersion = Nothing
     , D.yearReleased = fromIntegral $ getYear $ _metadata songYaml
     , D.albumArt = Just True
     , D.albumName = Just $ getAlbum $ _metadata songYaml
     , D.albumTrackNumber = Just $ fromIntegral $ getTrackNumber $ _metadata songYaml
+    , D.packName = Nothing
     , D.vocalTonicNote = toEnum . fromEnum <$> _key (_metadata songYaml)
     , D.songTonality = Nothing
     , D.songKey = Nothing
@@ -1328,6 +1331,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                                 | otherwise -> "the10s"
                               , D.vocalGender = D.vocalGender rb3DTA
                               , D.version = 0
+                              , D.fake = Nothing
                               , D.downloaded = Just True
                               , D.songFormat = 4
                               , D.albumArt = Just True
@@ -1338,10 +1342,11 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                               , D.songId = D.songId rb3DTA
                               , D.tuningOffsetCents = D.tuningOffsetCents rb3DTA
                               , D.context = Just 2000
-                              , D.gameOrigin = "rb2"
+                              , D.gameOrigin = Just "rb2"
                               , D.ugc = Nothing
                               , D.albumName = D.albumName rb3DTA
                               , D.albumTrackNumber = D.albumTrackNumber rb3DTA
+                              , D.packName = D.packName rb3DTA
                               -- not present
                               , D.drumBank = Nothing
                               , D.bandFailCue = Nothing
@@ -1379,7 +1384,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                             , D.cores = D.cores $ D.song rb3DTA
                             , D.crowdChannels = D.crowdChannels $ D.song rb3DTA
                             }
-                          , D.songId = fromMaybe (Right pkg) $ rb2_SongID rb2
+                          , D.songId = Just $ fromMaybe (Right pkg) $ rb2_SongID rb2
                           , D.preview = D.preview rb3DTA -- because we told magma preview was at 0s earlier
                           , D.songLength = D.songLength rb3DTA -- magma v1 set this to 31s from the audio file lengths
                           }

@@ -143,6 +143,7 @@ data Event
   | LightingNext
   | BonusFX
   | BonusFXOptional
+  | Fog Bool
   deriving (Eq, Ord, Show, Read, Typeable, Data)
 
 instanceMIDIEvent [t| Event |] Nothing
@@ -194,5 +195,8 @@ instanceMIDIEvent [t| Event |] Nothing
 
   , commandPair ["bonusfx"] [p| BonusFX |]
   , commandPair ["bonusfx_optional"] [p| BonusFXOptional |]
+
+  , commandPair ["FogOn"] [p| Fog True |]
+  , commandPair ["FogOff"] [p| Fog False |]
 
   ]
