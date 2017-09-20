@@ -1,0 +1,9256 @@
+('100000years'
+ ('song_length' 346363)
+ ('solo'
+  ('drum' 'guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('10s'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('13stepstonowhere'
+ ('solo'
+  ('drum'))
+ ('format' 10))
+('21guns'
+ ('song'
+  ('vocal_parts' 3))
+ ('song_length' 327727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'greenday' 'disc_update')
+ ('vocal_tonic_note' 5))
+('21stcentdigiboy'
+ ('song_id' 1005604)
+ ('preview' 36500 66500)
+ ('song_length' 173181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('21stcenturybreakdown'
+ ('song_length' 323809)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('29fingers'
+ ('song_id' 46)
+ ('song_length' 175000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 2005)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Konks")
+ ('album_track_number' 2))
+('2minutestomidnight'
+ ('song_id' 1005588)
+ ('song_length' 370909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('3dimesdown'
+ ('song_id' 1005438)
+ ('song_length' 200000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('3sand7s'
+ ('song_id' 1005009)
+ ('song_length' 220000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Era Vulgaris")
+ ('album_track_number' 8))
+('abc'
+ ('song_length' 188181)
+ ('solo'
+  ('drum'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('aboutagirl'
+ ('song_length' 170454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('accidentallyinlove'
+ ('song_length' 195000)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('accordingtoyou'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('aceshigh_live'
+ ('song_id' 1005589)
+ ('song_length' 309090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2008)
+ ('year_recorded' 2009)
+ ('extra_authoring' 'disc_update'))
+('acleanshot'
+ ('song_id' 1005129)
+ ('song_length' 241363)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2008)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "With Arrows, With Poise")
+ ('album_track_number' 4))
+('action'
+ ('song_id' 1005041)
+ ('song_length' 202272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1976)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('adamssong'
+ ('format' 10)
+ ('alternate_path' 'TRUE'))
+('adaylikethis'
+ ('song_length' 94545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('aestheticsofhate'
+ ('song_id' 1005188)
+ ('song'
+  ('hopo_threshold' 250))
+ ('song_length' 359545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('afavorhouseatlantic'
+ ('song_id' 1005575)
+ ('song_length' 220909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('afterlife'
+ ('song_id' 1005132)
+ ('song_length' 350454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('alternate_path' 'TRUE'))
+('agirllikeyou'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('aintnotelling'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('ajaggedgorgeouswinter'
+ ('extra_authoring' 'disc_update'))
+('alabamagetaway'
+ ('extra_authoring' 'disc_update'))
+('aliensexist'
+ ('song_length' 197727)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('alternate_path' 'TRUE'))
+('alive'
+ ('extra_authoring' 'disc_update'))
+('alivelive'
+ ('song_id' 1005487)
+ ('song_length' 313181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'pearljam'))
+('allgoingouttogether'
+ ('song_length' 182727)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('year_released' 1987)
+ ('year_recorded' 2008)
+ ('album_track_number' 12))
+('alliwant'
+ ('song_id' 1005453)
+ ('song_length' 121818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('allmixedup'
+ ('song_id' 1005113)
+ ('song_length' 287272)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Cars")
+ ('album_track_number' 9))
+('allmylife'
+ ('song_length' 280454)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('allofthis'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('alloveragain'
+ ('song_id' 1005200)
+ ('song_length' 209545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('allrightnow'
+ ('song_id' 1005253)
+ ('song_length' 343181)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('allthesmallthings'
+ ('song_id' 1005040)
+ ('song_length' 174545)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1999)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Enema of the State")
+ ('album_track_number' 8))
+('allthethingsthatgo'
+ ('song_id' 1005474)
+ ('song_length' 189545)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('almosteasy'
+ ('extra_authoring' 'disc_update'))
+('aloneinmyhead'
+ ('song_id' 1005520)
+ ('song_length' 247727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('alookinginview'
+ ('song_length' 429545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('amazingjourney'
+ ('song_id' 1005172)
+ ('song_length' 213181)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('america'
+ ('song_length' 222727)
+ ('solo'
+  ('drum'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('americaneulogy'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('americangirl'
+ ('song_length' 236818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('americanidiot'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('americanmusic'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('americanwoman'
+ ('extra_authoring' 'disc_update'))
+('amongstthewaves'
+ ('song_length' 240000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'pearljam'))
+('andjusticeforall'
+ ('song_id' 1005015)
+ ('preview' 156300 186300)
+ ('song_length' 591818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1988)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "...And Justice for All")
+ ('album_track_number' 2))
+('andres'
+ ('song_length' 200909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('andshewas'
+ ('song_length' 221363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('anotheronebitesthedust'
+ ('song_length' 223181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('anymanofmine'
+ ('song_id' 1005466)
+ ('song_length' 258636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update')
+ ('tuning_offset_cents' 15))
+('apacherosepeacock'
+ ('song_id' 1005236)
+ ('song_length' 290000)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('apunk'
+ ('song_length' 141363)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10))
+('aqualung'
+ ('extra_authoring' 'disc_update'))
+('areyoudeadyet'
+ ('song_id' 1005363)
+ ('song_length' 240000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('areyougonnabemygirl'
+ ('song_id' 1)
+ ('song_length' 179090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 2003)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Get Born")
+ ('album_track_number' 2))
+('areyougonnagomyway'
+ ('song_id' 1005403)
+ ('song_length' 214545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('ashestofire'
+ ('song_id' 1005318)
+ ('preview' 8550 38550)
+ ('song_length' 171818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('athingaboutyou'
+ ('song_length' 300454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('attack'
+ ('song_id' 1005032)
+ ('song_length' 190000)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2005)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "A Beautiful Lie")
+ ('album_track_number' 1))
+('awomaninlovelive'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('vocal_tonic_note' 11))
+('babaoriley'
+ ('song_id' 1005171)
+ ('song_length' 310909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('backfromthedead'
+ ('song_id' 1005598)
+ ('song_length' 241363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('genre' 'metal')
+ ('extra_authoring' 'disc_update'))
+('backinblack_live'
+ ('song_id' 1005296)
+ ('preview' 22941 52941)
+ ('song_length' 237727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('badluck'
+ ('song_id' 1005554)
+ ('song_length' 266818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1992)
+ ('year_recorded' 2007)
+ ('extra_authoring' 'disc_update'))
+('badmoonrising'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('badomen'
+ ('song_id' 1005214)
+ ('song_length' 246363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('badreputation'
+ ('extra_authoring' 'disc_update'))
+('badtothebone'
+ ('song_id' 1005252)
+ ('song_length' 297272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('ballroomblitz'
+ ('song_id' 2)
+ ('preview' 49700 79700)
+ ('song_length' 203636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 1975)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'FALSE'))
+('bandages'
+ ('song_id' 1005224)
+ ('song_length' 214090)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('bangagong'
+ ('song_id' 1005006)
+ ('preview' 30000 60000)
+ ('song_length' 275909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1971)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'FALSE'))
+('batcountry'
+ ('song_length' 320454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('bathwater'
+ ('song_id' 1005373)
+ ('preview' 98600 128600)
+ ('song_length' 245909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('battery'
+ ('extra_authoring' 'disc_update'))
+('beatitondowntheline'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('beautifulthieves'
+ ('song_length' 224545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('beerformyhorses'
+ ('song_id' 1005504)
+ ('song_length' 214090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('beethovensc'
+ ('song_id' 1005068)
+ ('song_length' 197727)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Elect The Dead")
+ ('album_track_number' 11))
+('beetlebum'
+ ('song_id' 1005112)
+ ('song_length' 310000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1997)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'FALSE'))
+('behindblueeyes'
+ ('song_id' 1005170)
+ ('song_length' 235909)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('bestdayever'
+ ('song_id' 1005495)
+ ('song_length' 174545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('bestofme'
+ ('song_length' 186818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('bestofyou'
+ ('song_length' 258181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('better'
+ ('song_id' 1005516)
+ ('song_length' 304090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('beverlyhills'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('bigbottom'
+ ('song_length' 219545)
+ ('solo'
+  ('drum'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('billiondollarlive'
+ ('song_id' 1005565)
+ ('song_length' 216363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('black'
+ ('song_id' 1005483)
+ ('song'
+  ('vocal_parts' 2))
+ ('song_length' 365000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 4))
+('blackened'
+ ('song_id' 1005014)
+ ('preview' 102700 132700)
+ ('song_length' 401363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1988)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "...And Justice for All")
+ ('album_track_number' 1))
+('blackfriday'
+ ('song_id' 1005556)
+ ('song_length' 221818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('blackholesun'
+ ('song_id' 3)
+ ('preview' 116375 146375)
+ ('song_length' 271363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1994)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Superunknown")
+ ('album_track_number' 7))
+('blackmagic'
+ ('song_length' 245000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('blacksunshine'
+ ('song_id' 1005430)
+ ('song_length' 256818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('blew'
+ ('song_length' 178181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('blindedbyfear'
+ ('song_id' 1005071)
+ ('preview' 39652 69652)
+ ('song_length' 166363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1995)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Slaughter of the Soul")
+ ('album_track_number' 1))
+('blitzkriegbop'
+ ('song_id' 4)
+ ('preview' 25600 55600)
+ ('song_length' 111363)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 1976)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Ramones")
+ ('album_track_number' 1))
+('blooddoll'
+ ('song_id' 47)
+ ('song_length' 165454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "A Single Drop of Red")
+ ('album_track_number' 3))
+('bloodstone'
+ ('song_id' 1005095)
+ ('preview' 62241 92241)
+ ('song_length' 235909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1982)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Screaming for Vengeance")
+ ('album_track_number' 4))
+('bloodsugarsexmagik'
+ ('song_id' 1005239)
+ ('song_length' 279545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('bluechristmas'
+ ('song_id' 1005384)
+ ('song_length' 152727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('bluecollarman'
+ ('song_id' 1005522)
+ ('song_length' 250909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1978)
+ ('year_recorded' 2009)
+ ('extra_authoring' 'disc_update'))
+('bluejeans'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('bluemorningblueday'
+ ('song_length' 192272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('bluesky'
+ ('song_id' 1005542)
+ ('song_length' 320000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('bodhisattva'
+ ('extra_authoring' 'disc_update'))
+('bodyioccupy'
+ ('song_id' 1005362)
+ ('song_length' 287727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('boldaslove'
+ ('solo'
+  ('drum' 'guitar'))
+ ('format' 10))
+('bornonthebayou'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('boulevardof'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('bounce'
+ ('song_id' 1005317)
+ ('song_length' 216363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('boysarebackintown'
+ ('song_id' 1005421)
+ ('song_length' 274090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_recorded' 1977))
+('brainpower'
+ ('song_id' 48)
+ ('song_length' 128181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Future Future Future Perfect")
+ ('album_track_number' 6))
+('brassinpocket'
+ ('song_id' 1005027)
+ ('song_length' 190000)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1980)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('breakdownlive'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('breakingthegirl'
+ ('song_id' 1005245)
+ ('song_length' 301363)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('breakingthelawlive'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('year_released' 1980)
+ ('year_recorded' 2010))
+('breakmyheart'
+ ('song_id' 1005424)
+ ('song_length' 192272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('breakout'
+ ('song_length' 207272)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('breed'
+ ('song_id' 1005273)
+ ('preview' 51873 81873)
+ ('song_length' 182272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('alternate_path' 'TRUE'))
+('bringmetolife'
+ ('song_id' 1005595)
+ ('song_length' 235909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('brother'
+ ('song_id' 1005475)
+ ('song'
+  ('vocal_parts' 3))
+ ('preview' 98600 128600)
+ ('song_length' 255000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 8))
+('buddyholly'
+ ('song_id' 1005026)
+ ('song_length' 162727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1994)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Weezer (The Blue Album)")
+ ('album_track_number' 4))
+('bulletsandguns'
+ ('song_id' 1005128)
+ ('song_length' 152727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Rock, Paper, Terribles")
+ ('album_track_number' 1))
+('bullsonparade'
+ ('song_id' 1005616)
+ ('song_length' 235909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('vocal_tonic_note' 1))
+('burn'
+ ('song_id' 1005177)
+ ('song_length' 305000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('burnittotheground'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('burnout'
+ ('solo'
+  ('drum'))
+ ('format' 10))
+('burnrz'
+ ('song_length' 181363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('burnyoudown'
+ ('song_id' 1005307)
+ ('song_length' 208181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('byebyelove'
+ ('song_id' 1005115)
+ ('song_length' 257727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Cars")
+ ('album_track_number' 7))
+('byob'
+ ('song_id' 1005183)
+ ('song_length' 261363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('californiauberalles'
+ ('song_id' 1005342)
+ ('song_length' 212272)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update')
+ ('encoding' 'latin1'))
+('callingdrlove'
+ ('song_id' 1005050)
+ ('song_length' 212272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1976)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Rock and Roll Over")
+ ('album_track_number' 3))
+('callme'
+ ('song_id' 1005085)
+ ('song_length' 228636)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1981)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Best of Blondie")
+ ('album_track_number' 10))
+('callmewhenyouresober'
+ ('song_id' 1005592)
+ ('song_length' 218181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('cameraeye'
+ ('song_id' 1005227)
+ ('song_length' 640909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('caniplaywithmadness'
+ ('song_id' 1005583)
+ ('song_length' 214545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('cantbetamed'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('cantletgo'
+ ('song_id' 49)
+ ('preview' 27700 57700)
+ ('song_length' 236363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Can't Let Go")
+ ('album_track_number' 1))
+('cantletgo_lucinda'
+ ('song_id' 1005436)
+ ('song_length' 214545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('cantstandlosingyou'
+ ('song_id' 1005012)
+ ('preview' 24750 54750)
+ ('song_length' 180909)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Outlandos d'Amour")
+ ('album_track_number' 6))
+('cantstoprockin'
+ ('song_id' 1005524)
+ ('song_length' 270909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('capitalg'
+ ('song_id' 1005176)
+ ('song_length' 235000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('capricididiablo'
+ ('song_id' 1005353)
+ ('song_length' 273181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('carryonwaywardson'
+ ('extra_authoring' 'disc_update'))
+('caseyjones'
+ ('song_id' 1005065)
+ ('song_length' 270000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1970)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Workingman's Dead")
+ ('album_track_number' 8))
+('castlesmadeofsand'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('catcherintherye'
+ ('song_id' 1005512)
+ ('song_length' 353181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('celebrityskin'
+ ('song_id' 5)
+ ('song_length' 143181)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1998)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Celebrity Skin")
+ ('album_track_number' 1))
+('centurycitylive'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('charlene'
+ ('song_id' 1005207)
+ ('song_length' 79545)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('checkmybrain'
+ ('song_length' 247272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('checkyesjuliet'
+ ('song_length' 223636)
+ ('format' 10))
+('cheeseburgerinparadise'
+ ('song_id' 1005124)
+ ('song_length' 185454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1978)
+ ('year_recorded' 2008)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Exclusive 2008 Rock Band Re-Recording")
+ ('album_track_number' 1))
+('cherrybomb'
+ ('song_id' 1005005)
+ ('song_length' 141818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1976)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'FALSE'))
+('cherrywaves'
+ ('solo'
+  ('drum'))
+ ('format' 10))
+('cherubrock'
+ ('song_id' 6)
+ ('preview' 42350 72350)
+ ('song_length' 305454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 1993)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Siamese Dream")
+ ('album_track_number' 1))
+('chestfeverlive'
+ ('song_length' 302727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('chinacatsunflower'
+ ('song_id' 1005064)
+ ('song_length' 228636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1969)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Aoxomoxoa")
+ ('album_track_number' 6))
+('chinesedemocracy'
+ ('song_id' 1005517)
+ ('song_length' 284545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('chiron'
+ ('song_id' 1005206)
+ ('song_length' 266363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('christiansinferno'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('extra_authoring' 'greenday')
+ ('vocal_tonic_note' 2))
+('christmasisthetime'
+ ('song_id' 1005383)
+ ('song_length' 174545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('chump'
+ ('song'
+  ('vocal_parts' 2))
+ ('format' 10))
+('claudette'
+ ('song_id' 1005397)
+ ('song_length' 156363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('clinteastwood'
+ ('song_length' 365000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('closer'
+ ('song_id' 1005338)
+ ('song_length' 189545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('closertotheheart'
+ ('song_id' 1005158)
+ ('preview' 66680 96680)
+ ('song_length' 184090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('cloudsovercalifornia'
+ ('song_id' 1005191)
+ ('song_length' 256818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('clubfoot'
+ ('song_length' 172272)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('cmoncmon'
+ ('song_id' 1005492)
+ ('song_length' 137727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('coldrainandsnow'
+ ('song_id' 1005417)
+ ('song_length' 152272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('collector'
+ ('song_id' 1005056)
+ ('preview' 125387 155387)
+ ('song_length' 190909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2005)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "With Teeth")
+ ('album_track_number' 3))
+('comeasyouarelive'
+ ('song_length' 231818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('comeoutandplay'
+ ('extra_authoring' 'disc_update'))
+('comingclean'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('completecontrol'
+ ('song_id' 1005053)
+ ('song_length' 197727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1977)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Clash")
+ ('album_track_number' 4))
+('conquerall'
+ ('song_length' 215909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('constantmotion'
+ ('song_id' 1005190)
+ ('song_length' 422272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('countdowntoinsanity'
+ ('song_id' 1005105)
+ ('song_length' 235454)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Open Letter to a Friend")
+ ('album_track_number' 3))
+('cowboysong_live'
+ ('song_id' 1005422)
+ ('song_length' 329545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_recorded' 1977))
+('crackityjones'
+ ('song_id' 1005142)
+ ('song_length' 87727)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('crash'
+ ('song_length' 163636)
+ ('format' 10))
+('crawl'
+ ('song_length' 253636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('crazybabies'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('crazylittlething'
+ ('song_length' 157727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('crazytuesday'
+ ('song_id' 1005316)
+ ('song_length' 230909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('creamandbastards'
+ ('song_id' 1005251)
+ ('song_length' 201818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('creep'
+ ('song_id' 7)
+ ('preview' 106000 136000)
+ ('song_length' 202727)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1993)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Pablo Honey")
+ ('album_track_number' 2))
+('creepinupthebackstairs'
+ ('song_id' 1005427)
+ ('song_length' 189090)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('criticalacclaim'
+ ('song_id' 1005133)
+ ('song_length' 314545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update'))
+('crocodilerock'
+ ('song_length' 222727)
+ ('format' 10))
+('crosseyedandpainless'
+ ('song_length' 294090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('crushcrushcrush'
+ ('song_id' 1005067)
+ ('song_length' 189090)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Riot!")
+ ('album_track_number' 8))
+('crylonely'
+ ('song_id' 1005454)
+ ('song_length' 253636)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('cumberlandblues'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('cupsandcakes'
+ ('song_length' 100454)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('cuzurnext'
+ ('song_id' 1005568)
+ ('song_length' 198181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('dammit'
+ ('song_id' 1005277)
+ ('song_length' 169545)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('damnationgame'
+ ('song_id' 1005352)
+ ('song_length' 309545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('danceepidemic'
+ ('song_length' 170454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('encoding' 'latin1'))
+('danicalifornia'
+ ('song_id' 8)
+ ('preview' 39450 69450)
+ ('song_length' 233636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 2006)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Stadium Arcadium")
+ ('album_track_number' 1))
+('databasecorrupted'
+ ('song_id' 1005315)
+ ('song_length' 241818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('datewiththenight'
+ ('song_id' 1005100)
+ ('song_length' 158181)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2003)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Fever to Tell")
+ ('album_track_number' 2))
+('dawnpatrol'
+ ('song_id' 1005909)
+ ('format' 10))
+('daylatedollarshort'
+ ('song_id' 50)
+ ('preview' 72750 102750)
+ ('song_length' 152272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 2006)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Go Down Swinging")
+ ('album_track_number' 1))
+('dead'
+ ('song_id' 1005145)
+ ('song_length' 148181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('deadleavesdirtyground'
+ ('song_length' 182272)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('deadonarrival'
+ ('song_id' 9)
+ ('preview' 11500 41500)
+ ('song_length' 161818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 2003)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Take This to Your Grave")
+ ('album_track_number' 2))
+('debaser'
+ ('song_id' 1005149)
+ ('song_length' 176363)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('deep'
+ ('song_id' 1005478)
+ ('song'
+  ('vocal_parts' 3))
+ ('song_length' 265454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 6))
+('deluxe'
+ ('extra_authoring' 'disc_update'))
+('desperatetimes'
+ ('song_id' 1005314)
+ ('song_length' 210454)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('detroitrockcity'
+ ('song_id' 10)
+ ('preview' 45850 75850)
+ ('song_length' 196818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1976)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Destroyer")
+ ('album_track_number' 1))
+('deuce'
+ ('song_length' 225454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('devilschild'
+ ('song_id' 1005089)
+ ('song_length' 291818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1982)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Screaming for Vengeance")
+ ('album_track_number' 10))
+('devilsisland'
+ ('song_id' 1005216)
+ ('song_length' 310454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('devour'
+ ('song_id' 1005174)
+ ('song_length' 224090)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('diaryofjane'
+ ('song_length' 204545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('dieallright'
+ ('song_id' 1005038)
+ ('song_length' 171818)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2000)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Veni Vidi Vicious")
+ ('album_track_number' 2))
+('differentpeople'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('dig'
+ ('song_length' 265000)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('digginmedown'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('dirtydeeds_live'
+ ('song_id' 1005290)
+ ('song_length' 280909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('dirtylittlesecret'
+ ('song_id' 1005031)
+ ('song_length' 198636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2005)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Move Along")
+ ('album_track_number' 1))
+('dirtypool'
+ ('song_id' 1005442)
+ ('song_length' 304545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('disposableteens'
+ ('preview' 60500 90500)
+ ('song_length' 183636)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('dissidentaggressor_live'
+ ('song_length' 183636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('distracted'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('doa'
+ ('song_id' 1005070)
+ ('song_length' 250454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2003)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "One Kill Wonder")
+ ('album_track_number' 5))
+('doa_foos'
+ ('song_id' 1005387)
+ ('song_length' 255000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('dockofthebay'
+ ('format' 10)
+ ('year_released' 1967)
+ ('year_recorded' 1992))
+('dointhatrag'
+ ('song_id' 1005416)
+ ('song_length' 292727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('doll'
+ ('song_id' 1005335)
+ ('song_length' 92272)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('dontchastop'
+ ('song_id' 1005117)
+ ('song_length' 215000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Cars")
+ ('album_track_number' 5))
+('donteasemein'
+ ('song_id' 1005415)
+ ('song_length' 197727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('dontfearthereaper'
+ ('song_id' 11)
+ ('preview' 29500 59500)
+ ('song_length' 265000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 1975)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Agents of Fortune")
+ ('album_track_number' 3)
+ ('encoding' 'latin1'))
+('dontgoawaymad'
+ ('song_id' 1005258)
+ ('song_length' 284090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update')
+ ('encoding' 'latin1'))
+('dontlookbackinanger'
+ ('song_id' 1005044)
+ ('song_length' 293181)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1995)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "(What's the Story) Morning Glory?")
+ ('album_track_number' 4))
+('dontmakemewait'
+ ('song_id' 1005199)
+ ('song_length' 160454)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('dontspeak'
+ ('song_id' 1005365)
+ ('song_length' 291818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1995)
+ ('year_recorded' 2003)
+ ('extra_authoring' 'disc_update'))
+('dontstop'
+ ('song_length' 195000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('dontstopbelieving'
+ ('song_id' 1005489)
+ ('preview' 69400 99400)
+ ('song_length' 263181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('donttellme'
+ ('song_id' 1005423)
+ ('song_length' 201363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('donttellmeyouloveme'
+ ('song_length' 269545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('year_released' 1982)
+ ('year_recorded' 2009)
+ ('extra_authoring' 'disc_update'))
+('dontyouevah'
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10))
+('down'
+ ('song_length' 192727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('downatthewhiskey'
+ ('song_id' 1005153)
+ ('song_length' 237727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update')
+ ('encoding' 'latin1'))
+('downonthecorner'
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10))
+('downwiththesickness'
+ ('extra_authoring' 'disc_update'))
+('doyouwantto'
+ ('song_id' 1005546)
+ ('song_length' 218636)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('dragthewaters'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('dragula'
+ ('song_length' 222727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('draintheblood'
+ ('song_id' 1005541)
+ ('song_length' 192272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('drainyou'
+ ('extra_authoring' 'disc_update'))
+('dreamin'
+ ('song_id' 1005152)
+ ('preview' 27000 57000)
+ ('song_length' 311363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('dreamingoflove'
+ ('song_length' 228181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('dreamingofyou'
+ ('song_length' 140909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('drfeelgood'
+ ('song_id' 1005266)
+ ('song_length' 296363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('encoding' 'latin1'))
+('duality'
+ ('song_length' 255000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('dunebuggy'
+ ('song_id' 1005301)
+ ('song_length' 168181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('eastjesusnowhere'
+ ('song'
+  ('vocal_parts' 3))
+ ('song_length' 267272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'greenday' 'disc_update')
+ ('vocal_tonic_note' 5))
+('eatmealivelive'
+ ('song_length' 245454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('electriccrown'
+ ('song_id' 1005180)
+ ('song_length' 333636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('electricversion'
+ ('song_id' 12)
+ ('song_length' 145454)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 2003)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Electric Version")
+ ('album_track_number' 1))
+('elscorcho'
+ ('song_id' 1005059)
+ ('song'
+  ('vols'
+   (-2.0 -3.5 -3.5 -3.0 -3.0 -1.5 -4.5 -4.5 -2.0 -2.0 -2.0)))
+ ('preview' 15750 45750)
+ ('song_length' 246818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1996)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Pinkerton")
+ ('album_track_number' 7))
+('embedded'
+ ('song_length' 223181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('emeniussleepus'
+ ('solo'
+  ('drum'))
+ ('format' 10))
+('eminencefront'
+ ('song_id' 1005169)
+ ('song_length' 343636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('empireofthegun'
+ ('song_length' 286363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('employeeofthemonth'
+ ('song_length' 216363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('enditonthis'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('endtransmission'
+ ('song_length' 226818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('short_version' 115408))
+('enoughspace'
+ ('song_id' 1005327)
+ ('song_length' 161363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('entangled'
+ ('song_id' 1005400)
+ ('song_length' 263181)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('entersandman'
+ ('song_id' 13)
+ ('preview' 89250 119250)
+ ('song_length' 273636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1991)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Metallica")
+ ('album_track_number' 1))
+('epic'
+ ('song_id' 14)
+ ('preview' 168300 198300)
+ ('song_length' 245909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 1990)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Real Thing")
+ ('album_track_number' 2))
+('epro'
+ ('extra_authoring' 'disc_update'))
+('evenflow'
+ ('song_id' 1005485)
+ ('song'
+  ('vocal_parts' 2))
+ ('preview' 60500 90500)
+ ('song_length' 300454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 2)
+ ('tuning_offset_cents' 30))
+('eventhelosers'
+ ('song_length' 218181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('everfalleninlove'
+ ('song_id' 1005024)
+ ('song_length' 163181)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('everlong'
+ ('extra_authoring' 'disc_update'))
+('everylittlething'
+ ('song_length' 270909)
+ ('format' 10))
+('excusememr'
+ ('song_id' 1005369)
+ ('song_length' 188181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1995)
+ ('year_recorded' 2003))
+('exgirlfriend'
+ ('song_id' 1005364)
+ ('song_length' 215000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('extraordinarygirl'
+ ('solo'
+  ('drum'))
+ ('format' 10))
+('facedowninthedirt'
+ ('song_id' 1005186)
+ ('song_length' 229090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('encoding' 'latin1'))
+('fakefriends'
+ ('song_length' 197727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('fatbottomedgirls'
+ ('song'
+  ('vols'
+   (-1.5 -5.0 -5.0 -9.5 -5.0 -5.0 -1.0 -1.0 -4.0 -4.0)))
+ ('song_length' 201818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('fearofthedarklive'
+ ('song_id' 1005580)
+ ('preview' 197555 227555)
+ ('song_length' 450000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2008)
+ ('year_recorded' 2009)
+ ('extra_authoring' 'disc_update')
+ ('album_track_number' 10))
+('featherpluckn'
+ ('song_id' 1005302)
+ ('song_length' 182272)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('februarystars'
+ ('song_id' 1005326)
+ ('song_length' 295909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('feedthetree'
+ ('song_id' 1005411)
+ ('song_length' 219090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('feelgooddrag'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('feelgoodinc'
+ ('song_length' 222727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('feelingthis'
+ ('song_length' 179545)
+ ('rank'
+  ('drum' 313)
+  ('guitar' 171)
+  ('bass' 287)
+  ('vocals' 178)
+  ('band' 240))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('feelslikethefirsttime'
+ ('song_length' 213636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('feelthepain'
+ ('extra_authoring' 'disc_update'))
+('fever'
+ ('song_id' 1005090)
+ ('preview' 99532 129532)
+ ('song_length' 331363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1982)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Screaming for Vengeance")
+ ('album_track_number' 9))
+('fire'
+ ('song_length' 166363)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('fireitup'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('fireonthemountain'
+ ('song_id' 1005414)
+ ('song_length' 228636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('fireyourguns_live'
+ ('song_id' 1005293)
+ ('song_length' 179090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('firstdate'
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('fivemagics'
+ ('song_id' 1005912)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('flathead'
+ ('song_id' 1005426)
+ ('song_length' 203181)
+ ('solo'
+  ('drum' 'guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('flirtinwithdisaster'
+ ('song_id' 15)
+ ('song_length' 248181)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1979)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Flirtin' With Disaster")
+ ('album_track_number' 6))
+('floods'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('flowerpeople'
+ ('song_length' 204545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('flyonthewall'
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10))
+('forceofnature'
+ ('song_length' 244545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'pearljam' 'disc_update'))
+('foreplaylongtime'
+ ('song_id' 16)
+ ('preview' 167399 197399)
+ ('song_length' 500000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 1976)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Boston")
+ ('album_track_number' 3))
+('forever'
+ ('song_id' 1005337)
+ ('song_length' 265000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('forthoseabouttorock_live'
+ ('song_id' 1005281)
+ ('song_length' 401818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('fortunateson'
+ ('song_id' 1005004)
+ ('song_length' 145000)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1969)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('franklinstower'
+ ('song_id' 1005063)
+ ('preview' 22900 52900)
+ ('song_length' 292727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1975)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Blues for Allah")
+ ('album_track_number' 2))
+('freeandeasy'
+ ('song_id' 1005381)
+ ('preview' 27933 57933)
+ ('song_length' 212727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('freedomtrain'
+ ('song_id' 1005402)
+ ('song_length' 176363)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('freefallin'
+ ('song_length' 265909)
+ ('format' 10))
+('funk49'
+ ('song_id' 1005391)
+ ('song_length' 258636)
+ ('solo'
+  ('drum' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('funkymonks'
+ ('song_id' 1005244)
+ ('song_length' 335454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('funkysexfarm'
+ ('song_length' 266363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('futures'
+ ('song_id' 1005433)
+ ('song_length' 249090)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('garden'
+ ('song_id' 1005479)
+ ('song'
+  ('vocal_parts' 2))
+ ('song_length' 318181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 9))
+('gasoline'
+ ('song_length' 280909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('gaybar'
+ ('song_length' 144545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('geraldine'
+ ('song_id' 1005491)
+ ('song_length' 221363)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('getiton'
+ ('song_id' 1005313)
+ ('song_length' 206818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('getready2rokk'
+ ('song_length' 173636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('getup'
+ ('song_id' 1005469)
+ ('song_length' 320454)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('genre' 'rbsoulfunk'))
+('getyourrockon'
+ ('song_id' 1005197)
+ ('song_length' 157727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('ghostbusters'
+ ('song_length' 251363)
+ ('solo'
+  ('drum'))
+ ('format' 10))
+('gimmeshelter'
+ ('song_id' 17)
+ ('song_length' 275454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1969)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Let It Bleed")
+ ('album_track_number' 1))
+('gimmesomemoney'
+ ('song_length' 155000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('gimmethreesteps'
+ ('song_id' 1005035)
+ ('song_length' 285000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1973)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "(pronounced 'leh-'n\233rd 'skin-'n\233rd)")
+ ('album_track_number' 3)
+ ('encoding' 'latin1'))
+('girlfriendisbetter'
+ ('song_length' 355000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('girlsandboys'
+ ('song_length' 190000)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('girlsonfilm'
+ ('song_id' 1005195)
+ ('song_length' 218636)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('girlswhoplayguitars'
+ ('song_id' 1005131)
+ ('song_length' 191818)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Our Earthly Pleasures")
+ ('album_track_number' 1)
+ ('encoding' 'latin1'))
+('girluwant'
+ ('song_id' 1005194)
+ ('preview' 28500 58500)
+ ('song_length' 179090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1980)
+ ('year_recorded' 2008))
+('girlyouhavenofaith'
+ ('song_length' 205909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('alternate_path' 'TRUE'))
+('giveitall'
+ ('extra_authoring' 'disc_update'))
+('giveittome'
+ ('song_id' 1005321)
+ ('song_length' 192272)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('godzilla'
+ ('solo'
+  ('drum' 'guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('short_version' 131697)
+ ('encoding' 'latin1'))
+('goingmobile'
+ ('song_id' 1005168)
+ ('song_length' 225454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('goingunderground'
+ ('song_length' 189545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('year_released' 1980)
+ ('year_recorded' 2002))
+('gone'
+ ('song_id' 1005336)
+ ('song_length' 277727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('goneaway'
+ ('song_id' 1005256)
+ ('song_length' 268181)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('gone_mg'
+ ('song_id' 1005464)
+ ('song_length' 270909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('gonnaseemyfriend'
+ ('song'
+  ('vocal_parts' 2))
+ ('song_length' 172272)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 11))
+('goodmorningblackfriday'
+ ('song_id' 1005215)
+ ('song_length' 405909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('goodtime'
+ ('song_id' 1005465)
+ ('song_length' 306363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('goodtimesroll'
+ ('song_id' 1005121)
+ ('preview' 40200 70200)
+ ('song_length' 230454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Cars")
+ ('album_track_number' 1))
+('gotnuffin'
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10))
+('gotsome'
+ ('song'
+  ('vocal_parts' 3))
+ ('song_length' 185000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 9))
+('gougeaway'
+ ('song_id' 1005136)
+ ('song_length' 168636)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('gowiththeflow'
+ ('song_id' 18)
+ ('preview' 5900 35900)
+ ('song_length' 155000)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 2002)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Songs for the Deaf")
+ ('album_track_number' 8))
+('goyourownway'
+ ('extra_authoring' 'disc_update'))
+('grace'
+ ('song_length' 154545)
+ ('format' 10))
+('greengrass'
+ ('song_id' 19)
+ ('preview' 95450 125450)
+ ('song_length' 596363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 1975)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('greenriver'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('grind'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('vocal_tonic_note' 4))
+('grinderlive'
+ ('solo'
+  ('drum' 'guitar'))
+ ('format' 10)
+ ('year_released' 1980)
+ ('year_recorded' 2010))
+('guerrillaradio'
+ ('song_length' 210454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('gunpowderandlead'
+ ('song_id' 1005380)
+ ('song_length' 190454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('gunsofsummer'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('hadadad'
+ ('song_id' 1005535)
+ ('song_length' 231818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('hairofthedog'
+ ('song_id' 1005723)
+ ('song_length' 277272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1975)
+ ('year_recorded' 2008))
+('hallowedbethyname'
+ ('song_id' 1005579)
+ ('song_length' 472727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2008)
+ ('year_recorded' 2009)
+ ('album_track_number' 11))
+('hammerhead'
+ ('song_id' 1005135)
+ ('song_length' 282272)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update'))
+('hammersmashedface'
+ ('song_length' 246363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('handlebars'
+ ('song_length' 213181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('handmedownworld'
+ ('song_length' 214090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('handsdown'
+ ('song_id' 1005211)
+ ('song_length' 192272)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('hangar18'
+ ('song_id' 1005865)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('hangingonthetelephone'
+ ('song_id' 1005103)
+ ('song_length' 145909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Parallel Lines")
+ ('album_track_number' 1))
+('hangyoufromtheheavens'
+ ('song_length' 218181)
+ ('solo'
+  ('drum'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('hanukkahblessings'
+ ('song_id' 1005382)
+ ('song_length' 207727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('happynow'
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10))
+('hardtohandle'
+ ('song_id' 1005034)
+ ('preview' 38823 68823)
+ ('song_length' 199545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('rank'
+  ('drum' 200)
+  ('guitar' 275)
+  ('bass' 220)
+  ('vocals' 200)
+  ('band' 230))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1990)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'FALSE'))
+('haypocorockandroll'
+ ('song_id' 1005359)
+ ('song_length' 337727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('encoding' 'latin1'))
+('headknocker'
+ ('song_length' 206818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('headoverfeet'
+ ('song_length' 325000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('headphoneson'
+ ('song_id' 1005360)
+ ('song_length' 182272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('heartbreaker'
+ ('song_id' 1005490)
+ ('song_length' 214090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update')
+ ('tuning_offset_cents' 30))
+('heartkiller'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('heatseeker_live'
+ ('song_id' 1005294)
+ ('song_length' 214090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('heavenbesideyou'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('extra_authoring' 'disc_update')
+ ('vocal_tonic_note' 3))
+('heavyduty'
+ ('song_length' 299545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('hellagood'
+ ('song_id' 1005371)
+ ('song_length' 245909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('hellaintabadplace_live'
+ ('song_id' 1005295)
+ ('song_length' 268181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('hellhole'
+ ('song_length' 212272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('hellinabucket'
+ ('song_id' 1005413)
+ ('song_length' 338636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update')
+ ('album_name'
+  "In the Dark"))
+('hellionelectriceye'
+ ('song_id' 1005097)
+ ('song_length' 268181)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1982)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Screaming for Vengeance")
+ ('album_track_number' 1))
+('hellsbells_live'
+ ('song_id' 1005288)
+ ('song_length' 353181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('henrietta'
+ ('song_id' 1005425)
+ ('song_length' 214090)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('herecomesmygirl'
+ ('song_length' 288636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('herecomesyourman'
+ ('song_id' 1005146)
+ ('preview' 33000 63000)
+ ('song_length' 210454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('hereitgoesagain'
+ ('song_id' 20)
+ ('song_length' 151818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 2003)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Oh No")
+ ('album_track_number' 3))
+('heroes'
+ ('song_id' 1005018)
+ ('song_length' 380454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1977)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('hey'
+ ('song_id' 1005138)
+ ('song_length' 215454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('heybaby'
+ ('song_id' 1005374)
+ ('preview' 84500 114500)
+ ('song_length' 209090)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('heydude'
+ ('song_length' 250000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('heyjohnnypark'
+ ('song_id' 1005333)
+ ('song_length' 254545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('heyjohnwhatsyournameagain'
+ ('song_length' 233181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('hierkommtalex'
+ ('song_id' 1005106)
+ ('song_length' 240000)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1988)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Ein kleines bisschen Horrorschau")
+ ('album_track_number' 1))
+('highvoltage_live'
+ ('song_id' 1005287)
+ ('song_length' 559545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('highwaystar'
+ ('song_id' 21)
+ ('preview' 36850 66850)
+ ('song_length' 304090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1972)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Machine Head")
+ ('album_track_number' 1))
+('highwaytohell_live'
+ ('song_id' 1005282)
+ ('song_length' 267727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('hillbillydeluxe'
+ ('song_id' 1005379)
+ ('song_length' 270000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('hitcharide'
+ ('song_id' 1005073)
+ ('song_length' 257727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1976)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Boston")
+ ('album_track_number' 6))
+('hitchinaride'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('hitmewithyourbestshot'
+ ('song_id' 1005419)
+ ('song_length' 176363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('hockeytheme'
+ ('solo'
+  ('drum'))
+ ('format' 10))
+('holiday'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('holidayincambodia'
+ ('song_id' 1005341)
+ ('song_length' 231363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('holywars'
+ ('song_id' 1005907)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('homecoming'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('hongkonggarden'
+ ('song_id' 1005280)
+ ('song_length' 173636)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('howdoyoulikemenow'
+ ('song_id' 1005503)
+ ('song_length' 221818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('hungrylikethewolf'
+ ('extra_authoring' 'disc_update'))
+('hymn43'
+ ('song_id' 1005390)
+ ('song_length' 200909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('hysteria'
+ ('song_id' 1005111)
+ ('song_length' 230000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2003)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Absolution")
+ ('album_track_number' 8))
+('iaintsuperstitious'
+ ('song_id' 1005213)
+ ('song_length' 166818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('iamarock'
+ ('song_length' 174090)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('ibleed'
+ ('song_id' 1005147)
+ ('preview' 34500 64500)
+ ('song_length' 160909)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('icanttakemyeyes'
+ ('song_id' 1005494)
+ ('song_length' 142727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('icarus'
+ ('song_length' 347272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('ickythump'
+ ('song_length' 247727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('icouldhavelied'
+ ('song_id' 1005242)
+ ('song_length' 256818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('idealistictypes'
+ ('song_id' 1005539)
+ ('song_length' 222727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('ididntsayiwas'
+ ('song_id' 1005607)
+ ('song_length' 257727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('idiotsrule'
+ ('song_id' 1005531)
+ ('song_length' 180454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('idontcare'
+ ('song_id' 1005303)
+ ('song_length' 220909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update')
+ ('encoding' 'latin1'))
+('idontlikeyou'
+ ('song_length' 176363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('idontwannastop'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('idontwanttogotoschool'
+ ('song_id' 1005361)
+ ('song_length' 178636)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('if6was9'
+ ('solo'
+  ('drum' 'guitar'))
+ ('format' 10))
+('ifiaintgotyou'
+ ('song_id' 1005312)
+ ('song_length' 146363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('ifoughtthelaw'
+ ('song_id' 1005023)
+ ('song_length' 162272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1977)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Clash")
+ ('album_track_number' 8))
+('iftheworld'
+ ('song_id' 1005514)
+ ('song_length' 302272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('ifyouhavetoask'
+ ('song_id' 1005246)
+ ('song_length' 226363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('igetby'
+ ('song_id' 51)
+ ('preview' 49750 79750)
+ ('song_length' 211818)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Second & Eighteen")
+ ('album_track_number' 16))
+('ihearditthrough'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('iknowwhereyou'
+ ('song_id' 1005519)
+ ('song_length' 195909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('illstickaround'
+ ('song_length' 250454)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('ilovethisbar'
+ ('song_id' 1005502)
+ ('song_length' 356363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('imageoftheinvisible'
+ ('song_length' 245909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('imcryin'
+ ('song_id' 1005441)
+ ('song_length' 225454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('imeighteenlive'
+ ('song_id' 1005564)
+ ('song_length' 279545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('imgoneimgoing'
+ ('song_id' 1005322)
+ ('song_length' 209090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('imissyou'
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('imshippingup'
+ ('song_length' 156363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('imsosick'
+ ('song_id' 52)
+ ('preview' 135750 165750)
+ ('song_length' 184545)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 2005)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Flyleaf")
+ ('album_track_number' 1))
+('inbloom'
+ ('song_id' 22)
+ ('preview' 30675 60675)
+ ('song_length' 213636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('genre' 'grunge')
+ ('year_released' 1991)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Nevermind")
+ ('album_track_number' 2))
+('indestructible'
+ ('song_id' 1005127)
+ ('preview' 126800 156800)
+ ('song_length' 277727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2008)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Indestructible")
+ ('album_track_number' 1))
+('indreams'
+ ('song_id' 1005392)
+ ('song_length' 176818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('ineedamiracle'
+ ('song_id' 1005062)
+ ('song_length' 255454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Shakedown Street")
+ ('album_track_number' 6))
+('insideout'
+ ('song_length' 219090)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('insidethefire'
+ ('song_id' 1005126)
+ ('preview' 35200 65200)
+ ('song_length' 230000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2008)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Indestructible")
+ ('album_track_number' 2))
+('interstatelovesong'
+ ('song_id' 1005037)
+ ('song_length' 197272)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1994)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Purple")
+ ('album_track_number' 4))
+('intoodeep'
+ ('song_length' 211818)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('intouch'
+ ('song_id' 1005118)
+ ('song_length' 214090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Cars")
+ ('album_track_number' 4))
+('ipredictariot'
+ ('song_length' 238181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('ironic'
+ ('song_length' 236363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('ironmaidenlive'
+ ('song_id' 1005578)
+ ('song_length' 323636)
+ ('solo'
+  ('drum'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2008)
+ ('year_recorded' 2009)
+ ('extra_authoring' 'disc_update'))
+('irs'
+ ('song_id' 1005508)
+ ('song_length' 272272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('istandalone'
+ ('song_id' 1005406)
+ ('song_length' 251818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('ithinkimparanoid'
+ ('song_id' 23)
+ ('preview' 28250 58250)
+ ('song_length' 226818)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1998)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Version 2.0")
+ ('album_track_number' 2))
+('ithurts'
+ ('song_id' 1005099)
+ ('song_length' 259090)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2006)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "We Don't Need to Whisper")
+ ('album_track_number' 8))
+('itoldyouso'
+ ('song_id' 1005459)
+ ('song_length' 282727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('itsmylife'
+ ('song_id' 1005375)
+ ('song_length' 227272)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('itsnotmytime'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('iv'
+ ('song_id' 1005308)
+ ('song_length' 300000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('ivegotdreams'
+ ('format' 10)
+ ('year_released' 1968)
+ ('year_recorded' 1992))
+('iwannabeyourman'
+ ('song_id' 1005320)
+ ('song_length' 191363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('iwantitall'
+ ('song_length' 244090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('iwanttobreakfree'
+ ('song_length' 247727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('iwantyouback'
+ ('song_length' 205454)
+ ('format' 10))
+('iwillnotbow'
+ ('song_length' 220454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('iwontbackdown'
+ ('song_length' 178636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('jailbreak_live'
+ ('song_id' 1005292)
+ ('song_length' 704090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('jailbreak_lizzy'
+ ('song_id' 1005420)
+ ('song_length' 280000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_recorded' 1977)
+ ('extra_authoring' 'disc_update'))
+('jamminme'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('vocal_tonic_note' 4))
+('janesays'
+ ('song_id' 1005530)
+ ('song_length' 300909)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('jeremy'
+ ('song_id' 1005482)
+ ('song'
+  ('vocal_parts' 2))
+ ('song_length' 322272)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 9))
+('jesuschristpose'
+ ('song_id' 1005347)
+ ('song_length' 354545)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('jesusofsuburbia'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('johnnyguitar'
+ ('song'
+  ('vocal_parts' 3))
+ ('song_length' 178636)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 9))
+('jokerandthe'
+ ('song_id' 1005003)
+ ('song_length' 285454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2005)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Wolfmother")
+ ('album_track_number' 6))
+('jukeboxhero'
+ ('song_id' 1005002)
+ ('preview' 68800 98800)
+ ('song_length' 268636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1981)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('junkiesforfame'
+ ('song_id' 1005173)
+ ('song_length' 210000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('justagirl'
+ ('song_id' 1005376)
+ ('song_length' 202727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1995)
+ ('year_recorded' 2003))
+('justbreathe'
+ ('song'
+  ('vocal_parts' 2))
+ ('song_length' 217727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'pearljam' 'disc_update'))
+('justfortonight'
+ ('solo'
+  ('drum'))
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('justwhatineeded'
+ ('song_id' 1005119)
+ ('preview' 79600 109600)
+ ('song_length' 227272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Cars")
+ ('album_track_number' 3))
+('kickstartmyheart'
+ ('song_id' 1005263)
+ ('song_length' 286818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update')
+ ('encoding' 'latin1'))
+('kidsdontfollow'
+ ('song_id' 1005551)
+ ('song_length' 154545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('killedbydeath'
+ ('song_id' 1005681)
+ ('song_length' 278636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1984)
+ ('year_recorded' 2008)
+ ('encoding' 'latin1'))
+('killerqueen'
+ ('song_length' 182727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('killingjar'
+ ('song_id' 1005279)
+ ('song_length' 250909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('kingsandqueens'
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('kissthemforme'
+ ('song_id' 1005278)
+ ('song_length' 307727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('knightonthetown'
+ ('song_length' 209545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('knowyourenemy'
+ ('song'
+  ('vocal_parts' 3))
+ ('song_length' 197272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'greenday' 'disc_update')
+ ('vocal_tonic_note' 11))
+('koolthing'
+ ('song_id' 1005102)
+ ('song_length' 249090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1990)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Goo")
+ ('album_track_number' 8))
+('kryptonite'
+ ('song_length' 242727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('kungfufighting'
+ ('song_length' 201363)
+ ('format' 10))
+('ladybug'
+ ('song_id' 1005300)
+ ('song_length' 159090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('laidtorest'
+ ('song_id' 1005348)
+ ('song_length' 230909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('lalaloveyou'
+ ('song_id' 1005141)
+ ('song_length' 168181)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('last'
+ ('song_id' 1005175)
+ ('song_length' 291818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('lastofmykind'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('lastoftheamerican'
+ ('format' 10)
+ ('extra_authoring' 'greenday' 'disc_update')
+ ('vocal_tonic_note' 11))
+('lastonetodie'
+ ('song_length' 145909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('lastresort'
+ ('song_id' 1005471)
+ ('song_length' 206363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('lasttraintoclarksville'
+ ('song_id' 1005039)
+ ('song_length' 185909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1966)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('learntofly'
+ ('song_id' 24)
+ ('preview' 45550 75550)
+ ('song_length' 195454)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1999)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "There is Nothing Left to Lose")
+ ('album_track_number' 3))
+('leavinghere'
+ ('song_id' 1005167)
+ ('song_length' 176818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('lenny'
+ ('song_id' 1005440)
+ ('song_length' 307272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('lesstalkmorerokk'
+ ('song_length' 304090)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('letitallhangout'
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('letloverule'
+ ('song_id' 1005401)
+ ('song_length' 349545)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('letmehearyouscream'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('letsdance'
+ ('song_length' 295000)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('letthereberock_live'
+ ('song_id' 1005283)
+ ('song_length' 577727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('levitate'
+ ('song_id' 1005724)
+ ('song_length' 285454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('liar'
+ ('song_id' 1005558)
+ ('song_length' 195454)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('lieslieslies'
+ ('song_id' 1005570)
+ ('song_length' 318181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('lifeisahighway'
+ ('song_length' 254545)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('lifeisbeautiful'
+ ('song_id' 1005185)
+ ('song_length' 220000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('lifeline'
+ ('song_id' 1005472)
+ ('song_length' 236818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('likeafool'
+ ('song_id' 1005311)
+ ('song_length' 213636)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update')
+ ('album_track_number' 8))
+('limelight'
+ ('song_id' 1005033)
+ ('preview' 11517 41517)
+ ('song_length' 266818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1981)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('limelight2'
+ ('song_id' 1005228)
+ ('song_length' 264545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('linger'
+ ('song_id' 1005571)
+ ('song_length' 276818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('lisztomania'
+ ('format' 10)
+ ('extra_authoring' 'disc_update')
+ ('vocal_tonic_note' 9))
+('lithiumlive'
+ ('song_length' 271363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('year_released' 1991)
+ ('year_recorded' 2009)
+ ('extra_authoring' 'disc_update'))
+('littlegirl'
+ ('name'
+  "\191Viva la Gloria? (Little Girl)")
+ ('format' 10)
+ ('encoding' 'latin1'))
+('littlemisslover'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('littleofyourtime'
+ ('song_id' 1005601)
+ ('song_length' 144090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('littlesister'
+ ('song_id' 1005008)
+ ('song_length' 178181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2005)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Lullabies to Paralyze")
+ ('album_track_number' 7))
+('littlewing'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('liveforever'
+ ('song_id' 1005043)
+ ('song_length' 283636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1994)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Definitely Maybe")
+ ('album_track_number' 3))
+('livinatthecorner'
+ ('song_id' 1005203)
+ ('song_length' 226818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('livingaftermidnightlive'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('year_released' 1980)
+ ('year_recorded' 2010))
+('livinonaprayer'
+ ('extra_authoring' 'disc_update'))
+('lonelyasyou'
+ ('song_length' 282272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('longview'
+ ('song_id' 3031)
+ ('format' 10))
+('lookingoutmybackdoor'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('losingmyreligion'
+ ('song_id' 1005451)
+ ('song_length' 273181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('loungeact'
+ ('song_id' 1005270)
+ ('song_length' 159545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update'))
+('lovelikewinter'
+ ('song_length' 164545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('lovemyway'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('lovespreads'
+ ('song_id' 1005223)
+ ('song_length' 350454)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('lovestruckbaby'
+ ('song_id' 1005449)
+ ('song_length' 145000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('luciddreams'
+ ('song_id' 1005547)
+ ('song_length' 213181)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('luckydenvermint'
+ ('song_id' 1005434)
+ ('song_length' 235909)
+ ('solo'
+  ('drum' 'guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('lucretia'
+ ('song_id' 1005839)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('lump'
+ ('extra_authoring' 'disc_update'))
+('madagascar'
+ ('song_id' 1005507)
+ ('song_length' 340909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('magicbuslive'
+ ('song_length' 450909)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('magneticbaby'
+ ('song_id' 1005310)
+ ('song_length' 172272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('mainoffender'
+ ('song_id' 25)
+ ('preview' 26600 56600)
+ ('song_length' 129090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 2000)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Veni Vidi Vicious")
+ ('album_track_number' 4))
+('makedamnsure'
+ ('song_id' 1005557)
+ ('song_length' 210454)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('makemesmile'
+ ('song_length' 249090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('makesmewonder'
+ ('song_id' 1005600)
+ ('song_length' 221363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('manuchao'
+ ('song_id' 1005108)
+ ('song_length' 172727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2003)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Never trust a guy who after having been a punk, is now playing electro")
+ ('album_track_number' 2))
+('manyshadesofblack'
+ ('song_length' 269090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('maps'
+ ('song_id' 26)
+ ('preview' 39625 69625)
+ ('song_length' 210000)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 2003)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Fever to Tell")
+ ('album_track_number' 9))
+('marchofthepigs'
+ ('name'
+  "March of the Pigs")
+ ('song_id' 1005055)
+ ('song_length' 181818)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1994)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Downward Spiral")
+ ('album_track_number' 4))
+('margaritaville'
+ ('song_id' 1005123)
+ ('preview' 47200 77200)
+ ('song_length' 260000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1977)
+ ('year_recorded' 2008)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Exclusive 2008 Rock Band Re-Recording")
+ ('album_track_number' 2))
+('maryhadalittlelamb'
+ ('song_id' 1005443)
+ ('preview' 44500 74500)
+ ('song_length' 169090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('maryjane'
+ ('song_length' 348636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('masterslave'
+ ('song_id' 1005476)
+ ('song_length' 247727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'pearljam'))
+('mastersoftheuniverse'
+ ('song_id' 1005680)
+ ('song_length' 385000)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('meandmygang'
+ ('song_id' 1005457)
+ ('song_length' 239090)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('meanwomanblues'
+ ('song_id' 1005395)
+ ('song_length' 150909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('medicate'
+ ('song_id' 1005855)
+ ('song_length' 260454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('megasus'
+ ('song_id' 1005399)
+ ('song_length' 226363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('melatonin'
+ ('song_id' 1005274)
+ ('song_length' 252727)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('mellowshipslinkyinbmajor'
+ ('song_id' 1005241)
+ ('song_length' 244090)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('messageinabottle'
+ ('name'
+  "Message in a Bottle")
+ ('song_id' 1005084)
+ ('song_length' 289545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1979)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Reggatta de Blanc")
+ ('album_track_number' 1))
+('metalgodslive'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('year_released' 1980)
+ ('year_recorded' 2010))
+('metalonmetal'
+ ('song_length' 246818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('year_released' 1982)
+ ('year_recorded' 2009)
+ ('extra_authoring' 'disc_update'))
+('mica'
+ ('song_id' 1005344)
+ ('song_length' 223636)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('midnightrider'
+ ('song_id' 1005538)
+ ('song_length' 185909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('minority'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('missindependent'
+ ('song_length' 219090)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('missmurder'
+ ('song_length' 214545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('missqueen'
+ ('song_id' 27)
+ ('song_length' 133636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1971)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('mollychambers'
+ ('song_length' 138181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('moneytalks_live'
+ ('song_id' 1005289)
+ ('song_length' 233181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('monkeygonetoheaven'
+ ('song_id' 1005144)
+ ('song_length' 182727)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('monkeywrench'
+ ('song_id' 1005334)
+ ('song_length' 237272)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('monsoon'
+ ('song_id' 1005110)
+ ('song_length' 243636)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Scream")
+ ('album_track_number' 3))
+('monster'
+ ('song_length' 228181)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('monstergaga'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('monymony'
+ ('song_length' 294090)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('moonagedaydream'
+ ('song_id' 1005017)
+ ('song_length' 285454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1972)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Rise and Fall of Ziggy Stardust and the Spiders from Mars")
+ ('album_track_number' 3))
+('morehumanthanhuman'
+ ('song_id' 1005429)
+ ('song_length' 259545)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('morethanafeeling'
+ ('name'
+  "More Than a Feeling")
+ ('song_id' 1005077)
+ ('song_length' 313636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1976)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Boston")
+ ('album_track_number' 1))
+('morethanmeetstheeye'
+ ('song_length' 274090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update')
+ ('encoding' 'latin1'))
+('mountainsong'
+ ('extra_authoring' 'disc_update'))
+('movealong'
+ ('song_id' 1005030)
+ ('song_length' 227727)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2005)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Move Along")
+ ('album_track_number' 3))
+('movinginstereo'
+ ('song_id' 1005114)
+ ('song_length' 313636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Cars")
+ ('album_track_number' 8))
+('movingtoseattle'
+ ('song_id' 1005130)
+ ('song_length' 204545)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Tomorrow")
+ ('album_track_number' 2))
+('mrbrightside'
+ ('song_id' 1005351)
+ ('song_length' 225454)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('mrcabdriver'
+ ('song_id' 1005398)
+ ('song_length' 235909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('mrgrieves'
+ ('song_id' 1005143)
+ ('song_length' 133636)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('mudonthetires'
+ ('song_id' 1005378)
+ ('song_length' 220454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('murdercity'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('mybestfriendsgirl'
+ ('song_id' 1005120)
+ ('song_length' 234090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Cars")
+ ('album_track_number' 2))
+('mycurse'
+ ('song_id' 1005189)
+ ('preview' 65800 95800)
+ ('song_length' 252727)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('mygeneration'
+ ('song_id' 1005166)
+ ('song_length' 250454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('myhero'
+ ('song_id' 1005329)
+ ('preview' 65000 95000)
+ ('song_length' 255000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('myironlung'
+ ('song_id' 1005025)
+ ('song_length' 281818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1994)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Bends")
+ ('album_track_number' 8))
+('mylastwords'
+ ('song_id' 1005212)
+ ('song_length' 290909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('mylovelyman'
+ ('song_id' 1005234)
+ ('preview' 33000 63000)
+ ('song_length' 283636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('mynameisjonas'
+ ('song_length' 206818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('myoldschool'
+ ('song_id' 1005548)
+ ('preview' 40400 70400)
+ ('song_length' 347727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('myownworstenemy'
+ ('extra_authoring' 'disc_update'))
+('mypoorbrain'
+ ('song_id' 1005332)
+ ('song_length' 217727)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('mysharona'
+ ('song_id' 1005001)
+ ('song_length' 300909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1979)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('naive'
+ ('song_length' 207727)
+ ('format' 10)
+ ('encoding' 'latin1'))
+('nakedeye'
+ ('song_id' 1005543)
+ ('song_length' 275000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('nakedintherain'
+ ('song_id' 1005237)
+ ('song_length' 271363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('naturaldisaster'
+ ('song_id' 1005210)
+ ('song_length' 221818)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('nearlylostyou'
+ ('song_id' 1005250)
+ ('preview' 31000 61000)
+ ('song_length' 250909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('new'
+ ('song_id' 1005439)
+ ('preview' 79500 109500)
+ ('song_length' 270000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1999)
+ ('year_recorded' 2003)
+ ('extra_authoring' 'disc_update'))
+('newfang'
+ ('song_length' 232727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('newkidinschool'
+ ('extra_authoring' 'disc_update'))
+('newmoonrising'
+ ('song_length' 229090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('newslang'
+ ('song_id' 1005498)
+ ('song_length' 235909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('newwave'
+ ('song_id' 1005107)
+ ('song_length' 224545)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2002)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Episode 2: Medicine Cake")
+ ('album_track_number' 3))
+('newwayhome'
+ ('song_id' 1005324)
+ ('song_length' 316818)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('nexttoyou'
+ ('song_id' 28)
+ ('song_length' 131363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Outlandos d'Amour")
+ ('album_track_number' 1))
+('nib'
+ ('song_id' 1005021)
+ ('song_length' 325909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1970)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'FALSE'))
+('nightlies'
+ ('extra_authoring' 'disc_update'))
+('nightmare'
+ ('song_id' 53)
+ ('song_length' 273636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 2008)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Adrenaline")
+ ('album_track_number' 9))
+('nightwatchmanlive'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('no13baby'
+ ('song_id' 1005140)
+ ('song_length' 238636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('noexcuses'
+ ('song_length' 259090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('nohasslenight'
+ ('song_length' 172272)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('nomoretears'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('norain'
+ ('song_length' 221363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('noregrets'
+ ('song_id' 1005319)
+ ('song_length' 147272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('notime'
+ ('song_length' 234545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('novacaineshesarebel'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('numberofthebeast'
+ ('song_id' 1005036)
+ ('preview' 67740 97740)
+ ('song_length' 270909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1982)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'FALSE'))
+('numberofthebeast2'
+ ('song_id' 1005585)
+ ('song_length' 290454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('oceanavenue'
+ ('song_length' 201363)
+ ('format' 10))
+('oceans'
+ ('song_id' 1005481)
+ ('song'
+  ('vocal_parts' 2))
+ ('song_length' 167727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 6)
+ ('tuning_offset_cents' 20))
+('oceansize'
+ ('song_id' 1005536)
+ ('preview' 33500 63500)
+ ('song_length' 263636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('odetosolitude'
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('ohprettywoman'
+ ('song_id' 1005396)
+ ('song_length' 184545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('onaplain'
+ ('song_id' 1005268)
+ ('song_length' 188181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update'))
+('once'
+ ('song_id' 1005486)
+ ('song_length' 209090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'pearljam')
+ ('tuning_offset_cents' 20))
+('onceinalifetime'
+ ('song_length' 272727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('oneofthosenights'
+ ('song_id' 1005209)
+ ('song_length' 211363)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('onerainywish'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('onestepcloser'
+ ('extra_authoring' 'disc_update'))
+('onevision'
+ ('song_length' 243636)
+ ('solo'
+  ('drum' 'guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('onewayoranother'
+ ('extra_authoring' 'disc_update'))
+('onlyamemory'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('ontheroadagain'
+ ('song_id' 1005458)
+ ('song_length' 164545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('oobydooby'
+ ('song_id' 1005394)
+ ('song_length' 144090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('openingband'
+ ('song_length' 193181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('orangecrush'
+ ('song_id' 29)
+ ('preview' 21250 51250)
+ ('song_length' 193636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1988)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Green")
+ ('album_track_number' 7))
+('originofthespecies'
+ ('song_length' 245000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('ourlipsaresealed'
+ ('song_length' 164545)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('ourtruth'
+ ('extra_authoring' 'disc_update'))
+('outerspaceaf'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('outhereallnight'
+ ('song_length' 204545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('outside'
+ ('song_id' 54)
+ ('preview' 146500 176500)
+ ('song_length' 302727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 1989)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Here at Home")
+ ('album_track_number' 6))
+('painandpleasure'
+ ('song_id' 1005093)
+ ('song_length' 260000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1982)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Screaming for Vengeance")
+ ('album_track_number' 6))
+('painkiller'
+ ('extra_authoring' 'disc_update'))
+('panicattack'
+ ('extra_authoring' 'disc_update'))
+('panicswitch'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('paranoid'
+ ('song_id' 30)
+ ('song_length' 179545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 1970)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('parasitelive'
+ ('song_length' 211363)
+ ('solo'
+  ('drum' 'guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('peacemaker'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('peaceofmind'
+ ('song_id' 1005076)
+ ('song_length' 335909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1976)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Boston")
+ ('album_track_number' 2))
+('peacesells'
+ ('extra_authoring' 'disc_update'))
+('peoplegotalotofnerve'
+ ('song_id' 1005435)
+ ('song_length' 156363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('perfectdrug'
+ ('song_id' 1005054)
+ ('song_length' 320454)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1997)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Lost Highway (Soundtrack)")
+ ('album_track_number' 3))
+('perfectinsanity'
+ ('song_id' 1005125)
+ ('preview' 52600 82600)
+ ('song_length' 235909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2008)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Indestructible")
+ ('album_track_number' 5))
+('perfektewelle'
+ ('song_id' 1005104)
+ ('song_length' 196818)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2004)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Es ist Juli")
+ ('album_track_number' 6))
+('pickmeup'
+ ('song_length' 397727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('pickupthepieces'
+ ('song_id' 1005467)
+ ('song_length' 247727)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('genre' 'rbsoulfunk'))
+('pieceofmyheart'
+ ('song_length' 270454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('year_released' 1968)
+ ('year_recorded' 1973)
+ ('extra_authoring' 'disc_update'))
+('pigsinzen'
+ ('song_id' 1005528)
+ ('song_length' 274090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('pilgrim'
+ ('song_length' 291363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('pinballwizard'
+ ('extra_authoring' 'disc_update'))
+('pleasure'
+ ('song_id' 55)
+ ('preview' 36000 66000)
+ ('song_length' 221818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Bang Camaro")
+ ('album_track_number' 3))
+('pointofknowreturn'
+ ('song_length' 187727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('poison'
+ ('song_id' 1005560)
+ ('song_length' 285909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('poisonwasthecure'
+ ('song_id' 1005910)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('policetruck'
+ ('song_id' 1005340)
+ ('song_length' 150000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('polly'
+ ('song_id' 1005272)
+ ('song_length' 180454)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('alternate_path' 'TRUE'))
+('porch'
+ ('song_id' 1005480)
+ ('song_length' 224545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'pearljam'))
+('porkandbeans'
+ ('song_length' 193181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('powerslave'
+ ('song_id' 1005581)
+ ('song_length' 410909)
+ ('solo'
+  ('drum' 'guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('prayeroftherefugee'
+ ('song_length' 205454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('precious'
+ ('song_id' 1005418)
+ ('song_length' 219090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('prequeltothesequel'
+ ('song_id' 1005323)
+ ('song_length' 329545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('prettyflyforawhiteguy'
+ ('song_id' 1005255)
+ ('song_length' 192272)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('prettyinpink'
+ ('song_id' 1005276)
+ ('song_length' 244090)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('prettynoose'
+ ('song_id' 1005346)
+ ('song_length' 258181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('prideandjoy'
+ ('song_id' 1005448)
+ ('song_length' 225454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('promisedland'
+ ('song_id' 1005156)
+ ('song_length' 221818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update')
+ ('album_name'
+  "The Rocker (Soundtrack)")
+ ('album_track_number' 10))
+('prophecylive'
+ ('preview' 109000 139000)
+ ('song_length' 358636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('prostitute'
+ ('song_id' 1005505)
+ ('song_length' 376363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('psychosocial'
+ ('song_length' 280909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('pullingteeth'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('pumpitup'
+ ('extra_authoring' 'disc_update'))
+('pushit'
+ ('song_id' 1005249)
+ ('song_length' 159090)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('queenbitch'
+ ('song_id' 1005016)
+ ('preview' 84200 114200)
+ ('song_length' 193636)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1971)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('radioradio'
+ ('song_id' 1005553)
+ ('preview' 41500 71500)
+ ('song_length' 187727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('rapidfirelive'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('year_released' 1980)
+ ('year_recorded' 2010))
+('rattlesnakeshake'
+ ('song_id' 1005264)
+ ('preview' 54100 84100)
+ ('song_length' 223636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update')
+ ('encoding' 'latin1'))
+('readysetgo'
+ ('song_id' 1005357)
+ ('song_length' 217727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('realgoodlooking'
+ ('song_id' 1005165)
+ ('song_length' 348636)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('realwildchild'
+ ('song_length' 199090)
+ ('solo'
+  ('drum'))
+ ('format' 10))
+('realworld'
+ ('song_id' 1005356)
+ ('song_length' 236818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('rebelyell'
+ ('song_length' 295454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('redbarchetta'
+ ('song_id' 1005230)
+ ('song_length' 397272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('reddevil'
+ ('song_id' 1005354)
+ ('song_length' 249545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('redtandy'
+ ('song_id' 1005088)
+ ('song_length' 350000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2005)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Red Tandy")
+ ('album_track_number' 1))
+('reeducation'
+ ('song_length' 224545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('refugee'
+ ('song_length' 335000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('rehash'
+ ('song_length' 227727)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('reinventingyourexit'
+ ('song_id' 1005603)
+ ('song_length' 265909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('release'
+ ('song_id' 1005477)
+ ('song_length' 317272)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'pearljam' 'disc_update'))
+('renegade'
+ ('song_id' 1005521)
+ ('song_length' 264545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1978)
+ ('year_recorded' 2009))
+('reptilia'
+ ('song_id' 31)
+ ('preview' 75750 105750)
+ ('song_length' 219090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 2003)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Room on Fire")
+ ('album_track_number' 2))
+('rescueme'
+ ('song_id' 1005184)
+ ('song_length' 193636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('restlessheart'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('reyourbrains'
+ ('song_length' 274545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('riadnthebedouins'
+ ('song_id' 1005510)
+ ('song_length' 225454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('rideawhiteswan'
+ ('song_length' 147272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('ridethelightning'
+ ('song_id' 1005013)
+ ('song_length' 400454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1984)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Ride the Lightning")
+ ('album_track_number' 2))
+('ridingonthewind'
+ ('song_id' 1005096)
+ ('song_length' 193636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1982)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Screaming for Vengeance")
+ ('album_track_number' 3))
+('ridinthehook'
+ ('song_length' 184545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('ridinthestormout'
+ ('song_id' 1005527)
+ ('song_length' 264090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1973)
+ ('year_recorded' 1988)
+ ('extra_authoring' 'disc_update'))
+('ringoffire'
+ ('song_id' 1005552)
+ ('song_length' 234545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1990)
+ ('year_recorded' 2007))
+('rio'
+ ('song_id' 1005196)
+ ('song_length' 327272)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('roam'
+ ('song_id' 1005049)
+ ('song_length' 309545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1989)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Cosmic Thing")
+ ('album_track_number' 6))
+('robtheprezodent'
+ ('extra_authoring' 'disc_update'))
+('rockandrollband'
+ ('song_id' 1005075)
+ ('song_length' 184090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1976)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Boston")
+ ('album_track_number' 4))
+('rockandrollcreation'
+ ('song_length' 291363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('rockandrollstar'
+ ('song_id' 1005109)
+ ('song_length' 365454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1994)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Definitely Maybe")
+ ('album_track_number' 1))
+('rockawaybeach'
+ ('song_id' 1005022)
+ ('song_length' 127272)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1977)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Rocket to Russia")
+ ('album_track_number' 2))
+('rockinamerica'
+ ('song_length' 259090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('year_released' 1983)
+ ('year_recorded' 2009))
+('rockme'
+ ('song_length' 205000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('rocknrolldream'
+ ('song_id' 1005134)
+ ('song_length' 206363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('alternate_path' 'TRUE')
+ ('album_name'
+  "Adrenaline")
+ ('album_track_number' 7))
+('rocknrollhighschool'
+ ('format' 10)
+ ('year_released' 1978)
+ ('year_recorded' 2001))
+('rocknrollnightmare'
+ ('song_id' 1005593)
+ ('song_length' 197727)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('genre' 'metal'))
+('rockready'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('rockrebellion'
+ ('song_id' 1005081)
+ ('song_length' 291363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Bang Camaro")
+ ('album_track_number' 11))
+('rockyoursocks'
+ ('song_length' 210909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('rollwiththechanges'
+ ('song_id' 1005526)
+ ('preview' 134850 164850)
+ ('song_length' 339545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1978)
+ ('year_recorded' 1988))
+('rooftops'
+ ('song_length' 251363)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('rooster'
+ ('song_length' 380000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('roundandround'
+ ('extra_authoring' 'disc_update'))
+('roxanne'
+ ('song_id' 1005011)
+ ('preview' 50300 80300)
+ ('song_length' 179090)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Outlandos d'Amour")
+ ('album_track_number' 3))
+('ruby'
+ ('song_length' 215000)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('rubysoho'
+ ('song_length' 160909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('rudemood'
+ ('song_id' 1005444)
+ ('song_length' 285454)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('runnindownadream'
+ ('song_length' 258181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('running'
+ ('song_id' 1005368)
+ ('preview' 138000 168000)
+ ('song_length' 244545)
+ ('solo'
+  ('drum'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('runningwild'
+ ('song_id' 1005192)
+ ('song_length' 222727)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('runthroughthejungle'
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10))
+('runtothehills'
+ ('song_id' 32)
+ ('preview' 11000 41000)
+ ('song_length' 194090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1982)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('runtothehills2'
+ ('song_id' 1005584)
+ ('song_length' 234545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('rustinpeace'
+ ('song_id' 1005906)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('sabotage'
+ ('song_id' 33)
+ ('preview' 68600 98600)
+ ('song_length' 152272)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1994)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Ill Communication")
+ ('album_track_number' 6))
+('saintsoflosangeles'
+ ('song_id' 1005082)
+ ('song_length' 207727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2008)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Saints of Los Angeles")
+ ('album_track_number' 5)
+ ('encoding' 'latin1'))
+('saluteyoursolution'
+ ('song_length' 186818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('sameolsituation'
+ ('song_id' 1005261)
+ ('song_length' 261363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update')
+ ('encoding' 'latin1'))
+('satchboogie'
+ ('song_length' 199090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('satelliteradio'
+ ('song_id' 1005432)
+ ('preview' 53500 83500)
+ ('song_length' 245454)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('saucyjack'
+ ('song_id' 1005597)
+ ('song_length' 101818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('genre' 'metal')
+ ('extra_authoring' 'disc_update'))
+('savior'
+ ('song_length' 248636)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('sayitaintso'
+ ('song_id' 34)
+ ('preview' 81750 111750)
+ ('song_length' 215000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1994)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Weezer (The Blue Album)")
+ ('album_track_number' 7))
+('scarletbegonias'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('school'
+ ('song_length' 164545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('schoolsoutlive'
+ ('song_id' 1005563)
+ ('song_length' 219090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('sciencegeniusgirl'
+ ('song_length' 196363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('scraped'
+ ('song_id' 1005511)
+ ('song_length' 211363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('screamingfor'
+ ('song_id' 1005092)
+ ('song_length' 290454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1982)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Screaming for Vengeance")
+ ('album_track_number' 7))
+('seaandsand'
+ ('song_id' 1005164)
+ ('song_length' 315454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('seethelight'
+ ('song_length' 248979)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('seeyou'
+ ('song_id' 1005328)
+ ('song_length' 153636)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('selfesteem'
+ ('song_id' 1005254)
+ ('song_length' 261363)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('seven'
+ ('song_id' 56)
+ ('preview' 45500 75500)
+ ('song_length' 207272)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Public Display of Infection")
+ ('album_track_number' 6))
+('sevennationarmy'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('alternate_path' 'TRUE'))
+('sexonfire'
+ ('song_length' 211363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('sextypething'
+ ('song_id' 1005058)
+ ('song_length' 224545)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1992)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Core")
+ ('album_track_number' 2))
+('shake'
+ ('song_id' 1005080)
+ ('song_length' 281363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2008)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Shake"))
+('shedoes'
+ ('song_id' 1005198)
+ ('song_length' 115909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('shegoesdown'
+ ('song_id' 1005259)
+ ('song_length' 280909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update')
+ ('encoding' 'latin1'))
+('sheisahandsomewoman'
+ ('song_id' 1005208)
+ ('song_length' 191818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('shesagenius'
+ ('song_length' 184545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('shesahottie'
+ ('song_id' 1005499)
+ ('song_length' 191363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('shescountry'
+ ('song_id' 1005463)
+ ('song_length' 225000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2009)
+ ('extra_authoring' 'disc_update'))
+('shesellssanctuary'
+ ('song_id' 1005222)
+ ('song_length' 266363)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('shesfetching'
+ ('song_length' 171818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('year_released' 1987)
+ ('year_recorded' 2008)
+ ('album_track_number' 7))
+('shesnotthere'
+ ('song_id' 1005566)
+ ('song_length' 144545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('shessofine'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('shethinksmytractorssexy'
+ ('song_id' 1005455)
+ ('song_length' 250909)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('shhh'
+ ('song_id' 1005202)
+ ('song_length' 268636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('shimmerandshine'
+ ('song_id' 1005573)
+ ('song_length' 194545)
+ ('solo'
+  ('drum' 'guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('shiningstar'
+ ('song_id' 1005468)
+ ('song_length' 177272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('genre' 'rbsoulfunk')
+ ('extra_authoring' 'disc_update'))
+('shockwave'
+ ('song_id' 1005066)
+ ('song_length' 218636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2008)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Light from Above")
+ ('album_track_number' 1))
+('shootingstar'
+ ('extra_authoring' 'disc_update'))
+('shoottherunner'
+ ('song_id' 1005221)
+ ('song_length' 211363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('shoottothrill_live'
+ ('song_id' 1005297)
+ ('song_length' 324090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('shortandsweet'
+ ('preview' 127974 157974)
+ ('song_length' 399545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('genre' 'metal'))
+('shouldertotheplow'
+ ('extra_authoring' 'disc_update'))
+('shouldistay'
+ ('song_id' 35)
+ ('song_length' 158181)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1982)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Combat Rock")
+ ('album_track_number' 3))
+('shouldvebeenacowboy'
+ ('song_id' 1005500)
+ ('preview' 51000 81000)
+ ('song_length' 215000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('showmetheway'
+ ('song_length' 242272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('album_name'
+  "Light from Above"))
+('sicksicksick'
+ ('song_id' 1005007)
+ ('preview' 42000 72000)
+ ('song_length' 222727)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Era Vulgaris")
+ ('album_track_number' 2))
+('silver'
+ ('song_id' 1005137)
+ ('song_length' 150909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('simplekindoflife'
+ ('song_id' 1005366)
+ ('song_length' 266363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('simpleman'
+ ('song_id' 1005083)
+ ('song_length' 389090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1973)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "(pronounced 'leh-'n\233rd 'skin-'n\233rd)")
+ ('album_track_number' 4)
+ ('encoding' 'latin1'))
+('singthechanges'
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10))
+('sinwagon'
+ ('song_id' 1005377)
+ ('song_length' 219545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('sirpsychosexy'
+ ('song_id' 1005233)
+ ('song_length' 511818)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('sistereurope'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('siva'
+ ('song_id' 1005047)
+ ('song_length' 268181)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1991)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Gish")
+ ('album_track_number' 2))
+('sixsixsix'
+ ('song_length' 281363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('year_released' 1982)
+ ('year_recorded' 2009))
+('sixteen'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('skullcrushermt'
+ ('song_id' 1005201)
+ ('song_length' 258636)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('sleepwalker'
+ ('song_id' 1005187)
+ ('song_length' 362727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('sliceofyourpie'
+ ('song_id' 1005265)
+ ('song_length' 270909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('encoding' 'latin1'))
+('smashitup'
+ ('song_length' 169090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('smellsliketeen'
+ ('song_length' 304545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update'))
+('smilelikeyoumeanit'
+ ('song_id' 1005350)
+ ('song_length' 241363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('smokin'
+ ('song_id' 1005074)
+ ('preview' 39125 69125)
+ ('song_length' 270000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1976)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Boston")
+ ('album_track_number' 5))
+('smoothcriminalaaf'
+ ('song_id' 1005544)
+ ('preview' 41500 71500)
+ ('song_length' 209545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('snowheyoh'
+ ('song_id' 1005160)
+ ('preview' 40936 70936)
+ ('song_length' 338181)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('socold'
+ ('song_length' 273181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('somebodytolove'
+ ('song_length' 299090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('somethingaboutyou'
+ ('song_id' 1005072)
+ ('song_length' 243181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1976)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Boston")
+ ('album_track_number' 7))
+('somethingintheway'
+ ('song_id' 1005267)
+ ('preview' 61203 91203)
+ ('song_length' 236818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update'))
+('song2'
+ ('song_length' 132272)
+ ('format' 10))
+('songwithamission'
+ ('song_id' 1005029)
+ ('song_length' 178636)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2006)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('sonsanddaughters'
+ ('song_id' 1005309)
+ ('preview' 35700 65700)
+ ('song_length' 234090)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('sorrow'
+ ('song_id' 1005220)
+ ('song_length' 221363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('sorry'
+ ('song_id' 1005509)
+ ('song_length' 378636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('sortof'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('soulsofblack'
+ ('extra_authoring' 'disc_update'))
+('soulsucker'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('soundsofsilence'
+ ('song_length' 190454)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('sowhat'
+ ('song_length' 224090)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('spacecowboy'
+ ('song_id' 1005408)
+ ('song_length' 306363)
+ ('solo'
+  ('drum' 'guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('spaceman'
+ ('song_id' 1005349)
+ ('song_length' 273636)
+ ('solo'
+  ('drum'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('spacetruckin'
+ ('song_id' 1005389)
+ ('song_length' 283181)
+ ('solo'
+  ('drum' 'guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('spanishcastlemagic'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('speedofsound'
+ ('song'
+  ('vocal_parts' 2))
+ ('song_length' 215000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 8))
+('spiderwebs'
+ ('song_id' 1005367)
+ ('song_length' 293636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1995)
+ ('year_recorded' 2003))
+('spiritinthesky'
+ ('extra_authoring' 'disc_update'))
+('spoonman'
+ ('extra_authoring' 'disc_update'))
+('sprode'
+ ('song_id' 1005079)
+ ('preview' 74950 104950)
+ ('song_length' 199545)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2003)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Hi-Five My Remix"))
+('standingintheshower'
+ ('song_id' 1005533)
+ ('song_length' 190000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('stateofloveandtrustlive'
+ ('song_id' 1005488)
+ ('song_length' 215909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'pearljam'))
+('stayaway'
+ ('song_id' 1005269)
+ ('song_length' 212727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('alternate_path' 'TRUE'))
+('steadyasshegoes'
+ ('song_length' 221363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('steadyatthewheel'
+ ('song_id' 1005577)
+ ('song_length' 181818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('steelerlive'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('year_released' 1980)
+ ('year_recorded' 2010))
+('stickysweet'
+ ('song_id' 1005260)
+ ('song_length' 229545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('encoding' 'latin1'))
+('stillalive'
+ ('song_id' 1005078)
+ ('preview' 55960 85960)
+ ('song_length' 180454)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Portal"))
+('stonehenge'
+ ('song_length' 272727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('stop'
+ ('song_id' 1005248)
+ ('song_length' 170909)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('stopstartagain'
+ ('song_id' 1005518)
+ ('song_length' 272272)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('storyofmylife'
+ ('song_id' 1005555)
+ ('song_length' 350000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1990)
+ ('year_recorded' 2007))
+('straycatstrut'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('streetofdreams'
+ ('song_id' 1005515)
+ ('song_length' 284545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('stricken'
+ ('song_id' 1005549)
+ ('song_length' 252727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('stumbleandfall'
+ ('song_length' 190000)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('stupify'
+ ('song_id' 1005550)
+ ('song_length' 261363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('suckmykiss'
+ ('song_id' 1005243)
+ ('song_length' 221818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('suddenlyisee'
+ ('song_length' 207727)
+ ('format' 10))
+('sudsinabucket'
+ ('song_id' 1005462)
+ ('song_length' 229545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('suffragettecity'
+ ('song_id' 36)
+ ('preview' 27600 57600)
+ ('song_length' 172727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 1972)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Rise and Fall of Ziggy Stardust and the Spiders From Mars")
+ ('album_track_number' 10))
+('sugarbaby'
+ ('song_length' 190454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('sugarmagnolia'
+ ('song_id' 1005061)
+ ('song_length' 214090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1970)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "American Beauty")
+ ('album_track_number' 3))
+('suicidenotept2'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('sulpher'
+ ('song_length' 280909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('summerof69'
+ ('song_length' 235909)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('summertimeblues'
+ ('song_id' 1005163)
+ ('song_length' 206363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('summertimerolls'
+ ('song_id' 1005532)
+ ('song_length' 390000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('sundaymorning'
+ ('song_id' 1005372)
+ ('song_length' 276363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1995)
+ ('year_recorded' 2003)
+ ('extra_authoring' 'disc_update'))
+('sundial'
+ ('song_length' 230000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('sunhitsthesky'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('superbeast'
+ ('song_length' 230909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('superbowlmedley'
+ ('solo'
+  ('drum'))
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('supersonic'
+ ('song'
+  ('vocal_parts' 2))
+ ('song_length' 160909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 11))
+('supersoniclive'
+ ('song_length' 284545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('year_released' 1994)
+ ('year_recorded' 2000))
+('surfingwiththealien'
+ ('song_length' 239090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('swamped'
+ ('song_id' 1005339)
+ ('song_length' 243181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('sweetleaf'
+ ('song_id' 1005020)
+ ('preview' 23000 53000)
+ ('song_length' 304545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1971)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'FALSE'))
+('sweetness'
+ ('song_id' 1005431)
+ ('song_length' 220454)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('sweetnessandlight'
+ ('song_length' 325909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('tuning_offset_cents' -50))
+('sweettalk'
+ ('song_length' 183181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('swing'
+ ('song_id' 1005456)
+ ('song_length' 228636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('swingswing'
+ ('song_length' 241363)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('synchronicity2'
+ ('song_id' 1005010)
+ ('preview' 47700 77700)
+ ('song_length' 288181)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1983)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Synchronicity")
+ ('album_track_number' 6))
+('takebackthecity'
+ ('song_id' 1005388)
+ ('song_length' 284090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('takeitontherun'
+ ('song_id' 1005525)
+ ('preview' 5500 35500)
+ ('song_length' 243181)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('takemeout'
+ ('song_id' 1005545)
+ ('song_length' 241363)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('takemetotheriver'
+ ('song_length' 308636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('takenoprisoners'
+ ('song_id' 1005862)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('takethemoney'
+ ('song_id' 1005409)
+ ('song_length' 174090)
+ ('solo'
+  ('drum'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('takethesechains'
+ ('song_id' 1005094)
+ ('song_length' 214090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1982)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Screaming for Vengeance")
+ ('album_track_number' 5))
+('tame'
+ ('song_id' 1005148)
+ ('song_length' 119545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('tangledupinblue'
+ ('extra_authoring' 'disc_update'))
+('tedjustadmitit'
+ ('song_id' 1005534)
+ ('song_length' 448181)
+ ('solo'
+  ('drum' 'guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('teenagelobotomy'
+ ('song_id' 1005052)
+ ('song_length' 126363)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1977)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Rocket to Russia")
+ ('album_track_number' 8))
+('teenageriot'
+ ('extra_authoring' 'disc_update'))
+('tellherno'
+ ('song_id' 1005567)
+ ('song_length' 129545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('tellme'
+ ('song_id' 1005446)
+ ('song_length' 172727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('tellmebaby'
+ ('song_id' 1005159)
+ ('song_length' 249090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('tempted'
+ ('song_id' 1005355)
+ ('preview' 42289 72289)
+ ('song_length' 276363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('tenspeed'
+ ('song_id' 1005046)
+ ('song_length' 235454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2005)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'FALSE'))
+('territorialpissing'
+ ('song_id' 1005271)
+ ('song_length' 147272)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('alternate_path' 'TRUE'))
+('testify_srv'
+ ('song_id' 1005445)
+ ('song_length' 204090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('texasflood'
+ ('song_id' 1005447)
+ ('song_length' 327727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('thankyouboys'
+ ('song_id' 1005529)
+ ('song_length' 63636)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('thatshowiescaped'
+ ('song_id' 1005345)
+ ('song_length' 123636)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('thatswhatyouget'
+ ('extra_authoring' 'disc_update'))
+('thatswhenireach'
+ ('song_id' 1005343)
+ ('song_length' 240454)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('thebanishment'
+ ('song_id' 1005540)
+ ('song_length' 362272)
+ ('solo'
+  ('drum'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('thebroken'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('theclairvoyant'
+ ('song_id' 1005582)
+ ('song_length' 270909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('theclimb'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('theconjuring'
+ ('song_id' 1005217)
+ ('song_length' 305909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('thedopeshow'
+ ('format' 10)
+ ('genre' 'glam'))
+('thedownfallofusall'
+ ('song_id' 1005606)
+ ('song_length' 214545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('theend2'
+ ('song_length' 175000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'pearljam'))
+('thefeeling'
+ ('song_id' 1005305)
+ ('song_length' 147727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('thefinalcountdown'
+ ('song_length' 309545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('thefixer'
+ ('song'
+  ('vocal_parts' 2))
+ ('song_length' 191818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 2))
+('theflood'
+ ('song_id' 1005605)
+ ('song_length' 216818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('thegambler'
+ ('song_id' 1005461)
+ ('song_length' 215000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('thegame'
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('thegreatestman'
+ ('song_id' 1005151)
+ ('song_length' 350909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('thegreatsatan'
+ ('song_id' 1005569)
+ ('song_length' 198181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('thegreatsoutherntrendkill'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('thegreetingsong'
+ ('song_id' 1005235)
+ ('song_length' 198636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('thehandthatfeeds'
+ ('song_id' 37)
+ ('preview' 21475 51475)
+ ('song_length' 183181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 2005)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "With Teeth")
+ ('album_track_number' 4))
+('thejack_live'
+ ('song_id' 1005291)
+ ('song_length' 344545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('thejoker'
+ ('song_id' 1005407)
+ ('song_length' 221818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('thekidsarentalright'
+ ('song_id' 1005452)
+ ('song_length' 185454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('thekill'
+ ('song_id' 1005028)
+ ('song_length' 246818)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2005)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "A Beautiful Lie")
+ ('album_track_number' 3))
+('theleavingpt2'
+ ('song_length' 206818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('themetal'
+ ('song_length' 165000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update')
+ ('encoding' 'latin1'))
+('thepassenger'
+ ('song_length' 293636)
+ ('format' 10))
+('thepowerofequality'
+ ('song_id' 1005247)
+ ('song_length' 254545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('thepretender'
+ ('song_length' 271818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('theragelive'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('year_released' 1980)
+ ('year_recorded' 2010))
+('theregoesmygun'
+ ('song_id' 1005139)
+ ('song_length' 114090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('theresnootherway'
+ ('song_length' 211363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('therewasatime'
+ ('song_id' 1005513)
+ ('song_length' 402727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('therighteousandthewicked'
+ ('song_id' 1005240)
+ ('song_length' 253636)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('therockshow'
+ ('song_length' 176818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('therunningfree'
+ ('song_id' 1005574)
+ ('song_length' 247272)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('thestaticage'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('thetasteofink'
+ ('solo'
+  ('drum'))
+ ('format' 10))
+('thetimeiswrong'
+ ('song_id' 1005306)
+ ('song_length' 211818)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('thetrees'
+ ('extra_authoring' 'disc_update'))
+('thetrooper'
+ ('song_id' 1005587)
+ ('song_length' 255000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('thewagon'
+ ('song_length' 299090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('thewaitinglive'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('thewaythatitshows'
+ ('song_id' 1005450)
+ ('song_length' 384090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('theyreredhot'
+ ('song_id' 1005232)
+ ('song_length' 60454)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('theysay'
+ ('song_id' 1005181)
+ ('song_length' 172727)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('thirdfloorstory'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('thisaintascene'
+ ('name'
+  "This Ain't a Scene, It's an Arms Race")
+ ('song_id' 1005098)
+ ('song_length' 214090)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Infinity on High")
+ ('album_track_number' 3))
+('thiscalling'
+ ('song_id' 1005205)
+ ('song_length' 219090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('thisilove'
+ ('song_id' 1005506)
+ ('song_length' 328181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('thisisacall'
+ ('song_id' 1005386)
+ ('song_length' 233181)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('thisisexile'
+ ('song_length' 229545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('thisisit'
+ ('song_id' 1005178)
+ ('song_length' 228636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('thisisthirteen'
+ ('song_length' 368636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('thisonesforthegirls'
+ ('song_id' 1005460)
+ ('song_length' 248181)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('thrasher'
+ ('song_id' 1005069)
+ ('song_length' 191363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Enter the Grave")
+ ('album_track_number' 2))
+('thrashunreal'
+ ('song_id' 1005470)
+ ('preview' 117500 147500)
+ ('song_length' 255909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('throughbeingcool'
+ ('song_id' 1005193)
+ ('song_length' 203181)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1981)
+ ('year_recorded' 2008))
+('throwingstones'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('album_name'
+  "In the Dark"))
+('thunder'
+ ('song_length' 244090)
+ ('format' 10))
+('thunderstruck_live'
+ ('song_id' 1005298)
+ ('song_length' 339090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('ticktickboom'
+ ('song_length' 207272)
+ ('format' 10))
+('tieyourmotherdown'
+ ('song_length' 226818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('timebomb'
+ ('song_id' 1005437)
+ ('song_length' 227727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('timebomb2'
+ ('song_length' 150454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('timeforchange'
+ ('song_id' 1005257)
+ ('song_length' 306363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('encoding' 'latin1'))
+('timeisrunningout'
+ ('song_id' 1005154)
+ ('song_length' 207727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('encoding' 'latin1'))
+('timesickson'
+ ('song_id' 1005087)
+ ('song_length' 180454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Kiss the Crystal Flake")
+ ('album_track_number' 11))
+('timeslikethese'
+ ('song_id' 1005385)
+ ('song_length' 267272)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('timewehad'
+ ('song_id' 57)
+ ('preview' 35600 65600)
+ ('song_length' 188181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 2007)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Kiss the Crystal Flake")
+ ('album_track_number' 3))
+('timmy'
+ ('song_id' 58)
+ ('song_length' 126818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 2000)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Timmy & The Lords of the Underworld")
+ ('album_track_number' 1))
+('tnt_live'
+ ('song_id' 1005284)
+ ('song_length' 204090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('today'
+ ('extra_authoring' 'disc_update'))
+('tomorrow'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('tomsawyer'
+ ('song_id' 38)
+ ('preview' 197600 227600)
+ ('song_length' 236363)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 1981)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('tomsawyer2'
+ ('song_id' 1005231)
+ ('preview' 9900 39900)
+ ('song_length' 293181)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('tonightimgonna'
+ ('song_length' 170909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('toomuchtimeonmyhands'
+ ('song_id' 1005523)
+ ('song_length' 272272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1981)
+ ('year_recorded' 2009)
+ ('extra_authoring' 'disc_update'))
+('tornadoofsouls'
+ ('song_id' 1005911)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('extra_authoring' 'disc_update'))
+('touchofgrey'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('album_name'
+  "In the Dark"))
+('towncalledmalice'
+ ('song_length' 183636)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('toxicity'
+ ('song_id' 1005182)
+ ('song_length' 227727)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('tragickingdom'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('traininvain'
+ ('song_id' 1005101)
+ ('song_length' 202272)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1979)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "London Calling")
+ ('album_track_number' 19))
+('trainkeptarollin'
+ ('song_id' 39)
+ ('song_length' 343636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1974)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('transmaniaconmc'
+ ('song_id' 1005679)
+ ('song_length' 205454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update')
+ ('encoding' 'latin1'))
+('travellingband'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('treatmelikeyourmother'
+ ('song_length' 257272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('tribute'
+ ('song_length' 245454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('troublemaker'
+ ('song_id' 1005150)
+ ('song_length' 167272)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('truckin'
+ ('song_id' 1005060)
+ ('song_length' 309090)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1970)
+ ('alternate_path' 'TRUE')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "American Beauty")
+ ('album_track_number' 10))
+('truthhitseverybody'
+ ('song_id' 1005051)
+ ('song_length' 176818)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Outlandos d'Amour")
+ ('album_track_number' 7))
+('tuttoepossibile'
+ ('song_id' 1005358)
+ ('song_length' 210454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('album_name'
+  "Tutto \232 Possibile")
+ ('encoding' 'latin1'))
+('twoprinces'
+ ('song_length' 270909)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('twoweeks'
+ ('song_id' 1005204)
+ ('song_length' 265000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('typical'
+ ('song_id' 1005410)
+ ('song_length' 262727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 2006)
+ ('extra_authoring' 'disc_update'))
+('unclejohnsband'
+ ('song_id' 1005412)
+ ('song_length' 286818)
+ ('solo'
+  ('drum'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('tuning_offset_cents' -5))
+('uncontrollableurge'
+ ('extra_authoring' 'disc_update'))
+('undergroundinamerica'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('undermywheelslive'
+ ('song_id' 1005562)
+ ('song_length' 215909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('underneathitall'
+ ('song_id' 1005370)
+ ('song_length' 292727)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('underpressure'
+ ('song_length' 237272)
+ ('solo'
+  ('drum'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('underthebridge'
+ ('song_id' 1005238)
+ ('song_length' 279545)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('undone'
+ ('song_length' 310000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('unitedlive'
+ ('format' 10)
+ ('year_released' 1980)
+ ('year_recorded' 2010))
+('unthoughtknown'
+ ('song'
+  ('vocal_parts' 2))
+ ('song_length' 251363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 5))
+('uparoundthebend'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('upfromtheskies'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('upinarms'
+ ('song_id' 1005330)
+ ('song_length' 142272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('upthebeach'
+ ('song_id' 1005537)
+ ('song_length' 185909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('usblues'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('useit'
+ ('song_id' 1005473)
+ ('song_length' 209090)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('useme'
+ ('song_id' 1005299)
+ ('song_length' 231818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('usuck'
+ ('song_length' 192727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('valerie'
+ ('song_length' 243636)
+ ('format' 10))
+('valleysofneptune'
+ ('format' 10)
+ ('year_recorded' 1969))
+('vasoline'
+ ('song_id' 40)
+ ('preview' 61400 91400)
+ ('song_length' 145909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1994)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Purple")
+ ('album_track_number' 2))
+('vengeanceismine'
+ ('song_id' 1005561)
+ ('song_length' 271818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('visions'
+ ('extra_authoring' 'disc_update'))
+('vitalsigns'
+ ('song_id' 1005225)
+ ('song_length' 280000)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('vivalagloria'
+ ('name'
+  "\161Viva la Gloria!")
+ ('format' 10)
+ ('extra_authoring' 'greenday' 'disc_update')
+ ('vocal_tonic_note' 4)
+ ('encoding' 'latin1'))
+('volcano'
+ ('song_id' 1005122)
+ ('preview' 14900 44900)
+ ('song_length' 211818)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1979)
+ ('year_recorded' 2008)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Exclusive 2008 Rock Band Re-Recording")
+ ('album_track_number' 3))
+('wakemeup'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('wakeupcall'
+ ('song_id' 1005602)
+ ('song_length' 185909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('wakeupdead'
+ ('song_id' 1005218)
+ ('song_length' 221818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('wakingthedemon'
+ ('song_id' 1005496)
+ ('song_length' 252272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('walkaway'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('year_released' 1971)
+ ('year_recorded' 2010))
+('walkingafteryou'
+ ('song_id' 1005325)
+ ('song_length' 283636)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('walkingonsunshine'
+ ('song_length' 241363)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('year_released' 1985)
+ ('year_recorded' 2004))
+('walkingonthemoon'
+ ('format' 10)
+ ('short_version' 130664)
+ ('album_name'
+  "Reggatta de Blanc"))
+('walklikeanegyptian'
+ ('song_length' 208181)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('wanteddeadoralive'
+ ('song_id' 41)
+ ('preview' 214238 244238)
+ ('song_length' 250454)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 1986)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Slippery When Wet")
+ ('album_track_number' 5))
+('warmerthanhell'
+ ('song_id' 1005596)
+ ('song_length' 230000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('genre' 'metal')
+ ('extra_authoring' 'disc_update'))
+('warpigs'
+ ('song_id' 1005019)
+ ('song_length' 483636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1970)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('warriorsoftime'
+ ('song_id' 1005497)
+ ('song_length' 307727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('warzone'
+ ('song_id' 1005405)
+ ('song_length' 231818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('wastedagain'
+ ('song_id' 1005428)
+ ('song_length' 190909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('wastedyears'
+ ('song_id' 1005586)
+ ('song_length' 309090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('waveofmutilation'
+ ('song_id' 42)
+ ('preview' 40000 70000)
+ ('song_length' 106818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 1989)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Doolittle")
+ ('album_track_number' 3))
+('weaponofchoice'
+ ('song_length' 174090)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('wearethechampions'
+ ('song_length' 192272)
+ ('format' 10))
+('wearetheroadcrew'
+ ('song_length' 171818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('year_released' 1980)
+ ('year_recorded' 2008)
+ ('encoding' 'latin1'))
+('wecarealot'
+ ('name'
+  "We Care a Lot")
+ ('song_id' 1005048)
+ ('song_length' 247727)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1987)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Introduce Yourself")
+ ('album_track_number' 6))
+('wedieyoung'
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('extra_authoring' 'disc_update')
+ ('vocal_tonic_note' 1))
+('wegotthebeat'
+ ('extra_authoring' 'disc_update'))
+('weightoftheworld'
+ ('song_id' 1005594)
+ ('song_length' 218181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('welcomehome'
+ ('song_id' 43)
+ ('preview' 198750 228750)
+ ('song_length' 323181)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 2005)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Good Apollo, I'm Burning Star IV, Volume One: From Fear Through the Eyes of Madness")
+ ('album_track_number' 11))
+('wellthoughtouttwinkles'
+ ('song_id' 1005275)
+ ('song_length' 255454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('wewillrockyou1'
+ ('song_length' 130909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('whatahorriblenight'
+ ('song_length' 232727)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('whatsername'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('whatsitfeellike'
+ ('song_id' 1005559)
+ ('preview' 51700 81700)
+ ('song_length' 230909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('whatsmyageagain'
+ ('song_length' 154090)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update'))
+('wheels'
+ ('song_length' 274545)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('whenicomearound'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('whenyouwereyoung'
+ ('song_id' 44)
+ ('song_length' 223636)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 2)
+ ('year_released' 2006)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Sam's Town")
+ ('album_track_number' 3))
+('wheredyougo'
+ ('extra_authoring' 'disc_update'))
+('wheresgary'
+ ('song_id' 1005493)
+ ('preview' 38500 68500)
+ ('song_length' 195454)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('whitefalconfuzz'
+ ('song_length' 264399)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('whiterabbit'
+ ('song_length' 155000)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('whiteunicorn'
+ ('song_length' 305454)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('whitewedding'
+ ('extra_authoring' 'disc_update'))
+('whoareyou'
+ ('song_id' 1005162)
+ ('song_length' 315000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('whoknew'
+ ('song_length' 210909)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('wholelottarosie_live'
+ ('song_id' 1005286)
+ ('song_length' 279090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('whosgoinghome'
+ ('song_id' 1005155)
+ ('song_length' 211363)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('encoding' 'latin1'))
+('whosyourdaddy'
+ ('song_id' 1005501)
+ ('song_length' 257272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('whydoyouloveme'
+ ('song_id' 1005057)
+ ('preview' 34150 64150)
+ ('song_length' 235909)
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 2005)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Bleed Like Me")
+ ('album_track_number' 4))
+('whygo'
+ ('song_id' 1005484)
+ ('song'
+  ('vocal_parts' 2))
+ ('song_length' 205909)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'pearljam' 'disc_update')
+ ('vocal_tonic_note' 4))
+('wilsonlive'
+ ('song_id' 1005576)
+ ('song_length' 247272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('windmeup'
+ ('song_id' 1005404)
+ ('song_length' 216363)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('windup'
+ ('song_id' 1005331)
+ ('preview' 69100 99100)
+ ('song_length' 154545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('witchhunt'
+ ('song_id' 1005226)
+ ('song_length' 285454)
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('withoutyou'
+ ('song_id' 1005262)
+ ('song_length' 275000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('encoding' 'latin1'))
+('wolflikeme'
+ ('song_id' 1005572)
+ ('song_length' 291363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('woman'
+ ('song_length' 175000)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('wonderwall'
+ ('song_id' 1005042)
+ ('song_length' 263636)
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1995)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "(What's the Story) Morning Glory?")
+ ('album_track_number' 3))
+('wontgetfooled'
+ ('song_id' 45)
+ ('preview' 75750 105750)
+ ('song_length' 420000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1')
+ ('rating' 1)
+ ('year_released' 1971)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Who's Next")
+ ('album_track_number' 9))
+('wordforward'
+ ('song_length' 232272)
+ ('solo'
+  ('drum'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('wordup'
+ ('song_length' 171818)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('workingman'
+ ('song_id' 1005045)
+ ('song_length' 438636)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1974)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'FALSE'))
+('workingman2'
+ ('song_id' 1005157)
+ ('song_length' 437272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('worldturning'
+ ('song_length' 234090)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc'))
+('would'
+ ('song_length' 222272)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('yomp'
+ ('song_id' 1005179)
+ ('song_length' 211818)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('youcandoit'
+ ('solo'
+  ('vocal_percussion'))
+ ('format' 10))
+('youdonthavetobeoldlive'
+ ('name'
+  "You Don't Have To Be Old To Be Wise (Live)")
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('year_released' 1980)
+ ('year_recorded' 2010))
+('youdontknowwhatloveis'
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10))
+('yougiveloveabadname'
+ ('preview' 60450 90450)
+ ('song_length' 228636)
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('yougotanotherthingcoming'
+ ('song_id' 1005091)
+ ('song_length' 305909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1982)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Screaming for Vengeance")
+ ('album_track_number' 8))
+('yougotit'
+ ('song_id' 1005393)
+ ('song_length' 214545)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1))
+('yougotmefloatin'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('young'
+ ('song_id' 1005304)
+ ('song_length' 204090)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('youngerbums'
+ ('song_length' 181363)
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('year_released' 1987)
+ ('year_recorded' 2008)
+ ('album_track_number' 13))
+('youngmanblues'
+ ('song_id' 1005161)
+ ('song_length' 307272)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('extra_authoring' 'disc_update'))
+('yououghtaknow'
+ ('extra_authoring' 'disc_update'))
+('yourdecision'
+ ('solo'
+  ('guitar'))
+ ('format' 10))
+('yourealligot'
+ ('song_id' 1005116)
+ ('song_length' 260000)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('year_released' 1978)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "The Cars")
+ ('album_track_number' 6))
+('youregonnahearfromme'
+ ('song_length' 234090)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('extra_authoring' 'disc_update'))
+('yourenorocknrollfun'
+ ('song_id' 1005219)
+ ('song_length' 160909)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('album_track_number' 5))
+('youshookme_live'
+ ('song_id' 1005285)
+ ('preview' 98000 128000)
+ ('song_length' 224545)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2))
+('yyz'
+ ('song_id' 1005229)
+ ('song_length' 271818)
+ ('solo'
+  ('guitar'))
+ ('format' 10)
+ ('version' 2)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 1)
+ ('extra_authoring' 'disc_update'))
+('zero'
+ ('song_id' 1005086)
+ ('song_length' 162727)
+ ('solo'
+  ('guitar' 'vocal_percussion'))
+ ('format' 10)
+ ('version' 1)
+ ('game_origin' 'rb1_dlc')
+ ('rating' 2)
+ ('year_released' 1995)
+ ('alternate_path' 'TRUE')
+ ('extra_authoring' 'disc_update')
+ ('album_art' 'TRUE')
+ ('album_name'
+  "Mellon Collie and the Infinite Sadness")
+ ('album_track_number' 4))

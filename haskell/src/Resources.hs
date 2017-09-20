@@ -7,13 +7,17 @@ import qualified Data.ByteString    as B
 import           Data.FileEmbed     (embedDir, embedFile, makeRelativeToProject)
 import           System.Environment (getExecutablePath)
 import           System.FilePath    (takeDirectory, (</>))
+import qualified Data.DTA as D
+import qualified Data.Text as T
+import Data.Text.Encoding (decodeLatin1)
 
-magmaV1Dir, magmaV2Dir, magmaCommonDir, magmaOgg2MoggDir, x360RB3pkgDir :: IO FilePath
+magmaV1Dir, magmaV2Dir, magmaCommonDir, magmaOgg2MoggDir, x360RB3pkgDir, rb3Updates :: IO FilePath
 magmaV1Dir       = (</> "magma-v1")       . takeDirectory <$> getExecutablePath
 magmaV2Dir       = (</> "magma-v2")       . takeDirectory <$> getExecutablePath
 magmaCommonDir   = (</> "magma-common")   . takeDirectory <$> getExecutablePath
 magmaOgg2MoggDir = (</> "magma-ogg2mogg") . takeDirectory <$> getExecutablePath
 x360RB3pkgDir    = (</> "x360-rb3pkg")    . takeDirectory <$> getExecutablePath
+rb3Updates       = (</> "rb3-updates")    . takeDirectory <$> getExecutablePath
 
 xboxKV :: B.ByteString
 xboxKV = $(makeRelativeToProject "vendors/KV.bin" >>= embedFile)
@@ -45,3 +49,6 @@ onyxAlbum = case P.decodeImage $(makeRelativeToProject "vendors/album.png" >>= e
 
 pentatonicTTF :: B.ByteString
 pentatonicTTF = $(makeRelativeToProject "vendors/Pentatonic.ttf" >>= embedFile)
+
+missingSongData :: D.DTA T.Text
+missingSongData = D.readDTA $ decodeLatin1 $(makeRelativeToProject "vendors/missing_song_data.dta" >>= embedFile)

@@ -16,6 +16,7 @@ extra-source-files:
   vendors/empty.milo_xbox
   vendors/empty-rb2.milo_xbox
   vendors/empty-rb2_weights.bin
+  vendors/missing_song_data.dta
   ../player/www/index.html
   ../player/www/app.min.js
   ../player/www/images/*.png
