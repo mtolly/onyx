@@ -37,9 +37,11 @@ rb3pkg title desc dir fout = tempDir "onyx_x360" $ \tmp -> do
   stackIO $ putStrLn str
 
 rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
-rb2pkg title desc dir fout = do
+rb2pkg title desc dir fout = tempDir "onyx_x360" $ \tmp -> do
   x360dir <- stackIO $ x360RB3pkgDir
-  let createProc = withDotNetExe proc (x360dir </> "rb3pkg.exe")
+  forM_ ["KV.bin", "rb3.png", "rb3pkg.exe", "X360.dll"] $ \f ->
+    stackIO $ copyFile (x360dir </> f) (tmp </> f)
+  let createProc = withDotNetExe proc (tmp </> "rb3pkg.exe")
         [ "-p", T.unpack title
         , "-d", T.unpack desc
         , "-f", dir
