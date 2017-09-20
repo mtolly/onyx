@@ -2,12 +2,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 module X360DotNet (rb3pkg, rb2pkg, stfsFolder) where
 
+import           Control.Monad                  (forM_)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                as B
 import qualified Data.Text                      as T
 import           Data.Word                      (Word32)
 import           Resources                      (x360RB3pkgDir)
+import           System.Directory               (copyFile)
 import           System.FilePath                ((</>))
 import           System.Info                    (os)
 import           System.IO                      (IOMode (ReadMode),
@@ -21,9 +23,11 @@ withDotNetExe f exe args = if os == "mingw32"
   else f "mono" $ exe : args
 
 rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
-rb3pkg title desc dir fout = do
+rb3pkg title desc dir fout = tempDir "onyx_x360" $ \tmp -> do
   x360dir <- stackIO $ x360RB3pkgDir
-  let createProc = withDotNetExe proc (x360dir </> "rb3pkg.exe")
+  forM_ ["KV.bin", "rb3.png", "rb3pkg.exe", "X360.dll"] $ \f ->
+    stackIO $ copyFile (x360dir </> f) (tmp </> f)
+  let createProc = withDotNetExe proc (tmp </> "rb3pkg.exe")
         [ "-p", T.unpack title
         , "-d", T.unpack desc
         , "-f", dir

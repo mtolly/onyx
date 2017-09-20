@@ -4,6 +4,7 @@
 
   * `stack` (64-bit version)
   * Visual C++ 2008 Runtime
+  * .NET Framework
   * `make` (`stack exec -- pacman -Sy make`)
 
 ## Steps
@@ -33,12 +34,11 @@
 
   * `stack`
   * Xcode dev tools
-  * Wine
   * Homebrew
 
 ## Steps
 
-1. `make mac-deps`
+1. `make mac-deps` (if you want to use an existing Wine or Mono, edit the `Makefile`)
 
 2. `stack build`
 

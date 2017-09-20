@@ -4,12 +4,12 @@ module Resources where
 import qualified Codec.Picture      as P
 import           Control.Arrow      (first)
 import qualified Data.ByteString    as B
+import qualified Data.DTA           as D
 import           Data.FileEmbed     (embedDir, embedFile, makeRelativeToProject)
+import qualified Data.Text          as T
+import           Data.Text.Encoding (decodeLatin1)
 import           System.Environment (getExecutablePath)
 import           System.FilePath    (takeDirectory, (</>))
-import qualified Data.DTA as D
-import qualified Data.Text as T
-import Data.Text.Encoding (decodeLatin1)
 
 magmaV1Dir, magmaV2Dir, magmaCommonDir, magmaOgg2MoggDir, x360RB3pkgDir, rb3Updates :: IO FilePath
 magmaV1Dir       = (</> "magma-v1")       . takeDirectory <$> getExecutablePath

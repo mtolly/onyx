@@ -44,7 +44,7 @@ mac:
 	sed -i '' 's/_ONYXVERSION_/$(ONYXVERSION)/' mac/README.txt
 
 mac-deps:
-	brew install libsndfile libsamplerate lame sdl2 sdl2_ttf rubberband botan
+	brew install libsndfile libsamplerate lame sdl2 sdl2_ttf rubberband dylibbundler wine mono mono-libgdiplus
 
 win:
 	# stack build .
