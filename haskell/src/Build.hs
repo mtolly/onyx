@@ -397,7 +397,7 @@ makeC3 songYaml plan rb3 midi pkg = do
     , C3.convert = _convert $ _metadata songYaml
     , C3.expertOnly = _expertOnly $ _metadata songYaml
     , C3.proBassDiff = case rb3ProBassRank of 0 -> Nothing; r -> Just $ fromIntegral r
-    , C3.proBassTuning = flip fmap (getPart (rb3_Bass rb3) songYaml >>= partProGuitar) $ \pg ->
+    , C3.proBassTuning4 = flip fmap (getPart (rb3_Bass rb3) songYaml >>= partProGuitar) $ \pg ->
       case pgTuning pg of
         []   -> "(real_bass_tuning (0 0 0 0 ))"
         tune -> "(real_bass_tuning (" <> T.unwords (map (T.pack . show) tune) <> "))"

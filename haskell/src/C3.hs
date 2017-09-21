@@ -40,9 +40,9 @@ data C3 = C3
   -- CAT EMH is not remembered at all for some reason.
   -- Encrypt Audio is a setting remembered by the program, not an individual song.
   -- next 4 fields are optional
-  , proBassDiff        :: Maybe Int
-  , proBassTuning      :: Maybe T.Text -- like "(real_bass_tuning (0 0 0 0))"
-  , proGuitarDiff      :: Maybe Int
+  , proBassDiff        :: Maybe Int -- this is rank, not tier
+  , proBassTuning4     :: Maybe T.Text -- like "(real_bass_tuning (0 0 0 0))"
+  , proGuitarDiff      :: Maybe Int -- this is rank, not tier
   , proGuitarTuning    :: Maybe T.Text -- like "(real_guitar_tuning (0 0 0 0 0 0))"
   , disableProKeys     :: Bool
   , tonicNote          :: Maybe Key -- optional
@@ -113,7 +113,7 @@ readC3 txt = inside "Reading .c3 file" $ do
   convert <- readPair "Convert"
   expertOnly <- readPair "ExpertOnly"
   proBassDiff <- maybeReadPair "ProBassDiff"
-  proBassTuning <- maybePair "ProBassTuning"
+  proBassTuning4 <- maybePair "ProBassTuning4"
   proGuitarDiff <- maybeReadPair "ProGuitarDiff"
   proGuitarTuning <- maybePair "ProGuitarTuning"
   disableProKeys <- readPair "DisableProKeys"
@@ -177,7 +177,7 @@ showC3 c3 = T.unlines $ execWriter $ do
   showPair "Convert" convert
   showPair "ExpertOnly" expertOnly
   maybeShowPair "ProBassDiff" proBassDiff
-  maybePair "ProBassTuning" proBassTuning
+  maybePair "ProBassTuning4" proBassTuning4
   maybeShowPair "ProGuitarDiff" proGuitarDiff
   maybePair "ProGuitarTuning" proGuitarTuning
   showPair "DisableProKeys" disableProKeys

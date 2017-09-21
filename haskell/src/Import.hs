@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
 module Import (importFoF, importRBA, importSTFSDir, importSTFS, simpleRBAtoCON, HasKicks(..)) where
@@ -21,6 +22,8 @@ import qualified Data.Conduit.Audio               as CA
 import           Data.Default.Class               (def)
 import qualified Data.Digest.Pure.MD5             as MD5
 import qualified Data.DTA                         as D
+import           Data.DTA.Lex                     (scanStack)
+import           Data.DTA.Parse                   (parseStack)
 import qualified Data.DTA.Serialize               as D
 import qualified Data.DTA.Serialize.Magma         as RBProj
 import qualified Data.DTA.Serialize.RB3           as D
@@ -60,6 +63,7 @@ import qualified System.Directory                 as Dir
 import           System.FilePath                  (takeDirectory, takeExtension,
                                                    takeFileName, (-<.>), (<.>),
                                                    (</>))
+import           Text.Read                        (readMaybe)
 import           X360DotNet                       (rb3pkg)
 
 fixDoubleSwells :: RBFile.PSFile U.Beats -> RBFile.PSFile U.Beats
@@ -813,11 +817,46 @@ importMagma fin dir = do
         )
   let allAudio = map snd $ catMaybes [drums, kick, snare, gtr, bass, keys, vox, song, crowd]
 
+  let (title, is2x) = case c3 of
+        Nothing     -> determine2xBass $ RBProj.songName $ RBProj.metadata rbproj
+        Just c3file -> (C3.song c3file, C3.is2xBass c3file)
+      -- TODO support dual 1x+2x projects
+      targetName = if is2x then "rb3-2x" else "rb3"
+      target = def
+        { rb3_Speed = Nothing
+        , rb3_Plan = Nothing
+        , rb3_2xBassPedal = is2x
+        , rb3_SongID = c3 >>= \c3file -> if C3.useNumericID c3file
+          then fmap Left $ readMaybe $ T.unpack (C3.uniqueNumericID c3file)
+          else case C3.customID c3file of "" -> Nothing; cid -> Just $ Right cid
+        , rb3_Label = Nothing
+        , rb3_Version = fromIntegral . C3.version <$> c3
+        }
+
+  tuneGtr <- inside "Reading pro guitar tuning" $
+    case c3 >>= C3.proGuitarTuning of
+      Nothing -> return Nothing
+      Just tune -> errorToWarning (scanStack tune >>= parseStack) >>= \case
+        Just (D.DTA _ (D.Tree _ [D.Parens (D.Tree _ [D.Key "real_guitar_tuning", D.Parens (D.Tree _ mints)])])) ->
+          case mapM (\case D.Int i -> Just $ fromIntegral i; _ -> Nothing) mints of
+            Just ints -> return $ Just ints
+            Nothing   -> warn "Non-integer value in tuning" >> return Nothing
+        _ -> warn "Couldn't read DTA-snippet tuning format" >> return Nothing
+  tuneBass <- inside "Reading pro bass tuning" $
+    case c3 >>= C3.proBassTuning4 of
+      Nothing -> return Nothing
+      Just tune -> errorToWarning (scanStack tune >>= parseStack) >>= \case
+        Just (D.DTA _ (D.Tree _ [D.Parens (D.Tree _ [D.Key "real_bass_tuning", D.Parens (D.Tree _ mints)])])) ->
+          case mapM (\case D.Int i -> Just $ fromIntegral i; _ -> Nothing) mints of
+            Just ints -> return $ Just ints
+            Nothing   -> warn "Non-integer value in tuning" >> return Nothing
+        _ -> warn "Couldn't read DTA-snippet tuning format" >> return Nothing
+
   stackIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
-      { _title        = Just $ RBProj.songName $ RBProj.metadata rbproj
-      , _artist       = Just $ RBProj.artistName $ RBProj.metadata rbproj
-      , _album        = Just $ RBProj.albumName $ RBProj.metadata rbproj
+      { _title        = Just title
+      , _artist       = Just $ maybe (RBProj.artistName $ RBProj.metadata rbproj) C3.artist c3
+      , _album        = Just $ maybe (RBProj.albumName $ RBProj.metadata rbproj) C3.album c3
       , _genre        = Just $ RBProj.genre $ RBProj.metadata rbproj
       , _subgenre     = Just $ RBProj.subGenre $ RBProj.metadata rbproj
       , _year         = Just $ fromIntegral $ RBProj.yearReleased $ RBProj.metadata rbproj
@@ -877,7 +916,7 @@ importMagma fin dir = do
       , _crowd = fmap fst crowd
       , _planComments = []
       }
-    , _targets = undefined
+    , _targets = HM.singleton targetName $ RB3 target
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
         { partDrums = guard (isJust drums) >> Just PartDrums
@@ -902,7 +941,14 @@ importMagma fin dir = do
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
           }
-        , partProGuitar = undefined
+        , partProGuitar = do
+          diff <- guard (isJust gtr) >> c3 >>= C3.proGuitarDiff
+          Just PartProGuitar
+            { pgDifficulty = Tier $ rankToTier proGuitarDiffMap $ fromIntegral diff
+            , pgHopoThreshold = hopoThresh
+            , pgTuning = fromMaybe [] tuneGtr
+            , pgFixFreeform = False
+            }
         })
       , ( FlexBass, def
         { partGRYBO = guard (isJust bass) >> Just PartGRYBO
@@ -910,7 +956,14 @@ importMagma fin dir = do
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
           }
-        , partProGuitar = undefined
+        , partProGuitar = do
+          diff <- guard (isJust gtr) >> c3 >>= C3.proBassDiff
+          Just PartProGuitar
+            { pgDifficulty = Tier $ rankToTier proBassDiffMap $ fromIntegral diff
+            , pgHopoThreshold = hopoThresh
+            , pgTuning = fromMaybe [] tuneBass
+            , pgFixFreeform = False
+            }
         })
       , ( FlexKeys, def
         { partGRYBO = guard (isJust keys) >> Just PartGRYBO
@@ -924,7 +977,14 @@ importMagma fin dir = do
           }
         })
       , ( FlexVocal, def
-        { partVocal = undefined
+        { partVocal = guard (isJust vox) >> Just PartVocal
+          { vocalDifficulty = Tier $ RBProj.rankVocals $ RBProj.gamedata rbproj
+          , vocalCount = if
+            | RBProj.dryVoxEnabled $ RBProj.part2 $ RBProj.dryVox rbproj -> Vocal3
+            | RBProj.dryVoxEnabled $ RBProj.part1 $ RBProj.dryVox rbproj -> Vocal2
+            | otherwise                                                  -> Vocal1
+          , vocalGender = Just $ RBProj.vocalGender $ RBProj.gamedata rbproj
+          }
         })
       ]
     }
