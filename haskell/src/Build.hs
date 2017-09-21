@@ -332,6 +332,8 @@ makeRB3DTA songYaml plan rb3 song filename = do
         tune -> map fromIntegral tune
     , D.guidePitchVolume = Just (-3)
     , D.encoding = Just "utf8"
+    , D.extraAuthoring = Nothing
+    , D.alternatePath = Nothing
     , D.context = Nothing
     , D.decade = Nothing
     , D.downloaded = Nothing
@@ -1359,6 +1361,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                               , D.realBassTuning = Nothing
                               , D.guidePitchVolume = Nothing
                               , D.encoding = Nothing
+                              , D.extraAuthoring = Nothing
+                              , D.alternatePath = Nothing
                               }
                         liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : stackShow D.stackChunks newDTA))]
                   rb2DTA ≡> \out -> do

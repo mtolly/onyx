@@ -135,6 +135,8 @@ data SongPackage = SongPackage
   , realBassTuning    :: Maybe [Integer]
   , guidePitchVolume  :: Maybe Float
   , encoding          :: Maybe T.Text
+  , extraAuthoring    :: Maybe [T.Text]
+  , alternatePath     :: Maybe Bool
   -- seen in magma v1 / rb2:
   , context           :: Maybe Integer
   , decade            :: Maybe T.Text
@@ -146,7 +148,7 @@ instance StackChunks SongPackage where
   stackChunks = asStrictAssoc "SongPackage" $ do
     name              <- name              =. req         "name"                (single chunkString)
     artist            <- artist            =. req         "artist"              (single chunkString)
-    master            <- master            =. req         "master"              stackChunks
+    master            <- master            =. fill False  "master"              stackChunks
     songId            <- songId            =. opt Nothing "song_id"             (chunksMaybe $ eitherCodec stackChunks $ single chunkKey)
     song              <- song              =. req         "song"                stackChunks
     bank              <- bank              =. opt Nothing "bank"                stackChunks
@@ -181,6 +183,8 @@ instance StackChunks SongPackage where
     realBassTuning    <- realBassTuning    =. opt Nothing "real_bass_tuning"    (chunksMaybe $ chunksParens stackChunks)
     guidePitchVolume  <- guidePitchVolume  =. opt Nothing "guide_pitch_volume"  stackChunks
     encoding          <- encoding          =. opt Nothing "encoding"            (chunksMaybe $ single chunkKey)
+    extraAuthoring    <- extraAuthoring    =. opt Nothing "extra_authoring"     stackChunks
+    alternatePath     <- alternatePath     =. opt Nothing "alternate_path"      stackChunks
     context           <- context           =. opt Nothing "context"             stackChunks
     decade            <- decade            =. opt Nothing "decade"              (chunksMaybe $ single chunkKey)
     downloaded        <- downloaded        =. opt Nothing "downloaded"          stackChunks

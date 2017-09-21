@@ -22,10 +22,12 @@ import           Data.Foldable                  (forM_)
 import qualified Data.HashMap.Strict            as Map
 import           Data.List                      (sortOn, stripPrefix)
 import           Data.List.Split                (splitOn)
-import           Data.Maybe                     (listToMaybe, mapMaybe)
+import           Data.Maybe                     (fromMaybe, listToMaybe,
+                                                 mapMaybe)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
+import           Resources                      (missingSongData)
 import           System.IO.Extra                (latin1, readFileEncoding',
                                                  utf8)
 
@@ -91,6 +93,14 @@ fixTracksCount = map findSong where
       D.Parens $ D.Tree w [D.Key "tracks_count", D.Parens $ D.Tree w2 nums]
     x -> x
 
+missingMapping :: Map.HashMap T.Text [D.Chunk T.Text]
+missingMapping = case missingSongData of
+  D.DTA _ (D.Tree _ chunks) -> let
+    getPair = \case
+      D.Parens (D.Tree _ (D.Key k : rest)) -> (k, rest)
+      _ -> error "panic! missing_song_data not in expected format"
+    in Map.fromList $ map getPair chunks
+
 -- | Returns @(short song name, DTA file contents, is UTF8)@
 readRB3DTA :: (MonadIO m) => FilePath -> StackTraceT m (T.Text, D.SongPackage, Bool)
 readRB3DTA dtaPath = do
@@ -100,8 +110,9 @@ readRB3DTA dtaPath = do
         (k, chunks) <- case D.treeChunks $ D.topTree dta of
           [D.Parens (D.Tree _ (D.Key k : chunks))] -> return (k, chunks)
           _ -> fatal $ dtaPath ++ " is not a valid songs.dta with exactly one song"
+        let missingChunks = fromMaybe [] $ Map.lookup k missingMapping
         pkg <- inside ("loading DTA file " ++ show dtaPath) $
-          unserialize stackChunks $ D.DTA 0 $ D.Tree 0 $ fixTracksCount chunks
+          unserialize stackChunks $ D.DTA 0 $ D.Tree 0 $ fixTracksCount $ chunks ++ missingChunks
         return (k, pkg)
   (k_l1, l1) <- readSongWith D.readFileDTA_latin1'
   case D.encoding l1 of
@@ -222,6 +233,8 @@ prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
     forM_ (D.gameOrigin pkg) $ inline "game_origin" . quote
     forM_ (D.ugc pkg) $ inline "ugc" . \case True -> "1"; False -> "0"
     forM_ (D.encoding pkg) $ inline "encoding" . quote
+    forM_ (D.extraAuthoring pkg) $ inlineRaw "extra_authoring" . T.unwords
+    forM_ (D.alternatePath pkg) $ inline "alternate_path" . \case True -> "1"; False -> "0"
     forM_ (D.albumName pkg) $ two "album_name" . stringLit
     forM_ (D.albumTrackNumber pkg) $ inline "album_track_number" . showT
     forM_ (D.packName pkg) $ two "pack_name" . stringLit

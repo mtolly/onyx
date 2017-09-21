@@ -373,8 +373,13 @@ importSTFSDir temp mtemp2x dir = do
         let hasKicks = if isJust mtemp2x then HasBoth else if is2x then Has2x else Has1x
         importRB3 pkg meta karaoke multitrack hasKicks
           (temp </> base <.> "mid") maybe2x (temp </> base <.> "mogg")
-          (temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox"))
-          "cover.png_xbox" dir
+          ( case D.albumArt pkg of
+            Just True -> Just
+              ( temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox")
+              , "cover.png_xbox"
+              )
+            _ -> Nothing
+          ) dir
         return hasKicks
   case mtemp2x of
     Nothing -> with2xPath Nothing
@@ -484,22 +489,24 @@ importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
   let hasKicks = if isJust file2x then HasBoth else if is2x then Has2x else Has1x
   importRB3 pkg meta False True hasKicks
     (temp </> "notes.mid") files2x (temp </> "audio.mogg")
-    (temp </> "cover.bmp") "cover.bmp" dir
+    (Just (temp </> "cover.bmp", "cover.bmp")) dir
   return hasKicks
 
 -- | Collects the contents of an RBA or CON file into an Onyx project.
-importRB3 :: (MonadIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKicks -> FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> FilePath -> FilePath -> FilePath -> StackTraceT m ()
-importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName dir = do
+importRB3 :: (MonadIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKicks -> FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> Maybe (FilePath, FilePath) -> FilePath -> StackTraceT m ()
+importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg mcover dir = do
   stackIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
 
-  isRB2 <- case D.songFormat pkg of
-    10 -> return False
-    4  -> return True
-    3  -> return True
-    -- TODO catalog other values from DLC
-    n  -> do
-      warn $ "Unrecognized 'format' value (" ++ show n ++ "), assuming RB3 VENUE format"
-      return False
+  isRB2 <- case D.gameOrigin pkg of
+    Just "rb1_dlc" -> return True
+    _ -> case D.songFormat pkg of
+      10 -> return False
+      4  -> return True
+      3  -> return True
+      -- TODO catalog other values from DLC
+      n  -> do
+        warn $ "Unrecognized 'format' value (" ++ show n ++ "), assuming RB3 VENUE format"
+        return False
   RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI mid
   trksAdd2x <- case files2x of
     Nothing -> return trks1x
@@ -517,7 +524,9 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
   stackIO $ Save.toFile (dir </> "notes.mid") $ RBFile.showMIDIFile'
     $ RBFile.Song temps sigs $ RBFile.RawFile trksRenameVenue
 
-  stackIO $ Dir.copyFile cover $ dir </> coverName
+  case mcover of
+    Nothing -> return ()
+    Just (cover, coverName) -> stackIO $ Dir.copyFile cover $ dir </> coverName
   md5 <- stackIO $ show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
   drumkit <- case D.drumBank pkg of
     Nothing -> return HardRockKit
@@ -610,7 +619,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg cover coverName 
       , _genre        = Just $ D.genre pkg
       , _subgenre     = D.subGenre pkg >>= T.stripPrefix "subgenre_"
       , _year         = Just $ fromIntegral $ D.yearReleased pkg
-      , _fileAlbumArt = Just coverName
+      , _fileAlbumArt = snd <$> mcover
       , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
       , _comments     = []
       , _difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
