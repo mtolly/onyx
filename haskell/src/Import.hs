@@ -48,6 +48,7 @@ import           PrettyDTA                        (C3DTAComments (..),
                                                    DTASingle (..),
                                                    readDTASingle, readRB3DTA,
                                                    writeDTASingle)
+import           Resources                        (rb3Updates)
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), joinEdges)
 import qualified RockBand.Drums                   as RBDrums
@@ -347,7 +348,8 @@ data HasKicks = Has1x | Has2x | HasBoth
 
 importSTFSDir :: (MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
 importSTFSDir temp mtemp2x dir = do
-  DTASingle _ pkg comments <- readDTASingle $ temp </> "songs/songs.dta"
+  DTASingle top pkg comments <- readDTASingle $ temp </> "songs/songs.dta"
+  updateDir <- stackIO rb3Updates
   let c3Title = fromMaybe (D.name pkg) $ c3dtaSong comments
       (title, is2x) = case c3dta2xBass comments of
         Just b  -> (fst $ determine2xBass c3Title, b)
@@ -369,10 +371,13 @@ importSTFSDir temp mtemp2x dir = do
       -- where foo is the top key of songs.dta. foo can be different!
       -- e.g. C3's "Escape from the City" has a top key 'SonicAdvCityEscape2x'
       -- and a 'name' of "songs/sonicadv2cityescape2x/sonicadv2cityescape2x"
+      updateFile = do
+        guard $ maybe False ("disc_update" `elem`) $ D.extraAuthoring pkg
+        Just $ updateDir </> T.unpack top </> (T.unpack top ++ "_update.mid")
       with2xPath maybe2x = do
         let hasKicks = if isJust mtemp2x then HasBoth else if is2x then Has2x else Has1x
         importRB3 pkg meta karaoke multitrack hasKicks
-          (temp </> base <.> "mid") maybe2x (temp </> base <.> "mogg")
+          (temp </> base <.> "mid") updateFile maybe2x (temp </> base <.> "mogg")
           ( case D.albumArt pkg of
             Just True -> Just
               ( temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox")
@@ -488,13 +493,13 @@ importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
     return (pkg2x, mid2x)
   let hasKicks = if isJust file2x then HasBoth else if is2x then Has2x else Has1x
   importRB3 pkg meta False True hasKicks
-    (temp </> "notes.mid") files2x (temp </> "audio.mogg")
+    (temp </> "notes.mid") Nothing files2x (temp </> "audio.mogg")
     (Just (temp </> "cover.bmp", "cover.bmp")) dir
   return hasKicks
 
 -- | Collects the contents of an RBA or CON file into an Onyx project.
-importRB3 :: (MonadIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKicks -> FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> Maybe (FilePath, FilePath) -> FilePath -> StackTraceT m ()
-importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg mcover dir = do
+importRB3 :: (MonadIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKicks -> FilePath -> Maybe FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> Maybe (FilePath, FilePath) -> FilePath -> StackTraceT m ()
+importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover dir = do
   stackIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
 
   isRB2 <- case D.gameOrigin pkg of
@@ -508,14 +513,19 @@ importRB3 pkg meta karaoke multitrack hasKicks mid files2x mogg mcover dir = do
         warn $ "Unrecognized 'format' value (" ++ show n ++ "), assuming RB3 VENUE format"
         return False
   RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI mid
+  trksUpdate <- maybe (return []) (fmap (RBFile.rawTracks . RBFile.s_tracks) . loadMIDI) updateMid
+  let updatedNames = map Just $ mapMaybe U.trackName trks1x
+      trksUpdated
+        = filter ((`notElem` updatedNames) . U.trackName) trks1x
+        ++ trksUpdate
   trksAdd2x <- case files2x of
-    Nothing -> return trks1x
+    Nothing -> return trksUpdated
     Just (_pkg2x, mid2x) -> do
       RBFile.Song _ _ (RBFile.RawFile trks2x) <- loadMIDI mid2x
       let make2xTrack trk = case U.trackName trk of
             Just "PART DRUMS" -> Just $ U.setTrackName "PART DRUMS_2X" trk
             _                 -> Nothing
-      return $ trks1x ++ mapMaybe make2xTrack trks2x
+      return $ trksUpdated ++ mapMaybe make2xTrack trks2x
   let trksRenameVenue = if isRB2
         then flip map trksAdd2x $ \trk -> case U.trackName trk of
           Just "VENUE" -> U.setTrackName "VENUE RB2" trk
