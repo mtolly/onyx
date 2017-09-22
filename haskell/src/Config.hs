@@ -1033,7 +1033,7 @@ data Target
   deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
 addKey :: (forall m. (Monad m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
-addKey codec k v x = A.Object $ Map.insert k v $ makeObject codec x
+addKey codec k v x = A.Object $ Map.insert k v $ Map.fromList $ makeObject codec x
 
 instance StackJSON Target where
   stackJSON = StackCodec

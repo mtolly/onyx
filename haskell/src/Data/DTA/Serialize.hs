@@ -140,17 +140,28 @@ chunksMaybe cf = StackCodec
 instance (StackChunks a) => StackChunks (Maybe a) where
   stackChunks = chunksMaybe stackChunks
 
-chunksDict :: (Eq k, Hashable k) => ChunkCodec k -> ChunksCodec a -> ChunksCodec (Map.HashMap k a)
-chunksDict ck cv = StackCodec
+newtype DictList k a = DictList { fromDictList :: [(k, a)] }
+
+chunksDictList :: (Eq k) => ChunkCodec k -> ChunksCodec a -> ChunksCodec (DictList k a)
+chunksDictList ck cv = StackCodec
   { stackShow = \mp ->
-    [ Parens $ Tree 0 $ stackShow ck k : stackShow cv v | (k, v) <- Map.toList mp ]
-  , stackParse = lift ask >>= \chunks -> fmap Map.fromList $ forM chunks $ \case
+    [ Parens $ Tree 0 $ stackShow ck k : stackShow cv v | (k, v) <- fromDictList mp ]
+  , stackParse = lift ask >>= \chunks -> fmap DictList $ forM chunks $ \case
     Parens (Tree _ (k : chunks')) -> do
       k' <- inside "parsing dict key" $ parseFrom k $ stackParse ck
       v' <- inside ("dict key " ++ show k) $ parseFrom chunks' $ stackParse cv
       return (k', v')
     _ -> expected "a key-value pair (parenthesized list starting with a key)"
   }
+
+instance (Eq k, StackChunk k, StackChunks a) => StackChunks (DictList k a) where
+  stackChunks = chunksDictList stackChunk stackChunks
+
+chunksDict :: (Eq k, Hashable k) => ChunkCodec k -> ChunksCodec a -> ChunksCodec (Map.HashMap k a)
+chunksDict ck cv = StackCodec
+  { stackShow = stackShow dl . DictList . Map.toList
+  , stackParse = Map.fromList . fromDictList <$> stackParse dl
+  } where dl = chunksDictList ck cv
 
 instance (Eq k, Hashable k, StackChunk k, StackChunks a) => StackChunks (Map.HashMap k a) where
   stackChunks = chunksDict stackChunk stackChunks
@@ -193,10 +204,10 @@ asAssoc :: T.Text -> (forall m. (Monad m) => ObjectCodec m [Chunk T.Text] a) -> 
 asAssoc err codec = StackCodec
   { stackParse = inside ("parsing " ++ T.unpack err) $ do
     obj <- stackParse cdc
-    let f = withReaderT (const obj) . mapReaderT (`evalStateT` Set.empty)
+    let f = withReaderT (const $ Map.fromList $ fromDictList obj) . mapReaderT (`evalStateT` Set.empty)
     mapStackTraceT f $ codecIn codec
-  , stackShow = stackShow cdc . makeObject codec
-  } where cdc = chunksDict chunkKey identityCodec
+  , stackShow = stackShow cdc . DictList . makeObject codec
+  } where cdc = chunksDictList chunkKey identityCodec
 
 asStrictAssoc :: T.Text -> (forall m. (Monad m) => ObjectCodec m [Chunk T.Text] a) -> ChunksCodec a
 asStrictAssoc err codec = asAssoc err Codec

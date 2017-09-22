@@ -25,7 +25,7 @@ import qualified Data.Vector                    as V
 type StackParser m v = StackTraceT (ReaderT v m)
 
 type ObjectParser m v = StackParser (StateT (Set.HashSet T.Text) m) (Map.HashMap T.Text v)
-type ObjectBuilder v = Writer (Map.HashMap T.Text v)
+type ObjectBuilder v = Writer [(T.Text, v)]
 type ObjectCodec m v a = Codec (ObjectParser m v) (ObjectBuilder v) a
 
 data StackCodec v a = StackCodec
@@ -82,7 +82,7 @@ strictKeys = do
   let unknown = Set.fromList (Map.keys obj) `Set.difference` known
   unless (Set.null unknown) $ fatal $ "Unrecognized object keys: " ++ show (Set.toList unknown)
 
-makeObject :: (forall m. (Monad m) => ObjectCodec m v a) -> a -> Map.HashMap T.Text v
+makeObject :: (forall m. (Monad m) => ObjectCodec m v a) -> a -> [(T.Text, v)]
 makeObject codec x = let
   forceIdentity :: (forall m. (Monad m) => ObjectCodec m v a) -> ObjectCodec Identity v a
   forceIdentity = id
@@ -95,7 +95,7 @@ asObject err codec = StackCodec
       f = withReaderT (const obj) . mapReaderT (`evalStateT` Set.empty)
       in mapStackTraceT f $ codecIn codec
     _ -> expected "object"
-  , stackShow = A.Object . makeObject codec
+  , stackShow = A.Object . Map.fromList . makeObject codec
   }
 
 asStrictObject :: T.Text -> (forall m. (Monad m) => ObjectCodec m A.Value a) -> JSONCodec a
@@ -126,8 +126,8 @@ objectKey dflt shouldWarn shouldFill key valCodec = Codec
   , codecOut = \val -> writer
     ( val
     , if shouldFill || dflt /= Just val
-      then Map.singleton key $ stackShow valCodec val
-      else Map.empty
+      then [(key, stackShow valCodec val)]
+      else []
     )
   }
 
