@@ -375,17 +375,17 @@ importSTFSDir temp mtemp2x dir = do
       updateFile = do
         guard $ maybe False ("disc_update" `elem`) $ D.extraAuthoring pkg
         Just $ updateDir </> T.unpack top </> (T.unpack top ++ "_update.mid")
+      hasKicks = if isJust mtemp2x then HasBoth else if is2x then Has2x else Has1x
+      missingArt = updateDir </> T.unpack top </> "gen" </> (T.unpack top ++ "_keep.png_xbox")
       with2xPath maybe2x = do
-        let hasKicks = if isJust mtemp2x then HasBoth else if is2x then Has2x else Has1x
+        albumArtFile <- case D.albumArt pkg of
+          Just True -> stackIO (Dir.doesFileExist missingArt) >>= return . Just . \case
+            True -> missingArt -- old rb1 song with album art on rb3 disc
+            False -> temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox")
+          _ -> return Nothing
         importRB3 pkg meta karaoke multitrack hasKicks
           (temp </> base <.> "mid") updateFile maybe2x (temp </> base <.> "mogg")
-          ( case D.albumArt pkg of
-            Just True -> Just
-              ( temp </> takeDirectory base </> "gen" </> (takeFileName base ++ "_keep.png_xbox")
-              , "cover.png_xbox"
-              )
-            _ -> Nothing
-          ) dir
+          ((, "cover.png_xbox") <$> albumArtFile) dir
         return hasKicks
   case mtemp2x of
     Nothing -> with2xPath Nothing
@@ -543,8 +543,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
   coverName <- case mcover of
     Nothing -> return Nothing
     Just (cover, coverName) -> errorToWarning $ do
-      -- The errorToWarning is a workaround for old songs
-      -- where the .png_xbox was supplied on RB3 disc
+      -- errorToWarning shouldn't be needed, but just in case
       stackIO $ Dir.copyFile cover $ dir </> coverName
       return coverName
   md5 <- stackIO $ show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
