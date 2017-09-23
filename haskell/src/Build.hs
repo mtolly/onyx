@@ -314,6 +314,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
     -- TODO is it safe to have no vocal_gender?
     , D.shortVersion = Nothing
     , D.yearReleased = fromIntegral $ getYear $ _metadata songYaml
+    , D.yearRecorded = Nothing
     , D.albumArt = Just True
     , D.albumName = Just $ getAlbum $ _metadata songYaml
     , D.albumTrackNumber = Just $ fromIntegral $ getTrackNumber $ _metadata songYaml
@@ -1338,6 +1339,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                               , D.songFormat = 4
                               , D.albumArt = Just True
                               , D.yearReleased = D.yearReleased rb3DTA
+                              , D.yearRecorded = D.yearRecorded rb3DTA
                               , D.basePoints = Just 0
                               , D.rating = D.rating rb3DTA
                               , D.subGenre = Just $ "subgenre_" <> rbn1Subgenre fullGenre

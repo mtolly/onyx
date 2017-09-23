@@ -245,6 +245,7 @@ prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
     forM_ (D.fake pkg) $ \b -> inline "fake" $ if b then "1" else "0"
     forM_ (D.albumArt pkg) $ \b -> inline "album_art" $ if b then "1" else "0"
     inline "year_released" $ showT $ D.yearReleased pkg
+    forM_ (D.yearRecorded pkg) $ inline "year_recorded" . showT
     inline "rating" $ showT $ D.rating pkg
     forM_ (D.subGenre pkg) $ inline "sub_genre" . quote
     forM_ (D.songId pkg) $ inline "song_id" . either showT id

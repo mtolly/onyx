@@ -123,6 +123,7 @@ data SongPackage = SongPackage
   , vocalGender       :: Maybe Gender
   , shortVersion      :: Maybe Integer
   , yearReleased      :: Integer
+  , yearRecorded      :: Maybe Integer
   , albumArt          :: Maybe Bool
   , albumName         :: Maybe T.Text
   , albumTrackNumber  :: Maybe Integer
@@ -171,6 +172,7 @@ instance StackChunks SongPackage where
     vocalGender       <- vocalGender       =. opt Nothing "vocal_gender"        stackChunks
     shortVersion      <- shortVersion      =. opt Nothing "short_version"       stackChunks
     yearReleased      <- yearReleased      =. req         "year_released"       stackChunks
+    yearRecorded      <- yearRecorded      =. opt Nothing "year_recorded"       stackChunks
     albumArt          <- albumArt          =. opt Nothing "album_art"           stackChunks
     albumName         <- albumName         =. opt Nothing "album_name"          (chunksMaybe $ single chunkString)
     albumTrackNumber  <- albumTrackNumber  =. opt Nothing "album_track_number"  stackChunks
