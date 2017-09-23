@@ -1,2 +1,4 @@
 win/
 mac/
+installer.nsi
+onyx-*.exe

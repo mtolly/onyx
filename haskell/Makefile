@@ -1,8 +1,6 @@
 .PHONY: usage install-magma mac mac-deps win win-deps ubuntu-deps
 SHELL=/bin/bash
 
-ONYXVERSION=20170917
-
 usage:
 	@echo "Targets:"
 	@echo "  make install-magma"
@@ -40,14 +38,13 @@ mac:
 	cp -R Onyx.app LICENSE.txt mac/
 	cp README.md mac/README.txt
 	cp CHANGES.md mac/CHANGES.txt
-	sed -i '' 's/_ONYXVERSION_/$(ONYXVERSION)/' mac/Onyx.app/Contents/Info.plist
-	sed -i '' 's/_ONYXVERSION_/$(ONYXVERSION)/' mac/README.txt
+	stack exec -- onyx-package mac/Onyx.app/Contents/Info.plist mac/README.txt
 
 mac-deps:
 	brew install libsndfile libsamplerate lame sdl2 sdl2_ttf rubberband dylibbundler wine mono mono-libgdiplus
 
 win:
-	# stack build .
+	stack build
 	rm -rf win/
 	mkdir win/
 	cp "$(shell stack exec which onyx)" win/
@@ -59,7 +56,8 @@ win:
 	cp -R vendors/magma-{v1,v2,common,ogg2mogg} win/
 	cp -R vendors/x360-rb3pkg win/
 	cp -R vendors/rb3-updates win/
-	sed -b -i 's/_ONYXVERSION_/$(ONYXVERSION)/' win/README.txt
+	stack exec -- onyx-package win/README.txt
+	"/c/Program Files (x86)/NSIS/Bin/makensis.exe" installer.nsi
 
 win-deps:
 	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate mingw-w64-x86_64-lame mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_ttf mingw-w64-x86_64-rubberband

@@ -38,7 +38,7 @@ Open `onyx.exe`/`Onyx.app` to run.
 
 ## Functions
 
-  * Convert to RB3 (takes CON/RBA/song.ini, creates _rb3con)
+  * Convert to RB3 (takes CON/RBA/song.ini, creates `_rb3con`)
 
     Imports from a Rock Band 3, Frets on Fire, or Phase Shift song,
     and creates either a Rock Band 3 CON file or a Magma v2 project.
@@ -88,7 +88,7 @@ Open `onyx.exe`/`Onyx.app` to run.
     the Phase Shift converter in C3 CON Tools which mixes the audio down to a
     single file, and then just supply the Phase Shift song to Onyx.
 
-  * Convert to RB2 (takes _rb3con, creates _rb2con)
+  * Convert to RB2 (takes `_rb3con`, creates `_rb2con`)
 
     Converts a Rock Band 3 CON file to Rock Band 2.
     RB2-ification includes the following steps:
@@ -109,7 +109,7 @@ Open `onyx.exe`/`Onyx.app` to run.
     In the latter two cases, the RB3 "keytar" algorithm is more-or-less applied,
     so fast chords become HOPOs, and overlapping sustains are shortened.
 
-  * Browser song preview (takes _rb3con, creates web app folder)
+  * Browser song preview (takes `_rb3con`, creates web app folder)
 
     Generates a JavaScript chart preview app for web browsers,
     which plays back the audio and displays all gameplay tracks.

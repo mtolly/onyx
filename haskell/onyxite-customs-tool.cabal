@@ -1,5 +1,5 @@
 name:                 onyxite-customs-tool
-version:              0.4
+version:              20170917
 homepage:             https://github.com/mtolly/onyxite-customs
 author:               Michael Tolly
 maintainer:           miketolly@gmail.com
@@ -205,3 +205,10 @@ executable onyx
     ld-options: -lto_library
     -- ^ this fixes C++ exception catching on mac.
     -- see https://ghc.haskell.org/trac/ghc/ticket/11829
+
+executable onyx-package
+  main-is: Installer.hs
+  build-depends: base, nsis, text
+  ghc-options: -Wall
+  other-modules:
+    Paths_onyxite_customs_tool

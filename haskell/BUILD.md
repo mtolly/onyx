@@ -6,6 +6,7 @@
   * Visual C++ 2008 Runtime
   * .NET Framework
   * `make` (`stack exec -- pacman -Sy make`)
+  * [NSIS](http://nsis.sourceforge.net/Main_Page)
 
 ## Steps
 
@@ -26,7 +27,7 @@
 
 6. `stack exec make win`
 
-7. Program and DLLs will now be in `win/`.
+7. Setup program will be created.
 
 # Mac
 
