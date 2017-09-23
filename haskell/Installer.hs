@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Paths_onyxite_customs_tool (version)
-import Data.Version (showVersion)
-import Development.NSIS
-import Data.String (IsString(..))
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
-import Control.Monad (forM_, unless)
-import System.Environment (getArgs)
+import           Control.Monad              (forM_, unless)
+import           Data.String                (IsString (..))
+import qualified Data.Text                  as T
+import qualified Data.Text.IO               as T
+import           Data.Version               (showVersion)
+import           Development.NSIS
+import           Paths_onyxite_customs_tool (version)
+import           System.Environment         (getArgs)
 
 versionString :: (IsString a) => a
 versionString = fromString $ showVersion version

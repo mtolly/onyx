@@ -26,11 +26,13 @@ import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeUtf8)
 import           Data.Time
+import           Data.Version                   (showVersion)
 import           Data.Word                      (Word8)
 import           Foreign                        (Ptr, castPtr)
 import           Foreign.C                      (CInt (..))
 import           Graphics.UI.TinyFileDialogs
 import           OSFiles                        (osOpenFile, useResultFiles)
+import           Paths_onyxite_customs_tool     (version)
 import           Resources                      (pentatonicTTF)
 import           SDL                            (($=))
 import qualified SDL
@@ -358,6 +360,10 @@ launchGUI = do
   bracket (SDL.createTextureFromSurface rend surfBrand) SDL.destroyTexture $ \texBrand -> do
   dimsBrand@(SDL.V2 brandW brandH) <- SDL.surfaceDimensions surfBrand
 
+  bracket (TTF.renderUTF8Blended pentaSmall (showVersion version) $ v4ToColor $ purple 0.5) SDL.freeSurface $ \surfVersion -> do
+  bracket (SDL.createTextureFromSurface rend surfVersion) SDL.destroyTexture $ \texVersion -> do
+  dimsVersion@(SDL.V2 versionW versionH) <- SDL.surfaceDimensions surfVersion
+
   let
 
     getChoices :: Onyx [Choice (Onyx ())]
@@ -424,6 +430,9 @@ launchGUI = do
       SDL.copy rend texBrand Nothing $ Just $ SDL.Rectangle
         (SDL.P (SDL.V2 (windW - brandW - 10) (windH - brandH - 10)))
         dimsBrand
+      SDL.copy rend texVersion Nothing $ Just $ SDL.Rectangle
+        (SDL.P (SDL.V2 (windW - brandW - 10 - versionW - 10) (windH - versionH - 13)))
+        dimsVersion
       GUIState{..} <- get
       let offset = fromIntegral $ length previousScreens * 25
       forM_ (zip [0..] $ zip [0.88, 0.76 ..] [offset - 25, offset - 50 .. 0]) $ \(i, (frac, x)) -> do
