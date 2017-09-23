@@ -503,15 +503,11 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
   stackIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
 
   isRB2 <- case D.gameOrigin pkg of
+    Just "rb1"     -> return True
     Just "rb1_dlc" -> return True
-    _ -> case D.songFormat pkg of
-      10 -> return False
-      4  -> return True
-      3  -> return True
-      -- TODO catalog other values from DLC
-      n  -> do
-        warn $ "Unrecognized 'format' value (" ++ show n ++ "), assuming RB3 VENUE format"
-        return False
+    Just "lego"    -> return True
+    Just "rb2"     -> return True -- this also covers RBN1, which has (game_origin rb2) and (ugc 1)
+    _              -> return False -- previously this would check 'format' but I think unnecessary
   RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI mid
   trksUpdate <- maybe (return []) (fmap (RBFile.rawTracks . RBFile.s_tracks) . loadMIDI) updateMid
   let updatedNames = map Just $ mapMaybe U.trackName trksUpdate

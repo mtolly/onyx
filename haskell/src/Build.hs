@@ -1680,7 +1680,10 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
         let allPlanParts :: [(RBFile.FlexPartName, PartAudio ())]
             allPlanParts = case plan of
               Plan{..}     -> HM.toList $ getParts $ void <$> _planParts
-              MoggPlan{..} -> HM.toList $ getParts $ void <$> _moggParts
+              MoggPlan{..} -> do
+                (fpart, pa) <- HM.toList $ getParts _moggParts
+                guard $ not $ null $ concat $ toList pa
+                return (fpart, void pa)
         dir </> "song.wav" ≡>
           writeSongCountin Nothing 0 False planName plan [ (fpart, 1) | (fpart, _) <- allPlanParts ]
         dir </> "crowd.wav" ≡> writeCrowd Nothing 0 planName plan
