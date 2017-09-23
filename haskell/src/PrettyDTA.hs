@@ -21,6 +21,7 @@ import qualified Data.DTA.Serialize.RB3         as D
 import           Data.Foldable                  (forM_)
 import qualified Data.HashMap.Strict            as Map
 import           Data.List                      (sortOn, stripPrefix)
+import           Data.List.HT                   (partitionMaybe)
 import           Data.List.Split                (splitOn)
 import           Data.Maybe                     (fromMaybe, listToMaybe,
                                                  mapMaybe)
@@ -93,12 +94,12 @@ fixTracksCount = map findSong where
       D.Parens $ D.Tree w [D.Key "tracks_count", D.Parens $ D.Tree w2 nums]
     x -> x
 
--- | Aesthetics of Hate has 'hopo_threshold' as a top-level key, instead of
--- being under 'song'. AFAIK no other song does this, and missing_song_data.dta
--- adds it under 'song'. But we need to remove the top-level one for parsing.
-fixTopHopo :: [D.Chunk T.Text] -> [D.Chunk T.Text]
-fixTopHopo = filter $ \case
-  D.Parens (D.Tree _ (D.Key "hopo_threshold" : _)) -> False
+-- | Remove keys which were moved or renamed in RB3.
+-- The correct versions are added by missing_song_data.dta
+removeOldDTAKeys :: [D.Chunk T.Text] -> [D.Chunk T.Text]
+removeOldDTAKeys = filter $ \case
+  D.Parens (D.Tree _ (D.Key "hopo_threshold" : _)) -> False -- Aesthetics of Hate. it should be under 'song'
+  D.Parens (D.Tree _ (D.Key "tuning_offset"  : _)) -> False -- in a few songs. changed to 'tuning_offset_cents'
   _                                                -> True
 
 missingMapping :: Map.HashMap T.Text [D.Chunk T.Text]
@@ -111,7 +112,14 @@ missingMapping = case missingSongData of
 
 -- | Applies an update from missing_song_data.dta.
 applyUpdate :: [D.Chunk T.Text] -> [D.Chunk T.Text] -> [D.Chunk T.Text]
-applyUpdate original update = original ++ update -- TODO merge 'song' key
+applyUpdate original update = let
+  getSong = partitionMaybe $ \case
+    D.Parens (D.Tree _ (D.Key "song" : s)) -> Just s
+    _ -> Nothing
+  (originalSong, untouched) = getSong original
+  (songUpdate, otherUpdate) = getSong update
+  newSong = D.Parens $ D.Tree 0 $ D.Key "song" : concat (originalSong ++ songUpdate)
+  in newSong : (untouched ++ otherUpdate)
 
 -- | Returns @(short song name, DTA file contents, is UTF8)@
 readRB3DTA :: (MonadIO m) => FilePath -> StackTraceT m (T.Text, D.SongPackage, Bool)
@@ -125,7 +133,7 @@ readRB3DTA dtaPath = do
         let missingChunks = fromMaybe [] $ Map.lookup k missingMapping
         pkg <- inside ("loading DTA file " ++ show dtaPath)
           $ unserialize stackChunks $ D.DTA 0 $ D.Tree 0
-          $ fixTopHopo $ fixTracksCount $ applyUpdate chunks missingChunks
+          $ removeOldDTAKeys $ fixTracksCount $ applyUpdate chunks missingChunks
         return (k, pkg)
   (k_l1, l1) <- readSongWith D.readFileDTA_latin1'
   case D.encoding l1 of

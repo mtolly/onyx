@@ -514,7 +514,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
         return False
   RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI mid
   trksUpdate <- maybe (return []) (fmap (RBFile.rawTracks . RBFile.s_tracks) . loadMIDI) updateMid
-  let updatedNames = map Just $ mapMaybe U.trackName trks1x
+  let updatedNames = map Just $ mapMaybe U.trackName trksUpdate
       trksUpdated
         = filter ((`notElem` updatedNames) . U.trackName) trks1x
         ++ trksUpdate
@@ -534,9 +534,13 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
   stackIO $ Save.toFile (dir </> "notes.mid") $ RBFile.showMIDIFile'
     $ RBFile.Song temps sigs $ RBFile.RawFile trksRenameVenue
 
-  case mcover of
-    Nothing -> return ()
-    Just (cover, coverName) -> stackIO $ Dir.copyFile cover $ dir </> coverName
+  coverName <- case mcover of
+    Nothing -> return Nothing
+    Just (cover, coverName) -> errorToWarning $ do
+      -- The errorToWarning is a workaround for old songs
+      -- where the .png_xbox was supplied on RB3 disc
+      stackIO $ Dir.copyFile cover $ dir </> coverName
+      return coverName
   md5 <- stackIO $ show . MD5.md5 <$> BL.readFile (dir </> "audio.mogg")
   drumkit <- case D.drumBank pkg of
     Nothing -> return HardRockKit
@@ -629,7 +633,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       , _genre        = Just $ D.genre pkg
       , _subgenre     = D.subGenre pkg >>= T.stripPrefix "subgenre_"
       , _year         = Just $ fromIntegral $ D.yearReleased pkg
-      , _fileAlbumArt = snd <$> mcover
+      , _fileAlbumArt = coverName
       , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
       , _comments     = []
       , _difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
