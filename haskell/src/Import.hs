@@ -521,15 +521,16 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       RBFile.Song _ _ (RBFile.RawFile trks2x) <- loadMIDI mid2x
       drums1x <- RBFile.parseTracks sigs trksUpdated ["PART DRUMS"]
       drums2x <- RBFile.parseTracks sigs trks2x      ["PART DRUMS"]
-      let notDrums = filter ((== Just "PART DRUMS") . U.trackName) trksUpdated
+      let notDrums = filter ((/= Just "PART DRUMS") . U.trackName) trksUpdated
       case extractLeftKicks drums1x drums2x of
-        Nothing -> do
-          warn "Couldn't condense 1x/2x PART DRUMS tracks to PS format. Using C3 format instead"
+        Left pos -> do
+          warn $ "Using C3 format for 1x+2x drums. Couldn't condense to PS format due to difference at "
+            ++ RBFile.showPosition (U.applyMeasureMap sigs pos)
           let make2xTrack trk = case U.trackName trk of
                 Just "PART DRUMS" -> Just $ U.setTrackName "PART DRUMS_2X" trk
                 _                 -> Nothing
           return $ trksUpdated ++ mapMaybe make2xTrack trks2x
-        Just leftKicks -> return $ notDrums ++ RBFile.showMIDITrack "PART DRUMS"
+        Right leftKicks -> return $ notDrums ++ RBFile.showMIDITrack "PART DRUMS"
           (RTB.merge drums1x $ fmap (\() -> RBDrums.Kick2x) leftKicks)
   let trksRenameVenue = if isRB2
         then flip map trksAdd2x $ \trk -> case U.trackName trk of
@@ -1020,18 +1021,28 @@ importMagma fin dir = do
 extractLeftKicks
   :: RTB.T U.Beats RBDrums.Event
   -> RTB.T U.Beats RBDrums.Event
-  -> Maybe (RTB.T U.Beats ())
-extractLeftKicks in1 in2 = go (RTB.collectCoincident in1) (RTB.collectCoincident in2) where
-  go trk1 trk2 = case (RTB.viewL trk1, RTB.viewL trk2) of
-    (Nothing, Nothing) -> Just RTB.empty
-    (Just ((dt1, evs1), trk1'), Just ((dt2, evs2), trk2')) -> do
-      guard $ dt1 == dt2
-      let set1 = Set.fromList evs1
-          set2 = Set.fromList evs2
-      guard $ Set.null $ Set.difference set1 set2
-      case Set.toList $ Set.difference set2 set1 of
-        [] -> RTB.delay dt1 <$> go trk1' trk2'
+  -> Either U.Beats (RTB.T U.Beats ())
+extractLeftKicks in1 in2 = go 0 (RTB.collectCoincident in1) (RTB.collectCoincident in2) where
+  go pos trk1 trk2 = case (RTB.viewL trk1, RTB.viewL trk2) of
+    (Nothing, Nothing) -> Right RTB.empty
+    (Just ((dt1, evs1), trk1'), Just ((dt2, evs2), trk2')) -> case compare dt1 dt2 of
+      EQ -> let
+        set1 = Set.fromList evs1
+        set2 = Set.fromList evs2
+        in if Set.null $ Set.difference set1 set2
+          then case Set.toList $ Set.difference set2 set1 of
+            [] -> RTB.delay dt1 <$> go (pos + dt1) trk1' trk2'
+            [RBDrums.DiffEvent Expert (RBDrums.Note RBDrums.Kick)]
+              -> RTB.cons dt1 () <$> go (pos + dt1) trk1' trk2'
+            _ -> Left $ pos + dt1
+          else Left $ pos + dt1
+      LT -> Left $ pos + dt1
+      GT -> case evs2 of
         [RBDrums.DiffEvent Expert (RBDrums.Note RBDrums.Kick)]
-          -> RTB.cons dt1 () <$> go trk1' trk2'
-        _ -> Nothing
-    _ -> Nothing
+          -> RTB.cons dt2 () <$> go (pos + dt2) (RTB.cons (dt1 - dt2) evs1 trk1') trk2'
+        _ -> Left $ pos + dt2
+    (Just ((dt1, _), _), Nothing) -> Left $ pos + dt1
+    (Nothing, Just ((dt2, evs2), trk2')) -> case evs2 of
+      [RBDrums.DiffEvent Expert (RBDrums.Note RBDrums.Kick)]
+        -> RTB.cons dt2 () <$> go (pos + dt2) RTB.empty trk2'
+      _ -> Left $ pos + dt2
