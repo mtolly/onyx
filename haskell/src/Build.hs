@@ -1446,8 +1446,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                     lift $ need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
                     lift $ putNormal "# Producing RB2 CON file via X360"
                     rb2pkg
-                      (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
-                      (getArtist (_metadata songYaml) <> ": " <> getTitle (_metadata songYaml))
+                      (getArtist (_metadata songYaml) <> ": " <> targetTitle songYaml (RB2 rb2))
+                      "Compiled by Onyx Music Game Toolkit"
                       (dir </> "rb2")
                       out
 
