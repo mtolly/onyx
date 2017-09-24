@@ -151,7 +151,7 @@ targets:
     vocal: violin
   rb3-violin:
     game: rb3
-    song-id: 1660200041
+    song-id: 1660200064
     version: 2
     plan: jammit-all
     bass: violin
@@ -159,7 +159,7 @@ targets:
   rb3-violin-2x:
     game: rb3
     2x-bass-pedal: true
-    song-id: 1660200042
+    song-id: 1660200065
     version: 2
     plan: jammit-all
     bass: violin

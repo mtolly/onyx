@@ -6,8 +6,8 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200004 Brooklyn (Youngblood Brass Band)
 1660200005 Celestial Terrestrial Commuters (Mahavishnu Orchestra) 1x
 1660200006 Celestial Terrestrial Commuters (Mahavishnu Orchestra) 2x
-1660200041 Celestial Terrestrial Commuters (Mahavishnu Orchestra) 1x (Violin)
-1660200042 Celestial Terrestrial Commuters (Mahavishnu Orchestra) 2x (Violin)
+1660200064 Celestial Terrestrial Commuters (Mahavishnu Orchestra) 1x (Violin)
+1660200065 Celestial Terrestrial Commuters (Mahavishnu Orchestra) 2x (Violin)
 1660200007 A Crimson Rose and a Gin Tonic (Asuka Sakai, Ado Mizumori)
 1660200008 The Nag (John Scofield)
 1660200009 Spark (Hiromi: The Trio Project) 1x
