@@ -143,6 +143,7 @@ data SongPackage = SongPackage
   , decade            :: Maybe T.Text
   , downloaded        :: Maybe Bool
   , basePoints        :: Maybe Integer
+  , videoVenues       :: Maybe [T.Text] -- lego
   } deriving (Eq, Show, Read)
 
 instance StackChunks SongPackage where
@@ -191,4 +192,5 @@ instance StackChunks SongPackage where
     decade            <- decade            =. opt Nothing "decade"              (chunksMaybe $ single chunkKey)
     downloaded        <- downloaded        =. opt Nothing "downloaded"          stackChunks
     basePoints        <- basePoints        =. opt Nothing "base_points"         stackChunks
+    videoVenues       <- videoVenues       =. opt Nothing "video_venues"        (chunksMaybe $ chunksParens $ chunksList chunkKey)
     return SongPackage{..}

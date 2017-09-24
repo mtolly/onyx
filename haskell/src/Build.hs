@@ -339,6 +339,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
     , D.decade = Nothing
     , D.downloaded = Nothing
     , D.basePoints = Nothing
+    , D.videoVenues = Nothing
     }
 
 phony :: FilePath -> Action () -> Rules ()
@@ -1340,7 +1341,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                               , D.albumArt = Just True
                               , D.yearReleased = D.yearReleased rb3DTA
                               , D.yearRecorded = D.yearRecorded rb3DTA
-                              , D.basePoints = Just 0
+                              , D.basePoints = Just 0 -- TODO why did I put this?
+                              , D.videoVenues = Nothing
                               , D.rating = D.rating rb3DTA
                               , D.subGenre = Just $ "subgenre_" <> rbn1Subgenre fullGenre
                               , D.songId = D.songId rb3DTA

@@ -275,6 +275,7 @@ prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
     forM_ (D.decade pkg) $ inline "decade"
     forM_ (D.downloaded pkg) $ inline "downloaded" . \case True -> "1"; False -> "0"
     forM_ (D.basePoints pkg) $ inline "base_points" . showT
+    forM_ (D.videoVenues pkg) $ inlineRaw "video_venues" . parenthesize . T.unwords
   -- C3 comments
   ln ";DO NOT EDIT THE FOLLOWING LINES MANUALLY"
   forM_ c3dtaCreatedUsing $ \t -> ln $ ";Created using " <> t
