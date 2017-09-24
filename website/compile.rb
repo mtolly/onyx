@@ -136,16 +136,21 @@ def makeDifficulties(parts)
 end
 
 def makeTargetName(target_name, target)
-  if target['game'] == 'rb3'
-    if target['2x-bass-pedal']
-      'Rock Band 3 (2x Bass Pedal)'
-    else
-      'Rock Band 3'
-    end
-  elsif target['game'] == 'ps'
-    'Phase Shift'
-  else
+  pieces = []
+  case target['game']
+  when 'rb3' then pieces << 'Rock Band 3'
+  when 'rb2' then pieces << 'Rock Band 2'
+  when 'ps'  then pieces << 'Phase Shift'
+  end
+  if target['label']
+    pieces << target['label']
+  elsif target['2x-bass-pedal']
+    pieces << '(2x Bass Pedal)'
+  end
+  if pieces.empty?
     target_name
+  else
+    pieces.join(' ')
   end
 end
 

@@ -14,8 +14,9 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200010 Spark (Hiromi: The Trio Project) 2x
   Onyxite's Jazz Pack 1
   v1 (of all except violin CTC) published 2016-09-21
-  v2 Scoop Out published 2017-01-21: added missing double snares; fixed wrong pro keys note
-  v2 of CTC inc. violin TO BE PUBLISHED
+  Scoop Out v2 published 2017-01-21: added missing double snares; fixed wrong pro keys note
+  Keizoku v2 published 2017-09-24: fixed some keys/PK notes; improved sax solo (removed many trills)
+  Celestial Terrestrial Commuters (with Violin versions) v2 published 2017-09-24: first release of violin grybo chart; fix some missing tom movement on drums
 
 1660200011 The Tempest (The Agonist) 1x
 1660200012 The Tempest (The Agonist) 2x
@@ -34,6 +35,7 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200022 Chris & Kevin's Excellent Adventure (Liquid Tension Experiment) 2x
   Taiko + LTE pack
   v1 (of all) published 2016-12-02
+  Another Dimension v2 published 2017-09-24: fixed triplet section fast bits and end of gtr solo
 
 1660200023 Blind Faith (Dream Theater) 1x
 1660200024 Blind Faith (Dream Theater) 2x
@@ -70,6 +72,7 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200044 Barracuda (The Bad Plus)
   Onyxite's Jazz Pack 2
   v1 published 2017-04-07
+  Kung-Fu World Champion v2 published 2017-09-24: drum animations and some drum chart fixes
 
 1660200039 Ripple Star (Jun Ishikawa) 1x
 1660200040 Ripple Star (Jun Ishikawa) 2x

@@ -44,17 +44,14 @@ parts:
 targets:
   # visualizer: http://i.imgur.com/AiebR4s.jpg
   # video: https://www.youtube.com/watch?v=mPiR5lq__fU
-  # 1x: http://www.mediafire.com/file/adodvso1ka8opyi/onyx_AnotherDim1x_fbv1_rb3con
-  # 2x: http://www.mediafire.com/file/undumb6b16i4n0v/onyx_AnotherDim2x_fbv1_rb3con
-  # ps: http://www.mediafire.com/file/24aqxqr2x6xli1r/onyx_AnotherDim_fbv1_ps.zip
   rb3:
     game: rb3
     song-id: 1660200019
-    version: 1
+    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     song-id: 1660200020
-    version: 1
+    version: 2
   ps:
     game: ps

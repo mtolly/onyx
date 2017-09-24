@@ -45,11 +45,9 @@ parts:
       difficulty: 4
 targets:
   # visualizer: http://i.imgur.com/CDtjku3.jpg
-  # download: http://www.mediafire.com/?a592c7cbpp70q5m
-  # download-ps: http://www.mediafire.com/?imehk8darpyu0jw
   rb3:
     game: rb3
     song-id: 1660200003
-    version: 1
+    version: 2
   ps:
     game: ps

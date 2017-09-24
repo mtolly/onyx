@@ -73,7 +73,7 @@ data Audio t a
   | Fade Edge t               (Audio t a)
   | Pad  Edge t               (Audio t a)
   | Resample                  (Audio t a)
-  | Channels [Int]            (Audio t a)
+  | Channels [Maybe Int]      (Audio t a)
   | StretchSimple Double      (Audio t a)
   | StretchFull Double Double (Audio t a)
   | Mask [T.Text] [Seam t] (Audio t a)
@@ -360,7 +360,7 @@ buildSource aud = need (toList aud) >> case aud of
   Resample x -> buildSource x >>= \src -> return $ if rate src == 44100
     then src
     else resampleTo 44100 SincMediumQuality src
-  Channels cs x -> remapChannels (map Just cs) <$> buildSource x
+  Channels cs x -> remapChannels cs <$> buildSource x
   StretchSimple d x -> stretchSimple d <$> buildSource x
   StretchFull t p x -> stretchFull t p <$> buildSource x
   Mask tags seams x -> renderMask tags seams <$> buildSource x

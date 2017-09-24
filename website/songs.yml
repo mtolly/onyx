@@ -8,8 +8,8 @@
 - file-path: ../songs/soil-and-pimp-sessions/keizoku
   video: https://vimeo.com/183597717
   urls:
-    rb3: download/OJP1_Keizoku_v1_rb3con
-    ps: download/OJP1_Keizoku_v1_ps.zip
+    rb3: download/OJP1_Keizoku_v2_rb3con
+    ps: download/OJP1_Keizoku_v2_ps.zip
 - file-path: ../songs/soil-and-pimp-sessions/scoop-out
   video: https://vimeo.com/183598619
   urls:
@@ -28,9 +28,11 @@
 - file-path: ../songs/mahavishnu-orchestra/celestial-terrestrial-commuters
   video: https://www.youtube.com/watch?v=y2T0q89nPG8
   urls:
-    rb3: download/OJP1_Commuters1x_v1_rb3con
-    rb3-2x: download/OJP1_Commuters2x_v1_rb3con
-    ps: download/OJP1_Commuters_v1_ps.zip
+    rb3: download/OJP1_Commuters1x_v2_rb3con
+    rb3-2x: download/OJP1_Commuters2x_v2_rb3con
+    rb3-violin: download/OJP1_CommutersV1x_v2_rb3con
+    rb3-violin-2x: download/OJP1_CommutersV2x_v2_rb3con
+    ps: download/OJP1_Commuters_v2_ps.zip
 - file-path: ../songs-lik/jazz-pack-1/the-nag
   video: https://www.youtube.com/watch?v=6BWOX_VmiVc
   urls:
@@ -70,9 +72,9 @@
 - file-path: ../songs/liquid-tension-experiment/another-dimension
   video: https://www.youtube.com/watch?v=mPiR5lq__fU
   urls:
-    rb3: download/onyx_AnotherDim1x_fbv1_rb3con
-    rb3-2x: download/onyx_AnotherDim2x_fbv1_rb3con
-    ps: download/onyx_AnotherDim_fbv1_ps.zip
+    rb3: download/onyx_AnotherDim1x_v2_rb3con
+    rb3-2x: download/onyx_AnotherDim2x_v2_rb3con
+    ps: download/onyx_AnotherDim_v2_ps.zip
 - file-path: ../songs/liquid-tension-experiment/chris-and-kevins-excellent-adventure
   video: https://www.youtube.com/watch?v=LEbXbnMTBdg
   urls:
@@ -121,8 +123,8 @@
 - file-path: ../songs/hiromi-uehara/kung-fu-world-champion
   video: https://www.youtube.com/watch?v=MkrKJjHL0mA
   urls:
-    rb3: download/OJP2_KungFuWC_v1_rb3con
-    ps: download/OJP2_KungFuWC_v1_ps.zip
+    rb3: download/OJP2_KungFuWC_v2_rb3con
+    ps: download/OJP2_KungFuWC_v2_ps.zip
 - file-path: ../songs/joshua-redman/jazz-crimes
   video: https://www.youtube.com/watch?v=laVwTzD9ud4
   urls:
@@ -211,6 +213,6 @@
     ps: download/itpoe_rc3_ps_fixed.zip
 
 # Bad Salad pack
-- file-path: ../songs/bad-salad/crowded-sky
-- file-path: ../songs/bad-salad/pain-that-binds-us
-- file-path: ../songs/bad-salad/moonlight
+# - file-path: ../songs/bad-salad/crowded-sky
+# - file-path: ../songs/bad-salad/pain-that-binds-us
+# - file-path: ../songs/bad-salad/moonlight

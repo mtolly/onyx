@@ -174,7 +174,7 @@ channelsToSpec pvOut planName pvIn silentChans chans = inside "conforming MOGG c
       mogg = "gen/plan" </> T.unpack planName </> "audio.ogg"
   src <- lift $ buildSource $ case chans of
     [] -> Silence 1 $ Frames 0
-    _  -> Channels chans $ Input mogg
+    _  -> Channels (map Just chans) $ Input mogg
   let zeroIfSilent = if all (`elem` silentChans) chans
         then takeStart (Frames 0)
         else id

@@ -1,9 +1,6 @@
 JAZZ
 ready:
 - ripple star (kirby 64)
-- (update) celestial terrestrial commuters (mahavishnu) with grybo violin
-- (update) keizoku (s&p) fixed wrong keys/pk notes. maybe should also fix sax trills
-- (update) kung fu world champion (hiromi) drum fixes + animations
 at least 2 parts done:
 > what about me (snarky puppy) drums + bass done
 > tank! (seatbelts) saxguitar + vox (lol) done
@@ -33,7 +30,6 @@ planning:
 # one word (mahavishnu) should redo tempos but LIK's chart is good
 
 LTE
-- (update) another dimension: fixed triplet section on gtr/bass
 > rhapsody in blue - drums done, AJF offered to do bass + venue
 > chewbacca - drums done
 > biaxident - drums done
