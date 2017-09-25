@@ -9,6 +9,10 @@ metadata:
   difficulty: 5
   comments:
   - Phase Shift download features tap notes on bass to emulate John Myung's Chapman Stick.
+
+jammit:
+  jammit-track: {}
+
 audio:
   album-track:
     md5: a8a08bbf75f939397f79246983c4bd9c
@@ -16,32 +20,32 @@ audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
   jammit-nodrums:
-    md5: 57e1c62f1aca7839ae074608bb789c31
-    frames: 22257728
+    expr:
+      without: [drums, jammit-track]
   jammit-drums:
-    md5: f9144e74b912dbe5342366f6fcfdf324
-    frames: 22257728
+    expr:
+      only: [Drums, jammit-track]
   jammit-bass:
-    md5: 607b825e743e7c1bec4510ecaf3e1a41
-    frames: 22257728
+    expr:
+      only: [Bass, jammit-track]
   jammit-gtr1:
-    md5: 657a95cc9eaa0b719c781b9886805a18
-    frames: 22257728
+    expr:
+      only: [Guitar 1, jammit-track]
   jammit-gtr2:
-    md5: fb3f978b0b7c5e73e1173a076cc90f41
-    frames: 22257728
+    expr:
+      only: [Guitar 2, jammit-track]
   jammit-keys1:
-    md5: b81ff9a8c274c2b58f80eaa2b9deea68
-    frames: 22257728
+    expr:
+      only: [Keys 1, jammit-track]
   jammit-keys2:
-    md5: 2fb24519cb406703a171d6b0063a36b0
-    frames: 22257728
+    expr:
+      only: [Keys 2, jammit-track]
   jammit-vox1:
-    md5: e33fa50e609f001b4748a36b649ad236
-    frames: 22257728
+    expr:
+      only: [Vocal, jammit-track]
   jammit-vox2:
-    md5: a23a8aed8673e9a5758eaad8891e8e3e
-    frames: 22257728
+    expr:
+      only: [B Vocals, jammit-track]
 
   jammit-vox1-unchanged:
     expr:
@@ -155,6 +159,71 @@ audio:
       - *keys2-mask
       - jammit-keys2
 
+  jammit-game-drums:
+    expr:
+      mix:
+      - jammit-drums
+      - jammit-backing-bells
+  jammit-game-vox:
+    expr:
+      mix:
+      - jammit-vox1-unchanged
+      - gain:
+        - 1.7
+        - jammit-vox1-bumped
+      - jammit-vox2
+  jammit-game-gtr:
+    expr:
+      mix:
+      - jammit-gtr1-used
+      - jammit-gtr2-used
+  jammit-game-keys:
+    expr:
+      mix:
+      - jammit-keys1
+      - jammit-keys2-used
+  jammit-game-song:
+    expr:
+      mask:
+      - [sound]
+      - - center: 0
+          tag: sound
+        - center: '0:33.040'
+          tag: noise
+        - center: '1:39.600'
+          tag: sound
+        - center: '2:38.000'
+          tag: noise
+        - center: '3:37.894'
+          tag: sound
+        - center: '4:14.500'
+          tag: noise
+        - center: '5:17.000'
+          tag: sound
+        - center: '5:49.500'
+          tag: noise
+        - center: '6:11.147'
+          tag: sound
+        - center: '6:31.590'
+          tag: noise
+        - center: '6:44.500'
+          tag: sound
+        - center: '7:13.823'
+          tag: noise
+        - center: '7:20.274'
+          tag: sound
+        - center: '7:22.500'
+          tag: noise
+        - center: '7:59.000'
+          tag: sound
+        - center: '8:13.528'
+          tag: noise
+      - mix:
+        - jammit-backing-unused
+        - jammit-gtr1-unused
+        - jammit-gtr2-unused
+        - jammit-keys2-unused
+
 plans:
   jammit:
     countin:
@@ -165,36 +234,36 @@ plans:
       1|1: hihat
       1|2: hihat
     parts:
-      drums:
-        mix:
-        - jammit-drums
-        - jammit-backing-bells
+      drums: jammit-game-drums
       bass: jammit-bass
+      vocal: jammit-game-vox
+      guitar: jammit-game-gtr
+      keys: jammit-game-keys
+    song: jammit-game-song
+  jammit-wii:
+    countin: *countin
+    parts:
+      drums: jammit-game-drums
+      bass:
+        gain:
+        - 0.707 # sqrt(2) / 2: when mixed to stereo this becomes 0.5 in each channel
+        - mix:
+          - channels: [[0], jammit-bass]
+          - channels: [[1], jammit-bass]
       vocal:
-        mix:
-        - jammit-vox1-unchanged
-        - gain:
-          - 1.7
-          - jammit-vox1-bumped
-        - jammit-vox2
-      guitar:
-        mix:
-        - jammit-gtr1-used
-        - jammit-gtr2-used
-      keys:
-        mix:
-        - jammit-keys1
-        - jammit-keys2-used
-    song:
-      mix:
-      - jammit-backing-unused
-      - jammit-gtr1-unused
-      - jammit-gtr2-unused
-      - jammit-keys2-unused
+        gain:
+        - 0.707
+        - mix:
+          - channels: [[0], jammit-game-vox]
+          - channels: [[1], jammit-game-vox]
+      guitar: jammit-game-gtr
+      keys: jammit-game-keys
+    song: jammit-game-song
   album:
     countin: *countin
     song:
       pad: [2.793, album-track]
+
 parts:
   drums:
     drums:
@@ -215,6 +284,7 @@ parts:
       count: 3
       difficulty: 4
       gender: male
+
 targets:
   rb3:
     game: rb3
@@ -225,6 +295,17 @@ targets:
     game: rb3
     2x-bass-pedal: true
     plan: jammit
+    song-id: 1660200046
+    version: 1
+  rb3-wii:
+    game: rb3
+    plan: jammit-wii
+    song-id: 1660200045
+    version: 1
+  rb3-wii-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: jammit-wii
     song-id: 1660200046
     version: 1
   ps:
