@@ -160,7 +160,7 @@ instance StackChunks SongPackage where
     songScrollSpeed   <- songScrollSpeed   =. req         "song_scroll_speed"   stackChunks
     preview           <- preview           =. req         "preview"             stackChunks
     songLength        <- songLength        =. opt Nothing "song_length"         stackChunks
-    rank              <- rank              =. req         "rank"                stackChunks
+    rank              <- rank              =. req         "rank"                (chunksDict chunkKey stackChunks)
     solo              <- solo              =. opt Nothing "solo"                (chunksMaybe $ chunksParens $ chunksList chunkKey)
     songFormat        <- songFormat        =. req         "format"              stackChunks
     version           <- version           =. req         "version"             stackChunks

@@ -1,5 +1,5 @@
 {- |
-Format a @songs.dta@ so that C3 CON Tools can read it.
+Add the C3 comments into a @songs.dta@ file.
 -}
 {-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
@@ -14,13 +14,13 @@ import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
+import           Data.Char                      (isSpace)
 import qualified Data.DTA                       as D
 import           Data.DTA.Serialize
-import           Data.DTA.Serialize.Magma       (Gender (..))
 import qualified Data.DTA.Serialize.RB3         as D
 import           Data.Foldable                  (forM_)
 import qualified Data.HashMap.Strict            as Map
-import           Data.List                      (sortOn, stripPrefix)
+import           Data.List                      (stripPrefix)
 import           Data.List.HT                   (partitionMaybe)
 import           Data.List.Split                (splitOn)
 import           Data.Maybe                     (fromMaybe, listToMaybe,
@@ -28,6 +28,7 @@ import           Data.Maybe                     (fromMaybe, listToMaybe,
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
+import           JSONData                       (stackShow)
 import           Resources                      (missingSongData)
 import           System.IO.Extra                (latin1, readFileEncoding',
                                                  utf8)
@@ -172,111 +173,9 @@ readDTASingle file = do
 writeDTASingle :: DTASingle -> T.Text
 writeDTASingle (DTASingle x y z) = prettyDTA x y z
 
-prettyDTA :: T.Text -> D.SongPackage -> C3DTAComments -> T.Text
-prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
-  ln "("
-  indent $ do
-    ln $ quote name
-    two "name" $ stringLit $ D.name pkg
-    two "artist" $ stringLit $ D.artist pkg
-    inline "master" $ if D.master pkg then "1" else "0"
-    parens $ do
-      ln $ quote "song"
-      two "name" $ stringLit $ D.songName $ D.song pkg
-      forM_ (D.tracksCount $ D.song pkg) $ \ns -> do
-        two "tracks_count" $ parenthesize $ T.unwords $ map showT ns
-      parens $ do
-        ln $ quote "tracks"
-        parens $ do
-          let trackOrder (k, _) = case k of
-                "drum"   -> Left (0 :: Int)
-                "bass"   -> Left 1
-                "guitar" -> Left 2
-                "vocals" -> Left 3
-                "keys"   -> Left 4
-                _        -> Right k
-          forM_ (sortOn trackOrder $ Map.toList $ D.tracks $ D.song pkg) $ \(k, v) -> do
-            two k $ parenthesize $ T.unwords $ map showT v
-      two "pans" $ parenthesize $ T.unwords $ map showT $ D.pans $ D.song pkg
-      two "vols" $ parenthesize $ T.unwords $ map showT $ D.vols $ D.song pkg
-      two "cores" $ parenthesize $ T.unwords $ map showT $ D.cores $ D.song pkg
-      forM_ (D.crowdChannels $ D.song pkg) $ inline "crowd_channels" . T.unwords . map showT -- C3 unindents this for some reason but whatever
-      forM_ (D.vocalParts $ D.song pkg) $ inline "vocal_parts" . showT
-      parens $ do
-        ln $ quote "drum_solo"
-        two "seqs" $ parenthesize $ T.unwords $ map quote $ D.seqs $ D.drumSolo $ D.song pkg
-      parens $ do
-        ln $ quote "drum_freestyle"
-        two "seqs" $ parenthesize $ T.unwords $ map quote $ D.seqs $ D.drumFreestyle $ D.song pkg
-      forM_ (D.muteVolume       $ D.song pkg) $ inlineRaw "mute_volume"        . showT
-      forM_ (D.muteVolumeVocals $ D.song pkg) $ inlineRaw "mute_volume_vocals" . showT
-      forM_ (D.hopoThreshold    $ D.song pkg) $ inlineRaw "hopo_threshold"     . showT
-      -- rb2
-      forM_ (D.midiFile         $ D.song pkg) $ inline "midi_file" . showT
-    inline "song_scroll_speed" $ showT $ D.songScrollSpeed pkg
-    forM_ (D.bank pkg) $ two "bank" . stringLit
-    forM_ (D.drumBank pkg) $ inlineRaw "drum_bank"
-    inline "anim_tempo" $ case D.animTempo pkg of
-      Left D.KTempoSlow   -> "kTempoSlow"
-      Left D.KTempoMedium -> "kTempoMedium"
-      Left D.KTempoFast   -> "kTempoFast"
-      Right n             -> showT n
-    forM_ (D.songLength pkg) $ inline "song_length" . showT
-    inline "preview" $ case D.preview pkg of (start, end) -> showT start <> " " <> showT end
-    parens $ do
-      ln $ quote "rank"
-      let rankOrder (k, _) = case k of
-            "drum"      -> Left (0 :: Int)
-            "guitar"    -> Left 1
-            "bass"      -> Left 2
-            "vocals"    -> Left 3
-            "keys"      -> Left 4
-            "real_keys" -> Left 5
-            "band"      -> Left 6
-            _           -> Right k
-      forM_ (sortOn rankOrder $ Map.toList $ D.rank pkg) $ \(k, v) -> do
-        inline k $ showT v
-    inline "genre" $ quote $ D.genre pkg
-    forM_ (D.vocalGender pkg) $ inline "vocal_gender" . quote . \case
-      Female -> "female"
-      Male   -> "male"
-    inline "version" $ showT $ D.version pkg
-    inline "format" $ showT $ D.songFormat pkg
-    forM_ (D.fake pkg) $ \b -> inline "fake" $ if b then "1" else "0"
-    forM_ (D.albumArt pkg) $ \b -> inline "album_art" $ if b then "1" else "0"
-    inline "year_released" $ showT $ D.yearReleased pkg
-    forM_ (D.yearRecorded pkg) $ inline "year_recorded" . showT
-    inline "rating" $ showT $ D.rating pkg
-    forM_ (D.subGenre pkg) $ inline "sub_genre" . quote
-    forM_ (D.songId pkg) $ inline "song_id" . either showT id
-    forM_ (D.solo pkg) $ inlineRaw "solo" . parenthesize . T.unwords
-    forM_ (D.tuningOffsetCents pkg) $ inline "tuning_offset_cents" . showT -- TODO: should this be an int?
-    forM_ (D.guidePitchVolume pkg) $ inline "guide_pitch_volume" . showT
-    forM_ (D.gameOrigin pkg) $ inline "game_origin" . quote
-    forM_ (D.ugc pkg) $ inline "ugc" . \case True -> "1"; False -> "0"
-    forM_ (D.encoding pkg) $ inline "encoding" . quote
-    forM_ (D.extraAuthoring pkg) $ inlineRaw "extra_authoring" . T.unwords
-    forM_ (D.alternatePath pkg) $ inline "alternate_path" . \case True -> "1"; False -> "0"
-    forM_ (D.albumName pkg) $ two "album_name" . stringLit
-    forM_ (D.albumTrackNumber pkg) $ inline "album_track_number" . showT
-    forM_ (D.packName pkg) $ two "pack_name" . stringLit
-    forM_ (D.vocalTonicNote pkg) $ inlineRaw "vocal_tonic_note" . showT . fromEnum
-    forM_ (D.songTonality pkg) $ inlineRaw "song_tonality" . \case
-      D.Major -> "0"
-      D.Minor -> "1"
-    -- the following keys, I'm not sure if they need to go in a certain place
-    forM_ (D.songKey pkg) $ inlineRaw "song_key" . showT . fromEnum
-    forM_ (D.bandFailCue pkg) $ inline "band_fail_cue" . showT
-    forM_ (D.shortVersion pkg) $ inline "short_version" . showT
-    forM_ (D.realGuitarTuning pkg) $ inline "real_guitar_tuning" . parenthesize . T.unwords . map showT
-    forM_ (D.realBassTuning pkg) $ inline "real_bass_tuning" . parenthesize . T.unwords . map showT
-    -- rb2 stuff
-    forM_ (D.context pkg) $ inline "context" . showT
-    forM_ (D.decade pkg) $ inline "decade"
-    forM_ (D.downloaded pkg) $ inline "downloaded" . \case True -> "1"; False -> "0"
-    forM_ (D.basePoints pkg) $ inline "base_points" . showT
-    forM_ (D.videoVenues pkg) $ inlineRaw "video_venues" . parenthesize . T.unwords
-  -- C3 comments
+writeC3Comments :: C3DTAComments -> [T.Text]
+writeC3Comments C3DTAComments{..} = execWriter $ do
+  let ln s = tell [s]
   ln ";DO NOT EDIT THE FOLLOWING LINES MANUALLY"
   forM_ c3dtaCreatedUsing $ \t -> ln $ ";Created using " <> t
   forM_ c3dtaAuthoredBy $ \t -> ln $ ";Song authored by " <> t
@@ -290,18 +189,12 @@ prettyDTA name pkg C3DTAComments{..} = T.unlines $ execWriter $ do
   forM_ c3dtaRhythmBass $ \b -> ln $ ";RhythmBass=" <> if b then "1" else "0"
   forM_ c3dtaCATemh $ \b -> ln $ ";CATemh=" <> if b then "1" else "0"
   forM_ c3dtaExpertOnly $ \b -> ln $ ";ExpertOnly=" <> if b then "1" else "0"
-  ln ")"
-  where indent = mapWriter $ \(x, s) -> (x, map ("   " <>) s)
-        parens act = do
-          ln "("
-          () <- indent act
-          ln ")"
-        two k v = parens $ do
-          ln $ quote k
-          ln v
-        ln s = tell [s]
-        quote s = "'" <> s <> "'"
-        inline = inlineRaw . quote
-        inlineRaw k v = ln $ parenthesize $ k <> " " <> v
-        parenthesize s = "(" <> s <> ")"
-        showT = T.pack . show
+
+prettyDTA :: T.Text -> D.SongPackage -> C3DTAComments -> T.Text
+prettyDTA name pkg c3 = let
+  dta = D.DTA 0 $ D.Tree 0 [D.Parens $ D.Tree 0 $ D.Key name : stackShow stackChunks pkg]
+  dtaLines = filter (T.any $ not . isSpace) $ T.lines $ D.showDTA dta
+  c3Lines = writeC3Comments c3
+  in T.unlines $ case reverse dtaLines of
+    ")" : dtaLines' -> reverse dtaLines' ++ c3Lines ++ [")"]
+    _               -> dtaLines ++ c3Lines -- I don't think this works but it shouldn't happen
