@@ -130,7 +130,7 @@ targetTitle songYaml target = let
 
 toValidFileName :: T.Text -> T.Text
 toValidFileName t = let
-  eachChar c = if isAscii c && not (isControl c) && notElem c ['/', '\\', '?']
+  eachChar c = if isAscii c && not (isControl c) && notElem c ("<>:\"/\\|?*" :: String)
     then c
     else '_'
   -- TODO better char filter
