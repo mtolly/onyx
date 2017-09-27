@@ -11,6 +11,16 @@ import qualified Text.PrettyPrint.HughesPJ as PP
 
 ppChunk :: Chunk String -> PP.Doc
 ppChunk c = case c of
+
+  -- c3 hacks
+  Parens (Tree _ [Key "downloaded", Int 1]) -> PP.text "(downloaded TRUE)"
+  Parens (Tree _ [Key "midi_file", String _]) -> rawOneLine c
+  Parens (Tree _ [Key "drum_bank", Key _]) -> rawOneLine c
+  Parens (Tree _ [Key "solo", Parens{}]) -> rawOneLine c
+  Parens (Tree _ [Key "real_guitar_tuning", Parens{}]) -> rawOneLine c
+  Parens (Tree _ [Key "real_bass_tuning", Parens{}]) -> rawOneLine c
+
+  -- normal cases
   Int i -> PP.text $ show i
   Float f -> PP.text $ show f
   Var t -> PP.hcat [PP.char '$', PP.text t]
@@ -29,6 +39,18 @@ ppChunk c = case c of
   Include t -> PP.hsep [PP.text "#include", PP.text t]
   Merge t -> PP.hsep [PP.text "#merge", PP.text t]
   IfNDef t -> PP.hsep [PP.text "#ifndef", PP.text t]
+
+-- | Used for certain attributes that C3 can only parse on one line,
+-- with no single quotes around keywords.
+rawOneLine :: Chunk String -> PP.Doc
+rawOneLine c = case c of
+  Key t -> PP.text t
+  Parens (Tree _ chks) -> PP.parens $ PP.hsep $ map rawOneLine chks
+  Braces (Tree _ chks) -> PP.braces $ PP.hsep $ map rawOneLine chks
+  Brackets (Tree _ chks) -> PP.brackets $ PP.hsep $ map rawOneLine chks
+  _ -> ppChunk c
+  -- TODO might want to add more sanity checks,
+  -- e.g. verify that the keywords can be emitted without quotes
 
 -- | Automatically chooses between horizontal and vertical arrangements,
 -- depending on what kind of chunks are in the tree.
@@ -53,8 +75,6 @@ ppKey = PP.text . f . show where
   f ('\'':xs)   = '\\' : '\'' : f xs
   f ('\\':x:xs) = '\\' : x : f xs
   f (x:xs)      = x : f xs
-
--- TODO: drum_bank in C3 parser might need special handling
 
 ppDTA :: DTA String -> PP.Doc
 ppDTA = PP.vcat . map ppChunk . treeChunks . topTree

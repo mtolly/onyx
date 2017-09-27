@@ -62,26 +62,27 @@ channelList = StackCodec
           fmt' = stackChunks :: ChunksCodec Integer
 
 data Song = Song
+  -- rbn2 keys in c3 magma order:
   { songName         :: T.Text
   , tracksCount      :: Maybe [Integer]
   , tracks           :: Map.HashMap T.Text [Integer]
-  , vocalParts       :: Maybe Integer
   , pans             :: [Float]
   , vols             :: [Float]
   , cores            :: [Integer]
+  , crowdChannels    :: Maybe [Integer]
+  , vocalParts       :: Maybe Integer
   , drumSolo         :: DrumSounds
   , drumFreestyle    :: DrumSounds
-  , crowdChannels    :: Maybe [Integer]
-  , hopoThreshold    :: Maybe Integer
   , muteVolume       :: Maybe Integer
   , muteVolumeVocals :: Maybe Integer
-  -- seen in magma v1 / rb2:
+  , hopoThreshold    :: Maybe Integer
+  -- magma v1 / rb2:
   , midiFile         :: Maybe T.Text
   } deriving (Eq, Show, Read)
 
 instance StackChunks Song where
   stackChunks = asStrictAssoc "Song" $ do
-    songName         <- songName         =. req         "name"               (single chunkStringOrKey)
+    songName         <- songName         =. req         "name"               (single chunkString)
     tracksCount      <- tracksCount      =. opt Nothing "tracks_count"       (chunksMaybe $ chunksParens stackChunks)
     tracks           <- tracks           =. req         "tracks"             (chunksParens $ chunksDict chunkKey channelList)
     vocalParts       <- vocalParts       =. opt Nothing "vocal_parts"        stackChunks
@@ -98,51 +99,52 @@ instance StackChunks Song where
     return Song{..}
 
 data SongPackage = SongPackage
+  -- rbn2 keys in c3 magma order:
   { name              :: T.Text
   , artist            :: T.Text
   , master            :: Bool
-  , songId            :: Maybe (Either Integer T.Text)
   , song              :: Song
+  , songScrollSpeed   :: Integer
   , bank              :: Maybe T.Text
   , drumBank          :: Maybe T.Text
   , animTempo         :: Either AnimTempo Integer
-  , bandFailCue       :: Maybe T.Text
-  , songScrollSpeed   :: Integer
-  , preview           :: (Integer, Integer)
   , songLength        :: Maybe Integer
+  , preview           :: (Integer, Integer)
   , rank              :: Map.HashMap T.Text Integer
-  , solo              :: Maybe [T.Text]
-  , songFormat        :: Integer
-  , version           :: Integer
-  , fake              :: Maybe Bool
-  , gameOrigin        :: Maybe T.Text
-  , ugc               :: Maybe Bool
-  , rating            :: Integer
   , genre             :: T.Text
-  , subGenre          :: Maybe T.Text
   , vocalGender       :: Maybe Gender
-  , shortVersion      :: Maybe Integer
-  , yearReleased      :: Integer
-  , yearRecorded      :: Maybe Integer
+  , version           :: Integer
+  , songFormat        :: Integer
   , albumArt          :: Maybe Bool
+  , yearReleased      :: Integer
+  , rating            :: Integer
+  , subGenre          :: Maybe T.Text
+  , songId            :: Maybe (Either Integer T.Text)
+  , solo              :: Maybe [T.Text]
+  , tuningOffsetCents :: Maybe Float -- can this really be float, or only int? should double check
+  , guidePitchVolume  :: Maybe Float
+  , gameOrigin        :: Maybe T.Text
+  , encoding          :: Maybe T.Text
   , albumName         :: Maybe T.Text
   , albumTrackNumber  :: Maybe Integer
-  , packName          :: Maybe T.Text
   , vocalTonicNote    :: Maybe Pitch
   , songTonality      :: Maybe Tonality
-  , songKey           :: Maybe Pitch
-  , tuningOffsetCents :: Maybe Float
   , realGuitarTuning  :: Maybe [Integer]
   , realBassTuning    :: Maybe [Integer]
-  , guidePitchVolume  :: Maybe Float
-  , encoding          :: Maybe T.Text
-  , extraAuthoring    :: Maybe [T.Text]
-  , alternatePath     :: Maybe Bool
-  -- seen in magma v1 / rb2:
+  -- other keys:
+  , bandFailCue       :: Maybe T.Text
+  , fake              :: Maybe Bool
+  , ugc               :: Maybe Bool
+  , shortVersion      :: Maybe Integer
+  , yearRecorded      :: Maybe Integer
+  , packName          :: Maybe T.Text
+  , songKey           :: Maybe Pitch -- shows in pro gtr/keys trainer I think
+  , extraAuthoring    :: Maybe [T.Text] -- added by rb3 update snippets
   , context           :: Maybe Integer
   , decade            :: Maybe T.Text
   , downloaded        :: Maybe Bool
   , basePoints        :: Maybe Integer
+  , alternatePath     :: Maybe Bool
   , videoVenues       :: Maybe [T.Text] -- lego
   } deriving (Eq, Show, Read)
 
@@ -154,7 +156,7 @@ instance StackChunks SongPackage where
     songId            <- songId            =. opt Nothing "song_id"             (chunksMaybe $ eitherCodec stackChunks $ single chunkKey)
     song              <- song              =. req         "song"                stackChunks
     bank              <- bank              =. opt Nothing "bank"                stackChunks
-    drumBank          <- drumBank          =. opt Nothing "drum_bank"           stackChunks
+    drumBank          <- drumBank          =. opt Nothing "drum_bank"           (chunksMaybe $ single chunkKey) -- this has to be output as a key for C3
     animTempo         <- animTempo         =. req         "anim_tempo"          stackChunks
     bandFailCue       <- bandFailCue       =. opt Nothing "band_fail_cue"       stackChunks
     songScrollSpeed   <- songScrollSpeed   =. req         "song_scroll_speed"   stackChunks

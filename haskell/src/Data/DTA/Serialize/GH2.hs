@@ -26,7 +26,7 @@ data Song = Song
 
 instance StackChunks Song where
   stackChunks = asStrictAssoc "Song" $ do
-    songName <- songName =. req "name"      (single chunkStringOrKey)
+    songName <- songName =. req "name"      (single chunkString)
     tracks   <- tracks   =. req "tracks"    (chunksParens $ chunksDict chunkKey channelList)
     pans     <- pans     =. req "pans"      (chunksParens stackChunks)
     vols     <- vols     =. req "vols"      (chunksParens stackChunks)

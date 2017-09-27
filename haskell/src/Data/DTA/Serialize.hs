@@ -101,30 +101,28 @@ instance StackChunk Bool where
     }
 instance StackChunks Bool
 
+-- | Allows a string or key as input, and outputs to a string.
 chunkString :: ChunkCodec T.Text
 chunkString = StackCodec
   { stackShow = String
   , stackParse = lift ask >>= \case
+    Key    s -> return s
     String s -> return s
     _        -> expected "string"
   }
 
+-- | Allows a string or key as input, and outputs to a key.
 chunkKey :: ChunkCodec T.Text
 chunkKey = StackCodec
   { stackShow = Key
   , stackParse = lift ask >>= \case
-    Key s -> return s
+    Key    s -> return s
+    String s -> return s
     _     -> expected "keyword"
   }
 
-chunkStringOrKey :: ChunkCodec T.Text
-chunkStringOrKey = StackCodec
-  { stackShow  = stackShow  chunkString
-  , stackParse = stackParse chunkString <|> stackParse chunkKey <|> expected "a string or keyword"
-  }
-
 instance StackChunk T.Text where
-  stackChunk = chunkStringOrKey
+  stackChunk = chunkString
 instance StackChunks T.Text
 
 chunksMaybe :: ChunksCodec a -> ChunksCodec (Maybe a)
