@@ -95,7 +95,7 @@ previewBounds syaml song = let
   evalTime = \case
     PreviewSeconds secs -> Just $ secsToMS secs
     PreviewMIDI mb -> Just $ leadIn $ secsToMS $ U.applyTempoMap (s_tempos song) $ U.unapplyMeasureMap (s_signatures song) mb
-    PreviewSection str -> case find $ Events.PracticeSection str of
+    PreviewSection str -> case find [Events.SectionRB3 str, Events.SectionRB2 str] of
       Nothing  -> Nothing
       Just bts -> Just $ leadIn $ secsToMS $ U.applyTempoMap (s_tempos song) bts
   evalTime' pt = fromMaybe (error $ "Couldn't evaluate preview bound: " ++ show pt) $ evalTime pt
@@ -103,7 +103,7 @@ previewBounds syaml song = let
     []    -> max 0 $ quot len 2 - 15000
     t : _ -> min (len - 30000) t
   events = allEvents song
-  find s = fmap (fst . fst) $ RTB.viewL $ RTB.filter (== s) events
+  find evs = fmap (fst . fst) $ RTB.viewL $ RTB.filter (`elem` evs) events
   in case (_previewStart $ _metadata syaml, _previewEnd $ _metadata syaml) of
     (Nothing, Nothing) -> (defStartTime, defStartTime + 30000)
     (Just ps, Just pe) -> (evalTime' ps, evalTime' pe)

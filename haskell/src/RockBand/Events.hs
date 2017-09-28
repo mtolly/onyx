@@ -8,11 +8,11 @@ module RockBand.Events where
 import           Control.Monad                    ((>=>))
 import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
 import           RockBand.Parse
-import           RockBand.Sections                (makeRB3Section)
 
 data Event
   = MusicStart
@@ -25,7 +25,8 @@ data Event
   | CrowdMellow
   | CrowdNoclap
   | CrowdClap
-  | PracticeSection T.Text
+  | SectionRB2 T.Text
+  | SectionRB3 T.Text
   | PracticeKick
   | PracticeSnare
   | PracticeHihat
@@ -44,11 +45,16 @@ instanceMIDIEvent [t| Event |] Nothing
   , commandPair ["crowd_noclap"] [p| CrowdNoclap |]
   , commandPair ["crowd_clap"] [p| CrowdClap |]
   , ( [e| firstEventWhich $ readCommand' >=> \case
-        "section" : ws -> Just $ PracticeSection $ T.unwords ws
-        [s] -> PracticeSection <$> T.stripPrefix "prc_" s
+        "section" : ws -> Just $ SectionRB2 $ T.unwords ws
+        _              -> Nothing
+      |]
+    , [e| \case SectionRB2 s -> RTB.singleton NNC.zero $ showCommand' ["section", s] |]
+    )
+  , ( [e| firstEventWhich $ readCommand' >=> \case
+        [s] -> SectionRB3 <$> T.stripPrefix "prc_" s
         _   -> Nothing
       |]
-    , [e| \case PracticeSection s -> RTB.singleton NNC.zero $ makeRB3Section s |]
+    , [e| \case SectionRB3 s -> RTB.singleton NNC.zero $ showCommand' ["prc_" <> s] |]
     )
   , blip 24 [p| PracticeKick |]
   , blip 25 [p| PracticeSnare |]

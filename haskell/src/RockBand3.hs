@@ -25,6 +25,7 @@ import           RockBand.PhaseShiftMessage       (PSMessage (..), PSWrap (..),
                                                    discardPS, psMessages)
 import qualified RockBand.ProGuitar               as ProGtr
 import qualified RockBand.ProKeys                 as ProKeys
+import           RockBand.Sections                (getSection, makePSSection)
 import qualified RockBand.Vocals                  as RBVox
 import           Scripts
 import qualified Sound.MIDI.Util                  as U
@@ -207,6 +208,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         $ RTB.insert musicEndPosn Events.MusicEnd
         $ RTB.insert endPosn Events.End
         $ RTB.filter untouchedEvent eventsRaw
+      eventsTrackPS = (\e -> maybe e makePSSection $ getSection e) <$> eventsTrack
       drumsPart = either rb3_Drums ps_Drums target
       drumsTrack = case getPart drumsPart songYaml >>= partDrums of
         Nothing -> RTB.empty
@@ -217,8 +219,9 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             then U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
             else id
           sections = flip RTB.mapMaybe eventsRaw $ \case
-            Events.PracticeSection s -> Just s
-            _                        -> Nothing
+            Events.SectionRB3 s -> Just s
+            Events.SectionRB2 s -> Just s
+            _                   -> Nothing
           finish = promarkers . psKicks . drumMix mixMode . drumsComplete mmap sections
           promarkers = if drumsPro pd
             then id
@@ -392,7 +395,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       }
     , RBFile.PSFile
       { RBFile.psBeat = fmap RB beatTrack
-      , RBFile.psEvents = fmap RB eventsTrack
+      , RBFile.psEvents = fmap RB eventsTrackPS
       , RBFile.psVenue = RBFile.onyxVenue trks
       , RBFile.psPartDrums = fmap RB drumsTrack'
       , RBFile.psPartDrums2x = RTB.empty

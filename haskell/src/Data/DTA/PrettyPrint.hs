@@ -44,11 +44,11 @@ ppChunk c = case c of
 -- with no single quotes around keywords.
 rawOneLine :: Chunk String -> PP.Doc
 rawOneLine c = case c of
-  Key t -> PP.text t
-  Parens (Tree _ chks) -> PP.parens $ PP.hsep $ map rawOneLine chks
-  Braces (Tree _ chks) -> PP.braces $ PP.hsep $ map rawOneLine chks
+  Key t                  -> PP.text t
+  Parens (Tree _ chks)   -> PP.parens $ PP.hsep $ map rawOneLine chks
+  Braces (Tree _ chks)   -> PP.braces $ PP.hsep $ map rawOneLine chks
   Brackets (Tree _ chks) -> PP.brackets $ PP.hsep $ map rawOneLine chks
-  _ -> ppChunk c
+  _                      -> ppChunk c
   -- TODO might want to add more sanity checks,
   -- e.g. verify that the keywords can be emitted without quotes
 

@@ -84,7 +84,8 @@ midiRB3toGH2 song target (F.Song tmap mmap onyx) = let
   events = flip RTB.mapMaybe (discardPS $ F.onyxEvents onyx) $ \case
     RBEv.MusicStart -> Just Ev.MusicStart
     RBEv.End -> Just Ev.End
-    RBEv.PracticeSection t -> Just $ Ev.PracticeSection t
+    RBEv.SectionRB3 t -> Just $ Ev.PracticeSection t
+    RBEv.SectionRB2 t -> Just $ Ev.PracticeSection t
     _ -> Nothing
   triggers = flip RTB.mapMaybe (discardPS $ F.onyxEvents onyx) $ \case
     RBEv.PracticeKick -> Just Tr.PracticeKick

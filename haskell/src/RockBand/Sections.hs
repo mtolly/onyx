@@ -1,15 +1,20 @@
 {-# LANGUAGE OverloadedStrings #-}
-module RockBand.Sections where
+module RockBand.Sections
+( makeRBN2Sections
+, makeRB3Section
+, makeRB2Section
+, makePSSection
+, getSection
+) where
 
-import           Control.Monad         (guard)
-import           Data.Char             (isAlphaNum)
-import           Data.List             (sort)
-import           Data.List.HT          (partitionMaybe)
-import           Data.Maybe            (listToMaybe)
-import           Data.Monoid           ((<>))
-import qualified Data.Text             as T
-import           RockBand.Common       (showCommand')
-import qualified Sound.MIDI.File.Event as E
+import           Control.Arrow   (second)
+import           Control.Monad   (guard)
+import           Data.Char       (isAlphaNum, isSpace)
+import           Data.List       (sort)
+import           Data.List.HT    (partitionMaybe)
+import           Data.Maybe      (listToMaybe)
+import qualified Data.Text       as T
+import           RockBand.Events
 
 rbn2Sections :: [(T.Text, T.Text)]
 rbn2Sections =
@@ -2556,20 +2561,6 @@ rbn2Sections =
   , ("ugc_section_5_95", "95%-100%")
   ]
 
-makeRB2Section :: T.Text -> E.T
-makeRB2Section t = showCommand'
-  [ "section"
-  , T.intercalate "_"
-  $ T.words
-  $ T.filter (\c -> isAlphaNum c || c == ' ')
-  $ T.replace "_" " " t
-  ]
-
-makeRB3Section :: T.Text -> E.T
-makeRB3Section t = case findRBN2Section t of
-  Just t' -> showCommand' ["prc_" <> t']
-  Nothing -> makeRB2Section t
-
 findRBN2Section :: T.Text -> Maybe T.Text
 findRBN2Section t = listToMaybe $ do
   let standardize = T.filter isAlphaNum . T.toLower
@@ -2578,7 +2569,8 @@ findRBN2Section t = listToMaybe $ do
   guard $ elem t' [standardize k, standardize v]
   return k
 
-makeRBN2Sections :: (Ord a) => [(a, T.Text)] -> ([(a, T.Text)], [T.Text])
+-- | Returns only Magma v2 @prc@ sections, and a list of discarded strings.
+makeRBN2Sections :: (Ord a) => [(a, T.Text)] -> ([(a, Event)], [T.Text])
 makeRBN2Sections sects = let
   (valid, notValid) = partitionMaybe (mapM findRBN2Section) sects
   used = map snd valid
@@ -2586,4 +2578,36 @@ makeRBN2Sections sects = let
     x <- ['a'..'k']
     y <- ['0'..'9']
     return $ T.pack $ x : [y | y /= '0']
-  in (sort $ valid ++ zip (map fst notValid) replacements, map snd notValid)
+  in (map (second SectionRB3) $ sort $ valid ++ zip (map fst notValid) replacements, map snd notValid)
+
+underscoreForm :: T.Text -> T.Text
+underscoreForm
+  = T.intercalate "_"
+  . T.words
+  . T.filter (\c -> isAlphaNum c || isSpace c)
+  . T.replace "_" " "
+
+printForm :: T.Text -> T.Text
+printForm
+  = T.replace "_" " "
+  -- TODO do we want to capitalize each word?
+
+makeRB3Section :: T.Text -> Event
+makeRB3Section t = case findRBN2Section t of
+  Nothing -> SectionRB2 $ underscoreForm t
+  Just s  -> SectionRB3 s
+
+makeRB2Section :: T.Text -> Event
+makeRB2Section t = SectionRB2 $ case findRBN2Section t of
+  Nothing -> underscoreForm t
+  Just s  -> s -- dunno if the list is actually different for RB2
+
+makePSSection :: T.Text -> Event
+makePSSection t = SectionRB2 $ case findRBN2Section t >>= (`lookup` rbn2Sections) of
+  Nothing -> printForm t
+  Just s  -> printForm s
+
+getSection :: Event -> Maybe T.Text
+getSection (SectionRB3 s) = Just s
+getSection (SectionRB2 s) = Just s
+getSection _              = Nothing

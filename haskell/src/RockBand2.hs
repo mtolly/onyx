@@ -86,8 +86,9 @@ convertMIDI mid = mid
       Vox.RangeShift{} -> False
       _ -> True
     , F.rb2Events = flip RTB.filter (F.rb3Events $ F.s_tracks mid) $ \case
-      Events.PracticeSection _ -> False
-      _                        -> True
+      Events.SectionRB3 _ -> False
+      Events.SectionRB2 _ -> False
+      _                   -> True
     , F.rb2Beat = F.rb3Beat $ F.s_tracks mid
     , F.rb2Venue = convertVenue endPosn $ F.rb3Venue $ F.s_tracks mid
     }

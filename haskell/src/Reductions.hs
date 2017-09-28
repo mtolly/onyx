@@ -18,12 +18,12 @@ import           ProKeysRanges                    (completeRanges)
 import           RockBand.Common                  (Difficulty (..), Key (..),
                                                    LongNote (..), joinEdges)
 import qualified RockBand.Drums                   as Drums
-import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
 import           RockBand.FiveButton              (StrumHOPO (..))
 import qualified RockBand.FiveButton              as Five
 import           RockBand.PhaseShiftMessage       (discardPS, withRB)
 import qualified RockBand.ProKeys                 as PK
+import           RockBand.Sections                (getSection)
 import           Scripts                          (trackGlue)
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
@@ -523,7 +523,6 @@ simpleReduce fin fout = do
   RBFile.Song tempos mmap onyx <- liftIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
   let sections = let
         evts = discardPS $ RBFile.onyxEvents onyx
-        getSection = \case Events.PracticeSection s -> Just s; _ -> Nothing
         in RTB.mapMaybe getSection evts
   liftIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap onyx
     { RBFile.onyxFlexParts = flip fmap (RBFile.onyxFlexParts onyx) $ \trks -> let
