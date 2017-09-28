@@ -40,9 +40,13 @@ main = do
     page Components
     page Directory
     page InstFiles
+    -- hack to run onyx without admin privilege so drag and drop works
+    event "LaunchApplication" $ do
+      exec "\"$WINDIR/explorer.exe\" \"$INSTDIR/onyx.exe\""
+    unsafeInjectGlobal "!define MUI_FINISHPAGE_RUN_FUNCTION LaunchApplication"
     page $ Finish finishOptions
-      { finRun = "$INSTDIR/onyx.exe"
-      , finRunText = "Run Onyx"
+      { finRunText = "Run Onyx"
+      , finRun = " " -- should be empty this works I guess
       }
 
     unpage Confirm
