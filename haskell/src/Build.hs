@@ -11,6 +11,7 @@ import           AudioSearch
 import qualified C3
 import qualified Codec.Archive.Zip                     as Zip
 import           Codec.Picture
+import qualified Codec.Picture.STBIR                   as STBIR
 import           Config                                hiding (Difficulty)
 import qualified Control.Exception                     as Exc
 import           Control.Monad.Extra
@@ -693,8 +694,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
                   Right dyn -> return $ convertRGB8 dyn
             Nothing -> return onyxAlbum
-      "gen/cover.bmp" %> \out -> loadRGB8 >>= liftIO . writeBitmap out . scaleSTBIR 256 256
-      "gen/cover.png" %> \out -> loadRGB8 >>= liftIO . writePng    out . scaleSTBIR 256 256
+      "gen/cover.bmp" %> \out -> loadRGB8 >>= liftIO . writeBitmap out . STBIR.resize STBIR.defaultOptions 256 256
+      "gen/cover.png" %> \out -> loadRGB8 >>= liftIO . writePng    out . STBIR.resize STBIR.defaultOptions 256 256
       "gen/cover.png_xbox" %> \out -> case _fileAlbumArt $ _metadata songYaml of
         Just f | takeExtension f == ".png_xbox" -> copyFile' f out
         _      -> loadRGB8 >>= liftIO . BL.writeFile out . toPNG_XBOX

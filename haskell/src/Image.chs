@@ -1,34 +1,20 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Image (scaleSTBIR, toDDS, toPNG_XBOX, readPNGXbox) where
+module Image (toDDS, toPNG_XBOX, readPNGXbox) where
 
 import           Codec.Picture
+import qualified Codec.Picture.STBIR        as STBIR
 import           Control.Monad              (forM_, replicateM)
 import           Control.Monad.Trans.Writer (execWriter, tell)
 import           Data.Binary.Get
 import           Data.Bits                  (shiftL, shiftR, testBit, (.&.))
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Lazy       as BL
-import qualified Data.Vector.Storable       as V
 import           Data.Word                  (Word16, Word8)
 import           Foreign
 import           Foreign.C
 import           System.IO.Unsafe           (unsafePerformIO)
 
-#include "stb_image_resize.h"
 #include "stb_dxt.h"
-
-{#fun stbir_resize_uint8
-  { id `Ptr CUChar'
-  , `CInt'
-  , `CInt'
-  , `CInt'
-  , id `Ptr CUChar'
-  , `CInt'
-  , `CInt'
-  , `CInt'
-  , `CInt'
-  } -> `CInt'
-#}
 
 {#fun stb_compress_dxt_block
   { id `Ptr CUChar'
@@ -57,27 +43,6 @@ compressDXTBlock img = unsafePerformIO $ do
         2 -- high quality
       B.packCStringLen (cast3 dst, 8)
 
-scaleSTBIR
-  :: Int -> Int -> Image PixelRGB8 -> Image PixelRGB8
-scaleSTBIR w' h' (Image w h v) = unsafePerformIO $ do
-  V.unsafeWith v $ \p -> do
-    let parts = 3 :: Int
-    fp <- mallocForeignPtrBytes $ w' * h' * parts
-    let cast = castPtr :: Ptr Word8 -> Ptr CUChar
-    res <- withForeignPtr fp $ \p' -> stbir_resize_uint8
-      (cast p)
-      (fromIntegral w)
-      (fromIntegral h)
-      0
-      (cast p')
-      (fromIntegral w')
-      (fromIntegral h')
-      0
-      (fromIntegral parts)
-    if res == 0
-      then error "stbir_resize_uint8 returned error"
-      else return $ Image w' h' $ V.unsafeFromForeignPtr0 fp $ w' * h' * parts
-
 bits5to8 :: Word16 -> Word8
 bits5to8 w = fromIntegral $ shiftL w' 3 + shiftR w' 2
   where w' = w .&. 0x1F
@@ -100,7 +65,7 @@ mixProportions f0 f1 = mixWith $ \_ p0 p1 ->
 contentDXT1 :: Image PixelRGB8 -> BL.ByteString
 contentDXT1 img_ = execWriter $ do
   forM_ [256, 128, 64, 32, 16, 8, 4] $ \size -> do
-    let img = scaleSTBIR size size img_
+    let img = STBIR.resize STBIR.defaultOptions size size img_
     forM_ [0, 4 .. size - 4] $ \y ->
       forM_ [0, 4 .. size - 4] $ \x -> do
         let chunk = generateImage (\cx cy -> pixelAt img (x + cx) (y + cy)) 4 4

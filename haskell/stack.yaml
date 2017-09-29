@@ -6,6 +6,10 @@ packages:
     git: git://github.com/mtolly/midi
     commit: fb36e91cbeaf3501342cb9c010ccb15647f7c3c2
   extra-dep: true
+- location:
+    git: git://github.com/mtolly/JuicyPixels-stbir
+    commit: e24ba31b928b96bac7979619292173e952801026
+  extra-dep: true
 # following 2 are for windows SDL_MAIN fix
 - location:
     git: git://github.com/haskell-game/sdl2
