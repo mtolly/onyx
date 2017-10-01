@@ -1,5 +1,7 @@
 packages:
 - '.'
+- location: ArkTool/
+  extra-dep: true
 - location: XboxInternals/
   extra-dep: true
 - location:
