@@ -9,7 +9,8 @@ license:              GPL-3
 license-file:         ../LICENSE.txt
 
 extra-source-files:
-  cbits/*.h
+  cbits/ArkTool_v6.1/*.h
+  cbits/ArkTool_v6.1/xyssl/*.h
 
 library
   hs-source-dirs: src
