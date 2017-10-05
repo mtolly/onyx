@@ -10,7 +10,7 @@ packages:
   extra-dep: true
 - location:
     git: git://github.com/mtolly/JuicyPixels-stbir
-    commit: e24ba31b928b96bac7979619292173e952801026
+    commit: 5fe4d64d07d28f34d70cd1fc6ccaf634e33f467f
   extra-dep: true
 # following 2 are for windows SDL_MAIN fix
 - location:
