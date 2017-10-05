@@ -292,7 +292,7 @@ instance StackJSON Countin where
     }
 
 -- | Parses any of \"measure|beats\", \"seconds\", or \"minutes:seconds\".
-parseCountinTime :: (Monad m) => StackParser m T.Text (Either U.MeasureBeats U.Seconds)
+parseCountinTime :: (SendMessage m) => StackParser m T.Text (Either U.MeasureBeats U.Seconds)
 parseCountinTime = do
   t <- lift ask
   inside ("Countin timestamp " ++ show t)
@@ -538,7 +538,7 @@ instance (StackJSON t) => StackJSON (Seam t) where
       ]
     }
 
-parseMinutes :: (Monad m) => StackParser m A.Value Scientific
+parseMinutes :: (SendMessage m) => StackParser m A.Value Scientific
 parseMinutes = lift ask >>= \case
   A.String minstr
     | (minutes@(_:_), ':' : secstr) <- span isDigit $ T.unpack minstr
@@ -881,7 +881,7 @@ data TargetRB3 = TargetRB3
   , rb3_Vocal       :: FlexPartName
   } deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
-parseTargetRB3 :: (Monad m) => ObjectCodec m A.Value TargetRB3
+parseTargetRB3 :: (SendMessage m) => ObjectCodec m A.Value TargetRB3
 parseTargetRB3 = do
   rb3_Speed       <- rb3_Speed       =. opt Nothing    "speed"         stackJSON
   rb3_Plan        <- rb3_Plan        =. opt Nothing    "plan"          stackJSON
@@ -915,7 +915,7 @@ data TargetRB2 = TargetRB2
   , rb2_Vocal       :: FlexPartName
   } deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
-parseTargetRB2 :: (Monad m) => ObjectCodec m A.Value TargetRB2
+parseTargetRB2 :: (SendMessage m) => ObjectCodec m A.Value TargetRB2
 parseTargetRB2 = do
   rb2_Speed       <- rb2_Speed       =. opt Nothing    "speed"         stackJSON
   rb2_Plan        <- rb2_Plan        =. opt Nothing    "plan"          stackJSON
@@ -949,7 +949,7 @@ data TargetPS = TargetPS
   , ps_GuitarCoop :: FlexPartName
   } deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
-parseTargetPS :: (Monad m) => ObjectCodec m A.Value TargetPS
+parseTargetPS :: (SendMessage m) => ObjectCodec m A.Value TargetPS
 parseTargetPS = do
   ps_Speed      <- ps_Speed      =. opt Nothing                   "speed"       stackJSON
   ps_Plan       <- ps_Plan       =. opt Nothing                   "plan"        stackJSON
@@ -1006,7 +1006,7 @@ instance StackJSON GH2.Quickplay where
     , stackShow = const A.Null
     } -- TODO actual parser
 
-parseTargetGH2 :: (Monad m) => ObjectCodec m A.Value TargetGH2
+parseTargetGH2 :: (SendMessage m) => ObjectCodec m A.Value TargetGH2
 parseTargetGH2 = do
   gh2_Plan      <- gh2_Plan      =. opt Nothing              "plan"      stackJSON
   gh2_Guitar    <- gh2_Guitar    =. opt FlexGuitar           "guitar"    stackJSON
@@ -1032,7 +1032,7 @@ data Target
   | GH2 TargetGH2
   deriving (Eq, Ord, Show, Read, Generic, Hashable)
 
-addKey :: (forall m. (Monad m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
+addKey :: (forall m. (SendMessage m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
 addKey codec k v x = A.Object $ Map.insert k v $ Map.fromList $ makeObject codec x
 
 instance StackJSON Target where

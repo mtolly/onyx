@@ -123,7 +123,7 @@ applyUpdate original update = let
   in newSong : (untouched ++ otherUpdate)
 
 -- | Returns @(short song name, DTA file contents, is UTF8)@
-readRB3DTA :: (MonadIO m) => FilePath -> StackTraceT m (T.Text, D.SongPackage, Bool)
+readRB3DTA :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (T.Text, D.SongPackage, Bool)
 readRB3DTA dtaPath = do
   -- Not sure what encoding it is, try both.
   let readSongWith rdr = do
@@ -143,7 +143,7 @@ readRB3DTA dtaPath = do
     Nothing -> return (k_l1, l1, False)
     Just enc -> fatal $ dtaPath ++ " specifies an unrecognized encoding: " ++ T.unpack enc
 
-readDTASingle :: (MonadIO m) => FilePath -> StackTraceT m DTASingle
+readDTASingle :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m DTASingle
 readDTASingle file = do
   (topKey, pkg, isUTF8) <- readRB3DTA file
   -- C3 puts extra info in DTA comments
