@@ -1,0 +1,22 @@
+metadata:
+  title: Perennial Quest
+  artist: Death
+  author: AJFOne, Onyxite
+parts:
+  drums:
+    drums:
+      difficulty: 7
+  guitar:
+    grybo: {}
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+audio:
+  track:
+    file-path: audio.wav
+plans:
+  album:
+    song: track
