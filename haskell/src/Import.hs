@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
-module Import (importFoF, importRBA, importSTFSDir, importSTFS, simpleRBAtoCON, HasKicks(..)) where
+module Import (importFoF, importRBA, importSTFSDir, importSTFS, importMagma, simpleRBAtoCON, HasKicks(..)) where
 
 import           Audio
 import qualified C3
@@ -754,12 +754,14 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       ]
     }
 
--- | TODO
-importMagma :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
+importMagma :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m HasKicks
 importMagma fin dir = do
 
   let oldDir = takeDirectory fin
   RBProj.RBProj rbproj <- stackIO (D.readFileDTA fin) >>= D.unserialize D.stackChunks
+
+  let mid = T.unpack (RBProj.midiFile $ RBProj.midi rbproj)
+  stackIO $ Dir.copyFile (oldDir </> mid) (dir </> "notes.mid")
 
   c3 <- do
     let pathC3 = fin -<.> "c3"
@@ -784,8 +786,7 @@ importMagma fin dir = do
   let getTrack s f = let
         aud = f $ RBProj.tracks rbproj
         in if RBProj.audioEnabled aud
-          then return Nothing
-          else do
+          then do
             let src = oldDir </> T.unpack (RBProj.audioFile aud)
                 dst = s -<.> takeExtension src
             stackIO $ Dir.copyFile src (dir </> dst)
@@ -806,6 +807,7 @@ importMagma fin dir = do
                   }
                 )
               )
+          else return Nothing
   drums <- getTrack "drums" RBProj.drumKit
   kick <- getTrack "kick" RBProj.drumKick
   snare <- getTrack "snare" RBProj.drumSnare
@@ -1016,6 +1018,8 @@ importMagma fin dir = do
         })
       ]
     }
+
+  return $ if is2x then Has2x else Has1x
 
 extractLeftKicks
   :: RTB.T U.Beats RBDrums.Event

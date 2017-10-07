@@ -10,6 +10,7 @@ import           Control.Applicative            (liftA3)
 import           Control.Monad                  (forM, forM_)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
+import           Data.Char                      (isSpace)
 import qualified Data.HashMap.Strict            as HM
 import           Data.Maybe                     (catMaybes)
 import           Data.Monoid                    ((<>))
@@ -79,6 +80,7 @@ data C3 = C3
 readC3 :: (SendMessage m) => T.Text -> StackTraceT m C3
 readC3 txt = inside "Reading .c3 file" $ do
   kvpairs <- fmap (HM.fromList . catMaybes) $ forM (T.lines txt) $ \ln -> if
+    | T.all isSpace ln         -> return Nothing
     | "//" `T.isPrefixOf` ln   -> return Nothing
     | ln == "TO DO List Begin" -> return Nothing
     | ln == "TO DO List End"   -> return Nothing

@@ -38,9 +38,7 @@ import           Data.Text.Encoding             (decodeUtf16BE)
 import qualified Data.Text.IO                   as T
 import           Data.Word                      (Word32)
 import qualified Data.Yaml                      as Y
-import           Import                         (HasKicks (..), importFoF,
-                                                 importRBA, importSTFS,
-                                                 importSTFSDir, simpleRBAtoCON)
+import           Import
 import           Magma                          (getRBAFile, oggToMogg,
                                                  runMagma, runMagmaMIDI,
                                                  runMagmaV1)
@@ -491,7 +489,6 @@ commands =
     , commandDesc = "Import a file into onyx's project format."
     , commandUsage = ""
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
-      FileRBProj -> undone
       FileSTFS -> do
         out <- outputFile opts $ return $ fpath ++ "_import"
         stackIO $ Dir.createDirectoryIfMissing False out
@@ -516,6 +513,11 @@ commands =
         stackIO $ Dir.createDirectoryIfMissing False out
         void $ importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) out
         return [out]
+      FileRBProj -> do
+        out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
+        stackIO $ Dir.createDirectoryIfMissing False out
+        void $ importMagma fpath out
+        return [out]
       _ -> unrecognized ftype fpath
     }
 
@@ -531,11 +533,11 @@ commands =
     , commandRun = \files opts -> tempDir "onyx_magma" $ \tmp -> do
       (ftype, fpath) <- optionalFile files
       hasKicks <- case ftype of
-        FileSTFS -> importSTFS fpath Nothing tmp
-        FileRBA  -> importRBA fpath Nothing tmp
-        FilePS   -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
-        FileZip  -> undone
-        _        -> unrecognized ftype fpath
+        FileSTFS   -> importSTFS fpath Nothing tmp
+        FileRBA    -> importRBA fpath Nothing tmp
+        FilePS     -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
+        FileRBProj -> importMagma (takeDirectory fpath) tmp -- why would you do this
+        _          -> unrecognized ftype fpath
       let specified1x = listToMaybe [ f | OptTo f <- opts ]
           specified2x = listToMaybe [ f | Opt2x f <- opts ]
           target1x = makeTarget False
@@ -603,11 +605,11 @@ commands =
           return [out]
         else do
           hasKicks <- case ftype of
-            FileSTFS -> importSTFS fpath Nothing tmp
-            FileRBA  -> importRBA fpath Nothing tmp
-            FilePS   -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
-            FileZip  -> undone
-            _        -> unrecognized ftype fpath
+            FileSTFS   -> importSTFS fpath Nothing tmp
+            FileRBA    -> importRBA fpath Nothing tmp
+            FilePS     -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
+            FileRBProj -> importMagma (takeDirectory fpath) tmp
+            _          -> unrecognized ftype fpath
           let (gtr, bass)
                 | elem OptKeysOnGuitar opts = (RBFile.FlexKeys  , RBFile.FlexBass)
                 | elem OptKeysOnBass   opts = (RBFile.FlexGuitar, RBFile.FlexKeys)
