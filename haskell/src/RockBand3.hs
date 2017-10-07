@@ -36,7 +36,7 @@ processRB3
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio
   -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
-  -> StackTraceT Action (RBFile.Song (RBFile.RB3File U.Beats))
+  -> StackTraceT (QueueLog Action) (RBFile.Song (RBFile.RB3File U.Beats))
 processRB3 a b c d e = do
   res <- processMIDI (Left a) b c d e
   magmaLegalTempos $ fmap fst res
@@ -47,7 +47,7 @@ processRB3Pad
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio
   -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
-  -> StackTraceT Action (RBFile.Song (RBFile.RB3File U.Beats), Int)
+  -> StackTraceT (QueueLog Action) (RBFile.Song (RBFile.RB3File U.Beats), Int)
 processRB3Pad a b c d e = do
   res <- processMIDI (Left a) b c d e
   magmaLegalTempos (fmap fst res) >>= magmaPad
@@ -58,7 +58,7 @@ processPS
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio
   -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
-  -> StackTraceT Action (RBFile.Song (RBFile.PSFile U.Beats))
+  -> StackTraceT (QueueLog Action) (RBFile.Song (RBFile.PSFile U.Beats))
 processPS a b c d e = fmap (fmap snd) $ processMIDI (Right a) b c d e
 
 applyOpenNotes
@@ -127,7 +127,7 @@ processMIDI
   -> RBFile.Song (RBFile.OnyxFile U.Beats)
   -> RBDrums.Audio
   -> Action U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
-  -> StackTraceT Action (RBFile.Song (RBFile.RB3File U.Beats, RBFile.PSFile U.Beats))
+  -> StackTraceT (QueueLog Action) (RBFile.Song (RBFile.RB3File U.Beats, RBFile.PSFile U.Beats))
 processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudioLength = inside "Processing MIDI for RB3/PS" $ do
   let showPosition = RBFile.showPosition . U.applyMeasureMap mmap
       eventsRaw = discardPS $ RBFile.onyxEvents trks
@@ -137,7 +137,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
   endPosn' <- case [ t | (t, Events.End) <- eventsList ] of
     t : _ -> return t
     [] -> do
-      audLen <- U.unapplyTempoMap tempos <$> lift getAudioLength
+      audLen <- U.unapplyTempoMap tempos <$> lift (lift getAudioLength)
       let absTimes = ATB.getTimes . RTB.toAbsoluteEventList 0
           lastMIDIEvent = foldr max 0
             $ concatMap absTimes (RBFile.s_tracks $ RBFile.showMIDITracks input)
@@ -437,7 +437,7 @@ if a measure has a >300bpm tempo:
 - bump up the denominator of the measure's time signature by 2, so e.g. 5/4 becomes 5/8
 finally, make new default BEAT track if we changed anything
 -}
-magmaLegalTempos :: (Monad m) => RBFile.Song (RBFile.RB3File U.Beats) -> StackTraceT m (RBFile.Song (RBFile.RB3File U.Beats))
+magmaLegalTempos :: (SendMessage m) => RBFile.Song (RBFile.RB3File U.Beats) -> StackTraceT m (RBFile.Song (RBFile.RB3File U.Beats))
 magmaLegalTempos rb3 = do
   let allTempos = U.tempoMapToBPS $ RBFile.s_tempos rb3
       allSigs = U.measureMapToTimeSigs $ RBFile.s_signatures rb3
@@ -541,7 +541,7 @@ magmaLegalTempos rb3 = do
           }
 
 magmaPad
-  :: (Monad m)
+  :: (SendMessage m)
   => RBFile.Song (RBFile.RB3File U.Beats)
   -> StackTraceT m (RBFile.Song (RBFile.RB3File U.Beats), Int)
 magmaPad rb3@(RBFile.Song tmap _ trks) = let

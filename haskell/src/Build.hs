@@ -46,7 +46,7 @@ import qualified Data.Set                              as Set
 import           Data.String                           (IsString, fromString)
 import qualified Data.Text                             as T
 import qualified Data.Text.IO                          as TIO
-import           Development.Shake                     hiding (phony)
+import           Development.Shake                     hiding (phony, (%>))
 import qualified Development.Shake                     as Shake
 import           Development.Shake.FilePath
 import           Difficulty
@@ -338,9 +338,6 @@ makeRB3DTA songYaml plan rb3 song filename = do
     , D.basePoints = Nothing
     , D.videoVenues = Nothing
     }
-
-phony :: FilePath -> Action () -> Rules ()
-phony fp act = Shake.phony fp act >> Shake.phony (fp ++ "/") act
 
 -- TODO use parts from target
 printOverdrive :: FilePath -> StackTraceT Action ()

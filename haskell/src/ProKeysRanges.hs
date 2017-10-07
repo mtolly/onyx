@@ -20,7 +20,7 @@ import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           WebPlayer                        (showTimestamp)
 
-completeFile :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
+completeFile :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 completeFile fin fout = do
   RBFile.Song tempos mmap trks <- liftIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
   liftIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap trks

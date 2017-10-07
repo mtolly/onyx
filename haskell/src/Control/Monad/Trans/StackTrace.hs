@@ -22,8 +22,9 @@ module Control.Monad.Trans.StackTrace
 , stackCatchIO
 , stackShowException
 , stackIO
+, shakeEmbed
 , shakeTrace
-, (≡>)
+, (%>), phony
 ) where
 
 import           Control.Applicative
@@ -34,11 +35,11 @@ import           Control.Monad.Except         (MonadError (..))
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
-import           Control.Monad.Trans.Resource (allocate, runResourceT)
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Writer
 import           Control.Monad.Trans.State (StateT)
 import Data.Functor.Identity (Identity)
+import Control.Concurrent (forkIO)
 import qualified Data.ByteString.Char8        as B8
 import           Data.Data
 import qualified Development.Shake            as Shake
@@ -91,14 +92,14 @@ runPureLog = runWriter . fromPureLog
 withPureLog :: (SendMessage m, Monad n) => (n a -> m a) -> StackTraceT (PureLog n) a -> StackTraceT m a
 withPureLog = undefined
 
-newtype QueueLog m a = QueueLog { fromQueueLog :: ReaderT (TChan (MessageLevel, Message)) m a }
+newtype QueueLog m a = QueueLog { fromQueueLog :: ReaderT ((MessageLevel, Message) -> IO ()) m a }
   deriving (Functor, Applicative, Monad, MonadIO, Alternative, MonadPlus)
 
 instance MonadTrans QueueLog where
   lift = QueueLog . lift
 
 instance (MonadIO m) => SendMessage (QueueLog m) where
-  sendMessage lvl msg = QueueLog $ ask >>= \q -> liftIO $ atomically $ writeTChan q (lvl, msg)
+  sendMessage lvl msg = QueueLog $ ask >>= liftIO . ($ (lvl, msg))
 
 liftMessage :: (MonadTrans t, SendMessage m) => MessageLevel -> Message -> t m ()
 liftMessage lvl msg = lift $ sendMessage lvl msg
@@ -165,12 +166,17 @@ mapStackTraceT
   -> StackTraceT m a -> StackTraceT n b
 mapStackTraceT f (StackTraceT st) = StackTraceT $ mapExceptT (mapReaderT f) st
 
-tempDir :: (MonadIO m) => String -> (FilePath -> StackTraceT IO a) -> StackTraceT m a
-tempDir template cb = mapStackTraceT liftIO $ StackTraceT $ runResourceT $ do
-  tmp <- liftIO Dir.getTemporaryDirectory
+tempDir :: (MonadIO m) => String -> (FilePath -> StackTraceT m a) -> StackTraceT m a
+tempDir template cb = do
+  tmp <- stackIO Dir.getTemporaryDirectory
+  dir <- stackIO $ createTempDirectory tmp template
   let ignoringIOErrors ioe = ioe `Exc.catch` (\e -> const (return ()) (e :: IOError))
-  (_, dir) <- allocate (createTempDirectory tmp template) (ignoringIOErrors . Dir.removeDirectoryRecursive)
-  lift $ fromStackTraceT $ cb dir
+      cleanup = stackIO $ ignoringIOErrors $ Dir.removeDirectoryRecursive dir
+  res <- cb dir `catchError` \msgs -> do
+    cleanup
+    throwError msgs
+  cleanup
+  return res
 
 stackProcess :: (MonadIO m) => CreateProcess -> StackTraceT m String
 stackProcess cp = mapStackTraceT liftIO $ do
@@ -198,6 +204,19 @@ stackShowException = fatal . Exc.displayException
 stackIO :: (MonadIO m) => IO a -> StackTraceT m a
 stackIO = stackCatchIO $ stackShowException . (id :: IOError -> IOError)
 
+stackEmbed :: (SendMessage m, MonadIO m) => StackTraceT (QueueLog IO) a -> StackTraceT m a
+stackEmbed st = do
+  q <- liftIO $ atomically newTChan
+  let writeResult = atomically . writeTChan q . Right
+      writeMsg    = atomically . writeTChan q . Left
+  _ <- stackIO $ forkIO $ do
+    res <- runStackTraceT $ mapStackTraceT ((`runReaderT` writeMsg) . fromQueueLog) st
+    writeResult res
+  let go = stackIO (atomically $ readTChan q) >>= \case
+        Left (lvl, msg) -> sendMessage' lvl msg >> go
+        Right res -> either throwError return res
+  go
+
 shakeEmbed :: (SendMessage m, MonadIO m) => Shake.ShakeOptions -> QueueLog Shake.Rules () -> StackTraceT m ()
 shakeEmbed opts rules = do
   let handleShakeErr se = let
@@ -206,35 +225,22 @@ shakeEmbed opts rules = do
           Nothing   -> stackShowException exc
           Just msgs -> throwError msgs
         in go (Shake.shakeExceptionStack se) (Shake.shakeExceptionInner se)
-  withQueueLog' (stackCatchIO handleShakeErr . Shake.shake opts) rules
+  stackEmbed $ do
+    writeMsg <- lift $ QueueLog ask
+    stackCatchIO handleShakeErr $ Shake.shake opts $ runReaderT (fromQueueLog rules) writeMsg
 
-withQueueLog' :: (MonadIO m, SendMessage n, MonadIO n) =>
-  (m a -> StackTraceT n b) -> QueueLog m a -> StackTraceT n b
-withQueueLog' lifter act = do
-  q <- liftIO $ atomically newTChan
-  -- TODO fork off new thread to start processing messages
-  x <- lifter $ runReaderT (fromQueueLog act) q
-  -- TODO cancel the forked thread, process rest of queue
-  return x
-
-withQueueLog :: (MonadIO m, SendMessage n, MonadIO n) =>
-  (StackTraceT m a -> StackTraceT n b) -> StackTraceT (QueueLog m) a -> StackTraceT n b
-withQueueLog lifter act = do
-  q <- liftIO $ atomically newTChan
-  -- TODO fork off new thread to start processing messages
-  x <- lifter $ mapStackTraceT ((`runReaderT` q) . fromQueueLog) act
-  -- TODO cancel the forked thread, process rest of queue
-  return x
-
-actionWarn :: Message -> Shake.Action ()
-actionWarn msg = Shake.putNormal $ "Warning: " ++ Exc.displayException msg
-
-shakeTrace :: StackTraceT Shake.Action a -> Shake.Action a
+shakeTrace :: StackTraceT (QueueLog Shake.Action) a -> QueueLog Shake.Action a
 shakeTrace stk = runStackTraceT stk >>= \res -> do
   case res of
     Right x  -> return x
     Left err -> liftIO $ Exc.throwIO err
 
-(≡>) :: Shake.FilePattern -> (FilePath -> StackTraceT Shake.Action ()) -> Shake.Rules ()
-pat ≡> f = pat Shake.%> shakeTrace . f
-infix 1 ≡>
+(%>) :: Shake.FilePattern -> (FilePath -> StackTraceT (QueueLog Shake.Action) ()) -> QueueLog Shake.Rules ()
+pat %> f = QueueLog $ ReaderT $ \q -> pat Shake.%> (`runReaderT` q) . fromQueueLog . shakeTrace . f
+infix 1 %>
+
+phony :: FilePath -> StackTraceT (QueueLog Shake.Action) () -> QueueLog Shake.Rules ()
+phony s act = QueueLog $ ReaderT $ \q -> do
+  let act' = runReaderT (fromQueueLog $ shakeTrace act) q
+  Shake.phony s act'
+  Shake.phony (s ++ "/") act'

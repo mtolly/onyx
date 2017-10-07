@@ -66,8 +66,8 @@ addZero x rtb = case U.trackSplitZero rtb of
 loadMIDI :: (SendMessage m, MonadIO m, MIDIFileFormat f) => FilePath -> StackTraceT m (Song (f U.Beats))
 loadMIDI fp = liftIO (Load.fromFile fp) >>= readMIDIFile'
 
-shakeMIDI :: (MIDIFileFormat f) => FilePath -> StackTraceT Action (Song (f U.Beats))
-shakeMIDI fp = lift (need [fp]) >> loadMIDI fp
+shakeMIDI :: (MIDIFileFormat f) => FilePath -> StackTraceT (QueueLog Action) (Song (f U.Beats))
+shakeMIDI fp = lift (lift $ need [fp]) >> loadMIDI fp
 
 loadTemposIO :: FilePath -> IO U.TempoMap
 loadTemposIO fp = do
