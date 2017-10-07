@@ -13,7 +13,7 @@ import           Audio
 import           Config
 import           Control.Concurrent.MVar        (MVar, modifyMVar_, newMVar,
                                                  putMVar, takeMVar)
-import           Control.Monad                  (join, unless)
+import           Control.Monad                  (forM_, join, unless)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString.Lazy           as BL
@@ -29,7 +29,7 @@ import qualified Data.Text                      as T
 import           Path
 import           Path.IO
 import qualified Sound.Jammit.Base              as J
-import           System.Process                 (callCommand)
+import           System.Process                 (shell)
 
 newtype AudioLibrary = AudioLibrary (MVar AudioState)
 
@@ -203,7 +203,7 @@ searchMOGG = searchCommon SearchMOGG audioMOGGs
 searchJammit :: (MonadIO m) => AudioLibrary -> (T.Text, T.Text, Instrument) -> StackTraceT m (Path Abs Dir)
 searchJammit = searchCommon SearchJammit audioJammit
 
-searchInfo :: (MonadIO m) =>
+searchInfo :: (SendMessage m, MonadIO m) =>
   AudioLibrary -> AudioInfo -> StackTraceT m (Audio Duration FilePath)
 searchInfo lib ainfo@AudioInfo{..} = let
   finishFile p = do
@@ -222,7 +222,9 @@ searchInfo lib ainfo@AudioInfo{..} = let
         False -> case _commands of
           [] -> fatal $ "File does not exist: " ++ toFilePath p
           _ -> do
-            stackIO $ mapM_ (callCommand . T.unpack) _commands
+            forM_ _commands $ \c -> do
+              out <- stackProcess $ shell $ T.unpack c
+              lg $ "# " ++ T.unpack c ++ "\n" ++ out
             doesFileExist p >>= \case
               True -> return ()
               False -> fatal $ "File does not exist after running commands: " ++ toFilePath p

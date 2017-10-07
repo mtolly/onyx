@@ -47,7 +47,6 @@ import qualified Data.Text                             as T
 import qualified Data.Text.IO                          as TIO
 import           Development.Shake                     hiding (phony, (%>),
                                                         (&%>))
-import qualified Development.Shake                     as Shake
 import           Development.Shake.FilePath
 import           Difficulty
 import           DryVox                                (clipDryVox,
@@ -645,14 +644,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
 
     shakeEmbed shakeOptions{ shakeThreads = 0, shakeFiles = "gen", shakeVersion = version } $ do
 
-      forM_ (HM.elems $ _audio songYaml) $ \case
-        AudioFile AudioInfo{ _filePath = Just fp, _commands = cmds } | not $ null cmds -> do
-          normaliseEx fp %> \_ -> shk $ mapM_ (Shake.unit . Shake.cmd . T.unpack) cmds
-        _ -> return ()
-
       phony "yaml"  $ lg $ show songYaml
       phony "audio" $ lg $ show audioDirs
-      phony "clean" $ shk $ cmd ("rm -rf gen" :: String)
 
       -- Find and convert all Jammit audio into the work directory
       let jammitAudioParts = map J.Only    [minBound .. maxBound]
