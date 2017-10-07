@@ -313,8 +313,8 @@ commands =
               5  -> False -- v1
               _  -> True -- need to do more testing
         if isMagmaV2
-          then runMagma   rbprojPath out >>= stackIO . putStrLn
-          else runMagmaV1 rbprojPath out >>= stackIO . putStrLn
+          then runMagma   rbprojPath out >>= lg
+          else runMagmaV1 rbprojPath out >>= lg
         -- TODO: handle CON conversion
         return [out]
       (ftype, fpath) -> unrecognized ftype fpath
@@ -480,7 +480,7 @@ commands =
               5  -> False -- v1
               _  -> True -- need to do more testing
         tempDir "onyx_check" $ \tmp -> if isMagmaV2
-          then runMagmaMIDI rbprojPath (tmp </> "out.mid") >>= stackIO . putStrLn
+          then runMagmaMIDI rbprojPath (tmp </> "out.mid") >>= lg
           else undone
         return []
       (ftype, fpath) -> unrecognized ftype fpath
@@ -672,7 +672,7 @@ commands =
       , "onyx hanging notes.mid"
       ]
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> do
-      let withMIDI mid = stackIO (Load.fromFile mid) >>= RBFile.readMIDIFile' >>= stackIO . putStrLn . closeShiftsFile
+      let withMIDI mid = stackIO (Load.fromFile mid) >>= RBFile.readMIDIFile' >>= lg . closeShiftsFile
       case ftype of
         FileSongYaml -> do
           audioDirs <- getAudioDirs fpath
@@ -799,7 +799,7 @@ commands =
         res <- stackIO $ MS.toStandardMIDI <$> Load.fromFile mid
         case res of
           Left  err -> fatal err
-          Right sm  -> stackIO $ putStrLn $ MS.showStandardMIDI (midiOptions opts) sm
+          Right sm  -> lg $ MS.showStandardMIDI (midiOptions opts) sm
         return []
       _ -> fatal $ "onyx midi-text-git expected 1 argument, given " <> show (length files)
     }
@@ -866,7 +866,7 @@ commands =
 commandLine :: (SendMessage m, MonadIO m) => [String] -> StackTraceT m [FilePath]
 commandLine args = let
   (opts, nonopts, errors) = getOpt Permute optDescrs args
-  printIntro = stackIO $ mapM_ T.putStrLn
+  printIntro = lg $ T.unpack $ T.unlines
     [ "Onyx Music Game Toolkit"
     , ""
     , "Usage: onyx [command] [files] [options]"
@@ -882,7 +882,7 @@ commandLine args = let
       cmd : nonopts' -> case [ c | c <- commands, commandWord c == T.pack cmd ] of
         [c] -> inside ("command: onyx " <> cmd) $ if elem OptHelp opts
           then do
-            stackIO $ mapM_ T.putStrLn
+            lg $ T.unpack $ T.unlines
               [ "onyx " <> commandWord c
               , commandDesc c
               , ""

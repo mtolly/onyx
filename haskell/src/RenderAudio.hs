@@ -24,15 +24,14 @@ import           Control.Monad                  (forM_, join)
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Resource   (MonadResource)
-import           Control.Monad.Trans.StackTrace (StackTraceT, Staction, fatal,
-                                                 inside)
+import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
+                                                 Staction, fatal, inside, lg)
 import           Data.Char                      (toLower)
 import           Data.Conduit.Audio
 import           Data.Foldable                  (toList)
 import qualified Data.HashMap.Strict            as HM
 import           Data.Maybe                     (fromMaybe, listToMaybe)
 import qualified Data.Text                      as T
-import           Development.Shake
 import           Development.Shake.FilePath
 import qualified RockBand.Drums                 as RBDrums
 import           RockBand.File                  (FlexPartName)
@@ -96,12 +95,12 @@ jammitPath name (J.Without inst)
   = "gen/jammit" </> T.unpack name </> "without" </> map toLower (show inst) <.> "wav"
 
 -- | Looking up single audio files and Jammit parts in the work directory
-manualLeaf :: (MonadIO m) => AudioLibrary -> SongYaml -> AudioInput -> StackTraceT m (Audio Duration FilePath)
+manualLeaf :: (SendMessage m, MonadIO m) => AudioLibrary -> SongYaml -> AudioInput -> StackTraceT m (Audio Duration FilePath)
 manualLeaf alib songYaml (Named name) = case HM.lookup name $ _audio songYaml of
   Just audioQuery -> case audioQuery of
     AudioFile ainfo -> inside ("Looking for the audio file named " ++ show name) $ do
       aud <- searchInfo alib ainfo
-      liftIO $ putStrLn $ "Found audio file " ++ show name ++ " at: " ++ show (toList aud)
+      lg $ "Found audio file " ++ show name ++ " at: " ++ show (toList aud)
       return aud
     AudioSnippet expr -> join <$> mapM (manualLeaf alib songYaml) expr
   Nothing -> fail $ "Couldn't find an audio source named " ++ show name

@@ -104,7 +104,7 @@ modifySelect f = modify $ \(GUIState m pms sel) -> GUIState m pms $ f sel
 commandLine' :: (SendMessage m, MonadIO m) => [String] -> StackTraceT m [FilePath]
 commandLine' args = do
   let args' = flip map args $ \arg -> if ' ' `elem` arg then "\"" ++ arg ++ "\"" else arg
-  stackIO $ mapM_ putStrLn
+  lg $ unlines
     [ ""
     , ">>> Command: " ++ unwords args'
     , ""

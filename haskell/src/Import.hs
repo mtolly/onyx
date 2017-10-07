@@ -598,7 +598,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
         warn "Couldn't decrypt MOGG to scan for empty channels."
         return []
       Right ()   -> emptyChannels ogg
-  stackIO $ putStrLn $ "Detected the following channels as silent: " ++ show silentChannels
+  lg $ "Detected the following channels as silent: " ++ show silentChannels
 
   drumEvents <- if isRB2
     then toList . RBFile.rb2PartDrums . RBFile.s_tracks <$> loadMIDI mid

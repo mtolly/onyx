@@ -31,9 +31,7 @@ main = do
             inside "checking if Wine is installed" $ checkShell "wine --version"
             inside "checking if Mono is installed" $ checkShell "mono --version"
         files <- commandLine argv
-        unless (null files) $ stackIO $ do
-          putStrLn "Done! Created files:"
-          mapM_ putStrLn files
+        unless (null files) $ lg $ unlines $ "Done! Created files:" : files
       case res of
         Right () -> return ()
         Left msgs -> do

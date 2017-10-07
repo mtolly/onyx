@@ -8,13 +8,12 @@ module Control.Monad.Trans.StackTrace
 , PureLog(..), runPureLog, withPureLog
 , QueueLog(..)
 , StackTraceT(..)
-, warn, warnMessage, sendMessage'
+, warn, warnMessage, sendMessage', lg
 , errorToWarning, errorToEither
 , fatal
 , MonadError(..)
 , inside
 , runStackTraceT
-, printWarning
 , liftMaybe
 , mapStackTraceT
 , tempDir, withDir
@@ -48,7 +47,6 @@ import           Data.Functor.Identity        (Identity)
 import qualified Development.Shake            as Shake
 import qualified System.Directory             as Dir
 import           System.Exit                  (ExitCode (..))
-import           System.IO
 import           System.IO.Temp               (createTempDirectory)
 import           System.Process               (CreateProcess)
 import           System.Process.ByteString    (readCreateProcessWithExitCode)
@@ -127,6 +125,9 @@ sendMessage' lvl (Message s ctx) = StackTraceT $ lift $ do
   upper <- ask
   lift $ sendMessage lvl $ Message s $ ctx ++ upper
 
+lg :: (SendMessage m) => String -> StackTraceT m ()
+lg s = sendMessage' MessageLog $ Message s []
+
 errorToWarning :: (SendMessage m) => StackTraceT m a -> StackTraceT m (Maybe a)
 errorToWarning p = errorToEither p >>= \case
   Left (Messages msgs) -> mapM_ warnMessage msgs >> return Nothing
@@ -152,9 +153,6 @@ inside s (StackTraceT (ExceptT rdr)) = StackTraceT $ ExceptT $ local (s :) rdr
 
 runStackTraceT :: (Monad m) => StackTraceT m a -> m (Either Messages a)
 runStackTraceT (StackTraceT ex) = runReaderT (runExceptT ex) []
-
-printWarning :: (MonadIO m) => Message -> m ()
-printWarning msg = liftIO $ hPutStr stderr $ "Warning: " ++ Exc.displayException msg
 
 liftMaybe :: (Monad m, Show a) => (a -> m (Maybe b)) -> a -> StackTraceT m b
 liftMaybe f x = lift (f x) >>= \case
