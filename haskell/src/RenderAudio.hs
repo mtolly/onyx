@@ -24,7 +24,8 @@ import           Control.Monad                  (forM_, join)
 import           Control.Monad.IO.Class         (MonadIO)
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Resource   (MonadResource)
-import           Control.Monad.Trans.StackTrace (StackTraceT, fatal, inside)
+import           Control.Monad.Trans.StackTrace (StackTraceT, Staction, fatal,
+                                                 inside)
 import           Data.Char                      (toLower)
 import           Data.Conduit.Audio
 import           Data.Foldable                  (toList)
@@ -168,11 +169,11 @@ channelsToSpec
   -> [(Double, Double)]
   -> [Int]
   -> [Int]
-  -> StackTraceT Action (AudioSource m Float)
+  -> Staction (AudioSource m Float)
 channelsToSpec pvOut planName pvIn silentChans chans = inside "conforming MOGG channels to output spec" $ do
   let partPVIn = map (pvIn !!) chans
       mogg = "gen/plan" </> T.unpack planName </> "audio.ogg"
-  src <- lift $ buildSource $ case chans of
+  src <- lift $ lift $ buildSource $ case chans of
     [] -> Silence 1 $ Frames 0
     _  -> Channels (map Just chans) $ Input mogg
   let zeroIfSilent = if all (`elem` silentChans) chans
@@ -186,12 +187,12 @@ buildAudioToSpec
   -> SongYaml
   -> [(Double, Double)]
   -> Maybe (PlanAudio Duration AudioInput)
-  -> StackTraceT Action (AudioSource m Float)
+  -> Staction (AudioSource m Float)
 buildAudioToSpec alib songYaml pvOut mpa = inside "conforming audio file to output spec" $ do
   (expr, pans, vols) <- completePlanAudio songYaml $ case mpa of
     Nothing -> PlanAudio (Silence 1 $ Frames 0) [] []
     Just pa -> pa
-  src <- mapM (manualLeaf alib songYaml) expr >>= lift . buildSource . join
+  src <- mapM (manualLeaf alib songYaml) expr >>= lift . lift . buildSource . join
   fitToSpec (zip pans vols) pvOut src
 
 buildPartAudioToSpec
@@ -200,7 +201,7 @@ buildPartAudioToSpec
   -> SongYaml
   -> [(Double, Double)]
   -> Maybe (PartAudio (PlanAudio Duration AudioInput))
-  -> StackTraceT Action (AudioSource m Float)
+  -> Staction (AudioSource m Float)
 buildPartAudioToSpec alib songYaml specPV = \case
   Nothing -> buildAudioToSpec alib songYaml specPV Nothing
   Just (PartSingle pa) -> buildAudioToSpec alib songYaml specPV $ Just pa

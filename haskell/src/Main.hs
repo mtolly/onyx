@@ -6,14 +6,14 @@ import           Control.Exception              (displayException)
 import           Control.Monad                  (unless)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
-import           GUI                            (launchGUI)
+import           GUI                            (launchGUI, logStdout)
 import           System.Environment             (getArgs)
 import           System.Exit
 import           System.Info                    (os)
 import           System.IO                      (hPutStr, hPutStrLn, stderr)
 import           System.Process
 
-checkShell :: (MonadIO m) => String -> StackTraceT m ()
+checkShell :: (SendMessage m, MonadIO m) => String -> StackTraceT m ()
 checkShell s = liftIO (readCreateProcessWithExitCode (shell s) "") >>= \case
   (ExitSuccess  , _, _) -> return ()
   (ExitFailure _, _, _) -> warn "An external program was not found on your PATH."
@@ -24,7 +24,7 @@ main = do
   case argv of
     [] -> launchGUI
     _  -> do
-      (res, Messages warns) <- runStackTraceT $ do
+      res <- logStdout $ do
         case os of
           "mingw32" -> return ()
           _ -> do
@@ -34,7 +34,6 @@ main = do
         unless (null files) $ stackIO $ do
           putStrLn "Done! Created files:"
           mapM_ putStrLn files
-      mapM_ printWarning warns
       case res of
         Right () -> return ()
         Left msgs -> do

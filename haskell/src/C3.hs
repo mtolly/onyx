@@ -76,7 +76,7 @@ data C3 = C3
   , toDoList           :: [(T.Text, Bool, Bool)] -- ^ to do item, is required, is completed
   } deriving (Eq, Ord, Show, Read)
 
-readC3 :: (Monad m) => T.Text -> StackTraceT m C3
+readC3 :: (SendMessage m) => T.Text -> StackTraceT m C3
 readC3 txt = inside "Reading .c3 file" $ do
   kvpairs <- fmap (HM.fromList . catMaybes) $ forM (T.lines txt) $ \ln -> if
     | "//" `T.isPrefixOf` ln   -> return Nothing

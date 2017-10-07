@@ -63,11 +63,11 @@ addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
 addZero x rtb = case U.trackSplitZero rtb of
   (zero, rest) -> U.trackGlueZero (zero ++ [x]) rest
 
-loadMIDI :: (MonadIO m, MIDIFileFormat f) => FilePath -> StackTraceT m (Song (f U.Beats))
+loadMIDI :: (SendMessage m, MonadIO m, MIDIFileFormat f) => FilePath -> StackTraceT m (Song (f U.Beats))
 loadMIDI fp = liftIO (Load.fromFile fp) >>= readMIDIFile'
 
-shakeMIDI :: (MIDIFileFormat f) => FilePath -> StackTraceT Action (Song (f U.Beats))
-shakeMIDI fp = lift (need [fp]) >> loadMIDI fp
+shakeMIDI :: (MIDIFileFormat f) => FilePath -> StackTraceT (QueueLog Action) (Song (f U.Beats))
+shakeMIDI fp = lift (lift $ need [fp]) >> loadMIDI fp
 
 loadTemposIO :: FilePath -> IO U.TempoMap
 loadTemposIO fp = do

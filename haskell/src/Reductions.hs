@@ -518,7 +518,7 @@ drumsReduce diff   mmap od sections trk = let
       in foldr f keptAll sectionBounds
   in ensureODNotes od trk $ RTB.flatten $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ Map.toAscList sectioned
 
-simpleReduce :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
+simpleReduce :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleReduce fin fout = do
   RBFile.Song tempos mmap onyx <- liftIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
   let sections = let

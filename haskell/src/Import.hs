@@ -94,7 +94,7 @@ fixDoubleSwells ps = let
     , RBFile.psPartRealDrumsPS = withRB fixTrack $ RBFile.psPartRealDrumsPS ps
     }
 
-importFoF :: (MonadIO m) => Bool -> FilePath -> FilePath -> StackTraceT m HasKicks
+importFoF :: (SendMessage m, MonadIO m) => Bool -> FilePath -> FilePath -> StackTraceT m HasKicks
 importFoF detectBasicDrums src dest = do
   song <- FoF.loadSong $ src </> "song.ini"
 
@@ -347,7 +347,7 @@ determine2xBass s = case T.stripSuffix " (2x Bass Pedal)" s <|> T.stripSuffix " 
 data HasKicks = Has1x | Has2x | HasBoth
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-importSTFSDir :: (MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
+importSTFSDir :: (SendMessage m, MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
 importSTFSDir temp mtemp2x dir = do
   DTASingle top pkg comments <- readDTASingle $ temp </> "songs/songs.dta"
   updateDir <- stackIO rb3Updates
@@ -394,7 +394,7 @@ importSTFSDir temp mtemp2x dir = do
       let base2x = T.unpack $ D.songName $ D.song pkg2x
       with2xPath $ Just (pkg2x, temp2x </> base2x <.> "mid")
 
-importSTFS :: (MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
+importSTFS :: (SendMessage m, MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
 importSTFS file file2x dir = tempDir "onyx_con" $ \temp -> do
   stackIO $ extractSTFS file temp
   let with2xPath mtemp2x = importSTFSDir temp mtemp2x dir
@@ -405,7 +405,7 @@ importSTFS file file2x dir = tempDir "onyx_con" $ \temp -> do
       with2xPath $ Just temp2x
 
 -- | Converts a Magma v2 RBA to CON without going through an import + recompile.
-simpleRBAtoCON :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
+simpleRBAtoCON :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ show con) $ do
   tempDir "onyx_rba2con" $ \temp -> do
     md5 <- stackIO $ BL.readFile rba >>= evaluate . MD5.md5
@@ -462,7 +462,7 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
     let label = D.name pkg <> " (" <> D.artist pkg <> ")"
     rb3pkg label label temp con
 
-importRBA :: (MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
+importRBA :: (SendMessage m, MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
 importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
   getRBAFile 0 file $ temp </> "songs.dta"
   getRBAFile 1 file $ temp </> "notes.mid"
@@ -499,7 +499,7 @@ importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
   return hasKicks
 
 -- | Collects the contents of an RBA or CON file into an Onyx project.
-importRB3 :: (MonadIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKicks -> FilePath -> Maybe FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> Maybe (FilePath, FilePath) -> FilePath -> StackTraceT m ()
+importRB3 :: (SendMessage m, MonadIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKicks -> FilePath -> Maybe FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> Maybe (FilePath, FilePath) -> FilePath -> StackTraceT m ()
 importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover dir = do
   stackIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
 
@@ -755,7 +755,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
     }
 
 -- | TODO
-importMagma :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
+importMagma :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 importMagma fin dir = do
 
   let oldDir = takeDirectory fin

@@ -30,7 +30,7 @@ single cdc = StackCodec
     _   -> expected "a single chunk"
   }
 
-unserialize :: (Monad m) => ChunksCodec a -> DTA T.Text -> StackTraceT m a
+unserialize :: (SendMessage m) => ChunksCodec a -> DTA T.Text -> StackTraceT m a
 unserialize cf (DTA _ (Tree _ cs)) = mapStackTraceT (`runReaderT` cs) (stackParse cf)
 
 serialize :: ChunksCodec a -> a -> DTA T.Text
@@ -198,7 +198,7 @@ dtaEnum err f = let
       Just x  -> return x
     }
 
-asAssoc :: T.Text -> (forall m. (Monad m) => ObjectCodec m [Chunk T.Text] a) -> ChunksCodec a
+asAssoc :: T.Text -> (forall m. (SendMessage m) => ObjectCodec m [Chunk T.Text] a) -> ChunksCodec a
 asAssoc err codec = StackCodec
   { stackParse = inside ("parsing " ++ T.unpack err) $ do
     obj <- stackParse cdc
@@ -207,8 +207,8 @@ asAssoc err codec = StackCodec
   , stackShow = stackShow cdc . DictList . makeObject codec
   } where cdc = chunksDictList chunkKey identityCodec
 
-asStrictAssoc :: T.Text -> (forall m. (Monad m) => ObjectCodec m [Chunk T.Text] a) -> ChunksCodec a
+asStrictAssoc :: T.Text -> (forall m. (SendMessage m) => ObjectCodec m [Chunk T.Text] a) -> ChunksCodec a
 asStrictAssoc err codec = asAssoc err Codec
-  { codecOut = codecOut ((id :: ObjectCodec Identity v a -> ObjectCodec Identity v a) codec)
+  { codecOut = codecOut ((id :: ObjectCodec (PureLog Identity) v a -> ObjectCodec (PureLog Identity) v a) codec)
   , codecIn = codecIn codec <* strictKeys
   }

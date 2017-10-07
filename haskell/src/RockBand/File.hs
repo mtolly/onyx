@@ -55,10 +55,10 @@ data Song t = Song
   } deriving (Eq, Show, Functor, Foldable, Traversable)
 
 class MIDIFileFormat f where
-  readMIDITracks :: (Monad m) => Song [RTB.T U.Beats E.T] -> StackTraceT m (Song (f U.Beats))
+  readMIDITracks :: (SendMessage m) => Song [RTB.T U.Beats E.T] -> StackTraceT m (Song (f U.Beats))
   showMIDITracks :: Song (f U.Beats) -> Song [RTB.T U.Beats E.T]
 
-parseTracks :: (MIDIEvent a, Ord a, Monad m) =>
+parseTracks :: (MIDIEvent a, Ord a, SendMessage m) =>
   U.MeasureMap -> [RTB.T U.Beats E.T] -> [String] -> StackTraceT m (RTB.T U.Beats a)
 parseTracks mmap trks names = do
   let merged = foldr RTB.merge RTB.empty $ flip filter trks $ \trk -> case U.trackName trk of
@@ -66,7 +66,7 @@ parseTracks mmap trks names = do
         Just name -> elem name names
   inside ("MIDI tracks named " ++ show names) $ makeTrackParser parseOne mmap merged
 
-knownTracks :: (Monad m) => [RTB.T U.Beats E.T] -> [String] -> StackTraceT m ()
+knownTracks :: (SendMessage m) => [RTB.T U.Beats E.T] -> [String] -> StackTraceT m ()
 knownTracks trks names = forM_ (zip ([1..] :: [Int]) trks) $ \(i, trk) -> do
   inside ("MIDI track #" ++ show i ++ " (0 is tempo track)") $ case U.trackName trk of
     Nothing   -> warn "track with no name"
@@ -515,7 +515,7 @@ fixEventOrder = RTB.flatten . fmap (sortOn f) . RTB.collectCoincident
           Just (p, False) -> (1       , negate p, x)
           Just (p, True ) -> (2       , negate p, x)
 
-readMIDIFile' :: (Monad m, MIDIFileFormat f) => F.T -> StackTraceT m (Song (f U.Beats))
+readMIDIFile' :: (SendMessage m, MIDIFileFormat f) => F.T -> StackTraceT m (Song (f U.Beats))
 readMIDIFile' mid = case U.decodeFile mid of
   Right _ -> fatal "SMPTE tracks not supported"
   Left trks -> let
@@ -536,7 +536,7 @@ stripTrack = RTB.filter $ \e -> case e of
   E.MetaEvent (Meta.TrackName _        ) -> False
   _                                      -> True
 
-makeTrackParser :: (Monad m, Ord a) =>
+makeTrackParser :: (SendMessage m, Ord a) =>
   ParseOne U.Beats E.T a -> U.MeasureMap -> RTB.T U.Beats E.T -> StackTraceT m (RTB.T U.Beats a)
 makeTrackParser p mmap trk = do
   let (good, bad) = parseAll p $ stripTrack trk
