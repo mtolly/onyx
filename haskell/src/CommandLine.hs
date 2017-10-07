@@ -77,12 +77,12 @@ import           Data.List                      (isPrefixOf)
 import           System.MountPoints
 #endif
 
-loadDTA :: (D.StackChunks a, MonadIO m) => FilePath -> StackTraceT m a
+loadDTA :: (SendMessage m, D.StackChunks a, MonadIO m) => FilePath -> StackTraceT m a
 loadDTA f = inside f $
   stackIO (T.readFile f) >>= scanStack >>= parseStack >>= D.unserialize D.stackChunks
   -- TODO I don't think this handles utf8/latin1 properly
 
-getInfoForSTFS :: (MonadIO m) => FilePath -> FilePath -> StackTraceT m (T.Text, T.Text)
+getInfoForSTFS :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m (T.Text, T.Text)
 getInfoForSTFS dir stfs = do
   let dta = dir </> "songs/songs.dta"
   ex <- stackIO $ Dir.doesFileExist dta
@@ -143,7 +143,7 @@ readConfig = do
 
 data Command = Command
   { commandWord  :: T.Text
-  , commandRun   :: forall m. (MonadIO m) => [FilePath] -> [OnyxOption] -> StackTraceT m [FilePath]
+  , commandRun   :: forall m. (SendMessage m, MonadIO m) => [FilePath] -> [OnyxOption] -> StackTraceT m [FilePath]
   , commandDesc  :: T.Text
   , commandUsage :: T.Text
   }
@@ -235,7 +235,7 @@ outputFile opts dft = case [ to | OptTo to <- opts ] of
   []     -> dft
   to : _ -> return to
 
-buildTarget :: (MonadIO m) => FilePath -> [OnyxOption] -> StackTraceT m (Target, FilePath)
+buildTarget :: (SendMessage m, MonadIO m) => FilePath -> [OnyxOption] -> StackTraceT m (Target, FilePath)
 buildTarget yamlPath opts = do
   songYaml <- loadYaml yamlPath
   targetName <- case [ t | OptTarget t <- opts ] of
@@ -253,7 +253,7 @@ buildTarget yamlPath opts = do
   shakeBuildFiles audioDirs yamlPath [built]
   return (target, takeDirectory yamlPath </> built)
 
-getPlanName :: (MonadIO m) => FilePath -> [OnyxOption] -> StackTraceT m T.Text
+getPlanName :: (SendMessage m, MonadIO m) => FilePath -> [OnyxOption] -> StackTraceT m T.Text
 getPlanName yamlPath opts = case [ p | OptPlan p <- opts ] of
   p : _ -> return p
   []    -> do
@@ -262,7 +262,7 @@ getPlanName yamlPath opts = case [ p | OptPlan p <- opts ] of
       [p]   -> return p
       plans -> fatal $ "No --plan given, and YAML file doesn't have exactly 1 plan: " <> show plans
 
-getInputMIDI :: (MonadIO m) => [FilePath] -> StackTraceT m FilePath
+getInputMIDI :: (SendMessage m, MonadIO m) => [FilePath] -> StackTraceT m FilePath
 getInputMIDI files = optionalFile files >>= \case
   (FileSongYaml, yamlPath) -> return $ takeDirectory yamlPath </> "notes.mid"
   (FileRBProj, rbprojPath) -> do
@@ -863,7 +863,7 @@ commands =
 
   ]
 
-commandLine :: (MonadIO m) => [String] -> StackTraceT m [FilePath]
+commandLine :: (SendMessage m, MonadIO m) => [String] -> StackTraceT m [FilePath]
 commandLine args = let
   (opts, nonopts, errors) = getOpt Permute optDescrs args
   printIntro = stackIO $ mapM_ T.putStrLn

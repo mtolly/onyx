@@ -7,7 +7,7 @@
 {-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE RecordWildCards          #-}
 {-# LANGUAGE TupleSections            #-}
-module GUI (launchGUI) where
+module GUI (launchGUI, logStdout) where
 
 import           CommandLine                    (commandLine)
 import           Control.Concurrent             (ThreadId, forkIO, killThread,
@@ -17,8 +17,8 @@ import           Control.Exception              (bracket, bracket_,
                                                  displayException)
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class         (MonadIO (..))
-import           Control.Monad.Trans.StackTrace (Messages (..), StackTraceT,
-                                                 runStackTraceT, stackIO)
+import           Control.Monad.Trans.Reader     (runReaderT)
+import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
 import qualified Data.ByteString                as B
 import           Data.ByteString.Unsafe         (unsafeUseAsCStringLen)
@@ -64,7 +64,7 @@ data Selection
 data Menu
   = Choices [Choice (Onyx ())]
   | Files FilePicker [FilePath] ([FilePath] -> Menu)
-  | TasksStart [StackTraceT IO [FilePath]]
+  | TasksStart [StackTraceT (QueueLog IO) [FilePath]]
   | TasksRunning ThreadId TasksStatus
   | TasksDone FilePath TasksStatus
   | EnterInt T.Text Int (Int -> Onyx ())
@@ -101,7 +101,7 @@ popMenu = modify $ \case
 modifySelect :: (Selection -> Selection) -> Onyx ()
 modifySelect f = modify $ \(GUIState m pms sel) -> GUIState m pms $ f sel
 
-commandLine' :: (MonadIO m) => [String] -> StackTraceT m [FilePath]
+commandLine' :: (SendMessage m, MonadIO m) => [String] -> StackTraceT m [FilePath]
 commandLine' args = do
   let args' = flip map args $ \arg -> if ' ' `elem` arg then "\"" ++ arg ++ "\"" else arg
   stackIO $ mapM_ putStrLn
@@ -332,6 +332,11 @@ initialState = GUIState topMenu [] NoSelect
 
 type Onyx = StateT GUIState IO
 
+logStdout :: StackTraceT (QueueLog IO) a -> IO (Either Messages a)
+logStdout task = runReaderT (fromQueueLog $ runStackTraceT task) $ putStrLn . \case
+  (MessageLog    , msg) -> messageString msg
+  (MessageWarning, msg) -> "Warning: " ++ displayException msg
+
 launchGUI :: IO ()
 launchGUI = do
 
@@ -389,7 +394,7 @@ launchGUI = do
       TasksStart tasks -> let
         go = do
           tid <- liftIO $ forkIO $ forM_ tasks $ \task -> do
-            result <- capture $ runStackTraceT task
+            result <- capture $ logStdout task
             putMVar varTaskComplete result
           setMenu $ TasksRunning tid TasksStatus
             { tasksTotal = length tasks
@@ -621,13 +626,12 @@ launchGUI = do
           s -> s
       liftIO (tryTakeMVar varTaskComplete) >>= \case
         Nothing -> return ()
-        Just (strOut, (res, Messages warns)) -> get >>= \case
+        Just (strOut, res) -> get >>= \case
           GUIState (TasksRunning tid oldStatus) prevMenus sel -> let
             newStatus = let
               TasksStatus{..} = oldStatus
               strOut' = unlines $ concat
                 [ [strOut]
-                , map (\msg -> "Warning: " ++ displayException msg) warns
                 , case res of
                   Right newFiles -> "Success! Output files:" : map ("  " ++) newFiles
                   Left err -> ["ERROR!", displayException err]

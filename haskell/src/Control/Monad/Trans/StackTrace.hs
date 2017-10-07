@@ -17,17 +17,21 @@ module Control.Monad.Trans.StackTrace
 , printWarning
 , liftMaybe
 , mapStackTraceT
-, tempDir
+, tempDir, withDir
 , stackProcess
 , stackCatchIO
 , stackShowException
 , stackIO
 , shakeEmbed
 , shakeTrace
-, (%>), phony
+, (%>), (&%>), phony
+, Staction
 ) where
 
 import           Control.Applicative
+import           Control.Concurrent           (forkIO)
+import           Control.Concurrent.STM       (atomically)
+import           Control.Concurrent.STM.TChan
 import qualified Control.Exception            as Exc
 import           Control.Monad
 import           Control.Monad.Catch          (MonadThrow (..))
@@ -36,12 +40,11 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Reader
+import           Control.Monad.Trans.State    (StateT)
 import           Control.Monad.Trans.Writer
-import           Control.Monad.Trans.State (StateT)
-import Data.Functor.Identity (Identity)
-import Control.Concurrent (forkIO)
 import qualified Data.ByteString.Char8        as B8
 import           Data.Data
+import           Data.Functor.Identity        (Identity)
 import qualified Development.Shake            as Shake
 import qualified System.Directory             as Dir
 import           System.Exit                  (ExitCode (..))
@@ -49,8 +52,6 @@ import           System.IO
 import           System.IO.Temp               (createTempDirectory)
 import           System.Process               (CreateProcess)
 import           System.Process.ByteString    (readCreateProcessWithExitCode)
-import Control.Concurrent.STM.TChan
-import Control.Concurrent.STM (atomically)
 
 -- | This can represent an error (required input was not found) or a warning
 -- (given input was not completely recognized).
@@ -166,17 +167,29 @@ mapStackTraceT
   -> StackTraceT m a -> StackTraceT n b
 mapStackTraceT f (StackTraceT st) = StackTraceT $ mapExceptT (mapReaderT f) st
 
-tempDir :: (MonadIO m) => String -> (FilePath -> StackTraceT m a) -> StackTraceT m a
-tempDir template cb = do
-  tmp <- stackIO Dir.getTemporaryDirectory
-  dir <- stackIO $ createTempDirectory tmp template
-  let ignoringIOErrors ioe = ioe `Exc.catch` (\e -> const (return ()) (e :: IOError))
-      cleanup = stackIO $ ignoringIOErrors $ Dir.removeDirectoryRecursive dir
-  res <- cb dir `catchError` \msgs -> do
-    cleanup
+stracket :: (Monad m) => StackTraceT m a -> (a -> StackTraceT m ()) -> (a -> StackTraceT m b) -> StackTraceT m b
+stracket new del fn = do
+  x <- new
+  res <- fn x `catchError` \msgs -> do
+    del x
     throwError msgs
-  cleanup
+  del x
   return res
+
+withDir :: (MonadIO m) => FilePath -> StackTraceT m a -> StackTraceT m a
+withDir d stk = do
+  cwd <- stackIO Dir.getCurrentDirectory
+  stracket
+    (stackIO $ Dir.setCurrentDirectory d)
+    (\() -> stackIO $ Dir.setCurrentDirectory cwd)
+    (\() -> stk)
+
+tempDir :: (MonadIO m) => String -> (FilePath -> StackTraceT m a) -> StackTraceT m a
+tempDir template = let
+  new = stackIO $ Dir.getTemporaryDirectory >>= \tmp -> createTempDirectory tmp template
+  del = stackIO . ignoringIOErrors . Dir.removeDirectoryRecursive
+  ignoringIOErrors ioe = ioe `Exc.catch` (\e -> const (return ()) (e :: IOError))
+  in stracket new del
 
 stackProcess :: (MonadIO m) => CreateProcess -> StackTraceT m String
 stackProcess cp = mapStackTraceT liftIO $ do
@@ -220,6 +233,8 @@ stackEmbed st = do
 shakeEmbed :: (SendMessage m, MonadIO m) => Shake.ShakeOptions -> QueueLog Shake.Rules () -> StackTraceT m ()
 shakeEmbed opts rules = do
   let handleShakeErr se = let
+        -- we translate ShakeException (which may or may not have a StackTraceT fatal inside)
+        -- to a StackTraceT fatal with layers
         go (layer : layers) exc = inside ("shake: " ++ layer) $ go layers exc
         go []               exc = case Exc.fromException exc of
           Nothing   -> stackShowException exc
@@ -239,8 +254,14 @@ shakeTrace stk = runStackTraceT stk >>= \res -> do
 pat %> f = QueueLog $ ReaderT $ \q -> pat Shake.%> (`runReaderT` q) . fromQueueLog . shakeTrace . f
 infix 1 %>
 
+(&%>) :: [Shake.FilePattern] -> ([FilePath] -> StackTraceT (QueueLog Shake.Action) ()) -> QueueLog Shake.Rules ()
+pat &%> f = QueueLog $ ReaderT $ \q -> pat Shake.&%> (`runReaderT` q) . fromQueueLog . shakeTrace . f
+infix 1 &%>
+
 phony :: FilePath -> StackTraceT (QueueLog Shake.Action) () -> QueueLog Shake.Rules ()
 phony s act = QueueLog $ ReaderT $ \q -> do
   let act' = runReaderT (fromQueueLog $ shakeTrace act) q
   Shake.phony s act'
   Shake.phony (s ++ "/") act'
+
+type Staction = StackTraceT (QueueLog Shake.Action)
