@@ -581,7 +581,10 @@ launchGUI = do
     processEvents :: [SDL.Event] -> Onyx ()
     processEvents [] = checkVars
     processEvents (e : es) = case SDL.eventPayload e of
-      SDL.QuitEvent -> return ()
+      SDL.QuitEvent -> get >>= \case
+        GUIState menu _ _ -> case menu of
+          TasksRunning tid _ -> liftIO $ killThread tid
+          _                  -> return ()
       SDL.DropEvent (SDL.DropEventData cstr) -> do
         liftIO $ do
           -- IIUC, SDL2 guarantees the char* is utf-8 on all platforms
