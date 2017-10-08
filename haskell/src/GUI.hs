@@ -24,6 +24,8 @@ import           Control.Monad.Trans.Writer     (execWriter, tell)
 import qualified Data.ByteString                as B
 import           Data.ByteString.Unsafe         (unsafeUseAsCStringLen)
 import           Data.Char                      (isPrint)
+import qualified Data.HashMap.Strict            as HM
+import           Data.Maybe                     (fromJust, fromMaybe)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeUtf8)
@@ -388,6 +390,8 @@ launchGUI = do
   bracket (mapM monoChar printChars) (mapM_ SDL.freeSurface) $ \surfsMono -> do
   bracket (mapM (SDL.createTextureFromSurface rend) surfsMono) (mapM_ SDL.destroyTexture) $ \texsMono -> do
   dimsMono@(SDL.V2 monoW monoH) <- SDL.surfaceDimensions $ head surfsMono
+  let monoMap = HM.fromList $ zip printChars texsMono
+      monoGlyph c = fromMaybe (fromJust $ HM.lookup '?' monoMap) $ HM.lookup c monoMap
 
   let
 
@@ -452,13 +456,17 @@ launchGUI = do
       SDL.V2 windW windH <- SDL.get $ SDL.windowSize window
       SDL.rendererDrawColor rend $= purple 1
       SDL.clear rend
-      SDL.copy rend texBrand Nothing $ Just $ SDL.Rectangle
-        (SDL.P (SDL.V2 (windW - brandW - 10) (windH - brandH - 10)))
-        dimsBrand
-      SDL.copy rend texVersion Nothing $ Just $ SDL.Rectangle
-        (SDL.P (SDL.V2 (windW - brandW - 10 - versionW - 10) (windH - versionH - 13)))
-        dimsVersion
       GUIState{..} <- get
+      case currentScreen of
+        TasksRunning{} -> return ()
+        TasksDone{} -> return ()
+        _ -> do
+          SDL.copy rend texBrand Nothing $ Just $ SDL.Rectangle
+            (SDL.P (SDL.V2 (windW - brandW - 10) (windH - brandH - 10)))
+            dimsBrand
+          SDL.copy rend texVersion Nothing $ Just $ SDL.Rectangle
+            (SDL.P (SDL.V2 (windW - brandW - 10 - versionW - 10) (windH - versionH - 13)))
+            dimsVersion
       let offset = fromIntegral $ length previousScreens * 25
       forM_ (zip [0..] $ zip [0.88, 0.76 ..] [offset - 25, offset - 50 .. 0]) $ \(i, (frac, x)) -> do
         SDL.rendererDrawColor rend $= if currentSelection == SelectPage i
@@ -481,21 +489,55 @@ launchGUI = do
             dims <- SDL.surfaceDimensions surf
             bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
               SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 (offset + 10) (fromIntegral index * 70 + 50))) dims
+      let drawTerminalFor status = do
+            let termBoxX = offset
+                termBoxY = fromIntegral $ length choices * 70
+                termBoxW = windW - termBoxX
+                termBoxH = windH - termBoxY
+            drawTerminal termBoxX termBoxY termBoxW termBoxH $ tasksOutput status
       case currentScreen of
-        TasksRunning{} -> do
-          {-
-          let terminalX = offset
-              terminalY = fromIntegral $ length choices * 70
-              terminalW = windW - terminalX
-              terminalH = windH - terminalY
-          SDL.rendererDrawColor rend $= SDL.V4 0x11 0x11 0x11 0xFF
-          SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 terminalX terminalY) $ SDL.V2 terminalW terminalH
-          -}
-          let bigX = quot windW 2 - 50
-              bigY = quot windH 2 - 50
+        TasksRunning _ status -> do
+          drawTerminalFor status
+          let bigX = windW - 120
+              bigY = 20
               smallSide = 50
           spinner bigX bigY smallSide
+        TasksDone _ status -> drawTerminalFor status
         _ -> return ()
+
+    drawTerminal :: CInt -> CInt -> CInt -> CInt -> [TaskProgress] -> Onyx ()
+    drawTerminal termBoxX termBoxY termBoxW termBoxH msgs = do
+      let termCols = quot termBoxW monoW - 2
+          termRows = quot termBoxH monoH - 2
+          termW = termCols * monoW
+          termH = termRows * monoH
+          termX = termBoxX + quot (termBoxW - termW) 2
+          termY = termBoxY + quot (termBoxH - termH) 2
+          drawChar row col c = SDL.copy rend (monoGlyph c) Nothing $ Just $ SDL.Rectangle
+            (SDL.P (SDL.V2 (termX + col * monoW) (termY + row * monoH)))
+            dimsMono
+      SDL.rendererDrawColor rend $= SDL.V4 0x11 0x11 0x11 0xFF
+      SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 termX termY) $ SDL.V2 termW termH
+      let makeLines _    []       = []
+          makeLines tone (m : ms) = let
+            color = case m of
+              TaskMessage{} -> if tone then SDL.V4 0x22 0x22 0x22 0xFF else SDL.V4 0x33 0x33 0x33 0xFF
+              TaskOK{} -> SDL.V4 0 0x50 0 0xFF
+              TaskFailed{} -> SDL.V4 0x50 0 0 0xFF
+            msgLines = reverse $ map (filter (/= '\r')) $ case m of
+              TaskMessage (_, Message s _) -> lines s
+              TaskOK{}                     -> ["Done!"]
+              TaskFailed{}                 -> ["Failed..."]
+            in map (color, ) msgLines ++ makeLines (not tone) ms
+          drawLines _ [] = return ()
+          drawLines n ((color, line) : clns) = if n < 0
+            then return ()
+            else do
+              SDL.rendererDrawColor rend $= color
+              SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 termX $ termY + n * monoH) $ SDL.V2 termW monoH
+              forM_ (zip [0 .. termCols - 1] line) $ uncurry $ drawChar n
+              drawLines (n - 1) clns
+      drawLines (termRows - 1) $ makeLines False msgs
 
     spinner :: CInt -> CInt -> CInt -> Onyx ()
     spinner bigX bigY smallSide = do

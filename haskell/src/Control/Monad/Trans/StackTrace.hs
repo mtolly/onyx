@@ -224,13 +224,8 @@ withDir d stk = do
 
 tempDir :: (MonadIO m) => String -> (FilePath -> StackTraceT (QueueLog IO) a) -> StackTraceT (QueueLog m) a
 tempDir template = let
-  new = do
-    s <- Dir.getTemporaryDirectory >>= \tmp -> createTempDirectory tmp template
-    putStrLn $ "Creating " ++ s
-    return s
-  del s = do
-    putStrLn $ "Destroying " ++ s
-    ignoringIOErrors . Dir.removeDirectoryRecursive $ s
+  new = Dir.getTemporaryDirectory >>= \tmp -> createTempDirectory tmp template
+  del = ignoringIOErrors . Dir.removeDirectoryRecursive
   ignoringIOErrors ioe = ioe `Exc.catch` (\e -> const (return ()) (e :: IOError))
   in stracket new del
 
