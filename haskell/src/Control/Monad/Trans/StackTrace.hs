@@ -1,7 +1,10 @@
 {-# LANGUAGE DeriveDataTypeable         #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE UndecidableInstances       #-}
 module Control.Monad.Trans.StackTrace
 ( Message(..), Messages(..)
 , MessageLevel(..), SendMessage(..)
@@ -33,12 +36,19 @@ import           Control.Concurrent.STM       (atomically)
 import           Control.Concurrent.STM.TChan
 import qualified Control.Exception            as Exc
 import           Control.Monad
+import           Control.Monad.Base           (MonadBase (..))
 import           Control.Monad.Catch          (MonadThrow (..))
 import           Control.Monad.Except         (MonadError (..))
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Control  (ComposeSt, MonadBaseControl (..),
+                                               MonadTransControl (..),
+                                               defaultLiftBaseWith,
+                                               defaultRestoreM)
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Reader
+import           Control.Monad.Trans.Resource (MonadResource (..), allocate,
+                                               runResourceT)
 import           Control.Monad.Trans.State    (StateT)
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString.Char8        as B8
@@ -97,6 +107,25 @@ newtype QueueLog m a = QueueLog { fromQueueLog :: ReaderT ((MessageLevel, Messag
 instance MonadTrans QueueLog where
   lift = QueueLog . lift
 
+instance (MonadBase b m) => MonadBase b (QueueLog m) where
+  liftBase = lift . liftBase
+
+instance MonadTransControl QueueLog where
+  type StT QueueLog a = a
+  liftWith f = QueueLog $ ReaderT $ \r -> f $ \t -> runReaderT (fromQueueLog t) r
+  restoreT = QueueLog . ReaderT . const
+
+instance (MonadBaseControl b m) => MonadBaseControl b (QueueLog m) where
+  type StM (QueueLog m) a = ComposeSt QueueLog m a
+  liftBaseWith = defaultLiftBaseWith
+  restoreM = defaultRestoreM
+
+instance (MonadThrow m) => MonadThrow (QueueLog m) where
+  throwM = lift . throwM
+
+instance (MonadResource m) => MonadResource (QueueLog m) where
+  liftResourceT = lift . liftResourceT
+
 instance (MonadIO m) => SendMessage (QueueLog m) where
   sendMessage lvl msg = QueueLog $ ask >>= liftIO . ($ (lvl, msg))
 
@@ -113,6 +142,12 @@ newtype StackTraceT m a = StackTraceT
 
 instance MonadTrans StackTraceT where
   lift = StackTraceT . lift . lift
+
+instance (MonadBase b m) => MonadBase b (StackTraceT m) where
+  liftBase = lift . liftBase
+
+instance (MonadResource m) => MonadResource (StackTraceT m) where
+  liftResourceT = lift . liftResourceT
 
 warn :: (SendMessage m) => String -> StackTraceT m ()
 warn s = warnMessage $ Message s []
@@ -165,27 +200,28 @@ mapStackTraceT
   -> StackTraceT m a -> StackTraceT n b
 mapStackTraceT f (StackTraceT st) = StackTraceT $ mapExceptT (mapReaderT f) st
 
-stracket :: (Monad m) => StackTraceT m a -> (a -> StackTraceT m ()) -> (a -> StackTraceT m b) -> StackTraceT m b
-stracket new del fn = do
-  x <- new
-  res <- fn x `catchError` \msgs -> do
-    del x
-    throwError msgs
-  del x
-  return res
+stracket
+  :: (SendMessage m, MonadIO m)
+  => IO a
+  -> (a -> IO ())
+  -> (a -> StackTraceT (QueueLog IO) b)
+  -> StackTraceT m b
+stracket new del fn = stackEmbed $ mapStackTraceT runResourceT $ do
+  (_, x) <- allocate new del
+  mapStackTraceT lift $ fn x
 
-withDir :: (MonadIO m) => FilePath -> StackTraceT m a -> StackTraceT m a
+withDir :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT (QueueLog IO) a -> StackTraceT m a
 withDir d stk = do
   cwd <- stackIO Dir.getCurrentDirectory
   stracket
-    (stackIO $ Dir.setCurrentDirectory d)
-    (\() -> stackIO $ Dir.setCurrentDirectory cwd)
+    (Dir.setCurrentDirectory d)
+    (\() -> Dir.setCurrentDirectory cwd)
     (\() -> stk)
 
-tempDir :: (MonadIO m) => String -> (FilePath -> StackTraceT m a) -> StackTraceT m a
+tempDir :: (SendMessage m, MonadIO m) => String -> (FilePath -> StackTraceT (QueueLog IO) a) -> StackTraceT m a
 tempDir template = let
-  new = stackIO $ Dir.getTemporaryDirectory >>= \tmp -> createTempDirectory tmp template
-  del = stackIO . ignoringIOErrors . Dir.removeDirectoryRecursive
+  new = Dir.getTemporaryDirectory >>= \tmp -> createTempDirectory tmp template
+  del = ignoringIOErrors . Dir.removeDirectoryRecursive
   ignoringIOErrors ioe = ioe `Exc.catch` (\e -> const (return ()) (e :: IOError))
   in stracket new del
 

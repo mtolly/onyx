@@ -483,34 +483,46 @@ launchGUI = do
               SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 (offset + 10) (fromIntegral index * 70 + 50))) dims
       case currentScreen of
         TasksRunning{} -> do
-          -- square spinner animation
-          t <- (`rem` 2000) <$> SDL.ticks
-          let smallSide = 50
-              bigX = quot windW 2 - smallSide
-              bigY = quot windH 2 - smallSide
-              bigSide = smallSide * 2
-              smallRect = SDL.V2 smallSide smallSide
-              smallDraw x y = SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 x y) smallRect
-          SDL.rendererDrawColor rend $= purple 0.5
-          SDL.fillRect rend $ Just $ SDL.Rectangle
-            (SDL.P $ SDL.V2 bigX bigY)
-            (SDL.V2 bigSide bigSide)
-          SDL.rendererDrawColor rend $= SDL.V4 0xCC 0x8E 0xD1 0xFF
-          if  | t < 250 -> do
-                smallDraw bigX bigY
-                smallDraw (bigX + smallSide) (bigY + smallSide)
-              | t < 1000 -> do
-                let moved = floor ((fromIntegral (t - 250) / 750) * fromIntegral smallSide :: Double)
-                smallDraw (bigX + moved) bigY
-                smallDraw (bigX + smallSide - moved) (bigY + smallSide)
-              | t < 1250 -> do
-                smallDraw (bigX + smallSide) bigY
-                smallDraw bigX (bigY + smallSide)
-              | otherwise -> do
-                let moved = floor ((fromIntegral (t - 1250) / 750) * fromIntegral smallSide :: Double)
-                smallDraw bigX (bigY + smallSide - moved)
-                smallDraw (bigX + smallSide) (bigY + moved)
+          {-
+          let terminalX = offset
+              terminalY = fromIntegral $ length choices * 70
+              terminalW = windW - terminalX
+              terminalH = windH - terminalY
+          SDL.rendererDrawColor rend $= SDL.V4 0x11 0x11 0x11 0xFF
+          SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 terminalX terminalY) $ SDL.V2 terminalW terminalH
+          -}
+          let bigX = quot windW 2 - 50
+              bigY = quot windH 2 - 50
+              smallSide = 50
+          spinner bigX bigY smallSide
         _ -> return ()
+
+    spinner :: CInt -> CInt -> CInt -> Onyx ()
+    spinner bigX bigY smallSide = do
+      -- square spinner animation
+      t <- (`rem` 2000) <$> SDL.ticks
+      let bigSide = smallSide * 2
+          smallRect = SDL.V2 smallSide smallSide
+          smallDraw x y = SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 x y) smallRect
+      SDL.rendererDrawColor rend $= purple 0.5
+      SDL.fillRect rend $ Just $ SDL.Rectangle
+        (SDL.P $ SDL.V2 bigX bigY)
+        (SDL.V2 bigSide bigSide)
+      SDL.rendererDrawColor rend $= SDL.V4 0xCC 0x8E 0xD1 0xFF
+      if  | t < 250 -> do
+            smallDraw bigX bigY
+            smallDraw (bigX + smallSide) (bigY + smallSide)
+          | t < 1000 -> do
+            let moved = floor ((fromIntegral (t - 250) / 750) * fromIntegral smallSide :: Double)
+            smallDraw (bigX + moved) bigY
+            smallDraw (bigX + smallSide - moved) (bigY + smallSide)
+          | t < 1250 -> do
+            smallDraw (bigX + smallSide) bigY
+            smallDraw bigX (bigY + smallSide)
+          | otherwise -> do
+            let moved = floor ((fromIntegral (t - 1250) / 750) * fromIntegral smallSide :: Double)
+            smallDraw bigX (bigY + smallSide - moved)
+            smallDraw (bigX + smallSide) (bigY + moved)
 
     tick :: Onyx ()
     tick = do
