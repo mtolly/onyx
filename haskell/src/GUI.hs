@@ -20,7 +20,6 @@ import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Reader     (runReaderT)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
-import           Control.Monad.Trans.Writer     (execWriter, tell)
 import qualified Data.ByteString                as B
 import           Data.ByteString.Unsafe         (unsafeUseAsCStringLen)
 import           Data.Char                      (isPrint)
@@ -359,7 +358,7 @@ launchGUI = do
   TTF.withInit $ do
   withBSFont pentatonicTTF 40 $ \penta -> do
   withBSFont pentatonicTTF 20 $ \pentaSmall -> do
-  withBSFont veraMonoTTF 17 $ \mono -> do
+  withBSFont veraMonoTTF 15 $ \mono -> do
   let windowConf = SDL.defaultWindow
         { SDL.windowResizable = True
         , SDL.windowHighDPI = False
@@ -524,10 +523,11 @@ launchGUI = do
               TaskMessage{} -> if tone then SDL.V4 0x22 0x22 0x22 0xFF else SDL.V4 0x33 0x33 0x33 0xFF
               TaskOK{} -> SDL.V4 0 0x50 0 0xFF
               TaskFailed{} -> SDL.V4 0x50 0 0 0xFF
-            msgLines = reverse $ map (filter (/= '\r')) $ case m of
-              TaskMessage (_, Message s _) -> lines s
-              TaskOK{}                     -> ["Done!"]
-              TaskFailed{}                 -> ["Failed..."]
+            wrapLines s = if length s <= fromIntegral termCols
+              then [s]
+              else case splitAt (fromIntegral termCols) s of
+                (l, ls) -> l : wrapLines ls
+            msgLines = reverse $ concatMap wrapLines $ lines $ filter (/= '\r') $ showTaskProgress m
             in map (color, ) msgLines ++ makeLines (not tone) ms
           drawLines _ [] = return ()
           drawLines n ((color, line) : clns) = if n < 0
@@ -724,19 +724,10 @@ launchGUI = do
                   let logFile = logDir </> fmt time <.> "txt"
                       fmt = formatTime defaultTimeLocale $ iso8601DateFormat $ Just "%H%M%S"
                   path <- getEnv "PATH"
-                  writeFile logFile $ unlines $ execWriter $ do
-                    let ln s = tell [s]
-                    ln "PATH: "
-                    ln path
-                    forM_ (reverse $ tasksOutput newStatus) $ \case
-                      TaskMessage (MessageLog    , msg) -> ln $ messageString msg
-                      TaskMessage (MessageWarning, msg) -> ln $ "Warning: " ++ displayException msg
-                      TaskOK files -> do
-                        ln "Success! Output files:"
-                        mapM_ (ln . ("  " ++)) files
-                      TaskFailed msgs -> do
-                        ln "ERROR!"
-                        ln $ displayException msgs
+                  writeFile logFile $ unlines
+                    $ "PATH:"
+                    : path
+                    : map showTaskProgress (reverse $ tasksOutput newStatus)
                   return logFile
                 put $ GUIState (TasksDone logFile newStatus) prevMenus sel
               else put $ GUIState (TasksRunning tid newStatus) prevMenus sel
@@ -744,3 +735,10 @@ launchGUI = do
       tick
 
   evalStateT tick initialState
+
+showTaskProgress :: TaskProgress -> String
+showTaskProgress = \case
+  TaskMessage (MessageLog    , msg) -> messageString msg
+  TaskMessage (MessageWarning, msg) -> "Warning: " ++ displayException msg
+  TaskOK files -> unlines $ "Success! Output files:" : map ("  " ++) files
+  TaskFailed msgs -> unlines ["ERROR!", displayException msgs]
