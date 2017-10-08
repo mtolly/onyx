@@ -599,7 +599,7 @@ loadYaml fp = do
   yaml <- readYAMLTree fp
   mapStackTraceT (`runReaderT` yaml) fromJSON
 
-shakeBuildTarget :: (SendMessage m, MonadIO m) => [FilePath] -> FilePath -> Target -> StackTraceT m FilePath
+shakeBuildTarget :: (MonadIO m) => [FilePath] -> FilePath -> Target -> StackTraceT (QueueLog m) FilePath
 shakeBuildTarget audioDirs yamlPath target = do
   let buildable = case target of
         RB3{} -> "gen/target" </> targetHash </> "rb3con"
@@ -610,17 +610,17 @@ shakeBuildTarget audioDirs yamlPath target = do
   shakeBuild audioDirs yamlPath [(T.pack targetHash, target)] [buildable]
   return $ takeDirectory yamlPath </> buildable
 
-shakeBuildMagmaProject :: (SendMessage m, MonadIO m) => [FilePath] -> FilePath -> Target -> StackTraceT m FilePath
+shakeBuildMagmaProject :: (MonadIO m) => [FilePath] -> FilePath -> Target -> StackTraceT (QueueLog m) FilePath
 shakeBuildMagmaProject audioDirs yamlPath target = do
   let buildable = "gen/target" </> targetHash </> "magma"
       targetHash = show $ hash target `mod` 100000000
   shakeBuild audioDirs yamlPath [(T.pack targetHash, target)] [buildable]
   return $ takeDirectory yamlPath </> buildable
 
-shakeBuildFiles :: (SendMessage m, MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT m ()
+shakeBuildFiles :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT (QueueLog m) ()
 shakeBuildFiles audioDirs yamlPath = shakeBuild audioDirs yamlPath []
 
-shakeBuild :: (SendMessage m, MonadIO m) => [FilePath] -> FilePath -> [(T.Text, Target)] -> [FilePath] -> StackTraceT m ()
+shakeBuild :: (MonadIO m) => [FilePath] -> FilePath -> [(T.Text, Target)] -> [FilePath] -> StackTraceT (QueueLog m) ()
 shakeBuild audioDirs yamlPath extraTargets buildables = do
 
   songYaml <- loadYaml yamlPath

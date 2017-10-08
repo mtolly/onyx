@@ -163,6 +163,7 @@ executable onyx
     , stm
     , transformers-base
     , monad-control
+    , mmorph
     -- my libraries:
     , jammittools >= 0.5.0.3 && < 0.6
     , midi-util >= 0.2 && < 0.3

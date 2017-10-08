@@ -102,7 +102,7 @@ popMenu = modify $ \case
 modifySelect :: (Selection -> Selection) -> Onyx ()
 modifySelect f = modify $ \(GUIState m pms sel) -> GUIState m pms $ f sel
 
-commandLine' :: (SendMessage m, MonadIO m) => [String] -> StackTraceT m [FilePath]
+commandLine' :: (MonadIO m) => [String] -> StackTraceT (QueueLog m) [FilePath]
 commandLine' args = do
   let args' = flip map args $ \arg -> if ' ' `elem` arg then "\"" ++ arg ++ "\"" else arg
   lg $ unlines

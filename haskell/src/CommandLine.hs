@@ -141,7 +141,7 @@ readConfig = do
 
 data Command = Command
   { commandWord  :: T.Text
-  , commandRun   :: forall m. (SendMessage m, MonadIO m) => [FilePath] -> [OnyxOption] -> StackTraceT m [FilePath]
+  , commandRun   :: forall m. (MonadIO m) => [FilePath] -> [OnyxOption] -> StackTraceT (QueueLog m) [FilePath]
   , commandDesc  :: T.Text
   , commandUsage :: T.Text
   }
@@ -233,7 +233,7 @@ outputFile opts dft = case [ to | OptTo to <- opts ] of
   []     -> dft
   to : _ -> return to
 
-buildTarget :: (SendMessage m, MonadIO m) => FilePath -> [OnyxOption] -> StackTraceT m (Target, FilePath)
+buildTarget :: (MonadIO m) => FilePath -> [OnyxOption] -> StackTraceT (QueueLog m) (Target, FilePath)
 buildTarget yamlPath opts = do
   songYaml <- loadYaml yamlPath
   targetName <- case [ t | OptTarget t <- opts ] of
@@ -865,7 +865,7 @@ commands =
 
   ]
 
-commandLine :: (SendMessage m, MonadIO m) => [String] -> StackTraceT m [FilePath]
+commandLine :: (MonadIO m) => [String] -> StackTraceT (QueueLog m) [FilePath]
 commandLine args = let
   (opts, nonopts, errors) = getOpt Permute optDescrs args
   printIntro = lg $ T.unpack $ T.unlines
