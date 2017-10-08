@@ -33,8 +33,10 @@ import           Control.DeepSeq                 (($!!))
 import           Control.Exception               (evaluate)
 import           Control.Monad                   (ap, when)
 import           Control.Monad.IO.Class          (MonadIO (liftIO))
+import           Control.Monad.Trans.Class       (lift)
 import           Control.Monad.Trans.Resource    (MonadResource, ResourceT,
                                                   runResourceT)
+import           Control.Monad.Trans.StackTrace  (Staction, lg, stackIO)
 import           Data.Binary.Get                 (getWord32le, runGetOrFail)
 import qualified Data.ByteString.Lazy            as BL
 import qualified Data.ByteString.Lazy.Char8      as BL8
@@ -53,7 +55,7 @@ import           Data.List                       (elemIndex, sortOn)
 import qualified Data.Text                       as T
 import qualified Data.Vector.Storable            as V
 import           Data.Word                       (Word8)
-import           Development.Shake               (Action, need, putNormal)
+import           Development.Shake               (Action, need)
 import           Development.Shake.FilePath      (takeExtension)
 import           Numeric                         (showHex)
 import           SndfileExtra
@@ -369,12 +371,12 @@ buildSource aud = need (toList aud) >> case aud of
           s : ss -> return $ foldl meth s ss
 
 -- | Assumes 16-bit 44100 Hz audio files.
-buildAudio :: Audio Duration FilePath -> FilePath -> Action ()
+buildAudio :: Audio Duration FilePath -> FilePath -> Staction ()
 buildAudio aud out = do
-  src <- buildSource aud
+  src <- lift $ lift $ buildSource aud
   runAudio src out
 
-runAudio :: AudioSource (ResourceT IO) Float -> FilePath -> Action ()
+runAudio :: AudioSource (ResourceT IO) Float -> FilePath -> Staction ()
 runAudio src out = let
   src' = clampFloat $ if takeExtension out == ".ogg" && channels src == 6
     then merge src $ silent (Frames 0) (rate src) 1
@@ -383,16 +385,16 @@ runAudio src out = let
     -- is LFE, so instead we add a silent 7th channel
     else src
   withSndFormat fmt = do
-    putNormal $ "Writing an audio expression to " ++ out
-    liftIO $ runResourceT $ sinkSnd out fmt src'
-    putNormal $ "Finished writing an audio expression to " ++ out
+    lg $ "Writing an audio expression to " ++ out
+    stackIO $ runResourceT $ sinkSnd out fmt src'
+    lg $ "Finished writing an audio expression to " ++ out
   in case takeExtension out of
     ".ogg" -> withSndFormat $ Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
     ".wav" -> withSndFormat $ Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
     ".mp3" -> do
-      putNormal $ "Writing an audio expression to " ++ out
-      liftIO $ runResourceT $ sinkMP3 out src'
-      putNormal $ "Finished writing an audio expression to " ++ out
+      lg $ "Writing an audio expression to " ++ out
+      stackIO $ runResourceT $ sinkMP3 out src'
+      lg $ "Finished writing an audio expression to " ++ out
     ext -> error $ "runAudio: unknown audio output file extension " ++ ext
 
 -- | Forces floating point samples to be in @[-1, 1]@.

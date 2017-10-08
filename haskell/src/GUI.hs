@@ -20,8 +20,10 @@ import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Reader     (runReaderT)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
+import           Control.Monad.Trans.Writer     (execWriter, tell)
 import qualified Data.ByteString                as B
 import           Data.ByteString.Unsafe         (unsafeUseAsCStringLen)
+import           Data.Char                      (isPrint)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeUtf8)
@@ -33,7 +35,7 @@ import           Foreign.C                      (CInt (..))
 import           Graphics.UI.TinyFileDialogs
 import           OSFiles                        (osOpenFile, useResultFiles)
 import           Paths_onyxite_customs_tool     (version)
-import           Resources                      (pentatonicTTF)
+import           Resources                      (pentatonicTTF, veraMonoTTF)
 import           SDL                            (($=))
 import qualified SDL
 import qualified SDL.Raw                        as Raw
@@ -45,7 +47,6 @@ import           System.Directory               (XdgDirectory (..),
 import           System.Environment             (getEnv)
 import           System.FilePath                ((<.>), (</>))
 import           System.Info                    (os)
-import           System.IO.Silently             (capture)
 
 foreign import ccall unsafe "TTF_OpenFontRW"
   openFontRW :: Ptr Raw.RWops -> CInt -> CInt -> IO TTFFont
@@ -84,7 +85,7 @@ data TasksStatus = TasksStatus
   { tasksTotal  :: Int
   , tasksOK     :: Int
   , tasksFailed :: Int
-  , tasksOutput :: [(String, Maybe [FilePath])]
+  , tasksOutput :: [TaskProgress]
   } deriving (Eq, Ord, Show, Read)
 
 setMenu :: Menu -> Onyx ()
@@ -332,10 +333,22 @@ initialState = GUIState topMenu [] NoSelect
 
 type Onyx = StateT GUIState IO
 
+logIO
+  :: ((MessageLevel, Message) -> IO ())
+  -> StackTraceT (QueueLog IO) a
+  -> IO (Either Messages a)
+logIO logger task = runReaderT (fromQueueLog $ runStackTraceT task) logger
+
 logStdout :: StackTraceT (QueueLog IO) a -> IO (Either Messages a)
-logStdout task = runReaderT (fromQueueLog $ runStackTraceT task) $ putStrLn . \case
+logStdout = logIO $ putStrLn . \case
   (MessageLog    , msg) -> messageString msg
   (MessageWarning, msg) -> "Warning: " ++ displayException msg
+
+data TaskProgress
+  = TaskMessage (MessageLevel, Message)
+  | TaskOK [FilePath]
+  | TaskFailed Messages
+  deriving (Eq, Ord, Show, Read)
 
 launchGUI :: IO ()
 launchGUI = do
@@ -344,6 +357,7 @@ launchGUI = do
   TTF.withInit $ do
   withBSFont pentatonicTTF 40 $ \penta -> do
   withBSFont pentatonicTTF 20 $ \pentaSmall -> do
+  withBSFont veraMonoTTF 17 $ \mono -> do
   let windowConf = SDL.defaultWindow
         { SDL.windowResizable = True
         , SDL.windowHighDPI = False
@@ -359,7 +373,7 @@ launchGUI = do
       v4ToColor (SDL.V4 r g b a) = Raw.Color r g b a
 
   varSelectedFile <- newEmptyMVar
-  varTaskComplete <- newEmptyMVar
+  varTaskProgress <- newEmptyMVar
 
   bracket (TTF.renderUTF8Blended penta "ONYX" $ v4ToColor $ purple 0.5) SDL.freeSurface $ \surfBrand -> do
   bracket (SDL.createTextureFromSurface rend surfBrand) SDL.destroyTexture $ \texBrand -> do
@@ -368,6 +382,12 @@ launchGUI = do
   bracket (TTF.renderUTF8Blended pentaSmall (showVersion version) $ v4ToColor $ purple 0.5) SDL.freeSurface $ \surfVersion -> do
   bracket (SDL.createTextureFromSurface rend surfVersion) SDL.destroyTexture $ \texVersion -> do
   dimsVersion@(SDL.V2 versionW versionH) <- SDL.surfaceDimensions surfVersion
+
+  let monoChar c = TTF.renderUTF8Blended mono [c] $ Raw.Color 0xEE 0xEE 0xEE 0xFF
+      printChars = filter isPrint ['\0' .. '\255']
+  bracket (mapM monoChar printChars) (mapM_ SDL.freeSurface) $ \surfsMono -> do
+  bracket (mapM (SDL.createTextureFromSurface rend) surfsMono) (mapM_ SDL.destroyTexture) $ \texsMono -> do
+  dimsMono@(SDL.V2 monoW monoH) <- SDL.surfaceDimensions $ head surfsMono
 
   let
 
@@ -394,8 +414,8 @@ launchGUI = do
       TasksStart tasks -> let
         go = do
           tid <- liftIO $ forkIO $ forM_ tasks $ \task -> do
-            result <- capture $ logStdout task
-            putMVar varTaskComplete result
+            result <- logIO (putMVar varTaskProgress . TaskMessage) task
+            putMVar varTaskProgress $ either TaskFailed TaskOK result
           setMenu $ TasksRunning tid TasksStatus
             { tasksTotal = length tasks
             , tasksOK = 0
@@ -624,32 +644,22 @@ launchGUI = do
           GUIState{ currentScreen = Files fpick files useFiles, .. } ->
             GUIState{ currentScreen = Files fpick (files ++ fps) useFiles, .. }
           s -> s
-      liftIO (tryTakeMVar varTaskComplete) >>= \case
+      liftIO (tryTakeMVar varTaskProgress) >>= \case
         Nothing -> return ()
-        Just (strOut, res) -> get >>= \case
+        Just progress -> get >>= \case
           GUIState (TasksRunning tid oldStatus) prevMenus sel -> let
-            newStatus = let
-              TasksStatus{..} = oldStatus
-              strOut' = unlines $ concat
-                [ [strOut]
-                , case res of
-                  Right newFiles -> "Success! Output files:" : map ("  " ++) newFiles
-                  Left err -> ["ERROR!", displayException err]
-                ]
-              in case res of
-                Right newFiles -> TasksStatus
-                  { tasksOK = tasksOK + 1
-                  , tasksOutput = tasksOutput ++ [(strOut', Just newFiles)]
-                  , ..
-                  }
-                Left _err -> TasksStatus
-                  { tasksFailed = tasksFailed + 1
-                  , tasksOutput = tasksOutput ++ [(strOut', Nothing)]
-                  , ..
-                  }
+            newStatus = oldStatus
+              { tasksOK = case progress of
+                TaskOK{} -> tasksOK oldStatus + 1
+                _        -> tasksOK oldStatus
+              , tasksFailed = case progress of
+                TaskFailed{} -> tasksFailed oldStatus + 1
+                _            -> tasksFailed oldStatus
+              , tasksOutput = progress : tasksOutput oldStatus
+              }
             in if tasksOK newStatus + tasksFailed newStatus == tasksTotal newStatus
               then do
-                useResultFiles $ tasksOutput newStatus >>= concatMap concat
+                useResultFiles $ concat [ files | TaskOK files <- tasksOutput newStatus ]
                 logFile <- liftIO $ do
                   logDir <- getXdgDirectory XdgCache "onyx-log"
                   createDirectoryIfMissing False logDir
@@ -657,7 +667,19 @@ launchGUI = do
                   let logFile = logDir </> fmt time <.> "txt"
                       fmt = formatTime defaultTimeLocale $ iso8601DateFormat $ Just "%H%M%S"
                   path <- getEnv "PATH"
-                  writeFile logFile $ unlines $ (["PATH:", path] ++) $ map fst $ tasksOutput newStatus
+                  writeFile logFile $ unlines $ execWriter $ do
+                    let ln s = tell [s]
+                    ln "PATH: "
+                    ln path
+                    forM_ (reverse $ tasksOutput newStatus) $ \case
+                      TaskMessage (MessageLog    , msg) -> ln $ messageString msg
+                      TaskMessage (MessageWarning, msg) -> ln $ "Warning: " ++ displayException msg
+                      TaskOK files -> do
+                        ln "Success! Output files:"
+                        mapM_ (ln . ("  " ++)) files
+                      TaskFailed msgs -> do
+                        ln "ERROR!"
+                        ln $ displayException msgs
                   return logFile
                 put $ GUIState (TasksDone logFile newStatus) prevMenus sel
               else put $ GUIState (TasksRunning tid newStatus) prevMenus sel

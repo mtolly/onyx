@@ -50,5 +50,8 @@ onyxAlbum = case P.decodeImage $(makeRelativeToProject "vendors/album.png" >>= e
 pentatonicTTF :: B.ByteString
 pentatonicTTF = $(makeRelativeToProject "vendors/Pentatonic.ttf" >>= embedFile)
 
+veraMonoTTF :: B.ByteString
+veraMonoTTF = $(makeRelativeToProject "vendors/VeraMono.ttf" >>= embedFile)
+
 missingSongData :: D.DTA T.Text
 missingSongData = D.readDTA $ decodeLatin1 $(makeRelativeToProject "vendors/missing_song_data.dta" >>= embedFile)

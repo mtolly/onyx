@@ -8,6 +8,7 @@ import           Control.Monad                         (forM_, guard, unless,
 import           Control.Monad.Extra                   (mapMaybeM)
 import           Control.Monad.IO.Class                (MonadIO (liftIO))
 import           Control.Monad.Trans.Class             (lift)
+import           Control.Monad.Trans.StackTrace        (Staction, lg, stackIO)
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                       as B
 import qualified Data.ByteString.Base64                as B64
@@ -24,7 +25,7 @@ import           Data.Maybe                            (fromMaybe, listToMaybe,
                                                         mapMaybe)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
-import           Development.Shake                     (Action, need, putNormal)
+import           Development.Shake                     (need)
 import           Numeric                               (showHex)
 import qualified Numeric.NonNegative.Class             as NNC
 import qualified Numeric.NonNegative.Wrapper           as NN
@@ -672,8 +673,8 @@ makeReaperIO evts tempo audios out = liftIO $ do
       forM_ lenAudios $ \(len, aud) -> do
         audio len $ makeRelative (takeDirectory out) aud
 
-makeReaper :: FilePath -> FilePath -> [FilePath] -> FilePath -> Action ()
+makeReaper :: FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()
 makeReaper evts tempo audios out = do
-  need $ evts : tempo : audios
-  putNormal $ "Generating a REAPER project at " ++ out
-  liftIO $ makeReaperIO evts tempo audios out
+  lift $ lift $ need $ evts : tempo : audios
+  lg $ "Generating a REAPER project at " ++ out
+  stackIO $ makeReaperIO evts tempo audios out

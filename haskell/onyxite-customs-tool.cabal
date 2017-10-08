@@ -11,6 +11,7 @@ license-file:         LICENSE.txt
 
 extra-source-files:
   vendors/Pentatonic.ttf
+  vendors/VeraMono.ttf
   vendors/KV.bin
   vendors/rb3.png
   vendors/empty.milo_xbox
