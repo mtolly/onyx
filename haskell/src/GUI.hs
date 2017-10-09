@@ -506,8 +506,8 @@ launchGUI = do
 
     drawTerminal :: CInt -> CInt -> CInt -> CInt -> [TaskProgress] -> Onyx ()
     drawTerminal termBoxX termBoxY termBoxW termBoxH msgs = do
-      let termCols = quot termBoxW monoW - 2
-          termRows = quot termBoxH monoH - 2
+      let termCols = max 0 $ quot termBoxW monoW - 2
+          termRows = max 0 $ quot termBoxH monoH - 2
           termW = termCols * monoW
           termH = termRows * monoH
           termX = termBoxX + quot (termBoxW - termW) 2
@@ -523,7 +523,7 @@ launchGUI = do
               TaskMessage{} -> if tone then SDL.V4 0x22 0x22 0x22 0xFF else SDL.V4 0x33 0x33 0x33 0xFF
               TaskOK{} -> SDL.V4 0 0x50 0 0xFF
               TaskFailed{} -> SDL.V4 0x50 0 0 0xFF
-            wrapLines s = if length s <= fromIntegral termCols
+            wrapLines s = if length s <= fromIntegral termCols || termCols == 0
               then [s]
               else case splitAt (fromIntegral termCols) s of
                 (l, ls) -> l : wrapLines ls
