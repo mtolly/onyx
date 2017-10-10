@@ -527,7 +527,7 @@ launchGUI = do
               then [s]
               else case splitAt (fromIntegral termCols) s of
                 (l, ls) -> l : wrapLines ls
-            msgLines = reverse $ concatMap wrapLines $ lines $ filter (/= '\r') $ showTaskProgress m
+            msgLines = reverse $ concatMap wrapLines $ lines $ showTaskProgress m
             in map (color, ) msgLines ++ makeLines (not tone) ms
           drawLines _ [] = return ()
           drawLines n ((color, line) : clns) = if n < 0
@@ -737,7 +737,7 @@ launchGUI = do
   evalStateT tick initialState
 
 showTaskProgress :: TaskProgress -> String
-showTaskProgress = \case
+showTaskProgress = filter (/= '\r') . \case
   TaskMessage (MessageLog    , msg) -> messageString msg
   TaskMessage (MessageWarning, msg) -> "Warning: " ++ displayException msg
   TaskOK files -> unlines $ "Success! Output files:" : map ("  " ++) files
