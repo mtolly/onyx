@@ -1,5 +1,12 @@
 # Version history
 
+## 20171011
+
+* A real Windows installer
+* Shows a display of the log while running
+* Faster speedups of custom song CONs (no longer gives silent MOGG channels
+  to the audio stretch library)
+
 ## 20170917
 
 * Remove drum fills that are too close for Magma, to allow higher speedups
