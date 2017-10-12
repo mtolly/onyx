@@ -59,9 +59,14 @@ parts:
   drums:
     drums:
       difficulty: 7
+  bass:
+    grybo:
+      difficulty: 5
 targets:
   rb3:
     game: rb3
+  ps:
+    game: ps
 
 # TODO: isolate drums more
 # drums:
