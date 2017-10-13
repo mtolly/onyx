@@ -142,9 +142,11 @@ track lenTicks lenSecs resn trk = let
       , ("PART DRUMS_2X", yellow)
       , ("PART REAL_DRUMS_PS", yellow)
       , ("PART GUITAR", blue)
+      , ("PART GUITAR GHL", blue)
       , ("PART REAL_GUITAR", blue)
       , ("PART REAL_GUITAR_22", blue)
       , ("PART BASS", red)
+      , ("PART BASS GHL", red)
       , ("PART REAL_BASS", red)
       , ("PART REAL_BASS_22", red)
       , ("PART VOCALS", orange)
@@ -240,6 +242,8 @@ track lenTicks lenSecs resn trk = let
       , ("PART RHYTHM", gryboNoteNames False)
       , ("PART GUITAR COOP", gryboNoteNames False)
       , ("PART KEYS", gryboNoteNames True)
+      , ("PART GUITAR GHL", ghlNoteNames)
+      , ("PART BASS GHL", ghlNoteNames)
       , ("PART REAL_KEYS_X", proKeysNoteNames)
       , ("PART REAL_KEYS_H", proKeysNoteNames)
       , ("PART REAL_KEYS_M", proKeysNoteNames)
@@ -491,6 +495,53 @@ vocalNoteNames = execWriter $ do
   x 35
   o 1 "Lyric Shift"
   o 0 "Range Shift"
+  where o k v = tell [(k, v)]
+        x k = tell [(k, "----")]
+
+ghlNoteNames :: [(Int, String)]
+ghlNoteNames = execWriter $ do
+  o 116 "OVERDRIVE"
+  x 115
+  o 103 "Solo Marker"
+  o 102 "Force HOPO Off"
+  o 101 "Force HOPO On"
+  o 100 "EXPERT Black 3"
+  o 99 "EXPERT Black 2"
+  o 98 "EXPERT Black 1"
+  o 97 "EXPERT White 3"
+  o 96 "EXPERT White 2"
+  o 95 "EXPERT White 1"
+  o 94 "EXPERT Open Note"
+  x 93
+  o 90 "Force HOPO Off"
+  o 89 "Force HOPO On"
+  o 88 "HARD Black 3"
+  o 87 "HARD Black 2"
+  o 86 "HARD Black 1"
+  o 85 "HARD White 3"
+  o 84 "HARD White 2"
+  o 83 "HARD White 1"
+  o 82 "HARD Open Note"
+  x 81
+  o 78 "Force HOPO Off"
+  o 77 "Force HOPO On"
+  o 76 "MEDIUM Black 3"
+  o 75 "MEDIUM Black 2"
+  o 74 "MEDIUM Black 1"
+  o 73 "MEDIUM White 3"
+  o 72 "MEDIUM White 2"
+  o 71 "MEDIUM White 1"
+  o 70 "MEDIUM Open Note"
+  x 69
+  o 66 "Force HOPO Off"
+  o 65 "Force HOPO On"
+  o 64 "EASY Black 3"
+  o 63 "EASY Black 2"
+  o 62 "EASY Black 1"
+  o 61 "EASY White 3"
+  o 60 "EASY White 2"
+  o 59 "EASY White 1"
+  o 58 "EASY Open Note"
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]
 

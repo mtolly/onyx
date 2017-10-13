@@ -269,6 +269,13 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       guitarCoopTrack = makeGRYBOTrack guitarCoopPart $ RBFile.getFlexPart guitarCoopPart trks
       (_, guitarCoopPS) = applyOpenNotes guitarCoopTrack guitarCoopMsgs
 
+      guitarGHL = case getPart guitarPart songYaml >>= partGHL of
+        Nothing -> RTB.empty
+        Just _ -> RBFile.flexGHL $ RBFile.getFlexPart guitarPart trks
+      bassGHL = case getPart bassPart songYaml >>= partGHL of
+        Nothing -> RTB.empty
+        Just _ -> RBFile.flexGHL $ RBFile.getFlexPart bassPart trks
+
       (proGtr, proGtr22) = case getPart guitarPart songYaml >>= partProGuitar of
         Nothing -> (RTB.empty, RTB.empty)
         Just _pg -> let
@@ -401,9 +408,9 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       , RBFile.psPartDrums2x = RTB.empty
       , RBFile.psPartRealDrumsPS = RTB.empty
       , RBFile.psPartGuitar = guitarPS
-      , RBFile.psPartGuitarGHL = RTB.empty
+      , RBFile.psPartGuitarGHL = guitarGHL
       , RBFile.psPartBass = bassPS
-      , RBFile.psPartBassGHL = RTB.empty
+      , RBFile.psPartBassGHL = bassGHL
       , RBFile.psPartRhythm = rhythmPS
       , RBFile.psPartGuitarCoop = guitarCoopPS
       , RBFile.psPartRealGuitar   = fmap RB proGtr

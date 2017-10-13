@@ -157,8 +157,9 @@ simpleHOPOThreshold :: (Monad m, Num a) => SongYaml -> StackTraceT m a
 simpleHOPOThreshold songYaml = let
   parts = toList $ getParts $ _parts songYaml
   grybo = map gryboHopoThreshold $ mapMaybe partGRYBO parts
+  ghl = map ghlHopoThreshold $ mapMaybe partGHL parts
   pg = map pgHopoThreshold $ mapMaybe partProGuitar parts
-  in case nub $ grybo ++ pg of
+  in case nub $ grybo ++ ghl ++ pg of
     []  -> return 170
     [n] -> return $ fromIntegral n
     ns  -> fatal $ "more than 1 HOPO threshold found: " ++ show ns

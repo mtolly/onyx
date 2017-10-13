@@ -631,6 +631,17 @@ instance StackJSON PartProGuitar where
     pgFixFreeform   <- pgFixFreeform   =. opt  True     "fix-freeform"   stackJSON
     return PartProGuitar{..}
 
+data PartGHL = PartGHL
+  { ghlDifficulty    :: Difficulty
+  , ghlHopoThreshold :: Int
+  } deriving (Eq, Ord, Show, Read)
+
+instance StackJSON PartGHL where
+  stackJSON = asStrictObject "PartGHL" $ do
+    ghlDifficulty    <- ghlDifficulty    =. fill (Tier 1) "difficulty"     stackJSON
+    ghlHopoThreshold <- ghlHopoThreshold =. opt  170      "hopo-threshold" stackJSON
+    return PartGHL{..}
+
 data DrumKit
   = HardRockKit
   | ArenaKit
@@ -719,6 +730,7 @@ instance StackJSON PartVocal where
 
 data Part = Part
   { partGRYBO     :: Maybe PartGRYBO
+  , partGHL       :: Maybe PartGHL
   , partProKeys   :: Maybe PartProKeys
   , partProGuitar :: Maybe PartProGuitar
   , partDrums     :: Maybe PartDrums
@@ -728,6 +740,7 @@ data Part = Part
 instance StackJSON Part where
   stackJSON = asStrictObject "Part" $ do
     partGRYBO     <- partGRYBO     =. opt Nothing "grybo"      stackJSON
+    partGHL       <- partGHL       =. opt Nothing "ghl"        stackJSON
     partProKeys   <- partProKeys   =. opt Nothing "pro-keys"   stackJSON
     partProGuitar <- partProGuitar =. opt Nothing "pro-guitar" stackJSON
     partDrums     <- partDrums     =. opt Nothing "drums"      stackJSON
