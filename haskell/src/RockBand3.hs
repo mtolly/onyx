@@ -271,10 +271,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
 
       guitarGHL = case getPart guitarPart songYaml >>= partGHL of
         Nothing -> RTB.empty
-        Just _ -> RBFile.flexGHL $ RBFile.getFlexPart guitarPart trks
+        Just _  -> RBFile.flexGHL $ RBFile.getFlexPart guitarPart trks
       bassGHL = case getPart bassPart songYaml >>= partGHL of
         Nothing -> RTB.empty
-        Just _ -> RBFile.flexGHL $ RBFile.getFlexPart bassPart trks
+        Just _  -> RBFile.flexGHL $ RBFile.getFlexPart bassPart trks
 
       (proGtr, proGtr22) = case getPart guitarPart songYaml >>= partProGuitar of
         Nothing -> (RTB.empty, RTB.empty)

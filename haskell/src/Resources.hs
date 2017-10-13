@@ -56,6 +56,7 @@ veraMonoTTF = $(makeRelativeToProject "vendors/VeraMono.ttf" >>= embedFile)
 missingSongData :: D.DTA T.Text
 missingSongData = D.readDTA $ decodeLatin1 $(makeRelativeToProject "vendors/missing_song_data.dta" >>= embedFile)
 
-colorMapDrums, colorMapGRYBO :: B.ByteString
-colorMapDrums = $(makeRelativeToProject "vendors/rockband_drums.png" >>= embedFile)
+colorMapDrums, colorMapGRYBO, colorMapGHL :: B.ByteString
+colorMapDrums = $(makeRelativeToProject "vendors/rockband_drums.png"      >>= embedFile)
 colorMapGRYBO = $(makeRelativeToProject "vendors/rockband_guitarbass.png" >>= embedFile)
+colorMapGHL   = $(makeRelativeToProject "vendors/rockband_ghl.png"        >>= embedFile)

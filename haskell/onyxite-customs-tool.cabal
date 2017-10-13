@@ -20,6 +20,7 @@ extra-source-files:
   vendors/missing_song_data.dta
   vendors/rockband_drums.png
   vendors/rockband_guitarbass.png
+  vendors/rockband_ghl.png
   ../player/www/index.html
   ../player/www/app.min.js
   ../player/www/images/*.png

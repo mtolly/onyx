@@ -30,6 +30,7 @@ import           Numeric                               (showHex)
 import qualified Numeric.NonNegative.Class             as NNC
 import qualified Numeric.NonNegative.Wrapper           as NN
 import           Resources                             (colorMapDrums,
+                                                        colorMapGHL,
                                                         colorMapGRYBO)
 import           RockBand.Common                       (Key (..))
 import qualified RockBand.Vocals                       as Vox
@@ -294,6 +295,8 @@ track lenTicks lenSecs resn trk = let
           , ("PART RHYTHM", "colormap_grybo.png")
           , ("PART GUITAR COOP", "colormap_grybo.png")
           , ("PART KEYS", "colormap_grybo.png")
+          , ("PART GUITAR GHL", "colormap_ghl.png")
+          , ("PART BASS GHL", "colormap_ghl.png")
           ] of
           Nothing        -> return ()
           Just (_, cmap) -> line "COLORMAP" [cmap]
@@ -745,6 +748,7 @@ makeReaperIO evts tempo audios out = liftIO $ do
   forM_ (nub $ findColorMaps project) $ \cmap -> case cmap of
     "colormap_drums.png" -> B.writeFile (takeDirectory out </> cmap) colorMapDrums
     "colormap_grybo.png" -> B.writeFile (takeDirectory out </> cmap) colorMapGRYBO
+    "colormap_ghl.png"   -> B.writeFile (takeDirectory out </> cmap) colorMapGHL
     _ -> return ()
 
 makeReaper :: FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()
