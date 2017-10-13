@@ -93,6 +93,7 @@ executable onyx
     RockBand.VenueRB2
     RockBand.PhaseShiftKeys
     RockBand.PhaseShiftMessage
+    RockBand.GHL
     MelodysEscape
     GuitarHeroII.PartGuitar
     GuitarHeroII.BandDrums

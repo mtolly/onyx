@@ -401,7 +401,9 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       , RBFile.psPartDrums2x = RTB.empty
       , RBFile.psPartRealDrumsPS = RTB.empty
       , RBFile.psPartGuitar = guitarPS
+      , RBFile.psPartGuitarGHL = RTB.empty
       , RBFile.psPartBass = bassPS
+      , RBFile.psPartBassGHL = RTB.empty
       , RBFile.psPartRhythm = rhythmPS
       , RBFile.psPartGuitarCoop = guitarCoopPS
       , RBFile.psPartRealGuitar   = fmap RB proGtr

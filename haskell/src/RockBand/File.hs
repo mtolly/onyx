@@ -28,6 +28,7 @@ import           RockBand.Common
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.FiveButton              as FiveButton
+import qualified RockBand.GHL                     as GHL
 import           RockBand.Parse
 import qualified RockBand.PhaseShiftKeys          as PSKeys
 import           RockBand.PhaseShiftMessage       (PSWrap (..), discardPS,
@@ -185,8 +186,11 @@ data PSFile t = PSFile
   , psPartDrums2x      :: RTB.T t (PSWrap      Drums.Event) -- hack for import
   , psPartRealDrumsPS  :: RTB.T t (PSWrap      Drums.Event)
   , psPartGuitar       :: RTB.T t (PSWrap FiveButton.Event)
+  , psPartGuitarGHL    :: RTB.T t (PSWrap        GHL.Event)
   , psPartBass         :: RTB.T t (PSWrap FiveButton.Event)
+  , psPartBassGHL      :: RTB.T t (PSWrap        GHL.Event)
   , psPartKeys         :: RTB.T t (PSWrap FiveButton.Event)
+  -- psPartKeysGHL?
   , psPartRhythm       :: RTB.T t (PSWrap FiveButton.Event)
   , psPartGuitarCoop   :: RTB.T t (PSWrap FiveButton.Event)
   , psPartRealGuitar   :: RTB.T t (PSWrap  ProGuitar.Event)
@@ -218,7 +222,9 @@ instance MIDIFileFormat PSFile where
     psPartDrums2x      <- parseTracks mmap trks ["PART DRUMS_2X"]
     psPartRealDrumsPS  <- parseTracks mmap trks ["PART REAL_DRUMS_PS"]
     psPartGuitar       <- parseTracks mmap trks ["PART GUITAR"]
+    psPartGuitarGHL    <- parseTracks mmap trks ["PART GUITAR GHL"]
     psPartBass         <- parseTracks mmap trks ["PART BASS"]
+    psPartBassGHL      <- parseTracks mmap trks ["PART BASS GHL"]
     psPartKeys         <- parseTracks mmap trks ["PART KEYS"]
     psPartRhythm       <- parseTracks mmap trks ["PART RHYTHM"]
     psPartGuitarCoop   <- parseTracks mmap trks ["PART GUITAR COOP"]
@@ -243,14 +249,16 @@ instance MIDIFileFormat PSFile where
     psEvents           <- parseTracks mmap trks ["EVENTS"]
     psBeat             <- parseTracks mmap trks ["BEAT"]
     psVenue            <- parseTracks mmap trks ["VENUE"]
-    knownTracks trks ["PART DRUMS", "PART DRUM", "PART REAL_DRUMS_PS", "PART GUITAR", "PART BASS", "PART KEYS", "PART RHYTHM", "PART GUITAR COOP", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART REAL_KEYS_PS_E", "PART REAL_KEYS_PS_M", "PART REAL_KEYS_PS_H", "PART REAL_KEYS_PS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3", "EVENTS", "BEAT", "VENUE"]
+    knownTracks trks ["PART DRUMS", "PART DRUM", "PART REAL_DRUMS_PS", "PART GUITAR", "PART GUITAR GHL", "PART BASS", "PART BASS GHL", "PART KEYS", "PART RHYTHM", "PART GUITAR COOP", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART REAL_KEYS_PS_E", "PART REAL_KEYS_PS_M", "PART REAL_KEYS_PS_H", "PART REAL_KEYS_PS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3", "EVENTS", "BEAT", "VENUE"]
     return $ Song tempos mmap PSFile{..}
   showMIDITracks (Song tempos mmap PSFile{..}) = Song tempos mmap $ concat
     [ showMIDITrack "PART DRUMS" psPartDrums
     , showMIDITrack "PART DRUMS_2X" psPartDrums2x
     , showMIDITrack "PART REAL_DRUMS_PS" psPartRealDrumsPS
     , showMIDITrack "PART GUITAR" psPartGuitar
+    , showMIDITrack "PART GUITAR GHL" psPartGuitarGHL
     , showMIDITrack "PART BASS" psPartBass
+    , showMIDITrack "PART BASS GHL" psPartBassGHL
     , showMIDITrack "PART KEYS" psPartKeys
     , showMIDITrack "PART RHYTHM" psPartRhythm
     , showMIDITrack "PART GUITAR COOP" psPartGuitarCoop
@@ -656,7 +664,9 @@ padPSMIDI seconds (Song temps sigs PSFile{..}) = let
     , psPartDrums2x      = padSimple psPartDrums2x
     , psPartRealDrumsPS  = padSimple psPartRealDrumsPS
     , psPartGuitar       = padSimple psPartGuitar
+    , psPartGuitarGHL    = padSimple psPartGuitarGHL
     , psPartBass         = padSimple psPartBass
+    , psPartBassGHL      = padSimple psPartBassGHL
     , psPartKeys         = padSimple psPartKeys
     , psPartRhythm       = padSimple psPartRhythm
     , psPartGuitarCoop   = padSimple psPartGuitarCoop
@@ -681,4 +691,4 @@ padPSMIDI seconds (Song temps sigs PSFile{..}) = let
     , psEvents           = padSimple psEvents
     , psBeat             = if RTB.null psBeat then RTB.empty else padBeat psBeat
     , psVenue            = padSimple psVenue
-}
+    }
