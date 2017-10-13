@@ -20,7 +20,7 @@ import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.Functor.Identity                 (runIdentity)
 import           Data.List                             (find, findIndex,
                                                         isInfixOf, isSuffixOf,
-                                                        sortOn)
+                                                        nub, sortOn)
 import           Data.Maybe                            (fromMaybe, listToMaybe,
                                                         mapMaybe)
 import qualified Data.Text                             as T
@@ -29,6 +29,8 @@ import           Development.Shake                     (need)
 import           Numeric                               (showHex)
 import qualified Numeric.NonNegative.Class             as NNC
 import qualified Numeric.NonNegative.Wrapper           as NN
+import           Resources                             (colorMapDrums,
+                                                        colorMapGRYBO)
 import           RockBand.Common                       (Key (..))
 import qualified RockBand.Vocals                       as Vox
 import           Scripts                               (loadTemposIO)
@@ -45,7 +47,7 @@ import qualified Sound.MIDI.Util                       as U
 import           System.FilePath                       (makeRelative,
                                                         takeDirectory,
                                                         takeExtension,
-                                                        takeFileName)
+                                                        takeFileName, (</>))
 
 line :: (Monad m) => String -> [String] -> WriterT [Element] m ()
 line k atoms = tell [Element k atoms Nothing]
@@ -283,6 +285,18 @@ track lenTicks lenSecs resn trk = let
               t : _ -> fromIntegral t
               []    -> 0
         line "E" [show $ lenTicks NNC.-| lastEvent, "b0", "7b", "00"]
+        case find (\(sfx, _) -> sfx `isSuffixOf` name)
+          [ ("PART DRUMS", "colormap_drums.png")
+          , ("PART DRUMS_2X", "colormap_drums.png")
+          , ("PART REAL_DRUMS_PS", "colormap_drums.png")
+          , ("PART GUITAR", "colormap_grybo.png")
+          , ("PART BASS", "colormap_grybo.png")
+          , ("PART RHYTHM", "colormap_grybo.png")
+          , ("PART GUITAR COOP", "colormap_grybo.png")
+          , ("PART KEYS", "colormap_grybo.png")
+          ] of
+          Nothing        -> return ()
+          Just (_, cmap) -> line "COLORMAP" [cmap]
 
 audio :: (Monad m) => U.Seconds -> FilePath -> WriterT [Element] m ()
 audio len path = let
@@ -709,20 +723,29 @@ makeReaperIO evts tempo audios out = liftIO $ do
           t_secs = U.applyTempoTrack tmap t_beats
           in tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
         _ -> error "Unsupported MIDI format for Reaper project generation"
-  writeRPP out $ runIdentity $
-    rpp "REAPER_PROJECT" ["0.1", "5.0/OSX64", "1449358215"] $ do
-      line "VZOOMEX" ["0"]
-      line "SAMPLERATE" ["44100", "0", "0"]
-      writeTempoTrack
-      case mid of
-        F.Cons F.Parallel (F.Ticks resn) (_ : trks) -> do
-          forM_ (sortTracks trks) $ track (midiLenTicks resn) midiLenSecs resn
-        F.Cons F.Mixed (F.Ticks resn) tracks -> let
-          merged = foldr RTB.merge RTB.empty tracks
-          in track (midiLenTicks resn) midiLenSecs resn merged
-        _ -> error "Unsupported MIDI format for Reaper project generation"
-      forM_ lenAudios $ \(len, aud) -> do
-        audio len $ makeRelative (takeDirectory out) aud
+  let project = runIdentity $
+        rpp "REAPER_PROJECT" ["0.1", "5.0/OSX64", "1449358215"] $ do
+          line "VZOOMEX" ["0"]
+          line "SAMPLERATE" ["44100", "0", "0"]
+          writeTempoTrack
+          case mid of
+            F.Cons F.Parallel (F.Ticks resn) (_ : trks) -> do
+              forM_ (sortTracks trks) $ track (midiLenTicks resn) midiLenSecs resn
+            F.Cons F.Mixed (F.Ticks resn) tracks -> let
+              merged = foldr RTB.merge RTB.empty tracks
+              in track (midiLenTicks resn) midiLenSecs resn merged
+            _ -> error "Unsupported MIDI format for Reaper project generation"
+          forM_ lenAudios $ \(len, aud) -> do
+            audio len $ makeRelative (takeDirectory out) aud
+      findColorMaps = \case
+        Element "COLORMAP" [cmap] _ -> [cmap]
+        Element _ _ Nothing -> []
+        Element _ _ (Just sub) -> concatMap findColorMaps sub
+  writeRPP out project
+  forM_ (nub $ findColorMaps project) $ \cmap -> case cmap of
+    "colormap_drums.png" -> B.writeFile (takeDirectory out </> cmap) colorMapDrums
+    "colormap_grybo.png" -> B.writeFile (takeDirectory out </> cmap) colorMapGRYBO
+    _ -> return ()
 
 makeReaper :: FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()
 makeReaper evts tempo audios out = do
