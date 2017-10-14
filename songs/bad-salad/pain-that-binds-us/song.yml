@@ -119,6 +119,8 @@ parts:
   guitar:
     grybo:
       difficulty: 5
+    ghl:
+      difficulty: 6
   bass:
     grybo:
       difficulty: 5
