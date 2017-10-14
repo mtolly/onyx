@@ -30,6 +30,8 @@ parts:
   guitar:
     grybo:
       difficulty: 7
+    ghl:
+      difficulty: 7
   bass:
     grybo:
       difficulty: 5
