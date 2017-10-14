@@ -113,6 +113,8 @@ parts:
   guitar:
     grybo:
       difficulty: 5
+    ghl:
+      difficulty: 5
   keys:
     grybo:
       difficulty: 4
