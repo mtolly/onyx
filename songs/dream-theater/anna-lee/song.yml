@@ -47,7 +47,7 @@ parts:
     drums: {}
   keys:
     pro-keys: {}
-    grybo: {}
+    # grybo: {}
   bass:
     grybo: {}
   guitar:
