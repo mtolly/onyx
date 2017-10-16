@@ -3,6 +3,7 @@ parts:
     drums: {}
   keys:
     pro-keys: {}
+    grybo: {}
 plans:
   youtube:
     song:
