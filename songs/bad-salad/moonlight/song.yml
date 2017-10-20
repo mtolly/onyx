@@ -97,12 +97,18 @@ plans:
           - 0.326
           - gain: [0.8, pledgemusic-vocals]
     song:
-      mask:
-      - [mixed]
-      - *mask
-      - trim:
-        - 0.326
-        - gain: [0.8, pledgemusic-guitars]
+      # following is a hack for CH bug
+      take:
+      - '6:52.15'
+      - pad:
+        - end
+        - '6:52.15'
+        - mask:
+          - [mixed]
+          - *mask
+          - trim:
+            - 0.326
+            - gain: [0.8, pledgemusic-guitars]
 parts:
   drums:
     drums:
