@@ -140,7 +140,7 @@ def makeTargetName(target_name, target)
   case target['game']
   when 'rb3' then pieces << 'Rock Band 3'
   when 'rb2' then pieces << 'Rock Band 2'
-  when 'ps'  then pieces << 'Phase Shift'
+  when 'ps'  then pieces << 'Phase Shift + Clone Hero'
   end
   if target['label']
     pieces << target['label']

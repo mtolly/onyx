@@ -213,6 +213,20 @@
     ps: download/itpoe_rc3_ps_fixed.zip
 
 # Bad Salad pack
-# - file-path: ../songs/bad-salad/crowded-sky
-# - file-path: ../songs/bad-salad/pain-that-binds-us
-# - file-path: ../songs/bad-salad/moonlight
+- file-path: ../songs/bad-salad/crowded-sky
+  video: https://www.youtube.com/watch?v=XlnpCaqtJOg
+  urls:
+    rb3: download/onyx_CrowdedSky1x_v1_rb3con
+    rb3-2x: download/onyx_CrowdedSky2x_v1_rb3con
+    ps: download/onyx_CrowdedSky_v1_ps_ch.zip
+- file-path: ../songs/bad-salad/pain-that-binds-us
+  video: https://www.youtube.com/watch?v=lu7tEufMlDQ
+  urls:
+    rb3: download/onyx_PainThatBindsUs1x_v1_rb3con
+    rb3-2x: download/onyx_PainThatBindsUs2x_v1_rb3con
+    ps: download/onyx_PainThatBindsUs_v1_ps_ch.zip
+- file-path: ../songs/bad-salad/moonlight
+  video: https://www.youtube.com/watch?v=3_tgeYc7AJM
+  urls:
+    rb3: download/onyx_Moonlight_v1_rb3con
+    ps: download/onyx_Moonlight_v1_ps_ch.zip
