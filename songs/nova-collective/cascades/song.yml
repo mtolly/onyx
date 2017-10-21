@@ -30,6 +30,9 @@ parts:
   bass:
     grybo:
       difficulty: 4
+  guitar:
+    grybo:
+      difficulty: 6
 targets:
   rb3:
     game: rb3
