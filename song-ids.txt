@@ -103,7 +103,8 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200062 Pain That Binds Us (Bad Salad) 2x
 1660200063 Moonlight (Bad Salad)
   Bad Salad Pack
-  v1 rc1 sent to Jarod 2017-08-19
+  rc1 sent to Jarod 2017-08-19
+  v1 released 2017-10-20
 
 BONUS SONGS (counting down from max)
 
