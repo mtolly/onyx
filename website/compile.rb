@@ -160,11 +160,11 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
     'albums' => artist_songs.group_by { |s| s['project']['metadata']['album'] }.map do |album_name, album_songs|
       system "onyx shake #{album_songs[0]['dir']} gen/cover.png"
       png = "#{album_songs[0]['dir']}/gen/cover.png"
-      png_site = 'album-art/'
-      png_site += album_songs[0]['project']['metadata']['artist'].tr("^A-Za-z0-9", '').downcase
-      png_site += album_songs[0]['project']['metadata']['album'].tr("^A-Za-z0-9", '').downcase
-      png_site += '.png'
-      FileUtils.cp png, png_site
+      art_site = 'album-art/'
+      art_site += album_songs[0]['project']['metadata']['artist'].tr("^A-Za-z0-9", '').downcase
+      art_site += album_songs[0]['project']['metadata']['album'].tr("^A-Za-z0-9", '').downcase
+      art_site += '.jpg'
+      system 'convert', png, art_site
 
       {
         'album' => album_name,
@@ -186,7 +186,7 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
             'video' => song['video']
           }
         end.sort_by { |song| song['track-number'] },
-        'art' => png_site,
+        'art' => art_site,
         'year' => album_songs[0]['project']['metadata']['year'],
       }
     end.sort_by { |album| album['year'] },
