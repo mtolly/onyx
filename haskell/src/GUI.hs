@@ -86,6 +86,7 @@ data TasksStatus = TasksStatus
   { tasksTotal  :: Int
   , tasksOK     :: Int
   , tasksFailed :: Int
+  , tasksScroll :: Int
   , tasksOutput :: [TaskProgress]
   } deriving (Eq, Ord, Show, Read)
 
@@ -423,6 +424,7 @@ launchGUI = do
             { tasksTotal = length tasks
             , tasksOK = 0
             , tasksFailed = 0
+            , tasksScroll = 0
             , tasksOutput = []
             }
         in [Choice "Go!" "" go]
@@ -493,7 +495,7 @@ launchGUI = do
                 termBoxY = fromIntegral $ length choices * 70
                 termBoxW = windW - termBoxX
                 termBoxH = windH - termBoxY
-            drawTerminal termBoxX termBoxY termBoxW termBoxH $ tasksOutput status
+            drawTerminal termBoxX termBoxY termBoxW termBoxH status
       case currentScreen of
         TasksRunning _ status -> do
           drawTerminalFor status
@@ -504,8 +506,8 @@ launchGUI = do
         TasksDone _ status -> drawTerminalFor status
         _ -> return ()
 
-    drawTerminal :: CInt -> CInt -> CInt -> CInt -> [TaskProgress] -> Onyx ()
-    drawTerminal termBoxX termBoxY termBoxW termBoxH msgs = do
+    drawTerminal :: CInt -> CInt -> CInt -> CInt -> TasksStatus -> Onyx ()
+    drawTerminal termBoxX termBoxY termBoxW termBoxH status = do
       let termCols = max 0 $ quot termBoxW monoW - 2
           termRows = max 0 $ quot termBoxH monoH - 2
           termW = termCols * monoW
@@ -537,7 +539,8 @@ launchGUI = do
               SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 termX $ termY + n * monoH) $ SDL.V2 termW monoH
               forM_ (zip [0 .. termCols - 1] line) $ uncurry $ drawChar n
               drawLines (n - 1) clns
-      drawLines (termRows - 1) $ makeLines False msgs
+      drawLines (termRows - 1) $ drop (tasksScroll status) $
+        makeLines False $ tasksOutput status
 
     spinner :: CInt -> CInt -> CInt -> Onyx ()
     spinner bigX bigY smallSide = do
@@ -651,6 +654,22 @@ launchGUI = do
         , SDL.mouseButtonEventButton = SDL.ButtonX1 -- back button at least for me
         } -> do
           goBack
+          processEvents es
+      SDL.MouseWheelEvent SDL.MouseWheelEventData
+        { SDL.mouseWheelEventPos = SDL.V2 _ dy
+        , SDL.mouseWheelEventDirection = dir
+        } -> do
+          -- TODO prevent scrolling way past the top of the log
+          let adjustStatus status = status
+                { tasksScroll = max 0 $ tasksScroll status + fromIntegral dy * case dir of
+                  SDL.ScrollNormal  ->  1
+                  SDL.ScrollFlipped -> -1 -- TODO does mac have this? is -1 right?
+                }
+          get >>= \case
+            GUIState menu _ _ -> case menu of
+              TasksRunning tid status -> setMenu $ TasksRunning tid $ adjustStatus status
+              TasksDone file   status -> setMenu $ TasksDone file   $ adjustStatus status
+              _ -> return ()
           processEvents es
       SDL.KeyboardEvent SDL.KeyboardEventData
         { SDL.keyboardEventKeyMotion = SDL.Pressed
