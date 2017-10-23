@@ -9,7 +9,7 @@
 module Control.Monad.Trans.StackTrace
 ( Message(..), Messages(..)
 , MessageLevel(..), SendMessage(..)
-, PureLog(..), runPureLog, withPureLog
+, PureLog(..), runPureLog, runPureLogT, withPureLog
 , QueueLog(..), mapQueueLog
 , StackTraceT(..)
 , warn, warnMessage, sendMessage', lg
@@ -95,9 +95,12 @@ instance (Monad m) => SendMessage (PureLog m) where
 runPureLog :: PureLog Identity a -> (a, [(MessageLevel, Message)])
 runPureLog = runWriter . fromPureLog
 
+runPureLogT :: (Monad m) => PureLog m a -> m (a, [(MessageLevel, Message)])
+runPureLogT = runWriterT . fromPureLog
+
 withPureLog :: (SendMessage m, Monad n) => (forall b. n b -> m b) -> PureLog n a -> m a
 withPureLog f st = do
-  (x, msgs) <- f $ runWriterT $ fromPureLog st
+  (x, msgs) <- f $ runPureLogT st
   mapM_ (uncurry sendMessage) msgs
   return x
 

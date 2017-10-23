@@ -73,7 +73,7 @@ data Selection
 
 data Menu
   = Choices [Choice (Onyx ())]
-  | Files FilePicker [FilePath] ([FilePath] -> Menu)
+  | Files FilePicker ([FilePath] -> Menu)
   | TasksStart [StackTraceT (QueueLog IO) [FilePath]]
   | TasksRunning ThreadId TasksStatus
   | TasksDone FilePath TasksStatus
@@ -88,14 +88,32 @@ data Choice a = Choice
 data FilePicker = FilePicker
   { filePatterns    :: [T.Text]
   , fileDescription :: T.Text
-  } deriving (Eq, Ord, Show, Read)
+  , fileFilter      :: FilePath -> StackTraceT (PureLog IO) T.Text
+  , fileLoaded      :: [FilePath]
+  , fileTerminal    :: Terminal FileProgress
+  }
+
+pickFiles :: [T.Text] -> T.Text -> (FilePath -> StackTraceT (PureLog IO) T.Text) -> ([FilePath] -> Menu) -> Menu
+pickFiles pats desc filt fn = let
+  picker = FilePicker
+    { filePatterns = pats
+    , fileDescription = desc
+    , fileFilter = filt
+    , fileLoaded = []
+    , fileTerminal = Terminal 0 []
+    }
+  in Files picker fn
 
 data TasksStatus = TasksStatus
-  { tasksTotal  :: Int
-  , tasksOK     :: Int
-  , tasksFailed :: Int
-  , tasksScroll :: Int
-  , tasksOutput :: [TaskProgress]
+  { tasksTotal    :: Int
+  , tasksOK       :: Int
+  , tasksFailed   :: Int
+  , tasksTerminal :: Terminal TaskProgress
+  } deriving (Eq, Ord, Show, Read)
+
+data Terminal a = Terminal
+  { terminalScroll :: Int
+  , terminalOutput :: [a]
   } deriving (Eq, Ord, Show, Read)
 
 setMenu :: Menu -> Onyx ()
@@ -178,7 +196,7 @@ optionsMenu current getOptions = let
 topMenu :: Menu
 topMenu = Choices
   [ ( Choice "Convert" "Modifies a song or converts between games."
-    $ pushMenu $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)") []
+    $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)" filterSong
     $ \fs -> optionsMenu convertRB3
     $ \case
       ConvertRB3{..} -> let
@@ -323,11 +341,11 @@ topMenu = Choices
         in (opts, continue)
     )
   , ( Choice "Preview" "Produces a web browser app to preview a song."
-    $ pushMenu $ Files (FilePicker ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)") [] $ \fs ->
+    $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)" filterSong $ \fs ->
       TasksStart $ map (\f -> commandLine' ["player", f]) fs
     )
   , ( Choice "Reduce" "Fills empty difficulties in a MIDI file with CAT-quality reductions."
-    $ pushMenu $ Files (FilePicker ["*.mid"] "MIDI files") [] $ \fs ->
+    $ pushMenu $ pickFiles ["*.mid"] "MIDI files" (const $ return "") $ \fs ->
       TasksStart $ map (\f -> commandLine' ["reduce", f]) fs
     )
   ]
@@ -406,7 +424,7 @@ launchGUI = do
     getChoices :: Onyx [Choice (Onyx ())]
     getChoices = gets $ \(GUIState menu _ _) -> case menu of
       Choices cs -> cs
-      Files fpick files useFiles ->
+      Files fpick useFiles ->
         [ Choice "Select files... (or drag and drop)" (fileDescription fpick) $ do
           let pats = if os /= "darwin"
                 then filePatterns fpick
@@ -416,12 +434,17 @@ launchGUI = do
           liftIO $ void $ forkIO $ openFileDialog "" "" pats (fileDescription fpick) True >>= \case
             Just chosen -> putMVar varSelectedFile $ map T.unpack chosen
             _           -> return ()
-        ] ++ if null files then [] else let
-          desc = case length files of
+        ] ++ if null $ fileLoaded fpick then [] else let
+          desc = case length $ fileLoaded fpick of
             1 -> "1 file loaded"
             n -> T.pack (show n) <> " files loaded"
-          in  [ Choice "Continue" desc $ pushMenu $ useFiles files
-              , Choice "Clear selection" "" $ setMenu $ Files fpick [] useFiles
+          in  [ Choice "Continue" desc $ pushMenu $ useFiles $ fileLoaded fpick
+              , Choice "Clear selection" "" $ let
+                fpick' = fpick
+                  { fileLoaded = []
+                  , fileTerminal = Terminal 0 []
+                  }
+                in setMenu $ Files fpick' useFiles
               ]
       TasksStart tasks -> let
         go = do
@@ -432,8 +455,7 @@ launchGUI = do
             { tasksTotal = length tasks
             , tasksOK = 0
             , tasksFailed = 0
-            , tasksScroll = 0
-            , tasksOutput = []
+            , tasksTerminal = Terminal 0 []
             }
         in [Choice "Go!" "" go]
       TasksRunning tid TasksStatus{..} ->
@@ -467,6 +489,7 @@ launchGUI = do
       SDL.clear rend
       GUIState{..} <- get
       case currentScreen of
+        Files{} -> return ()
         TasksRunning{} -> return ()
         TasksDone{} -> return ()
         _ -> do
@@ -498,24 +521,25 @@ launchGUI = do
             dims <- SDL.surfaceDimensions surf
             bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
               SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 (offset + 10) (fromIntegral index * 70 + 50))) dims
-      let drawTerminalFor status = do
+      let drawTerminalFor term = do
             let termBoxX = offset
                 termBoxY = fromIntegral $ length choices * 70
                 termBoxW = windW - termBoxX
                 termBoxH = windH - termBoxY
-            drawTerminal termBoxX termBoxY termBoxW termBoxH status
+            drawTerminal termBoxX termBoxY termBoxW termBoxH term
       case currentScreen of
+        Files fpick _ -> drawTerminalFor $ fileTerminal fpick
         TasksRunning _ status -> do
-          drawTerminalFor status
+          drawTerminalFor $ tasksTerminal status
           let bigX = windW - 120
               bigY = 20
               smallSide = 50
           spinner bigX bigY smallSide
-        TasksDone _ status -> drawTerminalFor status
+        TasksDone _ status -> drawTerminalFor $ tasksTerminal status
         _ -> return ()
 
-    drawTerminal :: CInt -> CInt -> CInt -> CInt -> TasksStatus -> Onyx ()
-    drawTerminal termBoxX termBoxY termBoxW termBoxH status = do
+    drawTerminal :: (ShowTerminal a) => CInt -> CInt -> CInt -> CInt -> Terminal a -> Onyx ()
+    drawTerminal termBoxX termBoxY termBoxW termBoxH term = do
       let termCols = max 0 $ quot termBoxW monoW - 2
           termRows = max 0 $ quot termBoxH monoH - 2
           termW = termCols * monoW
@@ -529,15 +553,14 @@ launchGUI = do
       SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 termX termY) $ SDL.V2 termW termH
       let makeLines _    []       = []
           makeLines tone (m : ms) = let
-            color = case m of
-              TaskMessage{} -> if tone then SDL.V4 0x22 0x22 0x22 0xFF else SDL.V4 0x33 0x33 0x33 0xFF
-              TaskOK{} -> SDL.V4 0 0x50 0 0xFF
-              TaskFailed{} -> SDL.V4 0x50 0 0 0xFF
+            color = case colorTerminal m of
+              Just c  -> c
+              Nothing -> if tone then SDL.V4 0x22 0x22 0x22 0xFF else SDL.V4 0x33 0x33 0x33 0xFF
             wrapLines s = if length s <= fromIntegral termCols || termCols == 0
               then [s]
               else case splitAt (fromIntegral termCols) s of
                 (l, ls) -> l : wrapLines ls
-            msgLines = reverse $ concatMap wrapLines $ lines $ showTaskProgress m
+            msgLines = reverse $ concatMap wrapLines $ lines $ showTerminal m
             in map (color, ) msgLines ++ makeLines (not tone) ms
           drawLines _ [] = return ()
           drawLines n ((color, line) : clns) = if n < 0
@@ -547,8 +570,8 @@ launchGUI = do
               SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 termX $ termY + n * monoH) $ SDL.V2 termW monoH
               forM_ (zip [0 .. termCols - 1] line) $ uncurry $ drawChar n
               drawLines (n - 1) clns
-      drawLines (termRows - 1) $ drop (tasksScroll status) $
-        makeLines False $ tasksOutput status
+      drawLines (termRows - 1) $ drop (terminalScroll term) $
+        makeLines False $ terminalOutput term
 
     spinner :: CInt -> CInt -> CInt -> Onyx ()
     spinner bigX bigY smallSide = do
@@ -668,8 +691,10 @@ launchGUI = do
         , SDL.mouseWheelEventDirection = dir
         } -> do
           -- TODO prevent scrolling way past the top of the log
-          let adjustStatus status = status
-                { tasksScroll = max 0 $ tasksScroll status + fromIntegral dy * case dir of
+          let adjustStatus status = status { tasksTerminal = adjustTerminal $ tasksTerminal status }
+              adjustFilePicker fpick = fpick { fileTerminal = adjustTerminal $ fileTerminal fpick }
+              adjustTerminal term = term
+                { terminalScroll = max 0 $ terminalScroll term + fromIntegral dy * case dir of
                   SDL.ScrollNormal  ->  1
                   SDL.ScrollFlipped -> -1 -- TODO does mac have this? is -1 right?
                 }
@@ -677,6 +702,7 @@ launchGUI = do
             GUIState menu _ _ -> case menu of
               TasksRunning tid status -> setMenu $ TasksRunning tid $ adjustStatus status
               TasksDone file   status -> setMenu $ TasksDone file   $ adjustStatus status
+              Files     fpick useFile -> setMenu $ Files (adjustFilePicker fpick) useFile
               _ -> return ()
           processEvents es
       SDL.KeyboardEvent SDL.KeyboardEventData
@@ -720,14 +746,31 @@ launchGUI = do
           _ -> processEvents es
       _ -> processEvents es
 
+    addFile :: FilePath -> Onyx ()
+    addFile fp = get >>= \case
+      GUIState{ currentScreen = Files fpick useFiles, .. } -> do
+        (res, msgs) <- liftIO $ runPureLogT $ runStackTraceT $ fileFilter fpick fp
+        let term = fileTerminal fpick
+            fpick' = fpick
+              { fileLoaded = case res of
+                Left  _ -> fileLoaded fpick
+                Right _ -> fileLoaded fpick ++ [fp]
+              , fileTerminal = term
+                -- TODO if scrolled up, keep the scrolled position constant
+                { terminalOutput
+                  = either FileFailed (FileAdded fp) res
+                  : map FileMessage msgs
+                  ++ terminalOutput term
+                }
+              }
+        setMenu $ Files fpick' useFiles
+      _ -> return ()
+
     checkVars :: Onyx ()
     checkVars = do
       liftIO (tryTakeMVar varSelectedFile) >>= \case
         Nothing -> return ()
-        Just fps -> modify $ \case
-          GUIState{ currentScreen = Files fpick files useFiles, .. } ->
-            GUIState{ currentScreen = Files fpick (files ++ fps) useFiles, .. }
-          s -> s
+        Just fps -> mapM_ addFile fps
       liftIO (tryTakeMVar varTaskProgress) >>= \case
         Nothing -> return ()
         Just progress -> get >>= \case
@@ -739,11 +782,15 @@ launchGUI = do
               , tasksFailed = case progress of
                 TaskFailed{} -> tasksFailed oldStatus + 1
                 _            -> tasksFailed oldStatus
-              , tasksOutput = progress : tasksOutput oldStatus
+              , tasksTerminal = Terminal
+                -- TODO if scrolled up, keep the scrolled position constant
+                { terminalScroll = terminalScroll $ tasksTerminal oldStatus
+                , terminalOutput = progress : terminalOutput (tasksTerminal oldStatus)
+                }
               }
             in if tasksOK newStatus + tasksFailed newStatus == tasksTotal newStatus
               then do
-                useResultFiles $ concat [ files | TaskOK files <- tasksOutput newStatus ]
+                useResultFiles $ concat [ files | TaskOK files <- terminalOutput $ tasksTerminal newStatus ]
                 logFile <- liftIO $ do
                   logDir <- getXdgDirectory XdgCache "onyx-log"
                   createDirectoryIfMissing False logDir
@@ -754,7 +801,7 @@ launchGUI = do
                   writeFile logFile $ unlines
                     $ "PATH:"
                     : path
-                    : map showTaskProgress (reverse $ tasksOutput newStatus)
+                    : map showTerminal (reverse $ terminalOutput $ tasksTerminal newStatus)
                   return logFile
                 put $ GUIState (TasksDone logFile newStatus) prevMenus sel
               else put $ GUIState (TasksRunning tid newStatus) prevMenus sel
@@ -763,15 +810,42 @@ launchGUI = do
 
   evalStateT tick initialState
 
-showTaskProgress :: TaskProgress -> String
-showTaskProgress = filter (/= '\r') . \case
-  TaskMessage (MessageLog    , msg) -> messageString msg
-  TaskMessage (MessageWarning, msg) -> "Warning: " ++ displayException msg
-  TaskOK files -> unlines $ "Success! Output files:" : map ("  " ++) files
-  TaskFailed msgs -> unlines ["ERROR!", displayException msgs]
+class ShowTerminal a where
+  showTerminal :: a -> String
+  colorTerminal :: a -> Maybe (SDL.V4 Word8)
+  colorTerminal _ = Nothing
 
-songDetails :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (T.Text, T.Text, T.Text)
-songDetails fp = identifyFile' fp >>= \(typ, fp') -> case typ of
+instance ShowTerminal TaskProgress where
+  showTerminal = filter (/= '\r') . \case
+    TaskMessage (MessageLog    , msg) -> messageString msg
+    TaskMessage (MessageWarning, msg) -> "Warning: " ++ displayException msg
+    TaskOK files -> unlines $ "Success! Output files:" : map ("  " ++) files
+    TaskFailed msgs -> unlines ["ERROR!", displayException msgs]
+  colorTerminal = \case
+    TaskOK{} -> Just $ SDL.V4 0 0x50 0 0xFF
+    TaskFailed{} -> Just $ SDL.V4 0x50 0 0 0xFF
+    _ -> Nothing
+
+data FileProgress
+  = FileAdded FilePath T.Text
+  | FileMessage (MessageLevel, Message)
+  | FileFailed Messages
+  deriving (Eq, Ord, Show, Read)
+
+instance ShowTerminal FileProgress where
+  showTerminal = filter (/= '\r') . \case
+    FileAdded fp found -> if T.null found
+      then fp
+      else unlines [fp, "  " <> T.unpack found]
+    FileMessage (MessageLog    , msg) -> messageString msg
+    FileMessage (MessageWarning, msg) -> "Warning: " ++ displayException msg
+    FileFailed msgs -> displayException msgs
+  colorTerminal = \case
+    FileFailed{} -> Just $ SDL.V4 0x50 0 0 0xFF
+    _ -> Nothing
+
+filterSong :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m T.Text
+filterSong fp = identifyFile' fp >>= \(typ, fp') -> case typ of
   FileSTFS -> liftBracketLog (withSTFS fp') $ \contents -> do
     case [ getDTA | ("songs/songs.dta", getDTA) <- stfsFiles contents ] of
       getDTA : _ -> stackIO getDTA >>= useDTA "STFS"
@@ -779,9 +853,10 @@ songDetails fp = identifyFile' fp >>= \(typ, fp') -> case typ of
   FileRBA -> getRBAFileBS 0 fp' >>= useDTA "RBA"
   FilePS -> do
     ini <- FoF.loadSong $ takeDirectory fp' </> "song.ini"
-    return ("PS", fromMaybe "(no title)" $ FoF.name ini, fromMaybe "(no artist)" $ FoF.artist ini)
+    return $ foundFile "PS" (fromMaybe "(no title)" $ FoF.name ini) (fromMaybe "(no artist)" $ FoF.artist ini)
   _ -> fatal "Not a recognized song file"
   where useDTA filetype bs = do
           dta <- readDTABytes $ BL.toStrict bs
           (_, pkg, _) <- readRB3DTABytes dta
-          return (filetype, D.name pkg, D.artist pkg)
+          return $ foundFile filetype (D.name pkg) (D.artist pkg)
+        foundFile typ title artist = "[" <> typ <> "] " <> title <> " (" <> artist <> ")"
