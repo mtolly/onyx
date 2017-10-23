@@ -18,7 +18,7 @@ module Control.Monad.Trans.StackTrace
 , MonadError(..)
 , inside
 , runStackTraceT
-, liftMaybe
+, liftBracket, liftBracketLog, liftMaybe
 , mapStackTraceT
 , tempDir, withDir
 , stackProcess
@@ -192,6 +192,25 @@ inside s (StackTraceT (ExceptT rdr)) = StackTraceT $ ExceptT $ local (s :) rdr
 
 runStackTraceT :: (Monad m) => StackTraceT m a -> m (Either Messages a)
 runStackTraceT (StackTraceT ex) = runReaderT (runExceptT ex) []
+
+liftBracket
+  :: (MonadIO m)
+  => (forall b. (a -> IO b) -> IO b)
+  -> (a -> StackTraceT IO c)
+  -> StackTraceT m c
+liftBracket io st = do
+  res <- liftIO $ io $ runStackTraceT . st
+  either throwError return res
+
+liftBracketLog
+  :: (SendMessage m, MonadIO m)
+  => (forall b. (a -> IO b) -> IO b)
+  -> (a -> StackTraceT (PureLog IO) c)
+  -> StackTraceT m c
+liftBracketLog io st = do
+  (res, msgs) <- liftIO $ io $ runWriterT . fromPureLog . runStackTraceT . st
+  mapM_ (uncurry sendMessage') msgs
+  either throwError return res
 
 liftMaybe :: (Monad m, Show a) => (a -> m (Maybe b)) -> a -> StackTraceT m b
 liftMaybe f x = lift (f x) >>= \case

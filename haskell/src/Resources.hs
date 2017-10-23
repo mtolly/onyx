@@ -7,7 +7,7 @@ import qualified Data.ByteString    as B
 import qualified Data.DTA           as D
 import           Data.FileEmbed     (embedDir, embedFile, makeRelativeToProject)
 import qualified Data.Text          as T
-import           Data.Text.Encoding (decodeLatin1)
+import           Data.Text.Encoding (decodeUtf8)
 import           System.Environment (getExecutablePath)
 import           System.FilePath    (takeDirectory, (</>))
 
@@ -54,7 +54,7 @@ veraMonoTTF :: B.ByteString
 veraMonoTTF = $(makeRelativeToProject "vendors/VeraMono.ttf" >>= embedFile)
 
 missingSongData :: D.DTA T.Text
-missingSongData = D.readDTA $ decodeLatin1 $(makeRelativeToProject "vendors/missing_song_data.dta" >>= embedFile)
+missingSongData = D.readDTA $ decodeUtf8 $(makeRelativeToProject "vendors/missing_song_data.dta" >>= embedFile)
 
 colorMapDrums, colorMapGRYBO, colorMapGHL :: B.ByteString
 colorMapDrums = $(makeRelativeToProject "vendors/rockband_drums.png"      >>= embedFile)

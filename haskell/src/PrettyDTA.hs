@@ -122,26 +122,31 @@ applyUpdate original update = let
   newSong = D.Parens $ D.Tree 0 $ D.Key "song" : concat (originalSong ++ songUpdate)
   in newSong : (untouched ++ otherUpdate)
 
--- | Returns @(short song name, DTA file contents, is UTF8)@
-readRB3DTA :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (T.Text, D.SongPackage, Bool)
-readRB3DTA dtaPath = do
-  -- Not sure what encoding it is, try both.
+readRB3DTABytes :: (SendMessage m) => D.DTA B.ByteString -> StackTraceT m (T.Text, D.SongPackage, Bool)
+readRB3DTABytes dtabs = do
+  -- First we read as Latin-1. Then redo as UTF-8 if encoding says so
   let readSongWith rdr = do
-        dta <- rdr dtaPath
+        dta <- mapM rdr dtabs
         (k, chunks) <- case D.treeChunks $ D.topTree dta of
           [D.Parens (D.Tree _ (D.Key k : chunks))] -> return (k, chunks)
-          _ -> fatal $ dtaPath ++ " is not a valid songs.dta with exactly one song"
+          _ -> fatal $ "Not a valid songs.dta with exactly one song"
         let missingChunks = fromMaybe [] $ Map.lookup k missingMapping
-        pkg <- inside ("loading DTA file " ++ show dtaPath)
-          $ unserialize stackChunks $ D.DTA 0 $ D.Tree 0
+        pkg <- unserialize stackChunks $ D.DTA 0 $ D.Tree 0
           $ removeOldDTAKeys $ fixTracksCount $ applyUpdate chunks missingChunks
         return (k, pkg)
-  (k_l1, l1) <- readSongWith D.readFileDTA_latin1'
+      decodeUtf8Stack bs = inside "decoding utf-8 string" $
+        either (fatal . show) return $ TE.decodeUtf8' bs
+  (k_l1, l1) <- readSongWith $ return . TE.decodeLatin1
   case D.encoding l1 of
-    Just "utf8" -> (\(k, pkg) -> (k, pkg, True)) <$> readSongWith D.readFileDTA_utf8'
+    Just "utf8" -> (\(k, pkg) -> (k, pkg, True)) <$> readSongWith decodeUtf8Stack
     Just "latin1" -> return (k_l1, l1, False)
     Nothing -> return (k_l1, l1, False)
-    Just enc -> fatal $ dtaPath ++ " specifies an unrecognized encoding: " ++ T.unpack enc
+    Just enc -> fatal $ "Unrecognized DTA character encoding: " ++ T.unpack enc
+
+-- | Returns @(short song name, DTA file contents, is UTF8)@
+readRB3DTA :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (T.Text, D.SongPackage, Bool)
+readRB3DTA dtaPath = inside ("loading DTA file " ++ show dtaPath) $ do
+  stackIO (B.readFile dtaPath) >>= D.readDTABytes >>= readRB3DTABytes
 
 readDTASingle :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m DTASingle
 readDTASingle file = do

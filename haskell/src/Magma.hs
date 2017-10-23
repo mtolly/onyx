@@ -1,4 +1,4 @@
-module Magma (runMagmaMIDI, runMagma, runMagmaV1, oggToMogg, getRBAFile) where
+module Magma (runMagmaMIDI, runMagma, runMagmaV1, oggToMogg, getRBAFile, getRBAFileBS) where
 
 import           Codec.Picture                  (writeBitmap)
 import           Control.Monad                  (forM_, replicateM)
@@ -72,14 +72,17 @@ runMagmaV1 proj rba = tempDir "magma-v1" $ \tmp -> do
         (tmp </> "MagmaCompiler.exe") [proj', rba']
   inside "running Magma v1" $ stackProcess createProc
 
-getRBAFile :: (MonadIO m) => Int -> FilePath -> FilePath -> m ()
-getRBAFile i rba out = liftIO $ IO.withBinaryFile rba IO.ReadMode $ \h -> do
+getRBAFileBS :: (MonadIO m) => Int -> FilePath -> m BL.ByteString
+getRBAFileBS i rba = liftIO $ IO.withBinaryFile rba IO.ReadMode $ \h -> do
   IO.hSeek h IO.AbsoluteSeek 0x08
   let read7words = runGet (replicateM 7 getWord32le) <$> BL.hGet h (7 * 4)
   offsets <- read7words
   sizes <- read7words
   IO.hSeek h IO.AbsoluteSeek $ fromIntegral $ offsets !! i
-  BL.hGet h (fromIntegral $ sizes !! i) >>= BL.writeFile out
+  BL.hGet h $ fromIntegral $ sizes !! i
+
+getRBAFile :: (MonadIO m) => Int -> FilePath -> FilePath -> m ()
+getRBAFile i rba out = getRBAFileBS i rba >>= liftIO . BL.writeFile out
 
 oggToMogg :: (MonadIO m) => FilePath -> FilePath -> StackTraceT (QueueLog m) ()
 oggToMogg ogg mogg = tempDir "ogg2mogg" $ \tmp -> do

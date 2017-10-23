@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
-module CommandLine (commandLine) where
+module CommandLine (commandLine, identifyFile', FileType(..)) where
 
 import           Build                          (loadYaml, shakeBuildFiles,
                                                  shakeBuildMagmaProject,
@@ -146,8 +146,8 @@ data Command = Command
   , commandUsage :: T.Text
   }
 
-identifyFile :: (MonadIO m) => FilePath -> StackTraceT m FileResult
-identifyFile fp = stackIO $ Dir.doesFileExist fp >>= \case
+identifyFile :: FilePath -> IO FileResult
+identifyFile fp = Dir.doesFileExist fp >>= \case
   True -> case takeExtension fp of
     ".yml" -> return $ FileType FileSongYaml fp
     ".rbproj" -> return $ FileType FileRBProj fp
@@ -204,7 +204,7 @@ data FileType
   deriving (Eq, Ord, Show, Read)
 
 identifyFile' :: (MonadIO m) => FilePath -> StackTraceT m (FileType, FilePath)
-identifyFile' file = identifyFile file >>= \case
+identifyFile' file = stackIO (identifyFile file) >>= \case
   FileDoesNotExist     -> fatal $ "Path does not exist: " <> file
   FileUnrecognized     -> fatal $ "File/directory type not recognized: " <> file
   FileType ftype fpath -> return (ftype, fpath)

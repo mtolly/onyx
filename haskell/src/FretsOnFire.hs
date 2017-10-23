@@ -55,6 +55,7 @@ data Song = Song
 loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
 loadSong fp = do
   ini <- inside fp $ liftIO (readIniFile fp) >>= either fatal return
+  -- TODO make all keys lowercase before lookup
 
   let str :: T.Text -> Maybe T.Text
       str k = either (const Nothing) Just $ lookupValue "song" k ini

@@ -2,7 +2,7 @@
 This code was messily ported from the much more well-written py360:
 https://github.com/arkem/py360
 -}
-module STFS.Extract (extractSTFS) where
+module STFS.Extract (extractSTFS, withSTFS, STFSContents(..)) where
 
 import           Control.Monad
 import           Control.Monad.Loops        (whileM_)
@@ -26,8 +26,19 @@ table_spacing = [(0xAB, 0x718F, 0xFE7DA), (0xAC, 0x723A, 0xFD00B)]
 fst3 :: (a, b, c) -> a
 fst3 (x, _, _) = x
 
+data STFSContents = STFSContents
+  { stfsDirectories :: [FilePath]
+  , stfsFiles       :: [(FilePath, IO BL.ByteString)]
+  }
+
 extractSTFS :: FilePath -> FilePath -> IO ()
-extractSTFS stfs dir = withBinaryFile stfs ReadMode $ \fd -> do
+extractSTFS stfs dir = withSTFS stfs $ \contents -> do
+  forM_ (stfsDirectories contents) $ createDirectoryIfMissing True . (dir </>)
+  forM_ (stfsFiles contents) $ \(path, getFile) -> do
+    getFile >>= BL.writeFile (dir </> path)
+
+withSTFS :: FilePath -> (STFSContents -> IO a) -> IO a
+withSTFS stfs fn = withBinaryFile stfs ReadMode $ \fd -> do
   header <- BL.hGet fd 0x971A
   let -- volume_descriptor_size = BL.index header 0x379
       -- block_seperation = BL.index header 0x37B
@@ -116,9 +127,9 @@ extractSTFS stfs dir = withBinaryFile stfs ReadMode $ \fd -> do
     pcomps <- readIORef path_components
     modifyIORef allfiles $ Map.insert (BL8.intercalate (BL8.pack "/") pcomps) fl
 
-  let read_file filelisting initSize = do
+  let read_file filelisting = do
         buf <- newIORef BL.empty
-        size <- newIORef $ if initSize == (-1) then fl_size filelisting else initSize
+        size <- newIORef $ fl_size filelisting
         block <- newIORef $ fl_firstblock filelisting
         info <- newIORef 0x80
         let check = do
@@ -140,14 +151,18 @@ extractSTFS stfs dir = withBinaryFile stfs ReadMode $ \fd -> do
           writeIORef info $ blockhash_info blockhash'
         readIORef buf
 
-  files <- readIORef allfiles
-  let readFilename bs = dir </> dropWhile (== '/') (TL.unpack $ TLE.decodeUtf8 bs) -- not sure if actually utf-8
-  forM_ (Map.toAscList files) $ \(filename, filelisting) ->
-    when (fl_isdirectory filelisting) $ createDirectoryIfMissing True $ readFilename filename
-  forM_ (Map.toAscList files) $ \(filename, filelisting) ->
-    unless (fl_isdirectory filelisting) $ do
-      bs <- read_file filelisting (-1)
-      BL.writeFile (readFilename filename) bs
+  files <- Map.toAscList <$> readIORef allfiles
+  let readFilename bs = dropWhile (== '/') (TL.unpack $ TLE.decodeUtf8 bs) -- not sure if actually utf-8
+  fn $ STFSContents
+    { stfsDirectories = do
+      (filename, filelisting) <- files
+      guard $ fl_isdirectory filelisting
+      return $ readFilename filename
+    , stfsFiles = do
+      (filename, filelisting) <- files
+      guard $ not $ fl_isdirectory filelisting
+      return (readFilename filename, read_file filelisting)
+    }
 
 data BlockHashRecord = BlockHashRecord
   { blockhash_record    :: Integer

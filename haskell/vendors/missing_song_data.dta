@@ -2776,7 +2776,7 @@
  ('extra_authoring' 'disc_update')
  ('album_art' 'TRUE')
  ('album_name'
-  "(pronounced 'leh-'n\233rd 'skin-'n\233rd)")
+  "(pronounced 'leh-'nérd 'skin-'nérd)")
  ('album_track_number' 3)
  ('encoding' 'latin1'))
 ('girlfriendisbetter'
@@ -4455,7 +4455,7 @@
  ('extra_authoring' 'disc_update'))
 ('littlegirl'
  ('name'
-  "\191Viva la Gloria? (Little Girl)")
+  "¿Viva la Gloria? (Little Girl)")
  ('format' 10)
  ('encoding' 'latin1'))
 ('littlemisslover'
@@ -6845,7 +6845,7 @@
  ('alternate_path' 'TRUE')
  ('album_art' 'TRUE')
  ('album_name'
-  "(pronounced 'leh-'n\233rd 'skin-'n\233rd)")
+  "(pronounced 'leh-'nérd 'skin-'nérd)")
  ('album_track_number' 4)
  ('encoding' 'latin1'))
 ('singthechanges'
@@ -8391,7 +8391,7 @@
  ('game_origin' 'rb1_dlc')
  ('rating' 1)
  ('album_name'
-  "Tutto \232 Possibile")
+  "Tutto è Possibile")
  ('encoding' 'latin1'))
 ('twoprinces'
  ('song_length' 270909)
@@ -8569,7 +8569,7 @@
  ('extra_authoring' 'disc_update'))
 ('vivalagloria'
  ('name'
-  "\161Viva la Gloria!")
+  "¡Viva la Gloria!")
  ('format' 10)
  ('extra_authoring' 'greenday' 'disc_update')
  ('vocal_tonic_note' 4)

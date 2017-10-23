@@ -8,7 +8,8 @@ module Data.DTA
 , readFileDTB, writeFileDTB
 , readDTA, showDTA
 , readFileDTA, readFileDTA_latin1, readFileDTA_utf8
-, readFileDTA', readFileDTA_latin1', readFileDTA_utf8'
+, readFileDTA_latin1', readFileDTA_utf8'
+, readDTABytes
 , writeFileDTA_latin1, writeFileDTA_utf8
 , renumberFrom
 ) where
@@ -16,8 +17,7 @@ module Data.DTA
 import           Control.Applicative            ((<|>))
 import           Control.Exception.Extra
 import           Control.Monad.IO.Class         (MonadIO (..))
-import           Control.Monad.Trans.StackTrace (StackTraceT, catchError, fatal,
-                                                 inside)
+import           Control.Monad.Trans.StackTrace (StackTraceT, fatal, inside)
 import           Data.Binary                    (decode, encode)
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Char8          as B8
@@ -61,14 +61,16 @@ readFileDTA_latin1 = fmap (readDTA . decodeLatin1) . B.readFile
 readFileDTA_utf8 :: FilePath -> IO (DTA T.Text)
 readFileDTA_utf8 = fmap (readDTA . decodeUtf8) . B.readFile
 
-readFileDTA' :: (MonadIO m) => FilePath -> StackTraceT m (DTA T.Text)
-readFileDTA' f = readFileDTA_utf8' f `catchError` \_ -> readFileDTA_latin1' f
-
 readFileDTA_latin1' :: (MonadIO m) => FilePath -> StackTraceT m (DTA T.Text)
 readFileDTA_latin1' f = inside ("DTA file: " ++ show f) $ do
   liftIO (tryIOError $ B.readFile f) >>= \case
     Left err -> fatal $ show err
     Right bs -> scanStack (removeBOM $ decodeLatin1 bs) >>= parseStack
+
+readDTABytes :: (Monad m) => B.ByteString -> StackTraceT m (DTA B.ByteString)
+readDTABytes bs = do
+  dta <- scanStack (removeBOM $ decodeLatin1 bs) >>= parseStack
+  return $ B8.pack . T.unpack <$> dta
 
 readFileDTA_utf8' :: (MonadIO m) => FilePath -> StackTraceT m (DTA T.Text)
 readFileDTA_utf8' f = inside ("DTA file: " ++ show f) $ do

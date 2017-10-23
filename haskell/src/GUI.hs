@@ -9,7 +9,8 @@
 {-# LANGUAGE TupleSections            #-}
 module GUI (launchGUI, logStdout) where
 
-import           CommandLine                    (commandLine)
+import           CommandLine                    (FileType (..), commandLine,
+                                                 identifyFile')
 import           Control.Concurrent             (ThreadId, forkIO, killThread,
                                                  threadDelay)
 import           Control.Concurrent.MVar
@@ -21,8 +22,11 @@ import           Control.Monad.Trans.Reader     (runReaderT)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
 import qualified Data.ByteString                as B
+import qualified Data.ByteString.Lazy           as BL
 import           Data.ByteString.Unsafe         (unsafeUseAsCStringLen)
 import           Data.Char                      (isPrint)
+import           Data.DTA                       (readDTABytes)
+import qualified Data.DTA.Serialize.RB3         as D
 import qualified Data.HashMap.Strict            as HM
 import           Data.Maybe                     (fromJust, fromMaybe)
 import           Data.Monoid                    ((<>))
@@ -33,20 +37,24 @@ import           Data.Version                   (showVersion)
 import           Data.Word                      (Word8)
 import           Foreign                        (Ptr, castPtr)
 import           Foreign.C                      (CInt (..))
+import qualified FretsOnFire                    as FoF
 import           Graphics.UI.TinyFileDialogs
+import           Magma                          (getRBAFileBS)
 import           OSFiles                        (osOpenFile, useResultFiles)
 import           Paths_onyxite_customs_tool     (version)
+import           PrettyDTA                      (readRB3DTABytes)
 import           Resources                      (pentatonicTTF, veraMonoTTF)
 import           SDL                            (($=))
 import qualified SDL
 import qualified SDL.Raw                        as Raw
 import qualified SDL.TTF                        as TTF
 import           SDL.TTF.FFI                    (TTFFont)
+import           STFS.Extract                   (STFSContents (..), withSTFS)
 import           System.Directory               (XdgDirectory (..),
                                                  createDirectoryIfMissing,
                                                  getXdgDirectory)
 import           System.Environment             (getEnv)
-import           System.FilePath                ((<.>), (</>))
+import           System.FilePath                (takeDirectory, (<.>), (</>))
 import           System.Info                    (os)
 
 foreign import ccall unsafe "TTF_OpenFontRW"
@@ -761,3 +769,19 @@ showTaskProgress = filter (/= '\r') . \case
   TaskMessage (MessageWarning, msg) -> "Warning: " ++ displayException msg
   TaskOK files -> unlines $ "Success! Output files:" : map ("  " ++) files
   TaskFailed msgs -> unlines ["ERROR!", displayException msgs]
+
+songDetails :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (T.Text, T.Text, T.Text)
+songDetails fp = identifyFile' fp >>= \(typ, fp') -> case typ of
+  FileSTFS -> liftBracketLog (withSTFS fp') $ \contents -> do
+    case [ getDTA | ("songs/songs.dta", getDTA) <- stfsFiles contents ] of
+      getDTA : _ -> stackIO getDTA >>= useDTA "STFS"
+      _          -> fatal "Could not locate songs/songs.dta"
+  FileRBA -> getRBAFileBS 0 fp' >>= useDTA "RBA"
+  FilePS -> do
+    ini <- FoF.loadSong $ takeDirectory fp' </> "song.ini"
+    return ("PS", fromMaybe "(no title)" $ FoF.name ini, fromMaybe "(no artist)" $ FoF.artist ini)
+  _ -> fatal "Not a recognized song file"
+  where useDTA filetype bs = do
+          dta <- readDTABytes $ BL.toStrict bs
+          (_, pkg, _) <- readRB3DTABytes dta
+          return (filetype, D.name pkg, D.artist pkg)
