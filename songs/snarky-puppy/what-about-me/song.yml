@@ -46,6 +46,9 @@ parts:
   guitar:
     grybo:
       difficulty: 7
+  keys:
+    pro-keys:
+      difficulty: 4
 targets:
   rb3:
     game: rb3

@@ -2,7 +2,7 @@ JAZZ
 ready:
 - ripple star (kirby 64)
 at least 2 parts done:
-> what about me (snarky puppy) just needs pro/basic keys, OD
+> what about me (snarky puppy) just needs basic keys, OD
 > cascades (nova collective) just needs pro/basic keys, OD
 > thoughts (kaz rodriguez) drums and bass done
 > the chicken (gavin harrison) drums/bass/pk done; needs gtr, keys, OD, fix tempo map

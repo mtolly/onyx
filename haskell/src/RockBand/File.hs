@@ -190,7 +190,6 @@ data PSFile t = PSFile
   , psPartBass         :: RTB.T t (PSWrap FiveButton.Event)
   , psPartBassGHL      :: RTB.T t (PSWrap        GHL.Event)
   , psPartKeys         :: RTB.T t (PSWrap FiveButton.Event)
-  -- psPartKeysGHL?
   , psPartRhythm       :: RTB.T t (PSWrap FiveButton.Event)
   , psPartGuitarCoop   :: RTB.T t (PSWrap FiveButton.Event)
   , psPartRealGuitar   :: RTB.T t (PSWrap  ProGuitar.Event)
