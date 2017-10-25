@@ -605,8 +605,9 @@ launchGUI = do
       draw
       SDL.present rend
       liftIO $ threadDelay 10000
+      checkVars
       evts <- SDL.pollEvents
-      processEvents evts
+      processEvents evts >>= \b -> when b tick
 
     newSelect :: Maybe (Int, Int) -> Onyx ()
     newSelect mousePos = do
@@ -654,13 +655,16 @@ launchGUI = do
         put $ GUIState pm pms $ SelectMenu 0
       _ -> return ()
 
-    processEvents :: [SDL.Event] -> Onyx ()
-    processEvents [] = checkVars
+    -- | Returns 'False' if an exit event was processed.
+    processEvents :: [SDL.Event] -> Onyx Bool
+    processEvents [] = return True
     processEvents (e : es) = case SDL.eventPayload e of
       SDL.QuitEvent -> get >>= \case
-        GUIState menu _ _ -> case menu of
-          TasksRunning tid _ -> liftIO $ killThread tid
-          _                  -> return ()
+        GUIState menu _ _ -> do
+          case menu of
+            TasksRunning tid _ -> liftIO $ killThread tid
+            _                  -> return ()
+          return False
       SDL.DropEvent (SDL.DropEventData cstr) -> do
         liftIO $ do
           -- IIUC, SDL2 guarantees the char* is utf-8 on all platforms
@@ -806,7 +810,6 @@ launchGUI = do
                 put $ GUIState (TasksDone logFile newStatus) prevMenus sel
               else put $ GUIState (TasksRunning tid newStatus) prevMenus sel
           _ -> return ()
-      tick
 
   evalStateT tick initialState
 

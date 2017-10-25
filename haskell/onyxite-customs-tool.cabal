@@ -118,6 +118,8 @@ executable onyx
     Data.DTA.Lex
     Data.DTA.Parse
     Data.DTA.PrettyPrint
+    -- rhythm game
+    RhythmGame.Drums
   build-depends:
     base
     , shake >= 0.15 && < 0.16
