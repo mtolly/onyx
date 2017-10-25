@@ -47,6 +47,8 @@ parts:
     grybo:
       difficulty: 7
   keys:
+    grybo:
+      difficulty: 4
     pro-keys:
       difficulty: 4
 targets:
