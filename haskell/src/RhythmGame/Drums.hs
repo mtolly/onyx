@@ -1,11 +1,18 @@
 {-# LANGUAGE LambdaCase #-}
 module RhythmGame.Drums where
 
-import qualified RockBand.Drums as D
-import qualified Data.Map.Strict as Map
-import Data.Map.Strict.Internal (Map(..))
-import Data.List (partition)
-import Data.Maybe (fromMaybe)
+import           Control.Concurrent        (threadDelay)
+import           Control.Monad             (when)
+import           Control.Monad.IO.Class    (liftIO)
+import           Control.Monad.Trans.State
+import           Data.List                 (partition)
+import qualified Data.Map.Strict           as Map
+import           Data.Map.Strict.Internal  (Map (..))
+import           Data.Maybe                (fromMaybe)
+import           Foreign.C                 (CInt)
+import qualified RockBand.Drums            as D
+import           SDL                       (($=))
+import qualified SDL
 
 data Note a
   = Upcoming a
@@ -60,7 +67,7 @@ hitPad t x trk = let
   p2 = Map.lookupGE t $ trackNotes trk
   closestNotes = case p1 of
     Nothing -> case p2 of
-      Nothing -> Nothing
+      Nothing      -> Nothing
       Just (k2, _) -> if k2 - t < trackWindow trk then p2 else Nothing
     Just (k1, _) -> case p2 of
       Nothing -> if t - k1 < trackWindow trk then p1 else Nothing
@@ -78,3 +85,45 @@ hitPad t x trk = let
       ([], _) -> overhit
       (_ : _, notes') ->
         trk { trackNotes = Map.insert k (Hit x : notes') $ trackNotes trk }
+
+drawDrums :: SDL.Renderer -> SDL.Rectangle CInt -> Track Double (D.Gem ()) -> IO ()
+drawDrums rend rect@(SDL.Rectangle (SDL.P (SDL.V2 x y)) (SDL.V2 w h)) trk = do
+  SDL.rendererDrawColor rend $= SDL.V4 100 100 100 0xFF
+  SDL.fillRect rend $ Just rect
+  -- TODO the notes
+
+playDrums :: SDL.Window -> SDL.Renderer -> Track Double (D.Gem ()) -> IO ()
+playDrums window rend trk = flip evalStateT trk $ do
+  initTime <- SDL.ticks
+  let loop = SDL.pollEvents >>= processEvents >>= \b -> when b $ do
+        timestamp <- SDL.ticks
+        modify $ updateTime $ fromIntegral (timestamp - initTime) / 1000
+        draw
+        liftIO $ threadDelay 5000
+        loop
+      processEvents [] = return True
+      processEvents (e : es) = case SDL.eventPayload e of
+        SDL.QuitEvent -> return False
+        SDL.KeyboardEvent SDL.KeyboardEventData
+          { SDL.keyboardEventKeyMotion = SDL.Pressed
+          , SDL.keyboardEventKeysym = ksym
+          , SDL.keyboardEventRepeat = False
+          } -> do
+            let hit gem = modify $ hitPad t gem
+                t = fromIntegral (SDL.eventTimestamp e - initTime) / 1000
+            case SDL.keysymScancode ksym of
+              SDL.ScancodeV     -> hit D.Red
+              SDL.ScancodeB     -> hit $ D.Pro D.Yellow ()
+              SDL.ScancodeN     -> hit $ D.Pro D.Blue ()
+              SDL.ScancodeM     -> hit $ D.Pro D.Green ()
+              SDL.ScancodeSpace -> hit D.Kick
+              _                 -> return ()
+            processEvents es
+        _ -> processEvents es
+      draw = do
+        SDL.V2 w h <- SDL.get $ SDL.windowSize window
+        SDL.rendererDrawColor rend $= SDL.V4 0 0 0 0xFF
+        SDL.clear rend
+        get >>= liftIO . drawDrums rend (SDL.Rectangle (SDL.P (SDL.V2 (quot w 4) 0)) (SDL.V2 (quot w 2) h))
+        SDL.present rend
+  loop
