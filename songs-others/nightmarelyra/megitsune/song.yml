@@ -1,0 +1,119 @@
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: female
+      difficulty:
+        tier: 4
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 4
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 5
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+plans:
+  mogg:
+    parts:
+      vocal:
+      - 6
+      - 7
+      bass:
+      - 2
+      - 3
+      guitar:
+      - 4
+      - 5
+      keys:
+      - 8
+      - 9
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 25c3edbf932c70fb71cc419070a2f290
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+targets:
+  rb3-2x:
+    song-id: Megitsune2xv2
+    game: rb3
+    version: 30
+    2x-bass-pedal: true
+  rb3:
+    song-id: Megitsune1xv2
+    game: rb3
+    version: 30
+metadata:
+  rating: FamilyFriendly
+  preview-start: 45.005
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  - Japanese
+  track-number: 2
+  album: Babymetal
+  year: 2014
+  subgenre: core
+  author: Nightmare Lyre & Mathespio
+  title: Megitsune
+  preview-end: 1:15.005
+  genre: metal
+  difficulty:
+    tier: 5
+  artist: Babymetal
+  comments:
+  - Fixed drum chart by Onyxite (WIP)
