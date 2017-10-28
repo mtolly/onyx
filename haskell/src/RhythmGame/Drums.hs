@@ -102,7 +102,7 @@ drawDrums rend rect@(SDL.Rectangle (SDL.P (SDL.V2 rectX rectY)) (SDL.V2 rectW re
       timeAppear = yToTime $ rectY - 50
       timeDisappear = yToTime $ rectY + rectH + 50
       drawNotes t notes = let
-        y = timeToY t
+        yCenter = timeToY t
         drawGem gem = let
           floor' :: Double -> CInt
           floor' = floor
@@ -124,6 +124,7 @@ drawDrums rend rect@(SDL.Rectangle (SDL.P (SDL.V2 rectX rectY)) (SDL.V2 rectW re
             D.Pro D.Yellow () -> rectX + floor' (fromIntegral rectW * 0.25)
             D.Pro D.Blue ()   -> rectX + floor' (fromIntegral rectW * 0.5)
             D.Pro D.Green ()  -> rectX + floor' (fromIntegral rectW * 0.75)
+          y = yCenter - quot h 2
           in do
             SDL.rendererDrawColor rend $= color
             SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 x y) $ SDL.V2 w h

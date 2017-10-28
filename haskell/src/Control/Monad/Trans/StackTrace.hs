@@ -29,6 +29,7 @@ module Control.Monad.Trans.StackTrace
 , shakeTrace
 , (%>), (&%>), phony
 , Staction
+, logIO, logStdout
 ) where
 
 import           Control.Applicative
@@ -311,3 +312,14 @@ phony s act = QueueLog $ ReaderT $ \q -> do
   Shake.phony (s ++ "/") act'
 
 type Staction = StackTraceT (QueueLog Shake.Action)
+
+logIO
+  :: ((MessageLevel, Message) -> IO ())
+  -> StackTraceT (QueueLog IO) a
+  -> IO (Either Messages a)
+logIO logger task = runReaderT (fromQueueLog $ runStackTraceT task) logger
+
+logStdout :: StackTraceT (QueueLog IO) a -> IO (Either Messages a)
+logStdout = logIO $ putStrLn . \case
+  (MessageLog    , msg) -> messageString msg
+  (MessageWarning, msg) -> "Warning: " ++ Exc.displayException msg

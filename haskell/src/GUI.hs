@@ -7,19 +7,20 @@
 {-# LANGUAGE OverloadedStrings        #-}
 {-# LANGUAGE RecordWildCards          #-}
 {-# LANGUAGE TupleSections            #-}
-module GUI (launchGUI, logStdout) where
+module GUI (launchGUI) where
 
+import           Build                            (loadYaml)
 import           CommandLine                      (FileType (..), commandLine,
                                                    identifyFile')
+import           Config
 import           Control.Arrow                    (first)
 import           Control.Concurrent               (ThreadId, forkIO, killThread,
                                                    threadDelay)
 import           Control.Concurrent.MVar
 import           Control.Exception                (bracket, bracket_,
-                                                   displayException)
+                                                   displayException, throwIO)
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class           (MonadIO (..))
-import           Control.Monad.Trans.Reader       (runReaderT)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
 import qualified Data.ByteString                  as B
@@ -49,6 +50,7 @@ import           OSFiles                          (osOpenFile, useResultFiles)
 import           Paths_onyxite_customs_tool       (version)
 import           PrettyDTA                        (readRB3DTABytes)
 import           Resources                        (pentatonicTTF, veraMonoTTF)
+import qualified RhythmGame.Audio                 as RGAudio
 import qualified RhythmGame.Drums                 as RGDrums
 import           RockBand.Common                  (Difficulty (..))
 import qualified RockBand.Drums                   as Drums
@@ -361,14 +363,12 @@ topMenu = Choices
     $ pushMenu $ pickFiles ["*.mid"] "MIDI files" (const $ return "") $ \fs ->
       TasksStart $ map (\f -> commandLine' ["reduce", f]) fs
     )
-  {-
-  , ( Choice "Game" ""
+  , ( Choice "Game" "(WIP) Building a RB clone game."
     $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con"] "Songs (RB3/RB2)" filterSong $ \fs ->
       case fs of
         [f] -> Game f
         _   -> Choices []
     )
-  -}
   ]
 
 data GUIState = GUIState
@@ -381,17 +381,6 @@ initialState :: GUIState
 initialState = GUIState topMenu [] NoSelect
 
 type Onyx = StateT GUIState IO
-
-logIO
-  :: ((MessageLevel, Message) -> IO ())
-  -> StackTraceT (QueueLog IO) a
-  -> IO (Either Messages a)
-logIO logger task = runReaderT (fromQueueLog $ runStackTraceT task) logger
-
-logStdout :: StackTraceT (QueueLog IO) a -> IO (Either Messages a)
-logStdout = logIO $ putStrLn . \case
-  (MessageLog    , msg) -> messageString msg
-  (MessageWarning, msg) -> "Warning: " ++ displayException msg
 
 data TaskProgress
   = TaskMessage (MessageLevel, Message)
@@ -641,10 +630,16 @@ launchGUI = do
                     _                                     -> Nothing
                   )
                 $ drums
-          return $ RGDrums.Track drums' Map.empty 0 0.2
+          yml <- loadYaml $ dir </> "song.yml"
+          (pans, vols) <- case HM.toList $ _plans yml of
+            [(_, MoggPlan{..})] -> return (map realToFrac _pans, map realToFrac _vols)
+            _                   -> fatal "Couldn't find pans and vols after importing STFS"
+          return (RGDrums.Track drums' Map.empty 0 0.2, pans, vols)
         case res of
-          Left err  -> error $ show err
-          Right trk -> RGDrums.playDrums window rend trk
+          Left err  -> throwIO err
+          Right (trk, pans, vols) -> do
+            RGAudio.playMOGG pans vols (dir </> "audio.mogg") $ do
+              RGDrums.playDrums window rend trk
       _ -> do
         draw
         SDL.present rend

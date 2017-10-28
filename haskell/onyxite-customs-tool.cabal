@@ -120,6 +120,7 @@ executable onyx
     Data.DTA.PrettyPrint
     -- rhythm game
     RhythmGame.Drums
+    RhythmGame.Audio
   build-depends:
     base
     , shake >= 0.15 && < 0.16
@@ -170,6 +171,7 @@ executable onyx
     , transformers-base
     , monad-control
     , mmorph
+    , async
     -- my libraries:
     , jammittools >= 0.5.0.3 && < 0.6
     , midi-util >= 0.2 && < 0.3
