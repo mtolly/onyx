@@ -71,7 +71,6 @@ metadata:
     tier: 5
   artist: Babymetal
   comments:
-  - Fixed drum chart + one lyric fix by Onyxite
-  - TODO harmony incorrect in some places,
-    guitar could use better chord choices,
+  - Fixes to drum chart, HARM2 pitches, and one HARM2 lyric by Onyxite
+  - TODO guitar could use better chord choices in some places,
     lower diffs on drums probably need fixes to toms etc.
