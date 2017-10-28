@@ -26,67 +26,22 @@ parts:
         tier: 7
   drums:
     drums:
-      fix-freeform: false
       difficulty:
         tier: 6
 plans:
   mogg:
     parts:
-      vocal:
-      - 6
-      - 7
-      bass:
-      - 2
-      - 3
-      guitar:
-      - 4
-      - 5
-      keys:
-      - 8
-      - 9
-      drums:
-      - 0
-      - 1
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+      keys: [8, 9]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
     karaoke: false
     mogg-md5: 25c3edbf932c70fb71cc419070a2f290
     multitrack: false
-    silent:
-    - 0
-    - 1
-    - 2
-    - 3
-    - 4
-    - 5
-    - 6
-    - 7
-    - 8
-    - 9
-    vols:
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
-    - 0
+    silent: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 targets:
   rb3-2x:
     song-id: Megitsune2xv2
@@ -116,4 +71,7 @@ metadata:
     tier: 5
   artist: Babymetal
   comments:
-  - Fixed drum chart by Onyxite (WIP)
+  - Fixed drum chart + one lyric fix by Onyxite
+  - TODO harmony incorrect in some places,
+    guitar could use better chord choices,
+    lower diffs on drums probably need fixes to toms etc.
