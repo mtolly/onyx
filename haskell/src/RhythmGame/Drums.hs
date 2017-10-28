@@ -2,7 +2,7 @@
 module RhythmGame.Drums where
 
 import           Control.Concurrent        (threadDelay)
-import           Control.Monad             (when)
+import           Control.Monad             (forM_, when)
 import           Control.Monad.IO.Class    (liftIO)
 import           Control.Monad.Trans.State
 import           Data.List                 (partition)
@@ -14,14 +14,14 @@ import qualified RockBand.Drums            as D
 import           SDL                       (($=))
 import qualified SDL
 
-data Note a
+data Note t a
   = Upcoming a
-  | Hit a
+  | Hit t a
   | Missed a
   deriving (Eq, Ord, Show, Read)
 
 data Track t a = Track
-  { trackNotes    :: Map t [Note a] -- ^ lists must be non-empty
+  { trackNotes    :: Map t [Note t a] -- ^ lists must be non-empty
   , trackOverhits :: Map t [a] -- ^ lists must be non-empty
   , trackTime     :: t -- ^ the latest timestamp we have reached
   , trackWindow   :: t -- ^ the half-window of time on each side of a note
@@ -59,7 +59,10 @@ updateTime t trk = let
   f _ = map $ \case
     Upcoming x -> Missed x
     evt        -> evt
-  in trk { trackNotes = updateRange f (t - trackWindow trk) (t + trackWindow trk) $ trackNotes trk }
+  in trk
+    { trackTime = t
+    , trackNotes = updateRange f (trackTime trk - trackWindow trk) (t - trackWindow trk) $ trackNotes trk
+    }
 
 hitPad :: (Num t, Ord t, Eq a) => t -> a -> Track t a -> Track t a
 hitPad t x trk = let
@@ -84,13 +87,53 @@ hitPad t x trk = let
     Just (k, notes) -> case partition (== Upcoming x) notes of
       ([], _) -> overhit
       (_ : _, notes') ->
-        trk { trackNotes = Map.insert k (Hit x : notes') $ trackNotes trk }
+        trk { trackNotes = Map.insert k (Hit t x : notes') $ trackNotes trk }
 
 drawDrums :: SDL.Renderer -> SDL.Rectangle CInt -> Track Double (D.Gem ()) -> IO ()
-drawDrums rend rect@(SDL.Rectangle (SDL.P (SDL.V2 x y)) (SDL.V2 w h)) trk = do
+drawDrums rend rect@(SDL.Rectangle (SDL.P (SDL.V2 rectX rectY)) (SDL.V2 rectW rectH)) trk = do
   SDL.rendererDrawColor rend $= SDL.V4 100 100 100 0xFF
   SDL.fillRect rend $ Just rect
-  -- TODO the notes
+  let nowLineFrac = 0.8
+      nowLineY = rectY + floor (fromIntegral rectH * nowLineFrac)
+      futureSight = 0.7
+      drawnSpan = futureSight / nowLineFrac -- time in seconds from top to bottom
+      yToTime y = (trackTime trk + futureSight) - (fromIntegral (y - rectY) / fromIntegral rectH) * drawnSpan
+      timeToY t = rectY + floor (((trackTime trk + futureSight - t) / drawnSpan) * fromIntegral rectH)
+      timeAppear = yToTime $ rectY - 50
+      timeDisappear = yToTime $ rectY + rectH + 50
+      drawNotes t notes = let
+        y = timeToY t
+        drawGem gem = let
+          floor' :: Double -> CInt
+          floor' = floor
+          h = case gem of
+            D.Kick -> 10
+            _      -> 20
+          color = case gem of
+            D.Kick            -> SDL.V4 153 106 6 0xFF
+            D.Red             -> SDL.V4 202 25 7 0xFF
+            D.Pro D.Yellow () -> SDL.V4 207 180 57 0xFF
+            D.Pro D.Blue ()   -> SDL.V4 71 110 222 0xFF
+            D.Pro D.Green ()  -> SDL.V4 58 207 68 0xFF
+          w = case gem of
+            D.Kick -> rectW
+            _      -> floor' $ fromIntegral rectW * 0.25
+          x = case gem of
+            D.Kick            -> rectX
+            D.Red             -> rectX
+            D.Pro D.Yellow () -> rectX + floor' (fromIntegral rectW * 0.25)
+            D.Pro D.Blue ()   -> rectX + floor' (fromIntegral rectW * 0.5)
+            D.Pro D.Green ()  -> rectX + floor' (fromIntegral rectW * 0.75)
+          in do
+            SDL.rendererDrawColor rend $= color
+            SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 x y) $ SDL.V2 w h
+        in forM_ notes $ \case
+          Upcoming gem -> drawGem gem
+          Hit _ _ -> return ()
+          Missed gem -> drawGem gem
+  SDL.rendererDrawColor rend $= SDL.V4 0 0 0 0xFF
+  SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 rectX nowLineY) $ SDL.V2 rectW 10
+  traverseRange_ drawNotes False timeDisappear timeAppear $ trackNotes trk
 
 playDrums :: SDL.Window -> SDL.Renderer -> Track Double (D.Gem ()) -> IO ()
 playDrums window rend trk = flip evalStateT trk $ do

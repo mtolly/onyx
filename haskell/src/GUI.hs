@@ -9,53 +9,65 @@
 {-# LANGUAGE TupleSections            #-}
 module GUI (launchGUI, logStdout) where
 
-import           CommandLine                    (FileType (..), commandLine,
-                                                 identifyFile')
-import           Control.Concurrent             (ThreadId, forkIO, killThread,
-                                                 threadDelay)
+import           CommandLine                      (FileType (..), commandLine,
+                                                   identifyFile')
+import           Control.Arrow                    (first)
+import           Control.Concurrent               (ThreadId, forkIO, killThread,
+                                                   threadDelay)
 import           Control.Concurrent.MVar
-import           Control.Exception              (bracket, bracket_,
-                                                 displayException)
+import           Control.Exception                (bracket, bracket_,
+                                                   displayException)
 import           Control.Monad.Extra
-import           Control.Monad.IO.Class         (MonadIO (..))
-import           Control.Monad.Trans.Reader     (runReaderT)
+import           Control.Monad.IO.Class           (MonadIO (..))
+import           Control.Monad.Trans.Reader       (runReaderT)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
-import qualified Data.ByteString                as B
-import qualified Data.ByteString.Lazy           as BL
-import           Data.ByteString.Unsafe         (unsafeUseAsCStringLen)
-import           Data.Char                      (isPrint)
-import           Data.DTA                       (readDTABytes)
-import qualified Data.DTA.Serialize.RB3         as D
-import qualified Data.HashMap.Strict            as HM
-import           Data.Maybe                     (fromJust, fromMaybe)
-import           Data.Monoid                    ((<>))
-import qualified Data.Text                      as T
-import           Data.Text.Encoding             (decodeUtf8)
+import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Lazy             as BL
+import           Data.ByteString.Unsafe           (unsafeUseAsCStringLen)
+import           Data.Char                        (isPrint)
+import           Data.DTA                         (readDTABytes)
+import qualified Data.DTA.Serialize.RB3           as D
+import qualified Data.EventList.Absolute.TimeBody as ATB
+import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.HashMap.Strict              as HM
+import qualified Data.Map.Strict                  as Map
+import           Data.Maybe                       (fromJust, fromMaybe)
+import           Data.Monoid                      ((<>))
+import qualified Data.Text                        as T
+import           Data.Text.Encoding               (decodeUtf8)
 import           Data.Time
-import           Data.Version                   (showVersion)
-import           Data.Word                      (Word8)
-import           Foreign                        (Ptr, castPtr)
-import           Foreign.C                      (CInt (..))
-import qualified FretsOnFire                    as FoF
+import           Data.Version                     (showVersion)
+import           Data.Word                        (Word8)
+import           Foreign                          (Ptr, castPtr)
+import           Foreign.C                        (CInt (..))
+import qualified FretsOnFire                      as FoF
 import           Graphics.UI.TinyFileDialogs
-import           Magma                          (getRBAFileBS)
-import           OSFiles                        (osOpenFile, useResultFiles)
-import           Paths_onyxite_customs_tool     (version)
-import           PrettyDTA                      (readRB3DTABytes)
-import           Resources                      (pentatonicTTF, veraMonoTTF)
-import           SDL                            (($=))
+import           Import                           (importSTFS)
+import           Magma                            (getRBAFileBS)
+import           OSFiles                          (osOpenFile, useResultFiles)
+import           Paths_onyxite_customs_tool       (version)
+import           PrettyDTA                        (readRB3DTABytes)
+import           Resources                        (pentatonicTTF, veraMonoTTF)
+import qualified RhythmGame.Drums                 as RGDrums
+import           RockBand.Common                  (Difficulty (..))
+import qualified RockBand.Drums                   as Drums
+import qualified RockBand.File                    as RBFile
+import           Scripts                          (loadMIDI)
+import           SDL                              (($=))
 import qualified SDL
-import qualified SDL.Raw                        as Raw
-import qualified SDL.TTF                        as TTF
-import           SDL.TTF.FFI                    (TTFFont)
-import           STFS.Extract                   (STFSContents (..), withSTFS)
-import           System.Directory               (XdgDirectory (..),
-                                                 createDirectoryIfMissing,
-                                                 getXdgDirectory)
-import           System.Environment             (getEnv)
-import           System.FilePath                (takeDirectory, (<.>), (</>))
-import           System.Info                    (os)
+import qualified SDL.Raw                          as Raw
+import qualified SDL.TTF                          as TTF
+import           SDL.TTF.FFI                      (TTFFont)
+import qualified Sound.MIDI.Util                  as U
+import           STFS.Extract                     (STFSContents (..), withSTFS)
+import           System.Directory                 (XdgDirectory (..),
+                                                   createDirectoryIfMissing,
+                                                   getXdgDirectory)
+import           System.Environment               (getEnv)
+import           System.FilePath                  (takeDirectory, (<.>), (</>))
+import           System.Info                      (os)
+import           System.IO.Temp                   (withSystemTempDirectory)
 
 foreign import ccall unsafe "TTF_OpenFontRW"
   openFontRW :: Ptr Raw.RWops -> CInt -> CInt -> IO TTFFont
@@ -78,6 +90,7 @@ data Menu
   | TasksRunning ThreadId TasksStatus
   | TasksDone FilePath TasksStatus
   | EnterInt T.Text Int (Int -> Onyx ())
+  | Game FilePath
 
 data Choice a = Choice
   { choiceTitle       :: T.Text
@@ -348,6 +361,14 @@ topMenu = Choices
     $ pushMenu $ pickFiles ["*.mid"] "MIDI files" (const $ return "") $ \fs ->
       TasksStart $ map (\f -> commandLine' ["reduce", f]) fs
     )
+  {-
+  , ( Choice "Game" ""
+    $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con"] "Songs (RB3/RB2)" filterSong $ \fs ->
+      case fs of
+        [f] -> Game f
+        _   -> Choices []
+    )
+  -}
   ]
 
 data GUIState = GUIState
@@ -423,6 +444,7 @@ launchGUI = do
 
     getChoices :: Onyx [Choice (Onyx ())]
     getChoices = gets $ \(GUIState menu _ _) -> case menu of
+      Game{} -> []
       Choices cs -> cs
       Files fpick useFiles ->
         [ Choice "Select files... (or drag and drop)" (fileDescription fpick) $ do
@@ -601,13 +623,35 @@ launchGUI = do
             smallDraw (bigX + smallSide) (bigY + moved)
 
     tick :: Onyx ()
-    tick = do
-      draw
-      SDL.present rend
-      liftIO $ threadDelay 10000
-      checkVars
-      evts <- SDL.pollEvents
-      processEvents evts >>= \b -> when b tick
+    tick = gets currentScreen >>= \case
+      Game f -> liftIO $ withSystemTempDirectory "onyx_game" $ \dir -> do
+        res <- logStdout $ do
+          _ <- importSTFS f Nothing dir
+          song <- loadMIDI $ dir </> "notes.mid"
+          let tempos = RBFile.s_tempos song
+              drums = RBFile.rb3PartDrums $ RBFile.s_tracks song
+              drums'
+                = Map.fromList
+                $ map (first $ realToFrac . U.applyTempoMap tempos)
+                $ ATB.toPairList
+                $ RTB.toAbsoluteEventList 0
+                $ RTB.collectCoincident
+                $ RTB.mapMaybe (\case
+                    Drums.DiffEvent Expert (Drums.Note g) -> Just $ RGDrums.Upcoming g
+                    _                                     -> Nothing
+                  )
+                $ drums
+          return $ RGDrums.Track drums' Map.empty 0 0.2
+        case res of
+          Left err  -> error $ show err
+          Right trk -> RGDrums.playDrums window rend trk
+      _ -> do
+        draw
+        SDL.present rend
+        liftIO $ threadDelay 10000
+        checkVars
+        evts <- SDL.pollEvents
+        processEvents evts >>= \b -> when b tick
 
     newSelect :: Maybe (Int, Int) -> Onyx ()
     newSelect mousePos = do
