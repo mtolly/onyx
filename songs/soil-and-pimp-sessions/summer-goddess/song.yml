@@ -30,7 +30,6 @@ parts:
     drums:
       difficulty: 6
   bass:
-    # TODO: adjust grybo to match pro bass
     grybo:
       difficulty: 3
     pro-guitar:
