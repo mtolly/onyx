@@ -4,10 +4,8 @@ metadata:
   track-number: 11
   autogen-theme: Slow Jam
   rating: Family Friendly
-  author: Onyxite
+  author: Onyxite, vpetrucci93
   comments:
-  - >-
-    Chart confidence: *high* (Jammit stems).
   - >-
     Soundscapes in the intro and outro are awful to play/chart. I did my best!
   - >-
@@ -22,6 +20,7 @@ jammit:
   jammit-track: {}
 plans:
   jammit:
+    # TODO make gtr and keys stems from authored parts
     parts:
       drums:
         only: [Drums, jammit-track]
