@@ -35,6 +35,8 @@ parts:
   bass:
     grybo:
       difficulty: 2
+    pro-guitar:
+      difficulty: 2
   guitar:
     grybo:
       difficulty: 4
