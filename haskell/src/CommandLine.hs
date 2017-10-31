@@ -5,9 +5,7 @@
 {-# LANGUAGE RankNTypes        #-}
 module CommandLine (commandLine, identifyFile', FileType(..)) where
 
-import           Build                          (loadYaml, shakeBuildFiles,
-                                                 shakeBuildMagmaProject,
-                                                 shakeBuildTarget)
+import           Build                          (loadYaml, shakeBuildFiles)
 import           Config
 import           Control.Applicative            (liftA2)
 import           Control.Monad                  (forM_, guard)
@@ -43,6 +41,7 @@ import           Magma                          (getRBAFile, oggToMogg,
                                                  runMagma, runMagmaMIDI,
                                                  runMagmaV1)
 import           MoggDecrypt                    (moggToOgg)
+import           OpenProject
 import           PrettyDTA                      (readRB3DTA)
 import           ProKeysRanges                  (closeShiftsFile, completeFile)
 import           Reaper.Build                   (makeReaperIO)
@@ -544,7 +543,7 @@ commands =
           target2x = makeTarget True
           speed = listToMaybe [ d | OptSpeed d <- opts ]
           speedPercent = round $ fromMaybe 1 speed * 100 :: Int
-          makeTarget is2x = RB3 def
+          makeTarget is2x = def
             { rb3_2xBassPedal = is2x
             , rb3_Speed = speed
             , rb3_Keys = if elem OptGuitarOnKeys opts
@@ -566,7 +565,7 @@ commands =
             , ["project"]
             ]
           go target out = do
-            magma <- shakeBuildMagmaProject [tmp] (tmp </> "song.yml") target
+            magma <- withProject (tmp </> "song.yml") $ buildMagmaV2 target
             copyDirRecursive magma out
             return [out]
           go1x = go target1x out1x
@@ -624,12 +623,12 @@ commands =
               speed = listToMaybe [ d | OptSpeed d <- opts ]
               speedPercent = round $ fromMaybe 1 speed * 100 :: Int
               makeTarget is2x = case game of
-                GameRB3 -> RB3 def
+                GameRB3 -> buildRB3CON def
                   { rb3_2xBassPedal = is2x
                   , rb3_Speed = speed
                   , rb3_Keys = keys
                   }
-                GameRB2 -> RB2 def
+                GameRB2 -> buildRB2CON def
                   { rb2_2xBassPedal = is2x
                   , rb2_Speed = speed
                   , rb2_Guitar = gtr
@@ -649,8 +648,8 @@ commands =
               out2x = flip fromMaybe specified2x $ case hasKicks of
                 Has2x -> trimFileName prefix 42 "_rb3con" $ "_" <> suffix
                 _     -> trimFileName prefix 42 "_rb3con" $ "_2x_" <> suffix
-              go target out = do
-                con <- shakeBuildTarget [tmp] (tmp </> "song.yml") target
+              go buildCON out = do
+                con <- withProject (tmp </> "song.yml") buildCON
                 stackIO $ Dir.copyFile con out
                 return [out]
               go1x = go target1x out1x

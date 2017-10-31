@@ -75,6 +75,7 @@ executable onyx
     Genre
     JSONData
     AudioSearch
+    OpenProject
     -- midiscript
     Sound.MIDI.Script.Base
     Sound.MIDI.Script.Scan

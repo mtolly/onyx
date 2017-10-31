@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RecordWildCards           #-}
 {-# LANGUAGE TupleSections             #-}
-module Build (shakeBuildTarget, shakeBuildMagmaProject, shakeBuildFiles, targetTitle, loadYaml) where
+module Build (shakeBuildFiles, shakeBuild, targetTitle, loadYaml) where
 
 import           Audio
 import           AudioSearch
@@ -599,24 +599,6 @@ loadYaml :: (SendMessage m, StackJSON a, MonadIO m) => FilePath -> StackTraceT m
 loadYaml fp = do
   yaml <- readYAMLTree fp
   mapStackTraceT (`runReaderT` yaml) fromJSON
-
-shakeBuildTarget :: (MonadIO m) => [FilePath] -> FilePath -> Target -> StackTraceT (QueueLog m) FilePath
-shakeBuildTarget audioDirs yamlPath target = do
-  let buildable = case target of
-        RB3{} -> "gen/target" </> targetHash </> "rb3con"
-        RB2{} -> "gen/target" </> targetHash </> "rb2con"
-        PS {} -> "gen/target" </> targetHash </> "ps.zip"
-        GH2{} -> "gen/target" </> targetHash </> undefined -- TODO
-      targetHash = show $ hash target `mod` 100000000
-  shakeBuild audioDirs yamlPath [(T.pack targetHash, target)] [buildable]
-  return $ takeDirectory yamlPath </> buildable
-
-shakeBuildMagmaProject :: (MonadIO m) => [FilePath] -> FilePath -> Target -> StackTraceT (QueueLog m) FilePath
-shakeBuildMagmaProject audioDirs yamlPath target = do
-  let buildable = "gen/target" </> targetHash </> "magma"
-      targetHash = show $ hash target `mod` 100000000
-  shakeBuild audioDirs yamlPath [(T.pack targetHash, target)] [buildable]
-  return $ takeDirectory yamlPath </> buildable
 
 shakeBuildFiles :: (MonadIO m) => [FilePath] -> FilePath -> [FilePath] -> StackTraceT (QueueLog m) ()
 shakeBuildFiles audioDirs yamlPath = shakeBuild audioDirs yamlPath []
