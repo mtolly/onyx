@@ -12,8 +12,6 @@ import           Control.Monad                  (forM_, guard)
 import           Control.Monad.Extra            (filterM)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.StackTrace
-import           Data.Aeson                     ((.:))
-import qualified Data.Aeson.Types               as A
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Lazy           as BL
 import           Data.ByteString.Lazy.Char8     ()
@@ -35,7 +33,6 @@ import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeUtf16BE)
 import qualified Data.Text.IO                   as T
 import           Data.Word                      (Word32)
-import qualified Data.Yaml                      as Y
 import           Import
 import           Magma                          (getRBAFile, oggToMogg,
                                                  runMagma, runMagmaMIDI,
@@ -47,7 +44,6 @@ import           ProKeysRanges                  (closeShiftsFile, completeFile)
 import           Reaper.Build                   (makeReaperIO)
 import           Reductions                     (simpleReduce)
 import qualified RockBand.File                  as RBFile
-import qualified Sound.Jammit.Base              as J
 import qualified Sound.MIDI.File.Load           as Load
 import qualified Sound.MIDI.File.Save           as Save
 import qualified Sound.MIDI.Script.Base         as MS
@@ -129,15 +125,6 @@ copyDirRecursive src dst = do
       then copyDirRecursive       pathFrom pathTo
       else stackIO $ Dir.copyFile pathFrom pathTo
 
-readConfig :: (MonadIO m) => StackTraceT m (Map.HashMap T.Text Y.Value)
-readConfig = do
-  cfg <- stackIO $ Dir.getXdgDirectory Dir.XdgConfig "onyx.yml"
-  stackIO (Dir.doesFileExist cfg) >>= \case
-    False -> return Map.empty
-    True  -> stackIO (Y.decodeFileEither cfg) >>= \case
-      Left err -> fatal $ show err
-      Right x  -> return x
-
 data Command = Command
   { commandWord  :: T.Text
   , commandRun   :: forall m. (MonadIO m) => [FilePath] -> [OnyxOption] -> StackTraceT (QueueLog m) [FilePath]
@@ -217,16 +204,6 @@ optionalFile files = case files of
 unrecognized :: (Monad m) => FileType -> FilePath -> StackTraceT m a
 unrecognized ftype fpath = fatal $ "Unsupported file for command (" <> show ftype <> "): " <> fpath
 
-getAudioDirs :: (MonadIO m) => FilePath -> StackTraceT m [FilePath]
-getAudioDirs yamlPath = do
-  config <- readConfig
-  jmt <- stackIO J.findJammitDir
-  let addons = maybe id (:) jmt [takeDirectory yamlPath]
-  dirs <- case A.parseEither (.: "audio-dirs") config of
-    Left _    -> return []
-    Right obj -> either fatal return $ A.parseEither A.parseJSON obj
-  mapM (stackIO . Dir.canonicalizePath) $ addons ++ dirs
-
 outputFile :: (Monad m) => [OnyxOption] -> m FilePath -> m FilePath
 outputFile opts dft = case [ to | OptTo to <- opts ] of
   []     -> dft
@@ -238,7 +215,7 @@ buildTarget yamlPath opts = do
   targetName <- case [ t | OptTarget t <- opts ] of
     []    -> fatal "command requires --target, none given"
     t : _ -> return t
-  audioDirs <- getAudioDirs yamlPath
+  audioDirs <- withProject yamlPath getAudioDirs
   target <- case Map.lookup targetName $ _targets songYaml of
     Nothing     -> fatal $ "Target not found in YAML file: " <> show targetName
     Just target -> return target
@@ -250,10 +227,13 @@ buildTarget yamlPath opts = do
   shakeBuildFiles audioDirs yamlPath [built]
   return (target, takeDirectory yamlPath </> built)
 
+getMaybePlan :: [OnyxOption] -> Maybe T.Text
+getMaybePlan opts = listToMaybe [ p | OptPlan p <- opts ]
+
 getPlanName :: (SendMessage m, MonadIO m) => FilePath -> [OnyxOption] -> StackTraceT m T.Text
-getPlanName yamlPath opts = case [ p | OptPlan p <- opts ] of
-  p : _ -> return p
-  []    -> do
+getPlanName yamlPath opts = case getMaybePlan opts of
+  Just p  -> return p
+  Nothing -> do
     songYaml <- loadYaml yamlPath
     case Map.keys $ _plans songYaml of
       [p]   -> return p
@@ -325,7 +305,7 @@ commands =
       [] -> return []
       yml : builds -> identifyFile' yml >>= \case
         (FileSongYaml, yml') -> do
-          audioDirs <- getAudioDirs yml
+          audioDirs <- withProject yml getAudioDirs
           shakeBuildFiles audioDirs yml' builds
           return $ map (takeDirectory yml' </>) builds
         (ftype, fpath) -> unrecognized ftype fpath
@@ -369,7 +349,7 @@ commands =
         _  -> files
       let isType types (ftype, fpath) = guard (elem ftype types) >> Just fpath
           withSongYaml yamlPath = do
-            audioDirs <- getAudioDirs yamlPath
+            audioDirs <- withProject yamlPath getAudioDirs
             planName <- getPlanName yamlPath opts
             let rpp = "notes-" <> T.unpack planName <> ".RPP"
                 yamlDir = takeDirectory yamlPath
@@ -416,7 +396,7 @@ commands =
     , commandUsage = ""
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
       FileSongYaml -> do
-        audioDirs <- getAudioDirs fpath
+        audioDirs <- withProject fpath getAudioDirs
         planName <- getPlanName fpath opts
         let player = "gen/plan" </> T.unpack planName </> "web"
         shakeBuildFiles audioDirs fpath [player]
@@ -467,7 +447,7 @@ commands =
           t : _ -> return t
         -- TODO: handle non-RB3 targets
         let built = "gen/target" </> T.unpack targetName </> "notes-magma-export.mid"
-        audioDirs <- getAudioDirs yamlPath
+        audioDirs <- withProject yamlPath getAudioDirs
         shakeBuildFiles audioDirs yamlPath [built]
         return []
       (FileRBProj, rbprojPath) -> do
@@ -675,10 +655,7 @@ commands =
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> do
       let withMIDI mid = stackIO (Load.fromFile mid) >>= RBFile.readMIDIFile' >>= lg . closeShiftsFile
       case ftype of
-        FileSongYaml -> do
-          audioDirs <- getAudioDirs fpath
-          planName <- getPlanName fpath opts
-          shakeBuildFiles audioDirs fpath ["gen/plan" </> T.unpack planName </> "hanging"]
+        FileSongYaml -> withProject fpath $ proKeysHanging $ getMaybePlan opts
         FileRBProj   -> do
           rbproj <- loadDTA fpath
           let midPath = T.unpack $ RBProj.midiFile $ RBProj.midi $ RBProj.project rbproj
