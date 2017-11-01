@@ -2,9 +2,7 @@ metadata:
   title: Stream of Consciousness
   file-include: ../../../albums/train-of-thought.yml
   track-number: 6
-  author: Grinnz, Mazegeek999
-  comments:
-  - "Chart confidence: *high*, written to Portnoy's DVD."
+  author: Grinnz, Mazegeek999, Onyxite
 audio:
   album-track:
     md5: 8f1a01eac65add10b94efa1dd41fa32e
