@@ -116,3 +116,18 @@ parts:
   keys:
     pro-keys:
       difficulty: 7
+  bass:
+    pro-guitar:
+      difficulty: 5
+      tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
+targets:
+  rb3:
+    game: rb3
+    plan: drumcam
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: drumcam
+  ps:
+    game: ps
+    plan: drumcam
