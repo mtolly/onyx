@@ -56,7 +56,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
   > endless sacrifice: has drumless audio, fixed drums, pro keys
   > honor thy father
   - vacant
-  > stream of consciousness: has drumless audio, fixed drums, PK (need range fixes), pro+basic bass, pro guitar (need various fixes)
+  > stream of consciousness: just needs basic keys, PK range fixes, PG/PB slide fixes and chord roots, OD
   > in the name of god: has drumless audio, fixed drums
 SYSTEMATIC CHAOS
   new release with numeric song IDs, lipsync, video backgrounds, other minor fixes

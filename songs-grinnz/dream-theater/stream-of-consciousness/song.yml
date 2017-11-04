@@ -117,6 +117,8 @@ parts:
     pro-keys:
       difficulty: 7
   guitar:
+    grybo:
+      difficulty: 7
     pro-guitar:
       tuning: [0, 0, 0, 0, 0, 0] # real tuning is -1 offset (Eb std)
   bass:
