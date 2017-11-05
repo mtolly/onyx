@@ -40,6 +40,7 @@ import           Data.Text.Encoding               (decodeUtf8)
 import           Data.Time
 import           Data.Version                     (showVersion)
 import           Data.Word                        (Word8)
+import qualified FeedBack.Load                    as FB
 import           Foreign                          (Ptr, castPtr)
 import           Foreign.C                        (CInt (..))
 import qualified FretsOnFire                      as FoF
@@ -67,7 +68,7 @@ import           System.Directory                 (XdgDirectory (..),
                                                    createDirectoryIfMissing,
                                                    getXdgDirectory)
 import           System.Environment               (getEnv)
-import           System.FilePath                  (takeDirectory, (<.>), (</>))
+import           System.FilePath                  ((<.>), (</>))
 import           System.Info                      (os)
 import           System.IO.Temp                   (withSystemTempDirectory)
 
@@ -893,8 +894,11 @@ filterSong fp = identifyFile' fp >>= \(typ, fp') -> case typ of
       getDTA : _ -> stackIO getDTA >>= useDTA "STFS"
       _          -> fatal "Could not locate songs/songs.dta"
   FileRBA -> getRBAFileBS 0 fp' >>= useDTA "RBA"
+  FileChart -> do
+    ini <- FB.chartToIni <$> FB.loadChartFile fp'
+    return $ foundFile "dB" (fromMaybe "(no title)" $ FoF.name ini) (fromMaybe "(no artist)" $ FoF.artist ini)
   FilePS -> do
-    ini <- FoF.loadSong $ takeDirectory fp' </> "song.ini"
+    ini <- FoF.loadSong fp'
     return $ foundFile "PS" (fromMaybe "(no title)" $ FoF.name ini) (fromMaybe "(no artist)" $ FoF.artist ini)
   _ -> fatal "Not a recognized song file"
   where useDTA filetype bs = do

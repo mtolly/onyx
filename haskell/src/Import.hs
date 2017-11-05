@@ -40,6 +40,7 @@ import qualified Data.Text                        as T
 import qualified Data.Text.IO                     as TIO
 import qualified Data.Yaml                        as Y
 import           Difficulty
+import qualified FeedBack.Load                    as FB
 import qualified FretsOnFire                      as FoF
 import           Image                            (toPNG_XBOX)
 import           JSONData                         (toJSON)
@@ -96,7 +97,24 @@ fixDoubleSwells ps = let
 
 importFoF :: (SendMessage m, MonadIO m) => Bool -> FilePath -> FilePath -> StackTraceT m HasKicks
 importFoF detectBasicDrums src dest = do
-  song <- FoF.loadSong $ src </> "song.ini"
+  let pathMid = src </> "notes.mid"
+      pathChart = src </> "notes.chart"
+      pathIni = src </> "song.ini"
+  (song, parsed) <- stackIO (Dir.doesFileExist pathIni) >>= \case
+    True -> do
+      ini <- FoF.loadSong pathIni
+      stackIO (Dir.doesFileExist pathMid) >>= \case
+        True -> do
+          mid <- loadMIDI $ src </> "notes.mid"
+          return (ini, mid)
+        False -> do
+          chart <- FB.chartToBeats <$> FB.loadChartFile pathChart
+          mid <- FB.chartToMIDI chart
+          return (ini, mid)
+    False -> do
+      chart <- FB.chartToBeats <$> FB.loadChartFile pathChart
+      mid <- FB.chartToMIDI chart
+      return (FB.chartToIni chart, mid)
 
   hasAlbumArt <- stackIO $ Dir.doesFileExist $ src </> "album.png"
   when hasAlbumArt $ stackIO $ Dir.copyFile (src </> "album.png") (dest </> "album.png")
@@ -139,7 +157,6 @@ importFoF detectBasicDrums src dest = do
         ["guitar.ogg"] -> ["guitar.ogg"]
         _              -> filter (== "song.ogg") audioFiles
 
-  parsed <- loadMIDI $ src </> "notes.mid"
   let (delayAudio, delayMIDI) = case FoF.delay song of
         Nothing -> (id, id)
         Just n -> case compare n 0 of

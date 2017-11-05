@@ -22,7 +22,7 @@ type RawLines = [(Atom, [Atom])]
 type Ticks = NN.Integer
 
 data Event t
-  = TimeSig Integer
+  = TimeSig Integer Integer
   | BPM Milli
   | Anchor Micro
   | Event T.Text

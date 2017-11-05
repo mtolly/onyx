@@ -140,6 +140,7 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
     ".midtxt" -> return $ FileType FileMidiText fp
     ".mogg" -> return $ FileType FileMOGG fp
     ".zip" -> return $ FileType FileZip fp
+    ".chart" -> return $ FileType FileChart fp
     _ -> case takeFileName fp of
       "song.ini" -> return $ FileType FilePS fp
       _ -> do
@@ -158,13 +159,15 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
       True -> return $ FileType FileSongYaml $ fp </> "song.yml"
       False -> Dir.doesFileExist (fp </> "song.ini") >>= \case
         True -> return $ FileType FilePS $ fp </> "song.ini"
-        False -> do
-          ents <- Dir.listDirectory fp
-          case filter (\ent -> takeExtension ent == ".rbproj") ents of
-            [ent] -> return $ FileType FileRBProj $ fp </> ent
-            _     -> Dir.doesFileExist (fp </> "songs/songs.dta") >>= \case
-              True -> return $ FileType FileDTA $ fp </> "songs/songs.dta"
-              False -> return FileUnrecognized
+        False -> Dir.doesFileExist (fp </> "notes.chart") >>= \case
+          True -> return $ FileType FileChart $ fp </> "notes.chart"
+          False -> do
+            ents <- Dir.listDirectory fp
+            case filter (\ent -> takeExtension ent == ".rbproj") ents of
+              [ent] -> return $ FileType FileRBProj $ fp </> ent
+              _     -> Dir.doesFileExist (fp </> "songs/songs.dta") >>= \case
+                True -> return $ FileType FileDTA $ fp </> "songs/songs.dta"
+                False -> return FileUnrecognized
     False -> return FileDoesNotExist
 
 data FileResult
@@ -179,6 +182,7 @@ data FileType
   | FileDTA
   | FileRBA
   | FilePS
+  | FileChart
   | FileMidi
   | FileMidiText
   | FileRBProj
@@ -363,15 +367,17 @@ commands =
             let f2x = listToMaybe [ f | Opt2x f <- opts ]
             void $ fn inputPath f2x out
             withSongYaml $ out </> "song.yml"
+          pschart dir = do
+            let out = dir ++ "_reaper"
+            stackIO $ Dir.createDirectoryIfMissing False out
+            void $ importFoF (OptForceProDrums `notElem` opts) dir out
+            withSongYaml $ out </> "song.yml"
       case files' of
         [(FileSTFS, stfsPath)] -> doImport importSTFS stfsPath
         [(FileDTA, dtaPath)] -> doImport importSTFSDir $ takeDirectory $ takeDirectory dtaPath
         [(FileRBA, rbaPath)] -> doImport importRBA rbaPath
-        [(FilePS, iniPath)] -> do
-          let out = takeDirectory iniPath ++ "_reaper"
-          stackIO $ Dir.createDirectoryIfMissing False out
-          void $ importFoF (OptForceProDrums `notElem` opts) (takeDirectory iniPath) out
-          withSongYaml $ out </> "song.yml"
+        [(FilePS, iniPath)] -> pschart $ takeDirectory iniPath
+        [(FileChart, chartPath)] -> pschart $ takeDirectory chartPath
         [(FileSongYaml, yamlPath)] -> withSongYaml yamlPath
         _ -> case partitionMaybe (isType [FileMidi]) files' of
           ([mid], notMid) -> case partitionMaybe (isType [FileOGG, FileWAV, FileFLAC]) notMid of
@@ -394,37 +400,8 @@ commands =
     { commandWord = "player"
     , commandDesc = "Create a web browser chart playback app."
     , commandUsage = ""
-    , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
-      FileSongYaml -> do
-        audioDirs <- withProject fpath getAudioDirs
-        planName <- getPlanName fpath opts
-        let player = "gen/plan" </> T.unpack planName </> "web"
-        shakeBuildFiles audioDirs fpath [player]
-        player' <- case [ to | OptTo to <- opts ] of
-          []      -> return player
-          out : _ -> do
-            stackIO $ Dir.createDirectoryIfMissing False out
-            copyDirRecursive player out
-            return out
-        return [player' </> "index.html"]
-      FileRBProj -> undone
-      FileSTFS -> tempDir "onyx_player" $ \tmp -> do
-        out <- outputFile opts $ return $ fpath ++ "_player"
-        void $ importSTFS fpath Nothing tmp
-        let player = "gen/plan/mogg/web"
-        shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
-        stackIO $ Dir.createDirectoryIfMissing False out
-        copyDirRecursive (tmp </> player) out
-        return [out </> "index.html"]
-      FileRBA -> tempDir "onyx_player" $ \tmp -> do
-        out <- outputFile opts $ return $ fpath ++ "_player"
-        void $ importRBA fpath Nothing tmp
-        let player = "gen/plan/mogg/web"
-        shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
-        stackIO $ Dir.createDirectoryIfMissing False out
-        copyDirRecursive (tmp </> player) out
-        return [out </> "index.html"]
-      FilePS -> tempDir "onyx_player" $ \tmp -> do
+    , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> let
+      pschart = tempDir "onyx_player" $ \tmp -> do
         out <- outputFile opts $ return $ takeDirectory fpath ++ "_player"
         void $ importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
         let player = "gen/plan/fof/web"
@@ -432,8 +409,40 @@ commands =
         stackIO $ Dir.createDirectoryIfMissing False out
         copyDirRecursive (tmp </> player) out
         return [out </> "index.html"]
-      FileMidi -> undone
-      _ -> unrecognized ftype fpath
+      in case ftype of
+        FileSongYaml -> do
+          audioDirs <- withProject fpath getAudioDirs
+          planName <- getPlanName fpath opts
+          let player = "gen/plan" </> T.unpack planName </> "web"
+          shakeBuildFiles audioDirs fpath [player]
+          player' <- case [ to | OptTo to <- opts ] of
+            []      -> return player
+            out : _ -> do
+              stackIO $ Dir.createDirectoryIfMissing False out
+              copyDirRecursive player out
+              return out
+          return [player' </> "index.html"]
+        FileRBProj -> undone
+        FileSTFS -> tempDir "onyx_player" $ \tmp -> do
+          out <- outputFile opts $ return $ fpath ++ "_player"
+          void $ importSTFS fpath Nothing tmp
+          let player = "gen/plan/mogg/web"
+          shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
+          stackIO $ Dir.createDirectoryIfMissing False out
+          copyDirRecursive (tmp </> player) out
+          return [out </> "index.html"]
+        FileRBA -> tempDir "onyx_player" $ \tmp -> do
+          out <- outputFile opts $ return $ fpath ++ "_player"
+          void $ importRBA fpath Nothing tmp
+          let player = "gen/plan/mogg/web"
+          shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
+          stackIO $ Dir.createDirectoryIfMissing False out
+          copyDirRecursive (tmp </> player) out
+          return [out </> "index.html"]
+        FilePS -> pschart
+        FileChart -> pschart
+        FileMidi -> undone
+        _ -> unrecognized ftype fpath
     }
 
   , Command
@@ -467,37 +476,40 @@ commands =
     { commandWord = "import"
     , commandDesc = "Import a file into onyx's project format."
     , commandUsage = ""
-    , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> case ftype of
-      FileSTFS -> do
-        out <- outputFile opts $ return $ fpath ++ "_import"
-        stackIO $ Dir.createDirectoryIfMissing False out
-        let f2x = listToMaybe [ f | Opt2x f <- opts ]
-        void $ importSTFS fpath f2x out
-        return [out]
-      FileDTA -> do
-        let topDir = takeDirectory $ takeDirectory fpath
-        out <- outputFile opts $ return $ topDir ++ "_import"
-        stackIO $ Dir.createDirectoryIfMissing False out
-        let f2x = listToMaybe [ f | Opt2x f <- opts ]
-        void $ importSTFSDir topDir f2x out
-        return [out]
-      FileRBA -> do
-        out <- outputFile opts $ return $ fpath ++ "_import"
-        stackIO $ Dir.createDirectoryIfMissing False out
-        let f2x = listToMaybe [ f | Opt2x f <- opts ]
-        void $ importRBA fpath f2x out
-        return [out]
-      FilePS -> do
+    , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> let
+      pschart = do
         out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
         stackIO $ Dir.createDirectoryIfMissing False out
         void $ importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) out
         return [out]
-      FileRBProj -> do
-        out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
-        stackIO $ Dir.createDirectoryIfMissing False out
-        void $ importMagma fpath out
-        return [out]
-      _ -> unrecognized ftype fpath
+      in case ftype of
+        FileSTFS -> do
+          out <- outputFile opts $ return $ fpath ++ "_import"
+          stackIO $ Dir.createDirectoryIfMissing False out
+          let f2x = listToMaybe [ f | Opt2x f <- opts ]
+          void $ importSTFS fpath f2x out
+          return [out]
+        FileDTA -> do
+          let topDir = takeDirectory $ takeDirectory fpath
+          out <- outputFile opts $ return $ topDir ++ "_import"
+          stackIO $ Dir.createDirectoryIfMissing False out
+          let f2x = listToMaybe [ f | Opt2x f <- opts ]
+          void $ importSTFSDir topDir f2x out
+          return [out]
+        FileRBA -> do
+          out <- outputFile opts $ return $ fpath ++ "_import"
+          stackIO $ Dir.createDirectoryIfMissing False out
+          let f2x = listToMaybe [ f | Opt2x f <- opts ]
+          void $ importRBA fpath f2x out
+          return [out]
+        FilePS -> pschart
+        FileChart -> pschart
+        FileRBProj -> do
+          out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
+          stackIO $ Dir.createDirectoryIfMissing False out
+          void $ importMagma fpath out
+          return [out]
+        _ -> unrecognized ftype fpath
     }
 
   , Command
@@ -515,6 +527,7 @@ commands =
         FileSTFS   -> importSTFS fpath Nothing tmp
         FileRBA    -> importRBA fpath Nothing tmp
         FilePS     -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
+        FileChart  -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
         FileRBProj -> importMagma (takeDirectory fpath) tmp -- why would you do this
         _          -> unrecognized ftype fpath
       let specified1x = listToMaybe [ f | OptTo f <- opts ]
@@ -531,8 +544,9 @@ commands =
               else RBFile.FlexKeys
             }
       prefix <- fmap dropTrailingPathSeparator $ stackIO $ Dir.makeAbsolute $ case ftype of
-        FilePS -> takeDirectory fpath
-        _      -> fpath
+        FilePS    -> takeDirectory fpath
+        FileChart -> takeDirectory fpath
+        _         -> fpath
       let out1x = flip fromMaybe specified1x $ case hasKicks of
             Has1x -> prefix <> "_" <> suffix
             _     -> prefix <> "_1x_" <> suffix
@@ -587,6 +601,7 @@ commands =
             FileSTFS   -> importSTFS fpath Nothing tmp
             FileRBA    -> importRBA fpath Nothing tmp
             FilePS     -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
+            FileChart  -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
             FileRBProj -> importMagma (takeDirectory fpath) tmp
             _          -> unrecognized ftype fpath
           let (gtr, bass)
@@ -620,8 +635,9 @@ commands =
                 , [case game of GameRB3 -> "rb3con"; GameRB2 -> "rb2con"]
                 ]
           prefix <- fmap dropTrailingPathSeparator $ stackIO $ Dir.makeAbsolute $ case ftype of
-            FilePS -> takeDirectory fpath
-            _      -> fpath
+            FilePS    -> takeDirectory fpath
+            FileChart -> takeDirectory fpath
+            _         -> fpath
           let out1x = flip fromMaybe specified1x $ case hasKicks of
                 Has1x -> trimFileName prefix 42 "_rb3con" $ "_" <> suffix
                 _     -> trimFileName prefix 42 "_rb3con" $ "_1x_" <> suffix

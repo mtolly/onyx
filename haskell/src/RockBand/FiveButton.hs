@@ -146,8 +146,10 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
     ++ noteParser 64 [p| Orange |] (\p -> [p| DiffEvent Easy (Note $p) |]) ++
   [ edge 65 $ \_b -> [p| DiffEvent Easy (Force HOPO  $(boolP _b)) |]
   , edge 66 $ \_b -> [p| DiffEvent Easy (Force Strum $(boolP _b)) |]
+  ] ++ noteParser 67 [p| () |] (\p -> [p| DiffEvent Easy (OpenNote $p) |])
 
-  ] ++ noteParser 72 [p| Green |] (\p -> [p| DiffEvent Medium (Note $p) |])
+    ++ noteParser 71 [p| () |] (\p -> [p| DiffEvent Medium (OpenNote $p) |])
+    ++ noteParser 72 [p| Green |] (\p -> [p| DiffEvent Medium (Note $p) |])
     ++ noteParser 73 [p| Red |] (\p -> [p| DiffEvent Medium (Note $p) |])
     ++ noteParser 74 [p| Yellow |] (\p -> [p| DiffEvent Medium (Note $p) |])
     ++ noteParser 75 [p| Blue |] (\p -> [p| DiffEvent Medium (Note $p) |])
@@ -155,7 +157,8 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
   [ edge 77 $ \_b -> [p| DiffEvent Medium (Force HOPO  $(boolP _b)) |]
   , edge 78 $ \_b -> [p| DiffEvent Medium (Force Strum $(boolP _b)) |]
 
-  ] ++ noteParser 84 [p| Green |] (\p -> [p| DiffEvent Hard (Note $p) |])
+  ] ++ noteParser 83 [p| () |] (\p -> [p| DiffEvent Hard (OpenNote $p) |])
+    ++ noteParser 84 [p| Green |] (\p -> [p| DiffEvent Hard (Note $p) |])
     ++ noteParser 85 [p| Red |] (\p -> [p| DiffEvent Hard (Note $p) |])
     ++ noteParser 86 [p| Yellow |] (\p -> [p| DiffEvent Hard (Note $p) |])
     ++ noteParser 87 [p| Blue |] (\p -> [p| DiffEvent Hard (Note $p) |])

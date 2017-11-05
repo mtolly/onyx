@@ -26,7 +26,7 @@ tokens :-
 (\+ | \-)? $digit+ { emit $ TInt . read . dropWhile (== '+') }
 
 $rawfirst $rawnext* { emit $ TStr . T.pack }
-\" [^\"\\]* \" { emit $ TStr . T.pack . read }
+\" [^\"]* \" { emit $ TStr . T.tail . T.init . T.pack }
 
 {
 
