@@ -3,11 +3,12 @@
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module FeedBack.Load where
 
 import           Control.Monad.IO.Class           (MonadIO)
-import           Control.Monad.Trans.StackTrace   (StackTraceT, fatal, inside,
-                                                   stackIO)
+import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
+                                                   fatal, inside, stackIO)
 import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -24,6 +25,10 @@ import           FeedBack.Parse                   (parseStack)
 import           FeedBack.Scan                    (scanStack)
 import qualified FretsOnFire                      as FoF
 import qualified Numeric.NonNegative.Wrapper      as NN
+import           RockBand.Common                  (Difficulty (..))
+import qualified RockBand.Events                  as Ev
+import           RockBand.File
+import           RockBand.PhaseShiftMessage
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
 
@@ -118,3 +123,72 @@ chartToIni chart = def
             s  -> Just s
           atomInt (Int i) = Just $ fromIntegral i
           atomInt _       = Nothing
+
+chartToMIDI :: (SendMessage m) => Chart U.Beats -> StackTraceT m (PSFile U.Beats)
+chartToMIDI chart = do
+  let insideTrack name fn = inside (".chart track [" <> T.unpack name <> "]") $ do
+        fn $ fromMaybe RTB.empty $ Map.lookup name $ chartTracks chart
+      parseGRYBO label = do
+        let parseDiff diff = insideTrack (T.pack (show diff) <> label) $ \trk -> do
+              let notes   = RTB.mapMaybe (\case Note   n len -> Just (n, len); _ -> Nothing) trk
+                  streams = RTB.mapMaybe (\case Stream n len -> Just (n, len); _ -> Nothing) trk
+              -- S 0: faceoff player 1
+              -- S 1: faceoff player 2
+              -- S 2: star power
+              -- N 0-4: green-orange
+              -- N 5: force (flip from GH3 algorithm)
+              -- N 6: tap
+              -- N 7: open
+              undefined notes streams
+        foldr RTB.merge RTB.empty <$> mapM parseDiff [Easy, Medium, Hard, Expert]
+      parseGHL label = do
+        let parseDiff diff = insideTrack (T.pack (show diff) <> label) $ \trk -> do
+              let notes   = RTB.mapMaybe (\case Note   n len -> Just (n, len); _ -> Nothing) trk
+                  streams = RTB.mapMaybe (\case Stream n len -> Just (n, len); _ -> Nothing) trk
+              -- same streams
+              -- N 0: white 1
+              -- N 1: white 2
+              -- N 2: white 3
+              -- N 3: black 1
+              -- N 4: black 2
+              -- N 5: force
+              -- N 6: tap
+              -- N 7: open
+              -- N 8: black 3
+              undefined notes streams
+        foldr RTB.merge RTB.empty <$> mapM parseDiff [Easy, Medium, Hard, Expert]
+  psPartGuitar       <- parseGRYBO "Single" -- ExpertSingle etc.
+  psPartGuitarGHL    <- parseGHL "GHLGuitar" -- ExpertGHLGuitar etc.
+  psPartBass         <- parseGRYBO "DoubleBass" -- ExpertDoubleBass etc.
+  psPartKeys         <- parseGRYBO "Keyboard" -- ExpertKeyboard etc.
+  psPartRhythm       <- return RTB.empty -- ExpertDoubleBass when Player2 = rhythm ???
+  psPartGuitarCoop   <- return RTB.empty -- ExpertDoubleGuitar ???
+  psPartBassGHL      <- return RTB.empty -- don't know!
+  psEvents           <- insideTrack "Events" $ \trk -> do
+    return $ fmap (RB . Ev.SectionRB2) $ flip RTB.mapMaybe trk $ \case
+      Event t -> T.stripPrefix "section " t
+      _       -> Nothing
+  let psPartDrums        = RTB.empty -- ExpertDrums etc.
+      psPartDrums2x      = RTB.empty
+      psPartRealDrumsPS  = RTB.empty
+      psPartRealGuitar   = RTB.empty
+      psPartRealGuitar22 = RTB.empty
+      psPartRealBass     = RTB.empty
+      psPartRealBass22   = RTB.empty
+      psPartRealKeysE    = RTB.empty
+      psPartRealKeysM    = RTB.empty
+      psPartRealKeysH    = RTB.empty
+      psPartRealKeysX    = RTB.empty
+      psPartRealKeysPS_E = RTB.empty
+      psPartRealKeysPS_M = RTB.empty
+      psPartRealKeysPS_H = RTB.empty
+      psPartRealKeysPS_X = RTB.empty
+      psPartKeysAnimLH   = RTB.empty
+      psPartKeysAnimRH   = RTB.empty
+      psPartVocals       = RTB.empty
+      psHarm1            = RTB.empty
+      psHarm2            = RTB.empty
+      psHarm3            = RTB.empty
+      psBeat             = RTB.empty
+      psVenue            = RTB.empty
+  return PSFile{..}

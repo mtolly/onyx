@@ -26,7 +26,7 @@ import Control.Monad.Trans.StackTrace (StackTraceT, fatal, inside)
 
 File : Newlines0 Sections0 { $2 }
 
-Sections0 : { [] }
+Sections0 :                   { [] }
           | Section Sections0 { $1 : $2 }
 
 Newlines1 : nl Newlines0 { () }
@@ -35,11 +35,14 @@ Newlines0 : nl Newlines0 { () }
           |              { () }
 
 Section :
-  '[' str ']' Newlines0
+  '[' TrackName ']' Newlines0
   '{' Newlines0
   Lines0
   '}' Newlines0
   { ($2, $7) }
+
+TrackName : str           { $1 }
+          | str TrackName { T.unwords [$1, $2] }
 
 Lines0 : { [] }
        | Line Lines0 { $1 : $2 }
