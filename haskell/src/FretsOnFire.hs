@@ -8,6 +8,7 @@ import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                as B
+import           Data.Default.Class             (Default (..))
 import qualified Data.HashMap.Strict            as HM
 import           Data.Ini
 import           Data.List                      (sortOn)
@@ -51,6 +52,13 @@ data Song = Song
   , video            :: Maybe FilePath
   -- TODO: video_start_time, five_lane_drums
   } deriving (Eq, Ord, Show, Read)
+
+instance Default Song where
+  def = Song
+    def def def def def def def def def def
+    def def def def def def def def def def
+    def def def def def def def def def def
+    def def def
 
 loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
 loadSong fp = do

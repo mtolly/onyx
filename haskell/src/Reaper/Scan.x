@@ -5,9 +5,6 @@ module Reaper.Scan (scan, Token(..), AlexPosn(..)) where
 
 %wrapper "posn"
 
-$digit = 0-9
-$alpha = [a-zA-Z]
-
 tokens :-
 
 [ \t] ;

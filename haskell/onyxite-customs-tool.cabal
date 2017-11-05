@@ -76,6 +76,10 @@ executable onyx
     JSONData
     AudioSearch
     OpenProject
+    FeedBack.Base
+    FeedBack.Scan
+    FeedBack.Parse
+    FeedBack.Load
     -- midiscript
     Sound.MIDI.Script.Base
     Sound.MIDI.Script.Scan
