@@ -155,10 +155,10 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
   , edge 120 $ applyB [p| BRE |]
   , edge 126 $ applyB [p| Glissando |]
   , edge 127 $ applyB [p| Trill |]
-  , ( [e| mapParseOne Mood parseCommand |]
+  , ( [e| one $ mapParseOne Mood parseCommand |]
     , [e| \case Mood m -> unparseCommand m |]
     )
-  , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
+  , ( [e| one $ firstEventWhich $ \e -> readCommand' e >>= \case
         (t, s) | s == T.pack "key" -> Just $ Trainer t
         _                          -> Nothing
       |]

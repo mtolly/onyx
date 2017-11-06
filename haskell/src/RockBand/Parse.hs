@@ -2,6 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 module RockBand.Parse where
 
+import           Control.Arrow                    (first)
 import           Control.Monad                    (guard, (>=>))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (asum)
@@ -9,38 +10,44 @@ import           Data.Maybe                       (isJust)
 import qualified Data.Text                        as T
 import           Language.Haskell.TH
 import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Common
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Message.Channel       as C
 import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util                  as U
 
-import           RockBand.Common
-
 type ParseOne t e a = RTB.T t e -> Maybe ((t, a), RTB.T t e)
+type ParseSome t e a = RTB.T t e -> Maybe (RTB.T t a, RTB.T t e)
 type ParseAll t e a = RTB.T t e -> (RTB.T t a, RTB.T t e)
 type UnparseOne t e a = a -> RTB.T t e
 type UnparseAll t e a = RTB.T t a -> RTB.T t e
 
-parseAll :: (NNC.C t, Ord e, Ord a) => ParseOne t e a -> ParseAll t e a
+one :: ParseOne t e a -> ParseSome t e a
+one = fmap $ fmap $ first $ uncurry RTB.singleton
+
+parseAll :: (NNC.C t, Ord e, Ord a) => ParseSome t e a -> ParseAll t e a
 parseAll p rtb = case p rtb of
   Nothing -> case RTB.viewL rtb of
     Nothing -> (RTB.empty, rtb)
     Just ((dt, y), rtb') -> case parseAll p rtb' of
       (xs, rtb'') -> (RTB.delay dt xs, RTB.cons dt y rtb'')
-  Just ((t, x), rtb') -> case parseAll p rtb' of
-    (xs, rtb'') -> (RTB.insert t x xs, rtb'')
+  Just (parsed, rtb') -> case parseAll p rtb' of
+    (xs, rtb'') -> (RTB.merge parsed xs, rtb'')
 
 combineParseOne :: [ParseOne t e a] -> ParseOne t e a
 combineParseOne ps rtb = asum $ map ($ rtb) ps
 
+combineParseSome :: [ParseSome t e a] -> ParseSome t e a
+combineParseSome ps rtb = asum $ map ($ rtb) ps
+
 class MIDIEvent a where
-  parseOne   ::   ParseOne U.Beats E.T a
+  parseSome  ::  ParseSome U.Beats E.T a
   unparseOne :: UnparseOne U.Beats E.T a
   unparseAll :: UnparseAll U.Beats E.T a
   unparseAll = U.trackJoin . fmap unparseOne
 
 instance MIDIEvent E.T where
-  parseOne   = firstEventWhich Just
+  parseSome  = one $ firstEventWhich Just
   unparseOne = RTB.singleton NNC.zero
 
 -- | The first element of each pair should be an expression of type @ParseOne t e a@.
@@ -49,7 +56,7 @@ instance MIDIEvent E.T where
 -- The result is an instance of 'MIDIEvent'.
 instanceMIDIEvent :: Q Type -> Maybe (Q Exp) -> [(Q Exp, Q Exp)] -> Q [Dec]
 instanceMIDIEvent typ upall cases = let
-  parser = [e| combineParseOne $(listE $ map fst cases) |]
+  parser = [e| combineParseSome $(listE $ map fst cases) |]
   unparser = do
     es <- mapM snd cases :: Q [Exp]
     return $ LamCaseE $ do
@@ -60,12 +67,12 @@ instanceMIDIEvent typ upall cases = let
   in case upall of
     Nothing -> [d|
       instance MIDIEvent $(typ) where
-        parseOne   = $(  parser)
+        parseSome  = $(  parser)
         unparseOne = $(unparser)
       |]
     Just unparserAll -> [d|
       instance MIDIEvent $(typ) where
-        parseOne   = $(     parser)
+        parseSome  = $(     parser)
         unparseOne = $(   unparser)
         unparseAll = $(unparserAll)
       |]
@@ -113,6 +120,9 @@ parseBlip i rtb = do
 mapParseOne :: (a -> b) -> ParseOne t e a -> ParseOne t e b
 mapParseOne f p rtb = (\((t, x), rtb') -> ((t, f x), rtb')) <$> p rtb
 
+mapParseSome :: (a -> b) -> ParseSome t e a -> ParseSome t e b
+mapParseSome f p rtb = first (fmap f) <$> p rtb
+
 -- | Does its best to turn a pattern back into an expression.
 patToExp :: Pat -> Exp
 patToExp = \case
@@ -148,7 +158,7 @@ unparseBlip p = unparseBlipCPV (0, p, 96)
 -- which is the smallest allowed distance between events.
 blip :: Int -> Q Pat -> (Q Exp, Q Exp)
 blip i pat =
-  ( [e| mapParseOne (const $(fmap patToExp pat)) $ parseBlip i |]
+  ( [e| one $ mapParseOne (const $(fmap patToExp pat)) $ parseBlip i |]
   , lamCaseE [match pat (normalB [e| unparseBlip i |]) []]
   )
 
@@ -165,7 +175,7 @@ parseBlipMax len i rtb = do
 
 blipMax :: U.Beats -> Int -> Q Pat -> (Q Exp, Q Exp)
 blipMax len i pat =
-  ( [e| mapParseOne (const $(fmap patToExp pat)) $ parseBlipMax len' i |]
+  ( [e| one $ mapParseOne (const $(fmap patToExp pat)) $ parseBlipMax len' i |]
   , lamCaseE [match pat (normalB [e| unparseBlip i |]) []]
   ) where len' = realToFrac len :: Rational
 
@@ -186,7 +196,7 @@ makeEdge p b = makeEdgeCPV 0 p $ guard b >> Just 96
 -- as a note on or note off).
 edge :: Int -> (Bool -> Q Pat) -> (Q Exp, Q Exp)
 edge i patf =
-  ( [e| parseEdge i
+  ( [e| one $ parseEdge i
       (\b -> if b
         then $(patToExp <$> patf True )
         else $(patToExp <$> patf False)
@@ -231,7 +241,7 @@ makeEdges is b = foldr (RTB.cons NNC.zero) RTB.empty $ map (`makeEdge` b) is
 -- | Parses a collection of simultaneous note-ons or note-offs.
 edges :: [Int] -> (Bool -> Q Pat) -> (Q Exp, Q Exp)
 edges is patf =
-  ( [e| combineParseOne
+  ( [e| one $ combineParseOne
       [ mapParseOne (const $(patToExp <$> patf True )) $ parsePredicates (map (isNoteEdgeB True ) is)
       , mapParseOne (const $(patToExp <$> patf False)) $ parsePredicates (map (isNoteEdgeB False) is)
       ]
@@ -251,7 +261,7 @@ edgeRange ps patf = let
   falses = listE $ flip map ps $ \i -> do
     e <- patToExp <$> patf i False
     return $ TupE [LitE $ IntegerL $ fromIntegral i, e]
-  in  ( [e| firstEventWhich $ \e -> do
+  in  ( [e| one $ firstEventWhich $ \e -> do
           (i, b) <- isNoteEdge e
           if b then lookup i $trues else lookup i $falses
         |]
@@ -279,7 +289,7 @@ firstEventWhich f rtb = do
 
 commandPair :: [T.Text] -> Q Pat -> (Q Exp, Q Exp)
 commandPair cmd pat =
-  ( [e| firstEventWhich $ readCommand' >=> \x ->
+  ( [e| one $ firstEventWhich $ readCommand' >=> \x ->
       if map T.unpack x == cmd' then Just $(fmap patToExp pat) else Nothing
     |]
   , lamCaseE

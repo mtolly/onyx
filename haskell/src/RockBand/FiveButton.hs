@@ -183,10 +183,10 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
   , edge 126 $ applyB [p| Tremolo |]
   , edge 127 $ applyB [p| Trill |]
 
-  , ( [e| mapParseOne Mood parseCommand |]
+  , ( [e| one $ mapParseOne Mood parseCommand |]
     , [e| \case Mood m -> unparseCommand m |]
     )
-  , ( [e| mapParseOne HandMap parseCommand |]
+  , ( [e| one $ mapParseOne HandMap parseCommand |]
     , [e| \case HandMap m -> unparseCommand m |]
     )
   -- TODO:
@@ -194,12 +194,12 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
   -- "[map HandMap_Drop_D2]"
   -- "[map handMap_DropD2]"
   -- "map HandMap DropD2]"
-  , ( [e| mapParseOne StrumMap parseCommand |]
+  , ( [e| one $ mapParseOne StrumMap parseCommand |]
     , [e| \case StrumMap m -> unparseCommand m |]
     )
   -- TODO: "[map HandMap_Pick]"
 
-  , ( [e| mapParseOne (\(OnyxCloseEvent d o) -> DiffEvent d $ OnyxClose o) parseCommand |]
+  , ( [e| one $ mapParseOne (\(OnyxCloseEvent d o) -> DiffEvent d $ OnyxClose o) parseCommand |]
     , [e| \case DiffEvent d (OnyxClose o) -> unparseCommand $ OnyxCloseEvent d o |]
     )
 

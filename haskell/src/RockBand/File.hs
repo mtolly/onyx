@@ -65,7 +65,7 @@ parseTracks mmap trks names = do
   let merged = foldr RTB.merge RTB.empty $ flip filter trks $ \trk -> case U.trackName trk of
         Nothing   -> False
         Just name -> elem name names
-  inside ("MIDI tracks named " ++ show names) $ makeTrackParser parseOne mmap merged
+  inside ("MIDI tracks named " ++ show names) $ makeTrackParser parseSome mmap merged
 
 knownTracks :: (SendMessage m) => [RTB.T U.Beats E.T] -> [String] -> StackTraceT m ()
 knownTracks trks names = forM_ (zip ([1..] :: [Int]) trks) $ \(i, trk) -> do
@@ -557,7 +557,7 @@ stripTrack = RTB.filter $ \e -> case e of
   _                                      -> True
 
 makeTrackParser :: (SendMessage m, Ord a) =>
-  ParseOne U.Beats E.T a -> U.MeasureMap -> RTB.T U.Beats E.T -> StackTraceT m (RTB.T U.Beats a)
+  ParseSome U.Beats E.T a -> U.MeasureMap -> RTB.T U.Beats E.T -> StackTraceT m (RTB.T U.Beats a)
 makeTrackParser p mmap trk = do
   let (good, bad) = parseAll p $ stripTrack trk
   forM_ (ATB.toPairList $ RTB.toAbsoluteEventList 0 bad) $ \(bts, e) ->

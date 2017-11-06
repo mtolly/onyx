@@ -50,14 +50,14 @@ parseNote rtb = do
 
 instanceMIDIEvent [t| Event |] Nothing
 
-  [ ( [e| parseRange 12 1 LH |]
+  [ ( [e| one $ parseRange 12 1 LH |]
     , [e| \case LaneShift LH p -> unparseBlipCPV (1, 12, p) |]
     )
-  , ( [e| parseRange 13 0 RH |]
+  , ( [e| one $ parseRange 13 0 RH |]
     , [e| \case LaneShift RH p -> unparseBlipCPV (0, 13, p) |]
     )
 
-  , ( [e| parseNote |]
+  , ( [e| one parseNote |]
     , [e| \case
       Note RH b p -> RTB.singleton 0 $ makeEdgeCPV 0 p $ guard b >> Just 96
       Note LH b p -> RTB.singleton 0 $ makeEdgeCPV 1 p $ guard b >> Just 96
@@ -72,10 +72,10 @@ instanceMIDIEvent [t| Event |] Nothing
   , edge 126 $ applyB [p| Glissando RH |]
   , edge 127 $ applyB [p| Trill     RH |]
 
-  , ( [e| mapParseOne Mood parseCommand |]
+  , ( [e| one $ mapParseOne Mood parseCommand |]
     , [e| \case Mood m -> unparseCommand m |]
     )
-  , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
+  , ( [e| one $ firstEventWhich $ \e -> readCommand' e >>= \case
         (t, s) | s == T.pack "key" -> Just $ Trainer t
         _                          -> Nothing
       |]

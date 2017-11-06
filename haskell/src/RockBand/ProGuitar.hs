@@ -136,13 +136,13 @@ parseHandPosition rtb = do
 instanceMIDIEvent [t| Event |] Nothing $ let
   note :: Int -> Q Pat -> Q Pat -> [(Q Exp, Q Exp)]
   note pitch diff str =
-    [ ( [e| parseNoteBlip pitch $(fmap patToExp diff) $(fmap patToExp str) |]
+    [ ( [e| one $ parseNoteBlip pitch $(fmap patToExp diff) $(fmap patToExp str) |]
       , [e| \case
         DiffEvent $diff (Note (Blip fret ($str, ntype))) ->
           unparseBlipCPV (encodeChannel ntype, pitch, fret + 100)
         |]
       )
-    , ( [e| parseLongNoteEdge pitch $(fmap patToExp diff) $(fmap patToExp str) |]
+    , ( [e| one $ parseLongNoteEdge pitch $(fmap patToExp diff) $(fmap patToExp str) |]
       , [e| \case
         DiffEvent $diff (Note (NoteOn fret ($str, ntype))) ->
           RTB.singleton 0 $ makeEdgeCPV (encodeChannel ntype) pitch $ Just $ fret + 100
@@ -154,7 +154,7 @@ instanceMIDIEvent [t| Event |] Nothing $ let
   -- Nemo's MIDI checker complains (incorrectly) if slide notes have velocity < 100.
   slide :: Int -> Q Pat -> (Q Exp, Q Exp)
   slide pitch diff =
-    ( [e| parseSlide pitch $(fmap patToExp diff) |]
+    ( [e| one $ parseSlide pitch $(fmap patToExp diff) |]
     , [e| \case
       DiffEvent $diff (Slide b stype) ->
         RTB.singleton 0 $ makeEdgeCPV (encodeChannel stype) pitch $ guard b >> Just 100
@@ -162,7 +162,7 @@ instanceMIDIEvent [t| Event |] Nothing $ let
     )
   partialChord :: Int -> Q Pat -> (Q Exp, Q Exp)
   partialChord pitch diff =
-    ( [e| parsePartialChord pitch $(fmap patToExp diff) |]
+    ( [e| one $ parsePartialChord pitch $(fmap patToExp diff) |]
     , [e| \case
       DiffEvent $diff (PartialChord b area) ->
         RTB.singleton 0 $ makeEdgeCPV (encodeChannel area) pitch $ guard b >> Just 100
@@ -250,7 +250,7 @@ instanceMIDIEvent [t| Event |] Nothing $ let
       , edge 106 $ \_b -> [p| DiffEvent Expert (MysteryBFlat $(boolP _b)) |]
       , edge 107 $ \_b -> [p| DiffEvent Expert (AllFrets $(boolP _b)) |]
 
-      , ( [e| parseHandPosition |]
+      , ( [e| one parseHandPosition |]
         , [e| \case
             HandPosition fret -> unparseBlipCPV (0, 108, fret + 100)
           |]
@@ -263,7 +263,7 @@ instanceMIDIEvent [t| Event |] Nothing $ let
       , edge 126           $ \_b -> [p| Tremolo   $(boolP _b) |]
       , edge 127           $ \_b -> [p| Trill     $(boolP _b) |]
 
-      , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
+      , ( [e| one $ firstEventWhich $ \e -> readCommand' e >>= \case
             (t, s) | s == T.pack "pg" -> Just $ TrainerGtr  t
             (t, s) | s == T.pack "pb" -> Just $ TrainerBass t
             _                         -> Nothing
@@ -275,7 +275,7 @@ instanceMIDIEvent [t| Event |] Nothing $ let
         )
       -- TODO: "[begin_pb song_trainer_pg_1]"
       -- TODO: "pb_norm song_trainer_pb_1]"
-      , ( [e| firstEventWhich $ \e -> readCommand' e >>= \case
+      , ( [e| one $ firstEventWhich $ \e -> readCommand' e >>= \case
             ["chrd0"   ] -> Just $ DiffEvent Easy   $ ChordName Nothing
             ["chrd1"   ] -> Just $ DiffEvent Medium $ ChordName Nothing
             ["chrd2"   ] -> Just $ DiffEvent Hard   $ ChordName Nothing

@@ -148,7 +148,7 @@ data Event
 
 instanceMIDIEvent [t| Event |] Nothing
 
-  [ ( [e| mapParseOne DoCut parseCommand |]
+  [ ( [e| one $ mapParseOne DoCut parseCommand |]
     , [e| \case DoCut m -> unparseCommand m |]
     )
 
@@ -186,7 +186,7 @@ instanceMIDIEvent [t| Event |] Nothing
   , edge 38 $ applyB [p| SpotlightDrums |]
   , edge 37 $ applyB [p| SpotlightBass |]
 
-  , ( [e| mapParseOne Lighting parseCommand |]
+  , ( [e| one $ mapParseOne Lighting parseCommand |]
     , [e| \case Lighting m -> unparseCommand m |]
     )
   , blip 50 [p| LightingFirst |]

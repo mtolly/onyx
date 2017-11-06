@@ -201,7 +201,7 @@ data Event
   deriving (Eq, Ord, Show, Read, Typeable, Data)
 
 instanceMIDIEvent [t| Event |] Nothing
-  [ ( [e| mapParseOne Camera parseCommand |]
+  [ ( [e| one $ mapParseOne Camera parseCommand |]
     , [e| \case Camera m -> unparseCommand m |]
     )
   , edge 87 $ applyB [p| SingalongGuitarKeys |]
@@ -212,10 +212,10 @@ instanceMIDIEvent [t| Event |] Nothing
   , edge 39 $ applyB [p| SpotlightGuitar |]
   , edge 38 $ applyB [p| SpotlightDrums |] -- RBN2 docs incorrectly say this is bass
   , edge 37 $ applyB [p| SpotlightBass |] -- RBN2 docs incorrectly say this is drums
-  , ( [e| mapParseOne PostProcess parseCommand |]
+  , ( [e| one $ mapParseOne PostProcess parseCommand |]
     , [e| \case PostProcess m -> unparseCommand m |]
     )
-  , ( [e| mapParseOne Lighting parseCommand |]
+  , ( [e| one $ mapParseOne Lighting parseCommand |]
     , [e| \case Lighting m -> unparseCommand m |]
     )
   , commandPair ["first"] [p| LightingFirst |]

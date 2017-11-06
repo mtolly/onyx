@@ -68,7 +68,7 @@ instance Command PSMessage where
     _ -> Nothing
 
 instance MIDIEvent PSMessage where
-  parseOne rtb = let
+  parseSome = one $ \rtb -> let
     parseFromSysEx = firstEventWhich $ \evt -> do
       E.SystemExclusive (SysEx.Regular [0x50, 0x53, 0, 0, bDiff, bPID, bEdge, 0xF7])
         <- return evt
@@ -104,7 +104,7 @@ data PSWrap a
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable, Data)
 
 instance (MIDIEvent a) => MIDIEvent (PSWrap a) where
-  parseOne rtb = mapParseOne PS parseOne rtb <|> mapParseOne RB parseOne rtb
+  parseSome rtb = mapParseSome PS parseSome rtb <|> mapParseSome RB parseSome rtb
   unparseOne = \case
     PS x -> unparseOne x
     RB x -> unparseOne x

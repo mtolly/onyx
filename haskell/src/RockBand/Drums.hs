@@ -179,10 +179,10 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |])
   , edge 126 $ applyB [p| SingleRoll |]
   , edge 127 $ applyB [p| DoubleRoll |]
 
-  , ( [e| mapParseOne Mood parseCommand |]
+  , ( [e| one $ mapParseOne Mood parseCommand |]
     , [e| \case Mood m -> unparseCommand m |]
     )
-  , ( [e| mapParseOne (\(diff, audio, disco) -> DiffEvent diff $ Mix audio disco) parseCommand |]
+  , ( [e| one $ mapParseOne (\(diff, audio, disco) -> DiffEvent diff $ Mix audio disco) parseCommand |]
     , [e| \case DiffEvent diff (Mix audio disco) -> unparseCommand (diff, audio, disco) |]
     )
   -- TODO: "[mix 0 drums2a]", "[mix 1 drums2a]", "[mix 2 drums2a]", "[mix 3 drums2a]" (Fly Like an Eagle)

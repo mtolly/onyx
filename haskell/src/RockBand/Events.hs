@@ -44,13 +44,13 @@ instanceMIDIEvent [t| Event |] Nothing
   , commandPair ["crowd_mellow"] [p| CrowdMellow |]
   , commandPair ["crowd_noclap"] [p| CrowdNoclap |]
   , commandPair ["crowd_clap"] [p| CrowdClap |]
-  , ( [e| firstEventWhich $ readCommand' >=> \case
+  , ( [e| one $ firstEventWhich $ readCommand' >=> \case
         "section" : ws -> Just $ SectionRB2 $ T.unwords ws
         _              -> Nothing
       |]
     , [e| \case SectionRB2 s -> RTB.singleton NNC.zero $ showCommand' ["section", s] |]
     )
-  , ( [e| firstEventWhich $ readCommand' >=> \case
+  , ( [e| one $ firstEventWhich $ readCommand' >=> \case
         [s] -> SectionRB3 <$> T.stripPrefix "prc_" s
         _   -> Nothing
       |]

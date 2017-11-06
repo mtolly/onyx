@@ -94,13 +94,13 @@ instanceMIDIEvent [t| Event |] Nothing
   , edge 106 $ applyB [p| Phrase2 |]
   , edge 116 $ applyB [p| Overdrive |]
 
-  , ( [e| mapParseOne Mood parseCommand |]
+  , ( [e| one $ mapParseOne Mood parseCommand |]
     , [e| \case Mood m -> unparseCommand m |]
     )
-  , ( [e| mapParseOne (uncurry PercussionAnimation) parseCommand |]
+  , ( [e| one $ mapParseOne (uncurry PercussionAnimation) parseCommand |]
     , [e| \case PercussionAnimation t b -> unparseCommand (t, b) |]
     )
-  , ( [e| firstEventWhich $ \case
+  , ( [e| one $ firstEventWhich $ \case
         E.MetaEvent (Meta.Lyric s) -> Just $ Lyric $ T.pack s
         E.MetaEvent (Meta.TextEvent s) -> Just $ Lyric $ T.pack s
         -- unrecognized text events are lyrics by default.

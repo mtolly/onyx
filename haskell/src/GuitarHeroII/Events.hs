@@ -69,14 +69,14 @@ instanceMIDIEvent [t| Event |] Nothing $
   , commandPair ["music_start"] [p| MusicStart |]
   , commandPair ["end"] [p| End |]
 
-  , ( [e| firstEventWhich $ readCommand' >=> \case
+  , ( [e| one $ firstEventWhich $ readCommand' >=> \case
         ["section", s] -> Just $ PracticeSection s
         _              -> Nothing
       |]
     , [e| \case PracticeSection s -> RTB.singleton NNC.zero $ showCommand' ["section", s] |]
     )
 
-  , ( [e| mapParseOne Lighting parseCommand |]
+  , ( [e| one $ mapParseOne Lighting parseCommand |]
     , [e| \case Lighting m -> unparseCommand m |]
     )
 
