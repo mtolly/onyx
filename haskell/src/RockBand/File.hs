@@ -31,8 +31,6 @@ import qualified RockBand.FiveButton              as FiveButton
 import qualified RockBand.GHL                     as GHL
 import           RockBand.Parse
 import qualified RockBand.PhaseShiftKeys          as PSKeys
-import           RockBand.PhaseShiftMessage       (PSWrap (..), discardPS,
-                                                   withRB)
 import qualified RockBand.ProGuitar               as ProGuitar
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Venue                   as Venue
@@ -182,37 +180,37 @@ instance MIDIFileFormat RB2File where
     ]
 
 data PSFile t = PSFile
-  { psPartDrums        :: RTB.T t (PSWrap      Drums.Event)
-  , psPartDrums2x      :: RTB.T t (PSWrap      Drums.Event) -- hack for import
-  , psPartRealDrumsPS  :: RTB.T t (PSWrap      Drums.Event)
-  , psPartGuitar       :: RTB.T t (PSWrap FiveButton.Event)
-  , psPartGuitarGHL    :: RTB.T t (PSWrap        GHL.Event)
-  , psPartBass         :: RTB.T t (PSWrap FiveButton.Event)
-  , psPartBassGHL      :: RTB.T t (PSWrap        GHL.Event)
-  , psPartKeys         :: RTB.T t (PSWrap FiveButton.Event)
-  , psPartRhythm       :: RTB.T t (PSWrap FiveButton.Event)
-  , psPartGuitarCoop   :: RTB.T t (PSWrap FiveButton.Event)
-  , psPartRealGuitar   :: RTB.T t (PSWrap  ProGuitar.Event)
-  , psPartRealGuitar22 :: RTB.T t (PSWrap  ProGuitar.Event)
-  , psPartRealBass     :: RTB.T t (PSWrap  ProGuitar.Event)
-  , psPartRealBass22   :: RTB.T t (PSWrap  ProGuitar.Event)
-  , psPartRealKeysE    :: RTB.T t (PSWrap    ProKeys.Event)
-  , psPartRealKeysM    :: RTB.T t (PSWrap    ProKeys.Event)
-  , psPartRealKeysH    :: RTB.T t (PSWrap    ProKeys.Event)
-  , psPartRealKeysX    :: RTB.T t (PSWrap    ProKeys.Event)
-  , psPartRealKeysPS_E :: RTB.T t (PSWrap     PSKeys.Event)
-  , psPartRealKeysPS_M :: RTB.T t (PSWrap     PSKeys.Event)
-  , psPartRealKeysPS_H :: RTB.T t (PSWrap     PSKeys.Event)
-  , psPartRealKeysPS_X :: RTB.T t (PSWrap     PSKeys.Event)
-  , psPartKeysAnimLH   :: RTB.T t (PSWrap    ProKeys.Event)
-  , psPartKeysAnimRH   :: RTB.T t (PSWrap    ProKeys.Event)
-  , psPartVocals       :: RTB.T t (PSWrap     Vocals.Event)
-  , psHarm1            :: RTB.T t (PSWrap     Vocals.Event)
-  , psHarm2            :: RTB.T t (PSWrap     Vocals.Event)
-  , psHarm3            :: RTB.T t (PSWrap     Vocals.Event)
-  , psEvents           :: RTB.T t (PSWrap     Events.Event)
-  , psBeat             :: RTB.T t (PSWrap       Beat.Event)
-  , psVenue            :: RTB.T t (PSWrap      Venue.Event)
+  { psPartDrums        :: RTB.T t      Drums.Event
+  , psPartDrums2x      :: RTB.T t      Drums.Event -- hack for import
+  , psPartRealDrumsPS  :: RTB.T t      Drums.Event
+  , psPartGuitar       :: RTB.T t FiveButton.Event
+  , psPartGuitarGHL    :: RTB.T t        GHL.Event
+  , psPartBass         :: RTB.T t FiveButton.Event
+  , psPartBassGHL      :: RTB.T t        GHL.Event
+  , psPartKeys         :: RTB.T t FiveButton.Event
+  , psPartRhythm       :: RTB.T t FiveButton.Event
+  , psPartGuitarCoop   :: RTB.T t FiveButton.Event
+  , psPartRealGuitar   :: RTB.T t  ProGuitar.Event
+  , psPartRealGuitar22 :: RTB.T t  ProGuitar.Event
+  , psPartRealBass     :: RTB.T t  ProGuitar.Event
+  , psPartRealBass22   :: RTB.T t  ProGuitar.Event
+  , psPartRealKeysE    :: RTB.T t    ProKeys.Event
+  , psPartRealKeysM    :: RTB.T t    ProKeys.Event
+  , psPartRealKeysH    :: RTB.T t    ProKeys.Event
+  , psPartRealKeysX    :: RTB.T t    ProKeys.Event
+  , psPartRealKeysPS_E :: RTB.T t     PSKeys.Event
+  , psPartRealKeysPS_M :: RTB.T t     PSKeys.Event
+  , psPartRealKeysPS_H :: RTB.T t     PSKeys.Event
+  , psPartRealKeysPS_X :: RTB.T t     PSKeys.Event
+  , psPartKeysAnimLH   :: RTB.T t    ProKeys.Event
+  , psPartKeysAnimRH   :: RTB.T t    ProKeys.Event
+  , psPartVocals       :: RTB.T t     Vocals.Event
+  , psHarm1            :: RTB.T t     Vocals.Event
+  , psHarm2            :: RTB.T t     Vocals.Event
+  , psHarm3            :: RTB.T t     Vocals.Event
+  , psEvents           :: RTB.T t     Events.Event
+  , psBeat             :: RTB.T t       Beat.Event
+  , psVenue            :: RTB.T t      Venue.Event
   } deriving (Eq, Ord, Show)
 
 instance MIDIFileFormat PSFile where
@@ -355,23 +353,23 @@ instance Hashable FlexPartName where
   hashWithSalt salt = hashWithSalt salt . getPartName
 
 data FlexPart t = FlexPart
-  { flexPartDrums        :: RTB.T t (PSWrap      Drums.Event)
-  , flexPartDrums2x      :: RTB.T t (PSWrap      Drums.Event)
-  , flexFiveButton       :: RTB.T t (PSWrap FiveButton.Event)
+  { flexPartDrums        :: RTB.T t      Drums.Event
+  , flexPartDrums2x      :: RTB.T t      Drums.Event
+  , flexFiveButton       :: RTB.T t FiveButton.Event
   , flexFiveIsKeys       :: Bool
-  , flexGHL              :: RTB.T t (PSWrap        GHL.Event)
-  , flexPartRealGuitar   :: RTB.T t (PSWrap  ProGuitar.Event)
-  , flexPartRealGuitar22 :: RTB.T t (PSWrap  ProGuitar.Event)
-  , flexPartRealKeysE    :: RTB.T t (PSWrap    ProKeys.Event)
-  , flexPartRealKeysM    :: RTB.T t (PSWrap    ProKeys.Event)
-  , flexPartRealKeysH    :: RTB.T t (PSWrap    ProKeys.Event)
-  , flexPartRealKeysX    :: RTB.T t (PSWrap    ProKeys.Event)
-  , flexPartKeysAnimLH   :: RTB.T t (PSWrap    ProKeys.Event)
-  , flexPartKeysAnimRH   :: RTB.T t (PSWrap    ProKeys.Event)
-  , flexPartVocals       :: RTB.T t (PSWrap     Vocals.Event)
-  , flexHarm1            :: RTB.T t (PSWrap     Vocals.Event)
-  , flexHarm2            :: RTB.T t (PSWrap     Vocals.Event)
-  , flexHarm3            :: RTB.T t (PSWrap     Vocals.Event)
+  , flexGHL              :: RTB.T t        GHL.Event
+  , flexPartRealGuitar   :: RTB.T t  ProGuitar.Event
+  , flexPartRealGuitar22 :: RTB.T t  ProGuitar.Event
+  , flexPartRealKeysE    :: RTB.T t    ProKeys.Event
+  , flexPartRealKeysM    :: RTB.T t    ProKeys.Event
+  , flexPartRealKeysH    :: RTB.T t    ProKeys.Event
+  , flexPartRealKeysX    :: RTB.T t    ProKeys.Event
+  , flexPartKeysAnimLH   :: RTB.T t    ProKeys.Event
+  , flexPartKeysAnimRH   :: RTB.T t    ProKeys.Event
+  , flexPartVocals       :: RTB.T t     Vocals.Event
+  , flexHarm1            :: RTB.T t     Vocals.Event
+  , flexHarm2            :: RTB.T t     Vocals.Event
+  , flexHarm3            :: RTB.T t     Vocals.Event
   } deriving (Eq, Ord, Show)
 
 instance Default (FlexPart t) where
@@ -384,11 +382,11 @@ instance Default (FlexPart t) where
 
 data OnyxFile t = OnyxFile
   { onyxFlexParts     :: Map.Map FlexPartName (FlexPart t)
-  , onyxEvents        :: RTB.T t (PSWrap     Events.Event)
-  , onyxBeat          :: RTB.T t (PSWrap       Beat.Event)
-  , onyxVenue         :: RTB.T t (PSWrap      Venue.Event)
-  , onyxVenueRB2      :: RTB.T t (PSWrap   VenueRB2.Event)
-  , onyxMelodysEscape :: RTB.T t             Melody.Event
+  , onyxEvents        :: RTB.T t              Events.Event
+  , onyxBeat          :: RTB.T t                Beat.Event
+  , onyxVenue         :: RTB.T t               Venue.Event
+  , onyxVenueRB2      :: RTB.T t            VenueRB2.Event
+  , onyxMelodysEscape :: RTB.T t              Melody.Event
   } deriving (Eq, Ord, Show)
 
 instance Default (OnyxFile t) where
@@ -581,10 +579,10 @@ playGuitarFile goffs boffs (Song tempos mmap trks) = Song tempos mmap $ RawFile 
       (str, notes) <- ProGuitar.playGuitar tuning expert
       return $ U.setTrackName (name ++ "_" ++ show str) notes
   in concat
-    [ gtr  "GTR"    $ discardPS $ flexPartRealGuitar   $ getFlexPart FlexGuitar trks
-    , gtr  "GTR22"  $ discardPS $ flexPartRealGuitar22 $ getFlexPart FlexGuitar trks
-    , bass "BASS"   $ discardPS $ flexPartRealGuitar   $ getFlexPart FlexBass   trks
-    , bass "BASS22" $ discardPS $ flexPartRealGuitar22 $ getFlexPart FlexBass   trks
+    [ gtr  "GTR"    $ flexPartRealGuitar   $ getFlexPart FlexGuitar trks
+    , gtr  "GTR22"  $ flexPartRealGuitar22 $ getFlexPart FlexGuitar trks
+    , bass "BASS"   $ flexPartRealGuitar   $ getFlexPart FlexBass   trks
+    , bass "BASS22" $ flexPartRealGuitar22 $ getFlexPart FlexBass   trks
     ]
 
 data TrackOffset = TrackPad U.Seconds | TrackDrop U.Seconds
@@ -667,8 +665,8 @@ padPSMIDI seconds (Song temps sigs PSFile{..}) = let
     $ RTB.delay beats
     $ U.measureMapToTimeSigs sigs
   padSimple = RTB.delay beats
-  padBeat = withRB
-    $ RTB.cons  0 Beat.Bar
+  padBeat
+    = RTB.cons  0 Beat.Bar
     . foldr (.) id (replicate (seconds * 2 - 1) $ RTB.cons 1 Beat.Beat)
     . RTB.delay 1
   in Song temps' sigs' PSFile

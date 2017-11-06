@@ -12,6 +12,7 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isNothing)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
+import           Guitars
 import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
 import           ProKeysRanges                    (completeRanges)
@@ -21,7 +22,6 @@ import qualified RockBand.Drums                   as Drums
 import qualified RockBand.File                    as RBFile
 import           RockBand.FiveButton              (StrumHOPO (..))
 import qualified RockBand.FiveButton              as Five
-import           RockBand.PhaseShiftMessage       (discardPS, withRB)
 import qualified RockBand.ProKeys                 as PK
 import           RockBand.Sections                (getSection)
 import           Scripts                          (trackGlue)
@@ -65,9 +65,7 @@ gryboReduce
 gryboReduce Expert _         _    _  diffEvents = diffEvents
 gryboReduce diff   hopoThres mmap od diffEvents = let
   odMap = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $ RTB.normalize od
-  gnotes1 = readGuitarNotes hopoThres $ flip fmap diffEvents $ \case
-    Five.OpenNote ln -> Five.Note $ fmap (const Five.Green) ln
-    e                -> e
+  gnotes1 = readGuitarNotes hopoThres diffEvents
   isOD bts = maybe False snd $ Map.lookupLE bts odMap
   -- TODO: replace the next 2 with BEAT track
   isMeasure bts = snd (U.applyMeasureMap mmap bts) == 0
@@ -210,12 +208,15 @@ data GuitarNote t = GuitarNote [Five.Color] StrumHOPO (Maybe t)
 
 readGuitarNotes :: Maybe Int -> RTB.T U.Beats Five.DiffEvent -> RTB.T U.Beats (GuitarNote U.Beats)
 readGuitarNotes hopoThres
-  = fmap (\(ntype, colors, len) -> GuitarNote colors ntype len)
+  = fmap (\((ntype, _isTap), colors, len) -> GuitarNote colors ntype len)
   . joinEdges
+  . guitarify
   . case hopoThres of
-    Nothing -> Five.guitarifyHOPO 0                      True
-    Just i  -> Five.guitarifyHOPO (fromIntegral i / 480) False
+    Nothing -> allStrums
+    Just i  -> strumHOPOTap HOPOsRBGuitar (fromIntegral i / 480)
+  . closeNotes
 
+-- TODO this can be replaced with Guitars.emit5
 showGuitarNotes :: Bool -> RTB.T U.Beats (GuitarNote U.Beats) -> RTB.T U.Beats Five.DiffEvent
 showGuitarNotes isKeys = U.trackJoin . fmap f where
   f (GuitarNote cols ntype len) = RTB.flatten $ foldr RTB.merge RTB.empty
@@ -234,7 +235,7 @@ data PKNote t = PKNote [PK.Pitch] (Maybe t)
   deriving (Eq, Ord, Show, Read)
 
 readPKNotes :: RTB.T U.Beats PK.Event -> RTB.T U.Beats (PKNote U.Beats)
-readPKNotes = fmap f . joinEdges . Five.guitarify . assign where
+readPKNotes = fmap f . joinEdges . guitarify . assign where
   assign = RTB.mapMaybe $ \case
     PK.Note long -> Just long
     _            -> Nothing
@@ -522,15 +523,15 @@ simpleReduce :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTrace
 simpleReduce fin fout = do
   RBFile.Song tempos mmap onyx <- liftIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
   let sections = let
-        evts = discardPS $ RBFile.onyxEvents onyx
+        evts = RBFile.onyxEvents onyx
         in RTB.mapMaybe getSection evts
   liftIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap onyx
     { RBFile.onyxFlexParts = flip fmap (RBFile.onyxFlexParts onyx) $ \trks -> let
       pkX = RBFile.flexPartRealKeysX trks
-      pkH = RBFile.flexPartRealKeysH trks `pkOr` withRB (pkReduce Hard   mmap od) pkX
-      pkM = RBFile.flexPartRealKeysM trks `pkOr` withRB (pkReduce Medium mmap od) pkH
-      pkE = RBFile.flexPartRealKeysE trks `pkOr` withRB (pkReduce Easy   mmap od) pkM
-      od = flip RTB.mapMaybe (discardPS pkX) $ \case
+      pkH = RBFile.flexPartRealKeysH trks `pkOr` pkReduce Hard   mmap od pkX
+      pkM = RBFile.flexPartRealKeysM trks `pkOr` pkReduce Medium mmap od pkH
+      pkE = RBFile.flexPartRealKeysE trks `pkOr` pkReduce Easy   mmap od pkM
+      od = flip RTB.mapMaybe pkX $ \case
         PK.Overdrive b -> Just b
         _              -> Nothing
       trkX `pkOr` trkY
@@ -539,8 +540,8 @@ simpleReduce fin fout = do
         | otherwise     = trkX
       hopoThresh = guard (RBFile.flexFiveIsKeys trks) >> Just 170
       in trks
-      { RBFile.flexFiveButton = withRB (gryboComplete hopoThresh mmap) $ RBFile.flexFiveButton trks
-      , RBFile.flexPartDrums = withRB (drumsComplete mmap sections) $ RBFile.flexPartDrums trks
+      { RBFile.flexFiveButton = gryboComplete hopoThresh mmap $ RBFile.flexFiveButton trks
+      , RBFile.flexPartDrums = drumsComplete mmap sections $ RBFile.flexPartDrums trks
       , RBFile.flexPartRealKeysX = pkX
       , RBFile.flexPartRealKeysH = pkH
       , RBFile.flexPartRealKeysM = pkM

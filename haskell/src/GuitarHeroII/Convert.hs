@@ -8,8 +8,8 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
+import           Guitars
 import qualified RockBand.File                    as F
-import           RockBand.PhaseShiftMessage       (discardPS)
 import qualified Sound.MIDI.Util                  as U
 
 import           RockBand.Common                  (Difficulty (..), Mood (..))
@@ -81,13 +81,13 @@ midiRB3toGH2 song target (F.Song tmap mmap onyx) = let
   makeBandSinger trk = flip RTB.mapMaybe trk $ \case
     RBV.Mood mood -> Just $ makeMood mood BS.Idle BS.Play
     _ -> Nothing
-  events = flip RTB.mapMaybe (discardPS $ F.onyxEvents onyx) $ \case
+  events = flip RTB.mapMaybe (F.onyxEvents onyx) $ \case
     RBEv.MusicStart -> Just Ev.MusicStart
     RBEv.End -> Just Ev.End
     RBEv.SectionRB3 t -> Just $ Ev.PracticeSection t
     RBEv.SectionRB2 t -> Just $ Ev.PracticeSection t
     _ -> Nothing
-  triggers = flip RTB.mapMaybe (discardPS $ F.onyxEvents onyx) $ \case
+  triggers = flip RTB.mapMaybe (F.onyxEvents onyx) $ \case
     RBEv.PracticeKick -> Just Tr.PracticeKick
     RBEv.PracticeSnare -> Just Tr.PracticeSnare
     RBEv.PracticeHihat -> Just Tr.PracticeHihat
@@ -96,8 +96,15 @@ midiRB3toGH2 song target (F.Song tmap mmap onyx) = let
     Nothing -> RTB.empty
     Just grybo -> let
       flex = F.getFlexPart fpart onyx
-      toGtr = if F.flexFiveIsKeys flex then RB5.keysToGuitar (fromIntegral (gryboHopoThreshold grybo) / 480) else id
-      in makePartGuitar $ toGtr $ discardPS $ F.flexFiveButton flex
+      toGtr = RB5.eachDifficulty
+        $ emit5
+        . fromClosed
+        . noExtendedSustains standardBlipThreshold standardSustainGap
+        . strumHOPOTap
+          (if F.flexFiveIsKeys flex then HOPOsRBKeys else HOPOsRBGuitar)
+          (fromIntegral (gryboHopoThreshold grybo) / 480)
+        . closeNotes
+      in makePartGuitar $ toGtr $ F.flexFiveButton flex
   gh2 = F.GH2File
     { F.gh2PartGuitar     = makeGRYBO $ gh2_Guitar target
     , F.gh2PartBass       = case gh2_Coop target of
@@ -107,10 +114,10 @@ midiRB3toGH2 song target (F.Song tmap mmap onyx) = let
       GH2Rhythm -> makeGRYBO $ gh2_Rhythm target
       GH2Bass   -> RTB.empty
     , F.gh2PartGuitarCoop = RTB.empty
-    , F.gh2BandBass       = makeBandBass $ discardPS $ F.flexFiveButton $ F.getFlexPart (gh2_Bass target) onyx
-    , F.gh2BandDrums      = makeBandDrums $ discardPS $ F.flexPartDrums $ F.getFlexPart (gh2_Drums target) onyx
-    , F.gh2BandKeys       = makeBandKeys $ discardPS $ F.flexFiveButton $ F.getFlexPart (gh2_Keys target) onyx
-    , F.gh2BandSinger     = makeBandSinger $ discardPS $ F.flexPartVocals $ F.getFlexPart (gh2_Vocal target) onyx
+    , F.gh2BandBass       = makeBandBass $ F.flexFiveButton $ F.getFlexPart (gh2_Bass target) onyx
+    , F.gh2BandDrums      = makeBandDrums $ F.flexPartDrums $ F.getFlexPart (gh2_Drums target) onyx
+    , F.gh2BandKeys       = makeBandKeys $ F.flexFiveButton $ F.getFlexPart (gh2_Keys target) onyx
+    , F.gh2BandSinger     = makeBandSinger $ F.flexPartVocals $ F.getFlexPart (gh2_Vocal target) onyx
     , F.gh2Events         = events
     , F.gh2Triggers       = triggers
     }

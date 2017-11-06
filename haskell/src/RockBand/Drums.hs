@@ -14,9 +14,9 @@ import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
+import           Guitars                          (applyStatus)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
-import           RockBand.FiveButton              (applyStatus)
 import           RockBand.Parse
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
@@ -51,6 +51,7 @@ data Event
 
 data DiffEvent
   = Mix Audio Disco
+  -- TODO EOF/PS format sysexes
   | Note (Gem ())
   deriving (Eq, Ord, Show, Read, Typeable, Data)
 

@@ -16,6 +16,7 @@ import           RockBand.Common                       (Command (..),
 import           RockBand.Parse
 import qualified Sound.MIDI.File.Event                 as E
 import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
+import qualified Sound.MIDI.Util                       as U
 import           Text.Read                             (readMaybe)
 
 data PSMessage = PSMessage
@@ -67,26 +68,29 @@ instance Command PSMessage where
       return$ PSMessage diff phraseID onoff
     _ -> Nothing
 
+parsePSMessage :: ParseOne U.Beats E.T PSMessage
+parsePSMessage rtb = let
+  parseFromSysEx = firstEventWhich $ \evt -> do
+    E.SystemExclusive (SysEx.Regular [0x50, 0x53, 0, 0, bDiff, bPID, bEdge, 0xF7])
+      <- return evt
+    diff <- case bDiff of
+      0   -> Just $ Just Easy
+      1   -> Just $ Just Medium
+      2   -> Just $ Just Hard
+      3   -> Just $ Just Expert
+      255 -> Just Nothing
+      _   -> Nothing
+    pid <- lookup (fromIntegral bPID)
+      [ (fromEnum pid + 1, pid) | pid <- [minBound .. maxBound] ]
+    pedge <- case bEdge of
+      0 -> Just False
+      1 -> Just True
+      _ -> Nothing
+    return $ PSMessage diff pid pedge
+  in parseFromSysEx rtb <|> parseCommand rtb
+
 instance MIDIEvent PSMessage where
-  parseSome = one $ \rtb -> let
-    parseFromSysEx = firstEventWhich $ \evt -> do
-      E.SystemExclusive (SysEx.Regular [0x50, 0x53, 0, 0, bDiff, bPID, bEdge, 0xF7])
-        <- return evt
-      diff <- case bDiff of
-        0   -> Just $ Just Easy
-        1   -> Just $ Just Medium
-        2   -> Just $ Just Hard
-        3   -> Just $ Just Expert
-        255 -> Just Nothing
-        _   -> Nothing
-      pid <- lookup (fromIntegral bPID)
-        [ (fromEnum pid + 1, pid) | pid <- [minBound .. maxBound] ]
-      pedge <- case bEdge of
-        0 -> Just False
-        1 -> Just True
-        _ -> Nothing
-      return $ PSMessage diff pid pedge
-    in parseFromSysEx rtb <|> parseCommand rtb
+  parseSome = one parsePSMessage
   unparseOne (PSMessage diff pid pedge) = RTB.singleton NNC.zero $ E.SystemExclusive $ SysEx.Regular
     [ 0x50
     , 0x53
@@ -97,29 +101,3 @@ instance MIDIEvent PSMessage where
     , if pedge then 1 else 0
     , 0xF7
     ]
-
-data PSWrap a
-  = PS PSMessage
-  | RB a
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable, Data)
-
-instance (MIDIEvent a) => MIDIEvent (PSWrap a) where
-  parseSome rtb = mapParseSome PS parseSome rtb <|> mapParseSome RB parseSome rtb
-  unparseOne = \case
-    PS x -> unparseOne x
-    RB x -> unparseOne x
-
-discardPS :: (NNC.C t) => RTB.T t (PSWrap a) -> RTB.T t a
-discardPS = RTB.mapMaybe $ \case
-  PS _ -> Nothing
-  RB x -> Just x
-
-psMessages :: (NNC.C t) => RTB.T t (PSWrap a) -> RTB.T t PSMessage
-psMessages = RTB.mapMaybe $ \case
-  PS msg -> Just msg
-  RB _   -> Nothing
-
-withRB :: (NNC.C t, Ord a) => (RTB.T t a -> RTB.T t a) -> RTB.T t (PSWrap a) -> RTB.T t (PSWrap a)
-withRB f rtb = let
-  (rb, ps) = RTB.partitionMaybe (\case PS _ -> Nothing; RB x -> Just x) rtb
-  in RTB.merge (fmap RB $ f rb) ps

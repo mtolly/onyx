@@ -1,20 +1,19 @@
 -- | Parser used for all the GRYBO instruments (basic guitar, bass, and keys).
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE EmptyCase          #-}
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE TemplateHaskell    #-}
 module RockBand.FiveButton where
 
-import           Control.Monad                    (guard)
 import           Data.Bifunctor                   (first)
 import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (sort)
-import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
 import           RockBand.Parse
+import qualified RockBand.PhaseShiftMessage       as PS
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
@@ -64,8 +63,9 @@ data FretPosition
 
 data DiffEvent
   = Force StrumHOPO Bool
+  | TapNotes Bool
+  | OpenNotes Bool
   | OnyxClose Int
-  | OpenNote (LongNote () ())
   | Note (LongNote () Color)
   deriving (Eq, Ord, Show, Read, Typeable, Data)
 
@@ -146,10 +146,8 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
     ++ noteParser 64 [p| Orange |] (\p -> [p| DiffEvent Easy (Note $p) |]) ++
   [ edge 65 $ \_b -> [p| DiffEvent Easy (Force HOPO  $(boolP _b)) |]
   , edge 66 $ \_b -> [p| DiffEvent Easy (Force Strum $(boolP _b)) |]
-  ] ++ noteParser 67 [p| () |] (\p -> [p| DiffEvent Easy (OpenNote $p) |])
 
-    ++ noteParser 71 [p| () |] (\p -> [p| DiffEvent Medium (OpenNote $p) |])
-    ++ noteParser 72 [p| Green |] (\p -> [p| DiffEvent Medium (Note $p) |])
+  ] ++ noteParser 72 [p| Green |] (\p -> [p| DiffEvent Medium (Note $p) |])
     ++ noteParser 73 [p| Red |] (\p -> [p| DiffEvent Medium (Note $p) |])
     ++ noteParser 74 [p| Yellow |] (\p -> [p| DiffEvent Medium (Note $p) |])
     ++ noteParser 75 [p| Blue |] (\p -> [p| DiffEvent Medium (Note $p) |])
@@ -157,8 +155,7 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
   [ edge 77 $ \_b -> [p| DiffEvent Medium (Force HOPO  $(boolP _b)) |]
   , edge 78 $ \_b -> [p| DiffEvent Medium (Force Strum $(boolP _b)) |]
 
-  ] ++ noteParser 83 [p| () |] (\p -> [p| DiffEvent Hard (OpenNote $p) |])
-    ++ noteParser 84 [p| Green |] (\p -> [p| DiffEvent Hard (Note $p) |])
+  ] ++ noteParser 84 [p| Green |] (\p -> [p| DiffEvent Hard (Note $p) |])
     ++ noteParser 85 [p| Red |] (\p -> [p| DiffEvent Hard (Note $p) |])
     ++ noteParser 86 [p| Yellow |] (\p -> [p| DiffEvent Hard (Note $p) |])
     ++ noteParser 87 [p| Blue |] (\p -> [p| DiffEvent Hard (Note $p) |])
@@ -166,8 +163,22 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
   [ edge 89 $ \_b -> [p| DiffEvent Hard (Force HOPO  $(boolP _b)) |]
   , edge 90 $ \_b -> [p| DiffEvent Hard (Force Strum $(boolP _b)) |]
 
-  ] ++ noteParser 95 [p| () |] (\p -> [p| DiffEvent Expert (OpenNote $p) |])
-    ++ noteParser 96 [p| Green |] (\p -> [p| DiffEvent Expert (Note $p) |])
+  -- pitch 95 is a shortcut for green + open modifier
+  , ( [e| fmap (\((t, ()), rtb) -> (RTB.fromPairList
+        [ (t, DiffEvent Expert $ OpenNotes True)
+        , (0, DiffEvent Expert $ Note $ Blip () Green)
+        , (1/32, DiffEvent Expert $ OpenNotes False)
+        ], rtb)) . parseBlipMax (1/3) 95 |]
+    , [e| \case {} |]
+    )
+  , ( [e| many $ parseEdge 95 $ \b ->
+        [ DiffEvent Expert $ Note $ (if b then NoteOn () else NoteOff) Green
+        , DiffEvent Expert $ OpenNotes b
+        ]
+      |]
+    , [e| \case {} |]
+    )
+  ] ++ noteParser 96 [p| Green |] (\p -> [p| DiffEvent Expert (Note $p) |])
     ++ noteParser 97 [p| Red |] (\p -> [p| DiffEvent Expert (Note $p) |])
     ++ noteParser 98 [p| Yellow |] (\p -> [p| DiffEvent Expert (Note $p) |])
     ++ noteParser 99 [p| Blue |] (\p -> [p| DiffEvent Expert (Note $p) |])
@@ -203,6 +214,21 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
     , [e| \case DiffEvent d (OnyxClose o) -> unparseCommand $ OnyxCloseEvent d o |]
     )
 
+  , ( [e| many $ flip filterParseOne PS.parsePSMessage $ \case
+        PS.PSMessage mdiff PS.OpenStrum b -> Just $ let
+          diffs = maybe [minBound .. maxBound] (: []) mdiff
+          in map (\diff -> DiffEvent diff $ OpenNotes b) diffs
+        PS.PSMessage mdiff PS.TapNotes b -> Just $ let
+          diffs = maybe [minBound .. maxBound] (: []) mdiff
+          in map (\diff -> DiffEvent diff $ TapNotes b) diffs
+        _ -> Nothing
+      |]
+    , [e| \case
+        DiffEvent d (OpenNotes b) -> unparseOne $ PS.PSMessage (Just d) PS.OpenStrum b
+        DiffEvent d (TapNotes  b) -> unparseOne $ PS.PSMessage (Just d) PS.TapNotes b
+      |]
+    )
+
   ]
 
 copyExpert :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
@@ -214,44 +240,6 @@ assignKeys :: (NNC.C t) => RTB.T t DiffEvent -> RTB.T t (LongNote StrumHOPO Colo
 assignKeys = RTB.mapMaybe $ \case
   Note note -> Just $ first (const Strum) note
   _ -> Nothing
-
-trackState :: (NNC.C t) => s -> (s -> t -> a -> (s, Maybe b)) -> RTB.T t a -> RTB.T t b
-trackState state step rtb = case RTB.viewL rtb of
-  Nothing -> RTB.empty
-  Just ((dt, x), rtb') -> case step state dt x of
-    (state', Nothing) -> RTB.delay dt   $ trackState state' step rtb'
-    (state', Just y ) -> RTB.cons  dt y $ trackState state' step rtb'
-
-applyStatus :: (NNC.C t, Ord s, Ord a) => RTB.T t (s, Bool) -> RTB.T t a -> RTB.T t ([s], a)
-applyStatus status events = let
-  fn current _ = \case
-    Left  (s, True ) -> (Set.insert s current, Nothing                     )
-    Left  (s, False) -> (Set.delete s current, Nothing                     )
-    Right x          -> (             current, Just (Set.toList current, x))
-  in trackState Set.empty fn $ RTB.merge (fmap Left status) (fmap Right events)
-
-guitarifyHOPO :: U.Beats -> Bool -> RTB.T U.Beats DiffEvent -> RTB.T U.Beats (LongNote StrumHOPO [Color])
-guitarifyHOPO threshold keys rtb = let
-  gtr = joinEdges $ guitarify $ RTB.mapMaybe (\case Note ln -> Just ln; _ -> Nothing) rtb
-  withForce = applyStatus (RTB.mapMaybe (\case Force f b -> Just (f, b); _ -> Nothing) rtb) gtr
-  fn prev dt (forces, ((), colors, len)) = let
-    ntype = case forces of
-      nt : _ -> nt
-      [] -> if dt >= threshold -- TODO: should this be > or >= ?
-        then Strum
-        else case prev of
-          Nothing -> Strum
-          Just prevColors -> case colors of
-            [c] -> if c `elem` prevColors -- TODO: is this also true on keys?
-              then Strum
-              else HOPO
-            _ -> if keys
-              then if sort colors /= sort prevColors
-                then HOPO
-                else Strum
-              else Strum
-    in (Just colors, Just (ntype, colors, len))
-  in splitEdges $ trackState Nothing fn withForce
 
 eachDifficulty :: (NNC.C t) => (RTB.T t DiffEvent -> RTB.T t DiffEvent) -> RTB.T t Event -> RTB.T t Event
 eachDifficulty f evts = let
@@ -269,37 +257,6 @@ eachDifficulty f evts = let
     , DiffEvent Easy   <$> f easy
     , notEasy
     ]
-
--- | A similar process to what RB3 does when playing a keys chart on guitar.
--- Namely, cuts off overlapping sustains, and applies auto-HOPOs even to chords.
--- Not guaranteed to be exactly the same (RB3's algorithm is kind of buggy).
-keysToGuitar :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats Event
-keysToGuitar threshold = let
-  forceNote ntype = RTB.fromPairList
-    [ (0   , Force ntype True )
-    , (1/32, Force ntype False)
-    ]
-  longToEvents longs = U.trackJoin $ flip fmap longs $ \case
-    Blip   ntype colors -> RTB.merge (forceNote ntype) $ foldr (RTB.cons 0) RTB.empty $ map (Note . Blip   ()) colors
-    NoteOn ntype colors -> RTB.merge (forceNote ntype) $ foldr (RTB.cons 0) RTB.empty $ map (Note . NoteOn ()) colors
-    NoteOff      colors ->                               foldr (RTB.cons 0) RTB.empty $ map (Note . NoteOff  ) colors
-  in eachDifficulty $ longToEvents . guitarifyHOPO threshold True
-
--- | Adds force events to every note according to the normal guitar (not keys) algorithm,
--- so that the keytar algorithm does not apply when placing a guitar-authored part on @PART KEYS@.
-forceAllNotes :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats Event
-forceAllNotes threshold = eachDifficulty $ \diff -> let
-  isForce = \case Force{} -> True; _ -> False
-  forceNote ntype = RTB.fromPairList
-    [ (0   , Force ntype True )
-    , (1/32, Force ntype False)
-    ]
-  longToEvents longs = U.trackJoin $ flip fmap longs $ \case
-    Blip   ntype _ -> forceNote ntype
-    NoteOn ntype _ -> forceNote ntype
-    NoteOff      _ -> RTB.empty
-  in RTB.merge (RTB.filter (not . isForce) diff)
-    $ longToEvents $ guitarifyHOPO threshold False diff
 
 unparseNice :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats E.T
 unparseNice defLength = U.trackJoin . fmap unparseOne . showBlipsNice defLength
@@ -320,22 +277,3 @@ showBlipsNice defLength evts = let
     , DiffEvent Easy   . Note <$> showEdgesNice' defLength easy
     , notEasy
     ]
-
--- | Takes a track of individual notes, possibly with overlaps,
--- and returns a guitar-controller-playable sequence where chords are
--- grouped together and overlaps are removed.
-guitarify :: (Ord s, Ord a) => RTB.T U.Beats (LongNote s a) -> RTB.T U.Beats (LongNote s [a])
-guitarify = splitEdges . go . RTB.collectCoincident . joinEdges where
-  go rtb = case RTB.viewL rtb of
-    Nothing -> RTB.empty
-    Just ((dt, xs), rtb') -> let
-      ntype = case head xs of (nt, _, _) -> nt
-      colors = map (\(_, c, _) -> c) xs
-      len1 = maximum $ map (\(_, _, len) -> len) xs
-      len2 = case RTB.viewL rtb' of
-        Nothing          -> len1
-        Just ((t, _), _) -> min (t NNC.-| (1/8)) <$> len1
-      len3 = guard (maybe True (> 1/3) len2) >> len2
-      -- anything 1/3 beat or less, make into blip.
-      -- RB does not do this step, so it produces 16th note sustains on keytar...
-      in RTB.cons dt (ntype, colors, len3) $ go rtb'

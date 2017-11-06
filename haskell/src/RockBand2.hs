@@ -14,6 +14,7 @@ import           Data.Maybe                       (isNothing, listToMaybe,
                                                    mapMaybe)
 import qualified Data.Set                         as Set
 import           DryVox                           (sineDryVox)
+import           Guitars                          (guitarify)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), joinEdges,
@@ -22,7 +23,6 @@ import qualified RockBand.Drums                   as Drums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as F
 import qualified RockBand.FiveButton              as Five
-import           RockBand.PhaseShiftMessage       (discardPS)
 import qualified RockBand.Venue                   as V
 import qualified RockBand.VenueRB2                as V2
 import qualified RockBand.Vocals                  as Vox
@@ -31,7 +31,7 @@ import qualified Sound.MIDI.Util                  as U
 
 dryVoxAudio :: (Monad m) => F.Song (F.OnyxFile U.Beats) -> AudioSource m Float
 dryVoxAudio f = sineDryVox $ U.applyTempoTrack (F.s_tempos f)
-  $ discardPS $ F.flexPartVocals $ F.getFlexPart F.FlexVocal $ F.s_tracks f
+  $ F.flexPartVocals $ F.getFlexPart F.FlexVocal $ F.s_tracks f
 
 -- | Removes OD phrases to ensures that no phrases overlap on different tracks,
 -- except for precisely matching unison phrases on all tracks.
@@ -359,7 +359,7 @@ fixFiveColors rtb = let
 
 useColorsFive :: Set.Set Five.Color -> RTB.T U.Beats (LongNote () Five.Color) -> RTB.T U.Beats (LongNote () Five.Color)
 useColorsFive cols rtb = let
-  gtr = joinEdges $ Five.guitarify rtb
+  gtr = joinEdges $ guitarify rtb
   present = Set.fromList $ concatMap toList $ RTB.getBodies rtb
   missing = Set.difference cols present
   good = foldl (>>=) [gtr] $ map useColorFive $ Set.toDescList missing

@@ -56,7 +56,6 @@ import           RockBand.Common                  (Difficulty (..),
 import qualified RockBand.Drums                   as RBDrums
 import           RockBand.File                    (FlexPartName (..))
 import qualified RockBand.File                    as RBFile
-import           RockBand.PhaseShiftMessage       (discardPS, withRB)
 import qualified RockBand.Vocals                  as RBVox
 import           Scripts                          (loadMIDI)
 import qualified Sound.MIDI.File.Save             as Save
@@ -90,9 +89,9 @@ fixDoubleSwells ps = let
           else [(0, RBDrums.SingleRoll True), (len, RBDrums.SingleRoll False)]
     in RTB.merge (U.trackJoin $ RTB.fromAbsoluteEventList lanesAbs') notLanes
   in ps
-    { RBFile.psPartDrums       = withRB fixTrack $ RBFile.psPartDrums       ps
-    , RBFile.psPartDrums2x     = withRB fixTrack $ RBFile.psPartDrums2x     ps
-    , RBFile.psPartRealDrumsPS = withRB fixTrack $ RBFile.psPartRealDrumsPS ps
+    { RBFile.psPartDrums       = fixTrack $ RBFile.psPartDrums       ps
+    , RBFile.psPartDrums2x     = fixTrack $ RBFile.psPartDrums2x     ps
+    , RBFile.psPartRealDrumsPS = fixTrack $ RBFile.psPartRealDrumsPS ps
     }
 
 importFoF :: (SendMessage m, MonadIO m) => Bool -> FilePath -> FilePath -> StackTraceT m HasKicks
@@ -183,7 +182,7 @@ importFoF detectBasicDrums src dest = do
         }
       hasVocalNotes = not $ null $ do
         trk <- [RBFile.psPartVocals, RBFile.psHarm1, RBFile.psHarm2, RBFile.psHarm3]
-        RBVox.Note _ _ <- toList $ discardPS $ trk $ RBFile.s_tracks parsed
+        RBVox.Note _ _ <- toList $ trk $ RBFile.s_tracks parsed
         return ()
 
   let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
@@ -200,7 +199,7 @@ importFoF detectBasicDrums src dest = do
   let (title, is2x) = case FoF.name song of
         Nothing   -> (Nothing, False)
         Just name -> first Just $ determine2xBass name
-      hasKicks = if mid2x || elem RBDrums.Kick2x (discardPS $ RBFile.psPartDrums $ RBFile.s_tracks parsed)
+      hasKicks = if mid2x || elem RBDrums.Kick2x (RBFile.psPartDrums $ RBFile.s_tracks parsed)
         then HasBoth
         else if is2x then Has2x else Has1x
 
@@ -294,7 +293,7 @@ importFoF detectBasicDrums src dest = do
             Just b  -> b
             Nothing -> any
               (\case RBDrums.ProType _ _ -> True; _ -> False)
-              (discardPS $ RBFile.psPartDrums $ RBFile.s_tracks parsed)
+              (RBFile.psPartDrums $ RBFile.s_tracks parsed)
           , drumsAuto2xBass = False
           , drumsFixFreeform = False
           , drumsKit = HardRockKit

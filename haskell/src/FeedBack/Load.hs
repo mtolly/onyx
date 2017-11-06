@@ -32,7 +32,6 @@ import qualified RockBand.Events                  as Ev
 import           RockBand.File
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.GHL                     as GHL
-import           RockBand.PhaseShiftMessage
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
 
@@ -153,28 +152,35 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       insideEvents trk f = flip traverseWithAbsTime trk $ \t x -> do
         inside ("ticks: " <> show (round $ t * res :: Integer)) $ do
           f x
+      -- TODO replace/finish with the functions/types from Guitars module
       parseGRYBO label = do
         let parseDiff diff = insideTrack (T.pack (show diff) <> label) $ \trk -> do
               fmap U.trackJoin $ insideEvents trk $ \case
                 Note n len -> case n of
-                  0 -> emitNote Five.Note Five.Green
-                  1 -> emitNote Five.Note Five.Red
-                  2 -> emitNote Five.Note Five.Yellow
-                  3 -> emitNote Five.Note Five.Blue
-                  4 -> emitNote Five.Note Five.Orange
+                  0 -> emitNote Five.Green
+                  1 -> emitNote Five.Red
+                  2 -> emitNote Five.Yellow
+                  3 -> emitNote Five.Blue
+                  4 -> emitNote Five.Orange
                   5 -> return RTB.empty -- TODO: force (flip from GH3 algorithm)
                   6 -> return RTB.empty -- TODO: tap
-                  7 -> emitNote Five.OpenNote ()
+                  7 -> do
+                    green <- emitNote Five.Green
+                    let open = RTB.fromPairList
+                          [ (0             , Five.DiffEvent diff $ Five.OpenNotes True )
+                          , (max len (1/32), Five.DiffEvent diff $ Five.OpenNotes False)
+                          ]
+                    return $ RTB.merge green open
                   _ -> do
                     warn $ "Unrecognized note type: N " <> show n <> " " <> show len
                     return RTB.empty
-                  where emitNote con col = case len of
-                          0 -> return $ RTB.singleton 0 $ RB $ Five.DiffEvent diff $ con $ Blip () col
+                  where emitNote col = case len of
+                          0 -> return $ RTB.singleton 0 $ Five.DiffEvent diff $ Five.Note $ Blip () col
                           _ -> return $ RTB.fromPairList
-                            [ (0  , RB $ Five.DiffEvent diff $ con $ NoteOn () col)
-                            , (len, RB $ Five.DiffEvent diff $ con $ NoteOff   col)
+                            [ (0  , Five.DiffEvent diff $ Five.Note $ NoteOn () col)
+                            , (len, Five.DiffEvent diff $ Five.Note $ NoteOff   col)
                             ]
-                Stream n len -> fmap (fmap RB) $ case diff of
+                Stream n len -> case diff of
                   Expert -> case n of
                     0 -> return $ RTB.fromPairList [(0, Five.Player1 True), (len, Five.Player1 False)]
                     1 -> return $ RTB.fromPairList [(0, Five.Player2 True), (len, Five.Player2 False)]
@@ -184,10 +190,10 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
                       return RTB.empty
                   _ -> return RTB.empty
                 Event "solo" -> case diff of
-                  Expert -> return $ RTB.singleton 0 $ RB $ Five.Solo True
+                  Expert -> return $ RTB.singleton 0 $ Five.Solo True
                   _      -> return RTB.empty
                 Event "soloend" -> case diff of
-                  Expert -> return $ RTB.singleton 0 $ RB $ Five.Solo False
+                  Expert -> return $ RTB.singleton 0 $ Five.Solo False
                   _      -> return RTB.empty
                 _ -> return RTB.empty
         foldr RTB.merge RTB.empty <$> mapM parseDiff [Easy, Medium, Hard, Expert]
@@ -208,12 +214,12 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
                     warn $ "Unrecognized note type: N " <> show n <> " " <> show len
                     return RTB.empty
                   where emitNote col = case len of
-                          0 -> return $ RTB.singleton 0 $ RB $ GHL.DiffEvent diff $ GHL.Note $ Blip () col
+                          0 -> return $ RTB.singleton 0 $ GHL.DiffEvent diff $ GHL.Note $ Blip () col
                           _ -> return $ RTB.fromPairList
-                            [ (0  , RB $ GHL.DiffEvent diff $ GHL.Note $ NoteOn () col)
-                            , (len, RB $ GHL.DiffEvent diff $ GHL.Note $ NoteOff   col)
+                            [ (0  , GHL.DiffEvent diff $ GHL.Note $ NoteOn () col)
+                            , (len, GHL.DiffEvent diff $ GHL.Note $ NoteOff   col)
                             ]
-                Stream n len -> fmap (fmap RB) $ case diff of
+                Stream n len -> case diff of
                   Expert -> case n of
                     0 -> return RTB.empty
                     1 -> return RTB.empty
@@ -223,10 +229,10 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
                       return RTB.empty
                   _ -> return RTB.empty
                 Event "solo" -> case diff of
-                  Expert -> return $ RTB.singleton 0 $ RB $ GHL.Solo True
+                  Expert -> return $ RTB.singleton 0 $ GHL.Solo True
                   _      -> return RTB.empty
                 Event "soloend" -> case diff of
-                  Expert -> return $ RTB.singleton 0 $ RB $ GHL.Solo False
+                  Expert -> return $ RTB.singleton 0 $ GHL.Solo False
                   _      -> return RTB.empty
                 _ -> return RTB.empty
         foldr RTB.merge RTB.empty <$> mapM parseDiff [Easy, Medium, Hard, Expert]
@@ -238,7 +244,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
   psPartRhythm       <- return RTB.empty -- ExpertDoubleBass when Player2 = rhythm ???
   psPartGuitarCoop   <- return RTB.empty -- ExpertDoubleGuitar ???
   psEvents           <- insideTrack "Events" $ \trk -> do
-    return $ fmap (RB . Ev.SectionRB2) $ flip RTB.mapMaybe trk $ \case
+    return $ fmap Ev.SectionRB2 $ flip RTB.mapMaybe trk $ \case
       Event t -> T.stripPrefix "section " t
       _       -> Nothing
   let psPartDrums        = RTB.empty -- ExpertDrums etc.

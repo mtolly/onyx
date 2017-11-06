@@ -24,7 +24,6 @@ import qualified RockBand.Drums                   as Drums
 import qualified RockBand.Events                  as Events
 import           RockBand.File
 import qualified RockBand.FiveButton              as Five
-import           RockBand.PhaseShiftMessage       (discardPS)
 import qualified RockBand.ProGuitar               as ProGuitar
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as Vocals
@@ -84,7 +83,7 @@ saveMIDI :: (MonadIO m, MIDIFileFormat f) => FilePath -> Song (f U.Beats) -> m (
 saveMIDI fp song = liftIO $ Save.toFile fp $ showMIDIFile' song
 
 allEvents :: (NNC.C t) => Song (OnyxFile t) -> RTB.T t Events.Event
-allEvents = discardPS . onyxEvents . s_tracks
+allEvents = onyxEvents . s_tracks
 
 -- | Returns the start and end of the preview audio in milliseconds.
 previewBounds :: SongYaml -> Song (OnyxFile U.Beats) -> (Int, Int)
@@ -235,7 +234,7 @@ getPercType song = let
       , flexHarm2      part
       , flexHarm3      part
       ]
-    RTB.getBodies $ discardPS trk
+    RTB.getBodies trk
   isPercType (Vocals.PercussionAnimation ptype _) = Just ptype
   isPercType _                                    = Nothing
   in listToMaybe $ mapMaybe isPercType vox
@@ -284,42 +283,42 @@ keysToProKeys d = let
 hasSolo :: (NNC.C t) => Instrument -> Song (OnyxFile t) -> Bool
 hasSolo Guitar song = not $ null
   $ do
-    let t = discardPS $ flexFiveButton $ getFlexPart FlexGuitar $ s_tracks song
+    let t = flexFiveButton $ getFlexPart FlexGuitar $ s_tracks song
     Five.Solo _ <- RTB.getBodies t
     return ()
   ++ do
-    let t = discardPS $ flexPartRealGuitar $ getFlexPart FlexGuitar $ s_tracks song
+    let t = flexPartRealGuitar $ getFlexPart FlexGuitar $ s_tracks song
     ProGuitar.Solo _ <- RTB.getBodies t
     return ()
 hasSolo Bass song = not $ null
   $ do
-    let t = discardPS $ flexFiveButton $ getFlexPart FlexBass $ s_tracks song
+    let t = flexFiveButton $ getFlexPart FlexBass $ s_tracks song
     Five.Solo _ <- RTB.getBodies t
     return ()
   ++ do
-    let t = discardPS $ flexPartRealGuitar $ getFlexPart FlexBass $ s_tracks song
+    let t = flexPartRealGuitar $ getFlexPart FlexBass $ s_tracks song
     ProGuitar.Solo _ <- RTB.getBodies t
     return ()
 hasSolo Drums song = not $ null $ do
-  let t = discardPS $ flexPartDrums $ getFlexPart FlexDrums $ s_tracks song
+  let t = flexPartDrums $ getFlexPart FlexDrums $ s_tracks song
   Drums.Solo _ <- RTB.getBodies t
   return ()
 hasSolo Keys song = not $ null
   $ do
-    let t = discardPS $ flexFiveButton $ getFlexPart FlexKeys $ s_tracks song
+    let t = flexFiveButton $ getFlexPart FlexKeys $ s_tracks song
     Five.Solo _ <- RTB.getBodies t
     return ()
   ++ do
-    let t = discardPS $ flexPartRealKeysX $ getFlexPart FlexKeys $ s_tracks song
+    let t = flexPartRealKeysX $ getFlexPart FlexKeys $ s_tracks song
     ProKeys.Solo _ <- RTB.getBodies t
     return ()
 hasSolo Vocal song = not $ null
   $ do
-    let t = discardPS $ flexPartVocals $ getFlexPart FlexVocal $ s_tracks song
+    let t = flexPartVocals $ getFlexPart FlexVocal $ s_tracks song
     Vocals.Percussion <- RTB.getBodies t
     return ()
   ++ do
-    let t = discardPS $ flexHarm1 $ getFlexPart FlexVocal $ s_tracks song
+    let t = flexHarm1 $ getFlexPart FlexVocal $ s_tracks song
     Vocals.Percussion <- RTB.getBodies t
     return ()
 

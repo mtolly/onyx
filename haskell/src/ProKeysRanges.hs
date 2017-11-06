@@ -13,7 +13,6 @@ import qualified Data.Set                         as Set
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
 import qualified RockBand.File                    as RBFile
-import           RockBand.PhaseShiftMessage       (discardPS, withRB)
 import           RockBand.ProKeys
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
@@ -25,10 +24,10 @@ completeFile fin fout = do
   RBFile.Song tempos mmap trks <- liftIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
   liftIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap trks
     { RBFile.onyxFlexParts = flip fmap (RBFile.onyxFlexParts trks) $ \flex -> flex
-      { RBFile.flexPartRealKeysE = withRB completeRanges $ RBFile.flexPartRealKeysE flex
-      , RBFile.flexPartRealKeysM = withRB completeRanges $ RBFile.flexPartRealKeysM flex
-      , RBFile.flexPartRealKeysH = withRB completeRanges $ RBFile.flexPartRealKeysH flex
-      , RBFile.flexPartRealKeysX = withRB completeRanges $ RBFile.flexPartRealKeysX flex
+      { RBFile.flexPartRealKeysE = completeRanges $ RBFile.flexPartRealKeysE flex
+      , RBFile.flexPartRealKeysM = completeRanges $ RBFile.flexPartRealKeysM flex
+      , RBFile.flexPartRealKeysH = completeRanges $ RBFile.flexPartRealKeysH flex
+      , RBFile.flexPartRealKeysX = completeRanges $ RBFile.flexPartRealKeysX flex
       }
     }
 
@@ -127,7 +126,7 @@ keyInPreRange RangeA p = RedYellow Gs <= p && p <= OrangeC
 
 closeShiftsFile :: RBFile.Song (RBFile.OnyxFile U.Beats) -> String
 closeShiftsFile song = let
-  xpk = discardPS $ RBFile.flexPartRealKeysX $ RBFile.getFlexPart RBFile.FlexKeys $ RBFile.s_tracks song
+  xpk = RBFile.flexPartRealKeysX $ RBFile.getFlexPart RBFile.FlexKeys $ RBFile.s_tracks song
   close = U.unapplyTempoTrack (RBFile.s_tempos song) $ closeShifts 1 $ U.applyTempoTrack (RBFile.s_tempos song) xpk
   showSeconds secs = show (realToFrac secs :: Milli) ++ "s"
   showClose (t, (rng1, rng2, dt, p)) = unwords

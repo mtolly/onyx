@@ -10,11 +10,12 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (isJust)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
+import           Guitars                          (applyStatus, guitarify,
+                                                   trackState)
 import           Language.Haskell.TH
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
-import           RockBand.FiveButton              (StrumHOPO (..), applyStatus,
-                                                   guitarify, trackState)
+import           RockBand.FiveButton              (StrumHOPO (..))
 import           RockBand.Parse
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
@@ -47,6 +48,7 @@ data DiffEvent
   | PartialChord Bool StrumArea
   | AllFrets     Bool
   | MysteryBFlat Bool
+  -- TODO EOF format sysexes
   | Note (LongNote GtrFret (GtrString, NoteType))
   deriving (Eq, Ord, Show, Read, Data, Typeable)
 

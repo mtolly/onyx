@@ -2,16 +2,16 @@
 {-# LANGUAGE OverloadedStrings #-}
 module RockBand3 (processRB3, processRB3Pad, processPS, findProblems) where
 
-import           Config                           hiding (Target (PS))
+import           Config
 import           Control.Monad.Extra
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
-import           Control.Monad.Trans.State        (evalState, get, put)
 import           Control.Monad.Trans.Writer       (execWriter, tell)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (isJust)
 import           Development.Shake
+import           Guitars
 import           OneFoot
 import           ProKeysRanges
 import           Reductions
@@ -20,9 +20,6 @@ import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as Five
-import           RockBand.PhaseShiftMessage       (PSMessage (..), PSWrap (..),
-                                                   PhraseID (OpenStrum),
-                                                   discardPS, psMessages)
 import qualified RockBand.ProGuitar               as ProGtr
 import qualified RockBand.ProKeys                 as ProKeys
 import           RockBand.Sections                (getSection, makePSSection)
@@ -61,66 +58,6 @@ processPS
   -> StackTraceT (QueueLog Action) (RBFile.Song (RBFile.PSFile U.Beats))
 processPS a b c d e = fmap (fmap snd) $ processMIDI (Right a) b c d e
 
-applyOpenNotes
-  :: RTB.T U.Beats Five.Event
-  -> RTB.T U.Beats PSMessage
-  -> ( RTB.T U.Beats Five.Event
-     , RTB.T U.Beats (PSWrap Five.Event)
-     )
-applyOpenNotes trk originalMessages = let
-  psEvents = RTB.merge (fmap PS originalMessages) $ U.trackJoin $ flip fmap trk $ \case
-    Five.DiffEvent _ (Five.OnyxClose _) -> RTB.empty
-    Five.DiffEvent d (Five.OpenNote ln) -> let
-      green = RTB.singleton 0 $ RB $ Five.DiffEvent d $ Five.Note $ fmap (const Five.Green) ln
-      sysex = case ln of
-        NoteOff () -> RTB.empty
-        _ -> RTB.fromPairList [(0, sysexEdge True), (1/32, sysexEdge False)]
-      sysexEdge = PS . PSMessage (Just d) OpenStrum
-      in RTB.merge green sysex
-    e -> RTB.singleton 0 $ RB e
-  getDiff d = flip RTB.mapMaybe trk $ \case
-    Five.DiffEvent d' devt | d == d' -> Just devt
-    _ -> Nothing
-  rb3Events = foldr RTB.merge RTB.empty
-    [ fmap (Five.DiffEvent Easy  ) $ applyClose $ getDiff Easy
-    , fmap (Five.DiffEvent Medium) $ applyClose $ getDiff Medium
-    , fmap (Five.DiffEvent Hard  ) $ applyClose $ getDiff Hard
-    , fmap (Five.DiffEvent Expert) $ applyClose $ getDiff Expert
-    , flip RTB.filter trk $ \case Five.DiffEvent{} -> False; _ -> True
-    ]
-  applyClose
-    :: RTB.T U.Beats Five.DiffEvent
-    -> RTB.T U.Beats Five.DiffEvent
-  applyClose devts = let
-    untouched = flip RTB.filter devts $ \case
-      Five.OnyxClose{} -> False
-      Five.OpenNote{} -> False
-      Five.Note{} -> False
-      _ -> True
-    edges = RTB.merge
-      (fmap (fmap Just) $ flip RTB.mapMaybe devts $ \case Five.Note edge -> Just edge; _ -> Nothing)
-      (fmap (fmap $ const Nothing) $ flip RTB.mapMaybe devts $ \case Five.OpenNote edge -> Just edge; _ -> Nothing)
-    offsets = flip RTB.mapMaybe devts $ \case
-      Five.OnyxClose o -> Just o
-      _ -> Nothing
-    consider = \case
-      -- note: order here is important, Left (offsets) normalizes before Right (notes)
-      -- due to RTB.merging the two
-      Left o -> put o >> return RTB.empty
-      Right ((), color, len) -> do
-        o <- get
-        let newColor = case maybe (-1) fromEnum color + o of
-              1 -> Five.Red
-              2 -> Five.Yellow
-              3 -> Five.Blue
-              n -> if n <= 0 then Five.Green else Five.Orange
-        return $ fmap Five.Note $ splitEdges $ RTB.singleton 0 ((), newColor, len)
-    in RTB.merge untouched
-      $ U.trackJoin $ (`evalState` 0)
-      $ mapM consider
-      $ RTB.merge (fmap Left offsets) (fmap Right $ joinEdges edges)
-  in (rb3Events, psEvents)
-
 processMIDI
   :: Either TargetRB3 TargetPS
   -> SongYaml
@@ -130,7 +67,7 @@ processMIDI
   -> StackTraceT (QueueLog Action) (RBFile.Song (RBFile.RB3File U.Beats, RBFile.PSFile U.Beats))
 processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudioLength = inside "Processing MIDI for RB3/PS" $ do
   let showPosition = RBFile.showPosition . U.applyMeasureMap mmap
-      eventsRaw = discardPS $ RBFile.onyxEvents trks
+      eventsRaw = RBFile.onyxEvents trks
       eventsList = ATB.toPairList $ RTB.toAbsoluteEventList 0 eventsRaw
       -- if _fixFreeform $ _options songYaml then fixRolls input else input
   -- If there's no [end], put it after all MIDI events and audio files.
@@ -156,7 +93,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
   -- we have to round the [end] position up a bit,
   -- to make sure the last BEAT note-off doesn't come after [end].
   (beatTrack, endPosn) <- let
-    trk = discardPS $ RBFile.onyxBeat trks
+    trk = RBFile.onyxBeat trks
     in if RTB.null trk
       then do
         warn "No BEAT track found; automatic one generated from time signatures."
@@ -213,8 +150,8 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       drumsTrack = case getPart drumsPart songYaml >>= partDrums of
         Nothing -> RTB.empty
         Just pd -> let
-          trk1x = discardPS $ RBFile.flexPartDrums $ RBFile.getFlexPart drumsPart trks
-          trk2x = discardPS $ RBFile.flexPartDrums2x $ RBFile.getFlexPart drumsPart trks
+          trk1x = RBFile.flexPartDrums $ RBFile.getFlexPart drumsPart trks
+          trk2x = RBFile.flexPartDrums2x $ RBFile.getFlexPart drumsPart trks
           psKicks = if drumsAuto2xBass pd
             then U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
             else id
@@ -242,33 +179,40 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
               then rockBand2x ps2x
               else rockBand1x ps1x
             Right _ -> psPS
-      makeGRYBOTrack fpart src = case getPart fpart songYaml >>= partGRYBO of
-        Nothing -> RTB.empty
-        Just grybo -> (if RBFile.flexFiveIsKeys src then Five.keysToGuitar (fromIntegral (gryboHopoThreshold grybo) / 480) else id)
-          $ (if gryboFixFreeform grybo then fixFreeformFive else id)
-          $ gryboComplete (Just $ gryboHopoThreshold grybo) mmap
-          $ discardPS $ RBFile.flexFiveButton src
+      makeGRYBOTrack toKeys fpart src = case getPart fpart songYaml >>= partGRYBO of
+        Nothing -> (RTB.empty, RTB.empty)
+        Just grybo -> let
+          track
+            = (if gryboFixFreeform grybo then fixFreeformFive else id)
+            $ gryboComplete (guard toKeys >> Just ht) mmap
+            $ RBFile.flexFiveButton src
+          ht = gryboHopoThreshold grybo
+          algo = if RBFile.flexFiveIsKeys src then HOPOsRBKeys else HOPOsRBGuitar
+          forRB3 = Five.eachDifficulty
+            $ emit5
+            . fromClosed
+            . (if toKeys then id else noExtendedSustains standardBlipThreshold standardSustainGap)
+            . strumHOPOTap algo (fromIntegral ht / 480)
+            . closeNotes
+          forPS = Five.eachDifficulty
+            $ emit5
+            . strumHOPOTap algo (fromIntegral ht / 480)
+            . openNotes
+          in (forRB3 track, forPS track)
 
       guitarPart = either rb3_Guitar ps_Guitar target
-      guitarMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart guitarPart trks
-      guitarTrack = makeGRYBOTrack guitarPart $ RBFile.getFlexPart guitarPart trks
-      (guitarRB3, guitarPS) = applyOpenNotes guitarTrack guitarMsgs
+      (guitarRB3, guitarPS) = makeGRYBOTrack False guitarPart $ RBFile.getFlexPart guitarPart trks
 
       bassPart = either rb3_Bass ps_Bass target
-      bassMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart bassPart trks
-      bassTrack = makeGRYBOTrack bassPart $ RBFile.getFlexPart bassPart trks
-      (bassRB3, bassPS) = applyOpenNotes bassTrack bassMsgs
+      (bassRB3, bassPS) = makeGRYBOTrack False bassPart $ RBFile.getFlexPart bassPart trks
 
       rhythmPart = either (const $ RBFile.FlexExtra "undefined") ps_Rhythm target
-      rhythmMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart rhythmPart trks
-      rhythmTrack = makeGRYBOTrack rhythmPart $ RBFile.getFlexPart rhythmPart trks
-      (_, rhythmPS) = applyOpenNotes rhythmTrack rhythmMsgs
+      (_, rhythmPS) = makeGRYBOTrack False rhythmPart $ RBFile.getFlexPart rhythmPart trks
 
       guitarCoopPart = either (const $ RBFile.FlexExtra "undefined") ps_GuitarCoop target
-      guitarCoopMsgs = psMessages $ RBFile.flexFiveButton $ RBFile.getFlexPart guitarCoopPart trks
-      guitarCoopTrack = makeGRYBOTrack guitarCoopPart $ RBFile.getFlexPart guitarCoopPart trks
-      (_, guitarCoopPS) = applyOpenNotes guitarCoopTrack guitarCoopMsgs
+      (_, guitarCoopPS) = makeGRYBOTrack False guitarCoopPart $ RBFile.getFlexPart guitarCoopPart trks
 
+      -- TODO: apply ghlHopoThreshold (requires emit6)
       guitarGHL = case getPart guitarPart songYaml >>= partGHL of
         Nothing -> RTB.empty
         Just _  -> RBFile.flexGHL $ RBFile.getFlexPart guitarPart trks
@@ -281,14 +225,14 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         Just _pg -> let
           src = RBFile.getFlexPart guitarPart trks
           -- TODO: pgFixFreeform
-          f = ProGtr.copyExpert . ProGtr.autoHandPosition . discardPS
+          f = ProGtr.copyExpert . ProGtr.autoHandPosition
           in (f $ RBFile.flexPartRealGuitar src, f $ RBFile.flexPartRealGuitar22 src)
       (proBass, proBass22) = case getPart bassPart songYaml >>= partProGuitar of
         Nothing -> (RTB.empty, RTB.empty)
         Just _pg -> let
           src = RBFile.getFlexPart bassPart trks
           -- TODO: pgFixFreeform
-          f = ProGtr.copyExpert . ProGtr.autoHandPosition . discardPS
+          f = ProGtr.copyExpert . ProGtr.autoHandPosition
           in (f $ RBFile.flexPartRealGuitar src, f $ RBFile.flexPartRealGuitar22 src)
       keysPart = either rb3_Keys ps_Keys target
       (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = case getPart keysPart songYaml of
@@ -299,12 +243,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             basicKeysSrc = RBFile.getFlexPart keysPart trks
             basicKeys = gryboComplete Nothing mmap $ case partGRYBO part of
               Nothing -> expertProKeysToKeys keysExpert
-              Just grybo
-                -> (if RBFile.flexFiveIsKeys basicKeysSrc then id else Five.forceAllNotes $ fromIntegral (gryboHopoThreshold grybo) / 480)
-                $ discardPS $ RBFile.flexFiveButton basicKeysSrc
+              Just _  -> fst $ makeGRYBOTrack True keysPart basicKeysSrc
             fpart = RBFile.getFlexPart keysPart trks
             keysDiff diff = if isJust $ partProKeys part
-              then discardPS $ case diff of
+              then case diff of
                 Easy   -> RBFile.flexPartRealKeysE fpart
                 Medium -> RBFile.flexPartRealKeysM fpart
                 Hard   -> RBFile.flexPartRealKeysH fpart
@@ -318,8 +260,8 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             keysOD = flip RTB.mapMaybe keysExpert $ \case
               ProKeys.Overdrive b -> Just b
               _                   -> Nothing
-            originalRH = discardPS $ RBFile.flexPartKeysAnimRH fpart
-            originalLH = discardPS $ RBFile.flexPartKeysAnimLH fpart
+            originalRH = RBFile.flexPartKeysAnimRH fpart
+            originalLH = RBFile.flexPartKeysAnimLH fpart
             (animRH, animLH) = if RTB.null originalRH && RTB.null originalLH
               then (RTB.filter (\case ProKeys.Note _ -> True; _ -> False) keysExpert, RTB.empty)
               else (originalRH, originalLH)
@@ -336,7 +278,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
               Five.StrumMap    {} -> False
               Five.Tremolo     {} -> False
               _                   -> True
-            in  ( fst $ applyOpenNotes (ffBasic $ removeGtrStuff basicKeys) RTB.empty
+            in  ( ffBasic $ removeGtrStuff basicKeys
                 , animRH
                 , animLH
                 , ffPro $ ProKeys.fixPSRange keysExpert
@@ -351,11 +293,11 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           Vocal3 -> (partVox', harm1, harm2, harm3)
           Vocal2 -> (partVox', harm1, harm2, RTB.empty)
           Vocal1 -> (partVox', RTB.empty, RTB.empty, RTB.empty)
-        where partVox = discardPS $ RBFile.flexPartVocals $ RBFile.getFlexPart vocalPart trks
+        where partVox = RBFile.flexPartVocals $ RBFile.getFlexPart vocalPart trks
               partVox' = if RTB.null partVox then harm1ToPartVocals harm1 else partVox
-              harm1   = discardPS $ RBFile.flexHarm1 $ RBFile.getFlexPart vocalPart trks
-              harm2   = discardPS $ RBFile.flexHarm2 $ RBFile.getFlexPart vocalPart trks
-              harm3   = discardPS $ RBFile.flexHarm3 $ RBFile.getFlexPart vocalPart trks
+              harm1   = RBFile.flexHarm1 $ RBFile.getFlexPart vocalPart trks
+              harm2   = RBFile.flexHarm2 $ RBFile.getFlexPart vocalPart trks
+              harm3   = RBFile.flexHarm3 $ RBFile.getFlexPart vocalPart trks
 
   drumsTrack' <- let
     (fills, notFills) = flip RTB.partitionMaybe drumsTrack $ \case
@@ -380,7 +322,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
     ( RBFile.RB3File
       { RBFile.rb3Beat = beatTrack
       , RBFile.rb3Events = eventsTrack
-      , RBFile.rb3Venue = discardPS $ RBFile.onyxVenue trks
+      , RBFile.rb3Venue = RBFile.onyxVenue trks
       , RBFile.rb3PartDrums = drumsTrack'
       , RBFile.rb3PartGuitar = guitarRB3
       , RBFile.rb3PartBass = bassRB3
@@ -401,10 +343,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       , RBFile.rb3Harm3 = trkHarm3
       }
     , RBFile.PSFile
-      { RBFile.psBeat = fmap RB beatTrack
-      , RBFile.psEvents = fmap RB eventsTrackPS
+      { RBFile.psBeat = beatTrack
+      , RBFile.psEvents = eventsTrackPS
       , RBFile.psVenue = RBFile.onyxVenue trks
-      , RBFile.psPartDrums = fmap RB drumsTrack'
+      , RBFile.psPartDrums = drumsTrack'
       , RBFile.psPartDrums2x = RTB.empty
       , RBFile.psPartRealDrumsPS = RTB.empty
       , RBFile.psPartGuitar = guitarPS
@@ -413,25 +355,25 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       , RBFile.psPartBassGHL = bassGHL
       , RBFile.psPartRhythm = rhythmPS
       , RBFile.psPartGuitarCoop = guitarCoopPS
-      , RBFile.psPartRealGuitar   = fmap RB proGtr
-      , RBFile.psPartRealGuitar22 = fmap RB proGtr22
-      , RBFile.psPartRealBass     = fmap RB proBass
-      , RBFile.psPartRealBass22   = fmap RB proBass22
-      , RBFile.psPartKeys = fmap RB tk
-      , RBFile.psPartKeysAnimRH = fmap RB tkRH
-      , RBFile.psPartKeysAnimLH = fmap RB tkLH
-      , RBFile.psPartRealKeysE = fmap RB tpkE
-      , RBFile.psPartRealKeysM = fmap RB tpkM
-      , RBFile.psPartRealKeysH = fmap RB tpkH
-      , RBFile.psPartRealKeysX = fmap RB tpkX
+      , RBFile.psPartRealGuitar   = proGtr
+      , RBFile.psPartRealGuitar22 = proGtr22
+      , RBFile.psPartRealBass     = proBass
+      , RBFile.psPartRealBass22   = proBass22
+      , RBFile.psPartKeys = tk
+      , RBFile.psPartKeysAnimRH = tkRH
+      , RBFile.psPartKeysAnimLH = tkLH
+      , RBFile.psPartRealKeysE = tpkE
+      , RBFile.psPartRealKeysM = tpkM
+      , RBFile.psPartRealKeysH = tpkH
+      , RBFile.psPartRealKeysX = tpkX
       , RBFile.psPartRealKeysPS_E = RTB.empty
       , RBFile.psPartRealKeysPS_M = RTB.empty
       , RBFile.psPartRealKeysPS_H = RTB.empty
       , RBFile.psPartRealKeysPS_X = RTB.empty
-      , RBFile.psPartVocals = RB . RBVox.asciiLyrics <$> trkVox
-      , RBFile.psHarm1 = RB . RBVox.asciiLyrics <$> trkHarm1
-      , RBFile.psHarm2 = RB . RBVox.asciiLyrics <$> trkHarm2
-      , RBFile.psHarm3 = RB . RBVox.asciiLyrics <$> trkHarm3
+      , RBFile.psPartVocals = RBVox.asciiLyrics <$> trkVox
+      , RBFile.psHarm1 = RBVox.asciiLyrics <$> trkHarm1
+      , RBFile.psHarm2 = RBVox.asciiLyrics <$> trkHarm2
+      , RBFile.psHarm3 = RBVox.asciiLyrics <$> trkHarm3
       }
     )
 
@@ -594,7 +536,7 @@ findProblems :: RBFile.Song (RBFile.OnyxFile U.Beats) -> [String]
 findProblems song = execWriter $ do
   -- Don't have a kick at the start of a drum roll.
   -- It screws up the roll somehow and causes spontaneous misses.
-  let drums = discardPS $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
+  let drums = RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
       kickSwells = flip RTB.mapMaybe (RTB.collectCoincident drums) $ \evts -> do
         let kick = RBDrums.DiffEvent Expert $ RBDrums.Note RBDrums.Kick
             swell1 = RBDrums.SingleRoll True
@@ -619,10 +561,10 @@ findProblems song = execWriter $ do
         _ -> False
   -- Don't have a vocal phrase that ends simultaneous with a lyric event.
   -- In static vocals, this puts the lyric in the wrong phrase.
-  let vox = discardPS $ RBFile.flexPartVocals $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song
-      harm1 = discardPS $ RBFile.flexHarm1 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song
-      harm2 = discardPS $ RBFile.flexHarm2 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song
-      harm3 = discardPS $ RBFile.flexHarm3 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song
+  let vox = RBFile.flexPartVocals $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song
+      harm1 = RBFile.flexHarm1 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song
+      harm2 = RBFile.flexHarm2 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song
+      harm3 = RBFile.flexHarm3 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song
       phraseOff = RBVox.Phrase False
       isLyric = \case RBVox.Lyric _ -> True; _ -> False
       voxBugs = flip RTB.mapMaybe (RTB.collectCoincident vox) $ \evts -> do

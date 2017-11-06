@@ -74,8 +74,6 @@ import           RockBand.Common                       (Difficulty (..))
 import qualified RockBand.Drums                        as RBDrums
 import qualified RockBand.File                         as RBFile
 import qualified RockBand.FiveButton                   as RBFive
-import           RockBand.PhaseShiftMessage            (discardPS)
-import qualified RockBand.PhaseShiftMessage            as PSM
 import qualified RockBand.ProGuitar                    as ProGtr
 import qualified RockBand.ProGuitar.Play               as PGPlay
 import           RockBand.Sections                     (getSection,
@@ -346,10 +344,10 @@ printOverdrive mid = do
   let trackTimes = Set.fromList . ATB.getTimes . RTB.toAbsoluteEventList 0
       fiveOverdrive t = trackTimes $ RTB.filter (== RBFive.Overdrive True) t
       drumOverdrive t = trackTimes $ RTB.filter (== RBDrums.Overdrive True) t
-      gtr = fiveOverdrive $ discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks song
-      bass = fiveOverdrive $ discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks song
-      keys = fiveOverdrive $ discardPS $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexKeys $ RBFile.s_tracks song
-      drums = drumOverdrive $ discardPS $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
+      gtr = fiveOverdrive $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks song
+      bass = fiveOverdrive $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks song
+      keys = fiveOverdrive $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexKeys $ RBFile.s_tracks song
+      drums = drumOverdrive $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
   forM_ (Set.toAscList $ Set.unions [gtr, bass, keys, drums]) $ \t -> let
     insts = intercalate "," $ concat
       [ ["guitar" | Set.member t gtr]
@@ -962,7 +960,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             let getRealSections :: Staction (RTB.T U.Beats T.Text)
                 getRealSections = do
                   raw <- shakeMIDI $ planDir </> "raw.mid"
-                  let evts = discardPS $ RBFile.onyxEvents $ RBFile.s_tracks raw
+                  let evts = RBFile.onyxEvents $ RBFile.s_tracks raw
                   return $ RTB.mapMaybe getSection evts
             pathMagmaExport2 %> \out -> do
               -- Using Magma's "export MIDI" option overwrites all animations/venue
@@ -1122,10 +1120,10 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               saveMIDI out $ RBFile.playGuitarFile goffs boffs input
             dir </> "protar-mpa.mid" %> \out -> do
               input <- shakeMIDI pathMagmaMid
-              let gtr17   = discardPS $ RBFile.flexPartRealGuitar   $ RBFile.getFlexPart (rb3_Guitar rb3) $ RBFile.s_tracks input
-                  gtr22   = discardPS $ RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart (rb3_Guitar rb3) $ RBFile.s_tracks input
-                  bass17  = discardPS $ RBFile.flexPartRealGuitar   $ RBFile.getFlexPart (rb3_Bass   rb3) $ RBFile.s_tracks input
-                  bass22  = discardPS $ RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart (rb3_Bass   rb3) $ RBFile.s_tracks input
+              let gtr17   = RBFile.flexPartRealGuitar   $ RBFile.getFlexPart (rb3_Guitar rb3) $ RBFile.s_tracks input
+                  gtr22   = RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart (rb3_Guitar rb3) $ RBFile.s_tracks input
+                  bass17  = RBFile.flexPartRealGuitar   $ RBFile.getFlexPart (rb3_Bass   rb3) $ RBFile.s_tracks input
+                  bass22  = RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart (rb3_Bass   rb3) $ RBFile.s_tracks input
                   pgThres = maybe 170 pgHopoThreshold $ getPart (rb3_Guitar rb3) songYaml >>= partProGuitar
                   pbThres = maybe 170 pgHopoThreshold $ getPart (rb3_Bass   rb3) songYaml >>= partProGuitar
                   playTrack thres cont name t = let
@@ -1554,14 +1552,14 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 , FoF.track            = _trackNumber $ _metadata songYaml
                 , FoF.sysexSlider      = Just $ let
                   isTap = \case
-                    PSM.PS (PSM.PSMessage _ PSM.TapNotes _) -> True
-                    _                                       -> False
+                    RBFive.DiffEvent _ RBFive.TapNotes{} -> True
+                    _                                    -> False
                   in any (any isTap . RBFile.flexFiveButton)
                     $ RBFile.onyxFlexParts $ RBFile.s_tracks song
                 , FoF.sysexOpenBass    = Just $ let
                   isOpen = \case
-                    PSM.PS (PSM.PSMessage _ PSM.OpenStrum _) -> True
-                    _                                        -> False
+                    RBFive.DiffEvent _ RBFive.OpenNotes{} -> True
+                    _                                     -> False
                   in any (any isOpen . RBFile.flexFiveButton)
                     $ RBFile.onyxFlexParts $ RBFile.s_tracks song
                 , FoF.video            = const "video.avi" <$> ps_FileVideo ps

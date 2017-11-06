@@ -25,6 +25,9 @@ type UnparseAll t e a = RTB.T t a -> RTB.T t e
 one :: ParseOne t e a -> ParseSome t e a
 one = fmap $ fmap $ first $ uncurry RTB.singleton
 
+many :: (NNC.C t) => ParseOne t e [a] -> ParseSome t e a
+many = fmap $ fmap $ first $ \(t, xs) -> RTB.flatten $ RTB.singleton t xs
+
 parseAll :: (NNC.C t, Ord e, Ord a) => ParseSome t e a -> ParseAll t e a
 parseAll p rtb = case p rtb of
   Nothing -> case RTB.viewL rtb of
@@ -90,6 +93,12 @@ isNoteEdge e = isNoteEdgeCPV e >>= \(_c, p, v) -> return (p, isJust v)
 
 parseBlips :: (NNC.C t) => [Int] -> ParseOne t E.T Int
 parseBlips ns = combineParseOne [ mapParseOne (const n) $ parseBlip n | n <- ns ]
+
+filterParseOne :: (a -> Maybe b) -> ParseOne t e a -> ParseOne t e b
+filterParseOne f p rtb = do
+  ((t, x), rtb') <- p rtb
+  y <- f x
+  return ((t, y), rtb')
 
 parseBlipCPV :: (NNC.C t) => ParseOne t E.T (Int, Int, Int)
 parseBlipCPV rtb = do
@@ -303,6 +312,7 @@ boolP False = [p| False |]
 
 noteParser :: Int -> Q Pat -> (Q Pat -> Q Pat) -> [(Q Exp, Q Exp)]
 noteParser pitch x f =
+  -- I haven't extensively tested the value of 1/3 but it seems correct
   [ blipMax (1/3) pitch $ f [p| Blip () $(x) |]
   , edge pitch $ \_b -> f $ if _b
     then [p| NoteOn  () $(x) |]

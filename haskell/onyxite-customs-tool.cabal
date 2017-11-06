@@ -80,6 +80,7 @@ executable onyx
     FeedBack.Scan
     FeedBack.Parse
     FeedBack.Load
+    Guitars
     -- midiscript
     Sound.MIDI.Script.Base
     Sound.MIDI.Script.Scan

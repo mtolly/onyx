@@ -8,11 +8,11 @@ import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
+import           RockBand.FiveButton              (StrumHOPO (..))
 import           RockBand.Parse
+import qualified RockBand.PhaseShiftMessage       as PS
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
-
-import           RockBand.FiveButton              (StrumHOPO (..))
 
 data Fret
   = Black1
@@ -31,6 +31,7 @@ data Event
 
 data DiffEvent
   = Force StrumHOPO Bool
+  | TapNotes Bool
   | Note (LongNote () (Maybe Fret))
   deriving (Eq, Ord, Show, Read, Typeable, Data)
 
@@ -78,6 +79,17 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
 
   , edge 103 $ applyB [p| Solo |]
   , edge 116 $ applyB [p| Overdrive |]
+
+  , ( [e| many $ flip filterParseOne PS.parsePSMessage $ \case
+        PS.PSMessage mdiff PS.TapNotes b -> Just $ let
+          diffs = maybe [minBound .. maxBound] (: []) mdiff
+          in map (\diff -> DiffEvent diff $ TapNotes b) diffs
+        _ -> Nothing
+      |]
+    , [e| \case
+        DiffEvent d (TapNotes b) -> unparseOne $ PS.PSMessage (Just d) PS.TapNotes b
+      |]
+    )
 
   ]
 
