@@ -27,6 +27,7 @@ tokens :-
 
 $rawfirst $rawnext* { emit $ TStr . T.pack }
 \" [^\"]* \" { emit $ TStr . T.tail . T.init . T.pack }
+\" [^\"]*    { emit $ TStr . T.tail          . T.pack }
 
 {
 
