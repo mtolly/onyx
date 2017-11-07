@@ -620,6 +620,7 @@ data PartProGuitar = PartProGuitar
   { pgDifficulty    :: Difficulty
   , pgHopoThreshold :: Int
   , pgTuning        :: [Int]
+  , pgTuningGlobal  :: Int
   , pgFixFreeform   :: Bool
   } deriving (Eq, Ord, Show, Read)
 
@@ -628,6 +629,7 @@ instance StackJSON PartProGuitar where
     pgDifficulty    <- pgDifficulty    =. fill (Tier 1) "difficulty"     stackJSON
     pgHopoThreshold <- pgHopoThreshold =. opt  170      "hopo-threshold" stackJSON
     pgTuning        <- pgTuning        =. opt  []       "tuning"         stackJSON
+    pgTuningGlobal  <- pgTuningGlobal  =. opt  0        "tuning-global"  stackJSON
     pgFixFreeform   <- pgFixFreeform   =. opt  True     "fix-freeform"   stackJSON
     return PartProGuitar{..}
 

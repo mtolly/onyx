@@ -1094,12 +1094,12 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             -- Guitar rules
             dir </> "protar-hear.mid" %> \out -> do
               input <- shakeMIDI pathMagmaMid
-              let goffs = case maybe [] pgTuning $ getPart (rb3_Guitar rb3) songYaml >>= partProGuitar of
-                    []   -> [0, 0, 0, 0, 0, 0]
-                    offs -> offs
-                  boffs = case maybe [] pgTuning $ getPart (rb3_Bass   rb3) songYaml >>= partProGuitar of
-                    []   -> [0, 0, 0, 0]
-                    offs -> offs
+              let goffs = case getPart (rb3_Guitar rb3) songYaml >>= partProGuitar of
+                    Nothing -> [0, 0, 0, 0, 0, 0]
+                    Just pg -> map (+ pgTuningGlobal pg) $ case pgTuning pg of [] -> [0, 0, 0, 0, 0, 0]; offs -> offs
+                  boffs = case getPart (rb3_Bass rb3) songYaml >>= partProGuitar of
+                    Nothing -> [0, 0, 0, 0]
+                    Just pg -> map (+ pgTuningGlobal pg) $ case pgTuning pg of [] -> [0, 0, 0, 0]; offs -> offs
               saveMIDI out $ RBFile.playGuitarFile goffs boffs input
             dir </> "protar-mpa.mid" %> \out -> do
               input <- shakeMIDI pathMagmaMid

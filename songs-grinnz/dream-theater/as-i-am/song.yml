@@ -82,7 +82,8 @@ parts:
       layout: flip-yb-toms
   # guitar:
   #   pro-guitar:
-  #     tuning: [-4, -4, -4, -4, -4, -4]
+  #     tuning: [0, 0, 0, 0, 0, 0]
+  #     tuning-global: -4 # C standard
 targets:
   rb3:
     game: rb3

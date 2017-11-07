@@ -103,7 +103,8 @@ parts:
     grybo:
       difficulty: 4
     pro-guitar:
-      tuning: [0, 0, 0, 0, 0, 0] # real tuning is all -2
+      tuning: [0, 0, 0, 0, 0, 0]
+      tuning-global: -2 # D standard
       difficulty: 5
   keys:
     grybo:

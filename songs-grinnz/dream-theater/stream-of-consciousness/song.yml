@@ -120,7 +120,8 @@ parts:
     grybo:
       difficulty: 7
     pro-guitar:
-      tuning: [0, 0, 0, 0, 0, 0] # real tuning is -1 offset (Eb std)
+      tuning: [0, 0, 0, 0, 0, 0]
+      tuning-global: -1 # Eb standard
   bass:
     grybo:
       difficulty: 5

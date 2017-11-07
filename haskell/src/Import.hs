@@ -313,6 +313,7 @@ importFoF detectBasicDrums src dest = do
             { pgDifficulty = toTier $ FoF.diffGuitarReal song
             , pgHopoThreshold = 170
             , pgTuning = []
+            , pgTuningGlobal = 0
             , pgFixFreeform = False
             }
         , partGHL = guard (hasTrack RBFile.psPartGuitarGHL) >> Just PartGHL
@@ -333,6 +334,7 @@ importFoF detectBasicDrums src dest = do
             { pgDifficulty = toTier $ FoF.diffBassReal song
             , pgHopoThreshold = 170
             , pgTuning = []
+            , pgTuningGlobal = 0
             , pgFixFreeform = False
             }
         , partGHL = guard (hasTrack RBFile.psPartBassGHL) >> Just PartGHL
@@ -741,6 +743,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_guitar" diffMap
           , pgHopoThreshold = hopoThresh
           , pgTuning = fromMaybe [] $ map fromIntegral <$> D.realGuitarTuning pkg
+          , pgTuningGlobal = 0
           , pgFixFreeform = False
           }
         })
@@ -754,6 +757,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_bass" diffMap
           , pgHopoThreshold = hopoThresh
           , pgTuning = fromMaybe [] $ map fromIntegral <$> D.realBassTuning pkg
+          , pgTuningGlobal = 0
           , pgFixFreeform = False
           }
         })
@@ -1001,6 +1005,7 @@ importMagma fin dir = do
             { pgDifficulty = Tier $ rankToTier proGuitarDiffMap $ fromIntegral diff
             , pgHopoThreshold = hopoThresh
             , pgTuning = fromMaybe [] tuneGtr
+            , pgTuningGlobal = 0
             , pgFixFreeform = False
             }
         })
@@ -1016,6 +1021,7 @@ importMagma fin dir = do
             { pgDifficulty = Tier $ rankToTier proBassDiffMap $ fromIntegral diff
             , pgHopoThreshold = hopoThresh
             , pgTuning = fromMaybe [] tuneBass
+            , pgTuningGlobal = 0
             , pgFixFreeform = False
             }
         })
