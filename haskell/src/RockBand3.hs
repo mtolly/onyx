@@ -20,6 +20,7 @@ import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as Five
+import qualified RockBand.GHL as GHL
 import qualified RockBand.ProGuitar               as ProGtr
 import qualified RockBand.ProKeys                 as ProKeys
 import           RockBand.Sections                (getSection, makePSSection)
@@ -69,7 +70,6 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
   let showPosition = RBFile.showPosition . U.applyMeasureMap mmap
       eventsRaw = RBFile.onyxEvents trks
       eventsList = ATB.toPairList $ RTB.toAbsoluteEventList 0 eventsRaw
-      -- if _fixFreeform $ _options songYaml then fixRolls input else input
   -- If there's no [end], put it after all MIDI events and audio files.
   endPosn' <- case [ t | (t, Events.End) <- eventsList ] of
     t : _ -> return t
@@ -212,28 +212,35 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       guitarCoopPart = either (const $ RBFile.FlexExtra "undefined") ps_GuitarCoop target
       (_, guitarCoopPS) = makeGRYBOTrack False guitarCoopPart $ RBFile.getFlexPart guitarCoopPart trks
 
-      -- TODO: apply ghlHopoThreshold (requires emit6)
       guitarGHL = case getPart guitarPart songYaml >>= partGHL of
-        Nothing -> RTB.empty
-        Just _  -> RBFile.flexGHL $ RBFile.getFlexPart guitarPart trks
+        Nothing  -> RTB.empty
+        Just ghl -> GHL.eachDifficulty
+          ( emit6
+          . strumHOPOTap HOPOsRBGuitar (fromIntegral (ghlHopoThreshold ghl) / 480)
+          . ghlNotes
+          ) $ RBFile.flexGHL $ RBFile.getFlexPart guitarPart trks
       bassGHL = case getPart bassPart songYaml >>= partGHL of
         Nothing -> RTB.empty
-        Just _  -> RBFile.flexGHL $ RBFile.getFlexPart bassPart trks
+        Just ghl -> GHL.eachDifficulty
+          ( emit6
+          . strumHOPOTap HOPOsRBGuitar (fromIntegral (ghlHopoThreshold ghl) / 480)
+          . ghlNotes
+          ) $ RBFile.flexGHL $ RBFile.getFlexPart bassPart trks
 
+      -- TODO: pgHopoThreshold, pgFixFreeform
       (proGtr, proGtr22) = case getPart guitarPart songYaml >>= partProGuitar of
         Nothing -> (RTB.empty, RTB.empty)
         Just _pg -> let
           src = RBFile.getFlexPart guitarPart trks
-          -- TODO: pgFixFreeform
           f = ProGtr.copyExpert . ProGtr.autoHandPosition
           in (f $ RBFile.flexPartRealGuitar src, f $ RBFile.flexPartRealGuitar22 src)
       (proBass, proBass22) = case getPart bassPart songYaml >>= partProGuitar of
         Nothing -> (RTB.empty, RTB.empty)
         Just _pg -> let
           src = RBFile.getFlexPart bassPart trks
-          -- TODO: pgFixFreeform
           f = ProGtr.copyExpert . ProGtr.autoHandPosition
           in (f $ RBFile.flexPartRealGuitar src, f $ RBFile.flexPartRealGuitar22 src)
+
       keysPart = either rb3_Keys ps_Keys target
       (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = case getPart keysPart songYaml of
         Nothing -> (RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty)
@@ -286,6 +293,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
                 ,         ProKeys.fixPSRange keysMedium
                 ,         ProKeys.fixPSRange keysEasy
                 )
+
       vocalPart = either rb3_Vocal ps_Vocal target
       (trkVox, trkHarm1, trkHarm2, trkHarm3) = case getPart vocalPart songYaml >>= partVocal of
         Nothing -> (RTB.empty, RTB.empty, RTB.empty, RTB.empty)
@@ -534,18 +542,10 @@ magmaPad rb3@(RBFile.Song tmap _ trks) = let
 
 findProblems :: RBFile.Song (RBFile.OnyxFile U.Beats) -> [String]
 findProblems song = execWriter $ do
-  -- Don't have a kick at the start of a drum roll.
-  -- It screws up the roll somehow and causes spontaneous misses.
-  let drums = RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
-      kickSwells = flip RTB.mapMaybe (RTB.collectCoincident drums) $ \evts -> do
-        let kick = RBDrums.DiffEvent Expert $ RBDrums.Note RBDrums.Kick
-            swell1 = RBDrums.SingleRoll True
-            swell2 = RBDrums.DoubleRoll True
-        guard $ elem kick evts && (elem swell1 evts || elem swell2 evts)
-        return ()
   -- Every discobeat mix event should be simultaneous with,
   -- or immediately followed by, a set of notes not including red or yellow.
-  let discos = flip RTB.mapMaybe drums $ \case
+  let drums = RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
+      discos = flip RTB.mapMaybe drums $ \case
         RBDrums.DiffEvent d (RBDrums.Mix _ RBDrums.Disco) -> Just d
         _ -> Nothing
       badDiscos = void $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ filter isBadDisco $ ATB.toPairList $ RTB.toAbsoluteEventList 0 discos
@@ -584,7 +584,6 @@ findProblems song = execWriter $ do
         . RTB.toAbsoluteEventList 0
       message rtb msg = forM_ (showPositions rtb) $ \pos ->
         tell [pos ++ ": " ++ msg]
-  message kickSwells "kick note is simultaneous with start of drum roll"
   message badDiscos "discobeat drum event is followed immediately by red or yellow gem"
   message voxBugs "PART VOCALS vocal phrase ends simultaneous with a lyric"
   message harm1Bugs "HARM1 vocal phrase ends simultaneous with a lyric"

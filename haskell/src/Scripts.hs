@@ -239,7 +239,11 @@ getPercType song = let
   isPercType _                                    = Nothing
   in listToMaybe $ mapMaybe isPercType vox
 
--- | Makes a dummy Basic Keys track, for songs with only Pro Keys charted.
+-- | Makes a dummy Basic Guitar/Bass track, for parts with only Pro Guitar/Bass charted.
+protarToGrybo :: RTB.T U.Beats ProGuitar.Event -> RTB.T U.Beats Five.Event
+protarToGrybo = undefined -- TODO
+
+-- | Makes a dummy Basic Keys track, for parts with only Pro Keys charted.
 expertProKeysToKeys :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats Five.Event
 expertProKeysToKeys = let
   pkToBasic :: [ProKeys.Event] -> RTB.T U.Beats Five.Event
@@ -262,7 +266,7 @@ expertProKeysToKeys = let
       ]
   in U.trackJoin . fmap pkToBasic . RTB.collectCoincident
 
--- | Makes a Pro Keys track, for songs with only Basic Keys charted.
+-- | Makes a Pro Keys track, for parts with only Basic Keys charted.
 keysToProKeys :: Difficulty -> RTB.T U.Beats Five.Event -> RTB.T U.Beats ProKeys.Event
 keysToProKeys d = let
   basicToPK = \case

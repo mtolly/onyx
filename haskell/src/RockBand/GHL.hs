@@ -117,3 +117,20 @@ showBlipsNice defLength evts = let
     , DiffEvent Easy   . Note <$> showEdgesNice' defLength easy
     , notEasy
     ]
+
+eachDifficulty :: (NNC.C t) => (RTB.T t DiffEvent -> RTB.T t DiffEvent) -> RTB.T t Event -> RTB.T t Event
+eachDifficulty f evts = let
+  getDiffEvent diff = \case
+    DiffEvent d e | d == diff -> Just e
+    _                         -> Nothing
+  (expert, notExpert) = RTB.partitionMaybe (getDiffEvent Expert) evts
+  (hard  , notHard  ) = RTB.partitionMaybe (getDiffEvent Hard  ) notExpert
+  (medium, notMedium) = RTB.partitionMaybe (getDiffEvent Medium) notHard
+  (easy  , notEasy  ) = RTB.partitionMaybe (getDiffEvent Easy  ) notMedium
+  in foldr RTB.merge RTB.empty
+    [ DiffEvent Expert <$> f expert
+    , DiffEvent Hard   <$> f hard
+    , DiffEvent Medium <$> f medium
+    , DiffEvent Easy   <$> f easy
+    , notEasy
+    ]

@@ -315,6 +315,10 @@ importFoF detectBasicDrums src dest = do
             , pgTuning = []
             , pgFixFreeform = False
             }
+        , partGHL = guard (hasTrack RBFile.psPartGuitarGHL) >> Just PartGHL
+          { ghlDifficulty = toTier $ FoF.diffGuitar song -- I guess?
+          , ghlHopoThreshold = 170
+          }
         })
       , ( FlexBass, def
         { partGRYBO = guard (hasTrack RBFile.psPartBass && FoF.diffBass song /= Just (-1)) >> Just PartGRYBO
@@ -331,6 +335,10 @@ importFoF detectBasicDrums src dest = do
             , pgTuning = []
             , pgFixFreeform = False
             }
+        , partGHL = guard (hasTrack RBFile.psPartBassGHL) >> Just PartGHL
+          { ghlDifficulty = toTier $ FoF.diffBass song -- I guess?
+          , ghlHopoThreshold = 170
+          }
         })
       , ( FlexKeys, def
         { partGRYBO = guard (hasTrack RBFile.psPartKeys && FoF.diffKeys song /= Just (-1)) >> Just PartGRYBO
