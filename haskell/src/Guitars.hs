@@ -109,7 +109,11 @@ strumHOPOTap algo threshold rtb = let
       Just (ago, prevColors) -> let
         thisColors = blips ++ ons
         distance = NNC.add ago dt
-        in if distance >= threshold -- TODO: should this be > or >= ?
+        in if distance > threshold
+          -- TODO: should this be > or >= ?
+          -- Moonscraper says default .chart threshold is >1/3;
+          -- that is, 1/3 gap and smaller are hopos, so it's > for now.
+          -- But need to test what RB does
           then G5.Strum
           else case thisColors of
             [] -> G5.Strum -- doesn't matter
@@ -185,5 +189,26 @@ emit5 = let
   tap False = RTB.empty
   open True = RTB.fromPairList [(0, G5.OpenNotes True), (1/32, G5.OpenNotes False)]
   open False = RTB.empty
+  nubByTime = RTB.flatten . fmap nub . RTB.collectCoincident
+  in nubByTime . U.trackJoin . fmap eachEvent
+
+emit6 :: RTB.T U.Beats (LongNote (G5.StrumHOPO, Bool) (Maybe G6.Fret)) -> RTB.T U.Beats G6.DiffEvent
+emit6 = let
+  eachEvent = \case
+    NoteOff mc -> note NoteOff mc
+    NoteOn (sh, isTap) mc -> foldr RTB.merge RTB.empty
+      [ force sh
+      , tap isTap
+      , note (NoteOn ()) mc
+      ]
+    Blip (sh, isTap) mc -> foldr RTB.merge RTB.empty
+      [ force sh
+      , tap isTap
+      , note (Blip ()) mc
+      ]
+  note f mc = RTB.singleton 0 $ G6.Note $ f mc
+  force sh  = RTB.fromPairList [(0, G6.Force sh True), (1/32, G6.Force sh False)]
+  tap True  = RTB.fromPairList [(0, G6.TapNotes True), (1/32, G6.TapNotes False)]
+  tap False = RTB.empty
   nubByTime = RTB.flatten . fmap nub . RTB.collectCoincident
   in nubByTime . U.trackJoin . fmap eachEvent

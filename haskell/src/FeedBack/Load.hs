@@ -6,10 +6,13 @@
 {-# LANGUAGE RecordWildCards   #-}
 module FeedBack.Load where
 
+import           Control.Monad                    (guard)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
                                                    fatal, inside, stackIO, warn)
+import           Data.Bifunctor                   (first)
 import           Data.Default.Class               (def)
+import           Data.Either                      (isLeft)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Fixed (..))
@@ -24,10 +27,11 @@ import           FeedBack.Base
 import           FeedBack.Parse                   (parseStack)
 import           FeedBack.Scan                    (scanStack)
 import qualified FretsOnFire                      as FoF
+import qualified Guitars                          as G
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Numeric.NonNegative.Wrapper      as NN
 import           RockBand.Common                  (Difficulty (..),
-                                                   LongNote (..))
+                                                   LongNote (..), splitEdges)
 import qualified RockBand.Events                  as Ev
 import           RockBand.File
 import qualified RockBand.FiveButton              as Five
@@ -144,6 +148,49 @@ traverseWithAbsTime f
   . ATB.toPairList
   . RTB.toAbsoluteEventList NNC.zero
 
+-- | Apply force and tap notes to modify a note stream
+applyChartSwitch :: (NNC.C t, Ord a) => RTB.T t t -> RTB.T t a -> RTB.T t (Bool, a)
+applyChartSwitch switch rtb = let
+  (zero, nonzero) = RTB.partition (== NNC.zero) switch
+  nonzero' = U.trackJoin $ flip fmap nonzero $ \len -> RTB.fromPairList
+    [ (NNC.zero, ((), True ))
+    , (len     , ((), False))
+    ]
+  appliedNonzero = first (not . null) <$> G.applyStatus nonzero' rtb
+  appliedZero
+    = RTB.flatten
+    $ fmap applyZeroInstant
+    $ RTB.collectCoincident
+    $ RTB.merge (fmap Left zero) (fmap Right appliedNonzero)
+  applyZeroInstant evts = do
+    Right (b, x) <- evts
+    return (b || any isLeft evts, x)
+  in appliedZero
+
+data TrackEvent t a
+  = TrackNote a t
+  | TrackForce t
+  | TrackTap t
+  | TrackP1 t
+  | TrackP2 t
+  | TrackOD t
+  | TrackSolo Bool
+  deriving (Eq, Ord, Show, Read)
+
+emitTrack :: (NNC.C t, Ord a) => t -> RTB.T t (TrackEvent t a) -> RTB.T t (LongNote (Five.StrumHOPO, Bool) a)
+emitTrack hopoThreshold trk = let
+  gnotes = fmap G.Note $ splitEdges $ flip RTB.mapMaybe trk $ \case
+    TrackNote x len -> Just ((), x, guard (len /= NNC.zero) >> Just len)
+    _               -> Nothing
+  gh = G.strumHOPOTap G.HOPOsGH3 hopoThreshold gnotes
+  forces = RTB.mapMaybe (\case TrackForce t -> Just t; _ -> Nothing) trk
+  taps   = RTB.mapMaybe (\case TrackTap   t -> Just t; _ -> Nothing) trk
+  applied = applyChartSwitch forces $ applyChartSwitch taps gh
+  flipSH Five.Strum = Five.HOPO
+  flipSH Five.HOPO  = Five.Strum
+  in flip fmap applied $ \(forced, (tap, ln)) ->
+    first (\(sh, _) -> (if forced then flipSH sh else sh, tap)) ln
+
 chartToMIDI :: (SendMessage m) => Chart U.Beats -> StackTraceT m (Song (PSFile U.Beats))
 chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
   let insideTrack name fn = inside (".chart track [" <> T.unpack name <> "]") $ do
@@ -152,90 +199,72 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       insideEvents trk f = flip traverseWithAbsTime trk $ \t x -> do
         inside ("ticks: " <> show (round $ t * res :: Integer)) $ do
           f x
-      -- TODO replace/finish with the functions/types from Guitars module
-      parseGRYBO label = do
-        let parseDiff diff = insideTrack (T.pack (show diff) <> label) $ \trk -> do
-              fmap U.trackJoin $ insideEvents trk $ \case
-                Note n len -> case n of
-                  0 -> emitNote Five.Green
-                  1 -> emitNote Five.Red
-                  2 -> emitNote Five.Yellow
-                  3 -> emitNote Five.Blue
-                  4 -> emitNote Five.Orange
-                  5 -> return RTB.empty -- TODO: force (flip from GH3 algorithm)
-                  6 -> return RTB.empty -- TODO: tap
-                  7 -> do
-                    green <- emitNote Five.Green
-                    let open = RTB.fromPairList
-                          [ (0             , Five.DiffEvent diff $ Five.OpenNotes True )
-                          , (max len (1/32), Five.DiffEvent diff $ Five.OpenNotes False)
-                          ]
-                    return $ RTB.merge green open
-                  _ -> do
-                    warn $ "Unrecognized note type: N " <> show n <> " " <> show len
-                    return RTB.empty
-                  where emitNote col = case len of
-                          0 -> return $ RTB.singleton 0 $ Five.DiffEvent diff $ Five.Note $ Blip () col
-                          _ -> return $ RTB.fromPairList
-                            [ (0  , Five.DiffEvent diff $ Five.Note $ NoteOn () col)
-                            , (len, Five.DiffEvent diff $ Five.Note $ NoteOff   col)
-                            ]
-                Stream n len -> case diff of
-                  Expert -> case n of
-                    0 -> return $ RTB.fromPairList [(0, Five.Player1 True), (len, Five.Player1 False)]
-                    1 -> return $ RTB.fromPairList [(0, Five.Player2 True), (len, Five.Player2 False)]
-                    2 -> return $ RTB.fromPairList [(0, Five.Overdrive True), (len, Five.Overdrive False)]
-                    _ -> do
-                      warn $ "Unrecognized stream type: S " <> show n <> " " <> show len
-                      return RTB.empty
-                  _ -> return RTB.empty
-                Event "solo" -> case diff of
-                  Expert -> return $ RTB.singleton 0 $ Five.Solo True
-                  _      -> return RTB.empty
-                Event "soloend" -> case diff of
-                  Expert -> return $ RTB.singleton 0 $ Five.Solo False
-                  _      -> return RTB.empty
-                _ -> return RTB.empty
-        foldr RTB.merge RTB.empty <$> mapM parseDiff [Easy, Medium, Hard, Expert]
-      parseGHL label = do
-        let parseDiff diff = insideTrack (T.pack (show diff) <> label) $ \trk -> do
-              fmap U.trackJoin $ insideEvents trk $ \case
-                Note n len -> case n of
-                  0 -> emitNote $ Just GHL.White1
-                  1 -> emitNote $ Just GHL.White2
-                  2 -> emitNote $ Just GHL.White3
-                  3 -> emitNote $ Just GHL.Black1
-                  4 -> emitNote $ Just GHL.Black2
-                  5 -> return RTB.empty -- TODO: force (flip from GH3 algorithm)
-                  6 -> return RTB.empty -- TODO: tap
-                  7 -> emitNote Nothing
-                  8 -> emitNote $ Just GHL.Black3
-                  _ -> do
-                    warn $ "Unrecognized note type: N " <> show n <> " " <> show len
-                    return RTB.empty
-                  where emitNote col = case len of
-                          0 -> return $ RTB.singleton 0 $ GHL.DiffEvent diff $ GHL.Note $ Blip () col
-                          _ -> return $ RTB.fromPairList
-                            [ (0  , GHL.DiffEvent diff $ GHL.Note $ NoteOn () col)
-                            , (len, GHL.DiffEvent diff $ GHL.Note $ NoteOff   col)
-                            ]
-                Stream n len -> case diff of
-                  Expert -> case n of
-                    0 -> return RTB.empty
-                    1 -> return RTB.empty
-                    2 -> return $ RTB.fromPairList [(0, GHL.Overdrive True), (len, GHL.Overdrive False)]
-                    _ -> do
-                      warn $ "Unrecognized stream type: S " <> show n <> " " <> show len
-                      return RTB.empty
-                  _ -> return RTB.empty
-                Event "solo" -> case diff of
-                  Expert -> return $ RTB.singleton 0 $ GHL.Solo True
-                  _      -> return RTB.empty
-                Event "soloend" -> case diff of
-                  Expert -> return $ RTB.singleton 0 $ GHL.Solo False
-                  _      -> return RTB.empty
-                _ -> return RTB.empty
-        foldr RTB.merge RTB.empty <$> mapM parseDiff [Easy, Medium, Hard, Expert]
+      hopoThreshold = 1/3 -- default threshold according to moonscraper
+      eachEvent evt parseNote = case evt of
+        Note n len -> parseNote n len
+        Stream n len -> case n of
+          0 -> return $ Just $ TrackP1 len
+          1 -> return $ Just $ TrackP2 len
+          2 -> return $ Just $ TrackOD len
+          _ -> do
+            warn $ "Unrecognized stream type: S " <> show n <> " " <> show len
+            return Nothing
+        Event "solo"    -> return $ Just $ TrackSolo True
+        Event "soloend" -> return $ Just $ TrackSolo False
+        _ -> return Nothing
+      parseGRYBO label = foldr RTB.merge RTB.empty <$> do
+        forM [Easy, Medium, Hard, Expert] $ \diff -> do
+          parsed <- insideTrack (T.pack (show diff) <> label) $ \trk -> do
+            fmap RTB.catMaybes $ insideEvents trk $ \evt -> do
+              eachEvent evt $ \n len -> case n of
+                0 -> return $ Just $ TrackNote (Just Five.Green ) len
+                1 -> return $ Just $ TrackNote (Just Five.Red   ) len
+                2 -> return $ Just $ TrackNote (Just Five.Yellow) len
+                3 -> return $ Just $ TrackNote (Just Five.Blue  ) len
+                4 -> return $ Just $ TrackNote (Just Five.Orange) len
+                5 -> return $ Just $ TrackForce len
+                6 -> return $ Just $ TrackTap len
+                7 -> return $ Just $ TrackNote Nothing len
+                _ -> do
+                  warn $ "Unrecognized note type: N " <> show n <> " " <> show len
+                  return Nothing
+          return $ RTB.merge
+            (fmap (Five.DiffEvent diff) $ G.emit5 $ emitTrack hopoThreshold parsed)
+            $ case diff of
+              Expert -> U.trackJoin $ flip fmap parsed $ \case
+                TrackP1 t -> RTB.fromPairList [(0, Five.Player1   True), (t, Five.Player1   False)]
+                TrackP2 t -> RTB.fromPairList [(0, Five.Player2   True), (t, Five.Player2   False)]
+                TrackOD t -> RTB.fromPairList [(0, Five.Overdrive True), (t, Five.Overdrive False)]
+                TrackSolo b -> RTB.singleton 0 $ Five.Solo b
+                _ -> RTB.empty
+              _ -> RTB.empty
+      parseGHL label = foldr RTB.merge RTB.empty <$> do
+        forM [Easy, Medium, Hard, Expert] $ \diff -> do
+          parsed <- insideTrack (T.pack (show diff) <> label) $ \trk -> do
+            fmap RTB.catMaybes $ insideEvents trk $ \evt -> do
+              eachEvent evt $ \n len -> case n of
+                0 -> return $ Just $ TrackNote (Just GHL.White1) len
+                1 -> return $ Just $ TrackNote (Just GHL.White2) len
+                2 -> return $ Just $ TrackNote (Just GHL.White3) len
+                3 -> return $ Just $ TrackNote (Just GHL.Black1) len
+                4 -> return $ Just $ TrackNote (Just GHL.Black2) len
+                5 -> return $ Just $ TrackForce len
+                6 -> return $ Just $ TrackTap len
+                7 -> return $ Just $ TrackNote Nothing len
+                8 -> return $ Just $ TrackNote (Just GHL.Black3) len
+                _ -> do
+                  warn $ "Unrecognized note type: N " <> show n <> " " <> show len
+                  return Nothing
+          return $ RTB.merge
+            (fmap (GHL.DiffEvent diff) $ G.emit6 $ emitTrack hopoThreshold parsed)
+            $ case diff of
+              Expert -> U.trackJoin $ flip fmap parsed $ \case
+                TrackP1 _ -> RTB.empty
+                TrackP2 _ -> RTB.empty
+                TrackOD t -> RTB.fromPairList [(0, GHL.Overdrive True), (t, GHL.Overdrive False)]
+                TrackSolo b -> RTB.singleton 0 $ GHL.Solo b
+                _ -> RTB.empty
+              _ -> RTB.empty
   psPartGuitar       <- parseGRYBO "Single" -- ExpertSingle etc.
   psPartGuitarGHL    <- parseGHL "GHLGuitar" -- ExpertGHLGuitar etc.
   psPartBass         <- parseGRYBO "DoubleBass" -- ExpertDoubleBass etc.
