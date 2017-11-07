@@ -37,7 +37,7 @@ import           Data.Fixed                            (Centi)
 import           Data.Foldable                         (toList)
 import           Data.Hashable                         (hash)
 import qualified Data.HashMap.Strict                   as HM
-import           Data.List                             (intercalate, nub)
+import           Data.List                             (intercalate)
 import           Data.Maybe                            (fromMaybe, isJust,
                                                         isNothing, mapMaybe)
 import           Data.Monoid                           ((<>))
@@ -151,22 +151,11 @@ getPlan (Just p) songYaml = case HM.lookup p $ _plans songYaml of
   Just found -> Just (p, found)
   Nothing    -> Nothing
 
-simpleHOPOThreshold :: (Monad m, Num a) => SongYaml -> StackTraceT m a
-simpleHOPOThreshold songYaml = let
-  parts = toList $ getParts $ _parts songYaml
-  grybo = map gryboHopoThreshold $ mapMaybe partGRYBO parts
-  ghl = map ghlHopoThreshold $ mapMaybe partGHL parts
-  pg = map pgHopoThreshold $ mapMaybe partProGuitar parts
-  in case nub $ grybo ++ ghl ++ pg of
-    []  -> return 170
-    [n] -> return $ fromIntegral n
-    ns  -> fatal $ "more than 1 HOPO threshold found: " ++ show ns
-
 makeRB3DTA :: (Monad m) => SongYaml -> Plan -> TargetRB3 -> RBFile.Song (RBFile.OnyxFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
 makeRB3DTA songYaml plan rb3 song filename = do
   ((kickPV, snarePV, kitPV), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
-  thresh <- simpleHOPOThreshold songYaml
-  let (pstart, pend) = previewBounds songYaml song
+  let thresh = 170 -- everything gets forced anyway
+      (pstart, pend) = previewBounds songYaml song
       DifficultyRB3{..} = difficultyRB3 rb3 songYaml
       len = songLengthMS song
       perctype = getPercType song
@@ -369,12 +358,6 @@ makeC3 songYaml plan rb3 midi pkg = do
       hasCrowd = case plan of
         MoggPlan{..} -> not $ null _moggCrowd
         Plan{..}     -> isJust _crowd
-  threshIndex <- simpleHOPOThreshold songYaml >>= \case
-    90  -> return 0
-    130 -> return 1
-    170 -> return 2
-    250 -> return 3
-    ht  -> fatal $ "C3 Magma does not support the HOPO threshold " ++ show (ht :: Int)
   return C3.C3
     { C3.song = getTitle $ _metadata songYaml
     , C3.artist = getArtist $ _metadata songYaml
@@ -409,7 +392,7 @@ makeC3 songYaml plan rb3 midi pkg = do
     , C3.tuningCents = 0
     , C3.songRating = fromEnum (_rating $ _metadata songYaml) + 1
     , C3.drumKitSFX = maybe 0 (fromEnum . drumsKit) $ getPart (rb3_Drums rb3) songYaml >>= partDrums
-    , C3.hopoThresholdIndex = threshIndex
+    , C3.hopoThresholdIndex = 2 -- 170 ticks (everything gets forced anyway)
     , C3.muteVol = -96
     , C3.vocalMuteVol = -12
     , C3.soloDrums = hasSolo Drums midi
