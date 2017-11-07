@@ -6,7 +6,7 @@ packages:
   extra-dep: true
 - location:
     git: git://github.com/mtolly/midi
-    commit: fb36e91cbeaf3501342cb9c010ccb15647f7c3c2
+    commit: 183a57f18c9e2d89497451530843b49cc6111919
   extra-dep: true
 - location:
     git: git://github.com/mtolly/JuicyPixels-stbir
@@ -30,5 +30,5 @@ extra-deps:
 - midi-util-0.2
 - rubberband-0.1.0.2
 - codec-0.2.1
-- tinyfiledialogs-0.1.0.0
-resolver: nightly-2017-09-10
+- tinyfiledialogs-0.2.0.0
+resolver: nightly-2017-11-07

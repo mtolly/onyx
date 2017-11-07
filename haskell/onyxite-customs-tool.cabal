@@ -129,7 +129,7 @@ executable onyx
     RhythmGame.Audio
   build-depends:
     base
-    , shake >= 0.15 && < 0.16
+    , shake >= 0.16 && < 0.17
     , hashable
     , directory
     , temporary

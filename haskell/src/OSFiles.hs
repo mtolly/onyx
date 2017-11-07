@@ -86,13 +86,11 @@ osOpenFile f = liftIO $ case os of
   "linux" -> hSilence [stdout, stderr] $ callProcess "exo-open" [f]
   _       -> return ()
 
-osShowFiles files = liftIO $ case os of
-  -- "linux" -> callProcess "nautilus" files
-  _       -> return ()
+osShowFiles _ = return ()
+  -- case os of "linux" -> callProcess "nautilus" files
 
-osShowFolder dir = liftIO $ case os of
-  -- "linux" -> callProcess "nautilus" [dir]
-  _       -> return ()
+osShowFolder _ = return ()
+  -- case os of "linux" -> callProcess "nautilus" [dir]
 
 #endif
 
