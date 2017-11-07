@@ -31,6 +31,7 @@ import qualified RockBand.FiveButton              as FiveButton
 import qualified RockBand.GHL                     as GHL
 import           RockBand.Parse
 import qualified RockBand.PhaseShiftKeys          as PSKeys
+import           RockBand.PhaseShiftMessage
 import qualified RockBand.ProGuitar               as ProGuitar
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Venue                   as Venue
@@ -73,7 +74,7 @@ knownTracks trks names = forM_ (zip ([1..] :: [Int]) trks) $ \(i, trk) -> do
 
 showMIDITrack :: (MIDIEvent a) => String -> RTB.T U.Beats a -> [RTB.T U.Beats E.T]
 showMIDITrack name trk =
-  [fixEventOrder $ U.setTrackName name $ unparseAll trk | not $ RTB.null trk]
+  [fixMoonTaps $ fixEventOrder $ U.setTrackName name $ unparseAll trk | not $ RTB.null trk]
 
 data RB3File t = RB3File
   { rb3PartDrums        :: RTB.T t      Drums.Event
@@ -509,6 +510,23 @@ showMIDIFile' s = let
     Just evts -> evts
   tempoTrk = U.setTrackName "notes" $ RTB.merge tempos sigs
   in U.encodeFileBeats F.Parallel 480 $ tempoTrk : s_tracks (showMIDITracks s)
+
+{- |
+This is a hack because Moonscraper and thus Clone Hero currently don't
+parse the PS tap event properly; they look for 255 in the difficulty byte,
+and don't actually look for the phrase ID of 4. So we need to only emit
+255 (all-difficulty) tap phrases.
+(This same weirdness applies to the open note modifier, where it looks for
+a non-255 byte and not the phrase ID of 1, but we happen to emit those in
+the working format already.)
+-}
+fixMoonTaps :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
+fixMoonTaps = RTB.mapMaybe $ \e -> case parsePSSysEx e of
+  Just (PSMessage diff TapNotes b) -> case diff of
+    Nothing     -> Just $ unparsePSSysEx $ PSMessage Nothing TapNotes b
+    Just Expert -> Just $ unparsePSSysEx $ PSMessage Nothing TapNotes b
+    Just _      -> Nothing
+  _ -> Just e
 
 {- |
 Work around two bugs by making sure higher note pitches come before lower ones.

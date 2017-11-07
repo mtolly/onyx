@@ -68,36 +68,40 @@ instance Command PSMessage where
       return$ PSMessage diff phraseID onoff
     _ -> Nothing
 
+parsePSSysEx :: E.T -> Maybe PSMessage
+parsePSSysEx evt = do
+  E.SystemExclusive (SysEx.Regular [0x50, 0x53, 0, 0, bDiff, bPID, bEdge, 0xF7])
+    <- return evt
+  diff <- case bDiff of
+    0   -> Just $ Just Easy
+    1   -> Just $ Just Medium
+    2   -> Just $ Just Hard
+    3   -> Just $ Just Expert
+    255 -> Just Nothing
+    _   -> Nothing
+  pid <- lookup (fromIntegral bPID)
+    [ (fromEnum pid + 1, pid) | pid <- [minBound .. maxBound] ]
+  pedge <- case bEdge of
+    0 -> Just False
+    1 -> Just True
+    _ -> Nothing
+  return $ PSMessage diff pid pedge
+
+unparsePSSysEx :: PSMessage -> E.T
+unparsePSSysEx (PSMessage diff pid pedge) = E.SystemExclusive $ SysEx.Regular
+  [ 0x50
+  , 0x53
+  , 0
+  , 0
+  , fromIntegral $ maybe 255 fromEnum diff
+  , fromIntegral $ fromEnum pid + 1
+  , if pedge then 1 else 0
+  , 0xF7
+  ]
+
 parsePSMessage :: ParseOne U.Beats E.T PSMessage
-parsePSMessage rtb = let
-  parseFromSysEx = firstEventWhich $ \evt -> do
-    E.SystemExclusive (SysEx.Regular [0x50, 0x53, 0, 0, bDiff, bPID, bEdge, 0xF7])
-      <- return evt
-    diff <- case bDiff of
-      0   -> Just $ Just Easy
-      1   -> Just $ Just Medium
-      2   -> Just $ Just Hard
-      3   -> Just $ Just Expert
-      255 -> Just Nothing
-      _   -> Nothing
-    pid <- lookup (fromIntegral bPID)
-      [ (fromEnum pid + 1, pid) | pid <- [minBound .. maxBound] ]
-    pedge <- case bEdge of
-      0 -> Just False
-      1 -> Just True
-      _ -> Nothing
-    return $ PSMessage diff pid pedge
-  in parseFromSysEx rtb <|> parseCommand rtb
+parsePSMessage rtb = firstEventWhich parsePSSysEx rtb <|> parseCommand rtb
 
 instance MIDIEvent PSMessage where
   parseSome = one parsePSMessage
-  unparseOne (PSMessage diff pid pedge) = RTB.singleton NNC.zero $ E.SystemExclusive $ SysEx.Regular
-    [ 0x50
-    , 0x53
-    , 0
-    , 0
-    , fromIntegral $ maybe 255 fromEnum diff
-    , fromIntegral $ fromEnum pid + 1
-    , if pedge then 1 else 0
-    , 0xF7
-    ]
+  unparseOne = RTB.singleton NNC.zero . unparsePSSysEx
