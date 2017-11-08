@@ -38,7 +38,8 @@ gryboComplete hopoThres mmap trk = let
   getDiff d = flip RTB.mapMaybe trk $ \case
     Five.DiffEvent d' e | d == d' -> Just e
     _                             -> Nothing
-  rtb1 `orIfNull` rtb2 = if length rtb1 < 5 then rtb2 else rtb1
+  withoutTaps = RTB.filter $ \case Five.TapNotes{} -> False; _ -> True
+  rtb1 `orIfNull` rtb2 = if length (withoutTaps rtb1) < 5 then rtb2 else rtb1
   expert    = getDiff Expert
   hard      = getDiff Hard   `orIfNull` gryboReduce Hard   hopoThres mmap od expert
   medium    = getDiff Medium `orIfNull` gryboReduce Medium hopoThres mmap od hard

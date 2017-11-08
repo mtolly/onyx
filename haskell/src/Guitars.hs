@@ -166,6 +166,9 @@ guitarify
 fromClosed :: RTB.T t (LongNote s a) -> RTB.T t (LongNote s (Maybe a))
 fromClosed = fmap $ fmap Just
 
+noTaps :: RTB.T t (LongNote (G5.StrumHOPO, Bool) a) -> RTB.T t (LongNote (G5.StrumHOPO, Bool) a)
+noTaps = fmap $ first $ \(sh, _) -> (sh, False)
+
 -- | Writes every note with an explicit HOPO/strum force.
 emit5 :: RTB.T U.Beats (LongNote (G5.StrumHOPO, Bool) (Maybe G5.Color)) -> RTB.T U.Beats G5.DiffEvent
 emit5 = let
