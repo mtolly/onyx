@@ -2,7 +2,7 @@ metadata:
   title: "Foam Born (a) The Backtrack (b) The Decade of Statues"
   file-include: "../../../albums/colors.yml"
   track-number: 1
-  author: Grinnz (drums), AlexTaylor (rest)
+  author: Grinnz, AlexTaylor, Onyxite
 audio:
   album-the-backtrack:
     md5: 04f58a2602f6544aa625beaa4665a2de
@@ -31,15 +31,18 @@ plans:
             - concatenate: [album-the-backtrack, album-the-decade-of-statues]
 parts:
   drums:
-    drums:
+    drums: # grinnz
       auto-2x-bass: true
   guitar:
-    grybo: {}
+    grybo: {} # alextaylor
   bass:
-    grybo: {}
+    grybo: {} # alextaylor
+    pro-guitar: # onyxite
+      tuning: [-8, -8, -8, -8, -7] # EADGB -> G# C# F# B E
+      # or should we pretend to be normal 5 string? dunno
   keys:
-    grybo: {}
-    pro-keys: {}
+    grybo: {} # alextaylor
+    pro-keys: {} # alextaylor
 targets:
   rb3-2x:
     game: rb3
