@@ -5,68 +5,71 @@
 {-# LANGUAGE RankNTypes        #-}
 module CommandLine (commandLine, identifyFile', FileType(..)) where
 
-import           Build                          (loadYaml, shakeBuildFiles)
+import           Build                            (loadYaml, shakeBuildFiles)
 import           Config
-import           Control.Applicative            (liftA2)
-import           Control.Monad                  (forM_, guard)
-import           Control.Monad.Extra            (filterM)
+import           Control.Applicative              (liftA2)
+import           Control.Monad                    (forM_, guard)
+import           Control.Monad.Extra              (filterM)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.StackTrace
-import qualified Data.ByteString                as B
-import qualified Data.ByteString.Lazy           as BL
-import           Data.ByteString.Lazy.Char8     ()
-import           Data.Char                      (isAlphaNum, isAscii)
-import           Data.Default.Class             (def)
-import qualified Data.Digest.Pure.MD5           as MD5
-import           Data.DTA.Lex                   (scanStack)
-import           Data.DTA.Parse                 (parseStack)
-import qualified Data.DTA.Serialize             as D
-import qualified Data.DTA.Serialize.Magma       as RBProj
-import qualified Data.DTA.Serialize.RB3         as D
-import           Data.Functor                   (void)
-import qualified Data.HashMap.Strict            as Map
-import           Data.List.Extra                (intercalate, stripSuffix)
-import           Data.List.HT                   (partitionMaybe)
-import           Data.Maybe                     (fromMaybe, listToMaybe)
-import           Data.Monoid                    ((<>))
-import qualified Data.Text                      as T
-import           Data.Text.Encoding             (decodeUtf16BE)
-import qualified Data.Text.IO                   as T
-import           Data.Word                      (Word32)
+import qualified Data.ByteString                  as B
+import qualified Data.ByteString.Lazy             as BL
+import           Data.ByteString.Lazy.Char8       ()
+import           Data.Char                        (isAlphaNum, isAscii)
+import           Data.Default.Class               (def)
+import qualified Data.Digest.Pure.MD5             as MD5
+import           Data.DTA.Lex                     (scanStack)
+import           Data.DTA.Parse                   (parseStack)
+import qualified Data.DTA.Serialize               as D
+import qualified Data.DTA.Serialize.Magma         as RBProj
+import qualified Data.DTA.Serialize.RB3           as D
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Functor                     (void)
+import qualified Data.HashMap.Strict              as Map
+import           Data.List.Extra                  (intercalate, stripSuffix)
+import           Data.List.HT                     (partitionMaybe)
+import           Data.Maybe                       (fromMaybe, listToMaybe)
+import           Data.Monoid                      ((<>))
+import qualified Data.Text                        as T
+import           Data.Text.Encoding               (decodeUtf16BE)
+import qualified Data.Text.IO                     as T
+import           Data.Word                        (Word32)
 import           Import
-import           Magma                          (getRBAFile, oggToMogg,
-                                                 runMagma, runMagmaMIDI,
-                                                 runMagmaV1)
-import           MoggDecrypt                    (moggToOgg)
+import           Magma                            (getRBAFile, oggToMogg,
+                                                   runMagma, runMagmaMIDI,
+                                                   runMagmaV1)
+import           MoggDecrypt                      (moggToOgg)
 import           OpenProject
-import           PrettyDTA                      (readRB3DTA)
-import           ProKeysRanges                  (closeShiftsFile, completeFile)
-import           Reaper.Build                   (makeReaperIO)
-import           Reductions                     (simpleReduce)
-import qualified RockBand.File                  as RBFile
-import qualified Sound.MIDI.File.Load           as Load
-import qualified Sound.MIDI.File.Save           as Save
-import qualified Sound.MIDI.Script.Base         as MS
-import qualified Sound.MIDI.Script.Parse        as MS
-import qualified Sound.MIDI.Script.Read         as MS
-import qualified Sound.MIDI.Script.Scan         as MS
-import           STFS.Extract                   (extractSTFS)
+import           PrettyDTA                        (readRB3DTA)
+import           ProKeysRanges                    (closeShiftsFile,
+                                                   completeFile)
+import           Reaper.Build                     (makeReaperIO)
+import           Reductions                       (simpleReduce)
+import qualified RockBand.File                    as RBFile
+import qualified Sound.MIDI.File.Load             as Load
+import qualified Sound.MIDI.File.Save             as Save
+import qualified Sound.MIDI.Script.Base           as MS
+import qualified Sound.MIDI.Script.Parse          as MS
+import qualified Sound.MIDI.Script.Read           as MS
+import qualified Sound.MIDI.Script.Scan           as MS
+import qualified Sound.MIDI.Util                  as U
+import           STFS.Extract                     (extractSTFS)
 import           System.Console.GetOpt
-import qualified System.Directory               as Dir
-import           System.FilePath                (dropTrailingPathSeparator,
-                                                 splitFileName, takeDirectory,
-                                                 takeExtension, takeFileName,
-                                                 (-<.>), (</>))
-import qualified System.IO                      as IO
-import           Text.Printf                    (printf)
-import           Text.Read                      (readMaybe)
-import           X360DotNet                     (rb2pkg, rb3pkg, stfsFolder)
+import qualified System.Directory                 as Dir
+import           System.FilePath                  (dropTrailingPathSeparator,
+                                                   splitFileName, takeDirectory,
+                                                   takeExtension, takeFileName,
+                                                   (-<.>), (</>))
+import qualified System.IO                        as IO
+import           Text.Printf                      (printf)
+import           Text.Read                        (readMaybe)
+import           X360DotNet                       (rb2pkg, rb3pkg, stfsFolder)
 
 #ifdef WINDOWS
-import           Data.Bits                      (testBit)
-import           System.Win32.File              (getLogicalDrives)
+import           Data.Bits                        (testBit)
+import           System.Win32.File                (getLogicalDrives)
 #else
-import           Data.List                      (isPrefixOf)
+import           Data.List                        (isPrefixOf)
 import           System.MountPoints
 #endif
 
@@ -853,6 +856,30 @@ commands =
         stackIO $ Save.toFile out $ RBFile.showMIDIFile' newMid
         return [out]
       _ -> fatal "Invalid merge syntax"
+    }
+
+  , Command
+    { commandWord = "add-track"
+    , commandDesc = "Add an empty track to a MIDI file with a given name."
+    , commandUsage = "onyx add-track \"TRACK NAME\" --to [notes.mid|song.yml]"
+    , commandRun = \args opts -> case args of
+      [name] -> do
+        f <- outputFile opts $ return "."
+        (ftype, fpath) <- identifyFile' f
+        pathMid <- case ftype of
+          FileMidi -> return fpath
+          FileSongYaml -> return $ takeDirectory fpath </> "notes.mid"
+          FileRBProj -> undone
+          _ -> fatal "Unrecognized --to argument, expected .mid/.yml/.rbproj"
+        mid <- stackIO (Load.fromFile pathMid) >>= RBFile.readMIDIFile'
+        let trks = RBFile.rawTracks $ RBFile.s_tracks mid
+        if any ((== Just name) . U.trackName) trks
+          then return ()
+          else stackIO $ Save.toFile pathMid $ RBFile.showMIDIFile' $ mid
+            { RBFile.s_tracks = RBFile.RawFile $ trks ++ [U.setTrackName name RTB.empty]
+            }
+        return [pathMid]
+      _ -> fatal "Expected 1 argument (track name)"
     }
 
   ]

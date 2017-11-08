@@ -20,7 +20,7 @@ import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as Five
-import qualified RockBand.GHL as GHL
+import qualified RockBand.GHL                     as GHL
 import qualified RockBand.ProGuitar               as ProGtr
 import qualified RockBand.ProKeys                 as ProKeys
 import           RockBand.Sections                (getSection, makePSSection)
