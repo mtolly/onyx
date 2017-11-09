@@ -145,7 +145,7 @@ noExtendedSustains blipThreshold sustainGap = let
       len1 = maximum [ len | (_, _, len) <- gems ]
       len2 = case RTB.viewL rtb' of
         Nothing            -> len1
-        Just ((dt', _), _) -> min (dt' - sustainGap) <$> len1
+        Just ((dt', _), _) -> min (dt' NNC.-| sustainGap) <$> len1
       len3 = len2 >>= \l2 -> guard (l2 > blipThreshold) >> len2
       in RTB.cons dt [ (s, x, len3) | (s, x, _) <- gems ] $ go rtb'
   in splitEdges . RTB.flatten . go . RTB.collectCoincident . joinEdges
