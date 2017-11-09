@@ -17,6 +17,7 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
 import qualified Data.HashMap.Strict              as HM
+import           Data.List                        (sort)
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (listToMaybe)
 import           Data.Monoid                      ((<>))
@@ -38,7 +39,7 @@ class TimeFunctor f where
   mapTime :: (Real u) => (t -> u) -> f t -> f u
 
 data Five t = Five
-  { fiveNotes  :: Map.Map Five.Color (Map.Map t (LongNote Five.StrumHOPO ()))
+  { fiveNotes  :: Map.Map (Maybe Five.Color) (Map.Map t (LongNote Five.StrumHOPO ()))
   , fiveSolo   :: Map.Map t Bool
   , fiveEnergy :: Map.Map t Bool
   } deriving (Eq, Ord, Show)
@@ -56,7 +57,7 @@ eventList evts f = A.toJSON $ map g $ Map.toAscList evts where
 instance (Real t) => A.ToJSON (Five t) where
   toJSON x = A.object
     [ (,) "notes" $ A.object $ flip map (Map.toList $ fiveNotes x) $ \(color, notes) ->
-      (,) (T.pack $ map toLower $ show color) $ eventList notes $ \case
+      (,) (maybe "open" (T.pack . map toLower . show) color) $ eventList notes $ \case
         NoteOff () -> "end"
         Blip Five.Strum () -> "strum"
         Blip Five.HOPO () -> "hopo"
@@ -179,13 +180,13 @@ processFive hopoThreshold tmap trk = let
     = case hopoThreshold of
       Nothing -> allStrums
       Just ht -> strumHOPOTap HOPOsRBGuitar ht
-    $ closeNotes expert
+    $ openNotes expert
   getColor color = trackToMap tmap $ flip RTB.mapMaybe assigned $ \case
     Blip   (ntype, _isTap) c -> guard (c == color) >> Just (Blip   ntype ())
     NoteOn (ntype, _isTap) c -> guard (c == color) >> Just (NoteOn ntype ())
     NoteOff                c -> guard (c == color) >> Just (NoteOff      ())
   notes = Map.fromList $ do
-    color <- [minBound .. maxBound]
+    color <- Nothing : map Just [minBound .. maxBound]
     return (color, getColor color)
   solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.Solo      b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.Overdrive b -> Just b; _ -> Nothing
@@ -194,7 +195,7 @@ processFive hopoThreshold tmap trk = let
 processDrums :: U.TempoMap -> RTB.T U.Beats Drums.Event -> Drums U.Seconds
 processDrums tmap trk = let
   notes = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $
-    U.applyTempoTrack tmap $ RTB.collectCoincident $ flip RTB.mapMaybe (Drums.assignToms trk) $ \case
+    U.applyTempoTrack tmap $ fmap sort $ RTB.collectCoincident $ flip RTB.mapMaybe (Drums.assignToms True trk) $ \case
       (Expert, gem) -> Just gem
       _             -> Nothing
   solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Drums.Solo      b -> Just b; _ -> Nothing

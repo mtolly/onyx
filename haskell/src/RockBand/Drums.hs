@@ -209,8 +209,8 @@ data DrumState = DrumState
 defDrumState :: DrumState
 defDrumState = DrumState Cymbal Cymbal Cymbal False False False False
 
-assignToms :: (NNC.C t) => RTB.T t Event -> RTB.T t (Difficulty, Gem ProType)
-assignToms = go defDrumState . RTB.normalize where
+assignToms :: (NNC.C t) => Bool -> RTB.T t Event -> RTB.T t (Difficulty, Gem ProType)
+assignToms expert2x = go defDrumState . RTB.normalize where
   go ds rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
     Just ((dt, x), rtb') -> case x of
@@ -242,6 +242,9 @@ assignToms = go defDrumState . RTB.normalize where
                 Medium -> mediumDisco ds
                 Hard   -> hardDisco ds
                 Expert -> expertDisco ds
+      Kick2x -> if expert2x
+        then RTB.cons dt (Expert, Kick) $ go ds rtb'
+        else RTB.delay dt $ go ds rtb'
       _ -> RTB.delay dt $ go ds rtb'
 
 -- | Writes drum gems as the given length, or shorter if there is another gem

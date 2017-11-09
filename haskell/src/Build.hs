@@ -1737,8 +1737,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
           saveMIDI out input { RBFile.s_tempos = tempos }
         midprocessed %> \out -> do
           input <- shakeMIDI midraw
-          let defTarget = def { rb3_2xBassPedal = True }
-          output <- RB3.processRB3 defTarget songYaml input RBDrums.D0 $ getAudioLength planName
+          output <- RB3.processPS def songYaml input RBDrums.D0 $ getAudioLength planName
           saveMIDI out output
 
         display %> \out -> do

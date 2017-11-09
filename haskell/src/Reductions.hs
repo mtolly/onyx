@@ -377,7 +377,7 @@ drumsComplete mmap sections trk = let
   od        = flip RTB.mapMaybe trk $ \case
     Drums.Overdrive b -> Just b
     _                -> Nothing
-  assigned = Drums.assignToms trk
+  assigned = Drums.assignToms True trk
   getAssigned d = snd <$> RTB.filter (\(d', _) -> d == d') assigned
   getRaw d = flip RTB.mapMaybe trk $ \case
     Drums.DiffEvent d' e | d == d' -> Just e

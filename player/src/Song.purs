@@ -39,7 +39,8 @@ data GuitarNoteType = Strum | HOPO
 
 newtype Five = Five
   { notes ::
-    { green  :: Map.Map Seconds (Sustainable GuitarNoteType)
+    { open   :: Map.Map Seconds (Sustainable GuitarNoteType)
+    , green  :: Map.Map Seconds (Sustainable GuitarNoteType)
     , red    :: Map.Map Seconds (Sustainable GuitarNoteType)
     , yellow :: Map.Map Seconds (Sustainable GuitarNoteType)
     , blue   :: Map.Map Seconds (Sustainable GuitarNoteType)
@@ -246,18 +247,20 @@ isForeignPKNote f = readString f >>= \s -> case s of
 
 isForeignFive :: Foreign -> F Five
 isForeignFive f = do
-  notes <- readProp "notes" f
+  notes  <- readProp "notes" f
   let readColor s = readProp s notes >>= readTimedMap isForeignFiveNote
+  open   <- readColor "open"
   green  <- readColor "green"
   red    <- readColor "red"
   yellow <- readColor "yellow"
   blue   <- readColor "blue"
   orange <- readColor "orange"
-  solo <- readProp "solo" f >>= readTimedMap readBoolean
+  solo   <- readProp "solo" f >>= readTimedMap readBoolean
   energy <- readProp "energy" f >>= readTimedMap readBoolean
   pure $ Five
     { notes:
-      { green: green
+      { open: open
+      , green: green
       , red: red
       , yellow: yellow
       , blue: blue

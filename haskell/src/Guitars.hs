@@ -1,4 +1,7 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE LambdaCase        #-}
 module Guitars where
 
 import           Control.Monad                    (guard)
@@ -16,47 +19,62 @@ import qualified RockBand.FiveButton              as G5
 import qualified RockBand.GHL                     as G6
 import qualified Sound.MIDI.Util                  as U
 
-data GuitarEvent s a
+data GuitarEvent a
   = Force G5.StrumHOPO Bool
   | TapNotes Bool
-  | Note (LongNote s a)
-  deriving (Eq, Ord, Show, Read)
+  | Note a
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
-openNotes :: (NNC.C t) => RTB.T t G5.DiffEvent -> RTB.T t (GuitarEvent () (Maybe G5.Color))
+splitGuitarEvents :: (NNC.C t, Ord s, Ord a) => RTB.T t (GuitarEvent (s, a, Maybe t)) -> RTB.T t (GuitarEvent (LongNote s a))
+splitGuitarEvents rtb = let
+  (notes, notNotes) = RTB.partitionMaybe (\case Note x -> Just x; _ -> Nothing) rtb
+  notNotes' = flip RTB.mapMaybe notNotes $ \case
+    Force sh b -> Just $ Force sh b
+    TapNotes b -> Just $ TapNotes b
+    Note{} -> Nothing -- never happens
+  in RTB.merge (fmap Note $ splitEdges notes) notNotes'
+
+openNotes :: (NNC.C t) => RTB.T t G5.DiffEvent -> RTB.T t (GuitarEvent (LongNote () (Maybe G5.Color)))
 openNotes rtb = let
+  (notes, notNotes) = RTB.partitionMaybe (\case G5.Note ln -> Just ln; _ -> Nothing) rtb
+  eithers = RTB.merge (fmap Left notNotes) (fmap Right $ joinEdges notes)
   eachEvent = \case
-    G5.Force sh b -> return [Force sh b]
-    G5.TapNotes b -> return [TapNotes b]
-    G5.OpenNotes b -> put b >> return []
-    G5.OnyxClose{} -> return []
-    G5.Note ln -> get >>= \open -> return
-      [Note $ fmap (if open then const Nothing else Just) ln]
-  in RTB.flatten $ evalState (traverse eachEvent $ RTB.normalize rtb) False
+    Left (G5.Force sh b) -> return [Force sh b]
+    Left (G5.TapNotes b) -> return [TapNotes b]
+    Left (G5.OpenNotes b) -> put b >> return []
+    Left G5.OnyxClose{} -> return []
+    Left G5.Note{} -> return [] -- never happens
+    Right (s, a, t) -> get >>= \open -> return
+      [Note (s, if open then Nothing else Just a, t)]
+  in splitGuitarEvents $ RTB.flatten $ evalState (traverse eachEvent $ RTB.normalize eithers) False
 
-closeNotes :: (NNC.C t) => RTB.T t G5.DiffEvent -> RTB.T t (GuitarEvent () G5.Color)
+closeNotes :: (NNC.C t) => RTB.T t G5.DiffEvent -> RTB.T t (GuitarEvent (LongNote () G5.Color))
 closeNotes rtb = let
+  (notes, notNotes) = RTB.partitionMaybe (\case G5.Note ln -> Just ln; _ -> Nothing) rtb
+  eithers = RTB.merge (fmap Left notNotes) (fmap Right $ joinEdges notes)
   eachEvent = \case
-    G5.Force sh b -> return [Force sh b]
-    G5.TapNotes b -> return [TapNotes b]
-    G5.OpenNotes open -> do
+    Left (G5.Force sh b) -> return [Force sh b]
+    Left (G5.TapNotes b) -> return [TapNotes b]
+    Left (G5.OpenNotes open) -> do
       (_, offset) <- get
       put (open, offset)
       return []
-    G5.OnyxClose offset -> do
+    Left (G5.OnyxClose offset) -> do
       (open, _) <- get
       put (open, offset)
       return []
-    G5.Note ln -> do
+    Left G5.Note{} -> return [] -- never happens
+    Right (s, a, t) -> do
       (open, offset) <- get
       let modifyFret color = case offset + if open then -1 else fromEnum color of
             1 -> G5.Red
             2 -> G5.Yellow
             3 -> G5.Blue
             n -> if n <= 0 then G5.Green else G5.Orange
-      return [Note $ fmap modifyFret ln]
-  in RTB.flatten $ evalState (traverse eachEvent $ RTB.normalize rtb) (False, 0)
+      return [Note (s, modifyFret a, t)]
+  in splitGuitarEvents $ RTB.flatten $ evalState (traverse eachEvent $ RTB.normalize eithers) (False, 0)
 
-ghlNotes :: RTB.T t G6.DiffEvent -> RTB.T t (GuitarEvent () (Maybe G6.Fret))
+ghlNotes :: RTB.T t G6.DiffEvent -> RTB.T t (GuitarEvent (LongNote () (Maybe G6.Fret)))
 ghlNotes = fmap $ \case
   G6.Force sh b -> Force sh b
   G6.TapNotes b -> TapNotes b
@@ -83,12 +101,12 @@ applyStatus status events = let
     Right x          -> (             current, Just (Set.toList current, x))
   in trackState Set.empty fn $ RTB.merge (fmap Left status) (fmap Right events)
 
-allStrums :: (NNC.C t) => RTB.T t (GuitarEvent () a) -> RTB.T t (LongNote (G5.StrumHOPO, Bool) a)
+allStrums :: (NNC.C t) => RTB.T t (GuitarEvent (LongNote () a)) -> RTB.T t (LongNote (G5.StrumHOPO, Bool) a)
 allStrums = RTB.mapMaybe $ \case
   Note ln -> Just $ first (const (G5.Strum, False)) ln
   _       -> Nothing
 
-strumHOPOTap :: (NNC.C t, Ord a) => HOPOsAlgorithm -> t -> RTB.T t (GuitarEvent () a) -> RTB.T t (LongNote (G5.StrumHOPO, Bool) a)
+strumHOPOTap :: (NNC.C t, Ord a) => HOPOsAlgorithm -> t -> RTB.T t (GuitarEvent (LongNote () a)) -> RTB.T t (LongNote (G5.StrumHOPO, Bool) a)
 strumHOPOTap algo threshold rtb = let
   notes = RTB.mapMaybe (\case Note ln -> Just ln; _ -> Nothing) rtb
   mods = flip RTB.mapMaybe rtb $ \case

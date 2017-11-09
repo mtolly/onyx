@@ -224,29 +224,40 @@ drawFive (Five five) targetX stuff = do
   drawImage Image_highway_grybo_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Sustains
   let colors =
-        [ { c: _.green , x: 1  , strum: Image_gem_green , hopo: Image_gem_green_hopo 
+        [ { c: _.open  , x: 1  , strum: Image_gem_open  , hopo: Image_gem_open_hopo
+          , shades: { light: "rgb(214,154,242)", normal: "rgb(167, 25,241)", dark: "rgb(128, 12,188)" }
+          , hit: \o -> "rgba(210,162,255," <> show o <> ")"
+          , open: true
+          }
+        , { c: _.green , x: 1  , strum: Image_gem_green , hopo: Image_gem_green_hopo
           , shades: { light: "rgb(135,247,126)", normal: "rgb( 21,218,  2)", dark: "rgb( 13,140,  2)" }
           , hit: \o -> "rgba(190,255,192," <> show o <> ")"
+          , open: false
           }
         , { c: _.red   , x: 37 , strum: Image_gem_red   , hopo: Image_gem_red_hopo   
           , shades: { light: "rgb(247,127,158)", normal: "rgb(218,  2, 62)", dark: "rgb(140,  2, 40)" }
           , hit: \o -> "rgba(255,188,188," <> show o <> ")"
+          , open: false
           }
         , { c: _.yellow, x: 73 , strum: Image_gem_yellow, hopo: Image_gem_yellow_hopo
           , shades: { light: "rgb(247,228,127)", normal: "rgb(218,180,  2)", dark: "rgb(140,115,  3)" }
           , hit: \o -> "rgba(255,244,151," <> show o <> ")"
+          , open: false
           }
         , { c: _.blue  , x: 109, strum: Image_gem_blue  , hopo: Image_gem_blue_hopo  
           , shades: { light: "rgb(119,189,255)", normal: "rgb(  2,117,218)", dark: "rgb(  3, 76,140)" }
           , hit: \o -> "rgba(190,198,255," <> show o <> ")"
+          , open: false
           }
         , { c: _.orange, x: 145, strum: Image_gem_orange, hopo: Image_gem_orange_hopo
           , shades: { light: "rgb(255,183,119)", normal: "rgb(218, 97,  4)", dark: "rgb(140, 63,  3)" }
           , hit: \o -> "rgba(231,196,112," <> show o <> ")"
+          , open: false
           }
         ]
-  for_ colors $ \{ c: getColor, x: offsetX, shades: normalShades } -> do
+  for_ colors $ \{ c: getColor, x: offsetX, shades: normalShades, open: isOpen } -> do
     let thisColor = getColor five.notes
+        offsetX' = if isOpen then 73 else offsetX
         isEnergy secs = case Map.lookupLE secs five.energy of
           Nothing           -> false
           Just { value: v } -> v
@@ -259,17 +270,17 @@ drawFive (Five five) targetX stuff = do
                 else normalShades
               h = yend' - ystart' + 1
           setFillStyle "black" stuff
-          fillRect { x: toNumber $ targetX + offsetX + 14, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
-          fillRect { x: toNumber $ targetX + offsetX + 22, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 14, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 22, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           setFillStyle shades.light stuff
-          fillRect { x: toNumber $ targetX + offsetX + 15, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 15, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           setFillStyle shades.normal stuff
-          fillRect { x: toNumber $ targetX + offsetX + 16, y: toNumber ystart', w: 5.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 16, y: toNumber ystart', w: 5.0, h: toNumber h } stuff
           setFillStyle shades.dark stuff
-          fillRect { x: toNumber $ targetX + offsetX + 21, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 21, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           when sustaining do
             setFillStyle shades.light stuff
-            fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
         go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisColor of
           Just { key: secsStart, value: Sustain _ } -> do
             drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
@@ -292,30 +303,38 @@ drawFive (Five five) targetX stuff = do
         _ -> pure unit
       events -> go false events
   -- Notes
-  for_ colors $ \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, hit: shadeHit } -> do
+  for_ colors $ \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, hit: shadeHit, open: isOpen } -> do
     zoomDesc (getColor five.notes) $ \secs evt -> do
       let futureSecs = secToNum $ secs - stuff.time
       if futureSecs <= 0.0
         then do
           -- note is in the past or being hit now
+          let offsetX' = if isOpen then 73 else offsetX
           if (-0.1) < futureSecs
             then case evt of
               SustainEnd -> pure unit
               _ -> do
                 setFillStyle (shadeHit $ (futureSecs + 0.1) / 0.05) stuff
-                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+                fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
             else pure unit
         else do
           let y = secsToPxVert secs
               isEnergy = case Map.lookupLE secs five.energy of
                 Just {value: bool} -> bool
                 Nothing            -> false
-          case evt of
-            SustainEnd    -> drawImage Image_sustain_end                                        (toNumber $ targetX + offsetX) (toNumber   y     ) stuff
-            Note    Strum -> drawImage (if isEnergy then Image_gem_energy      else strumImage) (toNumber $ targetX + offsetX) (toNumber $ y - 5 ) stuff
-            Sustain Strum -> drawImage (if isEnergy then Image_gem_energy      else strumImage) (toNumber $ targetX + offsetX) (toNumber $ y - 5 ) stuff
-            Note    HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) (toNumber $ targetX + offsetX) (toNumber $ y - 5 ) stuff
-            Sustain HOPO  -> drawImage (if isEnergy then Image_gem_energy_hopo else hopoImage ) (toNumber $ targetX + offsetX) (toNumber $ y - 5 ) stuff
+              img = case evt of
+                SustainEnd    -> Image_sustain_end
+                Note    Strum -> if isEnergy then (if isOpen then Image_gem_open_energy      else Image_gem_energy     ) else strumImage
+                Sustain Strum -> if isEnergy then (if isOpen then Image_gem_open_energy      else Image_gem_energy     ) else strumImage
+                Note    HOPO  -> if isEnergy then (if isOpen then Image_gem_open_energy_hopo else Image_gem_energy_hopo) else hopoImage
+                Sustain HOPO  -> if isEnergy then (if isOpen then Image_gem_open_energy_hopo else Image_gem_energy_hopo) else hopoImage
+              x' = targetX + case evt of
+                SustainEnd -> if isOpen then 73 else offsetX
+                _          -> offsetX
+              y' = case evt of
+                SustainEnd -> y
+                _          -> if isOpen then y - 3 else y - 5
+          drawImage img (toNumber x') (toNumber y') stuff
   pure $ targetX + 182 + _M
 
 drawProtar :: forall e. Protar -> Int -> Draw e Int
