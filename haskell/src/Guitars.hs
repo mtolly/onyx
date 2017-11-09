@@ -110,10 +110,8 @@ strumHOPOTap algo threshold rtb = let
         thisColors = blips ++ ons
         distance = NNC.add ago dt
         in if distance > threshold
-          -- TODO: should this be > or >= ?
-          -- Moonscraper says default .chart threshold is >1/3;
-          -- that is, 1/3 gap and smaller are hopos, so it's > for now.
-          -- But need to test what RB does
+          -- the > above is tested on both RB3 and Moonscraper/CH:
+          -- notes that are exactly the threshold apart will produce HOPOs
           then G5.Strum
           else case thisColors of
             [] -> G5.Strum -- doesn't matter
