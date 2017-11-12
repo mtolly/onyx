@@ -35,7 +35,7 @@ data Sustainable a
   | Note a
   | Sustain a
 
-data GuitarNoteType = Strum | HOPO
+data GuitarNoteType = Strum | HOPO | Tap
 
 newtype Five = Five
   { notes ::
@@ -133,8 +133,10 @@ isForeignFiveNote f = readString f >>= \s -> case s of
   "end"  -> pure SustainEnd
   "strum" -> pure $ Note Strum
   "hopo" -> pure $ Note HOPO
+  "tap" -> pure $ Note Tap
   "strum-sust" -> pure $ Sustain Strum
   "hopo-sust" -> pure $ Sustain HOPO
+  "tap-sust" -> pure $ Sustain Tap
   _ -> throwError $ pure $ TypeMismatch "grybo note event" $ show s
 
 isForeignProtarNote :: Foreign -> F (Sustainable ProtarNote)

@@ -39,7 +39,7 @@ class TimeFunctor f where
   mapTime :: (Real u) => (t -> u) -> f t -> f u
 
 data Five t = Five
-  { fiveNotes  :: Map.Map (Maybe Five.Color) (Map.Map t (LongNote Five.StrumHOPO ()))
+  { fiveNotes  :: Map.Map (Maybe Five.Color) (Map.Map t (LongNote (Five.StrumHOPO, Bool) ()))
   , fiveSolo   :: Map.Map t Bool
   , fiveEnergy :: Map.Map t Bool
   } deriving (Eq, Ord, Show)
@@ -59,10 +59,12 @@ instance (Real t) => A.ToJSON (Five t) where
     [ (,) "notes" $ A.object $ flip map (Map.toList $ fiveNotes x) $ \(color, notes) ->
       (,) (maybe "open" (T.pack . map toLower . show) color) $ eventList notes $ \case
         NoteOff () -> "end"
-        Blip Five.Strum () -> "strum"
-        Blip Five.HOPO () -> "hopo"
-        NoteOn Five.Strum () -> "strum-sust"
-        NoteOn Five.HOPO () -> "hopo-sust"
+        Blip (_, True) () -> "tap"
+        Blip (Five.Strum, False) () -> "strum"
+        Blip (Five.HOPO, False) () -> "hopo"
+        NoteOn (_, True) () -> "tap-sust"
+        NoteOn (Five.Strum, False) () -> "strum-sust"
+        NoteOn (Five.HOPO, False) () -> "hopo-sust"
     , (,) "solo" $ eventList (fiveSolo x) A.toJSON
     , (,) "energy" $ eventList (fiveEnergy x) A.toJSON
     ]
@@ -182,9 +184,9 @@ processFive hopoThreshold tmap trk = let
       Just ht -> strumHOPOTap HOPOsRBGuitar ht
     $ openNotes expert
   getColor color = trackToMap tmap $ flip RTB.mapMaybe assigned $ \case
-    Blip   (ntype, _isTap) c -> guard (c == color) >> Just (Blip   ntype ())
-    NoteOn (ntype, _isTap) c -> guard (c == color) >> Just (NoteOn ntype ())
-    NoteOff                c -> guard (c == color) >> Just (NoteOff      ())
+    Blip   ntype c -> guard (c == color) >> Just (Blip   ntype ())
+    NoteOn ntype c -> guard (c == color) >> Just (NoteOn ntype ())
+    NoteOff      c -> guard (c == color) >> Just (NoteOff      ())
   notes = Map.fromList $ do
     color <- Nothing : map Just [minBound .. maxBound]
     return (color, getColor color)
