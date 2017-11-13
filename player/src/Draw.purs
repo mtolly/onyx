@@ -418,12 +418,8 @@ drawSix (Six six) targetX stuff = do
         ]
       getShades sc = case sc of
         SixBlack -> { light: "rgb(121,121,121)", normal: "rgb(70,70,70)"   , dark: "rgb(45,45,45)"    }
-        SixWhite -> { light: "rgb(220,220,220)", normal: "rgb(181,181,181)", dark: "rgb(162,162,162)" }
-        _        -> { light: "rgb(178,178,178)", normal: "rgb(119,119,119)", dark: "rgb(90,90,90)"    }
-      getHitShade sc o = case sc of
-        SixBlack -> "rgba(12,12,12," <> show o <> ")"
-        SixWhite -> "rgba(200,200,200," <> show o <> ")"
-        _        -> "rgba(140,140,140," <> show o <> ")"
+        _        -> { light: "rgb(220,220,220)", normal: "rgb(181,181,181)", dark: "rgb(162,162,162)" }
+      getHitShade _ o = "rgba(200,200,200," <> show o <> ")"
       getGemImages sc = case sc of
         SixBlack -> { strum: Image_gem_black, hopo: Image_gem_black_hopo, tap: Image_gem_black_tap, energy: Image_gem_ghl_energy }
         SixWhite -> { strum: Image_gem_white, hopo: Image_gem_white_hopo, tap: Image_gem_white_tap, energy: Image_gem_ghl_energy }
@@ -511,7 +507,7 @@ drawSix (Six six) targetX stuff = do
                 Sustain Tap   -> tapImage
               x' = targetX + case evt of
                 SustainEnd -> case thisColor of
-                  SixOpen -> 73
+                  SixOpen -> 37
                   _ -> offsetX
                 _          -> offsetX
               y' = case evt of
@@ -520,7 +516,9 @@ drawSix (Six six) targetX stuff = do
                   SixOpen -> y - 3
                   _ -> y - 5
           drawImage img (toNumber x') (toNumber y') stuff
-          when isEnergy $ drawImage energyOverlay (toNumber x') (toNumber y') stuff
+          case evt of
+            SustainEnd -> pure unit
+            _ -> when isEnergy $ drawImage energyOverlay (toNumber x') (toNumber y') stuff
   pure $ targetX + 110 + _M
 
 drawProtar :: forall e. Protar -> Int -> Draw e Int

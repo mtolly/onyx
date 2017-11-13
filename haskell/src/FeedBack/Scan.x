@@ -9,8 +9,8 @@ import qualified Data.Text as T
 %wrapper "monad"
 
 $digit = 0-9
-$rawfirst = [^\n\{\}\[\]\+\-\"$white$digit]
-$rawnext = [^\n\{\}\[\]\+\-\"$white]
+$rawfirst = [^\n\{\}\[\]\"$white$digit]
+$rawnext = [^\n\{\}\[\]\"$white]
 
 tokens :-
 
