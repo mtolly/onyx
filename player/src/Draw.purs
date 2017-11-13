@@ -26,7 +26,9 @@ foreign import getWindowDims :: forall e. Eff (dom :: DOM | e) {w :: Number, h :
 
 type Settings =
   { seeGuitar    :: Boolean
+  , seeGuitar6   :: Boolean
   , seeBass      :: Boolean
+  , seeBass6     :: Boolean
   , seeKeys      :: Boolean
   , seeProKeys   :: Boolean
   , seeProGuitar :: Boolean
@@ -102,8 +104,10 @@ draw stuff = do
             Nothing       -> drawTracks targetX  trkt
   drawTracks (_M + _B + _M + _B + _M)
     [ \i -> drawPart (\(Song o) -> o.guitar   ) _.seeGuitar    drawFive    i stuff
+    , \i -> drawPart (\(Song o) -> o.guitar6  ) _.seeGuitar6   drawSix     i stuff
     , \i -> drawPart (\(Song o) -> o.proguitar) _.seeProGuitar drawProtar  i stuff
     , \i -> drawPart (\(Song o) -> o.bass     ) _.seeBass      drawFive    i stuff
+    , \i -> drawPart (\(Song o) -> o.bass6    ) _.seeBass6     drawSix     i stuff
     , \i -> drawPart (\(Song o) -> o.probass  ) _.seeProBass   drawProtar  i stuff
     , \i -> drawPart (\(Song o) -> o.drums    ) _.seeDrums     drawDrums   i stuff
     , \i -> drawPart (\(Song o) -> o.keys     ) _.seeKeys      drawFive    i stuff
@@ -119,14 +123,16 @@ draw stuff = do
         Paused  o -> o.settings
         Playing o -> o.settings
   drawButtons (round windowH - _M - _B) $ L.fromFoldable $ concat
-    [ guard (isJust song.prokeys) *> [ if settings.seeProKeys then Image_button_prokeys else Image_button_prokeys_off ]
-    , guard (isJust song.keys   ) *> [ if settings.seeKeys    then Image_button_keys    else Image_button_keys_off    ]
-    , guard (isJust song.vocal  ) *> [ if settings.seeVocal   then Image_button_vocal   else Image_button_vocal_off   ]
-    , guard (isJust song.drums  ) *> [ if settings.seeDrums   then Image_button_drums   else Image_button_drums_off   ]
-    , guard (isJust song.probass) *> [ if settings.seeProBass  then Image_button_probass  else Image_button_probass_off  ]
-    , guard (isJust song.bass   ) *> [ if settings.seeBass    then Image_button_bass    else Image_button_bass_off    ]
-    , guard (isJust song.proguitar) *> [ if settings.seeProGuitar  then Image_button_proguitar  else Image_button_proguitar_off  ]
-    , guard (isJust song.guitar ) *> [ if settings.seeGuitar  then Image_button_guitar  else Image_button_guitar_off  ]
+    [ guard (isJust song.prokeys  ) *> [ if settings.seeProKeys   then Image_button_prokeys   else Image_button_prokeys_off  ]
+    , guard (isJust song.keys     ) *> [ if settings.seeKeys      then Image_button_keys      else Image_button_keys_off     ]
+    , guard (isJust song.vocal    ) *> [ if settings.seeVocal     then Image_button_vocal     else Image_button_vocal_off    ]
+    , guard (isJust song.drums    ) *> [ if settings.seeDrums     then Image_button_drums     else Image_button_drums_off    ]
+    , guard (isJust song.probass  ) *> [ if settings.seeProBass   then Image_button_probass   else Image_button_probass_off  ]
+    , guard (isJust song.bass6    ) *> [ if settings.seeBass6     then Image_button_bass      else Image_button_bass_off     ]
+    , guard (isJust song.bass     ) *> [ if settings.seeBass      then Image_button_bass      else Image_button_bass_off     ]
+    , guard (isJust song.proguitar) *> [ if settings.seeProGuitar then Image_button_proguitar else Image_button_proguitar_off]
+    , guard (isJust song.guitar6  ) *> [ if settings.seeGuitar6   then Image_button_guitar    else Image_button_guitar_off   ]
+    , guard (isJust song.guitar   ) *> [ if settings.seeGuitar    then Image_button_guitar    else Image_button_guitar_off   ]
     ]
   let playPause = case stuff.app of
         Paused  _ -> Image_button_play
@@ -338,6 +344,184 @@ drawFive (Five five) targetX stuff = do
                 _          -> if isOpen then y - 3 else y - 5
           drawImage img (toNumber x') (toNumber y') stuff
   pure $ targetX + 182 + _M
+
+data SixColor
+  = SixOpen
+  | SixBlack
+  | SixWhite
+  | SixBoth
+
+drawSix :: forall e. Six -> Int -> Draw e Int
+drawSix (Six six) targetX stuff = do
+  windowH <- map round $ C.getCanvasHeight stuff.canvas
+  let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
+      secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
+      maxSecs = pxToSecsVert (-100)
+      minSecs = pxToSecsVert $ windowH + 100
+      zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
+      zoomDesc = Map.zoomDescDo minSecs maxSecs
+      zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
+      zoomAsc = Map.zoomAscDo minSecs maxSecs
+      targetY = secsToPxVert stuff.time
+  -- Highway
+  setFillStyle "rgb(126,126,150)" stuff
+  fillRect { x: toNumber targetX, y: 0.0, w: 110.0, h: toNumber windowH } stuff
+  setFillStyle "rgb(184,185,204)" stuff
+  for_ [0, 36, 72, 108] $ \offsetX -> do
+    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
+  setFillStyle "black" stuff
+  for_ [1, 37, 73, 109] $ \offsetX -> do
+    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
+  -- Solo highway
+  setFillStyle "rgb(91,137,185)" stuff
+  let startsAsSolo = case Map.lookupLE minSecs six.solo of
+        Nothing           -> false
+        Just { value: v } -> v
+      soloEdges
+        = L.fromFoldable
+        $ cons (Tuple minSecs startsAsSolo)
+        $ flip snoc (Tuple maxSecs false)
+        $ Map.doTupleArray (zoomAsc six.solo)
+      drawSolos L.Nil            = pure unit
+      drawSolos (L.Cons _ L.Nil) = pure unit
+      drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
+        let y1 = secsToPxVert s1
+            y2 = secsToPxVert s2
+        when b1 $ for_ [2, 38, 74] $ \offsetX -> do
+          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 } stuff
+        drawSolos rest
+  drawSolos soloEdges
+  -- Solo edges
+  zoomDesc six.solo $ \secs _ -> do
+    drawImage Image_highway_ghl_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
+  -- Beats
+  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
+    let y = secsToPxVert secs
+    case evt of
+      Bar      -> drawImage Image_highway_ghl_bar      (toNumber targetX) (toNumber y - 1.0) stuff
+      Beat     -> drawImage Image_highway_ghl_beat     (toNumber targetX) (toNumber y - 1.0) stuff
+      HalfBeat -> pure unit
+  -- Target
+  drawImage Image_highway_ghl_target (toNumber targetX) (toNumber targetY - 5.0) stuff
+  -- Sustains
+  let colors =
+        [ { c: _.open, x: 1, color: SixOpen }
+        , { c: _.b1, x: 1, color: SixBlack }
+        , { c: _.b2, x: 37, color: SixBlack }
+        , { c: _.b3, x: 73, color: SixBlack }
+        , { c: _.w1, x: 1, color: SixWhite }
+        , { c: _.w2, x: 37, color: SixWhite }
+        , { c: _.w3, x: 73, color: SixWhite }
+        , { c: _.bw1, x: 1, color: SixBoth }
+        , { c: _.bw2, x: 37, color: SixBoth }
+        , { c: _.bw3, x: 73, color: SixBoth }
+        ]
+      getShades sc = case sc of
+        SixBlack -> { light: "rgb(121,121,121)", normal: "rgb(70,70,70)"   , dark: "rgb(45,45,45)"    }
+        SixWhite -> { light: "rgb(220,220,220)", normal: "rgb(181,181,181)", dark: "rgb(162,162,162)" }
+        _        -> { light: "rgb(178,178,178)", normal: "rgb(119,119,119)", dark: "rgb(90,90,90)"    }
+      getHitShade sc o = case sc of
+        SixBlack -> "rgba(12,12,12," <> show o <> ")"
+        SixWhite -> "rgba(200,200,200," <> show o <> ")"
+        _        -> "rgba(140,140,140," <> show o <> ")"
+      getGemImages sc = case sc of
+        SixBlack -> { strum: Image_gem_black, hopo: Image_gem_black_hopo, tap: Image_gem_black_tap, energy: Image_gem_ghl_energy }
+        SixWhite -> { strum: Image_gem_white, hopo: Image_gem_white_hopo, tap: Image_gem_white_tap, energy: Image_gem_ghl_energy }
+        SixBoth  -> { strum: Image_gem_blackwhite, hopo: Image_gem_blackwhite_hopo, tap: Image_gem_blackwhite_tap, energy: Image_gem_ghl_energy }
+        SixOpen  -> { strum: Image_gem_openghl, hopo: Image_gem_openghl_hopo, tap: Image_gem_openghl_tap, energy: Image_gem_openghl_energy }
+  for_ colors $ \{ c: getEvents, x: offsetX, color: thisColor } -> do
+    let thisEvents = getEvents six.notes
+        offsetX' = case thisColor of
+          SixOpen -> 37
+          _ -> offsetX
+        isEnergy secs = case Map.lookupLE secs six.energy of
+          Nothing           -> false
+          Just { value: v } -> v
+        drawSustainBlock ystart yend energy = when (ystart < targetY || yend < targetY) do
+          let ystart' = min ystart targetY
+              yend'   = min yend   targetY
+              sustaining = targetY < ystart || targetY < yend
+              shades = if energy
+                then { light: "rgb(137,235,204)", normal: "rgb(138,192,175)", dark: "rgb(124,158,149)" }
+                else getShades thisColor
+              h = yend' - ystart' + 1
+          setFillStyle "black" stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 14, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 22, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          setFillStyle shades.light stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 15, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          setFillStyle shades.normal stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 16, y: toNumber ystart', w: 5.0, h: toNumber h } stuff
+          setFillStyle shades.dark stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 21, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          when sustaining do
+            setFillStyle shades.light stuff
+            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+        go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisEvents of
+          Just { key: secsStart, value: Sustain _ } -> do
+            drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
+            go false rest
+          _ -> unsafeThrow "during ghl drawing: found a sustain end not preceded by sustain start"
+        go true (L.Cons (Tuple _ SustainEnd) rest) = go false rest
+        go _ (L.Cons (Tuple _ (Note _)) rest) = go false rest
+        go _ (L.Cons (Tuple secsStart (Sustain _)) rest) = do
+          let pxEnd = case rest of
+                L.Nil                      -> 0
+                L.Cons (Tuple secsEnd _) _ -> secsToPxVert secsEnd
+          drawSustainBlock pxEnd (secsToPxVert secsStart) $ isEnergy secsStart
+          go true rest
+        go _ L.Nil = pure unit
+    case L.fromFoldable $ Map.doTupleArray (zoomAsc thisEvents) of
+      L.Nil -> case Map.lookupLT (pxToSecsVert windowH) thisEvents of
+        -- handle the case where the entire screen is the middle of a sustain
+        Just { key: secsStart, value: Sustain _ } ->
+          drawSustainBlock 0 windowH $ isEnergy secsStart
+        _ -> pure unit
+      events -> go false events
+  -- Notes
+  for_ colors $ \{ c: getEvents, x: offsetX, color: thisColor } -> do
+    let {strum: strumImage, hopo: hopoImage, tap: tapImage, energy: energyOverlay} = getGemImages thisColor
+    zoomDesc (getEvents six.notes) $ \secs evt -> do
+      let futureSecs = secToNum $ secs - stuff.time
+      if futureSecs <= 0.0
+        then do
+          -- note is in the past or being hit now
+          let offsetX' = case thisColor of
+                SixOpen -> 37
+                _ -> offsetX
+          if (-0.1) < futureSecs
+            then case evt of
+              SustainEnd -> pure unit
+              _ -> do
+                setFillStyle (getHitShade thisColor $ (futureSecs + 0.1) / 0.05) stuff
+                fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+            else pure unit
+        else do
+          let y = secsToPxVert secs
+              isEnergy = case Map.lookupLE secs six.energy of
+                Just {value: bool} -> bool
+                Nothing            -> false
+              img = case evt of
+                SustainEnd    -> Image_sustain_end
+                Note    Strum -> strumImage
+                Sustain Strum -> strumImage
+                Note    HOPO  -> hopoImage
+                Sustain HOPO  -> hopoImage
+                Note    Tap   -> tapImage
+                Sustain Tap   -> tapImage
+              x' = targetX + case evt of
+                SustainEnd -> case thisColor of
+                  SixOpen -> 73
+                  _ -> offsetX
+                _          -> offsetX
+              y' = case evt of
+                SustainEnd -> y
+                _          -> case thisColor of
+                  SixOpen -> y - 3
+                  _ -> y - 5
+          drawImage img (toNumber x') (toNumber y') stuff
+          when isEnergy $ drawImage energyOverlay (toNumber x') (toNumber y') stuff
+  pure $ targetX + 110 + _M
 
 drawProtar :: forall e. Protar -> Int -> Draw e Int
 drawProtar (Protar protar) targetX stuff = do

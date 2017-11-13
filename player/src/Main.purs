@@ -186,8 +186,10 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                                 , guard (isJust s.vocal    ) *> [ (\sets -> sets { seeVocal      = not sets.seeVocal     }) ]
                                 , guard (isJust s.drums    ) *> [ (\sets -> sets { seeDrums      = not sets.seeDrums     }) ]
                                 , guard (isJust s.probass  ) *> [ (\sets -> sets { seeProBass    = not sets.seeProBass   }) ]
+                                , guard (isJust s.bass6    ) *> [ (\sets -> sets { seeBass6      = not sets.seeBass6     }) ]
                                 , guard (isJust s.bass     ) *> [ (\sets -> sets { seeBass       = not sets.seeBass      }) ]
                                 , guard (isJust s.proguitar) *> [ (\sets -> sets { seeProGuitar  = not sets.seeProGuitar }) ]
+                                , guard (isJust s.guitar6  ) *> [ (\sets -> sets { seeGuitar6    = not sets.seeGuitar6   }) ]
                                 , guard (isJust s.guitar   ) *> [ (\sets -> sets { seeGuitar     = not sets.seeGuitar    }) ]
                                 ]
                             else handle et app_
@@ -204,7 +206,9 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
           { pausedSongTime: Seconds 0.0
           , settings:
             { seeGuitar:    true
+            , seeGuitar6:   false
             , seeBass:      true
+            , seeBass6:     false
             , seeKeys:      true
             , seeProKeys:   false
             , seeProGuitar: false

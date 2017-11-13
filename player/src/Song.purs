@@ -22,6 +22,8 @@ newtype Song = Song
   , proguitar :: Maybe Protar
   , probass :: Maybe Protar
   , vocal :: Maybe Vocal
+  , guitar6 :: Maybe Six
+  , bass6 :: Maybe Six
   }
 
 newtype Drums = Drums
@@ -45,6 +47,23 @@ newtype Five = Five
     , yellow :: Map.Map Seconds (Sustainable GuitarNoteType)
     , blue   :: Map.Map Seconds (Sustainable GuitarNoteType)
     , orange :: Map.Map Seconds (Sustainable GuitarNoteType)
+    }
+  , solo :: Map.Map Seconds Boolean
+  , energy :: Map.Map Seconds Boolean
+  }
+
+newtype Six = Six
+  { notes ::
+    { open :: Map.Map Seconds (Sustainable GuitarNoteType)
+    , b1   :: Map.Map Seconds (Sustainable GuitarNoteType)
+    , b2   :: Map.Map Seconds (Sustainable GuitarNoteType)
+    , b3   :: Map.Map Seconds (Sustainable GuitarNoteType)
+    , w1   :: Map.Map Seconds (Sustainable GuitarNoteType)
+    , w2   :: Map.Map Seconds (Sustainable GuitarNoteType)
+    , w3   :: Map.Map Seconds (Sustainable GuitarNoteType)
+    , bw1  :: Map.Map Seconds (Sustainable GuitarNoteType)
+    , bw2  :: Map.Map Seconds (Sustainable GuitarNoteType)
+    , bw3  :: Map.Map Seconds (Sustainable GuitarNoteType)
     }
   , solo :: Map.Map Seconds Boolean
   , energy :: Map.Map Seconds Boolean
@@ -137,7 +156,7 @@ isForeignFiveNote f = readString f >>= \s -> case s of
   "strum-sust" -> pure $ Sustain Strum
   "hopo-sust" -> pure $ Sustain HOPO
   "tap-sust" -> pure $ Sustain Tap
-  _ -> throwError $ pure $ TypeMismatch "grybo note event" $ show s
+  _ -> throwError $ pure $ TypeMismatch "grybo/ghl note event" $ show s
 
 isForeignProtarNote :: Foreign -> F (Sustainable ProtarNote)
 isForeignProtarNote f = readString f >>= \s -> case s of
@@ -272,6 +291,39 @@ isForeignFive f = do
     , energy: energy
     }
 
+isForeignSix :: Foreign -> F Six
+isForeignSix f = do
+  notes  <- readProp "notes" f
+  let readLane s = readProp s notes >>= readTimedMap isForeignFiveNote
+  open <- readLane "open"
+  b1   <- readLane "b1"
+  b2   <- readLane "b2"
+  b3   <- readLane "b3"
+  w1   <- readLane "w1"
+  w2   <- readLane "w2"
+  w3   <- readLane "w3"
+  bw1  <- readLane "bw1"
+  bw2  <- readLane "bw2"
+  bw3  <- readLane "bw3"
+  solo   <- readProp "solo" f >>= readTimedMap readBoolean
+  energy <- readProp "energy" f >>= readTimedMap readBoolean
+  pure $ Six
+    { notes:
+      { open: open
+      , b1: b1
+      , b2: b2
+      , b3: b3
+      , w1: w1
+      , w2: w2
+      , w3: w3
+      , bw1: bw1
+      , bw2: bw2
+      , bw3: bw3
+      }
+    , solo: solo
+    , energy: energy
+    }
+
 isForeignProtar :: Foreign -> F Protar
 isForeignProtar f = do
   notes <- readProp "notes" f
@@ -350,6 +402,8 @@ isForeignSong f = do
   proguitar <- readProp "proguitar" f >>= readNullOrUndefined >>= traverse isForeignProtar
   probass <- readProp "probass" f >>= readNullOrUndefined >>= traverse isForeignProtar
   vocal <- readProp "vocal" f >>= readNullOrUndefined >>= traverse isForeignVocal
+  guitar6 <- readProp "guitar6" f >>= readNullOrUndefined >>= traverse isForeignSix
+  bass6 <- readProp "bass6" f >>= readNullOrUndefined >>= traverse isForeignSix
   pure $ Song
     { end: Seconds end
     , beats: beats
@@ -361,6 +415,8 @@ isForeignSong f = do
     , proguitar: proguitar
     , probass: probass
     , vocal: vocal
+    , guitar6: guitar6
+    , bass6: bass6
     }
 
 readTimedSet :: Foreign -> F (Map.Map Seconds Unit)
