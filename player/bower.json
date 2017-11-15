@@ -32,6 +32,7 @@
     "purescript-parallel": "^3.0.0",
     "purescript-eff": "^3.1.0",
     "purescript-maps": "^3.4.0",
-    "purescript-functors": "^2.2.0"
+    "purescript-functors": "^2.2.0",
+    "purescript-sets": "^3.1.0"
   }
 }

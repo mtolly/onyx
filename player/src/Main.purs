@@ -24,7 +24,9 @@ import           Audio                       (AUDIO, loadAudio, playFrom, stop)
 import           Draw                        (App (..), draw, getWindowDims, _B,
                                               _M)
 import           Images                      (withImages)
-import           Song                        (Song (..), isForeignSong)
+import           Song                        (Song (..), FlexPart(..), Flex(..), isForeignSong)
+import Data.Set as Set
+import Data.Tuple (Tuple(..))
 
 foreign import onyxSong :: Foreign
 
@@ -180,17 +182,21 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                                     Playing o -> Playing o { settings = action o.settings }
                                   else go (i + 1) rest
                               s = case song of Song o -> o
-                              in go 1 $ L.fromFoldable $ concat
-                                [ guard (isJust s.prokeys  ) *> [ (\sets -> sets { seeProKeys    = not sets.seeProKeys   }) ]
-                                , guard (isJust s.keys     ) *> [ (\sets -> sets { seeKeys       = not sets.seeKeys      }) ]
-                                , guard (isJust s.vocal    ) *> [ (\sets -> sets { seeVocal      = not sets.seeVocal     }) ]
-                                , guard (isJust s.drums    ) *> [ (\sets -> sets { seeDrums      = not sets.seeDrums     }) ]
-                                , guard (isJust s.probass  ) *> [ (\sets -> sets { seeProBass    = not sets.seeProBass   }) ]
-                                , guard (isJust s.bass6    ) *> [ (\sets -> sets { seeBass6      = not sets.seeBass6     }) ]
-                                , guard (isJust s.bass     ) *> [ (\sets -> sets { seeBass       = not sets.seeBass      }) ]
-                                , guard (isJust s.proguitar) *> [ (\sets -> sets { seeProGuitar  = not sets.seeProGuitar }) ]
-                                , guard (isJust s.guitar6  ) *> [ (\sets -> sets { seeGuitar6    = not sets.seeGuitar6   }) ]
-                                , guard (isJust s.guitar   ) *> [ (\sets -> sets { seeGuitar     = not sets.seeGuitar    }) ]
+                              toggle tup set = if Set.member tup set then Set.delete tup set else Set.insert tup set
+                              toggleVocal flex set = let
+                                vox = Tuple flex FlexVocal
+                                in if Set.member vox set
+                                  then Set.delete vox set
+                                  else flip Set.map set \tup@(Tuple _ inst) -> case inst of
+                                    FlexVocal -> vox -- replace any existing vocal selection with the new one
+                                    _         -> tup
+                              in go 1 $ L.fromFoldable $ concat $ flip map s.parts \(Tuple part (Flex flex)) -> concat
+                                [ guard (isJust flex.five   ) *> [toggle $ Tuple part FlexFive   ]
+                                , guard (isJust flex.six    ) *> [toggle $ Tuple part FlexSix    ]
+                                , guard (isJust flex.drums  ) *> [toggle $ Tuple part FlexDrums  ]
+                                , guard (isJust flex.prokeys) *> [toggle $ Tuple part FlexProKeys]
+                                , guard (isJust flex.protar ) *> [toggle $ Tuple part FlexProtar ]
+                                , guard (isJust flex.vocal  ) *> [toggleVocal part               ]
                                 ]
                             else handle et app_
                 case app' of
@@ -204,17 +210,6 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
           continue app
         in loop $ Paused
           { pausedSongTime: Seconds 0.0
-          , settings:
-            { seeGuitar:    true
-            , seeGuitar6:   false
-            , seeBass:      true
-            , seeBass6:     false
-            , seeKeys:      true
-            , seeProKeys:   false
-            , seeProGuitar: false
-            , seeProBass:   false
-            , seeDrums:     true
-            , seeVocal:     true
-            }
+          , settings: Set.empty -- TODO
           }
   continueLoading

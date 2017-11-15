@@ -14,17 +14,33 @@ import Control.Monad.Except (throwError)
 newtype Song = Song
   { end   :: Seconds
   , beats :: Beats
-  , drums :: Maybe Drums
-  , guitar :: Maybe Five
-  , bass :: Maybe Five
-  , keys :: Maybe Five
-  , prokeys :: Maybe ProKeys
-  , proguitar :: Maybe Protar
-  , probass :: Maybe Protar
-  , vocal :: Maybe Vocal
-  , guitar6 :: Maybe Six
-  , bass6 :: Maybe Six
+  , parts :: Array (Tuple String Flex)
   }
+
+newtype Flex = Flex
+  { five :: Maybe Five
+  , six :: Maybe Six
+  , drums :: Maybe Drums
+  , prokeys :: Maybe ProKeys
+  , protar :: Maybe Protar
+  , vocal :: Maybe Vocal
+  }
+
+data FlexPart
+  = FlexFive
+  | FlexSix
+  | FlexDrums
+  | FlexProKeys
+  | FlexProtar
+  | FlexVocal
+
+derive instance genFlexPart :: Generic FlexPart
+instance showFlexPart :: Show FlexPart where
+  show = gShow
+instance eqFlexPart :: Eq FlexPart where
+  eq = gEq
+instance ordFlexPart :: Ord FlexPart where
+  compare = gCompare
 
 newtype Drums = Drums
   { notes  :: Map.Map Seconds (Array Gem)
@@ -390,33 +406,33 @@ isForeignProKeys f = do
     , ranges: ranges
     }
 
+isForeignFlex :: Foreign -> F Flex
+isForeignFlex f = do
+  five <- readProp "five" f >>= readNullOrUndefined >>= traverse isForeignFive
+  six <- readProp "six" f >>= readNullOrUndefined >>= traverse isForeignSix
+  drums <- readProp "drums" f >>= readNullOrUndefined >>= traverse isForeignDrums
+  prokeys <- readProp "prokeys" f >>= readNullOrUndefined >>= traverse isForeignProKeys
+  protar <- readProp "protar" f >>= readNullOrUndefined >>= traverse isForeignProtar
+  vocal <- readProp "vocal" f >>= readNullOrUndefined >>= traverse isForeignVocal
+  pure $ Flex
+    { five: five
+    , six: six
+    , drums: drums
+    , prokeys: prokeys
+    , protar: protar
+    , vocal: vocal
+    }
+
 isForeignSong :: Foreign -> F Song
 isForeignSong f = do
   end <- readProp "end" f >>= readNumber
   beats <- readProp "beats" f >>= isForeignBeats
-  drums <- readProp "drums" f >>= readNullOrUndefined >>= traverse isForeignDrums
-  guitar <- readProp "guitar" f >>= readNullOrUndefined >>= traverse isForeignFive
-  bass <- readProp "bass" f >>= readNullOrUndefined >>= traverse isForeignFive
-  keys <- readProp "keys" f >>= readNullOrUndefined >>= traverse isForeignFive
-  prokeys <- readProp "prokeys" f >>= readNullOrUndefined >>= traverse isForeignProKeys
-  proguitar <- readProp "proguitar" f >>= readNullOrUndefined >>= traverse isForeignProtar
-  probass <- readProp "probass" f >>= readNullOrUndefined >>= traverse isForeignProtar
-  vocal <- readProp "vocal" f >>= readNullOrUndefined >>= traverse isForeignVocal
-  guitar6 <- readProp "guitar6" f >>= readNullOrUndefined >>= traverse isForeignSix
-  bass6 <- readProp "bass6" f >>= readNullOrUndefined >>= traverse isForeignSix
+  parts <- readProp "parts" f >>= readArray >>= traverse \pair ->
+    Tuple <$> (readIndex 0 pair >>= readString) <*> (readIndex 1 pair >>= isForeignFlex)
   pure $ Song
     { end: Seconds end
     , beats: beats
-    , drums: drums
-    , guitar: guitar
-    , bass: bass
-    , keys: keys
-    , prokeys: prokeys
-    , proguitar: proguitar
-    , probass: probass
-    , vocal: vocal
-    , guitar6: guitar6
-    , bass6: bass6
+    , parts: parts
     }
 
 readTimedSet :: Foreign -> F (Map.Map Seconds Unit)
