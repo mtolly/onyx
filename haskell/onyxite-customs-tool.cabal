@@ -52,6 +52,7 @@ executable onyx
     Reaper.Parse
     Reaper.Base
     Reaper.Build
+    STFS.Create
     STFS.Extract
     MoggDecrypt
     SndfileExtra
@@ -178,6 +179,7 @@ executable onyx
     , monad-control
     , mmorph
     , async
+    , StateVar
     -- my libraries:
     , jammittools >= 0.5.0.3 && < 0.6
     , midi-util >= 0.2 && < 0.3
