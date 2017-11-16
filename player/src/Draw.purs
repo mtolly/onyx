@@ -7,7 +7,7 @@ import Control.Monad.Eff (Eff)
 import Data.Int (toNumber, round)
 import DOM (DOM)
 import Data.Maybe (Maybe(..), fromMaybe, isJust, isNothing)
-import Data.Array (uncons, cons, snoc, take, zip, (..), length, concat)
+import Data.Array (reverse, uncons, cons, snoc, take, zip, (..), length, concat)
 import Data.List as L
 import Data.Tuple (Tuple(..))
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
@@ -110,13 +110,52 @@ draw stuff = do
     ]
   flip traverse_ song.parts $ \(Tuple part (Flex flex)) -> do
     void $ drawPart flex.vocal (Set.member $ Tuple part FlexVocal) drawVocal 0 stuff
-  drawButtons (round windowH - _M - _B) $ L.fromFoldable $ concat $ flip map song.parts \(Tuple part (Flex flex)) -> concat
-    [ guard (isJust flex.five   ) *> [if Set.member (Tuple part FlexFive   ) settings then Image_button_guitar    else Image_button_guitar_off   ]
-    , guard (isJust flex.six    ) *> [if Set.member (Tuple part FlexSix    ) settings then Image_button_guitar    else Image_button_guitar_off   ]
-    , guard (isJust flex.drums  ) *> [if Set.member (Tuple part FlexDrums  ) settings then Image_button_drums     else Image_button_drums_off    ]
-    , guard (isJust flex.prokeys) *> [if Set.member (Tuple part FlexProKeys) settings then Image_button_prokeys   else Image_button_prokeys_off  ]
-    , guard (isJust flex.protar ) *> [if Set.member (Tuple part FlexProtar ) settings then Image_button_proguitar else Image_button_proguitar_off]
-    , guard (isJust flex.vocal  ) *> [if Set.member (Tuple part FlexVocal  ) settings then Image_button_vocal     else Image_button_vocal_off    ]
+  drawButtons (round windowH - _M - _B) $ L.fromFoldable $ reverse $ concat $ flip map song.parts \(Tuple part (Flex flex)) -> concat
+    [ guard (isJust flex.five   ) *>
+      [ if Set.member (Tuple part FlexFive) settings
+        then case part of
+          "bass" -> Image_button_bass
+          "keys" -> Image_button_keys
+          _ -> Image_button_guitar
+        else case part of
+          "bass" -> Image_button_bass_off
+          "keys" -> Image_button_keys_off
+          _ -> Image_button_guitar_off
+      ]
+    , guard (isJust flex.six    ) *>
+      [ if Set.member (Tuple part FlexSix) settings
+        -- TODO actual 6-fret icons
+        then case part of
+          "bass" -> Image_button_bass
+          _ -> Image_button_guitar
+        else case part of
+          "bass" -> Image_button_bass_off
+          _ -> Image_button_guitar_off
+      ]
+    , guard (isJust flex.drums  ) *>
+      [ if Set.member (Tuple part FlexDrums  ) settings
+        then Image_button_drums
+        else Image_button_drums_off
+      ]
+    , guard (isJust flex.prokeys) *>
+      [ if Set.member (Tuple part FlexProKeys) settings
+        then Image_button_prokeys
+        else Image_button_prokeys_off
+      ]
+    , guard (isJust flex.protar ) *>
+      [ if Set.member (Tuple part FlexProtar ) settings
+        then case part of
+          "bass" -> Image_button_probass
+          _ -> Image_button_proguitar
+        else case part of
+          "bass" -> Image_button_probass_off
+          _ -> Image_button_proguitar_off
+      ]
+    , guard (isJust flex.vocal  ) *>
+      [ if Set.member (Tuple part FlexVocal  ) settings
+        then Image_button_vocal
+        else Image_button_vocal_off
+      ]
     ]
   let playPause = case stuff.app of
         Paused  _ -> Image_button_play

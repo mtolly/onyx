@@ -448,93 +448,88 @@ processVocal tmap h1 h2 h3 tonic = let
     , vocalRanges = ranges
     }
 
+data Flex t = Flex
+  { flexFive    :: Maybe (Five    t)
+  , flexSix     :: Maybe (Six     t)
+  , flexDrums   :: Maybe (Drums   t)
+  , flexProKeys :: Maybe (ProKeys t)
+  , flexProtar  :: Maybe (Protar  t)
+  , flexVocal   :: Maybe (Vocal   t)
+  } deriving (Eq, Ord, Show)
+
+instance TimeFunctor Flex where
+  mapTime f (Flex f5 f6 fd fpk fpt fv) = Flex
+    (fmap (mapTime f) f5)
+    (fmap (mapTime f) f6)
+    (fmap (mapTime f) fd)
+    (fmap (mapTime f) fpk)
+    (fmap (mapTime f) fpt)
+    (fmap (mapTime f) fv)
+
+instance (Real t) => A.ToJSON (Flex t) where
+  toJSON flex = A.object $ concat
+    [ case flexFive    flex of Nothing -> []; Just x -> [("five"   , A.toJSON x)]
+    , case flexSix     flex of Nothing -> []; Just x -> [("six"    , A.toJSON x)]
+    , case flexDrums   flex of Nothing -> []; Just x -> [("drums"  , A.toJSON x)]
+    , case flexProKeys flex of Nothing -> []; Just x -> [("prokeys", A.toJSON x)]
+    , case flexProtar  flex of Nothing -> []; Just x -> [("protar" , A.toJSON x)]
+    , case flexVocal   flex of Nothing -> []; Just x -> [("vocal"  , A.toJSON x)]
+    ]
+
 data Processed t = Processed
-  { processedGuitar    :: Maybe (Five    t)
-  , processedBass      :: Maybe (Five    t)
-  , processedKeys      :: Maybe (Five    t)
-  , processedDrums     :: Maybe (Drums   t)
-  , processedProKeys   :: Maybe (ProKeys t)
-  , processedProGuitar :: Maybe (Protar  t)
-  , processedProBass   :: Maybe (Protar  t)
-  , processedGuitar6   :: Maybe (Six     t)
-  , processedBass6     :: Maybe (Six     t)
-  , processedVocal     :: Maybe (Vocal   t)
-  , processedBeats     ::        Beats   t
-  , processedEnd       :: t
+  { processedBeats :: Beats t
+  , processedEnd   :: t
+  , processedParts :: [(T.Text, Flex t)]
   } deriving (Eq, Ord, Show)
 
 instance TimeFunctor Processed where
-  mapTime f (Processed g b k d pk pg pb g6 b6 v bts end) = Processed
-    (fmap (mapTime f) g)
-    (fmap (mapTime f) b)
-    (fmap (mapTime f) k)
-    (fmap (mapTime f) d)
-    (fmap (mapTime f) pk)
-    (fmap (mapTime f) pg)
-    (fmap (mapTime f) pb)
-    (fmap (mapTime f) g6)
-    (fmap (mapTime f) b6)
-    (fmap (mapTime f) v)
+  mapTime f (Processed bts end parts) = Processed
     (mapTime f bts)
     (f end)
+    (map (fmap $ mapTime f) parts)
 
 instance (Real t) => A.ToJSON (Processed t) where
   toJSON proc = A.object $ concat
-    [ case processedGuitar    proc of Nothing -> []; Just x -> [("guitar"   , A.toJSON x)]
-    , case processedBass      proc of Nothing -> []; Just x -> [("bass"     , A.toJSON x)]
-    , case processedKeys      proc of Nothing -> []; Just x -> [("keys"     , A.toJSON x)]
-    , case processedDrums     proc of Nothing -> []; Just x -> [("drums"    , A.toJSON x)]
-    , case processedProKeys   proc of Nothing -> []; Just x -> [("prokeys"  , A.toJSON x)]
-    , case processedProGuitar proc of Nothing -> []; Just x -> [("proguitar", A.toJSON x)]
-    , case processedProBass   proc of Nothing -> []; Just x -> [("probass"  , A.toJSON x)]
-    , case processedGuitar6   proc of Nothing -> []; Just x -> [("guitar6"  , A.toJSON x)]
-    , case processedBass6     proc of Nothing -> []; Just x -> [("bass6"    , A.toJSON x)]
-    , case processedVocal     proc of Nothing -> []; Just x -> [("vocal"    , A.toJSON x)]
-    , [("beats", A.toJSON $ processedBeats proc)]
+    [ [("beats", A.toJSON $ processedBeats proc)]
     , [("end", A.Number $ realToFrac $ processedEnd proc)]
+    , [("parts", A.toJSON $ processedParts proc)]
     ]
 
 makeDisplay :: C.SongYaml -> RBFile.Song (RBFile.OnyxFile U.Beats) -> BL.ByteString
 makeDisplay songYaml song = let
   ht n = fromIntegral n / 480
-  gtr = flip fmap (C.getPart RBFile.FlexGuitar songYaml >>= C.partGRYBO) $ \grybo -> processFive (Just $ ht $ C.gryboHopoThreshold grybo) (RBFile.s_tempos song)
-    $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks song
-  bass = flip fmap (C.getPart RBFile.FlexBass songYaml >>= C.partGRYBO) $ \grybo -> processFive (Just $ ht $ C.gryboHopoThreshold grybo) (RBFile.s_tempos song)
-    $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks song
-  keys = flip fmap (C.getPart RBFile.FlexKeys songYaml >>= C.partGRYBO) $ \_ -> processFive Nothing (RBFile.s_tempos song)
-    $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexKeys $ RBFile.s_tracks song
-  drums = flip fmap (C.getPart RBFile.FlexDrums songYaml >>= C.partDrums) $ \_ -> processDrums (RBFile.s_tempos song)
-    $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
-  prokeys = flip fmap (C.getPart RBFile.FlexKeys songYaml >>= C.partProKeys) $ \_ -> processProKeys (RBFile.s_tempos song)
-    $ RBFile.flexPartRealKeysX $ RBFile.getFlexPart RBFile.FlexKeys $ RBFile.s_tracks song
-  proguitar = flip fmap (C.getPart RBFile.FlexGuitar songYaml >>= C.partProGuitar) $ \pg -> processProtar (ht $ C.pgHopoThreshold pg) (RBFile.s_tempos song)
-    $ let mustang = RBFile.flexPartRealGuitar   $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks song
-          squier  = RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks song
-      in if RTB.null squier then mustang else squier
-  probass = flip fmap (C.getPart RBFile.FlexBass songYaml >>= C.partProGuitar) $ \pg -> processProtar (ht $ C.pgHopoThreshold pg) (RBFile.s_tempos song)
-    $ let mustang = RBFile.flexPartRealGuitar   $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks song
-          squier  = RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks song
-      in if RTB.null squier then mustang else squier
-  gtr6 = flip fmap (C.getPart RBFile.FlexGuitar songYaml >>= C.partGHL) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song)
-    $ RBFile.flexGHL $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks song
-  bass6 = flip fmap (C.getPart RBFile.FlexBass songYaml >>= C.partGHL) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song)
-    $ RBFile.flexGHL $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks song
-  vox = flip fmap (C.getPart RBFile.FlexVocal songYaml >>= C.partVocal) $ \pvox -> case C.vocalCount pvox of
-    C.Vocal3 -> makeVox
-      (RBFile.flexHarm1 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
-      (RBFile.flexHarm2 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
-      (RBFile.flexHarm3 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
-    C.Vocal2 -> makeVox
-      (RBFile.flexHarm1 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
-      (RBFile.flexHarm2 $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
-      RTB.empty
-    C.Vocal1 -> makeVox
-      (RBFile.flexPartVocals $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
-      RTB.empty
-      RTB.empty
+  makePart name fpart = Flex
+    { flexFive = flip fmap (C.partGRYBO fpart) $ \grybo -> processFive
+      (guard (not $ RBFile.flexFiveIsKeys tracks) >> Just (ht $ C.gryboHopoThreshold grybo))
+      (RBFile.s_tempos song)
+      (RBFile.flexFiveButton tracks)
+    , flexSix = flip fmap (C.partGHL fpart) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song) (RBFile.flexGHL tracks)
+    , flexDrums = flip fmap (C.partDrums fpart) $ \_ -> processDrums (RBFile.s_tempos song) (RBFile.flexPartDrums tracks)
+    , flexProKeys = flip fmap (C.partProKeys fpart) $ \_ -> processProKeys (RBFile.s_tempos song) (RBFile.flexPartRealKeysX tracks)
+    , flexProtar = flip fmap (C.partProGuitar fpart) $ \pg -> processProtar (ht $ C.pgHopoThreshold pg) (RBFile.s_tempos song)
+      $ let mustang = RBFile.flexPartRealGuitar tracks
+            squier  = RBFile.flexPartRealGuitar22 tracks
+        in if RTB.null squier then mustang else squier
+    , flexVocal = flip fmap (C.partVocal fpart) $ \pvox -> case C.vocalCount pvox of
+      C.Vocal3 -> makeVox
+        (RBFile.flexHarm1 tracks)
+        (RBFile.flexHarm2 tracks)
+        (RBFile.flexHarm3 tracks)
+      C.Vocal2 -> makeVox
+        (RBFile.flexHarm1 tracks)
+        (RBFile.flexHarm2 tracks)
+        RTB.empty
+      C.Vocal1 -> makeVox
+        (RBFile.flexPartVocals $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
+        RTB.empty
+        RTB.empty
+    } where
+      tracks = RBFile.getFlexPart name $ RBFile.s_tracks song
+  parts = do
+    (name, fpart) <- sort $ HM.toList $ C.getParts $ C._parts songYaml
+    return (RBFile.getPartName name, makePart name fpart)
   makeVox h1 h2 h3 = processVocal (RBFile.s_tempos song) h1 h2 h3 (fmap fromEnum $ C._key $ C._metadata songYaml)
   beat = processBeat (RBFile.s_tempos song)
     $ RBFile.onyxBeat $ RBFile.s_tracks song
   end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats song
-  in A.encode $ mapTime (realToFrac :: U.Seconds -> Milli)
-    $ Processed gtr bass keys drums prokeys proguitar probass gtr6 bass6 vox beat end
+  in A.encode $ mapTime (realToFrac :: U.Seconds -> Milli) $ Processed beat end parts

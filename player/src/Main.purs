@@ -7,7 +7,7 @@ import           Control.Monad.Eff.Ref       (REF, modifyRef, modifyRef',
                                               newRef, writeRef, readRef)
 import           Control.Monad.Except        (runExcept)
 import           Control.MonadPlus           (guard)
-import           Data.Array                  (concat, uncons, (:))
+import           Data.Array                  (concat, uncons, (:), reverse)
 import           Data.DateTime.Instant       (unInstant)
 import           Data.Either                 (Either (..))
 import           Data.Foreign                (Foreign, isUndefined)
@@ -190,7 +190,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                                   else flip Set.map set \tup@(Tuple _ inst) -> case inst of
                                     FlexVocal -> vox -- replace any existing vocal selection with the new one
                                     _         -> tup
-                              in go 1 $ L.fromFoldable $ concat $ flip map s.parts \(Tuple part (Flex flex)) -> concat
+                              in go 1 $ L.fromFoldable $ reverse $ concat $ flip map s.parts \(Tuple part (Flex flex)) -> concat
                                 [ guard (isJust flex.five   ) *> [toggle $ Tuple part FlexFive   ]
                                 , guard (isJust flex.six    ) *> [toggle $ Tuple part FlexSix    ]
                                 , guard (isJust flex.drums  ) *> [toggle $ Tuple part FlexDrums  ]
