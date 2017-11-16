@@ -6,13 +6,14 @@ WIP port of (parts of) X360, a GPL C# library by DJ Shepherd
 module STFS.Create where
 
 import           Control.Applicative            (liftA2)
-import           Control.Monad.Extra            (anyM, orM, unless, unlessM,
-                                                 when, whenM)
+import           Control.Monad.Extra            (anyM, forM, orM, unless,
+                                                 unlessM, void, when, whenM)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Cont
 import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
-                                                 fatal, stackIO)
+                                                 catchError, fatal, lg, stackIO,
+                                                 throwError)
 import qualified Data.ByteString                as B
 import           Data.Char                      (toLower)
 import           Data.Function                  ((&))
@@ -20,7 +21,7 @@ import           Data.Int                       (Int16, Int32, Int64)
 import           Data.IORef                     (IORef, newIORef)
 import           Data.Maybe                     (isJust)
 import           Data.StateVar                  (get, ($=))
-import           Data.Word                      (Word32, Word8)
+import           Data.Word                      (Word16, Word32, Word8)
 import qualified System.Directory               as Dir
 import           System.IO                      (IOMode (..), hFileSize,
                                                  withBinaryFile)
@@ -33,10 +34,10 @@ type Nullable a = IORef (Maybe a)
 type List a = IORef [a]
 
 data CreateSTFS = CreateSTFS
-  { cs_HeaderData       :: IORef HeaderData
+  { cs_HeaderData       :: Nullable HeaderData
   , cs_STFSType         :: IORef STFSType
-  , cs_xFileDirectory   :: IORef (List CFileEntry)
-  , cs_xFolderDirectory :: IORef (List CFolderEntry)
+  , cs_xFileDirectory   :: Nullable (List CFileEntry)
+  , cs_xFolderDirectory :: Nullable (List CFolderEntry)
   }
 
 data CItemEntry = CItemEntry
@@ -162,9 +163,14 @@ data HeaderData = HeaderData
   }
 
 data STFSPackage = STFSPackage
-  { sp_xActive     :: IORef Bool
-  , sp_xIO         :: Nullable DJsIO
-  , sp_xSTFSStruct :: Nullable STFSDescriptor
+  { sp_xActive          :: IORef Bool
+  , sp_xIO              :: Nullable DJsIO
+  , sp_xSTFSStruct      :: Nullable STFSDescriptor
+  , sp_xroot            :: Nullable FolderEntry
+  , sp_xHeader          :: Nullable HeaderData
+  , sp_xFileDirectory   :: Nullable (List FileEntry)
+  , sp_xFolderDirectory :: Nullable (List FolderEntry)
+  , sp_xFileBlocks      :: Nullable (List BlockRecord)
   }
 
 data STFSDescriptor
@@ -175,11 +181,13 @@ data RSAParams = RSAParams
 
 data DJsIO
 
-listAdd :: (MonadIO m) => a -> List a -> m ()
-listAdd x lst = do
+listAdd :: (MonadIO m) => a -> Maybe (List a) -> StackTraceT m ()
+listAdd x mlst = do
+  lst <- noNull mlst
   xs <- get lst
   lst $= (xs ++ [x])
 
+-- public bool AddFile(string FileLocation, string FilePath)
 addFile :: (MonadIO m) => FilePath -> FilePath -> CreateSTFS -> StackTraceT m Bool
 addFile fileLocation filePath this = let
   c1 = (>= 0x3FF) <$> uppedDirectCount this
@@ -197,24 +205,11 @@ addFile fileLocation filePath this = let
           cfe <- newCFileEntry fileLocation filePath' this
           get (cs_xFileDirectory this) >>= listAdd cfe
           return True
-{-
-public bool AddFile(string FileLocation, string FilePath)
-{
-    if (UppedDirectCount >= 0x3FF ||
-        UppedTotalBlocks(CreateTools.BlockCount(FileLocation)) > BlockStep[2] ||
-        FilePath == null || FilePath == "")
-        return false;
-    FilePath = FilePath.xExtractLegitPath();
-    if (containsfile(FilePath))
-        return false;
-    xFileDirectory.Add(new CFileEntry(FileLocation, FilePath, this));
-    return true;
-}
--}
 
 containsfile :: (MonadIO m) => FilePath -> CreateSTFS -> StackTraceT m Bool
 containsfile = containspath
 
+-- internal static string xExtractLegitPath(this string xin)
 xExtractLegitPath :: FilePath -> FilePath
 xExtractLegitPath "" = ""
 xExtractLegitPath xin = let
@@ -226,23 +221,11 @@ xExtractLegitPath xin = let
     '/' : t -> reverse t
     _       -> xin2
   in xin3
-{-
-internal static string xExtractLegitPath(this string xin)
-{
-    if (xin == null || xin == "")
-        return "";
-    xin = xin.Replace('\\', '/');
-    if (xin[0] == '/')
-        xin = xin.Substring(1, xin.Length - 1);
-    if (xin[xin.Length - 1] == '/')
-        xin = xin.Substring(0, xin.Length - 1);
-    return xin;
-}
--}
 
 constants_STFSEnd :: Word32
 constants_STFSEnd = 0xFFFFFF
 
+-- internal uint[] BlockStep
 blockStep :: (MonadIO m) => CreateSTFS -> StackTraceT m [Word32]
 blockStep this = do
   xStruct <- get $ cs_STFSType this
@@ -252,18 +235,8 @@ blockStep this = do
       STFSType_Type0 -> 0xFE7DA
       STFSType_Type1 -> 0xFD00B
     ]
-{-
-uint[] xBckStp = { 0xAA, 0x70E4, 0 };
-internal uint[] BlockStep
-{
-    get
-    {
-        xBckStp[2] = (uint)((xStruct == STFSType.Type0) ? 0xFE7DA : 0xFD00B);
-        return xBckStp;
-    }
-}
--}
 
+-- public static uint BlockCount(string file)
 createTools_BlockCount :: (MonadIO m) => FilePath -> StackTraceT m Word32
 createTools_BlockCount file = stackIO $ do
   Dir.doesFileExist file >>= \case
@@ -271,22 +244,13 @@ createTools_BlockCount file = stackIO $ do
     True -> do
       len <- (fromIntegral :: Integer -> Int64) <$> withBinaryFile file ReadMode hFileSize
       return $ fromIntegral $ quot (len - 1) 0x1000 + 1
-{-
-public static uint BlockCount(string file)
-{
-    if (!File.Exists(file))
-        return Constants.STFSEnd;
-    long len = new FileInfo(file).Length;
-    return (uint)(((len - 1) / 0x1000) + 1);
-}
--}
 
+-- uint UppedTotalBlocks(uint xFileAdd) { return (uint)(UppedDirectCount + xFileAdd); }
 uppedTotalBlocks :: (MonadIO m) => Word32 -> CreateSTFS -> StackTraceT m Word32
 uppedTotalBlocks xFileAdd this = (xFileAdd +) . fromIntegral <$> uppedDirectCount this
--- uint UppedTotalBlocks(uint xFileAdd) { return (uint)(UppedDirectCount + xFileAdd); }
 
-listCount :: (MonadIO m) => List a -> m Int32
-listCount = fmap (fromIntegral . length) . get
+listCount :: (MonadIO m) => Maybe (List a) -> StackTraceT m Int32
+listCount mlst = noNull mlst >>= fmap (fromIntegral . length) . get
 
 uppedDirectCount :: (MonadIO m) => CreateSTFS -> StackTraceT m Int16
 uppedDirectCount this = do
@@ -348,23 +312,155 @@ public bool AddFolder(string FolderPath)
 }
 -}
 
+noNull :: (Monad m) => Maybe a -> StackTraceT m a
+noNull Nothing  = fatal "Null reference"
+noNull (Just x) = return x
+
+-- bool containspath(string path)
 containspath :: (MonadIO m) => String -> CreateSTFS -> StackTraceT m Bool
 containspath path this = do
-  cfes <- get (cs_xFolderDirectory this) >>= get
+  cfes <- get (cs_xFolderDirectory this) >>= noNull >>= get
   flip anyM cfes $ \x -> do
     xtp <- get $ ci_xthispath $ cfo_base x
     return $ map toLower xtp == map toLower path
+
+data ItemEntry
+
+data FileEntry
+
+data FolderEntry
+
+newFolderEntry :: (MonadIO m) =>
+  String -> Int32 -> Word16 -> Word16 -> STFSPackage -> StackTraceT m FolderEntry
+newFolderEntry = undefined
+
+newSTFSDescriptor :: (MonadIO m) => STFSType -> Word32 -> StackTraceT m STFSDescriptor
+newSTFSDescriptor = undefined
 {-
-bool containspath(string path)
+internal STFSDescriptor(STFSType xType, uint xTotalBlocks)
 {
-    foreach (CFolderEntry x in xFolderDirectory)
+    XSetStructure(xType);
+    xStruct = new byte[] { 0, 0, 0, 0, 0 };
+    if (xTotalBlocks > SpaceBetween[2])
     {
-        if (x.xthispath.ToLower() == path.ToLower())
-            return true;
+        xStruct = null;
+        throw STFSExcepts.MaxOver;
     }
-    return false;
+    xBlockCount = xTotalBlocks;
+    xBaseByte = (byte)((ThisType == STFSType.Type0) ? 0xB : 0xA);
 }
 -}
+
+xSetStructure :: (MonadIO m) =>STFSType -> STFSDescriptor -> StackTraceT m ()
+xSetStructure = undefined
+{-
+void XSetStructure(STFSType xType)
+{
+    switch (xType)
+    {
+        case STFSType.Type0:
+            {
+                xSpaceBetween[0] = 0xAB;
+                xSpaceBetween[1] = 0x718F;
+                xSpaceBetween[2] = 0xFE7DA; // Max Block
+                Shift = 0;
+            }
+            break;
+
+        case STFSType.Type1:
+            {
+                xSpaceBetween[0] = 0xAC;
+                xSpaceBetween[1] = 0x723A;
+                xSpaceBetween[2] = 0xFD00B; // Max Block before size of package over does FATX limit
+                Shift = 1;
+            }
+            break;
+        default: break;
+    }
+}
+-}
+
+tempDJsIO :: (MonadIO m) => Bool -> StackTraceT m DJsIO
+tempDJsIO = undefined
+{-
+public DJsIO(bool BigEndian)
+{
+    IsBigEndian = BigEndian;
+    xFile = string.Copy(VariousFunctions.GetTempFileLocale());
+    XSetStream(DJFileMode.Create);
+}
+-}
+
+dj_Dispose :: (MonadIO m) => Bool -> DJsIO -> StackTraceT m Bool
+dj_Dispose = undefined
+{-
+public virtual bool Dispose()
+{
+    return Dispose(false);
+}
+
+internal bool Dispose(bool DeleteFile)
+{
+    if (!Close())
+        return false;
+    if (xThisData != DataType.Real)
+    {
+        try { xStream.Dispose(); }
+        catch { return false; }
+        if (xThisData == DataType.File && DeleteFile)
+            VariousFunctions.DeleteFile(FileNameLong);
+    }
+    xFile = null;
+    txtidx = null;
+    return true;
+}
+-}
+
+dj_Close :: DJsIO -> StackTraceT m Bool
+dj_Close = undefined
+{-
+public virtual bool Close()
+{
+    if (Accessed)
+    {
+        try { xStream.Close(); }
+        catch { return false; }
+    }
+    return true;
+}
+-}
+
+data BlockRecord
+
+newBlockRecord_empty :: (MonadIO m) => StackTraceT m BlockRecord
+newBlockRecord_empty = undefined
+
+blockRecord_set_ThisBlock :: Word32 -> BlockRecord -> StackTraceT m ()
+blockRecord_set_ThisBlock = undefined
+
+xWriteChain :: (MonadIO m) => Maybe (List BlockRecord) -> STFSPackage -> StackTraceT m Bool
+xWriteChain = undefined
+{-
+internal bool xWriteChain(BlockRecord[] xRecs)
+{
+    for (int i = 0; i < xRecs.Length; i++)
+    {
+        if ((i + 1) < xRecs.Length)
+            xRecs[i].NextBlock = xRecs[i + 1].ThisBlock;
+        else xRecs[i].NextBlock = Constants.STFSEnd;
+        SwitchNWrite(xRecs[i], SwitchType.Allocate);
+    }
+    return true;
+}
+-}
+
+-- internal byte GetDirectoryCount { get { return (byte)(((xFileDirectory.Count + xFolderDirectory.Count - 1) / 0x40) + 1); } }
+getDirectoryCount :: (MonadIO m) => CreateSTFS -> StackTraceT m Word8
+-- Subtract 1 for prevention of Modular error
+getDirectoryCount this = do
+  files <- get (cs_xFileDirectory this) >>= listCount
+  folders <- get (cs_xFolderDirectory this) >>= listCount
+  return $ fromIntegral $ quot (files + folders - 1) 0x40 + 1
 
 newSTFSPackage :: (SendMessage m, MonadIO m) =>
   CreateSTFS -> RSAParams -> FilePath -> StackTraceT m STFSPackage
@@ -375,7 +471,27 @@ newSTFSPackage xSession xSigning _xOutPath = do
     fatal "CryptoExcepts.ParamError"
   whenM ((== 0) <$> (get (cs_xFileDirectory xSession) >>= listCount)) $
     fatal "new Exception()"
-  _ <- undefined
+  do
+      lg "Setting Package variables"
+      -- ignoring threading stuff
+      newFolderEntry "" 0 0xFFFF 0xFFFF this >>= (sp_xroot this $=) . Just
+      -- ignoring ThematicSkin/Game stuff
+      (sp_xHeader this $=) =<< get (cs_HeaderData xSession)
+      get (cs_STFSType xSession) >>= \stype -> newSTFSDescriptor stype 0 >>= (sp_xSTFSStruct this $=) . Just
+      (sp_xIO this $=) . Just =<< tempDJsIO True
+      (sp_xFileBlocks this $=) . Just =<< var =<< do
+        gdc <- getDirectoryCount xSession
+        forM [0 .. fromIntegral gdc - 1] $ \i -> do
+          br <- newBlockRecord_empty
+          blockRecord_set_ThisBlock i br
+          return br
+      void $ get (sp_xFileBlocks this) >>= \xfb -> this & xWriteChain xfb
+      void undefined
+    `catchError` \err -> do
+      sp_xFileDirectory this $= Nothing
+      sp_xFolderDirectory this $= Nothing
+      _ <- get (sp_xIO this) >>= noNull >>= dj_Dispose False
+      throwError err
   return this
 {-
 public STFSPackage(CreateSTFS xSession, RSAParams xSigning, string xOutPath, LogRecord LogIn)
@@ -566,6 +682,21 @@ bool xWriteTables()
 }
 -}
 
+data TreeLevel = L0 | L1 | L2 | LT
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+generateBaseOffset :: (MonadIO m) => Word32 -> TreeLevel -> STFSPackage -> StackTraceT m Int64
+generateBaseOffset = undefined
+{-
+internal long GenerateBaseOffset(uint xBlock, TreeLevel xTree)
+{
+    long xReturn = xSTFSStruct.GenerateBaseOffset(xBlock, xTree);
+    if (xSTFSStruct.ThisType == STFSType.Type1) // Grabs the one up level block record for shifting
+        xReturn += (GetRecord(xBlock, (TreeLevel)((byte)xTree + 1)).Index << 0xC);
+    return xReturn;
+}
+-}
+
 xWriteHeader :: (SendMessage m, MonadIO m) => RSAParams -> STFSPackage -> StackTraceT m Bool
 xWriteHeader = undefined
 {-
@@ -641,6 +772,7 @@ internal bool xWriteHeader(RSAParams xParams)
 }
 -}
 
+-- internal bool ActiveCheck()
 activeCheck :: (MonadIO m) => STFSPackage -> StackTraceT m Bool
 activeCheck this = parseCheck this >>= \case
   False -> return False
@@ -649,16 +781,6 @@ activeCheck this = parseCheck this >>= \case
     False -> do
       sp_xActive this $= True
       return True
-{-
-internal bool ActiveCheck()
-{
-    if (!ParseCheck())
-        return false;
-    if (xActive)
-        return false;
-    return (xActive = true);
-}
--}
 
 parseCheck :: (MonadIO m) => STFSPackage -> StackTraceT m Bool
 parseCheck = undefined
@@ -671,28 +793,26 @@ protected internal bool ParseCheck()
 }
 -}
 
+-- public bool ParseSuccess { get { return xIO != null; } }
 parseSuccess :: (MonadIO m) => STFSPackage -> StackTraceT m Bool
 parseSuccess = fmap isJust . get . sp_xIO
--- public bool ParseSuccess { get { return xIO != null; } }
 
-closeIO :: (MonadIO m) => STFSPackage -> StackTraceT m ()
-closeIO = undefined
-{-
-public bool CloseIO()
-{
-    if (xActive)
-        return false;
-    xActive = true;
-    if (xIO != null)
-        xIO.Close();
-    return true;
-}
--}
+-- public bool CloseIO()
+closeIO :: (MonadIO m) => STFSPackage -> StackTraceT m Bool
+closeIO this = get (sp_xActive this) >>= \case
+  True -> return False
+  False -> do
+    sp_xActive this $= True
+    get (sp_xIO this) >>= \case
+      Nothing -> return ()
+      Just xIO -> void $ dj_Close xIO
+    return True
 
 loadSTFSPackage :: (SendMessage m, MonadIO m) =>
   FilePath -> StackTraceT m STFSPackage
 loadSTFSPackage = undefined
 
+-- public static bool IsValidXboxName(this string x)
 isValidXboxName :: (Monad m) => String -> StackTraceT m Bool
 isValidXboxName x = do
   let no = map toEnum $ concat
@@ -716,46 +836,7 @@ isValidXboxName x = do
       a ... b = takeWhile (< b) [a..]
   when (x == "" || any (`elem` no) x) $ fatal "STFSExcepts.InvalChars"
   return True
-{-
-public static bool IsValidXboxName(this string x)
-{
-    if (x != null && x != "")
-    {
-        List<char> no = new List<char>();
-        for (byte i = 0; i < 0x20; i++)
-            no.Add((char)i);
-        // char 0x20 - 0x2D usable symbols except 0x22 and 0x2A
-        no.Add((char)0x22); // '"'
-        no.Add((char)0x2A); // '*'
-        no.Add((char)0x2F); // '/'
-        // char 0x30 - 0x39 are '0' - '9'
-        no.Add((char)0x3A); // ':'
-        // char 0x3B and 0x3D are usable
-        no.Add((char)0x3C); // '<'
-        for (byte i = 0x3E; i < 0x40; i++)
-            no.Add((char)i); // unusuable
-        // 0x41 - 0x5A are A - Z, usable symbols up thru 0x60 except 0x5C
-        no.Add((char)0x5C); // '\'
-        // 0x61 - 0x7A are a - z, 0x7B, 0x7D, and 0x7E are usable
-        no.Add((char)0x7C); // '|'
-        for (byte i = 0x7F; i < 0xFF; i++)
-            no.Add((char)i);
-        no.Add((char)0xFF);
-        if (x.IndexOfAny(no.ToArray()) == -1)
-            return true;
-    }
-    throw STFSExcepts.InvalChars;
-}
--}
 
+-- internal static string xExtractName(this string xin)
 xExtractName :: String -> String
 xExtractName = reverse . takeWhile (/= '/') . reverse
-{-
-internal static string xExtractName(this string xin)
-{
-    int idx = xin.LastIndexOf('/');
-    if (idx == -1)
-        return xin;
-    return xin.Substring(idx + 1, xin.Length - idx - 1);
-}
--}
