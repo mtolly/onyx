@@ -6,21 +6,24 @@ WIP port of (parts of) X360, a GPL C# library by DJ Shepherd
 module STFS.Create where
 
 import           Control.Applicative            (liftA2)
-import           Control.Monad.Extra            (anyM, forM, orM, unless,
-                                                 unlessM, void, when, whenM)
+import           Control.Monad.Extra            (andM, anyM, forM, guard, orM,
+                                                 unless, unlessM, void, when,
+                                                 whenM)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Cont
 import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
                                                  catchError, fatal, lg, stackIO,
                                                  throwError)
+import           Data.Bits                      (shiftL, (.|.))
 import qualified Data.ByteString                as B
 import           Data.Char                      (toLower)
 import           Data.Function                  ((&))
 import           Data.Int                       (Int16, Int32, Int64)
 import           Data.IORef                     (IORef, newIORef)
 import           Data.Maybe                     (isJust)
-import           Data.StateVar                  (get, ($=))
+import           Data.StateVar                  (GettableStateVar, StateVar,
+                                                 get, ($=))
 import           Data.Word                      (Word16, Word32, Word8)
 import qualified System.Directory               as Dir
 import           System.IO                      (IOMode (..), hFileSize,
@@ -33,44 +36,7 @@ type Nullable a = IORef (Maybe a)
 
 type List a = IORef [a]
 
-data CreateSTFS = CreateSTFS
-  { cs_HeaderData       :: Nullable HeaderData
-  , cs_STFSType         :: IORef STFSType
-  , cs_xFileDirectory   :: Nullable (List CFileEntry)
-  , cs_xFolderDirectory :: Nullable (List CFolderEntry)
-  }
-
-data CItemEntry = CItemEntry
-  { ci_create    :: IORef CreateSTFS
-  , ci_xthispath :: IORef String
-  }
-
-newCItemEntry :: (MonadIO m) => String -> CreateSTFS -> m CItemEntry
-newCItemEntry path xCreate = do
-  ci_xthispath <- var path
-  ci_create <- var xCreate
-  return CItemEntry{..}
-
-data CFileEntry = CFileEntry
-  { cfi_base       :: CItemEntry
-  , cfi_filelocale :: IORef String
-  }
-
-newCFileEntry :: (MonadIO m) => String -> String -> CreateSTFS -> m CFileEntry
-newCFileEntry xFile path xCreate = do
-  cfi_base <- newCItemEntry path xCreate
-  cfi_filelocale <- var xFile
-  return CFileEntry{..}
-
-cfi_BlockCount :: (MonadIO m) => CFileEntry -> StackTraceT m Word32
-cfi_BlockCount this = get (cfi_filelocale this) >>= createTools_BlockCount
-
-data CFolderEntry = CFolderEntry
-  { cfo_base :: CItemEntry
-  }
-
-newCFolderEntry :: (MonadIO m) => String -> CreateSTFS -> m CFolderEntry
-newCFolderEntry path xCreate = CFolderEntry <$> newCItemEntry path xCreate
+type Meth m o a = o -> StackTraceT m a
 
 data STFSType = STFSType_Type0 | STFSType_Type1
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -151,30 +117,6 @@ packageTypeValue = \case
   PT_PodcastVideo -> 0x500000
   PT_ViralVideo -> 0x600000
 
-data HeaderData = HeaderData
-  { hd_TitleID            :: IORef Word32
-  , hd_Publisher          :: IORef String
-  , hd_Title_Package      :: IORef String
-  , hd_ThisType           :: IORef PackageType
-  , hd_Title_Display      :: IORef String
-  , hd_Description        :: IORef String
-  , hd_PackageImageBinary :: Nullable B.ByteString
-  , hd_ContentImageBinary :: Nullable B.ByteString
-  }
-
-data STFSPackage = STFSPackage
-  { sp_xActive          :: IORef Bool
-  , sp_xIO              :: Nullable DJsIO
-  , sp_xSTFSStruct      :: Nullable STFSDescriptor
-  , sp_xroot            :: Nullable FolderEntry
-  , sp_xHeader          :: Nullable HeaderData
-  , sp_xFileDirectory   :: Nullable (List FileEntry)
-  , sp_xFolderDirectory :: Nullable (List FolderEntry)
-  , sp_xFileBlocks      :: Nullable (List BlockRecord)
-  }
-
-data STFSDescriptor
-
 data RSAParams = RSAParams
   { rp_Valid :: IORef Bool
   }
@@ -187,32 +129,10 @@ listAdd x mlst = do
   xs <- get lst
   lst $= (xs ++ [x])
 
--- public bool AddFile(string FileLocation, string FilePath)
-addFile :: (MonadIO m) => FilePath -> FilePath -> CreateSTFS -> StackTraceT m Bool
-addFile fileLocation filePath this = let
-  c1 = (>= 0x3FF) <$> uppedDirectCount this
-  utb = createTools_BlockCount fileLocation >>= \bc -> this & uppedTotalBlocks bc
-  bs2 = (!! 2) <$> blockStep this
-  c2 = liftA2 (>) utb bs2
-  c3 = return $ null filePath
-  in orM [c1, c2, c3] >>= \case
-    True -> return False
-    False -> do
-      let filePath' = xExtractLegitPath filePath
-      (this & containsfile filePath') >>= \case
-        True -> return False
-        False -> do
-          cfe <- newCFileEntry fileLocation filePath' this
-          get (cs_xFileDirectory this) >>= listAdd cfe
-          return True
-
-containsfile :: (MonadIO m) => FilePath -> CreateSTFS -> StackTraceT m Bool
-containsfile = containspath
-
 -- internal static string xExtractLegitPath(this string xin)
-xExtractLegitPath :: FilePath -> FilePath
-xExtractLegitPath "" = ""
-xExtractLegitPath xin = let
+xExtractLegitPath_pure :: FilePath -> FilePath
+xExtractLegitPath_pure "" = ""
+xExtractLegitPath_pure xin = let
   xin1 = map (\case '\\' -> '/'; c -> c) xin
   xin2 = case xin1 of
     '/' : t -> t
@@ -222,43 +142,14 @@ xExtractLegitPath xin = let
     _       -> xin2
   in xin3
 
+xExtractLegitPath :: (Monad m) => Maybe FilePath -> StackTraceT m (Maybe FilePath)
+xExtractLegitPath ms = Just . xExtractLegitPath_pure <$> noNull ms
+
 constants_STFSEnd :: Word32
 constants_STFSEnd = 0xFFFFFF
 
--- internal uint[] BlockStep
-blockStep :: (MonadIO m) => CreateSTFS -> StackTraceT m [Word32]
-blockStep this = do
-  xStruct <- get $ cs_STFSType this
-  return
-    [ 0xAA, 0x70E4
-    , case xStruct of
-      STFSType_Type0 -> 0xFE7DA
-      STFSType_Type1 -> 0xFD00B
-    ]
-
--- public static uint BlockCount(string file)
-createTools_BlockCount :: (MonadIO m) => FilePath -> StackTraceT m Word32
-createTools_BlockCount file = stackIO $ do
-  Dir.doesFileExist file >>= \case
-    False -> return constants_STFSEnd
-    True -> do
-      len <- (fromIntegral :: Integer -> Int64) <$> withBinaryFile file ReadMode hFileSize
-      return $ fromIntegral $ quot (len - 1) 0x1000 + 1
-
--- uint UppedTotalBlocks(uint xFileAdd) { return (uint)(UppedDirectCount + xFileAdd); }
-uppedTotalBlocks :: (MonadIO m) => Word32 -> CreateSTFS -> StackTraceT m Word32
-uppedTotalBlocks xFileAdd this = (xFileAdd +) . fromIntegral <$> uppedDirectCount this
-
 listCount :: (MonadIO m) => Maybe (List a) -> StackTraceT m Int32
 listCount mlst = noNull mlst >>= fmap (fromIntegral . length) . get
-
-uppedDirectCount :: (MonadIO m) => CreateSTFS -> StackTraceT m Int16
-uppedDirectCount this = do
-  files <- get (cs_xFileDirectory this) >>= listCount
-  folders <- get (cs_xFolderDirectory this) >>= listCount
-  let n = quot (files + folders - 1) 0x40 + 1
-  return $ fromIntegral (fromIntegral n :: Word8)
--- short UppedDirectCount { get { return (byte)(((xFileDirectory.Count + xFolderDirectory.Count - 1) / 0x40) + 1); } }
 
 fun :: (Monad m) => ((a -> ContT a (StackTraceT m) b) -> ContT a (StackTraceT m) a) -> StackTraceT m a
 fun = evalContT . callCC
@@ -266,119 +157,16 @@ fun = evalContT . callCC
 lastIndexOf :: (Eq a) => a -> [a] -> Maybe Int
 lastIndexOf x xs = lookup x $ reverse $ zip xs [0..]
 
-addFolder :: (MonadIO m) => FilePath -> CreateSTFS -> StackTraceT m Bool
-addFolder folderPath this = fun $ \ret -> do
-  let folderPath' = xExtractLegitPath folderPath
-  when (folderPath' == "") $ ret False
-  let idx = folderPath' & lastIndexOf '/'
-  name <- var ""
-  case idx of
-    Nothing -> name $= folderPath'
-    Just i -> do
-      name $= drop (i + 1) folderPath'
-      let parentpath = take i folderPath'
-      b <- lift $ this & containspath parentpath
-      unless b $ ret False
-  b <- lift $ this & containspath folderPath'
-  when b $ ret False
-  _ <- lift $ get name >>= isValidXboxName
-  cfe <- lift $ newCFolderEntry folderPath' this
-  lift $ get (cs_xFolderDirectory this) >>= listAdd cfe
-  return True
-{-
-public bool AddFolder(string FolderPath)
-{
-    if (FolderPath == null)
-        return false;
-    FolderPath = FolderPath.xExtractLegitPath();
-    if (FolderPath == "")
-        return false;
-    int idx = FolderPath.LastIndexOf('/');
-    string name = "";
-    if (idx == -1)
-        name = FolderPath;
-    else
-    {
-        name = FolderPath.Substring(idx + 1, FolderPath.Length - 1 - idx);
-        string parentpath = FolderPath.Substring(0, idx);
-        if (!containspath(parentpath))
-            return false;
-    }
-    if (containspath(FolderPath))
-        return false;
-    name.IsValidXboxName();
-    xFolderDirectory.Add(new CFolderEntry(FolderPath, this));
-    return true;
-}
--}
-
 noNull :: (Monad m) => Maybe a -> StackTraceT m a
 noNull Nothing  = fatal "Null reference"
 noNull (Just x) = return x
 
--- bool containspath(string path)
-containspath :: (MonadIO m) => String -> CreateSTFS -> StackTraceT m Bool
-containspath path this = do
-  cfes <- get (cs_xFolderDirectory this) >>= noNull >>= get
-  flip anyM cfes $ \x -> do
-    xtp <- get $ ci_xthispath $ cfo_base x
-    return $ map toLower xtp == map toLower path
-
-data ItemEntry
-
-data FileEntry
-
-data FolderEntry
-
-newFolderEntry :: (MonadIO m) =>
-  String -> Int32 -> Word16 -> Word16 -> STFSPackage -> StackTraceT m FolderEntry
-newFolderEntry = undefined
-
-newSTFSDescriptor :: (MonadIO m) => STFSType -> Word32 -> StackTraceT m STFSDescriptor
-newSTFSDescriptor = undefined
-{-
-internal STFSDescriptor(STFSType xType, uint xTotalBlocks)
-{
-    XSetStructure(xType);
-    xStruct = new byte[] { 0, 0, 0, 0, 0 };
-    if (xTotalBlocks > SpaceBetween[2])
-    {
-        xStruct = null;
-        throw STFSExcepts.MaxOver;
-    }
-    xBlockCount = xTotalBlocks;
-    xBaseByte = (byte)((ThisType == STFSType.Type0) ? 0xB : 0xA);
-}
--}
-
-xSetStructure :: (MonadIO m) =>STFSType -> STFSDescriptor -> StackTraceT m ()
-xSetStructure = undefined
-{-
-void XSetStructure(STFSType xType)
-{
-    switch (xType)
-    {
-        case STFSType.Type0:
-            {
-                xSpaceBetween[0] = 0xAB;
-                xSpaceBetween[1] = 0x718F;
-                xSpaceBetween[2] = 0xFE7DA; // Max Block
-                Shift = 0;
-            }
-            break;
-
-        case STFSType.Type1:
-            {
-                xSpaceBetween[0] = 0xAC;
-                xSpaceBetween[1] = 0x723A;
-                xSpaceBetween[2] = 0xFD00B; // Max Block before size of package over does FATX limit
-                Shift = 1;
-            }
-            break;
-        default: break;
-    }
-}
--}
+setIndex :: (MonadIO m) => Int -> a -> Maybe (List a) -> StackTraceT m ()
+setIndex i x mlst = do
+  lst <- noNull mlst
+  xs <- get lst
+  lst $= case splitAt i xs of
+    (a, b) -> a ++ [x] ++ drop 1 b
 
 tempDJsIO :: (MonadIO m) => Bool -> StackTraceT m DJsIO
 tempDJsIO = undefined
@@ -391,7 +179,7 @@ public DJsIO(bool BigEndian)
 }
 -}
 
-dj_Dispose :: (MonadIO m) => Bool -> DJsIO -> StackTraceT m Bool
+dj_Dispose :: (MonadIO m) => Bool -> Meth m DJsIO Bool
 dj_Dispose = undefined
 {-
 public virtual bool Dispose()
@@ -416,7 +204,7 @@ internal bool Dispose(bool DeleteFile)
 }
 -}
 
-dj_Close :: DJsIO -> StackTraceT m Bool
+dj_Close :: Meth m DJsIO Bool
 dj_Close = undefined
 {-
 public virtual bool Close()
@@ -430,16 +218,8 @@ public virtual bool Close()
 }
 -}
 
-data BlockRecord
-
-newBlockRecord_empty :: (MonadIO m) => StackTraceT m BlockRecord
-newBlockRecord_empty = undefined
-
-blockRecord_set_ThisBlock :: Word32 -> BlockRecord -> StackTraceT m ()
-blockRecord_set_ThisBlock = undefined
-
-xWriteChain :: (MonadIO m) => Maybe (List BlockRecord) -> STFSPackage -> StackTraceT m Bool
-xWriteChain = undefined
+sp_xWriteChain :: (MonadIO m) => Maybe (List BlockRecord) -> Meth m STFSPackage Bool
+sp_xWriteChain = undefined
 {-
 internal bool xWriteChain(BlockRecord[] xRecs)
 {
@@ -454,14 +234,6 @@ internal bool xWriteChain(BlockRecord[] xRecs)
 }
 -}
 
--- internal byte GetDirectoryCount { get { return (byte)(((xFileDirectory.Count + xFolderDirectory.Count - 1) / 0x40) + 1); } }
-getDirectoryCount :: (MonadIO m) => CreateSTFS -> StackTraceT m Word8
--- Subtract 1 for prevention of Modular error
-getDirectoryCount this = do
-  files <- get (cs_xFileDirectory this) >>= listCount
-  folders <- get (cs_xFolderDirectory this) >>= listCount
-  return $ fromIntegral $ quot (files + folders - 1) 0x40 + 1
-
 newSTFSPackage :: (SendMessage m, MonadIO m) =>
   CreateSTFS -> RSAParams -> FilePath -> StackTraceT m STFSPackage
 newSTFSPackage xSession xSigning _xOutPath = do
@@ -474,18 +246,18 @@ newSTFSPackage xSession xSigning _xOutPath = do
   do
       lg "Setting Package variables"
       -- ignoring threading stuff
-      newFolderEntry "" 0 0xFFFF 0xFFFF this >>= (sp_xroot this $=) . Just
+      newFolderEntry_5 (Just "") 0 0xFFFF 0xFFFF (Just this) >>= (sp_xroot this $=) . Just
       -- ignoring ThematicSkin/Game stuff
       (sp_xHeader this $=) =<< get (cs_HeaderData xSession)
-      get (cs_STFSType xSession) >>= \stype -> newSTFSDescriptor stype 0 >>= (sp_xSTFSStruct this $=) . Just
+      get (cs_STFSType xSession) >>= \stype -> newSTFSDescriptor_type_uint stype 0 >>= (sp_xSTFSStruct this $=) . Just
       (sp_xIO this $=) . Just =<< tempDJsIO True
       (sp_xFileBlocks this $=) . Just =<< var =<< do
-        gdc <- getDirectoryCount xSession
+        gdc <- cs_GetDirectoryCount xSession
         forM [0 .. fromIntegral gdc - 1] $ \i -> do
           br <- newBlockRecord_empty
-          blockRecord_set_ThisBlock i br
+          br_ThisBlock br $= i
           return br
-      void $ get (sp_xFileBlocks this) >>= \xfb -> this & xWriteChain xfb
+      void $ get (sp_xFileBlocks this) >>= \xfb -> this & sp_xWriteChain xfb
       void undefined
     `catchError` \err -> do
       sp_xFileDirectory this $= Nothing
@@ -625,25 +397,46 @@ public STFSPackage(CreateSTFS xSession, RSAParams xSigning, string xOutPath, Log
 }
 -}
 
-flushPackage :: (MonadIO m) => RSAParams -> STFSPackage -> StackTraceT m ()
-flushPackage = undefined
-{-
-public bool FlushPackage(RSAParams xParams)
-{
-    if (!ActiveCheck())
-        return false;
-    try
-    {
-        bool xsucceeded = (xWriteTables() && xWriteHeader(xParams));
-        xActive = false;
-        return xsucceeded;
-    }
-    catch (Exception x) { xActive = false; throw x; }
-}
--}
+-- public bool FlushPackage(RSAParams xParams)
+sp_FlushPackage :: (SendMessage m, MonadIO m) => Maybe RSAParams -> Meth m STFSPackage Bool
+sp_FlushPackage xParams this = sp_ActiveCheck this >>= \case
+  False -> return False
+  True -> catchError
+    % do
+      xsucceeded <- andM [this & sp_xWriteTables, this & sp_xWriteHeader xParams]
+      sp_xActive this $= False
+      return xsucceeded
+    % \err -> do
+      sp_xActive this $= False
+      throwError err
 
-xWriteTables :: (SendMessage m, MonadIO m) => STFSPackage -> StackTraceT m Bool
-xWriteTables = undefined
+-- internal bool XTakeHash(long xRead, long xWrite, int xSize)
+sp_XTakeHash_3 :: (MonadIO m) => Int64 -> Int64 -> Int32 -> Meth m STFSPackage Bool
+sp_XTakeHash_3 xRead xWrite xSize this = do
+  xIO <- get $ sp_xIO this
+  this & sp_XTakeHash_5 xIO xRead xWrite xSize xIO
+
+-- bool XTakeHash(long xRead, long xWrite, int xSize, ref DJsIO io)
+sp_XTakeHash_4 :: (MonadIO m) => Int64 -> Int64 -> Int32 -> Maybe DJsIO -> Meth m STFSPackage Bool
+sp_XTakeHash_4 xRead xWrite xSize io = sp_XTakeHash_5 io xRead xWrite xSize io
+
+-- bool XTakeHash(ref DJsIO ioin, long xRead, long xWrite, int xSize, ref DJsIO ioout)
+sp_XTakeHash_5 :: (MonadIO m) =>
+  Maybe DJsIO -> Int64 -> Int64 -> Int32 -> Maybe DJsIO -> Meth m STFSPackage Bool
+sp_XTakeHash_5 = undefined
+-- try
+-- {
+--     ioin.Position = xRead;
+--     byte[] xData = ioin.ReadBytes(xSize);
+--     ioout.Position = xWrite;
+--     ioout.Write(SHA1Quick.ComputeHash(xData));
+--     return true;
+-- }
+-- catch { return false; }
+
+-- bool xWriteTables()
+sp_xWriteTables :: (SendMessage m, MonadIO m) => Meth m STFSPackage Bool
+sp_xWriteTables = undefined
 {-
 bool xWriteTables()
 {
@@ -685,8 +478,8 @@ bool xWriteTables()
 data TreeLevel = L0 | L1 | L2 | LT
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-generateBaseOffset :: (MonadIO m) => Word32 -> TreeLevel -> STFSPackage -> StackTraceT m Int64
-generateBaseOffset = undefined
+sp_GenerateBaseOffset :: (MonadIO m) => Word32 -> TreeLevel -> Meth m STFSPackage Int64
+sp_GenerateBaseOffset = undefined
 {-
 internal long GenerateBaseOffset(uint xBlock, TreeLevel xTree)
 {
@@ -697,8 +490,8 @@ internal long GenerateBaseOffset(uint xBlock, TreeLevel xTree)
 }
 -}
 
-xWriteHeader :: (SendMessage m, MonadIO m) => RSAParams -> STFSPackage -> StackTraceT m Bool
-xWriteHeader = undefined
+sp_xWriteHeader :: (SendMessage m, MonadIO m) => Maybe RSAParams -> Meth m STFSPackage Bool
+sp_xWriteHeader = undefined
 {-
 internal bool xWriteHeader(RSAParams xParams)
 {
@@ -773,8 +566,8 @@ internal bool xWriteHeader(RSAParams xParams)
 -}
 
 -- internal bool ActiveCheck()
-activeCheck :: (MonadIO m) => STFSPackage -> StackTraceT m Bool
-activeCheck this = parseCheck this >>= \case
+sp_ActiveCheck :: (MonadIO m) => Meth m STFSPackage Bool
+sp_ActiveCheck this = sp_ParseCheck this >>= \case
   False -> return False
   True -> get (sp_xActive this) >>= \case
     True -> return False
@@ -782,8 +575,8 @@ activeCheck this = parseCheck this >>= \case
       sp_xActive this $= True
       return True
 
-parseCheck :: (MonadIO m) => STFSPackage -> StackTraceT m Bool
-parseCheck = undefined
+sp_ParseCheck :: (MonadIO m) => Meth m STFSPackage Bool
+sp_ParseCheck = undefined
 {-
 protected internal bool ParseCheck()
 {
@@ -794,11 +587,11 @@ protected internal bool ParseCheck()
 -}
 
 -- public bool ParseSuccess { get { return xIO != null; } }
-parseSuccess :: (MonadIO m) => STFSPackage -> StackTraceT m Bool
+parseSuccess :: (MonadIO m) => Meth m STFSPackage Bool
 parseSuccess = fmap isJust . get . sp_xIO
 
 -- public bool CloseIO()
-closeIO :: (MonadIO m) => STFSPackage -> StackTraceT m Bool
+closeIO :: (MonadIO m) => Meth m STFSPackage Bool
 closeIO this = get (sp_xActive this) >>= \case
   True -> return False
   False -> do
@@ -840,3 +633,627 @@ isValidXboxName x = do
 -- internal static string xExtractName(this string xin)
 xExtractName :: String -> String
 xExtractName = reverse . takeWhile (/= '/') . reverse
+
+glue4Bytes :: Word8 -> Word8 -> Word8 -> Word8 -> Word32
+glue4Bytes a b c d
+  =   (fromIntegral a `shiftL` 24)
+  .|. (fromIntegral b `shiftL` 16)
+  .|. (fromIntegral c `shiftL` 8)
+  .|.  fromIntegral d
+
+glue2Bytes :: Word8 -> Word8 -> Word16
+glue2Bytes a b = (fromIntegral a `shiftL` 8) .|. fromIntegral b
+
+data HashFlag
+  = Unallocated
+  | AllocatedFree
+  | AllocatedInUseOld
+  | AllocatedInUseCurrent
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data HashStatus
+  = HashStatus_Unused
+  | HashStatus_Old
+  | HashStatus_New
+  | HashStatus_Reused
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+(%) :: (a -> b) -> a -> b
+(%) = id
+infixl 0 %
+
+constants_BlockLevel0, constants_BlockLevel1 :: Word32
+constants_BlockLevel0 = 0xAA
+constants_BlockLevel1 = 0x70E4
+
+listIndex :: (MonadIO m) => Int -> Maybe (List a) -> StackTraceT m a
+listIndex i mlst = noNull mlst >>= get >>= return . (!! i)
+
+---------
+-- STFSDescriptor.cs
+---------
+
+data BlockRecord = BlockRecord
+  { br_xFlags     :: Nullable (List Word8)
+  , br_xThisBlock :: Nullable (List Word8)
+  , br_xLevel     :: IORef Word8
+  }
+
+initBlockRecord :: (MonadIO m) => StackTraceT m BlockRecord
+initBlockRecord = do
+  br_xFlags <- var Nothing
+  br_xThisBlock <- var (replicate 3 0) >>= var . Just
+  br_xLevel <- var 0
+  return BlockRecord{..}
+
+br_ThisBlock :: BlockRecord -> StateVar Word32
+br_ThisBlock = undefined
+
+br_ThisLevel :: BlockRecord -> StateVar TreeLevel
+br_ThisLevel = undefined
+
+br_Indicator :: BlockRecord -> StateVar Word8
+br_Indicator = undefined
+
+br_Flags :: BlockRecord -> StateVar Word32
+br_Flags = undefined
+
+-- public BlockRecord() { xFlags = new byte[] { 0, 0, 0, 0 }; }
+newBlockRecord_empty :: (MonadIO m) => StackTraceT m BlockRecord
+newBlockRecord_empty = do
+  this <- initBlockRecord
+  (br_xFlags this $=) . Just =<< var [0, 0, 0, 0]
+  return this
+
+-- public BlockRecord(uint xFlagIn) { Flags = xFlagIn; }
+newBlockRecord_uint :: (MonadIO m) => Word32 -> StackTraceT m BlockRecord
+newBlockRecord_uint xFlagIn = do
+  this <- initBlockRecord
+  (br_Flags this) $= xFlagIn
+  return this
+
+-- public BlockRecord(HashStatus xStatus, uint xNext) { Flags = (uint)((uint)xStatus << 30 | (xNext & 0xFFFFFF)); }
+newBlockRecord_hash_uint :: (MonadIO m) => HashStatus -> Word32 -> StackTraceT m BlockRecord
+newBlockRecord_hash_uint = undefined
+
+br_Status :: BlockRecord -> StateVar HashStatus
+br_Status = undefined
+
+br_NextBlock :: BlockRecord -> StateVar Word32
+br_NextBlock = undefined
+
+br_MarkOld :: (MonadIO m) => Meth m BlockRecord ()
+br_MarkOld = undefined
+
+br_Index :: BlockRecord -> GettableStateVar Word8
+br_Index = undefined
+
+br_AllocationFlag :: BlockRecord -> StateVar HashFlag
+br_AllocationFlag = undefined
+
+br_BlocksFree :: BlockRecord -> StateVar Int32
+br_BlocksFree = undefined
+
+br_Switch :: (MonadIO m) => BlockRecord -> StackTraceT m Bool
+br_Switch = undefined
+
+data STFSDescriptor = STFSDescriptor
+  { sd_xStruct       :: Nullable (List Word8)
+  , sd_xSpaceBetween :: Nullable (List Word32) -- also SpaceBetween
+  , sd_xBaseByte     :: IORef Word8
+  , sd_xBlockCount   :: IORef Word32 -- also BlockCount
+  , sd_TopRecord     :: Nullable BlockRecord
+  , sd_Shift         :: IORef Word8
+  }
+
+sd_DirectoryBlockCount :: STFSDescriptor -> StateVar Word16
+sd_DirectoryBlockCount = undefined
+
+sd_DirectoryBlock :: STFSDescriptor -> StateVar Word32
+sd_DirectoryBlock = undefined
+
+sd_BaseBlock :: STFSDescriptor -> GettableStateVar Word16
+sd_BaseBlock = undefined
+
+sd_ThisType :: STFSDescriptor -> GettableStateVar STFSType
+sd_ThisType = undefined
+
+sd_OldBlockCount :: STFSDescriptor -> GettableStateVar Word32
+sd_OldBlockCount = undefined
+
+initSTFSDescriptor :: (MonadIO m) => StackTraceT m STFSDescriptor
+initSTFSDescriptor = do
+  sd_xStruct <- var Nothing
+  sd_xSpaceBetween <- var (replicate 3 0) >>= var . Just
+  sd_xBaseByte <- var 0
+  sd_xBlockCount <- var 0
+  sd_TopRecord <- newBlockRecord_empty >>= var . Just
+  sd_Shift <- var 0
+  return STFSDescriptor{..}
+
+-- internal STFSDescriptor(STFSType xType, uint xTotalBlocks)
+newSTFSDescriptor_type_uint :: (MonadIO m) => STFSType -> Word32 -> StackTraceT m STFSDescriptor
+newSTFSDescriptor_type_uint xType xTotalBlocks = do
+  this <- initSTFSDescriptor
+  this & sd_XSetStructure xType
+  (sd_xStruct this $=) . Just =<< var [0, 0, 0, 0, 0]
+  sb <- get (sd_xSpaceBetween this) >>= noNull >>= get
+  when (xTotalBlocks > (sb !! 2)) $ do
+    sd_xStruct this $= Nothing
+    fatal "STFSExcepts.MaxOver"
+  sd_xBlockCount this $= xTotalBlocks
+  (sd_xBaseByte this $=) =<< do
+    get (sd_ThisType this) >>= return . \case
+      STFSType_Type0 -> 0xB
+      _              -> 0xA
+  return this
+
+-- void XSetStructure(STFSType xType)
+sd_XSetStructure :: (MonadIO m) => STFSType -> Meth m STFSDescriptor ()
+sd_XSetStructure xType this = case xType of
+  STFSType_Type0 -> do
+    xsb <- get $ sd_xSpaceBetween this
+    xsb & setIndex 0 0xA0
+    xsb & setIndex 1 0x718F
+    xsb & setIndex 2 0xFE7DA -- Max Block
+    sd_Shift this $= 0
+  STFSType_Type1 -> do
+    xsb <- get $ sd_xSpaceBetween this
+    xsb & setIndex 0 0xAC
+    xsb & setIndex 1 0x723A
+    xsb & setIndex 2 0xFD00B -- Max Block before size of package over does FATX limit
+    sd_Shift this $= 1
+
+-- internal STFSDescriptor(byte[] xDescriptor, uint xTotalBlocks, uint xOldBlocks, byte xType)
+newSTFSDescriptor_bytes_uint_uint_byte :: (MonadIO m) => Maybe (List Word8) -> Word32 -> Word32 -> Word8 -> StackTraceT m STFSDescriptor
+newSTFSDescriptor_bytes_uint_uint_byte = undefined
+
+-- internal STFSDescriptor(STFSPackage xPackage)
+newSTFSDescriptor_pkg :: (MonadIO m) => Maybe STFSPackage -> StackTraceT m STFSDescriptor
+newSTFSDescriptor_pkg = undefined
+
+-- internal uint GenerateDataBlock(uint xBlock)
+sd_GenerateDataBlock :: (MonadIO m) => Word32 -> Meth m STFSDescriptor Word32
+sd_GenerateDataBlock xBlock _this
+  | xBlock >= 0x4AF768 = return $ fromIntegral constants_STFSEnd
+  | otherwise = catchError
+    % do
+      undefined
+      -- // Gets 0xAA section, shifts it for 1 or 2 tables per section, and adds original block
+      -- uint num = ((((xBlock / BlockLevel[0]) + 1) << Shift) + xBlock);
+      -- if (xBlock < BlockLevel[0]) // if the block is less than 0xAA, return teh sexy
+      --     return num;
+      -- // Gets current 0x70e4 section, adjusts to table count
+      -- num += (((xBlock / BlockLevel[1]) + 1) << Shift);
+      -- if (xBlock < BlockLevel[1]) // If the block is less than 0x70e4, return teh sexy
+      --     return num;
+      -- // There is only going to be 1 0x4AF768 section, add to base
+      -- return num + (uint)(1 << Shift);
+    % \_ -> fatal "STFSExcepts.General"
+
+-- internal uint GenerateHashBlock(uint xBlock, TreeLevel xTree)
+sd_GenerateHashBlock :: (MonadIO m) => Word32 -> TreeLevel -> Meth m STFSDescriptor Word32
+sd_GenerateHashBlock xBlock xTree this
+  | xBlock >= 0x4AF768 = return $ fromIntegral constants_STFSEnd
+  | otherwise = catchError
+    % case xTree of
+      L0 -> do
+        sp0 <- get (sd_xSpaceBetween this) >>= listIndex 0
+        shft <- fromIntegral <$> get (sd_Shift this)
+        return $ sum $ concat
+          -- Get Base Level 0 Table
+          [ [ (xBlock `quot` constants_BlockLevel0) * sp0 ]
+          -- Adjusts the result for Level 1 table count
+          , do
+            guard $ xBlock >= constants_BlockLevel0
+            return $ ((xBlock `quot` constants_BlockLevel1) + 1) `shiftL` shft
+          -- Adjusts for the Level 2 table
+          , do
+            guard $ xBlock >= constants_BlockLevel1
+            return $ 1 `shiftL` shft
+          ]
+      L1 -> do
+        -- Grab the number of Table 1 blocks
+        if xBlock < constants_BlockLevel1
+          then get (sd_xSpaceBetween this) >>= listIndex 0
+          else do
+            sb1 <- get (sd_xSpaceBetween this) >>= listIndex 1
+            shft <- fromIntegral <$> get (sd_Shift this)
+            return $ sb1 * (xBlock `quot` constants_BlockLevel1) + (1 `shiftL` shft)
+      L2 -> do
+        -- Only one Level 2 table
+        get (sd_xSpaceBetween this) >>= listIndex 1
+      _ -> return $ fromIntegral constants_STFSEnd
+    % \_ -> fatal "STFSExcepts.General"
+
+-- internal long GenerateHashOffset(uint xBlock, TreeLevel xTree)
+sd_GenerateHashOffset :: (MonadIO m) => Word32 -> TreeLevel -> Meth m STFSDescriptor Int64
+sd_GenerateHashOffset xBlock xTree this
+  | xBlock >= 0x4AF768 = return $ fromIntegral constants_STFSEnd
+  | otherwise = catchError
+    % do
+      result <- this & sd_GenerateHashBlock xBlock xTree
+      xReturn <- this & sd_BlockToOffset result
+      return $ xReturn + case xTree of
+        L0 -> 0x18 * fromIntegral (xBlock `rem` constants_BlockLevel0)
+        L1 -> 0x18 * fromIntegral ((xBlock `quot` constants_BlockLevel0) `rem` constants_BlockLevel0)
+        L2 -> 0x18 * fromIntegral ((xBlock `quot` constants_BlockLevel1) `rem` constants_BlockLevel0)
+        _  -> 0
+    % \_ -> fatal "STFSExcepts.General"
+
+-- internal long GenerateDataOffset(uint xBlock)
+sd_GenerateDataOffset :: (MonadIO m) => Word32 -> Meth m STFSDescriptor Int64
+sd_GenerateDataOffset xBlock this = catchError
+  % do
+    if xBlock >= 0x4AF768
+      then return $ fromIntegral constants_STFSEnd
+      else (`sd_BlockToOffset` this) =<< (this & sd_GenerateDataBlock xBlock)
+  % \_ -> fatal "STFSExcepts.General"
+
+-- internal long BlockToOffset(uint xBlock)
+sd_BlockToOffset :: (MonadIO m) => Word32 -> Meth m STFSDescriptor Int64
+sd_BlockToOffset xBlock this = catchError
+  % do
+    ((fromIntegral xBlock * 0x1000) +) . fromIntegral <$> get (sd_BaseBlock this)
+  % \_ -> fatal "STFSExcepts.General"
+
+-- internal long GenerateBaseOffset(uint xBlock, TreeLevel xTree)
+sd_GenerateBaseOffset :: (MonadIO m) => Word32 -> TreeLevel -> Meth m STFSDescriptor Int64
+sd_GenerateBaseOffset xBlock xTree this = catchError
+  % do
+    (`sd_BlockToOffset` this) =<< (this & sd_GenerateHashBlock xBlock xTree)
+  % \_ -> fatal "STFSExcepts.General"
+
+-- internal byte[] GetData()
+sd_GetData :: (MonadIO m) => Meth m STFSDescriptor (List Word8)
+sd_GetData = undefined
+-- byte idx = 1;
+-- if (ThisType == STFSType.Type1)
+--     idx = (byte)(TopRecord.Index << 1);
+-- // Returns the Descriptor in a data fashion
+-- List<byte> xReturn = new List<byte>();
+-- xReturn.AddRange(new byte[] { 0x24, 0 });
+-- xReturn.Add(idx);
+-- xReturn.AddRange(xStruct);
+-- xReturn.AddRange(new byte[20]);
+-- xReturn.AddRange(BitConv.GetBytes(xBlockCount, true));
+-- xReturn.AddRange(BitConv.GetBytes(TopRecord.BlocksFree, true));
+-- return xReturn.ToArray();
+
+---------
+-- Create.cs
+---------
+
+data CItemEntry = CItemEntry
+  { ci_create    :: Nullable CreateSTFS
+  , ci_xthispath :: Nullable String
+  }
+
+newCItemEntry :: (MonadIO m) => Maybe String -> Maybe CreateSTFS -> m CItemEntry
+newCItemEntry path xCreate = do
+  ci_xthispath <- var path
+  ci_create <- var xCreate
+  return CItemEntry{..}
+
+-- internal string getparentpath()
+ci_getparentpath :: Meth m CItemEntry String
+ci_getparentpath = undefined
+-- int idx = xthispath.LastIndexOf('/');
+-- if (idx == -1)
+--     return "";
+-- return xthispath.Substring(0, idx).ToLower();
+
+ci_Name_get :: (MonadIO m) => Meth m CItemEntry (Maybe String)
+ci_Name_get this = fmap (Just . xExtractName) $ get (ci_xthispath this) >>= noNull
+
+ci_Name_set :: Maybe String -> Meth m CItemEntry ()
+ci_Name_set = undefined
+
+-- public static uint BlockCount(string file)
+createTools_BlockCount :: (MonadIO m) => Maybe FilePath -> StackTraceT m Word32
+createTools_BlockCount mfile = do
+  file <- noNull mfile
+  stackIO $ Dir.doesFileExist file >>= \case
+    False -> return constants_STFSEnd
+    True -> do
+      len <- (fromIntegral :: Integer -> Int64) <$> withBinaryFile file ReadMode hFileSize
+      return $ fromIntegral $ quot (len - 1) 0x1000 + 1
+
+data CFileEntry = CFileEntry
+  { cfi_base       :: CItemEntry
+  , cfi_filelocale :: Nullable String
+  }
+
+cfi_BlockCount :: (MonadIO m) => CFileEntry -> StackTraceT m Word32
+cfi_BlockCount this = get (cfi_filelocale this) >>= createTools_BlockCount
+
+-- public int GetLength() { return (int)new FileInfo(filelocale).Length; }
+cfi_GetLength :: (MonadIO m) => Meth m CFileEntry Int32
+cfi_GetLength = undefined
+
+newCFileEntry :: (MonadIO m) => Maybe String -> Maybe String -> Maybe CreateSTFS -> m CFileEntry
+newCFileEntry xFile path xCreate = do
+  cfi_base <- newCItemEntry path xCreate
+  cfi_filelocale <- var xFile
+  return CFileEntry{..}
+
+data CFolderEntry = CFolderEntry
+  { cfo_base :: CItemEntry
+  }
+
+newCFolderEntry :: (MonadIO m) => Maybe String -> Maybe CreateSTFS -> m CFolderEntry
+newCFolderEntry path xCreate = CFolderEntry <$> newCItemEntry path xCreate
+
+-- public CFileEntry[] GetFiles()
+cfo_GetFiles :: Meth m CFolderEntry (List CFileEntry)
+cfo_GetFiles = undefined
+-- List<CFileEntry> xReturn = new List<CFileEntry>();
+-- foreach (CFileEntry x in create.xFileDirectory)
+-- {
+--     if (x.getparentpath() == xthispath.ToLower())
+--         xReturn.Add(x);
+-- }
+-- return xReturn.ToArray();
+
+data SphereColor
+
+data DashStyle
+
+data ThemeParams
+
+data CreateSTFS = CreateSTFS
+  { cs_xFileDirectory   :: Nullable (List CFileEntry)
+  , cs_xFolderDirectory :: Nullable (List CFolderEntry)
+  , cs_STFSType         :: IORef STFSType -- also xStruct
+  , cs_HeaderData       :: Nullable HeaderData
+  , cs_xtheme           :: Nullable ThemeParams -- also ThemeSettings
+  , cs_root             :: Nullable CFolderEntry -- also RootPath
+  }
+
+-- internal uint[] BlockStep
+cs_BlockStep :: (MonadIO m) => Meth m CreateSTFS [Word32]
+cs_BlockStep this = do
+  xStruct <- get $ cs_STFSType this
+  return
+    [ 0xAA, 0x70E4
+    , case xStruct of
+      STFSType_Type0 -> 0xFE7DA
+      STFSType_Type1 -> 0xFD00B
+    ]
+
+-- internal byte GetDirectoryCount { get { return (byte)(((xFileDirectory.Count + xFolderDirectory.Count - 1) / 0x40) + 1); } }
+cs_GetDirectoryCount :: (MonadIO m) => Meth m CreateSTFS Word8
+-- Subtract 1 for prevention of Modular error
+cs_GetDirectoryCount this = do
+  files <- get (cs_xFileDirectory this) >>= listCount
+  folders <- get (cs_xFolderDirectory this) >>= listCount
+  return $ fromIntegral $ quot (files + folders - 1) 0x40 + 1
+
+-- short UppedDirectCount { get { return (byte)(((xFileDirectory.Count + xFolderDirectory.Count - 1) / 0x40) + 1); } }
+cs_UppedDirectCount :: (MonadIO m) => Meth m CreateSTFS Int16
+cs_UppedDirectCount this = do
+  files <- get (cs_xFileDirectory this) >>= listCount
+  folders <- get (cs_xFolderDirectory this) >>= listCount
+  let n = quot (files + folders - 1) 0x40 + 1
+  return $ fromIntegral (fromIntegral n :: Word8)
+
+-- internal uint TotalBlocks
+cs_TotalBlocks :: (MonadIO m) => Meth m CreateSTFS Word32
+cs_TotalBlocks this = do
+  xReturn <- fromIntegral <$> cs_GetDirectoryCount this
+  files <- get (cs_xFileDirectory this) >>= noNull >>= get
+  sum . (xReturn :) <$> mapM cfi_BlockCount files
+
+-- uint UppedTotalBlocks(uint xFileAdd) { return (uint)(UppedDirectCount + xFileAdd); }
+cs_UppedTotalBlocks :: (MonadIO m) => Word32 -> Meth m CreateSTFS Word32
+cs_UppedTotalBlocks xFileAdd this = (xFileAdd +) . fromIntegral <$> cs_UppedDirectCount this
+
+initCreateSTFS :: (MonadIO m) => StackTraceT m CreateSTFS
+initCreateSTFS = do
+  cs_xFileDirectory   <- var [] >>= var . Just
+  cs_xFolderDirectory <- var [] >>= var . Just
+  cs_STFSType         <- var STFSType_Type0
+  cs_HeaderData       <- undefined -- public HeaderData HeaderData = new HeaderData();
+  cs_xtheme           <- undefined -- ThemeParams xtheme = new ThemeParams();
+  cs_root             <- var Nothing
+  return CreateSTFS{..}
+
+-- public CreateSTFS() { root = new CFolderEntry("", this); }
+newCreateSTFS :: (MonadIO m) => StackTraceT m CreateSTFS
+newCreateSTFS = do
+  this <- initCreateSTFS
+  (cs_root this $=) . Just =<< newCFolderEntry (Just "") (Just this)
+  return this
+
+-- public bool AddFile(string FileLocation, string FilePath)
+cs_AddFile :: (MonadIO m) => Maybe FilePath -> Maybe FilePath -> Meth m CreateSTFS Bool
+cs_AddFile fileLocation filePath this = let
+  c1 = (>= 0x3FF) <$> cs_UppedDirectCount this
+  utb = createTools_BlockCount fileLocation >>= \bc -> this & cs_UppedTotalBlocks bc
+  bs2 = (!! 2) <$> cs_BlockStep this
+  c2 = liftA2 (>) utb bs2
+  c3 = return $ null filePath
+  in orM [c1, c2, c3] >>= \case
+    True -> return False
+    False -> do
+      filePath' <- xExtractLegitPath filePath
+      (this & cs_containsfile filePath') >>= \case
+        True -> return False
+        False -> do
+          cfe <- newCFileEntry fileLocation filePath' (Just this)
+          get (cs_xFileDirectory this) >>= listAdd cfe
+          return True
+
+-- public bool AddFolder(string FolderPath)
+cs_AddFolder :: (MonadIO m) => Maybe FilePath -> Meth m CreateSTFS Bool
+cs_AddFolder folderPath this = fun $ \ret -> do
+  folderPath' <- lift $ xExtractLegitPath folderPath
+  when (folderPath' == Just "") $ ret False
+  idx <- lift $ lastIndexOf '/' <$> noNull folderPath'
+  name <- var $ Just ""
+  case idx of
+    Nothing -> name $= folderPath'
+    Just i -> do
+      fp' <- lift $ noNull folderPath'
+      name $= Just (drop (i + 1) fp')
+      let parentpath = take i fp'
+      b <- lift $ this & cs_containspath (Just parentpath)
+      unless b $ ret False
+  b <- lift $ this & cs_containspath folderPath'
+  when b $ ret False
+  _ <- lift $ get name >>= noNull >>= isValidXboxName
+  cfe <- lift $ newCFolderEntry folderPath' (Just this)
+  lift $ get (cs_xFolderDirectory this) >>= listAdd cfe
+  return True
+
+-- bool containspath(string path)
+cs_containspath :: (MonadIO m) => Maybe FilePath -> Meth m CreateSTFS Bool
+cs_containspath path this = do
+  cfes <- get (cs_xFolderDirectory this) >>= noNull >>= get
+  flip anyM cfes $ \x -> do
+    xtp <- get $ ci_xthispath $ cfo_base x
+    (==) <$> fmap (map toLower) (noNull xtp) <*> fmap (map toLower) (noNull path)
+
+cs_containsfile :: (MonadIO m) => Maybe FilePath -> Meth m CreateSTFS Bool
+cs_containsfile = cs_containspath
+
+-- public bool DeleteFolder(string FolderPath)
+cs_DeleteFolder :: (MonadIO m) => Maybe String -> Meth m CreateSTFS Bool
+cs_DeleteFolder = undefined
+{-
+FolderPath = FolderPath.xExtractLegitPath();
+if (!containspath(FolderPath))
+    return false;
+for (int i = 0; i < xFolderDirectory.Count; i++)
+{
+    if (xFolderDirectory[i].getparentpath() == FolderPath.ToLower())
+        DeleteFolder(xFolderDirectory[i].xthispath);
+}
+for (int i = 0; i < xFileDirectory.Count; i++)
+{
+    if (xFileDirectory[i].getparentpath() == FolderPath.ToLower())
+        xFileDirectory.RemoveAt(i--);
+}
+return true;
+-}
+
+-- public bool DeleteFile(string FilePath)
+cs_DeleteFile :: (MonadIO m) => Maybe String -> Meth m CreateSTFS Bool
+cs_DeleteFile = undefined
+{-
+FilePath = FilePath.xExtractLegitPath();
+for (int i = 0; i < xFileDirectory.Count; i++)
+{
+    if (xFileDirectory[i].xthispath == FilePath.ToLower())
+        xFileDirectory.RemoveAt(i--);
+}
+return true;
+-}
+
+-- public CFileEntry GetFile(string FilePath)
+cs_GetFile :: (MonadIO m) => Maybe String -> Meth m CreateSTFS (Maybe CFileEntry)
+cs_GetFile = undefined
+{-
+FilePath = FilePath.xExtractLegitPath();
+foreach (CFileEntry x in xFileDirectory)
+{
+    if (x.Path.ToLower() == FilePath.ToLower())
+        return x;
+}
+return null;
+-}
+
+-- public CFolderEntry GetFolder(string FolderPath)
+cs_GetFolder :: (MonadIO m) => Maybe String -> Meth m CreateSTFS (Maybe CFolderEntry)
+cs_GetFolder = undefined
+{-
+FolderPath = FolderPath.xExtractLegitPath();
+if (FolderPath == "")
+    return root;
+foreach (CFolderEntry x in xFolderDirectory)
+{
+    if (x.Path.ToLower() == FolderPath.ToLower())
+        return x;
+}
+return null;
+-}
+
+---------
+-- STFSPackage.cs
+---------
+
+data ItemEntry = ItemEntry
+  { ie_xPackage         :: Nullable STFSPackage
+  , ie_xCreated         :: IORef Int32
+  , ie_xAccessed        :: IORef Int32
+  , ie_xSize            :: IORef Int32
+  , ie_xBlockCount      :: IORef Word32
+  , ie_xStartBlock      :: IORef Word32
+  , ie_xName            :: Nullable String
+  , ie_xEntryID         :: IORef Word16
+  , ie_xFolderPointer   :: IORef Word16
+  , ie_xFlag            :: IORef Word8
+  , ie_xDirectoryOffset :: IORef Int64
+  }
+
+-- TODO rest of ItemEntry
+
+data FileEntry = FileEntry
+  { fi_base       :: ItemEntry
+  , fi_xBlocks    :: Nullable (List BlockRecord)
+  , fi_RealStream :: Nullable DJsIO
+  }
+
+-- TODO rest of FileEntry
+
+data FolderEntry = FolderEntry
+  { fo_base :: ItemEntry
+  }
+
+newFolderEntry_1 :: (MonadIO m) => Maybe ItemEntry -> StackTraceT m FolderEntry
+newFolderEntry_1 = undefined
+-- internal FolderEntry(ItemEntry xEntry) : base(xEntry) { }
+
+newFolderEntry_5 :: (MonadIO m) =>
+  Maybe String -> Int32 -> Word16 -> Word16 -> Maybe STFSPackage -> StackTraceT m FolderEntry
+newFolderEntry_5 = undefined
+-- internal FolderEntry(string NameIn, int SizeIn, ushort xID, ushort xFolder, STFSPackage xPackageIn)
+--     : base(NameIn, SizeIn, true, xID, xFolder, xPackageIn) { }
+
+-- TODO rest of FolderEntry
+
+data STFSLicense = STFSLicense
+  { sl_xID    :: IORef Int64
+  , sl_xInt1  :: IORef Int32
+  , sl_xInt2  :: IORef Int32
+  , sl_xfirst :: IORef Bool
+  }
+
+-- TODO rest of STFSLicense
+
+data HeaderData = HeaderData
+  -- TODO rest of the fields
+  { hd_TitleID            :: IORef Word32
+  , hd_Publisher          :: IORef String
+  , hd_Title_Package      :: IORef String
+  , hd_ThisType           :: IORef PackageType
+  , hd_Title_Display      :: IORef String
+  , hd_Description        :: IORef String
+  , hd_PackageImageBinary :: Nullable B.ByteString
+  , hd_ContentImageBinary :: Nullable B.ByteString
+  }
+
+-- TODO rest of HeaderData
+
+data STFSPackage = STFSPackage
+  { sp_xHeader          :: Nullable HeaderData
+  , sp_xFileDirectory   :: Nullable (List FileEntry)
+  , sp_xFolderDirectory :: Nullable (List FolderEntry)
+  , sp_xIO              :: Nullable DJsIO
+  , sp_xSTFSStruct      :: Nullable STFSDescriptor
+  , sp_xFileBlocks      :: Nullable (List BlockRecord)
+  , sp_xActive          :: IORef Bool
+  , sp_xroot            :: Nullable FolderEntry
+  }
+
+-- TODO rest of STFSPackage
