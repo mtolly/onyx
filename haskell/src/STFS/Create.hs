@@ -6,24 +6,26 @@ WIP port of (parts of) X360, a GPL C# library by DJ Shepherd
 module STFS.Create where
 
 import           Control.Applicative            (liftA2)
-import           Control.Monad.Extra            (andM, anyM, forM, guard, orM,
-                                                 unless, unlessM, void, when,
-                                                 whenM)
+import           Control.Monad.Extra            (andM, anyM, forM, forM_, guard,
+                                                 join, orM, unless, unlessM,
+                                                 void, when, whenM)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Cont
 import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
                                                  catchError, fatal, lg, stackIO,
                                                  throwError)
-import           Data.Bits                      (shiftL, (.|.))
+import           Data.Bits                      (shiftL, shiftR, (.&.), (.|.))
 import qualified Data.ByteString                as B
 import           Data.Char                      (toLower)
 import           Data.Function                  ((&))
 import           Data.Int                       (Int16, Int32, Int64)
 import           Data.IORef                     (IORef, newIORef)
+import           Data.List.Split                (splitOn)
 import           Data.Maybe                     (isJust)
 import           Data.StateVar                  (GettableStateVar, StateVar,
                                                  get, ($=))
+import qualified Data.Time                      as Time
 import           Data.Word                      (Word16, Word32, Word8)
 import qualified System.Directory               as Dir
 import           System.IO                      (IOMode (..), hFileSize,
@@ -46,27 +48,11 @@ listAdd x mlst = do
   xs <- get lst
   lst $= (xs ++ [x])
 
--- internal static string xExtractLegitPath(this string xin)
-xExtractLegitPath_pure :: FilePath -> FilePath
-xExtractLegitPath_pure "" = ""
-xExtractLegitPath_pure xin = let
-  xin1 = map (\case '\\' -> '/'; c -> c) xin
-  xin2 = case xin1 of
-    '/' : t -> t
-    _       -> xin1
-  xin3 = case reverse xin2 of
-    '/' : t -> reverse t
-    _       -> xin2
-  in xin3
-
-xExtractLegitPath :: (Monad m) => Maybe FilePath -> StackTraceT m (Maybe FilePath)
-xExtractLegitPath ms = Just . xExtractLegitPath_pure <$> noNull ms
-
-constants_STFSEnd :: Word32
-constants_STFSEnd = 0xFFFFFF
-
 listCount :: (MonadIO m) => Maybe (List a) -> StackTraceT m Int32
 listCount mlst = noNull mlst >>= fmap (fromIntegral . length) . get
+
+hsList :: (MonadIO m) => Maybe (List a) -> StackTraceT m [a]
+hsList mlst = noNull mlst >>= get
 
 fun :: (Monad m) => ((a -> ContT a (StackTraceT m) b) -> ContT a (StackTraceT m) a) -> StackTraceT m a
 fun = evalContT . callCC
@@ -85,8 +71,8 @@ setIndex i x mlst = do
   lst $= case splitAt i xs of
     (a, b) -> a ++ [x] ++ drop 1 b
 
-tempDJsIO :: (MonadIO m) => Bool -> StackTraceT m DJsIO
-tempDJsIO = undefined
+newDJsIO_temp :: (MonadIO m) => Bool -> StackTraceT m DJsIO
+newDJsIO_temp = undefined
 {-
 public DJsIO(bool BigEndian)
 {
@@ -135,46 +121,6 @@ public virtual bool Close()
 }
 -}
 
--- public bool CloseIO()
-closeIO :: (MonadIO m) => Meth m STFSPackage Bool
-closeIO this = get (sp_xActive this) >>= \case
-  True -> return False
-  False -> do
-    sp_xActive this $= True
-    get (sp_xIO this) >>= \case
-      Nothing -> return ()
-      Just xIO -> void $ dj_Close xIO
-    return True
-
--- public static bool IsValidXboxName(this string x)
-isValidXboxName :: (Monad m) => String -> StackTraceT m Bool
-isValidXboxName x = do
-  let no = map toEnum $ concat
-        [ 0 ... 0x20
-        -- char 0x20 - 0x2D usable symbols except 0x22 and 0x2A
-        , [0x22] -- '"'
-        , [0x2A] -- '*'
-        , [0x2F] -- '/'
-        -- char 0x30 - 0x39 are '0' - '9'
-        , [0x3A] -- ':'
-        -- char 0x3B and 0x3D are usable
-        , [0x3C] -- '<'
-        , 0x3E ... 0x40 -- unusable
-        -- 0x41 - 0x5A are A - Z, usable symbols up thru 0x60 except 0x5C
-        , [0x5C] -- '\'
-        -- 0x61 - 0x7A are a - z, 0x7B, 0x7D, and 0x7E are usable
-        , [0x7C] -- '|'
-        , 0x7F ... 0xFF
-        , [0xFF]
-        ]
-      a ... b = takeWhile (< b) [a..]
-  when (x == "" || any (`elem` no) x) $ fatal "STFSExcepts.InvalChars"
-  return True
-
--- internal static string xExtractName(this string xin)
-xExtractName :: String -> String
-xExtractName = reverse . takeWhile (/= '/') . reverse
-
 glue4Bytes :: Word8 -> Word8 -> Word8 -> Word8 -> Word32
 glue4Bytes a b c d
   =   (fromIntegral a `shiftL` 24)
@@ -188,10 +134,6 @@ glue2Bytes a b = (fromIntegral a `shiftL` 8) .|. fromIntegral b
 (%) :: (a -> b) -> a -> b
 (%) = id
 infixl 0 %
-
-constants_BlockLevel0, constants_BlockLevel1 :: Word32
-constants_BlockLevel0 = 0xAA
-constants_BlockLevel1 = 0x70E4
 
 listIndex :: (MonadIO m) => Int -> Maybe (List a) -> StackTraceT m a
 listIndex i mlst = noNull mlst >>= get >>= return . (!! i)
@@ -304,7 +246,7 @@ newSTFSDescriptor_type_uint xType xTotalBlocks = do
   this <- initSTFSDescriptor
   this & sd_XSetStructure xType
   (sd_xStruct this $=) . Just =<< var [0, 0, 0, 0, 0]
-  sb <- get (sd_xSpaceBetween this) >>= noNull >>= get
+  sb <- get (sd_xSpaceBetween this) >>= hsList
   when (xTotalBlocks > (sb !! 2)) $ do
     sd_xStruct this $= Nothing
     fatal "STFSExcepts.MaxOver"
@@ -577,7 +519,7 @@ cs_UppedDirectCount this = do
 cs_TotalBlocks :: (MonadIO m) => Meth m CreateSTFS Word32
 cs_TotalBlocks this = do
   xReturn <- fromIntegral <$> cs_GetDirectoryCount this
-  files <- get (cs_xFileDirectory this) >>= noNull >>= get
+  files <- get (cs_xFileDirectory this) >>= hsList
   sum . (xReturn :) <$> mapM cfi_BlockCount files
 
 -- uint UppedTotalBlocks(uint xFileAdd) { return (uint)(UppedDirectCount + xFileAdd); }
@@ -645,7 +587,7 @@ cs_AddFolder folderPath this = fun $ \ret -> do
 -- bool containspath(string path)
 cs_containspath :: (MonadIO m) => Maybe FilePath -> Meth m CreateSTFS Bool
 cs_containspath path this = do
-  cfes <- get (cs_xFolderDirectory this) >>= noNull >>= get
+  cfes <- get (cs_xFolderDirectory this) >>= hsList
   flip anyM cfes $ \x -> do
     xtp <- get $ ci_xthispath $ cfo_base x
     (==) <$> fmap (map toLower) (noNull xtp) <*> fmap (map toLower) (noNull path)
@@ -688,31 +630,24 @@ return true;
 
 -- public CFileEntry GetFile(string FilePath)
 cs_GetFile :: (MonadIO m) => Maybe String -> Meth m CreateSTFS (Maybe CFileEntry)
-cs_GetFile = undefined
-{-
-FilePath = FilePath.xExtractLegitPath();
-foreach (CFileEntry x in xFileDirectory)
-{
-    if (x.Path.ToLower() == FilePath.ToLower())
-        return x;
-}
-return null;
--}
+cs_GetFile filePath this = fun $ \ret -> do
+  fp <- lift $ xExtractLegitPath filePath >>= noNull
+  files <- lift $ get (cs_xFileDirectory this) >>= hsList
+  forM_ files $ \x -> do
+    xptl <- lift $ get (ci_xthispath $ cfi_base x) >>= noNull
+    when (map toLower xptl == map toLower fp) $ ret $ Just x
+  return Nothing
 
 -- public CFolderEntry GetFolder(string FolderPath)
 cs_GetFolder :: (MonadIO m) => Maybe String -> Meth m CreateSTFS (Maybe CFolderEntry)
-cs_GetFolder = undefined
-{-
-FolderPath = FolderPath.xExtractLegitPath();
-if (FolderPath == "")
-    return root;
-foreach (CFolderEntry x in xFolderDirectory)
-{
-    if (x.Path.ToLower() == FolderPath.ToLower())
-        return x;
-}
-return null;
--}
+cs_GetFolder folderPath this = fun $ \ret -> do
+  fp <- lift $ xExtractLegitPath folderPath >>= noNull
+  when (fp == "") $ get (cs_root this) >>= ret
+  folders <- lift $ get (cs_xFolderDirectory this) >>= hsList
+  forM_ folders $ \x -> do
+    xptl <- lift $ get (ci_xthispath $ cfo_base x) >>= noNull
+    when (map toLower xptl == map toLower fp) $ ret $ Just x
+  return Nothing
 
 ---------
 -- STFSPackage.cs
@@ -747,12 +682,13 @@ data FolderEntry = FolderEntry
   }
 
 newFolderEntry_1 :: (MonadIO m) => Maybe ItemEntry -> StackTraceT m FolderEntry
-newFolderEntry_1 = undefined
+newFolderEntry_1 xEntry = FolderEntry <$> undefined xEntry
 -- internal FolderEntry(ItemEntry xEntry) : base(xEntry) { }
 
 newFolderEntry_5 :: (MonadIO m) =>
   Maybe String -> Int32 -> Word16 -> Word16 -> Maybe STFSPackage -> StackTraceT m FolderEntry
-newFolderEntry_5 = undefined
+newFolderEntry_5 nameIn sizeIn xID xFolder xPackageIn =
+  FolderEntry <$> undefined nameIn sizeIn True xID xFolder xPackageIn
 -- internal FolderEntry(string NameIn, int SizeIn, ushort xID, ushort xFolder, STFSPackage xPackageIn)
 --     : base(NameIn, SizeIn, true, xID, xFolder, xPackageIn) { }
 
@@ -782,35 +718,165 @@ data HeaderData = HeaderData
 -- TODO rest of HeaderData
 
 data STFSPackage = STFSPackage
-  { sp_xHeader          :: Nullable HeaderData
+  { sp_xHeader          :: Nullable HeaderData -- also Header
   , sp_xFileDirectory   :: Nullable (List FileEntry)
   , sp_xFolderDirectory :: Nullable (List FolderEntry)
   , sp_xIO              :: Nullable DJsIO
-  , sp_xSTFSStruct      :: Nullable STFSDescriptor
+  , sp_xSTFSStruct      :: Nullable STFSDescriptor -- also STFSStruct
   , sp_xFileBlocks      :: Nullable (List BlockRecord)
   , sp_xActive          :: IORef Bool
-  , sp_xroot            :: Nullable FolderEntry
+  , sp_xroot            :: Nullable FolderEntry -- also RootDirectory
   }
 
--- TODO rest of STFSPackage
+-- public bool ParseSuccess { get { return xIO != null; } }
+sp_ParseSuccess :: (MonadIO m) => Meth m STFSPackage Bool
+sp_ParseSuccess = fmap isJust . get . sp_xIO
 
----------------------- UNSORTED
+-- uint xNewEntBlckCnt(uint xCount)
+sp_xNewEntBlckCnt :: (MonadIO m) => Word32 -> Meth m STFSPackage Word32
+sp_xNewEntBlckCnt = undefined
+-- uint x = (uint)(xFileDirectory.Count + xFolderDirectory.Count + xCount);
+-- if (x != 0)
+--     return (uint)(((x - 1) / 0x40) + 1);
+-- return 0;
 
-loadSTFSPackage :: (SendMessage m, MonadIO m) =>
-  FilePath -> StackTraceT m STFSPackage
-loadSTFSPackage = undefined
+-- internal uint xCurEntBlckCnt
+sp_xCurEntBlckCnt :: (MonadIO m) => Meth m STFSPackage Word32
+sp_xCurEntBlckCnt = undefined
+-- int x = (xFileDirectory.Count + xFolderDirectory.Count);
+-- if (x != 0)
+--     return (uint)(((x - 1) / 0x40) + 1);
+-- return 0;
 
+-- bool xExtractPayload(string xOutLocale, bool xIncludeSubItems, bool xIncludeHeader)
+
+-- protected internal void AddToLog(string xInput)
+
+-- protected internal bool ParseCheck()
+sp_ParseCheck :: (MonadIO m) => Meth m STFSPackage Bool
+sp_ParseCheck = undefined
+-- if (xIO == null || !xIO.Accessed || !ParseSuccess)
+--     throw STFSExcepts.Unsuccessful;
+-- return true;
+
+-- internal bool ActiveCheck()
+sp_ActiveCheck :: (MonadIO m) => Meth m STFSPackage Bool
+sp_ActiveCheck this = sp_ParseCheck this >>= \case
+  False -> return False
+  True -> get (sp_xActive this) >>= \case
+    True -> return False
+    False -> do
+      sp_xActive this $= True
+      return True
+
+-- internal bool GetBlocks(uint xCount, uint xStartBlock, out BlockRecord[] xOutBlocks)
+
+-- internal bool XTakeHash(long xRead, long xWrite, int xSize)
+sp_XTakeHash_3 :: (MonadIO m) => Int64 -> Int64 -> Int32 -> Meth m STFSPackage Bool
+sp_XTakeHash_3 xRead xWrite xSize this = do
+  xIO <- get $ sp_xIO this
+  this & sp_XTakeHash_5 xIO xRead xWrite xSize xIO
+
+-- bool XTakeHash(long xRead, long xWrite, int xSize, ref DJsIO io)
+sp_XTakeHash_4 :: (MonadIO m) => Int64 -> Int64 -> Int32 -> Maybe DJsIO -> Meth m STFSPackage Bool
+sp_XTakeHash_4 xRead xWrite xSize io = sp_XTakeHash_5 io xRead xWrite xSize io
+
+-- bool XTakeHash(ref DJsIO ioin, long xRead, long xWrite, int xSize, ref DJsIO ioout)
+sp_XTakeHash_5 :: (MonadIO m) =>
+  Maybe DJsIO -> Int64 -> Int64 -> Int32 -> Maybe DJsIO -> Meth m STFSPackage Bool
+sp_XTakeHash_5 _ioin _xRead _xWrite _xSize _ioout _this = catchError
+  % do
+    -- ioin.Position = xRead;
+    -- byte[] xData = ioin.ReadBytes(xSize);
+    -- ioout.Position = xWrite;
+    -- ioout.Write(SHA1Quick.ComputeHash(xData));
+    -- return true;
+    undefined
+  % \_ -> return False
+
+-- bool XVerifyHash(long xRead, int xSize, ref byte[] xHash)
+
+-- bool xEntriesToFile(out DJsIO xFile)
+
+-- internal bool xWriteTo(ref DJsIO xIOIn, BlockRecord[] xBlocks)
+
+-- internal bool xDoAdd(ref DJsIO xIOIn, ref BlockRecord[] xEntAlloc, ref BlockRecord[] xFileAlloc)
+
+-- bool xWriteDescriptor(ref DJsIO io)
+sp_xWriteDescriptor :: (SendMessage m, MonadIO m) => Maybe DJsIO -> Meth m STFSPackage Bool
+sp_xWriteDescriptor _io _this = do
+  lg "Writing new Descriptor"
+  -- io.Position = 0x379;
+  -- xSTFSStruct.xDirectoryBlockCount = (ushort)xCurEntBlckCnt;
+  -- io.Write(xSTFSStruct.GetData());
+  -- io.Flush();
+  _ <- undefined
+  return True
+
+-- internal long GenerateDataOffset(uint xBlock)
+sp_GenerateDataOffset :: (MonadIO m) => Word32 -> Meth m STFSPackage Int64
+sp_GenerateDataOffset xBlock this =
+  get (sp_xSTFSStruct this) >>= noNull >>= sd_GenerateDataOffset xBlock
+
+-- internal long GenerateHashOffset(uint xBlock, TreeLevel xTree)
+sp_GenerateHashOffset :: (MonadIO m) => Word32 -> TreeLevel -> Meth m STFSPackage Int64
+sp_GenerateHashOffset = undefined
+-- long xReturn = xSTFSStruct.GenerateHashOffset(xBlock, xTree);
+-- if (xSTFSStruct.ThisType == STFSType.Type1) // Grabs the one up level block record for shifting
+--     xReturn += (GetRecord(xBlock, (TreeLevel)((byte)xTree + 1)).Index << 0xC);
+-- return xReturn;
+
+-- internal long GenerateBaseOffset(uint xBlock, TreeLevel xTree)
 sp_GenerateBaseOffset :: (MonadIO m) => Word32 -> TreeLevel -> Meth m STFSPackage Int64
 sp_GenerateBaseOffset = undefined
-{-
-internal long GenerateBaseOffset(uint xBlock, TreeLevel xTree)
-{
-    long xReturn = xSTFSStruct.GenerateBaseOffset(xBlock, xTree);
-    if (xSTFSStruct.ThisType == STFSType.Type1) // Grabs the one up level block record for shifting
-        xReturn += (GetRecord(xBlock, (TreeLevel)((byte)xTree + 1)).Index << 0xC);
-    return xReturn;
-}
--}
+-- long xReturn = xSTFSStruct.GenerateBaseOffset(xBlock, xTree);
+-- if (xSTFSStruct.ThisType == STFSType.Type1) // Grabs the one up level block record for shifting
+--     xReturn += (GetRecord(xBlock, (TreeLevel)((byte)xTree + 1)).Index << 0xC);
+-- return xReturn;
+
+-- Verified VerifySignature(bool xDev)
+
+-- void SetSamePackage(ref STFSPackage xIn)
+
+-- bool xWriteTables()
+sp_xWriteTables :: (SendMessage m, MonadIO m) => Meth m STFSPackage Bool
+sp_xWriteTables this = do
+  lg "Fixing Level 0"
+  ssbc <- get (sp_xSTFSStruct this) >>= noNull >>= get . sd_xBlockCount
+  forM_ [0 .. ssbc - 1] $ \i -> do
+    join $ sp_XTakeHash_4
+      <$> sp_GenerateDataOffset i this
+      <*> sp_GenerateHashOffset i L0 this
+      <*> return 0x1000
+      <*> get (sp_xIO this)
+      <*> return this
+  {-
+  if (STFSStruct.BlockCount > Constants.BlockLevel[0])
+  {
+      AddToLog("Fixing Level 1");
+      // Get level 1 count
+      uint ct = (((xSTFSStruct.BlockCount - 1) / Constants.BlockLevel[0]) + 1);
+      for (uint i = 0; i < ct; i++)
+      {
+          XTakeHash(GenerateBaseOffset(i * Constants.BlockLevel[0], TreeLevel.L0),
+          GenerateHashOffset(i * Constants.BlockLevel[0], TreeLevel.L1),
+              0x1000, ref xIO);
+      }
+      if (STFSStruct.BlockCount > Constants.BlockLevel[1])
+      {
+          AddToLog("Fixing Level 2");
+          ct = (((xSTFSStruct.BlockCount - 1) / Constants.BlockLevel[1]) + 1);
+          for (uint i = 0; i < ct; i++)
+          {
+              XTakeHash(GenerateHashOffset((i * Constants.BlockLevel[1]), TreeLevel.L1),
+                  GenerateHashOffset((i * Constants.BlockLevel[1]), TreeLevel.L2),
+                  0x1000, ref xIO);
+          }
+      }
+  }
+  xIO.Flush();
+  -}
+  return True
 
 sp_xWriteHeader :: (SendMessage m, MonadIO m) => Maybe RSAParams -> Meth m STFSPackage Bool
 sp_xWriteHeader = undefined
@@ -887,60 +953,83 @@ internal bool xWriteHeader(RSAParams xParams)
 }
 -}
 
--- internal bool ActiveCheck()
-sp_ActiveCheck :: (MonadIO m) => Meth m STFSPackage Bool
-sp_ActiveCheck this = sp_ParseCheck this >>= \case
-  False -> return False
-  True -> get (sp_xActive this) >>= \case
-    True -> return False
-    False -> do
-      sp_xActive this $= True
-      return True
+-- internal string GetFolderNameByID(ushort ID)
 
-sp_ParseCheck :: (MonadIO m) => Meth m STFSPackage Bool
-sp_ParseCheck = undefined
-{-
-protected internal bool ParseCheck()
-{
-    if (xIO == null || !xIO.Accessed || !ParseSuccess)
-        throw STFSExcepts.Unsuccessful;
-    return true;
-}
--}
+-- internal FolderEntry xGetFolder(ushort ID)
+
+-- internal FolderEntry xGetParentFolder(string Path)
+
+-- internal FileEntry xGetFile(string Name, ushort FolderPointer)
+
+-- bool xAddFile(DJsIO xIOIn, string xFileName, ushort Folder)
+
+-- internal int xDeleteEntry(ItemEntry x)
+
+-- int sortpathct(CFolderEntry x1, CFolderEntry x2)
+
+-- string dlcname()
+
+data SwitchType
+  = SwitchType_None
+  | SwitchType_Allocate
+  | SwitchType_Delete
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+-- void SwitchNWrite(BlockRecord RecIn, SwitchType Change)
+sp_SwitchNWrite :: (MonadIO m) => Maybe BlockRecord -> SwitchType -> Meth m STFSPackage ()
+sp_SwitchNWrite = undefined
+
+-- BlockRecord GetRecord(uint xBlock, TreeLevel xLevel)
 
 sp_xWriteChain :: (MonadIO m) => Maybe (List BlockRecord) -> Meth m STFSPackage Bool
-sp_xWriteChain = undefined
-{-
-internal bool xWriteChain(BlockRecord[] xRecs)
-{
-    for (int i = 0; i < xRecs.Length; i++)
-    {
-        if ((i + 1) < xRecs.Length)
-            xRecs[i].NextBlock = xRecs[i + 1].ThisBlock;
-        else xRecs[i].NextBlock = Constants.STFSEnd;
-        SwitchNWrite(xRecs[i], SwitchType.Allocate);
-    }
-    return true;
-}
--}
+sp_xWriteChain xRecs this = do
+  recs <- noNull xRecs >>= get
+  forM_ (zip [0..] recs) $ \(i, rec) -> do
+    if (i + 1 < length recs)
+      then (br_NextBlock rec $=) =<< get (br_ThisBlock $ recs !! (i + 1))
+      else br_NextBlock rec $= constants_STFSEnd
+    this & sp_SwitchNWrite (Just rec) SwitchType_Allocate
+  return True
 
-newSTFSPackage :: (SendMessage m, MonadIO m) =>
+-- internal bool xDeleteChain(BlockRecord[] xBlocks)
+
+-- internal BlockRecord[] xAllocateBlocks(uint count, uint xStart)
+
+initSTFSPackage :: (MonadIO m) => StackTraceT m STFSPackage
+initSTFSPackage = do
+  sp_xHeader          <- var Nothing
+  sp_xFileDirectory   <- var [] >>= var . Just
+  sp_xFolderDirectory <- var [] >>= var . Just
+  sp_xIO              <- var Nothing
+  sp_xSTFSStruct      <- var Nothing
+  sp_xFileBlocks      <- var Nothing
+  sp_xActive          <- var False
+  sp_xroot            <- var Nothing
+  return STFSPackage{..}
+
+newSTFSPackage_load :: (SendMessage m, MonadIO m) =>
+  FilePath -> StackTraceT m STFSPackage
+newSTFSPackage_load = undefined
+
+-- public STFSPackage(CreateSTFS xSession, RSAParams xSigning, string xOutPath, LogRecord LogIn)
+newSTFSPackage_create :: (SendMessage m, MonadIO m) =>
   CreateSTFS -> RSAParams -> FilePath -> StackTraceT m STFSPackage
-newSTFSPackage xSession xSigning _xOutPath = do
-  this <- undefined
+newSTFSPackage_create xSession xSigning _xOutPath = do
+  this <- initSTFSPackage
   sp_xActive this $= True
   unlessM (get $ rp_xV xSigning) $
     fatal "CryptoExcepts.ParamError"
   whenM ((== 0) <$> (get (cs_xFileDirectory xSession) >>= listCount)) $
     fatal "new Exception()"
-  do
+  catchError
+    % do
       lg "Setting Package variables"
       -- ignoring threading stuff
-      newFolderEntry_5 (Just "") 0 0xFFFF 0xFFFF (Just this) >>= (sp_xroot this $=) . Just
+      (sp_xroot this $=) . Just =<< newFolderEntry_5 (Just "") 0 0xFFFF 0xFFFF (Just this)
       -- ignoring ThematicSkin/Game stuff
       (sp_xHeader this $=) =<< get (cs_HeaderData xSession)
       get (cs_STFSType xSession) >>= \stype -> newSTFSDescriptor_type_uint stype 0 >>= (sp_xSTFSStruct this $=) . Just
-      (sp_xIO this $=) . Just =<< tempDJsIO True
+      (sp_xIO this $=) . Just =<< newDJsIO_temp True
       (sp_xFileBlocks this $=) . Just =<< var =<< do
         gdc <- cs_GetDirectoryCount xSession
         forM [0 .. fromIntegral gdc - 1] $ \i -> do
@@ -948,144 +1037,84 @@ newSTFSPackage xSession xSigning _xOutPath = do
           br_ThisBlock br $= i
           return br
       void $ get (sp_xFileBlocks this) >>= \xfb -> this & sp_xWriteChain xfb
+      {-
+      xSTFSStruct.xDirectoryBlockCount = (ushort)xFileBlocks.Length;
+      ushort xCurID = 0;
+      xSession.xFolderDirectory.Sort(new Comparison<CFolderEntry>(sortpathct));
+      foreach (CFolderEntry x in xSession.xFolderDirectory)
+      {
+          ushort pointer = 0xFFFF;
+          if (x.xthispath.xPathCount() > 1)
+              pointer = xGetParentFolder(x.Path).EntryID;
+          xFolderDirectory.Add(new FolderEntry(x.Name, 0, xCurID++, pointer, this));
+          xFolderDirectory[xFolderDirectory.Count - 1].xFixOffset();
+      }
+      foreach (CFileEntry x in xSession.xFileDirectory)
+      {
+          ushort pointer = 0xFFFF;
+          if (x.xthispath.xPathCount() > 1)
+              pointer = xGetParentFolder(x.Path).EntryID;
+          xFileDirectory.Add(new FileEntry(x.Name, (int)x.GetLength(), false,xCurID++, pointer, this));
+          List<BlockRecord> xAlloc = new List<BlockRecord>();
+          for (uint i = 0; i < x.BlockCount(); i++)
+          {
+              xAlloc.Add(new BlockRecord());
+              xAlloc[xAlloc.Count - 1].ThisBlock = xcurblock++;
+              /*if (!switched0.Contains((int)(xcurblock / Constants.BlockLevel[0])))
+                  switched0.Add((int)(xcurblock / Constants.BlockLevel[0]));
+              if (!switched1.Contains((int)(xcurblock / Constants.BlockLevel[1])))
+                  switched1.Add((int)(xcurblock / Constants.BlockLevel[1]));*/
+          }
+          xFileDirectory[xFileDirectory.Count - 1].xBlockCount = (uint)xAlloc.Count;
+          xFileDirectory[xFileDirectory.Count - 1].xStartBlock = xAlloc[0].ThisBlock;
+          xFileDirectory[xFileDirectory.Count - 1].xPackage = this;
+          xFileDirectory[xFileDirectory.Count - 1].xFixOffset();
+          xWriteChain(xAlloc.ToArray());
+      }
+      AddToLog("Writing Entry Table");
+      DJsIO xent;
+      if (!xEntriesToFile(out xent))
+          throw new Exception();
+      xWriteTo(ref xent, xFileBlocks);
+      xent.Close();
+      VariousFunctions.DeleteFile(xent.FileNameLong);
+      AddToLog("Writing Files");
+      uint curblck = xSession.GetDirectoryCount;
+      foreach (CFileEntry z in xSession.xFileDirectory)
+      {
+          List<BlockRecord> w = new List<BlockRecord>();
+          uint ct = z.BlockCount();
+          for (uint y = 0; y < ct; y++)
+          {
+              w.Add(new BlockRecord());
+              w[w.Count - 1].ThisBlock = curblck++;
+          }
+          DJsIO x = null;
+          try
+          {
+              x = new DJsIO(z.FileLocale, DJFileMode.Open, true);
+              xWriteTo(ref x, w.ToArray());
+          }
+          catch { }
+          if (x != null)
+              x.Dispose();
+      }
+      xWriteTables();
+      xWriteHeader(xSigning);
+      xIO.Close();
+      VariousFunctions.MoveFile(xIO.FileNameLong, xOutPath);
+      xIO = new DJsIO(xOutPath, DJFileMode.Open, true);
+      xActive = false;
+      -}
       void undefined
-    `catchError` \err -> do
+    % \err -> do
       sp_xFileDirectory this $= Nothing
       sp_xFolderDirectory this $= Nothing
       _ <- get (sp_xIO this) >>= noNull >>= dj_Dispose False
       throwError err
   return this
-{-
-public STFSPackage(CreateSTFS xSession, RSAParams xSigning, string xOutPath, LogRecord LogIn)
-{
-    xActive = true;
-    if (!xSigning.Valid)
-        throw CryptoExcepts.ParamError;
-    if (xSession.xFileDirectory.Count == 0)
-        throw new Exception();
-    try
-    {
-        AddToLog("Setting Package variables");
-        new System.Threading.Thread(new System.Threading.ParameterizedThreadStart(System.DLLIdentify.PrivilegeCheck)).Start(System.Threading.Thread.CurrentThread);
-        xroot = new FolderEntry("", 0, 0xFFFF, 0xFFFF, this);
-        if (xSession.HeaderData.ThisType == PackageType.ThematicSkin)
-        {
-            DJsIO x1 = new DJsIO(true);
-            DJsIO x2 = new DJsIO(true);
-            x1.Write((int)xSession.ThemeSettings.StyleType);
-            x1.Flush();
-            x1.Close();
-            if (!xSession.AddFile(x1.FileNameLong, "DashStyle"))
-                throw STFSExcepts.ThemeError;
-            x2.Write("SphereColor=" + ((byte)xSession.ThemeSettings.Sphere).ToString().PadRight(2, '\0'));
-            x2.Write(new byte[] { 0xD, 0xA });
-            x2.Write("AvatarLightingDirectional=" +
-                xSession.ThemeSettings.AvatarLightingDirectional0.ToString("#0.0") + "," +
-                xSession.ThemeSettings.AvatarLightingDirectional1.ToString("#0.0000") + "," +
-                xSession.ThemeSettings.AvatarLightingDirectional2.ToString("#0.0") + ",0x" +
-                xSession.ThemeSettings.AvatarLightingDirectional3.ToString("X"));
-            x2.Write(new byte[] { 0xD, 0xA });
-            x2.Write("AvatarLightingAmbient=0x" + xSession.ThemeSettings.AvatarLightingAmbient.ToString("X"));
-            x2.Write(new byte[] { 0xD, 0xA });
-            x2.Flush();
-            x2.Close();
-            if (!xSession.AddFile(x2.FileNameLong, "parameters.ini"))
-                throw STFSExcepts.ThemeError;
-        }
-        else if (xSession.HeaderData.ThisType == PackageType.GamesOnDemand ||
-            xSession.HeaderData.ThisType == PackageType.HDDInstalledGame ||
-            xSession.HeaderData.ThisType == PackageType.OriginalXboxGame ||
-            xSession.HeaderData.ThisType == PackageType.SocialTitle)
-            throw STFSExcepts.Game;
-        xLog = LogIn;
-        xHeader = xSession.HeaderData;
-        xSTFSStruct = new STFSDescriptor(xSession.STFSType, 0);
-        xIO = new DJsIO(true);
-        List<BlockRecord> DirectoryBlockz = new List<BlockRecord>();
-        // switched2 = true;
-        uint xcurblock = 0;
-        for (ushort i = 0; i < xSession.GetDirectoryCount; i++)
-        {
-            DirectoryBlockz.Add(new BlockRecord());
-            DirectoryBlockz[DirectoryBlockz.Count - 1].ThisBlock = xcurblock++;
-            /*if (!switched0.Contains((int)(xcurblock / Constants.BlockLevel[0])))
-                switched0.Add((int)(xcurblock / Constants.BlockLevel[0]));
-            if (!switched1.Contains((int)(xcurblock / Constants.BlockLevel[1])))
-                switched1.Add((int)(xcurblock / Constants.BlockLevel[1]));*/
-        }
-        xFileBlocks = DirectoryBlockz.ToArray();
-        xWriteChain(xFileBlocks);
-        xSTFSStruct.xDirectoryBlockCount = (ushort)xFileBlocks.Length;
-        ushort xCurID = 0;
-        xSession.xFolderDirectory.Sort(new Comparison<CFolderEntry>(sortpathct));
-        foreach (CFolderEntry x in xSession.xFolderDirectory)
-        {
-            ushort pointer = 0xFFFF;
-            if (x.xthispath.xPathCount() > 1)
-                pointer = xGetParentFolder(x.Path).EntryID;
-            xFolderDirectory.Add(new FolderEntry(x.Name, 0, xCurID++, pointer, this));
-            xFolderDirectory[xFolderDirectory.Count - 1].xFixOffset();
-        }
-        foreach (CFileEntry x in xSession.xFileDirectory)
-        {
-            ushort pointer = 0xFFFF;
-            if (x.xthispath.xPathCount() > 1)
-                pointer = xGetParentFolder(x.Path).EntryID;
-            xFileDirectory.Add(new FileEntry(x.Name, (int)x.GetLength(), false,xCurID++, pointer, this));
-            List<BlockRecord> xAlloc = new List<BlockRecord>();
-            for (uint i = 0; i < x.BlockCount(); i++)
-            {
-                xAlloc.Add(new BlockRecord());
-                xAlloc[xAlloc.Count - 1].ThisBlock = xcurblock++;
-                /*if (!switched0.Contains((int)(xcurblock / Constants.BlockLevel[0])))
-                    switched0.Add((int)(xcurblock / Constants.BlockLevel[0]));
-                if (!switched1.Contains((int)(xcurblock / Constants.BlockLevel[1])))
-                    switched1.Add((int)(xcurblock / Constants.BlockLevel[1]));*/
-            }
-            xFileDirectory[xFileDirectory.Count - 1].xBlockCount = (uint)xAlloc.Count;
-            xFileDirectory[xFileDirectory.Count - 1].xStartBlock = xAlloc[0].ThisBlock;
-            xFileDirectory[xFileDirectory.Count - 1].xPackage = this;
-            xFileDirectory[xFileDirectory.Count - 1].xFixOffset();
-            xWriteChain(xAlloc.ToArray());
-        }
-        AddToLog("Writing Entry Table");
-        DJsIO xent;
-        if (!xEntriesToFile(out xent))
-            throw new Exception();
-        xWriteTo(ref xent, xFileBlocks);
-        xent.Close();
-        VariousFunctions.DeleteFile(xent.FileNameLong);
-        AddToLog("Writing Files");
-        uint curblck = xSession.GetDirectoryCount;
-        foreach (CFileEntry z in xSession.xFileDirectory)
-        {
-            List<BlockRecord> w = new List<BlockRecord>();
-            uint ct = z.BlockCount();
-            for (uint y = 0; y < ct; y++)
-            {
-                w.Add(new BlockRecord());
-                w[w.Count - 1].ThisBlock = curblck++;
-            }
-            DJsIO x = null;
-            try
-            {
-                x = new DJsIO(z.FileLocale, DJFileMode.Open, true);
-                xWriteTo(ref x, w.ToArray());
-            }
-            catch { }
-            if (x != null)
-                x.Dispose();
-        }
-        xWriteTables();
-        xWriteHeader(xSigning);
-        xIO.Close();
-        VariousFunctions.MoveFile(xIO.FileNameLong, xOutPath);
-        xIO = new DJsIO(xOutPath, DJFileMode.Open, true);
-        xActive = false;
-    }
-    catch (Exception x) { xFileDirectory = null; xFolderDirectory = null; xIO.Dispose(); throw x; }
-}
--}
+
+-- public bool UpdateHeader(RSAParams xParams)
 
 -- public bool FlushPackage(RSAParams xParams)
 sp_FlushPackage :: (SendMessage m, MonadIO m) => Maybe RSAParams -> Meth m STFSPackage Bool
@@ -1100,74 +1129,49 @@ sp_FlushPackage xParams this = sp_ActiveCheck this >>= \case
       sp_xActive this $= False
       throwError err
 
--- internal bool XTakeHash(long xRead, long xWrite, int xSize)
-sp_XTakeHash_3 :: (MonadIO m) => Int64 -> Int64 -> Int32 -> Meth m STFSPackage Bool
-sp_XTakeHash_3 xRead xWrite xSize this = do
-  xIO <- get $ sp_xIO this
-  this & sp_XTakeHash_5 xIO xRead xWrite xSize xIO
+-- public Verified[] VerifyHashTables()
 
--- bool XTakeHash(long xRead, long xWrite, int xSize, ref DJsIO io)
-sp_XTakeHash_4 :: (MonadIO m) => Int64 -> Int64 -> Int32 -> Maybe DJsIO -> Meth m STFSPackage Bool
-sp_XTakeHash_4 xRead xWrite xSize io = sp_XTakeHash_5 io xRead xWrite xSize io
+-- public Verified[] VerifyHeader()
 
--- bool XTakeHash(ref DJsIO ioin, long xRead, long xWrite, int xSize, ref DJsIO ioout)
-sp_XTakeHash_5 :: (MonadIO m) =>
-  Maybe DJsIO -> Int64 -> Int64 -> Int32 -> Maybe DJsIO -> Meth m STFSPackage Bool
-sp_XTakeHash_5 = undefined
--- try
--- {
---     ioin.Position = xRead;
---     byte[] xData = ioin.ReadBytes(xSize);
---     ioout.Position = xWrite;
---     ioout.Write(SHA1Quick.ComputeHash(xData));
---     return true;
--- }
--- catch { return false; }
+-- public bool AddFolder(string FolderPath)
 
--- bool xWriteTables()
-sp_xWriteTables :: (SendMessage m, MonadIO m) => Meth m STFSPackage Bool
-sp_xWriteTables = undefined
-{-
-bool xWriteTables()
-{
-    AddToLog("Fixing Level 0");
-    for (uint i = 0; i < STFSStruct.BlockCount; i++)
-    {
-        XTakeHash(GenerateDataOffset(i),
-            GenerateHashOffset(i, TreeLevel.L0),
-            0x1000, ref xIO);
-    }
-    if (STFSStruct.BlockCount > Constants.BlockLevel[0])
-    {
-        AddToLog("Fixing Level 1");
-        // Get level 1 count
-        uint ct = (((xSTFSStruct.BlockCount - 1) / Constants.BlockLevel[0]) + 1);
-        for (uint i = 0; i < ct; i++)
-        {
-            XTakeHash(GenerateBaseOffset(i * Constants.BlockLevel[0], TreeLevel.L0),
-            GenerateHashOffset(i * Constants.BlockLevel[0], TreeLevel.L1),
-                0x1000, ref xIO);
-        }
-        if (STFSStruct.BlockCount > Constants.BlockLevel[1])
-        {
-            AddToLog("Fixing Level 2");
-            ct = (((xSTFSStruct.BlockCount - 1) / Constants.BlockLevel[1]) + 1);
-            for (uint i = 0; i < ct; i++)
-            {
-                XTakeHash(GenerateHashOffset((i * Constants.BlockLevel[1]), TreeLevel.L1),
-                    GenerateHashOffset((i * Constants.BlockLevel[1]), TreeLevel.L2),
-                    0x1000, ref xIO);
-            }
-        }
-    }
-    xIO.Flush();
-    return true;
-}
--}
+-- public bool ExtractPayload(string xOutLocale, bool xIncludeSubItems, bool xIncludeHeader)
 
--- public bool ParseSuccess { get { return xIO != null; } }
-parseSuccess :: (MonadIO m) => Meth m STFSPackage Bool
-parseSuccess = fmap isJust . get . sp_xIO
+-- public bool ExtractPayload(bool xIncludeSubItems, string xDescription, bool xIncludeHeader)
+
+-- public FileEntry GetFile(string Path)
+-- public FileEntry GetFile(string Name, ushort FolderPointer)
+
+-- public FolderEntry GetFolder(ushort FolderID)
+-- public FolderEntry GetFolder(string Path)
+
+-- public FileEntry[] GetFiles(ushort FolderPointer)
+-- public FileEntry[] GetFiles(string FolderPath)
+
+-- public bool MakeFile(string Name, DJsIO xIOIn, ushort FolderID, AddType xType)
+-- public bool MakeFile(string Path, DJsIO xIOIn, AddType xType)
+
+-- public bool MakeBackup(string xOutLocation)
+
+-- public bool RebuildPackage(RSAParams xParams)
+
+-- public string GetCurrentDLCFileName()
+
+-- public string FileNameLong { get { return xIO.FileNameLong; }}
+-- public string FileNameShort { get { return xIO.FileNameShort; }}
+-- public string FilePath { get { return xIO.FilePath; }}
+-- public string FileExtension { get { return xIO.FileExtension; }}
+
+-- public bool CloseIO()
+sp_closeIO :: (MonadIO m) => Meth m STFSPackage Bool
+sp_closeIO this = get (sp_xActive this) >>= \case
+  True -> return False
+  False -> do
+    sp_xActive this $= True
+    get (sp_xIO this) >>= \case
+      Nothing -> return ()
+      Just xIO -> void $ dj_Close xIO
+    return True
 
 ---------
 -- STFSStuff.cs
@@ -1335,3 +1339,80 @@ data TransferLock
   | TransferLock_DeviceAllowOnly
   | TransferLock_AllowTransfer
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+---------
+-- Other.cs (only needed parts)
+---------
+
+constants_STFSEnd :: Word32
+constants_STFSEnd = 0xFFFFFF
+
+constants_BlockLevel0, constants_BlockLevel1 :: Word32
+constants_BlockLevel0 = 0xAA
+constants_BlockLevel1 = 0x70E4
+
+-- internal static string xExtractLegitPath(this string xin)
+xExtractLegitPath_pure :: FilePath -> FilePath
+xExtractLegitPath_pure "" = ""
+xExtractLegitPath_pure xin = let
+  xin1 = map (\case '\\' -> '/'; c -> c) xin
+  xin2 = case xin1 of
+    '/' : t -> t
+    _       -> xin1
+  xin3 = case reverse xin2 of
+    '/' : t -> reverse t
+    _       -> xin2
+  in xin3
+
+xExtractLegitPath :: (Monad m) => Maybe FilePath -> StackTraceT m (Maybe FilePath)
+xExtractLegitPath ms = Just . xExtractLegitPath_pure <$> noNull ms
+
+-- internal static string xExtractName(this string xin)
+xExtractName :: String -> String
+xExtractName = reverse . takeWhile (/= '/') . reverse
+
+-- internal static int xPathCount(this string xin) { return xin.Split(new char[] { '/' }).Length; }
+xPathCount :: String -> Int
+xPathCount = length . splitOn "/"
+
+-- public static bool IsValidXboxName(this string x)
+isValidXboxName :: (Monad m) => String -> StackTraceT m Bool
+isValidXboxName x = do
+  let no = map toEnum $ concat
+        [ 0 ... 0x20
+        -- char 0x20 - 0x2D usable symbols except 0x22 and 0x2A
+        , [0x22] -- '"'
+        , [0x2A] -- '*'
+        , [0x2F] -- '/'
+        -- char 0x30 - 0x39 are '0' - '9'
+        , [0x3A] -- ':'
+        -- char 0x3B and 0x3D are usable
+        , [0x3C] -- '<'
+        , 0x3E ... 0x40 -- unusable
+        -- 0x41 - 0x5A are A - Z, usable symbols up thru 0x60 except 0x5C
+        , [0x5C] -- '\'
+        -- 0x61 - 0x7A are a - z, 0x7B, 0x7D, and 0x7E are usable
+        , [0x7C] -- '|'
+        , 0x7F ... 0xFF
+        , [0xFF]
+        ]
+      a ... b = takeWhile (< b) [a..]
+  when (x == "" || any (`elem` no) x) $ fatal "STFSExcepts.InvalChars"
+  return True
+
+-- public static DateTime FatTimeDT(int xDateTime)
+fatTimeDT :: (MonadIO m) => Int32 -> m Time.LocalTime
+fatTimeDT xDateTime = let
+  -- MT: these are Int16 (short) in C# but that doesn't make sense
+  xDate = fromIntegral $ xDateTime `shiftR` 0x10 :: Word16
+  xTime = fromIntegral $ xDateTime .&. 0xFFFF :: Word16
+  in if xDate == 0 && xTime == 0
+    then liftIO $ fmap Time.zonedTimeToLocalTime $ Time.getZonedTime
+    else return $ let
+      year   = fromIntegral $ ((xDate .&. 0xFE00) `shiftR` 9) + 0x7BC
+      month  = fromIntegral $ (xDate .&. 0x1E0) `shiftR` 5
+      day    = fromIntegral $ xDate .&. 0x1F
+      hour   = fromIntegral $ (xTime .&. 0xF800) `shiftR` 0xB
+      minute = fromIntegral $ (xTime .&. 0x7E0) `shiftR` 5
+      sec    = fromIntegral $ (xTime .&. 0x1F) * 2
+      in Time.LocalTime (Time.fromGregorian year month day) (Time.TimeOfDay hour minute sec)
