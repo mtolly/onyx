@@ -1,125 +1,279 @@
 {- |
 WIP port of (parts of) X360, a GPL C# library by DJ Shepherd
 -}
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE RecordWildCards       #-}
 module STFS.Create where
 
 import           Control.Applicative            (liftA2)
 import           Control.Monad.Extra            (andM, anyM, forM, forM_, guard,
-                                                 join, orM, unless, unlessM,
-                                                 void, when, whenM)
+                                                 ifM, join, orM, unless,
+                                                 unlessM, void, when, whenM)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Class      (lift)
-import           Control.Monad.Trans.Cont
-import           Control.Monad.Trans.StackTrace (SendMessage, StackTraceT,
-                                                 catchError, fatal, lg, stackIO,
-                                                 throwError)
-import           Data.Bits                      (shiftL, shiftR, (.&.), (.|.))
+import           Control.Monad.Trans.Cont       hiding (shift)
+import           Control.Monad.Trans.StackTrace (QueueLog, SendMessage,
+                                                 StackTraceT, catchError, fatal,
+                                                 lg, stackIO, throwError)
+import           Data.Bits                      (Bits (..))
 import qualified Data.ByteString                as B
 import           Data.Char                      (toLower)
 import           Data.Function                  ((&))
-import           Data.Int                       (Int16, Int32, Int64)
-import           Data.IORef                     (IORef, newIORef)
+import           Data.Int                       (Int16, Int32, Int64, Int8)
+import           Data.IORef                     (newIORef, readIORef,
+                                                 writeIORef)
 import           Data.List.Split                (splitOn)
 import           Data.Maybe                     (isJust)
-import           Data.StateVar                  (GettableStateVar, StateVar,
-                                                 get, ($=))
 import qualified Data.Time                      as Time
-import           Data.Word                      (Word16, Word32, Word8)
+import           Data.Word                      (Word16, Word32, Word64, Word8)
 import qualified System.Directory               as Dir
 import           System.IO                      (IOMode (..), hFileSize,
                                                  withBinaryFile)
 
-var :: (MonadIO m) => a -> m (IORef a)
-var = liftIO . newIORef
+(%) :: (a -> b) -> a -> b
+(%) = id
+infixl 0 %
 
-type Nullable a = IORef (Maybe a)
+data X v m a where
+  V :: m a -> (a -> m ()) -> X v m a
+  E :: m a -> X RValue m a
 
-type List a = IORef [a]
+data LValue
+data RValue
+type V = X LValue
+type E = X RValue
 
-type Meth m o a = o -> StackTraceT m a
+newtype Var m a = Var (forall v. X v m a)
 
-data DJsIO
+instance (Functor m) => Functor (E m) where
+  fmap f expr = E $ fmap f $ get expr
 
-listAdd :: (MonadIO m) => a -> Maybe (List a) -> StackTraceT m ()
-listAdd x mlst = do
-  lst <- noNull mlst
-  xs <- get lst
-  lst $= (xs ++ [x])
+instance (Applicative m) => Applicative (E m) where
+  pure = E . pure
+  ef <*> ex = E $ get ef <*> get ex
 
-listCount :: (MonadIO m) => Maybe (List a) -> StackTraceT m Int32
-listCount mlst = noNull mlst >>= fmap (fromIntegral . length) . get
+instance (Monad m) => Monad (E m) where
+  ex >>= f = E $ get ex >>= get . f
 
-hsList :: (MonadIO m) => Maybe (List a) -> StackTraceT m [a]
-hsList mlst = noNull mlst >>= get
+instance (Applicative m, Num a) => Num (E m a) where
+  fromInteger = pure . fromInteger
+  (+) = liftA2 (+)
+  (-) = liftA2 (-)
+  (*) = liftA2 (*)
+  abs = fmap abs
+  signum = fmap signum
+
+liftX :: (forall b. m b -> n b) -> X v m a -> X v n a
+liftX f = \case
+  V gtr str -> V (f gtr) (f . str)
+  E gtr     -> E (f gtr)
+
+liftVar :: (forall b. m b -> n b) -> Var m a -> Var n a
+liftVar f (Var g) = Var (liftX f g)
+
+type F = Var C
+
+get :: E m a -> m a
+get (E t  ) = t
+get (V t _) = t
+
+auto :: (MonadIO m) => E m a -> m (Var m a)
+auto x = do
+  x' <- get x
+  r  <- liftIO $ newIORef x'
+  return $ Var $ V (liftIO $ readIORef r) (liftIO . writeIORef r)
+
+($=) :: (Monad m) => V m a -> E m a -> m ()
+V _ setter $= y = do
+  y' <- get y
+  setter y'
+infixr 0 $=
+-- same as ($)
+
+modify :: (Monad m) => (a -> a) -> Var m a -> m ()
+modify f = modifyM $ return . f
+
+modifyM :: (Monad m) => (a -> m a) -> Var m a -> m ()
+modifyM f (Var v) = do
+  x <- get v
+  v $= E (f x)
+
+type C = StackTraceT (QueueLog IO)
+
+type Meth m obj args a = args -> E m obj -> E m a
+
+type Meth0 obj                a = Meth C obj () a
+type Meth1 obj a1             a = Meth C obj (E C a1) a
+type Meth2 obj a1 a2          a = Meth C obj (E C a1, E C a2) a
+type Meth3 obj a1 a2 a3       a = Meth C obj (E C a1, E C a2, E C a3) a
+type Meth4 obj a1 a2 a3 a4    a = Meth C obj (E C a1, E C a2, E C a3, E C a4) a
+type Meth5 obj a1 a2 a3 a4 a5 a = Meth C obj (E C a1, E C a2, E C a3, E C a4, E C a5) a
+
+liftHs :: (Monad m) => Meth m a (a -> m b) b
+liftHs(f) this = E $ get this >>= f
+
+some :: Meth0 (Maybe a) a
+some() = liftHs $ maybe (fatal "Null reference") return
+
+type Str = Maybe String
+
+type D_List a = Var C [a]
+type List a = Maybe (D_List a)
+
+listAdd :: Meth1 (List a) a ()
+listAdd(x) this = (this & some() &) $ liftHs $ \lst -> do
+  elt <- get x
+  modify (++ [elt]) lst
+
+hsList :: Meth0 (List a) [a]
+hsList() this = this & some() & liftHs (\(Var v) -> get v)
+
+listCount :: Meth0 (List a) Int32
+listCount() this = this & hsList() & liftHs (pure . fromIntegral . length)
 
 fun :: (Monad m) => ((a -> ContT a (StackTraceT m) b) -> ContT a (StackTraceT m) a) -> StackTraceT m a
 fun = evalContT . callCC
 
-lastIndexOf :: (Eq a) => a -> [a] -> Maybe Int
-lastIndexOf x xs = lookup x $ reverse $ zip xs [0..]
+lastIndexOf :: (Eq a) => Meth1 (List a) a (Maybe Int)
+lastIndexOf(x) this = (this & hsList() &) $ liftHs $ \lst -> do
+  elt <- get x
+  pure $ lookup elt $ reverse $ zip lst [0..]
 
-noNull :: (Monad m) => Maybe a -> StackTraceT m a
-noNull Nothing  = fatal "Null reference"
-noNull (Just x) = return x
+newList :: [a] -> E C (List a)
+newList xs = E $ Just <$> auto (pure xs)
 
-setIndex :: (MonadIO m) => Int -> a -> Maybe (List a) -> StackTraceT m ()
-setIndex i x mlst = do
-  lst <- noNull mlst
-  xs <- get lst
-  lst $= case splitAt i xs of
-    (a, b) -> a ++ [x] ++ drop 1 b
+(&.) :: E C (Maybe a) -> (a -> F b) -> X v C b
+eobj &. field = let
+  getVar = fmap field $ get (eobj & some())
+  gtr = getVar >>= \(Var v) -> get v
+  str x = getVar >>= \(Var v) -> v $= pure x
+  in V gtr str
+infixl 1 &. -- same as (&)
 
-newDJsIO_temp :: (MonadIO m) => Bool -> StackTraceT m DJsIO
-newDJsIO_temp = undefined
-{-
-public DJsIO(bool BigEndian)
-{
-    IsBigEndian = BigEndian;
-    xFile = string.Copy(VariousFunctions.GetTempFileLocale());
-    XSetStream(DJFileMode.Create);
-}
--}
+makeField :: (E C (Maybe a) -> (forall v. X v C b)) -> a -> F b
+makeField f x = Var $ f $ return $ Just x
 
-dj_Dispose :: (MonadIO m) => Bool -> Meth m DJsIO Bool
-dj_Dispose = undefined
-{-
-public virtual bool Dispose()
-{
-    return Dispose(false);
-}
+class Make obj where
+  make :: E C obj
 
-internal bool Dispose(bool DeleteFile)
-{
-    if (!Close())
-        return false;
-    if (xThisData != DataType.Real)
-    {
-        try { xStream.Dispose(); }
-        catch { return false; }
-        if (xThisData == DataType.File && DeleteFile)
-            VariousFunctions.DeleteFile(FileNameLong);
-    }
-    xFile = null;
-    txtidx = null;
-    return true;
-}
--}
+class New obj args where
+  new :: args -> E C obj
 
-dj_Close :: Meth m DJsIO Bool
-dj_Close = undefined
-{-
-public virtual bool Close()
-{
-    if (Accessed)
-    {
-        try { xStream.Close(); }
-        catch { return false; }
-    }
-    return true;
-}
--}
+ix :: E C Int -> D_List a -> F a
+ix ei lst = let
+  gtr = get (liftA2 drop ei (pure (Just lst) & hsList())) >>= \case
+    []    -> fatal "Array index out of bounds"
+    x : _ -> return x
+  str x = get $ (pure (Just lst) & some() &) $ liftHs $ modifyM $ \xs -> do
+    i <- get ei
+    case splitAt i xs of
+      (_, [])    -> fatal "Array index out of bounds"
+      (a, _ : b) -> return $ a ++ [x] ++ b
+  in Var $ V gtr str
+
+(==.), (/=.), (<.), (>.), (<=.), (>=.) :: (Ord a) => E C a -> E C a -> E C Bool
+(==.) = liftA2 (==)
+(/=.) = liftA2 (/=)
+(<.) = liftA2 (<)
+(>.) = liftA2 (>)
+(<=.) = liftA2 (<=)
+(>=.) = liftA2 (>=)
+infix 4 ==., /=., <., >., <=., >=.
+
+(<<.), (>>.) :: (Bits a) => E C a -> E C Int -> E C a
+(<<.) = liftA2 shiftL
+(>>.) = liftA2 shiftR
+infixl 8 <<., >>.
+
+(.&), (.|) :: (Bits a) => E C a -> E C a -> E C a
+(.&) = liftA2 (.&.)
+(.|) = liftA2 (.|.)
+infixl 7 .&
+infixl 5 .|
+
+new0 :: (Make o) => (E C o -> C ()) -> () -> E C o
+new0 f () = E $ do
+  Var this <- auto make
+  f this
+  get this
+
+new1 :: (Make o) => (Var C a -> E C o -> C ()) -> E C a -> E C o
+new1 f x1 = E $ do
+  Var this <- auto make
+  x1' <- auto x1
+  f x1' this
+  get this
+
+new2 :: (Make o) => ((Var C a, Var C b) -> E C o -> C ()) -> (E C a, E C b) -> E C o
+new2 f (x1, x2) = E $ do
+  Var this <- auto make
+  x1' <- auto x1
+  x2' <- auto x2
+  f (x1', x2') this
+  get this
+
+args0 :: C r -> () -> E C r
+args0 f () = E f
+
+args1 :: (Var C a -> C r) -> E C a -> E C r
+args1 f x1 = E $ auto x1 >>= f
+
+args2 :: ((Var C a, Var C b) -> C r) -> (E C a, E C b) -> E C r
+args2 f (x1, x2) = E $ ((,) <$> auto x1 <*> auto x2) >>= f
+
+args3 :: ((Var C a, Var C b, Var C c) -> C r) -> (E C a, E C b, E C c) -> E C r
+args3 f (x1, x2, x3) = E $ ((,,) <$> auto x1 <*> auto x2 <*> auto x3) >>= f
+
+args4 :: ((Var C a, Var C b, Var C c, Var C d) -> C r) -> (E C a, E C b, E C c, E C d) -> E C r
+args4 f (x1, x2, x3, x4) = E $ ((,,,) <$> auto x1 <*> auto x2 <*> auto x3 <*> auto x4) >>= f
+
+args5 :: ((Var C a, Var C b, Var C c, Var C d, Var C e) -> C r) -> (E C a, E C b, E C c, E C d, E C e) -> E C r
+args5 f (x1, x2, x3, x4, x5) = E $ ((,,,,) <$> auto x1 <*> auto x2 <*> auto x3 <*> auto x4 <*> auto x5) >>= f
+
+meth0 :: (E C o -> C r) -> () -> E C o -> E C r
+meth0 f () obj = E $ get obj >>= f . pure
+
+meth1 :: (Var C a -> E C o -> C r) -> E C a -> E C o -> E C r
+meth1 f x1 obj = E $ do
+  x1' <- auto x1
+  get obj >>= f x1' . pure
+
+meth2 :: ((Var C a, Var C b) -> E C o -> C r) -> (E C a, E C b) -> E C o -> E C r
+meth2 f (x1, x2) obj = E $ do
+  x1' <- auto x1
+  x2' <- auto x2
+  get obj >>= f (x1', x2') . pure
+
+meth3 :: ((Var C a, Var C b, Var C c) -> E C o -> C r) -> (E C a, E C b, E C c) -> E C o -> E C r
+meth3 f (x1, x2, x3) obj = E $ do
+  x1' <- auto x1
+  x2' <- auto x2
+  x3' <- auto x3
+  get obj >>= f (x1', x2', x3') . pure
+
+meth4 :: ((Var C a, Var C b, Var C c, Var C d) -> E C o -> C r) -> (E C a, E C b, E C c, E C d) -> E C o -> E C r
+meth4 f (x1, x2, x3, x4) obj = E $ do
+  x1' <- auto x1
+  x2' <- auto x2
+  x3' <- auto x3
+  x4' <- auto x4
+  get obj >>= f (x1', x2', x3', x4') . pure
+
+meth5 :: ((Var C a, Var C b, Var C c, Var C d, Var C e) -> E C o -> C r) -> (E C a, E C b, E C c, E C d, E C e) -> E C o -> E C r
+meth5 f (x1, x2, x3, x4, x5) obj = E $ do
+  x1' <- auto x1
+  x2' <- auto x2
+  x3' <- auto x3
+  x4' <- auto x4
+  x5' <- auto x5
+  get obj >>= f (x1', x2', x3', x4', x5') . pure
+
+fi :: (Functor f, Integral a, Num b) => f a -> f b
+fi = fmap fromIntegral
 
 glue4Bytes :: Word8 -> Word8 -> Word8 -> Word8 -> Word32
 glue4Bytes a b c d
@@ -131,252 +285,247 @@ glue4Bytes a b c d
 glue2Bytes :: Word8 -> Word8 -> Word16
 glue2Bytes a b = (fromIntegral a `shiftL` 8) .|. fromIntegral b
 
-(%) :: (a -> b) -> a -> b
-(%) = id
-infixl 0 %
-
-listIndex :: (MonadIO m) => Int -> Maybe (List a) -> StackTraceT m a
-listIndex i mlst = noNull mlst >>= get >>= return . (!! i)
-
 ---------
 -- STFSDescriptor.cs
 ---------
 
-data BlockRecord = BlockRecord
-  { br_xFlags     :: Nullable (List Word8)
-  , br_xThisBlock :: Nullable (List Word8)
-  , br_xLevel     :: IORef Word8
+data D_BlockRecord = BlockRecord
+  { br_xFlags     :: F (List Word8)
+  , br_xThisBlock :: F (List Word8)
+  , br_xLevel     :: F Word8
   }
+type BlockRecord = Maybe D_BlockRecord
 
-initBlockRecord :: (MonadIO m) => StackTraceT m BlockRecord
-initBlockRecord = do
-  br_xFlags <- var Nothing
-  br_xThisBlock <- var (replicate 3 0) >>= var . Just
-  br_xLevel <- var 0
-  return BlockRecord{..}
+instance Make BlockRecord where
+  make = E $ do
+    br_xFlags     <- auto $ pure Nothing
+    br_xThisBlock <- auto $ newList $ replicate 3 0
+    br_xLevel     <- auto 0
+    return $ Just BlockRecord{..}
 
-br_ThisBlock :: BlockRecord -> StateVar Word32
+br_ThisBlock :: D_BlockRecord -> F Word32
 br_ThisBlock = undefined
 
-br_ThisLevel :: BlockRecord -> StateVar TreeLevel
+br_ThisLevel :: D_BlockRecord -> F TreeLevel
 br_ThisLevel = undefined
 
-br_Indicator :: BlockRecord -> StateVar Word8
+br_Indicator :: D_BlockRecord -> F Word8
 br_Indicator = undefined
 
-br_Flags :: BlockRecord -> StateVar Word32
+br_Flags :: D_BlockRecord -> F Word32
 br_Flags = undefined
 
 -- public BlockRecord() { xFlags = new byte[] { 0, 0, 0, 0 }; }
-newBlockRecord_empty :: (MonadIO m) => StackTraceT m BlockRecord
-newBlockRecord_empty = do
-  this <- initBlockRecord
-  (br_xFlags this $=) . Just =<< var [0, 0, 0, 0]
-  return this
+instance New BlockRecord () where
+  new = new0 $ \this -> do
+    this &. br_xFlags $= newList [0, 0, 0, 0]
 
 -- public BlockRecord(uint xFlagIn) { Flags = xFlagIn; }
-newBlockRecord_uint :: (MonadIO m) => Word32 -> StackTraceT m BlockRecord
-newBlockRecord_uint xFlagIn = do
-  this <- initBlockRecord
-  (br_Flags this) $= xFlagIn
-  return this
+instance New BlockRecord (E C Word32) where
+  new = new1 $ \(Var xFlagIn) this -> do
+    this &. br_Flags $= xFlagIn
 
 -- public BlockRecord(HashStatus xStatus, uint xNext) { Flags = (uint)((uint)xStatus << 30 | (xNext & 0xFFFFFF)); }
-newBlockRecord_hash_uint :: (MonadIO m) => HashStatus -> Word32 -> StackTraceT m BlockRecord
-newBlockRecord_hash_uint = undefined
+instance New BlockRecord (E C HashStatus, E C Word32) where
+  new = new2 $ \(Var xStatus, Var xNext) this -> do
+    this &. br_Flags $= ((fromIntegral . fromEnum <$> xStatus) <<. 30) .| (xNext .& 0xFFFFFF)
 
-br_Status :: BlockRecord -> StateVar HashStatus
-br_Status = undefined
+-- public HashStatus Status { get { return (HashStatus)(xFlags[0] >> 6); } set { xFlags[0] = (byte)((int)value << 6);} }
+br_Status :: D_BlockRecord -> F HashStatus
+br_Status = makeField $ \this -> V
+  % do get $ fmap (toEnum . fromIntegral) $ (this &. br_xFlags &. ix 0) >>. 6
+  % \value -> do this &. br_xFlags &. ix 0 $= fi $ pure (fromEnum value) <<. 6
 
-br_NextBlock :: BlockRecord -> StateVar Word32
+br_NextBlock :: D_BlockRecord -> F Word32
 br_NextBlock = undefined
 
-br_MarkOld :: (MonadIO m) => Meth m BlockRecord ()
+br_MarkOld :: Meth0 BlockRecord ()
 br_MarkOld = undefined
 
-br_Index :: BlockRecord -> GettableStateVar Word8
+br_Index :: Meth0 BlockRecord Word8
 br_Index = undefined
 
-br_AllocationFlag :: BlockRecord -> StateVar HashFlag
+br_AllocationFlag :: D_BlockRecord -> F HashFlag
 br_AllocationFlag = undefined
 
-br_BlocksFree :: BlockRecord -> StateVar Int32
+br_BlocksFree :: D_BlockRecord -> F Int32
 br_BlocksFree = undefined
 
-br_Switch :: (MonadIO m) => BlockRecord -> StackTraceT m Bool
+br_Switch :: Meth0 BlockRecord Bool
 br_Switch = undefined
 
-data STFSDescriptor = STFSDescriptor
-  { sd_xStruct       :: Nullable (List Word8)
-  , sd_xSpaceBetween :: Nullable (List Word32) -- also SpaceBetween
-  , sd_xBaseByte     :: IORef Word8
-  , sd_xBlockCount   :: IORef Word32 -- also BlockCount
-  , sd_TopRecord     :: Nullable BlockRecord
-  , sd_Shift         :: IORef Word8
+data D_STFSDescriptor = STFSDescriptor
+  { sd_xStruct       :: F (List Word8)
+  , sd_xSpaceBetween :: F (List Word32) -- also SpaceBetween
+  , sd_xBaseByte     :: F Word8
+  , sd_xBlockCount   :: F Word32 -- also BlockCount
+  , sd_TopRecord     :: F BlockRecord
+  , sd_Shift         :: F Word8
   }
+type STFSDescriptor = Maybe D_STFSDescriptor
 
-sd_DirectoryBlockCount :: STFSDescriptor -> StateVar Word16
+sd_DirectoryBlockCount :: STFSDescriptor -> F Word16
 sd_DirectoryBlockCount = undefined
 
-sd_DirectoryBlock :: STFSDescriptor -> StateVar Word32
+sd_DirectoryBlock :: STFSDescriptor -> F Word32
 sd_DirectoryBlock = undefined
 
-sd_BaseBlock :: STFSDescriptor -> GettableStateVar Word16
+sd_BaseBlock :: Meth0 STFSDescriptor Word16
 sd_BaseBlock = undefined
 
-sd_ThisType :: STFSDescriptor -> GettableStateVar STFSType
+sd_ThisType :: Meth0 STFSDescriptor STFSType
 sd_ThisType = undefined
 
-sd_OldBlockCount :: STFSDescriptor -> GettableStateVar Word32
+sd_OldBlockCount :: Meth0 STFSDescriptor Word32
 sd_OldBlockCount = undefined
 
-initSTFSDescriptor :: (MonadIO m) => StackTraceT m STFSDescriptor
-initSTFSDescriptor = do
-  sd_xStruct <- var Nothing
-  sd_xSpaceBetween <- var (replicate 3 0) >>= var . Just
-  sd_xBaseByte <- var 0
-  sd_xBlockCount <- var 0
-  sd_TopRecord <- newBlockRecord_empty >>= var . Just
-  sd_Shift <- var 0
-  return STFSDescriptor{..}
+instance Make STFSDescriptor where
+  make = E $ do
+    sd_xStruct       <- auto $ pure Nothing
+    sd_xSpaceBetween <- auto $ newList $ replicate 3 0
+    sd_xBaseByte     <- auto 0
+    sd_xBlockCount   <- auto 0
+    sd_TopRecord     <- auto $ new ()
+    sd_Shift         <- auto 0
+    return $ Just STFSDescriptor{..}
 
 -- internal STFSDescriptor(STFSType xType, uint xTotalBlocks)
-newSTFSDescriptor_type_uint :: (MonadIO m) => STFSType -> Word32 -> StackTraceT m STFSDescriptor
-newSTFSDescriptor_type_uint xType xTotalBlocks = do
-  this <- initSTFSDescriptor
-  this & sd_XSetStructure xType
-  (sd_xStruct this $=) . Just =<< var [0, 0, 0, 0, 0]
-  sb <- get (sd_xSpaceBetween this) >>= hsList
-  when (xTotalBlocks > (sb !! 2)) $ do
-    sd_xStruct this $= Nothing
-    fatal "STFSExcepts.MaxOver"
-  sd_xBlockCount this $= xTotalBlocks
-  (sd_xBaseByte this $=) =<< do
-    get (sd_ThisType this) >>= return . \case
-      STFSType_Type0 -> 0xB
-      _              -> 0xA
-  return this
+instance New STFSDescriptor (E C STFSType, E C Word32) where
+  new = new2 $ \(Var xType, Var xTotalBlocks) this -> do
+    get $ this & sd_XSetStructure(xType)
+    (this &. sd_xStruct) $= newList [0, 0, 0, 0, 0]
+    whenM (get $ xTotalBlocks >. (this &. sd_xSpaceBetween &. ix 2)) $ do
+      this &. sd_xStruct $= pure Nothing
+      fatal "STFSExcepts.MaxOver"
+    this &. sd_xBlockCount $= xTotalBlocks
+    this &. sd_xBaseByte $= ifM ((this & sd_ThisType()) ==. pure STFSType_Type0) 0xB 0xA
 
 -- void XSetStructure(STFSType xType)
-sd_XSetStructure :: (MonadIO m) => STFSType -> Meth m STFSDescriptor ()
-sd_XSetStructure xType this = case xType of
+sd_XSetStructure :: Meth1 STFSDescriptor STFSType ()
+sd_XSetStructure = meth1 $ \(Var xType) this -> get xType >>= \case
   STFSType_Type0 -> do
-    xsb <- get $ sd_xSpaceBetween this
-    xsb & setIndex 0 0xA0
-    xsb & setIndex 1 0x718F
-    xsb & setIndex 2 0xFE7DA -- Max Block
-    sd_Shift this $= 0
+    this &. sd_xSpaceBetween &. ix 0 $= 0xA0
+    this &. sd_xSpaceBetween &. ix 1 $= 0x718F
+    this &. sd_xSpaceBetween &. ix 2 $= 0xFE7DA -- Max Block
+    this &. sd_Shift $= 0
   STFSType_Type1 -> do
-    xsb <- get $ sd_xSpaceBetween this
-    xsb & setIndex 0 0xAC
-    xsb & setIndex 1 0x723A
-    xsb & setIndex 2 0xFD00B -- Max Block before size of package over does FATX limit
-    sd_Shift this $= 1
+    this &. sd_xSpaceBetween &. ix 0 $= 0xAC
+    this &. sd_xSpaceBetween &. ix 1 $= 0x723A
+    this &. sd_xSpaceBetween &. ix 2 $= 0xFD00B -- Max Block before size of package over does FATX limit
+    this &. sd_Shift $= 1
 
 -- internal STFSDescriptor(byte[] xDescriptor, uint xTotalBlocks, uint xOldBlocks, byte xType)
-newSTFSDescriptor_bytes_uint_uint_byte :: (MonadIO m) => Maybe (List Word8) -> Word32 -> Word32 -> Word8 -> StackTraceT m STFSDescriptor
-newSTFSDescriptor_bytes_uint_uint_byte = undefined
+instance New STFSDescriptor (E C (List Word8), E C Word32, E C Word32, E C Word8) where
+  new = undefined
 
 -- internal STFSDescriptor(STFSPackage xPackage)
-newSTFSDescriptor_pkg :: (MonadIO m) => Maybe STFSPackage -> StackTraceT m STFSDescriptor
-newSTFSDescriptor_pkg = undefined
+instance New STFSDescriptor (E C STFSPackage) where
+  new = undefined
 
 -- internal uint GenerateDataBlock(uint xBlock)
-sd_GenerateDataBlock :: (MonadIO m) => Word32 -> Meth m STFSDescriptor Word32
-sd_GenerateDataBlock xBlock this
-  | xBlock >= 0x4AF768 = return $ fromIntegral constants_STFSEnd
-  | otherwise = catchError
-    % do
-      shft <- fromIntegral <$> get (sd_Shift this)
-      return $ sum $ concat
-        -- Gets 0xAA section, shifts it for 1 or 2 tables per section, and adds original block
-        [ return $ (((xBlock `quot` constants_BlockLevel0) + 1) `shiftL` shft) + xBlock
-        -- Gets current 0x70e4 section, adjusts to table count
-        , do
-          guard $ xBlock >= constants_BlockLevel0
-          return $ ((xBlock `quot` constants_BlockLevel1) + 1) `shiftL` shft
-        -- There is only going to be 1 0x4AF768 section, add to base
-        , do
-          guard $ xBlock >= constants_BlockLevel1
-          return $ 1 `shiftL` shft
-        ]
-    % \_ -> fatal "STFSExcepts.General"
-
--- internal uint GenerateHashBlock(uint xBlock, TreeLevel xTree)
-sd_GenerateHashBlock :: (MonadIO m) => Word32 -> TreeLevel -> Meth m STFSDescriptor Word32
-sd_GenerateHashBlock xBlock xTree this
-  | xBlock >= 0x4AF768 = return $ fromIntegral constants_STFSEnd
-  | otherwise = catchError
-    % case xTree of
-      L0 -> do
-        sp0 <- get (sd_xSpaceBetween this) >>= listIndex 0
-        shft <- fromIntegral <$> get (sd_Shift this)
-        return $ sum $ concat
-          -- Get Base Level 0 Table
-          [ return $ (xBlock `quot` constants_BlockLevel0) * sp0
-          -- Adjusts the result for Level 1 table count
+sd_GenerateDataBlock :: Meth1 STFSDescriptor Word32 Word32
+sd_GenerateDataBlock = meth1 $ \(Var xBlock') this -> do
+  xBlock <- get xBlock'
+  if xBlock >= 0x4AF768
+    then return $ fromIntegral constants_STFSEnd
+    else catchError
+      % do
+        shft <- fromIntegral <$> get (this &. sd_Shift)
+        return $ sum $ concat
+          -- Gets 0xAA section, shifts it for 1 or 2 tables per section, and adds original block
+          [ return $ (((xBlock `quot` constants_BlockLevel0) + 1) `shiftL` shft) + xBlock
+          -- Gets current 0x70e4 section, adjusts to table count
           , do
             guard $ xBlock >= constants_BlockLevel0
             return $ ((xBlock `quot` constants_BlockLevel1) + 1) `shiftL` shft
-          -- Adjusts for the Level 2 table
+          -- There is only going to be 1 0x4AF768 section, add to base
           , do
             guard $ xBlock >= constants_BlockLevel1
             return $ 1 `shiftL` shft
           ]
-      L1 -> do
-        -- Grab the number of Table 1 blocks
-        if xBlock < constants_BlockLevel1
-          then get (sd_xSpaceBetween this) >>= listIndex 0
-          else do
-            sb1 <- get (sd_xSpaceBetween this) >>= listIndex 1
-            shft <- fromIntegral <$> get (sd_Shift this)
-            return $ sb1 * (xBlock `quot` constants_BlockLevel1) + (1 `shiftL` shft)
-      L2 -> do
-        -- Only one Level 2 table
-        get (sd_xSpaceBetween this) >>= listIndex 1
-      _ -> return $ fromIntegral constants_STFSEnd
-    % \_ -> fatal "STFSExcepts.General"
+      % \_ -> fatal "STFSExcepts.General"
+
+-- internal uint GenerateHashBlock(uint xBlock, TreeLevel xTree)
+sd_GenerateHashBlock :: Meth2 STFSDescriptor Word32 TreeLevel Word32
+sd_GenerateHashBlock = meth2 $ \(Var xBlock', Var xTree') this -> do
+  xBlock <- get xBlock'
+  xTree <- get xTree'
+  if xBlock >= 0x4AF768
+    then return $ fromIntegral constants_STFSEnd
+    else catchError
+      % case xTree of
+        L0 -> do
+          sp0 <- get $ this &. sd_xSpaceBetween &. ix 0
+          shft <- fromIntegral <$> get (this &. sd_Shift)
+          return $ sum $ concat
+            -- Get Base Level 0 Table
+            [ return $ (xBlock `quot` constants_BlockLevel0) * sp0
+            -- Adjusts the result for Level 1 table count
+            , do
+              guard $ xBlock >= constants_BlockLevel0
+              return $ ((xBlock `quot` constants_BlockLevel1) + 1) `shiftL` shft
+            -- Adjusts for the Level 2 table
+            , do
+              guard $ xBlock >= constants_BlockLevel1
+              return $ 1 `shiftL` shft
+            ]
+        L1 -> do
+          -- Grab the number of Table 1 blocks
+          if xBlock < constants_BlockLevel1
+            then get $ this &. sd_xSpaceBetween &. ix 0
+            else do
+              sb1 <- get $ this &. sd_xSpaceBetween &. ix 1
+              shft <- fromIntegral <$> get (this &. sd_Shift)
+              return $ sb1 * (xBlock `quot` constants_BlockLevel1) + (1 `shiftL` shft)
+        L2 -> do
+          -- Only one Level 2 table
+          get $ this &. sd_xSpaceBetween &. ix 1
+        _ -> return $ fromIntegral constants_STFSEnd
+      % \_ -> fatal "STFSExcepts.General"
 
 -- internal long GenerateHashOffset(uint xBlock, TreeLevel xTree)
-sd_GenerateHashOffset :: (MonadIO m) => Word32 -> TreeLevel -> Meth m STFSDescriptor Int64
-sd_GenerateHashOffset xBlock xTree this
-  | xBlock >= 0x4AF768 = return $ fromIntegral constants_STFSEnd
-  | otherwise = catchError
-    % do
-      result <- this & sd_GenerateHashBlock xBlock xTree
-      xReturn <- this & sd_BlockToOffset result
-      return $ xReturn + case xTree of
-        L0 -> 0x18 * fromIntegral (xBlock `rem` constants_BlockLevel0)
-        L1 -> 0x18 * fromIntegral ((xBlock `quot` constants_BlockLevel0) `rem` constants_BlockLevel0)
-        L2 -> 0x18 * fromIntegral ((xBlock `quot` constants_BlockLevel1) `rem` constants_BlockLevel0)
-        _  -> 0
-    % \_ -> fatal "STFSExcepts.General"
+sd_GenerateHashOffset :: Meth2 STFSDescriptor Word32 TreeLevel Int64
+sd_GenerateHashOffset = meth2 $ \(Var xBlock', Var xTree') this -> do
+  xBlock <- get xBlock'
+  xTree <- get xTree'
+  if xBlock >= 0x4AF768
+    then return $ fromIntegral constants_STFSEnd
+    else catchError
+      % do
+        xReturn <- get $ this & sd_BlockToOffset (this & sd_GenerateHashBlock(xBlock', xTree'))
+        return $ xReturn + case xTree of
+          L0 -> 0x18 * fromIntegral (xBlock `rem` constants_BlockLevel0)
+          L1 -> 0x18 * fromIntegral ((xBlock `quot` constants_BlockLevel0) `rem` constants_BlockLevel0)
+          L2 -> 0x18 * fromIntegral ((xBlock `quot` constants_BlockLevel1) `rem` constants_BlockLevel0)
+          _  -> 0
+      % \_ -> fatal "STFSExcepts.General"
 
 -- internal long GenerateDataOffset(uint xBlock)
-sd_GenerateDataOffset :: (MonadIO m) => Word32 -> Meth m STFSDescriptor Int64
-sd_GenerateDataOffset xBlock this = catchError
+sd_GenerateDataOffset :: Meth1 STFSDescriptor Word32 Int64
+sd_GenerateDataOffset = meth1 $ \(Var xBlock) this -> catchError
   % do
-    if xBlock >= 0x4AF768
-      then return $ fromIntegral constants_STFSEnd
-      else (`sd_BlockToOffset` this) =<< (this & sd_GenerateDataBlock xBlock)
+    ifM (get $ xBlock >=. 0x4AF768)
+      % do return $ fromIntegral constants_STFSEnd
+      % do get $ this & sd_BlockToOffset(this & sd_GenerateDataBlock(xBlock))
   % \_ -> fatal "STFSExcepts.General"
 
+
 -- internal long BlockToOffset(uint xBlock)
-sd_BlockToOffset :: (MonadIO m) => Word32 -> Meth m STFSDescriptor Int64
-sd_BlockToOffset xBlock this = catchError
+sd_BlockToOffset :: Meth1 STFSDescriptor Word32 Int64
+sd_BlockToOffset = meth1 $ \(Var xBlock) this -> catchError
   % do
-    ((fromIntegral xBlock * 0x1000) +) . fromIntegral <$> get (sd_BaseBlock this)
+    get $ ((fi xBlock * 0x1000) + fi (this & sd_BaseBlock()))
   % \_ -> fatal "STFSExcepts.General"
 
 -- internal long GenerateBaseOffset(uint xBlock, TreeLevel xTree)
-sd_GenerateBaseOffset :: (MonadIO m) => Word32 -> TreeLevel -> Meth m STFSDescriptor Int64
-sd_GenerateBaseOffset xBlock xTree this = catchError
+sd_GenerateBaseOffset :: Meth2 STFSDescriptor Word32 TreeLevel Int64
+sd_GenerateBaseOffset = meth2 $ \(Var xBlock, Var xTree) this -> catchError
   % do
-    (`sd_BlockToOffset` this) =<< (this & sd_GenerateHashBlock xBlock xTree)
+    get $ this & sd_BlockToOffset(this & sd_GenerateHashBlock(xBlock, xTree))
   % \_ -> fatal "STFSExcepts.General"
 
 -- internal byte[] GetData()
-sd_GetData :: (MonadIO m) => Meth m STFSDescriptor (List Word8)
+sd_GetData :: Meth0 STFSDescriptor (List Word8)
 sd_GetData = undefined
 -- byte idx = 1;
 -- if (ThisType == STFSType.Type1)
@@ -395,10 +544,13 @@ sd_GetData = undefined
 -- Create.cs
 ---------
 
-data CItemEntry = CItemEntry
-  { ci_create    :: Nullable CreateSTFS
-  , ci_xthispath :: Nullable String
+data D_CItemEntry = CItemEntry
+  { ci_create    :: F CreateSTFS
+  , ci_xthispath :: F Str
   }
+type CItemEntry = Maybe D_CItemEntry
+
+{-
 
 newCItemEntry :: (MonadIO m) => Maybe String -> Maybe CreateSTFS -> m CItemEntry
 newCItemEntry path xCreate = do
@@ -437,10 +589,15 @@ createTools_BlockCount mfile = do
       len <- (fromIntegral :: Integer -> Int64) <$> withBinaryFile file ReadMode hFileSize
       return $ fromIntegral $ quot (len - 1) 0x1000 + 1
 
-data CFileEntry = CFileEntry
+-}
+
+data D_CFileEntry = CFileEntry
   { cfi_base       :: CItemEntry
-  , cfi_filelocale :: Nullable String
+  , cfi_filelocale :: F Str
   }
+type CFileEntry = Maybe D_CFileEntry
+
+{-
 
 cfi_BlockCount :: (MonadIO m) => CFileEntry -> StackTraceT m Word32
 cfi_BlockCount this = get (cfi_filelocale this) >>= createTools_BlockCount
@@ -455,9 +612,14 @@ newCFileEntry xFile path xCreate = do
   cfi_filelocale <- var xFile
   return CFileEntry{..}
 
-data CFolderEntry = CFolderEntry
+-}
+
+data D_CFolderEntry = CFolderEntry
   { cfo_base :: CItemEntry
   }
+type CFolderEntry = Maybe D_CFolderEntry
+
+{-
 
 newCFolderEntry :: (MonadIO m) => Maybe String -> Maybe CreateSTFS -> m CFolderEntry
 newCFolderEntry path xCreate = CFolderEntry <$> newCItemEntry path xCreate
@@ -473,31 +635,36 @@ cfo_GetFiles = undefined
 -- }
 -- return xReturn.ToArray();
 
+-}
+
 data SphereColor
 
 data DashStyle
 
 data ThemeParams
 
-data CreateSTFS = CreateSTFS
-  { cs_xFileDirectory   :: Nullable (List CFileEntry)
-  , cs_xFolderDirectory :: Nullable (List CFolderEntry)
-  , cs_STFSType         :: IORef STFSType -- also xStruct
-  , cs_HeaderData       :: Nullable HeaderData
-  , cs_xtheme           :: Nullable ThemeParams -- also ThemeSettings
-  , cs_root             :: Nullable CFolderEntry -- also RootPath
+data D_CreateSTFS = CreateSTFS
+  { cs_xFileDirectory   :: F (List CFileEntry)
+  , cs_xFolderDirectory :: F (List CFolderEntry)
+  , cs_STFSType         :: F STFSType -- also xStruct
+  , cs_HeaderData       :: F HeaderData
+  , cs_xtheme           :: F ThemeParams -- also ThemeSettings
+  , cs_root             :: F CFolderEntry -- also RootPath
   }
+type CreateSTFS = Maybe D_CreateSTFS
 
 -- internal uint[] BlockStep
-cs_BlockStep :: (MonadIO m) => Meth m CreateSTFS [Word32]
-cs_BlockStep this = do
-  xStruct <- get $ cs_STFSType this
+cs_BlockStep :: Meth0 CreateSTFS [Word32]
+cs_BlockStep = meth0 $ \this -> do
+  xStruct <- get $ this &. cs_STFSType
   return
     [ 0xAA, 0x70E4
     , case xStruct of
       STFSType_Type0 -> 0xFE7DA
       STFSType_Type1 -> 0xFD00B
     ]
+
+{-
 
 -- internal byte GetDirectoryCount { get { return (byte)(((xFileDirectory.Count + xFolderDirectory.Count - 1) / 0x40) + 1); } }
 cs_GetDirectoryCount :: (MonadIO m) => Meth m CreateSTFS Word8
@@ -649,37 +816,44 @@ cs_GetFolder folderPath this = fun $ \ret -> do
     when (map toLower xptl == map toLower fp) $ ret $ Just x
   return Nothing
 
+-}
+
 ---------
 -- STFSPackage.cs
 ---------
 
-data ItemEntry = ItemEntry
-  { ie_xPackage         :: Nullable STFSPackage
-  , ie_xCreated         :: IORef Int32
-  , ie_xAccessed        :: IORef Int32
-  , ie_xSize            :: IORef Int32
-  , ie_xBlockCount      :: IORef Word32
-  , ie_xStartBlock      :: IORef Word32
-  , ie_xName            :: Nullable String
-  , ie_xEntryID         :: IORef Word16
-  , ie_xFolderPointer   :: IORef Word16
-  , ie_xFlag            :: IORef Word8
-  , ie_xDirectoryOffset :: IORef Int64
+data D_ItemEntry = ItemEntry
+  { ie_xPackage         :: F STFSPackage
+  , ie_xCreated         :: F Int32
+  , ie_xAccessed        :: F Int32
+  , ie_xSize            :: F Int32
+  , ie_xBlockCount      :: F Word32
+  , ie_xStartBlock      :: F Word32
+  , ie_xName            :: F Str
+  , ie_xEntryID         :: F Word16
+  , ie_xFolderPointer   :: F Word16
+  , ie_xFlag            :: F Word8
+  , ie_xDirectoryOffset :: F Int64
   }
+type ItemEntry = Maybe D_ItemEntry
 
 -- TODO rest of ItemEntry
 
-data FileEntry = FileEntry
+data D_FileEntry = FileEntry
   { fi_base       :: ItemEntry
-  , fi_xBlocks    :: Nullable (List BlockRecord)
-  , fi_RealStream :: Nullable DJsIO
+  , fi_xBlocks    :: F (List BlockRecord)
+  , fi_RealStream :: F DJsIO
   }
+type FileEntry = Maybe D_FileEntry
 
 -- TODO rest of FileEntry
 
-data FolderEntry = FolderEntry
+data D_FolderEntry = FolderEntry
   { fo_base :: ItemEntry
   }
+type FolderEntry = Maybe D_FolderEntry
+
+{-
 
 newFolderEntry_1 :: (MonadIO m) => Maybe ItemEntry -> StackTraceT m FolderEntry
 newFolderEntry_1 xEntry = FolderEntry <$> undefined xEntry
@@ -692,41 +866,48 @@ newFolderEntry_5 nameIn sizeIn xID xFolder xPackageIn =
 -- internal FolderEntry(string NameIn, int SizeIn, ushort xID, ushort xFolder, STFSPackage xPackageIn)
 --     : base(NameIn, SizeIn, true, xID, xFolder, xPackageIn) { }
 
+-}
+
 -- TODO rest of FolderEntry
 
-data STFSLicense = STFSLicense
-  { sl_xID    :: IORef Int64
-  , sl_xInt1  :: IORef Int32
-  , sl_xInt2  :: IORef Int32
-  , sl_xfirst :: IORef Bool
+data D_STFSLicense = STFSLicense
+  { sl_xID    :: F Int64
+  , sl_xInt1  :: F Int32
+  , sl_xInt2  :: F Int32
+  , sl_xfirst :: F Bool
   }
+type STFSLicense = Maybe D_STFSLicense
 
 -- TODO rest of STFSLicense
 
-data HeaderData = HeaderData
+data D_HeaderData = HeaderData
   -- TODO rest of the fields
-  { hd_TitleID            :: IORef Word32
-  , hd_Publisher          :: IORef String
-  , hd_Title_Package      :: IORef String
-  , hd_ThisType           :: IORef PackageType
-  , hd_Title_Display      :: IORef String
-  , hd_Description        :: IORef String
-  , hd_PackageImageBinary :: Nullable B.ByteString
-  , hd_ContentImageBinary :: Nullable B.ByteString
+  { hd_TitleID            :: F Word32
+  , hd_Publisher          :: F Str
+  , hd_Title_Package      :: F Str
+  , hd_ThisType           :: F PackageType
+  , hd_Title_Display      :: F Str
+  , hd_Description        :: F Str
+  , hd_PackageImageBinary :: F (Maybe B.ByteString)
+  , hd_ContentImageBinary :: F (Maybe B.ByteString)
   }
+type HeaderData = Maybe D_HeaderData
 
 -- TODO rest of HeaderData
 
-data STFSPackage = STFSPackage
-  { sp_xHeader          :: Nullable HeaderData -- also Header
-  , sp_xFileDirectory   :: Nullable (List FileEntry)
-  , sp_xFolderDirectory :: Nullable (List FolderEntry)
-  , sp_xIO              :: Nullable DJsIO
-  , sp_xSTFSStruct      :: Nullable STFSDescriptor -- also STFSStruct
-  , sp_xFileBlocks      :: Nullable (List BlockRecord)
-  , sp_xActive          :: IORef Bool
-  , sp_xroot            :: Nullable FolderEntry -- also RootDirectory
+data D_STFSPackage = STFSPackage
+  { sp_xHeader          :: F HeaderData -- also Header
+  , sp_xFileDirectory   :: F (List FileEntry)
+  , sp_xFolderDirectory :: F (List FolderEntry)
+  , sp_xIO              :: F DJsIO
+  , sp_xSTFSStruct      :: F STFSDescriptor -- also STFSStruct
+  , sp_xFileBlocks      :: F (List BlockRecord)
+  , sp_xActive          :: F Bool
+  , sp_xroot            :: F FolderEntry -- also RootDirectory
   }
+type STFSPackage = Maybe D_STFSPackage
+
+{-
 
 -- public bool ParseSuccess { get { return xIO != null; } }
 sp_ParseSuccess :: (MonadIO m) => Meth m STFSPackage Bool
@@ -966,14 +1147,30 @@ internal bool xWriteHeader(RSAParams xParams)
 -- internal int xDeleteEntry(ItemEntry x)
 
 -- int sortpathct(CFolderEntry x1, CFolderEntry x2)
+sortpathct :: (MonadIO m) => CFolderEntry -> CFolderEntry -> StackTraceT m Ordering
+sortpathct x1 x2 = do
+  pc1 <- xPathCount <$> (get (ci_xthispath $ cfo_base x1) >>= noNull)
+  pc2 <- xPathCount <$> (get (ci_xthispath $ cfo_base x2) >>= noNull)
+  return $ compare pc1 pc2
 
 -- string dlcname()
+sp_dlcname :: (MonadIO m) => Meth m STFSPackage (Maybe String)
+sp_dlcname _this = catchError
+  % do
+    -- xIO.Position = 0x32C;
+    -- return xIO.ReadBytes(0x14).HexString() + ((byte)(xHeader.TitleID >> 16)).ToString("X2");
+    undefined
+  % \_ -> return $ Just "00000000000000000000000000000000000000000000"
+
+-}
 
 data SwitchType
   = SwitchType_None
   | SwitchType_Allocate
   | SwitchType_Delete
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+{-
 
 -- void SwitchNWrite(BlockRecord RecIn, SwitchType Change)
 sp_SwitchNWrite :: (MonadIO m) => Maybe BlockRecord -> SwitchType -> Meth m STFSPackage ()
@@ -1037,10 +1234,11 @@ newSTFSPackage_create xSession xSigning _xOutPath = do
           br_ThisBlock br $= i
           return br
       void $ get (sp_xFileBlocks this) >>= \xfb -> this & sp_xWriteChain xfb
+      get (sp_xSTFSStruct this) >>= noNull >>= \desc -> do
+        (sd_DirectoryBlockCount desc $=) . fromIntegral . length =<< hsList =<< get (sp_xFileBlocks this)
+      xCurID <- var (0 :: Word16)
+      get (cs_xFolderDirectory xSession) >>= listSort sortpathct
       {-
-      xSTFSStruct.xDirectoryBlockCount = (ushort)xFileBlocks.Length;
-      ushort xCurID = 0;
-      xSession.xFolderDirectory.Sort(new Comparison<CFolderEntry>(sortpathct));
       foreach (CFolderEntry x in xSession.xFolderDirectory)
       {
           ushort pointer = 0xFFFF;
@@ -1172,6 +1370,8 @@ sp_closeIO this = get (sp_xActive this) >>= \case
       Nothing -> return ()
       Just xIO -> void $ dj_Close xIO
     return True
+
+-}
 
 ---------
 -- STFSStuff.cs
@@ -1313,10 +1513,10 @@ data StrongSigned
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data RSAParams = RSAParams
-  { rp_xC :: Nullable (List Word8)
-  , rp_xK :: () -- RSAParameters xK = new RSAParameters();
-  , rp_xM :: IORef PackageMagic
-  , rp_xV :: IORef Bool -- also Valid
+  { rp_xC :: F (List Word8)
+  , rp_xK :: F () -- RSAParameters xK = new RSAParameters();
+  , rp_xM :: F PackageMagic
+  , rp_xV :: F Bool -- also Valid
   }
 
 -- TODO rest of RSAParams
@@ -1352,7 +1552,7 @@ constants_BlockLevel0 = 0xAA
 constants_BlockLevel1 = 0x70E4
 
 -- internal static string xExtractLegitPath(this string xin)
-xExtractLegitPath_pure :: FilePath -> FilePath
+xExtractLegitPath_pure :: String -> String
 xExtractLegitPath_pure "" = ""
 xExtractLegitPath_pure xin = let
   xin1 = map (\case '\\' -> '/'; c -> c) xin
@@ -1364,16 +1564,22 @@ xExtractLegitPath_pure xin = let
     _       -> xin2
   in xin3
 
-xExtractLegitPath :: (Monad m) => Maybe FilePath -> StackTraceT m (Maybe FilePath)
-xExtractLegitPath ms = Just . xExtractLegitPath_pure <$> noNull ms
+xExtractLegitPath :: Meth0 Str Str
+xExtractLegitPath() this = this & some() & liftHs (pure . Just . xExtractLegitPath_pure)
 
 -- internal static string xExtractName(this string xin)
-xExtractName :: String -> String
-xExtractName = reverse . takeWhile (/= '/') . reverse
+xExtractName_pure :: String -> String
+xExtractName_pure = reverse . takeWhile (/= '/') . reverse
+
+xExtractName :: Meth0 Str Str
+xExtractName() this = this & some() & liftHs (pure . Just . xExtractName_pure)
 
 -- internal static int xPathCount(this string xin) { return xin.Split(new char[] { '/' }).Length; }
-xPathCount :: String -> Int
-xPathCount = length . splitOn "/"
+xPathCount_pure :: String -> Int
+xPathCount_pure = length . splitOn "/"
+
+xPathCount :: Meth0 Str Int
+xPathCount() this = this & some() & liftHs (pure . xPathCount_pure)
 
 -- public static bool IsValidXboxName(this string x)
 isValidXboxName :: (Monad m) => String -> StackTraceT m Bool
@@ -1416,3 +1622,73 @@ fatTimeDT xDateTime = let
       minute = fromIntegral $ (xTime .&. 0x7E0) `shiftR` 5
       sec    = fromIntegral $ (xTime .&. 0x1F) * 2
       in Time.LocalTime (Time.fromGregorian year month day) (Time.TimeOfDay hour minute sec)
+
+---------
+-- UNSORTED
+---------
+
+data DJsIO
+
+{-
+
+listSort :: (MonadIO m) => Meth m (List a) (a -> a -> StackTraceT m Ordering) ()
+listSort = undefined
+
+setIndex :: (MonadIO m) => Int -> a -> Maybe (List a) -> StackTraceT m ()
+setIndex i x mlst = do
+  lst <- noNull mlst
+  xs <- get lst
+  lst $= case splitAt i xs of
+    (a, b) -> a ++ [x] ++ drop 1 b
+
+newDJsIO_temp :: (MonadIO m) => Bool -> StackTraceT m DJsIO
+newDJsIO_temp = undefined
+{-
+public DJsIO(bool BigEndian)
+{
+    IsBigEndian = BigEndian;
+    xFile = string.Copy(VariousFunctions.GetTempFileLocale());
+    XSetStream(DJFileMode.Create);
+}
+-}
+
+dj_Dispose :: (MonadIO m) => Bool -> Meth m DJsIO Bool
+dj_Dispose = undefined
+{-
+public virtual bool Dispose()
+{
+    return Dispose(false);
+}
+
+internal bool Dispose(bool DeleteFile)
+{
+    if (!Close())
+        return false;
+    if (xThisData != DataType.Real)
+    {
+        try { xStream.Dispose(); }
+        catch { return false; }
+        if (xThisData == DataType.File && DeleteFile)
+            VariousFunctions.DeleteFile(FileNameLong);
+    }
+    xFile = null;
+    txtidx = null;
+    return true;
+}
+-}
+
+dj_Close :: Meth m DJsIO Bool
+dj_Close = undefined
+{-
+public virtual bool Close()
+{
+    if (Accessed)
+    {
+        try { xStream.Close(); }
+        catch { return false; }
+    }
+    return true;
+}
+-}
+
+-}
