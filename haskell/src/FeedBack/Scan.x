@@ -4,6 +4,7 @@ module FeedBack.Scan (scanStack, Token(..), AlexPosn(..)) where
 
 import Control.Monad.Trans.StackTrace (StackTraceT, fatal)
 import qualified Data.Text as T
+import FeedBack.Base (Atom(..))
 }
 
 %wrapper "monad"
@@ -23,11 +24,18 @@ tokens :-
 \] { emit $ const BracketR }
 \= { emit $ const Equals }
 
-(\+ | \-)? $digit+ { emit $ TInt . read . dropWhile (== '+') }
+(\+ | \-)? $digit+ { emit $ TAtom . Int . read . dropWhile (== '+') }
+(\+ | \-)? $digit+ "." $digit+ { emit $ \s -> let
+  (whole, '.' : part) = break (== '.') s
+  wholeRat = fromInteger $ read $ dropWhile (== '+') whole
+  partDenom = fromInteger $ 10 ^ length part
+  partRat = fromInteger (read part) / partDenom
+  in TAtom $ Real $ wholeRat + partRat
+  }
 
-$rawfirst $rawnext* { emit $ TStr . T.pack }
-\" [^\"]* \" { emit $ TStr . T.tail . T.init . T.pack }
-\" [^\"]*    { emit $ TStr . T.tail          . T.pack }
+$rawfirst $rawnext* { emit $ TAtom . Str . T.pack }
+\" [^\"]* \" { emit $ TAtom . Str . T.tail . T.init . T.pack }
+\" [^\"]*    { emit $ TAtom . Str . T.tail          . T.pack }
 
 {
 
@@ -41,8 +49,7 @@ data Token
   | BracketL
   | BracketR
   | Equals
-  | TInt Integer
-  | TStr T.Text
+  | TAtom Atom
   deriving (Eq, Ord, Show, Read)
 
 scanAll :: Alex [(AlexPosn, Token)]

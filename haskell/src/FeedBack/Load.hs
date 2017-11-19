@@ -15,7 +15,7 @@ import           Data.Default.Class               (def)
 import           Data.Either                      (isLeft)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Fixed                       (Fixed (..))
+import           Data.Fixed                       (Fixed (..), Milli)
 import qualified Data.HashMap.Strict              as Map
 import           Data.List                        (partition, sort)
 import           Data.Maybe                       (fromMaybe)
@@ -40,8 +40,9 @@ import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
 
 atomStr :: Atom -> T.Text
-atomStr (Str s) = s
-atomStr (Int i) = T.pack $ show i
+atomStr (Str  s) = s
+atomStr (Int  i) = T.pack $ show i
+atomStr (Real r) = T.pack $ show (realToFrac r :: Milli)
 
 parseSong :: (Monad m) => RawLines -> StackTraceT m (Map.HashMap T.Text Atom)
 parseSong lns = fmap Map.fromList $ forM lns $ \(k, vs) -> do
@@ -62,6 +63,7 @@ parseTrack lns = do
     time <- case k of
       Int i -> readTicks i
       Str s -> fatal $ "Track event has non-number timestamp: " <> show s
+      Real r -> fatal $ "Track event has fractional timestamp: " <> show (realToFrac r :: Milli)
     evt <- inside ("ticks: " <> show time) $ parseEvent vs
     return (time, evt)
   return $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ sort parsed
@@ -132,14 +134,17 @@ chartToIni chart = def
   , FoF.year = Map.lookup "Year" song >>= \case
     Int i -> Just $ fromIntegral i
     Str s -> T.stripPrefix ", " s >>= readMaybe . T.unpack
-  , FoF.delay = Map.lookup "Offset" song >>= atomInt
+    Real r -> Just $ floor r
+  , FoF.delay = fmap (floor . (* 1000)) $ Map.lookup "Offset" song >>= atomReal
   -- could also get PreviewStart, PreviewEnd, Genre
   } where song = chartSong chart
           atomStr' x = case atomStr x of
             "" -> Nothing
             s  -> Just s
-          atomInt (Int i) = Just $ fromIntegral i
-          atomInt _       = Nothing
+          atomReal :: Atom -> Maybe Rational
+          atomReal (Int  i) = Just $ fromIntegral i
+          atomReal (Real r) = Just r
+          atomReal _        = Nothing
 
 traverseWithAbsTime :: (Applicative m, Num t, NNC.C t) => (t -> a -> m b) -> RTB.T t a -> m (RTB.T t b)
 traverseWithAbsTime f

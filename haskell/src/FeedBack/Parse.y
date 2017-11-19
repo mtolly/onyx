@@ -13,14 +13,15 @@ import Control.Monad.Trans.StackTrace (StackTraceT, fatal, inside)
 %monad { Either [(AlexPosn, Token)] }
 
 %token
-  nl { (_, Newline) }
+  nl  { (_, Newline) }
   '{' { (_, BraceL) }
   '}' { (_, BraceR) }
   '[' { (_, BracketL) }
   ']' { (_, BracketR) }
   '=' { (_, Equals) }
-  int { (_, TInt $$) }
-  str { (_, TStr $$) }
+  int  { (_, TAtom (Int  $$)) }
+  real { (_, TAtom (Real $$)) }
+  str  { (_, TAtom (Str  $$)) }
 
 %%
 
@@ -47,8 +48,9 @@ TrackName : str           { $1 }
 Lines0 : { [] }
        | Line Lines0 { $1 : $2 }
 
-Atom : int { Int $1 }
-     | str { Str $1 }
+Atom : int  { Int  $1 }
+     | real { Real $1 }
+     | str  { Str  $1 }
 
 Line : Atom '=' Atoms1 Newlines1 { ($1, $3) }
 

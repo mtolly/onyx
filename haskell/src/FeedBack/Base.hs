@@ -13,6 +13,7 @@ import qualified Numeric.NonNegative.Wrapper      as NN
 
 data Atom
   = Int Integer
+  | Real Rational
   | Str T.Text
   deriving (Eq, Ord, Show, Read)
 
