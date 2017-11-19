@@ -89,7 +89,7 @@ OTHER
 > summer (vadrum) drums done
 
 COLLABS
-# hippy: chiharu no koi; PK in progress
+# hippy: chiharu no koi; PK done, needs basic keys + check tempo map
 # emh: more arch echo
 
 REQUESTS

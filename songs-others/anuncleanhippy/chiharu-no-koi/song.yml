@@ -23,6 +23,8 @@ parts:
     drums: {}
   bass:
     grybo: {}
+  keys:
+    pro-keys: {}
 targets:
   rb3:
     game: rb3
