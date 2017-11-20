@@ -17,3 +17,6 @@ plans:
 parts:
   drums:
     drums: {}
+targets:
+  rb3:
+    game: rb3
