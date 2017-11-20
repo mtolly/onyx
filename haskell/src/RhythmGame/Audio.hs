@@ -37,7 +37,7 @@ playSimpleStereo src fn = readyAudio (CA.reorganize 1024 src) $ \getAudio -> do
         { SDL.openDeviceFreq = SDL.Mandate $ round $ CA.rate src
         , SDL.openDeviceFormat = SDL.Mandate SDL.Signed16BitNativeAudio
         , SDL.openDeviceChannels = SDL.Mandate SDL.Stereo
-        , SDL.openDeviceSamples = 2048 -- TODO samples? frames? hs and c docs disagree!
+        , SDL.openDeviceSamples = 1024 -- on SDL 2.0.4 this was bugged where it had to be 2*frames
         , SDL.openDeviceCallback = \fmt fillme -> let
           s16 iov = getAudio >>= \case
             Nothing -> MV.set iov 0
