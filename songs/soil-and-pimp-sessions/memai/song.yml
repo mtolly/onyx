@@ -26,6 +26,8 @@ plans:
 parts:
   drums:
     drums: {}
+  bass:
+    pro-guitar: {}
 targets:
   rb3:
     game: rb3

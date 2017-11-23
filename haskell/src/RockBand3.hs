@@ -201,11 +201,21 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             . openNotes
           in (forRB3 track, forPS track)
 
+      hasProtarNotFive partName = case getPart partName songYaml of
+        Just part -> case (partGRYBO part, partProGuitar part) of
+          (Nothing, Just _) -> True
+          _                 -> False
+        Nothing -> False
+
       guitarPart = either rb3_Guitar ps_Guitar target
-      (guitarRB3, guitarPS) = makeGRYBOTrack False guitarPart $ RBFile.getFlexPart guitarPart trks
+      (guitarRB3, guitarPS) = if hasProtarNotFive guitarPart
+        then (\x -> (x, x)) $ protarToGrybo proGtr
+        else makeGRYBOTrack False guitarPart $ RBFile.getFlexPart guitarPart trks
 
       bassPart = either rb3_Bass ps_Bass target
-      (bassRB3, bassPS) = makeGRYBOTrack False bassPart $ RBFile.getFlexPart bassPart trks
+      (bassRB3, bassPS) = if hasProtarNotFive bassPart
+        then (\x -> (x, x)) $ protarToGrybo proBass
+        else makeGRYBOTrack False bassPart $ RBFile.getFlexPart bassPart trks
 
       rhythmPart = either (const $ RBFile.FlexExtra "undefined") ps_Rhythm target
       (_, rhythmPS) = makeGRYBOTrack False rhythmPart $ RBFile.getFlexPart rhythmPart trks
