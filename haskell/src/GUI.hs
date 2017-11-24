@@ -23,10 +23,12 @@ import           Control.Monad.Extra
 import           Control.Monad.IO.Class           (MonadIO (..))
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
+import qualified Data.Aeson                       as A
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import           Data.ByteString.Unsafe           (unsafeUseAsCStringLen)
 import           Data.Char                        (isPrint)
+import           Data.Default.Class               (def)
 import           Data.DTA                         (readDTABytes)
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Absolute.TimeBody as ATB
@@ -47,6 +49,8 @@ import qualified FretsOnFire                      as FoF
 import           Graphics.UI.TinyFileDialogs
 import           Import                           (importSTFS)
 import           Magma                            (getRBAFileBS)
+import           Network.HTTP.Req                 ((/:))
+import qualified Network.HTTP.Req                 as Req
 import           OSFiles                          (osOpenFile, useResultFiles)
 import           Paths_onyxite_customs_tool       (version)
 import           PrettyDTA                        (readRB3DTABytes)
@@ -413,14 +417,32 @@ launchGUI = do
 
   varSelectedFile <- newEmptyMVar
   varTaskProgress <- newEmptyMVar
+  varNewestRelease <- newEmptyMVar
 
-  bracket (TTF.renderUTF8Blended penta "ONYX" $ v4ToColor $ purple 0.5) SDL.freeSurface $ \surfBrand -> do
+  _ <- forkIO $ do
+    let addr = Req.https "api.github.com" /: "repos" /: "mtolly" /: "onyxite-customs" /: "releases" /: "latest"
+    rsp <- Req.runReq def $ Req.req Req.GET addr Req.NoReqBody Req.jsonResponse $ Req.header "User-Agent" "mtolly/onyxite-customs"
+    case Req.responseBody rsp of
+      A.Object obj -> case HM.lookup "name" obj of
+        Just (A.String str) -> putMVar varNewestRelease $ T.unpack str
+        _                   -> return ()
+      _            -> return ()
+
+  bracket (TTF.renderUTF8Blended penta "ONYX" $ v4ToColor $ purple 0.4) SDL.freeSurface $ \surfBrand -> do
   bracket (SDL.createTextureFromSurface rend surfBrand) SDL.destroyTexture $ \texBrand -> do
   dimsBrand@(SDL.V2 brandW brandH) <- SDL.surfaceDimensions surfBrand
 
-  bracket (TTF.renderUTF8Blended pentaSmall (showVersion version) $ v4ToColor $ purple 0.5) SDL.freeSurface $ \surfVersion -> do
+  bracket (TTF.renderUTF8Blended pentaSmall (showVersion version) $ v4ToColor $ purple 0.4) SDL.freeSurface $ \surfVersion -> do
   bracket (SDL.createTextureFromSurface rend surfVersion) SDL.destroyTexture $ \texVersion -> do
   dimsVersion@(SDL.V2 versionW versionH) <- SDL.surfaceDimensions surfVersion
+
+  bracket (TTF.renderUTF8Blended pentaSmall "latest" $ v4ToColor $ purple 0.4) SDL.freeSurface $ \surfLatest -> do
+  bracket (SDL.createTextureFromSurface rend surfLatest) SDL.destroyTexture $ \texLatest -> do
+  dimsLatest@(SDL.V2 latestW latestH) <- SDL.surfaceDimensions surfLatest
+
+  bracket (TTF.renderUTF8Blended pentaSmall "update available!" $ Raw.Color 0x80 0x54 0x82 255) SDL.freeSurface $ \surfUpdate -> do
+  bracket (SDL.createTextureFromSurface rend surfUpdate) SDL.destroyTexture $ \texUpdate -> do
+  dimsUpdate@(SDL.V2 updateW updateH) <- SDL.surfaceDimensions surfUpdate
 
   let monoChar c = TTF.renderUTF8Blended mono [c] $ Raw.Color 0xEE 0xEE 0xEE 0xFF
       printChars = filter isPrint ['\0' .. '\255']
@@ -511,6 +533,15 @@ launchGUI = do
           SDL.copy rend texVersion Nothing $ Just $ SDL.Rectangle
             (SDL.P (SDL.V2 (windW - brandW - 10 - versionW - 10) (windH - versionH - 13)))
             dimsVersion
+          liftIO (tryReadMVar varNewestRelease) >>= \case
+            Nothing -> return ()
+            Just s -> if s == showVersion version
+              then SDL.copy rend texLatest Nothing $ Just $ SDL.Rectangle
+                (SDL.P (SDL.V2 (windW - brandW - 10 - latestW - 10) (windH - latestH - 3 - versionH - 13)))
+                dimsLatest
+              else SDL.copy rend texUpdate Nothing $ Just $ SDL.Rectangle
+                (SDL.P (SDL.V2 (windW - brandW - 10 - updateW - 10) (windH - updateH - 3 - versionH - 13)))
+                dimsUpdate
       let offset = fromIntegral $ length previousScreens * 25
       forM_ (zip [0..] $ zip [0.88, 0.76 ..] [offset - 25, offset - 50 .. 0]) $ \(i, (frac, x)) -> do
         SDL.rendererDrawColor rend $= if currentSelection == SelectPage i
