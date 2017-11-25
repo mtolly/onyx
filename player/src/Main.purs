@@ -7,7 +7,7 @@ import           Control.Monad.Eff.Ref       (REF, modifyRef, modifyRef',
                                               newRef, writeRef, readRef)
 import           Control.Monad.Except        (runExcept)
 import           Control.MonadPlus           (guard)
-import           Data.Array                  (concat, uncons, (:), reverse)
+import           Data.Array                  (concat, uncons, (:), reverse, concatMap)
 import           Data.DateTime.Instant       (unInstant)
 import           Data.Either                 (Either (..))
 import           Data.Foreign                (Foreign, isUndefined)
@@ -210,6 +210,14 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
           continue app
         in loop $ Paused
           { pausedSongTime: Seconds 0.0
-          , settings: Set.empty -- TODO
+          , settings: let
+            initialSelect = \(Tuple name (Flex flex)) ->
+              if isJust flex.five then [Tuple name FlexFive] else
+              if isJust flex.six then [Tuple name FlexSix] else
+              if isJust flex.drums then [Tuple name FlexDrums] else
+              if isJust flex.prokeys then [Tuple name FlexProKeys] else
+              if isJust flex.protar then [Tuple name FlexProtar] else
+              if isJust flex.vocal then [Tuple name FlexVocal] else []
+            in case song of Song obj -> Set.fromFoldable $ concatMap initialSelect obj.parts
           }
   continueLoading
