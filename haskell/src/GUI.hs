@@ -88,6 +88,7 @@ data Selection
   = NoSelect
   | SelectMenu Int -- SelectMenu 0 means the top option in the menu
   | SelectPage Int -- SelectPage 0 means go back one page, 1 means 2 pages, etc.
+  | SelectLogo
   deriving (Eq, Ord, Show, Read)
 
 data Menu
@@ -432,6 +433,9 @@ launchGUI = do
   bracket (SDL.createTextureFromSurface rend surfBrand) SDL.destroyTexture $ \texBrand -> do
   dimsBrand@(SDL.V2 brandW brandH) <- SDL.surfaceDimensions surfBrand
 
+  bracket (TTF.renderUTF8Blended penta "ONYX" $ Raw.Color 0xEE 0xEE 0xEE 0xFF) SDL.freeSurface $ \surfBrandSel -> do
+  bracket (SDL.createTextureFromSurface rend surfBrandSel) SDL.destroyTexture $ \texBrandSel -> do
+
   bracket (TTF.renderUTF8Blended pentaSmall (showVersion version) $ v4ToColor $ purple 0.4) SDL.freeSurface $ \surfVersion -> do
   bracket (SDL.createTextureFromSurface rend surfVersion) SDL.destroyTexture $ \texVersion -> do
   dimsVersion@(SDL.V2 versionW versionH) <- SDL.surfaceDimensions surfVersion
@@ -522,26 +526,25 @@ launchGUI = do
       SDL.rendererDrawColor rend $= purple 1
       SDL.clear rend
       GUIState{..} <- get
-      case currentScreen of
-        Files{} -> return ()
-        TasksRunning{} -> return ()
-        TasksDone{} -> return ()
-        _ -> do
-          SDL.copy rend texBrand Nothing $ Just $ SDL.Rectangle
-            (SDL.P (SDL.V2 (windW - brandW - 10) (windH - brandH - 10)))
-            dimsBrand
-          SDL.copy rend texVersion Nothing $ Just $ SDL.Rectangle
-            (SDL.P (SDL.V2 (windW - brandW - 10 - versionW - 10) (windH - versionH - 13)))
-            dimsVersion
-          liftIO (tryReadMVar varNewestRelease) >>= \case
-            Nothing -> return ()
-            Just s -> if s == showVersion version
-              then SDL.copy rend texLatest Nothing $ Just $ SDL.Rectangle
-                (SDL.P (SDL.V2 (windW - brandW - 10 - latestW - 10) (windH - latestH - 3 - versionH - 13)))
-                dimsLatest
-              else SDL.copy rend texUpdate Nothing $ Just $ SDL.Rectangle
-                (SDL.P (SDL.V2 (windW - brandW - 10 - updateW - 10) (windH - updateH - 3 - versionH - 13)))
-                dimsUpdate
+      when (null previousScreens) $ do
+        let brand = case currentSelection of
+              SelectLogo -> texBrandSel
+              _          -> texBrand
+        SDL.copy rend brand Nothing $ Just $ SDL.Rectangle
+          (SDL.P (SDL.V2 (windW - brandW - 10) (windH - brandH - 10)))
+          dimsBrand
+        SDL.copy rend texVersion Nothing $ Just $ SDL.Rectangle
+          (SDL.P (SDL.V2 (windW - brandW - 10 - versionW - 10) (windH - versionH - 13)))
+          dimsVersion
+        liftIO (tryReadMVar varNewestRelease) >>= \case
+          Nothing -> return ()
+          Just s -> if s == showVersion version
+            then SDL.copy rend texLatest Nothing $ Just $ SDL.Rectangle
+              (SDL.P (SDL.V2 (windW - brandW - 10 - latestW - 10) (windH - latestH - 3 - versionH - 13)))
+              dimsLatest
+            else SDL.copy rend texUpdate Nothing $ Just $ SDL.Rectangle
+              (SDL.P (SDL.V2 (windW - brandW - 10 - updateW - 10) (windH - updateH - 3 - versionH - 13)))
+              dimsUpdate
       let offset = fromIntegral $ length previousScreens * 25
       forM_ (zip [0..] $ zip [0.88, 0.76 ..] [offset - 25, offset - 50 .. 0]) $ \(i, (frac, x)) -> do
         SDL.rendererDrawColor rend $= if currentSelection == SelectPage i
@@ -684,6 +687,7 @@ launchGUI = do
     newSelect mousePos = do
       choices <- getChoices
       GUIState{..} <- get
+      SDL.V2 windW windH <- SDL.get $ SDL.windowSize window
       modifySelect $ \_ -> case mousePos of
         Nothing -> SelectMenu 0
         Just (x, y) -> let
@@ -694,9 +698,16 @@ launchGUI = do
               in SelectPage dropPrev
             else let
               i = div (y - 10) 70
-              in if 0 <= i && i < length choices
+              fromMenu = if 0 <= i && i < length choices
                 then SelectMenu i
                 else NoSelect
+              brandX = windW - brandW - 10 - updateW - 10
+              brandY = windH - updateH - 3 - versionH - 13
+              in case previousScreens of
+                [] -> if fromIntegral x >= brandX && fromIntegral y >= brandY
+                  then SelectLogo
+                  else fromMenu
+                _ -> fromMenu
 
     doSelect :: Maybe (Int, Int) -> Onyx ()
     doSelect mousePos = do
@@ -714,6 +725,7 @@ launchGUI = do
         SelectMenu i -> do
           choices <- getChoices
           choiceValue $ choices !! i
+        SelectLogo -> osOpenFile "https://github.com/mtolly/onyxite-customs/releases"
       isInt <- (\case EnterInt{} -> True; _ -> False) <$> gets currentScreen
       unless (wasInt && isInt) $ newSelect mousePos
 
@@ -797,26 +809,39 @@ launchGUI = do
               SelectMenu i -> if null previousScreens then SelectMenu i else SelectPage 0
               SelectPage i -> SelectPage $ min (length previousScreens - 1) $ i + 1
               NoSelect     -> SelectMenu 0
+              SelectLogo   -> SelectMenu 0
             processEvents es
           SDL.ScancodeRight -> do
+            GUIState{..} <- get
             modifySelect $ \case
-              sel@(SelectMenu _) -> sel
+              sel@(SelectMenu _) -> case previousScreens of
+                [] -> SelectLogo
+                _  -> sel
               SelectPage 0 -> SelectMenu 0
               SelectPage i -> SelectPage $ i - 1
               NoSelect     -> SelectMenu 0
+              sel@SelectLogo -> sel
             processEvents es
           SDL.ScancodeDown -> do
             choices <- getChoices
+            GUIState{..} <- get
             modifySelect $ \case
-              SelectMenu i       -> SelectMenu $ min (length choices - 1) $ i + 1
+              SelectMenu i       -> case previousScreens of
+                [] -> if i == length choices - 1
+                  then SelectLogo
+                  else SelectMenu $ i + 1
+                _ -> SelectMenu $ min (length choices - 1) $ i + 1
               NoSelect           -> SelectMenu 0
               sel@(SelectPage _) -> sel
+              sel@SelectLogo     -> sel
             processEvents es
           SDL.ScancodeUp -> do
+            choices <- getChoices
             modifySelect $ \case
               SelectMenu i       -> SelectMenu $ max 0 $ i - 1
               NoSelect           -> SelectMenu 0
               sel@(SelectPage _) -> sel
+              SelectLogo         -> SelectMenu $ length choices - 1
             processEvents es
           _ -> processEvents es
       _ -> processEvents es
