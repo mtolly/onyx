@@ -24,7 +24,20 @@ audio:
 plans:
   album:
     song:
-      pad: [0, album-track]
+      pad: [4.315, album-track]
+    parts:
+      ch1:
+        pad: [4.567, channels: [[0], surround]]
+      ch2:
+        pad: [4.567, channels: [[1], surround]]
+      ch3:
+        pad: [4.567, channels: [[2], surround]]
+      ch4:
+        pad: [4.567, channels: [[3], surround]]
+      ch5:
+        pad: [4.567, channels: [[4], surround]]
+      ch6:
+        pad: [4.567, channels: [[5], surround]]
 parts:
   drums:
     drums: {}
