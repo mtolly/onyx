@@ -1,0 +1,35 @@
+metadata:
+  title: Keytalk
+  artist: Hiromi
+  author: Onyxite
+  genre: jazz
+  subgenre: contemporary
+  album: Brain
+  year: 2004
+  track-number: 7
+  autogen-theme: SynthPop
+  rating: FamilyFriendly
+  key: F
+  file-album-art: ../kung-fu-world-champion/cover.jpg
+audio:
+  album-track:
+    md5: 0833cc610715e14596c6f9be77768c92
+    frames: 26579364
+  surround:
+    md5: c3050d4980b202f95dcf3b79f5f97733
+    frames: 57852160
+    channels: 6
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    song:
+      pad: [0, album-track]
+parts:
+  drums:
+    drums: {}
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
