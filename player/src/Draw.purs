@@ -124,13 +124,12 @@ draw stuff = do
       ]
     , guard (isJust flex.six    ) *>
       [ if Set.member (Tuple part FlexSix) settings
-        -- TODO actual 6-fret icons
         then case part of
-          "bass" -> Image_button_bass
-          _ -> Image_button_guitar
+          "bass" -> Image_button_bass6
+          _ -> Image_button_guitar6
         else case part of
-          "bass" -> Image_button_bass_off
-          _ -> Image_button_guitar_off
+          "bass" -> Image_button_bass6_off
+          _ -> Image_button_guitar6_off
       ]
     , guard (isJust flex.drums  ) *>
       [ if Set.member (Tuple part FlexDrums  ) settings
