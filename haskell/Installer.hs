@@ -47,6 +47,9 @@ main = do
     page $ Finish finishOptions
       { finRunText = "Run Onyx"
       , finRun = " " -- should be empty this works I guess
+      , finReadmeText = "View README"
+      , finReadme = "$INSTDIR/README.txt"
+      , finReadmeChecked = True
       }
 
     unpage Confirm
