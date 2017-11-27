@@ -207,13 +207,15 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
       hopoThreshold = 1/3 -- default threshold according to moonscraper
       eachEvent evt parseNote = case evt of
         Note n len -> parseNote n len
-        Stream n len -> case n of
-          0 -> return $ Just $ TrackP1 len
-          1 -> return $ Just $ TrackP2 len
-          2 -> return $ Just $ TrackOD len
-          _ -> do
-            warn $ "Unrecognized stream type: S " <> show n <> " " <> show len
-            return Nothing
+        Stream n len -> let
+          len' = if len == 0 then 1/4 else len -- I guess S 2 0 means "instant SP phrase"?
+          in case n of
+            0 -> return $ Just $ TrackP1 len'
+            1 -> return $ Just $ TrackP2 len'
+            2 -> return $ Just $ TrackOD len'
+            _ -> do
+              warn $ "Unrecognized stream type: S " <> show n <> " " <> show len
+              return Nothing
         Event "solo"    -> return $ Just $ TrackSolo True
         Event "soloend" -> return $ Just $ TrackSolo False
         _ -> return Nothing

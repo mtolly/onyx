@@ -66,7 +66,7 @@ loadSong fp = do
   -- TODO make all keys lowercase before lookup
 
   let str :: T.Text -> Maybe T.Text
-      str k = either (const Nothing) Just $ lookupValue "song" k ini
+      str k = either (const Nothing) Just $ lookupValue "song" k ini <|> lookupValue "Song" k ini
       int :: T.Text -> Maybe Int
       int = str >=> readMaybe . T.unpack
       bool :: T.Text -> Maybe Bool
