@@ -369,12 +369,14 @@ topMenu = Choices
     $ pushMenu $ pickFiles ["*.mid"] "MIDI files" (const $ return "") $ \fs ->
       TasksStart $ map (\f -> commandLine' ["reduce", f]) fs
     )
+  {-
   , ( Choice "Game" "(WIP) Building a RB clone game."
     $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con"] "Songs (RB3/RB2)" filterSong $ \fs ->
       case fs of
         [f] -> Game f
         _   -> Choices []
     )
+  -}
   ]
 
 data GUIState = GUIState

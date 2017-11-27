@@ -2,6 +2,10 @@
 
 By Michael Tolly <onyxite@gmail.com>
 
+Onyx is a multipurpose build tool for Guitar-Hero/Rock-Band-like music games.
+It can import and export a wide variety of formats, move parts around,
+change song speed, fill in missing details, and assist with song authoring.
+
 Built on work and research by:
 
   * Harmonix
@@ -10,7 +14,7 @@ Built on work and research by:
   * xorloser (ArkTool/DtbCrypt)
   * deimos (dtb2dta)
   * qwertymodo (Magma MOGG redirect)
-  * Hetelek, Experiment5X (XboxInternals/Velocity)
+  * Bloodline, Inventor (GHL MIDI format help)
   * DJ Shepherd (X360)
   * arkem (py360)
   * and many others!
@@ -30,7 +34,8 @@ or install via Homebrew.
 
 ## Instructions
 
-Open `onyx.exe`/`Onyx.app` to run.
+On Windows, run the installer, then run `onyx.exe`.
+On Mac, move `Onyx.app` to your Applications folder, and then run it.
 
   * Click on menu options to select them.
   * Click on previous pages on the left to go back.
@@ -38,7 +43,7 @@ Open `onyx.exe`/`Onyx.app` to run.
 
 ## Functions
 
-  * Convert to RB3 (takes CON/RBA/song.ini, creates `_rb3con`)
+  * Convert to RB3 (CON/RBA/FoF/PS/CH/dB -> `_rb3con` or Magma folder)
 
     Imports from a Rock Band 3, Frets on Fire, or Phase Shift song,
     and creates either a Rock Band 3 CON file or a Magma v2 project.
@@ -54,8 +59,13 @@ Open `onyx.exe`/`Onyx.app` to run.
       * Detects double drum roll lanes using the single lane note and fixes them
       * In some cases, can alter the tempo map to fix too-slow/too-fast tempos
 
-    Note: to do a batch process of many songs, drag and drop song folders
-    (the folders with song.ini immediately inside) onto the file loading screen.
+    FeedBack `.chart` format is also supported. It must be in the Clone Hero
+    format, meaning:
+
+      * Must be in its own folder, with `notes.chart` and optional `song.ini`
+      * Audio must be named according to Phase Shift conventions:
+        `song.ogg`, `guitar.ogg`, etc.
+      * MP3 audio is not currently supported. Convert to `.ogg`
 
     If the "automatic tom markers" option is turned on, an FoF song that doesn't
     have any tom markers and that does not have "pro_drums = True" in the
@@ -65,8 +75,8 @@ Open `onyx.exe`/`Onyx.app` to run.
     The song speed can be modified to produce sped up or slowed down songs.
     This will modify both the audio and MIDI, and add (X% Speed) to the title.
     For CON inputs this only works with unencrypted MOGG files.
-    Different speed versions may not pass Magma in all cases, for example
-    if a roll becomes too slow, or if drum fills become too close together.
+    Different speed versions may not pass Magma in all cases, if certain events
+    become too close together or too far apart.
     If this happens, you can produce a Magma project and then make the needed
     changes before compiling with Magma.
 
@@ -88,7 +98,7 @@ Open `onyx.exe`/`Onyx.app` to run.
     the Phase Shift converter in C3 CON Tools which mixes the audio down to a
     single file, and then just supply the Phase Shift song to Onyx.
 
-  * Convert to RB2 (takes `_rb3con`, creates `_rb2con`)
+  * Convert to RB2 (song -> `_rb2con`)
 
     Converts a Rock Band 3 CON file to Rock Band 2.
     RB2-ification includes the following steps:
@@ -109,15 +119,18 @@ Open `onyx.exe`/`Onyx.app` to run.
     In the latter two cases, the RB3 "keytar" algorithm is more-or-less applied,
     so fast chords become HOPOs, and overlapping sustains are shortened.
 
-  * Browser song preview (takes `_rb3con`, creates web app folder)
+  * Browser song preview (song -> web app folder)
 
-    Generates a JavaScript chart preview app for web browsers,
-    which plays back the audio and displays all gameplay tracks.
+    Generates a JavaScript (Canvas) chart preview app for web browsers,
+    which plays back the audio and displays all tracks in 2D "Beatmania" style.
+
+    Supports all Rock Band 3 instrument tracks, including Pro Guitar/Bass/Keys,
+    as well as the Clone Hero 6-fret (GHL) mode.
 
     A player folder will appear next to the CON; open `index.html` to run.
     It can be run locally via `file://`, or hosted on a web server.
 
-  * Auto reductions (takes MIDI files, creates MIDI file)
+  * Auto reductions (MIDI file -> MIDI file)
 
     Generates CAT-like automatic reductions for empty difficulties in a MIDI.
     Quality is not guaranteed, but they should pass Magma.
