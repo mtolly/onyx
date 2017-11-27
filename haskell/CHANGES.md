@@ -1,5 +1,17 @@
 # Version history
 
+## 20171126
+
+* Better file adder screen: parses and displays songs as they're added
+* Browser preview supports Clone Hero's 6-fret (GH Live) mode, open notes,
+  and tap notes
+* Imports .chart files. Must be in Clone Hero format (in its own folder,
+  following the Phase Shift audio naming convention, with optional `song.ini`)
+  and `.ogg` audio (not `.mp3`)
+* Reaper projects now come with pitch colormaps for 5-fret, 6-fret, and drums
+* Various import/convert fixes
+* Checks for new version on launch
+
 ## 20171011
 
 * A real Windows installer
