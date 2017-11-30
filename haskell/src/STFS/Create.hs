@@ -282,8 +282,16 @@ glue4Bytes a b c d
   .|. (fromIntegral c `shiftL` 8)
   .|.  fromIntegral d
 
+glue3Bytes :: Word8 -> Word8 -> Word8 -> Word32
+glue3Bytes = glue4Bytes 0
+
 glue2Bytes :: Word8 -> Word8 -> Word16
 glue2Bytes a b = (fromIntegral a `shiftL` 8) .|. fromIntegral b
+
+castEnumField :: (Integral i, Enum e) => F i -> F e
+castEnumField (Var (V gtr str)) = Var $ V
+  (fmap (toEnum . fromIntegral) gtr)
+  (str . fromIntegral . fromEnum)
 
 ---------
 -- STFSDescriptor.cs
@@ -304,16 +312,34 @@ instance Make BlockRecord where
     return $ Just BlockRecord{..}
 
 br_ThisBlock :: D_BlockRecord -> F Word32
-br_ThisBlock = undefined
+br_ThisBlock = makeField $ \this -> V
+  % do
+    get $ glue3Bytes
+      <$> (this &. br_xThisBlock &. ix 0)
+      <*> (this &. br_xThisBlock &. ix 1)
+      <*> (this &. br_xThisBlock &. ix 2)
+  % \value -> do
+  this &. br_xThisBlock &. ix 0 $= fi ((pure value >>. 16) .& 0xFF)
+  this &. br_xThisBlock &. ix 1 $= fi ((pure value >>. 8) .& 0xFF)
+  this &. br_xThisBlock &. ix 2 $= fi (pure value .& 0xFF)
 
 br_ThisLevel :: D_BlockRecord -> F TreeLevel
-br_ThisLevel = undefined
+br_ThisLevel = castEnumField . br_xLevel
 
 br_Indicator :: D_BlockRecord -> F Word8
-br_Indicator = undefined
+br_Indicator = makeField $ \this -> V
+  % do get $ (this &. br_xFlags &. ix 0) >>. 6
+  % \value -> this &. br_xFlags &. ix 0 $= (pure value .& 3) <<. 6
 
 br_Flags :: D_BlockRecord -> F Word32
-br_Flags = undefined
+br_Flags = makeField $ \this -> V
+  % do
+    get $ glue4Bytes
+      <$> (this &. br_xFlags &. ix 0)
+      <*> (this &. br_xFlags &. ix 1)
+      <*> (this &. br_xFlags &. ix 2)
+      <*> (this &. br_xFlags &. ix 3)
+  % \value -> this &. br_xFlags $= bitConv_GetBytes value True
 
 -- public BlockRecord() { xFlags = new byte[] { 0, 0, 0, 0 }; }
 instance New BlockRecord () where
@@ -336,23 +362,55 @@ br_Status = makeField $ \this -> V
   % do get $ fmap (toEnum . fromIntegral) $ (this &. br_xFlags &. ix 0) >>. 6
   % \value -> do this &. br_xFlags &. ix 0 $= fi $ pure (fromEnum value) <<. 6
 
+-- public uint NextBlock { get { return (uint)(xFlags[1] << 16 | xFlags[2] << 8 | xFlags[3]); } set { Flags = (uint)((xFlags[0] << 24) | (int)(value & 0xFFFFFF)); }}
 br_NextBlock :: D_BlockRecord -> F Word32
-br_NextBlock = undefined
+br_NextBlock = makeField $ \this -> V
+  % do
+    get $ glue3Bytes
+      <$> (this &. br_xFlags &. ix 1)
+      <*> (this &. br_xFlags &. ix 2)
+      <*> (this &. br_xFlags &. ix 3)
+  % \value -> this &. br_Flags $= ((fi (this &. br_xFlags &. ix 0) <<. 24) .| (pure value .& 0xFFFFFF))
 
 br_MarkOld :: Meth0 BlockRecord ()
-br_MarkOld = undefined
+br_MarkOld = meth0 $ \this -> do
+  this &. br_Status $= pure HashStatus_Old
+  this &. br_NextBlock $= pure constants_STFSEnd
 
 br_Index :: Meth0 BlockRecord Word8
-br_Index = undefined
+br_Index = meth0 $ \this -> get $ (this &. br_Indicator) .& 1
 
 br_AllocationFlag :: D_BlockRecord -> F HashFlag
-br_AllocationFlag = undefined
+br_AllocationFlag = castEnumField . br_Indicator
 
 br_BlocksFree :: D_BlockRecord -> F Int32
-br_BlocksFree = undefined
+br_BlocksFree = makeField $ \this -> V
+  % do get $ fi $ ((this &. br_Flags) >>. 15) .& 0x7FFF
+  % \value -> do
+    -- Sets unused/free blocks in each table, checks for errors
+    -- if blocksfree is 0xAA for Level 1 or 0x70E4 for L2, whole table can be full o shit, cause theres no used blocks :P
+    let value' = max value 0
+    this &. br_Flags $= (fi (this &. br_Indicator) <<. 30) .| (fi (pure value') <<. 15)
 
 br_Switch :: Meth0 BlockRecord Bool
-br_Switch = undefined
+br_Switch = meth0 $ \this -> catchError
+  % do
+    get (this &. br_AllocationFlag) >>= \case
+      Unallocated -> do
+        this &. br_Flags $= (1 <<. 30) .| (fi (this &. br_BlocksFree) <<. 15)
+        return True
+      AllocatedFree -> do
+        this &. br_Flags $= (2 <<. 30) .| (fi (this &. br_BlocksFree) <<. 15)
+        return True
+      AllocatedInUseOld -> do
+        this &. br_Flags $= (3 <<. 30) .| (fi (this &. br_BlocksFree) <<. 15)
+        return True
+      AllocatedInUseCurrent -> do
+        -- is this really correct? or should it be, like, 4 << 30?
+        this &. br_Flags $= (2 <<. 30) .| (fi (this &. br_BlocksFree) <<. 15)
+        return True
+      -- would return false if none of the above
+  % \_ -> return False
 
 data D_STFSDescriptor = STFSDescriptor
   { sd_xStruct       :: F (List Word8)
@@ -1622,6 +1680,19 @@ fatTimeDT xDateTime = let
       minute = fromIntegral $ (xTime .&. 0x7E0) `shiftR` 5
       sec    = fromIntegral $ (xTime .&. 0x1F) * 2
       in Time.LocalTime (Time.fromGregorian year month day) (Time.TimeOfDay hour minute sec)
+
+class BitConv_GetBytes a where
+  bitConv_GetBytes :: a -> Bool -> E C (List Word8)
+
+-- TODO implement
+instance BitConv_GetBytes Int16
+instance BitConv_GetBytes Word16
+instance BitConv_GetBytes Int32
+instance BitConv_GetBytes Word32
+instance BitConv_GetBytes Int64
+instance BitConv_GetBytes Word64
+instance BitConv_GetBytes Float
+instance BitConv_GetBytes Double
 
 ---------
 -- UNSORTED
