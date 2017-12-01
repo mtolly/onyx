@@ -216,6 +216,25 @@ new2 f (x1, x2) = E $ do
   f (x1', x2') this
   get this
 
+new3 :: (Make o) => ((Var C a, Var C b, Var C c) -> E C o -> C ()) -> (E C a, E C b, E C c) -> E C o
+new3 f (x1, x2, x3) = E $ do
+  Var this <- auto make
+  x1' <- auto x1
+  x2' <- auto x2
+  x3' <- auto x3
+  f (x1', x2', x3') this
+  get this
+
+new4 :: (Make o) => ((Var C a, Var C b, Var C c, Var C d) -> E C o -> C ()) -> (E C a, E C b, E C c, E C d) -> E C o
+new4 f (x1, x2, x3, x4) = E $ do
+  Var this <- auto make
+  x1' <- auto x1
+  x2' <- auto x2
+  x3' <- auto x3
+  x4' <- auto x4
+  f (x1', x2', x3', x4') this
+  get this
+
 args0 :: C r -> () -> E C r
 args0 f () = E f
 
@@ -288,6 +307,12 @@ glue3Bytes = glue4Bytes 0
 glue2Bytes :: Word8 -> Word8 -> Word16
 glue2Bytes a b = (fromIntegral a `shiftL` 8) .|. fromIntegral b
 
+enum :: (Integral i, Enum e) => Meth0 i e
+enum() = liftHs $ pure . toEnum . fromIntegral
+
+unenum :: (Enum e, Integral i) => Meth0 e i
+unenum() = liftHs $ pure . fromIntegral . fromEnum
+
 castEnumField :: (Integral i, Enum e) => F i -> F e
 castEnumField (Var (V gtr str)) = Var $ V
   (fmap (toEnum . fromIntegral) gtr)
@@ -354,13 +379,13 @@ instance New BlockRecord (E C Word32) where
 -- public BlockRecord(HashStatus xStatus, uint xNext) { Flags = (uint)((uint)xStatus << 30 | (xNext & 0xFFFFFF)); }
 instance New BlockRecord (E C HashStatus, E C Word32) where
   new = new2 $ \(Var xStatus, Var xNext) this -> do
-    this &. br_Flags $= ((fromIntegral . fromEnum <$> xStatus) <<. 30) .| (xNext .& 0xFFFFFF)
+    this &. br_Flags $= ((xStatus & unenum()) <<. 30) .| (xNext .& 0xFFFFFF)
 
 -- public HashStatus Status { get { return (HashStatus)(xFlags[0] >> 6); } set { xFlags[0] = (byte)((int)value << 6);} }
 br_Status :: D_BlockRecord -> F HashStatus
 br_Status = makeField $ \this -> V
-  % do get $ fmap (toEnum . fromIntegral) $ (this &. br_xFlags &. ix 0) >>. 6
-  % \value -> do this &. br_xFlags &. ix 0 $= fi $ pure (fromEnum value) <<. 6
+  % do get $ ((this &. br_xFlags &. ix 0) >>. 6) & enum()
+  % \value -> do this &. br_xFlags &. ix 0 $= (pure value & unenum()) <<. 6
 
 -- public uint NextBlock { get { return (uint)(xFlags[1] << 16 | xFlags[2] << 8 | xFlags[3]); } set { Flags = (uint)((xFlags[0] << 24) | (int)(value & 0xFFFFFF)); }}
 br_NextBlock :: D_BlockRecord -> F Word32
@@ -422,20 +447,32 @@ data D_STFSDescriptor = STFSDescriptor
   }
 type STFSDescriptor = Maybe D_STFSDescriptor
 
-sd_DirectoryBlockCount :: STFSDescriptor -> F Word16
-sd_DirectoryBlockCount = undefined
+sd_DirectoryBlockCount :: D_STFSDescriptor -> F Word16
+sd_DirectoryBlockCount = makeField $ \this -> V
+  % do get $ glue2Bytes <$> (this &. sd_xStruct &. ix 1) <*> (this &. sd_xStruct &. ix 0)
+  % \value -> do
+    -- Max is 0x3FF blocks (0xFFFF entries / 0x40 per block)
+    this &. sd_xStruct &. ix 0 $= fi (pure value) .& 0xFF
+    this &. sd_xStruct &. ix 1 $= fi (pure value >>. 8) .& 3
 
-sd_DirectoryBlock :: STFSDescriptor -> F Word32
-sd_DirectoryBlock = undefined
+sd_DirectoryBlock :: D_STFSDescriptor -> F Word32
+sd_DirectoryBlock = makeField $ \this -> V
+  % do get $ glue3Bytes <$> (this &. sd_xStruct &. ix 4) <*> (this &. sd_xStruct &. ix 3) <*> (this &. sd_xStruct &. ix 2)
+  % \value -> do
+    undefined value
+    -- List<byte> x = new List<byte>();
+    -- x.AddRange(BitConv.GetBytes(value, false));
+    -- for (int i = 0; i < 3; i++)
+    --     xStruct[2 + i] = x[i];
 
 sd_BaseBlock :: Meth0 STFSDescriptor Word16
-sd_BaseBlock = undefined
+sd_BaseBlock = meth0 $ \this -> get $ fi (this &. sd_xBaseByte) <<. 0xC
 
 sd_ThisType :: Meth0 STFSDescriptor STFSType
-sd_ThisType = undefined
+sd_ThisType = meth0 $ \this -> get $ this &. sd_Shift & enum()
 
 sd_OldBlockCount :: Meth0 STFSDescriptor Word32
-sd_OldBlockCount = undefined
+sd_OldBlockCount = meth0 $ \this -> get $ fi $ this &. sd_TopRecord &. br_BlocksFree
 
 instance Make STFSDescriptor where
   make = E $ do
@@ -474,7 +511,17 @@ sd_XSetStructure = meth1 $ \(Var xType) this -> get xType >>= \case
 
 -- internal STFSDescriptor(byte[] xDescriptor, uint xTotalBlocks, uint xOldBlocks, byte xType)
 instance New STFSDescriptor (E C (List Word8), E C Word32, E C Word32, E C Word8) where
-  new = undefined
+  new = new4 $ \(Var xDescriptor, Var xTotalBlocks, Var xOldBlocks, Var xType) this -> do
+    this &. sd_xStruct $= xDescriptor
+    get $ this & sd_XSetStructure((xType .& 1) & enum())
+    this &. sd_TopRecord $= new ((fi (xType >>. 1) <<. 30) .| (fi xOldBlocks <<. 15) :: E C Word32)
+    ifM (get $ xTotalBlocks >. (this &. sd_xSpaceBetween &. ix 2))
+      % do
+        this &. sd_xStruct $= pure Nothing
+      % do
+        this &. sd_xBlockCount $= xTotalBlocks
+        this &. sd_xBaseByte $= ifM ((this & sd_ThisType()) ==. pure STFSType_Type0) 0xB 0xA
+        xOldBlocks $= 0 -- is this useless???
 
 -- internal STFSDescriptor(STFSPackage xPackage)
 instance New STFSDescriptor (E C STFSPackage) where
