@@ -129,6 +129,11 @@ listAdd(x) this = (this & some() &) $ liftHs $ \lst -> do
   elt <- get x
   modify (++ [elt]) lst
 
+listAddRange :: Meth1 (List a) (List a) ()
+listAddRange(rng) this = do
+  xs <- rng & hsList()
+  forM_ xs $ \x -> this & listAdd(pure x)
+
 hsList :: Meth0 (List a) [a]
 hsList() this = this & some() & liftHs (\(Var v) -> get v)
 
@@ -317,6 +322,7 @@ castEnumField :: (Integral i, Enum e) => F i -> F e
 castEnumField (Var (V gtr str)) = Var $ V
   (fmap (toEnum . fromIntegral) gtr)
   (str . fromIntegral . fromEnum)
+-- TODO this warns of not handling E constructor, wrongly I think?
 
 ---------
 -- STFSDescriptor.cs
@@ -364,7 +370,7 @@ br_Flags = makeField $ \this -> V
       <*> (this &. br_xFlags &. ix 1)
       <*> (this &. br_xFlags &. ix 2)
       <*> (this &. br_xFlags &. ix 3)
-  % \value -> this &. br_xFlags $= bitConv_GetBytes value True
+  % \value -> this &. br_xFlags $= bitConv_GetBytes (pure value, pure True)
 
 -- public BlockRecord() { xFlags = new byte[] { 0, 0, 0, 0 }; }
 instance New BlockRecord () where
@@ -459,11 +465,10 @@ sd_DirectoryBlock :: D_STFSDescriptor -> F Word32
 sd_DirectoryBlock = makeField $ \this -> V
   % do get $ glue3Bytes <$> (this &. sd_xStruct &. ix 4) <*> (this &. sd_xStruct &. ix 3) <*> (this &. sd_xStruct &. ix 2)
   % \value -> do
-    undefined value
-    -- List<byte> x = new List<byte>();
-    -- x.AddRange(BitConv.GetBytes(value, false));
-    -- for (int i = 0; i < 3; i++)
-    --     xStruct[2 + i] = x[i];
+    Var x <- auto $ newList []
+    get $ x & listAddRange(bitConv_GetBytes (pure value, pure False))
+    forM_ [0, 1, 2] $ \i -> do
+      this &. sd_xStruct &. ix (2 + i) $= x &. ix i
 
 sd_BaseBlock :: Meth0 STFSDescriptor Word16
 sd_BaseBlock = meth0 $ \this -> get $ fi (this &. sd_xBaseByte) <<. 0xC
@@ -526,6 +531,50 @@ instance New STFSDescriptor (E C (List Word8), E C Word32, E C Word32, E C Word8
 -- internal STFSDescriptor(STFSPackage xPackage)
 instance New STFSDescriptor (E C STFSPackage) where
   new = undefined
+    {-
+    xPackage.xIO.Position = 0x340;
+    xPackage.xIO.IsBigEndian = true;
+    int xBlockInfo = xPackage.xIO.ReadInt32();
+    xBaseByte = (byte)(((xBlockInfo + 0xFFF) & 0xF000) >> 0xC);
+    xPackage.xIO.Position = 0x379;
+    if (xPackage.xIO.ReadByte() != 0x24) // Struct Size
+        throw STFSExcepts.Type;
+    if (xPackage.xIO.ReadByte() != 0) // Reversed
+        throw STFSExcepts.Type;
+    /* STRUCT OF THE NEXT 6 BYTES:
+     * byte for block separation
+     * Little Endian File Table block count short (2 bytes)
+     * 3 bytes in Little Endian for the starting block of the File Table */
+    byte idx = (byte)(xPackage.xIO.ReadByte() & 3);
+    xStruct = xPackage.xIO.ReadBytes(5);
+    xPackage.xIO.Position = 0x395;
+    xBlockCount = xPackage.xIO.ReadUInt32();
+    uint xOldBlocks = xPackage.xIO.ReadUInt32();
+    // Checks the type of Structure
+    if (xBaseByte == 0xB)
+    {
+        if (idx == 1)
+            XSetStructure(STFSType.Type0);
+        else throw STFSExcepts.Type;
+    }
+    else if (xBaseByte == 0xA)
+    {
+        if (idx == 0 || idx == 2)
+            XSetStructure(STFSType.Type1);
+        else throw STFSExcepts.Type;
+    }
+    else throw STFSExcepts.Type;
+    if (xBlockCount > SpaceBetween[2])
+        throw STFSExcepts.MaxOver;
+    TopRecord = new BlockRecord(((uint)((idx >> 1) & 1) << 30 | (uint)xOldBlocks << 15));
+    // Grab Real Block Count
+    for (uint i = (xBlockCount - 1); i >= 0; i--)
+    {
+        xBlockCount = (i + 1);
+        if (GenerateDataOffset(i) < xPackage.xIO.Length)
+            break;
+    }
+    -}
 
 -- internal uint GenerateDataBlock(uint xBlock)
 sd_GenerateDataBlock :: Meth1 STFSDescriptor Word32 Word32
@@ -631,19 +680,19 @@ sd_GenerateBaseOffset = meth2 $ \(Var xBlock, Var xTree) this -> catchError
 
 -- internal byte[] GetData()
 sd_GetData :: Meth0 STFSDescriptor (List Word8)
-sd_GetData = undefined
--- byte idx = 1;
--- if (ThisType == STFSType.Type1)
---     idx = (byte)(TopRecord.Index << 1);
--- // Returns the Descriptor in a data fashion
--- List<byte> xReturn = new List<byte>();
--- xReturn.AddRange(new byte[] { 0x24, 0 });
--- xReturn.Add(idx);
--- xReturn.AddRange(xStruct);
--- xReturn.AddRange(new byte[20]);
--- xReturn.AddRange(BitConv.GetBytes(xBlockCount, true));
--- xReturn.AddRange(BitConv.GetBytes(TopRecord.BlocksFree, true));
--- return xReturn.ToArray();
+sd_GetData = meth0 $ \this -> do
+  Var idx <- auto 1
+  whenM (get $ (this & sd_ThisType()) ==. pure STFSType_Type1) $ do
+    idx $= (this &. sd_TopRecord & br_Index()) <<. 1
+  -- Returns the Descriptor in a data fashion
+  Var xReturn <- auto $ newList []
+  get $ xReturn & listAddRange(newList [0x24, 0])
+  get $ xReturn & listAdd(idx)
+  get $ xReturn & listAddRange(this &. sd_xStruct)
+  get $ xReturn & listAddRange(newList $ replicate 20 0)
+  get $ xReturn & listAddRange(bitConv_GetBytes (this &. sd_xBlockCount, pure True))
+  get $ xReturn & listAddRange(bitConv_GetBytes (this &. sd_TopRecord &. br_BlocksFree, pure True))
+  get xReturn
 
 ---------
 -- Create.cs
@@ -1729,7 +1778,7 @@ fatTimeDT xDateTime = let
       in Time.LocalTime (Time.fromGregorian year month day) (Time.TimeOfDay hour minute sec)
 
 class BitConv_GetBytes a where
-  bitConv_GetBytes :: a -> Bool -> E C (List Word8)
+  bitConv_GetBytes :: (E C a, E C Bool) -> E C (List Word8)
 
 -- TODO implement
 instance BitConv_GetBytes Int16
