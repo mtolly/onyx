@@ -1,38 +1,33 @@
 {- |
 WIP port of (parts of) X360, a GPL C# library by DJ Shepherd
 -}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GADTs                  #-}
+{-# LANGUAGE LambdaCase             #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE RecordWildCards        #-}
 module STFS.Create where
 
 import           Control.Applicative            (liftA2)
-import           Control.Monad.Extra            (andM, anyM, forM, forM_, guard,
-                                                 ifM, join, orM, unless,
-                                                 unlessM, void, when, whenM)
+import           Control.Monad.Extra            (forM_, guard, ifM, when, whenM)
 import           Control.Monad.IO.Class         (MonadIO (..))
-import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Cont       hiding (shift)
-import           Control.Monad.Trans.StackTrace (QueueLog, SendMessage,
-                                                 StackTraceT, catchError, fatal,
-                                                 lg, stackIO, throwError)
+import           Control.Monad.Trans.StackTrace (QueueLog, StackTraceT,
+                                                 catchError, fatal)
+import qualified Data.Binary.Put                as Put
 import           Data.Bits                      (Bits (..))
 import qualified Data.ByteString                as B
-import           Data.Char                      (toLower)
+import qualified Data.ByteString.Lazy           as BL
 import           Data.Function                  ((&))
-import           Data.Int                       (Int16, Int32, Int64, Int8)
+import           Data.Int                       (Int16, Int32, Int64)
 import           Data.IORef                     (newIORef, readIORef,
                                                  writeIORef)
 import           Data.List.Split                (splitOn)
-import           Data.Maybe                     (isJust)
 import qualified Data.Time                      as Time
 import           Data.Word                      (Word16, Word32, Word64, Word8)
-import qualified System.Directory               as Dir
-import           System.IO                      (IOMode (..), hFileSize,
-                                                 withBinaryFile)
+import           RockBand.Common                (each, reverseLookup)
 
 (%) :: (a -> b) -> a -> b
 (%) = id
@@ -312,11 +307,22 @@ glue3Bytes = glue4Bytes 0
 glue2Bytes :: Word8 -> Word8 -> Word16
 glue2Bytes a b = (fromIntegral a `shiftL` 8) .|. fromIntegral b
 
-enum :: (Integral i, Enum e) => Meth0 i e
-enum() = liftHs $ pure . toEnum . fromIntegral
+-- TODO I'm hoping we don't have to handle non-mapped values in enum types
 
-unenum :: (Enum e, Integral i) => Meth0 e i
-unenum() = liftHs $ pure . fromIntegral . fromEnum
+-- 1. derive Enum and Bounded
+class (Show i, Integral i, Enum e, Bounded e) => CEnum i e | e -> i where
+  -- 2. optionally override this
+  enumMapping :: e -> i
+  enumMapping = fromIntegral . fromEnum
+
+enum :: (CEnum i e) => Meth0 i e
+enum() = liftHs $ \this -> case reverseLookup each enumMapping this of
+  Nothing -> fatal $ "enum() failure: no mapping for " ++ show this
+  -- TODO include the attempted enum type
+  Just x  -> pure x
+
+unenum :: (CEnum i e) => Meth0 e i
+unenum() = liftHs $ pure . enumMapping
 
 castEnumField :: (Integral i, Enum e) => F i -> F e
 castEnumField (Var (V gtr str)) = Var $ V
@@ -385,7 +391,7 @@ instance New BlockRecord (E C Word32) where
 -- public BlockRecord(HashStatus xStatus, uint xNext) { Flags = (uint)((uint)xStatus << 30 | (xNext & 0xFFFFFF)); }
 instance New BlockRecord (E C HashStatus, E C Word32) where
   new = new2 $ \(Var xStatus, Var xNext) this -> do
-    this &. br_Flags $= ((xStatus & unenum()) <<. 30) .| (xNext .& 0xFFFFFF)
+    this &. br_Flags $= ((xStatus & unenum() & fi) <<. 30) .| (xNext .& 0xFFFFFF)
 
 -- public HashStatus Status { get { return (HashStatus)(xFlags[0] >> 6); } set { xFlags[0] = (byte)((int)value << 6);} }
 br_Status :: D_BlockRecord -> F HashStatus
@@ -474,7 +480,7 @@ sd_BaseBlock :: Meth0 STFSDescriptor Word16
 sd_BaseBlock = meth0 $ \this -> get $ fi (this &. sd_xBaseByte) <<. 0xC
 
 sd_ThisType :: Meth0 STFSDescriptor STFSType
-sd_ThisType = meth0 $ \this -> get $ this &. sd_Shift & enum()
+sd_ThisType = meth0 $ \this -> get $ this &. sd_Shift & fi & enum()
 
 sd_OldBlockCount :: Meth0 STFSDescriptor Word32
 sd_OldBlockCount = meth0 $ \this -> get $ fi $ this &. sd_TopRecord &. br_BlocksFree
@@ -518,7 +524,7 @@ sd_XSetStructure = meth1 $ \(Var xType) this -> get xType >>= \case
 instance New STFSDescriptor (E C (List Word8), E C Word32, E C Word32, E C Word8) where
   new = new4 $ \(Var xDescriptor, Var xTotalBlocks, Var xOldBlocks, Var xType) this -> do
     this &. sd_xStruct $= xDescriptor
-    get $ this & sd_XSetStructure((xType .& 1) & enum())
+    get $ this & sd_XSetStructure((xType .& 1) & fi & enum())
     this &. sd_TopRecord $= new ((fi (xType >>. 1) <<. 30) .| (fi xOldBlocks <<. 15) :: E C Word32)
     ifM (get $ xTotalBlocks >. (this &. sd_xSpaceBetween &. ix 2))
       % do
@@ -530,10 +536,11 @@ instance New STFSDescriptor (E C (List Word8), E C Word32, E C Word32, E C Word8
 
 -- internal STFSDescriptor(STFSPackage xPackage)
 instance New STFSDescriptor (E C STFSPackage) where
-  new = undefined
+  new = new1 $ \(Var xPackage) _this -> do
+    xPackage &. sp_xIO &. dj_Position $= 0x340
+    xPackage &. sp_xIO &. dj_IsBigEndian $= pure True
+    undefined
     {-
-    xPackage.xIO.Position = 0x340;
-    xPackage.xIO.IsBigEndian = true;
     int xBlockInfo = xPackage.xIO.ReadInt32();
     xBaseByte = (byte)(((xBlockInfo + 0xFFF) & 0xF000) >> 0xC);
     xPackage.xIO.Position = 0x379;
@@ -1323,6 +1330,7 @@ data SwitchType
   | SwitchType_Allocate
   | SwitchType_Delete
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+instance CEnum Int32 SwitchType
 
 {-
 
@@ -1536,6 +1544,7 @@ data AddType
   | AddType_Inject
   | AddType_Replace
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+instance CEnum Word8 AddType
 
 data Languages
   = English
@@ -1548,6 +1557,7 @@ data Languages
   | Chinese
   | Portuguese
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+instance CEnum Word8 Languages
 
 data HashStatus
   = HashStatus_Unused
@@ -1555,6 +1565,7 @@ data HashStatus
   | HashStatus_New
   | HashStatus_Reused
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+instance CEnum Word8 HashStatus
 
 data HashFlag
   = Unallocated
@@ -1562,9 +1573,11 @@ data HashFlag
   | AllocatedInUseOld
   | AllocatedInUseCurrent
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+instance CEnum Word8 HashFlag
 
 data STFSType = STFSType_Type0 | STFSType_Type1
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+instance CEnum Int32 STFSType
 
 data PackageType
   = PT_None -- ^ No package type
@@ -1604,43 +1617,43 @@ data PackageType
   | PT_ViralVideo -- ^ Unknown
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-packageTypeValue :: PackageType -> Word32
-packageTypeValue = \case
-  PT_None -> 0
-  PT_SavedGame -> 1
-  PT_MarketPlace -> 2
-  PT_Publisher -> 3
-  PT_IPTV_DVR -> 0xFFD
-  PT_Xbox360Title -> 0x1000
-  PT_IPTV_PauseBuffer -> 0x2000
-  PT_XNACommunity -> 0x3000
-  PT_HDDInstalledGame -> 0x4000
-  PT_OriginalXboxGame -> 0x5000
-  PT_SocialTitle -> 0x6000
-  PT_GamesOnDemand -> 0x7000
-  PT_SystemPacks -> 0x8000
-  PT_AvatarItem -> 0x9000
-  PT_Profile -> 0x10000
-  PT_GamerPicture -> 0x20000
-  PT_ThematicSkin -> 0x30000
-  PT_Cache -> 0x40000
-  PT_StorageDownload -> 0x50000
-  PT_XboxSavedGame -> 0x60000
-  PT_XboxDownload -> 0x70000
-  PT_GameDemo -> 0x80000
-  PT_Video -> 0x90000
-  PT_GameTitle -> 0xA0000
-  PT_Installer -> 0xB0000
-  PT_GameTrailer -> 0xC0000
-  PT_Arcade -> 0xD0000
-  PT_XNA -> 0xE0000
-  PT_LicenseStore -> 0xF0000
-  PT_Movie -> 0x100000
-  PT_TV -> 0x200000
-  PT_MusicVideo -> 0x300000
-  PT_GameVideo -> 0x400000
-  PT_PodcastVideo -> 0x500000
-  PT_ViralVideo -> 0x600000
+instance CEnum Word32 PackageType where
+  enumMapping = \case
+    PT_None -> 0
+    PT_SavedGame -> 1
+    PT_MarketPlace -> 2
+    PT_Publisher -> 3
+    PT_IPTV_DVR -> 0xFFD
+    PT_Xbox360Title -> 0x1000
+    PT_IPTV_PauseBuffer -> 0x2000
+    PT_XNACommunity -> 0x3000
+    PT_HDDInstalledGame -> 0x4000
+    PT_OriginalXboxGame -> 0x5000
+    PT_SocialTitle -> 0x6000
+    PT_GamesOnDemand -> 0x7000
+    PT_SystemPacks -> 0x8000
+    PT_AvatarItem -> 0x9000
+    PT_Profile -> 0x10000
+    PT_GamerPicture -> 0x20000
+    PT_ThematicSkin -> 0x30000
+    PT_Cache -> 0x40000
+    PT_StorageDownload -> 0x50000
+    PT_XboxSavedGame -> 0x60000
+    PT_XboxDownload -> 0x70000
+    PT_GameDemo -> 0x80000
+    PT_Video -> 0x90000
+    PT_GameTitle -> 0xA0000
+    PT_Installer -> 0xB0000
+    PT_GameTrailer -> 0xC0000
+    PT_Arcade -> 0xD0000
+    PT_XNA -> 0xE0000
+    PT_LicenseStore -> 0xF0000
+    PT_Movie -> 0x100000
+    PT_TV -> 0x200000
+    PT_MusicVideo -> 0x300000
+    PT_GameVideo -> 0x400000
+    PT_PodcastVideo -> 0x500000
+    PT_ViralVideo -> 0x600000
 
 data PackageMagic
   = PackageMagic_CON
@@ -1649,15 +1662,16 @@ data PackageMagic
   | PackageMagic_Unknown
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-packageMagicValue :: PackageMagic -> Word32
-packageMagicValue = \case
-  PackageMagic_CON -> 0x434F4E20
-  PackageMagic_LIVE -> 0x4C495645
-  PackageMagic_PIRS -> 0x50495253
-  PackageMagic_Unknown -> 0xFFFFFFF
+instance CEnum Word32 PackageMagic where
+  enumMapping = \case
+    PackageMagic_CON -> 0x434F4E20
+    PackageMagic_LIVE -> 0x4C495645
+    PackageMagic_PIRS -> 0x50495253
+    PackageMagic_Unknown -> 0xFFFFFFF
 
 data TreeLevel = L0 | L1 | L2 | LT
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+instance CEnum Word8 TreeLevel
 
 -- not translating STFSExcepts (just using strings)
 
@@ -1665,13 +1679,15 @@ data StrongSigned
   = StrongSigned_LIVE
   | StrongSigned_PIRS
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+instance CEnum Int32 StrongSigned
 
-data RSAParams = RSAParams
+data D_RSAParams = RSAParams
   { rp_xC :: F (List Word8)
-  , rp_xK :: F () -- RSAParameters xK = new RSAParameters();
+  , rp_xK :: F RSAParameters
   , rp_xM :: F PackageMagic
   , rp_xV :: F Bool -- also Valid
   }
+type RSAParams = Maybe D_RSAParams
 
 -- TODO rest of RSAParams
 
@@ -1686,6 +1702,7 @@ data ItemType
   | ItemType_Signature -- ^ Data Digest RSA Signature
   | ItemType_Certificate -- ^ Certificate Digest RSA Signature
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+instance CEnum Word8 ItemType
 
 data TransferLock
   = TransferLock_NoTransfer
@@ -1693,6 +1710,7 @@ data TransferLock
   | TransferLock_DeviceAllowOnly
   | TransferLock_AllowTransfer
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+instance CEnum Word8 TransferLock
 
 ---------
 -- Other.cs (only needed parts)
@@ -1780,82 +1798,250 @@ fatTimeDT xDateTime = let
 class BitConv_GetBytes a where
   bitConv_GetBytes :: (E C a, E C Bool) -> E C (List Word8)
 
--- TODO implement
-instance BitConv_GetBytes Int16
-instance BitConv_GetBytes Word16
-instance BitConv_GetBytes Int32
-instance BitConv_GetBytes Word32
-instance BitConv_GetBytes Int64
-instance BitConv_GetBytes Word64
-instance BitConv_GetBytes Float
-instance BitConv_GetBytes Double
+instance BitConv_GetBytes Int16 where
+  bitConv_GetBytes = args2 $ \(Var value, Var bigEndian) -> do
+    v <- get value
+    be <- get bigEndian
+    get $ newList $ BL.unpack $ Put.runPut $ (if be then Put.putInt16be else Put.putInt16le) v
+instance BitConv_GetBytes Word16 where
+  bitConv_GetBytes = args2 $ \(Var value, Var bigEndian) -> do
+    v <- get value
+    be <- get bigEndian
+    get $ newList $ BL.unpack $ Put.runPut $ (if be then Put.putWord16be else Put.putWord16le) v
+instance BitConv_GetBytes Int32 where
+  bitConv_GetBytes = args2 $ \(Var value, Var bigEndian) -> do
+    v <- get value
+    be <- get bigEndian
+    get $ newList $ BL.unpack $ Put.runPut $ (if be then Put.putInt32be else Put.putInt32le) v
+instance BitConv_GetBytes Word32 where
+  bitConv_GetBytes = args2 $ \(Var value, Var bigEndian) -> do
+    v <- get value
+    be <- get bigEndian
+    get $ newList $ BL.unpack $ Put.runPut $ (if be then Put.putWord32be else Put.putWord32le) v
+instance BitConv_GetBytes Int64 where
+  bitConv_GetBytes = args2 $ \(Var value, Var bigEndian) -> do
+    v <- get value
+    be <- get bigEndian
+    get $ newList $ BL.unpack $ Put.runPut $ (if be then Put.putInt64be else Put.putInt64le) v
+instance BitConv_GetBytes Word64 where
+  bitConv_GetBytes = args2 $ \(Var value, Var bigEndian) -> do
+    v <- get value
+    be <- get bigEndian
+    get $ newList $ BL.unpack $ Put.runPut $ (if be then Put.putWord64be else Put.putWord64le) v
+instance BitConv_GetBytes Float where
+  bitConv_GetBytes = args2 $ \(Var value, Var bigEndian) -> do
+    v <- get value
+    be <- get bigEndian
+    get $ newList $ BL.unpack $ Put.runPut $ (if be then Put.putFloatbe else Put.putFloatle) v
+instance BitConv_GetBytes Double where
+  bitConv_GetBytes = args2 $ \(Var value, Var bigEndian) -> do
+    v <- get value
+    be <- get bigEndian
+    get $ newList $ BL.unpack $ Put.runPut $ (if be then Put.putDoublebe else Put.putDoublele) v
 
 ---------
--- UNSORTED
+-- DJsIO.cs
 ---------
 
-data DJsIO
+-- skipping X360.IO.FATXExtensions
 
-{-
+dj_BlockCountSTFS :: Meth0 DJsIO Word32
+dj_BlockCountSTFS = undefined
 
-listSort :: (MonadIO m) => Meth m (List a) (a -> a -> StackTraceT m Ordering) ()
-listSort = undefined
+dj_BlockRemainderSTFS :: Meth0 DJsIO Int32
+dj_BlockRemainderSTFS = undefined
 
-setIndex :: (MonadIO m) => Int -> a -> Maybe (List a) -> StackTraceT m ()
-setIndex i x mlst = do
-  lst <- noNull mlst
-  xs <- get lst
-  lst $= case splitAt i xs of
-    (a, b) -> a ++ [x] ++ drop 1 b
+-- skipping X360.IO.SearchExtensions until needed
+-- skipping X360.IO.ExtraExtensions until needed
 
-newDJsIO_temp :: (MonadIO m) => Bool -> StackTraceT m DJsIO
-newDJsIO_temp = undefined
-{-
-public DJsIO(bool BigEndian)
-{
-    IsBigEndian = BigEndian;
-    xFile = string.Copy(VariousFunctions.GetTempFileLocale());
-    XSetStream(DJFileMode.Create);
-}
--}
+data StringForm
+  = StringForm_ASCII
+  | StringForm_Unicode
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-dj_Dispose :: (MonadIO m) => Bool -> Meth m DJsIO Bool
-dj_Dispose = undefined
-{-
-public virtual bool Dispose()
-{
-    return Dispose(false);
-}
+instance CEnum Word8 StringForm where
+  enumMapping = \case
+    StringForm_ASCII   -> 1
+    StringForm_Unicode -> 2
 
-internal bool Dispose(bool DeleteFile)
-{
-    if (!Close())
-        return false;
-    if (xThisData != DataType.Real)
-    {
-        try { xStream.Dispose(); }
-        catch { return false; }
-        if (xThisData == DataType.File && DeleteFile)
-            VariousFunctions.DeleteFile(FileNameLong);
-    }
-    xFile = null;
-    txtidx = null;
-    return true;
-}
--}
+data DJFileMode
+  = DJFileMode_Create
+  | DJFileMode_Open
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-dj_Close :: Meth m DJsIO Bool
-dj_Close = undefined
-{-
-public virtual bool Close()
-{
-    if (Accessed)
-    {
-        try { xStream.Close(); }
-        catch { return false; }
-    }
-    return true;
-}
--}
+data PadLocale
+  = PadLocale_Left
+  | PadLocale_Right
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
--}
+-- skipping PadType
+
+data StringRead
+  = StringRead_Defined
+  | StringRead_ToNull
+  | StringRead_PrecedingLength
+
+data DataType
+  = DataType_None -- ^ No specific type
+  | DataType_Memory -- ^ Memory IO
+  | DataType_File -- ^ File IO
+  | DataType_Drive -- ^ Device IO
+  | DataType_Real
+  | DataType_MultiFile -- ^ Contains multiple IO's
+  | DataType_Other -- ^ Some other IO
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data RealType
+  = RealType_None
+  | RealType_STFS
+  | RealType_FATX
+  | RealType_SVOD
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+-- skipping IOExcepts
+
+data D_DJsIO = DJsIO
+  { dj_IsBigEndian :: F Bool
+  , dj_xThisData   :: F DataType
+  , dj_xFile       :: F Str
+  , dj_xStream     :: F Stream
+  , dj_txtidx      :: F (List Int32)
+  }
+type DJsIO = Maybe D_DJsIO
+
+-- public bool Accessed
+-- public string FileNameShort
+-- public string FilePath
+-- public string FileNameLong
+-- public string FileExtension
+-- public DataType IOType
+
+-- protected void XSetStrings()
+-- void XSetStream(DJFileMode xftype)
+
+-- public DJsIO(string xFileIn, DJFileMode xType, bool BigEndian)
+
+-- skipping
+--   public DJsIO(DJFileMode xType, string xTitle, string xFilter, bool BigEndian)
+--   xImp1, xImp2
+--   public DJsIO(ref SaveFileDialog xSFDin, bool BigEndian)
+--   public DJsIO(ref OpenFileDialog xOFD, bool BigEndian)
+
+-- public DJsIO(Stream ImportGeneric, bool BigEndian)
+-- public DJsIO(Stream ImportGeneric, bool BigEndian)
+-- public DJsIO(long ArraySize, bool BigEndian)
+-- public DJsIO(bool BigEndian)
+-- protected DJsIO() { }
+
+-- public virtual byte[] ReadBytes(int xSize)
+-- internal byte[] unbufferedread(int xSize)
+-- public short ReadInt16()
+-- public short ReadInt16(bool BigEndian)
+-- public uint ReadUInt24()
+-- public uint ReadUInt24(bool BigEndian)
+-- public ulong ReadUInt40()
+-- public ulong ReadUInt40(bool BigEndian)
+-- public ulong ReadUInt48()
+-- public ulong ReadUInt48(bool BigEndian)
+-- public ulong ReadUInt56()
+-- public ulong ReadUInt56(bool BigEndian)
+-- public int ReadInt32()
+-- public int ReadInt32(bool BigEndian)
+-- public long ReadInt64()
+-- public long ReadInt64(bool BigEndian)
+-- public byte ReadByte()
+-- public sbyte ReadSByte()
+-- public float ReadSingle()
+-- public float ReadSingle(bool BigEndian)
+-- public double ReadDouble()
+-- public double ReadDouble(bool BigEndian)
+-- public ushort ReadUInt16()
+-- public ushort ReadUInt16(bool BigEndian)
+-- public uint ReadUInt32()
+-- public uint ReadUInt32(bool BigEndian)
+-- public ulong ReadUInt64()
+-- public ulong ReadUInt64(bool BigEndian)
+-- public bool ReadBool()
+-- public string ReadLine()
+-- public string ReadLine(byte BreakType)
+-- public string ReadLine(StringForm xType)
+-- public string ReadLine(StringForm xType, bool BigEndian)
+-- public string ReadLine(StringForm xType, short BreakIndicator, bool BigEndian)
+-- public string ReadString(StringForm xStringType)
+-- public string ReadString(StringForm xStringType, bool BigEndian)
+-- public string ReadString(StringForm xStringType, int xStringSize)
+-- public string ReadString(StringForm xStringType, int xStringSize, bool BigEndian)
+-- public string ReadString(StringForm xStringType, int xStringSize, StringRead xRead)
+-- public string ReadString(StringForm xStringType, int xStringSize, StringRead xRead, bool BigEndian)
+-- public string ReadHexString(int xLength)
+-- public DateTime ReadFileTime()
+-- public virtual byte[] ReadStream()
+
+-- public virtual void Write(byte[] xIn)
+-- internal void unbufferedwrite(byte[] xIn)
+-- public void Write(short xIn)
+-- public void Write(short xIn, bool BigEndian)
+-- public void Write(int xIn)
+-- public void Write(int xIn, bool BigEndian)
+-- public void Write(long xIn)
+-- public void Write(long xIn, bool BigEndian)
+-- public void Write(ushort xIn)
+-- public void Write(ushort xIn, bool BigEndian)
+-- public void Write(uint xIn)
+-- public void Write(uint xIn, bool BigEndian)
+-- public void Write(ulong xIn)
+-- public void Write(ulong xIn, bool BigEndian)
+-- public void Write(float xIn)
+-- public void Write(float xIn, bool BigEndian)
+-- public void Write(double xIn)
+-- public void Write(double xIn, bool BigEndian)
+-- public void Write(sbyte xIn) { Write((byte)xIn); }
+-- public void Write(bool xIn)
+-- public void WriteUInt24(uint xIn)
+-- public void WriteUInt24(uint xIn, bool BigEndian)
+-- public void WriteUInt40(ulong xIn)
+-- public void WriteUInt40(ulong xIn, bool BigEndian)
+-- public void WriteUInt48(ulong xIn)
+-- public void WriteUInt48(ulong xIn, bool BigEndian)
+-- public void WriteUInt56(ulong xIn)
+-- public void WriteUInt56(ulong xIn, bool BigEndian)
+-- public void Write(string xIn)
+-- public void Write(string xIn, StringForm xType)
+-- public void Write(string xIn, StringForm xType, int xDesiredSize, PadLocale xPadLocale, char PadChar)
+-- public void WriteHexString(string xIn)
+-- public void Write(byte xIn) { Write(new byte[]{ xIn }); }
+-- public void WriteFileTime(DateTime xIn)
+-- public virtual void Flush()
+
+-- public virtual long Length
+-- public string LengthFriendly
+-- public virtual long Position
+dj_Position :: D_DJsIO -> F Int64
+dj_Position = undefined
+-- public virtual bool Close()
+-- public virtual bool Dispose()
+-- internal bool Dispose(bool DeleteFile)
+-- public virtual bool OpenAgain()
+-- public virtual Stream GrabStream()
+-- public virtual bool SetLength(long xLen)
+-- protected virtual bool GetAccessed()
+
+-- skipping DriveIO
+
+-- do we need STFSStreamIO ?
+
+-- skipping FATXStreamIO
+
+-- don't think we need MultiFileIO
+
+-- probably don't need DiskGeometry, DeviceType, Drive
+
+---------
+-- UNSORTED/POLYFILL
+---------
+
+data D_Stream
+type Stream = Maybe D_Stream
+
+data D_RSAParameters
+type RSAParameters = Maybe D_RSAParameters
