@@ -26,7 +26,8 @@ import           Guitars
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common                  (Difficulty (..),
-                                                   LongNote (..), splitEdges)
+                                                   LongNote (..), joinEdges,
+                                                   splitEdges)
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.Events                  as Ev
 import qualified RockBand.File                    as RBFile
@@ -253,6 +254,9 @@ instance (Real t) => A.ToJSON (Six t) where
 trackToMap :: (Ord a) => U.TempoMap -> RTB.T U.Beats a -> Map.Map U.Seconds a
 trackToMap tmap = Map.fromList . ATB.toPairList . RTB.toAbsoluteEventList 0 . U.applyTempoTrack tmap . RTB.normalize
 
+trackToBeatMap :: (Ord a) => RTB.T U.Beats a -> Map.Map U.Beats a
+trackToBeatMap = Map.fromList . ATB.toPairList . RTB.toAbsoluteEventList 0 . RTB.normalize
+
 filterKey :: (NNC.C t, Eq a) => a -> RTB.T t (LongNote s a) -> RTB.T t (LongNote s ())
 filterKey k = RTB.mapMaybe $ mapM $ \x -> guard (k == x) >> return ()
 
@@ -270,7 +274,36 @@ processFive hopoThreshold tmap trk = let
     return (color, getColor color)
   solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.Solo      b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.Overdrive b -> Just b; _ -> Nothing
-  lanes  = Map.empty -- TODO
+  ons    = trackToBeatMap $ RTB.collectCoincident $ flip RTB.mapMaybe assigned $ \case
+    NoteOn _ col -> Just col
+    Blip   _ col -> Just col
+    _            -> Nothing
+  trems  = trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
+    Five.Tremolo b -> Just $ if b then NoteOn () () else NoteOff ()
+    _              -> Nothing
+  trills = trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
+    Five.Trill b -> Just $ if b then NoteOn () () else NoteOff ()
+    _            -> Nothing
+  trems' = Map.fromList $ flip concatMap (Map.toAscList trems) $ \(start, (_, _, mlen)) -> case mlen of
+    Nothing -> [] -- shouldn't happen (no blips)
+    Just len -> case Map.lookupGE start ons of
+      Nothing -> [] -- shouldn't happen (no notes under or after tremolo)
+      Just (_, colors) -> [(start, (True, colors)), (start + len, (False, colors))]
+  trills' = Map.fromList $ flip concatMap (Map.toAscList trills) $ \(start, (_, _, mlen)) -> case mlen of
+    Nothing -> [] -- shouldn't happen (no blips)
+    Just len -> case Map.lookupGE start ons of
+      Nothing -> [] -- shouldn't happen (no notes under or after trill)
+      Just (t1, cols1) -> case Map.lookupGE t1 ons of
+        Nothing -> [] -- shouldn't happen (only one note under or after trill)
+        Just (_, cols2) -> let
+          colors = cols1 ++ cols2
+          in [(start, (True, colors)), (start + len, (False, colors))]
+  lanesAll = Map.mapKeys (U.applyTempoMap tmap) $ Map.union trems' trills'
+  lanes = Map.fromList $ do
+    color <- Nothing : fmap Just [Five.Green .. Five.Orange]
+    return $ (,) color $ flip Map.mapMaybe lanesAll $ \(b, colors) -> do
+      guard $ elem color colors
+      return b
   bre    = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.BRE       b -> Just b; _ -> Nothing
   in Five notes solo energy lanes bre
 
