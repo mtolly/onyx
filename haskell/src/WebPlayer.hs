@@ -344,18 +344,50 @@ processSix hopoThreshold tmap trk = let
 
 processDrums :: U.TempoMap -> Maybe U.Beats -> RTB.T U.Beats Drums.Event -> Drums U.Seconds
 processDrums tmap coda trk = let
-  notes = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $
-    U.applyTempoTrack tmap $ fmap sort $ RTB.collectCoincident $ flip RTB.mapMaybe (Drums.assignToms True trk) $ \case
+  notes = fmap sort $ RTB.collectCoincident $ flip RTB.mapMaybe (Drums.assignToms True trk) $ \case
       (Expert, gem) -> Just gem
       _             -> Nothing
+  notesS = trackToMap tmap notes
+  notesB = trackToBeatMap notes
   solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Drums.Solo       b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Drums.Overdrive  b -> Just b; _ -> Nothing
-  lanes  = Map.empty -- TODO
   fills  = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Drums.Activation b -> Just b; _ -> Nothing
   bre    = case U.applyTempoMap tmap <$> coda of
     Nothing -> Map.empty
     Just c  -> Map.filterWithKey (\k _ -> k >= c) fills
-  in Drums notes solo energy lanes bre
+  hands  = Map.filter (not . null) $ fmap (filter (/= Drums.Kick)) notesB
+  singles = trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
+    Drums.SingleRoll b -> Just $ if b then NoteOn () () else NoteOff ()
+    _              -> Nothing
+  doubles = trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
+    Drums.DoubleRoll b -> Just $ if b then NoteOn () () else NoteOff ()
+    _            -> Nothing
+  singles' = Map.fromList $ flip concatMap (Map.toAscList singles) $ \(start, (_, _, mlen)) -> case mlen of
+    Nothing -> [] -- shouldn't happen (no blips)
+    Just len -> case Map.lookupGE start hands of
+      Nothing -> [] -- shouldn't happen (no notes under or after roll)
+      Just (_, colors) -> [(start, (True, colors)), (start + len, (False, colors))]
+  doubles' = Map.fromList $ flip concatMap (Map.toAscList doubles) $ \(start, (_, _, mlen)) -> case mlen of
+    Nothing -> [] -- shouldn't happen (no blips)
+    Just len -> case Map.lookupGE start hands of
+      Nothing -> [] -- shouldn't happen (no notes under or after roll)
+      Just (t1, cols1) -> case Map.lookupGE t1 hands of
+        Nothing -> [] -- shouldn't happen (only one note under or after roll)
+        Just (_, cols2) -> let
+          colors = cols1 ++ cols2
+          in [(start, (True, colors)), (start + len, (False, colors))]
+  lanesAll = Map.mapKeys (U.applyTempoMap tmap) $ Map.union singles' doubles'
+  lanes = Map.fromList $ do
+    gem <-
+      [ Drums.Kick, Drums.Red
+      , Drums.Pro Drums.Yellow Drums.Cymbal, Drums.Pro Drums.Yellow Drums.Tom
+      , Drums.Pro Drums.Blue   Drums.Cymbal, Drums.Pro Drums.Blue   Drums.Tom
+      , Drums.Pro Drums.Green  Drums.Cymbal, Drums.Pro Drums.Green  Drums.Tom
+      ]
+    return $ (,) gem $ flip Map.mapMaybe lanesAll $ \(b, gems) -> do
+      guard $ elem gem gems
+      return b
+  in Drums notesS solo energy lanes bre
 
 processProKeys :: U.TempoMap -> RTB.T U.Beats PK.Event -> ProKeys U.Seconds
 processProKeys tmap trk = let
