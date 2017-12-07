@@ -28,6 +28,7 @@ import qualified RockBand.Beat                    as Beat
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), splitEdges)
 import qualified RockBand.Drums                   as Drums
+import qualified RockBand.Events                  as Ev
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.GHL                     as GHL
@@ -44,10 +45,14 @@ data Five t = Five
   { fiveNotes  :: Map.Map (Maybe Five.Color) (Map.Map t (LongNote (Five.StrumHOPO, Bool) ()))
   , fiveSolo   :: Map.Map t Bool
   , fiveEnergy :: Map.Map t Bool
+  , fiveLanes  :: Map.Map (Maybe Five.Color) (Map.Map t Bool)
+  , fiveBRE    :: Map.Map t Bool
   } deriving (Eq, Ord, Show)
 
 instance TimeFunctor Five where
-  mapTime f (Five x y z) = Five (Map.map (Map.mapKeys f) x) (Map.mapKeys f y) (Map.mapKeys f z)
+  mapTime f (Five n s e l b) = let
+    g = Map.mapKeys f
+    in Five (fmap g n) (g s) (g e) (fmap g l) (g b)
 
 eventList :: (Real t) => Map.Map t a -> (a -> A.Value) -> A.Value
 eventList evts f = A.toJSON $ map g $ Map.toAscList evts where
@@ -72,6 +77,9 @@ instance (Real t) => A.ToJSON (Five t) where
       (,) (maybe "open" (T.pack . map toLower . show) color) $ eventList notes showHSTNote
     , (,) "solo" $ eventList (fiveSolo x) A.toJSON
     , (,) "energy" $ eventList (fiveEnergy x) A.toJSON
+    , (,) "lanes" $ A.object $ flip map (Map.toList $ fiveLanes x) $ \(color, lanes) ->
+      (,) (maybe "open" (T.pack . map toLower . show) color) $ eventList lanes A.toJSON
+    , (,) "bre" $ eventList (fiveBRE x) A.toJSON
     ]
 
 _readEventList :: (Ord t, Fractional t) => (A.Value -> A.Parser a) -> A.Value -> A.Parser (Map.Map t a)
@@ -93,37 +101,50 @@ data Drums t = Drums
   { drumNotes  :: Map.Map t [Drums.Gem Drums.ProType]
   , drumSolo   :: Map.Map t Bool
   , drumEnergy :: Map.Map t Bool
+  , drumLanes  :: Map.Map (Drums.Gem Drums.ProType) (Map.Map t Bool)
+  , drumBRE    :: Map.Map t Bool
   } deriving (Eq, Ord, Show)
 
 instance TimeFunctor Drums where
-  mapTime f (Drums x y z) = Drums (Map.mapKeys f x) (Map.mapKeys f y) (Map.mapKeys f z)
+  mapTime f (Drums n s e l b) = let
+    g = Map.mapKeys f
+    in Drums (g n) (g s) (g e) (fmap g l) (g b)
+
+drumGemKey :: Drums.Gem Drums.ProType -> T.Text
+drumGemKey = \case
+  Drums.Kick                          -> "kick"
+  Drums.Red                           -> "red"
+  Drums.Pro Drums.Yellow Drums.Cymbal -> "y-cym"
+  Drums.Pro Drums.Yellow Drums.Tom    -> "y-tom"
+  Drums.Pro Drums.Blue   Drums.Cymbal -> "b-cym"
+  Drums.Pro Drums.Blue   Drums.Tom    -> "b-tom"
+  Drums.Pro Drums.Green  Drums.Cymbal -> "g-cym"
+  Drums.Pro Drums.Green  Drums.Tom    -> "g-tom"
 
 instance (Real t) => A.ToJSON (Drums t) where
   toJSON x = A.object
-    [ (,) "notes" $ eventList (drumNotes x) $ let
-      gem = A.String . \case
-        Drums.Kick                          -> "kick"
-        Drums.Red                           -> "red"
-        Drums.Pro Drums.Yellow Drums.Cymbal -> "y-cym"
-        Drums.Pro Drums.Yellow Drums.Tom    -> "y-tom"
-        Drums.Pro Drums.Blue   Drums.Cymbal -> "b-cym"
-        Drums.Pro Drums.Blue   Drums.Tom    -> "b-tom"
-        Drums.Pro Drums.Green  Drums.Cymbal -> "g-cym"
-        Drums.Pro Drums.Green  Drums.Tom    -> "g-tom"
-      in A.toJSON . map gem
+    [ (,) "notes" $ eventList (drumNotes x) $ A.toJSON . map (A.String . drumGemKey)
     , (,) "solo" $ eventList (drumSolo x) A.toJSON
     , (,) "energy" $ eventList (drumEnergy x) A.toJSON
+    , (,) "lanes" $ A.object $ flip map (Map.toList $ drumLanes x) $ \(gem, lanes) ->
+      (,) (drumGemKey gem) $ eventList lanes A.toJSON
+    , (,) "bre" $ eventList (drumBRE x) A.toJSON
     ]
 
 data ProKeys t = ProKeys
-  { proKeysNotes  :: Map.Map PK.Pitch (Map.Map t (LongNote () ()))
-  , proKeysRanges :: Map.Map t PK.LaneRange
-  , proKeysSolo   :: Map.Map t Bool
-  , proKeysEnergy :: Map.Map t Bool
+  { proKeysNotes     :: Map.Map PK.Pitch (Map.Map t (LongNote () ()))
+  , proKeysRanges    :: Map.Map t PK.LaneRange
+  , proKeysSolo      :: Map.Map t Bool
+  , proKeysEnergy    :: Map.Map t Bool
+  , proKeysLanes     :: Map.Map PK.Pitch (Map.Map t Bool)
+  , proKeysGlissando :: Map.Map t Bool
+  , proKeysBRE       :: Map.Map t Bool
   } deriving (Eq, Ord, Show)
 
 instance TimeFunctor ProKeys where
-  mapTime f (ProKeys w x y z) = ProKeys (Map.map (Map.mapKeys f) w) (Map.mapKeys f x) (Map.mapKeys f y) (Map.mapKeys f z)
+  mapTime f (ProKeys n r s e l gl b) = let
+    g = Map.mapKeys f
+    in ProKeys (fmap g n) (g r) (g s) (g e) (fmap g l) (g gl) (g b)
 
 showPitch :: PK.Pitch -> T.Text
 showPitch = \case
@@ -152,16 +173,24 @@ instance (Real t) => A.ToJSON (ProKeys t) where
     , (,) "ranges" $ eventList (proKeysRanges x) $ A.toJSON . map toLower . drop 5 . show
     , (,) "solo" $ eventList (proKeysSolo x) A.toJSON
     , (,) "energy" $ eventList (proKeysEnergy x) A.toJSON
+    , (,) "lanes" $ A.object $ flip map (Map.toList $ proKeysLanes x) $ \(pitch, lanes) ->
+      (,) (showPitch pitch) $ eventList lanes A.toJSON
+    , (,) "gliss" $ eventList (proKeysGlissando x) A.toJSON
+    , (,) "bre" $ eventList (proKeysBRE x) A.toJSON
     ]
 
 data Protar t = Protar
   { protarNotes  :: Map.Map PG.GtrString (Map.Map t (LongNote (Five.StrumHOPO, Maybe PG.GtrFret) ()))
   , protarSolo   :: Map.Map t Bool
   , protarEnergy :: Map.Map t Bool
+  , protarLanes  :: Map.Map PG.GtrString (Map.Map t Bool)
+  , protarBRE    :: Map.Map t Bool
   } deriving (Eq, Ord, Show)
 
 instance TimeFunctor Protar where
-  mapTime f (Protar x y z) = Protar (Map.map (Map.mapKeys f) x) (Map.mapKeys f y) (Map.mapKeys f z)
+  mapTime f (Protar n s e l b) = let
+    g = Map.mapKeys f
+    in Protar (fmap g n) (g s) (g e) (fmap g l) (g b)
 
 instance (Real t) => A.ToJSON (Protar t) where
   toJSON x = A.object
@@ -174,6 +203,9 @@ instance (Real t) => A.ToJSON (Protar t) where
         NoteOn (Five.HOPO, fret) () -> "hopo-sust" <> showFret fret
     , (,) "solo" $ eventList (protarSolo x) A.toJSON
     , (,) "energy" $ eventList (protarEnergy x) A.toJSON
+    , (,) "lanes" $ A.object $ flip map (Map.toList $ protarLanes x) $ \(string, lanes) ->
+      (,) (T.pack $ map toLower $ show string) $ eventList lanes A.toJSON
+    , (,) "bre" $ eventList (protarBRE x) A.toJSON
     ] where showFret Nothing  = "-x"
             showFret (Just i) = "-" <> T.pack (show i)
 
@@ -186,13 +218,17 @@ data GHLLane
   deriving (Eq, Ord, Show, Read)
 
 data Six t = Six
-  { sixNotes :: Map.Map GHLLane (Map.Map t (LongNote (Five.StrumHOPO, Bool) ()))
-  , sixSolo :: Map.Map t Bool
+  { sixNotes  :: Map.Map GHLLane (Map.Map t (LongNote (Five.StrumHOPO, Bool) ()))
+  , sixSolo   :: Map.Map t Bool
   , sixEnergy :: Map.Map t Bool
+  -- TODO lanes (not actually in CH)
+  , sixBRE    :: Map.Map t Bool
   } deriving (Eq, Ord, Show)
 
 instance TimeFunctor Six where
-  mapTime f (Six x y z) = Six (Map.map (Map.mapKeys f) x) (Map.mapKeys f y) (Map.mapKeys f z)
+  mapTime f (Six n s e b) = let
+    g = Map.mapKeys f
+    in Six (fmap g n) (g s) (g e) (g b)
 
 instance (Real t) => A.ToJSON (Six t) where
   toJSON x = A.object
@@ -211,6 +247,7 @@ instance (Real t) => A.ToJSON (Six t) where
       in (,) (showLane lane) $ eventList notes showHSTNote
     , (,) "solo" $ eventList (sixSolo x) A.toJSON
     , (,) "energy" $ eventList (sixEnergy x) A.toJSON
+    , (,) "bre" $ eventList (sixBRE x) A.toJSON
     ]
 
 trackToMap :: (Ord a) => U.TempoMap -> RTB.T U.Beats a -> Map.Map U.Seconds a
@@ -233,7 +270,9 @@ processFive hopoThreshold tmap trk = let
     return (color, getColor color)
   solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.Solo      b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.Overdrive b -> Just b; _ -> Nothing
-  in Five notes solo energy
+  lanes  = Map.empty -- TODO
+  bre    = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.BRE       b -> Just b; _ -> Nothing
+  in Five notes solo energy lanes bre
 
 processSix :: U.Beats -> U.TempoMap -> RTB.T U.Beats GHL.Event -> Six U.Seconds
 processSix hopoThreshold tmap trk = let
@@ -267,17 +306,23 @@ processSix hopoThreshold tmap trk = let
     return (lane, getLane lane)
   solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case GHL.Solo      b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case GHL.Overdrive b -> Just b; _ -> Nothing
-  in Six notes solo energy
+  bre    = Map.empty
+  in Six notes solo energy bre
 
-processDrums :: U.TempoMap -> RTB.T U.Beats Drums.Event -> Drums U.Seconds
-processDrums tmap trk = let
+processDrums :: U.TempoMap -> Maybe U.Beats -> RTB.T U.Beats Drums.Event -> Drums U.Seconds
+processDrums tmap coda trk = let
   notes = Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0 $
     U.applyTempoTrack tmap $ fmap sort $ RTB.collectCoincident $ flip RTB.mapMaybe (Drums.assignToms True trk) $ \case
       (Expert, gem) -> Just gem
       _             -> Nothing
-  solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Drums.Solo      b -> Just b; _ -> Nothing
-  energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Drums.Overdrive b -> Just b; _ -> Nothing
-  in Drums notes solo energy
+  solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Drums.Solo       b -> Just b; _ -> Nothing
+  energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Drums.Overdrive  b -> Just b; _ -> Nothing
+  lanes  = Map.empty -- TODO
+  fills  = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Drums.Activation b -> Just b; _ -> Nothing
+  bre    = case U.applyTempoMap tmap <$> coda of
+    Nothing -> Map.empty
+    Just c  -> Map.filterWithKey (\k _ -> k >= c) fills
+  in Drums notes solo energy lanes bre
 
 processProKeys :: U.TempoMap -> RTB.T U.Beats PK.Event -> ProKeys U.Seconds
 processProKeys tmap trk = let
@@ -290,7 +335,10 @@ processProKeys tmap trk = let
   ranges = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.LaneShift r -> Just r; _ -> Nothing
   solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Solo      b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Overdrive b -> Just b; _ -> Nothing
-  in ProKeys notes ranges solo energy
+  lanes  = Map.empty -- TODO
+  gliss  = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Glissando b -> Just b; _ -> Nothing
+  bre    = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.BRE       b -> Just b; _ -> Nothing
+  in ProKeys notes ranges solo energy lanes gliss bre
 
 processProtar :: U.Beats -> U.TempoMap -> RTB.T U.Beats PG.Event -> Protar U.Seconds
 processProtar hopoThreshold tmap trk = let
@@ -309,7 +357,12 @@ processProtar hopoThreshold tmap trk = let
     return (string, getString string)
   solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PG.Solo      b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PG.Overdrive b -> Just b; _ -> Nothing
-  in Protar notes solo energy
+  lanes  = Map.empty -- TODO
+  bre    = trackToMap tmap $ flip RTB.mapMaybe trk $ \case
+    PG.BREGuitar b -> Just b
+    PG.BREBass   b -> Just b
+    _              -> Nothing
+  in Protar notes solo energy lanes bre
 
 newtype Beats t = Beats
   { beatLines :: Map.Map t Beat
@@ -498,13 +551,14 @@ instance (Real t) => A.ToJSON (Processed t) where
 makeDisplay :: C.SongYaml -> RBFile.Song (RBFile.OnyxFile U.Beats) -> BL.ByteString
 makeDisplay songYaml song = let
   ht n = fromIntegral n / 480
+  coda = fmap (fst . fst) $ RTB.viewL $ RTB.filter (== Ev.Coda) $ RBFile.onyxEvents $ RBFile.s_tracks song
   makePart name fpart = Flex
     { flexFive = flip fmap (C.partGRYBO fpart) $ \grybo -> processFive
       (guard (not $ RBFile.flexFiveIsKeys tracks) >> Just (ht $ C.gryboHopoThreshold grybo))
       (RBFile.s_tempos song)
       (RBFile.flexFiveButton tracks)
     , flexSix = flip fmap (C.partGHL fpart) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song) (RBFile.flexGHL tracks)
-    , flexDrums = flip fmap (C.partDrums fpart) $ \_ -> processDrums (RBFile.s_tempos song) (RBFile.flexPartDrums tracks)
+    , flexDrums = flip fmap (C.partDrums fpart) $ \_ -> processDrums (RBFile.s_tempos song) coda (RBFile.flexPartDrums tracks)
     , flexProKeys = flip fmap (C.partProKeys fpart) $ \_ -> processProKeys (RBFile.s_tempos song) (RBFile.flexPartRealKeysX tracks)
     , flexProtar = flip fmap (C.partProGuitar fpart) $ \pg -> processProtar (ht $ C.pgHopoThreshold pg) (RBFile.s_tempos song)
       $ let mustang = RBFile.flexPartRealGuitar tracks
