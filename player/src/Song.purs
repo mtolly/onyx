@@ -44,6 +44,7 @@ instance ordFlexPart :: Ord FlexPart where
 
 newtype Drums = Drums
   { notes  :: Map.Map Seconds (Array Gem)
+  , lanes  :: Map.Map Gem (Map.Map Seconds Boolean)
   , solo   :: Map.Map Seconds Boolean
   , energy :: Map.Map Seconds Boolean
   }
@@ -55,17 +56,21 @@ data Sustainable a
 
 data GuitarNoteType = Strum | HOPO | Tap
 
+type FiveEach a =
+  { open   :: a
+  , green  :: a
+  , red    :: a
+  , yellow :: a
+  , blue   :: a
+  , orange :: a
+  }
+
 newtype Five = Five
-  { notes ::
-    { open   :: Map.Map Seconds (Sustainable GuitarNoteType)
-    , green  :: Map.Map Seconds (Sustainable GuitarNoteType)
-    , red    :: Map.Map Seconds (Sustainable GuitarNoteType)
-    , yellow :: Map.Map Seconds (Sustainable GuitarNoteType)
-    , blue   :: Map.Map Seconds (Sustainable GuitarNoteType)
-    , orange :: Map.Map Seconds (Sustainable GuitarNoteType)
-    }
+  { notes :: FiveEach (Map.Map Seconds (Sustainable GuitarNoteType))
+  , lanes :: FiveEach (Map.Map Seconds Boolean)
   , solo :: Map.Map Seconds Boolean
   , energy :: Map.Map Seconds Boolean
+  , bre :: Map.Map Seconds Boolean
   }
 
 newtype Six = Six
@@ -83,6 +88,7 @@ newtype Six = Six
     }
   , solo :: Map.Map Seconds Boolean
   , energy :: Map.Map Seconds Boolean
+  , bre :: Map.Map Seconds Boolean
   }
 
 newtype ProtarNote = ProtarNote
@@ -90,24 +96,31 @@ newtype ProtarNote = ProtarNote
   , fret     :: Maybe Int
   }
 
+type ProtarEach a =
+  { s1 :: a
+  , s2 :: a
+  , s3 :: a
+  , s4 :: a
+  , s5 :: a
+  , s6 :: a
+  }
+
 newtype Protar = Protar
-  { notes ::
-    { s1 :: Map.Map Seconds (Sustainable ProtarNote)
-    , s2 :: Map.Map Seconds (Sustainable ProtarNote)
-    , s3 :: Map.Map Seconds (Sustainable ProtarNote)
-    , s4 :: Map.Map Seconds (Sustainable ProtarNote)
-    , s5 :: Map.Map Seconds (Sustainable ProtarNote)
-    , s6 :: Map.Map Seconds (Sustainable ProtarNote)
-    }
+  { notes :: ProtarEach (Map.Map Seconds (Sustainable ProtarNote))
+  , lanes :: ProtarEach (Map.Map Seconds Boolean)
   , solo :: Map.Map Seconds Boolean
   , energy :: Map.Map Seconds Boolean
+  , bre :: Map.Map Seconds Boolean
   }
 
 newtype ProKeys = ProKeys
   { notes  :: Map.Map Pitch (Map.Map Seconds (Sustainable Unit))
+  , lanes  :: Map.Map Pitch (Map.Map Seconds Boolean)
   , ranges :: Map.Map Seconds Range
   , solo   :: Map.Map Seconds Boolean
   , energy :: Map.Map Seconds Boolean
+  , gliss :: Map.Map Seconds Boolean
+  , bre :: Map.Map Seconds Boolean
   }
 
 data Range
@@ -284,33 +297,41 @@ isForeignPKNote f = readString f >>= \s -> case s of
 
 isForeignFive :: Foreign -> F Five
 isForeignFive f = do
-  notes  <- readProp "notes" f
-  let readColor s = readProp s notes >>= readTimedMap isForeignFiveNote
-  open   <- readColor "open"
-  green  <- readColor "green"
-  red    <- readColor "red"
-  yellow <- readColor "yellow"
-  blue   <- readColor "blue"
-  orange <- readColor "orange"
+  notesF <- readProp "notes" f
+  lanesF <- readProp "lanes" f
+  let readEach :: forall a. (String -> F a) -> F (FiveEach a)
+      readEach g = do
+        open <- g "open"
+        green <- g "green"
+        red <- g "red"
+        yellow <- g "yellow"
+        blue <- g "blue"
+        orange <- g "orange"
+        pure
+          { open: open
+          , green: green
+          , red: red
+          , yellow: yellow
+          , blue: blue
+          , orange: orange
+          }
+  notes <- readEach \s -> readProp s notesF >>= readTimedMap isForeignFiveNote
+  lanes <- readEach \s -> readProp s lanesF >>= readTimedMap readBoolean
   solo   <- readProp "solo" f >>= readTimedMap readBoolean
   energy <- readProp "energy" f >>= readTimedMap readBoolean
+  bre <- readProp "bre" f >>= readTimedMap readBoolean
   pure $ Five
-    { notes:
-      { open: open
-      , green: green
-      , red: red
-      , yellow: yellow
-      , blue: blue
-      , orange: orange
-      }
+    { notes: notes
+    , lanes: lanes
     , solo: solo
     , energy: energy
+    , bre: bre
     }
 
 isForeignSix :: Foreign -> F Six
 isForeignSix f = do
-  notes  <- readProp "notes" f
-  let readLane s = readProp s notes >>= readTimedMap isForeignFiveNote
+  notesF  <- readProp "notes" f
+  let readLane s = readProp s notesF >>= readTimedMap isForeignFiveNote
   open <- readLane "open"
   b1   <- readLane "b1"
   b2   <- readLane "b2"
@@ -323,6 +344,7 @@ isForeignSix f = do
   bw3  <- readLane "bw3"
   solo   <- readProp "solo" f >>= readTimedMap readBoolean
   energy <- readProp "energy" f >>= readTimedMap readBoolean
+  bre <- readProp "bre" f >>= readTimedMap readBoolean
   pure $ Six
     { notes:
       { open: open
@@ -338,71 +360,90 @@ isForeignSix f = do
       }
     , solo: solo
     , energy: energy
+    , bre: bre
     }
 
 isForeignProtar :: Foreign -> F Protar
 isForeignProtar f = do
-  notes <- readProp "notes" f
-  let readString s = readProp s notes >>= readTimedMap isForeignProtarNote
-  s1 <- readString "s1"
-  s2 <- readString "s2"
-  s3 <- readString "s3"
-  s4 <- readString "s4"
-  s5 <- readString "s5"
-  s6 <- readString "s6"
+  notesF <- readProp "notes" f
+  lanesF <- readProp "lanes" f
+  let readEach :: forall a. (String -> F a) -> F (ProtarEach a)
+      readEach g = do
+        s1 <- g "s1"
+        s2 <- g "s2"
+        s3 <- g "s3"
+        s4 <- g "s4"
+        s5 <- g "s5"
+        s6 <- g "s6"
+        pure
+          { s1: s1
+          , s2: s2
+          , s3: s3
+          , s4: s4
+          , s5: s5
+          , s6: s6
+          }
+  notes <- readEach \s -> readProp s notesF >>= readTimedMap isForeignProtarNote
+  lanes <- readEach \s -> readProp s lanesF >>= readTimedMap readBoolean
   solo <- readProp "solo" f >>= readTimedMap readBoolean
   energy <- readProp "energy" f >>= readTimedMap readBoolean
+  bre <- readProp "bre" f >>= readTimedMap readBoolean
   pure $ Protar
-    { notes:
-      { s1: s1
-      , s2: s2
-      , s3: s3
-      , s4: s4
-      , s5: s5
-      , s6: s6
-      }
+    { notes: notes
+    , lanes: lanes
     , solo: solo
     , energy: energy
+    , bre: bre
     }
 
 isForeignProKeys :: Foreign -> F ProKeys
 isForeignProKeys f = do
-  notes <- readProp "notes" f
-  let readPitch p s = map (Tuple p) $ readProp s notes >>= readTimedMap isForeignPKNote
-  pitches <- sequence
-    [ readPitch RedC "ry-c"
-    , readPitch RedCs "ry-cs"
-    , readPitch RedD "ry-d"
-    , readPitch RedDs "ry-ds"
-    , readPitch RedE "ry-e"
-    , readPitch YellowF "ry-f"
-    , readPitch YellowFs "ry-fs"
-    , readPitch YellowG "ry-g"
-    , readPitch YellowGs "ry-gs"
-    , readPitch YellowA "ry-a"
-    , readPitch YellowAs "ry-as"
-    , readPitch YellowB "ry-b"
-    , readPitch BlueC "bg-c"
-    , readPitch BlueCs "bg-cs"
-    , readPitch BlueD "bg-d"
-    , readPitch BlueDs "bg-ds"
-    , readPitch BlueE "bg-e"
-    , readPitch GreenF "bg-f"
-    , readPitch GreenFs "bg-fs"
-    , readPitch GreenG "bg-g"
-    , readPitch GreenGs "bg-gs"
-    , readPitch GreenA "bg-a"
-    , readPitch GreenAs "bg-as"
-    , readPitch GreenB "bg-b"
-    , readPitch OrangeC "o-c"
-    ]
+  notesF <- readProp "notes" f
+  lanesF <- readProp "lanes" f
+  let readEach :: forall a. (String -> F a) -> F (Map.Map Pitch a)
+      readEach g = let
+        g' p s = map (Tuple p) $ g s
+        in map Map.fromFoldable $ sequence
+          [ g' RedC "ry-c"
+          , g' RedCs "ry-cs"
+          , g' RedD "ry-d"
+          , g' RedDs "ry-ds"
+          , g' RedE "ry-e"
+          , g' YellowF "ry-f"
+          , g' YellowFs "ry-fs"
+          , g' YellowG "ry-g"
+          , g' YellowGs "ry-gs"
+          , g' YellowA "ry-a"
+          , g' YellowAs "ry-as"
+          , g' YellowB "ry-b"
+          , g' BlueC "bg-c"
+          , g' BlueCs "bg-cs"
+          , g' BlueD "bg-d"
+          , g' BlueDs "bg-ds"
+          , g' BlueE "bg-e"
+          , g' GreenF "bg-f"
+          , g' GreenFs "bg-fs"
+          , g' GreenG "bg-g"
+          , g' GreenGs "bg-gs"
+          , g' GreenA "bg-a"
+          , g' GreenAs "bg-as"
+          , g' GreenB "bg-b"
+          , g' OrangeC "o-c"
+          ]
+  notes <- readEach \s -> readProp s notesF >>= readTimedMap isForeignPKNote
+  lanes <- readEach \s -> readProp s lanesF >>= readTimedMap readBoolean
   solo <- readProp "solo" f >>= readTimedMap readBoolean
   energy <- readProp "energy" f >>= readTimedMap readBoolean
+  bre <- readProp "bre" f >>= readTimedMap readBoolean
+  gliss <- readProp "gliss" f >>= readTimedMap readBoolean
   ranges <- readProp "ranges" f >>= readTimedMap isForeignRange
   pure $ ProKeys
-    { notes: Map.fromFoldable pitches
+    { notes: notes
+    , lanes: lanes
     , solo: solo
     , energy: energy
+    , bre: bre
+    , gliss: gliss
     , ranges: ranges
     }
 
@@ -447,9 +488,21 @@ readTimedPair g pair = Tuple <$> (Seconds <$> (readIndex 0 pair >>= readNumber))
 isForeignDrums :: Foreign -> F Drums
 isForeignDrums f = do
   notes  <- readProp "notes"  f >>= readTimedMap (\frn -> readArray frn >>= traverse isForeignGem)
+  lanesF <- readProp "lanes" f
+  let readLane s = readProp s lanesF >>= readTimedMap readBoolean
+  lanes <- map Map.fromFoldable $ sequence
+    [ map (Tuple Kick) $ readLane "kick"
+    , map (Tuple Red ) $ readLane "red"
+    , map (Tuple YCym) $ readLane "y-cym"
+    , map (Tuple YTom) $ readLane "y-tom"
+    , map (Tuple BCym) $ readLane "b-cym"
+    , map (Tuple BTom) $ readLane "b-tom"
+    , map (Tuple GCym) $ readLane "g-cym"
+    , map (Tuple GTom) $ readLane "g-tom"
+    ]
   solo   <- readProp "solo"   f >>= readTimedMap readBoolean
   energy <- readProp "energy" f >>= readTimedMap readBoolean
-  pure $ Drums { notes: notes, solo: solo, energy: energy }
+  pure $ Drums { notes: notes, lanes: lanes, solo: solo, energy: energy }
 
 data Gem = Kick | Red | YCym | YTom | BCym | BTom | GCym | GTom
 

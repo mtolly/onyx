@@ -260,6 +260,24 @@ trackToBeatMap = Map.fromList . ATB.toPairList . RTB.toAbsoluteEventList 0 . RTB
 filterKey :: (NNC.C t, Eq a) => a -> RTB.T t (LongNote s a) -> RTB.T t (LongNote s ())
 filterKey k = RTB.mapMaybe $ mapM $ \x -> guard (k == x) >> return ()
 
+findTremolos :: (Num t, Ord t) => Map.Map t [a] -> Map.Map t ((), (), Maybe t) -> Map.Map t (Bool, [a])
+findTremolos ons trems = Map.fromList $ flip concatMap (Map.toAscList trems) $ \(start, (_, _, mlen)) -> case mlen of
+  Nothing -> [] -- shouldn't happen (no blips)
+  Just len -> case Map.lookupGE start ons of
+    Nothing -> [] -- shouldn't happen (no notes under or after tremolo)
+    Just (_, colors) -> [(start, (True, colors)), (start + len, (False, colors))]
+
+findTrills :: (Num t, Ord t) => Map.Map t [a] -> Map.Map t ((), (), Maybe t) -> Map.Map t (Bool, [a])
+findTrills ons trills = Map.fromList $ flip concatMap (Map.toAscList trills) $ \(start, (_, _, mlen)) -> case mlen of
+  Nothing -> [] -- shouldn't happen (no blips)
+  Just len -> case Map.lookupGE start ons of
+    Nothing -> [] -- shouldn't happen (no notes under or after trill)
+    Just (t1, cols1) -> case Map.lookupGE t1 ons of
+      Nothing -> [] -- shouldn't happen (only one note under or after trill)
+      Just (_, cols2) -> let
+        colors = cols1 ++ cols2
+        in [(start, (True, colors)), (start + len, (False, colors))]
+
 processFive :: Maybe U.Beats -> U.TempoMap -> RTB.T U.Beats Five.Event -> Five U.Seconds
 processFive hopoThreshold tmap trk = let
   expert = flip RTB.mapMaybe trk $ \case Five.DiffEvent Expert e -> Just e; _ -> Nothing
@@ -274,37 +292,23 @@ processFive hopoThreshold tmap trk = let
     return (color, getColor color)
   solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.Solo      b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.Overdrive b -> Just b; _ -> Nothing
+  bre    = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.BRE       b -> Just b; _ -> Nothing
   ons    = trackToBeatMap $ RTB.collectCoincident $ flip RTB.mapMaybe assigned $ \case
     NoteOn _ col -> Just col
     Blip   _ col -> Just col
     _            -> Nothing
-  trems  = trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
+  trems  = findTremolos ons $ trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
     Five.Tremolo b -> Just $ if b then NoteOn () () else NoteOff ()
     _              -> Nothing
-  trills = trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
+  trills = findTrills ons $ trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
     Five.Trill b -> Just $ if b then NoteOn () () else NoteOff ()
     _            -> Nothing
-  trems' = Map.fromList $ flip concatMap (Map.toAscList trems) $ \(start, (_, _, mlen)) -> case mlen of
-    Nothing -> [] -- shouldn't happen (no blips)
-    Just len -> case Map.lookupGE start ons of
-      Nothing -> [] -- shouldn't happen (no notes under or after tremolo)
-      Just (_, colors) -> [(start, (True, colors)), (start + len, (False, colors))]
-  trills' = Map.fromList $ flip concatMap (Map.toAscList trills) $ \(start, (_, _, mlen)) -> case mlen of
-    Nothing -> [] -- shouldn't happen (no blips)
-    Just len -> case Map.lookupGE start ons of
-      Nothing -> [] -- shouldn't happen (no notes under or after trill)
-      Just (t1, cols1) -> case Map.lookupGE t1 ons of
-        Nothing -> [] -- shouldn't happen (only one note under or after trill)
-        Just (_, cols2) -> let
-          colors = cols1 ++ cols2
-          in [(start, (True, colors)), (start + len, (False, colors))]
-  lanesAll = Map.mapKeys (U.applyTempoMap tmap) $ Map.union trems' trills'
+  lanesAll = Map.mapKeys (U.applyTempoMap tmap) $ Map.union trems trills
   lanes = Map.fromList $ do
     color <- Nothing : fmap Just [Five.Green .. Five.Orange]
     return $ (,) color $ flip Map.mapMaybe lanesAll $ \(b, colors) -> do
       guard $ elem color colors
       return b
-  bre    = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.BRE       b -> Just b; _ -> Nothing
   in Five notes solo energy lanes bre
 
 processSix :: U.Beats -> U.TempoMap -> RTB.T U.Beats GHL.Event -> Six U.Seconds
@@ -356,27 +360,13 @@ processDrums tmap coda trk = let
     Nothing -> Map.empty
     Just c  -> Map.filterWithKey (\k _ -> k >= c) fills
   hands  = Map.filter (not . null) $ fmap (filter (/= Drums.Kick)) notesB
-  singles = trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
+  singles = findTremolos hands $ trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
     Drums.SingleRoll b -> Just $ if b then NoteOn () () else NoteOff ()
     _              -> Nothing
-  doubles = trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
+  doubles = findTrills hands $ trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
     Drums.DoubleRoll b -> Just $ if b then NoteOn () () else NoteOff ()
     _            -> Nothing
-  singles' = Map.fromList $ flip concatMap (Map.toAscList singles) $ \(start, (_, _, mlen)) -> case mlen of
-    Nothing -> [] -- shouldn't happen (no blips)
-    Just len -> case Map.lookupGE start hands of
-      Nothing -> [] -- shouldn't happen (no notes under or after roll)
-      Just (_, colors) -> [(start, (True, colors)), (start + len, (False, colors))]
-  doubles' = Map.fromList $ flip concatMap (Map.toAscList doubles) $ \(start, (_, _, mlen)) -> case mlen of
-    Nothing -> [] -- shouldn't happen (no blips)
-    Just len -> case Map.lookupGE start hands of
-      Nothing -> [] -- shouldn't happen (no notes under or after roll)
-      Just (t1, cols1) -> case Map.lookupGE t1 hands of
-        Nothing -> [] -- shouldn't happen (only one note under or after roll)
-        Just (_, cols2) -> let
-          colors = cols1 ++ cols2
-          in [(start, (True, colors)), (start + len, (False, colors))]
-  lanesAll = Map.mapKeys (U.applyTempoMap tmap) $ Map.union singles' doubles'
+  lanesAll = Map.mapKeys (U.applyTempoMap tmap) $ Map.union singles doubles
   lanes = Map.fromList $ do
     gem <-
       [ Drums.Kick, Drums.Red
@@ -397,10 +387,22 @@ processProKeys tmap trk = let
     PK.Note (NoteOn  () p') -> guard (p == p') >> Just (NoteOn  () ())
     _                    -> Nothing
   notes = Map.fromList [ (p, notesForPitch p) | p <- [minBound .. maxBound] ]
+  ons = trackToBeatMap $ RTB.collectCoincident $ flip RTB.mapMaybe trk $ \case
+    PK.Note (Blip   () p) -> Just p
+    PK.Note (NoteOn () p) -> Just p
+    _                     -> Nothing
   ranges = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.LaneShift r -> Just r; _ -> Nothing
   solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Solo      b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Overdrive b -> Just b; _ -> Nothing
-  lanes  = Map.empty -- TODO
+  trills = findTrills ons $ trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
+    PK.Trill b -> Just $ if b then NoteOn () () else NoteOff ()
+    _          -> Nothing
+  lanesAll = Map.mapKeys (U.applyTempoMap tmap) trills
+  lanes = Map.fromList $ do
+    key <- [minBound .. maxBound]
+    return $ (,) key $ flip Map.mapMaybe lanesAll $ \(b, keys) -> do
+      guard $ elem key keys
+      return b
   gliss  = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Glissando b -> Just b; _ -> Nothing
   bre    = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.BRE       b -> Just b; _ -> Nothing
   in ProKeys notes ranges solo energy lanes gliss bre
@@ -422,7 +424,21 @@ processProtar hopoThreshold tmap trk = let
     return (string, getString string)
   solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PG.Solo      b -> Just b; _ -> Nothing
   energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PG.Overdrive b -> Just b; _ -> Nothing
-  lanes  = Map.empty -- TODO
+  -- for protar we can treat tremolo/trill identically;
+  -- in both cases it's just "get the strings the first note/chord is on"
+  onStrings = trackToBeatMap $ RTB.collectCoincident $ flip RTB.mapMaybe trk $ \case
+    PG.DiffEvent Expert (PG.Note (NoteOn _ (s, _))) -> Just s
+    PG.DiffEvent Expert (PG.Note (Blip   _ (s, _))) -> Just s
+    _                                               -> Nothing
+  lanesAll = Map.mapKeys (U.applyTempoMap tmap) $ findTremolos onStrings $ trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
+    PG.Tremolo b -> Just $ if b then NoteOn () () else NoteOff ()
+    PG.Trill   b -> Just $ if b then NoteOn () () else NoteOff ()
+    _            -> Nothing
+  lanes = Map.fromList $ do
+    str <- [minBound .. maxBound]
+    return $ (,) str $ flip Map.mapMaybe lanesAll $ \(b, strs) -> do
+      guard $ elem str strs
+      return b
   bre    = trackToMap tmap $ flip RTB.mapMaybe trk $ \case
     PG.BREGuitar b -> Just b
     PG.BREBass   b -> Just b
