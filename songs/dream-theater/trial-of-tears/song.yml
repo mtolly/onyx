@@ -56,11 +56,13 @@ plans:
       trim: [0.072, album-track]
 parts:
   drums:
-    drums:
+    drums: # onyxite
       difficulty: 6
   keys:
-    pro-keys:
+    pro-keys: # onyxite
       difficulty: 7
+  bass:
+    grybo: {} # vpetrucci93, edited by onyxite
 targets:
   rb3:
     game: rb3
