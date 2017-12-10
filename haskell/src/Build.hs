@@ -1495,8 +1495,9 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               Just vid -> shk $ copyFile' vid out
 
             dir </> "ps/song.ini" %> \out -> do
+              raw <- shakeMIDI $ planDir </> "raw.mid"
               song <- shakeMIDI $ dir </> "ps/notes.mid"
-              let (pstart, _) = previewBounds songYaml song
+              let (pstart, _) = previewBounds songYaml raw
                   len = songLengthMS song
               FoF.saveSong out FoF.Song
                 { FoF.artist           = _artist $ _metadata songYaml
