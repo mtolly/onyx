@@ -2,7 +2,6 @@ JAZZ
 ready:
 - ripple star (kirby 64)
 - what about me (snarky puppy)
-- update: kung-fu bass/keys/PK fixed from 5.1
 at least 2 parts done:
 > cascades (nova collective) just needs pro/basic keys, OD
 > thoughts (kaz rodriguez) drums and bass done

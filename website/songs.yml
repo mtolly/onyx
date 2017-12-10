@@ -123,8 +123,8 @@
 - file-path: ../songs/hiromi-uehara/kung-fu-world-champion
   video: https://www.youtube.com/watch?v=MkrKJjHL0mA
   urls:
-    rb3: download/OJP2_KungFuWC_v2_rb3con
-    ps: download/OJP2_KungFuWC_v2_ps.zip
+    rb3: download/OJP2_KungFuWC_v3_rb3con
+    ps: download/OJP2_KungFuWC_v3_ps.zip
 - file-path: ../songs/joshua-redman/jazz-crimes
   video: https://www.youtube.com/watch?v=laVwTzD9ud4
   urls:
