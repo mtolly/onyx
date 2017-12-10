@@ -47,6 +47,7 @@ newtype Drums = Drums
   , lanes  :: Map.Map Gem (Map.Map Seconds Boolean)
   , solo   :: Map.Map Seconds Boolean
   , energy :: Map.Map Seconds Boolean
+  , bre    :: Map.Map Seconds Boolean
   }
 
 data Sustainable a
@@ -502,7 +503,8 @@ isForeignDrums f = do
     ]
   solo   <- readProp "solo"   f >>= readTimedMap readBoolean
   energy <- readProp "energy" f >>= readTimedMap readBoolean
-  pure $ Drums { notes: notes, lanes: lanes, solo: solo, energy: energy }
+  bre    <- readProp "bre"    f >>= readTimedMap readBoolean
+  pure $ Drums { notes: notes, lanes: lanes, solo: solo, energy: energy, bre: bre }
 
 data Gem = Kick | Red | YCym | YTom | BCym | BTom | GCym | GTom
 

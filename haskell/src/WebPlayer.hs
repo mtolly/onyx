@@ -272,7 +272,7 @@ findTrills ons trills = Map.fromList $ flip concatMap (Map.toAscList trills) $ \
   Nothing -> [] -- shouldn't happen (no blips)
   Just len -> case Map.lookupGE start ons of
     Nothing -> [] -- shouldn't happen (no notes under or after trill)
-    Just (t1, cols1) -> case Map.lookupGE t1 ons of
+    Just (t1, cols1) -> case Map.lookupGT t1 ons of
       Nothing -> [] -- shouldn't happen (only one note under or after trill)
       Just (_, cols2) -> let
         colors = cols1 ++ cols2

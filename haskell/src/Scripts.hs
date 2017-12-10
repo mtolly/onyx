@@ -182,6 +182,17 @@ fixFreeformPK = let
   isPKNote _                           = False
   in pkGlissando . pkTrill
 
+fixFreeformPG :: RTB.T U.Beats ProGuitar.Event -> RTB.T U.Beats ProGuitar.Event
+fixFreeformPG = let
+  pgTremolo = fixFreeform (== ProGuitar.Tremolo True) (== ProGuitar.Tremolo False) isGem
+  pgTrill   = fixFreeform (== ProGuitar.Trill   True) (== ProGuitar.Trill   False) isGem
+  isGem (ProGuitar.DiffEvent Expert (ProGuitar.Note (NoteOn _ (_, ntype))))
+    = ntype /= ProGuitar.ArpeggioForm
+  isGem (ProGuitar.DiffEvent Expert (ProGuitar.Note (Blip   _ (_, ntype))))
+    = ntype /= ProGuitar.ArpeggioForm
+  isGem _ = False
+  in pgTremolo . pgTrill
+
 -- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
 --- their last gem note-on.
 fixFreeform

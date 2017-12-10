@@ -58,7 +58,7 @@ setFillStyle :: forall e. String -> Draw e Unit
 setFillStyle s = onContext $ C.setFillStyle s
 
 fillRect :: forall e. C.Rectangle -> Draw e Unit
-fillRect rect = onContext $ \ctx -> C.fillRect ctx rect
+fillRect rect = onContext \ctx -> C.fillRect ctx rect
 
 fillCircle :: forall e. { x :: Number, y :: Number, r :: Number } -> Draw e Unit
 fillCircle o dstuff = do
@@ -108,7 +108,7 @@ draw stuff = do
     , \i -> drawPart flex.prokeys (Set.member $ Tuple part FlexProKeys) drawProKeys i stuff
     , \i -> drawPart flex.protar  (Set.member $ Tuple part FlexProtar ) drawProtar  i stuff
     ]
-  flip traverse_ song.parts $ \(Tuple part (Flex flex)) -> do
+  flip traverse_ song.parts \(Tuple part (Flex flex)) -> do
     void $ drawPart flex.vocal (Set.member $ Tuple part FlexVocal) drawVocal 0 stuff
   drawButtons (round windowH - _M - _B) $ L.fromFoldable $ reverse $ concat $ flip map song.parts \(Tuple part (Flex flex)) -> concat
     [ guard (isJust flex.five   ) *>
@@ -214,10 +214,10 @@ drawFive (Five five) targetX stuff = do
   setFillStyle "rgb(126,126,150)" stuff
   fillRect { x: toNumber targetX, y: 0.0, w: 182.0, h: toNumber windowH } stuff
   setFillStyle "rgb(184,185,204)" stuff
-  for_ [0, 36, 72, 108, 144, 180] $ \offsetX -> do
+  for_ [0, 36, 72, 108, 144, 180] \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   setFillStyle "black" stuff
-  for_ [1, 37, 73, 109, 145, 181] $ \offsetX -> do
+  for_ [1, 37, 73, 109, 145, 181] \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
   setFillStyle "rgb(91,137,185)" stuff
@@ -234,15 +234,48 @@ drawFive (Five five) targetX stuff = do
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
-        when b1 $ for_ [2, 38, 74, 110, 146] $ \offsetX -> do
+        when b1 $ for_ [2, 38, 74, 110, 146] \offsetX -> do
           fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
-  zoomDesc five.solo $ \secs _ -> do
+  zoomDesc five.solo \secs _ -> do
     drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
+  -- Lanes
+  setFillStyle "rgb(60,60,60)" stuff
+  let lanes =
+        -- TODO open
+        [ {x:   2, gem: _.green }
+        , {x:  38, gem: _.red   }
+        , {x:  74, gem: _.yellow}
+        , {x: 110, gem: _.blue  }
+        , {x: 146, gem: _.orange}
+        ]
+  for_ lanes \{x: offsetX, gem: gem} -> let
+    thisLane = Map.union five.bre $ gem five.lanes
+    startsAsLane = case Map.lookupLE minSecs thisLane of
+      Nothing           -> false
+      Just { value: v } -> v
+    laneEdges
+      = L.fromFoldable
+      $ cons (Tuple minSecs startsAsLane)
+      $ flip snoc (Tuple maxSecs false)
+      $ Map.doTupleArray (zoomAsc thisLane)
+    drawLanes L.Nil            = pure unit
+    drawLanes (L.Cons _ L.Nil) = pure unit
+    drawLanes (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
+      let y1 = secsToPxVert s1
+          y2 = secsToPxVert s2
+      when b1 $ fillRect
+        { x: toNumber $ targetX + offsetX
+        , y: toNumber y2
+        , w: 34.0
+        , h: toNumber $ y1 - y2
+        } stuff
+      drawLanes rest
+    in drawLanes laneEdges
   -- Beats
-  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
+  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) \secs evt -> do
     let y = secsToPxVert secs
     case evt of
       Bar      -> drawImage Image_highway_grybo_bar      (toNumber targetX) (toNumber y - 1.0) stuff
@@ -283,7 +316,7 @@ drawFive (Five five) targetX stuff = do
           , open: false
           }
         ]
-  for_ colors $ \{ c: getColor, x: offsetX, shades: normalShades, open: isOpen } -> do
+  for_ colors \{ c: getColor, x: offsetX, shades: normalShades, open: isOpen } -> do
     let thisColor = getColor five.notes
         offsetX' = if isOpen then 73 else offsetX
         isEnergy secs = case Map.lookupLE secs five.energy of
@@ -331,8 +364,8 @@ drawFive (Five five) targetX stuff = do
         _ -> pure unit
       events -> go false events
   -- Notes
-  for_ colors $ \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, tap: tapImage, hit: shadeHit, open: isOpen } -> do
-    zoomDesc (getColor five.notes) $ \secs evt -> do
+  for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, tap: tapImage, hit: shadeHit, open: isOpen } -> do
+    zoomDesc (getColor five.notes) \secs evt -> do
       let futureSecs = secToNum $ secs - stuff.time
       if futureSecs <= 0.0
         then do
@@ -389,10 +422,10 @@ drawSix (Six six) targetX stuff = do
   setFillStyle "rgb(126,126,150)" stuff
   fillRect { x: toNumber targetX, y: 0.0, w: 110.0, h: toNumber windowH } stuff
   setFillStyle "rgb(184,185,204)" stuff
-  for_ [0, 36, 72, 108] $ \offsetX -> do
+  for_ [0, 36, 72, 108] \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   setFillStyle "black" stuff
-  for_ [1, 37, 73, 109] $ \offsetX -> do
+  for_ [1, 37, 73, 109] \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
   setFillStyle "rgb(91,137,185)" stuff
@@ -409,15 +442,16 @@ drawSix (Six six) targetX stuff = do
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
-        when b1 $ for_ [2, 38, 74] $ \offsetX -> do
+        when b1 $ for_ [2, 38, 74] \offsetX -> do
           fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
-  zoomDesc six.solo $ \secs _ -> do
+  zoomDesc six.solo \secs _ -> do
     drawImage Image_highway_ghl_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
+  -- TODO lanes, bre
   -- Beats
-  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
+  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) \secs evt -> do
     let y = secsToPxVert secs
     case evt of
       Bar      -> drawImage Image_highway_ghl_bar      (toNumber targetX) (toNumber y - 1.0) stuff
@@ -447,7 +481,7 @@ drawSix (Six six) targetX stuff = do
         SixWhite -> { strum: Image_gem_white, hopo: Image_gem_white_hopo, tap: Image_gem_white_tap, energy: Image_gem_ghl_energy }
         SixBoth  -> { strum: Image_gem_blackwhite, hopo: Image_gem_blackwhite_hopo, tap: Image_gem_blackwhite_tap, energy: Image_gem_ghl_energy }
         SixOpen  -> { strum: Image_gem_openghl, hopo: Image_gem_openghl_hopo, tap: Image_gem_openghl_tap, energy: Image_gem_openghl_energy }
-  for_ colors $ \{ c: getEvents, x: offsetX, color: thisColor } -> do
+  for_ colors \{ c: getEvents, x: offsetX, color: thisColor } -> do
     let thisEvents = getEvents six.notes
         offsetX' = case thisColor of
           SixOpen -> 37
@@ -497,9 +531,9 @@ drawSix (Six six) targetX stuff = do
         _ -> pure unit
       events -> go false events
   -- Notes
-  for_ colors $ \{ c: getEvents, x: offsetX, color: thisColor } -> do
+  for_ colors \{ c: getEvents, x: offsetX, color: thisColor } -> do
     let {strum: strumImage, hopo: hopoImage, tap: tapImage, energy: energyOverlay} = getGemImages thisColor
-    zoomDesc (getEvents six.notes) $ \secs evt -> do
+    zoomDesc (getEvents six.notes) \secs evt -> do
       let futureSecs = secToNum $ secs - stuff.time
       if futureSecs <= 0.0
         then do
@@ -559,10 +593,10 @@ drawProtar (Protar protar) targetX stuff = do
   setFillStyle "rgb(126,126,150)" stuff
   fillRect { x: toNumber targetX, y: 0.0, w: 182.0, h: toNumber windowH } stuff
   setFillStyle "rgb(184,185,204)" stuff
-  for_ [0, 30, 60, 90, 120, 150, 180] $ \offsetX -> do
+  for_ [0, 30, 60, 90, 120, 150, 180] \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   setFillStyle "black" stuff
-  for_ [1, 31, 61, 91, 121, 151, 181] $ \offsetX -> do
+  for_ [1, 31, 61, 91, 121, 151, 181] \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
   setFillStyle "rgb(91,137,185)" stuff
@@ -579,15 +613,48 @@ drawProtar (Protar protar) targetX stuff = do
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
-        when b1 $ for_ [0, 32, 62, 92, 122, 152] $ \offsetX -> do
+        when b1 $ for_ [2, 32, 62, 92, 122, 152] \offsetX -> do
           fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 28.0, h: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
-  zoomDesc protar.solo $ \secs _ -> do
+  zoomDesc protar.solo \secs _ -> do
     drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
+  -- Lanes
+  setFillStyle "rgb(60,60,60)" stuff
+  let lanes =
+        [ {x:   2, gem: _.s6}
+        , {x:  32, gem: _.s5}
+        , {x:  62, gem: _.s4}
+        , {x:  92, gem: _.s3}
+        , {x: 122, gem: _.s2}
+        , {x: 152, gem: _.s1}
+        ]
+  for_ lanes \{x: offsetX, gem: gem} -> let
+    thisLane = Map.union protar.bre $ gem protar.lanes
+    startsAsLane = case Map.lookupLE minSecs thisLane of
+      Nothing           -> false
+      Just { value: v } -> v
+    laneEdges
+      = L.fromFoldable
+      $ cons (Tuple minSecs startsAsLane)
+      $ flip snoc (Tuple maxSecs false)
+      $ Map.doTupleArray (zoomAsc thisLane)
+    drawLanes L.Nil            = pure unit
+    drawLanes (L.Cons _ L.Nil) = pure unit
+    drawLanes (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
+      let y1 = secsToPxVert s1
+          y2 = secsToPxVert s2
+      when b1 $ fillRect
+        { x: toNumber $ targetX + offsetX
+        , y: toNumber y2
+        , w: 28.0
+        , h: toNumber $ y1 - y2
+        } stuff
+      drawLanes rest
+    in drawLanes laneEdges
   -- Beats
-  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
+  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) \secs evt -> do
     let y = secsToPxVert secs
     case evt of
       Bar      -> drawImage Image_highway_grybo_bar       (toNumber targetX) (toNumber y - 1.0) stuff
@@ -622,7 +689,7 @@ drawProtar (Protar protar) targetX stuff = do
           , hit: \o -> "rgba(210,162,255," <> show o <> ")"
           }
         ]
-  for_ colors $ \{ c: getColor, x: offsetX, shades: normalShades } -> do
+  for_ colors \{ c: getColor, x: offsetX, shades: normalShades } -> do
     let thisColor = getColor protar.notes
         isEnergy secs = case Map.lookupLE secs protar.energy of
           Nothing           -> false
@@ -669,8 +736,8 @@ drawProtar (Protar protar) targetX stuff = do
         _ -> pure unit
       events -> go false events
   -- Notes
-  for_ colors $ \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, hit: shadeHit } -> do
-    zoomDesc (getColor protar.notes) $ \secs evt -> do
+  for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, hit: shadeHit } -> do
+    zoomDesc (getColor protar.notes) \secs evt -> do
       let futureSecs = secToNum $ secs - stuff.time
       if futureSecs <= 0.0
         then do
@@ -755,10 +822,10 @@ drawDrums (Drums drums) targetX stuff = do
   setFillStyle "rgb(126,126,150)" stuff
   fillRect { x: toNumber targetX, y: 0.0, w: 146.0, h: toNumber windowH } stuff
   setFillStyle "rgb(184,185,204)" stuff
-  for_ [0, 36, 72, 108, 144] $ \offsetX -> do
+  for_ [0, 36, 72, 108, 144] \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   setFillStyle "black" stuff
-  for_ [1, 37, 73, 109, 145] $ \offsetX -> do
+  for_ [1, 37, 73, 109, 145] \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
   setFillStyle "rgb(91,137,185)" stuff
@@ -775,15 +842,51 @@ drawDrums (Drums drums) targetX stuff = do
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
-        when b1 $ for_ [2, 38, 74, 110] $ \offsetX -> do
+        when b1 $ for_ [2, 38, 74, 110] \offsetX -> do
           fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
-  zoomDesc drums.solo $ \secs _ -> do
+  zoomDesc drums.solo \secs _ -> do
     drawImage Image_highway_drums_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
+  -- Lanes
+  setFillStyle "rgb(60,60,60)" stuff
+  let lanes =
+        -- TODO kick
+        [ {x:   2, gem: Red }
+        , {x:  38, gem: YCym}
+        , {x:  38, gem: YTom}
+        , {x:  74, gem: BCym}
+        , {x:  74, gem: BTom}
+        , {x: 110, gem: GCym}
+        , {x: 110, gem: GTom}
+        ]
+  for_ lanes \{x: offsetX, gem: gem} -> let
+    thisLane = Map.union drums.bre
+      $ fromMaybe Map.empty $ Map.lookup gem drums.lanes
+    startsAsLane = case Map.lookupLE minSecs thisLane of
+      Nothing           -> false
+      Just { value: v } -> v
+    laneEdges
+      = L.fromFoldable
+      $ cons (Tuple minSecs startsAsLane)
+      $ flip snoc (Tuple maxSecs false)
+      $ Map.doTupleArray (zoomAsc thisLane)
+    drawLanes L.Nil            = pure unit
+    drawLanes (L.Cons _ L.Nil) = pure unit
+    drawLanes (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
+      let y1 = secsToPxVert s1
+          y2 = secsToPxVert s2
+      when b1 $ fillRect
+        { x: toNumber $ targetX + offsetX
+        , y: toNumber y2
+        , w: 34.0
+        , h: toNumber $ y1 - y2
+        } stuff
+      drawLanes rest
+    in drawLanes laneEdges
   -- Beats
-  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
+  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) \secs evt -> do
     let y = secsToPxVert secs
     case evt of
       Bar      -> drawImage Image_highway_drums_bar      (toNumber targetX) (toNumber y - 1.0) stuff
@@ -792,7 +895,7 @@ drawDrums (Drums drums) targetX stuff = do
   -- Target
   drawImage Image_highway_drums_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Notes
-  zoomDesc drums.notes $ \secs evts -> do
+  zoomDesc drums.notes \secs evts -> do
     let futureSecs = secToNum $ secs - stuff.time
     if futureSecs <= 0.0
       then do
@@ -816,7 +919,7 @@ drawDrums (Drums drums) targetX stuff = do
                 green = do
                   setFillStyle ("rgba(190, 255, 192, " <> show opacity <> ")") stuff
                   fillRect { x: toNumber $ targetX + 110, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
-            for_ evts $ \e -> case e of
+            for_ evts \e -> case e of
               Kick -> kick
               Red  -> red
               YCym -> yellow
@@ -832,7 +935,7 @@ drawDrums (Drums drums) targetX stuff = do
             isEnergy = case Map.lookupLE secs drums.energy of
               Just {value: bool} -> bool
               Nothing            -> false
-        for_ evts $ \e -> case e of
+        for_ evts \e -> case e of
           Kick -> drawImage (if isEnergy then Image_gem_kick_energy   else Image_gem_kick         ) (toNumber $ targetX + 1  ) (toNumber $ y - 3) stuff
           Red  -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_red          ) (toNumber $ targetX + 1  ) (toNumber $ y - 5) stuff
           YTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_yellow       ) (toNumber $ targetX + 37 ) (toNumber $ y - 5) stuff
@@ -933,10 +1036,36 @@ drawProKeys (ProKeys pk) targetX stuff = do
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
-  zoomDesc pk.solo $ \secs _ -> do
+  zoomDesc pk.solo \secs _ -> do
     drawImage Image_highway_prokeys_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
+  -- Lanes
+  setFillStyle "rgb(60,60,60)" stuff
+  for_ pitchList \{pitch: pitch, offsetX: offsetX, isBlack: isBlack} -> let
+    thisLane = Map.union pk.bre
+      $ fromMaybe Map.empty $ Map.lookup pitch pk.lanes
+    startsAsLane = case Map.lookupLE minSecs thisLane of
+      Nothing           -> false
+      Just { value: v } -> v
+    laneEdges
+      = L.fromFoldable
+      $ cons (Tuple minSecs startsAsLane)
+      $ flip snoc (Tuple maxSecs false)
+      $ Map.doTupleArray (zoomAsc thisLane)
+    drawLanes L.Nil            = pure unit
+    drawLanes (L.Cons _ L.Nil) = pure unit
+    drawLanes (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
+      let y1 = secsToPxVert s1
+          y2 = secsToPxVert s2
+      when b1 $ fillRect
+        { x: toNumber $ targetX + offsetX + if isBlack then 0 else 1
+        , y: toNumber y2
+        , w: 11.0
+        , h: toNumber $ y1 - y2
+        } stuff
+      drawLanes rest
+    in drawLanes laneEdges
   -- Beats
-  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) $ \secs evt -> do
+  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) \secs evt -> do
     let y = secsToPxVert secs
     case evt of
       Bar      -> drawImage Image_highway_prokeys_bar      (toNumber targetX) (toNumber y - 1.0) stuff
@@ -966,11 +1095,11 @@ drawProKeys (ProKeys pk) targetX stuff = do
               RangeF -> [{x: toNumber $ targetX + 2, y: y, w: 56.0, h: h}, {x: toNumber $ targetX + 247, y: y, w: 35.0, h: h}]
               RangeG -> [{x: toNumber $ targetX + 2, y: y, w: 78.0, h: h}, {x: toNumber $ targetX + 270, y: y, w: 12.0, h: h}]
               RangeA -> [{x: toNumber $ targetX + 2, y: y, w: 100.0, h: h}]
-            in for_ rects $ \rect -> fillRect rect stuff
+            in for_ rects \rect -> fillRect rect stuff
         drawRanges rest
   drawRanges rangeEdges
   -- Sustains
-  for_ pitchList $ \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
+  for_ pitchList \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
     let thisPitch = fromMaybe Map.empty $ Map.lookup pitch pk.notes
         isEnergy secs = case Map.lookupLE secs pk.energy of
           Just {value: bool} -> bool
@@ -1022,8 +1151,8 @@ drawProKeys (ProKeys pk) targetX stuff = do
         _ -> pure unit
       events -> go False events
   -- Notes
-  for_ pitchList $ \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
-    zoomDesc (fromMaybe Map.empty $ Map.lookup pitch pk.notes) $ \secs evt -> do
+  for_ pitchList \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
+    zoomDesc (fromMaybe Map.empty $ Map.lookup pitch pk.notes) \secs evt -> do
       let futureSecs = secToNum $ secs - stuff.time
       if futureSecs <= 0.0
         then do
@@ -1152,7 +1281,7 @@ drawVocal (Vocal v) targetY stuff = do
         , { part: v.harm1, line: "rgb(46,229,223)", talky: "rgba(46,229,223,0.6)", width: 4.0 }
         ]
   onContext (C.setLineCap C.Round) stuff
-  for_ lineParts $ \o -> do
+  for_ lineParts \o -> do
     onContext C.beginPath stuff
     onContext (C.setStrokeStyle o.line) stuff
     onContext (C.setLineWidth o.width) stuff
@@ -1174,7 +1303,7 @@ drawVocal (Vocal v) targetY stuff = do
         :: Boolean
         -> L.List (Tuple Seconds VocalNote)
         -> L.List {time :: Seconds, lyric :: String, isTalky :: Boolean}
-      getLyrics isHarm3 = L.mapMaybe $ \(Tuple t vn) -> case vn of
+      getLyrics isHarm3 = L.mapMaybe \(Tuple t vn) -> case vn of
         VocalEnd -> Nothing
         VocalStart lyric pitch
           | lyric == "+" -> Nothing
@@ -1221,7 +1350,7 @@ drawVocal (Vocal v) targetY stuff = do
     (getLyrics false $ L.fromFoldable $ Map.doTupleArray (zoomAsc v.harm2))
     (getLyrics true  $ L.fromFoldable $ Map.doTupleArray (zoomAsc v.harm3))
   -- Draw percussion notes
-  zoomDesc v.percussion $ \t (_ :: Unit) -> if t > stuff.time
+  zoomDesc v.percussion \t (_ :: Unit) -> if t > stuff.time
     then do
       setFillStyle "#d9d9d9" stuff
       fillCircle { x: toNumber $ secsToPxHoriz t, y: toNumber targetY + 90.0, r: 11.0 } stuff
@@ -1234,7 +1363,7 @@ drawVocal (Vocal v) targetY stuff = do
         fillCircle { x: toNumber $ secsToPxHoriz stuff.time, y: toNumber targetY + 90.0, r: 11.0 } stuff
   -- Draw phrase ends
   setFillStyle "#bbb" stuff
-  zoomDesc v.phrases $ \t (_ :: Unit) -> do
+  zoomDesc v.phrases \t (_ :: Unit) -> do
     fillRect { x: toNumber (secsToPxHoriz t) - 1.0, y: toNumber targetY + 25.0, w: 3.0, h: 130.0 } stuff
   -- Draw target line
   setFillStyle "#ddd" stuff

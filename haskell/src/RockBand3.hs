@@ -240,18 +240,20 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           . ghlNotes
           ) $ RBFile.flexGHL $ RBFile.getFlexPart bassPart trks
 
-      -- TODO: pgHopoThreshold, pgFixFreeform
+      -- TODO: pgHopoThreshold
       (proGtr, proGtr22) = case getPart guitarPart songYaml >>= partProGuitar of
         Nothing -> (RTB.empty, RTB.empty)
-        Just _pg -> let
+        Just pg -> let
           src = RBFile.getFlexPart guitarPart trks
-          f = ProGtr.copyExpert . ProGtr.autoHandPosition
+          f = (if pgFixFreeform pg then fixFreeformPG else id)
+            . ProGtr.copyExpert . ProGtr.autoHandPosition
           in (f $ RBFile.flexPartRealGuitar src, f $ RBFile.flexPartRealGuitar22 src)
       (proBass, proBass22) = case getPart bassPart songYaml >>= partProGuitar of
         Nothing -> (RTB.empty, RTB.empty)
-        Just _pg -> let
+        Just pg -> let
           src = RBFile.getFlexPart bassPart trks
-          f = ProGtr.copyExpert . ProGtr.autoHandPosition
+          f = (if pgFixFreeform pg then fixFreeformPG else id)
+            . ProGtr.copyExpert . ProGtr.autoHandPosition
           in (f $ RBFile.flexPartRealGuitar src, f $ RBFile.flexPartRealGuitar22 src)
 
       keysPart = either rb3_Keys ps_Keys target
