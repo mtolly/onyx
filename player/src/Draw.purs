@@ -60,13 +60,25 @@ setFillStyle s = onContext $ C.setFillStyle s
 fillRect :: forall e. C.Rectangle -> Draw e Unit
 fillRect rect = onContext \ctx -> C.fillRect ctx rect
 
-fillCircle :: forall e. { x :: Number, y :: Number, r :: Number } -> Draw e Unit
-fillCircle o dstuff = do
+fillEllipse :: forall e. { x :: Number, y :: Number, rx :: Number, ry :: Number } -> Draw e Unit
+fillEllipse o dstuff = do
   let ctx = dstuff.context
+      width = o.rx * 2.0
+      height = o.ry * 2.0
+      maxDiameter = max width height
+      scaleX = width / maxDiameter
+      scaleY = height / maxDiameter
+  void $ C.save ctx
+  void $ C.translate { translateX: o.x, translateY: o.y } ctx
+  void $ C.scale { scaleX: scaleX, scaleY: scaleY } ctx
   void $ C.beginPath ctx
-  void $ C.arc ctx { x: o.x, y: o.y, r: o.r, start: 0.0, end: 2.0 * pi }
+  void $ C.arc ctx { x: 0.0, y: 0.0, r: maxDiameter / 2.0, start: 0.0, end: 2.0 * pi}
   void $ C.fill ctx
   void $ C.closePath ctx
+  void $ C.restore ctx
+
+fillCircle :: forall e. { x :: Number, y :: Number, r :: Number } -> Draw e Unit
+fillCircle o = fillEllipse { x: o.x, y: o.y, rx: o.r, ry: o.r }
 
 drawImage :: forall e. ImageID -> Number -> Number -> Draw e Unit
 drawImage iid x y dstuff =
@@ -198,6 +210,32 @@ drawPart getPart see drawIt targetX stuff = do
     Just part | see settings -> map Just $ drawIt part targetX stuff
     _                        -> pure Nothing
 
+drawLane
+  :: forall e
+  .  { x :: Int, y :: Int, w :: Int, h :: Int }
+  -> Draw e Unit
+drawLane obj stuff = do
+  setFillStyle "rgb(60,60,60)" stuff
+  fillRect
+    { x: toNumber obj.x
+    , y: toNumber obj.y
+    , w: toNumber obj.w
+    , h: toNumber obj.h
+    } stuff
+  let rx = toNumber obj.w / 2.0
+  fillEllipse
+    { x: toNumber obj.x + rx
+    , y: toNumber obj.y
+    , rx: rx
+    , ry: 15.0
+    } stuff
+  fillEllipse
+    { x: toNumber obj.x + rx
+    , y: toNumber $ obj.y + obj.h
+    , rx: rx
+    , ry: 15.0
+    } stuff
+
 drawFive :: forall e. Five -> Int -> Draw e Int
 drawFive (Five five) targetX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
@@ -242,7 +280,6 @@ drawFive (Five five) targetX stuff = do
   zoomDesc five.solo \secs _ -> do
     drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
   -- Lanes
-  setFillStyle "rgb(60,60,60)" stuff
   let lanes =
         -- TODO open
         [ {x:   2, gem: _.green }
@@ -266,11 +303,11 @@ drawFive (Five five) targetX stuff = do
     drawLanes (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
       let y1 = secsToPxVert s1
           y2 = secsToPxVert s2
-      when b1 $ fillRect
-        { x: toNumber $ targetX + offsetX
-        , y: toNumber y2
-        , w: 34.0
-        , h: toNumber $ y1 - y2
+      when b1 $ drawLane
+        { x: targetX + offsetX
+        , y: y2
+        , w: 34
+        , h: y1 - y2
         } stuff
       drawLanes rest
     in drawLanes laneEdges
@@ -621,7 +658,6 @@ drawProtar (Protar protar) targetX stuff = do
   zoomDesc protar.solo \secs _ -> do
     drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
   -- Lanes
-  setFillStyle "rgb(60,60,60)" stuff
   let lanes =
         [ {x:   2, gem: _.s6}
         , {x:  32, gem: _.s5}
@@ -645,11 +681,11 @@ drawProtar (Protar protar) targetX stuff = do
     drawLanes (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
       let y1 = secsToPxVert s1
           y2 = secsToPxVert s2
-      when b1 $ fillRect
-        { x: toNumber $ targetX + offsetX
-        , y: toNumber y2
-        , w: 28.0
-        , h: toNumber $ y1 - y2
+      when b1 $ drawLane
+        { x: targetX + offsetX
+        , y: y2
+        , w: 28
+        , h: y1 - y2
         } stuff
       drawLanes rest
     in drawLanes laneEdges
@@ -850,7 +886,6 @@ drawDrums (Drums drums) targetX stuff = do
   zoomDesc drums.solo \secs _ -> do
     drawImage Image_highway_drums_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
   -- Lanes
-  setFillStyle "rgb(60,60,60)" stuff
   let lanes =
         -- TODO kick
         [ {x:   2, gem: Red }
@@ -877,11 +912,11 @@ drawDrums (Drums drums) targetX stuff = do
     drawLanes (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
       let y1 = secsToPxVert s1
           y2 = secsToPxVert s2
-      when b1 $ fillRect
-        { x: toNumber $ targetX + offsetX
-        , y: toNumber y2
-        , w: 34.0
-        , h: toNumber $ y1 - y2
+      when b1 $ drawLane
+        { x: targetX + offsetX
+        , y: y2
+        , w: 34
+        , h: y1 - y2
         } stuff
       drawLanes rest
     in drawLanes laneEdges
@@ -1039,7 +1074,6 @@ drawProKeys (ProKeys pk) targetX stuff = do
   zoomDesc pk.solo \secs _ -> do
     drawImage Image_highway_prokeys_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
   -- Lanes
-  setFillStyle "rgb(60,60,60)" stuff
   for_ pitchList \{pitch: pitch, offsetX: offsetX, isBlack: isBlack} -> let
     thisLane = Map.union pk.bre
       $ fromMaybe Map.empty $ Map.lookup pitch pk.lanes
@@ -1056,11 +1090,11 @@ drawProKeys (ProKeys pk) targetX stuff = do
     drawLanes (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
       let y1 = secsToPxVert s1
           y2 = secsToPxVert s2
-      when b1 $ fillRect
-        { x: toNumber $ targetX + offsetX + if isBlack then 0 else 1
-        , y: toNumber y2
-        , w: 11.0
-        , h: toNumber $ y1 - y2
+      when b1 $ drawLane
+        { x: targetX + offsetX + if isBlack then 0 else 1
+        , y: y2
+        , w: 11
+        , h: y1 - y2
         } stuff
       drawLanes rest
     in drawLanes laneEdges
