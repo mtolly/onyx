@@ -63,6 +63,9 @@ parts:
       difficulty: 7
   bass:
     grybo: {} # vpetrucci93, edited by onyxite
+  vocal:
+    vocal: # onyxite
+      count: 3
 targets:
   rb3:
     game: rb3
