@@ -59,10 +59,13 @@ parts:
     drums: # onyxite
       difficulty: 6
   keys:
+    grybo: # onyxite
+      difficulty: 6
     pro-keys: # onyxite
       difficulty: 7
   bass:
-    grybo: {} # vpetrucci93, edited by onyxite
+    grybo: # vpetrucci93, edited by onyxite
+      difficulty: 4
   vocal:
     vocal: # onyxite
       count: 3
