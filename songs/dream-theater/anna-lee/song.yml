@@ -44,16 +44,16 @@ plans:
           - only: [B Vocals, jammit-track]
 parts:
   drums:
-    drums: {}
+    drums: {} # seil
   keys:
-    pro-keys: {}
-    # grybo: {}
+    pro-keys: {} # seil
+    grybo: {} # onyxite
   bass:
-    grybo: {}
+    grybo: {} # seil
   guitar:
-    grybo: {}
+    grybo: {} # seil
   vocal:
-    vocal:
+    vocal: # onyxite
       count: 3
       gender: male
 targets:
