@@ -11,6 +11,9 @@ audio:
 parts:
   drums:
     drums: {}
+  keys:
+    pro-keys:
+      difficulty: 7
 plans:
   album:
     song:
