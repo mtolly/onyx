@@ -50,6 +50,9 @@ parts:
     drums:
       kit: VintageKit
       difficulty: 7
+  bass:
+    grybo:
+      difficulty: 6
 targets:
   rb3:
     game: rb3
