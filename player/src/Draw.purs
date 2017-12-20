@@ -60,6 +60,9 @@ setFillStyle s = onContext $ C.setFillStyle s
 fillRect :: forall e. C.Rectangle -> Draw e Unit
 fillRect rect = onContext \ctx -> C.fillRect ctx rect
 
+strokeRect :: forall e. C.Rectangle -> Draw e Unit
+strokeRect rect = onContext \ctx -> C.strokeRect ctx rect
+
 fillEllipse :: forall e. { x :: Number, y :: Number, rx :: Number, ry :: Number } -> Draw e Unit
 fillEllipse o dstuff = do
   let ctx = dstuff.context
@@ -1188,6 +1191,9 @@ drawProKeys (ProKeys pk) targetX stuff = do
   for_ pitchList \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
     zoomDesc (fromMaybe Map.empty $ Map.lookup pitch pk.notes) \secs evt -> do
       let futureSecs = secToNum $ secs - stuff.time
+          isGlissando = case Map.lookupLE secs pk.gliss of
+            Just {value: bool} -> bool
+            Nothing            -> false
       if futureSecs <= 0.0
         then do
           -- note is in the past or being hit now
@@ -1210,6 +1216,12 @@ drawProKeys (ProKeys pk) targetX stuff = do
             SustainEnd          -> drawImage Image_sustain_key_end (toNumber $ targetX + offsetX - if isBlack then 1 else 0) (toNumber   y    ) stuff
             Note    (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5) stuff
             Sustain (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5) stuff
+          when isGlissando case evt of
+            SustainEnd -> pure unit
+            _ -> do
+              onContext (C.setStrokeStyle "white") stuff
+              onContext (C.setLineWidth 1.0) stuff
+              strokeRect { x: toNumber (targetX + offsetX) + 0.5, y: toNumber y - 4.5, w: 12.0, h: 9.0 } stuff
   pure $ targetX + 282 + _M
 
 zoomAscDoPadding :: forall k a m. (Ord k) => (Monad m) => k -> k -> Map.Map k a -> (k -> a -> m Unit) -> m Unit
