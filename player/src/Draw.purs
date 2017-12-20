@@ -1150,7 +1150,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
                   then { light: "rgb(175, 83,201)", normal: "rgb(147, 49,175)", dark: "rgb(123, 42,150)" }
                   else { light: "rgb(199,134,218)", normal: "rgb(184,102,208)", dark: "rgb(178, 86,204)" }
               h = yend' - ystart' + 1
-              offsetX' = offsetX + if isBlack then 0 else 0
+              offsetX' = offsetX + if isBlack then 0 else 1
           setFillStyle "black" stuff
           fillRect { x: toNumber $ targetX + offsetX' + 2, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           fillRect { x: toNumber $ targetX + offsetX' + 8, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
