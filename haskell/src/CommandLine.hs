@@ -631,6 +631,7 @@ commands =
                   , rb2_Speed = speed
                   , rb2_Guitar = gtr
                   , rb2_Bass = bass
+                  , rb2_LabelRB2 = elem OptRB2Version opts
                   }
               suffix = intercalate "_" $ concat
                 [ ["gk" | keys == RBFile.FlexGuitar]
@@ -935,6 +936,7 @@ optDescrs =
   , Option []   ["force-pro-drums"] (NoArg  OptForceProDrums                  ) ""
   , Option []   ["speed"          ] (ReqArg (OptSpeed . read)      "real"     ) ""
   , Option []   ["guitar-on-keys" ] (NoArg  OptGuitarOnKeys                   ) ""
+  , Option []   ["rb2-version"    ] (NoArg  OptRB2Version                     ) ""
   , Option "h?" ["help"           ] (NoArg  OptHelp                           ) ""
   ] where
     readGame = \case
@@ -959,6 +961,7 @@ data OnyxOption
   | OptForceProDrums
   | OptSpeed Double
   | OptGuitarOnKeys
+  | OptRB2Version
   | OptHelp
   deriving (Eq, Ord, Show, Read)
 

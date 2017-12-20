@@ -923,6 +923,7 @@ data TargetRB2 = TargetRB2
   , rb2_2xBassPedal :: Bool
   , rb2_SongID      :: Maybe (Either Integer T.Text)
   , rb2_Label       :: Maybe T.Text
+  , rb2_LabelRB2    :: Bool
   , rb2_Version     :: Maybe Integer
   , rb2_Guitar      :: FlexPartName
   , rb2_Bass        :: FlexPartName
@@ -937,6 +938,7 @@ parseTargetRB2 = do
   rb2_2xBassPedal <- rb2_2xBassPedal =. opt False      "2x-bass-pedal" stackJSON
   rb2_SongID      <- rb2_SongID      =. opt Nothing    "song-id"       stackJSON
   rb2_Label       <- rb2_Label       =. opt Nothing    "label"         stackJSON
+  rb2_LabelRB2    <- rb2_LabelRB2    =. opt False      "label-rb2"     stackJSON
   rb2_Version     <- rb2_Version     =. opt Nothing    "version"       stackJSON
   rb2_Guitar      <- rb2_Guitar      =. opt FlexGuitar "guitar"        stackJSON
   rb2_Bass        <- rb2_Bass        =. opt FlexBass   "bass"          stackJSON

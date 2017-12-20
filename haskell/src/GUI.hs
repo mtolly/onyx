@@ -173,6 +173,7 @@ data ConvertOptions
     }
   | ConvertRB2
     { crb2Speed :: Int -- ^ in percent
+    , crb2Label :: Bool -- ^ should (RB2 version) be added
     , crb2Keys  :: KeysRB2 -- ^ if keys should be dropped or moved to gtr or bass
     }
   deriving (Eq, Ord, Show, Read)
@@ -189,6 +190,7 @@ convertRB2 :: ConvertOptions
 convertRB2 = ConvertRB2
   { crb2Speed = 100
   , crb2Keys = NoKeys
+  , crb2Label = True
   }
 
 data OptionInput a
@@ -311,6 +313,7 @@ topMenu = Choices
           , case crb2Speed of
             100 -> []
             _   -> ["--speed", show (fromIntegral crb2Speed / 100 :: Double)]
+          , ["--rb2-version" | crb2Label]
           ]
         opts =
           [ Choice
@@ -355,6 +358,22 @@ topMenu = Choices
                 { choiceTitle = "Keys on bass"
                 , choiceDescription = "Drops Bass if present, and puts Keys on Bass (like RB3 keytar mode)."
                 , choiceValue = ConvertRB2 { crb2Keys = KeysBass, .. }
+                }
+              ]
+            }
+          , Choice
+            { choiceTitle = "[option] RB2 label: " <> if crb2Label then "Yes" else "No"
+            , choiceDescription = "Add (RB2 version) to the title of the song."
+            , choiceValue = OptionEnum
+              [ Choice
+                { choiceTitle = "Yes"
+                , choiceDescription = "Add (RB2 version)"
+                , choiceValue = ConvertRB2 { crb2Label = True, .. }
+                }
+              , Choice
+                { choiceTitle = "No"
+                , choiceDescription = "Title will be unchanged"
+                , choiceValue = ConvertRB2 { crb2Label = False, .. }
                 }
               ]
             }

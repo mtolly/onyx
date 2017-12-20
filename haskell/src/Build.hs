@@ -103,9 +103,11 @@ import           YAMLTree
 targetTitle :: SongYaml -> Target -> T.Text
 targetTitle songYaml target = let
   segments = getTitle (_metadata songYaml) : case target of
-    RB3 TargetRB3{..} -> makeLabel []                rb3_Label rb3_2xBassPedal rb3_Speed
-    RB2 TargetRB2{..} -> makeLabel ["(RB2 version)"] rb2_Label rb2_2xBassPedal rb2_Speed
-    PS  TargetPS {..} -> makeLabel []                ps_Label  False           ps_Speed
+    RB3 TargetRB3{..} -> makeLabel []   rb3_Label rb3_2xBassPedal rb3_Speed
+    RB2 TargetRB2{..} -> let
+      sfxs = ["(RB2 version)" | rb2_LabelRB2]
+      in                 makeLabel sfxs rb2_Label rb2_2xBassPedal rb2_Speed
+    PS  TargetPS {..} -> makeLabel []   ps_Label  False           ps_Speed
     GH2 TargetGH2{..} -> []
   makeLabel sfxs explicit is2x speed = case explicit of
     Just lbl -> [lbl]
