@@ -1,7 +1,7 @@
 metadata:
   title: Keytalk
   artist: Hiromi
-  author: Onyxite
+  author: mazegeek999, Onyxite
   genre: jazz
   subgenre: contemporary
   album: Brain
@@ -40,7 +40,9 @@ plans:
         pad: [4.567, channels: [[5], surround]]
 parts:
   drums:
-    drums: {}
+    drums: {} # onyxite
+  keys:
+    pro-keys: {} # mazegeek999
 targets:
   rb3:
     game: rb3
