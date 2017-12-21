@@ -1,5 +1,10 @@
 # Version history
 
+## 20171220
+
+* Web player displays lanes, glissando, and BRE
+* Toggle for whether `(RB2 version)` is added to title of RB2 converts
+
 ## 20171126
 
 * Better file adder screen: parses and displays songs as they're added
