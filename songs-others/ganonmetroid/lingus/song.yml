@@ -33,9 +33,19 @@ parts:
   keys:
     grybo: {}
     pro-keys: {}
+  onyxite:
+    drums: {}
 targets:
   rb3:
     game: rb3
   ps:
     game: ps
     file-video: video.avi
+  drums-preview:
+    game: rb3
+    drums: onyxite
+    guitar: no-part
+    bass: no-part
+    keys: no-part
+    vocal: no-part
+    label: (Drums Preview)
