@@ -12,7 +12,7 @@ import qualified Config
 import           Control.Applicative              ((<|>))
 import           Control.Arrow                    (first)
 import           Control.Exception                (evaluate)
-import           Control.Monad                    (forM, guard, when)
+import           Control.Monad                    (forM, forM_, guard, when)
 import           Control.Monad.Extra              (mapMaybeM)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
@@ -96,6 +96,7 @@ fixDoubleSwells ps = let
 
 importFoF :: (SendMessage m, MonadIO m) => Bool -> FilePath -> FilePath -> StackTraceT m HasKicks
 importFoF detectBasicDrums src dest = do
+  lg $ "Importing FoF/PS/CH song from folder: " <> src
   let pathMid = src </> "notes.mid"
       pathChart = src </> "notes.chart"
       pathIni = src </> "song.ini"
@@ -104,16 +105,23 @@ importFoF detectBasicDrums src dest = do
       ini <- FoF.loadSong pathIni
       stackIO (Dir.doesFileExist pathMid) >>= \case
         True -> do
+          lg "Found song.ini and notes.mid"
           mid <- loadMIDI $ src </> "notes.mid"
           return (ini, mid)
-        False -> do
-          chart <- FB.chartToBeats <$> FB.loadChartFile pathChart
-          mid <- FB.chartToMIDI chart
-          return (ini, mid)
-    False -> do
-      chart <- FB.chartToBeats <$> FB.loadChartFile pathChart
-      mid <- FB.chartToMIDI chart
-      return (FB.chartToIni chart, mid)
+        False -> stackIO (Dir.doesFileExist pathChart) >>= \case
+          True -> do
+            lg "Found song.ini and notes.chart"
+            chart <- FB.chartToBeats <$> FB.loadChartFile pathChart
+            mid <- FB.chartToMIDI chart
+            return (ini, mid)
+          False -> fatal "Found song.ini, but no notes.mid or notes.chart"
+    False -> stackIO (Dir.doesFileExist pathChart) >>= \case
+      True -> do
+        lg "Found notes.chart but no song.ini. Metadata will come from .chart"
+        chart <- FB.chartToBeats <$> FB.loadChartFile pathChart
+        mid <- FB.chartToMIDI chart
+        return (FB.chartToIni chart, mid)
+      False -> fatal "No song.ini or notes.chart found"
 
   hasAlbumArt <- stackIO $ Dir.doesFileExist $ src </> "album.png"
   when hasAlbumArt $ stackIO $ Dir.copyFile (src </> "album.png") (dest </> "album.png")
@@ -207,6 +215,7 @@ importFoF detectBasicDrums src dest = do
     { RBFile.s_tracks = fixDoubleSwells $ add2x $ RBFile.s_tracks parsed
     }
 
+  -- TODO get this working with Clone Hero videos
   vid <- case FoF.video song of
     Nothing -> return Nothing
     Just s | all isSpace s -> return Nothing
@@ -422,6 +431,8 @@ importSTFSDir temp mtemp2x dir = do
 
 importSTFS :: (MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT (QueueLog m) HasKicks
 importSTFS file file2x dir = tempDir "onyx_con" $ \temp -> do
+  lg $ "Importing STFS file from: " ++ file
+  forM_ file2x $ \f2x -> lg $ "Plus 2x Bass Pedal from: " ++ f2x
   stackIO $ extractSTFS file temp
   let with2xPath mtemp2x = importSTFSDir temp mtemp2x dir
   case file2x of
@@ -490,6 +501,8 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
 
 importRBA :: (MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT (QueueLog m) HasKicks
 importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
+  lg $ "Importing RBA file from: " ++ file
+  forM_ file2x $ \f2x -> lg $ "Plus 2x Bass Pedal from: " ++ f2x
   getRBAFile 0 file $ temp </> "songs.dta"
   getRBAFile 1 file $ temp </> "notes.mid"
   getRBAFile 2 file $ temp </> "audio.mogg"
@@ -784,6 +797,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
 
 importMagma :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m HasKicks
 importMagma fin dir = do
+  lg $ "Importing Magma project from: " <> fin
 
   let oldDir = takeDirectory fin
   RBProj.RBProj rbproj <- stackIO (D.readFileDTA fin) >>= D.unserialize D.stackChunks
@@ -811,6 +825,7 @@ importMagma fin dir = do
         Just 3  -> 250
         Just _  -> 170
 
+  -- TODO detect silent audio files and don't import them
   let getTrack s f = let
         aud = f $ RBProj.tracks rbproj
         in if RBProj.audioEnabled aud
@@ -891,24 +906,16 @@ importMagma fin dir = do
         , rb3_Version = fromIntegral . C3.version <$> c3
         }
 
-  tuneGtr <- inside "Reading pro guitar tuning" $
-    case c3 >>= C3.proGuitarTuning of
-      Nothing -> return Nothing
-      Just tune -> errorToWarning (scanStack tune >>= parseStack) >>= \case
-        Just (D.DTA _ (D.Tree _ [D.Parens (D.Tree _ [D.Key "real_guitar_tuning", D.Parens (D.Tree _ mints)])])) ->
-          case mapM (\case D.Int i -> Just $ fromIntegral i; _ -> Nothing) mints of
-            Just ints -> return $ Just ints
-            Nothing   -> warn "Non-integer value in tuning" >> return Nothing
-        _ -> warn "Couldn't read DTA-snippet tuning format" >> return Nothing
-  tuneBass <- inside "Reading pro bass tuning" $
-    case c3 >>= C3.proBassTuning4 of
-      Nothing -> return Nothing
-      Just tune -> errorToWarning (scanStack tune >>= parseStack) >>= \case
-        Just (D.DTA _ (D.Tree _ [D.Parens (D.Tree _ [D.Key "real_bass_tuning", D.Parens (D.Tree _ mints)])])) ->
-          case mapM (\case D.Int i -> Just $ fromIntegral i; _ -> Nothing) mints of
-            Just ints -> return $ Just ints
-            Nothing   -> warn "Non-integer value in tuning" >> return Nothing
-        _ -> warn "Couldn't read DTA-snippet tuning format" >> return Nothing
+  let readTuning c3fn k = case c3 >>= c3fn of
+        Nothing -> return Nothing
+        Just tune -> errorToWarning (scanStack tune >>= parseStack) >>= \case
+          Just (D.DTA _ (D.Tree _ [D.Parens (D.Tree _ [D.Key k', D.Parens (D.Tree _ mints)])])) | k == k' ->
+            case mapM (\case D.Int i -> Just $ fromIntegral i; _ -> Nothing) mints of
+              Just ints -> return $ Just ints
+              Nothing   -> warn "Non-integer value in tuning" >> return Nothing
+          _ -> warn "Couldn't read DTA-snippet tuning format" >> return Nothing
+  tuneGtr <- inside "Reading pro guitar tuning" $ readTuning C3.proGuitarTuning "real_guitar_tuning"
+  tuneBass <- inside "Reading pro bass tuning" $ readTuning C3.proBassTuning4 "real_bass_tuning"
 
   stackIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
