@@ -156,10 +156,11 @@ importFoF detectBasicDrums src dest = do
       d3 = "drums_3.ogg"
       d4 = "drums_4.ogg"
       (drumsAudio, kickAudio, snareAudio)
-        | all (`elem` audioFiles) [d1, d2, d3, d4] = ([d3, d4], [d1], [d2])
-        | all (`elem` audioFiles) [d1, d2, d3] = ([d3], [d1], [d2])
-        | d0 `elem` audioFiles = ([d0], [], [])
-        | otherwise = ([], [], [])
+        | all (`elem` audioFiles) [d1, d2, d3, d4] = ([d3, d4], [d1], [d2]) -- GH config with separate RBG vs YO
+        | all (`elem` audioFiles) [d1, d2, d3] = ([d3], [d1], [d2]) -- RB drum mix 1, 2, or 3
+        | all (`elem` audioFiles) [d1, d2] = ([d2], [d1], []) -- RB drum mix 4
+        | d0 `elem` audioFiles = ([d0], [], []) -- RB drum mix 0
+        | otherwise = (filter (`elem` audioFiles) [d1, d2, d3, d4], [], []) -- either no drums, or weird configuration
       songAudio = case audioFiles of
         ["guitar.ogg"] -> ["guitar.ogg"]
         _              -> filter (== "song.ogg") audioFiles
