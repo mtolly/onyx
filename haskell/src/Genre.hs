@@ -72,9 +72,10 @@ interpretGenre mg ms = let
         "hair" -> findDoubleMaybe "metal" "hair"
         "speed" -> findDoubleMaybe "metal" "speed"
         "thrash" -> findDoubleMaybe "metal" "thrash"
-        "darkwave" -> findDoubleMaybe "newwave" "darkwave"
-        "electroclash" -> findDoubleMaybe "newwave" "electroclash"
-        "synthpop" -> findDoubleMaybe "newwave" "synthpop"
+        "darkwave" -> findDoubleMaybe "new_wave" "darkwave"
+        "electroclash" -> findDoubleMaybe "new_wave" "electroclash"
+        "synth" -> findDoubleMaybe "new_wave" "synthpop"
+        "synthpop" -> findDoubleMaybe "new_wave" "synthpop"
         "ambient" -> findDoubleMaybe "popdanceelectronic" "ambient"
         "breakbeat" -> findDoubleMaybe "popdanceelectronic" "breakbeat"
         "chiptune" -> findDoubleMaybe "popdanceelectronic" "chiptune"
@@ -161,7 +162,7 @@ magmaV1Genre p@(g, s) = case g of
   "jrock" -> ("rock", "rock")
   "latin" -> ("other", "other")
   "metal" -> p
-  "newwave" -> p
+  "new_wave" -> p
   "novelty" -> p
   "numetal" -> p
   "popdanceelectronic" -> case s of
@@ -300,13 +301,12 @@ allGenres =
     , Subgenre "thrash" "Thrash"
     , Subgenre "other" "Other"
     ]
-  , Genre "newwave" "New Wave"
+  , Genre "new_wave" "New Wave"
     [ Subgenre "darkwave" "Dark Wave"
     , Subgenre "electroclash" "Electroclash"
-    , Subgenre "newwave" "New Wave"
-    , Subgenre "synthpop" "Synthpop"
+    , Subgenre "new_wave" "New Wave"
+    , Subgenre "synth" "Synthpop"
     , Subgenre "other" "Other"
-    -- TODO: saw ('genre' 'new_wave') ('sub_genre' 'subgenre_synth') in Confury's Night of Fate
     ]
   , Genre "novelty" "Novelty"
     [ Subgenre "novelty" "Novelty"
@@ -410,7 +410,7 @@ defaultSubgenre = \case
   "jrock" -> "jrock"
   "latin" -> "latin"
   "metal" -> "metal"
-  "newwave" -> "newwave"
+  "new_wave" -> "new_wave"
   "novelty" -> "novelty"
   "numetal" -> "numetal"
   "popdanceelectronic" -> "other"
