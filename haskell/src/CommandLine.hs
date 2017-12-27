@@ -125,8 +125,14 @@ copyDirRecursive src dst = do
         pathTo = dst </> ent
     isDir <- stackIO $ Dir.doesDirectoryExist pathFrom
     if isDir
-      then copyDirRecursive       pathFrom pathTo
-      else stackIO $ Dir.copyFile pathFrom pathTo
+      then copyDirRecursive pathFrom pathTo
+      else stackIO $ do
+        Dir.copyFile pathFrom pathTo
+        -- force r/w permissions due to X360 requiring it
+        perm <- Dir.getPermissions pathTo
+        Dir.setPermissions pathTo
+          $ Dir.setOwnerReadable True
+          $ Dir.setOwnerWritable True perm
 
 data Command = Command
   { commandWord  :: T.Text
@@ -744,7 +750,12 @@ commands =
             $   (\f -> trimFileName f 42 "" suffix) . dropTrailingPathSeparator
             <$> stackIO (Dir.makeAbsolute dir)
           (title, desc) <- getInfoForSTFS dir stfs
-          pkg title desc dir stfs
+          tempDir "onyx_stfs" $ \tmp -> do
+            -- because X360 fails if the files aren't writable,
+            -- as a hack we copy everything to a new dir,
+            -- and force r/w permissions (see copyDirRecursive)
+            copyDirRecursive dir tmp
+            pkg title desc tmp stfs
           return [stfs]
         False -> fatal $ "onyx stfs expected directory; given: " <> dir
       _ -> fatal $ "onyx stfs expected 1 argument, given " <> show (length files)
