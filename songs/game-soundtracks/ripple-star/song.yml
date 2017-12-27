@@ -7,11 +7,16 @@ metadata:
   genre: jazz
   subgenre: other
   year: 2000
-  author: Onyxite
+  author: Onyxite, SubDrag
   difficulty: 7
   comments:
   - "All instruments have overdrive/unison."
+  - "Thanks to SubDrag for the N64 Soundbank Tool."
 audio:
+  # Instructions for making these:
+  # - Use N64 Soundbank Tool to extract the soundfont from Kirby 64 (U)
+  # - Install Plogue sforzando
+  # - Open stems.RPP and render the top-level tracks
   stem-bass:
     file-path: stems_stems_BASS.wav
   stem-kick:
