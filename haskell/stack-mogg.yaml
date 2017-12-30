@@ -31,9 +31,8 @@ extra-deps:
 - jammittools-0.5.3.2
 - midi-util-0.2
 - rubberband-0.1.0.2
-- codec-0.2.1
 - tinyfiledialogs-0.2.0.0
-resolver: nightly-2017-11-07
+resolver: nightly-2017-12-30
 flags:
   onyxite-customs-tool:
     MoggDecrypt: true
