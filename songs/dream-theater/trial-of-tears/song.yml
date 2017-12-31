@@ -16,41 +16,226 @@ audio:
   album-track:
     md5: e39562653b1904bd99c935ca0a46b5ef
     frames: 34704936
+  jammit-nodrums:
+    expr:
+      without: [drums, jammit-track]
+  jammit-drums:
+    expr:
+      only: [Drums, jammit-track]
+  jammit-bass:
+    expr:
+      only: [Bass, jammit-track]
+  jammit-gtr1:
+    expr:
+      only: [Guitar 1, jammit-track]
+  jammit-gtr2:
+    expr:
+      only: [Guitar 2, jammit-track]
+  jammit-keys1:
+    expr:
+      only: [Keys 1, jammit-track]
+  jammit-keys2:
+    expr:
+      only: [Keys 2, jammit-track]
+  jammit-vox1:
+    expr:
+      only: [Vocal, jammit-track]
+  jammit-vox2:
+    expr:
+      only: [B Vocals, jammit-track]
+
+  jammit-vox1-unchanged:
+    expr:
+      mask:
+      - [unchanged]
+      - &vox1-mask
+        - center: 0
+          tag: unchanged
+        - center: 3:26.492
+          tag: bumped
+          fade: 0.03
+        - center: 3:32.007
+          tag: unchanged
+          fade: 0.03
+        - center: 3:32.905
+          tag: bumped
+          fade: 0.03
+        - center: 3:53.820
+          tag: unchanged
+          fade: 0.03
+      - jammit-vox1
+  jammit-vox1-bumped:
+    expr:
+      mask:
+      - [bumped]
+      - *vox1-mask
+      - jammit-vox1
+
+  jammit-backing:
+    expr:
+      mix:
+      - jammit-nodrums
+      - gain:
+        - -1
+        - mix: [jammit-keys1, jammit-keys2, jammit-gtr1, jammit-gtr2, jammit-bass, jammit-vox1, jammit-vox2]
+
+  jammit-gtr2-used:
+    expr:
+      mask:
+      - [both, only-2]
+      - &gtr-mask
+        - center: 0
+          tag: both
+        - center: 3:25.096
+          tag: only-1
+        - center: 3:54.331
+          tag: both
+        - center: 5:03.900
+          tag: only-1
+          fade: 0.03
+        - center: 5:18.706
+          tag: both
+          fade: 0.03
+        - center: 10:50.246
+          tag: only-1
+          fade: 0.03
+        - center: 10:53.484
+          tag: both
+          fade: 0.03
+        - center: 11:06.406
+          tag: only-1
+          fade: 0.03
+        - center: 11:09.861
+          tag: both
+          fade: 0.03
+        - center: 11:16.137
+          tag: only-1
+          fade: 0.03
+        - center: 12:18.217
+          tag: both
+          fade: 0.03
+      - jammit-gtr2
+  jammit-gtr2-unused:
+    expr:
+      mask:
+      - [only-1]
+      - *gtr-mask
+      - jammit-gtr2
+
+  jammit-keys1-used:
+    expr:
+      mask:
+      - [both, only-1]
+      - &keys-mask
+        - center: 0
+          tag: only-1
+        - center: 3:08.700
+          tag: both
+          fade: 0.03
+        - center: 4:10.687
+          tag: only-1
+          fade: 0.03
+        - center: 4:14.827
+          tag: both
+          fade: 0.03
+        - center: 10:42.976
+          tag: only-2
+          fade: 0.03
+        - center: 11:16.243
+          tag: only-1
+          fade: 0.03
+        - center: 11:34.695
+          tag: only-2
+          fade: 0.03
+        - center: 12:26.387
+          tag: both
+          fade: 3
+      - jammit-keys1
+  jammit-keys1-unused:
+    expr:
+      mask:
+      - [only-2]
+      - *keys-mask
+      - jammit-keys1
+  jammit-keys2-used:
+    expr:
+      mask:
+      - [both, only-2]
+      - *keys-mask
+      - jammit-keys2
+  jammit-keys2-unused:
+    expr:
+      mask:
+      - [only-1]
+      - *keys-mask
+      - jammit-keys2
+
+  jammit-game-vox:
+    expr:
+      mix:
+      - jammit-vox1-unchanged
+      - gain:
+        - 1.25
+        - jammit-vox1-bumped
+      - jammit-vox2
+  jammit-game-gtr:
+    expr:
+      mix:
+      - jammit-gtr1
+      - jammit-gtr2-used
+  jammit-game-keys:
+    expr:
+      mix:
+      - jammit-keys1-used
+      - jammit-keys2-used
+  jammit-game-song:
+    expr:
+      mix:
+      - mask:
+        - [sound]
+        - - center: 0
+            tag: noise
+          - center: 3:08.700
+            tag: sound
+          - center: 3:26.124
+            tag: noise
+          - center: 3:54.280
+            tag: sound
+          - center: 4:47.688
+            tag: noise
+          - center: 5:11.310
+            tag: sound
+          - center: 5:19.053
+            tag: noise
+          - center: 9:13.427
+            tag: sound
+          - center: 9:14.022
+            tag: noise
+          - center: 9:54.606
+            tag: sound
+          - center: 10:46.308
+            tag: noise
+          - center: 11:16.118
+            tag: sound
+          - center: 12:05.340
+            tag: noise
+        - jammit-backing
+      - jammit-gtr2-unused
+      - jammit-keys1-unused
+      - jammit-keys2-unused
+
 jammit:
   jammit-track: {}
 plans:
   jammit:
-    # TODO make gtr and keys stems from authored parts
     parts:
-      drums:
-        only: [Drums, jammit-track]
-      bass:
-        only: [Bass, jammit-track]
-      vocal1:
-        only: [Vocal 1, jammit-track]
-      vocal2:
-        only: [Vocal 2, jammit-track]
-      keys1:
-        only: [Keys 1, jammit-track]
-      keys2:
-        only: [Keys 2, jammit-track]
-      guitar1:
-        only: [Guitar 1, jammit-track]
-      guitar2:
-        only: [Guitar 2, jammit-track]
-    song:
-      mix:
-      - without: [drums, jammit-track]
-      - gain:
-        - -1
-        - mix:
-          - only: [Keys 1, jammit-track]
-          - only: [Keys 2, jammit-track]
-          - only: [Guitar 1, jammit-track]
-          - only: [Guitar 2, jammit-track]
-          - only: [Vocal 1, jammit-track]
-          - only: [Vocal 2, jammit-track]
-          - only: [Bass, jammit-track]
+      drums: jammit-drums
+      bass: jammit-bass
+      vocal: jammit-game-vox
+      guitar: jammit-game-gtr
+      keys: jammit-game-keys
+    song: jammit-game-song
+  # TODO jammit-wii
   album:
     song:
       trim: [0.072, album-track]
