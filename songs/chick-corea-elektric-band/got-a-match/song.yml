@@ -17,8 +17,9 @@ audio:
 parts:
   # drums:
   #   drums: {}
-  # bass:
-  #   grybo: {}
+  bass:
+    grybo:
+      difficulty: 6
   keys:
     pro-keys:
       difficulty: 7
