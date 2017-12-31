@@ -69,6 +69,9 @@ parts:
   vocal:
     vocal: # onyxite
       count: 3
+  guitar:
+    grybo: # onyxite and vpetrucci93
+      difficulty: 6
 targets:
   rb3:
     game: rb3
