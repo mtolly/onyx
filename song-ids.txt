@@ -107,6 +107,10 @@ onyxite's C3-format Song IDs (16602xxxxx)
   rc1 sent to Jarod 2017-08-19
   v1 released 2017-10-20
 
+1660200066 Trial of Tears (Dream Theater) 1x
+1660200067 Trial of Tears (Dream Theater) 2x
+  v1 TO BE PUBLISHED
+
 BONUS SONGS (counting down from max)
 
 1660299999 hacked c3 6:00 drum chart

@@ -5,6 +5,8 @@ metadata:
   autogen-theme: Slow Jam
   rating: Family Friendly
   author: Onyxite, vpetrucci93
+  difficulty: 6
+  key: G sharp
   comments:
   - >-
     Soundscapes in the intro and outro are awful to play/chart. I did my best!
@@ -175,7 +177,7 @@ audio:
       mix:
       - jammit-vox1-unchanged
       - gain:
-        - 1.25
+        - 1.35
         - jammit-vox1-bumped
       - jammit-vox2
   jammit-game-gtr:
@@ -229,13 +231,33 @@ jammit:
 plans:
   jammit:
     parts:
-      drums: jammit-drums
-      bass: jammit-bass
-      vocal: jammit-game-vox
-      guitar: jammit-game-gtr
-      keys: jammit-game-keys
-    song: jammit-game-song
-  # TODO jammit-wii
+      drums: {gain: [1.3, jammit-drums]}
+      bass: {gain: [1.3, jammit-bass]}
+      vocal: {gain: [1.3, jammit-game-vox]}
+      guitar: {gain: [1.3, jammit-game-gtr]}
+      keys: {gain: [1.3, jammit-game-keys]}
+    song:
+      # hack due to Clone Hero bug when selecting
+      # a practice section beyond the length of one
+      # of the stems
+      take:
+      - frames: 34598080
+      - pad:
+        - end
+        - frames: 34598080
+        - gain: [1.3, jammit-game-song]
+  jammit-wii:
+    parts:
+      drums: {gain: [1.3, jammit-drums]}
+      guitar: {gain: [1.3, jammit-game-gtr]}
+    song:
+      gain:
+      - 1.3
+      - mix:
+        - jammit-game-song
+        - jammit-game-vox
+        - jammit-game-keys
+        - jammit-bass
   album:
     song:
       trim: [0.072, album-track]
@@ -254,6 +276,8 @@ parts:
   vocal:
     vocal: # onyxite
       count: 3
+      difficulty: 4
+      gender: male
   guitar:
     grybo: # onyxite and vpetrucci93
       difficulty: 6
@@ -261,10 +285,25 @@ targets:
   rb3:
     game: rb3
     plan: jammit
+    song-id: 1660200066
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: jammit
+    song-id: 1660200067
+    version: 1
+  rb3-wii:
+    game: rb3
+    plan: jammit-wii
+    song-id: 1660200066
+    version: 1
+  rb3-wii-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: jammit-wii
+    song-id: 1660200067
+    version: 1
   ps:
     game: ps
     plan: jammit
