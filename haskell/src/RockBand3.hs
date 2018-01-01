@@ -299,6 +299,8 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
               Five.HandMap     {} -> False
               Five.StrumMap    {} -> False
               Five.Tremolo     {} -> False
+              Five.DiffEvent Easy   Five.Force{} -> False
+              Five.DiffEvent Medium Five.Force{} -> False
               _                   -> True
             in  ( ffBasic $ removeGtrStuff basicKeys
                 , animRH
