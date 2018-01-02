@@ -21,6 +21,8 @@ parts:
     grybo:
       difficulty: 6
   keys:
+    grybo:
+      difficulty: 7
     pro-keys:
       difficulty: 7
 plans:
@@ -39,3 +41,5 @@ plans:
 targets:
   rb3:
     game: rb3
+  ps:
+    game: ps
