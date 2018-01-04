@@ -20,11 +20,12 @@ audio:
     file-path: ../../../sound/hihat-foot.wav
 parts:
   drums:
-    drums: {}
+    drums: {} # hippy
   bass:
-    grybo: {}
+    grybo: {} # hippy
   keys:
-    pro-keys: {}
+    grybo: {} # onyxite
+    pro-keys: {} # onyxite
 targets:
   rb3:
     game: rb3
