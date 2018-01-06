@@ -3,7 +3,7 @@ ojp3:
 - ripple star (kirby 64)
 - what about me (snarky puppy)
 > cascades (nova collective) just needs basic keys, OD
-> medieval overture (return to forever) just needs basic keys, OD
+> medieval overture (return to forever) just needs OD, audio exprs
 > got a match? (chick corea) just needs OD, drums QA
 > keytalk (hiromi) just needs rest of drums, bass, OD
 > black+white widows (soil&pimp) drums done, started rest
@@ -44,7 +44,6 @@ DREAM THEATER
 > another won - drums fixed up w/ portnoy dvd audio
 > the great debate - drums + pro keys (jarod) done
 FALLING INTO INFINITY (have all stems now)
-  - anna lee - done, seil is releasing
   > lines in the sand - needs: pro keys, basic keys, vox, OD
   > peruvian skies - drums done
 TRAIN OF THOUGHT - DRUMLESS AUDIO!!
