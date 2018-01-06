@@ -8,6 +8,7 @@ metadata:
   subgenre: fusion
   track-number: 5
   author: Onyxite
+  preview-start: prc_main_riff_1a
 audio:
   album-track:
     md5: d7860a0fcf857d2e4753e3de36cb7732
@@ -15,8 +16,11 @@ audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 parts:
-  # drums:
-  #   drums: {}
+  drums:
+    drums:
+      # still not sure of kicks from m43 to m62
+      # and kicks and snares from m115 to m130
+      difficulty: 7
   bass:
     grybo:
       difficulty: 6
