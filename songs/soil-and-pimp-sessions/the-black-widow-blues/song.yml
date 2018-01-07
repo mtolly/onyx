@@ -31,6 +31,10 @@ parts:
   drums:
     drums:
       kit: VintageKit
+  guitar:
+    grybo: {}
+  bass:
+    grybo: {}
 targets:
   rb3:
     game: rb3
