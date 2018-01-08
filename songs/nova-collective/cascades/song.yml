@@ -5,7 +5,7 @@ metadata:
   author: Onyxite
   key: E
   rating: FF
-  # TODO: jarod recommended fixing BEAT track to be 4+3+4 in most places
+  # TODO: jarod recommended fixing BEAT track to be 4+3+4 in e.g. intro
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
@@ -35,6 +35,8 @@ parts:
     grybo:
       difficulty: 6
   keys:
+    grybo:
+      difficulty: 6
     pro-keys:
       difficulty: 6
 targets:
