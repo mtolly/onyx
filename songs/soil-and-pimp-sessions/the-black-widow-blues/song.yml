@@ -37,6 +37,7 @@ parts:
     grybo: {}
   keys:
     pro-keys: {}
+    grybo: {}
 targets:
   rb3:
     game: rb3
