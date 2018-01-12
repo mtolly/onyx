@@ -10,6 +10,7 @@
 * Prevent encoding errors from reading `song.ini`, and assume UTF-8
 * Fix rare corruption of certain album art JPEG files
 * Remove Easy/Medium basic keys force notes (for TrojanNemo's MIDI validator)
+* First Mac app release; see README for requirements
 
 ## 20171220
 
