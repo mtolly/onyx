@@ -1,5 +1,16 @@
 # Version history
 
+## 20180111
+
+* Fix importing PS songs with 2 drums audio files
+  (corresponding to `[mix _ drums4]`)
+* Fix incorrect `.dta`/`.rbproj` values for the New Wave genre and its subgenres
+* Remove extra tempos and time signatures after `[end]` event
+  to prevent Magma errors
+* Prevent encoding errors from reading `song.ini`, and assume UTF-8
+* Fix rare corruption of certain album art JPEG files
+* Remove Easy/Medium basic keys force notes (for TrojanNemo's MIDI validator)
+
 ## 20171220
 
 * Web player displays lanes, glissando, and BRE
