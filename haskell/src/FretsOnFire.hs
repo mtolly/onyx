@@ -14,6 +14,7 @@ import           Data.Ini
 import           Data.List                      (sortOn)
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
+import           Data.Text.Encoding.Error       (lenientDecode)
 import           Text.Read                      (readMaybe)
 
 data Song = Song
@@ -50,7 +51,7 @@ data Song = Song
   , sysexSlider      :: Maybe Bool
   , sysexOpenBass    :: Maybe Bool
   , video            :: Maybe FilePath
-  -- TODO: video_start_time, five_lane_drums
+  -- TODO: video_start_time, five_lane_drums, loading_phrase
   } deriving (Eq, Ord, Show, Read)
 
 instance Default Song where
@@ -62,7 +63,9 @@ instance Default Song where
 
 loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
 loadSong fp = do
-  ini <- inside fp $ liftIO (readIniFile fp) >>= either fatal return
+  let readIniUTF8
+        = fmap (parseIni . TE.decodeUtf8With lenientDecode) . B.readFile
+  ini <- inside fp $ liftIO (readIniUTF8 fp) >>= either fatal return
   -- TODO make all keys lowercase before lookup
 
   let str :: T.Text -> Maybe T.Text
