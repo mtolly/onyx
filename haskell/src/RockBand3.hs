@@ -343,7 +343,18 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         "Removing some drum fills because they are too close (within 2.5 seconds)"
       return $ RTB.merge (fmap RBDrums.Activation fixedFills) notFills
 
-  return $ RBFile.Song tempos mmap
+  -- remove tempo and time signature events on or after [end].
+  -- found in some of bluzer's RB->PS converts. magma complains
+  let tempos'
+        = U.tempoMapFromBPS
+        $ U.trackTake endPosn
+        $ U.tempoMapToBPS tempos
+      mmap'
+        = U.measureMapFromTimeSigs U.Error
+        $ U.trackTake endPosn
+        $ U.measureMapToTimeSigs mmap
+
+  return $ RBFile.Song tempos' mmap'
     ( RBFile.RB3File
       { RBFile.rb3Beat = beatTrack
       , RBFile.rb3Events = eventsTrack
