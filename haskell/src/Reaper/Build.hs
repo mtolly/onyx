@@ -176,11 +176,13 @@ track lenTicks lenSecs resn trk = let
           | any (`isInfixOf` name) ["GTR S", "GTR22 S", "BASS S", "BASS22 S"]
           = (True, True, pitchProGtr)
           | any (`isSuffixOf` name) ["PART GUITAR", "PART BASS"]
-          = (True, True, previewGtr)
+          = (True, True, previewGtr >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
           | "PART KEYS" `isSuffixOf` name
-          = (True, True, previewKeys)
+          = (True, True, previewKeys >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
           | any (`isSuffixOf` name) ["PART DRUMS", "PART DRUMS_2X", "PART REAL_DRUMS_PS"]
-          = (True, True, previewDrums)
+          = (True, True, previewDrums >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
+          | any (`isInfixOf` name) ["PART REAL_GUITAR", "PART REAL_BASS"]
+          = (True, True, mutePitches 0 95 >> mutePitches 102 127 >> woodblock)
           | otherwise
           = (False, False, return ())
         mutePitches pmin pmax = do
@@ -189,52 +191,37 @@ track lenTicks lenSecs resn trk = let
             line "0.000000" $ show (pmin :: Int) : show (pmax :: Int) : words "0.000000 0.000000 0.000000 100.000000 0.000000 0.000000 127.000000 0.000000 0.000000 1.000000 0.000000 0.000000 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
-        pitchProKeys = do
-          line "BYPASS" ["0", "0", "0"]
-          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "VSTi: ReaSynth (Cockos)", "1919251321"] $ do
-            line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
-            line "AACAPwAAgD8AABAAAAA=" [] -- pro keys: tuned up one octave
+        vst label dll num enabled b64 = do
+          line "BYPASS" [if enabled then "0" else "1", "0", "0"]
+          block "VST" [label, dll, "0", label, show (num :: Integer)] b64
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
-        pitchVox = do
-          line "BYPASS" ["0", "0", "0"]
-          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "VSTi: ReaSynth (Cockos)", "1919251321"] $ do
-            line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
-            line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
-          line "FLOATPOS" ["0", "0", "0", "0"]
-          line "WAK" ["0"]
-        pitchProGtr = do
-          line "BYPASS" ["0", "0", "0"]
-          block "VST" ["VSTi: ReaSynth (Cockos)", "reasynth.vst.dylib", "0", "VSTi: ReaSynth (Cockos)", "1919251321"] $ do
-            line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA=" []
-            line "776t3g3wrd6mm8Q7F7fROqjGCz8AAAAAAAAAAM5NAD/O4BA8AAAAAAAAAD+nViw+AACAPwAAAD8AAAAA" []
-            line "AAAQAAAA" [] -- pro guitar pitches: normal tuning, square + decay
-          line "FLOATPOS" ["0", "0", "0", "0"]
-          line "WAK" ["0"]
-        previewGtr = do
-          line "BYPASS" ["0", "0", "0"]
-          block "VST" ["VSTi: RBN Preview (RBN)", "rbprev_vst.dll", "0", "VSTi: RBN Preview (RBN)", "1919053942"] $ do
-            line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
-            line "AwCqAA==" []
-            line "AAAQAAAA" []
-          line "FLOATPOS" ["0", "0", "0", "0"]
-          line "WAK" ["0"]
-        previewKeys = do
-          line "BYPASS" ["0", "0", "0"]
-          block "VST" ["VSTi: RBN Preview (RBN)", "rbprev_vst.dll", "0", "VSTi: RBN Preview (RBN)", "1919053942"] $ do
-            line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
-            line "AwOqAA==" []
-            line "AAAQAAAA" []
-          line "FLOATPOS" ["0", "0", "0", "0"]
-          line "WAK" ["0"]
-        previewDrums = do
-          line "BYPASS" ["0", "0", "0"]
-          block "VST" ["VSTi: RBN Preview (RBN)", "rbprev_vst.dll", "0", "VSTi: RBN Preview (RBN)", "1919053942"] $ do
-            line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
-            line "AwGqAA==" []
-            line "AAAQAAAA" []
-          line "FLOATPOS" ["0", "0", "0", "0"]
-          line "WAK" ["0"]
+        pitchProKeys = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 True $ do
+          line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
+          line "AACAPwAAgD8AABAAAAA=" [] -- pro keys: tuned up one octave
+        pitchVox = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 True $ do
+          line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
+          line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
+        pitchProGtr = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 True $ do
+          line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA=" []
+          line "776t3g3wrd6mm8Q7F7fROqjGCz8AAAAAAAAAAM5NAD/O4BA8AAAAAAAAAD+nViw+AACAPwAAAD8AAAAA" []
+          line "AAAQAAAA" [] -- pro guitar pitches: normal tuning, square + decay
+        woodblock = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 False $ do
+          line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA=" []
+          line "776t3g3wrd6mm8Q7F7fROgAAAAAAAAAAAAAAAFmzJj8BTB06AAAAAAAAAD8AAAAAAACAPwAAAAAAAAAA" []
+          line "AAAQAAAA" []
+        previewGtr = vst "VSTi: RBN Preview (RBN)" "rbprev_vst.dll" 1919053942 True $ do
+          line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
+          line "AwCqAA==" []
+          line "AAAQAAAA" []
+        previewKeys = vst "VSTi: RBN Preview (RBN)" "rbprev_vst.dll" 1919053942 True $ do
+          line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
+          line "AwOqAA==" []
+          line "AAAQAAAA" []
+        previewDrums = vst "VSTi: RBN Preview (RBN)" "rbprev_vst.dll" 1919053942 True $ do
+          line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
+          line "AwGqAA==" []
+          line "AAAQAAAA" []
     line "FX" [if fxActive then "1" else "0"]
     case find (\(sfx, _) -> sfx `isSuffixOf` name)
       [ ("PART DRUMS", drumNoteNames)
@@ -730,6 +717,7 @@ makeReaperIO evts tempo audios out = liftIO $ do
         rpp "REAPER_PROJECT" ["0.1", "5.0/OSX64", "1449358215"] $ do
           line "VZOOMEX" ["0"]
           line "SAMPLERATE" ["44100", "0", "0"]
+          block "METRONOME" ["6", "2"] $ return () -- disables metronome
           writeTempoTrack
           case mid of
             F.Cons F.Parallel (F.Ticks resn) (_ : trks) -> do
