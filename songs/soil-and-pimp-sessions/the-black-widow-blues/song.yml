@@ -31,13 +31,22 @@ parts:
   drums:
     drums:
       kit: VintageKit
+      difficulty: 5
   guitar:
-    grybo: {}
+    grybo:
+      difficulty: 4
   bass:
-    grybo: {}
+    grybo:
+      difficulty: 3
   keys:
-    pro-keys: {}
-    grybo: {}
+    pro-keys:
+      difficulty: 7
+    grybo:
+      difficulty: 6
+  vocal:
+    vocal:
+      count: 1
+      difficulty: 1
 targets:
   rb3:
     game: rb3

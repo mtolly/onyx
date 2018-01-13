@@ -2,10 +2,10 @@ JAZZ
 ojp3:
 - ripple star (kirby 64)
 - what about me (snarky puppy)
+- black+white widows (soil&pimp)
 > cascades (nova collective) just needs OD, beat track
 > medieval overture (return to forever) just needs OD, audio exprs
 > got a match? (chick corea) just needs OD, drums QA
-> black+white widows (soil&pimp) just needs rest of vox, OD
 > keytalk (hiromi) just needs rest of drums, bass, OD
 > leviathan (mouse on the keys) drums done, started rest (gtr strings, keys lead piano, bass backing piano)
 at least 2 parts done:
