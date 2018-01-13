@@ -5,7 +5,6 @@ metadata:
   author: Onyxite
   key: E
   rating: FF
-  # TODO: jarod recommended fixing BEAT track to be 4+3+4 in e.g. intro
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
