@@ -1,16 +1,11 @@
 metadata:
   title: Keytalk
-  artist: Hiromi
+  file-include: ../../../albums/brain.yml
   author: mazegeek999, Onyxite
-  genre: jazz
-  subgenre: contemporary
-  album: Brain
-  year: 2004
   track-number: 7
   autogen-theme: SynthPop
-  rating: FamilyFriendly
-  key: F
-  file-album-art: ../kung-fu-world-champion/cover.jpg
+  key: C
+  difficulty: 7
 audio:
   album-track:
     md5: 0833cc610715e14596c6f9be77768c92

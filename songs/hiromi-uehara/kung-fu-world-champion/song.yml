@@ -1,16 +1,10 @@
 metadata:
   title: Kung-Fu World Champion
-  artist: Hiromi # not to be confused with "Hiromi: The Trio Project"...
+  file-include: ../../../albums/brain.yml
   author: Onyxite
-  genre: jazz
-  subgenre: contemporary
-  album: Brain
-  year: 2004
   track-number: 1
   autogen-theme: SynthPop
-  rating: FamilyFriendly
   key: F
-  file-album-art: cover.jpg
   difficulty: 7
   preview-start: prc_break_1
 audio:
