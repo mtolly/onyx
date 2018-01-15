@@ -34,6 +34,12 @@ parts:
   drums:
     drums:
       difficulty: 7
+  bass:
+    pro-keys:
+      difficulty: 4
+  guitar:
+    grybo:
+      difficulty: 1
 targets:
   rb3:
     game: rb3

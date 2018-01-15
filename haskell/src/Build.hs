@@ -1743,6 +1743,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
           output <- RB3.processPS def songYaml input RBDrums.D0 $ getAudioLength planName
           saveMIDI out output
 
+        -- TODO flex parts not supported by RB3/PS
         display %> \out -> do
           song <- shakeMIDI midprocessed
           liftIO $ BL.writeFile out $ makeDisplay songYaml song

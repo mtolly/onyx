@@ -5,9 +5,9 @@ ojp3:
 - black+white widows (soil&pimp)
 - cascades (nova collective)
 - got a match? (chick corea)
-> medieval overture (return to forever) just needs OD
-> keytalk (hiromi) just needs OD, drum solo cleanup
-> leviathan (mouse on the keys) drums done, started rest (gtr strings, keys lead piano, bass backing piano)
+> medieval overture (return to forever) needs OD
+> keytalk (hiromi) needs OD, drum solo cleanup
+> leviathan (mouse on the keys) needs grybo bass, rest of pro keys, grybo keys, OD
 at least 2 parts done:
 > thoughts (kaz rodriguez) drums and bass done
 > the chicken (gavin harrison) drums/bass/pk done; needs gtr, keys, OD, fix tempo map

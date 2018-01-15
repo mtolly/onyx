@@ -2,14 +2,17 @@
 {-# LANGUAGE LambdaCase    #-}
 module ProKeysRanges (completeFile, completeRanges, closeShifts, closeShiftsFile) where
 
+import           Control.Monad                    (guard)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
 import           Data.List                        (sortOn)
+import qualified Data.Map                         as Map
 import           Data.Maybe                       (listToMaybe, mapMaybe)
 import qualified Data.Set                         as Set
+import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
 import qualified RockBand.File                    as RBFile
@@ -125,22 +128,25 @@ keyInPreRange RangeG p = RedYellow Fs <= p && p <= BlueGreen B
 keyInPreRange RangeA p = RedYellow Gs <= p && p <= OrangeC
 
 closeShiftsFile :: RBFile.Song (RBFile.OnyxFile U.Beats) -> String
-closeShiftsFile song = let
-  xpk = RBFile.flexPartRealKeysX $ RBFile.getFlexPart RBFile.FlexKeys $ RBFile.s_tracks song
-  close = U.unapplyTempoTrack (RBFile.s_tempos song) $ closeShifts 1 $ U.applyTempoTrack (RBFile.s_tempos song) xpk
-  showSeconds secs = show (realToFrac secs :: Milli) ++ "s"
-  showClose (t, (rng1, rng2, dt, p)) = unwords
-    [ showTimestamp (U.applyTempoMap (RBFile.s_tempos song) t) ++ ":"
-    , "expert pro keys shift to"
-    , show rng2
-    , "is"
-    , showSeconds dt
-    , "before"
-    , show p ++ ","
-    , "which is outside previous range"
-    , show rng1
-    ]
-  in unlines $ map showClose $ ATB.toPairList $ RTB.toAbsoluteEventList 0 close
+closeShiftsFile song = unlines $ do
+  (partName, part) <- Map.toAscList $ RBFile.onyxFlexParts $ RBFile.s_tracks song
+  let xpk = RBFile.flexPartRealKeysX part
+  guard $ not $ null xpk
+  let close = U.unapplyTempoTrack (RBFile.s_tempos song) $ closeShifts 1 $ U.applyTempoTrack (RBFile.s_tempos song) xpk
+      showSeconds secs = show (realToFrac secs :: Milli) ++ "s"
+      showClose (t, (rng1, rng2, dt, p)) = unwords
+        [ showTimestamp (U.applyTempoMap (RBFile.s_tempos song) t) ++ ":"
+        , "expert pro keys shift to"
+        , show rng2
+        , "is"
+        , showSeconds dt
+        , "before"
+        , show p ++ ","
+        , "which is outside previous range"
+        , show rng1
+        ]
+      surround x = ["[" ++ T.unpack (RBFile.getPartName partName) ++ "]"] ++ x ++ []
+  surround $ map showClose $ ATB.toPairList $ RTB.toAbsoluteEventList 0 close
 
 closeShifts :: U.Seconds -> RTB.T U.Seconds Event -> RTB.T U.Seconds (LaneRange, LaneRange, U.Seconds, Pitch)
 closeShifts threshold rtb = let
