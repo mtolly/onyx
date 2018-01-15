@@ -39,27 +39,79 @@ plans:
         pad:
         - 2.634
         - only: [Guitar 1, jammit-track]
-      # TODO make keys audio
-      keys1:
-        pad:
-        - 2.634
-        - only: [Keys 1, jammit-track]
-      keys2:
-        pad:
-        - 2.634
-        - only: [Keys 2, jammit-track]
+      keys:
+        expr:
+          pad:
+          - 2.634
+          - mix:
+            - mask:
+              - [both, only-1]
+              - &keys-mask
+                - center: 0
+                  tag: both
+                - center: 1:11.366
+                  tag: only-2
+                  fade: 0.03
+                - center: 2:00.962
+                  tag: both
+                  fade: 0.03
+                - center: 2:51.104
+                  tag: only-1
+                  fade: 0.03
+                - center: 3:01.366
+                  tag: both
+                  fade: 0.03
+                - center: 4:58.317
+                  tag: only-1
+                  fade: 0.03
+                - center: 5:01.245
+                  tag: both
+                  fade: 0.03
+              - only: [Keys 1, jammit-track]
+            - mask:
+              - [both, only-2]
+              - *keys-mask
+              - only: [Keys 2, jammit-track]
     song:
       pad:
-      - 2.634
-      - mix:
-        - without: [drums, jammit-track]
-        - gain:
-          - -1
-          - mix:
-            - only: [Bass 1, jammit-track]
-            - only: [Bass 2, jammit-track]
-            - only: [Guitar 1, jammit-track]
+      - end
+      - 15 # hack for CH bug with short stems
+      - pad:
+        - 2.634
+        - mix:
+          - mask:
+            - [sound]
+            - - center: 0
+                tag: noise
+              - center: 1:37.188
+                tag: sound
+              - center: 2:12.520
+                tag: noise
+              - center: 2:30.645
+                tag: sound
+              - center: 2:57.614
+                tag: noise
+              - center: 4:03.763
+                tag: sound
+              - center: 4:27.462
+                tag: noise
+            - mix:
+              - without: [drums, jammit-track]
+              - gain:
+                - -1
+                - mix:
+                  - only: [Bass 1, jammit-track]
+                  - only: [Bass 2, jammit-track]
+                  - only: [Guitar 1, jammit-track]
+                  - only: [Keys 1, jammit-track]
+                  - only: [Keys 2, jammit-track]
+          - mask:
+            - [only-2]
+            - *keys-mask
             - only: [Keys 1, jammit-track]
+          - mask:
+            - [only-1]
+            - *keys-mask
             - only: [Keys 2, jammit-track]
 parts:
   drums:
