@@ -51,6 +51,8 @@ parts:
   keys:
     pro-keys: {} # mazegeek999
     grybo: {} # mazegeek999
+  bass:
+    grybo: {} # onyxite
 targets:
   rb3:
     game: rb3
