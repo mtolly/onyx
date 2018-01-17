@@ -57,6 +57,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
 SYSTEMATIC CHAOS
   new release with numeric song IDs, lipsync, video backgrounds, other minor fixes
   > forsaken - fix basic gtr/bass to match pro
+  - TDEN: fixed end of gtr solo, added lots of LH notes on pro keys
 SOLO STUFF
   > go wayne earl (rudess) needs polish + basic keys
   > time crunch (rudess) drums done, pkeys started
