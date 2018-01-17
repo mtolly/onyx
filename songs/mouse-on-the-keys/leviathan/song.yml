@@ -35,6 +35,8 @@ parts:
     drums:
       difficulty: 7
   bass:
+    grybo:
+      difficulty: 4
     pro-keys:
       difficulty: 4
   guitar:
@@ -43,5 +45,13 @@ parts:
 targets:
   rb3:
     game: rb3
+  rb3-flip:
+    game: rb3
+    keys: bass
+    bass: keys
   ps:
     game: ps
+  ps-flip:
+    game: ps
+    keys: bass
+    bass: keys
