@@ -7,7 +7,7 @@ ojp3:
 - got a match? (chick corea)
 - keytalk (hiromi) send updated bass/drums to jarod - maybe add more unisons?
 > medieval overture (return to forever) needs OD
-> leviathan (mouse on the keys) needs rest of pro keys, grybo keys, OD
+> leviathan (mouse on the keys) needs rest of basic keys, OD
 at least 2 parts done:
 > thoughts (kaz rodriguez) drums and bass done
 > the chicken (gavin harrison) drums/bass/pk done; needs gtr, keys, OD, fix tempo map
