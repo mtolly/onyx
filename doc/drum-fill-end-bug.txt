@@ -1,0 +1,72 @@
+A bug was observed where a fill that ended a 8th triplet or 16th triplet before
+the measure line wouldn't cover a simultaneous drum note correctly.
+After experimentation, I've determined that the end of a fill will always be
+rounded to the nearest 64th note (30 ticks).
+The following table shows the behavior of various distances in ticks between
+a fill end (with simultaneous notes) and the end of a 4/4 measure.
+Note that Magma attempts to prevent the buggy behavior, but it only does so
+if your fill is between 1 and 8 ticks from the closest 64th note.
+
+numbers are the number of ticks from the end of the measure
+120 = 1/16 note
+160 = 1/8 note triplet
+early means glowing green note comes before the notes it should cover up
+late means glowing green note comes after the notes it should cover up
+
+110 early
+111 early
+112 failed magma (thinks fill ends at 120)
+113 failed magma (thinks fill ends at 120)
+114 failed magma (thinks fill ends at 120)
+115 failed magma (thinks fill ends at 120)
+116 failed magma (thinks fill ends at 120)
+117 failed magma (thinks fill ends at 120)
+118 failed magma (thinks fill ends at 120)
+119 failed magma (thinks fill ends at 120)
+120 ok
+121 failed magma (thinks fill ends at 120)
+122 failed magma (thinks fill ends at 120)
+123 failed magma (thinks fill ends at 120)
+124 failed magma (thinks fill ends at 120)
+125 failed magma (thinks fill ends at 120)
+126 failed magma (thinks fill ends at 120)
+127 failed magma (thinks fill ends at 120)
+128 failed magma (thinks fill ends at 120)
+129 late
+130 late
+131 late
+132 late
+133 late
+134 late
+135 late <-- halfway point
+136 early
+137 early
+138 early
+139 early
+140 early
+141 early
+142 failed magma (thinks fill ends at 150)
+143 failed magma (thinks fill ends at 150)
+144 failed magma (thinks fill ends at 150)
+145 failed magma (thinks fill ends at 150)
+146 failed magma (thinks fill ends at 150)
+147 failed magma (thinks fill ends at 150)
+148 failed magma (thinks fill ends at 150)
+149 failed magma (thinks fill ends at 150)
+150 ok
+151 failed magma (thinks fill ends at 150)
+152 failed magma (thinks fill ends at 150)
+153 failed magma (thinks fill ends at 150)
+154 failed magma (thinks fill ends at 150)
+155 failed magma (thinks fill ends at 150)
+156 failed magma (thinks fill ends at 150)
+157 failed magma (thinks fill ends at 150)
+158 failed magma (thinks fill ends at 150)
+159 late
+160 late
+161 late
+162 late
+163 late
+164 late
+165 late <-- halfway point
+166 early
