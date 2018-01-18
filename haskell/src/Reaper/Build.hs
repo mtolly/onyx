@@ -173,7 +173,7 @@ track lenTicks lenSecs resn trk = let
           = (False, True, mutePitches 0 47 >> mutePitches 73 127 >> pitchProKeys)
           | any (`isSuffixOf` name) ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
           = (False, True, mutePitches 0 35 >> mutePitches 85 127 >> pitchVox)
-          | any (`isInfixOf` name) ["GTR S", "GTR22 S", "BASS S", "BASS22 S"]
+          | any (`isInfixOf` name) ["GTR_S", "GTR22_S", "BASS_S", "BASS22_S"]
           = (True, True, pitchProGtr)
           | any (`isSuffixOf` name) ["PART GUITAR", "PART BASS"]
           = (True, True, previewGtr >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
