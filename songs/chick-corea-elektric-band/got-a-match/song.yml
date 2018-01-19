@@ -34,7 +34,7 @@ plans:
     song:
       pad:
       - 2.710
-      - gain: [2, album-track]
+      - gain: [2.2, album-track]
     countin:
       0|0: hihat
       0|2: hihat
