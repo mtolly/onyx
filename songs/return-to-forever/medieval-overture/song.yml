@@ -11,6 +11,7 @@ metadata:
   year: 1976
   file-album-art: cover.jpg
   preview-start: prc_big_riff
+  difficulty: 6
 audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav

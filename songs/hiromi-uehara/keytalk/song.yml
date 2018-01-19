@@ -41,14 +41,18 @@ plans:
     #   ch6:
     #     pad: [4.567, channels: [[5], surround]]
 parts:
+  # OD by mazegeek999
   drums:
-    drums: {} # onyxite
+    drums: # onyxite
+      difficulty: 7
   keys:
-    pro-keys: {} # mazegeek999
-    grybo: {} # mazegeek999
+    pro-keys: # mazegeek999
+      difficulty: 7
+    grybo: # mazegeek999
+      difficulty: 6
   bass:
-    grybo: {} # onyxite
-  # od by mazegeek999
+    grybo: # onyxite
+      difficulty: 5
 targets:
   rb3:
     game: rb3

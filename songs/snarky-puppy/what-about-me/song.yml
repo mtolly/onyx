@@ -4,6 +4,7 @@ metadata:
   track-number: 2
   author: Onyxite
   file-include: ../../../albums/we-like-it-here.yml
+  difficulty: 6
 audio:
   # https://snarkypuppyeu.bandcamp.com/album/we-like-it-here
   album-prev:

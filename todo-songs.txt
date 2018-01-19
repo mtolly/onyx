@@ -1,13 +1,19 @@
 JAZZ
+
 ojp3:
 - ripple star (kirby 64)
 - what about me (snarky puppy)
 - black+white widows (soil&pimp)
 - cascades (nova collective)
 - got a match? (chick corea)
-- keytalk (hiromi) send updated bass/drums to jarod - maybe add more unisons?
+- keytalk (hiromi) sent to jarod - will check bass/drums, add more OD. also need to use new knowledge to fix fills ending on triplet
 > medieval overture (return to forever) needs OD
-> leviathan (mouse on the keys) needs rest of basic keys, OD
+> leviathan (mouse on the keys) needs OD
+last tasks:
+- chart under all 3 BREs
+- widows compile through magma project (dryvox), rest can be onyx cons
+- record videos, maybe do combined video for leviathan's double pro keys?
+
 at least 2 parts done:
 > thoughts (kaz rodriguez) drums and bass done
 > the chicken (gavin harrison) drums/bass/pk done; needs gtr, keys, OD, fix tempo map

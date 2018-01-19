@@ -5,6 +5,7 @@ metadata:
   author: Onyxite
   rating: FamilyFriendly
   key: B
+  difficulty: 4
 audio:
   album-black:
     md5: 4dadfd4b1235c7c77f9ba50d7229427d
@@ -31,7 +32,7 @@ parts:
   drums:
     drums:
       kit: VintageKit
-      difficulty: 5
+      difficulty: 4
   guitar:
     grybo:
       difficulty: 4
@@ -40,9 +41,9 @@ parts:
       difficulty: 3
   keys:
     pro-keys:
-      difficulty: 7
-    grybo:
       difficulty: 6
+    grybo:
+      difficulty: 5
   vocal:
     vocal:
       count: 1
