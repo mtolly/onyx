@@ -1,0 +1,37 @@
+metadata:
+  title: Dancing Machines
+  file-include: ../../../albums/the-further-side.yml
+  track-number: 1
+  rating: FF
+  author: BlazinBlitzer, Onyxite
+  comments:
+  - "WIP: new tempo map and then porting a drums chart by BlazinBlitzer."
+audio:
+  album-track:
+    # https://novacollectivefusion.bandcamp.com
+    md5: dd3902502eaae09c2c400c4c133bce3f
+    frames: 25881408
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
+    song:
+      pad: [3.816, album-track]
+parts:
+  drums:
+    drums: {}
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
