@@ -245,15 +245,21 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         Nothing -> (RTB.empty, RTB.empty)
         Just pg -> let
           src = RBFile.getFlexPart guitarPart trks
+          tuning = zipWith (+) ProGtr.standardGuitar $ case pgTuning pg of
+            []   -> repeat 0
+            offs -> offs
           f = (if pgFixFreeform pg then fixFreeformPG else id)
-            . ProGtr.copyExpert . ProGtr.autoHandPosition
+            . ProGtr.copyExpert . ProGtr.autoHandPosition . ProGtr.autoChordRoot tuning
           in (f $ RBFile.flexPartRealGuitar src, f $ RBFile.flexPartRealGuitar22 src)
       (proBass, proBass22) = case getPart bassPart songYaml >>= partProGuitar of
         Nothing -> (RTB.empty, RTB.empty)
         Just pg -> let
           src = RBFile.getFlexPart bassPart trks
+          tuning = zipWith (+) ProGtr.standardBass $ case pgTuning pg of
+            []   -> repeat 0
+            offs -> offs
           f = (if pgFixFreeform pg then fixFreeformPG else id)
-            . ProGtr.copyExpert . ProGtr.autoHandPosition
+            . ProGtr.copyExpert . ProGtr.autoHandPosition . ProGtr.autoChordRoot tuning
           in (f $ RBFile.flexPartRealGuitar src, f $ RBFile.flexPartRealGuitar22 src)
 
       keysPart = either rb3_Keys ps_Keys target

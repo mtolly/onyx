@@ -302,7 +302,9 @@ standardGuitar :: [Int]
 standardGuitar = [40, 45, 50, 55, 59, 64]
 
 standardBass :: [Int]
-standardBass = [28, 33, 38, 43, 47, 52] -- last 2 are just gtr one octave down, need to test in game
+standardBass = [28, 33, 38, 43, 47, 52]
+-- last 2 are just gtr one octave down, as observed in game
+-- (these aren't super useful, and can't be changed by .dta tuning)
 
 playGuitar :: [Int] -> RTB.T U.Beats DiffEvent -> [(GtrString, RTB.T U.Beats E.T)]
 playGuitar tuning evts = let
@@ -324,8 +326,6 @@ playGuitar tuning evts = let
 
 autoHandPosition :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
 autoHandPosition rtb = let
-  isHandPosition (HandPosition _) = True
-  isHandPosition _                = False
   mapInstant evts = let
     frets = do
       (fret, ntype) <- evts >>= \case
@@ -335,9 +335,27 @@ autoHandPosition rtb = let
       guard $ ntype /= ArpeggioForm
       return fret
     in case frets of
-      [] -> evts
-      _  -> HandPosition (minimum frets) : evts
-  in if any isHandPosition rtb
+      []     -> evts
+      f : fs -> HandPosition (foldr min f fs) : evts
+  in if any (\case HandPosition{} -> True; _ -> False) rtb
+    then rtb
+    else RTB.flatten $ fmap mapInstant $ RTB.collectCoincident rtb
+
+autoChordRoot :: (NNC.C t) => [Int] -> RTB.T t Event -> RTB.T t Event
+autoChordRoot tuning rtb = let
+  getPitch str fret = (tuning !! fromEnum str) + fret
+  -- TODO verify that this doesn't do weird things
+  -- if there's a different chord in the middle of an arpeggio section
+  mapInstant evts = let
+    pitches = evts >>= \case
+      DiffEvent _ (Note (NoteOn fret (str, _))) -> [getPitch str fret]
+      DiffEvent _ (Note (Blip   fret (str, _))) -> [getPitch str fret]
+      _ -> []
+    in case pitches of
+      []     -> evts
+      p : ps -> ChordRoot (toEnum $ foldr min p ps `rem` 12) : evts
+  -- TODO maybe remove duplicate roots
+  in if any (\case ChordRoot{} -> True; _ -> False) rtb
     then rtb
     else RTB.flatten $ fmap mapInstant $ RTB.collectCoincident rtb
 
