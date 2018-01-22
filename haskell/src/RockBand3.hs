@@ -22,7 +22,6 @@ import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as Five
-import qualified RockBand.GHL                     as GHL
 import qualified RockBand.ProGuitar               as ProGtr
 import qualified RockBand.ProKeys                 as ProKeys
 import           RockBand.Sections                (getSection, makePSSection)
@@ -190,14 +189,14 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             $ RBFile.flexFiveButton src
           ht = gryboHopoThreshold grybo
           algo = if RBFile.flexFiveIsKeys src then HOPOsRBKeys else HOPOsRBGuitar
-          forRB3 = Five.eachDifficulty
+          forRB3 = eachDifficulty
             $ emit5
             . fromClosed
             . noTaps
             . (if toKeys then id else noExtendedSustains standardBlipThreshold standardSustainGap)
             . strumHOPOTap algo (fromIntegral ht / 480)
             . closeNotes
-          forPS = Five.eachDifficulty
+          forPS = eachDifficulty
             $ emit5
             . strumHOPOTap algo (fromIntegral ht / 480)
             . openNotes
@@ -227,40 +226,36 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
 
       guitarGHL = case getPart guitarPart songYaml >>= partGHL of
         Nothing  -> RTB.empty
-        Just ghl -> GHL.eachDifficulty
+        Just ghl -> eachDifficulty
           ( emit6
           . strumHOPOTap HOPOsRBGuitar (fromIntegral (ghlHopoThreshold ghl) / 480)
           . ghlNotes
           ) $ RBFile.flexGHL $ RBFile.getFlexPart guitarPart trks
       bassGHL = case getPart bassPart songYaml >>= partGHL of
         Nothing -> RTB.empty
-        Just ghl -> GHL.eachDifficulty
+        Just ghl -> eachDifficulty
           ( emit6
           . strumHOPOTap HOPOsRBGuitar (fromIntegral (ghlHopoThreshold ghl) / 480)
           . ghlNotes
           ) $ RBFile.flexGHL $ RBFile.getFlexPart bassPart trks
 
       -- TODO: pgHopoThreshold
-      (proGtr, proGtr22) = case getPart guitarPart songYaml >>= partProGuitar of
+      makeProGtrTracks fpart = case getPart fpart songYaml >>= partProGuitar of
         Nothing -> (RTB.empty, RTB.empty)
         Just pg -> let
-          src = RBFile.getFlexPart guitarPart trks
+          src = RBFile.getFlexPart fpart trks
           tuning = zipWith (+) ProGtr.standardGuitar $ case pgTuning pg of
             []   -> repeat 0
             offs -> offs
           f = (if pgFixFreeform pg then fixFreeformPG else id)
-            . ProGtr.copyExpert . ProGtr.autoHandPosition . ProGtr.autoChordRoot tuning
-          in (f $ RBFile.flexPartRealGuitar src, f $ RBFile.flexPartRealGuitar22 src)
-      (proBass, proBass22) = case getPart bassPart songYaml >>= partProGuitar of
-        Nothing -> (RTB.empty, RTB.empty)
-        Just pg -> let
-          src = RBFile.getFlexPart bassPart trks
-          tuning = zipWith (+) ProGtr.standardBass $ case pgTuning pg of
-            []   -> repeat 0
-            offs -> offs
-          f = (if pgFixFreeform pg then fixFreeformPG else id)
-            . ProGtr.copyExpert . ProGtr.autoHandPosition . ProGtr.autoChordRoot tuning
-          in (f $ RBFile.flexPartRealGuitar src, f $ RBFile.flexPartRealGuitar22 src)
+            . copyExpert . ProGtr.autoHandPosition . ProGtr.autoChordRoot tuning
+          src17 = RBFile.flexPartRealGuitar   src
+          src22 = RBFile.flexPartRealGuitar22 src
+          mustang = f $ ProGtr.lowerOctaves 17 $ if RTB.null src17 then src22 else src17
+          squier  = f $ ProGtr.lowerOctaves 22 $ if RTB.null src22 then src17 else src22
+          in (mustang, if mustang == squier then RTB.empty else squier)
+      (proGtr , proGtr22 ) = makeProGtrTracks guitarPart
+      (proBass, proBass22) = makeProGtrTracks bassPart
 
       keysPart = either rb3_Keys ps_Keys target
       (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = case getPart keysPart songYaml of

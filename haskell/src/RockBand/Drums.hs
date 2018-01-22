@@ -1,13 +1,14 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveFoldable     #-}
-{-# LANGUAGE DeriveFunctor      #-}
-{-# LANGUAGE DeriveTraversable  #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE PatternSynonyms    #-}
-{-# LANGUAGE TemplateHaskell    #-}
-{-# LANGUAGE TupleSections      #-}
+{-# LANGUAGE DeriveDataTypeable    #-}
+{-# LANGUAGE DeriveFoldable        #-}
+{-# LANGUAGE DeriveFunctor         #-}
+{-# LANGUAGE DeriveTraversable     #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TupleSections         #-}
 module RockBand.Drums where
 
 import           Data.Data
@@ -191,10 +192,11 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |])
   , commandPair ["ride_side_false"] [p| Animation (RideSide False) |]
   ]
 
-copyExpert :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
-copyExpert = baseCopyExpert DiffEvent $ \case
-  DiffEvent d e -> Just (d, e)
-  _             -> Nothing
+instance HasDiffEvent DiffEvent Event where
+  makeDiffEvent = DiffEvent
+  unmakeDiffEvent = \case
+    DiffEvent d e -> Just (d, e)
+    _             -> Nothing
 
 data DrumState = DrumState
   { yellowType  :: ProType

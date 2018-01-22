@@ -1,7 +1,8 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE DeriveDataTypeable    #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE TemplateHaskell       #-}
 module RockBand.ProGuitar where
 
 import           Control.Monad                    (guard)
@@ -19,10 +20,12 @@ import           RockBand.FiveButton              (StrumHOPO (..))
 import           RockBand.Parse
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
+import           Text.Read                        (readMaybe)
 
 data Event
   = TrainerGtr   Trainer
   | TrainerBass  Trainer
+  | OnyxOctave   GtrFret -- "move these notes 12 frets down if needed" section
   | HandPosition GtrFret
   | ChordRoot    Key
   | NoChordNames Bool
@@ -296,6 +299,19 @@ instanceMIDIEvent [t| Event |] Nothing $ let
                 Just str -> [x, str]
           |]
         )
+      -- custom onyx event
+      , ( [e| one $ firstEventWhich $ \e -> do
+            cmd <- readCommand' e
+            let _ = cmd :: [T.Text]
+            case cmd of
+              ["onyx", "octave", n] -> OnyxOctave <$> readMaybe (T.unpack n)
+              _                     -> Nothing
+          |]
+        , [e| \case
+            OnyxOctave n -> RTB.singleton 0 $ showCommand'
+              ["onyx", "octave", T.pack $ show n]
+          |]
+        )
       ]
 
 standardGuitar :: [Int]
@@ -324,6 +340,7 @@ playGuitar tuning evts = let
     in U.trackJoin $ fmap playNote stringNotes
   in map (\s -> (s, playString s)) [S6 .. S1]
 
+-- | If there are no hand positions, adds one to every note.
 autoHandPosition :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
 autoHandPosition rtb = let
   mapInstant evts = let
@@ -335,12 +352,16 @@ autoHandPosition rtb = let
       guard $ ntype /= ArpeggioForm
       return fret
     in case frets of
-      []     -> evts
-      f : fs -> HandPosition (foldr min f fs) : evts
+      [] -> evts
+      _  -> case filter (/= 0) frets of
+        []     -> HandPosition 0 : evts
+        f : fs -> HandPosition (foldr min f fs) : evts
   in if any (\case HandPosition{} -> True; _ -> False) rtb
     then rtb
     else RTB.flatten $ fmap mapInstant $ RTB.collectCoincident rtb
 
+-- | If there are no chord root notes, sets each chord to have its lowest
+-- pitch as the root.
 autoChordRoot :: (NNC.C t) => [Int] -> RTB.T t Event -> RTB.T t Event
 autoChordRoot tuning rtb = let
   getPitch str fret = (tuning !! fromEnum str) + fret
@@ -359,10 +380,33 @@ autoChordRoot tuning rtb = let
     then rtb
     else RTB.flatten $ fmap mapInstant $ RTB.collectCoincident rtb
 
-copyExpert :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
-copyExpert = baseCopyExpert DiffEvent $ \case
-  DiffEvent d e -> Just (d, e)
-  _             -> Nothing
+instance HasDiffEvent DiffEvent Event where
+  makeDiffEvent = DiffEvent
+  unmakeDiffEvent = \case
+    DiffEvent d e -> Just (d, e)
+    _             -> Nothing
+
+-- | Ensures that frets do not go above the given maximum,
+-- first by lowering 'OnyxOctave' sections and then by simple clamping.
+lowerOctaves :: (NNC.C t) => Int -> RTB.T t Event -> RTB.T t Event
+lowerOctaves maxFret rtb = let
+  (octs, notOcts) = RTB.partitionMaybe (\case OnyxOctave f -> Just f; _ -> Nothing) rtb
+  shouldLower = fmap (\f -> ((), f >= maxFret)) octs
+  doLower _     0 = 0
+  doLower units n = min maxFret $ if null units || n < 12 then n else n - 12
+  lowerDiff devts = let
+    (notes, notNotes) = RTB.partitionMaybe (\case Note ln -> Just ln; _ -> Nothing) devts
+    lowered
+      = splitEdges
+      $ fmap (\(units, (s, a, mt)) -> (doLower units s, a, mt))
+      $ applyStatus shouldLower
+      $ joinEdges notes
+    in RTB.merge (fmap Note lowered) notNotes
+  (hands, notHands) = RTB.partitionMaybe (\case HandPosition f -> Just f; _ -> Nothing) notOcts
+  hands'
+    = fmap (uncurry doLower)
+    $ applyStatus shouldLower hands
+  in eachDifficulty lowerDiff $ RTB.merge (fmap HandPosition hands') notHands
 
 guitarifyHOPO :: U.Beats -> RTB.T U.Beats DiffEvent
   -> RTB.T U.Beats (StrumHOPO, [(GtrString, GtrFret, NoteType)], Maybe U.Beats)

@@ -12,7 +12,8 @@ import           Guitars
 import qualified RockBand.File                    as F
 import qualified Sound.MIDI.Util                  as U
 
-import           RockBand.Common                  (Difficulty (..), Mood (..))
+import           RockBand.Common                  (Difficulty (..), Mood (..),
+                                                   eachDifficulty)
 import qualified RockBand.Drums                   as RBD
 import qualified RockBand.Events                  as RBEv
 import qualified RockBand.FiveButton              as RB5
@@ -96,7 +97,7 @@ midiRB3toGH2 song target (F.Song tmap mmap onyx) = let
     Nothing -> RTB.empty
     Just grybo -> let
       flex = F.getFlexPart fpart onyx
-      toGtr = RB5.eachDifficulty
+      toGtr = eachDifficulty
         $ emit5
         . fromClosed
         . noExtendedSustains standardBlipThreshold standardSustainGap

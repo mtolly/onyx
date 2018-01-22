@@ -1,9 +1,10 @@
 -- | Parser used for all the GRYBO instruments (basic guitar, bass, and keys).
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE EmptyCase          #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE DeriveDataTypeable    #-}
+{-# LANGUAGE EmptyCase             #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE TemplateHaskell       #-}
 module RockBand.FiveButton where
 
 import           Data.Bifunctor                   (first)
@@ -231,32 +232,16 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
 
   ]
 
-copyExpert :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
-copyExpert = baseCopyExpert DiffEvent $ \case
-  DiffEvent d e -> Just (d, e)
-  _             -> Nothing
-
 assignKeys :: (NNC.C t) => RTB.T t DiffEvent -> RTB.T t (LongNote StrumHOPO Color)
 assignKeys = RTB.mapMaybe $ \case
   Note note -> Just $ first (const Strum) note
   _ -> Nothing
 
-eachDifficulty :: (NNC.C t) => (RTB.T t DiffEvent -> RTB.T t DiffEvent) -> RTB.T t Event -> RTB.T t Event
-eachDifficulty f evts = let
-  getDiffEvent diff = \case
-    DiffEvent d e | d == diff -> Just e
-    _                         -> Nothing
-  (expert, notExpert) = RTB.partitionMaybe (getDiffEvent Expert) evts
-  (hard  , notHard  ) = RTB.partitionMaybe (getDiffEvent Hard  ) notExpert
-  (medium, notMedium) = RTB.partitionMaybe (getDiffEvent Medium) notHard
-  (easy  , notEasy  ) = RTB.partitionMaybe (getDiffEvent Easy  ) notMedium
-  in foldr RTB.merge RTB.empty
-    [ DiffEvent Expert <$> f expert
-    , DiffEvent Hard   <$> f hard
-    , DiffEvent Medium <$> f medium
-    , DiffEvent Easy   <$> f easy
-    , notEasy
-    ]
+instance HasDiffEvent DiffEvent Event where
+  makeDiffEvent = DiffEvent
+  unmakeDiffEvent = \case
+    DiffEvent d e -> Just (d, e)
+    _             -> Nothing
 
 unparseNice :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats E.T
 unparseNice defLength = U.trackJoin . fmap unparseOne . showBlipsNice defLength

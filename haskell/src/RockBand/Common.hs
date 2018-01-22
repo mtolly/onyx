@@ -1,15 +1,17 @@
 {- | Datatypes and functions used across multiple MIDI parsers. -}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveFoldable     #-}
-{-# LANGUAGE DeriveFunctor      #-}
-{-# LANGUAGE DeriveTraversable  #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE PatternSynonyms    #-}
-{-# LANGUAGE TemplateHaskell    #-}
-{-# LANGUAGE TupleSections      #-}
-{-# LANGUAGE ViewPatterns       #-}
+{-# LANGUAGE DeriveDataTypeable     #-}
+{-# LANGUAGE DeriveFoldable         #-}
+{-# LANGUAGE DeriveFunctor          #-}
+{-# LANGUAGE DeriveTraversable      #-}
+{-# LANGUAGE FlexibleInstances      #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE LambdaCase             #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE OverloadedStrings      #-}
+{-# LANGUAGE PatternSynonyms        #-}
+{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TupleSections          #-}
+{-# LANGUAGE ViewPatterns           #-}
 module RockBand.Common where
 
 import           Control.Monad                    (guard)
@@ -130,20 +132,37 @@ keyP = \case
   11 -> [p| B  |]
   i  -> error $ "keyP: can't make Key pattern from " ++ show i
 
-baseCopyExpert
-  :: (NNC.C t, Ord a)
-  => (Difficulty -> d -> a)
-  -> (a -> Maybe (Difficulty, d))
+class HasDiffEvent d a | a -> d where
+  makeDiffEvent :: Difficulty -> d -> a
+  unmakeDiffEvent :: a -> Maybe (Difficulty, d)
+
+copyExpert
+  :: (NNC.C t, Ord a, HasDiffEvent d a)
+  => RTB.T t a
   -> RTB.T t a
-  -> RTB.T t a
-baseCopyExpert differ undiffer rtb = let
-  (diffEvents, rtb') = RTB.partitionMaybe undiffer rtb
+copyExpert rtb = let
+  (diffEvents, rtb') = RTB.partitionMaybe unmakeDiffEvent rtb
   [e, m, h, x] = flip map [Easy, Medium, Hard, Expert] $ \diff ->
     flip RTB.mapMaybe diffEvents $ \(diff', evt) -> guard (diff == diff') >> return evt
-  e' = fmap (differ Easy  ) $ if RTB.null e then x else e
-  m' = fmap (differ Medium) $ if RTB.null m then x else m
-  h' = fmap (differ Hard  ) $ if RTB.null h then x else h
-  x' = fmap (differ Expert) x
+  e' = fmap (makeDiffEvent Easy  ) $ if RTB.null e then x else e
+  m' = fmap (makeDiffEvent Medium) $ if RTB.null m then x else m
+  h' = fmap (makeDiffEvent Hard  ) $ if RTB.null h then x else h
+  x' = fmap (makeDiffEvent Expert) x
+  in foldr RTB.merge rtb' [e', m', h', x']
+
+eachDifficulty
+  :: (NNC.C t, Ord a, HasDiffEvent d a)
+  => (RTB.T t d -> RTB.T t d)
+  -> RTB.T t a
+  -> RTB.T t a
+eachDifficulty f rtb = let
+  (diffEvents, rtb') = RTB.partitionMaybe unmakeDiffEvent rtb
+  [e, m, h, x] = flip map [Easy, Medium, Hard, Expert] $ \diff ->
+    flip RTB.mapMaybe diffEvents $ \(diff', evt) -> guard (diff == diff') >> return evt
+  e' = fmap (makeDiffEvent Easy  ) $ f e
+  m' = fmap (makeDiffEvent Medium) $ f m
+  h' = fmap (makeDiffEvent Hard  ) $ f h
+  x' = fmap (makeDiffEvent Expert) $ f x
   in foldr RTB.merge rtb' [e', m', h', x']
 
 data LongNote s a

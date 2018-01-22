@@ -1,7 +1,8 @@
 -- | The \"Clone Hero Live\" MIDI format.
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE DeriveDataTypeable    #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell       #-}
 module RockBand.GHL where
 
 import           Data.Data
@@ -93,10 +94,11 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
 
   ]
 
-copyExpert :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
-copyExpert = baseCopyExpert DiffEvent $ \case
-  DiffEvent d e -> Just (d, e)
-  _             -> Nothing
+instance HasDiffEvent DiffEvent Event where
+  makeDiffEvent = DiffEvent
+  unmakeDiffEvent = \case
+    DiffEvent d e -> Just (d, e)
+    _             -> Nothing
 
 unparseNice :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats E.T
 unparseNice defLength = U.trackJoin . fmap unparseOne . showBlipsNice defLength
@@ -115,22 +117,5 @@ showBlipsNice defLength evts = let
     , DiffEvent Hard   . Note <$> showEdgesNice' defLength hard
     , DiffEvent Medium . Note <$> showEdgesNice' defLength medium
     , DiffEvent Easy   . Note <$> showEdgesNice' defLength easy
-    , notEasy
-    ]
-
-eachDifficulty :: (NNC.C t) => (RTB.T t DiffEvent -> RTB.T t DiffEvent) -> RTB.T t Event -> RTB.T t Event
-eachDifficulty f evts = let
-  getDiffEvent diff = \case
-    DiffEvent d e | d == diff -> Just e
-    _                         -> Nothing
-  (expert, notExpert) = RTB.partitionMaybe (getDiffEvent Expert) evts
-  (hard  , notHard  ) = RTB.partitionMaybe (getDiffEvent Hard  ) notExpert
-  (medium, notMedium) = RTB.partitionMaybe (getDiffEvent Medium) notHard
-  (easy  , notEasy  ) = RTB.partitionMaybe (getDiffEvent Easy  ) notMedium
-  in foldr RTB.merge RTB.empty
-    [ DiffEvent Expert <$> f expert
-    , DiffEvent Hard   <$> f hard
-    , DiffEvent Medium <$> f medium
-    , DiffEvent Easy   <$> f easy
     , notEasy
     ]
