@@ -11,8 +11,6 @@ ojp3:
 - leviathan (mouse on the keys)
 last tasks:
 > jarod will check keytalk bass/drums, and add a bit more OD
-> fix keytalk fills ending on triplet with new knowledge
-> chart under all 3 BREs
 > widows compile through magma project (dryvox), rest can be onyx cons
 > record videos, maybe do combined video for leviathan's double pro keys?
 
