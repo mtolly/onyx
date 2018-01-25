@@ -10,9 +10,8 @@ ojp3:
 - medieval overture (return to forever)
 - leviathan (mouse on the keys)
 last tasks:
-> jarod will check keytalk bass/drums, and add a bit more OD
-> widows compile through magma project (dryvox), rest can be onyx cons
-> record videos, maybe do combined video for leviathan's double pro keys?
+> widows (dryvox) and medieval (stems) compile through c3, rest can be onyx
+> record keytalk video, possibly fix medieval video which wasn't 60fps for some reason
 
 at least 2 parts done:
 > thoughts (kaz rodriguez) drums and bass done
