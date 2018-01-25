@@ -1,13 +1,3 @@
-# band 44424
-# drums 42130
-
-# band 29058646
-# drums 29056151
-
-# weird delayed hit at end
-# band 29083549
-# drums 29080157
-
 metadata:
   title: Honor Thy Father
   file-include: ../../../albums/train-of-thought.yml
@@ -36,7 +26,6 @@ audio:
       - drop:
         - frames: 88580117
         - drumcam-band
-  # TODO very last hit of song is weirdly off
   drumcam-drums-expr:
     expr:
       gain:
@@ -51,6 +40,14 @@ audio:
             - drop:
               - frames: 88580117
               - drumcam-drums
+  # following is needed to align the last hit properly
+  drumcam-drums-expr-gap:
+    expr:
+      concatenate:
+      - take: [frames: 29081054, drumcam-drums-expr]
+      - pad:
+        - frames: 897
+        - drop: [frames: 29081054, drumcam-drums-expr]
 plans:
   album:
     countin:
@@ -63,9 +60,25 @@ plans:
     song:
       pad: [3.095, album-track]
   drumcam:
+    song:
+      resample:
+        gain:
+        - 3.85
+        - pad:
+          - 6.534
+          - drop:
+            - 4.186
+            - mix:
+              - drumcam-band-expr
+              - drumcam-drums-expr-gap
     parts:
-      test-band: drumcam-band-expr
-      test-drums: drumcam-drums-expr
+      drums:
+        resample:
+          gain:
+          - 4.4
+          - pad:
+            - 2.348
+            - drumcam-drums-expr-gap
 parts:
   drums:
     drums:
