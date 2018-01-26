@@ -19,8 +19,8 @@ import qualified Data.HashSet                   as Set
 import qualified Data.Text                      as T
 import           JSONData
 
-type ChunksCodec = StackCodec [Chunk T.Text]
-type ChunkCodec  = StackCodec (Chunk T.Text)
+type ChunksCodec a = StackCodec [Chunk T.Text] a
+type ChunkCodec  a = StackCodec (Chunk T.Text) a
 
 single :: ChunkCodec a -> ChunksCodec a
 single cdc = StackCodec

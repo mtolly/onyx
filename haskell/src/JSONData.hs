@@ -1,4 +1,5 @@
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE RankNTypes        #-}
@@ -28,10 +29,11 @@ type ObjectParser m v = StackParser (StateT (Set.HashSet T.Text) m) (Map.HashMap
 type ObjectBuilder v = Writer [(T.Text, v)]
 type ObjectCodec m v a = Codec (ObjectParser m v) (ObjectBuilder v) a
 
-data StackCodec v a = StackCodec
+data StackCodec' v c a = StackCodec
   { stackParse :: forall m. (SendMessage m) => StackParser m v a
-  , stackShow  :: a -> v
-  }
+  , stackShow  :: c -> v
+  } deriving (Functor)
+type StackCodec v a = StackCodec' v a a
 
 identityCodec :: StackCodec a a
 identityCodec = StackCodec
@@ -39,7 +41,7 @@ identityCodec = StackCodec
   , stackShow  = id
   }
 
-type JSONCodec = StackCodec A.Value
+type JSONCodec a = StackCodec A.Value a
 
 class StackJSON a where
   stackJSON :: JSONCodec a

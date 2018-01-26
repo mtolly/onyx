@@ -10,7 +10,7 @@ import           Data.DTA.Serialize
 import           Data.DTA.Serialize.Magma (Gender (..))
 import qualified Data.HashMap.Strict      as Map
 import qualified Data.Text                as T
-import           JSONData                 (StackCodec (..), eitherCodec,
+import           JSONData                 (StackCodec' (..), eitherCodec,
                                            expected, fill, opt, req)
 
 data Pitch

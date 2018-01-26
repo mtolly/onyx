@@ -844,18 +844,19 @@ data Metadata = Metadata
 
 instance StackJSON Metadata where
   stackJSON = asStrictObject "Metadata" $ do
-    _title        <- _title        =. warning Nothing        "title"          stackJSON
-    _artist       <- _artist       =. warning Nothing        "artist"         stackJSON
-    _album        <- _album        =. warning Nothing        "album"          stackJSON
-    _genre        <- _genre        =. warning Nothing        "genre"          stackJSON
-    _subgenre     <- _subgenre     =. warning Nothing        "subgenre"       stackJSON
+    let stripped = fmap (fmap T.strip) stackJSON
+    _title        <- _title        =. warning Nothing        "title"          stripped
+    _artist       <- _artist       =. warning Nothing        "artist"         stripped
+    _album        <- _album        =. warning Nothing        "album"          stripped
+    _genre        <- _genre        =. warning Nothing        "genre"          stripped
+    _subgenre     <- _subgenre     =. warning Nothing        "subgenre"       stripped
     _year         <- _year         =. warning Nothing        "year"           stackJSON
     _fileAlbumArt <- _fileAlbumArt =. warning Nothing        "file-album-art" stackJSON
     _trackNumber  <- _trackNumber  =. warning Nothing        "track-number"   stackJSON
     _comments     <- _comments     =. opt     []             "comments"       stackJSON
     _key          <- _key          =. opt     Nothing        "key"            stackJSON
     _autogenTheme <- _autogenTheme =. opt     Magma.DefaultTheme "autogen-theme"  stackJSON
-    _author       <- _author       =. warning Nothing        "author"         stackJSON
+    _author       <- _author       =. warning Nothing        "author"         stripped
     _rating       <- _rating       =. opt     Unrated        "rating"         stackJSON
     _previewStart <- _previewStart =. opt     Nothing        "preview-start"  stackJSON
     _previewEnd   <- _previewEnd   =. opt     Nothing        "preview-end"    stackJSON
