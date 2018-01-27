@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
-module RockBand3 (processRB3, processRB3Pad, processPS, findProblems) where
+module RockBand3 (processRB3, processRB3Pad, processPS, findProblems, TrackAdjust(..), magmaLegalTempos') where
 
 import           Config
 import           Control.Monad.Extra
