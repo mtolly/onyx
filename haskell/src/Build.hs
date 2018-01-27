@@ -999,7 +999,17 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             [pathMagmaMid, pathMagmaPad] &%> \[out, outPad] -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
               (_, mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
-              let adjustMIDISpeed mid = case rb3_Speed rb3 of
+              sects <- ATB.toPairList . RTB.toAbsoluteEventList 0 <$> getRealSections
+              let (magmaSects, invalid) = makeRBN2Sections sects
+                  magmaSects' = RTB.fromAbsoluteEventList $ ATB.fromPairList magmaSects
+                  adjustEvents trks = trks
+                    { RBFile.onyxEvents
+                      = RTB.merge magmaSects'
+                      $ RTB.filter (isNothing . getSection)
+                      $ RBFile.onyxEvents trks
+                    }
+                  input' = input { RBFile.s_tracks = adjustEvents $ RBFile.s_tracks input }
+                  adjustMIDISpeed mid = case rb3_Speed rb3 of
                     Just n | n /= 1 -> mid
                       { RBFile.s_tempos
                         = U.tempoMapFromBPS
@@ -1011,25 +1021,14 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               (output, pad) <- RB3.processRB3Pad
                 rb3
                 songYaml
-                (adjustMIDISpeed input)
+                (adjustMIDISpeed input')
                 mixMode
                 (getAudioLength planName)
               liftIO $ writeFile outPad $ show pad
-              sects <- ATB.toPairList . RTB.toAbsoluteEventList 0 <$> getRealSections
-              let (magmaSects, invalid) = makeRBN2Sections sects
-                  magmaSects' = RTB.fromAbsoluteEventList $ ATB.fromPairList magmaSects
-                  adjustEvents trks = trks
-                    { RBFile.rb3Events
-                      = RTB.merge magmaSects'
-                      $ RTB.filter (isNothing . getSection)
-                      $ RBFile.rb3Events trks
-                    }
               case invalid of
                 [] -> return ()
-                _  -> lg $ "The following sections were unrecognized and replaced: " ++ show invalid
+                _  -> lg $ "The following sections were swapped out for Magma (but will be readded in CON output): " ++ show invalid
               saveMIDI out output
-                { RBFile.s_tracks = adjustEvents $ RBFile.s_tracks output
-                }
 
             let pathDta = dir </> "stfs/songs/songs.dta"
                 pathMid = dir </> "stfs/songs" </> pkg </> pkg <.> "mid"
