@@ -328,8 +328,8 @@ playGuitar tuning evts = let
   playString s = let
     strNum = fromEnum s
     stringNotes = flip RTB.mapMaybe longs $ \case
-      (fret, (str, ntype), len) | s == str -> Just (fret, ntype, len)
-      _                                    -> Nothing
+      (fret, (str, ntype), len) | s == str && ntype /= ArpeggioForm -> Just (fret, ntype, len)
+      _                         -> Nothing
     playNote (fret, ntype, len) = RTB.fromPairList
       [ (NNC.zero, makeEdgeCPV strNum pitch $ Just 96)
       , (len'    , makeEdgeCPV strNum pitch Nothing  )

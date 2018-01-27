@@ -1,0 +1,33 @@
+metadata:
+  title: "Dark World (Zelda: A Link to the Past)"
+  artist: insaneintherainmusic
+  genre: jazz
+  subgenre: contemporary
+  author: Onyxite
+  year: 2017
+  track-number: 17
+audio:
+  # https://www.patreon.com/insaneintherainmusic/
+  patreon-wav:
+    md5: ab4721e722622aa016604c5114539047
+    frames: 17316715
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  patreon:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [3.460, patreon-wav]
+parts:
+  bass:
+    pro-guitar:
+      tuning: [0, 0, 0, 0]
+targets:
+  rb3:
+    game: rb3
