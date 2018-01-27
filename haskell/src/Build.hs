@@ -928,7 +928,15 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             pathMagmaRPP %> \out -> do
               auds <- magmaNeededAudio
               let auds' = filter (`notElem` [pathMagmaDryvox1, pathMagmaDryvox2, pathMagmaDryvox3]) auds
-              makeReaper pathMagmaMid pathMagmaMid auds' out
+                  tunings = do
+                    (fpart, part) <- HM.toList $ getParts $ _parts songYaml
+                    fpart' <- toList $ lookup fpart
+                      [ (rb3_Guitar rb3, RBFile.FlexGuitar)
+                      , (rb3_Bass   rb3, RBFile.FlexBass  )
+                      ]
+                    pg <- toList $ partProGuitar part
+                    return (fpart', map (+ pgTuningGlobal pg) $ pgTuning pg ++ repeat 0)
+              makeReaper tunings pathMagmaMid pathMagmaMid auds' out
             phony pathMagmaSetup $ do
               -- Just make all the Magma prereqs, but don't actually run Magma
               auds <- magmaNeededAudio
@@ -1093,15 +1101,6 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 out
 
             -- Guitar rules
-            dir </> "protar-hear.mid" %> \out -> do
-              input <- shakeMIDI pathMagmaMid
-              let goffs = case getPart (rb3_Guitar rb3) songYaml >>= partProGuitar of
-                    Nothing -> [0, 0, 0, 0, 0, 0]
-                    Just pg -> map (+ pgTuningGlobal pg) $ case pgTuning pg of [] -> [0, 0, 0, 0, 0, 0]; offs -> offs
-                  boffs = case getPart (rb3_Bass rb3) songYaml >>= partProGuitar of
-                    Nothing -> [0, 0, 0, 0]
-                    Just pg -> map (+ pgTuningGlobal pg) $ case pgTuning pg of [] -> [0, 0, 0, 0]; offs -> offs
-              saveMIDI out $ RBFile.playGuitarFile goffs boffs input
             dir </> "protar-mpa.mid" %> \out -> do
               input <- shakeMIDI pathMagmaMid
               let gtr17   = RBFile.flexPartRealGuitar   $ RBFile.getFlexPart (rb3_Guitar rb3) $ RBFile.s_tracks input
@@ -1667,7 +1666,11 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
           let extraTempo = "tempo-" ++ T.unpack planName ++ ".mid"
           b <- shk $ doesFileExist extraTempo
           let tempo = if b then extraTempo else "gen/notes.mid"
-          makeReaper "gen/notes.mid" tempo allPlanAudio out
+              tunings = do
+                (fpart, part) <- HM.toList $ getParts $ _parts songYaml
+                pg <- toList $ partProGuitar part
+                return (fpart, map (+ pgTuningGlobal pg) $ pgTuning pg ++ repeat 0)
+          makeReaper tunings "gen/notes.mid" tempo allPlanAudio out
 
         dir </> "web/song.js" %> \out -> do
           let json = dir </> "display.json"

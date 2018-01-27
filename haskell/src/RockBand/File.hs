@@ -12,7 +12,8 @@ import           Data.Default.Class               (Default (..))
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Hashable                    (Hashable (..))
-import           Data.List                        (nub, sortOn, stripPrefix)
+import           Data.List                        (isInfixOf, nub, sortOn,
+                                                   stripPrefix)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromJust, fromMaybe,
                                                    mapMaybe)
@@ -396,13 +397,22 @@ instance Default (OnyxFile t) where
 getFlexPart :: FlexPartName -> OnyxFile t -> FlexPart t
 getFlexPart part = fromMaybe def . Map.lookup part . onyxFlexParts
 
+identifyFlexTrack :: String -> Maybe FlexPartName
+identifyFlexTrack name = case stripPrefix "[" name of
+  Just name' -> Just $ readPartName $ T.pack $ takeWhile (/= ']') name'
+  Nothing
+    | "DRUM"   `isInfixOf` name -> Just FlexDrums
+    | "GUITAR" `isInfixOf` name -> Just FlexGuitar
+    | "BASS"   `isInfixOf` name -> Just FlexBass
+    | "KEYS"   `isInfixOf` name -> Just FlexKeys
+    | "VOCAL"  `isInfixOf` name -> Just FlexVocal
+    | "HARM"   `isInfixOf` name -> Just FlexVocal
+    | otherwise                 -> Nothing
+
 instance MIDIFileFormat OnyxFile where
   readMIDITracks (Song tempos mmap trks) = do
-    let extraNames = map FlexExtra $ nub $ flip mapMaybe trks $ \trk -> do
-          name <- U.trackName trk
-          name' <- stripPrefix "[" name
-          return $ T.pack $ takeWhile (/= ']') name'
-        allNames = [FlexGuitar, FlexBass, FlexDrums, FlexKeys, FlexVocal] ++ extraNames
+    let allNames = nub $ flip mapMaybe trks $ \trk ->
+          U.trackName trk >>= identifyFlexTrack
     onyxFlexParts <- fmap Map.fromList $ forM allNames $ \partName -> do
       let prefix = "[" ++ T.unpack (getPartName partName) ++ "] "
           optPrefix defPart name = if partName == defPart
@@ -450,7 +460,7 @@ instance MIDIFileFormat OnyxFile where
     onyxMelodysEscape    <- parseTracks mmap trks ["MELODY'S ESCAPE"]
     knownTracks trks $ ["EVENTS", "BEAT", "VENUE", "MELODY'S ESCAPE"] ++ do
       trkName <- ["PART DRUMS", "PART DRUMS_2X", "PART GUITAR", "PART BASS", "PART KEYS", "PART GUITAR GHL", "PART BASS GHL", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3"]
-      prefix <- "" : map (\flex -> "[" ++ T.unpack (getPartName flex) ++ "] ") extraNames
+      prefix <- "" : map (\flex -> "[" ++ T.unpack (getPartName flex) ++ "] ") allNames
       return $ prefix ++ trkName
     return $ Song tempos mmap OnyxFile{..}
   showMIDITracks (Song tempos mmap OnyxFile{..}) = Song tempos mmap $ concat
@@ -583,25 +593,6 @@ makeTrackParser p mmap trk = do
 -- | midiscript format, where both measure and beats start from zero
 showPosition :: U.MeasureBeats -> String
 showPosition (m, b) = show m ++ "|" ++ show (realToFrac b :: Double)
-
-playGuitarFile :: [Int] -> [Int] -> Song (OnyxFile U.Beats) -> Song (RawFile U.Beats)
-playGuitarFile goffs boffs (Song tempos mmap trks) = Song tempos mmap $ RawFile $ let
-  gtr = go ProGuitar.standardGuitar goffs
-  bass = go ProGuitar.standardBass boffs
-  go stdtuning offs name trk = let
-    tuning = zipWith (+) stdtuning $ offs ++ repeat 0
-    expert = flip RTB.mapMaybe trk $ \case
-      ProGuitar.DiffEvent Expert evt -> Just evt
-      _                              -> Nothing
-    in do
-      (str, notes) <- ProGuitar.playGuitar tuning expert
-      return $ U.setTrackName (name ++ "_" ++ show str) notes
-  in concat
-    [ gtr  "GTR"    $ flexPartRealGuitar   $ getFlexPart FlexGuitar trks
-    , gtr  "GTR22"  $ flexPartRealGuitar22 $ getFlexPart FlexGuitar trks
-    , bass "BASS"   $ flexPartRealGuitar   $ getFlexPart FlexBass   trks
-    , bass "BASS22" $ flexPartRealGuitar22 $ getFlexPart FlexBass   trks
-    ]
 
 data TrackOffset = TrackPad U.Seconds | TrackDrop U.Seconds
   deriving (Eq, Ord, Show)

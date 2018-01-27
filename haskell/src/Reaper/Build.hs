@@ -3,8 +3,8 @@ module Reaper.Build (makeReaper, makeReaperIO) where
 
 import           Reaper.Base
 
-import           Control.Monad                         (forM_, guard, unless,
-                                                        when, (>=>))
+import           Control.Monad                         (forM_, unless, when,
+                                                        (>=>))
 import           Control.Monad.Extra                   (mapMaybeM)
 import           Control.Monad.IO.Class                (MonadIO (liftIO))
 import           Control.Monad.Trans.Class             (lift)
@@ -21,8 +21,7 @@ import           Data.Functor.Identity                 (runIdentity)
 import           Data.List                             (find, findIndex,
                                                         isInfixOf, isSuffixOf,
                                                         nub, sortOn)
-import           Data.Maybe                            (fromMaybe, listToMaybe,
-                                                        mapMaybe)
+import           Data.Maybe                            (fromMaybe, listToMaybe)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
 import           Development.Shake                     (need)
@@ -33,6 +32,8 @@ import           Resources                             (colorMapDrums,
                                                         colorMapGHL,
                                                         colorMapGRYBO)
 import           RockBand.Common                       (Key (..))
+import           RockBand.File                         (FlexPartName (..),
+                                                        identifyFlexTrack)
 import qualified RockBand.Vocals                       as Vox
 import           Scripts                               (loadTemposIO)
 import qualified Sound.File.Sndfile                    as Snd
@@ -130,9 +131,11 @@ event tks = \case
     in block "X" [show tks, "0"] $ forM_ (splitChunks bytes) $ \chunk -> do
       line (B8.unpack $ B64.encode chunk) []
 
-track :: (Monad m, NNC.C t, Integral t) => NN.Int -> U.Seconds -> NN.Int -> RTB.T t E.T -> WriterT [Element] m ()
-track lenTicks lenSecs resn trk = let
+track :: (Monad m, NNC.C t, Integral t) => [(FlexPartName, [Int])] -> NN.Int -> U.Seconds -> NN.Int -> RTB.T t E.T -> WriterT [Element] m ()
+track tunings lenTicks lenSecs resn trk = let
   name = fromMaybe "untitled track" $ U.trackName trk
+  fpart = identifyFlexTrack name
+  tuning = fromMaybe [] $ fpart >>= (`lookup` tunings)
   in block "TRACK" [] $ do
     line "NAME" [name]
     let yellow = (255, 255, 0)
@@ -140,30 +143,16 @@ track lenTicks lenSecs resn trk = let
         red = (255, 0, 0)
         blue = (0, 0, 255)
         orange = (255, 128, 0)
-    case mapMaybe (\(n, c) -> guard (n `isSuffixOf` name) >> Just c)
-      [ ("PART DRUMS", yellow)
-      , ("PART DRUMS_2X", yellow)
-      , ("PART REAL_DRUMS_PS", yellow)
-      , ("PART GUITAR", blue)
-      , ("PART GUITAR GHL", blue)
-      , ("PART REAL_GUITAR", blue)
-      , ("PART REAL_GUITAR_22", blue)
-      , ("PART BASS", red)
-      , ("PART BASS GHL", red)
-      , ("PART REAL_BASS", red)
-      , ("PART REAL_BASS_22", red)
-      , ("PART VOCALS", orange)
-      , ("HARM1", orange)
-      , ("HARM2", orange)
-      , ("HARM3", orange)
-      , ("PART KEYS", green)
-      , ("PART REAL_KEYS_X", green)
-      , ("PART REAL_KEYS_H", green)
-      , ("PART REAL_KEYS_M", green)
-      , ("PART REAL_KEYS_E", green)
-      ] of
-      [] -> return ()
-      (r, g, b) : _ -> let
+        color = fpart >>= \case
+          FlexDrums -> Just yellow
+          FlexGuitar -> Just blue
+          FlexBass -> Just red
+          FlexVocal -> Just orange
+          FlexKeys -> Just green
+          _ -> Nothing
+    case color of
+      Nothing -> return ()
+      Just (r, g, b) -> let
         encoded :: Int
         encoded = 0x1000000 + 0x10000 * b + 0x100 * g + r
         in line "PEAKCOL" [show encoded]
@@ -173,16 +162,16 @@ track lenTicks lenSecs resn trk = let
           = (False, True, mutePitches 0 47 >> mutePitches 73 127 >> pitchProKeys)
           | any (`isSuffixOf` name) ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
           = (False, True, mutePitches 0 35 >> mutePitches 85 127 >> pitchVox)
-          | any (`isInfixOf` name) ["GTR_S", "GTR22_S", "BASS_S", "BASS22_S"]
-          = (True, True, pitchProGtr)
           | any (`isSuffixOf` name) ["PART GUITAR", "PART BASS"]
           = (True, True, previewGtr >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
           | "PART KEYS" `isSuffixOf` name
           = (True, True, previewKeys >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
           | any (`isSuffixOf` name) ["PART DRUMS", "PART DRUMS_2X", "PART REAL_DRUMS_PS"]
           = (True, True, previewDrums >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
-          | any (`isInfixOf` name) ["PART REAL_GUITAR", "PART REAL_BASS"]
-          = (True, True, mutePitches 0 95 >> mutePitches 102 127 >> woodblock)
+          | "PART REAL_GUITAR" `isInfixOf` name
+          = (False, True, hearProtar False >> pitchProGtr)
+          | "PART REAL_BASS" `isInfixOf` name
+          = (False, True, hearProtar True >> pitchProGtr)
           | otherwise
           = (False, False, return ())
         mutePitches pmin pmax = do
@@ -204,7 +193,7 @@ track lenTicks lenSecs resn trk = let
           line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
         pitchProGtr = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 True $ do
           line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA=" []
-          line "776t3g3wrd6mm8Q7F7fROqjGCz8AAAAAAAAAAM5NAD/O4BA8AAAAAAAAAD+nViw+AACAPwAAAD8AAAAA" []
+          line "776t3g3wrd6mm8Q7F7fROpzEQD8X2U4/AACAP6tyoz/O4BA8AAAAAAAAAD8MIJk+RItsPwAAAD8AAAAA" []
           line "AAAQAAAA" [] -- pro guitar pitches: normal tuning, square + decay
         woodblock = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 False $ do
           line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEAA=" []
@@ -222,6 +211,21 @@ track lenTicks lenSecs resn trk = let
           line "dnBicu5e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAAEAAAAAQAAAAAAEAA=" []
           line "AwGqAA==" []
           line "AAAQAAAA" []
+        hearProtar isBass = do
+          line "BYPASS" ["0", "0", "0"]
+          block "JS" ["C3/progtr", ""] $ do
+            let bool b = if b then "1" else "0"
+                tuning' = reverse $ take 6 $ tuning ++ repeat (0 :: Int)
+                expert = 3 :: Int
+                outChannel = 0 :: Int
+                passthroughNonNotes = True
+            line (bool isBass)
+              $ [show expert]
+              ++ map show tuning'
+              ++ [show outChannel, bool passthroughNonNotes]
+              ++ words "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+          line "FLOATPOS" ["0", "0", "0", "0"]
+          line "WAK" ["0"]
     line "FX" [if fxActive then "1" else "0"]
     case find (\(sfx, _) -> sfx `isSuffixOf` name)
       [ ("PART DRUMS", drumNoteNames)
@@ -680,8 +684,8 @@ sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`isSuffixOf` name)
   , "BEAT"
   ]
 
-makeReaperIO :: (MonadIO m) => FilePath -> FilePath -> [FilePath] -> FilePath -> m ()
-makeReaperIO evts tempo audios out = liftIO $ do
+makeReaperIO :: (MonadIO m) => [(FlexPartName, [Int])] -> FilePath -> FilePath -> [FilePath] -> FilePath -> m ()
+makeReaperIO tunings evts tempo audios out = liftIO $ do
   lenAudios <- flip mapMaybeM audios $ \aud -> do
     info <- Snd.getFileInfo aud
     return $ case Snd.frames info of
@@ -721,10 +725,10 @@ makeReaperIO evts tempo audios out = liftIO $ do
           writeTempoTrack
           case mid of
             F.Cons F.Parallel (F.Ticks resn) (_ : trks) -> do
-              forM_ (sortTracks trks) $ track (midiLenTicks resn) midiLenSecs resn
+              forM_ (sortTracks trks) $ track tunings (midiLenTicks resn) midiLenSecs resn
             F.Cons F.Mixed (F.Ticks resn) tracks -> let
               merged = foldr RTB.merge RTB.empty tracks
-              in track (midiLenTicks resn) midiLenSecs resn merged
+              in track tunings (midiLenTicks resn) midiLenSecs resn merged
             _ -> error "Unsupported MIDI format for Reaper project generation"
           forM_ lenAudios $ \(len, aud) -> do
             audio len $ makeRelative (takeDirectory out) aud
@@ -739,8 +743,8 @@ makeReaperIO evts tempo audios out = liftIO $ do
     "colormap_ghl.png"   -> B.writeFile (takeDirectory out </> cmap) colorMapGHL
     _ -> return ()
 
-makeReaper :: FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()
-makeReaper evts tempo audios out = do
+makeReaper :: [(FlexPartName, [Int])] -> FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()
+makeReaper tunings evts tempo audios out = do
   lift $ lift $ need $ evts : tempo : audios
   lg $ "Generating a REAPER project at " ++ out
-  stackIO $ makeReaperIO evts tempo audios out
+  stackIO $ makeReaperIO tunings evts tempo audios out

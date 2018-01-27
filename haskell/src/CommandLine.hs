@@ -392,7 +392,7 @@ commands =
           ([mid], notMid) -> case partitionMaybe (isType [FileOGG, FileWAV, FileFLAC]) notMid of
             (audio, []      ) -> do
               rpp <- outputFile opts $ return $ mid -<.> "RPP"
-              makeReaperIO mid mid audio rpp
+              makeReaperIO [] mid mid audio rpp
               return [rpp]
             (_    , notAudio) -> fatal $ "onyx reap given non-MIDI, non-audio files: " <> show notAudio
           (mids, _) -> fatal $ "onyx reap expected 1 MIDI file, given " <> show (length mids)

@@ -322,24 +322,6 @@ standardBass = [28, 33, 38, 43, 47, 52]
 -- last 2 are just gtr one octave down, as observed in game
 -- (these aren't super useful, and can't be changed by .dta tuning)
 
-playGuitar :: [Int] -> RTB.T U.Beats DiffEvent -> [(GtrString, RTB.T U.Beats E.T)]
-playGuitar tuning evts = let
-  longs = fillJoinedBlips (1/4) $ joinEdges $ RTB.mapMaybe (\case Note ln -> Just ln; _ -> Nothing) evts
-  playString s = let
-    strNum = fromEnum s
-    stringNotes = flip RTB.mapMaybe longs $ \case
-      (fret, (str, ntype), len) | s == str && ntype /= ArpeggioForm -> Just (fret, ntype, len)
-      _                         -> Nothing
-    playNote (fret, ntype, len) = RTB.fromPairList
-      [ (NNC.zero, makeEdgeCPV strNum pitch $ Just 96)
-      , (len'    , makeEdgeCPV strNum pitch Nothing  )
-      ] where len' = case ntype of
-                Muted -> min len (1/16)
-                _     -> len
-              pitch = (tuning !! strNum) + fret
-    in U.trackJoin $ fmap playNote stringNotes
-  in map (\s -> (s, playString s)) [S6 .. S1]
-
 -- | If there are no hand positions, adds one to every note.
 autoHandPosition :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
 autoHandPosition rtb = let
