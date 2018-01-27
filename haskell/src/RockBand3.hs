@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes        #-}
 module RockBand3 (processRB3, processRB3Pad, processPS, findProblems) where
 
 import           Config
@@ -414,6 +415,49 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       }
     )
 
+magmaLegalTempos :: (SendMessage m) => RBFile.Song (RBFile.RB3File U.Beats) -> StackTraceT m (RBFile.Song (RBFile.RB3File U.Beats))
+magmaLegalTempos rb3 = let
+  endTime = case RTB.viewL $ RTB.filter (== Events.End) $ RBFile.rb3Events $ RBFile.s_tracks rb3 of
+    Nothing           -> 0 -- shouldn't happen
+    Just ((dt, _), _) -> dt
+  in magmaLegalTempos' endTime (RBFile.s_tempos rb3) (RBFile.s_signatures rb3) >>= \case
+    (0, _, _, _) -> return rb3
+    (numChanges, newTempos, newSigs, TrackAdjust adjuster) -> do
+      warn $ "Stretching/squashing " ++ show numChanges ++ " measures to keep tempos in Magma-legal range"
+      let events = adjuster $ RBFile.rb3Events $ RBFile.s_tracks rb3
+          endPosn = case RTB.getTimes $ RTB.filter (== Events.End) events of
+            [bts] -> bts
+            _     -> 0 -- eh
+      return RBFile.Song
+        { RBFile.s_tracks = RBFile.RB3File
+          { RBFile.rb3PartDrums        = adjuster $ RBFile.rb3PartDrums        $ RBFile.s_tracks rb3
+          , RBFile.rb3PartGuitar       = adjuster $ RBFile.rb3PartGuitar       $ RBFile.s_tracks rb3
+          , RBFile.rb3PartBass         = adjuster $ RBFile.rb3PartBass         $ RBFile.s_tracks rb3
+          , RBFile.rb3PartKeys         = adjuster $ RBFile.rb3PartKeys         $ RBFile.s_tracks rb3
+          , RBFile.rb3PartRealGuitar   = adjuster $ RBFile.rb3PartRealGuitar   $ RBFile.s_tracks rb3
+          , RBFile.rb3PartRealGuitar22 = adjuster $ RBFile.rb3PartRealGuitar22 $ RBFile.s_tracks rb3
+          , RBFile.rb3PartRealBass     = adjuster $ RBFile.rb3PartRealBass     $ RBFile.s_tracks rb3
+          , RBFile.rb3PartRealBass22   = adjuster $ RBFile.rb3PartRealBass22   $ RBFile.s_tracks rb3
+          , RBFile.rb3PartRealKeysE    = adjuster $ RBFile.rb3PartRealKeysE    $ RBFile.s_tracks rb3
+          , RBFile.rb3PartRealKeysM    = adjuster $ RBFile.rb3PartRealKeysM    $ RBFile.s_tracks rb3
+          , RBFile.rb3PartRealKeysH    = adjuster $ RBFile.rb3PartRealKeysH    $ RBFile.s_tracks rb3
+          , RBFile.rb3PartRealKeysX    = adjuster $ RBFile.rb3PartRealKeysX    $ RBFile.s_tracks rb3
+          , RBFile.rb3PartKeysAnimLH   = adjuster $ RBFile.rb3PartKeysAnimLH   $ RBFile.s_tracks rb3
+          , RBFile.rb3PartKeysAnimRH   = adjuster $ RBFile.rb3PartKeysAnimRH   $ RBFile.s_tracks rb3
+          , RBFile.rb3PartVocals       = adjuster $ RBFile.rb3PartVocals       $ RBFile.s_tracks rb3
+          , RBFile.rb3Harm1            = adjuster $ RBFile.rb3Harm1            $ RBFile.s_tracks rb3
+          , RBFile.rb3Harm2            = adjuster $ RBFile.rb3Harm2            $ RBFile.s_tracks rb3
+          , RBFile.rb3Harm3            = adjuster $ RBFile.rb3Harm3            $ RBFile.s_tracks rb3
+          , RBFile.rb3Events           = events
+          , RBFile.rb3Beat             = fixLastBeat endPosn $ adjuster $ RBFile.rb3Beat $ RBFile.s_tracks rb3
+          , RBFile.rb3Venue            = adjuster $ RBFile.rb3Venue            $ RBFile.s_tracks rb3
+          }
+        , RBFile.s_tempos = newTempos
+        , RBFile.s_signatures = newSigs
+        }
+
+newtype TrackAdjust = TrackAdjust (forall a. RTB.T U.Beats a -> RTB.T U.Beats a)
+
 {-
 if a measure has a <40bpm tempo:
 - double all tempos inside
@@ -425,19 +469,21 @@ if a measure has a >300bpm tempo:
 - bump up the denominator of the measure's time signature by 2, so e.g. 5/4 becomes 5/8
 finally, make new default BEAT track if we changed anything
 -}
-magmaLegalTempos :: (SendMessage m) => RBFile.Song (RBFile.RB3File U.Beats) -> StackTraceT m (RBFile.Song (RBFile.RB3File U.Beats))
-magmaLegalTempos rb3 = do
-  let allTempos = U.tempoMapToBPS $ RBFile.s_tempos rb3
-      allSigs = U.measureMapToTimeSigs $ RBFile.s_signatures rb3
-      endTime = case RTB.viewL $ RTB.filter (== Events.End) $ RBFile.rb3Events $ RBFile.s_tracks rb3 of
-        Nothing           -> 0 -- shouldn't happen
-        Just ((dt, _), _) -> dt
-      numMeasures = fst (U.applyMeasureMap (RBFile.s_signatures rb3) endTime) + 1
+magmaLegalTempos' :: (Monad m) => U.Beats -> U.TempoMap -> U.MeasureMap -> StackTraceT m
+  ( Int -- num of measures adjusted
+  , U.TempoMap
+  , U.MeasureMap
+  , TrackAdjust -- adjusts each event track
+  )
+magmaLegalTempos' endTime tempos sigs = do
+  let allTempos = U.tempoMapToBPS tempos
+      allSigs = U.measureMapToTimeSigs sigs
+      numMeasures = fst (U.applyMeasureMap sigs endTime) + 1
       minTempo =  40 / 60 :: U.BPS
       maxTempo = 300 / 60 :: U.BPS
   measureChanges <- forM [0 .. numMeasures - 1] $ \msr -> do
-    let msrStart = U.unapplyMeasureMap (RBFile.s_signatures rb3) (msr, 0)
-        msrLength = U.unapplyMeasureMap (RBFile.s_signatures rb3) (msr + 1, 0) - msrStart
+    let msrStart = U.unapplyMeasureMap sigs (msr, 0)
+        msrLength = U.unapplyMeasureMap sigs (msr + 1, 0) - msrStart
         msrEvents = U.trackTake msrLength $ U.trackDrop msrStart allTempos
         initialTempo = case RTB.viewL msrEvents of
           Just ((0, _), _) -> id
@@ -458,7 +504,7 @@ magmaLegalTempos rb3 = do
     return (msrLength, change)
   let numChanges = length $ filter ((/= 0) . snd) measureChanges
   if numChanges == 0
-    then return rb3
+    then return (0, tempos, sigs, TrackAdjust id)
     else let
       stretchTrack [] trk = trk
       stretchTrack ((len, change) : changes) trk = let
@@ -496,39 +542,12 @@ magmaLegalTempos rb3 = do
           []    -> sig
         in trackGlue (stretch len) (RTB.singleton 0 $ stretchSig sig')
           $ stretchSigs changes sig' rest
-      events = stretchTrack measureChanges $ RBFile.rb3Events $ RBFile.s_tracks rb3
-      endPosn = case RTB.getTimes $ RTB.filter (== Events.End) events of
-        [bts] -> bts
-        _     -> 0 -- eh
-      in do
-        warn $ "Stretching/squashing " ++ show numChanges ++ " measures to keep tempos in Magma-legal range"
-        return RBFile.Song
-          { RBFile.s_tracks = RBFile.RB3File
-            { RBFile.rb3PartDrums        = stretchTrack measureChanges $ RBFile.rb3PartDrums        $ RBFile.s_tracks rb3
-            , RBFile.rb3PartGuitar       = stretchTrack measureChanges $ RBFile.rb3PartGuitar       $ RBFile.s_tracks rb3
-            , RBFile.rb3PartBass         = stretchTrack measureChanges $ RBFile.rb3PartBass         $ RBFile.s_tracks rb3
-            , RBFile.rb3PartKeys         = stretchTrack measureChanges $ RBFile.rb3PartKeys         $ RBFile.s_tracks rb3
-            , RBFile.rb3PartRealGuitar   = stretchTrack measureChanges $ RBFile.rb3PartRealGuitar   $ RBFile.s_tracks rb3
-            , RBFile.rb3PartRealGuitar22 = stretchTrack measureChanges $ RBFile.rb3PartRealGuitar22 $ RBFile.s_tracks rb3
-            , RBFile.rb3PartRealBass     = stretchTrack measureChanges $ RBFile.rb3PartRealBass     $ RBFile.s_tracks rb3
-            , RBFile.rb3PartRealBass22   = stretchTrack measureChanges $ RBFile.rb3PartRealBass22   $ RBFile.s_tracks rb3
-            , RBFile.rb3PartRealKeysE    = stretchTrack measureChanges $ RBFile.rb3PartRealKeysE    $ RBFile.s_tracks rb3
-            , RBFile.rb3PartRealKeysM    = stretchTrack measureChanges $ RBFile.rb3PartRealKeysM    $ RBFile.s_tracks rb3
-            , RBFile.rb3PartRealKeysH    = stretchTrack measureChanges $ RBFile.rb3PartRealKeysH    $ RBFile.s_tracks rb3
-            , RBFile.rb3PartRealKeysX    = stretchTrack measureChanges $ RBFile.rb3PartRealKeysX    $ RBFile.s_tracks rb3
-            , RBFile.rb3PartKeysAnimLH   = stretchTrack measureChanges $ RBFile.rb3PartKeysAnimLH   $ RBFile.s_tracks rb3
-            , RBFile.rb3PartKeysAnimRH   = stretchTrack measureChanges $ RBFile.rb3PartKeysAnimRH   $ RBFile.s_tracks rb3
-            , RBFile.rb3PartVocals       = stretchTrack measureChanges $ RBFile.rb3PartVocals       $ RBFile.s_tracks rb3
-            , RBFile.rb3Harm1            = stretchTrack measureChanges $ RBFile.rb3Harm1            $ RBFile.s_tracks rb3
-            , RBFile.rb3Harm2            = stretchTrack measureChanges $ RBFile.rb3Harm2            $ RBFile.s_tracks rb3
-            , RBFile.rb3Harm3            = stretchTrack measureChanges $ RBFile.rb3Harm3            $ RBFile.s_tracks rb3
-            , RBFile.rb3Events           = events
-            , RBFile.rb3Beat             = fixLastBeat endPosn $ stretchTrack measureChanges $ RBFile.rb3Beat $ RBFile.s_tracks rb3
-            , RBFile.rb3Venue            = stretchTrack measureChanges $ RBFile.rb3Venue            $ RBFile.s_tracks rb3
-            }
-          , RBFile.s_tempos = U.tempoMapFromBPS $ stretchTempos measureChanges 2 allTempos
-          , RBFile.s_signatures = U.measureMapFromTimeSigs U.Truncate $ stretchSigs measureChanges (U.TimeSig 4 1) allSigs
-          }
+      in return
+        ( numChanges
+        , U.tempoMapFromBPS $ stretchTempos measureChanges 2 allTempos
+        , U.measureMapFromTimeSigs U.Truncate $ stretchSigs measureChanges (U.TimeSig 4 1) allSigs
+        , TrackAdjust $ stretchTrack measureChanges
+        )
 
 fixLastBeat :: U.Beats -> RTB.T U.Beats Beat.Event -> RTB.T U.Beats Beat.Event
 fixLastBeat endPosn beatTrk = case ATB.viewR $ RTB.toAbsoluteEventList 0 beatTrk of
