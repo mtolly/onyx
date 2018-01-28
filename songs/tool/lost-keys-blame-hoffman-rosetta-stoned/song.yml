@@ -30,9 +30,13 @@ parts:
   bass:
     grybo:
       difficulty: 6
+    pro-guitar:
+      tuning: [-2, 0, 0, 0]
   guitar:
     grybo:
       difficulty: 6
+    pro-guitar:
+      tuning: [-2, 0, 0, 0, 0, 0]
   vocal:
     vocal:
       count: 2
