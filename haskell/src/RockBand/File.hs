@@ -220,7 +220,7 @@ instance MIDIFileFormat PSFile where
     psPartDrums        <- parseTracks mmap trks ["PART DRUMS", "PART DRUM"]
     psPartDrums2x      <- parseTracks mmap trks ["PART DRUMS_2X"]
     psPartRealDrumsPS  <- parseTracks mmap trks ["PART REAL_DRUMS_PS"]
-    psPartGuitar       <- parseTracks mmap trks ["PART GUITAR"]
+    psPartGuitar       <- parseTracks mmap trks ["PART GUITAR", "T1 GEMS"]
     psPartGuitarGHL    <- parseTracks mmap trks ["PART GUITAR GHL"]
     psPartBass         <- parseTracks mmap trks ["PART BASS"]
     psPartBassGHL      <- parseTracks mmap trks ["PART BASS GHL"]
@@ -248,7 +248,7 @@ instance MIDIFileFormat PSFile where
     psEvents           <- parseTracks mmap trks ["EVENTS"]
     psBeat             <- parseTracks mmap trks ["BEAT"]
     psVenue            <- parseTracks mmap trks ["VENUE"]
-    knownTracks trks ["PART DRUMS", "PART DRUM", "PART REAL_DRUMS_PS", "PART GUITAR", "PART GUITAR GHL", "PART BASS", "PART BASS GHL", "PART KEYS", "PART RHYTHM", "PART GUITAR COOP", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART REAL_KEYS_PS_E", "PART REAL_KEYS_PS_M", "PART REAL_KEYS_PS_H", "PART REAL_KEYS_PS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3", "EVENTS", "BEAT", "VENUE"]
+    knownTracks trks ["PART DRUMS", "PART DRUM", "PART REAL_DRUMS_PS", "PART GUITAR", "T1 GEMS", "PART GUITAR GHL", "PART BASS", "PART BASS GHL", "PART KEYS", "PART RHYTHM", "PART GUITAR COOP", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART REAL_KEYS_PS_E", "PART REAL_KEYS_PS_M", "PART REAL_KEYS_PS_H", "PART REAL_KEYS_PS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3", "EVENTS", "BEAT", "VENUE"]
     return $ Song tempos mmap PSFile{..}
   showMIDITracks (Song tempos mmap PSFile{..}) = Song tempos mmap $ concat
     [ showMIDITrack "PART DRUMS" psPartDrums
@@ -420,7 +420,7 @@ instance MIDIFileFormat OnyxFile where
             else [prefix ++ name]
       flexPartDrums        <- parseTracks mmap trks $ optPrefix FlexDrums  "PART DRUMS"
       flexPartDrums2x      <- parseTracks mmap trks $ optPrefix FlexDrums  "PART DRUMS_2X"
-      gtr                  <- parseTracks mmap trks $ optPrefix FlexGuitar "PART GUITAR"
+      gtr                  <- parseTracks mmap trks $ optPrefix FlexGuitar "PART GUITAR" ++ optPrefix FlexGuitar "T1 GEMS"
       bass                 <- parseTracks mmap trks $ optPrefix FlexBass   "PART BASS"
       keys                 <- parseTracks mmap trks $ optPrefix FlexKeys   "PART KEYS"
       (flexFiveButton, flexFiveIsKeys) <- case (RTB.null gtr, RTB.null bass, RTB.null keys) of
@@ -459,7 +459,7 @@ instance MIDIFileFormat OnyxFile where
     onyxVenueRB2         <- parseTracks mmap trks ["VENUE RB2"]
     onyxMelodysEscape    <- parseTracks mmap trks ["MELODY'S ESCAPE"]
     knownTracks trks $ ["EVENTS", "BEAT", "VENUE", "MELODY'S ESCAPE"] ++ do
-      trkName <- ["PART DRUMS", "PART DRUMS_2X", "PART GUITAR", "PART BASS", "PART KEYS", "PART GUITAR GHL", "PART BASS GHL", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3"]
+      trkName <- ["PART DRUMS", "PART DRUMS_2X", "PART GUITAR", "T1 GEMS", "PART BASS", "PART KEYS", "PART GUITAR GHL", "PART BASS GHL", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3"]
       prefix <- "" : map (\flex -> "[" ++ T.unpack (getPartName flex) ++ "] ") allNames
       return $ prefix ++ trkName
     return $ Song tempos mmap OnyxFile{..}
