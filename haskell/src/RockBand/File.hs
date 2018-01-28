@@ -565,9 +565,13 @@ readMIDIFile' :: (SendMessage m, MIDIFileFormat f) => F.T -> StackTraceT m (Song
 readMIDIFile' mid = case U.decodeFile mid of
   Right _ -> fatal "SMPTE tracks not supported"
   Left trks -> let
-    (tempoTrk, restTrks) = case trks of
-      t : ts -> (t, ts)
-      []     -> (RTB.empty, [])
+    (tempoTrk, restTrks) = case mid of
+      F.Cons F.Mixed _ _ -> let
+        t = foldr RTB.merge RTB.empty trks
+        in (t, [U.setTrackName "PART GUITAR" t])
+      _ -> case trks of
+        t : ts -> (t, ts)
+        []     -> (RTB.empty, [])
     mmap = U.makeMeasureMap U.Truncate tempoTrk
     in readMIDITracks Song
       { s_tempos     = U.makeTempoMap tempoTrk
