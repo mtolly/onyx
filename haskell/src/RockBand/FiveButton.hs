@@ -148,6 +148,8 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
   [ edge 65 $ \_b -> [p| DiffEvent Easy (Force HOPO  $(boolP _b)) |]
   , edge 66 $ \_b -> [p| DiffEvent Easy (Force Strum $(boolP _b)) |]
 
+  -- 69/70 are pre-RB Easy face-off player 1/2
+
   ] ++ noteParser 72 [p| Green |] (\p -> [p| DiffEvent Medium (Note $p) |])
     ++ noteParser 73 [p| Red |] (\p -> [p| DiffEvent Medium (Note $p) |])
     ++ noteParser 74 [p| Yellow |] (\p -> [p| DiffEvent Medium (Note $p) |])
@@ -156,6 +158,8 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
   [ edge 77 $ \_b -> [p| DiffEvent Medium (Force HOPO  $(boolP _b)) |]
   , edge 78 $ \_b -> [p| DiffEvent Medium (Force Strum $(boolP _b)) |]
 
+  -- 81/82 are pre-RB Medium face-off player 1/2
+
   ] ++ noteParser 84 [p| Green |] (\p -> [p| DiffEvent Hard (Note $p) |])
     ++ noteParser 85 [p| Red |] (\p -> [p| DiffEvent Hard (Note $p) |])
     ++ noteParser 86 [p| Yellow |] (\p -> [p| DiffEvent Hard (Note $p) |])
@@ -163,6 +167,8 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
     ++ noteParser 88 [p| Orange |] (\p -> [p| DiffEvent Hard (Note $p) |]) ++
   [ edge 89 $ \_b -> [p| DiffEvent Hard (Force HOPO  $(boolP _b)) |]
   , edge 90 $ \_b -> [p| DiffEvent Hard (Force Strum $(boolP _b)) |]
+
+  -- 93/94 are pre-RB Hard face-off player 1/2
 
   -- pitch 95 is a shortcut for green + open modifier
   , ( [e| fmap (\((t, ()), rtb) -> (RTB.fromPairList

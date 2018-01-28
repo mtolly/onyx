@@ -401,14 +401,16 @@ identifyFlexTrack :: String -> Maybe FlexPartName
 identifyFlexTrack name = case stripPrefix "[" name of
   Just name' -> Just $ readPartName $ T.pack $ takeWhile (/= ']') name'
   Nothing
-    | "DRUM"    `isInfixOf` name -> Just FlexDrums
-    | "GUITAR"  `isInfixOf` name -> Just FlexGuitar
-    | "T1 GEMS" `isInfixOf` name -> Just FlexGuitar
-    | "BASS"    `isInfixOf` name -> Just FlexBass
-    | "KEYS"    `isInfixOf` name -> Just FlexKeys
-    | "VOCAL"   `isInfixOf` name -> Just FlexVocal
-    | "HARM"    `isInfixOf` name -> Just FlexVocal
-    | otherwise                  -> Nothing
+    | "RHYTHM"      `isInfixOf` name -> Just $ FlexExtra "rhythm"
+    | "GUITAR COOP" `isInfixOf` name -> Just $ FlexExtra "guitar-coop"
+    | "DRUM"        `isInfixOf` name -> Just FlexDrums
+    | "GUITAR"      `isInfixOf` name -> Just FlexGuitar
+    | "T1 GEMS"     `isInfixOf` name -> Just FlexGuitar
+    | "BASS"        `isInfixOf` name -> Just FlexBass
+    | "KEYS"        `isInfixOf` name -> Just FlexKeys
+    | "VOCAL"       `isInfixOf` name -> Just FlexVocal
+    | "HARM"        `isInfixOf` name -> Just FlexVocal
+    | otherwise                      -> Nothing
 
 instance MIDIFileFormat OnyxFile where
   readMIDITracks (Song tempos mmap trks) = do
@@ -421,22 +423,20 @@ instance MIDIFileFormat OnyxFile where
             else [prefix ++ name]
       flexPartDrums        <- parseTracks mmap trks $ optPrefix FlexDrums  "PART DRUMS"
       flexPartDrums2x      <- parseTracks mmap trks $ optPrefix FlexDrums  "PART DRUMS_2X"
-      gtr                  <- parseTracks mmap trks $ optPrefix FlexGuitar "PART GUITAR" ++ optPrefix FlexGuitar "T1 GEMS"
-      bass                 <- parseTracks mmap trks $ optPrefix FlexBass   "PART BASS"
-      keys                 <- parseTracks mmap trks $ optPrefix FlexKeys   "PART KEYS"
-      (flexFiveButton, flexFiveIsKeys) <- case (RTB.null gtr, RTB.null bass, RTB.null keys) of
-        (False,  True,  True) -> return (      gtr, False)
-        ( True, False,  True) -> return (     bass, False)
-        ( True,  True, False) -> return (     keys,  True)
-        ( True,  True,  True) -> return (RTB.empty, False)
+      gryboGuitar          <- parseTracks mmap trks $ concat
+        [ optPrefix FlexGuitar                "PART GUITAR"
+        , optPrefix FlexGuitar                "T1 GEMS"
+        , optPrefix FlexBass                  "PART BASS"
+        , optPrefix (FlexExtra "rhythm")      "PART RHYTHM"
+        , optPrefix (FlexExtra "guitar-coop") "PART GUITAR COOP"
+        ]
+      gryboKeys            <- parseTracks mmap trks $ optPrefix FlexKeys   "PART KEYS"
+      (flexFiveButton, flexFiveIsKeys) <- case (RTB.null gryboGuitar, RTB.null gryboKeys) of
+        (False,  True) -> return (gryboGuitar, False)
+        ( True, False) -> return (  gryboKeys,  True)
         _ -> fatal $ show partName ++ " has more than one GRYBO track authored!"
-      gtrGHL               <- parseTracks mmap trks $ optPrefix FlexGuitar "PART GUITAR GHL"
-      bassGHL              <- parseTracks mmap trks $ optPrefix FlexBass   "PART BASS GHL"
-      flexGHL <- case (RTB.null gtrGHL, RTB.null bassGHL) of
-        (False,  True) -> return gtrGHL
-        ( True, False) -> return bassGHL
-        ( True,  True) -> return RTB.empty
-        _ -> fatal $ show partName ++ " has more than one GHL track authored!"
+      flexGHL              <- parseTracks mmap trks $
+        optPrefix FlexGuitar "PART GUITAR GHL" ++ optPrefix FlexBass "PART BASS GHL"
       progtr  <- parseTracks mmap trks $ optPrefix FlexGuitar "PART REAL_GUITAR"
       probass <- parseTracks mmap trks $ optPrefix FlexBass   "PART REAL_BASS"
       let flexPartRealGuitar = RTB.merge progtr probass
@@ -460,7 +460,7 @@ instance MIDIFileFormat OnyxFile where
     onyxVenueRB2         <- parseTracks mmap trks ["VENUE RB2"]
     onyxMelodysEscape    <- parseTracks mmap trks ["MELODY'S ESCAPE"]
     knownTracks trks $ ["EVENTS", "BEAT", "VENUE", "MELODY'S ESCAPE"] ++ do
-      trkName <- ["PART DRUMS", "PART DRUMS_2X", "PART GUITAR", "T1 GEMS", "PART BASS", "PART KEYS", "PART GUITAR GHL", "PART BASS GHL", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3"]
+      trkName <- ["PART DRUMS", "PART DRUMS_2X", "PART GUITAR", "T1 GEMS", "PART BASS", "PART RHYTHM", "PART GUITAR COOP", "PART KEYS", "PART GUITAR GHL", "PART BASS GHL", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3"]
       prefix <- "" : map (\flex -> "[" ++ T.unpack (getPartName flex) ++ "] ") allNames
       return $ prefix ++ trkName
     return $ Song tempos mmap OnyxFile{..}
