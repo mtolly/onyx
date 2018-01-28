@@ -153,6 +153,17 @@ strumHOPOTap algo threshold rtb = let
     in (newPrev, Just newEvents)
   in RTB.flatten $ trackState Nothing fn withMods
 
+no5NoteChords :: (NNC.C t, Num t, Ord s) => RTB.T t (LongNote s G5.Color) -> RTB.T t (LongNote s G5.Color)
+no5NoteChords = let
+  f trips = let
+    colors = [ c | (_, c, _) <- trips ]
+    in if length colors == 5
+      then filter (\(_, c, _) -> c /= G5.Yellow) trips -- turn GRYBO into GRBO
+      else trips
+  -- note: this doesn't check for ext sustains that create 5 note chords,
+  -- because Magma allows that on keys.
+  in splitEdges . RTB.flatten . fmap f . RTB.collectCoincident . joinEdges
+
 noExtendedSustains :: (NNC.C t, Num t, Ord s, Ord a) => t -> t -> RTB.T t (LongNote s a) -> RTB.T t (LongNote s a)
 noExtendedSustains blipThreshold sustainGap = let
   go rtb = case RTB.viewL rtb of
