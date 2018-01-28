@@ -563,22 +563,26 @@ fixEventOrder = RTB.flatten . fmap (sortOn f) . RTB.collectCoincident
           Just (p, True ) -> (2       , negate p, x)
 
 readMIDIFile' :: (SendMessage m, MIDIFileFormat f) => F.T -> StackTraceT m (Song (f U.Beats))
-readMIDIFile' mid = case U.decodeFile mid of
-  Right _ -> fatal "SMPTE tracks not supported"
-  Left trks -> let
-    (tempoTrk, restTrks) = case mid of
-      F.Cons F.Mixed _ _ -> let
-        t = foldr RTB.merge RTB.empty trks
-        in (t, [U.setTrackName "PART GUITAR" t])
-      _ -> case trks of
-        t : ts -> (t, ts)
-        []     -> (RTB.empty, [])
-    mmap = U.makeMeasureMap U.Truncate tempoTrk
-    in readMIDITracks Song
-      { s_tempos     = U.makeTempoMap tempoTrk
-      , s_signatures = mmap
-      , s_tracks     = restTrks
-      }
+readMIDIFile' mid = do
+  (s_tempos, s_signatures, s_tracks) <- case U.decodeFile mid of
+    Right trks -> let
+      tempos = U.tempoMapFromBPS $ RTB.singleton 0 2
+      sigs = U.measureMapFromTimeSigs U.Truncate $ RTB.singleton 0 $ U.TimeSig 4 1
+      trks' = map (U.unapplyTempoTrack tempos) trks
+      in do
+        warn "Converting from SMPTE MIDI file. This is not tested, please report bugs!"
+        return (tempos, sigs, trks')
+    Left trks -> return $ let
+      (tempoTrk, restTrks) = case mid of
+        F.Cons F.Mixed _ _ -> let
+          -- hack for very old FoF charts that used this midi format
+          t = foldr RTB.merge RTB.empty trks
+          in (t, [U.setTrackName "PART GUITAR" t])
+        _ -> case trks of
+          t : ts -> (t, ts)
+          []     -> (RTB.empty, [])
+      in (U.makeTempoMap tempoTrk, U.makeMeasureMap U.Truncate tempoTrk, restTrks)
+  readMIDITracks Song{..}
 
 -- | Strips comments and track names from the track before handing it to a track parser.
 stripTrack :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
