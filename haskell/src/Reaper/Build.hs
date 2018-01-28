@@ -105,21 +105,24 @@ event tks = \case
   E.MetaEvent Meta.SetTempo{} -> return ()
   E.MetaEvent e -> let
     stringBytes = TE.encodeUtf8 . T.pack
-    bytes = B.cons 0xFF $ case e of
-      Meta.TextEvent s -> B.cons 1 $ stringBytes s
-      Meta.Copyright s -> B.cons 2 $ stringBytes s
-      Meta.TrackName s -> B.cons 3 $ stringBytes s
-      Meta.InstrumentName s -> B.cons 4 $ stringBytes s
-      Meta.Lyric s -> B.cons 5 $ stringBytes s
-      Meta.Marker s -> B.cons 6 $ stringBytes s
-      Meta.CuePoint s -> B.cons 7 $ stringBytes s
+    bytes = B.cons 0xFF <$> case e of
+      Meta.TextEvent s -> Just $ B.cons 1 $ stringBytes s
+      Meta.Copyright s -> Just $ B.cons 2 $ stringBytes s
+      Meta.TrackName s -> Just $ B.cons 3 $ stringBytes s
+      Meta.InstrumentName s -> Just $ B.cons 4 $ stringBytes s
+      Meta.Lyric s -> Just $ B.cons 5 $ stringBytes s
+      Meta.Marker s -> Just $ B.cons 6 $ stringBytes s
+      Meta.CuePoint s -> Just $ B.cons 7 $ stringBytes s
+      Meta.SequencerSpecific{} -> Nothing
       _ -> error $ "unhandled case in reaper event parser: " ++ show e
     splitChunks bs = if B.length bs <= 40
       then [bs]
       else case B.splitAt 40 bs of
         (x, y) -> x : splitChunks y
-    in block "X" [show tks, "0"] $ forM_ (splitChunks bytes) $ \chunk -> do
-      line (B8.unpack $ B64.encode chunk) []
+    in case bytes of
+      Nothing -> return ()
+      Just bs -> block "X" [show tks, "0"] $ forM_ (splitChunks bs) $ \chunk -> do
+        line (B8.unpack $ B64.encode chunk) []
   E.SystemExclusive sysex -> let
     bytes = B.pack $ case sysex of
       SysEx.Regular bs -> 0xF0 : bs
@@ -162,7 +165,7 @@ track tunings lenTicks lenSecs resn trk = let
           = (False, True, mutePitches 0 47 >> mutePitches 73 127 >> pitchProKeys)
           | any (`isSuffixOf` name) ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
           = (False, True, mutePitches 0 35 >> mutePitches 85 127 >> pitchVox)
-          | any (`isSuffixOf` name) ["PART GUITAR", "PART BASS"]
+          | any (`isSuffixOf` name) ["PART GUITAR", "PART BASS", "T1 GEMS"]
           = (True, True, previewGtr >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
           | "PART KEYS" `isSuffixOf` name
           = (True, True, previewKeys >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
@@ -233,6 +236,7 @@ track tunings lenTicks lenSecs resn trk = let
       , ("PART REAL_DRUMS_PS", drumNoteNames)
       , ("PART GUITAR", gryboNoteNames False)
       , ("PART BASS", gryboNoteNames False)
+      , ("T1 GEMS", gryboNoteNames False)
       , ("PART RHYTHM", gryboNoteNames False)
       , ("PART GUITAR COOP", gryboNoteNames False)
       , ("PART KEYS", gryboNoteNames True)

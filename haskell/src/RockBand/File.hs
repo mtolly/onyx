@@ -401,13 +401,14 @@ identifyFlexTrack :: String -> Maybe FlexPartName
 identifyFlexTrack name = case stripPrefix "[" name of
   Just name' -> Just $ readPartName $ T.pack $ takeWhile (/= ']') name'
   Nothing
-    | "DRUM"   `isInfixOf` name -> Just FlexDrums
-    | "GUITAR" `isInfixOf` name -> Just FlexGuitar
-    | "BASS"   `isInfixOf` name -> Just FlexBass
-    | "KEYS"   `isInfixOf` name -> Just FlexKeys
-    | "VOCAL"  `isInfixOf` name -> Just FlexVocal
-    | "HARM"   `isInfixOf` name -> Just FlexVocal
-    | otherwise                 -> Nothing
+    | "DRUM"    `isInfixOf` name -> Just FlexDrums
+    | "GUITAR"  `isInfixOf` name -> Just FlexGuitar
+    | "T1 GEMS" `isInfixOf` name -> Just FlexGuitar
+    | "BASS"    `isInfixOf` name -> Just FlexBass
+    | "KEYS"    `isInfixOf` name -> Just FlexKeys
+    | "VOCAL"   `isInfixOf` name -> Just FlexVocal
+    | "HARM"    `isInfixOf` name -> Just FlexVocal
+    | otherwise                  -> Nothing
 
 instance MIDIFileFormat OnyxFile where
   readMIDITracks (Song tempos mmap trks) = do
