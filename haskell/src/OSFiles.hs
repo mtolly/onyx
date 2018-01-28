@@ -17,6 +17,8 @@ import           System.Process           (callProcess)
 #ifdef MACOSX
 import           Foreign                  (Ptr, withArrayLen, withMany)
 import           Foreign.C                (CInt (..), CString, withCString)
+import           System.Directory         (makeAbsolute)
+import           System.FilePath          (takeDirectory)
 #else
 import           System.Info              (os)
 import           System.IO                (stderr, stdout)
@@ -74,9 +76,14 @@ osOpenFile f = liftIO $ callProcess "open" [f]
 foreign import ccall unsafe "onyx_ShowFiles"
   c_ShowFiles :: Ptr CString -> CInt -> IO ()
 
-osShowFiles files = liftIO $ withMany withCString files $ \cstrs -> do
-  withArrayLen cstrs $ \len pcstrs -> do
-    c_ShowFiles pcstrs $ fromIntegral len
+osShowFiles fs = do
+  fs' <- liftIO $ mapM makeAbsolute fs
+  case map takeDirectory fs' of
+    dir : dirs | all (== dir) dirs ->
+      liftIO $ withMany withCString fs $ \cstrs -> do
+        withArrayLen cstrs $ \len pcstrs -> do
+          c_ShowFiles pcstrs $ fromIntegral len
+    _ -> return ()
 
 osShowFolder dir = liftIO $ callProcess "open" [dir]
 
