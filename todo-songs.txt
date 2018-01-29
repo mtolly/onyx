@@ -10,8 +10,8 @@ ojp3:
 - medieval overture (return to forever)
 - leviathan (mouse on the keys)
 last tasks:
-> widows (dryvox) and medieval (stems) compile through c3, rest can be onyx
-> record keytalk video, possibly fix medieval video which wasn't 60fps for some reason
+> widows (dryvox) and medieval + ripple (stems) compile through c3, rest can be onyx
+> thumbnails for videos (add album art)
 
 at least 2 parts done:
 > thoughts (kaz rodriguez) drums and bass done

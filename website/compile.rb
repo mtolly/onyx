@@ -191,7 +191,7 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
       }
     end.sort_by { |album| album['year'] },
   }
-end.sort_by { |artist| artist['artist'] }
+end.sort_by { |artist| artist['artist'].downcase }
 data = {'artists' => artists}
 
 page = Mustache.render(File.read('template/page.mustache'), data)

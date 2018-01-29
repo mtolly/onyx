@@ -6,6 +6,10 @@ metadata:
   autogen-theme: SynthPop
   key: C
   difficulty: 7
+  comments:
+  - >-
+    Pro keys, basic keys, overdrive, and QA by mazegeek999.
+    Drums and bass by Onyxite.
 audio:
   album-track:
     md5: 0833cc610715e14596c6f9be77768c92
@@ -56,5 +60,7 @@ parts:
 targets:
   rb3:
     game: rb3
+    song-id: 1660200070
+    version: 1
   ps:
     game: ps

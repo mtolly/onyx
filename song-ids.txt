@@ -75,10 +75,6 @@ onyxite's C3-format Song IDs (16602xxxxx)
   Kung-Fu World Champion v2 published 2017-09-24: drum animations and some drum chart fixes
   Kung-Fu World Champion v3 published 2017-12-10: fixes to pro keys, basic keys, and bass thanks to 5.1 version
 
-1660200039 Ripple Star (Jun Ishikawa) 1x
-1660200040 Ripple Star (Jun Ishikawa) 2x
-  v1 TO BE PUBLISHED
-
 1660200045 New Millennium (Dream Theater) 1x
 1660200046 New Millennium (Dream Theater) 2x
   v1 published 2017-05-20
@@ -110,6 +106,19 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200066 Trial of Tears (Dream Theater) 1x
 1660200067 Trial of Tears (Dream Theater) 2x
   v1 released 2018-01-01
+
+1660200039 Ripple Star (Jun Ishikawa) 1x
+1660200040 Ripple Star (Jun Ishikawa) 2x
+1660200068 Cascades (Nova Collective) 1x
+1660200069 Cascades (Nova Collective) 2x
+1660200070 Keytalk (Hiromi)
+1660200071 The Black Widow Blues/The White Widow (Soil & 'Pimp' Sessions)
+1660200072 Medieval Overture (Return to Forever)
+1660200073 What About Me? (Snarky Puppy)
+1660200074 Got a Match? (Chick Corea Elektric Band)
+1660200075 leviathan (mouse on the keys)
+  Onyxite's Jazz Pack 3
+  v1 TO BE PUBLISHED
 
 BONUS SONGS (counting down from max)
 

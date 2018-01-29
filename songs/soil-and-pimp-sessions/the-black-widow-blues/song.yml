@@ -6,6 +6,11 @@ metadata:
   rating: FamilyFriendly
   key: B
   difficulty: 4
+  comments:
+  - >-
+    Guitar part is sax and trumpet.
+  - >-
+    The White Widow's lyrics are not verified and probably partially incorrect.
 audio:
   album-black:
     md5: 4dadfd4b1235c7c77f9ba50d7229427d
@@ -51,6 +56,7 @@ parts:
 targets:
   rb3:
     game: rb3
+    song-id: 1660200071
     version: 1
   ps:
     game: ps

@@ -10,8 +10,7 @@ metadata:
   author: Onyxite, SubDrag
   difficulty: 7
   comments:
-  - "All instruments have overdrive/unison."
-  - "Thanks to SubDrag for the N64 Soundbank Tool."
+  - "Thanks to SubDrag for the N64 Soundbank Tool, used to obtain both the stems and MIDI data."
 audio:
   # Instructions for making these:
   # - Use N64 Soundbank Tool to extract the soundfont from Kirby 64 (U)

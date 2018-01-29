@@ -9,6 +9,10 @@ metadata:
   year: 2015
   track-number: 2
   difficulty: 5
+  comments:
+  - >-
+    Keys is "lead piano", bass is "backing piano", and guitar is strings.
+    (Piano parts were split arbitrarily and may not exactly correspond to the two pianists.)
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -51,13 +55,7 @@ parts:
 targets:
   rb3:
     game: rb3
-  rb3-flip:
-    game: rb3
-    keys: bass
-    bass: keys
+    song-id: 1660200075
+    version: 1
   ps:
     game: ps
-  ps-flip:
-    game: ps
-    keys: bass
-    bass: keys

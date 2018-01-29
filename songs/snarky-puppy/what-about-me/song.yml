@@ -5,6 +5,9 @@ metadata:
   author: Onyxite
   file-include: ../../../albums/we-like-it-here.yml
   difficulty: 6
+  comments:
+  - >-
+    Guitar is almost entirely actual guitar, but also sax during the break.
 audio:
   # https://snarkypuppyeu.bandcamp.com/album/we-like-it-here
   album-prev:
@@ -55,5 +58,7 @@ parts:
 targets:
   rb3:
     game: rb3
+    song-id: 1660200073
+    version: 1
   ps:
     game: ps

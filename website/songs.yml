@@ -237,3 +237,21 @@
   urls:
     rb3: download/onyx_Moonlight_v1_rb3con
     ps: download/onyx_Moonlight_v1_ps_ch.zip
+
+# Onyxite's Jazz Pack 3
+- file-path: ../songs/chick-corea-elektric-band/got-a-match
+  urls: {}
+- file-path: ../songs/game-soundtracks/ripple-star
+  urls: {}
+- file-path: ../songs/hiromi-uehara/keytalk
+  urls: {}
+- file-path: ../songs/mouse-on-the-keys/leviathan
+  urls: {}
+- file-path: ../songs/nova-collective/cascades
+  urls: {}
+- file-path: ../songs/return-to-forever/medieval-overture
+  urls: {}
+- file-path: ../songs/snarky-puppy/what-about-me
+  urls: {}
+- file-path: ../songs/soil-and-pimp-sessions/the-black-widow-blues
+  urls: {}
