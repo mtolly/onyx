@@ -10,6 +10,7 @@ metadata:
   author: Onyxite, SubDrag
   difficulty: 7
   autogen-theme: SynthPop
+  rating: FF
   comments:
   - "Thanks to SubDrag for the N64 Soundbank Tool, used to obtain both the stems and MIDI data."
 audio:
@@ -52,6 +53,7 @@ parts:
   drums:
     drums:
       difficulty: 7
+      kit: Vintage Kit
   bass:
     grybo:
       difficulty: 7

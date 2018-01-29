@@ -11,6 +11,7 @@ metadata:
   preview-start: prc_main_riff_1a
   difficulty: 7
   autogen-theme: SynthPop
+  rating: FF
 audio:
   album-track:
     md5: d7860a0fcf857d2e4753e3de36cb7732
