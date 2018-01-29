@@ -434,6 +434,7 @@ instance MIDIFileFormat OnyxFile where
       (flexFiveButton, flexFiveIsKeys) <- case (RTB.null gryboGuitar, RTB.null gryboKeys) of
         (False,  True) -> return (gryboGuitar, False)
         ( True, False) -> return (  gryboKeys,  True)
+        ( True,  True) -> return (  RTB.empty, False)
         _ -> fatal $ show partName ++ " has more than one GRYBO track authored!"
       flexGHL              <- parseTracks mmap trks $
         optPrefix FlexGuitar "PART GUITAR GHL" ++ optPrefix FlexBass "PART BASS GHL"
