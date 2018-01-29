@@ -9,6 +9,7 @@ metadata:
   year: 2000
   author: Onyxite, SubDrag
   difficulty: 7
+  autogen-theme: SynthPop
   comments:
   - "Thanks to SubDrag for the N64 Soundbank Tool, used to obtain both the stems and MIDI data."
 audio:

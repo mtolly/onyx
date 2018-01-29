@@ -6,6 +6,7 @@ metadata:
   key: E
   rating: FF
   difficulty: 6
+  autogen-theme: PsychJamRock
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
