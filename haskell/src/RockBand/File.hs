@@ -573,16 +573,17 @@ readMIDIFile' mid = do
       in do
         warn "Converting from SMPTE MIDI file. This is not tested, please report bugs!"
         return (tempos, sigs, trks')
-    Left trks -> return $ let
-      (tempoTrk, restTrks) = case mid of
-        F.Cons F.Mixed _ _ -> let
+    Left trks -> do
+      (tempoTrk, restTrks) <- case mid of
+        F.Cons F.Mixed _ _ -> do
           -- hack for very old FoF charts that used this midi format
-          t = foldr RTB.merge RTB.empty trks
-          in (t, [U.setTrackName "PART GUITAR" t])
-        _ -> case trks of
+          warn "Loading 'mixed' (type-0) MIDI file as single guitar track."
+          let t = case trks of trk : _ -> trk; [] -> RTB.empty
+          return (t, [U.setTrackName "PART GUITAR" t])
+        _ -> return $ case trks of
           t : ts -> (t, ts)
           []     -> (RTB.empty, [])
-      in (U.makeTempoMap tempoTrk, U.makeMeasureMap U.Truncate tempoTrk, restTrks)
+      return (U.makeTempoMap tempoTrk, U.makeMeasureMap U.Truncate tempoTrk, restTrks)
   readMIDITracks Song{..}
 
 -- | Strips comments and track names from the track before handing it to a track parser.
