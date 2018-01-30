@@ -1,5 +1,20 @@
 # Version history
 
+## 20180129
+
+* Bug fix: sections were being placed in wrong places when the tempo map had to
+  be modified due to too-fast or too-slow tempos, or delayed due to early notes
+* Fix for old GH1 MIDIs (`T1 GEMS` track name)
+* Fix for very old "trackless" FoF MIDIs
+* Replace 5-note chords with GRBO chords
+* Reaper projects include "woodblock" sound for guitar/bass/drums/keys
+* Reaper projects now use [Seil's Pro Guitar preview plugin][1], with tuning
+  configured automatically from `songs.dta`
+* Fix leading/trailing space in metadata fields (seen in some `.chart` files)
+* New icon
+
+  [1]: http://customscreators.com/index.php?/topic/15811-pro-guitar-preview-for-reaper-v10/
+
 ## 20180111
 
 * Fix importing PS songs with 2 drums audio files
