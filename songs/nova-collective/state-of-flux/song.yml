@@ -1,0 +1,34 @@
+metadata:
+  title: State of Flux
+  file-include: ../../../albums/the-further-side.yml
+  track-number: 4
+  author: Onyxite
+  rating: FF
+  autogen-theme: PsychJamRock
+audio:
+  album-track:
+    # https://novacollectivefusion.bandcamp.com
+    md5: a66dbf126e1838815e589c1cc5f0e437
+    frames: 25612104
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+    song:
+      pad: [2.605, album-track]
+parts:
+  drums:
+    drums: {}
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
