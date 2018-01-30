@@ -13,7 +13,6 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (isJust)
 import           Development.Shake
 import           Guitars
-import           Numeric.NonNegative.Class        ((-|))
 import           OneFoot
 import           ProKeysRanges
 import           Reductions
@@ -39,7 +38,7 @@ processRB3
   -> StackTraceT (QueueLog Action) (RBFile.Song (RBFile.RB3File U.Beats))
 processRB3 a b c d e = do
   res <- processMIDI (Left a) b c d e
-  magmaLegalTempos $ fmap fst res
+  fmap fixBeatTrack' $ magmaLegalTempos $ fmap fst res
 
 processRB3Pad
   :: TargetRB3
@@ -50,7 +49,7 @@ processRB3Pad
   -> StackTraceT (QueueLog Action) (RBFile.Song (RBFile.RB3File U.Beats), Int)
 processRB3Pad a b c d e = do
   res <- processMIDI (Left a) b c d e
-  magmaLegalTempos (fmap fst res) >>= magmaPad
+  magmaLegalTempos (fmap fst res) >>= magmaPad . fixBeatTrack'
 
 processPS
   :: TargetPS
@@ -426,9 +425,6 @@ magmaLegalTempos rb3 = let
     (numChanges, newTempos, newSigs, TrackAdjust adjuster) -> do
       warn $ "Stretching/squashing " ++ show numChanges ++ " measures to keep tempos in Magma-legal range"
       let events = adjuster $ RBFile.rb3Events $ RBFile.s_tracks rb3
-          endPosn = case RTB.getTimes $ RTB.filter (== Events.End) events of
-            [bts] -> bts
-            _     -> 0 -- eh
       return RBFile.Song
         { RBFile.s_tracks = RBFile.RB3File
           { RBFile.rb3PartDrums        = adjuster $ RBFile.rb3PartDrums        $ RBFile.s_tracks rb3
@@ -450,7 +446,7 @@ magmaLegalTempos rb3 = let
           , RBFile.rb3Harm2            = adjuster $ RBFile.rb3Harm2            $ RBFile.s_tracks rb3
           , RBFile.rb3Harm3            = adjuster $ RBFile.rb3Harm3            $ RBFile.s_tracks rb3
           , RBFile.rb3Events           = events
-          , RBFile.rb3Beat             = fixLastBeat endPosn $ adjuster $ RBFile.rb3Beat $ RBFile.s_tracks rb3
+          , RBFile.rb3Beat             = adjuster $ RBFile.rb3Beat $ RBFile.s_tracks rb3
           , RBFile.rb3Venue            = adjuster $ RBFile.rb3Venue            $ RBFile.s_tracks rb3
           }
         , RBFile.s_tempos = newTempos
@@ -550,16 +546,37 @@ magmaLegalTempos' endTime tempos sigs = do
         , TrackAdjust $ stretchTrack measureChanges
         )
 
-fixLastBeat :: U.Beats -> RTB.T U.Beats Beat.Event -> RTB.T U.Beats Beat.Event
-fixLastBeat endPosn beatTrk = case ATB.viewR $ RTB.toAbsoluteEventList 0 beatTrk of
-  Nothing -> beatTrk -- whatever
-  Just (_, (beatPosn, _)) -> let
-    distance = endPosn -| beatPosn
-    in if distance > 1
-      then RTB.insert (beatPosn + distance / 2) Beat.Beat beatTrk
-      else if distance <= 0.5
-        then beatTrk -- might need to remove a BEAT event in this case? dunno
-        else beatTrk -- all good
+fixBeatTrack' :: RBFile.Song (RBFile.RB3File U.Beats) -> RBFile.Song (RBFile.RB3File U.Beats)
+fixBeatTrack' rb3 = let
+  endTime = case RTB.viewL $ RTB.filter (== Events.End) $ RBFile.rb3Events $ RBFile.s_tracks rb3 of
+    Nothing           -> 0 -- shouldn't happen
+    Just ((dt, _), _) -> dt
+  in rb3
+    { RBFile.s_tracks = (RBFile.s_tracks rb3)
+      { RBFile.rb3Beat = fixBeatTrack endTime $ RBFile.rb3Beat $ RBFile.s_tracks rb3
+      }
+    }
+
+fixBeatTrack :: U.Beats -> RTB.T U.Beats Beat.Event -> RTB.T U.Beats Beat.Event
+fixBeatTrack endPosn trk = let
+  -- can't have 2 barlines in a row
+  fixDoubleDownbeat = RTB.fromPairList . fixDoubleDownbeat' . RTB.toPairList
+  fixDoubleDownbeat' = \case
+    (t1, Beat.Bar) : rest@((_, Beat.Bar) : _)
+      -> (t1, Beat.Beat) : fixDoubleDownbeat' rest
+    (t, x) : rest -> (t, x) : fixDoubleDownbeat' rest
+    [] -> []
+  -- can't have less than 240 ticks between beats ("faster than double time")
+  fixFastBeats rtb = case RTB.viewL rtb of
+    Just ((dt, b), rtb') -> if dt < (240/480) && dt /= 0
+      then fixFastBeats $ RTB.delay dt rtb'
+      else RTB.cons dt b $ fixFastBeats rtb'
+    Nothing -> rtb
+  -- last beat must be no more than 480, and no less than 15, ticks from [end]
+  fixLastBeat rtb = if RTB.null $ U.trackDrop (endPosn - (480/480)) rtb
+    then RTB.insert (endPosn - (240/480)) Beat.Beat rtb
+    else rtb
+  in fixDoubleDownbeat $ fixLastBeat $ fixFastBeats $ U.trackTake (endPosn - (14/480)) trk
 
 magmaPad
   :: (SendMessage m)

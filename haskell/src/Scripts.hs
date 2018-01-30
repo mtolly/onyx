@@ -120,7 +120,7 @@ songLengthMS song = floor $ U.applyTempoMap (s_tempos song) (songLengthBeats son
 
 -- | Given a measure map, produces an infinite BEAT track.
 makeBeatTrack :: U.MeasureMap -> RTB.T U.Beats Beat.Event
-makeBeatTrack mmap = fixDoubleDownbeat $ go 0 where
+makeBeatTrack mmap = go 0 where
   go i = let
     len = U.unapplyMeasureMap mmap (i + 1, 0) - U.unapplyMeasureMap mmap (i, 0)
     -- the rounding below ensures that
@@ -137,18 +137,6 @@ makeBeatTrack mmap = fixDoubleDownbeat $ go 0 where
   infiniteMeasure, infiniteBeats :: RTB.T U.Beats Beat.Event
   infiniteMeasure = RTB.cons 0 Beat.Bar  $ RTB.delay 1 infiniteBeats
   infiniteBeats   = RTB.cons 0 Beat.Beat $ RTB.delay 1 infiniteBeats
-  -- If you have a small measure (less than 1.5 beats) you get no upbeats in a measure.
-  -- You can't have two downbeats in a row or Magma says:
-  -- ERROR: MIDI Compiler: (BEAT): Two downbeats occur back to back at [45:1:000] and [46:1:000]
-  -- So, make the first one not a downbeat.
-  -- This works unless the very first measure of the song is small, but that should pretty much never happen.
-  fixDoubleDownbeat :: RTB.T U.Beats Beat.Event -> RTB.T U.Beats Beat.Event
-  fixDoubleDownbeat = RTB.fromPairList . fixDoubleDownbeat' . RTB.toPairList
-  fixDoubleDownbeat' = \case
-    (t1, Beat.Bar) : rest@((_, Beat.Bar) : _)
-      -> (t1, Beat.Beat) : fixDoubleDownbeat' rest
-    (t, x) : rest -> (t, x) : fixDoubleDownbeat' rest
-    [] -> []
 
 trackGlue :: (NNC.C t) => t -> RTB.T t a -> RTB.T t a -> RTB.T t a
 trackGlue t xs ys = let
