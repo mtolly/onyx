@@ -15,10 +15,10 @@ audio:
 plans:
   album:
     countin:
+      0|0: hihat
+      0|2: hihat
       1|0: hihat
-      1|2: hihat
-      2|0: hihat
-      2|1: hihat
+      1|1: hihat
     song:
       pad: [2.605, album-track]
 parts:
