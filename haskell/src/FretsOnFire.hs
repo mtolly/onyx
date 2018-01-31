@@ -51,7 +51,34 @@ data Song = Song
   , sysexSlider      :: Maybe Bool
   , sysexOpenBass    :: Maybe Bool
   , video            :: Maybe FilePath
-  -- TODO: video_start_time, five_lane_drums, loading_phrase
+  {- TODO:
+  video_start_time
+  video_end_time
+  video_loop
+  five_lane_drums
+  loading_phrase
+  banner_link_a
+  link_name_a
+  banner_link_b
+  link_name_b
+  last_play
+  kit_type
+  keys_type
+  guitar_type
+  bass_type
+  dance_type
+  background
+  eighthnote_hopo
+  rating
+  count
+  real_keys_lane_count_right
+  real_keys_lane_count_left
+  real_guitar_tuning
+  real_bass_tuning
+  sysex_high_hat_ctrl
+  sysex_rimshot
+  icon
+  -}
   } deriving (Eq, Ord, Show, Read)
 
 instance Default Song where
