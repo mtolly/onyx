@@ -240,18 +240,45 @@
 
 # Onyxite's Jazz Pack 3
 - file-path: ../songs/chick-corea-elektric-band/got-a-match
-  urls: {}
+  video: https://www.youtube.com/watch?v=80OCyJA7VJA
+  urls:
+    rb3: download/OJP3_GotAMatch_v1_rb3con
+    ps: download/OJP3_GotAMatch_v1_ps_ch.zip
 - file-path: ../songs/game-soundtracks/ripple-star
-  urls: {}
+  video: https://www.youtube.com/watch?v=83rYLj3aQws
+  urls:
+    rb3: download/OJP3_RippleStar1x_v1_rb3con
+    rb3-2x: download/OJP3_RippleStar2x_v1_rb3con
+    ps: download/OJP3_RippleStar_v1_ps_ch.zip
 - file-path: ../songs/hiromi-uehara/keytalk
-  urls: {}
+  video: https://vimeo.com/253096521
+  urls:
+    rb3: download/OJP3_Keytalk_v1_rb3con
+    ps: download/OJP3_Keytalk_v1_ps_ch.zip
 - file-path: ../songs/mouse-on-the-keys/leviathan
-  urls: {}
+  video: https://www.youtube.com/watch?v=j8DwFl8NS2I
+  urls:
+    rb3: download/OJP3_leviathan_v1_rb3con
+    ps: download/OJP3_leviathan_v1_ps_ch.zip
 - file-path: ../songs/nova-collective/cascades
-  urls: {}
+  video: https://www.youtube.com/watch?v=pHGLMVC4R0k
+  urls:
+    rb3: download/OJP3_Cascades1x_v1_rb3con
+    rb3-2x: download/OJP3_Cascades2x_v1_rb3con
+    ps: download/OJP3_Cascades_v1_ps_ch.zip
 - file-path: ../songs/return-to-forever/medieval-overture
-  urls: {}
+  video: https://www.youtube.com/watch?v=imIuiXnS0sY
+  urls:
+    rb3: download/OJP3_MedievalOverture_v1_rb3con
+    ps: download/OJP3_MedievalOverture_v1_ps_ch.zip
 - file-path: ../songs/snarky-puppy/what-about-me
-  urls: {}
+  video: https://www.youtube.com/watch?v=0Rbbewj4XQU
+  urls:
+    rb3: download/OJP3_WhatAboutMe_v1_rb3con
+    ps: download/OJP3_WhatAboutMe_v1_ps_ch.zip
 - file-path: ../songs/soil-and-pimp-sessions/the-black-widow-blues
-  urls: {}
+  video: https://vimeo.com/252455703
+  urls:
+    rb3: download/OJP3_BlackWidowBlues_v1_rb3con
+    ps: download/OJP3_BlackWidowBlues_v1_ps_ch.zip
+
