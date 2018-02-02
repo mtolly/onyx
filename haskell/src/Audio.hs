@@ -78,7 +78,7 @@ data Audio t a
   | Channels [Maybe Int]      (Audio t a)
   | StretchSimple Double      (Audio t a)
   | StretchFull Double Double (Audio t a)
-  | Mask [T.Text] [Seam t] (Audio t a)
+  | Mask [T.Text] [Seam t]    (Audio t a)
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
 data Seam t = Seam

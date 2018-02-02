@@ -656,11 +656,21 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             , RBFile.s_tracks = def :: RBFile.OnyxFile U.Beats
             }
 
-      let getAudioLength :: T.Text -> Action U.Seconds
-          getAudioLength planName = do
-            let allSourceAudio = "gen/plan" </> T.unpack planName </> "everything.wav"
-            need [allSourceAudio]
-            liftIO $ audioSeconds allSourceAudio
+      let getAudioLength :: T.Text -> Plan -> Staction U.Seconds
+          getAudioLength planName = \case
+            MoggPlan{} -> do
+              let ogg = "gen/plan" </> T.unpack planName </> "audio.ogg"
+              shk $ need [ogg]
+              liftIO $ audioSeconds ogg
+            Plan{..} -> do
+              let expr = Mix $ map _planExpr $ concat
+                    [ toList _song
+                    , toList _crowd
+                    , toList _planParts >>= toList
+                    ]
+              src <- mapM (manualLeaf audioLib songYaml) expr >>= lift . lift . buildSource . join
+              let _ = src :: AudioSource (ResourceT IO) Float
+              return $ realToFrac $ fromIntegral (frames src) / rate src
 
           adjustSpec :: Bool -> [(Double, Double)] -> [(Double, Double)]
           adjustSpec True  spec     = spec
@@ -1043,7 +1053,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 songYaml
                 (adjustMIDISpeed input')
                 mixMode
-                (getAudioLength planName)
+                (getAudioLength planName plan)
               liftIO $ writeFile outPad $ show pad
               case invalid of
                 [] -> return ()
@@ -1499,7 +1509,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 songYaml
                 input
                 mixMode
-                (getAudioLength planName)
+                (getAudioLength planName plan)
               saveMIDI out output
 
             dir </> "ps/video.avi" %> \out -> case ps_FileVideo ps of
@@ -1755,7 +1765,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
           saveMIDI out input { RBFile.s_tempos = tempos }
         midprocessed %> \out -> do
           input <- shakeMIDI midraw
-          output <- RB3.processPS def songYaml input RBDrums.D0 $ getAudioLength planName
+          output <- RB3.processPS def songYaml input RBDrums.D0 $ getAudioLength planName plan
           saveMIDI out output
 
         -- TODO flex parts not supported by RB3/PS
