@@ -1545,6 +1545,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 , FoF.diffKeysRealPS   = Just (-1)
                 , FoF.delay            = Nothing
                 , FoF.starPowerNote    = Just 116
+                , FoF.eighthNoteHOPO   = Nothing
                 , FoF.track            = _trackNumber $ _metadata songYaml
                 , FoF.sysexSlider      = Just $ let
                   isTap = \case

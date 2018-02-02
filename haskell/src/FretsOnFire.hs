@@ -47,6 +47,7 @@ data Song = Song
   , diffKeysRealPS   :: Maybe Int
   , delay            :: Maybe Int
   , starPowerNote    :: Maybe Int -- ^ can be @star_power_note@ or @multiplier_note@
+  , eighthNoteHOPO   :: Maybe Bool
   , track            :: Maybe Int
   , sysexSlider      :: Maybe Bool
   , sysexOpenBass    :: Maybe Bool
@@ -68,7 +69,6 @@ data Song = Song
   bass_type
   dance_type
   background
-  eighthnote_hopo
   rating
   count
   real_keys_lane_count_right
@@ -86,7 +86,7 @@ instance Default Song where
     def def def def def def def def def def
     def def def def def def def def def def
     def def def def def def def def def def
-    def def def
+    def def def def
 
 loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
 loadSong fp = do
@@ -100,7 +100,12 @@ loadSong fp = do
       int :: T.Text -> Maybe Int
       int = str >=> readMaybe . T.unpack
       bool :: T.Text -> Maybe Bool
-      bool = str >=> readMaybe . T.unpack
+      bool = str >=> \s -> case T.strip s of
+        "True"  -> Just True
+        "False" -> Just False
+        "1"     -> Just True
+        "0"     -> Just False
+        _       -> Nothing
 
       name = str "name"
       artist = str "artist"
@@ -131,6 +136,7 @@ loadSong fp = do
       diffKeysRealPS = int "diff_keys_real_ps"
       delay = int "delay"
       starPowerNote = int "star_power_note" <|> int "multiplier_note"
+      eighthNoteHOPO = bool "eighthnote_hopo"
       track = int "track"
       sysexSlider = bool "sysex_slider"
       sysexOpenBass = bool "sysex_open_bass"
@@ -174,6 +180,7 @@ saveSong fp Song{..} = writePSIni fp $
     shown "delay" delay
     shown "star_power_note" starPowerNote
     shown "multiplier_note" starPowerNote
+    shown "eighthnote_hopo" eighthNoteHOPO
     shown "track" track
     shown "sysex_slider" sysexSlider
     shown "sysex_open_bass" sysexOpenBass

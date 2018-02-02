@@ -234,6 +234,10 @@ importFoF detectBasicDrums src dest = do
           else Just Vocal1
         else Nothing
 
+  let hopoThreshold = case FoF.eighthNoteHOPO song of
+        Just True -> 250 -- don't know exactly
+        _         -> 170
+
   stackIO $ Y.encodeFile (dest </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
       { _title        = title
@@ -313,7 +317,7 @@ importFoF detectBasicDrums src dest = do
       , ( FlexGuitar, def
         { partGRYBO = guard (hasTrack RBFile.psPartGuitar && FoF.diffGuitar song /= Just (-1)) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffGuitar song
-          , gryboHopoThreshold = 170
+          , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           }
         , partProGuitar = let
@@ -321,20 +325,20 @@ importFoF detectBasicDrums src dest = do
             || (hasTrack RBFile.psPartRealGuitar22 && FoF.diffGuitarReal22 song /= Just (-1))
           in guard b >> Just PartProGuitar
             { pgDifficulty = toTier $ FoF.diffGuitarReal song
-            , pgHopoThreshold = 170
+            , pgHopoThreshold = hopoThreshold
             , pgTuning = []
             , pgTuningGlobal = 0
             , pgFixFreeform = False
             }
         , partGHL = guard (hasTrack RBFile.psPartGuitarGHL) >> Just PartGHL
           { ghlDifficulty = toTier $ FoF.diffGuitar song -- I guess?
-          , ghlHopoThreshold = 170
+          , ghlHopoThreshold = hopoThreshold
           }
         })
       , ( FlexBass, def
         { partGRYBO = guard (hasTrack RBFile.psPartBass && FoF.diffBass song /= Just (-1)) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffBass song
-          , gryboHopoThreshold = 170
+          , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           }
         , partProGuitar = let
@@ -342,20 +346,20 @@ importFoF detectBasicDrums src dest = do
             || (hasTrack RBFile.psPartRealBass22 && FoF.diffBassReal22 song /= Just (-1))
           in guard b >> Just PartProGuitar
             { pgDifficulty = toTier $ FoF.diffBassReal song
-            , pgHopoThreshold = 170
+            , pgHopoThreshold = hopoThreshold
             , pgTuning = []
             , pgTuningGlobal = 0
             , pgFixFreeform = False
             }
         , partGHL = guard (hasTrack RBFile.psPartBassGHL) >> Just PartGHL
           { ghlDifficulty = toTier $ FoF.diffBass song -- I guess?
-          , ghlHopoThreshold = 170
+          , ghlHopoThreshold = hopoThreshold
           }
         })
       , ( FlexKeys, def
         { partGRYBO = guard (hasTrack RBFile.psPartKeys && FoF.diffKeys song /= Just (-1)) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffKeys song
-          , gryboHopoThreshold = 170
+          , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           }
         , partProKeys = guard (hasTrack RBFile.psPartRealKeysX && FoF.diffKeysReal song /= Just (-1)) >> Just PartProKeys
