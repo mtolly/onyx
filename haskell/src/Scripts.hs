@@ -6,17 +6,20 @@ import           Config                           (Instrument (..),
                                                    PreviewTime (..), SongYaml,
                                                    _metadata, _previewEnd,
                                                    _previewStart)
+import           Control.Monad                    (guard)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import           Development.Shake
+import qualified FretsOnFire                      as FoF
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified RockBand.Beat                    as Beat
 import           RockBand.Common
@@ -24,9 +27,11 @@ import qualified RockBand.Drums                   as Drums
 import qualified RockBand.Events                  as Events
 import           RockBand.File
 import qualified RockBand.FiveButton              as Five
+import           RockBand.Parse                   (isNoteEdgeCPV, makeEdgeCPV)
 import qualified RockBand.ProGuitar               as ProGuitar
 import qualified RockBand.ProKeys                 as ProKeys
 import qualified RockBand.Vocals                  as Vocals
+import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
@@ -64,6 +69,45 @@ addZero x rtb = case U.trackSplitZero rtb of
 
 loadMIDI :: (SendMessage m, MonadIO m, MIDIFileFormat f) => FilePath -> StackTraceT m (Song (f U.Beats))
 loadMIDI fp = liftIO (Load.fromFile fp) >>= readMIDIFile'
+
+-- | Moves star power from the GH 1/2 format to the RB format, either if it is
+-- specified in the song.ini, or automatically detected from the MIDI.
+loadFoFMIDI :: (SendMessage m, MonadIO m, MIDIFileFormat f) => FoF.Song -> FilePath -> StackTraceT m (Song (f U.Beats))
+loadFoFMIDI ini fp = do
+  mid <- liftIO $ Load.fromFile fp
+  let isGtrTrack trk = U.trackName trk `elem` map Just ["PART GUITAR", "PART BASS", "PART RHYTHM", "T1 GEMS"]
+      midGH = case mid of
+        F.Cons typ dvn trks -> F.Cons typ dvn $ flip map trks $ \trk -> if isGtrTrack trk
+          then flip RTB.mapMaybe trk $ \e -> case isNoteEdgeCPV e of
+            Just (c, 103, v) -> Just $ makeEdgeCPV c 116 v
+            Just (_, 116, _) -> Nothing
+            _                -> Just e
+          else trk
+      hasPitch n = not $ null $ do
+        trk <- case mid of F.Cons _ _ trks -> trks
+        guard $ isGtrTrack trk
+        e <- toList trk
+        case isNoteEdgeCPV e of
+          Just (_, n', _) | n == n' -> [()]
+          _               -> []
+  mid' <- case FoF.starPowerNote ini of
+    Just 103 -> do
+      lg "Star Power note specified in song.ini to be 103 (old GH format), converting to RB"
+      return midGH
+    Just 116 -> do
+      lg "Star Power note specified in song.ini to be 116 (RB format)"
+      return mid
+    Nothing -> if hasPitch 103 && not (hasPitch 116)
+      then do
+        lg "MIDI auto-detected as old GH Star Power format, converting to RB"
+        return midGH
+      else do
+        lg "MIDI auto-detected as RB Overdrive format, passing through unmodified"
+        return mid
+    Just n -> do
+      warn $ "song.ini has unsupported Star Power pitch of " <> show n <> ", assuming RB format"
+      return mid
+  readMIDIFile' mid'
 
 shakeMIDI :: (MIDIFileFormat f) => FilePath -> StackTraceT (QueueLog Action) (Song (f U.Beats))
 shakeMIDI fp = lift (lift $ need [fp]) >> loadMIDI fp

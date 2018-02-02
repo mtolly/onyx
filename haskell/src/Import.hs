@@ -57,7 +57,7 @@ import qualified RockBand.Drums                   as RBDrums
 import           RockBand.File                    (FlexPartName (..))
 import qualified RockBand.File                    as RBFile
 import qualified RockBand.Vocals                  as RBVox
-import           Scripts                          (loadMIDI)
+import           Scripts                          (loadFoFMIDI, loadMIDI)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Extract                     (extractSTFS)
@@ -75,7 +75,7 @@ fixDoubleSwells ps = let
       RBDrums.SingleRoll b -> Just b
       _                    -> Nothing
     notes = flip RTB.mapMaybe trk $ \case
-      RBDrums.DiffEvent Expert (RBDrums.Note gem) -> Just gem
+      RBDrums.DiffEvent Expert (RBDrums.Note gem) | gem /= RBDrums.Kick -> Just gem
       _                                           -> Nothing
     lanesAbs = RTB.toAbsoluteEventList 0 $ joinEdges $ fmap (\b -> if b then NoteOn () () else NoteOff ()) lanes
     lanesAbs' = ATB.fromPairList $ flip map (ATB.toPairList lanesAbs) $ \(startTime, lane) -> case lane of
@@ -106,7 +106,7 @@ importFoF detectBasicDrums src dest = do
       stackIO (Dir.doesFileExist pathMid) >>= \case
         True -> do
           lg "Found song.ini and notes.mid"
-          mid <- loadMIDI $ src </> "notes.mid"
+          mid <- loadFoFMIDI ini $ src </> "notes.mid"
           return (ini, mid)
         False -> stackIO (Dir.doesFileExist pathChart) >>= \case
           True -> do
