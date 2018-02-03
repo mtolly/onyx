@@ -301,6 +301,19 @@ audio len path = let
   name = takeFileName path
   in block "TRACK" [] $ do
     line "NAME" [name]
+    -- reapitch up 1 octave (disabled)
+    line "FX" ["0"]
+    block "FXCHAIN" [] $ do
+      line "SHOW" ["0"]
+      line "LASTSEL" ["0"]
+      line "DOCKED" ["0"]
+      line "BYPASS" ["0", "0", "0"]
+      block "VST" ["VST: ReaPitch (Cockos)", "reapitch.vst.dylib", "0", "VST: ReaPitch (Cockos)", "1919250531"] $ do
+        line "Y3Blcu5e7f4CAAAAAQAAAAAAAAACAAAAAAAAAAIAAAABAAAAAAAAAAIAAAAAAAAATAAAAAEAAAAAABAA" []
+        line "AAAAAP////8BAAAALAAAAAIAAAAAAAAAAACAPwAAAAAAAAAAAACAPwAAAD8AAAA/AAAAPwAAQD8AAAA/AAAAPwAAAD8AAIA/AAAAPw==" []
+        line "AAAQAAAA" []
+      line "FLOATPOS" ["0", "0", "0", "0"]
+      line "WAK" ["0"]
     block "ITEM" [] $ do
       line "POSITION" ["0"]
       line "LOOP" ["0"]
