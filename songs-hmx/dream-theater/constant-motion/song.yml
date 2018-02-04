@@ -4,16 +4,22 @@ metadata:
   track-number: 3
   key: E
   difficulty: 6
-  author: "Harmonix, Grinnz, Mazegeek999, Onyxite"
+  author: "Harmonix, Grinnz, Mazegeek999, Ziggy, Onyxite"
   comments:
   - "Drums by Grinnz."
   - "Pro keys by Mazegeek999."
+  - "Pro guitar by Ziggy."
   - "Timing, guitar, bass, and original vocals by Harmonix."
   - "Edits to guitar chart (including a mostly redone solo) by me."
   - "Vocals fixed up and split into harmonies by me."
   - "Drums confidence: *high*, written to stems and Portnoy's DVD."
   rating: Family Friendly # so says HMX
-  # TODO: chart sound effects on keys; make sure OD/unisons are good
+  # TODO:
+  # chart sound effects on keys
+  # adjust OD/unisons for keys
+  # fix pro guitar solo
+  # fix basic guitar bits to match pro
+  # pro bass
 audio:
   album-track:
     md5: 8c906ac9ee62cccb895a0daaf5001049
@@ -57,6 +63,9 @@ parts:
   guitar:
     grybo:
       difficulty: 7
+    pro-guitar:
+      difficulty: 7
+      tuning: [0, 0, 0, 0, 0, 0]
   vocal:
     vocal:
       difficulty: 4
