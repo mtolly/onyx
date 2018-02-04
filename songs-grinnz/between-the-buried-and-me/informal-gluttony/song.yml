@@ -34,15 +34,17 @@ plans:
             - concatenate: [album-the-decade-of-statues, album-informal-gluttony, album-sun-of-nothing]
 parts:
   drums:
-    drums:
+    drums: # grinnz
       auto-2x-bass: true
   guitar:
-    grybo: {}
+    grybo: {} # alextaylor
   bass:
-    grybo: {}
+    grybo: {} # alextaylor
+    # pro-guitar: # onyxite
+    #   tuning: [-8, -8, -8, -8, -7] # EADGB -> G# C# F# B E
   keys:
-    grybo: {}
-    pro-keys: {}
+    grybo: {} # alextaylor
+    pro-keys: {} # alextaylor
 targets:
   rb3-2x:
     game: rb3
