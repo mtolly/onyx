@@ -1,0 +1,36 @@
+metadata:
+  title: The Further Side
+  file-include: ../../../albums/the-further-side.yml
+  track-number: 6
+  author: Onyxite
+  rating: FF
+  autogen-theme: PsychJamRock
+audio:
+  album-track:
+    # https://novacollectivefusion.bandcamp.com
+    md5: 95ecfdbcd8d97b3153486b4d0c91d867
+    frames: 23809296
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [3.734, album-track]
+parts:
+  drums:
+    drums: {}
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
