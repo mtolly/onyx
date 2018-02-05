@@ -60,6 +60,8 @@ import qualified RhythmGame.Drums                 as RGDrums
 import           RockBand.Common                  (Difficulty (..))
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.File                    as RBFile
+import           RockBand.ProGuitar               (standardGuitar)
+import           RockBand.ProGuitar.Keyboard      (GtrSettings (..), runApp)
 import           Scripts                          (loadMIDI)
 import           SDL                              (($=))
 import qualified SDL
@@ -75,6 +77,7 @@ import           System.Environment               (getEnv)
 import           System.FilePath                  ((<.>), (</>))
 import           System.Info                      (os)
 import           System.IO.Temp                   (withSystemTempDirectory)
+import qualified System.MIDI                      as MIDI
 
 foreign import ccall unsafe "TTF_OpenFontRW"
   openFontRW :: Ptr Raw.RWops -> CInt -> CInt -> IO TTFFont
@@ -396,6 +399,24 @@ topMenu = Choices
         _   -> Choices []
     )
   -}
+  , ( Choice "Keytar" "Play Pro Guitar with a keyboard."
+    $ liftIO MIDI.enumerateSources >>= \srcs -> do
+      srcNames <- liftIO $ mapM MIDI.getName srcs
+      pushMenu $ Choices $ let
+        withSrc (srcName, src) = Choice (T.pack srcName) "MIDI source" $ liftIO MIDI.enumerateDestinations >>= \dests -> do
+          destNames <- liftIO $ mapM MIDI.getName dests
+          pushMenu $ Choices $ let
+            -- TODO menu for settings
+            settings = GtrSettings $ \str -> Just $ standardGuitar !! fromEnum str
+            withDest (destName, dest) = Choice (T.pack destName) "MIDI destination"
+              $ pushMenu $ TasksStart [runApp src dest settings >> return []]
+            in case srcs of
+              []    -> [Choice "No MIDI destinations found" "" $ return ()]
+              _ : _ -> map withDest $ zip destNames dests
+        in case srcs of
+          []    -> [Choice "No MIDI sources found" "" $ return ()]
+          _ : _ -> map withSrc $ zip srcNames srcs
+    )
   ]
 
 data GUIState = GUIState

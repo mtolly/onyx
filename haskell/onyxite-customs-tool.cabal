@@ -69,6 +69,7 @@ executable onyx
     DryVox
     RenderAudio
     RockBand.ProGuitar.Play
+    RockBand.ProGuitar.Keyboard
     GUI
     OSFiles
     WebPlayer
@@ -137,6 +138,7 @@ executable onyx
     , aeson, text, unordered-containers, filepath, yaml
     , file-embed
     , event-list, non-negative, midi
+    , hmidi
     , containers
     , bytestring
     , process >= 1.2.0.0 && < 1.7

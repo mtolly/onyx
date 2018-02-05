@@ -20,7 +20,7 @@ module Control.Monad.Trans.StackTrace
 , runStackTraceT
 , liftBracket, liftBracketLog, liftMaybe
 , mapStackTraceT
-, tempDir, withDir
+, stracket, tempDir, withDir
 , stackProcess
 , stackCatchIO
 , stackShowException
