@@ -1,12 +1,16 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase   #-}
 module RockBand.ProGuitar.Keyboard where
 
 import           Control.Concurrent             (threadDelay)
-import           Control.Monad                  (forM_)
+import           Control.Monad                  (forM_, guard)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.Trans.StackTrace (QueueLog, SendMessage,
                                                  StackTraceT, stracket)
-import           Control.Monad.Trans.State      (StateT, evalStateT)
+import           Control.Monad.Trans.State      (StateT, evalStateT, get, put)
+import           Data.Foldable                  (toList)
+import           Data.List                      (sortOn)
+import           Data.Maybe                     (fromMaybe)
 import qualified Data.Set                       as Set
 import           RockBand.ProGuitar
 import           RockBand.ProGuitar.Play
@@ -35,8 +39,72 @@ data GtrState = GtrState
 initialState :: GtrSettings -> GtrState
 initialState = GtrState Set.empty Set.empty False Set.empty
 
+fretboardState :: GtrState -> [(GtrString, GtrFret)]
+fretboardState gs = let
+  strings = heldStrings gs
+  pitches = heldPitches gs
+  pitchOptions p = do
+    str <- [S6 .. S1]
+    open <- toList $ gtrTuning (gtrSettings gs) str
+    let fret = p - open
+    guard $ 0 <= fret && fret <= 22
+    return (str, fret)
+  chordOptions = let
+    go !used notes = case notes of
+      [] -> [[]]
+      p : ps -> do
+        pair@(str, _) <- pitchOptions p
+        guard $ not $ Set.member str used
+        map (pair :) $ go (Set.insert str used) ps
+    in go Set.empty
+  in case Set.toList pitches of
+    [] -> []
+    [p] -> let
+      targetStr = fromMaybe S6 $ Set.lookupMin strings
+      score (str, _) = fromEnum str + if str < targetStr then 10 else 0
+      in case sortOn score $ pitchOptions p of
+        []         -> []
+        result : _ -> [result]
+    _ -> [] -- TODO
+
 processMessage :: (SendMessage m) => MidiMessage' -> StateT GtrState (StackTraceT m) [Message]
-processMessage = const $ return [] -- TODO
+processMessage msg = let
+  key = case msg of
+    NoteOff p _ -> withPitch False p
+    NoteOn p v  -> withPitch (v /= 0) p
+    CC 64 v     -> Just (KeyStrum, v >= 64)
+    _           -> Nothing
+  withPitch b = \case
+    24 -> Just (KeyString S6, b)
+    25 -> Just (KeyStrum, b)
+    26 -> Just (KeyString S5, b)
+    27 -> Just (KeyStrum, b)
+    28 -> Just (KeyString S4, b)
+    29 -> Just (KeyString S3, b)
+    31 -> Just (KeyString S2, b)
+    33 -> Just (KeyString S1, b)
+    n -> guard (n > 33) >> Just (KeyPitch n, b)
+  in case key of
+    Nothing -> return []
+    Just (k, b) -> do
+      s <- get
+      let s' = case k of
+            KeyString str -> s { heldStrings = (if b then Set.insert else Set.delete) str $ heldStrings s }
+            KeyPitch p -> s { heldPitches = (if b then Set.insert else Set.delete) p $ heldPitches s }
+            KeyStrum -> s { heldStrum = b }
+          board = fretboardState s'
+          newStrums = if heldStrum s'
+            then Set.difference (Set.fromList $ map fst board) (strummed s')
+            else Set.empty
+          s'' = s'
+            { strummed = if heldStrum s' && not (Set.null $ heldPitches s')
+              then Set.union newStrums (strummed s')
+              else Set.empty
+            }
+      put s''
+      return
+        $  [Fret str $ fromMaybe 0 $ lookup str board | str <- [S6 .. S1]]
+        ++ [Strum str 64 | str <- Set.toList newStrums]
 
 {-
 
