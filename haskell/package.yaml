@@ -1,0 +1,150 @@
+name: onyxite-customs-tool
+version: '20180129'
+github: mtolly/onyxite-customs
+author: Michael Tolly <miketolly@gmail.com>
+category: Distribution
+license: GPL-3
+license-file: LICENSE.txt
+
+extra-source-files:
+- vendors/Pentatonic.ttf
+- vendors/VeraMono.ttf
+- vendors/KV.bin
+- vendors/rb3.png
+- vendors/empty.milo_xbox
+- vendors/empty-rb2.milo_xbox
+- vendors/empty-rb2_weights.bin
+- vendors/missing_song_data.dta
+- vendors/rockband_drums.png
+- vendors/rockband_guitarbass.png
+- vendors/rockband_ghl.png
+- ../player/www/index.html
+- ../player/www/app.min.js
+- ../player/www/images/*.png
+- ../player/www/lib/howler/dist/howler.min.js
+- cbits/*.h
+
+flags:
+  MoggDecrypt:
+    default: false
+    manual: true
+    description: Enable external MOGG decryptor
+
+ghc-options: -Wall
+
+executables:
+
+  onyx:
+    source-dirs: src
+    main: Main.hs
+
+    dependencies:
+    - base
+    - shake >= 0.16 && < 0.17
+    - hashable
+    - directory
+    - temporary
+    - aeson
+    - text
+    - unordered-containers
+    - filepath
+    - yaml
+    - file-embed
+    - event-list
+    - non-negative
+    - midi
+    - hmidi
+    - containers
+    - bytestring
+    - process >= 1.2.0.0 && < 1.7
+    - resourcet
+    - hsndfile
+    - JuicyPixels >= 3.2.3.1
+    - conduit
+    - vector
+    - transformers >= 0.5
+    - mtl
+    - extra
+    - pureMD5
+    - binary
+    - array
+    - base64-bytestring
+    - pretty
+    - monad-loops
+    - time
+    - ini
+    - executable-path
+    - split
+    - data-default-class
+    - utility-ht >= 0.0.1 && < 0.1
+    - scientific
+    - template-haskell
+    - MonadRandom
+    - data-binary-ieee754 >= 0.4.4 && < 0.5
+    - sdl2
+    - sdl2-ttf
+    - zip-archive
+    - silently
+    - codec
+    - deepseq
+    - process-extras
+    - path
+    - path-io
+    - exceptions
+    - stm
+    - transformers-base
+    - monad-control
+    - mmorph
+    - async
+    - StateVar
+    - req
+    # my libraries:
+    - jammittools >= 0.5.0.3 && < 0.6
+    - midi-util >= 0.2 && < 0.3
+    - conduit-audio >= 0.2 && < 0.3
+    - conduit-audio-sndfile
+    - conduit-audio-samplerate
+    - conduit-audio-lame
+    - rubberband >= 0.1.0.2 && < 0.2
+    - tinyfiledialogs
+    - JuicyPixels-stbir
+    - ArkTool
+
+    ghc-options: -threaded -O
+    build-tools:
+    - c2hs >= 0.27.1
+    - alex
+    - happy
+
+    include-dirs:
+    - cbits/
+    c-sources:
+    - cbits/stb_dxt.c
+    - cbits/encode_vag.c
+    extra-libraries:
+    - stdc++
+
+    when:
+    - condition: flag(MoggDecrypt)
+      cpp-options: -DMOGGDECRYPT
+      dependencies: mogg2ogg
+    - condition: os(mingw32)
+      then:
+        extra-libraries: shell32
+        cpp-options: -DWINDOWS
+        c-sources: cbits/winfiles.c
+        dependencies: Win32
+        ld-options: icon/icon.o -mwindows
+      else:
+        dependencies: mountpoints
+    - condition: os(darwin)
+      cpp-options: -DMACOSX
+      c-sources: cbits/macfiles.m
+      frameworks: AppKit
+      ld-options: -lto_library
+      # this fixes C++ exception catching on mac.
+      # see https://ghc.haskell.org/trac/ghc/ticket/11829
+
+  onyx-package:
+    main: Installer.hs
+    dependencies: [base, nsis, text]

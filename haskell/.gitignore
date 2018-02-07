@@ -2,3 +2,4 @@ win/
 mac/
 installer.nsi
 onyx-*.exe
+onyxite-customs-tool.cabal
