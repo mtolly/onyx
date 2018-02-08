@@ -1039,21 +1039,22 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                       $ RBFile.onyxEvents trks
                     }
                   input' = input { RBFile.s_tracks = adjustEvents $ RBFile.s_tracks input }
-                  adjustMIDISpeed mid = case rb3_Speed rb3 of
-                    Just n | n /= 1 -> mid
+                  speed = fromMaybe 1 $ rb3_Speed rb3
+                  adjustMIDISpeed mid = if speed /= 1
+                    then mid
                       { RBFile.s_tempos
                         = U.tempoMapFromBPS
-                        $ fmap (* realToFrac n)
+                        $ fmap (* realToFrac speed)
                         $ U.tempoMapToBPS
                         $ RBFile.s_tempos mid
                       }
-                    _               -> mid
+                    else mid
               (output, pad) <- RB3.processRB3Pad
                 rb3
                 songYaml
                 (adjustMIDISpeed input')
                 mixMode
-                (getAudioLength planName plan)
+                ((/ realToFrac speed) <$> getAudioLength planName plan)
               liftIO $ writeFile outPad $ show pad
               case invalid of
                 [] -> return ()
