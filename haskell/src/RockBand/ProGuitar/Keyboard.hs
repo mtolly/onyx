@@ -62,12 +62,14 @@ fretboardState gs = let
     [] -> []
     [p] -> let
       targetStr = fromMaybe S6 $ Set.lookupMin strings
-      score (str, _) = fromEnum str + if str < targetStr then 10 else 0
-      in case sortOn score $ pitchOptions p of
-        []         -> []
-        result : _ -> [result]
+      score (str, fret) = if Set.null strings
+        then fret
+        else abs (fromEnum targetStr - fromEnum str) * 2 + if str < targetStr then 1 else 0
+      in take 2 $ sortOn score $ pitchOptions p
     chord -> let
-      score = length . filter (`notElem` strings) . map fst
+      score = if Set.null strings
+        then sum . map snd
+        else length . filter (`notElem` strings) . map fst
       in case sortOn score $ chordOptions chord of
         []         -> []
         result : _ -> result
@@ -98,7 +100,7 @@ processMessage msg = let
             KeyPitch p -> s { heldPitches = (if b then Set.insert else Set.delete) p $ heldPitches s }
             KeyStrum -> s { heldStrum = b }
           board = fretboardState s'
-          newStrums = if heldStrum s'
+          newStrums = if heldStrum s' && b && case k of KeyPitch{} -> True; KeyStrum{} -> True; _ -> False
             then Set.difference (Set.fromList $ map fst board) (strummed s')
             else Set.empty
           s'' = s'
@@ -106,10 +108,7 @@ processMessage msg = let
               then Set.union newStrums (strummed s')
               else Set.empty
             }
-      lift $ lg $ unlines
-        [ "Fretboard: " ++ show board
-        , "Strumming: " ++ show newStrums
-        ]
+      -- lift $ lg $ "Fretboard: " ++ show board
       put s''
       let msgs = [Fret str $ fromMaybe 0 $ lookup str board | str <- [S6 .. S1]]
             ++ [Strum str 64 | str <- Set.toList newStrums]
@@ -158,6 +157,8 @@ runApp src dest sets = stracket (openSource src Nothing) close $ \src' -> do
               MidiEvent _ (MidiMessage _ msg) -> do
                 msgs <- processMessage msg
                 forM_ msgs $ \m -> do
+                  -- apparently the binding for this in hmidi needs to be safe,
+                  -- otherwise you get random app hangs
                   liftIO $ sendSysEx dest' $ sendCommand (Squier, m)
                 return ()
               _ -> return ()
