@@ -5,8 +5,9 @@ module RockBand.ProGuitar.Keyboard where
 import           Control.Concurrent             (threadDelay)
 import           Control.Monad                  (forM_, guard)
 import           Control.Monad.IO.Class         (liftIO)
+import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.StackTrace (QueueLog, SendMessage,
-                                                 StackTraceT, stracket)
+                                                 StackTraceT, lg, stracket)
 import           Control.Monad.Trans.State      (StateT, evalStateT, get, put)
 import           Data.Foldable                  (toList)
 import           Data.List                      (sortOn)
@@ -65,7 +66,11 @@ fretboardState gs = let
       in case sortOn score $ pitchOptions p of
         []         -> []
         result : _ -> [result]
-    _ -> [] -- TODO
+    chord -> let
+      score = length . filter (`notElem` strings) . map fst
+      in case sortOn score $ chordOptions chord of
+        []         -> []
+        result : _ -> result
 
 processMessage :: (SendMessage m) => MidiMessage' -> StateT GtrState (StackTraceT m) [Message]
 processMessage msg = let
@@ -101,10 +106,14 @@ processMessage msg = let
               then Set.union newStrums (strummed s')
               else Set.empty
             }
+      lift $ lg $ unlines
+        [ "Fretboard: " ++ show board
+        , "Strumming: " ++ show newStrums
+        ]
       put s''
-      return
-        $  [Fret str $ fromMaybe 0 $ lookup str board | str <- [S6 .. S1]]
-        ++ [Strum str 64 | str <- Set.toList newStrums]
+      let msgs = [Fret str $ fromMaybe 0 $ lookup str board | str <- [S6 .. S1]]
+            ++ [Strum str 64 | str <- Set.toList newStrums]
+      return msgs
 
 {-
 
@@ -142,13 +151,15 @@ runApp src dest sets = stracket (openSource src Nothing) close $ \src' -> do
   stracket (openDestination dest) close $ \dest' -> do
     liftIO $ start src'
     liftIO $ start dest'
-    let loop = liftIO (getNextEvent src') >>= \case
-          Nothing -> liftIO (threadDelay 1000) >> loop
-          Just (MidiEvent _ msg) -> case msg of
-            MidiMessage _ msg' -> do
-              msgs <- processMessage msg'
-              forM_ msgs $ \m -> do
-                liftIO $ send dest' $ SysEx $ [0xF0] ++ sendCommand (Squier, m) ++ [0xF7]
-                loop
-            _ -> loop
+    let loop = liftIO (getEvents src') >>= \case
+          [] -> liftIO (threadDelay 1000) >> loop
+          evts -> do
+            forM_ evts $ \case
+              MidiEvent _ (MidiMessage _ msg) -> do
+                msgs <- processMessage msg
+                forM_ msgs $ \m -> do
+                  liftIO $ sendSysEx dest' $ sendCommand (Squier, m)
+                return ()
+              _ -> return ()
+            loop
     evalStateT loop $ initialState sets
