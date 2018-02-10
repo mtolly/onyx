@@ -1,0 +1,163 @@
+Data collected on a variety of pro guitar topics by Onyxite on 2018-02-10
+
+=======
+
+HOW DEFAULT SLIDE DIRECTION IS DETERMINED
+
+Isolated sustain note, nothing before or after:
+0-7 up
+8+ down
+This uses the left-most string to determine.
+So 68xxxx slides up, 86xxxx slides down.
+Even if the left-most string is an arpeggio ghost note (ch2) or muted (ch4) its fret still applies here.
+
+Sustain note (1 beat) followed by a HOPO (16th gap):
+Slide connects to the HOPO, and goes the correct way.
+If same fret, slide goes down.
+
+Sustain note (1 beat) followed by a strum (16th gap):
+Slide does not connect, but still goes the correct way.
+
+If the gap is even a tick over a 16th note (120 ticks),
+neither correct-slide nor connection happens and you get the "isolated note" case above.
+
+The "correct way" behavior doesn't care if the two notes aren't on the same string.
+However the connecting behavior does need them to have the same strings.
+
+"Short slides" (slide on a non-sustain note) can only be done on a note
+followed immediately (16th I think?) by a hopo on exactly the same strings.
+Even 8th triplet (160 ticks) doesn't work.
+
+=======
+
+Tremolo
+
+These are verified to work; they let you strum much slower than notated.
+They just don't visually show lanes.
+
+=======
+
+CHORD NAMES
+
+2 note chord of E and this many semitones above E:
+0 E
+1 E(b2)
+2 E(2)
+3 Em
+4 E
+5 E(4)
+6 E(b5)
+7 E5
+8 E(b6)
+9 E(6)
+10 E(b7)
+11 E(7)
+
+3 note chord of E B and this many semitones above E:
+0 E5
+1 E<gtr>susb2</gtr>
+2 E<gtr>sus2</gtr>
+3 Em
+4 E
+5 E<gtr>sus4</gtr>
+6 E<gtr>sus#4</gtr>
+7 E5
+8 E (this makes no sense, doesn't include the 8semis)
+9 E<gtr>sus6</gtr>
+10 E7
+11 EM7
+
+4 note chord of E G# B and this many semitones above E:
+0 E
+1 E<gtr>b2</gtr>
+2 E<gtr>2</gtr>
+3 E<gtr>#9</gtr>
+4 E
+5 E<gtr>4</gtr>
+6 E<gtr>#4</gtr>
+7 E
+8 E<gtr>+</gtr>
+9 E<gtr>6</gtr>
+10 E7
+11 EM7
+(also if you don't have the B you get these same names)
+
+4 note chord of E G B and this many semitones above E:
+0 Em
+1 Em<gtr>b2</gtr>
+2 Em<gtr>2</gtr>
+3 Em
+4 E<gtr>#9</gtr>
+5 Em<gtr>4</gtr>
+6 E<gtr>0</gtr> (this makes a circle in-game)
+7 Em
+8 Em<gtr>#5</gtr>
+9 Em<gtr>6</gtr>
+10 Em7
+11 EmM7
+
+3 note chord of E F# and this many semitones above E:
+0 E(2)
+1 E<gtr>sus2</gtr> (doesn't include the 1semi)
+2 E(2)
+3 Em<gtr>2</gtr>
+4 E<gtr>2</gtr>
+5 E<gtr>sus4</gtr> (doesn't include the 2nd)
+6 E<gtr>sus#4</gtr> (doesn't include the 2nd)
+7 E<gtr>sus2</gtr>
+8 E<gtr>sus2</gtr> (doesn't include the 8semis)
+9 E<gtr>sus6</gtr> (doesn't include the 2nd)
+10 E7<gtr>sus2</gtr>
+11 EM7<gtr>sus2</gtr>
+
+4 note chord of E F# G# and this many semitones above E:
+0 E<gtr>2</gtr>
+1 E<gtr>b2</gtr>
+2 E<gtr>2</gtr>
+3 E<gtr>#92</gtr>
+4 E<gtr>2</gtr>
+5 E<gtr>24</gtr>
+6 E<gtr>#42</gtr>
+7 E<gtr>2</gtr>
+8 E<gtr>+2</gtr>
+9 E<gtr>26</gtr>
+10 E<gtr>9</gtr>
+11 EM7<gtr>9</gtr>
+
+4 note chord of E F# G and this many semitones above E:
+0 Em<gtr>2</gtr>
+1 Em<gtr>b2</gtr>
+2 Em<gtr>2</gtr>
+3 Em<gtr>2</gtr>
+4 E<gtr>#92</gtr>
+5 Em<gtr>24</gtr>
+6 E<gtr>02</gtr> (again that's a circle not a zero)
+7 Em<gtr>2</gtr>
+8 Em<gtr>#52</gtr>
+9 Em<gtr>26</gtr>
+10 Em<gtr>9</gtr> (I think 9 here implies [minor] 7?)
+11 EmM7<gtr>9</gtr>
+
+6 note chord of E plus the following semitones above it:
+12345 E<gtr>#9b24</gtr>
+23456 E<gtr>#4#924</gtr>
+3... E<gtr>#4#94</gtr>
+4... E<gtr>#44</gtr>
+5... E<gtr>sus4/6</gtr>
+6... E7<gtr>sus6</gtr>
+7... E7<gtr>sus6</gtr>
+8... E7<gtr>sus6</gtr>
+9... E7<gtr>sus6</gtr>
+10... E7<gtr>sus2</gtr>
+11... EmM7<gtr>9b9</gtr>
+12... E<gtr>#9b2</gtr>
+
+=======
+
+RANDOM NOTES
+
+a chord with frets 2 and 15 (hand position 2) is ok.
+2 and 16 (hand position 2) fails magma.
+ERROR: MIDI Compiler: /users/mtolly/protar-test/gen/target/rb3/magma/notes.mid (PART REAL_GUITAR): File: e:\prj\rbn\system\src\beatmatch\GameGem.cpp Line: 532 Error: fret < 16
+ at 9:1:000
+1 and 15 is also bad.

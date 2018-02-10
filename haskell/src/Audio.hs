@@ -369,6 +369,8 @@ buildSource aud = need (toList aud) >> case aud of
   where combine meth xs = mapM buildSource xs >>= \srcs -> case srcs of
           []     -> error "buildSource: can't combine 0 files"
           s : ss -> return $ foldl meth s ss
+          -- TODO just have this make an empty mono source,
+          -- and make sure mono can mix with a source of any channel count
 
 -- | Assumes 16-bit 44100 Hz audio files.
 buildAudio :: Audio Duration FilePath -> FilePath -> Staction ()
