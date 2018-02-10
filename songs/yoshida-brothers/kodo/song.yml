@@ -7,11 +7,11 @@ metadata:
   file-album-art: cover.jpg
   # this also appeared as track 5 on the international album Yoshida Brothers II (2004)
 parts:
-  guitar: # left speaker
+  guitar: # left speaker: Ryōichirō
     {}
-  bass: # right speaker
+  bass: # right speaker: Ken'ichi
     pro-guitar:
-      tuning: [-2, 0, 0, 0, 0, 0] # pretend to be drop D (only first 3 strings used)
+      tuning: [-2, 0, 0, 0] # pretend to be drop D (only first 3 strings used)
       tuning-global: -1 # drop D to drop C#
 audio:
   album-track:
