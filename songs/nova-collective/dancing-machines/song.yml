@@ -4,8 +4,9 @@ metadata:
   track-number: 1
   rating: FF
   author: BlazinBlitzer, Onyxite
+  preview-start: prc_intro_b
   comments:
-  - "WIP: new tempo map and then porting a drums chart by BlazinBlitzer."
+  - "Drums originally by BlazinBlitzer, edited by Onyxite."
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
