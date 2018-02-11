@@ -1,4 +1,4 @@
-Data collected on a variety of pro guitar topics by Onyxite on 2018-02-10
+Data collected on a variety of pro guitar topics by Onyxite on 2018-02-10/11
 
 =======
 
@@ -34,6 +34,28 @@ Tremolo
 
 These are verified to work; they let you strum much slower than notated.
 They just don't visually show lanes.
+
+=======
+
+You can't have a partially muted chord. If any note is muted then the whole thing is
+
+The "flat chords", "slash chords", and "no chord name" modifiers are not blips;
+they must cover or coincide with the place where a new name is calculated.
+
+A muted chord sequence must have the same frets as a chord on both sides of it
+in order to stick the chord name through it.
+
+Slash chord modifier removes the left-most string and applies the algorithm to the rest of the notes.
+So e.g. if your root is G,
+BDG is "G5/B"
+BDGB is "G/B"
+If the left-most string is the root then the modifier does nothing.
+
+Chord names only stick if it's exactly the same frets.
+If it's different frets but the same name, it doesn't stick.
+
+If a chord has the same frets as the previous one, a new name will not be calculated, no matter what.
+(Even if you change root, flat/slash/hide modifiers, or use a chrd text event.)
 
 =======
 
