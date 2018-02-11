@@ -116,6 +116,23 @@ instance Command (Trainer, T.Text) where
 data Key = C | Cs | D | Ds | E | F | Fs | G | Gs | A | As | B
   deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
+showKey :: Bool -> Key -> String
+showKey flat = if flat
+  then \case
+    C  -> "C"
+    Cs -> "Db"
+    D  -> "D"
+    Ds -> "Eb"
+    E  -> "E"
+    F  -> "F"
+    Fs -> "Gb"
+    G  -> "G"
+    Gs -> "Ab"
+    A  -> "A"
+    As -> "Bb"
+    B  -> "B"
+  else map (\case 's' -> '#'; c -> c) . show
+
 keyP :: Int -> Q Pat
 keyP = \case
   0  -> [p| C  |]

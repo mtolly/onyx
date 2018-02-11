@@ -31,7 +31,7 @@ import qualified Numeric.NonNegative.Wrapper           as NN
 import           Resources                             (colorMapDrums,
                                                         colorMapGHL,
                                                         colorMapGRYBO)
-import           RockBand.Common                       (Key (..))
+import           RockBand.Common                       (Key (..), showKey)
 import           RockBand.File                         (FlexPartName (..),
                                                         identifyFlexTrack)
 import qualified RockBand.Vocals                       as Vox
@@ -510,12 +510,11 @@ vocalNoteNames = execWriter $ do
     let midpitch = fromEnum voxpitch + 36
         str = case voxpitch of
           Vox.Octave36 C -> "C (lowest)"
-          Vox.Octave36 p -> showPitch p
-          Vox.Octave48 p -> showPitch p
-          Vox.Octave60 p -> showPitch p
-          Vox.Octave72 p -> showPitch p
+          Vox.Octave36 p -> showKey False p
+          Vox.Octave48 p -> showKey False p
+          Vox.Octave60 p -> showKey False p
+          Vox.Octave72 p -> showKey False p
           Vox.Octave84C  -> "C (highest) (bugged)"
-        showPitch = map (\case 's' -> '#'; c -> c) . show
     o midpitch str
   x 35
   o 1 "Lyric Shift"

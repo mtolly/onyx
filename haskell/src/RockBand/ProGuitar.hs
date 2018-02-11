@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveDataTypeable    #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TemplateHaskell       #-}
 module RockBand.ProGuitar where
@@ -10,6 +11,7 @@ import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (isJust)
 import           Data.Monoid                      ((<>))
+import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import           Guitars                          (applyStatus, guitarify,
                                                    trackState)
@@ -419,3 +421,90 @@ guitarifyHOPO threshold rtb = let
               _ -> Strum
     in (Just gems', Just (ntype, gems', len))
   in trackState Nothing fn withForce
+
+-- | Replicates the Pro Guitar chord name algorithm from RB3.
+-- This has been verified to match RB3 for each of the 1486 possible chords.
+makeChordName :: Key -> Set.Set Key -> Bool -> String
+makeChordName root notes flat = let
+  s n = toEnum $ (fromEnum root + n) `rem` 12
+  only n = Set.toList (Set.delete root notes) == [n]
+
+  dim2 = Set.member (s  1) notes
+  nat2 = Set.member (s  2) notes
+  min3 = Set.member (s  3) notes
+  maj3 = Set.member (s  4) notes
+  nat4 = Set.member (s  5) notes
+  dim5 = Set.member (s  6) notes
+  aug5 = Set.member (s  8) notes
+  nat6 = Set.member (s  9) notes
+  min7 = Set.member (s 10) notes
+  maj7 = Set.member (s 11) notes
+
+  (base, super)
+
+    | only (s  1) = ("(b2)", "")
+    | only (s  2) = ("(2)" , "")
+    | only (s  5) = ("(4)" , "")
+    | only (s  6) = ("(b5)", "")
+    | only (s  7) = ("5"   , "")
+    | only (s  8) = ("(b6)", "")
+    | only (s  9) = ("(6)" , "")
+    | only (s 10) = ("(b7)", "")
+    | only (s 11) = ("(7)" , "")
+
+    | maj3 || min3 = let
+
+      sharp9 = guard (maj3 && min3) >> "#9"
+      four   = guard nat4           >> "4"
+      six    = guard nat6           >> "6"
+
+      in if min7 || maj7
+
+        then let
+          b = (if maj3 then "" else "m") ++ if
+            | maj7 && not min7           -> "M7"
+            | not (nat2 || nat4 || nat6) -> "7"
+            | maj7                       -> "M7"
+            | otherwise                  -> ""
+          flat9  = guard dim2 >> "b9"
+          nine   = guard nat2 >> "9"
+          flat13 = guard aug5 >> "b13"
+          fives
+            | aug5 && dim5 = "+-5"
+            | dim5         = "b5"
+            | otherwise    = ""
+          in (b, concat [fives, nine, flat9, sharp9, four, six, flat13])
+
+        else let
+          (b, start) = if dim5
+            then if
+              | maj3      -> ("", "#4" )
+              | aug5      -> ("", "0#5")
+              | otherwise -> ("", "0"  )
+            else if
+              | maj3 && aug5 -> ("" , "+" )
+              | maj3         -> ("" , ""  )
+              | aug5         -> ("m", "#5")
+              | otherwise    -> ("m", ""  )
+          two
+            | dim2      = "b2"
+            | nat2      = "2"
+            | otherwise = ""
+          in (b, concat [start, sharp9, two, four, six])
+
+    | otherwise =
+      ( if      min7 then "7"
+        else if maj7 then "M7"
+        else              ""
+      , if nat4 && nat6 then ".sus4/6"
+        else if nat4 then ".sus4"
+        else if nat6 then ".sus6"
+        else if dim5 then ".sus#4"
+        else if nat2 then ".sus2"
+        else if dim2 then ".susb2"
+        else ""
+      )
+
+  in showKey flat root ++ base ++ case super of
+    "" -> ""
+    _  -> "<gtr>" ++ super ++ "</gtr>"
