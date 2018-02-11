@@ -874,14 +874,14 @@ instance Default Metadata where
   def = fromEmptyObject
 
 getTitle, getArtist, getAlbum, getAuthor :: Metadata -> T.Text
-getTitle = fromMaybe "Untitled" . _title
-getArtist = fromMaybe "Unknown Artist" . _artist
-getAlbum = fromMaybe "Unknown Album" . _album
-getAuthor = fromMaybe "Unknown Author" . _author
+getTitle  m = case _title  m of Just x | not $ T.null x -> x; _ -> "Untitled"
+getArtist m = case _artist m of Just x | not $ T.null x -> x; _ -> "Unknown Artist"
+getAlbum  m = case _album  m of Just x | not $ T.null x -> x; _ -> "Unknown Album"
+getAuthor m = case _author m of Just x | not $ T.null x -> x; _ -> "Unknown Author"
 
 getYear, getTrackNumber :: Metadata -> Int
-getYear = fromMaybe 1960 . _year
-getTrackNumber = fromMaybe 1 . _trackNumber
+getYear        = fromMaybe 1960 . _year
+getTrackNumber = fromMaybe 1    . _trackNumber
 
 data TargetRB3 = TargetRB3
   { rb3_Speed       :: Maybe Double

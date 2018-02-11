@@ -1,5 +1,16 @@
 # Version history
 
+## 20180211
+
+* Better support for fixing `BEAT` track errors, should enable fixing much
+  higher tempos
+* Support FoF `eighthnote_hopo` field
+* Support FoF MIDIs that use old GH star power notes on pitch 103, either
+  detected automatically or via `star_power_note`/`multiplier_note`
+* Fix sped up FoF songs not taking speed into account when placing `[end]` so
+  they got long gaps before the song ended
+* Much faster FoF to RB MIDI processing, so Magma will succeed or fail earlier
+
 ## 20180129
 
 * Bug fix: sections were being placed in wrong places when the tempo map had to

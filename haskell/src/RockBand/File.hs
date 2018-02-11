@@ -565,7 +565,7 @@ fixEventOrder = RTB.flatten . fmap (sortOn f) . RTB.collectCoincident
 
 readMIDIFile' :: (SendMessage m, MIDIFileFormat f) => F.T -> StackTraceT m (Song (f U.Beats))
 readMIDIFile' mid = do
-  (s_tempos, s_signatures, s_tracks) <- case U.decodeFile mid of
+  (s_tempos, s_signatures, s_tracks_nodupe) <- case U.decodeFile mid of
     Right trks -> let
       tempos = U.tempoMapFromBPS $ RTB.singleton 0 2
       sigs = U.measureMapFromTimeSigs U.Truncate $ RTB.singleton 0 $ U.TimeSig 4 1
@@ -584,6 +584,7 @@ readMIDIFile' mid = do
           t : ts -> (t, ts)
           []     -> (RTB.empty, [])
       return (U.makeTempoMap tempoTrk, U.makeMeasureMap U.Truncate tempoTrk, restTrks)
+  let s_tracks = map (RTB.flatten . fmap nub . RTB.collectCoincident) s_tracks_nodupe
   readMIDITracks Song{..}
 
 -- | Strips comments and track names from the track before handing it to a track parser.

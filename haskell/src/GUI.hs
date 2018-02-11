@@ -391,15 +391,17 @@ topMenu = Choices
     $ pushMenu $ pickFiles ["*.mid"] "MIDI files" (const $ return "") $ \fs ->
       TasksStart $ map (\f -> commandLine' ["reduce", f]) fs
     )
-  {-
-  , ( Choice "Game" "(WIP) Building a RB clone game."
+  ]
+
+hiddenOptions :: [Choice (Onyx ())]
+hiddenOptions =
+  [ ( Choice "Game" "(WIP) Building a RB clone game."
     $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con"] "Songs (RB3/RB2)" filterSong $ \fs ->
       case fs of
         [f] -> Game f
         _   -> Choices []
     )
-  -}
-  , ( Choice "Keytar" "Play Pro Guitar with a keyboard."
+  , ( Choice "Keytar" "(WIP) Play Pro Guitar with a keyboard."
     $ liftIO MIDI.enumerateSources >>= \srcs -> do
       srcNames <- liftIO $ mapM MIDI.getName srcs
       pushMenu $ Choices $ let
