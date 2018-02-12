@@ -83,6 +83,24 @@ loadFoFMIDI ini fp = do
             Just (_, 116, _) -> Nothing
             _                -> Just e
           else trk
+      -- look for and remove fake OD notes used in lieu of star_power_note;
+      -- this was seen in Bocaj Hero V
+      midRB = case mid of
+        F.Cons typ dvn trks -> fmap (F.Cons typ dvn) $ flip mapM trks $ \trk -> if isGtrTrack trk
+          then let
+            od = flip RTB.mapMaybe trk $ \e -> case isNoteEdgeCPV e of
+              Just (_, 116, Just _) -> Just ()
+              _                     -> Nothing
+            odless = flip RTB.filter trk $ \e -> case isNoteEdgeCPV e of
+              Just (_, 116, _) -> False
+              _                -> True
+            in case RTB.toPairList od of
+              -- look for 2 tiny OD phrases right next to each other
+              [(_, ()), (x, ())] | x < (480 * 5) -> do
+                lg "Removing thebocaj-style fake OD notes"
+                return odless
+              _                          -> return trk
+          else return trk
       hasPitch n = not $ null $ do
         trk <- case mid of F.Cons _ _ trks -> trks
         guard $ isGtrTrack trk
@@ -96,17 +114,17 @@ loadFoFMIDI ini fp = do
       return midGH
     Just 116 -> do
       lg "Star Power note specified in song.ini to be 116 (RB format)"
-      return mid
+      midRB
     Nothing -> if hasPitch 103 && not (hasPitch 116)
       then do
         lg "MIDI auto-detected as old GH Star Power format, converting to RB"
         return midGH
       else do
         lg "MIDI auto-detected as RB Overdrive format, passing through unmodified"
-        return mid
+        midRB
     Just n -> do
       warn $ "song.ini has unsupported Star Power pitch of " <> show n <> ", assuming RB format"
-      return mid
+      midRB
   readMIDIFile' mid'
 
 shakeMIDI :: (MIDIFileFormat f) => FilePath -> StackTraceT (QueueLog Action) (Song (f U.Beats))
