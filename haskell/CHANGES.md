@@ -10,6 +10,7 @@
 * Fix sped up FoF songs not taking speed into account when placing `[end]` so
   they got long gaps before the song ended
 * Much faster FoF to RB MIDI processing, so Magma will succeed or fail earlier
+* Various other fixes for certain FoF MIDIs
 
 ## 20180129
 
