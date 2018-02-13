@@ -1,0 +1,30 @@
+metadata:
+  title: Floral Fury
+  artist: Kristofer Maddigan
+  album: Cuphead Original Soundtrack
+  year: 2017
+  author: Onyxite
+audio:
+  album-track:
+    md5: 25c3861da2b801ab3effecc304177866
+    frames: 9935036
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+    song:
+      pad:
+        [2.308, album-track]
+parts:
+  keys:
+    pro-keys: {}
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
