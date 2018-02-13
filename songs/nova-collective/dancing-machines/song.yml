@@ -2,8 +2,8 @@ metadata:
   title: Dancing Machines
   file-include: ../../../albums/the-further-side.yml
   track-number: 1
-  rating: FF
   author: BlazinBlitzer, Onyxite
+  key: A
   preview-start: prc_intro_b
   comments:
   - "Drums originally by BlazinBlitzer, edited by Onyxite."
@@ -27,7 +27,8 @@ plans:
       pad: [3.816, album-track]
 parts:
   drums:
-    drums: {}
+    drums:
+      difficulty: 7
 targets:
   rb3:
     game: rb3

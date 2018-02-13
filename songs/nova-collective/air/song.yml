@@ -3,8 +3,7 @@ metadata:
   file-include: ../../../albums/the-further-side.yml
   track-number: 3
   author: Onyxite
-  rating: FF
-  autogen-theme: PsychJamRock
+  key: D
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
@@ -25,7 +24,8 @@ plans:
       pad: [4.477, album-track]
 parts:
   drums:
-    drums: {}
+    drums:
+      difficulty: 6
 targets:
   rb3:
     game: rb3
