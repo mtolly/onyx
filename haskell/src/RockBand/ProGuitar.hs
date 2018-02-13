@@ -496,12 +496,12 @@ makeChordName root notes flat = let
       ( if      min7 then "7"
         else if maj7 then "M7"
         else              ""
-      , if nat4 && nat6 then ".sus4/6"
-        else if nat4 then ".sus4"
-        else if nat6 then ".sus6"
-        else if dim5 then ".sus#4"
-        else if nat2 then ".sus2"
-        else if dim2 then ".susb2"
+      , if nat4 && nat6 then "sus4/6"
+        else if nat4 then "sus4"
+        else if nat6 then "sus6"
+        else if dim5 then "sus#4"
+        else if nat2 then "sus2"
+        else if dim2 then "susb2"
         else ""
       )
 
