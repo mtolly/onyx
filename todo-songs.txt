@@ -1,11 +1,11 @@
 NOVA COLLECTIVE
-- dancing machines: drums done, maybe clean up a few places
+- dancing machines: drums done
 - cascades: single wrong PK note to release fix for
 - air: drums done
 - state of flux: drums done
 - ripped apart and reassembled: need to release pro bass + fixed basic bass
 - the further side: drums done
-1st step: clean up enough to release previews to brady discord
+ready to upload to brady discord
 
 JAZZ
 at least 2 parts done:
