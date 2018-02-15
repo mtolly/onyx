@@ -1,0 +1,32 @@
+metadata:
+  title: Forest Follies
+  artist: Kristofer Maddigan
+  album: Cuphead Original Soundtrack
+  year: 2017
+  author: Onyxite
+audio:
+  album-track:
+    md5: 3aff51cae0c30040944f4c4735911855
+    frames: 7371443
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad:
+        [3.372, album-track]
+parts:
+  keys:
+    pro-keys: {}
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
