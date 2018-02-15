@@ -32,3 +32,11 @@ parts:
   keys:
     pro-keys:
       difficulty: 2
+  bass:
+    grybo:
+      difficulty: 1
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
