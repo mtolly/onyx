@@ -219,6 +219,18 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
         Event "solo"    -> return $ Just $ TrackSolo True
         Event "soloend" -> return $ Just $ TrackSolo False
         _ -> return Nothing
+      -- some songs start a new solo without ending the previous one
+      fixBackToBackSolos :: (NNC.C t, Ord a) => RTB.T t (TrackEvent t a) -> RTB.T t (TrackEvent t a)
+      fixBackToBackSolos = let
+        go b rtb = case RTB.viewL rtb of
+          Nothing -> RTB.empty
+          Just ((dt, x), rtb') -> case x of
+            TrackSolo False -> RTB.cons dt x $ go False rtb'
+            TrackSolo True  -> if b
+              then RTB.cons dt (TrackSolo False) $ RTB.cons NNC.zero x $ go True rtb'
+              else                                 RTB.cons dt       x $ go True rtb'
+            _ -> RTB.cons dt x $ go b rtb'
+        in go False . RTB.normalize
       parseGRYBO label = foldr RTB.merge RTB.empty <$> do
         forM [Easy, Medium, Hard, Expert] $ \diff -> do
           parsed <- insideTrack (T.pack (show diff) <> label) $ \trk -> do
@@ -238,7 +250,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
           return $ RTB.merge
             (fmap (Five.DiffEvent diff) $ G.emit5 $ emitTrack hopoThreshold parsed)
             $ case diff of
-              Expert -> U.trackJoin $ flip fmap parsed $ \case
+              Expert -> U.trackJoin $ flip fmap (fixBackToBackSolos parsed) $ \case
                 TrackP1 t -> RTB.fromPairList [(0, Five.Player1   True), (t, Five.Player1   False)]
                 TrackP2 t -> RTB.fromPairList [(0, Five.Player2   True), (t, Five.Player2   False)]
                 TrackOD t -> RTB.fromPairList [(0, Five.Overdrive True), (t, Five.Overdrive False)]
@@ -265,7 +277,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
           return $ RTB.merge
             (fmap (GHL.DiffEvent diff) $ G.emit6 $ emitTrack hopoThreshold parsed)
             $ case diff of
-              Expert -> U.trackJoin $ flip fmap parsed $ \case
+              Expert -> U.trackJoin $ flip fmap (fixBackToBackSolos parsed) $ \case
                 TrackP1 _ -> RTB.empty
                 TrackP2 _ -> RTB.empty
                 TrackOD t -> RTB.fromPairList [(0, GHL.Overdrive True), (t, GHL.Overdrive False)]
