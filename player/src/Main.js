@@ -30,3 +30,9 @@ exports.displayError = function(err) {
     document.getElementById('the-canvas').style.display = 'none';
   };
 };
+
+exports.setTitle = function(str) {
+  return function() {
+    document.title = str;
+  };
+};

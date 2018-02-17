@@ -39,6 +39,8 @@ foreign import numMod :: Number -> Number -> Number
 
 foreign import displayError :: forall e. String -> Eff (dom :: DOM | e) Unit
 
+foreign import setTitle :: forall e. String -> Eff (dom :: DOM | e) Unit
+
 drawLoading :: forall e. C.CanvasElement -> Eff (dom :: DOM, canvas :: C.CANVAS, now :: NOW | e) Unit
 drawLoading canvas = do
   ctx <- C.getContext2D canvas
@@ -97,6 +99,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
       then "No song data was found. Is there a song.js present?"
       else show e
     Right song -> pure song
+  setTitle $ case song of Song o -> o.title <> " (" <> o.artist <> ") Onyx Web Player"
   imageGetterRef <- newRef Nothing
   withImages $ writeRef imageGetterRef <<< Just
   audioRef <- newRef Nothing

@@ -12,9 +12,11 @@ import Data.Generic (class Generic, gShow, gEq, gCompare)
 import Control.Monad.Except (throwError)
 
 newtype Song = Song
-  { end   :: Seconds
-  , beats :: Beats
-  , parts :: Array (Tuple String Flex)
+  { end    :: Seconds
+  , beats  :: Beats
+  , parts  :: Array (Tuple String Flex)
+  , title  :: String
+  , artist :: String
   }
 
 newtype Flex = Flex
@@ -467,6 +469,8 @@ isForeignFlex f = do
 
 isForeignSong :: Foreign -> F Song
 isForeignSong f = do
+  title <- readProp "title" f >>= readString
+  artist <- readProp "artist" f >>= readString
   end <- readProp "end" f >>= readNumber
   beats <- readProp "beats" f >>= isForeignBeats
   parts <- readProp "parts" f >>= readArray >>= traverse \pair ->
@@ -475,6 +479,8 @@ isForeignSong f = do
     { end: Seconds end
     , beats: beats
     , parts: parts
+    , title: title
+    , artist: artist
     }
 
 readTimedSet :: Foreign -> F (Map.Map Seconds Unit)
