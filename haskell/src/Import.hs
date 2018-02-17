@@ -169,7 +169,6 @@ importFoF detectBasicDrums src dest = do
       keysAudio = toList audio_keys
       crowdAudio = toList audio_crowd
       voxAudio = catMaybes [audio_vocals, audio_vocals_1, audio_vocals_2]
-      -- TODO support mp3 for these
       md0 = audio_drums
       md1 = audio_drums_1
       md2 = audio_drums_2
