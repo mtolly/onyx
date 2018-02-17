@@ -60,7 +60,7 @@ win:
 	"/c/Program Files (x86)/NSIS/Bin/makensis.exe" installer.nsi
 
 win-deps:
-	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate mingw-w64-x86_64-lame mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_ttf mingw-w64-x86_64-rubberband
+	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate mingw-w64-x86_64-lame mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_ttf mingw-w64-x86_64-rubberband mingw-w64-x86_64-mpg123
 
 icon/icon.o:
 	stack exec -- windres -i icon/icon.rc icon/icon.o
