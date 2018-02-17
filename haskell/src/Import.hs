@@ -13,7 +13,6 @@ import           Control.Applicative              ((<|>))
 import           Control.Arrow                    (first)
 import           Control.Exception                (evaluate)
 import           Control.Monad                    (forM, forM_, guard, when)
-import           Control.Monad.Extra              (mapMaybeM)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString.Lazy             as BL
@@ -62,9 +61,9 @@ import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Extract                     (extractSTFS)
 import qualified System.Directory                 as Dir
-import           System.FilePath                  (takeDirectory, takeExtension,
-                                                   takeFileName, (-<.>), (<.>),
-                                                   (</>))
+import           System.FilePath                  (dropExtension, takeDirectory,
+                                                   takeExtension, takeFileName,
+                                                   (-<.>), (<.>), (</>))
 import           Text.Read                        (readMaybe)
 import           X360DotNet                       (rb3pkg)
 
@@ -126,44 +125,66 @@ importFoF detectBasicDrums src dest = do
   hasAlbumArt <- stackIO $ Dir.doesFileExist $ src </> "album.png"
   when hasAlbumArt $ stackIO $ Dir.copyFile (src </> "album.png") (dest </> "album.png")
 
-  audioFiles <- stackIO $ let
-    loadAudio x = do
-      b <- Dir.doesFileExist $ src </> x
-      if b
-        then do
-          Dir.copyFile (src </> x) (dest </> x)
-          return $ Just x
-        else return Nothing
-    in mapMaybeM loadAudio
-      [ "drums.ogg", "drums_1.ogg", "drums_2.ogg", "drums_3.ogg", "drums_4.ogg"
-      , "guitar.ogg", "keys.ogg", "rhythm.ogg", "vocals.ogg", "vocals_1.ogg", "vocals_2.ogg"
-      , "crowd.ogg", "song.ogg"
-      ]
+  let loadAudioFile x = stackIO $ do
+        let ogg = x <.> "ogg"
+            mp3 = x <.> "mp3"
+        Dir.doesFileExist (src </> ogg) >>= \case
+          True -> do
+            Dir.copyFile (src </> ogg) (dest </> ogg)
+            return $ Just ogg
+          False -> Dir.doesFileExist (src </> mp3) >>= \case
+            True -> do
+              Dir.copyFile (src </> mp3) (dest </> mp3)
+              return $ Just mp3
+            False -> return Nothing
+  audio_drums <- loadAudioFile "drums"
+  audio_drums_1 <- loadAudioFile "drums_1"
+  audio_drums_2 <- loadAudioFile "drums_2"
+  audio_drums_3 <- loadAudioFile "drums_3"
+  audio_drums_4 <- loadAudioFile "drums_4"
+  audio_guitar <- loadAudioFile "guitar"
+  audio_keys <- loadAudioFile "keys"
+  audio_rhythm <- loadAudioFile "rhythm"
+  audio_vocals <- loadAudioFile "vocals"
+  audio_vocals_1 <- loadAudioFile "vocals_1"
+  audio_vocals_2 <- loadAudioFile "vocals_2"
+  audio_crowd <- loadAudioFile "crowd"
+  audio_song <- loadAudioFile "song"
+  let audioFiles = catMaybes
+        [ audio_drums, audio_drums_1, audio_drums_2, audio_drums_3
+        , audio_drums_4, audio_guitar, audio_keys, audio_rhythm, audio_vocals
+        , audio_vocals_1, audio_vocals_2, audio_crowd, audio_song
+        ]
+
+  -- assume sole guitar is no-stems audio
+  let onlyGuitar = case audioFiles of
+        [x] | dropExtension x == "guitar" -> True
+        _   -> False
   audioFilesWithChannels <- forM audioFiles $ \af -> audioChannels (dest </> af) >>= \case
     Nothing    -> fatal $ "Couldn't get channel count of audio file: " <> af
     Just chans -> return (af, chans)
 
-  let gtrAudio = case audioFiles of
-        ["guitar.ogg"] -> [] -- assume sole guitar is no-stems audio
-        _              -> filter (== "guitar.ogg") audioFiles
-      bassAudio = filter (== "rhythm.ogg") audioFiles
-      keysAudio = filter (== "keys.ogg") audioFiles
-      crowdAudio = filter (== "crowd.ogg") audioFiles
-      voxAudio = filter (`elem` ["vocals.ogg", "vocals_1.ogg", "vocals_2.ogg"]) audioFiles
-      d0 = "drums.ogg"
-      d1 = "drums_1.ogg"
-      d2 = "drums_2.ogg"
-      d3 = "drums_3.ogg"
-      d4 = "drums_4.ogg"
-      (drumsAudio, kickAudio, snareAudio)
-        | all (`elem` audioFiles) [d1, d2, d3, d4] = ([d3, d4], [d1], [d2]) -- GH config with separate RBG vs YO
-        | all (`elem` audioFiles) [d1, d2, d3] = ([d3], [d1], [d2]) -- RB drum mix 1, 2, or 3
-        | all (`elem` audioFiles) [d1, d2] = ([d2], [d1], []) -- RB drum mix 4
-        | d0 `elem` audioFiles = ([d0], [], []) -- RB drum mix 0
-        | otherwise = (filter (`elem` audioFiles) [d1, d2, d3, d4], [], []) -- either no drums, or weird configuration
-      songAudio = case audioFiles of
-        ["guitar.ogg"] -> ["guitar.ogg"]
-        _              -> filter (== "song.ogg") audioFiles
+  let gtrAudio = if onlyGuitar then [] else toList audio_guitar
+      bassAudio = toList audio_rhythm
+      keysAudio = toList audio_keys
+      crowdAudio = toList audio_crowd
+      voxAudio = catMaybes [audio_vocals, audio_vocals_1, audio_vocals_2]
+      -- TODO support mp3 for these
+      md0 = audio_drums
+      md1 = audio_drums_1
+      md2 = audio_drums_2
+      md3 = audio_drums_3
+      md4 = audio_drums_4
+      (drumsAudio, kickAudio, snareAudio) = case (md1, md2, md3, md4) of
+        (Just d1, Just d2, Just d3, Just d4) -> ([d3, d4], [d1], [d2]) -- GH config with separate toms vs cymbals
+        _ -> case (md1, md2, md3) of
+          (Just d1, Just d2, Just d3) -> ([d3], [d1], [d2]) -- RB drum mix 1, 2, or 3
+          _ -> case (md1, md2) of
+            (Just d1, Just d2) -> ([d2], [d1], []) -- RB drum mix 4
+            _ -> case md0 of
+              Just d0 -> ([d0], [], []) -- RB drum mix 0
+              _       -> (catMaybes [md1, md2, md3, md4], [], []) -- either no drums, or weird configuration
+      songAudio = toList $ if onlyGuitar then audio_guitar else audio_song
 
   let (delayAudio, delayMIDI) = case FoF.delay song of
         Nothing -> (id, id)

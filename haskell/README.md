@@ -67,7 +67,7 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
       * Must be in its own folder, with `notes.chart` and optional `song.ini`
       * Audio must be named according to Phase Shift conventions:
         `song.ogg`, `guitar.ogg`, etc.
-      * MP3 audio is not currently supported. Convert to `.ogg`
+      * Both OGG Vorbis and MP3 audio are supported
 
     If the "automatic tom markers" option is turned on, an FoF song that doesn't
     have any tom markers and that does not have "pro_drums = True" in the

@@ -46,6 +46,7 @@ import           Data.Conduit                    (await, awaitForever, leftover,
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME
 import           Data.Conduit.Audio.LAME.Binding as L
+import           Data.Conduit.Audio.Mpg123       (sourceMpg)
 import           Data.Conduit.Audio.SampleRate
 import           Data.Conduit.Audio.Sndfile
 import qualified Data.Conduit.List               as CL
@@ -346,7 +347,9 @@ buildSource aud = need (toList aud) >> case aud of
   Drop Start (Seconds s) (Resample (Input fin)) -> buildSource $ Resample $ Drop Start (Seconds s) (Input fin)
   -- normal cases
   Silence c t -> return $ silent t 44100 c
-  Input fin -> liftIO $ sourceSnd fin
+  Input fin -> liftIO $ case takeExtension fin of
+    ".mp3" -> sourceMpg fin
+    _      -> sourceSnd fin
   Mix         xs -> combine (\a b -> uncurry mix $ sameChannels (a, b)) xs
   Merge       xs -> combine merge xs
   Concatenate xs -> combine (\a b -> uncurry concatenate $ sameChannels (a, b)) xs
@@ -446,17 +449,22 @@ audioMD5 f = liftIO $ case takeExtension f of
 audioLength :: (MonadIO m) => FilePath -> m (Maybe Integer)
 audioLength f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
   then liftIO $ Just . fromIntegral . Snd.frames <$> Snd.getFileInfo f
-  else return Nothing
+  else return Nothing -- TODO mp3
 
 audioChannels :: (MonadIO m) => FilePath -> m (Maybe Int)
 audioChannels f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
   then liftIO $ Just . Snd.channels <$> Snd.getFileInfo f
-  else return Nothing
+  else if takeExtension f == ".mp3"
+    then do
+      src <- liftIO $ sourceMpg f
+      let _ = src :: AudioSource (ResourceT IO) Float
+      return $ Just $ channels src
+    else return Nothing
 
 audioRate :: (MonadIO m) => FilePath -> m (Maybe Int)
 audioRate f = if takeExtension f `elem` [".flac", ".wav", ".ogg"]
   then liftIO $ Just . Snd.samplerate <$> Snd.getFileInfo f
-  else return Nothing
+  else return Nothing -- TODO mp3
 
 audioSeconds :: (MonadIO m) => FilePath -> m U.Seconds
 audioSeconds f = do

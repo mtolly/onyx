@@ -105,6 +105,7 @@ executables:
     - conduit-audio-sndfile
     - conduit-audio-samplerate
     - conduit-audio-lame
+    - conduit-audio-mpg123
     - rubberband >= 0.1.0.2 && < 0.2
     - tinyfiledialogs
     - JuicyPixels-stbir

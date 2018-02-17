@@ -41,7 +41,7 @@ mac:
 	stack exec -- onyx-package mac/Onyx.app/Contents/Info.plist mac/README.txt
 
 mac-deps:
-	brew install libsndfile libsamplerate lame sdl2 sdl2_ttf rubberband dylibbundler wine mono mono-libgdiplus
+	brew install libsndfile libsamplerate lame sdl2 sdl2_ttf rubberband dylibbundler wine mono mono-libgdiplus mpg123
 
 win:
 	stack build
