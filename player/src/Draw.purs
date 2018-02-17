@@ -4,7 +4,7 @@ import Prelude
 import Graphics.Canvas as C
 import Data.Time.Duration (Seconds(..))
 import Control.Monad.Eff (Eff)
-import Data.Int (toNumber, round)
+import Data.Int (toNumber, round, floor)
 import DOM (DOM)
 import Data.Maybe (Maybe(..), fromMaybe, isJust, isNothing)
 import Data.Array (reverse, uncons, cons, snoc, take, zip, (..), length, concat)
@@ -93,6 +93,15 @@ onContext act dstuff = void $ act dstuff.context
 measureText :: forall e. String -> Draw e C.TextMetrics
 measureText str dstuff = C.measureText dstuff.context str
 
+showTimestamp :: Seconds -> String
+showTimestamp (Seconds s) = let
+  mins = floor $ s / 60.0
+  secs = floor $ s - toNumber (mins * 60)
+  msecs = floor $ (s - toNumber (mins * 60) - toNumber secs) * 1000.0
+  pad2 s n = if n < 10 then s <> show n else show n
+  pad3 s n = if n < 100 then s <> pad2 s n else show n
+  in show mins <> ":" <> pad2 "0" secs <> "." <> pad3 "0" msecs
+
 draw :: forall e. Draw (dom :: DOM | e) Unit
 draw stuff = do
   {w: windowW, h: windowH} <- getWindowDims
@@ -100,6 +109,17 @@ draw stuff = do
   void $ C.setCanvasHeight windowH stuff.canvas
   setFillStyle "rgb(54,59,123)" stuff
   fillRect { x: 0.0, y: 0.0, w: windowW, h: windowH } stuff
+  -- Draw timestamp
+  onContext (C.setFont "17px monospace") stuff
+  setFillStyle "white" stuff
+  let timeStr = showTimestamp stuff.time
+  metric <- measureText timeStr stuff
+  onContext
+    (\ctx -> C.fillText ctx
+      (showTimestamp stuff.time)
+      (windowW - 20.0 - metric.width)
+      (windowH - 20.0)
+    ) stuff
   -- Draw the visible instrument tracks in sequence
   let drawTracks targetX trks = case uncons trks of
         Nothing -> pure unit
