@@ -11,9 +11,10 @@ WIP port of (parts of) X360, a GPL C# library by DJ Shepherd
 module STFS.Create where
 
 import           Control.Applicative            (liftA2)
-import           Control.Monad.Extra            (forM_, guard, ifM, when, whenM)
+import           Control.Monad.Extra            (forM_, guard, ifM, when, whenM, unlessM)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Cont       hiding (shift)
+import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.StackTrace (QueueLog, StackTraceT,
                                                  catchError, fatal)
 import qualified Data.Binary.Put                as Put
@@ -325,10 +326,21 @@ unenum :: (CEnum i e) => Meth0 e i
 unenum() = liftHs $ pure . enumMapping
 
 castEnumField :: (Integral i, Enum e) => F i -> F e
-castEnumField (Var (V gtr str)) = Var $ V
-  (fmap (toEnum . fromIntegral) gtr)
-  (str . fromIntegral . fromEnum)
--- TODO this warns of not handling E constructor, wrongly I think?
+castEnumField (Var v) = Var $ V
+  (fmap (toEnum . fromIntegral) $ get v)
+  ((v $=) . fromIntegral . fromEnum)
+
+whileLoop
+  :: (MonadIO m)
+  => StackTraceT m Bool
+  -> (ContT () (StackTraceT m) () -> ContT () (StackTraceT m) ())
+  -> StackTraceT m ()
+whileLoop cond fn = whenM cond $ do
+  Var broke <- auto $ pure False
+  fun $ \ret -> fn $ do
+    lift $ broke $= pure True
+    ret ()
+  unlessM (get broke) $ whileLoop cond fn
 
 ---------
 -- STFSDescriptor.cs
@@ -536,52 +548,45 @@ instance New STFSDescriptor (E C (List Word8), E C Word32, E C Word32, E C Word8
 
 -- internal STFSDescriptor(STFSPackage xPackage)
 instance New STFSDescriptor (E C STFSPackage) where
-  new = new1 $ \(Var xPackage) _this -> do
+  new = new1 $ \(Var xPackage) this -> do
     xPackage &. sp_xIO &. dj_Position $= 0x340
     xPackage &. sp_xIO &. dj_IsBigEndian $= pure True
-    undefined
-    {-
-    int xBlockInfo = xPackage.xIO.ReadInt32();
-    xBaseByte = (byte)(((xBlockInfo + 0xFFF) & 0xF000) >> 0xC);
-    xPackage.xIO.Position = 0x379;
-    if (xPackage.xIO.ReadByte() != 0x24) // Struct Size
-        throw STFSExcepts.Type;
-    if (xPackage.xIO.ReadByte() != 0) // Reversed
-        throw STFSExcepts.Type;
-    /* STRUCT OF THE NEXT 6 BYTES:
-     * byte for block separation
-     * Little Endian File Table block count short (2 bytes)
-     * 3 bytes in Little Endian for the starting block of the File Table */
-    byte idx = (byte)(xPackage.xIO.ReadByte() & 3);
-    xStruct = xPackage.xIO.ReadBytes(5);
-    xPackage.xIO.Position = 0x395;
-    xBlockCount = xPackage.xIO.ReadUInt32();
-    uint xOldBlocks = xPackage.xIO.ReadUInt32();
-    // Checks the type of Structure
-    if (xBaseByte == 0xB)
-    {
-        if (idx == 1)
-            XSetStructure(STFSType.Type0);
-        else throw STFSExcepts.Type;
-    }
-    else if (xBaseByte == 0xA)
-    {
-        if (idx == 0 || idx == 2)
-            XSetStructure(STFSType.Type1);
-        else throw STFSExcepts.Type;
-    }
-    else throw STFSExcepts.Type;
-    if (xBlockCount > SpaceBetween[2])
-        throw STFSExcepts.MaxOver;
-    TopRecord = new BlockRecord(((uint)((idx >> 1) & 1) << 30 | (uint)xOldBlocks << 15));
-    // Grab Real Block Count
-    for (uint i = (xBlockCount - 1); i >= 0; i--)
-    {
-        xBlockCount = (i + 1);
-        if (GenerateDataOffset(i) < xPackage.xIO.Length)
-            break;
-    }
+    xBlockInfo <- get $ xPackage &. sp_xIO & dj_ReadInt32()
+    let xBaseByte = fromIntegral $ ((xBlockInfo + 0xFFF) .&. 0xF000) `shiftR` 0xC :: Word8
+    xPackage &. sp_xIO &. dj_Position $= 0x379
+    whenM (get $ (xPackage &. sp_xIO & dj_ReadByte()) /=. 0x24) -- Struct Size
+      $ fatal "STFSExcepts.Type"
+    whenM (get $ (xPackage &. sp_xIO & dj_ReadByte()) /=. 0) -- Reversed
+      $ fatal "STFSExcepts.Type"
+    {-  STRUCT OF THE NEXT 6 BYTES:
+        byte for block separation
+        Little Endian File Table block count short (2 bytes)
+        3 bytes in Little Endian for the starting block of the File Table
     -}
+    idx <- get $ (xPackage &. sp_xIO & dj_ReadByte()) .& 3
+    this &. sd_xStruct $= xPackage &. sp_xIO & dj_ReadBytes(5)
+    xPackage &. sp_xIO &. dj_Position $= 0x395
+    this &. sd_xBlockCount $= xPackage &. sp_xIO & dj_ReadUInt32()
+    xOldBlocks <- get $ xPackage &. sp_xIO & dj_ReadUInt32()
+    -- Checks the type of Structure
+    case xBaseByte of
+      0xB -> if idx == 1
+        then get $ this & sd_XSetStructure(pure STFSType_Type0)
+        else fatal "STFSExcepts.Type"
+      0xA -> if idx == 0 || idx == 2
+        then get $ this & sd_XSetStructure(pure STFSType_Type1)
+        else fatal "STFSExcepts.Type"
+      _ -> fatal "STFSExcepts.Type"
+    whenM (get $ (this &. sd_xBlockCount) >. (this &. sd_xSpaceBetween &. ix 2))
+      $ fatal "STFSExcepts.MaxOver"
+    this &. sd_TopRecord $= new ((fi ((pure idx >>. 1) .& 1) <<. 30) .| (pure xOldBlocks <<. 15) :: E C Word32)
+    -- Grab Real Block Count
+    Var i <- auto $ (this &. sd_xBlockCount) - 1
+    whileLoop (get $ i >=. 0) $ \brk -> do
+      lift $ this &. sd_xBlockCount $= i + 1
+      whenM (lift $ get $ (this & sd_GenerateDataOffset(i)) <. (xPackage &. sp_xIO &. dj_Length))
+        brk
+      lift $ i $= i - 1
 
 -- internal uint GenerateDataBlock(uint xBlock)
 sd_GenerateDataBlock :: Meth1 STFSDescriptor Word32 Word32
@@ -669,7 +674,6 @@ sd_GenerateDataOffset = meth1 $ \(Var xBlock) this -> catchError
       % do return $ fromIntegral constants_STFSEnd
       % do get $ this & sd_BlockToOffset(this & sd_GenerateDataBlock(xBlock))
   % \_ -> fatal "STFSExcepts.General"
-
 
 -- internal long BlockToOffset(uint xBlock)
 sd_BlockToOffset :: Meth1 STFSDescriptor Word32 Int64
@@ -1934,6 +1938,9 @@ type DJsIO = Maybe D_DJsIO
 -- protected DJsIO() { }
 
 -- public virtual byte[] ReadBytes(int xSize)
+dj_ReadBytes :: Meth1 DJsIO Int32 (List Word8)
+dj_ReadBytes = undefined
+
 -- internal byte[] unbufferedread(int xSize)
 -- public short ReadInt16()
 -- public short ReadInt16(bool BigEndian)
@@ -1945,11 +1952,20 @@ type DJsIO = Maybe D_DJsIO
 -- public ulong ReadUInt48(bool BigEndian)
 -- public ulong ReadUInt56()
 -- public ulong ReadUInt56(bool BigEndian)
+
 -- public int ReadInt32()
+dj_ReadInt32 :: Meth0 DJsIO Int32
+dj_ReadInt32 = undefined
+
 -- public int ReadInt32(bool BigEndian)
+
 -- public long ReadInt64()
 -- public long ReadInt64(bool BigEndian)
+
 -- public byte ReadByte()
+dj_ReadByte :: Meth0 DJsIO Word8
+dj_ReadByte = undefined
+
 -- public sbyte ReadSByte()
 -- public float ReadSingle()
 -- public float ReadSingle(bool BigEndian)
@@ -1957,7 +1973,11 @@ type DJsIO = Maybe D_DJsIO
 -- public double ReadDouble(bool BigEndian)
 -- public ushort ReadUInt16()
 -- public ushort ReadUInt16(bool BigEndian)
+
 -- public uint ReadUInt32()
+dj_ReadUInt32 :: Meth0 DJsIO Word32
+dj_ReadUInt32 = undefined
+
 -- public uint ReadUInt32(bool BigEndian)
 -- public ulong ReadUInt64()
 -- public ulong ReadUInt64(bool BigEndian)
@@ -2014,6 +2034,9 @@ type DJsIO = Maybe D_DJsIO
 -- public virtual void Flush()
 
 -- public virtual long Length
+dj_Length :: D_DJsIO -> F Int64
+dj_Length = undefined
+
 -- public string LengthFriendly
 -- public virtual long Position
 dj_Position :: D_DJsIO -> F Int64
