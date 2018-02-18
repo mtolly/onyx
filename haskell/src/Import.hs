@@ -350,8 +350,8 @@ importFoF detectBasicDrums src dest = do
             , pgTuningGlobal = 0
             , pgFixFreeform = False
             }
-        , partGHL = guard (hasTrack RBFile.psPartGuitarGHL) >> Just PartGHL
-          { ghlDifficulty = toTier $ FoF.diffGuitar song -- I guess?
+        , partGHL = guard (hasTrack RBFile.psPartGuitarGHL && FoF.diffGuitarGHL song /= Just (-1)) >> Just PartGHL
+          { ghlDifficulty = toTier $ FoF.diffGuitarGHL song
           , ghlHopoThreshold = hopoThreshold
           }
         })
@@ -371,8 +371,8 @@ importFoF detectBasicDrums src dest = do
             , pgTuningGlobal = 0
             , pgFixFreeform = False
             }
-        , partGHL = guard (hasTrack RBFile.psPartBassGHL) >> Just PartGHL
-          { ghlDifficulty = toTier $ FoF.diffBass song -- I guess?
+        , partGHL = guard (hasTrack RBFile.psPartBassGHL && FoF.diffBassGHL song /= Just (-1)) >> Just PartGHL
+          { ghlDifficulty = toTier $ FoF.diffBassGHL song
           , ghlHopoThreshold = hopoThreshold
           }
         })

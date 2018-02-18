@@ -287,7 +287,7 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
   psPartGuitar       <- parseGRYBO "Single" -- ExpertSingle etc.
   psPartGuitarGHL    <- parseGHL "GHLGuitar" -- ExpertGHLGuitar etc.
   psPartBass         <- parseGRYBO "DoubleBass" -- ExpertDoubleBass etc.
-  psPartBassGHL      <- return RTB.empty -- don't know!
+  psPartBassGHL      <- parseGHL "GHLBass" -- ExpertGHLBass etc.
   psPartKeys         <- parseGRYBO "Keyboard" -- ExpertKeyboard etc.
   psPartRhythm       <- return RTB.empty -- ExpertDoubleBass when Player2 = rhythm ???
   psPartGuitarCoop   <- return RTB.empty -- ExpertDoubleGuitar ???

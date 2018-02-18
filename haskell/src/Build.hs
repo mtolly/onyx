@@ -1538,25 +1538,27 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 , FoF.songLength       = Just len
                 , FoF.previewStartTime = Just pstart
                 -- difficulty tiers go from 0 to 6, or -1 for no part
-                , FoF.diffBand         = Just $ fromIntegral $ rb3BandTier    - 1
-                , FoF.diffGuitar       = Just $ fromIntegral $ rb3GuitarTier  - 1
-                , FoF.diffBass         = Just $ fromIntegral $ rb3BassTier    - 1
-                , FoF.diffDrums        = Just $ fromIntegral $ rb3DrumsTier   - 1
+                , FoF.diffBand         = Just $ fromIntegral $ rb3BandTier      - 1
+                , FoF.diffGuitar       = Just $ fromIntegral $ rb3GuitarTier    - 1
+                , FoF.diffGuitarGHL    = Just $ fromIntegral $ chGuitarGHLTier  - 1
+                , FoF.diffBass         = Just $ fromIntegral $ rb3BassTier      - 1
+                , FoF.diffBassGHL      = Just $ fromIntegral $ chBassGHLTier    - 1
+                , FoF.diffDrums        = Just $ fromIntegral $ rb3DrumsTier     - 1
                 , FoF.diffDrumsReal    = Just $ case fmap drumsPro $ getPart (ps_Drums ps) songYaml >>= partDrums of
                   Just True -> fromIntegral $ rb3DrumsTier - 1
                   _         -> -1
-                , FoF.diffKeys         = Just $ fromIntegral $ rb3KeysTier    - 1
-                , FoF.diffKeysReal     = Just $ fromIntegral $ rb3ProKeysTier - 1
-                , FoF.diffVocals       = Just $ fromIntegral $ rb3VocalTier   - 1
-                , FoF.diffVocalsHarm   = Just $ fromIntegral $ rb3VocalTier   - 1
+                , FoF.diffKeys         = Just $ fromIntegral $ rb3KeysTier      - 1
+                , FoF.diffKeysReal     = Just $ fromIntegral $ rb3ProKeysTier   - 1
+                , FoF.diffVocals       = Just $ fromIntegral $ rb3VocalTier     - 1
+                , FoF.diffVocalsHarm   = Just $ fromIntegral $ rb3VocalTier     - 1
                 , FoF.diffDance        = Just (-1)
-                , FoF.diffBassReal     = Just $ fromIntegral $ rb3ProBassTier - 1
+                , FoF.diffBassReal     = Just $ fromIntegral $ rb3ProBassTier   - 1
                 , FoF.diffGuitarReal   = Just $ fromIntegral $ rb3ProGuitarTier - 1
                 -- TODO: are the 22-fret difficulties needed?
-                , FoF.diffBassReal22   = Just $ fromIntegral $ rb3ProBassTier - 1
+                , FoF.diffBassReal22   = Just $ fromIntegral $ rb3ProBassTier   - 1
                 , FoF.diffGuitarReal22 = Just $ fromIntegral $ rb3ProGuitarTier - 1
                 , FoF.diffGuitarCoop   = Just $ fromIntegral $ psGuitarCoopTier - 1
-                , FoF.diffRhythm       = Just $ fromIntegral $ psRhythmTier - 1
+                , FoF.diffRhythm       = Just $ fromIntegral $ psRhythmTier     - 1
                 , FoF.diffDrumsRealPS  = Just (-1)
                 , FoF.diffKeysRealPS   = Just (-1)
                 , FoF.delay            = Nothing

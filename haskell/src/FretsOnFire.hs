@@ -29,7 +29,9 @@ data Song = Song
   , previewStartTime :: Maybe Int
   , diffBand         :: Maybe Int
   , diffGuitar       :: Maybe Int
+  , diffGuitarGHL    :: Maybe Int
   , diffBass         :: Maybe Int
+  , diffBassGHL      :: Maybe Int
   , diffDrums        :: Maybe Int
   , diffDrumsReal    :: Maybe Int
   , diffKeys         :: Maybe Int
@@ -86,7 +88,7 @@ instance Default Song where
     def def def def def def def def def def
     def def def def def def def def def def
     def def def def def def def def def def
-    def def def def
+    def def def def def def
 
 loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
 loadSong fp = do
@@ -118,7 +120,9 @@ loadSong fp = do
       previewStartTime = int "preview_start_time"
       diffBand = int "diff_band"
       diffGuitar = int "diff_guitar"
+      diffGuitarGHL = int "diff_guitarghl"
       diffBass = int "diff_bass"
+      diffBassGHL = int "diff_bassghl"
       diffDrums = int "diff_drums"
       diffDrumsReal = int "diff_drums_real"
       diffKeys = int "diff_keys"
@@ -161,7 +165,9 @@ saveSong fp Song{..} = writePSIni fp $
     shown "preview_start_time" previewStartTime
     shown "diff_band" diffBand
     shown "diff_guitar" diffGuitar
+    shown "diff_guitarghl" diffGuitarGHL
     shown "diff_bass" diffBass
+    shown "diff_bassghl" diffBassGHL
     shown "diff_drums" diffDrums
     shown "diff_drums_real" diffDrumsReal
     shown "diff_keys" diffKeys

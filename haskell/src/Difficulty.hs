@@ -69,6 +69,8 @@ data DifficultyPS = DifficultyPS
   { psDifficultyRB3  :: DifficultyRB3
   , psRhythmTier     :: Integer
   , psGuitarCoopTier :: Integer
+  , chGuitarGHLTier  :: Integer
+  , chBassGHLTier    :: Integer
   } deriving (Eq, Ord, Show, Read)
 
 difficultyPS :: TargetPS -> SongYaml -> DifficultyPS
@@ -94,4 +96,6 @@ difficultyPS TargetPS{..} songYaml = let
       Rank r -> rankToTier dmap r
   psRhythmTier     = simpleTier ps_Rhythm     partGRYBO gryboDifficulty guitarDiffMap
   psGuitarCoopTier = simpleTier ps_GuitarCoop partGRYBO gryboDifficulty guitarDiffMap
+  chGuitarGHLTier  = simpleTier ps_Guitar     partGHL   ghlDifficulty   guitarDiffMap
+  chBassGHLTier    = simpleTier ps_Bass       partGHL   ghlDifficulty   guitarDiffMap
   in DifficultyPS{..}
