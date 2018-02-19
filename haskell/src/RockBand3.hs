@@ -190,8 +190,9 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           forRB3 = eachDifficulty
             $ emit5
             . fromClosed
-            . noTaps
             . no5NoteChords
+            . noOpenNotes (gryboDropOpenHOPOs grybo)
+            . noTaps
             . (if toKeys then id else noExtendedSustains standardBlipThreshold standardSustainGap)
             . strumHOPOTap algo (fromIntegral ht / 480)
             . closeNotes

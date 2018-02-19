@@ -100,6 +100,7 @@ midiRB3toGH2 song target (F.Song tmap mmap onyx) = let
       toGtr = eachDifficulty
         $ emit5
         . fromClosed
+        . noOpenNotes False
         . noExtendedSustains standardBlipThreshold standardSustainGap
         . strumHOPOTap
           (if F.flexFiveIsKeys flex then HOPOsRBKeys else HOPOsRBGuitar)

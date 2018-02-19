@@ -169,15 +169,17 @@ data KeysRB2 = NoKeys | KeysGuitar | KeysBass
 
 data ConvertOptions
   = ConvertRB3
-    { crb3Speed      :: Int -- ^ in percent
-    , crb3Project    :: Bool -- ^ make a Magma v2 + REAPER project instead of CON
-    , crb3AutoToms   :: Bool -- ^ tom markers over whole song if no pro authored
-    , crb3CopyGuitar :: Bool -- ^ copy guitar to keys
+    { crb3Speed         :: Int -- ^ in percent
+    , crb3Project       :: Bool -- ^ make a Magma v2 + REAPER project instead of CON
+    , crb3DropOpenHOPOs :: Bool -- ^ remove open HOPO or tap notes
+    , crb3AutoToms      :: Bool -- ^ tom markers over whole song if no pro authored
+    , crb3CopyGuitar    :: Bool -- ^ copy guitar to keys
     }
   | ConvertRB2
-    { crb2Speed :: Int -- ^ in percent
-    , crb2Label :: Bool -- ^ should (RB2 version) be added
-    , crb2Keys  :: KeysRB2 -- ^ if keys should be dropped or moved to gtr or bass
+    { crb2Speed         :: Int -- ^ in percent
+    , crb2DropOpenHOPOs :: Bool -- ^ remove open HOPO or tap notes
+    , crb2Label         :: Bool -- ^ should (RB2 version) be added
+    , crb2Keys          :: KeysRB2 -- ^ if keys should be dropped or moved to gtr or bass
     }
   deriving (Eq, Ord, Show, Read)
 
@@ -185,6 +187,7 @@ convertRB3 :: ConvertOptions
 convertRB3 = ConvertRB3
   { crb3Speed = 100
   , crb3Project = False
+  , crb3DropOpenHOPOs = False
   , crb3AutoToms = False
   , crb3CopyGuitar = False
   }
@@ -192,8 +195,9 @@ convertRB3 = ConvertRB3
 convertRB2 :: ConvertOptions
 convertRB2 = ConvertRB2
   { crb2Speed = 100
-  , crb2Keys = NoKeys
+  , crb2DropOpenHOPOs = False
   , crb2Label = True
+  , crb2Keys = NoKeys
   }
 
 data OptionInput a
@@ -229,6 +233,7 @@ topMenu = Choices
         continue = TasksStart $ flip map fs $ \f -> commandLine' $ concat
           [ [if crb3Project then "magma" else "convert", f, "--game", "rb3"]
           , ["--force-pro-drums" | not crb3AutoToms]
+          , ["--drop-open-hopos" | crb3DropOpenHOPOs]
           , case crb3Speed of
             100 -> []
             _   -> ["--speed", show (fromIntegral crb3Speed / 100 :: Double)]
@@ -249,6 +254,7 @@ topMenu = Choices
                 , choiceDescription = ""
                 , choiceValue = convertRB2
                   { crb2Speed = crb3Speed
+                  , crb2DropOpenHOPOs = crb3DropOpenHOPOs
                   }
                 }
               ]
@@ -307,6 +313,22 @@ topMenu = Choices
                 }
               ]
             }
+          , Choice
+            { choiceTitle = "[option] Drop open HOPOs: " <> if crb3DropOpenHOPOs then "Yes" else "No"
+            , choiceDescription = "Remove open notes that are HOPOs or tap notes."
+            , choiceValue = OptionEnum
+              [ Choice
+                { choiceTitle = "Yes"
+                , choiceDescription = "Remove open notes if HOPO/tap; translate to green if strum"
+                , choiceValue = ConvertRB3 { crb3DropOpenHOPOs = True, .. }
+                }
+              , Choice
+                { choiceTitle = "No"
+                , choiceDescription = "All open notes will translate to green"
+                , choiceValue = ConvertRB3 { crb3DropOpenHOPOs = False, .. }
+                }
+              ]
+            }
           ]
         in (opts, continue)
       ConvertRB2{..} -> let
@@ -317,6 +339,7 @@ topMenu = Choices
             100 -> []
             _   -> ["--speed", show (fromIntegral crb2Speed / 100 :: Double)]
           , ["--rb2-version" | crb2Label]
+          , ["--drop-open-hopos" | crb2DropOpenHOPOs]
           ]
         opts =
           [ Choice
@@ -328,6 +351,7 @@ topMenu = Choices
                 , choiceDescription = ""
                 , choiceValue = convertRB3
                   { crb3Speed = crb2Speed
+                  , crb3DropOpenHOPOs = crb2DropOpenHOPOs
                   }
                 }
               , Choice
@@ -377,6 +401,22 @@ topMenu = Choices
                 { choiceTitle = "No"
                 , choiceDescription = "Title will be unchanged"
                 , choiceValue = ConvertRB2 { crb2Label = False, .. }
+                }
+              ]
+            }
+          , Choice
+            { choiceTitle = "[option] Drop open HOPOs: " <> if crb2DropOpenHOPOs then "Yes" else "No"
+            , choiceDescription = "Remove open notes that are HOPOs or tap notes."
+            , choiceValue = OptionEnum
+              [ Choice
+                { choiceTitle = "Yes"
+                , choiceDescription = "Remove open notes if HOPO/tap; translate to green if strum"
+                , choiceValue = ConvertRB2 { crb2DropOpenHOPOs = True, .. }
+                }
+              , Choice
+                { choiceTitle = "No"
+                , choiceDescription = "All open notes will translate to green"
+                , choiceValue = ConvertRB2 { crb2DropOpenHOPOs = False, .. }
                 }
               ]
             }

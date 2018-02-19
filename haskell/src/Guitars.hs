@@ -48,7 +48,7 @@ openNotes rtb = let
       [Note (s, if open then Nothing else Just a, t)]
   in splitGuitarEvents $ RTB.flatten $ evalState (traverse eachEvent $ RTB.normalize eithers) False
 
-closeNotes :: (NNC.C t) => RTB.T t G5.DiffEvent -> RTB.T t (GuitarEvent (LongNote () G5.Color))
+closeNotes :: (NNC.C t) => RTB.T t G5.DiffEvent -> RTB.T t (GuitarEvent (LongNote () (Maybe G5.Color)))
 closeNotes rtb = let
   (notes, notNotes) = RTB.partitionMaybe (\case G5.Note ln -> Just ln; _ -> Nothing) rtb
   eithers = RTB.merge (fmap Left notNotes) (fmap Right $ joinEdges notes)
@@ -67,10 +67,11 @@ closeNotes rtb = let
     Right (s, a, t) -> do
       (open, offset) <- get
       let modifyFret color = case offset + if open then -1 else fromEnum color of
-            1 -> G5.Red
-            2 -> G5.Yellow
-            3 -> G5.Blue
-            n -> if n <= 0 then G5.Green else G5.Orange
+            0 -> Just G5.Green
+            1 -> Just G5.Red
+            2 -> Just G5.Yellow
+            3 -> Just G5.Blue
+            n -> if n < 0 then Nothing else Just G5.Orange
       return [Note (s, modifyFret a, t)]
   in splitGuitarEvents $ RTB.flatten $ evalState (traverse eachEvent $ RTB.normalize eithers) (False, 0)
 
@@ -192,6 +193,18 @@ guitarify
 
 fromClosed :: RTB.T t (LongNote s a) -> RTB.T t (LongNote s (Maybe a))
 fromClosed = fmap $ fmap Just
+
+noOpenNotes
+  :: (NNC.C t)
+  => Bool -- ^ whether open HOPOs\/taps should be removed
+  -> RTB.T t (LongNote (G5.StrumHOPO, Bool) (Maybe G5.Color))
+  -> RTB.T t (LongNote (G5.StrumHOPO, Bool) G5.Color)
+noOpenNotes removeOpenHOPO = let
+  f = \case
+    ((sh, tap), Nothing, _) | removeOpenHOPO && (sh == G5.HOPO || tap) -> Nothing
+    (ntype, Nothing, len) -> Just (ntype, G5.Green, len)
+    (ntype, Just x, len) -> Just (ntype, x, len)
+  in splitEdges . RTB.mapMaybe f . joinEdges
 
 -- | Turns all tap notes into HOPO notes.
 noTaps :: RTB.T t (LongNote (G5.StrumHOPO, Bool) a) -> RTB.T t (LongNote (G5.StrumHOPO, Bool) a)

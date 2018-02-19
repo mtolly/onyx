@@ -379,7 +379,7 @@ commands =
           pschart dir = do
             let out = dir ++ "_reaper"
             stackIO $ Dir.createDirectoryIfMissing False out
-            void $ importFoF (OptForceProDrums `notElem` opts) dir out
+            void $ importFoF (OptForceProDrums `notElem` opts) (OptDropOpenHOPOs `elem` opts) dir out
             withSongYaml $ out </> "song.yml"
       case files' of
         [(FileSTFS, stfsPath)] -> doImport importSTFS stfsPath
@@ -412,7 +412,7 @@ commands =
     , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> let
       pschart = tempDir "onyx_player" $ \tmp -> do
         out <- outputFile opts $ return $ takeDirectory fpath ++ "_player"
-        void $ importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
+        void $ importFoF (OptForceProDrums `notElem` opts) (OptDropOpenHOPOs `elem` opts) (takeDirectory fpath) tmp
         let player = "gen/plan/fof/web"
         shakeBuildFiles [tmp] (tmp </> "song.yml") [player]
         stackIO $ Dir.createDirectoryIfMissing False out
@@ -489,7 +489,7 @@ commands =
       pschart = do
         out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
         stackIO $ Dir.createDirectoryIfMissing False out
-        void $ importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) out
+        void $ importFoF (OptForceProDrums `notElem` opts) (OptDropOpenHOPOs `elem` opts) (takeDirectory fpath) out
         return [out]
       in case ftype of
         FileSTFS -> do
@@ -535,8 +535,8 @@ commands =
       hasKicks <- case ftype of
         FileSTFS   -> importSTFS fpath Nothing tmp
         FileRBA    -> importRBA fpath Nothing tmp
-        FilePS     -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
-        FileChart  -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
+        FilePS     -> importFoF (OptForceProDrums `notElem` opts) (OptDropOpenHOPOs `elem` opts) (takeDirectory fpath) tmp
+        FileChart  -> importFoF (OptForceProDrums `notElem` opts) (OptDropOpenHOPOs `elem` opts) (takeDirectory fpath) tmp
         FileRBProj -> importMagma (takeDirectory fpath) tmp -- why would you do this
         _          -> unrecognized ftype fpath
       let specified1x = listToMaybe [ f | OptTo f <- opts ]
@@ -609,8 +609,8 @@ commands =
           hasKicks <- case ftype of
             FileSTFS   -> importSTFS fpath Nothing tmp
             FileRBA    -> importRBA fpath Nothing tmp
-            FilePS     -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
-            FileChart  -> importFoF (OptForceProDrums `notElem` opts) (takeDirectory fpath) tmp
+            FilePS     -> importFoF (OptForceProDrums `notElem` opts) (OptDropOpenHOPOs `elem` opts) (takeDirectory fpath) tmp
+            FileChart  -> importFoF (OptForceProDrums `notElem` opts) (OptDropOpenHOPOs `elem` opts) (takeDirectory fpath) tmp
             FileRBProj -> importMagma (takeDirectory fpath) tmp
             _          -> unrecognized ftype fpath
           let (gtr, bass)
@@ -945,6 +945,7 @@ optDescrs =
   , Option []   ["keys-on-guitar" ] (NoArg  OptKeysOnGuitar                   ) ""
   , Option []   ["keys-on-bass"   ] (NoArg  OptKeysOnBass                     ) ""
   , Option []   ["force-pro-drums"] (NoArg  OptForceProDrums                  ) ""
+  , Option []   ["drop-open-hopos"] (NoArg  OptDropOpenHOPOs                  ) ""
   , Option []   ["speed"          ] (ReqArg (OptSpeed . read)      "real"     ) ""
   , Option []   ["guitar-on-keys" ] (NoArg  OptGuitarOnKeys                   ) ""
   , Option []   ["rb2-version"    ] (NoArg  OptRB2Version                     ) ""
@@ -970,6 +971,7 @@ data OnyxOption
   | OptKeysOnGuitar
   | OptKeysOnBass
   | OptForceProDrums
+  | OptDropOpenHOPOs
   | OptSpeed Double
   | OptGuitarOnKeys
   | OptRB2Version

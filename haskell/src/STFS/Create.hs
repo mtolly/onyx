@@ -11,10 +11,11 @@ WIP port of (parts of) X360, a GPL C# library by DJ Shepherd
 module STFS.Create where
 
 import           Control.Applicative            (liftA2)
-import           Control.Monad.Extra            (forM_, guard, ifM, when, whenM, unlessM)
+import           Control.Monad.Extra            (forM_, guard, ifM, unlessM,
+                                                 when, whenM)
 import           Control.Monad.IO.Class         (MonadIO (..))
+import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Cont       hiding (shift)
-import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.StackTrace (QueueLog, StackTraceT,
                                                  catchError, fatal)
 import qualified Data.Binary.Put                as Put

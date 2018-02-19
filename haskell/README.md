@@ -74,6 +74,11 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
     song.ini will have tom markers added over the whole drum part, under the
     assumption that Pro Drums have not been authored for the chart.
 
+    Open notes from a PS or CH song will be translated to green notes.
+    If the "drop open HOPOs" option is turned on, HOPO and tap open notes will
+    be removed. This is ideal for songs with tap sections that alternate
+    between fretted notes and open notes.
+
     The song speed can be modified to produce sped up or slowed down songs.
     This will modify both the audio and MIDI, and add (X% Speed) to the title.
     For CON inputs this only works with unencrypted MOGG files.

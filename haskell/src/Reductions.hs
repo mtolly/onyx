@@ -212,6 +212,7 @@ readGuitarNotes hopoThres
   = fmap (\((ntype, _isTap), colors, len) -> GuitarNote colors ntype len)
   . joinEdges
   . guitarify
+  . noOpenNotes False
   . case hopoThres of
     Nothing -> allStrums
     Just i  -> strumHOPOTap HOPOsRBGuitar (fromIntegral i / 480)
