@@ -99,27 +99,33 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
   let pathMid = src </> "notes.mid"
       pathChart = src </> "notes.chart"
       pathIni = src </> "song.ini"
-  (song, parsed) <- stackIO (Dir.doesFileExist pathIni) >>= \case
+  (song, parsed, isChart) <- stackIO (Dir.doesFileExist pathIni) >>= \case
     True -> do
       ini <- FoF.loadSong pathIni
       stackIO (Dir.doesFileExist pathMid) >>= \case
         True -> do
           lg "Found song.ini and notes.mid"
           mid <- loadFoFMIDI ini $ src </> "notes.mid"
-          return (ini, mid)
+          return (ini, mid, False)
         False -> stackIO (Dir.doesFileExist pathChart) >>= \case
           True -> do
             lg "Found song.ini and notes.chart"
             chart <- FB.chartToBeats <$> FB.loadChartFile pathChart
             mid <- FB.chartToMIDI chart
-            return (ini, mid)
+            -- if .ini delay is 0 or absent, CH uses .chart Offset
+            ini' <- if fromMaybe 0 (FoF.delay ini) == 0
+              then do
+                lg "Using .chart 'Offset' because .ini 'delay' is 0 or absent"
+                return ini{ FoF.delay = FoF.delay $ FB.chartToIni chart }
+              else return ini
+            return (ini', mid, True)
           False -> fatal "Found song.ini, but no notes.mid or notes.chart"
     False -> stackIO (Dir.doesFileExist pathChart) >>= \case
       True -> do
         lg "Found notes.chart but no song.ini. Metadata will come from .chart"
         chart <- FB.chartToBeats <$> FB.loadChartFile pathChart
         mid <- FB.chartToMIDI chart
-        return (FB.chartToIni chart, mid)
+        return (FB.chartToIni chart, mid, True)
       False -> fatal "No song.ini or notes.chart found"
 
   hasAlbumArt <- stackIO $ Dir.doesFileExist $ src </> "album.png"
@@ -144,6 +150,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
   audio_drums_4 <- loadAudioFile "drums_4"
   audio_guitar <- loadAudioFile "guitar"
   audio_keys <- loadAudioFile "keys"
+  -- TODO I think CH now supports bass.ogg (separate from rhythm.ogg)
   audio_rhythm <- loadAudioFile "rhythm"
   audio_vocals <- loadAudioFile "vocals"
   audio_vocals_1 <- loadAudioFile "vocals_1"
@@ -244,10 +251,17 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
       stackIO $ Dir.copyFile (src </> v) (dest </> "video.avi")
       return $ Just "video.avi"
 
-  let hasTrack :: (RBFile.PSFile U.Beats -> RTB.T U.Beats a) -> Bool
+  -- In Phase Shift, if you put -1 as the difficulty for a part,
+  -- it explicitly disables it, even if there is a MIDI track for it.
+  -- Clone Hero doesn't do this at all and will still show the part.
+  -- As a compromise, we use the PS behavior for .mid, and CH for .chart.
+  let guardDifficulty getDiff = if isChart
+        then True
+        else getDiff song /= Just (-1)
+      hasTrack :: (RBFile.PSFile U.Beats -> RTB.T U.Beats a) -> Bool
       hasTrack f = not $ null $ f $ RBFile.s_tracks parsed
-      vocalMode = if hasTrack RBFile.psPartVocals && FoF.diffVocals song /= Just (-1) && hasVocalNotes && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
-        then if hasTrack RBFile.psHarm2 && FoF.diffVocalsHarm song /= Just (-1)
+      vocalMode = if hasTrack RBFile.psPartVocals && guardDifficulty FoF.diffVocals && hasVocalNotes && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
+        then if hasTrack RBFile.psHarm2 && guardDifficulty FoF.diffVocalsHarm
           then if hasTrack RBFile.psHarm3
             then Just Vocal3
             else Just Vocal2
@@ -321,7 +335,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
     , _targets = HM.singleton "ps" $ PS def { ps_FileVideo = vid }
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
-        { partDrums = guard (hasTrack RBFile.psPartDrums && FoF.diffDrums song /= Just (-1)) >> Just PartDrums
+        { partDrums = guard (hasTrack RBFile.psPartDrums && guardDifficulty FoF.diffDrums) >> Just PartDrums
           { drumsDifficulty = toTier $ FoF.diffDrums song
           , drumsPro = not detectBasicDrums || case FoF.proDrums song of
             Just b  -> b
@@ -335,15 +349,15 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           }
         })
       , ( FlexGuitar, def
-        { partGRYBO = guard (hasTrack RBFile.psPartGuitar && FoF.diffGuitar song /= Just (-1)) >> Just PartGRYBO
+        { partGRYBO = guard (hasTrack RBFile.psPartGuitar && guardDifficulty FoF.diffGuitar) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffGuitar song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = dropOpenHOPOs
           }
         , partProGuitar = let
-          b =  (hasTrack RBFile.psPartRealGuitar   && FoF.diffGuitarReal   song /= Just (-1))
-            || (hasTrack RBFile.psPartRealGuitar22 && FoF.diffGuitarReal22 song /= Just (-1))
+          b =  (hasTrack RBFile.psPartRealGuitar   && guardDifficulty FoF.diffGuitarReal  )
+            || (hasTrack RBFile.psPartRealGuitar22 && guardDifficulty FoF.diffGuitarReal22)
           in guard b >> Just PartProGuitar
             { pgDifficulty = toTier $ FoF.diffGuitarReal song
             , pgHopoThreshold = hopoThreshold
@@ -351,21 +365,21 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
             , pgTuningGlobal = 0
             , pgFixFreeform = False
             }
-        , partGHL = guard (hasTrack RBFile.psPartGuitarGHL && FoF.diffGuitarGHL song /= Just (-1)) >> Just PartGHL
+        , partGHL = guard (hasTrack RBFile.psPartGuitarGHL && guardDifficulty FoF.diffGuitarGHL) >> Just PartGHL
           { ghlDifficulty = toTier $ FoF.diffGuitarGHL song
           , ghlHopoThreshold = hopoThreshold
           }
         })
       , ( FlexBass, def
-        { partGRYBO = guard (hasTrack RBFile.psPartBass && FoF.diffBass song /= Just (-1)) >> Just PartGRYBO
+        { partGRYBO = guard (hasTrack RBFile.psPartBass && guardDifficulty FoF.diffBass) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffBass song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = dropOpenHOPOs
           }
         , partProGuitar = let
-          b =  (hasTrack RBFile.psPartRealBass   && FoF.diffBassReal   song /= Just (-1))
-            || (hasTrack RBFile.psPartRealBass22 && FoF.diffBassReal22 song /= Just (-1))
+          b =  (hasTrack RBFile.psPartRealBass   && guardDifficulty FoF.diffBassReal  )
+            || (hasTrack RBFile.psPartRealBass22 && guardDifficulty FoF.diffBassReal22)
           in guard b >> Just PartProGuitar
             { pgDifficulty = toTier $ FoF.diffBassReal song
             , pgHopoThreshold = hopoThreshold
@@ -373,19 +387,19 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
             , pgTuningGlobal = 0
             , pgFixFreeform = False
             }
-        , partGHL = guard (hasTrack RBFile.psPartBassGHL && FoF.diffBassGHL song /= Just (-1)) >> Just PartGHL
+        , partGHL = guard (hasTrack RBFile.psPartBassGHL && guardDifficulty FoF.diffBassGHL) >> Just PartGHL
           { ghlDifficulty = toTier $ FoF.diffBassGHL song
           , ghlHopoThreshold = hopoThreshold
           }
         })
       , ( FlexKeys, def
-        { partGRYBO = guard (hasTrack RBFile.psPartKeys && FoF.diffKeys song /= Just (-1)) >> Just PartGRYBO
+        { partGRYBO = guard (hasTrack RBFile.psPartKeys && guardDifficulty FoF.diffKeys) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffKeys song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = dropOpenHOPOs
           }
-        , partProKeys = guard (hasTrack RBFile.psPartRealKeysX && FoF.diffKeysReal song /= Just (-1)) >> Just PartProKeys
+        , partProKeys = guard (hasTrack RBFile.psPartRealKeysX && guardDifficulty FoF.diffKeysReal) >> Just PartProKeys
           { pkDifficulty = toTier $ FoF.diffKeysReal song
           , pkFixFreeform = False
           }
