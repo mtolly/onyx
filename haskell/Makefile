@@ -66,4 +66,4 @@ icon/icon.o:
 	stack exec -- windres -i icon/icon.rc icon/icon.o
 
 ubuntu-deps:
-	apt install libsndfile-dev libsamplerate-dev libmp3lame-dev libsdl2-dev libsdl2-ttf-dev librubberband-dev
+	apt install libsndfile-dev libsamplerate-dev libmp3lame-dev libsdl2-dev libsdl2-ttf-dev librubberband-dev libmpg123-dev

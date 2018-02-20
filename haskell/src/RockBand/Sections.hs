@@ -2592,6 +2592,7 @@ underscoreForm :: T.Text -> T.Text
 underscoreForm
   = T.intercalate "_"
   . T.words
+  -- TODO actually check if any other chars work
   . T.filter (\c -> isAlphaNum c || isSpace c)
   . T.replace "_" " "
 

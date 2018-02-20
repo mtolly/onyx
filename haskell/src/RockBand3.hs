@@ -463,7 +463,6 @@ if a measure has a >300bpm tempo:
 - halve all tempos inside
 - squish it to half the length, moving events appropriately
 - bump up the denominator of the measure's time signature by 2, so e.g. 5/4 becomes 5/8
-finally, make new default BEAT track if we changed anything
 -}
 magmaLegalTempos' :: (Monad m) => U.Beats -> U.TempoMap -> U.MeasureMap -> StackTraceT m
   ( Int -- num of measures adjusted
