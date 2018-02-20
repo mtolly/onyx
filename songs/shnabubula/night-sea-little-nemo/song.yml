@@ -7,10 +7,24 @@ audio:
   album:
     md5: 0ea1d74ec6b3cab59b687a5a8ce7a1bf
     frames: 9948803
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
       pad: [3.702, album]
 parts:
   keys:
     pro-keys: {}
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
