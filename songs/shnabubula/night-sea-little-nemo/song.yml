@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/nes-jams.yml
   track-number: 4
   author: Onyxite
+  preview-start: prc_chorus_2
 audio:
   album:
     md5: 0ea1d74ec6b3cab59b687a5a8ce7a1bf
@@ -23,8 +24,13 @@ plans:
 parts:
   keys:
     pro-keys: {}
+  drums:
+    drums: {} # might need some cleanup (be consistent with hihats, toms, etc.)
 targets:
   rb3:
     game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
   ps:
     game: ps
