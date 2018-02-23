@@ -1,5 +1,5 @@
 metadata:
-  title: Asturias
+  title: Leyenda (Isaac Albéniz) # going with the composer's title, instead of "Asturias"
   artist: John Williams
   album: Spanish Guitar Music
   track-number: 1
@@ -12,9 +12,9 @@ audio:
   youtube:
     file-path: audio-youtube.wav
     commands:
-    - ../../../scripts/youtube TYjYJkA7T1s 140
-    md5: d86ac811b2b8cd7e59cf1c39394e4f72
-    frames: 16503808
+    - ../../../scripts/youtube 0i32h6Q4R6A 140
+    md5: c70406708f6d54b74c74495d98de96fd
+    frames: 16762880
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
@@ -27,7 +27,7 @@ plans:
       1|2: hihat
     parts:
       guitar:
-        pad: [3.019, gain: [1.5, youtube]]
+        pad: [3.005, gain: [1.5, youtube]]
 parts:
   guitar:
     pro-guitar:
