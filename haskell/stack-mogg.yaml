@@ -7,10 +7,6 @@ packages:
     commit: 183a57f18c9e2d89497451530843b49cc6111919
   extra-dep: true
 - location:
-    git: git://github.com/mtolly/JuicyPixels-stbir
-    commit: 5fe4d64d07d28f34d70cd1fc6ccaf634e33f467f
-  extra-dep: true
-- location:
     git: git://github.com/mtolly/conduit-audio
     commit: 697a92ce61ed548a64e033d048817bbc35caa987
     subdirs:
@@ -38,6 +34,7 @@ extra-deps:
 - tinyfiledialogs-0.2.0.0
 - hmidi-0.2.2.1
 - mpg123-bindings-0.1.0.0
+- JuicyPixels-stbir-0.1.0.0
 resolver: nightly-2017-12-30
 flags:
   onyxite-customs-tool:
