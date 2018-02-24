@@ -1,13 +1,13 @@
 An HTML5 Canvas app for viewing and playing back Rock Band songs,
 written in [PureScript](http://www.purescript.org/).
 
-Currently built with `purs 0.11.5`.
+Currently built with `purs 0.11.7`.
 
 To build:
 
 ```bash
-[sudo] npm install -g purescript pulp bower
-bower install
+[sudo] npm install -g purescript pulp psc-package
+psc-package update
 make # or make minify to also run closure compiler
 ```
 

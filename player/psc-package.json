@@ -1,0 +1,31 @@
+{
+    "name": "player",
+    "set": "psc-0.11.7",
+    "source": "https://github.com/purescript/package-sets.git",
+    "depends": [
+        "prelude",
+        "console",
+        "canvas",
+        "foreign",
+        "tuples",
+        "refs",
+        "datetime",
+        "foldable-traversable",
+        "strings",
+        "generics",
+        "orders",
+        "transformers",
+        "monoid",
+        "st",
+        "arrays",
+        "lists",
+        "dom",
+        "either",
+        "now",
+        "parallel",
+        "eff",
+        "maps",
+        "functors",
+        "sets"
+    ]
+}
