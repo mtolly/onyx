@@ -239,8 +239,12 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
         then HasBoth
         else if is2x then Has2x else Has1x
 
+  let fixGHVox trks = trks
+        { RBFile.psPartVocals = RBVox.fixGHVocals $ RBFile.psPartVocals trks
+        }
+
   stackIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI parsed
-    { RBFile.s_tracks = fixDoubleSwells $ add2x $ RBFile.s_tracks parsed
+    { RBFile.s_tracks = fixGHVox $ fixDoubleSwells $ add2x $ RBFile.s_tracks parsed
     }
 
   -- TODO get this working with Clone Hero videos
