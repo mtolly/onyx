@@ -1,0 +1,95 @@
+parts:
+  vocal: {}
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+plans:
+  mogg:
+    # mogg channels rearranged
+    # so fainter song audio which was in drums (0 and 1) is moved to backing
+    parts:
+      bass:
+      - 4
+      guitar:
+      - 5
+      keys:
+      - 6
+      - 7
+      drums:
+      - 2
+      - 3
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 2f1d92a1327cace82a86cb875395a617
+    multitrack: false
+    silent:
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    vols:
+    - -3
+    - -3
+    - -3
+    - -3
+    - -3
+    - -3
+    - -3
+    - -3
+    - -3
+    - -3
+targets:
+  rb3-2x:
+    song-id: Ridiculosous2xOnyx
+    game: rb3
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+metadata:
+  preview-start: 15
+  file-album-art: cover.png_xbox
+  track-number: 7
+  album: Electric Cartoon Music from Hell
+  year: 2003
+  subgenre: other
+  author: CyclopsDragon
+  title: Ridiculosous
+  preview-end: 45
+  genre: metal
+  difficulty:
+    tier: 7
+  artist: Electrocution 250
+  comments:
+  - Chart by CyclopsDragon; redone tempo map and ending drum fill by Onyxite.
