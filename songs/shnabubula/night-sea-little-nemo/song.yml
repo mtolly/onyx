@@ -26,6 +26,8 @@ parts:
     pro-keys: {}
   drums:
     drums: {} # might need some cleanup (be consistent with hihats, toms, etc.)
+  bass:
+    grybo: {}
 targets:
   rb3:
     game: rb3
