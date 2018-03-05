@@ -12,7 +12,8 @@ import qualified Config
 import           Control.Applicative              ((<|>))
 import           Control.Arrow                    (first)
 import           Control.Exception                (evaluate)
-import           Control.Monad                    (forM, forM_, guard, when)
+import           Control.Monad                    (forM, forM_, guard)
+import           Control.Monad.Extra              (findM)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString.Lazy             as BL
@@ -128,8 +129,8 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
         return (FB.chartToIni chart, mid, True)
       False -> fatal "No song.ini or notes.chart found"
 
-  hasAlbumArt <- stackIO $ Dir.doesFileExist $ src </> "album.png"
-  when hasAlbumArt $ stackIO $ Dir.copyFile (src </> "album.png") (dest </> "album.png")
+  albumArt <- findM (stackIO . Dir.doesFileExist . (src </>)) ["album.png", "image.jpg"]
+  forM_ albumArt $ \art -> stackIO $ Dir.copyFile (src </> art) (dest </> art)
 
   let loadAudioFile x = stackIO $ do
         let ogg = x <.> "ogg"
@@ -284,7 +285,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
       , _genre        = FoF.genre song
       , _subgenre     = Nothing
       , _year         = FoF.year song
-      , _fileAlbumArt = guard hasAlbumArt >> Just "album.png"
+      , _fileAlbumArt = albumArt
       , _trackNumber  = FoF.track song
       , _comments     = []
       , _key          = Nothing
