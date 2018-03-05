@@ -201,8 +201,8 @@ fixGHVocals
     Just ((dt, evts), rtb') -> if not $ null [ () | Note False _ <- evts ]
       then rtb -- saw note end on or before phrase end, all good
       else case partition (== Phrase False) evts of
-        ([], _) -> RTB.cons dt evts $ pushPhraseEnd False rtb' -- keep looking
-        (_ : _, evts') -> RTB.cons dt evts' $ pushPhraseEnd True rtb' -- time to push!
+        ([], _)        -> RTB.cons dt evts  $ pushPhraseEnd False rtb' -- keep looking
+        (_ : _, evts') -> RTB.cons dt evts' $ pushPhraseEnd True  rtb' -- time to push!
   pushPhraseEnd True rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty -- definitely shouldn't happen!
     Just ((dt, evts), rtb') -> if not $ null [ () | Note False _ <- evts ]

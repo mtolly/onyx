@@ -12,6 +12,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (isJust)
 import           Guitars
 import           OneFoot
+import           Overdrive                        (fixBrokenUnisons)
 import           ProKeysRanges
 import           Reductions
 import qualified RockBand.Beat                    as Beat
@@ -36,7 +37,7 @@ processRB3
   -> Staction (RBFile.Song (RBFile.RB3File U.Beats))
 processRB3 a b c d e = do
   res <- processMIDI (Left a) b c d e
-  fmap fixBeatTrack' $ magmaLegalTempos $ fmap fst res
+  fixBrokenUnisons (fmap fst res) >>= fmap fixBeatTrack' . magmaLegalTempos
 
 processRB3Pad
   :: TargetRB3
@@ -47,7 +48,7 @@ processRB3Pad
   -> Staction (RBFile.Song (RBFile.RB3File U.Beats), Int)
 processRB3Pad a b c d e = do
   res <- processMIDI (Left a) b c d e
-  magmaLegalTempos (fmap fst res) >>= magmaPad . fixBeatTrack'
+  fixBrokenUnisons (fmap fst res) >>= magmaLegalTempos >>= magmaPad . fixBeatTrack'
 
 processPS
   :: TargetPS
