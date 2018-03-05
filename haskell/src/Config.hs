@@ -687,23 +687,58 @@ instance StackJSON DrumLayout where
       FlipYBToms     -> "flip-yb-toms"
     }
 
+data DrumMode
+  = Drums4
+  | Drums5
+  | DrumsPro
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance StackJSON DrumMode where
+  stackJSON = StackCodec
+    { stackParse = lift ask >>= \case
+      A.Number 4     -> return Drums4
+      A.Number 5     -> return Drums5
+      A.String "pro" -> return DrumsPro
+      _              -> expected "a drum mode (4, 5, pro)"
+    , stackShow = \case
+      Drums4   -> A.Number 4
+      Drums5   -> A.Number 5
+      DrumsPro -> A.String "pro"
+    }
+
+data OrangeFallback = FallbackBlue | FallbackGreen
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance StackJSON OrangeFallback where
+  stackJSON = StackCodec
+    { stackParse = lift ask >>= \case
+      A.String "blue"  -> return FallbackBlue
+      A.String "green" -> return FallbackGreen
+      _                -> expected "an orange drum note fallback color (blue, green)"
+    , stackShow = \case
+      FallbackBlue  -> "blue"
+      FallbackGreen -> "green"
+    }
+
 data PartDrums = PartDrums
   { drumsDifficulty  :: Difficulty
-  , drumsPro         :: Bool
+  , drumsMode        :: DrumMode
   , drumsAuto2xBass  :: Bool
   , drumsFixFreeform :: Bool
   , drumsKit         :: DrumKit
   , drumsLayout      :: DrumLayout
+  , drumsFallback    :: OrangeFallback
   } deriving (Eq, Ord, Show, Read)
 
 instance StackJSON PartDrums where
   stackJSON = asStrictObject "PartDrums" $ do
     drumsDifficulty  <- drumsDifficulty  =. fill (Tier 1)       "difficulty"   stackJSON
-    drumsPro         <- drumsPro         =. opt  True           "pro"          stackJSON
+    drumsMode        <- drumsMode        =. opt  DrumsPro       "mode"         stackJSON
     drumsAuto2xBass  <- drumsAuto2xBass  =. opt  False          "auto-2x-bass" stackJSON
     drumsFixFreeform <- drumsFixFreeform =. opt  True           "fix-freeform" stackJSON
     drumsKit         <- drumsKit         =. opt  HardRockKit    "kit"          stackJSON
     drumsLayout      <- drumsLayout      =. opt  StandardLayout "layout"       stackJSON
+    drumsFallback    <- drumsFallback    =. opt  FallbackGreen  "fallback"     stackJSON
     return PartDrums{..}
 
 data VocalCount = Vocal1 | Vocal2 | Vocal3

@@ -54,11 +54,12 @@ data Song = Song
   , sysexSlider      :: Maybe Bool
   , sysexOpenBass    :: Maybe Bool
   , video            :: Maybe FilePath
+  , fiveLaneDrums    :: Maybe Bool
+  , drumFallbackBlue :: Maybe Bool
   {- TODO:
   video_start_time
   video_end_time
   video_loop
-  five_lane_drums
   loading_phrase
   banner_link_a
   link_name_a
@@ -88,7 +89,7 @@ instance Default Song where
     def def def def def def def def def def
     def def def def def def def def def def
     def def def def def def def def def def
-    def def def def def def
+    def def def def def def def def
 
 loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
 loadSong fp = do
@@ -145,6 +146,8 @@ loadSong fp = do
       sysexSlider = bool "sysex_slider"
       sysexOpenBass = bool "sysex_open_bass"
       video = fmap T.unpack $ str "video"
+      fiveLaneDrums = bool "five_lane_drums"
+      drumFallbackBlue = bool "drum_fallback_blue"
 
   return Song{..}
 
@@ -191,6 +194,8 @@ saveSong fp Song{..} = writePSIni fp $
     shown "sysex_slider" sysexSlider
     shown "sysex_open_bass" sysexOpenBass
     str "video" $ fmap T.pack video
+    shown "five_lane_drums" fiveLaneDrums
+    shown "drum_fallback_blue" drumFallbackBlue
 
 writePSIni :: (MonadIO m) => FilePath -> Ini -> m ()
 writePSIni fp (Ini hmap) = let

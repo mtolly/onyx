@@ -1,7 +1,8 @@
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
-module RockBand3 (processRB3, processRB3Pad, processPS, findProblems, TrackAdjust(..), magmaLegalTempos') where
+module RockBand3 (processRB3Pad, processPS, findProblems, TrackAdjust(..), magmaLegalTempos') where
 
 import           Config
 import           Control.Monad.Extra
@@ -27,17 +28,6 @@ import           RockBand.Sections                (getSection, makePSSection)
 import qualified RockBand.Vocals                  as RBVox
 import           Scripts
 import qualified Sound.MIDI.Util                  as U
-
-processRB3
-  :: TargetRB3
-  -> SongYaml
-  -> RBFile.Song (RBFile.OnyxFile U.Beats)
-  -> RBDrums.Audio
-  -> Staction U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
-  -> Staction (RBFile.Song (RBFile.RB3File U.Beats))
-processRB3 a b c d e = do
-  res <- processMIDI (Left a) b c d e
-  fixBrokenUnisons (fmap fst res) >>= fmap fixBeatTrack' . magmaLegalTempos
 
 processRB3Pad
   :: TargetRB3
@@ -159,16 +149,34 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             Events.SectionRB3 s -> Just s
             Events.SectionRB2 s -> Just s
             _                   -> Nothing
-          finish = promarkers . psKicks . drumMix mixMode . drumsComplete mmap sections
-          promarkers = if drumsPro pd
-            then id
-            else  RTB.insert 0       (RBDrums.ProType RBDrums.Yellow RBDrums.Tom   )
-              .   RTB.insert 0       (RBDrums.ProType RBDrums.Blue   RBDrums.Tom   )
-              .   RTB.insert 0       (RBDrums.ProType RBDrums.Green  RBDrums.Tom   )
-              .   RTB.insert endPosn (RBDrums.ProType RBDrums.Yellow RBDrums.Cymbal)
-              .   RTB.insert endPosn (RBDrums.ProType RBDrums.Blue   RBDrums.Cymbal)
-              .   RTB.insert endPosn (RBDrums.ProType RBDrums.Green  RBDrums.Cymbal)
-              .   RTB.filter (\case RBDrums.ProType _ _ -> False; _ -> True)
+          finish = changeMode . psKicks . drumMix mixMode . drumsComplete mmap sections
+          fiveToFour instant = flip map instant $ \case
+            RBDrums.Note RBDrums.Orange -> let
+              color = if
+                | RBDrums.Note (RBDrums.Pro RBDrums.Blue  ()) `elem` instant -> RBDrums.Green
+                | RBDrums.Note (RBDrums.Pro RBDrums.Green ()) `elem` instant -> RBDrums.Blue
+                | otherwise -> case drumsFallback pd of
+                  FallbackBlue  -> RBDrums.Blue
+                  FallbackGreen -> RBDrums.Green
+              in RBDrums.Note $ RBDrums.Pro color ()
+            x -> x
+          noToms = RTB.filter (\case RBDrums.ProType{} -> False; _ -> True)
+          allToms
+            = RTB.insert 0       (RBDrums.ProType RBDrums.Yellow RBDrums.Tom   )
+            . RTB.insert 0       (RBDrums.ProType RBDrums.Blue   RBDrums.Tom   )
+            . RTB.insert 0       (RBDrums.ProType RBDrums.Green  RBDrums.Tom   )
+            . RTB.insert endPosn (RBDrums.ProType RBDrums.Yellow RBDrums.Cymbal)
+            . RTB.insert endPosn (RBDrums.ProType RBDrums.Blue   RBDrums.Cymbal)
+            . RTB.insert endPosn (RBDrums.ProType RBDrums.Green  RBDrums.Cymbal)
+            . noToms
+          changeMode = case (drumsMode pd, target) of
+            (DrumsPro, _         ) -> id
+            -- TODO convert 5 to pro, not just basic.
+            (Drums5  , Left  _rb3) -> allToms
+              . eachDifficulty (RTB.flatten . fmap fiveToFour . RTB.collectCoincident)
+            (Drums5  , Right _ps ) -> noToms
+            (Drums4  , Right _ps ) -> noToms
+            (Drums4  , Left  _rb3) -> allToms
           ps1x = finish $ if RTB.null trk1x then trk2x else trk1x
           ps2x = finish $ if RTB.null trk2x then trk1x else trk2x
           psPS = if elem RBDrums.Kick2x trk1x then ps1x else ps2x

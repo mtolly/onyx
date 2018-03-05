@@ -1527,6 +1527,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               song <- shakeMIDI $ dir </> "ps/notes.mid"
               let (pstart, _) = previewBounds songYaml raw
                   len = songLengthMS song
+                  pd = getPart (ps_Drums ps) songYaml >>= partDrums
+                  dmode = fmap drumsMode pd
               FoF.saveSong out FoF.Song
                 { FoF.artist           = _artist $ _metadata songYaml
                 , FoF.name             = Just $ targetTitle songYaml target
@@ -1534,7 +1536,13 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 , FoF.charter          = _author $ _metadata songYaml
                 , FoF.year             = _year $ _metadata songYaml
                 , FoF.genre            = Just $ fofGenre fullGenre
-                , FoF.proDrums         = fmap drumsPro $ getPart (ps_Drums ps) songYaml >>= partDrums
+                , FoF.proDrums         = guard (dmode == Just DrumsPro) >> Just True
+                , FoF.fiveLaneDrums    = Nothing
+                -- ^ for consistency we will just use the flipped midi layout,
+                -- where 100 is green and 101 is orange
+                , FoF.drumFallbackBlue = pd >>= \case
+                  PartDrums{ drumsMode = Drums5, drumsFallback = FallbackBlue } -> Just True
+                  _                                                             -> Nothing
                 , FoF.songLength       = Just len
                 , FoF.previewStartTime = Just pstart
                 -- difficulty tiers go from 0 to 6, or -1 for no part
@@ -1544,9 +1552,9 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 , FoF.diffBass         = Just $ fromIntegral $ rb3BassTier      - 1
                 , FoF.diffBassGHL      = Just $ fromIntegral $ chBassGHLTier    - 1
                 , FoF.diffDrums        = Just $ fromIntegral $ rb3DrumsTier     - 1
-                , FoF.diffDrumsReal    = Just $ case fmap drumsPro $ getPart (ps_Drums ps) songYaml >>= partDrums of
-                  Just True -> fromIntegral $ rb3DrumsTier - 1
-                  _         -> -1
+                , FoF.diffDrumsReal    = Just $ case dmode of
+                  Just DrumsPro -> fromIntegral $ rb3DrumsTier - 1
+                  _             -> -1
                 , FoF.diffKeys         = Just $ fromIntegral $ rb3KeysTier      - 1
                 , FoF.diffKeysReal     = Just $ fromIntegral $ rb3ProKeysTier   - 1
                 , FoF.diffVocals       = Just $ fromIntegral $ rb3VocalTier     - 1

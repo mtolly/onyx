@@ -28,7 +28,7 @@ data ProColor = Yellow | Blue | Green
 data ProType = Cymbal | Tom
   deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
-data Gem a = Kick | Red | Pro ProColor a
+data Gem a = Kick | Red | Pro ProColor a | Orange
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable, Data)
 
 -- | Constructors are ordered for optimal processing with 'RTB.normalize'.
@@ -150,18 +150,21 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |])
   , blip 62  [p| DiffEvent Easy (Note (Pro Yellow ())) |]
   , blip 63  [p| DiffEvent Easy (Note (Pro Blue   ())) |]
   , blip 64  [p| DiffEvent Easy (Note (Pro Green  ())) |]
+  , blip 65  [p| DiffEvent Easy (Note Orange) |]
 
   , blip 72  [p| DiffEvent Medium (Note Kick) |]
   , blip 73  [p| DiffEvent Medium (Note Red) |]
   , blip 74  [p| DiffEvent Medium (Note (Pro Yellow ())) |]
   , blip 75  [p| DiffEvent Medium (Note (Pro Blue   ())) |]
   , blip 76  [p| DiffEvent Medium (Note (Pro Green  ())) |]
+  , blip 77  [p| DiffEvent Medium (Note Orange) |]
 
   , blip 84  [p| DiffEvent Hard (Note Kick) |]
   , blip 85  [p| DiffEvent Hard (Note Red) |]
   , blip 86  [p| DiffEvent Hard (Note (Pro Yellow ())) |]
   , blip 87  [p| DiffEvent Hard (Note (Pro Blue   ())) |]
   , blip 88  [p| DiffEvent Hard (Note (Pro Green  ())) |]
+  , blip 89  [p| DiffEvent Hard (Note Orange) |]
 
   , blip 95  [p| Kick2x |] -- Phase Shift convention, not a Rock Band note
   , blip 96  [p| DiffEvent Expert (Note Kick) |]
@@ -169,6 +172,7 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |])
   , blip 98  [p| DiffEvent Expert (Note (Pro Yellow ())) |]
   , blip 99  [p| DiffEvent Expert (Note (Pro Blue   ())) |]
   , blip 100 [p| DiffEvent Expert (Note (Pro Green  ())) |]
+  , blip 101 [p| DiffEvent Expert (Note Orange) |]
 
   , edge 103 $ applyB [p| Solo |]
   , edge 105 $ applyB [p| Player1 |]
@@ -239,6 +243,7 @@ assignToms expert2x = go defDrumState . RTB.normalize where
             Blue   -> Pro Blue $ blueType ds
             Green  -> Pro Green $ greenType ds
           in RTB.cons dt (diff, new) $ go ds rtb'
+        Orange -> RTB.cons dt (diff, Orange) $ go ds rtb'
         where isDisco = case diff of
                 Easy   -> easyDisco ds
                 Medium -> mediumDisco ds
@@ -279,6 +284,7 @@ unparseNice defLength trk = let
         Just (Pro Yellow ()) -> 2
         Just (Pro Blue ())   -> 3
         Just (Pro Green ())  -> 4
+        Just Orange          -> 5
       in a + b
     in RTB.cons NNC.zero (makeEdge pitch True) $ RTB.singleton len (makeEdge pitch False)
   in RTB.merge (U.trackJoin $ assignLengths notes) (U.trackJoin $ fmap unparseOne notNotes)
@@ -290,6 +296,7 @@ baseScore = sum . fmap gemScore where
     Red          -> 30
     Pro _ Cymbal -> 30
     Pro _ Tom    -> 25
+    Orange       -> 30 -- no actual answer
 
 perfectSoloBonus :: (Ord a) => RTB.T U.Beats Bool -> RTB.T U.Beats (Gem a) -> Int
 perfectSoloBonus solo gems = sum $ fmap score $ applyStatus (fmap ((),) solo) gems where

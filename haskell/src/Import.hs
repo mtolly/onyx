@@ -243,9 +243,22 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
   let fixGHVox trks = trks
         { RBFile.psPartVocals = RBVox.fixGHVocals $ RBFile.psPartVocals trks
         }
+      swapFiveLane trks = if fromMaybe False $ FoF.fiveLaneDrums song
+        then trks
+          { RBFile.psPartDrums   = swapFiveLaneTrack $ RBFile.psPartDrums   trks
+          , RBFile.psPartDrums2x = swapFiveLaneTrack $ RBFile.psPartDrums2x trks
+          }
+        else trks
+      swapFiveLaneTrack = fmap $ \case
+        RBDrums.DiffEvent diff (RBDrums.Note RBDrums.Orange)
+          -> RBDrums.DiffEvent diff (RBDrums.Note (RBDrums.Pro RBDrums.Green ()))
+        RBDrums.DiffEvent diff (RBDrums.Note (RBDrums.Pro RBDrums.Green ()))
+          -> RBDrums.DiffEvent diff (RBDrums.Note RBDrums.Orange)
+        x -> x
 
+  let outputMIDI = fixGHVox $ fixDoubleSwells $ swapFiveLane $ add2x $ RBFile.s_tracks parsed
   stackIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI parsed
-    { RBFile.s_tracks = fixGHVox $ fixDoubleSwells $ add2x $ RBFile.s_tracks parsed
+    { RBFile.s_tracks = outputMIDI
     }
 
   -- TODO get this working with Clone Hero videos
@@ -342,15 +355,23 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
       [ ( FlexDrums, def
         { partDrums = guard (hasTrack RBFile.psPartDrums && guardDifficulty FoF.diffDrums) >> Just PartDrums
           { drumsDifficulty = toTier $ FoF.diffDrums song
-          , drumsPro = not detectBasicDrums || case FoF.proDrums song of
-            Just b  -> b
-            Nothing -> any
-              (\case RBDrums.ProType _ _ -> True; _ -> False)
-              (RBFile.psPartDrums $ RBFile.s_tracks parsed)
+          , drumsMode = let
+            isFiveLane = FoF.fiveLaneDrums song == Just True || any
+              (\case RBDrums.DiffEvent _ (RBDrums.Note RBDrums.Orange) -> True; _ -> False)
+              (RBFile.psPartDrums outputMIDI)
+            isPro = not detectBasicDrums || case FoF.proDrums song of
+              Just b  -> b
+              Nothing -> any
+                (\case RBDrums.ProType _ _ -> True; _ -> False)
+                (RBFile.psPartDrums outputMIDI)
+            in if isFiveLane then Drums5 else if isPro then DrumsPro else Drums4
           , drumsAuto2xBass = False
           , drumsFixFreeform = False
           , drumsKit = HardRockKit
           , drumsLayout = StandardLayout
+          , drumsFallback = if fromMaybe False $ FoF.drumFallbackBlue song
+            then FallbackBlue
+            else FallbackGreen
           }
         })
       , ( FlexGuitar, def
@@ -786,11 +807,12 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       [ ( FlexDrums, def
         { partDrums = guard (hasRankStr "drum") >> Just PartDrums
           { drumsDifficulty = fromMaybe (Tier 1) $ HM.lookup "drum" diffMap
-          , drumsPro = True
+          , drumsMode = DrumsPro
           , drumsAuto2xBass = False
           , drumsFixFreeform = False
           , drumsKit = drumkit
           , drumsLayout = StandardLayout -- TODO import this
+          , drumsFallback = FallbackGreen
           }
         })
       , ( FlexGuitar, def
@@ -1036,7 +1058,7 @@ importMagma fin dir = do
       [ ( FlexDrums, def
         { partDrums = guard (isJust drums) >> Just PartDrums
           { drumsDifficulty = Tier $ RBProj.rankDrum $ RBProj.gamedata rbproj
-          , drumsPro = True -- TODO set to false for magma v1?
+          , drumsMode = DrumsPro -- TODO set to Drums4 for magma v1?
           , drumsAuto2xBass = False
           , drumsFixFreeform = False
           , drumsKit = case fmap C3.drumKitSFX c3 of
@@ -1048,6 +1070,7 @@ importMagma fin dir = do
             Just 4  -> ElectronicKit
             Just _  -> HardRockKit
           , drumsLayout = StandardLayout
+          , drumsFallback = FallbackGreen
           }
         })
       , ( FlexGuitar, def

@@ -115,6 +115,7 @@ drawDrums rend rect@(SDL.Rectangle (SDL.P (SDL.V2 rectX rectY)) (SDL.V2 rectW re
             D.Pro D.Yellow () -> SDL.V4 207 180 57 0xFF
             D.Pro D.Blue ()   -> SDL.V4 71 110 222 0xFF
             D.Pro D.Green ()  -> SDL.V4 58 207 68 0xFF
+            D.Orange          -> SDL.V4 58 207 68 0xFF -- TODO
           w = case gem of
             D.Kick -> rectW
             _      -> floor' $ fromIntegral rectW * 0.25
@@ -124,6 +125,7 @@ drawDrums rend rect@(SDL.Rectangle (SDL.P (SDL.V2 rectX rectY)) (SDL.V2 rectW re
             D.Pro D.Yellow () -> rectX + floor' (fromIntegral rectW * 0.25)
             D.Pro D.Blue ()   -> rectX + floor' (fromIntegral rectW * 0.5)
             D.Pro D.Green ()  -> rectX + floor' (fromIntegral rectW * 0.75)
+            D.Orange          -> rectX + floor' (fromIntegral rectW * 0.75) -- TODO
           y = yCenter - quot h 2
           in do
             SDL.rendererDrawColor rend $= color

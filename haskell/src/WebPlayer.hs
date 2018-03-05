@@ -121,6 +121,7 @@ drumGemKey = \case
   Drums.Pro Drums.Blue   Drums.Tom    -> "b-tom"
   Drums.Pro Drums.Green  Drums.Cymbal -> "g-cym"
   Drums.Pro Drums.Green  Drums.Tom    -> "g-tom"
+  Drums.Orange                        -> "g-cym" -- TODO
 
 instance (Real t) => A.ToJSON (Drums t) where
   toJSON x = A.object
