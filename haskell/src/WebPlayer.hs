@@ -349,21 +349,22 @@ processSix hopoThreshold tmap trk = let
   bre    = Map.empty
   in Six notes solo energy bre
 
-processDrums :: Bool -> U.TempoMap -> Maybe U.Beats -> RTB.T U.Beats Drums.Event -> Drums U.Seconds
-processDrums mode5 tmap coda trk = let
-  -- TODO support Drums4
-  notes = fmap sort $ RTB.collectCoincident $ if mode5
-    then flip RTB.mapMaybe trk $ \case
-      Drums.DiffEvent Expert (Drums.Note x) -> Just $ case x of
-        Drums.Kick                -> Drums.Kick
-        Drums.Red                 -> Drums.Red
-        Drums.Pro Drums.Yellow () -> Drums.Pro Drums.Yellow Drums.Cymbal
-        Drums.Pro Drums.Blue   () -> Drums.Pro Drums.Blue Drums.Tom
-        Drums.Orange              -> Drums.Orange
-        Drums.Pro Drums.Green  () -> Drums.Pro Drums.Green Drums.Tom
-      Drums.Kick2x                          -> Just Drums.Kick
-      _                                     -> Nothing
-    else flip RTB.mapMaybe (Drums.assignToms True trk) $ \case
+processDrums :: C.DrumMode -> U.TempoMap -> Maybe U.Beats -> RTB.T U.Beats Drums.Event -> Drums U.Seconds
+processDrums mode tmap coda trk = let
+  nonPro is5 = flip RTB.mapMaybe trk $ \case
+    Drums.DiffEvent Expert (Drums.Note x) -> Just $ case x of
+      Drums.Kick                -> Drums.Kick
+      Drums.Red                 -> Drums.Red
+      Drums.Pro Drums.Yellow () -> Drums.Pro Drums.Yellow $ if is5 then Drums.Cymbal else Drums.Tom
+      Drums.Pro Drums.Blue   () -> Drums.Pro Drums.Blue Drums.Tom
+      Drums.Orange              -> Drums.Orange
+      Drums.Pro Drums.Green  () -> Drums.Pro Drums.Green Drums.Tom
+    Drums.Kick2x                          -> Just Drums.Kick
+    _                                     -> Nothing
+  notes = fmap sort $ RTB.collectCoincident $ case mode of
+    C.Drums4 -> nonPro False
+    C.Drums5 -> nonPro True
+    C.DrumsPro -> flip RTB.mapMaybe (Drums.assignToms True trk) $ \case
       (Expert, gem) -> Just gem
       _             -> Nothing
   notesS = trackToMap tmap notes
@@ -393,7 +394,7 @@ processDrums mode5 tmap coda trk = let
     return $ (,) gem $ flip Map.mapMaybe lanesAll $ \(b, gems) -> do
       guard $ elem gem gems
       return b
-  in Drums notesS solo energy lanes bre mode5
+  in Drums notesS solo energy lanes bre $ mode == C.Drums5
 
 processProKeys :: U.TempoMap -> RTB.T U.Beats PK.Event -> ProKeys U.Seconds
 processProKeys tmap trk = let
@@ -659,7 +660,7 @@ makeDisplay songYaml song = let
       (RBFile.s_tempos song)
       (RBFile.flexFiveButton tracks)
     , flexSix = flip fmap (C.partGHL fpart) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song) (RBFile.flexGHL tracks)
-    , flexDrums = flip fmap (C.partDrums fpart) $ \pd -> processDrums (C.drumsMode pd == C.Drums5) (RBFile.s_tempos song) coda (RBFile.flexPartDrums tracks)
+    , flexDrums = flip fmap (C.partDrums fpart) $ \pd -> processDrums (C.drumsMode pd) (RBFile.s_tempos song) coda (RBFile.flexPartDrums tracks)
     , flexProKeys = flip fmap (C.partProKeys fpart) $ \_ -> processProKeys (RBFile.s_tempos song) (RBFile.flexPartRealKeysX tracks)
     , flexProtar = flip fmap (C.partProGuitar fpart) $ \pg -> processProtar (ht $ C.pgHopoThreshold pg) (RBFile.s_tempos song)
       $ let mustang = RBFile.flexPartRealGuitar tracks
