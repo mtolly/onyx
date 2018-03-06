@@ -50,6 +50,7 @@ newtype Drums = Drums
   , solo   :: Map.Map Seconds Boolean
   , energy :: Map.Map Seconds Boolean
   , bre    :: Map.Map Seconds Boolean
+  , mode5  :: Boolean
   }
 
 data Sustainable a
@@ -510,9 +511,10 @@ isForeignDrums f = do
   solo   <- readProp "solo"   f >>= readTimedMap readBoolean
   energy <- readProp "energy" f >>= readTimedMap readBoolean
   bre    <- readProp "bre"    f >>= readTimedMap readBoolean
-  pure $ Drums { notes: notes, lanes: lanes, solo: solo, energy: energy, bre: bre }
+  mode5  <- readProp "mode-5" f >>= readBoolean
+  pure $ Drums { notes: notes, lanes: lanes, solo: solo, energy: energy, bre: bre, mode5: mode5 }
 
-data Gem = Kick | Red | YCym | YTom | BCym | BTom | GCym | GTom
+data Gem = Kick | Red | YCym | YTom | BCym | BTom | OCym | GCym | GTom
 
 isForeignGem :: Foreign -> F Gem
 isForeignGem f = readString f >>= \s -> case s of
@@ -522,6 +524,7 @@ isForeignGem f = readString f >>= \s -> case s of
   "y-tom" -> pure YTom
   "b-cym" -> pure BCym
   "b-tom" -> pure BTom
+  "o-cym" -> pure OCym
   "g-cym" -> pure GCym
   "g-tom" -> pure GTom
   _ -> throwError $ pure $ TypeMismatch "drum gem name" $ show s

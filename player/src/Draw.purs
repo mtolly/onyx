@@ -877,14 +877,21 @@ drawDrums (Drums drums) targetX stuff = do
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
+      trackWidth = if drums.mode5 then 182 else 146
   -- Highway
   setFillStyle "rgb(126,126,150)" stuff
-  fillRect { x: toNumber targetX, y: 0.0, w: 146.0, h: toNumber windowH } stuff
+  fillRect { x: toNumber targetX, y: 0.0, w: toNumber trackWidth, h: toNumber windowH } stuff
   setFillStyle "rgb(184,185,204)" stuff
-  for_ [0, 36, 72, 108, 144] \offsetX -> do
+  let dividers0 = if drums.mode5
+        then [0, 36, 72, 108, 144, 180]
+        else [0, 36, 72, 108, 144]
+      dividers1 = if drums.mode5
+        then [1, 37, 73, 109, 145, 181]
+        else [1, 37, 73, 109, 145]
+  for_ dividers0 \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   setFillStyle "black" stuff
-  for_ [1, 37, 73, 109, 145] \offsetX -> do
+  for_ dividers1 \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
   setFillStyle "rgb(91,137,185)" stuff
@@ -901,23 +908,29 @@ drawDrums (Drums drums) targetX stuff = do
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
+            dividers2 = if drums.mode5
+              then [2, 38, 74, 110, 146]
+              else [2, 38, 74, 110]
         when b1 $ for_ [2, 38, 74, 110] \offsetX -> do
           fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
   zoomDesc drums.solo \secs _ -> do
-    drawImage Image_highway_drums_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
+    let img = if drums.mode5 then Image_highway_grybo_solo_edge else Image_highway_drums_solo_edge
+    drawImage img (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
   -- Lanes
-  let lanes =
+  let posnGreen = if drums.mode5 then 146 else 110
+      lanes =
         -- TODO kick
-        [ {x:   2, gem: Red }
-        , {x:  38, gem: YCym}
-        , {x:  38, gem: YTom}
-        , {x:  74, gem: BCym}
-        , {x:  74, gem: BTom}
-        , {x: 110, gem: GCym}
-        , {x: 110, gem: GTom}
+        [ {x:         2, gem: Red }
+        , {x:        38, gem: YCym}
+        , {x:        38, gem: YTom}
+        , {x:        74, gem: BCym}
+        , {x:        74, gem: BTom}
+        , {x:       110, gem: OCym}
+        , {x: posnGreen, gem: GCym}
+        , {x: posnGreen, gem: GTom}
         ]
   for_ lanes \{x: offsetX, gem: gem} -> let
     thisLane = Map.union drums.bre
@@ -944,15 +957,21 @@ drawDrums (Drums drums) targetX stuff = do
       drawLanes rest
     in drawLanes laneEdges
   -- Beats
+  let imgBar  = if drums.mode5 then Image_highway_grybo_bar      else Image_highway_drums_bar
+      imgBeat = if drums.mode5 then Image_highway_grybo_beat     else Image_highway_drums_beat
+      imgHalf = if drums.mode5 then Image_highway_grybo_halfbeat else Image_highway_drums_halfbeat
   zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) \secs evt -> do
     let y = secsToPxVert secs
     case evt of
-      Bar      -> drawImage Image_highway_drums_bar      (toNumber targetX) (toNumber y - 1.0) stuff
-      Beat     -> drawImage Image_highway_drums_beat     (toNumber targetX) (toNumber y - 1.0) stuff
-      HalfBeat -> drawImage Image_highway_drums_halfbeat (toNumber targetX) (toNumber y      ) stuff
+      Bar      -> drawImage imgBar  (toNumber targetX) (toNumber y - 1.0) stuff
+      Beat     -> drawImage imgBeat (toNumber targetX) (toNumber y - 1.0) stuff
+      HalfBeat -> drawImage imgHalf (toNumber targetX) (toNumber y      ) stuff
   -- Target
-  drawImage Image_highway_drums_target (toNumber targetX) (toNumber targetY - 5.0) stuff
+  let imgTarget = if drums.mode5 then Image_highway_drums5_target else Image_highway_drums_target
+  drawImage imgTarget (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Notes
+  let imgKick   = if drums.mode5 then Image_gem_open        else Image_gem_kick
+      imgKickOD = if drums.mode5 then Image_gem_open_energy else Image_gem_kick_energy
   zoomDesc drums.notes \secs evts -> do
     let futureSecs = secToNum $ secs - stuff.time
     if futureSecs <= 0.0
@@ -974,9 +993,12 @@ drawDrums (Drums drums) targetX stuff = do
                 blue = do
                   setFillStyle ("rgba(190, 198, 255, " <> show opacity <> ")") stuff
                   fillRect { x: toNumber $ targetX + 74, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+                orange = do
+                  setFillStyle ("rgba(231, 196, 112, " <> show opacity <> ")") stuff
+                  fillRect { x: toNumber $ targetX + 110, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
                 green = do
                   setFillStyle ("rgba(190, 255, 192, " <> show opacity <> ")") stuff
-                  fillRect { x: toNumber $ targetX + 110, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+                  fillRect { x: toNumber $ targetX + posnGreen, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
             for_ evts \e -> case e of
               Kick -> kick
               Red  -> red
@@ -984,6 +1006,7 @@ drawDrums (Drums drums) targetX stuff = do
               YTom -> yellow
               BCym -> blue
               BTom -> blue
+              OCym -> orange
               GCym -> green
               GTom -> green
           else pure unit
@@ -994,17 +1017,18 @@ drawDrums (Drums drums) targetX stuff = do
               Just {value: bool} -> bool
               Nothing            -> false
         for_ evts \e -> case e of
-          Kick -> drawImage (if isEnergy then Image_gem_kick_energy   else Image_gem_kick         ) (toNumber $ targetX + 1  ) (toNumber $ y - 3) stuff
-          Red  -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_red          ) (toNumber $ targetX + 1  ) (toNumber $ y - 5) stuff
-          YTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_yellow       ) (toNumber $ targetX + 37 ) (toNumber $ y - 5) stuff
-          YCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) (toNumber $ targetX + 37 ) (toNumber $ y - 8) stuff
-          BTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_blue         ) (toNumber $ targetX + 73 ) (toNumber $ y - 5) stuff
-          BCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal  ) (toNumber $ targetX + 73 ) (toNumber $ y - 8) stuff
-          GTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_green        ) (toNumber $ targetX + 109) (toNumber $ y - 5) stuff
-          GCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) (toNumber $ targetX + 109) (toNumber $ y - 8) stuff
+          Kick -> drawImage (if isEnergy then imgKickOD               else imgKick                ) (toNumber $ targetX + 1            ) (toNumber $ y - 3) stuff
+          Red  -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_red          ) (toNumber $ targetX + 1            ) (toNumber $ y - 5) stuff
+          YTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_yellow       ) (toNumber $ targetX + 37           ) (toNumber $ y - 5) stuff
+          YCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) (toNumber $ targetX + 37           ) (toNumber $ y - 8) stuff
+          BTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_blue         ) (toNumber $ targetX + 73           ) (toNumber $ y - 5) stuff
+          BCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal  ) (toNumber $ targetX + 73           ) (toNumber $ y - 8) stuff
+          OCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_orange_cymbal) (toNumber $ targetX + 109          ) (toNumber $ y - 8) stuff
+          GTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_green        ) (toNumber $ targetX + posnGreen - 1) (toNumber $ y - 5) stuff
+          GCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) (toNumber $ targetX + posnGreen - 1) (toNumber $ y - 8) stuff
   -- TODO: draw all kicks before starting hand gems
   -- Return targetX of next track
-  pure $ targetX + 146 + _M
+  pure $ targetX + trackWidth + _M
 
 data PKHighway
   = RailingLight
