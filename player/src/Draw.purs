@@ -7,7 +7,7 @@ import Control.Monad.Eff (Eff)
 import Data.Int (toNumber, round, floor)
 import DOM (DOM)
 import Data.Maybe (Maybe(..), fromMaybe, isJust, isNothing)
-import Data.Array (reverse, uncons, cons, snoc, take, zip, (..), length, concat)
+import Data.Array (reverse, uncons, cons, snoc, take, zip, (..), length, concat, range, index)
 import Data.List as L
 import Data.Tuple (Tuple(..))
 import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
@@ -21,9 +21,8 @@ import Data.Set as Set
 import Data.Traversable (traverse_)
 
 import Song
-import Images (ImageID(..))
+import Images (ImageID(..), protarFrets)
 import OnyxMap as Map
-
 import Style (customize)
 
 foreign import getWindowDims :: forall e. Eff (dom :: DOM | e) {w :: Number, h :: Number}
@@ -266,6 +265,7 @@ drawFive (Five five) targetX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
+      widthFret = customize.widthStandardFret
       maxSecs = pxToSecsVert (-100)
       minSecs = pxToSecsVert $ windowH + 100
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
@@ -275,12 +275,12 @@ drawFive (Five five) targetX stuff = do
       targetY = secsToPxVert stuff.time
   -- Highway
   setFillStyle customize.highway stuff
-  fillRect { x: toNumber targetX, y: 0.0, w: 182.0, h: toNumber windowH } stuff
+  fillRect { x: toNumber targetX, y: 0.0, w: toNumber $ widthFret * 5 + 2, h: toNumber windowH } stuff
   setFillStyle customize.highwayRailing stuff
-  for_ [0, 36, 72, 108, 144, 180] \offsetX -> do
+  for_ (map (\i -> i * widthFret) $ range 0 5) \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   setFillStyle customize.highwayDivider stuff
-  for_ [1, 37, 73, 109, 145, 181] \offsetX -> do
+  for_ (map (\i -> i * widthFret + 1) $ range 0 5) \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
   setFillStyle customize.highwaySolo stuff
@@ -297,8 +297,8 @@ drawFive (Five five) targetX stuff = do
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
-        when b1 $ for_ [2, 38, 74, 110, 146] \offsetX -> do
-          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 } stuff
+        when b1 $ for_ (map (\i -> i * widthFret + 2) $ range 0 4) \offsetX -> do
+          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: toNumber $ customize.widthStandardFret - 2, h: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
@@ -307,11 +307,11 @@ drawFive (Five five) targetX stuff = do
   -- Lanes
   let lanes =
         -- TODO open
-        [ {x:   2, gem: _.green }
-        , {x:  38, gem: _.red   }
-        , {x:  74, gem: _.yellow}
-        , {x: 110, gem: _.blue  }
-        , {x: 146, gem: _.orange}
+        [ {x: 0 * widthFret + 2, gem: _.green }
+        , {x: 1 * widthFret + 2, gem: _.red   }
+        , {x: 2 * widthFret + 2, gem: _.yellow}
+        , {x: 3 * widthFret + 2, gem: _.blue  }
+        , {x: 4 * widthFret + 2, gem: _.orange}
         ]
   for_ lanes \{x: offsetX, gem: gem} -> let
     thisLane = Map.union five.bre $ gem five.lanes
@@ -331,7 +331,7 @@ drawFive (Five five) targetX stuff = do
       when b1 $ drawLane
         { x: targetX + offsetX
         , y: y2
-        , w: 34
+        , w: widthFret - 2
         , h: y1 - y2
         } stuff
       drawLanes rest
@@ -347,28 +347,28 @@ drawFive (Five five) targetX stuff = do
   drawImage Image_highway_grybo_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Sustains
   let colors =
-        [ { c: _.open  , x: 1  , strum: Image_gem_open  , hopo: Image_gem_open_hopo, tap: Image_gem_open_tap
+        [ { c: _.open  , x: 0 * widthFret + 1, strum: Image_gem_open  , hopo: Image_gem_open_hopo, tap: Image_gem_open_tap
           , shades: customize.sustainPurple, open: true
           }
-        , { c: _.green , x: 1  , strum: Image_gem_green , hopo: Image_gem_green_hopo, tap: Image_gem_green_tap
+        , { c: _.green , x: 0 * widthFret + 1, strum: Image_gem_green , hopo: Image_gem_green_hopo, tap: Image_gem_green_tap
           , shades: customize.sustainGreen, open: false
           }
-        , { c: _.red   , x: 37 , strum: Image_gem_red   , hopo: Image_gem_red_hopo, tap: Image_gem_red_tap
+        , { c: _.red   , x: 1 * widthFret + 1, strum: Image_gem_red   , hopo: Image_gem_red_hopo, tap: Image_gem_red_tap
           , shades: customize.sustainRed, open: false
           }
-        , { c: _.yellow, x: 73 , strum: Image_gem_yellow, hopo: Image_gem_yellow_hopo, tap: Image_gem_yellow_tap
+        , { c: _.yellow, x: 2 * widthFret + 1, strum: Image_gem_yellow, hopo: Image_gem_yellow_hopo, tap: Image_gem_yellow_tap
           , shades: customize.sustainYellow, open: false
           }
-        , { c: _.blue  , x: 109, strum: Image_gem_blue  , hopo: Image_gem_blue_hopo, tap: Image_gem_blue_tap
+        , { c: _.blue  , x: 3 * widthFret + 1, strum: Image_gem_blue  , hopo: Image_gem_blue_hopo, tap: Image_gem_blue_tap
           , shades: customize.sustainBlue, open: false
           }
-        , { c: _.orange, x: 145, strum: Image_gem_orange, hopo: Image_gem_orange_hopo, tap: Image_gem_orange_tap
+        , { c: _.orange, x: 4 * widthFret + 1, strum: Image_gem_orange, hopo: Image_gem_orange_hopo, tap: Image_gem_orange_tap
           , shades: customize.sustainOrange, open: false
           }
         ]
   for_ colors \{ c: getColor, x: offsetX, shades: normalShades, open: isOpen } -> do
     let thisColor = getColor five.notes
-        offsetX' = if isOpen then 73 else offsetX
+        offsetX' = if isOpen then 2 * widthFret + 1 else offsetX
         isEnergy secs = case Map.lookupLE secs five.energy of
           Nothing           -> false
           Just { value: v } -> v
@@ -391,7 +391,7 @@ drawFive (Five five) targetX stuff = do
           fillRect { x: toNumber $ targetX + offsetX' + 21, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           when sustaining do
             setFillStyle shades.light stuff
-            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
         go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisColor of
           Just { key: secsStart, value: Sustain _ } -> do
             drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
@@ -417,16 +417,16 @@ drawFive (Five five) targetX stuff = do
   for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, tap: tapImage, shades: shades, open: isOpen } -> do
     zoomDesc (getColor five.notes) \secs evt -> do
       let futureSecs = secToNum $ secs - stuff.time
+          trailX = if isOpen then 2 * widthFret + 2 else offsetX
       if futureSecs <= 0.0
         then do
           -- note is in the past or being hit now
-          let offsetX' = if isOpen then 73 else offsetX
           if (-0.1) < futureSecs
             then case evt of
               SustainEnd -> pure unit
               _ -> do
                 setFillStyle (shades.hit $ (futureSecs + 0.1) / 0.05) stuff
-                fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+                fillRect { x: toNumber $ targetX + trailX + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
             else pure unit
         else do
           let y = secsToPxVert secs
@@ -442,13 +442,13 @@ drawFive (Five five) targetX stuff = do
                 Note    Tap   -> if isEnergy then (if isOpen then Image_gem_open_energy_tap  else Image_gem_energy_tap ) else tapImage
                 Sustain Tap   -> if isEnergy then (if isOpen then Image_gem_open_energy_tap  else Image_gem_energy_tap ) else tapImage
               x' = targetX + case evt of
-                SustainEnd -> if isOpen then 73 else offsetX
+                SustainEnd -> trailX
                 _          -> offsetX
               y' = case evt of
                 SustainEnd -> y
                 _          -> if isOpen then y - 3 else y - 5
           drawImage img (toNumber x') (toNumber y') stuff
-  pure $ targetX + 182 + _M
+  pure $ targetX + (widthFret * 5 + 2) + _M
 
 data SixColor
   = SixOpen
@@ -461,6 +461,7 @@ drawSix (Six six) targetX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
+      widthFret = customize.widthStandardFret
       maxSecs = pxToSecsVert (-100)
       minSecs = pxToSecsVert $ windowH + 100
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
@@ -472,10 +473,10 @@ drawSix (Six six) targetX stuff = do
   setFillStyle customize.highway stuff
   fillRect { x: toNumber targetX, y: 0.0, w: 110.0, h: toNumber windowH } stuff
   setFillStyle customize.highwayRailing stuff
-  for_ [0, 36, 72, 108] \offsetX -> do
+  for_ (map (\i -> i * widthFret) $ range 0 3) \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   setFillStyle customize.highwayDivider stuff
-  for_ [1, 37, 73, 109] \offsetX -> do
+  for_ (map (\i -> i * widthFret + 1) $ range 0 3) \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
   setFillStyle customize.highwaySolo stuff
@@ -492,8 +493,8 @@ drawSix (Six six) targetX stuff = do
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
-        when b1 $ for_ [2, 38, 74] \offsetX -> do
-          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 } stuff
+        when b1 $ for_ (map (\i -> i * widthFret + 2) $ range 0 2) \offsetX -> do
+          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: toNumber $ widthFret - 2, h: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
@@ -511,16 +512,16 @@ drawSix (Six six) targetX stuff = do
   drawImage Image_highway_ghl_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Sustains
   let colors =
-        [ { c: _.open, x: 1, color: SixOpen }
-        , { c: _.b1, x: 1, color: SixBlack }
-        , { c: _.b2, x: 37, color: SixBlack }
-        , { c: _.b3, x: 73, color: SixBlack }
-        , { c: _.w1, x: 1, color: SixWhite }
-        , { c: _.w2, x: 37, color: SixWhite }
-        , { c: _.w3, x: 73, color: SixWhite }
-        , { c: _.bw1, x: 1, color: SixBoth }
-        , { c: _.bw2, x: 37, color: SixBoth }
-        , { c: _.bw3, x: 73, color: SixBoth }
+        [ { c: _.open, x: 0 * widthFret + 1, color: SixOpen  }
+        , { c: _.b1  , x: 0 * widthFret + 1, color: SixBlack }
+        , { c: _.b2  , x: 1 * widthFret + 1, color: SixBlack }
+        , { c: _.b3  , x: 2 * widthFret + 1, color: SixBlack }
+        , { c: _.w1  , x: 0 * widthFret + 1, color: SixWhite }
+        , { c: _.w2  , x: 1 * widthFret + 1, color: SixWhite }
+        , { c: _.w3  , x: 2 * widthFret + 1, color: SixWhite }
+        , { c: _.bw1 , x: 0 * widthFret + 1, color: SixBoth  }
+        , { c: _.bw2 , x: 1 * widthFret + 1, color: SixBoth  }
+        , { c: _.bw3 , x: 2 * widthFret + 1, color: SixBoth  }
         ]
       getShades sc = case sc of
         SixWhite -> customize.sustainWhiteGHL
@@ -535,8 +536,8 @@ drawSix (Six six) targetX stuff = do
   for_ colors \{ c: getEvents, x: offsetX, color: thisColor } -> do
     let thisEvents = getEvents six.notes
         offsetX' = case thisColor of
-          SixOpen -> 37
-          _ -> offsetX
+          SixOpen -> 1 * widthFret + 1
+          _       -> offsetX
         isEnergy secs = case Map.lookupLE secs six.energy of
           Nothing           -> false
           Just { value: v } -> v
@@ -559,7 +560,7 @@ drawSix (Six six) targetX stuff = do
           fillRect { x: toNumber $ targetX + offsetX' + 21, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           when sustaining do
             setFillStyle shades.light stuff
-            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
         go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisEvents of
           Just { key: secsStart, value: Sustain _ } -> do
             drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
@@ -586,18 +587,18 @@ drawSix (Six six) targetX stuff = do
     let {strum: strumImage, hopo: hopoImage, tap: tapImage, energy: energyOverlay} = getGemImages thisColor
     zoomDesc (getEvents six.notes) \secs evt -> do
       let futureSecs = secToNum $ secs - stuff.time
+          trailX = case thisColor of
+            SixOpen -> 1 * widthFret + 1
+            _       -> offsetX
       if futureSecs <= 0.0
         then do
           -- note is in the past or being hit now
-          let offsetX' = case thisColor of
-                SixOpen -> 37
-                _ -> offsetX
           if (-0.1) < futureSecs
             then case evt of
               SustainEnd -> pure unit
               _ -> do
                 setFillStyle ((getShades thisColor).hit $ (futureSecs + 0.1) / 0.05) stuff
-                fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+                fillRect { x: toNumber $ targetX + trailX + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
             else pure unit
         else do
           let y = secsToPxVert secs
@@ -613,9 +614,7 @@ drawSix (Six six) targetX stuff = do
                 Note    Tap   -> tapImage
                 Sustain Tap   -> tapImage
               x' = targetX + case evt of
-                SustainEnd -> case thisColor of
-                  SixOpen -> 37
-                  _ -> offsetX
+                SustainEnd -> trailX
                 _          -> offsetX
               y' = case evt of
                 SustainEnd -> y
@@ -626,13 +625,14 @@ drawSix (Six six) targetX stuff = do
           case evt of
             SustainEnd -> pure unit
             _ -> when isEnergy $ drawImage energyOverlay (toNumber x') (toNumber y') stuff
-  pure $ targetX + 110 + _M
+  pure $ targetX + (3 * widthFret + 2) + _M
 
 drawProtar :: forall e. Protar -> Int -> Draw e Int
 drawProtar (Protar protar) targetX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
+      widthFret = customize.widthProtarFret
       maxSecs = pxToSecsVert (-100)
       minSecs = pxToSecsVert $ windowH + 100
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
@@ -642,12 +642,12 @@ drawProtar (Protar protar) targetX stuff = do
       targetY = secsToPxVert stuff.time
   -- Highway
   setFillStyle customize.highway stuff
-  fillRect { x: toNumber targetX, y: 0.0, w: 182.0, h: toNumber windowH } stuff
+  fillRect { x: toNumber targetX, y: 0.0, w: toNumber $ widthFret * 6 + 2, h: toNumber windowH } stuff
   setFillStyle customize.highwayRailing stuff
-  for_ [0, 30, 60, 90, 120, 150, 180] \offsetX -> do
+  for_ (map (\i -> i * widthFret) $ range 0 6) \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   setFillStyle customize.highwayDivider stuff
-  for_ [1, 31, 61, 91, 121, 151, 181] \offsetX -> do
+  for_ (map (\i -> i * widthFret + 1) $ range 0 6) \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
   setFillStyle customize.highwaySolo stuff
@@ -664,8 +664,8 @@ drawProtar (Protar protar) targetX stuff = do
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
-        when b1 $ for_ [2, 32, 62, 92, 122, 152] \offsetX -> do
-          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 28.0, h: toNumber $ y1 - y2 } stuff
+        when b1 $ for_ (map (\i -> i * widthFret + 2) $ range 0 5) \offsetX -> do
+          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: toNumber $ widthFret - 2, h: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
@@ -673,12 +673,12 @@ drawProtar (Protar protar) targetX stuff = do
     drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
   -- Lanes
   let lanes =
-        [ {x:   2, gem: _.s6}
-        , {x:  32, gem: _.s5}
-        , {x:  62, gem: _.s4}
-        , {x:  92, gem: _.s3}
-        , {x: 122, gem: _.s2}
-        , {x: 152, gem: _.s1}
+        [ {x: 0 * widthFret + 2, gem: _.s6}
+        , {x: 1 * widthFret + 2, gem: _.s5}
+        , {x: 2 * widthFret + 2, gem: _.s4}
+        , {x: 3 * widthFret + 2, gem: _.s3}
+        , {x: 4 * widthFret + 2, gem: _.s2}
+        , {x: 5 * widthFret + 2, gem: _.s1}
         ]
   for_ lanes \{x: offsetX, gem: gem} -> let
     thisLane = Map.union protar.bre $ gem protar.lanes
@@ -698,7 +698,7 @@ drawProtar (Protar protar) targetX stuff = do
       when b1 $ drawLane
         { x: targetX + offsetX
         , y: y2
-        , w: 28
+        , w: widthFret - 2
         , h: y1 - y2
         } stuff
       drawLanes rest
@@ -714,22 +714,22 @@ drawProtar (Protar protar) targetX stuff = do
   drawImage Image_highway_protar_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Sustains
   let colors =
-        [ { c: _.s6, x: 1  , strum: Image_gem_red_pro   , hopo: Image_gem_red_pro_hopo
+        [ { c: _.s6, x: 0 * widthFret + 1, strum: Image_gem_red_pro   , hopo: Image_gem_red_pro_hopo
           , shades: customize.sustainRed
           }
-        , { c: _.s5, x: 31 , strum: Image_gem_green_pro , hopo: Image_gem_green_pro_hopo
+        , { c: _.s5, x: 1 * widthFret + 1, strum: Image_gem_green_pro , hopo: Image_gem_green_pro_hopo
           , shades: customize.sustainGreen
           }
-        , { c: _.s4, x: 61 , strum: Image_gem_orange_pro, hopo: Image_gem_orange_pro_hopo
+        , { c: _.s4, x: 2 * widthFret + 1, strum: Image_gem_orange_pro, hopo: Image_gem_orange_pro_hopo
           , shades: customize.sustainOrange
           }
-        , { c: _.s3, x: 91, strum: Image_gem_blue_pro  , hopo: Image_gem_blue_pro_hopo
+        , { c: _.s3, x: 3 * widthFret + 1, strum: Image_gem_blue_pro  , hopo: Image_gem_blue_pro_hopo
           , shades: customize.sustainBlue
           }
-        , { c: _.s2, x: 121, strum: Image_gem_yellow_pro, hopo: Image_gem_yellow_pro_hopo
+        , { c: _.s2, x: 4 * widthFret + 1, strum: Image_gem_yellow_pro, hopo: Image_gem_yellow_pro_hopo
           , shades: customize.sustainYellow
           }
-        , { c: _.s1, x: 151, strum: Image_gem_purple_pro, hopo: Image_gem_purple_pro_hopo
+        , { c: _.s1, x: 5 * widthFret + 1, strum: Image_gem_purple_pro, hopo: Image_gem_purple_pro_hopo
           , shades: customize.sustainPurple
           }
         ]
@@ -757,7 +757,7 @@ drawProtar (Protar protar) targetX stuff = do
           fillRect { x: toNumber $ targetX + offsetX + 18, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           when sustaining do
             setFillStyle shades.light stuff
-            fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 29.0, h: 8.0 } stuff
+            fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
         go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisColor of
           Just { key: secsStart, value: Sustain _ } -> do
             drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
@@ -791,37 +791,16 @@ drawProtar (Protar protar) targetX stuff = do
               SustainEnd -> pure unit
               _ -> do
                 setFillStyle (shades.hit $ (futureSecs + 0.1) / 0.05) stuff
-                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 29.0, h: 8.0 } stuff
+                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
             else pure unit
         else do
           let y = secsToPxVert secs
               isEnergy = case Map.lookupLE secs protar.energy of
                 Just {value: bool} -> bool
                 Nothing            -> false
-              fretImage  0 = Image_pro_fret_00
-              fretImage  1 = Image_pro_fret_01
-              fretImage  2 = Image_pro_fret_02
-              fretImage  3 = Image_pro_fret_03
-              fretImage  4 = Image_pro_fret_04
-              fretImage  5 = Image_pro_fret_05
-              fretImage  6 = Image_pro_fret_06
-              fretImage  7 = Image_pro_fret_07
-              fretImage  8 = Image_pro_fret_08
-              fretImage  9 = Image_pro_fret_09
-              fretImage 10 = Image_pro_fret_10
-              fretImage 11 = Image_pro_fret_11
-              fretImage 12 = Image_pro_fret_12
-              fretImage 13 = Image_pro_fret_13
-              fretImage 14 = Image_pro_fret_14
-              fretImage 15 = Image_pro_fret_15
-              fretImage 16 = Image_pro_fret_16
-              fretImage 17 = Image_pro_fret_17
-              fretImage 18 = Image_pro_fret_18
-              fretImage 19 = Image_pro_fret_19
-              fretImage 20 = Image_pro_fret_20
-              fretImage 21 = Image_pro_fret_21
-              fretImage 22 = Image_pro_fret_22
-              fretImage _  = unsafeThrow "invalid fret number"
+              fretImage i = case index protarFrets i of
+                Just x  -> x
+                Nothing -> Image_pro_fret_00 -- whatever
           case evt of
             SustainEnd                                                -> drawImage Image_sustain_end                                                      (toNumber $ targetX + offsetX - 3) (toNumber   y      ) stuff
             Note    (ProtarNote { noteType: Strum, fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute      else Image_gem_mute)      (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
@@ -848,13 +827,15 @@ drawProtar (Protar protar) targetX stuff = do
             Sustain (ProtarNote { noteType: Tap  , fret: Just fret }) -> do
               drawImage (if isEnergy then Image_gem_energy_pro_hopo else hopoImage ) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
               drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-  pure $ targetX + 182 + _M
+  pure $ targetX + (widthFret * 6 + 2) + _M
 
 drawDrums :: forall e. Drums -> Int -> Draw e Int
 drawDrums (Drums drums) targetX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
+      widthFret = customize.widthStandardFret
+      numLanes = if drums.mode5 then 5 else 4
       maxSecs = pxToSecsVert (-100)
       minSecs = pxToSecsVert $ windowH + 100
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
@@ -862,17 +843,13 @@ drawDrums (Drums drums) targetX stuff = do
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
-      trackWidth = if drums.mode5 then 182 else 146
+      trackWidth = numLanes * widthFret + 2
   -- Highway
   setFillStyle customize.highway stuff
   fillRect { x: toNumber targetX, y: 0.0, w: toNumber trackWidth, h: toNumber windowH } stuff
   setFillStyle customize.highwayRailing stuff
-  let dividers0 = if drums.mode5
-        then [0, 36, 72, 108, 144, 180]
-        else [0, 36, 72, 108, 144]
-      dividers1 = if drums.mode5
-        then [1, 37, 73, 109, 145, 181]
-        else [1, 37, 73, 109, 145]
+  let dividers0 = map (\i -> i * widthFret    ) $ range 0 $ if drums.mode5 then 5 else 4
+      dividers1 = map (\i -> i * widthFret + 1) $ range 0 $ if drums.mode5 then 5 else 4
   for_ dividers0 \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   setFillStyle customize.highwayDivider stuff
@@ -893,11 +870,9 @@ drawDrums (Drums drums) targetX stuff = do
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
-            dividers2 = if drums.mode5
-              then [2, 38, 74, 110, 146]
-              else [2, 38, 74, 110]
-        when b1 $ for_ [2, 38, 74, 110] \offsetX -> do
-          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: 34.0, h: toNumber $ y1 - y2 } stuff
+            dividers2 = map (\i -> i * widthFret + 2) $ range 0 $ if drums.mode5 then 4 else 3
+        when b1 $ for_ dividers2 \offsetX -> do
+          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: toNumber $ widthFret - 2, h: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
@@ -905,17 +880,16 @@ drawDrums (Drums drums) targetX stuff = do
     let img = if drums.mode5 then Image_highway_grybo_solo_edge else Image_highway_drums_solo_edge
     drawImage img (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
   -- Lanes
-  let posnGreen = if drums.mode5 then 146 else 110
-      lanes =
+  let lanes =
         -- TODO kick
-        [ {x:         2, gem: Red }
-        , {x:        38, gem: YCym}
-        , {x:        38, gem: YTom}
-        , {x:        74, gem: BCym}
-        , {x:        74, gem: BTom}
-        , {x:       110, gem: OCym}
-        , {x: posnGreen, gem: GCym}
-        , {x: posnGreen, gem: GTom}
+        [ {x: 0              * widthFret + 2, gem: Red }
+        , {x: 1              * widthFret + 2, gem: YCym}
+        , {x: 1              * widthFret + 2, gem: YTom}
+        , {x: 2              * widthFret + 2, gem: BCym}
+        , {x: 2              * widthFret + 2, gem: BTom}
+        , {x: 3              * widthFret + 2, gem: OCym}
+        , {x: (numLanes - 1) * widthFret + 2, gem: GCym}
+        , {x: (numLanes - 1) * widthFret + 2, gem: GTom}
         ]
   for_ lanes \{x: offsetX, gem: gem} -> let
     thisLane = Map.union drums.bre
@@ -936,7 +910,7 @@ drawDrums (Drums drums) targetX stuff = do
       when b1 $ drawLane
         { x: targetX + offsetX
         , y: y2
-        , w: 34
+        , w: widthFret - 2
         , h: y1 - y2
         } stuff
       drawLanes rest
@@ -969,23 +943,23 @@ drawDrums (Drums drums) targetX stuff = do
                   if drums.mode5
                     then setFillStyle (customize.sustainPurple.hit opacity) stuff
                     else setFillStyle (customize.sustainOrange.hit opacity) stuff
-                  fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY - 5, w: 143.0, h: 1.0 } stuff
-                  fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY + 4, w: 143.0, h: 1.0 } stuff
+                  fillRect { x: toNumber $ targetX + 0 * widthFret + 2, y: toNumber $ targetY - 5, w: toNumber $ numLanes * widthFret - 1, h: 1.0 } stuff
+                  fillRect { x: toNumber $ targetX + 0 * widthFret + 2, y: toNumber $ targetY + 4, w: toNumber $ numLanes * widthFret - 1, h: 1.0 } stuff
                 red = do
                   setFillStyle (customize.sustainRed.hit opacity) stuff
-                  fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+                  fillRect { x: toNumber $ targetX + 0 * widthFret + 2, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
                 yellow = do
                   setFillStyle (customize.sustainYellow.hit opacity) stuff
-                  fillRect { x: toNumber $ targetX + 38, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+                  fillRect { x: toNumber $ targetX + 1 * widthFret + 2, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
                 blue = do
                   setFillStyle (customize.sustainBlue.hit opacity) stuff
-                  fillRect { x: toNumber $ targetX + 74, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+                  fillRect { x: toNumber $ targetX + 2 * widthFret + 2, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
                 orange = do
                   setFillStyle (customize.sustainOrange.hit opacity) stuff
-                  fillRect { x: toNumber $ targetX + 110, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+                  fillRect { x: toNumber $ targetX + 3 * widthFret + 2, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
                 green = do
                   setFillStyle (customize.sustainGreen.hit opacity) stuff
-                  fillRect { x: toNumber $ targetX + posnGreen, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
+                  fillRect { x: toNumber $ targetX + (numLanes - 1) * widthFret + 2, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
             for_ evts \e -> case e of
               Kick -> kick
               Red  -> red
@@ -1004,15 +978,15 @@ drawDrums (Drums drums) targetX stuff = do
               Just {value: bool} -> bool
               Nothing            -> false
         for_ evts \e -> case e of
-          Kick -> drawImage (if isEnergy then imgKickOD               else imgKick                ) (toNumber $ targetX + 1            ) (toNumber $ y - 3) stuff
-          Red  -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_red          ) (toNumber $ targetX + 1            ) (toNumber $ y - 5) stuff
-          YTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_yellow       ) (toNumber $ targetX + 37           ) (toNumber $ y - 5) stuff
-          YCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) (toNumber $ targetX + 37           ) (toNumber $ y - 8) stuff
-          BTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_blue         ) (toNumber $ targetX + 73           ) (toNumber $ y - 5) stuff
-          BCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal  ) (toNumber $ targetX + 73           ) (toNumber $ y - 8) stuff
-          OCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_orange_cymbal) (toNumber $ targetX + 109          ) (toNumber $ y - 8) stuff
-          GTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_green        ) (toNumber $ targetX + posnGreen - 1) (toNumber $ y - 5) stuff
-          GCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) (toNumber $ targetX + posnGreen - 1) (toNumber $ y - 8) stuff
+          Kick -> drawImage (if isEnergy then imgKickOD               else imgKick                ) (toNumber $ targetX + 0              * widthFret + 1) (toNumber $ y - 3) stuff
+          Red  -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_red          ) (toNumber $ targetX + 0              * widthFret + 1) (toNumber $ y - 5) stuff
+          YTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_yellow       ) (toNumber $ targetX + 1              * widthFret + 1) (toNumber $ y - 5) stuff
+          YCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) (toNumber $ targetX + 1              * widthFret + 1) (toNumber $ y - 8) stuff
+          BTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_blue         ) (toNumber $ targetX + 2              * widthFret + 1) (toNumber $ y - 5) stuff
+          BCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal  ) (toNumber $ targetX + 2              * widthFret + 1) (toNumber $ y - 8) stuff
+          OCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_orange_cymbal) (toNumber $ targetX + 3              * widthFret + 1) (toNumber $ y - 8) stuff
+          GTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_green        ) (toNumber $ targetX + (numLanes - 1) * widthFret + 1) (toNumber $ y - 5) stuff
+          GCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) (toNumber $ targetX + (numLanes - 1) * widthFret + 1) (toNumber $ y - 8) stuff
   -- TODO: draw all kicks before starting hand gems
   -- Return targetX of next track
   pure $ targetX + trackWidth + _M

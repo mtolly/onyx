@@ -64,4 +64,7 @@ foreign import customize ::
   , sustainBlackGHL :: SustainColors
   , sustainOpenGHL :: SustainColors
 
+  , widthStandardFret :: Int
+  , widthProtarFret :: Int
+
   }

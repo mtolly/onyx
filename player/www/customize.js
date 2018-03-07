@@ -90,15 +90,15 @@ window.customizeOnyx = {
     hit: function(o){return 'rgba(227,193,238,'+o+')';},
   },
   sustainBlackKey: {
-    light: 'rgb(175, 83,201)',
-    normal: 'rgb(147, 49,175)',
-    dark: 'rgb(123, 42,150)',
+    light: 'rgb(175,83,201)',
+    normal: 'rgb(147,49,175)',
+    dark: 'rgb(123,42,150)',
     hit: function(o){return 'rgba(227,193,238,'+o+')';},
   },
   sustainBlackKeyEnergy: {
-    light: 'rgb( 52,148,117)',
-    normal: 'rgb( 71,107, 95)',
-    dark: 'rgb( 69, 83, 79)',
+    light: 'rgb(52,148,117)',
+    normal: 'rgb(71,107,95)',
+    dark: 'rgb(69,83,79)',
     hit: function(o){return 'magenta';}, // not used
   },
   // note: GHL white/both/open currently the same
@@ -126,5 +126,8 @@ window.customizeOnyx = {
     dark: 'rgb(162,162,162)',
     hit: function(o){return 'rgba(200,200,200,'+o+')';},
   },
+
+  widthStandardFret: 36,
+  widthProtarFret: 30,
 
 };

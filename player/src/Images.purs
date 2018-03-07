@@ -1,4 +1,4 @@
-module Images (ImageID(..), withImages) where
+module Images (ImageID(..), withImages, protarFrets) where
 
 import Prelude
 import Data.String (split, joinWith, drop, Pattern(..))
@@ -187,3 +187,30 @@ withImages = let
       Just img -> img
       Nothing  -> unsafeThrow $ "panic! loaded image not found for image ID " <> show iid
   in runContT $ map pairsToFn $ parTraverse loadTuple allImageIDs
+
+protarFrets :: Array ImageID
+protarFrets =
+  [ Image_pro_fret_00
+  , Image_pro_fret_01
+  , Image_pro_fret_02
+  , Image_pro_fret_03
+  , Image_pro_fret_04
+  , Image_pro_fret_05
+  , Image_pro_fret_06
+  , Image_pro_fret_07
+  , Image_pro_fret_08
+  , Image_pro_fret_09
+  , Image_pro_fret_10
+  , Image_pro_fret_11
+  , Image_pro_fret_12
+  , Image_pro_fret_13
+  , Image_pro_fret_14
+  , Image_pro_fret_15
+  , Image_pro_fret_16
+  , Image_pro_fret_17
+  , Image_pro_fret_18
+  , Image_pro_fret_19
+  , Image_pro_fret_20
+  , Image_pro_fret_21
+  , Image_pro_fret_22
+  ]
