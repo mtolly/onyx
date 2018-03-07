@@ -24,6 +24,8 @@ import Song
 import Images (ImageID(..))
 import OnyxMap as Map
 
+import Style (customize)
+
 foreign import getWindowDims :: forall e. Eff (dom :: DOM | e) {w :: Number, h :: Number}
 
 type Settings = Set.Set (Tuple String FlexPart)
@@ -98,8 +100,8 @@ showTimestamp (Seconds s) = let
   mins = floor $ s / 60.0
   secs = floor $ s - toNumber (mins * 60)
   msecs = floor $ (s - toNumber (mins * 60) - toNumber secs) * 1000.0
-  pad2 s n = if n < 10 then s <> show n else show n
-  pad3 s n = if n < 100 then s <> pad2 s n else show n
+  pad2 str n = if n < 10 then str <> show n else show n
+  pad3 str n = if n < 100 then str <> pad2 str n else show n
   in show mins <> ":" <> pad2 "0" secs <> "." <> pad3 "0" msecs
 
 draw :: forall e. Draw (dom :: DOM | e) Unit
@@ -107,11 +109,11 @@ draw stuff = do
   {w: windowW, h: windowH} <- getWindowDims
   void $ C.setCanvasWidth  windowW stuff.canvas
   void $ C.setCanvasHeight windowH stuff.canvas
-  setFillStyle "rgb(54,59,123)" stuff
+  setFillStyle customize.background stuff
   fillRect { x: 0.0, y: 0.0, w: windowW, h: windowH } stuff
   -- Draw timestamp
-  onContext (C.setFont "17px monospace") stuff
-  setFillStyle "white" stuff
+  onContext (C.setFont customize.timestampFont) stuff
+  setFillStyle customize.timestampColor stuff
   let timeStr = showTimestamp stuff.time
   metric <- measureText timeStr stuff
   onContext
@@ -198,11 +200,11 @@ draw stuff = do
   let timelineH = windowH - 3.0 * toNumber _M - toNumber _B - 2.0
       filled = unSeconds (stuff.time) / unSeconds (case stuff.song of Song o -> o.end)
       unSeconds (Seconds s) = s
-  setFillStyle "black" stuff
+  setFillStyle customize.progressBorder stuff
   fillRect { x: toNumber _M, y: toNumber _M, w: toNumber _B, h: timelineH + 2.0 } stuff
-  setFillStyle "white" stuff
+  setFillStyle customize.progressEmpty stuff
   fillRect { x: toNumber _M + 1.0, y: toNumber _M + 1.0, w: toNumber _B - 2.0, h: timelineH } stuff
-  setFillStyle "rgb(100,130,255)" stuff
+  setFillStyle customize.progressFilled stuff
   fillRect
     { x: toNumber _M + 1.0
     , y: toNumber _M + 1.0 + timelineH * (1.0 - filled)
@@ -238,7 +240,7 @@ drawLane
   .  { x :: Int, y :: Int, w :: Int, h :: Int }
   -> Draw e Unit
 drawLane obj stuff = do
-  setFillStyle "rgb(60,60,60)" stuff
+  setFillStyle customize.freeformLane stuff
   fillRect
     { x: toNumber obj.x
     , y: toNumber obj.y
@@ -272,16 +274,16 @@ drawFive (Five five) targetX stuff = do
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
   -- Highway
-  setFillStyle "rgb(126,126,150)" stuff
+  setFillStyle customize.highway stuff
   fillRect { x: toNumber targetX, y: 0.0, w: 182.0, h: toNumber windowH } stuff
-  setFillStyle "rgb(184,185,204)" stuff
+  setFillStyle customize.highwayRailing stuff
   for_ [0, 36, 72, 108, 144, 180] \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
-  setFillStyle "black" stuff
+  setFillStyle customize.highwayDivider stuff
   for_ [1, 37, 73, 109, 145, 181] \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
-  setFillStyle "rgb(91,137,185)" stuff
+  setFillStyle customize.highwaySolo stuff
   let startsAsSolo = case Map.lookupLE minSecs five.solo of
         Nothing           -> false
         Just { value: v } -> v
@@ -346,34 +348,22 @@ drawFive (Five five) targetX stuff = do
   -- Sustains
   let colors =
         [ { c: _.open  , x: 1  , strum: Image_gem_open  , hopo: Image_gem_open_hopo, tap: Image_gem_open_tap
-          , shades: { light: "rgb(214,154,242)", normal: "rgb(167, 25,241)", dark: "rgb(128, 12,188)" }
-          , hit: \o -> "rgba(210,162,255," <> show o <> ")"
-          , open: true
+          , shades: customize.sustainPurple, open: true
           }
         , { c: _.green , x: 1  , strum: Image_gem_green , hopo: Image_gem_green_hopo, tap: Image_gem_green_tap
-          , shades: { light: "rgb(135,247,126)", normal: "rgb( 21,218,  2)", dark: "rgb( 13,140,  2)" }
-          , hit: \o -> "rgba(190,255,192," <> show o <> ")"
-          , open: false
+          , shades: customize.sustainGreen, open: false
           }
         , { c: _.red   , x: 37 , strum: Image_gem_red   , hopo: Image_gem_red_hopo, tap: Image_gem_red_tap
-          , shades: { light: "rgb(247,127,158)", normal: "rgb(218,  2, 62)", dark: "rgb(140,  2, 40)" }
-          , hit: \o -> "rgba(255,188,188," <> show o <> ")"
-          , open: false
+          , shades: customize.sustainRed, open: false
           }
         , { c: _.yellow, x: 73 , strum: Image_gem_yellow, hopo: Image_gem_yellow_hopo, tap: Image_gem_yellow_tap
-          , shades: { light: "rgb(247,228,127)", normal: "rgb(218,180,  2)", dark: "rgb(140,115,  3)" }
-          , hit: \o -> "rgba(255,244,151," <> show o <> ")"
-          , open: false
+          , shades: customize.sustainYellow, open: false
           }
         , { c: _.blue  , x: 109, strum: Image_gem_blue  , hopo: Image_gem_blue_hopo, tap: Image_gem_blue_tap
-          , shades: { light: "rgb(119,189,255)", normal: "rgb(  2,117,218)", dark: "rgb(  3, 76,140)" }
-          , hit: \o -> "rgba(190,198,255," <> show o <> ")"
-          , open: false
+          , shades: customize.sustainBlue, open: false
           }
         , { c: _.orange, x: 145, strum: Image_gem_orange, hopo: Image_gem_orange_hopo, tap: Image_gem_orange_tap
-          , shades: { light: "rgb(255,183,119)", normal: "rgb(218, 97,  4)", dark: "rgb(140, 63,  3)" }
-          , hit: \o -> "rgba(231,196,112," <> show o <> ")"
-          , open: false
+          , shades: customize.sustainOrange, open: false
           }
         ]
   for_ colors \{ c: getColor, x: offsetX, shades: normalShades, open: isOpen } -> do
@@ -387,10 +377,10 @@ drawFive (Five five) targetX stuff = do
               yend'   = min yend   targetY
               sustaining = targetY < ystart || targetY < yend
               shades = if energy
-                then { light: "rgb(137,235,204)", normal: "rgb(138,192,175)", dark: "rgb(124,158,149)" }
+                then customize.sustainEnergy
                 else normalShades
               h = yend' - ystart' + 1
-          setFillStyle "black" stuff
+          setFillStyle customize.sustainBorder stuff
           fillRect { x: toNumber $ targetX + offsetX' + 14, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           fillRect { x: toNumber $ targetX + offsetX' + 22, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           setFillStyle shades.light stuff
@@ -424,7 +414,7 @@ drawFive (Five five) targetX stuff = do
         _ -> pure unit
       events -> go false events
   -- Notes
-  for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, tap: tapImage, hit: shadeHit, open: isOpen } -> do
+  for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, tap: tapImage, shades: shades, open: isOpen } -> do
     zoomDesc (getColor five.notes) \secs evt -> do
       let futureSecs = secToNum $ secs - stuff.time
       if futureSecs <= 0.0
@@ -435,7 +425,7 @@ drawFive (Five five) targetX stuff = do
             then case evt of
               SustainEnd -> pure unit
               _ -> do
-                setFillStyle (shadeHit $ (futureSecs + 0.1) / 0.05) stuff
+                setFillStyle (shades.hit $ (futureSecs + 0.1) / 0.05) stuff
                 fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
             else pure unit
         else do
@@ -479,16 +469,16 @@ drawSix (Six six) targetX stuff = do
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
   -- Highway
-  setFillStyle "rgb(126,126,150)" stuff
+  setFillStyle customize.highway stuff
   fillRect { x: toNumber targetX, y: 0.0, w: 110.0, h: toNumber windowH } stuff
-  setFillStyle "rgb(184,185,204)" stuff
+  setFillStyle customize.highwayRailing stuff
   for_ [0, 36, 72, 108] \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
-  setFillStyle "black" stuff
+  setFillStyle customize.highwayDivider stuff
   for_ [1, 37, 73, 109] \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
-  setFillStyle "rgb(91,137,185)" stuff
+  setFillStyle customize.highwaySolo stuff
   let startsAsSolo = case Map.lookupLE minSecs six.solo of
         Nothing           -> false
         Just { value: v } -> v
@@ -533,9 +523,10 @@ drawSix (Six six) targetX stuff = do
         , { c: _.bw3, x: 73, color: SixBoth }
         ]
       getShades sc = case sc of
-        SixBlack -> { light: "rgb(121,121,121)", normal: "rgb(70,70,70)"   , dark: "rgb(45,45,45)"    }
-        _        -> { light: "rgb(220,220,220)", normal: "rgb(181,181,181)", dark: "rgb(162,162,162)" }
-      getHitShade _ o = "rgba(200,200,200," <> show o <> ")"
+        SixWhite -> customize.sustainWhiteGHL
+        SixBoth  -> customize.sustainBothGHL
+        SixBlack -> customize.sustainBlackGHL
+        SixOpen  -> customize.sustainOpenGHL
       getGemImages sc = case sc of
         SixBlack -> { strum: Image_gem_black, hopo: Image_gem_black_hopo, tap: Image_gem_black_tap, energy: Image_gem_ghl_energy }
         SixWhite -> { strum: Image_gem_white, hopo: Image_gem_white_hopo, tap: Image_gem_white_tap, energy: Image_gem_ghl_energy }
@@ -554,10 +545,10 @@ drawSix (Six six) targetX stuff = do
               yend'   = min yend   targetY
               sustaining = targetY < ystart || targetY < yend
               shades = if energy
-                then { light: "rgb(137,235,204)", normal: "rgb(138,192,175)", dark: "rgb(124,158,149)" }
+                then customize.sustainEnergy
                 else getShades thisColor
               h = yend' - ystart' + 1
-          setFillStyle "black" stuff
+          setFillStyle customize.sustainBorder stuff
           fillRect { x: toNumber $ targetX + offsetX' + 14, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           fillRect { x: toNumber $ targetX + offsetX' + 22, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           setFillStyle shades.light stuff
@@ -605,7 +596,7 @@ drawSix (Six six) targetX stuff = do
             then case evt of
               SustainEnd -> pure unit
               _ -> do
-                setFillStyle (getHitShade thisColor $ (futureSecs + 0.1) / 0.05) stuff
+                setFillStyle ((getShades thisColor).hit $ (futureSecs + 0.1) / 0.05) stuff
                 fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
             else pure unit
         else do
@@ -650,16 +641,16 @@ drawProtar (Protar protar) targetX stuff = do
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
   -- Highway
-  setFillStyle "rgb(126,126,150)" stuff
+  setFillStyle customize.highway stuff
   fillRect { x: toNumber targetX, y: 0.0, w: 182.0, h: toNumber windowH } stuff
-  setFillStyle "rgb(184,185,204)" stuff
+  setFillStyle customize.highwayRailing stuff
   for_ [0, 30, 60, 90, 120, 150, 180] \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
-  setFillStyle "black" stuff
+  setFillStyle customize.highwayDivider stuff
   for_ [1, 31, 61, 91, 121, 151, 181] \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
-  setFillStyle "rgb(91,137,185)" stuff
+  setFillStyle customize.highwaySolo stuff
   let startsAsSolo = case Map.lookupLE minSecs protar.solo of
         Nothing           -> false
         Just { value: v } -> v
@@ -724,28 +715,22 @@ drawProtar (Protar protar) targetX stuff = do
   -- Sustains
   let colors =
         [ { c: _.s6, x: 1  , strum: Image_gem_red_pro   , hopo: Image_gem_red_pro_hopo
-          , shades: { light: "rgb(247,127,158)", normal: "rgb(218,  2, 62)", dark: "rgb(140,  2, 40)" }
-          , hit: \o -> "rgba(255,188,188," <> show o <> ")"
+          , shades: customize.sustainRed
           }
         , { c: _.s5, x: 31 , strum: Image_gem_green_pro , hopo: Image_gem_green_pro_hopo
-          , shades: { light: "rgb(135,247,126)", normal: "rgb( 21,218,  2)", dark: "rgb( 13,140,  2)" }
-          , hit: \o -> "rgba(190,255,192," <> show o <> ")"
+          , shades: customize.sustainGreen
           }
         , { c: _.s4, x: 61 , strum: Image_gem_orange_pro, hopo: Image_gem_orange_pro_hopo
-          , shades: { light: "rgb(255,183,119)", normal: "rgb(218, 97,  4)", dark: "rgb(140, 63,  3)" }
-          , hit: \o -> "rgba(231,196,112," <> show o <> ")"
+          , shades: customize.sustainOrange
           }
         , { c: _.s3, x: 91, strum: Image_gem_blue_pro  , hopo: Image_gem_blue_pro_hopo
-          , shades: { light: "rgb(119,189,255)", normal: "rgb(  2,117,218)", dark: "rgb(  3, 76,140)" }
-          , hit: \o -> "rgba(190,198,255," <> show o <> ")"
+          , shades: customize.sustainBlue
           }
         , { c: _.s2, x: 121, strum: Image_gem_yellow_pro, hopo: Image_gem_yellow_pro_hopo
-          , shades: { light: "rgb(247,228,127)", normal: "rgb(218,180,  2)", dark: "rgb(140,115,  3)" }
-          , hit: \o -> "rgba(255,244,151," <> show o <> ")"
+          , shades: customize.sustainYellow
           }
         , { c: _.s1, x: 151, strum: Image_gem_purple_pro, hopo: Image_gem_purple_pro_hopo
-          , shades: { light: "rgb(214,154,242)", normal: "rgb(167, 25,241)", dark: "rgb(128, 12,188)" }
-          , hit: \o -> "rgba(210,162,255," <> show o <> ")"
+          , shades: customize.sustainPurple
           }
         ]
   for_ colors \{ c: getColor, x: offsetX, shades: normalShades } -> do
@@ -758,10 +743,10 @@ drawProtar (Protar protar) targetX stuff = do
               yend'   = min yend   targetY
               sustaining = targetY < ystart || targetY < yend
               shades = if energy
-                then { light: "rgb(137,235,204)", normal: "rgb(138,192,175)", dark: "rgb(124,158,149)" }
+                then customize.sustainEnergy
                 else normalShades
               h = yend' - ystart' + 1
-          setFillStyle "black" stuff
+          setFillStyle customize.sustainBorder stuff
           fillRect { x: toNumber $ targetX + offsetX + 11, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           fillRect { x: toNumber $ targetX + offsetX + 19, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           setFillStyle shades.light stuff
@@ -795,7 +780,7 @@ drawProtar (Protar protar) targetX stuff = do
         _ -> pure unit
       events -> go false events
   -- Notes
-  for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, hit: shadeHit } -> do
+  for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, shades: shades } -> do
     zoomDesc (getColor protar.notes) \secs evt -> do
       let futureSecs = secToNum $ secs - stuff.time
       if futureSecs <= 0.0
@@ -805,7 +790,7 @@ drawProtar (Protar protar) targetX stuff = do
             then case evt of
               SustainEnd -> pure unit
               _ -> do
-                setFillStyle (shadeHit $ (futureSecs + 0.1) / 0.05) stuff
+                setFillStyle (shades.hit $ (futureSecs + 0.1) / 0.05) stuff
                 fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: 29.0, h: 8.0 } stuff
             else pure unit
         else do
@@ -879,9 +864,9 @@ drawDrums (Drums drums) targetX stuff = do
       targetY = secsToPxVert stuff.time
       trackWidth = if drums.mode5 then 182 else 146
   -- Highway
-  setFillStyle "rgb(126,126,150)" stuff
+  setFillStyle customize.highway stuff
   fillRect { x: toNumber targetX, y: 0.0, w: toNumber trackWidth, h: toNumber windowH } stuff
-  setFillStyle "rgb(184,185,204)" stuff
+  setFillStyle customize.highwayRailing stuff
   let dividers0 = if drums.mode5
         then [0, 36, 72, 108, 144, 180]
         else [0, 36, 72, 108, 144]
@@ -890,11 +875,11 @@ drawDrums (Drums drums) targetX stuff = do
         else [1, 37, 73, 109, 145]
   for_ dividers0 \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
-  setFillStyle "black" stuff
+  setFillStyle customize.highwayDivider stuff
   for_ dividers1 \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
   -- Solo highway
-  setFillStyle "rgb(91,137,185)" stuff
+  setFillStyle customize.highwaySolo stuff
   let startsAsSolo = case Map.lookupLE minSecs drums.solo of
         Nothing           -> false
         Just { value: v } -> v
@@ -981,23 +966,25 @@ drawDrums (Drums drums) targetX stuff = do
           then do
             let opacity = (futureSecs + 0.1) / 0.05
                 kick = do
-                  setFillStyle ("rgba(231, 196, 112, " <> show opacity <> ")") stuff
+                  if drums.mode5
+                    then setFillStyle (customize.sustainPurple.hit opacity) stuff
+                    else setFillStyle (customize.sustainOrange.hit opacity) stuff
                   fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY - 5, w: 143.0, h: 1.0 } stuff
                   fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY + 4, w: 143.0, h: 1.0 } stuff
                 red = do
-                  setFillStyle ("rgba(255, 188, 188, " <> show opacity <> ")") stuff
+                  setFillStyle (customize.sustainRed.hit opacity) stuff
                   fillRect { x: toNumber $ targetX + 2, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
                 yellow = do
-                  setFillStyle ("rgba(255, 244, 151, " <> show opacity <> ")") stuff
+                  setFillStyle (customize.sustainYellow.hit opacity) stuff
                   fillRect { x: toNumber $ targetX + 38, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
                 blue = do
-                  setFillStyle ("rgba(190, 198, 255, " <> show opacity <> ")") stuff
+                  setFillStyle (customize.sustainBlue.hit opacity) stuff
                   fillRect { x: toNumber $ targetX + 74, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
                 orange = do
-                  setFillStyle ("rgba(231, 196, 112, " <> show opacity <> ")") stuff
+                  setFillStyle (customize.sustainOrange.hit opacity) stuff
                   fillRect { x: toNumber $ targetX + 110, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
                 green = do
-                  setFillStyle ("rgba(190, 255, 192, " <> show opacity <> ")") stuff
+                  setFillStyle (customize.sustainGreen.hit opacity) stuff
                   fillRect { x: toNumber $ targetX + posnGreen, y: toNumber $ targetY - 4, w: 35.0, h: 8.0 } stuff
             for_ evts \e -> case e of
               Kick -> kick
@@ -1079,11 +1066,11 @@ drawProKeys (ProKeys pk) targetX stuff = do
   let drawHighway _    L.Nil                 = pure unit
       drawHighway xpos (L.Cons chunk chunks) = do
         let params = case chunk of
-              RailingLight  -> { color: "rgb(184,185,205)", width: 1 }
-              RailingDark   -> { color: "black"           , width: 1 }
-              WhiteKey      -> { color: "rgb(126,126,150)", width: 11 }
-              WhiteKeyShort -> { color: "rgb(126,126,150)", width: 10 }
-              BlackKey      -> { color: "rgb(105,105,129)", width: 11 }
+              RailingLight  -> { color: customize.highwayRailing , width: 1  }
+              RailingDark   -> { color: customize.highwayDivider , width: 1  }
+              WhiteKey      -> { color: customize.highway        , width: 11 }
+              WhiteKeyShort -> { color: customize.highway        , width: 10 }
+              BlackKey      -> { color: customize.highwayBlackKey, width: 11 }
         setFillStyle params.color stuff
         fillRect { x: toNumber xpos, y: 0.0, w: toNumber params.width, h: toNumber windowH } stuff
         drawHighway (xpos + params.width) chunks
@@ -1100,11 +1087,11 @@ drawProKeys (ProKeys pk) targetX stuff = do
       drawSoloHighway _    _  _  L.Nil                 = pure unit
       drawSoloHighway xpos y1 y2 (L.Cons chunk chunks) = do
         let params = case chunk of
-              RailingLight  -> { color: Nothing                , width: 1  }
-              RailingDark   -> { color: Nothing                , width: 1  }
-              WhiteKey      -> { color: Just "rgb( 91,137,185)", width: 11 }
-              WhiteKeyShort -> { color: Just "rgb( 91,137,185)", width: 10 }
-              BlackKey      -> { color: Just "rgb( 73,111,149)", width: 11 }
+              RailingLight  -> { color: Nothing                   , width: 1  }
+              RailingDark   -> { color: Nothing                   , width: 1  }
+              WhiteKey      -> { color: Just customize.highwaySolo, width: 11 }
+              WhiteKeyShort -> { color: Just customize.highwaySolo, width: 10 }
+              BlackKey      -> { color: Just customize.highwaySoloBlackKey    , width: 11 }
         case params.color of
           Nothing -> pure unit
           Just c  -> do
@@ -1155,7 +1142,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
   -- Target
   drawImage Image_highway_prokeys_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Ranges
-  setFillStyle "rgba(0,0,0,0.3)" stuff
+  setFillStyle customize.proKeysRangeOverlay stuff
   let rangeEdges
         = L.fromFoldable
         $ cons (Tuple minSecs $ map _.value $ Map.lookupLE minSecs pk.ranges)
@@ -1191,14 +1178,14 @@ drawProKeys (ProKeys pk) targetX stuff = do
               sustaining = targetY < ystart || targetY < yend
               shades = if energy
                 then if isBlack
-                  then { light: "rgb( 52,148,117)", normal: "rgb( 71,107, 95)", dark: "rgb( 69, 83, 79)" }
-                  else { light: "rgb(137,235,204)", normal: "rgb(138,192,175)", dark: "rgb(124,158,149)" }
+                  then customize.sustainBlackKeyEnergy
+                  else customize.sustainEnergy
                 else if isBlack
-                  then { light: "rgb(175, 83,201)", normal: "rgb(147, 49,175)", dark: "rgb(123, 42,150)" }
-                  else { light: "rgb(199,134,218)", normal: "rgb(184,102,208)", dark: "rgb(178, 86,204)" }
+                  then customize.sustainBlackKey
+                  else customize.sustainWhiteKey
               h = yend' - ystart' + 1
               offsetX' = offsetX + if isBlack then 0 else 1
-          setFillStyle "black" stuff
+          setFillStyle customize.sustainBorder stuff
           fillRect { x: toNumber $ targetX + offsetX' + 2, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           fillRect { x: toNumber $ targetX + offsetX' + 8, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
           setFillStyle shades.light stuff
@@ -1245,7 +1232,8 @@ drawProKeys (ProKeys pk) targetX stuff = do
             then case evt of
               SustainEnd -> pure unit
               _ -> do
-                setFillStyle ("rgba(227,193,238," <> show ((futureSecs + 0.1) / 0.05) <> ")") stuff
+                let colors = if isBlack then customize.sustainBlackKey else customize.sustainWhiteKey
+                setFillStyle (colors.hit $ (futureSecs + 0.1) / 0.05) stuff
                 fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 } stuff
             else pure unit
         else do
@@ -1263,7 +1251,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
           when isGlissando case evt of
             SustainEnd -> pure unit
             _ -> do
-              onContext (C.setStrokeStyle "white") stuff
+              onContext (C.setStrokeStyle customize.glissandoBorder) stuff
               onContext (C.setLineWidth 1.0) stuff
               strokeRect { x: toNumber (targetX + offsetX) + 0.5, y: toNumber y - 4.5, w: 12.0, h: 9.0 } stuff
   pure $ targetX + 282 + _M
@@ -1314,11 +1302,11 @@ drawVocal (Vocal v) targetY stuff = do
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = zoomAscDoPadding minSecs maxSecs
       targetX = secsToPxHoriz stuff.time
-  setFillStyle "rgba(0,0,0,0.6)" stuff
+  setFillStyle customize.vocalNoteArea stuff
   fillRect { x: 0.0, y: toNumber targetY + 25.0, w: toNumber windowW, h: 130.0 } stuff
-  setFillStyle "rgba(0,27,89,0.85)" stuff
+  setFillStyle customize.lyricLaneBottom stuff
   fillRect { x: 0.0, y: toNumber targetY + 155.0, w: toNumber windowW, h: 25.0 } stuff
-  setFillStyle "rgba(87,55,0,0.85)" stuff
+  setFillStyle customize.lyricLaneTop stuff
   fillRect { x: 0.0, y: toNumber targetY, w: toNumber windowW, h: 25.0 } stuff
   -- Draw note pitches
   -- TODO: draw all pitch lines before talkies
@@ -1366,9 +1354,9 @@ drawVocal (Vocal v) targetY stuff = do
       drawLines _ L.Nil = pure unit
       drawLines Nothing (L.Cons (Tuple _ VocalEnd) rest) = drawLines Nothing rest
       lineParts =
-        [ { part: v.harm2, line: "rgb(189,67,0)"  , talky: "rgba(189,67,0,0.6)"  , width: 6.0 }
-        , { part: v.harm3, line: "rgb(225,148,22)", talky: "rgba(225,148,22,0.6)", width: 5.0 }
-        , { part: v.harm1, line: "rgb(46,229,223)", talky: "rgba(46,229,223,0.6)", width: 4.0 }
+        [ { part: v.harm2, line: customize.harm2Pitch, talky: customize.harm2Talky, width: 6.0 }
+        , { part: v.harm3, line: customize.harm3Pitch, talky: customize.harm3Talky, width: 5.0 }
+        , { part: v.harm1, line: customize.harm1Pitch, talky: customize.harm1Talky, width: 4.0 }
         ]
   onContext (C.setLineCap C.Round) stuff
   for_ lineParts \o -> do
@@ -1414,12 +1402,13 @@ drawVocal (Vocal v) targetY stuff = do
       drawLyrics minX textY (L.Cons o rest) = do
         let textX = max minX $ toNumber $ secsToPxHoriz o.time
         onContext (C.setFont $ if o.isTalky
-          then "bold italic 17px sans-serif"
-          else "bold 17px sans-serif"
+          then customize.lyricFontTalky
+          else customize.lyricFont
           ) stuff
         setFillStyle (case Map.lookupLE o.time v.energy of
-          Nothing -> "white"
-          Just { value: isEnergy } -> if isEnergy then "yellow" else "white"
+          Nothing -> customize.lyricColor
+          Just { value: isEnergy } ->
+            if isEnergy then customize.lyricColorEnergy else customize.lyricColor
           ) stuff
         metric <- measureText o.lyric stuff
         onContext (\ctx -> C.fillText ctx o.lyric textX textY) stuff
@@ -1442,20 +1431,20 @@ drawVocal (Vocal v) targetY stuff = do
   -- Draw percussion notes
   zoomDesc v.percussion \t (_ :: Unit) -> if t > stuff.time
     then do
-      setFillStyle "#d9d9d9" stuff
+      setFillStyle customize.percussionOuter stuff
       fillCircle { x: toNumber $ secsToPxHoriz t, y: toNumber targetY + 90.0, r: 11.0 } stuff
-      setFillStyle "#00b9c9" stuff
+      setFillStyle customize.percussionInner stuff
       fillCircle { x: toNumber $ secsToPxHoriz t, y: toNumber targetY + 90.0, r: 9.0 } stuff
     else do
       let opacity = (secToNum (t - stuff.time) + 0.1) / 0.05
       when (opacity > 0.0) $ do
-        setFillStyle ("rgba(255, 255, 255, " <> show opacity <> ")") stuff
+        setFillStyle (customize.percussionHit opacity) stuff
         fillCircle { x: toNumber $ secsToPxHoriz stuff.time, y: toNumber targetY + 90.0, r: 11.0 } stuff
   -- Draw phrase ends
-  setFillStyle "#bbb" stuff
+  setFillStyle customize.vocalPhraseEnd stuff
   zoomDesc v.phrases \t (_ :: Unit) -> do
     fillRect { x: toNumber (secsToPxHoriz t) - 1.0, y: toNumber targetY + 25.0, w: 3.0, h: 130.0 } stuff
   -- Draw target line
-  setFillStyle "#ddd" stuff
+  setFillStyle customize.vocalTargetLine stuff
   fillRect { x: toNumber targetX - 1.0, y: toNumber targetY + 25.0, w: 3.0, h: 130.0 } stuff
   pure $ targetY + 180 + _M

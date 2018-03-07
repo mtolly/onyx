@@ -38,6 +38,7 @@ webDisplay :: [(FilePath, B.ByteString)]
 webDisplay = concat
   [ [("index.html", $(makeRelativeToProject "../player/www/index.html" >>= embedFile))]
   , [("app.min.js", $(makeRelativeToProject "../player/www/app.min.js" >>= embedFile))]
+  , [("customize.js", $(makeRelativeToProject "../player/www/customize.js" >>= embedFile))]
   , map (first ("images" </>)) $(makeRelativeToProject "../player/www/images" >>= embedDir)
   , map (first ("lib" </>)) $(makeRelativeToProject "../player/www/lib" >>= embedDir)
   ]

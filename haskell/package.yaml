@@ -20,6 +20,7 @@ extra-source-files:
 - vendors/rockband_ghl.png
 - ../player/www/index.html
 - ../player/www/app.min.js
+- ../player/www/customize.js
 - ../player/www/images/*.png
 - ../player/www/lib/howler/dist/howler.min.js
 - cbits/*.h
