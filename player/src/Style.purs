@@ -67,4 +67,6 @@ foreign import customize ::
   , widthStandardFret :: Int
   , widthProtarFret :: Int
 
+  , autoplay :: Boolean
+
   }

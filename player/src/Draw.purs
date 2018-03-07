@@ -372,10 +372,11 @@ drawFive (Five five) targetX stuff = do
         isEnergy secs = case Map.lookupLE secs five.energy of
           Nothing           -> false
           Just { value: v } -> v
-        drawSustainBlock ystart yend energy = when (ystart < targetY || yend < targetY) do
-          let ystart' = min ystart targetY
-              yend'   = min yend   targetY
-              sustaining = targetY < ystart || targetY < yend
+        hitAtY = if customize.autoplay then targetY else windowH + 100
+        drawSustainBlock ystart yend energy = when (ystart < hitAtY || yend < hitAtY) do
+          let ystart' = min ystart hitAtY
+              yend'   = min yend   hitAtY
+              sustaining = customize.autoplay && (targetY < ystart || targetY < yend)
               shades = if energy
                 then customize.sustainEnergy
                 else normalShades
@@ -418,7 +419,7 @@ drawFive (Five five) targetX stuff = do
     zoomDesc (getColor five.notes) \secs evt -> do
       let futureSecs = secToNum $ secs - stuff.time
           trailX = if isOpen then 2 * widthFret + 2 else offsetX
-      if futureSecs <= 0.0
+      if customize.autoplay && futureSecs <= 0.0
         then do
           -- note is in the past or being hit now
           if (-0.1) < futureSecs
@@ -541,10 +542,11 @@ drawSix (Six six) targetX stuff = do
         isEnergy secs = case Map.lookupLE secs six.energy of
           Nothing           -> false
           Just { value: v } -> v
-        drawSustainBlock ystart yend energy = when (ystart < targetY || yend < targetY) do
-          let ystart' = min ystart targetY
-              yend'   = min yend   targetY
-              sustaining = targetY < ystart || targetY < yend
+        hitAtY = if customize.autoplay then targetY else windowH + 100
+        drawSustainBlock ystart yend energy = when (ystart < hitAtY || yend < hitAtY) do
+          let ystart' = min ystart hitAtY
+              yend'   = min yend   hitAtY
+              sustaining = customize.autoplay && (targetY < ystart || targetY < yend)
               shades = if energy
                 then customize.sustainEnergy
                 else getShades thisColor
@@ -590,7 +592,7 @@ drawSix (Six six) targetX stuff = do
           trailX = case thisColor of
             SixOpen -> 1 * widthFret + 1
             _       -> offsetX
-      if futureSecs <= 0.0
+      if customize.autoplay && futureSecs <= 0.0
         then do
           -- note is in the past or being hit now
           if (-0.1) < futureSecs
@@ -738,10 +740,11 @@ drawProtar (Protar protar) targetX stuff = do
         isEnergy secs = case Map.lookupLE secs protar.energy of
           Nothing           -> false
           Just { value: v } -> v
-        drawSustainBlock ystart yend energy = when (ystart < targetY || yend < targetY) do
-          let ystart' = min ystart targetY
-              yend'   = min yend   targetY
-              sustaining = targetY < ystart || targetY < yend
+        hitAtY = if customize.autoplay then targetY else windowH + 100
+        drawSustainBlock ystart yend energy = when (ystart < hitAtY || yend < hitAtY) do
+          let ystart' = min ystart hitAtY
+              yend'   = min yend   hitAtY
+              sustaining = customize.autoplay && (targetY < ystart || targetY < yend)
               shades = if energy
                 then customize.sustainEnergy
                 else normalShades
@@ -783,7 +786,7 @@ drawProtar (Protar protar) targetX stuff = do
   for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, shades: shades } -> do
     zoomDesc (getColor protar.notes) \secs evt -> do
       let futureSecs = secToNum $ secs - stuff.time
-      if futureSecs <= 0.0
+      if customize.autoplay && futureSecs <= 0.0
         then do
           -- note is in the past or being hit now
           if (-0.1) < futureSecs
@@ -933,7 +936,7 @@ drawDrums (Drums drums) targetX stuff = do
       imgKickOD = if drums.mode5 then Image_gem_open_energy else Image_gem_kick_energy
   zoomDesc drums.notes \secs evts -> do
     let futureSecs = secToNum $ secs - stuff.time
-    if futureSecs <= 0.0
+    if customize.autoplay && futureSecs <= 0.0
       then do
         -- note is in the past or being hit now
         if (-0.1) < futureSecs
@@ -1146,10 +1149,11 @@ drawProKeys (ProKeys pk) targetX stuff = do
         isEnergy secs = case Map.lookupLE secs pk.energy of
           Just {value: bool} -> bool
           Nothing            -> false
-        drawSustainBlock ystart yend energy = when (ystart < targetY || yend < targetY) do
-          let ystart' = min ystart targetY
-              yend'   = min yend   targetY
-              sustaining = targetY < ystart || targetY < yend
+        hitAtY = if customize.autoplay then targetY else windowH + 100
+        drawSustainBlock ystart yend energy = when (ystart < hitAtY || yend < hitAtY) do
+          let ystart' = min ystart hitAtY
+              yend'   = min yend   hitAtY
+              sustaining = customize.autoplay && (targetY < ystart || targetY < yend)
               shades = if energy
                 then if isBlack
                   then customize.sustainBlackKeyEnergy
@@ -1199,7 +1203,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
           isGlissando = case Map.lookupLE secs pk.gliss of
             Just {value: bool} -> bool
             Nothing            -> false
-      if futureSecs <= 0.0
+      if customize.autoplay && futureSecs <= 0.0
         then do
           -- note is in the past or being hit now
           if (-0.1) < futureSecs

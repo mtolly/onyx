@@ -130,4 +130,6 @@ window.customizeOnyx = {
   widthStandardFret: 36,
   widthProtarFret: 30,
 
+  autoplay: true,
+
 };
