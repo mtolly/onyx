@@ -19,14 +19,15 @@ import           DOM                         (DOM)
 import           Graphics.Canvas             as C
 import           Prelude
 import           RequestAnimationFrame       (requestAnimationFrame)
+import Data.Set as Set
+import Data.Tuple (Tuple(..))
 
 import           Audio                       (AUDIO, loadAudio, playFrom, stop)
 import           Draw                        (App (..), draw, getWindowDims, _B,
                                               _M)
 import           Images                      (withImages)
 import           Song                        (Song (..), FlexPart(..), Flex(..), isForeignSong)
-import Data.Set as Set
-import Data.Tuple (Tuple(..))
+import Style (customize)
 
 foreign import onyxSong :: Foreign
 
@@ -48,35 +49,37 @@ drawLoading canvas = do
   void $ C.setCanvasWidth  windowW canvas
   void $ C.setCanvasHeight windowH canvas
 
-  void $ C.setFillStyle "#4B1C4E" ctx
+  void $ C.setFillStyle customize.loadingBackground ctx
   void $ C.fillRect ctx { x: 0.0, y: 0.0, w: windowW, h: windowH }
 
   Milliseconds ms <- unInstant <$> now
-  let t = numMod ms 2000.0
-      smallSide = 50.0
+  let loopTime = customize.loadingLoopTime_ms
+      loopTime8 = customize.loadingLoopTime_ms / 8.0
+      t = numMod ms loopTime
+      smallSide = customize.loadingSmallSquareSize
       bigX = windowW / 2.0 - smallSide
       bigY = windowH / 2.0 - smallSide
       bigSide = smallSide * 2.0
-      smallDraw n x y = void $
+      smallDraw x y = void $
         C.fillRect ctx { x: x, y: y, w: smallSide, h: smallSide }
-  void $ C.setFillStyle "rgb(37,14,39)" ctx
+  void $ C.setFillStyle customize.loadingBigSquare ctx
   void $ C.fillRect ctx { x: bigX, y: bigY, w: bigSide, h: bigSide }
-  void $ C.setFillStyle "#CC8ED1" ctx
+  void $ C.setFillStyle customize.loadingSmallSquares ctx
   let smalls
-        | t < 250.0 = do
-          smallDraw 1 bigX bigY
-          smallDraw 2 (bigX + smallSide) (bigY + smallSide)
-        | t < 1000.0 = do
-          let moved = ((t - 250.0) / 750.0) * smallSide
-          smallDraw 3 (bigX + moved) bigY
-          smallDraw 4 (bigX + smallSide - moved) (bigY + smallSide)
-        | t < 1250.0 = do
-          smallDraw 5 (bigX + smallSide) bigY
-          smallDraw 6 bigX (bigY + smallSide)
+        | t < loopTime8 = do
+          smallDraw bigX bigY
+          smallDraw (bigX + smallSide) (bigY + smallSide)
+        | t < loopTime8 * 4.0 = do
+          let moved = ((t - loopTime8) / (loopTime8 * 3.0)) * smallSide
+          smallDraw (bigX + moved) bigY
+          smallDraw (bigX + smallSide - moved) (bigY + smallSide)
+        | t < loopTime8 * 5.0 = do
+          smallDraw (bigX + smallSide) bigY
+          smallDraw bigX (bigY + smallSide)
         | otherwise = do
-          let moved = ((t - 1250.0) / 750.0) * smallSide
-          smallDraw 7 bigX (bigY + smallSide - moved)
-          smallDraw 8 (bigX + smallSide) (bigY + moved)
+          let moved = ((t - loopTime8 * 5.0) / (loopTime8 * 3.0)) * smallSide
+          smallDraw bigX (bigY + smallSide - moved)
+          smallDraw (bigX + smallSide) (bigY + moved)
   smalls
 
 main :: Eff

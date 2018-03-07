@@ -13,6 +13,12 @@ foreign import customize ::
   , timestampFont :: String
   , timestampColor :: String
 
+  , loadingBackground :: String
+  , loadingBigSquare :: String
+  , loadingSmallSquares :: String
+  , loadingSmallSquareSize :: Number
+  , loadingLoopTime_ms :: Number
+
   , progressBorder :: String
   , progressEmpty :: String
   , progressFilled :: String

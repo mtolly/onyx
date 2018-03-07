@@ -4,6 +4,12 @@ window.customizeOnyx = {
   timestampFont: '17px monospace',
   timestampColor: 'white',
 
+  loadingBackground: '#4B1C4E',
+  loadingBigSquare: 'rgb(37,14,39)',
+  loadingSmallSquares: '#CC8ED1',
+  loadingSmallSquareSize: 50,
+  loadingLoopTime_ms: 2000,
+
   progressBorder: 'black',
   progressEmpty: 'white',
   progressFilled: 'rgb(100,130,255)',
@@ -18,8 +24,7 @@ window.customizeOnyx = {
   proKeysRangeOverlay: 'rgba(0,0,0,0.3)', // darkens pro keys outside of the current range
   glissandoBorder: 'white',
 
-  // trill/tremolo/BRE
-  freeformLane: 'rgb(60,60,60)',
+  freeformLane: 'rgb(60,60,60)', // trill/tremolo/BRE
 
   harm1Pitch: 'rgb(46,229,223)',
   harm2Pitch: 'rgb(189,67,0)',
