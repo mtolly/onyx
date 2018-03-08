@@ -158,7 +158,9 @@ removeBrokenUnisons mmap = go 0 where
           unless (null removing) $ inside unisonLocation $ warn $ unwords
             [ "Removing overdrive phrases on the following instruments"
             , "to fix an invalid unison phrase:"
-            , show removing
+            , unwords $ flip map removing $ \inst -> case show inst of
+              'F':'l':'e':'x':str -> str
+              str                 -> str
             ]
           case U.trackSplit (dt + 1) removed of
             (x, y) -> trackGlue (dt + 1) x <$> go (time + dt + 1) y
