@@ -38,7 +38,7 @@ processRB3Pad
   -> Staction (RBFile.Song (RBFile.RB3File U.Beats), Int)
 processRB3Pad a b c d e = do
   res <- processMIDI (Left a) b c d e
-  fixBrokenUnisons (fmap fst res) >>= magmaLegalTempos >>= magmaPad . fixBeatTrack'
+  magmaLegalTempos (fmap fst res) >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
 
 processPS
   :: TargetPS
