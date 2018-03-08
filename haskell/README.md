@@ -52,14 +52,17 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
 
     Here is a sample of the steps performed when importing from FoF/PS:
 
-      * Adds appropriate `[music_start]`, `[music_end]`, and `[end]` events
-      * Generates an automatic `BEAT` track from MIDI time signatures
-      * Adds auto-generated (roughly CAT-quality) lower difficulties if missing
-      * Imports as much metadata as possible from `song.ini`
-      * Applies the correct `delay` value from `song.ini` to the audio
-      * Delays the song start by a few seconds if notes are present too early
-      * Detects double drum roll lanes using the single lane note and fixes them
-      * In some cases, can alter the tempo map to fix too-slow/too-fast tempos
+      * Add appropriate `[music_start]`, `[music_end]`, and `[end]` events
+      * Generate an automatic `BEAT` track from MIDI time signatures
+      * Add auto-generated (roughly CAT-quality) lower difficulties if missing
+      * Import as much metadata as possible from `song.ini`
+      * Apply the correct `delay` value from `song.ini` to the audio
+      * Delay the song start by a few seconds if notes are present too early
+      * Detect double drum roll lanes using the single lane note and fixes them
+      * Alter the tempo map to fix some instances of too-slow/too-fast tempos
+      * Convert 5-lane drums to 4-lane using the standard Phase Shift rules
+      * Convert tap notes to HOPO notes
+      * Remove some overdrive phrases if they produce invalid unison phrases
 
     FeedBack `.chart` format is also supported. It must be in the Clone Hero
     format, meaning:
@@ -132,7 +135,7 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
     which plays back the audio and displays all tracks in 2D "Beatmania" style.
 
     Supports all Rock Band 3 instrument tracks, including Pro Guitar/Bass/Keys,
-    as well as the Clone Hero 6-fret (GHL) mode.
+    as well as the Clone Hero 6-fret (GHL) mode, and 5-lane drums.
 
     A player folder will appear next to the CON; open `index.html` to run.
     It can be run locally via `file://`, or hosted on a web server.
