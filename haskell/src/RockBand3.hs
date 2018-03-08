@@ -182,16 +182,19 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           psPS = if elem RBDrums.Kick2x trk1x then ps1x else ps2x
           -- Note: drumMix must be applied *after* drumsComplete.
           -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
-          in (if drumsFixFreeform pd then fixFreeformDrums else id) $ case target of
-            Left rb3 -> if rb3_2xBassPedal rb3
-              then rockBand2x ps2x
-              else rockBand1x ps1x
-            Right _ -> psPS
+          in (if drumsFixFreeform pd then fixFreeformDrums else id)
+            $ RTB.filter (\case RBDrums.Player1{} -> False; RBDrums.Player2{} -> False; _ -> True)
+            $ case target of
+              Left rb3 -> if rb3_2xBassPedal rb3
+                then rockBand2x ps2x
+                else rockBand1x ps1x
+              Right _ -> psPS
       makeGRYBOTrack toKeys fpart src = case getPart fpart songYaml >>= partGRYBO of
         Nothing -> (RTB.empty, RTB.empty)
         Just grybo -> let
           track
-            = (if gryboFixFreeform grybo then fixFreeformFive else id)
+            = RTB.filter (\case Five.Player1{} -> False; Five.Player2{} -> False; _ -> True)
+            $ (if gryboFixFreeform grybo then fixFreeformFive else id)
             $ gryboComplete (guard toKeys >> Just ht) mmap
             $ RBFile.flexFiveButton src
           ht = gryboHopoThreshold grybo
