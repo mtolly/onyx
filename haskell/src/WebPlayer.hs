@@ -184,7 +184,7 @@ instance (Real t) => A.ToJSON (ProKeys t) where
     ]
 
 data Protar t = Protar
-  { protarNotes  :: Map.Map PG.GtrString (Map.Map t (LongNote (Five.StrumHOPO, Maybe PG.GtrFret) ()))
+  { protarNotes  :: Map.Map PG.GtrString (Map.Map t (LongNote (Maybe Five.StrumHOPO, Maybe PG.GtrFret) ()))
   , protarSolo   :: Map.Map t Bool
   , protarEnergy :: Map.Map t Bool
   , protarLanes  :: Map.Map PG.GtrString (Map.Map t Bool)
@@ -201,10 +201,12 @@ instance (Real t) => A.ToJSON (Protar t) where
     [ (,) "notes" $ A.object $ flip map (Map.toList $ protarNotes x) $ \(string, notes) ->
       (,) (T.pack $ map toLower $ show string) $ eventList notes $ A.String . \case
         NoteOff () -> "end"
-        Blip (Five.Strum, fret) () -> "strum" <> showFret fret
-        Blip (Five.HOPO, fret) () -> "hopo" <> showFret fret
-        NoteOn (Five.Strum, fret) () -> "strum-sust" <> showFret fret
-        NoteOn (Five.HOPO, fret) () -> "hopo-sust" <> showFret fret
+        Blip (Just Five.Strum, fret) () -> "strum" <> showFret fret
+        Blip (Just Five.HOPO, fret) () -> "hopo" <> showFret fret
+        Blip (Nothing, fret) () -> "tap" <> showFret fret
+        NoteOn (Just Five.Strum, fret) () -> "strum-sust" <> showFret fret
+        NoteOn (Just Five.HOPO, fret) () -> "hopo-sust" <> showFret fret
+        NoteOn (Nothing, fret) () -> "tap-sust" <> showFret fret
     , (,) "solo" $ eventList (protarSolo x) A.toJSON
     , (,) "energy" $ eventList (protarEnergy x) A.toJSON
     , (,) "lanes" $ A.object $ flip map (Map.toList $ protarLanes x) $ \(string, lanes) ->

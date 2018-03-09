@@ -393,7 +393,7 @@ lowerOctaves maxFret rtb = let
   in eachDifficulty lowerDiff $ RTB.merge (fmap HandPosition hands') notHands
 
 guitarifyHOPO :: U.Beats -> RTB.T U.Beats DiffEvent
-  -> RTB.T U.Beats (StrumHOPO, [(GtrString, GtrFret, NoteType)], Maybe U.Beats)
+  -> RTB.T U.Beats (Maybe StrumHOPO, [(GtrString, GtrFret, NoteType)], Maybe U.Beats)
 guitarifyHOPO threshold rtb = let
   notes = RTB.mapMaybe (\case Note ln -> Just ln; _ -> Nothing) rtb
   gtr = joinEdges $ guitarify $ splitEdges
@@ -403,8 +403,8 @@ guitarifyHOPO threshold rtb = let
   fn prev dt (forces, ((), gems, len)) = let
     gems' = [ gem | gem@(_, _, nt) <- gems, nt /= ArpeggioForm ]
     ntype = if all (\(_, _, nt) -> nt == Tapped) gems'
-      then HOPO
-      else case forces of
+      then Nothing
+      else Just $ case forces of
         nt : _ -> nt
         [] -> if dt >= threshold -- TODO: should this be > or >= ?
           then Strum

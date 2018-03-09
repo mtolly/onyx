@@ -242,6 +242,30 @@ isForeignProtarNote f = readString f >>= \s -> case s of
   "hopo-20" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 20 }
   "hopo-21" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 21 }
   "hopo-22" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 22 }
+  "tap-x" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Nothing }
+  "tap-0" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 0 }
+  "tap-1" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 1 }
+  "tap-2" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 2 }
+  "tap-3" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 3 }
+  "tap-4" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 4 }
+  "tap-5" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 5 }
+  "tap-6" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 6 }
+  "tap-7" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 7 }
+  "tap-8" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 8 }
+  "tap-9" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 9 }
+  "tap-10" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 10 }
+  "tap-11" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 11 }
+  "tap-12" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 12 }
+  "tap-13" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 13 }
+  "tap-14" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 14 }
+  "tap-15" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 15 }
+  "tap-16" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 16 }
+  "tap-17" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 17 }
+  "tap-18" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 18 }
+  "tap-19" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 19 }
+  "tap-20" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 20 }
+  "tap-21" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 21 }
+  "tap-22" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 22 }
   "strum-sust-x" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Nothing }
   "strum-sust-0" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 0 }
   "strum-sust-1" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 1 }
@@ -290,6 +314,30 @@ isForeignProtarNote f = readString f >>= \s -> case s of
   "hopo-sust-20" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 20 }
   "hopo-sust-21" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 21 }
   "hopo-sust-22" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 22 }
+  "tap-sust-x" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Nothing }
+  "tap-sust-0" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 0 }
+  "tap-sust-1" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 1 }
+  "tap-sust-2" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 2 }
+  "tap-sust-3" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 3 }
+  "tap-sust-4" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 4 }
+  "tap-sust-5" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 5 }
+  "tap-sust-6" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 6 }
+  "tap-sust-7" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 7 }
+  "tap-sust-8" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 8 }
+  "tap-sust-9" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 9 }
+  "tap-sust-10" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 10 }
+  "tap-sust-11" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 11 }
+  "tap-sust-12" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 12 }
+  "tap-sust-13" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 13 }
+  "tap-sust-14" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 14 }
+  "tap-sust-15" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 15 }
+  "tap-sust-16" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 16 }
+  "tap-sust-17" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 17 }
+  "tap-sust-18" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 18 }
+  "tap-sust-19" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 19 }
+  "tap-sust-20" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 20 }
+  "tap-sust-21" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 21 }
+  "tap-sust-22" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 22 }
   _ -> throwError $ pure $ TypeMismatch "protar note event" $ show s
 
 isForeignPKNote :: Foreign -> F (Sustainable Unit)

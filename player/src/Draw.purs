@@ -716,22 +716,22 @@ drawProtar (Protar protar) targetX stuff = do
   drawImage Image_highway_protar_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Sustains
   let colors =
-        [ { c: _.s6, x: 0 * widthFret + 1, strum: Image_gem_red_pro   , hopo: Image_gem_red_pro_hopo
+        [ { c: _.s6, x: 0 * widthFret + 1, strum: Image_gem_red_pro   , hopo: Image_gem_red_pro_hopo   , tap: Image_gem_red_pro_tap
           , shades: customize.sustainRed
           }
-        , { c: _.s5, x: 1 * widthFret + 1, strum: Image_gem_green_pro , hopo: Image_gem_green_pro_hopo
+        , { c: _.s5, x: 1 * widthFret + 1, strum: Image_gem_green_pro , hopo: Image_gem_green_pro_hopo , tap: Image_gem_green_pro_tap
           , shades: customize.sustainGreen
           }
-        , { c: _.s4, x: 2 * widthFret + 1, strum: Image_gem_orange_pro, hopo: Image_gem_orange_pro_hopo
+        , { c: _.s4, x: 2 * widthFret + 1, strum: Image_gem_orange_pro, hopo: Image_gem_orange_pro_hopo, tap: Image_gem_orange_pro_tap
           , shades: customize.sustainOrange
           }
-        , { c: _.s3, x: 3 * widthFret + 1, strum: Image_gem_blue_pro  , hopo: Image_gem_blue_pro_hopo
+        , { c: _.s3, x: 3 * widthFret + 1, strum: Image_gem_blue_pro  , hopo: Image_gem_blue_pro_hopo  , tap: Image_gem_blue_pro_tap
           , shades: customize.sustainBlue
           }
-        , { c: _.s2, x: 4 * widthFret + 1, strum: Image_gem_yellow_pro, hopo: Image_gem_yellow_pro_hopo
+        , { c: _.s2, x: 4 * widthFret + 1, strum: Image_gem_yellow_pro, hopo: Image_gem_yellow_pro_hopo, tap: Image_gem_yellow_pro_tap
           , shades: customize.sustainYellow
           }
-        , { c: _.s1, x: 5 * widthFret + 1, strum: Image_gem_purple_pro, hopo: Image_gem_purple_pro_hopo
+        , { c: _.s1, x: 5 * widthFret + 1, strum: Image_gem_purple_pro, hopo: Image_gem_purple_pro_hopo, tap: Image_gem_purple_pro_tap
           , shades: customize.sustainPurple
           }
         ]
@@ -783,7 +783,7 @@ drawProtar (Protar protar) targetX stuff = do
         _ -> pure unit
       events -> go false events
   -- Notes
-  for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, shades: shades } -> do
+  for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, tap: tapImage, shades: shades } -> do
     zoomDesc (getColor protar.notes) \secs evt -> do
       let futureSecs = secToNum $ secs - stuff.time
       if customize.autoplay && futureSecs <= 0.0
@@ -804,32 +804,26 @@ drawProtar (Protar protar) targetX stuff = do
               fretImage i = case index protarFrets i of
                 Just x  -> x
                 Nothing -> Image_pro_fret_00 -- whatever
+              noteStart obj = case obj.fret of
+                Just fret -> let
+                  gemImg = case obj.noteType of
+                    Strum -> if isEnergy then Image_gem_energy_pro      else strumImage
+                    HOPO  -> if isEnergy then Image_gem_energy_pro_hopo else hopoImage
+                    Tap   -> if isEnergy then Image_gem_energy_pro_tap  else tapImage
+                  in do
+                    drawImage gemImg           (toNumber $ targetX + offsetX) (toNumber $ y - 10) stuff
+                    drawImage (fretImage fret) (toNumber $ targetX + offsetX) (toNumber $ y - 10) stuff
+                Nothing -> let
+                  gemImg = case obj.noteType of
+                    Strum -> if isEnergy then Image_gem_energy_mute      else Image_gem_mute
+                    HOPO  -> if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo
+                    Tap   -> if isEnergy then Image_gem_energy_mute_tap  else Image_gem_mute_tap
+                  in drawImage gemImg (toNumber $ targetX + offsetX) (toNumber $ y - 10) stuff
           case evt of
-            SustainEnd                                                -> drawImage Image_sustain_end                                                      (toNumber $ targetX + offsetX - 3) (toNumber   y      ) stuff
-            Note    (ProtarNote { noteType: Strum, fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute      else Image_gem_mute)      (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-            Sustain (ProtarNote { noteType: Strum, fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute      else Image_gem_mute)      (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-            Note    (ProtarNote { noteType: HOPO , fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-            Sustain (ProtarNote { noteType: HOPO , fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-            Note    (ProtarNote { noteType: Tap  , fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-            Sustain (ProtarNote { noteType: Tap  , fret: Nothing   }) -> drawImage (if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-            Note    (ProtarNote { noteType: Strum, fret: Just fret }) -> do
-              drawImage (if isEnergy then Image_gem_energy_pro      else strumImage) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-            Sustain (ProtarNote { noteType: Strum, fret: Just fret }) -> do
-              drawImage (if isEnergy then Image_gem_energy_pro      else strumImage) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-            Note    (ProtarNote { noteType: HOPO , fret: Just fret }) -> do
-              drawImage (if isEnergy then Image_gem_energy_pro_hopo else hopoImage ) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-            Sustain (ProtarNote { noteType: HOPO , fret: Just fret }) -> do
-              drawImage (if isEnergy then Image_gem_energy_pro_hopo else hopoImage ) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-            Note    (ProtarNote { noteType: Tap  , fret: Just fret }) -> do
-              drawImage (if isEnergy then Image_gem_energy_pro_hopo else hopoImage ) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-            Sustain (ProtarNote { noteType: Tap  , fret: Just fret }) -> do
-              drawImage (if isEnergy then Image_gem_energy_pro_hopo else hopoImage ) (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
-              drawImage (fretImage fret)                                             (toNumber $ targetX + offsetX    ) (toNumber $ y - 10 ) stuff
+            SustainEnd               -> do
+              drawImage Image_sustain_end (toNumber $ targetX + offsetX - 3) (toNumber   y) stuff
+            Note    (ProtarNote obj) -> noteStart obj
+            Sustain (ProtarNote obj) -> noteStart obj
   pure $ targetX + (widthFret * 6 + 2) + _M
 
 drawDrums :: forall e. Drums -> Int -> Draw e Int

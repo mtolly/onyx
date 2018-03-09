@@ -7,7 +7,6 @@
 {-# LANGUAGE TemplateHaskell       #-}
 module RockBand.FiveButton where
 
-import           Data.Bifunctor                   (first)
 import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Text                        as T
@@ -237,11 +236,6 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
     )
 
   ]
-
-assignKeys :: (NNC.C t) => RTB.T t DiffEvent -> RTB.T t (LongNote StrumHOPO Color)
-assignKeys = RTB.mapMaybe $ \case
-  Note note -> Just $ first (const Strum) note
-  _ -> Nothing
 
 instance HasDiffEvent DiffEvent Event where
   makeDiffEvent = DiffEvent

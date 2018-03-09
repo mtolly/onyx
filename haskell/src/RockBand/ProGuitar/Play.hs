@@ -158,8 +158,8 @@ autoplay thres = let
   f (prevGems, (shopo, thisGems, _)) = let
     fst3 (x, _, _) = x
     strums = case shopo of
-      Five.HOPO  -> []
-      Five.Strum -> [ Strum str 96 | (str, _, _) <- thisGems ]
+      Just Five.Strum -> [ Strum str 96 | (str, _, _) <- thisGems ]
+      _               -> [] -- hopo or tap
     frets
       = [ Fret str fret | (str, fret, _) <- thisGems ]
       ++ [ Fret str 0 | str <- map fst3 prevGems, notElem str $ map fst3 thisGems ]
