@@ -131,6 +131,12 @@ window.customizeOnyx = {
     dark: 'rgb(162,162,162)',
     hit: function(o){return 'rgba(200,200,200,'+o+')';},
   },
+  sustainProtarMute: {
+    light: '#bec9d8',
+    normal: '#6f8db1',
+    dark: '#516e93',
+    hit: function(o){return 'magenta';}, // not used
+  },
 
   widthStandardFret: 36,
   widthProtarFret: 30,

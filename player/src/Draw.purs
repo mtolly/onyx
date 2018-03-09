@@ -741,13 +741,14 @@ drawProtar (Protar protar) targetX stuff = do
           Nothing           -> false
           Just { value: v } -> v
         hitAtY = if customize.autoplay then targetY else windowH + 100
-        drawSustainBlock ystart yend energy = when (ystart < hitAtY || yend < hitAtY) do
+        drawSustainBlock ystart yend energy mute = when (ystart < hitAtY || yend < hitAtY) do
           let ystart' = min ystart hitAtY
               yend'   = min yend   hitAtY
               sustaining = customize.autoplay && (targetY < ystart || targetY < yend)
-              shades = if energy
-                then customize.sustainEnergy
-                else normalShades
+              shades =
+                if energy    then customize.sustainEnergy
+                else if mute then customize.sustainProtarMute
+                else              normalShades
               h = yend' - ystart' + 1
           setFillStyle customize.sustainBorder stuff
           fillRect { x: toNumber $ targetX + offsetX + 11, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
@@ -762,24 +763,24 @@ drawProtar (Protar protar) targetX stuff = do
             setFillStyle shades.light stuff
             fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
         go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisColor of
-          Just { key: secsStart, value: Sustain _ } -> do
-            drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
+          Just { key: secsStart, value: Sustain (ProtarNote o) } -> do
+            drawSustainBlock (secsToPxVert secsEnd) windowH (isEnergy secsStart) (isNothing o.fret)
             go false rest
           _ -> unsafeThrow "during protar drawing: found a sustain end not preceded by sustain start"
         go true (L.Cons (Tuple _ SustainEnd) rest) = go false rest
         go _ (L.Cons (Tuple _ (Note _)) rest) = go false rest
-        go _ (L.Cons (Tuple secsStart (Sustain _)) rest) = do
+        go _ (L.Cons (Tuple secsStart (Sustain (ProtarNote o))) rest) = do
           let pxEnd = case rest of
                 L.Nil                      -> 0
                 L.Cons (Tuple secsEnd _) _ -> secsToPxVert secsEnd
-          drawSustainBlock pxEnd (secsToPxVert secsStart) $ isEnergy secsStart
+          drawSustainBlock pxEnd (secsToPxVert secsStart) (isEnergy secsStart) (isNothing o.fret)
           go true rest
         go _ L.Nil = pure unit
     case L.fromFoldable $ Map.doTupleArray (zoomAsc thisColor) of
       L.Nil -> case Map.lookupLT (pxToSecsVert windowH) thisColor of
         -- handle the case where the entire screen is the middle of a sustain
-        Just { key: secsStart, value: Sustain _ } ->
-          drawSustainBlock 0 windowH $ isEnergy secsStart
+        Just { key: secsStart, value: Sustain (ProtarNote o) } ->
+          drawSustainBlock 0 windowH (isEnergy secsStart) (isNothing o.fret)
         _ -> pure unit
       events -> go false events
   -- Notes
