@@ -1,5 +1,22 @@
 # Version history
 
+## 20180308
+
+* Support MP3 audio for Clone Hero format
+* Fix invalid unison phrases (that "don't quite coincide")
+* Basic 5-lane drum support (converts to 4-lane; shows in web player)
+* Option to remove open HOPO notes when importing from PS/CH
+* Fix importing a `.chart` with two solo start events in a row
+* Change all tap notes to be HOPO for RB
+* Fix some CH songs being imported with no tracks
+* Fix some CH songs using the wrong audio delay value
+* Fix vocal charts imported from some GH to PS conversions
+* Fix some missing album art from PS imports
+* Show song title and artist in page title of web player
+* Show `mm:ss.sss` timestamp in web player
+* Web player colors and fonts separated out into editable file
+  (more customization options coming)
+
 ## 20180211
 
 * Better support for fixing `BEAT` track errors, should enable fixing much
