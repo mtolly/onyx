@@ -30,7 +30,7 @@ parts:
   bass:
     grybo: # TODO adjust a few parts to match pro bass
       difficulty: 4
-    pro-guitar: # TODO check from tab book
+    pro-guitar:
       difficulty: 6
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
   guitar:
