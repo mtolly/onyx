@@ -1,9 +1,9 @@
-NOVA COLLECTIVE
+NOVA COLLECTIVE (final version with pro gtr/bass)
 - dancing machines: drums done
-- cascades: single wrong PK note to release fix for
+- cascades: just need to adjust gtr/bass to match pro
 - air: drums done
 - state of flux: drums done, PK notes done but need to wrap/lane
-- ripped apart and reassembled: need to release pro bass + fixed basic bass
+- ripped apart and reassembled: just need to adjust bass to match pro
 - the further side: drums done
 
 JAZZ
