@@ -28,8 +28,9 @@ parts:
     drums:
       difficulty: 6
   bass:
-    grybo:
-      difficulty: 4
+    grybo: {}
+    pro-guitar:
+      tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
   guitar:
     grybo:
       difficulty: 6

@@ -97,9 +97,10 @@ def makeDifficulties(parts)
       when 7 then 'DDDDD'
       else        ''
       end
-    dots.gsub!('B', '<img alt="" class="onyx-instrument-difficulty-dot" src="img/black.png">')
-    dots.gsub!('W', '<img alt="" class="onyx-instrument-difficulty-dot" src="img/white.png">')
-    dots.gsub!('D', '<img alt="" class="onyx-instrument-difficulty-dot" src="img/devil.png">')
+    # explicit height/width get overridden by css
+    dots.gsub!('B', '<img alt="" height="13px" width="13px" class="onyx-instrument-difficulty-dot" src="img/black.png">')
+    dots.gsub!('W', '<img alt="" height="13px" width="13px" class="onyx-instrument-difficulty-dot" src="img/white.png">')
+    dots.gsub!('D', '<img alt="" height="13px" width="13px" class="onyx-instrument-difficulty-dot" src="img/devil.png">')
     diff_name = %w{
       Warmup Apprentice Solid Moderate Challenging Nightmare Impossible
     }[difficulties[inst] - 1]
@@ -125,9 +126,10 @@ def makeDifficulties(parts)
         else
           inst
         end
+      # explicit height gets overridden by css
       %{
         <span class="onyx-instrument">
-          <img alt="#{inst_name}" title="#{inst_name}" src="img/icons-alpha/#{instrument_image}.png" class="onyx-instrument-icon">
+          <img alt="#{inst_name}" height="27px" title="#{inst_name}" src="img/icons-alpha/#{instrument_image}.png" class="onyx-instrument-icon">
           <span class="onyx-instrument-difficulty" title="#{diff_name}">#{dots}</span>
         </span>
       }
