@@ -28,7 +28,7 @@ parts:
     drums:
       difficulty: 7
   bass:
-    grybo: # TODO adjust a few parts to match pro bass
+    grybo:
       difficulty: 4
     pro-guitar:
       difficulty: 6

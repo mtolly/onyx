@@ -28,13 +28,13 @@ parts:
     drums:
       difficulty: 6
   bass:
-    grybo: # TODO: adjust to pro bass
+    grybo:
       difficulty: 5
     pro-guitar:
       difficulty: 6
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
   guitar:
-    grybo: # TODO: adjust to pro guitar
+    grybo:
       difficulty: 6
     pro-guitar:
       difficulty: 7
