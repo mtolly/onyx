@@ -410,15 +410,17 @@ guitarifyHOPO threshold rtb = let
           then Strum
           else case prev of
             Nothing -> Strum
-            Just prevGems -> case gems of
-              -- note: gems above, not gems'.
-              -- if there are arpeggio form notes and one normal note,
-              -- we still count it as a chord for auto-hopo purposes.
-              -- doesn't make sense, but that's what rb3 does!
-              [(str, fret, _)] -> let
-                canHOPOFrom (str', fret', _) = str == str' && fret /= fret'
-                in if any canHOPOFrom prevGems then HOPO else Strum
-              _ -> Strum
+            Just prevGems -> if null [ () | (_, _, Muted) <- prevGems ]
+              then case gems of
+                -- note: gems above, not gems'.
+                -- if there are arpeggio form notes and one normal note,
+                -- we still count it as a chord for auto-hopo purposes.
+                -- doesn't make sense, but that's what rb3 does!
+                [(str, fret, _)] -> let
+                  canHOPOFrom (str', fret', _) = str == str' && fret /= fret'
+                  in if any canHOPOFrom prevGems then HOPO else Strum
+                _ -> Strum
+              else Strum -- after muted note, next note is not auto hopo
     in (Just gems', Just (ntype, gems', len))
   in trackState Nothing fn withForce
 

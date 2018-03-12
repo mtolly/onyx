@@ -1141,7 +1141,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                     expert = flip RTB.mapMaybe t $ \case
                       ProGtr.DiffEvent Expert devt -> Just devt
                       _                            -> Nothing
-                    auto = PGPlay.autoplay (fromIntegral thres / 480) expert
+                    auto = PGPlay.autoplay (fromIntegral thres / 480) (RBFile.s_tempos input) expert
                     msgToSysEx msg
                       = E.SystemExclusive $ SysEx.Regular $ PGPlay.sendCommand (cont, msg) ++ [0xF7]
                     in U.setTrackName name $ msgToSysEx <$> auto

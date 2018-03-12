@@ -4,6 +4,7 @@ import           Control.Monad                    (guard)
 import           Data.Bits                        ((.&.), (.|.))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Word                        (Word8)
+import           Numeric.NonNegative.Class        ((-|))
 import           RockBand.Common                  (each, reverseLookup)
 import qualified RockBand.FiveButton              as Five
 import           RockBand.ProGuitar
@@ -148,21 +149,33 @@ receiveCommand = magic where
     where test n b = (n .&. b) /= 0
   msg _ = Nothing
 
-autoplay :: U.Beats -> RTB.T U.Beats DiffEvent -> RTB.T U.Beats Message
-autoplay thres = let
-  rememberLast rtb = let
-    xs = RTB.toPairList rtb
-    remember Nothing                 (dt, this) = (dt, ([]      , this))
-    remember (Just (_, prevGems, _)) (dt, this) = (dt, (prevGems, this))
-    in RTB.fromPairList $ zipWith remember (Nothing : map (Just . snd) xs) xs
-  f (prevGems, (shopo, thisGems, _)) = let
-    fst3 (x, _, _) = x
-    strums = case shopo of
-      Just Five.Strum -> [ Strum str 96 | (str, _, _) <- thisGems ]
-      _               -> [] -- hopo or tap
-    frets
-      = [ Fret str fret | (str, fret, _) <- thisGems ]
-      ++ [ Fret str 0 | str <- map fst3 prevGems, notElem str $ map fst3 thisGems ]
-    in strums ++ frets
-  initEvents rtb = foldr (RTB.cons 0) rtb [ Fret str 0 | str <- each ]
-  in initEvents . RTB.flatten . fmap f . rememberLast . guitarifyHOPO thres
+autoplay :: U.Beats -> U.TempoMap -> RTB.T U.Beats DiffEvent -> RTB.T U.Beats Message
+autoplay thres tmap = let
+  go prevGems rtb = case RTB.viewL rtb of
+    Nothing -> RTB.empty
+    Just ((dt, (shopo, thisGemsTrips, _)), rtb') -> let
+      thisGems = [ (x, y) | (x, y, _) <- thisGemsTrips ]
+      isStrum = case shopo of
+        Just Five.Strum -> True
+        _               -> thisGems == prevGems -- strum only if this is a hopo/tap with same frets as prev note
+      strums = [ Strum str 96 | (str, _) <- thisGems ]
+      frets = do
+        str <- [minBound .. maxBound]
+        case (lookup str prevGems, lookup str thisGems) of
+          (Just _ , Nothing      ) -> [Fret str 0] -- release string now that we aren't using it
+          (Nothing, Nothing      ) -> []
+          (_      , Just thisFret) -> [Fret str thisFret]
+      in if isStrum
+        then let
+          usualPreFret = 0.1 :: U.Seconds
+          (fretDelay, strumDelay) = case dt -| usualPreFret of
+            x | x >= usualPreFret -> (x, usualPreFret)
+            _ -> (dt / 2, dt / 2)
+          in RTB.cons fretDelay frets $ RTB.cons strumDelay strums $ go thisGems rtb'
+        else RTB.cons dt frets $ go thisGems rtb'
+  in RTB.flatten
+    . RTB.cons 0 [ Fret str 0 | str <- [minBound .. maxBound] ]
+    . U.unapplyTempoTrack tmap
+    . go []
+    . U.applyTempoTrack tmap
+    . guitarifyHOPO thres
