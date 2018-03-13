@@ -263,9 +263,9 @@
 - file-path: ../songs/nova-collective/cascades
   video: https://www.youtube.com/watch?v=pHGLMVC4R0k
   urls:
-    rb3: download/OJP3_Cascades1x_v1_rb3con
-    rb3-2x: download/OJP3_Cascades2x_v1_rb3con
-    ps: download/OJP3_Cascades_v1_ps_ch.zip
+    rb3: download/OJP3_Cascades1x_v2_rb3con
+    rb3-2x: download/OJP3_Cascades2x_v2_rb3con
+    ps: download/OJP3_Cascades_v2_ps_ch.zip
 - file-path: ../songs/return-to-forever/medieval-overture
   video: https://www.youtube.com/watch?v=imIuiXnS0sY
   urls:

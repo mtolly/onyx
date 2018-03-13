@@ -48,11 +48,11 @@ targets:
   rb3:
     game: rb3
     song-id: 1660200068
-    version: 1
+    version: 2
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     song-id: 1660200069
-    version: 1
+    version: 2
   ps:
     game: ps
