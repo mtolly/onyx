@@ -6,4 +6,5 @@ Makefile
 template/
 rsync-exclude
 *.sass
+*.map
 .DS_Store
