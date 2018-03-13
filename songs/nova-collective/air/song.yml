@@ -26,6 +26,11 @@ parts:
   drums:
     drums:
       difficulty: 6
+  guitar:
+    pro-guitar:
+      tuning: [0, 0, 0, 0, 0, 0]
+      # technically this song is 7-string.
+      # but it's only one section, so I just tweaked it to 6-string.
 targets:
   rb3:
     game: rb3

@@ -328,13 +328,11 @@ standardBass = [28, 33, 38, 43, 47, 52]
 autoHandPosition :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
 autoHandPosition rtb = let
   mapInstant evts = let
-    frets = do
-      (fret, ntype) <- evts >>= \case
-        DiffEvent _ (Note (NoteOn fret (_, ntype))) -> [(fret, ntype)]
-        DiffEvent _ (Note (Blip   fret (_, ntype))) -> [(fret, ntype)]
-        _ -> []
-      guard $ ntype /= ArpeggioForm
-      return fret
+    frets = evts >>= \case
+      DiffEvent _ (Note (NoteOn fret _)) -> [fret]
+      DiffEvent _ (Note (Blip   fret _)) -> [fret]
+      _ -> []
+      -- note, we do take ArpeggioForm notes into account because Magma does too
     in case frets of
       [] -> evts
       _  -> case filter (/= 0) frets of
