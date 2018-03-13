@@ -15,126 +15,114 @@ load_yaml_tree('songs.yml').each do |song|
   })
 end
 
-def makeDifficulties(parts)
-  instruments = {}
-  difficulties = {}
-  if parts['guitar']
-    if parts['guitar']['grybo']
-      instruments['guitar'] = true
-      difficulties['guitar'] = parts['guitar']['grybo']['difficulty']
+def difficultyDots(n)
+  dots =
+    case n
+    when 1 then 'BBBBB'
+    when 2 then 'WBBBB'
+    when 3 then 'WWBBB'
+    when 4 then 'WWWBB'
+    when 5 then 'WWWWB'
+    when 6 then 'WWWWW'
+    when 7 then 'DDDDD'
+    else        ''
     end
-    if parts['guitar']['pro-guitar']
-      instruments['pro-guitar'] = true
-      difficulties['pro-guitar'] = parts['guitar']['pro-guitar']['difficulty']
-    end
-  end
-  if parts['bass']
-    if parts['bass']['grybo']
-      instruments['bass'] = true
-      difficulties['bass'] = parts['bass']['grybo']['difficulty']
-    end
-    if parts['bass']['pro-guitar']
-      instruments['pro-bass'] = true
-      difficulties['pro-bass'] = parts['bass']['pro-guitar']['difficulty']
-    end
-  end
-  if parts['keys']
-    if parts['keys']['grybo']
-      instruments['keys'] = true
-      difficulties['keys'] = parts['keys']['grybo']['difficulty']
-    end
-    if parts['keys']['pro-keys']
-      instruments['pro-keys'] = true
-      difficulties['pro-keys'] = parts['keys']['pro-keys']['difficulty']
-    end
-  end
-  if parts['drums']
-    if parts['drums']['drums']
-      instruments['drums'] = true
-      difficulties['drums'] = parts['drums']['drums']['difficulty']
+  # explicit height/width get overridden by css
+  dots.gsub!('B', '<img alt="" height="13px" width="13px" class="onyx-mode-difficulty-dot" src="img/black.png">')
+  dots.gsub!('W', '<img alt="" height="13px" width="13px" class="onyx-mode-difficulty-dot" src="img/white.png">')
+  dots.gsub!('D', '<img alt="" height="13px" width="13px" class="onyx-mode-difficulty-dot" src="img/devil.png">')
+  dots
+end
+
+def difficultyName(n)
+  %w{
+    Warmup Apprentice Solid Moderate Challenging Nightmare Impossible
+  }[n - 1]
+end
+
+def makeDifficulties(parts, song)
+  part_index = proc do |x, y|
+    case x
+    when 'guitar' then '0'
+    when 'bass'   then '1'
+    when 'drums'  then '2'
+    when 'keys'   then '3'
+    when 'vocal'  then '4'
+    else               '5' + x
     end
   end
-  if parts['vocal']
-    if parts['vocal']['vocal']
-      instruments['vocal'] = parts['vocal']['vocal']['count']
-      difficulties['vocal'] = parts['vocal']['vocal']['difficulty']
-    end
-  end
-  if parts['violin']
-    # if parts['violin']['grybo']
-    #   instruments['violin-grybo'] = true
-    #   difficulties['violin-grybo'] = parts['violin']['grybo']['difficulty']
-    # end
-    if parts['violin']['vocal']
-      instruments['violin-vocal'] = parts['violin']['vocal']['count']
-      difficulties['violin-vocal'] = parts['violin']['vocal']['difficulty']
-    end
-  end
-  def instrument_index(inst)
-    case inst
-    when 'guitar'     then '1'
+  mode_index = proc do |x, y|
+    case x
+    when 'grybo'      then '0'
+    when 'ghl'        then '1'
     when 'pro-guitar' then '2'
-    when 'bass'       then '3'
-    when 'pro-bass'   then '4'
-    when 'drums'      then '5'
-    when 'keys'       then '6'
-    when 'pro-keys'   then '7'
-    when 'vocal'      then '8'
-    else                   '9' + inst
+    when 'pro-keys'   then '3'
+    when 'drums'      then '4'
+    when 'vocal'      then '5'
+    else                   '6' + x
     end
   end
-  instruments.sort_by { |inst, val| instrument_index(inst) }.map do |inst, val|
-    val = 0 if val == false
-    val = 1 if val == true
-    dots =
-      case difficulties[inst]
-      when 1 then 'BBBBB'
-      when 2 then 'WBBBB'
-      when 3 then 'WWBBB'
-      when 4 then 'WWWBB'
-      when 5 then 'WWWWB'
-      when 6 then 'WWWWW'
-      when 7 then 'DDDDD'
-      else        ''
-      end
-    # explicit height/width get overridden by css
-    dots.gsub!('B', '<img alt="" height="13px" width="13px" class="onyx-instrument-difficulty-dot" src="img/black.png">')
-    dots.gsub!('W', '<img alt="" height="13px" width="13px" class="onyx-instrument-difficulty-dot" src="img/white.png">')
-    dots.gsub!('D', '<img alt="" height="13px" width="13px" class="onyx-instrument-difficulty-dot" src="img/devil.png">')
-    diff_name = %w{
-      Warmup Apprentice Solid Moderate Challenging Nightmare Impossible
-    }[difficulties[inst] - 1]
-    inst_name =
-      case inst
-      when 'drums'
-        '(Pro) Drums'
-      when 'vocal'
-        "Vocals (#{ val })"
-      when 'violin-grybo'
-        'Violin (GRYBO)'
-      when 'violin-vocal'
-        'Violin (Vocals)'
-      else
-        inst.split('-').map(&:capitalize).join(' ')
-      end
-    if val != 0
-      instrument_image =
-        if inst == 'vocal'
-          "vocal-#{val}"
-        elsif inst == 'drums'
-          "pro-drums"
-        else
-          inst
+  output = []
+  parts.sort_by(&part_index).each do |part, modes|
+    modes_output = []
+    modes.sort_by(&mode_index).each do |mode, info|
+      mode_name = '???'
+      mode_image = 'no-image'
+      case mode
+      when 'grybo'
+        mode_name = '5-Fret'
+        mode_image =
+          case part
+          when 'bass' then 'bass'
+          when 'keys' then 'keys'
+          else             'guitar'
+          end
+      when 'ghl'
+        next # TODO
+        mode_name = '6-Fret (GHL)'
+        mode_image = 'guitar'
+      when 'pro-guitar'
+        if ['Cascades', 'Ripped Apart and Reassembled', 'Summer Goddess', 'Scoop Out'].include?(song['project']['metadata']['title'])
+          # hiding these pro guitar/bass charts since they haven't been released
+          next
         end
+        if part == 'bass'
+          mode_name = 'Pro Bass'
+          mode_image = 'pro-bass'
+        else
+          mode_name = 'Pro Guitar'
+          mode_image = 'pro-guitar'
+        end
+      when 'pro-keys'
+        mode_name = 'Pro Keys'
+        mode_image = 'pro-keys'
+      when 'drums'
+        mode_name = '(Pro) Drums'
+        mode_image = 'drums'
+      when 'vocal'
+        count = info['count']
+        mode_name = "Vocals (#{count})"
+        mode_image = "vocal-#{[count, 3].min}"
+      end
+      diff = info['difficulty']
       # explicit height gets overridden by css
-      %{
-        <span class="onyx-instrument">
-          <img alt="#{inst_name}" height="27px" title="#{inst_name}" src="img/icons-alpha/#{instrument_image}.png" class="onyx-instrument-icon">
-          <span class="onyx-instrument-difficulty" title="#{diff_name}">#{dots}</span>
+      modes_output << %{
+        <span class="onyx-mode">
+          <img alt="#{mode_name}" height="27px" title="#{mode_name}" src="img/icons-alpha/#{mode_image}.png" class="onyx-mode-icon">
+          <span class="onyx-mode-difficulty" title="#{difficultyName(diff)}">#{difficultyDots(diff)}</span>
+        </span>
+      }
+    end
+    unless modes_output.empty?
+      output << %{
+        <span class="onyx-part">
+          <span class="onyx-part-name">#{part}</span>
+          #{modes_output.join('')}
         </span>
       }
     end
   end
+  output
 end
 
 def makeTargetName(target_name, target)
@@ -184,7 +172,7 @@ artists = songs.group_by { |s| s['project']['metadata']['artist'] }.map do |arti
                 'url' => (song['urls'] || {})[target_name],
               }
             end.select { |obj| not obj['url'].nil? },
-            'difficulties' => makeDifficulties(song['project']['parts'] || {}),
+            'difficulties' => makeDifficulties(song['project']['parts'] || {}, song),
             'video' => song['video']
           }
         end.sort_by { |song| song['track-number'] },
