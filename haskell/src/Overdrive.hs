@@ -5,7 +5,7 @@ module Overdrive where
 import           Control.Monad                    (forM, guard, unless)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (nub, partition)
+import           Data.List                        (nub)
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified RockBand.Drums                   as RBDrums
 import           RockBand.File
@@ -25,21 +25,18 @@ instance HasOverdrive RB3File where
         fnFive  = \case RBFive.Overdrive  b -> Just b; _ -> Nothing
         fnPK    = \case PK.Overdrive      b -> Just b; _ -> Nothing
         fnPG    = \case PG.Overdrive      b -> Just b; _ -> Nothing
-        combineOD trks = case trks of
-          []           -> return RTB.empty
-          (_, od) : rest -> if all (== od) $ map snd rest
+        combineOD trks = case filter (not . RTB.null . snd) trks of
+          []                            -> return RTB.empty
+          hasOD@((firstTrk, od) : rest) -> if all (== od) $ map snd rest
             then return od
-            else case partition (RTB.null . snd) trks of
-              (_, [(_, od')]           ) -> return od'
-              (_, []                   ) -> return RTB.empty -- shouldn't happen
-              (_, diffOD@((n, od') : _)) -> do
-                warn $ unwords
-                  [ "These tracks should have identical overdrive but they don't:"
-                  , show $ map fst diffOD
-                  , "so I'm arbitrarily using the overdrive from"
-                  , n
-                  ]
-                return od'
+            else do
+              warn $ unwords
+                [ "These tracks should have identical overdrive but they don't:"
+                , show $ map fst hasOD
+                , "so I'm arbitrarily using the overdrive from"
+                , firstTrk
+                ]
+              return od
         part fpart = fmap $ fmap (fpart ,)
     foldr RTB.merge RTB.empty <$> sequence
       [ part FlexDrums $ return $ RTB.mapMaybe fnDrums $ rb3PartDrums rb3

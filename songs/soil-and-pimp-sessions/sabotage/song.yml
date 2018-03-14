@@ -35,7 +35,10 @@ parts:
       difficulty: 7
       kit: VintageKit
   bass:
-    grybo:
+    grybo: # TODO need to adjust from pro
+      difficulty: 3
+    pro-guitar:
+      tuning: [0, 0, 0, 0]
       difficulty: 3
   guitar:
     grybo:
