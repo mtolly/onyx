@@ -24,6 +24,11 @@ parts:
   drums:
     drums:
       difficulty: 6
+  keys:
+    pro-keys: {} # TODO need to wrap
+  guitar:
+    pro-guitar:
+      tuning: [0, 0, 0, 0, 0, 0]
 targets:
   rb3:
     game: rb3
