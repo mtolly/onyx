@@ -1,0 +1,30 @@
+metadata:
+  title: Humanoid
+  artist: Cynic
+  file-album-art: cover.jpg
+  genre: metal
+  subgenre: prog
+  album: Humanoid (Single) # should probably do no album but onyx doesn't support
+  track-number: 1
+  year: 2018
+  author: Onyxite
+audio:
+  bandcamp: # https://cyniconline.bandcamp.com/track/humanoid
+    md5: b4f3bf00d92dabc8e5ecc494379dc25b
+    frames: 11931376
+    channels: 2
+plans:
+  album:
+    song:
+      pad: [3.581, bandcamp]
+parts:
+  drums:
+    drums: {}
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
