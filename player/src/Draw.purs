@@ -418,7 +418,7 @@ drawFive (Five five) targetX stuff = do
   for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, tap: tapImage, shades: shades, open: isOpen } -> do
     zoomDesc (getColor five.notes) \secs evt -> do
       let futureSecs = secToNum $ secs - stuff.time
-          trailX = if isOpen then 2 * widthFret + 2 else offsetX
+          trailX = if isOpen then 2 * widthFret + 1 else offsetX
       if customize.autoplay && futureSecs <= 0.0
         then do
           -- note is in the past or being hit now

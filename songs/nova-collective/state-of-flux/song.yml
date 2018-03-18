@@ -27,6 +27,7 @@ parts:
   keys:
     pro-keys: {} # TODO need to wrap
   guitar:
+    grybo: {}
     pro-guitar:
       tuning: [0, 0, 0, 0, 0, 0]
   bass:
