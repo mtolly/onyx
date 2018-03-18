@@ -30,6 +30,7 @@ parts:
     pro-guitar:
       tuning: [0, 0, 0, 0, 0, 0]
   bass:
+    grybo: {} # TODO need to make no-open-notes chart
     pro-guitar:
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
 targets:

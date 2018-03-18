@@ -1,11 +1,14 @@
-NOVA COLLECTIVE (final version with pro gtr/bass)
+THE FURTHER SIDE (NOVA COLLECTIVE)
 - dancing machines: drums done, started PG+PK
-- cascades: just protar polish
+- cascades: done!
 - air: drums + pro guitar done
-- state of flux: just basic gtr/bass/keys, protar polish
-- ripped apart and reassembled: just protar polish
+- state of flux: just needs basic gtr/keys + wrap PK
+- ripped apart and reassembled: done!
 - the further side: drums done
-also: should check all drum charts to be as tom-accurate as possible
+final steps:
+- check all drum charts to be as tom-accurate as possible
+- protar polish (slides, chords, etc.)
+- no-open-notes versions
 
 JAZZ
 at least 2 parts done:
