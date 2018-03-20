@@ -75,5 +75,6 @@ foreign import customize ::
   , widthProtarFret :: Int
 
   , autoplay :: Boolean
+  , leftyFlip :: Boolean
 
   }

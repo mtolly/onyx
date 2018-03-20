@@ -273,6 +273,7 @@ drawFive (Five five) targetX stuff = do
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
+      handedness n = if customize.leftyFlip then 4 - n else n
   -- Highway
   setFillStyle customize.highway stuff
   fillRect { x: toNumber targetX, y: 0.0, w: toNumber $ widthFret * 5 + 2, h: toNumber windowH } stuff
@@ -307,11 +308,11 @@ drawFive (Five five) targetX stuff = do
   -- Lanes
   let lanes =
         -- TODO open
-        [ {x: 0 * widthFret + 2, gem: _.green }
-        , {x: 1 * widthFret + 2, gem: _.red   }
-        , {x: 2 * widthFret + 2, gem: _.yellow}
-        , {x: 3 * widthFret + 2, gem: _.blue  }
-        , {x: 4 * widthFret + 2, gem: _.orange}
+        [ {x: handedness 0 * widthFret + 2, gem: _.green }
+        , {x: handedness 1 * widthFret + 2, gem: _.red   }
+        , {x: handedness 2 * widthFret + 2, gem: _.yellow}
+        , {x: handedness 3 * widthFret + 2, gem: _.blue  }
+        , {x: handedness 4 * widthFret + 2, gem: _.orange}
         ]
   for_ lanes \{x: offsetX, gem: gem} -> let
     thisLane = Map.union five.bre $ gem five.lanes
@@ -344,25 +345,27 @@ drawFive (Five five) targetX stuff = do
       Beat     -> drawImage Image_highway_grybo_beat     (toNumber targetX) (toNumber y - 1.0) stuff
       HalfBeat -> drawImage Image_highway_grybo_halfbeat (toNumber targetX) (toNumber y      ) stuff
   -- Target
-  drawImage Image_highway_grybo_target (toNumber targetX) (toNumber targetY - 5.0) stuff
+  drawImage
+    (if customize.leftyFlip then Image_highway_grybo_target_lefty else Image_highway_grybo_target)
+    (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Sustains
   let colors =
-        [ { c: _.open  , x: 0 * widthFret + 1, strum: Image_gem_open  , hopo: Image_gem_open_hopo, tap: Image_gem_open_tap
+        [ { c: _.open  , x:            0 * widthFret + 1, strum: Image_gem_open  , hopo: Image_gem_open_hopo, tap: Image_gem_open_tap
           , shades: customize.sustainPurple, open: true
           }
-        , { c: _.green , x: 0 * widthFret + 1, strum: Image_gem_green , hopo: Image_gem_green_hopo, tap: Image_gem_green_tap
+        , { c: _.green , x: handedness 0 * widthFret + 1, strum: Image_gem_green , hopo: Image_gem_green_hopo, tap: Image_gem_green_tap
           , shades: customize.sustainGreen, open: false
           }
-        , { c: _.red   , x: 1 * widthFret + 1, strum: Image_gem_red   , hopo: Image_gem_red_hopo, tap: Image_gem_red_tap
+        , { c: _.red   , x: handedness 1 * widthFret + 1, strum: Image_gem_red   , hopo: Image_gem_red_hopo, tap: Image_gem_red_tap
           , shades: customize.sustainRed, open: false
           }
-        , { c: _.yellow, x: 2 * widthFret + 1, strum: Image_gem_yellow, hopo: Image_gem_yellow_hopo, tap: Image_gem_yellow_tap
+        , { c: _.yellow, x: handedness 2 * widthFret + 1, strum: Image_gem_yellow, hopo: Image_gem_yellow_hopo, tap: Image_gem_yellow_tap
           , shades: customize.sustainYellow, open: false
           }
-        , { c: _.blue  , x: 3 * widthFret + 1, strum: Image_gem_blue  , hopo: Image_gem_blue_hopo, tap: Image_gem_blue_tap
+        , { c: _.blue  , x: handedness 3 * widthFret + 1, strum: Image_gem_blue  , hopo: Image_gem_blue_hopo, tap: Image_gem_blue_tap
           , shades: customize.sustainBlue, open: false
           }
-        , { c: _.orange, x: 4 * widthFret + 1, strum: Image_gem_orange, hopo: Image_gem_orange_hopo, tap: Image_gem_orange_tap
+        , { c: _.orange, x: handedness 4 * widthFret + 1, strum: Image_gem_orange, hopo: Image_gem_orange_hopo, tap: Image_gem_orange_tap
           , shades: customize.sustainOrange, open: false
           }
         ]
@@ -449,6 +452,8 @@ drawFive (Five five) targetX stuff = do
                 SustainEnd -> y
                 _          -> if isOpen then y - 3 else y - 5
           drawImage img (toNumber x') (toNumber y') stuff
+  -- TODO: draw all SustainEnd before Note/Sustain
+  -- (for GH style where sustain goes right up to next note)
   pure $ targetX + (widthFret * 5 + 2) + _M
 
 data SixColor
@@ -470,6 +475,7 @@ drawSix (Six six) targetX stuff = do
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
+      handedness n = if customize.leftyFlip then 2 - n else n
   -- Highway
   setFillStyle customize.highway stuff
   fillRect { x: toNumber targetX, y: 0.0, w: 110.0, h: toNumber windowH } stuff
@@ -513,16 +519,16 @@ drawSix (Six six) targetX stuff = do
   drawImage Image_highway_ghl_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Sustains
   let colors =
-        [ { c: _.open, x: 0 * widthFret + 1, color: SixOpen  }
-        , { c: _.b1  , x: 0 * widthFret + 1, color: SixBlack }
-        , { c: _.b2  , x: 1 * widthFret + 1, color: SixBlack }
-        , { c: _.b3  , x: 2 * widthFret + 1, color: SixBlack }
-        , { c: _.w1  , x: 0 * widthFret + 1, color: SixWhite }
-        , { c: _.w2  , x: 1 * widthFret + 1, color: SixWhite }
-        , { c: _.w3  , x: 2 * widthFret + 1, color: SixWhite }
-        , { c: _.bw1 , x: 0 * widthFret + 1, color: SixBoth  }
-        , { c: _.bw2 , x: 1 * widthFret + 1, color: SixBoth  }
-        , { c: _.bw3 , x: 2 * widthFret + 1, color: SixBoth  }
+        [ { c: _.open, x:            0 * widthFret + 1, color: SixOpen  }
+        , { c: _.b1  , x: handedness 0 * widthFret + 1, color: SixBlack }
+        , { c: _.b2  , x: handedness 1 * widthFret + 1, color: SixBlack }
+        , { c: _.b3  , x: handedness 2 * widthFret + 1, color: SixBlack }
+        , { c: _.w1  , x: handedness 0 * widthFret + 1, color: SixWhite }
+        , { c: _.w2  , x: handedness 1 * widthFret + 1, color: SixWhite }
+        , { c: _.w3  , x: handedness 2 * widthFret + 1, color: SixWhite }
+        , { c: _.bw1 , x: handedness 0 * widthFret + 1, color: SixBoth  }
+        , { c: _.bw2 , x: handedness 1 * widthFret + 1, color: SixBoth  }
+        , { c: _.bw3 , x: handedness 2 * widthFret + 1, color: SixBoth  }
         ]
       getShades sc = case sc of
         SixWhite -> customize.sustainWhiteGHL
@@ -642,6 +648,7 @@ drawProtar (Protar protar) targetX stuff = do
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
+      handedness n = if customize.leftyFlip then 5 - n else n
   -- Highway
   setFillStyle customize.highway stuff
   fillRect { x: toNumber targetX, y: 0.0, w: toNumber $ widthFret * 6 + 2, h: toNumber windowH } stuff
@@ -675,12 +682,12 @@ drawProtar (Protar protar) targetX stuff = do
     drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
   -- Lanes
   let lanes =
-        [ {x: 0 * widthFret + 2, gem: _.s6}
-        , {x: 1 * widthFret + 2, gem: _.s5}
-        , {x: 2 * widthFret + 2, gem: _.s4}
-        , {x: 3 * widthFret + 2, gem: _.s3}
-        , {x: 4 * widthFret + 2, gem: _.s2}
-        , {x: 5 * widthFret + 2, gem: _.s1}
+        [ {x: handedness 0 * widthFret + 2, gem: _.s6}
+        , {x: handedness 1 * widthFret + 2, gem: _.s5}
+        , {x: handedness 2 * widthFret + 2, gem: _.s4}
+        , {x: handedness 3 * widthFret + 2, gem: _.s3}
+        , {x: handedness 4 * widthFret + 2, gem: _.s2}
+        , {x: handedness 5 * widthFret + 2, gem: _.s1}
         ]
   for_ lanes \{x: offsetX, gem: gem} -> let
     thisLane = Map.union protar.bre $ gem protar.lanes
@@ -713,25 +720,27 @@ drawProtar (Protar protar) targetX stuff = do
       Beat     -> drawImage Image_highway_protar_beat     (toNumber targetX) (toNumber y - 1.0) stuff
       HalfBeat -> drawImage Image_highway_protar_halfbeat (toNumber targetX) (toNumber y      ) stuff
   -- Target
-  drawImage Image_highway_protar_target (toNumber targetX) (toNumber targetY - 5.0) stuff
+  drawImage
+    (if customize.leftyFlip then Image_highway_protar_target_lefty else Image_highway_protar_target)
+    (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Sustains
   let colors =
-        [ { c: _.s6, x: 0 * widthFret + 1, strum: Image_gem_red_pro   , hopo: Image_gem_red_pro_hopo   , tap: Image_gem_red_pro_tap
+        [ { c: _.s6, x: handedness 0 * widthFret + 1, strum: Image_gem_red_pro   , hopo: Image_gem_red_pro_hopo   , tap: Image_gem_red_pro_tap
           , shades: customize.sustainRed
           }
-        , { c: _.s5, x: 1 * widthFret + 1, strum: Image_gem_green_pro , hopo: Image_gem_green_pro_hopo , tap: Image_gem_green_pro_tap
+        , { c: _.s5, x: handedness 1 * widthFret + 1, strum: Image_gem_green_pro , hopo: Image_gem_green_pro_hopo , tap: Image_gem_green_pro_tap
           , shades: customize.sustainGreen
           }
-        , { c: _.s4, x: 2 * widthFret + 1, strum: Image_gem_orange_pro, hopo: Image_gem_orange_pro_hopo, tap: Image_gem_orange_pro_tap
+        , { c: _.s4, x: handedness 2 * widthFret + 1, strum: Image_gem_orange_pro, hopo: Image_gem_orange_pro_hopo, tap: Image_gem_orange_pro_tap
           , shades: customize.sustainOrange
           }
-        , { c: _.s3, x: 3 * widthFret + 1, strum: Image_gem_blue_pro  , hopo: Image_gem_blue_pro_hopo  , tap: Image_gem_blue_pro_tap
+        , { c: _.s3, x: handedness 3 * widthFret + 1, strum: Image_gem_blue_pro  , hopo: Image_gem_blue_pro_hopo  , tap: Image_gem_blue_pro_tap
           , shades: customize.sustainBlue
           }
-        , { c: _.s2, x: 4 * widthFret + 1, strum: Image_gem_yellow_pro, hopo: Image_gem_yellow_pro_hopo, tap: Image_gem_yellow_pro_tap
+        , { c: _.s2, x: handedness 4 * widthFret + 1, strum: Image_gem_yellow_pro, hopo: Image_gem_yellow_pro_hopo, tap: Image_gem_yellow_pro_tap
           , shades: customize.sustainYellow
           }
-        , { c: _.s1, x: 5 * widthFret + 1, strum: Image_gem_purple_pro, hopo: Image_gem_purple_pro_hopo, tap: Image_gem_purple_pro_tap
+        , { c: _.s1, x: handedness 5 * widthFret + 1, strum: Image_gem_purple_pro, hopo: Image_gem_purple_pro_hopo, tap: Image_gem_purple_pro_tap
           , shades: customize.sustainPurple
           }
         ]
@@ -842,6 +851,7 @@ drawDrums (Drums drums) targetX stuff = do
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
       trackWidth = numLanes * widthFret + 2
+      handedness n = if customize.leftyFlip then numLanes - 1 - n else n
   -- Highway
   setFillStyle customize.highway stuff
   fillRect { x: toNumber targetX, y: 0.0, w: toNumber trackWidth, h: toNumber windowH } stuff
@@ -880,14 +890,14 @@ drawDrums (Drums drums) targetX stuff = do
   -- Lanes
   let lanes =
         -- TODO kick
-        [ {x: 0              * widthFret + 2, gem: Red }
-        , {x: 1              * widthFret + 2, gem: YCym}
-        , {x: 1              * widthFret + 2, gem: YTom}
-        , {x: 2              * widthFret + 2, gem: BCym}
-        , {x: 2              * widthFret + 2, gem: BTom}
-        , {x: 3              * widthFret + 2, gem: OCym}
-        , {x: (numLanes - 1) * widthFret + 2, gem: GCym}
-        , {x: (numLanes - 1) * widthFret + 2, gem: GTom}
+        [ {x: handedness 0              * widthFret + 2, gem: Red }
+        , {x: handedness 1              * widthFret + 2, gem: YCym}
+        , {x: handedness 1              * widthFret + 2, gem: YTom}
+        , {x: handedness 2              * widthFret + 2, gem: BCym}
+        , {x: handedness 2              * widthFret + 2, gem: BTom}
+        , {x: handedness 3              * widthFret + 2, gem: OCym}
+        , {x: handedness (numLanes - 1) * widthFret + 2, gem: GCym}
+        , {x: handedness (numLanes - 1) * widthFret + 2, gem: GTom}
         ]
   for_ lanes \{x: offsetX, gem: gem} -> let
     thisLane = Map.union drums.bre
@@ -958,16 +968,21 @@ drawDrums (Drums drums) targetX stuff = do
                 green = do
                   setFillStyle (customize.sustainGreen.hit opacity) stuff
                   fillRect { x: toNumber $ targetX + (numLanes - 1) * widthFret + 2, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
+                red' = if customize.leftyFlip then green else red
+                yellow' = if customize.leftyFlip then (if drums.mode5 then orange else blue) else yellow
+                blue' = if customize.leftyFlip then (if drums.mode5 then blue else yellow) else blue
+                orange' = if customize.leftyFlip then yellow else orange
+                green' = if customize.leftyFlip then red else green
             for_ evts \e -> case e of
               Kick -> kick
-              Red  -> red
-              YCym -> yellow
-              YTom -> yellow
-              BCym -> blue
-              BTom -> blue
-              OCym -> orange
-              GCym -> green
-              GTom -> green
+              Red  -> red'
+              YCym -> yellow'
+              YTom -> yellow'
+              BCym -> blue'
+              BTom -> blue'
+              OCym -> orange'
+              GCym -> green'
+              GTom -> green'
           else pure unit
       else do
         -- note is in the future
@@ -976,15 +991,50 @@ drawDrums (Drums drums) targetX stuff = do
               Just {value: bool} -> bool
               Nothing            -> false
         for_ evts \e -> case e of
-          Kick -> drawImage (if isEnergy then imgKickOD               else imgKick                ) (toNumber $ targetX + 0              * widthFret + 1) (toNumber $ y - 3) stuff
-          Red  -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_red          ) (toNumber $ targetX + 0              * widthFret + 1) (toNumber $ y - 5) stuff
-          YTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_yellow       ) (toNumber $ targetX + 1              * widthFret + 1) (toNumber $ y - 5) stuff
-          YCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_yellow_cymbal) (toNumber $ targetX + 1              * widthFret + 1) (toNumber $ y - 8) stuff
-          BTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_blue         ) (toNumber $ targetX + 2              * widthFret + 1) (toNumber $ y - 5) stuff
-          BCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_blue_cymbal  ) (toNumber $ targetX + 2              * widthFret + 1) (toNumber $ y - 8) stuff
-          OCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_orange_cymbal) (toNumber $ targetX + 3              * widthFret + 1) (toNumber $ y - 8) stuff
-          GTom -> drawImage (if isEnergy then Image_gem_energy        else Image_gem_green        ) (toNumber $ targetX + (numLanes - 1) * widthFret + 1) (toNumber $ y - 5) stuff
-          GCym -> drawImage (if isEnergy then Image_gem_energy_cymbal else Image_gem_green_cymbal ) (toNumber $ targetX + (numLanes - 1) * widthFret + 1) (toNumber $ y - 8) stuff
+          Kick -> drawImage
+            (if isEnergy then imgKickOD else imgKick)
+            (toNumber $ targetX + 0 * widthFret + 1)
+            (toNumber $ y - 3) stuff
+          Red  -> drawImage
+            (if isEnergy then Image_gem_energy else if customize.leftyFlip then Image_gem_green else Image_gem_red)
+            (toNumber $ targetX + handedness 0 * widthFret + 1)
+            (toNumber $ y - 5) stuff
+          YTom -> drawImage
+            (if isEnergy then Image_gem_energy else if customize.leftyFlip
+              then (if drums.mode5 then Image_gem_orange else Image_gem_blue)
+              else Image_gem_yellow)
+            (toNumber $ targetX + handedness 1 * widthFret + 1)
+            (toNumber $ y - 5) stuff
+          YCym -> drawImage
+            (if isEnergy then Image_gem_energy_cymbal else if customize.leftyFlip
+              then (if drums.mode5 then Image_gem_orange_cymbal else Image_gem_blue_cymbal)
+              else Image_gem_yellow_cymbal)
+            (toNumber $ targetX + handedness 1 * widthFret + 1)
+            (toNumber $ y - 8) stuff
+          BTom -> drawImage
+            (if isEnergy then Image_gem_energy else if customize.leftyFlip
+              then (if drums.mode5 then Image_gem_blue else Image_gem_yellow)
+              else Image_gem_blue)
+            (toNumber $ targetX + handedness 2 * widthFret + 1)
+            (toNumber $ y - 5) stuff
+          BCym -> drawImage
+            (if isEnergy then Image_gem_energy_cymbal else if customize.leftyFlip
+              then (if drums.mode5 then Image_gem_blue_cymbal else Image_gem_yellow_cymbal)
+              else Image_gem_blue_cymbal)
+            (toNumber $ targetX + handedness 2 * widthFret + 1)
+            (toNumber $ y - 8) stuff
+          OCym -> drawImage
+            (if isEnergy then Image_gem_energy_cymbal else if customize.leftyFlip then Image_gem_yellow_cymbal else Image_gem_orange_cymbal)
+            (toNumber $ targetX + handedness 3 * widthFret + 1)
+            (toNumber $ y - 8) stuff
+          GTom -> drawImage
+            (if isEnergy then Image_gem_energy else if customize.leftyFlip then Image_gem_red else Image_gem_green)
+            (toNumber $ targetX + handedness (numLanes - 1) * widthFret + 1)
+            (toNumber $ y - 5) stuff
+          GCym -> drawImage
+            (if isEnergy then Image_gem_energy_cymbal else if customize.leftyFlip then Image_gem_red_cymbal else Image_gem_green_cymbal)
+            (toNumber $ targetX + handedness (numLanes - 1) * widthFret + 1)
+            (toNumber $ y - 8) stuff
   -- TODO: draw all kicks before starting hand gems
   -- Return targetX of next track
   pure $ targetX + trackWidth + _M

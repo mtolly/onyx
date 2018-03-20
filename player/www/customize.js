@@ -142,5 +142,6 @@ window.customizeOnyx = {
   widthProtarFret: 30,
 
   autoplay: true,
+  leftyFlip: false,
 
 };
