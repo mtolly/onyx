@@ -417,43 +417,49 @@ drawFive (Five five) targetX stuff = do
           drawSustainBlock 0 windowH $ isEnergy secsStart
         _ -> pure unit
       events -> go false events
+  -- Sustain endings (draw these first in case a sustain goes right up to next note)
+  for_ colors \{ c: getColor, x: offsetX, open: isOpen } -> do
+    zoomDesc (getColor five.notes) \secs evt -> case evt of
+      SustainEnd -> do
+        let futureSecs = secToNum $ secs - stuff.time
+            trailX = if isOpen then 2 * widthFret + 1 else offsetX
+        if customize.autoplay && futureSecs <= 0.0
+          then pure unit -- note is in the past or being hit now
+          else drawImage Image_sustain_end
+            (toNumber $ targetX + trailX)
+            (toNumber $ secsToPxVert secs)
+            stuff
+      _ -> pure unit
   -- Notes
   for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, tap: tapImage, shades: shades, open: isOpen } -> do
-    zoomDesc (getColor five.notes) \secs evt -> do
-      let futureSecs = secToNum $ secs - stuff.time
-          trailX = if isOpen then 2 * widthFret + 1 else offsetX
-      if customize.autoplay && futureSecs <= 0.0
-        then do
-          -- note is in the past or being hit now
-          if (-0.1) < futureSecs
-            then case evt of
-              SustainEnd -> pure unit
-              _ -> do
+    zoomDesc (getColor five.notes) \secs evt -> let
+      withNoteType sht = do
+        let futureSecs = secToNum $ secs - stuff.time
+            trailX = if isOpen then 2 * widthFret + 1 else offsetX
+        if customize.autoplay && futureSecs <= 0.0
+          then do
+            -- note is in the past or being hit now
+            if (-0.1) < futureSecs
+              then do
                 setFillStyle (shades.hit $ (futureSecs + 0.1) / 0.05) stuff
                 fillRect { x: toNumber $ targetX + trailX + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
-            else pure unit
-        else do
-          let y = secsToPxVert secs
-              isEnergy = case Map.lookupLE secs five.energy of
-                Just {value: bool} -> bool
-                Nothing            -> false
-              img = case evt of
-                SustainEnd    -> Image_sustain_end
-                Note    Strum -> if isEnergy then (if isOpen then Image_gem_open_energy      else Image_gem_energy     ) else strumImage
-                Sustain Strum -> if isEnergy then (if isOpen then Image_gem_open_energy      else Image_gem_energy     ) else strumImage
-                Note    HOPO  -> if isEnergy then (if isOpen then Image_gem_open_energy_hopo else Image_gem_energy_hopo) else hopoImage
-                Sustain HOPO  -> if isEnergy then (if isOpen then Image_gem_open_energy_hopo else Image_gem_energy_hopo) else hopoImage
-                Note    Tap   -> if isEnergy then (if isOpen then Image_gem_open_energy_tap  else Image_gem_energy_tap ) else tapImage
-                Sustain Tap   -> if isEnergy then (if isOpen then Image_gem_open_energy_tap  else Image_gem_energy_tap ) else tapImage
-              x' = targetX + case evt of
-                SustainEnd -> trailX
-                _          -> offsetX
-              y' = case evt of
-                SustainEnd -> y
-                _          -> if isOpen then y - 3 else y - 5
-          drawImage img (toNumber x') (toNumber y') stuff
-  -- TODO: draw all SustainEnd before Note/Sustain
-  -- (for GH style where sustain goes right up to next note)
+              else pure unit
+          else do
+            let y = secsToPxVert secs
+                isEnergy = case Map.lookupLE secs five.energy of
+                  Just {value: bool} -> bool
+                  Nothing            -> false
+                img = case sht of
+                  Strum -> if isEnergy then (if isOpen then Image_gem_open_energy      else Image_gem_energy     ) else strumImage
+                  HOPO  -> if isEnergy then (if isOpen then Image_gem_open_energy_hopo else Image_gem_energy_hopo) else hopoImage
+                  Tap   -> if isEnergy then (if isOpen then Image_gem_open_energy_tap  else Image_gem_energy_tap ) else tapImage
+                x' = targetX + offsetX
+                y' = if isOpen then y - 3 else y - 5
+            drawImage img (toNumber x') (toNumber y') stuff
+      in case evt of
+        Note    sht -> withNoteType sht
+        Sustain sht -> withNoteType sht
+        SustainEnd  -> pure unit
   pure $ targetX + (widthFret * 5 + 2) + _M
 
 data SixColor
@@ -590,49 +596,57 @@ drawSix (Six six) targetX stuff = do
           drawSustainBlock 0 windowH $ isEnergy secsStart
         _ -> pure unit
       events -> go false events
+  -- Sustain ends
+  for_ colors \{ c: getEvents, x: offsetX, color: thisColor } -> do
+    zoomDesc (getEvents six.notes) \secs evt -> case evt of
+      SustainEnd -> do
+        let futureSecs = secToNum $ secs - stuff.time
+            trailX = case thisColor of
+              SixOpen -> 1 * widthFret + 1
+              _       -> offsetX
+        if customize.autoplay && futureSecs <= 0.0
+          then pure unit -- note is in the past or being hit now
+          else drawImage Image_sustain_end
+            (toNumber $ targetX + trailX)
+            (toNumber $ secsToPxVert secs)
+            stuff
+      _ -> pure unit
   -- Notes
   for_ colors \{ c: getEvents, x: offsetX, color: thisColor } -> do
     let {strum: strumImage, hopo: hopoImage, tap: tapImage, energy: energyOverlay} = getGemImages thisColor
-    zoomDesc (getEvents six.notes) \secs evt -> do
-      let futureSecs = secToNum $ secs - stuff.time
-          trailX = case thisColor of
-            SixOpen -> 1 * widthFret + 1
-            _       -> offsetX
-      if customize.autoplay && futureSecs <= 0.0
-        then do
-          -- note is in the past or being hit now
-          if (-0.1) < futureSecs
-            then case evt of
-              SustainEnd -> pure unit
-              _ -> do
+    zoomDesc (getEvents six.notes) \secs evt -> let
+      withNoteType sht = do
+        let futureSecs = secToNum $ secs - stuff.time
+            trailX = case thisColor of
+              SixOpen -> 1 * widthFret + 1
+              _       -> offsetX
+        if customize.autoplay && futureSecs <= 0.0
+          then do
+            -- note is in the past or being hit now
+            if (-0.1) < futureSecs
+              then do
                 setFillStyle ((getShades thisColor).hit $ (futureSecs + 0.1) / 0.05) stuff
                 fillRect { x: toNumber $ targetX + trailX + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
-            else pure unit
-        else do
-          let y = secsToPxVert secs
-              isEnergy = case Map.lookupLE secs six.energy of
-                Just {value: bool} -> bool
-                Nothing            -> false
-              img = case evt of
-                SustainEnd    -> Image_sustain_end
-                Note    Strum -> strumImage
-                Sustain Strum -> strumImage
-                Note    HOPO  -> hopoImage
-                Sustain HOPO  -> hopoImage
-                Note    Tap   -> tapImage
-                Sustain Tap   -> tapImage
-              x' = targetX + case evt of
-                SustainEnd -> trailX
-                _          -> offsetX
-              y' = case evt of
-                SustainEnd -> y
-                _          -> case thisColor of
+              else pure unit
+          else do
+            let y = secsToPxVert secs
+                isEnergy = case Map.lookupLE secs six.energy of
+                  Just {value: bool} -> bool
+                  Nothing            -> false
+                img = case sht of
+                  Strum -> strumImage
+                  HOPO  -> hopoImage
+                  Tap   -> tapImage
+                x' = targetX + offsetX
+                y' = case thisColor of
                   SixOpen -> y - 3
-                  _ -> y - 5
-          drawImage img (toNumber x') (toNumber y') stuff
-          case evt of
-            SustainEnd -> pure unit
-            _ -> when isEnergy $ drawImage energyOverlay (toNumber x') (toNumber y') stuff
+                  _       -> y - 5
+            drawImage img (toNumber x') (toNumber y') stuff
+            when isEnergy $ drawImage energyOverlay (toNumber x') (toNumber y') stuff
+      in case evt of
+        Note    sht -> withNoteType sht
+        Sustain sht -> withNoteType sht
+        SustainEnd  -> pure unit
   pure $ targetX + (3 * widthFret + 2) + _M
 
 drawProtar :: forall e. Protar -> Int -> Draw e Int
@@ -792,48 +806,58 @@ drawProtar (Protar protar) targetX stuff = do
           drawSustainBlock 0 windowH (isEnergy secsStart) (isNothing o.fret)
         _ -> pure unit
       events -> go false events
+  -- Sustain ends
+  for_ colors \{ c: getColor, x: offsetX } -> do
+    zoomDesc (getColor protar.notes) \secs evt -> case evt of
+      SustainEnd -> do
+        let futureSecs = secToNum $ secs - stuff.time
+        if customize.autoplay && futureSecs <= 0.0
+          then pure unit -- note is in the past or being hit now
+          else drawImage Image_sustain_end
+            (toNumber $ targetX + offsetX - 3)
+            (toNumber $ secsToPxVert secs)
+            stuff
+      _ -> pure unit
   -- Notes
   for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, tap: tapImage, shades: shades } -> do
-    zoomDesc (getColor protar.notes) \secs evt -> do
-      let futureSecs = secToNum $ secs - stuff.time
-      if customize.autoplay && futureSecs <= 0.0
-        then do
-          -- note is in the past or being hit now
-          if (-0.1) < futureSecs
-            then case evt of
-              SustainEnd -> pure unit
-              _ -> do
+    zoomDesc (getColor protar.notes) \secs evt -> let
+      withNoteType obj = do
+        let futureSecs = secToNum $ secs - stuff.time
+        if customize.autoplay && futureSecs <= 0.0
+          then do
+            -- note is in the past or being hit now
+            if (-0.1) < futureSecs
+              then do
                 setFillStyle (shades.hit $ (futureSecs + 0.1) / 0.05) stuff
                 fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
-            else pure unit
-        else do
-          let y = secsToPxVert secs
-              isEnergy = case Map.lookupLE secs protar.energy of
-                Just {value: bool} -> bool
-                Nothing            -> false
-              fretImage i = case index protarFrets i of
-                Just x  -> x
-                Nothing -> Image_pro_fret_00 -- whatever
-              noteStart obj = case obj.fret of
-                Just fret -> let
-                  gemImg = case obj.noteType of
-                    Strum -> if isEnergy then Image_gem_energy_pro      else strumImage
-                    HOPO  -> if isEnergy then Image_gem_energy_pro_hopo else hopoImage
-                    Tap   -> if isEnergy then Image_gem_energy_pro_tap  else tapImage
-                  in do
-                    drawImage gemImg           (toNumber $ targetX + offsetX) (toNumber $ y - 10) stuff
-                    drawImage (fretImage fret) (toNumber $ targetX + offsetX) (toNumber $ y - 10) stuff
-                Nothing -> let
-                  gemImg = case obj.noteType of
-                    Strum -> if isEnergy then Image_gem_energy_mute      else Image_gem_mute
-                    HOPO  -> if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo
-                    Tap   -> if isEnergy then Image_gem_energy_mute_tap  else Image_gem_mute_tap
-                  in drawImage gemImg (toNumber $ targetX + offsetX) (toNumber $ y - 10) stuff
-          case evt of
-            SustainEnd               -> do
-              drawImage Image_sustain_end (toNumber $ targetX + offsetX - 3) (toNumber   y) stuff
-            Note    (ProtarNote obj) -> noteStart obj
-            Sustain (ProtarNote obj) -> noteStart obj
+              else pure unit
+          else do
+            let y = secsToPxVert secs
+                isEnergy = case Map.lookupLE secs protar.energy of
+                  Just {value: bool} -> bool
+                  Nothing            -> false
+                fretImage i = case index protarFrets i of
+                  Just x  -> x
+                  Nothing -> Image_pro_fret_00 -- whatever
+            case obj.fret of
+              Just fret -> let
+                gemImg = case obj.noteType of
+                  Strum -> if isEnergy then Image_gem_energy_pro      else strumImage
+                  HOPO  -> if isEnergy then Image_gem_energy_pro_hopo else hopoImage
+                  Tap   -> if isEnergy then Image_gem_energy_pro_tap  else tapImage
+                in do
+                  drawImage gemImg           (toNumber $ targetX + offsetX) (toNumber $ y - 10) stuff
+                  drawImage (fretImage fret) (toNumber $ targetX + offsetX) (toNumber $ y - 10) stuff
+              Nothing -> let
+                gemImg = case obj.noteType of
+                  Strum -> if isEnergy then Image_gem_energy_mute      else Image_gem_mute
+                  HOPO  -> if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo
+                  Tap   -> if isEnergy then Image_gem_energy_mute_tap  else Image_gem_mute_tap
+                in drawImage gemImg (toNumber $ targetX + offsetX) (toNumber $ y - 10) stuff
+      in case evt of
+        Note    (ProtarNote obj) -> withNoteType obj
+        Sustain (ProtarNote obj) -> withNoteType obj
+        SustainEnd               -> pure unit
   pure $ targetX + (widthFret * 6 + 2) + _M
 
 drawDrums :: forall e. Drums -> Int -> Draw e Int
@@ -936,7 +960,7 @@ drawDrums (Drums drums) targetX stuff = do
   -- Target
   let imgTarget = if drums.mode5 then Image_highway_drums5_target else Image_highway_drums_target
   drawImage imgTarget (toNumber targetX) (toNumber targetY - 5.0) stuff
-  -- Notes
+  -- Kick notes
   let imgKick   = if drums.mode5 then Image_gem_open        else Image_gem_kick
       imgKickOD = if drums.mode5 then Image_gem_open_energy else Image_gem_kick_energy
   zoomDesc drums.notes \secs evts -> do
@@ -953,6 +977,31 @@ drawDrums (Drums drums) targetX stuff = do
                     else setFillStyle (customize.sustainOrange.hit opacity) stuff
                   fillRect { x: toNumber $ targetX + 0 * widthFret + 2, y: toNumber $ targetY - 5, w: toNumber $ numLanes * widthFret - 1, h: 1.0 } stuff
                   fillRect { x: toNumber $ targetX + 0 * widthFret + 2, y: toNumber $ targetY + 4, w: toNumber $ numLanes * widthFret - 1, h: 1.0 } stuff
+            for_ evts \e -> case e of
+              Kick -> kick
+              _    -> pure unit
+          else pure unit
+      else do
+        -- note is in the future
+        let y = secsToPxVert secs
+            isEnergy = case Map.lookupLE secs drums.energy of
+              Just {value: bool} -> bool
+              Nothing            -> false
+        for_ evts \e -> case e of
+          Kick -> drawImage
+            (if isEnergy then imgKickOD else imgKick)
+            (toNumber $ targetX + 0 * widthFret + 1)
+            (toNumber $ y - 3) stuff
+          _ -> pure unit
+  -- Hand notes
+  zoomDesc drums.notes \secs evts -> do
+    let futureSecs = secToNum $ secs - stuff.time
+    if customize.autoplay && futureSecs <= 0.0
+      then do
+        -- note is in the past or being hit now
+        if (-0.1) < futureSecs
+          then do
+            let opacity = (futureSecs + 0.1) / 0.05
                 red = do
                   setFillStyle (customize.sustainRed.hit opacity) stuff
                   fillRect { x: toNumber $ targetX + 0 * widthFret + 2, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
@@ -974,7 +1023,7 @@ drawDrums (Drums drums) targetX stuff = do
                 orange' = if customize.leftyFlip then yellow else orange
                 green' = if customize.leftyFlip then red else green
             for_ evts \e -> case e of
-              Kick -> kick
+              Kick -> pure unit
               Red  -> red'
               YCym -> yellow'
               YTom -> yellow'
@@ -991,10 +1040,7 @@ drawDrums (Drums drums) targetX stuff = do
               Just {value: bool} -> bool
               Nothing            -> false
         for_ evts \e -> case e of
-          Kick -> drawImage
-            (if isEnergy then imgKickOD else imgKick)
-            (toNumber $ targetX + 0 * widthFret + 1)
-            (toNumber $ y - 3) stuff
+          Kick -> pure unit
           Red  -> drawImage
             (if isEnergy then Image_gem_energy else if customize.leftyFlip then Image_gem_green else Image_gem_red)
             (toNumber $ targetX + handedness 0 * widthFret + 1)
@@ -1035,7 +1081,6 @@ drawDrums (Drums drums) targetX stuff = do
             (if isEnergy then Image_gem_energy_cymbal else if customize.leftyFlip then Image_gem_red_cymbal else Image_gem_green_cymbal)
             (toNumber $ targetX + handedness (numLanes - 1) * widthFret + 1)
             (toNumber $ y - 8) stuff
-  -- TODO: draw all kicks before starting hand gems
   -- Return targetX of next track
   pure $ targetX + trackWidth + _M
 
@@ -1241,39 +1286,46 @@ drawProKeys (ProKeys pk) targetX stuff = do
           drawSustainBlock 0 windowH $ isEnergy secsStart
         _ -> pure unit
       events -> go False events
+  -- Sustain ends
+  for_ pitchList \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
+    zoomDesc (fromMaybe Map.empty $ Map.lookup pitch pk.notes) \secs evt -> case evt of
+      SustainEnd -> do
+        let futureSecs = secToNum $ secs - stuff.time
+        if customize.autoplay && futureSecs <= 0.0
+          then pure unit -- note is in the past or being hit now
+          else drawImage Image_sustain_key_end
+            (toNumber $ targetX + offsetX - if isBlack then 1 else 0)
+            (toNumber $ secsToPxVert secs)
+            stuff
+      _ -> pure unit
   -- Notes
   for_ pitchList \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
-    zoomDesc (fromMaybe Map.empty $ Map.lookup pitch pk.notes) \secs evt -> do
-      let futureSecs = secToNum $ secs - stuff.time
-          isGlissando = case Map.lookupLE secs pk.gliss of
-            Just {value: bool} -> bool
-            Nothing            -> false
-      if customize.autoplay && futureSecs <= 0.0
-        then do
-          -- note is in the past or being hit now
-          if (-0.1) < futureSecs
-            then case evt of
-              SustainEnd -> pure unit
-              _ -> do
+    zoomDesc (fromMaybe Map.empty $ Map.lookup pitch pk.notes) \secs evt -> case evt of
+      SustainEnd -> pure unit
+      _          -> do
+        let futureSecs = secToNum $ secs - stuff.time
+            isGlissando = case Map.lookupLE secs pk.gliss of
+              Just {value: bool} -> bool
+              Nothing            -> false
+        if customize.autoplay && futureSecs <= 0.0
+          then do
+            -- note is in the past or being hit now
+            if (-0.1) < futureSecs
+              then do
                 let colors = if isBlack then customize.sustainBlackKey else customize.sustainWhiteKey
                 setFillStyle (colors.hit $ (futureSecs + 0.1) / 0.05) stuff
                 fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 } stuff
-            else pure unit
-        else do
-          let y = secsToPxVert secs
-              isEnergy = case Map.lookupLE secs pk.energy of
-                Just {value: bool} -> bool
-                Nothing            -> false
-              img = if isEnergy
-                then if isBlack then Image_gem_blackkey_energy else Image_gem_whitekey_energy
-                else if isBlack then Image_gem_blackkey        else Image_gem_whitekey
-          case evt of
-            SustainEnd          -> drawImage Image_sustain_key_end (toNumber $ targetX + offsetX - if isBlack then 1 else 0) (toNumber   y    ) stuff
-            Note    (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5) stuff
-            Sustain (_ :: Unit) -> drawImage img                   (toNumber $ targetX + offsetX                           ) (toNumber $ y - 5) stuff
-          when isGlissando case evt of
-            SustainEnd -> pure unit
-            _ -> do
+              else pure unit
+          else do
+            let y = secsToPxVert secs
+                isEnergy = case Map.lookupLE secs pk.energy of
+                  Just {value: bool} -> bool
+                  Nothing            -> false
+                img = if isEnergy
+                  then if isBlack then Image_gem_blackkey_energy else Image_gem_whitekey_energy
+                  else if isBlack then Image_gem_blackkey        else Image_gem_whitekey
+            drawImage img (toNumber $ targetX + offsetX) (toNumber $ y - 5) stuff
+            when isGlissando do
               onContext (C.setStrokeStyle customize.glissandoBorder) stuff
               onContext (C.setLineWidth 1.0) stuff
               strokeRect { x: toNumber (targetX + offsetX) + 0.5, y: toNumber y - 4.5, w: 12.0, h: 9.0 } stuff
