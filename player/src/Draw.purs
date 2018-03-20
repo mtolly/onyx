@@ -213,11 +213,11 @@ draw stuff = do
 
 -- | Height/width of margins
 _M :: Int
-_M = 20
+_M = customize.marginWidth
 
 -- | Height/width of buttons
 _B :: Int
-_B = 41
+_B = customize.buttonWidth
 
 drawPart
   :: forall e a r

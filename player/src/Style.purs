@@ -9,7 +9,15 @@ type SustainColors =
 
 foreign import customize ::
 
-  { background :: String
+  { autoplay :: Boolean
+  , leftyFlip :: Boolean
+  , trackSpeed :: Number
+  , targetPositionVert :: Int
+  , targetPositionHoriz :: Int
+  , marginWidth :: Int
+  , buttonWidth :: Int
+
+  , background :: String
   , timestampFont :: String
   , timestampColor :: String
 
@@ -73,8 +81,5 @@ foreign import customize ::
 
   , widthStandardFret :: Int
   , widthProtarFret :: Int
-
-  , autoplay :: Boolean
-  , leftyFlip :: Boolean
 
   }

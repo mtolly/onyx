@@ -1,5 +1,13 @@
 window.customizeOnyx = {
 
+  autoplay: true,
+  leftyFlip: false,
+  trackSpeed: 333, // pixels per second
+  targetPositionVert: 50, // pixels from bottom for non-vocals targets
+  targetPositionHoriz: 225, // pixels from left for vocals target
+  marginWidth: 15, // space between buttons and tracks
+  buttonWidth: 41, // height/width of the square buttons
+
   background: 'rgb(54,59,123)',
   timestampFont: '17px monospace',
   timestampColor: 'white',
@@ -138,10 +146,8 @@ window.customizeOnyx = {
     hit: function(o){return 'magenta';}, // not used
   },
 
+  // these aren't really changeable yet. WIP
   widthStandardFret: 36,
   widthProtarFret: 30,
-
-  autoplay: true,
-  leftyFlip: false,
 
 };

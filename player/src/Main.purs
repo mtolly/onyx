@@ -131,10 +131,10 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                   , getImage: imageGetter
                   , canvas: canvas
                   , context: ctx
-                  , pxToSecsVert: \px -> Seconds $ toNumber (px - 50) * 0.003
-                  , secsToPxVert: \(Seconds secs) -> round (secs / 0.003) + 50
-                  , pxToSecsHoriz: \px -> Seconds $ toNumber (px - 225) * 0.003
-                  , secsToPxHoriz: \(Seconds secs) -> round (secs / 0.003) + 225
+                  , pxToSecsVert: \px -> Seconds $ toNumber (px - customize.targetPositionVert) / customize.trackSpeed
+                  , secsToPxVert: \(Seconds secs) -> round (secs * customize.trackSpeed) + customize.targetPositionVert
+                  , pxToSecsHoriz: \px -> Seconds $ toNumber (px - customize.targetPositionHoriz) / customize.trackSpeed
+                  , secsToPxHoriz: \(Seconds secs) -> round (secs * customize.trackSpeed) + customize.targetPositionHoriz
                   }
                 {h: windowH'} <- getWindowDims
                 let windowH = round windowH'
