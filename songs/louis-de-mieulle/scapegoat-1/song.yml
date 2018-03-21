@@ -1,0 +1,36 @@
+metadata:
+  title: Scapegoat 1
+  artist: Louis de Mieulle
+  album: Defense Mechanisms
+  track-number: 1
+  year: 2011
+  author: Onyxite
+  genre: jazz
+  subgenre: contemporary
+  file-album-art: cover.jpg
+parts:
+  drums:
+    drums: {}
+audio:
+  album-track:
+    md5: ee3bfedf495f477cbf40ce91fd2f543e
+    frames: 19968480
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [3.341, album-track]
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
