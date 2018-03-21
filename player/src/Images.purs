@@ -1,17 +1,23 @@
 module Images (ImageID(..), withImages, protarFrets) where
 
-import Prelude
-import Data.String (split, joinWith, drop, Pattern(..))
-import Graphics.Canvas (CanvasImageSource(), tryLoadImage, CANVAS)
-import Control.Monad.Eff (Eff())
-import Data.Tuple (Tuple(..))
-import Control.Parallel (parTraverse)
-import Data.Maybe (Maybe(..))
-import OnyxMap as Map
-import Data.Generic (class Generic, gShow, gEq, gCompare)
-import Control.Monad.Eff.Exception (throwException, EXCEPTION, error)
-import Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-import Control.Monad.Cont (ContT(..), runContT)
+import           Prelude
+
+import           Control.Monad.Cont                 (ContT (..), runContT)
+import           Control.Monad.Eff                  (Eff)
+import           Control.Monad.Eff.Exception        (EXCEPTION, error,
+                                                     throwException)
+import           Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
+import           Control.Parallel                   (parTraverse)
+import           Data.Generic                       (class Generic, gCompare,
+                                                     gEq, gShow)
+import           Data.Maybe                         (Maybe (..))
+import           Data.String                        (Pattern (..), drop,
+                                                     joinWith, split)
+import           Data.Tuple                         (Tuple (..))
+import           Graphics.Canvas                    (CANVAS, CanvasImageSource,
+                                                     tryLoadImage)
+import           OnyxMap                            as Map
+
 
 data ImageID
   = Image_button_bass

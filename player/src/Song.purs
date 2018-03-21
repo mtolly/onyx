@@ -1,8 +1,9 @@
 module Song where
 
-import Prelude
+import Prelude (class Eq, class Ord, class Show, Unit, bind, map, pure, show, unit, ($), (<$>), (<*>), (>>=))
+
 import Data.Time.Duration (Seconds(..))
-import Data.Foreign
+import Data.Foreign (F, Foreign, ForeignError(..), isNull, readArray, readBoolean, readInt, readNullOrUndefined, readNumber, readString)
 import Data.Foreign.Index (readProp, readIndex)
 import OnyxMap as Map
 import Data.Maybe (Maybe(..))

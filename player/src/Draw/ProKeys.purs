@@ -1,0 +1,273 @@
+module Draw.ProKeys (drawProKeys) where
+
+import           Prelude
+
+import           Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
+import           Data.Array                         (cons, length, snoc, take,
+                                                     zip, (..))
+import           Data.Foldable                      (elem, for_, sum)
+import           Data.Int                           (round, toNumber)
+import           Data.List                          as L
+import           Data.Maybe                         (Maybe (..), fromMaybe)
+import           Data.Time.Duration                 (Seconds)
+import           Data.Tuple                         (Tuple (..))
+import           Graphics.Canvas                    as C
+
+import           Draw.Common                        (Draw, drawImage, drawLane,
+                                                     fillRect, onContext,
+                                                     secToNum, setFillStyle,
+                                                     strokeRect)
+import           Images                             (ImageID (..))
+import           OnyxMap                            as Map
+import           Song                               (Beat (..), Beats (..),
+                                                     Pitch (..), ProKeys (..),
+                                                     Range (..), Song (..),
+                                                     Sustainable (..))
+import           Style                              (customize)
+
+data PKHighway
+  = RailingLight
+  | RailingDark
+  | WhiteKey
+  | WhiteKeyShort
+  | BlackKey
+
+pkHighway :: L.List PKHighway
+pkHighway = L.fromFoldable
+  [ RailingLight, RailingDark, WhiteKey, BlackKey, WhiteKey, BlackKey, WhiteKeyShort
+  , RailingLight, RailingDark, WhiteKey, BlackKey, WhiteKey, BlackKey, WhiteKey, BlackKey, WhiteKeyShort
+  , RailingLight, RailingDark, WhiteKey, BlackKey, WhiteKey, BlackKey, WhiteKeyShort
+  , RailingLight, RailingDark, WhiteKey, BlackKey, WhiteKey, BlackKey, WhiteKey, BlackKey, WhiteKeyShort
+  , RailingLight, RailingDark, WhiteKeyShort
+  , RailingLight, RailingDark
+  ]
+
+inits :: forall a. Array a -> Array (Array a)
+inits ary = map (\n -> take n ary) (0 .. length ary)
+
+pitchList :: Array { pitch :: Pitch, offsetX :: Int, isBlack :: Boolean }
+pitchList = do
+  let allPitches = [RedC,RedCs,RedD,RedDs,RedE,YellowF,YellowFs,YellowG,YellowGs,YellowA,YellowAs,YellowB,BlueC,BlueCs,BlueD,BlueDs,BlueE,GreenF,GreenFs,GreenG,GreenGs,GreenA,GreenAs,GreenB,OrangeC]
+      isBlack p = elem p [RedCs,RedDs,YellowFs,YellowGs,YellowAs,BlueCs,BlueDs,GreenFs,GreenGs,GreenAs]
+  Tuple pitch lowerPitches <- zip allPitches $ inits allPitches
+  pure
+    { pitch: pitch
+    , offsetX: 1 + sum (map (\p -> if isBlack p then 10 else 12) lowerPitches)
+    , isBlack: isBlack pitch
+    }
+
+data HackBool = False | True
+
+drawProKeys :: forall e. ProKeys -> Int -> Draw e Int
+drawProKeys (ProKeys pk) targetX stuff = do
+  windowH <- map round $ C.getCanvasHeight stuff.canvas
+  let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
+      secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
+      maxSecs = pxToSecsVert (-100)
+      minSecs = pxToSecsVert $ windowH + 100
+      zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
+      zoomDesc = Map.zoomDescDo minSecs maxSecs
+      zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
+      zoomAsc = Map.zoomAscDo minSecs maxSecs
+      targetY = secsToPxVert stuff.time
+  -- Highway
+  let drawHighway _    L.Nil                 = pure unit
+      drawHighway xpos (L.Cons chunk chunks) = do
+        let params = case chunk of
+              RailingLight  -> { color: customize.highwayRailing , width: 1  }
+              RailingDark   -> { color: customize.highwayDivider , width: 1  }
+              WhiteKey      -> { color: customize.highway        , width: 11 }
+              WhiteKeyShort -> { color: customize.highway        , width: 10 }
+              BlackKey      -> { color: customize.highwayBlackKey, width: 11 }
+        setFillStyle params.color stuff
+        fillRect { x: toNumber xpos, y: 0.0, w: toNumber params.width, h: toNumber windowH } stuff
+        drawHighway (xpos + params.width) chunks
+  drawHighway targetX pkHighway
+  -- Solo highway
+  let startsAsSolo = case Map.lookupLE minSecs pk.solo of
+        Nothing           -> false
+        Just { value: v } -> v
+      soloEdges
+        = L.fromFoldable
+        $ cons (Tuple minSecs startsAsSolo)
+        $ flip snoc (Tuple maxSecs false)
+        $ Map.doTupleArray (zoomAsc pk.solo)
+      drawSoloHighway _    _  _  L.Nil                 = pure unit
+      drawSoloHighway xpos y1 y2 (L.Cons chunk chunks) = do
+        let params = case chunk of
+              RailingLight  -> { color: Nothing                   , width: 1  }
+              RailingDark   -> { color: Nothing                   , width: 1  }
+              WhiteKey      -> { color: Just customize.highwaySolo, width: 11 }
+              WhiteKeyShort -> { color: Just customize.highwaySolo, width: 10 }
+              BlackKey      -> { color: Just customize.highwaySoloBlackKey    , width: 11 }
+        case params.color of
+          Nothing -> pure unit
+          Just c  -> do
+            setFillStyle c stuff
+            fillRect { x: toNumber xpos, y: toNumber y1, w: toNumber params.width, h: toNumber $ y2 - y1 } stuff
+        drawSoloHighway (xpos + params.width) y1 y2 chunks
+      drawSolos L.Nil            = pure unit
+      drawSolos (L.Cons _ L.Nil) = pure unit
+      drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
+        when b1 $ drawSoloHighway targetX (secsToPxVert s1) (secsToPxVert s2) pkHighway
+        drawSolos rest
+  drawSolos soloEdges
+  -- Solo edges
+  zoomDesc pk.solo \secs _ -> do
+    drawImage Image_highway_prokeys_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
+  -- Lanes
+  for_ pitchList \{pitch: pitch, offsetX: offsetX, isBlack: isBlack} -> let
+    thisLane = Map.union pk.bre
+      $ fromMaybe Map.empty $ Map.lookup pitch pk.lanes
+    startsAsLane = case Map.lookupLE minSecs thisLane of
+      Nothing           -> false
+      Just { value: v } -> v
+    laneEdges
+      = L.fromFoldable
+      $ cons (Tuple minSecs startsAsLane)
+      $ flip snoc (Tuple maxSecs false)
+      $ Map.doTupleArray (zoomAsc thisLane)
+    drawLanes L.Nil            = pure unit
+    drawLanes (L.Cons _ L.Nil) = pure unit
+    drawLanes (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
+      let y1 = secsToPxVert s1
+          y2 = secsToPxVert s2
+      when b1 $ drawLane
+        { x: targetX + offsetX + if isBlack then 0 else 1
+        , y: y2
+        , w: 11
+        , h: y1 - y2
+        } stuff
+      drawLanes rest
+    in drawLanes laneEdges
+  -- Beats
+  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) \secs evt -> do
+    let y = secsToPxVert secs
+    case evt of
+      Bar      -> drawImage Image_highway_prokeys_bar      (toNumber targetX) (toNumber y - 1.0) stuff
+      Beat     -> drawImage Image_highway_prokeys_beat     (toNumber targetX) (toNumber y - 1.0) stuff
+      HalfBeat -> drawImage Image_highway_prokeys_halfbeat (toNumber targetX) (toNumber y      ) stuff
+  -- Target
+  drawImage Image_highway_prokeys_target (toNumber targetX) (toNumber targetY - 5.0) stuff
+  -- Ranges
+  setFillStyle customize.proKeysRangeOverlay stuff
+  let rangeEdges
+        = L.fromFoldable
+        $ cons (Tuple minSecs $ map _.value $ Map.lookupLE minSecs pk.ranges)
+        $ flip snoc (Tuple maxSecs Nothing)
+        $ map (map Just) $ Map.doTupleArray (zoomAsc pk.ranges)
+      drawRanges L.Nil = pure unit
+      drawRanges (L.Cons _ L.Nil) = pure unit
+      drawRanges (L.Cons (Tuple s1 rng) rest@(L.Cons (Tuple s2 _) _)) = do
+        case rng of
+          Nothing -> pure unit
+          Just r -> let
+            y = toNumber (secsToPxVert s1)
+            h = toNumber (secsToPxVert s2) - y
+            rects = case r of
+              RangeC -> [{x: toNumber $ targetX + 192, y: y, w: 90.0, h: h}]
+              RangeD -> [{x: toNumber $ targetX + 2, y: y, w: 22.0, h: h}, {x: toNumber $ targetX + 203, y: y, w: 79.0, h: h}]
+              RangeE -> [{x: toNumber $ targetX + 2, y: y, w: 44.0, h: h}, {x: toNumber $ targetX + 225, y: y, w: 57.0, h: h}]
+              RangeF -> [{x: toNumber $ targetX + 2, y: y, w: 56.0, h: h}, {x: toNumber $ targetX + 247, y: y, w: 35.0, h: h}]
+              RangeG -> [{x: toNumber $ targetX + 2, y: y, w: 78.0, h: h}, {x: toNumber $ targetX + 270, y: y, w: 12.0, h: h}]
+              RangeA -> [{x: toNumber $ targetX + 2, y: y, w: 100.0, h: h}]
+            in for_ rects \rect -> fillRect rect stuff
+        drawRanges rest
+  drawRanges rangeEdges
+  -- Sustains
+  for_ pitchList \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
+    let thisPitch = fromMaybe Map.empty $ Map.lookup pitch pk.notes
+        isEnergy secs = case Map.lookupLE secs pk.energy of
+          Just {value: bool} -> bool
+          Nothing            -> false
+        hitAtY = if customize.autoplay then targetY else windowH + 100
+        drawSustainBlock ystart yend energy = when (ystart < hitAtY || yend < hitAtY) do
+          let ystart' = min ystart hitAtY
+              yend'   = min yend   hitAtY
+              sustaining = customize.autoplay && (targetY < ystart || targetY < yend)
+              shades = if energy
+                then if isBlack
+                  then customize.sustainBlackKeyEnergy
+                  else customize.sustainEnergy
+                else if isBlack
+                  then customize.sustainBlackKey
+                  else customize.sustainWhiteKey
+              h = yend' - ystart' + 1
+              offsetX' = offsetX + if isBlack then 0 else 1
+          setFillStyle customize.sustainBorder stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 2, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 8, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          setFillStyle shades.light stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 3, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          setFillStyle shades.normal stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 4, y: toNumber ystart', w: 3.0, h: toNumber h } stuff
+          setFillStyle shades.dark stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 7, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          when sustaining do
+            setFillStyle shades.light stuff
+            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 } stuff
+        go False (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisPitch of
+          Just { key: secsStart, value: Sustain _ } -> do
+            drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
+            go False rest
+          _ -> unsafeThrow "during prokeys drawing: found a sustain end not preceded by sustain start"
+        go True (L.Cons (Tuple _ SustainEnd) rest) = go False rest
+        go _ (L.Cons (Tuple _ (Note (_ :: Unit))) rest) = go False rest
+        go _ (L.Cons (Tuple secsStart (Sustain (_ :: Unit))) rest) = do
+          let pxEnd = case rest of
+                L.Nil                      -> 0
+                L.Cons (Tuple secsEnd _) _ -> secsToPxVert secsEnd
+          drawSustainBlock pxEnd (secsToPxVert secsStart) $ isEnergy secsStart
+          go True rest
+        go _ L.Nil = pure unit
+    case L.fromFoldable $ Map.doTupleArray (zoomAsc thisPitch) of
+      L.Nil -> case Map.lookupLT (pxToSecsVert windowH) thisPitch of
+        -- handle the case where the entire screen is the middle of a sustain
+        Just { key: secsStart, value: Sustain (_ :: Unit) } ->
+          drawSustainBlock 0 windowH $ isEnergy secsStart
+        _ -> pure unit
+      events -> go False events
+  -- Sustain ends
+  for_ pitchList \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
+    zoomDesc (fromMaybe Map.empty $ Map.lookup pitch pk.notes) \secs evt -> case evt of
+      SustainEnd -> do
+        let futureSecs = secToNum $ secs - stuff.time
+        if customize.autoplay && futureSecs <= 0.0
+          then pure unit -- note is in the past or being hit now
+          else drawImage Image_sustain_key_end
+            (toNumber $ targetX + offsetX - if isBlack then 1 else 0)
+            (toNumber $ secsToPxVert secs)
+            stuff
+      _ -> pure unit
+  -- Notes
+  for_ pitchList \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
+    zoomDesc (fromMaybe Map.empty $ Map.lookup pitch pk.notes) \secs evt -> case evt of
+      SustainEnd -> pure unit
+      _          -> do
+        let futureSecs = secToNum $ secs - stuff.time
+            isGlissando = case Map.lookupLE secs pk.gliss of
+              Just {value: bool} -> bool
+              Nothing            -> false
+        if customize.autoplay && futureSecs <= 0.0
+          then do
+            -- note is in the past or being hit now
+            if (-0.1) < futureSecs
+              then do
+                let colors = if isBlack then customize.sustainBlackKey else customize.sustainWhiteKey
+                setFillStyle (colors.hit $ (futureSecs + 0.1) / 0.05) stuff
+                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 } stuff
+              else pure unit
+          else do
+            let y = secsToPxVert secs
+                isEnergy = case Map.lookupLE secs pk.energy of
+                  Just {value: bool} -> bool
+                  Nothing            -> false
+                img = if isEnergy
+                  then if isBlack then Image_gem_blackkey_energy else Image_gem_whitekey_energy
+                  else if isBlack then Image_gem_blackkey        else Image_gem_whitekey
+            drawImage img (toNumber $ targetX + offsetX) (toNumber $ y - 5) stuff
+            when isGlissando do
+              onContext (C.setStrokeStyle customize.glissandoBorder) stuff
+              onContext (C.setLineWidth 1.0) stuff
+              strokeRect { x: toNumber (targetX + offsetX) + 0.5, y: toNumber y - 4.5, w: 12.0, h: 9.0 } stuff
+  pure $ targetX + 282 + customize.marginWidth

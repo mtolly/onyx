@@ -1,33 +1,38 @@
 module Main where
 
+import           Prelude
+
 import           Control.Monad.Eff           (Eff)
-import           Control.Monad.Eff.Exception (EXCEPTION, error, throwException, catchException)
+import           Control.Monad.Eff.Exception (EXCEPTION, catchException, error,
+                                              throwException)
 import           Control.Monad.Eff.Now       (NOW, now)
 import           Control.Monad.Eff.Ref       (REF, modifyRef, modifyRef',
-                                              newRef, writeRef, readRef)
+                                              newRef, readRef, writeRef)
 import           Control.Monad.Except        (runExcept)
 import           Control.MonadPlus           (guard)
-import           Data.Array                  (concat, uncons, (:), reverse, concatMap)
+import           Data.Array                  (concat, concatMap, reverse,
+                                              uncons, (:))
 import           Data.DateTime.Instant       (unInstant)
 import           Data.Either                 (Either (..))
 import           Data.Foreign                (Foreign, isUndefined)
 import           Data.Int                    (round, toNumber)
 import           Data.List                   as L
 import           Data.Maybe                  (Maybe (..), isJust)
-import           Data.Time.Duration          (Seconds (..), convertDuration, Milliseconds (..))
+import           Data.Set                    as Set
+import           Data.Time.Duration          (Milliseconds (..), Seconds (..),
+                                              convertDuration)
+import           Data.Tuple                  (Tuple (..))
 import           DOM                         (DOM)
 import           Graphics.Canvas             as C
-import           Prelude
 import           RequestAnimationFrame       (requestAnimationFrame)
-import Data.Set as Set
-import Data.Tuple (Tuple(..))
 
 import           Audio                       (AUDIO, loadAudio, playFrom, stop)
-import           Draw                        (App (..), draw, getWindowDims, _B,
-                                              _M)
+import           Draw                        (draw, getWindowDims, _B, _M)
+import           Draw.Common                 (App (..))
 import           Images                      (withImages)
-import           Song                        (Song (..), FlexPart(..), Flex(..), isForeignSong)
-import Style (customize)
+import           Song                        (Flex (..), FlexPart (..),
+                                              Song (..), isForeignSong)
+import           Style                       (customize)
 
 foreign import onyxSong :: Foreign
 

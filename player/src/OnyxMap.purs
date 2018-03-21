@@ -5,9 +5,10 @@ module OnyxMap
   , doTupleArray
   ) where
 
+import Prelude (class Monad, class Ord, Unit, bind, discard, pure, void, ($))
+
 import Data.Map
 
-import Prelude
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(Tuple))
 import Control.Monad.Eff (Eff, runPure)
