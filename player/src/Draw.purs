@@ -64,6 +64,10 @@ draw stuff = do
       settings = case stuff.app of
         Paused  o -> o.settings
         Playing o -> o.settings
+  -- void $ C.save stuff.context
+  -- void $ C.beginPath stuff.context
+  -- void $ C.rect stuff.context { x: 0.0, y: toNumber stuff.minY, w: windowW, h: toNumber $ stuff.maxY - stuff.minY }
+  -- void $ C.clip stuff.context
   drawTracks (_M + _B + _M + _B + _M) $ concat $ flip map song.parts \(Tuple part (Flex flex)) ->
     [ \i -> drawPart flex.five    (Set.member $ Tuple part FlexFive   ) drawFive    i stuff
     , \i -> drawPart flex.six     (Set.member $ Tuple part FlexSix    ) drawSix     i stuff
@@ -71,6 +75,7 @@ draw stuff = do
     , \i -> drawPart flex.prokeys (Set.member $ Tuple part FlexProKeys) drawProKeys i stuff
     , \i -> drawPart flex.protar  (Set.member $ Tuple part FlexProtar ) drawProtar  i stuff
     ]
+  -- void $ C.restore stuff.context
   flip traverse_ song.parts \(Tuple part (Flex flex)) -> do
     void $ drawPart flex.vocal (Set.member $ Tuple part FlexVocal) drawVocal 0 stuff
   drawButtons (round windowH - _M - _B) $ L.fromFoldable $ reverse $ concat $ flip map song.parts \(Tuple part (Flex flex)) -> concat

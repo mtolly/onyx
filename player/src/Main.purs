@@ -129,6 +129,8 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                 -- Calculate what time should be so it moves nice and smooth
                 Playing o -> o.startedSongTime + convertDuration ms - o.startedPageTime
               continue app' = do
+                {h: windowH'} <- getWindowDims
+                let windowH = round windowH'
                 draw
                   { time: nowTheory
                   , app: app'
@@ -140,9 +142,9 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                   , secsToPxVert: \(Seconds secs) -> round (secs * customize.trackSpeed) + customize.targetPositionVert
                   , pxToSecsHoriz: \px -> Seconds $ toNumber (px - customize.targetPositionHoriz) / customize.trackSpeed
                   , secsToPxHoriz: \(Seconds secs) -> round (secs * customize.trackSpeed) + customize.targetPositionHoriz
+                  , minY: 0
+                  , maxY: windowH
                   }
-                {h: windowH'} <- getWindowDims
-                let windowH = round windowH'
                 evts <- modifyRef' clicks $ \evts -> {state: [], value: evts}
                 let handle es app_ = case uncons es of
                       Nothing -> requestAnimationFrame $ loop app_
@@ -198,7 +200,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                                 vox = Tuple flex FlexVocal
                                 in if Set.member vox set
                                   then Set.delete vox set
-                                  else flip Set.map set \tup@(Tuple _ inst) -> case inst of
+                                  else flip Set.map (Set.insert vox set) \tup@(Tuple _ inst) -> case inst of
                                     FlexVocal -> vox -- replace any existing vocal selection with the new one
                                     _         -> tup
                               in go 1 $ L.fromFoldable $ reverse $ concat $ flip map s.parts \(Tuple part (Flex flex)) -> concat

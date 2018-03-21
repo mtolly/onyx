@@ -26,8 +26,8 @@ drawDrums (Drums drums) targetX stuff = do
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
       widthFret = customize.widthStandardFret
       numLanes = if drums.mode5 then 5 else 4
-      maxSecs = pxToSecsVert (-100)
-      minSecs = pxToSecsVert $ windowH + 100
+      maxSecs = pxToSecsVert $ stuff.minY - 50
+      minSecs = pxToSecsVert $ stuff.maxY + 50
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomDesc = Map.zoomDescDo minSecs maxSecs
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
@@ -35,17 +35,18 @@ drawDrums (Drums drums) targetX stuff = do
       targetY = secsToPxVert stuff.time
       trackWidth = numLanes * widthFret + 2
       handedness n = if customize.leftyFlip then numLanes - 1 - n else n
+      drawH = stuff.maxY - stuff.minY
   -- Highway
   setFillStyle customize.highway stuff
-  fillRect { x: toNumber targetX, y: 0.0, w: toNumber trackWidth, h: toNumber windowH } stuff
+  fillRect { x: toNumber targetX, y: toNumber stuff.minY, w: toNumber trackWidth, h: toNumber drawH } stuff
   setFillStyle customize.highwayRailing stuff
   let dividers0 = map (\i -> i * widthFret    ) $ range 0 $ if drums.mode5 then 5 else 4
       dividers1 = map (\i -> i * widthFret + 1) $ range 0 $ if drums.mode5 then 5 else 4
   for_ dividers0 \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, w: 1.0, h: toNumber drawH } stuff
   setFillStyle customize.highwayDivider stuff
   for_ dividers1 \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, w: 1.0, h: toNumber drawH } stuff
   -- Solo highway
   setFillStyle customize.highwaySolo stuff
   let startsAsSolo = case Map.lookupLE minSecs drums.solo of

@@ -63,13 +63,14 @@ drawProKeys (ProKeys pk) targetX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
-      maxSecs = pxToSecsVert (-100)
-      minSecs = pxToSecsVert $ windowH + 100
+      maxSecs = pxToSecsVert $ stuff.minY - 50
+      minSecs = pxToSecsVert $ stuff.maxY + 50
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomDesc = Map.zoomDescDo minSecs maxSecs
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
+      drawH = stuff.maxY - stuff.minY
   -- Highway
   let drawHighway _    L.Nil                 = pure unit
       drawHighway xpos (L.Cons chunk chunks) = do
@@ -80,7 +81,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
               WhiteKeyShort -> { color: customize.highway        , width: 10 }
               BlackKey      -> { color: customize.highwayBlackKey, width: 11 }
         setFillStyle params.color stuff
-        fillRect { x: toNumber xpos, y: 0.0, w: toNumber params.width, h: toNumber windowH } stuff
+        fillRect { x: toNumber xpos, y: toNumber stuff.minY, w: toNumber params.width, h: toNumber drawH } stuff
         drawHighway (xpos + params.width) chunks
   drawHighway targetX pkHighway
   -- Solo highway
@@ -180,7 +181,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
         isEnergy secs = case Map.lookupLE secs pk.energy of
           Just {value: bool} -> bool
           Nothing            -> false
-        hitAtY = if customize.autoplay then targetY else windowH + 100
+        hitAtY = if customize.autoplay then targetY else stuff.maxY + 50
         drawSustainBlock ystart yend energy = when (ystart < hitAtY || yend < hitAtY) do
           let ystart' = min ystart hitAtY
               yend'   = min yend   hitAtY
@@ -208,23 +209,23 @@ drawProKeys (ProKeys pk) targetX stuff = do
             fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 } stuff
         go False (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisPitch of
           Just { key: secsStart, value: Sustain _ } -> do
-            drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
+            drawSustainBlock (secsToPxVert secsEnd) stuff.maxY $ isEnergy secsStart
             go False rest
           _ -> unsafeThrow "during prokeys drawing: found a sustain end not preceded by sustain start"
         go True (L.Cons (Tuple _ SustainEnd) rest) = go False rest
         go _ (L.Cons (Tuple _ (Note (_ :: Unit))) rest) = go False rest
         go _ (L.Cons (Tuple secsStart (Sustain (_ :: Unit))) rest) = do
           let pxEnd = case rest of
-                L.Nil                      -> 0
+                L.Nil                      -> stuff.minY
                 L.Cons (Tuple secsEnd _) _ -> secsToPxVert secsEnd
           drawSustainBlock pxEnd (secsToPxVert secsStart) $ isEnergy secsStart
           go True rest
         go _ L.Nil = pure unit
     case L.fromFoldable $ Map.doTupleArray (zoomAsc thisPitch) of
-      L.Nil -> case Map.lookupLT (pxToSecsVert windowH) thisPitch of
+      L.Nil -> case Map.lookupLT (pxToSecsVert stuff.maxY) thisPitch of
         -- handle the case where the entire screen is the middle of a sustain
         Just { key: secsStart, value: Sustain (_ :: Unit) } ->
-          drawSustainBlock 0 windowH $ isEnergy secsStart
+          drawSustainBlock stuff.minY stuff.maxY $ isEnergy secsStart
         _ -> pure unit
       events -> go False events
   -- Sustain ends

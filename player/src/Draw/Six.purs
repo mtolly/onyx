@@ -34,23 +34,24 @@ drawSix (Six six) targetX stuff = do
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
       widthFret = customize.widthStandardFret
-      maxSecs = pxToSecsVert (-100)
-      minSecs = pxToSecsVert $ windowH + 100
+      maxSecs = pxToSecsVert $ stuff.minY - 50
+      minSecs = pxToSecsVert $ stuff.maxY + 50
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomDesc = Map.zoomDescDo minSecs maxSecs
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
       handedness n = if customize.leftyFlip then 2 - n else n
+      drawH = stuff.maxY - stuff.minY
   -- Highway
   setFillStyle customize.highway stuff
-  fillRect { x: toNumber targetX, y: 0.0, w: 110.0, h: toNumber windowH } stuff
+  fillRect { x: toNumber targetX, y: toNumber stuff.minY, w: 110.0, h: toNumber drawH } stuff
   setFillStyle customize.highwayRailing stuff
   for_ (map (\i -> i * widthFret) $ range 0 3) \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, w: 1.0, h: toNumber drawH } stuff
   setFillStyle customize.highwayDivider stuff
   for_ (map (\i -> i * widthFret + 1) $ range 0 3) \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: 0.0, w: 1.0, h: toNumber windowH } stuff
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, w: 1.0, h: toNumber drawH } stuff
   -- Solo highway
   setFillStyle customize.highwaySolo stuff
   let startsAsSolo = case Map.lookupLE minSecs six.solo of
@@ -114,7 +115,7 @@ drawSix (Six six) targetX stuff = do
         isEnergy secs = case Map.lookupLE secs six.energy of
           Nothing           -> false
           Just { value: v } -> v
-        hitAtY = if customize.autoplay then targetY else windowH + 100
+        hitAtY = if customize.autoplay then targetY else stuff.maxY + 50
         drawSustainBlock ystart yend energy = when (ystart < hitAtY || yend < hitAtY) do
           let ystart' = min ystart hitAtY
               yend'   = min yend   hitAtY
@@ -137,23 +138,23 @@ drawSix (Six six) targetX stuff = do
             fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
         go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisEvents of
           Just { key: secsStart, value: Sustain _ } -> do
-            drawSustainBlock (secsToPxVert secsEnd) windowH $ isEnergy secsStart
+            drawSustainBlock (secsToPxVert secsEnd) stuff.maxY $ isEnergy secsStart
             go false rest
           _ -> unsafeThrow "during ghl drawing: found a sustain end not preceded by sustain start"
         go true (L.Cons (Tuple _ SustainEnd) rest) = go false rest
         go _ (L.Cons (Tuple _ (Note _)) rest) = go false rest
         go _ (L.Cons (Tuple secsStart (Sustain _)) rest) = do
           let pxEnd = case rest of
-                L.Nil                      -> 0
+                L.Nil                      -> stuff.minY
                 L.Cons (Tuple secsEnd _) _ -> secsToPxVert secsEnd
           drawSustainBlock pxEnd (secsToPxVert secsStart) $ isEnergy secsStart
           go true rest
         go _ L.Nil = pure unit
     case L.fromFoldable $ Map.doTupleArray (zoomAsc thisEvents) of
-      L.Nil -> case Map.lookupLT (pxToSecsVert windowH) thisEvents of
+      L.Nil -> case Map.lookupLT (pxToSecsVert stuff.maxY) thisEvents of
         -- handle the case where the entire screen is the middle of a sustain
         Just { key: secsStart, value: Sustain _ } ->
-          drawSustainBlock 0 windowH $ isEnergy secsStart
+          drawSustainBlock stuff.minY stuff.maxY $ isEnergy secsStart
         _ -> pure unit
       events -> go false events
   -- Sustain ends

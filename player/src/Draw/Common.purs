@@ -40,6 +40,8 @@ type DrawStuff =
   , secsToPxVert :: Seconds -> Int -- now-offset in seconds -> pixels from bottom
   , pxToSecsHoriz :: Int -> Seconds -- pixels from left -> now-offset in seconds
   , secsToPxHoriz :: Seconds -> Int -- now-offset in seconds -> pixels from left
+  , minY :: Int
+  , maxY :: Int
   }
 
 type Draw e a = DrawStuff -> Eff (canvas :: C.CANVAS | e) a
