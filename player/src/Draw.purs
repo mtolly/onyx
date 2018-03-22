@@ -1,4 +1,4 @@
-module Draw (draw, getWindowDims, _M, _B) where
+module Draw (draw, getWindowDims, numMod, _M, _B) where
 
 import           Prelude
 
@@ -29,6 +29,8 @@ import           Song               (Flex (..), FlexPart (..), Song (..))
 import           Style              (customize)
 
 foreign import getWindowDims :: forall e. Eff (dom :: DOM | e) {w :: Number, h :: Number}
+
+foreign import numMod :: Number -> Number -> Number
 
 draw :: forall e. Draw (dom :: DOM | e) Unit
 draw stuff = do
@@ -64,18 +66,41 @@ draw stuff = do
       settings = case stuff.app of
         Paused  o -> o.settings
         Playing o -> o.settings
-  -- void $ C.save stuff.context
-  -- void $ C.beginPath stuff.context
-  -- void $ C.rect stuff.context { x: 0.0, y: toNumber stuff.minY, w: windowW, h: toNumber $ stuff.maxY - stuff.minY }
-  -- void $ C.clip stuff.context
-  drawTracks (_M + _B + _M + _B + _M) $ concat $ flip map song.parts \(Tuple part (Flex flex)) ->
-    [ \i -> drawPart flex.five    (Set.member $ Tuple part FlexFive   ) drawFive    i stuff
-    , \i -> drawPart flex.six     (Set.member $ Tuple part FlexSix    ) drawSix     i stuff
-    , \i -> drawPart flex.drums   (Set.member $ Tuple part FlexDrums  ) drawDrums   i stuff
-    , \i -> drawPart flex.prokeys (Set.member $ Tuple part FlexProKeys) drawProKeys i stuff
-    , \i -> drawPart flex.protar  (Set.member $ Tuple part FlexProtar ) drawProtar  i stuff
-    ]
-  -- void $ C.restore stuff.context
+
+  let drawParts someStuff = drawTracks (_M + _B + _M + _B + _M) $ concat $ flip map song.parts \(Tuple part (Flex flex)) ->
+        [ \i -> drawPart flex.five    (Set.member $ Tuple part FlexFive   ) drawFive    i someStuff
+        , \i -> drawPart flex.six     (Set.member $ Tuple part FlexSix    ) drawSix     i someStuff
+        , \i -> drawPart flex.drums   (Set.member $ Tuple part FlexDrums  ) drawDrums   i someStuff
+        , \i -> drawPart flex.prokeys (Set.member $ Tuple part FlexProKeys) drawProKeys i someStuff
+        , \i -> drawPart flex.protar  (Set.member $ Tuple part FlexProtar ) drawProtar  i someStuff
+        ]
+  if customize.staticVert
+    then let
+      betweenTargets = windowH * 0.65
+      Seconds now = stuff.time
+      bottomTarget = windowH - toNumber customize.targetPositionVert - numMod (now * customize.trackSpeed) betweenTargets
+      topTarget = bottomTarget - betweenTargets
+      unseenTarget = bottomTarget + betweenTargets
+      drawTarget y = do
+        let drawBottom = y + toNumber customize.targetPositionVert
+            drawTop = drawBottom - betweenTargets + toNumber _M
+        when (0.0 < drawBottom && drawTop < windowH) do
+          void $ C.save stuff.context
+          void $ C.beginPath stuff.context
+          void $ C.rect stuff.context { x: 0.0, y: drawTop, w: windowW, h: drawBottom - drawTop }
+          void $ C.clip stuff.context
+          drawParts stuff
+            { pxToSecsVert = \px -> Seconds $ (toNumber px - windowH + y) / customize.trackSpeed
+            , secsToPxVert = \(Seconds secs) -> round $ windowH - y + customize.trackSpeed * secs
+            }
+          void $ C.restore stuff.context
+      in do
+        -- TODO just draw once and then copy
+        drawTarget bottomTarget
+        drawTarget topTarget
+        drawTarget unseenTarget
+    else drawParts stuff
+
   flip traverse_ song.parts \(Tuple part (Flex flex)) -> do
     void $ drawPart flex.vocal (Set.member $ Tuple part FlexVocal) drawVocal 0 stuff
   drawButtons (round windowH - _M - _B) $ L.fromFoldable $ reverse $ concat $ flip map song.parts \(Tuple part (Flex flex)) -> concat

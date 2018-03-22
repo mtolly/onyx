@@ -27,7 +27,8 @@ import           Graphics.Canvas             as C
 import           RequestAnimationFrame       (requestAnimationFrame)
 
 import           Audio                       (AUDIO, loadAudio, playFrom, stop)
-import           Draw                        (draw, getWindowDims, _B, _M)
+import           Draw                        (draw, getWindowDims, numMod, _B,
+                                              _M)
 import           Draw.Common                 (App (..))
 import           Images                      (withImages)
 import           Song                        (Flex (..), FlexPart (..),
@@ -40,8 +41,6 @@ foreign import onPoint
   :: forall e
   .  ({x :: Int, y :: Int} -> Eff (dom :: DOM | e) Unit)
   -> Eff (dom :: DOM | e) Unit
-
-foreign import numMod :: Number -> Number -> Number
 
 foreign import displayError :: forall e. String -> Eff (dom :: DOM | e) Unit
 

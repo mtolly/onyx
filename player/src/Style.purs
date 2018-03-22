@@ -11,6 +11,7 @@ foreign import customize ::
 
   { autoplay :: Boolean
   , leftyFlip :: Boolean
+  , staticVert :: Boolean
   , trackSpeed :: Number
   , targetPositionVert :: Int
   , targetPositionHoriz :: Int

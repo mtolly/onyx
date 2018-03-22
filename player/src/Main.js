@@ -18,12 +18,6 @@ exports.onPoint = function(onclick) {
   };
 };
 
-exports.numMod = function(x) {
-  return function(y) {
-    return x % y;
-  };
-};
-
 exports.displayError = function(err) {
   return function() {
     document.getElementById('the-error-message').innerHTML = err;

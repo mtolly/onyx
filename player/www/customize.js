@@ -2,6 +2,7 @@ window.customizeOnyx = {
 
   autoplay: true,
   leftyFlip: false,
+  staticVert: false, // mode where highways stay still and targets move up
   trackSpeed: 333, // pixels per second
   targetPositionVert: 50, // pixels from bottom for non-vocals targets
   targetPositionHoriz: 225, // pixels from left for vocals target
