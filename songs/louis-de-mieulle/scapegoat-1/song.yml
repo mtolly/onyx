@@ -8,9 +8,11 @@ metadata:
   genre: jazz
   subgenre: contemporary
   file-album-art: cover.jpg
+  preview-start: prc_piano_solo_3a
 parts:
   drums:
-    drums: {}
+    drums:
+      difficulty: 7
 audio:
   album-track:
     md5: ee3bfedf495f477cbf40ce91fd2f543e
@@ -27,7 +29,7 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [3.341, album-track]
+      pad: [3.341, gain: [1.5, album-track]]
 targets:
   rb3:
     game: rb3
