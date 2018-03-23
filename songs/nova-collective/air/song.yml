@@ -27,6 +27,7 @@ parts:
     drums:
       difficulty: 6
   guitar:
+    grybo: {}
     pro-guitar:
       tuning: [0, 0, 0, 0, 0, 0]
       # technically this song is 7-string.
