@@ -1,0 +1,35 @@
+metadata:
+  title: The Taste of Filth
+  artist: Louis de Mieulle
+  album: Defense Mechanisms
+  track-number: 7
+  year: 2011
+  author: Onyxite
+  genre: jazz
+  subgenre: contemporary
+  file-album-art: ../scapegoat-1/cover.jpg
+parts:
+  drums:
+    drums:
+      difficulty: 7
+audio:
+  album-track:
+    md5: c29cb13351c0d8cbbc0f2f29453af5e1
+    frames: 30723000
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+    song:
+      pad: [4.048, gain: [1, album-track]]
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
