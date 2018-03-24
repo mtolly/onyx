@@ -140,8 +140,6 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       drumsTrack = case getPart drumsPart songYaml >>= partDrums of
         Nothing -> RTB.empty
         Just pd -> let
-          trk1x = RBFile.flexPartDrums $ RBFile.getFlexPart drumsPart trks
-          trk2x = RBFile.flexPartDrums2x $ RBFile.getFlexPart drumsPart trks
           psKicks = if drumsAuto2xBass pd
             then U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
             else id
@@ -177,9 +175,17 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             (Drums5  , Right _ps ) -> noToms
             (Drums4  , Right _ps ) -> noToms
             (Drums4  , Left  _rb3) -> allToms
-          ps1x = finish $ if RTB.null trk1x then trk2x else trk1x
-          ps2x = finish $ if RTB.null trk2x then trk1x else trk2x
-          psPS = if elem RBDrums.Kick2x trk1x then ps1x else ps2x
+          flex = RBFile.getFlexPart drumsPart trks
+          trk1x = RBFile.flexPartDrums flex
+          trk2x = RBFile.flexPartDrums2x flex
+          trkReal = RBFile.flexPartRealDrumsPS flex
+          trkReal' = RBDrums.psRealToPro trkReal
+          onlyPSReal = all RTB.null [trk1x, trk2x] && not (RTB.null trkReal)
+          pro1x = if onlyPSReal then trkReal' else trk1x
+          pro2x = if onlyPSReal then trkReal' else trk2x
+          ps1x = finish $ if RTB.null pro1x then pro2x else pro1x
+          ps2x = finish $ if RTB.null pro2x then pro1x else pro2x
+          psPS = if elem RBDrums.Kick2x pro1x then ps1x else ps2x
           -- Note: drumMix must be applied *after* drumsComplete.
           -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
           in (if drumsFixFreeform pd then fixFreeformDrums else id)

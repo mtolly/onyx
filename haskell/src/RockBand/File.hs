@@ -357,6 +357,7 @@ instance Hashable FlexPartName where
 data FlexPart t = FlexPart
   { flexPartDrums        :: RTB.T t      Drums.Event
   , flexPartDrums2x      :: RTB.T t      Drums.Event
+  , flexPartRealDrumsPS  :: RTB.T t      Drums.Event
   , flexFiveButton       :: RTB.T t FiveButton.Event
   , flexFiveIsKeys       :: Bool
   , flexGHL              :: RTB.T t        GHL.Event
@@ -376,7 +377,7 @@ data FlexPart t = FlexPart
 
 instance Default (FlexPart t) where
   def = FlexPart
-    RTB.empty RTB.empty RTB.empty False
+    RTB.empty RTB.empty RTB.empty RTB.empty False
     RTB.empty RTB.empty RTB.empty RTB.empty
     RTB.empty RTB.empty RTB.empty RTB.empty
     RTB.empty RTB.empty RTB.empty RTB.empty
@@ -423,6 +424,7 @@ instance MIDIFileFormat OnyxFile where
             else [prefix ++ name]
       flexPartDrums        <- parseTracks mmap trks $ optPrefix FlexDrums  "PART DRUMS"
       flexPartDrums2x      <- parseTracks mmap trks $ optPrefix FlexDrums  "PART DRUMS_2X"
+      flexPartRealDrumsPS  <- parseTracks mmap trks $ optPrefix FlexDrums  "PART REAL_DRUMS_PS"
       gryboGuitar          <- parseTracks mmap trks $ concat
         [ optPrefix FlexGuitar                "PART GUITAR"
         , optPrefix FlexGuitar                "T1 GEMS"
@@ -461,7 +463,7 @@ instance MIDIFileFormat OnyxFile where
     onyxVenueRB2         <- parseTracks mmap trks ["VENUE RB2"]
     onyxMelodysEscape    <- parseTracks mmap trks ["MELODY'S ESCAPE"]
     knownTracks trks $ ["EVENTS", "BEAT", "VENUE", "MELODY'S ESCAPE"] ++ do
-      trkName <- ["PART DRUMS", "PART DRUMS_2X", "PART GUITAR", "T1 GEMS", "PART BASS", "PART RHYTHM", "PART GUITAR COOP", "PART KEYS", "PART GUITAR GHL", "PART BASS GHL", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3"]
+      trkName <- ["PART DRUMS", "PART DRUMS_2X", "PART REAL_DRUMS_PS", "PART GUITAR", "T1 GEMS", "PART BASS", "PART RHYTHM", "PART GUITAR COOP", "PART KEYS", "PART GUITAR GHL", "PART BASS GHL", "PART REAL_GUITAR", "PART REAL_GUITAR_22", "PART REAL_BASS", "PART REAL_BASS_22", "PART REAL_KEYS_E", "PART REAL_KEYS_M", "PART REAL_KEYS_H", "PART REAL_KEYS_X", "PART KEYS_ANIM_LH", "PART KEYS_ANIM_RH", "PART VOCALS", "HARM1", "HARM2", "HARM3"]
       prefix <- "" : map (\flex -> "[" ++ T.unpack (getPartName flex) ++ "] ") allNames
       return $ prefix ++ trkName
     return $ Song tempos mmap OnyxFile{..}
@@ -476,6 +478,7 @@ instance MIDIFileFormat OnyxFile where
       in concat
         [ flip showMIDITrack flexPartDrums        $ prefixSwitch FlexDrums "PART DRUMS"
         , flip showMIDITrack flexPartDrums2x      $ prefixSwitch FlexDrums "PART DRUMS_2X"
+        , flip showMIDITrack flexPartRealDrumsPS  $ prefixSwitch FlexDrums "PART REAL_DRUMS_PS"
         , flip showMIDITrack flexFiveButton       $ if flexFiveIsKeys
           then prefixSwitch FlexKeys "PART KEYS"
           else case partName of

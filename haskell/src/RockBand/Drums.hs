@@ -19,6 +19,7 @@ import           Guitars                          (applyStatus)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
 import           RockBand.Parse
+import qualified RockBand.PhaseShiftMessage       as PS
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
 
@@ -30,6 +31,9 @@ data ProType = Cymbal | Tom
 
 data Gem a = Kick | Red | Pro ProColor a | Orange
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable, Data)
+
+data PSGem = Rimshot | HHOpen | HHSizzle | HHPedal
+  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 -- | Constructors are ordered for optimal processing with 'RTB.normalize'.
 -- For example, 'Note' comes last so that everything else is processed first.
@@ -52,7 +56,10 @@ data Event
 
 data DiffEvent
   = Mix Audio Disco
-  -- TODO EOF/PS format sysexes
+  | PSHihatOpen    Bool
+  | PSHihatPedal   Bool
+  | PSSnareRimshot Bool
+  | PSHihatSizzle  Bool
   | Note (Gem ())
   deriving (Eq, Ord, Show, Read, Typeable, Data)
 
@@ -194,6 +201,30 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |])
   -- TODO: "[mix 0 drums2a]", "[mix 1 drums2a]", "[mix 2 drums2a]", "[mix 3 drums2a]" (Fly Like an Eagle)
   , commandPair ["ride_side_true" ] [p| Animation (RideSide True ) |]
   , commandPair ["ride_side_false"] [p| Animation (RideSide False) |]
+
+  , ( [e| many $ flip filterParseOne PS.parsePSMessage $ \case
+        PS.PSMessage mdiff PS.HihatOpen b -> Just $ let
+          diffs = maybe [minBound .. maxBound] (: []) mdiff
+          in map (\diff -> DiffEvent diff $ PSHihatOpen b) diffs
+        PS.PSMessage mdiff PS.HihatPedal b -> Just $ let
+          diffs = maybe [minBound .. maxBound] (: []) mdiff
+          in map (\diff -> DiffEvent diff $ PSHihatPedal b) diffs
+        PS.PSMessage mdiff PS.SnareRimshot b -> Just $ let
+          diffs = maybe [minBound .. maxBound] (: []) mdiff
+          in map (\diff -> DiffEvent diff $ PSSnareRimshot b) diffs
+        PS.PSMessage mdiff PS.HihatSizzle b -> Just $ let
+          diffs = maybe [minBound .. maxBound] (: []) mdiff
+          in map (\diff -> DiffEvent diff $ PSHihatSizzle b) diffs
+        _ -> Nothing
+      |]
+    , [e| \case
+        DiffEvent d (PSHihatOpen    b) -> unparseOne $ PS.PSMessage (Just d) PS.HihatOpen    b
+        DiffEvent d (PSHihatPedal   b) -> unparseOne $ PS.PSMessage (Just d) PS.HihatPedal   b
+        DiffEvent d (PSSnareRimshot b) -> unparseOne $ PS.PSMessage (Just d) PS.SnareRimshot b
+        DiffEvent d (PSHihatSizzle  b) -> unparseOne $ PS.PSMessage (Just d) PS.HihatSizzle  b
+      |]
+    )
+
   ]
 
 instance HasDiffEvent DiffEvent Event where
@@ -253,6 +284,39 @@ assignToms expert2x = go defDrumState . RTB.normalize where
         then RTB.cons dt (Expert, Kick) $ go ds rtb'
         else RTB.delay dt $ go ds rtb'
       _ -> RTB.delay dt $ go ds rtb'
+
+assignPSReal :: (NNC.C t) => Bool -> RTB.T t Event -> RTB.T t (Difficulty, Either PSGem (Gem ProType))
+assignPSReal expert2x rtb = let
+  pro = assignToms expert2x rtb
+  status = flip RTB.mapMaybe rtb $ \case
+    DiffEvent d (PSHihatOpen b) -> Just ((d, HHOpen), b)
+    DiffEvent d (PSHihatPedal b) -> Just ((d, HHPedal), b)
+    DiffEvent d (PSSnareRimshot b) -> Just ((d, Rimshot), b)
+    DiffEvent d (PSHihatSizzle b) -> Just ((d, HHSizzle), b)
+    _ -> Nothing
+  in flip fmap (applyStatus status pro) $ \case
+    (mods, (d, Red))
+      | elem (d, Rimshot) mods -> (d, Left Rimshot)
+    (mods, (d, Pro Yellow Cymbal))
+      | elem (d, HHOpen) mods -> (d, Left HHOpen)
+      | elem (d, HHPedal) mods -> (d, Left HHPedal)
+      | elem (d, HHSizzle) mods -> (d, Left HHSizzle)
+    (_, (d, gem)) -> (d, Right gem)
+
+psRealToPro :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
+psRealToPro rtb = let
+  notSysex = \case
+    DiffEvent _ PSHihatOpen{}    -> False
+    DiffEvent _ PSHihatPedal{}   -> False
+    DiffEvent _ PSSnareRimshot{} -> False
+    DiffEvent _ PSHihatSizzle{}  -> False
+    _                            -> True
+  merged = RTB.merge (Left <$> assignPSReal False rtb) (Right <$> RTB.filter notSysex rtb)
+  -- this will fail if you use discobeat on the real track, so don't do that
+  eachInstant xs = flip filter [ x | Right x <- xs ] $ \case
+    DiffEvent d (Note (Pro Yellow ())) -> notElem (Left (d, Left HHPedal)) xs
+    _                                  -> True
+  in RTB.flatten $ fmap eachInstant $ RTB.collectCoincident merged
 
 -- | Writes drum gems as the given length, or shorter if there is another gem
 -- in the same difficulty sooner than that.

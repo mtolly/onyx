@@ -273,7 +273,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
   -- it explicitly disables it, even if there is a MIDI track for it.
   -- Clone Hero doesn't do this at all and will still show the part.
   -- As a compromise, we use the PS behavior for .mid, and CH for .chart.
-  let guardDifficulty getDiff = if isChart
+  let guardDifficulty getDiff = if isChart || True -- TODO temporarily doing this for midis also
         then True
         else getDiff song /= Just (-1)
       hasTrack :: (RBFile.PSFile U.Beats -> RTB.T U.Beats a) -> Bool
@@ -353,13 +353,13 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
     , _targets = HM.singleton "ps" $ PS def { ps_FileVideo = vid }
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
-        { partDrums = guard (hasTrack RBFile.psPartDrums && guardDifficulty FoF.diffDrums) >> Just PartDrums
+        { partDrums = guard ((hasTrack RBFile.psPartDrums || hasTrack RBFile.psPartRealDrumsPS) && guardDifficulty FoF.diffDrums) >> Just PartDrums
           { drumsDifficulty = toTier $ FoF.diffDrums song
           , drumsMode = let
             isFiveLane = FoF.fiveLaneDrums song == Just True || any
               (\case RBDrums.DiffEvent _ (RBDrums.Note RBDrums.Orange) -> True; _ -> False)
               (RBFile.psPartDrums outputMIDI)
-            isPro = not detectBasicDrums || case FoF.proDrums song of
+            isPro = hasTrack RBFile.psPartRealDrumsPS || not detectBasicDrums || case FoF.proDrums song of
               Just b  -> b
               Nothing -> any
                 (\case RBDrums.ProType _ _ -> True; _ -> False)
