@@ -81,7 +81,16 @@ def makeDifficulties(parts, song)
         mode_name = '6-Fret (GHL)'
         mode_image = 'ghl'
       when 'pro-guitar'
-        if ['Cascades', 'Ripped Apart and Reassembled', 'Summer Goddess', 'Scoop Out'].include?(song['project']['metadata']['title'])
+        if [
+          'Cascades',
+          'Ripped Apart and Reassembled',
+          'Summer Goddess',
+          'Scoop Out',
+          'Prophets of War',
+          'Forsaken',
+          'The Black Widow Blues/The White Widow',
+          'Sabotage',
+        ].include?(song['project']['metadata']['title'])
           # hiding these pro guitar/bass charts since they haven't been released
           next
         end

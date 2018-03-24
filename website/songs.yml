@@ -179,41 +179,49 @@
 
 # Systematic Chaos
 - file-path: ../songs/dream-theater/in-the-presence-of-enemies-pt-1
+  video: https://www.youtube.com/watch?v=BdNDhwVFWpg
   urls:
     rb3: download/itpoe1_1p_rc2_rb3con
     rb3-2x: download/itpoe1_2p_rc2_rb3con
     ps: download/itpoe1_rc2_ps_fixed.zip
 - file-path: ../songs/dream-theater/forsaken
+  video: https://www.youtube.com/watch?v=tSVkfHXkC-c
   urls:
     rb3: download/forsaken_1p_rc2_rb3con
     rb3-2x: download/forsaken_2p_rc2_rb3con
     ps: download/forsaken_rc2_ps_fixed.zip
 - file-path: ../songs/dream-theater/the-dark-eternal-night
+  video: https://www.youtube.com/watch?v=DFNFCuLZSSI
   urls:
     rb3: download/tden_1p_rc2_rb3con
     rb3-2x: download/tden_2p_rc2_rb3con
     ps: download/tden_rc2_ps_fixed.zip
 - file-path: ../songs/dream-theater/repentance
+  video: https://www.youtube.com/watch?v=9MyThwkPO7Y
   urls:
     rb3: download/repentance_1p_rc2_rb3con
     rb3-2x: download/repentance_2p_rc2_rb3con
     ps: download/repentance_rc2_ps_fixed.zip
 - file-path: ../songs/dream-theater/prophets-of-war
+  video: https://www.youtube.com/watch?v=gY27TYaxeoA
   urls:
     rb3: download/pow_1p_rc3_rb3con
     rb3-2x: download/pow_2p_rc3_rb3con
     ps: download/pow_rc3_ps_fixed.zip
 - file-path: ../songs/dream-theater/the-ministry-of-lost-souls
+  video: https://www.youtube.com/watch?v=lofHNdJMLvI
   urls:
     rb3: download/tmols_1p_rc2_rb3con
     rb3-2x: download/tmols_2p_rc2_rb3con
     ps: download/tmols_rc2_ps_fixed.zip
 - file-path: ../songs/dream-theater/in-the-presence-of-enemies-pt-2
+  video: https://www.youtube.com/watch?v=BdNDhwVFWpg
   urls:
     rb3: download/itpoe2_1p_rc2_rb3con
     rb3-2x: download/itpoe2_2p_rc2_rb3con
     ps: download/itpoe2_rc2_ps_fixed.zip
 - file-path: ../songs/dream-theater/in-the-presence-of-enemies
+  video: https://www.youtube.com/watch?v=BdNDhwVFWpg
   urls:
     rb3: download/itpoe_1p_rc3_rb3con
     rb3-2x: download/itpoe_2p_rc3_rb3con
