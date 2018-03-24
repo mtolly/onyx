@@ -33,8 +33,11 @@ parts:
       # technically this song is 7-string.
       # but it's only one section, so I just tweaked it to 6-string.
   bass:
+    grybo: {}
     pro-guitar:
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
+  keys:
+    pro-keys: {} # TODO wrap
 targets:
   rb3:
     game: rb3
