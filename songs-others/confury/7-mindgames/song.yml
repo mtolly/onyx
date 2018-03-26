@@ -24,8 +24,8 @@ audio:
     file-path: audio-drumless.wav
     commands:
     - ../../../scripts/youtube uWLthUYRar8 140 audio-drumless.wav
-    md5: 26c31e3ddd78c1e1dd3b7fbf18b6ed07
-    frames: 10531840
+    md5: 464caa0a9004ab85f41e5a3efa21146c
+    frames: 10527744
   rudinger:
     file-path: audio-rudinger.wav
     commands:

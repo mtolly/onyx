@@ -2,7 +2,7 @@
 set -e
 set -u
 
-file_in=`mktemp -u audio-XXXXXXXX.m4a`
+file_in=`mktemp -u audio-XXXXXXXX`
 file_out=${3:-audio-youtube.wav}
 
 youtube-dl "https://www.youtube.com/watch?v=$1" -f "$2" -o "$file_in"
