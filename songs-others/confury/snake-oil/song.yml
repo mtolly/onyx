@@ -1,0 +1,51 @@
+parts:
+  vocal: {}
+  bass: {}
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 5
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 879dd3b3e5e8039a2350a0b6f0f2692c
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    vols:
+    - -3
+    - -3
+    - -3
+    - -3
+targets:
+  rb3-2x:
+    song-id: SnakeOil2x
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  preview-start: 1:12.000
+  file-album-art: cover.png_xbox
+  track-number: 1
+  album: Good Tiger
+  year: 2015
+  subgenre: prog
+  author: null
+  title: Snake Oil
+  preview-end: 1:42.000
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Good Tiger

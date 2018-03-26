@@ -1,0 +1,51 @@
+parts:
+  vocal: {}
+  bass: {}
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 5
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 4d1cabccd6e27fc717eff0eb51c591d0
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    vols:
+    - -3
+    - -3
+    - -3
+    - -3
+targets:
+  rb3-2x:
+    song-id: Aspirations2x
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  preview-start: 57
+  file-album-art: cover.png_xbox
+  track-number: 5
+  album: A Head Full Of Moonlight
+  year: 2015
+  subgenre: alternative
+  author: null
+  title: Aspirations
+  preview-end: 1:27.000
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Good Tiger

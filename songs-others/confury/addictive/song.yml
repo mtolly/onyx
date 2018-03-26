@@ -1,0 +1,63 @@
+parts:
+  vocal: {}
+  bass: {}
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+    karaoke: false
+    mogg-md5: e8ef804f12d29233b13c35d1c980aa64
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    - 4
+    - 5
+    crowd:
+    - 4
+    - 5
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - -5
+    - -5
+targets:
+  rb3-2x:
+    song-id: 1785100066
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  preview-start: 3:24.000
+  expert-only: true
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: null
+  album: Unknown Album
+  year: 2017
+  subgenre: electronica
+  author: Confury
+  title: Addictive (Drum Cover)
+  preview-end: 3:54.000
+  genre: popdanceelectronic
+  difficulty:
+    tier: 7
+  artist: Alex Rudinger

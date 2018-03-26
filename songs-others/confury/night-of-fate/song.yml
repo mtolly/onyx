@@ -1,0 +1,63 @@
+parts:
+  vocal: {}
+  bass: {}
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+    karaoke: false
+    mogg-md5: bd27bff8f4992f3480a0369221127dbd
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    - 4
+    - 5
+    crowd:
+    - 4
+    - 5
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - -5
+    - -5
+targets:
+  rb3:
+    song-id: 1785100058
+    game: rb3
+    version: 30
+metadata:
+  preview-start: 8
+  expert-only: true
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: null
+  album: Unknown Album
+  year: 2017
+  subgenre: synth
+  author: Confury
+  title: Night of Fate (Drum Cover)
+  preview-end: 38
+  genre: new_wave
+  difficulty:
+    tier: 1
+  artist: Luke Holland

@@ -1,0 +1,51 @@
+parts:
+  vocal: {}
+  bass: {}
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 946721102b31e8b328b31e07dbef6caf
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    vols:
+    - -3
+    - -3
+    - -3
+    - -3
+targets:
+  rb3-2x:
+    song-id: GravityAndFriction2x
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  preview-start: 1:05.000
+  file-album-art: cover.png_xbox
+  track-number: 10
+  album: Isometric
+  year: 2013
+  subgenre: ambient
+  author: null
+  title: Gravity and Friction (Drum Cover)
+  preview-end: 1:35.000
+  genre: popdanceelectronic
+  difficulty:
+    tier: 1
+  artist: Alex Rudinger

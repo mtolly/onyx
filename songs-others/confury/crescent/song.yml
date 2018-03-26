@@ -1,0 +1,63 @@
+parts:
+  vocal: {}
+  bass: {}
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+    karaoke: false
+    mogg-md5: 99172411900da85819ee908f54d64ee1
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    - 4
+    - 5
+    crowd:
+    - 4
+    - 5
+    vols:
+    - -3
+    - -3
+    - -3
+    - -3
+    - -5
+    - -5
+targets:
+  rb3-2x:
+    song-id: 1785100068
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  preview-start: 1:30.000
+  expert-only: true
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 7
+  album: The Joy of Motion
+  year: 2014
+  subgenre: prog
+  author: Confury
+  title: Crescent
+  preview-end: 2:00.000
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Animals as Leaders

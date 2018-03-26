@@ -1,0 +1,51 @@
+parts:
+  vocal: {}
+  bass: {}
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 37a000ccb0b2a425371ec51e52974f73
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    vols:
+    - -3
+    - -3
+    - -3
+    - -3
+targets:
+  rb3-2x:
+    song-id: WhereAreTheBirds2x
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  preview-start: 0
+  file-album-art: cover.png_xbox
+  track-number: 1
+  album: A Head Full Of Moonlight
+  year: 2015
+  subgenre: prog
+  author: null
+  title: Where Are The Birds
+  preview-end: 30
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Good Tiger

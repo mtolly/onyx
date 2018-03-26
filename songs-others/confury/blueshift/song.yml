@@ -1,0 +1,63 @@
+parts:
+  vocal: {}
+  bass: {}
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 5
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+    karaoke: false
+    mogg-md5: 3804e7ca4804f69292a1c0fce02699a2
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    - 4
+    - 5
+    crowd:
+    - 4
+    - 5
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - -5
+    - -5
+targets:
+  rb3-2x:
+    song-id: 1785100071
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  preview-start: 46
+  expert-only: true
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 4
+  album: We Will All Be Gone
+  year: 2018
+  subgenre: alternative
+  author: Confury
+  title: Blueshift
+  preview-end: 1:16.000
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Good Tiger

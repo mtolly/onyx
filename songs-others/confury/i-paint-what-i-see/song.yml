@@ -1,0 +1,51 @@
+parts:
+  vocal: {}
+  bass: {}
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 43fbf8a57da567601d061671295d9fc3
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    vols:
+    - -3
+    - -3
+    - -3
+    - -3
+targets:
+  rb3-2x:
+    song-id: IPaintWhatISee2x
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  preview-start: 1:24.000
+  file-album-art: cover.png_xbox
+  track-number: 4
+  album: A Head Full Of Moonlight
+  year: 2015
+  subgenre: alternative
+  author: null
+  title: I Paint What I See
+  preview-end: 1:54.000
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Good Tiger

@@ -1,0 +1,51 @@
+parts:
+  vocal: {}
+  bass: {}
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: fc6edbd8aeb82ed89cc9711a6c9cf23e
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    vols:
+    - -3
+    - -3
+    - -3
+    - -3
+targets:
+  rb3-2x:
+    song-id: Clockworks2x
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  preview-start: 2:10.000
+  file-album-art: cover.png_xbox
+  track-number: 1
+  album: The Violent Sleep of Reason
+  year: 2016
+  subgenre: prog
+  author: null
+  title: Clockworks
+  preview-end: 2:40.000
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Meshuggah

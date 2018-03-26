@@ -1,0 +1,63 @@
+parts:
+  vocal: {}
+  bass: {}
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 5
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -2.5
+    - 2.5
+    karaoke: false
+    mogg-md5: c70c0c86bf7538237b90bb0aa9f9a720
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    - 4
+    - 5
+    crowd:
+    - 4
+    - 5
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - -5
+    - -5
+targets:
+  rb3-2x:
+    song-id: 1785100070
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  preview-start: 50
+  expert-only: true
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 6
+  album: We Will All Be Gone
+  year: 2018
+  subgenre: alternative
+  author: Confury
+  title: Grip Shoes
+  preview-end: 1:20.000
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Good Tiger

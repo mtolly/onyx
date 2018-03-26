@@ -1,0 +1,51 @@
+parts:
+  vocal: {}
+  bass: {}
+  guitar: {}
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 5
+plans:
+  mogg:
+    parts:
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 1f1164d1e6cda58e9139b548850aa683
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    vols:
+    - -3
+    - -3
+    - -3
+    - -3
+targets:
+  rb3-2x:
+    song-id: LatchkeyKids2x
+    game: rb3
+    2x-bass-pedal: true
+metadata:
+  preview-start: 1:55.000
+  file-album-art: cover.png_xbox
+  track-number: 6
+  album: A Head Full Of Moonlight
+  year: 2015
+  subgenre: alternative
+  author: null
+  title: Latchkey Kids
+  preview-end: 2:25.000
+  genre: metal
+  difficulty:
+    tier: 1
+  artist: Good Tiger
