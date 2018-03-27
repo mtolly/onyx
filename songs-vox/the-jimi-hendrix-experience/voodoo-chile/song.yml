@@ -9,8 +9,8 @@ plans:
       bass: [3]
       keys: [4]
       vocal: [5]
+    silent: [0, 1, 2, 3, 4, 5]
 metadata:
-  autogen-theme: AutogenDefault
   rating: SupervisionRecommended
   preview-start: 97.853
   file-album-art: cover.png_xbox
@@ -42,3 +42,6 @@ parts:
   bass:
     grybo: # onyxite
       {}
+targets:
+  rb3:
+    game: rb3
