@@ -1,5 +1,6 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module RockBand.Codec.Drums where
 
 import           Control.Monad                    (guard, (>=>))
@@ -13,6 +14,7 @@ import           RockBand.Codec
 import           RockBand.Common
 import           RockBand.Drums                   (Animation (..), Audio (..),
                                                    Disco (..), Gem (..),
+                                                   Hand (..), Hit (..),
                                                    PSGem (..), ProColor (..),
                                                    ProType (..))
 import qualified RockBand.PhaseShiftMessage       as PS
@@ -86,5 +88,35 @@ parseDrums = do
       HHPedal  -> PS.HihatPedal
     return DrumDifficulty{..}
   drumKick2x <- drumKick2x =. blip 95 -- TODO this should probably be blip-grouped with expert track
-  drumAnimation <- drumAnimation =. undefined
+  drumAnimation <- (drumAnimation =.) $ condenseMap_ $ eachKey each $ \case
+    KickRF -> blip 24
+    HihatOpen b -> edge 25 b
+    Snare HardHit LH -> blip 26
+    Snare HardHit RH -> blip 27
+    Snare SoftHit LH -> blip 28
+    Snare SoftHit RH -> blip 29
+    Hihat LH -> blip 30
+    Hihat RH -> blip 31
+    PercussionRH -> blip 32
+    -- 33 unused
+    Crash1 HardHit LH -> blip 34
+    Crash1 SoftHit LH -> blip 35
+    Crash1 HardHit RH -> blip 36
+    Crash1 SoftHit RH -> blip 37
+    Crash2 HardHit RH -> blip 38
+    Crash2 SoftHit RH -> blip 39
+    Crash2RHChokeLH -> blip 40
+    Crash1RHChokeLH -> blip 41
+    Ride RH -> blip 42
+    Ride LH -> blip 43
+    Crash2 HardHit LH -> blip 44
+    Crash2 SoftHit LH -> blip 45
+    Tom1 LH -> blip 46
+    Tom1 RH -> blip 47
+    Tom2 LH -> blip 48
+    Tom2 RH -> blip 49
+    FloorTom LH -> blip 50
+    FloorTom RH -> blip 51
+    RideSide True -> commandMatch ["ride_side_true"]
+    RideSide False -> commandMatch ["ride_side_false"]
   return DrumTrack{..}

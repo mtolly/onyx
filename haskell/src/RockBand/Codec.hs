@@ -19,6 +19,7 @@ import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
 import           Data.Profunctor                  (dimap)
 import           Data.Semigroup                   (Semigroup (..))
+import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
 import           RockBand.Parse                   (isNoteEdge, isNoteEdgeCPV,
@@ -89,6 +90,13 @@ blip n = Codec
   , codecOut = simpleShow $ U.trackJoin . fmap (\() -> unparseBlip n)
   }
 
+edge :: (Monad m) => Int -> Bool -> TrackEvent m U.Beats ()
+edge p b = single
+  (\x -> case isNoteEdge x of
+    Just pb' | (p, b) == pb' -> Just ()
+    _        -> Nothing
+  ) (\() -> makeEdge p b)
+
 edges :: (Monad m, NNC.C t) => Int -> TrackEvent m t Bool
 edges p = single
   (\x -> case isNoteEdge x of
@@ -132,6 +140,11 @@ single fp fs = Codec
 
 command :: (Monad m, NNC.C t, Command a) => TrackEvent m t a
 command = single readCommand' showCommand'
+
+commandMatch :: (Monad m, NNC.C t) => [T.Text] -> TrackEvent m t ()
+commandMatch c = single
+  (\e -> readCommand' e >>= \c' -> guard (c == c') >> Just ())
+  (\() -> showCommand' c)
 
 joinEdges' :: (NNC.C t, Eq a) => RTB.T t (a, Maybe s) -> RTB.T t (a, s, t)
 joinEdges' rtb = case RTB.viewL rtb of

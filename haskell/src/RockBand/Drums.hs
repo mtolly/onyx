@@ -13,6 +13,8 @@ module RockBand.Drums where
 
 import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.List                        (findIndex)
+import           Data.Maybe                       (fromJust)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import           Guitars                          (applyStatus)
@@ -81,6 +83,32 @@ data Animation
   | HihatOpen Bool
   | RideSide Bool -- ^ Causes slow 'Ride' hits to animate differently.
   deriving (Eq, Ord, Show, Read, Typeable, Data)
+
+allAnimations :: [Animation]
+allAnimations = concat
+  [ [Tom1] <*> each
+  , [Tom2] <*> each
+  , [FloorTom] <*> each
+  , [Hihat] <*> each
+  , [Snare]  <*> each <*> each
+  , [Ride] <*> each
+  , [Crash1] <*> each <*> each
+  , [Crash2] <*> each <*> each
+  , [KickRF]
+  , [Crash1RHChokeLH]
+  , [Crash2RHChokeLH]
+  , [PercussionRH]
+  , [HihatOpen] <*> each
+  , [RideSide] <*> each
+  ]
+
+instance Enum Animation where
+  toEnum = (allAnimations !!)
+  fromEnum x = fromJust $ findIndex (== x) allAnimations
+
+instance Bounded Animation where
+  minBound = head allAnimations
+  maxBound = last allAnimations
 
 data Hit = SoftHit | HardHit
   deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
