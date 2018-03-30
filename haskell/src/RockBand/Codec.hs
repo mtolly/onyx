@@ -5,12 +5,14 @@
 {-# LANGUAGE TupleSections     #-}
 module RockBand.Codec where
 
+import           Control.Applicative              ((<|>))
 import           Control.Monad                    (forM, guard)
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State        (StateT, get, put)
 import           Control.Monad.Trans.Writer       (Writer, execWriter, tell)
+import           Data.Either                      (partitionEithers)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.List.Extra                  (nubOrd)
@@ -22,6 +24,7 @@ import           RockBand.Common
 import           RockBand.Parse                   (isNoteEdge, isNoteEdgeCPV,
                                                    makeEdge, makeEdgeCPV,
                                                    unparseBlip)
+import qualified RockBand.PhaseShiftMessage       as PS
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
 
@@ -47,6 +50,13 @@ simpleShow f = fmapArg $ tell . MergeTrack . f
 
 simpleShown :: (c -> TrackBuilder t c) -> (c -> RTB.T t E.T)
 simpleShown f = runMergeTrack . execWriter . f
+
+slurpTrack :: (Monad m) => (RTB.T t a -> (RTB.T t b, RTB.T t a)) -> StackTraceT (StateT (RTB.T t a) m) (RTB.T t b)
+slurpTrack f = lift $ do
+  (slurp, leave) <- f <$> get
+  put leave
+  return slurp
+
 
 -- Types of MIDI events:
 -- * status text
@@ -80,39 +90,43 @@ blip n = Codec
   }
 
 edges :: (Monad m, NNC.C t) => Int -> TrackEvent m t Bool
-edges p = Codec
-  { codecIn = do
-    trk <- lift get
-    let (slurp, leave) = flip RTB.partitionMaybe trk $ \x -> case isNoteEdge x of
-          Just (p', b) | p == p' -> Just b
-          _            -> Nothing
-    lift $ put leave
-    return slurp
-  , codecOut = simpleShow $ fmap $ makeEdge p
-  }
+edges p = single
+  (\x -> case isNoteEdge x of
+    Just (p', b) | p == p' -> Just b
+    _            -> Nothing
+  ) (makeEdge p)
+
+splitTrack :: (a -> (b, c)) -> RTB.T t a -> (RTB.T t b, RTB.T t c)
+splitTrack f trk = let
+  trk' = fmap f trk
+  in (fmap fst trk', fmap snd trk')
 
 edgesBRE :: (Monad m, NNC.C t) => [Int] -> TrackEvent m t Bool
-edgesBRE = undefined -- TODO
+edgesBRE ps = Codec
+  { codecIn = slurpTrack $ \trk -> let
+    f evts = let
+      -- TODO this should require all the pitches, due to protar gtr vs bass BREs
+      (match, left) = partitionEithers $ flip map evts $ \x -> case isNoteEdge x of
+        Just (p, b) | elem p ps -> Left b
+        _           -> Right x
+      in (nubOrd match, left)
+    (slurp, leave) = splitTrack f $ RTB.collectCoincident trk
+    slurp' = RTB.flatten slurp
+    leave' = RTB.flatten leave
+    in if RTB.null slurp' then (RTB.empty, trk) else (slurp', leave')
+  , codecOut = simpleShow $ RTB.flatten . fmap (\b -> [makeEdge p b | p <- ps])
+  }
 
 edgesCV :: (Monad m, NNC.C t) => Int -> TrackEvent m t (Int, Maybe Int)
-edgesCV p = Codec
-  { codecIn = do
-    trk <- lift get
-    let (slurp, leave) = flip RTB.partitionMaybe trk $ \x -> case isNoteEdgeCPV x of
-          Just (c, p', v) | p == p' -> Just (c, v)
-          _               -> Nothing
-    lift $ put leave
-    return slurp
-  , codecOut = simpleShow $ fmap $ \(c, v) -> makeEdgeCPV c p v
-  }
+edgesCV p = single
+  (\x -> case isNoteEdgeCPV x of
+    Just (c, p', v) | p == p' -> Just (c, v)
+    _               -> Nothing
+  ) (\(c, v) -> makeEdgeCPV c p v)
 
 single :: (Monad m, NNC.C t) => (E.T -> Maybe a) -> (a -> E.T) -> TrackEvent m t a
 single fp fs = Codec
-  { codecIn = do
-    trk <- lift get
-    let (slurp, leave) = RTB.partitionMaybe fp trk
-    lift $ put leave
-    return slurp
+  { codecIn = slurpTrack $ RTB.partitionMaybe fp
   , codecOut = simpleShow $ fmap fs
   }
 
@@ -181,3 +195,19 @@ condenseMap_
   => TrackCodec m t (Map.Map k (RTB.T t ()))
   -> TrackCodec m t (RTB.T t k)
 condenseMap_ = dimap (fmap (, ())) (fmap fst) . condenseMap
+
+sysexPS :: (Monad m, NNC.C t) => Difficulty -> PS.PhraseID -> TrackEvent m t Bool
+sysexPS diff pid = Codec
+  { codecIn = slurpTrack $ \trk -> let
+    otherDiffs = filter (/= diff) each
+    (slurp, leave) = flip RTB.partitionMaybe trk $ \x -> case PS.parsePSSysEx x <|> readCommand' x of
+      Just (PS.PSMessage Nothing      pid' b) | pid == pid' -> Just (b, otherDiffs)
+      Just (PS.PSMessage (Just diff') pid' b) | (diff, pid) == (diff', pid') -> Just (b, [])
+      _                                       -> Nothing
+    unslurp = RTB.flatten $ flip fmap slurp $ \(b, diffs) ->
+      [ PS.unparsePSSysEx $ PS.PSMessage (Just d) pid b | d <- diffs ]
+    in if RTB.null slurp
+      then (RTB.empty, trk)
+      else (fmap fst slurp, RTB.merge unslurp leave)
+  , codecOut = simpleShow $ fmap (PS.unparsePSSysEx . PS.PSMessage (Just diff) pid)
+  }

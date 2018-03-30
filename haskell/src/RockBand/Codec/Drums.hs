@@ -15,8 +15,8 @@ import           RockBand.Drums                   (Animation (..), Audio (..),
                                                    Disco (..), Gem (..),
                                                    PSGem (..), ProColor (..),
                                                    ProType (..))
+import qualified RockBand.PhaseShiftMessage       as PS
 import qualified Sound.MIDI.Util                  as U
-import qualified RockBand.PhaseShiftMessage as PS
 
 data DrumTrack t = DrumTrack
   { drumMood         :: RTB.T t Mood
@@ -79,13 +79,11 @@ parseDrums = do
       parse = readCommand' >=> \(diff', aud, dsc) -> guard (diff == diff') >> Just (aud, dsc)
       unparse (aud, dsc) = showCommand' (diff :: Difficulty, aud :: Audio, dsc :: Disco)
       in single parse unparse
-    drumPSModifiers <- (drumPSModifiers =.) $ condenseMap $ eachKey each $ \psgem -> let
-      pid = case psgem of
-        Rimshot  -> PS.SnareRimshot
-        HHOpen   -> PS.HihatOpen
-        HHSizzle -> PS.HihatSizzle
-        HHPedal  -> PS.HihatPedal
-      in undefined pid
+    drumPSModifiers <- (drumPSModifiers =.) $ condenseMap $ eachKey each $ sysexPS diff . \case
+      Rimshot  -> PS.SnareRimshot
+      HHOpen   -> PS.HihatOpen
+      HHSizzle -> PS.HihatSizzle
+      HHPedal  -> PS.HihatPedal
     return DrumDifficulty{..}
   drumKick2x <- drumKick2x =. blip 95 -- TODO this should probably be blip-grouped with expert track
   drumAnimation <- drumAnimation =. undefined
