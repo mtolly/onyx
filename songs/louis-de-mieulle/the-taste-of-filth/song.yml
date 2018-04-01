@@ -8,6 +8,7 @@ metadata:
   genre: jazz
   subgenre: contemporary
   file-album-art: ../scapegoat-1/cover.jpg
+  preview-start: prc_odd_riff_2
 parts:
   drums:
     drums:
@@ -26,7 +27,7 @@ plans:
       2|0: hihat
       2|1: hihat
     song:
-      pad: [4.048, gain: [1, album-track]]
+      pad: [4.048, gain: [1.5, album-track]]
 targets:
   rb3:
     game: rb3
