@@ -1,14 +1,18 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TupleSections     #-}
 module RockBand.Codec.Drums where
 
 import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.Trans.StackTrace
+import           Data.Default.Class               (Default (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromMaybe)
 import           Data.Profunctor                  (dimap)
+import           Guitars                          (applyStatus)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
@@ -25,7 +29,7 @@ data DrumTrack t = DrumTrack
   , drumToms         :: RTB.T t (ProColor, ProType)
   , drumSingleRoll   :: RTB.T t Bool
   , drumDoubleRoll   :: RTB.T t Bool
-  , drumOverdrive    :: RTB.T t Bool  -- ^ white notes to gain energy
+  , drumOverdrive    :: RTB.T t Bool -- ^ white notes to gain energy
   , drumActivation   :: RTB.T t Bool -- ^ drum fill to activate Overdrive, or BRE
   , drumSolo         :: RTB.T t Bool
   , drumPlayer1      :: RTB.T t Bool
@@ -40,6 +44,9 @@ data DrumDifficulty t = DrumDifficulty
   , drumPSModifiers :: RTB.T t (PSGem, Bool)
   , drumGems        :: RTB.T t (Gem ())
   }
+
+instance Default (DrumDifficulty t) where
+  def = DrumDifficulty RTB.empty RTB.empty RTB.empty
 
 parseProType :: (Monad m, NNC.C t) => Int -> TrackEvent m t ProType
 parseProType
@@ -120,3 +127,64 @@ parseDrums = do
     RideSide True -> commandMatch ["ride_side_true"]
     RideSide False -> commandMatch ["ride_side_false"]
   return DrumTrack{..}
+
+computePro :: (NNC.C t) => Maybe Difficulty -> DrumTrack t -> RTB.T t (Gem ProType)
+computePro diff trk = let
+  toms = fmap (fmap $ \case Tom -> True; Cymbal -> False) $ drumToms trk
+  this = fromMaybe def $ Map.lookup (fromMaybe Expert diff) $ drumDifficulties trk
+  disco = fmap (\(_aud, dsc) -> ((), dsc == Disco)) $ drumMix this
+  applied = applyStatus disco $ applyStatus toms $ case diff of
+    Nothing -> RTB.merge (fmap (\() -> Kick) $ drumKick2x trk) $ drumGems this
+    _       -> drumGems this
+  in flip fmap applied $ \case
+    (instantDisco, (instantToms, gem)) -> case gem of
+      Kick -> Kick
+      Red -> if isDisco
+        then Pro Yellow Cymbal
+        else Red
+      Pro Yellow () | isDisco -> Red
+      Pro color () -> Pro color $ if elem color instantToms then Tom else Cymbal
+      Orange -> Orange -- probably shouldn't happen
+      where isDisco = not $ null instantDisco
+
+computePSReal :: (NNC.C t) => Maybe Difficulty -> DrumTrack t -> RTB.T t (Either PSGem (Gem ProType))
+computePSReal diff trk = let
+  pro = computePro diff trk
+  this = fromMaybe def $ Map.lookup (fromMaybe Expert diff) $ drumDifficulties trk
+  applied = applyStatus (drumPSModifiers this) pro
+  in flip fmap applied $ \case
+    (mods, Red)
+      | elem Rimshot mods -> Left Rimshot
+    (mods, Pro Yellow Cymbal)
+      | elem HHOpen mods -> Left HHOpen
+      | elem HHPedal mods -> Left HHPedal
+      | elem HHSizzle mods -> Left HHSizzle
+    (_, gem) -> Right gem
+
+psRealToPro :: (NNC.C t) => DrumTrack t -> DrumTrack t
+psRealToPro trk = trk
+  { drumDifficulties = flip Map.mapWithKey (drumDifficulties trk) $ \diff this -> let
+    -- this will fail if you use discobeat on the real track, so don't do that
+    merged = RTB.merge (Left <$> computePSReal (Just diff) trk) (Right <$> drumGems this)
+    eachInstant xs = flip filter [ x | Right x <- xs ] $ \case
+      Pro Yellow () -> notElem (Left $ Left HHPedal) xs
+      _             -> True
+    in this
+      { drumPSModifiers = RTB.empty
+      , drumGems = RTB.flatten $ fmap eachInstant $ RTB.collectCoincident merged
+      }
+  }
+
+baseScore :: RTB.T t (Gem ProType) -> Int
+baseScore = sum . fmap gemScore where
+  gemScore = \case
+    Kick         -> 30
+    Red          -> 30
+    Pro _ Cymbal -> 30
+    Pro _ Tom    -> 25
+    Orange       -> 30 -- no actual answer
+
+perfectSoloBonus :: (NNC.C t, Ord a) => RTB.T t Bool -> RTB.T t (Gem a) -> Int
+perfectSoloBonus solo gems = sum $ fmap score $ applyStatus (fmap ((),) solo) gems where
+  score ([], _) = 0
+  score _       = 100
