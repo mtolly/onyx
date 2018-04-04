@@ -37,13 +37,13 @@ data DrumTrack t = DrumTrack
   , drumDifficulties :: Map.Map Difficulty (DrumDifficulty t)
   , drumKick2x       :: RTB.T t ()
   , drumAnimation    :: RTB.T t Animation
-  }
+  } deriving (Eq, Ord, Show)
 
 data DrumDifficulty t = DrumDifficulty
   { drumMix         :: RTB.T t (Audio, Disco)
   , drumPSModifiers :: RTB.T t (PSGem, Bool)
   , drumGems        :: RTB.T t (Gem ())
-  }
+  } deriving (Eq, Ord, Show)
 
 instance Default (DrumDifficulty t) where
   def = DrumDifficulty RTB.empty RTB.empty RTB.empty
