@@ -17,6 +17,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromMaybe)
 import           Data.Profunctor                  (dimap)
 import           Data.Semigroup                   (Semigroup (..))
 import qualified Data.Text                        as T
@@ -57,7 +58,6 @@ slurpTrack f = lift $ do
   (slurp, leave) <- f <$> get
   put leave
   return slurp
-
 
 -- Types of MIDI events:
 -- * status text
@@ -208,6 +208,12 @@ condenseMap_
   => TrackCodec m t (Map.Map k (RTB.T t ()))
   -> TrackCodec m t (RTB.T t k)
 condenseMap_ = dimap (fmap (, ())) (fmap fst) . condenseMap
+
+blipSustainRB :: (Monad m, Ord a) => TrackCodec m U.Beats (RTB.T U.Beats (a, U.Beats)) -> TrackCodec m U.Beats (RTB.T U.Beats (a, Maybe U.Beats))
+blipSustainRB = let
+  fs = fmap $ \(a, mt) -> (a, fromMaybe (1/32) mt)
+  fp = fmap $ \(a, t) -> (a, guard (t > (1/3)) >> Just t)
+  in dimap fs fp
 
 sysexPS :: (Monad m, NNC.C t) => Difficulty -> PS.PhraseID -> TrackEvent m t Bool
 sysexPS diff pid = Codec

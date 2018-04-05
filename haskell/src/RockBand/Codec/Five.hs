@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RecordWildCards #-}
 module RockBand.Codec.Five where
 
@@ -38,7 +39,7 @@ data FiveDifficulty t = FiveDifficulty
   , fiveTap        :: RTB.T t Bool
   , fiveOpen       :: RTB.T t Bool
   , fiveOnyxClose  :: RTB.T t Int
-  , fiveGems       :: RTB.T t (LongNote () Color)
+  , fiveGems       :: RTB.T t (Color, Maybe t)
   } deriving (Eq, Ord, Show)
 
 instance Default (FiveDifficulty t) where
@@ -72,6 +73,11 @@ parseFive = do
       parse = readCommand' >=> \(OnyxCloseEvent diff' n) -> guard (diff == diff') >> Just n
       unparse n = showCommand' $ OnyxCloseEvent diff n
       in single parse unparse
-    fiveGems       <- fiveGems       =. undefined
+    fiveGems       <- (fiveGems =.) $ blipSustainRB $ condenseMap $ eachKey each $ matchEdges . edges . \case
+      Green  -> base + 0
+      Red    -> base + 1
+      Yellow -> base + 2
+      Blue   -> base + 3
+      Orange -> base + 4
     return FiveDifficulty{..}
   return FiveTrack{..}
