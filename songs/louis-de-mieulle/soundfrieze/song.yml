@@ -1,0 +1,36 @@
+metadata:
+  title: Soundfrieze
+  artist: Louis de Mieulle
+  album: Defense Mechanisms
+  track-number: 5
+  year: 2011
+  author: Onyxite
+  genre: jazz
+  subgenre: contemporary
+  file-album-art: ../scapegoat-1/cover.jpg
+parts:
+  drums:
+    drums: {}
+audio:
+  album-track:
+    md5: 8fd21c34d479b04439fb7dd0d7c64f78
+    frames: 20352444
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+      2|2: hihat
+      2|3: hihat
+    song:
+      pad: [3.807, gain: [1, album-track]] # replace with gain 1.5
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
