@@ -21,6 +21,9 @@ parts:
   drums:
     drums:
       difficulty: 7
+  vocal:
+    vocal: # WIP
+      count: 3
 audio:
   album-track:
     md5: 2f23c4da1a55d8e1802586ae40f9eb4f
