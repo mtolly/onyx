@@ -25,6 +25,9 @@ parts:
   drums:
     drums:
       difficulty: 7
+  guitar:
+    pro-guitar:
+      tuning: [0, 0, 0, 0, 0, 0] # 7 string modified to 6 string
   bass:
     pro-guitar:
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG

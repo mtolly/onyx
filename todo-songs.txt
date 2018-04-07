@@ -4,7 +4,7 @@ THE FURTHER SIDE (NOVA COLLECTIVE)
 - air: just needs basic keys + wrap PK
 - state of flux: just needs basic keys + wrap PK
 - ripped apart and reassembled: done!
-- the further side: drums + pro bass done
+- the further side: drums, pro guitar, pro bass done
 final steps:
 - check all drum charts to be as tom-accurate as possible
 - protar polish (slides, chords, etc.)
