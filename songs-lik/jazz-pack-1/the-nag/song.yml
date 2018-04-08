@@ -19,8 +19,8 @@ audio:
     file-path: audio-youtube.wav
     commands:
     - ../../../scripts/youtube sp-4HR4pENQ 140
-    md5: 57ab297a7251239fa05cb0a85e4e249f
-    frames: 11646976
+    md5: cac34cd4b6ecfb4ebdbc3eaa77b5a188
+    frames: 11644928
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
@@ -45,6 +45,8 @@ parts:
       difficulty: 7
   guitar:
     grybo:
+      difficulty: 6
+    ghl:
       difficulty: 6
   keys:
     grybo:
