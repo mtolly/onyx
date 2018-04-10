@@ -114,10 +114,8 @@ instanceMIDIEvent [t| Event |] Nothing
     )
   ]
 
--- | Phase Shift doesn't support non-ASCII chars in lyrics.
--- (RB text events are always Latin-1, even if .dta encoding is UTF-8.)
-asciiLyrics :: Event -> Event
-asciiLyrics (Lyric t) = let
+asciify :: T.Text -> T.Text
+asciify = let
   oneToOne = zip
     "ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝàáâãäåçèéêëìíîïðñòóôõö÷øùúûüýÿ"
     "AAAAAACEEEEIIIIDNOOOOOxOUUUUYaaaaaaceeeeiiiidnooooo/ouuuuyy"
@@ -127,8 +125,13 @@ asciiLyrics (Lyric t) = let
   f 'æ' = "ae"
   f 'þ' = "th"
   f c   = T.singleton $ fromMaybe c $ lookup c oneToOne
-  in Lyric $ T.concatMap f t
-asciiLyrics e = e
+  in T.concatMap f
+
+-- | Phase Shift doesn't support non-ASCII chars in lyrics.
+-- (RB text events are always Latin-1, even if .dta encoding is UTF-8.)
+asciiLyrics :: Event -> Event
+asciiLyrics (Lyric t) = Lyric $ asciify t
+asciiLyrics e         = e
 
 {- |
 Fix issues seen in Phase Shift conversions of Guitar Hero vocals charts:
