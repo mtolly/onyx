@@ -25,7 +25,7 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
 import           RockBand.Parse                   (isNoteEdge, isNoteEdgeCPV,
                                                    makeEdge, makeEdgeCPV,
-                                                   unparseBlip)
+                                                   unparseBlipCPV)
 import qualified RockBand.PhaseShiftMessage       as PS
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
@@ -78,17 +78,20 @@ slurpTrack f = lift $ do
 -- * blip-sustain e.g. 5fret/6fret/protar/prokeys notes
 --   if length below a certain value, is a blip. otherwise sustain
 
-blip :: (Monad m) => Int -> TrackEvent m U.Beats ()
-blip n = Codec
+blipCV :: (Monad m) => Int -> TrackEvent m U.Beats (Int, Int)
+blipCV p = Codec
   { codecIn = do
     trk <- lift get
-    let (slurp, leave) = flip RTB.partitionMaybe trk $ \x -> case isNoteEdge x of
-          Just (n', b) | n == n' -> Just $ guard b >> Just ()
-          _            -> Nothing
+    let (slurp, leave) = flip RTB.partitionMaybe trk $ \x -> case isNoteEdgeCPV x of
+          Just (c, p', v) | p == p' -> Just $ (c ,) <$> v
+          _               -> Nothing
     lift $ put leave
     return $ RTB.catMaybes slurp
-  , codecOut = simpleShow $ U.trackJoin . fmap (\() -> unparseBlip n)
+  , codecOut = simpleShow $ U.trackJoin . fmap (\(c, v) -> unparseBlipCPV (c, p, v))
   }
+
+blip :: (Monad m) => Int -> TrackEvent m U.Beats ()
+blip = dimap (fmap $ \() -> (0, 96)) (fmap $ const ()) . blipCV
 
 edge :: (Monad m) => Int -> Bool -> TrackEvent m U.Beats ()
 edge p b = single
@@ -163,7 +166,7 @@ matchEdges = dimap
   (U.trackJoin . fmap (\len -> RTB.fromPairList [(NNC.zero, True), (len, False)]))
   (fmap (\((), (), t) -> t) . joinEdges' . fmap (\b -> ((), guard b >> Just ())))
 
-matchEdgesCV :: (Monad m, NNC.C t) => TrackEvent m t (Int, Maybe Int) -> TrackEvent m t (Int, Int, t)
+matchEdgesCV :: (Ord a, Monad m, NNC.C t) => TrackEvent m t (a, Maybe Int) -> TrackEvent m t (a, Int, t)
 matchEdgesCV = dimap
   (U.trackJoin . fmap (\(c, v, len) -> RTB.fromPairList [(NNC.zero, (c, Just v)), (len, (c, Nothing))]))
   joinEdges'
