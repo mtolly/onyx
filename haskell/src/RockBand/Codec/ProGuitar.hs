@@ -1,6 +1,7 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE RecordWildCards  #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module RockBand.Codec.ProGuitar where
 
 import           Control.Monad                    (guard, (>=>))
@@ -8,6 +9,7 @@ import           Control.Monad.Codec
 import           Control.Monad.Trans.StackTrace
 import           Data.Default.Class               (Default (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust)
 import           Data.Profunctor                  (dimap)
@@ -21,6 +23,7 @@ import           RockBand.ProGuitar               (GtrChannel (..), GtrFret,
                                                    SlideType (..),
                                                    StrumArea (..))
 import qualified Sound.MIDI.Util                  as U
+import           Text.Read                        (readMaybe)
 
 data GuitarType = TypeGuitar | TypeBass
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -105,7 +108,11 @@ parsePG = do
   pgTremolo      <- pgTremolo =. edges 126
   pgTrill        <- pgTrill =. edges 127
   pgOverdrive    <- pgOverdrive =. edges 116
-  pgBRE          <- pgBRE =. undefined
+  -- note, we explicitly do TypeGuitar before TypeBass
+  -- because we want to try to parse the 6-note version first
+  pgBRE          <- (pgBRE =.) $ condenseMap $ eachKey [TypeGuitar, TypeBass] $ edgesBRE . \case
+    TypeGuitar -> [120 .. 125]
+    TypeBass   -> [120 .. 123]
   pgSolo         <- pgSolo =. edges 115
   pgHandPosition <- pgHandPosition =. let
     fs fret = (0, fret + 100)
@@ -127,7 +134,12 @@ parsePG = do
   pgNoChordNames <- pgNoChordNames =. edges 17
   pgSlashChords  <- pgSlashChords =. edges 16
   pgFlatChords   <- pgFlatChords =. edges 18
-  pgOnyxOctave   <- pgOnyxOctave =. undefined
+  pgOnyxOctave   <- pgOnyxOctave =. let
+    parse = readCommand' >=> \case
+      ["onyx", "octave", x] -> readMaybe $ T.unpack x
+      _ -> Nothing
+    unparse n = showCommand' ["onyx", "octave", T.pack $ show n]
+    in single parse unparse
   pgMystery45    <- pgMystery45 =. edges 45
   pgMystery69    <- pgMystery69 =. edges 69
   pgMystery93    <- pgMystery93 =. edges 93
@@ -147,6 +159,13 @@ parsePG = do
     pgPartialChord <- pgPartialChord =. channelEdges_ (base + 9)
     pgMysteryBFlat <- pgMysteryBFlat =. edges (base + 10)
     pgAllFrets     <- pgAllFrets =. edges (base + 11)
-    pgChordName    <- pgChordName =. undefined
+    pgChordName    <- pgChordName =. let
+      cmd = T.pack $ "chrd" ++ show (fromEnum diff)
+      parse = readCommand' >=> \case
+        [k] | k == cmd -> Just Nothing
+        [k, cname] | k == cmd -> Just $ Just cname
+        _ -> Nothing
+      unparse cname = showCommand' $ cmd : toList cname
+      in single parse unparse
     return ProGuitarDifficulty{..}
   return ProGuitarTrack{..}

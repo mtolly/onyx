@@ -12,7 +12,6 @@ import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State        (StateT, get, put)
 import           Control.Monad.Trans.Writer       (Writer, execWriter, tell)
-import           Data.Either                      (partitionEithers)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.List.Extra                  (nubOrd)
@@ -112,15 +111,24 @@ splitTrack f trk = let
   trk' = fmap f trk
   in (fmap fst trk', fmap snd trk')
 
+removeEdgeGroup :: [Int] -> Bool -> [E.T] -> Maybe [E.T]
+removeEdgeGroup [] _ evts = Just evts
+removeEdgeGroup (p : ps) b evts =
+  case break (maybe False (== (p, b)) . isNoteEdge) evts of
+    (xs, _ : ys) -> removeEdgeGroup ps b $ xs ++ ys
+    (_ , []    ) -> Nothing
+
 edgesBRE :: (Monad m, NNC.C t) => [Int] -> TrackEvent m t Bool
 edgesBRE ps = Codec
   { codecIn = slurpTrack $ \trk -> let
     f evts = let
-      -- TODO this should require all the pitches, due to protar gtr vs bass BREs
-      (match, left) = partitionEithers $ flip map evts $ \x -> case isNoteEdge x of
-        Just (p, b) | elem p ps -> Left b
-        _           -> Right x
-      in (nubOrd match, left)
+      (hasOn, evts') = case removeEdgeGroup ps True evts of
+        Nothing  -> (False, evts)
+        Just new -> (True, new)
+      (hasOff, evts'') = case removeEdgeGroup ps False evts' of
+        Nothing  -> (False, evts')
+        Just new -> (True, new)
+      in ([ True | hasOn ] ++ [ False | hasOff ], evts'')
     (slurp, leave) = splitTrack f $ RTB.collectCoincident trk
     slurp' = RTB.flatten slurp
     leave' = RTB.flatten leave
