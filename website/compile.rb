@@ -106,7 +106,7 @@ def makeDifficulties(parts, song)
         mode_image = 'pro-keys'
       when 'drums'
         mode_name = '(Pro) Drums'
-        mode_image = 'drums'
+        mode_image = 'pro-drums'
       when 'vocal'
         count = info['count']
         mode_name = "Vocals (#{count})"

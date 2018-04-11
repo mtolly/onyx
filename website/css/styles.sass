@@ -23,20 +23,20 @@ h1, h2, h3, h4, p, ul, ol, li
   margin: 5px
 
 h1
-  font-size: 2em
-
-h2
   font-size: 1.6em
 
-h3
+h2
   font-size: 1.3em
 
-h4
+h3
   font-size: 1em
+
+h4
+  font-size: 0.85em
 
 @font-face
   font-family: Pentatonic
-  src: url('../Pentatonic.ttf')
+  src: url('../Pentatonic-Regular.woff') format("woff")
 
 .onyx-intro
   text-align: center
@@ -55,17 +55,15 @@ h1, .onyx-artist-header, .onyx-album-header, .onyx-song-header
   letter-spacing: 0.02em
   font-weight: normal
 
-.onyx-artist-header
-  font-style: italic
-
 h3.onyx-album-header
-  font-size: 1em
+  font-size: 0.85em
 
 .onyx-album-art
   border: 3px solid #ccc
   width: 170px
 
 .onyx-artist-header
+  font-style: italic
   text-align: center
   margin: 15px 0
   padding: 6px 0
@@ -94,13 +92,14 @@ ul
 
 h4.onyx-song-header
   margin: 0
-  font-size: 1.3em
+  font-size: 1em
 
 .onyx-song-header-inner
   color: #180019
   background-color: #FFBF00
   display: inline-block
-  padding: 2px
+  padding: 3px
+  padding-top: 5px
   border-radius: 4px
   margin: 5px 2px
 
