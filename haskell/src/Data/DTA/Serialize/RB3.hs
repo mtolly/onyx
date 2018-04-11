@@ -3,15 +3,16 @@
 {-# LANGUAGE RecordWildCards   #-}
 module Data.DTA.Serialize.RB3 where
 
-import           Control.Applicative      ((<|>))
-import           Control.Monad.Codec      ((=.))
+import           Control.Applicative            ((<|>))
+import           Control.Monad.Codec            (CodecFor (..), (=.))
+import           Control.Monad.Trans.StackTrace (SendMessage)
 import           Data.DTA
 import           Data.DTA.Serialize
-import           Data.DTA.Serialize.Magma (Gender (..))
-import qualified Data.HashMap.Strict      as Map
-import qualified Data.Text                as T
-import           JSONData                 (StackCodec' (..), eitherCodec,
-                                           expected, fill, opt, req)
+import           Data.DTA.Serialize.Magma       (Gender (..))
+import qualified Data.HashMap.Strict            as Map
+import qualified Data.Text                      as T
+import           JSONData                       (eitherCodec, expected, fill,
+                                                 opt, req)
 
 data Pitch
   = C | CSharp
@@ -53,13 +54,13 @@ instance StackChunks DrumSounds where
     seqs <- seqs =. req "seqs" (chunksParens $ chunksList chunkKey)
     return DrumSounds{..}
 
-channelList :: ChunksCodec [Integer]
-channelList = StackCodec
-  { stackShow = stackShow fmt
-  , stackParse = stackParse fmt <|> fmap (: []) (stackParse fmt')
+channelList :: (SendMessage m) => ChunksCodec m [Integer]
+channelList = Codec
+  { codecOut = codecOut fmt
+  , codecIn = codecIn fmt <|> fmap (: []) (codecIn fmt')
     <|> expected "a number or a list of numbers"
-  } where fmt  = chunksParens (stackChunks :: ChunksCodec [Integer])
-          fmt' = stackChunks :: ChunksCodec Integer
+  } where fmt  = chunksParens (stackChunks :: (SendMessage m) => ChunksCodec m [Integer])
+          fmt' = stackChunks :: (SendMessage m) => ChunksCodec m Integer
 
 data Song = Song
   -- rbn2 keys in c3 magma order:

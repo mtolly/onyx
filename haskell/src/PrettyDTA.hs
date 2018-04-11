@@ -28,7 +28,7 @@ import           Data.Maybe                     (fromMaybe, listToMaybe,
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
-import           JSONData                       (stackShow)
+import           JSONData                       (makeValue)
 import           Resources                      (missingSongData)
 import           System.IO.Extra                (latin1, readFileEncoding',
                                                  utf8)
@@ -129,7 +129,7 @@ readRB3DTABytes dtabs = do
         dta <- mapM rdr dtabs
         (k, chunks) <- case D.treeChunks $ D.topTree dta of
           [D.Parens (D.Tree _ (D.Key k : chunks))] -> return (k, chunks)
-          _ -> fatal $ "Not a valid songs.dta with exactly one song"
+          _ -> fatal "Not a valid songs.dta with exactly one song"
         let missingChunks = fromMaybe [] $ Map.lookup k missingMapping
         pkg <- unserialize stackChunks $ D.DTA 0 $ D.Tree 0
           $ removeOldDTAKeys $ fixTracksCount $ applyUpdate chunks missingChunks
@@ -197,7 +197,7 @@ writeC3Comments C3DTAComments{..} = execWriter $ do
 
 prettyDTA :: T.Text -> D.SongPackage -> C3DTAComments -> T.Text
 prettyDTA name pkg c3 = let
-  dta = D.DTA 0 $ D.Tree 0 [D.Parens $ D.Tree 0 $ D.Key name : stackShow stackChunks pkg]
+  dta = D.DTA 0 $ D.Tree 0 [D.Parens $ D.Tree 0 $ D.Key name : makeValue stackChunks pkg]
   dtaLines = filter (T.any $ not . isSpace) $ T.lines $ D.showDTA dta
   c3Lines = writeC3Comments c3
   in T.unlines $ case reverse dtaLines of

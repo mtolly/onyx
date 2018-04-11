@@ -1,5 +1,4 @@
 {-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE RankNTypes        #-}
@@ -29,46 +28,52 @@ type ObjectParser m v = StackParser (StateT (Set.HashSet T.Text) m) (Map.HashMap
 type ObjectBuilder v = Writer [(T.Text, v)]
 type ObjectCodec m v a = Codec (ObjectParser m v) (ObjectBuilder v) a
 
-data StackCodec' v c a = StackCodec
-  { stackParse :: forall m. (SendMessage m) => StackParser m v a
-  , stackShow  :: c -> v
-  } deriving (Functor)
-type StackCodec v a = StackCodec' v a a
+-- note, v will probably not be a Monoid! intended to just tell a single value
+type ValueCodec m v a = Codec (StackParser m v) (Writer v) a
 
-identityCodec :: StackCodec a a
-identityCodec = StackCodec
-  { stackParse = lift ask
-  , stackShow  = id
+makeOut :: (a -> v) -> (a -> Writer v a)
+makeOut f = fmapArg $ tell . f
+
+makeValue' :: ValueCodec m v a -> a -> v
+makeValue' cdc = execWriter . codecOut cdc
+
+makeValue :: ValueCodec (PureLog Identity) v a -> a -> v
+makeValue = makeValue'
+
+identityCodec :: (Monad m) => ValueCodec m a a
+identityCodec = Codec
+  { codecIn = lift ask
+  , codecOut = makeOut id
   }
 
-type JSONCodec a = StackCodec A.Value a
+type JSONCodec m a = ValueCodec m A.Value a
 
 class StackJSON a where
-  stackJSON :: JSONCodec a
-  default stackJSON :: (A.ToJSON a, A.FromJSON a) => JSONCodec a
+  stackJSON :: (SendMessage m) => JSONCodec m a
+  default stackJSON :: (A.ToJSON a, A.FromJSON a, SendMessage m) => JSONCodec m a
   stackJSON = aesonCodec
 
-  stackJSONList :: JSONCodec [a]
+  stackJSONList :: (SendMessage m) => JSONCodec m [a]
   stackJSONList = listCodec stackJSON
 
 expected :: (Monad m, Show v) => String -> StackParser m v a
 expected x = lift ask >>= \v -> fatal $ "Expected " ++ x ++ ", but found: " ++ show v
 
-aesonCodec :: (A.ToJSON a, A.FromJSON a) => JSONCodec a
-aesonCodec = StackCodec
-  { stackShow = A.toJSON
-  , stackParse = lift ask >>= \v -> case A.fromJSON v of
+aesonCodec :: (A.ToJSON a, A.FromJSON a, Monad m) => JSONCodec m a
+aesonCodec = Codec
+  { codecOut = makeOut A.toJSON
+  , codecIn = lift ask >>= \v -> case A.fromJSON v of
     A.Success x -> return x
     A.Error err -> fatal err
   }
 
-listCodec :: JSONCodec a -> JSONCodec [a]
-listCodec elt = StackCodec
-  { stackShow = A.Array . V.fromList . map (stackShow elt)
-  , stackParse = lift ask >>= \case
+listCodec :: (Monad m) => JSONCodec m a -> JSONCodec m [a]
+listCodec elt = Codec
+  { codecOut = makeOut $ A.Array . V.fromList . map (makeValue' elt)
+  , codecIn = lift ask >>= \case
     A.Array vect -> forM (zip [0..] $ V.toList vect) $ \(i, x) ->
       inside ("array element " ++ show (i :: Int)) $
-        parseFrom x $ stackParse elt
+        parseFrom x $ codecIn elt
     _ -> expected "array"
   }
 
@@ -84,25 +89,28 @@ strictKeys = do
   let unknown = Set.fromList (Map.keys obj) `Set.difference` known
   unless (Set.null unknown) $ fatal $ "Unrecognized object keys: " ++ show (Set.toList unknown)
 
-makeObject :: (forall m. (SendMessage m) => ObjectCodec m v a) -> a -> [(T.Text, v)]
-makeObject codec x = let
-  forceIdentity :: (forall m. (SendMessage m) => ObjectCodec m v a) -> ObjectCodec (PureLog Identity) v a
-  forceIdentity = id
-  in execWriter $ codecOut (forceIdentity codec) x
+makeObject :: (Monad m) => ObjectCodec m v a -> a -> [(T.Text, v)]
+makeObject codec x = execWriter $ codecOut codec x
 
-asObject :: T.Text -> (forall m. (SendMessage m) => ObjectCodec m A.Value a) -> JSONCodec a
-asObject err codec = StackCodec
-  { stackParse = inside ("parsing " ++ T.unpack err) $ lift ask >>= \case
+asObject :: (Monad m) => T.Text -> ObjectCodec m A.Value a -> JSONCodec m a
+asObject err codec = Codec
+  { codecIn = inside ("parsing " ++ T.unpack err) $ lift ask >>= \case
     A.Object obj -> let
       f = withReaderT (const obj) . mapReaderT (`evalStateT` Set.empty)
       in mapStackTraceT f $ codecIn codec
     _ -> expected "object"
-  , stackShow = A.Object . Map.fromList . makeObject codec
+  , codecOut = makeOut $ A.Object . Map.fromList . makeObject codec
   }
 
-asStrictObject :: T.Text -> (forall m. (SendMessage m) => ObjectCodec m A.Value a) -> JSONCodec a
+objectId :: ObjectCodec (PureLog Identity) v a -> ObjectCodec (PureLog Identity) v a
+objectId = id
+
+valueId :: ValueCodec (PureLog Identity) v a -> ValueCodec (PureLog Identity) v a
+valueId = id
+
+asStrictObject :: (SendMessage m) => T.Text -> ObjectCodec m A.Value a -> JSONCodec m a
 asStrictObject err codec = asObject err Codec
-  { codecOut = codecOut ((id :: ObjectCodec (PureLog Identity) v a -> ObjectCodec (PureLog Identity) v a) codec)
+  { codecOut = codecOut codec
   , codecIn = codecIn codec <* strictKeys
   }
 
@@ -111,7 +119,7 @@ object p = lift ask >>= \case
   A.Object o -> parseFrom o p
   _          -> expected "an object"
 
-objectKey :: (SendMessage m, Eq a, Show v) => Maybe a -> Bool -> Bool -> T.Text -> StackCodec v a -> ObjectCodec m v a
+objectKey :: (SendMessage m, Eq a, Show v) => Maybe a -> Bool -> Bool -> T.Text -> ValueCodec m v a -> ObjectCodec m v a
 objectKey dflt shouldWarn shouldFill key valCodec = Codec
   { codecIn = do
     obj <- lift ask
@@ -124,21 +132,17 @@ objectKey dflt shouldWarn shouldFill key valCodec = Codec
       Just v  -> inside ("required key " ++ show key) $ do
         lift $ lift $ modify $ Set.insert key
         let f = withReaderT (const v) . mapReaderT lift
-        mapStackTraceT f $ stackParse valCodec
-  , codecOut = \val -> writer
-    ( val
-    , if shouldFill || dflt /= Just val
-      then [(key, stackShow valCodec val)]
-      else []
-    )
+        mapStackTraceT f $ codecIn valCodec
+  , codecOut = fmapArg $ \val -> tell
+    [(key, makeValue' valCodec val) | shouldFill || dflt /= Just val]
   }
 
 -- TODO req/fill/opt shouldn't need SendMessage constraint
 
-req :: (SendMessage m, Show v, Eq a) => T.Text -> StackCodec v a -> ObjectCodec m v a
+req :: (SendMessage m, Show v, Eq a) => T.Text -> ValueCodec m v a -> ObjectCodec m v a
 req = objectKey Nothing False False
 
-warning, fill, opt :: (SendMessage m, Show v, Eq a) => a -> T.Text -> StackCodec v a -> ObjectCodec m v a
+warning, fill, opt :: (SendMessage m, Show v, Eq a) => a -> T.Text -> ValueCodec m v a -> ObjectCodec m v a
 warning x = objectKey (Just x) True  True
 fill    x = objectKey (Just x) False True
 opt     x = objectKey (Just x) False False
@@ -177,21 +181,21 @@ instance (StackJSON a) => StackJSON [a] where
 instance StackJSON Char where
   stackJSONList = aesonCodec
 
-eitherCodec :: StackCodec v a -> StackCodec v b -> StackCodec v (Either a b)
-eitherCodec ca cb = StackCodec
-  { stackShow  = either (stackShow ca) (stackShow cb)
-  , stackParse = fmap Left (stackParse ca) <|> fmap Right (stackParse cb)
+eitherCodec :: (Monad m) => ValueCodec m v a -> ValueCodec m v b -> ValueCodec m v (Either a b)
+eitherCodec ca cb = Codec
+  { codecOut  = makeOut $ either (makeValue' ca) (makeValue' cb)
+  , codecIn = fmap Left (codecIn ca) <|> fmap Right (codecIn cb)
   }
 
 instance (StackJSON a, StackJSON b) => StackJSON (Either a b) where
   stackJSON = eitherCodec stackJSON stackJSON
 
-maybeCodec :: JSONCodec a -> JSONCodec (Maybe a)
-maybeCodec c = StackCodec
-  { stackShow = maybe A.Null $ stackShow c
-  , stackParse = lift ask >>= \case
+maybeCodec :: (Monad m) => JSONCodec m a -> JSONCodec m (Maybe a)
+maybeCodec c = Codec
+  { codecOut = makeOut $ maybe A.Null $ makeValue' c
+  , codecIn = lift ask >>= \case
     A.Null -> return Nothing
-    _      -> fmap Just $ stackParse c
+    _      -> Just <$> codecIn c
   }
 
 instance (StackJSON a) => StackJSON (Maybe a) where
@@ -211,10 +215,10 @@ mapping p = lift ask >>= \case
 mappingToJSON :: (StackJSON a) => Map.HashMap T.Text a -> A.Value
 mappingToJSON = A.toJSON . fmap toJSON
 
-dict :: JSONCodec a -> JSONCodec (Map.HashMap T.Text a)
-dict c = StackCodec
-  { stackShow = A.toJSON . fmap (stackShow c)
-  , stackParse = mapping $ stackParse c
+dict :: (Monad m) => JSONCodec m a -> JSONCodec m (Map.HashMap T.Text a)
+dict c = Codec
+  { codecOut = makeOut $ A.toJSON . fmap (makeValue' c)
+  , codecIn = mapping $ codecIn c
   }
 
 pattern OneKey :: T.Text -> A.Value -> A.Value
@@ -223,12 +227,12 @@ pattern OneKey k v <- A.Object (Map.toList -> [(k, v)]) where
 
 -- TODO find a safer way to do this
 fromEmptyObject :: (StackJSON a) => a
-fromEmptyObject = case runPureLog $ runReaderT (runStackTraceT $ stackParse stackJSON) $ A.object [] of
+fromEmptyObject = case runPureLog $ runReaderT (runStackTraceT $ codecIn stackJSON) $ A.object [] of
   (Right x , _) -> x
   (Left err, _) -> error $ Exc.displayException err
 
 toJSON :: (StackJSON a) => a -> A.Value
-toJSON = stackShow stackJSON
+toJSON = makeValue stackJSON
 
 fromJSON :: (SendMessage m, StackJSON a) => StackParser m A.Value a
-fromJSON = stackParse stackJSON
+fromJSON = codecIn stackJSON

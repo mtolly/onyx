@@ -57,8 +57,8 @@ import           Genre
 import           GuitarHeroII.Audio                    (writeVGS)
 import           GuitarHeroII.Convert
 import           Image
-import           JSONData                              (StackJSON (..),
-                                                        fromJSON, stackShow)
+import           JSONData                              (StackJSON, fromJSON,
+                                                        makeValue, valueId)
 import qualified Magma
 import qualified MelodysEscape
 import           MoggDecrypt
@@ -912,7 +912,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             let title = targetTitle songYaml $ RB3 rb3
             pathMagmaProj %> \out -> do
               p <- makeMagmaProj songYaml rb3 plan pkg pathMagmaMid $ return title
-              liftIO $ D.writeFileDTA_latin1 out $ D.serialize D.stackChunks p
+              liftIO $ D.writeFileDTA_latin1 out $ D.serialize (valueId D.stackChunks) p
             pathMagmaC3 %> \out -> do
               midi <- shakeMIDI pathMagmaMid
               c3 <- makeC3 songYaml plan rb3 midi pkg
@@ -1188,7 +1188,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                           , Magma.pan = [-1, 1]
                           , Magma.vol = [0, 0]
                           }
-                  liftIO $ D.writeFileDTA_latin1 out $ D.serialize D.stackChunks p
+                  liftIO $ D.writeFileDTA_latin1 out $ D.serialize (valueId D.stackChunks) p
                     { Magma.project = (Magma.project p)
                       { Magma.albumArt = Magma.AlbumArt "cover-v1.bmp"
                       , Magma.midi = (Magma.midi $ Magma.project p)
@@ -1338,7 +1338,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                               , D.extraAuthoring = Nothing
                               , D.alternatePath = Nothing
                               }
-                        liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : stackShow D.stackChunks newDTA))]
+                        liftIO $ D.writeFileDTA_latin1 out $ D.DTA 0 $ D.Tree 0 [D.Parens (D.Tree 0 (D.Key pkg : makeValue D.stackChunks newDTA))]
                   rb2DTA %> \out -> do
                     shk $ need [rb2OriginalDTA, pathDta]
                     (_, magmaDTA, _) <- readRB3DTA rb2OriginalDTA
@@ -1487,7 +1487,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             dir </> "gh2/songs.dta" %> \out -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
               let dta = makeGH2DTA songYaml (previewBounds songYaml input) gh2
-              stackIO $ D.writeFileDTA_latin1 out $ D.serialize D.stackChunks dta
+              stackIO $ D.writeFileDTA_latin1 out $ D.serialize (valueId D.stackChunks) dta
 
             phony (dir </> "gh2") $ shk $ need
               [ dir </> "gh2/notes.mid"
