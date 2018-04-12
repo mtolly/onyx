@@ -241,3 +241,6 @@ sysexPS diff pid = Codec
       else (fmap fst slurp, RTB.merge unslurp leave)
   , codecOut = simpleShow $ fmap (PS.unparsePSSysEx . PS.PSMessage (Just diff) pid)
   }
+
+class ParseTrack trk where
+  parseTrack :: (SendMessage m) => TrackCodec m U.Beats (trk U.Beats)
