@@ -108,7 +108,7 @@ objectId = id
 valueId :: ValueCodec (PureLog Identity) v a -> ValueCodec (PureLog Identity) v a
 valueId = id
 
-asStrictObject :: (SendMessage m) => T.Text -> ObjectCodec m A.Value a -> JSONCodec m a
+asStrictObject :: (Monad m) => T.Text -> ObjectCodec m A.Value a -> JSONCodec m a
 asStrictObject err codec = asObject err Codec
   { codecOut = codecOut codec
   , codecIn = codecIn codec <* strictKeys

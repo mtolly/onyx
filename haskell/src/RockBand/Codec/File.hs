@@ -21,6 +21,7 @@ import           RockBand.Codec.Events
 import           RockBand.Codec.Five
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
+import           RockBand.Codec.VenueRB3
 import           RockBand.Codec.Vocal
 import qualified RockBand.File                    as RBFile
 import qualified Sound.MIDI.File.Event            as E
@@ -83,7 +84,7 @@ data RB3File t = RB3File
   , rb3Harm3            :: VocalTrack t
   , rb3Events           :: EventsTrack t
   , rb3Beat             :: BeatTrack t
-  -- , rb3Venue            :: VenueTrack t -- TODO
+  , rb3Venue            :: VenueRB3 t
   } deriving (Eq, Ord, Show)
 
 instance ParseFile RB3File where
@@ -108,4 +109,5 @@ instance ParseFile RB3File where
     rb3Harm3            <- rb3Harm3            =. fileTrack "HARM3"
     rb3Events           <- rb3Events           =. fileTrack "EVENTS"
     rb3Beat             <- rb3Beat             =. fileTrack "BEAT"
+    rb3Venue            <- rb3Venue            =. fileTrack "VENUE"
     return RB3File{..}
