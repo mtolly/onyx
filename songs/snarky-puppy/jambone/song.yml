@@ -1,0 +1,38 @@
+metadata:
+  title: Jambone
+  track-number: 4
+  author: Onyxite
+  file-include: ../../../albums/we-like-it-here.yml
+  autogen-theme: FeelGoodPopRock
+audio:
+  # bandcamp (not available anymore...)
+  album-prev:
+    md5: f0c5c57d952773e82bd6cb116623c6b7
+    frames: 18150531
+  album-track:
+    md5: 3343d2205a21dbe3614fe2631135f00a
+    frames: 13558082
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+    song:
+      fade:
+      - start
+      - 3
+      - drop:
+        - '6:47.511'
+        - concatenate: [album-prev, album-track]
+parts:
+  drums:
+    drums: {}
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
