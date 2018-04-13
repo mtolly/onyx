@@ -10,6 +10,10 @@ audio:
   album-track:
     md5: 449ae5a309863b41cf3fa5c528eec826
     frames: 17628828
+  surround:
+    md5: d16ea6c24c3e522f1af451010ab9b219
+    frames: 38481920
+    channels: 6
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
@@ -23,11 +27,38 @@ plans:
       1|3: hihat
     song:
       pad: [3.934, album-track]
+  dev:
+    song:
+      pad: [3.934, album-track]
+    parts:
+      ch1:
+        pad:
+        - 4.052
+        - channels: [[0], surround]
+      ch2:
+        pad:
+        - 4.052
+        - channels: [[1], surround]
+      ch3:
+        pad:
+        - 4.052
+        - channels: [[2], surround]
+      # ch4 is useless
+      ch5:
+        pad:
+        - 4.052
+        - channels: [[4], surround]
+      ch6:
+        pad:
+        - 4.052
+        - channels: [[5], surround]
 parts:
   drums:
     drums: {}
 targets:
   rb3:
     game: rb3
+    plan: album
   ps:
     game: ps
+    plan: album
