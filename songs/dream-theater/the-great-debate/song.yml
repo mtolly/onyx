@@ -22,7 +22,7 @@ parts:
     drums:
       difficulty: 7
   vocal:
-    vocal: # WIP
+    vocal:
       count: 3
 audio:
   album-track:
