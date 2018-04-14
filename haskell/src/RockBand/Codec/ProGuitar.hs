@@ -28,7 +28,8 @@ data GuitarType = TypeGuitar | TypeBass
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data ProGuitarTrack t = ProGuitarTrack
-  { pgTrainer      :: RTB.T t (GuitarType, Trainer)
+  { pgDifficulties :: Map.Map Difficulty (ProGuitarDifficulty t)
+  , pgTrainer      :: RTB.T t (GuitarType, Trainer)
   , pgTremolo      :: RTB.T t Bool
   , pgTrill        :: RTB.T t Bool
   , pgOverdrive    :: RTB.T t Bool
@@ -43,8 +44,13 @@ data ProGuitarTrack t = ProGuitarTrack
   , pgMystery45    :: RTB.T t Bool
   , pgMystery69    :: RTB.T t Bool
   , pgMystery93    :: RTB.T t Bool
-  , pgDifficulties :: Map.Map Difficulty (ProGuitarDifficulty t)
   } deriving (Eq, Ord, Show)
+
+instance TraverseTrack ProGuitarTrack where
+  traverseTrack fn (ProGuitarTrack a b c d e f g h i j k l m n o p) = ProGuitarTrack
+    <$> traverse (traverseTrack fn) a <*> fn b <*> fn c <*> fn d
+    <*> fn e <*> fn f <*> fn g <*> fn h <*> fn i <*> fn j
+    <*> fn k <*> fn l <*> fn m <*> fn n <*> fn o <*> fn p
 
 data ProGuitarDifficulty t = ProGuitarDifficulty
   { pgChordName    :: RTB.T t (Maybe T.Text)
@@ -57,6 +63,11 @@ data ProGuitarDifficulty t = ProGuitarDifficulty
   -- TODO EOF format sysexes
   , pgNotes        :: RTB.T t (GtrString, (NoteType, GtrFret, Maybe t))
   } deriving (Eq, Ord, Show)
+
+instance TraverseTrack ProGuitarDifficulty where
+  traverseTrack fn (ProGuitarDifficulty a b c d e f g h) = ProGuitarDifficulty
+    <$> fn a <*> fn b <*> fn c <*> fn d
+    <*> fn e <*> fn f <*> fn g <*> fn h
 
 instance Default (ProGuitarDifficulty t) where
   def = ProGuitarDifficulty

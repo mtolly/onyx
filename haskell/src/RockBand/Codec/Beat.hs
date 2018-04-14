@@ -4,7 +4,6 @@ module RockBand.Codec.Beat where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Traversable                 (fmapDefault, foldMapDefault)
 import           RockBand.Beat                    (Event (..))
 import           RockBand.Codec
 import           RockBand.Common
@@ -21,6 +20,3 @@ instance ParseTrack BeatTrack where
 
 instance TraverseTrack BeatTrack where
   traverseTrack fn (BeatTrack a) = BeatTrack <$> fn a
-instance Traversable BeatTrack where traverse = traverseTime
-instance Functor     BeatTrack where fmap     = fmapDefault
-instance Foldable    BeatTrack where foldMap  = foldMapDefault

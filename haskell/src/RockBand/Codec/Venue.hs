@@ -98,6 +98,13 @@ data VenueTrack t = VenueTrack
 
   } deriving (Eq, Ord, Show)
 
+instance TraverseTrack VenueTrack where
+  traverseTrack fn (VenueTrack a b c d e f g h i j k l m n o p q r s) = VenueTrack
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
+    <*> fn g <*> fn h <*> fn i <*> fn j <*> fn k <*> fn l
+    <*> fn m <*> fn n <*> fn o <*> fn p <*> fn q <*> fn r
+    <*> fn s
+
 instance ParseTrack VenueTrack where
   parseTrack = do
     venueCameraRB3 <- venueCameraRB3 =. command

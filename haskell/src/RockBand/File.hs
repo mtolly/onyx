@@ -75,7 +75,7 @@ knownTracks trks names = forM_ (zip ([1..] :: [Int]) trks) $ \(i, trk) -> do
 
 showMIDITrack :: (MIDIEvent a) => String -> RTB.T U.Beats a -> [RTB.T U.Beats E.T]
 showMIDITrack name trk =
-  [fixMoonTaps $ fixEventOrder $ U.setTrackName name $ unparseAll trk | not $ RTB.null trk]
+  [U.setTrackName name $ unparseAll trk | not $ RTB.null trk]
 
 data RB3File t = RB3File
   { rb3PartDrums        :: RTB.T t      Drums.Event
@@ -517,14 +517,17 @@ instance MIDIFileFormat RawFile where
   readMIDITracks = return . fmap RawFile
   showMIDITracks = fmap rawTracks
 
-showMIDIFile' :: (MIDIFileFormat f) => Song (f U.Beats) -> F.T
-showMIDIFile' s = let
+showMIDIFile :: Song [RTB.T U.Beats E.T] -> F.T
+showMIDIFile s = let
   tempos = U.unmakeTempoMap $ s_tempos s
   sigs = case mapM U.showSignatureFull $ U.measureMapToTimeSigs $ s_signatures s of
     Nothing   -> RTB.singleton 0 $ fromJust $ U.showSignature 4
     Just evts -> evts
   tempoTrk = U.setTrackName "notes" $ RTB.merge tempos sigs
-  in U.encodeFileBeats F.Parallel 480 $ tempoTrk : s_tracks (showMIDITracks s)
+  in U.encodeFileBeats F.Parallel 480 $ map (fixMoonTaps . fixEventOrder) $ tempoTrk : s_tracks s
+
+showMIDIFile' :: (MIDIFileFormat f) => Song (f U.Beats) -> F.T
+showMIDIFile' = showMIDIFile . showMIDITracks
 
 {- |
 This is a hack because Moonscraper and thus Clone Hero currently don't

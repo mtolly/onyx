@@ -14,6 +14,7 @@ import           Control.Monad.Trans.State        (StateT, get, put)
 import           Control.Monad.Trans.Writer       (Writer, execWriter, tell)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.Functor.Identity            (Identity (..))
 import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
@@ -249,7 +250,10 @@ class ParseTrack trk where
   parseTrack :: (SendMessage m) => TrackCodec m U.Beats (trk U.Beats)
 
 class TraverseTrack trk where
-  traverseTrack :: (Applicative f) => (forall a. RTB.T t a -> f (RTB.T u a)) -> trk t -> f (trk u)
+  traverseTrack :: (Applicative f) => (forall a. RTB.T t a -> f (RTB.T t a)) -> trk t -> f (trk t)
 
-traverseTime :: (TraverseTrack trk, Applicative f) => (t -> f u) -> trk t -> f (trk u)
+traverseTime :: (TraverseTrack trk, Applicative f) => (t -> f t) -> trk t -> f (trk t)
 traverseTime f trk = traverseTrack (RTB.traverseTime f) trk
+
+mapTrack :: (TraverseTrack trk) => (forall a. RTB.T t a -> RTB.T t a) -> trk t -> trk t
+mapTrack f = runIdentity . traverseTrack (Identity . f)

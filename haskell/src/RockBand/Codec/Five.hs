@@ -17,7 +17,8 @@ import           RockBand.FiveButton              (Color (..),
 import qualified RockBand.PhaseShiftMessage       as PS
 
 data FiveTrack t = FiveTrack
-  { fiveMood         :: RTB.T t Mood
+  { fiveDifficulties :: Map.Map Difficulty (FiveDifficulty t)
+  , fiveMood         :: RTB.T t Mood
   , fiveHandMap      :: RTB.T t HandMap
   , fiveStrumMap     :: RTB.T t StrumMap
   , fiveFretPosition :: RTB.T t (FretPosition, Bool)
@@ -28,8 +29,13 @@ data FiveTrack t = FiveTrack
   , fiveSolo         :: RTB.T t Bool
   , fivePlayer1      :: RTB.T t Bool
   , fivePlayer2      :: RTB.T t Bool
-  , fiveDifficulties :: Map.Map Difficulty (FiveDifficulty t)
   } deriving (Eq, Ord, Show)
+
+instance TraverseTrack FiveTrack where
+  traverseTrack fn (FiveTrack a b c d e f g h i j k l) = FiveTrack
+    <$> traverse (traverseTrack fn) a
+    <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h
+    <*> fn i <*> fn j <*> fn k <*> fn l
 
 data FiveDifficulty t = FiveDifficulty
   { fiveForceStrum :: RTB.T t Bool
@@ -39,6 +45,10 @@ data FiveDifficulty t = FiveDifficulty
   , fiveOnyxClose  :: RTB.T t Int
   , fiveGems       :: RTB.T t (Color, Maybe t)
   } deriving (Eq, Ord, Show)
+
+instance TraverseTrack FiveDifficulty where
+  traverseTrack fn (FiveDifficulty a b c d e f) = FiveDifficulty
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
 
 instance Default (FiveDifficulty t) where
   def = FiveDifficulty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty

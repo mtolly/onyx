@@ -27,6 +27,11 @@ data VocalTrack t = VocalTrack
   , vocalNotes         :: RTB.T t (Pitch, Bool)
   } deriving (Eq, Ord, Show)
 
+instance TraverseTrack VocalTrack where
+  traverseTrack fn (VocalTrack a b c d e f g h i j k) = VocalTrack
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
+    <*> fn g <*> fn h <*> fn i <*> fn j <*> fn k
+
 instance ParseTrack VocalTrack where
   parseTrack = do
     vocalMood   <- vocalMood   =. command

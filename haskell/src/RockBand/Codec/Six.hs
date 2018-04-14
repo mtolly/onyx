@@ -12,10 +12,14 @@ import           RockBand.GHL                     (Fret (..))
 import qualified RockBand.PhaseShiftMessage       as PS
 
 data SixTrack t = SixTrack
-  { sixOverdrive    :: RTB.T t Bool
+  { sixDifficulties :: Map.Map Difficulty (SixDifficulty t)
+  , sixOverdrive    :: RTB.T t Bool
   , sixSolo         :: RTB.T t Bool
-  , sixDifficulties :: Map.Map Difficulty (SixDifficulty t)
   } deriving (Eq, Ord, Show)
+
+instance TraverseTrack SixTrack where
+  traverseTrack fn (SixTrack a b c) = SixTrack
+    <$> traverse (traverseTrack fn) a <*> fn b <*> fn c
 
 data SixDifficulty t = SixDifficulty
   { sixForceStrum :: RTB.T t Bool
@@ -23,6 +27,10 @@ data SixDifficulty t = SixDifficulty
   , sixTap        :: RTB.T t Bool
   , sixGems       :: RTB.T t (Maybe Fret, Maybe t)
   } deriving (Eq, Ord, Show)
+
+instance TraverseTrack SixDifficulty where
+  traverseTrack fn (SixDifficulty a b c d) = SixDifficulty
+    <$> fn a <*> fn b <*> fn c <*> fn d
 
 instance Default (SixDifficulty t) where
   def = SixDifficulty RTB.empty RTB.empty RTB.empty RTB.empty

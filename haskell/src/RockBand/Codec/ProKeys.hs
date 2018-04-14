@@ -23,6 +23,11 @@ data ProKeysTrack t = ProKeysTrack
   , pkNotes     :: RTB.T t (Pitch, Maybe t)
   } deriving (Eq, Ord, Show)
 
+instance TraverseTrack ProKeysTrack where
+  traverseTrack fn (ProKeysTrack a b c d e f g h i) = ProKeysTrack
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e
+    <*> fn f <*> fn g <*> fn h <*> fn i
+
 instance ParseTrack ProKeysTrack where
   parseTrack = do
     pkLanes     <- (pkLanes    =.) $ condenseMap_ $ eachKey each $ blip . \case

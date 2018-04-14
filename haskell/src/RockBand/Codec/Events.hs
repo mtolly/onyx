@@ -8,7 +8,6 @@ import           Control.Monad                    ((>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Text                        as T
-import           Data.Traversable                 (fmapDefault, foldMapDefault)
 import           RockBand.Codec
 import           RockBand.Common
 
@@ -44,9 +43,6 @@ data EventsTrack t = EventsTrack
 instance TraverseTrack EventsTrack where
   traverseTrack fn (EventsTrack a b c d e f g h) = EventsTrack
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h
-instance Traversable EventsTrack where traverse = traverseTime
-instance Functor     EventsTrack where fmap     = fmapDefault
-instance Foldable    EventsTrack where foldMap  = foldMapDefault
 
 instance ParseTrack EventsTrack where
   parseTrack = do

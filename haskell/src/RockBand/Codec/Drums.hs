@@ -11,7 +11,6 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
 import           Data.Profunctor                  (dimap)
-import           Data.Traversable                 (fmapDefault, foldMapDefault)
 import           Guitars                          (applyStatus)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
@@ -43,9 +42,6 @@ instance TraverseTrack DrumTrack where
     <$> traverse (traverseTrack fn) a
     <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h
     <*> fn i <*> fn j <*> fn k <*> fn l
-instance Traversable DrumTrack where traverse = traverseTime
-instance Functor     DrumTrack where fmap     = fmapDefault
-instance Foldable    DrumTrack where foldMap  = foldMapDefault
 
 data DrumDifficulty t = DrumDifficulty
   { drumMix         :: RTB.T t (Audio, Disco)
@@ -56,9 +52,6 @@ data DrumDifficulty t = DrumDifficulty
 instance TraverseTrack DrumDifficulty where
   traverseTrack fn (DrumDifficulty a b c) = DrumDifficulty
     <$> fn a <*> fn b <*> fn c
-instance Traversable DrumDifficulty where traverse = traverseTime
-instance Functor     DrumDifficulty where fmap     = fmapDefault
-instance Foldable    DrumDifficulty where foldMap  = foldMapDefault
 
 instance Default (DrumDifficulty t) where
   def = DrumDifficulty RTB.empty RTB.empty RTB.empty
