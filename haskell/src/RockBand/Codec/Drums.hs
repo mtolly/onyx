@@ -11,6 +11,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
 import           Data.Profunctor                  (dimap)
+import           Data.Traversable                 (fmapDefault, foldMapDefault)
 import           Guitars                          (applyStatus)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
@@ -23,7 +24,8 @@ import           RockBand.Drums                   (Animation (..), Audio (..),
 import qualified RockBand.PhaseShiftMessage       as PS
 
 data DrumTrack t = DrumTrack
-  { drumMood         :: RTB.T t Mood
+  { drumDifficulties :: Map.Map Difficulty (DrumDifficulty t)
+  , drumMood         :: RTB.T t Mood
   , drumToms         :: RTB.T t (ProColor, ProType)
   , drumSingleRoll   :: RTB.T t Bool
   , drumDoubleRoll   :: RTB.T t Bool
@@ -32,16 +34,31 @@ data DrumTrack t = DrumTrack
   , drumSolo         :: RTB.T t Bool
   , drumPlayer1      :: RTB.T t Bool
   , drumPlayer2      :: RTB.T t Bool
-  , drumDifficulties :: Map.Map Difficulty (DrumDifficulty t)
   , drumKick2x       :: RTB.T t ()
   , drumAnimation    :: RTB.T t Animation
   } deriving (Eq, Ord, Show)
+
+instance TraverseTrack DrumTrack where
+  traverseTrack fn (DrumTrack a b c d e f g h i j k l) = DrumTrack
+    <$> traverse (traverseTrack fn) a
+    <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h
+    <*> fn i <*> fn j <*> fn k <*> fn l
+instance Traversable DrumTrack where traverse = traverseTime
+instance Functor     DrumTrack where fmap     = fmapDefault
+instance Foldable    DrumTrack where foldMap  = foldMapDefault
 
 data DrumDifficulty t = DrumDifficulty
   { drumMix         :: RTB.T t (Audio, Disco)
   , drumPSModifiers :: RTB.T t (PSGem, Bool)
   , drumGems        :: RTB.T t (Gem ())
   } deriving (Eq, Ord, Show)
+
+instance TraverseTrack DrumDifficulty where
+  traverseTrack fn (DrumDifficulty a b c) = DrumDifficulty
+    <$> fn a <*> fn b <*> fn c
+instance Traversable DrumDifficulty where traverse = traverseTime
+instance Functor     DrumDifficulty where fmap     = fmapDefault
+instance Foldable    DrumDifficulty where foldMap  = foldMapDefault
 
 instance Default (DrumDifficulty t) where
   def = DrumDifficulty RTB.empty RTB.empty RTB.empty

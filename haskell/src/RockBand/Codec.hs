@@ -220,7 +220,10 @@ condenseMap_
   -> TrackCodec m t (RTB.T t k)
 condenseMap_ = dimap (fmap (, ())) (fmap fst) . condenseMap
 
-blipSustainRB :: (Monad m, Ord a) => TrackCodec m U.Beats (RTB.T U.Beats (a, U.Beats)) -> TrackCodec m U.Beats (RTB.T U.Beats (a, Maybe U.Beats))
+blipSustainRB
+  :: (Monad m, Ord a)
+  => TrackCodec m U.Beats (RTB.T U.Beats (a, U.Beats))
+  -> TrackCodec m U.Beats (RTB.T U.Beats (a, Maybe U.Beats))
 blipSustainRB = let
   fs = fmap $ \(a, mt) -> (a, fromMaybe (1/32) mt)
   fp = fmap $ \(a, t) -> (a, guard (t > (1/3)) >> Just t)
@@ -244,3 +247,9 @@ sysexPS diff pid = Codec
 
 class ParseTrack trk where
   parseTrack :: (SendMessage m) => TrackCodec m U.Beats (trk U.Beats)
+
+class TraverseTrack trk where
+  traverseTrack :: (Applicative f) => (forall a. RTB.T t a -> f (RTB.T u a)) -> trk t -> f (trk u)
+
+traverseTime :: (TraverseTrack trk, Applicative f) => (t -> f u) -> trk t -> f (trk u)
+traverseTime f trk = traverseTrack (RTB.traverseTime f) trk
