@@ -2,7 +2,7 @@ metadata:
   title: Dancing Machines
   file-include: ../../../albums/the-further-side.yml
   track-number: 1
-  author: BlazinBlitzer, Onyxite
+  author: Onyxite, BlazinBlitzer
   key: A
   preview-start: prc_intro_b
   comments:
@@ -32,6 +32,9 @@ parts:
   bass:
     pro-guitar:
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
+  guitar:
+    pro-guitar:
+      tuning: [0, 0, 0, 0, 0, 0]
 targets:
   rb3:
     game: rb3

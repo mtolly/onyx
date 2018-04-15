@@ -1,14 +1,15 @@
 THE FURTHER SIDE (NOVA COLLECTIVE)
-- dancing machines: drums + pro bass done, PK almost done, entombment doing gtr/bass
-- cascades: done!
-- air: just needs basic keys + wrap PK
-- state of flux: just needs basic keys + wrap PK
-- ripped apart and reassembled: done!
-- the further side: drums, pro guitar, pro bass done
-final steps:
-- check all drum charts to be as tom-accurate as possible
-- protar polish (slides, chords, etc.)
-- no-open-notes versions
+all drums + rough draft of pro guitar/bass done!
+remaining tasks:
+- polish all drums charts: mostly be tom-accurate but use judgment
+- protar polish: check all slides, chord names
+- get gtr/bass for dancing machines from entombment
+- no-open-notes versions of gtr/bass
+- pro keys:
+  - further side started
+  - dancing machines almost done
+  - wrapping for all (minus cascades and ripped apart)
+- basic keys (all)
 
 JAZZ
 at least 2 parts done:
@@ -84,6 +85,7 @@ OTHER
 - prelude/kiara (bonobo)
 - voodoo chile (hendrix) ready for jarod to polish + release
 - oblivion (winery dogs)
+> rosetta stoned (tool) new version: drums fixed, pro bass almost done, pro gtr wip, then fix basic gtr/bass
 > love and tonic (milquetoast & co) just needs gtr and vox
 > sleep deprived (sevish) needs drums, keys, and pro keys (in 14-EDO)
 > seven (yoshida) drums + bass done
