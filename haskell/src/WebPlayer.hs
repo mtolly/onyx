@@ -36,7 +36,7 @@ import qualified RockBand.GHL                     as GHL
 import qualified RockBand.ProGuitar               as PG
 import qualified RockBand.ProKeys                 as PK
 import qualified RockBand.Vocals                  as Vox
-import           Scripts                          (songLengthBeats)
+import           Scripts                          (songLengthBeats_precodec)
 import qualified Sound.MIDI.Util                  as U
 
 class TimeFunctor f where
@@ -689,7 +689,7 @@ makeDisplay songYaml song = let
   makeVox h1 h2 h3 = processVocal (RBFile.s_tempos song) h1 h2 h3 (fmap fromEnum $ C._key $ C._metadata songYaml)
   beat = processBeat (RBFile.s_tempos song)
     $ RBFile.onyxBeat $ RBFile.s_tracks song
-  end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats song
+  end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats_precodec song
   title  = fromMaybe "" $ C._title  $ C._metadata songYaml
   artist = fromMaybe "" $ C._artist $ C._metadata songYaml
   in A.encode $ mapTime (realToFrac :: U.Seconds -> Milli) $ Processed title artist beat end parts

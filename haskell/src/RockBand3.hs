@@ -147,7 +147,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             Events.SectionRB3 s -> Just s
             Events.SectionRB2 s -> Just s
             _                   -> Nothing
-          finish = changeMode . psKicks . drumMix mixMode . drumsComplete mmap sections
+          finish = changeMode . psKicks . drumMix_precodec mixMode . drumsComplete mmap sections
           fiveToFour instant = flip map instant $ \case
             RBDrums.Note RBDrums.Orange -> let
               color = if
@@ -188,7 +188,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           psPS = if elem RBDrums.Kick2x pro1x then ps1x else ps2x
           -- Note: drumMix must be applied *after* drumsComplete.
           -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
-          in (if drumsFixFreeform pd then fixFreeformDrums else id)
+          in (if drumsFixFreeform pd then fixFreeformDrums_precodec else id)
             $ RTB.filter (\case RBDrums.Player1{} -> False; RBDrums.Player2{} -> False; _ -> True)
             $ case target of
               Left rb3 -> if rb3_2xBassPedal rb3
@@ -200,7 +200,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         Just grybo -> let
           track
             = RTB.filter (\case Five.Player1{} -> False; Five.Player2{} -> False; _ -> True)
-            $ (if gryboFixFreeform grybo then fixFreeformFive else id)
+            $ (if gryboFixFreeform grybo then fixFreeformFive_precodec else id)
             $ gryboComplete (guard toKeys >> Just ht) mmap
             $ RBFile.flexFiveButton src
           ht = gryboHopoThreshold grybo
@@ -228,12 +228,12 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
 
       guitarPart = either rb3_Guitar ps_Guitar target
       (guitarRB3, guitarPS) = if hasProtarNotFive guitarPart
-        then (\x -> (x, x)) $ protarToGrybo proGtr
+        then (\x -> (x, x)) $ protarToGrybo_precodec proGtr
         else makeGRYBOTrack False guitarPart $ RBFile.getFlexPart guitarPart trks
 
       bassPart = either rb3_Bass ps_Bass target
       (bassRB3, bassPS) = if hasProtarNotFive bassPart
-        then (\x -> (x, x)) $ protarToGrybo proBass
+        then (\x -> (x, x)) $ protarToGrybo_precodec proBass
         else makeGRYBOTrack False bassPart $ RBFile.getFlexPart bassPart trks
 
       rhythmPart = either (const $ RBFile.FlexExtra "undefined") ps_Rhythm target
@@ -265,7 +265,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           tuning = zipWith (+) ProGtr.standardGuitar $ case pgTuning pg of
             []   -> repeat 0
             offs -> offs
-          f = (if pgFixFreeform pg then fixFreeformPG else id)
+          f = (if pgFixFreeform pg then fixFreeformPG_precodec else id)
             . copyExpert . ProGtr.autoHandPosition . ProGtr.autoChordRoot tuning
           src17 = RBFile.flexPartRealGuitar   src
           src22 = RBFile.flexPartRealGuitar22 src
@@ -283,7 +283,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           _ -> let
             basicKeysSrc = RBFile.getFlexPart keysPart trks
             basicKeys = gryboComplete Nothing mmap $ case partGRYBO part of
-              Nothing -> expertProKeysToKeys keysExpert
+              Nothing -> expertProKeysToKeys_precodec keysExpert
               Just _  -> fst $ makeGRYBOTrack True keysPart basicKeysSrc
             fpart = RBFile.getFlexPart keysPart trks
             keysDiff diff = if isJust $ partProKeys part
@@ -292,7 +292,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
                 Medium -> RBFile.flexPartRealKeysM fpart
                 Hard   -> RBFile.flexPartRealKeysH fpart
                 Expert -> RBFile.flexPartRealKeysX fpart
-              else keysToProKeys diff basicKeys
+              else keysToProKeys_precodec diff basicKeys
             rtb1 `orIfNull` rtb2 = if length rtb1 < 5 then rtb2 else rtb1
             keysExpert = completeRanges $ keysDiff Expert
             keysHard   = completeRanges $ keysDiff Hard   `orIfNull` pkReduce Hard   mmap keysOD keysExpert
@@ -307,10 +307,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
               then (RTB.filter (\case ProKeys.Note _ -> True; _ -> False) keysExpert, RTB.empty)
               else (originalRH, originalLH)
             ffBasic = if fmap gryboFixFreeform (partGRYBO part) == Just True
-              then fixFreeformFive
+              then fixFreeformFive_precodec
               else id
             ffPro = if fmap pkFixFreeform (partProKeys part) == Just True
-              then fixFreeformPK
+              then fixFreeformPK_precodec
               else id
             -- nemo's checker doesn't like if you include this stuff on PART KEYS
             removeGtrStuff = RTB.filter $ \case
@@ -338,7 +338,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           Vocal2 -> (partVox', harm1, harm2, RTB.empty)
           Vocal1 -> (partVox', RTB.empty, RTB.empty, RTB.empty)
         where partVox = RBFile.flexPartVocals $ RBFile.getFlexPart vocalPart trks
-              partVox' = if RTB.null partVox then harm1ToPartVocals harm1 else partVox
+              partVox' = if RTB.null partVox then harm1ToPartVocals_precodec harm1 else partVox
               harm1   = RBFile.flexHarm1 $ RBFile.getFlexPart vocalPart trks
               harm2   = RBFile.flexHarm2 $ RBFile.getFlexPart vocalPart trks
               harm3   = RBFile.flexHarm3 $ RBFile.getFlexPart vocalPart trks

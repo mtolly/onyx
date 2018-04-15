@@ -62,7 +62,7 @@ import qualified RockBand.Drums                   as Drums
 import qualified RockBand.File                    as RBFile
 import           RockBand.ProGuitar               (standardGuitar)
 import           RockBand.ProGuitar.Keyboard      (GtrSettings (..), runApp)
-import           Scripts                          (loadMIDI)
+import           Scripts                          (loadMIDI_precodec)
 import           SDL                              (($=))
 import qualified SDL
 import qualified SDL.Raw                          as Raw
@@ -735,7 +735,7 @@ launchGUI = do
       Game f -> liftIO $ withSystemTempDirectory "onyx_game" $ \dir -> do
         res <- logStdout $ do
           _ <- importSTFS f Nothing dir
-          song <- loadMIDI $ dir </> "notes.mid"
+          song <- loadMIDI_precodec $ dir </> "notes.mid"
           let tempos = RBFile.s_tempos song
               drums = RBFile.rb3PartDrums $ RBFile.s_tracks song
               drums'

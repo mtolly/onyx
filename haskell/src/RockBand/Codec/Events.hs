@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -7,6 +8,7 @@ module RockBand.Codec.Events where
 import           Control.Monad                    ((>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import           RockBand.Codec
 import           RockBand.Common
@@ -63,7 +65,8 @@ instance ParseTrack EventsTrack where
         ["section", t] -> Just (SectionRB2, t)
         [s]            -> (SectionRB3 ,) <$> T.stripPrefix "prc_" s
         _              -> Nothing
-      fs = undefined
+      fs (SectionRB2, t) = showCommand' ["section", t]
+      fs (SectionRB3, t) = showCommand' ["prc_" <> t]
       in single fp fs
     eventsBacking <- (eventsBacking =.) $ condenseMap_ $ eachKey each $ blip . \case
       BackingKick  -> 24

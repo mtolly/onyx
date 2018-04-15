@@ -17,7 +17,6 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
 import           Data.Monoid                      ((<>))
-import qualified Data.Text                        as T
 import           Development.Shake
 import qualified FretsOnFire                      as FoF
 import qualified Numeric.NonNegative.Class        as NNC
@@ -25,7 +24,8 @@ import qualified RockBand.Beat                    as Beat
 import           RockBand.Common
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.Events                  as Events
-import           RockBand.File
+import           RockBand.File                    (Song (..))
+import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as Five
 import           RockBand.Parse                   (isNoteEdgeCPV, makeEdgeCPV)
 import qualified RockBand.ProGuitar               as ProGuitar
@@ -39,8 +39,8 @@ import qualified Sound.MIDI.Util                  as U
 -- | Changes all existing drum mix events to use the given config (not changing
 -- stuff like discobeat), and places ones at the beginning if they don't exist
 -- already.
-drumMix :: Drums.Audio -> RTB.T U.Beats Drums.Event -> RTB.T U.Beats Drums.Event
-drumMix audio' trk = let
+drumMix_precodec :: Drums.Audio -> RTB.T U.Beats Drums.Event -> RTB.T U.Beats Drums.Event
+drumMix_precodec audio' trk = let
   (mixes, notMixes) = flip RTB.partitionMaybe trk $ \case
     Drums.DiffEvent diff (Drums.Mix audio disco) -> Just (diff, audio, disco)
     _                                            -> Nothing
@@ -67,14 +67,14 @@ addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
 addZero x rtb = case U.trackSplitZero rtb of
   (zero, rest) -> U.trackGlueZero (zero ++ [x]) rest
 
-loadMIDI :: (SendMessage m, MonadIO m, MIDIFileFormat f) => FilePath -> StackTraceT m (Song (f U.Beats))
-loadMIDI fp = liftIO (Load.fromFile fp) >>= readMIDIFile'
+loadMIDI_precodec :: (SendMessage m, MonadIO m, RBFile.MIDIFileFormat f) => FilePath -> StackTraceT m (Song (f U.Beats))
+loadMIDI_precodec fp = stackIO (Load.fromFile fp) >>= RBFile.readMIDIFile'
 
 -- | Moves star power from the GH 1/2 format to the RB format, either if it is
 -- specified in the song.ini, or automatically detected from the MIDI.
-loadFoFMIDI :: (SendMessage m, MonadIO m, MIDIFileFormat f) => FoF.Song -> FilePath -> StackTraceT m (Song (f U.Beats))
-loadFoFMIDI ini fp = do
-  mid <- liftIO $ Load.fromFile fp
+loadFoFMIDI_precodec :: (SendMessage m, MonadIO m, RBFile.MIDIFileFormat f) => FoF.Song -> FilePath -> StackTraceT m (Song (f U.Beats))
+loadFoFMIDI_precodec ini fp = do
+  mid <- stackIO $ Load.fromFile fp
   let isGtrTrack trk = U.trackName trk `elem` map Just ["PART GUITAR", "PART BASS", "PART RHYTHM", "T1 GEMS"]
       midGH = case mid of
         F.Cons typ dvn trks -> F.Cons typ dvn $ flip map trks $ \trk -> if isGtrTrack trk
@@ -125,10 +125,10 @@ loadFoFMIDI ini fp = do
     Just n -> do
       warn $ "song.ini has unsupported Star Power pitch of " <> show n <> ", assuming RB format"
       midRB
-  readMIDIFile' mid'
+  RBFile.readMIDIFile' mid'
 
-shakeMIDI :: (MIDIFileFormat f) => FilePath -> StackTraceT (QueueLog Action) (Song (f U.Beats))
-shakeMIDI fp = lift (lift $ need [fp]) >> loadMIDI fp
+shakeMIDI_precodec :: (RBFile.MIDIFileFormat f) => FilePath -> StackTraceT (QueueLog Action) (Song (f U.Beats))
+shakeMIDI_precodec fp = lift (lift $ need [fp]) >> loadMIDI_precodec fp
 
 loadTemposIO :: FilePath -> IO U.TempoMap
 loadTemposIO fp = do
@@ -136,21 +136,15 @@ loadTemposIO fp = do
   case U.decodeFile mid of
     Left []               -> return $ U.makeTempoMap RTB.empty
     Left (tempoTrack : _) -> return $ U.makeTempoMap tempoTrack
-    Right _               -> error "Scripts.loadTempos: SMPTE midi not supported"
+    Right _               -> error "Scripts.loadTemposIO: SMPTE midi not supported"
 
-loadTempos :: FilePath -> Action U.TempoMap
-loadTempos fp = need [fp] >> liftIO (loadTemposIO fp)
-
-saveMIDI :: (MonadIO m, MIDIFileFormat f) => FilePath -> Song (f U.Beats) -> m ()
-saveMIDI fp song = liftIO $ Save.toFile fp $ showMIDIFile' song
-
-allEvents :: (NNC.C t) => Song (OnyxFile t) -> RTB.T t Events.Event
-allEvents = onyxEvents . s_tracks
+saveMIDI_precodec :: (MonadIO m, RBFile.MIDIFileFormat f) => FilePath -> Song (f U.Beats) -> m ()
+saveMIDI_precodec fp song = liftIO $ Save.toFile fp $ RBFile.showMIDIFile' song
 
 -- | Returns the start and end of the preview audio in milliseconds.
-previewBounds :: SongYaml -> Song (OnyxFile U.Beats) -> (Int, Int)
-previewBounds syaml song = let
-  len = songLengthMS song
+previewBounds_precodec :: SongYaml -> Song (RBFile.OnyxFile U.Beats) -> (Int, Int)
+previewBounds_precodec syaml song = let
+  len = songLengthMS_precodec song
   secsToMS s = floor $ s * 1000
   leadIn = max 0 . subtract 600
   evalTime = \case
@@ -163,7 +157,7 @@ previewBounds syaml song = let
   defStartTime = case mapMaybe (evalTime . PreviewSection) ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"] of
     []    -> max 0 $ quot len 2 - 15000
     t : _ -> min (len - 30000) t
-  events = allEvents song
+  events = RBFile.onyxEvents $ s_tracks song
   find evs = fmap (fst . fst) $ RTB.viewL $ RTB.filter (`elem` evs) events
   in case (_previewStart $ _metadata syaml, _previewEnd $ _metadata syaml) of
     (Nothing, Nothing) -> (defStartTime, defStartTime + 30000)
@@ -171,14 +165,14 @@ previewBounds syaml song = let
     (Just ps, Nothing) -> let start = evalTime' ps in (start, start + 30000)
     (Nothing, Just pe) -> let end = evalTime' pe in (end - 30000, end)
 
-songLengthBeats :: Song (OnyxFile U.Beats) -> U.Beats
-songLengthBeats s = case RTB.getTimes $ RTB.filter (== Events.End) $ allEvents s of
+songLengthBeats_precodec :: Song (RBFile.OnyxFile U.Beats) -> U.Beats
+songLengthBeats_precodec s = case RTB.getTimes $ RTB.filter (== Events.End) $ RBFile.onyxEvents $ s_tracks s of
   [bts] -> bts
   _     -> 0 -- eh
 
 -- | Returns the time of the [end] event in milliseconds.
-songLengthMS :: Song (OnyxFile U.Beats) -> Int
-songLengthMS song = floor $ U.applyTempoMap (s_tempos song) (songLengthBeats song) * 1000
+songLengthMS_precodec :: Song (RBFile.OnyxFile U.Beats) -> Int
+songLengthMS_precodec song = floor $ U.applyTempoMap (s_tempos song) (songLengthBeats_precodec song) * 1000
 
 -- | Given a measure map, produces an infinite BEAT track.
 makeBeatTrack :: U.MeasureMap -> RTB.T U.Beats Beat.Event
@@ -206,36 +200,36 @@ trackGlue t xs ys = let
   gap = t NNC.-| NNC.sum (RTB.getTimes xs')
   in RTB.append xs' $ RTB.delay gap ys
 
-fixFreeformDrums :: RTB.T U.Beats Drums.Event -> RTB.T U.Beats Drums.Event
-fixFreeformDrums = let
-  drumsSingle = fixFreeform (== Drums.SingleRoll True) (== Drums.SingleRoll False) isHand
-  drumsDouble = fixFreeform (== Drums.DoubleRoll True) (== Drums.DoubleRoll False) isHand
+fixFreeformDrums_precodec :: RTB.T U.Beats Drums.Event -> RTB.T U.Beats Drums.Event
+fixFreeformDrums_precodec = let
+  drumsSingle = fixFreeform_precodec (== Drums.SingleRoll True) (== Drums.SingleRoll False) isHand
+  drumsDouble = fixFreeform_precodec (== Drums.DoubleRoll True) (== Drums.DoubleRoll False) isHand
   isHand (Drums.DiffEvent Expert (Drums.Note gem)) = gem /= Drums.Kick
   isHand _                                         = False
   in drumsSingle . drumsDouble
 
-fixFreeformFive :: RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
-fixFreeformFive = let
-  fiveTremolo = fixFreeform (== Five.Tremolo True) (== Five.Tremolo False) isGem
-  fiveTrill   = fixFreeform (== Five.Trill   True) (== Five.Trill   False) isGem
+fixFreeformFive_precodec :: RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
+fixFreeformFive_precodec = let
+  fiveTremolo = fixFreeform_precodec (== Five.Tremolo True) (== Five.Tremolo False) isGem
+  fiveTrill   = fixFreeform_precodec (== Five.Trill   True) (== Five.Trill   False) isGem
   isGem (Five.DiffEvent Expert (Five.Note (NoteOn () _))) = True
   isGem (Five.DiffEvent Expert (Five.Note (Blip   () _))) = True
   isGem _                                                 = False
   in fiveTremolo . fiveTrill
 
-fixFreeformPK :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats ProKeys.Event
-fixFreeformPK = let
-  pkGlissando = fixFreeform (== ProKeys.Glissando True) (== ProKeys.Glissando False) isPKNote
-  pkTrill     = fixFreeform (== ProKeys.Trill     True) (== ProKeys.Trill     False) isPKNote
+fixFreeformPK_precodec :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats ProKeys.Event
+fixFreeformPK_precodec = let
+  pkGlissando = fixFreeform_precodec (== ProKeys.Glissando True) (== ProKeys.Glissando False) isPKNote
+  pkTrill     = fixFreeform_precodec (== ProKeys.Trill     True) (== ProKeys.Trill     False) isPKNote
   isPKNote (ProKeys.Note (NoteOn _ _)) = True
   isPKNote (ProKeys.Note (Blip   _ _)) = True
   isPKNote _                           = False
   in pkGlissando . pkTrill
 
-fixFreeformPG :: RTB.T U.Beats ProGuitar.Event -> RTB.T U.Beats ProGuitar.Event
-fixFreeformPG = let
-  pgTremolo = fixFreeform (== ProGuitar.Tremolo True) (== ProGuitar.Tremolo False) isGem
-  pgTrill   = fixFreeform (== ProGuitar.Trill   True) (== ProGuitar.Trill   False) isGem
+fixFreeformPG_precodec :: RTB.T U.Beats ProGuitar.Event -> RTB.T U.Beats ProGuitar.Event
+fixFreeformPG_precodec = let
+  pgTremolo = fixFreeform_precodec (== ProGuitar.Tremolo True) (== ProGuitar.Tremolo False) isGem
+  pgTrill   = fixFreeform_precodec (== ProGuitar.Trill   True) (== ProGuitar.Trill   False) isGem
   isGem (ProGuitar.DiffEvent Expert (ProGuitar.Note (NoteOn _ (_, ntype))))
     = ntype /= ProGuitar.ArpeggioForm
   isGem (ProGuitar.DiffEvent Expert (ProGuitar.Note (Blip   _ (_, ntype))))
@@ -245,14 +239,14 @@ fixFreeformPG = let
 
 -- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
 --- their last gem note-on.
-fixFreeform
+fixFreeform_precodec
   :: (Ord a)
   => (a -> Bool) -- ^ start of a freeform section
   -> (a -> Bool) -- ^ end of a freeform section
   -> (a -> Bool) -- ^ events which are covered by the freeform section
   -> RTB.T U.Beats a
   -> RTB.T U.Beats a
-fixFreeform isStart isEnd isCovered = RTB.flatten . go . RTB.collectCoincident where
+fixFreeform_precodec isStart isEnd isCovered = RTB.flatten . go . RTB.collectCoincident where
   go rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
     Just ((dt, evts), rtb') -> RTB.cons dt evts $ if any isStart evts
@@ -266,11 +260,28 @@ fixFreeform isStart isEnd isCovered = RTB.flatten . go . RTB.collectCoincident w
           in RTB.insert newLength [theEnd] $ go $ RTB.collectCoincident rtb'noEnd
       else go rtb'
 
+-- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
+--- their last gem note-on.
+fixFreeform :: RTB.T U.Beats () -> RTB.T U.Beats Bool -> RTB.T U.Beats Bool
+fixFreeform initGems = go initGems . RTB.normalize where
+  go gems lanes = case RTB.viewL lanes of
+    Just ((dt, True), lanes') -> case RTB.viewL lanes' of
+      Just ((len, False), lanes'') -> let
+        covered = U.trackTake len $ U.trackDrop dt gems
+        len' = case sum $ RTB.getTimes covered of
+          0 -> len -- no gems, shouldn't happen
+          s -> s + 1/32
+        in RTB.cons dt True $ RTB.insert len' False $
+          go (U.trackDrop dt gems) (RTB.delay len lanes'')
+      _ -> lanes -- on not followed by off, abort
+    Just ((_, False), _) -> lanes -- off not preceded by on, abort
+    Nothing -> RTB.empty -- done
+
 -- This doesn't currently handle
 -- [note start, phrase boundary, phrase boundary, note end]
 -- i.e. a note that spans 3 phrases. But you shouldn't be doing that anyways!
-harm1ToPartVocals :: (NNC.C t) => RTB.T t Vocals.Event -> RTB.T t Vocals.Event
-harm1ToPartVocals = go . RTB.normalize where
+harm1ToPartVocals_precodec :: (NNC.C t) => RTB.T t Vocals.Event -> RTB.T t Vocals.Event
+harm1ToPartVocals_precodec = go . RTB.normalize where
   go rtb = case RTB.viewL rtb of
     Just ((dt, phstart@(Vocals.Phrase True)), rtb') -> case U.extractFirst isPhraseEnd rtb' of
       Nothing -> error "harm1ToPartVocals: found a HARM1 phrase with no end"
@@ -285,15 +296,15 @@ harm1ToPartVocals = go . RTB.normalize where
     _                   -> Nothing
   isNote = \case Vocals.Note _ _ -> True; _ -> False
 
-getPercType :: (NNC.C t) => Song (OnyxFile t) -> Maybe Vocals.PercussionType
-getPercType song = let
+getPercType_precodec :: (NNC.C t) => Song (RBFile.OnyxFile t) -> Maybe Vocals.PercussionType
+getPercType_precodec song = let
   vox = do
-    part <- Map.elems $ onyxFlexParts $ s_tracks song
+    part <- Map.elems $ RBFile.onyxFlexParts $ s_tracks song
     trk <-
-      [ flexPartVocals part
-      , flexHarm1      part
-      , flexHarm2      part
-      , flexHarm3      part
+      [ RBFile.flexPartVocals part
+      , RBFile.flexHarm1      part
+      , RBFile.flexHarm2      part
+      , RBFile.flexHarm3      part
       ]
     RTB.getBodies trk
   isPercType (Vocals.PercussionAnimation ptype _) = Just ptype
@@ -301,8 +312,8 @@ getPercType song = let
   in listToMaybe $ mapMaybe isPercType vox
 
 -- | Makes a dummy Basic Guitar/Bass track, for parts with only Pro Guitar/Bass charted.
-protarToGrybo :: RTB.T U.Beats ProGuitar.Event -> RTB.T U.Beats Five.Event
-protarToGrybo = let
+protarToGrybo_precodec :: RTB.T U.Beats ProGuitar.Event -> RTB.T U.Beats Five.Event
+protarToGrybo_precodec = let
   pgToBasic :: [ProGuitar.Event] -> RTB.T U.Beats Five.Event
   pgToBasic pg = let
     hasNote diff = flip any pg $ \case
@@ -324,8 +335,8 @@ protarToGrybo = let
   in U.trackJoin . fmap pgToBasic . RTB.collectCoincident
 
 -- | Makes a dummy Basic Keys track, for parts with only Pro Keys charted.
-expertProKeysToKeys :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats Five.Event
-expertProKeysToKeys = let
+expertProKeysToKeys_precodec :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats Five.Event
+expertProKeysToKeys_precodec = let
   pkToBasic :: [ProKeys.Event] -> RTB.T U.Beats Five.Event
   pkToBasic pk = let
     hasNote     = flip any pk $ \case
@@ -347,8 +358,8 @@ expertProKeysToKeys = let
   in U.trackJoin . fmap pkToBasic . RTB.collectCoincident
 
 -- | Makes a Pro Keys track, for parts with only Basic Keys charted.
-keysToProKeys :: Difficulty -> RTB.T U.Beats Five.Event -> RTB.T U.Beats ProKeys.Event
-keysToProKeys d = let
+keysToProKeys_precodec :: Difficulty -> RTB.T U.Beats Five.Event -> RTB.T U.Beats ProKeys.Event
+keysToProKeys_precodec d = let
   basicToPK = \case
     Five.DiffEvent d' (Five.Note long) | d == d' ->
       Just $ ProKeys.Note $ flip fmap long $ \c -> ProKeys.BlueGreen $ case c of
@@ -364,51 +375,53 @@ keysToProKeys d = let
     _                                -> Nothing
   in RTB.cons 0 (ProKeys.LaneShift ProKeys.RangeA) . RTB.mapMaybe basicToPK
 
-hasSolo :: (NNC.C t) => Instrument -> Song (OnyxFile t) -> Bool
-hasSolo Guitar song = not $ null
+hasSolo_precodec :: (NNC.C t) => Instrument -> Song (RBFile.OnyxFile t) -> Bool
+hasSolo_precodec Guitar song = not $ null
   $ do
-    let t = flexFiveButton $ getFlexPart FlexGuitar $ s_tracks song
+    let t = RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexGuitar $ s_tracks song
     Five.Solo _ <- RTB.getBodies t
     return ()
   ++ do
-    let t = flexPartRealGuitar $ getFlexPart FlexGuitar $ s_tracks song
+    let t = RBFile.flexPartRealGuitar $ RBFile.getFlexPart RBFile.FlexGuitar $ s_tracks song
     ProGuitar.Solo _ <- RTB.getBodies t
     return ()
-hasSolo Bass song = not $ null
+hasSolo_precodec Bass song = not $ null
   $ do
-    let t = flexFiveButton $ getFlexPart FlexBass $ s_tracks song
+    let t = RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexBass $ s_tracks song
     Five.Solo _ <- RTB.getBodies t
     return ()
   ++ do
-    let t = flexPartRealGuitar $ getFlexPart FlexBass $ s_tracks song
+    let t = RBFile.flexPartRealGuitar $ RBFile.getFlexPart RBFile.FlexBass $ s_tracks song
     ProGuitar.Solo _ <- RTB.getBodies t
     return ()
-hasSolo Drums song = not $ null $ do
-  let t = flexPartDrums $ getFlexPart FlexDrums $ s_tracks song
+hasSolo_precodec Drums song = not $ null $ do
+  let t = RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ s_tracks song
   Drums.Solo _ <- RTB.getBodies t
   return ()
-hasSolo Keys song = not $ null
+hasSolo_precodec Keys song = not $ null
   $ do
-    let t = flexFiveButton $ getFlexPart FlexKeys $ s_tracks song
+    let t = RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexKeys $ s_tracks song
     Five.Solo _ <- RTB.getBodies t
     return ()
   ++ do
-    let t = flexPartRealKeysX $ getFlexPart FlexKeys $ s_tracks song
+    let t = RBFile.flexPartRealKeysX $ RBFile.getFlexPart RBFile.FlexKeys $ s_tracks song
     ProKeys.Solo _ <- RTB.getBodies t
     return ()
-hasSolo Vocal song = not $ null
+hasSolo_precodec Vocal song = not $ null
   $ do
-    let t = flexPartVocals $ getFlexPart FlexVocal $ s_tracks song
+    let t = RBFile.flexPartVocals $ RBFile.getFlexPart RBFile.FlexVocal $ s_tracks song
     Vocals.Percussion <- RTB.getBodies t
     return ()
   ++ do
-    let t = flexHarm1 $ getFlexPart FlexVocal $ s_tracks song
+    let t = RBFile.flexHarm1 $ RBFile.getFlexPart RBFile.FlexVocal $ s_tracks song
     Vocals.Percussion <- RTB.getBodies t
     return ()
 
+{-
+
 -- | Gives any note with no lyric a note name lyric.
-windLyrics :: (NNC.C t) => RTB.T t Vocals.Event -> RTB.T t Vocals.Event
-windLyrics = RTB.flatten . fmap f . RTB.collectCoincident where
+windLyrics_precodec :: (NNC.C t) => RTB.T t Vocals.Event -> RTB.T t Vocals.Event
+windLyrics_precodec = RTB.flatten . fmap f . RTB.collectCoincident where
   f evts = let
     ps = [ p | Vocals.Note True p <- evts ]
     lyrics = [ t | Vocals.Lyric t <- evts ]
@@ -420,3 +433,5 @@ windLyrics = RTB.flatten . fmap f . RTB.collectCoincident where
 
 noteName :: Vocals.Pitch -> T.Text
 noteName = T.concatMap (\case 's' -> "# "; c -> T.singleton c) . T.pack . show . Vocals.pitchToKey
+
+-}
