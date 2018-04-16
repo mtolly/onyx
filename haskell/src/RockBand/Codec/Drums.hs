@@ -1,3 +1,7 @@
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -8,18 +12,16 @@ import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
 import           Data.Default.Class               (Default (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.List                        (elemIndex)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (fromJust, fromMaybe)
+import           Data.Monoid                      ((<>))
 import           Data.Profunctor                  (dimap)
+import qualified Data.Text                        as T
 import           Guitars                          (applyStatus)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
-import           RockBand.Drums                   (Animation (..), Audio (..),
-                                                   Disco (..), Gem (..),
-                                                   Hand (..), Hit (..),
-                                                   PSGem (..), ProColor (..),
-                                                   ProType (..))
 import qualified RockBand.PhaseShiftMessage       as PS
 
 data DrumTrack t = DrumTrack
@@ -42,6 +44,100 @@ instance TraverseTrack DrumTrack where
     <$> traverse (traverseTrack fn) a
     <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f <*> fn g <*> fn h
     <*> fn i <*> fn j <*> fn k <*> fn l
+
+data Animation
+  = Tom1       Hand -- ^ The high tom.
+  | Tom2       Hand -- ^ The middle tom.
+  | FloorTom   Hand -- ^ The low tom.
+  | Hihat      Hand
+  | Snare  Hit Hand
+  | Ride       Hand
+  | Crash1 Hit Hand -- ^ The left crash, closer to the hihat.
+  | Crash2 Hit Hand -- ^ The right crash, closer to the ride.
+  | KickRF
+  | Crash1RHChokeLH
+  -- ^ NOTE: This is MIDI note 41! The RBN docs incorrectly say 40.
+  | Crash2RHChokeLH
+  -- ^ NOTE: This is MIDI note 40! The RBN docs incorrectly say 41.
+  | PercussionRH
+  | HihatOpen Bool
+  | RideSide Bool -- ^ Causes slow 'Ride' hits to animate differently.
+  deriving (Eq, Ord, Show, Read)
+
+allAnimations :: [Animation]
+allAnimations = concat
+  [ [Tom1] <*> each
+  , [Tom2] <*> each
+  , [FloorTom] <*> each
+  , [Hihat] <*> each
+  , [Snare]  <*> each <*> each
+  , [Ride] <*> each
+  , [Crash1] <*> each <*> each
+  , [Crash2] <*> each <*> each
+  , [KickRF]
+  , [Crash1RHChokeLH]
+  , [Crash2RHChokeLH]
+  , [PercussionRH]
+  , [HihatOpen] <*> each
+  , [RideSide] <*> each
+  ]
+
+instance Enum Animation where
+  toEnum = (allAnimations !!)
+  fromEnum x = fromJust $ elemIndex x allAnimations
+
+instance Bounded Animation where
+  minBound = head allAnimations
+  maxBound = last allAnimations
+
+data Hit = SoftHit | HardHit
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data Hand = LH | RH
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+-- | Controls the audio files used for the drum track.
+data Audio
+  = D0 -- ^ One stereo mix for the whole kit.
+  | D1 -- ^ Mono kick, mono snare, stereo kit.
+  | D2 -- ^ Mono kick, stereo snare, stereo kit.
+  | D3 -- ^ Stereo kick, stereo snare, stereo kit.
+  | D4 -- ^ Mono kick, stereo kit (including snare).
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+-- | Special options that can affect drum audio and pad settings.
+data Disco
+  = NoDisco     -- ^ All pads are normal.
+  | Disco       -- ^ Yellow snare, red hihat. Undone by Pro Drums.
+  | DiscoNoFlip -- ^ New in RB3: snare beats where accented hits are 'Yellow'.
+  | EasyMix     -- ^ Pre-RB3. 'Easy' sections with only 'Red' and 'Kick' notes.
+  | EasyNoKick  -- ^ Pre-RB3. 'Easy' sections with no 'Kick' notes.
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance Command (Difficulty, Audio, Disco) where
+  fromCommand (diff, audio, disco) = ["mix", T.pack (show $ fromEnum diff), showMix audio disco]
+  toCommand = reverseLookup ((,,) <$> each <*> each <*> each) fromCommand
+
+-- | e.g. turns 'D2' and 'Disco' into @\"drums2d\"@
+showMix :: Audio -> Disco -> T.Text
+showMix audio disco = "drums" <> T.pack (show $ fromEnum audio) <> case disco of
+  NoDisco     -> ""
+  Disco       -> "d"
+  DiscoNoFlip -> "dnoflip"
+  EasyMix     -> "easy"
+  EasyNoKick  -> "easynokick"
+
+data ProColor = Yellow | Blue | Green
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data ProType = Cymbal | Tom
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data Gem a = Kick | Red | Pro ProColor a | Orange
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+
+data PSGem = Rimshot | HHOpen | HHSizzle | HHPedal
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data DrumDifficulty t = DrumDifficulty
   { drumMix         :: RTB.T t (Audio, Disco)

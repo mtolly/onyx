@@ -43,7 +43,7 @@ class TimeFunctor f where
   mapTime :: (Real u) => (t -> u) -> f t -> f u
 
 data Five t = Five
-  { fiveNotes  :: Map.Map (Maybe Five.Color) (Map.Map t (LongNote (Five.StrumHOPO, Bool) ()))
+  { fiveNotes  :: Map.Map (Maybe Five.Color) (Map.Map t (LongNote Five.StrumHOPOTap ()))
   , fiveSolo   :: Map.Map t Bool
   , fiveEnergy :: Map.Map t Bool
   , fiveLanes  :: Map.Map (Maybe Five.Color) (Map.Map t Bool)
@@ -62,15 +62,15 @@ eventList evts f = A.toJSON $ map g $ Map.toAscList evts where
     evt' = f evt
     in A.toJSON [secs', evt']
 
-showHSTNote :: LongNote (Five.StrumHOPO, Bool) () -> A.Value
+showHSTNote :: LongNote Five.StrumHOPOTap () -> A.Value
 showHSTNote = \case
   NoteOff () -> "end"
-  Blip (_, True) () -> "tap"
-  Blip (Five.Strum, False) () -> "strum"
-  Blip (Five.HOPO, False) () -> "hopo"
-  NoteOn (_, True) () -> "tap-sust"
-  NoteOn (Five.Strum, False) () -> "strum-sust"
-  NoteOn (Five.HOPO, False) () -> "hopo-sust"
+  Blip Five.Tap () -> "tap"
+  Blip Five.Strum () -> "strum"
+  Blip Five.HOPO () -> "hopo"
+  NoteOn Five.Tap () -> "tap-sust"
+  NoteOn Five.Strum () -> "strum-sust"
+  NoteOn Five.HOPO () -> "hopo-sust"
 
 instance (Real t) => A.ToJSON (Five t) where
   toJSON x = A.object
@@ -184,7 +184,7 @@ instance (Real t) => A.ToJSON (ProKeys t) where
     ]
 
 data Protar t = Protar
-  { protarNotes  :: Map.Map PG.GtrString (Map.Map t (LongNote (Maybe Five.StrumHOPO, Maybe PG.GtrFret) ()))
+  { protarNotes  :: Map.Map PG.GtrString (Map.Map t (LongNote (Five.StrumHOPOTap, Maybe PG.GtrFret) ()))
   , protarSolo   :: Map.Map t Bool
   , protarEnergy :: Map.Map t Bool
   , protarLanes  :: Map.Map PG.GtrString (Map.Map t Bool)
@@ -201,12 +201,12 @@ instance (Real t) => A.ToJSON (Protar t) where
     [ (,) "notes" $ A.object $ flip map (Map.toList $ protarNotes x) $ \(string, notes) ->
       (,) (T.pack $ map toLower $ show string) $ eventList notes $ A.String . \case
         NoteOff () -> "end"
-        Blip (Just Five.Strum, fret) () -> "strum" <> showFret fret
-        Blip (Just Five.HOPO, fret) () -> "hopo" <> showFret fret
-        Blip (Nothing, fret) () -> "tap" <> showFret fret
-        NoteOn (Just Five.Strum, fret) () -> "strum-sust" <> showFret fret
-        NoteOn (Just Five.HOPO, fret) () -> "hopo-sust" <> showFret fret
-        NoteOn (Nothing, fret) () -> "tap-sust" <> showFret fret
+        Blip (Five.Strum, fret) () -> "strum" <> showFret fret
+        Blip (Five.HOPO, fret) () -> "hopo" <> showFret fret
+        Blip (Five.Tap, fret) () -> "tap" <> showFret fret
+        NoteOn (Five.Strum, fret) () -> "strum-sust" <> showFret fret
+        NoteOn (Five.HOPO, fret) () -> "hopo-sust" <> showFret fret
+        NoteOn (Five.Tap, fret) () -> "tap-sust" <> showFret fret
     , (,) "solo" $ eventList (protarSolo x) A.toJSON
     , (,) "energy" $ eventList (protarEnergy x) A.toJSON
     , (,) "lanes" $ A.object $ flip map (Map.toList $ protarLanes x) $ \(string, lanes) ->
@@ -224,7 +224,7 @@ data GHLLane
   deriving (Eq, Ord, Show, Read)
 
 data Six t = Six
-  { sixNotes  :: Map.Map GHLLane (Map.Map t (LongNote (Five.StrumHOPO, Bool) ()))
+  { sixNotes  :: Map.Map GHLLane (Map.Map t (LongNote Five.StrumHOPOTap ()))
   , sixSolo   :: Map.Map t Bool
   , sixEnergy :: Map.Map t Bool
   -- TODO lanes (not actually in CH)

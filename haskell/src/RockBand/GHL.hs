@@ -1,40 +1,33 @@
 -- | The \"Clone Hero Live\" MIDI format.
-{-# LANGUAGE DeriveDataTypeable    #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell       #-}
-module RockBand.GHL where
+module RockBand.GHL
+( Fret(..)
+, Event(..)
+, DiffEvent(..)
+) where
 
-import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Codec.Six               (Fret (..))
 import           RockBand.Common
-import           RockBand.FiveButton              (StrumHOPO (..))
+import           RockBand.FiveButton              (StrumHOPOTap (..))
 import           RockBand.Parse
 import qualified RockBand.PhaseShiftMessage       as PS
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
 
-data Fret
-  = Black1
-  | Black2
-  | Black3
-  | White1
-  | White2
-  | White3
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
-
 data Event
   = Overdrive                 Bool
   | Solo                      Bool
   | DiffEvent Difficulty DiffEvent
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
+  deriving (Eq, Ord, Show, Read)
 
 data DiffEvent
-  = Force StrumHOPO Bool
-  | TapNotes Bool
+  = Force StrumHOPOTap Bool
   | Note (LongNote () (Maybe Fret))
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
+  deriving (Eq, Ord, Show, Read)
 
 instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
 
@@ -84,11 +77,11 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
   , ( [e| many $ flip filterParseOne PS.parsePSMessage $ \case
         PS.PSMessage mdiff PS.TapNotes b -> Just $ let
           diffs = maybe [minBound .. maxBound] (: []) mdiff
-          in map (\diff -> DiffEvent diff $ TapNotes b) diffs
+          in map (\diff -> DiffEvent diff $ Force Tap b) diffs
         _ -> Nothing
       |]
     , [e| \case
-        DiffEvent d (TapNotes b) -> unparseOne $ PS.PSMessage (Just d) PS.TapNotes b
+        DiffEvent d (Force Tap b) -> unparseOne $ PS.PSMessage (Just d) PS.TapNotes b
       |]
     )
 

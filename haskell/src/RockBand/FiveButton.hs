@@ -1,25 +1,33 @@
 -- | Parser used for all the GRYBO instruments (basic guitar, bass, and keys).
-{-# LANGUAGE DeriveDataTypeable    #-}
 {-# LANGUAGE EmptyCase             #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TemplateHaskell       #-}
-module RockBand.FiveButton where
+module RockBand.FiveButton
+( Color(..)
+, FretPosition(..)
+, HandMap(..)
+, OnyxCloseEvent(..)
+, StrumMap(..)
+, StrumHOPOTap(..)
+, Event(..)
+, DiffEvent(..)
+) where
 
-import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Codec.Five              (Color (..),
+                                                   FretPosition (..),
+                                                   HandMap (..),
+                                                   OnyxCloseEvent (..),
+                                                   StrumHOPOTap (..),
+                                                   StrumMap (..))
 import           RockBand.Common
 import           RockBand.Parse
 import qualified RockBand.PhaseShiftMessage       as PS
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
-import           Text.Read                        (readMaybe)
-
-data Color = Green | Red | Yellow | Blue | Orange
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 data Event
   = Mood                      Mood
@@ -34,85 +42,14 @@ data Event
   | Player1                   Bool
   | Player2                   Bool
   | DiffEvent Difficulty DiffEvent
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
-
--- | These don't actually correspond to 20 different frets;
--- see http://i.imgur.com/fRg6Vo9.png by Orange Harrison
-data FretPosition
-  = Fret40 -- ^ the nut
-  | Fret41
-  | Fret42
-  | Fret43
-  | Fret44
-  | Fret45
-  | Fret46
-  | Fret47
-  | Fret48
-  | Fret49
-  | Fret50
-  | Fret51
-  | Fret52
-  | Fret53
-  | Fret54
-  | Fret55
-  | Fret56
-  | Fret57
-  | Fret58
-  | Fret59 -- ^ roughly fret 12
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
+  deriving (Eq, Ord, Show, Read)
 
 data DiffEvent
-  = Force StrumHOPO Bool
-  | TapNotes Bool
+  = Force StrumHOPOTap Bool
   | OpenNotes Bool
   | OnyxClose Int
   | Note (LongNote () Color)
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
-
-data StrumHOPO = Strum | HOPO
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
-
--- | Controls the fretting hand animation of a guitarist/bassist.
-data HandMap
-  = HandMap_Default
-  -- ^ Normal fingering. Single gems = single fingers, gems with duration =
-  -- vibrato, chord gems = chords.
-  | HandMap_NoChords  -- ^ All single fingers/vibrato.
-  | HandMap_AllChords -- ^ All chords.
-  | HandMap_Solo      -- ^ D major shape for all chords, vibrato for all chord sustains.
-  | HandMap_DropD     -- ^ Open hand for all green gems, all other gems are chords.
-  | HandMap_DropD2    -- ^ Open hand for all green gems.
-  | HandMap_AllBend   -- ^ All ring finger high vibrato.
-  | HandMap_Chord_C   -- ^ All C chord shape.
-  | HandMap_Chord_D   -- ^ All D chord shape.
-  | HandMap_Chord_A   -- ^ All A minor chord shape.
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
-
-instance Command HandMap where
-  fromCommand hm = ["map", T.pack $ show hm]
-  toCommand = reverseLookup each fromCommand
-
--- | Controls the strumming animation for a bassist.
-data StrumMap
-  = StrumMap_Default
-  | StrumMap_Pick
-  | StrumMap_SlapBass
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
-
-instance Command StrumMap where
-  fromCommand sm = ["map", T.pack $ show sm]
-  toCommand = reverseLookup each fromCommand
-
-data OnyxCloseEvent = OnyxCloseEvent Difficulty Int
-
-instance Command OnyxCloseEvent where
-  fromCommand (OnyxCloseEvent diff offset) =
-    ["onyx", "close", T.toLower $ T.pack $ show diff, T.pack $ show offset]
-  toCommand cmd = do
-    ["onyx", "close", d, n] <- Just cmd
-    diff <- reverseLookup each (T.toLower . T.pack . show) d
-    offset <- readMaybe $ T.unpack n
-    return $ OnyxCloseEvent diff offset
+  deriving (Eq, Ord, Show, Read)
 
 instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
 
@@ -226,12 +163,12 @@ instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
           in map (\diff -> DiffEvent diff $ OpenNotes b) diffs
         PS.PSMessage mdiff PS.TapNotes b -> Just $ let
           diffs = maybe [minBound .. maxBound] (: []) mdiff
-          in map (\diff -> DiffEvent diff $ TapNotes b) diffs
+          in map (\diff -> DiffEvent diff $ Force Tap b) diffs
         _ -> Nothing
       |]
     , [e| \case
         DiffEvent d (OpenNotes b) -> unparseOne $ PS.PSMessage (Just d) PS.OpenStrum b
-        DiffEvent d (TapNotes  b) -> unparseOne $ PS.PSMessage (Just d) PS.TapNotes b
+        DiffEvent d (Force Tap b) -> unparseOne $ PS.PSMessage (Just d) PS.TapNotes b
       |]
     )
 

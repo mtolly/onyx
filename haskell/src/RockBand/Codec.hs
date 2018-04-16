@@ -6,7 +6,7 @@
 module RockBand.Codec where
 
 import           Control.Applicative              ((<|>))
-import           Control.Monad                    (forM, guard)
+import           Control.Monad                    (forM, guard, void)
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
@@ -91,7 +91,7 @@ blipCV p = Codec
   }
 
 blip :: (Monad m) => Int -> TrackEvent m U.Beats ()
-blip = dimap (fmap $ \() -> (0, 96)) (fmap $ const ()) . blipCV
+blip = dimap (fmap $ \() -> (0, 96)) void . blipCV
 
 edge :: (Monad m) => Int -> Bool -> TrackEvent m U.Beats ()
 edge p b = single
@@ -253,7 +253,7 @@ class TraverseTrack trk where
   traverseTrack :: (Applicative f) => (forall a. RTB.T t a -> f (RTB.T t a)) -> trk t -> f (trk t)
 
 traverseTime :: (TraverseTrack trk, Applicative f) => (t -> f t) -> trk t -> f (trk t)
-traverseTime f trk = traverseTrack (RTB.traverseTime f) trk
+traverseTime f = traverseTrack $ RTB.traverseTime f
 
 mapTrack :: (TraverseTrack trk) => (forall a. RTB.T t a -> RTB.T t a) -> trk t -> trk t
 mapTrack f = runIdentity . traverseTrack (Identity . f)

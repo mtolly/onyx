@@ -1,17 +1,62 @@
-{-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 module RockBand.Codec.Vocal where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import           RockBand.Codec
 import           RockBand.Common
-import           RockBand.Vocals                  (PercussionType (..),
-                                                   Pitch (..))
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
+
+data Pitch
+  = Octave36 Key
+  | Octave48 Key
+  | Octave60 Key
+  | Octave72 Key
+  | Octave84C
+  deriving (Eq, Ord, Show, Read)
+
+pitchToKey :: Pitch -> Key
+pitchToKey = \case
+  Octave36 k -> k
+  Octave48 k -> k
+  Octave60 k -> k
+  Octave72 k -> k
+  Octave84C  -> C
+
+instance Enum Pitch where
+  fromEnum (Octave36 k) = fromEnum k
+  fromEnum (Octave48 k) = fromEnum k + 12
+  fromEnum (Octave60 k) = fromEnum k + 24
+  fromEnum (Octave72 k) = fromEnum k + 36
+  fromEnum Octave84C    = 48
+  toEnum i = case divMod i 12 of
+    (0, j) -> Octave36 $ toEnum j
+    (1, j) -> Octave48 $ toEnum j
+    (2, j) -> Octave60 $ toEnum j
+    (3, j) -> Octave72 $ toEnum j
+    (4, 0) -> Octave84C
+    _      -> error $ "No vocals Pitch for: fromEnum " ++ show i
+
+instance Bounded Pitch where
+  minBound = Octave36 minBound
+  maxBound = Octave84C
+
+data PercussionType
+  = Tambourine
+  | Cowbell
+  | Clap
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance Command (PercussionType, Bool) where
+  fromCommand (typ, b) = [T.toLower (T.pack $ show typ) <> if b then "_start" else "_end"]
+  toCommand = reverseLookup ((,) <$> each <*> each) fromCommand
 
 data VocalTrack t = VocalTrack
   { vocalMood          :: RTB.T t Mood

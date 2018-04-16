@@ -1,18 +1,24 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE PatternSynonyms    #-}
-{-# LANGUAGE TemplateHaskell    #-}
-module RockBand.Vocals where
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE TemplateHaskell   #-}
+module RockBand.Vocals
+( PercussionType(..), Pitch(..)
+, Event(..)
+, asciify
+, asciiLyrics
+, fixGHVocals
+) where
 
-import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (partition)
 import           Data.Maybe                       (fromMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Codec.Vocal             (PercussionType (..),
+                                                   Pitch (..))
 import           RockBand.Common
 import           RockBand.Parse
 import qualified Sound.MIDI.File.Event            as E
@@ -31,51 +37,7 @@ data Event
   | Overdrive  Bool
   | RangeShift Bool
   | Note       Bool Pitch
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
-
-data Pitch
-  = Octave36 Key
-  | Octave48 Key
-  | Octave60 Key
-  | Octave72 Key
-  | Octave84C
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
-
-pitchToKey :: Pitch -> Key
-pitchToKey = \case
-  Octave36 k -> k
-  Octave48 k -> k
-  Octave60 k -> k
-  Octave72 k -> k
-  Octave84C  -> C
-
-instance Enum Pitch where
-  fromEnum (Octave36 k) = fromEnum k
-  fromEnum (Octave48 k) = fromEnum k + 12
-  fromEnum (Octave60 k) = fromEnum k + 24
-  fromEnum (Octave72 k) = fromEnum k + 36
-  fromEnum Octave84C    = 48
-  toEnum i = case divMod i 12 of
-    (0, j) -> Octave36 $ toEnum j
-    (1, j) -> Octave48 $ toEnum j
-    (2, j) -> Octave60 $ toEnum j
-    (3, j) -> Octave72 $ toEnum j
-    (4, 0) -> Octave84C
-    _      -> error $ "No vocals Pitch for: fromEnum " ++ show i
-
-instance Bounded Pitch where
-  minBound = Octave36 minBound
-  maxBound = Octave84C
-
-data PercussionType
-  = Tambourine
-  | Cowbell
-  | Clap
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
-
-instance Command (PercussionType, Bool) where
-  fromCommand (typ, b) = [T.toLower (T.pack $ show typ) <> if b then "_start" else "_end"]
-  toCommand = reverseLookup ((,) <$> each <*> each) fromCommand
+  deriving (Eq, Ord, Show, Read)
 
 instanceMIDIEvent [t| Event |] Nothing
 

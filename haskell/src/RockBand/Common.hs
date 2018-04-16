@@ -1,5 +1,4 @@
 {- | Datatypes and functions used across multiple MIDI parsers. -}
-{-# LANGUAGE DeriveDataTypeable     #-}
 {-# LANGUAGE DeriveFoldable         #-}
 {-# LANGUAGE DeriveFunctor          #-}
 {-# LANGUAGE DeriveTraversable      #-}
@@ -17,7 +16,6 @@ module RockBand.Common where
 import           Control.Monad                    (guard)
 import           Data.Bifunctor                   (Bifunctor (..))
 import           Data.Char                        (isSpace)
-import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (stripPrefix)
 import           Data.Maybe                       (fromMaybe)
@@ -51,7 +49,7 @@ data Mood
   | Mood_mellow
   | Mood_intense
   | Mood_play_solo
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command Mood where
   fromCommand x = case T.stripPrefix "Mood_" $ T.pack $ show x of
@@ -67,7 +65,7 @@ instance Command [T.Text] where
   fromCommand = id
 
 data Difficulty = Easy | Medium | Hard | Expert
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 readCommand' :: (Command a) => E.T -> Maybe a
 readCommand' (E.MetaEvent (Meta.TextEvent s)) = readCommand $ T.pack s
@@ -96,7 +94,7 @@ data Trainer
   = TrainerBegin Int
   | TrainerNorm Int
   | TrainerEnd Int
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
+  deriving (Eq, Ord, Show, Read)
 
 instance Command (Trainer, T.Text) where
   fromCommand (t, s) = case t of
@@ -115,7 +113,7 @@ instance Command (Trainer, T.Text) where
   toCommand _ = Nothing
 
 data Key = C | Cs | D | Ds | E | F | Fs | G | Gs | A | As | B
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 showKey :: Bool -> Key -> String
 showKey flat = if flat
@@ -187,7 +185,7 @@ data LongNote s a
   = NoteOff     a
   | Blip      s a
   | NoteOn    s a
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable, Data)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
 instance Bifunctor LongNote where
   first f = \case

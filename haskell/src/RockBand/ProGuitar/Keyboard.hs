@@ -5,9 +5,8 @@ module RockBand.ProGuitar.Keyboard where
 import           Control.Concurrent             (threadDelay)
 import           Control.Monad                  (forM_, guard)
 import           Control.Monad.IO.Class         (liftIO)
-import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.StackTrace (QueueLog, SendMessage,
-                                                 StackTraceT, lg, stracket)
+                                                 StackTraceT, stracket)
 import           Control.Monad.Trans.State      (StateT, evalStateT, get, put)
 import           Data.Foldable                  (toList)
 import           Data.List                      (sortOn)

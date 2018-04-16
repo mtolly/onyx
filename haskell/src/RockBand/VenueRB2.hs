@@ -1,12 +1,10 @@
 -- | This format was implemented with the help of:
 -- https://web.archive.org/web/20120109105129/http://creators.rockband.com:80/spec/Camera_And_Lights
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module RockBand.VenueRB2 where
 
-import           Data.Data
 import           Data.Monoid     ((<>))
 import qualified Data.Text       as T
 import           RockBand.Common
@@ -46,7 +44,7 @@ data Camera
   | Camera_directed_all_lt
   | Camera_directed_drums_lt
   | Camera_directed_crowdsurf
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command Camera where
   fromCommand x = case T.stripPrefix "Camera_" $ T.pack $ show x of
@@ -57,7 +55,7 @@ instance Command Camera where
 data DoCut
   = DoDirectedCut Camera
   | DoOptionalCut Camera
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
+  deriving (Eq, Ord, Show, Read)
 
 instance Command DoCut where
   fromCommand (DoDirectedCut cam) = "do_directed_cut" : fromCommand cam
@@ -82,7 +80,7 @@ data PostProcess
   | PP_film_16mm
   | PP_contrast_a
   | PP_Default -- rbn2 docs say ProFilm_a is "default". apparently in rb2 they were different?
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data Lighting
   = Lighting_ -- ^ @[lighting ()]@
@@ -108,7 +106,7 @@ data Lighting
   | Lighting_flare_slow
   | Lighting_flare_fast
   | Lighting_bre
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command Lighting where
   fromCommand Lighting_verse = ["verse"]
@@ -144,7 +142,7 @@ data Event
   | BonusFX
   | BonusFXOptional
   | Fog Bool
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
+  deriving (Eq, Ord, Show, Read)
 
 instanceMIDIEvent [t| Event |] Nothing
 

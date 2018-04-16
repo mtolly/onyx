@@ -1,13 +1,8 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveFoldable     #-}
-{-# LANGUAGE DeriveFunctor      #-}
-{-# LANGUAGE DeriveTraversable  #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
 module RockBand.PhaseShiftMessage where
 
 import           Control.Applicative                   ((<|>))
-import           Data.Data
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import qualified Data.Text                             as T
 import qualified Numeric.NonNegative.Class             as NNC
@@ -23,7 +18,7 @@ data PSMessage = PSMessage
   { psDifficulty :: Maybe Difficulty
   , psPhraseID   :: PhraseID
   , psEdge       :: Bool -- ^ True for start, False for end
-  } deriving (Eq, Ord, Show, Read, Typeable, Data)
+  } deriving (Eq, Ord, Show, Read)
 
 data PhraseID
   = OpenStrum
@@ -47,7 +42,7 @@ data PhraseID
   | YellowTomCymbal
   | BlueTomCymbal
   | GreenTomCymbal
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command PSMessage where
   fromCommand = error "PSMessage to command not implemented"

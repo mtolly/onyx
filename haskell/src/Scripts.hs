@@ -6,7 +6,7 @@ import           Config                           (Instrument (..),
                                                    PreviewTime (..), SongYaml,
                                                    _metadata, _previewEnd,
                                                    _previewStart)
-import           Control.Monad                    (guard)
+import           Control.Monad                    (forM, guard)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
@@ -86,7 +86,7 @@ loadFoFMIDI_precodec ini fp = do
       -- look for and remove fake OD notes used in lieu of star_power_note;
       -- this was seen in Bocaj Hero V
       midRB = case mid of
-        F.Cons typ dvn trks -> fmap (F.Cons typ dvn) $ flip mapM trks $ \trk -> if isGtrTrack trk
+        F.Cons typ dvn trks -> fmap (F.Cons typ dvn) $ forM trks $ \trk -> if isGtrTrack trk
           then let
             od = flip RTB.mapMaybe trk $ \e -> case isNoteEdgeCPV e of
               Just (_, 116, Just _) -> Just ()

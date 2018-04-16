@@ -156,8 +156,8 @@ autoplay thres tmap = let
     Just ((dt, (shopo, thisGemsTrips, _)), rtb') -> let
       thisGems = [ (x, y) | (x, y, _) <- thisGemsTrips ]
       isStrum = case shopo of
-        Just Five.Strum -> True
-        _               -> thisGems == prevGems -- strum only if this is a hopo/tap with same frets as prev note
+        Five.Strum -> True
+        _          -> thisGems == prevGems -- strum only if this is a hopo/tap with same frets as prev note
       strums = [ Strum str 96 | (str, _) <- thisGems ]
       frets = do
         str <- [minBound .. maxBound]

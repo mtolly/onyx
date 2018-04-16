@@ -4,7 +4,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 module RockBand.Codec.ProGuitar where
 
-import           Control.Monad                    (guard, (>=>))
+import           Control.Monad                    (forM, guard, (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.Trans.StackTrace
 import           Data.Default.Class               (Default (..))
@@ -17,12 +17,47 @@ import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
-import           RockBand.ProGuitar               (GtrChannel (..), GtrFret,
-                                                   GtrString (..),
-                                                   NoteType (..),
-                                                   SlideType (..),
-                                                   StrumArea (..))
 import           Text.Read                        (readMaybe)
+
+data NoteType
+  = NormalNote
+  | ArpeggioForm
+  | Bent
+  | Muted
+  | Tapped
+  | Harmonic
+  | PinchHarmonic
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data SlideType = NormalSlide | ReversedSlide | MysterySlide3 | MysterySlide2
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data StrumArea = High | Mid | Low | MysteryStrum0
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+type GtrFret = Int
+
+data GtrString = S6 | S5 | S4 | S3 | S2 | S1
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+class (Enum a, Bounded a) => GtrChannel a where
+  encodeChannel :: a -> Int
+  channelMap :: [(Int, a)]
+  channelMap = [ (encodeChannel x, x) | x <- [minBound .. maxBound] ]
+instance GtrChannel NoteType where
+  encodeChannel = fromEnum
+instance GtrChannel SlideType where
+  encodeChannel = \case
+    NormalSlide   -> 0
+    ReversedSlide -> 11
+    MysterySlide3 -> 3
+    MysterySlide2 -> 2
+instance GtrChannel StrumArea where
+  encodeChannel = \case
+    High -> 13
+    Mid  -> 14
+    Low  -> 15
+    MysteryStrum0 -> 0
 
 data GuitarType = TypeGuitar | TypeBass
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -82,7 +117,7 @@ channelEdges p = let
   in Codec
     { codecIn = do
       trk <- codecIn src
-      flip traverse trk $ \(c, v) -> do
+      forM trk $ \(c, v) -> do
         c' <- case lookup c channelMap of
           Just c' -> return c'
           Nothing  -> do

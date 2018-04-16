@@ -1,11 +1,9 @@
 -- | The RB3 (RBN2) VENUE track format.
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 module RockBand.Venue where
 
-import           Data.Data
 import           Data.Monoid     ((<>))
 import qualified Data.Text       as T
 import           RockBand.Common
@@ -97,7 +95,7 @@ data Camera
   | Camera_directed_duo_gb
   | Camera_directed_duo_kb
   | Camera_directed_duo_kg
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command Camera where
   fromCommand x = case T.stripPrefix "Camera_" $ T.pack $ show x of
@@ -138,7 +136,7 @@ data PostProcess
   | PP_ProFilm_mirror_a
   | PP_ProFilm_psychedelic_blue_red
   | PP_space_woosh
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command PostProcess where
   fromCommand PP_film_b_w = ["film_b+w.pp"]
@@ -173,7 +171,7 @@ data Lighting
   | Lighting_flare_slow
   | Lighting_flare_fast
   | Lighting_bre
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command Lighting where
   fromCommand x = case T.stripPrefix "Lighting_" $ T.pack $ show x of
@@ -198,7 +196,7 @@ data Event
   | LightingNext
   | BonusFX
   | BonusFXOptional
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
+  deriving (Eq, Ord, Show, Read)
 
 instanceMIDIEvent [t| Event |] Nothing
   [ ( [e| one $ mapParseOne Camera parseCommand |]

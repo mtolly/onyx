@@ -10,8 +10,7 @@ import           Data.Bifunctor                   (first)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.List                        (nub, sort)
-import           Data.Maybe                       (fromMaybe)
-import           Data.Maybe                       (isNothing)
+import           Data.Maybe                       (fromMaybe, isNothing)
 import qualified Data.Set                         as Set
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
@@ -20,8 +19,7 @@ import qualified RockBand.GHL                     as G6
 import qualified Sound.MIDI.Util                  as U
 
 data GuitarEvent a
-  = Force G5.StrumHOPO Bool
-  | TapNotes Bool
+  = Force G5.StrumHOPOTap Bool
   | Note a
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
@@ -29,8 +27,7 @@ splitGuitarEvents :: (NNC.C t, Ord s, Ord a) => RTB.T t (GuitarEvent (s, a, Mayb
 splitGuitarEvents rtb = let
   (notes, notNotes) = RTB.partitionMaybe (\case Note x -> Just x; _ -> Nothing) rtb
   notNotes' = flip RTB.mapMaybe notNotes $ \case
-    Force sh b -> Just $ Force sh b
-    TapNotes b -> Just $ TapNotes b
+    Force sht b -> Just $ Force sht b
     Note{} -> Nothing -- never happens
   in RTB.merge (fmap Note $ splitEdges notes) notNotes'
 
@@ -39,8 +36,7 @@ openNotes rtb = let
   (notes, notNotes) = RTB.partitionMaybe (\case G5.Note ln -> Just ln; _ -> Nothing) rtb
   eithers = RTB.merge (fmap Left notNotes) (fmap Right $ joinEdges notes)
   eachEvent = \case
-    Left (G5.Force sh b) -> return [Force sh b]
-    Left (G5.TapNotes b) -> return [TapNotes b]
+    Left (G5.Force sht b) -> return [Force sht b]
     Left (G5.OpenNotes b) -> put b >> return []
     Left G5.OnyxClose{} -> return []
     Left G5.Note{} -> return [] -- never happens
@@ -53,8 +49,7 @@ closeNotes rtb = let
   (notes, notNotes) = RTB.partitionMaybe (\case G5.Note ln -> Just ln; _ -> Nothing) rtb
   eithers = RTB.merge (fmap Left notNotes) (fmap Right $ joinEdges notes)
   eachEvent = \case
-    Left (G5.Force sh b) -> return [Force sh b]
-    Left (G5.TapNotes b) -> return [TapNotes b]
+    Left (G5.Force sht b) -> return [Force sht b]
     Left (G5.OpenNotes open) -> do
       (_, offset) <- get
       put (open, offset)
@@ -77,9 +72,8 @@ closeNotes rtb = let
 
 ghlNotes :: RTB.T t G6.DiffEvent -> RTB.T t (GuitarEvent (LongNote () (Maybe G6.Fret)))
 ghlNotes = fmap $ \case
-  G6.Force sh b -> Force sh b
-  G6.TapNotes b -> TapNotes b
-  G6.Note ln    -> Note ln
+  G6.Force sht b -> Force sht b
+  G6.Note ln     -> Note ln
 
 data HOPOsAlgorithm
   = HOPOsRBGuitar
@@ -102,18 +96,17 @@ applyStatus status events = let
     Right x          -> (             current, Just (Set.toList current, x))
   in trackState Set.empty fn $ RTB.merge (fmap Left status) (fmap Right events)
 
-allStrums :: (NNC.C t) => RTB.T t (GuitarEvent (LongNote () a)) -> RTB.T t (LongNote (G5.StrumHOPO, Bool) a)
+allStrums :: (NNC.C t) => RTB.T t (GuitarEvent (LongNote () a)) -> RTB.T t (LongNote G5.StrumHOPOTap a)
 allStrums = RTB.mapMaybe $ \case
-  Note ln -> Just $ first (const (G5.Strum, False)) ln
+  Note ln -> Just $ first (const G5.Strum) ln
   _       -> Nothing
 
-strumHOPOTap :: (NNC.C t, Ord a) => HOPOsAlgorithm -> t -> RTB.T t (GuitarEvent (LongNote () a)) -> RTB.T t (LongNote (G5.StrumHOPO, Bool) a)
+strumHOPOTap :: (NNC.C t, Ord a) => HOPOsAlgorithm -> t -> RTB.T t (GuitarEvent (LongNote () a)) -> RTB.T t (LongNote G5.StrumHOPOTap a)
 strumHOPOTap algo threshold rtb = let
   notes = RTB.mapMaybe (\case Note ln -> Just ln; _ -> Nothing) rtb
   mods = flip RTB.mapMaybe rtb $ \case
-    Force sh b -> Just (Just sh, b)
-    TapNotes b -> Just (Nothing, b)
-    _          -> Nothing
+    Force sht b -> Just (sht, b)
+    _           -> Nothing
   withMods = applyStatus mods $ RTB.collectCoincident notes
   fn prev dt (thisMods, longs) = let
     blips = [ x | Blip   () x <- longs ]
@@ -122,7 +115,6 @@ strumHOPOTap algo threshold rtb = let
     newPrev = case blips ++ ons of
       []   -> fmap (\(ago, gems) -> (NNC.add ago dt, gems)) prev
       gems -> Just (NNC.zero, gems)
-    isTap = elem Nothing thisMods
     autoSH = case prev of
       Nothing -> G5.Strum
       Just (ago, prevColors) -> let
@@ -143,12 +135,13 @@ strumHOPOTap algo threshold rtb = let
                 then G5.HOPO
                 else G5.Strum
               _ -> G5.Strum
-    sh  | elem (Just G5.Strum) thisMods = G5.Strum
-        | elem (Just G5.HOPO ) thisMods = G5.HOPO
-        | otherwise                  = autoSH
+    sht | elem G5.Tap   thisMods = G5.Tap
+        | elem G5.Strum thisMods = G5.Strum
+        | elem G5.HOPO  thisMods = G5.HOPO
+        | otherwise              = autoSH
     newEvents = concat
-      [ map (Blip   (sh, isTap)) blips
-      , map (NoteOn (sh, isTap)) ons
+      [ map (Blip   sht) blips
+      , map (NoteOn sht) ons
       , map NoteOff              offs
       ]
     in (newPrev, Just newEvents)
@@ -197,62 +190,54 @@ fromClosed = fmap $ fmap Just
 noOpenNotes
   :: (NNC.C t)
   => Bool -- ^ whether open HOPOs\/taps should be removed
-  -> RTB.T t (LongNote (G5.StrumHOPO, Bool) (Maybe G5.Color))
-  -> RTB.T t (LongNote (G5.StrumHOPO, Bool) G5.Color)
+  -> RTB.T t (LongNote G5.StrumHOPOTap (Maybe G5.Color))
+  -> RTB.T t (LongNote G5.StrumHOPOTap G5.Color)
 noOpenNotes removeOpenHOPO = let
   f = \case
-    ((sh, tap), Nothing, _) | removeOpenHOPO && (sh == G5.HOPO || tap) -> Nothing
+    (sht, Nothing, _) | removeOpenHOPO && sht /= G5.Strum -> Nothing
     (ntype, Nothing, len) -> Just (ntype, G5.Green, len)
     (ntype, Just x, len) -> Just (ntype, x, len)
   in splitEdges . RTB.mapMaybe f . joinEdges
 
 -- | Turns all tap notes into HOPO notes.
-noTaps :: RTB.T t (LongNote (G5.StrumHOPO, Bool) a) -> RTB.T t (LongNote (G5.StrumHOPO, Bool) a)
-noTaps = fmap $ first $ \(sh, tap) -> (if tap then G5.HOPO else sh, False)
+noTaps :: RTB.T t (LongNote G5.StrumHOPOTap a) -> RTB.T t (LongNote G5.StrumHOPOTap a)
+noTaps = fmap $ first $ \case G5.Tap -> G5.HOPO; sh -> sh
 
 -- | Writes every note with an explicit HOPO/strum force.
-emit5 :: RTB.T U.Beats (LongNote (G5.StrumHOPO, Bool) (Maybe G5.Color)) -> RTB.T U.Beats G5.DiffEvent
+emit5 :: RTB.T U.Beats (LongNote G5.StrumHOPOTap (Maybe G5.Color)) -> RTB.T U.Beats G5.DiffEvent
 emit5 = let
   eachEvent = \case
     NoteOff mc -> note NoteOff mc
-    NoteOn (sh, isTap) mc -> foldr RTB.merge RTB.empty
-      [ force sh
-      , tap isTap
+    NoteOn sht mc -> foldr RTB.merge RTB.empty
+      [ force sht
       , open $ isNothing mc
       , note (NoteOn ()) mc
       ]
-    Blip (sh, isTap) mc -> foldr RTB.merge RTB.empty
-      [ force sh
-      , tap isTap
+    Blip sht mc -> foldr RTB.merge RTB.empty
+      [ force sht
       , open $ isNothing mc
       , note (Blip ()) mc
       ]
   note f mc = RTB.singleton 0 $ G5.Note $ f $ fromMaybe G5.Green mc
-  force sh  = RTB.fromPairList [(0, G5.Force sh True), (1/32, G5.Force sh False)]
-  tap True  = RTB.fromPairList [(0, G5.TapNotes True), (1/32, G5.TapNotes False)]
-  tap False = RTB.empty
+  force sht = RTB.fromPairList [(0, G5.Force sht True), (1/32, G5.Force sht False)]
   open True = RTB.fromPairList [(0, G5.OpenNotes True), (1/32, G5.OpenNotes False)]
   open False = RTB.empty
   nubByTime = RTB.flatten . fmap nub . RTB.collectCoincident
   in nubByTime . U.trackJoin . fmap eachEvent
 
-emit6 :: RTB.T U.Beats (LongNote (G5.StrumHOPO, Bool) (Maybe G6.Fret)) -> RTB.T U.Beats G6.DiffEvent
+emit6 :: RTB.T U.Beats (LongNote G5.StrumHOPOTap (Maybe G6.Fret)) -> RTB.T U.Beats G6.DiffEvent
 emit6 = let
   eachEvent = \case
     NoteOff mc -> note NoteOff mc
-    NoteOn (sh, isTap) mc -> foldr RTB.merge RTB.empty
-      [ force sh
-      , tap isTap
+    NoteOn sht mc -> foldr RTB.merge RTB.empty
+      [ force sht
       , note (NoteOn ()) mc
       ]
-    Blip (sh, isTap) mc -> foldr RTB.merge RTB.empty
-      [ force sh
-      , tap isTap
+    Blip sht mc -> foldr RTB.merge RTB.empty
+      [ force sht
       , note (Blip ()) mc
       ]
   note f mc = RTB.singleton 0 $ G6.Note $ f mc
-  force sh  = RTB.fromPairList [(0, G6.Force sh True), (1/32, G6.Force sh False)]
-  tap True  = RTB.fromPairList [(0, G6.TapNotes True), (1/32, G6.TapNotes False)]
-  tap False = RTB.empty
+  force sht = RTB.fromPairList [(0, G6.Force sht True), (1/32, G6.Force sht False)]
   nubByTime = RTB.flatten . fmap nub . RTB.collectCoincident
   in nubByTime . U.trackJoin . fmap eachEvent

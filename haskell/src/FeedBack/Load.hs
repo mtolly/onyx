@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveFoldable    #-}
-{-# LANGUAGE DeriveFunctor     #-}
-{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -182,7 +179,7 @@ data TrackEvent t a
   | TrackSolo Bool
   deriving (Eq, Ord, Show, Read)
 
-emitTrack :: (NNC.C t, Ord a) => t -> RTB.T t (TrackEvent t a) -> RTB.T t (LongNote (Five.StrumHOPO, Bool) a)
+emitTrack :: (NNC.C t, Ord a) => t -> RTB.T t (TrackEvent t a) -> RTB.T t (LongNote Five.StrumHOPOTap a)
 emitTrack hopoThreshold trk = let
   gnotes = fmap G.Note $ splitEdges $ flip RTB.mapMaybe trk $ \case
     TrackNote x len -> Just ((), x, guard (len /= NNC.zero) >> Just len)
@@ -193,8 +190,9 @@ emitTrack hopoThreshold trk = let
   applied = applyChartSwitch forces $ applyChartSwitch taps gh
   flipSH Five.Strum = Five.HOPO
   flipSH Five.HOPO  = Five.Strum
+  flipSH Five.Tap   = Five.Tap
   in flip fmap applied $ \(forced, (tap, ln)) ->
-    first (\(sh, _) -> (if forced then flipSH sh else sh, tap)) ln
+    first (if tap then const Five.Tap else if forced then flipSH else id) ln
 
 chartToMIDI :: (SendMessage m) => Chart U.Beats -> StackTraceT m (Song (PSFile U.Beats))
 chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do

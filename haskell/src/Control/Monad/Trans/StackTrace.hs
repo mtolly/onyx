@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
@@ -50,7 +49,6 @@ import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.State    (StateT)
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString.Char8        as B8
-import           Data.Data
 import           Data.Functor.Identity        (Identity)
 import qualified Development.Shake            as Shake
 import qualified System.Directory             as Dir
@@ -64,7 +62,7 @@ import           System.Process.ByteString    (readCreateProcessWithExitCode)
 data Message = Message
   { messageString  :: String
   , messageContext :: [String] -- ^ The first element is the innermost context
-  } deriving (Eq, Ord, Show, Read, Data, Typeable)
+  } deriving (Eq, Ord, Show, Read)
 
 instance Exc.Exception Message where
   displayException (Message str ctx) = unlines
@@ -73,7 +71,7 @@ instance Exc.Exception Message where
     : map ("  - " ++) ctx
 
 newtype Messages = Messages { getMessages :: [Message] }
-  deriving (Eq, Ord, Show, Read, Data, Typeable, Monoid)
+  deriving (Eq, Ord, Show, Read, Monoid)
 
 instance Exc.Exception Messages where
   displayException = unlines . map Exc.displayException . getMessages

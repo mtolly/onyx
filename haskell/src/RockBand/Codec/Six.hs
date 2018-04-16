@@ -8,8 +8,16 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
 import           RockBand.Codec
 import           RockBand.Common
-import           RockBand.GHL                     (Fret (..))
 import qualified RockBand.PhaseShiftMessage       as PS
+
+data Fret
+  = Black1
+  | Black2
+  | Black3
+  | White1
+  | White2
+  | White3
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data SixTrack t = SixTrack
   { sixDifficulties :: Map.Map Difficulty (SixDifficulty t)

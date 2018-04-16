@@ -20,7 +20,7 @@ import           RockBand.Common                  (Difficulty (..), Key (..),
                                                    LongNote (..), joinEdges)
 import qualified RockBand.Drums                   as Drums
 import qualified RockBand.File                    as RBFile
-import           RockBand.FiveButton              (StrumHOPO (..))
+import           RockBand.FiveButton              (StrumHOPOTap (..))
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as PK
 import           RockBand.Sections                (getSection)
@@ -204,12 +204,12 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
     x : xs -> x : pullBackSustains xs
   in showGuitarNotes (isNothing hopoThres || elem diff [Easy, Medium]) gnotes9
 
-data GuitarNote t = GuitarNote [Five.Color] StrumHOPO (Maybe t)
+data GuitarNote t = GuitarNote [Five.Color] StrumHOPOTap (Maybe t)
   deriving (Eq, Ord, Show, Read)
 
 readGuitarNotes :: Maybe Int -> RTB.T U.Beats Five.DiffEvent -> RTB.T U.Beats (GuitarNote U.Beats)
 readGuitarNotes hopoThres
-  = fmap (\((ntype, _isTap), colors, len) -> GuitarNote colors ntype len)
+  = fmap (\(ntype, colors, len) -> GuitarNote colors ntype len)
   . joinEdges
   . guitarify
   . noOpenNotes False
@@ -229,9 +229,7 @@ showGuitarNotes isKeys = U.trackJoin . fmap f where
         [ (0, map (Five.Note . NoteOn ()) cols)
         , (t, map (Five.Note . NoteOff  ) cols)
         ]
-    ] where force b = case ntype of
-              Strum -> [Five.Force Strum b | not isKeys]
-              HOPO  -> [Five.Force HOPO  b | not isKeys]
+    ] where force b = [Five.Force ntype b | not isKeys]
 
 data PKNote t = PKNote [PK.Pitch] (Maybe t)
   deriving (Eq, Ord, Show, Read)

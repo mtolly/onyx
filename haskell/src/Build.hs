@@ -1575,8 +1575,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 , FoF.track            = _trackNumber $ _metadata songYaml
                 , FoF.sysexSlider      = Just $ let
                   isTap = \case
-                    RBFive.DiffEvent _ RBFive.TapNotes{} -> True
-                    _                                    -> False
+                    RBFive.DiffEvent _ (RBFive.Force RBFive.Tap _) -> True
+                    _                                              -> False
                   in any (any isTap . RBFile.flexFiveButton)
                     $ RBFile.onyxFlexParts $ RBFile.s_tracks song
                 , FoF.sysexOpenBass    = Just $ let

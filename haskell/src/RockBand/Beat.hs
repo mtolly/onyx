@@ -1,12 +1,10 @@
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE TemplateHaskell    #-}
+{-# LANGUAGE TemplateHaskell #-}
 module RockBand.Beat where
 
-import           Data.Data
 import           RockBand.Parse
 
 data Event = Bar | Beat
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instanceMIDIEvent [t| Event |] Nothing
 

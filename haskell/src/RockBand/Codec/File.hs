@@ -17,7 +17,6 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, mapMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
-import qualified RockBand.Beat                    as Beat
 import           RockBand.Codec
 import           RockBand.Codec.Beat
 import           RockBand.Codec.Drums
@@ -293,8 +292,8 @@ padFixedFile seconds (RBFile.Song temps sigs ff) = let
     $ U.measureMapToTimeSigs sigs
   padSimple = RTB.delay beats
   padBeat
-    = RTB.cons  0 Beat.Bar
-    . foldr (.) id (replicate (seconds * 2 - 1) $ RTB.cons 1 Beat.Beat)
+    = RTB.cons  0 Bar
+    . foldr (.) id (replicate (seconds * 2 - 1) $ RTB.cons 1 Beat)
     . RTB.delay 1
   in RBFile.Song temps' sigs' $ (mapTrack padSimple ff)
     { fixedBeat = BeatTrack $ if RTB.null $ beatLines $ fixedBeat ff

@@ -1,10 +1,9 @@
-{-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveFoldable     #-}
-{-# LANGUAGE DeriveFunctor      #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE DeriveTraversable  #-}
-{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Data.DTA.Base
 ( DTA(..), Tree(..), Chunk(..)
 , renumberFrom
@@ -13,9 +12,7 @@ module Data.DTA.Base
 import           Control.Applicative       (liftA2)
 import           Control.Monad             (replicateM)
 import qualified Data.ByteString           as B
-import           Data.Data                 (Data)
 import           Data.Int                  (Int32)
-import           Data.Typeable             (Typeable)
 import           Data.Word                 (Word32, Word8)
 
 import qualified Control.Monad.Trans.State as S
@@ -34,11 +31,11 @@ import           GHC.Generics              (Generic (..))
 
 -- | A top-level file.
 data DTA s = DTA { byteZero :: Word8, topTree :: Tree s }
-  deriving (Eq, Ord, Show, Read, Typeable, Data, Functor, Foldable, Traversable, Generic, Hashable)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic, Hashable)
 
 -- | A list of chunks, for either the top-level tree or a subtree.
 data Tree s = Tree { nodeID :: Word32, treeChunks :: [Chunk s] }
-  deriving (Eq, Ord, Show, Read, Typeable, Data, Functor, Foldable, Traversable, Generic, Hashable)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic, Hashable)
 
 -- | A data value, which may be a subtree. The constructors are ordered by their
 -- chunk identification tag in the binary format.
@@ -59,7 +56,7 @@ data Chunk s
   | Include s
   | Merge s
   | IfNDef s
-  deriving (Eq, Ord, Show, Read, Typeable, Data, Functor, Foldable, Traversable, Generic, Hashable)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic, Hashable)
 
 --
 -- Binary (DTB) instances

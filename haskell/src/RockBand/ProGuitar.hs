@@ -1,13 +1,21 @@
-{-# LANGUAGE DeriveDataTypeable    #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE TemplateHaskell       #-}
-module RockBand.ProGuitar where
+module RockBand.ProGuitar
+( GtrChannel(..), GtrFret, GtrString(..), NoteType(..), SlideType(..), StrumArea(..)
+, Event(..), DiffEvent(..)
+, standardGuitar
+, standardBass
+, autoHandPosition
+, autoChordRoot
+, lowerOctaves
+, guitarifyHOPO
+, makeChordName
+) where
 
 import           Control.Monad                    (guard)
-import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (isJust)
 import           Data.Monoid                      ((<>))
@@ -17,8 +25,13 @@ import           Guitars                          (applyStatus, guitarify,
                                                    trackState)
 import           Language.Haskell.TH
 import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Codec.ProGuitar         (GtrChannel (..), GtrFret,
+                                                   GtrString (..),
+                                                   NoteType (..),
+                                                   SlideType (..),
+                                                   StrumArea (..))
 import           RockBand.Common
-import           RockBand.FiveButton              (StrumHOPO (..))
+import           RockBand.FiveButton              (StrumHOPOTap (..))
 import           RockBand.Parse
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
@@ -43,7 +56,7 @@ data Event
   | Mystery69    Bool
   | Mystery93    Bool
   | DiffEvent Difficulty DiffEvent
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
+  deriving (Eq, Ord, Show, Read)
 
 data DiffEvent
   = ChordName (Maybe T.Text)
@@ -55,47 +68,7 @@ data DiffEvent
   | MysteryBFlat Bool
   -- TODO EOF format sysexes
   | Note (LongNote GtrFret (GtrString, NoteType))
-  deriving (Eq, Ord, Show, Read, Data, Typeable)
-
-data NoteType
-  = NormalNote
-  | ArpeggioForm
-  | Bent
-  | Muted
-  | Tapped
-  | Harmonic
-  | PinchHarmonic
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Data, Typeable)
-
-data SlideType = NormalSlide | ReversedSlide | MysterySlide3 | MysterySlide2
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Data, Typeable)
-
-data StrumArea = High | Mid | Low | MysteryStrum0
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Data, Typeable)
-
-type GtrFret = Int
-
-data GtrString = S6 | S5 | S4 | S3 | S2 | S1
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Data, Typeable)
-
-class (Enum a, Bounded a) => GtrChannel a where
-  encodeChannel :: a -> Int
-  channelMap :: [(Int, a)]
-  channelMap = [ (encodeChannel x, x) | x <- [minBound .. maxBound] ]
-instance GtrChannel NoteType where
-  encodeChannel = fromEnum
-instance GtrChannel SlideType where
-  encodeChannel = \case
-    NormalSlide   -> 0
-    ReversedSlide -> 11
-    MysterySlide3 -> 3
-    MysterySlide2 -> 2
-instance GtrChannel StrumArea where
-  encodeChannel = \case
-    High -> 13
-    Mid  -> 14
-    Low  -> 15
-    MysteryStrum0 -> 0
+  deriving (Eq, Ord, Show, Read)
 
 parseNoteBlip :: Int -> Difficulty -> GtrString -> ParseOne U.Beats E.T Event
 parseNoteBlip pitch diff str rtb = do
@@ -391,7 +364,7 @@ lowerOctaves maxFret rtb = let
   in eachDifficulty lowerDiff $ RTB.merge (fmap HandPosition hands') notHands
 
 guitarifyHOPO :: U.Beats -> RTB.T U.Beats DiffEvent
-  -> RTB.T U.Beats (Maybe StrumHOPO, [(GtrString, GtrFret, NoteType)], Maybe U.Beats)
+  -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe U.Beats)
 guitarifyHOPO threshold rtb = let
   notes = RTB.mapMaybe (\case Note ln -> Just ln; _ -> Nothing) rtb
   gtr = joinEdges $ guitarify $ splitEdges
@@ -401,8 +374,8 @@ guitarifyHOPO threshold rtb = let
   fn prev dt (forces, ((), gems, len)) = let
     gems' = [ gem | gem@(_, _, nt) <- gems, nt /= ArpeggioForm ]
     ntype = if all (\(_, _, nt) -> nt == Tapped) gems'
-      then Nothing
-      else Just $ case forces of
+      then Tap
+      else case forces of
         nt : _ -> nt
         [] -> if dt >= threshold -- TODO: should this be > or >= ?
           then Strum

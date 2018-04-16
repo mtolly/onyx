@@ -1,41 +1,33 @@
-{-# LANGUAGE DeriveDataTypeable    #-}
-{-# LANGUAGE DeriveFoldable        #-}
-{-# LANGUAGE DeriveFunctor         #-}
-{-# LANGUAGE DeriveTraversable     #-}
-{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
-module RockBand.Drums where
+module RockBand.Drums
+( Animation(..), Audio(..), Disco(..), Gem(..)
+, Hand(..), Hit(..), PSGem(..), ProColor(..), ProType(..)
+, Event(..), DiffEvent(..)
+, assignToms
+, assignPSReal
+, psRealToPro
+, baseScore
+, perfectSoloBonus
+) where
 
-import           Data.Data
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (findIndex)
-import           Data.Maybe                       (fromJust)
-import           Data.Monoid                      ((<>))
-import qualified Data.Text                        as T
 import           Guitars                          (applyStatus)
 import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Codec.Drums             (Animation (..), Audio (..),
+                                                   Disco (..), Gem (..),
+                                                   Hand (..), Hit (..),
+                                                   PSGem (..), ProColor (..),
+                                                   ProType (..))
 import           RockBand.Common
 import           RockBand.Parse
 import qualified RockBand.PhaseShiftMessage       as PS
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
-
-data ProColor = Yellow | Blue | Green
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
-
-data ProType = Cymbal | Tom
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
-
-data Gem a = Kick | Red | Pro ProColor a | Orange
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Typeable, Data)
-
-data PSGem = Rimshot | HHOpen | HHSizzle | HHPedal
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
 
 -- | Constructors are ordered for optimal processing with 'RTB.normalize'.
 -- For example, 'Note' comes last so that everything else is processed first.
@@ -54,7 +46,7 @@ data Event
   | DiffEvent  Difficulty DiffEvent
   | Kick2x -- ^ Used as input to the build tool for 2x Bass Pedal notes
   | Animation  Animation
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
+  deriving (Eq, Ord, Show, Read)
 
 data DiffEvent
   = Mix Audio Disco
@@ -63,89 +55,7 @@ data DiffEvent
   | PSSnareRimshot Bool
   | PSHihatSizzle  Bool
   | Note (Gem ())
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
-
-data Animation
-  = Tom1       Hand -- ^ The high tom.
-  | Tom2       Hand -- ^ The middle tom.
-  | FloorTom   Hand -- ^ The low tom.
-  | Hihat      Hand
-  | Snare  Hit Hand
-  | Ride       Hand
-  | Crash1 Hit Hand -- ^ The left crash, closer to the hihat.
-  | Crash2 Hit Hand -- ^ The right crash, closer to the ride.
-  | KickRF
-  | Crash1RHChokeLH
-  -- ^ NOTE: This is MIDI note 41! The RBN docs incorrectly say 40.
-  | Crash2RHChokeLH
-  -- ^ NOTE: This is MIDI note 40! The RBN docs incorrectly say 41.
-  | PercussionRH
-  | HihatOpen Bool
-  | RideSide Bool -- ^ Causes slow 'Ride' hits to animate differently.
-  deriving (Eq, Ord, Show, Read, Typeable, Data)
-
-allAnimations :: [Animation]
-allAnimations = concat
-  [ [Tom1] <*> each
-  , [Tom2] <*> each
-  , [FloorTom] <*> each
-  , [Hihat] <*> each
-  , [Snare]  <*> each <*> each
-  , [Ride] <*> each
-  , [Crash1] <*> each <*> each
-  , [Crash2] <*> each <*> each
-  , [KickRF]
-  , [Crash1RHChokeLH]
-  , [Crash2RHChokeLH]
-  , [PercussionRH]
-  , [HihatOpen] <*> each
-  , [RideSide] <*> each
-  ]
-
-instance Enum Animation where
-  toEnum = (allAnimations !!)
-  fromEnum x = fromJust $ findIndex (== x) allAnimations
-
-instance Bounded Animation where
-  minBound = head allAnimations
-  maxBound = last allAnimations
-
-data Hit = SoftHit | HardHit
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
-
-data Hand = LH | RH
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
-
--- | Controls the audio files used for the drum track.
-data Audio
-  = D0 -- ^ One stereo mix for the whole kit.
-  | D1 -- ^ Mono kick, mono snare, stereo kit.
-  | D2 -- ^ Mono kick, stereo snare, stereo kit.
-  | D3 -- ^ Stereo kick, stereo snare, stereo kit.
-  | D4 -- ^ Mono kick, stereo kit (including snare).
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
-
--- | Special options that can affect drum audio and pad settings.
-data Disco
-  = NoDisco     -- ^ All pads are normal.
-  | Disco       -- ^ Yellow snare, red hihat. Undone by Pro Drums.
-  | DiscoNoFlip -- ^ New in RB3: snare beats where accented hits are 'Yellow'.
-  | EasyMix     -- ^ Pre-RB3. 'Easy' sections with only 'Red' and 'Kick' notes.
-  | EasyNoKick  -- ^ Pre-RB3. 'Easy' sections with no 'Kick' notes.
-  deriving (Eq, Ord, Show, Read, Enum, Bounded, Typeable, Data)
-
-instance Command (Difficulty, Audio, Disco) where
-  fromCommand (diff, audio, disco) = ["mix", T.pack (show $ fromEnum diff), showMix audio disco]
-  toCommand = reverseLookup ((,,) <$> each <*> each <*> each) fromCommand
-
--- | e.g. turns 'D2' and 'Disco' into @\"drums2d\"@
-showMix :: Audio -> Disco -> T.Text
-showMix audio disco = "drums" <> T.pack (show $ fromEnum audio) <> case disco of
-  NoDisco     -> ""
-  Disco       -> "d"
-  DiscoNoFlip -> "dnoflip"
-  EasyMix     -> "easy"
-  EasyNoKick  -> "easynokick"
+  deriving (Eq, Ord, Show, Read)
 
 instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |])
 
@@ -269,7 +179,7 @@ data DrumState = DrumState
   , mediumDisco :: Bool
   , hardDisco   :: Bool
   , expertDisco :: Bool
-  } deriving (Eq, Ord, Show, Read, Typeable, Data)
+  } deriving (Eq, Ord, Show, Read)
 
 defDrumState :: DrumState
 defDrumState = DrumState Cymbal Cymbal Cymbal False False False False
