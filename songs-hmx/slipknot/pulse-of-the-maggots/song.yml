@@ -1,0 +1,112 @@
+parts:
+  vocal:
+    vocal:
+      count: 2
+      gender: male
+      difficulty:
+        rank: 215
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 340
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 428
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        rank: 207
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 207
+  drums:
+    drums:
+      fix-freeform: false
+      kit: Trashy Kit
+      difficulty:
+        rank: 412
+plans:
+  mogg:
+    parts:
+      vocal:
+      - 8
+      - 9
+      bass:
+      - 5
+      guitar:
+      - 6
+      - 7
+      keys:
+      - 10
+      - 11
+      drums:
+        kick:
+        - 0
+        snare:
+        - 1
+        - 2
+        kit:
+        - 3
+        - 4
+    pans:
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: f9a4dabd4dca91b48471c7e7ff16a1ee
+    multitrack: false
+    vols:
+    - -0.5
+    - -3.5
+    - -3.5
+    - -3
+    - -3
+    - -0.30000001192092896
+    - -3.5
+    - -3.5
+    - -3.5
+    - -3.5
+    - -3.5
+    - -3.5
+    - -3.5
+    - -3.5
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+metadata:
+  rating: SupervisionRecommended
+  preview-start: 52.17
+  file-album-art: cover.png_xbox
+  track-number: 9
+  key: B
+  album: ! 'Vol. 3: (The Subliminal Verses)'
+  year: 2004
+  subgenre: null
+  author: Harmonix, Onyxite
+  title: Pulse of the Maggots
+  preview-end: 1:22.170
+  genre: metal
+  difficulty:
+    rank: 330
+  artist: Slipknot
