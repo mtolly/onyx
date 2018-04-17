@@ -13,20 +13,11 @@ import qualified Data.HashMap.Strict            as Map
 import qualified Data.Text                      as T
 import           JSONData                       (eitherCodec, expected, fill,
                                                  opt, req)
+import           RockBand.Common                (Key (..))
 
-data Pitch
-  = C | CSharp
-  | D | DSharp
-  | E
-  | F | FSharp
-  | G | GSharp
-  | A | ASharp
-  | B
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
-instance StackChunk Pitch where
-  stackChunk = dtaEnum "Pitch" $ Int . fromIntegral . fromEnum
-instance StackChunks Pitch
+instance StackChunk Key where
+  stackChunk = dtaEnum "Key" $ Int . fromIntegral . fromEnum
+instance StackChunks Key
 
 data Tonality = Major | Minor
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -128,7 +119,7 @@ data SongPackage = SongPackage
   , encoding          :: Maybe T.Text
   , albumName         :: Maybe T.Text
   , albumTrackNumber  :: Maybe Integer
-  , vocalTonicNote    :: Maybe Pitch
+  , vocalTonicNote    :: Maybe Key
   , songTonality      :: Maybe Tonality
   , realGuitarTuning  :: Maybe [Integer]
   , realBassTuning    :: Maybe [Integer]
@@ -139,7 +130,7 @@ data SongPackage = SongPackage
   , shortVersion      :: Maybe Integer
   , yearRecorded      :: Maybe Integer
   , packName          :: Maybe T.Text
-  , songKey           :: Maybe Pitch -- shows in pro gtr/keys trainer I think
+  , songKey           :: Maybe Key -- shows in pro gtr/keys trainer I think
   , extraAuthoring    :: Maybe [T.Text] -- added by rb3 update snippets
   , context           :: Maybe Integer
   , decade            :: Maybe T.Text

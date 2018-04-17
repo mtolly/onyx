@@ -24,6 +24,7 @@ import           Data.Conduit.Audio             (Duration (..))
 import           Data.Default.Class
 import qualified Data.DTA.Serialize.GH2         as GH2
 import qualified Data.DTA.Serialize.Magma       as Magma
+import           Data.DTA.Serialize.RB3         (Tonality (..))
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
 import           Data.Hashable                  (Hashable (..))
@@ -46,33 +47,36 @@ import qualified Text.ParserCombinators.ReadP   as ReadP
 import           Text.Read                      (readMaybe)
 import qualified Text.Read.Lex                  as Lex
 
-keyNames :: [(T.Text, Key)]
-keyNames = let
-  keys = [C,D,E,F,G,A,B]
-  letter = T.toLower . T.pack . show
-  numKeys = fromEnum (maxBound :: Key) + 1
-  in   [(letter k, k) | k <- keys]
-    ++ [(letter k <> " flat" , toEnum $ (fromEnum k - 1) `mod` numKeys) | k <- keys]
-    ++ [(letter k <> " sharp", toEnum $ (fromEnum k + 1) `mod` numKeys) | k <- keys]
+data SongKey = SongKey
+  { songKey      :: Key
+  , songTonality :: Maybe Tonality
+  } deriving (Eq, Ord, Show)
 
-instance StackJSON Key where
+instance StackJSON SongKey where
   stackJSON = Codec
-    { codecOut = makeOut $ \case
-      C  -> "C"
-      Cs -> "C sharp"
-      D  -> "D"
-      Ds -> "D sharp"
-      E  -> "E"
-      F  -> "F"
-      Fs -> "F sharp"
-      G  -> "G"
-      Gs -> "G sharp"
-      A  -> "A"
-      As -> "A sharp"
-      B  -> "B"
-    , codecIn = codecIn stackJSON >>= \t -> case lookup (T.toLower t) keyNames of
-      Just k  -> return k
-      Nothing -> expected "the name of a pitch"
+    { codecOut = makeOut $ \(SongKey k mt) -> A.toJSON $ concat
+      [ map (\case 's' -> '#'; c -> c) $ show k -- TODO use flat for certain keys
+      , case mt of Nothing -> ""; Just Major -> " major"; Just Minor -> " minor"
+      ]
+    , codecIn = codecIn stackJSON >>= \t -> let
+      parse = do
+        base <- ReadP.choice $ map
+          (\k -> ReadP.string (show k) >> return k)
+          [C, D, E, F, G, A, B]
+        modded <- ReadP.choice
+          [ ReadP.char '#' >> return (toEnum ((fromEnum base + 1) `mod` 12))
+          , ReadP.char 'b' >> return (toEnum ((fromEnum base - 1) `mod` 12))
+          , return base
+          ]
+        tone <- ReadP.choice
+          [ ReadP.string " major" >> ReadP.eof >> return (Just Major)
+          , ReadP.string " minor" >> ReadP.eof >> return (Just Minor)
+          ,                          ReadP.eof >> return Nothing
+          ]
+        return $ SongKey modded tone
+      in case ReadP.readP_to_S parse $ T.unpack t of
+        (sk, _) : _ -> return sk
+        []          -> expected "a key and optional tonality"
     }
 
 data Instrument = Guitar | Bass | Drums | Keys | Vocal
@@ -863,7 +867,7 @@ data Metadata = Metadata
   , _fileAlbumArt :: Maybe FilePath
   , _trackNumber  :: Maybe Int
   , _comments     :: [T.Text]
-  , _key          :: Maybe Key
+  , _key          :: Maybe SongKey
   , _autogenTheme :: Magma.AutogenTheme
   , _author       :: Maybe T.Text
   , _rating       :: Rating

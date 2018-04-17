@@ -686,7 +686,7 @@ makeDisplay songYaml song = let
   parts = do
     (name, fpart) <- sort $ HM.toList $ C.getParts $ C._parts songYaml
     return (RBFile.getPartName name, makePart name fpart)
-  makeVox h1 h2 h3 = processVocal (RBFile.s_tempos song) h1 h2 h3 (fmap fromEnum $ C._key $ C._metadata songYaml)
+  makeVox h1 h2 h3 = processVocal (RBFile.s_tempos song) h1 h2 h3 (fmap (fromEnum . C.songKey) $ C._key $ C._metadata songYaml)
   beat = processBeat (RBFile.s_tempos song)
     $ RBFile.onyxBeat $ RBFile.s_tracks song
   end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats_precodec song

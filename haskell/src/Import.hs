@@ -750,7 +750,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
       , _comments     = []
       , _difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
-      , _key          = toEnum . fromEnum <$> D.vocalTonicNote pkg
+      , _key          = fmap (`SongKey` D.songTonality pkg) $ D.vocalTonicNote pkg
       , _autogenTheme = RBProj.DefaultTheme
       , _author       = _author meta
       , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
@@ -1002,7 +1002,7 @@ importMagma fin dir = do
       , _trackNumber  = Just $ fromIntegral $ RBProj.trackNumber $ RBProj.metadata rbproj
       , _comments     = []
       , _difficulty   = Tier $ RBProj.rankBand $ RBProj.gamedata rbproj
-      , _key          = c3 >>= C3.tonicNote
+      , _key          = fmap (`SongKey` Nothing) $ c3 >>= C3.tonicNote
       , _autogenTheme = case RBProj.autogenTheme $ RBProj.midi rbproj of
         Left theme -> theme
         Right _str -> RBProj.DefaultTheme -- TODO

@@ -305,8 +305,8 @@ makeRB3DTA songYaml plan rb3 song filename = do
     , D.albumName = Just $ getAlbum $ _metadata songYaml
     , D.albumTrackNumber = Just $ fromIntegral $ getTrackNumber $ _metadata songYaml
     , D.packName = Nothing
-    , D.vocalTonicNote = toEnum . fromEnum <$> _key (_metadata songYaml)
-    , D.songTonality = Nothing
+    , D.vocalTonicNote = fmap songKey $ _key $ _metadata songYaml
+    , D.songTonality = _key (_metadata songYaml) >>= songTonality
     , D.songKey = Nothing
     , D.tuningOffsetCents = Just 0
     , D.realGuitarTuning = flip fmap (getPart (rb3_Guitar rb3) songYaml >>= partProGuitar) $ \pg ->
@@ -390,7 +390,7 @@ makeC3 songYaml plan rb3 midi pkg = do
     , C3.disableProKeys = case getPart (rb3_Keys rb3) songYaml of
       Nothing   -> False
       Just part -> isJust (partGRYBO part) && isNothing (partProKeys part)
-    , C3.tonicNote = _key $ _metadata songYaml
+    , C3.tonicNote = fmap songKey $ _key $ _metadata songYaml
     , C3.tuningCents = 0
     , C3.songRating = fromEnum (_rating $ _metadata songYaml) + 1
     , C3.drumKitSFX = maybe 0 (fromEnum . drumsKit) $ getPart (rb3_Drums rb3) songYaml >>= partDrums
