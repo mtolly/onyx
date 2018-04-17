@@ -85,7 +85,7 @@ OTHER
 - prelude/kiara (bonobo)
 - voodoo chile (hendrix) ready for jarod to polish + release
 - oblivion (winery dogs)
-> rosetta stoned (tool) new version: drums fixed, pro bass almost done, pro gtr wip, then fix basic gtr/bass
+> rosetta stoned (tool) new version: drums fixed, pro bass done, pro gtr wip, then fix basic gtr/bass
 > love and tonic (milquetoast & co) just needs gtr and vox
 > sleep deprived (sevish) needs drums, keys, and pro keys (in 14-EDO)
 > seven (yoshida) drums + bass done
