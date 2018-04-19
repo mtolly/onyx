@@ -1,19 +1,19 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections     #-}
 module RockBand.Sections
 ( makeRBN2Sections
 , makeRB3Section
 , makeRB2Section
 , makePSSection
-, getSection
 ) where
 
-import           Control.Arrow       (second)
-import           Data.Char           (isAlphaNum, isSpace)
-import qualified Data.HashMap.Strict as HM
-import           Data.List           (sort)
-import           Data.List.HT        (partitionMaybe)
-import qualified Data.Text           as T
-import           RockBand.Events
+import           Control.Arrow         (second)
+import           Data.Char             (isAlphaNum, isSpace)
+import qualified Data.HashMap.Strict   as HM
+import           Data.List             (sort)
+import           Data.List.HT          (partitionMaybe)
+import qualified Data.Text             as T
+import           RockBand.Codec.Events
 
 rbn2Sections :: [(T.Text, T.Text)]
 rbn2Sections =
@@ -2578,7 +2578,7 @@ findRBN2Section :: T.Text -> Maybe (T.Text, T.Text)
 findRBN2Section = (`HM.lookup` rbn2LookupTable) . sectionLookupForm
 
 -- | Returns only Magma v2 @prc@ sections, and a list of discarded strings.
-makeRBN2Sections :: (Ord a) => [(a, T.Text)] -> ([(a, Event)], [T.Text])
+makeRBN2Sections :: (Ord a) => [(a, T.Text)] -> ([(a, (SectionType, T.Text))], [T.Text])
 makeRBN2Sections sects = let
   (valid, notValid) = partitionMaybe (mapM (fmap fst . findRBN2Section)) sects
   used = map snd valid
@@ -2586,7 +2586,7 @@ makeRBN2Sections sects = let
     x <- ['a'..'k']
     y <- ['0'..'9']
     return $ T.pack $ x : [y | y /= '0']
-  in (map (second SectionRB3) $ sort $ valid ++ zip (map fst notValid) replacements, map snd notValid)
+  in (map (second (SectionRB3 ,)) $ sort $ valid ++ zip (map fst notValid) replacements, map snd notValid)
 
 underscoreForm :: T.Text -> T.Text
 underscoreForm
@@ -2601,22 +2601,23 @@ printForm
   = T.replace "_" " "
   -- TODO do we want to capitalize each word?
 
-makeRB3Section :: T.Text -> Event
+makeRB3Section :: T.Text -> (SectionType, T.Text)
 makeRB3Section t = case findRBN2Section t of
-  Nothing     -> SectionRB2 $ underscoreForm t
-  Just (k, _) -> SectionRB3 k
+  Nothing     -> (SectionRB2, underscoreForm t)
+  Just (k, _) -> (SectionRB3, k)
 
-makeRB2Section :: T.Text -> Event
-makeRB2Section t = SectionRB2 $ case findRBN2Section t of
-  Nothing     -> underscoreForm t
-  Just (k, _) -> k -- dunno if the list is actually different for RB2
+makeRB2Section :: T.Text -> (SectionType, T.Text)
+makeRB2Section t =
+  ( SectionRB2
+  , case findRBN2Section t of
+    Nothing     -> underscoreForm t
+    Just (k, _) -> k -- dunno if the list is actually different for RB2
+  )
 
-makePSSection :: T.Text -> Event
-makePSSection t = SectionRB2 $ case findRBN2Section t of
-  Nothing     -> printForm t
-  Just (_, v) -> printForm v
-
-getSection :: Event -> Maybe T.Text
-getSection (SectionRB3 s) = Just s
-getSection (SectionRB2 s) = Just s
-getSection _              = Nothing
+makePSSection :: T.Text -> (SectionType, T.Text)
+makePSSection t =
+  ( SectionRB2
+  , case findRBN2Section t of
+    Nothing     -> printForm t
+    Just (_, v) -> printForm v
+  )

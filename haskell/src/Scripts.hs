@@ -19,7 +19,7 @@ import           Data.Monoid                      ((<>))
 import           Development.Shake
 import qualified FretsOnFire                      as FoF
 import qualified Numeric.NonNegative.Class        as NNC
-import qualified RockBand.Beat                    as Beat
+import           RockBand.Codec.Beat
 import           RockBand.Codec.Drums
 import           RockBand.Codec.Events
 import           RockBand.Codec.File              (Song (..))
@@ -179,7 +179,7 @@ songLengthMS :: Song (RBFile.OnyxFile U.Beats) -> Int
 songLengthMS song = floor $ U.applyTempoMap (s_tempos song) (songLengthBeats song) * 1000
 
 -- | Given a measure map, produces an infinite BEAT track.
-makeBeatTrack :: U.MeasureMap -> RTB.T U.Beats Beat.Event
+makeBeatTrack :: U.MeasureMap -> RTB.T U.Beats BeatEvent
 makeBeatTrack mmap = go 0 where
   go i = let
     len = U.unapplyMeasureMap mmap (i + 1, 0) - U.unapplyMeasureMap mmap (i, 0)
@@ -194,9 +194,9 @@ makeBeatTrack mmap = go 0 where
       (_, 0.5) -> ceiling frac
       _        -> round frac
     in trackGlue len thisMeasure $ go $ i + 1
-  infiniteMeasure, infiniteBeats :: RTB.T U.Beats Beat.Event
-  infiniteMeasure = RTB.cons 0 Beat.Bar  $ RTB.delay 1 infiniteBeats
-  infiniteBeats   = RTB.cons 0 Beat.Beat $ RTB.delay 1 infiniteBeats
+  infiniteMeasure, infiniteBeats :: RTB.T U.Beats BeatEvent
+  infiniteMeasure = RTB.cons 0 Bar  $ RTB.delay 1 infiniteBeats
+  infiniteBeats   = RTB.cons 0 Beat $ RTB.delay 1 infiniteBeats
 
 trackGlue :: (NNC.C t) => t -> RTB.T t a -> RTB.T t a -> RTB.T t a
 trackGlue t xs ys = let

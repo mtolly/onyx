@@ -18,14 +18,18 @@ import           ProKeysRanges
 import           Reductions
 import           RockBand.Codec                   (mapTrack)
 import           RockBand.Codec.Beat
+import           RockBand.Codec.Drums
+import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.Venue             (compileVenueRB3)
 import           RockBand.Common
 import qualified RockBand.Drums                   as RBDrums
 import qualified RockBand.Events                  as Events
 import qualified RockBand.FiveButton              as Five
+import qualified RockBand.GHL                     as Six
 import qualified RockBand.ProGuitar               as ProGtr
 import qualified RockBand.ProKeys                 as ProKeys
-import           RockBand.Sections                (getSection, makePSSection)
+import           RockBand.Sections                (makePSSection)
 import qualified RockBand.Vocals                  as RBVox
 import           Scripts
 import qualified Sound.MIDI.Util                  as U
@@ -59,12 +63,11 @@ processMIDI
   -> Staction (RBFile.Song (RBFile.FixedFile U.Beats, RBFile.FixedFile U.Beats))
 processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudioLength = inside "Processing MIDI for RB3/PS" $ do
   let showPosition = RBFile.showPosition . U.applyMeasureMap mmap
-      eventsRaw = RBFile.onyxEvents trks
-      eventsList = ATB.toPairList $ RTB.toAbsoluteEventList 0 eventsRaw
+      eventsInput = RBFile.onyxEvents trks
   -- If there's no [end], put it after all MIDI events and audio files.
-  endPosn' <- case [ t | (t, Events.End) <- eventsList ] of
-    t : _ -> return t
-    [] -> do
+  endPosn <- case RTB.viewL $ eventsEnd eventsInput of
+    Just ((t, _), _) -> return t
+    Nothing -> do
       audLen <- U.unapplyTempoMap tempos <$> getAudioLength
       let absTimes = ATB.getTimes . RTB.toAbsoluteEventList 0
           lastMIDIEvent = foldr max 0
@@ -80,32 +83,28 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         , showPosition endPosition
         ]
       return endPosition
-  -- If we are generating an automatic BEAT track,
-  -- we have to round the [end] position up a bit,
-  -- to make sure the last BEAT note-off doesn't come after [end].
-  (beatTrack, endPosn) <- let
-    trk = RBFile.onyxBeat trks
+  beatTrack <- let
+    trk = beatLines $ RBFile.onyxBeat trks
     in if RTB.null trk
       then do
         warn "No BEAT track found; automatic one generated from time signatures."
-        let alignedEnd = fromInteger $ ceiling endPosn'
-        return (U.trackTake alignedEnd $ makeBeatTrack mmap, alignedEnd)
-      else return (trk, endPosn')
+        return $ BeatTrack $ U.trackTake endPosn $ makeBeatTrack mmap
+      else return $ BeatTrack trk
   -- If [music_start] is before 2 beats,
   -- Magma will add auto [idle] events there in instrument tracks, and then error...
   let musicStartMin = 2 :: U.Beats
-  musicStartPosn <- case [ t | (t, Events.MusicStart) <- eventsList ] of
-    t : _ -> if t < musicStartMin
+  musicStartPosn <- case RTB.viewL $ eventsMusicStart eventsInput of
+    Just ((t, _), _) -> if t < musicStartMin
       then do
         warn $ "[music_start] is too early. Moving to " ++ showPosition musicStartMin
         return musicStartMin
       else return t
-    []    -> do
+    Nothing -> do
       warn $ "[music_start] is missing. Placing at " ++ showPosition musicStartMin
       return musicStartMin
-  musicEndPosn <- case [ t | (t, Events.MusicEnd) <- eventsList ] of
-    t : _ -> return t
-    []    -> do
+  musicEndPosn <- case RTB.viewL $ eventsMusicEnd eventsInput of
+    Just ((t, _), _) -> return t
+    Nothing -> do
       warn $ unwords
         [ "[music_end] is missing. [end] is at"
         , showPosition endPosn
@@ -113,30 +112,25 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         , showPosition $ endPosn - 2
         ]
       return $ endPosn - 2
-  let untouchedEvent = \case
-        Events.MusicStart -> False
-        Events.MusicEnd -> False
-        Events.End -> False
-        _ -> True
-      crowdEvents =
-        [ Events.CrowdRealtime
-        , Events.CrowdIntense
-        , Events.CrowdNormal
-        , Events.CrowdMellow
-        , Events.CrowdNoclap
-        , Events.CrowdClap
-        ]
-      defaultNoCrowd evts = if any (`elem` evts) crowdEvents
-        then evts
-        else RTB.insert musicStartPosn Events.CrowdRealtime
-          $  RTB.insert musicStartPosn Events.CrowdNoclap evts
-      eventsTrack
-        = defaultNoCrowd
-        $ RTB.insert musicStartPosn Events.MusicStart
-        $ RTB.insert musicEndPosn Events.MusicEnd
-        $ RTB.insert endPosn Events.End
-        $ RTB.filter untouchedEvent eventsRaw
-      eventsTrackPS = (\e -> maybe e makePSSection $ getSection e) <$> eventsTrack
+  let (crowd, crowdClap) = if RTB.null (eventsCrowd eventsInput) && RTB.null (eventsCrowdClap eventsInput)
+        then
+          ( RTB.singleton musicStartPosn CrowdRealtime
+          , RTB.singleton musicStartPosn False
+          )
+        else (eventsCrowd eventsInput, eventsCrowdClap eventsInput)
+      eventsTrack = EventsTrack
+        { eventsMusicStart = RTB.singleton musicStartPosn ()
+        , eventsMusicEnd   = RTB.singleton musicEndPosn ()
+        , eventsEnd        = RTB.singleton endPosn ()
+        , eventsCoda       = eventsCoda eventsInput
+        , eventsCrowd      = crowd
+        , eventsCrowdClap  = crowdClap
+        , eventsSections   = eventsSections eventsInput
+        , eventsBacking    = eventsBacking eventsInput
+        }
+      eventsTrackPS = eventsTrack
+        { eventsSections = (makePSSection . snd) <$> eventsSections eventsTrack
+        }
       drumsPart = either rb3_Drums ps_Drums target
       drumsTrack = case getPart drumsPart songYaml >>= partDrums of
         Nothing -> RTB.empty
@@ -144,11 +138,8 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           psKicks = if drumsAuto2xBass pd
             then U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
             else id
-          sections = flip RTB.mapMaybe eventsRaw $ \case
-            Events.SectionRB3 s -> Just s
-            Events.SectionRB2 s -> Just s
-            _                   -> Nothing
-          finish = changeMode . psKicks . drumMix_precodec mixMode . drumsComplete mmap sections
+          sections = fmap snd $ eventsSections eventsInput
+          finish = RBDrums.drumsFromLegacy . changeMode . psKicks . drumMix_precodec mixMode . drumsComplete mmap sections . RBDrums.drumsToLegacy
           fiveToFour instant = flip map instant $ \case
             RBDrums.Note RBDrums.Orange -> let
               color = if
@@ -181,21 +172,21 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           trk2x = RBFile.onyxPartDrums2x flex
           trkReal = RBFile.onyxPartRealDrumsPS flex
           trkReal' = RBDrums.psRealToPro trkReal
-          onlyPSReal = all RTB.null [trk1x, trk2x] && not (RTB.null trkReal)
+          onlyPSReal = all (== mempty) [trk1x, trk2x] && not (trkReal == mempty)
           pro1x = if onlyPSReal then trkReal' else trk1x
           pro2x = if onlyPSReal then trkReal' else trk2x
-          ps1x = finish $ if RTB.null pro1x then pro2x else pro1x
-          ps2x = finish $ if RTB.null pro2x then pro1x else pro2x
-          psPS = if elem RBDrums.Kick2x pro1x then ps1x else ps2x
+          ps1x = finish $ if pro1x == mempty then pro2x else pro1x
+          ps2x = finish $ if pro2x == mempty then pro1x else pro2x
+          psPS = if not $ RTB.null $ drumKick2x pro1x then ps1x else ps2x
           -- Note: drumMix must be applied *after* drumsComplete.
           -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
           in (if drumsFixFreeform pd then fixFreeformDrums_precodec else id)
             $ RTB.filter (\case RBDrums.Player1{} -> False; RBDrums.Player2{} -> False; _ -> True)
             $ case target of
               Left rb3 -> if rb3_2xBassPedal rb3
-                then rockBand2x ps2x
-                else rockBand1x ps1x
-              Right _ -> psPS
+                then rockBand2x $ RBDrums.drumsToLegacy ps2x
+                else rockBand1x $ RBDrums.drumsToLegacy ps1x
+              Right _ -> RBDrums.drumsToLegacy psPS
       makeGRYBOTrack toKeys fpart src = case getPart fpart songYaml >>= partGRYBO of
         Nothing -> (RTB.empty, RTB.empty)
         Just grybo -> let
@@ -380,21 +371,21 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
     ( mempty
       { RBFile.fixedBeat = beatTrack
       , RBFile.fixedEvents = eventsTrack
-      , RBFile.fixedVenue = RBFile.onyxVenue trks
-      , RBFile.fixedPartDrums = drumsTrack'
-      , RBFile.fixedPartGuitar = guitarRB3
-      , RBFile.fixedPartBass = bassRB3
-      , RBFile.fixedPartRealGuitar   = proGtr
-      , RBFile.fixedPartRealGuitar22 = proGtr22
-      , RBFile.fixedPartRealBass     = proBass
-      , RBFile.fixedPartRealBass22   = proBass22
-      , RBFile.fixedPartKeys = tk
-      , RBFile.fixedPartKeysAnimRH = tkRH
-      , RBFile.fixedPartKeysAnimLH = tkLH
-      , RBFile.fixedPartRealKeysE = tpkE
-      , RBFile.fixedPartRealKeysM = tpkM
-      , RBFile.fixedPartRealKeysH = tpkH
-      , RBFile.fixedPartRealKeysX = tpkX
+      , RBFile.fixedVenue = compileVenueRB3 $ RBFile.onyxVenue trks
+      , RBFile.fixedPartDrums = RBDrums.drumsFromLegacy drumsTrack'
+      , RBFile.fixedPartGuitar = Five.fiveFromLegacy guitarRB3
+      , RBFile.fixedPartBass = Five.fiveFromLegacy bassRB3
+      , RBFile.fixedPartRealGuitar   = ProGtr.pgFromLegacy proGtr
+      , RBFile.fixedPartRealGuitar22 = ProGtr.pgFromLegacy proGtr22
+      , RBFile.fixedPartRealBass     = ProGtr.pgFromLegacy proBass
+      , RBFile.fixedPartRealBass22   = ProGtr.pgFromLegacy proBass22
+      , RBFile.fixedPartKeys = Five.fiveFromLegacy tk
+      , RBFile.fixedPartKeysAnimRH = ProKeys.pkFromLegacy tkRH
+      , RBFile.fixedPartKeysAnimLH = ProKeys.pkFromLegacy tkLH
+      , RBFile.fixedPartRealKeysE = ProKeys.pkFromLegacy tpkE
+      , RBFile.fixedPartRealKeysM = ProKeys.pkFromLegacy tpkM
+      , RBFile.fixedPartRealKeysH = ProKeys.pkFromLegacy tpkH
+      , RBFile.fixedPartRealKeysX = ProKeys.pkFromLegacy tpkX
       , RBFile.fixedPartVocals = RBVox.vocalFromLegacy trkVox
       , RBFile.fixedHarm1 = RBVox.vocalFromLegacy trkHarm1
       , RBFile.fixedHarm2 = RBVox.vocalFromLegacy trkHarm2
@@ -403,27 +394,27 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
     , RBFile.FixedFile
       { RBFile.fixedBeat = beatTrack
       , RBFile.fixedEvents = eventsTrackPS
-      , RBFile.fixedVenue = RBFile.onyxVenue trks
-      , RBFile.fixedPartDrums = drumsTrack'
-      , RBFile.fixedPartDrums2x = RTB.empty
-      , RBFile.fixedPartRealDrumsPS = RTB.empty
-      , RBFile.fixedPartGuitar = guitarPS
-      , RBFile.fixedPartGuitarGHL = guitarGHL
-      , RBFile.fixedPartBass = bassPS
-      , RBFile.fixedPartBassGHL = bassGHL
-      , RBFile.fixedPartRhythm = rhythmPS
-      , RBFile.fixedPartGuitarCoop = guitarCoopPS
-      , RBFile.fixedPartRealGuitar   = proGtr
-      , RBFile.fixedPartRealGuitar22 = proGtr22
-      , RBFile.fixedPartRealBass     = proBass
-      , RBFile.fixedPartRealBass22   = proBass22
-      , RBFile.fixedPartKeys = tk
-      , RBFile.fixedPartKeysAnimRH = tkRH
-      , RBFile.fixedPartKeysAnimLH = tkLH
-      , RBFile.fixedPartRealKeysE = tpkE
-      , RBFile.fixedPartRealKeysM = tpkM
-      , RBFile.fixedPartRealKeysH = tpkH
-      , RBFile.fixedPartRealKeysX = tpkX
+      , RBFile.fixedVenue = compileVenueRB3 $ RBFile.onyxVenue trks
+      , RBFile.fixedPartDrums = RBDrums.drumsFromLegacy drumsTrack'
+      , RBFile.fixedPartDrums2x = mempty
+      , RBFile.fixedPartRealDrumsPS = mempty
+      , RBFile.fixedPartGuitar = Five.fiveFromLegacy guitarPS
+      , RBFile.fixedPartGuitarGHL = Six.sixFromLegacy guitarGHL
+      , RBFile.fixedPartBass = Five.fiveFromLegacy bassPS
+      , RBFile.fixedPartBassGHL = Six.sixFromLegacy bassGHL
+      , RBFile.fixedPartRhythm = Five.fiveFromLegacy rhythmPS
+      , RBFile.fixedPartGuitarCoop = Five.fiveFromLegacy guitarCoopPS
+      , RBFile.fixedPartRealGuitar   = ProGtr.pgFromLegacy proGtr
+      , RBFile.fixedPartRealGuitar22 = ProGtr.pgFromLegacy proGtr22
+      , RBFile.fixedPartRealBass     = ProGtr.pgFromLegacy proBass
+      , RBFile.fixedPartRealBass22   = ProGtr.pgFromLegacy proBass22
+      , RBFile.fixedPartKeys = Five.fiveFromLegacy tk
+      , RBFile.fixedPartKeysAnimRH = ProKeys.pkFromLegacy tkRH
+      , RBFile.fixedPartKeysAnimLH = ProKeys.pkFromLegacy tkLH
+      , RBFile.fixedPartRealKeysE = ProKeys.pkFromLegacy tpkE
+      , RBFile.fixedPartRealKeysM = ProKeys.pkFromLegacy tpkM
+      , RBFile.fixedPartRealKeysH = ProKeys.pkFromLegacy tpkH
+      , RBFile.fixedPartRealKeysX = ProKeys.pkFromLegacy tpkX
       , RBFile.fixedPartVocals = RBVox.vocalFromLegacy $ RBVox.asciiLyrics <$> trkVox
       , RBFile.fixedHarm1 = RBVox.vocalFromLegacy $ RBVox.asciiLyrics <$> trkHarm1
       , RBFile.fixedHarm2 = RBVox.vocalFromLegacy $ RBVox.asciiLyrics <$> trkHarm2
@@ -440,7 +431,7 @@ magmaLegalTempos rb3 = let
     (0, _, _, _) -> return rb3
     (numChanges, newTempos, newSigs, TrackAdjust adjuster) -> do
       warn $ "Stretching/squashing " ++ show numChanges ++ " measures to keep tempos in Magma-legal range"
-      return $ mapTrack adjuster $ RBFile.Song newTempos newSigs $ RBFile.s_tracks rb3
+      return $ RBFile.Song newTempos newSigs $ mapTrack adjuster $ RBFile.s_tracks rb3
 
 newtype TrackAdjust = TrackAdjust (forall a. RTB.T U.Beats a -> RTB.T U.Beats a)
 
@@ -575,22 +566,22 @@ magmaPad rb3@(RBFile.Song tmap _ trks) = let
     Just ((dt, _), _) -> dt
     Nothing           -> 999
   firstNoteBeats = foldr min 999
-    [ firstEvent $ RTB.filter drumNote  $ RBFile.fixedPartDrums        trks
-    , firstEvent $ RTB.filter gryboNote $ RBFile.fixedPartGuitar       trks
-    , firstEvent $ RTB.filter gryboNote $ RBFile.fixedPartBass         trks
-    , firstEvent $ RTB.filter gryboNote $ RBFile.fixedPartKeys         trks
-    , firstEvent $ RTB.filter ptarNote  $ RBFile.fixedPartRealGuitar   trks
-    , firstEvent $ RTB.filter ptarNote  $ RBFile.fixedPartRealGuitar22 trks
-    , firstEvent $ RTB.filter ptarNote  $ RBFile.fixedPartRealBass     trks
-    , firstEvent $ RTB.filter ptarNote  $ RBFile.fixedPartRealBass22   trks
-    , firstEvent $ RTB.filter pkeyNote  $ RBFile.fixedPartRealKeysE    trks
-    , firstEvent $ RTB.filter pkeyNote  $ RBFile.fixedPartRealKeysM    trks
-    , firstEvent $ RTB.filter pkeyNote  $ RBFile.fixedPartRealKeysH    trks
-    , firstEvent $ RTB.filter pkeyNote  $ RBFile.fixedPartRealKeysX    trks
-    , firstEvent $ RTB.filter voxNote   $ RBFile.fixedPartVocals       trks
-    , firstEvent $ RTB.filter voxNote   $ RBFile.fixedHarm1            trks
-    , firstEvent $ RTB.filter voxNote   $ RBFile.fixedHarm2            trks
-    , firstEvent $ RTB.filter voxNote   $ RBFile.fixedHarm3            trks
+    [ firstEvent $ RTB.filter drumNote  $ RBDrums.drumsToLegacy $ RBFile.fixedPartDrums        trks
+    , firstEvent $ RTB.filter gryboNote $ Five.fiveToLegacy     $ RBFile.fixedPartGuitar       trks
+    , firstEvent $ RTB.filter gryboNote $ Five.fiveToLegacy     $ RBFile.fixedPartBass         trks
+    , firstEvent $ RTB.filter gryboNote $ Five.fiveToLegacy     $ RBFile.fixedPartKeys         trks
+    , firstEvent $ RTB.filter ptarNote  $ ProGtr.pgToLegacy     $ RBFile.fixedPartRealGuitar   trks
+    , firstEvent $ RTB.filter ptarNote  $ ProGtr.pgToLegacy     $ RBFile.fixedPartRealGuitar22 trks
+    , firstEvent $ RTB.filter ptarNote  $ ProGtr.pgToLegacy     $ RBFile.fixedPartRealBass     trks
+    , firstEvent $ RTB.filter ptarNote  $ ProGtr.pgToLegacy     $ RBFile.fixedPartRealBass22   trks
+    , firstEvent $ RTB.filter pkeyNote  $ ProKeys.pkToLegacy    $ RBFile.fixedPartRealKeysE    trks
+    , firstEvent $ RTB.filter pkeyNote  $ ProKeys.pkToLegacy    $ RBFile.fixedPartRealKeysM    trks
+    , firstEvent $ RTB.filter pkeyNote  $ ProKeys.pkToLegacy    $ RBFile.fixedPartRealKeysH    trks
+    , firstEvent $ RTB.filter pkeyNote  $ ProKeys.pkToLegacy    $ RBFile.fixedPartRealKeysX    trks
+    , firstEvent $ RTB.filter voxNote   $ RBVox.vocalToLegacy   $ RBFile.fixedPartVocals       trks
+    , firstEvent $ RTB.filter voxNote   $ RBVox.vocalToLegacy   $ RBFile.fixedHarm1            trks
+    , firstEvent $ RTB.filter voxNote   $ RBVox.vocalToLegacy   $ RBFile.fixedHarm2            trks
+    , firstEvent $ RTB.filter voxNote   $ RBVox.vocalToLegacy   $ RBFile.fixedHarm3            trks
     ]
   drumNote = \case RBDrums.DiffEvent _ (RBDrums.Note _) -> True; _ -> False
   gryboNote = \case Five.DiffEvent _ (Five.Note _) -> True; _ -> False
