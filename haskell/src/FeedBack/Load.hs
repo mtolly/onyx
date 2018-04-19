@@ -27,12 +27,13 @@ import qualified FretsOnFire                      as FoF
 import qualified Guitars                          as G
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Numeric.NonNegative.Wrapper      as NN
+import           RockBand.Codec.Events
 import           RockBand.Codec.File
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), splitEdges)
-import qualified RockBand.Events                  as Ev
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.GHL                     as GHL
+import           RockBand.Sections                (makeRB2Section)
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
 
@@ -289,10 +290,11 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
   fixedPartKeys         <- Five.fiveFromLegacy <$> parseGRYBO "Keyboard" -- ExpertKeyboard etc.
   fixedPartRhythm       <- return mempty -- ExpertDoubleBass when Player2 = rhythm ???
   fixedPartGuitarCoop   <- return mempty -- ExpertDoubleGuitar ???
-  fixedEvents           <- fmap Ev.eventsFromLegacy $ insideTrack "Events" $ \trk -> do
-    return $ fmap Ev.SectionRB2 $ flip RTB.mapMaybe trk $ \case
+  fixedEvents           <- insideTrack "Events" $ \trk -> return mempty
+    { eventsSections = fmap makeRB2Section $ flip RTB.mapMaybe trk $ \case
       Event t -> T.stripPrefix "section " t
       _       -> Nothing
+    }
   let fixedPartDrums        = mempty -- ExpertDrums etc.
       fixedPartDrums2x      = mempty
       fixedPartRealDrumsPS  = mempty

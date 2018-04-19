@@ -55,7 +55,7 @@ fiveFromLegacy leg = FiveTrack
       , fiveTap        = RTB.mapMaybe (\case Force Tap x -> Just x; _ -> Nothing) leg'
       , fiveOpen       = RTB.mapMaybe (\case OpenNotes x -> Just x; _ -> Nothing) leg'
       , fiveOnyxClose  = RTB.mapMaybe (\case OnyxClose x -> Just x; _ -> Nothing) leg'
-      , fiveGems       = undefined
+      , fiveGems       = fmap (\((), c, len) -> (c, len)) $ joinEdges $ RTB.mapMaybe (\case Note x -> Just x; _ -> Nothing) leg'
       })
   , fiveMood         = RTB.mapMaybe (\case Mood x -> Just x; _ -> Nothing) leg
   , fiveHandMap      = RTB.mapMaybe (\case HandMap x -> Just x; _ -> Nothing) leg
@@ -71,7 +71,29 @@ fiveFromLegacy leg = FiveTrack
   }
 
 fiveToLegacy :: (NNC.C t) => FiveTrack t -> RTB.T t Event
-fiveToLegacy = undefined
+fiveToLegacy o = foldr RTB.merge RTB.empty
+  [ Mood     <$> fiveMood     o
+  , HandMap  <$> fiveHandMap  o
+  , StrumMap <$> fiveStrumMap o
+  , uncurry FretPosition <$> fiveFretPosition o
+  , Tremolo   <$> fiveTremolo   o
+  , Trill     <$> fiveTrill     o
+  , Overdrive <$> fiveOverdrive o
+  , BRE       <$> fiveBRE       o
+  , Solo      <$> fiveSolo      o
+  , Player1   <$> fivePlayer1   o
+  , Player2   <$> fivePlayer2   o
+  , foldr RTB.merge RTB.empty $ do
+    (diff, fd) <- Map.toList $ fiveDifficulties o
+    map (fmap $ DiffEvent diff)
+      [ Force Strum <$> fiveForceStrum fd
+      , Force HOPO <$> fiveForceHOPO fd
+      , Force Tap <$> fiveTap fd
+      , OpenNotes <$> fiveOpen fd
+      , OnyxClose <$> fiveOnyxClose fd
+      , fmap Note $ splitEdges $ fmap (\(c, len) -> ((), c, len)) $ fiveGems fd
+      ]
+  ]
 
 instance HasDiffEvent DiffEvent Event where
   makeDiffEvent = DiffEvent

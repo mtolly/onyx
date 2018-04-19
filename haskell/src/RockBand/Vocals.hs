@@ -37,10 +37,34 @@ data Event
   deriving (Eq, Ord, Show, Read)
 
 vocalFromLegacy :: (NNC.C t) => RTB.T t Event -> VocalTrack t
-vocalFromLegacy = undefined
+vocalFromLegacy leg = VocalTrack
+  { vocalMood          = RTB.mapMaybe (\case Mood x -> Just x; _ -> Nothing) leg
+  , vocalLyrics        = RTB.mapMaybe (\case Lyric x -> Just x; _ -> Nothing) leg
+  , vocalPerc          = RTB.mapMaybe (\case Percussion -> Just (); _ -> Nothing) leg
+  , vocalPercSound     = RTB.mapMaybe (\case PercussionSound -> Just (); _ -> Nothing) leg
+  , vocalPercAnimation = RTB.mapMaybe (\case PercussionAnimation x y -> Just (x, y); _ -> Nothing) leg
+  , vocalPhrase1       = RTB.mapMaybe (\case Phrase x -> Just x; _ -> Nothing) leg
+  , vocalPhrase2       = RTB.mapMaybe (\case Phrase2 x -> Just x; _ -> Nothing) leg
+  , vocalOverdrive     = RTB.mapMaybe (\case Overdrive x -> Just x; _ -> Nothing) leg
+  , vocalLyricShift    = RTB.mapMaybe (\case LyricShift -> Just (); _ -> Nothing) leg
+  , vocalRangeShift    = RTB.mapMaybe (\case RangeShift x -> Just x; _ -> Nothing) leg
+  , vocalNotes         = RTB.mapMaybe (\case Note b p -> Just (p, b); _ -> Nothing) leg
+  }
 
 vocalToLegacy :: (NNC.C t) => VocalTrack t -> RTB.T t Event
-vocalToLegacy = undefined
+vocalToLegacy o = foldr RTB.merge RTB.empty
+  [ Mood                        <$> vocalMood          o
+  , Lyric                       <$> vocalLyrics        o
+  , const Percussion            <$> vocalPerc          o
+  , const PercussionSound       <$> vocalPercSound     o
+  , uncurry PercussionAnimation <$> vocalPercAnimation o
+  , Phrase                      <$> vocalPhrase1       o
+  , Phrase2                     <$> vocalPhrase2       o
+  , Overdrive                   <$> vocalOverdrive     o
+  , const LyricShift            <$> vocalLyricShift    o
+  , RangeShift                  <$> vocalRangeShift    o
+  , uncurry (flip Note)         <$> vocalNotes         o
+  ]
 
 asciify :: T.Text -> T.Text
 asciify = let

@@ -57,12 +57,12 @@ import           PrettyDTA                        (readRB3DTABytes)
 import           Resources                        (pentatonicTTF, veraMonoTTF)
 import qualified RhythmGame.Audio                 as RGAudio
 import qualified RhythmGame.Drums                 as RGDrums
+import           RockBand.Codec.Drums
+import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Common                  (Difficulty (..))
-import qualified RockBand.Drums                   as Drums
-import qualified RockBand.File                    as RBFile
 import           RockBand.ProGuitar               (standardGuitar)
 import           RockBand.ProGuitar.Keyboard      (GtrSettings (..), runApp)
-import           Scripts                          (loadMIDI_precodec)
+import           Scripts                          (loadMIDI)
 import           SDL                              (($=))
 import qualified SDL
 import qualified SDL.Raw                          as Raw
@@ -735,20 +735,20 @@ launchGUI = do
       Game f -> liftIO $ withSystemTempDirectory "onyx_game" $ \dir -> do
         res <- logStdout $ do
           _ <- importSTFS f Nothing dir
-          song <- loadMIDI_precodec $ dir </> "notes.mid"
+          song <- loadMIDI $ dir </> "notes.mid"
           let tempos = RBFile.s_tempos song
-              drums = RBFile.rb3PartDrums $ RBFile.s_tracks song
+              drums = RBFile.fixedPartDrums $ RBFile.s_tracks song
               drums'
                 = Map.fromList
                 $ map (first $ realToFrac . U.applyTempoMap tempos)
                 $ ATB.toPairList
                 $ RTB.toAbsoluteEventList 0
                 $ RTB.collectCoincident
-                $ RTB.mapMaybe (\case
-                    Drums.DiffEvent Expert (Drums.Note g) -> Just $ RGDrums.Upcoming g
-                    _                                     -> Nothing
-                  )
-                $ drums
+                $ fmap RGDrums.Upcoming
+                $ drumGems
+                $ fromMaybe mempty
+                $ Map.lookup Expert
+                $ drumDifficulties drums
           yml <- loadYaml $ dir </> "song.yml"
           (pans, vols) <- case HM.toList $ _plans yml of
             [(_, MoggPlan{..})] -> return (map realToFrac _pans, map realToFrac _vols)

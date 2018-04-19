@@ -24,7 +24,6 @@ import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Venue             (compileVenueRB3)
 import           RockBand.Common
 import qualified RockBand.Drums                   as RBDrums
-import qualified RockBand.Events                  as Events
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.GHL                     as Six
 import qualified RockBand.ProGuitar               as ProGtr
@@ -191,8 +190,8 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         Nothing -> (RTB.empty, RTB.empty)
         Just grybo -> let
           (trackOrig, isKeys) = if RBFile.onyxPartGuitar src == mempty
-            then (RBFile.onyxPartKeys src, True)
-            else (RBFile.onyxPartGuitar src, False)
+            then (Five.fiveToLegacy $ RBFile.onyxPartKeys src, True)
+            else (Five.fiveToLegacy $ RBFile.onyxPartGuitar src, False)
           track
             = RTB.filter (\case Five.Player1{} -> False; Five.Player2{} -> False; _ -> True)
             $ (if gryboFixFreeform grybo then fixFreeformFive_precodec else id)
@@ -242,14 +241,14 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           ( emit6
           . strumHOPOTap HOPOsRBGuitar (fromIntegral (ghlHopoThreshold ghl) / 480)
           . ghlNotes
-          ) $ RBFile.onyxPartSix $ RBFile.getFlexPart guitarPart trks
+          ) $ Six.sixToLegacy $ RBFile.onyxPartSix $ RBFile.getFlexPart guitarPart trks
       bassGHL = case getPart bassPart songYaml >>= partGHL of
         Nothing -> RTB.empty
         Just ghl -> eachDifficulty
           ( emit6
           . strumHOPOTap HOPOsRBGuitar (fromIntegral (ghlHopoThreshold ghl) / 480)
           . ghlNotes
-          ) $ RBFile.onyxPartSix $ RBFile.getFlexPart bassPart trks
+          ) $ Six.sixToLegacy $ RBFile.onyxPartSix $ RBFile.getFlexPart bassPart trks
 
       -- TODO: pgHopoThreshold
       makeProGtrTracks fpart = case getPart fpart songYaml >>= partProGuitar of
@@ -261,8 +260,8 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             offs -> offs
           f = (if pgFixFreeform pg then fixFreeformPG_precodec else id)
             . copyExpert . ProGtr.autoHandPosition . ProGtr.autoChordRoot tuning
-          src17 = RBFile.onyxPartRealGuitar   src
-          src22 = RBFile.onyxPartRealGuitar22 src
+          src17 = ProGtr.pgToLegacy $ RBFile.onyxPartRealGuitar   src
+          src22 = ProGtr.pgToLegacy $ RBFile.onyxPartRealGuitar22 src
           mustang = f $ ProGtr.lowerOctaves 17 $ if RTB.null src17 then src22 else src17
           squier  = f $ ProGtr.lowerOctaves 22 $ if RTB.null src22 then src17 else src22
           in (mustang, if mustang == squier then RTB.empty else squier)
@@ -281,7 +280,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
               Just _  -> fst $ makeGRYBOTrack True keysPart basicKeysSrc
             fpart = RBFile.getFlexPart keysPart trks
             keysDiff diff = if isJust $ partProKeys part
-              then case diff of
+              then ProKeys.pkToLegacy $ case diff of
                 Easy   -> RBFile.onyxPartRealKeysE fpart
                 Medium -> RBFile.onyxPartRealKeysM fpart
                 Hard   -> RBFile.onyxPartRealKeysH fpart
@@ -295,8 +294,8 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             keysOD = flip RTB.mapMaybe keysExpert $ \case
               ProKeys.Overdrive b -> Just b
               _                   -> Nothing
-            originalRH = RBFile.onyxPartKeysAnimRH fpart
-            originalLH = RBFile.onyxPartKeysAnimLH fpart
+            originalRH = ProKeys.pkToLegacy $ RBFile.onyxPartKeysAnimRH fpart
+            originalLH = ProKeys.pkToLegacy $ RBFile.onyxPartKeysAnimLH fpart
             (animRH, animLH) = if RTB.null originalRH && RTB.null originalLH
               then (RTB.filter (\case ProKeys.Note _ -> True; _ -> False) keysExpert, RTB.empty)
               else (originalRH, originalLH)
@@ -331,11 +330,11 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           Vocal3 -> (partVox', harm1, harm2, harm3)
           Vocal2 -> (partVox', harm1, harm2, RTB.empty)
           Vocal1 -> (partVox', RTB.empty, RTB.empty, RTB.empty)
-        where partVox = RBFile.onyxPartVocals $ RBFile.getFlexPart vocalPart trks
+        where partVox = RBVox.vocalToLegacy $ RBFile.onyxPartVocals $ RBFile.getFlexPart vocalPart trks
               partVox' = if RTB.null partVox then harm1ToPartVocals_precodec harm1 else partVox
-              harm1   = RBFile.onyxHarm1 $ RBFile.getFlexPart vocalPart trks
-              harm2   = RBFile.onyxHarm2 $ RBFile.getFlexPart vocalPart trks
-              harm3   = RBFile.onyxHarm3 $ RBFile.getFlexPart vocalPart trks
+              harm1   = RBVox.vocalToLegacy $ RBFile.onyxHarm1 $ RBFile.getFlexPart vocalPart trks
+              harm2   = RBVox.vocalToLegacy $ RBFile.onyxHarm2 $ RBFile.getFlexPart vocalPart trks
+              harm3   = RBVox.vocalToLegacy $ RBFile.onyxHarm3 $ RBFile.getFlexPart vocalPart trks
 
   drumsTrack' <- let
     (fills, notFills) = flip RTB.partitionMaybe drumsTrack $ \case

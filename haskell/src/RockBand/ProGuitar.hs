@@ -61,10 +61,10 @@ data DiffEvent
   deriving (Eq, Ord, Show, Read)
 
 pgFromLegacy :: (NNC.C t) => RTB.T t Event -> ProGuitarTrack t
-pgFromLegacy = undefined
+pgFromLegacy = const mempty -- TODO
 
 pgToLegacy :: (NNC.C t) => ProGuitarTrack t -> RTB.T t Event
-pgToLegacy = undefined
+pgToLegacy = const RTB.empty -- TODO
 
 standardGuitar :: [Int]
 standardGuitar = [40, 45, 50, 55, 59, 64]

@@ -32,6 +32,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (elemIndex, nub)
+import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
                                                    mapMaybe)
 import           Data.Monoid                      ((<>))
@@ -51,8 +52,10 @@ import           PrettyDTA                        (C3DTAComments (..),
                                                    readDTASingle, readRB3DTA,
                                                    writeDTASingle)
 import           Resources                        (rb3Updates)
+import           RockBand.Codec.Drums
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.Vocal
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), joinEdges)
 import qualified RockBand.Drums                   as RBDrums
@@ -68,7 +71,7 @@ import           System.FilePath                  (dropExtension, takeDirectory,
 import           Text.Read                        (readMaybe)
 import           X360DotNet                       (rb3pkg)
 
-fixDoubleSwells :: RBFile.PSFile U.Beats -> RBFile.PSFile U.Beats
+fixDoubleSwells :: RBFile.FixedFile U.Beats -> RBFile.FixedFile U.Beats
 fixDoubleSwells ps = let
   fixTrack trk = let
     (lanes, notLanes) = flip RTB.partitionMaybe trk $ \case
@@ -89,9 +92,9 @@ fixDoubleSwells ps = let
           else [(0, RBDrums.SingleRoll True), (len, RBDrums.SingleRoll False)]
     in RTB.merge (U.trackJoin $ RTB.fromAbsoluteEventList lanesAbs') notLanes
   in ps
-    { RBFile.psPartDrums       = fixTrack $ RBFile.psPartDrums       ps
-    , RBFile.psPartDrums2x     = fixTrack $ RBFile.psPartDrums2x     ps
-    , RBFile.psPartRealDrumsPS = fixTrack $ RBFile.psPartRealDrumsPS ps
+    { RBFile.fixedPartDrums       = RBDrums.drumsFromLegacy $ fixTrack $ RBDrums.drumsToLegacy $ RBFile.fixedPartDrums       ps
+    , RBFile.fixedPartDrums2x     = RBDrums.drumsFromLegacy $ fixTrack $ RBDrums.drumsToLegacy $ RBFile.fixedPartDrums2x     ps
+    , RBFile.fixedPartRealDrumsPS = RBDrums.drumsFromLegacy $ fixTrack $ RBDrums.drumsToLegacy $ RBFile.fixedPartRealDrumsPS ps
     }
 
 importFoF :: (SendMessage m, MonadIO m) => Bool -> Bool -> FilePath -> FilePath -> StackTraceT m HasKicks
@@ -201,7 +204,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
             secs = fromIntegral n / 1000
             midiDelay = ceiling secs
             audioDelay = fromIntegral midiDelay - secs
-            in (Pad Start $ CA.Seconds audioDelay, RBFile.padPSMIDI midiDelay)
+            in (Pad Start $ CA.Seconds audioDelay, RBFile.padFixedFile midiDelay)
           LT ->
             ( Pad Start $ CA.Seconds $ fromIntegral (abs n) / 1000
             , id
@@ -217,10 +220,9 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
         , _planPans = []
         , _planVols = []
         }
-      hasVocalNotes = not $ null $ do
-        trk <- [RBFile.psPartVocals, RBFile.psHarm1, RBFile.psHarm2, RBFile.psHarm3]
-        RBVox.Note _ _ <- toList $ trk $ RBFile.s_tracks parsed
-        return ()
+      hasVocalNotes = or $ do
+        trk <- [RBFile.fixedPartVocals, RBFile.fixedHarm1, RBFile.fixedHarm2, RBFile.fixedHarm3]
+        return $ not $ RTB.null $ vocalNotes $ trk $ RBFile.s_tracks parsed
 
   let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
 
@@ -228,25 +230,25 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
   add2x <- if mid2x
     then do
       parsed2x <- loadMIDI $ src </> "expert+.mid"
-      let trk2x = RBFile.psPartDrums $ RBFile.s_tracks parsed2x
-      return $ if RTB.null trk2x
+      let trk2x = RBFile.fixedPartDrums $ RBFile.s_tracks parsed2x
+      return $ if trk2x == mempty
         then id
-        else \mid -> mid { RBFile.psPartDrums2x = trk2x }
+        else \mid -> mid { RBFile.fixedPartDrums2x = trk2x }
     else return id
   let (title, is2x) = case FoF.name song of
         Nothing   -> (Nothing, False)
         Just name -> first Just $ determine2xBass name
-      hasKicks = if mid2x || elem RBDrums.Kick2x (RBFile.psPartDrums $ RBFile.s_tracks parsed)
+      hasKicks = if mid2x || not (RTB.null $ drumKick2x $ RBFile.fixedPartDrums $ RBFile.s_tracks parsed)
         then HasBoth
         else if is2x then Has2x else Has1x
 
   let fixGHVox trks = trks
-        { RBFile.psPartVocals = RBVox.fixGHVocals $ RBFile.psPartVocals trks
+        { RBFile.fixedPartVocals = RBVox.vocalFromLegacy $ RBVox.fixGHVocals $ RBVox.vocalToLegacy $ RBFile.fixedPartVocals trks
         }
       swapFiveLane trks = if fromMaybe False $ FoF.fiveLaneDrums song
         then trks
-          { RBFile.psPartDrums   = swapFiveLaneTrack $ RBFile.psPartDrums   trks
-          , RBFile.psPartDrums2x = swapFiveLaneTrack $ RBFile.psPartDrums2x trks
+          { RBFile.fixedPartDrums   = RBDrums.drumsFromLegacy $ swapFiveLaneTrack $ RBDrums.drumsToLegacy $ RBFile.fixedPartDrums   trks
+          , RBFile.fixedPartDrums2x = RBDrums.drumsFromLegacy $ swapFiveLaneTrack $ RBDrums.drumsToLegacy $ RBFile.fixedPartDrums2x trks
           }
         else trks
       swapFiveLaneTrack = fmap $ \case
@@ -276,11 +278,11 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
   let guardDifficulty getDiff = if isChart || True -- TODO temporarily doing this for midis also
         then True
         else getDiff song /= Just (-1)
-      hasTrack :: (RBFile.PSFile U.Beats -> RTB.T U.Beats a) -> Bool
-      hasTrack f = not $ null $ f $ RBFile.s_tracks parsed
-      vocalMode = if hasTrack RBFile.psPartVocals && guardDifficulty FoF.diffVocals && hasVocalNotes && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
-        then if hasTrack RBFile.psHarm2 && guardDifficulty FoF.diffVocalsHarm
-          then if hasTrack RBFile.psHarm3
+      hasTrack :: (Eq a, Monoid a) => (RBFile.FixedFile U.Beats -> a) -> Bool
+      hasTrack f = f (RBFile.s_tracks parsed) /= mempty
+      vocalMode = if hasTrack RBFile.fixedPartVocals && guardDifficulty FoF.diffVocals && hasVocalNotes && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
+        then if hasTrack RBFile.fixedHarm2 && guardDifficulty FoF.diffVocalsHarm
+          then if hasTrack RBFile.fixedHarm3
             then Just Vocal3
             else Just Vocal2
           else Just Vocal1
@@ -353,17 +355,15 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
     , _targets = HM.singleton "ps" $ PS def { ps_FileVideo = vid }
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
-        { partDrums = guard ((hasTrack RBFile.psPartDrums || hasTrack RBFile.psPartRealDrumsPS) && guardDifficulty FoF.diffDrums) >> Just PartDrums
+        { partDrums = guard ((hasTrack RBFile.fixedPartDrums || hasTrack RBFile.fixedPartRealDrumsPS) && guardDifficulty FoF.diffDrums) >> Just PartDrums
           { drumsDifficulty = toTier $ FoF.diffDrums song
           , drumsMode = let
             isFiveLane = FoF.fiveLaneDrums song == Just True || any
-              (\case RBDrums.DiffEvent _ (RBDrums.Note RBDrums.Orange) -> True; _ -> False)
-              (RBFile.psPartDrums outputMIDI)
-            isPro = hasTrack RBFile.psPartRealDrumsPS || not detectBasicDrums || case FoF.proDrums song of
+              (\(_, dd) -> RBDrums.Orange `elem` drumGems dd)
+              (Map.toList $ drumDifficulties $ RBFile.fixedPartDrums outputMIDI)
+            isPro = hasTrack RBFile.fixedPartRealDrumsPS || not detectBasicDrums || case FoF.proDrums song of
               Just b  -> b
-              Nothing -> any
-                (\case RBDrums.ProType _ _ -> True; _ -> False)
-                (RBFile.psPartDrums outputMIDI)
+              Nothing -> not $ RTB.null $ drumToms $ RBFile.fixedPartDrums outputMIDI
             in if isFiveLane then Drums5 else if isPro then DrumsPro else Drums4
           , drumsAuto2xBass = False
           , drumsFixFreeform = False
@@ -375,15 +375,15 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           }
         })
       , ( FlexGuitar, def
-        { partGRYBO = guard (hasTrack RBFile.psPartGuitar && guardDifficulty FoF.diffGuitar) >> Just PartGRYBO
+        { partGRYBO = guard (hasTrack RBFile.fixedPartGuitar && guardDifficulty FoF.diffGuitar) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffGuitar song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = dropOpenHOPOs
           }
         , partProGuitar = let
-          b =  (hasTrack RBFile.psPartRealGuitar   && guardDifficulty FoF.diffGuitarReal  )
-            || (hasTrack RBFile.psPartRealGuitar22 && guardDifficulty FoF.diffGuitarReal22)
+          b =  (hasTrack RBFile.fixedPartRealGuitar   && guardDifficulty FoF.diffGuitarReal  )
+            || (hasTrack RBFile.fixedPartRealGuitar22 && guardDifficulty FoF.diffGuitarReal22)
           in guard b >> Just PartProGuitar
             { pgDifficulty = toTier $ FoF.diffGuitarReal song
             , pgHopoThreshold = hopoThreshold
@@ -391,21 +391,21 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
             , pgTuningGlobal = 0
             , pgFixFreeform = False
             }
-        , partGHL = guard (hasTrack RBFile.psPartGuitarGHL && guardDifficulty FoF.diffGuitarGHL) >> Just PartGHL
+        , partGHL = guard (hasTrack RBFile.fixedPartGuitarGHL && guardDifficulty FoF.diffGuitarGHL) >> Just PartGHL
           { ghlDifficulty = toTier $ FoF.diffGuitarGHL song
           , ghlHopoThreshold = hopoThreshold
           }
         })
       , ( FlexBass, def
-        { partGRYBO = guard (hasTrack RBFile.psPartBass && guardDifficulty FoF.diffBass) >> Just PartGRYBO
+        { partGRYBO = guard (hasTrack RBFile.fixedPartBass && guardDifficulty FoF.diffBass) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffBass song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = dropOpenHOPOs
           }
         , partProGuitar = let
-          b =  (hasTrack RBFile.psPartRealBass   && guardDifficulty FoF.diffBassReal  )
-            || (hasTrack RBFile.psPartRealBass22 && guardDifficulty FoF.diffBassReal22)
+          b =  (hasTrack RBFile.fixedPartRealBass   && guardDifficulty FoF.diffBassReal  )
+            || (hasTrack RBFile.fixedPartRealBass22 && guardDifficulty FoF.diffBassReal22)
           in guard b >> Just PartProGuitar
             { pgDifficulty = toTier $ FoF.diffBassReal song
             , pgHopoThreshold = hopoThreshold
@@ -413,19 +413,19 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
             , pgTuningGlobal = 0
             , pgFixFreeform = False
             }
-        , partGHL = guard (hasTrack RBFile.psPartBassGHL && guardDifficulty FoF.diffBassGHL) >> Just PartGHL
+        , partGHL = guard (hasTrack RBFile.fixedPartBassGHL && guardDifficulty FoF.diffBassGHL) >> Just PartGHL
           { ghlDifficulty = toTier $ FoF.diffBassGHL song
           , ghlHopoThreshold = hopoThreshold
           }
         })
       , ( FlexKeys, def
-        { partGRYBO = guard (hasTrack RBFile.psPartKeys && guardDifficulty FoF.diffKeys) >> Just PartGRYBO
+        { partGRYBO = guard (hasTrack RBFile.fixedPartKeys && guardDifficulty FoF.diffKeys) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffKeys song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = dropOpenHOPOs
           }
-        , partProKeys = guard (hasTrack RBFile.psPartRealKeysX && guardDifficulty FoF.diffKeysReal) >> Just PartProKeys
+        , partProKeys = guard (hasTrack RBFile.fixedPartRealKeysX && guardDifficulty FoF.diffKeysReal) >> Just PartProKeys
           { pkDifficulty = toTier $ FoF.diffKeysReal song
           , pkFixFreeform = False
           }
@@ -610,12 +610,6 @@ importRB3 :: (MonadIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKick
 importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover dir = do
   stackIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
 
-  isRB2 <- case D.gameOrigin pkg of
-    Just "rb1"     -> return True
-    Just "rb1_dlc" -> return True
-    Just "lego"    -> return True
-    Just "rb2"     -> return True -- this also covers RBN1, which has (game_origin rb2) and (ugc 1)
-    _              -> return False -- previously this would check 'format' but I think unnecessary
   RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI mid
   trksUpdate <- maybe (return []) (fmap (RBFile.rawTracks . RBFile.s_tracks) . loadMIDI) updateMid
   let updatedNames = map Just $ mapMaybe U.trackName trksUpdate
@@ -626,8 +620,8 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
     Nothing -> return trksUpdated
     Just (_pkg2x, mid2x) -> do
       RBFile.Song _ _ (RBFile.RawFile trks2x) <- loadMIDI mid2x
-      drums1x <- RBFile.parseTracks sigs trksUpdated ["PART DRUMS"]
-      drums2x <- RBFile.parseTracks sigs trks2x      ["PART DRUMS"]
+      drums1x <- undefined trksUpdated -- TODO: RBFile.parseTracks sigs trksUpdated ["PART DRUMS"]
+      drums2x <- undefined trks2x      -- TODO: RBFile.parseTracks sigs trks2x      ["PART DRUMS"]
       let notDrums = filter ((/= Just "PART DRUMS") . U.trackName) trksUpdated
       case extractLeftKicks drums1x drums2x of
         Left pos -> do
@@ -637,15 +631,12 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
                 Just "PART DRUMS" -> Just $ U.setTrackName "PART DRUMS_2X" trk
                 _                 -> Nothing
           return $ trksUpdated ++ mapMaybe make2xTrack trks2x
-        Right leftKicks -> return $ notDrums ++ RBFile.showMIDITrack "PART DRUMS"
-          (RTB.merge drums1x $ fmap (\() -> RBDrums.Kick2x) leftKicks)
-  let trksRenameVenue = if isRB2
-        then flip map trksAdd2x $ \trk -> case U.trackName trk of
-          Just "VENUE" -> U.setTrackName "VENUE RB2" trk
-          _            -> trk
-        else trksAdd2x
+        Right leftKicks -> return $ notDrums ++ undefined leftKicks
+          -- TODO:
+          -- RBFile.showMIDITrack "PART DRUMS"
+          -- (RTB.merge drums1x $ fmap (\() -> RBDrums.Kick2x) leftKicks)
   stackIO $ Save.toFile (dir </> "notes.mid") $ RBFile.showMIDIFile'
-    $ RBFile.Song temps sigs $ RBFile.RawFile trksRenameVenue
+    $ RBFile.Song temps sigs $ RBFile.RawFile trksAdd2x
 
   coverName <- case mcover of
     Nothing -> return Nothing
@@ -707,11 +698,12 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       Right ()   -> emptyChannels ogg
   lg $ "Detected the following channels as silent: " ++ show silentChannels
 
-  drumEvents <- if isRB2
-    then toList . RBFile.rb2PartDrums . RBFile.s_tracks <$> loadMIDI mid
-    else toList . RBFile.rb3PartDrums . RBFile.s_tracks <$> loadMIDI mid
-  drumMix <- let
-    drumMixes = [ aud | RBDrums.DiffEvent _ (RBDrums.Mix aud _) <- drumEvents ]
+  drumEvents <- RBFile.fixedPartDrums . RBFile.s_tracks <$> loadMIDI mid
+  foundMix <- let
+    drumMixes = do
+      (_, dd) <- Map.toList $ drumDifficulties drumEvents
+      (aud, _dsc) <- toList $ drumMix dd
+      return aud
     in case drumMixes of
       [] -> return RBDrums.D0
       aud : auds -> if all (== aud) auds
@@ -720,7 +712,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
   let instChans :: HM.HashMap T.Text [Int]
       instChans = fmap (map fromIntegral) $ D.tracks $ D.song pkg
       drumChans = fromMaybe [] $ HM.lookup "drum" instChans
-  drumSplit <- if not $ hasRankStr "drum" then return Nothing else case drumMix of
+  drumSplit <- if not $ hasRankStr "drum" then return Nothing else case foundMix of
     RBDrums.D0 -> case drumChans of
       [kitL, kitR] -> return $ Just $ PartSingle [kitL, kitR]
       _ -> fatal $ "mix 0 needs 2 drums channels, " ++ show (length drumChans) ++ " given"

@@ -63,9 +63,9 @@ instance ParseTrack EventsTrack where
       True  -> ["crowd_clap"]
     eventsSections <- eventsSections =. let
       fp = readCommand' >=> \case
-        ["section", t] -> Just (SectionRB2, t)
-        [s]            -> (SectionRB3 ,) <$> T.stripPrefix "prc_" s
-        _              -> Nothing
+        ("section" : s) -> Just (SectionRB2, T.unwords s)
+        [s]             -> (SectionRB3 ,) <$> T.stripPrefix "prc_" s
+        _               -> Nothing
       fs (SectionRB2, t) = showCommand' ["section", t]
       fs (SectionRB3, t) = showCommand' ["prc_" <> t]
       in single fp fs

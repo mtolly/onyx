@@ -22,7 +22,7 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.Beat
 import           RockBand.Codec.Drums
 import           RockBand.Codec.Events
-import           RockBand.Codec.File              (Song (..))
+import           RockBand.Codec.File              (HasEvents (..), Song (..))
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Five
 import           RockBand.Codec.ProGuitar
@@ -146,7 +146,7 @@ saveMIDI :: (MonadIO m, RBFile.ParseFile f) => FilePath -> Song (f U.Beats) -> m
 saveMIDI fp song = liftIO $ Save.toFile fp $ RBFile.showMIDIFile' song
 
 -- | Returns the start and end of the preview audio in milliseconds.
-previewBounds :: SongYaml -> Song (RBFile.OnyxFile U.Beats) -> (Int, Int)
+previewBounds :: (HasEvents f) => SongYaml -> Song (f U.Beats) -> (Int, Int)
 previewBounds syaml song = let
   len = songLengthMS song
   secsToMS s = floor $ s * 1000
@@ -162,20 +162,20 @@ previewBounds syaml song = let
     []    -> max 0 $ quot len 2 - 15000
     t : _ -> min (len - 30000) t
   findSection sect = fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sect) . snd)
-    $ eventsSections $ RBFile.onyxEvents $ s_tracks song
+    $ eventsSections $ getEventsTrack $ s_tracks song
   in case (_previewStart $ _metadata syaml, _previewEnd $ _metadata syaml) of
     (Nothing, Nothing) -> (defStartTime, defStartTime + 30000)
     (Just ps, Just pe) -> (evalTime' ps, evalTime' pe)
     (Just ps, Nothing) -> let start = evalTime' ps in (start, start + 30000)
     (Nothing, Just pe) -> let end = evalTime' pe in (end - 30000, end)
 
-songLengthBeats :: Song (RBFile.OnyxFile U.Beats) -> U.Beats
-songLengthBeats s = case RTB.getTimes $ eventsEnd $ RBFile.onyxEvents $ s_tracks s of
+songLengthBeats :: (HasEvents f) => Song (f U.Beats) -> U.Beats
+songLengthBeats s = case RTB.getTimes $ eventsEnd $ getEventsTrack $ s_tracks s of
   [bts] -> bts
   _     -> 0 -- eh
 
 -- | Returns the time of the [end] event in milliseconds.
-songLengthMS :: Song (RBFile.OnyxFile U.Beats) -> Int
+songLengthMS :: (HasEvents f) => Song (f U.Beats) -> Int
 songLengthMS song = floor $ U.applyTempoMap (s_tempos song) (songLengthBeats song) * 1000
 
 -- | Given a measure map, produces an infinite BEAT track.
@@ -358,8 +358,8 @@ expertProKeysToKeys_precodec = let
   in U.trackJoin . fmap pkToBasic . RTB.collectCoincident
 
 -- | Makes a Pro Keys track, for parts with only Basic Keys charted.
-keysToProKeys :: Difficulty -> RTB.T U.Beats Five.Event -> RTB.T U.Beats ProKeys.Event
-keysToProKeys d = let
+keysToProKeys_precodec :: Difficulty -> RTB.T U.Beats Five.Event -> RTB.T U.Beats ProKeys.Event
+keysToProKeys_precodec d = let
   basicToPK = \case
     Five.DiffEvent d' (Five.Note long) | d == d' ->
       Just $ ProKeys.Note $ flip fmap long $ \c -> ProKeys.BlueGreen $ case c of

@@ -33,7 +33,7 @@ import qualified Data.DTA.Serialize.Magma              as Magma
 import qualified Data.DTA.Serialize.RB3                as D
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
-import           Data.Fixed                            (Centi)
+-- import           Data.Fixed                            (Centi)
 import           Data.Foldable                         (toList)
 import           Data.Hashable                         (hash)
 import qualified Data.HashMap.Strict                   as HM
@@ -60,7 +60,7 @@ import           Image
 import           JSONData                              (StackJSON, fromJSON,
                                                         makeValue, valueId)
 import qualified Magma
-import qualified MelodysEscape
+-- import qualified MelodysEscape
 import           MoggDecrypt
 import           Path                                  (parseAbsDir, toFilePath)
 import           PrettyDTA
@@ -70,17 +70,19 @@ import           RenderAudio
 import           Resources                             (emptyMilo, emptyMiloRB2,
                                                         emptyWeightsRB2,
                                                         onyxAlbum, webDisplay)
+import           RockBand.Codec.Drums
+import           RockBand.Codec.Events
+import qualified RockBand.Codec.File                   as RBFile
+import           RockBand.Codec.Five
+import           RockBand.Codec.Venue
+import           RockBand.Codec.Vocal
 import           RockBand.Common                       (Difficulty (..))
 import qualified RockBand.Drums                        as RBDrums
-import qualified RockBand.File                         as RBFile
-import qualified RockBand.FiveButton                   as RBFive
 import qualified RockBand.ProGuitar                    as ProGtr
 import qualified RockBand.ProGuitar.Play               as PGPlay
-import           RockBand.Sections                     (getSection,
-                                                        makeRB2Section,
+import           RockBand.Sections                     (makeRB2Section,
                                                         makeRB3Section,
                                                         makeRBN2Sections)
-import qualified RockBand.VenueRB2                     as V2
 import qualified RockBand.Vocals                       as RBVox
 import qualified RockBand2                             as RB2
 import qualified RockBand3                             as RB3
@@ -153,14 +155,14 @@ getPlan (Just p) songYaml = case HM.lookup p $ _plans songYaml of
   Just found -> Just (p, found)
   Nothing    -> Nothing
 
-makeRB3DTA :: (Monad m) => SongYaml -> Plan -> TargetRB3 -> RBFile.Song (RBFile.OnyxFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
+makeRB3DTA :: (Monad m) => SongYaml -> Plan -> TargetRB3 -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
 makeRB3DTA songYaml plan rb3 song filename = do
   ((kickPV, snarePV, kitPV), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
   let thresh = 170 -- everything gets forced anyway
-      (pstart, pend) = previewBounds_precodec songYaml song
+      (pstart, pend) = previewBounds songYaml song
       DifficultyRB3{..} = difficultyRB3 rb3 songYaml
-      len = songLengthMS_precodec song
-      perctype = getPercType_precodec song
+      len = songLengthMS song
+      perctype = getPercType song
       fullGenre = interpretGenre
         (_genre    $ _metadata songYaml)
         (_subgenre $ _metadata songYaml)
@@ -281,11 +283,11 @@ makeRB3DTA songYaml plan rb3 song filename = do
     , D.solo = let
       kwds :: [T.Text]
       kwds = concat
-        [ ["guitar" | hasSolo_precodec Guitar song]
-        , ["bass" | hasSolo_precodec Bass song]
-        , ["drum" | hasSolo_precodec Drums song]
-        , ["keys" | hasSolo_precodec Keys song]
-        , ["vocal_percussion" | hasSolo_precodec Vocal song]
+        [ ["guitar" | hasSolo Guitar song]
+        , ["bass" | hasSolo Bass song]
+        , ["drum" | hasSolo Drums song]
+        , ["keys" | hasSolo Keys song]
+        , ["vocal_percussion" | hasSolo Vocal song]
         ]
       in guard (not $ null kwds) >> Just kwds
     , D.songFormat = 10
@@ -331,14 +333,14 @@ makeRB3DTA songYaml plan rb3 song filename = do
 -- TODO use parts from target
 printOverdrive :: FilePath -> StackTraceT (QueueLog Action) ()
 printOverdrive mid = do
-  song <- shakeMIDI_precodec mid
+  song <- shakeMIDI mid
   let trackTimes = Set.fromList . ATB.getTimes . RTB.toAbsoluteEventList 0
-      fiveOverdrive t = trackTimes $ RTB.filter (== RBFive.Overdrive True) t
-      drumOverdrive t = trackTimes $ RTB.filter (== RBDrums.Overdrive True) t
-      gtr = fiveOverdrive $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks song
-      bass = fiveOverdrive $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks song
-      keys = fiveOverdrive $ RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexKeys $ RBFile.s_tracks song
-      drums = drumOverdrive $ RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
+      fiveTimes t = trackTimes $ RTB.filter id $ fiveOverdrive t
+      drumTimes t = trackTimes $ RTB.filter id $ drumOverdrive t
+      gtr = fiveTimes $ RBFile.onyxPartGuitar $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks song
+      bass = fiveTimes $ RBFile.onyxPartGuitar $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks song
+      keys = fiveTimes $ RBFile.onyxPartKeys $ RBFile.getFlexPart RBFile.FlexKeys $ RBFile.s_tracks song
+      drums = drumTimes $ RBFile.onyxPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
   forM_ (Set.toAscList $ Set.unions [gtr, bass, keys, drums]) $ \t -> let
     insts = intercalate "," $ concat
       [ ["guitar" | Set.member t gtr]
@@ -349,9 +351,9 @@ printOverdrive mid = do
     posn = RBFile.showPosition $ U.applyMeasureMap (RBFile.s_signatures song) t
     in lg $ posn ++ ": " ++ insts
 
-makeC3 :: (Monad m) => SongYaml -> Plan -> TargetRB3 -> RBFile.Song (RBFile.OnyxFile U.Beats) -> T.Text -> StackTraceT m C3.C3
+makeC3 :: (Monad m) => SongYaml -> Plan -> TargetRB3 -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m C3.C3
 makeC3 songYaml plan rb3 midi pkg = do
-  let (pstart, _) = previewBounds_precodec songYaml midi
+  let (pstart, _) = previewBounds songYaml midi
       DifficultyRB3{..} = difficultyRB3 rb3 songYaml
       title = targetTitle songYaml $ RB3 rb3
       numSongID = case rb3_SongID rb3 of
@@ -397,11 +399,11 @@ makeC3 songYaml plan rb3 midi pkg = do
     , C3.hopoThresholdIndex = 2 -- 170 ticks (everything gets forced anyway)
     , C3.muteVol = -96
     , C3.vocalMuteVol = -12
-    , C3.soloDrums = hasSolo_precodec Drums midi
-    , C3.soloGuitar = hasSolo_precodec Guitar midi
-    , C3.soloBass = hasSolo_precodec Bass midi
-    , C3.soloKeys = hasSolo_precodec Keys midi
-    , C3.soloVocals = hasSolo_precodec Vocal midi
+    , C3.soloDrums = hasSolo Drums midi
+    , C3.soloGuitar = hasSolo Guitar midi
+    , C3.soloBass = hasSolo Bass midi
+    , C3.soloKeys = hasSolo Keys midi
+    , C3.soloVocals = hasSolo Vocal midi
     , C3.songPreview = fromIntegral pstart
     , C3.checkTempoMap = True
     , C3.wiiMode = False
@@ -423,15 +425,15 @@ makeC3 songYaml plan rb3 midi pkg = do
 -- Magma RBProj rules
 makeMagmaProj :: SongYaml -> TargetRB3 -> Plan -> T.Text -> FilePath -> Action T.Text -> Staction Magma.RBProj
 makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
-  song <- shakeMIDI_precodec mid
+  song <- shakeMIDI mid
   ((kickPVs, snarePVs, kitPVs), mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
-  let (pstart, _) = previewBounds_precodec songYaml song
+  let (pstart, _) = previewBounds songYaml song
       maxPStart = 570000 :: Int -- 9:39.000
       DifficultyRB3{..} = difficultyRB3 rb3 songYaml
       fullGenre = interpretGenre
         (_genre    $ _metadata songYaml)
         (_subgenre $ _metadata songYaml)
-      perctype = getPercType_precodec song
+      perctype = getPercType song
       silentDryVox :: Int -> Magma.DryVoxPart
       silentDryVox n = Magma.DryVoxPart
         { Magma.dryVoxFile = "dryvox" <> T.pack (show n) <> ".wav"
@@ -650,10 +652,10 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
       "gen/notes.mid" %> \out -> shk $ do
         doesFileExist "notes.mid" >>= \b -> if b
           then copyFile' "notes.mid" out
-          else saveMIDI_precodec out RBFile.Song
+          else saveMIDI out RBFile.Song
             { RBFile.s_tempos = U.tempoMapFromBPS RTB.empty
             , RBFile.s_signatures = U.measureMapFromTimeSigs U.Error RTB.empty
-            , RBFile.s_tracks = def :: RBFile.OnyxFile U.Beats
+            , RBFile.s_tracks = mempty :: RBFile.OnyxFile U.Beats
             }
 
       let getAudioLength :: T.Text -> Plan -> Staction U.Seconds
@@ -881,7 +883,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 ] out
             let saveClip m out vox = do
                   let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
-                      clip = clipDryVox $ U.applyTempoTrack (RBFile.s_tempos m) $ vocalTubes vox
+                      clip = clipDryVox $ U.applyTempoTrack (RBFile.s_tempos m) $ vocalTubes $ RBVox.vocalToLegacy vox
                   unclippedVox <- shk $ buildSource $ Input pathMagmaVocal
                   unclipped <- case frames unclippedVox of
                     0 -> shk $ buildSource $ Input pathMagmaSong
@@ -890,19 +892,19 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   stackIO $ runResourceT $ sinkSnd out fmt $ toDryVoxFormat $ clip unclipped
                   lg $ "Finished writing dry vocals to " ++ out
             pathMagmaDryvox0 %> \out -> do
-              m <- shakeMIDI_precodec pathMagmaMid
-              saveClip m out $ RBFile.rb3PartVocals $ RBFile.s_tracks m
+              m <- shakeMIDI pathMagmaMid
+              saveClip m out $ RBFile.fixedPartVocals $ RBFile.s_tracks m
             pathMagmaDryvox1 %> \out -> do
-              m <- shakeMIDI_precodec pathMagmaMid
-              saveClip m out $ RBFile.rb3Harm1 $ RBFile.s_tracks m
+              m <- shakeMIDI pathMagmaMid
+              saveClip m out $ RBFile.fixedHarm1 $ RBFile.s_tracks m
             pathMagmaDryvox2 %> \out -> do
-              m <- shakeMIDI_precodec pathMagmaMid
-              saveClip m out $ RBFile.rb3Harm2 $ RBFile.s_tracks m
+              m <- shakeMIDI pathMagmaMid
+              saveClip m out $ RBFile.fixedHarm2 $ RBFile.s_tracks m
             pathMagmaDryvox3 %> \out -> do
-              m <- shakeMIDI_precodec pathMagmaMid
-              saveClip m out $ RBFile.rb3Harm3 $ RBFile.s_tracks m
+              m <- shakeMIDI pathMagmaMid
+              saveClip m out $ RBFile.fixedHarm3 $ RBFile.s_tracks m
             pathMagmaDryvoxSine %> \out -> do
-              m <- shakeMIDI_precodec pathMagmaMid
+              m <- shakeMIDI pathMagmaMid
               let fmt = Snd.Format Snd.HeaderFormatWav Snd.SampleFormatPcm16 Snd.EndianFile
               liftIO $ runResourceT $ sinkSnd out fmt $ RB2.dryVoxAudio m
             pathMagmaDummyMono   %> buildAudio (Silence 1 $ Seconds 31) -- we set preview start to 0:00 so these can be short
@@ -914,7 +916,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               p <- makeMagmaProj songYaml rb3 plan pkg pathMagmaMid $ return title
               liftIO $ D.writeFileDTA_latin1 out $ D.serialize (valueId D.stackChunks) p
             pathMagmaC3 %> \out -> do
-              midi <- shakeMIDI_precodec pathMagmaMid
+              midi <- shakeMIDI pathMagmaMid
               c3 <- makeC3 songYaml plan rb3 midi pkg
               liftIO $ TIO.writeFile out $ C3.showC3 c3
             let magmaNeededAudio = do
@@ -962,14 +964,13 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               Magma.runMagmaMIDI pathMagmaProj out >>= lg
             let getRealSections :: Staction (RTB.T U.Beats T.Text)
                 getRealSections = do
-                  raw <- shakeMIDI_precodec $ planDir </> "raw.mid"
-                  let evts = RBFile.onyxEvents $ RBFile.s_tracks raw
-                  notSingleSection $ RTB.mapMaybe getSection evts
+                  raw <- shakeMIDI $ planDir </> "raw.mid"
+                  notSingleSection $ fmap snd $ eventsSections $ RBFile.onyxEvents $ RBFile.s_tracks raw
                 -- also applies the computed pad + tempo hacks
                 getRealSections' :: Staction (RTB.T U.Beats T.Text)
                 getRealSections' = do
-                  raw <- shakeMIDI_precodec $ planDir </> "raw.mid"
-                  let sects = RTB.mapMaybe getSection $ RBFile.onyxEvents $ RBFile.s_tracks raw
+                  raw <- shakeMIDI $ planDir </> "raw.mid"
+                  let sects = fmap snd $ eventsSections $ RBFile.onyxEvents $ RBFile.s_tracks raw
                   (_, _, _, RB3.TrackAdjust adjuster) <- RB3.magmaLegalTempos'
                     (sum (RTB.getTimes sects) + 20) -- whatever
                     (RBFile.s_tempos raw)
@@ -986,62 +987,56 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               -- Using Magma's "export MIDI" option overwrites all animations/venue
               -- with autogenerated ones, even if they were actually authored.
               -- So, we now need to readd them back from the user MIDI (if they exist).
-              userMid <- shakeMIDI_precodec pathMagmaMid
-              magmaMid <- shakeMIDI_precodec pathMagmaExport
+              userMid <- shakeMIDI pathMagmaMid
+              magmaMid <- shakeMIDI pathMagmaExport
               sects <- getRealSections'
-              let reauthor getTrack eventPredicates magmaTrack = let
-                    authoredTrack = getTrack $ RBFile.s_tracks userMid
-                    applyEventFn isEvent t = let
-                      authoredEvents = RTB.filter isEvent authoredTrack
-                      magmaNoEvents = RTB.filter (not . isEvent) t
-                      in if RTB.null authoredEvents then t else RTB.merge authoredEvents magmaNoEvents
-                    in foldr applyEventFn magmaTrack eventPredicates
-                  fivePredicates =
-                    [ \case RBFive.Mood{} -> True; _ -> False
-                    , \case RBFive.HandMap{} -> True; _ -> False
-                    , \case RBFive.StrumMap{} -> True; _ -> False
-                    , \case RBFive.FretPosition{} -> True; _ -> False
-                    ]
-              saveMIDI_precodec out $ magmaMid
-                { RBFile.s_tracks = let
-                  orig = RBFile.s_tracks magmaMid
-                  in orig
-                    { RBFile.rb3PartDrums = let
-                      isMood = \case RBDrums.Mood{} -> True; _ -> False
-                      isAnim = \case RBDrums.Animation{} -> True; _ -> False
-                      in reauthor RBFile.rb3PartDrums [isMood, isAnim] $ RBFile.rb3PartDrums orig
-                    , RBFile.rb3PartGuitar =
-                      reauthor RBFile.rb3PartGuitar fivePredicates $ RBFile.rb3PartGuitar orig
-                    , RBFile.rb3PartBass =
-                      reauthor RBFile.rb3PartBass fivePredicates $ RBFile.rb3PartBass orig
-                    , RBFile.rb3PartKeys =
-                      reauthor RBFile.rb3PartKeys fivePredicates $ RBFile.rb3PartKeys orig
-                    , RBFile.rb3PartVocals = let
-                      isMood = \case RBVox.Mood{} -> True; _ -> False
-                      in reauthor RBFile.rb3PartVocals [isMood] $ RBFile.rb3PartVocals orig
-                    , RBFile.rb3Venue = reauthor RBFile.rb3Venue [const True] $ RBFile.rb3Venue orig
-                      -- TODO: split up camera and lighting so you can author just one
-                    , RBFile.rb3Events = if RTB.null sects
-                      then RBFile.rb3Events orig
-                      else RTB.merge (fmap makeRB3Section sects)
-                        $ RTB.filter (isNothing . getSection) $ RBFile.rb3Events orig
-                    -- Stuff "export midi" doesn't overwrite:
-                    -- PART KEYS_ANIM_LH/RH
-                    -- Crowd stuff in EVENTS
+              let trackOr x y = if RTB.null x then y else x
+                  user = RBFile.s_tracks userMid
+                  magma = RBFile.s_tracks magmaMid
+                  reauthor f = f user `trackOr` f magma
+                  reauthorFive f = (f magma)
+                    { fiveMood = reauthor $ fiveMood . f
+                    , fiveHandMap = reauthor $ fiveHandMap . f
+                    , fiveStrumMap = reauthor $ fiveStrumMap . f
+                    , fiveFretPosition = reauthor $ fiveFretPosition . f
                     }
+              saveMIDI out $ magmaMid
+                { RBFile.s_tracks = magma
+                  { RBFile.fixedPartDrums = (RBFile.fixedPartDrums magma)
+                    { drumMood = reauthor $ drumMood . RBFile.fixedPartDrums
+                    , drumAnimation = reauthor $ drumAnimation . RBFile.fixedPartDrums
+                    }
+                  , RBFile.fixedPartGuitar = reauthorFive RBFile.fixedPartGuitar
+                  , RBFile.fixedPartBass = reauthorFive RBFile.fixedPartBass
+                  , RBFile.fixedPartKeys = reauthorFive RBFile.fixedPartKeys
+                  , RBFile.fixedPartVocals = (RBFile.fixedPartVocals magma)
+                    { vocalMood = reauthor $ vocalMood . RBFile.fixedPartVocals
+                    }
+                  , RBFile.fixedVenue = if RBFile.fixedVenue user == mempty
+                    then RBFile.fixedVenue magma
+                    else RBFile.fixedVenue user
+                    -- TODO: split up camera and lighting so you can author just one
+                  , RBFile.fixedEvents = if RTB.null sects
+                    then RBFile.fixedEvents magma
+                    else (RBFile.fixedEvents magma)
+                      { eventsSections = fmap makeRB3Section sects
+                      }
+                  -- Stuff "export midi" doesn't overwrite:
+                  -- PART KEYS_ANIM_LH/RH
+                  -- Crowd stuff in EVENTS
+                  }
                 }
 
             [pathMagmaMid, pathMagmaPad] &%> \[out, outPad] -> do
-              input <- shakeMIDI_precodec $ planDir </> "raw.mid"
+              input <- shakeMIDI $ planDir </> "raw.mid"
               (_, mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
               sects <- ATB.toPairList . RTB.toAbsoluteEventList 0 <$> getRealSections
               let (magmaSects, invalid) = makeRBN2Sections sects
                   magmaSects' = RTB.fromAbsoluteEventList $ ATB.fromPairList magmaSects
                   adjustEvents trks = trks
-                    { RBFile.onyxEvents
-                      = RTB.merge magmaSects'
-                      $ RTB.filter (isNothing . getSection)
-                      $ RBFile.onyxEvents trks
+                    { RBFile.onyxEvents = (RBFile.onyxEvents trks)
+                      { eventsSections = magmaSects'
+                      }
                     }
                   input' = input { RBFile.s_tracks = adjustEvents $ RBFile.s_tracks input }
                   speed = fromMaybe 1 $ rb3_Speed rb3
@@ -1064,7 +1059,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               case invalid of
                 [] -> return ()
                 _  -> lg $ "The following sections were swapped out for Magma (but will be readded in CON output): " ++ show invalid
-              saveMIDI_precodec out output
+              saveMIDI out output
 
             let pathDta = dir </> "stfs/songs/songs.dta"
                 pathMid = dir </> "stfs/songs" </> pkg </> pkg <.> "mid"
@@ -1075,7 +1070,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 pathCon = dir </> "rb3con"
 
             pathDta %> \out -> do
-              song <- shakeMIDI_precodec pathMid
+              song <- shakeMIDI pathMid
               songPkg <- makeRB3DTA songYaml plan rb3 song pkg
               liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments (_metadata songYaml) plan $ rb3_2xBassPedal rb3
             pathMid %> shk . copyFile' pathMagmaExport2
@@ -1130,11 +1125,11 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
 
             -- Guitar rules
             dir </> "protar-mpa.mid" %> \out -> do
-              input <- shakeMIDI_precodec pathMagmaMid
-              let gtr17   = RBFile.flexPartRealGuitar   $ RBFile.getFlexPart (rb3_Guitar rb3) $ RBFile.s_tracks input
-                  gtr22   = RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart (rb3_Guitar rb3) $ RBFile.s_tracks input
-                  bass17  = RBFile.flexPartRealGuitar   $ RBFile.getFlexPart (rb3_Bass   rb3) $ RBFile.s_tracks input
-                  bass22  = RBFile.flexPartRealGuitar22 $ RBFile.getFlexPart (rb3_Bass   rb3) $ RBFile.s_tracks input
+              input <- shakeMIDI pathMagmaMid
+              let gtr17   = RBFile.onyxPartRealGuitar   $ RBFile.getFlexPart (rb3_Guitar rb3) $ RBFile.s_tracks input
+                  gtr22   = RBFile.onyxPartRealGuitar22 $ RBFile.getFlexPart (rb3_Guitar rb3) $ RBFile.s_tracks input
+                  bass17  = RBFile.onyxPartRealGuitar   $ RBFile.getFlexPart (rb3_Bass   rb3) $ RBFile.s_tracks input
+                  bass22  = RBFile.onyxPartRealGuitar22 $ RBFile.getFlexPart (rb3_Bass   rb3) $ RBFile.s_tracks input
                   pgThres = maybe 170 pgHopoThreshold $ getPart (rb3_Guitar rb3) songYaml >>= partProGuitar
                   pbThres = maybe 170 pgHopoThreshold $ getPart (rb3_Bass   rb3) songYaml >>= partProGuitar
                   playTrack thres cont name t = let
@@ -1145,12 +1140,12 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                     msgToSysEx msg
                       = E.SystemExclusive $ SysEx.Regular $ PGPlay.sendCommand (cont, msg) ++ [0xF7]
                     in U.setTrackName name $ msgToSysEx <$> auto
-              saveMIDI_precodec out input
+              saveMIDI out input
                 { RBFile.s_tracks = RBFile.RawFile
-                    [ playTrack pgThres PGPlay.Mustang "GTR17"  $ if RTB.null gtr17  then gtr22  else gtr17
-                    , playTrack pgThres PGPlay.Squier  "GTR22"  $ if RTB.null gtr22  then gtr17  else gtr22
-                    , playTrack pbThres PGPlay.Mustang "BASS17" $ if RTB.null bass17 then bass22 else bass17
-                    , playTrack pbThres PGPlay.Squier  "BASS22" $ if RTB.null bass22 then bass17 else bass22
+                    [ playTrack pgThres PGPlay.Mustang "GTR17"  $ ProGtr.pgToLegacy $ if gtr17  == mempty then gtr22  else gtr17
+                    , playTrack pgThres PGPlay.Squier  "GTR22"  $ ProGtr.pgToLegacy $ if gtr22  == mempty then gtr17  else gtr22
+                    , playTrack pbThres PGPlay.Mustang "BASS17" $ ProGtr.pgToLegacy $ if bass17 == mempty then bass22 else bass17
+                    , playTrack pbThres PGPlay.Squier  "BASS22" $ ProGtr.pgToLegacy $ if bass22 == mempty then bass17 else bass22
                     ]
                 }
 
@@ -1158,7 +1153,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               Nothing -> return ()
               Just rb2 -> do
 
-                pathMagmaMidV1 %> \out -> shakeMIDI_precodec pathMagmaMid >>= saveMIDI_precodec out . RB2.convertMIDI
+                pathMagmaMidV1 %> \out -> shakeMIDI pathMagmaMid >>= RB2.convertMIDI >>= saveMIDI out
 
                 pathMagmaProjV1 %> \out -> do
                   p <- makeMagmaProj songYaml rb3 plan pkg pathMagmaMid $ return title
@@ -1373,32 +1368,49 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                       then do
                         shk $ need [pathMagmaRbaV1]
                         liftIO $ Magma.getRBAFile 1 pathMagmaRbaV1 out
-                        loadMIDI_precodec out
-                      else shakeMIDI_precodec pathMagmaMidV1
+                        loadMIDI out
+                      else shakeMIDI pathMagmaMidV1
                     sects <- getRealSections'
                     let mid = RBFile.Song tempos sigs trks
-                          { RBFile.rb2Events = if RTB.null sects
-                            then RBFile.rb2Events trks
-                            else RTB.merge
-                              (fmap makeRB2Section sects)
-                              (RTB.filter (isNothing . getSection) $ RBFile.rb2Events trks)
-                          , RBFile.rb2Venue = if RTB.null $ RBFile.rb2Venue trks
-                            then RTB.flatten $ RTB.singleton 0
-                              [ V2.Lighting V2.Lighting_
-                              , V2.Lighting V2.Lighting_verse
-                              , V2.CameraCut
-                              , V2.FocusBass
-                              , V2.FocusDrums
-                              , V2.FocusGuitar
-                              , V2.FocusVocal
-                              , V2.NoBehind
-                              , V2.OnlyFar
-                              , V2.NoClose
-                              , V2.PostProcess V2.PP_video_security
-                              ]
-                            else RBFile.rb2Venue trks
+                          { RBFile.fixedEvents = if RTB.null sects
+                            then RBFile.fixedEvents trks
+                            else (RBFile.fixedEvents trks)
+                              { eventsSections = fmap makeRB2Section sects
+                              }
+                          , RBFile.fixedVenue = if RBFile.fixedVenue trks == mempty
+                            then VenueTrack
+                              { venueCameraRB3       = RTB.empty
+                              , venueCameraRB2       = RTB.flatten $ RTB.singleton 0
+                                [ CameraCut
+                                , FocusBass
+                                , FocusDrums
+                                , FocusGuitar
+                                , FocusVocal
+                                , NoBehind
+                                , OnlyFar
+                                , NoClose
+                                ]
+                              , venueDirectedRB2     = RTB.empty
+                              , venueSingGuitar      = RTB.empty
+                              , venueSingDrums       = RTB.empty
+                              , venueSingBass        = RTB.empty
+                              , venueSpotKeys        = RTB.empty
+                              , venueSpotVocal       = RTB.empty
+                              , venueSpotGuitar      = RTB.empty
+                              , venueSpotDrums       = RTB.empty
+                              , venueSpotBass        = RTB.empty
+                              , venuePostProcessRB3  = RTB.empty
+                              , venuePostProcessRB2  = RTB.singleton 0 V2_video_security
+                              , venueLightingShared  = RTB.singleton 0 Lighting_
+                              , venueLightingRB3     = RTB.empty
+                              , venueLightingRB2     = RTB.singleton 0 Lighting_verse
+                              , venueBonusFX         = RTB.empty
+                              , venueBonusFXOptional = RTB.empty
+                              , venueFog             = RTB.empty
+                              }
+                            else RBFile.fixedVenue trks
                           }
-                    saveMIDI_precodec out mid
+                    saveMIDI out mid
                   rb2Mogg %> shk . copyFile' pathMogg
                   rb2Milo %> \out -> do
                     ex <- doesRBAExist
@@ -1447,9 +1459,13 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               Just pair -> return pair
             let planDir = "gen/plan" </> T.unpack planName
 
+            {-
+
             dir </> "gh2/notes.mid" %> \out -> do
-              input <- shakeMIDI_precodec $ planDir </> "raw.mid"
-              saveMIDI_precodec out $ midiRB3toGH2 songYaml gh2 input
+              input <- shakeMIDI $ planDir </> "raw.mid"
+              saveMIDI out $ midiRB3toGH2 songYaml gh2 input
+
+            -}
 
             dir </> "gh2/audio.vgs" %> \out -> do
               let coopPart = case gh2_Coop gh2 of
@@ -1484,10 +1500,14 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   $ merge srcCoop srcGtr
                 lg $ "Finished writing GH2 practice audio for " ++ show speed ++ "% speed"
 
+            {-
+
             dir </> "gh2/songs.dta" %> \out -> do
-              input <- shakeMIDI_precodec $ planDir </> "raw.mid"
-              let dta = makeGH2DTA songYaml (previewBounds_precodec songYaml input) gh2
+              input <- shakeMIDI $ planDir </> "raw.mid"
+              let dta = makeGH2DTA songYaml (previewBounds songYaml input) gh2
               stackIO $ D.writeFileDTA_latin1 out $ D.serialize (valueId D.stackChunks) dta
+
+            -}
 
             phony (dir </> "gh2") $ shk $ need
               [ dir </> "gh2/notes.mid"
@@ -1508,7 +1528,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 DifficultyRB3{..} = psDifficultyRB3
 
             dir </> "ps/notes.mid" %> \out -> do
-              input <- shakeMIDI_precodec $ planDir </> "raw.mid"
+              input <- shakeMIDI $ planDir </> "raw.mid"
               (_, mixMode) <- computeDrumsPart (ps_Drums ps) plan songYaml
               output <- RB3.processPS
                 ps
@@ -1516,17 +1536,17 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 input
                 mixMode
                 (getAudioLength planName plan)
-              saveMIDI_precodec out output
+              saveMIDI out output
 
             dir </> "ps/video.avi" %> \out -> case ps_FileVideo ps of
               Nothing  -> fatal "requested Phase Shift video background, but target doesn't have one"
               Just vid -> shk $ copyFile' vid out
 
             dir </> "ps/song.ini" %> \out -> do
-              raw <- shakeMIDI_precodec $ planDir </> "raw.mid"
-              song <- shakeMIDI_precodec $ dir </> "ps/notes.mid"
-              let (pstart, _) = previewBounds_precodec songYaml raw
-                  len = songLengthMS_precodec song
+              raw <- shakeMIDI $ planDir </> "raw.mid"
+              song <- shakeMIDI $ dir </> "ps/notes.mid"
+              let (pstart, _) = previewBounds songYaml (raw :: RBFile.Song (RBFile.OnyxFile U.Beats))
+                  len = songLengthMS song
                   pd = getPart (ps_Drums ps) songYaml >>= partDrums
                   dmode = fmap drumsMode pd
               FoF.saveSong out FoF.Song
@@ -1573,18 +1593,16 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 , FoF.starPowerNote    = Just 116
                 , FoF.eighthNoteHOPO   = Nothing
                 , FoF.track            = _trackNumber $ _metadata songYaml
-                , FoF.sysexSlider      = Just $ let
-                  isTap = \case
-                    RBFive.DiffEvent _ (RBFive.Force RBFive.Tap _) -> True
-                    _                                              -> False
-                  in any (any isTap . RBFile.flexFiveButton)
-                    $ RBFile.onyxFlexParts $ RBFile.s_tracks song
-                , FoF.sysexOpenBass    = Just $ let
-                  isOpen = \case
-                    RBFive.DiffEvent _ RBFive.OpenNotes{} -> True
-                    _                                     -> False
-                  in any (any isOpen . RBFile.flexFiveButton)
-                    $ RBFile.onyxFlexParts $ RBFile.s_tracks song
+                , FoF.sysexSlider      = Just $ or $ do
+                  opart <- toList $ RBFile.onyxParts $ RBFile.s_tracks song
+                  five <- [RBFile.onyxPartGuitar opart, RBFile.onyxPartKeys opart]
+                  fd <- toList $ fiveDifficulties five
+                  return $ not $ RTB.null $ fiveTap fd
+                , FoF.sysexOpenBass    = Just $ or $ do
+                  opart <- toList $ RBFile.onyxParts $ RBFile.s_tracks song
+                  five <- [RBFile.onyxPartGuitar opart, RBFile.onyxPartKeys opart]
+                  fd <- toList $ fiveDifficulties five
+                  return $ not $ RTB.null $ fiveOpen fd
                 , FoF.video            = const "video.avi" <$> ps_FileVideo ps
                 }
 
@@ -1772,21 +1790,21 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             display = dir </> "display.json"
         midraw %> \out -> do
           lg "Loading the MIDI file..."
-          input <- shakeMIDI_precodec "gen/notes.mid"
+          input <- shakeMIDI "gen/notes.mid"
           let _ = input :: RBFile.Song (RBFile.RawFile U.Beats)
               extraTempo  = "tempo-" ++ T.unpack planName ++ ".mid"
           tempos <- fmap RBFile.s_tempos $ shk (doesFileExist extraTempo) >>= \b -> if b
-            then shakeMIDI_precodec extraTempo
+            then shakeMIDI extraTempo
             else return input
-          saveMIDI_precodec out input { RBFile.s_tempos = tempos }
+          saveMIDI out input { RBFile.s_tempos = tempos }
         midprocessed %> \out -> do
-          input <- shakeMIDI_precodec midraw
+          input <- shakeMIDI midraw
           output <- RB3.processPS def songYaml input RBDrums.D0 $ getAudioLength planName plan
-          saveMIDI_precodec out output
+          saveMIDI out output
 
         -- TODO flex parts not supported by RB3/PS
         display %> \out -> do
-          song <- shakeMIDI_precodec midprocessed
+          song <- shakeMIDI midprocessed
           liftIO $ BL.writeFile out $ makeDisplay songYaml song
 
         -- count-in audio
@@ -1795,7 +1813,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
           src <- buildAudioToSpec audioLib songYaml [(-1, 0), (1, 0)] =<< case hits of
             [] -> return Nothing
             _  -> Just . (\expr -> PlanAudio expr [] []) <$> do
-              mid <- shakeMIDI_precodec $ dir </> "raw.mid"
+              mid <- shakeMIDI $ dir </> "raw.mid"
               let _ = mid :: RBFile.Song (RBFile.RawFile U.Beats)
               return $ Mix $ flip map hits $ \(posn, aud) -> let
                 time = Seconds $ realToFrac $ case posn of
@@ -1827,12 +1845,14 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
         -- Warn about notes that might hang off before a pro keys range shift
         -- TODO flex parts
         phony (dir </> "hanging") $ do
-          song <- shakeMIDI_precodec midprocessed
+          song <- shakeMIDI midprocessed
           lg $ closeShiftsFile song
 
         -- Print out a summary of (non-vocal) overdrive and unison phrases
         -- TODO flex parts
         phony (dir </> "overdrive") $ printOverdrive midprocessed
+
+        {-
 
         -- Melody's Escape customs
         let melodyAudio = dir </> "melody/audio.ogg"
@@ -1840,7 +1860,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
         melodyAudio %> shk . copyFile' (dir </> "everything.ogg")
         melodyChart %> \out -> do
           shk $ need [midraw, melodyAudio]
-          mid <- shakeMIDI_precodec midraw
+          mid <- shakeMIDI midraw
           melody <- liftIO $ MelodysEscape.randomNotes $ U.applyTempoTrack (RBFile.s_tempos mid)
             $ RBFile.onyxMelodysEscape $ RBFile.s_tracks mid
           info <- liftIO $ Snd.getFileInfo melodyAudio
@@ -1859,10 +1879,12 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
           liftIO $ writeFile out str
         phony (dir </> "melody") $ shk $ need [melodyAudio, melodyChart]
 
+        -}
+
         {-
           -- Check for some extra problems that Magma doesn't catch.
           phony (pedalDir </> "problems") $ do
-            song <- loadMIDI_precodec $ pedalDir </> "notes.mid"
+            song <- loadMIDI $ pedalDir </> "notes.mid"
             let problems = RB3.findProblems song
             mapM_ putNormal problems
             unless (null problems) $ fail "At least 1 problem was found in the MIDI."

@@ -85,6 +85,9 @@ fileTrack name otherNames = Codec
       -> TrackCodec (PureLog Identity) U.Beats (trk U.Beats)
     forcePure = id
 
+class HasEvents f where
+  getEventsTrack :: f t -> EventsTrack t
+
 -- | Combined MIDI format for RB2, RB3, PS, CH
 data FixedFile t = FixedFile
   { fixedPartDrums        :: DrumTrack t
@@ -116,6 +119,9 @@ data FixedFile t = FixedFile
   , fixedBeat             :: BeatTrack t
   , fixedVenue            :: VenueTrack t
   } deriving (Eq, Ord, Show)
+
+instance HasEvents FixedFile where
+  getEventsTrack = fixedEvents
 
 instance (NNC.C t) => Monoid (FixedFile t) where
   mempty = FixedFile mempty mempty
@@ -237,6 +243,9 @@ data OnyxFile t = OnyxFile
   , onyxBeat   :: BeatTrack t
   , onyxVenue  :: VenueTrack t
   } deriving (Eq, Ord, Show)
+
+instance HasEvents OnyxFile where
+  getEventsTrack = onyxEvents
 
 instance (NNC.C t) => Monoid (OnyxFile t) where
   mempty = OnyxFile Map.empty mempty mempty mempty

@@ -44,7 +44,27 @@ fixPSRange trk = let
   in RTB.merge (fmap LaneShift rangesFixed) notRanges
 
 pkFromLegacy :: (NNC.C t) => RTB.T t Event -> ProKeysTrack t
-pkFromLegacy = undefined
+pkFromLegacy leg = ProKeysTrack
+  { pkTrainer   = RTB.mapMaybe (\case Trainer x -> Just x; _ -> Nothing) leg
+  , pkMood      = RTB.mapMaybe (\case Mood x -> Just x; _ -> Nothing) leg
+  , pkSolo      = RTB.mapMaybe (\case Solo x -> Just x; _ -> Nothing) leg
+  , pkGlissando = RTB.mapMaybe (\case Glissando x -> Just x; _ -> Nothing) leg
+  , pkTrill     = RTB.mapMaybe (\case Trill x -> Just x; _ -> Nothing) leg
+  , pkOverdrive = RTB.mapMaybe (\case Overdrive x -> Just x; _ -> Nothing) leg
+  , pkBRE       = RTB.mapMaybe (\case BRE x -> Just x; _ -> Nothing) leg
+  , pkLanes     = RTB.mapMaybe (\case LaneShift x -> Just x; _ -> Nothing) leg
+  , pkNotes     = fmap (\((), c, len) -> (c, len)) $ joinEdges $ RTB.mapMaybe (\case Note x -> Just x; _ -> Nothing) leg
+  }
 
 pkToLegacy :: (NNC.C t) => ProKeysTrack t -> RTB.T t Event
-pkToLegacy = undefined
+pkToLegacy o = foldr RTB.merge RTB.empty
+  [ Trainer   <$> pkTrainer   o
+  , Mood      <$> pkMood      o
+  , Solo      <$> pkSolo      o
+  , Glissando <$> pkGlissando o
+  , Trill     <$> pkTrill     o
+  , Overdrive <$> pkOverdrive o
+  , BRE       <$> pkBRE       o
+  , LaneShift <$> pkLanes     o
+  , fmap Note $ splitEdges $ fmap (\(c, len) -> ((), c, len)) $ pkNotes o
+  ]
