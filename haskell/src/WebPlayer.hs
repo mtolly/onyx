@@ -24,19 +24,19 @@ import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import           Guitars
 import qualified Numeric.NonNegative.Class        as NNC
-import qualified RockBand.Beat                    as Beat
+import qualified RockBand.Codec.Beat              as Beat
+import           RockBand.Codec.Events
+import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), joinEdges,
                                                    splitEdges)
 import qualified RockBand.Drums                   as Drums
-import qualified RockBand.Events                  as Ev
-import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.GHL                     as GHL
 import qualified RockBand.ProGuitar               as PG
 import qualified RockBand.ProKeys                 as PK
 import qualified RockBand.Vocals                  as Vox
-import           Scripts                          (songLengthBeats_precodec)
+import           Scripts                          (songLengthBeats)
 import qualified Sound.MIDI.Util                  as U
 
 class TimeFunctor f where
@@ -482,7 +482,7 @@ data Beat
   | HalfBeat
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-processBeat :: U.TempoMap -> RTB.T U.Beats Beat.Event -> Beats U.Seconds
+processBeat :: U.TempoMap -> RTB.T U.Beats Beat.BeatEvent -> Beats U.Seconds
 processBeat tmap rtb = Beats $ Map.fromList $ ATB.toPairList $ RTB.toAbsoluteEventList 0
   $ U.applyTempoTrack tmap $ flip fmap rtb $ \case
     Beat.Bar -> Bar
@@ -655,41 +655,45 @@ instance (Real t) => A.ToJSON (Processed t) where
 makeDisplay :: C.SongYaml -> RBFile.Song (RBFile.OnyxFile U.Beats) -> BL.ByteString
 makeDisplay songYaml song = let
   ht n = fromIntegral n / 480
-  coda = fmap (fst . fst) $ RTB.viewL $ RTB.filter (== Ev.Coda) $ RBFile.onyxEvents $ RBFile.s_tracks song
+  coda = fmap (fst . fst) $ RTB.viewL $ eventsCoda $ RBFile.onyxEvents $ RBFile.s_tracks song
   makePart name fpart = Flex
-    { flexFive = flip fmap (C.partGRYBO fpart) $ \grybo -> processFive
-      (guard (not $ RBFile.flexFiveIsKeys tracks) >> Just (ht $ C.gryboHopoThreshold grybo))
-      (RBFile.s_tempos song)
-      (RBFile.flexFiveButton tracks)
-    , flexSix = flip fmap (C.partGHL fpart) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song) (RBFile.flexGHL tracks)
-    , flexDrums = flip fmap (C.partDrums fpart) $ \pd -> processDrums (C.drumsMode pd) (RBFile.s_tempos song) coda (RBFile.flexPartDrums tracks)
-    , flexProKeys = flip fmap (C.partProKeys fpart) $ \_ -> processProKeys (RBFile.s_tempos song) (RBFile.flexPartRealKeysX tracks)
+    { flexFive = flip fmap (C.partGRYBO fpart) $ \grybo -> let
+      gtr = RBFile.onyxPartGuitar tracks
+      keys = RBFile.onyxPartKeys tracks
+      in if gtr == mempty
+        then processFive Nothing (RBFile.s_tempos song) $ Five.fiveToLegacy keys
+        else processFive (Just $ ht $ C.gryboHopoThreshold grybo) (RBFile.s_tempos song) $ Five.fiveToLegacy gtr
+    , flexSix = flip fmap (C.partGHL fpart) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song) (GHL.sixToLegacy $ RBFile.onyxPartSix tracks)
+    , flexDrums = flip fmap (C.partDrums fpart) $ \pd -> processDrums (C.drumsMode pd) (RBFile.s_tempos song) coda (Drums.drumsToLegacy $ RBFile.onyxPartDrums tracks)
+    , flexProKeys = flip fmap (C.partProKeys fpart) $ \_ -> processProKeys (RBFile.s_tempos song) (PK.pkToLegacy $ RBFile.onyxPartRealKeysX tracks)
     , flexProtar = flip fmap (C.partProGuitar fpart) $ \pg -> processProtar (ht $ C.pgHopoThreshold pg) (RBFile.s_tempos song)
-      $ let mustang = RBFile.flexPartRealGuitar tracks
-            squier  = RBFile.flexPartRealGuitar22 tracks
-        in if RTB.null squier then mustang else squier
+      $ let mustang = RBFile.onyxPartRealGuitar tracks
+            squier  = RBFile.onyxPartRealGuitar22 tracks
+        in PG.pgToLegacy $ if squier == mempty then mustang else squier
     , flexVocal = flip fmap (C.partVocal fpart) $ \pvox -> case C.vocalCount pvox of
       C.Vocal3 -> makeVox
-        (RBFile.flexHarm1 tracks)
-        (RBFile.flexHarm2 tracks)
-        (RBFile.flexHarm3 tracks)
+        (RBFile.onyxHarm1 tracks)
+        (RBFile.onyxHarm2 tracks)
+        (RBFile.onyxHarm3 tracks)
       C.Vocal2 -> makeVox
-        (RBFile.flexHarm1 tracks)
-        (RBFile.flexHarm2 tracks)
-        RTB.empty
+        (RBFile.onyxHarm1 tracks)
+        (RBFile.onyxHarm2 tracks)
+        mempty
       C.Vocal1 -> makeVox
-        (RBFile.flexPartVocals $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
-        RTB.empty
-        RTB.empty
+        (RBFile.onyxPartVocals $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
+        mempty
+        mempty
     } where
       tracks = RBFile.getFlexPart name $ RBFile.s_tracks song
   parts = do
     (name, fpart) <- sort $ HM.toList $ C.getParts $ C._parts songYaml
     return (RBFile.getPartName name, makePart name fpart)
-  makeVox h1 h2 h3 = processVocal (RBFile.s_tempos song) h1 h2 h3 (fmap (fromEnum . C.songKey) $ C._key $ C._metadata songYaml)
+  makeVox h1 h2 h3 = processVocal (RBFile.s_tempos song)
+    (Vox.vocalToLegacy h1) (Vox.vocalToLegacy h2) (Vox.vocalToLegacy h3)
+    (fmap (fromEnum . C.songKey) $ C._key $ C._metadata songYaml)
   beat = processBeat (RBFile.s_tempos song)
-    $ RBFile.onyxBeat $ RBFile.s_tracks song
-  end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats_precodec song
+    $ Beat.beatLines $ RBFile.onyxBeat $ RBFile.s_tracks song
+  end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats song
   title  = fromMaybe "" $ C._title  $ C._metadata songYaml
   artist = fromMaybe "" $ C._artist $ C._metadata songYaml
   in A.encode $ mapTime (realToFrac :: U.Seconds -> Milli) $ Processed title artist beat end parts

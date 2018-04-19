@@ -14,8 +14,8 @@ import           Data.Maybe                       (listToMaybe, mapMaybe)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
+import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Common
-import qualified RockBand.File                    as RBFile
 import           RockBand.ProKeys
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
@@ -26,11 +26,11 @@ completeFile :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTrace
 completeFile fin fout = do
   RBFile.Song tempos mmap trks <- liftIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
   liftIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap trks
-    { RBFile.onyxFlexParts = flip fmap (RBFile.onyxFlexParts trks) $ \flex -> flex
-      { RBFile.flexPartRealKeysE = completeRanges $ RBFile.flexPartRealKeysE flex
-      , RBFile.flexPartRealKeysM = completeRanges $ RBFile.flexPartRealKeysM flex
-      , RBFile.flexPartRealKeysH = completeRanges $ RBFile.flexPartRealKeysH flex
-      , RBFile.flexPartRealKeysX = completeRanges $ RBFile.flexPartRealKeysX flex
+    { RBFile.onyxParts = flip fmap (RBFile.onyxParts trks) $ \flex -> flex
+      { RBFile.onyxPartRealKeysE = pkFromLegacy $ completeRanges $ pkToLegacy $ RBFile.onyxPartRealKeysE flex
+      , RBFile.onyxPartRealKeysM = pkFromLegacy $ completeRanges $ pkToLegacy $ RBFile.onyxPartRealKeysM flex
+      , RBFile.onyxPartRealKeysH = pkFromLegacy $ completeRanges $ pkToLegacy $ RBFile.onyxPartRealKeysH flex
+      , RBFile.onyxPartRealKeysX = pkFromLegacy $ completeRanges $ pkToLegacy $ RBFile.onyxPartRealKeysX flex
       }
     }
 
@@ -129,8 +129,8 @@ keyInPreRange RangeA p = RedYellow Gs <= p && p <= OrangeC
 
 closeShiftsFile :: RBFile.Song (RBFile.OnyxFile U.Beats) -> String
 closeShiftsFile song = unlines $ do
-  (partName, part) <- Map.toAscList $ RBFile.onyxFlexParts $ RBFile.s_tracks song
-  let xpk = RBFile.flexPartRealKeysX part
+  (partName, part) <- Map.toAscList $ RBFile.onyxParts $ RBFile.s_tracks song
+  let xpk = pkToLegacy $ RBFile.onyxPartRealKeysX part
   guard $ not $ null xpk
   let close = U.unapplyTempoTrack (RBFile.s_tempos song) $ closeShifts 1 $ U.applyTempoTrack (RBFile.s_tempos song) xpk
       showSeconds secs = show (realToFrac secs :: Milli) ++ "s"

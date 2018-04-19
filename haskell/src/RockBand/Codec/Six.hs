@@ -3,9 +3,9 @@
 module RockBand.Codec.Six where
 
 import           Control.Monad.Codec
-import           Data.Default.Class               (Default (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
+import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
 import qualified RockBand.PhaseShiftMessage       as PS
@@ -25,6 +25,16 @@ data SixTrack t = SixTrack
   , sixSolo         :: RTB.T t Bool
   } deriving (Eq, Ord, Show)
 
+instance (NNC.C t) => Monoid (SixTrack t) where
+  mempty = SixTrack Map.empty RTB.empty RTB.empty
+  mappend
+    (SixTrack a1 a2 a3)
+    (SixTrack b1 b2 b3)
+    = SixTrack
+      (Map.unionWith mappend a1 b1)
+      (RTB.merge a2 b2)
+      (RTB.merge a3 b3)
+
 instance TraverseTrack SixTrack where
   traverseTrack fn (SixTrack a b c) = SixTrack
     <$> traverse (traverseTrack fn) a <*> fn b <*> fn c
@@ -40,8 +50,16 @@ instance TraverseTrack SixDifficulty where
   traverseTrack fn (SixDifficulty a b c d) = SixDifficulty
     <$> fn a <*> fn b <*> fn c <*> fn d
 
-instance Default (SixDifficulty t) where
-  def = SixDifficulty RTB.empty RTB.empty RTB.empty RTB.empty
+instance (NNC.C t) => Monoid (SixDifficulty t) where
+  mempty = SixDifficulty RTB.empty RTB.empty RTB.empty RTB.empty
+  mappend
+    (SixDifficulty a1 a2 a3 a4)
+    (SixDifficulty b1 b2 b3 b4)
+    = SixDifficulty
+      (RTB.merge a1 b1)
+      (RTB.merge a2 b2)
+      (RTB.merge a3 b3)
+      (RTB.merge a4 b4)
 
 instance ParseTrack SixTrack where
   parseTrack = do

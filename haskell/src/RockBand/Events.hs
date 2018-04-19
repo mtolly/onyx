@@ -4,13 +4,10 @@
 {-# LANGUAGE TemplateHaskell   #-}
 module RockBand.Events where
 
-import           Control.Monad                    ((>=>))
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
-import           RockBand.Common
-import           RockBand.Parse
+import qualified RockBand.Codec.Events            as Ev
 
 data Event
   = MusicStart
@@ -30,31 +27,8 @@ data Event
   | PracticeHihat
   deriving (Eq, Ord, Show, Read)
 
-instanceMIDIEvent [t| Event |] Nothing
+eventsFromLegacy :: (NNC.C t) => RTB.T t Event -> Ev.EventsTrack t
+eventsFromLegacy = undefined
 
-  [ commandPair ["music_start"] [p| MusicStart |]
-  , commandPair ["music_end"] [p| MusicEnd |]
-  , commandPair ["end"] [p| End |]
-  , commandPair ["coda"] [p| Coda |]
-  , commandPair ["crowd_realtime"] [p| CrowdRealtime |]
-  , commandPair ["crowd_intense"] [p| CrowdIntense |]
-  , commandPair ["crowd_normal"] [p| CrowdNormal |]
-  , commandPair ["crowd_mellow"] [p| CrowdMellow |]
-  , commandPair ["crowd_noclap"] [p| CrowdNoclap |]
-  , commandPair ["crowd_clap"] [p| CrowdClap |]
-  , ( [e| one $ firstEventWhich $ readCommand' >=> \case
-        "section" : ws -> Just $ SectionRB2 $ T.unwords ws
-        _              -> Nothing
-      |]
-    , [e| \case SectionRB2 s -> RTB.singleton NNC.zero $ showCommand' ["section", s] |]
-    )
-  , ( [e| one $ firstEventWhich $ readCommand' >=> \case
-        [s] -> SectionRB3 <$> T.stripPrefix "prc_" s
-        _   -> Nothing
-      |]
-    , [e| \case SectionRB3 s -> RTB.singleton NNC.zero $ showCommand' ["prc_" <> s] |]
-    )
-  , blip 24 [p| PracticeKick |]
-  , blip 25 [p| PracticeSnare |]
-  , blip 26 [p| PracticeHihat |]
-  ]
+eventsToLegacy :: (NNC.C t) => Ev.EventsTrack t -> RTB.T t Event
+eventsToLegacy = undefined

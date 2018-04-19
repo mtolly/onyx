@@ -9,6 +9,7 @@ module RockBand.Vocals
 , asciify
 , asciiLyrics
 , fixGHVocals
+, vocalFromLegacy, vocalToLegacy
 ) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -17,12 +18,8 @@ import           Data.Maybe                       (fromMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
-import           RockBand.Codec.Vocal             (PercussionType (..),
-                                                   Pitch (..))
+import           RockBand.Codec.Vocal
 import           RockBand.Common
-import           RockBand.Parse
-import qualified Sound.MIDI.File.Event            as E
-import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
 
 data Event
@@ -39,42 +36,11 @@ data Event
   | Note       Bool Pitch
   deriving (Eq, Ord, Show, Read)
 
-instanceMIDIEvent [t| Event |] Nothing
+vocalFromLegacy :: (NNC.C t) => RTB.T t Event -> VocalTrack t
+vocalFromLegacy = undefined
 
-  [ edge 0 $ applyB [p| RangeShift |]
-  , blip 1 [p| LyricShift |]
-
-  -- TODO: unknown notes on pitch 12, 13, 14
-
-  , edgeRange [36..47] $ \_i _b -> [p| Note $(boolP _b) (Octave36 $(keyP $ _i - 36)) |]
-  , edgeRange [48..59] $ \_i _b -> [p| Note $(boolP _b) (Octave48 $(keyP $ _i - 48)) |]
-  , edgeRange [60..71] $ \_i _b -> [p| Note $(boolP _b) (Octave60 $(keyP $ _i - 60)) |]
-  , edgeRange [72..83] $ \_i _b -> [p| Note $(boolP _b) (Octave72 $(keyP $ _i - 72)) |]
-  , edge      84       $ \   _b -> [p| Note $(boolP _b) Octave84C                    |]
-
-  , blip 96 [p| Percussion |]
-  , blip 97 [p| PercussionSound |]
-  , edge 105 $ applyB [p| Phrase |]
-  , edge 106 $ applyB [p| Phrase2 |]
-  , edge 116 $ applyB [p| Overdrive |]
-
-  , ( [e| one $ mapParseOne Mood parseCommand |]
-    , [e| \case Mood m -> unparseCommand m |]
-    )
-  , ( [e| one $ mapParseOne (uncurry PercussionAnimation) parseCommand |]
-    , [e| \case PercussionAnimation t b -> unparseCommand (t, b) |]
-    )
-  , ( [e| one $ firstEventWhich $ \case
-        E.MetaEvent (Meta.Lyric s) -> Just $ Lyric $ T.pack s
-        E.MetaEvent (Meta.TextEvent s) -> Just $ Lyric $ T.pack s
-        -- unrecognized text events are lyrics by default.
-        -- but note that this must come after the mood and perc-anim parsers!
-        -- TODO maybe don't do this if the text parses as a command
-        _ -> Nothing
-      |]
-    , [e| \case Lyric s -> RTB.singleton NNC.zero $ E.MetaEvent $ Meta.Lyric $ T.unpack s |]
-    )
-  ]
+vocalToLegacy :: (NNC.C t) => VocalTrack t -> RTB.T t Event
+vocalToLegacy = undefined
 
 asciify :: T.Text -> T.Text
 asciify = let

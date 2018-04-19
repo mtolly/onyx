@@ -8,11 +8,11 @@ import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
+import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
-import qualified Sound.MIDI.Util                  as U
 
 data Pitch
   = Octave36 Key
@@ -72,6 +72,26 @@ data VocalTrack t = VocalTrack
   , vocalNotes         :: RTB.T t (Pitch, Bool)
   } deriving (Eq, Ord, Show)
 
+instance (NNC.C t) => Monoid (VocalTrack t) where
+  mempty = VocalTrack RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+  mappend
+    (VocalTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11)
+    (VocalTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11)
+    = VocalTrack
+      (RTB.merge a1 b1)
+      (RTB.merge a2 b2)
+      (RTB.merge a3 b3)
+      (RTB.merge a4 b4)
+      (RTB.merge a5 b5)
+      (RTB.merge a6 b6)
+      (RTB.merge a7 b7)
+      (RTB.merge a8 b8)
+      (RTB.merge a9 b9)
+      (RTB.merge a10 b10)
+      (RTB.merge a11 b11)
+
 instance TraverseTrack VocalTrack where
   traverseTrack fn (VocalTrack a b c d e f g h i j k) = VocalTrack
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
@@ -101,6 +121,3 @@ instance ParseTrack VocalTrack where
     vocalNotes         <- (vocalNotes        =.)
       $ condenseMap $ eachKey each $ edges . (+ 36) . fromEnum
     return VocalTrack{..}
-
-fixGHVocals :: VocalTrack U.Beats -> VocalTrack U.Beats
-fixGHVocals = undefined

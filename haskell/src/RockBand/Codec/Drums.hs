@@ -10,7 +10,6 @@ module RockBand.Codec.Drums where
 
 import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
-import           Data.Default.Class               (Default (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (elemIndex)
 import qualified Data.Map                         as Map
@@ -38,6 +37,27 @@ data DrumTrack t = DrumTrack
   , drumKick2x       :: RTB.T t ()
   , drumAnimation    :: RTB.T t Animation
   } deriving (Eq, Ord, Show)
+
+instance (NNC.C t) => Monoid (DrumTrack t) where
+  mempty = DrumTrack Map.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+  mappend
+    (DrumTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12)
+    (DrumTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12)
+    = DrumTrack
+      (Map.unionWith mappend a1 b1)
+      (RTB.merge a2 b2)
+      (RTB.merge a3 b3)
+      (RTB.merge a4 b4)
+      (RTB.merge a5 b5)
+      (RTB.merge a6 b6)
+      (RTB.merge a7 b7)
+      (RTB.merge a8 b8)
+      (RTB.merge a9 b9)
+      (RTB.merge a10 b10)
+      (RTB.merge a11 b11)
+      (RTB.merge a12 b12)
 
 instance TraverseTrack DrumTrack where
   traverseTrack fn (DrumTrack a b c d e f g h i j k l) = DrumTrack
@@ -149,8 +169,15 @@ instance TraverseTrack DrumDifficulty where
   traverseTrack fn (DrumDifficulty a b c) = DrumDifficulty
     <$> fn a <*> fn b <*> fn c
 
-instance Default (DrumDifficulty t) where
-  def = DrumDifficulty RTB.empty RTB.empty RTB.empty
+instance (NNC.C t) => Monoid (DrumDifficulty t) where
+  mempty = DrumDifficulty RTB.empty RTB.empty RTB.empty
+  mappend
+    (DrumDifficulty a1 a2 a3)
+    (DrumDifficulty b1 b2 b3)
+    = DrumDifficulty
+      (RTB.merge a1 b1)
+      (RTB.merge a2 b2)
+      (RTB.merge a3 b3)
 
 parseProType :: (Monad m, NNC.C t) => Int -> TrackEvent m t ProType
 parseProType
@@ -235,7 +262,7 @@ instance ParseTrack DrumTrack where
 computePro :: (NNC.C t) => Maybe Difficulty -> DrumTrack t -> RTB.T t (Gem ProType)
 computePro diff trk = let
   toms = fmap (fmap $ \case Tom -> True; Cymbal -> False) $ drumToms trk
-  this = fromMaybe def $ Map.lookup (fromMaybe Expert diff) $ drumDifficulties trk
+  this = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) $ drumDifficulties trk
   disco = fmap (\(_aud, dsc) -> ((), dsc == Disco)) $ drumMix this
   applied = applyStatus disco $ applyStatus toms $ case diff of
     Nothing -> RTB.merge (fmap (\() -> Kick) $ drumKick2x trk) $ drumGems this
@@ -254,7 +281,7 @@ computePro diff trk = let
 computePSReal :: (NNC.C t) => Maybe Difficulty -> DrumTrack t -> RTB.T t (Either PSGem (Gem ProType))
 computePSReal diff trk = let
   pro = computePro diff trk
-  this = fromMaybe def $ Map.lookup (fromMaybe Expert diff) $ drumDifficulties trk
+  this = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) $ drumDifficulties trk
   applied = applyStatus (drumPSModifiers this) pro
   in flip fmap applied $ \case
     (mods, Red)

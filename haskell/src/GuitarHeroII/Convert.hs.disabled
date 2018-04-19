@@ -9,7 +9,7 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import           Guitars
-import qualified RockBand.File                    as F
+import qualified RockBand.Codec.File              as F
 import qualified Sound.MIDI.Util                  as U
 
 import           RockBand.Common                  (Difficulty (..), Mood (..),

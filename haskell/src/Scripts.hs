@@ -13,7 +13,6 @@ import           Control.Monad.Trans.StackTrace
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
-import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
 import           Data.Monoid                      ((<>))
@@ -21,11 +20,16 @@ import           Development.Shake
 import qualified FretsOnFire                      as FoF
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified RockBand.Beat                    as Beat
+import           RockBand.Codec.Drums
+import           RockBand.Codec.Events
+import           RockBand.Codec.File              (Song (..))
+import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.Five
+import           RockBand.Codec.ProGuitar
+import           RockBand.Codec.ProKeys
+import           RockBand.Codec.Vocal
 import           RockBand.Common
 import qualified RockBand.Drums                   as Drums
-import qualified RockBand.Events                  as Events
-import           RockBand.File                    (Song (..))
-import qualified RockBand.File                    as RBFile
 import qualified RockBand.FiveButton              as Five
 import           RockBand.Parse                   (isNoteEdgeCPV, makeEdgeCPV)
 import qualified RockBand.ProGuitar               as ProGuitar
@@ -67,13 +71,13 @@ addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
 addZero x rtb = case U.trackSplitZero rtb of
   (zero, rest) -> U.trackGlueZero (zero ++ [x]) rest
 
-loadMIDI_precodec :: (SendMessage m, MonadIO m, RBFile.MIDIFileFormat f) => FilePath -> StackTraceT m (Song (f U.Beats))
-loadMIDI_precodec fp = stackIO (Load.fromFile fp) >>= RBFile.readMIDIFile'
+loadMIDI :: (SendMessage m, MonadIO m, RBFile.ParseFile f) => FilePath -> StackTraceT m (Song (f U.Beats))
+loadMIDI fp = stackIO (Load.fromFile fp) >>= RBFile.readMIDIFile'
 
 -- | Moves star power from the GH 1/2 format to the RB format, either if it is
 -- specified in the song.ini, or automatically detected from the MIDI.
-loadFoFMIDI_precodec :: (SendMessage m, MonadIO m, RBFile.MIDIFileFormat f) => FoF.Song -> FilePath -> StackTraceT m (Song (f U.Beats))
-loadFoFMIDI_precodec ini fp = do
+loadFoFMIDI :: (SendMessage m, MonadIO m, RBFile.ParseFile f) => FoF.Song -> FilePath -> StackTraceT m (Song (f U.Beats))
+loadFoFMIDI ini fp = do
   mid <- stackIO $ Load.fromFile fp
   let isGtrTrack trk = U.trackName trk `elem` map Just ["PART GUITAR", "PART BASS", "PART RHYTHM", "T1 GEMS"]
       midGH = case mid of
@@ -127,8 +131,8 @@ loadFoFMIDI_precodec ini fp = do
       midRB
   RBFile.readMIDIFile' mid'
 
-shakeMIDI_precodec :: (RBFile.MIDIFileFormat f) => FilePath -> StackTraceT (QueueLog Action) (Song (f U.Beats))
-shakeMIDI_precodec fp = lift (lift $ need [fp]) >> loadMIDI_precodec fp
+shakeMIDI :: (RBFile.ParseFile f) => FilePath -> StackTraceT (QueueLog Action) (Song (f U.Beats))
+shakeMIDI fp = lift (lift $ need [fp]) >> loadMIDI fp
 
 loadTemposIO :: FilePath -> IO U.TempoMap
 loadTemposIO fp = do
@@ -138,41 +142,41 @@ loadTemposIO fp = do
     Left (tempoTrack : _) -> return $ U.makeTempoMap tempoTrack
     Right _               -> error "Scripts.loadTemposIO: SMPTE midi not supported"
 
-saveMIDI_precodec :: (MonadIO m, RBFile.MIDIFileFormat f) => FilePath -> Song (f U.Beats) -> m ()
-saveMIDI_precodec fp song = liftIO $ Save.toFile fp $ RBFile.showMIDIFile' song
+saveMIDI :: (MonadIO m, RBFile.ParseFile f) => FilePath -> Song (f U.Beats) -> m ()
+saveMIDI fp song = liftIO $ Save.toFile fp $ RBFile.showMIDIFile' song
 
 -- | Returns the start and end of the preview audio in milliseconds.
-previewBounds_precodec :: SongYaml -> Song (RBFile.OnyxFile U.Beats) -> (Int, Int)
-previewBounds_precodec syaml song = let
-  len = songLengthMS_precodec song
+previewBounds :: SongYaml -> Song (RBFile.OnyxFile U.Beats) -> (Int, Int)
+previewBounds syaml song = let
+  len = songLengthMS song
   secsToMS s = floor $ s * 1000
   leadIn = max 0 . subtract 600
   evalTime = \case
     PreviewSeconds secs -> Just $ secsToMS secs
     PreviewMIDI mb -> Just $ leadIn $ secsToMS $ U.applyTempoMap (s_tempos song) $ U.unapplyMeasureMap (s_signatures song) mb
-    PreviewSection str -> case find [Events.SectionRB3 str, Events.SectionRB2 str] of
+    PreviewSection str -> case findSection str of
       Nothing  -> Nothing
       Just bts -> Just $ leadIn $ secsToMS $ U.applyTempoMap (s_tempos song) bts
   evalTime' pt = fromMaybe (error $ "Couldn't evaluate preview bound: " ++ show pt) $ evalTime pt
   defStartTime = case mapMaybe (evalTime . PreviewSection) ["chorus", "chorus_1", "chorus_1a", "verse", "verse_1"] of
     []    -> max 0 $ quot len 2 - 15000
     t : _ -> min (len - 30000) t
-  events = RBFile.onyxEvents $ s_tracks song
-  find evs = fmap (fst . fst) $ RTB.viewL $ RTB.filter (`elem` evs) events
+  findSection sect = fmap (fst . fst) $ RTB.viewL $ RTB.filter ((== sect) . snd)
+    $ eventsSections $ RBFile.onyxEvents $ s_tracks song
   in case (_previewStart $ _metadata syaml, _previewEnd $ _metadata syaml) of
     (Nothing, Nothing) -> (defStartTime, defStartTime + 30000)
     (Just ps, Just pe) -> (evalTime' ps, evalTime' pe)
     (Just ps, Nothing) -> let start = evalTime' ps in (start, start + 30000)
     (Nothing, Just pe) -> let end = evalTime' pe in (end - 30000, end)
 
-songLengthBeats_precodec :: Song (RBFile.OnyxFile U.Beats) -> U.Beats
-songLengthBeats_precodec s = case RTB.getTimes $ RTB.filter (== Events.End) $ RBFile.onyxEvents $ s_tracks s of
+songLengthBeats :: Song (RBFile.OnyxFile U.Beats) -> U.Beats
+songLengthBeats s = case RTB.getTimes $ eventsEnd $ RBFile.onyxEvents $ s_tracks s of
   [bts] -> bts
   _     -> 0 -- eh
 
 -- | Returns the time of the [end] event in milliseconds.
-songLengthMS_precodec :: Song (RBFile.OnyxFile U.Beats) -> Int
-songLengthMS_precodec song = floor $ U.applyTempoMap (s_tempos song) (songLengthBeats_precodec song) * 1000
+songLengthMS :: Song (RBFile.OnyxFile U.Beats) -> Int
+songLengthMS song = floor $ U.applyTempoMap (s_tempos song) (songLengthBeats song) * 1000
 
 -- | Given a measure map, produces an infinite BEAT track.
 makeBeatTrack :: U.MeasureMap -> RTB.T U.Beats Beat.Event
@@ -202,40 +206,40 @@ trackGlue t xs ys = let
 
 fixFreeformDrums_precodec :: RTB.T U.Beats Drums.Event -> RTB.T U.Beats Drums.Event
 fixFreeformDrums_precodec = let
-  drumsSingle = fixFreeform_precodec (== Drums.SingleRoll True) (== Drums.SingleRoll False) isHand
-  drumsDouble = fixFreeform_precodec (== Drums.DoubleRoll True) (== Drums.DoubleRoll False) isHand
+  drumsSingle' = fixFreeform_precodec (== Drums.SingleRoll True) (== Drums.SingleRoll False) isHand
+  drumsDouble' = fixFreeform_precodec (== Drums.DoubleRoll True) (== Drums.DoubleRoll False) isHand
   isHand (Drums.DiffEvent Expert (Drums.Note gem)) = gem /= Drums.Kick
   isHand _                                         = False
-  in drumsSingle . drumsDouble
+  in drumsSingle' . drumsDouble'
 
 fixFreeformFive_precodec :: RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
 fixFreeformFive_precodec = let
-  fiveTremolo = fixFreeform_precodec (== Five.Tremolo True) (== Five.Tremolo False) isGem
-  fiveTrill   = fixFreeform_precodec (== Five.Trill   True) (== Five.Trill   False) isGem
+  fiveTremolo' = fixFreeform_precodec (== Five.Tremolo True) (== Five.Tremolo False) isGem
+  fiveTrill'   = fixFreeform_precodec (== Five.Trill   True) (== Five.Trill   False) isGem
   isGem (Five.DiffEvent Expert (Five.Note (NoteOn () _))) = True
   isGem (Five.DiffEvent Expert (Five.Note (Blip   () _))) = True
   isGem _                                                 = False
-  in fiveTremolo . fiveTrill
+  in fiveTremolo' . fiveTrill'
 
 fixFreeformPK_precodec :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats ProKeys.Event
 fixFreeformPK_precodec = let
-  pkGlissando = fixFreeform_precodec (== ProKeys.Glissando True) (== ProKeys.Glissando False) isPKNote
-  pkTrill     = fixFreeform_precodec (== ProKeys.Trill     True) (== ProKeys.Trill     False) isPKNote
+  pkGlissando' = fixFreeform_precodec (== ProKeys.Glissando True) (== ProKeys.Glissando False) isPKNote
+  pkTrill'     = fixFreeform_precodec (== ProKeys.Trill     True) (== ProKeys.Trill     False) isPKNote
   isPKNote (ProKeys.Note (NoteOn _ _)) = True
   isPKNote (ProKeys.Note (Blip   _ _)) = True
   isPKNote _                           = False
-  in pkGlissando . pkTrill
+  in pkGlissando' . pkTrill'
 
 fixFreeformPG_precodec :: RTB.T U.Beats ProGuitar.Event -> RTB.T U.Beats ProGuitar.Event
 fixFreeformPG_precodec = let
-  pgTremolo = fixFreeform_precodec (== ProGuitar.Tremolo True) (== ProGuitar.Tremolo False) isGem
-  pgTrill   = fixFreeform_precodec (== ProGuitar.Trill   True) (== ProGuitar.Trill   False) isGem
+  pgTremolo' = fixFreeform_precodec (== ProGuitar.Tremolo True) (== ProGuitar.Tremolo False) isGem
+  pgTrill'   = fixFreeform_precodec (== ProGuitar.Trill   True) (== ProGuitar.Trill   False) isGem
   isGem (ProGuitar.DiffEvent Expert (ProGuitar.Note (NoteOn _ (_, ntype))))
     = ntype /= ProGuitar.ArpeggioForm
   isGem (ProGuitar.DiffEvent Expert (ProGuitar.Note (Blip   _ (_, ntype))))
     = ntype /= ProGuitar.ArpeggioForm
   isGem _ = False
-  in pgTremolo . pgTrill
+  in pgTremolo' . pgTrill'
 
 -- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
 --- their last gem note-on.
@@ -296,20 +300,16 @@ harm1ToPartVocals_precodec = go . RTB.normalize where
     _                   -> Nothing
   isNote = \case Vocals.Note _ _ -> True; _ -> False
 
-getPercType_precodec :: (NNC.C t) => Song (RBFile.OnyxFile t) -> Maybe Vocals.PercussionType
-getPercType_precodec song = let
-  vox = do
-    part <- Map.elems $ RBFile.onyxFlexParts $ s_tracks song
-    trk <-
-      [ RBFile.flexPartVocals part
-      , RBFile.flexHarm1      part
-      , RBFile.flexHarm2      part
-      , RBFile.flexHarm3      part
-      ]
-    RTB.getBodies trk
-  isPercType (Vocals.PercussionAnimation ptype _) = Just ptype
-  isPercType _                                    = Nothing
-  in listToMaybe $ mapMaybe isPercType vox
+getPercType :: (NNC.C t) => Song (RBFile.FixedFile t) -> Maybe Vocals.PercussionType
+getPercType song = listToMaybe $ do
+  trk <-
+    [ RBFile.fixedPartVocals $ RBFile.s_tracks song
+    , RBFile.fixedHarm1      $ RBFile.s_tracks song
+    , RBFile.fixedHarm2      $ RBFile.s_tracks song
+    , RBFile.fixedHarm3      $ RBFile.s_tracks song
+    ]
+  (perc, _) <- RTB.getBodies $ vocalPercAnimation trk
+  return perc
 
 -- | Makes a dummy Basic Guitar/Bass track, for parts with only Pro Guitar/Bass charted.
 protarToGrybo_precodec :: RTB.T U.Beats ProGuitar.Event -> RTB.T U.Beats Five.Event
@@ -358,8 +358,8 @@ expertProKeysToKeys_precodec = let
   in U.trackJoin . fmap pkToBasic . RTB.collectCoincident
 
 -- | Makes a Pro Keys track, for parts with only Basic Keys charted.
-keysToProKeys_precodec :: Difficulty -> RTB.T U.Beats Five.Event -> RTB.T U.Beats ProKeys.Event
-keysToProKeys_precodec d = let
+keysToProKeys :: Difficulty -> RTB.T U.Beats Five.Event -> RTB.T U.Beats ProKeys.Event
+keysToProKeys d = let
   basicToPK = \case
     Five.DiffEvent d' (Five.Note long) | d == d' ->
       Just $ ProKeys.Note $ flip fmap long $ \c -> ProKeys.BlueGreen $ case c of
@@ -375,47 +375,28 @@ keysToProKeys_precodec d = let
     _                                -> Nothing
   in RTB.cons 0 (ProKeys.LaneShift ProKeys.RangeA) . RTB.mapMaybe basicToPK
 
-hasSolo_precodec :: (NNC.C t) => Instrument -> Song (RBFile.OnyxFile t) -> Bool
-hasSolo_precodec Guitar song = not $ null
-  $ do
-    let t = RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexGuitar $ s_tracks song
-    Five.Solo _ <- RTB.getBodies t
-    return ()
-  ++ do
-    let t = RBFile.flexPartRealGuitar $ RBFile.getFlexPart RBFile.FlexGuitar $ s_tracks song
-    ProGuitar.Solo _ <- RTB.getBodies t
-    return ()
-hasSolo_precodec Bass song = not $ null
-  $ do
-    let t = RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexBass $ s_tracks song
-    Five.Solo _ <- RTB.getBodies t
-    return ()
-  ++ do
-    let t = RBFile.flexPartRealGuitar $ RBFile.getFlexPart RBFile.FlexBass $ s_tracks song
-    ProGuitar.Solo _ <- RTB.getBodies t
-    return ()
-hasSolo_precodec Drums song = not $ null $ do
-  let t = RBFile.flexPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ s_tracks song
-  Drums.Solo _ <- RTB.getBodies t
-  return ()
-hasSolo_precodec Keys song = not $ null
-  $ do
-    let t = RBFile.flexFiveButton $ RBFile.getFlexPart RBFile.FlexKeys $ s_tracks song
-    Five.Solo _ <- RTB.getBodies t
-    return ()
-  ++ do
-    let t = RBFile.flexPartRealKeysX $ RBFile.getFlexPart RBFile.FlexKeys $ s_tracks song
-    ProKeys.Solo _ <- RTB.getBodies t
-    return ()
-hasSolo_precodec Vocal song = not $ null
-  $ do
-    let t = RBFile.flexPartVocals $ RBFile.getFlexPart RBFile.FlexVocal $ s_tracks song
-    Vocals.Percussion <- RTB.getBodies t
-    return ()
-  ++ do
-    let t = RBFile.flexHarm1 $ RBFile.getFlexPart RBFile.FlexVocal $ s_tracks song
-    Vocals.Percussion <- RTB.getBodies t
-    return ()
+hasSolo :: (NNC.C t) => Instrument -> Song (RBFile.FixedFile t) -> Bool
+hasSolo Guitar song = any (not . null)
+  [ fiveSolo $ RBFile.fixedPartGuitar $ RBFile.s_tracks song
+  , pgSolo $ RBFile.fixedPartRealGuitar $ RBFile.s_tracks song
+  , pgSolo $ RBFile.fixedPartRealGuitar22 $ RBFile.s_tracks song
+  ]
+hasSolo Bass song = any (not . null)
+  [ fiveSolo $ RBFile.fixedPartBass $ RBFile.s_tracks song
+  , pgSolo $ RBFile.fixedPartRealBass $ RBFile.s_tracks song
+  , pgSolo $ RBFile.fixedPartRealBass22 $ RBFile.s_tracks song
+  ]
+hasSolo Drums song = any (not . null)
+  [ drumSolo $ RBFile.fixedPartDrums $ RBFile.s_tracks song
+  ]
+hasSolo Keys song = any (not . null)
+  [ fiveSolo $ RBFile.fixedPartKeys $ RBFile.s_tracks song
+  , pkSolo $ RBFile.fixedPartRealKeysX $ RBFile.s_tracks song
+  ]
+hasSolo Vocal song = any (not . null)
+  [ vocalPerc $ RBFile.fixedPartVocals $ RBFile.s_tracks song
+  , vocalPerc $ RBFile.fixedHarm1 $ RBFile.s_tracks song
+  ]
 
 {-
 

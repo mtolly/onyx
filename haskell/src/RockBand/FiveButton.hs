@@ -13,21 +13,14 @@ module RockBand.FiveButton
 , StrumHOPOTap(..)
 , Event(..)
 , DiffEvent(..)
+, fiveFromLegacy, fiveToLegacy
 ) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.Map                         as Map
 import qualified Numeric.NonNegative.Class        as NNC
-import           RockBand.Codec.Five              (Color (..),
-                                                   FretPosition (..),
-                                                   HandMap (..),
-                                                   OnyxCloseEvent (..),
-                                                   StrumHOPOTap (..),
-                                                   StrumMap (..))
+import           RockBand.Codec.Five
 import           RockBand.Common
-import           RockBand.Parse
-import qualified RockBand.PhaseShiftMessage       as PS
-import qualified Sound.MIDI.File.Event            as E
-import qualified Sound.MIDI.Util                  as U
 
 data Event
   = Mood                      Mood
@@ -51,151 +44,37 @@ data DiffEvent
   | Note (LongNote () Color)
   deriving (Eq, Ord, Show, Read)
 
-instanceMIDIEvent [t| Event |] (Just [e| unparseNice (1/8) |]) $
+fiveFromLegacy :: (NNC.C t) => RTB.T t Event -> FiveTrack t
+fiveFromLegacy leg = FiveTrack
+  { fiveDifficulties = Map.fromList $ do
+    d <- each
+    let leg' = RTB.mapMaybe (\case DiffEvent d' e | d == d' -> Just e; _ -> Nothing) leg
+    return (d, FiveDifficulty
+      { fiveForceStrum = RTB.mapMaybe (\case Force Strum x -> Just x; _ -> Nothing) leg'
+      , fiveForceHOPO  = RTB.mapMaybe (\case Force HOPO x -> Just x; _ -> Nothing) leg'
+      , fiveTap        = RTB.mapMaybe (\case Force Tap x -> Just x; _ -> Nothing) leg'
+      , fiveOpen       = RTB.mapMaybe (\case OpenNotes x -> Just x; _ -> Nothing) leg'
+      , fiveOnyxClose  = RTB.mapMaybe (\case OnyxClose x -> Just x; _ -> Nothing) leg'
+      , fiveGems       = undefined
+      })
+  , fiveMood         = RTB.mapMaybe (\case Mood x -> Just x; _ -> Nothing) leg
+  , fiveHandMap      = RTB.mapMaybe (\case HandMap x -> Just x; _ -> Nothing) leg
+  , fiveStrumMap     = RTB.mapMaybe (\case StrumMap x -> Just x; _ -> Nothing) leg
+  , fiveFretPosition = RTB.mapMaybe (\case FretPosition x y -> Just (x, y); _ -> Nothing) leg
+  , fiveTremolo      = RTB.mapMaybe (\case Tremolo x -> Just x; _ -> Nothing) leg
+  , fiveTrill        = RTB.mapMaybe (\case Trill x -> Just x; _ -> Nothing) leg
+  , fiveOverdrive    = RTB.mapMaybe (\case Overdrive x -> Just x; _ -> Nothing) leg
+  , fiveBRE          = RTB.mapMaybe (\case BRE x -> Just x; _ -> Nothing) leg
+  , fiveSolo         = RTB.mapMaybe (\case Solo x -> Just x; _ -> Nothing) leg
+  , fivePlayer1      = RTB.mapMaybe (\case Player1 x -> Just x; _ -> Nothing) leg
+  , fivePlayer2      = RTB.mapMaybe (\case Player2 x -> Just x; _ -> Nothing) leg
+  }
 
-  -- TODO: unknown notes on pitch 12, 13, 15
-
-  [ edge 40 $ applyB [p| FretPosition Fret40 |]
-  , edge 41 $ applyB [p| FretPosition Fret41 |]
-  , edge 42 $ applyB [p| FretPosition Fret42 |]
-  , edge 43 $ applyB [p| FretPosition Fret43 |]
-  , edge 44 $ applyB [p| FretPosition Fret44 |]
-  , edge 45 $ applyB [p| FretPosition Fret45 |]
-  , edge 46 $ applyB [p| FretPosition Fret46 |]
-  , edge 47 $ applyB [p| FretPosition Fret47 |]
-  , edge 48 $ applyB [p| FretPosition Fret48 |]
-  , edge 49 $ applyB [p| FretPosition Fret49 |]
-  , edge 50 $ applyB [p| FretPosition Fret50 |]
-  , edge 51 $ applyB [p| FretPosition Fret51 |]
-  , edge 52 $ applyB [p| FretPosition Fret52 |]
-  , edge 53 $ applyB [p| FretPosition Fret53 |]
-  , edge 54 $ applyB [p| FretPosition Fret54 |]
-  , edge 55 $ applyB [p| FretPosition Fret55 |]
-  , edge 56 $ applyB [p| FretPosition Fret56 |]
-  , edge 57 $ applyB [p| FretPosition Fret57 |]
-  , edge 58 $ applyB [p| FretPosition Fret58 |]
-  , edge 59 $ applyB [p| FretPosition Fret59 |]
-
-  ] ++ noteParser 60 [p| Green |] (\p -> [p| DiffEvent Easy (Note $p) |])
-    ++ noteParser 61 [p| Red |] (\p -> [p| DiffEvent Easy (Note $p) |])
-    ++ noteParser 62 [p| Yellow |] (\p -> [p| DiffEvent Easy (Note $p) |])
-    ++ noteParser 63 [p| Blue |] (\p -> [p| DiffEvent Easy (Note $p) |])
-    ++ noteParser 64 [p| Orange |] (\p -> [p| DiffEvent Easy (Note $p) |]) ++
-  [ edge 65 $ \_b -> [p| DiffEvent Easy (Force HOPO  $(boolP _b)) |]
-  , edge 66 $ \_b -> [p| DiffEvent Easy (Force Strum $(boolP _b)) |]
-
-  -- 69/70 are pre-RB Easy face-off player 1/2
-
-  ] ++ noteParser 72 [p| Green |] (\p -> [p| DiffEvent Medium (Note $p) |])
-    ++ noteParser 73 [p| Red |] (\p -> [p| DiffEvent Medium (Note $p) |])
-    ++ noteParser 74 [p| Yellow |] (\p -> [p| DiffEvent Medium (Note $p) |])
-    ++ noteParser 75 [p| Blue |] (\p -> [p| DiffEvent Medium (Note $p) |])
-    ++ noteParser 76 [p| Orange |] (\p -> [p| DiffEvent Medium (Note $p) |]) ++
-  [ edge 77 $ \_b -> [p| DiffEvent Medium (Force HOPO  $(boolP _b)) |]
-  , edge 78 $ \_b -> [p| DiffEvent Medium (Force Strum $(boolP _b)) |]
-
-  -- 81/82 are pre-RB Medium face-off player 1/2
-
-  ] ++ noteParser 84 [p| Green |] (\p -> [p| DiffEvent Hard (Note $p) |])
-    ++ noteParser 85 [p| Red |] (\p -> [p| DiffEvent Hard (Note $p) |])
-    ++ noteParser 86 [p| Yellow |] (\p -> [p| DiffEvent Hard (Note $p) |])
-    ++ noteParser 87 [p| Blue |] (\p -> [p| DiffEvent Hard (Note $p) |])
-    ++ noteParser 88 [p| Orange |] (\p -> [p| DiffEvent Hard (Note $p) |]) ++
-  [ edge 89 $ \_b -> [p| DiffEvent Hard (Force HOPO  $(boolP _b)) |]
-  , edge 90 $ \_b -> [p| DiffEvent Hard (Force Strum $(boolP _b)) |]
-
-  -- 93/94 are pre-RB Hard face-off player 1/2
-
-  -- pitch 95 is a shortcut for green + open modifier
-  , ( [e| fmap (\((t, ()), rtb) -> (RTB.fromPairList
-        [ (t, DiffEvent Expert $ OpenNotes True)
-        , (0, DiffEvent Expert $ Note $ Blip () Green)
-        , (1/32, DiffEvent Expert $ OpenNotes False)
-        ], rtb)) . parseBlipMax (1/3) 95 |]
-    , [e| \case {} |]
-    )
-  , ( [e| many $ parseEdge 95 $ \b ->
-        [ DiffEvent Expert $ Note $ (if b then NoteOn () else NoteOff) Green
-        , DiffEvent Expert $ OpenNotes b
-        ]
-      |]
-    , [e| \case {} |]
-    )
-  ] ++ noteParser 96 [p| Green |] (\p -> [p| DiffEvent Expert (Note $p) |])
-    ++ noteParser 97 [p| Red |] (\p -> [p| DiffEvent Expert (Note $p) |])
-    ++ noteParser 98 [p| Yellow |] (\p -> [p| DiffEvent Expert (Note $p) |])
-    ++ noteParser 99 [p| Blue |] (\p -> [p| DiffEvent Expert (Note $p) |])
-    ++ noteParser 100 [p| Orange |] (\p -> [p| DiffEvent Expert (Note $p) |]) ++
-  [ edge 101 $ \_b -> [p| DiffEvent Expert (Force HOPO  $(boolP _b)) |]
-  , edge 102 $ \_b -> [p| DiffEvent Expert (Force Strum $(boolP _b)) |]
-
-  , edge 103 $ applyB [p| Solo |]
-  , edge 105 $ applyB [p| Player1 |]
-  , edge 106 $ applyB [p| Player2 |]
-  , edge 116 $ applyB [p| Overdrive |]
-  , edges [120 .. 124] $ applyB [p| BRE |]
-  , edge 126 $ applyB [p| Tremolo |]
-  , edge 127 $ applyB [p| Trill |]
-
-  , ( [e| one $ mapParseOne Mood parseCommand |]
-    , [e| \case Mood m -> unparseCommand m |]
-    )
-  , ( [e| one $ mapParseOne HandMap parseCommand |]
-    , [e| \case HandMap m -> unparseCommand m |]
-    )
-  -- TODO:
-  -- "[map HandMap NoChords]"
-  -- "[map HandMap_Drop_D2]"
-  -- "[map handMap_DropD2]"
-  -- "map HandMap DropD2]"
-  , ( [e| one $ mapParseOne StrumMap parseCommand |]
-    , [e| \case StrumMap m -> unparseCommand m |]
-    )
-  -- TODO: "[map HandMap_Pick]"
-
-  , ( [e| one $ mapParseOne (\(OnyxCloseEvent d o) -> DiffEvent d $ OnyxClose o) parseCommand |]
-    , [e| \case DiffEvent d (OnyxClose o) -> unparseCommand $ OnyxCloseEvent d o |]
-    )
-
-  , ( [e| many $ flip filterParseOne PS.parsePSMessage $ \case
-        PS.PSMessage mdiff PS.OpenStrum b -> Just $ let
-          diffs = maybe [minBound .. maxBound] (: []) mdiff
-          in map (\diff -> DiffEvent diff $ OpenNotes b) diffs
-        PS.PSMessage mdiff PS.TapNotes b -> Just $ let
-          diffs = maybe [minBound .. maxBound] (: []) mdiff
-          in map (\diff -> DiffEvent diff $ Force Tap b) diffs
-        _ -> Nothing
-      |]
-    , [e| \case
-        DiffEvent d (OpenNotes b) -> unparseOne $ PS.PSMessage (Just d) PS.OpenStrum b
-        DiffEvent d (Force Tap b) -> unparseOne $ PS.PSMessage (Just d) PS.TapNotes b
-      |]
-    )
-
-  ]
+fiveToLegacy :: (NNC.C t) => FiveTrack t -> RTB.T t Event
+fiveToLegacy = undefined
 
 instance HasDiffEvent DiffEvent Event where
   makeDiffEvent = DiffEvent
   unmakeDiffEvent = \case
     DiffEvent d e -> Just (d, e)
     _             -> Nothing
-
-unparseNice :: U.Beats -> RTB.T U.Beats Event -> RTB.T U.Beats E.T
-unparseNice defLength = U.trackJoin . fmap unparseOne . showBlipsNice defLength
-
-showBlipsNice :: (NNC.C t) => t -> RTB.T t Event -> RTB.T t Event
-showBlipsNice defLength evts = let
-  getDiffNotes diff = \case
-    DiffEvent d (Note ln) | d == diff -> Just ln
-    _                                 -> Nothing
-  (expert, notExpert) = RTB.partitionMaybe (getDiffNotes Expert) evts
-  (hard  , notHard  ) = RTB.partitionMaybe (getDiffNotes Hard  ) notExpert
-  (medium, notMedium) = RTB.partitionMaybe (getDiffNotes Medium) notHard
-  (easy  , notEasy  ) = RTB.partitionMaybe (getDiffNotes Easy  ) notMedium
-  in foldr RTB.merge RTB.empty
-    [ DiffEvent Expert . Note <$> showEdgesNice' defLength expert
-    , DiffEvent Hard   . Note <$> showEdgesNice' defLength hard
-    , DiffEvent Medium . Note <$> showEdgesNice' defLength medium
-    , DiffEvent Easy   . Note <$> showEdgesNice' defLength easy
-    , notEasy
-    ]

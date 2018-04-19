@@ -55,7 +55,7 @@ import           DryVox                                (clipDryVox,
 import qualified FretsOnFire                           as FoF
 import           Genre
 import           GuitarHeroII.Audio                    (writeVGS)
-import           GuitarHeroII.Convert
+-- import           GuitarHeroII.Convert
 import           Image
 import           JSONData                              (StackJSON, fromJSON,
                                                         makeValue, valueId)

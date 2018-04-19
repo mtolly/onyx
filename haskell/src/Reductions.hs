@@ -16,14 +16,14 @@ import           Guitars
 import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
 import           ProKeysRanges                    (completeRanges)
+import           RockBand.Codec.Events            (eventsSections)
+import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Common                  (Difficulty (..), Key (..),
                                                    LongNote (..), joinEdges)
 import qualified RockBand.Drums                   as Drums
-import qualified RockBand.File                    as RBFile
 import           RockBand.FiveButton              (StrumHOPOTap (..))
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.ProKeys                 as PK
-import           RockBand.Sections                (getSection)
 import           Scripts                          (trackGlue)
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
@@ -522,15 +522,13 @@ drumsReduce diff   mmap od sections trk = let
 simpleReduce :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleReduce fin fout = do
   RBFile.Song tempos mmap onyx <- liftIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
-  let sections = let
-        evts = RBFile.onyxEvents onyx
-        in RTB.mapMaybe getSection evts
+  let sections = fmap snd $ eventsSections $ RBFile.onyxEvents onyx
   liftIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap onyx
-    { RBFile.onyxFlexParts = flip fmap (RBFile.onyxFlexParts onyx) $ \trks -> let
-      pkX = RBFile.flexPartRealKeysX trks
-      pkH = RBFile.flexPartRealKeysH trks `pkOr` pkReduce Hard   mmap od pkX
-      pkM = RBFile.flexPartRealKeysM trks `pkOr` pkReduce Medium mmap od pkH
-      pkE = RBFile.flexPartRealKeysE trks `pkOr` pkReduce Easy   mmap od pkM
+    { RBFile.onyxParts = flip fmap (RBFile.onyxParts onyx) $ \trks -> let
+      pkX = PK.pkToLegacy (RBFile.onyxPartRealKeysX trks)
+      pkH = PK.pkToLegacy (RBFile.onyxPartRealKeysH trks) `pkOr` pkReduce Hard   mmap od pkX
+      pkM = PK.pkToLegacy (RBFile.onyxPartRealKeysM trks) `pkOr` pkReduce Medium mmap od pkH
+      pkE = PK.pkToLegacy (RBFile.onyxPartRealKeysE trks) `pkOr` pkReduce Easy   mmap od pkM
       od = flip RTB.mapMaybe pkX $ \case
         PK.Overdrive b -> Just b
         _              -> Nothing
@@ -538,13 +536,13 @@ simpleReduce fin fout = do
         | RTB.null pkX  = RTB.empty
         | RTB.null trkX = trkY
         | otherwise     = trkX
-      hopoThresh = guard (RBFile.flexFiveIsKeys trks) >> Just 170
       in trks
-      { RBFile.flexFiveButton = gryboComplete hopoThresh mmap $ RBFile.flexFiveButton trks
-      , RBFile.flexPartDrums = drumsComplete mmap sections $ RBFile.flexPartDrums trks
-      , RBFile.flexPartRealKeysX = pkX
-      , RBFile.flexPartRealKeysH = pkH
-      , RBFile.flexPartRealKeysM = pkM
-      , RBFile.flexPartRealKeysE = pkE
+      { RBFile.onyxPartGuitar = Five.fiveFromLegacy $ gryboComplete (Just 170) mmap $ Five.fiveToLegacy $ RBFile.onyxPartGuitar trks
+      , RBFile.onyxPartKeys = Five.fiveFromLegacy $ gryboComplete Nothing mmap $ Five.fiveToLegacy $ RBFile.onyxPartKeys trks
+      , RBFile.onyxPartDrums = Drums.drumsFromLegacy $ drumsComplete mmap sections $ Drums.drumsToLegacy $ RBFile.onyxPartDrums trks
+      , RBFile.onyxPartRealKeysX = PK.pkFromLegacy pkX
+      , RBFile.onyxPartRealKeysH = PK.pkFromLegacy pkH
+      , RBFile.onyxPartRealKeysM = PK.pkFromLegacy pkM
+      , RBFile.onyxPartRealKeysE = PK.pkFromLegacy pkE
       }
     }

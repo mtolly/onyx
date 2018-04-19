@@ -7,11 +7,11 @@ import           Control.Monad.Trans.StackTrace
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (nub)
 import qualified Numeric.NonNegative.Class        as NNC
-import qualified RockBand.Drums                   as RBDrums
-import           RockBand.File
-import qualified RockBand.FiveButton              as RBFive
-import qualified RockBand.ProGuitar               as PG
-import qualified RockBand.ProKeys                 as PK
+import           RockBand.Codec.Drums
+import           RockBand.Codec.File
+import           RockBand.Codec.Five
+import           RockBand.Codec.ProGuitar
+import           RockBand.Codec.ProKeys
 import           Scripts                          (trackGlue)
 import qualified Sound.MIDI.Util                  as U
 
@@ -19,13 +19,9 @@ class HasOverdrive file where
   getOverdrive :: (SendMessage m, NNC.C t) => file t -> StackTraceT m (RTB.T t (FlexPartName, Bool))
   putOverdrive :: (NNC.C t) => file t -> RTB.T t (FlexPartName, Bool) -> file t
 
-instance HasOverdrive RB3File where
+instance HasOverdrive FixedFile where
   getOverdrive rb3 = do
-    let fnDrums = \case RBDrums.Overdrive b -> Just b; _ -> Nothing
-        fnFive  = \case RBFive.Overdrive  b -> Just b; _ -> Nothing
-        fnPK    = \case PK.Overdrive      b -> Just b; _ -> Nothing
-        fnPG    = \case PG.Overdrive      b -> Just b; _ -> Nothing
-        combineOD trks = case filter (not . RTB.null . snd) trks of
+    let combineOD trks = case filter (not . RTB.null . snd) trks of
           []                            -> return RTB.empty
           hasOD@((firstTrk, od) : rest) -> if all (== od) $ map snd rest
             then return od
@@ -39,32 +35,32 @@ instance HasOverdrive RB3File where
               return od
         part fpart = fmap $ fmap (fpart ,)
     foldr RTB.merge RTB.empty <$> sequence
-      [ part FlexDrums $ return $ RTB.mapMaybe fnDrums $ rb3PartDrums rb3
+      [ part FlexDrums $ return $ drumOverdrive $ fixedPartDrums rb3
       , part FlexGuitar $ combineOD
-        [ ("PART GUITAR"        , RTB.mapMaybe fnFive $ rb3PartGuitar       rb3)
-        , ("PART REAL_GUITAR"   , RTB.mapMaybe fnPG   $ rb3PartRealGuitar   rb3)
-        , ("PART REAL_GUITAR_22", RTB.mapMaybe fnPG   $ rb3PartRealGuitar22 rb3)
+        [ ("PART GUITAR"        , fiveOverdrive $ fixedPartGuitar       rb3)
+        , ("PART REAL_GUITAR"   , pgOverdrive   $ fixedPartRealGuitar   rb3)
+        , ("PART REAL_GUITAR_22", pgOverdrive   $ fixedPartRealGuitar22 rb3)
         ]
       , part FlexBass $ combineOD
-        [ ("PART BASS"        , RTB.mapMaybe fnFive $ rb3PartBass       rb3)
-        , ("PART REAL_BASS"   , RTB.mapMaybe fnPG   $ rb3PartRealBass   rb3)
-        , ("PART REAL_BASS_22", RTB.mapMaybe fnPG   $ rb3PartRealBass22 rb3)
+        [ ("PART BASS"        , fiveOverdrive $ fixedPartBass       rb3)
+        , ("PART REAL_BASS"   , pgOverdrive   $ fixedPartRealBass   rb3)
+        , ("PART REAL_BASS_22", pgOverdrive   $ fixedPartRealBass22 rb3)
         ]
       , part FlexKeys $ combineOD
-        [ ("PART KEYS"        , RTB.mapMaybe fnFive $ rb3PartKeys      rb3)
-        , ("PART REAL_KEYS"   , RTB.mapMaybe fnPK   $ rb3PartRealKeysX rb3)
+        [ ("PART KEYS"        , fiveOverdrive $ fixedPartKeys      rb3)
+        , ("PART REAL_KEYS"   , pkOverdrive   $ fixedPartRealKeysX rb3)
         ]
       ]
   putOverdrive rb3 od = rb3
-    { rb3PartDrums        = fnDrums drums $ rb3PartDrums        rb3
-    , rb3PartGuitar       = fnFive  gtr   $ rb3PartGuitar       rb3
-    , rb3PartRealGuitar   = fnPG    gtr   $ rb3PartRealGuitar   rb3
-    , rb3PartRealGuitar22 = fnPG    gtr   $ rb3PartRealGuitar22 rb3
-    , rb3PartBass         = fnFive  bass  $ rb3PartBass         rb3
-    , rb3PartRealBass     = fnPG    bass  $ rb3PartRealBass     rb3
-    , rb3PartRealBass22   = fnPG    bass  $ rb3PartRealBass22   rb3
-    , rb3PartKeys         = fnFive  keys  $ rb3PartKeys         rb3
-    , rb3PartRealKeysX    = fnPK    keys  $ rb3PartRealKeysX    rb3
+    { fixedPartDrums        = (fixedPartDrums        rb3) { drumOverdrive = drums }
+    , fixedPartGuitar       = (fixedPartGuitar       rb3) { fiveOverdrive = gtr }
+    , fixedPartRealGuitar   = (fixedPartRealGuitar   rb3) { pgOverdrive = gtr }
+    , fixedPartRealGuitar22 = (fixedPartRealGuitar22 rb3) { pgOverdrive = gtr }
+    , fixedPartBass         = (fixedPartBass         rb3) { fiveOverdrive = bass }
+    , fixedPartRealBass     = (fixedPartRealBass     rb3) { pgOverdrive = bass }
+    , fixedPartRealBass22   = (fixedPartRealBass22   rb3) { pgOverdrive = bass }
+    , fixedPartKeys         = (fixedPartKeys         rb3) { fiveOverdrive = keys }
+    , fixedPartRealKeysX    = (fixedPartRealKeysX    rb3) { pkOverdrive = keys }
     } where
       drums = bools FlexDrums
       gtr = bools FlexGuitar
@@ -73,37 +69,6 @@ instance HasOverdrive RB3File where
       bools fpart = flip RTB.mapMaybe od $ \case
         (fpart', b) | fpart == fpart' -> Just b
         _ -> Nothing
-      fn make clean newOD trk = if RTB.null trk
-        then RTB.empty
-        else RTB.merge (fmap make newOD) $ RTB.filter clean trk
-      fnDrums = fn RBDrums.Overdrive $ \case RBDrums.Overdrive{} -> False; _ -> True
-      fnFive  = fn RBFive.Overdrive  $ \case RBFive.Overdrive{}  -> False; _ -> True
-      fnPG    = fn PG.Overdrive      $ \case PG.Overdrive{}      -> False; _ -> True
-      fnPK    = fn PK.Overdrive      $ \case PK.Overdrive{}      -> False; _ -> True
-
-instance HasOverdrive RB2File where
-  getOverdrive rb2 = do
-    let fnDrums = \case RBDrums.Overdrive b -> Just b; _ -> Nothing
-        fnFive  = \case RBFive.Overdrive  b -> Just b; _ -> Nothing
-        part fpart = fmap (fpart ,)
-    return $ foldr RTB.merge RTB.empty
-      [ part FlexDrums  $ RTB.mapMaybe fnDrums $ rb2PartDrums  rb2
-      , part FlexGuitar $ RTB.mapMaybe fnFive  $ rb2PartGuitar rb2
-      , part FlexBass   $ RTB.mapMaybe fnFive  $ rb2PartBass   rb2
-      ]
-  putOverdrive rb2 od = rb2
-    { rb2PartDrums  = fnDrums (bools FlexDrums ) $ rb2PartDrums        rb2
-    , rb2PartGuitar = fnFive  (bools FlexGuitar) $ rb2PartGuitar       rb2
-    , rb2PartBass   = fnFive  (bools FlexBass  ) $ rb2PartBass         rb2
-    } where
-      bools fpart = flip RTB.mapMaybe od $ \case
-        (fpart', b) | fpart == fpart' -> Just b
-        _ -> Nothing
-      fn make clean newOD trk = if RTB.null trk
-        then RTB.empty
-        else RTB.merge (fmap make newOD) $ RTB.filter clean trk
-      fnDrums = fn RBDrums.Overdrive $ \case RBDrums.Overdrive{} -> False; _ -> True
-      fnFive  = fn RBFive.Overdrive  $ \case RBFive.Overdrive{}  -> False; _ -> True
 
 {-
 
@@ -164,9 +129,9 @@ removeBrokenUnisons mmap = go 0 where
         _ -> RTB.cons dt on <$> go (time + dt) rtb'
 
 fixBrokenUnisons
-  :: (SendMessage m)
-  => Song (RB3File U.Beats)
-  -> StackTraceT m (Song (RB3File U.Beats))
+  :: (SendMessage m, HasOverdrive f)
+  => Song (f U.Beats)
+  -> StackTraceT m (Song (f U.Beats))
 fixBrokenUnisons (Song tmap mmap rb3) = do
   od <- getOverdrive rb3
   od' <- removeBrokenUnisons mmap od
@@ -180,3 +145,93 @@ removePartialUnisons
   -> RTB.T U.Beats (FlexPartName, Bool)
   -> StackTraceT m (RTB.T U.Beats (FlexPartName, Bool))
 removePartialUnisons = undefined
+
+fixPartialUnisons
+  :: (SendMessage m, HasOverdrive f)
+  => [FlexPartName]
+  -> Song (f U.Beats)
+  -> StackTraceT m (Song (f U.Beats))
+fixPartialUnisons parts (Song tmap mmap rb3) = do
+  od <- getOverdrive rb3
+  od' <- removePartialUnisons parts mmap od
+  return $ Song tmap mmap $ putOverdrive rb3 od'
+
+-- Functions from RB2 module:
+
+{-
+
+-- | Removes OD phrases to ensures that no phrases overlap on different tracks,
+-- except for precisely matching unison phrases on all tracks.
+fixOverdrive :: (NNC.C t) => [RTB.T t Bool] -> [RTB.T t Bool]
+fixOverdrive [] = []
+fixOverdrive tracks = let
+  go trks = case sort $ mapMaybe (fmap fst . RTB.viewL) trks of
+    [] -> trks -- all tracks are empty
+    (_, ((), (), Nothing)) : _ -> panic "blip in joined phrase stream"
+    firstPhrase@(dt, ((), (), Just len)) : _ -> let
+      hasThisPhrase trk = case RTB.viewL trk of
+        Nothing             -> Nothing
+        Just (phrase, trk') -> guard (phrase == firstPhrase) >> Just trk'
+      in case mapM hasThisPhrase trks of
+        Just trks' -> map (uncurry RTB.cons firstPhrase) $ go trks' -- full unison
+        Nothing    -> let
+          ix = length $ takeWhile (isNothing . hasThisPhrase) trks
+          trksNext = map (RTB.delay len . U.trackDrop (NNC.add dt len)) trks
+          repackage i = if i == ix
+            then uncurry RTB.cons firstPhrase
+            else RTB.delay dt
+          in zipWith repackage [0..] $ go trksNext
+  boolToLong b = if b then NoteOn () () else NoteOff ()
+  longToBool (NoteOn  () ()) = True
+  longToBool (Blip    () ()) = panic "blip in LongNote stream"
+  longToBool (NoteOff    ()) = False
+  panic s = error $ "RockBand2.fixOverdrive: panic! this shouldn't happen: " ++ s
+  in map (fmap longToBool . splitEdges) $ go $ map (joinEdges . fmap boolToLong) tracks
+
+-- the complicated dance to extract OD phrases, fix partial unisons,
+-- and put the phrases back
+fixUnisons trks = let
+  gtr  = F.fixedPartGuitar trks
+  bass = F.fixedPartBass   trks
+  drum = F.fixedPartDrums  trks
+  gtrOD  = RTB.mapMaybe getFiveOD gtr
+  bassOD = RTB.mapMaybe getFiveOD bass
+  drumOD = RTB.mapMaybe getDrumOD drum
+  getFiveOD = \case Five.Overdrive  b -> Just b; _ -> Nothing
+  getDrumOD = \case Drums.Overdrive b -> Just b; _ -> Nothing
+  replaceFiveOD od trk = RTB.merge (fmap Five.Overdrive od)
+    $ RTB.filter (\case Five.Overdrive _ -> False; _ -> True) trk
+  replaceDrumsOD od trk = RTB.merge (fmap Drums.Overdrive od)
+    $ RTB.filter (\case Drums.Overdrive _ -> False; _ -> True) trk
+  in case (not $ RTB.null gtr, not $ RTB.null bass, not $ RTB.null drum) of
+    (False, False, False) -> trks
+    ( True, False, False) -> trks
+    (False,  True, False) -> trks
+    (False, False,  True) -> trks
+    ( True,  True, False) -> let
+      [gtrOD', bassOD'] = fixOverdrive [gtrOD, bassOD]
+      in trks
+        { F.fixedPartGuitar = replaceFiveOD gtrOD'  $ F.fixedPartGuitar trks
+        , F.fixedPartBass   = replaceFiveOD bassOD' $ F.fixedPartBass   trks
+        }
+    ( True, False,  True) -> let
+      [drumOD', gtrOD'] = fixOverdrive [drumOD, gtrOD]
+      in trks
+        { F.fixedPartGuitar = replaceFiveOD  gtrOD'  $ F.fixedPartGuitar trks
+        , F.fixedPartDrums  = replaceDrumsOD drumOD' $ F.fixedPartDrums  trks
+        }
+    (False,  True,  True) -> let
+      [drumOD', bassOD'] = fixOverdrive [drumOD, bassOD]
+      in trks
+        { F.fixedPartBass   = replaceFiveOD  bassOD' $ F.fixedPartBass   trks
+        , F.fixedPartDrums  = replaceDrumsOD drumOD' $ F.fixedPartDrums  trks
+        }
+    ( True,  True,  True) -> let
+      [drumOD', gtrOD', bassOD'] = fixOverdrive [drumOD, gtrOD, bassOD]
+      in trks
+        { F.fixedPartGuitar = replaceFiveOD  gtrOD'  $ F.fixedPartGuitar trks
+        , F.fixedPartBass   = replaceFiveOD  bassOD' $ F.fixedPartBass   trks
+        , F.fixedPartDrums  = replaceDrumsOD drumOD' $ F.fixedPartDrums  trks
+        }
+
+-}

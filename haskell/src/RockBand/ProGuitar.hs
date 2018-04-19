@@ -2,7 +2,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE TemplateHaskell       #-}
 module RockBand.ProGuitar
 ( GtrChannel(..), GtrFret, GtrString(..), NoteType(..), SlideType(..), StrumArea(..)
 , Event(..), DiffEvent(..)
@@ -13,29 +12,20 @@ module RockBand.ProGuitar
 , lowerOctaves
 , guitarifyHOPO
 , makeChordName
+, pgFromLegacy, pgToLegacy
 ) where
 
 import           Control.Monad                    (guard)
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Maybe                       (isJust)
-import           Data.Monoid                      ((<>))
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import           Guitars                          (applyStatus, guitarify,
                                                    trackState)
-import           Language.Haskell.TH
 import qualified Numeric.NonNegative.Class        as NNC
-import           RockBand.Codec.ProGuitar         (GtrChannel (..), GtrFret,
-                                                   GtrString (..),
-                                                   NoteType (..),
-                                                   SlideType (..),
-                                                   StrumArea (..))
+import           RockBand.Codec.ProGuitar
 import           RockBand.Common
 import           RockBand.FiveButton              (StrumHOPOTap (..))
-import           RockBand.Parse
-import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
-import           Text.Read                        (readMaybe)
 
 data Event
   = TrainerGtr   Trainer
@@ -70,224 +60,11 @@ data DiffEvent
   | Note (LongNote GtrFret (GtrString, NoteType))
   deriving (Eq, Ord, Show, Read)
 
-parseNoteBlip :: Int -> Difficulty -> GtrString -> ParseOne U.Beats E.T Event
-parseNoteBlip pitch diff str rtb = do
-  ((t, (c, p, v)), rtb') <- parseBlipCPVMax (1/3) rtb
-  guard $ p == pitch
-  guard $ v >= 100
-  ntype <- lookup c channelMap
-  let e = DiffEvent diff $ Note $ Blip (v - 100) (str, ntype)
-  return ((t, e), rtb')
+pgFromLegacy :: (NNC.C t) => RTB.T t Event -> ProGuitarTrack t
+pgFromLegacy = undefined
 
-parseLongNoteEdge :: (NNC.C t) => Int -> Difficulty -> GtrString -> ParseOne t E.T Event
-parseLongNoteEdge pitch diff str rtb = do
-  ((t, (c, p, v)), rtb') <- firstEventWhich isNoteEdgeCPV rtb
-  guard $ p == pitch
-  guard $ maybe True (>= 100) v
-  ntype <- lookup c channelMap
-  let e = DiffEvent diff $ Note $ case v of
-        Nothing  -> NoteOff (str, ntype)
-        Just vel -> NoteOn (vel - 100) (str, ntype)
-  return ((t, e), rtb')
-
-parseSlide :: (NNC.C t) => Int -> Difficulty -> ParseOne t E.T Event
-parseSlide pitch diff rtb = do
-  ((t, (c, p, v)), rtb') <- firstEventWhich isNoteEdgeCPV rtb
-  guard $ p == pitch
-  stype <- lookup c channelMap
-  let e = DiffEvent diff $ Slide (isJust v) stype
-  return ((t, e), rtb')
-
-parsePartialChord :: (NNC.C t) => Int -> Difficulty -> ParseOne t E.T Event
-parsePartialChord pitch diff rtb = do
-  ((t, (c, p, v)), rtb') <- firstEventWhich isNoteEdgeCPV rtb
-  guard $ p == pitch
-  area <- lookup c channelMap
-  let e = DiffEvent diff $ PartialChord (isJust v) area
-  return ((t, e), rtb')
-
-parseHandPosition :: (NNC.C t) => ParseOne t E.T Event
-parseHandPosition rtb = do
-  ((t, (_, p, v)), rtb') <- parseBlipCPV rtb
-  guard $ p == 108
-  guard $ v >= 100
-  return ((t, HandPosition $ v - 100), rtb')
-
-instanceMIDIEvent [t| Event |] Nothing $ let
-  note :: Int -> Q Pat -> Q Pat -> [(Q Exp, Q Exp)]
-  note pitch diff str =
-    [ ( [e| one $ parseNoteBlip pitch $(fmap patToExp diff) $(fmap patToExp str) |]
-      , [e| \case
-        DiffEvent $diff (Note (Blip fret ($str, ntype))) ->
-          unparseBlipCPV (encodeChannel ntype, pitch, fret + 100)
-        |]
-      )
-    , ( [e| one $ parseLongNoteEdge pitch $(fmap patToExp diff) $(fmap patToExp str) |]
-      , [e| \case
-        DiffEvent $diff (Note (NoteOn fret ($str, ntype))) ->
-          RTB.singleton 0 $ makeEdgeCPV (encodeChannel ntype) pitch $ Just $ fret + 100
-        DiffEvent $diff (Note (NoteOff ($str, ntype))) ->
-          RTB.singleton 0 $ makeEdgeCPV (encodeChannel ntype) pitch Nothing
-        |]
-      )
-    ]
-  -- Nemo's MIDI checker complains (incorrectly) if slide notes have velocity < 100.
-  slide :: Int -> Q Pat -> (Q Exp, Q Exp)
-  slide pitch diff =
-    ( [e| one $ parseSlide pitch $(fmap patToExp diff) |]
-    , [e| \case
-      DiffEvent $diff (Slide b stype) ->
-        RTB.singleton 0 $ makeEdgeCPV (encodeChannel stype) pitch $ guard b >> Just 100
-      |]
-    )
-  partialChord :: Int -> Q Pat -> (Q Exp, Q Exp)
-  partialChord pitch diff =
-    ( [e| one $ parsePartialChord pitch $(fmap patToExp diff) |]
-    , [e| \case
-      DiffEvent $diff (PartialChord b area) ->
-        RTB.singleton 0 $ makeEdgeCPV (encodeChannel area) pitch $ guard b >> Just 100
-      |]
-    )
-  in  [ blip 4  [p| ChordRoot E  |]
-      , blip 5  [p| ChordRoot F  |]
-      , blip 6  [p| ChordRoot Fs |]
-      , blip 7  [p| ChordRoot G  |]
-      , blip 8  [p| ChordRoot Gs |]
-      , blip 9  [p| ChordRoot A  |]
-      , blip 10 [p| ChordRoot As |]
-      , blip 11 [p| ChordRoot B  |]
-      , blip 12 [p| ChordRoot C  |]
-      , blip 13 [p| ChordRoot Cs |]
-      , blip 14 [p| ChordRoot D  |]
-      , blip 15 [p| ChordRoot Ds |]
-
-      , edge 16 $ \_b -> [p| SlashChords  $(boolP _b) |]
-      , edge 17 $ \_b -> [p| NoChordNames $(boolP _b) |]
-      , edge 18 $ \_b -> [p| FlatChords   $(boolP _b) |]
-
-      ] ++ note 24  [p| Easy |] [p| S6 |]
-        ++ note 25  [p| Easy |] [p| S5 |]
-        ++ note 26  [p| Easy |] [p| S4 |]
-        ++ note 27  [p| Easy |] [p| S3 |]
-        ++ note 28  [p| Easy |] [p| S2 |]
-        ++ note 29  [p| Easy |] [p| S1 |] ++
-      [ edge 30 $ \_b -> [p| DiffEvent Easy (ForceHOPO $(boolP _b)) |]
-      , slide 31 [p| Easy |]
-      , edge 32 $ \_b -> [p| DiffEvent Easy (Arpeggio $(boolP _b)) |]
-      , partialChord 33 [p| Easy |]
-      -- TODO (not actually seen)
-      , edge 34 $ \_b -> [p| DiffEvent Easy (MysteryBFlat $(boolP _b)) |]
-      , edge 35 $ \_b -> [p| DiffEvent Easy (AllFrets $(boolP _b)) |]
-
-      -- TODO
-      , edge 45 $ \_b -> [p| Mystery45 $(boolP _b) |]
-
-      ] ++ note 48  [p| Medium |] [p| S6 |]
-        ++ note 49  [p| Medium |] [p| S5 |]
-        ++ note 50  [p| Medium |] [p| S4 |]
-        ++ note 51  [p| Medium |] [p| S3 |]
-        ++ note 52  [p| Medium |] [p| S2 |]
-        ++ note 53  [p| Medium |] [p| S1 |] ++
-      [ edge 54 $ \_b -> [p| DiffEvent Medium (ForceHOPO $(boolP _b)) |]
-      , slide 55 [p| Medium |]
-      , edge 56 $ \_b -> [p| DiffEvent Medium (Arpeggio $(boolP _b)) |]
-      , partialChord 57 [p| Medium |]
-      -- TODO
-      , edge 58 $ \_b -> [p| DiffEvent Medium (MysteryBFlat $(boolP _b)) |]
-      , edge 59 $ \_b -> [p| DiffEvent Medium (AllFrets $(boolP _b)) |]
-
-      -- TODO
-      , edge 69 $ \_b -> [p| Mystery69 $(boolP _b) |]
-
-      ] ++ note 72  [p| Hard |] [p| S6 |]
-        ++ note 73  [p| Hard |] [p| S5 |]
-        ++ note 74  [p| Hard |] [p| S4 |]
-        ++ note 75  [p| Hard |] [p| S3 |]
-        ++ note 76  [p| Hard |] [p| S2 |]
-        ++ note 77  [p| Hard |] [p| S1 |] ++
-      [ edge 78 $ \_b -> [p| DiffEvent Hard (ForceHOPO $(boolP _b)) |]
-      , slide 79 [p| Hard |] -- TODO: channel 3
-      , edge 80 $ \_b -> [p| DiffEvent Hard (Arpeggio $(boolP _b)) |]
-      , partialChord 81 [p| Hard |]
-      -- TODO
-      , edge 82 $ \_b -> [p| DiffEvent Hard (MysteryBFlat $(boolP _b)) |]
-      , edge 83 $ \_b -> [p| DiffEvent Hard (AllFrets $(boolP _b)) |]
-
-      -- TODO
-      , edge 93 $ \_b -> [p| Mystery93 $(boolP _b) |]
-
-      ] ++ note 96  [p| Expert |] [p| S6 |]
-        ++ note 97  [p| Expert |] [p| S5 |]
-        ++ note 98  [p| Expert |] [p| S4 |]
-        ++ note 99  [p| Expert |] [p| S3 |]
-        ++ note 100 [p| Expert |] [p| S2 |]
-        ++ note 101 [p| Expert |] [p| S1 |] ++
-      [ edge 102 $ \_b -> [p| DiffEvent Expert (ForceHOPO $(boolP _b)) |]
-      , slide 103 [p| Expert |] -- TODO: channel 3
-      , edge 104 $ \_b -> [p| DiffEvent Expert (Arpeggio $(boolP _b)) |]
-      , partialChord 105 [p| Expert |]
-      -- TODO
-      , edge 106 $ \_b -> [p| DiffEvent Expert (MysteryBFlat $(boolP _b)) |]
-      , edge 107 $ \_b -> [p| DiffEvent Expert (AllFrets $(boolP _b)) |]
-
-      , ( [e| one parseHandPosition |]
-        , [e| \case
-            HandPosition fret -> unparseBlipCPV (0, 108, fret + 100)
-          |]
-        )
-      , edge 115           $ \_b -> [p| Solo      $(boolP _b) |]
-      , edge 116           $ \_b -> [p| Overdrive $(boolP _b) |]
-      -- guitar BRE must come before bass
-      , edges [120 .. 125] $ \_b -> [p| BREGuitar $(boolP _b) |]
-      , edges [120 .. 123] $ \_b -> [p| BREBass   $(boolP _b) |]
-      , edge 126           $ \_b -> [p| Tremolo   $(boolP _b) |]
-      , edge 127           $ \_b -> [p| Trill     $(boolP _b) |]
-
-      , ( [e| one $ firstEventWhich $ \e -> readCommand' e >>= \case
-            (t, s) | s == T.pack "pg" -> Just $ TrainerGtr  t
-            (t, s) | s == T.pack "pb" -> Just $ TrainerBass t
-            _                         -> Nothing
-          |]
-        , [e| \case
-            TrainerGtr  t -> RTB.singleton NNC.zero $ showCommand' (t, T.pack "pg")
-            TrainerBass t -> RTB.singleton NNC.zero $ showCommand' (t, T.pack "pb")
-          |]
-        )
-      -- TODO: "[begin_pb song_trainer_pg_1]"
-      -- TODO: "pb_norm song_trainer_pb_1]"
-      , ( [e| one $ firstEventWhich $ \e -> readCommand' e >>= \case
-            ["chrd0"   ] -> Just $ DiffEvent Easy   $ ChordName Nothing
-            ["chrd1"   ] -> Just $ DiffEvent Medium $ ChordName Nothing
-            ["chrd2"   ] -> Just $ DiffEvent Hard   $ ChordName Nothing
-            ["chrd3"   ] -> Just $ DiffEvent Expert $ ChordName Nothing
-            "chrd0" : ws -> Just $ DiffEvent Easy   $ ChordName $ Just $ T.unwords ws
-            "chrd1" : ws -> Just $ DiffEvent Medium $ ChordName $ Just $ T.unwords ws
-            "chrd2" : ws -> Just $ DiffEvent Hard   $ ChordName $ Just $ T.unwords ws
-            "chrd3" : ws -> Just $ DiffEvent Expert $ ChordName $ Just $ T.unwords ws
-            _            -> Nothing
-          |]
-        , [e| \case
-            DiffEvent diff (ChordName s) -> RTB.singleton 0 $ showCommand' $ let
-              x = "chrd" <> T.pack (show $ fromEnum diff)
-              in case s of
-                Nothing  -> [x]
-                Just str -> [x, str]
-          |]
-        )
-      -- custom onyx event
-      , ( [e| one $ firstEventWhich $ \e -> do
-            cmd <- readCommand' e
-            let _ = cmd :: [T.Text]
-            case cmd of
-              ["onyx", "octave", n] -> OnyxOctave <$> readMaybe (T.unpack n)
-              _                     -> Nothing
-          |]
-        , [e| \case
-            OnyxOctave n -> RTB.singleton 0 $ showCommand'
-              ["onyx", "octave", T.pack $ show n]
-          |]
-        )
-      ]
+pgToLegacy :: (NNC.C t) => ProGuitarTrack t -> RTB.T t Event
+pgToLegacy = undefined
 
 standardGuitar :: [Int]
 standardGuitar = [40, 45, 50, 55, 59, 64]

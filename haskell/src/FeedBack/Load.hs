@@ -27,10 +27,10 @@ import qualified FretsOnFire                      as FoF
 import qualified Guitars                          as G
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Numeric.NonNegative.Wrapper      as NN
+import           RockBand.Codec.File
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), splitEdges)
 import qualified RockBand.Events                  as Ev
-import           RockBand.File
 import qualified RockBand.FiveButton              as Five
 import qualified RockBand.GHL                     as GHL
 import qualified Sound.MIDI.Util                  as U
@@ -194,7 +194,7 @@ emitTrack hopoThreshold trk = let
   in flip fmap applied $ \(forced, (tap, ln)) ->
     first (if tap then const Five.Tap else if forced then flipSH else id) ln
 
-chartToMIDI :: (SendMessage m) => Chart U.Beats -> StackTraceT m (Song (PSFile U.Beats))
+chartToMIDI :: (SendMessage m) => Chart U.Beats -> StackTraceT m (Song (FixedFile U.Beats))
 chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
   let insideTrack name fn = inside (".chart track [" <> T.unpack name <> "]") $ do
         fn $ fromMaybe RTB.empty $ Map.lookup name $ chartTracks chart
@@ -282,38 +282,34 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
                 TrackSolo b -> RTB.singleton 0 $ GHL.Solo b
                 _ -> RTB.empty
               _ -> RTB.empty
-  psPartGuitar       <- parseGRYBO "Single" -- ExpertSingle etc.
-  psPartGuitarGHL    <- parseGHL "GHLGuitar" -- ExpertGHLGuitar etc.
-  psPartBass         <- parseGRYBO "DoubleBass" -- ExpertDoubleBass etc.
-  psPartBassGHL      <- parseGHL "GHLBass" -- ExpertGHLBass etc.
-  psPartKeys         <- parseGRYBO "Keyboard" -- ExpertKeyboard etc.
-  psPartRhythm       <- return RTB.empty -- ExpertDoubleBass when Player2 = rhythm ???
-  psPartGuitarCoop   <- return RTB.empty -- ExpertDoubleGuitar ???
-  psEvents           <- insideTrack "Events" $ \trk -> do
+  fixedPartGuitar       <- Five.fiveFromLegacy <$> parseGRYBO "Single" -- ExpertSingle etc.
+  fixedPartGuitarGHL    <- GHL.sixFromLegacy <$> parseGHL "GHLGuitar" -- ExpertGHLGuitar etc.
+  fixedPartBass         <- Five.fiveFromLegacy <$> parseGRYBO "DoubleBass" -- ExpertDoubleBass etc.
+  fixedPartBassGHL      <- GHL.sixFromLegacy <$> parseGHL "GHLBass" -- ExpertGHLBass etc.
+  fixedPartKeys         <- Five.fiveFromLegacy <$> parseGRYBO "Keyboard" -- ExpertKeyboard etc.
+  fixedPartRhythm       <- return mempty -- ExpertDoubleBass when Player2 = rhythm ???
+  fixedPartGuitarCoop   <- return mempty -- ExpertDoubleGuitar ???
+  fixedEvents           <- fmap Ev.eventsFromLegacy $ insideTrack "Events" $ \trk -> do
     return $ fmap Ev.SectionRB2 $ flip RTB.mapMaybe trk $ \case
       Event t -> T.stripPrefix "section " t
       _       -> Nothing
-  let psPartDrums        = RTB.empty -- ExpertDrums etc.
-      psPartDrums2x      = RTB.empty
-      psPartRealDrumsPS  = RTB.empty
-      psPartRealGuitar   = RTB.empty
-      psPartRealGuitar22 = RTB.empty
-      psPartRealBass     = RTB.empty
-      psPartRealBass22   = RTB.empty
-      psPartRealKeysE    = RTB.empty
-      psPartRealKeysM    = RTB.empty
-      psPartRealKeysH    = RTB.empty
-      psPartRealKeysX    = RTB.empty
-      psPartRealKeysPS_E = RTB.empty
-      psPartRealKeysPS_M = RTB.empty
-      psPartRealKeysPS_H = RTB.empty
-      psPartRealKeysPS_X = RTB.empty
-      psPartKeysAnimLH   = RTB.empty
-      psPartKeysAnimRH   = RTB.empty
-      psPartVocals       = RTB.empty
-      psHarm1            = RTB.empty
-      psHarm2            = RTB.empty
-      psHarm3            = RTB.empty
-      psBeat             = RTB.empty
-      psVenue            = RTB.empty
-  return PSFile{..}
+  let fixedPartDrums        = mempty -- ExpertDrums etc.
+      fixedPartDrums2x      = mempty
+      fixedPartRealDrumsPS  = mempty
+      fixedPartRealGuitar   = mempty
+      fixedPartRealGuitar22 = mempty
+      fixedPartRealBass     = mempty
+      fixedPartRealBass22   = mempty
+      fixedPartRealKeysE    = mempty
+      fixedPartRealKeysM    = mempty
+      fixedPartRealKeysH    = mempty
+      fixedPartRealKeysX    = mempty
+      fixedPartKeysAnimLH   = mempty
+      fixedPartKeysAnimRH   = mempty
+      fixedPartVocals       = mempty
+      fixedHarm1            = mempty
+      fixedHarm2            = mempty
+      fixedHarm3            = mempty
+      fixedBeat             = mempty
+      fixedVenue            = mempty
+  return FixedFile{..}

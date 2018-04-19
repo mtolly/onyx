@@ -10,6 +10,7 @@ import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
+import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
 
@@ -73,3 +74,20 @@ instance ParseTrack EventsTrack where
       BackingSnare -> 25
       BackingHihat -> 26
     return EventsTrack{..}
+
+instance (NNC.C t) => Monoid (EventsTrack t) where
+  mempty = EventsTrack
+    RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty
+  mappend
+    (EventsTrack a1 a2 a3 a4 a5 a6 a7 a8)
+    (EventsTrack b1 b2 b3 b4 b5 b6 b7 b8)
+    = EventsTrack
+      (RTB.merge a1 b1)
+      (RTB.merge a2 b2)
+      (RTB.merge a3 b3)
+      (RTB.merge a4 b4)
+      (RTB.merge a5 b5)
+      (RTB.merge a6 b6)
+      (RTB.merge a7 b7)
+      (RTB.merge a8 b8)

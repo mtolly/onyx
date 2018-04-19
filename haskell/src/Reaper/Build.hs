@@ -31,9 +31,9 @@ import qualified Numeric.NonNegative.Wrapper           as NN
 import           Resources                             (colorMapDrums,
                                                         colorMapGHL,
                                                         colorMapGRYBO)
-import           RockBand.Common                       (Key (..), showKey)
-import           RockBand.File                         (FlexPartName (..),
+import           RockBand.Codec.File                   (FlexPartName (..),
                                                         identifyFlexTrack)
+import           RockBand.Common                       (Key (..), showKey)
 import qualified RockBand.Vocals                       as Vox
 import           Scripts                               (loadTemposIO)
 import qualified Sound.File.Sndfile                    as Snd

@@ -5,10 +5,10 @@ module RockBand.Codec.Five where
 
 import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
-import           Data.Default.Class               (Default (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
+import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
 import qualified RockBand.PhaseShiftMessage       as PS
@@ -102,6 +102,27 @@ data FiveTrack t = FiveTrack
   , fivePlayer2      :: RTB.T t Bool
   } deriving (Eq, Ord, Show)
 
+instance (NNC.C t) => Monoid (FiveTrack t) where
+  mempty = FiveTrack Map.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+  mappend
+    (FiveTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12)
+    (FiveTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12)
+    = FiveTrack
+      (Map.unionWith mappend a1 b1)
+      (RTB.merge a2 b2)
+      (RTB.merge a3 b3)
+      (RTB.merge a4 b4)
+      (RTB.merge a5 b5)
+      (RTB.merge a6 b6)
+      (RTB.merge a7 b7)
+      (RTB.merge a8 b8)
+      (RTB.merge a9 b9)
+      (RTB.merge a10 b10)
+      (RTB.merge a11 b11)
+      (RTB.merge a12 b12)
+
 instance TraverseTrack FiveTrack where
   traverseTrack fn (FiveTrack a b c d e f g h i j k l) = FiveTrack
     <$> traverse (traverseTrack fn) a
@@ -121,8 +142,18 @@ instance TraverseTrack FiveDifficulty where
   traverseTrack fn (FiveDifficulty a b c d e f) = FiveDifficulty
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
 
-instance Default (FiveDifficulty t) where
-  def = FiveDifficulty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+instance (NNC.C t) => Monoid (FiveDifficulty t) where
+  mempty = FiveDifficulty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+  mappend
+    (FiveDifficulty a1 a2 a3 a4 a5 a6)
+    (FiveDifficulty b1 b2 b3 b4 b5 b6)
+    = FiveDifficulty
+      (RTB.merge a1 b1)
+      (RTB.merge a2 b2)
+      (RTB.merge a3 b3)
+      (RTB.merge a4 b4)
+      (RTB.merge a5 b5)
+      (RTB.merge a6 b6)
 
 instance ParseTrack FiveTrack where
   parseTrack = do

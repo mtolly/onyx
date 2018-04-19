@@ -51,14 +51,13 @@ import           PrettyDTA                        (C3DTAComments (..),
                                                    readDTASingle, readRB3DTA,
                                                    writeDTASingle)
 import           Resources                        (rb3Updates)
+import           RockBand.Codec.File              (FlexPartName (..))
+import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), joinEdges)
 import qualified RockBand.Drums                   as RBDrums
-import           RockBand.File                    (FlexPartName (..))
-import qualified RockBand.File                    as RBFile
 import qualified RockBand.Vocals                  as RBVox
-import           Scripts                          (loadFoFMIDI_precodec,
-                                                   loadMIDI_precodec)
+import           Scripts                          (loadFoFMIDI, loadMIDI)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Extract                     (extractSTFS)
@@ -107,7 +106,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
       stackIO (Dir.doesFileExist pathMid) >>= \case
         True -> do
           lg "Found song.ini and notes.mid"
-          mid <- loadFoFMIDI_precodec ini $ src </> "notes.mid"
+          mid <- loadFoFMIDI ini $ src </> "notes.mid"
           return (ini, mid, False)
         False -> stackIO (Dir.doesFileExist pathChart) >>= \case
           True -> do
@@ -228,7 +227,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
   mid2x <- stackIO $ Dir.doesFileExist $ src </> "expert+.mid"
   add2x <- if mid2x
     then do
-      parsed2x <- loadMIDI_precodec $ src </> "expert+.mid"
+      parsed2x <- loadMIDI $ src </> "expert+.mid"
       let trk2x = RBFile.psPartDrums $ RBFile.s_tracks parsed2x
       return $ if RTB.null trk2x
         then id
@@ -617,8 +616,8 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
     Just "lego"    -> return True
     Just "rb2"     -> return True -- this also covers RBN1, which has (game_origin rb2) and (ugc 1)
     _              -> return False -- previously this would check 'format' but I think unnecessary
-  RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI_precodec mid
-  trksUpdate <- maybe (return []) (fmap (RBFile.rawTracks . RBFile.s_tracks) . loadMIDI_precodec) updateMid
+  RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI mid
+  trksUpdate <- maybe (return []) (fmap (RBFile.rawTracks . RBFile.s_tracks) . loadMIDI) updateMid
   let updatedNames = map Just $ mapMaybe U.trackName trksUpdate
       trksUpdated
         = filter ((`notElem` updatedNames) . U.trackName) trks1x
@@ -626,7 +625,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
   trksAdd2x <- case files2x of
     Nothing -> return trksUpdated
     Just (_pkg2x, mid2x) -> do
-      RBFile.Song _ _ (RBFile.RawFile trks2x) <- loadMIDI_precodec mid2x
+      RBFile.Song _ _ (RBFile.RawFile trks2x) <- loadMIDI mid2x
       drums1x <- RBFile.parseTracks sigs trksUpdated ["PART DRUMS"]
       drums2x <- RBFile.parseTracks sigs trks2x      ["PART DRUMS"]
       let notDrums = filter ((/= Just "PART DRUMS") . U.trackName) trksUpdated
@@ -709,8 +708,8 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
   lg $ "Detected the following channels as silent: " ++ show silentChannels
 
   drumEvents <- if isRB2
-    then toList . RBFile.rb2PartDrums . RBFile.s_tracks <$> loadMIDI_precodec mid
-    else toList . RBFile.rb3PartDrums . RBFile.s_tracks <$> loadMIDI_precodec mid
+    then toList . RBFile.rb2PartDrums . RBFile.s_tracks <$> loadMIDI mid
+    else toList . RBFile.rb3PartDrums . RBFile.s_tracks <$> loadMIDI mid
   drumMix <- let
     drumMixes = [ aud | RBDrums.DiffEvent _ (RBDrums.Mix aud _) <- drumEvents ]
     in case drumMixes of

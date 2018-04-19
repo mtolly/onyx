@@ -4,6 +4,7 @@ module RockBand.Codec.Beat where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
 
@@ -22,3 +23,7 @@ instance ParseTrack BeatTrack where
 
 instance TraverseTrack BeatTrack where
   traverseTrack fn (BeatTrack a) = BeatTrack <$> fn a
+
+instance (NNC.C t) => Monoid (BeatTrack t) where
+  mempty = BeatTrack RTB.empty
+  mappend (BeatTrack a) (BeatTrack b) = BeatTrack (RTB.merge a b)

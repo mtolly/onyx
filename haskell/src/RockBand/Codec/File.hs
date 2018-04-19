@@ -1,3 +1,6 @@
+{-# LANGUAGE DeriveFoldable    #-}
+{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -12,11 +15,15 @@ import           Control.Monad.Trans.Writer       (Writer, execWriter, tell)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Functor.Identity            (Identity)
-import           Data.List.Extra                  (nubOrd, partition)
+import           Data.Hashable                    (Hashable (..))
+import           Data.List.Extra                  (isInfixOf, nubOrd, partition,
+                                                   sortOn, stripPrefix)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, mapMaybe)
+import           Data.Maybe                       (fromJust, fromMaybe,
+                                                   mapMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
+import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Codec.Beat
 import           RockBand.Codec.Drums
@@ -27,9 +34,12 @@ import           RockBand.Codec.ProKeys
 import           RockBand.Codec.Six
 import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal
-import qualified RockBand.File                    as RBFile
+import           RockBand.Common
+import           RockBand.Parse                   (isNoteEdge)
+import           RockBand.PhaseShiftMessage
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Event            as E
+import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Util                  as U
 
 type FileParser m t = StackTraceT (StateT [RTB.T t E.T] m)
@@ -47,7 +57,7 @@ fileTrack name otherNames = Codec
   { codecIn = do
     trks <- lift get
     let (match, rest) = partition matchTrack trks
-        match' = RBFile.stripTrack $ foldr RTB.merge RTB.empty match
+        match' = stripTrack $ foldr RTB.merge RTB.empty match
         name' = fromMaybe (T.unpack name) $ U.trackName match'
     lift $ put rest
     inside ("Parsing track: " ++ name') $ do
@@ -107,6 +117,45 @@ data FixedFile t = FixedFile
   , fixedVenue            :: VenueTrack t
   } deriving (Eq, Ord, Show)
 
+instance (NNC.C t) => Monoid (FixedFile t) where
+  mempty = FixedFile mempty mempty
+    mempty mempty mempty mempty mempty
+    mempty mempty mempty mempty mempty
+    mempty mempty mempty mempty mempty
+    mempty mempty mempty mempty mempty
+    mempty mempty mempty mempty mempty
+  mappend
+    (FixedFile a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19 a20 a21 a22 a23 a24 a25 a26 a27)
+    (FixedFile b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18 b19 b20 b21 b22 b23 b24 b25 b26 b27)
+    = FixedFile
+      (mappend a1 b1)
+      (mappend a2 b2)
+      (mappend a3 b3)
+      (mappend a4 b4)
+      (mappend a5 b5)
+      (mappend a6 b6)
+      (mappend a7 b7)
+      (mappend a8 b8)
+      (mappend a9 b9)
+      (mappend a10 b10)
+      (mappend a11 b11)
+      (mappend a12 b12)
+      (mappend a13 b13)
+      (mappend a14 b14)
+      (mappend a15 b15)
+      (mappend a16 b16)
+      (mappend a17 b17)
+      (mappend a18 b18)
+      (mappend a19 b19)
+      (mappend a20 b20)
+      (mappend a21 b21)
+      (mappend a22 b22)
+      (mappend a23 b23)
+      (mappend a24 b24)
+      (mappend a25 b25)
+      (mappend a26 b26)
+      (mappend a27 b27)
+
 instance TraverseTrack FixedFile where
   traverseTrack fn
     (FixedFile a b c d e f g h i j k l m n o p q r s t u v w x y z aa)
@@ -152,12 +201,53 @@ instance ParseFile FixedFile where
     fixedVenue            <- fixedVenue            =. fileTrack "VENUE"               []
     return FixedFile{..}
 
+data FlexPartName
+  = FlexGuitar
+  | FlexBass
+  | FlexDrums
+  | FlexKeys
+  | FlexVocal
+  | FlexExtra T.Text
+  deriving (Eq, Ord, Show, Read)
+
+readPartName :: T.Text -> FlexPartName
+readPartName = \case
+  "guitar" -> FlexGuitar
+  "bass"   -> FlexBass
+  "drums"  -> FlexDrums
+  "keys"   -> FlexKeys
+  "vocal"  -> FlexVocal
+  t        -> FlexExtra t
+
+getPartName :: FlexPartName -> T.Text
+getPartName = \case
+  FlexGuitar  -> "guitar"
+  FlexBass    -> "bass"
+  FlexDrums   -> "drums"
+  FlexKeys    -> "keys"
+  FlexVocal   -> "vocal"
+  FlexExtra t -> t
+
+instance Hashable FlexPartName where
+  hashWithSalt salt = hashWithSalt salt . getPartName
+
 data OnyxFile t = OnyxFile
-  { onyxParts  :: Map.Map RBFile.FlexPartName (OnyxPart t)
+  { onyxParts  :: Map.Map FlexPartName (OnyxPart t)
   , onyxEvents :: EventsTrack t
   , onyxBeat   :: BeatTrack t
   , onyxVenue  :: VenueTrack t
   } deriving (Eq, Ord, Show)
+
+instance (NNC.C t) => Monoid (OnyxFile t) where
+  mempty = OnyxFile Map.empty mempty mempty mempty
+  mappend
+    (OnyxFile a1 a2 a3 a4)
+    (OnyxFile b1 b2 b3 b4)
+    = OnyxFile
+      (Map.unionWith mappend a1 b1)
+      (mappend a2 b2)
+      (mappend a3 b3)
+      (mappend a4 b4)
 
 instance TraverseTrack OnyxFile where
   traverseTrack fn
@@ -187,6 +277,34 @@ data OnyxPart t = OnyxPart
   , onyxHarm3            :: VocalTrack t
   } deriving (Eq, Ord, Show)
 
+instance (NNC.C t) => Monoid (OnyxPart t) where
+  mempty = OnyxPart
+    mempty mempty mempty mempty mempty mempty
+    mempty mempty mempty mempty mempty mempty
+    mempty mempty mempty mempty mempty mempty
+  mappend
+    (OnyxPart a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18)
+    (OnyxPart b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18)
+    = OnyxPart
+      (mappend a1 b1)
+      (mappend a2 b2)
+      (mappend a3 b3)
+      (mappend a4 b4)
+      (mappend a5 b5)
+      (mappend a6 b6)
+      (mappend a7 b7)
+      (mappend a8 b8)
+      (mappend a9 b9)
+      (mappend a10 b10)
+      (mappend a11 b11)
+      (mappend a12 b12)
+      (mappend a13 b13)
+      (mappend a14 b14)
+      (mappend a15 b15)
+      (mappend a16 b16)
+      (mappend a17 b17)
+      (mappend a18 b18)
+
 instance TraverseTrack OnyxPart where
   traverseTrack fn
     (OnyxPart a b c d e f g h i j k l m n o p q r)
@@ -198,41 +316,59 @@ instance TraverseTrack OnyxPart where
       <*> traverseTrack fn m <*> traverseTrack fn n <*> traverseTrack fn o
       <*> traverseTrack fn p <*> traverseTrack fn q <*> traverseTrack fn r
 
-parseOnyxPart :: (SendMessage m) => RBFile.FlexPartName -> FileCodec m U.Beats (OnyxPart U.Beats)
+getFlexPart :: (NNC.C t) => FlexPartName -> OnyxFile t -> OnyxPart t
+getFlexPart part = fromMaybe mempty . Map.lookup part . onyxParts
+
+identifyFlexTrack :: String -> Maybe FlexPartName
+identifyFlexTrack name = case stripPrefix "[" name of
+  Just name' -> Just $ readPartName $ T.pack $ takeWhile (/= ']') name'
+  Nothing
+    | "RHYTHM"      `isInfixOf` name -> Just $ FlexExtra "rhythm"
+    | "GUITAR COOP" `isInfixOf` name -> Just $ FlexExtra "guitar-coop"
+    | "DRUM"        `isInfixOf` name -> Just FlexDrums
+    | "GUITAR"      `isInfixOf` name -> Just FlexGuitar
+    | "T1 GEMS"     `isInfixOf` name -> Just FlexGuitar
+    | "BASS"        `isInfixOf` name -> Just FlexBass
+    | "KEYS"        `isInfixOf` name -> Just FlexKeys
+    | "VOCAL"       `isInfixOf` name -> Just FlexVocal
+    | "HARM"        `isInfixOf` name -> Just FlexVocal
+    | otherwise                      -> Nothing
+
+parseOnyxPart :: (SendMessage m) => FlexPartName -> FileCodec m U.Beats (OnyxPart U.Beats)
 parseOnyxPart partName = do
   let names defPair otherPairs = case lookup partName $ defPair : otherPairs of
         Just rawName -> fileTrack rawName $ map adorn $ defPair : otherPairs
         Nothing      -> fileTrack (adorn defPair) (map adorn otherPairs)
-      adorn (_, trkName) = "[" <> RBFile.getPartName partName <> "] " <> trkName
-  onyxPartDrums        <- onyxPartDrums        =. names (RBFile.FlexDrums, "PART DRUMS") []
-  onyxPartDrums2x      <- onyxPartDrums2x      =. names (RBFile.FlexDrums, "PART DRUMS_2X") []
-  onyxPartRealDrumsPS  <- onyxPartRealDrumsPS  =. names (RBFile.FlexDrums, "PART REAL_DRUMS_PS") []
+      adorn (_, trkName) = "[" <> getPartName partName <> "] " <> trkName
+  onyxPartDrums        <- onyxPartDrums        =. names (FlexDrums, "PART DRUMS") []
+  onyxPartDrums2x      <- onyxPartDrums2x      =. names (FlexDrums, "PART DRUMS_2X") []
+  onyxPartRealDrumsPS  <- onyxPartRealDrumsPS  =. names (FlexDrums, "PART REAL_DRUMS_PS") []
   onyxPartGuitar       <- onyxPartGuitar       =. names
-    (RBFile.FlexGuitar, "PART GUITAR")
-    [ (RBFile.FlexBass, "PART BASS")
-    , (RBFile.FlexExtra "rhythm", "PART RHYTHM")
-    , (RBFile.FlexExtra "guitar-coop", "PART GUITAR COOP")
+    (FlexGuitar, "PART GUITAR")
+    [ (FlexBass, "PART BASS")
+    , (FlexExtra "rhythm", "PART RHYTHM")
+    , (FlexExtra "guitar-coop", "PART GUITAR COOP")
     ]
-  onyxPartKeys         <- onyxPartKeys         =. names (RBFile.FlexKeys, "PART KEYS") []
+  onyxPartKeys         <- onyxPartKeys         =. names (FlexKeys, "PART KEYS") []
   onyxPartSix          <- onyxPartSix          =. names
-    (RBFile.FlexGuitar, "PART GUITAR GHL")
-    [ (RBFile.FlexBass, "PART BASS GHL") ]
+    (FlexGuitar, "PART GUITAR GHL")
+    [ (FlexBass, "PART BASS GHL") ]
   onyxPartRealGuitar   <- onyxPartRealGuitar   =. names
-    (RBFile.FlexGuitar, "PART REAL_GUITAR")
-    [ (RBFile.FlexBass, "PART REAL_BASS") ]
+    (FlexGuitar, "PART REAL_GUITAR")
+    [ (FlexBass, "PART REAL_BASS") ]
   onyxPartRealGuitar22 <- onyxPartRealGuitar22 =. names
-    (RBFile.FlexGuitar, "PART REAL_GUITAR_22")
-    [ (RBFile.FlexBass, "PART REAL_BASS_22") ]
-  onyxPartRealKeysE    <- onyxPartRealKeysE    =. names (RBFile.FlexKeys, "PART REAL_KEYS_E") []
-  onyxPartRealKeysM    <- onyxPartRealKeysM    =. names (RBFile.FlexKeys, "PART REAL_KEYS_M") []
-  onyxPartRealKeysH    <- onyxPartRealKeysH    =. names (RBFile.FlexKeys, "PART REAL_KEYS_H") []
-  onyxPartRealKeysX    <- onyxPartRealKeysX    =. names (RBFile.FlexKeys, "PART REAL_KEYS_X") []
-  onyxPartKeysAnimLH   <- onyxPartKeysAnimLH   =. names (RBFile.FlexKeys, "PART KEYS_ANIM_LH") []
-  onyxPartKeysAnimRH   <- onyxPartKeysAnimRH   =. names (RBFile.FlexKeys, "PART KEYS_ANIM_RH") []
-  onyxPartVocals       <- onyxPartVocals       =. names (RBFile.FlexVocal, "PART VOCALS") []
-  onyxHarm1            <- onyxHarm1            =. names (RBFile.FlexVocal, "HARM1") []
-  onyxHarm2            <- onyxHarm2            =. names (RBFile.FlexVocal, "HARM2") []
-  onyxHarm3            <- onyxHarm3            =. names (RBFile.FlexVocal, "HARM3") []
+    (FlexGuitar, "PART REAL_GUITAR_22")
+    [ (FlexBass, "PART REAL_BASS_22") ]
+  onyxPartRealKeysE    <- onyxPartRealKeysE    =. names (FlexKeys, "PART REAL_KEYS_E") []
+  onyxPartRealKeysM    <- onyxPartRealKeysM    =. names (FlexKeys, "PART REAL_KEYS_M") []
+  onyxPartRealKeysH    <- onyxPartRealKeysH    =. names (FlexKeys, "PART REAL_KEYS_H") []
+  onyxPartRealKeysX    <- onyxPartRealKeysX    =. names (FlexKeys, "PART REAL_KEYS_X") []
+  onyxPartKeysAnimLH   <- onyxPartKeysAnimLH   =. names (FlexKeys, "PART KEYS_ANIM_LH") []
+  onyxPartKeysAnimRH   <- onyxPartKeysAnimRH   =. names (FlexKeys, "PART KEYS_ANIM_RH") []
+  onyxPartVocals       <- onyxPartVocals       =. names (FlexVocal, "PART VOCALS") []
+  onyxHarm1            <- onyxHarm1            =. names (FlexVocal, "HARM1") []
+  onyxHarm2            <- onyxHarm2            =. names (FlexVocal, "HARM2") []
+  onyxHarm3            <- onyxHarm3            =. names (FlexVocal, "HARM3") []
   return OnyxPart{..}
 
 instance ParseFile OnyxFile where
@@ -240,7 +376,7 @@ instance ParseFile OnyxFile where
     onyxParts  <- onyxParts =. Codec
       { codecIn = do
         trks <- lift get
-        let partNames = nubOrd $ mapMaybe (U.trackName >=> RBFile.identifyFlexTrack) trks
+        let partNames = nubOrd $ mapMaybe (U.trackName >=> identifyFlexTrack) trks
         results <- forM partNames $ \partName -> do
           part <- codecIn $ parseOnyxPart partName
           return (partName, part)
@@ -253,32 +389,149 @@ instance ParseFile OnyxFile where
     onyxVenue  <- onyxVenue  =. fileTrack "VENUE"  []
     return OnyxFile{..}
 
-instance ParseFile RBFile.RawFile where
+newtype RawFile t = RawFile { rawTracks :: [RTB.T t E.T] }
+  deriving (Eq, Ord, Show)
+
+instance ParseFile RawFile where
   parseFile = Codec
     { codecIn = lift $ do
       trks <- get
       put []
-      return $ RBFile.RawFile trks
-    , codecOut = fmapArg $ tell . RBFile.rawTracks
+      return $ RawFile trks
+    , codecOut = fmapArg $ tell . rawTracks
     }
 
-readMIDIFile' :: (SendMessage m, ParseFile f) => F.T -> StackTraceT m (RBFile.Song (f U.Beats))
+data Song t = Song
+  { s_tempos     :: U.TempoMap
+  , s_signatures :: U.MeasureMap
+  , s_tracks     :: t
+  } deriving (Eq, Show, Functor, Foldable, Traversable)
+
+{- |
+This is a hack because Moonscraper and thus Clone Hero currently don't
+parse the PS tap event properly; they look for 255 in the difficulty byte,
+and don't actually look for the phrase ID of 4. So we need to only emit
+255 (all-difficulty) tap phrases.
+(This same weirdness applies to the open note modifier, where it looks for
+a non-255 byte and not the phrase ID of 1, but we happen to emit those in
+the working format already.)
+-}
+fixMoonTaps :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
+fixMoonTaps = RTB.mapMaybe $ \e -> case parsePSSysEx e of
+  Just (PSMessage diff TapNotes b) -> case diff of
+    Nothing     -> Just $ unparsePSSysEx $ PSMessage Nothing TapNotes b
+    Just Expert -> Just $ unparsePSSysEx $ PSMessage Nothing TapNotes b
+    Just _      -> Nothing
+  _ -> Just e
+
+{- |
+Work around two bugs by making sure higher note pitches come before lower ones.
+
+First is a Phase Shift (v1.27) bug.
+Phase Shift won't apply a tom/cymbal switch to gems simultaneous with it
+unless the tom marker event comes before the gem event in the MIDI.
+Oddly this same problem does not affect guitar/bass HOPO force notes.
+
+Second is a Magma v1 bug.
+If you have an overdrive phrase simultaneous with the only note in it,
+and the phrase event comes after the note in the MIDI, Magma v1 will
+complain that there are no notes under the phrase.
+-}
+fixEventOrder :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
+fixEventOrder = RTB.flatten . fmap (sortOn f) . RTB.collectCoincident
+  where f x@(E.MetaEvent (Meta.TrackName _              )) = (-3, 0, x)
+        f x@(E.MetaEvent (Meta.TextEvent "[lighting ()]")) = (-1, 0, x) -- magma v1: ensure [lighting ()] comes after simultaneous [verse]
+        f x@(E.MetaEvent (Meta.TextEvent _              )) = (-2, 0, x)
+        f x = case isNoteEdge x of
+          Nothing         -> (0 :: Int, 0       , x)
+          Just (p, False) -> (1       , negate p, x)
+          Just (p, True ) -> (2       , negate p, x)
+
+readMIDIFile :: (SendMessage m) => F.T -> StackTraceT m (Song [RTB.T U.Beats E.T])
+readMIDIFile mid = do
+  (s_tempos, s_signatures, s_tracks_nodupe) <- case U.decodeFile mid of
+    Right trks -> let
+      tempos = U.tempoMapFromBPS $ RTB.singleton 0 2
+      sigs = U.measureMapFromTimeSigs U.Truncate $ RTB.singleton 0 $ U.TimeSig 4 1
+      trks' = map (U.unapplyTempoTrack tempos) trks
+      in do
+        warn "Converting from SMPTE MIDI file. This is not tested, please report bugs!"
+        return (tempos, sigs, trks')
+    Left trks -> do
+      (tempoTrk, restTrks) <- case mid of
+        F.Cons F.Mixed _ _ -> do
+          -- hack for very old FoF charts that used this midi format
+          warn "Loading 'mixed' (type-0) MIDI file as single guitar track."
+          let t = case trks of trk : _ -> trk; [] -> RTB.empty
+          return (t, [U.setTrackName "PART GUITAR" t])
+        _ -> return $ case trks of
+          t : ts -> (t, ts)
+          []     -> (RTB.empty, [])
+      return (U.makeTempoMap tempoTrk, U.makeMeasureMap U.Truncate tempoTrk, restTrks)
+  let s_tracks = map (RTB.flatten . fmap nubOrd . RTB.collectCoincident) s_tracks_nodupe
+  return Song{..}
+
+-- | Strips comments and track names from the track before handing it to a track parser.
+stripTrack :: (NNC.C t) => RTB.T t E.T -> RTB.T t E.T
+stripTrack = RTB.filter $ \e -> case e of
+  E.MetaEvent (Meta.TextEvent ('#' : _)) -> False
+  E.MetaEvent (Meta.TrackName _        ) -> False
+  _                                      -> True
+
+-- | midiscript format, where both measure and beats start from zero
+showPosition :: U.MeasureBeats -> String
+showPosition (m, b) = show m ++ "|" ++ show (realToFrac b :: Double)
+
+data TrackOffset = TrackPad U.Seconds | TrackDrop U.Seconds
+  deriving (Eq, Ord, Show)
+
+-- | Copies tracks from the second file into the first, repositioning events by timestamp.
+mergeCharts :: TrackOffset -> Song (RawFile U.Beats) -> Song (RawFile U.Beats) -> Song (RawFile U.Beats)
+mergeCharts offset base new = let
+  newTracks = flip map (rawTracks $ s_tracks new) $ \trk -> let
+    name = U.trackName trk
+    applyOffset = case offset of
+      TrackPad  t -> RTB.delay t
+      TrackDrop t -> U.trackDrop t
+    removeTrackName = RTB.filter $ \case E.MetaEvent (Meta.TrackName _) -> False; _ -> True
+    -- TODO: need to ensure notes don't have 0 length
+    in maybe id U.setTrackName name
+      $ removeTrackName
+      $ U.unapplyTempoTrack (s_tempos base)
+      $ applyOffset
+      $ U.applyTempoTrack (s_tempos new) trk
+  in base { s_tracks = RawFile newTracks }
+
+readMIDIFile' :: (SendMessage m, ParseFile f) => F.T -> StackTraceT m (Song (f U.Beats))
 readMIDIFile' mid = do
-  RBFile.Song tempos mmap trks <- RBFile.readMIDIFile mid
+  Song tempos mmap trks <- readMIDIFile mid
   (file, _unrec) <- flip mapStackTraceT (codecIn parseFile) $ \f -> do
     flip fmap (runStateT f trks) $ \case
       (Left  err , _    ) -> Left  err
       (Right file, unrec) -> Right (file, unrec)
-  return $ RBFile.Song tempos mmap file
+  -- TODO warn about unrecognized tracks
+  return $ Song tempos mmap file
 
-showMIDIFile' :: (ParseFile f) => RBFile.Song (f U.Beats) -> F.T
-showMIDIFile' (RBFile.Song tempos mmap trks)
-  = RBFile.showMIDIFile $ RBFile.Song tempos mmap $ execWriter $ codecOut (fileId parseFile) trks
+showMIDIFile :: Song [RTB.T U.Beats E.T] -> F.T
+showMIDIFile s = let
+  tempos = U.unmakeTempoMap $ s_tempos s
+  sigs = case mapM U.showSignatureFull $ U.measureMapToTimeSigs $ s_signatures s of
+    Nothing   -> RTB.singleton 0 $ fromJust $ U.showSignature 4
+    Just evts -> evts
+  tempoTrk = U.setTrackName "notes" $ RTB.merge tempos sigs
+  in U.encodeFileBeats F.Parallel 480 $ map (fixMoonTaps . fixEventOrder) $ tempoTrk : s_tracks s
+
+showMIDITracks :: (ParseFile f) => Song (f U.Beats) -> Song [RTB.T U.Beats E.T]
+showMIDITracks (Song tempos mmap trks)
+  = Song tempos mmap $ execWriter $ codecOut (fileId parseFile) trks
+
+showMIDIFile' :: (ParseFile f) => Song (f U.Beats) -> F.T
+showMIDIFile' = showMIDIFile . showMIDITracks
 
 -- | Adds a given amount of 1 second increments to the start of the MIDI.
-padFixedFile :: Int -> RBFile.Song (FixedFile U.Beats) -> RBFile.Song (FixedFile U.Beats)
+padFixedFile :: Int -> Song (FixedFile U.Beats) -> Song (FixedFile U.Beats)
 padFixedFile 0       song                        = song
-padFixedFile seconds (RBFile.Song temps sigs ff) = let
+padFixedFile seconds (Song temps sigs ff) = let
   beats = fromIntegral seconds * 2
   temps'
     = U.tempoMapFromBPS
@@ -295,7 +548,7 @@ padFixedFile seconds (RBFile.Song temps sigs ff) = let
     = RTB.cons  0 Bar
     . foldr (.) id (replicate (seconds * 2 - 1) $ RTB.cons 1 Beat)
     . RTB.delay 1
-  in RBFile.Song temps' sigs' $ (mapTrack padSimple ff)
+  in Song temps' sigs' $ (mapTrack padSimple ff)
     { fixedBeat = BeatTrack $ if RTB.null $ beatLines $ fixedBeat ff
       then RTB.empty
       else padBeat $ beatLines $ fixedBeat ff
