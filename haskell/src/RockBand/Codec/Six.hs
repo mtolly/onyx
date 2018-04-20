@@ -4,6 +4,7 @@ module RockBand.Codec.Six where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
@@ -24,6 +25,9 @@ data SixTrack t = SixTrack
   , sixOverdrive    :: RTB.T t Bool
   , sixSolo         :: RTB.T t Bool
   } deriving (Eq, Ord, Show)
+
+nullSix :: SixTrack t -> Bool
+nullSix = all (RTB.null . sixGems) . toList . sixDifficulties
 
 instance (NNC.C t) => Monoid (SixTrack t) where
   mempty = SixTrack Map.empty RTB.empty RTB.empty

@@ -74,6 +74,7 @@ import           RockBand.Codec.Drums
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File                   as RBFile
 import           RockBand.Codec.Five
+import           RockBand.Codec.ProGuitar              (nullPG)
 import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal
 import           RockBand.Common                       (Difficulty (..))
@@ -1142,10 +1143,10 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                     in U.setTrackName name $ msgToSysEx <$> auto
               saveMIDI out input
                 { RBFile.s_tracks = RBFile.RawFile
-                    [ playTrack pgThres PGPlay.Mustang "GTR17"  $ ProGtr.pgToLegacy $ if gtr17  == mempty then gtr22  else gtr17
-                    , playTrack pgThres PGPlay.Squier  "GTR22"  $ ProGtr.pgToLegacy $ if gtr22  == mempty then gtr17  else gtr22
-                    , playTrack pbThres PGPlay.Mustang "BASS17" $ ProGtr.pgToLegacy $ if bass17 == mempty then bass22 else bass17
-                    , playTrack pbThres PGPlay.Squier  "BASS22" $ ProGtr.pgToLegacy $ if bass22 == mempty then bass17 else bass22
+                    [ playTrack pgThres PGPlay.Mustang "GTR17"  $ ProGtr.pgToLegacy $ if nullPG gtr17  then gtr22  else gtr17
+                    , playTrack pgThres PGPlay.Squier  "GTR22"  $ ProGtr.pgToLegacy $ if nullPG gtr22  then gtr17  else gtr22
+                    , playTrack pbThres PGPlay.Mustang "BASS17" $ ProGtr.pgToLegacy $ if nullPG bass17 then bass22 else bass17
+                    , playTrack pbThres PGPlay.Squier  "BASS22" $ ProGtr.pgToLegacy $ if nullPG bass22 then bass17 else bass22
                     ]
                 }
 

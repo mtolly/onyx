@@ -21,6 +21,7 @@ import           RockBand.Codec.Beat
 import           RockBand.Codec.Drums
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.Five
 import           RockBand.Codec.Venue             (compileVenueRB3)
 import           RockBand.Common
 import qualified RockBand.Drums                   as RBDrums
@@ -171,11 +172,11 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           trk2x = RBFile.onyxPartDrums2x flex
           trkReal = RBFile.onyxPartRealDrumsPS flex
           trkReal' = RBDrums.psRealToPro trkReal
-          onlyPSReal = all (== mempty) [trk1x, trk2x] && not (trkReal == mempty)
+          onlyPSReal = all nullDrums [trk1x, trk2x] && not (nullDrums trkReal)
           pro1x = if onlyPSReal then trkReal' else trk1x
           pro2x = if onlyPSReal then trkReal' else trk2x
-          ps1x = finish $ if pro1x == mempty then pro2x else pro1x
-          ps2x = finish $ if pro2x == mempty then pro1x else pro2x
+          ps1x = finish $ if nullDrums pro1x then pro2x else pro1x
+          ps2x = finish $ if nullDrums pro2x then pro1x else pro2x
           psPS = if not $ RTB.null $ drumKick2x pro1x then ps1x else ps2x
           -- Note: drumMix must be applied *after* drumsComplete.
           -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
@@ -189,7 +190,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       makeGRYBOTrack toKeys fpart src = case getPart fpart songYaml >>= partGRYBO of
         Nothing -> (RTB.empty, RTB.empty)
         Just grybo -> let
-          (trackOrig, isKeys) = if RBFile.onyxPartGuitar src == mempty
+          (trackOrig, isKeys) = if nullFive $ RBFile.onyxPartGuitar src
             then (Five.fiveToLegacy $ RBFile.onyxPartKeys src, True)
             else (Five.fiveToLegacy $ RBFile.onyxPartGuitar src, False)
           track

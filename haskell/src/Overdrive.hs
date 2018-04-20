@@ -52,19 +52,19 @@ instance HasOverdrive FixedFile where
         ]
       ]
   putOverdrive rb3 od = rb3
-    { fixedPartDrums        = fn fixedPartDrums        $ \x -> x { drumOverdrive = drums }
-    , fixedPartGuitar       = fn fixedPartGuitar       $ \x -> x { fiveOverdrive = gtr }
-    , fixedPartRealGuitar   = fn fixedPartRealGuitar   $ \x -> x { pgOverdrive = gtr }
-    , fixedPartRealGuitar22 = fn fixedPartRealGuitar22 $ \x -> x { pgOverdrive = gtr }
-    , fixedPartBass         = fn fixedPartBass         $ \x -> x { fiveOverdrive = bass }
-    , fixedPartRealBass     = fn fixedPartRealBass     $ \x -> x { pgOverdrive = bass }
-    , fixedPartRealBass22   = fn fixedPartRealBass22   $ \x -> x { pgOverdrive = bass }
-    , fixedPartKeys         = fn fixedPartKeys         $ \x -> x { fiveOverdrive = keys }
-    , fixedPartRealKeysX    = fn fixedPartRealKeysX    $ \x -> x { pkOverdrive = keys }
+    { fixedPartDrums        = fn nullDrums fixedPartDrums        $ \x -> x { drumOverdrive = drums }
+    , fixedPartGuitar       = fn nullFive  fixedPartGuitar       $ \x -> x { fiveOverdrive = gtr }
+    , fixedPartRealGuitar   = fn nullPG    fixedPartRealGuitar   $ \x -> x { pgOverdrive = gtr }
+    , fixedPartRealGuitar22 = fn nullPG    fixedPartRealGuitar22 $ \x -> x { pgOverdrive = gtr }
+    , fixedPartBass         = fn nullFive  fixedPartBass         $ \x -> x { fiveOverdrive = bass }
+    , fixedPartRealBass     = fn nullPG    fixedPartRealBass     $ \x -> x { pgOverdrive = bass }
+    , fixedPartRealBass22   = fn nullPG    fixedPartRealBass22   $ \x -> x { pgOverdrive = bass }
+    , fixedPartKeys         = fn nullFive  fixedPartKeys         $ \x -> x { fiveOverdrive = keys }
+    , fixedPartRealKeysX    = fn nullPK    fixedPartRealKeysX    $ \x -> x { pkOverdrive = keys }
     } where
-      fn getTrk addOD = let
+      fn isEmpty getTrk addOD = let
         trk = getTrk rb3
-        in if trk /= mempty then addOD trk else trk
+        in if isEmpty trk then addOD trk else trk
       drums = bools FlexDrums
       gtr = bools FlexGuitar
       bass = bools FlexBass

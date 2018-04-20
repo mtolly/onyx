@@ -13,8 +13,10 @@ import qualified Data.Set                         as Set
 import           DryVox                           (sineDryVox)
 import           Guitars                          (guitarify)
 import           Overdrive                        (fixPartialUnisons)
+import           RockBand.Codec.Drums             (nullDrums)
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as F
+import           RockBand.Codec.Five              (nullFive)
 import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal
 import           RockBand.Common                  (Difficulty (..),
@@ -74,7 +76,7 @@ convertMIDI mid = fixUnisons mid
       gtr  = F.fixedPartGuitar $ F.s_tracks song
       bass = F.fixedPartBass   $ F.s_tracks song
       drum = F.fixedPartDrums  $ F.s_tracks song
-      in if not $ gtr == mempty || bass == mempty || drum == mempty
+      in if not $ nullFive gtr || nullFive bass || nullDrums drum
         then fixPartialUnisons [F.FlexGuitar, F.FlexBass, F.FlexDrums] song
         else return song
 

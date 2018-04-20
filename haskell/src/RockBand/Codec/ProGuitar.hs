@@ -80,6 +80,9 @@ data ProGuitarTrack t = ProGuitarTrack
   , pgMystery93    :: RTB.T t Bool
   } deriving (Eq, Ord, Show)
 
+nullPG :: ProGuitarTrack t -> Bool
+nullPG = all (RTB.null . pgNotes) . toList . pgDifficulties
+
 instance (NNC.C t) => Monoid (ProGuitarTrack t) where
   mempty = ProGuitarTrack Map.empty RTB.empty
     RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty

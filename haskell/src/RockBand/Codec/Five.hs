@@ -6,6 +6,7 @@ module RockBand.Codec.Five where
 import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
@@ -101,6 +102,9 @@ data FiveTrack t = FiveTrack
   , fivePlayer1      :: RTB.T t Bool
   , fivePlayer2      :: RTB.T t Bool
   } deriving (Eq, Ord, Show)
+
+nullFive :: FiveTrack t -> Bool
+nullFive = all (RTB.null . fiveGems) . toList . fiveDifficulties
 
 instance (NNC.C t) => Monoid (FiveTrack t) where
   mempty = FiveTrack Map.empty RTB.empty

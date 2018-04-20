@@ -72,6 +72,9 @@ data VocalTrack t = VocalTrack
   , vocalNotes         :: RTB.T t (Pitch, Bool)
   } deriving (Eq, Ord, Show)
 
+nullVox :: VocalTrack t -> Bool
+nullVox = RTB.null . vocalNotes
+
 instance (NNC.C t) => Monoid (VocalTrack t) where
   mempty = VocalTrack RTB.empty
     RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty

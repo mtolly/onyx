@@ -58,6 +58,9 @@ data ProKeysTrack t = ProKeysTrack
   , pkNotes     :: RTB.T t (Pitch, Maybe t)
   } deriving (Eq, Ord, Show)
 
+nullPK :: ProKeysTrack t -> Bool
+nullPK = RTB.null . pkNotes
+
 instance (NNC.C t) => Monoid (ProKeysTrack t) where
   mempty = ProKeysTrack RTB.empty
     RTB.empty RTB.empty RTB.empty RTB.empty

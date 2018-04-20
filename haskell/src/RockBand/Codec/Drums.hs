@@ -11,6 +11,7 @@ module RockBand.Codec.Drums where
 import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Foldable                    (toList)
 import           Data.List                        (elemIndex)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromJust, fromMaybe)
@@ -37,6 +38,9 @@ data DrumTrack t = DrumTrack
   , drumKick2x       :: RTB.T t ()
   , drumAnimation    :: RTB.T t Animation
   } deriving (Eq, Ord, Show)
+
+nullDrums :: DrumTrack t -> Bool
+nullDrums = all (RTB.null . drumGems) . toList . drumDifficulties
 
 instance (NNC.C t) => Monoid (DrumTrack t) where
   mempty = DrumTrack Map.empty RTB.empty

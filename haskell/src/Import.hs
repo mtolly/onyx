@@ -55,6 +55,10 @@ import           Resources                        (rb3Updates)
 import           RockBand.Codec.Drums
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.Five              (nullFive)
+import           RockBand.Codec.ProGuitar         (nullPG)
+import           RockBand.Codec.ProKeys           (nullPK)
+import           RockBand.Codec.Six               (nullSix)
 import           RockBand.Codec.Vocal
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), joinEdges)
@@ -220,9 +224,6 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
         , _planPans = []
         , _planVols = []
         }
-      hasVocalNotes = or $ do
-        trk <- [RBFile.fixedPartVocals, RBFile.fixedHarm1, RBFile.fixedHarm2, RBFile.fixedHarm3]
-        return $ not $ RTB.null $ vocalNotes $ trk $ RBFile.s_tracks parsed
 
   let toTier = maybe (Tier 1) $ \n -> Tier $ max 1 $ min 7 $ fromIntegral n + 1
 
@@ -231,7 +232,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
     then do
       parsed2x <- loadMIDI $ src </> "expert+.mid"
       let trk2x = RBFile.fixedPartDrums $ RBFile.s_tracks parsed2x
-      return $ if trk2x == mempty
+      return $ if nullDrums trk2x
         then id
         else \mid -> mid { RBFile.fixedPartDrums2x = trk2x }
     else return id
@@ -278,11 +279,11 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
   let guardDifficulty getDiff = if isChart || True -- TODO temporarily doing this for midis also
         then True
         else getDiff song /= Just (-1)
-      hasTrack :: (Eq a, Monoid a) => (RBFile.FixedFile U.Beats -> a) -> Bool
-      hasTrack f = f (RBFile.s_tracks parsed) /= mempty
-      vocalMode = if hasTrack RBFile.fixedPartVocals && guardDifficulty FoF.diffVocals && hasVocalNotes && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
-        then if hasTrack RBFile.fixedHarm2 && guardDifficulty FoF.diffVocalsHarm
-          then if hasTrack RBFile.fixedHarm3
+      isnt :: (Eq a, Monoid a) => (a -> Bool) -> (RBFile.FixedFile U.Beats -> a) -> Bool
+      isnt isEmpty f = not $ isEmpty $ f $ RBFile.s_tracks parsed
+      vocalMode = if isnt nullVox RBFile.fixedPartVocals && guardDifficulty FoF.diffVocals && fmap T.toLower (FoF.charter song) /= Just "sodamlazy"
+        then if isnt nullVox RBFile.fixedHarm2 && guardDifficulty FoF.diffVocalsHarm
+          then if isnt nullVox RBFile.fixedHarm3
             then Just Vocal3
             else Just Vocal2
           else Just Vocal1
@@ -355,13 +356,13 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
     , _targets = HM.singleton "ps" $ PS def { ps_FileVideo = vid }
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
-        { partDrums = guard ((hasTrack RBFile.fixedPartDrums || hasTrack RBFile.fixedPartRealDrumsPS) && guardDifficulty FoF.diffDrums) >> Just PartDrums
+        { partDrums = guard ((isnt nullDrums RBFile.fixedPartDrums || isnt nullDrums RBFile.fixedPartRealDrumsPS) && guardDifficulty FoF.diffDrums) >> Just PartDrums
           { drumsDifficulty = toTier $ FoF.diffDrums song
           , drumsMode = let
             isFiveLane = FoF.fiveLaneDrums song == Just True || any
               (\(_, dd) -> RBDrums.Orange `elem` drumGems dd)
               (Map.toList $ drumDifficulties $ RBFile.fixedPartDrums outputMIDI)
-            isPro = hasTrack RBFile.fixedPartRealDrumsPS || not detectBasicDrums || case FoF.proDrums song of
+            isPro = isnt nullDrums RBFile.fixedPartRealDrumsPS || not detectBasicDrums || case FoF.proDrums song of
               Just b  -> b
               Nothing -> not $ RTB.null $ drumToms $ RBFile.fixedPartDrums outputMIDI
             in if isFiveLane then Drums5 else if isPro then DrumsPro else Drums4
@@ -375,15 +376,15 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           }
         })
       , ( FlexGuitar, def
-        { partGRYBO = guard (hasTrack RBFile.fixedPartGuitar && guardDifficulty FoF.diffGuitar) >> Just PartGRYBO
+        { partGRYBO = guard (isnt nullFive RBFile.fixedPartGuitar && guardDifficulty FoF.diffGuitar) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffGuitar song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = dropOpenHOPOs
           }
         , partProGuitar = let
-          b =  (hasTrack RBFile.fixedPartRealGuitar   && guardDifficulty FoF.diffGuitarReal  )
-            || (hasTrack RBFile.fixedPartRealGuitar22 && guardDifficulty FoF.diffGuitarReal22)
+          b =  (isnt nullPG RBFile.fixedPartRealGuitar   && guardDifficulty FoF.diffGuitarReal  )
+            || (isnt nullPG RBFile.fixedPartRealGuitar22 && guardDifficulty FoF.diffGuitarReal22)
           in guard b >> Just PartProGuitar
             { pgDifficulty = toTier $ FoF.diffGuitarReal song
             , pgHopoThreshold = hopoThreshold
@@ -391,21 +392,21 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
             , pgTuningGlobal = 0
             , pgFixFreeform = False
             }
-        , partGHL = guard (hasTrack RBFile.fixedPartGuitarGHL && guardDifficulty FoF.diffGuitarGHL) >> Just PartGHL
+        , partGHL = guard (isnt nullSix RBFile.fixedPartGuitarGHL && guardDifficulty FoF.diffGuitarGHL) >> Just PartGHL
           { ghlDifficulty = toTier $ FoF.diffGuitarGHL song
           , ghlHopoThreshold = hopoThreshold
           }
         })
       , ( FlexBass, def
-        { partGRYBO = guard (hasTrack RBFile.fixedPartBass && guardDifficulty FoF.diffBass) >> Just PartGRYBO
+        { partGRYBO = guard (isnt nullFive RBFile.fixedPartBass && guardDifficulty FoF.diffBass) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffBass song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = dropOpenHOPOs
           }
         , partProGuitar = let
-          b =  (hasTrack RBFile.fixedPartRealBass   && guardDifficulty FoF.diffBassReal  )
-            || (hasTrack RBFile.fixedPartRealBass22 && guardDifficulty FoF.diffBassReal22)
+          b =  (isnt nullPG RBFile.fixedPartRealBass   && guardDifficulty FoF.diffBassReal  )
+            || (isnt nullPG RBFile.fixedPartRealBass22 && guardDifficulty FoF.diffBassReal22)
           in guard b >> Just PartProGuitar
             { pgDifficulty = toTier $ FoF.diffBassReal song
             , pgHopoThreshold = hopoThreshold
@@ -413,19 +414,19 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
             , pgTuningGlobal = 0
             , pgFixFreeform = False
             }
-        , partGHL = guard (hasTrack RBFile.fixedPartBassGHL && guardDifficulty FoF.diffBassGHL) >> Just PartGHL
+        , partGHL = guard (isnt nullSix RBFile.fixedPartBassGHL && guardDifficulty FoF.diffBassGHL) >> Just PartGHL
           { ghlDifficulty = toTier $ FoF.diffBassGHL song
           , ghlHopoThreshold = hopoThreshold
           }
         })
       , ( FlexKeys, def
-        { partGRYBO = guard (hasTrack RBFile.fixedPartKeys && guardDifficulty FoF.diffKeys) >> Just PartGRYBO
+        { partGRYBO = guard (isnt nullFive RBFile.fixedPartKeys && guardDifficulty FoF.diffKeys) >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffKeys song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = dropOpenHOPOs
           }
-        , partProKeys = guard (hasTrack RBFile.fixedPartRealKeysX && guardDifficulty FoF.diffKeysReal) >> Just PartProKeys
+        , partProKeys = guard (isnt nullPK RBFile.fixedPartRealKeysX && guardDifficulty FoF.diffKeysReal) >> Just PartProKeys
           { pkDifficulty = toTier $ FoF.diffKeysReal song
           , pkFixFreeform = False
           }

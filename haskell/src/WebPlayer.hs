@@ -27,6 +27,8 @@ import qualified Numeric.NonNegative.Class        as NNC
 import qualified RockBand.Codec.Beat              as Beat
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.Five              (nullFive)
+import           RockBand.Codec.ProGuitar         (nullPG)
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), joinEdges,
                                                    splitEdges)
@@ -660,7 +662,7 @@ makeDisplay songYaml song = let
     { flexFive = flip fmap (C.partGRYBO fpart) $ \grybo -> let
       gtr = RBFile.onyxPartGuitar tracks
       keys = RBFile.onyxPartKeys tracks
-      in if gtr == mempty
+      in if nullFive gtr
         then processFive Nothing (RBFile.s_tempos song) $ Five.fiveToLegacy keys
         else processFive (Just $ ht $ C.gryboHopoThreshold grybo) (RBFile.s_tempos song) $ Five.fiveToLegacy gtr
     , flexSix = flip fmap (C.partGHL fpart) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song) (GHL.sixToLegacy $ RBFile.onyxPartSix tracks)
@@ -669,7 +671,7 @@ makeDisplay songYaml song = let
     , flexProtar = flip fmap (C.partProGuitar fpart) $ \pg -> processProtar (ht $ C.pgHopoThreshold pg) (RBFile.s_tempos song)
       $ let mustang = RBFile.onyxPartRealGuitar tracks
             squier  = RBFile.onyxPartRealGuitar22 tracks
-        in PG.pgToLegacy $ if squier == mempty then mustang else squier
+        in PG.pgToLegacy $ if nullPG squier then mustang else squier
     , flexVocal = flip fmap (C.partVocal fpart) $ \pvox -> case C.vocalCount pvox of
       C.Vocal3 -> makeVox
         (RBFile.onyxHarm1 tracks)
