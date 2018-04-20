@@ -95,10 +95,10 @@ instance ParseTrack ProKeysTrack where
       unparse t = showCommand' (t, T.pack "key")
       in single parse unparse
     pkMood      <- pkMood      =. command
-    pkSolo      <- pkSolo      =. edges 103
     pkGlissando <- pkGlissando =. edges 126
     pkTrill     <- pkTrill     =. edges 127
     pkOverdrive <- pkOverdrive =. edges 116
+    pkSolo      <- pkSolo      =. edges 115
     pkBRE       <- pkBRE       =. edgesBRE [120 .. 124]
     pkNotes     <- (pkNotes    =.) $ blipSustainRB $ condenseMap $ eachKey each
       $ \k -> matchEdges $ edges $ fromEnum k + 48

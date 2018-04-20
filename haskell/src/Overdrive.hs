@@ -52,16 +52,19 @@ instance HasOverdrive FixedFile where
         ]
       ]
   putOverdrive rb3 od = rb3
-    { fixedPartDrums        = (fixedPartDrums        rb3) { drumOverdrive = drums }
-    , fixedPartGuitar       = (fixedPartGuitar       rb3) { fiveOverdrive = gtr }
-    , fixedPartRealGuitar   = (fixedPartRealGuitar   rb3) { pgOverdrive = gtr }
-    , fixedPartRealGuitar22 = (fixedPartRealGuitar22 rb3) { pgOverdrive = gtr }
-    , fixedPartBass         = (fixedPartBass         rb3) { fiveOverdrive = bass }
-    , fixedPartRealBass     = (fixedPartRealBass     rb3) { pgOverdrive = bass }
-    , fixedPartRealBass22   = (fixedPartRealBass22   rb3) { pgOverdrive = bass }
-    , fixedPartKeys         = (fixedPartKeys         rb3) { fiveOverdrive = keys }
-    , fixedPartRealKeysX    = (fixedPartRealKeysX    rb3) { pkOverdrive = keys }
+    { fixedPartDrums        = fn fixedPartDrums        $ \x -> x { drumOverdrive = drums }
+    , fixedPartGuitar       = fn fixedPartGuitar       $ \x -> x { fiveOverdrive = gtr }
+    , fixedPartRealGuitar   = fn fixedPartRealGuitar   $ \x -> x { pgOverdrive = gtr }
+    , fixedPartRealGuitar22 = fn fixedPartRealGuitar22 $ \x -> x { pgOverdrive = gtr }
+    , fixedPartBass         = fn fixedPartBass         $ \x -> x { fiveOverdrive = bass }
+    , fixedPartRealBass     = fn fixedPartRealBass     $ \x -> x { pgOverdrive = bass }
+    , fixedPartRealBass22   = fn fixedPartRealBass22   $ \x -> x { pgOverdrive = bass }
+    , fixedPartKeys         = fn fixedPartKeys         $ \x -> x { fiveOverdrive = keys }
+    , fixedPartRealKeysX    = fn fixedPartRealKeysX    $ \x -> x { pkOverdrive = keys }
     } where
+      fn getTrk addOD = let
+        trk = getTrk rb3
+        in if trk /= mempty then addOD trk else trk
       drums = bools FlexDrums
       gtr = bools FlexGuitar
       bass = bools FlexBass

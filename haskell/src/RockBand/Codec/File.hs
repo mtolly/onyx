@@ -19,7 +19,8 @@ import           Data.Hashable                    (Hashable (..))
 import           Data.List.Extra                  (isInfixOf, nubOrd, partition,
                                                    sortOn, stripPrefix)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromJust, fromMaybe,
+import           Data.Maybe                       (catMaybes, fromJust,
+                                                   fromMaybe, isNothing,
                                                    mapMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
@@ -68,14 +69,11 @@ fileTrack name otherNames = Codec
           Right parsedTrk -> return $ Right (parsedTrk, unrec)
       forM_ (nubOrd $ toList unrec) $ \e -> warn $ "Unrecognized MIDI event: " ++ show e
       return parsedTrk
-  , codecOut
-    = fmapArg
-    $ tell
-    . (: [])
-    . U.setTrackName (T.unpack name)
-    . runMergeTrack
-    . execWriter
-    . codecOut (forcePure parseTrack)
+  , codecOut = fmapArg $ \trk -> let
+    evs = runMergeTrack $ execWriter $ codecOut (forcePure parseTrack) trk
+    in if RTB.null evs
+      then return ()
+      else tell [U.setTrackName (T.unpack name) evs]
   } where
     matchTrack trk = case U.trackName trk of
       Nothing -> False
@@ -514,11 +512,17 @@ mergeCharts offset base new = let
 readMIDIFile' :: (SendMessage m, ParseFile f) => F.T -> StackTraceT m (Song (f U.Beats))
 readMIDIFile' mid = do
   Song tempos mmap trks <- readMIDIFile mid
-  (file, _unrec) <- flip mapStackTraceT (codecIn parseFile) $ \f -> do
+  (file, unrec) <- flip mapStackTraceT (codecIn parseFile) $ \f -> do
     flip fmap (runStateT f trks) $ \case
       (Left  err , _    ) -> Left  err
       (Right file, unrec) -> Right (file, unrec)
-  -- TODO warn about unrecognized tracks
+  let mnames = map U.trackName unrec
+  case catMaybes mnames of
+    []    -> return ()
+    names -> warn $ "Unrecognized MIDI track names: " ++ show names
+  case filter isNothing mnames of
+    [] -> return ()
+    unnamed -> warn $ show (length unnamed) ++ " MIDI track(s) with no track name"
   return $ Song tempos mmap file
 
 showMIDIFile :: Song [RTB.T U.Beats E.T] -> F.T
