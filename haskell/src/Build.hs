@@ -33,7 +33,7 @@ import qualified Data.DTA.Serialize.Magma              as Magma
 import qualified Data.DTA.Serialize.RB3                as D
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
--- import           Data.Fixed                            (Centi)
+import           Data.Fixed                            (Centi)
 import           Data.Foldable                         (toList)
 import           Data.Hashable                         (hash)
 import qualified Data.HashMap.Strict                   as HM
@@ -60,7 +60,7 @@ import           Image
 import           JSONData                              (StackJSON, fromJSON,
                                                         makeValue, valueId)
 import qualified Magma
--- import qualified MelodysEscape
+import qualified MelodysEscape                         as Melody
 import           MoggDecrypt
 import           Path                                  (parseAbsDir, toFilePath)
 import           PrettyDTA
@@ -1847,8 +1847,6 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
         -- TODO flex parts
         phony (dir </> "overdrive") $ printOverdrive midprocessed
 
-        {-
-
         -- Melody's Escape customs
         let melodyAudio = dir </> "melody/audio.ogg"
             melodyChart = dir </> "melody/song.track"
@@ -1856,25 +1854,26 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
         melodyChart %> \out -> do
           shk $ need [midraw, melodyAudio]
           mid <- shakeMIDI midraw
-          melody <- liftIO $ MelodysEscape.randomNotes $ U.applyTempoTrack (RBFile.s_tempos mid)
-            $ RBFile.onyxMelodysEscape $ RBFile.s_tracks mid
+          melody <- liftIO
+            $ Melody.randomNotes
+            $ Melody.applyTempoMelody (RBFile.s_tempos mid)
+            $ RBFile.onyxMelody
+            $ RBFile.s_tracks mid
           info <- liftIO $ Snd.getFileInfo melodyAudio
           let secs = realToFrac (Snd.frames info) / realToFrac (Snd.samplerate info) :: U.Seconds
               str = unlines
                 [ "1.02"
                 , intercalate ";"
-                  [ show (MelodysEscape.secondsToTicks secs)
+                  [ show (Melody.secondsToTicks secs)
                   , show (realToFrac secs :: Centi)
                   , "420"
                   , "4"
                   ]
-                , MelodysEscape.writeTransitions melody
-                , MelodysEscape.writeNotes melody
+                , Melody.writeTransitions melody
+                , Melody.writeNotes melody
                 ]
           liftIO $ writeFile out str
         phony (dir </> "melody") $ shk $ need [melodyAudio, melodyChart]
-
-        -}
 
         {-
           -- Check for some extra problems that Magma doesn't catch.

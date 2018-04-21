@@ -24,6 +24,7 @@ import           Data.Maybe                       (catMaybes, fromJust,
                                                    mapMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
+import           MelodysEscape                    (MelodyTrack)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Codec.Beat
@@ -239,28 +240,31 @@ data OnyxFile t = OnyxFile
   , onyxEvents :: EventsTrack t
   , onyxBeat   :: BeatTrack t
   , onyxVenue  :: VenueTrack t
+  , onyxMelody :: MelodyTrack t
   } deriving (Eq, Ord, Show)
 
 instance HasEvents OnyxFile where
   getEventsTrack = onyxEvents
 
 instance (NNC.C t) => Monoid (OnyxFile t) where
-  mempty = OnyxFile Map.empty mempty mempty mempty
+  mempty = OnyxFile Map.empty mempty mempty mempty mempty
   mappend
-    (OnyxFile a1 a2 a3 a4)
-    (OnyxFile b1 b2 b3 b4)
+    (OnyxFile a1 a2 a3 a4 a5)
+    (OnyxFile b1 b2 b3 b4 b5)
     = OnyxFile
       (Map.unionWith mappend a1 b1)
       (mappend a2 b2)
       (mappend a3 b3)
       (mappend a4 b4)
+      (mappend a5 b5)
 
 instance TraverseTrack OnyxFile where
   traverseTrack fn
-    (OnyxFile a b c d)
+    (OnyxFile a b c d e)
     = OnyxFile
       <$> traverse (traverseTrack fn) a
-      <*> traverseTrack fn b <*> traverseTrack fn c <*> traverseTrack fn d
+      <*> traverseTrack fn b <*> traverseTrack fn c
+      <*> traverseTrack fn d <*> traverseTrack fn e
 
 data OnyxPart t = OnyxPart
   { onyxPartDrums        :: DrumTrack t
@@ -393,6 +397,7 @@ instance ParseFile OnyxFile where
     onyxEvents <- onyxEvents =. fileTrack "EVENTS" []
     onyxBeat   <- onyxBeat   =. fileTrack "BEAT"   []
     onyxVenue  <- onyxVenue  =. fileTrack "VENUE"  []
+    onyxMelody <- onyxMelody =. fileTrack "MELODY'S ESCAPE" []
     return OnyxFile{..}
 
 newtype RawFile t = RawFile { rawTracks :: [RTB.T t E.T] }
