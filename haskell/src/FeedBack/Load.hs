@@ -30,9 +30,11 @@ import qualified Numeric.NonNegative.Wrapper      as NN
 import           RockBand.Codec.Events
 import           RockBand.Codec.File
 import           RockBand.Common                  (Difficulty (..),
-                                                   LongNote (..), splitEdges)
-import qualified RockBand.FiveButton              as Five
-import qualified RockBand.GHL                     as GHL
+                                                   LongNote (..),
+                                                   StrumHOPOTap (..),
+                                                   splitEdges)
+import qualified RockBand.Legacy.Five             as Five
+import qualified RockBand.Legacy.Six              as GHL
 import           RockBand.Sections                (makeRB2Section)
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
@@ -180,7 +182,7 @@ data TrackEvent t a
   | TrackSolo Bool
   deriving (Eq, Ord, Show, Read)
 
-emitTrack :: (NNC.C t, Ord a) => t -> RTB.T t (TrackEvent t a) -> RTB.T t (LongNote Five.StrumHOPOTap a)
+emitTrack :: (NNC.C t, Ord a) => t -> RTB.T t (TrackEvent t a) -> RTB.T t (LongNote StrumHOPOTap a)
 emitTrack hopoThreshold trk = let
   gnotes = fmap G.Note $ splitEdges $ flip RTB.mapMaybe trk $ \case
     TrackNote x len -> Just ((), x, guard (len /= NNC.zero) >> Just len)
@@ -189,11 +191,11 @@ emitTrack hopoThreshold trk = let
   forces = RTB.mapMaybe (\case TrackForce t -> Just t; _ -> Nothing) trk
   taps   = RTB.mapMaybe (\case TrackTap   t -> Just t; _ -> Nothing) trk
   applied = applyChartSwitch forces $ applyChartSwitch taps gh
-  flipSH Five.Strum = Five.HOPO
-  flipSH Five.HOPO  = Five.Strum
-  flipSH Five.Tap   = Five.Tap
+  flipSH Strum = HOPO
+  flipSH HOPO  = Strum
+  flipSH Tap   = Tap
   in flip fmap applied $ \(forced, (tap, ln)) ->
-    first (if tap then const Five.Tap else if forced then flipSH else id) ln
+    first (if tap then const Tap else if forced then flipSH else id) ln
 
 chartToMIDI :: (SendMessage m) => Chart U.Beats -> StackTraceT m (Song (FixedFile U.Beats))
 chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do

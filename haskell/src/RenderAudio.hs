@@ -33,7 +33,7 @@ import           Data.Maybe                     (fromMaybe, listToMaybe)
 import qualified Data.Text                      as T
 import           Development.Shake.FilePath
 import           RockBand.Codec.File            (FlexPartName)
-import qualified RockBand.Drums                 as RBDrums
+import qualified RockBand.Legacy.Drums          as RBDrums
 import qualified Sound.Jammit.Base              as J
 
 computeChannels :: Audio Duration Int -> Int

@@ -1,5 +1,4 @@
 {-# LANGUAGE LambdaCase      #-}
-{-# LANGUAGE TemplateHaskell #-}
 module MelodysEscape where
 
 import           Control.Monad.Random

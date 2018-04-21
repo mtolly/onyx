@@ -40,7 +40,7 @@ import           JSONData
 import           RockBand.Codec.File            (FlexPartName (..), getPartName,
                                                  readPartName)
 import           RockBand.Common                (Key (..))
-import qualified RockBand.Drums                 as Drums
+import qualified RockBand.Legacy.Drums          as Drums
 import qualified Sound.Jammit.Base              as J
 import qualified Sound.MIDI.Util                as U
 import qualified Text.ParserCombinators.ReadP   as ReadP

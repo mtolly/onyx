@@ -1,8 +1,7 @@
 -- | The \"Clone Hero Live\" MIDI format.
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TemplateHaskell       #-}
-module RockBand.GHL
+module RockBand.Legacy.Six
 ( Fret(..)
 , Event(..)
 , DiffEvent(..)
@@ -14,7 +13,6 @@ import qualified Data.Map                         as Map
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.Six
 import           RockBand.Common
-import           RockBand.FiveButton              (StrumHOPOTap (..))
 
 data Event
   = Overdrive                 Bool

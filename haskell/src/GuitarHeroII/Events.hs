@@ -1,37 +1,69 @@
 {- |
 EVENTS
 -}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE RecordWildCards   #-}
 module GuitarHeroII.Events where
 
 import           Control.Monad                    ((>=>))
+import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Codec
 import           RockBand.Common
-import           RockBand.Parse
 
-data Event
+data CrowdTempo
   = CrowdHalfTempo
   | CrowdNormalTempo
   | CrowdFastTempo
-  | CrowdLightersOff
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance Command CrowdTempo where
+  fromCommand = \case
+    CrowdHalfTempo   -> ["crowd_half_tempo"]
+    CrowdNormalTempo -> ["crowd_normal_tempo"]
+    CrowdFastTempo   -> ["crowd_fast_tempo"]
+  toCommand = reverseLookup each fromCommand
+
+data CrowdLighters
+  = CrowdLightersOff
   | CrowdLightersSlow
   | CrowdLightersFast
-  | SyncWag
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance Command CrowdLighters where
+  fromCommand = \case
+    CrowdLightersOff  -> ["crowd_lighters_off"]
+    CrowdLightersSlow -> ["crowd_lighters_slow"]
+    CrowdLightersFast -> ["crowd_lighters_fast"]
+  toCommand = reverseLookup each fromCommand
+
+data Event
+  = SyncWag
   | SyncHeadBang
   | BandJump
   | Verse
   | Chorus
   | Solo
-  | Lighting Lighting
-  | PracticeSection T.Text
   | MusicStart
   | End
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance Command Event where
+  fromCommand = \case
+    Verse        -> ["verse"]
+    Chorus       -> ["chorus"]
+    Solo         -> ["solo"]
+    SyncWag      -> ["sync_wag"]
+    SyncHeadBang -> ["sync_head_bang"]
+    BandJump     -> ["band_jump"] -- yes we can has [sync_band_jump]
+    MusicStart   -> ["music_start"]
+    End          -> ["end"]
+  toCommand = reverseLookup each fromCommand
 
 data Lighting
   = Lighting_
@@ -52,32 +84,40 @@ instance Command Lighting where
     Nothing -> error "panic! couldn't strip Lighting_ from venue event"
   toCommand = reverseLookup each fromCommand
 
-instanceMIDIEvent [t| Event |] Nothing $
+data EventsTrack t = EventsTrack
+  { eventsCrowdTempo    :: RTB.T t CrowdTempo
+  , eventsCrowdLighters :: RTB.T t CrowdLighters
+  , eventsLighting      :: RTB.T t Lighting
+  , eventsSections      :: RTB.T t T.Text
+  , eventsOther         :: RTB.T t Event
+  } deriving (Eq, Ord, Show)
 
-  [ commandPair ["verse"] [p| Verse |]
-  , commandPair ["chorus"] [p| Chorus |]
-  , commandPair ["solo"] [p| Solo |]
-  , commandPair ["crowd_half_tempo"] [p| CrowdHalfTempo |]
-  , commandPair ["crowd_normal_tempo"] [p| CrowdNormalTempo |]
-  , commandPair ["crowd_fast_tempo"] [p| CrowdFastTempo |]
-  , commandPair ["crowd_lighters_off"] [p| CrowdLightersOff |]
-  , commandPair ["crowd_lighters_slow"] [p| CrowdLightersSlow |]
-  , commandPair ["crowd_lighters_fast"] [p| CrowdLightersFast |]
-  , commandPair ["sync_wag"] [p| SyncWag |]
-  , commandPair ["sync_head_bang"] [p| SyncHeadBang |]
-  , commandPair ["band_jump"] [p| BandJump |] -- yes we can has [sync_band_jump]
-  , commandPair ["music_start"] [p| MusicStart |]
-  , commandPair ["end"] [p| End |]
+instance TraverseTrack EventsTrack where
+  traverseTrack fn (EventsTrack a b c d e) = EventsTrack
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e
 
-  , ( [e| one $ firstEventWhich $ readCommand' >=> \case
-        ["section", s] -> Just $ PracticeSection s
-        _              -> Nothing
-      |]
-    , [e| \case PracticeSection s -> RTB.singleton NNC.zero $ showCommand' ["section", s] |]
-    )
+instance (NNC.C t) => Monoid (EventsTrack t) where
+  mempty = EventsTrack RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+  mappend
+    (EventsTrack a1 a2 a3 a4 a5)
+    (EventsTrack b1 b2 b3 b4 b5)
+    = EventsTrack
+      (RTB.merge a1 b1)
+      (RTB.merge a2 b2)
+      (RTB.merge a3 b3)
+      (RTB.merge a4 b4)
+      (RTB.merge a5 b5)
 
-  , ( [e| one $ mapParseOne Lighting parseCommand |]
-    , [e| \case Lighting m -> unparseCommand m |]
-    )
-
-  ]
+instance ParseTrack EventsTrack where
+  parseTrack = do
+    eventsCrowdTempo    <- eventsCrowdTempo    =. command
+    eventsCrowdLighters <- eventsCrowdLighters =. command
+    eventsLighting      <- eventsLighting      =. command
+    eventsOther         <- eventsOther         =. command
+    eventsSections      <- eventsSections      =. let
+      fp = readCommand' >=> \case
+        ("section" : s) -> Just $ T.unwords s
+        _               -> Nothing
+      fs t = showCommand' ["section", t]
+      in single fp fs
+    return EventsTrack{..}

@@ -2,9 +2,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PatternSynonyms       #-}
-{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TupleSections         #-}
-module RockBand.Drums
+module RockBand.Legacy.Drums
 ( Animation(..), Audio(..), Disco(..), Gem(..)
 , Hand(..), Hit(..), PSGem(..), ProColor(..), ProType(..)
 , Event(..), DiffEvent(..)

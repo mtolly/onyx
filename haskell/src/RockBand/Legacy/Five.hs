@@ -3,14 +3,12 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE TemplateHaskell       #-}
-module RockBand.FiveButton
+module RockBand.Legacy.Five
 ( Color(..)
 , FretPosition(..)
 , HandMap(..)
 , OnyxCloseEvent(..)
 , StrumMap(..)
-, StrumHOPOTap(..)
 , Event(..)
 , DiffEvent(..)
 , fiveFromLegacy, fiveToLegacy

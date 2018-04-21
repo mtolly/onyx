@@ -62,8 +62,8 @@ import           RockBand.Codec.Six               (nullSix)
 import           RockBand.Codec.Vocal
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), joinEdges)
-import qualified RockBand.Drums                   as RBDrums
-import qualified RockBand.Vocals                  as RBVox
+import qualified RockBand.Legacy.Drums            as RBDrums
+import qualified RockBand.Legacy.Vocal            as RBVox
 import           Scripts                          (loadFoFMIDI, loadMIDI)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U

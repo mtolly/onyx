@@ -43,9 +43,6 @@ data FretPosition
   | Fret59 -- ^ roughly fret 12
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-data StrumHOPOTap = Strum | HOPO | Tap
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
 -- | Controls the fretting hand animation of a guitarist/bassist.
 data HandMap
   = HandMap_Default

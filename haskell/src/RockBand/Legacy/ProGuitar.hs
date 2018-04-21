@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE OverloadedStrings     #-}
-module RockBand.ProGuitar
+module RockBand.Legacy.ProGuitar
 ( GtrChannel(..), GtrFret, GtrString(..), NoteType(..), SlideType(..), StrumArea(..)
 , Event(..), DiffEvent(..)
 , standardGuitar
@@ -24,7 +24,6 @@ import           Guitars                          (applyStatus, guitarify,
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.ProGuitar
 import           RockBand.Common
-import           RockBand.FiveButton              (StrumHOPOTap (..))
 import qualified Sound.MIDI.Util                  as U
 
 data Event

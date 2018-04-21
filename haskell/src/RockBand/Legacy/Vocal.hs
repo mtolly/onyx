@@ -2,8 +2,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE TemplateHaskell   #-}
-module RockBand.Vocals
+module RockBand.Legacy.Vocal
 ( PercussionType(..), Pitch(..)
 , Event(..)
 , asciify

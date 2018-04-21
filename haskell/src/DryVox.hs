@@ -14,7 +14,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Vector.Storable             as V
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Numeric.NonNegative.Wrapper      as NN
-import qualified RockBand.Vocals                  as Vox
+import qualified RockBand.Legacy.Vocal            as Vox
 import qualified Sound.MIDI.Util                  as U
 
 vocalTubes :: (NNC.C t) => RTB.T t Vox.Event -> RTB.T t Bool

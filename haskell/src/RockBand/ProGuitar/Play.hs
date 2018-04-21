@@ -6,8 +6,8 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Word                        (Word8)
 import           Numeric.NonNegative.Class        ((-|))
 import           RockBand.Common                  (each, reverseLookup)
-import qualified RockBand.FiveButton              as Five
-import           RockBand.ProGuitar
+import qualified RockBand.Common                  as RB
+import           RockBand.Legacy.ProGuitar
 import qualified Sound.MIDI.Util                  as U
 
 data Controller = Mustang | Squier
@@ -156,8 +156,8 @@ autoplay thres tmap = let
     Just ((dt, (shopo, thisGemsTrips, _)), rtb') -> let
       thisGems = [ (x, y) | (x, y, _) <- thisGemsTrips ]
       isStrum = case shopo of
-        Five.Strum -> True
-        _          -> thisGems == prevGems -- strum only if this is a hopo/tap with same frets as prev note
+        RB.Strum -> True
+        _        -> thisGems == prevGems -- strum only if this is a hopo/tap with same frets as prev note
       strums = [ Strum str 96 | (str, _) <- thisGems ]
       frets = do
         str <- [minBound .. maxBound]

@@ -2,24 +2,40 @@
 BAND SINGER
 -}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE RecordWildCards   #-}
 module GuitarHeroII.BandSinger where
 
-import           RockBand.Parse
+import           Control.Monad.Codec
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           GuitarHeroII.PartGuitar          (Tempo (..))
+import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Codec
 
-data Event
-  = Idle
-  | Play
-  | HalfTempo
-  | NormalTempo
-  | DoubleTempo
-  deriving (Eq, Ord, Show, Read)
+data BandSingerTrack t = BandSingerTrack
+  { singerTempo :: RTB.T t Tempo
+  , singerIdle  :: RTB.T t ()
+  , singerPlay  :: RTB.T t ()
+  } deriving (Eq, Ord, Show)
 
-instanceMIDIEvent [t| Event |] Nothing $
+instance TraverseTrack BandSingerTrack where
+  traverseTrack fn (BandSingerTrack a b c) = BandSingerTrack
+    <$> fn a <*> fn b <*> fn c
 
-  [ commandPair ["idle"] [p| Idle |]
-  , commandPair ["play"] [p| Play |]
-  , commandPair ["half_tempo"] [p| HalfTempo |]
-  , commandPair ["normal_tempo"] [p| NormalTempo |]
-  , commandPair ["double_tempo"] [p| DoubleTempo |]
-  ]
+instance (NNC.C t) => Monoid (BandSingerTrack t) where
+  mempty = BandSingerTrack RTB.empty RTB.empty RTB.empty
+  mappend
+    (BandSingerTrack a1 a2 a3)
+    (BandSingerTrack b1 b2 b3)
+    = BandSingerTrack
+      (RTB.merge a1 b1)
+      (RTB.merge a2 b2)
+      (RTB.merge a3 b3)
+
+instance ParseTrack BandSingerTrack where
+  parseTrack = do
+    singerTempo    <- singerTempo    =. command
+    singerIdle     <- singerIdle     =. commandMatch ["idle"]
+    singerPlay     <- singerPlay     =. commandMatch ["play"]
+    return BandSingerTrack{..}
+
+

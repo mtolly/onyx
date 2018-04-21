@@ -14,12 +14,12 @@ import           Data.Maybe                       (fromMaybe, isNothing)
 import qualified Data.Set                         as Set
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
-import qualified RockBand.FiveButton              as G5
-import qualified RockBand.GHL                     as G6
+import qualified RockBand.Legacy.Five             as G5
+import qualified RockBand.Legacy.Six              as G6
 import qualified Sound.MIDI.Util                  as U
 
 data GuitarEvent a
-  = Force G5.StrumHOPOTap Bool
+  = Force StrumHOPOTap Bool
   | Note a
   deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
@@ -96,12 +96,12 @@ applyStatus status events = let
     Right x          -> (             current, Just (Set.toList current, x))
   in trackState Set.empty fn $ RTB.merge (fmap Left status) (fmap Right events)
 
-allStrums :: (NNC.C t) => RTB.T t (GuitarEvent (LongNote () a)) -> RTB.T t (LongNote G5.StrumHOPOTap a)
+allStrums :: (NNC.C t) => RTB.T t (GuitarEvent (LongNote () a)) -> RTB.T t (LongNote StrumHOPOTap a)
 allStrums = RTB.mapMaybe $ \case
-  Note ln -> Just $ first (const G5.Strum) ln
+  Note ln -> Just $ first (const Strum) ln
   _       -> Nothing
 
-strumHOPOTap :: (NNC.C t, Ord a) => HOPOsAlgorithm -> t -> RTB.T t (GuitarEvent (LongNote () a)) -> RTB.T t (LongNote G5.StrumHOPOTap a)
+strumHOPOTap :: (NNC.C t, Ord a) => HOPOsAlgorithm -> t -> RTB.T t (GuitarEvent (LongNote () a)) -> RTB.T t (LongNote StrumHOPOTap a)
 strumHOPOTap algo threshold rtb = let
   notes = RTB.mapMaybe (\case Note ln -> Just ln; _ -> Nothing) rtb
   mods = flip RTB.mapMaybe rtb $ \case
@@ -116,28 +116,28 @@ strumHOPOTap algo threshold rtb = let
       []   -> fmap (\(ago, gems) -> (NNC.add ago dt, gems)) prev
       gems -> Just (NNC.zero, gems)
     autoSH = case prev of
-      Nothing -> G5.Strum
+      Nothing -> Strum
       Just (ago, prevColors) -> let
         thisColors = blips ++ ons
         distance = NNC.add ago dt
         in if distance > threshold
           -- the > above is tested on both RB3 and Moonscraper/CH:
           -- notes that are exactly the threshold apart will produce HOPOs
-          then G5.Strum
+          then Strum
           else case thisColors of
-            [] -> G5.Strum -- doesn't matter
+            [] -> Strum -- doesn't matter
             [c] -> case algo of
               -- TODO verify this behavior for all 3 algorithms
-              HOPOsGH3 -> if thisColors == prevColors then G5.Strum else G5.HOPO
-              _ -> if c `elem` prevColors then G5.Strum else G5.HOPO
+              HOPOsGH3 -> if thisColors == prevColors then Strum else HOPO
+              _        -> if c `elem` prevColors then Strum else HOPO
             _ -> case algo of
               HOPOsRBKeys -> if sort thisColors /= sort prevColors
-                then G5.HOPO
-                else G5.Strum
-              _ -> G5.Strum
-    sht | elem G5.Tap   thisMods = G5.Tap
-        | elem G5.Strum thisMods = G5.Strum
-        | elem G5.HOPO  thisMods = G5.HOPO
+                then HOPO
+                else Strum
+              _ -> Strum
+    sht | elem Tap   thisMods = Tap
+        | elem Strum thisMods = Strum
+        | elem HOPO  thisMods = HOPO
         | otherwise              = autoSH
     newEvents = concat
       [ map (Blip   sht) blips
@@ -190,21 +190,21 @@ fromClosed = fmap $ fmap Just
 noOpenNotes
   :: (NNC.C t)
   => Bool -- ^ whether open HOPOs\/taps should be removed
-  -> RTB.T t (LongNote G5.StrumHOPOTap (Maybe G5.Color))
-  -> RTB.T t (LongNote G5.StrumHOPOTap G5.Color)
+  -> RTB.T t (LongNote StrumHOPOTap (Maybe G5.Color))
+  -> RTB.T t (LongNote StrumHOPOTap G5.Color)
 noOpenNotes removeOpenHOPO = let
   f = \case
-    (sht, Nothing, _) | removeOpenHOPO && sht /= G5.Strum -> Nothing
+    (sht, Nothing, _) | removeOpenHOPO && sht /= Strum -> Nothing
     (ntype, Nothing, len) -> Just (ntype, G5.Green, len)
     (ntype, Just x, len) -> Just (ntype, x, len)
   in splitEdges . RTB.mapMaybe f . joinEdges
 
 -- | Turns all tap notes into HOPO notes.
-noTaps :: RTB.T t (LongNote G5.StrumHOPOTap a) -> RTB.T t (LongNote G5.StrumHOPOTap a)
-noTaps = fmap $ first $ \case G5.Tap -> G5.HOPO; sh -> sh
+noTaps :: RTB.T t (LongNote StrumHOPOTap a) -> RTB.T t (LongNote StrumHOPOTap a)
+noTaps = fmap $ first $ \case Tap -> HOPO; sh -> sh
 
 -- | Writes every note with an explicit HOPO/strum force.
-emit5 :: RTB.T U.Beats (LongNote G5.StrumHOPOTap (Maybe G5.Color)) -> RTB.T U.Beats G5.DiffEvent
+emit5 :: RTB.T U.Beats (LongNote StrumHOPOTap (Maybe G5.Color)) -> RTB.T U.Beats G5.DiffEvent
 emit5 = let
   eachEvent = \case
     NoteOff mc -> note NoteOff mc
@@ -225,7 +225,7 @@ emit5 = let
   nubByTime = RTB.flatten . fmap nub . RTB.collectCoincident
   in nubByTime . U.trackJoin . fmap eachEvent
 
-emit6 :: RTB.T U.Beats (LongNote G5.StrumHOPOTap (Maybe G6.Fret)) -> RTB.T U.Beats G6.DiffEvent
+emit6 :: RTB.T U.Beats (LongNote StrumHOPOTap (Maybe G6.Fret)) -> RTB.T U.Beats G6.DiffEvent
 emit6 = let
   eachEvent = \case
     NoteOff mc -> note NoteOff mc

@@ -2,16 +2,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module RockBand.PhaseShiftMessage where
 
-import           Control.Applicative                   ((<|>))
-import qualified Data.EventList.Relative.TimeBody      as RTB
 import qualified Data.Text                             as T
-import qualified Numeric.NonNegative.Class             as NNC
 import           RockBand.Common                       (Command (..),
                                                         Difficulty (..))
-import           RockBand.Parse
 import qualified Sound.MIDI.File.Event                 as E
 import qualified Sound.MIDI.File.Event.SystemExclusive as SysEx
-import qualified Sound.MIDI.Util                       as U
 import           Text.Read                             (readMaybe)
 
 data PSMessage = PSMessage
@@ -60,7 +55,7 @@ instance Command PSMessage where
         "on"  -> Just True
         "off" -> Just False
         _     -> Nothing
-      return$ PSMessage diff phraseID onoff
+      return $ PSMessage diff phraseID onoff
     _ -> Nothing
 
 parsePSSysEx :: E.T -> Maybe PSMessage
@@ -93,10 +88,3 @@ unparsePSSysEx (PSMessage diff pid pedge) = E.SystemExclusive $ SysEx.Regular
   , if pedge then 1 else 0
   , 0xF7
   ]
-
-parsePSMessage :: ParseOne U.Beats E.T PSMessage
-parsePSMessage rtb = firstEventWhich parsePSSysEx rtb <|> parseCommand rtb
-
-instance MIDIEvent PSMessage where
-  parseSome = one parsePSMessage
-  unparseOne = RTB.singleton NNC.zero . unparsePSSysEx

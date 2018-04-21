@@ -55,7 +55,7 @@ import           DryVox                                (clipDryVox,
 import qualified FretsOnFire                           as FoF
 import           Genre
 import           GuitarHeroII.Audio                    (writeVGS)
--- import           GuitarHeroII.Convert
+import           GuitarHeroII.Convert
 import           Image
 import           JSONData                              (StackJSON, fromJSON,
                                                         makeValue, valueId)
@@ -78,13 +78,13 @@ import           RockBand.Codec.ProGuitar              (nullPG)
 import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal
 import           RockBand.Common                       (Difficulty (..))
-import qualified RockBand.Drums                        as RBDrums
-import qualified RockBand.ProGuitar                    as ProGtr
+import qualified RockBand.Legacy.Drums                 as RBDrums
+import qualified RockBand.Legacy.ProGuitar             as ProGtr
+import qualified RockBand.Legacy.Vocal                 as RBVox
 import qualified RockBand.ProGuitar.Play               as PGPlay
 import           RockBand.Sections                     (makeRB2Section,
                                                         makeRB3Section,
                                                         makeRBN2Sections)
-import qualified RockBand.Vocals                       as RBVox
 import qualified RockBand2                             as RB2
 import qualified RockBand3                             as RB3
 import           Scripts
@@ -1120,7 +1120,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               lg "# Producing RB3 CON file via X360"
               rb3pkg
                 (getArtist (_metadata songYaml) <> ": " <> title)
-                ("Compiled by Onyx Music Game Toolkit")
+                "Compiled by Onyx Music Game Toolkit"
                 (dir </> "stfs")
                 out
 
@@ -1460,13 +1460,9 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               Just pair -> return pair
             let planDir = "gen/plan" </> T.unpack planName
 
-            {-
-
             dir </> "gh2/notes.mid" %> \out -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
               saveMIDI out $ midiRB3toGH2 songYaml gh2 input
-
-            -}
 
             dir </> "gh2/audio.vgs" %> \out -> do
               let coopPart = case gh2_Coop gh2 of
@@ -1501,14 +1497,12 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   $ merge srcCoop srcGtr
                 lg $ "Finished writing GH2 practice audio for " ++ show speed ++ "% speed"
 
-            {-
-
             dir </> "gh2/songs.dta" %> \out -> do
               input <- shakeMIDI $ planDir </> "raw.mid"
-              let dta = makeGH2DTA songYaml (previewBounds songYaml input) gh2
-              stackIO $ D.writeFileDTA_latin1 out $ D.serialize (valueId D.stackChunks) dta
-
-            -}
+              stackIO $ D.writeFileDTA_latin1 out $ D.serialize (valueId D.stackChunks) $ makeGH2DTA
+                songYaml
+                (previewBounds songYaml (input :: RBFile.Song (RBFile.OnyxFile U.Beats)))
+                gh2
 
             phony (dir </> "gh2") $ shk $ need
               [ dir </> "gh2/notes.mid"

@@ -4,32 +4,27 @@ module GuitarHeroII.Convert where
 
 import           Config
 import           Control.Monad                    (guard)
+import qualified Data.DTA.Serialize.GH2           as D
+import           Data.DTA.Serialize.RB3           (AnimTempo (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
+import           GuitarHeroII.File
 import           Guitars
 import qualified RockBand.Codec.File              as F
-import qualified Sound.MIDI.Util                  as U
-
 import           RockBand.Common                  (Difficulty (..), Mood (..),
                                                    eachDifficulty)
-import qualified RockBand.Drums                   as RBD
-import qualified RockBand.Events                  as RBEv
-import qualified RockBand.FiveButton              as RB5
-import qualified RockBand.Vocals                  as RBV
+import qualified Sound.MIDI.Util                  as U
 
-import qualified GuitarHeroII.BandBass            as BB
-import qualified GuitarHeroII.BandDrums           as BD
-import qualified GuitarHeroII.BandKeys            as BK
-import qualified GuitarHeroII.BandSinger          as BS
-import qualified GuitarHeroII.Events              as Ev
-import qualified GuitarHeroII.PartGuitar          as PG
-import qualified GuitarHeroII.Triggers            as Tr
+midiRB3toGH2
+  :: SongYaml
+  -> TargetGH2
+  -> F.Song (F.OnyxFile U.Beats)
+  -> F.Song (GH2File U.Beats)
+midiRB3toGH2 = undefined
 
-import qualified Data.DTA.Serialize.GH2           as D
-import           Data.DTA.Serialize.RB3           (AnimTempo (..))
-
+{-
 midiRB3toGH2
   :: SongYaml
   -> TargetGH2
@@ -124,6 +119,7 @@ midiRB3toGH2 song target (F.Song tmap mmap onyx) = let
     , F.gh2Triggers       = triggers
     }
   in F.Song tmap mmap gh2
+-}
 
 makeGH2DTA :: SongYaml -> (Int, Int) -> TargetGH2 -> D.SongPackage
 makeGH2DTA song preview target = D.SongPackage

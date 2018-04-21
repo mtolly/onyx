@@ -6,7 +6,7 @@
 module RockBand.Codec where
 
 import           Control.Applicative              ((<|>))
-import           Control.Monad                    (forM, guard, void)
+import           Control.Monad                    (forM, guard, void, (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
@@ -23,9 +23,6 @@ import           Data.Semigroup                   (Semigroup (..))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
-import           RockBand.Parse                   (isNoteEdge, isNoteEdgeCPV,
-                                                   makeEdge, makeEdgeCPV,
-                                                   unparseBlipCPV)
 import qualified RockBand.PhaseShiftMessage       as PS
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
@@ -90,6 +87,9 @@ blipCV p = Codec
   , codecOut = simpleShow $ U.trackJoin . fmap (\(c, v) -> unparseBlipCPV (c, p, v))
   }
 
+-- | A blip is an event which is serialized as a MIDI note of unimportant length.
+-- In Rock Band, these can always have their length set to 1\/32 of a beat,
+-- which is the smallest allowed distance between events.
 blip :: (Monad m) => Int -> TrackEvent m U.Beats ()
 blip = dimap (fmap $ \() -> (0, 96)) void . blipCV
 
@@ -155,7 +155,7 @@ command = single readCommand' showCommand'
 
 commandMatch :: (Monad m, NNC.C t) => [T.Text] -> TrackEvent m t ()
 commandMatch c = single
-  (\e -> readCommand' e >>= \c' -> guard (c == c') >> Just ())
+  (readCommand' >=> \c' -> guard (c == c') >> Just ())
   (\() -> showCommand' c)
 
 joinEdges' :: (NNC.C t, Eq a) => RTB.T t (a, Maybe s) -> RTB.T t (a, s, t)

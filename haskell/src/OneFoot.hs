@@ -5,8 +5,8 @@ module OneFoot (phaseShiftKicks, rockBand1x, rockBand2x) where
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
-import           RockBand.Drums                   (Hand (..))
-import qualified RockBand.Drums                   as Drums
+import           RockBand.Legacy.Drums            (Hand (..))
+import qualified RockBand.Legacy.Drums            as Drums
 import qualified Sound.MIDI.Util                  as U
 
 assignFeet

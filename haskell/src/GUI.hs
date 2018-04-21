@@ -60,7 +60,7 @@ import qualified RhythmGame.Drums                 as RGDrums
 import           RockBand.Codec.Drums
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Common                  (Difficulty (..))
-import           RockBand.ProGuitar               (standardGuitar)
+import           RockBand.Legacy.ProGuitar        (standardGuitar)
 import           RockBand.ProGuitar.Keyboard      (GtrSettings (..), runApp)
 import           Scripts                          (loadMIDI)
 import           SDL                              (($=))

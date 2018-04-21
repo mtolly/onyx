@@ -8,7 +8,6 @@
 {-# LANGUAGE MultiParamTypeClasses  #-}
 {-# LANGUAGE OverloadedStrings      #-}
 {-# LANGUAGE PatternSynonyms        #-}
-{-# LANGUAGE TemplateHaskell        #-}
 {-# LANGUAGE TupleSections          #-}
 {-# LANGUAGE ViewPatterns           #-}
 module RockBand.Common where
@@ -18,13 +17,14 @@ import           Data.Bifunctor                   (Bifunctor (..))
 import           Data.Char                        (isSpace)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (stripPrefix)
-import           Data.Maybe                       (fromMaybe)
+import           Data.Maybe                       (fromMaybe, isJust)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
-import           Language.Haskell.TH
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.File.Event.Meta       as Meta
+import qualified Sound.MIDI.Message.Channel       as C
+import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
 
@@ -132,22 +132,6 @@ showKey flat = if flat
     B  -> "B"
   else map (\case 's' -> '#'; c -> c) . show
 
-keyP :: Int -> Q Pat
-keyP = \case
-  0  -> [p| C  |]
-  1  -> [p| Cs |]
-  2  -> [p| D  |]
-  3  -> [p| Ds |]
-  4  -> [p| E  |]
-  5  -> [p| F  |]
-  6  -> [p| Fs |]
-  7  -> [p| G  |]
-  8  -> [p| Gs |]
-  9  -> [p| A  |]
-  10 -> [p| As |]
-  11 -> [p| B  |]
-  i  -> error $ "keyP: can't make Key pattern from " ++ show i
-
 class HasDiffEvent d a | a -> d where
   makeDiffEvent :: Difficulty -> d -> a
   unmakeDiffEvent :: a -> Maybe (Difficulty, d)
@@ -247,3 +231,30 @@ splitEdges = U.trackJoin . fmap f where
       [ (NNC.zero, NoteOn s a)
       , (t       , NoteOff  a)
       ]
+
+isNoteEdgeCPV :: E.T -> Maybe (Int, Int, Maybe Int)
+isNoteEdgeCPV = \case
+  E.MIDIEvent (C.Cons c (C.Voice (V.NoteOn  p v))) ->
+    Just (C.fromChannel c, V.fromPitch p, case V.fromVelocity v of 0 -> Nothing; v' -> Just v')
+  E.MIDIEvent (C.Cons c (C.Voice (V.NoteOff p _))) ->
+    Just (C.fromChannel c, V.fromPitch p, Nothing)
+  _ -> Nothing
+
+isNoteEdge :: E.T -> Maybe (Int, Bool)
+isNoteEdge e = isNoteEdgeCPV e >>= \(_c, p, v) -> return (p, isJust v)
+
+unparseBlipCPV :: (Int, Int, Int) -> RTB.T U.Beats E.T
+unparseBlipCPV (c, p, v) = RTB.fromPairList
+  [ (0     , makeEdgeCPV c p $ Just v)
+  , (1 / 32, makeEdgeCPV c p Nothing )
+  ]
+
+makeEdgeCPV :: Int -> Int -> Maybe Int -> E.T
+makeEdgeCPV c p v = E.MIDIEvent $ C.Cons (C.toChannel c) $ C.Voice $
+  V.NoteOn (V.toPitch p) $ maybe (V.toVelocity 0) V.toVelocity v
+
+makeEdge :: Int -> Bool -> E.T
+makeEdge p b = makeEdgeCPV 0 p $ guard b >> Just 96
+
+data StrumHOPOTap = Strum | HOPO | Tap
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)

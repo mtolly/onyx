@@ -36,7 +36,6 @@ import           RockBand.Codec.Six
 import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal
 import           RockBand.Common
-import           RockBand.Parse                   (isNoteEdge)
 import           RockBand.PhaseShiftMessage
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Event            as E

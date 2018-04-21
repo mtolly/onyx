@@ -22,9 +22,9 @@ import           RockBand.Codec.Vocal
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), joinEdges,
                                                    splitEdges)
-import qualified RockBand.Drums                   as Drums
-import qualified RockBand.FiveButton              as Five
-import qualified RockBand.Vocals                  as Vox
+import qualified RockBand.Legacy.Drums            as Drums
+import qualified RockBand.Legacy.Five             as Five
+import qualified RockBand.Legacy.Vocal            as Vox
 import qualified Sound.MIDI.Util                  as U
 
 dryVoxAudio :: (Monad m) => F.Song (F.FixedFile U.Beats) -> AudioSource m Float

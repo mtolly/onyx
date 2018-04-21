@@ -16,7 +16,7 @@ import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Common
-import           RockBand.ProKeys
+import           RockBand.Legacy.ProKeys
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U

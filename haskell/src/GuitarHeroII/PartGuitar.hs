@@ -1,119 +1,151 @@
 {- |
 PART GUITAR, PART GUITAR COOP, PART BASS, PART RHYTHM
 -}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE RecordWildCards   #-}
 module GuitarHeroII.PartGuitar where
 
+import           Control.Monad.Codec
+import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.Map                         as Map
+import qualified Data.Text                        as T
+import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Codec
 import           RockBand.Common
-import           RockBand.FiveButton (Color (..), FretPosition (..))
-import           RockBand.Parse
+import           RockBand.Legacy.Five             (Color (..),
+                                                   FretPosition (..))
 
-data Event
-  = FretPosition FretPosition Bool
-  | Idle
-  | Play
-  | HandMapDefault
-  | HandMapDropD2
-  | HandMapSolo
-  | HandMapNoChords
-  | StrumMapSlapBass
-  | Wail Bool -- ^ headbang or similar. probably like [intense] in RB
-  | Solo Bool -- ^ fire hands, special animations
-  | OwFace Bool
-  | HalfTempo
+data HandMap
+  = HandMap_Default
+  | HandMap_DropD2
+  | HandMap_Solo
+  | HandMap_NoChords
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance Command HandMap where
+  fromCommand hm = ["map", T.pack $ show hm]
+  toCommand = reverseLookup each fromCommand
+
+data StrumMap
+  = StrumMap_SlapBass
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance Command StrumMap where
+  fromCommand sm = ["map", T.pack $ show sm]
+  toCommand = reverseLookup each fromCommand
+
+data Tempo
+  = HalfTempo
   | NormalTempo
   | DoubleTempo
-  | Unknown110 Bool -- ^ some kind of sustain thing?
-  | DiffEvent Difficulty DiffEvent
-  deriving (Eq, Ord, Show, Read)
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-data DiffEvent
-  = StarPower Bool
-  | Player1 Bool
-  | Player2 Bool
-  | Note (LongNote () Color)
-  deriving (Eq, Ord, Show, Read)
+instance Command Tempo where
+  fromCommand = \case
+    HalfTempo   -> ["half_tempo"]
+    NormalTempo -> ["normal_tempo"]
+    DoubleTempo -> ["double_tempo"]
+  toCommand = reverseLookup each fromCommand
 
-instanceMIDIEvent [t| Event |] Nothing $
+data PartTrack t = PartTrack
+  { partDifficulties :: Map.Map Difficulty (PartDifficulty t)
+  , partFretPosition :: RTB.T t (FretPosition, Bool)
+  , partIdle         :: RTB.T t ()
+  , partPlay         :: RTB.T t ()
+  , partHandMap      :: RTB.T t HandMap
+  , partStrumMap     :: RTB.T t StrumMap
+  , partWail         :: RTB.T t Bool -- ^ headbang or similar. probably like [intense] in RB
+  , partSolo         :: RTB.T t Bool -- ^ fire hands, special animations
+  , partOwFace       :: RTB.T t Bool
+  , partTempo        :: RTB.T t Tempo
+  , partUnknown110   :: RTB.T t Bool -- ^ some kind of sustain thing?
+  } deriving (Eq, Ord, Show)
 
-  -- TODO 38 and 39 seen in Institutionalized, Jessica, John the Fisherman
-  [ edge 40 $ applyB [p| FretPosition Fret40 |]
-  , edge 41 $ applyB [p| FretPosition Fret41 |]
-  , edge 42 $ applyB [p| FretPosition Fret42 |]
-  , edge 43 $ applyB [p| FretPosition Fret43 |]
-  , edge 44 $ applyB [p| FretPosition Fret44 |]
-  , edge 45 $ applyB [p| FretPosition Fret45 |]
-  , edge 46 $ applyB [p| FretPosition Fret46 |]
-  , edge 47 $ applyB [p| FretPosition Fret47 |]
-  , edge 48 $ applyB [p| FretPosition Fret48 |]
-  , edge 49 $ applyB [p| FretPosition Fret49 |]
-  , edge 50 $ applyB [p| FretPosition Fret50 |]
-  , edge 51 $ applyB [p| FretPosition Fret51 |]
-  , edge 52 $ applyB [p| FretPosition Fret52 |]
-  , edge 53 $ applyB [p| FretPosition Fret53 |]
-  , edge 54 $ applyB [p| FretPosition Fret54 |]
-  , edge 55 $ applyB [p| FretPosition Fret55 |]
-  , edge 56 $ applyB [p| FretPosition Fret56 |]
-  , edge 57 $ applyB [p| FretPosition Fret57 |]
-  , edge 58 $ applyB [p| FretPosition Fret58 |]
-  , edge 59 $ applyB [p| FretPosition Fret59 |]
+instance TraverseTrack PartTrack where
+  traverseTrack fn (PartTrack a b c d e f g h i j k) = PartTrack
+    <$> traverse (traverseTrack fn) a
+    <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
+    <*> fn g <*> fn h <*> fn i <*> fn j <*> fn k
 
-  ] ++ noteParser 60 [p| Green |] (\p -> [p| DiffEvent Easy (Note $p) |])
-    ++ noteParser 61 [p| Red |] (\p -> [p| DiffEvent Easy (Note $p) |])
-    ++ noteParser 62 [p| Yellow |] (\p -> [p| DiffEvent Easy (Note $p) |])
-    ++ noteParser 63 [p| Blue |] (\p -> [p| DiffEvent Easy (Note $p) |])
-    ++ noteParser 64 [p| Orange |] (\p -> [p| DiffEvent Easy (Note $p) |]) ++
-  [ edge 67 $ \_b -> [p| DiffEvent Easy (StarPower $(boolP _b)) |]
-  , edge 69 $ \_b -> [p| DiffEvent Easy (Player1   $(boolP _b)) |]
-  , edge 70 $ \_b -> [p| DiffEvent Easy (Player2   $(boolP _b)) |]
+instance (NNC.C t) => Monoid (PartTrack t) where
+  mempty = PartTrack Map.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+  mappend
+    (PartTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11)
+    (PartTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11)
+    = PartTrack
+      (Map.unionWith mappend a1 b1)
+      (RTB.merge a2 b2)
+      (RTB.merge a3 b3)
+      (RTB.merge a4 b4)
+      (RTB.merge a5 b5)
+      (RTB.merge a6 b6)
+      (RTB.merge a7 b7)
+      (RTB.merge a8 b8)
+      (RTB.merge a9 b9)
+      (RTB.merge a10 b10)
+      (RTB.merge a11 b11)
 
-  ] ++ noteParser 72 [p| Green |] (\p -> [p| DiffEvent Medium (Note $p) |])
-    ++ noteParser 73 [p| Red |] (\p -> [p| DiffEvent Medium (Note $p) |])
-    ++ noteParser 74 [p| Yellow |] (\p -> [p| DiffEvent Medium (Note $p) |])
-    ++ noteParser 75 [p| Blue |] (\p -> [p| DiffEvent Medium (Note $p) |])
-    ++ noteParser 76 [p| Orange |] (\p -> [p| DiffEvent Medium (Note $p) |]) ++
-  [ edge 79 $ \_b -> [p| DiffEvent Medium (StarPower $(boolP _b)) |]
-  , edge 81 $ \_b -> [p| DiffEvent Medium (Player1   $(boolP _b)) |]
-  , edge 82 $ \_b -> [p| DiffEvent Medium (Player2   $(boolP _b)) |]
+data PartDifficulty t = PartDifficulty
+  { partStarPower :: RTB.T t Bool
+  , partPlayer1   :: RTB.T t Bool
+  , partPlayer2   :: RTB.T t Bool
+  , partGems      :: RTB.T t (Color, Maybe t)
+  } deriving (Eq, Ord, Show)
 
-  ] ++ noteParser 84 [p| Green |] (\p -> [p| DiffEvent Hard (Note $p) |])
-    ++ noteParser 85 [p| Red |] (\p -> [p| DiffEvent Hard (Note $p) |])
-    ++ noteParser 86 [p| Yellow |] (\p -> [p| DiffEvent Hard (Note $p) |])
-    ++ noteParser 87 [p| Blue |] (\p -> [p| DiffEvent Hard (Note $p) |])
-    ++ noteParser 88 [p| Orange |] (\p -> [p| DiffEvent Hard (Note $p) |]) ++
-  [ edge 91 $ \_b -> [p| DiffEvent Hard (StarPower $(boolP _b)) |]
-  , edge 93 $ \_b -> [p| DiffEvent Hard (Player1   $(boolP _b)) |]
-  , edge 94 $ \_b -> [p| DiffEvent Hard (Player2   $(boolP _b)) |]
+instance TraverseTrack PartDifficulty where
+  traverseTrack fn (PartDifficulty a b c d) = PartDifficulty
+    <$> fn a <*> fn b <*> fn c <*> fn d
 
-  ] ++ noteParser 96 [p| Green |] (\p -> [p| DiffEvent Expert (Note $p) |])
-    ++ noteParser 97 [p| Red |] (\p -> [p| DiffEvent Expert (Note $p) |])
-    ++ noteParser 98 [p| Yellow |] (\p -> [p| DiffEvent Expert (Note $p) |])
-    ++ noteParser 99 [p| Blue |] (\p -> [p| DiffEvent Expert (Note $p) |])
-    ++ noteParser 100 [p| Orange |] (\p -> [p| DiffEvent Expert (Note $p) |]) ++
-  [ edge 103 $ \_b -> [p| DiffEvent Expert (StarPower $(boolP _b)) |]
-  , edge 105 $ \_b -> [p| DiffEvent Expert (Player1   $(boolP _b)) |]
-  , edge 106 $ \_b -> [p| DiffEvent Expert (Player2   $(boolP _b)) |]
+instance (NNC.C t) => Monoid (PartDifficulty t) where
+  mempty = PartDifficulty RTB.empty RTB.empty RTB.empty RTB.empty
+  mappend
+    (PartDifficulty a1 a2 a3 a4)
+    (PartDifficulty b1 b2 b3 b4)
+    = PartDifficulty
+      (RTB.merge a1 b1)
+      (RTB.merge a2 b2)
+      (RTB.merge a3 b3)
+      (RTB.merge a4 b4)
 
-  , edge 110 $ applyB [p| Unknown110 |]
-
-  -- Strutter has 119 on PART RHYTHM and BAND BASS
-
-  , commandPair ["idle"] [p| Idle |]
-  , commandPair ["play"] [p| Play |]
-  , commandPair ["wail_on"] [p| Wail True |]
-  , commandPair ["wail_off"] [p| Wail False |]
-  , commandPair ["solo_on"] [p| Solo True |]
-  , commandPair ["solo_off"] [p| Solo False |]
-  , commandPair ["ow_face_on"] [p| OwFace True |]
-  , commandPair ["ow_face_off"] [p| OwFace False |]
-  , commandPair ["half_tempo"] [p| HalfTempo |]
-  , commandPair ["normal_tempo"] [p| NormalTempo |]
-  , commandPair ["double_tempo"] [p| DoubleTempo |]
-  , commandPair ["map", "HandMap_Default"] [p| HandMapDefault |]
-  , commandPair ["map", "HandMap_DropD2"] [p| HandMapDropD2 |]
-  , commandPair ["map", "HandMap_Solo"] [p| HandMapSolo |]
-  , commandPair ["map", "HandMap_NoChords"] [p| HandMapNoChords |]
-  , commandPair ["map", "StrumMap_SlapBass"] [p| StrumMapSlapBass |]
-
-  ]
+instance ParseTrack PartTrack where
+  parseTrack = do
+    -- TODO
+    -- 38 and 39 seen in Institutionalized, Jessica, John the Fisherman
+    -- Strutter has 119 on PART RHYTHM and BAND BASS
+    partHandMap  <- partHandMap  =. command
+    partStrumMap <- partStrumMap =. command
+    partTempo    <- partTempo    =. command
+    partIdle     <- partIdle     =. commandMatch ["idle"]
+    partPlay     <- partPlay     =. commandMatch ["play"]
+    partFretPosition <- (partFretPosition =.) $ condenseMap $ eachKey each
+      $ \posn -> edges $ fromEnum posn + 40
+    partWail <- (partWail =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
+      True  -> ["wail_on"]
+      False -> ["wail_off"]
+    partSolo <- (partSolo =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
+      True  -> ["solo_on"]
+      False -> ["solo_off"]
+    partOwFace <- (partOwFace =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
+      True  -> ["ow_face_on"]
+      False -> ["ow_face_off"]
+    partUnknown110 <- partUnknown110 =. edges 110
+    partDifficulties <- (partDifficulties =.) $ eachKey each $ \diff -> do
+      let base = case diff of
+            Easy   -> 60
+            Medium -> 72
+            Hard   -> 84
+            Expert -> 96
+      partStarPower <- partStarPower =. edges (base + 7)
+      partPlayer1   <- partPlayer1   =. edges (base + 9)
+      partPlayer2   <- partPlayer2   =. edges (base + 10)
+      partGems      <- (partGems =.) $ blipSustainRB $ condenseMap $ eachKey each $ matchEdges . edges . \case
+        Green  -> base + 0
+        Red    -> base + 1
+        Yellow -> base + 2
+        Blue   -> base + 3
+        Orange -> base + 4
+      return PartDifficulty{..}
+    return PartTrack{..}

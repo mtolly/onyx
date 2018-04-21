@@ -30,14 +30,15 @@ import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Five              (nullFive)
 import           RockBand.Codec.ProGuitar         (nullPG)
 import           RockBand.Common                  (Difficulty (..),
-                                                   LongNote (..), joinEdges,
+                                                   LongNote (..),
+                                                   StrumHOPOTap (..), joinEdges,
                                                    splitEdges)
-import qualified RockBand.Drums                   as Drums
-import qualified RockBand.FiveButton              as Five
-import qualified RockBand.GHL                     as GHL
-import qualified RockBand.ProGuitar               as PG
-import qualified RockBand.ProKeys                 as PK
-import qualified RockBand.Vocals                  as Vox
+import qualified RockBand.Legacy.Drums            as Drums
+import qualified RockBand.Legacy.Five             as Five
+import qualified RockBand.Legacy.ProGuitar        as PG
+import qualified RockBand.Legacy.ProKeys          as PK
+import qualified RockBand.Legacy.Six              as GHL
+import qualified RockBand.Legacy.Vocal            as Vox
 import           Scripts                          (songLengthBeats)
 import qualified Sound.MIDI.Util                  as U
 
@@ -45,7 +46,7 @@ class TimeFunctor f where
   mapTime :: (Real u) => (t -> u) -> f t -> f u
 
 data Five t = Five
-  { fiveNotes  :: Map.Map (Maybe Five.Color) (Map.Map t (LongNote Five.StrumHOPOTap ()))
+  { fiveNotes  :: Map.Map (Maybe Five.Color) (Map.Map t (LongNote StrumHOPOTap ()))
   , fiveSolo   :: Map.Map t Bool
   , fiveEnergy :: Map.Map t Bool
   , fiveLanes  :: Map.Map (Maybe Five.Color) (Map.Map t Bool)
@@ -64,15 +65,15 @@ eventList evts f = A.toJSON $ map g $ Map.toAscList evts where
     evt' = f evt
     in A.toJSON [secs', evt']
 
-showHSTNote :: LongNote Five.StrumHOPOTap () -> A.Value
+showHSTNote :: LongNote StrumHOPOTap () -> A.Value
 showHSTNote = \case
   NoteOff () -> "end"
-  Blip Five.Tap () -> "tap"
-  Blip Five.Strum () -> "strum"
-  Blip Five.HOPO () -> "hopo"
-  NoteOn Five.Tap () -> "tap-sust"
-  NoteOn Five.Strum () -> "strum-sust"
-  NoteOn Five.HOPO () -> "hopo-sust"
+  Blip Tap () -> "tap"
+  Blip Strum () -> "strum"
+  Blip HOPO () -> "hopo"
+  NoteOn Tap () -> "tap-sust"
+  NoteOn Strum () -> "strum-sust"
+  NoteOn HOPO () -> "hopo-sust"
 
 instance (Real t) => A.ToJSON (Five t) where
   toJSON x = A.object
@@ -186,7 +187,7 @@ instance (Real t) => A.ToJSON (ProKeys t) where
     ]
 
 data Protar t = Protar
-  { protarNotes  :: Map.Map PG.GtrString (Map.Map t (LongNote (Five.StrumHOPOTap, Maybe PG.GtrFret) ()))
+  { protarNotes  :: Map.Map PG.GtrString (Map.Map t (LongNote (StrumHOPOTap, Maybe PG.GtrFret) ()))
   , protarSolo   :: Map.Map t Bool
   , protarEnergy :: Map.Map t Bool
   , protarLanes  :: Map.Map PG.GtrString (Map.Map t Bool)
@@ -203,12 +204,12 @@ instance (Real t) => A.ToJSON (Protar t) where
     [ (,) "notes" $ A.object $ flip map (Map.toList $ protarNotes x) $ \(string, notes) ->
       (,) (T.pack $ map toLower $ show string) $ eventList notes $ A.String . \case
         NoteOff () -> "end"
-        Blip (Five.Strum, fret) () -> "strum" <> showFret fret
-        Blip (Five.HOPO, fret) () -> "hopo" <> showFret fret
-        Blip (Five.Tap, fret) () -> "tap" <> showFret fret
-        NoteOn (Five.Strum, fret) () -> "strum-sust" <> showFret fret
-        NoteOn (Five.HOPO, fret) () -> "hopo-sust" <> showFret fret
-        NoteOn (Five.Tap, fret) () -> "tap-sust" <> showFret fret
+        Blip (Strum, fret) () -> "strum" <> showFret fret
+        Blip (HOPO, fret) () -> "hopo" <> showFret fret
+        Blip (Tap, fret) () -> "tap" <> showFret fret
+        NoteOn (Strum, fret) () -> "strum-sust" <> showFret fret
+        NoteOn (HOPO, fret) () -> "hopo-sust" <> showFret fret
+        NoteOn (Tap, fret) () -> "tap-sust" <> showFret fret
     , (,) "solo" $ eventList (protarSolo x) A.toJSON
     , (,) "energy" $ eventList (protarEnergy x) A.toJSON
     , (,) "lanes" $ A.object $ flip map (Map.toList $ protarLanes x) $ \(string, lanes) ->
@@ -226,7 +227,7 @@ data GHLLane
   deriving (Eq, Ord, Show, Read)
 
 data Six t = Six
-  { sixNotes  :: Map.Map GHLLane (Map.Map t (LongNote Five.StrumHOPOTap ()))
+  { sixNotes  :: Map.Map GHLLane (Map.Map t (LongNote StrumHOPOTap ()))
   , sixSolo   :: Map.Map t Bool
   , sixEnergy :: Map.Map t Bool
   -- TODO lanes (not actually in CH)

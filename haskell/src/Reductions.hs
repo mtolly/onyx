@@ -19,11 +19,11 @@ import           ProKeysRanges                    (completeRanges)
 import           RockBand.Codec.Events            (eventsSections)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Common                  (Difficulty (..), Key (..),
-                                                   LongNote (..), joinEdges)
-import qualified RockBand.Drums                   as Drums
-import           RockBand.FiveButton              (StrumHOPOTap (..))
-import qualified RockBand.FiveButton              as Five
-import qualified RockBand.ProKeys                 as PK
+                                                   LongNote (..),
+                                                   StrumHOPOTap (..), joinEdges)
+import qualified RockBand.Legacy.Drums            as Drums
+import qualified RockBand.Legacy.Five             as Five
+import qualified RockBand.Legacy.ProKeys          as PK
 import           Scripts                          (trackGlue)
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save

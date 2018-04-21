@@ -2,42 +2,65 @@
 BAND DRUMS
 -}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE RecordWildCards   #-}
 module GuitarHeroII.BandDrums where
 
-import           RockBand.Parse
+import           Control.Monad.Codec
+import qualified Data.EventList.Relative.TimeBody as RTB
+import           GuitarHeroII.PartGuitar          (Tempo (..))
+import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Codec
 
-data Event
-  = Idle
-  | Play
-  | NoBeat
-  | AllBeat
-  | HalfTime
-  | HalfTempo -- ^ tempo, time, what is difference???
-  | DoubleTime
-  | DoubleTempo
-  | NormalTempo
-  | Kick
-  | Crash
-  | Mystery65
-  deriving (Eq, Ord, Show, Read)
+data BandDrumsTrack t = BandDrumsTrack
+  { drumsTempo      :: RTB.T t Tempo
+  , drumsIdle       :: RTB.T t ()
+  , drumsPlay       :: RTB.T t ()
+  , drumsNoBeat     :: RTB.T t ()
+  , drumsAllBeat    :: RTB.T t ()
+  , drumsKick       :: RTB.T t ()
+  , drumsCrash      :: RTB.T t ()
+  , drumsMystery65  :: RTB.T t ()
+   -- not sure if actually a difference between tempo and time
+  , drumsHalfTime   :: RTB.T t ()
+  , drumsDoubleTime :: RTB.T t ()
+  } deriving (Eq, Ord, Show)
 
-instanceMIDIEvent [t| Event |] Nothing $
+instance TraverseTrack BandDrumsTrack where
+  traverseTrack fn (BandDrumsTrack a b c d e f g h i j) = BandDrumsTrack
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e
+    <*> fn f <*> fn g <*> fn h <*> fn i <*> fn j
 
-  [ blip 36 [p| Kick |]
-  , blip 37 [p| Crash |]
-  -- Laughtrack has 48 and 49, I think they are Kick and Crash (mistakenly up an octave)
-  , blip 65 [p| Mystery65 |]
+instance (NNC.C t) => Monoid (BandDrumsTrack t) where
+  mempty = BandDrumsTrack
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+  mappend
+    (BandDrumsTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10)
+    (BandDrumsTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10)
+    = BandDrumsTrack
+      (RTB.merge a1 b1)
+      (RTB.merge a2 b2)
+      (RTB.merge a3 b3)
+      (RTB.merge a4 b4)
+      (RTB.merge a5 b5)
+      (RTB.merge a6 b6)
+      (RTB.merge a7 b7)
+      (RTB.merge a8 b8)
+      (RTB.merge a9 b9)
+      (RTB.merge a10 b10)
 
-  , commandPair ["idle"] [p| Idle |]
-  , commandPair ["play"] [p| Play |]
-  , commandPair ["nobeat"] [p| NoBeat |]
-  , commandPair ["allbeat"] [p| AllBeat |] -- Jessica has [all_beat], soy bomb has [allplay]
-  , commandPair ["half_time"] [p| HalfTime |] -- new black has [halftime]
-  , commandPair ["half_tempo"] [p| HalfTempo |]
-  -- War Pigs has [double]
-  , commandPair ["double_time"] [p| DoubleTime |] -- Who Was In My Room has [doubletime]
-  , commandPair ["double_tempo"] [p| DoubleTempo |]
-  , commandPair ["normal_tempo"] [p| NormalTempo |]
-
-  ]
+instance ParseTrack BandDrumsTrack where
+  parseTrack = do
+    drumsKick <- drumsKick =. blip 36
+    drumsCrash <- drumsCrash =. blip 37
+    -- Laughtrack has 48 and 49, I think they are Kick and Crash (mistakenly up an octave)
+    drumsMystery65 <- drumsMystery65 =. blip 65
+    drumsTempo   <- drumsTempo   =. command
+    drumsIdle    <- drumsIdle    =. commandMatch ["idle"]
+    drumsPlay    <- drumsPlay    =. commandMatch ["play"]
+    drumsNoBeat  <- drumsNoBeat  =. commandMatch ["nobeat"]
+    drumsAllBeat <- drumsAllBeat =. commandMatch ["allbeat"] -- Jessica has [all_beat], soy bomb has [allplay]
+    drumsHalfTime  <- drumsHalfTime  =. commandMatch ["half_time"] -- new black has [halftime]
+    drumsDoubleTime  <- drumsDoubleTime  =. commandMatch ["double_time"] -- Who Was In My Room has [doubletime]
+    -- War Pigs has [double]
+    return BandDrumsTrack{..}

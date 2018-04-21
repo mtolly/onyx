@@ -2,8 +2,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE TemplateHaskell   #-}
-module RockBand.ProKeys
+module RockBand.Legacy.ProKeys
 ( LaneRange(..), Pitch(..)
 , Event(..)
 , fixPSRange

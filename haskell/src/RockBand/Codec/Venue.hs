@@ -488,15 +488,12 @@ compileVenueRB3 vt = vt
             [ [V3_coop_bg_behind | behind]
             , [V3_coop_bg_near | near]
             ]
-          (True, False, False, True) -> concat
-            [ [V3_coop_dv_near | near]
-            ]
-          (False, True, False, True) -> concat
-            [ [V3_coop_dg_near | near]
-            ]
-          (False, False, True, True) -> concat
-            [ [V3_coop_bd_near | near]
-            ]
+          (True, False, False, True) ->
+            [V3_coop_dv_near | near]
+          (False, True, False, True) ->
+            [V3_coop_dg_near | near]
+          (False, False, True, True) ->
+            [V3_coop_bd_near | near]
           -- all, nothing, or invalid 3-char including drums
           _ -> concat
             [ [V3_coop_all_behind | behind]

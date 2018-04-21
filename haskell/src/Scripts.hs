@@ -29,12 +29,11 @@ import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
 import           RockBand.Codec.Vocal
 import           RockBand.Common
-import qualified RockBand.Drums                   as Drums
-import qualified RockBand.FiveButton              as Five
-import           RockBand.Parse                   (isNoteEdgeCPV, makeEdgeCPV)
-import qualified RockBand.ProGuitar               as ProGuitar
-import qualified RockBand.ProKeys                 as ProKeys
-import qualified RockBand.Vocals                  as Vocals
+import qualified RockBand.Legacy.Drums            as Drums
+import qualified RockBand.Legacy.Five             as Five
+import qualified RockBand.Legacy.ProGuitar        as ProGuitar
+import qualified RockBand.Legacy.ProKeys          as ProKeys
+import qualified RockBand.Legacy.Vocal            as Vocals
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save

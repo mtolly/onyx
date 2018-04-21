@@ -24,13 +24,13 @@ import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Five
 import           RockBand.Codec.Venue             (compileVenueRB3)
 import           RockBand.Common
-import qualified RockBand.Drums                   as RBDrums
-import qualified RockBand.FiveButton              as Five
-import qualified RockBand.GHL                     as Six
-import qualified RockBand.ProGuitar               as ProGtr
-import qualified RockBand.ProKeys                 as ProKeys
+import qualified RockBand.Legacy.Drums            as RBDrums
+import qualified RockBand.Legacy.Five             as Five
+import qualified RockBand.Legacy.ProGuitar        as ProGtr
+import qualified RockBand.Legacy.ProKeys          as ProKeys
+import qualified RockBand.Legacy.Six              as Six
+import qualified RockBand.Legacy.Vocal            as RBVox
 import           RockBand.Sections                (makePSSection)
-import qualified RockBand.Vocals                  as RBVox
 import           Scripts
 import qualified Sound.MIDI.Util                  as U
 
