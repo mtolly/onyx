@@ -1,0 +1,18 @@
+metadata:
+  title: Giant Steps
+  artist: John Coltrane
+  album: Giant Steps
+parts:
+  drums:
+    drums: {}
+audio:
+  album-track:
+    md5: b728a6545132fa4d59d205e77c1109e3
+    frames: 12653760
+plans:
+  album:
+    song:
+      pad: [2.955, album-track]
+targets:
+  rb3:
+    game: rb3
