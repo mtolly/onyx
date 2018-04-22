@@ -5,9 +5,12 @@ module RockBand.Codec.Five where
 
 import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
+import           Control.Monad.Trans.Class        (lift)
+import           Control.Monad.Trans.State        (modify)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
+import           Data.Maybe                       (isJust)
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
@@ -158,6 +161,18 @@ instance (NNC.C t) => Monoid (FiveDifficulty t) where
 
 instance ParseTrack FiveTrack where
   parseTrack = do
+    -- preprocess pitch 95 as a shortcut for 96 + open note sysex
+    Codec
+      { codecIn = let
+        p95 x = case isNoteEdgeCPV x of
+          Just (c, 95, v) ->
+            [ makeEdgeCPV c 96 v
+            , PS.unparsePSSysEx $ PS.PSMessage (Just Expert) PS.OpenStrum $ isJust v
+            ]
+          _ -> [x]
+        in lift $ modify $ RTB.flatten . fmap p95
+      , codecOut = const $ return ()
+      }
     fiveMood         <- fiveMood         =. command
     fiveHandMap      <- fiveHandMap      =. command
     fiveStrumMap     <- fiveStrumMap     =. command
