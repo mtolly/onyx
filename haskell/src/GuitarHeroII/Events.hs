@@ -78,7 +78,6 @@ data Lighting
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance Command Lighting where
-  -- TODO Institutionalized and The Light That Blinds have [lighting(foo)] with no space
   fromCommand x = case T.stripPrefix "Lighting_" $ T.pack $ show x of
     Just s  -> ["lighting", "(" <> s <> ")"]
     Nothing -> error "panic! couldn't strip Lighting_ from venue event"

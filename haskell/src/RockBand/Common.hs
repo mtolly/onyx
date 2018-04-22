@@ -79,7 +79,16 @@ readCommandList = readCommand'
 readCommand :: (Command a) => T.Text -> Maybe a
 readCommand s =  case T.dropWhile isSpace s of
   (T.uncons -> Just ('[', s'))       -> case T.span (/= ']') s' of
-    (s'', T.uncons -> Just (']', _)) -> toCommand $ T.words s''
+    (s'', T.uncons -> Just (']', _)) -> toCommand $ let
+      -- split into words, and also split before open parens.
+      -- this makes it easier to handle [lighting (foo)] and [lighting(foo)]
+      go t = case T.uncons t of
+        Nothing      -> []
+        Just (_, t') -> case T.findIndex (\c -> c == ' ' || c == '(') t' of
+          Nothing -> [t]
+          Just i  -> case T.splitAt (i + 1) t of
+            (t1, t2) -> t1 : go t2
+      in filter (not . T.null) $ map T.strip $ go s''
     _                                -> Nothing
   _                                  -> Nothing
 
