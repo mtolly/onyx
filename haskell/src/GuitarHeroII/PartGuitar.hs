@@ -97,7 +97,7 @@ data PartDifficulty t = PartDifficulty
 
 instance TraverseTrack PartDifficulty where
   traverseTrack fn (PartDifficulty a b c d) = PartDifficulty
-    <$> fn a <*> fn b <*> fn c <*> fn d
+    <$> fn a <*> fn b <*> fn c <*> traverseBlipSustain fn d
 
 instance (NNC.C t) => Monoid (PartDifficulty t) where
   mempty = PartDifficulty RTB.empty RTB.empty RTB.empty RTB.empty

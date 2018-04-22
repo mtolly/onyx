@@ -144,7 +144,7 @@ data FiveDifficulty t = FiveDifficulty
 
 instance TraverseTrack FiveDifficulty where
   traverseTrack fn (FiveDifficulty a b c d e f) = FiveDifficulty
-    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> traverseBlipSustain fn f
 
 instance (NNC.C t) => Monoid (FiveDifficulty t) where
   mempty = FiveDifficulty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty

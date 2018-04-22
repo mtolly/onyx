@@ -82,7 +82,7 @@ instance (NNC.C t) => Monoid (ProKeysTrack t) where
 instance TraverseTrack ProKeysTrack where
   traverseTrack fn (ProKeysTrack a b c d e f g h i) = ProKeysTrack
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e
-    <*> fn f <*> fn g <*> fn h <*> fn i
+    <*> fn f <*> fn g <*> fn h <*> traverseBlipSustain fn i
 
 instance ParseTrack ProKeysTrack where
   parseTrack = do

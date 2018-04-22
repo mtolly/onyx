@@ -70,6 +70,7 @@ import           RenderAudio
 import           Resources                             (emptyMilo, emptyMiloRB2,
                                                         emptyWeightsRB2,
                                                         onyxAlbum, webDisplay)
+import           RockBand.Codec                        (mapTrack)
 import           RockBand.Codec.Drums
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File                   as RBFile
@@ -1856,7 +1857,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
           mid <- shakeMIDI midraw
           melody <- liftIO
             $ Melody.randomNotes
-            $ Melody.applyTempoMelody (RBFile.s_tempos mid)
+            $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos mid)
             $ RBFile.onyxMelody
             $ RBFile.s_tracks mid
           info <- liftIO $ Snd.getFileInfo melodyAudio

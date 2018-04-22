@@ -52,7 +52,7 @@ data SixDifficulty t = SixDifficulty
 
 instance TraverseTrack SixDifficulty where
   traverseTrack fn (SixDifficulty a b c d) = SixDifficulty
-    <$> fn a <*> fn b <*> fn c <*> fn d
+    <$> fn a <*> fn b <*> fn c <*> traverseBlipSustain fn d
 
 instance (NNC.C t) => Monoid (SixDifficulty t) where
   mempty = SixDifficulty RTB.empty RTB.empty RTB.empty RTB.empty

@@ -129,7 +129,12 @@ data ProGuitarDifficulty t = ProGuitarDifficulty
 instance TraverseTrack ProGuitarDifficulty where
   traverseTrack fn (ProGuitarDifficulty a b c d e f g h) = ProGuitarDifficulty
     <$> fn a <*> fn b <*> fn c <*> fn d
-    <*> fn e <*> fn f <*> fn g <*> fn h
+    <*> fn e <*> fn f <*> fn g <*> do
+      fmap (fmap (\(fret, (str, nt), mlen) -> (str, (nt, fret, mlen))) . joinEdges)
+        $ fn
+        $ splitEdges
+        $ fmap (\(str, (nt, fret, len)) -> (fret, (str, nt), len))
+        $ h
 
 instance (NNC.C t) => Monoid (ProGuitarDifficulty t) where
   mempty = ProGuitarDifficulty

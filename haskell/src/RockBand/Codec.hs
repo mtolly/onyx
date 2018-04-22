@@ -250,10 +250,14 @@ class ParseTrack trk where
   parseTrack :: (SendMessage m) => TrackCodec m U.Beats (trk U.Beats)
 
 class TraverseTrack trk where
-  traverseTrack :: (Applicative f) => (forall a. RTB.T t a -> f (RTB.T t a)) -> trk t -> f (trk t)
+  traverseTrack :: (NNC.C t, NNC.C u, Applicative f) => (forall a. RTB.T t a -> f (RTB.T u a)) -> trk t -> f (trk u)
 
-traverseTime :: (TraverseTrack trk, Applicative f) => (t -> f t) -> trk t -> f (trk t)
-traverseTime f = traverseTrack $ RTB.traverseTime f
-
-mapTrack :: (TraverseTrack trk) => (forall a. RTB.T t a -> RTB.T t a) -> trk t -> trk t
+mapTrack :: (NNC.C t, NNC.C u, TraverseTrack trk) => (forall a. RTB.T t a -> RTB.T u a) -> trk t -> trk u
 mapTrack f = runIdentity . traverseTrack (Identity . f)
+
+traverseBlipSustain :: (NNC.C t, NNC.C u, Ord b, Applicative f) => (forall a. RTB.T t a -> f (RTB.T u a)) -> RTB.T t (b, Maybe t) -> f (RTB.T u (b, Maybe u))
+traverseBlipSustain f
+  = fmap (fmap (\((), a, mt) -> (a, mt)) . joinEdges)
+  . f
+  . splitEdges
+  . fmap (\(a, mt) -> ((), a, mt))

@@ -10,7 +10,7 @@ import           Data.List                        (elemIndex, intercalate)
 import           Data.Maybe                       (fromJust)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
-import           RockBand.Common                  (each, joinEdges, splitEdges)
+import           RockBand.Common                  (each)
 import qualified Sound.MIDI.Util                  as U
 
 data MelodyTrack t = MelodyTrack
@@ -25,7 +25,7 @@ instance (NNC.C t) => Monoid (MelodyTrack t) where
     (RTB.merge a2 b2)
 
 instance TraverseTrack MelodyTrack where
-  traverseTrack fn (MelodyTrack a b) = MelodyTrack <$> fn a <*> fn b
+  traverseTrack fn (MelodyTrack a b) = MelodyTrack <$> fn a <*> traverseBlipSustain fn b
 
 data NoteType
   = Obstacle Direction
@@ -136,16 +136,3 @@ randomNotes mel = do
 
 randomNotesIO :: (NNC.C t) => MelodyTrack t -> IO (MelodyTrack t)
 randomNotesIO = evalRandIO . randomNotes
-
--- TODO tweak traverseTrack so it can change the time type and replace this
-applyTempoMelody :: U.TempoMap -> MelodyTrack U.Beats -> MelodyTrack U.Seconds
-applyTempoMelody tmap mel = MelodyTrack
-  { melodyIntensity = U.applyTempoTrack tmap $ melodyIntensity mel
-  , melodyNotes
-    = fmap (\((), a, mt) -> (a, mt))
-    $ joinEdges
-    $ U.applyTempoTrack tmap
-    $ splitEdges
-    $ fmap (\(a, mt) -> ((), a, mt))
-    $ melodyNotes mel
-  }

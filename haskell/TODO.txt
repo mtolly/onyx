@@ -2,5 +2,4 @@ Before merging back into master
 - Overdrive.removePartialUnisons (for rb2)
 - Import.importRB3 (adding drums track from 2x midi)
 - GuitarHeroII.Convert.midiRB3toGH2
-- Tweak traverseTime to support changing the time type
 - fatBlips, statusBlips
