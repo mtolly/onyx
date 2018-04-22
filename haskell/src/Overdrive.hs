@@ -64,7 +64,7 @@ instance HasOverdrive FixedFile where
     } where
       fn isEmpty getTrk addOD = let
         trk = getTrk rb3
-        in if isEmpty trk then addOD trk else trk
+        in if isEmpty trk then trk else addOD trk
       drums = bools FlexDrums
       gtr = bools FlexGuitar
       bass = bools FlexBass
