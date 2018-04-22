@@ -13,6 +13,7 @@ import qualified Data.Set                         as Set
 import           DryVox                           (sineDryVox)
 import           Guitars                          (guitarify)
 import           Overdrive                        (fixPartialUnisons)
+import           RockBand.Codec                   (mapTrack)
 import           RockBand.Codec.Drums             (nullDrums)
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as F
@@ -57,9 +58,13 @@ convertMIDI mid = fixUnisons mid
       }
     , F.fixedEvents = (F.fixedEvents $ F.s_tracks mid) { eventsSections = RTB.empty }
     , F.fixedBeat = F.fixedBeat $ F.s_tracks mid
-    , F.fixedVenue = compileVenueRB2 $ F.fixedVenue $ F.s_tracks mid
-    -- TODO replace lighting at posn 0 with [verse]
-    -- and cut off blips starting a beat before endPosn
+    , F.fixedVenue = let
+      v2 = compileVenueRB2 $ F.fixedVenue $ F.s_tracks mid
+      in case endPosn of
+        Nothing  -> v2 -- shouldn't happen
+        Just end -> mapTrack (U.trackTake end) v2
+        -- the trackTake is because otherwise new blips
+        -- introduced in rb3->rb2 can go past the end event
     }
   } where
     endPosn :: Maybe U.Beats

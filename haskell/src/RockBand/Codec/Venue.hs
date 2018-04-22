@@ -11,6 +11,7 @@ import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
+import qualified Sound.MIDI.Util                  as U
 
 data Camera3
   -- generic 4 camera shots
@@ -672,10 +673,15 @@ compileVenueRB2 vt = let
         V3_ProFilm_mirror_a             -> V2_ProFilm_mirror_a
         V3_ProFilm_psychedelic_blue_red -> V2_photo_negative
         V3_space_woosh                  -> V2_video_trails
-    , venueLightingShared = flip fmap (venueLightingShared vt) $ \case
-      Lighting_intro         -> Lighting_
-      Lighting_blackout_spot -> Lighting_silhouettes_spot
-      x                      -> x
+    , venueLightingShared
+      = U.trackDropZero $ flip fmap (venueLightingShared vt) $ \case
+        Lighting_intro         -> Lighting_
+        Lighting_blackout_spot -> Lighting_silhouettes_spot
+        x                      -> x
     , venueLightingRB3 = RTB.empty
-    , venueLightingRB2 = RTB.merge (venueLightingRB3 vt) (venueLightingRB2 vt)
+    , venueLightingRB2
+      = RTB.cons NNC.zero Lighting_verse
+      $ U.trackDropZero
+      $ RTB.merge (venueLightingRB3 vt) (venueLightingRB2 vt)
+      -- Magma v1 requires that the lighting track start with [verse]
     }
