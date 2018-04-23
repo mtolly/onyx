@@ -1,11 +1,18 @@
 {-# LANGUAGE LambdaCase    #-}
 {-# LANGUAGE TupleSections #-}
-module Overdrive where
+module Overdrive
+( HasOverdrive(..)
+, fixBrokenUnisons
+, fixPartialUnisons
+) where
 
 import           Control.Monad                    (forM, guard, unless)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List                        (nub)
+import           Data.List                        (intercalate, nub,
+                                                   stripPrefix)
+import           Data.Maybe                       (fromMaybe)
+import qualified Data.Set                         as Set
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.Drums
 import           RockBand.Codec.File
@@ -113,19 +120,12 @@ removeBrokenUnisons mmap = go 0 where
             Just ((posnOff, _), _) -> return (inst, posnOff)
           let firstEnd = minimum $ map snd unison'
               removing = [ inst | (inst, end) <- unison', end >= firstEnd + 1 ]
-              removePhrase inst od = case U.extractFirst (\x -> guard (x == (inst, True)) >> Just ()) od of
-                Nothing -> od -- shouldn't happen
-                Just (_, od') -> case U.extractFirst (\x -> guard (x == (inst, False)) >> Just ()) od' of
-                  Nothing        -> od' -- shouldn't happen
-                  Just (_, od'') -> od''
-              removed = foldr removePhrase rtb removing
+              removed = foldr removeFirstUnison rtb removing
               unisonLocation = showPosition $ U.applyMeasureMap mmap $ time + dt
           unless (null removing) $ inside unisonLocation $ warn $ unwords
             [ "Removing overdrive phrases on the following instruments"
             , "to fix an invalid unison phrase:"
-            , unwords $ flip map removing $ \inst -> case show inst of
-              'F':'l':'e':'x':str -> str
-              str                 -> str
+            , printFlexParts removing
             ]
           case U.trackSplit (dt + 1) removed of
             (x, y) -> trackGlue (dt + 1) x <$> go (time + dt + 1) y
@@ -140,6 +140,20 @@ fixBrokenUnisons (Song tmap mmap rb3) = do
   od' <- removeBrokenUnisons mmap od
   return $ Song tmap mmap $ putOverdrive rb3 od'
 
+removeFirstUnison :: (Eq a) => a -> RTB.T U.Beats (a, Bool) -> RTB.T U.Beats (a, Bool)
+removeFirstUnison inst od = case U.extractFirst (\x -> guard (x == (inst, True)) >> Just ()) od of
+  Nothing -> od -- shouldn't happen
+  Just (_, od') -> case U.extractFirst (\x -> guard (x == (inst, False)) >> Just ()) od' of
+    Nothing        -> od -- shouldn't happen
+    Just (_, od'') -> od''
+
+printFlexParts :: [FlexPartName] -> String
+printFlexParts = let
+  part inst = let
+    s = show inst
+    in fromMaybe s $ stripPrefix "Flex" s
+  in intercalate ", " . map part
+
 -- | Removes overdrive phrases to prevent partial unisons that cause errors in Magma v1.
 removePartialUnisons
   :: (SendMessage m)
@@ -147,7 +161,32 @@ removePartialUnisons
   -> U.MeasureMap
   -> RTB.T U.Beats (FlexPartName, Bool)
   -> StackTraceT m (RTB.T U.Beats (FlexPartName, Bool))
-removePartialUnisons = undefined
+removePartialUnisons parts mmap = go 0 where
+  parts' = Set.fromList parts
+  go time rtb = case RTB.viewL rtb of
+    Nothing -> return RTB.empty
+    Just ((dt, off@(_, False)), rtb') -> RTB.cons dt off <$> go (time + dt) rtb'
+    Just ((dt, on@(fpart, True)), rtb') -> let
+      starts = nub $ fpart : [ fp | (fp, True) <- RTB.getBodies $ U.trackTake 1 rtb' ]
+      in case starts of
+        unison@(_ : _ : _) -> do
+          removed <- if Set.fromList unison == parts'
+            then return rtb -- all instruments in the unison so no problem
+            else let
+              -- remove all instruments in the unison except for one
+              removing = drop 1 $ filter (`elem` unison) parts
+              removed = foldr removeFirstUnison rtb removing
+              unisonLocation = showPosition $ U.applyMeasureMap mmap $ time + dt
+              in do
+                inside unisonLocation $ warn $ unwords
+                  [ "Removing overdrive phrases on the following instruments"
+                  , "to fix a partial unison phrase:"
+                  , printFlexParts removing
+                  ]
+                return removed
+          case U.trackSplit (dt + 1) removed of
+            (x, y) -> trackGlue (dt + 1) x <$> go (time + dt + 1) y
+        _ -> RTB.cons dt on <$> go (time + dt) rtb'
 
 fixPartialUnisons
   :: (SendMessage m, HasOverdrive f)
@@ -158,83 +197,3 @@ fixPartialUnisons parts (Song tmap mmap rb3) = do
   od <- getOverdrive rb3
   od' <- removePartialUnisons parts mmap od
   return $ Song tmap mmap $ putOverdrive rb3 od'
-
--- Functions from RB2 module:
-
-{-
-
--- | Removes OD phrases to ensures that no phrases overlap on different tracks,
--- except for precisely matching unison phrases on all tracks.
-fixOverdrive :: (NNC.C t) => [RTB.T t Bool] -> [RTB.T t Bool]
-fixOverdrive [] = []
-fixOverdrive tracks = let
-  go trks = case sort $ mapMaybe (fmap fst . RTB.viewL) trks of
-    [] -> trks -- all tracks are empty
-    (_, ((), (), Nothing)) : _ -> panic "blip in joined phrase stream"
-    firstPhrase@(dt, ((), (), Just len)) : _ -> let
-      hasThisPhrase trk = case RTB.viewL trk of
-        Nothing             -> Nothing
-        Just (phrase, trk') -> guard (phrase == firstPhrase) >> Just trk'
-      in case mapM hasThisPhrase trks of
-        Just trks' -> map (uncurry RTB.cons firstPhrase) $ go trks' -- full unison
-        Nothing    -> let
-          ix = length $ takeWhile (isNothing . hasThisPhrase) trks
-          trksNext = map (RTB.delay len . U.trackDrop (NNC.add dt len)) trks
-          repackage i = if i == ix
-            then uncurry RTB.cons firstPhrase
-            else RTB.delay dt
-          in zipWith repackage [0..] $ go trksNext
-  boolToLong b = if b then NoteOn () () else NoteOff ()
-  longToBool (NoteOn  () ()) = True
-  longToBool (Blip    () ()) = panic "blip in LongNote stream"
-  longToBool (NoteOff    ()) = False
-  panic s = error $ "RockBand2.fixOverdrive: panic! this shouldn't happen: " ++ s
-  in map (fmap longToBool . splitEdges) $ go $ map (joinEdges . fmap boolToLong) tracks
-
--- the complicated dance to extract OD phrases, fix partial unisons,
--- and put the phrases back
-fixUnisons trks = let
-  gtr  = F.fixedPartGuitar trks
-  bass = F.fixedPartBass   trks
-  drum = F.fixedPartDrums  trks
-  gtrOD  = RTB.mapMaybe getFiveOD gtr
-  bassOD = RTB.mapMaybe getFiveOD bass
-  drumOD = RTB.mapMaybe getDrumOD drum
-  getFiveOD = \case Five.Overdrive  b -> Just b; _ -> Nothing
-  getDrumOD = \case Drums.Overdrive b -> Just b; _ -> Nothing
-  replaceFiveOD od trk = RTB.merge (fmap Five.Overdrive od)
-    $ RTB.filter (\case Five.Overdrive _ -> False; _ -> True) trk
-  replaceDrumsOD od trk = RTB.merge (fmap Drums.Overdrive od)
-    $ RTB.filter (\case Drums.Overdrive _ -> False; _ -> True) trk
-  in case (not $ RTB.null gtr, not $ RTB.null bass, not $ RTB.null drum) of
-    (False, False, False) -> trks
-    ( True, False, False) -> trks
-    (False,  True, False) -> trks
-    (False, False,  True) -> trks
-    ( True,  True, False) -> let
-      [gtrOD', bassOD'] = fixOverdrive [gtrOD, bassOD]
-      in trks
-        { F.fixedPartGuitar = replaceFiveOD gtrOD'  $ F.fixedPartGuitar trks
-        , F.fixedPartBass   = replaceFiveOD bassOD' $ F.fixedPartBass   trks
-        }
-    ( True, False,  True) -> let
-      [drumOD', gtrOD'] = fixOverdrive [drumOD, gtrOD]
-      in trks
-        { F.fixedPartGuitar = replaceFiveOD  gtrOD'  $ F.fixedPartGuitar trks
-        , F.fixedPartDrums  = replaceDrumsOD drumOD' $ F.fixedPartDrums  trks
-        }
-    (False,  True,  True) -> let
-      [drumOD', bassOD'] = fixOverdrive [drumOD, bassOD]
-      in trks
-        { F.fixedPartBass   = replaceFiveOD  bassOD' $ F.fixedPartBass   trks
-        , F.fixedPartDrums  = replaceDrumsOD drumOD' $ F.fixedPartDrums  trks
-        }
-    ( True,  True,  True) -> let
-      [drumOD', gtrOD', bassOD'] = fixOverdrive [drumOD, gtrOD, bassOD]
-      in trks
-        { F.fixedPartGuitar = replaceFiveOD  gtrOD'  $ F.fixedPartGuitar trks
-        , F.fixedPartBass   = replaceFiveOD  bassOD' $ F.fixedPartBass   trks
-        , F.fixedPartDrums  = replaceDrumsOD drumOD' $ F.fixedPartDrums  trks
-        }
-
--}
