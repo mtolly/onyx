@@ -10,7 +10,8 @@ import           Control.Monad                    (forM, forM_, (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
-import           Control.Monad.Trans.State        (StateT, get, put, runStateT)
+import           Control.Monad.Trans.State        (StateT, execState, get, put,
+                                                   runStateT)
 import           Control.Monad.Trans.Writer       (Writer, execWriter, tell)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
@@ -70,7 +71,7 @@ fileTrack name otherNames = Codec
       forM_ (nubOrd $ toList unrec) $ \e -> warn $ "Unrecognized MIDI event: " ++ show e
       return parsedTrk
   , codecOut = fmapArg $ \trk -> let
-    evs = runMergeTrack $ execWriter $ codecOut (forcePure parseTrack) trk
+    evs = (`execState` RTB.empty) $ codecOut (forcePure parseTrack) trk
     in if RTB.null evs
       then return ()
       else tell [U.setTrackName (T.unpack name) evs]

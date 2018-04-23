@@ -10,8 +10,8 @@ import           Control.Monad                    (forM, guard, void, (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
-import           Control.Monad.Trans.State        (StateT, get, put)
-import           Control.Monad.Trans.Writer       (Writer, execWriter, tell)
+import           Control.Monad.Trans.State        (State, StateT, execState,
+                                                   get, modify, put)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Functor.Identity            (Identity (..))
@@ -19,7 +19,6 @@ import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
 import           Data.Profunctor                  (dimap)
-import           Data.Semigroup                   (Semigroup (..))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
@@ -27,28 +26,18 @@ import qualified RockBand.PhaseShiftMessage       as PS
 import qualified Sound.MIDI.File.Event            as E
 import qualified Sound.MIDI.Util                  as U
 
-newtype MergeTrack t a = MergeTrack { runMergeTrack :: RTB.T t a }
-  deriving (Functor, Foldable, Traversable, Eq, Ord, Show)
-
-instance (NNC.C t, Ord a) => Semigroup (MergeTrack t a) where
-  MergeTrack x <> MergeTrack y = MergeTrack $ RTB.merge x y
-
-instance (NNC.C t, Ord a) => Monoid (MergeTrack t a) where
-  mappend = (<>)
-  mempty = MergeTrack RTB.empty
-
 -- like the json/dta one but uses StateT so it can modify the source as it goes
 type TrackParser m t = StackTraceT (StateT (RTB.T t E.T) m)
-type TrackBuilder t = Writer (MergeTrack t E.T)
+type TrackBuilder t = State (RTB.T t E.T)
 type TrackCodec m t a = Codec (TrackParser m t) (TrackBuilder t) a
 
 type TrackEvent m t a = TrackCodec m t (RTB.T t a)
 
-simpleShow :: (c -> RTB.T t E.T) -> (c -> TrackBuilder t c)
-simpleShow f = fmapArg $ tell . MergeTrack . f
+makeTrackBuilder :: (NNC.C t) => (c -> RTB.T t E.T) -> (c -> TrackBuilder t c)
+makeTrackBuilder f = fmapArg $ modify . RTB.merge . f
 
-simpleShown :: (c -> TrackBuilder t c) -> (c -> RTB.T t E.T)
-simpleShown f = runMergeTrack . execWriter . f
+runTrackBuilder :: (c -> TrackBuilder t c) -> (c -> RTB.T t E.T)
+runTrackBuilder f = (`execState` RTB.empty) . f
 
 slurpTrack :: (Monad m) => (RTB.T t a -> (RTB.T t b, RTB.T t a)) -> StackTraceT (StateT (RTB.T t a) m) (RTB.T t b)
 slurpTrack f = lift $ do
@@ -84,7 +73,7 @@ blipCV p = Codec
           _               -> Nothing
     lift $ put leave
     return $ RTB.catMaybes slurp
-  , codecOut = simpleShow $ U.trackJoin . fmap (\(c, v) -> unparseBlipCPV (c, p, v))
+  , codecOut = makeTrackBuilder $ U.trackJoin . fmap (\(c, v) -> unparseBlipCPV (c, p, v))
   }
 
 -- | A blip is an event which is serialized as a MIDI note of unimportant length.
@@ -134,7 +123,7 @@ edgesBRE ps = Codec
     slurp' = RTB.flatten slurp
     leave' = RTB.flatten leave
     in if RTB.null slurp' then (RTB.empty, trk) else (slurp', leave')
-  , codecOut = simpleShow $ RTB.flatten . fmap (\b -> [makeEdge p b | p <- ps])
+  , codecOut = makeTrackBuilder $ RTB.flatten . fmap (\b -> [makeEdge p b | p <- ps])
   }
 
 edgesCV :: (Monad m, NNC.C t) => Int -> TrackEvent m t (Int, Maybe Int)
@@ -147,7 +136,7 @@ edgesCV p = single
 single :: (Monad m, NNC.C t) => (E.T -> Maybe a) -> (a -> E.T) -> TrackEvent m t a
 single fp fs = Codec
   { codecIn = slurpTrack $ RTB.partitionMaybe fp
-  , codecOut = simpleShow $ fmap fs
+  , codecOut = makeTrackBuilder $ fmap fs
   }
 
 command :: (Monad m, NNC.C t, Command a) => TrackEvent m t a
@@ -183,11 +172,21 @@ matchEdgesCV = dimap
 -- | Extends output notes within this group to be at least a 32nd note,
 -- or up to the next note.
 fatBlips :: (NNC.C t, Monad m) => t -> TrackEvent m t a -> TrackEvent m t a
-fatBlips _ = id -- TODO
+fatBlips len cdc = cdc
+  { codecOut = let
+    extend = id -- TODO
+    in makeTrackBuilder $ extend . runTrackBuilder (codecOut cdc)
+  }
 
--- | Extends output notes within this group to go up to the next note on.
+-- | Extends output notes within this group to go up to the next note on,
+-- or to the last current MIDI event written so far.
 statusBlips :: (NNC.C t, Monad m) => TrackEvent m t a -> TrackEvent m t a
-statusBlips = id -- TODO
+statusBlips cdc = cdc
+  { codecOut = \x -> do
+    lastTime <- mconcat . RTB.getTimes <$> get
+    let extend = id -- TODO
+    makeTrackBuilder (extend . runTrackBuilder (codecOut cdc)) x
+  }
 
 eachKey
   :: (Monad m, NNC.C t, Ord k)
@@ -198,10 +197,10 @@ eachKey keys f = Codec
   { codecIn = fmap Map.fromList $ forM keys $ \k -> do
     trk <- codecIn $ f k
     return (k, trk)
-  , codecOut = simpleShow $ \m -> foldr RTB.merge RTB.empty $ do
+  , codecOut = makeTrackBuilder $ \m -> foldr RTB.merge RTB.empty $ do
     k <- keys
     trk <- toList $ Map.lookup k m
-    return $ simpleShown (codecOut $ f k) trk
+    return $ runTrackBuilder (codecOut $ f k) trk
   }
 
 condenseMap
@@ -243,7 +242,7 @@ sysexPS diff pid = Codec
     in if RTB.null slurp
       then (RTB.empty, trk)
       else (fmap fst slurp, RTB.merge unslurp leave)
-  , codecOut = simpleShow $ fmap (PS.unparsePSSysEx . PS.PSMessage (Just diff) pid)
+  , codecOut = makeTrackBuilder $ fmap (PS.unparsePSSysEx . PS.PSMessage (Just diff) pid)
   }
 
 class ParseTrack trk where
