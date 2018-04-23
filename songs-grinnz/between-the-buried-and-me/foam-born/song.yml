@@ -35,6 +35,11 @@ parts:
       auto-2x-bass: true
   guitar:
     grybo: {} # alextaylor
+    pro-guitar: # onyxite
+      tuning: [-3, -3, -3, -3, -3, -3]
+  rhythm:
+    pro-guitar: # onyxite
+      tuning: [-3, -3, -3, -3, -3, -3]
   bass:
     grybo: {} # alextaylor
     pro-guitar: # onyxite
