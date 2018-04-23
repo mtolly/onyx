@@ -621,10 +621,10 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
     Nothing -> return trksUpdated
     Just (_pkg2x, mid2x) -> do
       RBFile.Song _ _ (RBFile.RawFile trks2x) <- loadMIDI mid2x
-      drums1x <- RBDrums.drumsToLegacy <$> RBFile.parseTracks trksUpdated "PART DRUMS"
-      drums2x <- RBDrums.drumsToLegacy <$> RBFile.parseTracks trks2x      "PART DRUMS"
+      drums1x <- RBFile.parseTracks trksUpdated "PART DRUMS"
+      drums2x <- RBFile.parseTracks trks2x      "PART DRUMS"
       let notDrums = filter ((/= Just "PART DRUMS") . U.trackName) trksUpdated
-      case extractLeftKicks drums1x drums2x of
+      case extractLeftKicks (RBDrums.drumsToLegacy drums1x) (RBDrums.drumsToLegacy drums2x) of
         Left pos -> do
           warn $ "Using C3 format for 1x+2x drums. Couldn't condense to PS format due to difference at "
             ++ RBFile.showPosition (U.applyMeasureMap sigs pos)
@@ -634,7 +634,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           return $ trksUpdated ++ mapMaybe make2xTrack trks2x
         Right leftKicks -> return $ notDrums ++ do
           RBFile.s_tracks $ RBFile.showMIDITracks $ RBFile.Song temps sigs $ mempty
-            { RBFile.fixedPartDrums = mempty { drumKick2x = leftKicks }
+            { RBFile.fixedPartDrums = drums1x { drumKick2x = leftKicks }
             }
   stackIO $ Save.toFile (dir </> "notes.mid") $ RBFile.showMIDIFile'
     $ RBFile.Song temps sigs $ RBFile.RawFile trksAdd2x
