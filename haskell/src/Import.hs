@@ -621,8 +621,8 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
     Nothing -> return trksUpdated
     Just (_pkg2x, mid2x) -> do
       RBFile.Song _ _ (RBFile.RawFile trks2x) <- loadMIDI mid2x
-      drums1x <- undefined trksUpdated -- TODO: RBFile.parseTracks sigs trksUpdated ["PART DRUMS"]
-      drums2x <- undefined trks2x      -- TODO: RBFile.parseTracks sigs trks2x      ["PART DRUMS"]
+      drums1x <- RBDrums.drumsToLegacy <$> RBFile.parseTracks trksUpdated "PART DRUMS"
+      drums2x <- RBDrums.drumsToLegacy <$> RBFile.parseTracks trks2x      "PART DRUMS"
       let notDrums = filter ((/= Just "PART DRUMS") . U.trackName) trksUpdated
       case extractLeftKicks drums1x drums2x of
         Left pos -> do
@@ -632,10 +632,10 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
                 Just "PART DRUMS" -> Just $ U.setTrackName "PART DRUMS_2X" trk
                 _                 -> Nothing
           return $ trksUpdated ++ mapMaybe make2xTrack trks2x
-        Right leftKicks -> return $ notDrums ++ undefined leftKicks
-          -- TODO:
-          -- RBFile.showMIDITrack "PART DRUMS"
-          -- (RTB.merge drums1x $ fmap (\() -> RBDrums.Kick2x) leftKicks)
+        Right leftKicks -> return $ notDrums ++ do
+          RBFile.s_tracks $ RBFile.showMIDITracks $ RBFile.Song temps sigs $ mempty
+            { RBFile.fixedPartDrums = mempty { drumKick2x = leftKicks }
+            }
   stackIO $ Save.toFile (dir </> "notes.mid") $ RBFile.showMIDIFile'
     $ RBFile.Song temps sigs $ RBFile.RawFile trksAdd2x
 

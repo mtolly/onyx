@@ -513,6 +513,14 @@ mergeCharts offset base new = let
       $ U.applyTempoTrack (s_tempos new) trk
   in base { s_tracks = RawFile newTracks }
 
+parseTracks :: (SendMessage m, ParseTrack trk) => [RTB.T U.Beats E.T] -> T.Text -> StackTraceT m (trk U.Beats)
+parseTracks trks name = do
+  (file, _unrec) <- flip mapStackTraceT (codecIn $ fileTrack name []) $ \f -> do
+    flip fmap (runStateT f trks) $ \case
+      (Left  err , _    ) -> Left  err
+      (Right file, unrec) -> Right (file, unrec)
+  return file
+
 readMIDIFile' :: (SendMessage m, ParseFile f) => F.T -> StackTraceT m (Song (f U.Beats))
 readMIDIFile' mid = do
   Song tempos mmap trks <- readMIDIFile mid
