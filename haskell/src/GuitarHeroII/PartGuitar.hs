@@ -141,7 +141,7 @@ instance ParseTrack PartTrack where
       partStarPower <- partStarPower =. edges (base + 7)
       partPlayer1   <- partPlayer1   =. edges (base + 9)
       partPlayer2   <- partPlayer2   =. edges (base + 10)
-      partGems      <- (partGems =.) $ blipSustainRB $ condenseMap $ eachKey each $ matchEdges . edges . \case
+      partGems      <- (partGems =.) $ fatBlips (1/8) $ blipSustainRB $ condenseMap $ eachKey each $ matchEdges . edges . \case
         Green  -> base + 0
         Red    -> base + 1
         Yellow -> base + 2

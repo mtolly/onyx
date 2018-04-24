@@ -41,6 +41,6 @@ instance ParseTrack BandBassTrack where
     bassTempo    <- bassTempo    =. command
     bassIdle     <- bassIdle     =. commandMatch ["idle"]
     bassPlay     <- bassPlay     =. commandMatch ["play"]
-    bassStrum <- bassStrum =. blip 36
+    bassStrum <- bassStrum =. fatBlips (1/8) (blip 36)
     bassMystery61 <- bassMystery61 =. blip 61
     return BandBassTrack{..}

@@ -206,23 +206,7 @@ instance ParseTrack ProGuitarTrack where
     pgHandPosition <- pgHandPosition =. let
       fs fret = (0, fret + 100)
       fp (_c, v) = v - 100
-      in dimap (fmap fs) (fmap fp) $ blipCV 108
-    pgChordRoot    <- (pgChordRoot =.) $ condenseMap_ $ eachKey each $ blip . \case
-      E  -> 4
-      F  -> 5
-      Fs -> 6
-      G  -> 7
-      Gs -> 8
-      A  -> 9
-      As -> 10
-      B  -> 11
-      C  -> 12
-      Cs -> 13
-      D  -> 14
-      Ds -> 15
-    pgNoChordNames <- pgNoChordNames =. edges 17
-    pgSlashChords  <- pgSlashChords =. edges 16
-    pgFlatChords   <- pgFlatChords =. edges 18
+      in fatBlips (1/8) $ dimap (fmap fs) (fmap fp) $ blipCV 108
     pgOnyxOctave   <- pgOnyxOctave =. let
       parse = readCommand' >=> \case
         ["onyx", "octave", x] -> readMaybe $ T.unpack x
@@ -232,7 +216,7 @@ instance ParseTrack ProGuitarTrack where
     pgMystery45    <- pgMystery45 =. edges 45
     pgMystery69    <- pgMystery69 =. edges 69
     pgMystery93    <- pgMystery93 =. edges 93
-    pgDifficulties <- (pgDifficulties =.) $ eachKey each $ \diff -> do
+    pgDifficulties <- (pgDifficulties =.) $ eachKey each $ \diff -> fatBlips (1/8) $ do
       let base = case diff of
             Easy   -> 24
             Medium -> 48
@@ -257,4 +241,20 @@ instance ParseTrack ProGuitarTrack where
         unparse cname = showCommand' $ cmd : toList cname
         in single parse unparse
       return ProGuitarDifficulty{..}
+    pgChordRoot    <- (pgChordRoot =.) $ statusBlips $ condenseMap_ $ eachKey each $ blip . \case
+      E  -> 4
+      F  -> 5
+      Fs -> 6
+      G  -> 7
+      Gs -> 8
+      A  -> 9
+      As -> 10
+      B  -> 11
+      C  -> 12
+      Cs -> 13
+      D  -> 14
+      Ds -> 15
+    pgNoChordNames <- pgNoChordNames =. edges 17
+    pgSlashChords  <- pgSlashChords =. edges 16
+    pgFlatChords   <- pgFlatChords =. edges 18
     return ProGuitarTrack{..}

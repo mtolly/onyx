@@ -61,7 +61,7 @@ import           RockBand.Codec.ProKeys           (nullPK)
 import           RockBand.Codec.Six               (nullSix)
 import           RockBand.Codec.Vocal
 import           RockBand.Common                  (Difficulty (..),
-                                                   LongNote (..), joinEdges)
+                                                   joinEdgesSimple)
 import qualified RockBand.Legacy.Drums            as RBDrums
 import qualified RockBand.Legacy.Vocal            as RBVox
 import           Scripts                          (loadFoFMIDI, loadMIDI)
@@ -84,10 +84,9 @@ fixDoubleSwells ps = let
     notes = flip RTB.mapMaybe trk $ \case
       RBDrums.DiffEvent Expert (RBDrums.Note gem) | gem /= RBDrums.Kick -> Just gem
       _                                           -> Nothing
-    lanesAbs = RTB.toAbsoluteEventList 0 $ joinEdges $ fmap (\b -> if b then NoteOn () () else NoteOff ()) lanes
+    lanesAbs = RTB.toAbsoluteEventList 0 $ joinEdgesSimple $ fmap (\b -> (guard b >> Just (), ())) lanes
     lanesAbs' = ATB.fromPairList $ flip map (ATB.toPairList lanesAbs) $ \(startTime, lane) -> case lane of
-      ((), (), Nothing ) -> error "fixDoubleSwells: panic! blip in swells list"
-      ((), (), Just len) -> let
+      ((), (), len) -> let
         shouldBeDouble = case toList $ U.trackTake len $ U.trackDrop startTime notes of
           g1 : g2 : g3 : g4 : _ | g1 == g3 && g2 == g4 && g1 /= g2 -> True
           _                     -> False

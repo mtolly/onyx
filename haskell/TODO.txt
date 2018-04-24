@@ -1,2 +1,0 @@
-Before merging back into master
-- fatBlips, statusBlips

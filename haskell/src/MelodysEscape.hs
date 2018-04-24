@@ -56,7 +56,7 @@ data Direction = U | R | L | D
 
 instance ParseTrack MelodyTrack where
   parseTrack = do
-    melodyNotes <- (melodyNotes =.) $ blipSustainRB $ condenseMap $ eachKey each $ matchEdges . edges . \case
+    melodyNotes <- (melodyNotes =.) $ fatBlips (1/8) $ blipSustainRB $ condenseMap $ eachKey each $ matchEdges . edges . \case
       Obstacle D -> 60
       Obstacle L -> 61
       Obstacle R -> 62

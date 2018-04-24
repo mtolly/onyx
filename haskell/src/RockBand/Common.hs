@@ -210,6 +210,18 @@ showEdgesNice' defLength trk = flip fmap (showEdgesNice defLength trk) $ \case
   (Nothing, a) -> NoteOff  a
   ( Just s, a) -> NoteOn s a
 
+joinEdgesSimple :: (NNC.C t, Eq a) => RTB.T t (Maybe s, a) -> RTB.T t (s, a, t)
+joinEdgesSimple rtb = case RTB.viewL rtb of
+  Nothing -> RTB.empty
+  Just ((dt, x), rtb') -> case x of
+    (Just s, a) -> let
+      isNoteOff (Nothing, a') = guard (a == a') >> Just ()
+      isNoteOff _             = Nothing
+      in case U.extractFirst isNoteOff rtb' of
+        Nothing                 -> RTB.delay dt $ joinEdgesSimple rtb' -- unmatched note on
+        Just ((len, ()), rtb'') -> RTB.cons dt (s, a, len) $ joinEdgesSimple rtb''
+    (Nothing, _) -> RTB.delay dt $ joinEdgesSimple rtb' -- unmatched note off
+
 joinEdges :: (NNC.C t, Eq a) => RTB.T t (LongNote s a) -> RTB.T t (s, a, Maybe t)
 joinEdges rtb = case RTB.viewL rtb of
   Nothing -> RTB.empty
@@ -231,6 +243,13 @@ fillJoinedBlips defLength rtb = case RTB.viewL rtb of
       []       -> defLength
       next : _ -> min defLength next
     in RTB.cons dt (s, a, len') $ fillJoinedBlips defLength rtb'
+
+splitEdgesSimple :: (NNC.C t, Ord s, Ord a) => RTB.T t (s, a, t) -> RTB.T t (Maybe s, a)
+splitEdgesSimple = U.trackJoin . fmap f where
+  f (s, a, t) = RTB.fromPairList
+    [ (NNC.zero, (Just s , a))
+    , (t       , (Nothing, a))
+    ]
 
 splitEdges :: (NNC.C t, Ord s, Ord a) => RTB.T t (s, a, Maybe t) -> RTB.T t (LongNote s a)
 splitEdges = U.trackJoin . fmap f where

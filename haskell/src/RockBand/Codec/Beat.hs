@@ -16,7 +16,7 @@ newtype BeatTrack t = BeatTrack { beatLines :: RTB.T t BeatEvent }
 
 instance ParseTrack BeatTrack where
   parseTrack = do
-    beatLines <- (beatLines =.) $ condenseMap_ $ eachKey each $ blip . \case
+    beatLines <- (beatLines =.) $ fatBlips (1/2) $ condenseMap_ $ eachKey each $ blip . \case
       Bar  -> 12
       Beat -> 13
     return BeatTrack{..}

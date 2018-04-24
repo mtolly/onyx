@@ -20,6 +20,8 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
 import           Data.Profunctor                  (dimap)
 import qualified Data.Text                        as T
+import           Data.Tuple                       (swap)
+import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Common
 import qualified RockBand.PhaseShiftMessage       as PS
@@ -148,16 +150,7 @@ commandMatch c = single
   (\() -> showCommand' c)
 
 joinEdges' :: (NNC.C t, Eq a) => RTB.T t (a, Maybe s) -> RTB.T t (a, s, t)
-joinEdges' rtb = case RTB.viewL rtb of
-  Nothing -> RTB.empty
-  Just ((dt, x), rtb') -> case x of
-    (a, Just s) -> let
-      isNoteOff (a', Nothing) = guard (a == a') >> Just ()
-      isNoteOff _             = Nothing
-      in case U.extractFirst isNoteOff rtb' of
-        Nothing                 -> RTB.delay dt $ joinEdges' rtb' -- unmatched note on
-        Just ((len, ()), rtb'') -> RTB.cons dt (a, s, len) $ joinEdges' rtb''
-    (_, Nothing) -> RTB.delay dt $ joinEdges' rtb' -- unmatched note off
+joinEdges' = fmap (\(s, a, t) -> (a, s, t)) . joinEdgesSimple . fmap swap
 
 matchEdges :: (Monad m, NNC.C t) => TrackEvent m t Bool -> TrackEvent m t t
 matchEdges = dimap
@@ -171,20 +164,47 @@ matchEdgesCV = dimap
 
 -- | Extends output notes within this group to be at least a 32nd note,
 -- or up to the next note.
-fatBlips :: (NNC.C t, Monad m) => t -> TrackEvent m t a -> TrackEvent m t a
+fatBlips :: (NNC.C t, Monad m) => t -> Codec (TrackParser m t) (TrackBuilder t) a -> Codec (TrackParser m t) (TrackBuilder t) a
 fatBlips len cdc = cdc
   { codecOut = let
-    extend = id -- TODO
+    extend trk = let
+      (origEdges, notNotes) = RTB.partitionMaybe isNoteEdgeCPV trk
+      notes = joinEdgesSimple $ fmap (\(c, p, mv) -> (mv, (c, p))) origEdges
+      notes' = RTB.flatten $ go $ RTB.collectCoincident notes
+      go rtb = case RTB.viewL rtb of
+        Nothing -> RTB.empty
+        Just ((dt, evs), rtb') -> let
+          blipLen = case RTB.viewL rtb' of
+            Nothing            -> len
+            Just ((dt', _), _) -> min len dt'
+          adjustLen (v, c, origLen) = (v, c, max origLen blipLen)
+          in RTB.cons dt (map adjustLen evs) $ go rtb'
+      edgeEvents = fmap (\(mv, (c, p)) -> makeEdgeCPV c p mv) $ splitEdgesSimple notes'
+      in RTB.merge edgeEvents notNotes
     in makeTrackBuilder $ extend . runTrackBuilder (codecOut cdc)
   }
 
 -- | Extends output notes within this group to go up to the next note on,
 -- or to the last current MIDI event written so far.
-statusBlips :: (NNC.C t, Monad m) => TrackEvent m t a -> TrackEvent m t a
+statusBlips :: (NNC.C t, Monad m) => Codec (TrackParser m t) (TrackBuilder t) a -> Codec (TrackParser m t) (TrackBuilder t) a
 statusBlips cdc = cdc
   { codecOut = \x -> do
     lastTime <- mconcat . RTB.getTimes <$> get
-    let extend = id -- TODO
+    let extend trk = let
+          (origEdges, notNotes) = RTB.partitionMaybe isNoteEdgeCPV trk
+          notes = joinEdgesSimple $ fmap (\(c, p, mv) -> (mv, (c, p))) origEdges
+          notes' = RTB.flatten $ go NNC.zero $ RTB.collectCoincident notes
+          go elapsed rtb = case RTB.viewL rtb of
+            Nothing -> RTB.empty
+            Just ((dt, evs), rtb') -> let
+              elapsed' = NNC.add elapsed dt
+              statusLen = case RTB.viewL rtb' of
+                Nothing            -> lastTime -| elapsed'
+                Just ((dt', _), _) -> dt'
+              adjustLen (v, c, origLen) = (v, c, max origLen statusLen)
+              in RTB.cons dt (map adjustLen evs) $ go elapsed' rtb'
+          edgeEvents = fmap (\(mv, (c, p)) -> makeEdgeCPV c p mv) $ splitEdgesSimple notes'
+          in RTB.merge edgeEvents notNotes
     makeTrackBuilder (extend . runTrackBuilder (codecOut cdc)) x
   }
 

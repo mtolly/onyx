@@ -40,7 +40,7 @@ instance (NNC.C t) => Monoid (TriggersTrack t) where
 
 instance ParseTrack TriggersTrack where
   parseTrack = do
-    triggersBacking <- (triggersBacking =.) $ condenseMap_ $ eachKey each $ blip . \case
+    triggersBacking <- (triggersBacking =.) $ fatBlips (1/8) $ condenseMap_ $ eachKey each $ blip . \case
       BackingKick  -> 24
       BackingSnare -> 25
       BackingHihat -> 26

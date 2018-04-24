@@ -185,7 +185,7 @@ instance ParseTrack FiveTrack where
     fiveSolo         <- fiveSolo         =. edges 103
     fivePlayer1      <- fivePlayer1      =. edges 105
     fivePlayer2      <- fivePlayer2      =. edges 106
-    fiveDifficulties <- (fiveDifficulties =.) $ eachKey each $ \diff -> do
+    fiveDifficulties <- (fiveDifficulties =.) $ eachKey each $ \diff -> fatBlips (1/8) $ do
       let base = case diff of
             Easy   -> 60
             Medium -> 72

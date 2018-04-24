@@ -113,13 +113,13 @@ instance ParseTrack VocalTrack where
         _ -> Nothing
       fs = E.MetaEvent . Meta.Lyric . T.unpack
       in single fp fs
-    vocalPerc          <- vocalPerc          =. blip 96
-    vocalPercSound     <- vocalPercSound     =. blip 97
+    vocalPerc          <- vocalPerc          =. fatBlips (1/8) (blip 96)
+    vocalPercSound     <- vocalPercSound     =. fatBlips (1/8) (blip 97)
     vocalPercAnimation <- vocalPercAnimation =. command
     vocalPhrase1       <- vocalPhrase1       =. edges 105
     vocalPhrase2       <- vocalPhrase2       =. edges 106
     vocalOverdrive     <- vocalOverdrive     =. edges 116
-    vocalLyricShift    <- vocalLyricShift    =. blip 1
+    vocalLyricShift    <- vocalLyricShift    =. fatBlips (1/8) (blip 1)
     vocalRangeShift    <- vocalRangeShift    =. edges 0
     vocalNotes         <- (vocalNotes        =.)
       $ condenseMap $ eachKey each $ edges . (+ 36) . fromEnum

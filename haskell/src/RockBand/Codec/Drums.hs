@@ -204,7 +204,7 @@ instance ParseTrack DrumTrack where
     drumSolo <- drumSolo =. edges 103
     drumPlayer1 <- drumPlayer1 =. edges 105
     drumPlayer2 <- drumPlayer2 =. edges 106
-    drumDifficulties <- (drumDifficulties =.) $ eachKey each $ \diff -> do
+    drumDifficulties <- (drumDifficulties =.) $ eachKey each $ \diff -> fatBlips (1/8) $ do
       let base = case diff of
             Easy   -> 60
             Medium -> 72
@@ -229,8 +229,9 @@ instance ParseTrack DrumTrack where
         HHSizzle -> PS.HihatSizzle
         HHPedal  -> PS.HihatPedal
       return DrumDifficulty{..}
-    drumKick2x <- drumKick2x =. blip 95 -- TODO this should probably be blip-grouped with expert track
-    drumAnimation <- (drumAnimation =.) $ condenseMap_ $ eachKey each $ \case
+    drumKick2x <- drumKick2x =. fatBlips (1/8) (blip 95)
+    -- ^ TODO this should be blip-grouped with expert track
+    drumAnimation <- (drumAnimation =.) $ fatBlips (1/8) $ condenseMap_ $ eachKey each $ \case
       KickRF -> blip 24
       HihatOpen b -> edge 25 b
       Snare HardHit LH -> blip 26
