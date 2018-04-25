@@ -36,18 +36,23 @@ parts:
   guitar:
     grybo: {} # alextaylor
     pro-guitar: # onyxite
-      tuning: [-3, -3, -3, -3, -3, -3]
+      tuning: [0, 0, 0, 0, 0, 0]
+      tuning-global: -3
   rhythm:
     pro-guitar: # onyxite
-      tuning: [-3, -3, -3, -3, -3, -3]
+      tuning: [0, 0, 0, 0, 0, 0]
+      tuning-global: -3
   bass:
     grybo: {} # alextaylor
     pro-guitar: # onyxite
-      tuning: [-8, -8, -8, -8, -7] # EADGB -> G# C# F# B E
-      # or should we pretend to be normal 5 string? dunno
+      tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG (std 5 string)
+      tuning-global: -3 # and then G# C# F# B E
   keys:
     grybo: {} # alextaylor
     pro-keys: {} # alextaylor
+  vocal:
+    vocal: # onyxite
+      count: 3
 targets:
   rb3-2x:
     game: rb3
