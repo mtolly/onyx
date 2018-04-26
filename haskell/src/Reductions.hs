@@ -16,6 +16,7 @@ import           Guitars
 import           Numeric.NonNegative.Class        ((-|))
 import qualified Numeric.NonNegative.Class        as NNC
 import           ProKeysRanges                    (completeRanges)
+import           RockBand.Codec.Drums
 import           RockBand.Codec.Events            (eventsSections)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Common                  (Difficulty (..), Key (..),
@@ -370,34 +371,32 @@ pkReduce diff   mmap od diffEvents = let
 drumsComplete
   :: U.MeasureMap
   -> RTB.T U.Beats T.Text -- ^ Practice sections
-  -> RTB.T U.Beats Drums.Event
-  -> RTB.T U.Beats Drums.Event
+  -> DrumTrack U.Beats
+  -> DrumTrack U.Beats
 drumsComplete mmap sections trk = let
-  od        = flip RTB.mapMaybe trk $ \case
-    Drums.Overdrive b -> Just b
-    _                -> Nothing
-  assigned = Drums.assignToms True trk
-  getAssigned d = snd <$> RTB.filter (\(d', _) -> d == d') assigned
-  getRaw d = flip RTB.mapMaybe trk $ \case
-    Drums.DiffEvent d' e | d == d' -> Just e
-    _                              -> Nothing
+  od        = drumOverdrive trk
+  getPro d = computePro (Just d) trk
+  getRaw d = fromMaybe mempty $ Map.lookup d $ drumDifficulties trk
   reduceStep diff source = let
-    authored = getRaw diff
-    in if length authored < 5
+    raw = getRaw diff
+    in if length (drumGems raw) < 5
       then let
         auto = drumsReduce diff mmap od sections source
-        in (stripToms diff auto, auto)
-      else (Drums.DiffEvent diff <$> authored, getAssigned diff)
-  expert              = getAssigned Expert
+        in (proToDiff auto, auto)
+      else (raw, getPro diff)
+  (expertRaw, expert) = (getRaw Expert, getPro Expert)
   (hardRaw  , hard  ) = reduceStep Hard   expert
   (mediumRaw, _     ) = reduceStep Medium hard
   (easyRaw  , _     ) = reduceStep Easy   hard -- we want kicks that medium might've removed
-  untouched = flip RTB.filter trk $ \case
-    Drums.DiffEvent Expert _ -> True
-    Drums.DiffEvent _      _ -> False
-    _                        -> True
-  stripToms d = fmap $ \progem -> Drums.DiffEvent d $ Drums.Note $ progem $> ()
-  in foldr RTB.merge RTB.empty [untouched, hardRaw, mediumRaw, easyRaw]
+  proToDiff pro = mempty { drumGems = fmap ($> ()) pro }
+  in trk
+    { drumDifficulties = Map.fromList
+      [ (Easy  , easyRaw  )
+      , (Medium, mediumRaw)
+      , (Hard  , hardRaw  )
+      , (Expert, expertRaw)
+      ]
+    }
 
 ensureODNotes
   :: (NNC.C t, Ord a)
@@ -539,7 +538,7 @@ simpleReduce fin fout = do
       in trks
       { RBFile.onyxPartGuitar = Five.fiveFromLegacy $ gryboComplete (Just 170) mmap $ Five.fiveToLegacy $ RBFile.onyxPartGuitar trks
       , RBFile.onyxPartKeys = Five.fiveFromLegacy $ gryboComplete Nothing mmap $ Five.fiveToLegacy $ RBFile.onyxPartKeys trks
-      , RBFile.onyxPartDrums = Drums.drumsFromLegacy $ drumsComplete mmap sections $ Drums.drumsToLegacy $ RBFile.onyxPartDrums trks
+      , RBFile.onyxPartDrums = drumsComplete mmap sections $ RBFile.onyxPartDrums trks
       , RBFile.onyxPartRealKeysX = PK.pkFromLegacy pkX
       , RBFile.onyxPartRealKeysH = PK.pkFromLegacy pkH
       , RBFile.onyxPartRealKeysM = PK.pkFromLegacy pkM

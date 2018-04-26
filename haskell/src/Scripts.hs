@@ -10,7 +10,6 @@ import           Control.Monad                    (forM, guard, void)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
-import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
@@ -43,28 +42,17 @@ import qualified Sound.MIDI.Util                  as U
 -- | Changes all existing drum mix events to use the given config (not changing
 -- stuff like discobeat), and places ones at the beginning if they don't exist
 -- already.
-drumMix_precodec :: Drums.Audio -> RTB.T U.Beats Drums.Event -> RTB.T U.Beats Drums.Event
-drumMix_precodec audio' trk = let
-  (mixes, notMixes) = flip RTB.partitionMaybe trk $ \case
-    Drums.DiffEvent diff (Drums.Mix audio disco) -> Just (diff, audio, disco)
-    _                                            -> Nothing
-  mixes' = fmap (\(diff, _, disco) -> (diff, audio', disco)) mixes
-  getDiff diff = flip RTB.mapMaybe trk $ \case
-    Drums.DiffEvent d evt | d == diff -> Just evt
-    _                                 -> Nothing
-  alreadyMixed = go . RTB.getBodies . RTB.collectCoincident . getDiff
-  go [] = False
-  go (now : later)
-    | not $ null [ () | Drums.Mix _ _ <- now ] = True
-    | not $ null [ () | Drums.Note _  <- now ] = False
-    | otherwise                                = go later
-  addedMixes =
-    [ (diff, audio', Drums.NoDisco)
-    | diff <- [Easy .. Expert]
-    , not $ alreadyMixed diff
-    ]
-  setMix (diff, audio, disco) = Drums.DiffEvent diff $ Drums.Mix audio disco
-  in RTB.merge notMixes $ setMix <$> foldr addZero mixes' addedMixes
+setDrumMix :: (NNC.C t) => Drums.Audio -> DrumTrack t -> DrumTrack t
+setDrumMix audio trk = let
+  f dd = dd
+    { drumMix = let
+      mixSet = fmap (\(_, disco) -> (audio, disco)) $ drumMix dd
+      alreadyMixed = case (RTB.viewL $ drumMix dd, RTB.viewL $ drumGems dd) of
+        (Just ((tmix, _), _), Just ((tnote, _), _)) -> tmix <= tnote
+        _                                           -> False
+      in if alreadyMixed then mixSet else RTB.cons NNC.zero (audio, Drums.NoDisco) mixSet
+    }
+  in trk { drumDifficulties = fmap f $ drumDifficulties trk }
 
 -- | Adds an event at position zero *after* all the other events there.
 addZero :: (NNC.C t) => a -> RTB.T t a -> RTB.T t a
@@ -204,13 +192,11 @@ trackGlue t xs ys = let
   gap = t NNC.-| NNC.sum (RTB.getTimes xs')
   in RTB.append xs' $ RTB.delay gap ys
 
-fixFreeformDrums_precodec :: RTB.T U.Beats Drums.Event -> RTB.T U.Beats Drums.Event
-fixFreeformDrums_precodec = let
-  drumsSingle' = fixFreeform_precodec (== Drums.SingleRoll True) (== Drums.SingleRoll False) isHand
-  drumsDouble' = fixFreeform_precodec (== Drums.DoubleRoll True) (== Drums.DoubleRoll False) isHand
-  isHand (Drums.DiffEvent Expert (Drums.Note gem)) = gem /= Drums.Kick
-  isHand _                                         = False
-  in drumsSingle' . drumsDouble'
+fixFreeformDrums :: DrumTrack U.Beats -> DrumTrack U.Beats
+fixFreeformDrums ft = ft
+  { drumSingleRoll = fixFreeform gems $ drumSingleRoll ft
+  , drumDoubleRoll = fixFreeform gems $ drumDoubleRoll ft
+  } where gems = maybe RTB.empty (void . drumGems) $ Map.lookup Expert $ drumDifficulties ft
 
 fixFreeformFive :: FiveTrack U.Beats -> FiveTrack U.Beats
 fixFreeformFive ft = ft
@@ -218,57 +204,23 @@ fixFreeformFive ft = ft
   , fiveTrill   = fixFreeform gems $ fiveTrill   ft
   } where gems = maybe RTB.empty (void . fiveGems) $ Map.lookup Expert $ fiveDifficulties ft
 
-fixFreeformFive_precodec :: RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
-fixFreeformFive_precodec = let
-  fiveTremolo' = fixFreeform_precodec (== Five.Tremolo True) (== Five.Tremolo False) isGem
-  fiveTrill'   = fixFreeform_precodec (== Five.Trill   True) (== Five.Trill   False) isGem
-  isGem (Five.DiffEvent Expert (Five.Note (NoteOn () _))) = True
-  isGem (Five.DiffEvent Expert (Five.Note (Blip   () _))) = True
-  isGem _                                                 = False
-  in fiveTremolo' . fiveTrill'
+fixFreeformPK :: ProKeysTrack U.Beats -> ProKeysTrack U.Beats
+fixFreeformPK ft = ft
+  { pkGlissando = fixFreeform gems $ pkGlissando ft
+  , pkTrill     = fixFreeform gems $ pkTrill     ft
+  } where gems = void $ pkNotes ft
 
 fixFreeformPK_precodec :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats ProKeys.Event
-fixFreeformPK_precodec = let
-  pkGlissando' = fixFreeform_precodec (== ProKeys.Glissando True) (== ProKeys.Glissando False) isPKNote
-  pkTrill'     = fixFreeform_precodec (== ProKeys.Trill     True) (== ProKeys.Trill     False) isPKNote
-  isPKNote (ProKeys.Note (NoteOn _ _)) = True
-  isPKNote (ProKeys.Note (Blip   _ _)) = True
-  isPKNote _                           = False
-  in pkGlissando' . pkTrill'
+fixFreeformPK_precodec = ProKeys.pkToLegacy . fixFreeformPK . ProKeys.pkFromLegacy
+
+fixFreeformPG :: ProGuitarTrack U.Beats -> ProGuitarTrack U.Beats
+fixFreeformPG ft = ft
+  { pgTremolo = fixFreeform gems $ pgTremolo ft
+  , pgTrill   = fixFreeform gems $ pgTrill   ft
+  } where gems = maybe RTB.empty (void . pgNotes) $ Map.lookup Expert $ pgDifficulties ft
 
 fixFreeformPG_precodec :: RTB.T U.Beats ProGuitar.Event -> RTB.T U.Beats ProGuitar.Event
-fixFreeformPG_precodec = let
-  pgTremolo' = fixFreeform_precodec (== ProGuitar.Tremolo True) (== ProGuitar.Tremolo False) isGem
-  pgTrill'   = fixFreeform_precodec (== ProGuitar.Trill   True) (== ProGuitar.Trill   False) isGem
-  isGem (ProGuitar.DiffEvent Expert (ProGuitar.Note (NoteOn _ (_, ntype))))
-    = ntype /= ProGuitar.ArpeggioForm
-  isGem (ProGuitar.DiffEvent Expert (ProGuitar.Note (Blip   _ (_, ntype))))
-    = ntype /= ProGuitar.ArpeggioForm
-  isGem _ = False
-  in pgTremolo' . pgTrill'
-
--- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
---- their last gem note-on.
-fixFreeform_precodec
-  :: (Ord a)
-  => (a -> Bool) -- ^ start of a freeform section
-  -> (a -> Bool) -- ^ end of a freeform section
-  -> (a -> Bool) -- ^ events which are covered by the freeform section
-  -> RTB.T U.Beats a
-  -> RTB.T U.Beats a
-fixFreeform_precodec isStart isEnd isCovered = RTB.flatten . go . RTB.collectCoincident where
-  go rtb = case RTB.viewL rtb of
-    Nothing -> RTB.empty
-    Just ((dt, evts), rtb') -> RTB.cons dt evts $ if any isStart evts
-      then case U.extractFirst (\x -> if isEnd x then Just x else Nothing) $ RTB.flatten rtb' of
-        Nothing -> RTB.cons dt evts $ go rtb' -- probably an error
-        Just ((oldLength, theEnd), rtb'noEnd) -> let
-          coveredEvents = U.trackTake oldLength $ RTB.filter (any isCovered) rtb'
-          newLength = case reverse $ ATB.getTimes $ RTB.toAbsoluteEventList 0 coveredEvents of
-            pos : _ -> pos + 1/32
-            _       -> oldLength
-          in RTB.insert newLength [theEnd] $ go $ RTB.collectCoincident rtb'noEnd
-      else go rtb'
+fixFreeformPG_precodec = ProGuitar.pgToLegacy . fixFreeformPG . ProGuitar.pgFromLegacy
 
 -- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
 --- their last gem note-on.

@@ -3,10 +3,11 @@
 module OneFoot (phaseShiftKicks, rockBand1x, rockBand2x) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromMaybe)
 import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Codec.Drums
 import           RockBand.Common
-import           RockBand.Legacy.Drums            (Hand (..))
-import qualified RockBand.Legacy.Drums            as Drums
 import qualified Sound.MIDI.Util                  as U
 
 assignFeet
@@ -43,22 +44,38 @@ assignFeet timeX timeY = RTB.fromPairList . rule4 . rule3 . rule2 . RTB.toPairLi
     [] -> []
 
 -- | If there are no PS left kick notes, automatically chooses some if necessary.
-phaseShiftKicks :: U.Seconds -> U.Seconds -> RTB.T U.Seconds Drums.Event -> RTB.T U.Seconds Drums.Event
-phaseShiftKicks tx ty rtb = let
-  (kicks, notKicks) = flip RTB.partitionMaybe rtb $ \case
-    Drums.DiffEvent Expert (Drums.Note Drums.Kick) -> Just RH
-    Drums.Kick2x                                   -> Just LH
-    _                                              -> Nothing
+phaseShiftKicks :: U.Seconds -> U.Seconds -> DrumTrack U.Seconds -> DrumTrack U.Seconds
+phaseShiftKicks tx ty dt = let
+  kicks = RTB.merge
+    (RTB.mapMaybe (\case Kick -> Just RH; _ -> Nothing)
+      $ drumGems $ fromMaybe mempty $ Map.lookup Expert $ drumDifficulties dt)
+    (fmap (const LH) $ drumKick2x dt)
   in if LH `elem` kicks
-    then rtb
-    else RTB.merge notKicks $ flip fmap (assignFeet tx ty kicks) $ \case
-      RH -> Drums.DiffEvent Expert $ Drums.Note Drums.Kick
-      LH -> Drums.Kick2x
+    then dt
+    else let
+      auto = assignFeet tx ty kicks
+      lf = RTB.mapMaybe (\case LH -> Just (); RH -> Nothing) auto
+      rf = RTB.mapMaybe (\case LH -> Nothing; RH -> Just Kick) auto
+      in dt
+        { drumKick2x = lf
+        , drumDifficulties = flip Map.mapWithKey (drumDifficulties dt) $ \diff dd ->
+          case diff of
+            Expert -> dd
+              { drumGems = RTB.merge rf $ RTB.filter (\case Kick -> False; _ -> True) $ drumGems dd
+              }
+            _ -> dd
+        }
 
-rockBand1x :: (NNC.C t) => RTB.T t Drums.Event -> RTB.T t Drums.Event
-rockBand1x = RTB.filter (/= Drums.Kick2x)
+rockBand1x :: DrumTrack t -> DrumTrack t
+rockBand1x dt = dt { drumKick2x = RTB.empty }
 
-rockBand2x :: RTB.T t Drums.Event -> RTB.T t Drums.Event
-rockBand2x = fmap $ \case
-  Drums.Kick2x -> Drums.DiffEvent Expert $ Drums.Note Drums.Kick
-  evt          -> evt
+rockBand2x :: (NNC.C t) => DrumTrack t -> DrumTrack t
+rockBand2x dt = dt
+  { drumKick2x = RTB.empty
+  , drumDifficulties = flip Map.mapWithKey (drumDifficulties dt) $ \diff dd ->
+    case diff of
+      Expert -> dd
+        { drumGems = RTB.merge (drumGems dd) $ fmap (const Kick) $ drumKick2x dt
+        }
+      _ -> dd
+  }

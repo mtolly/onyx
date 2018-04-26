@@ -135,37 +135,42 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         }
       drumsPart = either rb3_Drums ps_Drums target
       drumsTrack = case getPart drumsPart songYaml >>= partDrums of
-        Nothing -> RTB.empty
+        Nothing -> mempty
         Just pd -> let
           psKicks = if drumsAuto2xBass pd
-            then U.unapplyTempoTrack tempos . phaseShiftKicks 0.18 0.11 . U.applyTempoTrack tempos
+            then mapTrack (U.unapplyTempoTrack tempos) . phaseShiftKicks 0.18 0.11 . mapTrack (U.applyTempoTrack tempos)
             else id
           sections = fmap snd $ eventsSections eventsInput
-          finish = RBDrums.drumsFromLegacy . changeMode . psKicks . drumMix_precodec mixMode . drumsComplete mmap sections . RBDrums.drumsToLegacy
+          finish = changeMode . psKicks . setDrumMix mixMode . drumsComplete mmap sections
           fiveToFour instant = flip map instant $ \case
-            RBDrums.Note RBDrums.Orange -> let
+            RBDrums.Orange -> let
               color = if
-                | RBDrums.Note (RBDrums.Pro RBDrums.Blue  ()) `elem` instant -> RBDrums.Green
-                | RBDrums.Note (RBDrums.Pro RBDrums.Green ()) `elem` instant -> RBDrums.Blue
+                | RBDrums.Pro RBDrums.Blue  () `elem` instant -> RBDrums.Green
+                | RBDrums.Pro RBDrums.Green () `elem` instant -> RBDrums.Blue
                 | otherwise -> case drumsFallback pd of
                   FallbackBlue  -> RBDrums.Blue
                   FallbackGreen -> RBDrums.Green
-              in RBDrums.Note $ RBDrums.Pro color ()
+              in RBDrums.Pro color ()
             x -> x
-          noToms = RTB.filter (\case RBDrums.ProType{} -> False; _ -> True)
-          allToms
-            = RTB.insert 0       (RBDrums.ProType RBDrums.Yellow RBDrums.Tom   )
-            . RTB.insert 0       (RBDrums.ProType RBDrums.Blue   RBDrums.Tom   )
-            . RTB.insert 0       (RBDrums.ProType RBDrums.Green  RBDrums.Tom   )
-            . RTB.insert endPosn (RBDrums.ProType RBDrums.Yellow RBDrums.Cymbal)
-            . RTB.insert endPosn (RBDrums.ProType RBDrums.Blue   RBDrums.Cymbal)
-            . RTB.insert endPosn (RBDrums.ProType RBDrums.Green  RBDrums.Cymbal)
-            . noToms
+          fiveToFourTrack = drumEachDiff $ \dd -> dd
+            { drumGems = RTB.flatten $ fmap fiveToFour $ RTB.collectCoincident $ drumGems dd
+            }
+          drumEachDiff f dt = dt { drumDifficulties = fmap f $ drumDifficulties dt }
+          noToms dt = dt { drumToms = RTB.empty }
+          allToms dt = dt
+            { drumToms = RTB.fromPairList
+              [ (0      , (RBDrums.Yellow, RBDrums.Tom   ))
+              , (0      , (RBDrums.Blue  , RBDrums.Tom   ))
+              , (0      , (RBDrums.Green , RBDrums.Tom   ))
+              , (endPosn, (RBDrums.Yellow, RBDrums.Cymbal))
+              , (0      , (RBDrums.Blue  , RBDrums.Cymbal))
+              , (0      , (RBDrums.Green , RBDrums.Cymbal))
+              ]
+            }
           changeMode = case (drumsMode pd, target) of
             (DrumsPro, _         ) -> id
             -- TODO convert 5 to pro, not just basic.
-            (Drums5  , Left  _rb3) -> allToms
-              . eachDifficulty (RTB.flatten . fmap fiveToFour . RTB.collectCoincident)
+            (Drums5  , Left  _rb3) -> allToms . fiveToFourTrack
             (Drums5  , Right _ps ) -> noToms
             (Drums4  , Right _ps ) -> noToms
             (Drums4  , Left  _rb3) -> allToms
@@ -182,13 +187,13 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           psPS = if not $ RTB.null $ drumKick2x pro1x then ps1x else ps2x
           -- Note: drumMix must be applied *after* drumsComplete.
           -- Otherwise the automatic EMH mix events could prevent lower difficulty generation.
-          in (if drumsFixFreeform pd then fixFreeformDrums_precodec else id)
-            $ RTB.filter (\case RBDrums.Player1{} -> False; RBDrums.Player2{} -> False; _ -> True)
+          in (if drumsFixFreeform pd then fixFreeformDrums else id)
+            $ (\dt -> dt { drumPlayer1 = RTB.empty, drumPlayer2 = RTB.empty })
             $ case target of
               Left rb3 -> if rb3_2xBassPedal rb3
-                then rockBand2x $ RBDrums.drumsToLegacy ps2x
-                else rockBand1x $ RBDrums.drumsToLegacy ps1x
-              Right _ -> RBDrums.drumsToLegacy psPS
+                then rockBand2x ps2x
+                else rockBand1x ps1x
+              Right _ -> psPS
       makeGRYBOTrack toKeys fpart src = case getPart fpart songYaml >>= partGRYBO of
         Nothing -> (mempty, mempty)
         Just grybo -> let
@@ -355,10 +360,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
               harm3   = RBFile.onyxHarm3 $ RBFile.getFlexPart vocalPart trks
 
   drumsTrack' <- let
-    (fills, notFills) = flip RTB.partitionMaybe drumsTrack $ \case
-      RBDrums.Activation b -> Just b
-      _ -> Nothing
-    fills' = RTB.normalize fills
+    fills = RTB.normalize $ drumActivation drumsTrack
     fixCloseFills rtb = case RTB.viewL rtb of
       Just ((tx, True), rtb') -> case RTB.viewL rtb' of
         Just ((ty, False), rtb'')
@@ -367,11 +369,11 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         _ -> RTB.cons tx True $ fixCloseFills rtb'
       Just ((tx, False), rtb') -> RTB.cons tx False $ fixCloseFills rtb'
       Nothing -> RTB.empty
-    fixedFills = U.unapplyTempoTrack tempos $ fixCloseFills $ U.applyTempoTrack tempos fills'
+    fixedFills = U.unapplyTempoTrack tempos $ fixCloseFills $ U.applyTempoTrack tempos fills
     in do
-      when (fills' /= fixedFills) $ warn
+      when (fills /= fixedFills) $ warn
         "Removing some drum fills because they are too close (within 2.5 seconds)"
-      return $ RTB.merge (fmap RBDrums.Activation fixedFills) notFills
+      return drumsTrack { drumActivation = fixedFills }
 
   -- remove tempo and time signature events on or after [end].
   -- found in some of bluzer's RB->PS converts. magma complains
@@ -389,7 +391,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       { RBFile.fixedBeat = beatTrack
       , RBFile.fixedEvents = eventsTrack
       , RBFile.fixedVenue = compileVenueRB3 $ RBFile.onyxVenue trks
-      , RBFile.fixedPartDrums = RBDrums.drumsFromLegacy drumsTrack'
+      , RBFile.fixedPartDrums = drumsTrack'
       , RBFile.fixedPartGuitar = guitarRB3
       , RBFile.fixedPartBass = bassRB3
       , RBFile.fixedPartRealGuitar   = ProGtr.pgFromLegacy proGtr
@@ -412,7 +414,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       { RBFile.fixedBeat = beatTrack
       , RBFile.fixedEvents = eventsTrackPS
       , RBFile.fixedVenue = compileVenueRB3 $ RBFile.onyxVenue trks
-      , RBFile.fixedPartDrums = RBDrums.drumsFromLegacy drumsTrack'
+      , RBFile.fixedPartDrums = drumsTrack'
       , RBFile.fixedPartDrums2x = mempty
       , RBFile.fixedPartRealDrumsPS = mempty
       , RBFile.fixedPartGuitar = guitarPS
