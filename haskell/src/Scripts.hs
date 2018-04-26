@@ -29,7 +29,6 @@ import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
 import           RockBand.Codec.Vocal
 import           RockBand.Common
-import qualified RockBand.Legacy.Drums            as Drums
 import qualified RockBand.Legacy.Five             as Five
 import qualified RockBand.Legacy.ProGuitar        as ProGuitar
 import qualified RockBand.Legacy.ProKeys          as ProKeys
@@ -42,7 +41,7 @@ import qualified Sound.MIDI.Util                  as U
 -- | Changes all existing drum mix events to use the given config (not changing
 -- stuff like discobeat), and places ones at the beginning if they don't exist
 -- already.
-setDrumMix :: (NNC.C t) => Drums.Audio -> DrumTrack t -> DrumTrack t
+setDrumMix :: (NNC.C t) => Audio -> DrumTrack t -> DrumTrack t
 setDrumMix audio trk = let
   f dd = dd
     { drumMix = let
@@ -50,7 +49,7 @@ setDrumMix audio trk = let
       alreadyMixed = case (RTB.viewL $ drumMix dd, RTB.viewL $ drumGems dd) of
         (Just ((tmix, _), _), Just ((tnote, _), _)) -> tmix <= tnote
         _                                           -> False
-      in if alreadyMixed then mixSet else RTB.cons NNC.zero (audio, Drums.NoDisco) mixSet
+      in if alreadyMixed then mixSet else RTB.cons NNC.zero (audio, NoDisco) mixSet
     }
   in trk { drumDifficulties = fmap f $ drumDifficulties trk }
 

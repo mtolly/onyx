@@ -10,7 +10,7 @@ import qualified Data.Map.Strict           as Map
 import           Data.Map.Strict.Internal  (Map (..))
 import           Data.Maybe                (fromMaybe)
 import           Foreign.C                 (CInt)
-import qualified RockBand.Legacy.Drums     as D
+import qualified RockBand.Codec.Drums      as D
 import           SDL                       (($=))
 import qualified SDL
 

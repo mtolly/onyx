@@ -72,6 +72,7 @@ import           Resources                             (emptyMilo, emptyMiloRB2,
                                                         onyxAlbum, webDisplay)
 import           RockBand.Codec                        (mapTrack)
 import           RockBand.Codec.Drums
+import qualified RockBand.Codec.Drums                  as RBDrums
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File                   as RBFile
 import           RockBand.Codec.Five
@@ -79,7 +80,6 @@ import           RockBand.Codec.ProGuitar              (nullPG)
 import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal
 import           RockBand.Common                       (Difficulty (..))
-import qualified RockBand.Legacy.Drums                 as RBDrums
 import qualified RockBand.Legacy.ProGuitar             as ProGtr
 import qualified RockBand.Legacy.Vocal                 as RBVox
 import qualified RockBand.ProGuitar.Play               as PGPlay
