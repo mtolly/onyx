@@ -6,13 +6,14 @@ import           Config                           (Instrument (..),
                                                    PreviewTime (..), SongYaml,
                                                    _metadata, _previewEnd,
                                                    _previewStart)
-import           Control.Monad                    (forM, guard)
+import           Control.Monad                    (forM, guard, void)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, listToMaybe,
                                                    mapMaybe)
 import           Data.Monoid                      ((<>))
@@ -211,6 +212,12 @@ fixFreeformDrums_precodec = let
   isHand _                                         = False
   in drumsSingle' . drumsDouble'
 
+fixFreeformFive :: FiveTrack U.Beats -> FiveTrack U.Beats
+fixFreeformFive ft = ft
+  { fiveTremolo = fixFreeform gems $ fiveTremolo ft
+  , fiveTrill   = fixFreeform gems $ fiveTrill   ft
+  } where gems = maybe RTB.empty (void . fiveGems) $ Map.lookup Expert $ fiveDifficulties ft
+
 fixFreeformFive_precodec :: RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
 fixFreeformFive_precodec = let
   fiveTremolo' = fixFreeform_precodec (== Five.Tremolo True) (== Five.Tremolo False) isGem
@@ -283,8 +290,8 @@ fixFreeform initGems = go initGems . RTB.normalize where
 -- This doesn't currently handle
 -- [note start, phrase boundary, phrase boundary, note end]
 -- i.e. a note that spans 3 phrases. But you shouldn't be doing that anyways!
-harm1ToPartVocals_precodec :: (NNC.C t) => RTB.T t Vocals.Event -> RTB.T t Vocals.Event
-harm1ToPartVocals_precodec = go . RTB.normalize where
+harm1ToPartVocals :: (NNC.C t) => VocalTrack t -> VocalTrack t
+harm1ToPartVocals = Vocals.vocalFromLegacy . go . RTB.normalize . Vocals.vocalToLegacy where
   go rtb = case RTB.viewL rtb of
     Just ((dt, phstart@(Vocals.Phrase True)), rtb') -> case U.extractFirst isPhraseEnd rtb' of
       Nothing -> error "harm1ToPartVocals: found a HARM1 phrase with no end"
@@ -333,6 +340,17 @@ protarToGrybo_precodec = let
       ]
   in U.trackJoin . fmap pgToBasic . RTB.collectCoincident
 
+-- | Makes a dummy Basic Guitar/Bass track, for parts with only Pro Guitar/Bass charted.
+protarToGrybo :: ProGuitarTrack U.Beats -> FiveTrack U.Beats
+protarToGrybo pg = mempty
+  { fiveDifficulties = flip fmap (pgDifficulties pg) $ \pgd -> mempty
+    { fiveGems = fmap (const (Five.Green, Nothing)) $ RTB.collectCoincident $ pgNotes pgd
+    }
+  , fiveOverdrive    = pgOverdrive pg
+  , fiveBRE          = fmap snd $ pgBRE pg
+  , fiveSolo         = pgSolo pg
+  }
+
 -- | Makes a dummy Basic Keys track, for parts with only Pro Keys charted.
 expertProKeysToKeys_precodec :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats Five.Event
 expertProKeysToKeys_precodec = let
@@ -355,6 +373,17 @@ expertProKeysToKeys_precodec = let
       , [ RTB.singleton 0 $ Five.BRE       False | hasBREFalse ]
       ]
   in U.trackJoin . fmap pkToBasic . RTB.collectCoincident
+
+-- | Makes a dummy Basic Keys track, for parts with only Pro Keys charted.
+expertProKeysToKeys :: ProKeysTrack U.Beats -> FiveTrack U.Beats
+expertProKeysToKeys pk = mempty
+  { fiveDifficulties = let
+    fd = mempty { fiveGems = fmap (const (Five.Green, Nothing)) $ RTB.collectCoincident $ pkNotes pk }
+    in Map.fromList [ (diff, fd) | diff <- [minBound .. maxBound] ]
+  , fiveOverdrive    = pkOverdrive pk
+  , fiveBRE          = pkBRE pk
+  , fiveSolo         = pkSolo pk
+  }
 
 -- | Makes a Pro Keys track, for parts with only Basic Keys charted.
 keysToProKeys_precodec :: Difficulty -> RTB.T U.Beats Five.Event -> RTB.T U.Beats ProKeys.Event

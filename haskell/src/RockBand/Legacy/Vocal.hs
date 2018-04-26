@@ -13,7 +13,6 @@ module RockBand.Legacy.Vocal
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (partition)
-import           Data.Maybe                       (fromMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
@@ -64,25 +63,6 @@ vocalToLegacy o = foldr RTB.merge RTB.empty
   , RangeShift                  <$> vocalRangeShift    o
   , uncurry (flip Note)         <$> vocalNotes         o
   ]
-
-asciify :: T.Text -> T.Text
-asciify = let
-  oneToOne = zip
-    "ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝàáâãäåçèéêëìíîïðñòóôõö÷øùúûüýÿ"
-    "AAAAAACEEEEIIIIDNOOOOOxOUUUUYaaaaaaceeeeiiiidnooooo/ouuuuyy"
-  f 'Æ' = "AE"
-  f 'Þ' = "Th"
-  f 'ß' = "ss"
-  f 'æ' = "ae"
-  f 'þ' = "th"
-  f c   = T.singleton $ fromMaybe c $ lookup c oneToOne
-  in T.concatMap f
-
--- | Phase Shift doesn't support non-ASCII chars in lyrics.
--- (RB text events are always Latin-1, even if .dta encoding is UTF-8.)
-asciiLyrics :: Event -> Event
-asciiLyrics (Lyric t) = Lyric $ asciify t
-asciiLyrics e         = e
 
 {- |
 Fix issues seen in Phase Shift conversions of Guitar Hero vocals charts:

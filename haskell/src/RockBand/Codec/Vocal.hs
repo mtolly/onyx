@@ -6,6 +6,7 @@ module RockBand.Codec.Vocal where
 
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Maybe                       (fromMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
@@ -124,3 +125,21 @@ instance ParseTrack VocalTrack where
     vocalNotes         <- (vocalNotes        =.)
       $ condenseMap $ eachKey each $ edges . (+ 36) . fromEnum
     return VocalTrack{..}
+
+asciify :: T.Text -> T.Text
+asciify = let
+  oneToOne = zip
+    "ÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝàáâãäåçèéêëìíîïðñòóôõö÷øùúûüýÿ"
+    "AAAAAACEEEEIIIIDNOOOOOxOUUUUYaaaaaaceeeeiiiidnooooo/ouuuuyy"
+  f 'Æ' = "AE"
+  f 'Þ' = "Th"
+  f 'ß' = "ss"
+  f 'æ' = "ae"
+  f 'þ' = "th"
+  f c   = T.singleton $ fromMaybe c $ lookup c oneToOne
+  in T.concatMap f
+
+-- | Phase Shift doesn't support non-ASCII chars in lyrics.
+-- (RB text events are always Latin-1, even if .dta encoding is UTF-8.)
+asciiLyrics :: VocalTrack t -> VocalTrack t
+asciiLyrics vt = vt { vocalLyrics = fmap asciify $ vocalLyrics vt }
