@@ -931,6 +931,8 @@ data TargetRB3 = TargetRB3
   , rb3_SongID      :: Maybe (Either Integer T.Text)
   , rb3_Label       :: Maybe T.Text
   , rb3_Version     :: Maybe Integer
+  , rb3_Harmonix    :: Bool
+  , rb3_FileMilo    :: Maybe FilePath
   , rb3_Guitar      :: FlexPartName
   , rb3_Bass        :: FlexPartName
   , rb3_Drums       :: FlexPartName
@@ -946,6 +948,8 @@ parseTargetRB3 = do
   rb3_SongID      <- rb3_SongID      =. opt Nothing    "song-id"       stackJSON
   rb3_Label       <- rb3_Label       =. opt Nothing    "label"         stackJSON
   rb3_Version     <- rb3_Version     =. opt Nothing    "version"       stackJSON
+  rb3_Harmonix    <- rb3_Harmonix    =. opt False      "harmonix"      stackJSON
+  rb3_FileMilo    <- rb3_FileMilo    =. opt Nothing    "file-milo"     stackJSON
   rb3_Guitar      <- rb3_Guitar      =. opt FlexGuitar "guitar"        stackJSON
   rb3_Bass        <- rb3_Bass        =. opt FlexBass   "bass"          stackJSON
   rb3_Drums       <- rb3_Drums       =. opt FlexDrums  "drums"         stackJSON

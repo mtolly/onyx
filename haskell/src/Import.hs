@@ -450,6 +450,13 @@ determine2xBass s = case T.stripSuffix " (2x Bass Pedal)" s <|> T.stripSuffix " 
 data HasKicks = Has1x | Has2x | HasBoth
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
+dtaIsRB3 :: D.SongPackage -> Bool
+dtaIsRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc", "ugc_plus"]) $ D.gameOrigin pkg
+  -- rbn1 songs have (game_origin rb2) (ugc 1)
+
+dtaIsHarmonixRB3 :: D.SongPackage -> Bool
+dtaIsHarmonixRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc"]) $ D.gameOrigin pkg
+
 importSTFSDir :: (MonadIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT (QueueLog m) HasKicks
 importSTFSDir temp mtemp2x dir = do
   DTASingle top pkg comments <- readDTASingle $ temp </> "songs/songs.dta"
@@ -479,6 +486,9 @@ importSTFSDir temp mtemp2x dir = do
         guard $ maybe False ("disc_update" `elem`) $ D.extraAuthoring pkg
         Just $ updateDir </> T.unpack top </> (T.unpack top ++ "_update.mid")
       hasKicks = if isJust mtemp2x then HasBoth else if is2x then Has2x else Has1x
+      mmilo = do
+        guard $ dtaIsRB3 pkg
+        Just $ temp </> takeDirectory base </> "gen" </> takeFileName base <.> "milo_xbox"
       missingArt = updateDir </> T.unpack top </> "gen" </> (T.unpack top ++ "_keep.png_xbox")
       with2xPath maybe2x = do
         albumArtFile <- case D.albumArt pkg of
@@ -488,7 +498,7 @@ importSTFSDir temp mtemp2x dir = do
           _ -> return Nothing
         importRB3 pkg meta karaoke multitrack hasKicks
           (temp </> base <.> "mid") updateFile maybe2x (temp </> base <.> "mogg")
-          ((, "cover.png_xbox") <$> albumArtFile) dir
+          ((, "cover.png_xbox") <$> albumArtFile) mmilo dir
         return hasKicks
   case mtemp2x of
     Nothing -> with2xPath Nothing
@@ -577,6 +587,12 @@ importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
   getRBAFile 4 file $ temp </> "cover.bmp"
   getRBAFile 6 file $ temp </> "extra.dta"
   (_, pkg, isUTF8) <- readRB3DTA $ temp </> "songs.dta"
+  mmilo <- if dtaIsRB3 pkg
+    then do
+      let milo = temp </> "lipsync.milo_xbox"
+      getRBAFile 3 file milo
+      return $ Just milo
+    else return Nothing
   extra <- (if isUTF8 then D.readFileDTA_utf8' else D.readFileDTA_latin1') $ temp </> "extra.dta"
   let author = case extra of
         D.DTA _ (D.Tree _ [D.Parens (D.Tree _
@@ -602,13 +618,20 @@ importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
   let hasKicks = if isJust file2x then HasBoth else if is2x then Has2x else Has1x
   importRB3 pkg meta False True hasKicks
     (temp </> "notes.mid") Nothing files2x (temp </> "audio.mogg")
-    (Just (temp </> "cover.bmp", "cover.bmp")) dir
+    (Just (temp </> "cover.bmp", "cover.bmp")) mmilo dir
   return hasKicks
 
 -- | Collects the contents of an RBA or CON file into an Onyx project.
-importRB3 :: (MonadIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKicks -> FilePath -> Maybe FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> Maybe (FilePath, FilePath) -> FilePath -> StackTraceT (QueueLog m) ()
-importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover dir = do
+importRB3 :: (MonadIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKicks -> FilePath -> Maybe FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> Maybe (FilePath, FilePath) -> Maybe FilePath -> FilePath -> StackTraceT (QueueLog m) ()
+importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover mmilo dir = do
   stackIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
+  localMilo <- do
+    -- if rbn2 and no vox, don't import milo
+    guard $ dtaIsHarmonixRB3 pkg || maybe False (/= 0) (HM.lookup "vocals" $ D.rank pkg)
+    forM mmilo $ \milo -> do
+      let local = if dtaIsHarmonixRB3 pkg then "lipsync-venue.milo_xbox" else "lipsync.milo_xbox"
+      stackIO $ Dir.copyFile milo $ dir </> local
+      return local
 
   RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI mid
   trksUpdate <- maybe (return []) (fmap (RBFile.rawTracks . RBFile.s_tracks) . loadMIDI) updateMid
@@ -784,12 +807,16 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
         else files2x >>= D.songId . fst >>= getSongID
       version1x = songID1x >> Just (D.version pkg)
       version2x = songID2x >> fmap (D.version . fst) files2x
-      target1x = ("rb3", RB3 def
+      targetShared = def
+        { rb3_Harmonix = dtaIsHarmonixRB3 pkg
+        , rb3_FileMilo = localMilo
+        }
+      target1x = ("rb3", RB3 targetShared
         { rb3_2xBassPedal = False
         , rb3_SongID = songID1x
         , rb3_Version = version1x
         })
-      target2x = ("rb3-2x", RB3 def
+      target2x = ("rb3-2x", RB3 targetShared
         { rb3_2xBassPedal = True
         , rb3_SongID = songID2x
         , rb3_Version = version2x

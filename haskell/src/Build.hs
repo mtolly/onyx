@@ -295,7 +295,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
     , D.songFormat = 10
     , D.version = fromMaybe 1 $ rb3_Version rb3
     , D.fake = Nothing
-    , D.gameOrigin = Just "ugc_plus"
+    , D.gameOrigin = Just $ if rb3_Harmonix rb3 then "rb3_dlc" else "ugc_plus"
     , D.ugc = Nothing
     , D.rating = fromIntegral $ fromEnum (_rating $ _metadata songYaml) + 1
     , D.genre = rbn2Genre fullGenre
@@ -1115,7 +1115,9 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 shk $ need [pathOgg]
                 Magma.oggToMogg pathOgg out
             pathPng  %> shk . copyFile' "gen/cover.png_xbox"
-            pathMilo %> \out -> liftIO $ B.writeFile out emptyMilo
+            pathMilo %> \out -> case rb3_FileMilo rb3 of
+              Nothing   -> liftIO $ B.writeFile out emptyMilo
+              Just milo -> shk $ copyFile' milo out
             pathCon %> \out -> do
               shk $ need [pathDta, pathMid, pathMogg, pathPng, pathMilo]
               lg "# Producing RB3 CON file via X360"
@@ -1452,6 +1454,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               , rb3_Drums = rb2_Drums rb2
               , rb3_Vocal = rb2_Vocal rb2
               , rb3_Keys = RBFile.FlexKeys
+              , rb3_Harmonix = False
+              , rb3_FileMilo = Nothing
               }
             in rbRules dir rb3 $ Just rb2
           GH2 gh2 -> do
