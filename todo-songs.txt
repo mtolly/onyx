@@ -4,6 +4,7 @@ remaining tasks:
 - polish all drums charts: mostly be tom-accurate but use judgment
 - protar polish: check all slides, chord names
 - get gtr/bass for dancing machines from entombment
+- bass for TFS
 - no-open-notes versions of gtr/bass
 - pro keys:
   - further side started
