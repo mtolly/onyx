@@ -28,20 +28,6 @@ data Event
   | Note (LongNote () Pitch)
   deriving (Eq, Ord, Show, Read)
 
--- | Moves the first range event to time zero, to work around a Phase Shift bug.
-fixPSRange :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
-fixPSRange trk = let
-  (ranges, notRanges) = flip RTB.partitionMaybe trk $ \case
-    LaneShift r -> Just r
-    _           -> Nothing
-  rangesFixed = case RTB.viewL ranges of
-    Just ((t1, range1), ranges') -> case RTB.viewL ranges' of
-      Just ((t2, range2), ranges'') ->
-        RTB.cons NNC.zero range1 $ RTB.cons (NNC.add t1 t2) range2 ranges''
-      Nothing -> RTB.singleton NNC.zero range1
-    Nothing -> RTB.empty
-  in RTB.merge (fmap LaneShift rangesFixed) notRanges
-
 pkFromLegacy :: (NNC.C t) => RTB.T t Event -> ProKeysTrack t
 pkFromLegacy leg = ProKeysTrack
   { pkTrainer   = RTB.mapMaybe (\case Trainer x -> Just x; _ -> Nothing) leg

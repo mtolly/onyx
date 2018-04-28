@@ -247,16 +247,17 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
         }
       swapFiveLane trks = if fromMaybe False $ FoF.fiveLaneDrums song
         then trks
-          { RBFile.fixedPartDrums   = RBDrums.drumsFromLegacy $ swapFiveLaneTrack $ RBDrums.drumsToLegacy $ RBFile.fixedPartDrums   trks
-          , RBFile.fixedPartDrums2x = RBDrums.drumsFromLegacy $ swapFiveLaneTrack $ RBDrums.drumsToLegacy $ RBFile.fixedPartDrums2x trks
+          { RBFile.fixedPartDrums   = swapFiveLaneTrack $ RBFile.fixedPartDrums   trks
+          , RBFile.fixedPartDrums2x = swapFiveLaneTrack $ RBFile.fixedPartDrums2x trks
           }
         else trks
-      swapFiveLaneTrack = fmap $ \case
-        RBDrums.DiffEvent diff (RBDrums.Note RBDrums.Orange)
-          -> RBDrums.DiffEvent diff (RBDrums.Note (RBDrums.Pro RBDrums.Green ()))
-        RBDrums.DiffEvent diff (RBDrums.Note (RBDrums.Pro RBDrums.Green ()))
-          -> RBDrums.DiffEvent diff (RBDrums.Note RBDrums.Orange)
-        x -> x
+      swapFiveLaneTrack trk = trk { drumDifficulties = fmap swapFiveLaneDiff $ drumDifficulties trk }
+      swapFiveLaneDiff dd = dd
+        { drumGems = flip fmap (drumGems dd) $ \case
+          RBDrums.Orange               -> RBDrums.Pro RBDrums.Green ()
+          RBDrums.Pro RBDrums.Green () -> RBDrums.Orange
+          x                            -> x
+        }
 
   let outputMIDI = fixGHVox $ fixDoubleSwells $ swapFiveLane $ add2x $ RBFile.s_tracks parsed
   stackIO $ Save.toFile (dest </> "notes.mid") $ RBFile.showMIDIFile' $ delayMIDI parsed

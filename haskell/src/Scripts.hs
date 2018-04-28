@@ -269,29 +269,6 @@ getPercType song = listToMaybe $ do
   return perc
 
 -- | Makes a dummy Basic Guitar/Bass track, for parts with only Pro Guitar/Bass charted.
-protarToGrybo_precodec :: RTB.T U.Beats ProGuitar.Event -> RTB.T U.Beats Five.Event
-protarToGrybo_precodec = let
-  pgToBasic :: [ProGuitar.Event] -> RTB.T U.Beats Five.Event
-  pgToBasic pg = let
-    hasNote diff = flip any pg $ \case
-      ProGuitar.DiffEvent d (ProGuitar.Note (Blip   _ _)) | d == diff -> True
-      ProGuitar.DiffEvent d (ProGuitar.Note (NoteOn _ _)) | d == diff -> True
-      _ -> False
-    hasODTrue   = elem (ProGuitar.Overdrive True ) pg
-    hasODFalse  = elem (ProGuitar.Overdrive False) pg
-    hasBRETrue  = any (`elem` pg) [ProGuitar.BREGuitar True , ProGuitar.BREBass True ]
-    hasBREFalse = any (`elem` pg) [ProGuitar.BREGuitar False, ProGuitar.BREBass False]
-    blip diff = RTB.singleton 0 $ Five.DiffEvent diff $ Five.Note $ Blip () Five.Green
-    in foldr RTB.merge RTB.empty $ concat
-      [ [ blip d | d <- [minBound .. maxBound], hasNote d ]
-      , [ RTB.singleton 0 $ Five.Overdrive True  | hasODTrue   ]
-      , [ RTB.singleton 0 $ Five.Overdrive False | hasODFalse  ]
-      , [ RTB.singleton 0 $ Five.BRE       True  | hasBRETrue  ]
-      , [ RTB.singleton 0 $ Five.BRE       False | hasBREFalse ]
-      ]
-  in U.trackJoin . fmap pgToBasic . RTB.collectCoincident
-
--- | Makes a dummy Basic Guitar/Bass track, for parts with only Pro Guitar/Bass charted.
 protarToGrybo :: ProGuitarTrack U.Beats -> FiveTrack U.Beats
 protarToGrybo pg = mempty
   { fiveDifficulties = flip fmap (pgDifficulties pg) $ \pgd -> mempty
@@ -301,29 +278,6 @@ protarToGrybo pg = mempty
   , fiveBRE          = fmap snd $ pgBRE pg
   , fiveSolo         = pgSolo pg
   }
-
--- | Makes a dummy Basic Keys track, for parts with only Pro Keys charted.
-expertProKeysToKeys_precodec :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats Five.Event
-expertProKeysToKeys_precodec = let
-  pkToBasic :: [ProKeys.Event] -> RTB.T U.Beats Five.Event
-  pkToBasic pk = let
-    hasNote     = flip any pk $ \case
-      ProKeys.Note (Blip   () _) -> True
-      ProKeys.Note (NoteOn () _) -> True
-      _                          -> False
-    hasODTrue   = elem (ProKeys.Overdrive True ) pk
-    hasODFalse  = elem (ProKeys.Overdrive False) pk
-    hasBRETrue  = elem (ProKeys.BRE       True ) pk
-    hasBREFalse = elem (ProKeys.BRE       False) pk
-    blip diff = RTB.singleton 0 $ Five.DiffEvent diff $ Five.Note $ Blip () Five.Green
-    in foldr RTB.merge RTB.empty $ concat
-      [ [ blip d | d <- [minBound .. maxBound], hasNote ]
-      , [ RTB.singleton 0 $ Five.Overdrive True  | hasODTrue   ]
-      , [ RTB.singleton 0 $ Five.Overdrive False | hasODFalse  ]
-      , [ RTB.singleton 0 $ Five.BRE       True  | hasBRETrue  ]
-      , [ RTB.singleton 0 $ Five.BRE       False | hasBREFalse ]
-      ]
-  in U.trackJoin . fmap pkToBasic . RTB.collectCoincident
 
 -- | Makes a dummy Basic Keys track, for parts with only Pro Keys charted.
 expertProKeysToKeys :: ProKeysTrack U.Beats -> FiveTrack U.Beats

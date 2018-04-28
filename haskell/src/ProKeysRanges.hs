@@ -10,13 +10,15 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
 import           Data.List                        (sortOn)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (listToMaybe, mapMaybe)
+import           Data.Maybe                       (fromMaybe, listToMaybe,
+                                                   mapMaybe)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
+import           RockBand.Codec                   (mapTrack)
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.ProKeys
 import           RockBand.Common
-import           RockBand.Legacy.ProKeys
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
@@ -27,30 +29,24 @@ completeFile fin fout = do
   RBFile.Song tempos mmap trks <- liftIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
   liftIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap trks
     { RBFile.onyxParts = flip fmap (RBFile.onyxParts trks) $ \flex -> flex
-      { RBFile.onyxPartRealKeysE = pkFromLegacy $ completeRanges $ pkToLegacy $ RBFile.onyxPartRealKeysE flex
-      , RBFile.onyxPartRealKeysM = pkFromLegacy $ completeRanges $ pkToLegacy $ RBFile.onyxPartRealKeysM flex
-      , RBFile.onyxPartRealKeysH = pkFromLegacy $ completeRanges $ pkToLegacy $ RBFile.onyxPartRealKeysH flex
-      , RBFile.onyxPartRealKeysX = pkFromLegacy $ completeRanges $ pkToLegacy $ RBFile.onyxPartRealKeysX flex
+      { RBFile.onyxPartRealKeysE = completeRanges $ RBFile.onyxPartRealKeysE flex
+      , RBFile.onyxPartRealKeysM = completeRanges $ RBFile.onyxPartRealKeysM flex
+      , RBFile.onyxPartRealKeysH = completeRanges $ RBFile.onyxPartRealKeysH flex
+      , RBFile.onyxPartRealKeysX = completeRanges $ RBFile.onyxPartRealKeysX flex
       }
     }
 
 -- | Adds ranges if there are none.
-completeRanges :: RTB.T U.Beats Event -> RTB.T U.Beats Event
-completeRanges rtb = let
-  (ranges, notRanges) = flip RTB.partitionMaybe rtb $ \case
-    LaneShift r -> Just r
-    _           -> Nothing
-  held = heldNotes $ U.trackJoin $ flip fmap notRanges $ \case
-    Note (Blip () p) -> RTB.fromPairList
-      [ (0  , (True, p))
-      , (1/4, (False, p)) -- give all blips a 16th note of room
-      ]
-    Note (NoteOn () p) -> RTB.singleton 0 (True, p)
-    Note (NoteOff   p) -> RTB.singleton 0 (False, p)
-    _                  -> RTB.empty
-  in if RTB.null ranges
-    then RTB.merge rtb $ fmap LaneShift $ pullBackRanges held $ createRanges held
-    else rtb
+completeRanges :: ProKeysTrack U.Beats -> ProKeysTrack U.Beats
+completeRanges trk = if RTB.null $ pkLanes trk
+  then let
+    held = heldNotes $ U.trackJoin $ flip fmap (pkNotes trk)
+      $ \(p, mlen) -> RTB.fromPairList
+        [ (0                   , (True , p))
+        , (fromMaybe (1/4) mlen, (False, p)) -- give all blips a 16th note of room
+        ]
+    in trk { pkLanes = pullBackRanges held $ createRanges held }
+  else trk
 
 heldNotes :: (NNC.C t) => RTB.T t (Bool, Pitch) -> RTB.T t (Set.Set Pitch)
 heldNotes = go Set.empty . RTB.collectCoincident where
@@ -130,9 +126,9 @@ keyInPreRange RangeA p = RedYellow Gs <= p && p <= OrangeC
 closeShiftsFile :: RBFile.Song (RBFile.OnyxFile U.Beats) -> String
 closeShiftsFile song = unlines $ do
   (partName, part) <- Map.toAscList $ RBFile.onyxParts $ RBFile.s_tracks song
-  let xpk = pkToLegacy $ RBFile.onyxPartRealKeysX part
-  guard $ not $ null xpk
-  let close = U.unapplyTempoTrack (RBFile.s_tempos song) $ closeShifts 1 $ U.applyTempoTrack (RBFile.s_tempos song) xpk
+  let xpk = RBFile.onyxPartRealKeysX part
+  guard $ not $ nullPK xpk
+  let close = U.unapplyTempoTrack (RBFile.s_tempos song) $ closeShifts 1 $ mapTrack (U.applyTempoTrack $ RBFile.s_tempos song) xpk
       showSeconds secs = show (realToFrac secs :: Milli) ++ "s"
       showClose (t, (rng1, rng2, dt, p)) = unwords
         [ showTimestamp (U.applyTempoMap (RBFile.s_tempos song) t) ++ ":"
@@ -148,14 +144,11 @@ closeShiftsFile song = unlines $ do
       surround x = ["[" ++ T.unpack (RBFile.getPartName partName) ++ "]"] ++ x ++ []
   surround $ map showClose $ ATB.toPairList $ RTB.toAbsoluteEventList 0 close
 
-closeShifts :: U.Seconds -> RTB.T U.Seconds Event -> RTB.T U.Seconds (LaneRange, LaneRange, U.Seconds, Pitch)
-closeShifts threshold rtb = let
-  lanes = ATB.toPairList $ RTB.toAbsoluteEventList 0 $ flip RTB.mapMaybe rtb $ \case LaneShift rng -> Just rng; _ -> Nothing
+closeShifts :: U.Seconds -> ProKeysTrack U.Seconds -> RTB.T U.Seconds (LaneRange, LaneRange, U.Seconds, Pitch)
+closeShifts threshold trk = let
+  lanes = ATB.toPairList $ RTB.toAbsoluteEventList 0 $ pkLanes trk
   shifts = zip lanes $ drop 1 lanes
-  notes = flip RTB.mapMaybe rtb $ \case
-    Note (NoteOn () p) -> Just p
-    Note (Blip   () p) -> Just p
-    _                  -> Nothing
+  notes = fst <$> pkNotes trk
   closeNotes ((_, rng1), (t, rng2)) = do
     ((dt, p), _) <- RTB.viewL $ RTB.filter (not . keyInPreRange rng1) $ U.trackTake threshold $ U.trackDrop t notes
     return (t, (rng1, rng2, dt, p))

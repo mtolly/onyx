@@ -364,7 +364,7 @@ pkReduce diff   mmap od diffEvents = let
       in (t1, PKNote ps1 len1') : pullBackSustains rest
     x : xs -> x : pullBackSustains xs
   -- Step: redo range shifts
-  redoRanges = completeRanges . RTB.filter (\case PK.LaneShift _ -> False; _ -> True)
+  redoRanges = PK.pkToLegacy . completeRanges . PK.pkFromLegacy . RTB.filter (\case PK.LaneShift _ -> False; _ -> True)
   in redoRanges $ RTB.merge (fmap PK.LaneShift ranges) (showPKNotes pknotes6)
 
 drumsComplete

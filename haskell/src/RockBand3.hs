@@ -23,6 +23,7 @@ import           RockBand.Codec.Drums
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Five
+import           RockBand.Codec.ProKeys
 import           RockBand.Codec.Six
 import           RockBand.Codec.Venue             (compileVenueRB3)
 import           RockBand.Codec.Vocal
@@ -290,41 +291,39 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
 
       keysPart = either rb3_Keys ps_Keys target
       (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = case getPart keysPart songYaml of
-        Nothing -> (mempty, RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty)
+        Nothing -> (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
         Just part -> case (partGRYBO part, partProKeys part) of
-          (Nothing, Nothing) -> (mempty, RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty, RTB.empty)
+          (Nothing, Nothing) -> (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
           _ -> let
             basicKeysSrc = RBFile.getFlexPart keysPart trks
             basicKeys = Five.fiveFromLegacy $ gryboComplete Nothing mmap $ Five.fiveToLegacy
               $ case partGRYBO part of
-                Nothing -> expertProKeysToKeys $ ProKeys.pkFromLegacy keysExpert
+                Nothing -> expertProKeysToKeys keysExpert
                 Just _  -> fst $ makeGRYBOTrack True keysPart basicKeysSrc
             fpart = RBFile.getFlexPart keysPart trks
             keysDiff diff = if isJust $ partProKeys part
-              then ProKeys.pkToLegacy $ case diff of
+              then case diff of
                 Easy   -> RBFile.onyxPartRealKeysE fpart
                 Medium -> RBFile.onyxPartRealKeysM fpart
                 Hard   -> RBFile.onyxPartRealKeysH fpart
                 Expert -> RBFile.onyxPartRealKeysX fpart
-              else keysToProKeys_precodec diff $ Five.fiveToLegacy basicKeys
-            rtb1 `orIfNull` rtb2 = if length rtb1 < 5 then rtb2 else rtb1
+              else ProKeys.pkFromLegacy $ keysToProKeys_precodec diff $ Five.fiveToLegacy basicKeys
+            pkd1 `orIfNull` pkd2 = if length (pkNotes pkd1) < 5 then pkd2 else pkd1
             keysExpert = completeRanges $ keysDiff Expert
-            keysHard   = completeRanges $ keysDiff Hard   `orIfNull` pkReduce Hard   mmap keysOD keysExpert
-            keysMedium = completeRanges $ keysDiff Medium `orIfNull` pkReduce Medium mmap keysOD keysHard
-            keysEasy   = completeRanges $ keysDiff Easy   `orIfNull` pkReduce Easy   mmap keysOD keysMedium
-            keysOD = flip RTB.mapMaybe keysExpert $ \case
-              ProKeys.Overdrive b -> Just b
-              _                   -> Nothing
-            originalRH = ProKeys.pkToLegacy $ RBFile.onyxPartKeysAnimRH fpart
-            originalLH = ProKeys.pkToLegacy $ RBFile.onyxPartKeysAnimLH fpart
-            (animRH, animLH) = if RTB.null originalRH && RTB.null originalLH
-              then (RTB.filter (\case ProKeys.Note _ -> True; _ -> False) keysExpert, RTB.empty)
+            keysHard   = completeRanges $ keysDiff Hard   `orIfNull` ProKeys.pkFromLegacy (pkReduce Hard   mmap keysOD $ ProKeys.pkToLegacy keysExpert)
+            keysMedium = completeRanges $ keysDiff Medium `orIfNull` ProKeys.pkFromLegacy (pkReduce Medium mmap keysOD $ ProKeys.pkToLegacy keysHard  )
+            keysEasy   = completeRanges $ keysDiff Easy   `orIfNull` ProKeys.pkFromLegacy (pkReduce Easy   mmap keysOD $ ProKeys.pkToLegacy keysMedium)
+            keysOD = pkOverdrive keysExpert
+            originalRH = RBFile.onyxPartKeysAnimRH fpart
+            originalLH = RBFile.onyxPartKeysAnimLH fpart
+            (animRH, animLH) = if nullPK originalRH && nullPK originalLH
+              then (mempty { pkNotes = pkNotes keysExpert }, mempty)
               else (originalRH, originalLH)
             ffBasic = if fmap gryboFixFreeform (partGRYBO part) == Just True
               then fixFreeformFive
               else id
             ffPro = if fmap pkFixFreeform (partProKeys part) == Just True
-              then fixFreeformPK_precodec
+              then fixFreeformPK
               else id
             -- nemo's checker doesn't like if you include this stuff on PART KEYS
             removeGtrStuff ft = ft
@@ -399,12 +398,12 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       , RBFile.fixedPartRealBass     = ProGtr.pgFromLegacy proBass
       , RBFile.fixedPartRealBass22   = ProGtr.pgFromLegacy proBass22
       , RBFile.fixedPartKeys = tk
-      , RBFile.fixedPartKeysAnimRH = ProKeys.pkFromLegacy tkRH
-      , RBFile.fixedPartKeysAnimLH = ProKeys.pkFromLegacy tkLH
-      , RBFile.fixedPartRealKeysE = ProKeys.pkFromLegacy tpkE
-      , RBFile.fixedPartRealKeysM = ProKeys.pkFromLegacy tpkM
-      , RBFile.fixedPartRealKeysH = ProKeys.pkFromLegacy tpkH
-      , RBFile.fixedPartRealKeysX = ProKeys.pkFromLegacy tpkX
+      , RBFile.fixedPartKeysAnimRH = tkRH
+      , RBFile.fixedPartKeysAnimLH = tkLH
+      , RBFile.fixedPartRealKeysE = tpkE
+      , RBFile.fixedPartRealKeysM = tpkM
+      , RBFile.fixedPartRealKeysH = tpkH
+      , RBFile.fixedPartRealKeysX = tpkX
       , RBFile.fixedPartVocals = trkVox
       , RBFile.fixedHarm1 = trkHarm1
       , RBFile.fixedHarm2 = trkHarm2
@@ -428,12 +427,12 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       , RBFile.fixedPartRealBass     = ProGtr.pgFromLegacy proBass
       , RBFile.fixedPartRealBass22   = ProGtr.pgFromLegacy proBass22
       , RBFile.fixedPartKeys = tk
-      , RBFile.fixedPartKeysAnimRH = ProKeys.pkFromLegacy tkRH
-      , RBFile.fixedPartKeysAnimLH = ProKeys.pkFromLegacy tkLH
-      , RBFile.fixedPartRealKeysE = ProKeys.pkFromLegacy tpkE
-      , RBFile.fixedPartRealKeysM = ProKeys.pkFromLegacy tpkM
-      , RBFile.fixedPartRealKeysH = ProKeys.pkFromLegacy tpkH
-      , RBFile.fixedPartRealKeysX = ProKeys.pkFromLegacy tpkX
+      , RBFile.fixedPartKeysAnimRH = tkRH
+      , RBFile.fixedPartKeysAnimLH = tkLH
+      , RBFile.fixedPartRealKeysE = tpkE
+      , RBFile.fixedPartRealKeysM = tpkM
+      , RBFile.fixedPartRealKeysH = tpkH
+      , RBFile.fixedPartRealKeysX = tpkX
       , RBFile.fixedPartVocals = asciiLyrics trkVox
       , RBFile.fixedHarm1 = asciiLyrics trkHarm1
       , RBFile.fixedHarm2 = asciiLyrics trkHarm2
