@@ -23,6 +23,7 @@ import           RockBand.Codec.Drums
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Five
+import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
 import           RockBand.Codec.Six
 import           RockBand.Codec.Venue             (compileVenueRB3)
@@ -307,7 +308,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
                 Medium -> RBFile.onyxPartRealKeysM fpart
                 Hard   -> RBFile.onyxPartRealKeysH fpart
                 Expert -> RBFile.onyxPartRealKeysX fpart
-              else ProKeys.pkFromLegacy $ keysToProKeys_precodec diff $ Five.fiveToLegacy basicKeys
+              else keysToProKeys diff basicKeys
             pkd1 `orIfNull` pkd2 = if length (pkNotes pkd1) < 5 then pkd2 else pkd1
             keysExpert = completeRanges $ keysDiff Expert
             keysHard   = completeRanges $ keysDiff Hard   `orIfNull` ProKeys.pkFromLegacy (pkReduce Hard   mmap keysOD $ ProKeys.pkToLegacy keysExpert)
@@ -339,10 +340,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             in  ( ffBasic $ removeGtrStuff basicKeys
                 , animRH
                 , animLH
-                , ffPro $ ProKeys.fixPSRange keysExpert
-                ,         ProKeys.fixPSRange keysHard
-                ,         ProKeys.fixPSRange keysMedium
-                ,         ProKeys.fixPSRange keysEasy
+                , ffPro $ fixPSRange keysExpert
+                ,         fixPSRange keysHard
+                ,         fixPSRange keysMedium
+                ,         fixPSRange keysEasy
                 )
 
       vocalPart = either rb3_Vocal ps_Vocal target
@@ -583,29 +584,28 @@ magmaPad rb3@(RBFile.Song tmap _ trks) = let
   firstEvent rtb = case RTB.viewL rtb of
     Just ((dt, _), _) -> dt
     Nothing           -> 999
-  firstNoteBeats = foldr min 999
-    [ firstEvent $ RTB.filter drumNote  $ RBDrums.drumsToLegacy $ RBFile.fixedPartDrums        trks
-    , firstEvent $ RTB.filter gryboNote $ Five.fiveToLegacy     $ RBFile.fixedPartGuitar       trks
-    , firstEvent $ RTB.filter gryboNote $ Five.fiveToLegacy     $ RBFile.fixedPartBass         trks
-    , firstEvent $ RTB.filter gryboNote $ Five.fiveToLegacy     $ RBFile.fixedPartKeys         trks
-    , firstEvent $ RTB.filter ptarNote  $ ProGtr.pgToLegacy     $ RBFile.fixedPartRealGuitar   trks
-    , firstEvent $ RTB.filter ptarNote  $ ProGtr.pgToLegacy     $ RBFile.fixedPartRealGuitar22 trks
-    , firstEvent $ RTB.filter ptarNote  $ ProGtr.pgToLegacy     $ RBFile.fixedPartRealBass     trks
-    , firstEvent $ RTB.filter ptarNote  $ ProGtr.pgToLegacy     $ RBFile.fixedPartRealBass22   trks
-    , firstEvent $ RTB.filter pkeyNote  $ ProKeys.pkToLegacy    $ RBFile.fixedPartRealKeysE    trks
-    , firstEvent $ RTB.filter pkeyNote  $ ProKeys.pkToLegacy    $ RBFile.fixedPartRealKeysM    trks
-    , firstEvent $ RTB.filter pkeyNote  $ ProKeys.pkToLegacy    $ RBFile.fixedPartRealKeysH    trks
-    , firstEvent $ RTB.filter pkeyNote  $ ProKeys.pkToLegacy    $ RBFile.fixedPartRealKeysX    trks
-    , firstEvent $ RTB.filter voxNote   $ RBVox.vocalToLegacy   $ RBFile.fixedPartVocals       trks
-    , firstEvent $ RTB.filter voxNote   $ RBVox.vocalToLegacy   $ RBFile.fixedHarm1            trks
-    , firstEvent $ RTB.filter voxNote   $ RBVox.vocalToLegacy   $ RBFile.fixedHarm2            trks
-    , firstEvent $ RTB.filter voxNote   $ RBVox.vocalToLegacy   $ RBFile.fixedHarm3            trks
+  firstNoteBeats = foldr min 999 $ concat
+    [ map (firstEvent . drumGems) $ Map.elems $ drumDifficulties $ RBFile.fixedPartDrums        trks
+    , map (firstEvent . fiveGems) $ Map.elems $ fiveDifficulties $ RBFile.fixedPartGuitar       trks
+    , map (firstEvent . fiveGems) $ Map.elems $ fiveDifficulties $ RBFile.fixedPartBass         trks
+    , map (firstEvent . fiveGems) $ Map.elems $ fiveDifficulties $ RBFile.fixedPartKeys         trks
+    , map (firstEvent . pgNotes ) $ Map.elems $ pgDifficulties   $ RBFile.fixedPartRealGuitar   trks
+    , map (firstEvent . pgNotes ) $ Map.elems $ pgDifficulties   $ RBFile.fixedPartRealGuitar22 trks
+    , map (firstEvent . pgNotes ) $ Map.elems $ pgDifficulties   $ RBFile.fixedPartRealBass     trks
+    , map (firstEvent . pgNotes ) $ Map.elems $ pgDifficulties   $ RBFile.fixedPartRealBass22   trks
+    , map (firstEvent . pkNotes )
+      [ RBFile.fixedPartRealKeysE trks
+      , RBFile.fixedPartRealKeysM trks
+      , RBFile.fixedPartRealKeysH trks
+      , RBFile.fixedPartRealKeysX trks
+      ]
+    , map (firstEvent . vocalNotes)
+      [ RBFile.fixedPartVocals trks
+      , RBFile.fixedHarm1      trks
+      , RBFile.fixedHarm2      trks
+      , RBFile.fixedHarm3      trks
+      ]
     ]
-  drumNote = \case RBDrums.DiffEvent _ (RBDrums.Note _) -> True; _ -> False
-  gryboNote = \case Five.DiffEvent _ (Five.Note _) -> True; _ -> False
-  ptarNote = \case ProGtr.DiffEvent _ (ProGtr.Note _) -> True; _ -> False
-  pkeyNote = \case ProKeys.Note{} -> True; _ -> False
-  voxNote = \case RBVox.Note{} -> True; _ -> False
   firstNoteSeconds = U.applyTempoMap tmap firstNoteBeats
   -- magma says 2.45s but account for some float error
   -- TODO this needs to be bumped! even 2.571 causes problems on non-bns expert

@@ -10,6 +10,7 @@ import           Control.Monad                    (forM, guard, void)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
+import           Data.Bifunctor                   (first)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
@@ -31,7 +32,6 @@ import           RockBand.Codec.Vocal
 import           RockBand.Common
 import qualified RockBand.Legacy.Five             as Five
 import qualified RockBand.Legacy.ProGuitar        as ProGuitar
-import qualified RockBand.Legacy.ProKeys          as ProKeys
 import qualified RockBand.Legacy.Vocal            as Vocals
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Load             as Load
@@ -209,9 +209,6 @@ fixFreeformPK ft = ft
   , pkTrill     = fixFreeform gems $ pkTrill     ft
   } where gems = void $ pkNotes ft
 
-fixFreeformPK_precodec :: RTB.T U.Beats ProKeys.Event -> RTB.T U.Beats ProKeys.Event
-fixFreeformPK_precodec = ProKeys.pkToLegacy . fixFreeformPK . ProKeys.pkFromLegacy
-
 fixFreeformPG :: ProGuitarTrack U.Beats -> ProGuitarTrack U.Beats
 fixFreeformPG ft = ft
   { pgTremolo = fixFreeform gems $ pgTremolo ft
@@ -291,22 +288,27 @@ expertProKeysToKeys pk = mempty
   }
 
 -- | Makes a Pro Keys track, for parts with only Basic Keys charted.
-keysToProKeys_precodec :: Difficulty -> RTB.T U.Beats Five.Event -> RTB.T U.Beats ProKeys.Event
-keysToProKeys_precodec d = let
-  basicToPK = \case
-    Five.DiffEvent d' (Five.Note long) | d == d' ->
-      Just $ ProKeys.Note $ flip fmap long $ \c -> ProKeys.BlueGreen $ case c of
+keysToProKeys :: (NNC.C t) => Difficulty -> FiveTrack t -> ProKeysTrack t
+keysToProKeys d ft = ProKeysTrack
+  { pkLanes     = RTB.singleton NNC.zero RangeA
+  , pkTrainer   = RTB.empty
+  , pkMood      = RTB.empty
+  , pkSolo      = if d == Expert then fiveSolo ft else RTB.empty
+  , pkGlissando = RTB.empty
+  , pkTrill     = if d == Expert then fiveTrill ft else RTB.empty
+  , pkOverdrive = if d == Expert then fiveOverdrive ft else RTB.empty
+  , pkBRE       = if d == Expert then fiveBRE ft else RTB.empty
+  , pkNotes     = case Map.lookup d $ fiveDifficulties ft of
+    Nothing -> RTB.empty
+    Just fd -> let
+      colorToKey = BlueGreen . \case
         Five.Green  -> C
         Five.Red    -> D
         Five.Yellow -> E
         Five.Blue   -> F
         Five.Orange -> G
-    Five.Overdrive b | d == Expert -> Just $ ProKeys.Overdrive b
-    Five.Solo      b | d == Expert -> Just $ ProKeys.Solo      b
-    Five.BRE       b | d == Expert -> Just $ ProKeys.BRE       b
-    Five.Trill     b               -> Just $ ProKeys.Trill     b
-    _                                -> Nothing
-  in RTB.cons 0 (ProKeys.LaneShift ProKeys.RangeA) . RTB.mapMaybe basicToPK
+      in first colorToKey <$> fiveGems fd
+  }
 
 hasSolo :: (NNC.C t) => Instrument -> Song (RBFile.FixedFile t) -> Bool
 hasSolo Guitar song = any (not . null)
