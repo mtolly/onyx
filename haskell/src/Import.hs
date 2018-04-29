@@ -628,11 +628,12 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
   stackIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
   localMilo <- do
     -- if rbn2 and no vox, don't import milo
-    guard $ dtaIsHarmonixRB3 pkg || maybe False (/= 0) (HM.lookup "vocals" $ D.rank pkg)
-    forM mmilo $ \milo -> do
-      let local = if dtaIsHarmonixRB3 pkg then "lipsync-venue.milo_xbox" else "lipsync.milo_xbox"
-      stackIO $ Dir.copyFile milo $ dir </> local
-      return local
+    if dtaIsHarmonixRB3 pkg || maybe False (/= 0) (HM.lookup "vocals" $ D.rank pkg)
+      then forM mmilo $ \milo -> do
+        let local = if dtaIsHarmonixRB3 pkg then "lipsync-venue.milo_xbox" else "lipsync.milo_xbox"
+        stackIO $ Dir.copyFile milo $ dir </> local
+        return local
+      else return Nothing
 
   RBFile.Song temps sigs (RBFile.RawFile trks1x) <- loadMIDI mid
   trksUpdate <- maybe (return []) (fmap (RBFile.rawTracks . RBFile.s_tracks) . loadMIDI) updateMid
