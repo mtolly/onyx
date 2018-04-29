@@ -7,14 +7,16 @@ import           Control.Monad.Trans.StackTrace
 import           Data.Conduit.Audio               (AudioSource)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
-import           Data.List                        (inits, nub, tails)
+import           Data.List                        (inits, tails)
+import           Data.List.Extra                  (nubOrd)
+import qualified Data.Map                         as Map
 import           Data.Maybe                       (listToMaybe)
 import qualified Data.Set                         as Set
 import           DryVox                           (sineDryVox)
 import           Guitars                          (guitarify)
 import           Overdrive                        (fixPartialUnisons)
 import           RockBand.Codec                   (mapTrack)
-import           RockBand.Codec.Drums             (nullDrums)
+import           RockBand.Codec.Drums             as Drums
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as F
 import           RockBand.Codec.Five              (nullFive)
@@ -23,7 +25,6 @@ import           RockBand.Codec.Vocal
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..), joinEdges,
                                                    splitEdges)
-import qualified RockBand.Legacy.Drums            as Drums
 import qualified RockBand.Legacy.Five             as Five
 import qualified RockBand.Legacy.Vocal            as Vox
 import qualified Sound.MIDI.Util                  as U
@@ -35,21 +36,29 @@ dryVoxAudio f = sineDryVox $ U.applyTempoTrack (F.s_tempos f)
 convertMIDI :: (SendMessage m) => F.Song (F.FixedFile U.Beats) -> StackTraceT m (F.Song (F.FixedFile U.Beats))
 convertMIDI mid = fixUnisons mid
   { F.s_tracks = mempty
-    { F.fixedPartDrums = Drums.drumsFromLegacy $ fixDrumColors $ fixDoubleEvents $
-      flip RTB.mapMaybe (Drums.drumsToLegacy $ F.fixedPartDrums $ F.s_tracks mid) $ \case
-        -- Drums.ProType{} -> Nothing -- Magma is fine with pro markers
-        Drums.SingleRoll{} -> Nothing
-        Drums.DoubleRoll{} -> Nothing
-        Drums.Kick2x -> Nothing
-        Drums.DiffEvent diff (Drums.Mix aud Drums.DiscoNoFlip) ->
-          Just $ Drums.DiffEvent diff $ Drums.Mix aud Drums.NoDisco
-        Drums.Animation a -> Just $ Drums.Animation $ case a of
-          -- these were added in RB3
-          Drums.Snare Drums.SoftHit hand -> Drums.Snare Drums.HardHit hand
-          Drums.Ride Drums.LH            -> Drums.Hihat Drums.LH
-          Drums.Crash2 hit Drums.LH      -> Drums.Crash1 hit Drums.LH
-          _                              -> a
-        x -> Just x
+    { F.fixedPartDrums = fixDrumColors $ let
+      pd = F.fixedPartDrums $ F.s_tracks mid
+      in pd
+        -- note: we don't have to remove tom markers, Magma v1 is fine with them
+        { drumSingleRoll = RTB.empty
+        , drumDoubleRoll = RTB.empty
+        , drumKick2x = RTB.empty
+        , drumDifficulties = flip fmap (drumDifficulties pd) $ \dd -> dd
+          { drumMix = flip fmap (drumMix dd) $ \case
+            (aud, DiscoNoFlip) -> (aud, NoDisco)
+            x                        -> x
+          }
+        , drumAnimation = let
+          anims = flip fmap (drumAnimation pd) $ \case
+            -- these were added in RB3
+            Snare SoftHit hand -> Snare HardHit hand
+            Ride LH            -> Hihat LH
+            Crash2 hit LH      -> Crash1 hit LH
+            x                  -> x
+          in RTB.flatten $ fmap nubOrd $ RTB.collectCoincident anims
+          -- we do nub for when a song, inexplicably,
+          -- has simultaneous "soft snare LH" and "hard snare LH"
+        }
     , F.fixedPartGuitar = Five.fiveFromLegacy $ fixFiveColors $ fixGB True $ Five.fiveToLegacy $ F.fixedPartGuitar $ F.s_tracks mid
     , F.fixedPartBass = Five.fiveFromLegacy $ fixFiveColors $ fixGB False $ Five.fiveToLegacy $ F.fixedPartBass $ F.s_tracks mid
     , F.fixedPartVocals = (F.fixedPartVocals $ F.s_tracks mid)
@@ -75,8 +84,6 @@ convertMIDI mid = fixUnisons mid
       Five.Trill{} -> Nothing
       Five.Solo{} | not hasSolos -> Nothing
       e -> Just e
-    -- this fixes when a song, inexplicably, has simultaneous "soft snare LH" and "hard snare LH"
-    fixDoubleEvents = RTB.flatten . fmap nub . RTB.collectCoincident
     fixUnisons song = let
       gtr  = F.fixedPartGuitar $ F.s_tracks song
       bass = F.fixedPartBass   $ F.s_tracks song
@@ -127,21 +134,15 @@ useColorFive newColor rtb = do
   guard $ elem oldColor $ concatMap (\(_, (_, cols, _)) -> cols) $ before ++ after
   return $ RTB.fromPairList $ reverse $ before ++ [(t, ((), newColors, len))] ++ after
 
-fixDrumColors :: RTB.T U.Beats Drums.Event -> RTB.T U.Beats Drums.Event
-fixDrumColors rtb = let
-  getDiff d = RTB.partitionMaybe $ \case
-    Drums.DiffEvent d' (Drums.Note gem) | d == d' -> Just gem
-    _                                             -> Nothing
-  (easy  , notEasy  ) = getDiff Easy rtb
-  (medium, notMedium) = getDiff Medium notEasy
-  (hard  , notHard  ) = getDiff Hard notMedium
-  (expert, _        ) = getDiff Expert notHard
+fixDrumColors :: DrumTrack U.Beats -> DrumTrack U.Beats
+fixDrumColors trk = let
+  expert = maybe RTB.empty drumGems $ Map.lookup Expert $ drumDifficulties trk
   usedColors = Set.fromList $ RTB.getBodies expert
-  easy'   = makeDiff Easy   $ useColorsDrums usedColors expert easy
-  medium' = makeDiff Medium $ useColorsDrums usedColors expert medium
-  hard'   = makeDiff Hard   $ useColorsDrums usedColors expert hard
-  makeDiff d = fmap $ Drums.DiffEvent d . Drums.Note
-  in foldr RTB.merge notHard [easy', medium', hard']
+  in trk
+    { drumDifficulties = flip Map.mapWithKey (drumDifficulties trk) $ \diff dd -> case diff of
+      Expert -> dd
+      _      -> dd { drumGems = useColorsDrums usedColors expert $ drumGems dd }
+    }
 
 useColorsDrums :: Set.Set (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ()) -> RTB.T U.Beats (Drums.Gem ())
 useColorsDrums cols expert rtb = let
