@@ -7,7 +7,7 @@ metadata:
   difficulty: 7
   comments:
   - >-
-    Pro keys by mazegeek999, drums by me.
+    Pro keys by mazegeek999, rest by onyxite.
   - >-
     Drums done with heavy reference to *Ten Degrees of Turbulent Drumming*
     [footage](https://www.youtube.com/watch?v=OOjKScCpgMw),
@@ -27,7 +27,7 @@ parts:
   bass:
     grybo: {} # onyxite
   guitar:
-    grybo: {} # WIP onyxite
+    grybo: {} # onyxite
 audio:
   album-track:
     md5: 2f23c4da1a55d8e1802586ae40f9eb4f
