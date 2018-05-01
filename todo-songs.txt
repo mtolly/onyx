@@ -3,14 +3,14 @@ all drums + rough draft of pro guitar/bass done!
 remaining tasks:
 - polish all drums charts: mostly be tom-accurate but use judgment
 - protar polish: check all slides, chord names
-- get gtr/bass for dancing machines from entombment
-- bass for TFS
-- no-open-notes versions of gtr/bass
+- get gtr/bass for dancing machines from entombment, make no-open versions
+- bass for TFS + no-open version
+- a few sections on cascades bass that need open notes added
 - pro keys:
   - further side started
   - dancing machines almost done
-  - wrapping for all (minus cascades and ripped apart)
-- basic keys (all)
+  - wrapping for all minus cascades and ripped apart
+- basic keys: all minus cascades and ripped apart
 
 JAZZ
 at least 2 parts done:
