@@ -9,7 +9,7 @@ module Data.DTA
 , readDTA, showDTA
 , readFileDTA, readFileDTA_latin1, readFileDTA_utf8
 , readFileDTA_latin1', readFileDTA_utf8'
-, readDTABytes
+, readDTABytes, readDTASections
 , writeFileDTA_latin1, writeFileDTA_utf8
 , renumberFrom
 ) where
@@ -71,6 +71,18 @@ readDTABytes :: (Monad m) => B.ByteString -> StackTraceT m (DTA B.ByteString)
 readDTABytes bs = do
   dta <- scanStack (removeBOM $ decodeLatin1 bs) >>= parseStack
   return $ B8.pack . T.unpack <$> dta
+
+readDTASections :: (Monad m) => B.ByteString -> StackTraceT m [(B.ByteString, Chunk B.ByteString)]
+readDTASections bs = do
+  sects <- scanStack (removeBOM $ decodeLatin1 bs) >>= parseStackPositions
+  return $ do
+    (sect, next) <- zip sects $ map Just (drop 1 sects) ++ [Nothing]
+    let AlexPn startBytes _ _ = fst sect
+        taker = case next of
+          Nothing                       -> id
+          Just (AlexPn endBytes _ _, _) -> B.take $ endBytes - startBytes
+        sectBS = taker $ B.drop startBytes bs
+    return (sectBS, B8.pack . T.unpack <$> snd sect)
 
 readFileDTA_utf8' :: (MonadIO m) => FilePath -> StackTraceT m (DTA T.Text)
 readFileDTA_utf8' f = inside ("DTA file: " ++ show f) $ do
