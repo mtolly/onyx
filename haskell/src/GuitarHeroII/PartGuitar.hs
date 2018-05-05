@@ -12,9 +12,9 @@ import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
-import           RockBand.Common
-import           RockBand.Legacy.Five             (Color (..),
+import           RockBand.Codec.Five              (Color (..),
                                                    FretPosition (..))
+import           RockBand.Common
 
 data HandMap
   = HandMap_Default

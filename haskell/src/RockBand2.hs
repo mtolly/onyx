@@ -1,5 +1,6 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections     #-}
 module RockBand2 (convertMIDI, dryVoxAudio) where
 
 import           Control.Monad                    (guard)
@@ -13,25 +14,21 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (listToMaybe)
 import qualified Data.Set                         as Set
 import           DryVox                           (sineDryVox)
-import           Guitars                          (guitarify)
+import           Guitars                          (guitarify')
 import           Overdrive                        (fixPartialUnisons)
 import           RockBand.Codec                   (mapTrack)
 import           RockBand.Codec.Drums             as Drums
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as F
-import           RockBand.Codec.Five              (nullFive)
+import           RockBand.Codec.Five              as Five
 import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal
-import           RockBand.Common                  (Difficulty (..),
-                                                   LongNote (..), joinEdges,
-                                                   splitEdges)
-import qualified RockBand.Legacy.Five             as Five
-import qualified RockBand.Legacy.Vocal            as Vox
+import           RockBand.Common                  (Difficulty (..))
 import qualified Sound.MIDI.Util                  as U
 
 dryVoxAudio :: (Monad m) => F.Song (F.FixedFile U.Beats) -> AudioSource m Float
-dryVoxAudio f = sineDryVox $ U.applyTempoTrack (F.s_tempos f)
-  $ Vox.vocalToLegacy $ F.fixedPartVocals $ F.s_tracks f
+dryVoxAudio f = sineDryVox $ mapTrack (U.applyTempoTrack $ F.s_tempos f)
+  $ F.fixedPartVocals $ F.s_tracks f
 
 convertMIDI :: (SendMessage m) => F.Song (F.FixedFile U.Beats) -> StackTraceT m (F.Song (F.FixedFile U.Beats))
 convertMIDI mid = fixUnisons mid
@@ -59,8 +56,8 @@ convertMIDI mid = fixUnisons mid
           -- we do nub for when a song, inexplicably,
           -- has simultaneous "soft snare LH" and "hard snare LH"
         }
-    , F.fixedPartGuitar = Five.fiveFromLegacy $ fixFiveColors $ fixGB True $ Five.fiveToLegacy $ F.fixedPartGuitar $ F.s_tracks mid
-    , F.fixedPartBass = Five.fiveFromLegacy $ fixFiveColors $ fixGB False $ Five.fiveToLegacy $ F.fixedPartBass $ F.s_tracks mid
+    , F.fixedPartGuitar = fixFiveColors $ fixGB True $ F.fixedPartGuitar $ F.s_tracks mid
+    , F.fixedPartBass = fixFiveColors $ fixGB False $ F.fixedPartBass $ F.s_tracks mid
     , F.fixedPartVocals = (F.fixedPartVocals $ F.s_tracks mid)
       { vocalLyricShift = RTB.empty
       , vocalRangeShift = RTB.empty
@@ -79,11 +76,11 @@ convertMIDI mid = fixUnisons mid
     endPosn :: Maybe U.Beats
     endPosn = listToMaybe $ toList $ fmap (fst . fst) $ RTB.viewL
       $ eventsEnd $ F.fixedEvents $ F.s_tracks mid
-    fixGB hasSolos t = flip RTB.mapMaybe t $ \case
-      Five.Tremolo{} -> Nothing
-      Five.Trill{} -> Nothing
-      Five.Solo{} | not hasSolos -> Nothing
-      e -> Just e
+    fixGB hasSolos t = t
+      { fiveTremolo = RTB.empty
+      , fiveTrill = RTB.empty
+      , fiveSolo = if hasSolos then fiveSolo t else RTB.empty
+      }
     fixUnisons song = let
       gtr  = F.fixedPartGuitar $ F.s_tracks song
       bass = F.fixedPartBass   $ F.s_tracks song
@@ -92,47 +89,41 @@ convertMIDI mid = fixUnisons mid
         then fixPartialUnisons [F.FlexGuitar, F.FlexBass, F.FlexDrums] song
         else return song
 
-fixFiveColors :: RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
-fixFiveColors rtb = let
-  getDiff d = RTB.partitionMaybe $ \case
-    Five.DiffEvent d' (Five.Note ln) | d == d' -> Just ln
-    _                                          -> Nothing
-  (easy  , notEasy  ) = getDiff Easy rtb
-  (medium, notMedium) = getDiff Medium notEasy
-  (hard  , notHard  ) = getDiff Hard notMedium
-  (expert, _        ) = getDiff Expert notHard
-  usedColors = Set.fromList $ concatMap toList $ RTB.getBodies expert
-  easy'   = makeDiff Easy   $ useColorsFive usedColors easy
-  medium' = makeDiff Medium $ useColorsFive usedColors medium
-  hard'   = makeDiff Hard   $ useColorsFive usedColors hard
-  makeDiff d = fmap $ Five.DiffEvent d . Five.Note
-  in foldr RTB.merge notHard [easy', medium', hard']
+fixFiveColors :: FiveTrack U.Beats -> FiveTrack U.Beats
+fixFiveColors trk = let
+  expert = maybe RTB.empty fiveGems $ Map.lookup Expert $ fiveDifficulties trk
+  usedColors = Set.fromList $ map fst $ RTB.getBodies expert
+  in trk
+    { fiveDifficulties = flip Map.mapWithKey (fiveDifficulties trk) $ \diff fd -> case diff of
+      Expert -> fd
+      _      -> fd { fiveGems = useColorsFive usedColors $ fiveGems fd }
+    }
 
-useColorsFive :: Set.Set Five.Color -> RTB.T U.Beats (LongNote () Five.Color) -> RTB.T U.Beats (LongNote () Five.Color)
+useColorsFive :: Set.Set Five.Color -> RTB.T U.Beats (Five.Color, Maybe U.Beats) -> RTB.T U.Beats (Five.Color, Maybe U.Beats)
 useColorsFive cols rtb = let
-  gtr = joinEdges $ guitarify rtb
-  present = Set.fromList $ concatMap toList $ RTB.getBodies rtb
+  gtr = guitarify' rtb
+  present = Set.fromList $ map fst $ RTB.getBodies rtb
   missing = Set.difference cols present
   good = foldl (>>=) [gtr] $ map useColorFive $ Set.toDescList missing
   in if Set.null missing then rtb else case good of
     []    -> rtb
-    g : _ -> RTB.flatten $ fmap (traverse toList) $ splitEdges g
+    g : _ -> RTB.flatten $ fmap (\(colors, len) -> map (, len) colors) g
 
 focuses :: [a] -> [([a], a, [a])]
 focuses [] = []
 focuses xs = zip3 (inits xs) xs (tail $ tails xs)
 
 useColorFive
-  ::                      Five.Color
-  ->  RTB.T U.Beats ((), [Five.Color], Maybe U.Beats)
-  -> [RTB.T U.Beats ((), [Five.Color], Maybe U.Beats)]
+  ::                  Five.Color
+  ->  RTB.T U.Beats ([Five.Color], Maybe U.Beats)
+  -> [RTB.T U.Beats ([Five.Color], Maybe U.Beats)]
 useColorFive newColor rtb = do
   -- TODO sort this better (move closer colors first)
-  (before, (t, ((), oldColors, len)), after) <- focuses $ reverse $ RTB.toPairList rtb
+  (before, (t, (oldColors, len)), after) <- focuses $ reverse $ RTB.toPairList rtb
   oldColor <- oldColors
   let newColors = map (\c -> if c == oldColor then newColor else c) oldColors
-  guard $ elem oldColor $ concatMap (\(_, (_, cols, _)) -> cols) $ before ++ after
-  return $ RTB.fromPairList $ reverse $ before ++ [(t, ((), newColors, len))] ++ after
+  guard $ elem oldColor $ concatMap (\(_, (cols, _)) -> cols) $ before ++ after
+  return $ RTB.fromPairList $ reverse $ before ++ [(t, (newColors, len))] ++ after
 
 fixDrumColors :: DrumTrack U.Beats -> DrumTrack U.Beats
 fixDrumColors trk = let

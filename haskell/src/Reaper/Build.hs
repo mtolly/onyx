@@ -33,8 +33,8 @@ import           Resources                             (colorMapDrums,
                                                         colorMapGRYBO)
 import           RockBand.Codec.File                   (FlexPartName (..),
                                                         identifyFlexTrack)
+import qualified RockBand.Codec.Vocal                  as Vox
 import           RockBand.Common                       (Key (..), showKey)
-import qualified RockBand.Legacy.Vocal                 as Vox
 import           Scripts                               (loadTemposIO)
 import qualified Sound.File.Sndfile                    as Snd
 import qualified Sound.MIDI.File                       as F

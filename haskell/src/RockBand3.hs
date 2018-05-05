@@ -32,7 +32,6 @@ import           RockBand.Common
 import qualified RockBand.Legacy.Drums            as RBDrums
 import qualified RockBand.Legacy.Five             as Five
 import qualified RockBand.Legacy.ProGuitar        as ProGtr
-import qualified RockBand.Legacy.ProKeys          as ProKeys
 import qualified RockBand.Legacy.Vocal            as RBVox
 import           RockBand.Sections                (makePSSection)
 import           Scripts
@@ -311,9 +310,9 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
               else keysToProKeys diff basicKeys
             pkd1 `orIfNull` pkd2 = if length (pkNotes pkd1) < 5 then pkd2 else pkd1
             keysExpert = completeRanges $ keysDiff Expert
-            keysHard   = completeRanges $ keysDiff Hard   `orIfNull` ProKeys.pkFromLegacy (pkReduce Hard   mmap keysOD $ ProKeys.pkToLegacy keysExpert)
-            keysMedium = completeRanges $ keysDiff Medium `orIfNull` ProKeys.pkFromLegacy (pkReduce Medium mmap keysOD $ ProKeys.pkToLegacy keysHard  )
-            keysEasy   = completeRanges $ keysDiff Easy   `orIfNull` ProKeys.pkFromLegacy (pkReduce Easy   mmap keysOD $ ProKeys.pkToLegacy keysMedium)
+            keysHard   = completeRanges $ keysDiff Hard   `orIfNull` pkReduce Hard   mmap keysOD keysExpert
+            keysMedium = completeRanges $ keysDiff Medium `orIfNull` pkReduce Medium mmap keysOD keysHard
+            keysEasy   = completeRanges $ keysDiff Easy   `orIfNull` pkReduce Easy   mmap keysOD keysMedium
             keysOD = pkOverdrive keysExpert
             originalRH = RBFile.onyxPartKeysAnimRH fpart
             originalLH = RBFile.onyxPartKeysAnimLH fpart

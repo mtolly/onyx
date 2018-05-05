@@ -25,12 +25,11 @@ import           RockBand.Codec.Drums
 import           RockBand.Codec.Events
 import           RockBand.Codec.File              (HasEvents (..), Song (..))
 import qualified RockBand.Codec.File              as RBFile
-import           RockBand.Codec.Five
+import           RockBand.Codec.Five              as Five
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
 import           RockBand.Codec.Vocal
 import           RockBand.Common
-import qualified RockBand.Legacy.Five             as Five
 import qualified RockBand.Legacy.ProGuitar        as ProGuitar
 import qualified RockBand.Legacy.Vocal            as Vocals
 import qualified Sound.MIDI.File                  as F

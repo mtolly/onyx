@@ -270,6 +270,13 @@ standardBlipThreshold = 3/8
 standardSustainGap :: U.Beats
 standardSustainGap = 1/8
 
+guitarify' :: (Ord a) => RTB.T U.Beats (a, Maybe U.Beats) -> RTB.T U.Beats ([a], Maybe U.Beats)
+guitarify'
+  = fmap chordify
+  . RTB.collectCoincident
+  . noExtendedSustains' standardBlipThreshold standardSustainGap
+  where chordify xs = (map fst xs, snd $ head xs)
+
 guitarify :: (Ord s, Ord a) => RTB.T U.Beats (LongNote s a) -> RTB.T U.Beats (LongNote s [a])
 guitarify
   = fmap chordify

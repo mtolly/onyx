@@ -14,6 +14,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Vector.Storable             as V
 import qualified Numeric.NonNegative.Class        as NNC
 import qualified Numeric.NonNegative.Wrapper      as NN
+import           RockBand.Codec.Vocal
 import qualified RockBand.Legacy.Vocal            as Vox
 import qualified Sound.MIDI.Util                  as U
 
@@ -73,12 +74,9 @@ clipDryVox vox src = let
 toDryVoxFormat :: (MonadResource m) => AudioSource m Float -> AudioSource m Float
 toDryVoxFormat = resampleTo 16000 SincMediumQuality . applyVolsMono []
 
-sineDryVox :: (Monad m) => RTB.T U.Seconds Vox.Event -> AudioSource m Float
+sineDryVox :: (Monad m) => VocalTrack U.Seconds -> AudioSource m Float
 sineDryVox vox = let
-  notes = RTB.normalize $ flip RTB.mapMaybe vox $ \case
-    Vox.Note True  p -> Just (Just p)
-    Vox.Note False _ -> Just Nothing
-    _                -> Nothing
+  notes = RTB.normalize $ fmap (\(p, b) -> guard b >> Just p) $ vocalNotes vox
   go p rtb = case RTB.viewL rtb of
     Nothing -> silent (Seconds 1) 16000 1
     Just ((dt, p'), rtb') -> let

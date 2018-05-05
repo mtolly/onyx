@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase    #-}
+{-# LANGUAGE TupleSections #-}
 module Reductions (gryboComplete, pkReduce, drumsComplete, simpleReduce) where
 
 import           Control.Monad                    (guard)
@@ -19,11 +20,11 @@ import           ProKeysRanges                    (completeRanges)
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events            (eventsSections)
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.ProKeys           as PK
 import           RockBand.Common                  (Difficulty (..), Key (..),
                                                    LongNote (..),
                                                    StrumHOPOTap (..), joinEdges)
 import qualified RockBand.Legacy.Five             as Five
-import qualified RockBand.Legacy.ProKeys          as PK
 import           Scripts                          (trackGlue)
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
@@ -234,28 +235,19 @@ showGuitarNotes isKeys = U.trackJoin . fmap f where
 data PKNote t = PKNote [PK.Pitch] (Maybe t)
   deriving (Eq, Ord, Show, Read)
 
-readPKNotes :: RTB.T U.Beats PK.Event -> RTB.T U.Beats (PKNote U.Beats)
-readPKNotes = fmap f . joinEdges . guitarify . assign where
-  assign = RTB.mapMaybe $ \case
-    PK.Note long -> Just long
-    _            -> Nothing
-  f ((), pitches, len) = PKNote pitches len
+readPKNotes :: ProKeysTrack U.Beats -> RTB.T U.Beats (PKNote U.Beats)
+readPKNotes = fmap (uncurry PKNote) . guitarify' . pkNotes
 
-showPKNotes :: RTB.T U.Beats (PKNote U.Beats) -> RTB.T U.Beats PK.Event
-showPKNotes = U.trackJoin . fmap f where
-  f (PKNote ps len) = RTB.flatten $ case len of
-    Nothing -> RTB.singleton 0 $ map (PK.Note . Blip ()) ps
-    Just t -> RTB.fromPairList
-      [ (0, map (PK.Note . NoteOn ()) ps)
-      , (t, map (PK.Note . NoteOff  ) ps)
-      ]
+showPKNotes :: RTB.T U.Beats (PKNote U.Beats) -> ProKeysTrack U.Beats
+showPKNotes pk = mempty { pkNotes = RTB.flatten $ fmap f pk } where
+  f (PKNote ps len) = map (, len) ps
 
 pkReduce
   :: Difficulty
   -> U.MeasureMap
-  -> RTB.T U.Beats Bool     -- ^ Overdrive phrases
-  -> RTB.T U.Beats PK.Event -- ^ The source difficulty, one level up
-  -> RTB.T U.Beats PK.Event -- ^ The target difficulty
+  -> RTB.T U.Beats Bool   -- ^ Overdrive phrases
+  -> ProKeysTrack U.Beats -- ^ The source difficulty, one level up
+  -> ProKeysTrack U.Beats -- ^ The target difficulty
 
 pkReduce Expert _    _  diffEvents = diffEvents
 pkReduce diff   mmap od diffEvents = let
@@ -334,14 +326,11 @@ pkReduce diff   mmap od diffEvents = let
     = RTB.fromAbsoluteEventList $ ATB.fromPairList
     $ filter (\(t, _) -> Set.member t keptPosns)
     $ ATB.toPairList $ RTB.toAbsoluteEventList 0 pknotes3
-  -- Step: limit range on medium/easy
-  ranges = if elem diff [Easy, Medium]
-    then RTB.singleton 0 PK.RangeF
-    else flip RTB.mapMaybe diffEvents $ \case PK.LaneShift r -> Just r; _ -> Nothing
   -- Step: fix quick jumps (TODO) and out-of-range notes on easy/medium
   pknotes5 = if elem diff [Expert, Hard]
     then pknotes4
     else flip fmap pknotes4 $ \(PKNote ps len) -> let
+      -- we'll use range F-A for easy/medium
       ps' = nub $ flip map ps $ \case
         PK.RedYellow k -> if k < F
           then PK.BlueGreen k
@@ -364,8 +353,7 @@ pkReduce diff   mmap od diffEvents = let
       in (t1, PKNote ps1 len1') : pullBackSustains rest
     x : xs -> x : pullBackSustains xs
   -- Step: redo range shifts
-  redoRanges = PK.pkToLegacy . completeRanges . PK.pkFromLegacy . RTB.filter (\case PK.LaneShift _ -> False; _ -> True)
-  in redoRanges $ RTB.merge (fmap PK.LaneShift ranges) (showPKNotes pknotes6)
+  in completeRanges (showPKNotes pknotes6) { pkLanes = RTB.empty }
 
 drumsComplete
   :: U.MeasureMap
@@ -523,24 +511,22 @@ simpleReduce fin fout = do
   let sections = fmap snd $ eventsSections $ RBFile.onyxEvents onyx
   liftIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap onyx
     { RBFile.onyxParts = flip fmap (RBFile.onyxParts onyx) $ \trks -> let
-      pkX = PK.pkToLegacy (RBFile.onyxPartRealKeysX trks)
-      pkH = PK.pkToLegacy (RBFile.onyxPartRealKeysH trks) `pkOr` pkReduce Hard   mmap od pkX
-      pkM = PK.pkToLegacy (RBFile.onyxPartRealKeysM trks) `pkOr` pkReduce Medium mmap od pkH
-      pkE = PK.pkToLegacy (RBFile.onyxPartRealKeysE trks) `pkOr` pkReduce Easy   mmap od pkM
-      od = flip RTB.mapMaybe pkX $ \case
-        PK.Overdrive b -> Just b
-        _              -> Nothing
+      pkX = RBFile.onyxPartRealKeysX trks
+      pkH = RBFile.onyxPartRealKeysH trks `pkOr` pkReduce Hard   mmap od pkX
+      pkM = RBFile.onyxPartRealKeysM trks `pkOr` pkReduce Medium mmap od pkH
+      pkE = RBFile.onyxPartRealKeysE trks `pkOr` pkReduce Easy   mmap od pkM
+      od = pkOverdrive pkX
       trkX `pkOr` trkY
-        | RTB.null pkX  = RTB.empty
-        | RTB.null trkX = trkY
-        | otherwise     = trkX
+        | nullPK pkX  = mempty
+        | nullPK trkX = trkY
+        | otherwise   = trkX
       in trks
       { RBFile.onyxPartGuitar = Five.fiveFromLegacy $ gryboComplete (Just 170) mmap $ Five.fiveToLegacy $ RBFile.onyxPartGuitar trks
       , RBFile.onyxPartKeys = Five.fiveFromLegacy $ gryboComplete Nothing mmap $ Five.fiveToLegacy $ RBFile.onyxPartKeys trks
       , RBFile.onyxPartDrums = drumsComplete mmap sections $ RBFile.onyxPartDrums trks
-      , RBFile.onyxPartRealKeysX = PK.pkFromLegacy pkX
-      , RBFile.onyxPartRealKeysH = PK.pkFromLegacy pkH
-      , RBFile.onyxPartRealKeysM = PK.pkFromLegacy pkM
-      , RBFile.onyxPartRealKeysE = PK.pkFromLegacy pkE
+      , RBFile.onyxPartRealKeysX = pkX
+      , RBFile.onyxPartRealKeysH = pkH
+      , RBFile.onyxPartRealKeysM = pkM
+      , RBFile.onyxPartRealKeysE = pkE
       }
     }
