@@ -13,8 +13,8 @@ import qualified Config
 import           Control.Applicative              ((<|>))
 import           Control.Arrow                    (first)
 import           Control.Exception                (evaluate)
-import           Control.Monad                    (forM, forM_, guard)
-import           Control.Monad.Extra              (findM)
+import           Control.Monad.Extra              (findM, forM, forM_, guard,
+                                                   void)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString.Lazy             as BL
@@ -56,7 +56,7 @@ import           PrettyDTA                        (C3DTAComments (..),
                                                    readDTASingle, readRB3DTA,
                                                    writeDTASingle)
 import           Resources                        (rb3Updates)
-import           RockBand.Codec.Drums
+import           RockBand.Codec.Drums             as RBDrums
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Five              (nullFive)
@@ -66,7 +66,6 @@ import           RockBand.Codec.Six               (nullSix)
 import           RockBand.Codec.Vocal
 import           RockBand.Common                  (Difficulty (..),
                                                    joinEdgesSimple)
-import qualified RockBand.Legacy.Drums            as RBDrums
 import qualified RockBand.Legacy.Vocal            as RBVox
 import           Scripts                          (loadFoFMIDI, loadMIDI)
 import qualified Sound.MIDI.File.Save             as Save
@@ -653,17 +652,22 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       drums1x <- RBFile.parseTracks trksUpdated "PART DRUMS"
       drums2x <- RBFile.parseTracks trks2x      "PART DRUMS"
       let notDrums = filter ((/= Just "PART DRUMS") . U.trackName) trksUpdated
-      case extractLeftKicks (RBDrums.drumsToLegacy drums1x) (RBDrums.drumsToLegacy drums2x) of
-        Left pos -> do
-          warn $ "Using C3 format for 1x+2x drums. Couldn't condense to PS format due to difference at "
-            ++ RBFile.showPosition (U.applyMeasureMap sigs pos)
+      case combine1x2x drums1x drums2x of
+        Left (pos, thing) -> do
+          warn $ unwords
+            [ "Using C3 format for 1x+2x drums."
+            , "Couldn't condense to PS format due to difference in"
+            , thing
+            , "at"
+            , RBFile.showPosition $ U.applyMeasureMap sigs pos
+            ]
           let make2xTrack trk = case U.trackName trk of
                 Just "PART DRUMS" -> Just $ U.setTrackName "PART DRUMS_2X" trk
                 _                 -> Nothing
           return $ trksUpdated ++ mapMaybe make2xTrack trks2x
-        Right leftKicks -> return $ notDrums ++ do
+        Right combinedDrums -> return $ notDrums ++ do
           RBFile.s_tracks $ RBFile.showMIDITracks $ RBFile.Song temps sigs $ mempty
-            { RBFile.fixedPartDrums = drums1x { drumKick2x = leftKicks }
+            { RBFile.fixedPartDrums = combinedDrums
             }
   stackIO $ Save.toFile (dir </> "notes.mid") $ RBFile.showMIDIFile'
     $ RBFile.Song temps sigs $ RBFile.RawFile trksAdd2x
@@ -1188,31 +1192,41 @@ firstDifference rtb1 rtb2 = let
     (Nothing, Just ((t2, _), _)) -> Just $ posn <> t2
   in go NNC.zero (RTB.normalize rtb1) (RTB.normalize rtb2)
 
-extractLeftKicks
-  :: RTB.T U.Beats RBDrums.Event
-  -> RTB.T U.Beats RBDrums.Event
-  -> Either U.Beats (RTB.T U.Beats ())
-extractLeftKicks in1 in2 = go 0 (RTB.collectCoincident in1) (RTB.collectCoincident in2) where
-  go pos trk1 trk2 = case (RTB.viewL trk1, RTB.viewL trk2) of
-    (Nothing, Nothing) -> Right RTB.empty
-    (Just ((dt1, evs1), trk1'), Just ((dt2, evs2), trk2')) -> case compare dt1 dt2 of
-      EQ -> let
-        set1 = Set.fromList evs1
-        set2 = Set.fromList evs2
-        in if Set.null $ Set.difference set1 set2
-          then case Set.toList $ Set.difference set2 set1 of
-            [] -> RTB.delay dt1 <$> go (pos + dt1) trk1' trk2'
-            [RBDrums.DiffEvent Expert (RBDrums.Note RBDrums.Kick)]
-              -> RTB.cons dt1 () <$> go (pos + dt1) trk1' trk2'
-            _ -> Left $ pos + dt1
-          else Left $ pos + dt1
-      LT -> Left $ pos + dt1
-      GT -> case evs2 of
-        [RBDrums.DiffEvent Expert (RBDrums.Note RBDrums.Kick)]
-          -> RTB.cons dt2 () <$> go (pos + dt2) (RTB.cons (dt1 - dt2) evs1 trk1') trk2'
-        _ -> Left $ pos + dt2
-    (Just ((dt1, _), _), Nothing) -> Left $ pos + dt1
-    (Nothing, Just ((dt2, evs2), trk2')) -> case evs2 of
-      [RBDrums.DiffEvent Expert (RBDrums.Note RBDrums.Kick)]
-        -> RTB.cons dt2 () <$> go (pos + dt2) RTB.empty trk2'
-      _ -> Left $ pos + dt2
+combine1x2x
+  :: DrumTrack U.Beats
+  -> DrumTrack U.Beats
+  -> Either (U.Beats, String) (DrumTrack U.Beats)
+combine1x2x dt1 dt2 = do
+  let stopIfDifferent str x y = case firstDifference x y of
+        Nothing -> Right ()
+        Just t  -> Left (t, str)
+      stopUnlessEmpty str x = case RTB.viewL x of
+        Nothing          -> Right ()
+        Just ((t, _), _) -> Left (t, str)
+  stopIfDifferent "mood" (drumMood dt1) (drumMood dt2)
+  stopIfDifferent "toms" (drumToms dt1) (drumToms dt2)
+  stopIfDifferent "single roll" (drumSingleRoll dt1) (drumSingleRoll dt2)
+  stopIfDifferent "double roll" (drumDoubleRoll dt1) (drumDoubleRoll dt2)
+  stopIfDifferent "overdrive" (drumOverdrive dt1) (drumOverdrive dt2)
+  stopIfDifferent "activation" (drumActivation dt1) (drumActivation dt2)
+  stopIfDifferent "solo" (drumSolo dt1) (drumSolo dt2)
+  stopIfDifferent "player 1 phrase" (drumPlayer1 dt1) (drumPlayer1 dt2)
+  stopIfDifferent "player 2 phrase" (drumPlayer2 dt1) (drumPlayer2 dt2)
+  stopIfDifferent "animation" (drumAnimation dt1) (drumAnimation dt2)
+  stopUnlessEmpty "pitch 95 in 1x track" $ drumKick2x dt1
+  stopUnlessEmpty "pitch 95 in 2x track" $ drumKick2x dt2
+  results <- forM [Easy, Medium, Hard, Expert] $ \diff -> do
+    let dd1 = fromMaybe mempty $ Map.lookup diff $ drumDifficulties dt1
+        dd2 = fromMaybe mempty $ Map.lookup diff $ drumDifficulties dt2
+    stopIfDifferent (show diff ++ " mix events") (drumMix dd1) (drumMix dd2)
+    stopIfDifferent (show diff ++ " Phase Shift modifiers") (drumPSModifiers dd1) (drumPSModifiers dd2)
+    case diff of
+      Expert -> case bothFirstSecond (drumGems dd1) (drumGems dd2) of
+        (_both, only1x, only2x) -> do
+          stopUnlessEmpty "Expert notes" only1x
+          stopUnlessEmpty "Expert notes" $ RTB.filter (/= Kick) only2x
+          Right $ Just $ void only2x
+      _ -> do
+        stopIfDifferent (show diff ++ " notes") (drumGems dd1) (drumGems dd2)
+        Right Nothing
+  Right dt1 { drumKick2x = foldr RTB.merge RTB.empty $ catMaybes results }

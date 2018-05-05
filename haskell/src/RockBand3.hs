@@ -11,7 +11,7 @@ import           Control.Monad.Trans.Writer       (execWriter, tell)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (isJust)
+import           Data.Maybe                       (fromMaybe, isJust)
 import           Guitars
 import           OneFoot
 import           Overdrive                        (fixBrokenUnisons)
@@ -19,7 +19,7 @@ import           ProKeysRanges
 import           Reductions
 import           RockBand.Codec                   (mapTrack)
 import           RockBand.Codec.Beat
-import           RockBand.Codec.Drums
+import           RockBand.Codec.Drums             as RBDrums
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Five
@@ -29,7 +29,6 @@ import           RockBand.Codec.Six
 import           RockBand.Codec.Venue             (compileVenueRB3)
 import           RockBand.Codec.Vocal
 import           RockBand.Common
-import qualified RockBand.Legacy.Drums            as RBDrums
 import qualified RockBand.Legacy.ProGuitar        as ProGtr
 import qualified RockBand.Legacy.Vocal            as RBVox
 import           RockBand.Sections                (makePSSection)
@@ -617,14 +616,15 @@ findProblems :: RBFile.Song (RBFile.OnyxFile U.Beats) -> [String]
 findProblems song = execWriter $ do
   -- Every discobeat mix event should be simultaneous with,
   -- or immediately followed by, a set of notes not including red or yellow.
-  let drums = RBDrums.drumsToLegacy $ RBFile.onyxPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
-      discos = flip RTB.mapMaybe drums $ \case
-        RBDrums.DiffEvent d (RBDrums.Mix _ RBDrums.Disco) -> Just d
-        _ -> Nothing
+  let drums = RBFile.onyxPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
+      discos = foldr RTB.merge RTB.empty $ do
+        d <- [minBound .. maxBound]
+        let diff = fromMaybe mempty $ Map.lookup d $ drumDifficulties drums
+        return $ flip RTB.mapMaybe (drumMix diff) $ \case
+          (_, RBDrums.Disco) -> Just d
+          _                  -> Nothing
       badDiscos = void $ RTB.fromAbsoluteEventList $ ATB.fromPairList $ filter isBadDisco $ ATB.toPairList $ RTB.toAbsoluteEventList 0 discos
-      drumsDiff d = flip RTB.mapMaybe drums $ \case
-        RBDrums.DiffEvent d' (RBDrums.Note gem) | d == d' -> Just gem
-        _ -> Nothing
+      drumsDiff d = drumGems $ fromMaybe mempty $ Map.lookup d $ drumDifficulties drums
       isBadDisco (t, diff) = case RTB.viewL $ RTB.collectCoincident $ U.trackDrop t $ drumsDiff diff of
         Just ((_, evts), _) | any isDiscoGem evts -> True
         _                   -> False
