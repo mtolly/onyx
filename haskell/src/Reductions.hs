@@ -20,49 +20,41 @@ import           ProKeysRanges                    (completeRanges)
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events            (eventsSections)
 import qualified RockBand.Codec.File              as RBFile
+import           RockBand.Codec.Five              as Five
 import           RockBand.Codec.ProKeys           as PK
 import           RockBand.Common                  (Difficulty (..), Key (..),
-                                                   LongNote (..),
-                                                   StrumHOPOTap (..), joinEdges)
-import qualified RockBand.Legacy.Five             as Five
+                                                   StrumHOPOTap (..))
 import           Scripts                          (trackGlue)
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
 
 -- | Fills out a GRYBO chart by generating difficulties if needed.
-gryboComplete :: Maybe Int -> U.MeasureMap -> RTB.T U.Beats Five.Event -> RTB.T U.Beats Five.Event
+gryboComplete :: Maybe Int -> U.MeasureMap -> FiveTrack U.Beats -> FiveTrack U.Beats
 gryboComplete hopoThres mmap trk = let
-  od        = flip RTB.mapMaybe trk $ \case
-    Five.Overdrive b -> Just b
-    _                -> Nothing
-  getDiff d = flip RTB.mapMaybe trk $ \case
-    Five.DiffEvent d' e | d == d' -> Just e
-    _                             -> Nothing
-  notes = RTB.filter $ \case Five.Note{} -> True; _ -> False
-  rtb1 `orIfNull` rtb2 = if length (RTB.collectCoincident $ notes rtb1) < 5 then rtb2 else rtb1
+  od        = fiveOverdrive trk
+  getDiff d = fromMaybe mempty $ Map.lookup d $ fiveDifficulties trk
+  trk1 `orIfNull` trk2 = if length (RTB.collectCoincident $ fiveGems trk1) < 5 then trk2 else trk1
   expert    = getDiff Expert
   hard      = getDiff Hard   `orIfNull` gryboReduce Hard   hopoThres mmap od expert
   medium    = getDiff Medium `orIfNull` gryboReduce Medium hopoThres mmap od hard
   easy      = getDiff Easy   `orIfNull` gryboReduce Easy   hopoThres mmap od medium
-  noDiffs = flip RTB.filter trk $ \case
-    Five.DiffEvent _ _ -> False
-    _                  -> True
-  in foldr RTB.merge RTB.empty
-    [ noDiffs
-    , Five.DiffEvent Expert <$> expert
-    , Five.DiffEvent Hard   <$> hard
-    , Five.DiffEvent Medium <$> medium
-    , Five.DiffEvent Easy   <$> easy
-    ]
+  in trk
+    { fiveDifficulties = Map.fromList
+      [ (Easy, easy)
+      , (Medium, medium)
+      , (Hard, hard)
+      , (Expert, expert)
+      ]
+    }
 
 gryboReduce
   :: Difficulty
-  -> Maybe Int                    -- ^ HOPO threshold if guitar or bass, Nothing if keys
+  -> Maybe Int              -- ^ HOPO threshold if guitar or bass, Nothing if keys
   -> U.MeasureMap
-  -> RTB.T U.Beats Bool           -- ^ Overdrive phrases
-  -> RTB.T U.Beats Five.DiffEvent -- ^ The source difficulty, one level up
-  -> RTB.T U.Beats Five.DiffEvent -- ^ The target difficulty
+  -> RTB.T U.Beats Bool     -- ^ Overdrive phrases
+  -> FiveDifficulty U.Beats -- ^ The source difficulty, one level up
+  -> FiveDifficulty U.Beats -- ^ The target difficulty
 
 gryboReduce Expert _         _    _  diffEvents = diffEvents
 gryboReduce diff   hopoThres mmap od diffEvents = let
@@ -208,29 +200,23 @@ gryboReduce diff   hopoThres mmap od diffEvents = let
 data GuitarNote t = GuitarNote [Five.Color] StrumHOPOTap (Maybe t)
   deriving (Eq, Ord, Show, Read)
 
-readGuitarNotes :: Maybe Int -> RTB.T U.Beats Five.DiffEvent -> RTB.T U.Beats (GuitarNote U.Beats)
-readGuitarNotes hopoThres
-  = fmap (\(ntype, colors, len) -> GuitarNote colors ntype len)
-  . joinEdges
-  . guitarify
-  . noOpenNotes False
+readGuitarNotes :: Maybe Int -> FiveDifficulty U.Beats -> RTB.T U.Beats (GuitarNote U.Beats)
+readGuitarNotes hopoThres fd
+  = fmap (\(notes, len) -> GuitarNote (map fst notes) (snd $ head notes) len)
+  . guitarify'
+  . noOpenNotes' False
   . case hopoThres of
-    Nothing -> allStrums
-    Just i  -> strumHOPOTap HOPOsRBGuitar (fromIntegral i / 480)
-  . closeNotes
+    Nothing -> fmap (\(col, len) -> ((col, Strum), len))
+    Just i  -> applyForces (getForces5 fd) . strumHOPOTap' HOPOsRBGuitar (fromIntegral i / 480)
+  $ closeNotes' fd
 
--- TODO this can be replaced with Guitars.emit5
-showGuitarNotes :: Bool -> RTB.T U.Beats (GuitarNote U.Beats) -> RTB.T U.Beats Five.DiffEvent
-showGuitarNotes isKeys = U.trackJoin . fmap f where
-  f (GuitarNote cols ntype len) = RTB.flatten $ foldr RTB.merge RTB.empty
-    [ RTB.fromPairList [(0, force True), (1/32, force False)]
-    , case len of
-      Nothing -> RTB.singleton 0 $ map (Five.Note . Blip ()) cols
-      Just t  -> RTB.fromPairList
-        [ (0, map (Five.Note . NoteOn ()) cols)
-        , (t, map (Five.Note . NoteOff  ) cols)
-        ]
-    ] where force b = [Five.Force ntype b | not isKeys]
+showGuitarNotes :: Bool -> RTB.T U.Beats (GuitarNote U.Beats) -> FiveDifficulty U.Beats
+showGuitarNotes isKeys trk = let
+  fd = emit5' $ RTB.flatten $ flip fmap trk $ \case
+    GuitarNote colors sht mlen -> map (\color -> ((Just color, sht), mlen)) colors
+  in if isKeys
+    then fd { fiveForceStrum = RTB.empty, fiveForceHOPO = RTB.empty, fiveTap = RTB.empty }
+    else fd
 
 data PKNote t = PKNote [PK.Pitch] (Maybe t)
   deriving (Eq, Ord, Show, Read)
@@ -521,8 +507,8 @@ simpleReduce fin fout = do
         | nullPK trkX = trkY
         | otherwise   = trkX
       in trks
-      { RBFile.onyxPartGuitar = Five.fiveFromLegacy $ gryboComplete (Just 170) mmap $ Five.fiveToLegacy $ RBFile.onyxPartGuitar trks
-      , RBFile.onyxPartKeys = Five.fiveFromLegacy $ gryboComplete Nothing mmap $ Five.fiveToLegacy $ RBFile.onyxPartKeys trks
+      { RBFile.onyxPartGuitar = gryboComplete (Just 170) mmap $ RBFile.onyxPartGuitar trks
+      , RBFile.onyxPartKeys = gryboComplete Nothing mmap $ RBFile.onyxPartKeys trks
       , RBFile.onyxPartDrums = drumsComplete mmap sections $ RBFile.onyxPartDrums trks
       , RBFile.onyxPartRealKeysX = pkX
       , RBFile.onyxPartRealKeysH = pkH

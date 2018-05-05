@@ -30,7 +30,6 @@ import           RockBand.Codec.Venue             (compileVenueRB3)
 import           RockBand.Codec.Vocal
 import           RockBand.Common
 import qualified RockBand.Legacy.Drums            as RBDrums
-import qualified RockBand.Legacy.Five             as Five
 import qualified RockBand.Legacy.ProGuitar        as ProGtr
 import qualified RockBand.Legacy.Vocal            as RBVox
 import           RockBand.Sections                (makePSSection)
@@ -204,9 +203,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           track
             = (\fd -> fd { fivePlayer1 = RTB.empty, fivePlayer2 = RTB.empty })
             $ (if gryboFixFreeform grybo then fixFreeformFive else id)
-            $ Five.fiveFromLegacy
-            $ gryboComplete (guard toKeys >> Just ht) mmap
-            $ Five.fiveToLegacy trackOrig
+            $ gryboComplete (guard toKeys >> Just ht) mmap trackOrig
           ht = gryboHopoThreshold grybo
           algo = if isKeys then HOPOsRBKeys else HOPOsRBGuitar
           fiveEachDiff f ft = ft { fiveDifficulties = fmap f $ fiveDifficulties ft }
@@ -296,7 +293,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           (Nothing, Nothing) -> (mempty, mempty, mempty, mempty, mempty, mempty, mempty)
           _ -> let
             basicKeysSrc = RBFile.getFlexPart keysPart trks
-            basicKeys = Five.fiveFromLegacy $ gryboComplete Nothing mmap $ Five.fiveToLegacy
+            basicKeys = gryboComplete Nothing mmap
               $ case partGRYBO part of
                 Nothing -> expertProKeysToKeys keysExpert
                 Just _  -> fst $ makeGRYBOTrack True keysPart basicKeysSrc

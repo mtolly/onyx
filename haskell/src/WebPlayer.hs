@@ -28,16 +28,15 @@ import qualified RockBand.Codec.Beat              as Beat
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
-import           RockBand.Codec.Five              (nullFive)
+import qualified RockBand.Codec.Five              as Five
 import           RockBand.Codec.ProGuitar         (nullPG)
+import           RockBand.Codec.ProKeys           as PK
+import qualified RockBand.Codec.Six               as GHL
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..),
                                                    StrumHOPOTap (..), joinEdges,
                                                    splitEdges)
-import qualified RockBand.Legacy.Five             as Five
 import qualified RockBand.Legacy.ProGuitar        as PG
-import qualified RockBand.Legacy.ProKeys          as PK
-import qualified RockBand.Legacy.Six              as GHL
 import qualified RockBand.Legacy.Vocal            as Vox
 import           Scripts                          (songLengthBeats)
 import qualified Sound.MIDI.Util                  as U
@@ -286,31 +285,27 @@ findTrills ons trills = Map.fromList $ flip concatMap (Map.toAscList trills) $ \
         colors = cols1 ++ cols2
         in [(start, (True, colors)), (start + len, (False, colors))]
 
-processFive :: Maybe U.Beats -> U.TempoMap -> RTB.T U.Beats Five.Event -> Five U.Seconds
+processFive :: Maybe U.Beats -> U.TempoMap -> Five.FiveTrack U.Beats -> Five U.Seconds
 processFive hopoThreshold tmap trk = let
-  expert = flip RTB.mapMaybe trk $ \case Five.DiffEvent Expert e -> Just e; _ -> Nothing
+  expert = fromMaybe mempty $ Map.lookup Expert $ Five.fiveDifficulties trk
   assigned
     = case hopoThreshold of
-      Nothing -> allStrums
-      Just ht -> strumHOPOTap HOPOsRBGuitar ht
-    $ openNotes expert
-  getColor color = trackToMap tmap $ filterKey color assigned
+      Nothing -> fmap (\(col, len) -> ((col, Strum), len))
+      Just ht -> applyForces (getForces5 expert) . strumHOPOTap' HOPOsRBGuitar ht
+    $ openNotes' expert
+  assigned' = U.trackJoin $ flip fmap assigned $ \((color, sht), mlen) -> case mlen of
+    Nothing -> RTB.singleton 0 $ Blip sht color
+    Just len -> RTB.fromPairList [(0, NoteOn sht color), (len, NoteOff color)]
+  getColor color = trackToMap tmap $ filterKey color assigned'
   notes = Map.fromList $ do
     color <- Nothing : map Just [minBound .. maxBound]
     return (color, getColor color)
-  solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.Solo      b -> Just b; _ -> Nothing
-  energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.Overdrive b -> Just b; _ -> Nothing
-  bre    = trackToMap tmap $ flip RTB.mapMaybe trk $ \case Five.BRE       b -> Just b; _ -> Nothing
-  ons    = trackToBeatMap $ RTB.collectCoincident $ flip RTB.mapMaybe assigned $ \case
-    NoteOn _ col -> Just col
-    Blip   _ col -> Just col
-    _            -> Nothing
-  trems  = findTremolos ons $ trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
-    Five.Tremolo b -> Just $ if b then NoteOn () () else NoteOff ()
-    _              -> Nothing
-  trills = findTrills ons $ trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
-    Five.Trill b -> Just $ if b then NoteOn () () else NoteOff ()
-    _            -> Nothing
+  solo   = trackToMap tmap $ Five.fiveSolo      trk
+  energy = trackToMap tmap $ Five.fiveOverdrive trk
+  bre    = trackToMap tmap $ Five.fiveBRE       trk
+  ons    = trackToBeatMap $ RTB.collectCoincident $ fmap (fst . fst) assigned
+  trems  = findTremolos ons $ trackToBeatMap $ joinEdges $ fmap (\b -> if b then NoteOn () () else NoteOff ()) $ Five.fiveTremolo trk
+  trills = findTrills ons $ trackToBeatMap $ joinEdges $ fmap (\b -> if b then NoteOn () () else NoteOff ()) $ Five.fiveTrill trk
   lanesAll = Map.mapKeys (U.applyTempoMap tmap) $ Map.union trems trills
   lanes = Map.fromList $ do
     color <- Nothing : fmap Just [Five.Green .. Five.Orange]
@@ -319,10 +314,15 @@ processFive hopoThreshold tmap trk = let
       return b
   in Five notes solo energy lanes bre
 
-processSix :: U.Beats -> U.TempoMap -> RTB.T U.Beats GHL.Event -> Six U.Seconds
+processSix :: U.Beats -> U.TempoMap -> GHL.SixTrack U.Beats -> Six U.Seconds
 processSix hopoThreshold tmap trk = let
-  expert = flip RTB.mapMaybe trk $ \case GHL.DiffEvent Expert e -> Just e; _ -> Nothing
-  assigned = strumHOPOTap HOPOsRBGuitar hopoThreshold $ ghlNotes expert
+  expert = fromMaybe mempty $ Map.lookup Expert $ GHL.sixDifficulties trk
+  assigned
+    = applyForces (getForces6 expert)
+    $ strumHOPOTap' HOPOsRBGuitar hopoThreshold $ GHL.sixGems expert
+  assigned' = U.trackJoin $ flip fmap assigned $ \((color, sht), mlen) -> case mlen of
+    Nothing -> RTB.singleton 0 $ Blip sht color
+    Just len -> RTB.fromPairList [(0, NoteOn sht color), (len, NoteOff color)]
   oneTwoBoth x y = let
     dual = RTB.collectCoincident $ RTB.merge (fmap (const False) <$> x) (fmap (const True) <$> y)
     (both, notBoth) = flip RTB.partitionMaybe dual $ \case
@@ -332,9 +332,9 @@ processSix hopoThreshold tmap trk = let
     one = filterKey False notBoth'
     two = filterKey True  notBoth'
     in (one, two, both)
-  (b1, w1, bw1) = oneTwoBoth (filterKey (Just GHL.Black1) assigned) (filterKey (Just GHL.White1) assigned)
-  (b2, w2, bw2) = oneTwoBoth (filterKey (Just GHL.Black2) assigned) (filterKey (Just GHL.White2) assigned)
-  (b3, w3, bw3) = oneTwoBoth (filterKey (Just GHL.Black3) assigned) (filterKey (Just GHL.White3) assigned)
+  (b1, w1, bw1) = oneTwoBoth (filterKey (Just GHL.Black1) assigned') (filterKey (Just GHL.White1) assigned')
+  (b2, w2, bw2) = oneTwoBoth (filterKey (Just GHL.Black2) assigned') (filterKey (Just GHL.White2) assigned')
+  (b3, w3, bw3) = oneTwoBoth (filterKey (Just GHL.Black3) assigned') (filterKey (Just GHL.White3) assigned')
   getLane = trackToMap tmap . \case
     GHLSingle GHL.Black1 -> b1
     GHLSingle GHL.Black2 -> b2
@@ -345,12 +345,12 @@ processSix hopoThreshold tmap trk = let
     GHLBoth1 -> bw1
     GHLBoth2 -> bw2
     GHLBoth3 -> bw3
-    GHLOpen -> filterKey Nothing assigned
+    GHLOpen -> filterKey Nothing assigned'
   notes = Map.fromList $ do
     lane <- map GHLSingle [minBound .. maxBound] ++ [GHLBoth1, GHLBoth2, GHLBoth3, GHLOpen]
     return (lane, getLane lane)
-  solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case GHL.Solo      b -> Just b; _ -> Nothing
-  energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case GHL.Overdrive b -> Just b; _ -> Nothing
+  solo   = trackToMap tmap $ GHL.sixSolo      trk
+  energy = trackToMap tmap $ GHL.sixOverdrive trk
   bre    = Map.empty
   in Six notes solo energy bre
 
@@ -359,11 +359,11 @@ processDrums mode tmap coda trk = let
   nonPro is5 = RTB.merge
     (fmap (const D.Kick) $ D.drumKick2x trk)
     $ flip fmap (maybe RTB.empty D.drumGems $ Map.lookup Expert $ D.drumDifficulties trk) $ \case
-      D.Kick                -> D.Kick
-      D.Red                 -> D.Red
+      D.Kick            -> D.Kick
+      D.Red             -> D.Red
       D.Pro D.Yellow () -> D.Pro D.Yellow $ if is5 then D.Cymbal else D.Tom
       D.Pro D.Blue   () -> D.Pro D.Blue D.Tom
-      D.Orange              -> D.Orange
+      D.Orange          -> D.Orange
       D.Pro D.Green  () -> D.Pro D.Green D.Tom
   notes = fmap sort $ RTB.collectCoincident $ case mode of
     C.Drums4   -> nonPro False
@@ -396,32 +396,27 @@ processDrums mode tmap coda trk = let
       return b
   in Drums notesS solo energy lanes bre $ mode == C.Drums5
 
-processProKeys :: U.TempoMap -> RTB.T U.Beats PK.Event -> ProKeys U.Seconds
+processProKeys :: U.TempoMap -> ProKeysTrack U.Beats -> ProKeys U.Seconds
 processProKeys tmap trk = let
-  notesForPitch p = trackToMap tmap $ flip RTB.mapMaybe trk $ \case
-    PK.Note (NoteOff    p') -> guard (p == p') >> Just (NoteOff    ())
-    PK.Note (Blip    () p') -> guard (p == p') >> Just (Blip    () ())
-    PK.Note (NoteOn  () p') -> guard (p == p') >> Just (NoteOn  () ())
-    _                    -> Nothing
+  assigned' = U.trackJoin $ flip fmap (pkNotes trk) $ \(p, mlen) -> case mlen of
+    Nothing  -> RTB.singleton 0 $ Blip () p
+    Just len -> RTB.fromPairList [(0, NoteOn () p), (len, NoteOff p)]
+  notesForPitch p = trackToMap tmap $ filterKey p assigned'
   notes = Map.fromList [ (p, notesForPitch p) | p <- [minBound .. maxBound] ]
-  ons = trackToBeatMap $ RTB.collectCoincident $ flip RTB.mapMaybe trk $ \case
-    PK.Note (Blip   () p) -> Just p
-    PK.Note (NoteOn () p) -> Just p
-    _                     -> Nothing
-  ranges = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.LaneShift r -> Just r; _ -> Nothing
-  solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Solo      b -> Just b; _ -> Nothing
-  energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Overdrive b -> Just b; _ -> Nothing
-  trills = findTrills ons $ trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
-    PK.Trill b -> Just $ if b then NoteOn () () else NoteOff ()
-    _          -> Nothing
+  ons = trackToBeatMap $ RTB.collectCoincident $ fmap fst $ pkNotes trk
+  ranges = trackToMap tmap $ pkLanes trk
+  solo   = trackToMap tmap $ pkSolo trk
+  energy = trackToMap tmap $ pkOverdrive trk
+  trills = findTrills ons $ trackToBeatMap $ joinEdges
+    $ fmap (\b -> if b then NoteOn () () else NoteOff ()) $ pkTrill trk
   lanesAll = Map.mapKeys (U.applyTempoMap tmap) trills
   lanes = Map.fromList $ do
     key <- [minBound .. maxBound]
     return $ (,) key $ flip Map.mapMaybe lanesAll $ \(b, keys) -> do
       guard $ elem key keys
       return b
-  gliss  = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.Glissando b -> Just b; _ -> Nothing
-  bre    = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PK.BRE       b -> Just b; _ -> Nothing
+  gliss  = trackToMap tmap $ pkGlissando trk
+  bre    = trackToMap tmap $ pkBRE trk
   in ProKeys notes ranges solo energy lanes gliss bre
 
 processProtar :: U.Beats -> U.TempoMap -> RTB.T U.Beats PG.Event -> Protar U.Seconds
@@ -658,12 +653,12 @@ makeDisplay songYaml song = let
     { flexFive = flip fmap (C.partGRYBO fpart) $ \grybo -> let
       gtr = RBFile.onyxPartGuitar tracks
       keys = RBFile.onyxPartKeys tracks
-      in if nullFive gtr
-        then processFive Nothing (RBFile.s_tempos song) $ Five.fiveToLegacy keys
-        else processFive (Just $ ht $ C.gryboHopoThreshold grybo) (RBFile.s_tempos song) $ Five.fiveToLegacy gtr
-    , flexSix = flip fmap (C.partGHL fpart) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song) (GHL.sixToLegacy $ RBFile.onyxPartSix tracks)
+      in if Five.nullFive gtr
+        then processFive Nothing (RBFile.s_tempos song) keys
+        else processFive (Just $ ht $ C.gryboHopoThreshold grybo) (RBFile.s_tempos song) gtr
+    , flexSix = flip fmap (C.partGHL fpart) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song) (RBFile.onyxPartSix tracks)
     , flexDrums = flip fmap (C.partDrums fpart) $ \pd -> processDrums (C.drumsMode pd) (RBFile.s_tempos song) coda (RBFile.onyxPartDrums tracks)
-    , flexProKeys = flip fmap (C.partProKeys fpart) $ \_ -> processProKeys (RBFile.s_tempos song) (PK.pkToLegacy $ RBFile.onyxPartRealKeysX tracks)
+    , flexProKeys = flip fmap (C.partProKeys fpart) $ \_ -> processProKeys (RBFile.s_tempos song) (RBFile.onyxPartRealKeysX tracks)
     , flexProtar = flip fmap (C.partProGuitar fpart) $ \pg -> processProtar (ht $ C.pgHopoThreshold pg) (RBFile.s_tempos song)
       $ let mustang = RBFile.onyxPartRealGuitar tracks
             squier  = RBFile.onyxPartRealGuitar22 tracks
