@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns      #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -27,6 +28,7 @@ import           Data.DTA.Parse                   (parseStack)
 import qualified Data.DTA.Serialize               as D
 import qualified Data.DTA.Serialize.Magma         as RBProj
 import qualified Data.DTA.Serialize.RB3           as D
+import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
@@ -39,6 +41,7 @@ import           Data.Monoid                      ((<>))
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Data.Text.IO                     as TIO
+import           Data.Tuple.Extra                 (fst3, snd3, thd3)
 import qualified Data.Yaml                        as Y
 import           Difficulty
 import qualified FeedBack.Load                    as FB
@@ -47,6 +50,7 @@ import           Image                            (toPNG_XBOX)
 import           JSONData                         (toJSON)
 import           Magma                            (getRBAFile)
 import           MoggDecrypt                      (moggToOgg)
+import qualified Numeric.NonNegative.Class        as NNC
 import           PrettyDTA                        (C3DTAComments (..),
                                                    DTASingle (..),
                                                    readDTASingle, readRB3DTA,
@@ -1155,6 +1159,34 @@ importMagma fin dir = do
     }
 
   return $ if is2x then Has2x else Has1x
+
+bothFirstSecond :: (NNC.C t, Ord a) => RTB.T t a -> RTB.T t a -> (RTB.T t a, RTB.T t a, RTB.T t a)
+bothFirstSecond t1 t2 = let
+  result = fmap eachInstant $ RTB.collectCoincident $ RTB.merge (fmap Left t1) (fmap Right t2)
+  eachInstant es = let
+    xs = Set.fromList $ lefts es
+    ys = Set.fromList $ rights es
+    in  ( Set.toList $ Set.intersection xs ys
+        , Set.toList $ Set.difference xs ys
+        , Set.toList $ Set.difference ys xs
+        )
+  in
+    ( RTB.flatten $ fmap fst3 result
+    , RTB.flatten $ fmap snd3 result
+    , RTB.flatten $ fmap thd3 result
+    )
+
+firstDifference :: (NNC.C t, Ord a) => RTB.T t a -> RTB.T t a -> Maybe t
+firstDifference rtb1 rtb2 = let
+  go !posn n1 n2 = case (RTB.viewL n1, RTB.viewL n2) of
+    (Nothing, Nothing) -> Nothing
+    (Just ((t1, x1), rtb1'), Just ((t2, x2), rtb2'))
+      | t1 /= t2  -> Just $ posn <> min t1 t2
+      | x1 /= x2  -> Just $ posn <> t1
+      | otherwise -> go (posn <> t1) rtb1' rtb2'
+    (Just ((t1, _), _), Nothing) -> Just $ posn <> t1
+    (Nothing, Just ((t2, _), _)) -> Just $ posn <> t2
+  in go NNC.zero (RTB.normalize rtb1) (RTB.normalize rtb2)
 
 extractLeftKicks
   :: RTB.T U.Beats RBDrums.Event

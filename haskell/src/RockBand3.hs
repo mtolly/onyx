@@ -234,12 +234,12 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
 
       guitarPart = either rb3_Guitar ps_Guitar target
       (guitarRB3, guitarPS) = if hasProtarNotFive guitarPart
-        then (\x -> (x, x)) $ protarToGrybo $ ProGtr.pgFromLegacy proGtr
+        then (\x -> (x, x)) $ protarToGrybo proGtr
         else makeGRYBOTrack False guitarPart $ RBFile.getFlexPart guitarPart trks
 
       bassPart = either rb3_Bass ps_Bass target
       (bassRB3, bassPS) = if hasProtarNotFive bassPart
-        then (\x -> (x, x)) $ protarToGrybo $ ProGtr.pgFromLegacy proBass
+        then (\x -> (x, x)) $ protarToGrybo proBass
         else makeGRYBOTrack False bassPart $ RBFile.getFlexPart bassPart trks
 
       rhythmPart = either (const $ RBFile.FlexExtra "undefined") ps_Rhythm target
@@ -270,19 +270,19 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
 
       -- TODO: pgHopoThreshold
       makeProGtrTracks fpart = case getPart fpart songYaml >>= partProGuitar of
-        Nothing -> (RTB.empty, RTB.empty)
+        Nothing -> (mempty, mempty)
         Just pg -> let
           src = RBFile.getFlexPart fpart trks
           tuning = zipWith (+) ProGtr.standardGuitar $ case pgTuning pg of
             []   -> repeat 0
             offs -> offs
-          f = (if pgFixFreeform pg then fixFreeformPG_precodec else id)
+          f = (if pgFixFreeform pg then fixFreeformPG else id) . ProGtr.pgFromLegacy
             . copyExpert . ProGtr.autoHandPosition . ProGtr.autoChordRoot tuning
           src17 = ProGtr.pgToLegacy $ RBFile.onyxPartRealGuitar   src
           src22 = ProGtr.pgToLegacy $ RBFile.onyxPartRealGuitar22 src
           mustang = f $ ProGtr.lowerOctaves 17 $ if RTB.null src17 then src22 else src17
           squier  = f $ ProGtr.lowerOctaves 22 $ if RTB.null src22 then src17 else src22
-          in (mustang, if mustang == squier then RTB.empty else squier)
+          in (mustang, if mustang == squier then mempty else squier)
       (proGtr , proGtr22 ) = makeProGtrTracks guitarPart
       (proBass, proBass22) = makeProGtrTracks bassPart
 
@@ -390,10 +390,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       , RBFile.fixedPartDrums = drumsTrack'
       , RBFile.fixedPartGuitar = guitarRB3
       , RBFile.fixedPartBass = bassRB3
-      , RBFile.fixedPartRealGuitar   = ProGtr.pgFromLegacy proGtr
-      , RBFile.fixedPartRealGuitar22 = ProGtr.pgFromLegacy proGtr22
-      , RBFile.fixedPartRealBass     = ProGtr.pgFromLegacy proBass
-      , RBFile.fixedPartRealBass22   = ProGtr.pgFromLegacy proBass22
+      , RBFile.fixedPartRealGuitar   = proGtr
+      , RBFile.fixedPartRealGuitar22 = proGtr22
+      , RBFile.fixedPartRealBass     = proBass
+      , RBFile.fixedPartRealBass22   = proBass22
       , RBFile.fixedPartKeys = tk
       , RBFile.fixedPartKeysAnimRH = tkRH
       , RBFile.fixedPartKeysAnimLH = tkLH
@@ -419,10 +419,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       , RBFile.fixedPartBassGHL = bassGHL
       , RBFile.fixedPartRhythm = rhythmPS
       , RBFile.fixedPartGuitarCoop = guitarCoopPS
-      , RBFile.fixedPartRealGuitar   = ProGtr.pgFromLegacy proGtr
-      , RBFile.fixedPartRealGuitar22 = ProGtr.pgFromLegacy proGtr22
-      , RBFile.fixedPartRealBass     = ProGtr.pgFromLegacy proBass
-      , RBFile.fixedPartRealBass22   = ProGtr.pgFromLegacy proBass22
+      , RBFile.fixedPartRealGuitar   = proGtr
+      , RBFile.fixedPartRealGuitar22 = proGtr22
+      , RBFile.fixedPartRealBass     = proBass
+      , RBFile.fixedPartRealBass22   = proBass22
       , RBFile.fixedPartKeys = tk
       , RBFile.fixedPartKeysAnimRH = tkRH
       , RBFile.fixedPartKeysAnimLH = tkLH

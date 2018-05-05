@@ -30,7 +30,6 @@ import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
 import           RockBand.Codec.Vocal
 import           RockBand.Common
-import qualified RockBand.Legacy.ProGuitar        as ProGuitar
 import qualified RockBand.Legacy.Vocal            as Vocals
 import qualified Sound.MIDI.File                  as F
 import qualified Sound.MIDI.File.Load             as Load
@@ -213,9 +212,6 @@ fixFreeformPG ft = ft
   { pgTremolo = fixFreeform gems $ pgTremolo ft
   , pgTrill   = fixFreeform gems $ pgTrill   ft
   } where gems = maybe RTB.empty (void . pgNotes) $ Map.lookup Expert $ pgDifficulties ft
-
-fixFreeformPG_precodec :: RTB.T U.Beats ProGuitar.Event -> RTB.T U.Beats ProGuitar.Event
-fixFreeformPG_precodec = ProGuitar.pgToLegacy . fixFreeformPG . ProGuitar.pgFromLegacy
 
 -- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
 --- their last gem note-on.
