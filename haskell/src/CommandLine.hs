@@ -243,14 +243,18 @@ buildTarget yamlPath opts = do
 getMaybePlan :: [OnyxOption] -> Maybe T.Text
 getMaybePlan opts = listToMaybe [ p | OptPlan p <- opts ]
 
-getPlanName :: (SendMessage m, MonadIO m) => FilePath -> [OnyxOption] -> StackTraceT m T.Text
-getPlanName yamlPath opts = case getMaybePlan opts of
+getPlanName :: (SendMessage m, MonadIO m) => Maybe T.Text -> FilePath -> [OnyxOption] -> StackTraceT m T.Text
+getPlanName defaultPlan yamlPath opts = case getMaybePlan opts of
   Just p  -> return p
   Nothing -> do
     songYaml <- loadYaml yamlPath
     case Map.keys $ _plans songYaml of
       [p]   -> return p
-      plans -> fatal $ "No --plan given, and YAML file doesn't have exactly 1 plan: " <> show plans
+      plans -> let
+        err = fatal $ "No --plan given, and YAML file doesn't have exactly 1 plan: " <> show plans
+        in case defaultPlan of
+          Nothing -> err
+          Just p  -> if elem p plans then return p else err
 
 getInputMIDI :: (SendMessage m, MonadIO m) => [FilePath] -> StackTraceT m FilePath
 getInputMIDI files = optionalFile files >>= \case
@@ -363,7 +367,7 @@ commands =
       let isType types (ftype, fpath) = guard (elem ftype types) >> Just fpath
           withSongYaml yamlPath = do
             audioDirs <- withProject yamlPath getAudioDirs
-            planName <- getPlanName yamlPath opts
+            planName <- getPlanName (Just "author") yamlPath opts
             let rpp = "notes-" <> T.unpack planName <> ".RPP"
                 yamlDir = takeDirectory yamlPath
             shakeBuildFiles audioDirs yamlPath [rpp]
@@ -421,7 +425,7 @@ commands =
       in case ftype of
         FileSongYaml -> do
           audioDirs <- withProject fpath getAudioDirs
-          planName <- getPlanName fpath opts
+          planName <- getPlanName (Just "player") fpath opts
           let player = "gen/plan" </> T.unpack planName </> "web"
           shakeBuildFiles audioDirs fpath [player]
           player' <- case [ to | OptTo to <- opts ] of
