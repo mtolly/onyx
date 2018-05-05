@@ -78,26 +78,27 @@ import           X360DotNet                       (rb3pkg)
 fixDoubleSwells :: RBFile.FixedFile U.Beats -> RBFile.FixedFile U.Beats
 fixDoubleSwells ps = let
   fixTrack trk = let
-    (lanes, notLanes) = flip RTB.partitionMaybe trk $ \case
-      RBDrums.SingleRoll b -> Just b
-      _                    -> Nothing
-    notes = flip RTB.mapMaybe trk $ \case
-      RBDrums.DiffEvent Expert (RBDrums.Note gem) | gem /= RBDrums.Kick -> Just gem
-      _                                           -> Nothing
-    lanesAbs = RTB.toAbsoluteEventList 0 $ joinEdgesSimple $ fmap (\b -> (guard b >> Just (), ())) lanes
-    lanesAbs' = ATB.fromPairList $ flip map (ATB.toPairList lanesAbs) $ \(startTime, lane) -> case lane of
-      ((), (), len) -> let
-        shouldBeDouble = case toList $ U.trackTake len $ U.trackDrop startTime notes of
-          g1 : g2 : g3 : g4 : _ | g1 == g3 && g2 == g4 && g1 /= g2 -> True
-          _                     -> False
-        in (startTime,) $ RTB.fromPairList $ if shouldBeDouble
-          then [(0, RBDrums.DoubleRoll True), (len, RBDrums.DoubleRoll False)]
-          else [(0, RBDrums.SingleRoll True), (len, RBDrums.SingleRoll False)]
-    in RTB.merge (U.trackJoin $ RTB.fromAbsoluteEventList lanesAbs') notLanes
+    notes = RTB.filter (/= RBDrums.Kick) $ drumGems $ fromMaybe mempty $ Map.lookup Expert $ drumDifficulties trk
+    lanesAbs = RTB.toAbsoluteEventList 0 $ joinEdgesSimple
+      $ fmap (\b -> (guard b >> Just (), ())) $ drumSingleRoll trk
+    newLanes = U.trackJoin $ RTB.fromAbsoluteEventList $ ATB.fromPairList
+      $ flip map (ATB.toPairList lanesAbs) $ \(startTime, lane) -> case lane of
+        ((), (), len) -> let
+          shouldBeDouble = case toList $ U.trackTake len $ U.trackDrop startTime notes of
+            g1 : g2 : g3 : g4 : _ | g1 == g3 && g2 == g4 && g1 /= g2 -> True
+            _                     -> False
+          in (startTime,) $ RTB.fromPairList $ if shouldBeDouble
+            then [(0, (True, True)), (len, (True, False))]
+            else [(0, (False, True)), (len, (False, False))]
+    in trk
+      { drumSingleRoll = RTB.mapMaybe (\case (False, b) -> Just b; _ -> Nothing) newLanes
+      , drumDoubleRoll = RTB.merge (drumDoubleRoll trk)
+        $ RTB.mapMaybe (\case (True, b) -> Just b; _ -> Nothing) newLanes
+      }
   in ps
-    { RBFile.fixedPartDrums       = RBDrums.drumsFromLegacy $ fixTrack $ RBDrums.drumsToLegacy $ RBFile.fixedPartDrums       ps
-    , RBFile.fixedPartDrums2x     = RBDrums.drumsFromLegacy $ fixTrack $ RBDrums.drumsToLegacy $ RBFile.fixedPartDrums2x     ps
-    , RBFile.fixedPartRealDrumsPS = RBDrums.drumsFromLegacy $ fixTrack $ RBDrums.drumsToLegacy $ RBFile.fixedPartRealDrumsPS ps
+    { RBFile.fixedPartDrums       = fixTrack $ RBFile.fixedPartDrums       ps
+    , RBFile.fixedPartDrums2x     = fixTrack $ RBFile.fixedPartDrums2x     ps
+    , RBFile.fixedPartRealDrumsPS = fixTrack $ RBFile.fixedPartRealDrumsPS ps
     }
 
 importFoF :: (SendMessage m, MonadIO m) => Bool -> Bool -> FilePath -> FilePath -> StackTraceT m HasKicks

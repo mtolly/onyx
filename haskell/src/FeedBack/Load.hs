@@ -13,8 +13,9 @@ import           Data.Either                      (isLeft)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Fixed (..), Milli)
-import qualified Data.HashMap.Strict              as Map
+import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (partition, sort)
+import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
 import           Data.Monoid                      (mconcat, (<>))
 import qualified Data.Text                        as T
@@ -29,12 +30,10 @@ import qualified Numeric.NonNegative.Class        as NNC
 import qualified Numeric.NonNegative.Wrapper      as NN
 import           RockBand.Codec.Events
 import           RockBand.Codec.File
+import           RockBand.Codec.Five
+import           RockBand.Codec.Six
 import           RockBand.Common                  (Difficulty (..),
-                                                   LongNote (..),
-                                                   StrumHOPOTap (..),
-                                                   splitEdges)
-import qualified RockBand.Legacy.Five             as Five
-import qualified RockBand.Legacy.Six              as GHL
+                                                   StrumHOPOTap (..))
 import           RockBand.Sections                (makeRB2Section)
 import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
@@ -44,8 +43,8 @@ atomStr (Str  s) = s
 atomStr (Int  i) = T.pack $ show i
 atomStr (Real r) = T.pack $ show (realToFrac r :: Milli)
 
-parseSong :: (Monad m) => RawLines -> StackTraceT m (Map.HashMap T.Text Atom)
-parseSong lns = fmap Map.fromList $ forM lns $ \(k, vs) -> do
+parseSong :: (Monad m) => RawLines -> StackTraceT m (HM.HashMap T.Text Atom)
+parseSong lns = fmap HM.fromList $ forM lns $ \(k, vs) -> do
   let key = atomStr k
       val = case vs of
         [atom] -> atom
@@ -83,14 +82,14 @@ parseChart :: (Monad m) => [RawSection] -> StackTraceT m (Chart Ticks)
 parseChart sects = do
   let (songs, notSongs) = partition (("Song" ==) . fst) sects
   song <- mconcat <$> mapM (parseSong . snd) songs
-  trks <- fmap Map.fromList $ forM notSongs $ \(name, lns) -> do
+  trks <- fmap HM.fromList $ forM notSongs $ \(name, lns) -> do
     inside (".chart track [" <> T.unpack name <> "]") $ do
       trk <- parseTrack lns
       return (name, trk)
   return $ Chart song trks
 
 chartResolution :: Chart t -> Integer
-chartResolution chart = case Map.lookup "Resolution" $ chartSong chart of
+chartResolution chart = case HM.lookup "Resolution" $ chartSong chart of
   Just (Int n) -> n
   _            -> 192
 
@@ -109,7 +108,7 @@ getTempos
   = U.tempoMapFromBPS
   . RTB.mapMaybe (\case BPM bpm -> Just (realToFrac bpm / 60 :: U.BPS); _ -> Nothing)
   . fromMaybe RTB.empty
-  . Map.lookup "SyncTrack"
+  . HM.lookup "SyncTrack"
   . chartTracks
 
 getSignatures :: Chart U.Beats -> U.MeasureMap
@@ -123,19 +122,19 @@ getSignatures
       _ -> Nothing
     )
   . fromMaybe RTB.empty
-  . Map.lookup "SyncTrack"
+  . HM.lookup "SyncTrack"
   . chartTracks
 
 chartToIni :: Chart t -> FoF.Song
 chartToIni chart = def
-  { FoF.name = Map.lookup "Name" song >>= atomStr'
-  , FoF.artist = Map.lookup "Artist" song >>= atomStr'
-  , FoF.charter = Map.lookup "Charter" song >>= atomStr'
-  , FoF.year = Map.lookup "Year" song >>= \case
+  { FoF.name = HM.lookup "Name" song >>= atomStr'
+  , FoF.artist = HM.lookup "Artist" song >>= atomStr'
+  , FoF.charter = HM.lookup "Charter" song >>= atomStr'
+  , FoF.year = HM.lookup "Year" song >>= \case
     Int i -> Just $ fromIntegral i
     Str s -> T.stripPrefix ", " s >>= readMaybe . T.unpack
     Real r -> Just $ floor r
-  , FoF.delay = fmap (floor . (* 1000)) $ Map.lookup "Offset" song >>= atomReal
+  , FoF.delay = fmap (floor . (* 1000)) $ HM.lookup "Offset" song >>= atomReal
   -- could also get PreviewStart, PreviewEnd, Genre
   } where song = chartSong chart
           atomStr' x = case atomStr x of
@@ -182,25 +181,25 @@ data TrackEvent t a
   | TrackSolo Bool
   deriving (Eq, Ord, Show, Read)
 
-emitTrack :: (NNC.C t, Ord a) => t -> RTB.T t (TrackEvent t a) -> RTB.T t (LongNote StrumHOPOTap a)
+emitTrack :: (NNC.C t, Ord a) => t -> RTB.T t (TrackEvent t a) -> RTB.T t ((a, StrumHOPOTap), Maybe t)
 emitTrack hopoThreshold trk = let
-  gnotes = fmap G.Note $ splitEdges $ flip RTB.mapMaybe trk $ \case
-    TrackNote x len -> Just ((), x, guard (len /= NNC.zero) >> Just len)
+  gnotes = flip RTB.mapMaybe trk $ \case
+    TrackNote x len -> Just (x, guard (len /= NNC.zero) >> Just len)
     _               -> Nothing
-  gh = G.strumHOPOTap G.HOPOsGH3 hopoThreshold gnotes
+  gh = G.strumHOPOTap' G.HOPOsGH3 hopoThreshold gnotes
   forces = RTB.mapMaybe (\case TrackForce t -> Just t; _ -> Nothing) trk
   taps   = RTB.mapMaybe (\case TrackTap   t -> Just t; _ -> Nothing) trk
   applied = applyChartSwitch forces $ applyChartSwitch taps gh
   flipSH Strum = HOPO
   flipSH HOPO  = Strum
   flipSH Tap   = Tap
-  in flip fmap applied $ \(forced, (tap, ln)) ->
-    first (if tap then const Tap else if forced then flipSH else id) ln
+  in flip fmap applied $ \(forced, (tap, ((color, sht), len))) ->
+    ((color, if tap then Tap else if forced then flipSH sht else sht), len)
 
 chartToMIDI :: (SendMessage m) => Chart U.Beats -> StackTraceT m (Song (FixedFile U.Beats))
 chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
   let insideTrack name fn = inside (".chart track [" <> T.unpack name <> "]") $ do
-        fn $ fromMaybe RTB.empty $ Map.lookup name $ chartTracks chart
+        fn $ fromMaybe RTB.empty $ HM.lookup name $ chartTracks chart
       res = fromIntegral $ chartResolution chart
       insideEvents trk f = flip traverseWithAbsTime trk $ \t x -> do
         inside ("ticks: " <> show (round $ t * res :: Integer)) $ do
@@ -232,64 +231,67 @@ chartToMIDI chart = Song (getTempos chart) (getSignatures chart) <$> do
               else                                 RTB.cons dt       x $ go True rtb'
             _ -> RTB.cons dt x $ go b rtb'
         in go False . RTB.normalize
-      parseGRYBO label = foldr RTB.merge RTB.empty <$> do
-        forM [Easy, Medium, Hard, Expert] $ \diff -> do
+      lengthToBools t = RTB.fromPairList [(0, True), (t, False)]
+      parseGRYBO label = do
+        diffs <- fmap Map.fromList $ forM [Easy, Medium, Hard, Expert] $ \diff -> do
           parsed <- insideTrack (T.pack (show diff) <> label) $ \trk -> do
             fmap RTB.catMaybes $ insideEvents trk $ \evt -> do
               eachEvent evt $ \n len -> case n of
-                0 -> return $ Just $ TrackNote (Just Five.Green ) len
-                1 -> return $ Just $ TrackNote (Just Five.Red   ) len
-                2 -> return $ Just $ TrackNote (Just Five.Yellow) len
-                3 -> return $ Just $ TrackNote (Just Five.Blue  ) len
-                4 -> return $ Just $ TrackNote (Just Five.Orange) len
+                0 -> return $ Just $ TrackNote (Just Green ) len
+                1 -> return $ Just $ TrackNote (Just Red   ) len
+                2 -> return $ Just $ TrackNote (Just Yellow) len
+                3 -> return $ Just $ TrackNote (Just Blue  ) len
+                4 -> return $ Just $ TrackNote (Just Orange) len
                 5 -> return $ Just $ TrackForce len
                 6 -> return $ Just $ TrackTap len
                 7 -> return $ Just $ TrackNote Nothing len
                 _ -> do
                   warn $ "Unrecognized note type: N " <> show n <> " " <> show len
                   return Nothing
-          return $ RTB.merge
-            (fmap (Five.DiffEvent diff) $ G.emit5 $ emitTrack hopoThreshold parsed)
-            $ case diff of
-              Expert -> U.trackJoin $ flip fmap (fixBackToBackSolos parsed) $ \case
-                TrackP1 t -> RTB.fromPairList [(0, Five.Player1   True), (t, Five.Player1   False)]
-                TrackP2 t -> RTB.fromPairList [(0, Five.Player2   True), (t, Five.Player2   False)]
-                TrackOD t -> RTB.fromPairList [(0, Five.Overdrive True), (t, Five.Overdrive False)]
-                TrackSolo b -> RTB.singleton 0 $ Five.Solo b
-                _ -> RTB.empty
-              _ -> RTB.empty
-      parseGHL label = foldr RTB.merge RTB.empty <$> do
-        forM [Easy, Medium, Hard, Expert] $ \diff -> do
+          return (diff, parsed)
+        let expert = fixBackToBackSolos $ fromMaybe RTB.empty $ Map.lookup Expert diffs
+        return mempty
+          { fiveOverdrive = U.trackJoin $ flip fmap expert
+            $ \case TrackOD t -> lengthToBools t; _ -> RTB.empty
+          , fiveSolo = flip RTB.mapMaybe expert
+            $ \case TrackSolo b -> Just b; _ -> Nothing
+          , fivePlayer1 = U.trackJoin $ flip fmap expert
+            $ \case TrackP1 t -> lengthToBools t; _ -> RTB.empty
+          , fivePlayer2 = U.trackJoin $ flip fmap expert
+            $ \case TrackP2 t -> lengthToBools t; _ -> RTB.empty
+          , fiveDifficulties = G.emit5' . emitTrack hopoThreshold <$> diffs
+          }
+      parseGHL label = do
+        diffs <- fmap Map.fromList $ forM [Easy, Medium, Hard, Expert] $ \diff -> do
           parsed <- insideTrack (T.pack (show diff) <> label) $ \trk -> do
             fmap RTB.catMaybes $ insideEvents trk $ \evt -> do
               eachEvent evt $ \n len -> case n of
-                0 -> return $ Just $ TrackNote (Just GHL.White1) len
-                1 -> return $ Just $ TrackNote (Just GHL.White2) len
-                2 -> return $ Just $ TrackNote (Just GHL.White3) len
-                3 -> return $ Just $ TrackNote (Just GHL.Black1) len
-                4 -> return $ Just $ TrackNote (Just GHL.Black2) len
+                0 -> return $ Just $ TrackNote (Just White1) len
+                1 -> return $ Just $ TrackNote (Just White2) len
+                2 -> return $ Just $ TrackNote (Just White3) len
+                3 -> return $ Just $ TrackNote (Just Black1) len
+                4 -> return $ Just $ TrackNote (Just Black2) len
                 5 -> return $ Just $ TrackForce len
                 6 -> return $ Just $ TrackTap len
                 7 -> return $ Just $ TrackNote Nothing len
-                8 -> return $ Just $ TrackNote (Just GHL.Black3) len
+                8 -> return $ Just $ TrackNote (Just Black3) len
                 _ -> do
                   warn $ "Unrecognized note type: N " <> show n <> " " <> show len
                   return Nothing
-          return $ RTB.merge
-            (fmap (GHL.DiffEvent diff) $ G.emit6 $ emitTrack hopoThreshold parsed)
-            $ case diff of
-              Expert -> U.trackJoin $ flip fmap (fixBackToBackSolos parsed) $ \case
-                TrackP1 _ -> RTB.empty
-                TrackP2 _ -> RTB.empty
-                TrackOD t -> RTB.fromPairList [(0, GHL.Overdrive True), (t, GHL.Overdrive False)]
-                TrackSolo b -> RTB.singleton 0 $ GHL.Solo b
-                _ -> RTB.empty
-              _ -> RTB.empty
-  fixedPartGuitar       <- Five.fiveFromLegacy <$> parseGRYBO "Single" -- ExpertSingle etc.
-  fixedPartGuitarGHL    <- GHL.sixFromLegacy <$> parseGHL "GHLGuitar" -- ExpertGHLGuitar etc.
-  fixedPartBass         <- Five.fiveFromLegacy <$> parseGRYBO "DoubleBass" -- ExpertDoubleBass etc.
-  fixedPartBassGHL      <- GHL.sixFromLegacy <$> parseGHL "GHLBass" -- ExpertGHLBass etc.
-  fixedPartKeys         <- Five.fiveFromLegacy <$> parseGRYBO "Keyboard" -- ExpertKeyboard etc.
+          return (diff, parsed)
+        let expert = fixBackToBackSolos $ fromMaybe RTB.empty $ Map.lookup Expert diffs
+        return (mempty :: SixTrack U.Beats)
+          { sixOverdrive = U.trackJoin $ flip fmap expert
+            $ \case TrackOD t -> lengthToBools t; _ -> RTB.empty
+          , sixSolo = flip RTB.mapMaybe expert
+            $ \case TrackSolo b -> Just b; _ -> Nothing
+          , sixDifficulties = G.emit6' . emitTrack hopoThreshold <$> diffs
+          }
+  fixedPartGuitar       <- parseGRYBO "Single" -- ExpertSingle etc.
+  fixedPartGuitarGHL    <- parseGHL "GHLGuitar" -- ExpertGHLGuitar etc.
+  fixedPartBass         <- parseGRYBO "DoubleBass" -- ExpertDoubleBass etc.
+  fixedPartBassGHL      <- parseGHL "GHLBass" -- ExpertGHLBass etc.
+  fixedPartKeys         <- parseGRYBO "Keyboard" -- ExpertKeyboard etc.
   fixedPartRhythm       <- return mempty -- ExpertDoubleBass when Player2 = rhythm ???
   fixedPartGuitarCoop   <- return mempty -- ExpertDoubleGuitar ???
   fixedEvents           <- insideTrack "Events" $ \trk -> return mempty
