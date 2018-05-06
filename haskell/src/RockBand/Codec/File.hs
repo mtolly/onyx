@@ -6,27 +6,28 @@
 {-# LANGUAGE RecordWildCards   #-}
 module RockBand.Codec.File where
 
-import           Control.Monad                    (forM, forM_, (>=>))
+import           Control.Monad                     (forM, forM_, (>=>))
 import           Control.Monad.Codec
-import           Control.Monad.Trans.Class        (lift)
+import           Control.Monad.Trans.Class         (lift)
 import           Control.Monad.Trans.StackTrace
-import           Control.Monad.Trans.State        (StateT, execState, get, put,
-                                                   runStateT)
-import           Control.Monad.Trans.Writer       (Writer, execWriter, tell)
-import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Foldable                    (toList)
-import           Data.Functor.Identity            (Identity)
-import           Data.Hashable                    (Hashable (..))
-import           Data.List.Extra                  (isInfixOf, nubOrd, partition,
-                                                   sortOn, stripPrefix)
-import qualified Data.Map                         as Map
-import           Data.Maybe                       (catMaybes, fromJust,
-                                                   fromMaybe, isNothing,
-                                                   mapMaybe)
-import           Data.Monoid                      ((<>))
-import qualified Data.Text                        as T
-import           MelodysEscape                    (MelodyTrack)
-import qualified Numeric.NonNegative.Class        as NNC
+import           Control.Monad.Trans.State.Strict  (StateT, execState, get, put,
+                                                    runStateT)
+import           Control.Monad.Trans.Writer.Strict (Writer, execWriter, tell)
+import qualified Data.EventList.Relative.TimeBody  as RTB
+import           Data.Foldable                     (toList)
+import           Data.Functor.Identity             (Identity)
+import           Data.Hashable                     (Hashable (..))
+import           Data.List.Extra                   (isInfixOf, nubOrd,
+                                                    partition, sortOn,
+                                                    stripPrefix)
+import qualified Data.Map                          as Map
+import           Data.Maybe                        (catMaybes, fromJust,
+                                                    fromMaybe, isNothing,
+                                                    mapMaybe)
+import           Data.Monoid                       ((<>))
+import qualified Data.Text                         as T
+import           MelodysEscape                     (MelodyTrack)
+import qualified Numeric.NonNegative.Class         as NNC
 import           RockBand.Codec
 import           RockBand.Codec.Beat
 import           RockBand.Codec.Drums
@@ -39,10 +40,10 @@ import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal
 import           RockBand.Common
 import           RockBand.PhaseShiftMessage
-import qualified Sound.MIDI.File                  as F
-import qualified Sound.MIDI.File.Event            as E
-import qualified Sound.MIDI.File.Event.Meta       as Meta
-import qualified Sound.MIDI.Util                  as U
+import qualified Sound.MIDI.File                   as F
+import qualified Sound.MIDI.File.Event             as E
+import qualified Sound.MIDI.File.Event.Meta        as Meta
+import qualified Sound.MIDI.Util                   as U
 
 type FileParser m t = StackTraceT (StateT [RTB.T t E.T] m)
 type FileBuilder t = Writer [RTB.T t E.T]

@@ -32,30 +32,32 @@ module Control.Monad.Trans.StackTrace
 ) where
 
 import           Control.Applicative
-import qualified Control.Exception            as Exc
+import qualified Control.Exception                as Exc
 import           Control.Monad
-import           Control.Monad.Base           (MonadBase (..))
-import           Control.Monad.Catch          (MonadThrow (..))
-import           Control.Monad.Except         (MonadError (..))
+import           Control.Monad.Base               (MonadBase (..))
+import           Control.Monad.Catch              (MonadThrow (..))
+import           Control.Monad.Except             (MonadError (..))
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Control  (ComposeSt, MonadBaseControl (..),
-                                               MonadTransControl (..),
-                                               defaultLiftBaseWith,
-                                               defaultRestoreM)
+import           Control.Monad.Trans.Control      (ComposeSt,
+                                                   MonadBaseControl (..),
+                                                   MonadTransControl (..),
+                                                   defaultLiftBaseWith,
+                                                   defaultRestoreM)
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
-import           Control.Monad.Trans.State    (StateT)
+import           Control.Monad.Trans.State.Lazy   as SL
+import           Control.Monad.Trans.State.Strict as SS
 import           Control.Monad.Trans.Writer
-import qualified Data.ByteString.Char8        as B8
-import           Data.Functor.Identity        (Identity)
-import qualified Development.Shake            as Shake
-import qualified System.Directory             as Dir
-import           System.Exit                  (ExitCode (..))
-import           System.IO.Temp               (createTempDirectory)
-import           System.Process               (CreateProcess)
-import           System.Process.ByteString    (readCreateProcessWithExitCode)
+import qualified Data.ByteString.Char8            as B8
+import           Data.Functor.Identity            (Identity)
+import qualified Development.Shake                as Shake
+import qualified System.Directory                 as Dir
+import           System.Exit                      (ExitCode (..))
+import           System.IO.Temp                   (createTempDirectory)
+import           System.Process                   (CreateProcess)
+import           System.Process.ByteString        (readCreateProcessWithExitCode)
 
 -- | This can represent an error (required input was not found) or a warning
 -- (given input was not completely recognized).
@@ -137,10 +139,11 @@ instance (MonadIO m) => SendMessage (QueueLog m) where
 liftMessage :: (MonadTrans t, SendMessage m) => MessageLevel -> Message -> t m ()
 liftMessage lvl msg = lift $ sendMessage lvl msg
 
-instance (SendMessage m)           => SendMessage (ReaderT r m) where sendMessage = liftMessage
-instance (SendMessage m, Monoid w) => SendMessage (WriterT w m) where sendMessage = liftMessage
-instance (SendMessage m)           => SendMessage (StateT  s m) where sendMessage = liftMessage
-instance (SendMessage m)           => SendMessage (ResourceT m) where sendMessage = liftMessage
+instance (SendMessage m)           => SendMessage (ReaderT   r m) where sendMessage = liftMessage
+instance (SendMessage m, Monoid w) => SendMessage (WriterT   w m) where sendMessage = liftMessage
+instance (SendMessage m)           => SendMessage (SL.StateT s m) where sendMessage = liftMessage
+instance (SendMessage m)           => SendMessage (SS.StateT s m) where sendMessage = liftMessage
+instance (SendMessage m)           => SendMessage (ResourceT   m) where sendMessage = liftMessage
 
 newtype StackTraceT m a = StackTraceT
   { fromStackTraceT :: ExceptT Messages (ReaderT [String] m) a

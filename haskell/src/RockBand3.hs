@@ -7,33 +7,33 @@ module RockBand3 (processRB3Pad, processPS, findProblems, TrackAdjust(..), magma
 import           Config
 import           Control.Monad.Extra
 import           Control.Monad.Trans.StackTrace
-import           Control.Monad.Trans.Writer       (execWriter, tell)
-import qualified Data.EventList.Absolute.TimeBody as ATB
-import qualified Data.EventList.Relative.TimeBody as RTB
-import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, isJust)
+import           Control.Monad.Trans.Writer.Strict (execWriter, tell)
+import qualified Data.EventList.Absolute.TimeBody  as ATB
+import qualified Data.EventList.Relative.TimeBody  as RTB
+import qualified Data.Map                          as Map
+import           Data.Maybe                        (fromMaybe, isJust)
 import           Guitars
 import           OneFoot
-import           Overdrive                        (fixBrokenUnisons)
+import           Overdrive                         (fixBrokenUnisons)
 import           ProKeysRanges
 import           Reductions
-import           RockBand.Codec                   (mapTrack)
+import           RockBand.Codec                    (mapTrack)
 import           RockBand.Codec.Beat
-import           RockBand.Codec.Drums             as RBDrums
+import           RockBand.Codec.Drums              as RBDrums
 import           RockBand.Codec.Events
-import qualified RockBand.Codec.File              as RBFile
+import qualified RockBand.Codec.File               as RBFile
 import           RockBand.Codec.Five
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
 import           RockBand.Codec.Six
-import           RockBand.Codec.Venue             (compileVenueRB3)
+import           RockBand.Codec.Venue              (compileVenueRB3)
 import           RockBand.Codec.Vocal
 import           RockBand.Common
-import qualified RockBand.Legacy.ProGuitar        as ProGtr
-import qualified RockBand.Legacy.Vocal            as RBVox
-import           RockBand.Sections                (makePSSection)
+import qualified RockBand.Legacy.ProGuitar         as ProGtr
+import qualified RockBand.Legacy.Vocal             as RBVox
+import           RockBand.Sections                 (makePSSection)
 import           Scripts
-import qualified Sound.MIDI.Util                  as U
+import qualified Sound.MIDI.Util                   as U
 
 processRB3Pad
   :: TargetRB3

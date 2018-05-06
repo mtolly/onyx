@@ -6,7 +6,7 @@ module RockBand.Codec.Five where
 import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
-import           Control.Monad.Trans.State        (modify)
+import           Control.Monad.Trans.State.Strict (modify)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map

@@ -9,29 +9,29 @@ module PrettyDTA where
 
 import           Config
 
-import           Control.Monad.IO.Class         (MonadIO (liftIO))
+import           Control.Monad.IO.Class            (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
-import           Control.Monad.Trans.Writer
-import qualified Data.ByteString                as B
-import qualified Data.ByteString.Char8          as B8
-import           Data.Char                      (isSpace)
-import qualified Data.DTA                       as D
+import           Control.Monad.Trans.Writer.Strict
+import qualified Data.ByteString                   as B
+import qualified Data.ByteString.Char8             as B8
+import           Data.Char                         (isSpace)
+import qualified Data.DTA                          as D
 import           Data.DTA.Serialize
-import qualified Data.DTA.Serialize.RB3         as D
-import           Data.Foldable                  (forM_)
-import qualified Data.HashMap.Strict            as Map
-import           Data.List                      (stripPrefix)
-import           Data.List.HT                   (partitionMaybe)
-import           Data.List.Split                (splitOn)
-import           Data.Maybe                     (fromMaybe, listToMaybe,
-                                                 mapMaybe)
-import           Data.Monoid                    ((<>))
-import qualified Data.Text                      as T
-import qualified Data.Text.Encoding             as TE
-import           JSONData                       (makeValue)
-import           Resources                      (missingSongData)
-import           System.IO.Extra                (latin1, readFileEncoding',
-                                                 utf8)
+import qualified Data.DTA.Serialize.RB3            as D
+import           Data.Foldable                     (forM_)
+import qualified Data.HashMap.Strict               as Map
+import           Data.List                         (stripPrefix)
+import           Data.List.HT                      (partitionMaybe)
+import           Data.List.Split                   (splitOn)
+import           Data.Maybe                        (fromMaybe, listToMaybe,
+                                                    mapMaybe)
+import           Data.Monoid                       ((<>))
+import qualified Data.Text                         as T
+import qualified Data.Text.Encoding                as TE
+import           JSONData                          (makeValue)
+import           Resources                         (missingSongData)
+import           System.IO.Extra                   (latin1, readFileEncoding',
+                                                    utf8)
 
 writeUtf8CRLF :: (MonadIO m) => FilePath -> T.Text -> m ()
 writeUtf8CRLF fp = liftIO . B.writeFile fp . TE.encodeUtf8

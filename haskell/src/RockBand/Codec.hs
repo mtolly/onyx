@@ -10,8 +10,8 @@ import           Control.Monad                    (forM, guard, void, (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.StackTrace
-import           Control.Monad.Trans.State        (State, StateT, execState,
-                                                   get, modify, put)
+import           Control.Monad.Trans.State.Strict (State, StateT, execState,
+                                                   get, modify', put)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import           Data.Functor.Identity            (Identity (..))
@@ -36,14 +36,23 @@ type TrackCodec m t a = Codec (TrackParser m t) (TrackBuilder t) a
 type TrackEvent m t a = TrackCodec m t (RTB.T t a)
 
 makeTrackBuilder :: (NNC.C t) => (c -> RTB.T t E.T) -> (c -> TrackBuilder t c)
-makeTrackBuilder f = fmapArg $ modify . RTB.merge . f
+makeTrackBuilder f = fmapArg $ \xs -> modify' $ \ys -> let
+  ys' = RTB.merge ys $ f xs
+  in seq (forceTrackSpine ys') ys'
 
 runTrackBuilder :: (c -> TrackBuilder t c) -> (c -> RTB.T t E.T)
 runTrackBuilder f = (`execState` RTB.empty) . f
 
+-- | Forces the spine of the event list, and WHNFs the times and events.
+forceTrackSpine :: RTB.T t a -> ()
+forceTrackSpine rtb = case RTB.viewL rtb of
+  Nothing              -> ()
+  Just ((dt, x), rtb') -> seq dt $ seq x $ forceTrackSpine rtb'
+
 slurpTrack :: (Monad m) => (RTB.T t a -> (RTB.T t b, RTB.T t a)) -> StackTraceT (StateT (RTB.T t a) m) (RTB.T t b)
 slurpTrack f = lift $ do
   (slurp, leave) <- f <$> get
+  seq (forceTrackSpine slurp) $ seq (forceTrackSpine leave) $ return ()
   put leave
   return slurp
 
