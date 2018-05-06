@@ -55,6 +55,16 @@ processPS
   -> Staction (RBFile.Song (RBFile.FixedFile U.Beats))
 processPS a b c d e = fmap (fmap snd) $ processMIDI (Right a) b c d e
 
+-- | Magma gets mad if you put an event like [idle_realtime] before 2 beats in.
+-- But lots of Harmonix charts do this...
+noEarlyMood :: RTB.T U.Beats Mood -> RTB.T U.Beats Mood
+noEarlyMood rtb = case U.trackSplit 2 rtb of
+  (early, later) -> case RTB.viewR early of
+    Nothing          -> rtb -- no problem
+    Just (_, (_, x)) -> case U.trackTakeZero later of
+      []    -> RTB.cons 2 x later -- take the last mood before beat 2 and place it at 2
+      _ : _ -> RTB.delay 2 later -- just drop early moods since a new one gets set at 2
+
 processMIDI
   :: Either TargetRB3 TargetPS
   -> SongYaml
@@ -223,7 +233,8 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             . strumHOPOTap' algo (fromIntegral ht / 480)
             . openNotes'
             $ fd
-          in (forRB3 track, forPS track)
+          fixFiveMood x = x { fiveMood = noEarlyMood $ fiveMood x }
+          in (fixFiveMood $ forRB3 track, fixFiveMood $ forPS track)
 
       hasProtarNotFive partName = case getPart partName songYaml of
         Just part -> case (partGRYBO part, partProGuitar part) of
@@ -309,6 +320,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             keysHard   = completeRanges $ keysDiff Hard   `orIfNull` pkReduce Hard   mmap keysOD keysExpert
             keysMedium = completeRanges $ keysDiff Medium `orIfNull` pkReduce Medium mmap keysOD keysHard
             keysEasy   = completeRanges $ keysDiff Easy   `orIfNull` pkReduce Easy   mmap keysOD keysMedium
+            fixPKMood x = x { pkMood = noEarlyMood $ pkMood x }
             keysOD = pkOverdrive keysExpert
             originalRH = RBFile.onyxPartKeysAnimRH fpart
             originalLH = RBFile.onyxPartKeysAnimLH fpart
@@ -335,10 +347,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             in  ( ffBasic $ removeGtrStuff basicKeys
                 , animRH
                 , animLH
-                , ffPro $ fixPSRange keysExpert
-                ,         fixPSRange keysHard
-                ,         fixPSRange keysMedium
-                ,         fixPSRange keysEasy
+                , ffPro $ fixPSRange $ fixPKMood keysExpert
+                ,         fixPSRange $ fixPKMood keysHard
+                ,         fixPSRange $ fixPKMood keysMedium
+                ,         fixPSRange $ fixPKMood keysEasy
                 )
 
       vocalPart = either rb3_Vocal ps_Vocal target
@@ -353,6 +365,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
               harm1   = RBFile.onyxHarm1 $ RBFile.getFlexPart vocalPart trks
               harm2   = RBFile.onyxHarm2 $ RBFile.getFlexPart vocalPart trks
               harm3   = RBFile.onyxHarm3 $ RBFile.getFlexPart vocalPart trks
+      trkVox'   = trkVox   { vocalMood = noEarlyMood $ vocalMood trkVox   }
+      trkHarm1' = trkHarm1 { vocalMood = noEarlyMood $ vocalMood trkHarm1 }
+      trkHarm2' = trkHarm2 { vocalMood = noEarlyMood $ vocalMood trkHarm2 }
+      trkHarm3' = trkHarm3 { vocalMood = noEarlyMood $ vocalMood trkHarm3 }
 
   drumsTrack' <- let
     fills = RTB.normalize $ drumActivation drumsTrack
@@ -368,7 +384,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
     in do
       when (fills /= fixedFills) $ warn
         "Removing some drum fills because they are too close (within 2.5 seconds)"
-      return drumsTrack { drumActivation = fixedFills }
+      return drumsTrack { drumActivation = fixedFills, drumMood = noEarlyMood $ drumMood drumsTrack }
 
   -- remove tempo and time signature events on or after [end].
   -- found in some of bluzer's RB->PS converts. magma complains
@@ -400,10 +416,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       , RBFile.fixedPartRealKeysM = tpkM
       , RBFile.fixedPartRealKeysH = tpkH
       , RBFile.fixedPartRealKeysX = tpkX
-      , RBFile.fixedPartVocals = trkVox
-      , RBFile.fixedHarm1 = trkHarm1
-      , RBFile.fixedHarm2 = trkHarm2
-      , RBFile.fixedHarm3 = trkHarm3
+      , RBFile.fixedPartVocals = trkVox'
+      , RBFile.fixedHarm1 = trkHarm1'
+      , RBFile.fixedHarm2 = trkHarm2'
+      , RBFile.fixedHarm3 = trkHarm3'
       }
     , RBFile.FixedFile
       { RBFile.fixedBeat = beatTrack
@@ -429,10 +445,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       , RBFile.fixedPartRealKeysM = tpkM
       , RBFile.fixedPartRealKeysH = tpkH
       , RBFile.fixedPartRealKeysX = tpkX
-      , RBFile.fixedPartVocals = asciiLyrics trkVox
-      , RBFile.fixedHarm1 = asciiLyrics trkHarm1
-      , RBFile.fixedHarm2 = asciiLyrics trkHarm2
-      , RBFile.fixedHarm3 = asciiLyrics trkHarm3
+      , RBFile.fixedPartVocals = asciiLyrics trkVox'
+      , RBFile.fixedHarm1 = asciiLyrics trkHarm1'
+      , RBFile.fixedHarm2 = asciiLyrics trkHarm2'
+      , RBFile.fixedHarm3 = asciiLyrics trkHarm3'
       }
     )
 
