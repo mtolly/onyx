@@ -1215,6 +1215,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                       , Magma.metadata = (Magma.metadata $ Magma.project p)
                         { Magma.genre = rbn1Genre fullGenre
                         , Magma.subGenre = "subgenre_" <> rbn1Subgenre fullGenre
+                        , Magma.author = T.strip $ T.take 75 $ Magma.author $ Magma.metadata $ Magma.project p
                         }
                       , Magma.gamedata = (Magma.gamedata $ Magma.project p)
                         { Magma.previewStartMs = 0 -- for dummy audio. will reset after magma
@@ -1318,7 +1319,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                               , D.tuningOffsetCents = D.tuningOffsetCents rb3DTA
                               , D.context = Just 2000
                               , D.gameOrigin = Just "rb2"
-                              , D.ugc = Nothing
+                              , D.ugc = Just True
                               , D.albumName = D.albumName rb3DTA
                               , D.albumTrackNumber = D.albumTrackNumber rb3DTA
                               , D.packName = D.packName rb3DTA
