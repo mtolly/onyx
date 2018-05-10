@@ -3,7 +3,6 @@ all drums + rough draft of pro guitar/bass done!
 remaining tasks:
 - protar polish: check all slides, chord names
 - get gtr/bass for dancing machines from entombment, make no-open versions
-- bass for TFS + no-open version
 - pro keys:
   - further side started
   - dancing machines almost done
