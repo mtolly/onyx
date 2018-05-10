@@ -30,6 +30,7 @@ parts:
     pro-guitar:
       tuning: [0, 0, 0, 0, 0, 0] # 7 string modified to 6 string
   bass:
+    grybo: {} # WIP
     pro-guitar:
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
 targets:
