@@ -157,6 +157,11 @@ getPlan (Just p) songYaml = case HM.lookup p $ _plans songYaml of
   Just found -> Just (p, found)
   Nothing    -> Nothing
 
+forceRW :: (MonadIO m) => FilePath -> StackTraceT m ()
+forceRW f = stackIO $ do
+  p <- Dir.getPermissions f
+  Dir.setPermissions f $ Dir.setOwnerReadable True $ Dir.setOwnerWritable True p
+
 makeRB3DTA :: (Monad m) => SongYaml -> Plan -> TargetRB3 -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m D.SongPackage
 makeRB3DTA songYaml plan rb3 song filename = do
   ((kickPV, snarePV, kitPV), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
@@ -648,7 +653,9 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
       "gen/cover.bmp" %> \out -> loadRGB8 >>= stackIO . writeBitmap out . STBIR.resize STBIR.defaultOptions 256 256
       "gen/cover.png" %> \out -> loadRGB8 >>= stackIO . writePng    out . STBIR.resize STBIR.defaultOptions 256 256
       "gen/cover.png_xbox" %> \out -> case _fileAlbumArt $ _metadata songYaml of
-        Just f | takeExtension f == ".png_xbox" -> shk $ copyFile' f out
+        Just f | takeExtension f == ".png_xbox" -> do
+          shk $ copyFile' f out
+          forceRW out
         _      -> loadRGB8 >>= stackIO . BL.writeFile out . toPNG_XBOX
 
       "gen/notes.mid" %> \out -> shk $ do
@@ -1117,7 +1124,9 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             pathPng  %> shk . copyFile' "gen/cover.png_xbox"
             pathMilo %> \out -> case rb3_FileMilo rb3 of
               Nothing   -> liftIO $ B.writeFile out emptyMilo
-              Just milo -> shk $ copyFile' milo out
+              Just milo -> do
+                shk $ copyFile' milo out
+                forceRW out
             pathCon %> \out -> do
               shk $ need [pathDta, pathMid, pathMogg, pathPng, pathMilo]
               lg "# Producing RB3 CON file via X360"
@@ -1837,6 +1846,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               lg $ "Found the MOGG file: " ++ toFilePath p
               -- TODO: check if it's actually an OGG (starts with OggS)
               shk $ copyFile' (toFilePath p) out
+              forceRW out
 
         -- Audio files for the online preview app
         forM_ ["mp3", "ogg"] $ \ext -> do
