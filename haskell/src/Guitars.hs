@@ -38,6 +38,27 @@ closeNotes' fd = fmap (\(offset, (col, len)) -> let
   in (col', len)
   ) $ applyStatus1 0 (fiveOnyxClose fd) (openNotes' fd)
 
+{-
+
+The closest 2 notes on the same fret can be is 15 ticks (a 128th note) because
+this is the shortest possible MIDI note. Any closer and you get a double
+note-on/note-off error.
+
+The closest 2 notes on different frets can be is 11 ticks. Any closer and you
+get `Overlapping or too-close gems`.
+
+-}
+
+fixSloppyNotes :: (NNC.C t) => t -> RTB.T t a -> RTB.T t a
+fixSloppyNotes threshold = RTB.flatten . go . RTB.collectCoincident where
+  go rtb = case RTB.viewL rtb of
+    Nothing -> RTB.empty
+    Just ((dt, xs), rtb') -> case RTB.viewL rtb' of
+      Nothing -> rtb
+      Just ((dt', ys), rtb'') -> if dt' <= threshold
+        then RTB.cons dt (xs ++ ys) $ go $ RTB.delay dt' rtb''
+        else RTB.cons dt xs $ go rtb'
+
 data HOPOsAlgorithm
   = HOPOsRBGuitar
   | HOPOsRBKeys

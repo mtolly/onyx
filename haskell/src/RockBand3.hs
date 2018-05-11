@@ -225,12 +225,14 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             . (if toKeys then id else noExtendedSustains' standardBlipThreshold standardSustainGap)
             . applyForces (getForces5 fd)
             . strumHOPOTap' algo (fromIntegral ht / 480)
+            . fixSloppyNotes (10 / 480)
             . closeNotes'
             $ fd
           forPS = fiveEachDiff $ \fd ->
               emit5'
             . applyForces (getForces5 fd)
             . strumHOPOTap' algo (fromIntegral ht / 480)
+            . fixSloppyNotes (10 / 480)
             . openNotes'
             $ fd
           fixFiveMood x = x { fiveMood = noEarlyMood $ fiveMood x }
