@@ -98,14 +98,18 @@ drawSix (Six six) targetX stuff = do
         , { c: _.bw3 , x: handedness 2 * widthFret + 1, color: SixBoth  }
         ]
       getShades sc = case sc of
-        SixWhite -> customize.sustainWhiteGHL
+        SixWhite -> if customize.leftyFlip then customize.sustainBlackGHL else customize.sustainWhiteGHL
         SixBoth  -> customize.sustainBothGHL
-        SixBlack -> customize.sustainBlackGHL
+        SixBlack -> if customize.leftyFlip then customize.sustainWhiteGHL else customize.sustainBlackGHL
         SixOpen  -> customize.sustainOpenGHL
+      blackImages = { strum: Image_gem_black, hopo: Image_gem_black_hopo, tap: Image_gem_black_tap, energy: Image_gem_ghl_energy }
+      whiteImages = { strum: Image_gem_white, hopo: Image_gem_white_hopo, tap: Image_gem_white_tap, energy: Image_gem_ghl_energy }
       getGemImages sc = case sc of
-        SixBlack -> { strum: Image_gem_black, hopo: Image_gem_black_hopo, tap: Image_gem_black_tap, energy: Image_gem_ghl_energy }
-        SixWhite -> { strum: Image_gem_white, hopo: Image_gem_white_hopo, tap: Image_gem_white_tap, energy: Image_gem_ghl_energy }
-        SixBoth  -> { strum: Image_gem_blackwhite, hopo: Image_gem_blackwhite_hopo, tap: Image_gem_blackwhite_tap, energy: Image_gem_ghl_energy }
+        SixBlack -> if customize.leftyFlip then whiteImages else blackImages
+        SixWhite -> if customize.leftyFlip then blackImages else whiteImages
+        SixBoth  -> if customize.leftyFlip
+          then { strum: Image_gem_whiteblack, hopo: Image_gem_whiteblack_hopo, tap: Image_gem_whiteblack_tap, energy: Image_gem_ghl_energy }
+          else { strum: Image_gem_blackwhite, hopo: Image_gem_blackwhite_hopo, tap: Image_gem_blackwhite_tap, energy: Image_gem_ghl_energy }
         SixOpen  -> { strum: Image_gem_openghl, hopo: Image_gem_openghl_hopo, tap: Image_gem_openghl_tap, energy: Image_gem_openghl_energy }
   for_ colors \{ c: getEvents, x: offsetX, color: thisColor } -> do
     let thisEvents = getEvents six.notes
