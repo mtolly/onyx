@@ -58,9 +58,10 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
       * Import as much metadata as possible from `song.ini`
       * Apply the correct `delay` value from `song.ini` to the audio
       * Delay the song start by a few seconds if notes are present too early
-      * Detect double drum roll lanes using the single lane note and fixes them
+      * Detect double drum roll lanes using the single lane note and fix them
       * Alter the tempo map to fix some instances of too-slow/too-fast tempos
       * Convert 5-lane drums to 4-lane using the standard Phase Shift rules
+      * Convert Phase Shift "Real Drums" to RB by removing hihat pedal notes
       * Convert tap notes to HOPO notes
       * Remove some overdrive phrases if they produce invalid unison phrases
 
@@ -139,6 +140,10 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
 
     A player folder will appear next to the CON; open `index.html` to run.
     It can be run locally via `file://`, or hosted on a web server.
+
+    Some display options can be selected by editing the file `customize.js`,
+    including Lefty Flip mode, and an experimental "static tracks" mode where
+    the tracks stay still and the target lines move upward.
 
   * Auto reductions (MIDI file -> MIDI file)
 
