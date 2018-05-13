@@ -1,5 +1,25 @@
 # Version history
 
+## 20180513
+
+* Basic support for converting from Phase Shift songs with only "Real Drums"
+  charted (removes hihat pedal notes for RB)
+* Fix songs with slightly misaligned notes intended to be simultaneous
+* Web player upgrades and fixes
+  * Pro guitar: tap notes, fixed muted sustain color, fixed HOPO algorithm
+  * More customization options: track speed, lefty flip mode,
+    experimental "static tracks" mode
+  * Fixed drawing GH-style sustains that go all the way to the next note
+  * Fixed kick notes being drawn over hand notes on drums
+  * Fixed bug where vocals couldn't be re-enabled after being disabled
+* Better handling of `VENUE`; can convert any input `VENUE` track
+  to RBN2 or RBN1 format as needed
+* Fix parsing `[lighting(foo)]` with no space after `lighting`
+* Fix when mood events like `[idle_realtime]` are placed too early
+* Pass along `song_tonality` when converting
+* Most of the guts of MIDI parsing and transformation have been replaced.
+  In theory nothing should be different but please report new bugs!
+
 ## 20180308
 
 * Support MP3 audio for Clone Hero format
