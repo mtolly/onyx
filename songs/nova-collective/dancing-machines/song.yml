@@ -35,6 +35,8 @@ parts:
   guitar:
     pro-guitar:
       tuning: [0, 0, 0, 0, 0, 0]
+  keys:
+    pro-keys: {}
 targets:
   rb3:
     game: rb3

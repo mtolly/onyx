@@ -4,9 +4,8 @@ remaining tasks:
 - protar polish: check all slides, chord names
 - get gtr/bass for dancing machines from entombment, make no-open versions
 - pro keys:
-  - further side started
-  - dancing machines almost done
-  - wrapping for all minus cascades and ripped apart
+  - finish further side
+  - need wrapping for all minus cascades and ripped apart
 - basic keys: all minus cascades and ripped apart
 - BEAT track tweaks
 
