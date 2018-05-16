@@ -1,11 +1,8 @@
 THE FURTHER SIDE (NOVA COLLECTIVE)
-all drums + rough draft of pro guitar/bass done!
 remaining tasks:
-- protar polish: check all slides, chord names
+- protar: check all slides, chord names, mustang versions
 - get gtr/bass for dancing machines from entombment, make no-open versions
-- pro keys:
-  - finish + wrap further side
-  - wrap dancing machines
+- pro keys: finish + wrap further side
 - basic keys: all minus cascades and ripped apart
 - BEAT track tweaks
 - overdrive for all minus cascades and ripped apart
