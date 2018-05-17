@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
-module RockBand3 (processRB3Pad, processPS, findProblems, TrackAdjust(..), magmaLegalTempos') where
+module RockBand3 (processRB3Pad, processPS, findProblems, TrackAdjust(..), magmaLegalTempos) where
 
 import           Config
 import           Control.Monad.Extra
@@ -44,7 +44,7 @@ processRB3Pad
   -> Staction (RBFile.Song (RBFile.FixedFile U.Beats), Int)
 processRB3Pad a b c d e = do
   res <- processMIDI (Left a) b c d e
-  magmaLegalTempos (fmap fst res) >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
+  magmaLegalTemposFile (fmap fst res) >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
 
 processPS
   :: TargetPS
@@ -454,18 +454,41 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       }
     )
 
-magmaLegalTempos :: (SendMessage m) => RBFile.Song (RBFile.FixedFile U.Beats) -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats))
-magmaLegalTempos rb3 = let
+magmaLegalTemposFile :: (SendMessage m) => RBFile.Song (RBFile.FixedFile U.Beats) -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats))
+magmaLegalTemposFile rb3 = let
   endTime = case RTB.viewL $ eventsEnd $ RBFile.fixedEvents $ RBFile.s_tracks rb3 of
     Nothing           -> 0 -- shouldn't happen
     Just ((dt, _), _) -> dt
-  in magmaLegalTempos' endTime (RBFile.s_tempos rb3) (RBFile.s_signatures rb3) >>= \case
-    (0, _, _, _) -> return rb3
-    (numChanges, newTempos, newSigs, TrackAdjust adjuster) -> do
-      warn $ "Stretching/squashing " ++ show numChanges ++ " measures to keep tempos in Magma-legal range"
+  in magmaLegalTempos endTime (RBFile.s_tempos rb3) (RBFile.s_signatures rb3) >>= \case
+    (Nothing, _, _, _) -> return rb3
+    (Just msg, newTempos, newSigs, TrackAdjust adjuster) -> do
+      warn msg
       return $ RBFile.Song newTempos newSigs $ mapTrack adjuster $ RBFile.s_tracks rb3
 
 newtype TrackAdjust = TrackAdjust (forall a. RTB.T U.Beats a -> RTB.T U.Beats a)
+
+magmaLegalTempos :: (SendMessage m) => U.Beats -> U.TempoMap -> U.MeasureMap -> StackTraceT m
+  ( Maybe String
+  , U.TempoMap
+  , U.MeasureMap
+  , TrackAdjust -- adjusts each event track
+  )
+magmaLegalTempos endTime tmap mmap = do
+  res <- errorToWarning $ magmaLegalTemposNoWipe endTime tmap mmap
+  return $ case res of
+    Nothing -> let
+      tmap' = U.tempoMapFromBPS $ RTB.singleton 0 4 -- 240 bpm, reasonably fast
+      in  ( Just "Wiping tempo map due to unfixable tempo changes, beat lines might be weird!"
+          , tmap'
+          , U.measureMapFromTimeSigs U.Ignore $ RTB.singleton 0 $ U.TimeSig 4 1
+          , TrackAdjust $ U.unapplyTempoTrack tmap' . U.applyTempoTrack tmap
+          )
+    Just (n, tmap', mmap', adjust) ->
+      ( case n of
+        0 -> Nothing
+        _ -> Just $ "Stretching/squashing " ++ show n ++ " measures to keep tempos in Magma-legal range"
+      , tmap', mmap', adjust
+      )
 
 {-
 if a measure has a <40bpm tempo:
@@ -477,13 +500,13 @@ if a measure has a >300bpm tempo:
 - squish it to half the length, moving events appropriately
 - bump up the denominator of the measure's time signature by 2, so e.g. 5/4 becomes 5/8
 -}
-magmaLegalTempos' :: (Monad m) => U.Beats -> U.TempoMap -> U.MeasureMap -> StackTraceT m
+magmaLegalTemposNoWipe :: (Monad m) => U.Beats -> U.TempoMap -> U.MeasureMap -> StackTraceT m
   ( Int -- num of measures adjusted
   , U.TempoMap
   , U.MeasureMap
   , TrackAdjust -- adjusts each event track
   )
-magmaLegalTempos' endTime tempos sigs = do
+magmaLegalTemposNoWipe endTime tempos sigs = do
   let allTempos = U.tempoMapToBPS tempos
       allSigs = U.measureMapToTimeSigs sigs
       numMeasures = fst (U.applyMeasureMap sigs endTime) + 1

@@ -980,7 +980,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 getRealSections' = do
                   raw <- shakeMIDI $ planDir </> "raw.mid"
                   let sects = fmap snd $ eventsSections $ RBFile.onyxEvents $ RBFile.s_tracks raw
-                  (_, _, _, RB3.TrackAdjust adjuster) <- RB3.magmaLegalTempos'
+                  (_, _, _, RB3.TrackAdjust adjuster) <- RB3.magmaLegalTempos
                     (sum (RTB.getTimes sects) + 20) -- whatever
                     (RBFile.s_tempos raw)
                     (RBFile.s_signatures raw)
