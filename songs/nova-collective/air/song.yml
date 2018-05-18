@@ -37,7 +37,8 @@ parts:
     pro-guitar:
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
   keys:
-    pro-keys: {} # TODO wrap
+    grybo: {}
+    pro-keys: {}
 targets:
   rb3:
     game: rb3
