@@ -150,7 +150,8 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             then mapTrack (U.unapplyTempoTrack tempos) . phaseShiftKicks 0.18 0.11 . mapTrack (U.applyTempoTrack tempos)
             else id
           sections = fmap snd $ eventsSections eventsInput
-          finish = changeMode . psKicks . setDrumMix mixMode . drumsComplete mmap sections
+          finish = sloppyDrums . changeMode . psKicks . setDrumMix mixMode . drumsComplete mmap sections
+          sloppyDrums = drumEachDiff $ \dd -> dd { drumGems = fixSloppyNotes (10 / 480) $ drumGems dd }
           fiveToFour instant = flip map instant $ \case
             RBDrums.Orange -> let
               color = if
