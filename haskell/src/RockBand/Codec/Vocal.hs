@@ -105,13 +105,16 @@ instance ParseTrack VocalTrack where
   parseTrack = do
     vocalMood   <- vocalMood   =. command
     vocalLyrics <- vocalLyrics =. let
+      withStr s = case readCommand txt :: Maybe [T.Text] of
+        -- non-command text events get defaulted to lyrics.
+        -- and, commands sometimes accidentally in lyric events
+        Nothing -> Just txt
+        Just _  -> Nothing
+        where txt = T.pack s
       fp = \case
-        E.MetaEvent (Meta.Lyric t) -> Just $ T.pack t
-        E.MetaEvent (Meta.TextEvent t) -> case readCommand txt :: Maybe [T.Text] of
-          Nothing -> Just txt -- non-command text events get defaulted to lyrics
-          Just _  -> Nothing
-          where txt = T.pack t
-        _ -> Nothing
+        E.MetaEvent (Meta.Lyric     s) -> withStr s
+        E.MetaEvent (Meta.TextEvent s) -> withStr s
+        _                              -> Nothing
       fs = E.MetaEvent . Meta.Lyric . T.unpack
       in single fp fs
     vocalPerc          <- vocalPerc          =. fatBlips (1/8) (blip 96)
