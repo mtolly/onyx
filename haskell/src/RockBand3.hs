@@ -44,6 +44,7 @@ processRB3Pad
   -> Staction (RBFile.Song (RBFile.FixedFile U.Beats), Int)
 processRB3Pad a b c d e = do
   res <- processMIDI (Left a) b c d e
+  -- TODO we probably should run fixBrokenUnisons before autoreductions
   magmaLegalTemposFile (fmap fst res) >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
 
 processPS
