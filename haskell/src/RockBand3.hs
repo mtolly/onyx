@@ -319,10 +319,11 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
                 Expert -> RBFile.onyxPartRealKeysX fpart
               else keysToProKeys diff basicKeys
             pkd1 `orIfNull` pkd2 = if length (pkNotes pkd1) < 5 then pkd2 else pkd1
-            keysExpert = completeRanges $ keysDiff Expert
-            keysHard   = completeRanges $ keysDiff Hard   `orIfNull` pkReduce Hard   mmap keysOD keysExpert
-            keysMedium = completeRanges $ keysDiff Medium `orIfNull` pkReduce Medium mmap keysOD keysHard
-            keysEasy   = completeRanges $ keysDiff Easy   `orIfNull` pkReduce Easy   mmap keysOD keysMedium
+            eachPKDiff = ffPro . fixPSRange . fixPKMood . completeRanges . (\pk -> pk { pkNotes = fixSloppyNotes (10 / 480) $ pkNotes pk })
+            keysExpert = eachPKDiff $ keysDiff Expert
+            keysHard   = eachPKDiff $ keysDiff Hard   `orIfNull` pkReduce Hard   mmap keysOD keysExpert
+            keysMedium = eachPKDiff $ keysDiff Medium `orIfNull` pkReduce Medium mmap keysOD keysHard
+            keysEasy   = eachPKDiff $ keysDiff Easy   `orIfNull` pkReduce Easy   mmap keysOD keysMedium
             fixPKMood x = x { pkMood = noEarlyMood $ pkMood x }
             keysOD = pkOverdrive keysExpert
             originalRH = RBFile.onyxPartKeysAnimRH fpart
@@ -350,10 +351,10 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             in  ( ffBasic $ removeGtrStuff basicKeys
                 , animRH
                 , animLH
-                , ffPro $ fixPSRange $ fixPKMood keysExpert
-                ,         fixPSRange $ fixPKMood keysHard
-                ,         fixPSRange $ fixPKMood keysMedium
-                ,         fixPSRange $ fixPKMood keysEasy
+                , keysExpert
+                , keysHard
+                , keysMedium
+                , keysEasy
                 )
 
       vocalPart = either rb3_Vocal ps_Vocal target
