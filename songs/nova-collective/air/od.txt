@@ -1,0 +1,14 @@
+27|2.5: drums - yes
+38|3.0: drums - no
+44|1.0: drums - probably yes
+59|0.75: drums - could but weak on keys
+79|1.25: drums - no (would lead to troll activation on drums)
+101|1.0: drums - yes
+126|0.5: drums - no (no keys)
+137|1.75: drums - yes (actually unisony)
+148|2.0: drums - could
+160|2.0: drums - could, good parts except drums but ok (yes)
+171|1.25: drums - could but kind of weak on keys
+186|0.0: drums - could but weak on keys (yes)
+205|1.25: drums - could but weak on keys
+216|3.0: drums - yes
