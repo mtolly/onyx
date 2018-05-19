@@ -57,6 +57,8 @@ processPS a b c d e = fmap (fmap snd) $ processMIDI (Right a) b c d e
 
 -- | Magma gets mad if you put an event like [idle_realtime] before 2 beats in.
 -- But lots of Harmonix charts do this...
+-- Note that actually 2 should be "2 BEAT events" but see fixBeatTrack for where
+-- we ensure that the 3rd BEAT event is no later than 2 MIDI beats.
 noEarlyMood :: RTB.T U.Beats Mood -> RTB.T U.Beats Mood
 noEarlyMood rtb = case U.trackSplit 2 rtb of
   (early, later) -> case RTB.viewR early of
@@ -594,7 +596,7 @@ fixBeatTrack' rb3 = let
     }
 
 fixBeatTrack :: U.Beats -> RTB.T U.Beats BeatEvent -> RTB.T U.Beats BeatEvent
-fixBeatTrack endPosn trk = let
+fixBeatTrack endPosn = let
   -- can't have 2 barlines in a row
   fixDoubleDownbeat = RTB.fromPairList . fixDoubleDownbeat' . RTB.toPairList
   fixDoubleDownbeat' = \case
@@ -612,7 +614,15 @@ fixBeatTrack endPosn trk = let
   fixLastBeat rtb = if RTB.null $ U.trackDrop (endPosn - (480/480)) rtb
     then RTB.insert (endPosn - (240/480)) Beat rtb
     else rtb
-  in fixDoubleDownbeat $ fixLastBeat $ fixFastBeats $ U.trackTake (endPosn - (14/480)) trk
+  -- this fixes weird errors where Magma says seemingly wrong things about moods.
+  -- * when magma says a mood event is "less than 2 beats from the beginning",
+  --   that actually means "before the 3rd BEAT event".
+  -- * but, magma also "sees" [idle] events 2 quarter notes in for some reason,
+  --   so in practice the 3rd BEAT event has to be no later than that.
+  fixFirst2Beats rtb = if sum (take 3 $ RTB.getTimes rtb) <= 2
+    then rtb
+    else RTB.cons 0 Bar $ RTB.cons 1 Beat $ RTB.cons 1 Beat $ RTB.delay 0.5 $ U.trackDrop 2.5 rtb
+  in fixFirst2Beats . fixDoubleDownbeat . fixLastBeat . fixFastBeats . U.trackTake (endPosn - (14/480))
 
 magmaPad
   :: (SendMessage m)
