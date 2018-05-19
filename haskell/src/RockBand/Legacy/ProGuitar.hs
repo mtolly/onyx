@@ -15,6 +15,7 @@ module RockBand.Legacy.ProGuitar
 ) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
 import           Guitars                          (applyStatus, guitarify,
@@ -150,9 +151,9 @@ autoChordRoot tuning rtb = let
       DiffEvent _ (Note (NoteOn fret (str, _))) -> [getPitch str fret]
       DiffEvent _ (Note (Blip   fret (str, _))) -> [getPitch str fret]
       _ -> []
-    in case pitches of
-      []     -> evts
-      p : ps -> ChordRoot (toEnum $ foldr min p ps `rem` 12) : evts
+    in case nubOrd pitches of
+      p : ps@(_ : _) -> ChordRoot (toEnum $ foldr min p ps `rem` 12) : evts
+      _              -> evts
   -- TODO maybe remove duplicate roots
   in if any (\case ChordRoot{} -> True; _ -> False) rtb
     then rtb
