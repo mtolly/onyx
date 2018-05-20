@@ -1,8 +1,8 @@
 THE FURTHER SIDE (NOVA COLLECTIVE)
 remaining tasks:
 - protar:
-  - ripped apart, air: just need mustang versions
-  - others: check all slides, chord names, mustang versions
+  - ripped apart, air, state of flux: just need mustang versions
+  - dancing machines, cascades, the further side: check all slides, chord names, mustang versions
 - get gtr/bass for dancing machines from entombment, make no-open versions
 - pro keys: finish + wrap further side
 - basic keys: dancing machines, state of flux, the further side
