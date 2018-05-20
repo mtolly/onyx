@@ -29,7 +29,6 @@ import qualified Data.ByteString.Lazy             as BL
 import           Data.ByteString.Unsafe           (unsafeUseAsCStringLen)
 import           Data.Char                        (isPrint)
 import           Data.Default.Class               (def)
-import           Data.DTA                         (readDTABytes)
 import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -53,7 +52,8 @@ import           Network.HTTP.Req                 ((/:))
 import qualified Network.HTTP.Req                 as Req
 import           OSFiles                          (osOpenFile, useResultFiles)
 import           Paths_onyxite_customs_tool       (version)
-import           PrettyDTA                        (readRB3DTABytes)
+import           PrettyDTA                        (DTASingle (..),
+                                                   readDTASingles)
 import           Resources                        (pentatonicTTF, veraMonoTTF)
 import qualified RhythmGame.Audio                 as RGAudio
 import qualified RhythmGame.Drums                 as RGDrums
@@ -1041,8 +1041,8 @@ filterSong fp = identifyFile' fp >>= \(typ, fp') -> case typ of
     ini <- FoF.loadSong fp'
     return $ foundFile "PS" (fromMaybe "(no title)" $ FoF.name ini) (fromMaybe "(no artist)" $ FoF.artist ini)
   _ -> fatal "Not a recognized song file"
-  where useDTA filetype bs = do
-          dta <- readDTABytes $ BL.toStrict bs
-          (_, pkg, _) <- readRB3DTABytes dta
-          return $ foundFile filetype (D.name pkg) (D.artist pkg)
+  where useDTA filetype bs = readDTASingles (BL.toStrict bs) >>= \case
+          [(DTASingle _ pkg _, _)] -> return $
+            foundFile filetype (D.name pkg) (D.artist pkg)
+          _ -> fatal "RB song packs not supported yet, coming soon!"
         foundFile typ title artist = "[" <> typ <> "] " <> title <> " (" <> artist <> ")"

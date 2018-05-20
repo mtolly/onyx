@@ -9,6 +9,7 @@ module PrettyDTA where
 
 import           Config
 
+import           Control.Monad                     (forM)
 import           Control.Monad.IO.Class            (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer.Strict
@@ -20,18 +21,15 @@ import           Data.DTA.Serialize
 import qualified Data.DTA.Serialize.RB3            as D
 import           Data.Foldable                     (forM_)
 import qualified Data.HashMap.Strict               as Map
-import           Data.List                         (stripPrefix)
 import           Data.List.HT                      (partitionMaybe)
-import           Data.List.Split                   (splitOn)
 import           Data.Maybe                        (fromMaybe, listToMaybe,
                                                     mapMaybe)
 import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
 import qualified Data.Text.Encoding                as TE
+import           Data.Text.Encoding.Error          (lenientDecode)
 import           JSONData                          (makeValue)
 import           Resources                         (missingSongData)
-import           System.IO.Extra                   (latin1, readFileEncoding',
-                                                    utf8)
 
 writeUtf8CRLF :: (MonadIO m) => FilePath -> T.Text -> m ()
 writeUtf8CRLF fp = liftIO . B.writeFile fp . TE.encodeUtf8
@@ -122,58 +120,68 @@ applyUpdate original update = let
   newSong = D.Parens $ D.Tree 0 $ D.Key "song" : concat (originalSong ++ songUpdate)
   in newSong : (untouched ++ otherUpdate)
 
-readRB3DTABytes :: (SendMessage m) => D.DTA B.ByteString -> StackTraceT m (T.Text, D.SongPackage, Bool)
-readRB3DTABytes dtabs = do
-  -- First we read as Latin-1. Then redo as UTF-8 if encoding says so
-  let readSongWith rdr = do
-        dta <- mapM rdr dtabs
-        (k, chunks) <- case D.treeChunks $ D.topTree dta of
-          [D.Parens (D.Tree _ (D.Key k : chunks))] -> return (k, chunks)
-          _ -> fatal "Not a valid songs.dta with exactly one song"
-        let missingChunks = fromMaybe [] $ Map.lookup k missingMapping
-        pkg <- unserialize stackChunks $ D.DTA 0 $ D.Tree 0
-          $ removeOldDTAKeys $ fixTracksCount $ applyUpdate chunks missingChunks
-        return (k, pkg)
-      decodeUtf8Stack bs = inside "decoding utf-8 string" $
-        either (fatal . show) return $ TE.decodeUtf8' bs
-  (k_l1, l1) <- readSongWith $ return . TE.decodeLatin1
-  case D.encoding l1 of
-    Just "utf8" -> (\(k, pkg) -> (k, pkg, True)) <$> readSongWith decodeUtf8Stack
-    Just "latin1" -> return (k_l1, l1, False)
-    Nothing -> return (k_l1, l1, False)
-    Just enc -> fatal $ "Unrecognized DTA character encoding: " ++ T.unpack enc
+readC3Comments :: T.Text -> C3DTAComments
+readC3Comments t = let
+  dtaLines = T.lines $ T.filter (/= '\r') t
+  findBool s
+    | elem (";" <> s <> "=0") dtaLines = Just False
+    | elem (";" <> s <> "=1") dtaLines = Just True
+    | otherwise                        = Nothing
+  in C3DTAComments
+    { c3dtaCreatedUsing = Just "Onyx Music Game Toolkit"
+    , c3dtaAuthoredBy = listToMaybe $ mapMaybe (T.stripPrefix ";Song authored by ") dtaLines
+    , c3dtaSong = listToMaybe $ mapMaybe (T.stripPrefix ";Song=") dtaLines
+    , c3dtaLanguages
+      = fmap (filter (not . T.null) . T.splitOn ",")
+      $ listToMaybe $ mapMaybe (T.stripPrefix ";Language(s)=") dtaLines
+    , c3dtaKaraoke = findBool "Karaoke"
+    , c3dtaMultitrack = findBool "Multitrack"
+    , c3dtaConvert = findBool "Convert"
+    , c3dta2xBass = findBool "2xBass"
+    , c3dtaRhythmKeys = findBool "RhythmKeys"
+    , c3dtaRhythmBass = findBool "RhythmBass"
+    , c3dtaCATemh = findBool "CATemh"
+    , c3dtaExpertOnly = findBool "ExpertOnly"
+    }
 
--- | Returns @(short song name, DTA file contents, is UTF8)@
-readRB3DTA :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (T.Text, D.SongPackage, Bool)
-readRB3DTA dtaPath = inside ("loading DTA file " ++ show dtaPath) $ do
-  stackIO (B.readFile dtaPath) >>= D.readDTABytes >>= readRB3DTABytes
+readDTASingles :: (SendMessage m) => B.ByteString -> StackTraceT m [(DTASingle, Bool)]
+readDTASingles bs = do
+  songs <- D.readDTASections bs
+  forM (zip [1..] songs) $ \(i, (bytes, chunk)) -> do
+    inside ("songs.dta entry #" ++ show (i :: Int) ++ " (starting from 1)") $ do
+      let readTextChunk = \case
+            D.Parens (D.Tree _ (D.Key k : chunks)) -> do
+              let missingChunks = fromMaybe [] $ Map.lookup k missingMapping
+              pkg <- unserialize stackChunks $ D.DTA 0 $ D.Tree 0
+                $ removeOldDTAKeys $ fixTracksCount $ applyUpdate chunks missingChunks
+              return (k, pkg)
+            _ -> fatal "Not a valid song chunk in the format (topkey ...)"
+      (latinKey, latinPkg) <- readTextChunk $ fmap TE.decodeLatin1 chunk
+      let decodeUtf8 = TE.decodeUtf8With lenientDecode
+      (k, pkg, isUTF8) <- case D.encoding latinPkg of
+        Nothing -> return (latinKey, latinPkg, False)
+        Just "latin1" -> return (latinKey, latinPkg, False)
+        Just "utf8" -> do
+          (k, pkg) <- readTextChunk $ fmap decodeUtf8 chunk
+          return (k, pkg, True)
+        Just enc -> fatal $ "Unrecognized DTA character encoding: " ++ T.unpack enc
+      let comments = readC3Comments $ (if isUTF8 then decodeUtf8 else TE.decodeLatin1) bytes
+      return (DTASingle k pkg comments, isUTF8)
+
+readFileSongsDTA :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(DTASingle, Bool)]
+readFileSongsDTA file = inside ("loading songs.dta from: " ++ show file) $ do
+  stackIO (B.readFile file) >>= readDTASingles
 
 readDTASingle :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m DTASingle
-readDTASingle file = do
-  (topKey, pkg, isUTF8) <- readRB3DTA file
-  -- C3 puts extra info in DTA comments
-  dtaLines <- liftIO $ fmap (lines . filter (/= '\r')) $ readFileEncoding' (if isUTF8 then utf8 else latin1) file
-  let findBool s
-        | elem (";" ++ s ++ "=0") dtaLines = Just False
-        | elem (";" ++ s ++ "=1") dtaLines = Just True
-        | otherwise                        = Nothing
-      comments = C3DTAComments
-        { c3dtaCreatedUsing = Just "Onyx Music Game Toolkit"
-        , c3dtaAuthoredBy = fmap T.pack $ listToMaybe $ mapMaybe (stripPrefix ";Song authored by ") dtaLines
-        , c3dtaSong = fmap T.pack $ listToMaybe $ mapMaybe (stripPrefix ";Song=") dtaLines
-        , c3dtaLanguages
-          = fmap (map T.pack .  filter (not . null) . splitOn ",")
-          $ listToMaybe $ mapMaybe (stripPrefix ";Language(s)=") dtaLines
-        , c3dtaKaraoke = findBool "Karaoke"
-        , c3dtaMultitrack = findBool "Multitrack"
-        , c3dtaConvert = findBool "Convert"
-        , c3dta2xBass = findBool "2xBass"
-        , c3dtaRhythmKeys = findBool "RhythmKeys"
-        , c3dtaRhythmBass = findBool "RhythmBass"
-        , c3dtaCATemh = findBool "CATemh"
-        , c3dtaExpertOnly = findBool "ExpertOnly"
-        }
-  return $ DTASingle topKey pkg comments
+readDTASingle f = readFileSongsDTA f >>= \case
+  [(x, _)] -> return x
+  _        -> fatal $ "Not exactly 1 song in songs.dta: " ++ show f
+
+--- | Returns @(short song name, DTA file contents, is UTF8)@
+readRB3DTA :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m (T.Text, D.SongPackage, Bool)
+readRB3DTA f = readFileSongsDTA f >>= \case
+  [(DTASingle k pkg _, b)] -> return (k, pkg, b)
+  _                        -> fatal $ "Not exactly 1 song in songs.dta: " ++ show f
 
 writeDTASingle :: DTASingle -> T.Text
 writeDTASingle (DTASingle x y z) = prettyDTA x y z
