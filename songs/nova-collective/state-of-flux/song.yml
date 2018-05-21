@@ -25,13 +25,14 @@ parts:
     drums:
       difficulty: 6
   keys:
-    pro-keys: {} # TODO need to wrap
+    grybo: {}
+    pro-keys: {}
   guitar:
     grybo: {}
     pro-guitar:
       tuning: [0, 0, 0, 0, 0, 0]
   bass:
-    grybo: {} # TODO need to make no-open-notes chart
+    grybo: {}
     pro-guitar:
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
 targets:
