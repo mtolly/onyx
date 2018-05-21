@@ -1,0 +1,82 @@
+parts:
+  vocal: {}
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 3
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 5
+  keys: {}
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+plans:
+  mogg:
+    parts:
+      bass:
+      - 2
+      - 3
+      guitar:
+      - 4
+      - 5
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: bd403105a05792c16af4a1120964162d
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+targets:
+  rb3:
+    song-id: 1096300007
+    game: rb3
+    version: 30
+metadata:
+  rating: FamilyFriendly
+  preview-start: 30.001
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 1
+  album: Homey
+  year: 2017
+  subgenre: progrock
+  author: GanonMetroid
+  comments:
+  - Minor edits to drum chart by Onyxite.
+  title: Sleepy Tea
+  preview-end: 1:00.001
+  genre: prog
+  difficulty:
+    tier: 6
+  artist: CHON
