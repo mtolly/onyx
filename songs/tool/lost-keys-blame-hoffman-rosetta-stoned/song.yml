@@ -35,10 +35,18 @@ parts:
   guitar:
     grybo:
       difficulty: 6
-    pro-guitar:
-      tuning: [-2, 0, 0, 0, 0, 0]
+    # pro-guitar:
+    #   tuning: [-2, 0, 0, 0, 0, 0]
   vocal:
     vocal:
       count: 2
       difficulty: 5
       gender: male
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
