@@ -1,6 +1,8 @@
 THE FURTHER SIDE (NOVA COLLECTIVE)
 remaining tasks:
 - protar: just need mustang versions
+  - state of flux: done (bass didn't need one)
+  - air: done
 - get gtr/bass for dancing machines from entombment, make no-open versions
 - pro keys: finish + wrap further side
 - basic keys: dancing machines, the further side
