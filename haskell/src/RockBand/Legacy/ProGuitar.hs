@@ -6,16 +6,12 @@ module RockBand.Legacy.ProGuitar
 , Event(..), DiffEvent(..)
 , standardGuitar
 , standardBass
-, autoHandPosition
-, autoChordRoot
 , lowerOctaves
 , guitarifyHOPO
-, makeChordName
 , pgFromLegacy, pgToLegacy
 ) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
 import           Guitars                          (applyStatus, guitarify,
@@ -120,44 +116,6 @@ pgToLegacy o = foldr RTB.merge RTB.empty
       , fmap Note $ splitEdges $ fmap (\(str, (nt, fret, len)) -> (fret, (str, nt), len)) $ pgNotes fd
       ]
   ]
-
--- | If there are no hand positions, adds one to every note.
-autoHandPosition :: (NNC.C t) => RTB.T t Event -> RTB.T t Event
-autoHandPosition rtb = let
-  mapInstant evts = let
-    frets = evts >>= \case
-      DiffEvent _ (Note (NoteOn fret _)) -> [fret]
-      DiffEvent _ (Note (Blip   fret _)) -> [fret]
-      _ -> []
-      -- note, we do take ArpeggioForm notes into account because Magma does too
-    in case frets of
-      [] -> evts
-      _  -> case filter (/= 0) frets of
-        []     -> HandPosition 0 : evts
-        f : fs -> HandPosition (foldr min f fs) : evts
-  in if any (\case HandPosition{} -> True; _ -> False) rtb
-    then rtb
-    else RTB.flatten $ fmap mapInstant $ RTB.collectCoincident rtb
-
--- | If there are no chord root notes, sets each chord to have its lowest
--- pitch as the root.
-autoChordRoot :: (NNC.C t) => [Int] -> RTB.T t Event -> RTB.T t Event
-autoChordRoot tuning rtb = let
-  getPitch str fret = (tuning !! fromEnum str) + fret
-  -- TODO verify that this doesn't do weird things
-  -- if there's a different chord in the middle of an arpeggio section
-  mapInstant evts = let
-    pitches = evts >>= \case
-      DiffEvent _ (Note (NoteOn fret (str, _))) -> [getPitch str fret]
-      DiffEvent _ (Note (Blip   fret (str, _))) -> [getPitch str fret]
-      _ -> []
-    in case nubOrd pitches of
-      p : ps@(_ : _) -> ChordRoot (toEnum $ foldr min p ps `rem` 12) : evts
-      _              -> evts
-  -- TODO maybe remove duplicate roots
-  in if any (\case ChordRoot{} -> True; _ -> False) rtb
-    then rtb
-    else RTB.flatten $ fmap mapInstant $ RTB.collectCoincident rtb
 
 instance HasDiffEvent DiffEvent Event where
   makeDiffEvent = DiffEvent

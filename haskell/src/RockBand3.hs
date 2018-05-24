@@ -292,8 +292,8 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           tuning = zipWith (+) ProGtr.standardGuitar $ case pgTuning pg of
             []   -> repeat 0
             offs -> offs ++ repeat 0
-          f = (if pgFixFreeform pg then fixFreeformPG else id) . ProGtr.pgFromLegacy
-            . copyExpert . ProGtr.autoHandPosition . ProGtr.autoChordRoot tuning
+          f = (if pgFixFreeform pg then fixFreeformPG else id) . protarComplete
+            . autoHandPosition . autoChordRoot tuning . ProGtr.pgFromLegacy
           src17 = ProGtr.pgToLegacy $ RBFile.onyxPartRealGuitar   src
           src22 = ProGtr.pgToLegacy $ RBFile.onyxPartRealGuitar22 src
           mustang = f $ ProGtr.lowerOctaves 17 $ if RTB.null src17 then src22 else src17

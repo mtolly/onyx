@@ -10,6 +10,7 @@ import           Control.Monad.Codec
 import           Control.Monad.Trans.StackTrace
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
+import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe, isJust)
 import           Data.Profunctor                  (dimap)
@@ -18,6 +19,7 @@ import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
+import qualified Sound.MIDI.Util                  as U
 import           Text.Read                        (readMaybe)
 
 data NoteType
@@ -355,3 +357,39 @@ makeChordName root notes flat = let
   in showKey flat root ++ base ++ case super of
     "" -> ""
     _  -> "<gtr>" ++ super ++ "</gtr>"
+
+computeChordNames :: Difficulty -> [Int] -> ProGuitarTrack U.Beats -> RTB.T U.Beats (LongNote String ())
+computeChordNames = undefined
+
+-- | If there are no hand positions, adds one to every note.
+autoHandPosition :: (NNC.C t) => ProGuitarTrack t -> ProGuitarTrack t
+autoHandPosition pg = if RTB.null $ pgHandPosition pg
+  then let
+    frets = foldr RTB.merge RTB.empty $ do
+      pgd <- Map.elems $ pgDifficulties pg
+      -- note, we do take ArpeggioForm notes into account because Magma does too
+      -- TODO do we need to take muted notes into account?
+      return $ fmap (\(_, (_, fret, _)) -> fret) $ pgNotes pgd
+    posns = flip fmap (RTB.collectCoincident frets) $ \fs ->
+      case filter (/= 0) fs of
+        []     -> 0
+        f : ft -> foldr min f ft
+    in pg { pgHandPosition = posns }
+  else pg
+
+-- | If there are no chord root notes, sets each chord to have its lowest
+-- pitch as the root.
+autoChordRoot :: (NNC.C t) => [Int] -> ProGuitarTrack t -> ProGuitarTrack t
+autoChordRoot tuning pg = if RTB.null $ pgChordRoot pg
+  then let
+    getPitch str fret = (tuning !! fromEnum str) + fret
+    notes = foldr RTB.merge RTB.empty $ do
+      pgd <- Map.elems $ pgDifficulties pg
+      return $ fmap (\(str, (_, fret, _)) -> getPitch str fret) $ pgNotes pgd
+    roots = flip RTB.mapMaybe (RTB.collectCoincident notes) $ \ns ->
+      case nubOrd ns of
+        p : ps@(_ : _) -> Just $ toEnum $ foldr min p ps `rem` 12
+        _              -> Nothing
+    -- TODO maybe remove duplicate roots
+    in pg { pgChordRoot = roots }
+  else pg

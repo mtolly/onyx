@@ -145,20 +145,6 @@ class HasDiffEvent d a | a -> d where
   makeDiffEvent :: Difficulty -> d -> a
   unmakeDiffEvent :: a -> Maybe (Difficulty, d)
 
-copyExpert
-  :: (NNC.C t, Ord a, HasDiffEvent d a)
-  => RTB.T t a
-  -> RTB.T t a
-copyExpert rtb = let
-  (diffEvents, rtb') = RTB.partitionMaybe unmakeDiffEvent rtb
-  [e, m, h, x] = flip map [Easy, Medium, Hard, Expert] $ \diff ->
-    flip RTB.mapMaybe diffEvents $ \(diff', evt) -> guard (diff == diff') >> return evt
-  e' = fmap (makeDiffEvent Easy  ) $ if RTB.null e then x else e
-  m' = fmap (makeDiffEvent Medium) $ if RTB.null m then x else m
-  h' = fmap (makeDiffEvent Hard  ) $ if RTB.null h then x else h
-  x' = fmap (makeDiffEvent Expert) x
-  in foldr RTB.merge rtb' [e', m', h', x']
-
 eachDifficulty
   :: (NNC.C t, Ord a, HasDiffEvent d a)
   => (RTB.T t d -> RTB.T t d)

@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase    #-}
 {-# LANGUAGE TupleSections #-}
-module Reductions (gryboComplete, pkReduce, drumsComplete, simpleReduce) where
+module Reductions (gryboComplete, pkReduce, drumsComplete, protarComplete, simpleReduce) where
 
 import           Control.Monad                    (guard)
 import           Control.Monad.IO.Class           (MonadIO (liftIO))
@@ -21,6 +21,7 @@ import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events            (eventsSections)
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Five              as Five
+import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys           as PK
 import           RockBand.Common                  (Difficulty (..), Key (..),
                                                    StrumHOPOTap (..))
@@ -516,3 +517,14 @@ simpleReduce fin fout = do
       , RBFile.onyxPartRealKeysE = pkE
       }
     }
+
+-- | Currently just copies upper difficulties to lower ones if empty.
+protarComplete :: ProGuitarTrack U.Beats -> ProGuitarTrack U.Beats
+protarComplete pg = let
+  getDiff d = fromMaybe mempty $ Map.lookup d $ pgDifficulties pg
+  fill upper this = if RTB.null $ pgNotes this then upper else this
+  x =          getDiff Expert
+  h = fill x $ getDiff Hard
+  m = fill h $ getDiff Medium
+  e = fill m $ getDiff Easy
+  in pg { pgDifficulties = Map.fromList [(Expert, x), (Hard, h), (Medium, m), (Easy, e)] }
