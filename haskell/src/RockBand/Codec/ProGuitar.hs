@@ -6,19 +6,22 @@
 {-# LANGUAGE TupleSections     #-}
 module RockBand.Codec.ProGuitar where
 
+import           Control.Arrow                    (first)
 import           Control.Monad                    (forM, guard, (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.Trans.StackTrace
+import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
-import           Data.List.Extra                  (nubOrd)
+import           Data.List.Extra                  (nubOrd, sort)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, isJust)
+import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
+import           Data.Monoid                      ((<>))
 import           Data.Profunctor                  (dimap)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
-import           Guitars                          (applyStatus, guitarify,
-                                                   trackState)
+import           Guitars                          (applyStatus, applyStatus1,
+                                                   guitarify, trackState)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
@@ -69,22 +72,24 @@ data GuitarType = TypeGuitar | TypeBass
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data ProGuitarTrack t = ProGuitarTrack
-  { pgDifficulties :: Map.Map Difficulty (ProGuitarDifficulty t)
-  , pgTrainer      :: RTB.T t (GuitarType, Trainer)
-  , pgTremolo      :: RTB.T t Bool
-  , pgTrill        :: RTB.T t Bool
-  , pgOverdrive    :: RTB.T t Bool
-  , pgBRE          :: RTB.T t (GuitarType, Bool)
-  , pgSolo         :: RTB.T t Bool
-  , pgHandPosition :: RTB.T t GtrFret
-  , pgChordRoot    :: RTB.T t Key
-  , pgNoChordNames :: RTB.T t Bool
-  , pgSlashChords  :: RTB.T t Bool
-  , pgFlatChords   :: RTB.T t Bool -- TODO does this swap when key signature uses flats?
-  , pgOnyxOctave   :: RTB.T t GtrFret -- "move these notes 12 frets down if needed" section
-  , pgMystery45    :: RTB.T t Bool
-  , pgMystery69    :: RTB.T t Bool
-  , pgMystery93    :: RTB.T t Bool
+  { pgDifficulties   :: Map.Map Difficulty (ProGuitarDifficulty t)
+  , pgTrainer        :: RTB.T t (GuitarType, Trainer)
+  , pgTremolo        :: RTB.T t Bool
+  , pgTrill          :: RTB.T t Bool
+  , pgOverdrive      :: RTB.T t Bool
+  , pgBRE            :: RTB.T t (GuitarType, Bool)
+  , pgSolo           :: RTB.T t Bool
+  , pgHandPosition   :: RTB.T t GtrFret
+  , pgChordRoot      :: RTB.T t Key
+  , pgNoChordNames   :: RTB.T t Bool
+  , pgSlashChords    :: RTB.T t Bool
+  , pgSwapAccidental :: RTB.T t Bool
+  -- ^ according to Ruggy, default sharp/flat is according to usual sheet music
+  -- rules for the key + tonality
+  , pgOnyxOctave     :: RTB.T t GtrFret -- "move these notes 12 frets down if needed" section
+  , pgMystery45      :: RTB.T t Bool
+  , pgMystery69      :: RTB.T t Bool
+  , pgMystery93      :: RTB.T t Bool
   } deriving (Eq, Ord, Show)
 
 nullPG :: ProGuitarTrack t -> Bool
@@ -261,9 +266,9 @@ instance ParseTrack ProGuitarTrack where
       Cs -> 13
       D  -> 14
       Ds -> 15
-    pgNoChordNames <- pgNoChordNames =. edges 17
-    pgSlashChords  <- pgSlashChords =. edges 16
-    pgFlatChords   <- pgFlatChords =. edges 18
+    pgNoChordNames   <- pgNoChordNames   =. edges 17
+    pgSlashChords    <- pgSlashChords    =. edges 16
+    pgSwapAccidental <- pgSwapAccidental =. edges 18
     return ProGuitarTrack{..}
 
 standardGuitar :: [Int]
@@ -361,8 +366,90 @@ makeChordName root notes flat = let
     "" -> ""
     _  -> "<gtr>" ++ super ++ "</gtr>"
 
-computeChordNames :: Difficulty -> [Int] -> ProGuitarTrack U.Beats -> RTB.T U.Beats (LongNote String ())
-computeChordNames = undefined
+data ChordData t = ChordData
+  { chordFrets  :: Map.Map GtrString GtrFret
+  , chordName   :: T.Text
+  , chordMuted  :: Bool
+  , chordLength :: Maybe t
+  } deriving (Eq, Ord)
+
+data ChordModifier = ModSwapAcc | ModNoName | ModSlash
+  deriving (Eq, Ord)
+
+computeChordNames :: Difficulty -> [Int] -> Bool -> ProGuitarTrack U.Beats -> RTB.T U.Beats (LongNote T.Text ())
+computeChordNames diff tuning flatDefault pg = let
+
+  pgd = fromMaybe mempty $ Map.lookup diff $ pgDifficulties pg
+  notes
+    = applyStatus1 E (pgChordRoot pg)
+    $ applyStatus
+      (RTB.merge ((ModSwapAcc,) <$> pgSwapAccidental pg)
+        (RTB.merge ((ModNoName,) <$> pgNoChordNames pg)
+          ((ModSlash,) <$> pgSlashChords pg)))
+    $ RTB.collectCoincident $ pgNotes pgd
+
+  chords :: RTB.T U.Beats (Maybe (ChordData U.Beats))
+  chords = flip fmap notes $ \(root, (mods, chord)) -> case sort chord of
+    low : rest@(_ : _) -> Just ChordData
+      { chordFrets = Map.fromList [ (str, fret) | (str, (_, fret, _)) <- chord ]
+      , chordName = if elem ModNoName mods then "" else let
+        (slash, chord') = if elem ModSlash mods
+          then (Just low, rest)
+          else (Nothing, chord)
+        flat = flatDefault /= elem ModSwapAcc mods
+        keys = Set.fromList $ map getKey chord'
+        getKey (str, (_, fret, _)) = toEnum $ ((tuning !! fromEnum str) + fret) `rem` 12
+        name = T.pack $ makeChordName root keys flat
+        in case slash of
+          Nothing -> name
+          Just s  -> name <> "/" <> T.pack (showKey flat $ getKey s)
+      , chordMuted = any (\(_, (nt, _, _)) -> nt == Muted) chord
+      , chordLength = minimum [ len | (_, (_, _, len)) <- chord ]
+      }
+    _ -> Nothing
+
+  arps :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (Maybe (ChordData U.Beats))
+  arps = let
+    go rtb = case RTB.viewL rtb of
+      Nothing -> RTB.empty
+      Just ((dt, Right mcd), rtb') -> RTB.cons dt mcd $ go rtb'
+      Just ((dt, Left arpLen), rtb') -> let
+        fn = case catMaybes $ rights $ U.trackTakeZero rtb' of
+          []      -> RTB.delay $ dt + arpLen
+          cd  : _ -> RTB.cons dt (Just cd{ chordLength = Just arpLen }) . RTB.delay arpLen
+        in fn $ go $ U.trackDrop arpLen rtb'
+    in go . RTB.merge (Left <$> arpsList) . fmap Right
+  arpsList = fmap (\((), (), t) -> t) $ joinEdgesSimple $ fmap (\b -> (guard b >> Just (), ())) $ pgArpeggio pgd
+
+  overrides :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (Maybe (ChordData U.Beats))
+  overrides = let
+    go evs = case lefts evs of
+      []           -> rights evs
+      override : _ -> map (fmap $ \cd -> cd { chordName = fromMaybe "" override }) $ rights evs
+    in RTB.flatten . fmap go . RTB.collectCoincident . RTB.merge (Left <$> pgChordName pgd) . fmap Right
+
+  stick :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (ChordData U.Beats)
+  stick rtb = case RTB.viewL rtb of
+    Nothing -> RTB.empty
+    Just ((dt, Nothing), rtb') -> RTB.delay dt $ stick rtb'
+    Just ((dt, Just x), rtb')
+      | chordMuted x -> RTB.delay dt $ stick rtb'
+      | otherwise -> let
+        stickThis next = case RTB.viewL next of
+          Just ((t, Just y), next') -> if chordFrets y == chordFrets x
+            then if chordMuted y
+              then (first (t +)) <$> stickThis next'
+              else Just (t, (chordLength y, next'))
+            else Nothing
+          _ -> Nothing
+        in case stickThis rtb' of
+          Nothing -> RTB.cons dt x $ stick rtb'
+          Just (t, (lastLen, next)) -> stick
+            $ RTB.cons dt (Just x { chordLength = Just $ fromMaybe 0 lastLen + t }) $ RTB.delay t next
+
+  in splitEdges
+    $ RTB.mapMaybe (\cd -> guard (chordName cd /= "") >> Just (chordName cd, (), chordLength cd))
+    $ stick $ overrides $ arps chords
 
 -- | If there are no hand positions, adds one to every note.
 autoHandPosition :: (NNC.C t) => ProGuitarTrack t -> ProGuitarTrack t

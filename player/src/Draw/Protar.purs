@@ -3,13 +3,13 @@ module Draw.Protar (drawProtar) where
 import           Prelude
 
 import           Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-import           Data.Array                         (cons, index, range, snoc)
+import           Data.Array                         (cons, index, range, snoc, unsnoc)
 import           Data.Foldable                      (for_)
 import           Data.Int                           (round, toNumber)
 import           Data.List                          as L
 import           Data.Maybe                         (Maybe (..), isNothing)
 import           Data.Time.Duration                 (Seconds)
-import           Data.Tuple                         (Tuple (..))
+import           Data.Tuple                         (Tuple (..), snd, fst)
 import           Graphics.Canvas                    as C
 
 import           Draw.Common                        (Draw, drawImage, drawLane,
@@ -21,13 +21,15 @@ import           Song                               (Beat (..), Beats (..),
                                                      GuitarNoteType (..),
                                                      Protar (..),
                                                      ProtarNote (..), Song (..),
-                                                     Sustainable (..))
+                                                     Sustainable (..), ChordLine(..))
 import           Style                              (customize)
 
 drawProtar :: forall e. Protar -> Int -> Draw e Int
-drawProtar (Protar protar) targetX stuff = do
+drawProtar (Protar protar) chordsX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
-  let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
+  let chordsWidth = 65 -- TODO actually compute this
+      targetX = chordsX + chordsWidth
+      pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
       widthFret = customize.widthProtarFret
       maxSecs = pxToSecsVert $ stuff.minY - 50
@@ -39,6 +41,42 @@ drawProtar (Protar protar) targetX stuff = do
       targetY = secsToPxVert stuff.time
       handedness n = if customize.leftyFlip then 5 - n else n
       drawH = stuff.maxY - stuff.minY
+  -- Chord names
+  let drawChord = drawChord' $ toNumber $ targetX - 5
+      drawChord' x secs name = case unsnoc name of
+        Nothing -> pure unit
+        Just o -> do
+          let ctx = stuff.context
+          y <- case fst o.last of
+            Baseline -> do
+              void $ C.setFont "19px sans-serif" ctx
+              void $ C.setFillStyle "white" ctx
+              pure $ toNumber $ secsToPxVert secs + 5
+            Superscript -> do
+              void $ C.setFont "14px sans-serif" ctx
+              void $ C.setFillStyle "white" ctx
+              pure $ toNumber $ secsToPxVert secs - 3
+          void $ C.setTextAlign ctx C.AlignRight
+          void $ C.fillText ctx (snd o.last) x y
+          metrics <- C.measureText ctx (snd o.last)
+          drawChord' (x - metrics.width) secs o.init
+  -- 1. draw chords that end before now
+  Map.zoomDescDo minSecs stuff.time protar.chords \secs e -> case e of
+    Sustain _ -> pure unit
+    Note c -> drawChord secs c
+    SustainEnd -> case Map.lookupLT secs protar.chords of
+      -- TODO process beforehand to remove the lookup here
+      Just { value: Sustain c } -> drawChord secs c
+      _ -> pure unit -- shouldn't happen
+  -- 2. draw chords sticking at now
+  case Map.lookupLE stuff.time protar.chords of
+    Just { value: Sustain c } -> drawChord stuff.time c
+    _ -> pure unit
+  -- 3. draw chords that start after now
+  Map.zoomDescDo stuff.time maxSecs protar.chords \secs e -> case e of
+    SustainEnd -> pure unit
+    Sustain c  -> drawChord secs c
+    Note    c  -> drawChord secs c
   -- Highway
   setFillStyle customize.highway stuff
   fillRect { x: toNumber targetX, y: toNumber stuff.minY, w: toNumber $ widthFret * 6 + 2, h: toNumber drawH } stuff

@@ -32,7 +32,7 @@ data Event
   | BREBass      Bool
   | Overdrive    Bool
   | Solo         Bool
-  | FlatChords   Bool
+  | SwapAccidental   Bool
   | Mystery45    Bool
   | Mystery69    Bool
   | Mystery93    Bool
@@ -76,7 +76,7 @@ pgFromLegacy leg = ProGuitarTrack
   , pgChordRoot    = RTB.mapMaybe (\case ChordRoot x -> Just x; _ -> Nothing) leg
   , pgNoChordNames = RTB.mapMaybe (\case NoChordNames x -> Just x; _ -> Nothing) leg
   , pgSlashChords  = RTB.mapMaybe (\case SlashChords x -> Just x; _ -> Nothing) leg
-  , pgFlatChords   = RTB.mapMaybe (\case FlatChords x -> Just x; _ -> Nothing) leg
+  , pgSwapAccidental   = RTB.mapMaybe (\case SwapAccidental x -> Just x; _ -> Nothing) leg
   , pgOnyxOctave   = RTB.mapMaybe (\case OnyxOctave x -> Just x; _ -> Nothing) leg
   , pgMystery45    = RTB.mapMaybe (\case Mystery45 x -> Just x; _ -> Nothing) leg
   , pgMystery69    = RTB.mapMaybe (\case Mystery69 x -> Just x; _ -> Nothing) leg
@@ -95,7 +95,7 @@ pgToLegacy o = foldr RTB.merge RTB.empty
   , ChordRoot <$> pgChordRoot o
   , NoChordNames <$> pgNoChordNames o
   , SlashChords <$> pgSlashChords o
-  , FlatChords <$> pgFlatChords o
+  , SwapAccidental <$> pgSwapAccidental o
   , OnyxOctave <$> pgOnyxOctave o
   , Mystery45 <$> pgMystery45 o
   , Mystery69 <$> pgMystery69 o

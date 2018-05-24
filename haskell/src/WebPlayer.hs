@@ -190,12 +190,13 @@ data Protar t = Protar
   , protarEnergy :: Map.Map t Bool
   , protarLanes  :: Map.Map PG.GtrString (Map.Map t Bool)
   , protarBRE    :: Map.Map t Bool
+  , protarChords :: Map.Map t (LongNote T.Text ())
   } deriving (Eq, Ord, Show)
 
 instance TimeFunctor Protar where
-  mapTime f (Protar n s e l b) = let
+  mapTime f (Protar n s e l b c) = let
     g = Map.mapKeys f
-    in Protar (fmap g n) (g s) (g e) (fmap g l) (g b)
+    in Protar (fmap g n) (g s) (g e) (fmap g l) (g b) (g c)
 
 instance (Real t) => A.ToJSON (Protar t) where
   toJSON x = A.object
@@ -213,6 +214,10 @@ instance (Real t) => A.ToJSON (Protar t) where
     , (,) "lanes" $ A.object $ flip map (Map.toList $ protarLanes x) $ \(string, lanes) ->
       (,) (T.pack $ map toLower $ show string) $ eventList lanes A.toJSON
     , (,) "bre" $ eventList (protarBRE x) A.toJSON
+    , (,) "chords" $ eventList (protarChords x) $ A.String . \case
+      NoteOff     () -> "e"
+      Blip   name () -> "b:" <> name
+      NoteOn name () -> "s:" <> name
     ] where showFret Nothing  = "-x"
             showFret (Just i) = "-" <> T.pack (show i)
 
@@ -418,8 +423,8 @@ processProKeys tmap trk = let
   bre    = trackToMap tmap $ pkBRE trk
   in ProKeys notes ranges solo energy lanes gliss bre
 
-processProtar :: U.Beats -> U.TempoMap -> PG.ProGuitarTrack U.Beats -> Protar U.Seconds
-processProtar hopoThreshold tmap pg = let
+processProtar :: U.Beats -> [Int] -> U.TempoMap -> PG.ProGuitarTrack U.Beats -> Protar U.Seconds
+processProtar hopoThreshold tuning tmap pg = let
   expert = fromMaybe mempty $ Map.lookup Expert $ PG.pgDifficulties pg
   assigned = expandColors $ PG.guitarifyHOPO hopoThreshold expert
   expandColors = splitEdges . RTB.flatten . fmap expandChord
@@ -447,7 +452,8 @@ processProtar hopoThreshold tmap pg = let
       guard $ elem str strs
       return b
   bre = trackToMap tmap $ fmap snd $ PG.pgBRE pg
-  in Protar notes solo energy lanes bre
+  chords = trackToMap tmap $ PG.computeChordNames Expert tuning False pg -- TODO get accidental from key+tonality
+  in Protar notes solo energy lanes bre chords
 
 newtype Beats t = Beats
   { beatLines :: Map.Map t Beat
@@ -651,7 +657,13 @@ makeDisplay songYaml song = let
     , flexSix = flip fmap (C.partGHL fpart) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song) (RBFile.onyxPartSix tracks)
     , flexDrums = flip fmap (C.partDrums fpart) $ \pd -> processDrums (C.drumsMode pd) (RBFile.s_tempos song) coda (RBFile.onyxPartDrums tracks)
     , flexProKeys = flip fmap (C.partProKeys fpart) $ \_ -> processProKeys (RBFile.s_tempos song) (RBFile.onyxPartRealKeysX tracks)
-    , flexProtar = flip fmap (C.partProGuitar fpart) $ \pg -> processProtar (ht $ C.pgHopoThreshold pg) (RBFile.s_tempos song)
+    , flexProtar = flip fmap (C.partProGuitar fpart) $ \pg -> processProtar
+      (ht $ C.pgHopoThreshold pg)
+      (zipWith (+) PG.standardGuitar $ case C.pgTuning pg of
+        []   -> repeat 0
+        offs -> offs ++ repeat 0
+      )
+      (RBFile.s_tempos song)
       $ let mustang = RBFile.onyxPartRealGuitar tracks
             squier  = RBFile.onyxPartRealGuitar22 tracks
         in if PG.nullPG squier then mustang else squier

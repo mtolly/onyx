@@ -1,6 +1,6 @@
 module Song where
 
-import Prelude (class Eq, class Ord, class Show, Unit, bind, map, pure, show, unit, ($), (<$>), (<*>), (>>=))
+import Prelude (class Eq, class Ord, class Show, Unit, bind, map, pure, show, unit, ($), (<$>), (<*>), (>>=), (+), (<), (<<<))
 
 import Data.Time.Duration (Seconds(..))
 import Data.Foreign (F, Foreign, ForeignError(..), isNull, readArray, readBoolean, readInt, readNullOrUndefined, readNumber, readString)
@@ -11,6 +11,8 @@ import Data.Traversable (sequence, traverse)
 import Data.Tuple (Tuple(..))
 import Data.Generic (class Generic, gShow, gEq, gCompare)
 import Control.Monad.Except (throwError)
+import Data.String as Str
+import Data.Array ((:))
 
 newtype Song = Song
   { end    :: Seconds
@@ -110,12 +112,15 @@ type ProtarEach a =
   , s6 :: a
   }
 
+data ChordLine = Baseline | Superscript
+
 newtype Protar = Protar
   { notes :: ProtarEach (Map.Map Seconds (Sustainable ProtarNote))
   , lanes :: ProtarEach (Map.Map Seconds Boolean)
   , solo :: Map.Map Seconds Boolean
   , energy :: Map.Map Seconds Boolean
   , bre :: Map.Map Seconds Boolean
+  , chords :: Map.Map Seconds (Sustainable (Array (Tuple ChordLine String)))
   }
 
 newtype ProKeys = ProKeys
@@ -416,6 +421,27 @@ isForeignSix f = do
     , bre: bre
     }
 
+isForeignChord :: Foreign -> F (Sustainable (Array (Tuple ChordLine String)))
+isForeignChord f = readString f >>= \s -> case Str.take 1 s of
+  "e" -> pure SustainEnd
+  "s" -> pure $ Sustain $ splitChord Baseline $ specialChars $ Str.drop 2 s
+  "b" -> pure $ Note    $ splitChord Baseline $ specialChars $ Str.drop 2 s
+  _   -> throwError $ pure $ TypeMismatch "pro guitar chord name event" $ show s
+  where splitChord _    "" = []
+        splitChord mode s  = case Str.indexOf (Str.Pattern "<gtr>") s of
+          Nothing -> case Str.indexOf (Str.Pattern "</gtr>") s of
+            Nothing -> [Tuple mode s]
+            Just closeAt -> Tuple mode (Str.take closeAt s) : splitChord Baseline (Str.drop (closeAt + 6) s)
+          Just openAt -> case Str.indexOf (Str.Pattern "</gtr>") s of
+            Nothing -> Tuple mode (Str.take openAt s) : splitChord Superscript (Str.drop (openAt + 5) s)
+            Just closeAt -> if openAt < closeAt
+              then Tuple mode (Str.take openAt s) : splitChord Superscript (Str.drop (openAt + 5) s)
+              else Tuple mode (Str.take closeAt s) : splitChord Baseline (Str.drop (closeAt + 6) s)
+        specialChars
+          =   Str.replaceAll (Str.Pattern "#") (Str.Replacement "♯")
+          <<< Str.replaceAll (Str.Pattern "b") (Str.Replacement "♭")
+          <<< Str.replaceAll (Str.Pattern "0") (Str.Replacement "○")
+
 isForeignProtar :: Foreign -> F Protar
 isForeignProtar f = do
   notesF <- readProp "notes" f
@@ -441,12 +467,14 @@ isForeignProtar f = do
   solo <- readProp "solo" f >>= readTimedMap readBoolean
   energy <- readProp "energy" f >>= readTimedMap readBoolean
   bre <- readProp "bre" f >>= readTimedMap readBoolean
+  chords <- readProp "chords" f >>= readTimedMap isForeignChord
   pure $ Protar
     { notes: notes
     , lanes: lanes
     , solo: solo
     , energy: energy
     , bre: bre
+    , chords: chords
     }
 
 isForeignProKeys :: Foreign -> F ProKeys
