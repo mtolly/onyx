@@ -12,7 +12,7 @@ import           Data.Foldable                  (toList)
 import           Data.List                      (sortOn)
 import           Data.Maybe                     (fromMaybe)
 import qualified Data.Set                       as Set
-import           RockBand.Legacy.ProGuitar
+import           RockBand.Codec.ProGuitar
 import           RockBand.ProGuitar.Play
 import           System.MIDI
 

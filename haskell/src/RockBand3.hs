@@ -289,7 +289,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         Nothing -> (mempty, mempty)
         Just pg -> let
           src = RBFile.getFlexPart fpart trks
-          tuning = zipWith (+) ProGtr.standardGuitar $ case pgTuning pg of
+          tuning = zipWith (+) standardGuitar $ case pgTuning pg of
             []   -> repeat 0
             offs -> offs ++ repeat 0
           f = (if pgFixFreeform pg then fixFreeformPG else id) . protarComplete

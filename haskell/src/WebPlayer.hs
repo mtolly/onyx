@@ -29,14 +29,13 @@ import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File              as RBFile
 import qualified RockBand.Codec.Five              as Five
-import           RockBand.Codec.ProGuitar         (nullPG)
+import qualified RockBand.Codec.ProGuitar         as PG
 import           RockBand.Codec.ProKeys           as PK
 import qualified RockBand.Codec.Six               as GHL
 import           RockBand.Common                  (Difficulty (..),
                                                    LongNote (..),
                                                    StrumHOPOTap (..), joinEdges,
                                                    splitEdges)
-import qualified RockBand.Legacy.ProGuitar        as PG
 import qualified RockBand.Legacy.Vocal            as Vox
 import           Scripts                          (songLengthBeats)
 import qualified Sound.MIDI.Util                  as U
@@ -419,9 +418,9 @@ processProKeys tmap trk = let
   bre    = trackToMap tmap $ pkBRE trk
   in ProKeys notes ranges solo energy lanes gliss bre
 
-processProtar :: U.Beats -> U.TempoMap -> RTB.T U.Beats PG.Event -> Protar U.Seconds
-processProtar hopoThreshold tmap trk = let
-  expert = flip RTB.mapMaybe trk $ \case PG.DiffEvent Expert e -> Just e; _ -> Nothing
+processProtar :: U.Beats -> U.TempoMap -> PG.ProGuitarTrack U.Beats -> Protar U.Seconds
+processProtar hopoThreshold tmap pg = let
+  expert = fromMaybe mempty $ Map.lookup Expert $ PG.pgDifficulties pg
   assigned = expandColors $ PG.guitarifyHOPO hopoThreshold expert
   expandColors = splitEdges . RTB.flatten . fmap expandChord
   expandChord (shopo, gems, len) = do
@@ -434,27 +433,20 @@ processProtar hopoThreshold tmap trk = let
   notes = Map.fromList $ do
     string <- [minBound .. maxBound]
     return (string, getString string)
-  solo   = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PG.Solo      b -> Just b; _ -> Nothing
-  energy = trackToMap tmap $ flip RTB.mapMaybe trk $ \case PG.Overdrive b -> Just b; _ -> Nothing
+  solo   = trackToMap tmap $ PG.pgSolo pg
+  energy = trackToMap tmap $ PG.pgOverdrive pg
   -- for protar we can treat tremolo/trill identically;
   -- in both cases it's just "get the strings the first note/chord is on"
-  onStrings = trackToBeatMap $ RTB.collectCoincident $ flip RTB.mapMaybe trk $ \case
-    PG.DiffEvent Expert (PG.Note (NoteOn _ (s, _))) -> Just s
-    PG.DiffEvent Expert (PG.Note (Blip   _ (s, _))) -> Just s
-    _                                               -> Nothing
-  lanesAll = Map.mapKeys (U.applyTempoMap tmap) $ findTremolos onStrings $ trackToBeatMap $ joinEdges $ flip RTB.mapMaybe trk $ \case
-    PG.Tremolo b -> Just $ if b then NoteOn () () else NoteOff ()
-    PG.Trill   b -> Just $ if b then NoteOn () () else NoteOff ()
-    _            -> Nothing
+  onStrings = trackToBeatMap $ RTB.collectCoincident $ fmap fst $ PG.pgNotes expert
+  lanesAll = Map.mapKeys (U.applyTempoMap tmap) $ findTremolos onStrings $ trackToBeatMap $ joinEdges $ let
+    tremTrill = RTB.merge (PG.pgTremolo pg) (PG.pgTrill pg)
+    in fmap (\b -> if b then NoteOn () () else NoteOff ()) tremTrill
   lanes = Map.fromList $ do
     str <- [minBound .. maxBound]
     return $ (,) str $ flip Map.mapMaybe lanesAll $ \(b, strs) -> do
       guard $ elem str strs
       return b
-  bre    = trackToMap tmap $ flip RTB.mapMaybe trk $ \case
-    PG.BREGuitar b -> Just b
-    PG.BREBass   b -> Just b
-    _              -> Nothing
+  bre = trackToMap tmap $ fmap snd $ PG.pgBRE pg
   in Protar notes solo energy lanes bre
 
 newtype Beats t = Beats
@@ -662,7 +654,7 @@ makeDisplay songYaml song = let
     , flexProtar = flip fmap (C.partProGuitar fpart) $ \pg -> processProtar (ht $ C.pgHopoThreshold pg) (RBFile.s_tempos song)
       $ let mustang = RBFile.onyxPartRealGuitar tracks
             squier  = RBFile.onyxPartRealGuitar22 tracks
-        in PG.pgToLegacy $ if nullPG squier then mustang else squier
+        in if PG.nullPG squier then mustang else squier
     , flexVocal = flip fmap (C.partVocal fpart) $ \pvox -> case C.vocalCount pvox of
       C.Vocal3 -> makeVox
         (RBFile.onyxHarm1 tracks)

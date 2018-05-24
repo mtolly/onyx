@@ -7,19 +7,16 @@ module RockBand.Legacy.ProGuitar
 , standardGuitar
 , standardBass
 , lowerOctaves
-, guitarifyHOPO
 , pgFromLegacy, pgToLegacy
 ) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.Map                         as Map
 import qualified Data.Text                        as T
-import           Guitars                          (applyStatus, guitarify,
-                                                   trackState)
+import           Guitars                          (applyStatus)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec.ProGuitar
 import           RockBand.Common
-import qualified Sound.MIDI.Util                  as U
 
 data Event
   = TrainerGtr   Trainer
@@ -144,35 +141,3 @@ lowerOctaves maxFret rtb = let
     = fmap (uncurry doLower)
     $ applyStatus shouldLower hands
   in eachDifficulty lowerDiff $ RTB.merge (fmap HandPosition hands') notHands
-
-guitarifyHOPO :: U.Beats -> RTB.T U.Beats DiffEvent
-  -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe U.Beats)
-guitarifyHOPO threshold rtb = let
-  notes = RTB.mapMaybe (\case Note ln -> Just ln; _ -> Nothing) rtb
-  gtr = joinEdges $ guitarify $ splitEdges
-    $ (\(fret, (str, ntype), len) -> ((), (str, fret, ntype), len))
-    <$> joinEdges notes
-  withForce = applyStatus (RTB.mapMaybe (\case ForceHOPO b -> Just (HOPO, b); _ -> Nothing) rtb) gtr
-  fn prev dt (forces, ((), gems, len)) = let
-    gems' = [ gem | gem@(_, _, nt) <- gems, nt /= ArpeggioForm ]
-    ntype = if all (\(_, _, nt) -> nt == Tapped) gems'
-      then Tap
-      else case forces of
-        nt : _ -> nt
-        [] -> if dt >= threshold -- TODO: should this be > or >= ?
-          then Strum
-          else case prev of
-            Nothing -> Strum
-            Just prevGems -> if null [ () | (_, _, Muted) <- prevGems ]
-              then case gems of
-                -- note: gems above, not gems'.
-                -- if there are arpeggio form notes and one normal note,
-                -- we still count it as a chord for auto-hopo purposes.
-                -- doesn't make sense, but that's what rb3 does!
-                [(str, fret, _)] -> let
-                  canHOPOFrom (str', fret', _) = str == str' && fret /= fret'
-                  in if any canHOPOFrom prevGems then HOPO else Strum
-                _ -> Strum
-              else Strum -- after muted note, next note is not auto hopo
-    in (Just gems', Just (ntype, gems', len))
-  in trackState Nothing fn withForce

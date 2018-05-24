@@ -5,9 +5,9 @@ import           Data.Bits                        ((.&.), (.|.))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Word                        (Word8)
 import           Numeric.NonNegative.Class        ((-|))
+import           RockBand.Codec.ProGuitar
 import           RockBand.Common                  (each, reverseLookup)
 import qualified RockBand.Common                  as RB
-import           RockBand.Legacy.ProGuitar
 import qualified Sound.MIDI.Util                  as U
 
 data Controller = Mustang | Squier
@@ -149,7 +149,7 @@ receiveCommand = magic where
     where test n b = (n .&. b) /= 0
   msg _ = Nothing
 
-autoplay :: U.Beats -> U.TempoMap -> RTB.T U.Beats DiffEvent -> RTB.T U.Beats Message
+autoplay :: U.Beats -> U.TempoMap -> ProGuitarDifficulty U.Beats -> RTB.T U.Beats Message
 autoplay thres tmap = let
   go prevGems rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty

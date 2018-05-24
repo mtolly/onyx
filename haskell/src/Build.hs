@@ -38,6 +38,7 @@ import           Data.Foldable                         (toList)
 import           Data.Hashable                         (hash)
 import qualified Data.HashMap.Strict                   as HM
 import           Data.List                             (intercalate)
+import qualified Data.Map                              as Map
 import           Data.Maybe                            (fromMaybe, isJust,
                                                         isNothing, mapMaybe)
 import           Data.Monoid                           ((<>))
@@ -76,11 +77,10 @@ import qualified RockBand.Codec.Drums                  as RBDrums
 import           RockBand.Codec.Events
 import qualified RockBand.Codec.File                   as RBFile
 import           RockBand.Codec.Five
-import           RockBand.Codec.ProGuitar              (nullPG)
+import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal
 import           RockBand.Common                       (Difficulty (..))
-import qualified RockBand.Legacy.ProGuitar             as ProGtr
 import qualified RockBand.Legacy.Vocal                 as RBVox
 import qualified RockBand.ProGuitar.Play               as PGPlay
 import           RockBand.Sections                     (makeRB2Section,
@@ -1146,19 +1146,17 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   pgThres = maybe 170 pgHopoThreshold $ getPart (rb3_Guitar rb3) songYaml >>= partProGuitar
                   pbThres = maybe 170 pgHopoThreshold $ getPart (rb3_Bass   rb3) songYaml >>= partProGuitar
                   playTrack thres cont name t = let
-                    expert = flip RTB.mapMaybe t $ \case
-                      ProGtr.DiffEvent Expert devt -> Just devt
-                      _                            -> Nothing
+                    expert = fromMaybe mempty $ Map.lookup Expert $ pgDifficulties t
                     auto = PGPlay.autoplay (fromIntegral thres / 480) (RBFile.s_tempos input) expert
                     msgToSysEx msg
                       = E.SystemExclusive $ SysEx.Regular $ PGPlay.sendCommand (cont, msg) ++ [0xF7]
                     in U.setTrackName name $ msgToSysEx <$> auto
               saveMIDI out input
                 { RBFile.s_tracks = RBFile.RawFile
-                    [ playTrack pgThres PGPlay.Mustang "GTR17"  $ ProGtr.pgToLegacy $ if nullPG gtr17  then gtr22  else gtr17
-                    , playTrack pgThres PGPlay.Squier  "GTR22"  $ ProGtr.pgToLegacy $ if nullPG gtr22  then gtr17  else gtr22
-                    , playTrack pbThres PGPlay.Mustang "BASS17" $ ProGtr.pgToLegacy $ if nullPG bass17 then bass22 else bass17
-                    , playTrack pbThres PGPlay.Squier  "BASS22" $ ProGtr.pgToLegacy $ if nullPG bass22 then bass17 else bass22
+                    [ playTrack pgThres PGPlay.Mustang "GTR17"  $ if nullPG gtr17  then gtr22  else gtr17
+                    , playTrack pgThres PGPlay.Squier  "GTR22"  $ if nullPG gtr22  then gtr17  else gtr22
+                    , playTrack pbThres PGPlay.Mustang "BASS17" $ if nullPG bass17 then bass22 else bass17
+                    , playTrack pbThres PGPlay.Squier  "BASS22" $ if nullPG bass22 then bass17 else bass22
                     ]
                 }
 
