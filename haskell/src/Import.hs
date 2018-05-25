@@ -435,6 +435,14 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           , pkFixFreeform = False
           }
         })
+      , ( FlexExtra "rhythm", def
+        { partGRYBO = guard (isnt nullFive RBFile.fixedPartRhythm && guardDifficulty FoF.diffRhythm) >> Just PartGRYBO
+          { gryboDifficulty = toTier $ FoF.diffRhythm song
+          , gryboHopoThreshold = hopoThreshold
+          , gryboFixFreeform = False
+          , gryboDropOpenHOPOs = dropOpenHOPOs
+          }
+        })
       , ( FlexVocal, def
         { partVocal = flip fmap vocalMode $ \vc -> PartVocal
           { vocalDifficulty = toTier $ FoF.diffVocals song
