@@ -400,14 +400,27 @@ computeChordNames diff tuning flatDefault pg = let
         keys = Set.fromList $ map getKey chord'
         getKey (str, (_, fret, _)) = toEnum $ ((tuning !! fromEnum str) + fret) `rem` 12
         name = T.pack $ makeChordName root keys flat
-        in case slash of
-          Nothing -> name
-          Just s  -> name <> "/" <> T.pack (showKey flat $ getKey s)
+        in case fmap getKey slash of
+          -- Somebody to Love has a Bb chord, with leftmost note Bb,
+          -- marked as slash for no reason. It's ignored in game, so we do that
+          Just k | k /= root -> name <> "/" <> T.pack (showKey flat k)
+          _      -> name
       , chordMuted = any (\(_, (nt, _, _)) -> nt == Muted) chord
       , chordLength = minimum [ len | (_, (_, _, len)) <- chord ]
       }
     _ -> Nothing
 
+  -- Slide sustains that are the last repetition of their chord don't stick the name.
+  -- But it'll still stick if there's another repetition after.
+  slides :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (Maybe (ChordData U.Beats))
+  slides = let
+    go (isSlide, mcd) = if isSlide
+      then (\cd -> cd { chordLength = Nothing }) <$> mcd
+      else mcd
+    in fmap go . applyStatus1 False (snd <$> pgSlide pgd)
+
+  -- For an arpeggio, get the chord computed at the start,
+  -- and stretch it for the length of the arpeggio section.
   arps :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (Maybe (ChordData U.Beats))
   arps = let
     go rtb = case RTB.viewL rtb of
@@ -421,6 +434,7 @@ computeChordNames diff tuning flatDefault pg = let
     in go . RTB.merge (Left <$> arpsList) . fmap Right
   arpsList = fmap (\((), (), t) -> t) $ joinEdgesSimple $ fmap (\b -> (guard b >> Just (), ())) $ pgArpeggio pgd
 
+  -- chrdX events override a single chord computed at a certain point.
   overrides :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (Maybe (ChordData U.Beats))
   overrides = let
     go evs = case lefts evs of
@@ -428,6 +442,10 @@ computeChordNames diff tuning flatDefault pg = let
       override : _ -> map (fmap $ \cd -> cd { chordName = fromMaybe "" override }) $ rights evs
     in RTB.flatten . fmap go . RTB.collectCoincident . RTB.merge (Left <$> pgChordName pgd) . fmap Right
 
+  -- The same chord strummed multiple times will keep the chord name next to
+  -- the strikeline between them. Also, a muted strum can continue a chord name
+  -- as long as it has the same chord on both sides of it, and also has the same
+  -- frets as the others under the mute channel (even though not shown in game).
   stick :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (ChordData U.Beats)
   stick rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
@@ -448,8 +466,9 @@ computeChordNames diff tuning flatDefault pg = let
             $ RTB.cons dt (Just x { chordLength = Just $ fromMaybe 0 lastLen + t }) $ RTB.delay t next
 
   in splitEdges
-    $ RTB.mapMaybe (\cd -> guard (chordName cd /= "") >> Just (chordName cd, (), chordLength cd))
-    $ stick $ overrides $ arps chords
+    . RTB.mapMaybe (\cd -> guard (chordName cd /= "") >> Just (chordName cd, (), chordLength cd))
+    . stick . overrides . arps . slides
+    $ chords
 
 -- | If there are no hand positions, adds one to every note.
 autoHandPosition :: (NNC.C t) => ProGuitarTrack t -> ProGuitarTrack t
