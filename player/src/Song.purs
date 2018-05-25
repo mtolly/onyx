@@ -121,6 +121,7 @@ newtype Protar = Protar
   , energy :: Map.Map Seconds Boolean
   , bre :: Map.Map Seconds Boolean
   , chords :: Map.Map Seconds (Sustainable (Array (Tuple ChordLine String)))
+  , chordsWidth :: Int
   }
 
 newtype ProKeys = ProKeys
@@ -475,6 +476,7 @@ isForeignProtar f = do
     , energy: energy
     , bre: bre
     , chords: chords
+    , chordsWidth: 0 -- to be computed later
     }
 
 isForeignProKeys :: Foreign -> F ProKeys

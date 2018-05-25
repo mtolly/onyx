@@ -34,6 +34,7 @@ import           Images                      (withImages)
 import           Song                        (Flex (..), FlexPart (..),
                                               Song (..), isForeignSong)
 import           Style                       (customize)
+import Draw.Protar (eachChordsWidth)
 
 foreign import onyxSong :: Foreign
 
@@ -105,7 +106,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
     Left  e    -> throwException $ error $ if isUndefined onyxSong
       then "No song data was found. Is there a song.js present?"
       else show e
-    Right song -> pure song
+    Right song -> eachChordsWidth ctx song
   setTitle $ case song of Song o -> o.title <> " (" <> o.artist <> ") Onyx Web Player"
   imageGetterRef <- newRef Nothing
   withImages $ writeRef imageGetterRef <<< Just

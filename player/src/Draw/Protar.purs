@@ -1,13 +1,14 @@
-module Draw.Protar (drawProtar) where
+module Draw.Protar (drawProtar, eachChordsWidth) where
 
 import           Prelude
 
+import           Control.Monad.Eff           (Eff)
 import           Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
 import           Data.Array                         (cons, index, range, snoc, unsnoc)
 import           Data.Foldable                      (for_)
-import           Data.Int                           (round, toNumber)
+import           Data.Int                           (round, toNumber, ceil)
 import           Data.List                          as L
-import           Data.Maybe                         (Maybe (..), isNothing)
+import           Data.Maybe                         (Maybe (..), isNothing, fromMaybe)
 import           Data.Time.Duration                 (Seconds)
 import           Data.Tuple                         (Tuple (..), snd, fst)
 import           Graphics.Canvas                    as C
@@ -21,14 +22,40 @@ import           Song                               (Beat (..), Beats (..),
                                                      GuitarNoteType (..),
                                                      Protar (..),
                                                      ProtarNote (..), Song (..),
-                                                     Sustainable (..), ChordLine(..))
+                                                     Sustainable (..), ChordLine(..), Flex(..))
 import           Style                              (customize)
+import Data.Traversable (for, sum, traverse, maximum)
+
+getChordsWidth
+  :: forall e. C.Context2D -> Protar -> Eff (canvas :: C.CANVAS | e) Protar
+getChordsWidth ctx (Protar pg) = do
+  widths <- for (Map.values pg.chords) $ \x -> let
+    f xs = map sum $ for xs \(Tuple line str) -> do
+      case line of
+        Baseline    -> void $ C.setFont "19px sans-serif" ctx
+        Superscript -> void $ C.setFont "14px sans-serif" ctx
+      metrics <- C.measureText ctx str
+      pure metrics.width
+    in case x of
+      SustainEnd -> pure 0.0
+      Sustain ps -> f ps
+      Note    ps -> f ps
+  pure $ Protar pg { chordsWidth = ceil $ fromMaybe 0.0 $ maximum widths }
+
+eachChordsWidth
+  :: forall e. C.Context2D -> Song -> Eff (canvas :: C.CANVAS | e) Song
+eachChordsWidth ctx (Song o) = do
+  parts <- for o.parts \(Tuple s f@(Flex flex)) -> case flex.protar of
+    Nothing -> pure $ Tuple s f
+    Just pg -> do
+      pg' <- getChordsWidth ctx pg
+      pure $ Tuple s $ Flex flex { protar = Just pg' }
+  pure $ Song o { parts = parts }
 
 drawProtar :: forall e. Protar -> Int -> Draw e Int
 drawProtar (Protar protar) chordsX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
-  let chordsWidth = 65 -- TODO actually compute this
-      targetX = chordsX + chordsWidth
+  let targetX = chordsX + protar.chordsWidth
       pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
       widthFret = customize.widthProtarFret
