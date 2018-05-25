@@ -16,7 +16,7 @@ import           DOM                (DOM)
 import           Graphics.Canvas    as C
 
 import           Draw.Common        (App (..), Draw, Settings, drawImage,
-                                     fillRect, measureText, onContext,
+                                     fillRect, onContext,
                                      setFillStyle, showTimestamp)
 import           Draw.Drums         (drawDrums)
 import           Draw.Five          (drawFive)
@@ -42,13 +42,13 @@ draw stuff = do
   -- Draw timestamp
   onContext (C.setFont customize.timestampFont) stuff
   setFillStyle customize.timestampColor stuff
-  let timeStr = showTimestamp stuff.time
-  metric <- measureText timeStr stuff
   onContext
-    (\ctx -> C.fillText ctx
-      (showTimestamp stuff.time)
-      (windowW - 20.0 - metric.width)
-      (windowH - 20.0)
+    (\ctx -> do
+      void $ C.setTextAlign ctx C.AlignRight
+      C.fillText ctx
+        (showTimestamp stuff.time)
+        (windowW - 20.0)
+        (windowH - 20.0)
     ) stuff
   -- Draw the visible instrument tracks in sequence
   let drawTracks targetX trks = case uncons trks of

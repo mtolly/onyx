@@ -10,6 +10,7 @@ import           Data.Int                           (round, toNumber, ceil)
 import           Data.List                          as L
 import           Data.Maybe                         (Maybe (..), isNothing, fromMaybe)
 import           Data.Time.Duration                 (Seconds)
+import           Data.Traversable                   (for, sum, maximum)
 import           Data.Tuple                         (Tuple (..), snd, fst)
 import           Graphics.Canvas                    as C
 
@@ -24,7 +25,6 @@ import           Song                               (Beat (..), Beats (..),
                                                      ProtarNote (..), Song (..),
                                                      Sustainable (..), ChordLine(..), Flex(..))
 import           Style                              (customize)
-import Data.Traversable (for, sum, traverse, maximum)
 
 getChordsWidth
   :: forall e. C.Context2D -> Protar -> Eff (canvas :: C.CANVAS | e) Protar

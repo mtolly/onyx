@@ -158,6 +158,7 @@ drawVocal (Vocal v) targetY stuff = do
       mergeTime lx@(L.Cons x tx) ly@(L.Cons y ty) = if x.time <= y.time
         then L.Cons x $ mergeTime tx ly
         else L.Cons y $ mergeTime lx ty
+  onContext (\ctx -> C.setTextAlign ctx C.AlignLeft) stuff
   drawLyrics (-999.0) (toNumber targetY + 174.0) $
     getLyrics false $ L.fromFoldable $ Map.doTupleArray (zoomAsc v.harm1)
   drawLyrics (-999.0) (toNumber targetY + 20.0) $ mergeTime
