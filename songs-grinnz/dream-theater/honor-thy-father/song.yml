@@ -83,3 +83,10 @@ parts:
   drums:
     drums:
       auto-2x-bass: true
+  # guitar:
+  #   pro-guitar:
+  #     tuning: [0, 0, 0, 0, 0, 0]
+  #     tuning-global: -4 # C standard
+  bass:
+    pro-guitar:
+      tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC
