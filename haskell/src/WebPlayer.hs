@@ -13,6 +13,7 @@ import qualified Data.Aeson                       as A
 import qualified Data.Aeson.Types                 as A
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (toLower)
+import           Data.DTA.Serialize.RB3           (Tonality (..))
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
@@ -32,7 +33,7 @@ import qualified RockBand.Codec.Five              as Five
 import qualified RockBand.Codec.ProGuitar         as PG
 import           RockBand.Codec.ProKeys           as PK
 import qualified RockBand.Codec.Six               as GHL
-import           RockBand.Common                  (Difficulty (..),
+import           RockBand.Common                  (Difficulty (..), Key (..),
                                                    LongNote (..),
                                                    StrumHOPOTap (..), joinEdges,
                                                    splitEdges)
@@ -423,8 +424,8 @@ processProKeys tmap trk = let
   bre    = trackToMap tmap $ pkBRE trk
   in ProKeys notes ranges solo energy lanes gliss bre
 
-processProtar :: U.Beats -> [Int] -> U.TempoMap -> PG.ProGuitarTrack U.Beats -> Protar U.Seconds
-processProtar hopoThreshold tuning tmap pg = let
+processProtar :: U.Beats -> [Int] -> Bool -> U.TempoMap -> PG.ProGuitarTrack U.Beats -> Protar U.Seconds
+processProtar hopoThreshold tuning defaultFlat tmap pg = let
   expert = fromMaybe mempty $ Map.lookup Expert $ PG.pgDifficulties pg
   assigned = expandColors $ PG.guitarifyHOPO hopoThreshold expert
   expandColors = splitEdges . RTB.flatten . fmap expandChord
@@ -452,7 +453,7 @@ processProtar hopoThreshold tuning tmap pg = let
       guard $ elem str strs
       return b
   bre = trackToMap tmap $ fmap snd $ PG.pgBRE pg
-  chords = trackToMap tmap $ PG.computeChordNames Expert tuning False pg -- TODO get accidental from key+tonality
+  chords = trackToMap tmap $ PG.computeChordNames Expert tuning defaultFlat pg
   in Protar notes solo energy lanes bre chords
 
 newtype Beats t = Beats
@@ -647,6 +648,27 @@ makeDisplay :: C.SongYaml -> RBFile.Song (RBFile.OnyxFile U.Beats) -> BL.ByteStr
 makeDisplay songYaml song = let
   ht n = fromIntegral n / 480
   coda = fmap (fst . fst) $ RTB.viewL $ eventsCoda $ RBFile.onyxEvents $ RBFile.s_tracks song
+  keyTonality = case C._key $ C._metadata songYaml of
+    Nothing              -> (C, Major)
+    Just (C.SongKey k t) -> (k, fromMaybe Major t)
+  keyMajor = case keyTonality of
+    (k, Major) -> k
+    (k, Minor) -> toEnum $ (fromEnum k + 3) `rem` 12
+  defaultFlat = case keyMajor of
+    -- table courtesy of Ruggy
+    C  -> False
+    Cs -> True
+    D  -> False
+    Ds -> True
+    E  -> False
+    F  -> True
+    Fs -> False
+    G  -> False
+    Gs -> True
+    A  -> False
+    As -> True
+    B  -> False
+  -- TODO: the above needs to work on song_key if present, see details in Import
   makePart name fpart = Flex
     { flexFive = flip fmap (C.partGRYBO fpart) $ \grybo -> let
       gtr = RBFile.onyxPartGuitar tracks
@@ -663,6 +685,7 @@ makeDisplay songYaml song = let
         []   -> repeat 0
         offs -> offs ++ repeat 0
       )
+      defaultFlat
       (RBFile.s_tempos song)
       $ let mustang = RBFile.onyxPartRealGuitar tracks
             squier  = RBFile.onyxPartRealGuitar22 tracks

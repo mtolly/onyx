@@ -783,6 +783,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
       , _comments     = []
       , _difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
+      -- TODO support both song_key and vocal_tonic_note, and import appropriately
       , _key          = fmap (`SongKey` D.songTonality pkg) $ D.vocalTonicNote pkg
       , _autogenTheme = RBProj.DefaultTheme
       , _author       = _author meta
