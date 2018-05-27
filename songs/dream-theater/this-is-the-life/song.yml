@@ -3,10 +3,6 @@ metadata:
   file-include: ../../../albums/a-dramatic-turn-of-events.yml
   track-number: 4
   author: Onyxite
-  comments:
-  - >-
-    Chart confidence: *medium-high*.
-    Mixing is a bit muddy, but the part is mostly straightforward.
 audio:
   album-track:
     md5: db98eb2b711398be8381ac958ecebc82
@@ -27,7 +23,12 @@ plans:
 parts:
   drums:
     drums:
-      difficulty: 3
+      difficulty: 4
 targets:
   rb3:
     game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps

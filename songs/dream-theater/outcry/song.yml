@@ -3,11 +3,6 @@ metadata:
   file-include: ../../../albums/a-dramatic-turn-of-events.yml
   track-number: 6
   author: Onyxite
-  comments:
-  - >-
-    Chart confidence: *medium-low*.
-    No isolated audio, fills designed for the "pyramid" tom layout,
-    and very muddy/quiet drums in ADTOE's mixing compared to other albums.
 audio:
   album-track:
     md5: 915bf34a96cc29a45fe8da59a17e1570

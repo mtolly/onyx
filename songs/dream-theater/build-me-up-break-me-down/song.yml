@@ -25,5 +25,4 @@ plans:
         - pad: [3.570, album-track]
 parts:
   drums:
-    drums:
-      auto-2x-bass: true
+    drums: {}
