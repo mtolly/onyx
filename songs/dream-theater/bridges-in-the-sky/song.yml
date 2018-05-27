@@ -25,5 +25,12 @@ plans:
       pad: [5.460, album-track]
 parts:
   drums:
-    drums:
-      auto-2x-bass: true
+    drums: {}
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
