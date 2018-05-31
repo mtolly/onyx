@@ -5,6 +5,11 @@ metadata:
 parts:
   drums:
     drums: {}
+  bass:
+    pro-guitar:
+      tuning: [0, 0, 0, 0]
+  guitar:
+    grybo: {}
 audio:
   album-track:
     md5: b728a6545132fa4d59d205e77c1109e3
