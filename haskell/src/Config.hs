@@ -24,7 +24,6 @@ import           Data.Conduit.Audio             (Duration (..))
 import           Data.Default.Class
 import qualified Data.DTA.Serialize.GH2         as GH2
 import qualified Data.DTA.Serialize.Magma       as Magma
-import           Data.DTA.Serialize.RB3         (Tonality (..))
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
 import           Data.Hashable                  (Hashable (..))
@@ -40,40 +39,41 @@ import           JSONData
 import qualified RockBand.Codec.Drums           as Drums
 import           RockBand.Codec.File            (FlexPartName (..), getPartName,
                                                  readPartName)
-import           RockBand.Common                (Key (..))
+import           RockBand.Common                (Key (..), SongKey (..),
+                                                 Tonality (..), readpKey,
+                                                 showKey, songKeyUsesFlats)
 import qualified Sound.Jammit.Base              as J
 import qualified Sound.MIDI.Util                as U
 import qualified Text.ParserCombinators.ReadP   as ReadP
 import           Text.Read                      (readMaybe)
 import qualified Text.Read.Lex                  as Lex
 
-data SongKey = SongKey
-  { songKey      :: Key
-  , songTonality :: Maybe Tonality
-  } deriving (Eq, Ord, Show)
+instance StackJSON Key where
+  stackJSON = Codec
+    { codecOut = makeOut $ A.toJSON . (showKey False) -- no way of getting accidental
+    , codecIn = do
+      t <- codecIn stackJSON
+      case ReadP.readP_to_S (readpKey <* ReadP.eof) $ T.unpack t of
+        (sk, _) : _ -> return sk
+        []          -> expected "a key"
+    }
 
 instance StackJSON SongKey where
   stackJSON = Codec
-    { codecOut = makeOut $ \(SongKey k mt) -> A.toJSON $ concat
-      [ map (\case 's' -> '#'; c -> c) $ show k -- TODO use flat for certain keys
-      , case mt of Nothing -> ""; Just Major -> " major"; Just Minor -> " minor"
+    { codecOut = makeOut $ \sk@(SongKey k t) -> A.toJSON $ concat
+      [ showKey (songKeyUsesFlats sk) k
+      , case t of Major -> " major"; Minor -> " minor"
       ]
     , codecIn = codecIn stackJSON >>= \t -> let
       parse = do
-        base <- ReadP.choice $ map
-          (\k -> ReadP.string (show k) >> return k)
-          [C, D, E, F, G, A, B]
-        modded <- ReadP.choice
-          [ ReadP.char '#' >> return (toEnum ((fromEnum base + 1) `mod` 12))
-          , ReadP.char 'b' >> return (toEnum ((fromEnum base - 1) `mod` 12))
-          , return base
-          ]
+        key <- readpKey
         tone <- ReadP.choice
-          [ ReadP.string " major" >> ReadP.eof >> return (Just Major)
-          , ReadP.string " minor" >> ReadP.eof >> return (Just Minor)
-          ,                          ReadP.eof >> return Nothing
+          [ ReadP.string " major" >> return Major
+          , ReadP.string " minor" >> return Minor
+          ,                          return Major
           ]
-        return $ SongKey modded tone
+        ReadP.eof
+        return $ SongKey key tone
       in case ReadP.readP_to_S parse $ T.unpack t of
         (sk, _) : _ -> return sk
         []          -> expected "a key and optional tonality"
@@ -762,6 +762,7 @@ data PartVocal = PartVocal
   { vocalDifficulty :: Difficulty
   , vocalCount      :: VocalCount
   , vocalGender     :: Maybe Magma.Gender
+  , vocalKey        :: Maybe Key
   } deriving (Eq, Ord, Show, Read)
 
 instance StackJSON PartVocal where
@@ -769,6 +770,7 @@ instance StackJSON PartVocal where
     vocalDifficulty <- vocalDifficulty =. fill (Tier 1) "difficulty" stackJSON
     vocalCount      <- vocalCount      =. opt  Vocal1   "count"      stackJSON
     vocalGender     <- vocalGender     =. opt  Nothing  "gender"     stackJSON
+    vocalKey        <- vocalKey        =. opt  Nothing  "key"        stackJSON
     return PartVocal{..}
 
 data Part = Part

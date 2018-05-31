@@ -64,8 +64,7 @@ import           RockBand.Codec.ProGuitar         (nullPG)
 import           RockBand.Codec.ProKeys           (nullPK)
 import           RockBand.Codec.Six               (nullSix)
 import           RockBand.Codec.Vocal
-import           RockBand.Common                  (Difficulty (..),
-                                                   joinEdgesSimple)
+import           RockBand.Common
 import qualified RockBand.Legacy.Vocal            as RBVox
 import           Scripts                          (loadFoFMIDI, loadMIDI)
 import qualified Sound.MIDI.File.Save             as Save
@@ -448,6 +447,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           { vocalDifficulty = toTier $ FoF.diffVocals song
           , vocalCount = vc
           , vocalGender = Nothing
+          , vocalKey = Nothing
           }
         })
       ]
@@ -771,6 +771,14 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       [kick, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
       _ -> fatal $ "mix 4 needs 3 drums channels, " ++ show (length drumChans) ++ " given"
 
+  let tone = fromMaybe Minor $ D.songTonality pkg
+      -- Minor verified as default for PG chords if SK/VTN present and no song_tonality
+      (skey, vkey) = case (D.songKey pkg, D.vocalTonicNote pkg) of
+        (Just sk, Just vtn) -> (Just $ SongKey sk tone , Just vtn)
+        (Just sk, Nothing ) -> (Just $ SongKey sk tone , Nothing )
+        (Nothing, Just vtn) -> (Just $ SongKey vtn tone, Nothing )
+        (Nothing, Nothing ) -> (Nothing                , Nothing )
+
   stackIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata
       { _title        = _title meta <|> Just (D.name pkg)
@@ -783,8 +791,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       , _trackNumber  = fromIntegral <$> D.albumTrackNumber pkg
       , _comments     = []
       , _difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
-      -- TODO support both song_key and vocal_tonic_note, and import appropriately
-      , _key          = fmap (`SongKey` D.songTonality pkg) $ D.vocalTonicNote pkg
+      , _key          = skey
       , _autogenTheme = RBProj.DefaultTheme
       , _author       = _author meta
       , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
@@ -901,6 +908,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           { vocalDifficulty = fromMaybe (Tier 1) $ HM.lookup "vocals" diffMap
           , vocalCount = vc
           , vocalGender = D.vocalGender pkg
+          , vocalKey = vkey
           }
         })
       ]
@@ -1040,7 +1048,7 @@ importMagma fin dir = do
       , _trackNumber  = Just $ fromIntegral $ RBProj.trackNumber $ RBProj.metadata rbproj
       , _comments     = []
       , _difficulty   = Tier $ RBProj.rankBand $ RBProj.gamedata rbproj
-      , _key          = fmap (`SongKey` Nothing) $ c3 >>= C3.tonicNote
+      , _key          = fmap (`SongKey` Major) $ c3 >>= C3.tonicNote
       , _autogenTheme = case RBProj.autogenTheme $ RBProj.midi rbproj of
         Left theme -> theme
         Right _str -> RBProj.DefaultTheme -- TODO
@@ -1166,6 +1174,7 @@ importMagma fin dir = do
             | RBProj.dryVoxEnabled $ RBProj.part1 $ RBProj.dryVox rbproj -> Vocal2
             | otherwise                                                  -> Vocal1
           , vocalGender = Just $ RBProj.vocalGender $ RBProj.gamedata rbproj
+          , vocalKey = Nothing
           }
         })
       ]

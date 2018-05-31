@@ -26,6 +26,7 @@ import qualified Sound.MIDI.File.Event.Meta       as Meta
 import qualified Sound.MIDI.Message.Channel       as C
 import qualified Sound.MIDI.Message.Channel.Voice as V
 import qualified Sound.MIDI.Util                  as U
+import qualified Text.ParserCombinators.ReadP     as ReadP
 import           Text.Read                        (readMaybe)
 
 -- | Class for events which are stored as a @\"[x y z]\"@ text event.
@@ -125,21 +126,52 @@ data Key = C | Cs | D | Ds | E | F | Fs | G | Gs | A | As | B
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 showKey :: Bool -> Key -> String
-showKey flat = if flat
-  then \case
-    C  -> "C"
-    Cs -> "Db"
-    D  -> "D"
-    Ds -> "Eb"
-    E  -> "E"
-    F  -> "F"
-    Fs -> "Gb"
-    G  -> "G"
-    Gs -> "Ab"
-    A  -> "A"
-    As -> "Bb"
-    B  -> "B"
-  else map (\case 's' -> '#'; c -> c) . show
+showKey False k = map (\case 's' -> '#'; c -> c) $ show k
+showKey True  k = case k of
+  Cs -> "Db"
+  Ds -> "Eb"
+  Fs -> "Gb"
+  Gs -> "Ab"
+  As -> "Bb"
+  _  -> show k
+
+data Tonality = Major | Minor
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data SongKey = SongKey
+  { songKey      :: Key
+  , songTonality :: Tonality
+  } deriving (Eq, Ord, Show)
+
+-- | Matches the default accidental chosen by RB3's Pro Guitar chord names.
+songKeyUsesFlats :: SongKey -> Bool
+songKeyUsesFlats (SongKey k t) = let
+  k' = case t of Major -> k; Minor -> toEnum ((fromEnum k + 3) `mod` 12)
+  in case k' of
+    -- table courtesy of Ruggy
+    C  -> False
+    Cs -> True
+    D  -> False
+    Ds -> True
+    E  -> False
+    F  -> True
+    Fs -> False
+    G  -> False
+    Gs -> True
+    A  -> False
+    As -> True
+    B  -> False
+
+readpKey :: ReadP.ReadP Key
+readpKey = do
+  base <- ReadP.choice $ map
+    (\k -> ReadP.string (show k) >> return k)
+    [C, D, E, F, G, A, B]
+  ReadP.choice
+    [ ReadP.char '#' >> return (toEnum ((fromEnum base + 1) `mod` 12))
+    , ReadP.char 'b' >> return (toEnum ((fromEnum base - 1) `mod` 12))
+    , return base
+    ]
 
 class HasDiffEvent d a | a -> d where
   makeDiffEvent :: Difficulty -> d -> a

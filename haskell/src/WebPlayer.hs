@@ -13,7 +13,6 @@ import qualified Data.Aeson                       as A
 import qualified Data.Aeson.Types                 as A
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (toLower)
-import           Data.DTA.Serialize.RB3           (Tonality (..))
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
@@ -33,10 +32,10 @@ import qualified RockBand.Codec.Five              as Five
 import qualified RockBand.Codec.ProGuitar         as PG
 import           RockBand.Codec.ProKeys           as PK
 import qualified RockBand.Codec.Six               as GHL
-import           RockBand.Common                  (Difficulty (..), Key (..),
-                                                   LongNote (..),
+import           RockBand.Common                  (Difficulty (..),
+                                                   LongNote (..), SongKey (..),
                                                    StrumHOPOTap (..), joinEdges,
-                                                   splitEdges)
+                                                   songKeyUsesFlats, splitEdges)
 import qualified RockBand.Legacy.Vocal            as Vox
 import           Scripts                          (songLengthBeats)
 import qualified Sound.MIDI.Util                  as U
@@ -648,27 +647,8 @@ makeDisplay :: C.SongYaml -> RBFile.Song (RBFile.OnyxFile U.Beats) -> BL.ByteStr
 makeDisplay songYaml song = let
   ht n = fromIntegral n / 480
   coda = fmap (fst . fst) $ RTB.viewL $ eventsCoda $ RBFile.onyxEvents $ RBFile.s_tracks song
-  keyTonality = case C._key $ C._metadata songYaml of
-    Nothing              -> (C, Major)
-    Just (C.SongKey k t) -> (k, fromMaybe Major t)
-  keyMajor = case keyTonality of
-    (k, Major) -> k
-    (k, Minor) -> toEnum $ (fromEnum k + 3) `rem` 12
-  defaultFlat = case keyMajor of
-    -- table courtesy of Ruggy
-    C  -> False
-    Cs -> True
-    D  -> False
-    Ds -> True
-    E  -> False
-    F  -> True
-    Fs -> False
-    G  -> False
-    Gs -> True
-    A  -> False
-    As -> True
-    B  -> False
-  -- TODO: the above needs to work on song_key if present, see details in Import
+  defaultFlat = maybe False songKeyUsesFlats $ C._key $ C._metadata songYaml
+  -- the above gets imported from first song_key then vocal_tonic_note
   makePart name fpart = Flex
     { flexFive = flip fmap (C.partGRYBO fpart) $ \grybo -> let
       gtr = RBFile.onyxPartGuitar tracks
@@ -691,15 +671,15 @@ makeDisplay songYaml song = let
             squier  = RBFile.onyxPartRealGuitar22 tracks
         in if PG.nullPG squier then mustang else squier
     , flexVocal = flip fmap (C.partVocal fpart) $ \pvox -> case C.vocalCount pvox of
-      C.Vocal3 -> makeVox
+      C.Vocal3 -> makeVox pvox
         (RBFile.onyxHarm1 tracks)
         (RBFile.onyxHarm2 tracks)
         (RBFile.onyxHarm3 tracks)
-      C.Vocal2 -> makeVox
+      C.Vocal2 -> makeVox pvox
         (RBFile.onyxHarm1 tracks)
         (RBFile.onyxHarm2 tracks)
         mempty
-      C.Vocal1 -> makeVox
+      C.Vocal1 -> makeVox pvox
         (RBFile.onyxPartVocals $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
         mempty
         mempty
@@ -708,9 +688,10 @@ makeDisplay songYaml song = let
   parts = do
     (name, fpart) <- sort $ HM.toList $ C.getParts $ C._parts songYaml
     return (RBFile.getPartName name, makePart name fpart)
-  makeVox h1 h2 h3 = processVocal (RBFile.s_tempos song)
+  makeVox pvox h1 h2 h3 = processVocal (RBFile.s_tempos song)
     (Vox.vocalToLegacy h1) (Vox.vocalToLegacy h2) (Vox.vocalToLegacy h3)
-    (fmap (fromEnum . C.songKey) $ C._key $ C._metadata songYaml)
+    $ fmap fromEnum (C.vocalKey pvox)
+    <|> fmap (fromEnum . songKey) (C._key $ C._metadata songYaml)
   beat = processBeat (RBFile.s_tempos song)
     $ Beat.beatLines $ RBFile.onyxBeat $ RBFile.s_tracks song
   end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats song

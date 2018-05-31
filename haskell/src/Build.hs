@@ -80,7 +80,7 @@ import           RockBand.Codec.Five
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.Venue
 import           RockBand.Codec.Vocal
-import           RockBand.Common                       (Difficulty (..))
+import           RockBand.Common
 import qualified RockBand.Legacy.Vocal                 as RBVox
 import qualified RockBand.ProGuitar.Play               as PGPlay
 import           RockBand.Sections                     (makeRB2Section,
@@ -315,7 +315,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
     , D.albumTrackNumber = Just $ fromIntegral $ getTrackNumber $ _metadata songYaml
     , D.packName = Nothing
     , D.vocalTonicNote = fmap songKey $ _key $ _metadata songYaml
-    , D.songTonality = _key (_metadata songYaml) >>= songTonality
+    , D.songTonality = fmap songTonality $ _key $ _metadata songYaml
     , D.songKey = Nothing
     , D.tuningOffsetCents = Just 0
     , D.realGuitarTuning = flip fmap (getPart (rb3_Guitar rb3) songYaml >>= partProGuitar) $ \pg ->

@@ -13,14 +13,11 @@ import qualified Data.HashMap.Strict            as Map
 import qualified Data.Text                      as T
 import           JSONData                       (eitherCodec, expected, fill,
                                                  opt, req)
-import           RockBand.Common                (Key (..))
+import           RockBand.Common                (Key (..), Tonality (..))
 
 instance StackChunk Key where
   stackChunk = dtaEnum "Key" $ Int . fromIntegral . fromEnum
 instance StackChunks Key
-
-data Tonality = Major | Minor
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackChunk Tonality where
   stackChunk = dtaEnum "Tonality" $ Int . fromIntegral . fromEnum
