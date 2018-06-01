@@ -5,7 +5,7 @@ metadata:
   track-number: 7 # and 8
   difficulty: 7
   rating: Supervision Recommended
-  key: D
+  key: D minor
   author: Onyxite
   comments:
   - "Made with reference to [this drum clinic footage](https://www.youtube.com/watch?v=Dh3z__10bhg)."
@@ -28,18 +28,18 @@ parts:
     drums:
       difficulty: 7
   bass:
-    grybo: # need to redo from pro
+    grybo: # need to fix from pro
       difficulty: 6
     pro-guitar:
       tuning: [-2, 0, 0, 0]
   guitar:
-    grybo: # need to redo after pro done
+    grybo: # need to fix from pro
       difficulty: 6
-    pro-guitar: # WIP
+    pro-guitar:
       tuning: [-2, 0, 0, 0, 0, 0]
   vocal:
     vocal:
-      count: 2
+      count: 3
       difficulty: 5
       gender: male
 targets:
