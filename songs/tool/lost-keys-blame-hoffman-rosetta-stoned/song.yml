@@ -28,15 +28,15 @@ parts:
     drums:
       difficulty: 7
   bass:
-    grybo:
+    grybo: # need to redo from pro
       difficulty: 6
     pro-guitar:
       tuning: [-2, 0, 0, 0]
   guitar:
-    grybo:
+    grybo: # need to redo after pro done
       difficulty: 6
-    # pro-guitar:
-    #   tuning: [-2, 0, 0, 0, 0, 0]
+    pro-guitar: # WIP
+      tuning: [-2, 0, 0, 0, 0, 0]
   vocal:
     vocal:
       count: 2
