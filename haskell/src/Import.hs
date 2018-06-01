@@ -355,6 +355,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
         ]
       , _crowd = audioExpr crowdAudio
       , _planComments = []
+      , _tuningCents = 0
       }
     , _targets = HM.singleton "ps" $ PS def { ps_FileVideo = vid }
     , _parts = Parts $ HM.fromList
@@ -820,6 +821,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       , _pans = map realToFrac $ D.pans $ D.song pkg
       , _vols = map realToFrac $ D.vols $ D.song pkg
       , _planComments = []
+      , _tuningCents = maybe 0 round $ D.tuningOffsetCents pkg
       , _karaoke = karaoke
       , _multitrack = multitrack
       , _silent = silentChannels
@@ -1099,6 +1101,7 @@ importMagma fin dir = do
         ]
       , _crowd = fmap fst crowd
       , _planComments = []
+      , _tuningCents = maybe 0 C3.tuningCents c3 -- TODO use this, or Magma.tuningOffsetCents?
       }
     , _targets = HM.singleton targetName $ RB3 target
     , _parts = Parts $ HM.fromList

@@ -317,7 +317,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
     , D.vocalTonicNote = fmap songKey $ _key $ _metadata songYaml
     , D.songTonality = fmap songTonality $ _key $ _metadata songYaml
     , D.songKey = Nothing
-    , D.tuningOffsetCents = Just 0
+    , D.tuningOffsetCents = Just $ fromIntegral $ _tuningCents plan
     , D.realGuitarTuning = flip fmap (getPart (rb3_Guitar rb3) songYaml >>= partProGuitar) $ \pg ->
       case pgTuning pg of
         []   -> [0, 0, 0, 0, 0, 0]
@@ -551,7 +551,7 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
           then silentDryVox 3
           else emptyDryVox
         , Magma.dryVoxFileRB2 = Nothing
-        , Magma.tuningOffsetCents = 0
+        , Magma.tuningOffsetCents = fromIntegral $ _tuningCents plan -- TODO should do both this and c3 cents?
         }
       , Magma.albumArt = Magma.AlbumArt "cover.bmp"
       , Magma.tracks = Magma.Tracks

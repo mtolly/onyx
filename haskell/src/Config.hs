@@ -258,6 +258,7 @@ data Plan
     , _planParts    :: Parts (PartAudio (PlanAudio Duration AudioInput))
     , _crowd        :: Maybe (PlanAudio Duration AudioInput)
     , _planComments :: [T.Text]
+    , _tuningCents  :: Int
     }
   | MoggPlan
     { _moggMD5      :: T.Text
@@ -269,6 +270,7 @@ data Plan
     , _karaoke      :: Bool
     , _multitrack   :: Bool
     , _silent       :: [Int]
+    , _tuningCents  :: Int
     }
   deriving (Eq, Show)
 
@@ -345,7 +347,8 @@ instance StackJSON Plan where
         _karaoke    <- fromMaybe False          <$> optionalKey "karaoke"    fromJSON
         _multitrack <- fromMaybe (not _karaoke) <$> optionalKey "multitrack" fromJSON
         _silent     <- fromMaybe []             <$> optionalKey "silent"     fromJSON
-        expectedKeys ["mogg-md5", "parts", "crowd", "pans", "vols", "comments", "karaoke", "multitrack", "silent"]
+        _tuningCents <- fromMaybe 0 <$> optionalKey "tuning-cents" fromJSON
+        expectedKeys ["mogg-md5", "parts", "crowd", "pans", "vols", "comments", "karaoke", "multitrack", "silent", "tuning-cents"]
         return MoggPlan{..}
         )
       ] $ object $ do
@@ -354,7 +357,8 @@ instance StackJSON Plan where
         _planParts <- fromMaybe (Parts Map.empty) <$> optionalKey "parts" fromJSON
         _crowd <- optionalKey "crowd" fromJSON
         _planComments <- fromMaybe [] <$> optionalKey "comments" fromJSON
-        expectedKeys ["song", "countin", "parts", "crowd", "comments"]
+        _tuningCents <- fromMaybe 0 <$> optionalKey "tuning-cents" fromJSON
+        expectedKeys ["song", "countin", "parts", "crowd", "comments", "tuning-cents"]
         return Plan{..}
     , codecOut = makeOut $ \case
       Plan{..} -> A.object $ concat
@@ -363,6 +367,7 @@ instance StackJSON Plan where
         , ["parts" .= _planParts]
         , map ("crowd" .=) $ toList _crowd
         , ["comments" .= _planComments | not $ null _planComments]
+        , ["tuning-cents" .= _tuningCents | _tuningCents /= 0]
         ]
       MoggPlan{..} -> A.object $ concat
         [ ["mogg-md5" .= _moggMD5]
@@ -374,6 +379,7 @@ instance StackJSON Plan where
         , ["karaoke" .= _karaoke]
         , ["multitrack" .= _multitrack]
         , ["silent" .= _silent | not $ null _silent]
+        , ["tuning-cents" .= _tuningCents | _tuningCents /= 0]
         ]
     }
 
