@@ -1,0 +1,34 @@
+metadata:
+  title: The Enemy Inside
+  file-include: ../../../albums/dream-theater.yml
+  track-number: 2
+  author: Onyxite
+audio:
+  hdtracks-track:
+    md5: 61bf3bc2a35162258b89a64874d16ce0
+    frames: 36227966
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  hdtracks:
+    countin:
+      &countin
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [3.074, hdtracks-track]
+parts:
+  drums: # WIP kicks are fixed/done but need to go through and fix hands
+    drums: {}
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
