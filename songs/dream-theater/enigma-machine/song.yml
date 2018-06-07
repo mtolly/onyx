@@ -34,6 +34,8 @@ parts:
       difficulty: 7
   keys:
     pro-keys: {} # TODO wrap
+  bass:
+    grybo: {}
 targets:
   rb3:
     game: rb3
