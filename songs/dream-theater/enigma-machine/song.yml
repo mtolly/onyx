@@ -3,12 +3,6 @@ metadata:
   file-include: ../../../albums/dream-theater.yml
   track-number: 4
   author: Onyxite
-  comments:
-  - >-
-    Chart confidence: *medium*.
-    The drum solo is designed for Mangini's unique tom layout,
-    so I used the RB3 `[mix _ drums0dnoflip]` event to move snare to the yellow pad,
-    and wrote all left-hand tom hits as red.
 audio:
   album-track:
     md5: e3b02d6c3135375d72e87eafce49c1b7
@@ -19,8 +13,7 @@ audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
-  # TODO (both plans): move the drum solo to the drum stem since it's by itself?
-  album:
+  hdtracks:
     countin:
       &countin
       0|0: hihat
@@ -30,18 +23,22 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [2.483, album-track]
-  hdtracks:
-    countin: *countin
-    song:
       pad: [2.483, hdtracks-track]
+  # album:
+  #   countin: *countin
+  #   song:
+  #     pad: [2.483, album-track]
 parts:
   drums:
     drums:
       difficulty: 7
-      auto-2x-bass: true
+  keys:
+    pro-keys: {} # TODO wrap
 targets:
+  rb3:
+    game: rb3
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: hdtracks
+  ps:
+    game: ps
