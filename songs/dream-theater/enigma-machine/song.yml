@@ -36,6 +36,8 @@ parts:
     pro-keys: {} # TODO wrap
   bass:
     grybo: {}
+  guitar:
+    grybo: {} # WIP
 targets:
   rb3:
     game: rb3
