@@ -33,7 +33,7 @@ parts:
     drums:
       difficulty: 7
   keys:
-    pro-keys: {} # TODO wrap
+    pro-keys: {}
   bass:
     grybo: {}
   guitar:
