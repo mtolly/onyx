@@ -18,16 +18,21 @@ parts:
   keys:
     pro-keys: # mazegeek999
       difficulty: 7
+    grybo: # onyxite
+      difficulty: 7
   drums:
     drums: # onyxite
       difficulty: 7
   vocal:
     vocal: # onyxite
       count: 3
+      difficulty: 3
   bass:
-    grybo: {} # onyxite
+    grybo: # onyxite
+      difficulty: 6
   guitar:
-    grybo: {} # onyxite
+    grybo: # onyxite
+      difficulty: 7
 audio:
   album-prev: # Misunderstood
     md5: d33710f73830fc4973061ef68e3d0a28
