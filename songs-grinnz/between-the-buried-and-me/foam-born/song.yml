@@ -37,11 +37,11 @@ parts:
     grybo: {} # alextaylor
     pro-guitar: # onyxite
       tuning: [0, 0, 0, 0, 0, 0]
-      tuning-global: -3
+      tuning-global: -3 # C# standard
   rhythm:
     pro-guitar: # onyxite
       tuning: [0, 0, 0, 0, 0, 0]
-      tuning-global: -3
+      tuning-global: -3 # C# standard
   bass:
     grybo: {} # alextaylor
     pro-guitar: # onyxite
