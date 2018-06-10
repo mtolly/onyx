@@ -37,14 +37,13 @@ $white+ ;
 
 -- This reserved word needs to come before the general keyword rule.
 "kDataUnhandled" { emit $ const Unhandled }
--- Raw keywords. Note: these can start with digits, like "3sand7s", as long as
--- they also have letters in them.
-($alpha | $digit | _ | \/ | \. | \- | \= | \# | \< | \>)+ { emit $ Key . T.pack }
--- Quoted keywords.
-' ([^'] | \\')* ' { emit $ Key . T.pack . readKey }
-
 -- Quoted strings.
 \" [^\"]* \" { emit $ String . T.pack . readString }
+-- Quoted keywords.
+' ([^'] | \\')* ' { emit $ Key . T.pack . readKey }
+-- Raw keywords. Note: these can start with digits, like "3sand7s", as long as
+-- they also have letters in them.
+(. # $white # [ \( \) \{ \} \[ \] ])+ { emit $ Key . T.pack }
 
 -- Subtrees.
 \( { emit $ const LParen }
