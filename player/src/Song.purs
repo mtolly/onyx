@@ -7,7 +7,7 @@ import Data.Foreign (F, Foreign, ForeignError(..), isNull, readArray, readBoolea
 import Data.Foreign.Index (readProp, readIndex)
 import OnyxMap as Map
 import Data.Maybe (Maybe(..))
-import Data.Traversable (sequence, traverse)
+import Data.Traversable (sequence, traverse, for)
 import Data.Tuple (Tuple(..))
 import Data.Generic (class Generic, gShow, gEq, gCompare)
 import Control.Monad.Except (throwError)
@@ -574,19 +574,12 @@ readTimedPair g pair = Tuple <$> (Seconds <$> (readIndex 0 pair >>= readNumber))
 
 isForeignDrums :: Foreign -> F Drums
 isForeignDrums f = do
-  notes  <- readProp "notes"  f >>= readTimedMap (\frn -> readArray frn >>= traverse isForeignGem)
+  notes  <- readProp "notes"  f >>= readTimedMap isForeignGems
   lanesF <- readProp "lanes" f
   let readLane s = readProp s lanesF >>= readTimedMap readBoolean
-  lanes <- map Map.fromFoldable $ sequence
-    [ map (Tuple Kick) $ readLane "kick"
-    , map (Tuple Red ) $ readLane "red"
-    , map (Tuple YCym) $ readLane "y-cym"
-    , map (Tuple YTom) $ readLane "y-tom"
-    , map (Tuple BCym) $ readLane "b-cym"
-    , map (Tuple BTom) $ readLane "b-tom"
-    , map (Tuple GCym) $ readLane "g-cym"
-    , map (Tuple GTom) $ readLane "g-tom"
-    ]
+  lanes <- map Map.fromFoldable $ traverse
+    (\(Tuple ch gem) -> map (Tuple gem) $ readLane $ Str.singleton ch)
+    allDrums
   solo   <- readProp "solo"   f >>= readTimedMap readBoolean
   energy <- readProp "energy" f >>= readTimedMap readBoolean
   bre    <- readProp "bre"    f >>= readTimedMap readBoolean
@@ -595,18 +588,28 @@ isForeignDrums f = do
 
 data Gem = Kick | Red | YCym | YTom | BCym | BTom | OCym | GCym | GTom
 
-isForeignGem :: Foreign -> F Gem
-isForeignGem f = readString f >>= \s -> case s of
-  "kick"  -> pure Kick
-  "red"   -> pure Red
-  "y-cym" -> pure YCym
-  "y-tom" -> pure YTom
-  "b-cym" -> pure BCym
-  "b-tom" -> pure BTom
-  "o-cym" -> pure OCym
-  "g-cym" -> pure GCym
-  "g-tom" -> pure GTom
-  _ -> throwError $ pure $ TypeMismatch "drum gem name" $ show s
+allDrums :: Array (Tuple Char Gem)
+allDrums =
+  [ Tuple 'k' Kick
+  , Tuple 'r' Red
+  , Tuple 'Y' YCym
+  , Tuple 'y' YTom
+  , Tuple 'B' BCym
+  , Tuple 'b' BTom
+  , Tuple 'O' OCym
+  , Tuple 'G' GCym
+  , Tuple 'g' GTom
+  ]
+
+allDrumsMap :: Map.Map Char Gem
+allDrumsMap = Map.fromFoldable allDrums
+
+isForeignGems :: Foreign -> F (Array Gem)
+isForeignGems f = do
+  str <- readString f
+  for (Str.toCharArray str) \ch -> case Map.lookup ch allDrumsMap of
+    Just v  -> pure v
+    Nothing -> throwError $ pure $ TypeMismatch "drum gem" $ show ch
 
 derive instance genGem :: Generic Gem
 instance showGem :: Show Gem where

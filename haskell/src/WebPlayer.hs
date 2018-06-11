@@ -113,25 +113,25 @@ instance TimeFunctor Drums where
     g = Map.mapKeys f
     in Drums (g n) (g s) (g e) (fmap g l) (g b) m
 
-drumGemKey :: D.Gem D.ProType -> T.Text
-drumGemKey = \case
-  D.Kick                  -> "kick"
-  D.Red                   -> "red"
-  D.Pro D.Yellow D.Cymbal -> "y-cym"
-  D.Pro D.Yellow D.Tom    -> "y-tom"
-  D.Pro D.Blue   D.Cymbal -> "b-cym"
-  D.Pro D.Blue   D.Tom    -> "b-tom"
-  D.Pro D.Green  D.Cymbal -> "g-cym"
-  D.Pro D.Green  D.Tom    -> "g-tom"
-  D.Orange                -> "o-cym"
+drumGemChar :: D.Gem D.ProType -> Char
+drumGemChar = \case
+  D.Kick                  -> 'k'
+  D.Red                   -> 'r'
+  D.Pro D.Yellow D.Cymbal -> 'Y'
+  D.Pro D.Yellow D.Tom    -> 'y'
+  D.Pro D.Blue   D.Cymbal -> 'B'
+  D.Pro D.Blue   D.Tom    -> 'b'
+  D.Pro D.Green  D.Cymbal -> 'G'
+  D.Pro D.Green  D.Tom    -> 'g'
+  D.Orange                -> 'O'
 
 instance (Real t) => A.ToJSON (Drums t) where
   toJSON x = A.object
-    [ (,) "notes" $ eventList (drumNotes x) $ A.toJSON . map (A.String . drumGemKey)
+    [ (,) "notes" $ eventList (drumNotes x) $ A.toJSON . map drumGemChar
     , (,) "solo" $ eventList (drumSolo x) A.toJSON
     , (,) "energy" $ eventList (drumEnergy x) A.toJSON
     , (,) "lanes" $ A.object $ flip map (Map.toList $ drumLanes x) $ \(gem, lanes) ->
-      (,) (drumGemKey gem) $ eventList lanes A.toJSON
+      (,) (T.singleton $ drumGemChar gem) $ eventList lanes A.toJSON
     , (,) "bre" $ eventList (drumBRE x) A.toJSON
     , (,) "mode-5" $ A.toJSON (drumMode5 x)
     ]
