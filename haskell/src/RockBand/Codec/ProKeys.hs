@@ -95,7 +95,7 @@ instance ParseTrack ProKeysTrack where
     pkTrill     <- pkTrill     =. edges 127
     pkOverdrive <- pkOverdrive =. edges 116
     pkSolo      <- pkSolo      =. edges 115
-    pkBRE       <- pkBRE       =. edgesBRE [120 .. 124]
+    pkBRE       <- pkBRE       =. edges 120
     pkNotes     <- (pkNotes    =.) $ fatBlips (1/8) $ blipSustainRB $ condenseMap $ eachKey each
       $ \k -> matchEdges $ edges $ fromEnum k + 48
     pkLanes     <- (pkLanes    =.) $ statusBlips $ condenseMap_ $ eachKey each $ blip . \case
