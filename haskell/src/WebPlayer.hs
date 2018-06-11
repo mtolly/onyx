@@ -65,13 +65,13 @@ eventList evts f = A.toJSON $ map g $ Map.toAscList evts where
 
 showHSTNote :: LongNote StrumHOPOTap () -> A.Value
 showHSTNote = \case
-  NoteOff () -> "end"
-  Blip Tap () -> "tap"
-  Blip Strum () -> "strum"
-  Blip HOPO () -> "hopo"
-  NoteOn Tap () -> "tap-sust"
-  NoteOn Strum () -> "strum-sust"
-  NoteOn HOPO () -> "hopo-sust"
+  NoteOff () -> "e"
+  Blip Tap   () -> "t"
+  Blip Strum () -> "s"
+  Blip HOPO  () -> "h"
+  NoteOn Tap   () -> "T"
+  NoteOn Strum () -> "S"
+  NoteOn HOPO  () -> "H"
 
 instance (Real t) => A.ToJSON (Five t) where
   toJSON x = A.object
@@ -172,9 +172,9 @@ instance (Real t) => A.ToJSON (ProKeys t) where
   toJSON x = A.object
     [ (,) "notes" $ A.object $ flip map (Map.toList $ proKeysNotes x) $ \(p, notes) ->
       (,) (showPitch p) $ eventList notes $ \case
-        NoteOff () -> "end"
-        Blip () () -> "note"
-        NoteOn () () -> "sust"
+        NoteOff () -> "e"
+        Blip () () -> "n"
+        NoteOn () () -> "N"
     , (,) "ranges" $ eventList (proKeysRanges x) $ A.toJSON . map toLower . drop 5 . show
     , (,) "solo" $ eventList (proKeysSolo x) A.toJSON
     , (,) "energy" $ eventList (proKeysEnergy x) A.toJSON
@@ -202,13 +202,13 @@ instance (Real t) => A.ToJSON (Protar t) where
   toJSON x = A.object
     [ (,) "notes" $ A.object $ flip map (Map.toList $ protarNotes x) $ \(string, notes) ->
       (,) (T.pack $ map toLower $ show string) $ eventList notes $ A.String . \case
-        NoteOff () -> "end"
-        Blip (Strum, fret) () -> "strum" <> showFret fret
-        Blip (HOPO, fret) () -> "hopo" <> showFret fret
-        Blip (Tap, fret) () -> "tap" <> showFret fret
-        NoteOn (Strum, fret) () -> "strum-sust" <> showFret fret
-        NoteOn (HOPO, fret) () -> "hopo-sust" <> showFret fret
-        NoteOn (Tap, fret) () -> "tap-sust" <> showFret fret
+        NoteOff () -> "e"
+        Blip (Strum, fret) () -> "s" <> showFret fret
+        Blip (HOPO, fret) () -> "h" <> showFret fret
+        Blip (Tap, fret) () -> "t" <> showFret fret
+        NoteOn (Strum, fret) () -> "S" <> showFret fret
+        NoteOn (HOPO, fret) () -> "H" <> showFret fret
+        NoteOn (Tap, fret) () -> "T" <> showFret fret
     , (,) "solo" $ eventList (protarSolo x) A.toJSON
     , (,) "energy" $ eventList (protarEnergy x) A.toJSON
     , (,) "lanes" $ A.object $ flip map (Map.toList $ protarLanes x) $ \(string, lanes) ->
@@ -216,10 +216,10 @@ instance (Real t) => A.ToJSON (Protar t) where
     , (,) "bre" $ eventList (protarBRE x) A.toJSON
     , (,) "chords" $ eventList (protarChords x) $ A.String . \case
       NoteOff     () -> "e"
-      Blip   name () -> "b:" <> name
-      NoteOn name () -> "s:" <> name
-    ] where showFret Nothing  = "-x"
-            showFret (Just i) = "-" <> T.pack (show i)
+      Blip   name () -> "c:" <> name
+      NoteOn name () -> "C:" <> name
+    ] where showFret Nothing  = "x"
+            showFret (Just i) = T.pack (show i)
 
 data GHLLane
   = GHLSingle GHL.Fret
@@ -464,7 +464,10 @@ instance TimeFunctor Beats where
 
 instance (Real t) => A.ToJSON (Beats t) where
   toJSON x = A.object
-    [ (,) "lines" $ eventList (beatLines x) $ A.toJSON . map toLower . show
+    [ (,) "lines" $ eventList (beatLines x) $ A.toJSON . \case
+      Bar      -> 0 :: Int
+      Beat     -> 1
+      HalfBeat -> 2
     ]
 
 data Beat
