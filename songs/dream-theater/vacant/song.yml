@@ -25,8 +25,11 @@ plans:
       fade: [end, 4, album-track]
 parts:
   bass:
-    grybo:
+    grybo: # need to fix up timing a bit from pro bass
       difficulty: 1
+    pro-guitar:
+      difficulty: 1
+      tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
   guitar:
     grybo:
       difficulty: 1
