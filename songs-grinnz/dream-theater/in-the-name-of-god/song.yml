@@ -32,6 +32,7 @@ audio:
       - drumcam-band
   drumcam-drums-expr:
     # TODO this subtracts great for most of the song except the intro
+    # TODO snip off talking at end, also remove static during last piano notes
     expr:
       gain:
       - -0.79
