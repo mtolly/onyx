@@ -9,7 +9,7 @@ THE FURTHER SIDE (NOVA COLLECTIVE)
 - state of flux: DONE!
 - ripped apart and reassembled: DONE!
 - the further side
-  - finish + wrap pro keys
+  - wrap pro keys
   - basic keys
   - BEAT track
   - overdrive
