@@ -33,12 +33,50 @@ audio:
       - drop:
         - frames: 2832
         - stretch:
-          - 1.00000648
+          - 1.0000064546840342 # computed using first and last values in table at bottom
           - drop:
             - frames: 22548825
             - take:
               - frames: 55544898
               - drumcam-drums
+  drumcam-drums-tweaked:
+    expr:
+      mix:
+      - mask:
+        - [on-time]
+        - &drums-mask
+          # after stretching, drums still get unsynced in some sections
+          - center: 0
+            tag: on-time
+          - center: {frames: 4110244}
+            tag: drums-late-1
+          - center: {frames: 8278445}
+            tag: drums-late-2
+          - center: {frames: 10150328}
+            tag: drums-late-1
+          - center: {frames: 13252262}
+            tag: on-time
+          - center: {frames: 13732295}
+            tag: drums-late-1
+          - center: {frames: 13866921}
+            tag: on-time
+          - center: {frames: 28051217}
+            tag: drums-late-1
+          - center: {frames: 29071959}
+            tag: on-time
+        - drumcam-drums-expr
+      - mask:
+        - [drums-late-1]
+        - *drums-mask
+        - drop:
+          - frames: 1
+          - drumcam-drums-expr
+      - mask:
+        - [drums-late-2]
+        - *drums-mask
+        - drop:
+          - frames: 2
+          - drumcam-drums-expr
 plans:
   album:
     countin:
@@ -54,7 +92,6 @@ plans:
       pad: [3.539, album-track]
   drumcam:
     countin: *countin
-    # TODO: this needs to be cleaned up. possibly more than one stretch ratio
     song:
       pad:
       - 1.523
@@ -63,22 +100,33 @@ plans:
           - 2.5
           - mix:
             - drumcam-band-expr
-            - concatenate:
-              - take:
-                - frames: 4252477
-                - drumcam-drums-expr
-              - drop:
-                - frames: 4252478
-                - drumcam-drums-expr
+            - drumcam-drums-tweaked
     parts:
       drums:
         pad:
         - 1.523
         - resample:
             gain:
-            - -2.5
+            - 2.5
             - drumcam-drums-expr
 parts:
   drums:
     drums:
       auto-2x-bass: true
+
+# table of some aligned samples
+# after dropping 22548825 samples from band and drums tracks...
+# band (161607 - 2831) aligns with drums 161607
+# band (1783419 - 2820) aligns with drums 1783419
+# band (2839238 - 2814) aligns with drums 2839238
+# band (4578363 - 2803) aligns with drums 4578363
+# band (7746001 - 2783) aligns with drums 7746001
+# band (10808403 - 2763) aligns with drums 10808403
+# band (13811089 - 2744) aligns with drums 13811089
+# band (17268894 - 2720) aligns with drums 17268894
+# band (20317315 - 2701) aligns with drums 20317315
+# band (23151196 - 2683) aligns with drums 23151196
+# band (26661980 - 2660) aligns with drums 26661980
+# band (28920495 - 2646) aligns with drums 28920495
+# band (31445294 - 2629) aligns with drums 31445294
+# band (32851046 - 2620) aligns with drums 32851046
