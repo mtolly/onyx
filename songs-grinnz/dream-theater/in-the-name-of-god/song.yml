@@ -76,9 +76,13 @@ parts:
   drums:
     drums:
       layout: flip-yb-toms
-  # bass:
-  #   pro-guitar:
-  #     tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC
+  bass:
+    pro-guitar: # WIP
+      tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC
+  guitar:
+    pro-guitar: # WIP
+      tuning: [0, 0, 0, 0, 0, 0]
+      tuning-global: -4 # C standard
 targets:
   rb3:
     game: rb3
