@@ -58,6 +58,9 @@ plans:
       1|3: hihat
     song:
       pad: [5.390, album-track]
+  # TODO: fix some weird misaligned hits
+  # - between chorus 1 and verse 2
+  # - during verse 2
   drumcam:
     countin: *countin
     song:
@@ -81,6 +84,9 @@ parts:
   keys:
     pro-keys:
       difficulty: 7
+  bass:
+    pro-guitar: # WIP
+      tuning: [-2, -5, -5, -5, -4, -4] # EADGBE -> DEADGC
 targets:
   rb3:
     game: rb3
