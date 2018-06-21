@@ -24,6 +24,8 @@ instance ParseTrack BeatTrack where
 instance TraverseTrack BeatTrack where
   traverseTrack fn (BeatTrack a) = BeatTrack <$> fn a
 
+instance (NNC.C t) => Semigroup (BeatTrack t) where
+  (<>) (BeatTrack a) (BeatTrack b) = BeatTrack (RTB.merge a b)
+
 instance (NNC.C t) => Monoid (BeatTrack t) where
   mempty = BeatTrack RTB.empty
-  mappend (BeatTrack a) (BeatTrack b) = BeatTrack (RTB.merge a b)

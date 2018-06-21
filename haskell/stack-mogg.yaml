@@ -4,22 +4,13 @@ packages:
   extra-dep: true
 - location:
     git: git://github.com/mtolly/midi
-    commit: 183a57f18c9e2d89497451530843b49cc6111919
+    commit: 28866f4715cde594d8d8ec5e6f3beecb64783614
   extra-dep: true
 - location:
     git: git://github.com/mtolly/conduit-audio
     commit: 697a92ce61ed548a64e033d048817bbc35caa987
     subdirs:
     - conduit-audio-mpg123
-  extra-dep: true
-# following 2 are for windows SDL_MAIN fix
-- location:
-    git: git://github.com/haskell-game/sdl2
-    commit: 9ba093763aa1d1cacb471631b91d289b91bfd646
-  extra-dep: true
-- location:
-    git: git://github.com/haskell-game/sdl2-ttf
-    commit: 71eeb468baf745bcf5ef392a5e713346a6cc168a
   extra-dep: true
 - location: ../../mogg2ogg/hs-mogg2ogg
   extra-dep: true
@@ -29,13 +20,16 @@ extra-deps:
 - conduit-audio-samplerate-0.1.0.3
 - conduit-audio-sndfile-0.1.2.1
 - jammittools-0.5.3.2
-- midi-util-0.2
+- midi-util-0.2.0.1
 - rubberband-0.1.0.2
 - tinyfiledialogs-0.2.0.0
 - hmidi-0.2.2.1
 - mpg123-bindings-0.1.0.0
 - JuicyPixels-stbir-0.1.0.0
-resolver: nightly-2017-12-30
+- hsndfile-0.8.0
+- hsndfile-vector-0.5.2
+resolver: nightly-2018-06-21
 flags:
   onyxite-customs-tool:
     MoggDecrypt: true
+allow-newer: true

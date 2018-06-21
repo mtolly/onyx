@@ -6,7 +6,6 @@ module RockBand.Codec.Venue where
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (sortBy)
-import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
@@ -307,12 +306,8 @@ data VenueTrack t = VenueTrack
 
   } deriving (Eq, Ord, Show)
 
-instance (NNC.C t) => Monoid (VenueTrack t) where
-  mempty = VenueTrack RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (VenueTrack t) where
+  (<>)
     (VenueTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19)
     (VenueTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18 b19)
     = VenueTrack
@@ -335,6 +330,12 @@ instance (NNC.C t) => Monoid (VenueTrack t) where
       (RTB.merge a17 b17)
       (RTB.merge a18 b18)
       (RTB.merge a19 b19)
+
+instance (NNC.C t) => Monoid (VenueTrack t) where
+  mempty = VenueTrack RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance TraverseTrack VenueTrack where
   traverseTrack fn (VenueTrack a b c d e f g h i j k l m n o p q r s) = VenueTrack

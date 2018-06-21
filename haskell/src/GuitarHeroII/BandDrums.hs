@@ -30,11 +30,8 @@ instance TraverseTrack BandDrumsTrack where
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e
     <*> fn f <*> fn g <*> fn h <*> fn i <*> fn j
 
-instance (NNC.C t) => Monoid (BandDrumsTrack t) where
-  mempty = BandDrumsTrack
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (BandDrumsTrack t) where
+  (<>)
     (BandDrumsTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10)
     (BandDrumsTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10)
     = BandDrumsTrack
@@ -48,6 +45,11 @@ instance (NNC.C t) => Monoid (BandDrumsTrack t) where
       (RTB.merge a8 b8)
       (RTB.merge a9 b9)
       (RTB.merge a10 b10)
+
+instance (NNC.C t) => Monoid (BandDrumsTrack t) where
+  mempty = BandDrumsTrack
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance ParseTrack BandDrumsTrack where
   parseTrack = do

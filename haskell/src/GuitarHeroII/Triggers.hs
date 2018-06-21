@@ -25,10 +25,8 @@ instance TraverseTrack TriggersTrack where
   traverseTrack fn (TriggersTrack a b c d e) = TriggersTrack
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e
 
-instance (NNC.C t) => Monoid (TriggersTrack t) where
-  mempty = TriggersTrack
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (TriggersTrack t) where
+  (<>)
     (TriggersTrack a1 a2 a3 a4 a5)
     (TriggersTrack b1 b2 b3 b4 b5)
     = TriggersTrack
@@ -37,6 +35,10 @@ instance (NNC.C t) => Monoid (TriggersTrack t) where
       (RTB.merge a3 b3)
       (RTB.merge a4 b4)
       (RTB.merge a5 b5)
+
+instance (NNC.C t) => Monoid (TriggersTrack t) where
+  mempty = TriggersTrack
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance ParseTrack TriggersTrack where
   parseTrack = do

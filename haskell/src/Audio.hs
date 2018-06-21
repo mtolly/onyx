@@ -42,7 +42,7 @@ import qualified Data.ByteString.Lazy            as BL
 import qualified Data.ByteString.Lazy.Char8      as BL8
 import           Data.Char                       (toLower)
 import           Data.Conduit                    (await, awaitForever, leftover,
-                                                  yield, ($$), (=$=))
+                                                  runConduit, yield, (.|))
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.LAME
 import           Data.Conduit.Audio.LAME.Binding as L
@@ -143,7 +143,7 @@ stretchSimple ratio src = AudioSource
   { rate     = rate src
   , frames   = ceiling $ fromIntegral (frames src) * ratio
   , channels = channels src
-  , source   = source src =$= pipe 0 (repeat 0)
+  , source   = source src .| pipe 0 (repeat 0)
   } where
     stride = recip ratio
     pipe phase prev = await >>= \case
@@ -192,8 +192,8 @@ stretchFull timeRatio pitchRatio src = AudioSource
         timeRatio
         pitchRatio
       liftIO $ RB.setMaxProcessSize rb chunkSize
-      upstream =$= studyAll rb
-      upstream =$= processAll rb
+      upstream .| studyAll rb
+      upstream .| processAll rb
     studyAll rb = await >>= \case
       Nothing -> return ()
       Just v -> await >>= \case
@@ -250,7 +250,7 @@ fadeStart dur (AudioSource s r c l) = let
         fader = V.generate (V.length v) $ \j ->
           min 1 $ fromIntegral (i + quot j c) / fromIntegral fadeFrames
         in yield (V.zipWith (*) v fader) >> go (i + vectorFrames v c)
-  in AudioSource (s =$= go 0) r c l
+  in AudioSource (s .| go 0) r c l
 
 fadeEnd :: (Monad m, Ord a, Fractional a, V.Storable a) => Duration -> AudioSource m a -> AudioSource m a
 fadeEnd dur (AudioSource s r c l) = let
@@ -265,7 +265,7 @@ fadeEnd dur (AudioSource s r c l) = let
           min 1 $ fromIntegral (l - (i + quot j c)) / fromIntegral fadeFrames
         in yield (V.zipWith (*) v fader) >> go (i + vectorFrames v c)
       else yield v >> go (i + vectorFrames v c)
-  in AudioSource (s =$= go 0) r c l
+  in AudioSource (s .| go 0) r c l
 
 data MaskSections
   = MaskFade Bool Frames Frames MaskSections
@@ -329,7 +329,7 @@ renderMask tags seams (AudioSource s r c l) = let
             leftover chunkB
             leftover chunkA
             masker m
-  in AudioSource (s =$= masker sections) r c l
+  in AudioSource (s .| masker sections) r c l
 
 remapChannels :: (Monad m) => [Maybe Int] -> AudioSource m Float -> AudioSource m Float
 remapChannels cs (AudioSource s r c f) = let
@@ -337,7 +337,7 @@ remapChannels cs (AudioSource s r c f) = let
     chans = deinterleave c v
     zero = V.replicate (V.length $ head chans) 0
     in interleave $ map (maybe zero (chans !!)) cs
-  in AudioSource (s =$= CL.map adjustBlock) r (length cs) f
+  in AudioSource (s .| CL.map adjustBlock) r (length cs) f
 
 buildSource :: (MonadResource m) =>
   Audio Duration FilePath -> Action (AudioSource m Float)
@@ -405,7 +405,7 @@ runAudio src out = let
 -- | Forces floating point samples to be in @[-1, 1]@.
 -- libsndfile should do this, after https://github.com/kaoskorobase/hsndfile/pull/12
 clampFloat :: (Monad m) => AudioSource m Float -> AudioSource m Float
-clampFloat src = src { source = source src =$= CL.map clampVector } where
+clampFloat src = src { source = source src .| CL.map clampVector } where
   clampVector = V.map $ \s -> if
     | s < (-1)  -> -1
     | s > 1     -> 1
@@ -479,7 +479,7 @@ applyPansVols pans    vols   src = AudioSource
   { rate     = rate src
   , frames   = frames src
   , channels = 2
-  , source   = source src =$= CL.map applyChunk
+  , source   = source src .| CL.map applyChunk
   } where
     applyChunk :: V.Vector Float -> V.Vector Float
     applyChunk v = V.generate (vectorFrames v (channels src) * 2) $ \i -> do
@@ -502,7 +502,7 @@ applyVolsMono vols src = AudioSource
   { rate     = rate src
   , frames   = frames src
   , channels = 1
-  , source   = source src =$= CL.map applyChunk
+  , source   = source src .| CL.map applyChunk
   } where
     vols' = take (channels src) $ vols ++ repeat 0
     applyChunk :: V.Vector Float -> V.Vector Float
@@ -541,4 +541,4 @@ emptyChannels ogg = liftIO $ do
           indexes = [chan, chan + channels src .. V.length blk - 1]
           in flip all indexes $ \i -> abs (blk V.! i :: Float) < 0.01
         in loop $!! chans'
-    in source src $$ loop [0 .. channels src - 1]
+    in runConduit $ source src .| loop [0 .. channels src - 1]

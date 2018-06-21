@@ -68,15 +68,12 @@ instance TraverseTrack PartTrack where
     <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
     <*> fn g <*> fn h <*> fn i <*> fn j <*> fn k
 
-instance (NNC.C t) => Monoid (PartTrack t) where
-  mempty = PartTrack Map.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (PartTrack t) where
+  (<>)
     (PartTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11)
     (PartTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11)
     = PartTrack
-      (Map.unionWith mappend a1 b1)
+      (Map.unionWith (<>) a1 b1)
       (RTB.merge a2 b2)
       (RTB.merge a3 b3)
       (RTB.merge a4 b4)
@@ -87,6 +84,11 @@ instance (NNC.C t) => Monoid (PartTrack t) where
       (RTB.merge a9 b9)
       (RTB.merge a10 b10)
       (RTB.merge a11 b11)
+
+instance (NNC.C t) => Monoid (PartTrack t) where
+  mempty = PartTrack Map.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 data PartDifficulty t = PartDifficulty
   { partStarPower :: RTB.T t Bool
@@ -99,9 +101,8 @@ instance TraverseTrack PartDifficulty where
   traverseTrack fn (PartDifficulty a b c d) = PartDifficulty
     <$> fn a <*> fn b <*> fn c <*> traverseBlipSustain fn d
 
-instance (NNC.C t) => Monoid (PartDifficulty t) where
-  mempty = PartDifficulty RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (PartDifficulty t) where
+  (<>)
     (PartDifficulty a1 a2 a3 a4)
     (PartDifficulty b1 b2 b3 b4)
     = PartDifficulty
@@ -109,6 +110,9 @@ instance (NNC.C t) => Monoid (PartDifficulty t) where
       (RTB.merge a2 b2)
       (RTB.merge a3 b3)
       (RTB.merge a4 b4)
+
+instance (NNC.C t) => Monoid (PartDifficulty t) where
+  mempty = PartDifficulty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance ParseTrack PartTrack where
   parseTrack = do

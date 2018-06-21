@@ -27,24 +27,26 @@ data GH2File t = GH2File
   , gh2Triggers       :: TriggersTrack t
   } deriving (Eq, Ord, Show)
 
+instance (NNC.C t) => Semigroup (GH2File t) where
+  (<>)
+    (GH2File a1 a2 a3 a4 a5 a6 a7 a8 a9 a10)
+    (GH2File b1 b2 b3 b4 b5 b6 b7 b8 b9 b10)
+    = GH2File
+      (a1  <> b1 )
+      (a2  <> b2 )
+      (a3  <> b3 )
+      (a4  <> b4 )
+      (a5  <> b5 )
+      (a6  <> b6 )
+      (a7  <> b7 )
+      (a8  <> b8 )
+      (a9  <> b9 )
+      (a10 <> b10)
+
 instance (NNC.C t) => Monoid (GH2File t) where
   mempty = GH2File
     mempty mempty mempty mempty mempty
     mempty mempty mempty mempty mempty
-  mappend
-    (GH2File a1 a2 a3 a4 a5 a6 a7 a8 a9 a10)
-    (GH2File b1 b2 b3 b4 b5 b6 b7 b8 b9 b10)
-    = GH2File
-      (mappend a1 b1)
-      (mappend a2 b2)
-      (mappend a3 b3)
-      (mappend a4 b4)
-      (mappend a5 b5)
-      (mappend a6 b6)
-      (mappend a7 b7)
-      (mappend a8 b8)
-      (mappend a9 b9)
-      (mappend a10 b10)
 
 instance TraverseTrack GH2File where
   traverseTrack fn

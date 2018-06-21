@@ -61,11 +61,8 @@ data ProKeysTrack t = ProKeysTrack
 nullPK :: ProKeysTrack t -> Bool
 nullPK = RTB.null . pkNotes
 
-instance (NNC.C t) => Monoid (ProKeysTrack t) where
-  mempty = ProKeysTrack RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (ProKeysTrack t) where
+  (<>)
     (ProKeysTrack a1 a2 a3 a4 a5 a6 a7 a8 a9)
     (ProKeysTrack b1 b2 b3 b4 b5 b6 b7 b8 b9)
     = ProKeysTrack
@@ -78,6 +75,11 @@ instance (NNC.C t) => Monoid (ProKeysTrack t) where
       (RTB.merge a7 b7)
       (RTB.merge a8 b8)
       (RTB.merge a9 b9)
+
+instance (NNC.C t) => Monoid (ProKeysTrack t) where
+  mempty = ProKeysTrack RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance TraverseTrack ProKeysTrack where
   traverseTrack fn (ProKeysTrack a b c d e f g h i) = ProKeysTrack

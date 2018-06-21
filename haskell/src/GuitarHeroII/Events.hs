@@ -95,9 +95,8 @@ instance TraverseTrack EventsTrack where
   traverseTrack fn (EventsTrack a b c d e) = EventsTrack
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e
 
-instance (NNC.C t) => Monoid (EventsTrack t) where
-  mempty = EventsTrack RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (EventsTrack t) where
+  (<>)
     (EventsTrack a1 a2 a3 a4 a5)
     (EventsTrack b1 b2 b3 b4 b5)
     = EventsTrack
@@ -106,6 +105,9 @@ instance (NNC.C t) => Monoid (EventsTrack t) where
       (RTB.merge a3 b3)
       (RTB.merge a4 b4)
       (RTB.merge a5 b5)
+
+instance (NNC.C t) => Monoid (EventsTrack t) where
+  mempty = EventsTrack RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance ParseTrack EventsTrack where
   parseTrack = do

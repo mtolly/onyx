@@ -11,6 +11,7 @@ import qualified Data.ByteString              as B
 import qualified Data.ByteString.Char8        as B8
 import qualified Data.ByteString.Lazy         as BL
 import qualified Data.Conduit                 as C
+import Data.Conduit ((.|))
 import qualified Data.Conduit.Audio           as A
 import           Data.Int                     (Int16)
 import qualified Data.Vector.Storable         as V
@@ -73,4 +74,4 @@ writeVGS fp src = let
     blocksPerChannel <- writeBlocks h (repeat (0, 0, 0, 0)) 0
     liftIO $ IO.hSeek h IO.AbsoluteSeek 0
     liftIO $ BL.hPut h $ header blocksPerChannel
-  in s C.$$ C.bracketP (IO.openBinaryFile fp IO.WriteMode) IO.hClose go
+  in C.runConduit $ s .| C.bracketP (IO.openBinaryFile fp IO.WriteMode) IO.hClose go

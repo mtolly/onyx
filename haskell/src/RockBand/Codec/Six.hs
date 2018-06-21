@@ -29,15 +29,17 @@ data SixTrack t = SixTrack
 nullSix :: SixTrack t -> Bool
 nullSix = all (RTB.null . sixGems) . toList . sixDifficulties
 
-instance (NNC.C t) => Monoid (SixTrack t) where
-  mempty = SixTrack Map.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (SixTrack t) where
+  (<>)
     (SixTrack a1 a2 a3)
     (SixTrack b1 b2 b3)
     = SixTrack
-      (Map.unionWith mappend a1 b1)
+      (Map.unionWith (<>) a1 b1)
       (RTB.merge a2 b2)
       (RTB.merge a3 b3)
+
+instance (NNC.C t) => Monoid (SixTrack t) where
+  mempty = SixTrack Map.empty RTB.empty RTB.empty
 
 instance TraverseTrack SixTrack where
   traverseTrack fn (SixTrack a b c) = SixTrack
@@ -54,9 +56,8 @@ instance TraverseTrack SixDifficulty where
   traverseTrack fn (SixDifficulty a b c d) = SixDifficulty
     <$> fn a <*> fn b <*> fn c <*> traverseBlipSustain fn d
 
-instance (NNC.C t) => Monoid (SixDifficulty t) where
-  mempty = SixDifficulty RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (SixDifficulty t) where
+  (<>)
     (SixDifficulty a1 a2 a3 a4)
     (SixDifficulty b1 b2 b3 b4)
     = SixDifficulty
@@ -64,6 +65,9 @@ instance (NNC.C t) => Monoid (SixDifficulty t) where
       (RTB.merge a2 b2)
       (RTB.merge a3 b3)
       (RTB.merge a4 b4)
+
+instance (NNC.C t) => Monoid (SixDifficulty t) where
+  mempty = SixDifficulty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance ParseTrack SixTrack where
   parseTrack = do

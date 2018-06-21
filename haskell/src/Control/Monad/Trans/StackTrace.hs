@@ -73,7 +73,7 @@ instance Exc.Exception Message where
     : map ("  - " ++) ctx
 
 newtype Messages = Messages { getMessages :: [Message] }
-  deriving (Eq, Ord, Show, Read, Monoid)
+  deriving (Eq, Ord, Show, Read, Semigroup, Monoid)
 
 instance Exc.Exception Messages where
   displayException = unlines . map Exc.displayException . getMessages

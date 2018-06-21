@@ -26,7 +26,6 @@ import           Control.Monad.Trans.State
 import qualified Data.Aeson                       as A
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
-import           Data.ByteString.Unsafe           (unsafeUseAsCStringLen)
 import           Data.Char                        (isPrint)
 import           Data.Default.Class               (def)
 import qualified Data.DTA.Serialize.RB3           as D
@@ -42,7 +41,7 @@ import           Data.Time
 import           Data.Version                     (showVersion)
 import           Data.Word                        (Word8)
 import qualified FeedBack.Load                    as FB
-import           Foreign                          (Ptr, castPtr)
+import           Foreign                          (castPtr)
 import           Foreign.C                        (CInt (..))
 import qualified FretsOnFire                      as FoF
 import           Graphics.UI.TinyFileDialogs
@@ -65,9 +64,8 @@ import           RockBand.ProGuitar.Keyboard      (GtrSettings (..), runApp)
 import           Scripts                          (loadMIDI)
 import           SDL                              (($=))
 import qualified SDL
+import qualified SDL.Font                         as TTF
 import qualified SDL.Raw                          as Raw
-import qualified SDL.TTF                          as TTF
-import           SDL.TTF.FFI                      (TTFFont)
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Extract                     (STFSContents (..), withSTFS)
 import           System.Directory                 (XdgDirectory (..),
@@ -79,13 +77,8 @@ import           System.Info                      (os)
 import           System.IO.Temp                   (withSystemTempDirectory)
 import qualified System.MIDI                      as MIDI
 
-foreign import ccall unsafe "TTF_OpenFontRW"
-  openFontRW :: Ptr Raw.RWops -> CInt -> CInt -> IO TTFFont
-
-withBSFont :: B.ByteString -> Int -> (TTFFont -> IO a) -> IO a
-withBSFont bs pts act = unsafeUseAsCStringLen bs $ \(ptr, len) -> do
-  rw  <- Raw.rwFromConstMem (castPtr ptr) (fromIntegral len)
-  bracket (openFontRW rw 1 $ fromIntegral pts) TTF.closeFont act
+withBSFont :: B.ByteString -> Int -> (TTF.Font -> IO a) -> IO a
+withBSFont bs pts = bracket (TTF.decode bs pts) TTF.free
 
 data Selection
   = NoSelect
@@ -482,7 +475,7 @@ launchGUI :: IO ()
 launchGUI = do
 
   bracket_ SDL.initializeAll SDL.quit $ do
-  TTF.withInit $ do
+  bracket_ TTF.initialize TTF.quit $ do
   withBSFont pentatonicTTF 40 $ \penta -> do
   withBSFont pentatonicTTF 20 $ \pentaSmall -> do
   withBSFont veraMonoTTF 15 $ \mono -> do
@@ -497,8 +490,6 @@ launchGUI = do
 
   let purple :: Double -> SDL.V4 Word8
       purple frac = SDL.V4 (floor $ 0x4B * frac) (floor $ 0x1C * frac) (floor $ 0x4E * frac) 0xFF
-      v4ToColor :: SDL.V4 Word8 -> Raw.Color
-      v4ToColor (SDL.V4 r g b a) = Raw.Color r g b a
 
   varSelectedFile <- newEmptyMVar
   varTaskProgress <- newEmptyMVar
@@ -513,26 +504,26 @@ launchGUI = do
         _                   -> return ()
       _            -> return ()
 
-  bracket (TTF.renderUTF8Blended penta "ONYX" $ v4ToColor $ purple 0.4) SDL.freeSurface $ \surfBrand -> do
+  bracket (TTF.blended penta (purple 0.4) "ONYX") SDL.freeSurface $ \surfBrand -> do
   bracket (SDL.createTextureFromSurface rend surfBrand) SDL.destroyTexture $ \texBrand -> do
   dimsBrand@(SDL.V2 brandW brandH) <- SDL.surfaceDimensions surfBrand
 
-  bracket (TTF.renderUTF8Blended penta "ONYX" $ Raw.Color 0xEE 0xEE 0xEE 0xFF) SDL.freeSurface $ \surfBrandSel -> do
+  bracket (TTF.blended penta (SDL.V4 0xEE 0xEE 0xEE 0xFF) "ONYX") SDL.freeSurface $ \surfBrandSel -> do
   bracket (SDL.createTextureFromSurface rend surfBrandSel) SDL.destroyTexture $ \texBrandSel -> do
 
-  bracket (TTF.renderUTF8Blended pentaSmall (showVersion version) $ v4ToColor $ purple 0.4) SDL.freeSurface $ \surfVersion -> do
+  bracket (TTF.blended pentaSmall (purple 0.4) $ T.pack $ showVersion version) SDL.freeSurface $ \surfVersion -> do
   bracket (SDL.createTextureFromSurface rend surfVersion) SDL.destroyTexture $ \texVersion -> do
   dimsVersion@(SDL.V2 versionW versionH) <- SDL.surfaceDimensions surfVersion
 
-  bracket (TTF.renderUTF8Blended pentaSmall "latest" $ v4ToColor $ purple 0.4) SDL.freeSurface $ \surfLatest -> do
+  bracket (TTF.blended pentaSmall (purple 0.4) "latest") SDL.freeSurface $ \surfLatest -> do
   bracket (SDL.createTextureFromSurface rend surfLatest) SDL.destroyTexture $ \texLatest -> do
   dimsLatest@(SDL.V2 latestW latestH) <- SDL.surfaceDimensions surfLatest
 
-  bracket (TTF.renderUTF8Blended pentaSmall "update available!" $ Raw.Color 0x80 0x54 0x82 255) SDL.freeSurface $ \surfUpdate -> do
+  bracket (TTF.blended pentaSmall (SDL.V4 0x80 0x54 0x82 255) "update available!") SDL.freeSurface $ \surfUpdate -> do
   bracket (SDL.createTextureFromSurface rend surfUpdate) SDL.destroyTexture $ \texUpdate -> do
   dimsUpdate@(SDL.V2 updateW updateH) <- SDL.surfaceDimensions surfUpdate
 
-  let monoChar c = TTF.renderUTF8Blended mono [c] $ Raw.Color 0xEE 0xEE 0xEE 0xFF
+  let monoChar c = TTF.blendedGlyph mono (SDL.V4 0xEE 0xEE 0xEE 0xFF) c
       printChars = filter isPrint ['\0' .. '\255']
   bracket (mapM monoChar printChars) (mapM_ SDL.freeSurface) $ \surfsMono -> do
   bracket (mapM (SDL.createTextureFromSurface rend) surfsMono) (mapM_ SDL.destroyTexture) $ \texsMono -> do
@@ -640,14 +631,14 @@ launchGUI = do
       choices <- getChoices
       forM_ (zip [0..] choices) $ \(index, choice) -> liftIO $ do
         let selected = currentSelection == SelectMenu index
-            color = if selected then Raw.Color 0xEE 0xEE 0xEE 255 else Raw.Color 0x80 0x54 0x82 255
-        bracket (TTF.renderUTF8Blended penta (T.unpack $ choiceTitle choice) color) SDL.freeSurface $ \surf -> do
+            color = if selected then SDL.V4 0xEE 0xEE 0xEE 255 else SDL.V4 0x80 0x54 0x82 255
+        bracket (TTF.blended penta color $ choiceTitle choice) SDL.freeSurface $ \surf -> do
           dims <- SDL.surfaceDimensions surf
           bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
             SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 (offset + 10) (fromIntegral index * 70 + 10))) dims
-        case T.unpack $ choiceDescription choice of
+        case choiceDescription choice of
           ""  -> return () -- otherwise sdl2_ttf returns null surface
-          str -> bracket (TTF.renderUTF8Blended pentaSmall str color) SDL.freeSurface $ \surf -> do
+          str -> bracket (TTF.blended pentaSmall color str) SDL.freeSurface $ \surf -> do
             dims <- SDL.surfaceDimensions surf
             bracket (SDL.createTextureFromSurface rend surf) SDL.destroyTexture $ \tex -> do
               SDL.copy rend tex Nothing $ Just $ SDL.Rectangle (SDL.P (SDL.V2 (offset + 10) (fromIntegral index * 70 + 50))) dims

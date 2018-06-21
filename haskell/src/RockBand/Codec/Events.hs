@@ -8,7 +8,6 @@ module RockBand.Codec.Events where
 import           Control.Monad                    ((>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
-import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
@@ -75,11 +74,8 @@ instance ParseTrack EventsTrack where
       BackingHihat -> 26
     return EventsTrack{..}
 
-instance (NNC.C t) => Monoid (EventsTrack t) where
-  mempty = EventsTrack
-    RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (EventsTrack t) where
+  (<>)
     (EventsTrack a1 a2 a3 a4 a5 a6 a7 a8)
     (EventsTrack b1 b2 b3 b4 b5 b6 b7 b8)
     = EventsTrack
@@ -91,3 +87,8 @@ instance (NNC.C t) => Monoid (EventsTrack t) where
       (RTB.merge a6 b6)
       (RTB.merge a7 b7)
       (RTB.merge a8 b8)
+
+instance (NNC.C t) => Monoid (EventsTrack t) where
+  mempty = EventsTrack
+    RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty

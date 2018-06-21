@@ -18,11 +18,13 @@ data MelodyTrack t = MelodyTrack
   , melodyNotes     :: RTB.T t (NoteType, Maybe t)
   } deriving (Eq, Ord, Show)
 
-instance (NNC.C t) => Monoid (MelodyTrack t) where
-  mempty = MelodyTrack RTB.empty RTB.empty
-  mappend (MelodyTrack a1 a2) (MelodyTrack b1 b2) = MelodyTrack
+instance (NNC.C t) => Semigroup (MelodyTrack t) where
+  (<>) (MelodyTrack a1 a2) (MelodyTrack b1 b2) = MelodyTrack
     (RTB.merge a1 b1)
     (RTB.merge a2 b2)
+
+instance (NNC.C t) => Monoid (MelodyTrack t) where
+  mempty = MelodyTrack RTB.empty RTB.empty
 
 instance TraverseTrack MelodyTrack where
   traverseTrack fn (MelodyTrack a b) = MelodyTrack <$> fn a <*> traverseBlipSustain fn b

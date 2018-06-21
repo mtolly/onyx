@@ -106,15 +106,12 @@ data FiveTrack t = FiveTrack
 nullFive :: FiveTrack t -> Bool
 nullFive = all (RTB.null . fiveGems) . toList . fiveDifficulties
 
-instance (NNC.C t) => Monoid (FiveTrack t) where
-  mempty = FiveTrack Map.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (FiveTrack t) where
+  (<>)
     (FiveTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12)
     (FiveTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12)
     = FiveTrack
-      (Map.unionWith mappend a1 b1)
+      (Map.unionWith (<>) a1 b1)
       (RTB.merge a2 b2)
       (RTB.merge a3 b3)
       (RTB.merge a4 b4)
@@ -126,6 +123,11 @@ instance (NNC.C t) => Monoid (FiveTrack t) where
       (RTB.merge a10 b10)
       (RTB.merge a11 b11)
       (RTB.merge a12 b12)
+
+instance (NNC.C t) => Monoid (FiveTrack t) where
+  mempty = FiveTrack Map.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance TraverseTrack FiveTrack where
   traverseTrack fn (FiveTrack a b c d e f g h i j k l) = FiveTrack
@@ -146,9 +148,8 @@ instance TraverseTrack FiveDifficulty where
   traverseTrack fn (FiveDifficulty a b c d e f) = FiveDifficulty
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> traverseBlipSustain fn f
 
-instance (NNC.C t) => Monoid (FiveDifficulty t) where
-  mempty = FiveDifficulty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (FiveDifficulty t) where
+  (<>)
     (FiveDifficulty a1 a2 a3 a4 a5 a6)
     (FiveDifficulty b1 b2 b3 b4 b5 b6)
     = FiveDifficulty
@@ -158,6 +159,9 @@ instance (NNC.C t) => Monoid (FiveDifficulty t) where
       (RTB.merge a4 b4)
       (RTB.merge a5 b5)
       (RTB.merge a6 b6)
+
+instance (NNC.C t) => Monoid (FiveDifficulty t) where
+  mempty = FiveDifficulty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance ParseTrack FiveTrack where
   parseTrack = do

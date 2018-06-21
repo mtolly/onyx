@@ -16,7 +16,6 @@ import           Data.Foldable                    (toList)
 import           Data.List.Extra                  (nubOrd, sort)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (catMaybes, fromMaybe, isJust)
-import           Data.Monoid                      ((<>))
 import           Data.Profunctor                  (dimap)
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
@@ -95,15 +94,12 @@ data ProGuitarTrack t = ProGuitarTrack
 nullPG :: ProGuitarTrack t -> Bool
 nullPG = all (RTB.null . pgNotes) . toList . pgDifficulties
 
-instance (NNC.C t) => Monoid (ProGuitarTrack t) where
-  mempty = ProGuitarTrack Map.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (ProGuitarTrack t) where
+  (<>)
     (ProGuitarTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16)
     (ProGuitarTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16)
     = ProGuitarTrack
-      (Map.unionWith mappend a1 b1)
+      (Map.unionWith (<>) a1 b1)
       (RTB.merge a2 b2)
       (RTB.merge a3 b3)
       (RTB.merge a4 b4)
@@ -119,6 +115,11 @@ instance (NNC.C t) => Monoid (ProGuitarTrack t) where
       (RTB.merge a14 b14)
       (RTB.merge a15 b15)
       (RTB.merge a16 b16)
+
+instance (NNC.C t) => Monoid (ProGuitarTrack t) where
+  mempty = ProGuitarTrack Map.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance TraverseTrack ProGuitarTrack where
   traverseTrack fn (ProGuitarTrack a b c d e f g h i j k l m n o p) = ProGuitarTrack
@@ -148,11 +149,8 @@ instance TraverseTrack ProGuitarDifficulty where
         $ fmap (\(str, (nt, fret, len)) -> (fret, (str, nt), len))
         $ h
 
-instance (NNC.C t) => Monoid (ProGuitarDifficulty t) where
-  mempty = ProGuitarDifficulty
-    RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (ProGuitarDifficulty t) where
+  (<>)
     (ProGuitarDifficulty a1 a2 a3 a4 a5 a6 a7 a8)
     (ProGuitarDifficulty b1 b2 b3 b4 b5 b6 b7 b8)
     = ProGuitarDifficulty
@@ -164,6 +162,11 @@ instance (NNC.C t) => Monoid (ProGuitarDifficulty t) where
       (RTB.merge a6 b6)
       (RTB.merge a7 b7)
       (RTB.merge a8 b8)
+
+instance (NNC.C t) => Monoid (ProGuitarDifficulty t) where
+  mempty = ProGuitarDifficulty
+    RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty
 
 channelEdges
   :: (Show a, GtrChannel a, SendMessage m, NNC.C t)

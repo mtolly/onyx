@@ -21,15 +21,17 @@ instance TraverseTrack BandSingerTrack where
   traverseTrack fn (BandSingerTrack a b c) = BandSingerTrack
     <$> fn a <*> fn b <*> fn c
 
-instance (NNC.C t) => Monoid (BandSingerTrack t) where
-  mempty = BandSingerTrack RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (BandSingerTrack t) where
+  (<>)
     (BandSingerTrack a1 a2 a3)
     (BandSingerTrack b1 b2 b3)
     = BandSingerTrack
       (RTB.merge a1 b1)
       (RTB.merge a2 b2)
       (RTB.merge a3 b3)
+
+instance (NNC.C t) => Monoid (BandSingerTrack t) where
+  mempty = BandSingerTrack RTB.empty RTB.empty RTB.empty
 
 instance ParseTrack BandSingerTrack where
   parseTrack = do

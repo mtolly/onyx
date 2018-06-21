@@ -123,6 +123,39 @@ data FixedFile t = FixedFile
 instance HasEvents FixedFile where
   getEventsTrack = fixedEvents
 
+instance (NNC.C t) => Semigroup (FixedFile t) where
+  (<>)
+    (FixedFile a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19 a20 a21 a22 a23 a24 a25 a26 a27)
+    (FixedFile b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18 b19 b20 b21 b22 b23 b24 b25 b26 b27)
+    = FixedFile
+      (a1  <> b1 )
+      (a2  <> b2 )
+      (a3  <> b3 )
+      (a4  <> b4 )
+      (a5  <> b5 )
+      (a6  <> b6 )
+      (a7  <> b7 )
+      (a8  <> b8 )
+      (a9  <> b9 )
+      (a10 <> b10)
+      (a11 <> b11)
+      (a12 <> b12)
+      (a13 <> b13)
+      (a14 <> b14)
+      (a15 <> b15)
+      (a16 <> b16)
+      (a17 <> b17)
+      (a18 <> b18)
+      (a19 <> b19)
+      (a20 <> b20)
+      (a21 <> b21)
+      (a22 <> b22)
+      (a23 <> b23)
+      (a24 <> b24)
+      (a25 <> b25)
+      (a26 <> b26)
+      (a27 <> b27)
+
 instance (NNC.C t) => Monoid (FixedFile t) where
   mempty = FixedFile mempty mempty
     mempty mempty mempty mempty mempty
@@ -130,37 +163,6 @@ instance (NNC.C t) => Monoid (FixedFile t) where
     mempty mempty mempty mempty mempty
     mempty mempty mempty mempty mempty
     mempty mempty mempty mempty mempty
-  mappend
-    (FixedFile a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19 a20 a21 a22 a23 a24 a25 a26 a27)
-    (FixedFile b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18 b19 b20 b21 b22 b23 b24 b25 b26 b27)
-    = FixedFile
-      (mappend a1 b1)
-      (mappend a2 b2)
-      (mappend a3 b3)
-      (mappend a4 b4)
-      (mappend a5 b5)
-      (mappend a6 b6)
-      (mappend a7 b7)
-      (mappend a8 b8)
-      (mappend a9 b9)
-      (mappend a10 b10)
-      (mappend a11 b11)
-      (mappend a12 b12)
-      (mappend a13 b13)
-      (mappend a14 b14)
-      (mappend a15 b15)
-      (mappend a16 b16)
-      (mappend a17 b17)
-      (mappend a18 b18)
-      (mappend a19 b19)
-      (mappend a20 b20)
-      (mappend a21 b21)
-      (mappend a22 b22)
-      (mappend a23 b23)
-      (mappend a24 b24)
-      (mappend a25 b25)
-      (mappend a26 b26)
-      (mappend a27 b27)
 
 instance TraverseTrack FixedFile where
   traverseTrack fn
@@ -248,17 +250,19 @@ data OnyxFile t = OnyxFile
 instance HasEvents OnyxFile where
   getEventsTrack = onyxEvents
 
-instance (NNC.C t) => Monoid (OnyxFile t) where
-  mempty = OnyxFile Map.empty mempty mempty mempty mempty
-  mappend
+instance (NNC.C t) => Semigroup (OnyxFile t) where
+  (<>)
     (OnyxFile a1 a2 a3 a4 a5)
     (OnyxFile b1 b2 b3 b4 b5)
     = OnyxFile
-      (Map.unionWith mappend a1 b1)
-      (mappend a2 b2)
-      (mappend a3 b3)
-      (mappend a4 b4)
-      (mappend a5 b5)
+      (Map.unionWith (<>) a1 b1)
+      (a2 <> b2)
+      (a3 <> b3)
+      (a4 <> b4)
+      (a5 <> b5)
+
+instance (NNC.C t) => Monoid (OnyxFile t) where
+  mempty = OnyxFile Map.empty mempty mempty mempty mempty
 
 instance TraverseTrack OnyxFile where
   traverseTrack fn
@@ -289,33 +293,35 @@ data OnyxPart t = OnyxPart
   , onyxHarm3            :: VocalTrack t
   } deriving (Eq, Ord, Show)
 
+instance (NNC.C t) => Semigroup (OnyxPart t) where
+  (<>)
+    (OnyxPart a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18)
+    (OnyxPart b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18)
+    = OnyxPart
+      (a1  <> b1 )
+      (a2  <> b2 )
+      (a3  <> b3 )
+      (a4  <> b4 )
+      (a5  <> b5 )
+      (a6  <> b6 )
+      (a7  <> b7 )
+      (a8  <> b8 )
+      (a9  <> b9 )
+      (a10 <> b10)
+      (a11 <> b11)
+      (a12 <> b12)
+      (a13 <> b13)
+      (a14 <> b14)
+      (a15 <> b15)
+      (a16 <> b16)
+      (a17 <> b17)
+      (a18 <> b18)
+
 instance (NNC.C t) => Monoid (OnyxPart t) where
   mempty = OnyxPart
     mempty mempty mempty mempty mempty mempty
     mempty mempty mempty mempty mempty mempty
     mempty mempty mempty mempty mempty mempty
-  mappend
-    (OnyxPart a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18)
-    (OnyxPart b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18)
-    = OnyxPart
-      (mappend a1 b1)
-      (mappend a2 b2)
-      (mappend a3 b3)
-      (mappend a4 b4)
-      (mappend a5 b5)
-      (mappend a6 b6)
-      (mappend a7 b7)
-      (mappend a8 b8)
-      (mappend a9 b9)
-      (mappend a10 b10)
-      (mappend a11 b11)
-      (mappend a12 b12)
-      (mappend a13 b13)
-      (mappend a14 b14)
-      (mappend a15 b15)
-      (mappend a16 b16)
-      (mappend a17 b17)
-      (mappend a18 b18)
 
 instance TraverseTrack OnyxPart where
   traverseTrack fn

@@ -7,7 +7,6 @@ module RockBand.Codec.Vocal where
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Maybe                       (fromMaybe)
-import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
@@ -76,11 +75,8 @@ data VocalTrack t = VocalTrack
 nullVox :: VocalTrack t -> Bool
 nullVox = RTB.null . vocalNotes
 
-instance (NNC.C t) => Monoid (VocalTrack t) where
-  mempty = VocalTrack RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (VocalTrack t) where
+  (<>)
     (VocalTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11)
     (VocalTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11)
     = VocalTrack
@@ -95,6 +91,11 @@ instance (NNC.C t) => Monoid (VocalTrack t) where
       (RTB.merge a9 b9)
       (RTB.merge a10 b10)
       (RTB.merge a11 b11)
+
+instance (NNC.C t) => Monoid (VocalTrack t) where
+  mempty = VocalTrack RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance TraverseTrack VocalTrack where
   traverseTrack fn (VocalTrack a b c d e f g h i j k) = VocalTrack

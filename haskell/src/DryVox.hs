@@ -5,7 +5,7 @@ module DryVox where
 import           Audio                            (applyVolsMono)
 import           Control.Monad                    (guard)
 import           Control.Monad.Trans.Resource     (MonadResource)
-import           Data.Conduit                     ((=$=))
+import           Data.Conduit                     ((.|))
 import qualified Data.Conduit                     as C
 import           Data.Conduit.Audio
 import           Data.Conduit.Audio.SampleRate
@@ -40,7 +40,7 @@ clipDryVox :: (Monad m, Num a, V.Storable a) => RTB.T U.Seconds Bool -> AudioSou
 clipDryVox vox src = let
   vox' :: RTB.T NN.Integer Bool
   vox' = RTB.discretize $ RTB.mapTime (* realToFrac (rate src)) vox
-  sink :: (Monad m, Num a, V.Storable a) => Bool -> RTB.T NN.Integer Bool -> C.Conduit (V.Vector a) m (V.Vector a)
+  sink :: (Monad m, Num a, V.Storable a) => Bool -> RTB.T NN.Integer Bool -> C.ConduitT (V.Vector a) (V.Vector a) m ()
   sink b bools = case RTB.viewL bools of
     Nothing -> CL.map $ applyBool b
     Just ((dt, b'), bools') -> if dt == NNC.zero
@@ -68,7 +68,7 @@ clipDryVox vox src = let
     { rate     = rate src
     , frames   = frames src
     , channels = channels src
-    , source   = source src =$= sink False vox'
+    , source   = source src .| sink False vox'
     }
 
 toDryVoxFormat :: (MonadResource m) => AudioSource m Float -> AudioSource m Float

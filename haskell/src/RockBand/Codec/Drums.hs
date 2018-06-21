@@ -15,7 +15,6 @@ import           Data.Foldable                    (toList)
 import           Data.List                        (elemIndex)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromJust, fromMaybe)
-import           Data.Monoid                      ((<>))
 import           Data.Profunctor                  (dimap)
 import qualified Data.Text                        as T
 import           Guitars                          (applyStatus)
@@ -42,15 +41,12 @@ data DrumTrack t = DrumTrack
 nullDrums :: DrumTrack t -> Bool
 nullDrums = all (RTB.null . drumGems) . toList . drumDifficulties
 
-instance (NNC.C t) => Monoid (DrumTrack t) where
-  mempty = DrumTrack Map.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (DrumTrack t) where
+  (<>)
     (DrumTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12)
     (DrumTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12)
     = DrumTrack
-      (Map.unionWith mappend a1 b1)
+      (Map.unionWith (<>) a1 b1)
       (RTB.merge a2 b2)
       (RTB.merge a3 b3)
       (RTB.merge a4 b4)
@@ -62,6 +58,11 @@ instance (NNC.C t) => Monoid (DrumTrack t) where
       (RTB.merge a10 b10)
       (RTB.merge a11 b11)
       (RTB.merge a12 b12)
+
+instance (NNC.C t) => Monoid (DrumTrack t) where
+  mempty = DrumTrack Map.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance TraverseTrack DrumTrack where
   traverseTrack fn (DrumTrack a b c d e f g h i j k l) = DrumTrack
@@ -173,15 +174,17 @@ instance TraverseTrack DrumDifficulty where
   traverseTrack fn (DrumDifficulty a b c) = DrumDifficulty
     <$> fn a <*> fn b <*> fn c
 
-instance (NNC.C t) => Monoid (DrumDifficulty t) where
-  mempty = DrumDifficulty RTB.empty RTB.empty RTB.empty
-  mappend
+instance (NNC.C t) => Semigroup (DrumDifficulty t) where
+  (<>)
     (DrumDifficulty a1 a2 a3)
     (DrumDifficulty b1 b2 b3)
     = DrumDifficulty
       (RTB.merge a1 b1)
       (RTB.merge a2 b2)
       (RTB.merge a3 b3)
+
+instance (NNC.C t) => Monoid (DrumDifficulty t) where
+  mempty = DrumDifficulty RTB.empty RTB.empty RTB.empty
 
 parseProType :: (Monad m, NNC.C t) => Int -> TrackEvent m t ProType
 parseProType

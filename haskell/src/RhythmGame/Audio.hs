@@ -10,7 +10,7 @@ import           Control.Monad                  (forever)
 import           Control.Monad.IO.Class         (liftIO)
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace (logStdout)
-import           Data.Conduit                   (($$))
+import           Data.Conduit                   (runConduit, (.|))
 import qualified Data.Conduit                   as C
 import qualified Data.Conduit.Audio             as CA
 import           Data.Conduit.Audio.Sndfile     (sourceSnd)
@@ -25,7 +25,7 @@ import           System.IO.Temp
 readyAudio :: CA.AudioSource (ResourceT IO) a -> (IO (Maybe (V.Vector a)) -> IO b) -> IO b
 readyAudio src fn = do
   var <- newEmptyMVar
-  let t1 = runResourceT $ CA.source src $$ do
+  let t1 = runResourceT $ runConduit $ CA.source src .| do
         forever $ C.await >>= liftIO . putMVar var
   withAsync t1 $ \_ -> do
     _ <- readMVar var -- wait until first chunk is ready before continuing

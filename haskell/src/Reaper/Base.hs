@@ -3,7 +3,7 @@ module Reaper.Base where
 
 import           Control.Monad.IO.Class (MonadIO (liftIO))
 import           Data.List              (foldl')
-import           Text.PrettyPrint       ((<+>), (<>))
+import           Text.PrettyPrint       ((<+>))
 import qualified Text.PrettyPrint       as PP
 
 data Element = Element String [String] (Maybe [Element])
