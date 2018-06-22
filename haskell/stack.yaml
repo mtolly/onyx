@@ -8,7 +8,7 @@ packages:
   extra-dep: true
 - location:
     git: git://github.com/mtolly/conduit-audio
-    commit: 697a92ce61ed548a64e033d048817bbc35caa987
+    commit: b397003239eb4bf777b7ae095eadca32ea2ec55f
     subdirs:
     - conduit-audio-mpg123
   extra-dep: true
@@ -17,7 +17,7 @@ extra-deps:
 - conduit-audio-lame-0.1.2.1
 - conduit-audio-samplerate-0.1.0.3
 - conduit-audio-sndfile-0.1.2.1
-- jammittools-0.5.3.2
+- jammittools-0.5.5
 - midi-util-0.2.0.1
 - rubberband-0.1.0.2
 - tinyfiledialogs-0.2.0.0
@@ -27,4 +27,3 @@ extra-deps:
 - hsndfile-0.8.0
 - hsndfile-vector-0.5.2
 resolver: nightly-2018-06-21
-allow-newer: true
