@@ -51,6 +51,7 @@ audio:
 plans:
   album:
     countin:
+      &countin
       0|0: hihat
       0|2: hihat
       1|0: hihat
@@ -60,6 +61,7 @@ plans:
     song:
       pad: [3.095, album-track]
   drumcam:
+    countin: *countin
     song:
       resample:
         gain:
