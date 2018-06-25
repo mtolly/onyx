@@ -17,6 +17,19 @@ plans:
       4|2: hihat
       5|0: hihat
       5|2: hihat
+  dev:
+    parts:
+      bass: stem-bass
+      cleans: stem-cleans
+      delay-and-verb: stem-delay-and-verb
+      drums: stem-drums
+      fx: stem-fx
+      gtr-leads: stem-gtr-leads
+      joey-leads: stem-joey-leads
+      other-keys: stem-other-keys
+      outro: stem-outro
+      piano: stem-piano
+      rhythms: stem-rhythms
 audio:
   youtube:
     file-path: audio-youtube.wav
@@ -24,14 +37,50 @@ audio:
     - ../../../scripts/youtube tI1zdXLflqs 140
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  stem-bass:
+    md5: 16d0520a595ea9e6cb24fb8feb01636f
+    frames: 14436266
+  stem-cleans:
+    md5: b318612a43072af1e9067442b0ddbd4a
+    frames: 14436266
+  stem-delay-and-verb:
+    md5: 9f14763e9d1efb448962f127add17e36
+    frames: 14436266
+  stem-drums:
+    md5: 392a9d9d72b21060df9058d55867f504
+    frames: 14436266
+  stem-fx:
+    md5: 5de0d7c087285e6be2375a80cee8285a
+    frames: 14436266
+  stem-gtr-leads:
+    md5: da0c897bd2d201766e5a6c830d6ce6c0
+    frames: 14436266
+  stem-joey-leads:
+    md5: eeba22659b4ff6a26ad2118f2fd9d515
+    frames: 14436266
+  stem-other-keys:
+    md5: f384da006145103734c6f834caa6d45b
+    frames: 14436266
+  stem-outro:
+    md5: 6332c0333caa0cc0725903114de5659f
+    frames: 14436266
+  stem-piano:
+    md5: e77a754aa00ee046efdefd2c3304c292
+    frames: 14436266
+  stem-rhythms:
+    md5: 9350e1998da8b13680179d0b2cd6fc62
+    frames: 14436266
 targets:
   rb3:
     game: rb3
+    plan: youtube
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    plan: youtube
   ps:
     game: ps
+    plan: youtube
 metadata:
   title: Earthshine
   artist: Arch Echo
