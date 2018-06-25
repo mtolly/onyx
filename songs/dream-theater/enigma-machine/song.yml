@@ -3,6 +3,10 @@ metadata:
   file-include: ../../../albums/dream-theater.yml
   track-number: 4
   author: Onyxite
+  autogen-theme: PsychJamRock
+  key: E minor # for the main riff at least
+  difficulty: 7
+  rating: FF
 audio:
   album-track:
     md5: e3b02d6c3135375d72e87eafce49c1b7
@@ -46,8 +50,12 @@ parts:
 targets:
   rb3:
     game: rb3
+    version: 1
+    song-id: 1660200076
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    version: 1
+    song-id: 1660200077
   ps:
     game: ps

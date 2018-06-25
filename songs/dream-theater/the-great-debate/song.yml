@@ -6,6 +6,7 @@ metadata:
   author: mazegeek999, Onyxite
   difficulty: 7
   key: E minor # kind of? mostly E5 or Esus4 really, and some Emaj
+  autogen-theme: DarkHeavyRock
   comments:
   - >-
     Pro keys by mazegeek999, rest by onyxite.
@@ -28,6 +29,7 @@ parts:
     vocal: # onyxite
       count: 3
       difficulty: 3
+      gender: male
   bass:
     grybo: # onyxite
       difficulty: 6
@@ -67,8 +69,12 @@ plans:
 targets:
   rb3:
     game: rb3
+    version: 1
+    song-id: 1660200078
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    version: 1
+    song-id: 1660200079
   ps:
     game: ps

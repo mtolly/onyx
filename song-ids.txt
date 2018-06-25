@@ -121,6 +121,12 @@ onyxite's C3-format Song IDs (16602xxxxx)
   v1 released 2018-01-31
   v2 of Cascades released 2018-03-12 (fix bass solo incorrectly charted to keys)
 
+1660200076 Enigma Machine (Dream Theater) 1x
+1660200077 Enigma Machine (Dream Theater) 2x
+1660200078 The Great Debate (Dream Theater) 1x
+1660200079 The Great Debate (Dream Theater) 2x
+  v1 to be released
+
 BONUS SONGS (counting down from max)
 
 1660299999 hacked c3 6:00 drum chart
