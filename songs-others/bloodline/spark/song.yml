@@ -1,0 +1,98 @@
+parts:
+  drums:
+    drums: {}
+  keys:
+    pro-keys: {}
+plans:
+  stems:
+    parts:
+      ADAMR-LEADS:
+        pad: [4.514, Spark-ADAMR-LEADS]
+      BASS:
+        pad: [4.514, Spark-BASS]
+      Clean-GTR:
+        pad: [4.514, Spark-Clean-GTR]
+      Delay-verb:
+        pad: [4.514, Spark-Delay-verb]
+      DRUMS:
+        pad: [4.514, Spark-DRUMS]
+      END-RHYTHMS:
+        pad: [4.514, Spark-END-RHYTHMS]
+      FX-Perc:
+        pad: [4.514, Spark-FX-Perc]
+      FX:
+        pad: [4.514, Spark-FX]
+      Joey-Lead:
+        pad: [4.514, Spark-Joey-Lead]
+      OUTRO:
+        pad: [4.514, Spark-OUTRO]
+      PADS:
+        pad: [4.514, Spark-PADS]
+      Piano:
+        pad: [4.514, Spark-Piano]
+      RHYTHMS:
+        pad: [4.514, Spark-RHYTHMS]
+      Strings:
+        pad: [4.514, Spark-Strings]
+      Synths-KEYS:
+        pad: [4.514, Spark-Synths-KEYS]
+audio:
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  Spark-ADAMR-LEADS:
+    md5: 685890983a0705570fdf049fc989a3d1
+    frames: 15180706
+  Spark-BASS:
+    md5: 2dfcf0edf7c83da89e55ce9745233a44
+    frames: 15180706
+  Spark-Clean-GTR:
+    md5: b47091f3aa28a90daf0d209cc658ae1a
+    frames: 15180706
+  Spark-Delay-verb:
+    md5: 6bef761ae3d535b0f7f88a72cc5d21cc
+    frames: 15180706
+  Spark-DRUMS:
+    md5: 4e042f97ebe72a25eb7c73a6813588b4
+    frames: 15180706
+  Spark-END-RHYTHMS:
+    md5: 43da2cfaa4f2b87067c8004debe275b1
+    frames: 15180706
+  Spark-FX-Perc:
+    md5: 3b2c254a13f1814ec52b59b2ea48b09e
+    frames: 15180706
+  Spark-FX:
+    md5: 5986206993ca7c56f0430423458dcf01
+    frames: 15180706
+  Spark-Joey-Lead:
+    md5: 8cf744fd63f75e72aea320f9acda3c21
+    frames: 15180706
+  Spark-OUTRO:
+    md5: df2a45df4590bbda8fa65ea79ccf1513
+    frames: 15180706
+  Spark-PADS:
+    md5: 7e065ff4f67464fc2b26a77d009b2445
+    frames: 15180706
+  Spark-Piano:
+    md5: fab48227a0fdd51ea07c02856822fbf9
+    frames: 15180706
+  Spark-RHYTHMS:
+    md5: 2be2e84c96e247b045531389fa5a39d3
+    frames: 15180706
+  Spark-Strings:
+    md5: b8e69d52688b32e984c5ec8c01345c4f
+    frames: 15180706
+  Spark-Synths-KEYS:
+    md5: 9d108e3f88278c6781e698681605fbbb
+    frames: 15180706
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
+metadata:
+  title: Spark
+  artist: Arch Echo
+  author: Bloodline, Onyxite
