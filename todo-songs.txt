@@ -24,6 +24,7 @@ at least 2 parts done:
 at least 1 part done:
 > scapegoat 1 (louis de mieulle) drums done
 > the taste of filth (louis de mieulle) drums done
+> soundfrieze (louis de mieulle) drums done
 > in a trance (hiromi) drums done
 > i want a pine cone (uncle moe) drums done
 > i-rony (soil&pimp) drums done
@@ -35,6 +36,7 @@ started:
 > beehive (lonnie smith) started drums
 > blast off (trioscapes) fix up drums by porcupinkfloyd
 > tom sawyer (alex skolnick trio) drums by blitzbob
+> giant steps (coltrane)
 planning:
 # mario circuit (oneups)
 # it could happen to you (ryo fukui)
@@ -50,10 +52,8 @@ LTE
 > acid rain - gtr/drums/prokeys done but need cleanup
 
 DREAM THEATER
-- the great debate - ready!
 > another won - drums fixed up w/ portnoy dvd audio
 MANGINI STUFF
-  - enigma machine - ready!
   > behind the veil - just needs rest of gtr, basic keys, vox, OD, and audio exprs
   > bridges in the sky - drums done
   > lost not forgotten - new drums chart
@@ -64,13 +64,13 @@ FALLING INTO INFINITY (have all stems now)
   > lines in the sand - needs: pro keys, basic keys, vox, OD
   > peruvian skies - drums done
 TRAIN OF THOUGHT - DRUMLESS AUDIO!!
-  > as i am: has drumless audio, fixed drums, pro guitar, pro bass
+  > as i am: has drumless audio, pro guitar, pro bass
   > this dying soul: has drumless audio
-  > endless sacrifice: has drumless audio, fixed drums, pro keys
-  > honor thy father: has drumless audio
-  - vacant
+  > endless sacrifice: has drumless audio, pro keys, started pro bass
+  > honor thy father: has drumless audio, pro bass
+  - vacant (make sure to ask copy on c3 to remove)
   > stream of consciousness: just needs basic keys, PK range fixes, PG/PB slide fixes, OD
-  > in the name of god: has drumless audio, fixed drums
+  > in the name of god: has drumless audio, started pro guitar/bass/keys
 SYSTEMATIC CHAOS
   new release with numeric song IDs, lipsync, video backgrounds, other minor fixes
   > forsaken - fix basic gtr/bass to match pro
@@ -81,32 +81,34 @@ SOLO STUFF
   > black ice (petrucci+rudess) gtr done
 
 PRO GUITAR/BASS
-- summer goddess (soil&pimp)
-- scoop out (soil&pimp)
-- memai (soil&pimp)
-- ripped apart & reassembled (nova collective)
-- forsaken; see DT
-- stream of consciousness; see DT
-- as i am; see DT
-- foam born (btbam)
+- summer goddess, scoop out, sabotage, widows (soil & pimp) ready to go after checks
+> leyenda (williams)
+> train of thought; see DT
+> some of sys chaos; see DT
+> foam born (btbam)
+> rosetta stoned (tool)
+> spark (hiromi)
+> dark world (insaneintherain)
+> giant steps (coltrane)
 
 OTHER
-- 50 ways to say goodbye (train)
+- 50 ways to say goodbye (train) adopted by kitty for c3 project
 - prelude/kiara (bonobo)
-- voodoo chile (hendrix) ready for jarod to polish + release
+- voodoo chile (hendrix) ready for jarod to polish + release (someday...)
 - oblivion (winery dogs)
-> rosetta stoned (tool) new version: drums fixed, pro bass done, pro gtr wip, then fix basic gtr/bass
+> rosetta stoned (tool) new version: drums fixed, pro bass+guitar done, just need to fix basic gtr/bass
 > love and tonic (milquetoast & co) just needs gtr and vox
 > sleep deprived (sevish) needs drums, keys, and pro keys (in 14-EDO)
 > seven (yoshida) drums + bass done
-> asturias (williams) progtr in progress
+> leyenda (williams) just need to finish quantizing cyclops' basic gtr
 > bikini sports ponchin (mth) just needs vox finished
 > waltz of the flowers (vadrum) drums done
 > summer (vadrum) drums done
 
 COLLABS
 - hippy: chiharu no koi; PK + basic keys done, ready to send
-# emh: more arch echo
+> arch echo album with emh
+> madness of many (AAL) with emh (stems!)
 
 REQUESTS
 # kyle: kickstand hog - https://www.youtube.com/watch?v=Z3CWmacwkWI
