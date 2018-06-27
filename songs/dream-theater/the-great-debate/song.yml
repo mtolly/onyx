@@ -3,19 +3,18 @@ metadata:
   file-include: ../../../albums/six-degrees-of-inner-turbulence.yml
   track-number: 4
   rating: Supervision Recommended
-  author: mazegeek999, Onyxite
+  author: Mazegeek999, Onyxite
   difficulty: 7
   key: E minor # kind of? mostly E5 or Esus4 really, and some Emaj
   autogen-theme: DarkHeavyRock
   comments:
   - >-
-    Pro keys by mazegeek999, rest by onyxite.
+    Pro keys by Mazegeek999, rest by Onyxite.
   - >-
-    Drums done with heavy reference to *Ten Degrees of Turbulent Drumming*
-    [footage](https://www.youtube.com/watch?v=OOjKScCpgMw),
-    plus [lesson](https://www.youtube.com/watch?v=sI2fnseLcbg)
-    and [playthrough](https://www.youtube.com/watch?v=5DJvgVYqJm8)
-    from *In Constant Motion*.
+    Some drum sections charted according to footage from
+    [*Ten Degrees of Turbulent Drumming*](https://www.youtube.com/watch?v=OOjKScCpgMw)
+    and [*In Constant Motion*](https://www.youtube.com/watch?v=73VhQk1Y7Mo),
+    due to overdubbing and a unique kit layout in the intro/outro.
 parts:
   keys:
     pro-keys: # mazegeek999

@@ -290,3 +290,15 @@
     rb3: download/OJP3_BlackWidowBlues_v1_rb3con
     ps: download/OJP3_BlackWidowBlues_v1_ps_ch.zip
 
+- file-path: ../songs/dream-theater/the-great-debate
+  video: https://www.youtube.com/watch?v=XYlB2tMjBJA
+  urls:
+    rb3: download/onyx_TheGreatDebate1x_v1_rb3con
+    rb3-2x: download/onyx_TheGreatDebate2x_v1_rb3con
+    ps: download/onyx_TheGreatDebate_v1_ch_ps.zip
+- file-path: ../songs/dream-theater/enigma-machine
+  video: https://www.youtube.com/watch?v=KiYoYYirbmI
+  urls:
+    rb3: download/onyx_EnigmaMachine1x_v1_rb3con
+    rb3-2x: download/onyx_EnigmaMachine2x_v1_rb3con
+    ps: download/onyx_EnigmaMachine_v1_ch_ps.zip
