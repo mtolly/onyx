@@ -2,33 +2,30 @@ module Draw.Five (drawFive) where
 
 import           Prelude
 
-import           Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-import           Data.Array                         (cons, range, snoc)
-import           Data.Foldable                      (for_)
-import           Data.Int                           (round, toNumber)
-import           Data.List                          as L
-import           Data.Maybe                         (Maybe (..))
-import           Data.Time.Duration                 (Seconds)
-import           Data.Tuple                         (Tuple (..))
-import           Graphics.Canvas                    as C
+import           Data.Array              (cons, range, snoc)
+import           Data.Foldable           (for_)
+import           Data.Int                (round, toNumber)
+import           Data.List               as L
+import           Data.Maybe              (Maybe (..))
+import           Data.Time.Duration      (Seconds, negateDuration)
+import           Data.Tuple              (Tuple (..))
+import           Effect.Exception.Unsafe (unsafeThrow)
+import           Graphics.Canvas         as C
 
-import           Draw.Common                        (Draw, drawImage, drawLane,
-                                                     fillRect, secToNum,
-                                                     setFillStyle)
-import           Images                             (ImageID (..))
-import           OnyxMap                            as Map
-import           Song                               (Beat (..), Beats (..),
-                                                     Five (..),
-                                                     GuitarNoteType (..),
-                                                     Song (..),
-                                                     Sustainable (..))
-import           Style                              (customize)
+import           Draw.Common             (Draw, drawImage, drawLane, fillRect,
+                                          secToNum, setFillStyle)
+import           Images                  (ImageID (..))
+import           OnyxMap                 as Map
+import           Song                    (Beat (..), Beats (..), Five (..),
+                                          GuitarNoteType (..), Song (..),
+                                          Sustainable (..))
+import           Style                   (customize)
 
-drawFive :: forall e. Five -> Int -> Draw e Int
+drawFive :: Five -> Int -> Draw Int
 drawFive (Five five) targetX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
-  let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
-      secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
+  let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) <> stuff.time
+      secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
       widthFret = customize.widthStandardFret
       maxSecs = pxToSecsVert $ stuff.minY - 50
       minSecs = pxToSecsVert $ stuff.maxY + 50
@@ -41,13 +38,13 @@ drawFive (Five five) targetX stuff = do
       drawH = stuff.maxY - stuff.minY
   -- Highway
   setFillStyle customize.highway stuff
-  fillRect { x: toNumber targetX, y: toNumber stuff.minY, w: toNumber $ widthFret * 5 + 2, h: toNumber drawH } stuff
+  fillRect { x: toNumber targetX, y: toNumber stuff.minY, width: toNumber $ widthFret * 5 + 2, height: toNumber drawH } stuff
   setFillStyle customize.highwayRailing stuff
   for_ (map (\i -> i * widthFret) $ range 0 5) \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, w: 1.0, h: toNumber drawH } stuff
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   setFillStyle customize.highwayDivider stuff
   for_ (map (\i -> i * widthFret + 1) $ range 0 5) \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, w: 1.0, h: toNumber drawH } stuff
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   -- Solo highway
   setFillStyle customize.highwaySolo stuff
   let startsAsSolo = case Map.lookupLE minSecs five.solo of
@@ -64,7 +61,7 @@ drawFive (Five five) targetX stuff = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
         when b1 $ for_ (map (\i -> i * widthFret + 2) $ range 0 4) \offsetX -> do
-          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: toNumber $ customize.widthStandardFret - 2, h: toNumber $ y1 - y2 } stuff
+          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, width: toNumber $ customize.widthStandardFret - 2, height: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
@@ -97,8 +94,8 @@ drawFive (Five five) targetX stuff = do
       when b1 $ drawLane
         { x: targetX + offsetX
         , y: y2
-        , w: widthFret - 2
-        , h: y1 - y2
+        , width: widthFret - 2
+        , height: y1 - y2
         } stuff
       drawLanes rest
     in drawLanes laneEdges
@@ -150,17 +147,17 @@ drawFive (Five five) targetX stuff = do
                 else normalShades
               h = yend' - ystart' + 1
           setFillStyle customize.sustainBorder stuff
-          fillRect { x: toNumber $ targetX + offsetX' + 14, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
-          fillRect { x: toNumber $ targetX + offsetX' + 22, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 14, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 22, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
           setFillStyle shades.light stuff
-          fillRect { x: toNumber $ targetX + offsetX' + 15, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 15, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
           setFillStyle shades.normal stuff
-          fillRect { x: toNumber $ targetX + offsetX' + 16, y: toNumber ystart', w: 5.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 16, y: toNumber ystart', width: 5.0, height: toNumber h } stuff
           setFillStyle shades.dark stuff
-          fillRect { x: toNumber $ targetX + offsetX' + 21, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 21, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
           when sustaining do
             setFillStyle shades.light stuff
-            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
+            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
         go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisColor of
           Just { key: secsStart, value: Sustain _ } -> do
             drawSustainBlock (secsToPxVert secsEnd) stuff.maxY $ isEnergy secsStart
@@ -186,7 +183,7 @@ drawFive (Five five) targetX stuff = do
   for_ colors \{ c: getColor, x: offsetX, open: isOpen } -> do
     zoomDesc (getColor five.notes) \secs evt -> case evt of
       SustainEnd -> do
-        let futureSecs = secToNum $ secs - stuff.time
+        let futureSecs = secToNum $ secs <> negateDuration stuff.time
             trailX = if isOpen then 2 * widthFret + 1 else offsetX
         if customize.autoplay && futureSecs <= 0.0
           then pure unit -- note is in the past or being hit now
@@ -199,7 +196,7 @@ drawFive (Five five) targetX stuff = do
   for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, tap: tapImage, shades: shades, open: isOpen } -> do
     zoomDesc (getColor five.notes) \secs evt -> let
       withNoteType sht = do
-        let futureSecs = secToNum $ secs - stuff.time
+        let futureSecs = secToNum $ secs <> negateDuration stuff.time
             trailX = if isOpen then 2 * widthFret + 1 else offsetX
         if customize.autoplay && futureSecs <= 0.0
           then do
@@ -207,7 +204,7 @@ drawFive (Five five) targetX stuff = do
             if (-0.1) < futureSecs
               then do
                 setFillStyle (shades.hit $ (futureSecs + 0.1) / 0.05) stuff
-                fillRect { x: toNumber $ targetX + trailX + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
+                fillRect { x: toNumber $ targetX + trailX + 1, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
               else pure unit
           else do
             let y = secsToPxVert secs

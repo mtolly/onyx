@@ -2,28 +2,25 @@ module Draw.ProKeys (drawProKeys) where
 
 import           Prelude
 
-import           Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-import           Data.Array                         (cons, length, snoc, take,
-                                                     zip, (..))
-import           Data.Foldable                      (elem, for_, sum)
-import           Data.Int                           (round, toNumber)
-import           Data.List                          as L
-import           Data.Maybe                         (Maybe (..), fromMaybe)
-import           Data.Time.Duration                 (Seconds)
-import           Data.Tuple                         (Tuple (..))
-import           Graphics.Canvas                    as C
+import           Data.Array              (cons, length, snoc, take, zip, (..))
+import           Data.Foldable           (elem, for_, sum)
+import           Data.Int                (round, toNumber)
+import           Data.List               as L
+import           Data.Maybe              (Maybe (..), fromMaybe)
+import           Data.Time.Duration      (Seconds, negateDuration)
+import           Data.Tuple              (Tuple (..))
+import           Effect.Exception.Unsafe (unsafeThrow)
+import           Graphics.Canvas         as C
 
-import           Draw.Common                        (Draw, drawImage, drawLane,
-                                                     fillRect, onContext,
-                                                     secToNum, setFillStyle,
-                                                     strokeRect)
-import           Images                             (ImageID (..))
-import           OnyxMap                            as Map
-import           Song                               (Beat (..), Beats (..),
-                                                     Pitch (..), ProKeys (..),
-                                                     Range (..), Song (..),
-                                                     Sustainable (..))
-import           Style                              (customize)
+import           Draw.Common             (Draw, drawImage, drawLane, fillRect,
+                                          onContext, secToNum, setFillStyle,
+                                          strokeRect)
+import           Images                  (ImageID (..))
+import           OnyxMap                 as Map
+import           Song                    (Beat (..), Beats (..), Pitch (..),
+                                          ProKeys (..), Range (..), Song (..),
+                                          Sustainable (..))
+import           Style                   (customize)
 
 data PKHighway
   = RailingLight
@@ -58,11 +55,11 @@ pitchList = do
 
 data HackBool = False | True
 
-drawProKeys :: forall e. ProKeys -> Int -> Draw e Int
+drawProKeys :: ProKeys -> Int -> Draw Int
 drawProKeys (ProKeys pk) targetX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
-  let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
-      secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
+  let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) <> stuff.time
+      secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
       maxSecs = pxToSecsVert $ stuff.minY - 50
       minSecs = pxToSecsVert $ stuff.maxY + 50
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
@@ -81,7 +78,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
               WhiteKeyShort -> { color: customize.highway        , width: 10 }
               BlackKey      -> { color: customize.highwayBlackKey, width: 11 }
         setFillStyle params.color stuff
-        fillRect { x: toNumber xpos, y: toNumber stuff.minY, w: toNumber params.width, h: toNumber drawH } stuff
+        fillRect { x: toNumber xpos, y: toNumber stuff.minY, width: toNumber params.width, height: toNumber drawH } stuff
         drawHighway (xpos + params.width) chunks
   drawHighway targetX pkHighway
   -- Solo highway
@@ -105,7 +102,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
           Nothing -> pure unit
           Just c  -> do
             setFillStyle c stuff
-            fillRect { x: toNumber xpos, y: toNumber y1, w: toNumber params.width, h: toNumber $ y2 - y1 } stuff
+            fillRect { x: toNumber xpos, y: toNumber y1, width: toNumber params.width, height: toNumber $ y2 - y1 } stuff
         drawSoloHighway (xpos + params.width) y1 y2 chunks
       drawSolos L.Nil            = pure unit
       drawSolos (L.Cons _ L.Nil) = pure unit
@@ -136,8 +133,8 @@ drawProKeys (ProKeys pk) targetX stuff = do
       when b1 $ drawLane
         { x: targetX + offsetX + if isBlack then 0 else 1
         , y: y2
-        , w: 11
-        , h: y1 - y2
+        , width: 11
+        , height: y1 - y2
         } stuff
       drawLanes rest
     in drawLanes laneEdges
@@ -166,12 +163,12 @@ drawProKeys (ProKeys pk) targetX stuff = do
             y = toNumber (secsToPxVert s1)
             h = toNumber (secsToPxVert s2) - y
             rects = case r of
-              RangeC -> [{x: toNumber $ targetX + 192, y: y, w: 90.0, h: h}]
-              RangeD -> [{x: toNumber $ targetX + 2, y: y, w: 22.0, h: h}, {x: toNumber $ targetX + 203, y: y, w: 79.0, h: h}]
-              RangeE -> [{x: toNumber $ targetX + 2, y: y, w: 44.0, h: h}, {x: toNumber $ targetX + 225, y: y, w: 57.0, h: h}]
-              RangeF -> [{x: toNumber $ targetX + 2, y: y, w: 56.0, h: h}, {x: toNumber $ targetX + 247, y: y, w: 35.0, h: h}]
-              RangeG -> [{x: toNumber $ targetX + 2, y: y, w: 78.0, h: h}, {x: toNumber $ targetX + 270, y: y, w: 12.0, h: h}]
-              RangeA -> [{x: toNumber $ targetX + 2, y: y, w: 100.0, h: h}]
+              RangeC -> [{x: toNumber $ targetX + 192, y: y, width: 90.0, height: h}]
+              RangeD -> [{x: toNumber $ targetX + 2, y: y, width: 22.0, height: h}, {x: toNumber $ targetX + 203, y: y, width: 79.0, height: h}]
+              RangeE -> [{x: toNumber $ targetX + 2, y: y, width: 44.0, height: h}, {x: toNumber $ targetX + 225, y: y, width: 57.0, height: h}]
+              RangeF -> [{x: toNumber $ targetX + 2, y: y, width: 56.0, height: h}, {x: toNumber $ targetX + 247, y: y, width: 35.0, height: h}]
+              RangeG -> [{x: toNumber $ targetX + 2, y: y, width: 78.0, height: h}, {x: toNumber $ targetX + 270, y: y, width: 12.0, height: h}]
+              RangeA -> [{x: toNumber $ targetX + 2, y: y, width: 100.0, height: h}]
             in for_ rects \rect -> fillRect rect stuff
         drawRanges rest
   drawRanges rangeEdges
@@ -196,17 +193,17 @@ drawProKeys (ProKeys pk) targetX stuff = do
               h = yend' - ystart' + 1
               offsetX' = offsetX + if isBlack then 0 else 1
           setFillStyle customize.sustainBorder stuff
-          fillRect { x: toNumber $ targetX + offsetX' + 2, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
-          fillRect { x: toNumber $ targetX + offsetX' + 8, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 2, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 8, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
           setFillStyle shades.light stuff
-          fillRect { x: toNumber $ targetX + offsetX' + 3, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 3, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
           setFillStyle shades.normal stuff
-          fillRect { x: toNumber $ targetX + offsetX' + 4, y: toNumber ystart', w: 3.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 4, y: toNumber ystart', width: 3.0, height: toNumber h } stuff
           setFillStyle shades.dark stuff
-          fillRect { x: toNumber $ targetX + offsetX' + 7, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 7, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
           when sustaining do
             setFillStyle shades.light stuff
-            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 } stuff
+            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, width: if isBlack then 9.0 else 11.0, height: 8.0 } stuff
         go False (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisPitch of
           Just { key: secsStart, value: Sustain _ } -> do
             drawSustainBlock (secsToPxVert secsEnd) stuff.maxY $ isEnergy secsStart
@@ -232,7 +229,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
   for_ pitchList \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
     zoomDesc (fromMaybe Map.empty $ Map.lookup pitch pk.notes) \secs evt -> case evt of
       SustainEnd -> do
-        let futureSecs = secToNum $ secs - stuff.time
+        let futureSecs = secToNum $ secs <> negateDuration stuff.time
         if customize.autoplay && futureSecs <= 0.0
           then pure unit -- note is in the past or being hit now
           else drawImage Image_sustain_key_end
@@ -245,7 +242,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
     zoomDesc (fromMaybe Map.empty $ Map.lookup pitch pk.notes) \secs evt -> case evt of
       SustainEnd -> pure unit
       _          -> do
-        let futureSecs = secToNum $ secs - stuff.time
+        let futureSecs = secToNum $ secs <> negateDuration stuff.time
             isGlissando = case Map.lookupLE secs pk.gliss of
               Just {value: bool} -> bool
               Nothing            -> false
@@ -256,7 +253,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
               then do
                 let colors = if isBlack then customize.sustainBlackKey else customize.sustainWhiteKey
                 setFillStyle (colors.hit $ (futureSecs + 0.1) / 0.05) stuff
-                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: if isBlack then 9.0 else 11.0, h: 8.0 } stuff
+                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, width: if isBlack then 9.0 else 11.0, height: 8.0 } stuff
               else pure unit
           else do
             let y = secsToPxVert secs
@@ -268,7 +265,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
                   else if isBlack then Image_gem_blackkey        else Image_gem_whitekey
             drawImage img (toNumber $ targetX + offsetX) (toNumber $ y - 5) stuff
             when isGlissando do
-              onContext (C.setStrokeStyle customize.glissandoBorder) stuff
-              onContext (C.setLineWidth 1.0) stuff
-              strokeRect { x: toNumber (targetX + offsetX) + 0.5, y: toNumber y - 4.5, w: 12.0, h: 9.0 } stuff
+              onContext (\ctx -> C.setStrokeStyle ctx customize.glissandoBorder) stuff
+              onContext (\ctx -> C.setLineWidth ctx 1.0) stuff
+              strokeRect { x: toNumber (targetX + offsetX) + 0.5, y: toNumber y - 4.5, width: 12.0, height: 9.0 } stuff
   pure $ targetX + 282 + customize.marginWidth

@@ -5,14 +5,14 @@ module OnyxMap
   , doTupleArray
   ) where
 
-import Prelude (class Monad, class Ord, Unit, bind, discard, pure, void, ($))
+import Prelude (class Monad, class Ord, Unit, bind, discard, void, ($))
 
 import Data.Map
 
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(Tuple))
-import Control.Monad.Eff (Eff, runPure)
-import Data.Array.ST (runSTArray, emptySTArray, pushSTArray)
+import Control.Monad.ST as ST
+import Data.Array.ST as STArray
 
 import Data.Monoid.Dual (Dual(..))
 import Data.Functor.App (App(..))
@@ -30,9 +30,9 @@ zoomDescDo kmin kmax m act = case foldSubmap (Just kmin) (Just kmax) (\k v -> Du
   Dual (App f) -> f
 
 -- | Converts `zoomAscDo` or `zoomDescDo` into an array-generating function
-doTupleArray :: forall k v. (forall e. (k -> v -> Eff e Unit) -> Eff e Unit) -> Array (Tuple k v)
-doTupleArray f = runPure $ runSTArray (do
-  arr <- emptySTArray
-  f $ \k v -> void $ pushSTArray arr $ Tuple k v
-  pure arr
+doTupleArray :: forall k v. (forall m. (Monad m) => (k -> v -> m Unit) -> m Unit) -> Array (Tuple k v)
+doTupleArray f = ST.run (do
+  arr <- STArray.empty
+  f $ \k v -> void $ STArray.push (Tuple k v) arr
+  STArray.freeze arr
 )

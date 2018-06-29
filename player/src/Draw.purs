@@ -2,7 +2,6 @@ module Draw (draw, getWindowDims, numMod, _M, _B) where
 
 import           Prelude
 
-import           Control.Monad.Eff  (Eff)
 import           Control.MonadPlus  (guard)
 import           Data.Array         (concat, reverse, uncons)
 import           Data.Int           (round, toNumber)
@@ -12,12 +11,12 @@ import           Data.Set           as Set
 import           Data.Time.Duration (Seconds (..))
 import           Data.Traversable   (traverse_)
 import           Data.Tuple         (Tuple (..))
-import           DOM                (DOM)
+import           Effect             (Effect)
 import           Graphics.Canvas    as C
 
 import           Draw.Common        (App (..), Draw, Settings, drawImage,
-                                     fillRect, onContext,
-                                     setFillStyle, showTimestamp)
+                                     fillRect, onContext, setFillStyle,
+                                     showTimestamp)
 import           Draw.Drums         (drawDrums)
 import           Draw.Five          (drawFive)
 import           Draw.ProKeys       (drawProKeys)
@@ -28,19 +27,19 @@ import           Images             (ImageID (..))
 import           Song               (Flex (..), FlexPart (..), Song (..))
 import           Style              (customize)
 
-foreign import getWindowDims :: forall e. Eff (dom :: DOM | e) {w :: Number, h :: Number}
+foreign import getWindowDims :: Effect {width :: Number, height :: Number}
 
 foreign import numMod :: Number -> Number -> Number
 
-draw :: forall e. Draw (dom :: DOM | e) Unit
+draw :: Draw Unit
 draw stuff = do
-  {w: windowW, h: windowH} <- getWindowDims
-  void $ C.setCanvasWidth  windowW stuff.canvas
-  void $ C.setCanvasHeight windowH stuff.canvas
+  {width: windowW, height: windowH} <- getWindowDims
+  C.setCanvasWidth  stuff.canvas windowW
+  C.setCanvasHeight stuff.canvas windowH
   setFillStyle customize.background stuff
-  fillRect { x: 0.0, y: 0.0, w: windowW, h: windowH } stuff
+  fillRect { x: 0.0, y: 0.0, width: windowW, height: windowH } stuff
   -- Draw timestamp
-  onContext (C.setFont customize.timestampFont) stuff
+  onContext (\ctx -> C.setFont ctx customize.timestampFont) stuff
   setFillStyle customize.timestampColor stuff
   onContext
     (\ctx -> do
@@ -87,7 +86,7 @@ draw stuff = do
         when (0.0 < drawBottom && drawTop < windowH) do
           void $ C.save stuff.context
           void $ C.beginPath stuff.context
-          void $ C.rect stuff.context { x: 0.0, y: drawTop, w: windowW, h: drawBottom - drawTop }
+          void $ C.rect stuff.context { x: 0.0, y: drawTop, width: windowW, height: drawBottom - drawTop }
           void $ C.clip stuff.context
           drawParts stuff
             { pxToSecsVert = \px -> Seconds $ (toNumber px - windowH + y) / customize.trackSpeed
@@ -157,24 +156,24 @@ draw stuff = do
       filled = unSeconds (stuff.time) / unSeconds (case stuff.song of Song o -> o.end)
       unSeconds (Seconds s) = s
   setFillStyle customize.progressBorder stuff
-  fillRect { x: toNumber _M, y: toNumber _M, w: toNumber _B, h: timelineH + 2.0 } stuff
+  fillRect { x: toNumber _M, y: toNumber _M, width: toNumber _B, height: timelineH + 2.0 } stuff
   setFillStyle customize.progressEmpty stuff
-  fillRect { x: toNumber _M + 1.0, y: toNumber _M + 1.0, w: toNumber _B - 2.0, h: timelineH } stuff
+  fillRect { x: toNumber _M + 1.0, y: toNumber _M + 1.0, width: toNumber _B - 2.0, height: timelineH } stuff
   setFillStyle customize.progressFilled stuff
   fillRect
     { x: toNumber _M + 1.0
     , y: toNumber _M + 1.0 + timelineH * (1.0 - filled)
-    , w: toNumber _B - 2.0
-    , h: timelineH * filled
+    , width: toNumber _B - 2.0
+    , height: timelineH * filled
     } stuff
 
 drawPart
-  :: forall e a r
+  :: forall a r
   .  Maybe a
   -> (Settings -> Boolean)
-  -> (a -> Int -> Draw e r)
+  -> (a -> Int -> Draw r)
   -> Int
-  -> Draw e (Maybe r)
+  -> Draw (Maybe r)
 drawPart getPart see drawIt targetX stuff = do
   let settings = case stuff.app of
         Paused  o -> o.settings

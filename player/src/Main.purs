@@ -2,60 +2,54 @@ module Main where
 
 import           Prelude
 
-import           Control.Monad.Eff           (Eff)
-import           Control.Monad.Eff.Exception (EXCEPTION, catchException, error,
-                                              throwException)
-import           Control.Monad.Eff.Now       (NOW, now)
-import           Control.Monad.Eff.Ref       (REF, modifyRef, modifyRef',
-                                              newRef, readRef, writeRef)
-import           Control.Monad.Except        (runExcept)
-import           Control.MonadPlus           (guard)
-import           Data.Array                  (concat, concatMap, reverse,
-                                              uncons, (:))
-import           Data.DateTime.Instant       (unInstant)
-import           Data.Either                 (Either (..))
-import           Data.Foreign                (Foreign, isUndefined)
-import           Data.Int                    (round, toNumber)
-import           Data.List                   as L
-import           Data.Maybe                  (Maybe (..), isJust)
-import           Data.Set                    as Set
-import           Data.Time.Duration          (Milliseconds (..), Seconds (..),
-                                              convertDuration)
-import           Data.Tuple                  (Tuple (..))
-import           DOM                         (DOM)
-import           Graphics.Canvas             as C
-import           RequestAnimationFrame       (requestAnimationFrame)
+import           Control.Monad.Except  (runExcept)
+import           Control.MonadPlus     (guard)
+import           Data.Array            (concat, concatMap, reverse, uncons, (:))
+import           Data.DateTime.Instant (unInstant)
+import           Data.Either           (Either (..))
+import           Data.Int              (round, toNumber)
+import           Data.List             as L
+import           Data.Maybe            (Maybe (..), isJust)
+import           Data.Set              as Set
+import           Data.Time.Duration    (Milliseconds (..), Seconds (..),
+                                        convertDuration, negateDuration)
+import           Data.Tuple            (Tuple (..))
+import           Effect                (Effect)
+import           Effect.Exception      (catchException, error, throwException)
+import           Effect.Now            (now)
+import           Effect.Ref            as Ref
+import           Foreign               (Foreign, isUndefined)
+import           Graphics.Canvas       as C
+import           RequestAnimationFrame (requestAnimationFrame)
 
-import           Audio                       (AUDIO, loadAudio, playFrom, stop)
-import           Draw                        (draw, getWindowDims, numMod, _B,
-                                              _M)
-import           Draw.Common                 (App (..))
-import           Images                      (withImages)
-import           Song                        (Flex (..), FlexPart (..),
-                                              Song (..), isForeignSong)
-import           Style                       (customize)
-import Draw.Protar (eachChordsWidth)
+import           Audio                 (loadAudio, playFrom, stop)
+import           Draw                  (draw, getWindowDims, numMod, _B, _M)
+import           Draw.Common           (App (..))
+import           Draw.Protar           (eachChordsWidth)
+import           Images                (withImages)
+import           Song                  (Flex (..), FlexPart (..), Song (..),
+                                        isForeignSong)
+import           Style                 (customize)
 
 foreign import onyxSong :: Foreign
 
 foreign import onPoint
-  :: forall e
-  .  ({x :: Int, y :: Int} -> Eff (dom :: DOM | e) Unit)
-  -> Eff (dom :: DOM | e) Unit
+  :: ({x :: Int, y :: Int} -> Effect Unit)
+  -> Effect Unit
 
-foreign import displayError :: forall e. String -> Eff (dom :: DOM | e) Unit
+foreign import displayError :: String -> Effect Unit
 
-foreign import setTitle :: forall e. String -> Eff (dom :: DOM | e) Unit
+foreign import setTitle :: String -> Effect Unit
 
-drawLoading :: forall e. C.CanvasElement -> Eff (dom :: DOM, canvas :: C.CANVAS, now :: NOW | e) Unit
+drawLoading :: C.CanvasElement -> Effect Unit
 drawLoading canvas = do
   ctx <- C.getContext2D canvas
-  {w: windowW, h: windowH} <- getWindowDims
-  void $ C.setCanvasWidth  windowW canvas
-  void $ C.setCanvasHeight windowH canvas
+  {width: windowW, height: windowH} <- getWindowDims
+  void $ C.setCanvasWidth  canvas windowW
+  void $ C.setCanvasHeight canvas windowH
 
-  void $ C.setFillStyle customize.loadingBackground ctx
-  void $ C.fillRect ctx { x: 0.0, y: 0.0, w: windowW, h: windowH }
+  void $ C.setFillStyle ctx customize.loadingBackground
+  void $ C.fillRect ctx { x: 0.0, y: 0.0, width: windowW, height: windowH }
 
   Milliseconds ms <- unInstant <$> now
   let loopTime = customize.loadingLoopTime_ms
@@ -66,10 +60,10 @@ drawLoading canvas = do
       bigY = windowH / 2.0 - smallSide
       bigSide = smallSide * 2.0
       smallDraw x y = void $
-        C.fillRect ctx { x: x, y: y, w: smallSide, h: smallSide }
-  void $ C.setFillStyle customize.loadingBigSquare ctx
-  void $ C.fillRect ctx { x: bigX, y: bigY, w: bigSide, h: bigSide }
-  void $ C.setFillStyle customize.loadingSmallSquares ctx
+        C.fillRect ctx { x: x, y: y, width: smallSide, height: smallSide }
+  void $ C.setFillStyle ctx customize.loadingBigSquare
+  void $ C.fillRect ctx { x: bigX, y: bigY, width: bigSide, height: bigSide }
+  void $ C.setFillStyle ctx customize.loadingSmallSquares
   let smalls
         | t < loopTime8 = do
           smallDraw bigX bigY
@@ -87,35 +81,28 @@ drawLoading canvas = do
           smallDraw (bigX + smallSide) (bigY + moved)
   smalls
 
-main :: Eff
-  ( canvas    :: C.CANVAS
-  , dom       :: DOM
-  , ref       :: REF
-  , now       :: NOW
-  , audio     :: AUDIO
-  , exception :: EXCEPTION
-  ) Unit
+main :: Effect Unit
 main = catchException (\e -> displayError (show e) *> throwException e) do
   canvas <- C.getCanvasElementById "the-canvas" >>= \mc -> case mc of
     Just canvas -> pure canvas
     Nothing     -> throwException $ error "Canvas element not found"
   ctx <- C.getContext2D canvas
-  clicks <- newRef []
-  onPoint $ \e -> modifyRef clicks (e : _)
+  clicks <- Ref.new []
+  onPoint \e -> Ref.modify_ (e : _) clicks
   song <- case runExcept $ isForeignSong onyxSong of
     Left  e    -> throwException $ error $ if isUndefined onyxSong
       then "No song data was found. Is there a song.js present?"
       else show e
     Right song -> eachChordsWidth ctx song
   setTitle $ case song of Song o -> o.title <> " (" <> o.artist <> ") Onyx Web Player"
-  imageGetterRef <- newRef Nothing
-  withImages $ writeRef imageGetterRef <<< Just
-  audioRef <- newRef Nothing
-  loadAudio $ writeRef audioRef <<< Just
+  imageGetterRef <- Ref.new Nothing
+  withImages \imgs -> Ref.write (Just imgs) imageGetterRef
+  audioRef <- Ref.new Nothing
+  loadAudio \aud -> Ref.write (Just aud) audioRef
   let continueLoading = do
         drawLoading canvas
-        imageGetterMaybe <- readRef imageGetterRef
-        audioMaybe <- readRef audioRef
+        imageGetterMaybe <- Ref.read imageGetterRef
+        audioMaybe <- Ref.read audioRef
         case imageGetterMaybe of
           Just imageGetter -> case audioMaybe of
             Just audio -> requestAnimationFrame $ makeLoop imageGetter audio
@@ -127,9 +114,9 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
           let nowTheory = case app of
                 Paused  o -> o.pausedSongTime
                 -- Calculate what time should be so it moves nice and smooth
-                Playing o -> o.startedSongTime + convertDuration ms - o.startedPageTime
+                Playing o -> o.startedSongTime <> convertDuration ms <> negateDuration o.startedPageTime
               continue app' = do
-                {h: windowH'} <- getWindowDims
+                {height: windowH'} <- getWindowDims
                 let windowH = round windowH'
                 draw
                   { time: nowTheory
@@ -145,7 +132,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                   , minY: 0
                   , maxY: windowH
                   }
-                evts <- modifyRef' clicks $ \evts -> {state: [], value: evts}
+                evts <- Ref.modify' (\evts -> {state: [], value: evts}) clicks
                 let handle es app_ = case uncons es of
                       Nothing -> requestAnimationFrame $ loop app_
                       Just {head: {x: x, y: y}, tail: et} -> do
@@ -169,7 +156,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                             else if _M <= y && y <= windowH - 2*_M - _B
                               then let -- progress bar
                                 frac = 1.0 - toNumber (y - _M) / toNumber (windowH - 3*_M - _B)
-                                t = Seconds frac * case song of Song o -> o.end
+                                t = case song of Song o -> Seconds $ frac * case o.end of Seconds e -> e
                                 in case app_ of
                                   Paused o -> handle et $ Paused $ o
                                     { pausedSongTime = t

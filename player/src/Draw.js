@@ -3,7 +3,7 @@
 // module Draw
 
 exports.getWindowDims = function(){
-  return {w: window.innerWidth, h: window.innerHeight};
+  return {width: window.innerWidth, height: window.innerHeight};
 }
 
 exports.numMod = function(x) {

@@ -3,15 +3,15 @@ module Song where
 import Prelude (class Eq, class Ord, class Show, Unit, bind, map, pure, show, unit, ($), (<$>), (<*>), (>>=), (+), (<), (<<<))
 
 import Data.Time.Duration (Seconds(..))
-import Data.Foreign (F, Foreign, ForeignError(..), isNull, readArray, readBoolean, readInt, readNullOrUndefined, readNumber, readString)
-import Data.Foreign.Index (readProp, readIndex)
+import Foreign (F, Foreign, ForeignError(..), isNull, readArray, readBoolean, readInt, readNullOrUndefined, readNumber, readString)
+import Foreign.Index (readProp, readIndex)
 import OnyxMap as Map
 import Data.Maybe (Maybe(..))
 import Data.Traversable (sequence, traverse, for)
 import Data.Tuple (Tuple(..))
-import Data.Generic (class Generic, gShow, gEq, gCompare)
 import Control.Monad.Except (throwError)
 import Data.String as Str
+import Data.String.CodeUnits as CU
 import Data.Array ((:))
 
 newtype Song = Song
@@ -39,13 +39,8 @@ data FlexPart
   | FlexProtar
   | FlexVocal
 
-derive instance genFlexPart :: Generic FlexPart
-instance showFlexPart :: Show FlexPart where
-  show = gShow
-instance eqFlexPart :: Eq FlexPart where
-  eq = gEq
-instance ordFlexPart :: Ord FlexPart where
-  compare = gCompare
+derive instance eqFlexPart :: Eq FlexPart
+derive instance ordFlexPart :: Ord FlexPart
 
 newtype Drums = Drums
   { notes  :: Map.Map Seconds (Array Gem)
@@ -179,13 +174,8 @@ data Pitch
   | GreenB
   | OrangeC
 
-derive instance genPitch :: Generic Pitch
-instance showPitch :: Show Pitch where
-  show = gShow
-instance eqPitch :: Eq Pitch where
-  eq = gEq
-instance ordPitch :: Ord Pitch where
-  compare = gCompare
+derive instance eqPitch :: Eq Pitch
+derive instance ordPitch :: Ord Pitch
 
 isForeignFiveNote :: Foreign -> F (Sustainable GuitarNoteType)
 isForeignFiveNote f = readString f >>= \s -> case s of
@@ -578,7 +568,7 @@ isForeignDrums f = do
   lanesF <- readProp "lanes" f
   let readLane s = readProp s lanesF >>= readTimedMap readBoolean
   lanes <- map Map.fromFoldable $ traverse
-    (\(Tuple ch gem) -> map (Tuple gem) $ readLane $ Str.singleton ch)
+    (\(Tuple ch gem) -> map (Tuple gem) $ readLane $ CU.singleton ch)
     allDrums
   solo   <- readProp "solo"   f >>= readTimedMap readBoolean
   energy <- readProp "energy" f >>= readTimedMap readBoolean
@@ -607,17 +597,12 @@ allDrumsMap = Map.fromFoldable allDrums
 isForeignGems :: Foreign -> F (Array Gem)
 isForeignGems f = do
   str <- readString f
-  for (Str.toCharArray str) \ch -> case Map.lookup ch allDrumsMap of
+  for (CU.toCharArray str) \ch -> case Map.lookup ch allDrumsMap of
     Just v  -> pure v
     Nothing -> throwError $ pure $ TypeMismatch "drum gem" $ show ch
 
-derive instance genGem :: Generic Gem
-instance showGem :: Show Gem where
-  show = gShow
-instance eqGem :: Eq Gem where
-  eq = gEq
-instance ordGem :: Ord Gem where
-  compare = gCompare
+derive instance eqGem :: Eq Gem
+derive instance ordGem :: Ord Gem
 
 newtype Beats = Beats
   { lines :: Map.Map Seconds Beat

@@ -2,12 +2,12 @@ module Draw.Common where
 
 import           Prelude
 
-import           Control.Monad.Eff  (Eff)
 import           Data.Int           (floor, toNumber)
 import           Data.Maybe         (Maybe (..))
 import           Data.Set           as Set
 import           Data.Time.Duration (Seconds (..))
 import           Data.Tuple         (Tuple)
+import           Effect             (Effect)
 import           Graphics.Canvas    as C
 import           Math               (pi)
 
@@ -44,18 +44,18 @@ type DrawStuff =
   , maxY :: Int
   }
 
-type Draw e a = DrawStuff -> Eff (canvas :: C.CANVAS | e) a
+type Draw a = DrawStuff -> Effect a
 
-setFillStyle :: forall e. String -> Draw e Unit
-setFillStyle s = onContext $ C.setFillStyle s
+setFillStyle :: String -> Draw Unit
+setFillStyle s = onContext \ctx -> C.setFillStyle ctx s
 
-fillRect :: forall e. C.Rectangle -> Draw e Unit
+fillRect :: C.Rectangle -> Draw Unit
 fillRect rect = onContext \ctx -> C.fillRect ctx rect
 
-strokeRect :: forall e. C.Rectangle -> Draw e Unit
+strokeRect :: C.Rectangle -> Draw Unit
 strokeRect rect = onContext \ctx -> C.strokeRect ctx rect
 
-fillEllipse :: forall e. { x :: Number, y :: Number, rx :: Number, ry :: Number } -> Draw e Unit
+fillEllipse :: { x :: Number, y :: Number, rx :: Number, ry :: Number } -> Draw Unit
 fillEllipse o dstuff = do
   let ctx = dstuff.context
       width = o.rx * 2.0
@@ -63,26 +63,26 @@ fillEllipse o dstuff = do
       maxDiameter = max width height
       scaleX = width / maxDiameter
       scaleY = height / maxDiameter
-  void $ C.save ctx
-  void $ C.translate { translateX: o.x, translateY: o.y } ctx
-  void $ C.scale { scaleX: scaleX, scaleY: scaleY } ctx
-  void $ C.beginPath ctx
-  void $ C.arc ctx { x: 0.0, y: 0.0, r: maxDiameter / 2.0, start: 0.0, end: 2.0 * pi}
-  void $ C.fill ctx
-  void $ C.closePath ctx
-  void $ C.restore ctx
+  C.save ctx
+  C.translate ctx { translateX: o.x, translateY: o.y }
+  C.scale ctx { scaleX: scaleX, scaleY: scaleY }
+  C.beginPath ctx
+  C.arc ctx { x: 0.0, y: 0.0, radius: maxDiameter / 2.0, start: 0.0, end: 2.0 * pi }
+  C.fill ctx
+  C.closePath ctx
+  C.restore ctx
 
-fillCircle :: forall e. { x :: Number, y :: Number, r :: Number } -> Draw e Unit
+fillCircle :: { x :: Number, y :: Number, r :: Number } -> Draw Unit
 fillCircle o = fillEllipse { x: o.x, y: o.y, rx: o.r, ry: o.r }
 
-drawImage :: forall e. ImageID -> Number -> Number -> Draw e Unit
+drawImage :: ImageID -> Number -> Number -> Draw Unit
 drawImage iid x y dstuff =
   onContext (\ctx -> C.drawImage ctx (dstuff.getImage iid) x y) dstuff
 
-onContext :: forall e. (C.Context2D -> Eff (canvas :: C.CANVAS | e) C.Context2D) -> Draw e Unit
-onContext act dstuff = void $ act dstuff.context
+onContext :: (C.Context2D -> Effect Unit) -> Draw Unit
+onContext act dstuff = act dstuff.context
 
-measureText :: forall e. String -> Draw e C.TextMetrics
+measureText :: String -> Draw C.TextMetrics
 measureText str dstuff = C.measureText dstuff.context str
 
 showTimestamp :: Seconds -> String
@@ -95,18 +95,17 @@ showTimestamp (Seconds s) = let
   in show mins <> ":" <> pad2 "0" secs <> "." <> pad3 "0" msecs
 
 drawLane
-  :: forall e
-  .  { x :: Int, y :: Int, w :: Int, h :: Int }
-  -> Draw e Unit
+  :: { x :: Int, y :: Int, width :: Int, height :: Int }
+  -> Draw Unit
 drawLane obj stuff = do
   setFillStyle customize.freeformLane stuff
   fillRect
     { x: toNumber obj.x
     , y: toNumber obj.y
-    , w: toNumber obj.w
-    , h: toNumber obj.h
+    , width: toNumber obj.width
+    , height: toNumber obj.height
     } stuff
-  let rx = toNumber obj.w / 2.0
+  let rx = toNumber obj.width / 2.0
   fillEllipse
     { x: toNumber obj.x + rx
     , y: toNumber obj.y
@@ -115,7 +114,7 @@ drawLane obj stuff = do
     } stuff
   fillEllipse
     { x: toNumber obj.x + rx
-    , y: toNumber $ obj.y + obj.h
+    , y: toNumber $ obj.y + obj.height
     , rx: rx
     , ry: 15.0
     } stuff

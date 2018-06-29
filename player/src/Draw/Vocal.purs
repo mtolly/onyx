@@ -2,34 +2,33 @@ module Draw.Vocal (drawVocal) where
 
 import           Prelude
 
-import           Control.Monad.Eff                  (Eff)
-import           Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-import           Data.Either                        (either)
-import           Data.Foldable                      (for_)
-import           Data.Int                           (round, toNumber)
-import           Data.List                          as L
-import           Data.Maybe                         (Maybe (..), isNothing)
-import           Data.String.Regex                  as R
-import           Data.String.Regex.Flags            (noFlags)
-import           Data.Time.Duration                 (Seconds)
-import           Data.Tuple                         (Tuple (..))
-import           Graphics.Canvas                    as C
+import           Data.Either             (either)
+import           Data.Foldable           (for_)
+import           Data.Int                (round, toNumber)
+import           Data.List               as L
+import           Data.Maybe              (Maybe (..), isNothing)
+import           Data.String.Regex       as R
+import           Data.String.Regex.Flags (noFlags)
+import           Data.Time.Duration      (Seconds, negateDuration)
+import           Data.Tuple              (Tuple (..))
+import           Effect                  (Effect)
+import           Effect.Exception.Unsafe (unsafeThrow)
+import           Graphics.Canvas         as C
 
-import           Draw.Common                        (Draw, fillCircle, fillRect,
-                                                     measureText, onContext,
-                                                     secToNum, setFillStyle,
-                                                     slide, zoomAscDoPadding,
-                                                     zoomDescDoPadding)
-import           OnyxMap                            as Map
-import           Song                               (Vocal (..), VocalNote (..),
-                                                     VocalRange (..))
-import           Style                              (customize)
+import           Draw.Common             (Draw, fillCircle, fillRect,
+                                          measureText, onContext, secToNum,
+                                          setFillStyle, slide, zoomAscDoPadding,
+                                          zoomDescDoPadding)
+import           OnyxMap                 as Map
+import           Song                    (Vocal (..), VocalNote (..),
+                                          VocalRange (..))
+import           Style                   (customize)
 
-drawVocal :: forall e. Vocal -> Int -> Draw e Int
+drawVocal :: Vocal -> Int -> Draw Int
 drawVocal (Vocal v) targetY stuff = do
   windowW <- map round $ C.getCanvasWidth stuff.canvas
-  let pxToSecsHoriz px = stuff.pxToSecsHoriz px + stuff.time
-      secsToPxHoriz secs = stuff.secsToPxHoriz $ secs - stuff.time
+  let pxToSecsHoriz px = stuff.pxToSecsHoriz px <> stuff.time
+      secsToPxHoriz secs = stuff.secsToPxHoriz $ secs <> negateDuration stuff.time
       minSecs = pxToSecsHoriz (-100)
       maxSecs = pxToSecsHoriz $ windowW + 100
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
@@ -38,11 +37,11 @@ drawVocal (Vocal v) targetY stuff = do
       zoomAsc = zoomAscDoPadding minSecs maxSecs
       targetX = secsToPxHoriz stuff.time
   setFillStyle customize.vocalNoteArea stuff
-  fillRect { x: 0.0, y: toNumber targetY + 25.0, w: toNumber windowW, h: 130.0 } stuff
+  fillRect { x: 0.0, y: toNumber targetY + 25.0, width: toNumber windowW, height: 130.0 } stuff
   setFillStyle customize.lyricLaneBottom stuff
-  fillRect { x: 0.0, y: toNumber targetY + 155.0, w: toNumber windowW, h: 25.0 } stuff
+  fillRect { x: 0.0, y: toNumber targetY + 155.0, width: toNumber windowW, height: 25.0 } stuff
   setFillStyle customize.lyricLaneTop stuff
-  fillRect { x: 0.0, y: toNumber targetY, w: toNumber windowW, h: 25.0 } stuff
+  fillRect { x: 0.0, y: toNumber targetY, width: toNumber windowW, height: 25.0 } stuff
   -- Draw note pitches
   -- TODO: draw all pitch lines before talkies
   -- TODO: draw harmony unisons better
@@ -58,7 +57,7 @@ drawVocal (Vocal v) targetY stuff = do
             _ -> unsafeThrow "not a valid range shift"
           _ -> unsafeThrow "not a valid range shift"
       pitchToY p = toNumber targetY + slide thisRange.min thisRange.max (toNumber p) 143.0 37.0
-      drawLines :: Maybe (Tuple Seconds Int) -> L.List (Tuple Seconds VocalNote) -> Eff (canvas :: C.CANVAS | e) Unit
+      drawLines :: Maybe (Tuple Seconds Int) -> L.List (Tuple Seconds VocalNote) -> Effect Unit
       drawLines (Just (Tuple t1 p1)) evts@(L.Cons (Tuple t2 (VocalStart lyric (Just p2))) _) | lyric == "+" || lyric == "+$" = do
         -- draw line from (t1,p1) to (t2,p2)
         onContext (\ctx -> C.moveTo ctx (toNumber $ secsToPxHoriz t1) (pitchToY p1)) stuff
@@ -78,12 +77,12 @@ drawVocal (Vocal v) targetY stuff = do
         drawLines (Just (Tuple t2 p)) rest
       drawLines Nothing (L.Cons (Tuple t1 (VocalStart _ Nothing)) (L.Cons (Tuple t2 VocalEnd) rest)) = do
         -- draw talky from t1 to t2
-        fillRect { x: toNumber $ secsToPxHoriz t1, y: toNumber targetY + 25.0, w: toNumber $ secsToPxHoriz t2 - secsToPxHoriz t1, h: 130.0 } stuff
+        fillRect { x: toNumber $ secsToPxHoriz t1, y: toNumber targetY + 25.0, width: toNumber $ secsToPxHoriz t2 - secsToPxHoriz t1, height: 130.0 } stuff
         drawLines Nothing rest
       drawLines Nothing (L.Cons (Tuple t1 (VocalStart _ Nothing)) rest@(L.Cons (Tuple t2 (VocalStart _ _)) _)) = do
         -- draw talky from t1 to t2
         -- this case only happens in sloppy vox charts with no gap between notes
-        fillRect { x: toNumber $ secsToPxHoriz t1, y: toNumber targetY + 25.0, w: toNumber $ secsToPxHoriz t2 - secsToPxHoriz t1, h: 130.0 } stuff
+        fillRect { x: toNumber $ secsToPxHoriz t1, y: toNumber targetY + 25.0, width: toNumber $ secsToPxHoriz t2 - secsToPxHoriz t1, height: 130.0 } stuff
         drawLines Nothing rest
       drawLines Nothing (L.Cons (Tuple _ (VocalStart _ _)) L.Nil) = pure unit -- off-screen
       drawLines _ L.Nil = pure unit
@@ -93,12 +92,12 @@ drawVocal (Vocal v) targetY stuff = do
         , { part: v.harm3, line: customize.harm3Pitch, talky: customize.harm3Talky, width: 5.0 }
         , { part: v.harm1, line: customize.harm1Pitch, talky: customize.harm1Talky, width: 4.0 }
         ]
-  onContext (C.setLineCap C.Round) stuff
+  onContext (\ctx -> C.setLineCap ctx C.Round) stuff
   for_ lineParts \o -> do
     onContext C.beginPath stuff
-    onContext (C.setStrokeStyle o.line) stuff
-    onContext (C.setLineWidth o.width) stuff
-    onContext (C.setFillStyle o.talky) stuff
+    onContext (\ctx -> C.setStrokeStyle ctx o.line) stuff
+    onContext (\ctx -> C.setLineWidth ctx o.width) stuff
+    onContext (\ctx -> C.setFillStyle ctx o.talky) stuff
     drawLines Nothing $ L.fromFoldable $ Map.doTupleArray (zoomAsc o.part)
     onContext C.stroke stuff
     onContext C.closePath stuff
@@ -120,11 +119,11 @@ drawVocal (Vocal v) targetY stuff = do
         VocalEnd -> Nothing
         VocalStart lyric pitch
           | lyric == "+" -> Nothing
-          | R.test (either unsafeThrow id $ R.regex "\\$$" noFlags) lyric -> Nothing
+          | R.test (either unsafeThrow identity $ R.regex "\\$$" noFlags) lyric -> Nothing
           | isHarm3 && harm2Lyric t == Just lyric -> Nothing
           | otherwise -> Just
             { time: t
-            , lyric: R.replace (either unsafeThrow id $ R.regex "=$" noFlags) "-" lyric
+            , lyric: R.replace (either unsafeThrow identity $ R.regex "=$" noFlags) "-" lyric
             , isTalky: isNothing pitch
             }
           -- TODO: support §
@@ -132,11 +131,11 @@ drawVocal (Vocal v) targetY stuff = do
         :: Number
         -> Number
         -> L.List {time :: Seconds, lyric :: String, isTalky :: Boolean}
-        -> Eff (canvas :: C.CANVAS | e) Unit
+        -> Effect Unit
       drawLyrics _    _     L.Nil           = pure unit
       drawLyrics minX textY (L.Cons o rest) = do
         let textX = max minX $ toNumber $ secsToPxHoriz o.time
-        onContext (C.setFont $ if o.isTalky
+        onContext (\ctx -> C.setFont ctx $ if o.isTalky
           then customize.lyricFontTalky
           else customize.lyricFont
           ) stuff
@@ -172,15 +171,15 @@ drawVocal (Vocal v) targetY stuff = do
       setFillStyle customize.percussionInner stuff
       fillCircle { x: toNumber $ secsToPxHoriz t, y: toNumber targetY + 90.0, r: 9.0 } stuff
     else do
-      let opacity = (secToNum (t - stuff.time) + 0.1) / 0.05
+      let opacity = (secToNum (t <> negateDuration stuff.time) + 0.1) / 0.05
       when (opacity > 0.0) $ do
         setFillStyle (customize.percussionHit opacity) stuff
         fillCircle { x: toNumber $ secsToPxHoriz stuff.time, y: toNumber targetY + 90.0, r: 11.0 } stuff
   -- Draw phrase ends
   setFillStyle customize.vocalPhraseEnd stuff
   zoomDesc v.phrases \t (_ :: Unit) -> do
-    fillRect { x: toNumber (secsToPxHoriz t) - 1.0, y: toNumber targetY + 25.0, w: 3.0, h: 130.0 } stuff
+    fillRect { x: toNumber (secsToPxHoriz t) - 1.0, y: toNumber targetY + 25.0, width: 3.0, height: 130.0 } stuff
   -- Draw target line
   setFillStyle customize.vocalTargetLine stuff
-  fillRect { x: toNumber targetX - 1.0, y: toNumber targetY + 25.0, w: 3.0, h: 130.0 } stuff
+  fillRect { x: toNumber targetX - 1.0, y: toNumber targetY + 25.0, width: 3.0, height: 130.0 } stuff
   pure $ targetY + 180 + customize.marginWidth

@@ -7,7 +7,7 @@ import           Data.Foldable      (for_)
 import           Data.Int           (round, toNumber)
 import           Data.List          as L
 import           Data.Maybe         (Maybe (..), fromMaybe)
-import           Data.Time.Duration (Seconds)
+import           Data.Time.Duration (Seconds, negateDuration)
 import           Data.Tuple         (Tuple (..))
 import           Graphics.Canvas    as C
 
@@ -19,11 +19,11 @@ import           Song               (Beat (..), Beats (..), Drums (..),
                                      Gem (..), Song (..))
 import           Style              (customize)
 
-drawDrums :: forall e. Drums -> Int -> Draw e Int
+drawDrums :: Drums -> Int -> Draw Int
 drawDrums (Drums drums) targetX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
-  let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
-      secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
+  let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) <> stuff.time
+      secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
       widthFret = customize.widthStandardFret
       numLanes = if drums.mode5 then 5 else 4
       maxSecs = pxToSecsVert $ stuff.minY - 50
@@ -38,15 +38,15 @@ drawDrums (Drums drums) targetX stuff = do
       drawH = stuff.maxY - stuff.minY
   -- Highway
   setFillStyle customize.highway stuff
-  fillRect { x: toNumber targetX, y: toNumber stuff.minY, w: toNumber trackWidth, h: toNumber drawH } stuff
+  fillRect { x: toNumber targetX, y: toNumber stuff.minY, width: toNumber trackWidth, height: toNumber drawH } stuff
   setFillStyle customize.highwayRailing stuff
   let dividers0 = map (\i -> i * widthFret    ) $ range 0 $ if drums.mode5 then 5 else 4
       dividers1 = map (\i -> i * widthFret + 1) $ range 0 $ if drums.mode5 then 5 else 4
   for_ dividers0 \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, w: 1.0, h: toNumber drawH } stuff
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   setFillStyle customize.highwayDivider stuff
   for_ dividers1 \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, w: 1.0, h: toNumber drawH } stuff
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   -- Solo highway
   setFillStyle customize.highwaySolo stuff
   let startsAsSolo = case Map.lookupLE minSecs drums.solo of
@@ -64,7 +64,7 @@ drawDrums (Drums drums) targetX stuff = do
             y2 = secsToPxVert s2
             dividers2 = map (\i -> i * widthFret + 2) $ range 0 $ if drums.mode5 then 4 else 3
         when b1 $ for_ dividers2 \offsetX -> do
-          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: toNumber $ widthFret - 2, h: toNumber $ y1 - y2 } stuff
+          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, width: toNumber $ widthFret - 2, height: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
@@ -102,8 +102,8 @@ drawDrums (Drums drums) targetX stuff = do
       when b1 $ drawLane
         { x: targetX + offsetX
         , y: y2
-        , w: widthFret - 2
-        , h: y1 - y2
+        , width: widthFret - 2
+        , height: y1 - y2
         } stuff
       drawLanes rest
     in drawLanes laneEdges
@@ -124,7 +124,7 @@ drawDrums (Drums drums) targetX stuff = do
   let imgKick   = if drums.mode5 then Image_gem_open        else Image_gem_kick
       imgKickOD = if drums.mode5 then Image_gem_open_energy else Image_gem_kick_energy
   zoomDesc drums.notes \secs evts -> do
-    let futureSecs = secToNum $ secs - stuff.time
+    let futureSecs = secToNum $ secs <> negateDuration stuff.time
     if customize.autoplay && futureSecs <= 0.0
       then do
         -- note is in the past or being hit now
@@ -135,8 +135,8 @@ drawDrums (Drums drums) targetX stuff = do
                   if drums.mode5
                     then setFillStyle (customize.sustainPurple.hit opacity) stuff
                     else setFillStyle (customize.sustainOrange.hit opacity) stuff
-                  fillRect { x: toNumber $ targetX + 0 * widthFret + 2, y: toNumber $ targetY - 5, w: toNumber $ numLanes * widthFret - 1, h: 1.0 } stuff
-                  fillRect { x: toNumber $ targetX + 0 * widthFret + 2, y: toNumber $ targetY + 4, w: toNumber $ numLanes * widthFret - 1, h: 1.0 } stuff
+                  fillRect { x: toNumber $ targetX + 0 * widthFret + 2, y: toNumber $ targetY - 5, width: toNumber $ numLanes * widthFret - 1, height: 1.0 } stuff
+                  fillRect { x: toNumber $ targetX + 0 * widthFret + 2, y: toNumber $ targetY + 4, width: toNumber $ numLanes * widthFret - 1, height: 1.0 } stuff
             for_ evts \e -> case e of
               Kick -> kick
               _    -> pure unit
@@ -155,7 +155,7 @@ drawDrums (Drums drums) targetX stuff = do
           _ -> pure unit
   -- Hand notes
   zoomDesc drums.notes \secs evts -> do
-    let futureSecs = secToNum $ secs - stuff.time
+    let futureSecs = secToNum $ secs <> negateDuration stuff.time
     if customize.autoplay && futureSecs <= 0.0
       then do
         -- note is in the past or being hit now
@@ -164,19 +164,19 @@ drawDrums (Drums drums) targetX stuff = do
             let opacity = (futureSecs + 0.1) / 0.05
                 red = do
                   setFillStyle (customize.sustainRed.hit opacity) stuff
-                  fillRect { x: toNumber $ targetX + 0 * widthFret + 2, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
+                  fillRect { x: toNumber $ targetX + 0 * widthFret + 2, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
                 yellow = do
                   setFillStyle (customize.sustainYellow.hit opacity) stuff
-                  fillRect { x: toNumber $ targetX + 1 * widthFret + 2, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
+                  fillRect { x: toNumber $ targetX + 1 * widthFret + 2, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
                 blue = do
                   setFillStyle (customize.sustainBlue.hit opacity) stuff
-                  fillRect { x: toNumber $ targetX + 2 * widthFret + 2, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
+                  fillRect { x: toNumber $ targetX + 2 * widthFret + 2, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
                 orange = do
                   setFillStyle (customize.sustainOrange.hit opacity) stuff
-                  fillRect { x: toNumber $ targetX + 3 * widthFret + 2, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
+                  fillRect { x: toNumber $ targetX + 3 * widthFret + 2, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
                 green = do
                   setFillStyle (customize.sustainGreen.hit opacity) stuff
-                  fillRect { x: toNumber $ targetX + (numLanes - 1) * widthFret + 2, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
+                  fillRect { x: toNumber $ targetX + (numLanes - 1) * widthFret + 2, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
                 red' = if customize.leftyFlip then green else red
                 yellow' = if customize.leftyFlip then (if drums.mode5 then orange else blue) else yellow
                 blue' = if customize.leftyFlip then (if drums.mode5 then blue else yellow) else blue

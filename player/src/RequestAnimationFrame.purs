@@ -4,19 +4,18 @@ module RequestAnimationFrame
   , requestAnimationFrame_
   ) where
 
-import Prelude (Unit, bind)
+import           Prelude         (Unit, bind)
 
-import Control.Monad.Eff (Eff)
+import           Effect          (Effect)
 
-import DOM (DOM())
-import DOM.HTML (window)
-import DOM.HTML.Types (Window())
+import           Web.HTML        (window)
+import           Web.HTML.Window (Window)
 
 -- | Request the specified action be called on the next animation frame, specifying the `Window` object.
-foreign import requestAnimationFrame_ :: forall a eff. Window -> Eff (dom :: DOM | eff) a -> Eff (dom :: DOM | eff) Unit
+foreign import requestAnimationFrame_ :: forall a. Window -> Effect a -> Effect Unit
 
 -- | Request the specified action be called on the next animation frame.
-requestAnimationFrame :: forall a eff. Eff (dom :: DOM | eff) a -> Eff (dom :: DOM | eff) Unit
+requestAnimationFrame :: forall a. Effect a -> Effect Unit
 requestAnimationFrame action = do
   w <- window
   requestAnimationFrame_ w action

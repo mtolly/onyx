@@ -2,38 +2,36 @@ module Draw.Protar (drawProtar, eachChordsWidth) where
 
 import           Prelude
 
-import           Control.Monad.Eff           (Eff)
-import           Control.Monad.Eff.Exception.Unsafe (unsafeThrow)
-import           Data.Array                         (cons, index, range, snoc, unsnoc)
-import           Data.Foldable                      (for_)
-import           Data.Int                           (round, toNumber, ceil)
-import           Data.List                          as L
-import           Data.Maybe                         (Maybe (..), isNothing, fromMaybe)
-import           Data.Time.Duration                 (Seconds)
-import           Data.Traversable                   (for, sum, maximum)
-import           Data.Tuple                         (Tuple (..), snd, fst)
-import           Graphics.Canvas                    as C
+import           Data.Array              (cons, index, range, snoc, unsnoc)
+import           Data.Foldable           (for_)
+import           Data.Int                (ceil, round, toNumber)
+import           Data.List               as L
+import           Data.Maybe              (Maybe (..), fromMaybe, isNothing)
+import           Data.Time.Duration      (Seconds, negateDuration)
+import           Data.Traversable        (for, maximum, sum)
+import           Data.Tuple              (Tuple (..), fst, snd)
+import           Effect                  (Effect)
+import           Effect.Exception.Unsafe (unsafeThrow)
+import           Graphics.Canvas         as C
 
-import           Draw.Common                        (Draw, drawImage, drawLane,
-                                                     fillRect, secToNum,
-                                                     setFillStyle)
-import           Images                             (ImageID (..), protarFrets)
-import           OnyxMap                            as Map
-import           Song                               (Beat (..), Beats (..),
-                                                     GuitarNoteType (..),
-                                                     Protar (..),
-                                                     ProtarNote (..), Song (..),
-                                                     Sustainable (..), ChordLine(..), Flex(..))
-import           Style                              (customize)
+import           Draw.Common             (Draw, drawImage, drawLane, fillRect,
+                                          secToNum, setFillStyle)
+import           Images                  (ImageID (..), protarFrets)
+import           OnyxMap                 as Map
+import           Song                    (Beat (..), Beats (..), ChordLine (..),
+                                          Flex (..), GuitarNoteType (..),
+                                          Protar (..), ProtarNote (..),
+                                          Song (..), Sustainable (..))
+import           Style                   (customize)
 
 getChordsWidth
-  :: forall e. C.Context2D -> Protar -> Eff (canvas :: C.CANVAS | e) Protar
+  :: C.Context2D -> Protar -> Effect Protar
 getChordsWidth ctx (Protar pg) = do
   widths <- for (Map.values pg.chords) $ \x -> let
     f xs = map sum $ for xs \(Tuple line str) -> do
       case line of
-        Baseline    -> void $ C.setFont "19px sans-serif" ctx
-        Superscript -> void $ C.setFont "14px sans-serif" ctx
+        Baseline    -> C.setFont ctx "19px sans-serif"
+        Superscript -> C.setFont ctx "14px sans-serif"
       metrics <- C.measureText ctx str
       pure metrics.width
     in case x of
@@ -43,7 +41,7 @@ getChordsWidth ctx (Protar pg) = do
   pure $ Protar pg { chordsWidth = ceil $ fromMaybe 0.0 $ maximum widths }
 
 eachChordsWidth
-  :: forall e. C.Context2D -> Song -> Eff (canvas :: C.CANVAS | e) Song
+  :: C.Context2D -> Song -> Effect Song
 eachChordsWidth ctx (Song o) = do
   parts <- for o.parts \(Tuple s f@(Flex flex)) -> case flex.protar of
     Nothing -> pure $ Tuple s f
@@ -52,12 +50,12 @@ eachChordsWidth ctx (Song o) = do
       pure $ Tuple s $ Flex flex { protar = Just pg' }
   pure $ Song o { parts = parts }
 
-drawProtar :: forall e. Protar -> Int -> Draw e Int
+drawProtar :: Protar -> Int -> Draw Int
 drawProtar (Protar protar) chordsX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
   let targetX = chordsX + protar.chordsWidth
-      pxToSecsVert px = stuff.pxToSecsVert (windowH - px) + stuff.time
-      secsToPxVert secs = windowH - stuff.secsToPxVert (secs - stuff.time)
+      pxToSecsVert px = stuff.pxToSecsVert (windowH - px) <> stuff.time
+      secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
       widthFret = customize.widthProtarFret
       maxSecs = pxToSecsVert $ stuff.minY - 50
       minSecs = pxToSecsVert $ stuff.maxY + 50
@@ -76,12 +74,12 @@ drawProtar (Protar protar) chordsX stuff = do
           let ctx = stuff.context
           y <- case fst o.last of
             Baseline -> do
-              void $ C.setFont "19px sans-serif" ctx
-              void $ C.setFillStyle "white" ctx
+              C.setFont ctx "19px sans-serif"
+              C.setFillStyle ctx "white"
               pure $ toNumber $ secsToPxVert secs + 5
             Superscript -> do
-              void $ C.setFont "14px sans-serif" ctx
-              void $ C.setFillStyle "white" ctx
+              C.setFont ctx "14px sans-serif"
+              C.setFillStyle ctx "white"
               pure $ toNumber $ secsToPxVert secs - 3
           void $ C.setTextAlign ctx C.AlignRight
           void $ C.fillText ctx (snd o.last) x y
@@ -106,13 +104,13 @@ drawProtar (Protar protar) chordsX stuff = do
     Note    c  -> drawChord secs c
   -- Highway
   setFillStyle customize.highway stuff
-  fillRect { x: toNumber targetX, y: toNumber stuff.minY, w: toNumber $ widthFret * 6 + 2, h: toNumber drawH } stuff
+  fillRect { x: toNumber targetX, y: toNumber stuff.minY, width: toNumber $ widthFret * 6 + 2, height: toNumber drawH } stuff
   setFillStyle customize.highwayRailing stuff
   for_ (map (\i -> i * widthFret) $ range 0 6) \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, w: 1.0, h: toNumber drawH } stuff
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   setFillStyle customize.highwayDivider stuff
   for_ (map (\i -> i * widthFret + 1) $ range 0 6) \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, w: 1.0, h: toNumber drawH } stuff
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   -- Solo highway
   setFillStyle customize.highwaySolo stuff
   let startsAsSolo = case Map.lookupLE minSecs protar.solo of
@@ -129,7 +127,7 @@ drawProtar (Protar protar) chordsX stuff = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
         when b1 $ for_ (map (\i -> i * widthFret + 2) $ range 0 5) \offsetX -> do
-          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, w: toNumber $ widthFret - 2, h: toNumber $ y1 - y2 } stuff
+          fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, width: toNumber $ widthFret - 2, height: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
@@ -162,8 +160,8 @@ drawProtar (Protar protar) chordsX stuff = do
       when b1 $ drawLane
         { x: targetX + offsetX
         , y: y2
-        , w: widthFret - 2
-        , h: y1 - y2
+        , width: widthFret - 2
+        , height: y1 - y2
         } stuff
       drawLanes rest
     in drawLanes laneEdges
@@ -215,17 +213,17 @@ drawProtar (Protar protar) chordsX stuff = do
                 else              normalShades
               h = yend' - ystart' + 1
           setFillStyle customize.sustainBorder stuff
-          fillRect { x: toNumber $ targetX + offsetX + 11, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
-          fillRect { x: toNumber $ targetX + offsetX + 19, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX + 11, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX + 19, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
           setFillStyle shades.light stuff
-          fillRect { x: toNumber $ targetX + offsetX + 12, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX + 12, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
           setFillStyle shades.normal stuff
-          fillRect { x: toNumber $ targetX + offsetX + 13, y: toNumber ystart', w: 5.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX + 13, y: toNumber ystart', width: 5.0, height: toNumber h } stuff
           setFillStyle shades.dark stuff
-          fillRect { x: toNumber $ targetX + offsetX + 18, y: toNumber ystart', w: 1.0, h: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX + 18, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
           when sustaining do
             setFillStyle shades.light stuff
-            fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
+            fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
         go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisColor of
           Just { key: secsStart, value: Sustain (ProtarNote o) } -> do
             drawSustainBlock (secsToPxVert secsEnd) stuff.maxY (isEnergy secsStart) (isNothing o.fret)
@@ -251,7 +249,7 @@ drawProtar (Protar protar) chordsX stuff = do
   for_ colors \{ c: getColor, x: offsetX } -> do
     zoomDesc (getColor protar.notes) \secs evt -> case evt of
       SustainEnd -> do
-        let futureSecs = secToNum $ secs - stuff.time
+        let futureSecs = secToNum $ secs <> negateDuration stuff.time
         if customize.autoplay && futureSecs <= 0.0
           then pure unit -- note is in the past or being hit now
           else drawImage Image_sustain_end
@@ -263,14 +261,14 @@ drawProtar (Protar protar) chordsX stuff = do
   for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, tap: tapImage, shades: shades } -> do
     zoomDesc (getColor protar.notes) \secs evt -> let
       withNoteType obj = do
-        let futureSecs = secToNum $ secs - stuff.time
+        let futureSecs = secToNum $ secs <> negateDuration stuff.time
         if customize.autoplay && futureSecs <= 0.0
           then do
             -- note is in the past or being hit now
             if (-0.1) < futureSecs
               then do
                 setFillStyle (shades.hit $ (futureSecs + 0.1) / 0.05) stuff
-                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, w: toNumber $ widthFret - 1, h: 8.0 } stuff
+                fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
               else pure unit
           else do
             let y = secsToPxVert secs
