@@ -2,11 +2,10 @@ metadata:
   title: On the Backs of Angels
   file-include: ../../../albums/a-dramatic-turn-of-events.yml
   track-number: 1
-  author: Harmonix
+  author: Harmonix, Onyxite
   comments:
   - "Timing and all instruments by Harmonix."
-  - "2x Bass Pedal and other minor drum edits by me."
-  - "Chart confidence: *high*, from stems."
+  - "Heavily edited drum chart (+ 2x Bass Pedal) by me."
   difficulty:
     rank: 445
 audio:
@@ -51,7 +50,7 @@ parts:
     grybo:
       difficulty:
         rank: 450
-    pro-guitar:
+    pro-guitar: # TODO did 5-string bass chart, need to check and swap in
       difficulty:
         rank: 460
   guitar:
@@ -74,3 +73,18 @@ parts:
         rank: 189
       count: 2
       gender: male
+targets:
+  # TODO add milo
+  rb3:
+    game: rb3
+    label: (O)
+    plan: mogg
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+    plan: mogg
+  ps:
+    game: ps
+    label: (O)
+    plan: mogg

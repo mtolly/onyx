@@ -28,6 +28,9 @@ plans:
 parts:
   drums:
     drums: {}
+  bass:
+    pro-guitar: # WIP
+      tuning: [-5, -5, -5, -5, -4, -4] # EADBGE -> BEADGC
 targets:
   rb3:
     game: rb3
