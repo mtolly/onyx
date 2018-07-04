@@ -63,6 +63,7 @@ import           System.FilePath                  (dropTrailingPathSeparator,
 import qualified System.IO                        as IO
 import           Text.Printf                      (printf)
 import           Text.Read                        (readMaybe)
+import           U8                               (packU8)
 import           X360DotNet                       (rb2pkg, rb3pkg, stfsFolder)
 
 #ifdef WINDOWS
@@ -896,6 +897,22 @@ commands =
             }
         return [pathMid]
       _ -> fatal "Expected 1 argument (track name)"
+    }
+
+  , Command
+    { commandWord = "u8"
+    , commandDesc = "Generate U8 packages for the Wii."
+    , commandUsage = "onyx u8 dir --to out.app"
+    , commandRun = \args opts -> case args of
+      [dir] -> stackIO (Dir.doesDirectoryExist dir) >>= \case
+        True -> do
+          fout <- outputFile opts
+            $ (<> ".app") . dropTrailingPathSeparator
+            <$> stackIO (Dir.makeAbsolute dir)
+          stackIO $ packU8 dir fout
+          return [fout]
+        False -> fatal $ "onyx u8 expected directory; given: " <> dir
+      _ -> fatal "Expected 1 argument (folder to pack)"
     }
 
   ]
