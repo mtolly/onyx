@@ -1,12 +1,12 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Image (toDDS, toPNG_XBOX, readPNGXbox) where
+module Image (toDDS, toPNG_XBOX, readRBImage) where
 
 import           Codec.Picture
 import qualified Codec.Picture.STBIR        as STBIR
 import           Control.Monad              (forM_, replicateM)
 import           Control.Monad.Trans.Writer (execWriter, tell)
 import           Data.Binary.Get
-import           Data.Bits                  (shiftL, shiftR, testBit, (.&.))
+import           Data.Bits                  (shiftL, shiftR, testBit, (.&.), complementBit)
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Lazy       as BL
 import           Data.Word                  (Word16, Word8)
@@ -116,15 +116,23 @@ pngXboxDXT3Signature = B.pack
   , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
   ]
 
+pngWiiDXT1Signature :: B.ByteString
+pngWiiDXT1Signature = B.pack
+  [ 0x01, 0x04, 0x48, 0x00, 0x00, 0x00, 0x04, 0x00
+  , 0x01, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00
+  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  ]
+
 flipWord16s :: BL.ByteString -> BL.ByteString
 flipWord16s = let
   flipPairs (x : y : xs) = y : x : flipPairs xs
   flipPairs _            = []
   in BL.pack . flipPairs . BL.unpack
 
--- | Supports both official DXT1 and C3 DXT2/3.
-readPNGXbox :: BL.ByteString -> Image PixelRGB8
-readPNGXbox bs = let
+-- | Supports .png_xbox in both official DXT1 and C3 DXT2/3, and also .png_wii.
+readRBImage :: BL.ByteString -> Image PixelRGB8
+readRBImage bs = let
   sig = BL.toStrict $ BL.take 32 bs
   in if sig == pngXboxDXT1Signature
     then let
@@ -142,4 +150,14 @@ readPNGXbox bs = let
           (ya, yb) = quotRem y 4
           in pixelAt (chunks !! (ya * 64 + xa)) xb yb
         in generateImage gen 256 256
-      else generateImage (\_ _ -> PixelRGB8 255 0 255) 256 256
+      else if sig == pngWiiDXT1Signature
+        then let
+          chunks = runGet (replicateM 4096 $ readDXTChunk True) $ flipWord16s $ BL.take 32768 $ BL.drop 32 bs
+          gen x y = let
+            (xa, xb) = quotRem x 8
+            (ya, yb) = quotRem y 8
+            (xc, xd) = quotRem xb 4
+            (yc, yd) = quotRem yb 4
+            in pixelAt (chunks !! (ya * 128 + xa * 4 + yc * 2 + xc)) (3 - xd) (yd `complementBit` 0)
+          in generateImage gen 256 256
+        else generateImage (\_ _ -> PixelRGB8 255 0 255) 256 256

@@ -644,8 +644,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
       let loadRGB8 = case _fileAlbumArt $ _metadata songYaml of
             Just img -> do
               shk $ need [img]
-              stackIO $ if takeExtension img == ".png_xbox"
-                then readPNGXbox <$> BL.readFile img
+              stackIO $ if takeExtension img `elem` [".png_xbox", ".png_wii"]
+                then readRBImage <$> BL.readFile img
                 else readImage img >>= \case
                   Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
                   Right dyn -> return $ convertRGB8 dyn
