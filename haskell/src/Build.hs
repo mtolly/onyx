@@ -45,7 +45,7 @@ import           Data.Monoid                           ((<>))
 import qualified Data.Set                              as Set
 import           Data.String                           (IsString, fromString)
 import qualified Data.Text                             as T
-import qualified Data.Text.IO                          as TIO
+import qualified Data.Text.Encoding                    as TE
 import           Development.Shake                     hiding (phony, (%>),
                                                         (&%>))
 import           Development.Shake.FilePath
@@ -928,7 +928,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             pathMagmaC3 %> \out -> do
               midi <- shakeMIDI pathMagmaMid
               c3 <- makeC3 songYaml plan rb3 midi pkg
-              liftIO $ TIO.writeFile out $ C3.showC3 c3
+              liftIO $ B.writeFile out $ TE.encodeUtf8 $ C3.showC3 c3
             let magmaNeededAudio = do
                   ((kickSpec, snareSpec, _), _) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
                   return $ concat

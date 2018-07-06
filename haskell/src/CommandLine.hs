@@ -35,8 +35,8 @@ import           Data.List.HT                     (partitionMaybe)
 import           Data.Maybe                       (fromMaybe, listToMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
-import           Data.Text.Encoding               (decodeUtf16BE, encodeUtf8)
-import qualified Data.Text.IO                     as T
+import qualified Data.Text.Encoding               as TE
+import           Data.Text.Encoding.Error         (lenientDecode)
 import           Data.Word                        (Word32)
 import qualified Image
 import           Import
@@ -82,10 +82,10 @@ import           Data.List                        (isPrefixOf)
 import           System.MountPoints
 #endif
 
-loadDTA :: (SendMessage m, D.StackChunks a, MonadIO m) => FilePath -> StackTraceT m a
-loadDTA f = inside f $
-  stackIO (T.readFile f) >>= scanStack >>= parseStack >>= D.unserialize D.stackChunks
-  -- TODO I don't think this handles utf8/latin1 properly
+loadRBProj :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m RBProj.RBProj
+loadRBProj f = inside f $ do
+  stackIO (TE.decodeUtf8With lenientDecode <$> B.readFile f)
+    >>= scanStack >>= parseStack >>= D.unserialize D.stackChunks
 
 getInfoForSTFS :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m (T.Text, T.Text)
 getInfoForSTFS dir stfs = do
@@ -103,7 +103,7 @@ installSTFS stfs usb = do
   packageTitle <- stackIO $ IO.withBinaryFile stfs IO.ReadMode $ \h -> do
     IO.hSeek h IO.AbsoluteSeek 0x411
     bs <- B.hGet h 0x80
-    return $ T.takeWhile (/= '\0') $ decodeUtf16BE bs
+    return $ T.takeWhile (/= '\0') $ TE.decodeUtf16BE bs
   stfsHash <- stackIO $ show . MD5.md5 <$> BL.readFile stfs
   let folder = "Content/0000000000000000" </> w32 titleID </> w32 sign
       w32 :: Word32 -> FilePath
@@ -269,7 +269,7 @@ getInputMIDI :: (SendMessage m, MonadIO m) => [FilePath] -> StackTraceT m FilePa
 getInputMIDI files = optionalFile files >>= \case
   (FileSongYaml, yamlPath) -> return $ takeDirectory yamlPath </> "notes.mid"
   (FileRBProj, rbprojPath) -> do
-    rbproj <- loadDTA rbprojPath
+    rbproj <- loadRBProj rbprojPath
     return $ T.unpack $ RBProj.midiFile $ RBProj.midi $ RBProj.project rbproj
   (FileMidi, mid) -> return mid
   (FilePS, ini) -> return $ takeDirectory ini </> "notes.mid"
@@ -309,7 +309,7 @@ commands =
         stackIO $ Dir.copyFile built out
         return [out]
       (FileRBProj, rbprojPath) -> do
-        rbproj <- loadDTA rbprojPath
+        rbproj <- loadRBProj rbprojPath
         out <- outputFile opts $ return $ T.unpack $ RBProj.destinationFile $ RBProj.project rbproj
         let isMagmaV2 = case RBProj.projectVersion $ RBProj.project rbproj of
               24 -> True
@@ -482,7 +482,7 @@ commands =
         shakeBuildFiles audioDirs yamlPath [built]
         return []
       (FileRBProj, rbprojPath) -> do
-        rbproj <- loadDTA rbprojPath
+        rbproj <- loadRBProj rbprojPath
         let isMagmaV2 = case RBProj.projectVersion $ RBProj.project rbproj of
               24 -> True
               5  -> False -- v1
@@ -696,7 +696,7 @@ commands =
       case ftype of
         FileSongYaml -> withProject fpath $ proKeysHanging $ getMaybePlan opts
         FileRBProj   -> do
-          rbproj <- loadDTA fpath
+          rbproj <- loadRBProj fpath
           let midPath = T.unpack $ RBProj.midiFile $ RBProj.midi $ RBProj.project rbproj
           withMIDI (takeDirectory fpath </> midPath)
         FileSTFS     -> undone
@@ -979,7 +979,7 @@ commands =
         -- write new combined dta file
         let dta = dir_meta </> "content/songs/songs.dta"
         stackIO $ Dir.createDirectoryIfMissing True $ takeDirectory dta
-        stackIO $ B.writeFile dta $ encodeUtf8 $ T.unlines $ do
+        stackIO $ B.writeFile dta $ TE.encodeUtf8 $ T.unlines $ do
           (DTASingle key pkg c3, _) <- allSongs
           let pkg' = pkg
                 { D.song = (D.song pkg)

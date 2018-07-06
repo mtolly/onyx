@@ -8,6 +8,7 @@ import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
                                                    fatal, inside, stackIO, warn)
 import           Data.Bifunctor                   (first)
+import qualified Data.ByteString                  as B
 import           Data.Default.Class               (def)
 import           Data.Either                      (isLeft)
 import qualified Data.EventList.Absolute.TimeBody as ATB
@@ -19,7 +20,8 @@ import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
 import           Data.Monoid                      (mconcat, (<>))
 import qualified Data.Text                        as T
-import qualified Data.Text.IO                     as TIO
+import qualified Data.Text.Encoding               as TE
+import           Data.Text.Encoding.Error         (lenientDecode)
 import           Data.Traversable                 (forM)
 import           FeedBack.Base
 import           FeedBack.Parse                   (parseStack)
@@ -100,7 +102,8 @@ chartToBeats chart = let
 
 loadChartFile :: (MonadIO m) => FilePath -> StackTraceT m (Chart Ticks)
 loadChartFile fp = inside ("Loading .chart file: " <> fp) $ do
-  str <- stackIO $ TIO.readFile fp
+  str <- stackIO $ TE.decodeUtf8With lenientDecode <$> B.readFile fp
+  -- utf-8 observed on at least one song, but probably not universal. should research more
   scanStack str >>= parseStack >>= parseChart
 
 getTempos :: Chart U.Beats -> U.TempoMap

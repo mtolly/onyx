@@ -17,6 +17,7 @@ import           Control.Monad.Extra              (findM, forM, forM_, guard,
                                                    void)
 import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
+import qualified Data.ByteString.Char8            as B8
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (isSpace)
 import qualified Data.Conduit.Audio               as CA
@@ -40,7 +41,8 @@ import           Data.Maybe                       (catMaybes, fromMaybe, isJust,
 import           Data.Monoid                      ((<>))
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
-import qualified Data.Text.IO                     as TIO
+import qualified Data.Text.Encoding               as TE
+import           Data.Text.Encoding.Error         (lenientDecode)
 import           Data.Tuple.Extra                 (fst3, snd3, thd3)
 import qualified Data.Yaml                        as Y
 import           Difficulty
@@ -550,7 +552,10 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
     getRBAFile 6 rba $ temp </> "temp_extra.dta"
     (_, pkg, isUTF8) <- readRB3DTA $ temp </> "temp_songs.dta"
     extra <- (if isUTF8 then D.readFileDTA_utf8' else D.readFileDTA_latin1') $ temp </> "temp_extra.dta"
-    stackIO $ TIO.writeFile (temp </> "songs/songs.dta") $ writeDTASingle DTASingle
+    stackIO
+      $ B8.writeFile (temp </> "songs/songs.dta")
+      $ (if isUTF8 then TE.encodeUtf8 else B8.pack . T.unpack)
+      $ writeDTASingle DTASingle
       { dtaTopKey = T.pack shortName
       , dtaSongPackage = pkg
         { D.song = (D.song pkg)
@@ -931,7 +936,7 @@ importMagma fin dir = do
     let pathC3 = fin -<.> "c3"
     hasC3 <- stackIO $ Dir.doesFileExist pathC3
     if hasC3
-      then fmap Just $ stackIO (TIO.readFile pathC3) >>= C3.readC3
+      then fmap Just $ stackIO (TE.decodeUtf8With lenientDecode <$> B8.readFile pathC3) >>= C3.readC3
       else return Nothing
 
   let art = fromMaybe (T.unpack $ RBProj.albumArtFile $ RBProj.albumArt rbproj)
