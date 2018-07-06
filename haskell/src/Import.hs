@@ -46,7 +46,8 @@ import qualified Data.Yaml                        as Y
 import           Difficulty
 import qualified FeedBack.Load                    as FB
 import qualified FretsOnFire                      as FoF
-import           Image                            (toPNG_XBOX)
+import           Image                            (DXTFormat (PNGXbox),
+                                                   toDXT1File)
 import           JSONData                         (toJSON)
 import           Magma                            (getRBAFile)
 import           MoggDecrypt                      (moggToOgg)
@@ -583,7 +584,7 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
       Left err -> error err -- TODO
       Right dyn -> let
         out = temp </> "songs" </> shortName </> "gen" </> (shortName ++ "_keep.png_xbox")
-        in BL.writeFile out $ toPNG_XBOX $ convertRGB8 dyn
+        in BL.writeFile out $ toDXT1File PNGXbox $ convertRGB8 dyn
     stackIO $ do
       Dir.removeFile $ temp </> "temp_songs.dta"
       Dir.removeFile $ temp </> "temp_cover.bmp"

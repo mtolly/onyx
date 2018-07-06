@@ -650,13 +650,14 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   Left  err -> fail $ "Failed to load cover art (" ++ img ++ "): " ++ err
                   Right dyn -> return $ convertRGB8 dyn
             Nothing -> return onyxAlbum
-      "gen/cover.bmp" %> \out -> loadRGB8 >>= stackIO . writeBitmap out . STBIR.resize STBIR.defaultOptions 256 256
-      "gen/cover.png" %> \out -> loadRGB8 >>= stackIO . writePng    out . STBIR.resize STBIR.defaultOptions 256 256
+      "gen/cover.bmp"      %> \out -> loadRGB8 >>= stackIO . writeBitmap  out . STBIR.resize STBIR.defaultOptions 256 256
+      "gen/cover.png"      %> \out -> loadRGB8 >>= stackIO . writePng     out . STBIR.resize STBIR.defaultOptions 256 256
+      "gen/cover.png_wii"  %> \out -> loadRGB8 >>= stackIO . BL.writeFile out . toDXT1File PNGWii
       "gen/cover.png_xbox" %> \out -> case _fileAlbumArt $ _metadata songYaml of
         Just f | takeExtension f == ".png_xbox" -> do
           shk $ copyFile' f out
           forceRW out
-        _      -> loadRGB8 >>= stackIO . BL.writeFile out . toPNG_XBOX
+        _      -> loadRGB8 >>= stackIO . BL.writeFile out . toDXT1File PNGXbox
 
       "gen/notes.mid" %> \out -> shk $ do
         doesFileExist "notes.mid" >>= \b -> if b
