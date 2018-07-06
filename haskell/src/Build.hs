@@ -435,7 +435,7 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
   song <- shakeMIDI mid
   ((kickPVs, snarePVs, kitPVs), mixMode) <- computeDrumsPart (rb3_Drums rb3) plan songYaml
   let (pstart, _) = previewBounds songYaml song
-      maxPStart = 570000 :: Int -- 9:39.000
+      maxPStart = 570000 :: Int -- 9:30.000
       DifficultyRB3{..} = difficultyRB3 rb3 songYaml
       fullGenre = interpretGenre
         (_genre    $ _metadata songYaml)

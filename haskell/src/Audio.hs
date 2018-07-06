@@ -26,6 +26,7 @@ module Audio
 , stretchFull
 , stretchFullSmart
 , emptyChannels
+, fadeStart, fadeEnd
 ) where
 
 import           Control.Concurrent              (threadDelay)

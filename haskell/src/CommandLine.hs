@@ -5,17 +5,21 @@
 {-# LANGUAGE RankNTypes        #-}
 module CommandLine (commandLine, identifyFile', FileType(..)) where
 
+import           Audio                            (applyPansVols, fadeEnd,
+                                                   fadeStart)
 import           Build                            (loadYaml, shakeBuildFiles)
 import           Config
 import           Control.Applicative              (liftA2)
-import           Control.Monad                    (forM_, guard)
-import           Control.Monad.Extra              (filterM)
+import           Control.Monad.Extra              (filterM, forM, forM_, guard)
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Resource     (runResourceT)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
 import           Data.ByteString.Lazy.Char8       ()
 import           Data.Char                        (isAlphaNum, isAscii)
+import qualified Data.Conduit.Audio               as CA
+import           Data.Conduit.Audio.Sndfile       (sinkSnd, sourceSndFrom)
 import           Data.Default.Class               (def)
 import qualified Data.Digest.Pure.MD5             as MD5
 import           Data.DTA.Lex                     (scanStack)
@@ -31,21 +35,25 @@ import           Data.List.HT                     (partitionMaybe)
 import           Data.Maybe                       (fromMaybe, listToMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
-import           Data.Text.Encoding               (decodeUtf16BE)
+import           Data.Text.Encoding               (decodeUtf16BE, encodeUtf8)
 import qualified Data.Text.IO                     as T
 import           Data.Word                        (Word32)
+import qualified Image
 import           Import
 import           Magma                            (getRBAFile, oggToMogg,
                                                    runMagma, runMagmaMIDI,
                                                    runMagmaV1)
 import           MoggDecrypt                      (moggToOgg)
 import           OpenProject
-import           PrettyDTA                        (readRB3DTA)
+import           PrettyDTA                        (DTASingle (..),
+                                                   readFileSongsDTA, readRB3DTA,
+                                                   writeDTASingle)
 import           ProKeysRanges                    (closeShiftsFile,
                                                    completeFile)
 import           Reaper.Build                     (makeReaperIO)
 import           Reductions                       (simpleReduce)
 import qualified RockBand.Codec.File              as RBFile
+import qualified Sound.File.Sndfile               as Snd
 import qualified Sound.MIDI.File.Load             as Load
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Script.Base           as MS
@@ -59,7 +67,7 @@ import qualified System.Directory                 as Dir
 import           System.FilePath                  (dropTrailingPathSeparator,
                                                    splitFileName, takeDirectory,
                                                    takeExtension, takeFileName,
-                                                   (-<.>), (</>))
+                                                   (-<.>), (<.>), (</>))
 import qualified System.IO                        as IO
 import           Text.Printf                      (printf)
 import           Text.Read                        (readMaybe)
@@ -913,6 +921,77 @@ commands =
           return [fout]
         False -> fatal $ "onyx u8 expected directory; given: " <> dir
       _ -> fatal "Expected 1 argument (folder to pack)"
+    }
+
+  , Command
+    { commandWord = "dolphin"
+    , commandDesc = "Combine CON files into two U8 packages intended for RB3 in Dolphin."
+    , commandUsage = "onyx dolphin 1_rb3con 2_rb3con --to dir/"
+    , commandRun = \args opts -> do
+      out <- outputFile opts $ fatal "need output folder for .app files"
+      stackIO $ Dir.createDirectoryIfMissing False out
+      let out_meta = out </> "00000001.app"
+          out_song = out </> "00000002.app"
+      tempDir "onyx_dolphin" $ \temp -> do
+        let extract  = temp </> "extract"
+            dir_meta = temp </> "meta"
+            dir_song = temp </> "song"
+        allSongs <- fmap concat $ forM args $ \stfs -> do
+          stackIO $ Dir.createDirectory extract
+          stackIO $ extractSTFS stfs extract
+          songs <- readFileSongsDTA $ extract </> "songs/songs.dta"
+          forM_ songs $ \(song, _) -> do
+            let DTASingle _ pkg _ = song
+                songsXX = T.unpack $ D.songName $ D.song pkg
+                songsXgen = takeDirectory songsXX </> "gen"
+                songsXgenX = songsXgen </> takeFileName songsXX
+            stackIO $ Dir.createDirectoryIfMissing True $ dir_meta </> "content" </> songsXgen
+            stackIO $ Dir.createDirectoryIfMissing True $ dir_song </> "content" </> songsXgen
+            -- .mid (copy; later, option to remove drum fills (but not BRE))
+            stackIO $ Dir.renameFile (extract </> songsXX <.> "mid") (dir_song </> "content" </> songsXX <.> "mid")
+            -- .mogg (copy)
+            let mogg = dir_song </> "content" </> songsXX <.> "mogg"
+            stackIO $ Dir.renameFile (extract </> songsXX <.> "mogg") mogg
+            -- _prev.mogg (generate)
+            let ogg = extract </> "temp.ogg"
+                prevOgg = extract </> "temp_prev.ogg"
+                prevStart  = realToFrac (fst $ D.preview pkg) / 1000
+                prevEnd    = realToFrac (snd $ D.preview pkg) / 1000
+                prevLength = min 15 $ prevEnd - prevStart
+            moggToOgg mogg ogg
+            src <- stackIO $ sourceSndFrom (CA.Seconds prevStart) ogg
+            stackIO
+              $ runResourceT
+              $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
+              $ fadeStart (CA.Seconds 0.75)
+              $ fadeEnd (CA.Seconds 0.75)
+              $ CA.takeStart (CA.Seconds prevLength)
+              $ applyPansVols (D.pans $ D.song pkg) (D.vols $ D.song pkg)
+              $ src
+            oggToMogg prevOgg $ dir_meta </> "content" </> (songsXX ++ "_prev.mogg")
+            -- .png_wii (convert from .png_xbox)
+            img <- stackIO $ Image.readRBImage <$> BL.readFile (extract </> (songsXgenX ++ "_keep.png_xbox"))
+            stackIO $ BL.writeFile (dir_meta </> "content" </> (songsXgenX ++ "_keep.png_wii")) $ Image.toDXT1File Image.PNGWii img
+            -- .milo_wii (copy)
+            stackIO $ Dir.renameFile (extract </> songsXgenX <.> "milo_xbox") (dir_song </> "content" </> songsXgenX <.> "milo_wii")
+          stackIO $ Dir.removeDirectoryRecursive extract
+          return songs
+        -- write new combined dta file
+        let dta = dir_meta </> "content/songs/songs.dta"
+        stackIO $ Dir.createDirectoryIfMissing True $ takeDirectory dta
+        stackIO $ B.writeFile dta $ encodeUtf8 $ T.unlines $ do
+          (DTASingle key pkg c3, _) <- allSongs
+          let pkg' = pkg
+                { D.song = (D.song pkg)
+                  { D.songName = "dlc/sZAE/001/content/" <> D.songName (D.song pkg)
+                  }
+                , D.encoding = Just "utf8"
+                }
+          return $ writeDTASingle $ DTASingle key pkg' c3
+        -- pack it all up
+        stackIO $ packU8 dir_meta out_meta
+        stackIO $ packU8 dir_song out_song
+      return [out_meta, out_song]
     }
 
   ]

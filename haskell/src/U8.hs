@@ -99,7 +99,7 @@ writeU8 out root = withBinaryFile out WriteMode $ \hout -> do
       fileToNode f = runPut $ do
         putWord8 0
         putWord24be $ fromIntegral $ lookup' (fileName f) nameLookup
-        putWord32be $ fromIntegral $ lookup' (filePath f) dataLookup
+        putWord32be $ fromIntegral  (lookup' (filePath f) dataLookup) + alignedDataOffset
         putWord32be $ fromIntegral $ fileSize f
       subdirNodes _  []       = []
       subdirNodes !n (d : ds) = let
@@ -114,7 +114,7 @@ writeU8 out root = withBinaryFile out WriteMode $ \hout -> do
           putWord32be $ fromIntegral $ n + length contents
         in top : contents
 
-  let headerSize = fromIntegral (length nodes * 12) + fromIntegral (BL.length nameTable) -- nodes size + string table size
+      headerSize = fromIntegral (length nodes * 12) + fromIntegral (BL.length nameTable) -- nodes size + string table size
       alignedDataOffset = align 0x40 $ 0x20 + headerSize
 
   BL.hPut hout $ runPut $ do
