@@ -1,5 +1,5 @@
 /*!
- *  howler.js v2.0.9
+ *  howler.js v2.0.13
  *  howlerjs.com
  *
  *  (c) 2013-2018, James Simpson of GoldFire Studios
@@ -782,6 +782,9 @@
               self._emit('play', sound._id);
             }
 
+            // Setting rate before playing won't work in IE, so we set it again here.
+            node.playbackRate = sound._rate;
+
             // If the node is still paused, then we can assume there was a playback issue.
             if (node.paused) {
               self._emit('playerror', sound._id, 'Playback was unable to start. This is most commonly an issue ' +
@@ -790,7 +793,7 @@
             }
 
             // Setup the end timer on sprites or listen for the ended event.
-            if (sprite !== '__default') {
+            if (sprite !== '__default' || sound._loop) {
               self._endTimers[sound._id] = setTimeout(self._ended.bind(self, sound), timeout);
             } else {
               self._endTimers[sound._id] = function() {
@@ -1573,12 +1576,12 @@
 
         // Make sure all timers are cleared out.
         self._clearTimer(sounds[i]._id);
+      }
 
-        // Remove the references in the global Howler object.
-        var index = Howler._howls.indexOf(self);
-        if (index >= 0) {
-          Howler._howls.splice(index, 1);
-        }
+      // Remove the references in the global Howler object.
+      var index = Howler._howls.indexOf(self);
+      if (index >= 0) {
+        Howler._howls.splice(index, 1);
       }
 
       // Delete this sound from the cache (if no other Howl is using it).
@@ -1798,7 +1801,7 @@
 
       // When using a sprite, end the track.
       if (!self._webAudio && !loop) {
-        self.stop(sound._id);
+        self.stop(sound._id, true);
       }
 
       return self;
@@ -1965,7 +1968,7 @@
     _cleanBuffer: function(node) {
       var self = this;
 
-      if (Howler._scratchBuffer) {
+      if (Howler._scratchBuffer && node.bufferSource) {
         node.bufferSource.onended = null;
         node.bufferSource.disconnect(0);
         try { node.bufferSource.buffer = Howler._scratchBuffer; } catch(e) {}

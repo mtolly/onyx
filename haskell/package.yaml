@@ -19,9 +19,11 @@ extra-source-files:
 - vendors/rockband_guitarbass.png
 - vendors/rockband_ghl.png
 - ../player/www/index.html
+- ../player/www/style.css
 - ../player/www/app.min.js
 - ../player/www/customize.js
 - ../player/www/images/*.png
+- ../player/www/images-dom/*.png
 - ../player/www/lib/howler/dist/howler.min.js
 - cbits/*.h
 

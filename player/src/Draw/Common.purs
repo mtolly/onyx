@@ -16,18 +16,31 @@ import           OnyxMap            as Map
 import           Song               (FlexPart, Song)
 import           Style              (customize)
 
-type Settings = Set.Set (Tuple String FlexPart)
+type App =
+  { time :: AppTime
+  , menuOpen :: Boolean
+  , settings :: Settings
+  }
 
-data App
+data AppTime
   = Paused
     { pausedSongTime :: Seconds
-    , settings :: Settings
     }
   | Playing
     { startedPageTime :: Seconds
     , startedSongTime :: Seconds
-    , settings :: Settings
     }
+
+-- this is a plain JS object because we pass it to ffi code to make the menu
+type Settings =
+  { parts :: Array
+    { partName :: String
+    , flexParts :: Array
+      { partType :: String
+      , enabled :: Boolean
+      }
+    }
+  }
 
 type DrawStuff =
   { time :: Seconds

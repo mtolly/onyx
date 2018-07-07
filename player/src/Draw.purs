@@ -2,21 +2,18 @@ module Draw (draw, getWindowDims, numMod, _M, _B) where
 
 import           Prelude
 
-import           Control.MonadPlus  (guard)
-import           Data.Array         (concat, reverse, uncons)
+import           Data.Array         (concat, uncons)
 import           Data.Int           (round, toNumber)
-import           Data.List          as L
-import           Data.Maybe         (Maybe (..), isJust)
+import           Data.Maybe         (Maybe (..))
 import           Data.Set           as Set
 import           Data.Time.Duration (Seconds (..))
-import           Data.Traversable   (traverse_)
+import           Data.Traversable   (traverse_, or)
 import           Data.Tuple         (Tuple (..))
 import           Effect             (Effect)
 import           Graphics.Canvas    as C
+import Control.MonadZero (guard)
 
-import           Draw.Common        (App (..), Draw, Settings, drawImage,
-                                     fillRect, onContext, setFillStyle,
-                                     showTimestamp)
+import           Draw.Common
 import           Draw.Drums         (drawDrums)
 import           Draw.Five          (drawFive)
 import           Draw.ProKeys       (drawProKeys)
@@ -57,21 +54,20 @@ draw stuff = do
           case drawResult of
             Just targetX' -> drawTracks targetX' trkt
             Nothing       -> drawTracks targetX  trkt
-  let drawButtons _ L.Nil             = pure unit
-      drawButtons y (L.Cons iid iids) = do
-        drawImage iid (toNumber $ _M + _B + _M) (toNumber y) stuff
-        drawButtons (y - _M - _B) iids
-      song = case stuff.song of Song s -> s
-      settings = case stuff.app of
-        Paused  o -> o.settings
-        Playing o -> o.settings
+  let song = case stuff.song of Song s -> s
 
-  let drawParts someStuff = drawTracks (_M + _B + _M + _B + _M) $ concat $ flip map song.parts \(Tuple part (Flex flex)) ->
-        [ \i -> drawPart flex.five    (Set.member $ Tuple part FlexFive   ) drawFive    i someStuff
-        , \i -> drawPart flex.six     (Set.member $ Tuple part FlexSix    ) drawSix     i someStuff
-        , \i -> drawPart flex.drums   (Set.member $ Tuple part FlexDrums  ) drawDrums   i someStuff
-        , \i -> drawPart flex.prokeys (Set.member $ Tuple part FlexProKeys) drawProKeys i someStuff
-        , \i -> drawPart flex.protar  (Set.member $ Tuple part FlexProtar ) drawProtar  i someStuff
+  let partEnabled pname ptype sets = or do
+        part <- sets.parts
+        guard $ part.partName == pname
+        fpart <- part.flexParts
+        guard $ fpart.partType == ptype
+        pure fpart.enabled
+      drawParts someStuff = drawTracks (_M + _B + _M) $ concat $ flip map song.parts \(Tuple part (Flex flex)) ->
+        [ \i -> drawPart flex.five    (partEnabled part "five"   ) drawFive    i someStuff
+        , \i -> drawPart flex.six     (partEnabled part "six"    ) drawSix     i someStuff
+        , \i -> drawPart flex.drums   (partEnabled part "drums"  ) drawDrums   i someStuff
+        , \i -> drawPart flex.prokeys (partEnabled part "prokeys") drawProKeys i someStuff
+        , \i -> drawPart flex.protar  (partEnabled part "protar" ) drawProtar  i someStuff
         ]
   if customize.staticVert
     then let
@@ -101,58 +97,13 @@ draw stuff = do
     else drawParts stuff
 
   flip traverse_ song.parts \(Tuple part (Flex flex)) -> do
-    void $ drawPart flex.vocal (Set.member $ Tuple part FlexVocal) drawVocal 0 stuff
-  drawButtons (round windowH - _M - _B) $ L.fromFoldable $ reverse $ concat $ flip map song.parts \(Tuple part (Flex flex)) -> concat
-    [ guard (isJust flex.five   ) *>
-      [ if Set.member (Tuple part FlexFive) settings
-        then case part of
-          "bass" -> Image_button_bass
-          "keys" -> Image_button_keys
-          _ -> Image_button_guitar
-        else case part of
-          "bass" -> Image_button_bass_off
-          "keys" -> Image_button_keys_off
-          _ -> Image_button_guitar_off
-      ]
-    , guard (isJust flex.six    ) *>
-      [ if Set.member (Tuple part FlexSix) settings
-        then case part of
-          "bass" -> Image_button_bass6
-          _ -> Image_button_guitar6
-        else case part of
-          "bass" -> Image_button_bass6_off
-          _ -> Image_button_guitar6_off
-      ]
-    , guard (isJust flex.drums  ) *>
-      [ if Set.member (Tuple part FlexDrums  ) settings
-        then Image_button_drums
-        else Image_button_drums_off
-      ]
-    , guard (isJust flex.prokeys) *>
-      [ if Set.member (Tuple part FlexProKeys) settings
-        then Image_button_prokeys
-        else Image_button_prokeys_off
-      ]
-    , guard (isJust flex.protar ) *>
-      [ if Set.member (Tuple part FlexProtar ) settings
-        then case part of
-          "bass" -> Image_button_probass
-          _ -> Image_button_proguitar
-        else case part of
-          "bass" -> Image_button_probass_off
-          _ -> Image_button_proguitar_off
-      ]
-    , guard (isJust flex.vocal  ) *>
-      [ if Set.member (Tuple part FlexVocal  ) settings
-        then Image_button_vocal
-        else Image_button_vocal_off
-      ]
-    ]
-  let playPause = case stuff.app of
+    void $ drawPart flex.vocal (partEnabled part "vocal") drawVocal 0 stuff
+  let playPause = case stuff.app.time of
         Paused  _ -> Image_button_play
         Playing _ -> Image_button_pause
-  drawImage playPause (toNumber _M) (windowH - toNumber _M - toNumber _B) stuff
-  let timelineH = windowH - 3.0 * toNumber _M - toNumber _B - 2.0
+  drawImage playPause (toNumber _M) (windowH - 2.0 * toNumber _M - 2.0 * toNumber _B) stuff
+  drawImage Image_button_gear (toNumber _M) (windowH - toNumber _M - toNumber _B) stuff
+  let timelineH = windowH - 4.0 * toNumber _M - 2.0 * toNumber _B - 2.0
       filled = unSeconds (stuff.time) / unSeconds (case stuff.song of Song o -> o.end)
       unSeconds (Seconds s) = s
   setFillStyle customize.progressBorder stuff
@@ -175,9 +126,7 @@ drawPart
   -> Int
   -> Draw (Maybe r)
 drawPart getPart see drawIt targetX stuff = do
-  let settings = case stuff.app of
-        Paused  o -> o.settings
-        Playing o -> o.settings
+  let settings = stuff.app.settings
   case getPart of
     Just part | see settings -> map Just $ drawIt part targetX stuff
     _                        -> pure Nothing

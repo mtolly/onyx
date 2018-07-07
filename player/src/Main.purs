@@ -3,14 +3,11 @@ module Main where
 import           Prelude
 
 import           Control.Monad.Except  (runExcept)
-import           Control.MonadPlus     (guard)
-import           Data.Array            (concat, concatMap, reverse, uncons, (:))
+import           Data.Array            (uncons, (:), concat, take, drop)
 import           Data.DateTime.Instant (unInstant)
 import           Data.Either           (Either (..))
 import           Data.Int              (round, toNumber)
-import           Data.List             as L
 import           Data.Maybe            (Maybe (..), isJust)
-import           Data.Set              as Set
 import           Data.Time.Duration    (Milliseconds (..), Seconds (..),
                                         convertDuration, negateDuration)
 import           Data.Tuple            (Tuple (..))
@@ -24,11 +21,10 @@ import           RequestAnimationFrame (requestAnimationFrame)
 
 import           Audio                 (loadAudio, playFrom, stop)
 import           Draw                  (draw, getWindowDims, numMod, _B, _M)
-import           Draw.Common           (App (..))
+import           Draw.Common           (AppTime (..), Settings)
 import           Draw.Protar           (eachChordsWidth)
 import           Images                (withImages)
-import           Song                  (Flex (..), FlexPart (..), Song (..),
-                                        isForeignSong)
+import           Song                  (Flex (..), Song (..), isForeignSong)
 import           Style                 (customize)
 
 foreign import onyxSong :: Foreign
@@ -40,6 +36,11 @@ foreign import onPoint
 foreign import displayError :: String -> Effect Unit
 
 foreign import setTitle :: String -> Effect Unit
+
+foreign import openMenu :: Effect Unit
+foreign import closeMenu :: Effect Unit
+foreign import fillMenu :: Settings -> Effect Unit
+foreign import readMenu :: Effect Settings
 
 drawLoading :: C.CanvasElement -> Effect Unit
 drawLoading canvas = do
@@ -99,6 +100,36 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
   withImages \imgs -> Ref.write (Just imgs) imageGetterRef
   audioRef <- Ref.new Nothing
   loadAudio \aud -> Ref.write (Just aud) audioRef
+  let initialSettings =
+        { parts: map
+          (\(Tuple key (Flex flex)) ->
+            { partName: key
+            , flexParts: let
+              inst enabled s =
+                { partType: s
+                , enabled: enabled
+                }
+              insts = concat
+                [ if isJust flex.five    then ["five"   ] else []
+                , if isJust flex.six     then ["six"    ] else []
+                , if isJust flex.drums   then ["drums"  ] else []
+                , if isJust flex.prokeys then ["prokeys"] else []
+                , if isJust flex.protar  then ["protar" ] else []
+                , if isJust flex.vocal   then ["vocal"  ] else []
+                ]
+              in map (inst true) (take 1 insts) <> map (inst false) (drop 1 insts)
+            }
+          ) (case song of Song obj -> obj.parts)
+        }
+        -- initialSelect = \(Tuple name (Flex flex)) ->
+        --   if isJust flex.five then [Tuple name FlexFive] else
+        --   if isJust flex.six then [Tuple name FlexSix] else
+        --   if isJust flex.drums then [Tuple name FlexDrums] else
+        --   if isJust flex.prokeys then [Tuple name FlexProKeys] else
+        --   if isJust flex.protar then [Tuple name FlexProtar] else
+        --   if isJust flex.vocal then [Tuple name FlexVocal] else []
+        -- in case song of Song obj -> Set.fromFoldable $ concatMap initialSelect obj.parts
+  fillMenu initialSettings
   let continueLoading = do
         drawLoading canvas
         imageGetterMaybe <- Ref.read imageGetterRef
@@ -111,7 +142,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
       makeLoop imageGetter audio = let
         loop app = do
           ms <- unInstant <$> now
-          let nowTheory = case app of
+          let nowTheory = case app.time of
                 Paused  o -> o.pausedSongTime
                 -- Calculate what time should be so it moves nice and smooth
                 Playing o -> o.startedSongTime <> convertDuration ms <> negateDuration o.startedPageTime
@@ -136,88 +167,69 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                 let handle es app_ = case uncons es of
                       Nothing -> requestAnimationFrame $ loop app_
                       Just {head: {x: x, y: y}, tail: et} -> do
-                        if _M <= x && x <= _M + _B
-                          then if windowH - _M - _B <= y && y <= windowH - _M
-                            then case app_ of -- play/pause button
-                              Paused o -> do
-                                ms' <- unInstant <$> now
-                                playFrom audio nowTheory do
-                                  handle et $ Playing
-                                    { startedPageTime: convertDuration ms'
-                                    , startedSongTime: nowTheory
-                                    , settings: o.settings
-                                    }
-                              Playing o -> do
-                                stop audio
-                                handle et $ Paused
-                                  { pausedSongTime: nowTheory
-                                  , settings: o.settings
-                                  }
-                            else if _M <= y && y <= windowH - 2*_M - _B
-                              then let -- progress bar
-                                frac = 1.0 - toNumber (y - _M) / toNumber (windowH - 3*_M - _B)
-                                t = case song of Song o -> Seconds $ frac * case o.end of Seconds e -> e
-                                in case app_ of
-                                  Paused o -> handle et $ Paused $ o
-                                    { pausedSongTime = t
-                                    }
-                                  Playing o -> do
-                                    ms' <- unInstant <$> now
-                                    stop audio
-                                    playFrom audio t do
-                                      handle et $ Playing $ o
-                                        { startedPageTime = convertDuration ms'
-                                        , startedSongTime = t
+                        if app_.menuOpen
+                          then do
+                            closeMenu
+                            handle et app_ { menuOpen = false }
+                          else if _M <= x && x <= _M + _B
+                            then if windowH - _M * 2 - _B * 2 <= y && y <= windowH - _M * 2 - _B
+                              then case app_.time of -- play/pause button
+                                Paused o -> do
+                                  ms' <- unInstant <$> now
+                                  playFrom audio nowTheory do
+                                    handle et app_
+                                      { time = Playing
+                                        { startedPageTime: convertDuration ms'
+                                        , startedSongTime: nowTheory
                                         }
-                              else handle et app_
-                          else if 2*_M + _B <= x && x <= 2*_M + 2*_B
-                            then let
-                              go _ L.Nil                = handle et app_
-                              go i (L.Cons action rest) = do
-                                let ystart = windowH - i * (_M + _B)
-                                    yend   = ystart + _B
-                                if ystart <= y && y <= yend
-                                  then handle et $ case app_ of
-                                    Paused  o -> Paused  o { settings = action o.settings }
-                                    Playing o -> Playing o { settings = action o.settings }
-                                  else go (i + 1) rest
-                              s = case song of Song o -> o
-                              toggle tup set = if Set.member tup set then Set.delete tup set else Set.insert tup set
-                              toggleVocal flex set = let
-                                vox = Tuple flex FlexVocal
-                                in if Set.member vox set
-                                  then Set.delete vox set
-                                  else flip Set.map (Set.insert vox set) \tup@(Tuple _ inst) -> case inst of
-                                    FlexVocal -> vox -- replace any existing vocal selection with the new one
-                                    _         -> tup
-                              in go 1 $ L.fromFoldable $ reverse $ concat $ flip map s.parts \(Tuple part (Flex flex)) -> concat
-                                [ guard (isJust flex.five   ) *> [toggle $ Tuple part FlexFive   ]
-                                , guard (isJust flex.six    ) *> [toggle $ Tuple part FlexSix    ]
-                                , guard (isJust flex.drums  ) *> [toggle $ Tuple part FlexDrums  ]
-                                , guard (isJust flex.prokeys) *> [toggle $ Tuple part FlexProKeys]
-                                , guard (isJust flex.protar ) *> [toggle $ Tuple part FlexProtar ]
-                                , guard (isJust flex.vocal  ) *> [toggleVocal part               ]
-                                ]
+                                      }
+                                Playing o -> do
+                                  stop audio
+                                  handle et app_
+                                    { time = Paused
+                                      { pausedSongTime: nowTheory
+                                      }
+                                    }
+                              else if windowH - _M - _B <= y && y <= windowH - _M
+                                then do -- gear button
+                                  openMenu
+                                  handle et app_ { menuOpen = true }
+                                else if _M <= y && y <= windowH - 3 * _M - 2 * _B
+                                  then let -- progress bar
+                                    frac = 1.0 - toNumber (y - _M) / toNumber (windowH - 4 * _M - 2 * _B)
+                                    t = case song of Song o -> Seconds $ frac * case o.end of Seconds e -> e
+                                    in case app_.time of
+                                      Paused o -> handle et app_
+                                        { time = Paused
+                                          { pausedSongTime: t
+                                          }
+                                        }
+                                      Playing o -> do
+                                        ms' <- unInstant <$> now
+                                        stop audio
+                                        playFrom audio t do
+                                          handle et app_
+                                            { time = Playing
+                                              { startedPageTime: convertDuration ms'
+                                              , startedSongTime: t
+                                              }
+                                            }
+                                  else handle et app_
                             else handle et app_
-                case app' of
-                  Playing o | nowTheory >= (case song of Song obj -> obj.end) -> do
+                case app'.time of
+                  Playing _ | nowTheory >= (case song of Song obj -> obj.end) -> do
                     stop audio
-                    handle evts $ Paused
-                      { pausedSongTime: nowTheory
-                      , settings: o.settings
+                    handle evts app'
+                      { time = Paused
+                        { pausedSongTime: nowTheory
+                        }
                       }
                   _ -> handle evts app'
-          continue app
-        in loop $ Paused
-          { pausedSongTime: Seconds 0.0
-          , settings: let
-            initialSelect = \(Tuple name (Flex flex)) ->
-              if isJust flex.five then [Tuple name FlexFive] else
-              if isJust flex.six then [Tuple name FlexSix] else
-              if isJust flex.drums then [Tuple name FlexDrums] else
-              if isJust flex.prokeys then [Tuple name FlexProKeys] else
-              if isJust flex.protar then [Tuple name FlexProtar] else
-              if isJust flex.vocal then [Tuple name FlexVocal] else []
-            in case song of Song obj -> Set.fromFoldable $ concatMap initialSelect obj.parts
+          settings <- readMenu
+          continue app { settings = settings }
+        in loop
+          { settings: initialSettings
+          , time: Paused { pausedSongTime: Seconds 0.0 }
+          , menuOpen: false
           }
   continueLoading

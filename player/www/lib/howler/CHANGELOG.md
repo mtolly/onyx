@@ -1,3 +1,17 @@
+## 2.0.13 (Juen 22, 2018)
+- `FIXED` Prevent `stop` event from firing alongside `end` when using HTML5 Audio ([#974](https://github.com/goldfire/howler.js/issues/074)).
+- `FIXED` Correctly reset a `Sound` after using spatial audio ([#962](https://github.com/goldfire/howler.js/issues/962)).
+- `FIXED` Remove a `Howl` from cache when unloaded after failing to load ([#978](https://github.com/goldfire/howler.js/issues/978)).
+- `FIXED` Race condition could lead to error when cleaning the buffer.
+
+## 2.0.12 (May 9, 2018)
+- `FIXED` The previous Chrome deprecation fixes broke spatial positioning in Safari.
+
+## 2.0.10 (May 5, 2018)
+- `FIXED` Fixed another Chrome deprecation warning when using panning methods ([#923](https://github.com/goldfire/howler.js/issues/923)).
+- `FIXED` Playback rate wasn't working correctly in Internet Explorer when defined in the `Howl` constructor ([#936](https://github.com/goldfire/howler.js/issues/936)).
+- `FIXED` Looped audio would only play twice in Internet Explorer ([#921](https://github.com/goldfire/howler.js/issues/921)).
+
 ## 2.0.9 (February 10, 2018)
 - `FIXED` More accurate HTML5 Audio `end` timer and fix for Firefox streams ending early ([#883](https://github.com/goldfire/howler.js/issues/883)).
 - `FIXED` Prevent `play` events from duplicating in certain instances ([#899](https://github.com/goldfire/howler.js/issues/899)).

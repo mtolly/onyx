@@ -1,0 +1,35 @@
+body {
+  background-color: #4B1C4E;
+  font-family: sans-serif;
+  color: white;
+}
+
+#the-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+#the-side-menu {
+  top: 0;
+  position: fixed;
+  left: -452px;
+  width: 450px;
+  max-width: calc(100vw - 15px);
+  height: calc(100vh - 94px);
+  background-color: rgba(20,20,20,0.8);
+  border-right: 2px solid white;
+  border-bottom: 2px solid white;
+  transition: 0.2s left;
+  overflow-y: scroll;
+  user-select: none;
+  text-transform: uppercase;
+}
+
+#the-side-menu.menu-open {
+  left: 0;
+}
+
+.instrument-icon {
+  height: 40px;
+}

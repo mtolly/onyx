@@ -15,28 +15,9 @@ import           Graphics.Canvas         (CanvasImageSource, tryLoadImage)
 -- starting from here, generated with images.rb
 
 data ImageID
-  = Image_button_bass
-  | Image_button_bass_off
-  | Image_button_bass6
-  | Image_button_bass6_off
-  | Image_button_drums
-  | Image_button_drums_off
-  | Image_button_guitar
-  | Image_button_guitar_off
-  | Image_button_guitar6
-  | Image_button_guitar6_off
-  | Image_button_keys
-  | Image_button_keys_off
+  = Image_button_gear
   | Image_button_pause
   | Image_button_play
-  | Image_button_probass
-  | Image_button_probass_off
-  | Image_button_proguitar
-  | Image_button_proguitar_off
-  | Image_button_prokeys
-  | Image_button_prokeys_off
-  | Image_button_vocal
-  | Image_button_vocal_off
   | Image_gem_black
   | Image_gem_black_hopo
   | Image_gem_black_tap
@@ -169,31 +150,12 @@ data ImageID
   | Image_sustain_key_end
 
 allImageIDs :: Array ImageID
-allImageIDs = [Image_button_bass, Image_button_bass_off, Image_button_bass6, Image_button_bass6_off, Image_button_drums, Image_button_drums_off, Image_button_guitar, Image_button_guitar_off, Image_button_guitar6, Image_button_guitar6_off, Image_button_keys, Image_button_keys_off, Image_button_pause, Image_button_play, Image_button_probass, Image_button_probass_off, Image_button_proguitar, Image_button_proguitar_off, Image_button_prokeys, Image_button_prokeys_off, Image_button_vocal, Image_button_vocal_off, Image_gem_black, Image_gem_black_hopo, Image_gem_black_tap, Image_gem_blackkey, Image_gem_blackkey_energy, Image_gem_blackwhite, Image_gem_blackwhite_hopo, Image_gem_blackwhite_tap, Image_gem_blue, Image_gem_blue_cymbal, Image_gem_blue_hopo, Image_gem_blue_pro, Image_gem_blue_pro_hopo, Image_gem_blue_pro_tap, Image_gem_blue_tap, Image_gem_energy, Image_gem_energy_cymbal, Image_gem_energy_hopo, Image_gem_energy_mute, Image_gem_energy_mute_hopo, Image_gem_energy_mute_tap, Image_gem_energy_pro, Image_gem_energy_pro_hopo, Image_gem_energy_pro_tap, Image_gem_energy_tap, Image_gem_ghl_energy, Image_gem_green, Image_gem_green_cymbal, Image_gem_green_hopo, Image_gem_green_pro, Image_gem_green_pro_hopo, Image_gem_green_pro_tap, Image_gem_green_tap, Image_gem_kick, Image_gem_kick_energy, Image_gem_mute, Image_gem_mute_hopo, Image_gem_mute_tap, Image_gem_open, Image_gem_open_energy, Image_gem_open_energy_hopo, Image_gem_open_energy_tap, Image_gem_open_hopo, Image_gem_open_tap, Image_gem_openghl, Image_gem_openghl_energy, Image_gem_openghl_hopo, Image_gem_openghl_tap, Image_gem_orange, Image_gem_orange_cymbal, Image_gem_orange_hopo, Image_gem_orange_pro, Image_gem_orange_pro_hopo, Image_gem_orange_pro_tap, Image_gem_orange_tap, Image_gem_purple_pro, Image_gem_purple_pro_hopo, Image_gem_purple_pro_tap, Image_gem_red, Image_gem_red_cymbal, Image_gem_red_hopo, Image_gem_red_pro, Image_gem_red_pro_hopo, Image_gem_red_pro_tap, Image_gem_red_tap, Image_gem_white, Image_gem_white_hopo, Image_gem_white_tap, Image_gem_whiteblack, Image_gem_whiteblack_hopo, Image_gem_whiteblack_tap, Image_gem_whitekey, Image_gem_whitekey_energy, Image_gem_yellow, Image_gem_yellow_cymbal, Image_gem_yellow_hopo, Image_gem_yellow_pro, Image_gem_yellow_pro_hopo, Image_gem_yellow_pro_tap, Image_gem_yellow_tap, Image_highway_drums_bar, Image_highway_drums_beat, Image_highway_drums_halfbeat, Image_highway_drums_solo_edge, Image_highway_drums_target, Image_highway_drums5_target, Image_highway_ghl_bar, Image_highway_ghl_beat, Image_highway_ghl_solo_edge, Image_highway_ghl_target, Image_highway_grybo_bar, Image_highway_grybo_beat, Image_highway_grybo_halfbeat, Image_highway_grybo_solo_edge, Image_highway_grybo_target, Image_highway_grybo_target_lefty, Image_highway_prokeys_bar, Image_highway_prokeys_beat, Image_highway_prokeys_halfbeat, Image_highway_prokeys_solo_edge, Image_highway_prokeys_target, Image_highway_protar_beat, Image_highway_protar_halfbeat, Image_highway_protar_target, Image_highway_protar_target_lefty, Image_pro_fret_00, Image_pro_fret_01, Image_pro_fret_02, Image_pro_fret_03, Image_pro_fret_04, Image_pro_fret_05, Image_pro_fret_06, Image_pro_fret_07, Image_pro_fret_08, Image_pro_fret_09, Image_pro_fret_10, Image_pro_fret_11, Image_pro_fret_12, Image_pro_fret_13, Image_pro_fret_14, Image_pro_fret_15, Image_pro_fret_16, Image_pro_fret_17, Image_pro_fret_18, Image_pro_fret_19, Image_pro_fret_20, Image_pro_fret_21, Image_pro_fret_22, Image_sustain_end, Image_sustain_key_end]
+allImageIDs = [Image_button_gear, Image_button_pause, Image_button_play, Image_gem_black, Image_gem_black_hopo, Image_gem_black_tap, Image_gem_blackkey, Image_gem_blackkey_energy, Image_gem_blackwhite, Image_gem_blackwhite_hopo, Image_gem_blackwhite_tap, Image_gem_blue, Image_gem_blue_cymbal, Image_gem_blue_hopo, Image_gem_blue_pro, Image_gem_blue_pro_hopo, Image_gem_blue_pro_tap, Image_gem_blue_tap, Image_gem_energy, Image_gem_energy_cymbal, Image_gem_energy_hopo, Image_gem_energy_mute, Image_gem_energy_mute_hopo, Image_gem_energy_mute_tap, Image_gem_energy_pro, Image_gem_energy_pro_hopo, Image_gem_energy_pro_tap, Image_gem_energy_tap, Image_gem_ghl_energy, Image_gem_green, Image_gem_green_cymbal, Image_gem_green_hopo, Image_gem_green_pro, Image_gem_green_pro_hopo, Image_gem_green_pro_tap, Image_gem_green_tap, Image_gem_kick, Image_gem_kick_energy, Image_gem_mute, Image_gem_mute_hopo, Image_gem_mute_tap, Image_gem_open, Image_gem_open_energy, Image_gem_open_energy_hopo, Image_gem_open_energy_tap, Image_gem_open_hopo, Image_gem_open_tap, Image_gem_openghl, Image_gem_openghl_energy, Image_gem_openghl_hopo, Image_gem_openghl_tap, Image_gem_orange, Image_gem_orange_cymbal, Image_gem_orange_hopo, Image_gem_orange_pro, Image_gem_orange_pro_hopo, Image_gem_orange_pro_tap, Image_gem_orange_tap, Image_gem_purple_pro, Image_gem_purple_pro_hopo, Image_gem_purple_pro_tap, Image_gem_red, Image_gem_red_cymbal, Image_gem_red_hopo, Image_gem_red_pro, Image_gem_red_pro_hopo, Image_gem_red_pro_tap, Image_gem_red_tap, Image_gem_white, Image_gem_white_hopo, Image_gem_white_tap, Image_gem_whiteblack, Image_gem_whiteblack_hopo, Image_gem_whiteblack_tap, Image_gem_whitekey, Image_gem_whitekey_energy, Image_gem_yellow, Image_gem_yellow_cymbal, Image_gem_yellow_hopo, Image_gem_yellow_pro, Image_gem_yellow_pro_hopo, Image_gem_yellow_pro_tap, Image_gem_yellow_tap, Image_highway_drums_bar, Image_highway_drums_beat, Image_highway_drums_halfbeat, Image_highway_drums_solo_edge, Image_highway_drums_target, Image_highway_drums5_target, Image_highway_ghl_bar, Image_highway_ghl_beat, Image_highway_ghl_solo_edge, Image_highway_ghl_target, Image_highway_grybo_bar, Image_highway_grybo_beat, Image_highway_grybo_halfbeat, Image_highway_grybo_solo_edge, Image_highway_grybo_target, Image_highway_grybo_target_lefty, Image_highway_prokeys_bar, Image_highway_prokeys_beat, Image_highway_prokeys_halfbeat, Image_highway_prokeys_solo_edge, Image_highway_prokeys_target, Image_highway_protar_beat, Image_highway_protar_halfbeat, Image_highway_protar_target, Image_highway_protar_target_lefty, Image_pro_fret_00, Image_pro_fret_01, Image_pro_fret_02, Image_pro_fret_03, Image_pro_fret_04, Image_pro_fret_05, Image_pro_fret_06, Image_pro_fret_07, Image_pro_fret_08, Image_pro_fret_09, Image_pro_fret_10, Image_pro_fret_11, Image_pro_fret_12, Image_pro_fret_13, Image_pro_fret_14, Image_pro_fret_15, Image_pro_fret_16, Image_pro_fret_17, Image_pro_fret_18, Image_pro_fret_19, Image_pro_fret_20, Image_pro_fret_21, Image_pro_fret_22, Image_sustain_end, Image_sustain_key_end]
 
 imagePath :: ImageID -> String
-imagePath Image_button_bass = "button-bass"
-imagePath Image_button_bass_off = "button-bass-off"
-imagePath Image_button_bass6 = "button-bass6"
-imagePath Image_button_bass6_off = "button-bass6-off"
-imagePath Image_button_drums = "button-drums"
-imagePath Image_button_drums_off = "button-drums-off"
-imagePath Image_button_guitar = "button-guitar"
-imagePath Image_button_guitar_off = "button-guitar-off"
-imagePath Image_button_guitar6 = "button-guitar6"
-imagePath Image_button_guitar6_off = "button-guitar6-off"
-imagePath Image_button_keys = "button-keys"
-imagePath Image_button_keys_off = "button-keys-off"
+imagePath Image_button_gear = "button-gear"
 imagePath Image_button_pause = "button-pause"
 imagePath Image_button_play = "button-play"
-imagePath Image_button_probass = "button-probass"
-imagePath Image_button_probass_off = "button-probass-off"
-imagePath Image_button_proguitar = "button-proguitar"
-imagePath Image_button_proguitar_off = "button-proguitar-off"
-imagePath Image_button_prokeys = "button-prokeys"
-imagePath Image_button_prokeys_off = "button-prokeys-off"
-imagePath Image_button_vocal = "button-vocal"
-imagePath Image_button_vocal_off = "button-vocal-off"
 imagePath Image_gem_black = "gem-black"
 imagePath Image_gem_black_hopo = "gem-black-hopo"
 imagePath Image_gem_black_tap = "gem-black-tap"
@@ -326,158 +288,139 @@ imagePath Image_sustain_end = "sustain-end"
 imagePath Image_sustain_key_end = "sustain-key-end"
 
 imageNumber :: ImageID -> Int
-imageNumber Image_button_bass = 0
-imageNumber Image_button_bass_off = 1
-imageNumber Image_button_bass6 = 2
-imageNumber Image_button_bass6_off = 3
-imageNumber Image_button_drums = 4
-imageNumber Image_button_drums_off = 5
-imageNumber Image_button_guitar = 6
-imageNumber Image_button_guitar_off = 7
-imageNumber Image_button_guitar6 = 8
-imageNumber Image_button_guitar6_off = 9
-imageNumber Image_button_keys = 10
-imageNumber Image_button_keys_off = 11
-imageNumber Image_button_pause = 12
-imageNumber Image_button_play = 13
-imageNumber Image_button_probass = 14
-imageNumber Image_button_probass_off = 15
-imageNumber Image_button_proguitar = 16
-imageNumber Image_button_proguitar_off = 17
-imageNumber Image_button_prokeys = 18
-imageNumber Image_button_prokeys_off = 19
-imageNumber Image_button_vocal = 20
-imageNumber Image_button_vocal_off = 21
-imageNumber Image_gem_black = 22
-imageNumber Image_gem_black_hopo = 23
-imageNumber Image_gem_black_tap = 24
-imageNumber Image_gem_blackkey = 25
-imageNumber Image_gem_blackkey_energy = 26
-imageNumber Image_gem_blackwhite = 27
-imageNumber Image_gem_blackwhite_hopo = 28
-imageNumber Image_gem_blackwhite_tap = 29
-imageNumber Image_gem_blue = 30
-imageNumber Image_gem_blue_cymbal = 31
-imageNumber Image_gem_blue_hopo = 32
-imageNumber Image_gem_blue_pro = 33
-imageNumber Image_gem_blue_pro_hopo = 34
-imageNumber Image_gem_blue_pro_tap = 35
-imageNumber Image_gem_blue_tap = 36
-imageNumber Image_gem_energy = 37
-imageNumber Image_gem_energy_cymbal = 38
-imageNumber Image_gem_energy_hopo = 39
-imageNumber Image_gem_energy_mute = 40
-imageNumber Image_gem_energy_mute_hopo = 41
-imageNumber Image_gem_energy_mute_tap = 42
-imageNumber Image_gem_energy_pro = 43
-imageNumber Image_gem_energy_pro_hopo = 44
-imageNumber Image_gem_energy_pro_tap = 45
-imageNumber Image_gem_energy_tap = 46
-imageNumber Image_gem_ghl_energy = 47
-imageNumber Image_gem_green = 48
-imageNumber Image_gem_green_cymbal = 49
-imageNumber Image_gem_green_hopo = 50
-imageNumber Image_gem_green_pro = 51
-imageNumber Image_gem_green_pro_hopo = 52
-imageNumber Image_gem_green_pro_tap = 53
-imageNumber Image_gem_green_tap = 54
-imageNumber Image_gem_kick = 55
-imageNumber Image_gem_kick_energy = 56
-imageNumber Image_gem_mute = 57
-imageNumber Image_gem_mute_hopo = 58
-imageNumber Image_gem_mute_tap = 59
-imageNumber Image_gem_open = 60
-imageNumber Image_gem_open_energy = 61
-imageNumber Image_gem_open_energy_hopo = 62
-imageNumber Image_gem_open_energy_tap = 63
-imageNumber Image_gem_open_hopo = 64
-imageNumber Image_gem_open_tap = 65
-imageNumber Image_gem_openghl = 66
-imageNumber Image_gem_openghl_energy = 67
-imageNumber Image_gem_openghl_hopo = 68
-imageNumber Image_gem_openghl_tap = 69
-imageNumber Image_gem_orange = 70
-imageNumber Image_gem_orange_cymbal = 71
-imageNumber Image_gem_orange_hopo = 72
-imageNumber Image_gem_orange_pro = 73
-imageNumber Image_gem_orange_pro_hopo = 74
-imageNumber Image_gem_orange_pro_tap = 75
-imageNumber Image_gem_orange_tap = 76
-imageNumber Image_gem_purple_pro = 77
-imageNumber Image_gem_purple_pro_hopo = 78
-imageNumber Image_gem_purple_pro_tap = 79
-imageNumber Image_gem_red = 80
-imageNumber Image_gem_red_cymbal = 81
-imageNumber Image_gem_red_hopo = 82
-imageNumber Image_gem_red_pro = 83
-imageNumber Image_gem_red_pro_hopo = 84
-imageNumber Image_gem_red_pro_tap = 85
-imageNumber Image_gem_red_tap = 86
-imageNumber Image_gem_white = 87
-imageNumber Image_gem_white_hopo = 88
-imageNumber Image_gem_white_tap = 89
-imageNumber Image_gem_whiteblack = 90
-imageNumber Image_gem_whiteblack_hopo = 91
-imageNumber Image_gem_whiteblack_tap = 92
-imageNumber Image_gem_whitekey = 93
-imageNumber Image_gem_whitekey_energy = 94
-imageNumber Image_gem_yellow = 95
-imageNumber Image_gem_yellow_cymbal = 96
-imageNumber Image_gem_yellow_hopo = 97
-imageNumber Image_gem_yellow_pro = 98
-imageNumber Image_gem_yellow_pro_hopo = 99
-imageNumber Image_gem_yellow_pro_tap = 100
-imageNumber Image_gem_yellow_tap = 101
-imageNumber Image_highway_drums_bar = 102
-imageNumber Image_highway_drums_beat = 103
-imageNumber Image_highway_drums_halfbeat = 104
-imageNumber Image_highway_drums_solo_edge = 105
-imageNumber Image_highway_drums_target = 106
-imageNumber Image_highway_drums5_target = 107
-imageNumber Image_highway_ghl_bar = 108
-imageNumber Image_highway_ghl_beat = 109
-imageNumber Image_highway_ghl_solo_edge = 110
-imageNumber Image_highway_ghl_target = 111
-imageNumber Image_highway_grybo_bar = 112
-imageNumber Image_highway_grybo_beat = 113
-imageNumber Image_highway_grybo_halfbeat = 114
-imageNumber Image_highway_grybo_solo_edge = 115
-imageNumber Image_highway_grybo_target = 116
-imageNumber Image_highway_grybo_target_lefty = 117
-imageNumber Image_highway_prokeys_bar = 118
-imageNumber Image_highway_prokeys_beat = 119
-imageNumber Image_highway_prokeys_halfbeat = 120
-imageNumber Image_highway_prokeys_solo_edge = 121
-imageNumber Image_highway_prokeys_target = 122
-imageNumber Image_highway_protar_beat = 123
-imageNumber Image_highway_protar_halfbeat = 124
-imageNumber Image_highway_protar_target = 125
-imageNumber Image_highway_protar_target_lefty = 126
-imageNumber Image_pro_fret_00 = 127
-imageNumber Image_pro_fret_01 = 128
-imageNumber Image_pro_fret_02 = 129
-imageNumber Image_pro_fret_03 = 130
-imageNumber Image_pro_fret_04 = 131
-imageNumber Image_pro_fret_05 = 132
-imageNumber Image_pro_fret_06 = 133
-imageNumber Image_pro_fret_07 = 134
-imageNumber Image_pro_fret_08 = 135
-imageNumber Image_pro_fret_09 = 136
-imageNumber Image_pro_fret_10 = 137
-imageNumber Image_pro_fret_11 = 138
-imageNumber Image_pro_fret_12 = 139
-imageNumber Image_pro_fret_13 = 140
-imageNumber Image_pro_fret_14 = 141
-imageNumber Image_pro_fret_15 = 142
-imageNumber Image_pro_fret_16 = 143
-imageNumber Image_pro_fret_17 = 144
-imageNumber Image_pro_fret_18 = 145
-imageNumber Image_pro_fret_19 = 146
-imageNumber Image_pro_fret_20 = 147
-imageNumber Image_pro_fret_21 = 148
-imageNumber Image_pro_fret_22 = 149
-imageNumber Image_sustain_end = 150
-imageNumber Image_sustain_key_end = 151
+imageNumber Image_button_gear = 0
+imageNumber Image_button_pause = 1
+imageNumber Image_button_play = 2
+imageNumber Image_gem_black = 3
+imageNumber Image_gem_black_hopo = 4
+imageNumber Image_gem_black_tap = 5
+imageNumber Image_gem_blackkey = 6
+imageNumber Image_gem_blackkey_energy = 7
+imageNumber Image_gem_blackwhite = 8
+imageNumber Image_gem_blackwhite_hopo = 9
+imageNumber Image_gem_blackwhite_tap = 10
+imageNumber Image_gem_blue = 11
+imageNumber Image_gem_blue_cymbal = 12
+imageNumber Image_gem_blue_hopo = 13
+imageNumber Image_gem_blue_pro = 14
+imageNumber Image_gem_blue_pro_hopo = 15
+imageNumber Image_gem_blue_pro_tap = 16
+imageNumber Image_gem_blue_tap = 17
+imageNumber Image_gem_energy = 18
+imageNumber Image_gem_energy_cymbal = 19
+imageNumber Image_gem_energy_hopo = 20
+imageNumber Image_gem_energy_mute = 21
+imageNumber Image_gem_energy_mute_hopo = 22
+imageNumber Image_gem_energy_mute_tap = 23
+imageNumber Image_gem_energy_pro = 24
+imageNumber Image_gem_energy_pro_hopo = 25
+imageNumber Image_gem_energy_pro_tap = 26
+imageNumber Image_gem_energy_tap = 27
+imageNumber Image_gem_ghl_energy = 28
+imageNumber Image_gem_green = 29
+imageNumber Image_gem_green_cymbal = 30
+imageNumber Image_gem_green_hopo = 31
+imageNumber Image_gem_green_pro = 32
+imageNumber Image_gem_green_pro_hopo = 33
+imageNumber Image_gem_green_pro_tap = 34
+imageNumber Image_gem_green_tap = 35
+imageNumber Image_gem_kick = 36
+imageNumber Image_gem_kick_energy = 37
+imageNumber Image_gem_mute = 38
+imageNumber Image_gem_mute_hopo = 39
+imageNumber Image_gem_mute_tap = 40
+imageNumber Image_gem_open = 41
+imageNumber Image_gem_open_energy = 42
+imageNumber Image_gem_open_energy_hopo = 43
+imageNumber Image_gem_open_energy_tap = 44
+imageNumber Image_gem_open_hopo = 45
+imageNumber Image_gem_open_tap = 46
+imageNumber Image_gem_openghl = 47
+imageNumber Image_gem_openghl_energy = 48
+imageNumber Image_gem_openghl_hopo = 49
+imageNumber Image_gem_openghl_tap = 50
+imageNumber Image_gem_orange = 51
+imageNumber Image_gem_orange_cymbal = 52
+imageNumber Image_gem_orange_hopo = 53
+imageNumber Image_gem_orange_pro = 54
+imageNumber Image_gem_orange_pro_hopo = 55
+imageNumber Image_gem_orange_pro_tap = 56
+imageNumber Image_gem_orange_tap = 57
+imageNumber Image_gem_purple_pro = 58
+imageNumber Image_gem_purple_pro_hopo = 59
+imageNumber Image_gem_purple_pro_tap = 60
+imageNumber Image_gem_red = 61
+imageNumber Image_gem_red_cymbal = 62
+imageNumber Image_gem_red_hopo = 63
+imageNumber Image_gem_red_pro = 64
+imageNumber Image_gem_red_pro_hopo = 65
+imageNumber Image_gem_red_pro_tap = 66
+imageNumber Image_gem_red_tap = 67
+imageNumber Image_gem_white = 68
+imageNumber Image_gem_white_hopo = 69
+imageNumber Image_gem_white_tap = 70
+imageNumber Image_gem_whiteblack = 71
+imageNumber Image_gem_whiteblack_hopo = 72
+imageNumber Image_gem_whiteblack_tap = 73
+imageNumber Image_gem_whitekey = 74
+imageNumber Image_gem_whitekey_energy = 75
+imageNumber Image_gem_yellow = 76
+imageNumber Image_gem_yellow_cymbal = 77
+imageNumber Image_gem_yellow_hopo = 78
+imageNumber Image_gem_yellow_pro = 79
+imageNumber Image_gem_yellow_pro_hopo = 80
+imageNumber Image_gem_yellow_pro_tap = 81
+imageNumber Image_gem_yellow_tap = 82
+imageNumber Image_highway_drums_bar = 83
+imageNumber Image_highway_drums_beat = 84
+imageNumber Image_highway_drums_halfbeat = 85
+imageNumber Image_highway_drums_solo_edge = 86
+imageNumber Image_highway_drums_target = 87
+imageNumber Image_highway_drums5_target = 88
+imageNumber Image_highway_ghl_bar = 89
+imageNumber Image_highway_ghl_beat = 90
+imageNumber Image_highway_ghl_solo_edge = 91
+imageNumber Image_highway_ghl_target = 92
+imageNumber Image_highway_grybo_bar = 93
+imageNumber Image_highway_grybo_beat = 94
+imageNumber Image_highway_grybo_halfbeat = 95
+imageNumber Image_highway_grybo_solo_edge = 96
+imageNumber Image_highway_grybo_target = 97
+imageNumber Image_highway_grybo_target_lefty = 98
+imageNumber Image_highway_prokeys_bar = 99
+imageNumber Image_highway_prokeys_beat = 100
+imageNumber Image_highway_prokeys_halfbeat = 101
+imageNumber Image_highway_prokeys_solo_edge = 102
+imageNumber Image_highway_prokeys_target = 103
+imageNumber Image_highway_protar_beat = 104
+imageNumber Image_highway_protar_halfbeat = 105
+imageNumber Image_highway_protar_target = 106
+imageNumber Image_highway_protar_target_lefty = 107
+imageNumber Image_pro_fret_00 = 108
+imageNumber Image_pro_fret_01 = 109
+imageNumber Image_pro_fret_02 = 110
+imageNumber Image_pro_fret_03 = 111
+imageNumber Image_pro_fret_04 = 112
+imageNumber Image_pro_fret_05 = 113
+imageNumber Image_pro_fret_06 = 114
+imageNumber Image_pro_fret_07 = 115
+imageNumber Image_pro_fret_08 = 116
+imageNumber Image_pro_fret_09 = 117
+imageNumber Image_pro_fret_10 = 118
+imageNumber Image_pro_fret_11 = 119
+imageNumber Image_pro_fret_12 = 120
+imageNumber Image_pro_fret_13 = 121
+imageNumber Image_pro_fret_14 = 122
+imageNumber Image_pro_fret_15 = 123
+imageNumber Image_pro_fret_16 = 124
+imageNumber Image_pro_fret_17 = 125
+imageNumber Image_pro_fret_18 = 126
+imageNumber Image_pro_fret_19 = 127
+imageNumber Image_pro_fret_20 = 128
+imageNumber Image_pro_fret_21 = 129
+imageNumber Image_pro_fret_22 = 130
+imageNumber Image_sustain_end = 131
+imageNumber Image_sustain_key_end = 132
 
 -- end generated section
 
