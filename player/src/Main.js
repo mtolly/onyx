@@ -59,61 +59,81 @@ exports.fillMenu = function(song) {
       tag(menu, 'h2', function(h2){
         h2.innerHTML = song.artist;
       });
-      function settingsToggle(key, name) {
-        tag(menu, 'label', function(label){
-          tag(label, 'p', function(p){
-            tag(p, 'input', function(checkbox){
-              checkbox.type = 'checkbox';
-              checkbox.checked = menuMutable[key];
-              checkbox.addEventListener('change', function(e){
-                menuMutable[key] = e.target.checked;
-                menuImmutable = JSON.parse(JSON.stringify(menuMutable));
+      tag(menu, 'div', function(divSwitches){
+        divSwitches.className = 'switches';
+        function settingsToggle(key, name) {
+          tag(divSwitches, 'p', function(p){
+            tag(p, 'label', function(label){
+              tag(label, 'input', function(checkbox){
+                checkbox.type = 'checkbox';
+                checkbox.checked = menuMutable[key];
+                checkbox.addEventListener('change', function(e){
+                  menuMutable[key] = e.target.checked;
+                  menuImmutable = JSON.parse(JSON.stringify(menuMutable));
+                });
               });
+              label.insertAdjacentHTML('beforeend', ' ' + name);
             });
-            p.insertAdjacentHTML('beforeend', ' ' + name);
           });
-        });
+        }
+        settingsToggle('autoplay', 'Enable Bots');
+        settingsToggle('leftyFlip', 'Lefty Flip');
+        settingsToggle('staticVert', 'Static Instruments');
+      });
+      function setIcon(part, fpart, img) {
+        function title(t) { img.alt = t; img.title = t; }
+        switch (fpart.partType) {
+          case 'five':
+            title('5-Fret');
+            if (part.partName === 'bass') {
+              img.src = 'images-dom/icon-bass.png';
+            } else if (part.partName === 'keys') {
+              img.src = 'images-dom/icon-keys.png';
+            } else {
+              img.src = 'images-dom/icon-guitar.png';
+            }
+            break;
+          case 'six':
+            img.src = 'images-dom/icon-ghl.png';
+            title('6-Fret (GHL)');
+            break;
+          case 'drums':
+            img.src = 'images-dom/icon-drums.png';
+            title('(Pro) Drums');
+            break;
+          case 'prokeys':
+            img.src = 'images-dom/icon-pro-keys.png';
+            title('Pro Keys');
+            break;
+          case 'protar':
+            if (part.partName === 'bass') {
+              img.src = 'images-dom/icon-pro-bass.png';
+              title('Pro Bass');
+            } else {
+              img.src = 'images-dom/icon-pro-guitar.png';
+              title('Pro Guitar');
+            }
+            break;
+          case 'vocal':
+            img.src = 'images-dom/icon-vocal-3.png'; // TODO
+            title('Vocals');
+            break;
+        }
       }
-      settingsToggle('autoplay', 'Autoplay');
-      settingsToggle('leftyFlip', 'Lefty Flip');
-      settingsToggle('staticVert', 'Static Instruments');
       menuMutable.parts.forEach(function(part){
         tag(menu, 'div', function(div){
           tag(div, 'h3', function(h3){
-            h3.innerHTML = part.partName;
+            h3.innerHTML = (part.partName === 'vocal' ? 'vocals' : part.partName);
           });
           tag(div, 'form', function(form){
             part.flexParts.forEach(function(fpart){
-              tag(form, 'label', function(label){
-                tag(label, 'p', function(p){
-                  tag(p, 'img', function(img){
-                    img.className = 'instrument-icon';
-                    switch (fpart.partType) {
-                      case 'five':
-                        if      (part.partName === 'bass') img.src = 'images-dom/icon-bass.png';
-                        else if (part.partName === 'keys') img.src = 'images-dom/icon-keys.png';
-                        else                               img.src = 'images-dom/icon-guitar.png';
-                        break;
-                      case 'six':
-                        img.src = 'images-dom/icon-ghl.png';
-                        break;
-                      case 'drums':
-                        img.src = 'images-dom/icon-drums.png';
-                        break;
-                      case 'prokeys':
-                        img.src = 'images-dom/icon-pro-keys.png';
-                        break;
-                      case 'protar':
-                        if      (part.partName === 'bass') img.src = 'images-dom/icon-pro-bass.png';
-                        else                               img.src = 'images-dom/icon-pro-guitar.png';
-                        break;
-                      case 'vocal':
-                        img.src = 'images-dom/icon-vocal-3.png'; // TODO
-                        break;
-                    }
-                  });
-                  p.insertAdjacentHTML('beforeend', ' ');
-                  tag(p, 'input', function(checkbox){
+              tag(form, 'p', function(p){
+                tag(p, 'img', function(img){
+                  img.className = 'instrument-icon';
+                  setIcon(part, fpart, img);
+                });
+                tag(p, 'label', function(label){
+                  tag(label, 'input', function(checkbox){
                     checkbox.type = 'checkbox';
                     checkbox.checked = fpart.enabled;
                     checkbox.addEventListener('change', function(e){
@@ -121,11 +141,16 @@ exports.fillMenu = function(song) {
                       menuImmutable = JSON.parse(JSON.stringify(menuMutable));
                     });
                   });
+                  label.insertAdjacentHTML('beforeend', ' X');
                 });
               });
             });
           });
         });
+      });
+      tag(menu, 'p', function(p){
+        p.className = 'onyx-link';
+        p.innerHTML = 'Created by the <a target="_blank" href="https://github.com/mtolly/onyxite-customs">Onyx Music Game Toolkit</a>';
       });
       menu.addEventListener('click', function(e){ e.stopPropagation(); });
     };

@@ -18,35 +18,70 @@ body {
 #the-side-menu {
   top: 0;
   position: fixed;
-  left: -452px;
-  width: 450px;
+  left: -402px;
+  width: 400px;
   max-width: calc(100vw - 15px);
   height: calc(100vh - 94px);
   background-color: rgba(20,20,20,0.8);
   border-right: 2px solid white;
   border-bottom: 2px solid white;
   transition: 0.2s left;
-  overflow-y: scroll;
-}
-
-#the-side-menu h1 {
-  margin-bottom: 3px;
-  font-size: 25px;
-}
-
-#the-side-menu h2 {
-  margin-top: 3px;
-  font-size: 20px;
-}
-
-#the-side-menu h3 {
-  text-transform: uppercase;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 20px;
 }
 
 #the-side-menu.menu-open {
   left: 0;
 }
 
+#the-side-menu h1 {
+  margin: 3px 0;
+  font-size: 25px;
+}
+
+#the-side-menu h2 {
+  margin: 3px 0;
+  font-size: 20px;
+}
+
+#the-side-menu h3 {
+  margin: 8px 0;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+#the-side-menu .switches {
+  margin: 16px 0;
+}
+
+#the-side-menu p {
+  margin: 8px 0;
+  user-select: none;
+}
+
+#the-side-menu p img {
+  vertical-align: middle;
+  margin: 2px 5px;
+}
+
+#the-side-menu p label {
+  vertical-align: middle;
+  margin: 2px 5px;
+  background-color: #eee;
+  color: #222;
+  padding: 3px 5px;
+  border-radius: 3px;
+}
+
 .instrument-icon {
-  height: 40px;
+  height: 35px;
+}
+
+#the-side-menu p.onyx-link {
+  margin: 16px 0;
+}
+
+.onyx-link a {
+  color: #f28bf7;
 }
