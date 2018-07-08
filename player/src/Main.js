@@ -59,6 +59,11 @@ exports.fillMenu = function(song) {
       tag(menu, 'h2', function(h2){
         h2.innerHTML = song.artist;
       });
+      if (song.author.match(/\S/)) {
+        tag(menu, 'h4', function(h4){
+          h4.innerHTML = 'Author: ' + song.author;
+        });
+      }
       tag(menu, 'div', function(divSwitches){
         divSwitches.className = 'switches';
         function settingsToggle(key, name) {
@@ -150,7 +155,7 @@ exports.fillMenu = function(song) {
       });
       tag(menu, 'p', function(p){
         p.className = 'onyx-link';
-        p.innerHTML = 'Created by the <a target="_blank" href="https://github.com/mtolly/onyxite-customs">Onyx Music Game Toolkit</a>';
+        p.innerHTML = '<a target="_blank" href="https://github.com/mtolly/onyxite-customs">Onyx Music Game Toolkit</a>';
       });
       menu.addEventListener('click', function(e){ e.stopPropagation(); });
     };

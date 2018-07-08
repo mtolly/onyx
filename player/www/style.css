@@ -23,8 +23,8 @@ body {
   max-width: calc(100vw - 15px);
   height: calc(100vh - 94px);
   background-color: rgba(20,20,20,0.8);
-  border-right: 2px solid white;
-  border-bottom: 2px solid white;
+  border-right: 2px solid #ccc;
+  border-bottom: 2px solid #ccc;
   transition: 0.2s left;
   overflow-y: auto;
   box-sizing: border-box;
@@ -49,6 +49,14 @@ body {
   margin: 8px 0;
   text-transform: uppercase;
   user-select: none;
+  font-size: 17px;
+}
+
+#the-side-menu h4 {
+  margin: 8px 0;
+  font-style: italic;
+  user-select: none;
+  font-size: 15px;
 }
 
 #the-side-menu .switches {
@@ -72,6 +80,14 @@ body {
   color: #222;
   padding: 3px 5px;
   border-radius: 3px;
+}
+
+#the-side-menu form {
+  margin: 4px 0;
+}
+
+#the-side-menu form p {
+  margin: 0;
 }
 
 .instrument-icon {

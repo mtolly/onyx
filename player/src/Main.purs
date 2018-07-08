@@ -39,7 +39,11 @@ foreign import setTitle :: String -> Effect Unit
 
 foreign import openMenu :: Effect Unit
 foreign import closeMenu :: Effect Unit
-foreign import fillMenu :: forall o. {title :: String, artist :: String | o} -> Settings -> Effect Unit
+foreign import fillMenu
+  :: forall o
+  .  {title :: String, artist :: String, author :: String | o}
+  -> Settings
+  -> Effect Unit
 foreign import readMenu :: Effect Settings
 
 drawLoading :: C.CanvasElement -> Effect Unit

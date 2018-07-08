@@ -627,13 +627,14 @@ instance (Real t) => A.ToJSON (Flex t) where
 data Processed t = Processed
   { processedTitle  :: T.Text
   , processedArtist :: T.Text
+  , processedAuthor :: T.Text
   , processedBeats  :: Beats t
   , processedEnd    :: t
   , processedParts  :: [(T.Text, Flex t)]
   } deriving (Eq, Ord, Show)
 
 instance TimeFunctor Processed where
-  mapTime f (Processed title artist bts end parts) = Processed title artist
+  mapTime f (Processed title artist author bts end parts) = Processed title artist author
     (mapTime f bts)
     (f end)
     (map (fmap $ mapTime f) parts)
@@ -642,6 +643,7 @@ instance (Real t) => A.ToJSON (Processed t) where
   toJSON proc = A.object $ concat
     [ [("title" , A.toJSON $              processedTitle  proc)]
     , [("artist", A.toJSON $              processedArtist proc)]
+    , [("author", A.toJSON $              processedAuthor proc)]
     , [("beats" , A.toJSON $              processedBeats  proc)]
     , [("end"   , A.Number $ realToFrac $ processedEnd    proc)]
     , [("parts" , A.toJSON $              processedParts  proc)]
@@ -701,4 +703,5 @@ makeDisplay songYaml song = let
   end = U.applyTempoMap (RBFile.s_tempos song) $ songLengthBeats song
   title  = fromMaybe "" $ C._title  $ C._metadata songYaml
   artist = fromMaybe "" $ C._artist $ C._metadata songYaml
-  in A.encode $ mapTime (realToFrac :: U.Seconds -> Milli) $ Processed title artist beat end parts
+  author = fromMaybe "" $ C._author $ C._metadata songYaml
+  in A.encode $ mapTime (realToFrac :: U.Seconds -> Milli) $ Processed title artist author beat end parts

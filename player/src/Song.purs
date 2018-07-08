@@ -20,6 +20,7 @@ newtype Song = Song
   , parts  :: Array (Tuple String Flex)
   , title  :: String
   , artist :: String
+  , author :: String
   }
 
 newtype Flex = Flex
@@ -541,6 +542,7 @@ isForeignSong :: Foreign -> F Song
 isForeignSong f = do
   title <- readProp "title" f >>= readString
   artist <- readProp "artist" f >>= readString
+  author <- readProp "author" f >>= readString
   end <- readProp "end" f >>= readNumber
   beats <- readProp "beats" f >>= isForeignBeats
   parts <- readProp "parts" f >>= readArray >>= traverse \pair ->
@@ -551,6 +553,7 @@ isForeignSong f = do
     , parts: parts
     , title: title
     , artist: artist
+    , author: author
     }
 
 readTimedSet :: Foreign -> F (Map.Map Seconds Unit)
