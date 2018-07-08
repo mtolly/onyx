@@ -40,7 +40,7 @@ drawSix (Six six) targetX stuff = do
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
-      handedness n = if customize.leftyFlip then 2 - n else n
+      handedness n = if stuff.app.settings.leftyFlip then 2 - n else n
       drawH = stuff.maxY - stuff.minY
   -- Highway
   setFillStyle customize.highway stuff
@@ -97,16 +97,16 @@ drawSix (Six six) targetX stuff = do
         , { c: _.bw3 , x: handedness 2 * widthFret + 1, color: SixBoth  }
         ]
       getShades sc = case sc of
-        SixWhite -> if customize.leftyFlip then customize.sustainBlackGHL else customize.sustainWhiteGHL
+        SixWhite -> if stuff.app.settings.leftyFlip then customize.sustainBlackGHL else customize.sustainWhiteGHL
         SixBoth  -> customize.sustainBothGHL
-        SixBlack -> if customize.leftyFlip then customize.sustainWhiteGHL else customize.sustainBlackGHL
+        SixBlack -> if stuff.app.settings.leftyFlip then customize.sustainWhiteGHL else customize.sustainBlackGHL
         SixOpen  -> customize.sustainOpenGHL
       blackImages = { strum: Image_gem_black, hopo: Image_gem_black_hopo, tap: Image_gem_black_tap, energy: Image_gem_ghl_energy }
       whiteImages = { strum: Image_gem_white, hopo: Image_gem_white_hopo, tap: Image_gem_white_tap, energy: Image_gem_ghl_energy }
       getGemImages sc = case sc of
-        SixBlack -> if customize.leftyFlip then whiteImages else blackImages
-        SixWhite -> if customize.leftyFlip then blackImages else whiteImages
-        SixBoth  -> if customize.leftyFlip
+        SixBlack -> if stuff.app.settings.leftyFlip then whiteImages else blackImages
+        SixWhite -> if stuff.app.settings.leftyFlip then blackImages else whiteImages
+        SixBoth  -> if stuff.app.settings.leftyFlip
           then { strum: Image_gem_whiteblack, hopo: Image_gem_whiteblack_hopo, tap: Image_gem_whiteblack_tap, energy: Image_gem_ghl_energy }
           else { strum: Image_gem_blackwhite, hopo: Image_gem_blackwhite_hopo, tap: Image_gem_blackwhite_tap, energy: Image_gem_ghl_energy }
         SixOpen  -> { strum: Image_gem_openghl, hopo: Image_gem_openghl_hopo, tap: Image_gem_openghl_tap, energy: Image_gem_openghl_energy }
@@ -118,11 +118,11 @@ drawSix (Six six) targetX stuff = do
         isEnergy secs = case Map.lookupLE secs six.energy of
           Nothing           -> false
           Just { value: v } -> v
-        hitAtY = if customize.autoplay then targetY else stuff.maxY + 50
+        hitAtY = if stuff.app.settings.autoplay then targetY else stuff.maxY + 50
         drawSustainBlock ystart yend energy = when (ystart < hitAtY || yend < hitAtY) do
           let ystart' = min ystart hitAtY
               yend'   = min yend   hitAtY
-              sustaining = customize.autoplay && (targetY < ystart || targetY < yend)
+              sustaining = stuff.app.settings.autoplay && (targetY < ystart || targetY < yend)
               shades = if energy
                 then customize.sustainEnergy
                 else getShades thisColor
@@ -168,7 +168,7 @@ drawSix (Six six) targetX stuff = do
             trailX = case thisColor of
               SixOpen -> 1 * widthFret + 1
               _       -> offsetX
-        if customize.autoplay && futureSecs <= 0.0
+        if stuff.app.settings.autoplay && futureSecs <= 0.0
           then pure unit -- note is in the past or being hit now
           else drawImage Image_sustain_end
             (toNumber $ targetX + trailX)
@@ -184,7 +184,7 @@ drawSix (Six six) targetX stuff = do
             trailX = case thisColor of
               SixOpen -> 1 * widthFret + 1
               _       -> offsetX
-        if customize.autoplay && futureSecs <= 0.0
+        if stuff.app.settings.autoplay && futureSecs <= 0.0
           then do
             -- note is in the past or being hit now
             if (-0.1) < futureSecs

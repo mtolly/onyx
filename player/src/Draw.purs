@@ -69,7 +69,7 @@ draw stuff = do
         , \i -> drawPart flex.prokeys (partEnabled part "prokeys") drawProKeys i someStuff
         , \i -> drawPart flex.protar  (partEnabled part "protar" ) drawProtar  i someStuff
         ]
-  if customize.staticVert
+  if stuff.app.settings.staticVert
     then let
       betweenTargets = windowH * 0.65
       Seconds now = stuff.time

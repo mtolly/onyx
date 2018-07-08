@@ -64,7 +64,7 @@ drawProtar (Protar protar) chordsX stuff = do
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
-      handedness n = if customize.leftyFlip then 5 - n else n
+      handedness n = if stuff.app.settings.leftyFlip then 5 - n else n
       drawH = stuff.maxY - stuff.minY
   -- Chord names
   let drawChord = drawChord' $ toNumber $ targetX - 5
@@ -74,12 +74,12 @@ drawProtar (Protar protar) chordsX stuff = do
           let ctx = stuff.context
           y <- case fst o.last of
             Baseline -> do
-              C.setFont ctx "19px sans-serif"
-              C.setFillStyle ctx "white"
+              C.setFont ctx customize.proChordNameFont
+              C.setFillStyle ctx customize.proChordNameColor
               pure $ toNumber $ secsToPxVert secs + 5
             Superscript -> do
-              C.setFont ctx "14px sans-serif"
-              C.setFillStyle ctx "white"
+              C.setFont ctx customize.proChordNameFontSuperscript
+              C.setFillStyle ctx customize.proChordNameColor
               pure $ toNumber $ secsToPxVert secs - 3
           void $ C.setTextAlign ctx C.AlignRight
           void $ C.fillText ctx (snd o.last) x y
@@ -174,7 +174,7 @@ drawProtar (Protar protar) chordsX stuff = do
       HalfBeat -> drawImage Image_highway_protar_halfbeat (toNumber targetX) (toNumber y      ) stuff
   -- Target
   drawImage
-    (if customize.leftyFlip then Image_highway_protar_target_lefty else Image_highway_protar_target)
+    (if stuff.app.settings.leftyFlip then Image_highway_protar_target_lefty else Image_highway_protar_target)
     (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Sustains
   let colors =
@@ -202,11 +202,11 @@ drawProtar (Protar protar) chordsX stuff = do
         isEnergy secs = case Map.lookupLE secs protar.energy of
           Nothing           -> false
           Just { value: v } -> v
-        hitAtY = if customize.autoplay then targetY else stuff.maxY + 50
+        hitAtY = if stuff.app.settings.autoplay then targetY else stuff.maxY + 50
         drawSustainBlock ystart yend energy mute = when (ystart < hitAtY || yend < hitAtY) do
           let ystart' = min ystart hitAtY
               yend'   = min yend   hitAtY
-              sustaining = customize.autoplay && (targetY < ystart || targetY < yend)
+              sustaining = stuff.app.settings.autoplay && (targetY < ystart || targetY < yend)
               shades =
                 if energy    then customize.sustainEnergy
                 else if mute then customize.sustainProtarMute
@@ -250,7 +250,7 @@ drawProtar (Protar protar) chordsX stuff = do
     zoomDesc (getColor protar.notes) \secs evt -> case evt of
       SustainEnd -> do
         let futureSecs = secToNum $ secs <> negateDuration stuff.time
-        if customize.autoplay && futureSecs <= 0.0
+        if stuff.app.settings.autoplay && futureSecs <= 0.0
           then pure unit -- note is in the past or being hit now
           else drawImage Image_sustain_end
             (toNumber $ targetX + offsetX - 3)
@@ -262,7 +262,7 @@ drawProtar (Protar protar) chordsX stuff = do
     zoomDesc (getColor protar.notes) \secs evt -> let
       withNoteType obj = do
         let futureSecs = secToNum $ secs <> negateDuration stuff.time
-        if customize.autoplay && futureSecs <= 0.0
+        if stuff.app.settings.autoplay && futureSecs <= 0.0
           then do
             -- note is in the past or being hit now
             if (-0.1) < futureSecs

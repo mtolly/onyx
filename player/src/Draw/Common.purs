@@ -40,6 +40,9 @@ type Settings =
       , enabled :: Boolean
       }
     }
+  , autoplay :: Boolean
+  , leftyFlip :: Boolean
+  , staticVert :: Boolean
   }
 
 type DrawStuff =

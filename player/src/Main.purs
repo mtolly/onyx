@@ -39,7 +39,7 @@ foreign import setTitle :: String -> Effect Unit
 
 foreign import openMenu :: Effect Unit
 foreign import closeMenu :: Effect Unit
-foreign import fillMenu :: Settings -> Effect Unit
+foreign import fillMenu :: forall o. {title :: String, artist :: String | o} -> Settings -> Effect Unit
 foreign import readMenu :: Effect Settings
 
 drawLoading :: C.CanvasElement -> Effect Unit
@@ -120,16 +120,11 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
               in map (inst true) (take 1 insts) <> map (inst false) (drop 1 insts)
             }
           ) (case song of Song obj -> obj.parts)
+        , autoplay: true
+        , leftyFlip: false
+        , staticVert: false
         }
-        -- initialSelect = \(Tuple name (Flex flex)) ->
-        --   if isJust flex.five then [Tuple name FlexFive] else
-        --   if isJust flex.six then [Tuple name FlexSix] else
-        --   if isJust flex.drums then [Tuple name FlexDrums] else
-        --   if isJust flex.prokeys then [Tuple name FlexProKeys] else
-        --   if isJust flex.protar then [Tuple name FlexProtar] else
-        --   if isJust flex.vocal then [Tuple name FlexVocal] else []
-        -- in case song of Song obj -> Set.fromFoldable $ concatMap initialSelect obj.parts
-  fillMenu initialSettings
+  fillMenu (case song of Song obj -> obj) initialSettings
   let continueLoading = do
         drawLoading canvas
         imageGetterMaybe <- Ref.read imageGetterRef

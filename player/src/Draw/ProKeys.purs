@@ -178,11 +178,11 @@ drawProKeys (ProKeys pk) targetX stuff = do
         isEnergy secs = case Map.lookupLE secs pk.energy of
           Just {value: bool} -> bool
           Nothing            -> false
-        hitAtY = if customize.autoplay then targetY else stuff.maxY + 50
+        hitAtY = if stuff.app.settings.autoplay then targetY else stuff.maxY + 50
         drawSustainBlock ystart yend energy = when (ystart < hitAtY || yend < hitAtY) do
           let ystart' = min ystart hitAtY
               yend'   = min yend   hitAtY
-              sustaining = customize.autoplay && (targetY < ystart || targetY < yend)
+              sustaining = stuff.app.settings.autoplay && (targetY < ystart || targetY < yend)
               shades = if energy
                 then if isBlack
                   then customize.sustainBlackKeyEnergy
@@ -230,7 +230,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
     zoomDesc (fromMaybe Map.empty $ Map.lookup pitch pk.notes) \secs evt -> case evt of
       SustainEnd -> do
         let futureSecs = secToNum $ secs <> negateDuration stuff.time
-        if customize.autoplay && futureSecs <= 0.0
+        if stuff.app.settings.autoplay && futureSecs <= 0.0
           then pure unit -- note is in the past or being hit now
           else drawImage Image_sustain_key_end
             (toNumber $ targetX + offsetX - if isBlack then 1 else 0)
@@ -246,7 +246,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
             isGlissando = case Map.lookupLE secs pk.gliss of
               Just {value: bool} -> bool
               Nothing            -> false
-        if customize.autoplay && futureSecs <= 0.0
+        if stuff.app.settings.autoplay && futureSecs <= 0.0
           then do
             -- note is in the past or being hit now
             if (-0.1) < futureSecs

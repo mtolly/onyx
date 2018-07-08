@@ -34,7 +34,7 @@ drawDrums (Drums drums) targetX stuff = do
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
       trackWidth = numLanes * widthFret + 2
-      handedness n = if customize.leftyFlip then numLanes - 1 - n else n
+      handedness n = if stuff.app.settings.leftyFlip then numLanes - 1 - n else n
       drawH = stuff.maxY - stuff.minY
   -- Highway
   setFillStyle customize.highway stuff
@@ -125,7 +125,7 @@ drawDrums (Drums drums) targetX stuff = do
       imgKickOD = if drums.mode5 then Image_gem_open_energy else Image_gem_kick_energy
   zoomDesc drums.notes \secs evts -> do
     let futureSecs = secToNum $ secs <> negateDuration stuff.time
-    if customize.autoplay && futureSecs <= 0.0
+    if stuff.app.settings.autoplay && futureSecs <= 0.0
       then do
         -- note is in the past or being hit now
         if (-0.1) < futureSecs
@@ -156,7 +156,7 @@ drawDrums (Drums drums) targetX stuff = do
   -- Hand notes
   zoomDesc drums.notes \secs evts -> do
     let futureSecs = secToNum $ secs <> negateDuration stuff.time
-    if customize.autoplay && futureSecs <= 0.0
+    if stuff.app.settings.autoplay && futureSecs <= 0.0
       then do
         -- note is in the past or being hit now
         if (-0.1) < futureSecs
@@ -177,11 +177,11 @@ drawDrums (Drums drums) targetX stuff = do
                 green = do
                   setFillStyle (customize.sustainGreen.hit opacity) stuff
                   fillRect { x: toNumber $ targetX + (numLanes - 1) * widthFret + 2, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
-                red' = if customize.leftyFlip then green else red
-                yellow' = if customize.leftyFlip then (if drums.mode5 then orange else blue) else yellow
-                blue' = if customize.leftyFlip then (if drums.mode5 then blue else yellow) else blue
-                orange' = if customize.leftyFlip then yellow else orange
-                green' = if customize.leftyFlip then red else green
+                red' = if stuff.app.settings.leftyFlip then green else red
+                yellow' = if stuff.app.settings.leftyFlip then (if drums.mode5 then orange else blue) else yellow
+                blue' = if stuff.app.settings.leftyFlip then (if drums.mode5 then blue else yellow) else blue
+                orange' = if stuff.app.settings.leftyFlip then yellow else orange
+                green' = if stuff.app.settings.leftyFlip then red else green
             for_ evts \e -> case e of
               Kick -> pure unit
               Red  -> red'
@@ -202,43 +202,43 @@ drawDrums (Drums drums) targetX stuff = do
         for_ evts \e -> case e of
           Kick -> pure unit
           Red  -> drawImage
-            (if isEnergy then Image_gem_energy else if customize.leftyFlip then Image_gem_green else Image_gem_red)
+            (if isEnergy then Image_gem_energy else if stuff.app.settings.leftyFlip then Image_gem_green else Image_gem_red)
             (toNumber $ targetX + handedness 0 * widthFret + 1)
             (toNumber $ y - 5) stuff
           YTom -> drawImage
-            (if isEnergy then Image_gem_energy else if customize.leftyFlip
+            (if isEnergy then Image_gem_energy else if stuff.app.settings.leftyFlip
               then (if drums.mode5 then Image_gem_orange else Image_gem_blue)
               else Image_gem_yellow)
             (toNumber $ targetX + handedness 1 * widthFret + 1)
             (toNumber $ y - 5) stuff
           YCym -> drawImage
-            (if isEnergy then Image_gem_energy_cymbal else if customize.leftyFlip
+            (if isEnergy then Image_gem_energy_cymbal else if stuff.app.settings.leftyFlip
               then (if drums.mode5 then Image_gem_orange_cymbal else Image_gem_blue_cymbal)
               else Image_gem_yellow_cymbal)
             (toNumber $ targetX + handedness 1 * widthFret + 1)
             (toNumber $ y - 8) stuff
           BTom -> drawImage
-            (if isEnergy then Image_gem_energy else if customize.leftyFlip
+            (if isEnergy then Image_gem_energy else if stuff.app.settings.leftyFlip
               then (if drums.mode5 then Image_gem_blue else Image_gem_yellow)
               else Image_gem_blue)
             (toNumber $ targetX + handedness 2 * widthFret + 1)
             (toNumber $ y - 5) stuff
           BCym -> drawImage
-            (if isEnergy then Image_gem_energy_cymbal else if customize.leftyFlip
+            (if isEnergy then Image_gem_energy_cymbal else if stuff.app.settings.leftyFlip
               then (if drums.mode5 then Image_gem_blue_cymbal else Image_gem_yellow_cymbal)
               else Image_gem_blue_cymbal)
             (toNumber $ targetX + handedness 2 * widthFret + 1)
             (toNumber $ y - 8) stuff
           OCym -> drawImage
-            (if isEnergy then Image_gem_energy_cymbal else if customize.leftyFlip then Image_gem_yellow_cymbal else Image_gem_orange_cymbal)
+            (if isEnergy then Image_gem_energy_cymbal else if stuff.app.settings.leftyFlip then Image_gem_yellow_cymbal else Image_gem_orange_cymbal)
             (toNumber $ targetX + handedness 3 * widthFret + 1)
             (toNumber $ y - 8) stuff
           GTom -> drawImage
-            (if isEnergy then Image_gem_energy else if customize.leftyFlip then Image_gem_red else Image_gem_green)
+            (if isEnergy then Image_gem_energy else if stuff.app.settings.leftyFlip then Image_gem_red else Image_gem_green)
             (toNumber $ targetX + handedness (numLanes - 1) * widthFret + 1)
             (toNumber $ y - 5) stuff
           GCym -> drawImage
-            (if isEnergy then Image_gem_energy_cymbal else if customize.leftyFlip then Image_gem_red_cymbal else Image_gem_green_cymbal)
+            (if isEnergy then Image_gem_energy_cymbal else if stuff.app.settings.leftyFlip then Image_gem_red_cymbal else Image_gem_green_cymbal)
             (toNumber $ targetX + handedness (numLanes - 1) * widthFret + 1)
             (toNumber $ y - 8) stuff
   -- Return targetX of next track

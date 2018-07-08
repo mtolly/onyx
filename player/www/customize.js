@@ -1,8 +1,5 @@
 window.customizeOnyx = {
 
-  autoplay: true,
-  leftyFlip: false,
-  staticVert: false, // mode where highways stay still and targets move up
   trackSpeed: 333, // pixels per second
   targetPositionVert: 50, // pixels from bottom for non-vocals targets
   targetPositionHoriz: 225, // pixels from left for vocals target
@@ -35,6 +32,10 @@ window.customizeOnyx = {
 
   freeformLane: 'rgb(60,60,60)', // trill/tremolo/BRE
 
+  proChordNameFont: '19px Varela Round',
+  proChordNameFontSuperscript: '14px Varela Round',
+  proChordNameColor: 'white',
+
   harm1Pitch: 'rgb(46,229,223)',
   harm2Pitch: 'rgb(189,67,0)',
   harm3Pitch: 'rgb(225,148,22)',
@@ -48,8 +49,8 @@ window.customizeOnyx = {
   vocalTargetLine: '#ddd',
   lyricColor: 'white',
   lyricColorEnergy: 'yellow',
-  lyricFont: 'bold 17px sans-serif',
-  lyricFontTalky: 'bold italic 17px sans-serif',
+  lyricFont: 'bold 17px Varela Round',
+  lyricFontTalky: 'bold italic 17px Varela Round',
   lyricLaneTop: 'rgba(87,55,0,0.85)',
   vocalNoteArea: 'rgba(0,0,0,0.6)',
   lyricLaneBottom: 'rgba(0,27,89,0.85)',

@@ -1,6 +1,11 @@
+@font-face {
+  font-family: Varela Round;
+  src: url(VarelaRound-Regular.ttf);
+}
+
 body {
   background-color: #4B1C4E;
-  font-family: sans-serif;
+  font-family: Varela Round, sans-serif;
   color: white;
 }
 
@@ -22,7 +27,19 @@ body {
   border-bottom: 2px solid white;
   transition: 0.2s left;
   overflow-y: scroll;
-  user-select: none;
+}
+
+#the-side-menu h1 {
+  margin-bottom: 3px;
+  font-size: 25px;
+}
+
+#the-side-menu h2 {
+  margin-top: 3px;
+  font-size: 20px;
+}
+
+#the-side-menu h3 {
   text-transform: uppercase;
 }
 

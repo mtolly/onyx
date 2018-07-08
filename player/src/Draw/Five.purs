@@ -34,7 +34,7 @@ drawFive (Five five) targetX stuff = do
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
-      handedness n = if customize.leftyFlip then 4 - n else n
+      handedness n = if stuff.app.settings.leftyFlip then 4 - n else n
       drawH = stuff.maxY - stuff.minY
   -- Highway
   setFillStyle customize.highway stuff
@@ -108,7 +108,7 @@ drawFive (Five five) targetX stuff = do
       HalfBeat -> drawImage Image_highway_grybo_halfbeat (toNumber targetX) (toNumber y      ) stuff
   -- Target
   drawImage
-    (if customize.leftyFlip then Image_highway_grybo_target_lefty else Image_highway_grybo_target)
+    (if stuff.app.settings.leftyFlip then Image_highway_grybo_target_lefty else Image_highway_grybo_target)
     (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Sustains
   let colors =
@@ -137,11 +137,11 @@ drawFive (Five five) targetX stuff = do
         isEnergy secs = case Map.lookupLE secs five.energy of
           Nothing           -> false
           Just { value: v } -> v
-        hitAtY = if customize.autoplay then targetY else stuff.maxY + 50
+        hitAtY = if stuff.app.settings.autoplay then targetY else stuff.maxY + 50
         drawSustainBlock ystart yend energy = when (ystart < hitAtY || yend < hitAtY) do
           let ystart' = min ystart hitAtY
               yend'   = min yend   hitAtY
-              sustaining = customize.autoplay && (targetY < ystart || targetY < yend)
+              sustaining = stuff.app.settings.autoplay && (targetY < ystart || targetY < yend)
               shades = if energy
                 then customize.sustainEnergy
                 else normalShades
@@ -185,7 +185,7 @@ drawFive (Five five) targetX stuff = do
       SustainEnd -> do
         let futureSecs = secToNum $ secs <> negateDuration stuff.time
             trailX = if isOpen then 2 * widthFret + 1 else offsetX
-        if customize.autoplay && futureSecs <= 0.0
+        if stuff.app.settings.autoplay && futureSecs <= 0.0
           then pure unit -- note is in the past or being hit now
           else drawImage Image_sustain_end
             (toNumber $ targetX + trailX)
@@ -198,7 +198,7 @@ drawFive (Five five) targetX stuff = do
       withNoteType sht = do
         let futureSecs = secToNum $ secs <> negateDuration stuff.time
             trailX = if isOpen then 2 * widthFret + 1 else offsetX
-        if customize.autoplay && futureSecs <= 0.0
+        if stuff.app.settings.autoplay && futureSecs <= 0.0
           then do
             -- note is in the past or being hit now
             if (-0.1) < futureSecs

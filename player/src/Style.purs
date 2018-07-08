@@ -9,10 +9,7 @@ type SustainColors =
 
 foreign import customize ::
 
-  { autoplay :: Boolean
-  , leftyFlip :: Boolean
-  , staticVert :: Boolean
-  , trackSpeed :: Number
+  { trackSpeed :: Number
   , targetPositionVert :: Int
   , targetPositionHoriz :: Int
   , marginWidth :: Int
@@ -43,6 +40,10 @@ foreign import customize ::
   , glissandoBorder :: String
 
   , freeformLane :: String
+
+  , proChordNameFont :: String
+  , proChordNameFontSuperscript :: String
+  , proChordNameColor :: String
 
   , harm1Pitch :: String
   , harm2Pitch :: String
