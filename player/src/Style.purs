@@ -58,6 +58,7 @@ foreign import customize ::
   , vocalTargetLine :: String
   , lyricColor :: String
   , lyricColorEnergy :: String
+  , lyricColorActive :: String
   , lyricFont :: String
   , lyricFontTalky :: String
   , lyricLaneTop :: String

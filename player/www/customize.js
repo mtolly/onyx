@@ -49,6 +49,7 @@ window.customizeOnyx = {
   vocalTargetLine: '#ddd',
   lyricColor: 'white',
   lyricColorEnergy: 'yellow',
+  lyricColorActive: 'cyan',
   lyricFont: 'bold 17px Varela Round',
   lyricFontTalky: 'bold italic 17px Varela Round',
   lyricLaneTop: 'rgba(87,55,0,0.85)',

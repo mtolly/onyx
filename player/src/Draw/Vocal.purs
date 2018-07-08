@@ -9,8 +9,8 @@ import           Data.List               as L
 import           Data.Maybe              (Maybe (..), isNothing)
 import           Data.String.Regex       as R
 import           Data.String.Regex.Flags (noFlags)
-import           Data.Time.Duration      (Seconds, negateDuration)
-import           Data.Tuple              (Tuple (..))
+import           Data.Time.Duration      (Seconds (..), negateDuration)
+import           Data.Tuple              (Tuple (..), fst)
 import           Effect                  (Effect)
 import           Effect.Exception.Unsafe (unsafeThrow)
 import           Graphics.Canvas         as C
@@ -111,26 +111,37 @@ drawVocal (Vocal v) targetY stuff = do
         Nothing -> Nothing
         Just VocalEnd -> Nothing
         Just (VocalStart lyric _) -> Just lyric
+      -- TODO: support §
       getLyrics
         :: Boolean
         -> L.List (Tuple Seconds VocalNote)
-        -> L.List {time :: Seconds, lyric :: String, isTalky :: Boolean}
-      getLyrics isHarm3 = L.mapMaybe \(Tuple t vn) -> case vn of
-        VocalEnd -> Nothing
-        VocalStart lyric pitch
-          | lyric == "+" -> Nothing
-          | R.test (either unsafeThrow identity $ R.regex "\\$$" noFlags) lyric -> Nothing
-          | isHarm3 && harm2Lyric t == Just lyric -> Nothing
-          | otherwise -> Just
-            { time: t
-            , lyric: R.replace (either unsafeThrow identity $ R.regex "=$" noFlags) "-" lyric
-            , isTalky: isNothing pitch
-            }
-          -- TODO: support §
+        -> L.List {time :: Seconds, end :: Seconds, lyric :: String, isTalky :: Boolean}
+      getLyrics isHarm3 evs = case L.uncons evs of
+        Nothing -> L.Nil
+        Just ht -> let
+          Tuple t vn = ht.head
+          processed = case vn of
+            VocalEnd -> Nothing
+            VocalStart lyric pitch
+              | lyric == "+" -> Nothing
+              | R.test (either unsafeThrow identity $ R.regex "\\$$" noFlags) lyric -> Nothing
+              | isHarm3 && harm2Lyric t == Just lyric -> Nothing
+              | otherwise -> Just
+                { time: t
+                , end: case L.uncons ht.tail of
+                  -- TODO need to handle slides
+                  Nothing -> t <> Seconds 100.0
+                  Just o  -> fst o.head
+                , lyric: R.replace (either unsafeThrow identity $ R.regex "=$" noFlags) "-" lyric
+                , isTalky: isNothing pitch
+                }
+          in case processed of
+            Nothing -> getLyrics isHarm3 ht.tail
+            Just p  -> L.Cons p $ getLyrics isHarm3 ht.tail
       drawLyrics
         :: Number
         -> Number
-        -> L.List {time :: Seconds, lyric :: String, isTalky :: Boolean}
+        -> L.List {time :: Seconds, end :: Seconds, lyric :: String, isTalky :: Boolean}
         -> Effect Unit
       drawLyrics _    _     L.Nil           = pure unit
       drawLyrics minX textY (L.Cons o rest) = do
@@ -139,10 +150,12 @@ drawVocal (Vocal v) targetY stuff = do
           then customize.lyricFontTalky
           else customize.lyricFont
           ) stuff
-        setFillStyle (case Map.lookupLE o.time v.energy of
-          Nothing -> customize.lyricColor
-          Just { value: isEnergy } ->
-            if isEnergy then customize.lyricColorEnergy else customize.lyricColor
+        setFillStyle (if o.time <= stuff.time && stuff.time <= o.end
+          then customize.lyricColorActive
+          else case Map.lookupLE o.time v.energy of
+            Nothing -> customize.lyricColor
+            Just { value: isEnergy } ->
+              if isEnergy then customize.lyricColorEnergy else customize.lyricColor
           ) stuff
         metric <- measureText o.lyric stuff
         onContext (\ctx -> C.fillText ctx o.lyric textX textY) stuff
