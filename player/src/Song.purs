@@ -23,13 +23,15 @@ newtype Song = Song
   , author :: String
   }
 
+type Difficulties a = Array (Tuple String a)
+
 newtype Flex = Flex
-  { five :: Maybe Five
-  , six :: Maybe Six
-  , drums :: Maybe Drums
-  , prokeys :: Maybe ProKeys
-  , protar :: Maybe Protar
-  , vocal :: Maybe Vocal
+  { five    :: Maybe (Difficulties Five)
+  , six     :: Maybe (Difficulties Six)
+  , drums   :: Maybe (Difficulties Drums)
+  , prokeys :: Maybe (Difficulties ProKeys)
+  , protar  :: Maybe (Difficulties Protar)
+  , vocal   :: Maybe Vocal
   }
 
 data FlexPart
@@ -523,11 +525,11 @@ isForeignProKeys f = do
 
 isForeignFlex :: Foreign -> F Flex
 isForeignFlex f = do
-  five <- readProp "five" f >>= readNullOrUndefined >>= traverse isForeignFive
-  six <- readProp "six" f >>= readNullOrUndefined >>= traverse isForeignSix
-  drums <- readProp "drums" f >>= readNullOrUndefined >>= traverse isForeignDrums
-  prokeys <- readProp "prokeys" f >>= readNullOrUndefined >>= traverse isForeignProKeys
-  protar <- readProp "protar" f >>= readNullOrUndefined >>= traverse isForeignProtar
+  five <- readProp "five" f >>= readNullOrUndefined >>= traverse (difficulties isForeignFive)
+  six <- readProp "six" f >>= readNullOrUndefined >>= traverse (difficulties isForeignSix)
+  drums <- readProp "drums" f >>= readNullOrUndefined >>= traverse (difficulties isForeignDrums)
+  prokeys <- readProp "prokeys" f >>= readNullOrUndefined >>= traverse (difficulties isForeignProKeys)
+  protar <- readProp "protar" f >>= readNullOrUndefined >>= traverse (difficulties isForeignProtar)
   vocal <- readProp "vocal" f >>= readNullOrUndefined >>= traverse isForeignVocal
   pure $ Flex
     { five: five
@@ -560,10 +562,12 @@ readTimedSet :: Foreign -> F (Map.Map Seconds Unit)
 readTimedSet f = map (map $ \(_ :: Foreign) -> unit) $ readTimedMap pure f
 
 readTimedMap :: forall a. (Foreign -> F a) -> Foreign -> F (Map.Map Seconds a)
-readTimedMap g f = Map.fromFoldable <$> (readArray f >>= traverse (readTimedPair g))
+readTimedMap g f = Map.fromFoldable <$> (readArray f >>= traverse eachPair) where
+  eachPair pair = Tuple <$> (Seconds <$> (readIndex 0 pair >>= readNumber)) <*> (readIndex 1 pair >>= g)
 
-readTimedPair :: forall a. (Foreign -> F a) -> Foreign -> F (Tuple Seconds a)
-readTimedPair g pair = Tuple <$> (Seconds <$> (readIndex 0 pair >>= readNumber)) <*> (readIndex 1 pair >>= g)
+difficulties :: forall a. (Foreign -> F a) -> Foreign -> F (Difficulties a)
+difficulties g f = readArray f >>= traverse eachPair where
+  eachPair pair = Tuple <$> (readIndex 0 pair >>= readString) <*> (readIndex 1 pair >>= g)
 
 isForeignDrums :: Foreign -> F Drums
 isForeignDrums f = do

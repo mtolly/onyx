@@ -37,7 +37,10 @@ type Settings =
     { partName :: String
     , flexParts :: Array
       { partType :: String
-      , enabled :: Boolean
+      , difficulties :: Array
+        { diffName :: String
+        , enabled :: Boolean
+        }
       }
     }
   , autoplay :: Boolean

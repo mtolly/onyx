@@ -46,7 +46,9 @@ eachChordsWidth ctx (Song o) = do
   parts <- for o.parts \(Tuple s f@(Flex flex)) -> case flex.protar of
     Nothing -> pure $ Tuple s f
     Just pg -> do
-      pg' <- getChordsWidth ctx pg
+      pg' <- for pg \(Tuple d pgd) -> do
+        pgd' <- getChordsWidth ctx pgd
+        pure $ Tuple d pgd'
       pure $ Tuple s $ Flex flex { protar = Just pg' }
   pure $ Song o { parts = parts }
 

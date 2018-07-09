@@ -137,16 +137,18 @@ exports.fillMenu = function(song) {
                   img.className = 'instrument-icon';
                   setIcon(part, fpart, img);
                 });
-                tag(p, 'label', function(label){
-                  tag(label, 'input', function(checkbox){
-                    checkbox.type = 'checkbox';
-                    checkbox.checked = fpart.enabled;
-                    checkbox.addEventListener('change', function(e){
-                      fpart.enabled = e.target.checked;
-                      menuImmutable = JSON.parse(JSON.stringify(menuMutable));
+                fpart.difficulties.forEach(function(diff){
+                  tag(p, 'label', function(label){
+                    tag(label, 'input', function(checkbox){
+                      checkbox.type = 'checkbox';
+                      checkbox.checked = diff.enabled;
+                      checkbox.addEventListener('change', function(e){
+                        diff.enabled = e.target.checked;
+                        menuImmutable = JSON.parse(JSON.stringify(menuMutable));
+                      });
                     });
+                    label.insertAdjacentHTML('beforeend', ' ' + diff.diffName);
                   });
-                  label.insertAdjacentHTML('beforeend', ' X');
                 });
               });
             });

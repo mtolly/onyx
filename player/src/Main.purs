@@ -7,10 +7,10 @@ import           Data.Array            (uncons, (:), concat, take, drop)
 import           Data.DateTime.Instant (unInstant)
 import           Data.Either           (Either (..))
 import           Data.Int              (round, toNumber)
-import           Data.Maybe            (Maybe (..), isJust)
+import           Data.Maybe            (Maybe (..))
 import           Data.Time.Duration    (Milliseconds (..), Seconds (..),
                                         convertDuration, negateDuration)
-import           Data.Tuple            (Tuple (..))
+import           Data.Tuple            (Tuple (..), fst)
 import           Effect                (Effect)
 import           Effect.Exception      (catchException, error, throwException)
 import           Effect.Now            (now)
@@ -109,17 +109,30 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
           (\(Tuple key (Flex flex)) ->
             { partName: key
             , flexParts: let
-              inst enabled s =
-                { partType: s
-                , enabled: enabled
-                }
+              inst enabled o = let
+                diff enabled' d = { enabled: enabled', diffName: d }
+                in { partType: o.type
+                   , difficulties: map (diff enabled) (take 1 o.diffs) <> map (diff false) (drop 1 o.diffs)
+                   }
               insts = concat
-                [ if isJust flex.five    then ["five"   ] else []
-                , if isJust flex.six     then ["six"    ] else []
-                , if isJust flex.drums   then ["drums"  ] else []
-                , if isJust flex.prokeys then ["prokeys"] else []
-                , if isJust flex.protar  then ["protar" ] else []
-                , if isJust flex.vocal   then ["vocal"  ] else []
+                [ case flex.five    of
+                  Nothing -> []
+                  Just ds -> [{type: "five"   , diffs: map fst ds}]
+                , case flex.six     of
+                  Nothing -> []
+                  Just ds -> [{type: "six"    , diffs: map fst ds}]
+                , case flex.drums   of
+                  Nothing -> []
+                  Just ds -> [{type: "drums"  , diffs: map fst ds}]
+                , case flex.prokeys of
+                  Nothing -> []
+                  Just ds -> [{type: "prokeys", diffs: map fst ds}]
+                , case flex.protar  of
+                  Nothing -> []
+                  Just ds -> [{type: "protar" , diffs: map fst ds}]
+                , case flex.vocal   of
+                  Nothing -> []
+                  Just v  -> [{type: "vocal"  , diffs: ["X"]     }]
                 ]
               in map (inst true) (take 1 insts) <> map (inst false) (drop 1 insts)
             }

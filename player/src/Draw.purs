@@ -2,16 +2,15 @@ module Draw (draw, getWindowDims, numMod, _M, _B) where
 
 import           Prelude
 
+import           Control.MonadZero  (guard)
 import           Data.Array         (concat, uncons)
 import           Data.Int           (round, toNumber)
 import           Data.Maybe         (Maybe (..))
-import           Data.Set           as Set
 import           Data.Time.Duration (Seconds (..))
 import           Data.Traversable   (traverse_, or)
-import           Data.Tuple         (Tuple (..))
+import           Data.Tuple         (Tuple (..), lookup)
 import           Effect             (Effect)
 import           Graphics.Canvas    as C
-import Control.MonadZero (guard)
 
 import           Draw.Common
 import           Draw.Drums         (drawDrums)
@@ -21,7 +20,7 @@ import           Draw.Protar        (drawProtar)
 import           Draw.Six           (drawSix)
 import           Draw.Vocal         (drawVocal)
 import           Images             (ImageID (..))
-import           Song               (Flex (..), FlexPart (..), Song (..))
+import           Song               (Flex (..), Song (..))
 import           Style              (customize)
 
 foreign import getWindowDims :: Effect {width :: Number, height :: Number}
@@ -56,19 +55,23 @@ draw stuff = do
             Nothing       -> drawTracks targetX  trkt
   let song = case stuff.song of Song s -> s
 
-  let partEnabled pname ptype sets = or do
+  let partEnabled pname ptype dname sets = or do
         part <- sets.parts
         guard $ part.partName == pname
         fpart <- part.flexParts
         guard $ fpart.partType == ptype
-        pure fpart.enabled
-      drawParts someStuff = drawTracks (_M + _B + _M) $ concat $ flip map song.parts \(Tuple part (Flex flex)) ->
-        [ \i -> drawPart flex.five    (partEnabled part "five"   ) drawFive    i someStuff
-        , \i -> drawPart flex.six     (partEnabled part "six"    ) drawSix     i someStuff
-        , \i -> drawPart flex.drums   (partEnabled part "drums"  ) drawDrums   i someStuff
-        , \i -> drawPart flex.prokeys (partEnabled part "prokeys") drawProKeys i someStuff
-        , \i -> drawPart flex.protar  (partEnabled part "protar" ) drawProtar  i someStuff
-        ]
+        diff <- fpart.difficulties
+        guard $ diff.diffName == dname
+        pure diff.enabled
+      drawParts someStuff = drawTracks (_M + _B + _M) $ concat $ flip map song.parts \(Tuple part (Flex flex)) -> do
+        fn <-
+          [ \diff i -> drawPart (flex.five    >>= lookup diff) (partEnabled part "five"    diff) drawFive    i someStuff
+          , \diff i -> drawPart (flex.six     >>= lookup diff) (partEnabled part "six"     diff) drawSix     i someStuff
+          , \diff i -> drawPart (flex.drums   >>= lookup diff) (partEnabled part "drums"   diff) drawDrums   i someStuff
+          , \diff i -> drawPart (flex.prokeys >>= lookup diff) (partEnabled part "prokeys" diff) drawProKeys i someStuff
+          , \diff i -> drawPart (flex.protar  >>= lookup diff) (partEnabled part "protar"  diff) drawProtar  i someStuff
+          ]
+        map fn ["X", "H", "M", "E"]
   if stuff.app.settings.staticVert
     then let
       betweenTargets = windowH * 0.65
@@ -97,7 +100,7 @@ draw stuff = do
     else drawParts stuff
 
   flip traverse_ song.parts \(Tuple part (Flex flex)) -> do
-    void $ drawPart flex.vocal (partEnabled part "vocal") drawVocal 0 stuff
+    void $ drawPart flex.vocal (partEnabled part "vocal" "X") drawVocal 0 stuff
   let playPause = case stuff.app.time of
         Paused  _ -> Image_button_play
         Playing _ -> Image_button_pause
