@@ -7,7 +7,7 @@ To build:
 
 ```bash
 [sudo] npm install -g purescript pulp psc-package
-psc-package update
+psc-package build
 make # or make minify to also run closure compiler
 ```
 
