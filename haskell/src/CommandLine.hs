@@ -940,7 +940,7 @@ commands =
           stackIO $ Dir.createDirectory extract
           stackIO $ extractSTFS stfs extract
           songs <- readFileSongsDTA $ extract </> "songs/songs.dta"
-          forM_ songs $ \(song, _) -> do
+          prevEnds <- forM songs $ \(song, _) -> do
             let DTASingle _ pkg _ = song
                 songsXX = T.unpack $ D.songName $ D.song pkg
                 songsXgen = takeDirectory songsXX </> "gen"
@@ -955,37 +955,39 @@ commands =
             -- _prev.mogg (generate)
             let ogg = extract </> "temp.ogg"
                 prevOgg = extract </> "temp_prev.ogg"
-                prevStart  = realToFrac (fst $ D.preview pkg) / 1000
-                prevEnd    = realToFrac (snd $ D.preview pkg) / 1000
-                prevLength = min 15 $ prevEnd - prevStart
+                (prevStart, prevEnd) = D.preview pkg
+                prevLength = min 15000 $ prevEnd - prevStart
             moggToOgg mogg ogg
-            src <- stackIO $ sourceSndFrom (CA.Seconds prevStart) ogg
+            src <- stackIO $ sourceSndFrom (CA.Seconds $ realToFrac prevStart / 1000) ogg
             stackIO
               $ runResourceT
               $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
               $ fadeStart (CA.Seconds 0.75)
               $ fadeEnd (CA.Seconds 0.75)
-              $ CA.takeStart (CA.Seconds prevLength)
+              $ CA.takeStart (CA.Seconds $ realToFrac prevLength / 1000)
               $ applyPansVols (D.pans $ D.song pkg) (D.vols $ D.song pkg)
               $ src
             oggToMogg prevOgg $ dir_meta </> "content" </> (songsXX ++ "_prev.mogg")
             -- .png_wii (convert from .png_xbox)
-            img <- stackIO $ Image.readRBImage <$> BL.readFile (extract </> (songsXgenX ++ "_keep.png_xbox"))
+            img <- stackIO $ Image.readRBImage . BL.fromStrict <$> B.readFile (extract </> (songsXgenX ++ "_keep.png_xbox"))
             stackIO $ BL.writeFile (dir_meta </> "content" </> (songsXgenX ++ "_keep.png_wii")) $ Image.toDXT1File Image.PNGWii img
             -- .milo_wii (copy)
             stackIO $ Dir.renameFile (extract </> songsXgenX <.> "milo_xbox") (dir_song </> "content" </> songsXgenX <.> "milo_wii")
+            -- return new preview end time to put in .dta
+            return $ prevStart + prevLength
           stackIO $ Dir.removeDirectoryRecursive extract
-          return songs
+          return $ zip songs prevEnds
         -- write new combined dta file
         let dta = dir_meta </> "content/songs/songs.dta"
         stackIO $ Dir.createDirectoryIfMissing True $ takeDirectory dta
         stackIO $ B.writeFile dta $ TE.encodeUtf8 $ T.unlines $ do
-          (DTASingle key pkg c3, _) <- allSongs
+          ((DTASingle key pkg c3, _), prevEnd) <- allSongs
           let pkg' = pkg
                 { D.song = (D.song pkg)
                   { D.songName = "dlc/sZAE/001/content/" <> D.songName (D.song pkg)
                   }
                 , D.encoding = Just "utf8"
+                , D.preview = (fst $ D.preview pkg, prevEnd)
                 }
           return $ writeDTASingle $ DTASingle key pkg' c3
         -- pack it all up
