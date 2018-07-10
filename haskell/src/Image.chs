@@ -12,6 +12,7 @@ import           Data.Binary.Get
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Builder    as BB
 import qualified Data.ByteString.Lazy       as BL
+import           Data.Maybe                 (fromMaybe)
 import           Data.Word                  (Word16, Word8)
 import           Foreign
 import           Foreign.C
@@ -120,7 +121,7 @@ toDXT1File fmt img_ = BB.toLazyByteString $ execWriter $ do
   tell $ BB.byteString $ case fmt of
     DDS     -> ddsDXT1Signature
     PNGXbox -> pngXboxDXT1Signature
-    PNGWii  -> pngWiiDXT1Signature
+    PNGWii  -> pngWii256DXT1Signature
   let mipmaps = forM_ [256, 128, 64, 32, 16, 8, 4] go
       go size = do
         let img = STBIR.resize STBIR.defaultOptions size size img_
@@ -156,18 +157,34 @@ pngXboxDXT1Signature = B.pack
   , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
   ]
 
-pngXboxDXT3Signature :: B.ByteString
-pngXboxDXT3Signature = B.pack
+pngXbox256DXT3Signature :: B.ByteString
+pngXbox256DXT3Signature = B.pack
   [ 0x01, 0x08, 0x18, 0x00, 0x00, 0x00, 0x04, 0x00
   , 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00
   , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
   , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
   ]
 
-pngWiiDXT1Signature :: B.ByteString
-pngWiiDXT1Signature = B.pack
+pngXbox512DXT3Signature :: B.ByteString
+pngXbox512DXT3Signature = B.pack
+  [ 0x01, 0x08, 0x18, 0x00, 0x00, 0x00, 0x05, 0x00
+  , 0x02, 0x00, 0x02, 0x00, 0x02, 0x00, 0x00, 0x00
+  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  ]
+
+pngWii256DXT1Signature :: B.ByteString
+pngWii256DXT1Signature = B.pack
   [ 0x01, 0x04, 0x48, 0x00, 0x00, 0x00, 0x04, 0x00
   , 0x01, 0x00, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00
+  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  ]
+
+pngWii128DXT1Signature :: B.ByteString
+pngWii128DXT1Signature = B.pack
+  [ 0x01, 0x04, 0x48, 0x00, 0x00, 0x00, 0x03, 0x80
+  , 0x00, 0x80, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00
   , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
   , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
   ]
@@ -176,30 +193,36 @@ pngWiiDXT1Signature = B.pack
 readRBImage :: BL.ByteString -> Image PixelRGB8
 readRBImage bs = let
   sig = BL.toStrict $ BL.take 32 bs
-  in if sig == pngXboxDXT1Signature
-    then let
-      chunks = listArray (0, 4095) $ runGet (replicateM 4096 $ readDXTChunk PNGXbox True) $ BL.take 32768 $ BL.drop 32 bs
-      gen x y = let
-        (xa, xb) = quotRem x 4
-        (ya, yb) = quotRem y 4
-        in pixelAt (chunks ! (ya * 64 + xa)) xb yb
-      in generateImage gen 256 256
-    else if sig == pngXboxDXT3Signature
-      then let
-        chunks = listArray (0, 4095) $ runGet (replicateM 4096 $ skip 8 >> readDXTChunk PNGXbox False) $ BL.take 65536 $ BL.drop 32 bs
-        gen x y = let
-          (xa, xb) = quotRem x 4
-          (ya, yb) = quotRem y 4
-          in pixelAt (chunks ! (ya * 64 + xa)) xb yb
-        in generateImage gen 256 256
-      else if sig == pngWiiDXT1Signature
-        then let
-          chunks = listArray (0, 4095) $ runGet (replicateM 4096 $ readDXTChunk PNGWii True) $ BL.take 32768 $ BL.drop 32 bs
-          gen x y = let
-            (xa, xb) = quotRem x 8
-            (ya, yb) = quotRem y 8
-            (xc, xd) = quotRem xb 4
-            (yc, yd) = quotRem yb 4
-            in pixelAt (chunks ! (ya * 128 + xa * 4 + yc * 2 + xc)) xd yd
-          in generateImage gen 256 256
-        else generateImage (\_ _ -> PixelRGB8 255 0 255) 256 256
+  readWiiChunk = fmap (arrangeRows 2 2) $ replicateM 4 $ readDXTChunk PNGWii True
+  arrangeRows cols rows xs = let
+    w = imageWidth  $ head xs
+    h = imageHeight $ head xs
+    xs' = listArray (0, cols * rows - 1) xs
+    gen x y = let
+      (xa, xb) = quotRem x w
+      (ya, yb) = quotRem y h
+      in pixelAt (xs' ! (ya * cols + xa)) xb yb
+    in generateImage gen (w * cols) (h * rows)
+  table =
+    [ (,) pngXboxDXT1Signature
+      $ flip runGet (BL.drop 32 bs)
+      $ fmap (arrangeRows 64 64)
+      $ replicateM 4096 $ readDXTChunk PNGXbox True
+    , (,) pngXbox256DXT3Signature
+      $ flip runGet (BL.drop 32 bs)
+      $ fmap (arrangeRows 64 64)
+      $ replicateM 4096 $ skip 8 >> readDXTChunk PNGXbox False
+    , (,) pngWii256DXT1Signature
+      $ flip runGet (BL.drop 32 bs)
+      $ fmap (arrangeRows 32 32)
+      $ replicateM 1024 readWiiChunk
+    , (,) pngWii128DXT1Signature
+      $ flip runGet (BL.drop 32 bs)
+      $ fmap (arrangeRows 16 16)
+      $ replicateM 256 readWiiChunk
+    , (,) pngXbox512DXT3Signature
+      $ flip runGet (BL.drop 32 bs)
+      $ fmap (arrangeRows 128 128)
+      $ replicateM 16384 $ skip 8 >> readDXTChunk PNGXbox False
+    ]
+  in fromMaybe (generateImage (\_ _ -> PixelRGB8 255 0 255) 256 256) $ lookup sig table
