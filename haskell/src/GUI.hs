@@ -420,7 +420,7 @@ topMenu = Choices
     $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)" filterSong $ \fs ->
       TasksStart $ map (\f -> commandLine' ["player", f]) fs
     )
-  , ( Choice "Reduce" "Fills empty difficulties in a MIDI file with CAT-quality reductions."
+  , ( Choice "Reduce" "Fills empty difficulties in a MIDI file with automatic reductions."
     $ pushMenu $ pickFiles ["*.mid"] "MIDI files" (const $ return "") $ \fs ->
       TasksStart $ map (\f -> commandLine' ["reduce", f]) fs
     )

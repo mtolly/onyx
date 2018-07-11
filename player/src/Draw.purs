@@ -71,7 +71,7 @@ draw stuff = do
           , \diff i -> drawPart (flex.prokeys >>= lookup diff) (partEnabled part "prokeys" diff) drawProKeys i someStuff
           , \diff i -> drawPart (flex.protar  >>= lookup diff) (partEnabled part "protar"  diff) drawProtar  i someStuff
           ]
-        map fn ["X", "H", "M", "E"]
+        map fn ["X+", "X", "H", "M", "E"]
   if stuff.app.settings.staticVert
     then let
       betweenTargets = windowH * 0.65

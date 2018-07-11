@@ -298,6 +298,11 @@ makeDifficulties f = Difficulties $ catMaybes $ do
   (d, name) <- [(Expert, "X"), (Hard, "H"), (Medium, "M"), (Easy, "E")]
   return $ (name,) <$> f d
 
+makeDrumDifficulties :: (Maybe Difficulty -> Maybe (a t)) -> Difficulties a t
+makeDrumDifficulties f = Difficulties $ catMaybes $ do
+  (d, name) <- [(Nothing, "X+"), (Just Expert, "X"), (Just Hard, "H"), (Just Medium, "M"), (Just Easy, "E")]
+  return $ (name,) <$> f d
+
 processFive :: Maybe U.Beats -> U.TempoMap -> Five.FiveTrack U.Beats -> Difficulties Five U.Seconds
 processFive hopoThreshold tmap trk = makeDifficulties $ \diff -> let
   thisDiff = fromMaybe mempty $ Map.lookup diff $ Five.fiveDifficulties trk
@@ -367,10 +372,16 @@ processSix hopoThreshold tmap trk = makeDifficulties $ \diff -> let
   bre    = Map.empty
   in guard (not $ RTB.null $ GHL.sixGems thisDiff) >> Just (Six notes solo energy bre)
 
-processDrums :: C.DrumMode -> U.TempoMap -> Maybe U.Beats -> D.DrumTrack U.Beats -> Difficulties Drums U.Seconds
-processDrums mode tmap coda trk = makeDifficulties $ \diff -> let
-  nonPro is5 = (if diff == Expert then RTB.merge $ const D.Kick <$> D.drumKick2x trk else id)
-    $ flip fmap (maybe RTB.empty D.drumGems $ Map.lookup diff $ D.drumDifficulties trk) $ \case
+processDrums :: C.DrumMode -> U.TempoMap -> Maybe U.Beats -> D.DrumTrack U.Beats -> D.DrumTrack U.Beats -> Difficulties Drums U.Seconds
+processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
+  has2x = all (not . D.nullDrums) [trk1x, trk2x] || any (not . RTB.null . D.drumKick2x) [trk1x, trk2x]
+  trk = case (D.nullDrums trk1x, D.nullDrums trk2x, diff) of
+    (True , _    , _      ) -> trk2x
+    (_    , True , _      ) -> trk1x
+    (False, False, Nothing) -> trk2x
+    (False, False, Just _ ) -> trk1x
+  nonPro is5 = (if diff == Nothing then RTB.merge $ const D.Kick <$> D.drumKick2x trk else id)
+    $ flip fmap (maybe RTB.empty D.drumGems $ Map.lookup (fromMaybe Expert diff) $ D.drumDifficulties trk) $ \case
       D.Kick            -> D.Kick
       D.Red             -> D.Red
       D.Pro D.Yellow () -> D.Pro D.Yellow $ if is5 then D.Cymbal else D.Tom
@@ -380,7 +391,7 @@ processDrums mode tmap coda trk = makeDifficulties $ \diff -> let
   notes = fmap sort $ RTB.collectCoincident $ case mode of
     C.Drums4   -> nonPro False
     C.Drums5   -> nonPro True
-    C.DrumsPro -> D.computePro (guard (diff /= Expert) >> Just diff) trk
+    C.DrumsPro -> D.computePro diff trk
   notesS = trackToMap tmap notes
   notesB = trackToBeatMap notes
   solo   = trackToMap tmap $ D.drumSolo trk
@@ -406,7 +417,10 @@ processDrums mode tmap coda trk = makeDifficulties $ \diff -> let
     return $ (,) gem $ flip Map.mapMaybe lanesAll $ \(b, gems) -> do
       guard $ elem gem gems
       return b
-  in guard (not $ RTB.null notes) >> Just (Drums notesS solo energy lanes bre $ mode == C.Drums5)
+  in do
+    guard $ not $ RTB.null notes
+    guard $ diff /= Nothing || has2x
+    Just $ Drums notesS solo energy lanes bre $ mode == C.Drums5
 
 processProKeys :: U.TempoMap -> ProKeysTrack U.Beats -> Maybe (ProKeys U.Seconds)
 processProKeys tmap trk = let
@@ -679,7 +693,7 @@ makeDisplay songYaml song = let
         then processFive Nothing (RBFile.s_tempos song) keys
         else processFive (Just $ ht $ C.gryboHopoThreshold grybo) (RBFile.s_tempos song) gtr
     , flexSix = flip fmap (C.partGHL fpart) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song) (RBFile.onyxPartSix tracks)
-    , flexDrums = flip fmap (C.partDrums fpart) $ \pd -> processDrums (C.drumsMode pd) (RBFile.s_tempos song) coda (RBFile.onyxPartDrums tracks)
+    , flexDrums = flip fmap (C.partDrums fpart) $ \pd -> processDrums (C.drumsMode pd) (RBFile.s_tempos song) coda (RBFile.onyxPartDrums tracks) (RBFile.onyxPartDrums2x tracks)
     , flexProKeys = flip fmap (C.partProKeys fpart) $ \_ -> makeDifficulties $ \diff ->
       processProKeys (RBFile.s_tempos song) $ case diff of
         Easy   -> RBFile.onyxPartRealKeysE tracks
