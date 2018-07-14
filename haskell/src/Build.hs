@@ -1807,11 +1807,11 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             else return input
           saveMIDI out input { RBFile.s_tempos = tempos }
         midprocessed %> \out -> do
+          -- basically just autogen a BEAT track
           input <- shakeMIDI midraw
-          output <- RB3.processPS def songYaml input RBDrums.D0 $ getAudioLength planName plan
+          output <- RB3.processTiming input $ getAudioLength planName plan
           saveMIDI out output
 
-        -- TODO flex parts not supported by RB3/PS
         display %> \out -> do
           song <- shakeMIDI midprocessed
           liftIO $ BL.writeFile out $ makeDisplay songYaml song
@@ -1853,13 +1853,11 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             buildAudio (Input $ dir </> "everything.wav")
 
         -- Warn about notes that might hang off before a pro keys range shift
-        -- TODO flex parts
         phony (dir </> "hanging") $ do
           song <- shakeMIDI midprocessed
           lg $ closeShiftsFile song
 
         -- Print out a summary of (non-vocal) overdrive and unison phrases
-        -- TODO flex parts
         phony (dir </> "overdrive") $ printOverdrive midprocessed
 
         -- Melody's Escape customs

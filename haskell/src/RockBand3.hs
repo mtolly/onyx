@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
-module RockBand3 (processRB3Pad, processPS, findProblems, TrackAdjust(..), magmaLegalTempos) where
+module RockBand3 (processRB3Pad, processPS, processTiming, findProblems, TrackAdjust(..), magmaLegalTempos) where
 
 import           Config
 import           Control.Monad.Extra
@@ -45,7 +45,7 @@ processRB3Pad
 processRB3Pad a b c d e = do
   res <- processMIDI (Left a) b c d e
   -- TODO we probably should run fixBrokenUnisons before autoreductions
-  magmaLegalTemposFile (fmap fst res) >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
+  magmaLegalTemposFile res >>= fixBrokenUnisons >>= magmaPad . fixBeatTrack'
 
 processPS
   :: TargetPS
@@ -54,7 +54,7 @@ processPS
   -> RBDrums.Audio
   -> Staction U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
   -> Staction (RBFile.Song (RBFile.FixedFile U.Beats))
-processPS a b c d e = fmap (fmap snd) $ processMIDI (Right a) b c d e
+processPS = processMIDI . Right
 
 -- | Magma gets mad if you put an event like [idle_realtime] before 2 beats in.
 -- But lots of Harmonix charts do this...
@@ -68,18 +68,34 @@ noEarlyMood rtb = case U.trackSplit 2 rtb of
       []    -> RTB.cons 2 x later -- take the last mood before beat 2 and place it at 2
       _ : _ -> RTB.delay 2 later -- just drop early moods since a new one gets set at 2
 
-processMIDI
-  :: Either TargetRB3 TargetPS
-  -> SongYaml
-  -> RBFile.Song (RBFile.OnyxFile U.Beats)
-  -> RBDrums.Audio
-  -> Staction U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
-  -> Staction (RBFile.Song (RBFile.FixedFile U.Beats, RBFile.FixedFile U.Beats))
-processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudioLength = inside "Processing MIDI for RB3/PS" $ do
+processTiming
+  :: (SendMessage m)
+  => RBFile.Song (RBFile.OnyxFile U.Beats)
+  -> StackTraceT m U.Seconds
+  -> StackTraceT m (RBFile.Song (RBFile.OnyxFile U.Beats))
+processTiming input getAudioLength = do
+  (endPosn, musicStartPosn, musicEndPosn, beatTrack) <- basicTiming input getAudioLength
+  return input
+    { RBFile.s_tracks = (RBFile.s_tracks input)
+      { RBFile.onyxBeat = beatTrack
+      , RBFile.onyxEvents = (RBFile.onyxEvents $ RBFile.s_tracks input)
+        { eventsEnd        = RTB.singleton endPosn        ()
+        , eventsMusicStart = RTB.singleton musicStartPosn ()
+        , eventsMusicEnd   = RTB.singleton musicEndPosn   ()
+        }
+      }
+    }
+
+-- | Retrieves or generates [end], [music_start], [music_end], and the BEAT track.
+basicTiming
+  :: (SendMessage m)
+  => RBFile.Song (RBFile.OnyxFile U.Beats)
+  -> StackTraceT m U.Seconds
+  -> StackTraceT m (U.Beats, U.Beats, U.Beats, BeatTrack U.Beats)
+basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
   let showPosition = RBFile.showPosition . U.applyMeasureMap mmap
-      eventsInput = RBFile.onyxEvents trks
-  -- If there's no [end], put it after all MIDI events and audio files.
-  endPosn <- case RTB.viewL $ eventsEnd eventsInput of
+  -- | If there's no [end], put it after all MIDI events and audio files.
+  endPosn <- case RTB.viewL $ eventsEnd $ RBFile.onyxEvents trks of
     Just ((t, _), _) -> return t
     Nothing -> do
       audLen <- U.unapplyTempoMap tempos <$> getAudioLength
@@ -87,16 +103,16 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           lastMIDIEvent = foldr max 0
             $ concatMap absTimes (RBFile.s_tracks $ RBFile.showMIDITracks input)
             ++ absTimes (U.tempoMapToBPS tempos)
-          endPosition = fromInteger $ round $ max audLen lastMIDIEvent + 4
+          endPosn = fromInteger $ round $ max audLen lastMIDIEvent + 4
       warn $ unwords
         [ "[end] is missing. The last MIDI event is at"
         , showPosition lastMIDIEvent
         , "and the longest audio file ends at"
         , showPosition audLen
         , "so [end] will be at"
-        , showPosition endPosition
+        , showPosition endPosn
         ]
-      return endPosition
+      return endPosn
   beatTrack <- let
     trk = beatLines $ RBFile.onyxBeat trks
     in if RTB.null trk
@@ -107,7 +123,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
   -- If [music_start] is before 2 beats,
   -- Magma will add auto [idle] events there in instrument tracks, and then error...
   let musicStartMin = 2 :: U.Beats
-  musicStartPosn <- case RTB.viewL $ eventsMusicStart eventsInput of
+  musicStartPosn <- case RTB.viewL $ eventsMusicStart $ RBFile.onyxEvents trks of
     Just ((t, _), _) -> if t < musicStartMin
       then do
         warn $ "[music_start] is too early. Moving to " ++ showPosition musicStartMin
@@ -116,7 +132,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
     Nothing -> do
       warn $ "[music_start] is missing. Placing at " ++ showPosition musicStartMin
       return musicStartMin
-  musicEndPosn <- case RTB.viewL $ eventsMusicEnd eventsInput of
+  musicEndPosn <- case RTB.viewL $ eventsMusicEnd $ RBFile.onyxEvents trks of
     Just ((t, _), _) -> return t
     Nothing -> do
       warn $ unwords
@@ -126,7 +142,19 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         , showPosition $ endPosn - 2
         ]
       return $ endPosn - 2
-  let (crowd, crowdClap) = if RTB.null (eventsCrowd eventsInput) && RTB.null (eventsCrowdClap eventsInput)
+  return (endPosn, musicStartPosn, musicEndPosn, beatTrack)
+
+processMIDI
+  :: Either TargetRB3 TargetPS
+  -> SongYaml
+  -> RBFile.Song (RBFile.OnyxFile U.Beats)
+  -> RBDrums.Audio
+  -> Staction U.Seconds -- ^ Gets the length of the longest audio file, if necessary.
+  -> Staction (RBFile.Song (RBFile.FixedFile U.Beats))
+processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudioLength = inside "Processing MIDI for RB3/PS" $ do
+  (endPosn, musicStartPosn, musicEndPosn, beatTrack) <- basicTiming input getAudioLength
+  let eventsInput = RBFile.onyxEvents trks
+      (crowd, crowdClap) = if RTB.null (eventsCrowd eventsInput) && RTB.null (eventsCrowdClap eventsInput)
         then
           ( RTB.singleton musicStartPosn CrowdRealtime
           , RTB.singleton musicStartPosn False
@@ -404,60 +432,36 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         $ U.trackTake endPosn
         $ U.measureMapToTimeSigs mmap
 
-  return $ RBFile.Song tempos' mmap'
-    ( mempty
-      { RBFile.fixedBeat = beatTrack
-      , RBFile.fixedEvents = eventsTrack
-      , RBFile.fixedVenue = compileVenueRB3 $ RBFile.onyxVenue trks
-      , RBFile.fixedPartDrums = drumsTrack'
-      , RBFile.fixedPartGuitar = guitarRB3
-      , RBFile.fixedPartBass = bassRB3
-      , RBFile.fixedPartRealGuitar   = proGtr
-      , RBFile.fixedPartRealGuitar22 = proGtr22
-      , RBFile.fixedPartRealBass     = proBass
-      , RBFile.fixedPartRealBass22   = proBass22
-      , RBFile.fixedPartKeys = tk
-      , RBFile.fixedPartKeysAnimRH = tkRH
-      , RBFile.fixedPartKeysAnimLH = tkLH
-      , RBFile.fixedPartRealKeysE = tpkE
-      , RBFile.fixedPartRealKeysM = tpkM
-      , RBFile.fixedPartRealKeysH = tpkH
-      , RBFile.fixedPartRealKeysX = tpkX
-      , RBFile.fixedPartVocals = trkVox'
-      , RBFile.fixedHarm1 = trkHarm1'
-      , RBFile.fixedHarm2 = trkHarm2'
-      , RBFile.fixedHarm3 = trkHarm3'
-      }
-    , RBFile.FixedFile
-      { RBFile.fixedBeat = beatTrack
-      , RBFile.fixedEvents = eventsTrackPS
-      , RBFile.fixedVenue = compileVenueRB3 $ RBFile.onyxVenue trks
-      , RBFile.fixedPartDrums = drumsTrack'
-      , RBFile.fixedPartDrums2x = mempty
-      , RBFile.fixedPartRealDrumsPS = mempty
-      , RBFile.fixedPartGuitar = guitarPS
-      , RBFile.fixedPartGuitarGHL = guitarGHL
-      , RBFile.fixedPartBass = bassPS
-      , RBFile.fixedPartBassGHL = bassGHL
-      , RBFile.fixedPartRhythm = rhythmPS
-      , RBFile.fixedPartGuitarCoop = guitarCoopPS
-      , RBFile.fixedPartRealGuitar   = proGtr
-      , RBFile.fixedPartRealGuitar22 = proGtr22
-      , RBFile.fixedPartRealBass     = proBass
-      , RBFile.fixedPartRealBass22   = proBass22
-      , RBFile.fixedPartKeys = tk
-      , RBFile.fixedPartKeysAnimRH = tkRH
-      , RBFile.fixedPartKeysAnimLH = tkLH
-      , RBFile.fixedPartRealKeysE = tpkE
-      , RBFile.fixedPartRealKeysM = tpkM
-      , RBFile.fixedPartRealKeysH = tpkH
-      , RBFile.fixedPartRealKeysX = tpkX
-      , RBFile.fixedPartVocals = asciiLyrics trkVox'
-      , RBFile.fixedHarm1 = asciiLyrics trkHarm1'
-      , RBFile.fixedHarm2 = asciiLyrics trkHarm2'
-      , RBFile.fixedHarm3 = asciiLyrics trkHarm3'
-      }
-    )
+  let isPS = case target of Left _rb3 -> False; Right _ps -> True
+  return $ RBFile.Song tempos' mmap' RBFile.FixedFile
+    { RBFile.fixedBeat = beatTrack
+    , RBFile.fixedEvents = if isPS then eventsTrackPS else eventsTrack
+    , RBFile.fixedVenue = compileVenueRB3 $ RBFile.onyxVenue trks
+    , RBFile.fixedPartDrums = drumsTrack'
+    , RBFile.fixedPartDrums2x = mempty
+    , RBFile.fixedPartRealDrumsPS = mempty
+    , RBFile.fixedPartGuitar = if isPS then guitarPS else guitarRB3
+    , RBFile.fixedPartGuitarGHL = if isPS then guitarGHL else mempty
+    , RBFile.fixedPartBass = if isPS then bassPS else bassRB3
+    , RBFile.fixedPartBassGHL = if isPS then bassGHL else mempty
+    , RBFile.fixedPartRhythm = if isPS then rhythmPS else mempty
+    , RBFile.fixedPartGuitarCoop = if isPS then guitarCoopPS else mempty
+    , RBFile.fixedPartRealGuitar   = proGtr
+    , RBFile.fixedPartRealGuitar22 = proGtr22
+    , RBFile.fixedPartRealBass     = proBass
+    , RBFile.fixedPartRealBass22   = proBass22
+    , RBFile.fixedPartKeys = tk
+    , RBFile.fixedPartKeysAnimRH = tkRH
+    , RBFile.fixedPartKeysAnimLH = tkLH
+    , RBFile.fixedPartRealKeysE = tpkE
+    , RBFile.fixedPartRealKeysM = tpkM
+    , RBFile.fixedPartRealKeysH = tpkH
+    , RBFile.fixedPartRealKeysX = tpkX
+    , RBFile.fixedPartVocals = (if isPS then asciiLyrics else id) trkVox'
+    , RBFile.fixedHarm1 = (if isPS then asciiLyrics else id) trkHarm1'
+    , RBFile.fixedHarm2 = (if isPS then asciiLyrics else id) trkHarm2'
+    , RBFile.fixedHarm3 = (if isPS then asciiLyrics else id) trkHarm3'
+    }
 
 magmaLegalTemposFile :: (SendMessage m) => RBFile.Song (RBFile.FixedFile U.Beats) -> StackTraceT m (RBFile.Song (RBFile.FixedFile U.Beats))
 magmaLegalTemposFile rb3 = let
@@ -592,11 +596,11 @@ fixBeatTrack' rb3 = let
     Just ((dt, _), _) -> dt
   in rb3
     { RBFile.s_tracks = (RBFile.s_tracks rb3)
-      { RBFile.fixedBeat = BeatTrack $ fixBeatTrack endTime $ beatLines $ RBFile.fixedBeat $ RBFile.s_tracks rb3
+      { RBFile.fixedBeat = fixBeatTrack endTime $ RBFile.fixedBeat $ RBFile.s_tracks rb3
       }
     }
 
-fixBeatTrack :: U.Beats -> RTB.T U.Beats BeatEvent -> RTB.T U.Beats BeatEvent
+fixBeatTrack :: U.Beats -> BeatTrack U.Beats -> BeatTrack U.Beats
 fixBeatTrack endPosn = let
   -- can't have 2 barlines in a row
   fixDoubleDownbeat = RTB.fromPairList . fixDoubleDownbeat' . RTB.toPairList
@@ -623,7 +627,7 @@ fixBeatTrack endPosn = let
   fixFirst2Beats rtb = if sum (take 3 $ RTB.getTimes rtb) <= 2
     then rtb
     else RTB.cons 0 Bar $ RTB.cons 1 Beat $ RTB.cons 1 Beat $ RTB.delay 0.5 $ U.trackDrop 2.5 rtb
-  in fixFirst2Beats . fixDoubleDownbeat . fixLastBeat . fixFastBeats . U.trackTake (endPosn - (14/480))
+  in BeatTrack . fixFirst2Beats . fixDoubleDownbeat . fixLastBeat . fixFastBeats . U.trackTake (endPosn - (14/480)) . beatLines
 
 magmaPad
   :: (SendMessage m)
