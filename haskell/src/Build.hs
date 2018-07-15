@@ -33,16 +33,16 @@ import qualified Data.DTA.Serialize.Magma              as Magma
 import qualified Data.DTA.Serialize.RB3                as D
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
-import           Data.Fixed                            (Centi)
+import           Data.Fixed                            (Centi, Milli)
 import           Data.Foldable                         (toList)
 import           Data.Hashable                         (hash)
 import qualified Data.HashMap.Strict                   as HM
 import           Data.List                             (intercalate)
+import qualified Data.List.NonEmpty                    as NE
 import qualified Data.Map                              as Map
 import           Data.Maybe                            (fromMaybe, isJust,
                                                         isNothing, mapMaybe)
 import           Data.Monoid                           ((<>))
-import qualified Data.Set                              as Set
 import           Data.String                           (IsString, fromString)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
@@ -63,6 +63,9 @@ import           JSONData                              (StackJSON, fromJSON,
 import qualified Magma
 import qualified MelodysEscape                         as Melody
 import           MoggDecrypt
+import           Overdrive                             (calculateUnisons,
+                                                        getOverdrive,
+                                                        printFlexParts)
 import           Path                                  (parseAbsDir, toFilePath)
 import           PrettyDTA
 import           ProKeysRanges
@@ -337,26 +340,18 @@ makeRB3DTA songYaml plan rb3 song filename = do
     , D.videoVenues = Nothing
     }
 
--- TODO use parts from target
 printOverdrive :: FilePath -> StackTraceT (QueueLog Action) ()
 printOverdrive mid = do
   song <- shakeMIDI mid
-  let trackTimes = Set.fromList . ATB.getTimes . RTB.toAbsoluteEventList 0
-      fiveTimes t = trackTimes $ RTB.filter id $ fiveOverdrive t
-      drumTimes t = trackTimes $ RTB.filter id $ drumOverdrive t
-      gtr = fiveTimes $ RBFile.onyxPartGuitar $ RBFile.getFlexPart RBFile.FlexGuitar $ RBFile.s_tracks song
-      bass = fiveTimes $ RBFile.onyxPartGuitar $ RBFile.getFlexPart RBFile.FlexBass $ RBFile.s_tracks song
-      keys = fiveTimes $ RBFile.onyxPartKeys $ RBFile.getFlexPart RBFile.FlexKeys $ RBFile.s_tracks song
-      drums = drumTimes $ RBFile.onyxPartDrums $ RBFile.getFlexPart RBFile.FlexDrums $ RBFile.s_tracks song
-  forM_ (Set.toAscList $ Set.unions [gtr, bass, keys, drums]) $ \t -> let
-    insts = intercalate "," $ concat
-      [ ["guitar" | Set.member t gtr]
-      , ["bass" | Set.member t bass]
-      , ["keys" | Set.member t keys]
-      , ["drums" | Set.member t drums]
-      ]
-    posn = RBFile.showPosition $ U.applyMeasureMap (RBFile.s_signatures song) t
-    in lg $ posn ++ ": " ++ insts
+  let _ = song :: RBFile.Song (RBFile.OnyxFile U.Beats)
+  od <- calculateUnisons <$> getOverdrive (RBFile.s_tracks song)
+  forM_ (ATB.toPairList $ RTB.toAbsoluteEventList 0 od) $ \(posn, unison) -> do
+    let posn' = RBFile.showPosition $ U.applyMeasureMap (RBFile.s_signatures song) posn
+    if all (== 0) [ t | (t, _, _) <- NE.toList unison ]
+      then lg $ posn' <> ": " <> printFlexParts [ inst | (_, inst, _) <- NE.toList unison ]
+      else lg $ intercalate "\n" $ (posn' <> ":") : do
+        (t, inst, _) <- NE.toList unison
+        return $ "  (" <> show (realToFrac t :: Milli) <> ") " <> printFlexParts [inst]
 
 makeC3 :: (Monad m) => SongYaml -> Plan -> TargetRB3 -> RBFile.Song (RBFile.FixedFile U.Beats) -> T.Text -> StackTraceT m C3.C3
 makeC3 songYaml plan rb3 midi pkg = do
