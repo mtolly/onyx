@@ -6,13 +6,16 @@ exports.onyxSong = window.onyxSong;
 
 exports.onPoint = function(onclick) {
   return function() {
+    var touched = false;
     window.addEventListener("touchstart", function(e) {
+      touched = true;
       var touch = e.touches[0];
       onclick({x: touch.clientX, y: touch.clientY})();
       e.stopPropagation();
       e.preventDefault();
     });
     window.addEventListener("click", function(e) {
+      if (touched) return;
       onclick({x: e.clientX, y: e.clientY})();
     });
   };
@@ -160,6 +163,7 @@ exports.fillMenu = function(song) {
         p.innerHTML = '<a target="_blank" href="https://github.com/mtolly/onyxite-customs">Onyx Music Game Toolkit</a>';
       });
       menu.addEventListener('click', function(e){ e.stopPropagation(); });
+      menu.addEventListener('touchstart', function(e){ e.stopPropagation(); });
     };
   };
 };
