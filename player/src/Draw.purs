@@ -29,9 +29,9 @@ foreign import numMod :: Number -> Number -> Number
 
 draw :: Draw Unit
 draw stuff = do
-  {width: windowW, height: windowH} <- getWindowDims
-  C.setCanvasWidth  stuff.canvas windowW
-  C.setCanvasHeight stuff.canvas windowH
+  dims@{width: windowW, height: windowH} <- getWindowDims
+  cdims <- C.getCanvasDimensions stuff.canvas
+  when (cdims /= dims) (C.setCanvasDimensions stuff.canvas dims)
   setFillStyle customize.background stuff
   fillRect { x: 0.0, y: 0.0, width: windowW, height: windowH } stuff
   -- Draw timestamp

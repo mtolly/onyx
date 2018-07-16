@@ -49,9 +49,9 @@ foreign import readMenu :: Effect Settings
 drawLoading :: C.CanvasElement -> Effect Unit
 drawLoading canvas = do
   ctx <- C.getContext2D canvas
-  {width: windowW, height: windowH} <- getWindowDims
-  void $ C.setCanvasWidth  canvas windowW
-  void $ C.setCanvasHeight canvas windowH
+  dims@{width: windowW, height: windowH} <- getWindowDims
+  cdims <- C.getCanvasDimensions canvas
+  when (cdims /= dims) (C.setCanvasDimensions canvas dims)
 
   void $ C.setFillStyle ctx customize.loadingBackground
   void $ C.fillRect ctx { x: 0.0, y: 0.0, width: windowW, height: windowH }
