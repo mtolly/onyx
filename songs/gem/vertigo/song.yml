@@ -5,6 +5,10 @@ metadata:
   genre: Jazz
   subgenre: contemporary
   artist: GEM
+  # no actual album yet, just filler info
+  file-album-art: cover.jpg # taken from instagram page
+  album: GEM
+  track-number: 1
 plans:
   album:
     song:
@@ -29,7 +33,8 @@ audio:
     file-path: ../../../sound/hihat-foot.wav
 parts:
   drums:
-    drums: {}
+    drums:
+      difficulty: 7
 targets:
   rb3:
     game: rb3
