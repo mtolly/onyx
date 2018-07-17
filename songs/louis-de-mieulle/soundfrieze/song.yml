@@ -10,7 +10,8 @@ metadata:
   file-album-art: ../scapegoat-1/cover.jpg
 parts:
   drums:
-    drums: {}
+    drums:
+      difficulty: 6
 audio:
   album-track:
     md5: 8fd21c34d479b04439fb7dd0d7c64f78

@@ -72,10 +72,10 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
   > as i am: has drumless audio, pro guitar, pro bass
   > this dying soul: has drumless audio
   > endless sacrifice: has drumless audio, pro keys, started pro bass
-  > honor thy father: has drumless audio, pro bass
+  > honor thy father: has drumless audio, pro bass, pro keys (jarod needs to send)
   - vacant (make sure to ask copy on c3 to remove)
   > stream of consciousness: just needs basic keys, PK range fixes, PG/PB slide fixes, OD
-  > in the name of god: has drumless audio, started pro guitar/bass/keys
+  > in the name of god: has drumless audio, started pro guitar/bass/keys + vox
 SYSTEMATIC CHAOS
   new release with numeric song IDs, lipsync, video backgrounds, other minor fixes
   > forsaken - fix basic gtr/bass to match pro
