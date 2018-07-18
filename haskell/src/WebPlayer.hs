@@ -61,11 +61,11 @@ instance TimeFunctor Five where
     in Five (fmap g n) (g s) (g e) (fmap g l) (g b)
 
 eventList :: (Real t) => Map.Map t a -> (a -> A.Value) -> A.Value
-eventList evts f = A.toJSON $ map g $ Map.toAscList evts where
+eventList evts f = A.toJSON $ concatMap g $ Map.toAscList evts where
   g (secs, evt) = let
     secs' = A.Number $ realToFrac secs
     evt' = f evt
-    in A.toJSON [secs', evt']
+    in [secs', evt']
 
 showHSTNote :: LongNote StrumHOPOTap () -> A.Value
 showHSTNote = \case

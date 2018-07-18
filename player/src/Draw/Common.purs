@@ -4,16 +4,14 @@ import           Prelude
 
 import           Data.Int           (floor, toNumber)
 import           Data.Maybe         (Maybe (..))
-import           Data.Set           as Set
 import           Data.Time.Duration (Seconds (..))
-import           Data.Tuple         (Tuple)
 import           Effect             (Effect)
 import           Graphics.Canvas    as C
 import           Math               (pi)
 
 import           Images             (ImageID)
 import           OnyxMap            as Map
-import           Song               (FlexPart, Song)
+import           Song               (Song)
 import           Style              (customize)
 
 type App =

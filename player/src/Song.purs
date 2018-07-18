@@ -1,18 +1,18 @@
 module Song where
 
-import Prelude (class Eq, class Ord, class Show, Unit, bind, map, pure, show, unit, ($), (<$>), (<*>), (>>=), (+), (<), (<<<))
+import Prelude (class Eq, class Ord, class Show, Unit, bind, map, pure, show, unit, ($), (<$>), (<*>), (>>=), (+), (-), (*), (<), (<<<), div)
 
 import Data.Time.Duration (Seconds(..))
 import Foreign (F, Foreign, ForeignError(..), isNull, readArray, readBoolean, readInt, readNullOrUndefined, readNumber, readString)
 import Foreign.Index (readProp, readIndex)
 import OnyxMap as Map
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
 import Data.Traversable (sequence, traverse, for)
 import Data.Tuple (Tuple(..))
 import Control.Monad.Except (throwError)
 import Data.String as Str
 import Data.String.CodeUnits as CU
-import Data.Array ((:))
+import Data.Array ((:), (..), length, index)
 
 newtype Song = Song
   { end    :: Seconds
@@ -562,8 +562,11 @@ readTimedSet :: Foreign -> F (Map.Map Seconds Unit)
 readTimedSet f = map (map $ \(_ :: Foreign) -> unit) $ readTimedMap pure f
 
 readTimedMap :: forall a. (Foreign -> F a) -> Foreign -> F (Map.Map Seconds a)
-readTimedMap g f = Map.fromFoldable <$> (readArray f >>= traverse eachPair) where
-  eachPair pair = Tuple <$> (Seconds <$> (readIndex 0 pair >>= readNumber)) <*> (readIndex 1 pair >>= g)
+readTimedMap g f = Map.fromFoldable <$> (readArray f >>= readPairs) where
+  readPairs ary = traverse (readPair ary) (everyOtherIndex ary)
+  everyOtherIndex ary = if length ary < 2 then [] else 0 .. (div (length ary) 2 - 1)
+  readPair ary i = Tuple <$> (Seconds <$> (index' ary (i * 2) >>= readNumber)) <*> (index' ary (i * 2 + 1) >>= g)
+  index' ary i = maybe (throwError $ pure $ ForeignError "index error, shouldn't happen") pure $ index ary i
 
 difficulties :: forall a. (Foreign -> F a) -> Foreign -> F (Difficulties a)
 difficulties g f = readArray f >>= traverse eachPair where

@@ -31,7 +31,7 @@ main = do
   writeFile "installer.nsi" $ nsis $ do
 
     name "Onyx Music Game Toolkit"
-    outFile $ fromString $ "onyx-" ++ versionString ++ "-win32-x64.exe"
+    outFile $ fromString $ "onyx-" ++ versionString ++ "-windows-x64.exe"
     installDir "$PROGRAMFILES64/OnyxToolkit"
     installDirRegKey HKLM "SOFTWARE/OnyxToolkit" "Install_Dir"
     requestExecutionLevel Admin
