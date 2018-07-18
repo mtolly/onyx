@@ -1,5 +1,20 @@
 # Version history
 
+## 20180717
+
+* Fix bug introduced in `20180513` with reading Pro Keys BREs
+* As a last-ditch effort, can now wipe a tempo map entirely and reposition all
+  events off the grid
+* Apply "chord notes slightly off" fix to all instruments
+* Web player improvements:
+  * New menu for toggling tracks and view options
+  * Chord names for Pro Guitar/Bass
+  * Hard/Medium/Easy difficulties
+  * Fix display flickering on slower systems
+* Fix some RBN songs where `[events like this]` were in lyric events
+* Fix some rare remaining issues where a non-standard `BEAT` track caused issues
+  with early mood events
+
 ## 20180513
 
 * Basic support for converting from Phase Shift songs with only "Real Drums"
