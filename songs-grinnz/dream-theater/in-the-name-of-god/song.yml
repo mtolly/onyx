@@ -83,6 +83,12 @@ parts:
     pro-guitar: # WIP
       tuning: [0, 0, 0, 0, 0, 0]
       tuning-global: -4 # C standard
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+  keys:
+    pro-keys: {} # WIP
 targets:
   rb3:
     game: rb3
