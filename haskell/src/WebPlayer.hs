@@ -10,6 +10,7 @@ module WebPlayer
 
 import qualified Config                           as C
 import           Control.Applicative              ((<|>))
+import           Control.Arrow                    (first)
 import           Control.Monad                    (forM, guard)
 import qualified Data.Aeson                       as A
 import qualified Data.Aeson.Types                 as A
@@ -28,6 +29,7 @@ import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import           Guitars
 import qualified Numeric.NonNegative.Class        as NNC
+import qualified Numeric.NonNegative.Wrapper      as NN
 import qualified RockBand.Codec.Beat              as Beat
 import qualified RockBand.Codec.Drums             as D
 import           RockBand.Codec.Events
@@ -61,11 +63,19 @@ instance TimeFunctor Five where
     in Five (fmap g n) (g s) (g e) (fmap g l) (g b)
 
 eventList :: (Real t) => Map.Map t a -> (a -> A.Value) -> A.Value
-eventList evts f = A.toJSON $ concatMap g $ Map.toAscList evts where
-  g (secs, evt) = let
-    secs' = A.Number $ realToFrac secs
-    evt' = f evt
-    in [secs', evt']
+eventList evts f
+  = A.toJSON
+  $ concatMap g
+  $ RTB.toPairList
+  $ RTB.discretize
+  $ RTB.fromAbsoluteEventList
+  $ ATB.fromPairList
+  $ map (first $ \t -> (realToFrac t :: NN.Rational) * 1000)
+  $ Map.toAscList evts
+  where g (secs, evt) = let
+          secs' = A.Number $ realToFrac (secs :: NN.Int)
+          evt' = f evt
+          in [secs', evt']
 
 showHSTNote :: LongNote StrumHOPOTap () -> A.Value
 showHSTNote = \case

@@ -1,6 +1,6 @@
 module Song where
 
-import Prelude (class Eq, class Ord, class Show, Unit, bind, map, pure, show, unit, ($), (<$>), (<*>), (>>=), (+), (-), (*), (<), (<<<), div)
+import Prelude (class Eq, class Ord, class Show, Unit, bind, map, pure, show, unit, ($), (<$>), (<*>), (>>=), (+), (-), (*), (/), (<), (<<<), div)
 
 import Data.Time.Duration (Seconds(..))
 import Foreign (F, Foreign, ForeignError(..), isNull, readArray, readBoolean, readInt, readNullOrUndefined, readNumber, readString)
@@ -13,6 +13,8 @@ import Control.Monad.Except (throwError)
 import Data.String as Str
 import Data.String.CodeUnits as CU
 import Data.Array ((:), (..), length, index)
+import Control.Monad.State (get, modify, lift, evalStateT)
+import Data.Int (toNumber)
 
 newtype Song = Song
   { end    :: Seconds
@@ -563,9 +565,14 @@ readTimedSet f = map (map $ \(_ :: Foreign) -> unit) $ readTimedMap pure f
 
 readTimedMap :: forall a. (Foreign -> F a) -> Foreign -> F (Map.Map Seconds a)
 readTimedMap g f = Map.fromFoldable <$> (readArray f >>= readPairs) where
-  readPairs ary = traverse (readPair ary) (everyOtherIndex ary)
+  readPairs ary = evalStateT (traverse (readPair ary) (everyOtherIndex ary)) 0
   everyOtherIndex ary = if length ary < 2 then [] else 0 .. (div (length ary) 2 - 1)
-  readPair ary i = Tuple <$> (Seconds <$> (index' ary (i * 2) >>= readNumber)) <*> (index' ary (i * 2 + 1) >>= g)
+  readPair ary i = do
+    prevMS <- get
+    relMS <- lift $ index' ary (i * 2) >>= readInt
+    x <- lift $ index' ary (i * 2 + 1) >>= g
+    thisMS <- modify (_ + relMS)
+    pure $ Tuple (Seconds $ toNumber thisMS / 1000.0) x
   index' ary i = maybe (throwError $ pure $ ForeignError "index error, shouldn't happen") pure $ index ary i
 
 difficulties :: forall a. (Foreign -> F a) -> Foreign -> F (Difficulties a)
