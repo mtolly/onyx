@@ -611,12 +611,12 @@ data Processed t = Processed
 
 instance A.ToJSON (Processed U.Seconds) where
   toJSON proc = A.object $ concat
-    [ [("title" , A.toJSON $              processedTitle  proc)]
-    , [("artist", A.toJSON $              processedArtist proc)]
-    , [("author", A.toJSON $              processedAuthor proc)]
-    , [("beats" , A.toJSON $              processedBeats  proc)]
-    , [("end"   , A.Number $ realToFrac $ processedEnd    proc)]
-    , [("parts" , A.toJSON $              processedParts  proc)]
+    [ [("title" , A.toJSON $ processedTitle  proc)]
+    , [("artist", A.toJSON $ processedArtist proc)]
+    , [("author", A.toJSON $ processedAuthor proc)]
+    , [("beats" , A.toJSON $ processedBeats  proc)]
+    , [("end"   , A.Number $ realToFrac (realToFrac $ processedEnd proc :: Milli))]
+    , [("parts" , A.toJSON $ processedParts  proc)]
     ]
 
 makeDisplay :: C.SongYaml -> RBFile.Song (RBFile.OnyxFile U.Beats) -> BL.ByteString
