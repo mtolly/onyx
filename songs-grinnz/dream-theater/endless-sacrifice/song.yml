@@ -87,6 +87,10 @@ parts:
   bass:
     pro-guitar: # WIP
       tuning: [-2, -5, -5, -5, -4, -4] # EADGBE -> DEADGC
+  vocal:
+    vocal:
+      count: 2
+      gender: male
 targets:
   rb3:
     game: rb3
