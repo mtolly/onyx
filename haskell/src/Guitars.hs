@@ -136,8 +136,8 @@ applyForces :: (NNC.C t, Ord color, Ord len) => RTB.T t (StrumHOPOTap, Bool) -> 
 applyForces forceTrack notes = let
   f (forces, ((color, sht), len)) = let
     sht'  | elem Tap   forces = Tap
-          | elem Strum forces = Strum
           | elem HOPO  forces = HOPO
+          | elem Strum forces = Strum
           | otherwise         = sht
     in ((color, sht'), len)
   in fmap f $ applyStatus forceTrack notes
