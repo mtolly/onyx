@@ -164,10 +164,13 @@ instance (Eq k, Hashable k, StackChunk k, StackChunks a) => StackChunks (Map.Has
   stackChunks = chunksDict stackChunk stackChunks
 
 chunksParens :: (Monad m) => ChunksCodec m a -> ChunksCodec m a
-chunksParens cf = Codec
-  { codecOut = makeOut $ \x -> [Parens $ Tree 0 $ makeValue' cf x]
+chunksParens = single . chunkParens
+
+chunkParens :: (Monad m) => ChunksCodec m a -> ChunkCodec m a
+chunkParens cf = Codec
+  { codecOut = makeOut $ \x -> Parens $ Tree 0 $ makeValue' cf x
   , codecIn = lift ask >>= \case
-    [Parens (Tree _ chunks)] -> parseFrom chunks $ codecIn cf
+    Parens (Tree _ chunks) -> parseFrom chunks $ codecIn cf
     _ -> expected "a set of parentheses"
   }
 

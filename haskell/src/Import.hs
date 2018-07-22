@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
-module Import (importFoF, importRBA, importSTFSDir, importSTFS, importMagma, simpleRBAtoCON, HasKicks(..)) where
+module Import (importFoF, importRBA, importSTFSDir, importSTFS, importMagma, importAmplitude, simpleRBAtoCON, HasKicks(..)) where
 
 import           Audio
 import qualified C3
@@ -27,6 +27,7 @@ import qualified Data.DTA                         as D
 import           Data.DTA.Lex                     (scanStack)
 import           Data.DTA.Parse                   (parseStack)
 import qualified Data.DTA.Serialize               as D
+import qualified Data.DTA.Serialize.Amplitude     as Amp
 import qualified Data.DTA.Serialize.Magma         as RBProj
 import qualified Data.DTA.Serialize.RB3           as D
 import           Data.Either                      (lefts, rights)
@@ -1257,3 +1258,9 @@ combine1x2x dt1 dt2 = do
         stopIfDifferent (show diff ++ " notes") (drumGems dd1) (drumGems dd2)
         Right Nothing
   Right dt1 { drumKick2x = foldr RTB.merge RTB.empty $ catMaybes results }
+
+importAmplitude :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
+importAmplitude fin dout = do
+  song <- stackIO (D.readFileDTA fin) >>= D.unserialize D.stackChunks
+  let _ = song :: Amp.Song
+  stackIO $ print song
