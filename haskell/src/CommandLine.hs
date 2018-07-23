@@ -155,6 +155,7 @@ identifyFile fp = Dir.doesFileExist fp >>= \case
   True -> case takeExtension fp of
     ".yml" -> return $ FileType FileSongYaml fp
     ".rbproj" -> return $ FileType FileRBProj fp
+    ".moggsong" -> return $ FileType FileMOGGSong fp
     ".midtxt" -> return $ FileType FileMidiText fp
     ".mogg" -> return $ FileType FileMOGG fp
     ".zip" -> return $ FileType FileZip fp
@@ -204,6 +205,7 @@ data FileType
   | FileMidi
   | FileMidiText
   | FileRBProj
+  | FileMOGGSong
   | FileOGG
   | FileMOGG
   | FileFLAC
@@ -530,6 +532,11 @@ commands =
           out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
           stackIO $ Dir.createDirectoryIfMissing False out
           void $ importMagma fpath out
+          return [out]
+        FileMOGGSong -> do
+          out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
+          stackIO $ Dir.createDirectoryIfMissing False out
+          void $ importAmplitude fpath out
           return [out]
         _ -> unrecognized ftype fpath
     }

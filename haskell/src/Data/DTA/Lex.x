@@ -31,6 +31,10 @@ $white+ ;
 -- Numbers. Longest match rule means N.N is float, not int.
 (\+ | \-)? $digit+ { emit $ Int . read . dropWhile (== '+') }
 (\+ | \-)? $digit+ (\. $digit+)? (e \-? $digit+)? { emit $ Float . read . dropWhile (== '+') }
+(\+ | \-)? \. $digit+ (e \-? $digit+)? { emit $ \s -> Float $ read $ case dropWhile (== '+') s of
+  '-' : rest -> '-' : '0' : rest
+  str        -> '0' : str
+}
 
 -- Variable names.
 \$ ($alpha | $digit | _)+ { emit $ Var . T.pack . tail }

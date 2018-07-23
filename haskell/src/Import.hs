@@ -5,6 +5,7 @@
 {-# LANGUAGE TupleSections     #-}
 module Import (importFoF, importRBA, importSTFSDir, importSTFS, importMagma, importAmplitude, simpleRBAtoCON, HasKicks(..)) where
 
+import qualified Amplitude.File                   as Amp
 import           Audio
 import qualified C3
 import           Codec.Picture                    (convertRGB8, readImage)
@@ -824,7 +825,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
         , [ (FlexVocal , PartSingle ns) | ns <- toList $ HM.lookup "vocals" instChans ]
         , [ (FlexDrums , ds           ) | Just ds <- [drumSplit] ]
         ]
-      , _moggCrowd  = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
+      , _moggCrowd = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
       , _pans = map realToFrac $ D.pans $ D.song pkg
       , _vols = map realToFrac $ D.vols $ D.song pkg
       , _planComments = []
@@ -1262,5 +1263,56 @@ combine1x2x dt1 dt2 = do
 importAmplitude :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 importAmplitude fin dout = do
   song <- stackIO (D.readFileDTA fin) >>= D.unserialize D.stackChunks
-  let _ = song :: Amp.Song
-  stackIO $ print song
+  let moggPath = takeDirectory fin </> T.unpack (Amp.mogg_path song)
+      midPath  = takeDirectory fin </> T.unpack (Amp.midi_path song)
+      previewStart = realToFrac (Amp.preview_start_ms song) / 1000
+      previewEnd = previewStart + realToFrac (Amp.preview_length_ms song) / 1000
+  md5 <- stackIO $ BL.readFile moggPath >>= evaluate . MD5.md5
+  RBFile.Song temps sigs amp <- loadMIDI midPath
+  let getChannels n = case Amp.tracks song !! (n - 1) of
+        (_, (chans, _)) -> map fromIntegral chans
+      freestyle = do
+        (_, (ns, event)) <- Amp.tracks song
+        guard $ "event:/FREESTYLE" `T.isPrefixOf` event
+        map fromIntegral ns
+      parts = do
+        (n, Amp.Catch inst name trk) <- Map.toList $ Amp.ampTracks amp
+        return (FlexExtra name, getChannels n, inst, trk)
+  stackIO $ Dir.createDirectoryIfMissing False dout
+  stackIO $ Save.toFile (dout </> "notes.mid") $ RBFile.showMIDIFile'
+    $ RBFile.Song temps sigs mempty
+      { RBFile.onyxParts = Map.fromList $ do
+        (name, _, _, trk) <- parts
+        return (name, mempty { RBFile.onyxCatch = trk })
+      }
+  stackIO $ Dir.copyFile moggPath $ dout </> "audio.mogg"
+  stackIO $ Y.encodeFile (dout </> "song.yml") $ toJSON SongYaml
+    { _metadata = def
+      { _title        = Just $ Amp.title song
+      , _artist       = Just $ case Amp.artist_short song of
+        "Harmonix" -> Amp.artist song -- human love
+        artist     -> artist
+      , _previewStart = Just $ PreviewSeconds previewStart
+      , _previewEnd   = Just $ PreviewSeconds previewEnd
+      }
+    , _audio = HM.empty
+    , _jammit = HM.empty
+    , _plans = HM.singleton "mogg" MoggPlan
+      { _moggMD5 = T.pack $ show md5
+      , _moggParts = Parts $ HM.fromList $ do
+        (name, chans, _, _) <- parts
+        return (name, PartSingle chans)
+      , _moggCrowd = freestyle -- so it's hidden from web player
+      , _pans = map realToFrac $ Amp.pans song
+      , _vols = map realToFrac $ Amp.vols song
+      , _planComments = []
+      , _tuningCents = 0
+      , _karaoke = False
+      , _multitrack = True
+      , _silent = []
+      }
+    , _targets = HM.empty
+    , _parts = Parts $ HM.fromList $ do
+      (name, _, inst, _) <- parts
+      return (name, def { partAmplitude = Just (PartAmplitude inst) })
+    }

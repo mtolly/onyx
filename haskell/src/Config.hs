@@ -12,6 +12,7 @@
 {-# LANGUAGE TupleSections     #-}
 module Config where
 
+import qualified Amplitude.File                 as Amp
 import           Audio
 import           Control.Arrow                  (first)
 import           Control.Monad.Codec            (CodecFor (..), (=.))
@@ -779,6 +780,27 @@ instance StackJSON PartVocal where
     vocalKey        <- vocalKey        =. opt  Nothing  "key"        stackJSON
     return PartVocal{..}
 
+data PartAmplitude = PartAmplitude
+  { ampInstrument :: Amp.Instrument
+  } deriving (Eq, Ord, Show, Read)
+
+instance StackJSON PartAmplitude where
+  stackJSON = asStrictObject "PartAmplitude" $ do
+    ampInstrument <- ampInstrument =. req "instrument" stackJSON
+    return PartAmplitude{..}
+
+instance StackJSON Amp.Instrument where
+  stackJSON = Codec
+    { codecIn = lift ask >>= \case
+      A.String "drums"  -> return Amp.Drums
+      A.String "bass"   -> return Amp.Bass
+      A.String "synth"  -> return Amp.Synth
+      A.String "vocal"  -> return Amp.Vocal
+      A.String "guitar" -> return Amp.Guitar
+      _                 -> expected "amplitude instrument type"
+    , codecOut = makeOut $ A.String . T.toLower . T.pack . show
+    }
+
 data Part = Part
   { partGRYBO     :: Maybe PartGRYBO
   , partGHL       :: Maybe PartGHL
@@ -786,6 +808,7 @@ data Part = Part
   , partProGuitar :: Maybe PartProGuitar
   , partDrums     :: Maybe PartDrums
   , partVocal     :: Maybe PartVocal
+  , partAmplitude :: Maybe PartAmplitude
   } deriving (Eq, Ord, Show, Read)
 
 instance StackJSON Part where
@@ -796,6 +819,7 @@ instance StackJSON Part where
     partProGuitar <- partProGuitar =. opt Nothing "pro-guitar" stackJSON
     partDrums     <- partDrums     =. opt Nothing "drums"      stackJSON
     partVocal     <- partVocal     =. opt Nothing "vocal"      stackJSON
+    partAmplitude <- partAmplitude =. opt Nothing "amplitude"  stackJSON
     return Part{..}
 
 instance Default Part where

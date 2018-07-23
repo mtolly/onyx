@@ -11,8 +11,8 @@ import           Control.Monad.Trans.Writer     (tell)
 import           Data.DTA.Base
 import           Data.DTA.Serialize
 import           Data.Fixed                     (divMod')
-import qualified Data.HashMap.Strict            as Map
 import           Data.List.Split                (splitOn)
+import           Data.Profunctor                (dimap)
 import qualified Data.Text                      as T
 import           JSONData                       (expected, opt, req)
 import qualified Sound.MIDI.Util                as U
@@ -23,7 +23,7 @@ data Song = Song
   { mogg_path          :: T.Text
   , midi_path          :: T.Text
   , song_info          :: SongInfo
-  , tracks             :: Map.HashMap T.Text ([Integer], T.Text)
+  , tracks             :: [(T.Text, ([Integer], T.Text))]
   , pans               :: [Float]
   , vols               :: [Float]
   , active_track_db    :: [Float]
@@ -41,6 +41,7 @@ data Song = Song
   , bpm                :: Integer
   , preview_start_ms   :: Integer
   , preview_length_ms  :: Integer
+  , boss_level         :: Maybe Integer
   } deriving (Eq, Show)
 
 data SongInfo = SongInfo
@@ -51,8 +52,8 @@ data SongInfo = SongInfo
   , countin :: Integer -- ^ number of bars before gems start
   } deriving (Eq, Show)
 
-chunkTracks :: (SendMessage m) => ChunkCodec m (Map.HashMap T.Text ([Integer], T.Text))
-chunkTracks = chunkParens $ chunksDict chunkKey $ chunksPair (chunkParens stackChunks) chunkKey
+chunkTracks :: (SendMessage m) => ChunkCodec m [(T.Text, ([Integer], T.Text))]
+chunkTracks = dimap DictList fromDictList $ chunkParens $ chunksDictList chunkKey $ chunksPair (chunkParens stackChunks) chunkKey
 
 -- | Drops children that aren't parentheses.
 -- (This is a hack because in Crystal, HMX forgot to comment out the line
@@ -87,6 +88,7 @@ instance StackChunks Song where
     bpm                <- bpm                =. req "bpm"                 stackChunks
     preview_start_ms   <- preview_start_ms   =. req "preview_start_ms"    stackChunks
     preview_length_ms  <- preview_length_ms  =. req "preview_length_ms"   stackChunks
+    boss_level         <- boss_level         =. opt Nothing "boss_level"  stackChunks
     return Song{..}
 
 chunkBarBeatTick :: (SendMessage m) => ChunkCodec m U.Beats

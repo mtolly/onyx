@@ -6,6 +6,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 module RockBand.Codec.File where
 
+import           Amplitude.Track
 import           Control.Monad                     (forM, forM_, (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class         (lift)
@@ -291,12 +292,13 @@ data OnyxPart t = OnyxPart
   , onyxHarm1            :: VocalTrack t
   , onyxHarm2            :: VocalTrack t
   , onyxHarm3            :: VocalTrack t
+  , onyxCatch            :: CatchTrack t
   } deriving (Eq, Ord, Show)
 
 instance (NNC.C t) => Semigroup (OnyxPart t) where
   (<>)
-    (OnyxPart a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18)
-    (OnyxPart b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18)
+    (OnyxPart a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19)
+    (OnyxPart b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18 b19)
     = OnyxPart
       (a1  <> b1 )
       (a2  <> b2 )
@@ -316,16 +318,18 @@ instance (NNC.C t) => Semigroup (OnyxPart t) where
       (a16 <> b16)
       (a17 <> b17)
       (a18 <> b18)
+      (a19 <> b19)
 
 instance (NNC.C t) => Monoid (OnyxPart t) where
   mempty = OnyxPart
     mempty mempty mempty mempty mempty mempty
     mempty mempty mempty mempty mempty mempty
     mempty mempty mempty mempty mempty mempty
+    mempty
 
 instance TraverseTrack OnyxPart where
   traverseTrack fn
-    (OnyxPart a b c d e f g h i j k l m n o p q r)
+    (OnyxPart a b c d e f g h i j k l m n o p q r s)
     = OnyxPart
       <$> traverseTrack fn a <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e <*> traverseTrack fn f
@@ -333,6 +337,7 @@ instance TraverseTrack OnyxPart where
       <*> traverseTrack fn j <*> traverseTrack fn k <*> traverseTrack fn l
       <*> traverseTrack fn m <*> traverseTrack fn n <*> traverseTrack fn o
       <*> traverseTrack fn p <*> traverseTrack fn q <*> traverseTrack fn r
+      <*> traverseTrack fn s
 
 getFlexPart :: (NNC.C t) => FlexPartName -> OnyxFile t -> OnyxPart t
 getFlexPart part = fromMaybe mempty . Map.lookup part . onyxParts
@@ -387,6 +392,7 @@ parseOnyxPart partName = do
   onyxHarm1            <- onyxHarm1            =. names (FlexVocal, "HARM1") []
   onyxHarm2            <- onyxHarm2            =. names (FlexVocal, "HARM2") []
   onyxHarm3            <- onyxHarm3            =. names (FlexVocal, "HARM3") []
+  onyxCatch            <- onyxCatch            =. names (FlexExtra "undefined", "CATCH") []
   return OnyxPart{..}
 
 instance ParseFile OnyxFile where
