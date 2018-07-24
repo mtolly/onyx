@@ -58,6 +58,7 @@ chunkTracks = dimap DictList fromDictList $ chunkParens $ chunksDictList chunkKe
 -- | Drops children that aren't parentheses.
 -- (This is a hack because in Crystal, HMX forgot to comment out the line
 -- with instrument labels above the pans/vols.)
+-- (Also because in All the Time, they used : instead of ;)
 cleanAssoc :: (Monad m) => ChunksCodec m a -> ChunksCodec m a
 cleanAssoc cdc = cdc
   { codecIn = let
@@ -76,7 +77,7 @@ instance StackChunks Song where
     active_track_db    <- active_track_db    =. req "active_track_db"     stackChunks
     arena_path         <- arena_path         =. req "arena_path"          (single chunkKey)
     score_goal         <- score_goal         =. req "score_goal"          (chunksList $ chunkParens stackChunks)
-    tunnel_scale       <- tunnel_scale       =. req "tunnel_scale"        stackChunks
+    tunnel_scale       <- tunnel_scale       =. opt 1 "tunnel_scale"      stackChunks
     enable_order       <- enable_order       =. req "enable_order"        (chunksParens stackChunks)
     section_start_bars <- section_start_bars =. req "section_start_bars"  stackChunks
     title              <- title              =. req "title"               stackChunks
@@ -113,7 +114,7 @@ chunkBarBeatTick = Codec
   }
 
 instance StackChunks SongInfo where
-  stackChunks = asStrictAssoc "SongInfo" $ do
+  stackChunks = cleanAssoc $ asStrictAssoc "SongInfo" $ do
     length' <- length' =. req "length" (single chunkBarBeatTick)
     countin <- countin =. req "countin" stackChunks
     return SongInfo{..}
