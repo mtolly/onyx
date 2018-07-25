@@ -25,9 +25,14 @@ plans:
       fade:
       - start
       - 3
-      - drop:
-        - '6:47.511'
-        - concatenate: [album-prev, album-track]
+      - fade:
+        - end
+        - 5.831
+        - take:
+          - '4:58.865'
+          - drop:
+            - '6:47.511'
+            - concatenate: [album-prev, album-track]
 parts:
   drums:
     drums: {}
