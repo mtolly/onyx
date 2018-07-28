@@ -929,6 +929,13 @@ commands =
         False -> fatal $ "onyx u8 expected directory; given: " <> dir
       _ -> fatal "Expected 1 argument (folder to pack)"
     }
+  , Command
+    { commandWord = "dolphin-midi"
+    , commandDesc = "Apply useful changes to MIDI files for Dolphin preview recording."
+    , commandUsage = "onyx dolphin-midi in1.mid in2.mid [...] [--wii-no-fills] [--wii-mustang-22]"
+    , commandRun = \args opts -> do
+      return [] -- TODO
+    }
 
   , Command
     { commandWord = "dolphin"
@@ -955,7 +962,15 @@ commands =
             stackIO $ Dir.createDirectoryIfMissing True $ dir_meta </> "content" </> songsXgen
             stackIO $ Dir.createDirectoryIfMissing True $ dir_song </> "content" </> songsXgen
             -- .mid (copy; later, option to remove drum fills (but not BRE))
-            stackIO $ Dir.renameFile (extract </> songsXX <.> "mid") (dir_song </> "content" </> songsXX <.> "mid")
+            let midin  = extract </> songsXX <.> "mid"
+                midout = dir_song </> "content" </> songsXX <.> "mid"
+            case (elem OptWiiNoFills opts, elem OptWiiMustang22 opts) of
+              (False, False) -> stackIO $ Dir.renameFile midin midout
+              (nofills, mustang22) -> do
+                mid <- stackIO (Load.fromFile midin) >>= RBFile.readMIDIFile'
+                let f = (if nofills   then RBFile.wiiNoFills   else id)
+                      . (if mustang22 then RBFile.wiiMustang22 else id)
+                stackIO $ Save.toFile midout $ RBFile.showMIDIFile' $ f mid
             -- .mogg (copy)
             let mogg = dir_song </> "content" </> songsXX <.> "mogg"
             stackIO $ Dir.renameFile (extract </> songsXX <.> "mogg") mogg
@@ -1058,6 +1073,8 @@ optDescrs =
   , Option []   ["speed"          ] (ReqArg (OptSpeed . read)      "real"     ) ""
   , Option []   ["guitar-on-keys" ] (NoArg  OptGuitarOnKeys                   ) ""
   , Option []   ["rb2-version"    ] (NoArg  OptRB2Version                     ) ""
+  , Option []   ["wii-no-fills"   ] (NoArg  OptWiiNoFills                     ) ""
+  , Option []   ["wii-mustang-22" ] (NoArg  OptWiiMustang22                   ) ""
   , Option "h?" ["help"           ] (NoArg  OptHelp                           ) ""
   ] where
     readGame = \case
@@ -1084,6 +1101,8 @@ data OnyxOption
   | OptSpeed Double
   | OptGuitarOnKeys
   | OptRB2Version
+  | OptWiiNoFills
+  | OptWiiMustang22
   | OptHelp
   deriving (Eq, Ord, Show, Read)
 

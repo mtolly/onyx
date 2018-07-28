@@ -592,3 +592,27 @@ padFixedFile seconds (Song temps sigs ff) = let
       then RTB.empty
       else padBeat $ beatLines $ fixedBeat ff
     }
+
+wiiNoFills :: (NNC.C t) => Song (FixedFile t) -> Song (FixedFile t)
+wiiNoFills (Song temps sigs ff) = let
+  f drums = case RTB.viewL $ eventsCoda $ fixedEvents ff of
+    Nothing           -> drums
+      { drumActivation = RTB.empty }
+    Just ((dt, _), _) -> drums
+      { drumActivation = RTB.delay dt $ U.trackDrop dt $ drumActivation drums }
+  in Song temps sigs ff
+    { fixedPartDrums       = f $ fixedPartDrums       ff
+    , fixedPartDrums2x     = f $ fixedPartDrums2x     ff
+    , fixedPartRealDrumsPS = f $ fixedPartRealDrumsPS ff
+    }
+
+wiiMustang22 :: Song (FixedFile t) -> Song (FixedFile t)
+wiiMustang22 (Song temps sigs ff) = let
+  g17 = fixedPartRealGuitar   ff
+  g22 = fixedPartRealGuitar22 ff
+  b17 = fixedPartRealBass     ff
+  b22 = fixedPartRealBass22   ff
+  in Song temps sigs ff
+    { fixedPartRealGuitar = if all (not . nullPG) [g17, g22] then g22 else g17
+    , fixedPartRealBass   = if all (not . nullPG) [b17, b22] then b22 else b17
+    }
