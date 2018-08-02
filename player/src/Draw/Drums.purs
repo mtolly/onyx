@@ -1,13 +1,14 @@
-module Draw.Drums (drawDrums) where
+module Draw.Drums (drawDrums, drawDrumsPerspective) where
 
 import           Prelude
+import           Math               (pow, log)
 
 import           Data.Array         (cons, range, snoc)
 import           Data.Foldable      (for_)
 import           Data.Int           (round, toNumber)
 import           Data.List          as L
 import           Data.Maybe         (Maybe (..), fromMaybe)
-import           Data.Time.Duration (Seconds, negateDuration)
+import           Data.Time.Duration (Seconds (..), negateDuration)
 import           Data.Tuple         (Tuple (..))
 import           Graphics.Canvas    as C
 
@@ -18,6 +19,159 @@ import           OnyxMap            as Map
 import           Song               (Beat (..), Beats (..), Drums (..),
                                      Gem (..), Song (..))
 import           Style              (customize)
+
+drawDrumsPerspective :: Drums -> C.Rectangle -> Number -> Draw Int
+drawDrumsPerspective (Drums drums) rect horizonY stuff = do
+  let ctx = stuff.context
+      numLanes = if drums.mode5 then 5.0 else 4.0
+      horizonX = rect.x + rect.width * 0.5
+      strikeY = rect.y + rect.height * 0.7
+      strikeHeight = rect.height * 0.09
+      strikeTop = strikeY - strikeHeight * 0.5
+      strikeBottom = strikeY + strikeHeight * 0.5
+      viewToHit = Seconds 0.75
+      divideSecs (Seconds x) (Seconds y) = x / y
+      divideSecsNum (Seconds x) y = Seconds (x / y)
+      timesNumSecs x (Seconds y) = Seconds (x * y)
+      screenfulPercent = (strikeY - rect.y) / (strikeY - horizonY)
+      screenfulFlip = 1.0 / (1.0 - screenfulPercent)
+      secsToY secs = let
+        timeBeforeHit = secs <> negateDuration stuff.time
+        screenfuls = divideSecs timeBeforeHit viewToHit
+        fracToHorizon = 1.0 - pow screenfulFlip (negate screenfuls)
+        in strikeY - fracToHorizon * (strikeY - horizonY)
+      -- following was algebraically reversed from secsToY
+      yToSecs y = timesNumSecs (negate $ log ((y - strikeY) / (strikeY - horizonY) + 1.0) / log screenfulFlip) viewToHit <> stuff.time
+
+      strikeWidth = rect.width * ((strikeY - horizonY) / (rect.y + rect.height - horizonY))
+
+      -- Converts from
+      -- X (0 is highway left rail, 1 is right rail)
+      -- Y (same scale as X at the strike line, but vertical, 0 is floor and positive goes up)
+      -- Z (seconds in absolute time)
+      -- to real window pixel position.
+      xyzToRender o = let
+        -- first calculate what output Y is if input Y is 0, using input Z only
+        timeBeforeHit = o.z <> negateDuration stuff.time
+        screenfuls = divideSecs timeBeforeHit viewToHit
+        fracToHorizon = 1.0 - pow screenfulFlip (negate screenfuls) -- 0 at strike, 1 at horizon
+        floorY = strikeY - fracToHorizon * (strikeY - horizonY) -- Y in window if input Y is 0
+        -- now X, just scale it from the strike width to the computed width
+        renderX = horizonX + (o.x - 0.5) * strikeWidth * (1.0 - fracToHorizon)
+        renderY = floorY - o.y * strikeWidth * (1.0 - fracToHorizon)
+        in {x: renderX, y: renderY}
+
+      line a b = let
+        a' = xyzToRender a
+        b' = xyzToRender b
+        in do
+          C.beginPath ctx
+          C.moveTo ctx a'.x a'.y
+          C.lineTo ctx b'.x b'.y
+          C.stroke ctx
+
+      makeRect tl br = let
+        tl' = xyzToRender tl
+        br' = xyzToRender br
+        in C.rect ctx {x: tl'.x, y: tl'.y, width: br'.x - tl'.x, height: br'.y - tl'.y}
+
+      makeCube o = let
+        frontTL = xyzToRender {x: o.x1, y: o.y1, z: o.z1}
+        frontTR = xyzToRender {x: o.x2, y: o.y1, z: o.z1}
+        frontBL = xyzToRender {x: o.x1, y: o.y2, z: o.z1}
+        frontBR = xyzToRender {x: o.x2, y: o.y2, z: o.z1}
+        backTL = xyzToRender {x: o.x1, y: o.y1, z: o.z2}
+        backTR = xyzToRender {x: o.x2, y: o.y1, z: o.z2}
+        backBL = xyzToRender {x: o.x1, y: o.y2, z: o.z2}
+        backBR = xyzToRender {x: o.x2, y: o.y2, z: o.z2}
+        backLeftHidden = frontBL.x <= backBL.x
+        backRightHidden = backBR.x <= frontBR.x
+        drawFace xy xys = do
+          C.beginPath ctx
+          C.moveTo ctx xy.x xy.y
+          for_ xys \p -> C.lineTo ctx p.x p.y
+          C.closePath ctx
+          C.stroke ctx
+          C.fill ctx
+        in do
+          C.setStrokeStyle ctx "black"
+          C.setLineWidth ctx 2.0
+          drawFace frontTL [frontTR, frontBR, frontBL]
+          drawFace frontTL [frontTR, backTR, backTL]
+          unless backLeftHidden $ drawFace frontTL [frontBL, backBL, backTL]
+          unless backRightHidden $ drawFace frontTR [frontBR, backBR, backTR]
+
+      maxSecs = yToSecs $ rect.y - 50.0
+      minSecs = yToSecs $ rect.y + rect.height + 50.0
+      zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
+      zoomDesc = Map.zoomDescDo minSecs maxSecs
+      zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
+      zoomAsc = Map.zoomAscDo minSecs maxSecs
+      railingsX y = let
+        inward = rect.width * (0.5 * ((y - horizonY) / (rect.y + rect.height - horizonY)))
+        in {left: horizonX - inward, right: horizonX + inward}
+  C.save ctx
+  C.rect ctx rect
+  C.clip ctx
+  C.setFillStyle ctx "rgba(255,255,255,0.4)"
+  C.setStrokeStyle ctx "black"
+  C.setLineWidth ctx 3.0
+  C.beginPath ctx
+  C.moveTo ctx rect.x (rect.y + rect.height)
+  C.lineTo ctx (rect.x + rect.width * 0.5) horizonY
+  C.lineTo ctx (rect.x + rect.width) (rect.y + rect.height)
+  C.fill ctx
+  C.stroke ctx
+  do
+    let o = railingsX strikeTop
+    C.beginPath ctx
+    C.moveTo ctx o.left strikeTop
+    C.lineTo ctx o.right strikeTop
+    C.stroke ctx
+  do
+    let o = railingsX strikeBottom
+    C.beginPath ctx
+    C.moveTo ctx o.left strikeBottom
+    C.lineTo ctx o.right strikeBottom
+    C.stroke ctx
+  C.setLineWidth ctx 2.0
+  for_ [0.25, 0.5, 0.75] \frac -> do
+    C.beginPath ctx
+    C.moveTo ctx horizonX horizonY
+    C.lineTo ctx (rect.x + rect.width * frac) (rect.y + rect.height)
+    C.stroke ctx
+  -- notes
+  zoomDesc drums.notes \secs evts -> do
+    let y = secsToY secs
+        o = railingsX y
+        isEnergy = case Map.lookupLE secs drums.energy of
+          Just {value: bool} -> bool
+          Nothing            -> false
+    C.setStrokeStyle ctx "black"
+    C.setLineWidth ctx $ secsToY (secs <> Seconds (-0.002)) - secsToY (secs <> Seconds 0.002)
+    for_ evts \e -> let
+      fracs = case e of
+        Kick -> {left: 0.0, right: 1.0, color: if drums.mode5 then "#af3abc" else "#e8ad19", height: 0.02}
+        Red  -> {left: 0.0 / numLanes, right: 1.0 / numLanes, color: "#e55050", height: 0.05}
+        YTom -> {left: 1.0 / numLanes, right: 2.0 / numLanes, color: "#e1ea2c", height: 0.05}
+        YCym -> {left: 1.0 / numLanes, right: 2.0 / numLanes, color: "#e1ea2c", height: 0.05}
+        BTom -> {left: 2.0 / numLanes, right: 3.0 / numLanes, color: "#2c8eea", height: 0.05}
+        BCym -> {left: 2.0 / numLanes, right: 3.0 / numLanes, color: "#2c8eea", height: 0.05}
+        GTom -> {left: (numLanes - 1.0) / numLanes, right: 1.0, color: "#51e84e", height: 0.05}
+        GCym -> {left: (numLanes - 1.0) / numLanes, right: 1.0, color: "#51e84e", height: 0.05}
+        OCym -> {left: 3.0 / numLanes, right: 4.0 / numLanes, color: "#e8ad19", height: 0.05}
+      in do
+        C.setFillStyle ctx fracs.color
+        makeCube
+          { x1: fracs.left
+          , x2: fracs.right
+          , y1: fracs.height
+          , y2: 0.0
+          , z1: secs <> Seconds (-0.007)
+          , z2: secs <> Seconds   0.007
+          }
+  C.restore ctx
+  pure $ round (rect.x + rect.width) + customize.marginWidth
 
 drawDrums :: Drums -> Int -> Draw Int
 drawDrums (Drums drums) targetX stuff = do
