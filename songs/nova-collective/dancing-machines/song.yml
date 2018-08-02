@@ -2,10 +2,11 @@ metadata:
   title: Dancing Machines
   file-include: ../../../albums/the-further-side.yml
   track-number: 1
-  author: Onyxite, BlazinBlitzer
+  author: Onyxite, XEntombmentX, BlazinBlitzer
   key: A
   preview-start: prc_intro_b
   comments:
+  - "Guitar and parts of bass + keys by XEntombmentX."
   - "Drums originally by BlazinBlitzer, edited by Onyxite."
 audio:
   album-track:
@@ -32,11 +33,14 @@ parts:
   bass:
     pro-guitar:
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
+    grybo: {} # WIP
   guitar:
     pro-guitar:
       tuning: [0, 0, 0, 0, 0, 0]
+    grybo: {} # XEntombmentX
   keys:
     pro-keys: {}
+    grybo: {} # WIP
 targets:
   rb3:
     game: rb3

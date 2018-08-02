@@ -1,9 +1,10 @@
 THE FURTHER SIDE (NOVA COLLECTIVE)
 - dancing machines
-  - get gtr/bass from entombment, make no-open versions
+  - finish a few bits of basic gtr
+  - basic bass
   - basic keys
   - BEAT track
-  - overdrive
+  - overdrive (see if can integrate some of xentombmentx's phrases)
 - cascades: DONE!
 - air: DONE!
 - state of flux: DONE!
