@@ -35,7 +35,7 @@ parts:
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
   keys:
     pro-keys: {}
-    grybo: {} # WIP
+    grybo: {}
 targets:
   rb3:
     game: rb3
