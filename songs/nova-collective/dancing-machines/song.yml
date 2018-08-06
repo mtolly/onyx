@@ -40,7 +40,7 @@ parts:
     grybo: {} # XEntombmentX
   keys:
     pro-keys: {}
-    grybo: {} # WIP
+    grybo: {}
 targets:
   rb3:
     game: rb3

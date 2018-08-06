@@ -1,7 +1,6 @@
 THE FURTHER SIDE (NOVA COLLECTIVE)
 - dancing machines
   - basic bass
-  - basic keys
   - BEAT track
   - overdrive (see if can integrate some of xentombmentx's phrases)
 - cascades: DONE!
