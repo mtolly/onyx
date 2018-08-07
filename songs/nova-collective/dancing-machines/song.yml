@@ -33,7 +33,7 @@ parts:
   bass:
     pro-guitar:
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
-    grybo: {} # WIP
+    grybo: {}
   guitar:
     pro-guitar:
       tuning: [0, 0, 0, 0, 0, 0]
