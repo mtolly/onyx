@@ -4,6 +4,7 @@ metadata:
   track-number: 3
   author: Onyxite
   key: D
+  difficulty: 4
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
@@ -27,18 +28,24 @@ parts:
     drums:
       difficulty: 6
   guitar:
-    grybo: {}
+    grybo:
+      difficulty: 4
     pro-guitar:
+      difficulty: 5
       tuning: [0, 0, 0, 0, 0, 0]
       # technically this song is 7-string.
       # but it's only one section, so I just tweaked it to 6-string.
   bass:
-    grybo: {}
+    grybo:
+      difficulty: 4
     pro-guitar:
+      difficulty: 5
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
   keys:
-    grybo: {}
-    pro-keys: {}
+    grybo:
+      difficulty: 4
+    pro-keys:
+      difficulty: 5
 targets:
   rb3:
     game: rb3

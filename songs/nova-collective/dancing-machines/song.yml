@@ -8,6 +8,7 @@ metadata:
   comments:
   - "Guitar and parts of bass + keys by XEntombmentX."
   - "Drums originally by BlazinBlitzer, edited by Onyxite."
+  difficulty: 7
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
@@ -32,15 +33,21 @@ parts:
       difficulty: 7
   bass:
     pro-guitar:
+      difficulty: 6
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
-    grybo: {}
+    grybo:
+      difficulty: 5
   guitar:
     pro-guitar:
+      difficulty: 7
       tuning: [0, 0, 0, 0, 0, 0]
-    grybo: {} # XEntombmentX
+    grybo: # XEntombmentX
+      difficulty: 6
   keys:
-    pro-keys: {}
-    grybo: {}
+    pro-keys:
+      difficulty: 6
+    grybo:
+      difficulty: 5
 targets:
   rb3:
     game: rb3

@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/the-further-side.yml
   track-number: 6
   author: Onyxite
+  difficulty: 7
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com
@@ -26,16 +27,22 @@ parts:
     drums:
       difficulty: 7
   guitar:
-    grybo: {}
+    grybo:
+      difficulty: 6
     pro-guitar:
+      difficulty: 7
       tuning: [0, 0, 0, 0, 0, 0] # 7 string modified to 6 string
   bass:
-    grybo: {}
+    grybo:
+      difficulty: 4
     pro-guitar:
+      difficulty: 5
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
   keys:
-    pro-keys: {}
-    grybo: {}
+    pro-keys:
+      difficulty: 7
+    grybo:
+      difficulty: 7
 targets:
   rb3:
     game: rb3
