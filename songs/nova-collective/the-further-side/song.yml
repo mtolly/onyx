@@ -4,6 +4,7 @@ metadata:
   track-number: 6
   author: Onyxite
   difficulty: 7
+  key: F minor # parts in C minor
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com

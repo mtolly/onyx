@@ -5,6 +5,7 @@ metadata:
   author: Onyxite
   preview-start: prc_big_riff_2
   difficulty: 7
+  key: D major # the "choruses" and also keys + gtr solos
 audio:
   album-track:
     # https://novacollectivefusion.bandcamp.com

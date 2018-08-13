@@ -3,7 +3,7 @@ metadata:
   file-include: ../../../albums/the-further-side.yml
   track-number: 5
   author: Onyxite
-  key: B
+  key: B minor
   difficulty: 6
 audio:
   album-track:
