@@ -74,6 +74,7 @@ onyxite's C3-format Song IDs (16602xxxxx)
   v1 published 2017-04-07
   Kung-Fu World Champion v2 published 2017-09-24: drum animations and some drum chart fixes
   Kung-Fu World Champion v3 published 2017-12-10: fixes to pro keys, basic keys, and bass thanks to 5.1 version
+  RAAR v2 published for full album release 2018-??-??
 
 1660200045 New Millennium (Dream Theater) 1x
 1660200046 New Millennium (Dream Theater) 2x
@@ -120,12 +121,25 @@ onyxite's C3-format Song IDs (16602xxxxx)
   Onyxite's Jazz Pack 3
   v1 released 2018-01-31
   v2 of Cascades released 2018-03-12 (fix bass solo incorrectly charted to keys)
+  v3 of Cascades released 2018-??-?? (full album release)
 
 1660200076 Enigma Machine (Dream Theater) 1x
 1660200077 Enigma Machine (Dream Theater) 2x
 1660200078 The Great Debate (Dream Theater) 1x
 1660200079 The Great Debate (Dream Theater) 2x
   v1 released 2018-06-26
+
+1660200080 Dancing Machines (Nova Collective) 1x
+1660200081 Dancing Machines (Nova Collective) 2x
+1660200082 Air (Nova Collective) 1x
+1660200083 Air (Nova Collective) 2x
+1660200084 State of Flux (Nova Collective) 1x
+1660200085 State of Flux (Nova Collective) 2x
+1660200086 The Further Side (Nova Collective) 1x
+1660200087 The Further Side (Nova Collective) 2x
+  The Further Side (album)
+  [see RAAR and Cascades in jazz packs above]
+  v1 released 2018-??-??
 
 BONUS SONGS (counting down from max)
 
