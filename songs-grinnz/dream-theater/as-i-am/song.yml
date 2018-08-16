@@ -87,6 +87,7 @@ parts:
   bass:
     pro-guitar:
       tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC
+    grybo: {}
 targets:
   rb3:
     game: rb3
