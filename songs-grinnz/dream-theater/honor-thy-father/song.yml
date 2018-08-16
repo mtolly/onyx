@@ -90,5 +90,6 @@ parts:
   #     tuning: [0, 0, 0, 0, 0, 0]
   #     tuning-global: -4 # C standard
   bass:
+    grybo: {}
     pro-guitar:
       tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC
