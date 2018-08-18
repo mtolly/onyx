@@ -39,6 +39,9 @@ parts:
   bass:
     grybo:
       difficulty: 3
+    pro-guitar: # need to check a few sections from the video
+      difficulty: 4
+      tuning: [-5, -5, -5, -5, -4, -4] # EADG -> BEADGC
 targets:
   # visualizer: http://i.imgur.com/J2aeifp.jpg
   # download: http://www.mediafire.com/?h2o57o26d6o8041
