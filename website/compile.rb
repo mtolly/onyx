@@ -82,8 +82,6 @@ def makeDifficulties(parts, song)
         mode_image = 'ghl'
       when 'pro-guitar'
         if [
-          'Cascades',
-          'Ripped Apart and Reassembled',
           'Summer Goddess',
           'Scoop Out',
           'Prophets of War',

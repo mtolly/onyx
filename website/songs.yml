@@ -156,12 +156,6 @@
   urls:
     rb3: download/OJP2_SummerGoddess_v1_rb3con
     ps: download/OJP2_SummerGoddess_v1_ps.zip
-- file-path: ../songs/nova-collective/ripped-apart-and-reassembled
-  video: https://www.youtube.com/watch?v=Ja4KRbGHKQU
-  urls:
-    rb3: download/OJP2_RippedApart_v1_1x_rb3con
-    rb3-2x: download/OJP2_RippedApart_v1_2x_rb3con
-    ps: download/OJP2_RippedApart_v1_ps.zip
 
 - file-path: ../songs/dream-theater/new-millennium
   video: https://www.youtube.com/watch?v=-IsTXpLyQ94
@@ -268,12 +262,6 @@
   urls:
     rb3: download/OJP3_leviathan_v1_rb3con
     ps: download/OJP3_leviathan_v1_ps_ch.zip
-- file-path: ../songs/nova-collective/cascades
-  video: https://www.youtube.com/watch?v=pHGLMVC4R0k
-  urls:
-    rb3: download/OJP3_Cascades1x_v2_rb3con
-    rb3-2x: download/OJP3_Cascades2x_v2_rb3con
-    ps: download/OJP3_Cascades_v2_ps_ch.zip
 - file-path: ../songs/return-to-forever/medieval-overture
   video: https://www.youtube.com/watch?v=imIuiXnS0sY
   urls:
@@ -302,3 +290,41 @@
     rb3: download/onyx_EnigmaMachine1x_v1_rb3con
     rb3-2x: download/onyx_EnigmaMachine2x_v1_rb3con
     ps: download/onyx_EnigmaMachine_v1_ch_ps.zip
+
+# The Further Side (Nova Collective)
+- file-path: ../songs/nova-collective/dancing-machines
+  video: https://www.youtube.com/watch?v=p6CMAksrnz4&index=1&list=PLbzRUhk5--qejXeY_xklTb3nwbuoQHguj
+  urls:
+    rb3: download/onyx_DancingMachines_1x_v1_rb3con
+    rb3-2x: download/onyx_DancingMachines_2x_v1_rb3con
+    ps: download/onyx_DancingMachines_v1_ps.zip
+- file-path: ../songs/nova-collective/cascades
+  video: https://www.youtube.com/watch?v=Hy3qhws8_UQ&index=2&list=PLbzRUhk5--qejXeY_xklTb3nwbuoQHguj
+  urls:
+    rb3: download/onyx_Cascades_1x_v3_rb3con
+    rb3-2x: download/onyx_Cascades_2x_v3_rb3con
+    ps: download/onyx_Cascades_v3_ps.zip
+- file-path: ../songs/nova-collective/air
+  video: https://www.youtube.com/watch?v=d5dZ5sgzrjs&index=3&list=PLbzRUhk5--qejXeY_xklTb3nwbuoQHguj
+  urls:
+    rb3: download/onyx_Air_1x_v1_rb3con
+    rb3-2x: download/onyx_Air_2x_v1_rb3con
+    ps: download/onyx_Air_v1_ps.zip
+- file-path: ../songs/nova-collective/state-of-flux
+  video: https://www.youtube.com/watch?v=tGYv-Y7d0q4&index=4&list=PLbzRUhk5--qejXeY_xklTb3nwbuoQHguj
+  urls:
+    rb3: download/onyx_StateOfFlux_1x_v1_rb3con
+    rb3-2x: download/onyx_StateOfFlux_2x_v1_rb3con
+    ps: download/onyx_StateOfFlux_v1_ps.zip
+- file-path: ../songs/nova-collective/ripped-apart-and-reassembled
+  video: https://www.youtube.com/watch?v=jqMC6cYnTlE&index=5&list=PLbzRUhk5--qejXeY_xklTb3nwbuoQHguj
+  urls:
+    rb3: download/onyx_RippedApart_1x_v2_rb3con
+    rb3-2x: download/onyx_RippedApart_2x_v2_rb3con
+    ps: download/onyx_RippedApart_v2_ps.zip
+- file-path: ../songs/nova-collective/the-further-side
+  video: https://www.youtube.com/watch?v=rzOYac-pZy4&index=6&list=PLbzRUhk5--qejXeY_xklTb3nwbuoQHguj
+  urls:
+    rb3: download/onyx_TheFurtherSide_1x_v1_rb3con
+    rb3-2x: download/onyx_TheFurtherSide_2x_v1_rb3con
+    ps: download/onyx_TheFurtherSide_v1_ps.zip
