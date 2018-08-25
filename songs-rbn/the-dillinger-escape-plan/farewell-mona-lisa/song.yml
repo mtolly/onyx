@@ -1,3 +1,19 @@
+metadata:
+  title: Farewell, Mona Lisa
+  artist: The Dillinger Escape Plan
+  album: Option Paralysis
+  track-number: 1
+  year: 2010
+  genre: metal
+  subgenre: core
+  author: ThatAuthoringGroup, Onyxite
+  preview-start: 4:15.000
+  preview-end: 4:45.000
+  difficulty:
+    tier: 6
+  file-album-art: cover.png_xbox
+  comments:
+  - Edited drums chart by Onyxite.
 parts:
   vocal:
     vocal:
@@ -32,82 +48,29 @@ parts:
 plans:
   mogg:
     parts:
-      vocal:
-      - 10
-      - 11
-      bass:
-      - 6
-      - 7
-      guitar:
-      - 8
-      - 9
-      keys:
-      - 12
-      - 13
       drums:
-        kick:
-        - 0
-        - 1
-        snare:
-        - 2
-        - 3
-        kit:
-        - 4
-        - 5
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    karaoke: false
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6, 7]
+      guitar: [8, 9]
+      vocal: [10, 11]
+      keys: [12, 13]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-0.5, -0.5, -0.5, -0.5, -0.3, -0.3, 0, 0, 0, 0, -0.5, -0.5, 0, 0, 0, 0]
     mogg-md5: da7be9b96ddd9e7508c792225bd1ca2d
-    multitrack: false
-    vols:
-    - -0.5
-    - -0.5
-    - -0.5
-    - -0.5
-    - -0.30000001192092896
-    - -0.30000001192092896
-    - 0
-    - 0
-    - 0
-    - 0
-    - -0.5
-    - -0.5
-    - 0
-    - 0
-    - 0
-    - 0
+    multitrack: true
 targets:
+  rb3:
+    song-id: 1660299993
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    label: (O)
   rb3-2x:
-    song-id: 5006800
+    song-id: 1660299992
     game: rb3
     file-milo: lipsync.milo_xbox
     2x-bass-pedal: true
-metadata:
-  preview-start: 4:15.000
-  file-album-art: cover.png_xbox
-  track-number: 1
-  album: Option Paralysis
-  year: 2010
-  subgenre: core
-  author: null
-  title: Farewell, Mona Lisa
-  preview-end: 4:45.000
-  genre: metal
-  difficulty:
-    tier: 6
-  artist: The Dillinger Escape Plan
+    label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
