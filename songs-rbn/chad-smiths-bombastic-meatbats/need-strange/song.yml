@@ -1,5 +1,20 @@
+metadata:
+  title: Need Strange
+  artist: Chad Smith's Bombastic Meatbats
+  album: Meet the Meatbats
+  track-number: 1
+  year: 2009
+  author: ThatAuthoringGroup, Onyxite
+  file-album-art: cover.png_xbox
+  genre: rbsoulfunk
+  subgenre: funk
+  preview-start: 3:45.000
+  preview-end: 4:15.000
+  difficulty:
+    tier: 6
+  comments:
+  - Edited drum chart, redone tempo map, and fixed BEAT track by Onyxite.
 parts:
-  vocal: {}
   bass:
     grybo:
       fix-freeform: false
@@ -21,80 +36,28 @@ parts:
         tier: 7
   drums:
     drums:
-      fix-freeform: false
       difficulty:
         tier: 7
 plans:
   mogg:
     parts:
-      bass:
-      - 6
-      - 7
-      guitar:
-      - 8
-      - 9
-      keys:
-      - 10
-      - 11
       drums:
-        kick:
-        - 0
-        - 1
-        snare:
-        - 2
-        - 3
-        kit:
-        - 4
-        - 5
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6, 7]
+      guitar: [8, 9]
+      keys: [10, 11]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-3, -3, -1.5, -1.5, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3]
     karaoke: false
     mogg-md5: e3f209e23e141e9f3bb1c261e9837409
     multitrack: false
-    vols:
-    - -3
-    - -3
-    - -1.5
-    - -1.5
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
 targets:
   rb3:
-    song-id: 5006784
+    song-id: 1660299991
     game: rb3
-    version: 30
-metadata:
-  preview-start: 3:45.000
-  file-album-art: cover.png_xbox
-  track-number: 1
-  album: Meet the Meatbats
-  year: 2009
-  subgenre: funk
-  author: null
-  title: Need Strange
-  preview-end: 4:15.000
-  genre: rbsoulfunk
-  difficulty:
-    tier: 6
-  artist: Chad Smith's Bombastic Meatbats
+    label: (O)
+  ps:
+    game: ps
+    label: (O)
