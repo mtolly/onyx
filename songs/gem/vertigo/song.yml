@@ -5,10 +5,7 @@ metadata:
   genre: Jazz
   subgenre: contemporary
   artist: GEM
-  # no actual album yet, just filler info
   file-album-art: cover.jpg # taken from instagram page
-  album: GEM
-  track-number: 1
 plans:
   album:
     song:

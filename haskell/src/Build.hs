@@ -313,9 +313,11 @@ makeRB3DTA songYaml plan rb3 song filename = do
     , D.shortVersion = Nothing
     , D.yearReleased = fromIntegral $ getYear $ _metadata songYaml
     , D.yearRecorded = Nothing
-    , D.albumArt = Just True
-    , D.albumName = Just $ getAlbum $ _metadata songYaml
-    , D.albumTrackNumber = Just $ fromIntegral $ getTrackNumber $ _metadata songYaml
+    -- confirmed: you can have (album_art 1) with no album_name/album_track_number
+    , D.albumArt = Just $ isJust $ _fileAlbumArt $ _metadata songYaml
+    -- haven't tested behavior if you have album_name but no album_track_number
+    , D.albumName = _album $ _metadata songYaml
+    , D.albumTrackNumber = fmap fromIntegral $ _trackNumber $ _metadata songYaml
     , D.packName = Nothing
     , D.vocalTonicNote = fmap songKey $ _key $ _metadata songYaml
     , D.songTonality = fmap songTonality $ _key $ _metadata songYaml
@@ -1124,7 +1126,9 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 shk $ copyFile' milo out
                 forceRW out
             pathCon %> \out -> do
-              shk $ need [pathDta, pathMid, pathMogg, pathPng, pathMilo]
+              let files = [pathDta, pathMid, pathMogg, pathMilo]
+                    ++ [pathPng | isJust $ _fileAlbumArt $ _metadata songYaml]
+              shk $ need files
               lg "# Producing RB3 CON file via X360"
               rb3pkg
                 (getArtist (_metadata songYaml) <> ": " <> title)
