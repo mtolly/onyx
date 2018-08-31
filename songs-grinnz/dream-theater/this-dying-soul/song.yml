@@ -116,6 +116,9 @@ parts:
   vocal:
     vocal:
       count: 3
+  bass:
+    pro-guitar: # WIP
+      tuning: [-5, -5, -5, -5, -4, -4] # EADGBE -> BEADGC
 targets:
   rb3:
     game: rb3
