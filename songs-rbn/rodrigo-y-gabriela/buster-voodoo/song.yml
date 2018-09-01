@@ -3,7 +3,7 @@ parts:
     grybo:
       difficulty:
         rank: 401
-    # to finish: pro bass
+    pro-guitar: {} # WIP
   guitar:
     grybo:
       difficulty:
