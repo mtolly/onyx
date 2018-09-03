@@ -6,6 +6,10 @@ metadata:
   track-number: 2
   rating: FamilyFriendly
   key: C minor
+  genre: jazz
+  subgenre: contemporary
+  year: 2007
+  file-album-art: cover.jpg
 audio:
   album-track:
     md5: 449ae5a309863b41cf3fa5c528eec826
