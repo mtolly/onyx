@@ -5,7 +5,7 @@ metadata:
   author: Onyxite
   track-number: 2
   rating: FamilyFriendly
-  key: C
+  key: C minor
 audio:
   album-track:
     md5: 449ae5a309863b41cf3fa5c528eec826
@@ -34,24 +34,35 @@ plans:
       ch1:
         pad:
         - 4.052
-        - channels: [[0], surround]
+        - stretch:
+          # audio on-time at 0:04.281, then later 6:31.208 in album matched 6:31.171 in surround
+          - 1.0000956344180518 # (391.208 - 4.281) / (391.171 - 4.281)
+          - channels: [[0], surround]
       ch2:
         pad:
         - 4.052
-        - channels: [[1], surround]
+        - stretch:
+          - 1.0000956344180518
+          - channels: [[1], surround]
       ch3:
         pad:
         - 4.052
-        - channels: [[2], surround]
+        - stretch:
+          - 1.0000956344180518
+          - channels: [[2], surround]
       # ch4 is useless
       ch5:
         pad:
         - 4.052
-        - channels: [[4], surround]
+        - stretch:
+          - 1.0000956344180518
+          - channels: [[4], surround]
       ch6:
         pad:
         - 4.052
-        - channels: [[5], surround]
+        - stretch:
+          - 1.0000956344180518
+          - channels: [[5], surround]
 parts:
   drums:
     drums: {}
