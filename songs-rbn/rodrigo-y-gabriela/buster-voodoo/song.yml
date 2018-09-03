@@ -3,12 +3,14 @@ parts:
     grybo:
       difficulty:
         rank: 401
-    pro-guitar: {} # WIP
+    pro-guitar:
+      difficulty: 7
   guitar:
     grybo:
       difficulty:
         rank: 406
-    pro-guitar: {}
+    pro-guitar:
+      difficulty: 7
 plans:
   mogg:
     parts:
