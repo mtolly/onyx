@@ -12,6 +12,7 @@ module Data.DTA
 , readDTABytes, readDTASections
 , writeFileDTA_latin1, writeFileDTA_utf8
 , renumberFrom
+, removeBOM
 ) where
 
 import           Control.Applicative            ((<|>))

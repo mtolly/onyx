@@ -201,8 +201,8 @@ makeRB3DTA songYaml plan rb3 song filename = do
           Just _  -> [(-1, 0), (1, 0)]
       songChannels = [(-1, 0), (1, 0)]
   return D.SongPackage
-    { D.name = targetTitle songYaml $ RB3 rb3
-    , D.artist = getArtist $ _metadata songYaml
+    { D.name = replaceCharsRB False $ targetTitle songYaml $ RB3 rb3
+    , D.artist = replaceCharsRB False $ getArtist $ _metadata songYaml
     , D.master = not $ _cover $ _metadata songYaml
     , D.songId = Just $ fromMaybe (Right filename) $ rb3_SongID rb3
     , D.song = D.Song
@@ -316,7 +316,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
     -- confirmed: you can have (album_art 1) with no album_name/album_track_number
     , D.albumArt = Just $ isJust $ _fileAlbumArt $ _metadata songYaml
     -- haven't tested behavior if you have album_name but no album_track_number
-    , D.albumName = _album $ _metadata songYaml
+    , D.albumName = fmap (replaceCharsRB False) $ _album $ _metadata songYaml
     , D.albumTrackNumber = fmap fromIntegral $ _trackNumber $ _metadata songYaml
     , D.packName = Nothing
     , D.vocalTonicNote = fmap songKey $ _key $ _metadata songYaml
@@ -426,6 +426,14 @@ makeC3 songYaml plan rb3 midi pkg = do
     , C3.toDoList = C3.defaultToDo
     }
 
+replaceCharsRB :: Bool -> T.Text -> T.Text
+replaceCharsRB rbproj = T.map $ \case
+  'ÿ' | rbproj -> 'y'
+  'Ÿ' | rbproj -> 'Y'
+  '–' -> '-' -- en dash
+  '—' -> '-' -- em dash
+  c   -> c
+
 -- Magma RBProj rules
 makeMagmaProj :: SongYaml -> TargetRB3 -> Plan -> T.Text -> FilePath -> Action T.Text -> Staction Magma.RBProj
 makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
@@ -454,10 +462,6 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
         , Magma.vol = []
         , Magma.audioFile = ""
         }
-      replaceŸ = T.map $ \case
-        'ÿ' -> 'y'
-        'Ÿ' -> 'Y'
-        c   -> c
       voxCount = fmap vocalCount $ getPart (rb3_Vocal rb3) songYaml >>= partVocal
       pvFile :: [(Double, Double)] -> T.Text -> Magma.AudioFile
       pvFile pvs f = Magma.AudioFile
@@ -478,12 +482,12 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
       { Magma.toolVersion = "110411_A"
       , Magma.projectVersion = 24
       , Magma.metadata = Magma.Metadata
-        { Magma.songName = replaceŸ title
-        , Magma.artistName = replaceŸ $ getArtist $ _metadata songYaml
+        { Magma.songName = replaceCharsRB True title
+        , Magma.artistName = replaceCharsRB True $ getArtist $ _metadata songYaml
         , Magma.genre = rbn2Genre fullGenre
         , Magma.subGenre = "subgenre_" <> rbn2Subgenre fullGenre
         , Magma.yearReleased = fromIntegral $ max 1960 $ getYear $ _metadata songYaml
-        , Magma.albumName = replaceŸ $ getAlbum $ _metadata songYaml
+        , Magma.albumName = replaceCharsRB True $ getAlbum $ _metadata songYaml
         , Magma.author = getAuthor $ _metadata songYaml
         , Magma.releaseLabel = "Onyxite Customs"
         , Magma.country = "ugc_country_us"

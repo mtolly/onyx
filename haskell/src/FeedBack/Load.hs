@@ -10,6 +10,7 @@ import           Control.Monad.Trans.StackTrace   (SendMessage, StackTraceT,
 import           Data.Bifunctor                   (first)
 import qualified Data.ByteString                  as B
 import           Data.Default.Class               (def)
+import           Data.DTA                         (removeBOM)
 import           Data.Either                      (isLeft)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -104,7 +105,7 @@ loadChartFile :: (MonadIO m) => FilePath -> StackTraceT m (Chart Ticks)
 loadChartFile fp = inside ("Loading .chart file: " <> fp) $ do
   str <- stackIO $ TE.decodeUtf8With lenientDecode <$> B.readFile fp
   -- utf-8 observed on at least one song, but probably not universal. should research more
-  scanStack str >>= parseStack >>= parseChart
+  scanStack (removeBOM str) >>= parseStack >>= parseChart
 
 getTempos :: Chart U.Beats -> U.TempoMap
 getTempos
@@ -132,6 +133,8 @@ chartToIni :: Chart t -> FoF.Song
 chartToIni chart = def
   { FoF.name = HM.lookup "Name" song >>= atomStr'
   , FoF.artist = HM.lookup "Artist" song >>= atomStr'
+  , FoF.album = HM.lookup "Album" song >>= atomStr'
+  , FoF.genre = HM.lookup "Genre" song >>= atomStr'
   , FoF.charter = HM.lookup "Charter" song >>= atomStr'
   , FoF.year = HM.lookup "Year" song >>= \case
     Int i -> Just $ fromIntegral i
