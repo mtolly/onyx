@@ -19,6 +19,7 @@ import           Draw.ProKeys       (drawProKeys)
 import           Draw.Protar        (drawProtar)
 import           Draw.Six           (drawSix)
 import           Draw.Vocal         (drawVocal)
+import           Draw.Amplitude     (drawAmplitude)
 import           Images             (ImageID (..))
 import           Song               (Flex (..), Song (..))
 import           Style              (customize)
@@ -65,13 +66,14 @@ draw stuff = do
         pure diff.enabled
       drawParts someStuff = drawTracks (_M + _B + _M) $ concat $ flip map song.parts \(Tuple part (Flex flex)) -> do
         fn <-
-          [ \diff i -> drawPart (flex.five    >>= lookup diff) (partEnabled part "five"    diff) drawFive    i someStuff
-          , \diff i -> drawPart (flex.six     >>= lookup diff) (partEnabled part "six"     diff) drawSix     i someStuff
-          , \diff i -> drawPart (flex.drums   >>= lookup diff) (partEnabled part "drums"   diff) drawDrums   i someStuff
-          , \diff i -> drawPart (flex.prokeys >>= lookup diff) (partEnabled part "prokeys" diff) drawProKeys i someStuff
-          , \diff i -> drawPart (flex.protar  >>= lookup diff) (partEnabled part "protar"  diff) drawProtar  i someStuff
+          [ \diff i -> drawPart (flex.five      >>= lookup diff) (partEnabled part "five"      diff) drawFive      i someStuff
+          , \diff i -> drawPart (flex.six       >>= lookup diff) (partEnabled part "six"       diff) drawSix       i someStuff
+          , \diff i -> drawPart (flex.drums     >>= lookup diff) (partEnabled part "drums"     diff) drawDrums     i someStuff
+          , \diff i -> drawPart (flex.prokeys   >>= lookup diff) (partEnabled part "prokeys"   diff) drawProKeys   i someStuff
+          , \diff i -> drawPart (flex.protar    >>= lookup diff) (partEnabled part "protar"    diff) drawProtar    i someStuff
+          , \diff i -> drawPart (flex.amplitude >>= lookup diff) (partEnabled part "amplitude" diff) drawAmplitude i someStuff
           ]
-        map fn ["X+", "X", "H", "M", "E"]
+        map fn ["X+", "X", "H", "M", "E", "S/X", "A", "I", "B"]
   if stuff.app.settings.staticVert
     then let
       betweenTargets = windowH * 0.65

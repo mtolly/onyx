@@ -1760,40 +1760,18 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
         dir </> "everything.wav" %> \out -> case plan of
           MoggPlan{..} -> do
             src <- shk $ buildSource $ Input $ dir </> "audio.ogg"
-            runAudio (applyPansVols (map realToFrac _pans) (map realToFrac _vols) src) out
+            let vols = zipWith f [0..] _vols
+                f i vol = if elem i _moggCrowd then -99 else vol
+            runAudio (applyPansVols (map realToFrac _pans) (map realToFrac vols) src) out
           Plan{..} -> do
             let planAudios = concat
                   [ toList _song
-                  , toList _crowd
                   , toList _planParts >>= toList
                   ]
             srcs <- mapM (buildAudioToSpec audioLib songYaml [(-1, 0), (1, 0)] . Just) planAudios
             count <- shk $ buildSource $ Input $ dir </> "countin.wav"
             runAudio (foldr mix count srcs) out
         dir </> "everything.ogg" %> buildAudio (Input $ dir </> "everything.wav")
-
-        dir </> "everything-mono.wav" %> \out -> case plan of
-          MoggPlan{..} -> do
-            src <- shk $ buildSource $ Input $ dir </> "audio.ogg"
-            runAudio (applyVolsMono (map realToFrac _vols) src) out
-          Plan{..} -> do
-            let planAudios = concat
-                  [ toList _song
-                  , toList _crowd
-                  , toList _planParts >>= toList
-                  ]
-            srcs <- forM planAudios $ \pa -> let
-              chans = computeChannelsPlan songYaml $ _planExpr pa
-              vols = map realToFrac $ case _planVols pa of
-                [] -> replicate chans 0
-                xs -> xs
-              in do
-                src <- fmap join $ mapM (manualLeaf audioLib songYaml) $ _planExpr pa
-                fmap (applyVolsMono vols) $ shk $ buildSource src
-            count <- do
-              csrc <- shk $ buildSource $ Input $ dir </> "countin.wav"
-              return $ applyVolsMono [0, 0] csrc
-            runAudio (foldr mix count srcs) out
 
         -- MIDI files
 

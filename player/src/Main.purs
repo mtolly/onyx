@@ -115,24 +115,27 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                    , difficulties: map (diff enabled) (take 1 o.diffs) <> map (diff false) (drop 1 o.diffs)
                    }
               insts = concat
-                [ case flex.five    of
+                [ case flex.five      of
                   Nothing -> []
-                  Just ds -> [{type: "five"   , diffs: map fst ds}]
-                , case flex.six     of
+                  Just ds -> [{type: "five"     , diffs: map fst ds}]
+                , case flex.six       of
                   Nothing -> []
-                  Just ds -> [{type: "six"    , diffs: map fst ds}]
-                , case flex.drums   of
+                  Just ds -> [{type: "six"      , diffs: map fst ds}]
+                , case flex.drums     of
                   Nothing -> []
-                  Just ds -> [{type: "drums"  , diffs: map fst ds}]
-                , case flex.prokeys of
+                  Just ds -> [{type: "drums"    , diffs: map fst ds}]
+                , case flex.prokeys   of
                   Nothing -> []
-                  Just ds -> [{type: "prokeys", diffs: map fst ds}]
-                , case flex.protar  of
+                  Just ds -> [{type: "prokeys"  , diffs: map fst ds}]
+                , case flex.protar    of
                   Nothing -> []
-                  Just ds -> [{type: "protar" , diffs: map fst ds}]
-                , case flex.vocal   of
+                  Just ds -> [{type: "protar"   , diffs: map fst ds}]
+                , case flex.amplitude of
                   Nothing -> []
-                  Just v  -> [{type: "vocal"  , diffs: ["X"]     }]
+                  Just ds -> [{type: "amplitude", diffs: map fst ds}]
+                , case flex.vocal     of
+                  Nothing -> []
+                  Just v  -> [{type: "vocal"    , diffs: ["X"]     }]
                 ]
               in map (inst true) (take 1 insts) <> map (inst false) (drop 1 insts)
             }

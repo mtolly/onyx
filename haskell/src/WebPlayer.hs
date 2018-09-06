@@ -9,8 +9,11 @@ module WebPlayer
 , showTimestamp
 ) where
 
+import qualified Amplitude.File                   as Amp
+import qualified Amplitude.Track                  as Amp
 import qualified Config                           as C
 import           Control.Applicative              ((<|>))
+import           Control.Arrow                    (first)
 import           Control.Monad                    (guard)
 import qualified Data.Aeson                       as A
 import qualified Data.Aeson.Types                 as A
@@ -575,6 +578,20 @@ processVocal tmap h1 h2 h3 tonic = let
     , vocalRanges = ranges
     }
 
+data Amplitude t = Amplitude
+  { ampNotes      :: RTB.T t Amp.Gem
+  , ampInstrument :: Amp.Instrument
+  } deriving (Eq, Ord, Show)
+
+instance A.ToJSON (Amplitude U.Seconds) where
+  toJSON x = A.object
+    [ (,) "notes" $ eventList (ampNotes x) $ \case
+      Amp.L -> A.Number 1
+      Amp.M -> A.Number 2
+      Amp.R -> A.Number 3
+    , (,) "instrument" $ A.toJSON $ show $ ampInstrument x
+    ]
+
 newtype Difficulties a t = Difficulties [(T.Text, a t)]
   deriving (Eq, Ord, Show)
 
@@ -582,12 +599,13 @@ instance (A.ToJSON (a t)) => A.ToJSON (Difficulties a t) where
   toJSON (Difficulties xs) = A.toJSON [ [A.toJSON d, A.toJSON x] | (d, x) <- xs ]
 
 data Flex t = Flex
-  { flexFive    :: Maybe (Difficulties Five    t)
-  , flexSix     :: Maybe (Difficulties Six     t)
-  , flexDrums   :: Maybe (Difficulties Drums   t)
-  , flexProKeys :: Maybe (Difficulties ProKeys t)
-  , flexProtar  :: Maybe (Difficulties Protar  t)
-  , flexVocal   :: Maybe (Vocal                t)
+  { flexFive    :: Maybe (Difficulties Five      t)
+  , flexSix     :: Maybe (Difficulties Six       t)
+  , flexDrums   :: Maybe (Difficulties Drums     t)
+  , flexProKeys :: Maybe (Difficulties ProKeys   t)
+  , flexProtar  :: Maybe (Difficulties Protar    t)
+  , flexCatch   :: Maybe (Difficulties Amplitude t)
+  , flexVocal   :: Maybe (Vocal                  t)
   } deriving (Eq, Ord, Show)
 
 instance A.ToJSON (Flex U.Seconds) where
@@ -597,6 +615,7 @@ instance A.ToJSON (Flex U.Seconds) where
     , case flexDrums   flex of Nothing -> []; Just x -> [("drums"  , A.toJSON x)]
     , case flexProKeys flex of Nothing -> []; Just x -> [("prokeys", A.toJSON x)]
     , case flexProtar  flex of Nothing -> []; Just x -> [("protar" , A.toJSON x)]
+    , case flexCatch   flex of Nothing -> []; Just x -> [("catch"  , A.toJSON x)]
     , case flexVocal   flex of Nothing -> []; Just x -> [("vocal"  , A.toJSON x)]
     ]
 
@@ -664,6 +683,20 @@ makeDisplay songYaml song = let
         (RBFile.onyxPartVocals $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
         mempty
         mempty
+    , flexCatch = flip fmap (C.partAmplitude fpart) $ \amp -> let
+      ampDiffNames (Difficulties pairs) = Difficulties $ flip map pairs $ first $ \case
+        "X" -> "S/X"
+        "H" -> "A"
+        "M" -> "I"
+        "E" -> "B"
+        d   -> d
+      in ampDiffNames $ makeDifficulties $ \diff -> do
+        notes <- fmap Amp.catchGems $ Map.lookup diff $ Amp.catchDifficulties $ RBFile.onyxCatch tracks
+        guard $ not $ RTB.null notes
+        return Amplitude
+          { ampNotes = U.applyTempoTrack (RBFile.s_tempos song) notes
+          , ampInstrument = C.ampInstrument amp
+          }
     } where
       tracks = RBFile.getFlexPart name $ RBFile.s_tracks song
   parts = do

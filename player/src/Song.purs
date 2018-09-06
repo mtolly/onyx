@@ -28,12 +28,13 @@ newtype Song = Song
 type Difficulties a = Array (Tuple String a)
 
 newtype Flex = Flex
-  { five    :: Maybe (Difficulties Five)
-  , six     :: Maybe (Difficulties Six)
-  , drums   :: Maybe (Difficulties Drums)
-  , prokeys :: Maybe (Difficulties ProKeys)
-  , protar  :: Maybe (Difficulties Protar)
-  , vocal   :: Maybe Vocal
+  { five      :: Maybe (Difficulties Five)
+  , six       :: Maybe (Difficulties Six)
+  , drums     :: Maybe (Difficulties Drums)
+  , prokeys   :: Maybe (Difficulties ProKeys)
+  , protar    :: Maybe (Difficulties Protar)
+  , amplitude :: Maybe (Difficulties Amplitude)
+  , vocal     :: Maybe Vocal
   }
 
 data FlexPart
@@ -181,6 +182,13 @@ data Pitch
 
 derive instance eqPitch :: Eq Pitch
 derive instance ordPitch :: Ord Pitch
+
+newtype Amplitude = Amplitude
+  { notes      :: Map.Map Seconds AmpNote
+  , instrument :: String
+  }
+
+data AmpNote = L | M | R
 
 isForeignFiveNote :: Foreign -> F (Sustainable GuitarNoteType)
 isForeignFiveNote f = readString f >>= \s -> case s of
@@ -382,6 +390,21 @@ isForeignFive f = do
     , bre: bre
     }
 
+isForeignAmplitude :: Foreign -> F Amplitude
+isForeignAmplitude f = do
+  notesF <- readProp "notes" f
+  let readGem g = readInt g >>= \i -> case i of
+        1 -> pure L
+        2 -> pure M
+        3 -> pure R
+        _ -> throwError $ pure $ TypeMismatch "Amplitude note" $ show i
+  notes <- readTimedMap readGem notesF
+  instrument <- readProp "instrument" f >>= readString
+  pure $ Amplitude
+    { notes: notes
+    , instrument: instrument
+    }
+
 isForeignSix :: Foreign -> F Six
 isForeignSix f = do
   notesF  <- readProp "notes" f
@@ -532,6 +555,7 @@ isForeignFlex f = do
   drums <- readProp "drums" f >>= readNullOrUndefined >>= traverse (difficulties isForeignDrums)
   prokeys <- readProp "prokeys" f >>= readNullOrUndefined >>= traverse (difficulties isForeignProKeys)
   protar <- readProp "protar" f >>= readNullOrUndefined >>= traverse (difficulties isForeignProtar)
+  amplitude <- readProp "catch" f >>= readNullOrUndefined >>= traverse (difficulties isForeignAmplitude)
   vocal <- readProp "vocal" f >>= readNullOrUndefined >>= traverse isForeignVocal
   pure $ Flex
     { five: five
@@ -539,6 +563,7 @@ isForeignFlex f = do
     , drums: drums
     , prokeys: prokeys
     , protar: protar
+    , amplitude: amplitude
     , vocal: vocal
     }
 
