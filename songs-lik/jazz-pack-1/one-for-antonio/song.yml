@@ -1,21 +1,13 @@
-plans:
-  album:
-    song:
-      pad:
-      - 2.576
-      - concatenate:
-        - take: ['1:23.924', youtube]
-        - drop: ['5:05.137', youtube]
-  mogg:
-    pans: [-1, 1, -1, 1]
-    mogg-md5: d86bc737f97505d5707b58a5bf3b05f3
-    parts:
-      drums: [0, 1]
-    vols: [-1.5, -1.5, -3, -3]
 metadata:
-  author: TheLieInKing
-  title: One for Antonio
+  author: TheLieInKing, Onyxite
+  title: One for Antonio (Master Series)
   artist: Chick Corea and Antonio Sanchez
+  file-album-art: cover.jpg
+  album: Migration
+  track-number: 1
+  genre: jazz
+  subgenre: contemporary
+  year: 2007
 audio:
   youtube:
     commands:
@@ -23,6 +15,23 @@ audio:
     file-path: audio-youtube.wav
     md5: ec4fe71853a5e152967a52e15078d282
     frames: 23981056
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [1.534, youtube]
 parts:
   drums:
-    drums: {}
+    drums:
+      difficulty: 7
+targets:
+  rb3:
+    game: rb3
