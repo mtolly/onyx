@@ -1,7 +1,7 @@
 metadata:
   author: TheLieInKing, Onyxite
   title: One for Antonio (Master Series)
-  artist: Chick Corea and Antonio Sanchez
+  artist: Chick Corea and Antonio Sánchez
   file-album-art: cover.jpg
   album: Migration
   track-number: 1
@@ -15,11 +15,15 @@ audio:
     file-path: audio-youtube.wav
     md5: ec4fe71853a5e152967a52e15078d282
     frames: 23981056
+  album:
+    md5: 6ce1c146a6f9a017676a0b9300ceca8b
+    frames: 23968056
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
-  album:
+  youtube:
     countin:
+      &countin
       0|0: hihat
       0|2: hihat
       1|0: hihat
@@ -28,6 +32,13 @@ plans:
       1|3: hihat
     song:
       pad: [1.534, youtube]
+  dev:
+    countin: *countin
+    parts:
+      youtube:
+        pad: [1.534, youtube]
+      album:
+        pad: [3.709, album]
 parts:
   drums:
     drums:
@@ -35,3 +46,4 @@ parts:
 targets:
   rb3:
     game: rb3
+    plan: youtube
