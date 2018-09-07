@@ -1,0 +1,83 @@
+parts:
+  vocal: {}
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 3
+  guitar: {}
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        tier: 2
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 2
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+plans:
+  mogg:
+    parts:
+      bass:
+      - 2
+      - 3
+      keys:
+      - 4
+      - 5
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 9ba9c4fd13a6910b6ecd6a84104e8acc
+    multitrack: false
+    silent:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+targets:
+  rb3:
+    song-id: 1047700020
+    game: rb3
+metadata:
+  rating: SupervisionRecommended
+  preview-start: 2:01.000
+  file-album-art: cover.png_xbox
+  languages:
+  - English
+  track-number: 6
+  album: The Chocolate Wheelchair Album
+  year: 2003
+  author: TheLieInKing, mazegeek999
+  title: Epidermis
+  preview-end: 2:31.000
+  genre: popdanceelectronic
+  subgenre: breakbeat
+  difficulty:
+    tier: 7
+  artist: Venetian Snares

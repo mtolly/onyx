@@ -89,7 +89,20 @@ parts:
   #   pro-guitar:
   #     tuning: [0, 0, 0, 0, 0, 0]
   #     tuning-global: -4 # C standard
+  keys:
+    pro-keys: {}
   bass:
     grybo: {}
     pro-guitar:
       tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC
+targets:
+  rb3:
+    game: rb3
+    plan: drumcam
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: drumcam
+  ps:
+    game: ps
+    plan: drumcam
