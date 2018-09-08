@@ -7,83 +7,49 @@ parts:
         tier: 3
   bass:
     grybo:
-      fix-freeform: false
       difficulty:
         tier: 7
   guitar:
     grybo:
-      fix-freeform: false
       difficulty:
         tier: 7
-  keys: {}
   drums:
     drums:
-      fix-freeform: false
       difficulty:
         tier: 7
 plans:
   mogg:
     parts:
-      vocal:
-      - 6
-      - 7
-      bass:
-      - 2
-      - 3
-      guitar:
-      - 4
-      - 5
-      drums:
-      - 0
-      - 1
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    karaoke: false
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-1, -1, -1.3, -1.3, -1, -1, -1, -1, -1, -1]
     mogg-md5: 95c045bb4f22da0c6dddba88d299e6c8
-    multitrack: false
-    vols:
-    - -1
-    - -1
-    - -1.2999999523162842
-    - -1.2999999523162842
-    - -1
-    - -1
-    - -1
-    - -1
-    - -1
-    - -1
 targets:
-  rb3-2x:
-    song-id: 5008466
-    game: rb3
-    file-milo: lipsync.milo_xbox
-    version: 30
-    2x-bass-pedal: true
   rb3:
-    song-id: 5008312
+    song-id: 1660299990
     game: rb3
     file-milo: lipsync.milo_xbox
-    version: 30
+    label: (O)
+  rb3-2x:
+    song-id: 1660299989
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
 metadata:
   preview-start: 1:30.000
   file-album-art: cover.png_xbox
   track-number: 1
   album: Continuum
   year: 2006
-  subgenre: thrash
-  author: null
+  author: ThatAuthoringGroup, Onyxite
   title: The Way It Ends
   preview-end: 2:00.000
   genre: metal
+  subgenre: thrash
   difficulty:
     tier: 7
   artist: Prototype
