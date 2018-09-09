@@ -67,7 +67,7 @@ import qualified SDL
 import qualified SDL.Font                         as TTF
 import qualified SDL.Raw                          as Raw
 import qualified Sound.MIDI.Util                  as U
-import           STFS.Extract                     (STFSContents (..), withSTFS)
+import           STFS.Package                     (STFSContents (..), withSTFS)
 import           System.Directory                 (XdgDirectory (..),
                                                    createDirectoryIfMissing,
                                                    getXdgDirectory)

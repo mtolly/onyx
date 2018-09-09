@@ -74,7 +74,7 @@ import qualified RockBand.Legacy.Vocal            as RBVox
 import           Scripts                          (loadFoFMIDI, loadMIDI)
 import qualified Sound.MIDI.File.Save             as Save
 import qualified Sound.MIDI.Util                  as U
-import           STFS.Extract                     (extractSTFS)
+import           STFS.Package                     (extractSTFS)
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (dropExtension, takeDirectory,
                                                    takeExtension, takeFileName,

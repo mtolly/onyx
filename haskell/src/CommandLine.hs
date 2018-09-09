@@ -61,7 +61,7 @@ import qualified Sound.MIDI.Script.Parse          as MS
 import qualified Sound.MIDI.Script.Read           as MS
 import qualified Sound.MIDI.Script.Scan           as MS
 import qualified Sound.MIDI.Util                  as U
-import           STFS.Extract                     (extractSTFS)
+import           STFS.Package                     (extractSTFS)
 import           System.Console.GetOpt
 import qualified System.Directory                 as Dir
 import           System.FilePath                  (dropTrailingPathSeparator,
