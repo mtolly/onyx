@@ -3,20 +3,27 @@
 {-# LANGUAGE RecordWildCards   #-}
 module STFS.Package (extractSTFS, withSTFS, STFSContents(..)) where
 
-import           Control.Monad        (forM_, guard, replicateM)
+import           Control.Monad        (forM_, guard, replicateM, void)
+import           Control.Monad.Codec
+import           Data.Binary.Codec
 import           Data.Binary.Get
+import           Data.Binary.Put
 import           Data.Bits
 import qualified Data.ByteString      as B
 import qualified Data.ByteString.Lazy as BL
 import           Data.Int
 import           Data.Maybe           (mapMaybe)
+import           Data.Profunctor      (dimap)
 import qualified Data.Text            as T
-import           Data.Text.Encoding   (decodeLatin1, decodeUtf16BE)
+import           Data.Text.Encoding
 import           Data.Time
 import           Data.Word
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      ((</>))
 import           System.IO
+
+class Bin a where
+  bin :: BinaryCodec a
 
 data Header
   = CON CONHeader
@@ -36,37 +43,67 @@ data CONHeader = CONHeader
   , ch_Signature               :: B.ByteString -- 0x80 bytes
   } deriving (Eq, Show)
 
+utf8String :: Int -> BinaryCodec T.Text
+utf8String n = dimap
+  (\s -> encodeUtf8 $ s <> T.replicate (n - T.length s) "\0")
+  (T.takeWhile (/= '\0') . decodeUtf8)
+  $ byteString n
+
+utf16BEString :: Int -> BinaryCodec T.Text
+utf16BEString n = dimap
+  (\s -> encodeUtf16BE $ s <> T.replicate (quot n 2 - T.length s) "\0")
+  (T.takeWhile (/= '\0') . decodeUtf16BE)
+  $ byteString n
+
+instance Bin CONHeader where
+  bin = do
+    ch_PublicKeyCertSize <- ch_PublicKeyCertSize =. byteString 2
+    ch_CertOwnerConsoleID <- ch_CertOwnerConsoleID =. byteString 5
+    ch_CertOwnerConsolePartNum <- ch_CertOwnerConsolePartNum =. utf8String 0x14
+    ch_CertOwnerConsoleType <- ch_CertOwnerConsoleType =. bin
+    ch_CertDateGeneration <- ch_CertDateGeneration =. utf8String 8
+    ch_PublicExponent <- ch_PublicExponent =. byteString 4
+    ch_PublicModulus <- ch_PublicModulus =. byteString 0x80
+    ch_CertSignature <- ch_CertSignature =. byteString 0x100
+    ch_Signature <- ch_Signature =. byteString 0x80
+    return CONHeader{..}
+
 data ConsoleType = Devkit | Retail
   deriving (Eq, Show)
+
+instance Bin ConsoleType where
+  bin = Codec
+    { codecIn = getWord8 >>= \case
+      1 -> return Devkit
+      2 -> return Retail
+      b -> fail $ "Unrecognized CON console type: " <> show b
+    , codecOut = fmapArg $ putWord8 . \case
+      Devkit -> 1
+      Retail -> 2
+    }
 
 data LIVEHeader = LIVEHeader
   { lh_PackageSignature :: B.ByteString
   } deriving (Eq, Show)
 
-getHeader :: Get Header
-getHeader = getByteString 4 >>= \case
-  "CON " -> CON <$> getCONHeader
-  "LIVE" -> LIVE <$> getLIVEHeader
-  "PIRS" -> PIRS <$> getLIVEHeader
-  s -> fail $ "Unrecognized STFS magic: " <> show s
-  where getCONHeader = do
-          ch_PublicKeyCertSize <- getByteString 2
-          ch_CertOwnerConsoleID <- getByteString 5
-          ch_CertOwnerConsolePartNum <- T.takeWhile (/= '\0') . decodeLatin1 <$> getByteString 0x14
-          ch_CertOwnerConsoleType <- getWord8 >>= \case
-            1 -> return Devkit
-            2 -> return Retail
-            n -> fail $ "Unrecognized CON console type: " <> show n
-          ch_CertDateGeneration <- decodeLatin1 <$> getByteString 8
-          ch_PublicExponent <- getByteString 4
-          ch_PublicModulus <- getByteString 0x80
-          ch_CertSignature <- getByteString 0x100
-          ch_Signature <- getByteString 0x80
-          return CONHeader{..}
-        getLIVEHeader = do
-          lh_PackageSignature <- getByteString 0x100
-          _pad <- getByteString 0x128
-          return LIVEHeader{..}
+instance Bin LIVEHeader where
+  bin = do
+    lh_PackageSignature <- lh_PackageSignature =. byteString 0x100
+    _ <- (const $ B.replicate 0x128 0) =. byteString 0x128
+    return LIVEHeader{..}
+
+instance Bin Header where
+  bin = Codec
+    { codecIn = getByteString 4 >>= \case
+      "CON " -> CON  <$> codecIn bin
+      "LIVE" -> LIVE <$> codecIn bin
+      "PIRS" -> PIRS <$> codecIn bin
+      s      -> fail $ "Unrecognized STFS magic: " <> show s
+    , codecOut = fmapArg $ \case
+      CON  x -> void $ putByteString "CON " >> codecOut bin x
+      LIVE x -> void $ putByteString "LIVE" >> codecOut bin x
+      PIRS x -> void $ putByteString "PIRS" >> codecOut bin x
+    }
 
 data Metadata = Metadata
   { md_LicenseEntries       :: [LicenseEntry] -- 0x10 licenses, each 0x10 bytes
@@ -110,56 +147,89 @@ data Metadata = Metadata
 data Platform = P_Unknown | P_Xbox360 | P_PC
   deriving (Eq, Show)
 
+instance Bin Platform where
+  bin = Codec
+    { codecIn = getWord8 >>= \case
+      0 -> return P_Unknown
+      2 -> return P_Xbox360
+      4 -> return P_PC
+      b -> fail $ "Unrecognized STFS platform: " <> show b
+    , codecOut = fmapArg $ putWord8 . \case
+      P_Unknown -> 0
+      P_Xbox360 -> 2
+      P_PC      -> 4
+    }
+
 data DescriptorType = D_STFS | D_SVOD
   deriving (Eq, Show)
 
-getMetadata :: Get Metadata
-getMetadata = do
-  md_LicenseEntries <- replicateM 0x10 getLicenseEntry
-  md_HeaderSHA1 <- getByteString 0x14
-  md_HeaderSize <- getWord32be
-  md_ContentType <- getWord32be >>= \w ->
-    case filter (\ct -> contentTypeID ct == w) [minBound .. maxBound] of
-      ct : _ -> return ct
-      []     -> fail $ "Unrecognized STFS content type: " <> show w
-  md_MetadataVersion <- getInt32be
-  md_ContentSize <- getInt64be
-  md_MediaID <- getWord32be
-  md_Version <- getInt32be
-  md_BaseVersion <- getInt32be
-  md_TitleID <- getWord32be
-  md_Platform <- getWord8 >>= \case
-    0 -> return P_Unknown
-    2 -> return P_Xbox360
-    4 -> return P_PC
-    b -> fail $ "Unrecognized STFS platform: " <> show b
-  md_ExecutableType <- getWord8
-  md_DiscNumber <- getWord8
-  md_DiscInSet <- getWord8
-  md_SaveGameID <- getWord32be
-  md_ConsoleID <- getByteString 5
-  md_ProfileID <- getByteString 8
-  md_VolumeDescriptor <- getSTFSDescriptor
-  md_DataFileCount <- getInt32be
-  md_DataFileCombinedSize <- getInt64be
-  md_DescriptorType <- getInt32be >>= \case
-    0 -> return D_STFS
-    1 -> return D_SVOD
-    b -> fail $ "Unrecognized STFS descriptor type: " <> show b
-  md_Reserved <- getInt32be
-  md_Padding <- getByteString 0x4C
-  md_DeviceID <- getByteString 0x14
-  let str0x80 = T.takeWhile (/= '\0') . decodeUtf16BE <$> getByteString 0x80
-  md_DisplayName <- replicateM 18 str0x80
-  md_DisplayDescription <- replicateM 18 str0x80
-  md_PublisherName <- str0x80
-  md_TitleName <- str0x80
-  md_TransferFlags <- getWord8
-  thumbSize <- getInt32be
-  titleThumbSize <- getInt32be
-  md_ThumbnailImage <- B.take (fromIntegral thumbSize) <$> getByteString 0x4000
-  md_TitleThumbnailImage <- B.take (fromIntegral titleThumbSize) <$> getByteString 0x4000
-  return Metadata{..}
+instance Bin DescriptorType where
+  bin = Codec
+    { codecIn = getWord32be >>= \case
+      0 -> return D_STFS
+      1 -> return D_SVOD
+      b -> fail $ "Unrecognized STFS descriptor type: " <> show b
+    , codecOut = fmapArg $ putWord32be . \case
+      D_STFS -> 0
+      D_SVOD -> 1
+    }
+
+fixedList :: Int -> BinaryCodec a -> BinaryCodec [a]
+fixedList n cdc = Codec
+  { codecIn = replicateM n $ codecIn cdc
+  , codecOut = \xs -> if length xs == n
+    then mapM (codecOut cdc) xs
+    else fail $ "fixedList: expected a list of size " <> show n <> " but got " <> show (length xs)
+  }
+
+instance Bin Metadata where
+  bin = do
+    md_LicenseEntries <- md_LicenseEntries =. fixedList 0x10 bin
+    md_HeaderSHA1 <- md_HeaderSHA1 =. byteString 0x14
+    md_HeaderSize <- md_HeaderSize =. word32be
+    md_ContentType <- md_ContentType =. bin
+    md_MetadataVersion <- md_MetadataVersion =. int32be
+    md_ContentSize <- md_ContentSize =. int64be
+    md_MediaID <- md_MediaID =. word32be
+    md_Version <- md_Version =. int32be
+    md_BaseVersion <- md_BaseVersion =. int32be
+    md_TitleID <- md_TitleID =. word32be
+    md_Platform <- md_Platform =. bin
+    md_ExecutableType <- md_ExecutableType =. word8
+    md_DiscNumber <- md_DiscNumber =. word8
+    md_DiscInSet <- md_DiscInSet =. word8
+    md_SaveGameID <- md_SaveGameID =. word32be
+    md_ConsoleID <- md_ConsoleID =. byteString 5
+    md_ProfileID <- md_ProfileID =. byteString 8
+    md_VolumeDescriptor <- md_VolumeDescriptor =. bin
+    md_DataFileCount <- md_DataFileCount =. int32be
+    md_DataFileCombinedSize <- md_DataFileCombinedSize =. int64be
+    md_DescriptorType <- md_DescriptorType =. bin
+    md_Reserved <- md_Reserved =. int32be
+    md_Padding <- md_Padding =. byteString 0x4C
+    md_DeviceID <- md_DeviceID =. byteString 0x14
+    md_DisplayName <- md_DisplayName =. fixedList 18 (utf16BEString 0x80)
+    md_DisplayDescription <- md_DisplayDescription =. fixedList 18 (utf16BEString 0x80)
+    md_PublisherName <- md_PublisherName =. utf16BEString 0x80
+    md_TitleName <- md_TitleName =. utf16BEString 0x80
+    md_TransferFlags <- md_TransferFlags =. word8
+    (md_ThumbnailImage, md_TitleThumbnailImage) <- Codec
+      { codecIn = do
+        thumbSize <- getInt32be
+        titleSize <- getInt32be
+        thumb <- B.take (fromIntegral thumbSize) <$> getByteString 0x4000
+        title <- B.take (fromIntegral titleSize) <$> getByteString 0x4000
+        return (thumb, title)
+      , codecOut = \md -> do
+        let thumbSize = B.length $ md_ThumbnailImage md
+            titleSize = B.length $ md_TitleThumbnailImage md
+        putInt32be $ fromIntegral thumbSize
+        putInt32be $ fromIntegral titleSize
+        putByteString $ md_ThumbnailImage      md <> B.replicate (0x4000 - thumbSize) 0
+        putByteString $ md_TitleThumbnailImage md <> B.replicate (0x4000 - titleSize) 0
+        return (md_ThumbnailImage md, md_TitleThumbnailImage md)
+      }
+    return Metadata{..}
 
 data LicenseEntry = LicenseEntry
   { le_LicenseID    :: Int64 -- 8 bytes: XUID / PUID / console id
@@ -167,12 +237,12 @@ data LicenseEntry = LicenseEntry
   , le_LicenseFlags :: Int32 -- 4 bytes
   } deriving (Eq, Show)
 
-getLicenseEntry :: Get LicenseEntry
-getLicenseEntry = do
-  le_LicenseID <- getInt64be
-  le_LicenseBits <- getInt32be
-  le_LicenseFlags <- getInt32be
-  return LicenseEntry{..}
+instance Bin LicenseEntry where
+  bin = do
+    le_LicenseID <- le_LicenseID =. int64be
+    le_LicenseBits <- le_LicenseBits =. int32be
+    le_LicenseFlags <- le_LicenseFlags =. int32be
+    return LicenseEntry{..}
 
 data STFSDescriptor = STFSDescriptor
   { sd_VolDescSize                :: Word8
@@ -185,31 +255,41 @@ data STFSDescriptor = STFSDescriptor
   , sd_TotalUnallocatedBlockCount :: Int32
   } deriving (Eq, Show)
 
-getInt24be :: Get Int32
-getInt24be = do
-  a <- getWord8
-  b <- getWord8
-  c <- getWord8
-  return $ fromIntegral a * 0x10000 + fromIntegral b * 0x100 + fromIntegral c
+int24le :: BinaryCodec Int32
+int24le = Codec
+  { codecIn = do
+    a <- getWord8
+    b <- getWord8
+    c <- getWord8
+    return $ fromIntegral a + fromIntegral b * 0x100 + fromIntegral c * 0x10000
+  , codecOut = fmapArg $ \w -> do
+    putWord16le $ fromIntegral w
+    putWord8 $ fromIntegral $ w `shiftR` 16
+  }
 
-getInt24le :: Get Int32
-getInt24le = do
-  a <- getWord8
-  b <- getWord8
-  c <- getWord8
-  return $ fromIntegral a + fromIntegral b * 0x100 + fromIntegral c * 0x10000
+int24be :: BinaryCodec Int32
+int24be = Codec
+  { codecIn = do
+    a <- getWord8
+    b <- getWord8
+    c <- getWord8
+    return $ fromIntegral a * 0x10000 + fromIntegral b * 0x100 + fromIntegral c
+  , codecOut = fmapArg $ \w -> do
+    putWord8 $ fromIntegral $ w `shiftR` 16
+    putWord16be $ fromIntegral w
+  }
 
-getSTFSDescriptor :: Get STFSDescriptor
-getSTFSDescriptor = do
-  sd_VolDescSize <- getWord8
-  sd_Reserved <- getWord8
-  sd_BlockSeparation <- getWord8
-  sd_FileTableBlockCount <- getInt16le
-  sd_FileTableBlockNumber <- getInt24le
-  sd_TopHashTableHash <- getByteString 0x14
-  sd_TotalAllocatedBlockCount <- getInt32be
-  sd_TotalUnallocatedBlockCount <- getInt32be
-  return STFSDescriptor{..}
+instance Bin STFSDescriptor where
+  bin = do
+    sd_VolDescSize <- sd_VolDescSize =. word8
+    sd_Reserved <- sd_Reserved =. word8
+    sd_BlockSeparation <- sd_BlockSeparation =. word8
+    sd_FileTableBlockCount <- sd_FileTableBlockCount =. int16le
+    sd_FileTableBlockNumber <- sd_FileTableBlockNumber =. int24le
+    sd_TopHashTableHash <- sd_TopHashTableHash =. byteString 0x14
+    sd_TotalAllocatedBlockCount <- sd_TotalAllocatedBlockCount =. int32be
+    sd_TotalUnallocatedBlockCount <- sd_TotalUnallocatedBlockCount =. int32be
+    return STFSDescriptor{..}
 
 data ContentType
   = CT_ArcadeTitle
@@ -279,6 +359,16 @@ contentTypeID = \case
   CT_XboxTitle -> 0x5000
   CT_XNA -> 0xE0000
 
+instance Bin ContentType where
+  bin = Codec
+    { codecIn = do
+      w <- getWord32be
+      case filter (\ct -> contentTypeID ct == w) [minBound .. maxBound] of
+        ct : _ -> return ct
+        []     -> fail $ "Unrecognized STFS content type: " <> show w
+    , codecOut = fmapArg $ putWord32be . contentTypeID
+    }
+
 data BlockHashRecord = BlockHashRecord
   { bhr_SHA1      :: B.ByteString -- 0x14 bytes
   , bhr_Status    :: BlockStatus
@@ -292,17 +382,27 @@ data BlockStatus
   | BlockNewlyAllocated
   deriving (Eq, Ord, Show)
 
-getBlockHashRecord :: Get BlockHashRecord
-getBlockHashRecord = do
-  bhr_SHA1 <- getByteString 0x14
-  bhr_Status <- getWord8 >>= \case
-    0x00 -> return BlockUnused
-    0x40 -> return BlockFree
-    0x80 -> return BlockUsed
-    0xC0 -> return BlockNewlyAllocated
-    b    -> fail $ "Unrecognized block hash record status: " <> show b
-  bhr_NextBlock <- getInt24be
-  return BlockHashRecord{..}
+instance Bin BlockStatus where
+  bin = Codec
+    { codecIn = getWord8 >>= \case
+      0x00 -> return BlockUnused
+      0x40 -> return BlockFree
+      0x80 -> return BlockUsed
+      0xC0 -> return BlockNewlyAllocated
+      b    -> fail $ "Unrecognized block hash record status: " <> show b
+    , codecOut = fmapArg $ putWord8 . \case
+      BlockUnused         -> 0x00
+      BlockFree           -> 0x40
+      BlockUsed           -> 0x80
+      BlockNewlyAllocated -> 0xC0
+    }
+
+instance Bin BlockHashRecord where
+  bin = do
+    bhr_SHA1 <- bhr_SHA1 =. byteString 0x14
+    bhr_Status <- bhr_Status =. bin
+    bhr_NextBlock <- bhr_NextBlock =. int24be
+    return BlockHashRecord{..}
 
 data STFSContents = STFSContents
   { stfsDirectories :: [FilePath]
@@ -333,41 +433,67 @@ data FileEntry = FileEntry
   , fe_AccessTimestamp :: LocalTime
   } deriving (Eq, Show)
 
-getTimestamp :: Get LocalTime -- dunno if utc or local
-getTimestamp = do
-  ts <- getWord32le
-  return $ LocalTime
-    { localDay = fromGregorian
-      (1980 + fromIntegral (ts `shiftR` 25)) -- year
-      (fromIntegral $ (ts `shiftR` 21) .&. 0xF) -- month
-      (fromIntegral $ (ts `shiftR` 16) .&. 0x1F) -- day
-    , localTimeOfDay = TimeOfDay
-      { todHour = fromIntegral $ (ts `shiftR` 11) .&. 0x1F
-      , todMin = fromIntegral $ (ts `shiftR` 6) .&. 0x3F
-      , todSec = fromIntegral $ ts .&. 0x1F
+instance Bin LocalTime where -- dunno if utc or local
+  bin = dimap
+    (\lt -> let
+      (y, m, d) = toGregorian $ localDay lt
+      in foldr (.|.) 0
+        [ fromIntegral (y - 1980) `shiftL` 25
+        , fromIntegral m `shiftL` 21
+        , fromIntegral d `shiftL` 16
+        , fromIntegral (todHour $ localTimeOfDay lt) `shiftL` 11
+        , fromIntegral (todMin $ localTimeOfDay lt) `shiftL` 6
+        , floor $ todSec $ localTimeOfDay lt
+        ]
+    )
+    (\ts -> LocalTime
+      { localDay = fromGregorian
+        (1980 + fromIntegral (ts `shiftR` 25)) -- year
+        (fromIntegral $ (ts `shiftR` 21) .&. 0xF) -- month
+        (fromIntegral $ (ts `shiftR` 16) .&. 0x1F) -- day
+      , localTimeOfDay = TimeOfDay
+        { todHour = fromIntegral $ (ts `shiftR` 11) .&. 0x1F
+        , todMin = fromIntegral $ (ts `shiftR` 6) .&. 0x3F
+        , todSec = fromIntegral $ ts .&. 0x1F
+        }
       }
-    }
+    )
+    word32le
 
-getFileEntry :: Get FileEntry
-getFileEntry = do
-  name <- getByteString 0x28
-  len <- getWord8
-  let fe_FileName = decodeLatin1 $ B.take (fromIntegral $ len .&. 0x3F) name
-      fe_Consecutive = len `testBit` 6
-      fe_Directory = len `testBit` 7
-  fe_Blocks1 <- getInt24le
-  fe_Blocks2 <- getInt24le
-  fe_FirstBlock <- getInt24le
-  fe_PathIndex <- getInt16be
-  fe_Size <- getWord32be
-  fe_UpdateTimestamp <- getTimestamp
-  fe_AccessTimestamp <- getTimestamp
-  return FileEntry{..}
+instance Bin FileEntry where
+  bin = do
+    (fe_FileName, fe_Consecutive, fe_Directory) <- Codec
+      { codecIn = do
+        bytes <- getByteString 0x28
+        len <- getWord8
+        let name = decodeLatin1 $ B.take (fromIntegral $ len .&. 0x3F) bytes
+            cons = len `testBit` 6
+            dir  = len `testBit` 7
+        return (name, cons, dir)
+      , codecOut = \fe -> do
+        let str = fe_FileName fe
+        putByteString $ encodeUtf8 $ str <> T.replicate (0x28 - T.length str) "\0"
+        putWord8 $ foldr (.|.) (fromIntegral $ T.length str)
+          [ if fe_Consecutive fe then bit 6 else 0
+          , if fe_Directory   fe then bit 7 else 0
+          ]
+        return (fe_FileName fe, fe_Consecutive fe, fe_Directory fe)
+      }
+    fe_Blocks1 <- fe_Blocks1 =. int24le
+    fe_Blocks2 <- fe_Blocks2 =. int24le
+    fe_FirstBlock <- fe_FirstBlock =. int24le
+    fe_PathIndex <- fe_PathIndex =. int16be
+    fe_Size <- fe_Size =. word32be
+    fe_UpdateTimestamp <- fe_UpdateTimestamp =. bin
+    fe_AccessTimestamp <- fe_AccessTimestamp =. bin
+    return FileEntry{..}
 
 withSTFS :: FilePath -> (STFSContents -> IO a) -> IO a
 withSTFS stfs fn = withBinaryFile stfs ReadMode $ \fd -> do
   headerMetaBytes <- BL.hGet fd 0x971A
-  let (_header, meta) = flip runGet headerMetaBytes $ (,) <$> getHeader <*> getMetadata
+  let (_header, meta) = flip runGet headerMetaBytes $ (,)
+        <$> (codecIn bin :: Get Header)
+        <*> (codecIn bin :: Get Metadata)
       stfsDesc = md_VolumeDescriptor meta
 
   let tableSizeShift = if ((md_HeaderSize meta + 0xFFF) .&. 0xF000) `shiftR` 0xC == 0xB
@@ -406,7 +532,7 @@ withSTFS stfs fn = withBinaryFile stfs ReadMode $ \fd -> do
               , tableOffset - (1 `shiftL` tss)
               ]
         hashdata <- readBlock tablenum 0x1000
-        return $ runGet getBlockHashRecord
+        return $ runGet (codecIn bin)
           $ BL.take 0x18 $ BL.drop (fromIntegral record * 0x18) hashdata
 
       readFileBlocks :: Word32 -> Int32 -> IO BL.ByteString
@@ -441,7 +567,9 @@ withSTFS stfs fn = withBinaryFile stfs ReadMode $ \fd -> do
     (sd_FileTableBlockNumber stfsDesc)
   let files
         = takeWhile (not . T.null . fe_FileName)
-        $ runGet (replicateM (fromIntegral (BL.length filesBytes) `div` 0x40) getFileEntry) filesBytes
+        $ flip runGet filesBytes
+        $ replicateM (fromIntegral (BL.length filesBytes) `div` 0x40)
+        $ codecIn bin
       locateFile fe = if fe_PathIndex fe == -1
         then T.unpack $ fe_FileName fe
         else locateFile (files !! fromIntegral (fe_PathIndex fe)) </> T.unpack (fe_FileName fe)
