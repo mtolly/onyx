@@ -4,32 +4,43 @@ parts:
       count: 2
       gender: male
       difficulty:
-        rank: 215
+        rank: 124
   bass:
+    pro-guitar:
+      fix-freeform: false
+      tuning: [-2, 0, 0, 0] # drop D
+      tuning-global: -3 # drop B
+      difficulty:
+        rank: 466
     grybo:
       fix-freeform: false
       difficulty:
-        rank: 340
+        rank: 423
   guitar:
+    pro-guitar:
+      fix-freeform: false
+      tuning: [-2, 0, 0, 0, 0, 0] # drop D
+      tuning-global: -3 # drop B
+      difficulty:
+        rank: 352
     grybo:
       fix-freeform: false
       difficulty:
-        rank: 428
+        rank: 430
   keys:
     pro-keys:
       fix-freeform: false
       difficulty:
-        rank: 207
+        rank: 106
     grybo:
       fix-freeform: false
       difficulty:
-        rank: 207
+        rank: 113
   drums:
     drums:
       fix-freeform: false
-      kit: Trashy Kit
       difficulty:
-        rank: 412
+        rank: 387
 plans:
   mogg:
     parts:
@@ -42,33 +53,32 @@ plans:
       vocal: [8, 9]
       keys: [10, 11]
     pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
-    mogg-md5: f9a4dabd4dca91b48471c7e7ff16a1ee
-    vols: [-0.5, -3.5, -3.5, -3, -3, -0.3, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5]
+    vols: [-0.5, -4.5, -4.5, -4.5, -4.5, -1.5, -4.5, -4.5, -4.7, -4.7, -4.2, -4.2, -4.5, -4.5]
+    mogg-md5: ee0b3e5d3f679c7adaef703e249edbfb
 targets:
-  rb3:
+  rb3: # barely changed
     game: rb3
-    label: (O)
     file-milo: lipsync-venue.milo_xbox
     harmonix: true
+    label: (O)
   rb3-2x:
     game: rb3
-    2x-bass-pedal: true
-    label: (2x Bass Pedal) (O)
     file-milo: lipsync-venue.milo_xbox
+    2x-bass-pedal: true
     harmonix: true
+    label: (2x Bass Pedal) (O)
 metadata:
   rating: SupervisionRecommended
-  preview-start: 52.17
+  preview-start: 1:12.454
   file-album-art: cover.png_xbox
-  track-number: 9
-  key: B minor
+  track-number: 10
+  key: C# minor
   album: ! 'Vol. 3: (The Subliminal Verses)'
   year: 2004
-  subgenre: null
-  author: Harmonix, Onyxite
-  title: Pulse of the Maggots
-  preview-end: 1:22.170
+  author: null
+  title: Before I Forget
+  preview-end: 1:42.454
   genre: metal
   difficulty:
-    rank: 330
+    rank: 344
   artist: Slipknot

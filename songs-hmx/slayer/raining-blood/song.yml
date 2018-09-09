@@ -1,20 +1,27 @@
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    label: (2x Bass Pedal) (O)
 plans:
   mogg:
     mogg-md5: 9ee4cd3289ed2e2048c2368e6508dede
     pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
     vols: [-2, -5, -5, -5, -5, -2, -5, -5, -5, -5, -5, -5]
     parts:
-      vocal: [8, 9]
-      bass: [5]
-      guitar: [6, 7]
       drums:
         kick: [0]
         snare: [1, 2]
         kit: [3, 4]
+      bass: [5]
+      guitar: [6, 7]
+      vocal: [8, 9]
 metadata:
   autogen-theme: AggressiveMetal
   rating: SupervisionRecommended
-  preview-start: 166.088
+  preview-start: 2:46.088
   file-album-art: cover.png_xbox
   track-number: 10
   key: Eb minor
@@ -43,13 +50,17 @@ parts:
     pro-guitar:
       difficulty:
         rank: 322
+      tuning-global: -1 # Eb standard
   guitar:
     grybo:
+      fix-freeform: false
       difficulty:
         rank: 430
     pro-guitar:
+      fix-freeform: false
       difficulty:
         rank: 461
+      tuning-global: -1 # Eb standard
   vocal:
     vocal:
       difficulty:

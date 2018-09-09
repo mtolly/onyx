@@ -1,0 +1,71 @@
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty:
+        rank: 215
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 236
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 305
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        rank: 236
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 236
+  drums:
+    drums:
+      kit: Trashy Kit
+      difficulty:
+        rank: 345
+plans:
+  mogg:
+    parts:
+      drums:
+        kick: [0]
+        kit: [1, 2]
+      bass: [3]
+      guitar: [4, 5]
+      vocal: [6, 7]
+      keys: [8, 9]
+    pans: [0, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
+    vols: [-0.5, -3.5, -3.5, -0.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5]
+    mogg-md5: 211eded50d8077567fdc179b2f4ce083
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    label: (O)
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    label: (2x Bass Pedal) (O)
+metadata:
+  rating: FamilyFriendly # ...?
+  preview-start: 29.788
+  file-album-art: cover.png_xbox
+  track-number: 2
+  key: C# minor
+  album: In Waves
+  year: 2011
+  author: Harmonix
+  title: In Waves
+  preview-end: 59.788
+  genre: metal
+  difficulty:
+    rank: 273
+  artist: Trivium

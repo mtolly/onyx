@@ -74,16 +74,19 @@ parts:
       count: 2
       gender: male
 targets:
-  # TODO add milo
   rb3:
     game: rb3
     label: (O)
     plan: mogg
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
     plan: mogg
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
   ps:
     game: ps
     label: (O)

@@ -1,35 +1,32 @@
 parts:
   vocal:
     vocal:
-      count: 2
+      count: 3
       gender: male
       difficulty:
-        rank: 215
+        rank: 377
   bass:
+    pro-guitar:
+      fix-freeform: false
+      difficulty:
+        rank: 480
     grybo:
       fix-freeform: false
       difficulty:
-        rank: 340
+        rank: 470
   guitar:
+    pro-guitar:
+      fix-freeform: false
+      difficulty:
+        rank: 475
     grybo:
       fix-freeform: false
       difficulty:
-        rank: 428
-  keys:
-    pro-keys:
-      fix-freeform: false
-      difficulty:
-        rank: 207
-    grybo:
-      fix-freeform: false
-      difficulty:
-        rank: 207
+        rank: 447
   drums:
     drums:
-      fix-freeform: false
-      kit: Trashy Kit
       difficulty:
-        rank: 412
+        rank: 533
 plans:
   mogg:
     parts:
@@ -40,35 +37,33 @@ plans:
       bass: [5]
       guitar: [6, 7]
       vocal: [8, 9]
-      keys: [10, 11]
-    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
-    mogg-md5: f9a4dabd4dca91b48471c7e7ff16a1ee
-    vols: [-0.5, -3.5, -3.5, -3, -3, -0.3, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5]
+    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    vols: [-1, -3, -3, -2.5, -2.5, -4.5, -2.5, -2.5, -3, -3, -3, -3]
+    mogg-md5: 0058cde21411bcab02e4263d338277ce
 targets:
   rb3:
     game: rb3
-    label: (O)
     file-milo: lipsync-venue.milo_xbox
     harmonix: true
+    label: (O)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    label: (2x Bass Pedal) (O)
     file-milo: lipsync-venue.milo_xbox
     harmonix: true
+    label: (2x Bass Pedal) (O)
 metadata:
   rating: SupervisionRecommended
-  preview-start: 52.17
+  preview-start: 1:07.303
   file-album-art: cover.png_xbox
-  track-number: 9
-  key: B minor
-  album: ! 'Vol. 3: (The Subliminal Verses)'
-  year: 2004
-  subgenre: null
-  author: Harmonix, Onyxite
-  title: Pulse of the Maggots
-  preview-end: 1:22.170
+  track-number: 2
+  key: E minor
+  album: Among the Living
+  year: 1987
+  author: null
+  title: Caught in a Mosh
+  preview-end: 1:37.303
   genre: metal
   difficulty:
-    rank: 330
-  artist: Slipknot
+    rank: 450
+  artist: Anthrax

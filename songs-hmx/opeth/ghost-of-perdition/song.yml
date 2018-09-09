@@ -1,7 +1,7 @@
 parts:
   vocal:
     vocal:
-      count: 2
+      count: 3
       gender: male
       difficulty:
         rank: 215
@@ -9,27 +9,25 @@ parts:
     grybo:
       fix-freeform: false
       difficulty:
-        rank: 340
+        rank: 400
   guitar:
     grybo:
       fix-freeform: false
       difficulty:
-        rank: 428
+        rank: 406
   keys:
     pro-keys:
       fix-freeform: false
       difficulty:
-        rank: 207
+        rank: 421
     grybo:
       fix-freeform: false
       difficulty:
-        rank: 207
+        rank: 373
   drums:
     drums:
-      fix-freeform: false
-      kit: Trashy Kit
       difficulty:
-        rank: 412
+        rank: 375
 plans:
   mogg:
     parts:
@@ -42,33 +40,32 @@ plans:
       vocal: [8, 9]
       keys: [10, 11]
     pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
-    mogg-md5: f9a4dabd4dca91b48471c7e7ff16a1ee
-    vols: [-0.5, -3.5, -3.5, -3, -3, -0.3, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5]
+    vols: [-3, -6, -6, -6, -6, -3, -6, -6, -6, -6, -5, -5, -6, -6]
+    mogg-md5: 27ba7ea326dfe293b7ee51d87f933c29
 targets:
-  rb3:
+  rb3: # barely changed
     game: rb3
-    label: (O)
     file-milo: lipsync-venue.milo_xbox
     harmonix: true
+    label: (O)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    label: (2x Bass Pedal) (O)
     file-milo: lipsync-venue.milo_xbox
     harmonix: true
+    label: (2x Bass Pedal) (O)
 metadata:
   rating: SupervisionRecommended
-  preview-start: 52.17
+  preview-start: 2:00.806
   file-album-art: cover.png_xbox
-  track-number: 9
-  key: B minor
-  album: ! 'Vol. 3: (The Subliminal Verses)'
-  year: 2004
-  subgenre: null
-  author: Harmonix, Onyxite
-  title: Pulse of the Maggots
-  preview-end: 1:22.170
-  genre: metal
+  track-number: 1
+  key: D minor
+  album: Ghost Reveries
+  year: 2005
+  author: Harmonix
+  title: Ghost of Perdition
+  preview-end: 2:30.806
+  genre: prog
   difficulty:
-    rank: 330
-  artist: Slipknot
+    rank: 355
+  artist: Opeth

@@ -3,101 +3,49 @@ parts:
     vocal:
       count: 1
       gender: male
-      difficulty:
-        rank: 1
+      difficulty: 1
   bass:
     grybo:
       fix-freeform: false
-      difficulty:
-        rank: 436
+      difficulty: 7
   guitar:
     grybo:
       fix-freeform: false
-      difficulty:
-        rank: 409
+      difficulty: 7
   keys:
     pro-keys:
       fix-freeform: false
-      difficulty:
-        rank: 153
+      difficulty: 2
     grybo:
       fix-freeform: false
-      difficulty:
-        rank: 153
+      difficulty: 2
   drums:
     drums:
       fix-freeform: false
-      difficulty:
-        rank: 448
+      difficulty: 7
 plans:
   mogg:
     parts:
-      vocal:
-      - 10
-      - 11
-      bass:
-      - 6
-      - 7
-      guitar:
-      - 8
-      - 9
-      keys:
-      - 12
-      - 13
       drums:
-        kick:
-        - 0
-        - 1
-        snare:
-        - 2
-        - 3
-        kit:
-        - 4
-        - 5
-    pans:
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    - -1
-    - 1
-    karaoke: false
+        kick: [0, 1]
+        snare: [2, 3]
+        kit: [4, 5]
+      bass: [6, 7]
+      guitar: [8, 9]
+      vocal: [10, 11]
+      keys: [12, 13]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1]
     mogg-md5: 3cc2bc811bbd8772d585c401d017c3d6
-    multitrack: false
-    vols:
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -3
-    - -2.700000047683716
-    - -2.700000047683716
+    vols: [-3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -3, -2.7, -2.7]
 targets:
   rb3:
-    # song-id: 5009224
     game: rb3
+    file-milo: lipsync.milo_xbox
+    label: (O)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    file-milo: lipsync.milo_xbox
     label: (2x)
     # (default 2x label goes over 100 chars, which fails magma)
   ps:

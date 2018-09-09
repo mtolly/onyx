@@ -1,0 +1,91 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 102
+  bass:
+    pro-guitar:
+      difficulty:
+        rank: 500
+    grybo:
+      difficulty:
+        rank: 417
+  guitar:
+    pro-guitar:
+      difficulty:
+        rank: 411
+    grybo:
+      difficulty:
+        rank: 190
+  drums:
+    drums:
+      difficulty:
+        rank: 456
+plans:
+  mogg:
+    parts:
+      vocal:
+      - 6
+      - 7
+      bass:
+      - 3
+      guitar:
+      - 4
+      - 5
+      drums:
+        kick:
+        - 0
+        kit:
+        - 1
+        - 2
+    pans:
+    - 0
+    - -1
+    - 1
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    mogg-md5: 8aaf90d5d96953c4cbddaba9fdf628bf
+    vols:
+    - -0.5
+    - -4
+    - -4
+    - -1
+    - -4
+    - -4
+    - -3.5
+    - -3.5
+    - -4
+    - -4
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    label: (O)
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    label: (2x Bass Pedal) (O)
+metadata:
+  rating: SupervisionRecommended
+  preview-start: 28.235
+  file-album-art: cover.png_xbox
+  track-number: 5
+  key: A major
+  album: Sailing the Seas of Cheese
+  year: 1991
+  author: Harmonix
+  title: Jerry Was a Race Car Driver
+  preview-end: 58.235
+  genre: alternative
+  difficulty:
+    rank: 295
+  artist: Primus

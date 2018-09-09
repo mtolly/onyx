@@ -1,0 +1,81 @@
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty:
+        rank: 426
+  bass:
+    pro-guitar:
+      fix-freeform: false
+      tuning: [-2, 0, 0, 0] # drop D
+      difficulty:
+        rank: 476
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 464
+  guitar:
+    pro-guitar:
+      fix-freeform: false
+      tuning: [-2, 0, 0, 0, 0, 0] # drop D
+      difficulty:
+        rank: 495
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 387
+  drums:
+    drums:
+      difficulty:
+        rank: 541
+plans:
+  mogg:
+    parts:
+      vocal:
+      - 8
+      - 9
+      bass:
+      - 5
+      guitar:
+      - 6
+      - 7
+      drums:
+        kick:
+        - 0
+        snare:
+        - 1
+        - 2
+        kit:
+        - 3
+        - 4
+    pans: [0, -1, 1, -1, 1, 0, -1, 1, -1, 1, -1, 1]
+    vols: [-1.8, -4.3, -4.3, -4.3, -4.3, -1.3, -4, -4, -4.3, -4.3, -4.2, -4.2]
+    mogg-md5: 1a144e0f173bf7ab40323b6fe7779e0f
+targets:
+  rb3: # barely changed
+    game: rb3
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    label: (O)
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    label: (2x Bass Pedal) (O)
+metadata:
+  rating: SupervisionRecommended
+  preview-start: 1:21.873
+  file-album-art: cover.png_xbox
+  track-number: 1
+  key: D minor
+  album: City of Evil
+  year: 2005
+  author: null
+  title: Beast and the Harlot
+  preview-end: 1:51.873
+  genre: metal
+  difficulty:
+    rank: 465
+  artist: Avenged Sevenfold
