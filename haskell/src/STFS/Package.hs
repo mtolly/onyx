@@ -1,25 +1,35 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module STFS.Package (extractSTFS, withSTFS, STFSContents(..)) where
+module STFS.Package (extractSTFS, withSTFS, STFSContents(..), testSign) where
 
-import           Control.Monad        (forM_, guard, replicateM, void)
+import           Control.Monad             (forM_, guard, replicateM, void)
 import           Control.Monad.Codec
+import           Control.Monad.Fix         (fix)
+import           Control.Monad.IO.Class
+import           Control.Monad.Trans.State
+import           Crypto.Hash.Algorithms    (SHA1 (..))
+import           Crypto.PubKey.RSA.PKCS15  (sign)
+import           Crypto.PubKey.RSA.Types
 import           Data.Binary.Codec
 import           Data.Binary.Get
 import           Data.Binary.Put
 import           Data.Bits
-import qualified Data.ByteString      as B
-import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString           as B
+import qualified Data.ByteString.Lazy      as BL
+import           Data.Foldable             (toList)
 import           Data.Int
-import           Data.Maybe           (mapMaybe)
-import           Data.Profunctor      (dimap)
-import qualified Data.Text            as T
+import           Data.Maybe                (mapMaybe)
+import           Data.Profunctor           (dimap)
+import           Data.Sequence             ((|>))
+import qualified Data.Sequence             as Seq
+import qualified Data.Text                 as T
 import           Data.Text.Encoding
 import           Data.Time
 import           Data.Word
-import           System.Directory     (createDirectoryIfMissing)
-import           System.FilePath      ((</>))
+import           Resources                 (rb3Thumbnail, xboxKV)
+import qualified System.Directory          as Dir
+import           System.FilePath           ((</>))
 import           System.IO
 
 class Bin a where
@@ -39,8 +49,11 @@ data CONHeader = CONHeader
   , ch_CertDateGeneration      :: T.Text -- 8 bytes (ascii string): MM-DD-YY
   , ch_PublicExponent          :: B.ByteString -- 4 bytes
   , ch_PublicModulus           :: B.ByteString -- 0x80 bytes
-  , ch_CertSignature           :: B.ByteString -- 0x100 bytes
-  , ch_Signature               :: B.ByteString -- 0x80 bytes
+  , ch_CertSignature           :: B.ByteString -- 0x100 bytes. this is 0xA60 to 0xB60 in KV.bin
+  , ch_Signature               :: B.ByteString -- 0x80 bytes.
+  -- use kv.bin to sign "0x118 bytes starting from 0x22C"
+  -- which is the license entries, header hash, and header size
+  -- and then reverse the signature.
   } deriving (Eq, Show)
 
 utf8String :: Int -> BinaryCodec T.Text
@@ -110,7 +123,7 @@ data Metadata = Metadata
   , md_HeaderSHA1           :: B.ByteString -- 0x14 bytes: hash from 0x344 to first hash table
   , md_HeaderSize           :: Word32
   , md_ContentType          :: ContentType -- 4 bytes
-  , md_MetadataVersion      :: Int32 -- 4 bytes: only supporting 1 for now but 2 also exists
+  , md_MetadataVersion      :: Int32 -- 4 bytes: 1 or 2 (doesn't really affect us)
   , md_ContentSize          :: Int64
   , md_MediaID              :: Word32
   , md_Version              :: Int32 -- 4 bytes: used for system/title updates
@@ -584,6 +597,151 @@ withSTFS stfs fn = withBinaryFile stfs ReadMode $ \fd -> do
 
 extractSTFS :: FilePath -> FilePath -> IO ()
 extractSTFS stfs dir = withSTFS stfs $ \contents -> do
-  forM_ (stfsDirectories contents) $ createDirectoryIfMissing True . (dir </>)
+  forM_ (stfsDirectories contents) $ Dir.createDirectoryIfMissing True . (dir </>)
   forM_ (stfsFiles contents) $ \(path, getFile) -> do
     getFile >>= BL.writeFile (dir </> path)
+
+stockScramble :: B.ByteString -> B.ByteString
+stockScramble bs = case quotRem (B.length bs) 8 of
+  (q, 0) -> B.concat $ do
+    i <- [0 .. q - 1]
+    return $ B.take 8 $ B.drop ((q - 1 - i) * 8) bs
+  _ -> error "stockScramble: input length not divisible by 8"
+
+data KV = KV
+  { kv_Certificate  :: B.ByteString
+  , kv_PrivateKey   :: PrivateKey
+  , kv_PackageMagic :: B.ByteString
+  } deriving (Eq, Show)
+
+bytesToInteger :: B.ByteString -> Integer
+bytesToInteger bs = sum $ do
+  (i, b) <- zip [0..] $ B.unpack $ B.reverse bs
+  return $ (0x100 ^ (i :: Int)) * fromIntegral b
+
+xk0 :: B.ByteString
+xk0 = B.pack [81,236,31,157,86,38,194,252,16,166,103,100,203,58,109,77,161,231,78,168,66,240,244,253,250,102,239,199,142,16,47,228,28,163,29,208,206,57,46,195,25,45,208,88,116,121,172,8,231,144,193,172,45,198,235,71,232,61,207,76,109,255,81,101,212,110,189,15,21,121,55,149,196,175,144,158,43,80,138,10,34,74,179,65,229,137,128,115,205,250,33,2,245,221,48,221,7,42,111,52,7,129,151,126,178,251,114,233,234,193,136,57,172,72,43,168,77,252,215,237,155,249,222,194,69,147,76,76]
+
+loadKVbin :: B.ByteString -> KV
+loadKVbin bs = let
+  base = case B.length bs of
+    0x3FF0 -> bs
+    0x4000 -> B.drop 0x10 bs
+    _      -> error "loadKVbin: incorrect size"
+  xc = B.take 0x1A8 $ B.drop 0x9B8 base
+  d = bytesToInteger xk0 -- constant
+  e = bytesToInteger $ B.take 4 $ B.drop 0x28C base
+  modulus = bytesToInteger $ stockScramble $ B.take 0x80 $ B.drop 0x298 base
+  p = bytesToInteger $ stockScramble $ B.take 0x40 $ B.drop (0x298 + 0x80) base
+  q = bytesToInteger $ stockScramble $ B.take 0x40 $ B.drop (0x298 + 0x80 + 0x40) base
+  dp = bytesToInteger $ stockScramble $ B.take 0x40 $ B.drop (0x298 + 0x80 + 0x40 * 2) base
+  dq = bytesToInteger $ stockScramble $ B.take 0x40 $ B.drop (0x298 + 0x80 + 0x40 * 3) base
+  inverseq = bytesToInteger $ stockScramble $ B.take 0x40 $ B.drop (0x298 + 0x80 + 0x40 * 4) base
+  in KV
+    { kv_Certificate = xc
+    , kv_PrivateKey = PrivateKey
+      { private_pub = PublicKey
+        { public_size = 0x80 -- I think?
+        , public_n = modulus
+        , public_e = e
+        }
+      , private_d = d
+      , private_p = p
+      , private_q = q
+      , private_dP = dp
+      , private_dQ = dq
+      , private_qinv = inverseq
+      }
+    , kv_PackageMagic = "CON "
+    }
+
+testSign :: FilePath -> FilePath -> IO ()
+testSign kv msg = do
+  kv' <- loadKVbin <$> B.readFile kv
+  print kv'
+  msg' <- B.readFile msg
+  print $ sign Nothing (Just SHA1) (kv_PrivateKey kv') msg'
+
+readAsBlocks :: FilePath -> IO (Integer, [B.ByteString])
+readAsBlocks f = do
+  size <- Dir.getFileSize f
+  blocks <- withBinaryFile f ReadMode $ \h -> fix $ \go -> do
+    blk <- B.hGet h 0x1000
+    if B.null blk
+      then return []
+      else (blk :) <$> go
+  return (size, blocks)
+
+traverseFolder :: FilePath -> IO [(Int, T.Text, Maybe (Integer, [B.ByteString]))]
+traverseFolder top = toList <$> execStateT (go (-1) top) Seq.empty where
+  go parentIndex dir = do
+    contents <- liftIO $ Dir.listDirectory dir
+    forM_ contents $ \f -> do
+      isDir <- liftIO $ Dir.doesDirectoryExist $ dir </> f
+      if isDir
+        then do
+          thisIndex <- gets Seq.length
+          modify (|> (parentIndex, T.pack f, Nothing))
+          go thisIndex (dir </> f)
+        else do
+          sizeBlocks <- liftIO $ readAsBlocks $ dir </> f
+          modify (|> (parentIndex, T.pack f, Just sizeBlocks))
+
+makeRB3CON :: FilePath -> FilePath -> IO ()
+makeRB3CON dir con = withBinaryFile con ReadWriteMode $ \fd -> do
+  hSetFileSize fd 0
+
+  fileList <- traverseFolder dir
+  -- each 0x1000 block can store 64 file entries (each of which is 64 bytes)
+  let listBlocks = (length fileList `quot` 64) + 1
+
+  let metadata = Metadata
+        { md_LicenseEntries = take 0x10
+          $ LicenseEntry (-1) 1 0 -- unlocked license
+          : repeat (LicenseEntry 0 0 0)
+        , md_HeaderSHA1 = B.replicate 0x14 0 -- TODO fill in later
+        , md_HeaderSize = 0xAD0E
+        , md_ContentType = CT_SavedGame
+        , md_MetadataVersion = 2
+        , md_ContentSize = 0 -- TODO fill in later. file size - 0xB000
+        , md_MediaID = 0
+        , md_Version = 0
+        , md_BaseVersion = 0
+        , md_TitleID = 0x45410914
+        , md_Platform = P_Unknown
+        , md_ExecutableType = 0
+        , md_DiscNumber = 0
+        , md_DiscInSet = 0
+        , md_SaveGameID = 0
+        , md_ConsoleID = B.replicate 5 0
+        , md_ProfileID = B.replicate 8 0
+        , md_VolumeDescriptor = STFSDescriptor
+          { sd_VolDescSize                = 0x24
+          , sd_Reserved                   = 0
+          , sd_BlockSeparation            = 1
+          , sd_FileTableBlockCount        = undefined -- :: Int16
+          , sd_FileTableBlockNumber       = undefined -- :: Int32 -- 3 bytes, should be Int24
+          , sd_TopHashTableHash           = undefined -- :: B.ByteString -- 0x14 bytes
+          , sd_TotalAllocatedBlockCount   = undefined -- :: Int32
+          , sd_TotalUnallocatedBlockCount = undefined -- :: Int32
+          }
+        , md_DataFileCount = 0
+        , md_DataFileCombinedSize = 0
+        , md_DescriptorType = D_STFS
+        , md_Reserved = 0
+        , md_Padding = B.replicate 0x4C 0
+        , md_DeviceID = B.replicate 0x14 0
+        , md_DisplayName = take 18 $ "Test package" : repeat ""
+        , md_DisplayDescription = take 18 $ "Test description" : repeat ""
+        , md_PublisherName = ""
+        , md_TitleName = "Rock Band 3"
+        , md_TransferFlags = 0xC0
+        , md_ThumbnailImage = rb3Thumbnail
+        , md_TitleThumbnailImage = rb3Thumbnail
+        }
+  hSeek fd AbsoluteSeek 0x22C
+  BL.hPut fd $ runPut $ void $ codecOut bin metadata
+
+  -- TODO write blocks
+  -- TODO fix hashes
+  -- TODO sign
