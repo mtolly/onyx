@@ -3,6 +3,7 @@
 module OneFoot (phaseShiftKicks, rockBand1x, rockBand2x) where
 
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.List.Extra                  (nubOrd)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
 import qualified Numeric.NonNegative.Class        as NNC
@@ -75,7 +76,13 @@ rockBand2x dt = dt
   , drumDifficulties = flip Map.mapWithKey (drumDifficulties dt) $ \diff dd ->
     case diff of
       Expert -> dd
-        { drumGems = RTB.merge (drumGems dd) $ fmap (const Kick) $ drumKick2x dt
+        { drumGems
+          = RTB.flatten
+          $ fmap nubOrd -- this is in case you have 95 + 96 kicks simultaneously
+          $ RTB.collectCoincident
+          $ RTB.merge (drumGems dd)
+          $ fmap (const Kick)
+          $ drumKick2x dt
         }
       _ -> dd
   }
