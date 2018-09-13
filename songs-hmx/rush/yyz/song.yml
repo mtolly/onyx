@@ -1,0 +1,43 @@
+parts:
+  bass:
+    grybo:
+      difficulty:
+        rank: 336
+  guitar:
+    grybo:
+      difficulty:
+        rank: 320
+  drums:
+    drums:
+      difficulty:
+        rank: 405
+plans:
+  mogg:
+    parts:
+      drums: [0, 1]
+      bass: [2, 3]
+      guitar: [4, 5]
+    pans: [-1, 1, -1, 1, -1, 1, -1, 1]
+    mogg-md5: c5390e8e88600acb6855ab9e0bb0ba27
+    vols: [-1, -1, -3, -3, -3, -3, -3, -3]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  rb3-2x:
+    game: rb3
+    label: (2x Bass Pedal) (O)
+metadata:
+  rating: FamilyFriendly
+  preview-start: 1:00.776
+  file-album-art: cover.png_xbox
+  track-number: 3
+  album: Moving Pictures
+  year: 1981
+  author: Harmonix, Onyxite
+  title: YYZ
+  preview-end: 1:30.776
+  genre: prog
+  difficulty:
+    rank: 350
+  artist: Rush
