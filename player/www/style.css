@@ -80,6 +80,7 @@ body {
   color: #222;
   padding: 3px 5px;
   border-radius: 3px;
+  display: inline-block;
 }
 
 #the-side-menu form {
