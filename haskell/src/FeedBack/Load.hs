@@ -16,7 +16,7 @@ import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Fixed (..), Milli)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (partition, sort)
+import           Data.List.Extra                  (nubOrd, partition, sort)
 import qualified Data.Map                         as Map
 import           Data.Maybe                       (fromMaybe)
 import           Data.Monoid                      (mconcat, (<>))
@@ -189,7 +189,8 @@ data TrackEvent t a
 
 emitTrack :: (NNC.C t, Ord a) => t -> RTB.T t (TrackEvent t a) -> RTB.T t ((a, StrumHOPOTap), Maybe t)
 emitTrack hopoThreshold trk = let
-  gnotes = flip RTB.mapMaybe trk $ \case
+  -- we call nub for each note group in case of two copies of a note (seen in the wild)
+  gnotes = RTB.flatten $ fmap nubOrd $ RTB.collectCoincident $ flip RTB.mapMaybe trk $ \case
     TrackNote x len -> Just (x, guard (len /= NNC.zero) >> Just len)
     _               -> Nothing
   gh = G.strumHOPOTap' G.HOPOsGH3 hopoThreshold gnotes

@@ -15,13 +15,11 @@ import           JSONData                       (eitherCodec, expected, fill,
                                                  opt, req)
 import           RockBand.Common                (Key (..), Tonality (..))
 
-instance StackChunk Key where
-  stackChunk = dtaEnum "Key" $ Int . fromIntegral . fromEnum
-instance StackChunks Key
+chunkTonicNote :: (SendMessage m) => ChunkCodec m Key
+chunkTonicNote = dtaEnum "Key" $ Int . fromIntegral . fromEnum
 
-instance StackChunk Tonality where
-  stackChunk = dtaEnum "Tonality" $ Int . fromIntegral . fromEnum
-instance StackChunks Tonality
+chunkTonality :: (SendMessage m) => ChunkCodec m Tonality
+chunkTonality = dtaEnum "Tonality" $ Int . fromIntegral . fromEnum
 
 data AnimTempo = KTempoSlow | KTempoMedium | KTempoFast
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
@@ -166,8 +164,8 @@ instance StackChunks SongPackage where
     encoding          <- encoding          =. opt Nothing "encoding"            (chunksMaybe $ single chunkKey)
     albumName         <- albumName         =. opt Nothing "album_name"          (chunksMaybe $ single chunkString)
     albumTrackNumber  <- albumTrackNumber  =. opt Nothing "album_track_number"  stackChunks
-    vocalTonicNote    <- vocalTonicNote    =. opt Nothing "vocal_tonic_note"    stackChunks
-    songTonality      <- songTonality      =. opt Nothing "song_tonality"       stackChunks
+    vocalTonicNote    <- vocalTonicNote    =. opt Nothing "vocal_tonic_note"    (chunksMaybe $ single chunkTonicNote)
+    songTonality      <- songTonality      =. opt Nothing "song_tonality"       (chunksMaybe $ single chunkTonality)
     realGuitarTuning  <- realGuitarTuning  =. opt Nothing "real_guitar_tuning"  (chunksMaybe $ chunksParens stackChunks)
     realBassTuning    <- realBassTuning    =. opt Nothing "real_bass_tuning"    (chunksMaybe $ chunksParens stackChunks)
     bandFailCue       <- bandFailCue       =. opt Nothing "band_fail_cue"       stackChunks
@@ -176,7 +174,7 @@ instance StackChunks SongPackage where
     shortVersion      <- shortVersion      =. opt Nothing "short_version"       stackChunks
     yearRecorded      <- yearRecorded      =. opt Nothing "year_recorded"       stackChunks
     packName          <- packName          =. opt Nothing "pack_name"           (chunksMaybe $ single chunkString)
-    songKey           <- songKey           =. opt Nothing "song_key"            stackChunks
+    songKey           <- songKey           =. opt Nothing "song_key"            (chunksMaybe $ single chunkTonicNote)
     extraAuthoring    <- extraAuthoring    =. opt Nothing "extra_authoring"     stackChunks
     context           <- context           =. opt Nothing "context"             stackChunks
     decade            <- decade            =. opt Nothing "decade"              (chunksMaybe $ single chunkKey)

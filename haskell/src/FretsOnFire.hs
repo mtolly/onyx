@@ -9,6 +9,7 @@ import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString                as B
 import           Data.Default.Class             (Default (..))
+import           Data.DTA                       (removeBOM)
 import qualified Data.HashMap.Strict            as HM
 import           Data.Ini
 import           Data.List                      (sortOn)
@@ -94,7 +95,7 @@ instance Default Song where
 loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
 loadSong fp = do
   let readIniUTF8
-        = fmap (parseIni . TE.decodeUtf8With lenientDecode) . B.readFile
+        = fmap (parseIni . removeBOM . TE.decodeUtf8With lenientDecode) . B.readFile
   ini <- inside fp $ liftIO (readIniUTF8 fp) >>= either fatal return
   -- TODO make all keys lowercase before lookup
 
