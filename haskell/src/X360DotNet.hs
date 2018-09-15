@@ -4,6 +4,7 @@ module X360DotNet (rb3pkg, rb2pkg, stfsFolder) where
 
 import           Control.Monad                  (forM_)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
+import           Control.Monad.IO.Unlift        (MonadUnliftIO)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                as B
 import qualified Data.Text                      as T
@@ -22,7 +23,7 @@ withDotNetExe f exe args = if os == "mingw32"
   then f exe args
   else f "mono" $ exe : args
 
-rb3pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT (QueueLog m) ()
+rb3pkg :: (SendMessage m, MonadUnliftIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
 rb3pkg title desc dir fout = tempDir "onyx_x360" $ \tmp -> do
   x360dir <- stackIO $ x360RB3pkgDir
   forM_ ["KV.bin", "rb3.png", "rb3pkg.exe", "X360.dll"] $ \f ->
@@ -36,7 +37,7 @@ rb3pkg title desc dir fout = tempDir "onyx_x360" $ \tmp -> do
   str <- inside "making RB3 CON package with X360" $ stackProcess createProc
   lg str
 
-rb2pkg :: (MonadIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT (QueueLog m) ()
+rb2pkg :: (SendMessage m, MonadUnliftIO m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
 rb2pkg title desc dir fout = tempDir "onyx_x360" $ \tmp -> do
   x360dir <- stackIO $ x360RB3pkgDir
   forM_ ["KV.bin", "rb3.png", "rb3pkg.exe", "X360.dll"] $ \f ->

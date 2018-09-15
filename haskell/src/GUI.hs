@@ -16,11 +16,13 @@ import           Config
 import           Control.Arrow                    (first)
 import           Control.Concurrent               (ThreadId, forkIO, killThread,
                                                    threadDelay)
-import           Control.Concurrent.MVar
+import           Control.Concurrent.STM
 import           Control.Exception                (bracket, bracket_,
                                                    displayException, throwIO)
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class           (MonadIO (..))
+import           Control.Monad.Trans.Class        (lift)
+import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
 import           Control.Monad.Trans.State
 import qualified Data.Aeson                       as A
@@ -49,6 +51,7 @@ import           Import                           (importSTFS)
 import           Magma                            (getRBAFileBS)
 import           Network.HTTP.Req                 ((/:))
 import qualified Network.HTTP.Req                 as Req
+import           OpenProject                      (Project (..), openProject)
 import           OSFiles                          (osOpenFile, useResultFiles)
 import           Paths_onyxite_customs_tool       (version)
 import           PrettyDTA                        (DTASingle (..),
@@ -68,13 +71,11 @@ import qualified SDL.Font                         as TTF
 import qualified SDL.Raw                          as Raw
 import qualified Sound.MIDI.Util                  as U
 import           STFS.Package                     (STFSContents (..), withSTFS)
-import           System.Directory                 (XdgDirectory (..),
-                                                   createDirectoryIfMissing,
-                                                   getXdgDirectory)
+import qualified System.Directory                 as Dir
 import           System.Environment               (getEnv)
 import           System.FilePath                  ((<.>), (</>))
 import           System.Info                      (os)
-import           System.IO.Temp                   (withSystemTempDirectory)
+import qualified System.IO.Temp                   as Temp
 import qualified System.MIDI                      as MIDI
 
 withBSFont :: B.ByteString -> Int -> (TTF.Font -> IO a) -> IO a
@@ -89,11 +90,12 @@ data Selection
 
 data Menu
   = Choices [Choice (Onyx ())]
-  | Files FilePicker ([FilePath] -> Menu)
+  | Files FilePicker ([FilePath] -> Onyx ())
   | TasksStart [StackTraceT (QueueLog IO) [FilePath]]
   | TasksRunning ThreadId TasksStatus
   | TasksDone FilePath TasksStatus
   | EnterInt T.Text Int (Int -> Onyx ())
+  | Song Project
   | Game FilePath
 
 data Choice a = Choice
@@ -110,7 +112,7 @@ data FilePicker = FilePicker
   , fileTerminal    :: Terminal FileProgress
   }
 
-pickFiles :: [T.Text] -> T.Text -> (FilePath -> StackTraceT (PureLog IO) T.Text) -> ([FilePath] -> Menu) -> Menu
+pickFiles :: [T.Text] -> T.Text -> (FilePath -> StackTraceT (PureLog IO) T.Text) -> ([FilePath] -> Onyx ()) -> Menu
 pickFiles pats desc filt fn = let
   picker = FilePicker
     { filePatterns = pats
@@ -147,7 +149,7 @@ popMenu = modify $ \case
 modifySelect :: (Selection -> Selection) -> Onyx ()
 modifySelect f = modify $ \(GUIState m pms sel) -> GUIState m pms $ f sel
 
-commandLine' :: (MonadIO m) => [String] -> StackTraceT (QueueLog m) [FilePath]
+commandLine' :: (MonadUnliftIO m) => [String] -> StackTraceT (QueueLog m) [FilePath]
 commandLine' args = do
   let args' = flip map args $ \arg -> if ' ' `elem` arg then "\"" ++ arg ++ "\"" else arg
   lg $ unlines
@@ -220,7 +222,7 @@ topMenu :: Menu
 topMenu = Choices
   [ ( Choice "Convert" "Modifies a song or converts between games."
     $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)" filterSong
-    $ \fs -> optionsMenu convertRB3
+    $ \fs -> pushMenu $ optionsMenu convertRB3
     $ \case
       ConvertRB3{..} -> let
         continue = TasksStart $ flip map fs $ \f -> commandLine' $ concat
@@ -418,11 +420,11 @@ topMenu = Choices
     )
   , ( Choice "Preview" "Produces a web browser app to preview a song."
     $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)" filterSong $ \fs ->
-      TasksStart $ map (\f -> commandLine' ["player", f]) fs
+      pushMenu $ TasksStart $ map (\f -> commandLine' ["player", f]) fs
     )
   , ( Choice "Reduce" "Fills empty difficulties in a MIDI file with automatic reductions."
     $ pushMenu $ pickFiles ["*.mid"] "MIDI files" (const $ return "") $ \fs ->
-      TasksStart $ map (\f -> commandLine' ["reduce", f]) fs
+      pushMenu $ TasksStart $ map (\f -> commandLine' ["reduce", f]) fs
     )
   ]
 
@@ -430,7 +432,7 @@ hiddenOptions :: [Choice (Onyx ())]
 hiddenOptions =
   [ ( Choice "Game" "(WIP) Building a RB clone game."
     $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con"] "Songs (RB3/RB2)" filterSong $ \fs ->
-      case fs of
+      pushMenu $ case fs of
         [f] -> Game f
         _   -> Choices []
     )
@@ -452,6 +454,14 @@ hiddenOptions =
           []    -> [Choice "No MIDI sources found" "" $ return ()]
           _ : _ -> map withSrc $ zip srcNames srcs
     )
+  , ( Choice "Load song" "Imports a song and shows all available functions."
+        $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)" filterSong
+        $ \case
+          [] -> return ()
+          f : _ -> logStdout (mapStackTraceT (mapQueueLog lift) $ openProject f) >>= \case
+            Right proj -> pushMenu $ Song proj
+            Left _ -> return () -- TODO
+        )
   ]
 
 data GUIState = GUIState
@@ -463,7 +473,7 @@ data GUIState = GUIState
 initialState :: GUIState
 initialState = GUIState topMenu [] NoSelect
 
-type Onyx = StateT GUIState IO
+type Onyx = StateT GUIState (ResourceT IO)
 
 data TaskProgress
   = TaskMessage (MessageLevel, Message)
@@ -491,16 +501,16 @@ launchGUI = do
   let purple :: Double -> SDL.V4 Word8
       purple frac = SDL.V4 (floor $ 0x4B * frac) (floor $ 0x1C * frac) (floor $ 0x4E * frac) 0xFF
 
-  varSelectedFile <- newEmptyMVar
-  varTaskProgress <- newEmptyMVar
-  varNewestRelease <- newEmptyMVar
+  varSelectedFile <- atomically newTChan
+  varTaskProgress <- atomically newTChan
+  varNewestRelease <- atomically newTChan
 
   _ <- forkIO $ do
     let addr = Req.https "api.github.com" /: "repos" /: "mtolly" /: "onyxite-customs" /: "releases" /: "latest"
     rsp <- Req.runReq def $ Req.req Req.GET addr Req.NoReqBody Req.jsonResponse $ Req.header "User-Agent" "mtolly/onyxite-customs"
     case Req.responseBody rsp of
       A.Object obj -> case HM.lookup "name" obj of
-        Just (A.String str) -> putMVar varNewestRelease $ T.unpack str
+        Just (A.String str) -> atomically $ writeTChan varNewestRelease $ T.unpack str
         _                   -> return ()
       _            -> return ()
 
@@ -536,6 +546,11 @@ launchGUI = do
     getChoices :: Onyx [Choice (Onyx ())]
     getChoices = gets $ \(GUIState menu _ _) -> case menu of
       Game{} -> []
+      Song proj ->
+        [ Choice "Title" (fromMaybe "" $ _title $ _metadata $ projectSongYaml proj) $ return ()
+        , Choice "Artist" (fromMaybe "" $ _artist $ _metadata $ projectSongYaml proj) $ return ()
+        , Choice "Author" (fromMaybe "" $ _author $ _metadata $ projectSongYaml proj) $ return ()
+        ]
       Choices cs -> cs
       Files fpick useFiles ->
         [ Choice "Select files... (or drag and drop)" (fileDescription fpick) $ do
@@ -545,13 +560,13 @@ launchGUI = do
                   then filePatterns fpick
                   else []
           liftIO $ void $ forkIO $ openFileDialog "" "" pats (fileDescription fpick) True >>= \case
-            Just chosen -> putMVar varSelectedFile $ map T.unpack chosen
+            Just chosen -> atomically $ writeTChan varSelectedFile $ map T.unpack chosen
             _           -> return ()
         ] ++ if null $ fileLoaded fpick then [] else let
           desc = case length $ fileLoaded fpick of
             1 -> "1 file loaded"
             n -> T.pack (show n) <> " files loaded"
-          in  [ Choice "Continue" desc $ pushMenu $ useFiles $ fileLoaded fpick
+          in  [ Choice "Continue" desc $ useFiles $ fileLoaded fpick
               , Choice "Clear selection" "" $ let
                 fpick' = fpick
                   { fileLoaded = []
@@ -562,8 +577,8 @@ launchGUI = do
       TasksStart tasks -> let
         go = do
           tid <- liftIO $ forkIO $ forM_ tasks $ \task -> do
-            result <- logIO (putMVar varTaskProgress . TaskMessage) task
-            putMVar varTaskProgress $ either TaskFailed TaskOK result
+            result <- logIO (atomically . writeTChan varTaskProgress . TaskMessage) task
+            atomically $ writeTChan varTaskProgress $ either TaskFailed TaskOK result
           setMenu $ TasksRunning tid TasksStatus
             { tasksTotal = length tasks
             , tasksOK = 0
@@ -611,7 +626,7 @@ launchGUI = do
         SDL.copy rend texVersion Nothing $ Just $ SDL.Rectangle
           (SDL.P (SDL.V2 (windW - brandW - 10 - versionW - 10) (windH - versionH - 13)))
           dimsVersion
-        liftIO (tryReadMVar varNewestRelease) >>= \case
+        liftIO (atomically $ tryPeekTChan varNewestRelease) >>= \case
           Nothing -> return ()
           Just s -> if s == showVersion version
             then SDL.copy rend texLatest Nothing $ Just $ SDL.Rectangle
@@ -723,7 +738,7 @@ launchGUI = do
 
     tick :: Onyx ()
     tick = gets currentScreen >>= \case
-      Game f -> liftIO $ withSystemTempDirectory "onyx_game" $ \dir -> do
+      Game f -> liftIO $ Temp.withSystemTempDirectory "onyx_game" $ \dir -> do
         res <- logStdout $ do
           _ <- importSTFS f Nothing dir
           song <- loadMIDI $ dir </> "notes.mid"
@@ -784,6 +799,12 @@ launchGUI = do
                   else fromMenu
                 _ -> fromMenu
 
+    cleanupPage :: Menu -> Onyx ()
+    cleanupPage = \case
+      Song proj           -> mapM_ release $ projectRelease proj
+      TasksRunning tid _  -> liftIO $ killThread tid
+      _                   -> return ()
+
     doSelect :: Maybe (Int, Int) -> Onyx ()
     doSelect mousePos = do
       wasInt <- (\case EnterInt{} -> True; _ -> False) <$> gets currentScreen
@@ -792,9 +813,7 @@ launchGUI = do
         NoSelect -> return ()
         SelectPage i -> case drop i $ previousScreens gs of
           pm : pms -> do
-            case currentScreen gs of
-              TasksRunning tid _ -> liftIO $ killThread tid
-              _                  -> return ()
+            mapM_ cleanupPage $ currentScreen gs : take i (previousScreens gs)
             put $ GUIState pm pms NoSelect
           [] -> return ()
         SelectMenu i -> do
@@ -807,9 +826,7 @@ launchGUI = do
     goBack :: Onyx ()
     goBack = get >>= \case
       GUIState menu (pm : pms) _ -> do
-        case menu of
-          TasksRunning tid _ -> liftIO $ killThread tid
-          _                  -> return ()
+        cleanupPage menu
         put $ GUIState pm pms $ SelectMenu 0
       _ -> return ()
 
@@ -828,7 +845,7 @@ launchGUI = do
           -- IIUC, SDL2 guarantees the char* is utf-8 on all platforms
           str <- T.unpack . decodeUtf8 <$> B.packCString cstr
           Raw.free $ castPtr cstr
-          void $ forkIO $ putMVar varSelectedFile [str]
+          void $ forkIO $ atomically $ writeTChan varSelectedFile [str]
         processEvents es
       SDL.MouseMotionEvent SDL.MouseMotionEventData
         { SDL.mouseMotionEventPos = SDL.P (SDL.V2 x y)
@@ -943,10 +960,10 @@ launchGUI = do
 
     checkVars :: Onyx ()
     checkVars = do
-      liftIO (tryTakeMVar varSelectedFile) >>= \case
+      liftIO (atomically $ tryReadTChan varSelectedFile) >>= \case
         Nothing -> return ()
         Just fps -> mapM_ addFile fps
-      liftIO (tryTakeMVar varTaskProgress) >>= \case
+      liftIO (atomically $ tryReadTChan varTaskProgress) >>= \case
         Nothing -> return ()
         Just progress -> get >>= \case
           GUIState (TasksRunning tid oldStatus) prevMenus sel -> let
@@ -967,8 +984,8 @@ launchGUI = do
               then do
                 useResultFiles $ concat [ files | TaskOK files <- terminalOutput $ tasksTerminal newStatus ]
                 logFile <- liftIO $ do
-                  logDir <- getXdgDirectory XdgCache "onyx-log"
-                  createDirectoryIfMissing False logDir
+                  logDir <- Dir.getXdgDirectory Dir.XdgCache "onyx-log"
+                  Dir.createDirectoryIfMissing False logDir
                   time <- getCurrentTime
                   let logFile = logDir </> fmt time <.> "txt"
                       fmt = formatTime defaultTimeLocale $ iso8601DateFormat $ Just "%H%M%S"
@@ -982,7 +999,7 @@ launchGUI = do
               else put $ GUIState (TasksRunning tid newStatus) prevMenus sel
           _ -> return ()
 
-  evalStateT tick initialState
+  runResourceT $ evalStateT tick initialState
 
 class ShowTerminal a where
   showTerminal :: a -> String

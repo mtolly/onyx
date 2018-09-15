@@ -12,7 +12,7 @@ import           Config
 import           Control.Applicative              (liftA2)
 import           Control.Monad.Extra              (filterM, forM, forM_, guard)
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Resource     (runResourceT)
+import           Control.Monad.Trans.Resource     (MonadUnliftIO, runResourceT)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
@@ -145,7 +145,7 @@ copyDirRecursive src dst = do
 
 data Command = Command
   { commandWord  :: T.Text
-  , commandRun   :: forall m. (MonadIO m) => [FilePath] -> [OnyxOption] -> StackTraceT (QueueLog m) [FilePath]
+  , commandRun   :: forall m. (MonadUnliftIO m) => [FilePath] -> [OnyxOption] -> StackTraceT (QueueLog m) [FilePath]
   , commandDesc  :: T.Text
   , commandUsage :: T.Text
   }
@@ -233,7 +233,7 @@ outputFile opts dft = case [ to | OptTo to <- opts ] of
   []     -> dft
   to : _ -> return to
 
-buildTarget :: (MonadIO m) => FilePath -> [OnyxOption] -> StackTraceT (QueueLog m) (Target, FilePath)
+buildTarget :: (MonadUnliftIO m) => FilePath -> [OnyxOption] -> StackTraceT (QueueLog m) (Target, FilePath)
 buildTarget yamlPath opts = do
   songYaml <- loadYaml yamlPath
   targetName <- case [ t | OptTarget t <- opts ] of
@@ -1020,7 +1020,7 @@ commands =
 
   ]
 
-commandLine :: (MonadIO m) => [String] -> StackTraceT (QueueLog m) [FilePath]
+commandLine :: (MonadUnliftIO m) => [String] -> StackTraceT (QueueLog m) [FilePath]
 commandLine args = let
   (opts, nonopts, errors) = getOpt Permute optDescrs args
   printIntro = lg $ T.unpack $ T.unlines

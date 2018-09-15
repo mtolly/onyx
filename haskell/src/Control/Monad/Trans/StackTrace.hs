@@ -34,16 +34,12 @@ module Control.Monad.Trans.StackTrace
 import           Control.Applicative
 import qualified Control.Exception                as Exc
 import           Control.Monad
-import           Control.Monad.Base               (MonadBase (..))
 import           Control.Monad.Catch              (MonadThrow (..))
 import           Control.Monad.Except             (MonadError (..))
 import           Control.Monad.IO.Class
+import           Control.Monad.IO.Unlift          (MonadUnliftIO (..),
+                                                   UnliftIO (..))
 import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.Control      (ComposeSt,
-                                                   MonadBaseControl (..),
-                                                   MonadTransControl (..),
-                                                   defaultLiftBaseWith,
-                                                   defaultRestoreM)
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
@@ -55,7 +51,7 @@ import           Data.Functor.Identity            (Identity)
 import qualified Development.Shake                as Shake
 import qualified System.Directory                 as Dir
 import           System.Exit                      (ExitCode (..))
-import           System.IO.Temp                   (createTempDirectory)
+import qualified System.IO.Temp                   as Temp
 import           System.Process                   (CreateProcess)
 import           System.Process.ByteString        (readCreateProcessWithExitCode)
 
@@ -111,21 +107,11 @@ newtype QueueLog m a = QueueLog { fromQueueLog :: ReaderT ((MessageLevel, Messag
 mapQueueLog :: (m a -> n b) -> QueueLog m a -> QueueLog n b
 mapQueueLog f = QueueLog . mapReaderT f . fromQueueLog
 
+instance (MonadUnliftIO m) => MonadUnliftIO (QueueLog m) where
+  askUnliftIO = QueueLog $ fmap (\(UnliftIO f) -> UnliftIO $ f . fromQueueLog) askUnliftIO
+
 instance MonadTrans QueueLog where
   lift = QueueLog . lift
-
-instance (MonadBase b m) => MonadBase b (QueueLog m) where
-  liftBase = lift . liftBase
-
-instance MonadTransControl QueueLog where
-  type StT QueueLog a = a
-  liftWith f = QueueLog $ ReaderT $ \r -> f $ \t -> runReaderT (fromQueueLog t) r
-  restoreT = QueueLog . ReaderT . const
-
-instance (MonadBaseControl b m) => MonadBaseControl b (QueueLog m) where
-  type StM (QueueLog m) a = ComposeSt QueueLog m a
-  liftBaseWith = defaultLiftBaseWith
-  restoreM = defaultRestoreM
 
 instance (MonadThrow m) => MonadThrow (QueueLog m) where
   throwM = lift . throwM
@@ -151,9 +137,6 @@ newtype StackTraceT m a = StackTraceT
 
 instance MonadTrans StackTraceT where
   lift = StackTraceT . lift . lift
-
-instance (MonadBase b m) => MonadBase b (StackTraceT m) where
-  liftBase = lift . liftBase
 
 instance (MonadResource m) => MonadResource (StackTraceT m) where
   liftResourceT = lift . liftResourceT
@@ -246,12 +229,17 @@ withDir d stk = do
     (\() -> Dir.setCurrentDirectory cwd)
     (\() -> stk)
 
-tempDir :: (MonadIO m) => String -> (FilePath -> StackTraceT (QueueLog IO) a) -> StackTraceT (QueueLog m) a
-tempDir template = let
-  new = Dir.getTemporaryDirectory >>= \tmp -> createTempDirectory tmp template
-  del = ignoringIOErrors . Dir.removeDirectoryRecursive
-  ignoringIOErrors ioe = ioe `Exc.catch` (\e -> const (return ()) (e :: IOError))
-  in stracket new del
+tempDir' :: (MonadResource m) => String -> (FilePath -> StackTraceT m a) -> StackTraceT m a
+tempDir' template fn = do
+  let ignoringIOErrors ioe = ioe `Exc.catch` (\e -> const (return ()) (e :: IOError))
+  tmp <- stackIO $ Temp.getCanonicalTemporaryDirectory
+  (key, dir) <- allocate
+    (Temp.createTempDirectory tmp template)
+    (ignoringIOErrors . Dir.removeDirectoryRecursive)
+  fn dir <* release key
+
+tempDir :: (MonadUnliftIO m) => String -> (FilePath -> StackTraceT m a) -> StackTraceT m a
+tempDir template fn = mapStackTraceT runResourceT $ tempDir' template (mapStackTraceT lift . fn)
 
 stackProcess :: (MonadIO m) => CreateProcess -> StackTraceT m String
 stackProcess cp = mapStackTraceT liftIO $ do
@@ -315,12 +303,13 @@ phony s act = QueueLog $ ReaderT $ \q -> do
 type Staction = StackTraceT (QueueLog Shake.Action)
 
 logIO
-  :: ((MessageLevel, Message) -> IO ())
-  -> StackTraceT (QueueLog IO) a
-  -> IO (Either Messages a)
+  :: (MonadIO m)
+  => ((MessageLevel, Message) -> IO ())
+  -> StackTraceT (QueueLog m) a
+  -> m (Either Messages a)
 logIO logger task = runReaderT (fromQueueLog $ runStackTraceT task) logger
 
-logStdout :: StackTraceT (QueueLog IO) a -> IO (Either Messages a)
+logStdout :: (MonadIO m) => StackTraceT (QueueLog m) a -> m (Either Messages a)
 logStdout = logIO $ putStrLn . \case
   (MessageLog    , msg) -> messageString msg
   (MessageWarning, msg) -> "Warning: " ++ Exc.displayException msg
