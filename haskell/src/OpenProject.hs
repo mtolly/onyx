@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 module OpenProject where
 
@@ -12,6 +13,7 @@ import           Control.Monad.Trans.StackTrace
 import           Data.Aeson                     ((.:))
 import qualified Data.Aeson.Types               as A
 import qualified Data.ByteString.Lazy           as BL
+import           Data.Default.Class             (def)
 import           Data.Functor                   (void)
 import           Data.Hashable
 import qualified Data.HashMap.Strict            as Map
@@ -19,6 +21,7 @@ import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import qualified Data.Yaml                      as Y
 import           Import
+import           JSONData                       (toJSON)
 import qualified Sound.Jammit.Base              as J
 import qualified System.Directory               as Dir
 import           System.FilePath                (takeDirectory, takeExtension,
@@ -50,9 +53,19 @@ openProject fp = do
         withYaml (Just key) (tmp </> "song.yml")
   isDir <- stackIO $ Dir.doesDirectoryExist fp
   if isDir
-    then stackIO (Dir.doesFileExist $ fp </> "song.yml") >>= \case
-      True  -> withYaml Nothing $ fp </> "song.yml"
-      False -> fatal "Unrecognized folder format"
+    then do
+      ents <- stackIO $ Dir.listDirectory fp
+      if
+        | elem "song.yml" ents -> withYaml Nothing $ fp </> "song.yml"
+        | elem "song.ini" ents -> importFrom $ void . importFoF True False fp
+        | elem "notes.chart" ents -> importFrom $ void . importFoF True False fp
+        | [ent] <- filter (\ent -> takeExtension ent == ".rbproj") ents
+          -> importFrom $ void . importMagma (fp </> ent)
+        | [ent] <- filter (\ent -> takeExtension ent == ".moggsong") ents
+          -> importFrom $ importAmplitude (fp </> ent)
+        | otherwise -> stackIO (Dir.doesFileExist $ fp </> "songs/songs.dta") >>= \case
+          True  -> importFrom $ void . importSTFSDir fp Nothing
+          False -> fatal "Unrecognized folder format"
     else case takeExtension fp of
       ".yml"      -> withYaml Nothing fp
       ".yaml"     -> withYaml Nothing fp
@@ -67,6 +80,17 @@ openProject fp = do
             "RBSF" -> importFrom $ void . importRBA fp Nothing
             "CON " -> importFrom $ void . importSTFS fp Nothing
             "LIVE" -> importFrom $ void . importSTFS fp Nothing
+            "MThd" -> importFrom $ \dir -> do
+              -- raw midi file, import as a "song"
+              stackIO $ Dir.copyFile fp $ dir </> "notes.mid"
+              stackIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
+                { _metadata = def
+                , _audio    = Map.empty
+                , _jammit   = Map.empty
+                , _plans    = Map.empty -- TODO empty plan
+                , _targets  = Map.empty
+                , _parts    = Parts Map.empty -- TODO identify midi tracks
+                }
             _      -> fatal "Unrecognized song format"
 
 withProject :: (SendMessage m, MonadUnliftIO m) =>

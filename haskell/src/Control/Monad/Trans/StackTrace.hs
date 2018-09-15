@@ -229,10 +229,10 @@ withDir d stk = do
     (\() -> Dir.setCurrentDirectory cwd)
     (\() -> stk)
 
-tempDir' :: (MonadResource m) => String -> (FilePath -> StackTraceT m a) -> StackTraceT m a
+tempDir' :: (MonadResource m) => String -> (FilePath -> m a) -> m a
 tempDir' template fn = do
   let ignoringIOErrors ioe = ioe `Exc.catch` (\e -> const (return ()) (e :: IOError))
-  tmp <- stackIO $ Temp.getCanonicalTemporaryDirectory
+  tmp <- liftIO $ Temp.getCanonicalTemporaryDirectory
   (key, dir) <- allocate
     (Temp.createTempDirectory tmp template)
     (ignoringIOErrors . Dir.removeDirectoryRecursive)

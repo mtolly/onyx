@@ -440,10 +440,10 @@ commands =
           let player = "gen/plan" </> T.unpack planName </> "web"
           shakeBuildFiles audioDirs fpath [player]
           player' <- case [ to | OptTo to <- opts ] of
-            []      -> return player
+            []      -> return $ takeDirectory fpath </> player
             out : _ -> do
               stackIO $ Dir.createDirectoryIfMissing False out
-              copyDirRecursive player out
+              copyDirRecursive (takeDirectory fpath </> player) out
               return out
           return [player' </> "index.html"]
         FileRBProj -> undone

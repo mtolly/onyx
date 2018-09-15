@@ -91,11 +91,12 @@ data Selection
 data Menu
   = Choices [Choice (Onyx ())]
   | Files FilePicker ([FilePath] -> Onyx ())
+  | SaveFile SavePicker (FilePath -> Onyx ())
   | TasksStart [StackTraceT (QueueLog IO) [FilePath]]
   | TasksRunning ThreadId TasksStatus
   | TasksDone FilePath TasksStatus
   | EnterInt T.Text Int (Int -> Onyx ())
-  | Song Project
+  | Song Project Menu
   | Game FilePath
 
 data Choice a = Choice
@@ -110,6 +111,12 @@ data FilePicker = FilePicker
   , fileFilter      :: FilePath -> StackTraceT (PureLog IO) T.Text
   , fileLoaded      :: [FilePath]
   , fileTerminal    :: Terminal FileProgress
+  }
+
+data SavePicker = SavePicker
+  { savePatterns    :: [T.Text]
+  , saveDescription :: T.Text
+  , saveCurrent     :: T.Text
   }
 
 pickFiles :: [T.Text] -> T.Text -> (FilePath -> StackTraceT (PureLog IO) T.Text) -> ([FilePath] -> Onyx ()) -> Menu
@@ -455,13 +462,35 @@ hiddenOptions =
           _ : _ -> map withSrc $ zip srcNames srcs
     )
   , ( Choice "Load song" "Imports a song and shows all available functions."
-        $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)" filterSong
-        $ \case
-          [] -> return ()
-          f : _ -> logStdout (mapStackTraceT (mapQueueLog lift) $ openProject f) >>= \case
-            Right proj -> pushMenu $ Song proj
-            Left _ -> return () -- TODO
-        )
+    $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)" (return . T.pack)
+    $ \case
+      [] -> return ()
+      f : _ -> logStdout (mapStackTraceT (mapQueueLog lift) $ openProject f) >>= \case
+        Right proj -> pushMenu $ Song proj $ Choices
+          [ ( Choice "Preview" "Produce a web browser app to preview the song."
+            $ pushMenu $ SaveFile (SavePicker
+              { savePatterns    = []
+              , saveDescription = "Web app folder"
+              , saveCurrent     = "" -- TODO fill with default _player dir
+              }) $ \out -> pushMenu $ TasksStart $ (:[]) $ do
+                _ <- commandLine' ["player", projectLocation proj, "--to", out]
+                return [out </> "index.html"]
+            )
+          , ( Choice "Build" "Create a song file for a game."
+            $ pushMenu $ Choices [(Choice "TODO" "Not built yet!" $ return ())]
+            )
+          , ( Choice "Utilities" "Extra authoring tools."
+            $ pushMenu $ Choices
+              [ ( Choice "Automatic difficulties" "Fill in a chart's missing lower difficulties." $ return () )
+              , ( Choice "Hanging pro keys" "Find pro keys notes whose ranges are too close."
+                $ pushMenu $ TasksStart $ (:[]) $ do
+                  commandLine' ["hanging", projectLocation proj]
+                )
+              ]
+            )
+          ]
+        Left _ -> return () -- TODO show error
+    )
   ]
 
 data GUIState = GUIState
@@ -543,25 +572,38 @@ launchGUI = do
 
   let
 
+    fixPatterns :: [T.Text] -> [T.Text]
+    fixPatterns pats = if os /= "darwin" || all ("*." `T.isPrefixOf`) pats
+      then pats
+      else []
+
     getChoices :: Onyx [Choice (Onyx ())]
-    getChoices = gets $ \(GUIState menu _ _) -> case menu of
+    getChoices = gets $ \(GUIState menu _ _) -> getChoices' menu
+
+    getChoices' :: Menu -> [Choice (Onyx ())]
+    getChoices' = \case
       Game{} -> []
-      Song proj ->
-        [ Choice "Title" (fromMaybe "" $ _title $ _metadata $ projectSongYaml proj) $ return ()
-        , Choice "Artist" (fromMaybe "" $ _artist $ _metadata $ projectSongYaml proj) $ return ()
-        , Choice "Author" (fromMaybe "" $ _author $ _metadata $ projectSongYaml proj) $ return ()
-        ]
+      Song proj menu -> Choice
+        (getTitle $ _metadata $ projectSongYaml proj)
+        (getArtist $ _metadata $ projectSongYaml proj)
+        (return ())
+        : getChoices' menu
       Choices cs -> cs
+      SaveFile spick useFile ->
+        [ Choice "Select output path..." (saveDescription spick) $ do
+          let pats = fixPatterns $ savePatterns spick
+          liftIO $ void $ forkIO $ saveFileDialog "" (saveCurrent spick) pats (saveDescription spick) >>= \case
+            Just chosen -> atomically $ writeTChan varSelectedFile [T.unpack chosen]
+            Nothing     -> return ()
+        ] ++ if T.null $ saveCurrent spick then [] else
+          [ Choice "Continue" (saveCurrent spick) $ useFile $ T.unpack $ saveCurrent spick
+          ]
       Files fpick useFiles ->
         [ Choice "Select files... (or drag and drop)" (fileDescription fpick) $ do
-          let pats = if os /= "darwin"
-                then filePatterns fpick
-                else if all ("*." `T.isPrefixOf`) $ filePatterns fpick
-                  then filePatterns fpick
-                  else []
+          let pats = fixPatterns $ filePatterns fpick
           liftIO $ void $ forkIO $ openFileDialog "" "" pats (fileDescription fpick) True >>= \case
             Just chosen -> atomically $ writeTChan varSelectedFile $ map T.unpack chosen
-            _           -> return ()
+            Nothing     -> return ()
         ] ++ if null $ fileLoaded fpick then [] else let
           desc = case length $ fileLoaded fpick of
             1 -> "1 file loaded"
@@ -768,7 +810,7 @@ launchGUI = do
       _ -> do
         draw
         SDL.present rend
-        liftIO $ threadDelay 10000
+        liftIO $ threadDelay 20000
         checkVars
         evts <- SDL.pollEvents
         processEvents evts >>= \b -> when b tick
@@ -801,7 +843,7 @@ launchGUI = do
 
     cleanupPage :: Menu -> Onyx ()
     cleanupPage = \case
-      Song proj           -> mapM_ release $ projectRelease proj
+      Song proj _         -> mapM_ release $ projectRelease proj
       TasksRunning tid _  -> liftIO $ killThread tid
       _                   -> return ()
 
@@ -956,6 +998,8 @@ launchGUI = do
                 }
               }
         setMenu $ Files fpick' useFiles
+      GUIState{ currentScreen = SaveFile spick useFile } -> do
+        setMenu $ SaveFile spick{ saveCurrent = T.pack fp } useFile
       _ -> return ()
 
     checkVars :: Onyx ()
