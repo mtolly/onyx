@@ -3,6 +3,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 module RockBand.Codec.Venue where
 
+import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (sortBy)
@@ -11,6 +12,7 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
 import qualified Sound.MIDI.Util                  as U
+import           Text.Read                        (readMaybe)
 
 data Camera3
   -- generic 4 camera shots
@@ -260,11 +262,19 @@ data LightingShared
   | Lighting_bre
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
+isLighting :: [T.Text] -> Maybe T.Text
+isLighting = let
+  stripParens = T.stripPrefix "(" >=> T.stripSuffix ")"
+  in \case
+    ["lighting", s] -> stripParens s
+    [s]             -> T.stripPrefix "lighting" s >>= stripParens
+    _               -> Nothing
+
 instance Command LightingShared where
   fromCommand x = case T.stripPrefix "Lighting_" $ T.pack $ show x of
     Just s  -> ["lighting", "(" <> s <> ")"]
     Nothing -> error "panic! couldn't strip Lighting_ from venue event"
-  toCommand = reverseLookup each fromCommand
+  toCommand = isLighting >=> readMaybe . T.unpack . ("Lighting_" <>)
 
 -- different formats in rb2 vs rb3
 data LightingSplit
@@ -384,12 +394,12 @@ instance ParseTrack VenueTrack where
       V2_contrast_a       -> 97
       V2_Default          -> 96
     venueLightingShared  <- venueLightingShared  =. command
-    venueLightingRB3 <- (venueLightingRB3 =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
-      Lighting_verse  -> ["lighting", "(verse)"]
-      Lighting_chorus -> ["lighting", "(chorus)"]
-      Lighting_first  -> ["first"]
-      Lighting_prev   -> ["prev"]
-      Lighting_next   -> ["next"]
+    venueLightingRB3 <- (venueLightingRB3 =.) $ condenseMap_ $ eachKey each $ \case
+      Lighting_verse  -> specificLighting "verse"
+      Lighting_chorus -> specificLighting "chorus"
+      Lighting_first  -> commandMatch ["first"]
+      Lighting_prev   -> commandMatch ["prev"]
+      Lighting_next   -> commandMatch ["next"]
     venueLightingRB2 <- (venueLightingRB2 =.) $ condenseMap_ $ eachKey each $ \case
       Lighting_verse  -> commandMatch ["verse"]
       Lighting_chorus -> commandMatch ["chorus"]
@@ -402,6 +412,11 @@ instance ParseTrack VenueTrack where
       True  -> ["FogOn"]
       False -> ["FogOff"]
     return VenueTrack{..}
+
+specificLighting :: (Monad m, NNC.C t) => T.Text -> TrackEvent m t ()
+specificLighting s = single
+  (readCommand' >=> isLighting >=> guard . (== s))
+  (\() -> showCommand' ["lighting", "(" <> s <> ")"])
 
 compileVenueRB3 :: (NNC.C t) => VenueTrack t -> VenueTrack t
 compileVenueRB3 vt = vt
