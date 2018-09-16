@@ -26,6 +26,7 @@ targets:
     label: (O)
   rb3-2x:
     game: rb3
+    2x-bass-pedal: true
     label: (2x Bass Pedal) (O)
 metadata:
   rating: FamilyFriendly
