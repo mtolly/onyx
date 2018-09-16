@@ -131,7 +131,9 @@ reqAttr a = Codec
 
 countList :: (SendMessage m) => ValueCodec m Element a -> InsideCodec m [a]
 countList cdc = Codec
-  { codecIn = undefined
+  { codecIn = do
+    len <- codecIn $ intText $ reqAttr "count"
+    undefined len
   , codecOut = let
     makeList elts = Inside
       { insideAttrs = [Attr (QName "count" Nothing Nothing) (show $ length elts)]
@@ -158,7 +160,7 @@ childText = Codec
     }
   }
 
-intText :: (Monad m, Integral a) => InsideCodec m T.Text -> InsideCodec m a
+intText :: (Monad m, Integral a) => InsideCodec m T.Text -> InsideCodec m a
 intText cdc = Codec
   { codecIn = codecIn cdc >>= \str -> case readMaybe $ T.unpack str of
     Nothing -> fatal $ "Expected an integer, got: " <> show str
@@ -166,6 +168,17 @@ intText cdc = Codec
   , codecOut = \i -> do
     void $ codecOut cdc $ T.pack $ show $ toInteger i
     return i
+  }
+
+boolText :: (Monad m) => InsideCodec m T.Text -> InsideCodec m Bool
+boolText cdc = Codec
+  { codecIn = codecIn cdc >>= \case
+    "0" -> return False
+    "1" -> return True
+    str -> fatal $ "Expected 0 or 1 (bool), got: " <> show str
+  , codecOut = \b -> do
+    void $ codecOut cdc $ if b then "1" else "0"
+    return b
   }
 
 milliText :: (Monad m, RealFrac a) => InsideCodec m T.Text -> InsideCodec m a
@@ -199,10 +212,15 @@ data Arrangement = Arrangement
   , arr_capo                   :: Int
   , arr_artistName             :: T.Text
   , arr_artistNameSort         :: T.Text
+  , arr_albumName              :: T.Text
+  , arr_albumYear              :: Int -- should verify
+  , arr_crowdSpeed             :: Int
+  , arr_arrangementProperties  :: ArrangementProperties
+  , arr_phrases                :: [Phrase]
   } deriving (Eq, Show)
 
 instance IsInside Arrangement where
-  insideCodec = warnUnused $ do
+  insideCodec = do
     arr_version                <- arr_version                =. intText (reqAttr "version")
     arr_title                  <- arr_title                  =. childTag "title"                  (parseInside' childText)
     arr_arrangement            <- arr_arrangement            =. childTag "arrangement"            (parseInside' childText)
@@ -217,7 +235,93 @@ instance IsInside Arrangement where
     arr_capo                   <- arr_capo                   =. childTag "capo"                   (parseInside' $ intText childText)
     arr_artistName             <- arr_artistName             =. childTag "artistName"             (parseInside' childText)
     arr_artistNameSort         <- arr_artistNameSort         =. childTag "artistNameSort"         (parseInside' childText)
+    arr_albumName              <- arr_albumName              =. childTag "albumName"              (parseInside' childText)
+    arr_albumYear              <- arr_albumYear              =. childTag "albumYear"              (parseInside' $ intText childText)
+    arr_crowdSpeed             <- arr_crowdSpeed             =. childTag "crowdSpeed"             (parseInside' $ intText childText)
+    arr_arrangementProperties  <- arr_arrangementProperties  =. childTag "arrangementProperties"  (parseInside' insideCodec)
+    arr_phrases                <- arr_phrases                =. childTag "phrases"
+      (parseInside' $ countList $ isTag "phrase" $ parseInside' insideCodec)
     return Arrangement{..}
+
+data Phrase = Phrase
+  { ph_maxDifficulty :: Int
+  , ph_name          :: T.Text
+  } deriving (Eq, Show)
+
+instance IsInside Phrase where
+  insideCodec = do
+    ph_maxDifficulty <- ph_maxDifficulty =. intText (reqAttr "maxDifficulty")
+    ph_name          <- ph_name          =. reqAttr "name"
+    return Phrase{..}
+
+data ArrangementProperties = ArrangementProperties
+  { ap_represent         :: Bool
+  , ap_bonusArr          :: Bool
+  , ap_standardTuning    :: Bool
+  , ap_nonStandardChords :: Bool
+  , ap_barreChords       :: Bool
+  , ap_powerChords       :: Bool
+  , ap_dropDPower        :: Bool
+  , ap_openChords        :: Bool
+  , ap_fingerPicking     :: Bool
+  , ap_pickDirection     :: Bool
+  , ap_doubleStops       :: Bool
+  , ap_palmMutes         :: Bool
+  , ap_harmonics         :: Bool
+  , ap_pinchHarmonics    :: Bool
+  , ap_hopo              :: Bool
+  , ap_tremolo           :: Bool
+  , ap_slides            :: Bool
+  , ap_unpitchedSlides   :: Bool
+  , ap_bends             :: Bool
+  , ap_tapping           :: Bool
+  , ap_vibrato           :: Bool
+  , ap_fretHandMutes     :: Bool
+  , ap_slapPop           :: Bool
+  , ap_twoFingerPicking  :: Bool
+  , ap_fifthsAndOctaves  :: Bool
+  , ap_syncopation       :: Bool
+  , ap_bassPick          :: Bool
+  , ap_sustain           :: Bool
+  , ap_pathLead          :: Bool
+  , ap_pathRhythm        :: Bool
+  , ap_pathBass          :: Bool
+  } deriving (Eq, Show)
+
+instance IsInside ArrangementProperties where
+  insideCodec = do
+    ap_represent         <- ap_represent         =. boolText (reqAttr "represent")
+    ap_bonusArr          <- ap_bonusArr          =. boolText (reqAttr "bonusArr")
+    ap_standardTuning    <- ap_standardTuning    =. boolText (reqAttr "standardTuning")
+    ap_nonStandardChords <- ap_nonStandardChords =. boolText (reqAttr "nonStandardChords")
+    ap_barreChords       <- ap_barreChords       =. boolText (reqAttr "barreChords")
+    ap_powerChords       <- ap_powerChords       =. boolText (reqAttr "powerChords")
+    ap_dropDPower        <- ap_dropDPower        =. boolText (reqAttr "dropDPower")
+    ap_openChords        <- ap_openChords        =. boolText (reqAttr "openChords")
+    ap_fingerPicking     <- ap_fingerPicking     =. boolText (reqAttr "fingerPicking")
+    ap_pickDirection     <- ap_pickDirection     =. boolText (reqAttr "pickDirection")
+    ap_doubleStops       <- ap_doubleStops       =. boolText (reqAttr "doubleStops")
+    ap_palmMutes         <- ap_palmMutes         =. boolText (reqAttr "palmMutes")
+    ap_harmonics         <- ap_harmonics         =. boolText (reqAttr "harmonics")
+    ap_pinchHarmonics    <- ap_pinchHarmonics    =. boolText (reqAttr "pinchHarmonics")
+    ap_hopo              <- ap_hopo              =. boolText (reqAttr "hopo")
+    ap_tremolo           <- ap_tremolo           =. boolText (reqAttr "tremolo")
+    ap_slides            <- ap_slides            =. boolText (reqAttr "slides")
+    ap_unpitchedSlides   <- ap_unpitchedSlides   =. boolText (reqAttr "unpitchedSlides")
+    ap_bends             <- ap_bends             =. boolText (reqAttr "bends")
+    ap_tapping           <- ap_tapping           =. boolText (reqAttr "tapping")
+    ap_vibrato           <- ap_vibrato           =. boolText (reqAttr "vibrato")
+    ap_fretHandMutes     <- ap_fretHandMutes     =. boolText (reqAttr "fretHandMutes")
+    ap_slapPop           <- ap_slapPop           =. boolText (reqAttr "slapPop")
+    ap_twoFingerPicking  <- ap_twoFingerPicking  =. boolText (reqAttr "twoFingerPicking")
+    ap_fifthsAndOctaves  <- ap_fifthsAndOctaves  =. boolText (reqAttr "fifthsAndOctaves")
+    ap_syncopation       <- ap_syncopation       =. boolText (reqAttr "syncopation")
+    ap_bassPick          <- ap_bassPick          =. boolText (reqAttr "bassPick")
+    ap_sustain           <- ap_sustain           =. boolText (reqAttr "sustain")
+    ap_pathLead          <- ap_pathLead          =. boolText (reqAttr "pathLead")
+    ap_pathRhythm        <- ap_pathRhythm        =. boolText (reqAttr "pathRhythm")
+    ap_pathBass          <- ap_pathBass          =. boolText (reqAttr "pathBass")
+    return ArrangementProperties{..}
 
 data Tuning = Tuning
   { tuning_string0 :: Int
@@ -229,7 +333,7 @@ data Tuning = Tuning
   } deriving (Eq, Show)
 
 instance IsInside Tuning where
-  insideCodec = warnUnused $ do
+  insideCodec = do
     tuning_string0 <- tuning_string0 =. intText (reqAttr "string0")
     tuning_string1 <- tuning_string1 =. intText (reqAttr "string1")
     tuning_string2 <- tuning_string2 =. intText (reqAttr "string2")

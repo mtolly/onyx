@@ -70,15 +70,15 @@ utf16BEString n = dimap
 
 instance Bin CONHeader where
   bin = do
-    ch_PublicKeyCertSize <- ch_PublicKeyCertSize =. byteString 2
-    ch_CertOwnerConsoleID <- ch_CertOwnerConsoleID =. byteString 5
+    ch_PublicKeyCertSize       <- ch_PublicKeyCertSize       =. byteString 2
+    ch_CertOwnerConsoleID      <- ch_CertOwnerConsoleID      =. byteString 5
     ch_CertOwnerConsolePartNum <- ch_CertOwnerConsolePartNum =. utf8String 0x14
-    ch_CertOwnerConsoleType <- ch_CertOwnerConsoleType =. bin
-    ch_CertDateGeneration <- ch_CertDateGeneration =. utf8String 8
-    ch_PublicExponent <- ch_PublicExponent =. byteString 4
-    ch_PublicModulus <- ch_PublicModulus =. byteString 0x80
-    ch_CertSignature <- ch_CertSignature =. byteString 0x100
-    ch_Signature <- ch_Signature =. byteString 0x80
+    ch_CertOwnerConsoleType    <- ch_CertOwnerConsoleType    =. bin
+    ch_CertDateGeneration      <- ch_CertDateGeneration      =. utf8String 8
+    ch_PublicExponent          <- ch_PublicExponent          =. byteString 4
+    ch_PublicModulus           <- ch_PublicModulus           =. byteString 0x80
+    ch_CertSignature           <- ch_CertSignature           =. byteString 0x100
+    ch_Signature               <- ch_Signature               =. byteString 0x80
     return CONHeader{..}
 
 data ConsoleType = Devkit | Retail
@@ -197,35 +197,35 @@ fixedList n cdc = Codec
 
 instance Bin Metadata where
   bin = do
-    md_LicenseEntries <- md_LicenseEntries =. fixedList 0x10 bin
-    md_HeaderSHA1 <- md_HeaderSHA1 =. byteString 0x14
-    md_HeaderSize <- md_HeaderSize =. word32be
-    md_ContentType <- md_ContentType =. bin
-    md_MetadataVersion <- md_MetadataVersion =. int32be
-    md_ContentSize <- md_ContentSize =. int64be
-    md_MediaID <- md_MediaID =. word32be
-    md_Version <- md_Version =. int32be
-    md_BaseVersion <- md_BaseVersion =. int32be
-    md_TitleID <- md_TitleID =. word32be
-    md_Platform <- md_Platform =. bin
-    md_ExecutableType <- md_ExecutableType =. word8
-    md_DiscNumber <- md_DiscNumber =. word8
-    md_DiscInSet <- md_DiscInSet =. word8
-    md_SaveGameID <- md_SaveGameID =. word32be
-    md_ConsoleID <- md_ConsoleID =. byteString 5
-    md_ProfileID <- md_ProfileID =. byteString 8
-    md_VolumeDescriptor <- md_VolumeDescriptor =. bin
-    md_DataFileCount <- md_DataFileCount =. int32be
+    md_LicenseEntries       <- md_LicenseEntries       =. fixedList 0x10 bin
+    md_HeaderSHA1           <- md_HeaderSHA1           =. byteString 0x14
+    md_HeaderSize           <- md_HeaderSize           =. word32be
+    md_ContentType          <- md_ContentType          =. bin
+    md_MetadataVersion      <- md_MetadataVersion      =. int32be
+    md_ContentSize          <- md_ContentSize          =. int64be
+    md_MediaID              <- md_MediaID              =. word32be
+    md_Version              <- md_Version              =. int32be
+    md_BaseVersion          <- md_BaseVersion          =. int32be
+    md_TitleID              <- md_TitleID              =. word32be
+    md_Platform             <- md_Platform             =. bin
+    md_ExecutableType       <- md_ExecutableType       =. word8
+    md_DiscNumber           <- md_DiscNumber           =. word8
+    md_DiscInSet            <- md_DiscInSet            =. word8
+    md_SaveGameID           <- md_SaveGameID           =. word32be
+    md_ConsoleID            <- md_ConsoleID            =. byteString 5
+    md_ProfileID            <- md_ProfileID            =. byteString 8
+    md_VolumeDescriptor     <- md_VolumeDescriptor     =. bin
+    md_DataFileCount        <- md_DataFileCount        =. int32be
     md_DataFileCombinedSize <- md_DataFileCombinedSize =. int64be
-    md_DescriptorType <- md_DescriptorType =. bin
-    md_Reserved <- md_Reserved =. int32be
-    md_Padding <- md_Padding =. byteString 0x4C
-    md_DeviceID <- md_DeviceID =. byteString 0x14
-    md_DisplayName <- md_DisplayName =. fixedList 18 (utf16BEString 0x80)
-    md_DisplayDescription <- md_DisplayDescription =. fixedList 18 (utf16BEString 0x80)
-    md_PublisherName <- md_PublisherName =. utf16BEString 0x80
-    md_TitleName <- md_TitleName =. utf16BEString 0x80
-    md_TransferFlags <- md_TransferFlags =. word8
+    md_DescriptorType       <- md_DescriptorType       =. bin
+    md_Reserved             <- md_Reserved             =. int32be
+    md_Padding              <- md_Padding              =. byteString 0x4C
+    md_DeviceID             <- md_DeviceID             =. byteString 0x14
+    md_DisplayName          <- md_DisplayName          =. fixedList 18 (utf16BEString 0x80)
+    md_DisplayDescription   <- md_DisplayDescription   =. fixedList 18 (utf16BEString 0x80)
+    md_PublisherName        <- md_PublisherName        =. utf16BEString 0x80
+    md_TitleName            <- md_TitleName            =. utf16BEString 0x80
+    md_TransferFlags        <- md_TransferFlags        =. word8
     (md_ThumbnailImage, md_TitleThumbnailImage) <- Codec
       { codecIn = do
         thumbSize <- getInt32be
@@ -252,8 +252,8 @@ data LicenseEntry = LicenseEntry
 
 instance Bin LicenseEntry where
   bin = do
-    le_LicenseID <- le_LicenseID =. int64be
-    le_LicenseBits <- le_LicenseBits =. int32be
+    le_LicenseID    <- le_LicenseID    =. int64be
+    le_LicenseBits  <- le_LicenseBits  =. int32be
     le_LicenseFlags <- le_LicenseFlags =. int32be
     return LicenseEntry{..}
 
@@ -294,13 +294,13 @@ int24be = Codec
 
 instance Bin STFSDescriptor where
   bin = do
-    sd_VolDescSize <- sd_VolDescSize =. word8
-    sd_Reserved <- sd_Reserved =. word8
-    sd_BlockSeparation <- sd_BlockSeparation =. word8
-    sd_FileTableBlockCount <- sd_FileTableBlockCount =. int16le
-    sd_FileTableBlockNumber <- sd_FileTableBlockNumber =. int24le
-    sd_TopHashTableHash <- sd_TopHashTableHash =. byteString 0x14
-    sd_TotalAllocatedBlockCount <- sd_TotalAllocatedBlockCount =. int32be
+    sd_VolDescSize                <- sd_VolDescSize                =. word8
+    sd_Reserved                   <- sd_Reserved                   =. word8
+    sd_BlockSeparation            <- sd_BlockSeparation            =. word8
+    sd_FileTableBlockCount        <- sd_FileTableBlockCount        =. int16le
+    sd_FileTableBlockNumber       <- sd_FileTableBlockNumber       =. int24le
+    sd_TopHashTableHash           <- sd_TopHashTableHash           =. byteString 0x14
+    sd_TotalAllocatedBlockCount   <- sd_TotalAllocatedBlockCount   =. int32be
     sd_TotalUnallocatedBlockCount <- sd_TotalUnallocatedBlockCount =. int32be
     return STFSDescriptor{..}
 
@@ -340,37 +340,37 @@ data ContentType
 
 contentTypeID :: ContentType -> Word32
 contentTypeID = \case
-  CT_ArcadeTitle -> 0xD0000
-  CT_AvatarItem -> 0x9000
-  CT_CacheFile -> 0x40000
-  CT_CommunityGame -> 0x2000000
-  CT_GameDemo -> 0x80000
-  CT_GamerPicture -> 0x20000
-  CT_GameTitle -> 0xA0000
-  CT_GameTrailer -> 0xC0000
-  CT_GameVideo -> 0x400000
-  CT_InstalledGame -> 0x4000
-  CT_Installer -> 0xB0000
-  CT_IPTVPauseBuffer -> 0x2000
-  CT_LicenseStore -> 0xF0000
+  CT_ArcadeTitle        -> 0xD0000
+  CT_AvatarItem         -> 0x9000
+  CT_CacheFile          -> 0x40000
+  CT_CommunityGame      -> 0x2000000
+  CT_GameDemo           -> 0x80000
+  CT_GamerPicture       -> 0x20000
+  CT_GameTitle          -> 0xA0000
+  CT_GameTrailer        -> 0xC0000
+  CT_GameVideo          -> 0x400000
+  CT_InstalledGame      -> 0x4000
+  CT_Installer          -> 0xB0000
+  CT_IPTVPauseBuffer    -> 0x2000
+  CT_LicenseStore       -> 0xF0000
   CT_MarketplaceContent -> 0x2
-  CT_Movie -> 0x100000
-  CT_MusicVideo -> 0x300000
-  CT_PodcastVideo -> 0x500000
-  CT_Profile -> 0x10000
-  CT_Publisher -> 0x3
-  CT_SavedGame -> 0x1
-  CT_StorageDownload -> 0x50000
-  CT_Theme -> 0x30000
-  CT_TV -> 0x200000
-  CT_Video -> 0x90000
-  CT_ViralVideo -> 0x600000
-  CT_XboxDownload -> 0x70000
-  CT_XboxOriginalGame -> 0x5000
-  CT_XboxSavedGame -> 0x60000
-  CT_Xbox360Title -> 0x1000
-  CT_XboxTitle -> 0x5000
-  CT_XNA -> 0xE0000
+  CT_Movie              -> 0x100000
+  CT_MusicVideo         -> 0x300000
+  CT_PodcastVideo       -> 0x500000
+  CT_Profile            -> 0x10000
+  CT_Publisher          -> 0x3
+  CT_SavedGame          -> 0x1
+  CT_StorageDownload    -> 0x50000
+  CT_Theme              -> 0x30000
+  CT_TV                 -> 0x200000
+  CT_Video              -> 0x90000
+  CT_ViralVideo         -> 0x600000
+  CT_XboxDownload       -> 0x70000
+  CT_XboxOriginalGame   -> 0x5000
+  CT_XboxSavedGame      -> 0x60000
+  CT_Xbox360Title       -> 0x1000
+  CT_XboxTitle          -> 0x5000
+  CT_XNA                -> 0xE0000
 
 instance Bin ContentType where
   bin = Codec
@@ -412,8 +412,8 @@ instance Bin BlockStatus where
 
 instance Bin BlockHashRecord where
   bin = do
-    bhr_SHA1 <- bhr_SHA1 =. byteString 0x14
-    bhr_Status <- bhr_Status =. bin
+    bhr_SHA1      <- bhr_SHA1      =. byteString 0x14
+    bhr_Status    <- bhr_Status    =. bin
     bhr_NextBlock <- bhr_NextBlock =. int24be
     return BlockHashRecord{..}
 
@@ -492,72 +492,109 @@ instance Bin FileEntry where
           ]
         return (fe_FileName fe, fe_Consecutive fe, fe_Directory fe)
       }
-    fe_Blocks1 <- fe_Blocks1 =. int24le
-    fe_Blocks2 <- fe_Blocks2 =. int24le
-    fe_FirstBlock <- fe_FirstBlock =. int24le
-    fe_PathIndex <- fe_PathIndex =. int16be
-    fe_Size <- fe_Size =. word32be
+    fe_Blocks1         <- fe_Blocks1         =. int24le
+    fe_Blocks2         <- fe_Blocks2         =. int24le
+    fe_FirstBlock      <- fe_FirstBlock      =. int24le
+    fe_PathIndex       <- fe_PathIndex       =. int16be
+    fe_Size            <- fe_Size            =. word32be
     fe_UpdateTimestamp <- fe_UpdateTimestamp =. bin
     fe_AccessTimestamp <- fe_AccessTimestamp =. bin
     return FileEntry{..}
 
-withSTFS :: FilePath -> (STFSContents -> IO a) -> IO a
-withSTFS stfs fn = withBinaryFile stfs ReadMode $ \fd -> do
+data STFSPackage = STFSPackage
+  { stfsHandle   :: Handle
+  , stfsHeader   :: Header
+  , stfsMetadata :: Metadata
+  }
+
+openSTFS :: FilePath -> (STFSPackage -> IO a) -> IO a
+openSTFS stfs fn = withBinaryFile stfs ReadMode $ \fd -> do
   headerMetaBytes <- BL.hGet fd 0x971A
-  let (_header, meta) = flip runGet headerMetaBytes $ (,)
+  let (header, meta) = flip runGet headerMetaBytes $ (,)
         <$> (codecIn bin :: Get Header)
         <*> (codecIn bin :: Get Metadata)
+  fn $ STFSPackage fd header meta
+
+newtype RealBlock = RealBlock Int32
+  deriving (Eq, Show)
+newtype FileBlock = FileBlock Int32
+  deriving (Eq, Show)
+
+seekToRealBlock :: RealBlock -> STFSPackage -> IO ()
+seekToRealBlock (RealBlock blk) stfs = do
+  hSeek (stfsHandle stfs) AbsoluteSeek $ 0xc000 + fromIntegral blk * 0x1000
+
+tableSizeShift :: Metadata -> TableSizeShift
+tableSizeShift meta
+  | ((md_HeaderSize meta + 0xFFF) .&. 0xF000) `shiftR` 0xC == 0xB = Shift0
+  | otherwise                                                     = Shift1
+
+seekToFileBlock :: FileBlock -> STFSPackage -> IO ()
+seekToFileBlock fblk stfs = seekToRealBlock (fixBlockNumber fblk stfs) stfs
+
+seekToBlockHash :: FileBlock -> Int32 -> STFSPackage -> IO ()
+seekToBlockHash (FileBlock blk) tableOffset stfs = do
+  let meta = stfsMetadata stfs
+      tss = tableSizeShift meta
+      tssNum = fromEnum tss
+  -- Given a block number return the hash object that goes with it
+  let record = blk `mod` 0xAA
+  -- Num tables * space blocks between each (0xAB or 0xAC for [0])
+  let tablenum = sum
+        [ (blk `div` 0xAA) * fst3 (tableSpacing tss)
+        , if blk >= 0xAA
+          then (blk `div` 0x70E4 + 1) `shiftL` tssNum -- skip level 1 tables
+          else 0
+        , if blk >= 0x70E4
+          then 1 `shiftL` tssNum -- If we're into level 2 add the level 2 table
+          else 0
+        -- Read the table block, get the correct record and pass it to BlockHashRecord
+        -- Fix to point at the first table (these numbers are offset from data block numbers)
+        , tableOffset - (1 `shiftL` tssNum)
+        ]
+  seekToRealBlock (RealBlock tablenum) stfs
+  hSeek (stfsHandle stfs) RelativeSeek $ fromIntegral record * 0x18
+
+fixBlockNumber :: FileBlock -> STFSPackage -> RealBlock
+fixBlockNumber (FileBlock blk) stfs = let
+  tss = fromEnum $ tableSizeShift $ stfsMetadata stfs
+  in RealBlock $ blk + sum
+    [ if blk >= 0xAA then ((blk `div` 0xAA) + 1) `shiftL` tss else 0
+    , if blk > 0x70E4 then ((blk `div` 0x70E4) + 1) `shiftL` tss else 0
+    ]
+
+readBlock :: Word32 -> STFSPackage -> IO BL.ByteString
+readBlock len stfs = BL.hGet (stfsHandle stfs) $ fromIntegral len
+
+readBlockHash :: STFSPackage -> IO BlockHashRecord
+readBlockHash stfs = fmap (runGet $ codecIn bin) $ BL.hGet (stfsHandle stfs) 0x18
+
+withSTFS :: FilePath -> (STFSContents -> IO a) -> IO a
+withSTFS stfsPath fn = openSTFS stfsPath $ \stfs -> do
+  let header   = stfsHeader   stfs
+      meta     = stfsMetadata stfs
       stfsDesc = md_VolumeDescriptor meta
 
-  let tableSizeShift = if ((md_HeaderSize meta + 0xFFF) .&. 0xF000) `shiftR` 0xC == 0xB
-        then Shift0
-        else Shift1
-      tss = fromEnum tableSizeShift
+      getBlockHash :: FileBlock -> Int32 -> IO BlockHashRecord
+      getBlockHash fblk tableOffset = do
+        seekToBlockHash fblk tableOffset stfs
+        readBlockHash stfs
 
-      fixBlockNumber :: Int32 -> Int32
-      fixBlockNumber blk = blk + sum
-        [ if blk >= 0xAA then ((blk `div` 0xAA) + 1) `shiftL` tss else 0
-        , if blk > 0x70E4 then ((blk `div` 0x70E4) + 1) `shiftL` tss else 0
-        ]
-
-      readBlock :: Int32 -> Word32 -> IO BL.ByteString
-      readBlock blk len = do
-        -- Read a block given its block number
-        -- If reading data blocks call fixBlockNumber first
-        hSeek fd AbsoluteSeek $ 0xc000 + fromIntegral blk * 0x1000
-        BL.hGet fd $ fromIntegral len
-
-      getBlockHash :: Int32 -> Int32 -> IO BlockHashRecord
-      getBlockHash blk tableOffset = do
-        -- Given a block number return the hash object that goes with it
-        let record = blk `mod` 0xAA
-        -- Num tables * space blocks between each (0xAB or 0xAC for [0])
-        let tablenum = sum
-              [ (blk `div` 0xAA) * fst3 (tableSpacing tableSizeShift)
-              , if blk >= 0xAA
-                then (blk `div` 0x70E4 + 1) `shiftL` tss -- skip level 1 tables
-                else 0
-              , if blk >= 0x70E4
-                then 1 `shiftL` tss -- If we're into level 2 add the level 2 table
-                else 0
-              -- Read the table block, get the correct record and pass it to BlockHashRecord
-              -- Fix to point at the first table (these numbers are offset from data block numbers)
-              , tableOffset - (1 `shiftL` tss)
-              ]
-        hashdata <- readBlock tablenum 0x1000
-        return $ runGet (codecIn bin)
-          $ BL.take 0x18 $ BL.drop (fromIntegral record * 0x18) hashdata
+      getBlockHash' :: FileBlock -> IO BlockHashRecord
+      getBlockHash' fblk = do
+        hsh <- getBlockHash fblk 0
+        if tableSizeShift meta == Shift1 && bhr_Status hsh < BlockUsed
+          then getBlockHash fblk 1
+          else return hsh
 
       readFileBlocks :: Word32 -> Int32 -> IO BL.ByteString
       readFileBlocks 0    _   = return BL.empty
       readFileBlocks size blk = do
         let len = min 0x1000 size
-        blockData <- readBlock (fixBlockNumber blk) len
-        blkHash <- getBlockHash blk 0
-        blkHash' <- if tableSizeShift == Shift1 && bhr_Status blkHash < BlockUsed
-          then getBlockHash blk 1
-          else return blkHash
-        BL.append (blockData) <$> readFileBlocks (size - len) (bhr_NextBlock blkHash')
+        seekToFileBlock (FileBlock blk) stfs
+        blockData <- readBlock len stfs
+        blkHash <- getBlockHash' $ FileBlock blk
+        BL.append (blockData) <$> readFileBlocks (size - len) (bhr_NextBlock blkHash)
 
       readBlocks :: Word32 -> Int32 -> BlockStatus -> IO BL.ByteString
       readBlocks size blk info
@@ -568,12 +605,10 @@ withSTFS stfs fn = withBinaryFile stfs ReadMode $ \fd -> do
           = return BL.empty
         | otherwise = do
           let len = min 0x1000 size
-          blockData <- readBlock (fixBlockNumber blk) len
-          blkHash <- getBlockHash blk 0
-          blkHash' <- if tableSizeShift == Shift1 && bhr_Status blkHash < BlockUsed
-            then getBlockHash blk 1
-            else return blkHash
-          BL.append (blockData) <$> readBlocks (size - len) (bhr_NextBlock blkHash') (bhr_Status blkHash')
+          seekToFileBlock (FileBlock blk) stfs
+          blockData <- readBlock len stfs
+          blkHash <- getBlockHash' $ FileBlock blk
+          BL.append (blockData) <$> readBlocks (size - len) (bhr_NextBlock blkHash) (bhr_Status blkHash)
 
   filesBytes <- readFileBlocks
     (fromIntegral (sd_FileTableBlockCount stfsDesc) * 0x1000)
@@ -693,7 +728,8 @@ makeRB3CON dir con = withBinaryFile con ReadWriteMode $ \fd -> do
 
   fileList <- traverseFolder dir
   -- each 0x1000 block can store 64 file entries (each of which is 64 bytes)
-  let listBlocks = (length fileList `quot` 64) + 1
+  -- and then we need one at the end for the final (null) entry
+  let listBlocks = ((length fileList + 1) `quot` 64) + 1
 
   let metadata = Metadata
         { md_LicenseEntries = take 0x10
