@@ -1,13 +1,15 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
-module STFS.Package (extractSTFS, withSTFS, STFSContents(..), testSign) where
+module STFS.Package (extractSTFS, withSTFS, STFSContents(..), openSTFS, verifyHashes) where
 
-import           Control.Monad             (forM_, guard, replicateM, void)
+import           Control.Monad             (forM_, guard, replicateM, unless,
+                                            void, when)
 import           Control.Monad.Codec
 import           Control.Monad.Fix         (fix)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.State
+import           Crypto.Hash               (Digest, hash)
 import           Crypto.Hash.Algorithms    (SHA1 (..))
 import           Crypto.PubKey.RSA.PKCS15  (sign)
 import           Crypto.PubKey.RSA.Types
@@ -15,6 +17,7 @@ import           Data.Binary.Codec
 import           Data.Binary.Get
 import           Data.Binary.Put
 import           Data.Bits
+import           Data.ByteArray            (convert)
 import qualified Data.ByteString           as B
 import qualified Data.ByteString.Lazy      as BL
 import           Data.Foldable             (toList)
@@ -560,74 +563,76 @@ fixBlockNumber (FileBlock blk) stfs = let
   tss = fromEnum $ tableSizeShift $ stfsMetadata stfs
   in RealBlock $ blk + sum
     [ if blk >= 0xAA then ((blk `div` 0xAA) + 1) `shiftL` tss else 0
-    , if blk > 0x70E4 then ((blk `div` 0x70E4) + 1) `shiftL` tss else 0
+    , if blk >= 0x70E4 then ((blk `div` 0x70E4) + 1) `shiftL` tss else 0
+    -- py360 had "blk > 0x70E4" but that appears to not be correct
     ]
 
-readBlock :: Word32 -> STFSPackage -> IO BL.ByteString
-readBlock len stfs = BL.hGet (stfsHandle stfs) $ fromIntegral len
+readBlock :: Word32 -> STFSPackage -> IO B.ByteString
+readBlock len stfs = B.hGet (stfsHandle stfs) $ fromIntegral len
 
 readBlockHash :: STFSPackage -> IO BlockHashRecord
 readBlockHash stfs = fmap (runGet $ codecIn bin) $ BL.hGet (stfsHandle stfs) 0x18
 
-withSTFS :: FilePath -> (STFSContents -> IO a) -> IO a
-withSTFS stfsPath fn = openSTFS stfsPath $ \stfs -> do
-  let header   = stfsHeader   stfs
-      meta     = stfsMetadata stfs
-      stfsDesc = md_VolumeDescriptor meta
-
-      getBlockHash :: FileBlock -> Int32 -> IO BlockHashRecord
-      getBlockHash fblk tableOffset = do
+getCorrectBlockHash :: FileBlock -> STFSPackage -> IO BlockHashRecord
+getCorrectBlockHash fblk stfs = do
+  let getBlockHash tableOffset = do
         seekToBlockHash fblk tableOffset stfs
         readBlockHash stfs
+  hsh <- getBlockHash 0
+  if tableSizeShift (stfsMetadata stfs) == Shift1 && bhr_Status hsh < BlockUsed
+    then getBlockHash 1
+    else return hsh
 
-      getBlockHash' :: FileBlock -> IO BlockHashRecord
-      getBlockHash' fblk = do
-        hsh <- getBlockHash fblk 0
-        if tableSizeShift meta == Shift1 && bhr_Status hsh < BlockUsed
-          then getBlockHash fblk 1
-          else return hsh
+getFileEntries :: STFSPackage -> IO [FileEntry]
+getFileEntries stfs = let
+  stfsDesc = md_VolumeDescriptor $ stfsMetadata stfs
+  readFileBlocks :: Word32 -> Int32 -> IO BL.ByteString
+  readFileBlocks 0     _   = return BL.empty
+  readFileBlocks count blk = do
+    seekToFileBlock (FileBlock blk) stfs
+    blockData <- BL.fromStrict <$> readBlock 0x1000 stfs
+    blkHash <- getCorrectBlockHash (FileBlock blk) stfs
+    BL.append blockData <$> readFileBlocks (count - 1) (bhr_NextBlock blkHash)
+  in do
+    filesBytes <- readFileBlocks
+      (fromIntegral $ sd_FileTableBlockCount stfsDesc)
+      (sd_FileTableBlockNumber stfsDesc)
+    return
+      $ takeWhile (not . T.null . fe_FileName)
+      $ flip runGet filesBytes
+      $ replicateM (fromIntegral (BL.length filesBytes) `div` 0x40)
+      $ codecIn bin
 
-      readFileBlocks :: Word32 -> Int32 -> IO BL.ByteString
-      readFileBlocks 0    _   = return BL.empty
-      readFileBlocks size blk = do
-        let len = min 0x1000 size
-        seekToFileBlock (FileBlock blk) stfs
-        blockData <- readBlock len stfs
-        blkHash <- getBlockHash' $ FileBlock blk
-        BL.append (blockData) <$> readFileBlocks (size - len) (bhr_NextBlock blkHash)
+extractFile :: FileEntry -> STFSPackage -> IO BL.ByteString
+extractFile fe stfs = let
+  stfsDesc = md_VolumeDescriptor $ stfsMetadata stfs
+  readBlocks :: Word32 -> Int32 -> BlockStatus -> IO BL.ByteString
+  readBlocks size blk info
+    | size <= 0
+      || blk <= 0
+      || blk >= sd_TotalAllocatedBlockCount stfsDesc
+      || info < BlockUsed
+      = return BL.empty
+    | otherwise = do
+      let len = min 0x1000 size
+      seekToFileBlock (FileBlock blk) stfs
+      blockData <- BL.fromStrict <$> readBlock len stfs
+      blkHash <- getCorrectBlockHash (FileBlock blk) stfs
+      BL.append blockData <$> readBlocks (size - len) (bhr_NextBlock blkHash) (bhr_Status blkHash)
+  in readBlocks (fe_Size fe) (fe_FirstBlock fe) BlockUsed
 
-      readBlocks :: Word32 -> Int32 -> BlockStatus -> IO BL.ByteString
-      readBlocks size blk info
-        | size <= 0
-          || blk <= 0
-          || blk >= sd_TotalAllocatedBlockCount stfsDesc
-          || info < BlockUsed
-          = return BL.empty
-        | otherwise = do
-          let len = min 0x1000 size
-          seekToFileBlock (FileBlock blk) stfs
-          blockData <- readBlock len stfs
-          blkHash <- getBlockHash' $ FileBlock blk
-          BL.append (blockData) <$> readBlocks (size - len) (bhr_NextBlock blkHash) (bhr_Status blkHash)
-
-  filesBytes <- readFileBlocks
-    (fromIntegral (sd_FileTableBlockCount stfsDesc) * 0x1000)
-    (sd_FileTableBlockNumber stfsDesc)
-  let files
-        = takeWhile (not . T.null . fe_FileName)
-        $ flip runGet filesBytes
-        $ replicateM (fromIntegral (BL.length filesBytes) `div` 0x40)
-        $ codecIn bin
-      locateFile fe = if fe_PathIndex fe == -1
+withSTFS :: FilePath -> (STFSContents -> IO a) -> IO a
+withSTFS stfsPath fn = openSTFS stfsPath $ \stfs -> do
+  files <- getFileEntries stfs
+  let locateFile fe = if fe_PathIndex fe == -1
         then T.unpack $ fe_FileName fe
         else locateFile (files !! fromIntegral (fe_PathIndex fe)) </> T.unpack (fe_FileName fe)
       stfsFiles = flip mapMaybe files $ \fe -> do
         guard $ not $ fe_Directory fe
-        return (locateFile fe, readBlocks (fe_Size fe) (fe_FirstBlock fe) BlockUsed)
+        return (locateFile fe, extractFile fe stfs)
       stfsDirectories = flip mapMaybe files $ \fe -> do
         guard $ fe_Directory fe
         return $ locateFile fe
-
   fn STFSContents{..}
 
 extractSTFS :: FilePath -> FilePath -> IO ()
@@ -635,6 +640,37 @@ extractSTFS stfs dir = withSTFS stfs $ \contents -> do
   forM_ (stfsDirectories contents) $ Dir.createDirectoryIfMissing True . (dir </>)
   forM_ (stfsFiles contents) $ \(path, getFile) -> do
     getFile >>= BL.writeFile (dir </> path)
+
+verifyHashes :: STFSPackage -> IO ()
+verifyHashes stfs = do
+  let meta = stfsMetadata stfs
+      sd = md_VolumeDescriptor meta
+      blockCount = sd_TotalAllocatedBlockCount sd + sd_TotalUnallocatedBlockCount sd
+  putStrLn $ "Allocated blocks: " ++ show (sd_TotalAllocatedBlockCount sd)
+  putStrLn $ "Unallocated blocks: " ++ show (sd_TotalUnallocatedBlockCount sd)
+
+  putStrLn "Verifying Level 0"
+  forM_ (map FileBlock [0 .. blockCount - 1]) $ \fblk -> do
+    hsh <- getCorrectBlockHash fblk stfs
+    seekToFileBlock fblk stfs
+    contents <- readBlock 0x1000 stfs
+    let written = bhr_SHA1 hsh
+        expected = convert (hash contents :: Digest SHA1)
+    unless (written == expected) $ putStrLn $ unwords
+      [ show fblk
+      , "has written hash"
+      , show $ B.unpack written
+      , "but calculated"
+      , show $ B.unpack expected
+      ]
+
+  when (blockCount >= 0xAA) $ do
+    putStrLn "Verifying Level 1"
+
+    when (blockCount >= 0x70E4) $ do -- TODO X360 has > instead of >=, which is right?
+      putStrLn "Verifying Level 2"
+
+-- extraction stuff follows
 
 stockScramble :: B.ByteString -> B.ByteString
 stockScramble bs = case quotRem (B.length bs) 8 of
