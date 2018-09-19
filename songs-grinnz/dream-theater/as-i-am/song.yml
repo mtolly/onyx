@@ -12,8 +12,6 @@ metadata:
   file-include: ../../../albums/train-of-thought.yml
   track-number: 1
   author: Grinnz
-  comments:
-  - "Chart confidence: *high*, transcribed from Portnoy's DVD."
 audio:
   album-track:
     md5: f574e025bacd9879f42dd830a323ea14
@@ -89,7 +87,7 @@ parts:
       tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC
     grybo: {}
   vocal:
-    vocal: # WIP
+    vocal:
       count: 3
       gender: male
 targets:
