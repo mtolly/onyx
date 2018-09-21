@@ -54,13 +54,31 @@ FALLING INTO INFINITY (have all stems now)
   > lines in the sand - needs: pro keys, basic keys, vox, OD
   > peruvian skies - drums done
 TRAIN OF THOUGHT - DRUMLESS AUDIO!!
-  > as i am: has drumless audio, pro guitar, pro bass, basic bass
-  > this dying soul: has drumless audio, pro bass, basic bass, vox
-  > endless sacrifice: has drumless audio, pro keys, vox, pro bass
-  > honor thy father: has drumless audio, pro bass, basic bass, pro keys
-  - vacant (make sure to ask copy on c3 to remove)
-  > stream of consciousness: just needs basic keys, PK range fixes, PG/PB slide fixes, OD
-  > in the name of god: has drumless audio, vox, pro bass, most of pro guitar, started pro keys
+  - drums (2x) done!
+  - vox done!
+  - pro bass done! (pending more video checks)
+  > pro guitar:
+    done - AIA, SOC
+    started - ES, ITNOG
+    todo - TDS (7-string), HTF, V (pro cello)
+  > pro keys:
+    done - ES, HTF, V, SOC
+    started - AIA, ITNOG
+    todo - TDS (jarod)
+  > basic bass:
+    done - AIA, TDS, HTF, V, SOC
+    todo - ES, ITNOG
+  > basic guitar:
+    done - V (cello), SOC
+    not - AIA, TDS, ES, HTF, ITNOG
+  > basic keys:
+    done - V
+    not - AIA, TDS, ES, HTF, SOC, ITNOG
+  > overdrive
+  > reductions
+  > venue
+  > final audio production
+  > release: February 8, 2019
 SYSTEMATIC CHAOS
   new release with numeric song IDs, lipsync, video backgrounds, other minor fixes
   > forsaken - fix basic gtr/bass to match pro

@@ -95,6 +95,10 @@ parts:
     grybo: {}
     pro-guitar:
       tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC
+  vocal:
+    vocal:
+      count: 2
+      gender: male
 targets:
   rb3:
     game: rb3
