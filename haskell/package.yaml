@@ -25,7 +25,6 @@ extra-source-files:
 - ../player/www/VarelaRound-Regular.ttf
 - ../player/www/images/*.png
 - ../player/www/images-dom/*.png
-- ../player/www/lib/howler/dist/howler.min.js
 - cbits/*.h
 
 flags:

@@ -6,5 +6,5 @@ cd "$1"
 onyx player --plan "$2"
 cd -
 cp "$1/gen/plan/$2/web/song.js" www/
-cp "$1/gen/plan/$2/web/preview-audio.mp3" www/
-cp "$1/gen/plan/$2/web/preview-audio.ogg" www/
+cp "$1/gen/plan/$2/web/audio-mp3.js" www/
+cp "$1/gen/plan/$2/web/audio-ogg.js" www/

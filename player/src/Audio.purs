@@ -11,5 +11,3 @@ foreign import loadAudio :: (Audio -> Effect Unit) -> Effect Unit
 foreign import playFrom :: Audio -> Seconds -> Effect Unit -> Effect Unit
 
 foreign import stop :: Audio -> Effect Unit
-
-foreign import getPosition :: Audio -> Effect Seconds

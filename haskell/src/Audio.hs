@@ -21,8 +21,8 @@ module Audio
 , audioSeconds
 , applyPansVols
 , applyVolsMono
-, crapMP3
-, crapVorbis
+, decentMP3
+, decentVorbis
 , stretchFull
 , stretchFullSmart
 , emptyChannels
@@ -514,20 +514,18 @@ applyVolsMono vols src = AudioSource
         in 0.5 * volRatio * sample
       in sum $ map wire vx
 
-crapMP3 :: (MonadResource m) => FilePath -> AudioSource m Float -> m ()
-crapMP3 out src = let
-  setup lame = liftIO $ do
-    L.check $ L.setVBR lame L.VbrDefault
-    L.check $ L.setVBRQ lame 9 -- lowest
-  in sinkMP3WithHandle out setup $ resampleTo 16000 SincMediumQuality src
+decentMP3 :: (MonadResource m) => FilePath -> AudioSource m Float -> m ()
+decentMP3 out = sinkMP3WithHandle out $ \lame -> liftIO $ do
+  L.check $ L.setVBR lame L.VbrDefault
+  L.check $ L.setVBRQ lame 6 -- 0 (hq) to 9 (lq)
 
-crapVorbis :: (MonadResource m) => FilePath -> AudioSource m Float -> m ()
-crapVorbis out src = let
-  setup hsnd = liftIO (setVBREncodingQuality hsnd 0) >>= \case
+decentVorbis :: (MonadResource m) => FilePath -> AudioSource m Float -> m ()
+decentVorbis out = let
+  setup hsnd = liftIO (setVBREncodingQuality hsnd 0.2) >>= \case
     True  -> return ()
-    False -> error "crapVorbis: couldn't set crappy encoding quality"
+    False -> error "decentVorbis: couldn't set encoding quality"
   fmt = Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile
-  in sinkSndWithHandle out fmt setup $ resampleTo 16000 SincMediumQuality src
+  in sinkSndWithHandle out fmt setup
 
 -- | Loads an OGG file and returns channel indexes which are silent.
 emptyChannels :: (MonadIO m) => FilePath -> m [Int]

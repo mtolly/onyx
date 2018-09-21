@@ -13,6 +13,13 @@
   </body>
   <script language="javascript" src="customize.js"></script>
   <script language="javascript" src="song.js"></script>
-  <script language="javascript" src="lib/howler/dist/howler.min.js"></script>
+  <script type="text/javascript">
+    var testAudio = document.createElement('audio');
+    if (testAudio.canPlayType && testAudio.canPlayType('audio/ogg').replace(/no/, '')) {
+      document.write('<script src="audio-ogg.js"><\/script>');
+    } else {
+      document.write('<script src="audio-mp3.js"><\/script>');
+    }
+  </script>
   <script language="javascript" src="app.min.js" defer></script>
 </html>

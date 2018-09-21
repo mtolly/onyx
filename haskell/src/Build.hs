@@ -20,6 +20,7 @@ import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                       as B
+import qualified Data.ByteString.Base64.Lazy           as B64
 import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (isAscii, isControl,
                                                         isSpace)
@@ -1752,10 +1753,16 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             Dir.createDirectoryIfMissing True $ dir </> "web" </> takeDirectory f
             B.writeFile (dir </> "web" </> f) bs
           shk $ need
-            [ dir </> "web/preview-audio.mp3"
-            , dir </> "web/preview-audio.ogg"
+            [ dir </> "web/audio-mp3.js"
+            , dir </> "web/audio-ogg.js"
             , dir </> "web/song.js"
             ]
+        forM_ ["mp3", "ogg"] $ \ext -> do
+          dir </> ("web/audio-" <> ext) <.> "js" %> \out -> do
+            let audio = dir </> "preview-audio" <.> ext
+            shk $ need [audio]
+            bs <- stackIO $ BL.readFile audio
+            stackIO $ BL.writeFile out $ "window.audioBin = \"" <> B64.encode bs <> "\";\n"
 
         dir </> "everything.wav" %> \out -> case plan of
           MoggPlan{..} -> do
@@ -1829,9 +1836,12 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               forceRW out
 
         -- Audio files for the online preview app
-        forM_ ["mp3", "ogg"] $ \ext -> do
-          dir </> "web/preview-audio" <.> ext %>
-            buildAudio (Input $ dir </> "everything.wav")
+        dir </> "preview-audio.mp3" %> \out -> do
+          src <- lift $ lift $ buildSource $ Input $ dir </> "everything.wav"
+          stackIO $ runResourceT $ decentMP3 out src
+        dir </> "preview-audio.ogg" %> \out -> do
+          src <- lift $ lift $ buildSource $ Input $ dir </> "everything.wav"
+          stackIO $ runResourceT $ decentVorbis out src
 
         -- Warn about notes that might hang off before a pro keys range shift
         phony (dir </> "hanging") $ do
