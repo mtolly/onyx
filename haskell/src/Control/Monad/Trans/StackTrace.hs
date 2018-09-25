@@ -39,12 +39,13 @@ import           Control.Monad.Except             (MonadError (..))
 import           Control.Monad.IO.Class
 import           Control.Monad.IO.Unlift          (MonadUnliftIO (..),
                                                    UnliftIO (..))
+import           Control.Monad.State              (MonadState (..))
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Except
 import           Control.Monad.Trans.Reader
 import           Control.Monad.Trans.Resource
-import           Control.Monad.Trans.State.Lazy   as SL
-import           Control.Monad.Trans.State.Strict as SS
+import qualified Control.Monad.Trans.State.Lazy   as SL
+import qualified Control.Monad.Trans.State.Strict as SS
 import           Control.Monad.Trans.Writer
 import qualified Data.ByteString.Char8            as B8
 import           Data.Functor.Identity            (Identity)
@@ -122,6 +123,11 @@ instance (MonadResource m) => MonadResource (QueueLog m) where
 instance (MonadIO m) => SendMessage (QueueLog m) where
   sendMessage lvl msg = QueueLog $ ask >>= liftIO . ($ (lvl, msg))
 
+instance (MonadState s m) => MonadState s (QueueLog m) where
+  get = QueueLog get
+  put = QueueLog . put
+  state = QueueLog . state
+
 liftMessage :: (MonadTrans t, SendMessage m) => MessageLevel -> Message -> t m ()
 liftMessage lvl msg = lift $ sendMessage lvl msg
 
@@ -134,6 +140,11 @@ instance (SendMessage m)           => SendMessage (ResourceT   m) where sendMess
 newtype StackTraceT m a = StackTraceT
   { fromStackTraceT :: ExceptT Messages (ReaderT [String] m) a
   } deriving (Functor, Applicative, Monad, MonadIO, Alternative, MonadPlus)
+
+instance (MonadState s m) => MonadState s (StackTraceT m) where
+  get = StackTraceT get
+  put = StackTraceT . put
+  state = StackTraceT . state
 
 instance MonadTrans StackTraceT where
   lift = StackTraceT . lift . lift

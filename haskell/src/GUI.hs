@@ -21,10 +21,10 @@ import           Control.Exception                (bracket, bracket_,
                                                    displayException, throwIO)
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class           (MonadIO (..))
+import           Control.Monad.State
 import           Control.Monad.Trans.Class        (lift)
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
-import           Control.Monad.Trans.State
 import qualified Data.Aeson                       as A
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
@@ -146,15 +146,18 @@ setMenu :: Menu -> Onyx ()
 setMenu menu = modify $ \GUIState{..} -> GUIState{ currentScreen = menu, .. }
 
 pushMenu :: Menu -> Onyx ()
-pushMenu menu = modify $ \(GUIState m pms sel) -> GUIState menu (m : pms) sel
+pushMenu menu = modify $ \gs -> gs
+  { currentScreen   = menu
+  , previousScreens = currentScreen gs : previousScreens gs
+  }
 
 popMenu :: Onyx ()
-popMenu = modify $ \case
-  GUIState _ (m : pms) sel -> GUIState m pms sel
-  s                        -> s
+popMenu = modify $ \gs -> case previousScreens gs of
+  m : pms -> gs { currentScreen = m, previousScreens = pms }
+  []      -> gs
 
 modifySelect :: (Selection -> Selection) -> Onyx ()
-modifySelect f = modify $ \(GUIState m pms sel) -> GUIState m pms $ f sel
+modifySelect f = modify $ \gs -> gs { currentSelection = f $ currentSelection gs }
 
 commandLine' :: (MonadUnliftIO m) => [String] -> StackTraceT (QueueLog m) [FilePath]
 commandLine' args = do
@@ -465,8 +468,9 @@ hiddenOptions =
     $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)" (return . T.pack)
     $ \case
       [] -> return ()
-      f : _ -> logStdout (mapStackTraceT (mapQueueLog lift) $ openProject f) >>= \case
-        Right proj -> pushMenu $ Song proj $ Choices
+      f : _ -> do
+        proj <- mapStackTraceT (mapQueueLog lift) (openProject f)
+        pushMenu $ Song proj $ Choices
           [ ( Choice "Preview" "Produce a web browser app to preview the song."
             $ pushMenu $ SaveFile (SavePicker
               { savePatterns    = []
@@ -489,7 +493,6 @@ hiddenOptions =
               ]
             )
           ]
-        Left _ -> return () -- TODO show error
     )
   ]
 
@@ -497,12 +500,18 @@ data GUIState = GUIState
   { currentScreen    :: Menu
   , previousScreens  :: [Menu] -- TODO should add Selection
   , currentSelection :: Selection
+  , globalTerminal   :: Terminal (MessageLevel, Message)
   }
 
 initialState :: GUIState
-initialState = GUIState topMenu [] NoSelect
+initialState = GUIState
+  { currentScreen    = topMenu
+  , previousScreens  = []
+  , currentSelection = NoSelect
+  , globalTerminal   = Terminal 0 []
+  }
 
-type Onyx = StateT GUIState (ResourceT IO)
+type Onyx = StackTraceT (QueueLog (StateT GUIState (ResourceT IO)))
 
 data TaskProgress
   = TaskMessage (MessageLevel, Message)
@@ -578,7 +587,7 @@ launchGUI = do
       else []
 
     getChoices :: Onyx [Choice (Onyx ())]
-    getChoices = gets $ \(GUIState menu _ _) -> getChoices' menu
+    getChoices = gets $ \gs -> getChoices' $ currentScreen gs
 
     getChoices' :: Menu -> [Choice (Onyx ())]
     getChoices' = \case
@@ -856,7 +865,11 @@ launchGUI = do
         SelectPage i -> case drop i $ previousScreens gs of
           pm : pms -> do
             mapM_ cleanupPage $ currentScreen gs : take i (previousScreens gs)
-            put $ GUIState pm pms NoSelect
+            put gs
+              { currentScreen = pm
+              , previousScreens = pms
+              , currentSelection = NoSelect
+              }
           [] -> return ()
         SelectMenu i -> do
           choices <- getChoices
@@ -866,22 +879,25 @@ launchGUI = do
       unless (wasInt && isInt) $ newSelect mousePos
 
     goBack :: Onyx ()
-    goBack = get >>= \case
-      GUIState menu (pm : pms) _ -> do
-        cleanupPage menu
-        put $ GUIState pm pms $ SelectMenu 0
-      _ -> return ()
+    goBack = get >>= \gs -> case previousScreens gs of
+      pm : pms -> do
+        cleanupPage $ currentScreen gs
+        put gs
+          { currentScreen = pm
+          , previousScreens = pms
+          , currentSelection = SelectMenu 0
+          }
+      [] -> return ()
 
     -- | Returns 'False' if an exit event was processed.
     processEvents :: [SDL.Event] -> Onyx Bool
     processEvents [] = return True
     processEvents (e : es) = case SDL.eventPayload e of
-      SDL.QuitEvent -> get >>= \case
-        GUIState menu _ _ -> do
-          case menu of
-            TasksRunning tid _ -> liftIO $ killThread tid
-            _                  -> return ()
-          return False
+      SDL.QuitEvent -> get >>= \gs -> do
+        case currentScreen gs of
+          TasksRunning tid _ -> liftIO $ killThread tid
+          _                  -> return ()
+        return False
       SDL.DropEvent (SDL.DropEventData cstr) -> do
         liftIO $ do
           -- IIUC, SDL2 guarantees the char* is utf-8 on all platforms
@@ -919,12 +935,11 @@ launchGUI = do
                   SDL.ScrollNormal  ->  1
                   SDL.ScrollFlipped -> -1 -- TODO does mac have this? is -1 right?
                 }
-          get >>= \case
-            GUIState menu _ _ -> case menu of
-              TasksRunning tid status -> setMenu $ TasksRunning tid $ adjustStatus status
-              TasksDone file   status -> setMenu $ TasksDone file   $ adjustStatus status
-              Files     fpick useFile -> setMenu $ Files (adjustFilePicker fpick) useFile
-              _ -> return ()
+          get >>= \gs -> case currentScreen gs of
+            TasksRunning tid status -> setMenu $ TasksRunning tid $ adjustStatus status
+            TasksDone file   status -> setMenu $ TasksDone file   $ adjustStatus status
+            Files     fpick useFile -> setMenu $ Files (adjustFilePicker fpick) useFile
+            _ -> return ()
           processEvents es
       SDL.KeyboardEvent SDL.KeyboardEventData
         { SDL.keyboardEventKeyMotion = SDL.Pressed
@@ -1009,8 +1024,8 @@ launchGUI = do
         Just fps -> mapM_ addFile fps
       liftIO (atomically $ tryReadTChan varTaskProgress) >>= \case
         Nothing -> return ()
-        Just progress -> get >>= \case
-          GUIState (TasksRunning tid oldStatus) prevMenus sel -> let
+        Just progress -> get >>= \gs -> case currentScreen gs of
+          TasksRunning tid oldStatus -> let
             newStatus = oldStatus
               { tasksOK = case progress of
                 TaskOK{} -> tasksOK oldStatus + 1
@@ -1039,11 +1054,18 @@ launchGUI = do
                     : path
                     : map showTerminal (reverse $ terminalOutput $ tasksTerminal newStatus)
                   return logFile
-                put $ GUIState (TasksDone logFile newStatus) prevMenus sel
-              else put $ GUIState (TasksRunning tid newStatus) prevMenus sel
-          _ -> return ()
+                put gs { currentScreen = TasksDone logFile newStatus }
+              else put gs { currentScreen = TasksRunning tid newStatus }
+          _ -> case progress of
+            TaskMessage msg -> let
+              term = globalTerminal gs
+              in put gs
+                { globalTerminal = term { terminalOutput = msg : terminalOutput term }
+                }
+            _ -> return ()
 
-  runResourceT $ evalStateT tick initialState
+  let send msg = atomically $ writeTChan varTaskProgress $ TaskMessage msg
+  void $ runResourceT $ evalStateT (logIO send tick) initialState
 
 class ShowTerminal a where
   showTerminal :: a -> String
