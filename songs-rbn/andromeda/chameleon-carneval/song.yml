@@ -48,3 +48,12 @@ plans:
       bass: [6, 7]
       guitar: [8, 9]
       keys: [10, 11]
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+  ps:
+    game: ps

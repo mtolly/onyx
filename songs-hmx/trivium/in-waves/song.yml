@@ -41,7 +41,9 @@ plans:
       keys: [8, 9]
     pans: [0, -1, 1, 0, -1, 1, -1, 1, -1, 1, -1, 1]
     vols: [-0.5, -3.5, -3.5, -0.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5, -3.5]
-    mogg-md5: 211eded50d8077567fdc179b2f4ce083
+    mogg-md5: e3892d703ca60b83518865f79d842ef4
+    # other version?
+    # mogg-md5: 211eded50d8077567fdc179b2f4ce083
 targets:
   rb3:
     game: rb3

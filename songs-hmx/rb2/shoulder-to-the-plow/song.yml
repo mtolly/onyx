@@ -15,7 +15,9 @@ metadata:
   - "2x Bass Pedal upgrade."
 plans:
   mogg:
-    mogg-md5: 4758b06302f5d3a6df35e7fb1ad9f7d9 # unenc: ad5cb18348998458e41a5fe632a3fc1b
+    mogg-md5: de1a7b7bc4fcbf510375c890bb427aab # export version i think
+    # rb2: 4758b06302f5d3a6df35e7fb1ad9f7d9
+    # rb2-unenc: ad5cb18348998458e41a5fe632a3fc1b
     parts:
       drums:
         kick: [0]
@@ -50,3 +52,4 @@ targets:
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)

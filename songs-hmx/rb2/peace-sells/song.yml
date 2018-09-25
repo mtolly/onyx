@@ -12,6 +12,11 @@ metadata:
   preview-start: 8.314
   comments:
   - "2x Bass Pedal upgrade."
+targets:
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
 plans:
   mogg:
     mogg-md5: 6024277baa985a414e06773e106b6c54 # unenc: 41b4cdab5a17fe1b99184977e4025665
