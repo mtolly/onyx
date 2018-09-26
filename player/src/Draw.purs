@@ -7,7 +7,7 @@ import           Data.Array         (concat, uncons)
 import           Data.Int           (round, toNumber)
 import           Data.Maybe         (Maybe (..))
 import           Data.Time.Duration (Seconds (..))
-import           Data.Traversable   (traverse_, or)
+import           Data.Traversable   (or)
 import           Data.Tuple         (Tuple (..), lookup)
 import           Effect             (Effect)
 import           Graphics.Canvas    as C
@@ -73,7 +73,7 @@ draw stuff = do
           , \diff i -> drawPart (flex.protar    >>= lookup diff) (partEnabled part "protar"    diff) drawProtar    i someStuff
           , \diff i -> drawPart (flex.amplitude >>= lookup diff) (partEnabled part "amplitude" diff) drawAmplitude i someStuff
           ]
-        map fn ["X+", "X", "H", "M", "E", "S/X", "A", "I", "B"]
+        map fn ["X+", "X", "H", "M", "E", "S/X", "A", "I", "B"] -- TODO do this whole thing better
   if stuff.app.settings.staticVert
     then let
       betweenTargets = windowH * 0.65
@@ -101,8 +101,8 @@ draw stuff = do
         drawTarget unseenTarget
     else drawParts stuff
 
-  flip traverse_ song.parts \(Tuple part (Flex flex)) -> do
-    void $ drawPart flex.vocal (partEnabled part "vocal" "X") drawVocal 0 stuff
+  drawTracks 0 $ concat $ flip map song.parts \(Tuple part (Flex flex)) -> do
+    map (\mode i -> drawPart (flex.vocal >>= lookup mode) (partEnabled part "vocal" mode) drawVocal i stuff) ["H", "1"]
   let playPause = case stuff.app.time of
         Paused  _ -> Image_button_play
         Playing _ -> Image_button_pause

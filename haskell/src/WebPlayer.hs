@@ -605,7 +605,7 @@ data Flex t = Flex
   , flexProKeys :: Maybe (Difficulties ProKeys   t)
   , flexProtar  :: Maybe (Difficulties Protar    t)
   , flexCatch   :: Maybe (Difficulties Amplitude t)
-  , flexVocal   :: Maybe (Vocal                  t)
+  , flexVocal   :: Maybe (Difficulties Vocal     t)
   } deriving (Eq, Ord, Show)
 
 instance A.ToJSON (Flex U.Seconds) where
@@ -670,19 +670,19 @@ makeDisplay songYaml song = let
       $ let mustang = RBFile.onyxPartRealGuitar tracks
             squier  = RBFile.onyxPartRealGuitar22 tracks
         in if PG.nullPG squier then mustang else squier
-    , flexVocal = flip fmap (C.partVocal fpart) $ \pvox -> case C.vocalCount pvox of
-      C.Vocal3 -> makeVox pvox
-        (RBFile.onyxHarm1 tracks)
-        (RBFile.onyxHarm2 tracks)
-        (RBFile.onyxHarm3 tracks)
-      C.Vocal2 -> makeVox pvox
-        (RBFile.onyxHarm1 tracks)
-        (RBFile.onyxHarm2 tracks)
-        mempty
-      C.Vocal1 -> makeVox pvox
-        (RBFile.onyxPartVocals $ RBFile.getFlexPart RBFile.FlexVocal $ RBFile.s_tracks song)
-        mempty
-        mempty
+    , flexVocal = flip fmap (C.partVocal fpart) $ \pvox -> let
+      harm = case C.vocalCount pvox of
+        C.Vocal3 -> [("H", makeVox pvox
+          (RBFile.onyxHarm1 tracks)
+          (RBFile.onyxHarm2 tracks)
+          (RBFile.onyxHarm3 tracks))]
+        C.Vocal2 -> [("H", makeVox pvox
+          (RBFile.onyxHarm1 tracks)
+          (RBFile.onyxHarm2 tracks)
+          mempty)]
+        C.Vocal1 -> []
+      solo = ("1", makeVox pvox (RBFile.onyxPartVocals tracks) mempty mempty)
+      in Difficulties $ reverse $ solo : harm
     , flexCatch = flip fmap (C.partAmplitude fpart) $ \amp -> let
       ampDiffNames (Difficulties pairs) = Difficulties $ flip map pairs $ first $ \case
         "X" -> "S/X"

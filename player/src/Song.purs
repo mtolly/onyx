@@ -34,7 +34,7 @@ newtype Flex = Flex
   , prokeys   :: Maybe (Difficulties ProKeys)
   , protar    :: Maybe (Difficulties Protar)
   , amplitude :: Maybe (Difficulties Amplitude)
-  , vocal     :: Maybe Vocal
+  , vocal     :: Maybe (Difficulties Vocal)
   }
 
 data FlexPart
@@ -556,7 +556,7 @@ isForeignFlex f = do
   prokeys <- readProp "prokeys" f >>= readNullOrUndefined >>= traverse (difficulties isForeignProKeys)
   protar <- readProp "protar" f >>= readNullOrUndefined >>= traverse (difficulties isForeignProtar)
   amplitude <- readProp "catch" f >>= readNullOrUndefined >>= traverse (difficulties isForeignAmplitude)
-  vocal <- readProp "vocal" f >>= readNullOrUndefined >>= traverse isForeignVocal
+  vocal <- readProp "vocal" f >>= readNullOrUndefined >>= traverse (difficulties isForeignVocal)
   pure $ Flex
     { five: five
     , six: six

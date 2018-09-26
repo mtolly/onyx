@@ -135,7 +135,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                   Just ds -> [{type: "amplitude", diffs: map fst ds}]
                 , case flex.vocal     of
                   Nothing -> []
-                  Just v  -> [{type: "vocal"    , diffs: ["X"]     }]
+                  Just ds -> [{type: "vocal"    , diffs: map fst ds}]
                 ]
               in map (inst true) (take 1 insts) <> map (inst false) (drop 1 insts)
             }
