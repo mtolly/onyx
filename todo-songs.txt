@@ -66,8 +66,8 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     started - AIA, ITNOG
     todo - TDS (jarod)
   > basic bass:
-    done - AIA, TDS, HTF, V, SOC
-    todo - ES, ITNOG
+    done - AIA, TDS, ES, HTF, V, SOC
+    started - ITNOG
   > basic guitar:
     done - V (cello), SOC
     not - AIA, TDS, ES, HTF, ITNOG
