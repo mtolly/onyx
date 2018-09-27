@@ -26,8 +26,8 @@ data Event
   | ChordRoot    Key
   | NoChordNames Bool
   | SlashChords  Bool
-  | Trill        Bool
-  | Tremolo      Bool
+  | Trill        (Maybe LaneDifficulty)
+  | Tremolo      (Maybe LaneDifficulty)
   | BREGuitar    Bool
   | BREBass      Bool
   | Overdrive    Bool

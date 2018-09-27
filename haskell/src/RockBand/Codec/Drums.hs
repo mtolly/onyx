@@ -27,8 +27,8 @@ data DrumTrack t = DrumTrack
   { drumDifficulties :: Map.Map Difficulty (DrumDifficulty t)
   , drumMood         :: RTB.T t Mood
   , drumToms         :: RTB.T t (ProColor, ProType)
-  , drumSingleRoll   :: RTB.T t Bool
-  , drumDoubleRoll   :: RTB.T t Bool
+  , drumSingleRoll   :: RTB.T t (Maybe LaneDifficulty)
+  , drumDoubleRoll   :: RTB.T t (Maybe LaneDifficulty)
   , drumOverdrive    :: RTB.T t Bool -- ^ white notes to gain energy
   , drumActivation   :: RTB.T t Bool -- ^ drum fill to activate Overdrive, or BRE
   , drumSolo         :: RTB.T t Bool
@@ -200,8 +200,8 @@ instance ParseTrack DrumTrack where
       Yellow -> 110
       Blue   -> 111
       Green  -> 112
-    drumSingleRoll <- drumSingleRoll =. edges 126
-    drumDoubleRoll <- drumDoubleRoll =. edges 127
+    drumSingleRoll <- drumSingleRoll =. edgesLanes 126
+    drumDoubleRoll <- drumDoubleRoll =. edgesLanes 127
     drumOverdrive <- drumOverdrive =. edges 116
     drumActivation <- drumActivation =. edgesBRE [120 .. 124]
     drumSolo <- drumSolo =. edges 103

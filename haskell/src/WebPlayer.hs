@@ -42,6 +42,7 @@ import qualified RockBand.Codec.ProGuitar         as PG
 import           RockBand.Codec.ProKeys           as PK
 import qualified RockBand.Codec.Six               as GHL
 import           RockBand.Common                  (Difficulty (..),
+                                                   LaneDifficulty (..),
                                                    LongNote (..), SongKey (..),
                                                    StrumHOPOTap (..), joinEdges,
                                                    songKeyUsesFlats, splitEdges)
@@ -279,6 +280,13 @@ makeDrumDifficulties f = Difficulties $ catMaybes $ do
   (d, name) <- [(Nothing, "X+"), (Just Expert, "X"), (Just Hard, "H"), (Just Medium, "M"), (Just Easy, "E")]
   return $ (name,) <$> f d
 
+laneDifficulty :: (NNC.C t) => Difficulty -> RTB.T t (Maybe LaneDifficulty) -> RTB.T t ((), (), Maybe t)
+laneDifficulty Expert lanes = joinEdges $ (\case Just _ -> NoteOn () (); Nothing -> NoteOff ()) <$> lanes
+laneDifficulty Hard   lanes = let
+  joined = joinEdges $ (\case Just d -> NoteOn d (); Nothing -> NoteOff ()) <$> lanes
+  in RTB.mapMaybe (\(d, (), len) -> guard (d == LaneHard) >> Just ((), (), len)) joined
+laneDifficulty _      _     = RTB.empty
+
 processFive :: Maybe U.Beats -> U.TempoMap -> Five.FiveTrack U.Beats -> Difficulties Five U.Seconds
 processFive hopoThreshold tmap trk = makeDifficulties $ \diff -> let
   thisDiff = fromMaybe mempty $ Map.lookup diff $ Five.fiveDifficulties trk
@@ -298,8 +306,8 @@ processFive hopoThreshold tmap trk = makeDifficulties $ \diff -> let
   energy = realTrack tmap $ Five.fiveOverdrive trk
   bre    = realTrack tmap $ Five.fiveBRE       trk
   ons    = RTB.normalize $ RTB.collectCoincident $ fmap (fst . fst) assigned
-  trems  = findTremolos ons $ RTB.normalize $ joinEdges $ fmap (\b -> if b then NoteOn () () else NoteOff ()) $ Five.fiveTremolo trk
-  trills = findTrills ons $ RTB.normalize $ joinEdges $ fmap (\b -> if b then NoteOn () () else NoteOff ()) $ Five.fiveTrill trk
+  trems  = findTremolos ons $ RTB.normalize $ laneDifficulty diff $ Five.fiveTremolo trk
+  trills = findTrills ons $ RTB.normalize $ laneDifficulty diff $ Five.fiveTrill trk
   lanesAll = U.applyTempoTrack tmap $ RTB.merge trems trills
   lanes = Map.fromList $ do
     color <- Nothing : fmap Just [Five.Green .. Five.Orange]
@@ -377,10 +385,8 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
     Nothing -> RTB.empty
     Just c  -> RTB.delay c $ U.trackDrop c fills
   hands  = RTB.filter (not . null) $ fmap (filter (/= D.Kick)) notesB
-  singles = findTremolos hands $ RTB.normalize $ joinEdges
-    $ fmap (\b -> if b then NoteOn () () else NoteOff ()) $ D.drumSingleRoll trk
-  doubles = findTrills   hands $ RTB.normalize $ joinEdges
-    $ fmap (\b -> if b then NoteOn () () else NoteOff ()) $ D.drumDoubleRoll trk
+  singles = findTremolos hands $ RTB.normalize $ laneDifficulty (fromMaybe Expert diff) $ D.drumSingleRoll trk
+  doubles = findTrills   hands $ RTB.normalize $ laneDifficulty (fromMaybe Expert diff) $ D.drumDoubleRoll trk
   lanesAll = U.applyTempoTrack tmap $ RTB.merge singles doubles
   lanes = Map.fromList $ do
     gem <-
@@ -441,9 +447,8 @@ processProtar hopoThreshold tuning defaultFlat tmap pg = makeDifficulties $ \dif
   -- for protar we can treat tremolo/trill identically;
   -- in both cases it's just "get the strings the first note/chord is on"
   onStrings = RTB.normalize $ RTB.collectCoincident $ fmap fst $ PG.pgNotes thisDiff
-  lanesAll = U.applyTempoTrack tmap $ findTremolos onStrings $ RTB.normalize $ joinEdges $ let
-    tremTrill = RTB.merge (PG.pgTremolo pg) (PG.pgTrill pg)
-    in fmap (\b -> if b then NoteOn () () else NoteOff ()) tremTrill
+  lanesAll = U.applyTempoTrack tmap $ findTremolos onStrings $ RTB.normalize
+    $ laneDifficulty diff $ RTB.merge (PG.pgTremolo pg) (PG.pgTrill pg)
   lanes = Map.fromList $ do
     str <- [minBound .. maxBound]
     return $ (,) str $ flip RTB.mapMaybe lanesAll $ \(b, strs) -> do

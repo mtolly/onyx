@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveFoldable    #-}
 {-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE TupleSections     #-}
 module RockBand.Codec where
@@ -106,6 +107,13 @@ edges p = single
     Just (p', b) | p == p' -> Just b
     _            -> Nothing
   ) (makeEdge p)
+
+edgesLanes :: (Monad m, NNC.C t) => Int -> TrackEvent m t (Maybe LaneDifficulty)
+edgesLanes p = single
+  (\x -> case isNoteEdgeCPV x of
+    Just (_, p', mv) | p == p' -> Just $ (\v -> if v <= 64 then LaneHard else LaneExpert) <$> mv
+    _                          -> Nothing
+  ) (makeEdgeCPV 0 p . fmap (\case LaneHard -> 40; LaneExpert -> 96))
 
 splitTrack :: (a -> (b, c)) -> RTB.T t a -> (RTB.T t b, RTB.T t c)
 splitTrack f trk = let

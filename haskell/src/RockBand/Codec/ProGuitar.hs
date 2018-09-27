@@ -73,8 +73,8 @@ data GuitarType = TypeGuitar | TypeBass
 data ProGuitarTrack t = ProGuitarTrack
   { pgDifficulties   :: Map.Map Difficulty (ProGuitarDifficulty t)
   , pgTrainer        :: RTB.T t (GuitarType, Trainer)
-  , pgTremolo        :: RTB.T t Bool
-  , pgTrill          :: RTB.T t Bool
+  , pgTremolo        :: RTB.T t (Maybe LaneDifficulty)
+  , pgTrill          :: RTB.T t (Maybe LaneDifficulty)
   , pgOverdrive      :: RTB.T t Bool
   , pgBRE            :: RTB.T t (GuitarType, Bool)
   , pgSolo           :: RTB.T t Bool
@@ -209,8 +209,8 @@ instance ParseTrack ProGuitarTrack where
       unparse (TypeGuitar, t) = showCommand' (t, T.pack "pg")
       unparse (TypeBass  , t) = showCommand' (t, T.pack "pb")
       in single parse unparse
-    pgTremolo      <- pgTremolo =. edges 126
-    pgTrill        <- pgTrill =. edges 127
+    pgTremolo      <- pgTremolo =. edgesLanes 126
+    pgTrill        <- pgTrill =. edgesLanes 127
     pgOverdrive    <- pgOverdrive =. edges 116
     -- note, we explicitly do TypeGuitar before TypeBass
     -- because we want to try to parse the 6-note version first

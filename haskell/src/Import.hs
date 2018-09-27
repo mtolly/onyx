@@ -88,16 +88,16 @@ fixDoubleSwells ps = let
   fixTrack trk = let
     notes = RTB.filter (/= RBDrums.Kick) $ drumGems $ fromMaybe mempty $ Map.lookup Expert $ drumDifficulties trk
     lanesAbs = RTB.toAbsoluteEventList 0 $ joinEdgesSimple
-      $ fmap (\b -> (guard b >> Just (), ())) $ drumSingleRoll trk
+      $ fmap (\diff -> (diff, ())) $ drumSingleRoll trk
     newLanes = U.trackJoin $ RTB.fromAbsoluteEventList $ ATB.fromPairList
       $ flip map (ATB.toPairList lanesAbs) $ \(startTime, lane) -> case lane of
-        ((), (), len) -> let
+        (diff, (), len) -> let
           shouldBeDouble = case toList $ U.trackTake len $ U.trackDrop startTime notes of
             g1 : g2 : g3 : g4 : _ | g1 == g3 && g2 == g4 && g1 /= g2 -> True
             _                     -> False
           in (startTime,) $ RTB.fromPairList $ if shouldBeDouble
-            then [(0, (True, True)), (len, (True, False))]
-            else [(0, (False, True)), (len, (False, False))]
+            then [(0, (True, Just diff)), (len, (True, Nothing))]
+            else [(0, (False, Just diff)), (len, (False, Nothing))]
     in trk
       { drumSingleRoll = RTB.mapMaybe (\case (False, b) -> Just b; _ -> Nothing) newLanes
       , drumDoubleRoll = RTB.merge (drumDoubleRoll trk)

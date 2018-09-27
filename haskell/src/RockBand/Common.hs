@@ -296,3 +296,6 @@ makeEdge p b = makeEdgeCPV 0 p $ guard b >> Just 96
 
 data StrumHOPOTap = Strum | HOPO | Tap
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data LaneDifficulty = LaneExpert | LaneHard
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)

@@ -14,8 +14,8 @@ import           Data.Bifunctor                   (first)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
 import qualified Data.Map                         as Map
-import           Data.Maybe                       (fromMaybe, listToMaybe,
-                                                   mapMaybe)
+import           Data.Maybe                       (fromMaybe, isJust,
+                                                   listToMaybe, mapMaybe)
 import           Data.Monoid                      ((<>))
 import           Development.Shake
 import qualified FretsOnFire                      as FoF
@@ -191,14 +191,14 @@ trackGlue t xs ys = let
 
 fixFreeformDrums :: DrumTrack U.Beats -> DrumTrack U.Beats
 fixFreeformDrums ft = ft
-  { drumSingleRoll = fixFreeform gems $ drumSingleRoll ft
-  , drumDoubleRoll = fixFreeform gems $ drumDoubleRoll ft
+  { drumSingleRoll = fixFreeform' gems $ drumSingleRoll ft
+  , drumDoubleRoll = fixFreeform' gems $ drumDoubleRoll ft
   } where gems = maybe RTB.empty (void . drumGems) $ Map.lookup Expert $ drumDifficulties ft
 
 fixFreeformFive :: FiveTrack U.Beats -> FiveTrack U.Beats
 fixFreeformFive ft = ft
-  { fiveTremolo = fixFreeform gems $ fiveTremolo ft
-  , fiveTrill   = fixFreeform gems $ fiveTrill   ft
+  { fiveTremolo = fixFreeform' gems $ fiveTremolo ft
+  , fiveTrill   = fixFreeform' gems $ fiveTrill   ft
   } where gems = maybe RTB.empty (void . fiveGems) $ Map.lookup Expert $ fiveDifficulties ft
 
 fixFreeformPK :: ProKeysTrack U.Beats -> ProKeysTrack U.Beats
@@ -209,25 +209,28 @@ fixFreeformPK ft = ft
 
 fixFreeformPG :: ProGuitarTrack U.Beats -> ProGuitarTrack U.Beats
 fixFreeformPG ft = ft
-  { pgTremolo = fixFreeform gems $ pgTremolo ft
-  , pgTrill   = fixFreeform gems $ pgTrill   ft
+  { pgTremolo = fixFreeform' gems $ pgTremolo ft
+  , pgTrill   = fixFreeform' gems $ pgTrill   ft
   } where gems = maybe RTB.empty (void . pgNotes) $ Map.lookup Expert $ pgDifficulties ft
 
 -- | Adjusts instrument tracks so rolls on notes 126/127 end just a tick after
 --- their last gem note-on.
 fixFreeform :: RTB.T U.Beats () -> RTB.T U.Beats Bool -> RTB.T U.Beats Bool
-fixFreeform initGems = go initGems . RTB.normalize where
+fixFreeform initGems = fmap isJust . fixFreeform' initGems . fmap (\b -> guard b >> Just ())
+
+fixFreeform' :: (Ord a) => RTB.T U.Beats () -> RTB.T U.Beats (Maybe a) -> RTB.T U.Beats (Maybe a)
+fixFreeform' initGems = go initGems . RTB.normalize where
   go gems lanes = case RTB.viewL lanes of
-    Just ((dt, True), lanes') -> case RTB.viewL lanes' of
-      Just ((len, False), lanes'') -> let
+    Just ((dt, Just x), lanes') -> case RTB.viewL lanes' of
+      Just ((len, Nothing), lanes'') -> let
         covered = U.trackTake len $ U.trackDrop dt gems
         len' = case sum $ RTB.getTimes covered of
           0 -> len -- no gems, shouldn't happen
           s -> s + 1/32
-        in RTB.cons dt True $ RTB.insert len' False $
+        in RTB.cons dt (Just x) $ RTB.insert len' Nothing $
           go (U.trackDrop dt gems) (RTB.delay len lanes'')
       _ -> lanes -- on not followed by off, abort
-    Just ((_, False), _) -> lanes -- off not preceded by on, abort
+    Just ((_, Nothing), _) -> lanes -- off not preceded by on, abort
     Nothing -> RTB.empty -- done
 
 -- This doesn't currently handle
@@ -290,7 +293,10 @@ keysToProKeys d ft = ProKeysTrack
   , pkMood      = RTB.empty
   , pkSolo      = if d == Expert then fiveSolo ft else RTB.empty
   , pkGlissando = RTB.empty
-  , pkTrill     = if d == Expert then fiveTrill ft else RTB.empty
+  , pkTrill     = case d of
+    Expert -> isJust <$> fiveTrill ft
+    -- TODO add Hard trills
+    _      -> RTB.empty
   , pkOverdrive = if d == Expert then fiveOverdrive ft else RTB.empty
   , pkBRE       = if d == Expert then fiveBRE ft else RTB.empty
   , pkNotes     = case Map.lookup d $ fiveDifficulties ft of

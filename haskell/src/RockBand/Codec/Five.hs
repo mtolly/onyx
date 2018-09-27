@@ -94,8 +94,8 @@ data FiveTrack t = FiveTrack
   , fiveHandMap      :: RTB.T t HandMap
   , fiveStrumMap     :: RTB.T t StrumMap
   , fiveFretPosition :: RTB.T t (FretPosition, Bool)
-  , fiveTremolo      :: RTB.T t Bool
-  , fiveTrill        :: RTB.T t Bool
+  , fiveTremolo      :: RTB.T t (Maybe LaneDifficulty)
+  , fiveTrill        :: RTB.T t (Maybe LaneDifficulty)
   , fiveOverdrive    :: RTB.T t Bool
   , fiveBRE          :: RTB.T t Bool
   , fiveSolo         :: RTB.T t Bool
@@ -182,8 +182,8 @@ instance ParseTrack FiveTrack where
     fiveStrumMap     <- fiveStrumMap     =. command
     fiveFretPosition <- (fiveFretPosition =.) $ condenseMap $ eachKey each
       $ \posn -> edges $ fromEnum posn + 40
-    fiveTremolo      <- fiveTremolo      =. edges 126
-    fiveTrill        <- fiveTrill        =. edges 127
+    fiveTremolo      <- fiveTremolo      =. edgesLanes 126
+    fiveTrill        <- fiveTrill        =. edgesLanes 127
     fiveOverdrive    <- fiveOverdrive    =. edges 116
     fiveBRE          <- fiveBRE          =. edgesBRE [120 .. 124]
     fiveSolo         <- fiveSolo         =. edges 103
