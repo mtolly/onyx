@@ -5,6 +5,7 @@ import           Prelude
 import           Data.Array              (cons, length, snoc, take, zip, (..))
 import           Data.Foldable           (elem, for_, sum)
 import           Data.Int                (round, toNumber)
+import           Data.Int.Bits           (shr)
 import           Data.List               as L
 import           Data.Maybe              (Maybe (..), fromMaybe)
 import           Data.Time.Duration      (Seconds, negateDuration)
@@ -68,6 +69,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
       drawH = stuff.maxY - stuff.minY
+      widthHighway = 282
   -- Highway
   let drawHighway _    L.Nil                 = pure unit
       drawHighway xpos (L.Cons chunk chunks) = do
@@ -93,11 +95,11 @@ drawProKeys (ProKeys pk) targetX stuff = do
       drawSoloHighway _    _  _  L.Nil                 = pure unit
       drawSoloHighway xpos y1 y2 (L.Cons chunk chunks) = do
         let params = case chunk of
-              RailingLight  -> { color: Nothing                   , width: 1  }
-              RailingDark   -> { color: Nothing                   , width: 1  }
-              WhiteKey      -> { color: Just customize.highwaySolo, width: 11 }
-              WhiteKeyShort -> { color: Just customize.highwaySolo, width: 10 }
-              BlackKey      -> { color: Just customize.highwaySoloBlackKey    , width: 11 }
+              RailingLight  -> { color: Nothing                           , width: 1  }
+              RailingDark   -> { color: Nothing                           , width: 1  }
+              WhiteKey      -> { color: Just customize.highwaySolo        , width: 11 }
+              WhiteKeyShort -> { color: Just customize.highwaySolo        , width: 10 }
+              BlackKey      -> { color: Just customize.highwaySoloBlackKey, width: 11 }
         case params.color of
           Nothing -> pure unit
           Just c  -> do
@@ -112,7 +114,18 @@ drawProKeys (ProKeys pk) targetX stuff = do
   drawSolos soloEdges
   -- Solo edges
   zoomDesc pk.solo \secs _ -> do
-    drawImage Image_highway_prokeys_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
+    let y = secsToPxVert secs
+    setFillStyle customize.highwaySoloEdge stuff
+    fillRect { x: toNumber targetX, y: toNumber y, width: toNumber widthHighway, height: 1.0 } stuff
+  -- Beats
+  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) \secs evt -> do
+    let y = secsToPxVert secs
+        h = case evt of
+          Bar      -> customize.highwayBarHeight
+          Beat     -> customize.highwayBeatHeight
+          HalfBeat -> customize.highwayHalfBeatHeight
+    setFillStyle customize.highwayLine stuff
+    fillRect { x: toNumber targetX + 1.0, y: toNumber $ y - shr h 1, width: toNumber widthHighway - 1.0, height: toNumber h } stuff
   -- Lanes
   for_ pitchList \{pitch: pitch, offsetX: offsetX, isBlack: isBlack} -> let
     thisLane = Map.union pk.bre
@@ -138,13 +151,6 @@ drawProKeys (ProKeys pk) targetX stuff = do
         } stuff
       drawLanes rest
     in drawLanes laneEdges
-  -- Beats
-  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) \secs evt -> do
-    let y = secsToPxVert secs
-    case evt of
-      Bar      -> drawImage Image_highway_prokeys_bar      (toNumber targetX) (toNumber y - 1.0) stuff
-      Beat     -> drawImage Image_highway_prokeys_beat     (toNumber targetX) (toNumber y - 1.0) stuff
-      HalfBeat -> drawImage Image_highway_prokeys_halfbeat (toNumber targetX) (toNumber y      ) stuff
   -- Target
   drawImage Image_highway_prokeys_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Ranges
@@ -268,4 +274,4 @@ drawProKeys (ProKeys pk) targetX stuff = do
               onContext (\ctx -> C.setStrokeStyle ctx customize.glissandoBorder) stuff
               onContext (\ctx -> C.setLineWidth ctx 1.0) stuff
               strokeRect { x: toNumber (targetX + offsetX) + 0.5, y: toNumber y - 4.5, width: 12.0, height: 9.0 } stuff
-  pure $ targetX + 282 + customize.marginWidth
+  pure $ targetX + widthHighway + customize.marginWidth

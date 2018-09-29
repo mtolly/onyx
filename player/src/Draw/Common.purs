@@ -3,6 +3,7 @@ module Draw.Common where
 import           Prelude
 
 import           Data.Int           (floor, toNumber)
+import           Data.Int.Bits      (shr)
 import           Data.Maybe         (Maybe (..))
 import           Data.Time.Duration (Seconds (..))
 import           Effect             (Effect)
@@ -11,7 +12,7 @@ import           Math               (pi)
 
 import           Images             (ImageID)
 import           OnyxMap            as Map
-import           Song               (Song)
+import           Song               (Song(..), Beats(..), Beat(..))
 import           Style              (customize)
 
 type App =
@@ -169,3 +170,18 @@ slide t1 t2 tx v1 v2 = if t1 == t2
 
 secToNum :: Seconds -> Number
 secToNum (Seconds n) = n
+
+drawBeats :: (Seconds -> Int) -> { x :: Int, width :: Int, minSecs :: Seconds, maxSecs :: Seconds } -> Draw Unit
+drawBeats secsToPxVert dims stuff = do
+  setFillStyle customize.highwayLine stuff
+  let lines = case stuff.song of
+        Song o -> case o.beats of
+          Beats o' -> o'.lines
+  Map.zoomDescDo dims.minSecs dims.maxSecs lines \secs evt -> do
+    let y = secsToPxVert secs
+        h = case evt of
+          Bar      -> customize.highwayBarHeight
+          Beat     -> customize.highwayBeatHeight
+          HalfBeat -> customize.highwayHalfBeatHeight
+    setFillStyle customize.highwayLine stuff
+    fillRect { x: toNumber dims.x, y: toNumber $ y - shr h 1, width: toNumber dims.width, height: toNumber h } stuff

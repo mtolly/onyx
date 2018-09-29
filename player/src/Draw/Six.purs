@@ -13,12 +13,11 @@ import           Effect.Exception.Unsafe (unsafeThrow)
 import           Graphics.Canvas         as C
 
 import           Draw.Common             (Draw, drawImage, fillRect, secToNum,
-                                          setFillStyle)
+                                          setFillStyle, drawBeats)
 import           Images                  (ImageID (..))
 import           OnyxMap                 as Map
-import           Song                    (Beat (..), Beats (..),
-                                          GuitarNoteType (..), Six (..),
-                                          Song (..), Sustainable (..))
+import           Song                    (GuitarNoteType (..), Six (..),
+                                          Sustainable (..))
 import           Style                   (customize)
 
 data SixColor
@@ -33,6 +32,7 @@ drawSix (Six six) targetX stuff = do
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) <> stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
       widthFret = customize.widthStandardFret
+      widthHighway = 3 * widthFret + 2
       maxSecs = pxToSecsVert $ stuff.minY - 50
       minSecs = pxToSecsVert $ stuff.maxY + 50
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
@@ -45,12 +45,6 @@ drawSix (Six six) targetX stuff = do
   -- Highway
   setFillStyle customize.highway stuff
   fillRect { x: toNumber targetX, y: toNumber stuff.minY, width: 110.0, height: toNumber drawH } stuff
-  setFillStyle customize.highwayRailing stuff
-  for_ (map (\i -> i * widthFret) $ range 0 3) \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
-  setFillStyle customize.highwayDivider stuff
-  for_ (map (\i -> i * widthFret + 1) $ range 0 3) \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   -- Solo highway
   setFillStyle customize.highwaySolo stuff
   let startsAsSolo = case Map.lookupLE minSecs six.solo of
@@ -72,15 +66,24 @@ drawSix (Six six) targetX stuff = do
   drawSolos soloEdges
   -- Solo edges
   zoomDesc six.solo \secs _ -> do
-    drawImage Image_highway_ghl_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
-  -- TODO lanes, bre
-  -- Beats
-  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) \secs evt -> do
     let y = secsToPxVert secs
-    case evt of
-      Bar      -> drawImage Image_highway_ghl_bar      (toNumber targetX) (toNumber y - 1.0) stuff
-      Beat     -> drawImage Image_highway_ghl_beat     (toNumber targetX) (toNumber y - 1.0) stuff
-      HalfBeat -> pure unit
+    setFillStyle customize.highwaySoloEdge stuff
+    fillRect { x: toNumber targetX, y: toNumber y, width: toNumber widthHighway, height: 1.0 } stuff
+  -- Beats
+  drawBeats secsToPxVert
+    { x: targetX
+    , width: widthHighway
+    , minSecs: minSecs
+    , maxSecs: maxSecs
+    } stuff
+  -- Railings
+  setFillStyle customize.highwayRailing stuff
+  for_ (map (\i -> i * widthFret) $ range 0 3) \offsetX -> do
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
+  setFillStyle customize.highwayDivider stuff
+  for_ (map (\i -> i * widthFret + 1) $ range 0 3) \offsetX -> do
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
+  -- TODO lanes, bre
   -- Target
   drawImage Image_highway_ghl_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Sustains
@@ -211,4 +214,4 @@ drawSix (Six six) targetX stuff = do
         Note    sht -> withNoteType sht
         Sustain sht -> withNoteType sht
         SustainEnd  -> pure unit
-  pure $ targetX + (3 * widthFret + 2) + customize.marginWidth
+  pure $ targetX + widthHighway + customize.marginWidth

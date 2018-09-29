@@ -34,7 +34,13 @@ foreign import customize ::
   , highwayRailing :: String
   , highwayDivider :: String
   , highwaySolo :: String
+  , highwaySoloEdge :: String
   , highwaySoloBlackKey :: String
+
+  , highwayLine           :: String
+  , highwayBarHeight      :: Int
+  , highwayBeatHeight     :: Int
+  , highwayHalfBeatHeight :: Int
 
   , proKeysRangeOverlay :: String
   , glissandoBorder :: String

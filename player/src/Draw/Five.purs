@@ -13,11 +13,10 @@ import           Effect.Exception.Unsafe (unsafeThrow)
 import           Graphics.Canvas         as C
 
 import           Draw.Common             (Draw, drawImage, drawLane, fillRect,
-                                          secToNum, setFillStyle)
+                                          secToNum, setFillStyle, drawBeats)
 import           Images                  (ImageID (..))
 import           OnyxMap                 as Map
-import           Song                    (Beat (..), Beats (..), Five (..),
-                                          GuitarNoteType (..), Song (..),
+import           Song                    (Five (..), GuitarNoteType (..),
                                           Sustainable (..))
 import           Style                   (customize)
 
@@ -27,6 +26,7 @@ drawFive (Five five) targetX stuff = do
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) <> stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
       widthFret = customize.widthStandardFret
+      widthHighway = 5 * widthFret + 2
       maxSecs = pxToSecsVert $ stuff.minY - 50
       minSecs = pxToSecsVert $ stuff.maxY + 50
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
@@ -39,12 +39,6 @@ drawFive (Five five) targetX stuff = do
   -- Highway
   setFillStyle customize.highway stuff
   fillRect { x: toNumber targetX, y: toNumber stuff.minY, width: toNumber $ widthFret * 5 + 2, height: toNumber drawH } stuff
-  setFillStyle customize.highwayRailing stuff
-  for_ (map (\i -> i * widthFret) $ range 0 5) \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
-  setFillStyle customize.highwayDivider stuff
-  for_ (map (\i -> i * widthFret + 1) $ range 0 5) \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   -- Solo highway
   setFillStyle customize.highwaySolo stuff
   let startsAsSolo = case Map.lookupLE minSecs five.solo of
@@ -66,7 +60,23 @@ drawFive (Five five) targetX stuff = do
   drawSolos soloEdges
   -- Solo edges
   zoomDesc five.solo \secs _ -> do
-    drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
+    let y = secsToPxVert secs
+    setFillStyle customize.highwaySoloEdge stuff
+    fillRect { x: toNumber targetX, y: toNumber y, width: toNumber widthHighway, height: 1.0 } stuff
+  -- Beats
+  drawBeats secsToPxVert
+    { x: targetX
+    , width: widthHighway
+    , minSecs: minSecs
+    , maxSecs: maxSecs
+    } stuff
+  -- Railings
+  setFillStyle customize.highwayRailing stuff
+  for_ (map (\i -> i * widthFret) $ range 0 5) \offsetX -> do
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
+  setFillStyle customize.highwayDivider stuff
+  for_ (map (\i -> i * widthFret + 1) $ range 0 5) \offsetX -> do
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   -- Lanes
   let lanes =
         -- TODO open
@@ -99,13 +109,6 @@ drawFive (Five five) targetX stuff = do
         } stuff
       drawLanes rest
     in drawLanes laneEdges
-  -- Beats
-  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) \secs evt -> do
-    let y = secsToPxVert secs
-    case evt of
-      Bar      -> drawImage Image_highway_grybo_bar      (toNumber targetX) (toNumber y - 1.0) stuff
-      Beat     -> drawImage Image_highway_grybo_beat     (toNumber targetX) (toNumber y - 1.0) stuff
-      HalfBeat -> drawImage Image_highway_grybo_halfbeat (toNumber targetX) (toNumber y      ) stuff
   -- Target
   drawImage
     (if stuff.app.settings.leftyFlip then Image_highway_grybo_target_lefty else Image_highway_grybo_target)
@@ -222,4 +225,4 @@ drawFive (Five five) targetX stuff = do
         Note    sht -> withNoteType sht
         Sustain sht -> withNoteType sht
         SustainEnd  -> pure unit
-  pure $ targetX + (widthFret * 5 + 2) + customize.marginWidth
+  pure $ targetX + widthHighway + customize.marginWidth

@@ -23,8 +23,9 @@ import           Data.Default.Class               (def)
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Fixed                       (Milli)
+import           Data.Foldable                    (toList)
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (sort)
+import           Data.List.Extra                  (nubOrd, sort)
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (catMaybes, fromMaybe,
                                                    listToMaybe)
@@ -167,12 +168,13 @@ instance A.ToJSON (ProKeys U.Seconds) where
     ]
 
 data Protar t = Protar
-  { protarNotes  :: Map.Map PG.GtrString (RTB.T t (LongNote (StrumHOPOTap, Maybe PG.GtrFret) ()))
-  , protarSolo   :: RTB.T t Bool
-  , protarEnergy :: RTB.T t Bool
-  , protarLanes  :: Map.Map PG.GtrString (RTB.T t Bool)
-  , protarBRE    :: RTB.T t Bool
-  , protarChords :: RTB.T t (LongNote T.Text ())
+  { protarNotes   :: Map.Map PG.GtrString (RTB.T t (LongNote (StrumHOPOTap, Maybe PG.GtrFret) ()))
+  , protarSolo    :: RTB.T t Bool
+  , protarEnergy  :: RTB.T t Bool
+  , protarLanes   :: Map.Map PG.GtrString (RTB.T t Bool)
+  , protarBRE     :: RTB.T t Bool
+  , protarChords  :: RTB.T t (LongNote T.Text ())
+  , protarStrings :: Int
   } deriving (Eq, Ord, Show)
 
 instance A.ToJSON (Protar U.Seconds) where
@@ -195,6 +197,7 @@ instance A.ToJSON (Protar U.Seconds) where
       NoteOff     () -> "e"
       Blip   name () -> "c:" <> name
       NoteOn name () -> "C:" <> name
+    , (,) "strings" $ A.toJSON $ protarStrings x
     ] where showFret Nothing  = "x"
             showFret (Just i) = T.pack (show i)
 
@@ -428,7 +431,7 @@ processProKeys tmap trk = let
   in guard (not $ RTB.null $ pkNotes trk) >> Just (ProKeys notes ranges solo energy lanes gliss bre)
 
 processProtar :: U.Beats -> [Int] -> Bool -> U.TempoMap -> PG.ProGuitarTrack U.Beats -> Difficulties Protar U.Seconds
-processProtar hopoThreshold tuning defaultFlat tmap pg = makeDifficulties $ \diff -> let
+processProtar hopoThreshold relTuning defaultFlat tmap pg = makeDifficulties $ \diff -> let
   thisDiff = fromMaybe mempty $ Map.lookup diff $ PG.pgDifficulties pg
   assigned = expandColors $ PG.guitarifyHOPO hopoThreshold thisDiff
   expandColors = splitEdges . RTB.flatten . fmap expandChord
@@ -455,8 +458,16 @@ processProtar hopoThreshold tuning defaultFlat tmap pg = makeDifficulties $ \dif
       guard $ elem str strs
       return b
   bre = realTrack tmap $ fmap snd $ PG.pgBRE pg
+  usedStrings = nubOrd $ toList (PG.pgDifficulties pg) >>= map fst . toList . PG.pgNotes
+  stringCount
+    | not (null $ drop 5 relTuning) || elem PG.S1 usedStrings = 6
+    | not (null $ drop 4 relTuning) || elem PG.S2 usedStrings = 5
+    | not (null $ drop 3 relTuning) || elem PG.S3 usedStrings = 4
+    | otherwise                                               = 3
+  tuning = zipWith (+) PG.standardGuitar $ relTuning ++ repeat 0
   chords = realTrack tmap $ PG.computeChordNames diff tuning defaultFlat pg
-  in guard (not $ RTB.null $ PG.pgNotes thisDiff) >> Just (Protar notes solo energy lanes bre chords)
+  -- TODO include correct strings number
+  in guard (not $ RTB.null $ PG.pgNotes thisDiff) >> Just (Protar notes solo energy lanes bre chords stringCount)
 
 newtype Beats t = Beats
   { beatLines :: RTB.T t Beat
@@ -666,9 +677,11 @@ makeDisplay songYaml song = let
         Expert -> RBFile.onyxPartRealKeysX tracks
     , flexProtar = flip fmap (C.partProGuitar fpart) $ \pg -> processProtar
       (ht $ C.pgHopoThreshold pg)
-      (zipWith (+) PG.standardGuitar $ case C.pgTuning pg of
-        []   -> repeat 0
-        offs -> offs ++ repeat 0
+      (case C.pgTuning pg of
+        [] -> case name of
+          RBFile.FlexBass -> replicate 4 0
+          _               -> replicate 6 0
+        offs -> offs
       )
       defaultFlat
       (RBFile.s_tempos song)

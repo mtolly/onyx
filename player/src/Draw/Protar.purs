@@ -2,7 +2,7 @@ module Draw.Protar (drawProtar, eachChordsWidth) where
 
 import           Prelude
 
-import           Data.Array              (cons, index, range, snoc, unsnoc)
+import           Data.Array              (cons, index, range, snoc, unsnoc, uncons, take)
 import           Data.Foldable           (for_)
 import           Data.Int                (ceil, round, toNumber)
 import           Data.List               as L
@@ -15,13 +15,13 @@ import           Effect.Exception.Unsafe (unsafeThrow)
 import           Graphics.Canvas         as C
 
 import           Draw.Common             (Draw, drawImage, drawLane, fillRect,
-                                          secToNum, setFillStyle)
+                                          secToNum, setFillStyle, drawBeats)
 import           Images                  (ImageID (..), protarFrets)
 import           OnyxMap                 as Map
-import           Song                    (Beat (..), Beats (..), ChordLine (..),
-                                          Flex (..), GuitarNoteType (..),
-                                          Protar (..), ProtarNote (..),
-                                          Song (..), Sustainable (..))
+import           Song                    (ChordLine (..), Flex (..),
+                                          GuitarNoteType (..), Protar (..),
+                                          ProtarNote (..), Song (..),
+                                          Sustainable (..))
 import           Style                   (customize)
 
 getChordsWidth
@@ -53,12 +53,15 @@ eachChordsWidth ctx (Song o) = do
   pure $ Song o { parts = parts }
 
 drawProtar :: Protar -> Int -> Draw Int
-drawProtar (Protar protar) chordsX stuff = do
+drawProtar (Protar protar) startX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
-  let targetX = chordsX + protar.chordsWidth
+  let targetX = if stuff.app.settings.leftyFlip
+        then startX
+        else startX + protar.chordsWidth
       pxToSecsVert px = stuff.pxToSecsVert (windowH - px) <> stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
       widthFret = customize.widthProtarFret
+      widthHighway = widthFret * protar.strings + 2
       maxSecs = pxToSecsVert $ stuff.minY - 50
       minSecs = pxToSecsVert $ stuff.maxY + 50
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
@@ -66,15 +69,20 @@ drawProtar (Protar protar) chordsX stuff = do
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
-      handedness n = if stuff.app.settings.leftyFlip then 5 - n else n
+      handedness n = if stuff.app.settings.leftyFlip then protar.strings - 1 - n else n
       drawH = stuff.maxY - stuff.minY
   -- Chord names
-  let drawChord = drawChord' $ toNumber $ targetX - 5
-      drawChord' x secs name = case unsnoc name of
+  let drawChord = drawChord' $ if stuff.app.settings.leftyFlip
+        then toNumber $ startX + widthHighway + 5
+        else toNumber $ targetX - 5
+      removePiece name = if stuff.app.settings.leftyFlip
+        then map (\o -> {piece: o.head, pieces: o.tail}) (uncons name)
+        else map (\o -> {piece: o.last, pieces: o.init}) (unsnoc name)
+      drawChord' x secs name = case removePiece name of
         Nothing -> pure unit
         Just o -> do
           let ctx = stuff.context
-          y <- case fst o.last of
+          y <- case fst o.piece of
             Baseline -> do
               C.setFont ctx customize.proChordNameFont
               C.setFillStyle ctx customize.proChordNameColor
@@ -83,10 +91,15 @@ drawProtar (Protar protar) chordsX stuff = do
               C.setFont ctx customize.proChordNameFontSuperscript
               C.setFillStyle ctx customize.proChordNameColor
               pure $ toNumber $ secsToPxVert secs - 3
-          void $ C.setTextAlign ctx C.AlignRight
-          void $ C.fillText ctx (snd o.last) x y
-          metrics <- C.measureText ctx (snd o.last)
-          drawChord' (x - metrics.width) secs o.init
+          void $ C.setTextAlign ctx $ if stuff.app.settings.leftyFlip
+            then C.AlignLeft
+            else C.AlignRight
+          void $ C.fillText ctx (snd o.piece) x y
+          metrics <- C.measureText ctx (snd o.piece)
+          let x' = if stuff.app.settings.leftyFlip
+                then x + metrics.width
+                else x - metrics.width
+          drawChord' x' secs o.pieces
   -- 1. draw chords that end before now
   Map.zoomDescDo minSecs stuff.time protar.chords \secs e -> case e of
     Sustain _ -> pure unit
@@ -106,13 +119,7 @@ drawProtar (Protar protar) chordsX stuff = do
     Note    c  -> drawChord secs c
   -- Highway
   setFillStyle customize.highway stuff
-  fillRect { x: toNumber targetX, y: toNumber stuff.minY, width: toNumber $ widthFret * 6 + 2, height: toNumber drawH } stuff
-  setFillStyle customize.highwayRailing stuff
-  for_ (map (\i -> i * widthFret) $ range 0 6) \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
-  setFillStyle customize.highwayDivider stuff
-  for_ (map (\i -> i * widthFret + 1) $ range 0 6) \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
+  fillRect { x: toNumber targetX, y: toNumber stuff.minY, width: toNumber widthHighway, height: toNumber drawH } stuff
   -- Solo highway
   setFillStyle customize.highwaySolo stuff
   let startsAsSolo = case Map.lookupLE minSecs protar.solo of
@@ -128,23 +135,52 @@ drawProtar (Protar protar) chordsX stuff = do
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
-        when b1 $ for_ (map (\i -> i * widthFret + 2) $ range 0 5) \offsetX -> do
+        when b1 $ for_ (map (\i -> i * widthFret + 2) $ range 0 (protar.strings - 1)) \offsetX -> do
           fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, width: toNumber $ widthFret - 2, height: toNumber $ y1 - y2 } stuff
         drawSolos rest
   drawSolos soloEdges
   -- Solo edges
   zoomDesc protar.solo \secs _ -> do
-    drawImage Image_highway_grybo_solo_edge (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
+    let y = secsToPxVert secs
+    setFillStyle customize.highwaySoloEdge stuff
+    fillRect { x: toNumber targetX, y: toNumber y, width: toNumber widthHighway, height: 1.0 } stuff
+  -- Beats
+  drawBeats secsToPxVert
+    { x: targetX
+    , width: widthHighway
+    , minSecs: minSecs
+    , maxSecs: maxSecs
+    } stuff
+  -- Railings
+  setFillStyle customize.highwayRailing stuff
+  for_ (map (\i -> i * widthFret) $ range 0 protar.strings) \offsetX -> do
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
+  setFillStyle customize.highwayDivider stuff
+  for_ (map (\i -> i * widthFret + 1) $ range 0 protar.strings) \offsetX -> do
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   -- Lanes
-  let lanes =
-        [ {x: handedness 0 * widthFret + 2, gem: _.s6}
-        , {x: handedness 1 * widthFret + 2, gem: _.s5}
-        , {x: handedness 2 * widthFret + 2, gem: _.s4}
-        , {x: handedness 3 * widthFret + 2, gem: _.s3}
-        , {x: handedness 4 * widthFret + 2, gem: _.s2}
-        , {x: handedness 5 * widthFret + 2, gem: _.s1}
+  let colors' =
+        [ { c: _.s6, lane: _.s6, x: handedness 0 * widthFret + 1, strum: Image_gem_red_pro   , hopo: Image_gem_red_pro_hopo   , tap: Image_gem_red_pro_tap
+          , shades: customize.sustainRed, target: Image_highway_protar_target_red
+          }
+        , { c: _.s5, lane: _.s5, x: handedness 1 * widthFret + 1, strum: Image_gem_green_pro , hopo: Image_gem_green_pro_hopo , tap: Image_gem_green_pro_tap
+          , shades: customize.sustainGreen, target: Image_highway_protar_target_green
+          }
+        , { c: _.s4, lane: _.s4, x: handedness 2 * widthFret + 1, strum: Image_gem_orange_pro, hopo: Image_gem_orange_pro_hopo, tap: Image_gem_orange_pro_tap
+          , shades: customize.sustainOrange, target: Image_highway_protar_target_orange
+          }
+        , { c: _.s3, lane: _.s3, x: handedness 3 * widthFret + 1, strum: Image_gem_blue_pro  , hopo: Image_gem_blue_pro_hopo  , tap: Image_gem_blue_pro_tap
+          , shades: customize.sustainBlue, target: Image_highway_protar_target_blue
+          }
+        , { c: _.s2, lane: _.s2, x: handedness 4 * widthFret + 1, strum: Image_gem_yellow_pro, hopo: Image_gem_yellow_pro_hopo, tap: Image_gem_yellow_pro_tap
+          , shades: customize.sustainYellow, target: Image_highway_protar_target_yellow
+          }
+        , { c: _.s1, lane: _.s1, x: handedness 5 * widthFret + 1, strum: Image_gem_purple_pro, hopo: Image_gem_purple_pro_hopo, tap: Image_gem_purple_pro_tap
+          , shades: customize.sustainPurple, target: Image_highway_protar_target_purple
+          }
         ]
-  for_ lanes \{x: offsetX, gem: gem} -> let
+      colors = take protar.strings colors'
+  for_ colors \{x: offsetX, lane: gem} -> let
     thisLane = Map.union protar.bre $ gem protar.lanes
     startsAsLane = case Map.lookupLE minSecs thisLane of
       Nothing           -> false
@@ -160,45 +196,17 @@ drawProtar (Protar protar) chordsX stuff = do
       let y1 = secsToPxVert s1
           y2 = secsToPxVert s2
       when b1 $ drawLane
-        { x: targetX + offsetX
+        { x: targetX + offsetX + 1
         , y: y2
         , width: widthFret - 2
         , height: y1 - y2
         } stuff
       drawLanes rest
     in drawLanes laneEdges
-  -- Beats
-  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) \secs evt -> do
-    let y = secsToPxVert secs
-    case evt of
-      Bar      -> drawImage Image_highway_grybo_bar       (toNumber targetX) (toNumber y - 1.0) stuff
-      Beat     -> drawImage Image_highway_protar_beat     (toNumber targetX) (toNumber y - 1.0) stuff
-      HalfBeat -> drawImage Image_highway_protar_halfbeat (toNumber targetX) (toNumber y      ) stuff
   -- Target
-  drawImage
-    (if stuff.app.settings.leftyFlip then Image_highway_protar_target_lefty else Image_highway_protar_target)
-    (toNumber targetX) (toNumber targetY - 5.0) stuff
+  for_ colors \{x: offsetX, target: targetImage} -> do
+    drawImage targetImage (toNumber $ targetX + offsetX) (toNumber targetY - 5.0) stuff
   -- Sustains
-  let colors =
-        [ { c: _.s6, x: handedness 0 * widthFret + 1, strum: Image_gem_red_pro   , hopo: Image_gem_red_pro_hopo   , tap: Image_gem_red_pro_tap
-          , shades: customize.sustainRed
-          }
-        , { c: _.s5, x: handedness 1 * widthFret + 1, strum: Image_gem_green_pro , hopo: Image_gem_green_pro_hopo , tap: Image_gem_green_pro_tap
-          , shades: customize.sustainGreen
-          }
-        , { c: _.s4, x: handedness 2 * widthFret + 1, strum: Image_gem_orange_pro, hopo: Image_gem_orange_pro_hopo, tap: Image_gem_orange_pro_tap
-          , shades: customize.sustainOrange
-          }
-        , { c: _.s3, x: handedness 3 * widthFret + 1, strum: Image_gem_blue_pro  , hopo: Image_gem_blue_pro_hopo  , tap: Image_gem_blue_pro_tap
-          , shades: customize.sustainBlue
-          }
-        , { c: _.s2, x: handedness 4 * widthFret + 1, strum: Image_gem_yellow_pro, hopo: Image_gem_yellow_pro_hopo, tap: Image_gem_yellow_pro_tap
-          , shades: customize.sustainYellow
-          }
-        , { c: _.s1, x: handedness 5 * widthFret + 1, strum: Image_gem_purple_pro, hopo: Image_gem_purple_pro_hopo, tap: Image_gem_purple_pro_tap
-          , shades: customize.sustainPurple
-          }
-        ]
   for_ colors \{ c: getColor, x: offsetX, shades: normalShades } -> do
     let thisColor = getColor protar.notes
         isEnergy secs = case Map.lookupLE secs protar.energy of
@@ -299,4 +307,4 @@ drawProtar (Protar protar) chordsX stuff = do
         Note    (ProtarNote obj) -> withNoteType obj
         Sustain (ProtarNote obj) -> withNoteType obj
         SustainEnd               -> pure unit
-  pure $ targetX + (widthFret * 6 + 2) + customize.marginWidth
+  pure $ startX + protar.chordsWidth + widthHighway + customize.marginWidth

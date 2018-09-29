@@ -1,15 +1,16 @@
 module Draw.Amplitude where
 
 import           Prelude
-import Song
+import           Song               (AmpNote(..), Amplitude(..))
 import           Graphics.Canvas    as C
 import           Style              (customize)
 import           Data.Foldable      (for_)
-import           Data.Time.Duration (Seconds (..), negateDuration)
+import           Data.Time.Duration (Seconds, negateDuration)
 import           Data.Int           (round, toNumber)
 import           Images             (ImageID (..))
 import           OnyxMap            as Map
-import Draw.Common
+import           Draw.Common        (Draw, drawBeats, drawImage, fillEllipse,
+                                     fillRect, secToNum, setFillStyle)
 
 drawAmplitude :: Amplitude -> Int -> Draw Int
 drawAmplitude (Amplitude amp) targetX stuff = do
@@ -17,7 +18,7 @@ drawAmplitude (Amplitude amp) targetX stuff = do
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) <> stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
       drawH = stuff.maxY - stuff.minY
-      targetWidth = 105
+      widthHighway = 105
       maxSecs = pxToSecsVert $ stuff.minY - 50
       minSecs = pxToSecsVert $ stuff.maxY + 50
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
@@ -32,7 +33,7 @@ drawAmplitude (Amplitude amp) targetX stuff = do
         "Guitar" -> "#ef9558"
         _ -> customize.highway
   setFillStyle highwayColor stuff
-  fillRect { x: toNumber targetX, y: toNumber stuff.minY, width: toNumber targetWidth, height: toNumber drawH } stuff
+  fillRect { x: toNumber targetX, y: toNumber stuff.minY, width: toNumber widthHighway, height: toNumber drawH } stuff
   setFillStyle customize.highwayRailing stuff
   let dividers0 = [0, 103]
       dividers1 = [1, 104]
@@ -42,20 +43,12 @@ drawAmplitude (Amplitude amp) targetX stuff = do
   for_ dividers1 \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   -- Beats
-  setFillStyle "black" stuff
-  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) \secs evt -> do
-    let y = secsToPxVert secs
-    fillRect
-      { x: toNumber $ targetX + 2
-      , y: toNumber $ case evt of
-        HalfBeat -> y
-        _        -> y - 1
-      , width: toNumber $ targetWidth - 4
-      , height: case evt of
-        Bar      -> 3.0
-        Beat     -> 2.0
-        HalfBeat -> 1.0
-      } stuff
+  drawBeats secsToPxVert
+    { x: targetX + 2
+    , width: widthHighway - 4
+    , minSecs: minSecs
+    , maxSecs: maxSecs
+    } stuff
   -- Target
   drawImage Image_highway_catch_target (toNumber targetX) (toNumber targetY - 6.0) stuff
   -- Notes
@@ -87,4 +80,4 @@ drawAmplitude (Amplitude amp) targetX stuff = do
               R -> targetX + 70
         drawImage Image_gem_catch (toNumber x) (toNumber $ y - 6) stuff
   -- Return targetX of next track
-  pure $ targetX + targetWidth + customize.marginWidth
+  pure $ targetX + widthHighway + customize.marginWidth

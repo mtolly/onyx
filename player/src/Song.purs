@@ -14,7 +14,7 @@ import Data.String as Str
 import Data.String.CodeUnits as CU
 import Data.Array ((:), (..), length, index)
 import Control.Monad.State (get, modify, lift, evalStateT)
-import Data.Int (toNumber)
+import Data.Int (toNumber, fromString)
 
 newtype Song = Song
   { end    :: Seconds
@@ -122,6 +122,7 @@ newtype Protar = Protar
   , energy :: Map.Map Seconds Boolean
   , bre :: Map.Map Seconds Boolean
   , chords :: Map.Map Seconds (Sustainable (Array (Tuple ChordLine String)))
+  , strings :: Int
   , chordsWidth :: Int
   }
 
@@ -202,153 +203,21 @@ isForeignFiveNote f = readString f >>= \s -> case s of
   _   -> throwError $ pure $ TypeMismatch "grybo/ghl note event" $ show s
 
 isForeignProtarNote :: Foreign -> F (Sustainable ProtarNote)
-isForeignProtarNote f = readString f >>= \s -> case s of
-  "e"  -> pure SustainEnd
-  "sx" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Nothing }
-  "s0" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 0 }
-  "s1" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 1 }
-  "s2" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 2 }
-  "s3" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 3 }
-  "s4" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 4 }
-  "s5" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 5 }
-  "s6" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 6 }
-  "s7" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 7 }
-  "s8" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 8 }
-  "s9" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 9 }
-  "s10" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 10 }
-  "s11" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 11 }
-  "s12" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 12 }
-  "s13" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 13 }
-  "s14" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 14 }
-  "s15" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 15 }
-  "s16" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 16 }
-  "s17" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 17 }
-  "s18" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 18 }
-  "s19" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 19 }
-  "s20" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 20 }
-  "s21" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 21 }
-  "s22" -> pure $ Note $ ProtarNote { noteType: Strum, fret: Just 22 }
-  "hx" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Nothing }
-  "h0" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 0 }
-  "h1" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 1 }
-  "h2" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 2 }
-  "h3" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 3 }
-  "h4" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 4 }
-  "h5" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 5 }
-  "h6" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 6 }
-  "h7" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 7 }
-  "h8" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 8 }
-  "h9" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 9 }
-  "h10" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 10 }
-  "h11" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 11 }
-  "h12" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 12 }
-  "h13" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 13 }
-  "h14" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 14 }
-  "h15" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 15 }
-  "h16" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 16 }
-  "h17" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 17 }
-  "h18" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 18 }
-  "h19" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 19 }
-  "h20" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 20 }
-  "h21" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 21 }
-  "h22" -> pure $ Note $ ProtarNote { noteType: HOPO, fret: Just 22 }
-  "tx" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Nothing }
-  "t0" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 0 }
-  "t1" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 1 }
-  "t2" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 2 }
-  "t3" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 3 }
-  "t4" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 4 }
-  "t5" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 5 }
-  "t6" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 6 }
-  "t7" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 7 }
-  "t8" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 8 }
-  "t9" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 9 }
-  "t10" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 10 }
-  "t11" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 11 }
-  "t12" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 12 }
-  "t13" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 13 }
-  "t14" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 14 }
-  "t15" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 15 }
-  "t16" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 16 }
-  "t17" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 17 }
-  "t18" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 18 }
-  "t19" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 19 }
-  "t20" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 20 }
-  "t21" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 21 }
-  "t22" -> pure $ Note $ ProtarNote { noteType: Tap, fret: Just 22 }
-  "Sx" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Nothing }
-  "S0" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 0 }
-  "S1" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 1 }
-  "S2" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 2 }
-  "S3" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 3 }
-  "S4" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 4 }
-  "S5" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 5 }
-  "S6" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 6 }
-  "S7" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 7 }
-  "S8" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 8 }
-  "S9" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 9 }
-  "S10" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 10 }
-  "S11" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 11 }
-  "S12" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 12 }
-  "S13" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 13 }
-  "S14" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 14 }
-  "S15" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 15 }
-  "S16" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 16 }
-  "S17" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 17 }
-  "S18" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 18 }
-  "S19" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 19 }
-  "S20" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 20 }
-  "S21" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 21 }
-  "S22" -> pure $ Sustain $ ProtarNote { noteType: Strum, fret: Just 22 }
-  "Hx" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Nothing }
-  "H0" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 0 }
-  "H1" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 1 }
-  "H2" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 2 }
-  "H3" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 3 }
-  "H4" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 4 }
-  "H5" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 5 }
-  "H6" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 6 }
-  "H7" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 7 }
-  "H8" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 8 }
-  "H9" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 9 }
-  "H10" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 10 }
-  "H11" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 11 }
-  "H12" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 12 }
-  "H13" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 13 }
-  "H14" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 14 }
-  "H15" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 15 }
-  "H16" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 16 }
-  "H17" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 17 }
-  "H18" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 18 }
-  "H19" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 19 }
-  "H20" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 20 }
-  "H21" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 21 }
-  "H22" -> pure $ Sustain $ ProtarNote { noteType: HOPO, fret: Just 22 }
-  "Tx" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Nothing }
-  "T0" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 0 }
-  "T1" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 1 }
-  "T2" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 2 }
-  "T3" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 3 }
-  "T4" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 4 }
-  "T5" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 5 }
-  "T6" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 6 }
-  "T7" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 7 }
-  "T8" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 8 }
-  "T9" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 9 }
-  "T10" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 10 }
-  "T11" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 11 }
-  "T12" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 12 }
-  "T13" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 13 }
-  "T14" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 14 }
-  "T15" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 15 }
-  "T16" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 16 }
-  "T17" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 17 }
-  "T18" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 18 }
-  "T19" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 19 }
-  "T20" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 20 }
-  "T21" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 21 }
-  "T22" -> pure $ Sustain $ ProtarNote { noteType: Tap, fret: Just 22 }
-  _ -> throwError $ pure $ TypeMismatch "protar note event" $ show s
+isForeignProtarNote f = do
+  s <- readString f
+  let readFret "x" = pure Nothing
+      readFret n   = case fromString n of
+        Nothing -> throwError $ pure $ TypeMismatch "protar note event" $ show s
+        Just ft -> pure $ Just ft
+  case Str.take 1 s of
+    "e" -> pure SustainEnd
+    "s" -> map (\ft -> Note    $ ProtarNote { noteType: Strum, fret: ft }) $ readFret $ Str.drop 1 s
+    "h" -> map (\ft -> Note    $ ProtarNote { noteType: HOPO , fret: ft }) $ readFret $ Str.drop 1 s
+    "t" -> map (\ft -> Note    $ ProtarNote { noteType: Tap  , fret: ft }) $ readFret $ Str.drop 1 s
+    "S" -> map (\ft -> Sustain $ ProtarNote { noteType: Strum, fret: ft }) $ readFret $ Str.drop 1 s
+    "H" -> map (\ft -> Sustain $ ProtarNote { noteType: HOPO , fret: ft }) $ readFret $ Str.drop 1 s
+    "T" -> map (\ft -> Sustain $ ProtarNote { noteType: Tap  , fret: ft }) $ readFret $ Str.drop 1 s
+    _   -> throwError $ pure $ TypeMismatch "protar note event" $ show s
 
 isForeignPKNote :: Foreign -> F (Sustainable Unit)
 isForeignPKNote f = readString f >>= \s -> case s of
@@ -487,6 +356,7 @@ isForeignProtar f = do
   energy <- readProp "energy" f >>= readTimedMap readBoolean
   bre <- readProp "bre" f >>= readTimedMap readBoolean
   chords <- readProp "chords" f >>= readTimedMap isForeignChord
+  strings <- readProp "strings" f >>= readInt
   pure $ Protar
     { notes: notes
     , lanes: lanes
@@ -494,6 +364,7 @@ isForeignProtar f = do
     , energy: energy
     , bre: bre
     , chords: chords
+    , strings: strings
     , chordsWidth: 0 -- to be computed later
     }
 

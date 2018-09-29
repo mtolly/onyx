@@ -12,7 +12,9 @@ import           Data.Tuple         (Tuple (..), lookup)
 import           Effect             (Effect)
 import           Graphics.Canvas    as C
 
-import           Draw.Common
+import           Draw.Common        (AppTime (..), Draw, Settings, drawImage,
+                                     fillRect, onContext, setFillStyle,
+                                     showTimestamp)
 import           Draw.Drums         (drawDrums)
 import           Draw.Five          (drawFive)
 import           Draw.ProKeys       (drawProKeys)

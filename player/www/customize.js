@@ -25,7 +25,13 @@ window.customizeOnyx = {
   highwayRailing: 'rgb(184,185,204)',
   highwayDivider: 'black',
   highwaySolo: 'rgb(91,137,185)',
+  highwaySoloEdge: '#345678',
   highwaySoloBlackKey: 'rgb(73,111,149)',
+
+  highwayLine: 'black',
+  highwayBarHeight: 3,
+  highwayBeatHeight: 2,
+  highwayHalfBeatHeight: 1,
 
   proKeysRangeOverlay: 'rgba(0,0,0,0.3)', // darkens pro keys outside of the current range
   glissandoBorder: 'white',

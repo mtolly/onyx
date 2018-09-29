@@ -13,11 +13,10 @@ import           Data.Tuple         (Tuple (..))
 import           Graphics.Canvas    as C
 
 import           Draw.Common        (Draw, drawImage, drawLane, fillRect,
-                                     secToNum, setFillStyle)
+                                     secToNum, setFillStyle, drawBeats)
 import           Images             (ImageID (..))
 import           OnyxMap            as Map
-import           Song               (Beat (..), Beats (..), Drums (..),
-                                     Gem (..), Song (..))
+import           Song               (Drums (..), Gem (..))
 import           Style              (customize)
 
 drawDrumsPerspective :: Drums -> C.Rectangle -> Number -> Draw Int
@@ -180,6 +179,7 @@ drawDrums (Drums drums) targetX stuff = do
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
       widthFret = customize.widthStandardFret
       numLanes = if drums.mode5 then 5 else 4
+      widthHighway = numLanes * widthFret + 2
       maxSecs = pxToSecsVert $ stuff.minY - 50
       minSecs = pxToSecsVert $ stuff.maxY + 50
       zoomDesc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
@@ -187,20 +187,11 @@ drawDrums (Drums drums) targetX stuff = do
       zoomAsc :: forall v m. (Monad m) => Map.Map Seconds v -> (Seconds -> v -> m Unit) -> m Unit
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
-      trackWidth = numLanes * widthFret + 2
       handedness n = if stuff.app.settings.leftyFlip then numLanes - 1 - n else n
       drawH = stuff.maxY - stuff.minY
   -- Highway
   setFillStyle customize.highway stuff
-  fillRect { x: toNumber targetX, y: toNumber stuff.minY, width: toNumber trackWidth, height: toNumber drawH } stuff
-  setFillStyle customize.highwayRailing stuff
-  let dividers0 = map (\i -> i * widthFret    ) $ range 0 $ if drums.mode5 then 5 else 4
-      dividers1 = map (\i -> i * widthFret + 1) $ range 0 $ if drums.mode5 then 5 else 4
-  for_ dividers0 \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
-  setFillStyle customize.highwayDivider stuff
-  for_ dividers1 \offsetX -> do
-    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
+  fillRect { x: toNumber targetX, y: toNumber stuff.minY, width: toNumber widthHighway, height: toNumber drawH } stuff
   -- Solo highway
   setFillStyle customize.highwaySolo stuff
   let startsAsSolo = case Map.lookupLE minSecs drums.solo of
@@ -223,8 +214,25 @@ drawDrums (Drums drums) targetX stuff = do
   drawSolos soloEdges
   -- Solo edges
   zoomDesc drums.solo \secs _ -> do
-    let img = if drums.mode5 then Image_highway_grybo_solo_edge else Image_highway_drums_solo_edge
-    drawImage img (toNumber targetX) (toNumber $ secsToPxVert secs) stuff
+    let y = secsToPxVert secs
+    setFillStyle customize.highwaySoloEdge stuff
+    fillRect { x: toNumber targetX, y: toNumber y, width: toNumber widthHighway, height: 1.0 } stuff
+  -- Beats
+  drawBeats secsToPxVert
+    { x: targetX
+    , width: widthHighway
+    , minSecs: minSecs
+    , maxSecs: maxSecs
+    } stuff
+  -- Railings
+  setFillStyle customize.highwayRailing stuff
+  let dividers0 = map (\i -> i * widthFret    ) $ range 0 $ if drums.mode5 then 5 else 4
+      dividers1 = map (\i -> i * widthFret + 1) $ range 0 $ if drums.mode5 then 5 else 4
+  for_ dividers0 \offsetX -> do
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
+  setFillStyle customize.highwayDivider stuff
+  for_ dividers1 \offsetX -> do
+    fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   -- Lanes
   let lanes =
         -- TODO kick
@@ -261,16 +269,6 @@ drawDrums (Drums drums) targetX stuff = do
         } stuff
       drawLanes rest
     in drawLanes laneEdges
-  -- Beats
-  let imgBar  = if drums.mode5 then Image_highway_grybo_bar      else Image_highway_drums_bar
-      imgBeat = if drums.mode5 then Image_highway_grybo_beat     else Image_highway_drums_beat
-      imgHalf = if drums.mode5 then Image_highway_grybo_halfbeat else Image_highway_drums_halfbeat
-  zoomDesc (case stuff.song of Song o -> case o.beats of Beats o' -> o'.lines) \secs evt -> do
-    let y = secsToPxVert secs
-    case evt of
-      Bar      -> drawImage imgBar  (toNumber targetX) (toNumber y - 1.0) stuff
-      Beat     -> drawImage imgBeat (toNumber targetX) (toNumber y - 1.0) stuff
-      HalfBeat -> drawImage imgHalf (toNumber targetX) (toNumber y      ) stuff
   -- Target
   let imgTarget = if drums.mode5 then Image_highway_drums5_target else Image_highway_drums_target
   drawImage imgTarget (toNumber targetX) (toNumber targetY - 5.0) stuff
@@ -396,4 +394,4 @@ drawDrums (Drums drums) targetX stuff = do
             (toNumber $ targetX + handedness (numLanes - 1) * widthFret + 1)
             (toNumber $ y - 8) stuff
   -- Return targetX of next track
-  pure $ targetX + trackWidth + customize.marginWidth
+  pure $ targetX + widthHighway + customize.marginWidth
