@@ -270,8 +270,15 @@ drawDrums (Drums drums) targetX stuff = do
       drawLanes rest
     in drawLanes laneEdges
   -- Target
-  let imgTarget = if drums.mode5 then Image_highway_drums5_target else Image_highway_drums_target
-  drawImage imgTarget (toNumber targetX) (toNumber targetY - 5.0) stuff
+  drawImage Image_highway_target_red    (toNumber $ targetX + 0 * widthFret + 1) (toNumber targetY - 5.0) stuff
+  drawImage Image_highway_target_yellow (toNumber $ targetX + 1 * widthFret + 1) (toNumber targetY - 5.0) stuff
+  drawImage Image_highway_target_blue   (toNumber $ targetX + 2 * widthFret + 1) (toNumber targetY - 5.0) stuff
+  if drums.mode5
+    then do
+      drawImage Image_highway_target_orange (toNumber $ targetX + 3 * widthFret + 1) (toNumber targetY - 5.0) stuff
+      drawImage Image_highway_target_green  (toNumber $ targetX + 4 * widthFret + 1) (toNumber targetY - 5.0) stuff
+    else
+      drawImage Image_highway_target_green  (toNumber $ targetX + 3 * widthFret + 1) (toNumber targetY - 5.0) stuff
   -- Kick notes
   let imgKick   = if drums.mode5 then Image_gem_open        else Image_gem_kick
       imgKickOD = if drums.mode5 then Image_gem_open_energy else Image_gem_kick_energy

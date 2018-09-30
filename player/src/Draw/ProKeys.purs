@@ -233,15 +233,18 @@ drawProKeys (ProKeys pk) targetX stuff = do
       events -> go False events
   -- Sustain ends
   for_ pitchList \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do
+    setFillStyle customize.sustainBorder stuff
     zoomDesc (fromMaybe Map.empty $ Map.lookup pitch pk.notes) \secs evt -> case evt of
       SustainEnd -> do
         let futureSecs = secToNum $ secs <> negateDuration stuff.time
         if stuff.app.settings.autoplay && futureSecs <= 0.0
           then pure unit -- note is in the past or being hit now
-          else drawImage Image_sustain_key_end
-            (toNumber $ targetX + offsetX - if isBlack then 1 else 0)
-            (toNumber $ secsToPxVert secs)
-            stuff
+          else fillRect
+            { x: toNumber $ targetX + offsetX + if isBlack then 2 else 3
+            , y: toNumber $ secsToPxVert secs
+            , width: 7.0
+            , height: 1.0
+            } stuff
       _ -> pure unit
   -- Notes
   for_ pitchList \{ pitch: pitch, offsetX: offsetX, isBlack: isBlack } -> do

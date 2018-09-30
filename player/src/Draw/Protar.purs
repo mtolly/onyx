@@ -257,15 +257,18 @@ drawProtar (Protar protar) startX stuff = do
       events -> go false events
   -- Sustain ends
   for_ colors \{ c: getColor, x: offsetX } -> do
+    setFillStyle customize.sustainBorder stuff
     zoomDesc (getColor protar.notes) \secs evt -> case evt of
       SustainEnd -> do
         let futureSecs = secToNum $ secs <> negateDuration stuff.time
         if stuff.app.settings.autoplay && futureSecs <= 0.0
           then pure unit -- note is in the past or being hit now
-          else drawImage Image_sustain_end
-            (toNumber $ targetX + offsetX - 3)
-            (toNumber $ secsToPxVert secs)
-            stuff
+          else fillRect
+            { x: toNumber $ targetX + offsetX + 11
+            , y: toNumber $ secsToPxVert secs
+            , width: 9.0
+            , height: 1.0
+            } stuff
       _ -> pure unit
   -- Notes
   for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, tap: tapImage, shades: shades } -> do

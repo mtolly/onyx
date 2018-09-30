@@ -165,6 +165,7 @@ drawSix (Six six) targetX stuff = do
       events -> go false events
   -- Sustain ends
   for_ colors \{ c: getEvents, x: offsetX, color: thisColor } -> do
+    setFillStyle customize.sustainBorder stuff
     zoomDesc (getEvents six.notes) \secs evt -> case evt of
       SustainEnd -> do
         let futureSecs = secToNum $ secs <> negateDuration stuff.time
@@ -173,10 +174,12 @@ drawSix (Six six) targetX stuff = do
               _       -> offsetX
         if stuff.app.settings.autoplay && futureSecs <= 0.0
           then pure unit -- note is in the past or being hit now
-          else drawImage Image_sustain_end
-            (toNumber $ targetX + trailX)
-            (toNumber $ secsToPxVert secs)
-            stuff
+          else fillRect
+            { x: toNumber $ targetX + trailX + 14
+            , y: toNumber $ secsToPxVert secs
+            , width: 9.0
+            , height: 1.0
+            } stuff
       _ -> pure unit
   -- Notes
   for_ colors \{ c: getEvents, x: offsetX, color: thisColor } -> do

@@ -78,15 +78,27 @@ drawFive (Five five) targetX stuff = do
   for_ (map (\i -> i * widthFret + 1) $ range 0 5) \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   -- Lanes
-  let lanes =
-        -- TODO open
-        [ {x: handedness 0 * widthFret + 2, gem: _.green }
-        , {x: handedness 1 * widthFret + 2, gem: _.red   }
-        , {x: handedness 2 * widthFret + 2, gem: _.yellow}
-        , {x: handedness 3 * widthFret + 2, gem: _.blue  }
-        , {x: handedness 4 * widthFret + 2, gem: _.orange}
+  let colors =
+        [ { c: _.open  , lane: _.open  , x:            0 * widthFret + 1, strum: Image_gem_open  , hopo: Image_gem_open_hopo, tap: Image_gem_open_tap
+          , shades: customize.sustainPurple, open: true, target: Nothing
+          }
+        , { c: _.green , lane: _.green , x: handedness 0 * widthFret + 1, strum: Image_gem_green , hopo: Image_gem_green_hopo, tap: Image_gem_green_tap
+          , shades: customize.sustainGreen, open: false, target: Just Image_highway_target_green
+          }
+        , { c: _.red   , lane: _.red   , x: handedness 1 * widthFret + 1, strum: Image_gem_red   , hopo: Image_gem_red_hopo, tap: Image_gem_red_tap
+          , shades: customize.sustainRed, open: false, target: Just Image_highway_target_red
+          }
+        , { c: _.yellow, lane: _.yellow, x: handedness 2 * widthFret + 1, strum: Image_gem_yellow, hopo: Image_gem_yellow_hopo, tap: Image_gem_yellow_tap
+          , shades: customize.sustainYellow, open: false, target: Just Image_highway_target_yellow
+          }
+        , { c: _.blue  , lane: _.blue  , x: handedness 3 * widthFret + 1, strum: Image_gem_blue  , hopo: Image_gem_blue_hopo, tap: Image_gem_blue_tap
+          , shades: customize.sustainBlue, open: false, target: Just Image_highway_target_blue
+          }
+        , { c: _.orange, lane: _.orange, x: handedness 4 * widthFret + 1, strum: Image_gem_orange, hopo: Image_gem_orange_hopo, tap: Image_gem_orange_tap
+          , shades: customize.sustainOrange, open: false, target: Just Image_highway_target_orange
+          }
         ]
-  for_ lanes \{x: offsetX, gem: gem} -> let
+  for_ colors \{x: offsetX, lane: gem, open: isOpen} -> let
     thisLane = Map.union five.bre $ gem five.lanes
     startsAsLane = case Map.lookupLE minSecs thisLane of
       Nothing           -> false
@@ -102,41 +114,21 @@ drawFive (Five five) targetX stuff = do
       let y1 = secsToPxVert s1
           y2 = secsToPxVert s2
       when b1 $ drawLane
-        { x: targetX + offsetX
+        { x: targetX + offsetX + 1 + if isOpen then 1 * widthFret else 0
         , y: y2
-        , width: widthFret - 2
+        , width: widthFret - 2 + if isOpen then 2 * widthFret else 0
         , height: y1 - y2
         } stuff
       drawLanes rest
     in drawLanes laneEdges
   -- Target
-  drawImage
-    (if stuff.app.settings.leftyFlip then Image_highway_grybo_target_lefty else Image_highway_grybo_target)
-    (toNumber targetX) (toNumber targetY - 5.0) stuff
+  for_ colors \{x: offsetX, target: targetImage} -> case targetImage of
+    Just img -> drawImage img (toNumber $ targetX + offsetX) (toNumber targetY - 5.0) stuff
+    Nothing  -> pure unit
   -- Sustains
-  let colors =
-        [ { c: _.open  , x:            0 * widthFret + 1, strum: Image_gem_open  , hopo: Image_gem_open_hopo, tap: Image_gem_open_tap
-          , shades: customize.sustainPurple, open: true
-          }
-        , { c: _.green , x: handedness 0 * widthFret + 1, strum: Image_gem_green , hopo: Image_gem_green_hopo, tap: Image_gem_green_tap
-          , shades: customize.sustainGreen, open: false
-          }
-        , { c: _.red   , x: handedness 1 * widthFret + 1, strum: Image_gem_red   , hopo: Image_gem_red_hopo, tap: Image_gem_red_tap
-          , shades: customize.sustainRed, open: false
-          }
-        , { c: _.yellow, x: handedness 2 * widthFret + 1, strum: Image_gem_yellow, hopo: Image_gem_yellow_hopo, tap: Image_gem_yellow_tap
-          , shades: customize.sustainYellow, open: false
-          }
-        , { c: _.blue  , x: handedness 3 * widthFret + 1, strum: Image_gem_blue  , hopo: Image_gem_blue_hopo, tap: Image_gem_blue_tap
-          , shades: customize.sustainBlue, open: false
-          }
-        , { c: _.orange, x: handedness 4 * widthFret + 1, strum: Image_gem_orange, hopo: Image_gem_orange_hopo, tap: Image_gem_orange_tap
-          , shades: customize.sustainOrange, open: false
-          }
-        ]
   for_ colors \{ c: getColor, x: offsetX, shades: normalShades, open: isOpen } -> do
     let thisColor = getColor five.notes
-        offsetX' = if isOpen then 2 * widthFret + 1 else offsetX
+        offsetX' = if isOpen then 1 * widthFret + 1 else offsetX
         isEnergy secs = case Map.lookupLE secs five.energy of
           Nothing           -> false
           Just { value: v } -> v
@@ -149,18 +141,19 @@ drawFive (Five five) targetX stuff = do
                 then customize.sustainEnergy
                 else normalShades
               h = yend' - ystart' + 1
+              extraWidth = if isOpen then 2 * widthFret else 0
           setFillStyle customize.sustainBorder stuff
           fillRect { x: toNumber $ targetX + offsetX' + 14, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
-          fillRect { x: toNumber $ targetX + offsetX' + 22, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 22 + extraWidth, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
           setFillStyle shades.light stuff
           fillRect { x: toNumber $ targetX + offsetX' + 15, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
           setFillStyle shades.normal stuff
-          fillRect { x: toNumber $ targetX + offsetX' + 16, y: toNumber ystart', width: 5.0, height: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 16, y: toNumber ystart', width: 5.0 + toNumber extraWidth, height: toNumber h } stuff
           setFillStyle shades.dark stuff
-          fillRect { x: toNumber $ targetX + offsetX' + 21, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX' + 21 + extraWidth, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
           when sustaining do
             setFillStyle shades.light stuff
-            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
+            fillRect { x: toNumber $ targetX + offsetX' + 1, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1 + extraWidth, height: 8.0 } stuff
         go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisColor of
           Just { key: secsStart, value: Sustain _ } -> do
             drawSustainBlock (secsToPxVert secsEnd) stuff.maxY $ isEnergy secsStart
@@ -184,30 +177,34 @@ drawFive (Five five) targetX stuff = do
       events -> go false events
   -- Sustain endings (draw these first in case a sustain goes right up to next note)
   for_ colors \{ c: getColor, x: offsetX, open: isOpen } -> do
+    setFillStyle customize.sustainBorder stuff
     zoomDesc (getColor five.notes) \secs evt -> case evt of
       SustainEnd -> do
         let futureSecs = secToNum $ secs <> negateDuration stuff.time
-            trailX = if isOpen then 2 * widthFret + 1 else offsetX
+            trailX = if isOpen then 1 * widthFret + 1 else offsetX
         if stuff.app.settings.autoplay && futureSecs <= 0.0
           then pure unit -- note is in the past or being hit now
-          else drawImage Image_sustain_end
-            (toNumber $ targetX + trailX)
-            (toNumber $ secsToPxVert secs)
-            stuff
+          else fillRect
+            { x: toNumber $ targetX + trailX + 14
+            , y: toNumber $ secsToPxVert secs
+            , width: toNumber $ if isOpen then 9 + 2 * widthFret else 9
+            , height: 1.0
+            } stuff
       _ -> pure unit
   -- Notes
   for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, tap: tapImage, shades: shades, open: isOpen } -> do
     zoomDesc (getColor five.notes) \secs evt -> let
       withNoteType sht = do
         let futureSecs = secToNum $ secs <> negateDuration stuff.time
-            trailX = if isOpen then 2 * widthFret + 1 else offsetX
+            trailX = if isOpen then 1 * widthFret + 1 else offsetX
+            extraWidth = if isOpen then 2 * widthFret else 0
         if stuff.app.settings.autoplay && futureSecs <= 0.0
           then do
             -- note is in the past or being hit now
             if (-0.1) < futureSecs
               then do
                 setFillStyle (shades.hit $ (futureSecs + 0.1) / 0.05) stuff
-                fillRect { x: toNumber $ targetX + trailX + 1, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
+                fillRect { x: toNumber $ targetX + trailX + 1, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1 + extraWidth, height: 8.0 } stuff
               else pure unit
           else do
             let y = secsToPxVert secs
