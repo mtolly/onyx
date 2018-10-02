@@ -3,6 +3,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TupleSections     #-}
 module WebPlayer
 ( makeDisplay
@@ -168,13 +169,14 @@ instance A.ToJSON (ProKeys U.Seconds) where
     ]
 
 data Protar t = Protar
-  { protarNotes   :: Map.Map PG.GtrString (RTB.T t (LongNote (StrumHOPOTap, Maybe PG.GtrFret) ()))
-  , protarSolo    :: RTB.T t Bool
-  , protarEnergy  :: RTB.T t Bool
-  , protarLanes   :: Map.Map PG.GtrString (RTB.T t Bool)
-  , protarBRE     :: RTB.T t Bool
-  , protarChords  :: RTB.T t (LongNote T.Text ())
-  , protarStrings :: Int
+  { protarNotes    :: Map.Map PG.GtrString (RTB.T t (LongNote (StrumHOPOTap, Maybe PG.GtrFret, Bool) ()))
+  , protarSolo     :: RTB.T t Bool
+  , protarEnergy   :: RTB.T t Bool
+  , protarLanes    :: Map.Map PG.GtrString (RTB.T t Bool)
+  , protarBRE      :: RTB.T t Bool
+  , protarChords   :: RTB.T t (LongNote T.Text ())
+  , protarArpeggio :: RTB.T t Bool
+  , protarStrings  :: Int
   } deriving (Eq, Ord, Show)
 
 instance A.ToJSON (Protar U.Seconds) where
@@ -182,12 +184,12 @@ instance A.ToJSON (Protar U.Seconds) where
     [ (,) "notes" $ A.object $ flip map (Map.toList $ protarNotes x) $ \(string, notes) ->
       (,) (T.pack $ map toLower $ show string) $ eventList notes $ A.String . \case
         NoteOff () -> "e"
-        Blip (Strum, fret) () -> "s" <> showFret fret
-        Blip (HOPO, fret) () -> "h" <> showFret fret
-        Blip (Tap, fret) () -> "t" <> showFret fret
-        NoteOn (Strum, fret) () -> "S" <> showFret fret
-        NoteOn (HOPO, fret) () -> "H" <> showFret fret
-        NoteOn (Tap, fret) () -> "T" <> showFret fret
+        Blip   (Strum, fret, phantom) () -> "s" <> (if phantom then "p" else "") <> showFret fret
+        Blip   (HOPO , fret, phantom) () -> "h" <> (if phantom then "p" else "") <> showFret fret
+        Blip   (Tap  , fret, phantom) () -> "t" <> (if phantom then "p" else "") <> showFret fret
+        NoteOn (Strum, fret, phantom) () -> "S" <> (if phantom then "p" else "") <> showFret fret
+        NoteOn (HOPO , fret, phantom) () -> "H" <> (if phantom then "p" else "") <> showFret fret
+        NoteOn (Tap  , fret, phantom) () -> "T" <> (if phantom then "p" else "") <> showFret fret
     , (,) "solo" $ eventList (protarSolo x) A.toJSON
     , (,) "energy" $ eventList (protarEnergy x) A.toJSON
     , (,) "lanes" $ A.object $ flip map (Map.toList $ protarLanes x) $ \(string, lanes) ->
@@ -197,6 +199,7 @@ instance A.ToJSON (Protar U.Seconds) where
       NoteOff     () -> "e"
       Blip   name () -> "c:" <> name
       NoteOn name () -> "C:" <> name
+    , (,) "arpeggio" $ eventList (protarArpeggio x) A.toJSON
     , (,) "strings" $ A.toJSON $ protarStrings x
     ] where showFret Nothing  = "x"
             showFret (Just i) = T.pack (show i)
@@ -437,37 +440,37 @@ processProtar hopoThreshold relTuning defaultFlat tmap pg = makeDifficulties $ \
   expandColors = splitEdges . RTB.flatten . fmap expandChord
   expandChord (shopo, gems, len) = do
     (str, fret, ntype) <- gems
-    return ((shopo, guard (ntype /= PG.Muted) >> Just fret), str, len)
+    return ((shopo, guard (ntype /= PG.Muted) >> Just fret, ntype == PG.ArpeggioForm), str, len)
   getString string = realTrack tmap $ flip RTB.mapMaybe assigned $ \case
     Blip   ntype s -> guard (s == string) >> Just (Blip   ntype ())
     NoteOn ntype s -> guard (s == string) >> Just (NoteOn ntype ())
     NoteOff      s -> guard (s == string) >> Just (NoteOff      ())
-  notes = Map.fromList $ do
+  protarNotes = Map.fromList $ do
     string <- [minBound .. maxBound]
     return (string, getString string)
-  solo   = realTrack tmap $ PG.pgSolo pg
-  energy = realTrack tmap $ PG.pgOverdrive pg
+  protarSolo = realTrack tmap $ PG.pgSolo pg
+  protarEnergy = realTrack tmap $ PG.pgOverdrive pg
   -- for protar we can treat tremolo/trill identically;
   -- in both cases it's just "get the strings the first note/chord is on"
   onStrings = RTB.normalize $ RTB.collectCoincident $ fmap fst $ PG.pgNotes thisDiff
   lanesAll = U.applyTempoTrack tmap $ findTremolos onStrings $ RTB.normalize
     $ laneDifficulty diff $ RTB.merge (PG.pgTremolo pg) (PG.pgTrill pg)
-  lanes = Map.fromList $ do
+  protarLanes = Map.fromList $ do
     str <- [minBound .. maxBound]
     return $ (,) str $ flip RTB.mapMaybe lanesAll $ \(b, strs) -> do
       guard $ elem str strs
       return b
-  bre = realTrack tmap $ fmap snd $ PG.pgBRE pg
+  protarBRE = realTrack tmap $ fmap snd $ PG.pgBRE pg
   usedStrings = nubOrd $ toList (PG.pgDifficulties pg) >>= map fst . toList . PG.pgNotes
-  stringCount
+  protarStrings
     | not (null $ drop 5 relTuning) || elem PG.S1 usedStrings = 6
     | not (null $ drop 4 relTuning) || elem PG.S2 usedStrings = 5
     | not (null $ drop 3 relTuning) || elem PG.S3 usedStrings = 4
     | otherwise                                               = 3
   tuning = zipWith (+) PG.standardGuitar $ relTuning ++ repeat 0
-  chords = realTrack tmap $ PG.computeChordNames diff tuning defaultFlat pg
-  -- TODO include correct strings number
-  in guard (not $ RTB.null $ PG.pgNotes thisDiff) >> Just (Protar notes solo energy lanes bre chords stringCount)
+  protarChords = realTrack tmap $ PG.computeChordNames diff tuning defaultFlat pg
+  protarArpeggio = realTrack tmap $ PG.pgArpeggio thisDiff
+  in guard (not $ RTB.null $ PG.pgNotes thisDiff) >> Just Protar{..}
 
 newtype Beats t = Beats
   { beatLines :: RTB.T t Beat

@@ -102,6 +102,7 @@ newtype Six = Six
 newtype ProtarNote = ProtarNote
   { noteType :: GuitarNoteType
   , fret     :: Maybe Int
+  , phantom  :: Boolean
   }
 
 type ProtarEach a =
@@ -122,6 +123,7 @@ newtype Protar = Protar
   , energy :: Map.Map Seconds Boolean
   , bre :: Map.Map Seconds Boolean
   , chords :: Map.Map Seconds (Sustainable (Array (Tuple ChordLine String)))
+  , arpeggio :: Map.Map Seconds Boolean
   , strings :: Int
   , chordsWidth :: Int
   }
@@ -205,18 +207,22 @@ isForeignFiveNote f = readString f >>= \s -> case s of
 isForeignProtarNote :: Foreign -> F (Sustainable ProtarNote)
 isForeignProtarNote f = do
   s <- readString f
-  let readFret "x" = pure Nothing
-      readFret n   = case fromString n of
-        Nothing -> throwError $ pure $ TypeMismatch "protar note event" $ show s
-        Just ft -> pure $ Just ft
+  let readFret "x" g = pure $ g { fret: Nothing, phantom: false }
+      readFret n   g = let
+        o = case Str.take 1 n of
+          "p" -> { phantom: true , rest: Str.drop 1 n }
+          _   -> { phantom: false, rest: n            }
+        in case fromString o.rest of
+          Nothing -> throwError $ pure $ TypeMismatch "protar note event" $ show s
+          Just ft -> pure $ g { fret: Just ft, phantom: o.phantom }
   case Str.take 1 s of
     "e" -> pure SustainEnd
-    "s" -> map (\ft -> Note    $ ProtarNote { noteType: Strum, fret: ft }) $ readFret $ Str.drop 1 s
-    "h" -> map (\ft -> Note    $ ProtarNote { noteType: HOPO , fret: ft }) $ readFret $ Str.drop 1 s
-    "t" -> map (\ft -> Note    $ ProtarNote { noteType: Tap  , fret: ft }) $ readFret $ Str.drop 1 s
-    "S" -> map (\ft -> Sustain $ ProtarNote { noteType: Strum, fret: ft }) $ readFret $ Str.drop 1 s
-    "H" -> map (\ft -> Sustain $ ProtarNote { noteType: HOPO , fret: ft }) $ readFret $ Str.drop 1 s
-    "T" -> map (\ft -> Sustain $ ProtarNote { noteType: Tap  , fret: ft }) $ readFret $ Str.drop 1 s
+    "s" -> readFret (Str.drop 1 s) \o -> Note    $ ProtarNote { noteType: Strum, fret: o.fret, phantom: o.phantom }
+    "h" -> readFret (Str.drop 1 s) \o -> Note    $ ProtarNote { noteType: HOPO , fret: o.fret, phantom: o.phantom }
+    "t" -> readFret (Str.drop 1 s) \o -> Note    $ ProtarNote { noteType: Tap  , fret: o.fret, phantom: o.phantom }
+    "S" -> readFret (Str.drop 1 s) \o -> Sustain $ ProtarNote { noteType: Strum, fret: o.fret, phantom: o.phantom }
+    "H" -> readFret (Str.drop 1 s) \o -> Sustain $ ProtarNote { noteType: HOPO , fret: o.fret, phantom: o.phantom }
+    "T" -> readFret (Str.drop 1 s) \o -> Sustain $ ProtarNote { noteType: Tap  , fret: o.fret, phantom: o.phantom }
     _   -> throwError $ pure $ TypeMismatch "protar note event" $ show s
 
 isForeignPKNote :: Foreign -> F (Sustainable Unit)
@@ -356,6 +362,7 @@ isForeignProtar f = do
   energy <- readProp "energy" f >>= readTimedMap readBoolean
   bre <- readProp "bre" f >>= readTimedMap readBoolean
   chords <- readProp "chords" f >>= readTimedMap isForeignChord
+  arpeggio <- readProp "arpeggio" f >>= readTimedMap readBoolean
   strings <- readProp "strings" f >>= readInt
   pure $ Protar
     { notes: notes
@@ -364,6 +371,7 @@ isForeignProtar f = do
     , energy: energy
     , bre: bre
     , chords: chords
+    , arpeggio: arpeggio
     , strings: strings
     , chordsWidth: 0 -- to be computed later
     }

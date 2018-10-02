@@ -30,8 +30,8 @@ getChordsWidth ctx (Protar pg) = do
   widths <- for (Map.values pg.chords) $ \x -> let
     f xs = map sum $ for xs \(Tuple line str) -> do
       case line of
-        Baseline    -> C.setFont ctx "19px sans-serif"
-        Superscript -> C.setFont ctx "14px sans-serif"
+        Baseline    -> C.setFont ctx customize.proChordNameFont
+        Superscript -> C.setFont ctx customize.proChordNameFontSuperscript
       metrics <- C.measureText ctx str
       pure metrics.width
     in case x of
@@ -71,6 +71,7 @@ drawProtar (Protar protar) startX stuff = do
       targetY = secsToPxVert stuff.time
       handedness n = if stuff.app.settings.leftyFlip then protar.strings - 1 - n else n
       drawH = stuff.maxY - stuff.minY
+      phantomOpacity = 0.5 -- TODO move this to customize
   -- Chord names
   let drawChord = drawChord' $ if stuff.app.settings.leftyFlip
         then toNumber $ startX + widthHighway + 5
@@ -122,14 +123,14 @@ drawProtar (Protar protar) startX stuff = do
   fillRect { x: toNumber targetX, y: toNumber stuff.minY, width: toNumber widthHighway, height: toNumber drawH } stuff
   -- Solo highway
   setFillStyle customize.highwaySolo stuff
-  let startsAsSolo = case Map.lookupLE minSecs protar.solo of
+  let startsAsTrue bools = case Map.lookupLE minSecs bools of
         Nothing           -> false
         Just { value: v } -> v
-      soloEdges
+      zoomEdges bools
         = L.fromFoldable
-        $ cons (Tuple minSecs startsAsSolo)
+        $ cons (Tuple minSecs $ startsAsTrue bools)
         $ flip snoc (Tuple maxSecs false)
-        $ Map.doTupleArray (zoomAsc protar.solo)
+        $ Map.doTupleArray (zoomAsc bools)
       drawSolos L.Nil            = pure unit
       drawSolos (L.Cons _ L.Nil) = pure unit
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
@@ -138,12 +139,15 @@ drawProtar (Protar protar) startX stuff = do
         when b1 $ for_ (map (\i -> i * widthFret + 2) $ range 0 (protar.strings - 1)) \offsetX -> do
           fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, width: toNumber $ widthFret - 2, height: toNumber $ y1 - y2 } stuff
         drawSolos rest
-  drawSolos soloEdges
+  drawSolos $ zoomEdges protar.solo
   -- Solo edges
   zoomDesc protar.solo \secs _ -> do
     let y = secsToPxVert secs
     setFillStyle customize.highwaySoloEdge stuff
     fillRect { x: toNumber targetX, y: toNumber y, width: toNumber widthHighway, height: 1.0 } stuff
+  -- Arpeggios
+  setFillStyle "rgba(255,255,255,0.3)" stuff -- TODO move color to customize
+  drawSolos $ zoomEdges protar.arpeggio
   -- Beats
   drawBeats secsToPxVert
     { x: targetX
@@ -213,30 +217,36 @@ drawProtar (Protar protar) startX stuff = do
           Nothing           -> false
           Just { value: v } -> v
         hitAtY = if stuff.app.settings.autoplay then targetY else stuff.maxY + 50
-        drawSustainBlock ystart yend energy mute = when (ystart < hitAtY || yend < hitAtY) do
+        drawSustainBlock ystart yend energy note = when ((ystart < hitAtY || yend < hitAtY) && not note.phantom) do
           let ystart' = min ystart hitAtY
               yend'   = min yend   hitAtY
               sustaining = stuff.app.settings.autoplay && (targetY < ystart || targetY < yend)
               shades =
-                if energy    then customize.sustainEnergy
-                else if mute then customize.sustainProtarMute
-                else              normalShades
+                if energy                   then customize.sustainEnergy
+                else if isNothing note.fret then customize.sustainProtarMute
+                else                             normalShades
               h = yend' - ystart' + 1
-          setFillStyle customize.sustainBorder stuff
-          fillRect { x: toNumber $ targetX + offsetX + 11, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
-          fillRect { x: toNumber $ targetX + offsetX + 19, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
           setFillStyle shades.light stuff
           fillRect { x: toNumber $ targetX + offsetX + 12, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
           setFillStyle shades.normal stuff
           fillRect { x: toNumber $ targetX + offsetX + 13, y: toNumber ystart', width: 5.0, height: toNumber h } stuff
           setFillStyle shades.dark stuff
           fillRect { x: toNumber $ targetX + offsetX + 18, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
+          setFillStyle customize.sustainBorder stuff
+          fillRect { x: toNumber $ targetX + offsetX + 11, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
+          fillRect { x: toNumber $ targetX + offsetX + 19, y: toNumber ystart', width: 1.0, height: toNumber h } stuff
+          fillRect
+            { x: toNumber $ targetX + offsetX + 11
+            , y: toNumber ystart'
+            , width: 9.0
+            , height: 1.0
+            } stuff
           when sustaining do
             setFillStyle shades.light stuff
             fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
         go false (L.Cons (Tuple secsEnd SustainEnd) rest) = case Map.lookupLT secsEnd thisColor of
           Just { key: secsStart, value: Sustain (ProtarNote o) } -> do
-            drawSustainBlock (secsToPxVert secsEnd) stuff.maxY (isEnergy secsStart) (isNothing o.fret)
+            drawSustainBlock (secsToPxVert secsEnd) stuff.maxY (isEnergy secsStart) o
             go false rest
           _ -> unsafeThrow "during protar drawing: found a sustain end not preceded by sustain start"
         go true (L.Cons (Tuple _ SustainEnd) rest) = go false rest
@@ -245,69 +255,70 @@ drawProtar (Protar protar) startX stuff = do
           let pxEnd = case rest of
                 L.Nil                      -> stuff.minY
                 L.Cons (Tuple secsEnd _) _ -> secsToPxVert secsEnd
-          drawSustainBlock pxEnd (secsToPxVert secsStart) (isEnergy secsStart) (isNothing o.fret)
+          drawSustainBlock pxEnd (secsToPxVert secsStart) (isEnergy secsStart) o
           go true rest
         go _ L.Nil = pure unit
     case L.fromFoldable $ Map.doTupleArray (zoomAsc thisColor) of
       L.Nil -> case Map.lookupLT (pxToSecsVert stuff.maxY) thisColor of
         -- handle the case where the entire screen is the middle of a sustain
         Just { key: secsStart, value: Sustain (ProtarNote o) } ->
-          drawSustainBlock stuff.minY stuff.maxY (isEnergy secsStart) (isNothing o.fret)
+          drawSustainBlock stuff.minY stuff.maxY (isEnergy secsStart) o
         _ -> pure unit
       events -> go false events
-  -- Sustain ends
-  for_ colors \{ c: getColor, x: offsetX } -> do
-    setFillStyle customize.sustainBorder stuff
-    zoomDesc (getColor protar.notes) \secs evt -> case evt of
-      SustainEnd -> do
-        let futureSecs = secToNum $ secs <> negateDuration stuff.time
-        if stuff.app.settings.autoplay && futureSecs <= 0.0
-          then pure unit -- note is in the past or being hit now
-          else fillRect
-            { x: toNumber $ targetX + offsetX + 11
-            , y: toNumber $ secsToPxVert secs
-            , width: 9.0
-            , height: 1.0
-            } stuff
-      _ -> pure unit
+  -- Phantom notes held during arpeggio (now)
+  let withNoteStart (Note    (ProtarNote o)) f = f o
+      withNoteStart (Sustain (ProtarNote o)) f = f o
+      withNoteStart SustainEnd               _ = pure unit
+
+      fretImage i = case index protarFrets i of
+        Just x  -> x
+        Nothing -> Image_pro_fret_00 -- whatever
+
+      getImages color isEnergy note = case note.fret of
+        Just fret -> let
+          base = case note.noteType of
+            Strum -> if isEnergy then Image_gem_energy_pro      else color.strum
+            HOPO  -> if isEnergy then Image_gem_energy_pro_hopo else color.hopo
+            Tap   -> if isEnergy then Image_gem_energy_pro_tap  else color.tap
+          in [base, fretImage fret]
+        Nothing -> let
+          base = case note.noteType of
+            Strum -> if isEnergy then Image_gem_energy_mute      else Image_gem_mute
+            HOPO  -> if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo
+            Tap   -> if isEnergy then Image_gem_energy_mute_tap  else Image_gem_mute_tap
+          in [base]
+  case Map.lookupLE stuff.time protar.arpeggio of
+    Just { key: arpTime, value: true } -> do
+      C.setGlobalAlpha stuff.context phantomOpacity
+      for_ colors \color -> do
+        case Map.lookup arpTime $ color.c protar.notes of
+          Just evt -> withNoteStart evt \obj -> do
+            for_ (getImages color false obj) \img -> do
+              drawImage img (toNumber $ targetX + color.x) (toNumber $ secsToPxVert stuff.time - 10) stuff
+          Nothing -> pure unit
+      C.setGlobalAlpha stuff.context 1.0
+    _ -> pure unit
   -- Notes
-  for_ colors \{ c: getColor, x: offsetX, strum: strumImage, hopo: hopoImage, tap: tapImage, shades: shades } -> do
-    zoomDesc (getColor protar.notes) \secs evt -> let
-      withNoteType obj = do
-        let futureSecs = secToNum $ secs <> negateDuration stuff.time
+  for_ colors \color -> do
+    let offsetX = color.x
+    zoomDesc (color.c protar.notes) \secs evt -> withNoteStart evt \obj -> do
+      let futureSecs = secToNum $ secs <> negateDuration stuff.time
+      unless (obj.phantom && futureSecs <= 0.0) do
+        when obj.phantom $ C.setGlobalAlpha stuff.context phantomOpacity
         if stuff.app.settings.autoplay && futureSecs <= 0.0
           then do
             -- note is in the past or being hit now
             if (-0.1) < futureSecs
               then do
-                setFillStyle (shades.hit $ (futureSecs + 0.1) / 0.05) stuff
+                setFillStyle (color.shades.hit $ (futureSecs + 0.1) / 0.05) stuff
                 fillRect { x: toNumber $ targetX + offsetX + 1, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
               else pure unit
           else do
             let y = secsToPxVert secs
-                isEnergy = case Map.lookupLE secs protar.energy of
+                isEnergy = not obj.phantom && case Map.lookupLE secs protar.energy of
                   Just {value: bool} -> bool
                   Nothing            -> false
-                fretImage i = case index protarFrets i of
-                  Just x  -> x
-                  Nothing -> Image_pro_fret_00 -- whatever
-            case obj.fret of
-              Just fret -> let
-                gemImg = case obj.noteType of
-                  Strum -> if isEnergy then Image_gem_energy_pro      else strumImage
-                  HOPO  -> if isEnergy then Image_gem_energy_pro_hopo else hopoImage
-                  Tap   -> if isEnergy then Image_gem_energy_pro_tap  else tapImage
-                in do
-                  drawImage gemImg           (toNumber $ targetX + offsetX) (toNumber $ y - 10) stuff
-                  drawImage (fretImage fret) (toNumber $ targetX + offsetX) (toNumber $ y - 10) stuff
-              Nothing -> let
-                gemImg = case obj.noteType of
-                  Strum -> if isEnergy then Image_gem_energy_mute      else Image_gem_mute
-                  HOPO  -> if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo
-                  Tap   -> if isEnergy then Image_gem_energy_mute_tap  else Image_gem_mute_tap
-                in drawImage gemImg (toNumber $ targetX + offsetX) (toNumber $ y - 10) stuff
-      in case evt of
-        Note    (ProtarNote obj) -> withNoteType obj
-        Sustain (ProtarNote obj) -> withNoteType obj
-        SustainEnd               -> pure unit
+            for_ (getImages color isEnergy obj) \img -> do
+              drawImage img (toNumber $ targetX + offsetX) (toNumber $ y - 10) stuff
+        when obj.phantom $ C.setGlobalAlpha stuff.context 1.0
   pure $ startX + protar.chordsWidth + widthHighway + customize.marginWidth

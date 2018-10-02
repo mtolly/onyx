@@ -506,6 +506,11 @@ autoChordRoot tuning pg = if RTB.null $ pgChordRoot pg
     in pg { pgChordRoot = roots }
   else pg
 
+-- | Basically like the GRYBO HOPO algorithm, with caveats:
+-- * Phantom (arpeggio form) notes count for making a note into a "chord",
+--   meaning it won't get auto-HOPO'd
+-- * A single note after a chord (including the above kind of chord)
+--   won't be auto-HOPO, even if it looks like it could
 guitarifyHOPO :: U.Beats -> ProGuitarDifficulty U.Beats
   -> RTB.T U.Beats (StrumHOPOTap, [(GtrString, GtrFret, NoteType)], Maybe U.Beats)
 guitarifyHOPO threshold pgd = let
@@ -514,25 +519,19 @@ guitarifyHOPO threshold pgd = let
     <$> pgNotes pgd
   withForce = applyStatus ((HOPO,) <$> pgForceHOPO pgd) gtr
   fn prev dt (forces, ((), gems, len)) = let
-    gems' = [ gem | gem@(_, _, nt) <- gems, nt /= ArpeggioForm ]
-    ntype = if all (\(_, _, nt) -> nt == Tapped) gems'
+    ntype = if all (\(_, _, nt) -> elem nt [Tapped, ArpeggioForm]) gems
       then Tap
       else case forces of
         nt : _ -> nt
         [] -> if dt >= threshold -- TODO: should this be > or >= ?
           then Strum
-          else case prev of
-            Nothing -> Strum
-            Just prevGems -> if null [ () | (_, _, Muted) <- prevGems ]
-              then case gems of
-                -- note: gems above, not gems'.
-                -- if there are arpeggio form notes and one normal note,
-                -- we still count it as a chord for auto-hopo purposes.
-                -- doesn't make sense, but that's what rb3 does!
-                [(str, fret, _)] -> let
-                  canHOPOFrom (str', fret', _) = str == str' && fret /= fret'
-                  in if any canHOPOFrom prevGems then HOPO else Strum
-                _ -> Strum
-              else Strum -- after muted note, next note is not auto hopo
-    in (Just gems', Just (ntype, gems', len))
+          else case (prev, gems) of
+            (Just [(prevStr, prevFret, prevType)], [(str, fret, typ)])
+              |  prevType /= Muted
+              && typ /= Muted
+              && prevStr == str
+              && prevFret /= fret
+              -> HOPO
+            _ -> Strum
+    in (Just gems, Just (ntype, gems, len))
   in trackState Nothing fn withForce
