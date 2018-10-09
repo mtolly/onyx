@@ -13,6 +13,10 @@ parts:
   drums:
     drums:
       difficulty: 7
+  bass:
+    grybo: {}
+  keys:
+    pro-keys: {} # WIP
 audio:
   album-track:
     md5: ee3bfedf495f477cbf40ce91fd2f543e
