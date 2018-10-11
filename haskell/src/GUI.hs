@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveFoldable           #-}
 {-# LANGUAGE DeriveFunctor            #-}
 {-# LANGUAGE DeriveTraversable        #-}
+{-# LANGUAGE FlexibleInstances        #-}
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE MultiWayIf               #-}
 {-# LANGUAGE NondecreasingIndentation #-}
@@ -108,9 +109,8 @@ data Choice a = Choice
 data FilePicker = FilePicker
   { filePatterns    :: [T.Text]
   , fileDescription :: T.Text
-  , fileFilter      :: FilePath -> StackTraceT (PureLog IO) T.Text
+  , fileFilter      :: FilePath -> Onyx T.Text
   , fileLoaded      :: [FilePath]
-  , fileTerminal    :: Terminal FileProgress
   }
 
 data SavePicker = SavePicker
@@ -119,27 +119,26 @@ data SavePicker = SavePicker
   , saveCurrent     :: T.Text
   }
 
-pickFiles :: [T.Text] -> T.Text -> (FilePath -> StackTraceT (PureLog IO) T.Text) -> ([FilePath] -> Onyx ()) -> Menu
+pickFiles :: [T.Text] -> T.Text -> (FilePath -> Onyx T.Text) -> ([FilePath] -> Onyx ()) -> Menu
 pickFiles pats desc filt fn = let
   picker = FilePicker
     { filePatterns = pats
     , fileDescription = desc
     , fileFilter = filt
     , fileLoaded = []
-    , fileTerminal = Terminal 0 []
     }
   in Files picker fn
 
 data TasksStatus = TasksStatus
-  { tasksTotal    :: Int
-  , tasksOK       :: Int
-  , tasksFailed   :: Int
-  , tasksTerminal :: Terminal TaskProgress
+  { tasksTotal  :: Int
+  , tasksOK     :: Int
+  , tasksFailed :: Int
+  , tasksFiles  :: [FilePath]
   } deriving (Eq, Ord, Show, Read)
 
 data Terminal a = Terminal
-  { terminalScroll :: Int
-  , terminalOutput :: [a]
+  { terminalOutput :: [a]
+  -- TODO readd scroll but this time do it right
   } deriving (Eq, Ord, Show, Read)
 
 setMenu :: Menu -> Onyx ()
@@ -496,11 +495,18 @@ hiddenOptions =
     )
   ]
 
+data GUIMessageLevel
+  = GUISuccess
+  | GUIFailure
+  | GUIWarning
+  | GUILog
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
 data GUIState = GUIState
   { currentScreen    :: Menu
   , previousScreens  :: [Menu] -- TODO should add Selection
   , currentSelection :: Selection
-  , globalTerminal   :: Terminal (MessageLevel, Message)
+  , globalTerminal   :: Terminal (GUIMessageLevel, Message)
   }
 
 initialState :: GUIState
@@ -508,14 +514,13 @@ initialState = GUIState
   { currentScreen    = topMenu
   , previousScreens  = []
   , currentSelection = NoSelect
-  , globalTerminal   = Terminal 0 []
+  , globalTerminal   = Terminal []
   }
 
 type Onyx = StackTraceT (QueueLog (StateT GUIState (ResourceT IO)))
 
 data TaskProgress
-  = TaskMessage (MessageLevel, Message)
-  | TaskOK [FilePath]
+  = TaskOK [FilePath]
   | TaskFailed Messages
   deriving (Eq, Ord, Show, Read)
 
@@ -541,7 +546,11 @@ launchGUI = do
 
   varSelectedFile <- atomically newTChan
   varTaskProgress <- atomically newTChan
+  varLogMessages <- atomically newTChan
   varNewestRelease <- atomically newTChan
+  let writeMsg = writeTChan varLogMessages . \case
+        (MessageWarning, x) -> (GUIWarning, x)
+        (MessageLog    , x) -> (GUILog    , x)
 
   _ <- forkIO $ do
     let addr = Req.https "api.github.com" /: "repos" /: "mtolly" /: "onyxite-customs" /: "releases" /: "latest"
@@ -621,20 +630,19 @@ launchGUI = do
               , Choice "Clear selection" "" $ let
                 fpick' = fpick
                   { fileLoaded = []
-                  , fileTerminal = Terminal 0 []
                   }
                 in setMenu $ Files fpick' useFiles
               ]
       TasksStart tasks -> let
         go = do
           tid <- liftIO $ forkIO $ forM_ tasks $ \task -> do
-            result <- logIO (atomically . writeTChan varTaskProgress . TaskMessage) task
+            result <- logIO (atomically . writeMsg) task
             atomically $ writeTChan varTaskProgress $ either TaskFailed TaskOK result
           setMenu $ TasksRunning tid TasksStatus
             { tasksTotal = length tasks
             , tasksOK = 0
             , tasksFailed = 0
-            , tasksTerminal = Terminal 0 []
+            , tasksFiles = []
             }
         in [Choice "Go!" "" go]
       TasksRunning tid TasksStatus{..} ->
@@ -650,7 +658,7 @@ launchGUI = do
           desc = T.pack (show tasksOK) <> " succeeded, " <> T.pack (show tasksFailed) <> " failed"
           in Choice "Tasks finished" desc $ return ()
         , Choice "View log" "" $ osOpenFile logFile
-        , Choice "Main menu" "" $ put initialState
+        , Choice "Main menu" "" $ put initialState -- TODO maybe don't wipe the log here?
         ]
       EnterInt label int useInt ->
         [ Choice "+ 5" "" $ setMenu $ EnterInt label (int + 5) useInt
@@ -715,14 +723,14 @@ launchGUI = do
                 termBoxH = windH - termBoxY
             drawTerminal termBoxX termBoxY termBoxW termBoxH term
       case currentScreen of
-        Files fpick _ -> drawTerminalFor $ fileTerminal fpick
-        TasksRunning _ status -> do
-          drawTerminalFor $ tasksTerminal status
+        Files{} -> drawTerminalFor globalTerminal
+        TasksRunning{} -> do
+          drawTerminalFor globalTerminal
           let bigX = windW - 120
               bigY = 20
               smallSide = 50
           spinner bigX bigY smallSide
-        TasksDone _ status -> drawTerminalFor $ tasksTerminal status
+        TasksDone{} -> drawTerminalFor globalTerminal
         _ -> return ()
 
     drawTerminal :: (ShowTerminal a) => CInt -> CInt -> CInt -> CInt -> Terminal a -> Onyx ()
@@ -757,8 +765,8 @@ launchGUI = do
               SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 termX $ termY + n * monoH) $ SDL.V2 termW monoH
               forM_ (zip [0 .. termCols - 1] line) $ uncurry $ drawChar n
               drawLines (n - 1) clns
-      drawLines (termRows - 1) $ drop (terminalScroll term) $
-        makeLines False $ terminalOutput term
+      -- TODO readd scroll
+      drawLines (termRows - 1) $ makeLines False $ terminalOutput term
 
     spinner :: CInt -> CInt -> CInt -> Onyx ()
     spinner bigX bigY smallSide = do
@@ -927,19 +935,7 @@ launchGUI = do
         { SDL.mouseWheelEventPos = SDL.V2 _ dy
         , SDL.mouseWheelEventDirection = dir
         } -> do
-          -- TODO prevent scrolling way past the top of the log
-          let adjustStatus status = status { tasksTerminal = adjustTerminal $ tasksTerminal status }
-              adjustFilePicker fpick = fpick { fileTerminal = adjustTerminal $ fileTerminal fpick }
-              adjustTerminal term = term
-                { terminalScroll = max 0 $ terminalScroll term + fromIntegral dy * case dir of
-                  SDL.ScrollNormal  ->  1
-                  SDL.ScrollFlipped -> -1 -- TODO does mac have this? is -1 right?
-                }
-          get >>= \gs -> case currentScreen gs of
-            TasksRunning tid status -> setMenu $ TasksRunning tid $ adjustStatus status
-            TasksDone file   status -> setMenu $ TasksDone file   $ adjustStatus status
-            Files     fpick useFile -> setMenu $ Files (adjustFilePicker fpick) useFile
-            _ -> return ()
+          -- TODO readd scrolling
           processEvents es
       SDL.KeyboardEvent SDL.KeyboardEventData
         { SDL.keyboardEventKeyMotion = SDL.Pressed
@@ -998,20 +994,16 @@ launchGUI = do
     addFile :: FilePath -> Onyx ()
     addFile fp = get >>= \case
       GUIState{ currentScreen = Files fpick useFiles, .. } -> do
-        (res, msgs) <- liftIO $ runPureLogT $ runStackTraceT $ fileFilter fpick fp
-        let term = fileTerminal fpick
-            fpick' = fpick
+        res <- errorToEither $ fileFilter fpick fp
+        let fpick' = fpick
               { fileLoaded = case res of
                 Left  _ -> fileLoaded fpick
                 Right _ -> fileLoaded fpick ++ [fp]
-              , fileTerminal = term
-                -- TODO if scrolled up, keep the scrolled position constant
-                { terminalOutput
-                  = either FileFailed (FileAdded fp) res
-                  : map FileMessage msgs
-                  ++ terminalOutput term
-                }
               }
+        stackIO $ case res of
+          Left (Messages errs) -> forM_ errs $ \msg -> atomically $ writeTChan varLogMessages (GUIFailure, msg)
+          Right label -> atomically $ writeTChan varLogMessages
+            (GUILog, Message (unlines [fp, "  " <> T.unpack label]) [])
         setMenu $ Files fpick' useFiles
       GUIState{ currentScreen = SaveFile spick useFile } -> do
         setMenu $ SaveFile spick{ saveCurrent = T.pack fp } useFile
@@ -1022,6 +1014,12 @@ launchGUI = do
       liftIO (atomically $ tryReadTChan varSelectedFile) >>= \case
         Nothing -> return ()
         Just fps -> mapM_ addFile fps
+      liftIO (atomically $ tryReadTChan varLogMessages) >>= \case
+        Nothing -> return ()
+        Just msg -> do
+          gs <- get
+          let term = globalTerminal gs
+          put gs { globalTerminal = term { terminalOutput = msg : terminalOutput term } }
       liftIO (atomically $ tryReadTChan varTaskProgress) >>= \case
         Nothing -> return ()
         Just progress -> get >>= \gs -> case currentScreen gs of
@@ -1033,15 +1031,13 @@ launchGUI = do
               , tasksFailed = case progress of
                 TaskFailed{} -> tasksFailed oldStatus + 1
                 _            -> tasksFailed oldStatus
-              , tasksTerminal = Terminal
-                -- TODO if scrolled up, keep the scrolled position constant
-                { terminalScroll = terminalScroll $ tasksTerminal oldStatus
-                , terminalOutput = progress : terminalOutput (tasksTerminal oldStatus)
-                }
+              , tasksFiles = case progress of
+                TaskOK fs -> fs ++ tasksFiles oldStatus
+                _         -> tasksFiles oldStatus
               }
             in if tasksOK newStatus + tasksFailed newStatus == tasksTotal newStatus
               then do
-                useResultFiles $ concat [ files | TaskOK files <- terminalOutput $ tasksTerminal newStatus ]
+                useResultFiles $ tasksFiles newStatus
                 logFile <- liftIO $ do
                   logDir <- Dir.getXdgDirectory Dir.XdgCache "onyx-log"
                   Dir.createDirectoryIfMissing False logDir
@@ -1049,57 +1045,30 @@ launchGUI = do
                   let logFile = logDir </> fmt time <.> "txt"
                       fmt = formatTime defaultTimeLocale $ iso8601DateFormat $ Just "%H%M%S"
                   path <- getEnv "PATH"
+                  -- TODO only write log since the process started
                   writeFile logFile $ unlines
                     $ "PATH:"
                     : path
-                    : map showTerminal (reverse $ terminalOutput $ tasksTerminal newStatus)
+                    : map showTerminal (reverse $ terminalOutput $ globalTerminal gs)
                   return logFile
                 put gs { currentScreen = TasksDone logFile newStatus }
               else put gs { currentScreen = TasksRunning tid newStatus }
-          _ -> case progress of
-            TaskMessage msg -> let
-              term = globalTerminal gs
-              in put gs
-                { globalTerminal = term { terminalOutput = msg : terminalOutput term }
-                }
-            _ -> return ()
+          _ -> return ()
 
-  let send msg = atomically $ writeTChan varTaskProgress $ TaskMessage msg
-  void $ runResourceT $ evalStateT (logIO send tick) initialState
+  void $ runResourceT $ evalStateT (logIO (atomically . writeMsg) tick) initialState
 
 class ShowTerminal a where
   showTerminal :: a -> String
   colorTerminal :: a -> Maybe (SDL.V4 Word8)
   colorTerminal _ = Nothing
 
-instance ShowTerminal TaskProgress where
-  showTerminal = filter (/= '\r') . \case
-    TaskMessage (MessageLog    , msg) -> messageString msg
-    TaskMessage (MessageWarning, msg) -> "Warning: " ++ displayException msg
-    TaskOK files -> unlines $ "Success! Output files:" : map ("  " ++) files
-    TaskFailed msgs -> unlines ["ERROR!", displayException msgs]
-  colorTerminal = \case
-    TaskOK{} -> Just $ SDL.V4 0 0x50 0 0xFF
-    TaskFailed{} -> Just $ SDL.V4 0x50 0 0 0xFF
-    _ -> Nothing
-
-data FileProgress
-  = FileAdded FilePath T.Text
-  | FileMessage (MessageLevel, Message)
-  | FileFailed Messages
-  deriving (Eq, Ord, Show, Read)
-
-instance ShowTerminal FileProgress where
-  showTerminal = filter (/= '\r') . \case
-    FileAdded fp found -> if T.null found
-      then fp
-      else unlines [fp, "  " <> T.unpack found]
-    FileMessage (MessageLog    , msg) -> messageString msg
-    FileMessage (MessageWarning, msg) -> "Warning: " ++ displayException msg
-    FileFailed msgs -> displayException msgs
-  colorTerminal = \case
-    FileFailed{} -> Just $ SDL.V4 0x50 0 0 0xFF
-    _ -> Nothing
+instance ShowTerminal (GUIMessageLevel, Message) where
+  showTerminal = filter (/= '\r') . messageString . snd
+  colorTerminal (lvl, _) = case lvl of
+    GUISuccess -> Just $ SDL.V4 0 0x50 0 0xFF
+    GUIFailure -> Just $ SDL.V4 0x50 0 0 0xFF
+    GUIWarning -> Just $ SDL.V4 0x50 0x50 0 0xFF
+    GUILog     -> Nothing
 
 filterSong :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m T.Text
 filterSong fp = identifyFile' fp >>= \(typ, fp') -> case typ of
