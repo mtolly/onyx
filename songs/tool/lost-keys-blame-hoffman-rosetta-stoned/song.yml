@@ -7,9 +7,6 @@ metadata:
   rating: Supervision Recommended
   key: D minor
   author: Onyxite
-  comments:
-  - "Made with reference to [this drum clinic footage](https://www.youtube.com/watch?v=Dh3z__10bhg)."
-  - "All instruments have overdrive/unison."
 audio:
   album-lost-keys:
     md5: 0e1bbc5f1c81e035255ac466d38020d8
@@ -17,25 +14,46 @@ audio:
   album-rosetta-stoned:
     md5: 4aaca61faf260e2f21155b38697f6ab9
     frames: 29606976
+  stem-bass:
+    md5: df2fbb633732f9ee41ea04c145c39628
+    frames: 29651076
+  stem-drums:
+    md5: 738d74b7ff290dda96f357f3c4dd0ed4
+    frames: 29606976
+  stem-rest:
+    md5: ce5fc262f906fb85589aec53df1a12b5
+    frames: 29695176
 plans:
   album:
     song:
       pad:
       - 4.391
       - concatenate: [album-lost-keys, album-rosetta-stoned]
+  stems:
+    song:
+      pad:
+      - 4.391
+      - concatenate: [album-lost-keys, stem-rest]
+    parts:
+      bass:
+        pad: [230.65766666666666, stem-bass]
+      drums:
+        pad: [230.65766666666666, stem-drums]
 parts:
   drums:
     drums:
       difficulty: 7
   bass:
-    grybo: # need to fix from pro
+    grybo:
       difficulty: 6
     pro-guitar:
+      difficulty: 5
       tuning: [-2, 0, 0, 0]
   guitar:
-    grybo: # need to fix from pro
+    grybo:
       difficulty: 6
     pro-guitar:
+      difficulty: 5
       tuning: [-2, 0, 0, 0, 0, 0]
   vocal:
     vocal:
@@ -45,8 +63,11 @@ parts:
 targets:
   rb3:
     game: rb3
+    plan: stems
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    plan: stems
   ps:
     game: ps
+    plan: stems
