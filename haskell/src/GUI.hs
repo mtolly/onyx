@@ -467,33 +467,22 @@ hiddenOptions =
     $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con", "*.rba", "*.ini"] "Songs (RB3/RB2/PS)" (return . T.pack)
     $ \case
       [] -> return ()
-      f : _ -> do
-        proj <- mapStackTraceT (mapQueueLog lift) (openProject f)
-        pushMenu $ Song proj $ Choices
-          [ ( Choice "Preview" "Produce a web browser app to preview the song."
-            $ pushMenu $ SaveFile (SavePicker
-              { savePatterns    = []
-              , saveDescription = "Web app folder"
-              , saveCurrent     = "" -- TODO fill with default _player dir
-              }) $ \out -> pushMenu $ TasksStart $ (:[]) $ do
-                _ <- commandLine' ["player", projectLocation proj, "--to", out]
-                return [out </> "index.html"]
-            )
-          , ( Choice "Build" "Create a song file for a game."
-            $ pushMenu $ Choices [(Choice "TODO" "Not built yet!" $ return ())]
-            )
-          , ( Choice "Utilities" "Extra authoring tools."
-            $ pushMenu $ Choices
-              [ ( Choice "Automatic difficulties" "Fill in a chart's missing lower difficulties." $ return () )
-              , ( Choice "Hanging pro keys" "Find pro keys notes whose ranges are too close."
-                $ pushMenu $ TasksStart $ (:[]) $ do
-                  commandLine' ["hanging", projectLocation proj]
-                )
-              ]
-            )
-          ]
+      f : _ -> void $ forkOnyx $ do
+        res <- mapStackTraceT (mapQueueLog lift) $ errorToEither $ openProject f
+        case res of
+          Left msgs -> getEventSink >>= sendErrors msgs
+          Right proj -> do
+            sendEvent $ LogMessage (GUISuccess, Message "Imported song successfully." [])
+            sendEvent $ SongImport proj
     )
   ]
+
+data GUIEvent
+  = LoadFile FilePath
+  | SongImport Project
+  | LogStart
+  | LogMessage (GUIMessageLevel, Message)
+  | TaskProgress TaskProgress
 
 data GUIMessageLevel
   = GUISuccess
@@ -507,17 +496,55 @@ data GUIState = GUIState
   , previousScreens  :: [Menu] -- TODO should add Selection
   , currentSelection :: Selection
   , globalTerminal   :: Terminal (GUIMessageLevel, Message)
+  , currentLog       :: [(GUIMessageLevel, Message)]
+  , eventChannel     :: TChan GUIEvent
   }
 
-initialState :: GUIState
-initialState = GUIState
+initialState :: TChan GUIEvent -> GUIState
+initialState evs = GUIState
   { currentScreen    = topMenu
   , previousScreens  = []
   , currentSelection = NoSelect
   , globalTerminal   = Terminal []
+  , currentLog       = []
+  , eventChannel     = evs
   }
 
 type Onyx = StackTraceT (QueueLog (StateT GUIState (ResourceT IO)))
+
+getEventSink :: Onyx (GUIEvent -> IO ())
+getEventSink = do
+  gs <- get
+  return $ atomically . writeTChan (eventChannel gs)
+
+logToSink
+  :: (MonadIO m)
+  => (GUIEvent -> IO ())
+  -> StackTraceT (QueueLog m) a
+  -> m (Either Messages a)
+logToSink sink = logIO $ sink . LogMessage . \case
+  (MessageWarning, x) -> (GUIWarning, x)
+  (MessageLog    , x) -> (GUILog    , x)
+
+sendEvent :: GUIEvent -> Onyx ()
+sendEvent e = getEventSink >>= liftIO . ($ e)
+
+sendErrors :: (MonadIO m) => Messages -> (GUIEvent -> IO ()) -> m ()
+sendErrors (Messages msgs) sink = liftIO $ forM_ msgs $ \msg -> sink $ LogMessage (GUIFailure, msg)
+
+forkOnyx :: Onyx () -> Onyx ThreadId
+forkOnyx act = do
+  sink <- getEventSink
+  gs <- get
+  lift $ lift $ lift $ resourceForkIO $ do
+    -- the child thread gets the same GUIState,
+    -- but really it should only access the eventChannel.
+    -- we could make a different type I guess but doesn't seem too important
+    res <- evalStateT (logToSink sink act) gs
+    case res of
+      Right ()             -> return ()
+      Left (Messages msgs) -> forM_ msgs $ \msg -> do
+        liftIO $ sink $ LogMessage (GUIFailure, msg)
 
 data TaskProgress
   = TaskOK [FilePath]
@@ -544,13 +571,8 @@ launchGUI = do
   let purple :: Double -> SDL.V4 Word8
       purple frac = SDL.V4 (floor $ 0x4B * frac) (floor $ 0x1C * frac) (floor $ 0x4E * frac) 0xFF
 
-  varSelectedFile <- atomically newTChan
-  varTaskProgress <- atomically newTChan
-  varLogMessages <- atomically newTChan
+  varEvents <- atomically newTChan
   varNewestRelease <- atomically newTChan
-  let writeMsg = writeTChan varLogMessages . \case
-        (MessageWarning, x) -> (GUIWarning, x)
-        (MessageLog    , x) -> (GUILog    , x)
 
   _ <- forkIO $ do
     let addr = Req.https "api.github.com" /: "repos" /: "mtolly" /: "onyxite-customs" /: "releases" /: "latest"
@@ -611,7 +633,7 @@ launchGUI = do
         [ Choice "Select output path..." (saveDescription spick) $ do
           let pats = fixPatterns $ savePatterns spick
           liftIO $ void $ forkIO $ saveFileDialog "" (saveCurrent spick) pats (saveDescription spick) >>= \case
-            Just chosen -> atomically $ writeTChan varSelectedFile [T.unpack chosen]
+            Just chosen -> atomically $ writeTChan varEvents $ LoadFile $ T.unpack chosen
             Nothing     -> return ()
         ] ++ if T.null $ saveCurrent spick then [] else
           [ Choice "Continue" (saveCurrent spick) $ useFile $ T.unpack $ saveCurrent spick
@@ -620,24 +642,29 @@ launchGUI = do
         [ Choice "Select files... (or drag and drop)" (fileDescription fpick) $ do
           let pats = fixPatterns $ filePatterns fpick
           liftIO $ void $ forkIO $ openFileDialog "" "" pats (fileDescription fpick) True >>= \case
-            Just chosen -> atomically $ writeTChan varSelectedFile $ map T.unpack chosen
+            Just chosen -> atomically $ forM_ chosen $ \f -> writeTChan varEvents $ LoadFile $ T.unpack f
             Nothing     -> return ()
         ] ++ if null $ fileLoaded fpick then [] else let
           desc = case length $ fileLoaded fpick of
             1 -> "1 file loaded"
             n -> T.pack (show n) <> " files loaded"
           in  [ Choice "Continue" desc $ useFiles $ fileLoaded fpick
-              , Choice "Clear selection" "" $ let
-                fpick' = fpick
-                  { fileLoaded = []
-                  }
-                in setMenu $ Files fpick' useFiles
+              , Choice "Clear selection" "" $ do
+                lg "Selection cleared."
+                setMenu $ Files fpick{ fileLoaded = [] } useFiles
               ]
       TasksStart tasks -> let
         go = do
-          tid <- liftIO $ forkIO $ forM_ tasks $ \task -> do
-            result <- logIO (atomically . writeMsg) task
-            atomically $ writeTChan varTaskProgress $ either TaskFailed TaskOK result
+          liftIO $ atomically $ writeTChan varEvents LogStart
+          tid <- forkOnyx $ forM_ tasks $ \task -> do
+            res <- mapStackTraceT (mapQueueLog $ lift . lift) $ errorToEither task
+            case res of
+              Left msgs -> do
+                getEventSink >>= sendErrors msgs
+                sendEvent $ TaskProgress $ TaskFailed msgs
+              Right files -> do
+                sendEvent $ LogMessage (GUISuccess, Message (show files) []) -- TODO show nicer
+                sendEvent $ TaskProgress $ TaskOK files
           setMenu $ TasksRunning tid TasksStatus
             { tasksTotal = length tasks
             , tasksOK = 0
@@ -658,7 +685,10 @@ launchGUI = do
           desc = T.pack (show tasksOK) <> " succeeded, " <> T.pack (show tasksFailed) <> " failed"
           in Choice "Tasks finished" desc $ return ()
         , Choice "View log" "" $ osOpenFile logFile
-        , Choice "Main menu" "" $ put initialState -- TODO maybe don't wipe the log here?
+        , Choice "Main menu" "" $ do
+          gs <- get
+          mapM_ cleanupPage $ currentScreen gs : previousScreens gs
+          put (initialState varEvents){ globalTerminal = globalTerminal gs }
         ]
       EnterInt label int useInt ->
         [ Choice "+ 5" "" $ setMenu $ EnterInt label (int + 5) useInt
@@ -911,7 +941,7 @@ launchGUI = do
           -- IIUC, SDL2 guarantees the char* is utf-8 on all platforms
           str <- T.unpack . decodeUtf8 <$> B.packCString cstr
           Raw.free $ castPtr cstr
-          void $ forkIO $ atomically $ writeTChan varSelectedFile [str]
+          void $ forkIO $ atomically $ writeTChan varEvents $ LoadFile str
         processEvents es
       SDL.MouseMotionEvent SDL.MouseMotionEventData
         { SDL.mouseMotionEventPos = SDL.P (SDL.V2 x y)
@@ -1001,9 +1031,9 @@ launchGUI = do
                 Right _ -> fileLoaded fpick ++ [fp]
               }
         stackIO $ case res of
-          Left (Messages errs) -> forM_ errs $ \msg -> atomically $ writeTChan varLogMessages (GUIFailure, msg)
-          Right label -> atomically $ writeTChan varLogMessages
-            (GUILog, Message (unlines [fp, "  " <> T.unpack label]) [])
+          Left (Messages errs) -> forM_ errs $ \msg -> atomically $ writeTChan varEvents $ LogMessage (GUIFailure, msg)
+          Right label -> atomically $ writeTChan varEvents
+            $ LogMessage (GUILog, Message (unlines [fp, "  " <> T.unpack label]) [])
         setMenu $ Files fpick' useFiles
       GUIState{ currentScreen = SaveFile spick useFile } -> do
         setMenu $ SaveFile spick{ saveCurrent = T.pack fp } useFile
@@ -1011,51 +1041,74 @@ launchGUI = do
 
     checkVars :: Onyx ()
     checkVars = do
-      liftIO (atomically $ tryReadTChan varSelectedFile) >>= \case
+      gs <- get
+      liftIO (atomically $ tryReadTChan varEvents) >>= \case
         Nothing -> return ()
-        Just fps -> mapM_ addFile fps
-      liftIO (atomically $ tryReadTChan varLogMessages) >>= \case
-        Nothing -> return ()
-        Just msg -> do
-          gs <- get
-          let term = globalTerminal gs
-          put gs { globalTerminal = term { terminalOutput = msg : terminalOutput term } }
-      liftIO (atomically $ tryReadTChan varTaskProgress) >>= \case
-        Nothing -> return ()
-        Just progress -> get >>= \gs -> case currentScreen gs of
-          TasksRunning tid oldStatus -> let
-            newStatus = oldStatus
-              { tasksOK = case progress of
-                TaskOK{} -> tasksOK oldStatus + 1
-                _        -> tasksOK oldStatus
-              , tasksFailed = case progress of
-                TaskFailed{} -> tasksFailed oldStatus + 1
-                _            -> tasksFailed oldStatus
-              , tasksFiles = case progress of
-                TaskOK fs -> fs ++ tasksFiles oldStatus
-                _         -> tasksFiles oldStatus
+        Just e -> case e of
+          LoadFile f -> addFile f
+          SongImport proj -> pushMenu $ Song proj $ Choices
+            [ ( Choice "Preview" "Produce a web browser app to preview the song."
+              $ pushMenu $ SaveFile (SavePicker
+                { savePatterns    = []
+                , saveDescription = "Web app folder"
+                , saveCurrent     = "" -- TODO fill with default _player dir
+                }) $ \out -> pushMenu $ TasksStart $ (:[]) $ do
+                  _ <- commandLine' ["player", projectLocation proj, "--to", out]
+                  return [out </> "index.html"]
+              )
+            , ( Choice "Build" "Create a song file for a game."
+              $ pushMenu $ Choices [(Choice "TODO" "Not built yet!" $ return ())]
+              )
+            , ( Choice "Utilities" "Extra authoring tools."
+              $ pushMenu $ Choices
+                [ ( Choice "Automatic difficulties" "Fill in a chart's missing lower difficulties." $ return () )
+                , ( Choice "Hanging pro keys" "Find pro keys notes whose ranges are too close."
+                  $ pushMenu $ TasksStart $ (:[]) $ do
+                    commandLine' ["hanging", projectLocation proj]
+                  )
+                ]
+              )
+            ]
+          LogStart -> put gs { currentLog = [] }
+          LogMessage msg -> do
+            let term = globalTerminal gs
+            put gs
+              { globalTerminal = term { terminalOutput = msg : terminalOutput term }
+              , currentLog = msg : currentLog gs
               }
-            in if tasksOK newStatus + tasksFailed newStatus == tasksTotal newStatus
-              then do
-                useResultFiles $ tasksFiles newStatus
-                logFile <- liftIO $ do
-                  logDir <- Dir.getXdgDirectory Dir.XdgCache "onyx-log"
-                  Dir.createDirectoryIfMissing False logDir
-                  time <- getCurrentTime
-                  let logFile = logDir </> fmt time <.> "txt"
-                      fmt = formatTime defaultTimeLocale $ iso8601DateFormat $ Just "%H%M%S"
-                  path <- getEnv "PATH"
-                  -- TODO only write log since the process started
-                  writeFile logFile $ unlines
-                    $ "PATH:"
-                    : path
-                    : map showTerminal (reverse $ terminalOutput $ globalTerminal gs)
-                  return logFile
-                put gs { currentScreen = TasksDone logFile newStatus }
-              else put gs { currentScreen = TasksRunning tid newStatus }
-          _ -> return ()
+          TaskProgress progress -> case currentScreen gs of
+            TasksRunning tid oldStatus -> let
+              newStatus = oldStatus
+                { tasksOK = case progress of
+                  TaskOK{} -> tasksOK oldStatus + 1
+                  _        -> tasksOK oldStatus
+                , tasksFailed = case progress of
+                  TaskFailed{} -> tasksFailed oldStatus + 1
+                  _            -> tasksFailed oldStatus
+                , tasksFiles = case progress of
+                  TaskOK fs -> fs ++ tasksFiles oldStatus
+                  _         -> tasksFiles oldStatus
+                }
+              in if tasksOK newStatus + tasksFailed newStatus == tasksTotal newStatus
+                then do
+                  useResultFiles $ tasksFiles newStatus
+                  logFile <- liftIO $ do
+                    logDir <- Dir.getXdgDirectory Dir.XdgCache "onyx-log"
+                    Dir.createDirectoryIfMissing False logDir
+                    time <- getCurrentTime
+                    let logFile = logDir </> fmt time <.> "txt"
+                        fmt = formatTime defaultTimeLocale $ iso8601DateFormat $ Just "%H%M%S"
+                    path <- getEnv "PATH"
+                    writeFile logFile $ unlines
+                      $ "PATH:"
+                      : path
+                      : map showTerminal (reverse $ currentLog gs)
+                    return logFile
+                  put gs { currentScreen = TasksDone logFile newStatus }
+                else put gs { currentScreen = TasksRunning tid newStatus }
+            _ -> return ()
 
-  void $ runResourceT $ evalStateT (logIO (atomically . writeMsg) tick) initialState
+  void $ runResourceT $ evalStateT (logToSink (atomically . writeTChan varEvents) tick) $ initialState varEvents
 
 class ShowTerminal a where
   showTerminal :: a -> String
@@ -1063,7 +1116,8 @@ class ShowTerminal a where
   colorTerminal _ = Nothing
 
 instance ShowTerminal (GUIMessageLevel, Message) where
-  showTerminal = filter (/= '\r') . messageString . snd
+  showTerminal (GUILog, msg) = filter (/= '\r') $ messageString    msg
+  showTerminal (_     , msg) = filter (/= '\r') $ displayException msg
   colorTerminal (lvl, _) = case lvl of
     GUISuccess -> Just $ SDL.V4 0 0x50 0 0xFF
     GUIFailure -> Just $ SDL.V4 0x50 0 0 0xFF

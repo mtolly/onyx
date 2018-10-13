@@ -64,10 +64,9 @@ data Message = Message
   } deriving (Eq, Ord, Show, Read)
 
 instance Exc.Exception Message where
-  displayException (Message str ctx) = unlines
-    $ str
-    : "Context (innermost first):"
-    : map ("  - " ++) ctx
+  displayException (Message str ctx) = unlines $ str : case ctx of
+    [] -> []
+    _  -> "Context (innermost first):" : map ("  - " ++) ctx
 
 newtype Messages = Messages { getMessages :: [Message] }
   deriving (Eq, Ord, Show, Read, Semigroup, Monoid)
