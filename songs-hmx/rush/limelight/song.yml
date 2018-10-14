@@ -1,0 +1,77 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 138
+  bass:
+    grybo:
+      difficulty:
+        rank: 198
+  guitar:
+    grybo:
+      difficulty:
+        rank: 206
+  drums:
+    drums:
+      difficulty:
+        rank: 335
+plans:
+  mogg:
+    parts:
+      vocal:
+      - 5
+      - 6
+      bass:
+      - 2
+      guitar:
+      - 3
+      - 4
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 7c4206612fcb9b458dde41d61904a169
+    multitrack: false
+    vols:
+    - -1
+    - -1
+    - -1.2999999523162842
+    - -3
+    - -3
+    - -3
+    - -3
+    - -4
+    - -4
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+metadata:
+  rating: FamilyFriendly
+  preview-start: 28.131
+  file-album-art: cover.png_xbox
+  track-number: 4
+  album: Moving Pictures
+  year: 1981
+  author: Harmonix, Onyxite
+  title: Limelight (Original Version)
+  preview-end: 58.131
+  genre: prog
+  difficulty:
+    rank: 220
+  artist: Rush

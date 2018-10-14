@@ -1,0 +1,77 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 157
+  bass:
+    grybo:
+      difficulty:
+        rank: 225
+  guitar:
+    grybo:
+      difficulty:
+        rank: 252
+  drums:
+    drums:
+      difficulty:
+        rank: 358
+plans:
+  mogg:
+    parts:
+      vocal:
+      - 5
+      - 6
+      bass:
+      - 2
+      guitar:
+      - 3
+      - 4
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 46b1f1e109c956e7267b87d065435528
+    multitrack: false
+    vols:
+    - -3
+    - -3
+    - -1.5
+    - -2.5
+    - -2.5
+    - -5
+    - -5
+    - -2.5
+    - -2.5
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+metadata:
+  rating: FamilyFriendly
+  preview-start: 9.9
+  file-album-art: cover.png_xbox
+  track-number: 1
+  album: Moving Pictures
+  year: 1981
+  author: Harmonix, Onyxite
+  title: Tom Sawyer (Original Version)
+  preview-end: 39.9
+  genre: prog
+  difficulty:
+    rank: 248
+  artist: Rush

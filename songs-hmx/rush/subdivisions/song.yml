@@ -1,0 +1,113 @@
+parts:
+  vocal:
+    vocal:
+      count: 2
+      gender: male
+      difficulty:
+        rank: 186
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 310
+    pro-guitar:
+      fix-freeform: false
+      difficulty:
+        rank: 297
+      tuning: [0, 0, 0, 0]
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 191
+    pro-guitar:
+      fix-freeform: false
+      difficulty:
+        rank: 323
+      tuning: [0, 0, 0, 0, 0, 0]
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        rank: 276
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 220
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        rank: 373
+plans:
+  mogg:
+    parts:
+      vocal:
+      - 6
+      - 7
+      bass:
+      - 2
+      - 3
+      guitar:
+      - 4
+      - 5
+      keys:
+      - 8
+      - 9
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    mogg-md5: 8703e0399ead61e8ac01659506d17621
+    vols:
+    - -8
+    - -8
+    - -8
+    - -8
+    - -7
+    - -7
+    - -7
+    - -7
+    - -8
+    - -8
+    - -8
+    - -8
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    label: (O)
+  rb3-2x:
+    game: rb3
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+metadata:
+  rating: FamilyFriendly
+  preview-start: 1:44.452
+  file-album-art: cover.png_xbox
+  track-number: 1
+  key: B minor
+  album: Signals
+  year: 1982
+  author: Harmonix, Onyxite
+  title: Subdivisions
+  preview-end: 2:14.452
+  genre: prog
+  difficulty:
+    rank: 335
+  artist: Rush
