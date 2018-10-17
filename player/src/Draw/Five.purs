@@ -98,8 +98,10 @@ drawFive (Five five) targetX stuff = do
           , shades: customize.sustainOrange, open: false, target: Just Image_highway_target_orange
           }
         ]
-  for_ colors \{x: offsetX, lane: gem, open: isOpen} -> let
-    thisLane = Map.union five.bre $ gem five.lanes
+  for_ colors \{x: offsetX, lane: gem, open: isOpen, target: target} -> let
+    thisLane = case target of
+      Nothing -> gem five.lanes -- open note, don't do bre
+      Just _  -> Map.union five.bre $ gem five.lanes
     startsAsLane = case Map.lookupLE minSecs thisLane of
       Nothing           -> false
       Just { value: v } -> v
