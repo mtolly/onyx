@@ -92,6 +92,10 @@ parts:
     vocal:
       count: 2
       gender: male
+  guitar:
+    pro-guitar: # WIP
+      tuning: [0, 0, 0, 0, 0, 0]
+      tuning-global: -2 # D standard
 targets:
   rb3:
     game: rb3

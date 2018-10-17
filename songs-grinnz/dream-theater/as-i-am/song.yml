@@ -11,7 +11,7 @@ metadata:
   title: As I Am
   file-include: ../../../albums/train-of-thought.yml
   track-number: 1
-  author: Grinnz
+  author: Onyxite, Grinnz
 audio:
   album-track:
     md5: f574e025bacd9879f42dd830a323ea14
@@ -90,6 +90,8 @@ parts:
     vocal:
       count: 3
       gender: male
+  keys:
+    pro-keys: {}
 targets:
   rb3:
     game: rb3
