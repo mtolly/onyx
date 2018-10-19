@@ -8,7 +8,7 @@ metadata:
   title: In the Name of God
   file-include: ../../../albums/train-of-thought.yml
   track-number: 7
-  author: Grinnz
+  author: Onyxite, Grinnz
   comments:
   - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:
@@ -89,7 +89,7 @@ parts:
       count: 3
       gender: male
   keys:
-    pro-keys: {} # WIP
+    pro-keys: {}
 targets:
   rb3:
     game: rb3

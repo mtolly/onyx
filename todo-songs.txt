@@ -58,14 +58,13 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
   - vox done!
   - pro bass done! (pending more video checks)
   - basic bass done! (except no-open-notes tweaks)
+  > pro keys:
+    done - AIA, ES, HTF, V, SOC, ITNOG
+    todo - TDS (jarod)
   > pro guitar:
     done - AIA, SOC
     started - TDS (7-string), ES, HTF, ITNOG
     todo - V? (pro cello)
-  > pro keys:
-    done - AIA, ES, HTF, V, SOC
-    started - ITNOG
-    todo - TDS (jarod)
   > basic guitar:
     done - V (cello), SOC
     not - AIA, TDS, ES, HTF, ITNOG
