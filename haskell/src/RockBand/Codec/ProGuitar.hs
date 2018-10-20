@@ -130,9 +130,9 @@ instance TraverseTrack ProGuitarTrack where
 data ProGuitarDifficulty t = ProGuitarDifficulty
   { pgChordName    :: RTB.T t (Maybe T.Text)
   , pgForceHOPO    :: RTB.T t Bool
-  , pgSlide        :: RTB.T t (SlideType, Bool)
+  , pgSlide        :: RTB.T t (SlideType, Bool) -- TODO do these have to coincide with the note or can you cover a stretch of notes?
   , pgArpeggio     :: RTB.T t Bool
-  , pgPartialChord :: RTB.T t (StrumArea, Bool)
+  , pgPartialChord :: RTB.T t (StrumArea, Bool) -- TODO these should be blips, need to be simultaneous with the note
   , pgAllFrets     :: RTB.T t Bool
   , pgMysteryBFlat :: RTB.T t Bool
   -- TODO EOF format sysexes
