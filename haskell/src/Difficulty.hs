@@ -76,14 +76,12 @@ data DifficultyPS = DifficultyPS
 difficultyPS :: TargetPS -> SongYaml -> DifficultyPS
 difficultyPS TargetPS{..} songYaml = let
   rb3 = TargetRB3
-    { rb3_Drums = ps_Drums
+    { rb3_Common = ps_Common
+    , rb3_Drums = ps_Drums
     , rb3_Guitar = ps_Guitar
     , rb3_Keys = ps_Keys
     , rb3_Vocal = ps_Vocal
     , rb3_Bass = ps_Bass
-    , rb3_Plan = ps_Plan
-    , rb3_Label = ps_Label
-    , rb3_Speed = ps_Speed
     , rb3_2xBassPedal = False
     , rb3_SongID = Nothing
     , rb3_Version = Nothing

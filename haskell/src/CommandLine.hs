@@ -567,7 +567,7 @@ commands =
           speedPercent = round $ fromMaybe 1 speed * 100 :: Int
           makeTarget is2x = def
             { rb3_2xBassPedal = is2x
-            , rb3_Speed = speed
+            , rb3_Common = (rb3_Common def) { tgt_Speed = speed }
             , rb3_Keys = if elem OptGuitarOnKeys opts
               then RBFile.FlexGuitar
               else RBFile.FlexKeys
@@ -649,12 +649,12 @@ commands =
               makeTarget is2x = case game of
                 GameRB3 -> buildRB3CON def
                   { rb3_2xBassPedal = is2x
-                  , rb3_Speed = speed
+                  , rb3_Common = (rb3_Common def) { tgt_Speed = speed }
                   , rb3_Keys = keys
                   }
                 GameRB2 -> buildRB2CON def
                   { rb2_2xBassPedal = is2x
-                  , rb2_Speed = speed
+                  , rb2_Common = (rb2_Common def) { tgt_Speed = speed }
                   , rb2_Guitar = gtr
                   , rb2_Bass = bass
                   , rb2_LabelRB2 = elem OptRB2Version opts

@@ -956,12 +956,25 @@ getYear, getTrackNumber :: Metadata -> Int
 getYear        = fromMaybe 1960 . _year
 getTrackNumber = fromMaybe 1    . _trackNumber
 
+data TargetCommon = TargetCommon
+  { tgt_Speed :: Maybe Double
+  , tgt_Plan  :: Maybe T.Text
+  , tgt_Title :: Maybe T.Text -- override base song title
+  , tgt_Label :: Maybe T.Text -- suffix after title
+  } deriving (Eq, Ord, Show, Read, Generic, Hashable)
+
+parseTargetCommon :: (SendMessage m) => ObjectCodec m A.Value TargetCommon
+parseTargetCommon = do
+  tgt_Speed <- tgt_Speed =. opt Nothing "speed" stackJSON
+  tgt_Plan  <- tgt_Plan  =. opt Nothing "plan"  stackJSON
+  tgt_Title <- tgt_Title =. opt Nothing "title" stackJSON
+  tgt_Label <- tgt_Label =. opt Nothing "label" stackJSON
+  return TargetCommon{..}
+
 data TargetRB3 = TargetRB3
-  { rb3_Speed       :: Maybe Double
-  , rb3_Plan        :: Maybe T.Text
+  { rb3_Common      :: TargetCommon
   , rb3_2xBassPedal :: Bool
   , rb3_SongID      :: Maybe (Either Integer T.Text)
-  , rb3_Label       :: Maybe T.Text
   , rb3_Version     :: Maybe Integer
   , rb3_Harmonix    :: Bool
   , rb3_FileMilo    :: Maybe FilePath
@@ -974,11 +987,9 @@ data TargetRB3 = TargetRB3
 
 parseTargetRB3 :: (SendMessage m) => ObjectCodec m A.Value TargetRB3
 parseTargetRB3 = do
-  rb3_Speed       <- rb3_Speed       =. opt Nothing    "speed"         stackJSON
-  rb3_Plan        <- rb3_Plan        =. opt Nothing    "plan"          stackJSON
+  rb3_Common      <- rb3_Common      =. parseTargetCommon
   rb3_2xBassPedal <- rb3_2xBassPedal =. opt False      "2x-bass-pedal" stackJSON
   rb3_SongID      <- rb3_SongID      =. opt Nothing    "song-id"       stackJSON
-  rb3_Label       <- rb3_Label       =. opt Nothing    "label"         stackJSON
   rb3_Version     <- rb3_Version     =. opt Nothing    "version"       stackJSON
   rb3_Harmonix    <- rb3_Harmonix    =. opt False      "harmonix"      stackJSON
   rb3_FileMilo    <- rb3_FileMilo    =. opt Nothing    "file-milo"     stackJSON
@@ -996,11 +1007,9 @@ instance Default TargetRB3 where
   def = fromEmptyObject
 
 data TargetRB2 = TargetRB2
-  { rb2_Speed       :: Maybe Double
-  , rb2_Plan        :: Maybe T.Text
+  { rb2_Common      :: TargetCommon
   , rb2_2xBassPedal :: Bool
   , rb2_SongID      :: Maybe (Either Integer T.Text)
-  , rb2_Label       :: Maybe T.Text
   , rb2_LabelRB2    :: Bool
   , rb2_Version     :: Maybe Integer
   , rb2_Guitar      :: FlexPartName
@@ -1011,11 +1020,9 @@ data TargetRB2 = TargetRB2
 
 parseTargetRB2 :: (SendMessage m) => ObjectCodec m A.Value TargetRB2
 parseTargetRB2 = do
-  rb2_Speed       <- rb2_Speed       =. opt Nothing    "speed"         stackJSON
-  rb2_Plan        <- rb2_Plan        =. opt Nothing    "plan"          stackJSON
+  rb2_Common      <- rb2_Common      =. parseTargetCommon
   rb2_2xBassPedal <- rb2_2xBassPedal =. opt False      "2x-bass-pedal" stackJSON
   rb2_SongID      <- rb2_SongID      =. opt Nothing    "song-id"       stackJSON
-  rb2_Label       <- rb2_Label       =. opt Nothing    "label"         stackJSON
   rb2_LabelRB2    <- rb2_LabelRB2    =. opt False      "label-rb2"     stackJSON
   rb2_Version     <- rb2_Version     =. opt Nothing    "version"       stackJSON
   rb2_Guitar      <- rb2_Guitar      =. opt FlexGuitar "guitar"        stackJSON
@@ -1031,9 +1038,7 @@ instance Default TargetRB2 where
   def = fromEmptyObject
 
 data TargetPS = TargetPS
-  { ps_Speed      :: Maybe Double
-  , ps_Plan       :: Maybe T.Text
-  , ps_Label      :: Maybe T.Text
+  { ps_Common     :: TargetCommon
   , ps_FileVideo  :: Maybe FilePath
   , ps_Guitar     :: FlexPartName
   , ps_Bass       :: FlexPartName
@@ -1046,9 +1051,7 @@ data TargetPS = TargetPS
 
 parseTargetPS :: (SendMessage m) => ObjectCodec m A.Value TargetPS
 parseTargetPS = do
-  ps_Speed      <- ps_Speed      =. opt Nothing                   "speed"       stackJSON
-  ps_Plan       <- ps_Plan       =. opt Nothing                   "plan"        stackJSON
-  ps_Label      <- ps_Label      =. opt Nothing                   "label"       stackJSON
+  ps_Common     <- ps_Common     =. parseTargetCommon
   ps_FileVideo  <- ps_FileVideo  =. opt Nothing                   "file-video"  stackJSON
   ps_Guitar     <- ps_Guitar     =. opt FlexGuitar                "guitar"      stackJSON
   ps_Bass       <- ps_Bass       =. opt FlexBass                  "bass"        stackJSON
@@ -1081,7 +1084,7 @@ instance StackJSON GH2Coop where
     }
 
 data TargetGH2 = TargetGH2
-  { gh2_Plan      :: Maybe T.Text
+  { gh2_Common    :: TargetCommon
   , gh2_Guitar    :: FlexPartName
   , gh2_Bass      :: FlexPartName
   , gh2_Rhythm    :: FlexPartName
@@ -1103,7 +1106,7 @@ instance StackJSON GH2.Quickplay where
 
 parseTargetGH2 :: (SendMessage m) => ObjectCodec m A.Value TargetGH2
 parseTargetGH2 = do
-  gh2_Plan      <- gh2_Plan      =. opt Nothing              "plan"      stackJSON
+  gh2_Common    <- gh2_Common    =. parseTargetCommon
   gh2_Guitar    <- gh2_Guitar    =. opt FlexGuitar           "guitar"    stackJSON
   gh2_Bass      <- gh2_Bass      =. opt FlexBass             "bass"      stackJSON
   gh2_Rhythm    <- gh2_Rhythm    =. opt (FlexExtra "rhythm") "rhythm"    stackJSON

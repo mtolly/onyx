@@ -1026,13 +1026,16 @@ importMagma fin dir = do
       -- TODO support dual 1x+2x projects
       targetName = if is2x then "rb3-2x" else "rb3"
       target = def
-        { rb3_Speed = Nothing
-        , rb3_Plan = Nothing
+        { rb3_Common = TargetCommon
+          { tgt_Speed = Nothing
+          , tgt_Plan = Nothing
+          , tgt_Label = Nothing
+          , tgt_Title = Nothing
+          }
         , rb3_2xBassPedal = is2x
         , rb3_SongID = c3 >>= \c3file -> if C3.useNumericID c3file
           then fmap Left $ readMaybe $ T.unpack (C3.uniqueNumericID c3file)
           else case C3.customID c3file of "" -> Nothing; cid -> Just $ Right cid
-        , rb3_Label = Nothing
         , rb3_Version = fromIntegral . C3.version <$> c3
         }
 
