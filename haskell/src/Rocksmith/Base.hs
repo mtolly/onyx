@@ -15,8 +15,8 @@ import           Control.Monad.Trans.Writer
 import           Data.Char                      (isSpace)
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
-import           Data.Maybe                     (catMaybes, isJust, isNothing,
-                                                 mapMaybe)
+import           Data.Maybe                     (catMaybes, fromMaybe, isJust,
+                                                 isNothing, mapMaybe)
 import           Data.Profunctor                (dimap)
 import qualified Data.Text                      as T
 import qualified Data.Text.IO                   as T
@@ -153,10 +153,9 @@ reqAttr a = Codec
   , codecOut = fmapArg $ void . codecOut o . Just
   } where o = optAttr a
 
-countList :: (SendMessage m) => ValueCodec m Element a -> InsideCodec m [a]
-countList cdc = Codec
+childElements :: (SendMessage m) => InsideCodec m [Element]
+childElements = Codec
   { codecIn = do
-    len <- codecIn $ intText $ reqAttr "count"
     ins <- lift get
     elts <- fmap catMaybes $ forM (insideContent ins) $ \case
       Elem elt -> return $ Just elt
@@ -164,28 +163,48 @@ countList cdc = Codec
         unless (all isSpace $ cdData cd) $ do
           warn $ "Unexpected text in list element: " ++ show (cdData cd)
         return Nothing
-      CRef _ -> warn "Found CRef" >> return Nothing
-    when (length elts /= len) $ warn $ unwords
-      [ "List has count attribute of"
-      , show len
-      , "but contains"
-      , show $ length elts
-      , "children"
-      ]
+      CRef _ -> warn "Unexpected CRef" >> return Nothing
     lift $ put ins{ insideContent = [] }
+    return elts
+  , codecOut = makeOut $ \elts -> Inside
+    { insideAttrs   = []
+    , insideContent = map Elem elts
+    }
+  }
+
+bareList :: (SendMessage m) => ValueCodec m Element a -> InsideCodec m [a]
+bareList cdc = Codec
+  { codecIn = do
+    elts <- codecIn children
     forM (zip [0..] elts) $ \(i, e) -> do
       let layer = unwords $ concat
             [ toList (elLine e) >>= \ln -> ["line", show ln]
             , ["list child #" <> show (i :: Int)]
             ]
       inside layer $ mapStackTraceT (lift . (`runReaderT` e)) $ codecIn cdc
-  , codecOut = let
-    makeList elts = Inside
-      { insideAttrs = [Attr (QName "count" Nothing Nothing) (show $ length elts)]
-      , insideContent = map Elem elts
+  , codecOut = fmapArg $ void . codecOut children . map (makeValue' cdc)
+  } where children = childElements
+
+countList :: (SendMessage m) => ValueCodec m Element a -> InsideCodec m [a]
+countList cdc = Codec
+  { codecIn = do
+    len <- codecIn $ intText $ reqAttr "count"
+    xs <- codecIn bare
+    when (length xs /= len) $ warn $ unwords
+      [ "List has count attribute of"
+      , show len
+      , "but contains"
+      , show $ length xs
+      , "children"
+      ]
+    return xs
+  , codecOut = fmapArg $ \xs -> do
+    tell Inside
+      { insideAttrs = [Attr (QName "count" Nothing Nothing) (show $ length xs)]
+      , insideContent = []
       }
-    in makeOut $ makeList . map (makeValue' cdc)
-  }
+    void $ codecOut bare xs
+  } where bare = bareList cdc
 
 childText :: (Monad m) => InsideCodec m T.Text
 childText = Codec
@@ -240,25 +259,34 @@ maybeInside cdc = Codec
   , codecOut = fmapArg $ maybe (return ()) (void . codecOut cdc)
   }
 
-boolText :: (Monad m) => InsideCodec m T.Text -> InsideCodec m Bool
-boolText cdc = Codec
-  { codecIn = codecIn cdc >>= \case
+boolValue :: (Monad m) => ValueCodec m T.Text Bool
+boolValue = Codec
+  { codecIn = lift ask >>= \case
     "0" -> return False
     "1" -> return True
     str -> fatal $ "Expected 0 or 1 (bool), got: " <> show str
-  , codecOut = fmapArg $ \b -> void $ codecOut cdc $ if b then "1" else "0"
+  , codecOut = fmapArg $ tell . \b -> if b then "1" else "0"
+  }
+
+boolText :: (Monad m) => InsideCodec m T.Text -> InsideCodec m Bool
+boolText = zoomValue boolValue
+
+milliValue :: (Monad m, RealFrac a) => ValueCodec m T.Text a
+milliValue = Codec
+  { codecIn = lift ask >>= \str -> case readMaybe $ T.unpack str of
+    Nothing -> fatal $ "Expected a number to 3 decimal places, got: " <> show str
+    Just m  -> return $ realToFrac (m :: Milli)
+  , codecOut = fmapArg $ tell . T.pack . show . \n -> realToFrac n :: Milli
   }
 
 milliText :: (Monad m, RealFrac a) => InsideCodec m T.Text -> InsideCodec m a
-milliText cdc = Codec
-  { codecIn = codecIn cdc >>= \str -> case readMaybe $ T.unpack str of
-    Nothing -> fatal $ "Expected an integer, got: " <> show str
-    Just m  -> return $ realToFrac (m :: Milli)
-  , codecOut = fmapArg $ \n -> void $ codecOut cdc $ T.pack $ show (realToFrac n :: Milli)
-  }
+milliText = zoomValue milliValue
+
+secondsValue :: (Monad m) => ValueCodec m T.Text U.Seconds
+secondsValue = dimap U.fromSeconds U.Seconds milliValue
 
 seconds :: (Monad m) => InsideCodec m T.Text -> InsideCodec m U.Seconds
-seconds = dimap U.fromSeconds U.Seconds . milliText
+seconds = zoomValue secondsValue
 
 bpm :: (Monad m) => InsideCodec m T.Text -> InsideCodec m U.BPS
 bpm = dimap ((* 60) . U.fromBPS) (U.BPS . (/ 60)) . milliText
@@ -287,6 +315,7 @@ data Arrangement = Arrangement
   , arr_chordTemplates         :: [ChordTemplate]
   , arr_ebeats                 :: [Ebeat]
   , arr_sections               :: [Section]
+  , arr_events                 :: [Event]
   , arr_transcriptionTrack     :: Level
   , arr_levels                 :: [Level]
   } deriving (Eq, Show)
@@ -328,6 +357,7 @@ instance IsInside Arrangement where
     arr_chordTemplates         <- arr_chordTemplates         =. plural "chordTemplate"
     arr_ebeats                 <- arr_ebeats                 =. plural "ebeat"
     arr_sections               <- arr_sections               =. plural "section"
+    arr_events                 <- arr_events                 =. plural "event"
     arr_transcriptionTrack     <- arr_transcriptionTrack     =. childTag "transcriptionTrack"     (parseInside' insideCodec)
     arr_levels                 <- arr_levels                 =. plural "level"
     return Arrangement{..}
@@ -448,28 +478,122 @@ instance IsInside Level where
     lvl_handShapes    <- lvl_handShapes    =. plural "handShape"
     return Level{..}
 
--- TODO
 data Note = Note
-  deriving (Eq, Show)
+  { n_time           :: U.Seconds
+  , n_string         :: Int
+  , n_fret           :: Int
+  , n_sustain        :: Maybe U.Seconds
+  , n_vibrato        :: Maybe Int -- don't know what format this is
+  , n_hopo           :: Bool
+  , n_hammerOn       :: Bool
+  , n_pullOff        :: Bool
+  , n_slideTo        :: Maybe Int
+  , n_slideUnpitchTo :: Maybe Int
+  , n_mute           :: Bool
+  , n_palmMute       :: Bool
+  , n_accent         :: Bool
+  , n_linkNext       :: Bool
+  , n_bend           :: Maybe Int
+  , n_bendValues     :: Maybe [BendValue]
+  , n_harmonicPinch  :: Bool
+  , n_leftHand       :: Maybe Int -- only in chordNote
+  } deriving (Eq, Show)
+
 data Chord = Chord
-  deriving (Eq, Show)
+  { chd_time         :: U.Seconds
+  , chd_chordId      :: Int
+  , chd_accent       :: Bool
+  , chd_highDensity  :: Bool
+  , chd_palmMute     :: Bool
+  , chd_fretHandMute :: Bool
+  , chd_linkNext     :: Bool
+  , chd_chordNotes   :: [Note]
+  } deriving (Eq, Show)
+
+-- TODO
 data FretHandMute = FretHandMute
   deriving (Eq, Show)
+
 data Anchor = Anchor
-  deriving (Eq, Show)
+  { an_time  :: U.Seconds
+  , an_fret  :: Int
+  , an_width :: Milli
+  } deriving (Eq, Show)
+
 data HandShape = HandShape
-  deriving (Eq, Show)
+  { hs_chordId   :: Int
+  , hs_startTime :: U.Seconds
+  , hs_endTime   :: U.Seconds
+  } deriving (Eq, Show)
+
+flag :: (Monad m) => T.Text -> InsideCodec m Bool
+flag s = zoomValue flagValue $ optAttr s
+
+flagValue :: (Monad m) => ValueCodec m (Maybe T.Text) Bool
+flagValue = dimap (\b -> guard b >> Just b) (fromMaybe False) $ maybeValue boolValue
 
 instance IsInside Note where
-  insideCodec = return Note
+  insideCodec = do
+    n_time           <- n_time           =. seconds (reqAttr "time")
+    n_string         <- n_string         =. intText (reqAttr "string")
+    n_fret           <- n_fret           =. intText (reqAttr "fret")
+    n_sustain        <- n_sustain        =. zoomValue (maybeValue secondsValue) (optAttr "sustain")
+    n_vibrato        <- n_vibrato        =. zoomValue (maybeValue intValue) (optAttr "vibrato")
+    n_hopo           <- n_hopo           =. flag "hopo"
+    n_hammerOn       <- n_hammerOn       =. flag "hammerOn"
+    n_pullOff        <- n_pullOff        =. flag "pullOff"
+    n_slideTo        <- n_slideTo        =. zoomValue (maybeValue intValue) (optAttr "slideTo")
+    n_slideUnpitchTo <- n_slideUnpitchTo =. zoomValue (maybeValue intValue) (optAttr "slideUnpitchTo")
+    n_mute           <- n_mute           =. flag "mute"
+    n_palmMute       <- n_palmMute       =. flag "palmMute"
+    n_accent         <- n_accent         =. flag "accent"
+    n_linkNext       <- n_linkNext       =. flag "linkNext"
+    n_bend           <- n_bend           =. zoomValue (maybeValue intValue) (optAttr "bend")
+    n_bendValues     <- n_bendValues     =. pluralOpt "bendValue"
+    n_harmonicPinch  <- n_harmonicPinch  =. flag "harmonicPinch"
+    n_leftHand       <- n_leftHand       =. zoomValue (maybeValue intValue) (optAttr "leftHand")
+    return Note{..}
+
 instance IsInside Chord where
-  insideCodec = return Chord
+  insideCodec = do
+    chd_time         <- chd_time         =. seconds (reqAttr "time")
+    chd_chordId      <- chd_chordId      =. intText (reqAttr "chordId")
+    chd_accent       <- chd_accent       =. flag "accent"
+    chd_highDensity  <- chd_highDensity  =. flag "highDensity"
+    chd_palmMute     <- chd_palmMute     =. flag "palmMute"
+    chd_fretHandMute <- chd_fretHandMute =. flag "fretHandMute"
+    chd_linkNext     <- chd_linkNext     =. flag "linkNext"
+    chd_chordNotes   <- chd_chordNotes   =. bareList (isTag "chordNote" $ parseInside' insideCodec)
+    return Chord{..}
+
+-- TODO
 instance IsInside FretHandMute where
-  insideCodec = return FretHandMute
+  insideCodec = return FretHandMute{}
+
 instance IsInside Anchor where
-  insideCodec = return Anchor
+  insideCodec = do
+    an_time  <- an_time  =. seconds (reqAttr "time")
+    an_fret  <- an_fret  =. intText (reqAttr "fret")
+    an_width <- an_width =. milliText (reqAttr "width")
+    return Anchor{..}
+
 instance IsInside HandShape where
-  insideCodec = return HandShape
+  insideCodec = do
+    hs_chordId   <- hs_chordId   =. intText (reqAttr "chordId")
+    hs_startTime <- hs_startTime =. seconds (reqAttr "startTime")
+    hs_endTime   <- hs_endTime   =. seconds (reqAttr "endTime")
+    return HandShape{..}
+
+data BendValue = BendValue
+  { bv_time :: U.Seconds
+  , bv_step :: Maybe Milli
+  } deriving (Eq, Show)
+
+instance IsInside BendValue where
+  insideCodec = do
+    bv_time <- bv_time =. seconds (reqAttr "time")
+    bv_step <- bv_step =. zoomValue (maybeValue milliValue) (optAttr "step")
+    return BendValue{..}
 
 data ArrangementProperties = ArrangementProperties
   { ap_represent         :: Bool
@@ -558,6 +682,17 @@ instance IsInside Tuning where
     tuning_string4 <- tuning_string4 =. intText (reqAttr "string4")
     tuning_string5 <- tuning_string5 =. intText (reqAttr "string5")
     return Tuning{..}
+
+data Event = Event
+  { ev_time :: U.Seconds
+  , ev_code :: T.Text
+  } deriving (Eq, Show)
+
+instance IsInside Event where
+  insideCodec = do
+    ev_time <- ev_time =. seconds (reqAttr "time")
+    ev_code <- ev_code =. reqAttr "code"
+    return Event{..}
 
 testParse :: FilePath -> IO Arrangement
 testParse f = do
