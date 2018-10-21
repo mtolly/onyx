@@ -141,6 +141,11 @@ onyxite's C3-format Song IDs (16602xxxxx)
   [see RAAR and Cascades in jazz packs above]
   v1 released 2018-08-22
 
+1660200088 Lost Keys/Rosetta Stoned (Tool) 1x
+1660200089 Lost Keys/Rosetta Stoned (Tool) 2x
+1660200090 Rosetta Stoned (Tool) 1x
+1660200091 Rosetta Stoned (Tool) 2x
+
 BONUS SONGS (counting down from max)
 
 1660299999 hacked c3 6:00 drum chart

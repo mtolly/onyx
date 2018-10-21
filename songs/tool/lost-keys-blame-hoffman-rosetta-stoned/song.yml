@@ -64,10 +64,32 @@ targets:
   rb3:
     game: rb3
     plan: stems
+    song-id: 1660200088
+    version: 3
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
     plan: stems
+    song-id: 1660200089
+    version: 3
   ps:
+    game: ps
+    plan: stems
+  # TODO add start bounds below when supported
+  rb3-rs:
+    title: Rosetta Stoned
+    game: rb3
+    plan: stems
+    song-id: 1660200090
+    version: 3
+  rb3-2x-rs:
+    title: Rosetta Stoned
+    game: rb3
+    2x-bass-pedal: true
+    plan: stems
+    song-id: 1660200091
+    version: 3
+  ps-rs:
+    title: Rosetta Stoned
     game: ps
     plan: stems

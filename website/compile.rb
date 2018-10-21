@@ -133,6 +133,10 @@ end
 
 def makeTargetName(target_name, target)
   pieces = []
+  if target['title']
+    pieces << target['title']
+    pieces << '-'
+  end
   case target['game']
   when 'rb3' then pieces << 'Rock Band 3'
   when 'rb2' then pieces << 'Rock Band 2'
