@@ -4,7 +4,8 @@
 module Rocksmith.Base where
 
 import           Control.Arrow                  (second)
-import           Control.Monad                  (forM_, guard, unless, void)
+import           Control.Monad                  (forM, forM_, guard, unless,
+                                                 void, when)
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
@@ -14,7 +15,8 @@ import           Control.Monad.Trans.Writer
 import           Data.Char                      (isSpace)
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
-import           Data.Maybe                     (isJust, isNothing, mapMaybe)
+import           Data.Maybe                     (catMaybes, isJust, isNothing,
+                                                 mapMaybe)
 import           Data.Profunctor                (dimap)
 import qualified Data.Text                      as T
 import qualified Data.Text.IO                   as T
@@ -67,8 +69,8 @@ isTag t cdc = Codec
   , codecOut = mapWriter (second $ makeTag t) . codecOut cdc
   }
 
-childTag :: (Monad m) => T.Text -> ValueCodec m Inside a -> InsideCodec m a
-childTag t cdc = Codec
+childTagOpt :: (Monad m) => T.Text -> ValueCodec m Inside a -> InsideCodec m (Maybe a)
+childTagOpt t cdc = Codec
   { codecIn = do
     ins <- lift get
     let isElement = \case Elem e -> Just e; _ -> Nothing
@@ -77,15 +79,27 @@ childTag t cdc = Codec
         let ins' = Inside (elAttribs elt) (elContent elt)
         x <- layer $ mapStackTraceT (lift . (`runReaderT` ins')) $ codecIn cdc
         lift $ put $ ins { insideContent = map fst $ before ++ after }
-        return x
-      _ -> fatal $ "Missing required child tag <" <> T.unpack t <> ">"
-  , codecOut = let
-    makeChild ins = Inside
-      { insideAttrs = []
-      , insideContent = [Elem $ makeTag t ins]
-      }
-    in mapWriter (second makeChild) . codecOut cdc
+        return $ Just x
+      _ -> return Nothing
+  , codecOut = fmapArg $ \case
+    Nothing -> return ()
+    Just x -> let
+      makeChild ins = Inside
+        { insideAttrs = []
+        , insideContent = [Elem $ makeTag t ins]
+        }
+      in void $ mapWriter (second makeChild) $ codecOut cdc x
   }
+
+childTag :: (Monad m) => T.Text -> ValueCodec m Inside a -> InsideCodec m a
+childTag t cdc = let
+  o = childTagOpt t cdc
+  in Codec
+    { codecIn = codecIn o >>= \case
+      Just x  -> return x
+      Nothing -> fatal $ "Missing required child tag <" <> T.unpack t <> ">"
+    , codecOut = fmapArg $ void . codecOut o . Just
+    }
 
 parseInside :: (Monad m) => InsideCodec m a -> ValueCodec m Inside a
 parseInside cdc = Codec
@@ -114,26 +128,57 @@ warnUnused cdc = cdc
 parseInside' :: (SendMessage m) => InsideCodec m a -> ValueCodec m Inside a
 parseInside' = parseInside . warnUnused
 
-reqAttr :: (Monad m) => T.Text -> InsideCodec m T.Text
-reqAttr a = Codec
+optAttr :: (Monad m) => T.Text -> InsideCodec m (Maybe T.Text)
+optAttr a = Codec
   { codecIn = do
     ins <- lift get
     case break (\attr -> attrKey attr == QName (T.unpack a) Nothing Nothing) $ insideAttrs ins of
       (before, attr : after) -> do
         lift $ put $ ins { insideAttrs = before ++ after }
-        return $ T.pack $ attrVal attr
-      _ -> fatal $ "Missing required attribute " <> show a
-  , codecOut = makeOut $ \x -> Inside
-    { insideAttrs = [Attr (QName (T.unpack a) Nothing Nothing) (T.unpack x)]
-    , insideContent = []
-    }
+        return $ Just $ T.pack $ attrVal attr
+      _ -> return Nothing
+  , codecOut = makeOut $ \case
+    Nothing -> mempty
+    Just x -> Inside
+      { insideAttrs = [Attr (QName (T.unpack a) Nothing Nothing) (T.unpack x)]
+      , insideContent = []
+      }
   }
+
+reqAttr :: (Monad m) => T.Text -> InsideCodec m T.Text
+reqAttr a = Codec
+  { codecIn = codecIn o >>= \case
+    Just x  -> return x
+    Nothing -> fatal $ "Missing required attribute " <> show a
+  , codecOut = fmapArg $ void . codecOut o . Just
+  } where o = optAttr a
 
 countList :: (SendMessage m) => ValueCodec m Element a -> InsideCodec m [a]
 countList cdc = Codec
   { codecIn = do
     len <- codecIn $ intText $ reqAttr "count"
-    undefined len
+    ins <- lift get
+    elts <- fmap catMaybes $ forM (insideContent ins) $ \case
+      Elem elt -> return $ Just elt
+      Text cd -> do
+        unless (all isSpace $ cdData cd) $ do
+          warn $ "Unexpected text in list element: " ++ show (cdData cd)
+        return Nothing
+      CRef _ -> warn "Found CRef" >> return Nothing
+    when (length elts /= len) $ warn $ unwords
+      [ "List has count attribute of"
+      , show len
+      , "but contains"
+      , show $ length elts
+      , "children"
+      ]
+    lift $ put ins{ insideContent = [] }
+    forM (zip [0..] elts) $ \(i, e) -> do
+      let layer = unwords $ concat
+            [ toList (elLine e) >>= \ln -> ["line", show ln]
+            , ["list child #" <> show (i :: Int)]
+            ]
+      inside layer $ mapStackTraceT (lift . (`runReaderT` e)) $ codecIn cdc
   , codecOut = let
     makeList elts = Inside
       { insideAttrs = [Attr (QName "count" Nothing Nothing) (show $ length elts)]
@@ -160,14 +205,39 @@ childText = Codec
     }
   }
 
-intText :: (Monad m, Integral a) => InsideCodec m T.Text -> InsideCodec m a
-intText cdc = Codec
-  { codecIn = codecIn cdc >>= \str -> case readMaybe $ T.unpack str of
+zoomValue :: (Monad m) => ValueCodec m v a -> InsideCodec m v -> InsideCodec m a
+zoomValue z cdc = Codec
+  { codecIn = codecIn cdc >>= \x -> mapStackTraceT (lift . (`runReaderT` x)) $ codecIn z
+  , codecOut = fmapArg $ void . codecOut cdc . execWriter . codecOut z
+  }
+
+intValue :: (Monad m, Integral a) => ValueCodec m T.Text a
+intValue = Codec
+  { codecIn = lift ask >>= \str -> case readMaybe $ T.unpack str of
     Nothing -> fatal $ "Expected an integer, got: " <> show str
     Just i  -> return $ fromInteger i
-  , codecOut = \i -> do
-    void $ codecOut cdc $ T.pack $ show $ toInteger i
-    return i
+  , codecOut = fmapArg $ tell . T.pack . show . toInteger
+  }
+
+intText :: (Monad m, Integral a) => InsideCodec m T.Text -> InsideCodec m a
+intText = zoomValue intValue
+
+maybeValue :: (Monad m) => ValueCodec m v a -> ValueCodec m (Maybe v) (Maybe a)
+maybeValue cdc = Codec
+  { codecIn = lift ask >>= \case
+    Nothing -> return Nothing
+    Just v  -> fmap Just $ parseFrom v $ codecIn cdc
+  , codecOut = fmapArg $ \case
+    Nothing -> tell Nothing
+    Just a  -> void $ mapWriter (second Just) $ codecOut cdc a
+  }
+
+maybeInside :: (Monad m) => InsideCodec m a -> InsideCodec m (Maybe a)
+maybeInside cdc = Codec
+  { codecIn = lift get >>= \case
+    Inside [] [] -> return Nothing
+    _            -> fmap Just $ codecIn cdc
+  , codecOut = fmapArg $ maybe (return ()) (void . codecOut cdc)
   }
 
 boolText :: (Monad m) => InsideCodec m T.Text -> InsideCodec m Bool
@@ -176,9 +246,7 @@ boolText cdc = Codec
     "0" -> return False
     "1" -> return True
     str -> fatal $ "Expected 0 or 1 (bool), got: " <> show str
-  , codecOut = \b -> do
-    void $ codecOut cdc $ if b then "1" else "0"
-    return b
+  , codecOut = fmapArg $ \b -> void $ codecOut cdc $ if b then "1" else "0"
   }
 
 milliText :: (Monad m, RealFrac a) => InsideCodec m T.Text -> InsideCodec m a
@@ -186,9 +254,7 @@ milliText cdc = Codec
   { codecIn = codecIn cdc >>= \str -> case readMaybe $ T.unpack str of
     Nothing -> fatal $ "Expected an integer, got: " <> show str
     Just m  -> return $ realToFrac (m :: Milli)
-  , codecOut = \n -> do
-    void $ codecOut cdc $ T.pack $ show (realToFrac n :: Milli)
-    return n
+  , codecOut = fmapArg $ \n -> void $ codecOut cdc $ T.pack $ show (realToFrac n :: Milli)
   }
 
 seconds :: (Monad m) => InsideCodec m T.Text -> InsideCodec m U.Seconds
@@ -213,11 +279,29 @@ data Arrangement = Arrangement
   , arr_artistName             :: T.Text
   , arr_artistNameSort         :: T.Text
   , arr_albumName              :: T.Text
-  , arr_albumYear              :: Int -- should verify
+  , arr_albumYear              :: Maybe Int -- should verify
   , arr_crowdSpeed             :: Int
   , arr_arrangementProperties  :: ArrangementProperties
   , arr_phrases                :: [Phrase]
+  , arr_phraseIterations       :: [PhraseIteration]
+  , arr_chordTemplates         :: [ChordTemplate]
+  , arr_ebeats                 :: [Ebeat]
+  , arr_sections               :: [Section]
+  , arr_transcriptionTrack     :: Level
+  , arr_levels                 :: [Level]
   } deriving (Eq, Show)
+
+plural' :: (SendMessage m, IsInside a) => T.Text -> T.Text -> InsideCodec m [a]
+plural' many one = childTag many $ parseInside' $ countList $ isTag one $ parseInside' insideCodec
+
+pluralOpt' :: (SendMessage m, IsInside a) => T.Text -> T.Text -> InsideCodec m (Maybe [a])
+pluralOpt' many one = childTagOpt many $ parseInside' $ countList $ isTag one $ parseInside' insideCodec
+
+plural :: (SendMessage m, IsInside a) => T.Text -> InsideCodec m [a]
+plural one = plural' (one <> "s") one
+
+pluralOpt :: (SendMessage m, IsInside a) => T.Text -> InsideCodec m (Maybe [a])
+pluralOpt one = pluralOpt' (one <> "s") one
 
 instance IsInside Arrangement where
   insideCodec = do
@@ -236,11 +320,16 @@ instance IsInside Arrangement where
     arr_artistName             <- arr_artistName             =. childTag "artistName"             (parseInside' childText)
     arr_artistNameSort         <- arr_artistNameSort         =. childTag "artistNameSort"         (parseInside' childText)
     arr_albumName              <- arr_albumName              =. childTag "albumName"              (parseInside' childText)
-    arr_albumYear              <- arr_albumYear              =. childTag "albumYear"              (parseInside' $ intText childText)
+    arr_albumYear              <- arr_albumYear              =. childTag "albumYear"              (parseInside' $ maybeInside $ intText childText)
     arr_crowdSpeed             <- arr_crowdSpeed             =. childTag "crowdSpeed"             (parseInside' $ intText childText)
     arr_arrangementProperties  <- arr_arrangementProperties  =. childTag "arrangementProperties"  (parseInside' insideCodec)
-    arr_phrases                <- arr_phrases                =. childTag "phrases"
-      (parseInside' $ countList $ isTag "phrase" $ parseInside' insideCodec)
+    arr_phrases                <- arr_phrases                =. plural "phrase"
+    arr_phraseIterations       <- arr_phraseIterations       =. plural "phraseIteration"
+    arr_chordTemplates         <- arr_chordTemplates         =. plural "chordTemplate"
+    arr_ebeats                 <- arr_ebeats                 =. plural "ebeat"
+    arr_sections               <- arr_sections               =. plural "section"
+    arr_transcriptionTrack     <- arr_transcriptionTrack     =. childTag "transcriptionTrack"     (parseInside' insideCodec)
+    arr_levels                 <- arr_levels                 =. plural "level"
     return Arrangement{..}
 
 data Phrase = Phrase
@@ -253,6 +342,134 @@ instance IsInside Phrase where
     ph_maxDifficulty <- ph_maxDifficulty =. intText (reqAttr "maxDifficulty")
     ph_name          <- ph_name          =. reqAttr "name"
     return Phrase{..}
+
+data PhraseIteration = PhraseIteration
+  { pi_time       :: U.Seconds
+  , pi_phraseId   :: Int
+  , pi_variation  :: T.Text -- only seen empty, dunno what this is
+  , pi_heroLevels :: Maybe [HeroLevel]
+  } deriving (Eq, Show)
+
+instance IsInside PhraseIteration where
+  insideCodec = do
+    pi_time       <- pi_time       =. seconds (reqAttr "time")
+    pi_phraseId   <- pi_phraseId   =. intText (reqAttr "phraseId")
+    pi_variation  <- pi_variation  =. reqAttr "variation"
+    pi_heroLevels <- pi_heroLevels =. pluralOpt "heroLevel"
+    return PhraseIteration{..}
+
+data HeroLevel = HeroLevel
+  { hl_difficulty :: Int
+  , hl_hero       :: Int
+  } deriving (Eq, Show)
+
+instance IsInside HeroLevel where
+  insideCodec = do
+    hl_difficulty <- hl_difficulty =. intText (reqAttr "difficulty")
+    hl_hero       <- hl_hero       =. intText (reqAttr "hero")
+    return HeroLevel{..}
+
+data ChordTemplate = ChordTemplate
+  { ct_chordName   :: T.Text
+  , ct_displayName :: T.Text
+  -- fingers are 1,2,3,4 = I,M,R,P I think
+  , ct_finger0     :: Maybe Int
+  , ct_finger1     :: Maybe Int
+  , ct_finger2     :: Maybe Int
+  , ct_finger3     :: Maybe Int
+  , ct_finger4     :: Maybe Int
+  , ct_finger5     :: Maybe Int
+  , ct_fret0       :: Maybe Int
+  , ct_fret1       :: Maybe Int
+  , ct_fret2       :: Maybe Int
+  , ct_fret3       :: Maybe Int
+  , ct_fret4       :: Maybe Int
+  , ct_fret5       :: Maybe Int
+  } deriving (Eq, Show)
+
+instance IsInside ChordTemplate where
+  insideCodec = do
+    ct_chordName   <- ct_chordName   =. reqAttr "chordName"
+    ct_displayName <- ct_displayName =. reqAttr "displayName"
+    ct_finger0     <- ct_finger0     =. zoomValue (maybeValue intValue) (optAttr "finger0")
+    ct_finger1     <- ct_finger1     =. zoomValue (maybeValue intValue) (optAttr "finger1")
+    ct_finger2     <- ct_finger2     =. zoomValue (maybeValue intValue) (optAttr "finger2")
+    ct_finger3     <- ct_finger3     =. zoomValue (maybeValue intValue) (optAttr "finger3")
+    ct_finger4     <- ct_finger4     =. zoomValue (maybeValue intValue) (optAttr "finger4")
+    ct_finger5     <- ct_finger5     =. zoomValue (maybeValue intValue) (optAttr "finger5")
+    ct_fret0       <- ct_fret0       =. zoomValue (maybeValue intValue) (optAttr "fret0")
+    ct_fret1       <- ct_fret1       =. zoomValue (maybeValue intValue) (optAttr "fret1")
+    ct_fret2       <- ct_fret2       =. zoomValue (maybeValue intValue) (optAttr "fret2")
+    ct_fret3       <- ct_fret3       =. zoomValue (maybeValue intValue) (optAttr "fret3")
+    ct_fret4       <- ct_fret4       =. zoomValue (maybeValue intValue) (optAttr "fret4")
+    ct_fret5       <- ct_fret5       =. zoomValue (maybeValue intValue) (optAttr "fret5")
+    return ChordTemplate{..}
+
+data Ebeat = Ebeat
+  { eb_time    :: U.Seconds
+  , eb_measure :: Maybe Int
+  } deriving (Eq, Show)
+
+instance IsInside Ebeat where
+  insideCodec = do
+    eb_time    <- eb_time    =. seconds (reqAttr "time")
+    eb_measure <- eb_measure =. zoomValue (maybeValue intValue) (optAttr "measure")
+    return Ebeat{..}
+
+data Section = Section
+  { sect_name      :: T.Text
+  , sect_number    :: Int
+  , sect_startTime :: U.Seconds
+  } deriving (Eq, Show)
+
+instance IsInside Section where
+  insideCodec = do
+    sect_name      <- sect_name      =. reqAttr "name"
+    sect_number    <- sect_number    =. intText (reqAttr "number")
+    sect_startTime <- sect_startTime =. seconds (reqAttr "startTime")
+    return Section{..}
+
+data Level = Level
+  { lvl_difficulty    :: Int
+  , lvl_notes         :: [Note]
+  , lvl_chords        :: [Chord]
+  , lvl_fretHandMutes :: [FretHandMute]
+  , lvl_anchors       :: [Anchor]
+  , lvl_handShapes    :: [HandShape]
+  } deriving (Eq, Show)
+
+instance IsInside Level where
+  insideCodec = do
+    lvl_difficulty    <- lvl_difficulty    =. intText (reqAttr "difficulty")
+    lvl_notes         <- lvl_notes         =. plural "note"
+    lvl_chords        <- lvl_chords        =. plural "chord"
+    lvl_fretHandMutes <- lvl_fretHandMutes =. plural "fretHandMute"
+    lvl_anchors       <- lvl_anchors       =. plural "anchor"
+    lvl_handShapes    <- lvl_handShapes    =. plural "handShape"
+    return Level{..}
+
+-- TODO
+data Note = Note
+  deriving (Eq, Show)
+data Chord = Chord
+  deriving (Eq, Show)
+data FretHandMute = FretHandMute
+  deriving (Eq, Show)
+data Anchor = Anchor
+  deriving (Eq, Show)
+data HandShape = HandShape
+  deriving (Eq, Show)
+
+instance IsInside Note where
+  insideCodec = return Note
+instance IsInside Chord where
+  insideCodec = return Chord
+instance IsInside FretHandMute where
+  insideCodec = return FretHandMute
+instance IsInside Anchor where
+  insideCodec = return Anchor
+instance IsInside HandShape where
+  insideCodec = return HandShape
 
 data ArrangementProperties = ArrangementProperties
   { ap_represent         :: Bool
