@@ -371,7 +371,7 @@ makeC3 songYaml plan rb3 midi pkg = do
         MoggPlan{..} -> not $ null _moggCrowd
         Plan{..}     -> isJust _crowd
   return C3.C3
-    { C3.song = getTitle $ _metadata songYaml
+    { C3.song = fromMaybe (getTitle $ _metadata songYaml) $ tgt_Title $ rb3_Common rb3
     , C3.artist = getArtist $ _metadata songYaml
     , C3.album = getAlbum $ _metadata songYaml
     , C3.customID = pkg
@@ -1088,7 +1088,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             pathDta %> \out -> do
               song <- shakeMIDI pathMid
               songPkg <- makeRB3DTA songYaml plan rb3 song pkg
-              liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments (_metadata songYaml) plan $ rb3_2xBassPedal rb3
+              liftIO $ writeUtf8CRLF out $ prettyDTA pkg songPkg $ makeC3DTAComments (_metadata songYaml) plan rb3
             pathMid %> shk . copyFile' pathMagmaExport2
             pathOgg %> \out -> case plan of
               MoggPlan{..} -> do
@@ -1382,7 +1382,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                           , D.preview = D.preview rb3DTA -- because we told magma preview was at 0s earlier
                           , D.songLength = D.songLength rb3DTA -- magma v1 set this to 31s from the audio file lengths
                           }
-                    liftIO $ writeLatin1CRLF out $ prettyDTA pkg newDTA $ makeC3DTAComments (_metadata songYaml) plan (rb2_2xBassPedal rb2)
+                    liftIO $ writeLatin1CRLF out $ prettyDTA pkg newDTA $ makeC3DTAComments (_metadata songYaml) plan rb3
                   rb2Mid %> \out -> do
                     ex <- doesRBAExist
                     RBFile.Song tempos sigs trks <- if ex

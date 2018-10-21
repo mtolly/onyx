@@ -57,16 +57,16 @@ data C3DTAComments = C3DTAComments
   , c3dtaExpertOnly   :: Maybe Bool
   } deriving (Eq, Ord, Show, Read)
 
-makeC3DTAComments :: Metadata -> Plan -> Bool -> C3DTAComments
-makeC3DTAComments meta plan is2x = C3DTAComments
+makeC3DTAComments :: Metadata -> Plan -> TargetRB3 -> C3DTAComments
+makeC3DTAComments meta plan rb3 = C3DTAComments
   { c3dtaCreatedUsing = Just "Onyx Music Game Toolkit"
   , c3dtaAuthoredBy   = Just $ getAuthor meta
-  , c3dtaSong         = Just $ getTitle meta
+  , c3dtaSong         = Just $ fromMaybe (getTitle meta) $ tgt_Title $ rb3_Common rb3
   , c3dtaLanguages    = Just $ _languages meta
   , c3dtaKaraoke      = Just $ getKaraoke plan
   , c3dtaMultitrack   = Just $ getMultitrack plan
   , c3dtaConvert      = Just $ _convert meta
-  , c3dta2xBass       = Just is2x
+  , c3dta2xBass       = Just $ rb3_2xBassPedal rb3
   , c3dtaRhythmKeys   = Just $ _rhythmKeys meta
   , c3dtaRhythmBass   = Just $ _rhythmBass meta
   , c3dtaCATemh       = Just $ _catEMH meta
