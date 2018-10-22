@@ -4,6 +4,7 @@ import           Prelude
 
 import           Control.MonadZero  (guard)
 import           Data.Array         (concat, uncons)
+import           Data.Foldable      (for_)
 import           Data.Int           (round, toNumber)
 import           Data.Maybe         (Maybe (..))
 import           Data.Time.Duration (Seconds (..))
@@ -23,6 +24,7 @@ import           Draw.Six           (drawSix)
 import           Draw.Vocal         (drawVocal)
 import           Draw.Amplitude     (drawAmplitude)
 import           Images             (ImageID (..))
+import           OnyxMap            as Map
 import           Song               (Flex (..), Song (..))
 import           Style              (customize)
 
@@ -37,16 +39,21 @@ draw stuff = do
   when (cdims /= dims) (C.setCanvasDimensions stuff.canvas dims)
   setFillStyle customize.background stuff
   fillRect { x: 0.0, y: 0.0, width: windowW, height: windowH } stuff
-  -- Draw timestamp
-  onContext (\ctx -> C.setFont ctx customize.timestampFont) stuff
+  let song = case stuff.song of Song s -> s
+  -- Draw timestamp and section name
   setFillStyle customize.timestampColor stuff
   onContext
     (\ctx -> do
-      void $ C.setTextAlign ctx C.AlignRight
+      C.setFont ctx customize.timestampFont
+      C.setTextAlign ctx C.AlignRight
       C.fillText ctx
         (showTimestamp stuff.time)
         (windowW - 20.0)
         (windowH - 20.0)
+      for_ (Map.lookupLE stuff.time song.sections) \o -> C.fillText ctx
+        o.value
+        (windowW - 20.0)
+        (windowH - 45.0)
     ) stuff
   -- Draw the visible instrument tracks in sequence
   let drawTracks targetX trks = case uncons trks of
@@ -56,7 +63,6 @@ draw stuff = do
           case drawResult of
             Just targetX' -> drawTracks targetX' trkt
             Nothing       -> drawTracks targetX  trkt
-  let song = case stuff.song of Song s -> s
 
   let partEnabled pname ptype dname sets = or do
         part <- sets.parts

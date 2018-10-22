@@ -49,6 +49,7 @@ import           RockBand.Common                  (Difficulty (..),
                                                    StrumHOPOTap (..), joinEdges,
                                                    songKeyUsesFlats, splitEdges)
 import qualified RockBand.Legacy.Vocal            as Vox
+import           RockBand.Sections                (makePSSection)
 import           Scripts                          (songLengthBeats)
 import qualified Sound.MIDI.Util                  as U
 
@@ -639,22 +640,24 @@ instance A.ToJSON (Flex U.Seconds) where
     ]
 
 data Processed t = Processed
-  { processedTitle  :: T.Text
-  , processedArtist :: T.Text
-  , processedAuthor :: T.Text
-  , processedBeats  :: Beats t
-  , processedEnd    :: t
-  , processedParts  :: [(T.Text, Flex t)]
+  { processedTitle    :: T.Text
+  , processedArtist   :: T.Text
+  , processedAuthor   :: T.Text
+  , processedBeats    :: Beats t
+  , processedEnd      :: t
+  , processedSections :: RTB.T t T.Text
+  , processedParts    :: [(T.Text, Flex t)]
   } deriving (Eq, Ord, Show)
 
 instance A.ToJSON (Processed U.Seconds) where
   toJSON proc = A.object $ concat
-    [ [("title" , A.toJSON $ processedTitle  proc)]
-    , [("artist", A.toJSON $ processedArtist proc)]
-    , [("author", A.toJSON $ processedAuthor proc)]
-    , [("beats" , A.toJSON $ processedBeats  proc)]
-    , [("end"   , A.Number $ realToFrac (realToFrac $ processedEnd proc :: Milli))]
-    , [("parts" , A.toJSON $ processedParts  proc)]
+    [ [("title"   , A.toJSON $ processedTitle  proc)]
+    , [("artist"  , A.toJSON $ processedArtist proc)]
+    , [("author"  , A.toJSON $ processedAuthor proc)]
+    , [("beats"   , A.toJSON $ processedBeats  proc)]
+    , [("end"     , A.Number $ realToFrac (realToFrac $ processedEnd proc :: Milli))]
+    , [("sections", eventList (processedSections proc) A.String)]
+    , [("parts"   , A.toJSON $ processedParts  proc)]
     ]
 
 makeDisplay :: C.SongYaml -> RBFile.Song (RBFile.OnyxFile U.Beats) -> BL.ByteString
@@ -733,4 +736,7 @@ makeDisplay songYaml song = let
   title  = fromMaybe "" $ C._title  $ C._metadata songYaml
   artist = fromMaybe "" $ C._artist $ C._metadata songYaml
   author = fromMaybe "" $ C._author $ C._metadata songYaml
-  in A.encode $ Processed title artist author beat end parts
+  sections = U.applyTempoTrack (RBFile.s_tempos song)
+    $ fmap (snd . makePSSection . snd)
+    $ eventsSections $ RBFile.onyxEvents $ RBFile.s_tracks song
+  in A.encode $ Processed title artist author beat end sections parts

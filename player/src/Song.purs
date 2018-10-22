@@ -17,12 +17,13 @@ import Control.Monad.State (get, modify, lift, evalStateT)
 import Data.Int (toNumber, fromString)
 
 newtype Song = Song
-  { end    :: Seconds
-  , beats  :: Beats
-  , parts  :: Array (Tuple String Flex)
-  , title  :: String
-  , artist :: String
-  , author :: String
+  { end      :: Seconds
+  , beats    :: Beats
+  , parts    :: Array (Tuple String Flex)
+  , title    :: String
+  , artist   :: String
+  , author   :: String
+  , sections :: Map.Map Seconds String
   }
 
 type Difficulties a = Array (Tuple String a)
@@ -455,6 +456,7 @@ isForeignSong f = do
   beats <- readProp "beats" f >>= isForeignBeats
   parts <- readProp "parts" f >>= readArray >>= traverse \pair ->
     Tuple <$> (readIndex 0 pair >>= readString) <*> (readIndex 1 pair >>= isForeignFlex)
+  sections <- readProp "sections" f >>= readTimedMap readString
   pure $ Song
     { end: Seconds end
     , beats: beats
@@ -462,6 +464,7 @@ isForeignSong f = do
     , title: title
     , artist: artist
     , author: author
+    , sections: sections
     }
 
 readTimedSet :: Foreign -> F (Map.Map Seconds Unit)
