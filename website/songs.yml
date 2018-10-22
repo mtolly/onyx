@@ -332,9 +332,9 @@
 - file-path: ../songs/tool/lost-keys-blame-hoffman-rosetta-stoned
   video: https://www.youtube.com/watch?v=fDRixdzyicc
   urls:
-    rb3: download/nothing
-    rb3-2x: download/nothing
-    ps: download/nothing
-    rb3-rs: download/nothing
-    rb3-2x-rs: download/nothing
-    ps-rs: download/nothing
+    rb3: download/onyx_LKRosettaStoned_v3_1x_rb3con
+    rb3-2x: download/onyx_LKRosettaStoned_v3_2x_rb3con
+    ps: download/onyx_LKRosettaStoned_v3_ch_ps.zip
+    rb3-rs: download/onyx_RosettaStoned_v3_1x_rb3con
+    rb3-2x-rs: download/onyx_RosettaStoned_v3_2x_rb3con
+    ps-rs: download/onyx_RosettaStoned_v3_ch_ps.zip

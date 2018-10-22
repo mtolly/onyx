@@ -78,6 +78,10 @@ def makeDifficulties(parts, song)
           else             'guitar'
           end
       when 'ghl'
+        if ['The Nag'].include?(song['project']['metadata']['title'])
+          # hiding since this hasn't been released
+          next
+        end
         mode_name = '6-Fret (GHL)'
         mode_image = 'ghl'
       when 'pro-guitar'
@@ -88,6 +92,8 @@ def makeDifficulties(parts, song)
           'Forsaken',
           'The Black Widow Blues/The White Widow',
           'Sabotage',
+          'Spark',
+          'A Crimson Rose and a Gin Tonic',
         ].include?(song['project']['metadata']['title'])
           # hiding these pro guitar/bass charts since they haven't been released
           next

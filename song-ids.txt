@@ -145,6 +145,7 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200089 Lost Keys/Rosetta Stoned (Tool) 2x
 1660200090 Rosetta Stoned (Tool) 1x
 1660200091 Rosetta Stoned (Tool) 2x
+  v3 released 2018-10-21
 
 BONUS SONGS (counting down from max)
 
