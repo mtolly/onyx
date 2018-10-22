@@ -1,0 +1,35 @@
+metadata:
+  title: Kindred Spirits
+  file-include: ../../../albums/liquid-tension-experiment.yml
+  track-number: 3
+  rating: Family Friendly
+  author: Onyxite
+  key: E major
+audio:
+  album-track:
+    md5: a7d421dbe4377c9270246bcebca1bb0a
+    frames: 17181360
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [3.283, album-track]
+parts:
+  drums:
+    drums: {}
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
