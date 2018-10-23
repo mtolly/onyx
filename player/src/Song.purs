@@ -1,6 +1,6 @@
 module Song where
 
-import Prelude (class Eq, class Ord, class Show, Unit, bind, map, pure, show, unit, ($), (<$>), (<*>), (>>=), (+), (-), (*), (/), (<), (<<<), div)
+import Prelude (class Eq, class Ord, Unit, bind, map, pure, show, unit, ($), (<$>), (<*>), (>>=), (+), (-), (*), (/), (<), (<<<), div)
 
 import Data.Time.Duration (Seconds(..))
 import Foreign (F, Foreign, ForeignError(..), isNull, readArray, readBoolean, readInt, readNullOrUndefined, readNumber, readString)
@@ -15,6 +15,8 @@ import Data.String.CodeUnits as CU
 import Data.Array ((:), (..), length, index)
 import Control.Monad.State (get, modify, lift, evalStateT)
 import Data.Int (toNumber, fromString)
+import Data.List as List
+import Data.Set as Set
 
 newtype Song = Song
   { end      :: Seconds
@@ -549,22 +551,51 @@ isForeignBeat f = readNumber f >>= \n -> case n of
   2.0 -> pure HalfBeat
   _   -> throwError $ pure $ TypeMismatch "bar (0) / beat (1) / halfbeat (2)" $ show n
 
-instance showBeat :: Show Beat where
-  show g = case g of
-    Bar      -> "Bar"
-    Beat     -> "Beat"
-    HalfBeat -> "HalfBeat"
-
-data Vocal = Vocal
+newtype Vocal = Vocal
   { harm1 :: Map.Map Seconds VocalNote
   , harm2 :: Map.Map Seconds VocalNote
   , harm3 :: Map.Map Seconds VocalNote
   , percussion :: Map.Map Seconds Unit
-  , phrases :: Map.Map Seconds Unit
+  , phrases1 :: Map.Map Seconds Unit
+  , phrases2 :: Map.Map Seconds Unit
   , ranges :: Map.Map Seconds VocalRange
   , energy :: Map.Map Seconds Boolean
   , tonic :: Maybe Int
+  , lyrics1 :: Map.Map Seconds LyricPhrase
+  , lyrics2 :: Map.Map Seconds LyricPhrase
+  , lyrics3 :: Map.Map Seconds LyricPhrase
   }
+
+type LyricPhrase = Map.Map Seconds (Maybe String)
+
+extractLyrics
+  :: Map.Map Seconds Unit
+  -> Map.Map Seconds VocalNote
+  -> Map.Map Seconds LyricPhrase
+extractLyrics phrases notes = let
+  lyrics = Map.fromFoldable $ removeSlides $ Map.toUnfoldable $ map stripPitches notes
+  stripPitches VocalEnd         = Nothing
+  stripPitches (VocalStart s _) = Just s
+  removeSlides xs = case xs of
+    List.Cons
+      (Tuple _ Nothing)
+      (List.Cons (Tuple _ (Just "+")) rest)
+      -> removeSlides rest
+    List.Cons
+      (Tuple _ Nothing)
+      (List.Cons (Tuple _ (Just "+$")) rest)
+      -> removeSlides rest
+    List.Cons tx rest -> List.Cons tx $ removeSlides rest
+    List.Nil -> List.Nil
+  phraseList = Set.toUnfoldable $ Map.keys phrases
+  phrasePairs = List.zip (List.Cons Nothing $ map Just phraseList) phraseList
+  getPhrase start end = let
+    sub = Map.submap start (Just end) lyrics
+    -- below line fixes a bug in RB3. maybe we should have an option to replicate it...
+    removeLyricAtEnd (Just (Just _)) = Nothing
+    removeLyricAtEnd x               = x
+    in Map.alter removeLyricAtEnd end sub
+  in Map.fromFoldable $ map (\(Tuple start end) -> Tuple end $ getPhrase start end) phrasePairs
 
 isForeignVocal :: Foreign -> F Vocal
 isForeignVocal f = do
@@ -575,8 +606,14 @@ isForeignVocal f = do
   ranges <- readProp "ranges" f >>= readTimedMap isForeignVocalRange
   tonic <- readProp "tonic" f >>= readNullOrUndefined >>= traverse readInt
   percussion <- readProp "percussion" f >>= readTimedSet
-  phrases <- readProp "phrases" f >>= readTimedSet
-  pure $ Vocal { harm1: harm1, harm2: harm2, harm3: harm3, energy: energy, ranges: ranges, tonic: tonic, percussion: percussion, phrases: phrases }
+  phrases1 <- readProp "phrases1" f >>= readTimedSet
+  phrases2 <- readProp "phrases2" f >>= readTimedSet
+  pure $ Vocal
+    { harm1, harm2, harm3, energy, ranges, tonic, percussion, phrases1, phrases2
+    , lyrics1: extractLyrics phrases1 harm1
+    , lyrics2: extractLyrics phrases2 harm2
+    , lyrics3: extractLyrics phrases2 harm3
+    }
 
 data VocalRange
   = VocalRangeShift    -- ^ Start of a range shift

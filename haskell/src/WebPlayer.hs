@@ -498,14 +498,15 @@ processBeat tmap rtb = Beats $ U.applyTempoTrack tmap $ flip fmap rtb $ \case
     -- TODO: add half-beats
 
 data Vocal t = Vocal
-  { harm1Notes      :: RTB.T t VocalNote
-  , harm2Notes      :: RTB.T t VocalNote
-  , harm3Notes      :: RTB.T t VocalNote
-  , vocalPercussion :: RTB.T t ()
-  , vocalPhraseEnds :: RTB.T t ()
-  , vocalRanges     :: RTB.T t VocalRange
-  , vocalEnergy     :: RTB.T t Bool
-  , vocalTonic      :: Maybe Int
+  { harm1Notes       :: RTB.T t VocalNote
+  , harm2Notes       :: RTB.T t VocalNote
+  , harm3Notes       :: RTB.T t VocalNote
+  , vocalPercussion  :: RTB.T t ()
+  , vocalPhraseEnds1 :: RTB.T t ()
+  , vocalPhraseEnds2 :: RTB.T t ()
+  , vocalRanges      :: RTB.T t VocalRange
+  , vocalEnergy      :: RTB.T t Bool
+  , vocalTonic       :: Maybe Int
   } deriving (Eq, Ord, Show)
 
 data VocalRange
@@ -524,7 +525,8 @@ instance A.ToJSON (Vocal U.Seconds) where
     , (,) "harm2" $ eventList (harm2Notes x) voxEvent
     , (,) "harm3" $ eventList (harm3Notes x) voxEvent
     , (,) "percussion" $ eventList (vocalPercussion x) $ \() -> A.Null
-    , (,) "phrases" $ eventList (vocalPhraseEnds x) $ \() -> A.Null
+    , (,) "phrases1" $ eventList (vocalPhraseEnds1 x) $ \() -> A.Null
+    , (,) "phrases2" $ eventList (vocalPhraseEnds2 x) $ \() -> A.Null
     , (,) "ranges" $ eventList (vocalRanges x) $ \case
       VocalRange pmin pmax -> A.toJSON [pmin, pmax]
       VocalRangeShift      -> A.Null
@@ -558,7 +560,7 @@ processVocal tmap h1 h2 h3 tonic = let
   perc = realTrack tmap $ flip RTB.mapMaybe h1 $ \case
     Vox.Percussion -> Just ()
     _              -> Nothing
-  ends = realTrack tmap $ flip RTB.mapMaybe h1 $ \case
+  getPhraseEnds = RTB.mapMaybe $ \case
     Vox.Phrase False  -> Just ()
     Vox.Phrase2 False -> Just ()
     _                 -> Nothing
@@ -587,7 +589,8 @@ processVocal tmap h1 h2 h3 tonic = let
   allPitches = [ p | VocalStart _ (Just p) <- concatMap RTB.getBodies [harm1, harm2, harm3] ]
   in Vocal
     { vocalPercussion = perc
-    , vocalPhraseEnds = ends
+    , vocalPhraseEnds1 = realTrack tmap $ getPhraseEnds h1
+    , vocalPhraseEnds2 = realTrack tmap $ getPhraseEnds h2
     , vocalTonic = tonic
     , harm1Notes = harm1
     , harm2Notes = harm2

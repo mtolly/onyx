@@ -190,7 +190,7 @@ drawVocal (Vocal v) targetY stuff = do
         fillCircle { x: toNumber $ secsToPxHoriz stuff.time, y: toNumber targetY + 90.0, r: 11.0 } stuff
   -- Draw phrase ends
   setFillStyle customize.vocalPhraseEnd stuff
-  zoomDesc v.phrases \t (_ :: Unit) -> do
+  zoomDesc v.phrases1 \t (_ :: Unit) -> do
     fillRect { x: toNumber (secsToPxHoriz t) - 1.0, y: toNumber targetY + 25.0, width: 3.0, height: 130.0 } stuff
   -- Draw target line
   setFillStyle customize.vocalTargetLine stuff
