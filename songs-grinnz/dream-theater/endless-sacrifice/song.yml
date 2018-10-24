@@ -93,7 +93,7 @@ parts:
       count: 2
       gender: male
   guitar:
-    pro-guitar: # WIP
+    pro-guitar:
       tuning: [0, 0, 0, 0, 0, 0]
       tuning-global: -2 # D standard
 targets:
