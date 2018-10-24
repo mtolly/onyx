@@ -4,11 +4,7 @@ metadata:
   track-number: 2
   autogen-theme: Feel Good Pop Rock
   rating: Family Friendly
-  author: Onyxite
-  comments:
-  - >-
-    Chart confidence: *medium-high*.
-    Most parts are simple, but some possible ghost hits are hard to make out in the mix.
+  author: Onyxite, Jackeshan
 audio:
   album-track:
     md5: 85e65044559c6cb2a6b7e21b46d64247
@@ -30,6 +26,8 @@ parts:
   drums:
     drums:
       difficulty: 3
+  guitar:
+    grybo: {} # from Jackeshan - quantized, just need to cleanup in parts
 targets:
   rb3:
     game: rb3

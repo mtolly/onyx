@@ -21,7 +21,12 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [3.283, album-track]
+      pad:
+      - 3.283
+      - fade:
+        - end
+        - 0.732
+        - album-track
 parts:
   drums:
     drums: {}
