@@ -63,8 +63,8 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     done - AIA, ES, HTF, V, SOC, ITNOG
     todo - TDS (jarod)
   > pro guitar:
-    done - AIA, ES, SOC
-    started - TDS (7-string), HTF, ITNOG
+    done - AIA, ES, SOC, ITNOG
+    started - TDS (7-string), HTF
     todo - V? (pro cello)
   > basic guitar:
     done - V (cello), SOC
