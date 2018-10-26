@@ -18,6 +18,7 @@ import qualified Data.Aeson                     as A
 import           Data.Functor.Identity          (Identity (..))
 import qualified Data.HashMap.Strict            as Map
 import qualified Data.HashSet                   as Set
+import           Data.Maybe                     (isJust)
 import           Data.Scientific
 import qualified Data.Text                      as T
 import qualified Data.Vector                    as V
@@ -129,10 +130,12 @@ objectKey dflt shouldWarn shouldFill key valCodec = Codec
         Just x  -> do
           when shouldWarn $ warn $ "missing key " ++ show key
           return x
-      Just v  -> inside ("required key " ++ show key) $ do
-        lift $ lift $ modify $ Set.insert key
-        let f = withReaderT (const v) . mapReaderT lift
-        mapStackTraceT f $ codecIn valCodec
+      Just v  -> let
+        keyLayer = (if isJust dflt then "optional" else "required") <> " key " <> show key
+        in inside keyLayer $ do
+          lift $ lift $ modify $ Set.insert key
+          let f = withReaderT (const v) . mapReaderT lift
+          mapStackTraceT f $ codecIn valCodec
   , codecOut = fmapArg $ \val -> tell
     [(key, makeValue' valCodec val) | shouldFill || dflt /= Just val]
   }

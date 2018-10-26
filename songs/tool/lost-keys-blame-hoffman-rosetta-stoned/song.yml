@@ -82,6 +82,11 @@ targets:
     plan: stems
     song-id: 1660200090
     version: 3
+    start:
+      &start-rosetta
+      fade-start: 62|0
+      fade-end: 63|0
+      notes: 64|0
   rb3-2x-rs:
     title: Rosetta Stoned
     game: rb3
@@ -89,7 +94,9 @@ targets:
     plan: stems
     song-id: 1660200091
     version: 3
+    start: *start-rosetta
   ps-rs:
     title: Rosetta Stoned
     game: ps
     plan: stems
+    start: *start-rosetta

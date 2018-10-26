@@ -866,7 +866,13 @@ data PreviewTime
   = PreviewSection T.Text
   | PreviewMIDI    U.MeasureBeats
   | PreviewSeconds U.Seconds
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
+
+instance Hashable PreviewTime where
+  hashWithSalt s = hashWithSalt s . \case
+    PreviewSection x -> '1' : show x
+    PreviewMIDI    x -> '2' : show x
+    PreviewSeconds x -> '3' : show x
 
 instance StackJSON PreviewTime where
   stackJSON = Codec
@@ -961,7 +967,9 @@ data TargetCommon = TargetCommon
   , tgt_Plan  :: Maybe T.Text
   , tgt_Title :: Maybe T.Text -- override base song title
   , tgt_Label :: Maybe T.Text -- suffix after title
-  } deriving (Eq, Ord, Show, Read, Generic, Hashable)
+  , tgt_Start :: Maybe SegmentEdge
+  , tgt_End   :: Maybe SegmentEdge
+  } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetCommon :: (SendMessage m) => ObjectCodec m A.Value TargetCommon
 parseTargetCommon = do
@@ -969,7 +977,25 @@ parseTargetCommon = do
   tgt_Plan  <- tgt_Plan  =. opt Nothing "plan"  stackJSON
   tgt_Title <- tgt_Title =. opt Nothing "title" stackJSON
   tgt_Label <- tgt_Label =. opt Nothing "label" stackJSON
+  tgt_Start <- tgt_Start =. opt Nothing "start" stackJSON
+  tgt_End   <- tgt_End   =. opt Nothing "end"   stackJSON
   return TargetCommon{..}
+
+data SegmentEdge = SegmentEdge
+  { seg_FadeStart :: Maybe PreviewTime
+  , seg_FadeEnd   :: Maybe PreviewTime
+  , seg_Notes     :: PreviewTime
+  } deriving (Eq, Ord, Show, Generic, Hashable)
+
+parseSegmentEdge :: (SendMessage m) => ObjectCodec m A.Value SegmentEdge
+parseSegmentEdge = do
+  seg_FadeStart <- seg_FadeStart =. opt Nothing "fade-start" stackJSON
+  seg_FadeEnd   <- seg_FadeEnd   =. opt Nothing "fade-end"   stackJSON
+  seg_Notes     <- seg_Notes     =. req         "notes"      stackJSON
+  return SegmentEdge{..}
+
+instance StackJSON SegmentEdge where
+  stackJSON = asStrictObject "SegmentEdge" parseSegmentEdge
 
 data TargetRB3 = TargetRB3
   { rb3_Common      :: TargetCommon
@@ -983,7 +1009,7 @@ data TargetRB3 = TargetRB3
   , rb3_Drums       :: FlexPartName
   , rb3_Keys        :: FlexPartName
   , rb3_Vocal       :: FlexPartName
-  } deriving (Eq, Ord, Show, Read, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetRB3 :: (SendMessage m) => ObjectCodec m A.Value TargetRB3
 parseTargetRB3 = do
@@ -1016,7 +1042,7 @@ data TargetRB2 = TargetRB2
   , rb2_Bass        :: FlexPartName
   , rb2_Drums       :: FlexPartName
   , rb2_Vocal       :: FlexPartName
-  } deriving (Eq, Ord, Show, Read, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetRB2 :: (SendMessage m) => ObjectCodec m A.Value TargetRB2
 parseTargetRB2 = do
@@ -1047,7 +1073,7 @@ data TargetPS = TargetPS
   , ps_Vocal      :: FlexPartName
   , ps_Rhythm     :: FlexPartName
   , ps_GuitarCoop :: FlexPartName
-  } deriving (Eq, Ord, Show, Read, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable)
 
 parseTargetPS :: (SendMessage m) => ObjectCodec m A.Value TargetPS
 parseTargetPS = do
@@ -1093,7 +1119,7 @@ data TargetGH2 = TargetGH2
   , gh2_Keys      :: FlexPartName
   , gh2_Coop      :: GH2Coop
   , gh2_Quickplay :: GH2.Quickplay
-  } deriving (Eq, Ord, Show, Read, Generic, Hashable)
+  } deriving (Eq, Ord, Show, Generic, Hashable)
 
 instance Default GH2.Quickplay where
   def = GH2.Quickplay GH2.Classic GH2.LesPaul GH2.Big -- whatever
@@ -1128,7 +1154,7 @@ data Target
   | RB2 TargetRB2
   | PS  TargetPS
   | GH2 TargetGH2
-  deriving (Eq, Ord, Show, Read, Generic, Hashable)
+  deriving (Eq, Ord, Show, Generic, Hashable)
 
 addKey :: (forall m. (SendMessage m) => ObjectCodec m A.Value a) -> T.Text -> A.Value -> a -> A.Value
 addKey codec k v x = A.Object $ Map.insert k v $ Map.fromList $ makeObject (objectId codec) x
