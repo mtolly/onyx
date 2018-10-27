@@ -25,7 +25,13 @@ audio:
     file-path: ../../../sound/hihat-foot.wav
 parts:
   drums:
+    # TODO:
+    # - notes under some activation ends
+    # - missing some activations
     drums: {}
+  bass:
+    # fake to create unisons
+    grybo: {}
 targets:
   rb3:
     game: rb3
