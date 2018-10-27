@@ -79,7 +79,7 @@ data C3 = C3
 
 readC3 :: (SendMessage m) => T.Text -> StackTraceT m C3
 readC3 txt = inside "Reading .c3 file" $ do
-  kvpairs <- fmap (HM.fromList . catMaybes) $ forM (T.lines txt) $ \ln -> if
+  kvpairs <- fmap (HM.fromList . catMaybes) $ forM (T.lines $ T.filter (/= '\r') txt) $ \ln -> if
     | T.all isSpace ln         -> return Nothing
     | "//" `T.isPrefixOf` ln   -> return Nothing
     | ln == "TO DO List Begin" -> return Nothing
@@ -160,6 +160,7 @@ readC3 txt = inside "Reading .c3 file" $ do
 
 showC3 :: C3 -> T.Text
 showC3 c3 = T.unlines $ execWriter $ do
+  -- TODO maybe emit CRLF line endings
   line "//Created by Onyx Music Game Toolkit"
   line "//Feel free to edit manually if you know what you're doing!"
   pair "Song" song
