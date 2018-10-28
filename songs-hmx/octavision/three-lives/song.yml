@@ -3,6 +3,9 @@ metadata:
   author: Harmonix, Onyxite
   title: Three Lives
   artist: Octavision
+  genre: prog
+  subgenre: prog
+  file-album-art: cover.jpg
 plans:
   album:
     song:
@@ -30,7 +33,7 @@ parts:
     # - missing some activations
     drums: {}
   bass:
-    # fake to create unisons
+    # WIP, rest is fake to create unisons
     grybo: {}
 targets:
   rb3:
