@@ -6,6 +6,7 @@ metadata:
   genre: prog
   subgenre: prog
   file-album-art: cover.jpg
+  difficulty: 7
 plans:
   album:
     song:
@@ -31,9 +32,14 @@ parts:
     # TODO:
     # - notes under some activation ends
     # - missing some activations
-    drums: {}
+    drums:
+      difficulty: 7
   bass:
-    grybo: {}
+    grybo:
+      difficulty: 7
+  guitar:
+    grybo:
+      difficulty: 7
 targets:
   rb3:
     game: rb3
