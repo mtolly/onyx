@@ -33,7 +33,6 @@ parts:
     # - missing some activations
     drums: {}
   bass:
-    # WIP, rest is fake to create unisons
     grybo: {}
 targets:
   rb3:
