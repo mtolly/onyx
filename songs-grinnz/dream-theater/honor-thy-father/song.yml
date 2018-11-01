@@ -90,6 +90,7 @@ parts:
       tuning-global: -4 # C standard
   keys:
     pro-keys: {}
+    grybo: {}
   bass:
     grybo: {}
     pro-guitar:

@@ -70,8 +70,8 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     done - V (cello), SOC
     not - AIA, TDS, ES, HTF, ITNOG
   > basic keys:
-    done - V
-    not - AIA, TDS, ES, HTF, SOC, ITNOG
+    done - ES, HTF, V
+    not - AIA, TDS, SOC, ITNOG
   > overdrive
   > reductions:
     hard drums - done
