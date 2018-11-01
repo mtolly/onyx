@@ -1,0 +1,102 @@
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty:
+        rank: 376
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 228
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 340
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        rank: 380
+    grybo:
+      fix-freeform: false
+      difficulty:
+        rank: 370
+  drums:
+    drums:
+      fix-freeform: false
+      kit: Vintage Kit
+      difficulty:
+        rank: 353
+plans:
+  mogg:
+    parts:
+      vocal:
+      - 6
+      - 7
+      bass:
+      - 3
+      guitar:
+      - 4
+      - 5
+      keys:
+      - 8
+      - 9
+      drums:
+        kick:
+        - 0
+        kit:
+        - 1
+        - 2
+    pans:
+    - 0
+    - -1
+    - 1
+    - 0
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 18e5ca9b158fea5df1a1e476b7ba1c6f
+    multitrack: false
+    vols:
+    - -0.5
+    - -4
+    - -4
+    - -1.5
+    - -4
+    - -4
+    - -4
+    - -4
+    - -3.700000047683716
+    - -3.700000047683716
+    - -4
+    - -4
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+    file-milo: lipsync-venue.milo_xbox
+    harmonix: true
+metadata:
+  rating: FamilyFriendly
+  preview-start: 1:14.353
+  preview-end: 1:44.353
+  file-album-art: cover.png_xbox
+  track-number: 1
+  key: G major
+  album: Toto IV
+  year: 1982
+  author: Harmonix, Onyxite
+  title: Rosanna
+  genre: poprock
+  difficulty:
+    rank: 352
+  artist: Toto
