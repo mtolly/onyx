@@ -67,11 +67,11 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     started - TDS (7-string)
     todo - V? (pro cello)
   > basic guitar:
-    done - V (cello), SOC
-    not - AIA, TDS, ES, HTF, ITNOG
+    done - AIA, V (cello), SOC
+    not - TDS, ES, HTF, ITNOG
   > basic keys:
-    done - ES, HTF, V
-    not - AIA, TDS, SOC, ITNOG
+    done - AIA, ES, HTF, V
+    not - TDS, SOC, ITNOG
   > overdrive
   > reductions:
     hard drums - done

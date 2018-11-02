@@ -82,6 +82,8 @@ parts:
     pro-guitar:
       tuning: [0, 0, 0, 0, 0, 0]
       tuning-global: -4 # C standard
+      # solo from https://tabs.ultimate-guitar.com/tab/dream_theater/as_i_am_tabs_126038
+    grybo: {}
   bass:
     pro-guitar:
       tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC
@@ -92,6 +94,7 @@ parts:
       gender: male
   keys:
     pro-keys: {}
+    grybo: {}
 targets:
   rb3:
     game: rb3
