@@ -24,7 +24,6 @@ parts:
         rank: 350
   drums:
     drums:
-      fix-freeform: false
       difficulty:
         rank: 245
 plans:
