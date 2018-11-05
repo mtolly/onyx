@@ -1,0 +1,122 @@
+parts:
+  vocal:
+    vocal:
+      count: 3
+      gender: male
+      difficulty:
+        tier: 4
+  bass:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 5
+  guitar:
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 6
+  keys:
+    pro-keys:
+      fix-freeform: false
+      difficulty:
+        tier: 2
+    grybo:
+      fix-freeform: false
+      difficulty:
+        tier: 1
+  drums:
+    drums:
+      fix-freeform: false
+      difficulty:
+        tier: 7
+plans:
+  mogg:
+    parts:
+      vocal:
+      - 10
+      - 11
+      bass:
+      - 6
+      - 7
+      guitar:
+      - 8
+      - 9
+      keys:
+      - 12
+      - 13
+      drums:
+        kick:
+        - 0
+        - 1
+        snare:
+        - 2
+        - 3
+        kit:
+        - 4
+        - 5
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: fd37572cae2ff8ce77c77b19cafbfe86
+    multitrack: false
+    vols:
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+    - 0
+targets:
+  rb3:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    label: (O)
+  rb3-2x:
+    game: rb3
+    file-milo: lipsync.milo_xbox
+    2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
+  ps:
+    game: ps
+    label: (O)
+metadata:
+  preview-start: 1:40.000
+  file-album-art: ../../../covers/option-paralysis.png_xbox
+  track-number: 3
+  album: Option Paralysis
+  year: 2010
+  subgenre: core
+  author: ThatAuthoringGroup, Onyxite
+  title: Gold Teeth on a Bum
+  comments:
+  - Edited drums chart by Onyxite.
+  preview-end: 2:10.000
+  genre: metal
+  difficulty:
+    tier: 6
+  artist: The Dillinger Escape Plan
