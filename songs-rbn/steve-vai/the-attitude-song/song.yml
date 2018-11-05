@@ -1,0 +1,40 @@
+parts:
+  bass:
+    grybo:
+      difficulty:
+        rank: 298
+  guitar:
+    grybo:
+      difficulty:
+        rank: 406
+  drums:
+    drums:
+      difficulty:
+        rank: 401
+plans:
+  mogg:
+    parts:
+      drums: [0, 1]
+      bass: [2]
+      guitar: [3, 4]
+    pans: [-1, 1, 0, -1, 1, -1, 1]
+    mogg-md5: 31b6b64780513342b7b7c674247ac165
+    vols: [-3, -3, -1.5, -3, -3, -3, -3]
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+metadata:
+  preview-start: 18
+  file-album-art: cover.png_xbox
+  track-number: 6
+  album: Flex-Able
+  year: 1984
+  subgenre: rock
+  author: WaveGroup, Onyxite
+  title: The Attitude Song
+  preview-end: 48
+  genre: rock
+  difficulty:
+    rank: 383
+  artist: Steve Vai
