@@ -1,0 +1,76 @@
+parts:
+  vocal:
+    vocal:
+      gender: male
+      difficulty:
+        rank: 404
+  bass:
+    grybo:
+      difficulty:
+        rank: 387
+  guitar:
+    grybo:
+      difficulty:
+        rank: 375
+  drums:
+    drums:
+      difficulty:
+        rank: 457
+plans:
+  mogg:
+    parts:
+      vocal:
+      - 6
+      - 7
+      bass:
+      - 2
+      - 3
+      guitar:
+      - 4
+      - 5
+      drums:
+      - 0
+      - 1
+    pans:
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    - -1
+    - 1
+    karaoke: false
+    mogg-md5: 15488f1332ae006b866a819cbc49f6aa
+    multitrack: false
+    vols:
+    - -0.5
+    - -0.5
+    - -5
+    - -5
+    - -6
+    - -6
+    - -4.5
+    - -4.5
+    - -5
+    - -5
+targets:
+  rb3:
+    game: rb3
+    label: (O)
+metadata:
+  rating: SupervisionRecommended
+  preview-start: 49.063
+  file-album-art: cover.png_xbox
+  track-number: 3
+  album: Hemispheres
+  year: 1978
+  author: Harmonix, Onyxite
+  title: The Trees (Vault Edition)
+  preview-end: 1:19.063
+  genre: prog
+  difficulty:
+    rank: 391
+  artist: Rush
