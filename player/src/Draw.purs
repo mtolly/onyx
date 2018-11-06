@@ -9,13 +9,13 @@ import           Data.Int           (round, toNumber)
 import           Data.Maybe         (Maybe (..))
 import           Data.Time.Duration (Seconds (..))
 import           Data.Traversable   (or)
-import           Data.Tuple         (Tuple (..), lookup)
+import           Data.Tuple         (Tuple (..))
 import           Effect             (Effect)
 import           Graphics.Canvas    as C
 
-import           Draw.Common        (AppTime (..), Draw, Settings, drawImage,
+import           Draw.Common        (AppTime (..), Draw, drawImage,
                                      fillRect, onContext, setFillStyle,
-                                     showTimestamp)
+                                     showTimestamp, DrawStuff)
 import           Draw.Drums         (drawDrums)
 import           Draw.Five          (drawFive)
 import           Draw.ProKeys       (drawProKeys)
@@ -25,7 +25,7 @@ import           Draw.Vocal         (drawVocal)
 import           Draw.Amplitude     (drawAmplitude)
 import           Images             (ImageID (..))
 import           OnyxMap            as Map
-import           Song               (Flex (..), Song (..))
+import           Song               (Flex (..), Song (..), Difficulties)
 import           Style              (customize)
 
 foreign import getWindowDims :: Effect {width :: Number, height :: Number}
@@ -40,6 +40,7 @@ draw stuff = do
   setFillStyle customize.background stuff
   fillRect { x: 0.0, y: 0.0, width: windowW, height: windowH } stuff
   let song = case stuff.song of Song s -> s
+
   -- Draw timestamp and section name
   setFillStyle customize.timestampColor stuff
   onContext
@@ -55,16 +56,14 @@ draw stuff = do
         (windowW - 20.0)
         (windowH - 45.0)
     ) stuff
+
   -- Draw the visible instrument tracks in sequence
   let drawTracks targetX trks = case uncons trks of
-        Nothing -> pure unit
+        Nothing -> pure targetX
         Just {head: trk, tail: trkt} -> do
-          drawResult <- trk targetX
-          case drawResult of
-            Just targetX' -> drawTracks targetX' trkt
-            Nothing       -> drawTracks targetX  trkt
-
-  let partEnabled pname ptype dname sets = or do
+          targetX' <- trk targetX
+          drawTracks targetX' trkt
+      partEnabled pname ptype dname sets = or do
         part <- sets.parts
         guard $ part.partName == pname
         fpart <- part.flexParts
@@ -72,16 +71,31 @@ draw stuff = do
         diff <- fpart.difficulties
         guard $ diff.diffName == dname
         pure diff.enabled
-      drawParts someStuff = drawTracks (_M + _B + _M) $ concat $ flip map song.parts \(Tuple part (Flex flex)) -> do
-        fn <-
-          [ \diff i -> drawPart (flex.five      >>= lookup diff) (partEnabled part "five"      diff) drawFive      i someStuff
-          , \diff i -> drawPart (flex.six       >>= lookup diff) (partEnabled part "six"       diff) drawSix       i someStuff
-          , \diff i -> drawPart (flex.drums     >>= lookup diff) (partEnabled part "drums"     diff) drawDrums     i someStuff
-          , \diff i -> drawPart (flex.prokeys   >>= lookup diff) (partEnabled part "prokeys"   diff) drawProKeys   i someStuff
-          , \diff i -> drawPart (flex.protar    >>= lookup diff) (partEnabled part "protar"    diff) drawProtar    i someStuff
-          , \diff i -> drawPart (flex.amplitude >>= lookup diff) (partEnabled part "amplitude" diff) drawAmplitude i someStuff
-          ]
-        map fn ["X+", "X", "H", "M", "E", "S/X", "A", "I", "B"] -- TODO do this whole thing better
+      drawInst
+        :: forall a
+        .  DrawStuff
+        -> String
+        -> Flex
+        -> String
+        -> (Flex -> Maybe (Difficulties a))
+        -> (a -> Int -> Draw Int)
+        -> Int
+        -> Effect Int
+      drawInst someStuff part flex ptype fn drawer i = case fn flex of
+        Nothing -> pure i
+        Just fpart -> drawTracks i $ flip map fpart \(Tuple dname diff) -> \j ->
+          if partEnabled part ptype dname someStuff.app.settings
+            then drawer diff j someStuff
+            else pure j
+      drawNonVocals someStuff = void $ drawTracks (_M + _B + _M) $ concat $ flip map song.parts \(Tuple part flex) ->
+        [ drawInst someStuff part flex "five"      (\(Flex f) -> f.five     ) drawFive
+        , drawInst someStuff part flex "six"       (\(Flex f) -> f.six      ) drawSix
+        , drawInst someStuff part flex "drums"     (\(Flex f) -> f.drums    ) drawDrums
+        , drawInst someStuff part flex "prokeys"   (\(Flex f) -> f.prokeys  ) drawProKeys
+        , drawInst someStuff part flex "protar"    (\(Flex f) -> f.protar   ) drawProtar
+        , drawInst someStuff part flex "amplitude" (\(Flex f) -> f.amplitude) drawAmplitude
+        ]
+  -- first draw everything but vocals
   if stuff.app.settings.staticVert
     then let
       betweenTargets = windowH * 0.65
@@ -97,7 +111,7 @@ draw stuff = do
           void $ C.beginPath stuff.context
           void $ C.rect stuff.context { x: 0.0, y: drawTop, width: windowW, height: drawBottom - drawTop }
           void $ C.clip stuff.context
-          drawParts stuff
+          drawNonVocals stuff
             { pxToSecsVert = \px -> Seconds $ (toNumber px - windowH + y) / customize.trackSpeed
             , secsToPxVert = \(Seconds secs) -> round $ windowH - y + customize.trackSpeed * secs
             }
@@ -107,10 +121,12 @@ draw stuff = do
         drawTarget bottomTarget
         drawTarget topTarget
         drawTarget unseenTarget
-    else drawParts stuff
+    else drawNonVocals stuff
+  -- then draw vocals
+  void $ drawTracks 0 $ flip map song.parts \(Tuple part flex) ->
+    drawInst stuff part flex "vocal" (\(Flex f) -> f.vocal) drawVocal
 
-  drawTracks 0 $ concat $ flip map song.parts \(Tuple part (Flex flex)) -> do
-    map (\mode i -> drawPart (flex.vocal >>= lookup mode) (partEnabled part "vocal" mode) drawVocal i stuff) ["H", "1"]
+  -- draw the progress bar and buttons on the side
   let playPause = case stuff.app.time of
         Paused  _ -> Image_button_play
         Playing _ -> Image_button_pause
@@ -130,19 +146,7 @@ draw stuff = do
     , width: toNumber _B - 2.0
     , height: timelineH * filled
     } stuff
-
-drawPart
-  :: forall a r
-  .  Maybe a
-  -> (Settings -> Boolean)
-  -> (a -> Int -> Draw r)
-  -> Int
-  -> Draw (Maybe r)
-drawPart getPart see drawIt targetX stuff = do
-  let settings = stuff.app.settings
-  case getPart of
-    Just part | see settings -> map Just $ drawIt part targetX stuff
-    _                        -> pure Nothing
+  -- TODO draw lines for section boundaries
 
 -- | Height/width of margins
 _M :: Int
