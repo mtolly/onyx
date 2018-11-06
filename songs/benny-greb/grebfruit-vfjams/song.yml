@@ -5,6 +5,7 @@ metadata:
   year: 2018 # original track 2005
   genre: fusion
   subgenre: fusion
+  file-album-art: cover.jpg
 audio:
   transcript-drums:
     file-path: audio-drums.wav
@@ -14,23 +15,38 @@ audio:
     file-path: audio-band.wav
     commands:
     - ../../../scripts/youtube QfwwanEF3a0 140 audio-band.wav
+  pad-band:
+    expr:
+      pad: [0.185, transcript-band]
+  clipped-drums:
+    expr:
+      take:
+      - '5:19.500'
+      - pad:
+        - 13.436
+        - drop:
+          - 13.436
+          - pad:
+            - 0.185
+            - pad:
+              - frames: 1
+              - transcript-drums
 parts:
   drums:
     drums: {}
 plans:
   youtube:
     song:
-      pad:
-      - 0.185
-      - mix:
-        - gain: [-1, transcript-band]
-        - pad:
-          - frames: 1
-          - transcript-drums
+      mix:
+      - gain: [-1, pad-band]
+      - clipped-drums
     parts:
-      drums:
-        pad:
-        - 0.185
-        - pad:
-          - frames: 1
-          - transcript-drums
+      drums: clipped-drums
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
