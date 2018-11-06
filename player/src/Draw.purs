@@ -133,7 +133,7 @@ draw stuff = do
   drawImage playPause (toNumber _M) (windowH - 2.0 * toNumber _M - 2.0 * toNumber _B) stuff
   drawImage Image_button_gear (toNumber _M) (windowH - toNumber _M - toNumber _B) stuff
   let timelineH = windowH - 4.0 * toNumber _M - 2.0 * toNumber _B - 2.0
-      filled = unSeconds (stuff.time) / unSeconds (case stuff.song of Song o -> o.end)
+      filled = unSeconds (stuff.time) / unSeconds song.end
       unSeconds (Seconds s) = s
   setFillStyle customize.progressBorder stuff
   fillRect { x: toNumber _M, y: toNumber _M, width: toNumber _B, height: timelineH + 2.0 } stuff
@@ -146,7 +146,15 @@ draw stuff = do
     , width: toNumber _B - 2.0
     , height: timelineH * filled
     } stuff
-  -- TODO draw lines for section boundaries
+  setFillStyle customize.progressSection stuff
+  for_ (Map.keys song.sections) \secs -> do
+    let offset = timelineH - timelineH * (unSeconds secs / unSeconds song.end)
+    fillRect
+      { x: toNumber _M + toNumber (_B - customize.progressSectionWidth) / 2.0
+      , y: toNumber _M + 1.0 + offset
+      , width: toNumber customize.progressSectionWidth
+      , height: 1.0
+      } stuff
 
 -- | Height/width of margins
 _M :: Int

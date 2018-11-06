@@ -28,6 +28,8 @@ foreign import customize ::
   , progressBorder :: String
   , progressEmpty :: String
   , progressFilled :: String
+  , progressSection :: String
+  , progressSectionWidth :: Int
 
   , highway :: String
   , highwayBlackKey :: String

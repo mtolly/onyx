@@ -19,6 +19,8 @@ window.customizeOnyx = {
   progressBorder: 'black',
   progressEmpty: 'white',
   progressFilled: 'rgb(100,130,255)',
+  progressSection: 'rgb(200,200,200)',
+  progressSectionWidth: 29,
 
   highway: 'rgb(126,126,150)',
   highwayBlackKey: 'rgb(105,105,129)',
