@@ -1,0 +1,43 @@
+metadata:
+  title: Time Difference
+  artist: Hiromi's Sonicbloom
+  album: Time Control
+  author: Onyxite
+  track-number: 1
+  rating: FamilyFriendly
+  key: C minor
+  genre: jazz
+  subgenre: contemporary
+  year: 2007
+  file-album-art: ../time-out/cover.jpg
+audio:
+  album-track:
+    md5: 2969b803862313a6be34d96185b09b35
+    frames: 16730364
+  surround:
+    md5: 7474d5d486896a075a87f1075c4606f5
+    frames: 36462080
+    channels: 6
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
+    song:
+      pad: [1.854, album-track]
+parts:
+  drums:
+    drums: {}
+targets:
+  rb3:
+    game: rb3
+    plan: album
+  ps:
+    game: ps
+    plan: album
