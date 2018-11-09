@@ -70,6 +70,9 @@ plans:
 parts:
   drums:
     drums: {}
+  bass:
+    pro-guitar: # WIP
+      tuning: [-5, -5, -5, -5, -4] # 5-string
 targets:
   rb3:
     game: rb3
