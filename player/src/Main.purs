@@ -24,7 +24,7 @@ import           Draw                  (draw, getWindowDims, numMod, _B, _M)
 import           Draw.Common           (AppTime (..), Settings)
 import           Draw.Protar           (eachChordsWidth)
 import           Images                (withImages)
-import           Song                  (Flex (..), Song (..), isForeignSong)
+import           Song                  (Flex (..), Song (..), isForeignSong, vocalCount)
 import           Style                 (customize)
 
 foreign import onyxSong :: Foreign
@@ -112,30 +112,31 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
               inst enabled o = let
                 diff enabled' d = { enabled: enabled', diffName: d }
                 in { partType: o.type
+                   , vocalCount: o.count
                    , difficulties: map (diff enabled) (take 1 o.diffs) <> map (diff false) (drop 1 o.diffs)
                    }
               insts = concat
                 [ case flex.five      of
                   Nothing -> []
-                  Just ds -> [{type: "five"     , diffs: map fst ds}]
+                  Just ds -> [{type: "five"     , diffs: map fst ds, count: 1            }]
                 , case flex.six       of
                   Nothing -> []
-                  Just ds -> [{type: "six"      , diffs: map fst ds}]
+                  Just ds -> [{type: "six"      , diffs: map fst ds, count: 1            }]
                 , case flex.drums     of
                   Nothing -> []
-                  Just ds -> [{type: "drums"    , diffs: map fst ds}]
+                  Just ds -> [{type: "drums"    , diffs: map fst ds, count: 1            }]
                 , case flex.prokeys   of
                   Nothing -> []
-                  Just ds -> [{type: "prokeys"  , diffs: map fst ds}]
+                  Just ds -> [{type: "prokeys"  , diffs: map fst ds, count: 1            }]
                 , case flex.protar    of
                   Nothing -> []
-                  Just ds -> [{type: "protar"   , diffs: map fst ds}]
+                  Just ds -> [{type: "protar"   , diffs: map fst ds, count: 1            }]
                 , case flex.amplitude of
                   Nothing -> []
-                  Just ds -> [{type: "amplitude", diffs: map fst ds}]
+                  Just ds -> [{type: "amplitude", diffs: map fst ds, count: 1            }]
                 , case flex.vocal     of
                   Nothing -> []
-                  Just ds -> [{type: "vocal"    , diffs: map fst ds}]
+                  Just ds -> [{type: "vocal"    , diffs: map fst ds, count: vocalCount ds}]
                 ]
               in map (inst true) (take 1 insts) <> map (inst false) (drop 1 insts)
             }

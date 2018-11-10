@@ -36,6 +36,7 @@ type Settings =
     { partName :: String
     , flexParts :: Array
       { partType :: String
+      , vocalCount :: Int
       , difficulties :: Array
         { diffName :: String
         , enabled :: Boolean

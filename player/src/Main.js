@@ -123,7 +123,7 @@ exports.fillMenu = function(song) {
             }
             break;
           case 'vocal':
-            img.src = 'images-dom/icon-vocal-3.png'; // TODO
+            img.src = 'images-dom/icon-vocal-' + fpart.vocalCount + '.png';
             title('Vocals');
             break;
         }

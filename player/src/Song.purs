@@ -1,12 +1,12 @@
 module Song where
 
-import Prelude (class Eq, class Ord, Unit, bind, map, pure, show, unit, ($), (<$>), (<*>), (>>=), (+), (-), (*), (/), (<), (<<<), div)
+import Prelude (class Eq, class Ord, Unit, not, otherwise, bind, map, pure, show, unit, ($), (<$>), (<*>), (>>=), (+), (-), (*), (/), (<), (<<<), div)
 
 import Data.Time.Duration (Seconds(..))
 import Foreign (F, Foreign, ForeignError(..), isNull, readArray, readBoolean, readInt, readNullOrUndefined, readNumber, readString)
 import Foreign.Index (readProp, readIndex)
 import OnyxMap as Map
-import Data.Maybe (Maybe(..), maybe)
+import Data.Maybe (Maybe(..), maybe, fromMaybe)
 import Data.Traversable (sequence, traverse, for)
 import Data.Tuple (Tuple(..))
 import Control.Monad.Except (throwError)
@@ -17,6 +17,7 @@ import Control.Monad.State (get, modify, lift, evalStateT)
 import Data.Int (toNumber, fromString)
 import Data.List as List
 import Data.Set as Set
+import Data.Foldable (maximum)
 
 newtype Song = Song
   { end      :: Seconds
@@ -567,6 +568,14 @@ newtype Vocal = Vocal
   }
 
 type LyricPhrase = Map.Map Seconds (Maybe String)
+
+vocalCount :: Difficulties Vocal -> Int
+vocalCount diffs = let
+  eachDiff (Tuple _ (Vocal v))
+    | not $ Map.isEmpty v.harm3 = 3
+    | not $ Map.isEmpty v.harm2 = 2
+    | otherwise                 = 1
+  in fromMaybe 1 $ maximum $ map eachDiff diffs
 
 extractLyrics
   :: Map.Map Seconds Unit
