@@ -3,6 +3,10 @@ metadata:
   file-include: ../../../albums/train-of-thought.yml
   track-number: 4
   author: Grinnz
+  key: C minor
+  # note, we use accidental flip on most of pro guitar
+  # because it pretends to be in E minor,
+  # so we want to use sharps instead of flats.
   comments:
   - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:

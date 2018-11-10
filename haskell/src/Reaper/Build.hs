@@ -637,7 +637,7 @@ proGuitarNoteNames = execWriter $ do
   o 24 "EASY E String (LOW)"
   x 23
   o 21 "CHORD NAMES:"
-  o 18 "Flat Note Name"
+  o 18 "Swap Accidental"
   o 17 "Hide Chord Names"
   o 16 "Slash Chord"
   o 15 "Chord Root D#"

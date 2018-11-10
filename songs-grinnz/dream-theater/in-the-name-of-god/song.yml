@@ -9,6 +9,9 @@ metadata:
   file-include: ../../../albums/train-of-thought.yml
   track-number: 7
   author: Onyxite, Grinnz
+  key: C minor
+  # we use accidental flip on pro guitar
+  # because it pretends to be E minor
   comments:
   - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:
