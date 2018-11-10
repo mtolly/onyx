@@ -230,7 +230,7 @@ track tunings lenTicks lenSecs resn trk = let
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
     line "FX" [if fxActive then "1" else "0"]
-    case find (\(sfx, _) -> sfx `isSuffixOf` name)
+    hasNoteNames <- case find (\(sfx, _) -> sfx `isSuffixOf` name)
       [ ("PART DRUMS", drumNoteNames)
       , ("PART DRUMS_2X", drumNoteNames)
       , ("PART REAL_DRUMS_PS", drumNoteNames)
@@ -259,12 +259,13 @@ track tunings lenTicks lenSecs resn trk = let
       , ("LIGHTING", venuegenLightingNames)
       , ("CAMERA", venuegenCameraNames)
       ] of
-      Nothing -> return ()
+      Nothing -> return False
       Just (_, names) -> do
         block "MIDINOTENAMES" [] $ do
           -- Reaper 5 (or some newer version) supports starting these lines with -1, meaning all channels.
           -- Reaper 4.22 (C3 recommended) does not, so we have to stick with 0 (first channel).
           forM_ names $ \(pitch, noteName) -> line "0" [show pitch, noteName]
+        return True
     -- note: even if no FX, you still need empty FXCHAIN so note names work
     block "FXCHAIN" [] $ when fxPresent $ do
       line "SHOW" ["0"]
@@ -283,20 +284,88 @@ track tunings lenTicks lenSecs resn trk = let
               t : _ -> fromIntegral t
               []    -> 0
         line "E" [show $ lenTicks NNC.-| lastEvent, "b0", "7b", "00"]
-        case find (\(sfx, _) -> sfx `isSuffixOf` name)
-          [ ("PART DRUMS", "colormap_drums.png")
-          , ("PART DRUMS_2X", "colormap_drums.png")
-          , ("PART REAL_DRUMS_PS", "colormap_drums.png")
-          , ("PART GUITAR", "colormap_grybo.png")
-          , ("PART BASS", "colormap_grybo.png")
-          , ("PART RHYTHM", "colormap_grybo.png")
-          , ("PART GUITAR COOP", "colormap_grybo.png")
-          , ("PART KEYS", "colormap_grybo.png")
-          , ("PART GUITAR GHL", "colormap_ghl.png")
-          , ("PART BASS GHL", "colormap_ghl.png")
-          ] of
-          Nothing        -> return ()
-          Just (_, cmap) -> line "COLORMAP" [cmap]
+        let colorMap = fmap snd $ find (\(sfx, _) -> sfx `isSuffixOf` name)
+              [ ("PART DRUMS", "colormap_drums.png")
+              , ("PART DRUMS_2X", "colormap_drums.png")
+              , ("PART REAL_DRUMS_PS", "colormap_drums.png")
+              , ("PART GUITAR", "colormap_grybo.png")
+              , ("PART BASS", "colormap_grybo.png")
+              , ("PART RHYTHM", "colormap_grybo.png")
+              , ("PART GUITAR COOP", "colormap_grybo.png")
+              , ("PART KEYS", "colormap_grybo.png")
+              , ("PART GUITAR GHL", "colormap_ghl.png")
+              , ("PART BASS GHL", "colormap_ghl.png")
+              ]
+            isProtar = any (`isInfixOf` name) ["PART REAL_GUITAR", "PART REAL_BASS"]
+        forM_ colorMap $ \cmap -> line "COLORMAP" [cmap]
+        line "CFGEDIT"
+          [ "1" -- ??? if i set to 0, gets reset to 1
+          , "1" -- 1 = sync editor transport to project transport, 0 = don't
+          , "0" -- ??? if i set to 1, gets reset to 0
+          , "0" -- 0 = no velocity handles, 1 = velocity handles
+          , "0" -- 0 = no names on notes, 1 = names on notes
+          , "1" -- midi editor view mode...
+            -- 0  = piano roll, rectangle
+            -- 8  = piano roll, triangle
+            -- 16 = piano roll, diamond
+            -- 1  = named notes, rectangle
+            -- 9  = named notes, triangle
+            -- 17 = named notes, diamond
+            -- 4  = event list, rectangle
+            -- 12 = event list, triangle
+            -- 20 = event list, diamond
+            -- 32 = musical notation, rectangle
+            -- 40 = musical notation, triangle
+            -- 48 = musical notation, diamond
+          , "1" -- ???
+          , "1" -- 1 = CC selection follows note selection, 0 = not
+          , "1" -- ??? if i set to 0, gets reset to 1
+          , "1" -- 1 = snap notes/cc to grid, 0 = don't
+          , "1" -- 1 = show grid, 0 = don't
+          , "0.25" -- grid division, in quarter notes
+            -- e.g. 0.25 = 16th note, 0.16666667 = 16th triplet
+          , "100" -- pixels from window left edge to screen left edge
+          , "100" -- pixels from window bottom edge to screen bottom edge
+          , "1200" -- pixels from window right edge to screen left edge
+          , "800" -- pixels from window top edge to screen bottom edge
+          , "0" -- 1 = dock window, 0 = don't
+          , if hasNoteNames then "2" else "0"
+            -- 0 = show all note rows
+            -- 1 = hide unused
+            -- 2 = hide unused+unnamed
+          , "2" -- piano roll timebase...
+            -- 4 = source beats
+            -- 0 = project beats
+            -- 2 = project time
+            -- 1 = project synced
+          , if isProtar then "1" else "2"
+            -- color notes by...
+            -- 0 = velocity
+            -- 1 = channel
+            -- 2 = pitch
+            -- 3 = source, using color map
+            -- 4 = track
+            -- 5 = media item
+            -- 6 = voice (only accessible in menu at bottom of midi editor window)
+          , "0" -- length of new notes...
+            -- 0 = grid
+            -- 4 = "1" (whole note)
+          , "0" -- wiki says int for "re-use editor window"
+            -- 0 = off
+            -- 1 = re-use MIDI editor window
+            -- 2 = re-use MIDI editor window, keeping current item secondary
+          , if isProtar then "1" else "0"
+            -- 0 = no velocity numbers, 1 = velocity numbers
+          {-
+          , "0" -- ???
+          , "0" -- 0 = no grid swing, 1 = swing
+          , "0.5" -- swing strength from -1 (-100%) to 1 (100%): 0.5 = 50%, 0.25 = 25%, etc.
+          , "0" -- 1 = automatically correct overlapping notes, 0 = don't
+          , "0" -- ???
+          , "1" -- ???
+          , "64" -- ???
+          -}
+          ]
 
 audio :: (Monad m) => U.Seconds -> FilePath -> WriterT [Element] m ()
 audio len path = let
