@@ -73,6 +73,8 @@ parts:
   bass:
     pro-guitar: # WIP
       tuning: [-5, -5, -5, -5, -4] # 5-string
+  keys:
+    pro-keys: {} # WIP
 targets:
   rb3:
     game: rb3
