@@ -16,7 +16,7 @@ import           Graphics.Canvas         as C
 
 import           Draw.Common             (Draw, drawImage, drawLane, fillRect,
                                           secToNum, setFillStyle, drawBeats)
-import           Images                  (ImageID (..), protarFrets)
+import           Images
 import           OnyxMap                 as Map
 import           Song                    (ChordLine (..), Flex (..),
                                           GuitarNoteType (..), Protar (..),
@@ -164,23 +164,23 @@ drawProtar (Protar protar) startX stuff = do
     fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   -- Lanes
   let colors' =
-        [ { c: _.s6, lane: _.s6, x: handedness 0 * widthFret + 1, strum: Image_gem_red_pro   , hopo: Image_gem_red_pro_hopo   , tap: Image_gem_red_pro_tap
-          , shades: customize.sustainRed, target: Image_highway_protar_target_red
+        [ { c: _.s6, lane: _.s6, x: handedness 0 * widthFret + 1, strum: image_gem_red_pro   , hopo: image_gem_red_pro_hopo   , tap: image_gem_red_pro_tap
+          , shades: customize.sustainRed, target: image_highway_protar_target_red
           }
-        , { c: _.s5, lane: _.s5, x: handedness 1 * widthFret + 1, strum: Image_gem_green_pro , hopo: Image_gem_green_pro_hopo , tap: Image_gem_green_pro_tap
-          , shades: customize.sustainGreen, target: Image_highway_protar_target_green
+        , { c: _.s5, lane: _.s5, x: handedness 1 * widthFret + 1, strum: image_gem_green_pro , hopo: image_gem_green_pro_hopo , tap: image_gem_green_pro_tap
+          , shades: customize.sustainGreen, target: image_highway_protar_target_green
           }
-        , { c: _.s4, lane: _.s4, x: handedness 2 * widthFret + 1, strum: Image_gem_orange_pro, hopo: Image_gem_orange_pro_hopo, tap: Image_gem_orange_pro_tap
-          , shades: customize.sustainOrange, target: Image_highway_protar_target_orange
+        , { c: _.s4, lane: _.s4, x: handedness 2 * widthFret + 1, strum: image_gem_orange_pro, hopo: image_gem_orange_pro_hopo, tap: image_gem_orange_pro_tap
+          , shades: customize.sustainOrange, target: image_highway_protar_target_orange
           }
-        , { c: _.s3, lane: _.s3, x: handedness 3 * widthFret + 1, strum: Image_gem_blue_pro  , hopo: Image_gem_blue_pro_hopo  , tap: Image_gem_blue_pro_tap
-          , shades: customize.sustainBlue, target: Image_highway_protar_target_blue
+        , { c: _.s3, lane: _.s3, x: handedness 3 * widthFret + 1, strum: image_gem_blue_pro  , hopo: image_gem_blue_pro_hopo  , tap: image_gem_blue_pro_tap
+          , shades: customize.sustainBlue, target: image_highway_protar_target_blue
           }
-        , { c: _.s2, lane: _.s2, x: handedness 4 * widthFret + 1, strum: Image_gem_yellow_pro, hopo: Image_gem_yellow_pro_hopo, tap: Image_gem_yellow_pro_tap
-          , shades: customize.sustainYellow, target: Image_highway_protar_target_yellow
+        , { c: _.s2, lane: _.s2, x: handedness 4 * widthFret + 1, strum: image_gem_yellow_pro, hopo: image_gem_yellow_pro_hopo, tap: image_gem_yellow_pro_tap
+          , shades: customize.sustainYellow, target: image_highway_protar_target_yellow
           }
-        , { c: _.s1, lane: _.s1, x: handedness 5 * widthFret + 1, strum: Image_gem_purple_pro, hopo: Image_gem_purple_pro_hopo, tap: Image_gem_purple_pro_tap
-          , shades: customize.sustainPurple, target: Image_highway_protar_target_purple
+        , { c: _.s1, lane: _.s1, x: handedness 5 * widthFret + 1, strum: image_gem_purple_pro, hopo: image_gem_purple_pro_hopo, tap: image_gem_purple_pro_tap
+          , shades: customize.sustainPurple, target: image_highway_protar_target_purple
           }
         ]
       colors = take protar.strings colors'
@@ -272,20 +272,20 @@ drawProtar (Protar protar) startX stuff = do
 
       fretImage i = case index protarFrets i of
         Just x  -> x
-        Nothing -> Image_pro_fret_00 -- whatever
+        Nothing -> image_pro_fret_00 -- whatever
 
       getImages color isEnergy note = case note.fret of
         Just fret -> let
           base = case note.noteType of
-            Strum -> if isEnergy then Image_gem_energy_pro      else color.strum
-            HOPO  -> if isEnergy then Image_gem_energy_pro_hopo else color.hopo
-            Tap   -> if isEnergy then Image_gem_energy_pro_tap  else color.tap
+            Strum -> if isEnergy then image_gem_energy_pro      else color.strum
+            HOPO  -> if isEnergy then image_gem_energy_pro_hopo else color.hopo
+            Tap   -> if isEnergy then image_gem_energy_pro_tap  else color.tap
           in [base, fretImage fret]
         Nothing -> let
           base = case note.noteType of
-            Strum -> if isEnergy then Image_gem_energy_mute      else Image_gem_mute
-            HOPO  -> if isEnergy then Image_gem_energy_mute_hopo else Image_gem_mute_hopo
-            Tap   -> if isEnergy then Image_gem_energy_mute_tap  else Image_gem_mute_tap
+            Strum -> if isEnergy then image_gem_energy_mute      else image_gem_mute
+            HOPO  -> if isEnergy then image_gem_energy_mute_hopo else image_gem_mute_hopo
+            Tap   -> if isEnergy then image_gem_energy_mute_tap  else image_gem_mute_tap
           in [base]
   case Map.lookupLE stuff.time protar.arpeggio of
     Just { key: arpTime, value: true } -> do

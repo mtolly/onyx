@@ -14,7 +14,7 @@ import           Graphics.Canvas         as C
 
 import           Draw.Common             (Draw, drawImage, drawLane, fillRect,
                                           secToNum, setFillStyle, drawBeats)
-import           Images                  (ImageID (..))
+import           Images
 import           OnyxMap                 as Map
 import           Song                    (Five (..), GuitarNoteType (..),
                                           Sustainable (..))
@@ -79,23 +79,23 @@ drawFive (Five five) targetX stuff = do
     fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   -- Lanes
   let colors =
-        [ { c: _.open  , lane: _.open  , x:            0 * widthFret + 1, strum: Image_gem_open  , hopo: Image_gem_open_hopo, tap: Image_gem_open_tap
+        [ { c: _.open  , lane: _.open  , x:            0 * widthFret + 1, strum: image_gem_open  , hopo: image_gem_open_hopo, tap: image_gem_open_tap
           , shades: customize.sustainPurple, open: true, target: Nothing
           }
-        , { c: _.green , lane: _.green , x: handedness 0 * widthFret + 1, strum: Image_gem_green , hopo: Image_gem_green_hopo, tap: Image_gem_green_tap
-          , shades: customize.sustainGreen, open: false, target: Just Image_highway_target_green
+        , { c: _.green , lane: _.green , x: handedness 0 * widthFret + 1, strum: image_gem_green , hopo: image_gem_green_hopo, tap: image_gem_green_tap
+          , shades: customize.sustainGreen, open: false, target: Just image_highway_target_green
           }
-        , { c: _.red   , lane: _.red   , x: handedness 1 * widthFret + 1, strum: Image_gem_red   , hopo: Image_gem_red_hopo, tap: Image_gem_red_tap
-          , shades: customize.sustainRed, open: false, target: Just Image_highway_target_red
+        , { c: _.red   , lane: _.red   , x: handedness 1 * widthFret + 1, strum: image_gem_red   , hopo: image_gem_red_hopo, tap: image_gem_red_tap
+          , shades: customize.sustainRed, open: false, target: Just image_highway_target_red
           }
-        , { c: _.yellow, lane: _.yellow, x: handedness 2 * widthFret + 1, strum: Image_gem_yellow, hopo: Image_gem_yellow_hopo, tap: Image_gem_yellow_tap
-          , shades: customize.sustainYellow, open: false, target: Just Image_highway_target_yellow
+        , { c: _.yellow, lane: _.yellow, x: handedness 2 * widthFret + 1, strum: image_gem_yellow, hopo: image_gem_yellow_hopo, tap: image_gem_yellow_tap
+          , shades: customize.sustainYellow, open: false, target: Just image_highway_target_yellow
           }
-        , { c: _.blue  , lane: _.blue  , x: handedness 3 * widthFret + 1, strum: Image_gem_blue  , hopo: Image_gem_blue_hopo, tap: Image_gem_blue_tap
-          , shades: customize.sustainBlue, open: false, target: Just Image_highway_target_blue
+        , { c: _.blue  , lane: _.blue  , x: handedness 3 * widthFret + 1, strum: image_gem_blue  , hopo: image_gem_blue_hopo, tap: image_gem_blue_tap
+          , shades: customize.sustainBlue, open: false, target: Just image_highway_target_blue
           }
-        , { c: _.orange, lane: _.orange, x: handedness 4 * widthFret + 1, strum: Image_gem_orange, hopo: Image_gem_orange_hopo, tap: Image_gem_orange_tap
-          , shades: customize.sustainOrange, open: false, target: Just Image_highway_target_orange
+        , { c: _.orange, lane: _.orange, x: handedness 4 * widthFret + 1, strum: image_gem_orange, hopo: image_gem_orange_hopo, tap: image_gem_orange_tap
+          , shades: customize.sustainOrange, open: false, target: Just image_highway_target_orange
           }
         ]
   for_ colors \{x: offsetX, lane: gem, open: isOpen, target: target} -> let
@@ -214,9 +214,9 @@ drawFive (Five five) targetX stuff = do
                   Just {value: bool} -> bool
                   Nothing            -> false
                 img = case sht of
-                  Strum -> if isEnergy then (if isOpen then Image_gem_open_energy      else Image_gem_energy     ) else strumImage
-                  HOPO  -> if isEnergy then (if isOpen then Image_gem_open_energy_hopo else Image_gem_energy_hopo) else hopoImage
-                  Tap   -> if isEnergy then (if isOpen then Image_gem_open_energy_tap  else Image_gem_energy_tap ) else tapImage
+                  Strum -> if isEnergy then (if isOpen then image_gem_open_energy      else image_gem_energy     ) else strumImage
+                  HOPO  -> if isEnergy then (if isOpen then image_gem_open_energy_hopo else image_gem_energy_hopo) else hopoImage
+                  Tap   -> if isEnergy then (if isOpen then image_gem_open_energy_tap  else image_gem_energy_tap ) else tapImage
                 x' = targetX + offsetX
                 y' = if isOpen then y - 3 else y - 5
             drawImage img (toNumber x') (toNumber y') stuff

@@ -14,7 +14,7 @@ import           Graphics.Canvas         as C
 
 import           Draw.Common             (Draw, drawImage, fillRect, secToNum,
                                           setFillStyle, drawBeats)
-import           Images                  (ImageID (..))
+import           Images
 import           OnyxMap                 as Map
 import           Song                    (GuitarNoteType (..), Six (..),
                                           Sustainable (..))
@@ -85,7 +85,7 @@ drawSix (Six six) targetX stuff = do
     fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   -- TODO lanes, bre
   -- Target
-  drawImage Image_highway_ghl_target (toNumber targetX) (toNumber targetY - 5.0) stuff
+  drawImage image_highway_ghl_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Sustains
   let colors =
         [ { c: _.open, x:            0 * widthFret + 1, color: SixOpen  }
@@ -104,15 +104,15 @@ drawSix (Six six) targetX stuff = do
         SixBoth  -> customize.sustainBothGHL
         SixBlack -> if stuff.app.settings.leftyFlip then customize.sustainWhiteGHL else customize.sustainBlackGHL
         SixOpen  -> customize.sustainOpenGHL
-      blackImages = { strum: Image_gem_black, hopo: Image_gem_black_hopo, tap: Image_gem_black_tap, energy: Image_gem_ghl_energy }
-      whiteImages = { strum: Image_gem_white, hopo: Image_gem_white_hopo, tap: Image_gem_white_tap, energy: Image_gem_ghl_energy }
+      blackImages = { strum: image_gem_black, hopo: image_gem_black_hopo, tap: image_gem_black_tap, energy: image_gem_ghl_energy }
+      whiteImages = { strum: image_gem_white, hopo: image_gem_white_hopo, tap: image_gem_white_tap, energy: image_gem_ghl_energy }
       getGemImages sc = case sc of
         SixBlack -> if stuff.app.settings.leftyFlip then whiteImages else blackImages
         SixWhite -> if stuff.app.settings.leftyFlip then blackImages else whiteImages
         SixBoth  -> if stuff.app.settings.leftyFlip
-          then { strum: Image_gem_whiteblack, hopo: Image_gem_whiteblack_hopo, tap: Image_gem_whiteblack_tap, energy: Image_gem_ghl_energy }
-          else { strum: Image_gem_blackwhite, hopo: Image_gem_blackwhite_hopo, tap: Image_gem_blackwhite_tap, energy: Image_gem_ghl_energy }
-        SixOpen  -> { strum: Image_gem_openghl, hopo: Image_gem_openghl_hopo, tap: Image_gem_openghl_tap, energy: Image_gem_openghl_energy }
+          then { strum: image_gem_whiteblack, hopo: image_gem_whiteblack_hopo, tap: image_gem_whiteblack_tap, energy: image_gem_ghl_energy }
+          else { strum: image_gem_blackwhite, hopo: image_gem_blackwhite_hopo, tap: image_gem_blackwhite_tap, energy: image_gem_ghl_energy }
+        SixOpen  -> { strum: image_gem_openghl, hopo: image_gem_openghl_hopo, tap: image_gem_openghl_tap, energy: image_gem_openghl_energy }
   for_ colors \{ c: getEvents, x: offsetX, color: thisColor } -> do
     let thisEvents = getEvents six.notes
         offsetX' = case thisColor of

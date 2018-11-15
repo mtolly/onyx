@@ -22,7 +22,7 @@ import           RequestAnimationFrame (requestAnimationFrame)
 import           Audio                 (loadAudio, playFrom, stop)
 import           Draw                  (draw, getWindowDims, numMod, _B, _M)
 import           Draw.Common           (AppTime (..), Settings, Drawer (..))
-import           Images                (withImages, imageURL, ImageID(..))
+import           Images
 import           Song                  (Flex (..), Song (..), isForeignSong, vocalCount)
 import           Style                 (customize)
 import           Draw.Drums         (drawDrums)
@@ -130,9 +130,9 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                   Just ds -> pure
                     { typeName: "5-Fret"
                     , typeIcon: case key of
-                      "bass" -> Image_icon_bass
-                      "keys" -> Image_icon_keys
-                      _      -> Image_icon_guitar
+                      "bass" -> image_icon_bass
+                      "keys" -> image_icon_keys
+                      _      -> image_icon_guitar
                     , typeVertical: true
                     , diffs: map (map drawFive) ds
                     , count: 1
@@ -141,7 +141,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                   Nothing -> []
                   Just ds -> pure
                     { typeName: "6-Fret (GHL)"
-                    , typeIcon: Image_icon_ghl
+                    , typeIcon: image_icon_ghl
                     , typeVertical: true
                     , diffs: map (map drawSix) ds
                     , count: 1
@@ -150,7 +150,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                   Nothing -> []
                   Just ds -> pure
                     { typeName: "(Pro) Drums"
-                    , typeIcon: Image_icon_drums
+                    , typeIcon: image_icon_drums
                     , typeVertical: true
                     , diffs: map (map drawDrums) ds
                     , count: 1
@@ -159,7 +159,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                   Nothing -> []
                   Just ds -> pure
                     { typeName: "Pro Keys"
-                    , typeIcon: Image_icon_pro_keys
+                    , typeIcon: image_icon_pro_keys
                     , typeVertical: true
                     , diffs: map (map drawProKeys) ds
                     , count: 1
@@ -171,8 +171,8 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                       "bass" -> "Pro Bass"
                       _      -> "Pro Guitar"
                     , typeIcon: case key of
-                      "bass" -> Image_icon_pro_bass
-                      _      -> Image_icon_pro_guitar
+                      "bass" -> image_icon_pro_bass
+                      _      -> image_icon_pro_guitar
                     , typeVertical: true
                     , diffs: map (map drawProtar) ds
                     , count: 1
@@ -181,7 +181,7 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                   Nothing -> []
                   Just ds -> pure
                     { typeName: "Amplitude"
-                    , typeIcon: Image_icon_guitar -- TODO
+                    , typeIcon: image_icon_amplitude
                     , typeVertical: true
                     , diffs: map (map drawAmplitude) ds
                     , count: 1
@@ -191,9 +191,9 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                   Just ds -> pure
                     { typeName: "Vocals"
                     , typeIcon: case vocalCount ds of
-                      3 -> Image_icon_vocal_3
-                      2 -> Image_icon_vocal_2
-                      _ -> Image_icon_vocal_1
+                      3 -> image_icon_vocal_3
+                      2 -> image_icon_vocal_2
+                      _ -> image_icon_vocal_1
                     , typeVertical: false
                     , diffs: map (map drawVocal) ds
                     , count: vocalCount ds

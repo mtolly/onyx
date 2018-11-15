@@ -7,7 +7,7 @@ import           Style              (customize)
 import           Data.Foldable      (for_)
 import           Data.Time.Duration (Seconds, negateDuration)
 import           Data.Int           (round, toNumber)
-import           Images             (ImageID (..))
+import           Images
 import           OnyxMap            as Map
 import           Draw.Common        (Draw, drawBeats, drawImage, fillEllipse,
                                      fillRect, secToNum, setFillStyle)
@@ -50,7 +50,7 @@ drawAmplitude (Amplitude amp) targetX stuff = do
     , maxSecs: maxSecs
     } stuff
   -- Target
-  drawImage Image_highway_catch_target (toNumber targetX) (toNumber targetY - 6.0) stuff
+  drawImage image_highway_catch_target (toNumber targetX) (toNumber targetY - 6.0) stuff
   -- Notes
   zoomDesc amp.notes \secs note -> do
     let futureSecs = secToNum $ secs <> negateDuration stuff.time
@@ -78,6 +78,6 @@ drawAmplitude (Amplitude amp) targetX stuff = do
               L -> targetX + 4
               M -> targetX + 37
               R -> targetX + 70
-        drawImage Image_gem_catch (toNumber x) (toNumber $ y - 6) stuff
+        drawImage image_gem_catch (toNumber x) (toNumber $ y - 6) stuff
   -- Return targetX of next track
   pure $ targetX + widthHighway + customize.marginWidth

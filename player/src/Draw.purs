@@ -14,7 +14,7 @@ import           Graphics.Canvas    as C
 import           Draw.Common        (AppTime (..), Draw, drawImage,
                                      fillRect, onContext, setFillStyle,
                                      showTimestamp, Drawer (..))
-import           Images             (ImageID (..))
+import           Images
 import           OnyxMap            as Map
 import           Song               (Song (..))
 import           Style              (customize)
@@ -96,10 +96,10 @@ draw stuff = do
 
   -- draw the progress bar and buttons on the side
   let playPause = case stuff.app.time of
-        Paused  _ -> Image_button_play
-        Playing _ -> Image_button_pause
+        Paused  _ -> image_button_play
+        Playing _ -> image_button_pause
   drawImage playPause (toNumber _M) (windowH - 2.0 * toNumber _M - 2.0 * toNumber _B) stuff
-  drawImage Image_button_gear (toNumber _M) (windowH - toNumber _M - toNumber _B) stuff
+  drawImage image_button_gear (toNumber _M) (windowH - toNumber _M - toNumber _B) stuff
   let timelineH = windowH - 4.0 * toNumber _M - 2.0 * toNumber _B - 2.0
       filled = unSeconds (stuff.time) / unSeconds song.end
       unSeconds (Seconds s) = s

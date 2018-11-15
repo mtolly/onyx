@@ -16,7 +16,7 @@ import           Graphics.Canvas         as C
 import           Draw.Common             (Draw, drawImage, drawLane, fillRect,
                                           onContext, secToNum, setFillStyle,
                                           strokeRect)
-import           Images                  (ImageID (..))
+import           Images
 import           OnyxMap                 as Map
 import           Song                    (Beat (..), Beats (..), Pitch (..),
                                           ProKeys (..), Range (..), Song (..),
@@ -152,7 +152,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
       drawLanes rest
     in drawLanes laneEdges
   -- Target
-  drawImage Image_highway_prokeys_target (toNumber targetX) (toNumber targetY - 5.0) stuff
+  drawImage image_highway_prokeys_target (toNumber targetX) (toNumber targetY - 5.0) stuff
   -- Ranges
   setFillStyle customize.proKeysRangeOverlay stuff
   let rangeEdges
@@ -270,8 +270,8 @@ drawProKeys (ProKeys pk) targetX stuff = do
                   Just {value: bool} -> bool
                   Nothing            -> false
                 img = if isEnergy
-                  then if isBlack then Image_gem_blackkey_energy else Image_gem_whitekey_energy
-                  else if isBlack then Image_gem_blackkey        else Image_gem_whitekey
+                  then if isBlack then image_gem_blackkey_energy else image_gem_whitekey_energy
+                  else if isBlack then image_gem_blackkey        else image_gem_whitekey
             drawImage img (toNumber $ targetX + offsetX) (toNumber $ y - 5) stuff
             when isGlissando do
               onContext (\ctx -> C.setStrokeStyle ctx customize.glissandoBorder) stuff
