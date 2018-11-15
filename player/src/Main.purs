@@ -10,7 +10,7 @@ import           Data.Int              (round, toNumber)
 import           Data.Maybe            (Maybe (..))
 import           Data.Time.Duration    (Milliseconds (..), Seconds (..),
                                         convertDuration, negateDuration)
-import           Data.Tuple            (Tuple (..), fst)
+import           Data.Tuple            (Tuple (..), fst, snd)
 import           Effect                (Effect)
 import           Effect.Exception      (catchException, error, throwException)
 import           Effect.Now            (now)
@@ -21,11 +21,17 @@ import           RequestAnimationFrame (requestAnimationFrame)
 
 import           Audio                 (loadAudio, playFrom, stop)
 import           Draw                  (draw, getWindowDims, numMod, _B, _M)
-import           Draw.Common           (AppTime (..), Settings)
-import           Draw.Protar           (eachChordsWidth)
-import           Images                (withImages)
+import           Draw.Common           (AppTime (..), Settings, Drawer (..))
+import           Images                (withImages, imageURL, ImageID(..))
 import           Song                  (Flex (..), Song (..), isForeignSong, vocalCount)
 import           Style                 (customize)
+import           Draw.Drums         (drawDrums)
+import           Draw.Five          (drawFive)
+import           Draw.ProKeys       (drawProKeys)
+import           Draw.Protar        (drawProtar, eachChordsWidth)
+import           Draw.Six           (drawSix)
+import           Draw.Vocal         (drawVocal)
+import           Draw.Amplitude     (drawAmplitude)
 
 foreign import onyxSong :: Foreign
 
@@ -107,36 +113,91 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
   let initialSettings =
         { parts: map
           (\(Tuple key (Flex flex)) ->
-            { partName: key
+            { partName: case key of
+              "vocal" -> "vocals"
+              _       -> key
             , flexParts: let
               inst enabled o = let
-                diff enabled' d = { enabled: enabled', diffName: d }
-                in { partType: o.type
-                   , vocalCount: o.count
+                diff enabled' d = { enabled: enabled', diffName: fst d, draw: Drawer $ snd d }
+                in { typeName: o.typeName
+                   , typeIcon: imageURL o.typeIcon
+                   , typeVertical: o.typeVertical
                    , difficulties: map (diff enabled) (take 1 o.diffs) <> map (diff false) (drop 1 o.diffs)
                    }
               insts = concat
-                [ case flex.five      of
+                [ case flex.five of
                   Nothing -> []
-                  Just ds -> [{type: "five"     , diffs: map fst ds, count: 1            }]
-                , case flex.six       of
+                  Just ds -> pure
+                    { typeName: "5-Fret"
+                    , typeIcon: case key of
+                      "bass" -> Image_icon_bass
+                      "keys" -> Image_icon_keys
+                      _      -> Image_icon_guitar
+                    , typeVertical: true
+                    , diffs: map (map drawFive) ds
+                    , count: 1
+                    }
+                , case flex.six of
                   Nothing -> []
-                  Just ds -> [{type: "six"      , diffs: map fst ds, count: 1            }]
-                , case flex.drums     of
+                  Just ds -> pure
+                    { typeName: "6-Fret (GHL)"
+                    , typeIcon: Image_icon_ghl
+                    , typeVertical: true
+                    , diffs: map (map drawSix) ds
+                    , count: 1
+                    }
+                , case flex.drums of
                   Nothing -> []
-                  Just ds -> [{type: "drums"    , diffs: map fst ds, count: 1            }]
-                , case flex.prokeys   of
+                  Just ds -> pure
+                    { typeName: "(Pro) Drums"
+                    , typeIcon: Image_icon_drums
+                    , typeVertical: true
+                    , diffs: map (map drawDrums) ds
+                    , count: 1
+                    }
+                , case flex.prokeys of
                   Nothing -> []
-                  Just ds -> [{type: "prokeys"  , diffs: map fst ds, count: 1            }]
-                , case flex.protar    of
+                  Just ds -> pure
+                    { typeName: "Pro Keys"
+                    , typeIcon: Image_icon_pro_keys
+                    , typeVertical: true
+                    , diffs: map (map drawProKeys) ds
+                    , count: 1
+                    }
+                , case flex.protar of
                   Nothing -> []
-                  Just ds -> [{type: "protar"   , diffs: map fst ds, count: 1            }]
+                  Just ds -> pure
+                    { typeName: case key of
+                      "bass" -> "Pro Bass"
+                      _      -> "Pro Guitar"
+                    , typeIcon: case key of
+                      "bass" -> Image_icon_pro_bass
+                      _      -> Image_icon_pro_guitar
+                    , typeVertical: true
+                    , diffs: map (map drawProtar) ds
+                    , count: 1
+                    }
                 , case flex.amplitude of
                   Nothing -> []
-                  Just ds -> [{type: "amplitude", diffs: map fst ds, count: 1            }]
-                , case flex.vocal     of
+                  Just ds -> pure
+                    { typeName: "Amplitude"
+                    , typeIcon: Image_icon_guitar -- TODO
+                    , typeVertical: true
+                    , diffs: map (map drawAmplitude) ds
+                    , count: 1
+                    }
+                , case flex.vocal of
                   Nothing -> []
-                  Just ds -> [{type: "vocal"    , diffs: map fst ds, count: vocalCount ds}]
+                  Just ds -> pure
+                    { typeName: "Vocals"
+                    , typeIcon: case vocalCount ds of
+                      3 -> Image_icon_vocal_3
+                      2 -> Image_icon_vocal_2
+                      _ -> Image_icon_vocal_1
+                    , typeVertical: false
+                    , diffs: map (map drawVocal) ds
+                    , count: vocalCount ds
+                    }
                 ]
               in map (inst true) (take 1 insts) <> map (inst false) (drop 1 insts)
             }

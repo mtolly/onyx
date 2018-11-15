@@ -3,29 +3,20 @@ module Draw (draw, getWindowDims, numMod, _M, _B) where
 import           Prelude
 
 import           Control.MonadZero  (guard)
-import           Data.Array         (concat, uncons)
+import           Data.Array         (uncons)
 import           Data.Foldable      (for_)
 import           Data.Int           (round, toNumber)
 import           Data.Maybe         (Maybe (..))
 import           Data.Time.Duration (Seconds (..))
-import           Data.Traversable   (or)
-import           Data.Tuple         (Tuple (..))
 import           Effect             (Effect)
 import           Graphics.Canvas    as C
 
 import           Draw.Common        (AppTime (..), Draw, drawImage,
                                      fillRect, onContext, setFillStyle,
-                                     showTimestamp, DrawStuff)
-import           Draw.Drums         (drawDrums)
-import           Draw.Five          (drawFive)
-import           Draw.ProKeys       (drawProKeys)
-import           Draw.Protar        (drawProtar)
-import           Draw.Six           (drawSix)
-import           Draw.Vocal         (drawVocal)
-import           Draw.Amplitude     (drawAmplitude)
+                                     showTimestamp, Drawer (..))
 import           Images             (ImageID (..))
 import           OnyxMap            as Map
-import           Song               (Flex (..), Song (..), Difficulties)
+import           Song               (Song (..))
 import           Style              (customize)
 
 foreign import getWindowDims :: Effect {width :: Number, height :: Number}
@@ -63,38 +54,16 @@ draw stuff = do
         Just {head: trk, tail: trkt} -> do
           targetX' <- trk targetX
           drawTracks targetX' trkt
-      partEnabled pname ptype dname sets = or do
-        part <- sets.parts
-        guard $ part.partName == pname
+      drawSubset vert startPosn someStuff = void $ drawTracks startPosn do
+        part <- someStuff.app.settings.parts
         fpart <- part.flexParts
-        guard $ fpart.partType == ptype
         diff <- fpart.difficulties
-        guard $ diff.diffName == dname
-        pure diff.enabled
-      drawInst
-        :: forall a
-        .  DrawStuff
-        -> String
-        -> Flex
-        -> String
-        -> (Flex -> Maybe (Difficulties a))
-        -> (a -> Int -> Draw Int)
-        -> Int
-        -> Effect Int
-      drawInst someStuff part flex ptype fn drawer i = case fn flex of
-        Nothing -> pure i
-        Just fpart -> drawTracks i $ flip map fpart \(Tuple dname diff) -> \j ->
-          if partEnabled part ptype dname someStuff.app.settings
-            then drawer diff j someStuff
-            else pure j
-      drawNonVocals someStuff = void $ drawTracks (_M + _B + _M) $ concat $ flip map song.parts \(Tuple part flex) ->
-        [ drawInst someStuff part flex "five"      (\(Flex f) -> f.five     ) drawFive
-        , drawInst someStuff part flex "six"       (\(Flex f) -> f.six      ) drawSix
-        , drawInst someStuff part flex "drums"     (\(Flex f) -> f.drums    ) drawDrums
-        , drawInst someStuff part flex "prokeys"   (\(Flex f) -> f.prokeys  ) drawProKeys
-        , drawInst someStuff part flex "protar"    (\(Flex f) -> f.protar   ) drawProtar
-        , drawInst someStuff part flex "amplitude" (\(Flex f) -> f.amplitude) drawAmplitude
-        ]
+        guard $ diff.enabled
+        guard $ vert == fpart.typeVertical
+        let Drawer d = diff.draw
+        pure \i -> d i someStuff
+      drawNonVocals = drawSubset true (_M + _B + _M)
+      drawVocals = drawSubset false 0
   -- first draw everything but vocals
   if stuff.app.settings.staticVert
     then let
@@ -123,8 +92,7 @@ draw stuff = do
         drawTarget unseenTarget
     else drawNonVocals stuff
   -- then draw vocals
-  void $ drawTracks 0 $ flip map song.parts \(Tuple part flex) ->
-    drawInst stuff part flex "vocal" (\(Flex f) -> f.vocal) drawVocal
+  drawVocals stuff
 
   -- draw the progress bar and buttons on the side
   let playPause = case stuff.app.time of

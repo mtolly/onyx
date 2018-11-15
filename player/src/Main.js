@@ -45,11 +45,31 @@ exports.closeMenu = function() {
 var menuImmutable = null;
 var menuMutable = null;
 
+// https://stackoverflow.com/a/122190 by ConroyP
+function clone(obj) {
+    if (obj === null || typeof (obj) !== 'object' || 'isActiveClone' in obj)
+        return obj;
+
+    if (obj instanceof Date)
+        var temp = new obj.constructor(); //or new Date(obj);
+    else
+        var temp = obj.constructor();
+
+    for (var key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+            obj['isActiveClone'] = null;
+            temp[key] = clone(obj[key]);
+            delete obj['isActiveClone'];
+        }
+    }
+    return temp;
+}
+
 exports.fillMenu = function(song) {
   return function(settings) {
     return function() {
       menuMutable = settings;
-      menuImmutable = JSON.parse(JSON.stringify(menuMutable));
+      menuImmutable = clone(menuMutable);
       function tag(p,t,f){
         var element = document.createElement(t);
         if (f) f(element);
@@ -77,7 +97,7 @@ exports.fillMenu = function(song) {
                 checkbox.checked = menuMutable[key];
                 checkbox.addEventListener('change', function(e){
                   menuMutable[key] = e.target.checked;
-                  menuImmutable = JSON.parse(JSON.stringify(menuMutable));
+                  menuImmutable = clone(menuMutable);
                 });
               });
               label.insertAdjacentHTML('beforeend', ' ' + name);
@@ -89,49 +109,14 @@ exports.fillMenu = function(song) {
         settingsToggle('staticVert', 'Static Instruments');
       });
       function setIcon(part, fpart, img) {
-        function title(t) { img.alt = t; img.title = t; }
-        switch (fpart.partType) {
-          case 'five':
-            title('5-Fret');
-            if (part.partName === 'bass') {
-              img.src = 'images-dom/icon-bass.png';
-            } else if (part.partName === 'keys') {
-              img.src = 'images-dom/icon-keys.png';
-            } else {
-              img.src = 'images-dom/icon-guitar.png';
-            }
-            break;
-          case 'six':
-            img.src = 'images-dom/icon-ghl.png';
-            title('6-Fret (GHL)');
-            break;
-          case 'drums':
-            img.src = 'images-dom/icon-drums.png';
-            title('(Pro) Drums');
-            break;
-          case 'prokeys':
-            img.src = 'images-dom/icon-pro-keys.png';
-            title('Pro Keys');
-            break;
-          case 'protar':
-            if (part.partName === 'bass') {
-              img.src = 'images-dom/icon-pro-bass.png';
-              title('Pro Bass');
-            } else {
-              img.src = 'images-dom/icon-pro-guitar.png';
-              title('Pro Guitar');
-            }
-            break;
-          case 'vocal':
-            img.src = 'images-dom/icon-vocal-' + fpart.vocalCount + '.png';
-            title('Vocals');
-            break;
-        }
+        img.src = fpart.typeIcon;
+        img.alt = fpart.typeName;
+        img.title = fpart.typeName;
       }
       menuMutable.parts.forEach(function(part){
         tag(menu, 'div', function(div){
           tag(div, 'h3', function(h3){
-            h3.innerHTML = (part.partName === 'vocal' ? 'vocals' : part.partName);
+            h3.innerHTML = part.partName;
           });
           tag(div, 'form', function(form){
             part.flexParts.forEach(function(fpart){
@@ -147,7 +132,7 @@ exports.fillMenu = function(song) {
                       checkbox.checked = diff.enabled;
                       checkbox.addEventListener('change', function(e){
                         diff.enabled = e.target.checked;
-                        menuImmutable = JSON.parse(JSON.stringify(menuMutable));
+                        menuImmutable = clone(menuMutable);
                       });
                     });
                     label.insertAdjacentHTML('beforeend', ' ' + diff.diffName);

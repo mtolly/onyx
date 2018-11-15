@@ -1,4 +1,4 @@
-module Images (ImageID(..), withImages, protarFrets) where
+module Images (ImageID(..), withImages, protarFrets, imageURL) where
 
 import           Prelude
 
@@ -113,6 +113,18 @@ data ImageID
   | Image_highway_target_orange
   | Image_highway_target_red
   | Image_highway_target_yellow
+  | Image_icon_bass
+  | Image_icon_drums
+  | Image_icon_ghl
+  | Image_icon_guitar
+  | Image_icon_keys
+  | Image_icon_pro_bass
+  | Image_icon_pro_drums
+  | Image_icon_pro_guitar
+  | Image_icon_pro_keys
+  | Image_icon_vocal_1
+  | Image_icon_vocal_2
+  | Image_icon_vocal_3
   | Image_pro_fret_00
   | Image_pro_fret_01
   | Image_pro_fret_02
@@ -140,7 +152,7 @@ data ImageID
   | Image_pro_fret_24
 
 allImageIDs :: Array ImageID
-allImageIDs = [Image_button_gear, Image_button_pause, Image_button_play, Image_gem_black, Image_gem_black_hopo, Image_gem_black_tap, Image_gem_blackkey, Image_gem_blackkey_energy, Image_gem_blackwhite, Image_gem_blackwhite_hopo, Image_gem_blackwhite_tap, Image_gem_blue, Image_gem_blue_cymbal, Image_gem_blue_hopo, Image_gem_blue_pro, Image_gem_blue_pro_hopo, Image_gem_blue_pro_tap, Image_gem_blue_tap, Image_gem_catch, Image_gem_energy, Image_gem_energy_cymbal, Image_gem_energy_hopo, Image_gem_energy_mute, Image_gem_energy_mute_hopo, Image_gem_energy_mute_tap, Image_gem_energy_pro, Image_gem_energy_pro_hopo, Image_gem_energy_pro_tap, Image_gem_energy_tap, Image_gem_ghl_energy, Image_gem_green, Image_gem_green_cymbal, Image_gem_green_hopo, Image_gem_green_pro, Image_gem_green_pro_hopo, Image_gem_green_pro_tap, Image_gem_green_tap, Image_gem_kick, Image_gem_kick_energy, Image_gem_mute, Image_gem_mute_hopo, Image_gem_mute_tap, Image_gem_open, Image_gem_open_energy, Image_gem_open_energy_hopo, Image_gem_open_energy_tap, Image_gem_open_hopo, Image_gem_open_tap, Image_gem_openghl, Image_gem_openghl_energy, Image_gem_openghl_hopo, Image_gem_openghl_tap, Image_gem_orange, Image_gem_orange_cymbal, Image_gem_orange_hopo, Image_gem_orange_pro, Image_gem_orange_pro_hopo, Image_gem_orange_pro_tap, Image_gem_orange_tap, Image_gem_purple_pro, Image_gem_purple_pro_hopo, Image_gem_purple_pro_tap, Image_gem_red, Image_gem_red_cymbal, Image_gem_red_hopo, Image_gem_red_pro, Image_gem_red_pro_hopo, Image_gem_red_pro_tap, Image_gem_red_tap, Image_gem_white, Image_gem_white_hopo, Image_gem_white_tap, Image_gem_whiteblack, Image_gem_whiteblack_hopo, Image_gem_whiteblack_tap, Image_gem_whitekey, Image_gem_whitekey_energy, Image_gem_yellow, Image_gem_yellow_cymbal, Image_gem_yellow_hopo, Image_gem_yellow_pro, Image_gem_yellow_pro_hopo, Image_gem_yellow_pro_tap, Image_gem_yellow_tap, Image_highway_catch_target, Image_highway_ghl_target, Image_highway_prokeys_target, Image_highway_protar_target_blue, Image_highway_protar_target_green, Image_highway_protar_target_orange, Image_highway_protar_target_purple, Image_highway_protar_target_red, Image_highway_protar_target_yellow, Image_highway_target_blue, Image_highway_target_green, Image_highway_target_orange, Image_highway_target_red, Image_highway_target_yellow, Image_pro_fret_00, Image_pro_fret_01, Image_pro_fret_02, Image_pro_fret_03, Image_pro_fret_04, Image_pro_fret_05, Image_pro_fret_06, Image_pro_fret_07, Image_pro_fret_08, Image_pro_fret_09, Image_pro_fret_10, Image_pro_fret_11, Image_pro_fret_12, Image_pro_fret_13, Image_pro_fret_14, Image_pro_fret_15, Image_pro_fret_16, Image_pro_fret_17, Image_pro_fret_18, Image_pro_fret_19, Image_pro_fret_20, Image_pro_fret_21, Image_pro_fret_22, Image_pro_fret_23, Image_pro_fret_24]
+allImageIDs = [Image_button_gear, Image_button_pause, Image_button_play, Image_gem_black, Image_gem_black_hopo, Image_gem_black_tap, Image_gem_blackkey, Image_gem_blackkey_energy, Image_gem_blackwhite, Image_gem_blackwhite_hopo, Image_gem_blackwhite_tap, Image_gem_blue, Image_gem_blue_cymbal, Image_gem_blue_hopo, Image_gem_blue_pro, Image_gem_blue_pro_hopo, Image_gem_blue_pro_tap, Image_gem_blue_tap, Image_gem_catch, Image_gem_energy, Image_gem_energy_cymbal, Image_gem_energy_hopo, Image_gem_energy_mute, Image_gem_energy_mute_hopo, Image_gem_energy_mute_tap, Image_gem_energy_pro, Image_gem_energy_pro_hopo, Image_gem_energy_pro_tap, Image_gem_energy_tap, Image_gem_ghl_energy, Image_gem_green, Image_gem_green_cymbal, Image_gem_green_hopo, Image_gem_green_pro, Image_gem_green_pro_hopo, Image_gem_green_pro_tap, Image_gem_green_tap, Image_gem_kick, Image_gem_kick_energy, Image_gem_mute, Image_gem_mute_hopo, Image_gem_mute_tap, Image_gem_open, Image_gem_open_energy, Image_gem_open_energy_hopo, Image_gem_open_energy_tap, Image_gem_open_hopo, Image_gem_open_tap, Image_gem_openghl, Image_gem_openghl_energy, Image_gem_openghl_hopo, Image_gem_openghl_tap, Image_gem_orange, Image_gem_orange_cymbal, Image_gem_orange_hopo, Image_gem_orange_pro, Image_gem_orange_pro_hopo, Image_gem_orange_pro_tap, Image_gem_orange_tap, Image_gem_purple_pro, Image_gem_purple_pro_hopo, Image_gem_purple_pro_tap, Image_gem_red, Image_gem_red_cymbal, Image_gem_red_hopo, Image_gem_red_pro, Image_gem_red_pro_hopo, Image_gem_red_pro_tap, Image_gem_red_tap, Image_gem_white, Image_gem_white_hopo, Image_gem_white_tap, Image_gem_whiteblack, Image_gem_whiteblack_hopo, Image_gem_whiteblack_tap, Image_gem_whitekey, Image_gem_whitekey_energy, Image_gem_yellow, Image_gem_yellow_cymbal, Image_gem_yellow_hopo, Image_gem_yellow_pro, Image_gem_yellow_pro_hopo, Image_gem_yellow_pro_tap, Image_gem_yellow_tap, Image_highway_catch_target, Image_highway_ghl_target, Image_highway_prokeys_target, Image_highway_protar_target_blue, Image_highway_protar_target_green, Image_highway_protar_target_orange, Image_highway_protar_target_purple, Image_highway_protar_target_red, Image_highway_protar_target_yellow, Image_highway_target_blue, Image_highway_target_green, Image_highway_target_orange, Image_highway_target_red, Image_highway_target_yellow, Image_icon_bass, Image_icon_drums, Image_icon_ghl, Image_icon_guitar, Image_icon_keys, Image_icon_pro_bass, Image_icon_pro_drums, Image_icon_pro_guitar, Image_icon_pro_keys, Image_icon_vocal_1, Image_icon_vocal_2, Image_icon_vocal_3, Image_pro_fret_00, Image_pro_fret_01, Image_pro_fret_02, Image_pro_fret_03, Image_pro_fret_04, Image_pro_fret_05, Image_pro_fret_06, Image_pro_fret_07, Image_pro_fret_08, Image_pro_fret_09, Image_pro_fret_10, Image_pro_fret_11, Image_pro_fret_12, Image_pro_fret_13, Image_pro_fret_14, Image_pro_fret_15, Image_pro_fret_16, Image_pro_fret_17, Image_pro_fret_18, Image_pro_fret_19, Image_pro_fret_20, Image_pro_fret_21, Image_pro_fret_22, Image_pro_fret_23, Image_pro_fret_24]
 
 imagePath :: ImageID -> String
 imagePath Image_button_gear = "button-gear"
@@ -241,6 +253,18 @@ imagePath Image_highway_target_green = "highway-target-green"
 imagePath Image_highway_target_orange = "highway-target-orange"
 imagePath Image_highway_target_red = "highway-target-red"
 imagePath Image_highway_target_yellow = "highway-target-yellow"
+imagePath Image_icon_bass = "icon-bass"
+imagePath Image_icon_drums = "icon-drums"
+imagePath Image_icon_ghl = "icon-ghl"
+imagePath Image_icon_guitar = "icon-guitar"
+imagePath Image_icon_keys = "icon-keys"
+imagePath Image_icon_pro_bass = "icon-pro-bass"
+imagePath Image_icon_pro_drums = "icon-pro-drums"
+imagePath Image_icon_pro_guitar = "icon-pro-guitar"
+imagePath Image_icon_pro_keys = "icon-pro-keys"
+imagePath Image_icon_vocal_1 = "icon-vocal-1"
+imagePath Image_icon_vocal_2 = "icon-vocal-2"
+imagePath Image_icon_vocal_3 = "icon-vocal-3"
 imagePath Image_pro_fret_00 = "pro-fret-00"
 imagePath Image_pro_fret_01 = "pro-fret-01"
 imagePath Image_pro_fret_02 = "pro-fret-02"
@@ -366,31 +390,43 @@ imageNumber Image_highway_target_green = 94
 imageNumber Image_highway_target_orange = 95
 imageNumber Image_highway_target_red = 96
 imageNumber Image_highway_target_yellow = 97
-imageNumber Image_pro_fret_00 = 98
-imageNumber Image_pro_fret_01 = 99
-imageNumber Image_pro_fret_02 = 100
-imageNumber Image_pro_fret_03 = 101
-imageNumber Image_pro_fret_04 = 102
-imageNumber Image_pro_fret_05 = 103
-imageNumber Image_pro_fret_06 = 104
-imageNumber Image_pro_fret_07 = 105
-imageNumber Image_pro_fret_08 = 106
-imageNumber Image_pro_fret_09 = 107
-imageNumber Image_pro_fret_10 = 108
-imageNumber Image_pro_fret_11 = 109
-imageNumber Image_pro_fret_12 = 110
-imageNumber Image_pro_fret_13 = 111
-imageNumber Image_pro_fret_14 = 112
-imageNumber Image_pro_fret_15 = 113
-imageNumber Image_pro_fret_16 = 114
-imageNumber Image_pro_fret_17 = 115
-imageNumber Image_pro_fret_18 = 116
-imageNumber Image_pro_fret_19 = 117
-imageNumber Image_pro_fret_20 = 118
-imageNumber Image_pro_fret_21 = 119
-imageNumber Image_pro_fret_22 = 120
-imageNumber Image_pro_fret_23 = 121
-imageNumber Image_pro_fret_24 = 122
+imageNumber Image_icon_bass = 98
+imageNumber Image_icon_drums = 99
+imageNumber Image_icon_ghl = 100
+imageNumber Image_icon_guitar = 101
+imageNumber Image_icon_keys = 102
+imageNumber Image_icon_pro_bass = 103
+imageNumber Image_icon_pro_drums = 104
+imageNumber Image_icon_pro_guitar = 105
+imageNumber Image_icon_pro_keys = 106
+imageNumber Image_icon_vocal_1 = 107
+imageNumber Image_icon_vocal_2 = 108
+imageNumber Image_icon_vocal_3 = 109
+imageNumber Image_pro_fret_00 = 110
+imageNumber Image_pro_fret_01 = 111
+imageNumber Image_pro_fret_02 = 112
+imageNumber Image_pro_fret_03 = 113
+imageNumber Image_pro_fret_04 = 114
+imageNumber Image_pro_fret_05 = 115
+imageNumber Image_pro_fret_06 = 116
+imageNumber Image_pro_fret_07 = 117
+imageNumber Image_pro_fret_08 = 118
+imageNumber Image_pro_fret_09 = 119
+imageNumber Image_pro_fret_10 = 120
+imageNumber Image_pro_fret_11 = 121
+imageNumber Image_pro_fret_12 = 122
+imageNumber Image_pro_fret_13 = 123
+imageNumber Image_pro_fret_14 = 124
+imageNumber Image_pro_fret_15 = 125
+imageNumber Image_pro_fret_16 = 126
+imageNumber Image_pro_fret_17 = 127
+imageNumber Image_pro_fret_18 = 128
+imageNumber Image_pro_fret_19 = 129
+imageNumber Image_pro_fret_20 = 130
+imageNumber Image_pro_fret_21 = 131
+imageNumber Image_pro_fret_22 = 132
+imageNumber Image_pro_fret_23 = 133
+imageNumber Image_pro_fret_24 = 134
 
 -- end generated section
 
@@ -402,13 +438,14 @@ instance eqImageID :: Eq ImageID where
 instance ordImageID :: Ord ImageID where
   compare x y = compare (imageNumber x) (imageNumber y)
 
+imageURL :: ImageID -> String
+imageURL iid = "images/" <> imagePath iid <> ".png"
+
 withImages
   :: ((ImageID -> CanvasImageSource) -> Effect Unit)
   -> Effect Unit
 withImages = let
-  loadTuple iid = let
-    path = "images/" <> imagePath iid <> ".png"
-    in map (Tuple iid) $ ContT $ withImage path
+  loadTuple iid = map (Tuple iid) $ ContT $ withImage $ imageURL iid
   withImage path f = tryLoadImage path $ \mimg -> case mimg of
     Just img -> f img
     Nothing  -> throwException $ error $ "could not load image from path: " <> path

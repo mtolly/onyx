@@ -31,15 +31,18 @@ data AppTime
     }
 
 -- this is a plain JS object because we pass it to ffi code to make the menu
+-- (except for the Drawer which the JS doesn't touch)
 type Settings =
   { parts :: Array
     { partName :: String
     , flexParts :: Array
-      { partType :: String
-      , vocalCount :: Int
+      { typeName :: String
+      , typeIcon :: String
+      , typeVertical :: Boolean
       , difficulties :: Array
         { diffName :: String
         , enabled :: Boolean
+        , draw :: Drawer
         }
       }
     }
@@ -47,6 +50,8 @@ type Settings =
   , leftyFlip :: Boolean
   , staticVert :: Boolean
   }
+
+newtype Drawer = Drawer (Int -> Draw Int)
 
 type DrawStuff =
   { time :: Seconds
