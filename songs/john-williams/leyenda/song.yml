@@ -33,7 +33,7 @@ parts:
     pro-guitar:
       difficulty: 7
       tuning: [0, 0, 0, 0, 0, 0]
-    grybo: # by CyclopsDragon. TODO need to quantize
+    grybo: # by CyclopsDragon
       difficulty: 7
 targets:
   rb3:
