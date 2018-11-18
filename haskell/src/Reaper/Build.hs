@@ -17,13 +17,15 @@ import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (toLower)
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
-import           Data.Functor.Identity                 (runIdentity)
 import           Data.List                             (find, findIndex,
                                                         isInfixOf, isSuffixOf,
                                                         nub, sortOn)
 import           Data.Maybe                            (fromMaybe, listToMaybe)
 import qualified Data.Text                             as T
 import qualified Data.Text.Encoding                    as TE
+import           Data.Time                             (defaultTimeLocale,
+                                                        formatTime,
+                                                        getCurrentTime)
 import           Development.Shake                     (need)
 import           Numeric                               (showHex)
 import qualified Numeric.NonNegative.Class             as NNC
@@ -951,22 +953,24 @@ makeReaperIO tunings evts tempo audios out = liftIO $ do
           t_secs = U.applyTempoTrack tmap t_beats
           in tempoTrack $ RTB.toAbsoluteEventList 0 t_secs
         _ -> error "Unsupported MIDI format for Reaper project generation"
-  let project = runIdentity $
-        rpp "REAPER_PROJECT" ["0.1", "5.0/OSX64", "1449358215"] $ do
-          line "VZOOMEX" ["0"]
-          line "SAMPLERATE" ["44100", "0", "0"]
-          block "METRONOME" ["6", "2"] $ return () -- disables metronome
-          writeTempoTrack
-          case mid of
-            F.Cons F.Parallel (F.Ticks resn) (_ : trks) -> do
-              forM_ (sortTracks trks) $ track tunings (midiLenTicks resn) midiLenSecs resn
-            F.Cons F.Mixed (F.Ticks resn) tracks -> let
-              merged = foldr RTB.merge RTB.empty tracks
-              in track tunings (midiLenTicks resn) midiLenSecs resn merged
-            _ -> error "Unsupported MIDI format for Reaper project generation"
-          forM_ lenAudios $ \(len, aud) -> do
-            audio len $ makeRelative (takeDirectory out) aud
-      findColorMaps = \case
+  project <- do
+    time <- liftIO getCurrentTime
+    let timestamp = formatTime defaultTimeLocale "%s" time
+    rpp "REAPER_PROJECT" ["0.1", "5.0/Onyx", timestamp] $ do
+      line "VZOOMEX" ["0"]
+      line "SAMPLERATE" ["44100", "0", "0"]
+      block "METRONOME" ["6", "2"] $ return () -- disables metronome
+      writeTempoTrack
+      case mid of
+        F.Cons F.Parallel (F.Ticks resn) (_ : trks) -> do
+          forM_ (sortTracks trks) $ track tunings (midiLenTicks resn) midiLenSecs resn
+        F.Cons F.Mixed (F.Ticks resn) tracks -> let
+          merged = foldr RTB.merge RTB.empty tracks
+          in track tunings (midiLenTicks resn) midiLenSecs resn merged
+        _ -> error "Unsupported MIDI format for Reaper project generation"
+      forM_ lenAudios $ \(len, aud) -> do
+        audio len $ makeRelative (takeDirectory out) aud
+  let findColorMaps = \case
         Element "COLORMAP" [cmap] _ -> [cmap]
         Element _ _ Nothing -> []
         Element _ _ (Just sub) -> concatMap findColorMaps sub

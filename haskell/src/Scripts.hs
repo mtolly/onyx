@@ -96,7 +96,7 @@ loadFoFMIDI ini fp = do
         e <- toList trk
         case isNoteEdgeCPV e of
           Just (_, n', _) | n == n' -> [()]
-          _               -> []
+          _                         -> []
   mid' <- case FoF.starPowerNote ini of
     Just 103 -> do
       lg "Star Power note specified in song.ini to be 103 (old GH format), converting to RB"

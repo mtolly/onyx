@@ -430,10 +430,10 @@ drumsReduce diff   mmap od sections trk = let
   keepKit kept [] = kept
   keepKit kept ((posn, gems) : rest) = let
     gems' = case sort gems of
-      [D.Pro _ D.Cymbal, green@(D.Pro D.Green D.Cymbal)] -> [green]
+      [D.Pro _ D.Cymbal, green@(D.Pro D.Green D.Cymbal)]      -> [green]
       [D.Pro D.Yellow D.Cymbal, blue@(D.Pro D.Blue D.Cymbal)] -> [blue]
-      [tom1@(D.Pro _ D.Tom), D.Pro _ D.Tom] | diff <= Medium -> [tom1]
-      _ -> gems
+      [tom1@(D.Pro _ D.Tom), D.Pro _ D.Tom] | diff <= Medium  -> [tom1]
+      _                                                       -> gems
     padding = if diff == Hard then 0.5 else 1
     slice = fst $ Map.split (posn + padding) $ snd $ Map.split (posn -| padding) kept
     in if case Map.toList slice of [(p, _)] | p == posn -> True; [] -> True; _ -> False

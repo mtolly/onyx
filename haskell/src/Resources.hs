@@ -42,7 +42,6 @@ webDisplay = concat
   , [("customize.js", $(makeRelativeToProject "../player/www/customize.js" >>= embedFile))]
   , [("VarelaRound-Regular.ttf", $(makeRelativeToProject "../player/www/VarelaRound-Regular.ttf" >>= embedFile))]
   , map (first ("images" </>)) $(makeRelativeToProject "../player/www/images" >>= embedDir)
-  , map (first ("images-dom" </>)) $(makeRelativeToProject "../player/www/images-dom" >>= embedDir)
   ]
 
 onyxAlbum :: P.Image P.PixelRGB8

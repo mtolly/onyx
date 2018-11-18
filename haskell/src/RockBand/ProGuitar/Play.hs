@@ -170,7 +170,7 @@ autoplay thres tmap = let
           usualPreFret = 0.1 :: U.Seconds
           (fretDelay, strumDelay) = case dt -| usualPreFret of
             x | x >= usualPreFret -> (x, usualPreFret)
-            _ -> (dt / 2, dt / 2)
+            _                     -> (dt / 2, dt / 2)
           in RTB.cons fretDelay frets $ RTB.cons strumDelay strums $ go thisGems rtb'
         else RTB.cons dt frets $ go thisGems rtb'
   in RTB.flatten

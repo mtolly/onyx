@@ -94,7 +94,7 @@ fixDoubleSwells ps = let
         (diff, (), len) -> let
           shouldBeDouble = case toList $ U.trackTake len $ U.trackDrop startTime notes of
             g1 : g2 : g3 : g4 : _ | g1 == g3 && g2 == g4 && g1 /= g2 -> True
-            _                     -> False
+            _                                                        -> False
           in (startTime,) $ RTB.fromPairList $ if shouldBeDouble
             then [(0, (True, Just diff)), (len, (True, Nothing))]
             else [(0, (False, Just diff)), (len, (False, Nothing))]
@@ -182,7 +182,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
   -- assume sole guitar is no-stems audio
   let onlyGuitar = case audioFiles of
         [x] | dropExtension x == "guitar" -> True
-        _   -> False
+        _                                 -> False
   audioFilesWithChannels <- forM audioFiles $ \af -> audioChannels (dest </> af) >>= \case
     Nothing    -> fatal $ "Couldn't get channel count of audio file: " <> af
     Just chans -> return (af, chans)
@@ -319,7 +319,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
       , _rating       = Unrated
       , _previewStart = case FoF.previewStartTime song of
         Just ms | ms >= 0 -> Just $ PreviewSeconds $ fromIntegral ms / 1000
-        _       -> Nothing
+        _                 -> Nothing
       , _previewEnd   = Nothing
       , _languages    = _languages def
       , _convert      = _convert def

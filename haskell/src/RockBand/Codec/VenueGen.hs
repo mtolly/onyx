@@ -99,7 +99,7 @@ venue_generate = go . RTB.flatten . fmap offsBeforeOns . RTB.collectCoincident w
     Just ((dt, (x, True)), rtb') -> RTB.cons dt x $ go rtb'
     Just ((dt, (x, False)), rtb') -> case RTB.viewL rtb' of
       Just ((dt', _), _) | dt' /= NNC.zero -> RTB.cons dt x $ go rtb'
-      _                  -> RTB.delay dt $ go rtb'
+      _                                    -> RTB.delay dt $ go rtb'
 
 buildLighting :: (NNC.C t) => LightingTrack t -> VenueTrack t
 buildLighting lt = let

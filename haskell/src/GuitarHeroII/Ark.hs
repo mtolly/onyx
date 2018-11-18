@@ -41,7 +41,7 @@ replaceSong gen key snippet files = do
             adjustTree (D.Tree tid cks) = D.Tree tid $ map adjustSnippet cks
             adjustString str = case B.breakSubstring "$SONGKEY" str of
               (h, t) | not $ B.null t -> adjustString $ h <> key <> B.drop 8 t
-              _ -> str
+              _                       -> str
         D.writeFileDTB fdtb $ D.renumberFrom 1 $ D.DTA z $ D.Tree 0 $ map adjust chunks
         wrap "Couldn't update songs.dtb in the ARK." $
           ark_ReplaceAFile ark fdtb "config/gen/songs.dtb" True

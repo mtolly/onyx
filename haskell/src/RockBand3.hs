@@ -685,7 +685,7 @@ findProblems song = execWriter $ do
       drumsDiff d = drumGems $ fromMaybe mempty $ Map.lookup d $ drumDifficulties drums
       isBadDisco (t, diff) = case RTB.viewL $ RTB.collectCoincident $ U.trackDrop t $ drumsDiff diff of
         Just ((_, evts), _) | any isDiscoGem evts -> True
-        _                   -> False
+        _                                         -> False
       isDiscoGem = \case
         RBDrums.Red -> True
         RBDrums.Pro RBDrums.Yellow _ -> True

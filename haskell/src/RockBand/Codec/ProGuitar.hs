@@ -407,7 +407,7 @@ computeChordNames diff tuning flatDefault pg = let
           -- Somebody to Love has a Bb chord, with leftmost note Bb,
           -- marked as slash for no reason. It's ignored in game, so we do that
           Just k | k /= root -> name <> "/" <> T.pack (showKey flat k)
-          _      -> name
+          _                  -> name
       , chordMuted = any (\(_, (nt, _, _)) -> nt == Muted) chord
       , chordLength = minimum [ len | (_, (_, _, len)) <- chord ]
       }

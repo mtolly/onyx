@@ -24,7 +24,6 @@ extra-source-files:
 - ../player/www/customize.js
 - ../player/www/VarelaRound-Regular.ttf
 - ../player/www/images/*.png
-- ../player/www/images-dom/*.png
 - cbits/*.h
 
 flags:

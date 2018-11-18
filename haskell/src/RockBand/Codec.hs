@@ -82,7 +82,7 @@ blipCV p = Codec
     trk <- lift get
     let (slurp, leave) = flip RTB.partitionMaybe trk $ \x -> case isNoteEdgeCPV x of
           Just (c, p', v) | p == p' -> Just $ (c ,) <$> v
-          _               -> Nothing
+          _                         -> Nothing
     lift $ put leave
     return $ RTB.catMaybes slurp
   , codecOut = makeTrackBuilder $ U.trackJoin . fmap (\(c, v) -> unparseBlipCPV (c, p, v))
@@ -98,14 +98,14 @@ edge :: (Monad m) => Int -> Bool -> TrackEvent m U.Beats ()
 edge p b = single
   (\x -> case isNoteEdge x of
     Just pb' | (p, b) == pb' -> Just ()
-    _        -> Nothing
+    _                        -> Nothing
   ) (\() -> makeEdge p b)
 
 edges :: (Monad m, NNC.C t) => Int -> TrackEvent m t Bool
 edges p = single
   (\x -> case isNoteEdge x of
     Just (p', b) | p == p' -> Just b
-    _            -> Nothing
+    _                      -> Nothing
   ) (makeEdge p)
 
 edgesLanes :: (Monad m, NNC.C t) => Int -> TrackEvent m t (Maybe LaneDifficulty)
@@ -149,7 +149,7 @@ edgesCV :: (Monad m, NNC.C t) => Int -> TrackEvent m t (Int, Maybe Int)
 edgesCV p = single
   (\x -> case isNoteEdgeCPV x of
     Just (c, p', v) | p == p' -> Just (c, v)
-    _               -> Nothing
+    _                         -> Nothing
   ) (\(c, v) -> makeEdgeCPV c p v)
 
 single :: (Monad m, NNC.C t) => (E.T -> Maybe a) -> (a -> E.T) -> TrackEvent m t a

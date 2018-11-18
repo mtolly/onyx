@@ -67,3 +67,6 @@ icon/icon.o:
 
 ubuntu-deps:
 	apt install libsndfile-dev libsamplerate-dev libmp3lame-dev libsdl2-dev libsdl2-ttf-dev librubberband-dev libmpg123-dev
+
+arch-deps:
+	pacman -S libsndfile libsamplerate lame sdl2 sdl2_ttf rubberband mpg123
