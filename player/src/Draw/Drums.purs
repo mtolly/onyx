@@ -13,7 +13,7 @@ import           Data.Tuple         (Tuple (..))
 import           Graphics.Canvas    as C
 
 import           Draw.Common        (Draw, drawImage, drawLane, fillRect,
-                                     secToNum, setFillStyle, drawBeats)
+                                     secToNum, setFillStyle, drawBeats, BadgeInfo, drawBadgeVertical)
 import           Images
 import           OnyxMap            as Map
 import           Song               (Drums (..), Gem (..))
@@ -172,8 +172,8 @@ drawDrumsPerspective (Drums drums) rect horizonY stuff = do
   C.restore ctx
   pure $ round (rect.x + rect.width) + customize.marginWidth
 
-drawDrums :: Drums -> Int -> Draw Int
-drawDrums (Drums drums) targetX stuff = do
+drawDrums :: Drums -> BadgeInfo -> Int -> Draw Int
+drawDrums (Drums drums) badge targetX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) <> stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
@@ -400,5 +400,7 @@ drawDrums (Drums drums) targetX stuff = do
             (if isEnergy then image_gem_energy_cymbal else if stuff.app.settings.leftyFlip then image_gem_red_cymbal else image_gem_green_cymbal)
             (toNumber $ targetX + handedness (numLanes - 1) * widthFret + 1)
             (toNumber $ y - 8) stuff
+  -- Draw badge below target
+  drawBadgeVertical badge targetX widthHighway stuff
   -- Return targetX of next track
   pure $ targetX + widthHighway + customize.marginWidth

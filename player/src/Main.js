@@ -109,7 +109,7 @@ exports.fillMenu = function(song) {
         settingsToggle('staticVert', 'Static Instruments');
       });
       function setIcon(part, fpart, img) {
-        img.src = fpart.typeIcon;
+        img.src = fpart.typeIconURL;
         img.alt = fpart.typeName;
         img.title = fpart.typeName;
       }

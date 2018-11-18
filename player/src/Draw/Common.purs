@@ -2,13 +2,14 @@ module Draw.Common where
 
 import           Prelude
 
-import           Data.Int           (floor, toNumber)
+import           Data.Int           (round, floor, toNumber)
 import           Data.Int.Bits      (shr)
 import           Data.Maybe         (Maybe (..))
 import           Data.Time.Duration (Seconds (..))
 import           Effect             (Effect)
 import           Graphics.Canvas    as C
 import           Math               (pi)
+import Data.String (toUpper)
 
 import           Images             (ImageID)
 import           OnyxMap            as Map
@@ -37,7 +38,8 @@ type Settings =
     { partName :: String
     , flexParts :: Array
       { typeName :: String
-      , typeIcon :: String
+      , typeIcon :: ImageID
+      , typeIconURL :: String
       , typeVertical :: Boolean
       , difficulties :: Array
         { diffName :: String
@@ -51,7 +53,13 @@ type Settings =
   , staticVert :: Boolean
   }
 
-newtype Drawer = Drawer (Int -> Draw Int)
+type BadgeInfo =
+  { name :: String
+  , icon :: ImageID
+  , difficulty :: String
+  }
+
+newtype Drawer = Drawer (BadgeInfo -> Int -> Draw Int)
 
 type DrawStuff =
   { time :: Seconds
@@ -191,3 +199,60 @@ drawBeats secsToPxVert dims stuff = do
           HalfBeat -> customize.highwayHalfBeatHeight
     setFillStyle customize.highwayLine stuff
     fillRect { x: toNumber dims.x, y: toNumber $ y - shr h 1, width: toNumber dims.width, height: toNumber h } stuff
+
+foreign import setBaseline :: C.Context2D -> String -> Effect Unit
+foreign import roundRect
+  :: C.Context2D
+  ->  { x :: Number
+      , y :: Number
+      , width :: Number
+      , height :: Number
+      , radius :: Number
+      , fill :: Boolean
+      , stroke :: Boolean
+      }
+  -> Effect Unit
+
+drawBadgeVertical :: BadgeInfo -> Int -> Int -> Draw Unit
+drawBadgeVertical badge x width stuff = do
+  windowH <- C.getCanvasHeight stuff.canvas
+  let space = toNumber customize.targetPositionVert
+      y = round $ windowH - space * 0.45
+  let textPart = toUpper badge.name
+      textDiff = badge.difficulty
+  C.setFont stuff.context $ show (round $ space * 0.3) <> "px Varela Round"
+  setBaseline stuff.context "middle"
+  C.setTextAlign stuff.context C.AlignLeft
+  measurePart <- C.measureText stuff.context textPart
+  let iconWidth = space * 0.6
+  measureDiff <- C.measureText stuff.context textDiff
+  let gap = space * 0.12
+      totalWidth = measurePart.width + gap + iconWidth + gap + measureDiff.width
+      totalX = toNumber x + (toNumber width - totalWidth) / 2.0
+  -- background
+  C.setFillStyle stuff.context "#7a4b0d"
+  C.setStrokeStyle stuff.context "black"
+  C.setLineWidth stuff.context 1.0
+  roundRect stuff.context
+    { x: totalX - gap
+    , y: toNumber y - space * 0.25
+    , width: gap + totalWidth + gap
+    , height: space * 0.5
+    , radius: gap
+    , fill: true
+    , stroke: true
+    }
+  -- part name
+  C.setFillStyle stuff.context "white"
+  C.fillText stuff.context textPart totalX (toNumber y + 1.0)
+  -- icon
+  C.drawImageScale
+    stuff.context
+    (stuff.getImage badge.icon)
+    (totalX + measurePart.width + gap)
+    (toNumber y - iconWidth / 2.0)
+    iconWidth
+    iconWidth
+  -- difficulty letter
+  C.fillText stuff.context textDiff (totalX + measurePart.width + gap + iconWidth + gap) (toNumber y + 1.0)
+  setBaseline stuff.context "alphabetic"

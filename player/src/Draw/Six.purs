@@ -13,7 +13,7 @@ import           Effect.Exception.Unsafe (unsafeThrow)
 import           Graphics.Canvas         as C
 
 import           Draw.Common             (Draw, drawImage, fillRect, secToNum,
-                                          setFillStyle, drawBeats)
+                                          setFillStyle, drawBeats, BadgeInfo, drawBadgeVertical)
 import           Images
 import           OnyxMap                 as Map
 import           Song                    (GuitarNoteType (..), Six (..),
@@ -26,8 +26,8 @@ data SixColor
   | SixWhite
   | SixBoth
 
-drawSix :: Six -> Int -> Draw Int
-drawSix (Six six) targetX stuff = do
+drawSix :: Six -> BadgeInfo -> Int -> Draw Int
+drawSix (Six six) badge targetX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) <> stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
@@ -217,4 +217,7 @@ drawSix (Six six) targetX stuff = do
         Note    sht -> withNoteType sht
         Sustain sht -> withNoteType sht
         SustainEnd  -> pure unit
+  -- Draw badge below target
+  drawBadgeVertical badge targetX widthHighway stuff
+  -- Return targetX of next track
   pure $ targetX + widthHighway + customize.marginWidth

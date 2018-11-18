@@ -120,7 +120,8 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
               inst enabled o = let
                 diff enabled' d = { enabled: enabled', diffName: fst d, draw: Drawer $ snd d }
                 in { typeName: o.typeName
-                   , typeIcon: imageURL o.typeIcon
+                   , typeIcon: o.typeIcon
+                   , typeIconURL: imageURL o.typeIcon
                    , typeVertical: o.typeVertical
                    , difficulties: map (diff enabled) (take 1 o.diffs) <> map (diff false) (drop 1 o.diffs)
                    }

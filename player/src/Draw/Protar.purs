@@ -15,7 +15,7 @@ import           Effect.Exception.Unsafe (unsafeThrow)
 import           Graphics.Canvas         as C
 
 import           Draw.Common             (Draw, drawImage, drawLane, fillRect,
-                                          secToNum, setFillStyle, drawBeats)
+                                          secToNum, setFillStyle, drawBeats, BadgeInfo, drawBadgeVertical)
 import           Images
 import           OnyxMap                 as Map
 import           Song                    (ChordLine (..), Flex (..),
@@ -52,8 +52,8 @@ eachChordsWidth ctx (Song o) = do
       pure $ Tuple s $ Flex flex { protar = Just pg' }
   pure $ Song o { parts = parts }
 
-drawProtar :: Protar -> Int -> Draw Int
-drawProtar (Protar protar) startX stuff = do
+drawProtar :: Protar -> BadgeInfo -> Int -> Draw Int
+drawProtar (Protar protar) badge startX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
   let targetX = if stuff.app.settings.leftyFlip
         then startX
@@ -321,4 +321,7 @@ drawProtar (Protar protar) startX stuff = do
             for_ (getImages color isEnergy obj) \img -> do
               drawImage img (toNumber $ targetX + offsetX) (toNumber $ y - 10) stuff
         when obj.phantom $ C.setGlobalAlpha stuff.context 1.0
+  -- Draw badge below target
+  drawBadgeVertical badge targetX widthHighway stuff
+  -- Return targetX of next track
   pure $ startX + protar.chordsWidth + widthHighway + customize.marginWidth

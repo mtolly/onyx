@@ -61,7 +61,7 @@ draw stuff = do
         guard $ diff.enabled
         guard $ vert == fpart.typeVertical
         let Drawer d = diff.draw
-        pure \i -> d i someStuff
+        pure \i -> d {name: part.partName, icon: fpart.typeIcon, difficulty: diff.diffName} i someStuff
       drawNonVocals = drawSubset true (_M + _B + _M)
       drawVocals = drawSubset false 0
   -- first draw everything but vocals

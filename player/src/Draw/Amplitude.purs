@@ -10,10 +10,10 @@ import           Data.Int           (round, toNumber)
 import           Images
 import           OnyxMap            as Map
 import           Draw.Common        (Draw, drawBeats, drawImage, fillEllipse,
-                                     fillRect, secToNum, setFillStyle)
+                                     fillRect, secToNum, setFillStyle, BadgeInfo, drawBadgeVertical)
 
-drawAmplitude :: Amplitude -> Int -> Draw Int
-drawAmplitude (Amplitude amp) targetX stuff = do
+drawAmplitude :: Amplitude -> BadgeInfo -> Int -> Draw Int
+drawAmplitude (Amplitude amp) badge targetX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) <> stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
@@ -79,5 +79,7 @@ drawAmplitude (Amplitude amp) targetX stuff = do
               M -> targetX + 37
               R -> targetX + 70
         drawImage image_gem_catch (toNumber x) (toNumber $ y - 6) stuff
+  -- Draw badge below target
+  drawBadgeVertical badge targetX widthHighway stuff
   -- Return targetX of next track
   pure $ targetX + widthHighway + customize.marginWidth

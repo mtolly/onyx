@@ -13,15 +13,15 @@ import           Effect.Exception.Unsafe (unsafeThrow)
 import           Graphics.Canvas         as C
 
 import           Draw.Common             (Draw, drawImage, drawLane, fillRect,
-                                          secToNum, setFillStyle, drawBeats)
+                                          secToNum, setFillStyle, drawBeats, BadgeInfo, drawBadgeVertical)
 import           Images
 import           OnyxMap                 as Map
 import           Song                    (Five (..), GuitarNoteType (..),
                                           Sustainable (..))
 import           Style                   (customize)
 
-drawFive :: Five -> Int -> Draw Int
-drawFive (Five five) targetX stuff = do
+drawFive :: Five -> BadgeInfo -> Int -> Draw Int
+drawFive (Five five) badge targetX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) <> stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
@@ -224,4 +224,7 @@ drawFive (Five five) targetX stuff = do
         Note    sht -> withNoteType sht
         Sustain sht -> withNoteType sht
         SustainEnd  -> pure unit
+  -- Draw badge below target
+  drawBadgeVertical badge targetX widthHighway stuff
+  -- Return targetX of next track
   pure $ targetX + widthHighway + customize.marginWidth

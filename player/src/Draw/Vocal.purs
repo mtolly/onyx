@@ -18,14 +18,14 @@ import           Graphics.Canvas         as C
 import           Draw.Common             (Draw, fillCircle, fillRect,
                                           measureText, onContext, secToNum,
                                           setFillStyle, slide, zoomAscDoPadding,
-                                          zoomDescDoPadding)
+                                          zoomDescDoPadding, BadgeInfo)
 import           OnyxMap                 as Map
 import           Song                    (Vocal (..), VocalNote (..),
                                           VocalRange (..))
 import           Style                   (customize)
 
-drawVocal :: Vocal -> Int -> Draw Int
-drawVocal (Vocal v) targetY stuff = do
+drawVocal :: Vocal -> BadgeInfo -> Int -> Draw Int
+drawVocal (Vocal v) badge targetY stuff = do
   windowW <- map round $ C.getCanvasWidth stuff.canvas
   let pxToSecsHoriz px = stuff.pxToSecsHoriz px <> stuff.time
       secsToPxHoriz secs = stuff.secsToPxHoriz $ secs <> negateDuration stuff.time

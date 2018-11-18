@@ -15,7 +15,7 @@ import           Graphics.Canvas         as C
 
 import           Draw.Common             (Draw, drawImage, drawLane, fillRect,
                                           onContext, secToNum, setFillStyle,
-                                          strokeRect)
+                                          strokeRect, BadgeInfo, drawBadgeVertical)
 import           Images
 import           OnyxMap                 as Map
 import           Song                    (Beat (..), Beats (..), Pitch (..),
@@ -56,8 +56,8 @@ pitchList = do
 
 data HackBool = False | True
 
-drawProKeys :: ProKeys -> Int -> Draw Int
-drawProKeys (ProKeys pk) targetX stuff = do
+drawProKeys :: ProKeys -> BadgeInfo -> Int -> Draw Int
+drawProKeys (ProKeys pk) badge targetX stuff = do
   windowH <- map round $ C.getCanvasHeight stuff.canvas
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) <> stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
@@ -277,4 +277,7 @@ drawProKeys (ProKeys pk) targetX stuff = do
               onContext (\ctx -> C.setStrokeStyle ctx customize.glissandoBorder) stuff
               onContext (\ctx -> C.setLineWidth ctx 1.0) stuff
               strokeRect { x: toNumber (targetX + offsetX) + 0.5, y: toNumber y - 4.5, width: 12.0, height: 9.0 } stuff
+  -- Draw badge below target
+  drawBadgeVertical badge targetX widthHighway stuff
+  -- Return targetX of next track
   pure $ targetX + widthHighway + customize.marginWidth
