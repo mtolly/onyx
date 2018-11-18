@@ -1,8 +1,11 @@
 window.customizeOnyx = {
 
   trackSpeed: 333, // pixels per second
-  targetPositionVert: 50, // pixels from bottom for non-vocals targets
+  targetPositionVert: 55, // pixels from bottom for non-vocals targets
+  labelPositionVert: 20,
   targetPositionHoriz: 225, // pixels from left for vocals target
+  labelPositionHoriz: 100,
+  labelIconWidth: 30,
   marginWidth: 15, // space between buttons and tracks
   buttonWidth: 41, // height/width of the square buttons
 

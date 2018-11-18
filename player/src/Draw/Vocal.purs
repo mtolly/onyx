@@ -18,7 +18,7 @@ import           Graphics.Canvas         as C
 import           Draw.Common             (Draw, fillCircle, fillRect,
                                           measureText, onContext, secToNum,
                                           setFillStyle, slide, zoomAscDoPadding,
-                                          zoomDescDoPadding, BadgeInfo)
+                                          zoomDescDoPadding, BadgeInfo, drawBadgeHorizontal)
 import           OnyxMap                 as Map
 import           Song                    (Vocal (..), VocalNote (..),
                                           VocalRange (..))
@@ -195,4 +195,7 @@ drawVocal (Vocal v) badge targetY stuff = do
   -- Draw target line
   setFillStyle customize.vocalTargetLine stuff
   fillRect { x: toNumber targetX - 1.0, y: toNumber targetY + 25.0, width: 3.0, height: 130.0 } stuff
+  -- Draw badge behind target
+  drawBadgeHorizontal badge targetY 180 stuff
+  -- Return targetY of next track
   pure $ targetY + 180 + customize.marginWidth

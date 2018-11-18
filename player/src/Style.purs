@@ -11,7 +11,10 @@ foreign import customize ::
 
   { trackSpeed :: Number
   , targetPositionVert :: Int
+  , labelPositionVert :: Int
   , targetPositionHoriz :: Int
+  , labelPositionHoriz :: Int
+  , labelIconWidth :: Int
   , marginWidth :: Int
   , buttonWidth :: Int
 

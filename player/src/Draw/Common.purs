@@ -213,12 +213,10 @@ foreign import roundRect
       }
   -> Effect Unit
 
-drawBadgeVertical :: BadgeInfo -> Int -> Int -> Draw Unit
-drawBadgeVertical badge x width stuff = do
-  windowH <- C.getCanvasHeight stuff.canvas
-  let space = toNumber customize.targetPositionVert
-      y = round $ windowH - space * 0.45
-  let textPart = toUpper badge.name
+drawBadge :: BadgeInfo -> { x :: Number, y :: Number } -> Draw Unit
+drawBadge badge posn stuff = do
+  let space = toNumber customize.labelIconWidth * (5.0 / 3.0)
+      textPart = toUpper badge.name
       textDiff = badge.difficulty
   C.setFont stuff.context $ show (round $ space * 0.3) <> "px Varela Round"
   setBaseline stuff.context "middle"
@@ -228,31 +226,56 @@ drawBadgeVertical badge x width stuff = do
   measureDiff <- C.measureText stuff.context textDiff
   let gap = space * 0.12
       totalWidth = measurePart.width + gap + iconWidth + gap + measureDiff.width
-      totalX = toNumber x + (toNumber width - totalWidth) / 2.0
+      totalX = posn.x - totalWidth / 2.0
+      r n = toNumber $ round n
   -- background
   C.setFillStyle stuff.context "#7a4b0d"
   C.setStrokeStyle stuff.context "black"
   C.setLineWidth stuff.context 1.0
   roundRect stuff.context
-    { x: totalX - gap
-    , y: toNumber y - space * 0.25
-    , width: gap + totalWidth + gap
-    , height: space * 0.5
+    { x: r $ totalX - gap
+    , y: r $ posn.y - space * 0.25
+    , width: r $ gap + totalWidth + gap
+    , height: r $ space * 0.5
     , radius: gap
     , fill: true
     , stroke: true
     }
   -- part name
   C.setFillStyle stuff.context "white"
-  C.fillText stuff.context textPart totalX (toNumber y + 1.0)
+  C.fillText stuff.context textPart (r totalX) (r $ posn.y + 1.0)
   -- icon
   C.drawImageScale
     stuff.context
     (stuff.getImage badge.icon)
-    (totalX + measurePart.width + gap)
-    (toNumber y - iconWidth / 2.0)
-    iconWidth
-    iconWidth
+    (r $ totalX + measurePart.width + gap)
+    (r $ posn.y - iconWidth / 2.0)
+    (r iconWidth)
+    (r iconWidth)
   -- difficulty letter
-  C.fillText stuff.context textDiff (totalX + measurePart.width + gap + iconWidth + gap) (toNumber y + 1.0)
+  C.fillText stuff.context textDiff (r $ totalX + measurePart.width + gap + iconWidth + gap) (r $ posn.y + 1.0)
   setBaseline stuff.context "alphabetic"
+
+drawBadgeVertical :: BadgeInfo -> Int -> Int -> Draw Unit
+drawBadgeVertical badge trackX trackWidth stuff = do
+  windowH <- C.getCanvasHeight stuff.canvas
+  let x = toNumber trackX + toNumber trackWidth / 2.0
+      y = windowH - toNumber customize.labelPositionVert
+  drawBadge badge { x: x, y: y } stuff
+
+drawBadgeHorizontal :: BadgeInfo -> Int -> Int -> Draw Unit
+drawBadgeHorizontal badge trackY trackHeight stuff = do
+  C.translate stuff.context
+    { translateX: toNumber customize.labelPositionHoriz
+    , translateY: toNumber trackY + toNumber trackHeight / 2.0
+    }
+  C.rotate stuff.context (-1.5707963267948966)
+  drawBadge badge { x: 0.0, y: 0.0 } stuff
+  C.setTransform stuff.context
+    { m11: 1.0
+    , m12: 0.0
+    , m21: 0.0
+    , m22: 1.0
+    , m31: 0.0
+    , m32: 0.0
+    }
