@@ -72,7 +72,9 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
   > basic keys:
     done - AIA, ES, HTF, V
     not - TDS, SOC, ITNOG
-  > overdrive
+  > overdrive:
+    done - AIA, V, ITNOG
+    not - TDS, ES, HTF, SOC
   > reductions:
     hard drums - done
     medium drums - AIA, SOC
