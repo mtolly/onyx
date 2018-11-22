@@ -58,7 +58,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
   - drums (1x/2x) done!
   - vox done!
   - pro bass done! (pending more video checks)
-  - basic bass done! (except no-open-notes tweaks)
+  - basic bass done! including no-open-notes versions
   > pro keys:
     done - AIA, ES, HTF, V, SOC, ITNOG
     todo - TDS (jarod)
