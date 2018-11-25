@@ -1,0 +1,75 @@
+metadata:
+  title: Hot Streak
+  file-include: ../../../albums/hot-streak.yml
+  track-number: 3
+  author: Onyxite
+  key: B
+audio:
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+  drumcam-band:
+    md5: c6954c1a636b32e696e50dfd5ab293f6
+    frames: 223442400
+    rate: 48000
+  drumcam-drums:
+    md5: 31cc67aac75d22084fe0da3e4a4d3fc6
+    frames: 223445376
+    rate: 48000
+  drumcam-band-expr:
+    expr:
+      gain:
+      - 0.8
+      - take:
+        - frames: 15019669
+        - drop:
+          - frames: 27970285
+          - drumcam-band
+  drumcam-drums-expr:
+    expr:
+      gain:
+      - -1
+      - stretch:
+        - 1.0000123981891869 # (14813597 - 53194) / (14813414 - 53194)
+        - drop:
+          - frames: 333
+          - take:
+            - frames: 15019669
+            - drop:
+              - frames: 27970285
+              - drumcam-drums
+plans:
+  drumcam:
+    countin:
+      &countin
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
+    song:
+      pad:
+      - 3.349
+      - resample:
+          gain:
+          - 1 # TODO
+          - mix:
+            - drumcam-band-expr
+            - drumcam-drums-expr
+    parts:
+      drums:
+        pad:
+        - 3.349
+        - resample:
+            gain:
+            - -1 # TODO
+            - drumcam-drums-expr
+parts:
+  drums:
+    drums: {}
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
