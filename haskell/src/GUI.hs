@@ -663,7 +663,9 @@ launchGUI = do
                 getEventSink >>= sendErrors msgs
                 sendEvent $ TaskProgress $ TaskFailed msgs
               Right files -> do
-                sendEvent $ LogMessage (GUISuccess, Message (show files) []) -- TODO show nicer
+                sendEvent $ let
+                  msg = unlines $ "Done! Created files:" : map ("  " <>) files
+                  in LogMessage (GUISuccess, Message msg [])
                 sendEvent $ TaskProgress $ TaskOK files
           setMenu $ TasksRunning tid TasksStatus
             { tasksTotal = length tasks

@@ -679,11 +679,13 @@ makeDisplay songYaml song = let
     , flexSix = flip fmap (C.partGHL fpart) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song) (RBFile.onyxPartSix tracks)
     , flexDrums = flip fmap (C.partDrums fpart) $ \pd -> processDrums (C.drumsMode pd) (RBFile.s_tempos song) coda (RBFile.onyxPartDrums tracks) (RBFile.onyxPartDrums2x tracks)
     , flexProKeys = flip fmap (C.partProKeys fpart) $ \_ -> makeDifficulties $ \diff ->
-      processProKeys (RBFile.s_tempos song) $ case diff of
-        Easy   -> RBFile.onyxPartRealKeysE tracks
-        Medium -> RBFile.onyxPartRealKeysM tracks
-        Hard   -> RBFile.onyxPartRealKeysH tracks
-        Expert -> RBFile.onyxPartRealKeysX tracks
+      processProKeys (RBFile.s_tempos song) $ let
+        solos = pkSolo $ RBFile.onyxPartRealKeysX tracks
+        in case diff of
+          Easy   -> (RBFile.onyxPartRealKeysE tracks) { pkSolo = solos }
+          Medium -> (RBFile.onyxPartRealKeysM tracks) { pkSolo = solos }
+          Hard   -> (RBFile.onyxPartRealKeysH tracks) { pkSolo = solos }
+          Expert ->  RBFile.onyxPartRealKeysX tracks
     , flexProtar = flip fmap (C.partProGuitar fpart) $ \pg -> processProtar
       (ht $ C.pgHopoThreshold pg)
       (case C.pgTuning pg of
