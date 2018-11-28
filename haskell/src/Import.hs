@@ -757,27 +757,43 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       (aud, _dsc) <- toList $ drumMix dd
       return aud
     in case drumMixes of
-      [] -> return RBDrums.D0
+      [] -> return Nothing
       aud : auds -> if all (== aud) auds
-        then return aud
-        else fatal $ "Inconsistent drum mixes: " ++ show (nub drumMixes)
+        then return $ Just aud
+        else do
+          warn $ "Inconsistent drum mixes: " ++ show (nub drumMixes)
+          return Nothing
   let instChans :: HM.HashMap T.Text [Int]
       instChans = fmap (map fromIntegral) $ D.tracks $ D.song pkg
       drumChans = fromMaybe [] $ HM.lookup "drum" instChans
   drumSplit <- if not $ hasRankStr "drum" then return Nothing else case foundMix of
-    RBDrums.D0 -> case drumChans of
+    Nothing -> case drumChans of
+      -- No drum mix seen in The Kill (30STM), has 5 drum channels
+      [kitL, kitR] -> return $ Just $ PartSingle [kitL, kitR]
+      [kick, snare, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) (Just [snare]) [kitL, kitR]
+      [kick, snareL, snareR, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) (Just [snareL, snareR]) [kitL, kitR]
+      [kickL, kickR, snareL, snareR, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kickL, kickR]) (Just [snareL, snareR]) [kitL, kitR]
+      [kick, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
+      _ -> do
+        warn $ unwords
+          [ "No drum mix (or inconsistent) and there are"
+          , show $ length drumChans
+          , "drum channels (expected 2-6)"
+          ]
+        return $ Just $ PartSingle drumChans
+    Just RBDrums.D0 -> case drumChans of
       [kitL, kitR] -> return $ Just $ PartSingle [kitL, kitR]
       _ -> fatal $ "mix 0 needs 2 drums channels, " ++ show (length drumChans) ++ " given"
-    RBDrums.D1 -> case drumChans of
+    Just RBDrums.D1 -> case drumChans of
       [kick, snare, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) (Just [snare]) [kitL, kitR]
       _ -> fatal $ "mix 1 needs 4 drums channels, " ++ show (length drumChans) ++ " given"
-    RBDrums.D2 -> case drumChans of
+    Just RBDrums.D2 -> case drumChans of
       [kick, snareL, snareR, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) (Just [snareL, snareR]) [kitL, kitR]
       _ -> fatal $ "mix 2 needs 5 drums channels, " ++ show (length drumChans) ++ " given"
-    RBDrums.D3 -> case drumChans of
+    Just RBDrums.D3 -> case drumChans of
       [kickL, kickR, snareL, snareR, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kickL, kickR]) (Just [snareL, snareR]) [kitL, kitR]
       _ -> fatal $ "mix 3 needs 6 drums channels, " ++ show (length drumChans) ++ " given"
-    RBDrums.D4 -> case drumChans of
+    Just RBDrums.D4 -> case drumChans of
       [kick, kitL, kitR] -> return $ Just $ PartDrumKit (Just [kick]) Nothing [kitL, kitR]
       _ -> fatal $ "mix 4 needs 3 drums channels, " ++ show (length drumChans) ++ " given"
 
