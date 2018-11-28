@@ -12,7 +12,8 @@ import           Config
 import           Control.Applicative              (liftA2)
 import           Control.Monad.Extra              (filterM, forM, forM_, guard)
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Resource     (MonadUnliftIO, runResourceT)
+import           Control.Monad.Trans.Resource     (MonadUnliftIO, ResourceT,
+                                                   runResourceT)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                  as B
 import qualified Data.ByteString.Lazy             as BL
@@ -30,6 +31,7 @@ import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Functor                     (void)
 import qualified Data.HashMap.Strict              as Map
+import           Data.Int                         (Int16)
 import           Data.List.Extra                  (intercalate, stripSuffix)
 import           Data.List.HT                     (partitionMaybe)
 import           Data.Maybe                       (fromMaybe, listToMaybe)
@@ -929,12 +931,28 @@ commands =
         False -> fatal $ "onyx u8 expected directory; given: " <> dir
       _ -> fatal "Expected 1 argument (folder to pack)"
     }
+
   , Command
     { commandWord = "dolphin-midi"
     , commandDesc = "Apply useful changes to MIDI files for Dolphin preview recording."
-    , commandUsage = "onyx dolphin-midi in1.mid in2.mid [...] [--wii-no-fills] [--wii-mustang-22]"
-    , commandRun = \args opts -> do
-      return [] -- TODO
+    , commandUsage = T.unlines
+      [ "onyx dolphin-midi [notes.mid|song.yml|magma.rbproj|song.ini] [--wii-no-fills] [--wii-mustang-22]"
+      , "# or run on current directory"
+      , "onyx dolphin-midi [--wii-no-fills] [--wii-mustang-22]"
+      , "# by default, creates .dolphin.mid. or specify --to"
+      , "onyx dolphin-midi notes.mid --to new.mid [--wii-no-fills] [--wii-mustang-22]"
+      ]
+    , commandRun = \files opts -> do
+      fin <- getInputMIDI files
+      fout <- outputFile opts $ return $ fin -<.> "reduced.mid"
+      case (elem OptWiiNoFills opts, elem OptWiiMustang22 opts) of
+        (False, False) -> stackIO $ Dir.copyFile fin fout
+        (nofills, mustang22) -> do
+          mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+          let f = (if nofills   then RBFile.wiiNoFills   else id)
+                . (if mustang22 then RBFile.wiiMustang22 else id)
+          stackIO $ Save.toFile fout $ RBFile.showMIDIFile' $ f mid
+      return [fout]
     }
 
   , Command
@@ -961,7 +979,7 @@ commands =
                 songsXgenX = songsXgen </> takeFileName songsXX
             stackIO $ Dir.createDirectoryIfMissing True $ dir_meta </> "content" </> songsXgen
             stackIO $ Dir.createDirectoryIfMissing True $ dir_song </> "content" </> songsXgen
-            -- .mid (copy; later, option to remove drum fills (but not BRE))
+            -- .mid (use unchanged, or edit to remove fills and/or mustang PG)
             let midin  = extract </> songsXX <.> "mid"
                 midout = dir_song </> "content" </> songsXX <.> "mid"
             case (elem OptWiiNoFills opts, elem OptWiiMustang22 opts) of
@@ -971,24 +989,31 @@ commands =
                 let f = (if nofills   then RBFile.wiiNoFills   else id)
                       . (if mustang22 then RBFile.wiiMustang22 else id)
                 stackIO $ Save.toFile midout $ RBFile.showMIDIFile' $ f mid
-            -- .mogg (copy)
+            -- .mogg (use unchanged)
             let mogg = dir_song </> "content" </> songsXX <.> "mogg"
             stackIO $ Dir.renameFile (extract </> songsXX <.> "mogg") mogg
-            -- _prev.mogg (generate)
+            -- _prev.mogg (generate if possible)
             let ogg = extract </> "temp.ogg"
                 prevOgg = extract </> "temp_prev.ogg"
                 (prevStart, prevEnd) = D.preview pkg
                 prevLength = min 15000 $ prevEnd - prevStart
-            moggToOgg mogg ogg
-            src <- stackIO $ sourceSndFrom (CA.Seconds $ realToFrac prevStart / 1000) ogg
-            stackIO
-              $ runResourceT
-              $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
-              $ fadeStart (CA.Seconds 0.75)
-              $ fadeEnd (CA.Seconds 0.75)
-              $ CA.takeStart (CA.Seconds $ realToFrac prevLength / 1000)
-              $ applyPansVols (D.pans $ D.song pkg) (D.vols $ D.song pkg)
-              $ src
+            errorToWarning (moggToOgg mogg ogg) >>= \case
+              Just () -> do
+                src <- stackIO $ sourceSndFrom (CA.Seconds $ realToFrac prevStart / 1000) ogg
+                stackIO
+                  $ runResourceT
+                  $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
+                  $ fadeStart (CA.Seconds 0.75)
+                  $ fadeEnd (CA.Seconds 0.75)
+                  $ CA.takeStart (CA.Seconds $ realToFrac prevLength / 1000)
+                  $ applyPansVols (D.pans $ D.song pkg) (D.vols $ D.song pkg)
+                  $ src
+              Nothing -> do
+                -- encrypted mogg, just make silent preview
+                stackIO
+                  $ runResourceT
+                  $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
+                  $ (CA.silent (CA.Seconds $ realToFrac prevLength / 1000) 44100 2 :: CA.AudioSource (ResourceT IO) Int16)
             oggToMogg prevOgg $ dir_meta </> "content" </> (songsXX ++ "_prev.mogg")
             -- .png_wii (convert from .png_xbox)
             img <- stackIO $ Image.readRBImage . BL.fromStrict <$> B.readFile (extract </> (songsXgenX ++ "_keep.png_xbox"))
