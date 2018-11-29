@@ -173,6 +173,15 @@ pngXbox512DXT3Signature = B.pack
   , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
   ]
 
+-- seen in C3's Final Battle! (Rival)
+pngXbox2048DXT3Signature :: B.ByteString
+pngXbox2048DXT3Signature = B.pack
+  [ 0x01, 0x08, 0x18, 0x00, 0x00, 0x00, 0x06, 0x00
+  , 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x00, 0x00
+  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+  ]
+
 pngWii256DXT1Signature :: B.ByteString
 pngWii256DXT1Signature = B.pack
   [ 0x01, 0x04, 0x48, 0x00, 0x00, 0x00, 0x04, 0x00
@@ -224,5 +233,9 @@ readRBImage bs = let
       $ flip runGet (BL.drop 32 bs)
       $ fmap (arrangeRows 128 128)
       $ replicateM 16384 $ skip 8 >> readDXTChunk PNGXbox False
+    , (,) pngXbox2048DXT3Signature
+      $ flip runGet (BL.drop 32 bs)
+      $ fmap (arrangeRows 512 512)
+      $ replicateM 262144 $ skip 8 >> readDXTChunk PNGXbox False
     ]
   in fromMaybe (generateImage (\_ _ -> PixelRGB8 255 0 255) 256 256) $ lookup sig table

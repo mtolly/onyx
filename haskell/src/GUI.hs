@@ -204,6 +204,17 @@ convertRB2 = ConvertRB2
   , crb2Keys = NoKeys
   }
 
+data DolphinOptions = DolphinOptions
+  { dolNoFills   :: Bool
+  , dolMustang22 :: Bool
+  }
+
+dolphinOptions :: DolphinOptions
+dolphinOptions = DolphinOptions
+  { dolNoFills   = True
+  , dolMustang22 = True
+  }
+
 data OptionInput a
   = OptionEnum [Choice a]
   | OptionInt T.Text Int (Int -> a)
@@ -434,6 +445,75 @@ topMenu = Choices
   , ( Choice "Reduce" "Fills empty difficulties in a MIDI file with automatic reductions."
     $ pushMenu $ pickFiles ["*.mid"] "MIDI files" (const $ return "") $ \fs ->
       pushMenu $ TasksStart $ map (\f -> commandLine' ["reduce", f]) fs
+    )
+  , ( Choice "Dolphin" "Converts songs for recording videos via the Dolphin Wii emulator."
+    $ pushMenu $ let
+      opts DolphinOptions{..} =
+        [ Choice
+          { choiceTitle = "[option] Remove drum fills: " <> if dolNoFills then "Yes" else "No"
+          , choiceDescription = "Select whether to remove drum fills."
+          , choiceValue = OptionEnum
+            [ Choice
+              { choiceTitle = "Yes"
+              , choiceDescription = "Remove activation drum fills."
+              , choiceValue = DolphinOptions { dolNoFills = True, .. }
+              }
+            , Choice
+              { choiceTitle = "No"
+              , choiceDescription = "Leave drum fills intact."
+              , choiceValue = DolphinOptions { dolNoFills = False, .. }
+              }
+            ]
+          }
+        , Choice
+          { choiceTitle = "[option] Force 22-fret Pro G/B: " <> if dolMustang22 then "Yes" else "No"
+          , choiceDescription = "Select whether to remove Mustang (17-fret) ."
+          , choiceValue = OptionEnum
+            [ Choice
+              { choiceTitle = "Yes"
+              , choiceDescription = "22-fret Pro Guitar/Bass will always be shown."
+              , choiceValue = DolphinOptions { dolMustang22 = True, .. }
+              }
+            , Choice
+              { choiceTitle = "No"
+              , choiceDescription = "No change to Pro Guitar/Bass charts."
+              , choiceValue = DolphinOptions { dolMustang22 = False, .. }
+              }
+            ]
+          }
+        ]
+      in Choices
+        [ ( Choice "Combine CONs" "Combine CON files into .app files ready for Dolphin."
+          $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con"] "Songs (RB3/RB2)" filterSong
+          $ \fs -> pushMenu $ optionsMenu dolphinOptions
+          $ \dol -> let
+            continue = SaveFile (SavePicker
+              { savePatterns    = []
+              , saveDescription = "Folder for 00000001.app and 00000002.app"
+              , saveCurrent     = ""
+              }) $ \out -> pushMenu $ TasksStart $ (:[]) $ do
+                _ <- commandLine' $ concat
+                  [ ["dolphin"]
+                  , fs
+                  , ["--wii-no-fills" | dolNoFills dol]
+                  , ["--wii-mustang-22" | dolMustang22 dol]
+                  , ["--to", out]
+                  ]
+                return [out]
+            in (opts dol, continue)
+          )
+        , ( Choice "Edit MIDIs" "Make video-recording edits to standalone MIDI files."
+          $ pushMenu $ pickFiles ["*.mid"] "MIDI files" (const $ return "")
+          $ \fs -> pushMenu $ optionsMenu dolphinOptions
+          $ \dol -> let
+            continue = TasksStart $ flip map fs $ \f -> commandLine' $ concat
+              [ ["dolphin-midi", f]
+              , ["--wii-no-fills" | dolNoFills dol]
+              , ["--wii-mustang-22" | dolMustang22 dol]
+              ]
+            in (opts dol, continue)
+          )
+        ]
     )
   ]
 
