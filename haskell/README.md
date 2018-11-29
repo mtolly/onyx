@@ -47,7 +47,7 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
 
   * Convert to RB3 (CON/RBA/FoF/PS/CH/dB -> `_rb3con` or Magma folder)
 
-    Imports from a Rock Band 3, Frets on Fire, or Phase Shift song,
+    Imports from a Rock Band, Frets on Fire, Phase Shift, or Clone Hero song,
     and creates either a Rock Band 3 CON file or a Magma v2 project.
 
     Here is a sample of the steps performed when importing from FoF/PS:
@@ -100,12 +100,12 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
     When creating a Magma project, a REAPER project will also be generated
     so any remaining problems can be quickly edited and re-exported to MIDI.
     This avoids a few bugs in REAPER's own MIDI import function.
-    Also applies most of the C3 template to the MIDI tracks,
+    It also applies most of the C3 template to the MIDI tracks,
     so you get note names, colored tracks, and RBN preview windows.
     Because this must generate WAV audio files to give to Magma,
     encrypted MOGG files in input rb3cons are unsupported.
 
-    Tip: to process a song with an encrypted MOGG, one option is to use
+    Tip: to process a song with C3-encrypted MOGG, one option is to use
     the Phase Shift converter in C3 CON Tools which mixes the audio down to a
     single file, and then just supply the Phase Shift song to Onyx.
 
@@ -141,9 +141,9 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
     A player folder will appear next to the CON; open `index.html` to run.
     It can be run locally via `file://`, or hosted on a web server.
 
-    Some display options can be selected by editing the file `customize.js`,
-    including Lefty Flip mode, and an experimental "static tracks" mode where
-    the tracks stay still and the target lines move upward.
+    Colors used for drawing the display can be tweaked by editing the file
+    `customize.js`. In the future this will be improved to allow overriding
+    all pixel sizes as well.
 
   * Auto reductions (MIDI file -> MIDI file)
 
@@ -153,3 +153,18 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
     To use, ensure that there are no notes or events authored
     for a difficulty you want to be filled in.
     (For Pro Keys, remove the `PART REAL_KEYS_?` track entirely.)
+
+  * Dolphin song conversion (song -> 00000001.app and 00000002.app)
+
+    Converts a collection of songs to a single RB3 pack in the format used by
+    the Dolphin Wii emulator. This is primarily intended for people using
+    Dolphin to record videos of songs.
+
+    Options are also available to remove activation drum fills, and to remove
+    the Mustang version of a split Pro Guitar/Bass track so that the Squier
+    version (supporting more than 17 frets) will always be played.
+
+  * Dolphin MIDI conversion (MIDI file -> MIDI file)
+
+    The MIDI transformations for video recording as used above,
+    but as a standalone function.
