@@ -1,0 +1,15 @@
+metadata:
+  title: Sequence Start
+  artist: Sungazer
+audio:
+  album-track:
+    md5: 334138d7d819e018ae5dde458a06b0dc
+    frames: 4145400
+plans:
+  album:
+    song:
+      pad: [3.411, album-track]
+parts:
+  bass:
+    pro-guitar:
+      tuning: [0, 0, 0, 0]
