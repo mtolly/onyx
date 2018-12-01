@@ -35,6 +35,7 @@ import qualified Data.DTA.Serialize.RB3           as D
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
+import           Data.List                        (intercalate)
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (fromJust, fromMaybe)
 import           Data.Monoid                      ((<>))
@@ -93,6 +94,7 @@ data Menu
   = Choices [Choice (Onyx ())]
   | Files FilePicker ([FilePath] -> Onyx ())
   | SaveFile SavePicker (FilePath -> Onyx ())
+  | SaveDir SavePicker (FilePath -> Onyx ())
   | TasksStart [StackTraceT (QueueLog IO) [FilePath]]
   | TasksRunning ThreadId TasksStatus
   | TasksDone FilePath TasksStatus
@@ -467,7 +469,7 @@ topMenu = Choices
           }
         , Choice
           { choiceTitle = "[option] Force 22-fret Pro G/B: " <> if dolMustang22 then "Yes" else "No"
-          , choiceDescription = "Select whether to remove Mustang (17-fret) ."
+          , choiceDescription = "Select whether to remove Mustang (17-fret) charts."
           , choiceValue = OptionEnum
             [ Choice
               { choiceTitle = "Yes"
@@ -487,19 +489,17 @@ topMenu = Choices
           $ pushMenu $ pickFiles ["*_rb3con", "*_rb2con"] "Songs (RB3/RB2)" filterSong
           $ \fs -> pushMenu $ optionsMenu dolphinOptions
           $ \dol -> let
-            continue = SaveFile (SavePicker
+            continue = SaveDir (SavePicker
               { savePatterns    = []
               , saveDescription = "Folder for 00000001.app and 00000002.app"
               , saveCurrent     = ""
-              }) $ \out -> pushMenu $ TasksStart $ (:[]) $ do
-                _ <- commandLine' $ concat
-                  [ ["dolphin"]
-                  , fs
-                  , ["--wii-no-fills" | dolNoFills dol]
-                  , ["--wii-mustang-22" | dolMustang22 dol]
-                  , ["--to", out]
-                  ]
-                return [out]
+              }) $ \out -> pushMenu $ TasksStart $ (:[]) $ commandLine' $ concat
+                [ ["dolphin"]
+                , fs
+                , ["--wii-no-fills" | dolNoFills dol]
+                , ["--wii-mustang-22" | dolMustang22 dol]
+                , ["--to", out]
+                ]
             in (opts dol, continue)
           )
         , ( Choice "Edit MIDIs" "Make video-recording edits to standalone MIDI files."
@@ -713,6 +713,14 @@ launchGUI = do
         [ Choice "Select output path..." (saveDescription spick) $ do
           let pats = fixPatterns $ savePatterns spick
           liftIO $ void $ forkIO $ saveFileDialog "" (saveCurrent spick) pats (saveDescription spick) >>= \case
+            Just chosen -> atomically $ writeTChan varEvents $ LoadFile $ T.unpack chosen
+            Nothing     -> return ()
+        ] ++ if T.null $ saveCurrent spick then [] else
+          [ Choice "Continue" (saveCurrent spick) $ useFile $ T.unpack $ saveCurrent spick
+          ]
+      SaveDir spick useFile ->
+        [ Choice "Select output folder..." (saveDescription spick) $ do
+          liftIO $ void $ forkIO $ selectFolderDialog (saveDescription spick) (saveCurrent spick) >>= \case
             Just chosen -> atomically $ writeTChan varEvents $ LoadFile $ T.unpack chosen
             Nothing     -> return ()
         ] ++ if T.null $ saveCurrent spick then [] else
@@ -1119,6 +1127,8 @@ launchGUI = do
         setMenu $ Files fpick' useFiles
       GUIState{ currentScreen = SaveFile spick useFile } -> do
         setMenu $ SaveFile spick{ saveCurrent = T.pack fp } useFile
+      GUIState{ currentScreen = SaveDir spick useFile } -> do
+        setMenu $ SaveDir spick{ saveCurrent = T.pack fp } useFile
       _ -> return ()
 
     checkVars :: Onyx ()
@@ -1181,7 +1191,7 @@ launchGUI = do
                     let logFile = logDir </> fmt time <.> "txt"
                         fmt = formatTime defaultTimeLocale $ iso8601DateFormat $ Just "%H%M%S"
                     path <- getEnv "PATH"
-                    writeFile logFile $ unlines
+                    writeFile logFile $ intercalate "\r\n" $ map (filter (/= '\r'))
                       $ "PATH:"
                       : path
                       : map showTerminal (reverse $ currentLog gs)

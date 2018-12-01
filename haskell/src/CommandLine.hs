@@ -969,6 +969,7 @@ commands =
             dir_meta = temp </> "meta"
             dir_song = temp </> "song"
         allSongs <- fmap concat $ forM args $ \stfs -> do
+          lg $ "STFS: " <> stfs
           stackIO $ Dir.createDirectory extract
           stackIO $ extractSTFS stfs extract
           songs <- readFileSongsDTA $ extract </> "songs/songs.dta"
@@ -977,6 +978,7 @@ commands =
                 songsXX = T.unpack $ D.songName $ D.song pkg
                 songsXgen = takeDirectory songsXX </> "gen"
                 songsXgenX = songsXgen </> takeFileName songsXX
+            lg $ "Song: " <> T.unpack (D.name pkg) <> " (" <> T.unpack (D.artist pkg) <> ")"
             stackIO $ Dir.createDirectoryIfMissing True $ dir_meta </> "content" </> songsXgen
             stackIO $ Dir.createDirectoryIfMissing True $ dir_song </> "content" </> songsXgen
             -- .mid (use unchanged, or edit to remove fills and/or mustang PG)
@@ -997,8 +999,9 @@ commands =
                 prevOgg = extract </> "temp_prev.ogg"
                 (prevStart, prevEnd) = D.preview pkg
                 prevLength = min 15000 $ prevEnd - prevStart
-            errorToWarning (moggToOgg mogg ogg) >>= \case
-              Just () -> do
+            errorToEither (moggToOgg mogg ogg) >>= \case
+              Right () -> do
+                lg "Creating preview file"
                 src <- stackIO $ sourceSndFrom (CA.Seconds $ realToFrac prevStart / 1000) ogg
                 stackIO
                   $ runResourceT
@@ -1008,8 +1011,8 @@ commands =
                   $ CA.takeStart (CA.Seconds $ realToFrac prevLength / 1000)
                   $ applyPansVols (D.pans $ D.song pkg) (D.vols $ D.song pkg)
                   $ src
-              Nothing -> do
-                -- encrypted mogg, just make silent preview
+              Left _msgs -> do
+                lg "Encrypted audio, skipping preview"
                 stackIO
                   $ runResourceT
                   $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
@@ -1025,6 +1028,7 @@ commands =
           stackIO $ Dir.removeDirectoryRecursive extract
           return $ zip songs prevEnds
         -- write new combined dta file
+        lg "Writing combined songs.dta"
         let dta = dir_meta </> "content/songs/songs.dta"
         stackIO $ Dir.createDirectoryIfMissing True $ takeDirectory dta
         stackIO $ B.writeFile dta $ TE.encodeUtf8 $ T.unlines $ do
@@ -1038,6 +1042,7 @@ commands =
                 }
           return $ writeDTASingle $ DTASingle key pkg' c3
         -- pack it all up
+        lg "Packing into U8 files"
         stackIO $ packU8 dir_meta out_meta
         stackIO $ packU8 dir_song out_song
       return [out_meta, out_song]

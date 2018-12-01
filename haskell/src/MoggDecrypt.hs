@@ -10,6 +10,8 @@ import qualified Sound.MOGG
 import           Control.Applicative            (liftA2)
 import           Data.Binary.Get                (getWord32le, runGet)
 import qualified Data.ByteString.Lazy           as BL
+import           Data.Char                      (toUpper)
+import           Numeric                        (showHex)
 #endif
 
 -- | Only supports unencrypted MOGGs, unless you provide an external decryptor.
@@ -22,7 +24,8 @@ moggToOgg mogg ogg = liftIO (Sound.MOGG.moggToOgg mogg ogg) >>= \case
 moggToOgg mogg ogg = do
   bs <- liftIO $ BL.readFile mogg
   let (moggType, oggStart) = runGet (liftA2 (,) getWord32le getWord32le) bs
+      hex = "0x" <> map toUpper (showHex moggType "")
   if moggType == 0xA
     then liftIO $ BL.writeFile ogg $ BL.drop (fromIntegral oggStart) bs
-    else fatal $ "moggToOgg: not a supported MOGG file type (" ++ show moggType ++ ")"
+    else fatal $ "moggToOgg: encrypted MOGG (type " <> hex <> ") not supported"
 #endif
