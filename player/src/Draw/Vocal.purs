@@ -177,7 +177,7 @@ drawVocal (Vocal v) badge targetY stuff = do
     (getLyrics false $ L.fromFoldable $ Map.doTupleArray (zoomAsc v.harm2))
     (getLyrics true  $ L.fromFoldable $ Map.doTupleArray (zoomAsc v.harm3))
   -- Draw percussion notes
-  zoomDesc v.percussion \t (_ :: Unit) -> if t > stuff.time
+  zoomDesc v.percussion \t (_ :: Unit) -> if t > stuff.time && stuff.app.settings.autoplay
     then do
       setFillStyle customize.percussionOuter stuff
       fillCircle { x: toNumber $ secsToPxHoriz t, y: toNumber targetY + 90.0, r: 11.0 } stuff
