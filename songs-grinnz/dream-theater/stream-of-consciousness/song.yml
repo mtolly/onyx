@@ -117,12 +117,15 @@ parts:
       difficulty: 7
       layout: flip-yb-toms
   keys:
+    grybo:
+      difficulty: 7
     pro-keys:
       difficulty: 7
   guitar:
     grybo:
       difficulty: 7
     pro-guitar:
+      difficulty: 7
       tuning: [0, 0, 0, 0, 0, 0]
       tuning-global: -1 # Eb standard
   bass:

@@ -89,6 +89,7 @@ parts:
   drums:
     drums: {}
   guitar:
+    grybo: {}
     pro-guitar:
       tuning: [0, 0, 0, 0, 0, 0]
       tuning-global: -4 # C standard
