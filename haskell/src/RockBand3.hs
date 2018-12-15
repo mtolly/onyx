@@ -29,7 +29,6 @@ import           RockBand.Codec.Six
 import           RockBand.Codec.Venue              (compileVenueRB3)
 import           RockBand.Codec.Vocal
 import           RockBand.Common
-import qualified RockBand.Legacy.ProGuitar         as ProGtr
 import qualified RockBand.Legacy.Vocal             as RBVox
 import           RockBand.Sections                 (makePSSection)
 import           Scripts
@@ -321,11 +320,11 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             []   -> repeat 0
             offs -> offs ++ repeat 0
           f = (if pgFixFreeform pg then fixFreeformPG else id) . protarComplete
-            . autoHandPosition . autoChordRoot tuning . ProGtr.pgFromLegacy
-          src17 = ProGtr.pgToLegacy $ RBFile.onyxPartRealGuitar   src
-          src22 = ProGtr.pgToLegacy $ RBFile.onyxPartRealGuitar22 src
-          mustang = f $ ProGtr.lowerOctaves 17 $ if RTB.null src17 then src22 else src17
-          squier  = f $ ProGtr.lowerOctaves 22 $ if RTB.null src22 then src17 else src22
+            . autoHandPosition . autoChordRoot tuning
+          src17 = RBFile.onyxPartRealGuitar   src
+          src22 = RBFile.onyxPartRealGuitar22 src
+          mustang = f $ fretLimit 17 $ if nullPG src17 then src22 else src17
+          squier  = f $ fretLimit 22 $ if nullPG src22 then src17 else src22
           in (mustang, if mustang == squier then mempty else squier)
       (proGtr , proGtr22 ) = makeProGtrTracks guitarPart
       (proBass, proBass22) = makeProGtrTracks bassPart

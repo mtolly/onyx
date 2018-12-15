@@ -535,3 +535,25 @@ guitarifyHOPO threshold pgd = let
             _ -> Strum
     in (Just gems, Just (ntype, gems, len))
   in trackState Nothing fn withForce
+
+-- | Ensures that frets do not go above the given maximum,
+-- first by lowering marked sections one octave and then by simple clamping.
+-- TODO: change clamping to muting
+fretLimit :: (NNC.C t) => Int -> ProGuitarTrack t -> ProGuitarTrack t
+fretLimit maxFret pg = let
+  shouldLower = fmap (>= maxFret) $ pgOnyxOctave pg
+  doLower _    0 = 0
+  doLower down n = min maxFret $ if down && n >= 12 then n - 12 else n
+  lowerDiff diff = diff
+    { pgNotes
+      = fmap (\(down, (str, (nt, fret, mt))) -> (str, (nt, doLower down fret, mt)))
+      $ applyStatus1 False shouldLower
+      $ pgNotes diff
+    }
+  in pg
+    { pgDifficulties = fmap lowerDiff $ pgDifficulties pg
+    , pgHandPosition
+      = fmap (uncurry doLower)
+      $ applyStatus1 False shouldLower
+      $ pgHandPosition pg
+    }
