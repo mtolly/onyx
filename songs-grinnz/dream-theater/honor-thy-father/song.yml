@@ -87,21 +87,29 @@ plans:
             - drumcam-drums-expr-gap
 parts:
   drums:
-    drums: {}
+    drums:
+      difficulty: 7
   guitar:
-    grybo: {}
+    grybo:
+      difficulty: 5
     pro-guitar:
+      difficulty: 5
       tuning: [0, 0, 0, 0, 0, 0]
       tuning-global: -4 # C standard
   keys:
-    pro-keys: {}
-    grybo: {}
+    pro-keys:
+      difficulty: 7
+    grybo:
+      difficulty: 7
   bass:
-    grybo: {}
+    grybo:
+      difficulty: 5
     pro-guitar:
+      difficulty: 5
       tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC
   vocal:
     vocal:
+      difficulty: 5
       count: 2
       gender: male
 targets:

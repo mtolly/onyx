@@ -111,13 +111,17 @@ plans:
             - drumcam-drums-expr
 parts:
   drums:
-    drums: {}
+    drums:
+      difficulty: 7
   vocal:
     vocal:
+      difficulty: 5
       count: 3
   bass:
-    grybo: {}
+    grybo:
+      difficulty: 5
     pro-guitar:
+      difficulty: 6
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
 targets:
   rb3:

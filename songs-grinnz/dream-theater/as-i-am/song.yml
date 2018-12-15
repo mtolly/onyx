@@ -80,24 +80,32 @@ plans:
 parts:
   drums:
     drums:
+      difficulty: 7 # could be 6 but drum solo is pretty tough
       layout: flip-yb-toms
   guitar:
     pro-guitar:
+      difficulty: 7
       tuning: [0, 0, 0, 0, 0, 0]
       tuning-global: -4 # C standard
       # solo from https://tabs.ultimate-guitar.com/tab/dream_theater/as_i_am_tabs_126038
-    grybo: {}
+    grybo:
+      difficulty: 7
   bass:
     pro-guitar:
+      difficulty: 5
       tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC
-    grybo: {}
+    grybo:
+      difficulty: 4
   vocal:
     vocal:
+      difficulty: 4
       count: 3
       gender: male
   keys:
-    pro-keys: {}
-    grybo: {}
+    pro-keys:
+      difficulty: 4
+    grybo:
+      difficulty: 4
 targets:
   rb3:
     game: rb3

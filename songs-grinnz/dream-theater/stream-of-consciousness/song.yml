@@ -132,7 +132,7 @@ parts:
     grybo:
       difficulty: 5
     pro-guitar:
-      difficulty: 5
+      difficulty: 6
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
 targets:
   rb3:
