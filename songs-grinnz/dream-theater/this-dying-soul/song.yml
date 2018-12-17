@@ -123,6 +123,11 @@ parts:
     pro-guitar:
       difficulty: 6
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
+  guitar:
+    grybo:
+      difficulty: 7
+    # pro-guitar: # TODO squash to 6-string
+      # difficulty: 7
 targets:
   rb3:
     game: rb3
