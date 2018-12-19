@@ -1400,8 +1400,8 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                               }
                           , RBFile.fixedVenue = if RBFile.fixedVenue trks == mempty
                             then VenueTrack
-                              { venueCameraRB3       = RTB.empty
-                              , venueCameraRB2       = RTB.flatten $ RTB.singleton 0
+                              { venueCameraRB3        = RTB.empty
+                              , venueCameraRB2        = RTB.flatten $ RTB.singleton 0
                                 [ CameraCut
                                 , FocusBass
                                 , FocusDrums
@@ -1411,23 +1411,22 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                                 , OnlyFar
                                 , NoClose
                                 ]
-                              , venueDirectedRB2     = RTB.empty
-                              , venueSingGuitar      = RTB.empty
-                              , venueSingDrums       = RTB.empty
-                              , venueSingBass        = RTB.empty
-                              , venueSpotKeys        = RTB.empty
-                              , venueSpotVocal       = RTB.empty
-                              , venueSpotGuitar      = RTB.empty
-                              , venueSpotDrums       = RTB.empty
-                              , venueSpotBass        = RTB.empty
-                              , venuePostProcessRB3  = RTB.empty
-                              , venuePostProcessRB2  = RTB.singleton 0 V2_video_security
-                              , venueLightingShared  = RTB.singleton 0 Lighting_
-                              , venueLightingRB3     = RTB.empty
-                              , venueLightingRB2     = RTB.singleton 0 Lighting_verse
-                              , venueBonusFX         = RTB.empty
-                              , venueBonusFXOptional = RTB.empty
-                              , venueFog             = RTB.empty
+                              , venueDirectedRB2      = RTB.empty
+                              , venueSingGuitar       = RTB.empty
+                              , venueSingDrums        = RTB.empty
+                              , venueSingBass         = RTB.empty
+                              , venueSpotKeys         = RTB.empty
+                              , venueSpotVocal        = RTB.empty
+                              , venueSpotGuitar       = RTB.empty
+                              , venueSpotDrums        = RTB.empty
+                              , venueSpotBass         = RTB.empty
+                              , venuePostProcessRB3   = RTB.empty
+                              , venuePostProcessRB2   = RTB.singleton 0 V2_video_security
+                              , venueLighting         = RTB.cons 0 Lighting_ $ RTB.singleton 0 $ Lighting_verse RBN1
+                              , venueLightingCommands = RTB.empty
+                              , venueBonusFX          = RTB.empty
+                              , venueBonusFXOptional  = RTB.empty
+                              , venueFog              = RTB.empty
                               }
                             else RBFile.fixedVenue trks
                           }

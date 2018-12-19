@@ -38,6 +38,7 @@ import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
 import           RockBand.Codec.Six
 import           RockBand.Codec.Venue
+import           RockBand.Codec.VenueGen
 import           RockBand.Codec.Vocal
 import           RockBand.Common
 import           RockBand.PhaseShiftMessage
@@ -241,11 +242,13 @@ instance Hashable FlexPartName where
   hashWithSalt salt = hashWithSalt salt . getPartName
 
 data OnyxFile t = OnyxFile
-  { onyxParts  :: Map.Map FlexPartName (OnyxPart t)
-  , onyxEvents :: EventsTrack t
-  , onyxBeat   :: BeatTrack t
-  , onyxVenue  :: VenueTrack t
-  , onyxMelody :: MelodyTrack t
+  { onyxParts    :: Map.Map FlexPartName (OnyxPart t)
+  , onyxEvents   :: EventsTrack t
+  , onyxBeat     :: BeatTrack t
+  , onyxVenue    :: VenueTrack t
+  , onyxLighting :: LightingTrack t
+  , onyxCamera   :: CameraTrack t
+  , onyxMelody   :: MelodyTrack t
   } deriving (Eq, Ord, Show)
 
 instance HasEvents OnyxFile where
@@ -253,25 +256,28 @@ instance HasEvents OnyxFile where
 
 instance (NNC.C t) => Semigroup (OnyxFile t) where
   (<>)
-    (OnyxFile a1 a2 a3 a4 a5)
-    (OnyxFile b1 b2 b3 b4 b5)
+    (OnyxFile a1 a2 a3 a4 a5 a6 a7)
+    (OnyxFile b1 b2 b3 b4 b5 b6 b7)
     = OnyxFile
       (Map.unionWith (<>) a1 b1)
       (a2 <> b2)
       (a3 <> b3)
       (a4 <> b4)
       (a5 <> b5)
+      (a6 <> b6)
+      (a7 <> b7)
 
 instance (NNC.C t) => Monoid (OnyxFile t) where
-  mempty = OnyxFile Map.empty mempty mempty mempty mempty
+  mempty = OnyxFile Map.empty mempty mempty mempty mempty mempty mempty
 
 instance TraverseTrack OnyxFile where
   traverseTrack fn
-    (OnyxFile a b c d e)
+    (OnyxFile a b c d e f g)
     = OnyxFile
       <$> traverse (traverseTrack fn) a
       <*> traverseTrack fn b <*> traverseTrack fn c
       <*> traverseTrack fn d <*> traverseTrack fn e
+      <*> traverseTrack fn f <*> traverseTrack fn g
 
 data OnyxPart t = OnyxPart
   { onyxPartDrums        :: DrumTrack t
@@ -397,7 +403,7 @@ parseOnyxPart partName = do
 
 instance ParseFile OnyxFile where
   parseFile = do
-    onyxParts  <- onyxParts =. Codec
+    onyxParts    <- onyxParts =. Codec
       { codecIn = do
         trks <- lift get
         let partNames = nubOrd $ mapMaybe (U.trackName >=> identifyFlexTrack) trks
@@ -408,10 +414,12 @@ instance ParseFile OnyxFile where
       , codecOut = fmapArg $ \parts -> forM_ (Map.toAscList parts) $ \(partName, trk) ->
         codecOut (fileId $ parseOnyxPart partName) trk
       }
-    onyxEvents <- onyxEvents =. fileTrack "EVENTS" []
-    onyxBeat   <- onyxBeat   =. fileTrack "BEAT"   []
-    onyxVenue  <- onyxVenue  =. fileTrack "VENUE"  []
-    onyxMelody <- onyxMelody =. fileTrack "MELODY'S ESCAPE" []
+    onyxEvents   <- onyxEvents   =. fileTrack "EVENTS"          []
+    onyxBeat     <- onyxBeat     =. fileTrack "BEAT"            []
+    onyxVenue    <- onyxVenue    =. fileTrack "VENUE"           []
+    onyxLighting <- onyxLighting =. fileTrack "LIGHTING"        []
+    onyxCamera   <- onyxCamera   =. fileTrack "CAMERA"          []
+    onyxMelody   <- onyxMelody   =. fileTrack "MELODY'S ESCAPE" []
     return OnyxFile{..}
 
 newtype RawFile t = RawFile { rawTracks :: [RTB.T t E.T] }

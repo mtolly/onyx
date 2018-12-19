@@ -1,8 +1,11 @@
+{- |
+Alternate implementation of kueller's venuegen system:
+https://github.com/kueller/ReaperRBTools
+-}
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RecordWildCards #-}
 module RockBand.Codec.VenueGen where
 
-import           Control.Arrow                    (first)
 import           Control.Monad.Codec
 import           Control.Monad.Random
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -14,11 +17,30 @@ import           RockBand.Common
 
 data LightingTrack t = LightingTrack
   { lightingPostProcess     :: RTB.T t (PostProcess3, Bool)
-  , lightingShared          :: RTB.T t (LightingShared, Bool)
-  , lightingSplit           :: RTB.T t (LightingSplit, Bool)
+  , lightingTypes           :: RTB.T t (Lighting (), Bool)
+  , lightingCommands        :: RTB.T t LightingCommand
   , lightingBonusFX         :: RTB.T t ()
   , lightingBonusFXOptional :: RTB.T t ()
   } deriving (Eq, Ord, Show)
+
+instance (NNC.C t) => Semigroup (LightingTrack t) where
+  (<>)
+    (LightingTrack a1 a2 a3 a4 a5)
+    (LightingTrack b1 b2 b3 b4 b5)
+    = LightingTrack
+      (RTB.merge a1 b1)
+      (RTB.merge a2 b2)
+      (RTB.merge a3 b3)
+      (RTB.merge a4 b4)
+      (RTB.merge a5 b5)
+
+instance (NNC.C t) => Monoid (LightingTrack t) where
+  mempty = LightingTrack
+    RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
+
+instance TraverseTrack LightingTrack where
+  traverseTrack fn (LightingTrack a b c d e) = LightingTrack
+    <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e
 
 instance ParseTrack LightingTrack where
   parseTrack = do
@@ -55,10 +77,12 @@ instance ParseTrack LightingTrack where
       V3_ProFilm_mirror_a             -> 43
       V3_ProFilm_psychedelic_blue_red -> 42
       V3_space_woosh                  -> 41
-    lightingShared <- (lightingShared =.) $ condenseMap $ eachKey each $ edges . \case
+    lightingTypes <- (lightingTypes =.) $ condenseMap $ eachKey allLighting $ edges . \case
       -- manual
       Lighting_                 -> (-1) -- not supported by venuegen
       Lighting_intro            -> (-1) -- not supported by venuegen
+      Lighting_verse ()         -> 39
+      Lighting_chorus ()        -> 38
       Lighting_manual_cool      -> 37
       Lighting_manual_warm      -> 36
       Lighting_dischord         -> 35
@@ -80,13 +104,10 @@ instance ParseTrack LightingTrack where
       Lighting_flare_slow       -> 15
       Lighting_flare_fast       -> 14
       Lighting_bre              -> 13
-    lightingSplit <- (lightingSplit =.) $ condenseMap $ eachKey each $ edges . \case
-      Lighting_verse  -> 39
-      Lighting_chorus -> 38
-      -- controls
-      Lighting_first  -> 32
-      Lighting_prev   -> 31
-      Lighting_next   -> 30
+    lightingCommands <- (lightingCommands =.) $ condenseMap_ $ eachKey each $ blip . \case
+      LightingFirst -> 32
+      LightingPrev  -> 31
+      LightingNext  -> 30
     lightingBonusFXOptional <- lightingBonusFXOptional =. blip 11
     lightingBonusFX         <- lightingBonusFX         =. blip 10
     return LightingTrack{..}
@@ -101,29 +122,54 @@ venue_generate = go . RTB.flatten . fmap offsBeforeOns . RTB.collectCoincident w
       Just ((dt', _), _) | dt' /= NNC.zero -> RTB.cons dt x $ go rtb'
       _                                    -> RTB.delay dt $ go rtb'
 
+venue_ungenerate :: (NNC.C t, Eq a) => t -> RTB.T t a -> RTB.T t (a, Bool)
+venue_ungenerate lastLen = go Nothing where
+  go cur rtb = case RTB.viewL rtb of
+    Nothing -> case cur of
+      Nothing -> RTB.empty
+      Just x  -> RTB.singleton lastLen (x, False)
+    Just ((dt, x), rtb') -> case cur of
+      Nothing -> RTB.cons dt (x, True) $ go (Just x) rtb'
+      Just y  -> if x == y
+        then RTB.cons dt (x, False) $ go Nothing rtb'
+        else RTB.cons dt (x, False) $ RTB.cons NNC.zero (y, True) $ go (Just y) rtb'
+
 buildLighting :: (NNC.C t) => LightingTrack t -> VenueTrack t
-buildLighting lt = let
-  (controls, verseChorus) = RTB.partition
-    (\(x, _) -> elem x [Lighting_first, Lighting_prev, Lighting_next])
-    (lightingSplit lt)
-  controls' = fmap fst $ RTB.filter snd controls
-  presets = venue_generate $ RTB.merge
-    (first Left <$> lightingShared lt)
-    (first Right <$> verseChorus)
-  presetsShared = RTB.mapMaybe (\case Left x -> Just x; _ -> Nothing) presets
-  presetsSplit = RTB.mapMaybe (\case Right x -> Just x; _ -> Nothing) presets
-  in mempty
-    { venuePostProcessRB3 = venue_generate $ lightingPostProcess lt
-    , venueLightingShared = presetsShared
-    , venueLightingRB3 = RTB.merge presetsSplit controls'
-    , venueBonusFX = lightingBonusFX lt
-    , venueBonusFXOptional = lightingBonusFXOptional lt
-    }
+buildLighting lt = mempty
+  { venuePostProcessRB3   = venue_generate $ lightingPostProcess lt
+  , venueLighting         = fmap (fmap $ const RBN2) $ venue_generate $ lightingTypes lt
+  , venueLightingCommands = (\cmd -> (cmd, RBN2)) <$> lightingCommands lt
+  , venueBonusFX          = lightingBonusFX lt
+  , venueBonusFXOptional  = lightingBonusFXOptional lt
+  }
+
+unbuildLighting :: (NNC.C t) => t -> VenueTrack t -> LightingTrack t
+unbuildLighting lastLen vt = LightingTrack
+  { lightingPostProcess     = venue_ungenerate lastLen $ venuePostProcessRB3 vt
+  , lightingTypes           = venue_ungenerate lastLen $ fmap (const ()) <$> venueLighting vt
+  , lightingCommands        = fst <$> venueLightingCommands vt
+  , lightingBonusFX         = venueBonusFX vt
+  , lightingBonusFXOptional = venueBonusFXOptional vt
+  }
 
 data CameraTrack t = CameraTrack
   { cameraCuts   :: RTB.T t (Camera3, Bool)
   , cameraRandom :: RTB.T t ()
   } deriving (Eq, Ord, Show)
+
+instance (NNC.C t) => Semigroup (CameraTrack t) where
+  (<>)
+    (CameraTrack a1 a2)
+    (CameraTrack b1 b2)
+    = CameraTrack
+      (RTB.merge a1 b1)
+      (RTB.merge a2 b2)
+
+instance (NNC.C t) => Monoid (CameraTrack t) where
+  mempty = CameraTrack RTB.empty RTB.empty
+
+instance TraverseTrack CameraTrack where
+  traverseTrack fn (CameraTrack a b) = CameraTrack <$> fn a <*> fn b
 
 instance ParseTrack CameraTrack where
   parseTrack = do

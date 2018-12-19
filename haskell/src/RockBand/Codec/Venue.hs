@@ -1,8 +1,10 @@
+{-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 module RockBand.Codec.Venue where
 
+import           Control.Applicative              (liftA2)
 import           Control.Monad                    (guard, (>=>))
 import           Control.Monad.Codec
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -12,7 +14,6 @@ import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Common
 import qualified Sound.MIDI.Util                  as U
-import           Text.Read                        (readMaybe)
 
 data Camera3
   -- generic 4 camera shots
@@ -234,10 +235,11 @@ data CutEvent2
   | NoBehind
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
--- commands that are always in [lighting (foo)] form
-data LightingShared
+data Lighting game
   -- manual
   = Lighting_ -- empty parens
+  | Lighting_verse game -- [verse] in RBN1
+  | Lighting_chorus game -- [chorus] in RBN1
   | Lighting_intro -- new in rb3
   | Lighting_manual_cool
   | Lighting_manual_warm
@@ -260,6 +262,45 @@ data LightingShared
   | Lighting_flare_slow
   | Lighting_flare_fast
   | Lighting_bre
+  deriving (Eq, Ord, Show, Read, Functor)
+
+allLighting :: (Enum game, Bounded game) => [Lighting game]
+allLighting = let
+  games = [minBound .. maxBound]
+  in concat
+    [ [Lighting_]
+    , map Lighting_verse games
+    , map Lighting_chorus games
+    , [Lighting_intro]
+    , [Lighting_manual_cool]
+    , [Lighting_manual_warm]
+    , [Lighting_dischord]
+    , [Lighting_stomp]
+    , [Lighting_loop_cool]
+    , [Lighting_loop_warm]
+    , [Lighting_harmony]
+    , [Lighting_frenzy]
+    , [Lighting_silhouettes]
+    , [Lighting_silhouettes_spot]
+    , [Lighting_searchlights]
+    , [Lighting_sweep]
+    , [Lighting_strobe_slow]
+    , [Lighting_strobe_fast]
+    , [Lighting_blackout_slow]
+    , [Lighting_blackout_fast]
+    , [Lighting_blackout_spot]
+    , [Lighting_flare_slow]
+    , [Lighting_flare_fast]
+    , [Lighting_bre]
+    ]
+
+data VenueFormat = RBN1 | RBN2
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data LightingCommand
+  = LightingFirst
+  | LightingPrev
+  | LightingNext
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 isLighting :: [T.Text] -> Maybe T.Text
@@ -270,56 +311,47 @@ isLighting = let
     [s]             -> T.stripPrefix "lighting" s >>= stripParens
     _               -> Nothing
 
-instance Command LightingShared where
-  fromCommand x = case T.stripPrefix "Lighting_" $ T.pack $ show x of
-    Just s  -> ["lighting", "(" <> s <> ")"]
-    Nothing -> error "panic! couldn't strip Lighting_ from venue event"
-  toCommand = isLighting >=> readMaybe . T.unpack . ("Lighting_" <>)
-
--- different formats in rb2 vs rb3
-data LightingSplit
-  = Lighting_verse
-  | Lighting_chorus
-  -- controls
-  | Lighting_first
-  | Lighting_prev
-  | Lighting_next
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+specificLighting :: (Monad m, NNC.C t) => T.Text -> TrackEvent m t ()
+specificLighting s = single
+  (readCommand' >=> isLighting >=> guard . (== s))
+  (\() -> showCommand' ["lighting", "(" <> s <> ")"])
 
 data VenueTrack t = VenueTrack
 
-  { venueCameraRB3       :: RTB.T t Camera3
-  , venueCameraRB2       :: RTB.T t CutEvent2
-  , venueDirectedRB2     :: RTB.T t DoCut2
+  { venueCameraRB3        :: RTB.T t Camera3
+  , venueCameraRB2        :: RTB.T t CutEvent2
+  , venueDirectedRB2      :: RTB.T t DoCut2
 
-  , venueSingGuitar      :: RTB.T t Bool -- or keys if no guitar
-  , venueSingDrums       :: RTB.T t Bool
-  , venueSingBass        :: RTB.T t Bool -- or keys if no bass
+  , venueSingGuitar       :: RTB.T t Bool -- or keys if no guitar
+  , venueSingDrums        :: RTB.T t Bool
+  , venueSingBass         :: RTB.T t Bool -- or keys if no bass
+  -- actually if there's no guitar,
+  -- bass might take guitar spot and keys take bass spot.
+  -- should test
 
-  , venueSpotKeys        :: RTB.T t Bool -- rb3 only of course
-  , venueSpotVocal       :: RTB.T t Bool
-  , venueSpotGuitar      :: RTB.T t Bool
-  , venueSpotDrums       :: RTB.T t Bool
-  , venueSpotBass        :: RTB.T t Bool
+  , venueSpotKeys         :: RTB.T t Bool -- rb3 only of course
+  , venueSpotVocal        :: RTB.T t Bool
+  , venueSpotGuitar       :: RTB.T t Bool
+  , venueSpotDrums        :: RTB.T t Bool
+  , venueSpotBass         :: RTB.T t Bool
 
-  , venuePostProcessRB3  :: RTB.T t PostProcess3
-  , venuePostProcessRB2  :: RTB.T t PostProcess2
+  , venuePostProcessRB3   :: RTB.T t PostProcess3
+  , venuePostProcessRB2   :: RTB.T t PostProcess2
 
-  , venueLightingShared  :: RTB.T t LightingShared
-  , venueLightingRB3     :: RTB.T t LightingSplit
-  , venueLightingRB2     :: RTB.T t LightingSplit
+  , venueLighting         :: RTB.T t (Lighting VenueFormat)
+  , venueLightingCommands :: RTB.T t (LightingCommand, VenueFormat)
 
-  , venueBonusFX         :: RTB.T t ()
-  , venueBonusFXOptional :: RTB.T t ()
+  , venueBonusFX          :: RTB.T t ()
+  , venueBonusFXOptional  :: RTB.T t ()
 
-  , venueFog             :: RTB.T t Bool
+  , venueFog              :: RTB.T t Bool
 
   } deriving (Eq, Ord, Show)
 
 instance (NNC.C t) => Semigroup (VenueTrack t) where
   (<>)
-    (VenueTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18 a19)
-    (VenueTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18 b19)
+    (VenueTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17 a18)
+    (VenueTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17 b18)
     = VenueTrack
       (RTB.merge a1 b1)
       (RTB.merge a2 b2)
@@ -339,20 +371,18 @@ instance (NNC.C t) => Semigroup (VenueTrack t) where
       (RTB.merge a16 b16)
       (RTB.merge a17 b17)
       (RTB.merge a18 b18)
-      (RTB.merge a19 b19)
 
 instance (NNC.C t) => Monoid (VenueTrack t) where
-  mempty = VenueTrack RTB.empty
+  mempty = VenueTrack
     RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
     RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
     RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance TraverseTrack VenueTrack where
-  traverseTrack fn (VenueTrack a b c d e f g h i j k l m n o p q r s) = VenueTrack
+  traverseTrack fn (VenueTrack a b c d e f g h i j k l m n o p q r) = VenueTrack
     <$> fn a <*> fn b <*> fn c <*> fn d <*> fn e <*> fn f
     <*> fn g <*> fn h <*> fn i <*> fn j <*> fn k <*> fn l
     <*> fn m <*> fn n <*> fn o <*> fn p <*> fn q <*> fn r
-    <*> fn s
 
 instance ParseTrack VenueTrack where
   parseTrack = do
@@ -393,30 +423,27 @@ instance ParseTrack VenueTrack where
       V2_film_16mm        -> 98
       V2_contrast_a       -> 97
       V2_Default          -> 96
-    venueLightingShared  <- venueLightingShared  =. command
-    venueLightingRB3 <- (venueLightingRB3 =.) $ condenseMap_ $ eachKey each $ \case
-      Lighting_verse  -> specificLighting "verse"
-      Lighting_chorus -> specificLighting "chorus"
-      Lighting_first  -> commandMatch ["first"]
-      Lighting_prev   -> commandMatch ["prev"]
-      Lighting_next   -> commandMatch ["next"]
-    venueLightingRB2 <- (venueLightingRB2 =.) $ condenseMap_ $ eachKey each $ \case
-      Lighting_verse  -> commandMatch ["verse"]
-      Lighting_chorus -> commandMatch ["chorus"]
-      Lighting_first  -> blip 50
-      Lighting_prev   -> blip 49
-      Lighting_next   -> blip 48
+    venueLighting <- (venueLighting =.) $ condenseMap_ $ eachKey allLighting $ \case
+      Lighting_verse  RBN2 -> specificLighting "verse"
+      Lighting_chorus RBN2 -> specificLighting "chorus"
+      Lighting_verse  RBN1 -> commandMatch ["verse"]
+      Lighting_chorus RBN1 -> commandMatch ["chorus"]
+      light -> specificLighting $ case T.stripPrefix "Lighting_" $ T.pack $ show light of
+        Just s  -> s
+        Nothing -> error $ "panic! couldn't strip Lighting_ from: " ++ show light
+    venueLightingCommands <- (venueLightingCommands =.) $ condenseMap_ $ eachKey (liftA2 (,) each each) $ \case
+      (LightingFirst, RBN2) -> commandMatch ["first"]
+      (LightingPrev , RBN2) -> commandMatch ["prev"]
+      (LightingNext , RBN2) -> commandMatch ["next"]
+      (LightingFirst, RBN1) -> blip 50
+      (LightingPrev , RBN1) -> blip 49
+      (LightingNext , RBN1) -> blip 48
     venueBonusFX         <- venueBonusFX         =. commandMatch ["bonusfx"]
     venueBonusFXOptional <- venueBonusFXOptional =. commandMatch ["bonusfx_optional"]
     venueFog <- (venueFog =.) $ condenseMap_ $ eachKey each $ commandMatch . \case
       True  -> ["FogOn"]
       False -> ["FogOff"]
     return VenueTrack{..}
-
-specificLighting :: (Monad m, NNC.C t) => T.Text -> TrackEvent m t ()
-specificLighting s = single
-  (readCommand' >=> isLighting >=> guard . (== s))
-  (\() -> showCommand' ["lighting", "(" <> s <> ")"])
 
 compileVenueRB3 :: (NNC.C t) => VenueTrack t -> VenueTrack t
 compileVenueRB3 vt = vt
@@ -544,8 +571,8 @@ compileVenueRB3 vt = vt
       V2_Default          -> V3_ProFilm_a
       -- ^ not in rbn2 list, but rbn2 docs say ProFilm_a is "default"
   , venuePostProcessRB2 = RTB.empty
-  , venueLightingRB3 = RTB.merge (venueLightingRB3 vt) (venueLightingRB2 vt)
-  , venueLightingRB2 = RTB.empty
+  , venueLighting = fmap (const RBN2) <$> venueLighting vt
+  , venueLightingCommands = (\(cmd, _) -> (cmd, RBN2)) <$> venueLightingCommands vt
   , venueFog = RTB.empty
   }
 
@@ -689,15 +716,15 @@ compileVenueRB2 vt = let
         V3_ProFilm_mirror_a             -> V2_ProFilm_mirror_a
         V3_ProFilm_psychedelic_blue_red -> V2_photo_negative
         V3_space_woosh                  -> V2_video_trails
-    , venueLightingShared
-      = U.trackDropZero $ flip fmap (venueLightingShared vt) $ \case
+    , venueLighting
+      = fmap (fmap (const RBN1) . \case
         Lighting_intro         -> Lighting_
         Lighting_blackout_spot -> Lighting_silhouettes_spot
         x                      -> x
-    , venueLightingRB3 = RTB.empty
-    , venueLightingRB2
-      = RTB.cons NNC.zero Lighting_verse
-      $ U.trackDropZero
-      $ RTB.merge (venueLightingRB3 vt) (venueLightingRB2 vt)
+        )
       -- Magma v1 requires that the lighting track start with [verse]
+      $ RTB.cons NNC.zero (Lighting_verse RBN1)
+      $ U.trackDropZero
+      $ venueLighting vt
+    , venueLightingCommands = (\(cmd, _) -> (cmd, RBN1)) <$> venueLightingCommands vt
     }

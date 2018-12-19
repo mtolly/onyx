@@ -26,7 +26,8 @@ import           RockBand.Codec.Five
 import           RockBand.Codec.ProGuitar
 import           RockBand.Codec.ProKeys
 import           RockBand.Codec.Six
-import           RockBand.Codec.Venue              (compileVenueRB3)
+import           RockBand.Codec.Venue
+import           RockBand.Codec.VenueGen           (buildLighting)
 import           RockBand.Codec.Vocal
 import           RockBand.Common
 import qualified RockBand.Legacy.Vocal             as RBVox
@@ -432,10 +433,18 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
         $ U.measureMapToTimeSigs mmap
 
   let isPS = case target of Left _rb3 -> False; Right _ps -> True
+      venue = compileVenueRB3 $ mconcat
+        [ RBFile.onyxVenue trks
+        , buildLighting $ RBFile.onyxLighting trks
+        ] -- TODO `CAMERA`
+      -- hack: if author is testing lighting but no camera cuts yet, just show stage
+      venue' = if RTB.null (venueCameraRB3 venue) && not (RTB.null $ venueLighting venue)
+        then venue { venueCameraRB3 = RTB.singleton 0 V3_coop_all_near }
+        else venue
   return $ RBFile.Song tempos' mmap' RBFile.FixedFile
     { RBFile.fixedBeat = beatTrack
     , RBFile.fixedEvents = if isPS then eventsTrackPS else eventsTrack
-    , RBFile.fixedVenue = compileVenueRB3 $ RBFile.onyxVenue trks
+    , RBFile.fixedVenue = venue'
     , RBFile.fixedPartDrums = drumsTrack'
     , RBFile.fixedPartDrums2x = mempty
     , RBFile.fixedPartRealDrumsPS = mempty
