@@ -77,7 +77,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     medium drums - AIA, SOC
     easy drums - AIA, SOC
   > venue:
-    lighting - AIA, SOC
+    lighting - AIA, HTF, SOC
     camera - todo
     animations (moods, crowd, gtr/bass neck, etc.) - todo
   > final audio production
