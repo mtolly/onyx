@@ -16,6 +16,7 @@ import           Control.Monad                    (guard)
 import           Data.Bifunctor                   (Bifunctor (..))
 import           Data.Char                        (isSpace)
 import qualified Data.EventList.Relative.TimeBody as RTB
+import           Data.Hashable                    (Hashable (..))
 import           Data.List                        (stripPrefix)
 import           Data.Maybe                       (fromMaybe, isJust)
 import           Data.Monoid                      ((<>))
@@ -299,3 +300,9 @@ data StrumHOPOTap = Strum | HOPO | Tap
 
 data LaneDifficulty = LaneExpert | LaneHard
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+data RB3Instrument = Guitar | Bass | Drums | Keys | Vocal
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance Hashable RB3Instrument where
+  hashWithSalt s = hashWithSalt s . fromEnum

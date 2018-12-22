@@ -624,3 +624,17 @@ wiiMustang22 (Song temps sigs ff) = let
     { fixedPartRealGuitar = if all (not . nullPG) [g17, g22] then g22 else g17
     , fixedPartRealBass   = if all (not . nullPG) [b17, b22] then b22 else b17
     }
+
+convertToVenueGen :: Song (OnyxFile U.Beats) -> Song (OnyxFile U.Beats)
+convertToVenueGen (Song temps sigs trks) = Song temps sigs trks
+  { onyxLighting = onyxLighting trks <> unbuildLighting 1 (onyxVenue trks)
+  , onyxCamera   = onyxCamera   trks <> unbuildCamera   1 (onyxVenue trks)
+  , onyxVenue = (onyxVenue trks)
+    { venueCameraRB3        = RTB.empty
+    , venuePostProcessRB3   = RTB.empty
+    , venueLighting         = RTB.empty
+    , venueLightingCommands = RTB.empty
+    , venueBonusFX          = RTB.empty
+    , venueBonusFXOptional  = RTB.empty
+    }
+  }

@@ -4,16 +4,20 @@ https://github.com/kueller/ReaperRBTools
 -}
 {-# LANGUAGE LambdaCase      #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TupleSections   #-}
 module RockBand.Codec.VenueGen where
 
+import           Control.Monad                    (guard)
 import           Control.Monad.Codec
-import           Control.Monad.Random
+import           Control.Monad.Random             (MonadRandom, fromListMay)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.List                        (partition)
+import           Data.Maybe                       (catMaybes, fromMaybe)
 import qualified Numeric.NonNegative.Class        as NNC
 import           RockBand.Codec
 import           RockBand.Codec.Venue
 import           RockBand.Common
+import qualified Sound.MIDI.Util                  as U
 
 data LightingTrack t = LightingTrack
   { lightingPostProcess     :: RTB.T t (PostProcess3, Bool)
@@ -79,8 +83,8 @@ instance ParseTrack LightingTrack where
       V3_space_woosh                  -> 41
     lightingTypes <- (lightingTypes =.) $ condenseMap $ eachKey allLighting $ edges . \case
       -- manual
-      Lighting_                 -> (-1) -- not supported by venuegen
-      Lighting_intro            -> (-1) -- not supported by venuegen
+      Lighting_                 -> 1 -- not supported by venuegen
+      Lighting_intro            -> 2 -- not supported by venuegen
       Lighting_verse ()         -> 39
       Lighting_chorus ()        -> 38
       Lighting_manual_cool      -> 37
@@ -104,12 +108,12 @@ instance ParseTrack LightingTrack where
       Lighting_flare_slow       -> 15
       Lighting_flare_fast       -> 14
       Lighting_bre              -> 13
-    lightingCommands <- (lightingCommands =.) $ condenseMap_ $ eachKey each $ blip . \case
+    lightingCommands <- (lightingCommands =.) $ fatBlips (1/8) $ condenseMap_ $ eachKey each $ blip . \case
       LightingFirst -> 32
       LightingPrev  -> 31
       LightingNext  -> 30
-    lightingBonusFXOptional <- lightingBonusFXOptional =. blip 11
-    lightingBonusFX         <- lightingBonusFX         =. blip 10
+    lightingBonusFXOptional <- lightingBonusFXOptional =. fatBlips (1/8) (blip 11)
+    lightingBonusFX         <- lightingBonusFX         =. fatBlips (1/8) (blip 10)
     return LightingTrack{..}
 
 venue_generate :: (NNC.C t) => RTB.T t (a, Bool) -> RTB.T t a
@@ -131,8 +135,8 @@ venue_ungenerate lastLen = go Nothing where
     Just ((dt, x), rtb') -> case cur of
       Nothing -> RTB.cons dt (x, True) $ go (Just x) rtb'
       Just y  -> if x == y
-        then RTB.cons dt (x, False) $ go Nothing rtb'
-        else RTB.cons dt (x, False) $ RTB.cons NNC.zero (y, True) $ go (Just y) rtb'
+        then RTB.cons dt (y, False) $ go Nothing rtb'
+        else RTB.cons dt (y, False) $ RTB.cons NNC.zero (x, True) $ go (Just x) rtb'
 
 buildLighting :: (NNC.C t) => LightingTrack t -> VenueTrack t
 buildLighting lt = mempty
@@ -262,48 +266,108 @@ instance ParseTrack CameraTrack where
       V3_directed_duo_kg        -> 11
     return CameraTrack{..}
 
-cameraLevels :: [(Camera3, Int)]
+cameraLevels :: [(Camera3, (Int, [RB3Instrument]))]
 cameraLevels =
-  [ (V3_coop_gk_near       , 7)
-  , (V3_coop_gk_behind     , 7)
-  , (V3_coop_bk_near       , 6)
-  , (V3_coop_bk_behind     , 6)
-  , (V3_coop_bg_near       , 5)
-  , (V3_coop_bg_behind     , 5)
-  , (V3_coop_kv_near       , 4)
-  , (V3_coop_kv_behind     , 4)
-  , (V3_coop_gv_near       , 3)
-  , (V3_coop_gv_behind     , 3)
-  , (V3_coop_bv_near       , 2)
-  , (V3_coop_bv_behind     , 2)
-  , (V3_coop_dg_near       , 1)
-  , (V3_coop_bd_near       , 1)
-  , (V3_coop_dv_near       , 0)
-  , (V3_coop_k_closeup_head, 8)
-  , (V3_coop_k_closeup_hand, 8)
-  , (V3_coop_g_closeup_head, 2)
-  , (V3_coop_g_closeup_hand, 2)
-  , (V3_coop_b_closeup_head, 1)
-  , (V3_coop_b_closeup_hand, 1)
-  , (V3_coop_v_closeup     , 0)
-  , (V3_coop_d_closeup_head, 0)
-  , (V3_coop_d_closeup_hand, 0)
-  , (V3_coop_k_near        , 8)
-  , (V3_coop_k_behind      , 8)
-  , (V3_coop_g_near        , 2)
-  , (V3_coop_g_behind      , 2)
-  , (V3_coop_b_near        , 1)
-  , (V3_coop_b_behind      , 1)
-  , (V3_coop_v_near        , 0)
-  , (V3_coop_v_behind      , 0)
-  , (V3_coop_d_near        , 0)
-  , (V3_coop_d_behind      , 0)
-  , (V3_coop_front_near    , 0)
-  , (V3_coop_front_behind  , 0)
-  , (V3_coop_all_near      , 0)
-  , (V3_coop_all_far       , 0)
-  , (V3_coop_all_behind    , 0)
+  [ (V3_coop_gk_near       , (7, [Guitar, Keys]))
+  , (V3_coop_gk_behind     , (7, [Guitar, Keys]))
+  , (V3_coop_bk_near       , (6, [Bass, Keys]))
+  , (V3_coop_bk_behind     , (6, [Bass, Keys]))
+  , (V3_coop_bg_near       , (5, [Bass, Guitar]))
+  , (V3_coop_bg_behind     , (5, [Bass, Guitar]))
+  , (V3_coop_kv_near       , (4, [Keys, Vocal]))
+  , (V3_coop_kv_behind     , (4, [Keys, Vocal]))
+  , (V3_coop_gv_near       , (3, [Guitar, Vocal]))
+  , (V3_coop_gv_behind     , (3, [Guitar, Vocal]))
+  , (V3_coop_bv_near       , (2, [Bass, Vocal]))
+  , (V3_coop_bv_behind     , (2, [Bass, Vocal]))
+  , (V3_coop_dg_near       , (1, [Drums, Guitar]))
+  , (V3_coop_bd_near       , (1, [Bass, Drums]))
+  , (V3_coop_dv_near       , (0, [Drums, Vocal]))
+  , (V3_coop_k_closeup_head, (8, [Keys]))
+  , (V3_coop_k_closeup_hand, (8, [Keys]))
+  , (V3_coop_g_closeup_head, (2, [Guitar]))
+  , (V3_coop_g_closeup_hand, (2, [Guitar]))
+  , (V3_coop_b_closeup_head, (1, [Bass]))
+  , (V3_coop_b_closeup_hand, (1, [Bass]))
+  , (V3_coop_v_closeup     , (0, [Vocal]))
+  , (V3_coop_d_closeup_head, (0, [Drums]))
+  , (V3_coop_d_closeup_hand, (0, [Drums]))
+  , (V3_coop_k_near        , (8, [Keys]))
+  , (V3_coop_k_behind      , (8, [Keys]))
+  , (V3_coop_g_near        , (2, [Guitar]))
+  , (V3_coop_g_behind      , (2, [Guitar]))
+  , (V3_coop_b_near        , (1, [Bass]))
+  , (V3_coop_b_behind      , (1, [Bass]))
+  , (V3_coop_v_near        , (0, [Vocal]))
+  , (V3_coop_v_behind      , (0, [Vocal]))
+  , (V3_coop_d_near        , (0, [Drums]))
+  , (V3_coop_d_behind      , (0, [Drums]))
+  , (V3_coop_front_near    , (0, []))
+  , (V3_coop_front_behind  , (0, []))
+  , (V3_coop_all_near      , (0, []))
+  , (V3_coop_all_far       , (0, []))
+  , (V3_coop_all_behind    , (0, []))
   ]
 
-buildCamera :: (NNC.C t, MonadRandom m) => CameraTrack t -> m (VenueTrack t)
-buildCamera = undefined
+buildCamera :: (NNC.C t, MonadRandom m) => [RB3Instrument] -> CameraTrack t -> m (VenueTrack t)
+buildCamera hasInsts ct = do
+  let joined = joinEdgesSimple $ (\(cut, b) -> (guard b >> Just (), cut)) <$> cameraCuts ct
+      go prev rtb = case RTB.viewL rtb of
+        Nothing -> return RTB.empty
+        Just ((dt, evts), rtb') -> do
+          let written = catMaybes evts
+              next = case RTB.viewL rtb' of
+                Just ((_, evts'), _) -> catMaybes evts'
+                _                    -> []
+              avoidCuts = map (\((), cut, _) -> cut) $ prev ++ written ++ next
+          random <- if elem Nothing evts
+            then do
+              let minLevel = case map fst $ catMaybes [ lookup cut cameraLevels | ((), cut, _) <- written ] of
+                    []     -> 999
+                    x : xs -> foldr min x xs
+                  possibleCuts = do
+                    (cut, (level, insts)) <- cameraLevels
+                    guard $ level < minLevel || (level == 0 && minLevel == 0)
+                    guard $ all (`elem` hasInsts) insts
+                    guard $ not $ elem cut avoidCuts
+                    return cut
+              cut <- fromMaybe V3_coop_all_near <$> fromListMay
+                [ (cut, 1) | cut <- possibleCuts ]
+              return [((), cut, NNC.zero)]
+            else return []
+          let this = random ++ written
+              starCuts =
+                [ V3_directed_all_lt
+                , V3_directed_crowd
+                , V3_directed_drums_lt
+                , V3_directed_drums_kd
+                , V3_directed_bass_cls
+                , V3_directed_guitar_cls
+                ]
+              translateNoteOff cut len = if elem cut starCuts
+                then case RTB.viewL rtb' of
+                  Nothing            -> False      -- last cut, don't include end event
+                  Just ((dt', _), _) -> dt' /= len -- include end event if it doesn't go to the next cut
+                else False                         -- not a "free" cut
+              theseCuts = foldr RTB.merge RTB.empty $ do
+                ((), cut, len) <- this
+                return $ if translateNoteOff cut len
+                  then RTB.fromPairList [(NNC.zero, cut), (len, cut)]
+                  else RTB.singleton NNC.zero cut
+          RTB.cons dt theseCuts <$> go this rtb'
+  cuts <- go [] $ RTB.collectCoincident $ RTB.merge
+    (fmap Just joined)
+    (fmap (const Nothing) $ cameraRandom ct)
+  return mempty { venueCameraRB3 = U.trackJoin cuts }
+
+unbuildCamera :: (NNC.C t) => t -> VenueTrack t -> CameraTrack t
+unbuildCamera lastLen vt = CameraTrack
+  { cameraCuts = let
+    -- each set of cuts, just make it a note that extends to the next set of cuts
+    pairs = RTB.toPairList $ RTB.collectCoincident $ venueCameraRB3 vt
+    lens = drop 1 (map fst pairs) ++ [lastLen]
+    in U.trackJoin $ RTB.fromPairList $ flip map (zip pairs lens) $ \((dt, cuts), len) ->
+      (dt, RTB.flatten $ RTB.fromPairList [(NNC.zero, map (, True) cuts), (len, (map (, False) cuts))])
+    -- TODO this makes repeated directed cuts look weird, should fix
+  , cameraRandom = RTB.empty
+  }

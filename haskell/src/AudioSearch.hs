@@ -7,6 +7,7 @@ module AudioSearch
 , searchInfo
 , searchMOGG
 , searchJammit
+, fromJammitInstrument
 ) where
 
 import           Audio
@@ -28,6 +29,7 @@ import qualified Data.Sequence                  as S
 import qualified Data.Text                      as T
 import           Path
 import           Path.IO
+import           RockBand.Common                (RB3Instrument (..))
 import qualified Sound.Jammit.Base              as J
 import           System.Process                 (shell)
 
@@ -36,7 +38,7 @@ newtype AudioLibrary = AudioLibrary (MVar AudioState)
 data AudioState = AudioState
   { audioFiles        :: !(HM.HashMap T.Text (Path Abs File)) -- ^ keys are MD5 of audio content (i.e. FLAC fingerprint)
   , audioMOGGs        :: !(HM.HashMap T.Text (Path Abs File)) -- ^ keys are MD5 of whole file
-  , audioJammit       :: !(HM.HashMap (T.Text, T.Text, Instrument) (Path Abs Dir)) -- ^ keys are (title, artist, instrument)
+  , audioJammit       :: !(HM.HashMap (T.Text, T.Text, RB3Instrument) (Path Abs Dir)) -- ^ keys are (title, artist, instrument)
   , audioQueueDirs    :: !(S.Seq (Path Abs Dir))
   , audioQueueFLACs   :: !(S.Seq (Path Abs File))
   , audioQueueWAVs    :: !(S.Seq (Path Abs File))
@@ -179,6 +181,14 @@ processOne stype ast = case popFile stype ast of
             Nothing -> ret ast'
         _ -> ret ast'
 
+fromJammitInstrument :: J.Instrument -> RB3Instrument
+fromJammitInstrument = \case
+  J.Guitar   -> Guitar
+  J.Bass     -> Bass
+  J.Drums    -> Drums
+  J.Keyboard -> Keys
+  J.Vocal    -> Vocal
+
 searchCommon :: (MonadIO m, Eq s, Hashable s, Show s, Show a) => SearchType -> (AudioState -> HM.HashMap s a) -> AudioLibrary -> s -> StackTraceT m a
 searchCommon stype f (AudioLibrary var) s = let
   go = do
@@ -200,7 +210,7 @@ searchFile = searchCommon SearchFile audioFiles
 searchMOGG :: (MonadIO m) => AudioLibrary -> T.Text -> StackTraceT m (Path Abs File)
 searchMOGG = searchCommon SearchMOGG audioMOGGs
 
-searchJammit :: (MonadIO m) => AudioLibrary -> (T.Text, T.Text, Instrument) -> StackTraceT m (Path Abs Dir)
+searchJammit :: (MonadIO m) => AudioLibrary -> (T.Text, T.Text, RB3Instrument) -> StackTraceT m (Path Abs Dir)
 searchJammit = searchCommon SearchJammit audioJammit
 
 searchInfo :: (SendMessage m, MonadIO m) =>

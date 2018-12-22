@@ -49,86 +49,64 @@ import qualified Text.ParserCombinators.ReadP   as ReadP
 import           Text.Read                      (readMaybe)
 import qualified Text.Read.Lex                  as Lex
 
-instance StackJSON Key where
-  stackJSON = Codec
-    { codecOut = makeOut $ A.toJSON . (showKey False) -- no way of getting accidental
-    , codecIn = do
-      t <- codecIn stackJSON
-      case ReadP.readP_to_S (readpKey <* ReadP.eof) $ T.unpack t of
-        (sk, _) : _ -> return sk
-        []          -> expected "a key"
-    }
+parsePitch :: (SendMessage m) => ValueCodec m A.Value Key
+parsePitch = Codec
+  { codecOut = makeOut $ A.toJSON . (showKey False) -- no way of getting accidental
+  , codecIn = do
+    t <- codecIn stackJSON
+    case ReadP.readP_to_S (readpKey <* ReadP.eof) $ T.unpack t of
+      (sk, _) : _ -> return sk
+      []          -> expected "a key"
+  }
 
-instance StackJSON SongKey where
-  stackJSON = Codec
-    { codecOut = makeOut $ \sk@(SongKey k t) -> A.toJSON $ concat
-      [ showKey (songKeyUsesFlats sk) k
-      , case t of Major -> " major"; Minor -> " minor"
-      ]
-    , codecIn = codecIn stackJSON >>= \t -> let
-      parse = do
-        key <- readpKey
-        tone <- ReadP.choice
-          [ ReadP.string " major" >> return Major
-          , ReadP.string " minor" >> return Minor
-          ,                          return Major
-          ]
-        ReadP.eof
-        return $ SongKey key tone
-      in case ReadP.readP_to_S parse $ T.unpack t of
-        (sk, _) : _ -> return sk
-        []          -> expected "a key and optional tonality"
-    }
+parseSongKey :: (SendMessage m) => ValueCodec m A.Value SongKey
+parseSongKey = Codec
+  { codecOut = makeOut $ \sk@(SongKey k t) -> A.toJSON $ concat
+    [ showKey (songKeyUsesFlats sk) k
+    , case t of Major -> " major"; Minor -> " minor"
+    ]
+  , codecIn = codecIn stackJSON >>= \t -> let
+    parse = do
+      key <- readpKey
+      tone <- ReadP.choice
+        [ ReadP.string " major" >> return Major
+        , ReadP.string " minor" >> return Minor
+        ,                          return Major
+        ]
+      ReadP.eof
+      return $ SongKey key tone
+    in case ReadP.readP_to_S parse $ T.unpack t of
+      (sk, _) : _ -> return sk
+      []          -> expected "a key and optional tonality"
+  }
 
-data Instrument = Guitar | Bass | Drums | Keys | Vocal
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+parseJammitInstrument :: (Monad m) => ValueCodec m A.Value J.Instrument
+parseJammitInstrument = Codec
+  { codecIn = lift ask >>= \s -> case s of
+    A.String "guitar" -> return J.Guitar
+    A.String "bass"   -> return J.Bass
+    A.String "drums"  -> return J.Drums
+    A.String "keys"   -> return J.Keyboard
+    A.String "vocal"  -> return J.Vocal
+    _                 -> expected "a jammit instrument name"
+  , codecOut = makeOut $ \case
+    J.Guitar   -> "guitar"
+    J.Bass     -> "bass"
+    J.Drums    -> "drums"
+    J.Keyboard -> "keys"
+    J.Vocal    -> "vocal"
+  }
 
-instance Hashable Instrument where
-  hashWithSalt s = hashWithSalt s . fromEnum
-
-jammitInstrument :: Instrument -> J.Instrument
-jammitInstrument = \case
-  Guitar -> J.Guitar
-  Bass   -> J.Bass
-  Drums  -> J.Drums
-  Keys   -> J.Keyboard
-  Vocal  -> J.Vocal
-
-fromJammitInstrument :: J.Instrument -> Instrument
-fromJammitInstrument = \case
-  J.Guitar   -> Guitar
-  J.Bass     -> Bass
-  J.Drums    -> Drums
-  J.Keyboard -> Keys
-  J.Vocal    -> Vocal
-
-instance StackJSON Instrument where
-  stackJSON = Codec
-    { codecIn = codecIn stackJSON >>= \s -> case s :: T.Text of
-      "guitar" -> return Guitar
-      "bass"   -> return Bass
-      "drums"  -> return Drums
-      "keys"   -> return Keys
-      "vocal"  -> return Vocal
-      _        -> expected "an instrument name"
-    , codecOut = makeOut $ \case
-      Guitar -> "guitar"
-      Bass   -> "bass"
-      Drums  -> "drums"
-      Keys   -> "keys"
-      Vocal  -> "vocal"
-    }
-
-instance StackJSON Magma.Gender where
-  stackJSON = Codec
-    { codecIn = lift ask >>= \case
-      A.String "female" -> return Magma.Female
-      A.String "male"   -> return Magma.Male
-      _                 -> expected "a gender (male or female)"
-    , codecOut = makeOut $ \case
-      Magma.Female -> "female"
-      Magma.Male   -> "male"
-    }
+parseGender :: (Monad m) => ValueCodec m A.Value Magma.Gender
+parseGender = Codec
+  { codecIn = lift ask >>= \case
+    A.String "female" -> return Magma.Female
+    A.String "male"   -> return Magma.Male
+    _                 -> expected "a gender (male or female)"
+  , codecOut = makeOut $ \case
+    Magma.Female -> "female"
+    Magma.Male   -> "male"
+  }
 
 data AudioInfo = AudioInfo
   { _md5      :: Maybe T.Text
@@ -415,15 +393,19 @@ instance StackJSON AudioInput where
         )
       , ("without", do
         algebraic2 "without"
-          (\inst str -> JammitSelect (J.Without $ jammitInstrument inst) str)
-          fromJSON
+          (\inst str -> JammitSelect (J.Without inst) str)
+          (codecIn parseJammitInstrument)
           fromJSON
         )
       ] (Named <$> fromJSON)
     , codecOut = makeOut $ \case
       Named t -> toJSON t
-      JammitSelect (J.Only p) t -> A.object ["only" .= [toJSON $ jammitPartToTitle p, toJSON t]]
-      JammitSelect (J.Without i) t -> A.object ["without" .= [toJSON $ fromJammitInstrument i, toJSON t]]
+      JammitSelect (J.Only p) t -> A.object
+        [ "only" .= [toJSON $ jammitPartToTitle p, toJSON t]
+        ]
+      JammitSelect (J.Without i) t -> A.object
+        [ "without" .= [makeValue parseJammitInstrument i, toJSON t]
+        ]
     }
 
 jammitPartToTitle :: J.Part -> T.Text
@@ -776,8 +758,8 @@ instance StackJSON PartVocal where
   stackJSON = asStrictObject "PartVocal" $ do
     vocalDifficulty <- vocalDifficulty =. fill (Tier 1) "difficulty" stackJSON
     vocalCount      <- vocalCount      =. opt  Vocal1   "count"      stackJSON
-    vocalGender     <- vocalGender     =. opt  Nothing  "gender"     stackJSON
-    vocalKey        <- vocalKey        =. opt  Nothing  "key"        stackJSON
+    vocalGender     <- vocalGender     =. opt  Nothing  "gender"     (maybeCodec parseGender)
+    vocalKey        <- vocalKey        =. opt  Nothing  "key"        (maybeCodec parsePitch)
     return PartVocal{..}
 
 data PartAmplitude = PartAmplitude
@@ -933,7 +915,7 @@ instance StackJSON Metadata where
     _fileAlbumArt <- _fileAlbumArt =. opt     Nothing        "file-album-art" stackJSON
     _trackNumber  <- _trackNumber  =. opt     Nothing        "track-number"   stackJSON
     _comments     <- _comments     =. opt     []             "comments"       stackJSON
-    _key          <- _key          =. opt     Nothing        "key"            stackJSON
+    _key          <- _key          =. opt     Nothing        "key"            (maybeCodec parseSongKey)
     _autogenTheme <- _autogenTheme =. opt     Magma.DefaultTheme "autogen-theme"  stackJSON
     _author       <- _author       =. warning Nothing        "author"         stripped
     _rating       <- _rating       =. opt     Unrated        "rating"         stackJSON

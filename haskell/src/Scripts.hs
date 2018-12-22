@@ -2,8 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Scripts where
 
-import           Config                           (Instrument (..),
-                                                   PreviewTime (..), SongYaml,
+import           Config                           (PreviewTime (..), SongYaml,
                                                    _metadata, _previewEnd,
                                                    _previewStart)
 import           Control.Monad                    (forM, guard, void)
@@ -311,7 +310,7 @@ keysToProKeys d ft = ProKeysTrack
       in first colorToKey <$> fiveGems fd
   }
 
-hasSolo :: (NNC.C t) => Instrument -> Song (RBFile.FixedFile t) -> Bool
+hasSolo :: (NNC.C t) => RB3Instrument -> Song (RBFile.FixedFile t) -> Bool
 hasSolo Guitar song = any (not . null)
   [ fiveSolo $ RBFile.fixedPartGuitar $ RBFile.s_tracks song
   , pgSolo $ RBFile.fixedPartRealGuitar $ RBFile.s_tracks song

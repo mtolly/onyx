@@ -92,13 +92,15 @@ tempoTrack trk = block "TEMPOENVEX" [] $ do
 event :: (Monad m) => Int -> E.T -> WriterT [Element] m ()
 event tks = \case
   E.MIDIEvent e -> let
+    noteOff chan p = C.Cons chan $ C.Voice $ V.NoteOff p $ V.toVelocity 96
     bs = Message.toByteString $ Message.Channel $ case e of
-      C.Cons chan (C.Voice (V.NoteOff p _)) -> C.Cons chan $ C.Voice $ V.NoteOff p $ V.toVelocity 96
+      -- Normalize all note-offs.
+      -- * venuegen can't handle note-on-velocity-0 format
+      -- * some HMX midis like Visions have note-offs with velocity over 127,
+      --   which causes the `midi` package to error upon evaluating the velocity
+      C.Cons chan (C.Voice (V.NoteOn p v)) | V.fromVelocity v == 0 -> noteOff chan p
+      C.Cons chan (C.Voice (V.NoteOff p _)) -> noteOff chan p
       _ -> e
-    -- the above intentionally ignores the velocity of note-offs.
-    -- this is done because if the `midi` package parses a note-off with
-    -- a wrong velocity (outside of 0..127) it will crash upon evaluating
-    -- the velocity.
     showByte n = case showHex n "" of
       [c] -> ['0', c]
       s   -> s

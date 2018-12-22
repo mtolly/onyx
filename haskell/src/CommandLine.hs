@@ -10,7 +10,8 @@ import           Audio                            (applyPansVols, fadeEnd,
 import           Build                            (loadYaml, shakeBuildFiles)
 import           Config
 import           Control.Applicative              (liftA2)
-import           Control.Monad.Extra              (filterM, forM, forM_, guard)
+import           Control.Monad.Extra              (filterM, forM, forM_, guard,
+                                                   when)
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource     (MonadUnliftIO, ResourceT,
                                                    runResourceT)
@@ -292,6 +293,12 @@ trimFileName fp len sfxOld sfx = let
   (dir, file) = splitFileName fp'
   in dir </> take (len - length sfx) file ++ sfx
 
+changeToVenueGen :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m ()
+changeToVenueGen dir = do
+  let midPath = dir </> "notes.mid"
+  mid <- stackIO (Load.fromFile midPath) >>= RBFile.readMIDIFile'
+  stackIO $ Save.toFile midPath $ RBFile.showMIDIFile' $ RBFile.convertToVenueGen mid
+
 commands :: [Command]
 commands =
 
@@ -383,6 +390,7 @@ commands =
             planName <- getPlanName (Just "author") yamlPath opts
             let rpp = "notes-" <> T.unpack planName <> ".RPP"
                 yamlDir = takeDirectory yamlPath
+            when (OptVenueGen `elem` opts) $ changeToVenueGen yamlDir
             shakeBuildFiles audioDirs yamlPath [rpp]
             let rppFull = yamlDir </> "notes.RPP"
             stackIO $ Dir.renameFile (yamlDir </> rpp) rppFull
@@ -502,45 +510,47 @@ commands =
     { commandWord = "import"
     , commandDesc = "Import a file into onyx's project format."
     , commandUsage = ""
-    , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> let
-      pschart = do
-        out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
-        stackIO $ Dir.createDirectoryIfMissing False out
-        void $ importFoF (OptForceProDrums `notElem` opts) (OptDropOpenHOPOs `elem` opts) (takeDirectory fpath) out
-        return [out]
-      in case ftype of
+    , commandRun = \files opts -> optionalFile files >>= \(ftype, fpath) -> do
+      let pschart = do
+            out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
+            stackIO $ Dir.createDirectoryIfMissing False out
+            void $ importFoF (OptForceProDrums `notElem` opts) (OptDropOpenHOPOs `elem` opts) (takeDirectory fpath) out
+            return out
+      yamlDir <- case ftype of
         FileSTFS -> do
           out <- outputFile opts $ return $ fpath ++ "_import"
           stackIO $ Dir.createDirectoryIfMissing False out
           let f2x = listToMaybe [ f | Opt2x f <- opts ]
           void $ importSTFS fpath f2x out
-          return [out]
+          return out
         FileDTA -> do
           let topDir = takeDirectory $ takeDirectory fpath
           out <- outputFile opts $ return $ topDir ++ "_import"
           stackIO $ Dir.createDirectoryIfMissing False out
           let f2x = listToMaybe [ f | Opt2x f <- opts ]
           void $ importSTFSDir topDir f2x out
-          return [out]
+          return out
         FileRBA -> do
           out <- outputFile opts $ return $ fpath ++ "_import"
           stackIO $ Dir.createDirectoryIfMissing False out
           let f2x = listToMaybe [ f | Opt2x f <- opts ]
           void $ importRBA fpath f2x out
-          return [out]
+          return out
         FilePS -> pschart
         FileChart -> pschart
         FileRBProj -> do
           out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
           stackIO $ Dir.createDirectoryIfMissing False out
           void $ importMagma fpath out
-          return [out]
+          return out
         FileMOGGSong -> do
           out <- outputFile opts $ return $ takeDirectory fpath ++ "_import"
           stackIO $ Dir.createDirectoryIfMissing False out
           void $ importAmplitude fpath out
-          return [out]
+          return out
         _ -> unrecognized ftype fpath
+      when (OptVenueGen `elem` opts) $ changeToVenueGen yamlDir
+      return [yamlDir]
     }
 
   , Command
@@ -1105,6 +1115,7 @@ optDescrs =
   , Option []   ["rb2-version"    ] (NoArg  OptRB2Version                     ) ""
   , Option []   ["wii-no-fills"   ] (NoArg  OptWiiNoFills                     ) ""
   , Option []   ["wii-mustang-22" ] (NoArg  OptWiiMustang22                   ) ""
+  , Option []   ["venuegen"       ] (NoArg  OptVenueGen                       ) ""
   , Option "h?" ["help"           ] (NoArg  OptHelp                           ) ""
   ] where
     readGame = \case
@@ -1133,6 +1144,7 @@ data OnyxOption
   | OptRB2Version
   | OptWiiNoFills
   | OptWiiMustang22
+  | OptVenueGen
   | OptHelp
   deriving (Eq, Ord, Show, Read)
 
