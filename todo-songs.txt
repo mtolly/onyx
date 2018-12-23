@@ -77,8 +77,8 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     medium drums - AIA, SOC
     easy drums - AIA, SOC
   > venue:
-    lighting - AIA, HTF, SOC
-    camera - todo
+    lighting - AIA, HTF, SOC (1st drafts)
+    camera - AIA (1st draft)
     animations (moods, crowd, gtr/bass neck, etc.) - todo
   > final audio production
   > release: February 8, 2019
