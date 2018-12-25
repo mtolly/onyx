@@ -62,7 +62,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
   - pro bass done! (pending more video checks)
   - basic bass done! including no-open-notes versions
   - pro guitar DONE! (but needs lots of checks, also need TDS 6-string version)
-  - basic guitar DONE! except no-open-notes versions
+  - basic guitar DONE! including no-open-notes versions
   > pro keys:
     done - AIA, ES, HTF, V, SOC, ITNOG
     todo - TDS (jarod)
@@ -76,6 +76,9 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     hard drums - done
     medium drums - AIA, SOC
     easy drums - AIA, SOC
+    hard bass - AIA, HTF, V, SOC
+    hard guitar - AIA, V
+    hard keys - AIA, V
   > venue:
     lighting - AIA, TDS, HTF, SOC (1st drafts)
     camera - AIA (1st draft)
