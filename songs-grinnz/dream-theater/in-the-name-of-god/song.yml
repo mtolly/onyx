@@ -12,8 +12,6 @@ metadata:
   key: C minor
   # we use accidental flip on pro guitar
   # because it pretends to be E minor
-  comments:
-  - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:
   album-track:
     md5: e0d7ef9465510acd5b45d0572cd42e4e
@@ -99,6 +97,8 @@ parts:
       count: 3
       gender: male
   keys:
+    grybo:
+      difficulty: 7
     pro-keys:
       difficulty: 7
 targets:
