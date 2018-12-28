@@ -13,6 +13,7 @@ import qualified Codec.Archive.Zip                     as Zip
 import           Codec.Picture
 import qualified Codec.Picture.STBIR                   as STBIR
 import           Config                                hiding (Difficulty)
+import           Control.Arrow                         (second)
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Class             (lift)
@@ -212,7 +213,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
     , D.song = D.Song
       { D.songName = "songs/" <> filename <> "/" <> filename
       , D.tracksCount = Nothing
-      , D.tracks = fmap (map fromIntegral) $ HM.fromList $ filter (not . null . snd) $ case plan of
+      , D.tracks = D.DictList $ map (second $ map fromIntegral) $ filter (not . null . snd) $ case plan of
         MoggPlan{..} -> let
           getChannels rank fpart = maybe [] (concat . toList) $ lookupPart rank fpart _moggParts
           -- * the below trick does not work. RB3 freezes if a part doesn't have any channels.
@@ -1262,18 +1263,16 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                       rb2Weights = dir </> "rb2/songs" </> pkg </> "gen" </> (pkg ++ "_weights.bin")
                       rb2Milo = dir </> "rb2/songs" </> pkg </> "gen" </> pkg <.> "milo_xbox"
                       rb2Pan = dir </> "rb2/songs" </> pkg </> pkg <.> "pan"
-                      fixDict
-                        = HM.fromList
-                        . mapMaybe (\(k, v) -> case k of
-                          "guitar" -> Just (k, v)
-                          "bass"   -> Just (k, v)
-                          "keys"   -> Nothing
-                          "drum"   -> Just (k, v)
-                          "vocals" -> Just (k, v)
-                          "band"   -> Just (k, v)
-                          _        -> Nothing
-                        )
-                        . HM.toList
+                      fixDict = HM.fromList . fixAssoc . HM.toList
+                      fixDictList = D.DictList . fixAssoc . D.fromDictList
+                      fixAssoc = mapMaybe $ \(k, v) -> case k of
+                        "guitar" -> Just (k, v)
+                        "bass"   -> Just (k, v)
+                        "keys"   -> Nothing
+                        "drum"   -> Just (k, v)
+                        "vocals" -> Just (k, v)
+                        "band"   -> Just (k, v)
+                        _        -> Nothing
                   rb2OriginalDTA %> \out -> do
                     ex <- doesRBAExist
                     if ex
@@ -1370,7 +1369,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                           -- "can't play this song until all players in your session purchase it!"
                           , D.song = (D.song magmaDTA)
                             { D.tracksCount = Nothing
-                            , D.tracks = fixDict $ D.tracks $ D.song rb3DTA
+                            , D.tracks = fixDictList $ D.tracks $ D.song rb3DTA
                             , D.midiFile = Just $ "songs/" <> pkg <> "/" <> pkg <> ".mid"
                             , D.songName = "songs/" <> pkg <> "/" <> pkg
                             , D.pans = D.pans $ D.song rb3DTA

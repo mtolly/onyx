@@ -52,7 +52,7 @@ data Song = Song
   -- rbn2 keys in c3 magma order:
   { songName         :: T.Text
   , tracksCount      :: Maybe [Integer]
-  , tracks           :: Map.HashMap T.Text [Integer]
+  , tracks           :: DictList T.Text [Integer]
   , pans             :: [Float]
   , vols             :: [Float]
   , cores            :: [Integer]
@@ -71,7 +71,7 @@ instance StackChunks Song where
   stackChunks = asStrictAssoc "Song" $ do
     songName         <- songName         =. req         "name"               (single chunkString)
     tracksCount      <- tracksCount      =. opt Nothing "tracks_count"       (chunksMaybe $ chunksParens stackChunks)
-    tracks           <- tracks           =. req         "tracks"             (chunksParens $ chunksDict chunkKey channelList)
+    tracks           <- tracks           =. req         "tracks"             (chunksParens $ chunksDictList chunkKey channelList)
     pans             <- pans             =. req         "pans"               (chunksParens stackChunks)
     vols             <- vols             =. req         "vols"               (chunksParens stackChunks)
     cores            <- cores            =. req         "cores"              (chunksParens stackChunks)

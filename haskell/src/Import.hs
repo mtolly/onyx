@@ -12,6 +12,7 @@ import           Codec.Picture                    (convertRGB8, readImage)
 import           Config                           hiding (Difficulty)
 import qualified Config
 import           Control.Applicative              ((<|>))
+import           Control.Arrow                    (second)
 import           Control.Arrow                    (first)
 import           Control.Exception                (evaluate)
 import           Control.Monad.Extra              (findM, forM, forM_, guard,
@@ -763,9 +764,9 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
         else do
           warn $ "Inconsistent drum mixes: " ++ show (nub drumMixes)
           return Nothing
-  let instChans :: HM.HashMap T.Text [Int]
-      instChans = fmap (map fromIntegral) $ D.tracks $ D.song pkg
-      drumChans = fromMaybe [] $ HM.lookup "drum" instChans
+  let instChans :: [(T.Text, [Int])]
+      instChans = map (second $ map fromIntegral) $ D.fromDictList $ D.tracks $ D.song pkg
+      drumChans = fromMaybe [] $ lookup "drum" instChans
   drumSplit <- if not $ hasRankStr "drum" then return Nothing else case foundMix of
     Nothing -> case drumChans of
       -- No drum mix seen in The Kill (30STM), has 5 drum channels
@@ -836,10 +837,10 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
     , _plans = HM.singleton "mogg" MoggPlan
       { _moggMD5 = T.pack md5
       , _moggParts = Parts $ HM.fromList $ concat
-        [ [ (FlexGuitar, PartSingle ns) | ns <- toList $ HM.lookup "guitar" instChans ]
-        , [ (FlexBass  , PartSingle ns) | ns <- toList $ HM.lookup "bass"   instChans ]
-        , [ (FlexKeys  , PartSingle ns) | ns <- toList $ HM.lookup "keys"   instChans ]
-        , [ (FlexVocal , PartSingle ns) | ns <- toList $ HM.lookup "vocals" instChans ]
+        [ [ (FlexGuitar, PartSingle ns) | ns <- toList $ lookup "guitar" instChans ]
+        , [ (FlexBass  , PartSingle ns) | ns <- toList $ lookup "bass"   instChans ]
+        , [ (FlexKeys  , PartSingle ns) | ns <- toList $ lookup "keys"   instChans ]
+        , [ (FlexVocal , PartSingle ns) | ns <- toList $ lookup "vocals" instChans ]
         , [ (FlexDrums , ds           ) | Just ds <- [drumSplit] ]
         ]
       , _moggCrowd = maybe [] (map fromIntegral) $ D.crowdChannels $ D.song pkg
