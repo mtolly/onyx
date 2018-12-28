@@ -1,0 +1,54 @@
+// from PikminGuts92
+
+LittleEndian();
+
+// PS2 = RGBa
+// Alpha channel appears to be 7-bit, at least on PS2
+
+typedef enum
+{
+    bitmap = 3,
+    dxt1 = 8,
+    dxt5 = 24,
+    ati2 = 32
+} Format;
+
+typedef struct
+{
+    ubyte r;
+    ubyte g;
+    ubyte b;
+} Color3;
+
+typedef struct
+{
+    ubyte r;
+    ubyte g;
+    ubyte b;
+    ubyte a;
+} Color4;
+
+struct Bitmap
+{
+    byte version; // Always 1
+    byte bpp;
+    Format format;
+    byte mipmap; // Even ps2 textures can have mip maps!
+    ushort width;
+    ushort height;
+    ushort bpl; // Bytes per line
+    byte zeros[19];
+    
+    if (bpp == 4 || bpp == 8)
+    {
+        ubyte data[((width * height) / 8) * bpp];
+    }
+    else if (bpp == 24)
+    {
+        Color3 pixels[width * height];
+    }
+    else if (bpp == 32)
+    {
+        Color4 pixels[width * height];
+    }
+} file;
