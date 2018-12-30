@@ -81,7 +81,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     hard keys - AIA, ES, V
   > venue:
     lighting - AIA, TDS, ES, HTF, V, SOC (1st drafts)
-    camera - AIA, V (1st drafts)
+    camera - AIA, HTF, V (1st drafts)
     animations (moods, crowd, gtr/bass neck, etc.) - todo
   > final audio production
   > release: February 8, 2019
