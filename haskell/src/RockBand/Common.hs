@@ -15,6 +15,7 @@ module RockBand.Common where
 import           Control.Monad                    (guard)
 import           Data.Bifunctor                   (Bifunctor (..))
 import           Data.Char                        (isSpace)
+import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Hashable                    (Hashable (..))
 import           Data.List                        (stripPrefix)
@@ -306,3 +307,19 @@ data RB3Instrument = Guitar | Bass | Drums | Keys | Vocal
 
 instance Hashable RB3Instrument where
   hashWithSalt s = hashWithSalt s . fromEnum
+
+pattern Wait :: time -> body -> RTB.T time body -> RTB.T time body
+pattern Wait t x xs <- (RTB.viewL -> Just ((t, x), xs)) where
+  Wait = RTB.cons
+pattern RNil :: RTB.T time body
+pattern RNil <- (RTB.viewL -> Nothing) where
+  RNil = RTB.empty
+{-# COMPLETE Wait, RNil #-}
+
+pattern At :: time -> body -> ATB.T time body -> ATB.T time body
+pattern At t x xs <- (ATB.viewL -> Just ((t, x), xs)) where
+  At = ATB.cons
+pattern ANil :: ATB.T time body
+pattern ANil <- (ATB.viewL -> Nothing) where
+  ANil = ATB.empty
+{-# COMPLETE At, ANil #-}
