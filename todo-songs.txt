@@ -70,8 +70,8 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     done - AIA, ES, HTF, V, SOC, ITNOG
     todo - TDS
   > overdrive:
-    done - AIA, V, ITNOG
-    todo - TDS, ES, HTF, SOC
+    done - AIA, HTF, V, ITNOG
+    todo - TDS, ES, SOC
   > reductions:
     hard drums - done
     medium drums - AIA, SOC
