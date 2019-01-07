@@ -304,7 +304,7 @@ commands =
 
   [ Command
     { commandWord = "build"
-    , commandDesc = "Compile a onyx/Magma project."
+    , commandDesc = "Compile an onyx or Magma project."
     , commandUsage = T.unlines
       [ "onyx build --target rb3 --to new_rb3con"
       , "onyx build --target ps --to new_ps.zip"
@@ -321,7 +321,8 @@ commands =
         return [out]
       (FileRBProj, rbprojPath) -> do
         rbproj <- loadRBProj rbprojPath
-        out <- outputFile opts $ return $ T.unpack $ RBProj.destinationFile $ RBProj.project rbproj
+        out <- fmap (takeDirectory rbprojPath </>)
+          $ outputFile opts $ return $ T.unpack $ RBProj.destinationFile $ RBProj.project rbproj
         let isMagmaV2 = case RBProj.projectVersion $ RBProj.project rbproj of
               24 -> True
               5  -> False -- v1

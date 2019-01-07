@@ -262,6 +262,7 @@ track tunings lenTicks lenSecs resn trk = let
       , ("MELODY'S ESCAPE", melodyNoteNames)
       , ("LIGHTING", venuegenLightingNames)
       , ("CAMERA", venuegenCameraNames)
+      , ("VENUE", venueNoteNames)
       ] of
       Nothing -> return False
       Just (_, names) -> do
@@ -745,6 +746,7 @@ venuegenLightingNames = execWriter $ do
   o 59 "Blue_Filter"
   o 58 "Desat_Blue"
   o 57 "Video_Security"
+  x 56
   o 55 "Bright"
   o 54 "Posterize"
   o 53 "Clean_Trails"
@@ -760,15 +762,18 @@ venuegenLightingNames = execWriter $ do
   o 43 "Mirror"
   o 42 "Psych_Blue_Red"
   o 41 "Space_Woosh"
+  x 40
   o 39 "Verse"
   o 38 "Chorus"
   o 37 "Manual_Cool"
   o 36 "Manual_Warm"
   o 35 "Dischord"
   o 34 "Stomp"
+  x 33
   o 32 "first"
   o 31 "prev"
   o 30 "next"
+  x 29
   o 28 "Loop_Cool"
   o 27 "Loop_Warm"
   o 26 "Harmony"
@@ -785,18 +790,23 @@ venuegenLightingNames = execWriter $ do
   o 15 "Flare_Slow"
   o 14 "Flare_Fast"
   o 13 "BRE"
+  x 12
   o 11 "BONUSFX"
   o 10 "BONUSFX_Opt"
   where o k v = tell [(k, v)]
+        x k = tell [(k, "----")]
 
 venuegenCameraNames :: [(Int, String)]
 venuegenCameraNames = execWriter $ do
   o 102 "RANDOM"
+  x 101
   o 100 "All_Behind"
   o 99  "All_Far"
   o 98  "All_Near"
+  x 97
   o 96  "Front_Behind"
   o 95  "Front_Near"
+  x 94
   o 93  "D_Behind"
   o 92  "D_Near"
   o 91  "V_Behind"
@@ -807,6 +817,7 @@ venuegenCameraNames = execWriter $ do
   o 86  "G_Near"
   o 85  "K_Behind"
   o 84  "K_Near"
+  x 83
   o 82  "D_Hand"
   o 81  "D_Head"
   o 80  "V_Closeup"
@@ -816,6 +827,7 @@ venuegenCameraNames = execWriter $ do
   o 76  "G_Head"
   o 75  "K_Hand"
   o 74  "K_Head"
+  x 73
   o 72  "DV_Near"
   o 71  "BD_Near"
   o 70  "DG_Near"
@@ -831,38 +843,46 @@ venuegenCameraNames = execWriter $ do
   o 60  "BK_Near"
   o 59  "GK_Behind"
   o 58  "GK_Near"
+  x 57
   o 56  "D_All"
   o 55  "D_All_Cam"
   o 54  "D_All_LT*"
   o 53  "D_All_Yeah"
   o 52  "D_BRE"
   o 51  "D_BRE_Jump"
+  x 50
   o 49  "D_Drums_NP"
   o 48  "D_Bass_NP"
   o 47  "D_Gtr_NP"
   o 46  "D_Vox_NP"
   o 45  "D_Keys_NP"
+  x 44
   o 43  "D_Drums"
   o 42  "D_Drums_LT*"
   o 41  "D_Vocals"
   o 40  "D_Bass"
   o 39  "D_Gtr"
   o 38  "D_Keys"
+  x 37
   o 36  "D_Vox_Cam_PR"
   o 35  "D_Vox_Cam_PT"
   o 34  "D_Gtr_Cam_PR"
   o 33  "D_Gtr_Cam_PT"
   o 32  "D_Keys_Cam"
   o 31  "D_Bass_Cam"
+  x 30
   o 29  "D_Stagedive"
   o 28  "D_Crowdsurf"
+  x 27
   o 26  "D_Vox_CLS"
   o 25  "D_Bass_CLS*"
   o 24  "D_Gtr_CLS*"
   o 23  "D_Drums_KD*"
+  x 22
   o 21  "D_Drums_Point"
   o 20  "D_Crowd_Gtr"
   o 19  "D_Crowd_Bass"
+  x 18
   o 17  "D_Duo_Drums"
   o 16  "D_Duo_Gtr"
   o 15  "D_Duo_Bass"
@@ -872,6 +892,52 @@ venuegenCameraNames = execWriter $ do
   o 11  "D_Duo_KG"
   o 10  "D_Crowd*"
   where o k v = tell [(k, v)]
+        x k = tell [(k, "----")]
+
+venueNoteNames :: [(Int, String)]
+venueNoteNames = execWriter $ do
+  o 110 "RB2 video_trails"
+  o 109 "RB2 video_security"
+  o 108 "RB2 video_bw"
+  o 107 "RB2 video_a"
+  o 106 "RB2 BlueTint"
+  o 105 "RB2 ProFilm_mirror_a"
+  o 104 "RB2 ProFilm_b"
+  o 103 "RB2 ProFilm_a"
+  o 102 "RB2 photocopy"
+  o 101 "RB2 photo_negative"
+  o 100 "RB2 film_silvertone"
+  o 99 "RB2 film_sepia_ink"
+  o 98 "RB2 film_16mm"
+  o 97 "RB2 contrast_a"
+  o 96 "RB2 Default"
+  x 95
+  o 87 "Sing Gtr"
+  o 86 "Sing Drums"
+  o 85 "Sing Bass"
+  x 84
+  o 73 "RB2 No Close"
+  o 72 "RB2 Only Close"
+  o 71 "RB2 Only Far"
+  o 70 "RB2 No Behind"
+  x 69
+  o 64 "RB2 Focus Vocal"
+  o 63 "RB2 Focus Gtr"
+  o 62 "RB2 Focus Drums"
+  o 61 "RB2 Focus Bass"
+  o 60 "RB2 Cut"
+  x 59
+  o 50 "RB2 First"
+  o 49 "RB2 Prev"
+  o 48 "RB2 Next"
+  x 47
+  o 41 "Spot Keys"
+  o 40 "Spot Vocal"
+  o 39 "Spot Gtr"
+  o 38 "Spot Drums" -- RBN2 docs incorrectly say this is bass
+  o 37 "Spot Bass" -- RBN2 docs incorrectly say this is drums
+  where o k v = tell [(k, v)]
+        x k = tell [(k, "----")]
 
 melodyNoteNames :: [(Int, String)]
 melodyNoteNames = execWriter $ do
