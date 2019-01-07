@@ -157,31 +157,6 @@ pngXboxDXT1Signature = B.pack
   , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
   ]
 
-pngXbox256DXT3Signature :: B.ByteString
-pngXbox256DXT3Signature = B.pack
-  [ 0x01, 0x08, 0x18, 0x00, 0x00, 0x00, 0x04, 0x00
-  , 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00
-  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-  ]
-
-pngXbox512DXT3Signature :: B.ByteString
-pngXbox512DXT3Signature = B.pack
-  [ 0x01, 0x08, 0x18, 0x00, 0x00, 0x00, 0x05, 0x00
-  , 0x02, 0x00, 0x02, 0x00, 0x02, 0x00, 0x00, 0x00
-  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-  ]
-
--- seen in C3's Final Battle! (Rival)
-pngXbox2048DXT3Signature :: B.ByteString
-pngXbox2048DXT3Signature = B.pack
-  [ 0x01, 0x08, 0x18, 0x00, 0x00, 0x00, 0x06, 0x00
-  , 0x08, 0x00, 0x08, 0x00, 0x08, 0x00, 0x00, 0x00
-  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-  ]
-
 pngWii256DXT1Signature :: B.ByteString
 pngWii256DXT1Signature = B.pack
   [ 0x01, 0x04, 0x48, 0x00, 0x00, 0x00, 0x04, 0x00
@@ -212,30 +187,28 @@ readRBImage bs = let
       (ya, yb) = quotRem y h
       in pixelAt (xs' ! (ya * cols + xa)) xb yb
     in generateImage gen (w * cols) (h * rows)
-  table =
-    [ (,) pngXboxDXT1Signature
-      $ flip runGet (BL.drop 32 bs)
-      $ fmap (arrangeRows 64 64)
-      $ replicateM 4096 $ readDXTChunk PNGXbox True
-    , (,) pngXbox256DXT3Signature
-      $ flip runGet (BL.drop 32 bs)
-      $ fmap (arrangeRows 64 64)
-      $ replicateM 4096 $ skip 8 >> readDXTChunk PNGXbox False
-    , (,) pngWii256DXT1Signature
-      $ flip runGet (BL.drop 32 bs)
-      $ fmap (arrangeRows 32 32)
-      $ replicateM 1024 readWiiChunk
-    , (,) pngWii128DXT1Signature
-      $ flip runGet (BL.drop 32 bs)
-      $ fmap (arrangeRows 16 16)
-      $ replicateM 256 readWiiChunk
-    , (,) pngXbox512DXT3Signature
-      $ flip runGet (BL.drop 32 bs)
-      $ fmap (arrangeRows 128 128)
-      $ replicateM 16384 $ skip 8 >> readDXTChunk PNGXbox False
-    , (,) pngXbox2048DXT3Signature
-      $ flip runGet (BL.drop 32 bs)
-      $ fmap (arrangeRows 512 512)
-      $ replicateM 262144 $ skip 8 >> readDXTChunk PNGXbox False
-    ]
-  in fromMaybe (generateImage (\_ _ -> PixelRGB8 255 0 255) 256 256) $ lookup sig table
+  in case B.unpack sig of
+    [   0x01, 0x08, 0x18, 0x00, 0x00, 0x00, _mip,   w1
+      ,   w2,   h1,   h2, _bl1, _bl2, 0x00, 0x00, 0x00
+      , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+      , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+      ] -> let
+      width  = fromIntegral w2 * 256 + fromIntegral w1
+      height = fromIntegral h2 * 256 + fromIntegral h1
+      in  flip runGet (BL.drop 32 bs)
+        $ fmap (arrangeRows (quot width 4) (quot height 4))
+        $ replicateM (quot (width * height) 16) $ skip 8 >> readDXTChunk PNGXbox False
+    _ -> fromMaybe (generateImage (\_ _ -> PixelRGB8 255 0 255) 256 256) $ lookup sig
+      [ (,) pngXboxDXT1Signature
+        $ flip runGet (BL.drop 32 bs)
+        $ fmap (arrangeRows 64 64)
+        $ replicateM 4096 $ readDXTChunk PNGXbox True
+      , (,) pngWii256DXT1Signature
+        $ flip runGet (BL.drop 32 bs)
+        $ fmap (arrangeRows 32 32)
+        $ replicateM 1024 readWiiChunk
+      , (,) pngWii128DXT1Signature
+        $ flip runGet (BL.drop 32 bs)
+        $ fmap (arrangeRows 16 16)
+        $ replicateM 256 readWiiChunk
+      ]

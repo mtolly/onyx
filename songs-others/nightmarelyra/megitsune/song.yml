@@ -43,19 +43,19 @@ plans:
     silent: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     vols: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 targets:
-  rb3-2x:
-    song-id: Megitsune2xv2
-    game: rb3
-    version: 30
-    2x-bass-pedal: true
   rb3:
-    song-id: Megitsune1xv2
     game: rb3
-    version: 30
+    file-milo: lipsync.milo_xbox
+    label: (O)
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    file-milo: lipsync.milo_xbox
+    label: (2x Bass Pedal) (O)
 metadata:
   rating: FamilyFriendly
   preview-start: 45.005
-  file-album-art: cover.png_xbox
+  file-album-art: cover.png
   languages:
   - English
   - Japanese
