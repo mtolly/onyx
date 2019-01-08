@@ -5,14 +5,13 @@ module Image (toDXT1File, DXTFormat(..), readRBImage) where
 
 import           Codec.Picture
 import qualified Codec.Picture.STBIR        as STBIR
-import           Control.Monad              (forM_, replicateM)
+import           Control.Monad              (forM_, guard, replicateM)
 import           Control.Monad.Trans.Writer (execWriter, tell)
 import           Data.Array                 (listArray, (!))
 import           Data.Binary.Get
 import qualified Data.ByteString            as B
 import qualified Data.ByteString.Builder    as BB
 import qualified Data.ByteString.Lazy       as BL
-import           Data.Maybe                 (fromMaybe)
 import           Data.Word                  (Word16, Word8)
 import           Foreign
 import           Foreign.C
@@ -165,18 +164,9 @@ pngWii256DXT1Signature = B.pack
   , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
   ]
 
-pngWii128DXT1Signature :: B.ByteString
-pngWii128DXT1Signature = B.pack
-  [ 0x01, 0x04, 0x48, 0x00, 0x00, 0x00, 0x03, 0x80
-  , 0x00, 0x80, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00
-  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-  , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-  ]
-
 -- | Supports .png_xbox in both official DXT1 and C3 DXT2/3, and also .png_wii.
 readRBImage :: BL.ByteString -> Image PixelRGB8
 readRBImage bs = let
-  sig = BL.toStrict $ BL.take 32 bs
   readWiiChunk = fmap (arrangeRows 2 2) $ replicateM 4 $ readDXTChunk PNGWii True
   arrangeRows cols rows xs = let
     w = imageWidth  $ head xs
@@ -187,28 +177,27 @@ readRBImage bs = let
       (ya, yb) = quotRem y h
       in pixelAt (xs' ! (ya * cols + xa)) xb yb
     in generateImage gen (w * cols) (h * rows)
-  in case B.unpack sig of
-    [   0x01, 0x08, 0x18, 0x00, 0x00, 0x00, _mip,   w1
-      ,   w2,   h1,   h2, _bl1, _bl2, 0x00, 0x00, 0x00
-      , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-      , 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-      ] -> let
-      width  = fromIntegral w2 * 256 + fromIntegral w1
-      height = fromIntegral h2 * 256 + fromIntegral h1
-      in  flip runGet (BL.drop 32 bs)
-        $ fmap (arrangeRows (quot width 4) (quot height 4))
+  parseImage = do
+    1             <- getWord8
+    bitsPerPixel  <- getWord8
+    format        <- getWord32le
+    _mipmaps      <- getWord8
+    width         <- fromIntegral <$> getWord16le
+    height        <- fromIntegral <$> getWord16le
+    _bytesPerLine <- getWord16le
+    zeroes        <- getByteString 19
+    guard $ B.all (== 0) zeroes
+    case (bitsPerPixel, format) of
+      -- Xbox DXT1
+      (0x04, 0x08) -> fmap (arrangeRows (quot width 4) (quot height 4))
+        $ replicateM (quot (width * height) 16) $ readDXTChunk PNGXbox True
+      -- Xbox DXT3
+      (0x08, 0x18) -> fmap (arrangeRows (quot width 4) (quot height 4))
         $ replicateM (quot (width * height) 16) $ skip 8 >> readDXTChunk PNGXbox False
-    _ -> fromMaybe (generateImage (\_ _ -> PixelRGB8 255 0 255) 256 256) $ lookup sig
-      [ (,) pngXboxDXT1Signature
-        $ flip runGet (BL.drop 32 bs)
-        $ fmap (arrangeRows 64 64)
-        $ replicateM 4096 $ readDXTChunk PNGXbox True
-      , (,) pngWii256DXT1Signature
-        $ flip runGet (BL.drop 32 bs)
-        $ fmap (arrangeRows 32 32)
-        $ replicateM 1024 readWiiChunk
-      , (,) pngWii128DXT1Signature
-        $ flip runGet (BL.drop 32 bs)
-        $ fmap (arrangeRows 16 16)
-        $ replicateM 256 readWiiChunk
-      ]
+      -- Wii DXT1
+      (0x04, 0x48) -> fmap (arrangeRows (quot width 8) (quot height 8))
+        $ replicateM (quot (width * height) 64) readWiiChunk
+      _ -> fail "Unrecognized HMX image format"
+  in case runGetOrFail parseImage bs of
+    Left  _           -> generateImage (\_ _ -> PixelRGB8 255 0 255) 256 256
+    Right (_, _, img) -> img
