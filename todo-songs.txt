@@ -81,9 +81,10 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     hard keys - AIA, ES, HTF, V, SOC, ITNOG
   > venue:
     lighting - 1st drafts done
-    camera - AIA, HTF, V, ITNOG (1st drafts)
+    camera - AIA, ES, HTF, V, ITNOG (1st drafts)
     animations (moods, crowd, gtr/bass neck, etc.):
-      guitar handmaps done for AIA, HTF, ITNOG
+      guitar/bass handmaps done for AIA, HTF, ITNOG
+      player moods done for ES, ITNOG, maybe others
   > final audio production
   > release: February 8, 2019
 SYSTEMATIC CHAOS
