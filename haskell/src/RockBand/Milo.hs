@@ -113,7 +113,7 @@ parseLipsync = do
   dtb <- getWord8
   case dtb of
     0 -> return ()
-    _ -> fail "Parsing of LipSync files with embedded DTB is not currently supported"
+    _ -> fail "Parsing of Lipsync files with embedded DTB is not currently supported"
   skip 4 -- skips zeroes
   visemeCount <- getWord32be
   lipsyncVisemes <- replicateM (fromIntegral visemeCount) stringBE
@@ -127,6 +127,20 @@ parseLipsync = do
       return VisemeEvent{..}
     return Keyframe{..}
   return Lipsync{..}
+
+lipsyncToMIDI :: U.TempoMap -> U.MeasureMap -> Lipsync -> RBFile.Song (RBFile.RawFile U.Beats)
+lipsyncToMIDI tmap mmap lip = RBFile.Song tmap mmap $ RBFile.RawFile $ (:[])
+  $ U.setTrackName "LIPSYNC"
+  $ U.unapplyTempoTrack tmap
+  $ RTB.flatten
+  $ RTB.fromPairList
+  $ do
+    (dt, key) <- zip (0 : repeat (1/30 :: U.Seconds)) $ lipsyncKeyframes lip
+    let evts = do
+          vis <- keyframeEvents key
+          let str = "[viseme " <> B8.unpack (lipsyncVisemes lip !! visemeIndex vis) <> " " <> show (visemeWeight vis) <> "]"
+          return $ E.MetaEvent $ Meta.TextEvent str
+    return (dt, evts)
 
 data Venue = Venue
   { venueVersion    :: Word32

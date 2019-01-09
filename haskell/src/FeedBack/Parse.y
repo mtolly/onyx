@@ -59,8 +59,6 @@ Atoms1 : Atom        { [$1] }
 
 {
 
-data LineToken
-
 -- | If instead of this error, "Internal Happy error" is sometimes printed, make
 -- sure you are using Happy 1.18.7 or later.
 parseError :: e -> Either e a
