@@ -7,6 +7,8 @@ metadata:
   subgenre: prog
   file-album-art: cover.jpg
   difficulty: 7
+  comments:
+  - "Manual conversion from RB4 DLC. Verified expert charts, BEAT track, drum fill locations, and all drum notes underneath fills."
 plans:
   album:
     song:
@@ -29,9 +31,6 @@ audio:
     file-path: ../../../sound/hihat-foot.wav
 parts:
   drums:
-    # TODO:
-    # - notes under some activation ends
-    # - missing some activations
     drums:
       difficulty: 7
   bass:
