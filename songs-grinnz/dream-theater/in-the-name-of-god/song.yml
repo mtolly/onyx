@@ -60,19 +60,23 @@ plans:
   drumcam:
     countin: *countin
     song:
-      pad:
-      - 6.431
-      - gain:
-        - 2.75
-        - resample:
-            mix: [drumcam-band-expr, drumcam-drums-expr]
-    parts:
-      drums:
-        pad:
+      take:
+      - '14:20.764'
+      - pad:
         - 6.431
         - gain:
           - 2.75
-          - resample: drumcam-drums-expr
+          - resample:
+              mix: [drumcam-band-expr, drumcam-drums-expr]
+    parts:
+      drums:
+        take:
+        - '14:20.764'
+        - pad:
+          - 6.431
+          - gain:
+            - 2.75
+            - resample: drumcam-drums-expr
 parts:
   drums:
     drums:

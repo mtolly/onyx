@@ -34,20 +34,22 @@ audio:
       take: [{frames: 22481213}, drumcam-band]
   drumcam-drums-expr:
     expr:
-      gain:
-      - -0.7
-      - drop:
-        - frames: 1818
-        - stretch:
-          - 1.0000072230105572
-          # (20557116 - 1728266) / (20558785 - 1730071)
-          - mask:
-            - [drums]
-            - - center: 0
-                tag: banter
-              - center: {frames: 1726270}
-                tag: drums
-            - take: [{frames: 22481213}, drumcam-drums]
+      take:
+      - '7:33.682'
+      - gain:
+        - -0.7
+        - drop:
+          - frames: 1818
+          - stretch:
+            - 1.0000072230105572
+            # (20557116 - 1728266) / (20558785 - 1730071)
+            - mask:
+              - [drums]
+              - - center: 0
+                  tag: banter
+                - center: {frames: 1726270}
+                  tag: drums
+              - take: [{frames: 22481213}, drumcam-drums]
 plans:
   album:
     countin:

@@ -23,16 +23,11 @@ audio:
     md5: 7f168a3c9c00b00374910d8c7d32e63e
     frames: 192898560
     rate: 48000
-  album-expr:
-    expr:
-      pad: [4.979, album-track]
   drumcam-band-expr:
     expr:
       drop:
       - frames: 117872257
-      - take:
-        - frames: 150341462
-        - drumcam-band
+      - drumcam-band
   drumcam-drums-expr:
     expr:
       gain:
@@ -57,7 +52,16 @@ plans:
       1|3: hihat
       1|4: hihat
       # changed Grinnz's 5/4 countin to 4/4
-    song: album-expr
+    song:
+      fade:
+      - start
+      - 3
+      - concatenate:
+        - take:
+          - end
+          - 4.979
+          - album-vacant
+        - album-track
   drumcam:
     countin: *countin
     song:
@@ -77,30 +81,18 @@ plans:
       - mask:
         - [stream]
         - *vacant-to-stream
-        - mix: # remove studio banter
-          - fade:
-            - end
-            - 1
-            - take:
-              - '11:07'
-              - pad:
-                - 4.839
-                - resample:
-                    gain:
-                    - 3.78
-                    - mix:
-                      - drumcam-band-expr
-                      - drumcam-drums-expr
+        - take:
+          - '11:21.312'
           - pad:
-            - '11:06.15'
-            - fade:
-              - start
-              - 1
-              - gain:
-                - 1.512
-                - drop:
-                  - '11:06.15'
-                  - album-expr
+            - 4.839
+            - resample:
+                gain:
+                - 3.78
+                - mix:
+                  - drumcam-band-expr
+                  - take:
+                    - '11:02.160'
+                    - drumcam-drums-expr
     parts:
       drums:
         take:
