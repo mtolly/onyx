@@ -59,9 +59,6 @@ plans:
       1|3: hihat
     song:
       pad: [5.390, album-track]
-  # TODO: fix some weird misaligned hits
-  # - between chorus 1 and verse 2
-  # - during verse 2
   drumcam:
     countin: *countin
     song:
@@ -70,7 +67,43 @@ plans:
       - gain:
         - 2.75
         - resample:
-            mix: [drumcam-band-expr, drumcam-drums-expr]
+            mix:
+            - drumcam-band-expr
+            - mask:
+              - [quiet]
+              - &drums-mask
+                # drum volume needs to be lowered in places before and throughout verse 2
+                - center: 0
+                  tag: normal
+                - center: {frames: 7255960}
+                  tag: quiet
+                - center: {frames: 7375313}
+                  tag: normal
+                - center: {frames: 7512568}
+                  tag: quiet
+                - center: {frames: 7527818}
+                  tag: normal
+                - center: {frames: 8023131}
+                  tag: quiet
+                - center: {frames: 8693361}
+                  tag: normal
+                - center: {frames: 9008650}
+                  tag: quiet
+                - center: {frames: 9123300}
+                  tag: normal
+                - center: {frames: 9437293}
+                  tag: quiet
+                - center: {frames: 10516937}
+                  tag: normal
+                - center: {frames: 10631945}
+                  tag: quiet
+                - center: {frames: 11556920}
+                  tag: normal
+              - gain: [0.6309573444801932, drumcam-drums-expr] # -4dB
+            - mask:
+              - [normal]
+              - *drums-mask
+              - drumcam-drums-expr
     parts:
       drums:
         pad:
