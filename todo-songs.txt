@@ -63,9 +63,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
   - basic bass done! including no-open-notes versions
   - pro guitar DONE! (but needs lots of checks, also need TDS 6-string version)
   - basic guitar DONE! including no-open-notes versions
-  > pro keys:
-    done - AIA, ES, HTF, V, SOC, ITNOG
-    todo - TDS (jarod)
+  > pro keys: just need to fill a few places in on TDS
   > basic keys:
     done - AIA, ES, HTF, V, SOC, ITNOG
     todo - TDS
