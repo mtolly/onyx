@@ -84,7 +84,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     camera - all but TDS (1st drafts)
     animations (moods, crowd, gtr/bass neck, etc.):
       guitar/bass handmaps done for all but TDS and ES
-      full keyboard animation done for ES, V, SOC
+      full keyboard animation done for all but TDS
       character intensity done for all but TDS
   > final audio production
   > release: February 8, 2019
