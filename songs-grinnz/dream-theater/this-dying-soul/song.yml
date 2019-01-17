@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/train-of-thought.yml
   track-number: 2
   author: Grinnz
+  difficulty: 7
   comments:
   - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:
@@ -119,7 +120,7 @@ parts:
       count: 3
   bass:
     grybo:
-      difficulty: 5
+      difficulty: 6
     pro-guitar:
       difficulty: 6
       tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
@@ -128,6 +129,9 @@ parts:
       difficulty: 7
     # pro-guitar: # TODO squash to 6-string
       # difficulty: 7
+  keys:
+    pro-keys:
+      difficulty: 7
 targets:
   rb3:
     game: rb3
