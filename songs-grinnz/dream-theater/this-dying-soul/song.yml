@@ -130,6 +130,8 @@ parts:
     # pro-guitar: # TODO squash to 6-string
       # difficulty: 7
   keys:
+    grybo:
+      difficulty: 7
     pro-keys:
       difficulty: 7
 targets:

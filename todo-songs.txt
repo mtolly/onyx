@@ -63,13 +63,9 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
   - basic bass done! including no-open-notes versions
   - pro guitar DONE! (but needs lots of checks, also need TDS 6-string version)
   - basic guitar DONE! including no-open-notes versions
-  > pro keys: just need to fill a few places in on TDS
-  > basic keys:
-    done - AIA, ES, HTF, V, SOC, ITNOG
-    todo - TDS
-  > overdrive:
-    done - AIA, ES, HTF, V, SOC, ITNOG
-    todo - TDS
+  - pro keys DONE!
+  - basic keys DONE!
+  - overdrive DONE!
   > reductions:
     hard drums - done
     medium drums - AIA, SOC
