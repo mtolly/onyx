@@ -248,13 +248,14 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           ht = gryboHopoThreshold grybo
           algo = if isKeys then HOPOsRBKeys else HOPOsRBGuitar
           fiveEachDiff f ft = ft { fiveDifficulties = fmap f $ fiveDifficulties ft }
+          gap = fromIntegral (gryboSustainGap grybo) / 480
           forRB3 = fiveEachDiff $ \fd ->
               emit5'
             . fromClosed'
             . no5NoteChords'
             . noOpenNotes' (gryboDropOpenHOPOs grybo)
             . noTaps'
-            . (if toKeys then id else noExtendedSustains' standardBlipThreshold standardSustainGap)
+            . (if toKeys then id else noExtendedSustains' standardBlipThreshold gap)
             . applyForces (getForces5 fd)
             . strumHOPOTap' algo (fromIntegral ht / 480)
             . fixSloppyNotes (10 / 480)

@@ -393,6 +393,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = dropOpenHOPOs
+          , gryboSustainGap = 60
           }
         , partProGuitar = let
           b =  (isnt nullPG RBFile.fixedPartRealGuitar   && guardDifficulty FoF.diffGuitarReal  )
@@ -415,6 +416,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = dropOpenHOPOs
+          , gryboSustainGap = 60
           }
         , partProGuitar = let
           b =  (isnt nullPG RBFile.fixedPartRealBass   && guardDifficulty FoF.diffBassReal  )
@@ -437,6 +439,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = dropOpenHOPOs
+          , gryboSustainGap = 60
           }
         , partProKeys = guard (isnt nullPK RBFile.fixedPartRealKeysX && guardDifficulty FoF.diffKeysReal) >> Just PartProKeys
           { pkDifficulty = toTier $ FoF.diffKeysReal song
@@ -449,6 +452,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = dropOpenHOPOs
+          , gryboSustainGap = 60
           }
         })
       , ( FlexVocal, def
@@ -897,6 +901,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = False
+          , gryboSustainGap = 60
           }
         , partProGuitar = guard (hasRankStr "real_guitar") >> Just PartProGuitar
           { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_guitar" diffMap
@@ -912,6 +917,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = False
+          , gryboSustainGap = 60
           }
         , partProGuitar = guard (hasRankStr "real_bass") >> Just PartProGuitar
           { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_bass" diffMap
@@ -927,6 +933,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = False
+          , gryboSustainGap = 60
           }
         , partProKeys = guard (hasRankStr "real_keys") >> Just PartProKeys
           { pkDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_keys" diffMap
@@ -1155,6 +1162,7 @@ importMagma fin dir = do
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = False
+          , gryboSustainGap = 60
           }
         , partProGuitar = do
           diff <- guard (isJust gtr) >> c3 >>= C3.proGuitarDiff
@@ -1172,6 +1180,7 @@ importMagma fin dir = do
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = False
+          , gryboSustainGap = 60
           }
         , partProGuitar = do
           diff <- guard (isJust gtr) >> c3 >>= C3.proBassDiff
@@ -1189,6 +1198,7 @@ importMagma fin dir = do
           , gryboHopoThreshold = hopoThresh
           , gryboFixFreeform = False
           , gryboDropOpenHOPOs = False
+          , gryboSustainGap = 60
           }
         , partProKeys = guard (isJust keys && maybe False (not . C3.disableProKeys) c3) >> Just PartProKeys
           { pkDifficulty = Tier $ RBProj.rankProKeys $ RBProj.gamedata rbproj

@@ -9,6 +9,7 @@ metadata:
   file-include: ../../../albums/train-of-thought.yml
   track-number: 7
   author: Onyxite, Grinnz
+  difficulty: 7
   key: C minor
   # we use accidental flip on pro guitar
   # because it pretends to be E minor
@@ -116,6 +117,7 @@ parts:
   guitar:
     grybo:
       difficulty: 7
+      sustain-gap: 120 # 16th note
     pro-guitar:
       difficulty: 7
       tuning: [0, 0, 0, 0, 0, 0]

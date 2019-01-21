@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/train-of-thought.yml
   track-number: 6
   author: Onyxite, Grinnz, Mazegeek999
+  difficulty: 7
   key: C# minor
   # guitar pretends to be D minor,
   # so we use accidental flip to have it use flat chord names.

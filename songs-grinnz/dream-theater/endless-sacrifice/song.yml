@@ -10,9 +10,10 @@ metadata:
   track-number: 3
   author: Onyxite, Grinnz, Mazegeek999
   key: D minor
-  anim-tempo: fast
   # we use accidental flip on pro guitar to use sharps
   # since it pretends to be E minor
+  anim-tempo: fast
+  difficulty: 7
 audio:
   album-track:
     md5: 4c7768aca1b5f13b15de68688afdc69f

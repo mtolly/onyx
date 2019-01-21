@@ -3,6 +3,7 @@ metadata:
   file-include: ../../../albums/train-of-thought.yml
   track-number: 5
   author: Onyxite
+  key: C# minor
   comments:
   - "Guitar is the cello part."
   - "All instruments have overdrive/unison."

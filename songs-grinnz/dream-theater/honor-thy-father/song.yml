@@ -10,6 +10,7 @@ metadata:
   anim-tempo: fast
   comments:
   - "Chart confidence: *high*, written to Portnoy's DVD."
+  difficulty: 6
 audio:
   album-track:
     md5: bf8342e27676a60a60c5cc3da4f530d6
@@ -117,6 +118,7 @@ parts:
   guitar:
     grybo:
       difficulty: 5
+      sustain-gap: 120 # 16th note
     pro-guitar:
       difficulty: 5
       tuning: [0, 0, 0, 0, 0, 0]
@@ -129,6 +131,7 @@ parts:
   bass:
     grybo:
       difficulty: 5
+      sustain-gap: 120 # 16th note
     pro-guitar:
       difficulty: 5
       tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC

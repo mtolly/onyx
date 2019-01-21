@@ -591,6 +591,7 @@ data PartGRYBO = PartGRYBO
   , gryboHopoThreshold :: Int
   , gryboFixFreeform   :: Bool
   , gryboDropOpenHOPOs :: Bool
+  , gryboSustainGap    :: Int -- ticks, 480 per beat
   } deriving (Eq, Ord, Show, Read)
 
 instance StackJSON PartGRYBO where
@@ -599,6 +600,7 @@ instance StackJSON PartGRYBO where
     gryboHopoThreshold <- gryboHopoThreshold =. opt  170      "hopo-threshold"  stackJSON
     gryboFixFreeform   <- gryboFixFreeform   =. opt  True     "fix-freeform"    stackJSON
     gryboDropOpenHOPOs <- gryboDropOpenHOPOs =. opt  False    "drop-open-hopos" stackJSON
+    gryboSustainGap    <- gryboSustainGap    =. opt  60       "sustain-gap"     stackJSON
     return PartGRYBO{..}
 
 data PartProKeys = PartProKeys

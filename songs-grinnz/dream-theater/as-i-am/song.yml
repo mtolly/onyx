@@ -15,6 +15,7 @@ metadata:
   key: C minor
   # we use accidental flip on pro guitar
   # because it pretends to be E minor
+  difficulty: 6
 audio:
   album-track:
     md5: f574e025bacd9879f42dd830a323ea14
@@ -115,6 +116,7 @@ parts:
       # solo from https://tabs.ultimate-guitar.com/tab/dream_theater/as_i_am_tabs_126038
     grybo:
       difficulty: 7
+      sustain-gap: 120 # 16th note
   bass:
     pro-guitar:
       difficulty: 5

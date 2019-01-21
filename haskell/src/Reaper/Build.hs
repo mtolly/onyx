@@ -166,9 +166,13 @@ track tunings lenTicks lenSecs resn trk = let
     line "TRACKHEIGHT" ["0", "0"]
     let (fxActive, fxPresent, fx)
           | "PART REAL_KEYS_" `isInfixOf` name
-          = (False, True, mutePitches 0 47 >> mutePitches 73 127 >> pitchProKeys)
+          = (False, True, mutePitches 0 47 >> mutePitches 73 127 >> pitchOctaveUp)
+          | "PART KEYS_ANIM_RH" `isInfixOf` name
+          = (False, True, pitchOctaveUp)
+          | "PART KEYS_ANIM_LH" `isInfixOf` name
+          = (False, True, pitchStandard)
           | any (`isSuffixOf` name) ["PART VOCALS", "HARM1", "HARM2", "HARM3"]
-          = (False, True, mutePitches 0 35 >> mutePitches 85 127 >> pitchVox)
+          = (False, True, mutePitches 0 35 >> mutePitches 85 127 >> pitchStandard)
           | any (`isSuffixOf` name) ["PART GUITAR", "PART BASS", "T1 GEMS"]
           = (True, True, previewGtr >> mutePitches 0 94 >> mutePitches 101 127 >> woodblock)
           | "PART KEYS" `isSuffixOf` name
@@ -192,10 +196,10 @@ track tunings lenTicks lenSecs resn trk = let
           block "VST" [label, dll, "0", label, show (num :: Integer)] b64
           line "FLOATPOS" ["0", "0", "0", "0"]
           line "WAK" ["0"]
-        pitchProKeys = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 True $ do
+        pitchOctaveUp = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 True $ do
           line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
           line "AACAPwAAgD8AABAAAAA=" [] -- pro keys: tuned up one octave
-        pitchVox = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 True $ do
+        pitchStandard = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 True $ do
           line "eXNlcu9e7f4AAAAAAgAAAAEAAAAAAAAAAgAAAAAAAAA8AAAAAAAAAAAAEADvvq3eDfCt3qabxDsXt9E6MzMTPwAAAAAAAAAAAACAP+lniD0AAAAAAAAAPwAAgD8AAIA/" []
           line "AAAAPwAAgD8AABAAAAA=" [] -- vox: normal tuning
         pitchProGtr = vst "VSTi: ReaSynth (Cockos)" "reasynth.vst.dylib" 1919251321 True $ do
