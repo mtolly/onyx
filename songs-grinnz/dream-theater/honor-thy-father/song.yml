@@ -2,11 +2,12 @@ metadata:
   title: Honor Thy Father
   file-include: ../../../albums/train-of-thought.yml
   track-number: 4
-  author: Onyxite, Grinnz
+  author: Onyxite, Grinnz, Mazegeek999
   key: C minor
   # note, we use accidental flip on most of pro guitar
   # because it pretends to be in E minor,
   # so we want to use sharps instead of flats.
+  anim-tempo: fast
   comments:
   - "Chart confidence: *high*, written to Portnoy's DVD."
 audio:

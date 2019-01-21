@@ -316,6 +316,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
       , _comments     = []
       , _key          = Nothing
       , _autogenTheme = RBProj.DefaultTheme
+      , _animTempo    = Left D.KTempoMedium
       , _author       = FoF.charter song
       , _rating       = Unrated
       , _previewStart = case FoF.previewStartTime song of
@@ -820,6 +821,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       , _difficulty   = fromMaybe (Tier 1) $ HM.lookup "band" diffMap
       , _key          = skey
       , _autogenTheme = RBProj.DefaultTheme
+      , _animTempo    = D.animTempo pkg
       , _author       = _author meta
       , _rating       = toEnum $ fromIntegral $ D.rating pkg - 1
       , _previewStart = Just $ PreviewSeconds $ fromIntegral (fst $ D.preview pkg) / 1000
@@ -1077,6 +1079,7 @@ importMagma fin dir = do
       , _autogenTheme = case RBProj.autogenTheme $ RBProj.midi rbproj of
         Left theme -> theme
         Right _str -> RBProj.DefaultTheme -- TODO
+      , _animTempo    = Right $ RBProj.animTempo $ RBProj.gamedata rbproj
       , _author       = Just $ RBProj.author $ RBProj.metadata rbproj
       , _rating       = case fmap C3.songRating c3 of
         Nothing -> Unrated

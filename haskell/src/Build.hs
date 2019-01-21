@@ -279,7 +279,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
       Just VintageKit    -> "sfx/kit03_bank.milo"
       Just TrashyKit     -> "sfx/kit04_bank.milo"
       Just ElectronicKit -> "sfx/kit05_bank.milo"
-    , D.animTempo = Left D.KTempoMedium
+    , D.animTempo = _animTempo $ _metadata songYaml
     , D.bandFailCue = Nothing
     , D.songScrollSpeed = 2300
     , D.preview = (fromIntegral pstart, fromIntegral pend)
@@ -510,7 +510,11 @@ makeMagmaProj songYaml rb3 plan pkg mid thisTitle = do
         , Magma.rankProKeys = max 1 rb3ProKeysTier
         , Magma.rankBand    = max 1 rb3BandTier
         , Magma.vocalScrollSpeed = 2300
-        , Magma.animTempo = 32
+        , Magma.animTempo = case _animTempo $ _metadata songYaml of
+          Left  D.KTempoSlow   -> 16
+          Left  D.KTempoMedium -> 32
+          Left  D.KTempoFast   -> 64
+          Right n              -> n
         , Magma.vocalGender = fromMaybe Magma.Female $ getPart (rb3_Vocal rb3) songYaml >>= partVocal >>= vocalGender
         , Magma.vocalPercussion = case perctype of
           Nothing               -> Magma.Tambourine

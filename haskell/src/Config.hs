@@ -25,6 +25,7 @@ import           Data.Conduit.Audio             (Duration (..))
 import           Data.Default.Class
 import qualified Data.DTA.Serialize.GH2         as GH2
 import qualified Data.DTA.Serialize.Magma       as Magma
+import           Data.DTA.Serialize.RB3         (AnimTempo (..))
 import           Data.Fixed                     (Milli)
 import           Data.Foldable                  (toList)
 import           Data.Hashable                  (Hashable (..))
@@ -889,6 +890,7 @@ data Metadata = Metadata
   , _comments     :: [T.Text]
   , _key          :: Maybe SongKey
   , _autogenTheme :: Magma.AutogenTheme
+  , _animTempo    :: Either AnimTempo Integer
   , _author       :: Maybe T.Text
   , _rating       :: Rating
   , _previewStart :: Maybe PreviewTime
@@ -903,6 +905,22 @@ data Metadata = Metadata
   , _difficulty   :: Difficulty
   } deriving (Eq, Show)
 
+parseAnimTempo :: (SendMessage m) => ValueCodec m A.Value (Either AnimTempo Integer)
+parseAnimTempo = eitherCodec
+  Codec
+    { codecIn = lift ask >>= \case
+      A.Null            -> return KTempoMedium
+      A.String "slow"   -> return KTempoSlow
+      A.String "medium" -> return KTempoMedium
+      A.String "fast"   -> return KTempoFast
+      _                 -> expected "an animation speed"
+    , codecOut = makeOut $ \case
+      KTempoSlow   -> A.String "slow"
+      KTempoMedium -> A.String "medium"
+      KTempoFast   -> A.String "fast"
+    }
+  stackJSON
+
 instance StackJSON Metadata where
   stackJSON = asStrictObject "Metadata" $ do
     let stripped = fmap (fmap T.strip) stackJSON
@@ -916,7 +934,8 @@ instance StackJSON Metadata where
     _trackNumber  <- _trackNumber  =. opt     Nothing        "track-number"   stackJSON
     _comments     <- _comments     =. opt     []             "comments"       stackJSON
     _key          <- _key          =. opt     Nothing        "key"            (maybeCodec parseSongKey)
-    _autogenTheme <- _autogenTheme =. opt     Magma.DefaultTheme "autogen-theme"  stackJSON
+    _autogenTheme <- _autogenTheme =. opt     Magma.DefaultTheme "autogen-theme" stackJSON
+    _animTempo    <- _animTempo    =. opt     (Left KTempoMedium) "anim-tempo" parseAnimTempo
     _author       <- _author       =. warning Nothing        "author"         stripped
     _rating       <- _rating       =. opt     Unrated        "rating"         stackJSON
     _previewStart <- _previewStart =. opt     Nothing        "preview-start"  stackJSON
