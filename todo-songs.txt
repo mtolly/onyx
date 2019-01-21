@@ -66,6 +66,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
   - pro keys DONE!
   - basic keys DONE!
   - overdrive DONE!
+  - final audio+lipsync DONE!
   > reductions:
     hard drums - done
     medium drums - AIA, SOC
@@ -74,13 +75,12 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     hard guitar - AIA, ES, HTF, V, SOC, ITNOG
     hard keys - AIA, ES, HTF, V, SOC, ITNOG
   > venue:
-    lighting - 1st drafts done
+    lighting - done (pending tweaks)
     camera - all but TDS (1st drafts)
     animations (moods, crowd, gtr/bass neck, etc.):
       guitar/bass handmaps done for all but TDS and ES
       full keyboard animation done
       character intensity done
-  > final audio production
   > release: February 8, 2019
 SYSTEMATIC CHAOS
   new release with numeric song IDs, lipsync, video backgrounds, other minor fixes

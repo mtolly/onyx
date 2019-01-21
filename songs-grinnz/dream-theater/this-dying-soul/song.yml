@@ -2,7 +2,7 @@ metadata:
   title: This Dying Soul
   file-include: ../../../albums/train-of-thought.yml
   track-number: 2
-  author: Grinnz
+  author: Onyxite, Grinnz, Mazegeek999
   difficulty: 7
   comments:
   - "Chart confidence: *high*, written to Portnoy's DVD."
@@ -78,6 +78,12 @@ audio:
         - drop:
           - frames: 2
           - drumcam-drums-expr
+  final-drums:
+    md5: 1695cc703e03956b5e316516d9d2204d
+    frames: 30426450
+  final-song:
+    md5: f84049c57f2fee73fa4d323ac951c1ea
+    frames: 30426450
 plans:
   album:
     countin:
@@ -110,6 +116,24 @@ plans:
             gain:
             - 2.5
             - drumcam-drums-expr
+  release:
+    countin: *countin
+    song: final-song
+    parts:
+      drums: final-drums
+  mogg:
+    parts:
+      drums: [0, 1]
+      bass: [2]
+      guitar: [3]
+      vocal: [4]
+      keys: [5]
+    pans: [-1, 1, 0, 0, 0, 0, -1, 1]
+    karaoke: false
+    mogg-md5: b15649c391b33fd13a15a7d6001e9df4
+    multitrack: true
+    silent: [2, 3, 4, 5]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0]
 parts:
   drums:
     drums:
@@ -137,14 +161,23 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: drumcam
+    plan: mogg
+    file-milo: lipsync.milo_xbox
+    song-id: 1660200094
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: drumcam
+    plan: mogg
+    file-milo: lipsync.milo_xbox
+    song-id: 1660200095
+    version: 1
   ps:
     game: ps
-    plan: drumcam
+    plan: album
+  ps-stems:
+    game: ps
+    plan: release
 
 # table of some aligned samples
 # after dropping 22548825 samples from band and drums tracks...

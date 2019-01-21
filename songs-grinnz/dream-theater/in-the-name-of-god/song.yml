@@ -32,19 +32,28 @@ audio:
       - frames: 150330761
       - drumcam-band
   drumcam-drums-expr:
-    # TODO this subtracts great for most of the song except the intro
-    # TODO snip off talking at end, also remove static during last piano notes
     expr:
       gain:
       - -0.79
-      - drop:
-        - frames: 5732
-        - stretch:
-          - 1.00000739400962
-          # (31481474 - 1456947) / (31486973 - 1462668)
+      - fade:
+        - end
+        - 0.385
+        - take:
+          - '13:49.668'
           - drop:
-            - frames: 150330761
-            - drumcam-drums
+            - frames: 5732
+            - stretch:
+              - 1.00000739400962
+              # (31481474 - 1456947) / (31486973 - 1462668)
+              - drop:
+                - frames: 150330761
+                - drumcam-drums
+  final-drums:
+    md5: f40f35c70e9636504967f5636d6ea901
+    frames: 38003836
+  final-song:
+    md5: b2d0527118a47b50ebc73d9cd05c7c8f
+    frames: 38003836
 plans:
   album:
     countin:
@@ -70,13 +79,29 @@ plans:
               mix: [drumcam-band-expr, drumcam-drums-expr]
     parts:
       drums:
-        take:
-        - '14:20.764'
-        - pad:
-          - 6.431
-          - gain:
-            - 2.75
-            - resample: drumcam-drums-expr
+        pad:
+        - 6.431
+        - gain:
+          - 2.75
+          - resample: drumcam-drums-expr
+  mogg:
+    parts:
+      drums: [0, 1]
+      bass: [2]
+      guitar: [3]
+      vocal: [4]
+      keys: [5]
+    pans: [-1, 1, 0, 0, 0, 0, -1, 1]
+    karaoke: false
+    mogg-md5: b7ec0105f062d397fdb5088a700a592b
+    multitrack: true
+    silent: [2, 3, 4, 5]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0]
+  release:
+    countin: *countin
+    song: final-song
+    parts:
+      drums: final-drums
 parts:
   drums:
     drums:
@@ -108,11 +133,20 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: drumcam
+    plan: mogg
+    file-milo: lipsync.milo_xbox
+    song-id: 1660200103
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: drumcam
+    plan: mogg
+    file-milo: lipsync.milo_xbox
+    song-id: 1660200104
+    version: 1
   ps:
     game: ps
-    plan: drumcam
+    plan: album
+  ps-stems:
+    game: ps
+    plan: release

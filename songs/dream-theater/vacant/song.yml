@@ -13,16 +13,40 @@ audio:
     frames: 7822164
   hihat:
     file-path: ../../../sound/hihat-foot.wav
+  final-song:
+    md5: 8e31597f3f68b2e61dd4ed51589da072
+    frames: 8215376
 plans:
   album:
     countin:
-      1|0: hihat
-      1|1.5: hihat
-      2|0: hihat
-      2|1: hihat
-      2|2: hihat
+      &countin
+      1|0:
+        gain: [0.25, hihat]
+      1|1.5:
+        gain: [0.25, hihat]
+      2|0:
+        gain: [0.25, hihat]
+      2|1:
+        gain: [0.25, hihat]
+      2|2:
+        gain: [0.25, hihat]
     song:
       fade: [end, 4, album-track]
+  release:
+    countin: *countin
+    song: final-song
+  mogg:
+    parts:
+      vocal: [3]
+      bass: [0, 1]
+      guitar: [2]
+      keys: [4]
+    pans: [-1, 1, 0, 0, 0, -1, 1]
+    karaoke: false
+    mogg-md5: 187d850e8fe8eb595751353ad6c879d1
+    multitrack: false
+    silent: [0, 1, 2, 3, 4]
+    vols: [0, 0, 0, 0, 0, 0, 0]
 parts:
   bass:
     grybo:
@@ -48,3 +72,10 @@ parts:
 targets:
   rb3:
     game: rb3
+    plan: mogg
+    file-milo: lipsync.milo_xbox
+    song-id: 1660200100
+    version: 1
+  ps:
+    game: ps
+    plan: release

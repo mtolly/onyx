@@ -50,6 +50,12 @@ audio:
                 - center: {frames: 1726270}
                   tag: drums
               - take: [{frames: 22481213}, drumcam-drums]
+  final-drums:
+    md5: b7e82bae603390fd49e08db67e85964e
+    frames: 20836748
+  final-song:
+    md5: 9db29df628909eee41720d2888042426
+    frames: 20836748
 plans:
   album:
     countin:
@@ -63,7 +69,6 @@ plans:
     song:
       pad: [3.181, album-track]
   drumcam:
-    # TODO: either move backwards cymbal noise in end to backing, or chart it on drums
     countin: *countin
     song:
       gain:
@@ -79,6 +84,24 @@ plans:
         - pad:
           - 3.129
           - resample: drumcam-drums-expr
+  release:
+    countin: *countin
+    song: final-song
+    parts:
+      drums: final-drums
+  mogg:
+    parts:
+      drums: [0, 1]
+      bass: [2]
+      guitar: [3]
+      vocal: [4]
+      keys: [5]
+    pans: [-1, 1, 0, 0, 0, 0, -1, 1]
+    karaoke: false
+    mogg-md5: 3e32c51d3849cbf67ce01d0776ae0d03
+    multitrack: true
+    silent: [2, 3, 4, 5]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0]
 parts:
   drums:
     drums:
@@ -111,11 +134,20 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: drumcam
+    plan: mogg
+    file-milo: lipsync.milo_xbox
+    song-id: 1660200092
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: drumcam
+    plan: mogg
+    file-milo: lipsync.milo_xbox
+    song-id: 1660200093
+    version: 1
   ps:
     game: ps
-    plan: drumcam
+    plan: album
+  ps-stems:
+    game: ps
+    plan: release

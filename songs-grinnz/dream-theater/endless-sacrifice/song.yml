@@ -47,6 +47,12 @@ audio:
             - drop:
               - frames: 55639809
               - drumcam-drums
+  final-drums:
+    md5: c28c4777649dbbae546aed8d18b3b1fe
+    frames: 30381653
+  final-song:
+    md5: 0d3125ca4a4910732cf1654625712e86
+    frames: 30381653
 plans:
   album:
     countin:
@@ -111,6 +117,24 @@ plans:
         - gain:
           - 2.75
           - resample: drumcam-drums-expr
+  release:
+    countin: *countin
+    song: final-song
+    parts:
+      drums: final-drums
+  mogg:
+    parts:
+      vocal: [4]
+      bass: [2]
+      guitar: [3]
+      keys: [5]
+      drums: [0, 1]
+    pans: [-1, 1, 0, 0, 0, 0, -1, 1]
+    karaoke: false
+    mogg-md5: b8f34e74a18b68a256019e7bf4800b66
+    multitrack: true
+    silent: [2, 3, 4, 5]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0]
 parts:
   drums:
     drums:
@@ -141,11 +165,20 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: drumcam
+    plan: mogg
+    file-milo: lipsync.milo_xbox
+    song-id: 1660200096
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: drumcam
+    plan: mogg
+    file-milo: lipsync.milo_xbox
+    song-id: 1660200097
+    version: 1
   ps:
     game: ps
-    plan: drumcam
+    plan: album
+  ps-stems:
+    game: ps
+    plan: release

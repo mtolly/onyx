@@ -147,6 +147,22 @@ onyxite's C3-format Song IDs (16602xxxxx)
 1660200091 Rosetta Stoned (Tool) 2x
   v3 released 2018-10-21
 
+1660200092 As I Am (Dream Theater) 1x
+1660200093 As I Am (Dream Theater) 2x
+1660200094 This Dying Soul (Dream Theater) 1x
+1660200095 This Dying Soul (Dream Theater) 2x
+1660200096 Endless Sacrifice (Dream Theater) 1x
+1660200097 Endless Sacrifice (Dream Theater) 2x
+1660200098 Honor Thy Father (Dream Theater) 1x
+1660200099 Honor Thy Father (Dream Theater) 2x
+1660200100 Vacant (Dream Theater)
+1660200101 Stream of Consciousness (Dream Theater) 1x
+1660200102 Stream of Consciousness (Dream Theater) 2x
+1660200103 In the Name of God (Dream Theater) 1x
+1660200104 In the Name of God (Dream Theater) 2x
+  Train of Thought (album)
+  To be released 2019-02-08
+
 BONUS SONGS (counting down from max)
 
 1660299999 hacked c3 6:00 drum chart

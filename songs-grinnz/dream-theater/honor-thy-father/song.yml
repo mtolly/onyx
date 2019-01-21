@@ -2,7 +2,7 @@ metadata:
   title: Honor Thy Father
   file-include: ../../../albums/train-of-thought.yml
   track-number: 4
-  author: Grinnz
+  author: Onyxite, Grinnz
   key: C minor
   # note, we use accidental flip on most of pro guitar
   # because it pretends to be in E minor,
@@ -52,6 +52,12 @@ audio:
       - pad:
         - frames: 897
         - drop: [frames: 29081054, drumcam-drums-expr]
+  final-drums:
+    md5: 011d60024d03f9781be645c7dd74c662
+    frames: 26987549
+  final-song:
+    md5: 43d6ad42d16e1f244a012fb48a703771
+    frames: 26987549
 plans:
   album:
     countin:
@@ -85,6 +91,24 @@ plans:
           - pad:
             - 2.348
             - drumcam-drums-expr-gap
+  release:
+    countin: *countin
+    song: final-song
+    parts:
+      drums: final-drums
+  mogg:
+    parts:
+      drums: [0, 1]
+      bass: [2]
+      guitar: [3]
+      vocal: [4]
+      keys: [5]
+    pans: [-1, 1, 0, 0, 0, 0, -1, 1]
+    karaoke: false
+    mogg-md5: c41be644e5f88c9a350c040b2a84c4d5
+    multitrack: true
+    silent: [2, 3, 4, 5]
+    vols: [0, 0, 0, 0, 0, 0, 0, 0]
 parts:
   drums:
     drums:
@@ -115,11 +139,20 @@ parts:
 targets:
   rb3:
     game: rb3
-    plan: drumcam
+    plan: mogg
+    file-milo: lipsync.milo_xbox
+    song-id: 1660200098
+    version: 1
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
-    plan: drumcam
+    plan: mogg
+    file-milo: lipsync.milo_xbox
+    song-id: 1660200099
+    version: 1
   ps:
     game: ps
-    plan: drumcam
+    plan: album
+  ps-stems:
+    game: ps
+    plan: release
