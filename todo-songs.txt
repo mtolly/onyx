@@ -72,7 +72,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     medium drums - AIA, SOC
     easy drums - AIA, SOC
     hard bass - done
-    hard guitar - AIA, ES, HTF, V, SOC, ITNOG
+    hard guitar - done
     hard keys - AIA, ES, HTF, V, SOC, ITNOG
   > venue:
     lighting - done (pending tweaks)
