@@ -76,7 +76,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     hard keys - AIA, ES, HTF, V, SOC, ITNOG
   > venue:
     lighting - done (pending tweaks)
-    camera - all but TDS (1st drafts)
+    camera - done (pending tweaks)
     animations (moods, crowd, gtr/bass neck, etc.):
       guitar/bass handmaps done for all but TDS and ES
       full keyboard animation done
