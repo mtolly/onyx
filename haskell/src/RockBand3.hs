@@ -268,8 +268,15 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             . fixSloppyNotes (10 / 480)
             . openNotes'
             $ fd
-          fixFiveMood x = x { fiveMood = noEarlyMood $ fiveMood x }
-          in (fixFiveMood $ forRB3 track, fixFiveMood $ forPS track)
+          forAll x = x
+            { fiveMood = noEarlyMood $ fiveMood x
+            , fiveFretPosition
+              = U.unapplyTempoTrack tempos
+              $ smoothFretPosition
+              $ U.applyTempoTrack tempos
+              $ fiveFretPosition x
+            }
+          in (forAll $ forRB3 track, forAll $ forPS track)
 
       hasProtarNotFive partName = case getPart partName songYaml of
         Just part -> case (partGRYBO part, partProGuitar part) of

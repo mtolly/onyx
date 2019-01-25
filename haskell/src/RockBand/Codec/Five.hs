@@ -211,3 +211,17 @@ instance ParseTrack FiveTrack where
         Orange -> base + 4
       return FiveDifficulty{..}
     return FiveTrack{..}
+
+smoothFretPosition :: (NNC.C t, Fractional t) => RTB.T t (FretPosition, Bool) -> RTB.T t (FretPosition, Bool)
+smoothFretPosition = \case
+  Wait t1 (p1, False) (Wait t2 (p2, True) rest) | t2 > 0 -> let
+    steps = case compare p1 p2 of
+      EQ -> [p1]
+      LT -> [succ p1 .. pred p2]
+      GT -> [pred p1, pred (pred p1) .. succ p2]
+    stepDuration = t2 / fromIntegral (length steps)
+    in Wait t1 (p1, False)
+      $ foldr ($) (Wait 0 (p2, True) $ smoothFretPosition rest)
+      $ map (\fret -> Wait 0 (fret, True) . Wait stepDuration (fret, False)) steps
+  Wait t pb rest -> Wait t pb $ smoothFretPosition rest
+  RNil -> RNil
