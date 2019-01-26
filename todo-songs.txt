@@ -81,6 +81,21 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
       guitar/bass handmaps done for all but TDS and ES
       full keyboard animation done
       character intensity done
+  > mustang versions:
+    AIA guitar
+    AIA bass: not needed
+    TDS guitar
+    TDS bass: not needed
+    ES guitar
+    ES bass: done (just one octave section)
+    HTF guitar: done (one hand-edited section)
+    HTF bass: done (one hand-edited section)
+    V guitar: not needed
+    V bass: not needed
+    SOC guitar
+    SOC bass: not needed
+    ITNOG guitar
+    ITNOG bass: not needed
   > release: February 8, 2019
 SYSTEMATIC CHAOS
   new release with numeric song IDs, lipsync, video backgrounds, other minor fixes
