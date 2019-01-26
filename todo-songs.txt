@@ -59,9 +59,9 @@ FALLING INTO INFINITY (have all stems now)
 TRAIN OF THOUGHT - DRUMLESS AUDIO!!
   - drums (1x/2x) done!
   - vox done!
-  - pro bass done! (pending more video checks)
+  - pro bass done!
   - basic bass done! including no-open-notes versions
-  - pro guitar DONE! (but needs lots of checks, also need TDS 6-string version)
+  - pro guitar DONE!
   - basic guitar DONE! including no-open-notes versions
   - pro keys DONE!
   - basic keys DONE!

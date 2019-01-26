@@ -151,8 +151,10 @@ parts:
   guitar:
     grybo:
       difficulty: 7
-    # pro-guitar: # TODO squash to 6-string
-      # difficulty: 7
+    pro-guitar:
+      # 7-string
+      tuning: [-5, -5, -5, -5, -4, -5] # all chords are in lower 7 strings. EADGBE -> BEADGB
+      difficulty: 7
   keys:
     grybo:
       difficulty: 7

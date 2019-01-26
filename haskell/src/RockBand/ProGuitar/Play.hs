@@ -67,6 +67,8 @@ data Dpad
 
 basePitch :: (Num a) => GtrString -> a
 basePitch s = case s of
+  S8 -> 30 -- not supported
+  S7 -> 35 -- not supported
   S6 -> 40
   S5 -> 45
   S4 -> 50
@@ -76,6 +78,8 @@ basePitch s = case s of
 
 strNumber :: (Num a) => GtrString -> a
 strNumber s = case s of
+  S8 -> 8 -- not supported
+  S7 -> 7 -- not supported
   S6 -> 6
   S5 -> 5
   S4 -> 4

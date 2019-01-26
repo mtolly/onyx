@@ -329,7 +329,7 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             []   -> repeat 0
             offs -> offs ++ repeat 0
           f = (if pgFixFreeform pg then fixFreeformPG else id) . protarComplete
-            . autoHandPosition . autoChordRoot tuning
+            . autoHandPosition . autoChordRoot tuning . moveStrings
           src17 = RBFile.onyxPartRealGuitar   src
           src22 = RBFile.onyxPartRealGuitar22 src
           mustang = f $ fretLimit 17 $ if nullPG src17 then src22 else src17

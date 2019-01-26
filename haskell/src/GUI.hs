@@ -63,7 +63,7 @@ import qualified RhythmGame.Audio                 as RGAudio
 import qualified RhythmGame.Drums                 as RGDrums
 import           RockBand.Codec.Drums
 import qualified RockBand.Codec.File              as RBFile
-import           RockBand.Codec.ProGuitar         (standardGuitar)
+import           RockBand.Codec.ProGuitar         (indexTuning, standardGuitar)
 import           RockBand.Common                  (Difficulty (..))
 import           RockBand.ProGuitar.Keyboard      (GtrSettings (..), runApp)
 import           Scripts                          (loadMIDI)
@@ -533,7 +533,7 @@ hiddenOptions =
           destNames <- liftIO $ mapM MIDI.getName dests
           pushMenu $ Choices $ let
             -- TODO menu for settings
-            settings = GtrSettings $ \str -> Just $ standardGuitar !! fromEnum str
+            settings = GtrSettings $ \str -> Just $ indexTuning standardGuitar str
             withDest (destName, dest) = Choice (T.pack destName) "MIDI destination"
               $ pushMenu $ TasksStart [runApp src dest settings >> return []]
             in case srcs of

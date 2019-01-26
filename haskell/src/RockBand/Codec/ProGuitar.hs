@@ -45,8 +45,22 @@ data StrumArea = High | Mid | Low | MysteryStrum0
 
 type GtrFret = Int
 
-data GtrString = S6 | S5 | S4 | S3 | S2 | S1
+-- Used in the following way:
+-- 4 strings: S6 S5 S4 S3
+-- 5 strings: S6 S5 S4 S3 S2
+-- 6 strings: S6 S5 S4 S3 S2 S1
+-- 7 strings: S7 S6 S5 S4 S3 S2 S1
+-- 8 strings: S8 S7 S6 S5 S4 S3 S2 S1
+data GtrString = S8 | S7 | S6 | S5 | S4 | S3 | S2 | S1
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+getStringIndex :: Int -> GtrString -> Int
+getStringIndex 8 s = fromEnum s
+getStringIndex 7 s = fromEnum s - 1
+getStringIndex _ s = fromEnum s - 2
+
+indexTuning :: [Int] -> GtrString -> Int
+indexTuning tuning str = tuning !! getStringIndex (length tuning) str
 
 class (Enum a, Bounded a) => GtrChannel a where
   encodeChannel :: a -> Int
@@ -86,6 +100,7 @@ data ProGuitarTrack t = ProGuitarTrack
   -- ^ according to Ruggy, default sharp/flat is according to usual sheet music
   -- rules for the key + tonality
   , pgOnyxOctave     :: RTB.T t GtrFret -- "move these notes 12 frets down if needed" section
+  , pgOnyxString     :: RTB.T t GtrString -- changes the lowest string for RB (default S6)
   , pgMystery45      :: RTB.T t Bool
   , pgMystery69      :: RTB.T t Bool
   , pgMystery93      :: RTB.T t Bool
@@ -96,8 +111,8 @@ nullPG = all (RTB.null . pgNotes) . toList . pgDifficulties
 
 instance (NNC.C t) => Semigroup (ProGuitarTrack t) where
   (<>)
-    (ProGuitarTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16)
-    (ProGuitarTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16)
+    (ProGuitarTrack a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 a16 a17)
+    (ProGuitarTrack b1 b2 b3 b4 b5 b6 b7 b8 b9 b10 b11 b12 b13 b14 b15 b16 b17)
     = ProGuitarTrack
       (Map.unionWith (<>) a1 b1)
       (RTB.merge a2 b2)
@@ -115,17 +130,18 @@ instance (NNC.C t) => Semigroup (ProGuitarTrack t) where
       (RTB.merge a14 b14)
       (RTB.merge a15 b15)
       (RTB.merge a16 b16)
+      (RTB.merge a17 b17)
 
 instance (NNC.C t) => Monoid (ProGuitarTrack t) where
-  mempty = ProGuitarTrack Map.empty RTB.empty
+  mempty = ProGuitarTrack Map.empty RTB.empty RTB.empty
     RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
     RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty RTB.empty
 
 instance TraverseTrack ProGuitarTrack where
-  traverseTrack fn (ProGuitarTrack a b c d e f g h i j k l m n o p) = ProGuitarTrack
-    <$> traverse (traverseTrack fn) a <*> fn b <*> fn c <*> fn d
-    <*> fn e <*> fn f <*> fn g <*> fn h <*> fn i <*> fn j
-    <*> fn k <*> fn l <*> fn m <*> fn n <*> fn o <*> fn p
+  traverseTrack fn (ProGuitarTrack a b c d e f g h i j k l m n o p q) = ProGuitarTrack
+    <$> traverse (traverseTrack fn) a <*> fn b <*> fn c <*> fn d <*> fn e
+    <*> fn f <*> fn g <*> fn h <*> fn i <*> fn j <*> fn k
+    <*> fn l <*> fn m <*> fn n <*> fn o <*> fn p <*> fn q
 
 data ProGuitarDifficulty t = ProGuitarDifficulty
   { pgChordName    :: RTB.T t (Maybe T.Text)
@@ -225,8 +241,14 @@ instance ParseTrack ProGuitarTrack where
     pgOnyxOctave   <- pgOnyxOctave =. let
       parse = readCommand' >=> \case
         ["onyx", "octave", x] -> readMaybe $ T.unpack x
-        _ -> Nothing
+        _                     -> Nothing
       unparse n = showCommand' ["onyx", "octave", T.pack $ show n]
+      in single parse unparse
+    pgOnyxString   <- pgOnyxString =. let
+      parse = readCommand' >=> \case
+        ["onyx", "string", x] -> readMaybe $ 'S' : T.unpack x
+        _                     -> Nothing
+      unparse str = showCommand' ["onyx", "string", T.pack $ drop 1 $ show str]
       in single parse unparse
     pgMystery45    <- pgMystery45 =. edges 45
     pgMystery69    <- pgMystery69 =. edges 69
@@ -240,7 +262,7 @@ instance ParseTrack ProGuitarTrack where
       pgNotes        <- (pgNotes =.) $ condenseMap $ eachKey each $ \str -> let
         fs (typ, fret, mlen) = (typ, fret + 100, fromMaybe (1/32) mlen)
         fp (typ, v, len) = (typ, v - 100, guard (len > (1/3)) >> Just len)
-        in dimap (fmap fs) (fmap fp) $ matchEdgesCV $ channelEdges (base + fromEnum str)
+        in dimap (fmap fs) (fmap fp) $ matchEdgesCV $ channelEdges (base + getStringIndex 6 str)
       pgForceHOPO    <- pgForceHOPO =. edges (base + 6)
       pgSlide        <- pgSlide =. channelEdges_ (base + 7)
       pgArpeggio     <- pgArpeggio =. edges (base + 8)
@@ -401,7 +423,7 @@ computeChordNames diff tuning flatDefault pg = let
           else (Nothing, chord)
         flat = flatDefault /= elem ModSwapAcc mods
         keys = Set.fromList $ map getKey chord'
-        getKey (str, (_, fret, _)) = toEnum $ ((tuning !! fromEnum str) + fret) `rem` 12
+        getKey (str, (_, fret, _)) = toEnum $ (indexTuning tuning str + fret) `rem` 12
         name = T.pack $ makeChordName root keys flat
         in case fmap getKey slash of
           -- Somebody to Love has a Bb chord, with leftmost note Bb,
@@ -486,7 +508,11 @@ autoHandPosition pg = if RTB.null $ pgHandPosition pg
       case filter (/= 0) fs of
         []     -> 0
         f : ft -> foldr min f ft
-    in pg { pgHandPosition = posns }
+    -- get rid of any zero positions except maybe the initial position
+    posns' = case posns of
+      RNil -> RNil
+      Wait t p rest -> Wait t p $ RTB.filter (/= 0) rest
+    in pg { pgHandPosition = posns' }
   else pg
 
 -- | If there are no chord root notes, sets each chord to have its lowest
@@ -494,7 +520,7 @@ autoHandPosition pg = if RTB.null $ pgHandPosition pg
 autoChordRoot :: (NNC.C t) => [Int] -> ProGuitarTrack t -> ProGuitarTrack t
 autoChordRoot tuning pg = if RTB.null $ pgChordRoot pg
   then let
-    getPitch str fret = (tuning !! fromEnum str) + fret
+    getPitch str fret = indexTuning tuning str + fret
     notes = foldr RTB.merge RTB.empty $ do
       pgd <- Map.elems $ pgDifficulties pg
       return $ fmap (\(str, (_, fret, _)) -> getPitch str fret) $ pgNotes pgd
@@ -561,4 +587,23 @@ fretLimit maxFret pg = let
       = fmap (uncurry doLower)
       $ applyStatus1 False shouldLower
       $ pgHandPosition pg
+    , pgOnyxOctave = RTB.empty -- fun fact: magma ignores these for some reason
+    }
+
+-- | Shifts notes between strings to shrink a 7/8-string part to 6 strings.
+moveStrings :: (NNC.C t) => ProGuitarTrack t -> ProGuitarTrack t
+moveStrings pg = let
+  baseRB3 = S6
+  moveDiff diff = diff
+    { pgNotes
+      = fmap (\(base, (str, triple)) -> let
+          delta = fromEnum baseRB3 - fromEnum base
+          in (toEnum (fromEnum str + delta), triple)
+        )
+      $ applyStatus1 baseRB3 (pgOnyxString pg)
+      $ pgNotes diff
+    }
+  in pg
+    { pgDifficulties = fmap moveDiff $ pgDifficulties pg
+    , pgOnyxString = RTB.empty
     }
