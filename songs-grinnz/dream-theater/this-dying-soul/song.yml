@@ -130,7 +130,7 @@ plans:
       keys: [5]
     pans: [-1, 1, 0, 0, 0, 0, -1, 1]
     karaoke: false
-    mogg-md5: b15649c391b33fd13a15a7d6001e9df4
+    mogg-md5: 1528d591fa8f06f184ec0909ff85efca
     multitrack: true
     silent: [2, 3, 4, 5]
     vols: [0, 0, 0, 0, 0, 0, 0, 0]

@@ -94,7 +94,7 @@ plans:
       keys: [5]
     pans: [-1, 1, 0, 0, 0, 0, -1, 1]
     karaoke: false
-    mogg-md5: b7ec0105f062d397fdb5088a700a592b
+    mogg-md5: a76fbd30cd38692a452c1c408e571e73
     multitrack: true
     silent: [2, 3, 4, 5]
     vols: [0, 0, 0, 0, 0, 0, 0, 0]
