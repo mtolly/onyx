@@ -955,14 +955,8 @@ commands =
       ]
     , commandRun = \files opts -> do
       fin <- getInputMIDI files
-      fout <- outputFile opts $ return $ fin -<.> "reduced.mid"
-      case (elem OptWiiNoFills opts, elem OptWiiMustang22 opts) of
-        (False, False) -> stackIO $ Dir.copyFile fin fout
-        (nofills, mustang22) -> do
-          mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
-          let f = (if nofills   then RBFile.wiiNoFills   else id)
-                . (if mustang22 then RBFile.wiiMustang22 else id)
-          stackIO $ Save.toFile fout $ RBFile.showMIDIFile' $ f mid
+      fout <- outputFile opts $ return $ fin -<.> "dolphin.mid"
+      applyMidiDolphin opts fin fout
       return [fout]
     }
 
@@ -995,13 +989,7 @@ commands =
             -- .mid (use unchanged, or edit to remove fills and/or mustang PG)
             let midin  = extract </> songsXX <.> "mid"
                 midout = dir_song </> "content" </> songsXX <.> "mid"
-            case (elem OptWiiNoFills opts, elem OptWiiMustang22 opts) of
-              (False, False) -> stackIO $ Dir.renameFile midin midout
-              (nofills, mustang22) -> do
-                mid <- stackIO (Load.fromFile midin) >>= RBFile.readMIDIFile'
-                let f = (if nofills   then RBFile.wiiNoFills   else id)
-                      . (if mustang22 then RBFile.wiiMustang22 else id)
-                stackIO $ Save.toFile midout $ RBFile.showMIDIFile' $ f mid
+            applyMidiDolphin opts midin midout
             -- .mogg (use unchanged)
             let mogg = dir_song </> "content" </> songsXX <.> "mogg"
             stackIO $ Dir.renameFile (extract </> songsXX <.> "mogg") mogg
@@ -1116,6 +1104,7 @@ optDescrs =
   , Option []   ["rb2-version"    ] (NoArg  OptRB2Version                     ) ""
   , Option []   ["wii-no-fills"   ] (NoArg  OptWiiNoFills                     ) ""
   , Option []   ["wii-mustang-22" ] (NoArg  OptWiiMustang22                   ) ""
+  , Option []   ["wii-unmute-22"  ] (NoArg  OptWiiUnmute22                    ) ""
   , Option []   ["venuegen"       ] (NoArg  OptVenueGen                       ) ""
   , Option "h?" ["help"           ] (NoArg  OptHelp                           ) ""
   ] where
@@ -1145,9 +1134,25 @@ data OnyxOption
   | OptRB2Version
   | OptWiiNoFills
   | OptWiiMustang22
+  | OptWiiUnmute22
   | OptVenueGen
   | OptHelp
   deriving (Eq, Ord, Show, Read)
+
+applyMidiDolphin :: (MonadIO m, SendMessage m) =>
+  [OnyxOption] -> FilePath -> FilePath -> StackTraceT m ()
+applyMidiDolphin opts fin fout = let
+  nofills = elem OptWiiNoFills opts
+  mustang22 = elem OptWiiMustang22 opts
+  unmute22 = elem OptWiiUnmute22 opts
+  in if or [nofills, mustang22, unmute22]
+    then do
+      mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+      let f = (if nofills   then RBFile.wiiNoFills   else id)
+            . (if mustang22 then RBFile.wiiMustang22 else id)
+            . (if unmute22  then RBFile.wiiUnmute22  else id)
+      stackIO $ Save.toFile fout $ RBFile.showMIDIFile' $ f mid
+    else stackIO $ Dir.copyFile fin fout
 
 data Game
   = GameRB3

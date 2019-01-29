@@ -625,6 +625,24 @@ wiiMustang22 (Song temps sigs ff) = let
     , fixedPartRealBass   = if all (not . nullPG) [b17, b22] then b22 else b17
     }
 
+-- | Unmutes protar notes with a velocity above 22.
+wiiUnmute22 :: Song (FixedFile t) -> Song (FixedFile t)
+wiiUnmute22 (Song temps sigs ff) = let
+  unmuteTrack pg = pg
+    { pgDifficulties = fmap unmuteDiff $ pgDifficulties pg
+    }
+  unmuteDiff diff = diff
+    { pgNotes = flip fmap (pgNotes diff) $ \case
+      (str, (Muted, fret, len)) | fret > 22 -> (str, (NormalNote, fret, len))
+      x                                     -> x
+    }
+  in Song temps sigs ff
+    { fixedPartRealGuitar   = unmuteTrack $ fixedPartRealGuitar   ff
+    , fixedPartRealGuitar22 = unmuteTrack $ fixedPartRealGuitar22 ff
+    , fixedPartRealBass     = unmuteTrack $ fixedPartRealBass     ff
+    , fixedPartRealBass22   = unmuteTrack $ fixedPartRealBass22   ff
+    }
+
 convertToVenueGen :: Song (OnyxFile U.Beats) -> Song (OnyxFile U.Beats)
 convertToVenueGen (Song temps sigs trks) = Song temps sigs trks
   { onyxLighting = onyxLighting trks <> unbuildLighting 1 (onyxVenue trks)
