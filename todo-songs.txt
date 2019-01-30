@@ -61,7 +61,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
   - vox done!
   - pro bass done! including mustang
   - basic bass done! including no-open-notes versions
-  - pro guitar DONE! need mustang for TDS and ITNOG
+  - pro guitar DONE! need mustang for ITNOG
   - basic guitar DONE! including no-open-notes versions
   - pro keys DONE!
   - basic keys DONE!
@@ -73,7 +73,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     easy drums - AIA, SOC
     hard bass - done
     hard guitar - done
-    hard keys - AIA, ES, HTF, V, SOC, ITNOG
+    hard keys - done
   > venue:
     lighting - done (pending tweaks)
     camera - done (pending tweaks)
