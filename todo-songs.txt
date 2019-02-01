@@ -78,7 +78,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     lighting - done (pending tweaks)
     camera - done (pending tweaks)
     animations (moods, crowd, gtr/bass neck, etc.):
-      guitar/bass handmaps done for all but TDS and ES
+      guitar/bass handmaps done for all but ES
       full keyboard animation done
       character intensity done
       crowd events todo
