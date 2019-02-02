@@ -527,7 +527,21 @@ gryboNoteNames isKeys = execWriter $ do
   o 60 "EASY Green"
   unless isKeys $ do
     o 59 "Left Hand Highest"
-    forM_ [58, 57 .. 41] $ \i -> o i "-"
+    forM_ [58, 57 .. 41] $ \i -> o i $ case i of
+      -- https://imgur.com/fRg6Vo9
+      41 -> "- (1)" -- venuegen says 40
+      43 -> "- (2)"
+      45 -> "- (3)"
+      47 -> "- (4)"
+      49 -> "- (5)"
+      50 -> "- (6)"
+      52 -> "- (7)"
+      53 -> "- (8)"
+      55 -> "- (9)"
+      56 -> "- (10)"
+      57 -> "- (11)"
+      58 -> "- (12)"
+      _  -> "-"
     o 40 "Left Hand Lowest"
   where o k v = tell [(k, v)]
         x k = tell [(k, "----")]

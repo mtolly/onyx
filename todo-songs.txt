@@ -77,12 +77,11 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
   > venue:
     lighting - done (pending tweaks)
     camera - done (pending tweaks)
-    animations (moods, crowd, gtr/bass neck, etc.):
-      guitar/bass handmaps done for all but ES
-      full keyboard animation done
-      character intensity done
-      crowd events todo
-      gtr/bass fret positions todo
+    gtr/bass handmaps - done
+    full keyboard animation - done
+    character intensity - done
+    gtr/bass fret positions - AIA, TDS, ES bass, V
+    crowd events - todo
   > release: February 8, 2019
 SYSTEMATIC CHAOS
   new release with numeric song IDs, lipsync, video backgrounds, other minor fixes

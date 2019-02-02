@@ -217,8 +217,12 @@ smoothFretPosition = \case
   Wait t1 (p1, False) (Wait t2 (p2, True) rest) | t2 > 0 -> let
     steps = case compare p1 p2 of
       EQ -> [p1]
-      LT -> [succ p1 .. pred p2]
-      GT -> [pred p1, pred (pred p1) .. succ p2]
+      LT -> if succ p1 == p2
+        then [p1]
+        else [succ p1 .. pred p2]
+      GT -> if pred p1 == p2
+        then [p1]
+        else [pred p1, pred (pred p1) .. succ p2]
     stepDuration = t2 / fromIntegral (length steps)
     in Wait t1 (p1, False)
       $ foldr ($) (Wait 0 (p2, True) $ smoothFretPosition rest)
