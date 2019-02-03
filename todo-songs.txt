@@ -81,7 +81,7 @@ TRAIN OF THOUGHT - DRUMLESS AUDIO!!
     full keyboard animation - done
     character intensity - done
     crowd events - done (ty grinnz!)
-    gtr/bass fret positions - all but ITNOG
+    gtr/bass fret positions - done!
   > release: February 8, 2019
 SYSTEMATIC CHAOS
   new release with numeric song IDs, lipsync, video backgrounds, other minor fixes
