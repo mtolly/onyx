@@ -8,9 +8,10 @@ metadata:
   # because it pretends to be in E minor,
   # so we want to use sharps instead of flats.
   anim-tempo: fast
-  comments:
-  - "Chart confidence: *high*, written to Portnoy's DVD."
   difficulty: 6
+  comments:
+  - "Drums, drum animations, and tempo map by Grinnz."
+  - "Pro keys and QA by Mazegeek999."
 audio:
   album-track:
     md5: bf8342e27676a60a60c5cc3da4f530d6
@@ -55,10 +56,10 @@ audio:
         - frames: 897
         - drop: [frames: 29081054, drumcam-drums-expr]
   final-drums:
-    md5: 011d60024d03f9781be645c7dd74c662
+    md5: e65d6612f2dcaaa3486aac75c7279bcf
     frames: 26987549
   final-song:
-    md5: 43d6ad42d16e1f244a012fb48a703771
+    md5: b818e4131e28578a9a9a952df0809588
     frames: 26987549
 plans:
   album:
@@ -95,9 +96,9 @@ plans:
             - drumcam-drums-expr-gap
   release:
     countin: *countin
-    song: final-song
+    song: {drop: [0.001, final-song]}
     parts:
-      drums: final-drums
+      drums: {pad: [0.001, final-drums]}
   mogg:
     parts:
       drums: [0, 1]
@@ -107,7 +108,7 @@ plans:
       keys: [5]
     pans: [-1, 1, 0, 0, 0, 0, -1, 1]
     karaoke: false
-    mogg-md5: c41be644e5f88c9a350c040b2a84c4d5
+    mogg-md5: 5428ed54196ed79349a61c8ec841e5e1
     multitrack: true
     silent: [2, 3, 4, 5]
     vols: [0, 0, 0, 0, 0, 0, 0, 0]

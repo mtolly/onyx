@@ -338,3 +338,46 @@
     rb3-rs: download/onyx_RosettaStoned_v3_1x_rb3con
     rb3-2x-rs: download/onyx_RosettaStoned_v3_2x_rb3con
     ps-rs: download/onyx_RosettaStoned_v3_ch_ps.zip
+
+# Train of Thought
+- file-path: ../songs-grinnz/dream-theater/as-i-am
+  video: https://www.youtube.com/watch?v=Zlv-ZgpQPO0
+  urls:
+    rb3: download/c3x_AsIAm_v1_1x_rb3con
+    rb3-2x: download/c3x_AsIAm_v1_2x_rb3con
+    ps: download/c3x_AsIAm_v1_ch_ps_m.zip
+- file-path: ../songs-grinnz/dream-theater/this-dying-soul
+  video: https://www.youtube.com/watch?v=J5cDxm4CjiA
+  urls:
+    rb3: download/c3x_ThisDyingSoul_v1_1x_rb3con
+    rb3-2x: download/c3x_ThisDyingSoul_v1_2x_rb3con
+    ps: download/c3x_ThisDyingSoul_v1_ch_ps_m.zip
+- file-path: ../songs-grinnz/dream-theater/endless-sacrifice
+  video: https://www.youtube.com/watch?v=uPcnMMcqoRk
+  urls:
+    rb3: download/c3x_EndlessSacrifice_v1_1x_rb3con
+    rb3-2x: download/c3x_EndlessSacrifice_v1_2x_rb3con
+    ps: download/c3x_EndlessSacrifice_v1_ch_ps_m.zip
+- file-path: ../songs-grinnz/dream-theater/honor-thy-father
+  video: https://www.youtube.com/watch?v=jKqfZio5FAo
+  urls:
+    rb3: download/c3x_HonorThyFather_v1_1x_rb3con
+    rb3-2x: download/c3x_HonorThyFather_v1_2x_rb3con
+    ps: download/c3x_HonorThyFather_v1_ch_ps_m.zip
+- file-path: ../songs/dream-theater/vacant
+  video: https://www.youtube.com/watch?v=8WbNKSQOwQ8
+  urls:
+    rb3: download/c3x_Vacant_v1_rb3con
+    ps: download/c3x_Vacant_v1_ch_ps_m.zip
+- file-path: ../songs-grinnz/dream-theater/stream-of-consciousness
+  video: https://www.youtube.com/watch?v=DuQkqErjFhI
+  urls:
+    rb3: download/c3x_StreamOfConsciousness_v1_1x_rb3con
+    rb3-2x: download/c3x_StreamOfConsciousness_v1_2x_rb3con
+    ps: download/c3x_StreamOfConsciousness_v1_ch_ps_m.zip
+- file-path: ../songs-grinnz/dream-theater/in-the-name-of-god
+  video: https://www.youtube.com/watch?v=-2YGnlFD5UU
+  urls:
+    rb3: download/c3x_InTheNameOfGod_v1_1x_rb3con
+    rb3-2x: download/c3x_InTheNameOfGod_v1_2x_rb3con
+    ps: download/c3x_InTheNameOfGod_v1_ch_ps_m.zip

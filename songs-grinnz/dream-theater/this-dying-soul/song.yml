@@ -6,7 +6,8 @@ metadata:
   difficulty: 7
   anim-tempo: fast
   comments:
-  - "Chart confidence: *high*, written to Portnoy's DVD."
+  - "Drums, drum animations, and tempo map by Grinnz."
+  - "Pro keys and QA by Mazegeek999."
 audio:
   album-track:
     md5: 15d29358a4bd3d730af30e11089cbc26
@@ -80,11 +81,11 @@ audio:
           - frames: 2
           - drumcam-drums-expr
   final-drums:
-    md5: 1695cc703e03956b5e316516d9d2204d
-    frames: 30426450
+    md5: db6efc2505c6ef191ef2c64e1dc0c48b
+    frames: 30375866
   final-song:
-    md5: f84049c57f2fee73fa4d323ac951c1ea
-    frames: 30426450
+    md5: 7f4f54aeb214fddb1a86b1e8c1968118
+    frames: 30375866
 plans:
   album:
     countin:
@@ -118,9 +119,9 @@ plans:
             - drumcam-drums-expr
   release:
     countin: *countin
-    song: final-song
+    song: {drop: [0.001, final-song]}
     parts:
-      drums: final-drums
+      drums: {pad: [0.001, final-drums]}
   mogg:
     parts:
       drums: [0, 1]
@@ -130,7 +131,7 @@ plans:
       keys: [5]
     pans: [-1, 1, 0, 0, 0, 0, -1, 1]
     karaoke: false
-    mogg-md5: 1528d591fa8f06f184ec0909ff85efca
+    mogg-md5: 553099b906f7437756605df4d0480718
     multitrack: true
     silent: [2, 3, 4, 5]
     vols: [0, 0, 0, 0, 0, 0, 0, 0]

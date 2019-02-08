@@ -7,6 +7,9 @@ metadata:
   key: C# minor
   # guitar pretends to be D minor,
   # so we use accidental flip to have it use flat chord names.
+  comments:
+  - "Drums, drum animations, and tempo map by Grinnz."
+  - "Pro keys and QA by Mazegeek999."
 audio:
   album-track:
     md5: 8f1a01eac65add10b94efa1dd41fa32e
@@ -43,10 +46,10 @@ audio:
               - frames: 150341462
               - drumcam-drums
   final-drums:
-    md5: 213ba20d2b64d0bbae2f580170d08024
+    md5: 5bb0904c9d49a19a601df7a1243a5433
     frames: 30090003
   final-song:
-    md5: 7502c8dd7d77cfec9a0a5eafdad98a63
+    md5: e82e2d742b48a494218baad32b07be10
     frames: 30090003
 plans:
   album:
@@ -112,9 +115,9 @@ plans:
               - drumcam-drums-expr
   release:
     countin: *countin
-    song: final-song
+    song: {drop: [0.001, final-song]}
     parts:
-      drums: final-drums
+      drums: {pad: [0.001, final-drums]}
   mogg:
     parts:
       drums: [0, 1]
@@ -123,7 +126,7 @@ plans:
       keys: [4]
     pans: [-1, 1, 0, 0, 0, -1, 1]
     karaoke: false
-    mogg-md5: 49ac2e8d84111da05f4e374e91d24026
+    mogg-md5: dfd38c35d0baae3fbed8ddf58ea6efc2
     multitrack: true
     silent: [2, 3, 4]
     vols: [0, 0, 0, 0, 0, 0, 0]

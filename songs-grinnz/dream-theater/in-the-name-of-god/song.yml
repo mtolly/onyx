@@ -13,6 +13,9 @@ metadata:
   key: C minor
   # we use accidental flip on pro guitar
   # because it pretends to be E minor
+  comments:
+  - "Drums, drum animations, and tempo map by Grinnz."
+  - "QA by Mazegeek999."
 audio:
   album-track:
     md5: e0d7ef9465510acd5b45d0572cd42e4e
@@ -50,10 +53,10 @@ audio:
                 - frames: 150330761
                 - drumcam-drums
   final-drums:
-    md5: f40f35c70e9636504967f5636d6ea901
+    md5: 82c276ed3b0de3c6a8c23020bee13494
     frames: 38003836
   final-song:
-    md5: b2d0527118a47b50ebc73d9cd05c7c8f
+    md5: 1e287af55a2dac83d60dcc322997293c
     frames: 38003836
 plans:
   album:
@@ -94,15 +97,15 @@ plans:
       keys: [5]
     pans: [-1, 1, 0, 0, 0, 0, -1, 1]
     karaoke: false
-    mogg-md5: a76fbd30cd38692a452c1c408e571e73
+    mogg-md5: f1dd3db97b25cc92257491d9caf95401
     multitrack: true
     silent: [2, 3, 4, 5]
     vols: [0, 0, 0, 0, 0, 0, 0, 0]
   release:
     countin: *countin
-    song: final-song
+    song: {drop: [0.001, final-song]}
     parts:
-      drums: final-drums
+      drums: {pad: [0.001, final-drums]}
 parts:
   drums:
     drums:

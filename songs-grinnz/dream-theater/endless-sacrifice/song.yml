@@ -14,6 +14,9 @@ metadata:
   # since it pretends to be E minor
   anim-tempo: fast
   difficulty: 7
+  comments:
+  - "Drums, drum animations, and tempo map by Grinnz."
+  - "Pro keys and QA by Mazegeek999."
 audio:
   album-track:
     md5: 4c7768aca1b5f13b15de68688afdc69f
@@ -50,11 +53,11 @@ audio:
               - frames: 55639809
               - drumcam-drums
   final-drums:
-    md5: c28c4777649dbbae546aed8d18b3b1fe
-    frames: 30381653
+    md5: 35cd7788b746d0b90b12c9dab55154c9
+    frames: 30345196
   final-song:
-    md5: 0d3125ca4a4910732cf1654625712e86
-    frames: 30381653
+    md5: 66929f11220c1e69343f10bbfd0d2037
+    frames: 30345196
 plans:
   album:
     countin:
@@ -121,9 +124,9 @@ plans:
           - resample: drumcam-drums-expr
   release:
     countin: *countin
-    song: final-song
+    song: {drop: [0.001, final-song]}
     parts:
-      drums: final-drums
+      drums: {pad: [0.001, final-drums]}
   mogg:
     parts:
       vocal: [4]
@@ -133,7 +136,7 @@ plans:
       drums: [0, 1]
     pans: [-1, 1, 0, 0, 0, 0, -1, 1]
     karaoke: false
-    mogg-md5: b8f34e74a18b68a256019e7bf4800b66
+    mogg-md5: 28f6cd7a577c6ca075d0dd02f504e5f4
     multitrack: true
     silent: [2, 3, 4, 5]
     vols: [0, 0, 0, 0, 0, 0, 0, 0]
