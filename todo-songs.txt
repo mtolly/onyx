@@ -56,35 +56,8 @@ SELF-TITLED
 FALLING INTO INFINITY (have all stems now)
   > lines in the sand - needs: pro keys, basic keys, vox, OD
   > peruvian skies - drums done
-TRAIN OF THOUGHT - DRUMLESS AUDIO!!
-  - drums (1x/2x) done!
-  - vox done!
-  - pro bass done! including mustang
-  - basic bass done! including no-open-notes versions
-  - pro guitar DONE! including mustang
-  - basic guitar DONE! including no-open-notes versions
-  - pro keys DONE!
-  - basic keys DONE!
-  - overdrive DONE!
-  - final audio+lipsync DONE!
-  > reductions:
-    hard drums - done
-    medium drums - AIA, SOC
-    easy drums - AIA, SOC
-    hard bass - done
-    hard guitar - done
-    hard keys - done
-  > venue:
-    lighting - done (pending tweaks)
-    camera - done (pending tweaks)
-    gtr/bass handmaps - done
-    full keyboard animation - done
-    character intensity - done
-    crowd events - done (ty grinnz!)
-    gtr/bass fret positions - done!
-  > release: February 8, 2019
 SYSTEMATIC CHAOS
-  new release with numeric song IDs, lipsync, video backgrounds, other minor fixes
+  new release with numeric song IDs, lipsync, venue, fixes from band score book
   > forsaken - fix basic gtr/bass to match pro
   - TDEN: fixed end of gtr solo, added lots of LH notes on pro keys
 SOLO STUFF
