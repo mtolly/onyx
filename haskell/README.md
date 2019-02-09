@@ -31,8 +31,8 @@ Windows version requires .NET and (I think) the Visual C++ runtime.
 Mac version requires Wine, Mono, and Mono's `libgdiplus` library.
 You can use the official Mac installers for Wine and Mono; Mono's will install
 `libgdiplus` as well. Or you can use Homebrew, by installing the packages
-`wine`, `mono`, and `mono-libgdiplus`.
-The app is compiled with Sierra (10.12.6) so you probably need at least that.
+`wine`, `mono`, and `mono-libgdiplus`. The app is compiled with High Sierra
+(10.13.6) so you probably need at least that version.
 
 ## Instructions
 
@@ -160,9 +160,14 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
     the Dolphin Wii emulator. This is primarily intended for people using
     Dolphin to record videos of songs.
 
-    Options are also available to remove activation drum fills, and to remove
-    the Mustang version of a split Pro Guitar/Bass track so that the Squier
-    version (supporting more than 17 frets) will always be played.
+    Options are available for certain MIDI transformations useful for videos:
+
+      * Remove activation drum fills
+      * Remove the Mustang version of a Pro Guitar/Bass track, ensuring the
+        Squier version (supporting more than 17 frets) will always be played
+      * Unmute any muted Pro Guitar/Bass notes over fret 22. This allows you
+        to include such notes while compiling with Magma, and then unmute
+        them for recording the video
 
   * Dolphin MIDI conversion (MIDI file -> MIDI file)
 

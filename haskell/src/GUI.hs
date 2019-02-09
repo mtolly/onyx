@@ -209,12 +209,14 @@ convertRB2 = ConvertRB2
 data DolphinOptions = DolphinOptions
   { dolNoFills   :: Bool
   , dolMustang22 :: Bool
+  , dolUnmute22  :: Bool
   }
 
 dolphinOptions :: DolphinOptions
 dolphinOptions = DolphinOptions
   { dolNoFills   = True
   , dolMustang22 = True
+  , dolUnmute22  = True
   }
 
 data OptionInput a
@@ -483,6 +485,22 @@ topMenu = Choices
               }
             ]
           }
+        , Choice
+          { choiceTitle = "[option] Unmute Pro G/B notes >22: " <> if dolUnmute22 then "Yes" else "No"
+          , choiceDescription = "Select whether to show notes above the Squier's (22-fret) range."
+          , choiceValue = OptionEnum
+            [ Choice
+              { choiceTitle = "Yes"
+              , choiceDescription = "Muted notes above fret 22 will be unmuted."
+              , choiceValue = DolphinOptions { dolUnmute22 = True, .. }
+              }
+            , Choice
+              { choiceTitle = "No"
+              , choiceDescription = "No change to Pro Guitar/Bass charts."
+              , choiceValue = DolphinOptions { dolUnmute22 = False, .. }
+              }
+            ]
+          }
         ]
       in Choices
         [ ( Choice "Combine CONs" "Combine CON files into .app files ready for Dolphin."
@@ -498,6 +516,7 @@ topMenu = Choices
                 , fs
                 , ["--wii-no-fills" | dolNoFills dol]
                 , ["--wii-mustang-22" | dolMustang22 dol]
+                , ["--wii-unmute-22" | dolUnmute22 dol]
                 , ["--to", out]
                 ]
             in (opts dol, continue)
@@ -510,6 +529,7 @@ topMenu = Choices
               [ ["dolphin-midi", f]
               , ["--wii-no-fills" | dolNoFills dol]
               , ["--wii-mustang-22" | dolMustang22 dol]
+              , ["--wii-unmute-22" | dolUnmute22 dol]
               ]
             in (opts dol, continue)
           )
