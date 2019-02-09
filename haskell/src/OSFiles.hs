@@ -76,6 +76,8 @@ osOpenFile f = liftIO $ callProcess "open" [f]
 foreign import ccall unsafe "onyx_ShowFiles"
   c_ShowFiles :: Ptr CString -> CInt -> IO ()
 
+osShowFiles _ = return () -- temporarily disabled until can look into possible Mojave crash
+{-
 osShowFiles fs = do
   fs' <- liftIO $ mapM makeAbsolute fs
   case map takeDirectory fs' of
@@ -84,6 +86,7 @@ osShowFiles fs = do
         withArrayLen cstrs $ \len pcstrs -> do
           c_ShowFiles pcstrs $ fromIntegral len
     _ -> return ()
+-}
 
 osShowFolder dir = liftIO $ callProcess "open" [dir]
 
