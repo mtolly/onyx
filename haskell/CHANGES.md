@@ -1,5 +1,28 @@
 # Version history
 
+## 20190209
+
+* Tool to convert songs to Dolphin `.app` format for recording videos
+* Fixed Force HOPO to override Force Strum when used at the same time
+* Fix `.chart` and `.ini` files starting with a byte order mark
+* Fix `.chart` files with two copies of the same note
+* Import `bass.ogg` (in addition to `rhythm.ogg`) from PS/CH songs
+* Fix em dashes and en dashes used in title/artist/album
+* Fix Pro Guitar chord name override events with parentheses
+* Support lanes on Hard
+* Much faster file extraction from CON files
+* Web player improvements:
+  * New audio format, fixes MP3s not seeking correctly in Safari/Edge
+  * Labels and icons on each track
+  * Include solo vocals in addition to harmonies
+  * Much smaller `song.js` file
+  * Practice sections shown on progress bar and above timestamp
+  * Fixed display of lanes on lower difficulties
+  * Open notes: wide sustains, lane support
+  * Show only 4 (or 5) lanes on Pro Bass if higher strings aren't used
+  * Pro guitar arpeggios
+  * Fixed E/M/H Pro Keys not showing solos
+
 ## 20180717
 
 * Fix bug introduced in `20180513` with reading Pro Keys BREs
