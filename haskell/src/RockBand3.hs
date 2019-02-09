@@ -270,11 +270,13 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
             $ fd
           forAll x = x
             { fiveMood = noEarlyMood $ fiveMood x
+            {-
             , fiveFretPosition
               = U.unapplyTempoTrack tempos
               $ smoothFretPosition
               $ U.applyTempoTrack tempos
               $ fiveFretPosition x
+            -}
             }
           in (forAll $ forRB3 track, forAll $ forPS track)
 
