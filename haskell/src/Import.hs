@@ -167,8 +167,8 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
   audio_drums_4 <- loadAudioFile "drums_4"
   audio_guitar <- loadAudioFile "guitar"
   audio_keys <- loadAudioFile "keys"
-  -- TODO I think CH now supports bass.ogg (separate from rhythm.ogg)
-  audio_rhythm <- loadAudioFile "rhythm"
+  audio_bass <- loadAudioFile "bass" -- this is only supported by CH and newer PS
+  audio_rhythm <- loadAudioFile "rhythm" -- this is the "bass or rhythm" traditional audio
   audio_vocals <- loadAudioFile "vocals"
   audio_vocals_1 <- loadAudioFile "vocals_1"
   audio_vocals_2 <- loadAudioFile "vocals_2"
@@ -176,8 +176,8 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
   audio_song <- loadAudioFile "song"
   let audioFiles = catMaybes
         [ audio_drums, audio_drums_1, audio_drums_2, audio_drums_3
-        , audio_drums_4, audio_guitar, audio_keys, audio_rhythm, audio_vocals
-        , audio_vocals_1, audio_vocals_2, audio_crowd, audio_song
+        , audio_drums_4, audio_guitar, audio_keys, audio_rhythm, audio_bass
+        , audio_vocals, audio_vocals_1, audio_vocals_2, audio_crowd, audio_song
         ]
 
   -- assume sole guitar is no-stems audio
@@ -189,7 +189,8 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
     Just chans -> return (af, chans)
 
   let gtrAudio = if onlyGuitar then [] else toList audio_guitar
-      bassAudio = toList audio_rhythm
+      bassAudio = toList audio_bass
+      rhythmAudio = toList audio_rhythm
       keysAudio = toList audio_keys
       crowdAudio = toList audio_crowd
       voxAudio = catMaybes [audio_vocals, audio_vocals_1, audio_vocals_2]
@@ -298,6 +299,8 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
             else Just Vocal2
           else Just Vocal1
         else Nothing
+      hasBass = isnt nullFive RBFile.fixedPartBass && guardDifficulty FoF.diffBass
+      hasRhythm = isnt nullFive RBFile.fixedPartRhythm && guardDifficulty FoF.diffRhythm
 
   let hopoThreshold = case FoF.eighthNoteHOPO song of
         Just True -> 250 -- don't know exactly
@@ -348,7 +351,15 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
       , _countin      = Countin []
       , _planParts    = Parts $ HM.fromList $ concat
         [ case audioExpr gtrAudio of Nothing -> []; Just x -> [(FlexGuitar, PartSingle x)]
-        , case audioExpr bassAudio of Nothing -> []; Just x -> [(FlexBass, PartSingle x)]
+        , case (audioExpr bassAudio, audioExpr rhythmAudio) of
+          -- the complicated assignment of rhythm.ogg/bass.ogg to rhythm/bass parts
+          (Nothing, Nothing) -> []
+          (Just b , Just r ) -> [(FlexBass, PartSingle b), (FlexExtra "rhythm", PartSingle r)]
+          (Just b , Nothing) -> [(FlexBass, PartSingle b)]
+          (Nothing, Just r ) -> case (hasBass, hasRhythm) of
+            (True , True) -> [(FlexExtra "rhythm-bass", PartSingle r)] -- make up a part so neither bass nor rhythm gets the audio
+            (False, True) -> [(FlexExtra "rhythm"     , PartSingle r)]
+            _             -> [(FlexBass               , PartSingle r)]
         , case audioExpr keysAudio of Nothing -> []; Just x -> [(FlexKeys, PartSingle x)]
         , case audioExpr voxAudio of Nothing -> []; Just x -> [(FlexVocal, PartSingle x)]
         , case (audioExpr drumsAudio, audioExpr kickAudio, audioExpr snareAudio) of
@@ -411,7 +422,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           }
         })
       , ( FlexBass, def
-        { partGRYBO = guard (isnt nullFive RBFile.fixedPartBass && guardDifficulty FoF.diffBass) >> Just PartGRYBO
+        { partGRYBO = guard hasBass >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffBass song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
@@ -447,7 +458,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           }
         })
       , ( FlexExtra "rhythm", def
-        { partGRYBO = guard (isnt nullFive RBFile.fixedPartRhythm && guardDifficulty FoF.diffRhythm) >> Just PartGRYBO
+        { partGRYBO = guard hasRhythm >> Just PartGRYBO
           { gryboDifficulty = toTier $ FoF.diffRhythm song
           , gryboHopoThreshold = hopoThreshold
           , gryboFixFreeform = False
