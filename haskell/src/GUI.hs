@@ -1239,7 +1239,7 @@ instance ShowTerminal (GUIMessageLevel, Message) where
 filterSong :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m T.Text
 filterSong fp = identifyFile' fp >>= \(typ, fp') -> case typ of
   FileSTFS -> liftBracketLog (withSTFS fp') $ \contents -> do
-    case [ getDTA | ("songs/songs.dta", getDTA) <- stfsFiles contents ] of
+    case [ getDTA | (path, getDTA) <- stfsFiles contents, path == ("songs" </> "songs.dta") ] of
       getDTA : _ -> stackIO getDTA >>= useDTA "STFS"
       _          -> fatal "Could not locate songs/songs.dta"
   FileRBA -> getRBAFileBS 0 fp' >>= useDTA "RBA"
