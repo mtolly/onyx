@@ -83,8 +83,6 @@ executables:
     - template-haskell
     - MonadRandom
     - data-binary-ieee754 >= 0.4.4 && < 0.5
-    - sdl2
-    - sdl2-ttf
     - zip-archive
     - silently
     - codec
@@ -104,6 +102,7 @@ executables:
     - unliftio-core
     - xml
     - zlib
+    - fltkhs
     # my libraries:
     - jammittools >= 0.5.0.3 && < 0.6
     - midi-util >= 0.2 && < 0.3
@@ -151,6 +150,8 @@ executables:
       ld-options: -lto_library
       # this fixes C++ exception catching on mac.
       # see https://ghc.haskell.org/trac/ghc/ticket/11829
+      extra-libraries:
+      - fltkc # TODO this breaks stack ghci
 
   onyx-package:
     main: Installer.hs

@@ -6,7 +6,7 @@ import           Control.Exception              (displayException)
 import           Control.Monad                  (unless)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
-import           GUI                            (launchGUI)
+import           GUI.FLTK                       (launchGUI)
 import           System.Environment             (getArgs)
 import           System.Exit
 import           System.Info                    (os)

@@ -826,7 +826,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
     { _metadata = Metadata
       { _title        = _title meta <|> Just (D.name pkg)
       , _artist       = Just $ D.artist pkg
-      , _album        = Just $ fromMaybe "Unknown Album" $ D.albumName pkg
+      , _album        = D.albumName pkg
       , _genre        = Just $ D.genre pkg
       , _subgenre     = D.subGenre pkg >>= T.stripPrefix "subgenre_"
       , _year         = Just $ fromIntegral $ D.yearReleased pkg
