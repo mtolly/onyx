@@ -144,14 +144,20 @@ executables:
       else:
         dependencies: mountpoints
     - condition: os(darwin)
-      cpp-options: -DMACOSX
-      c-sources: cbits/macfiles.m
-      frameworks: AppKit
-      ld-options: -lto_library
-      # this fixes C++ exception catching on mac.
-      # see https://ghc.haskell.org/trac/ghc/ticket/11829
-      extra-libraries:
-      - fltkc # TODO this breaks stack ghci
+      then:
+        cpp-options: -DMACOSX
+        c-sources: cbits/macfiles.m
+        frameworks: AppKit
+        ld-options: -lto_library
+        # ^ this fixes C++ exception catching on mac.
+        # see https://ghc.haskell.org/trac/ghc/ticket/11829
+        ghc-options: "-optl-Wl,-lfltkc"
+        # ^ this could just be "extra-libraries: [fltkc]"
+        # but that breaks `stack ghci` and this doesn't for some reason.
+        # still can't actually run the gui from ghci but that's fine
+      else:
+        # copied from fltkhs-hello-world
+        ghc-options: '-pgml g++ "-optl-Wl,--allow-multiple-definition" "-optl-Wl,--whole-archive" "-optl-Wl,-Bstatic" "-optl-Wl,-lfltkc" "-optl-Wl,-Bdynamic" "-optl-Wl,--no-whole-archive"'
 
   onyx-package:
     main: Installer.hs
