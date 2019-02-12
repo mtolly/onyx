@@ -1,0 +1,36 @@
+metadata:
+  title: The Funky Chunky Monkey (Live at vfJAMS)
+  artist: Devon Taylor
+  author: Onyxite
+  year: 2018
+  genre: fusion
+  subgenre: fusion
+audio:
+  only-drums:
+    md5: 49ff964d75d70c3961d7e40495e141a7
+    frames: 19690091
+  no-drums:
+    md5: 80854d3a04342cfd949c37803210e5dc
+    frames: 20902511
+parts:
+  drums:
+    drums: {}
+plans:
+  isolated:
+    song:
+      pad:
+      - 5.017
+      - fade:
+        - start
+        - 0.058
+        - drop:
+          - 3.330
+          - no-drums
+    parts:
+      drums:
+        pad: [4.221, only-drums]
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
