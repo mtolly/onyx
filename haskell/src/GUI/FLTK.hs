@@ -1,24 +1,30 @@
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeFamilies      #-}
 module GUI.FLTK where
 
 import           Config
-import           Control.Concurrent               (ThreadId, forkIO)
-import           Control.Concurrent.STM           (atomically)
+import           Control.Concurrent                        (ThreadId, forkIO)
+import           Control.Concurrent.STM                    (atomically)
 import           Control.Concurrent.STM.TChan
-import qualified Control.Exception                as Exc
-import           Control.Monad                    (forM_, void)
-import           Control.Monad.IO.Class           (MonadIO (..), liftIO)
-import           Control.Monad.Trans.Class        (lift)
-import           Control.Monad.Trans.Reader       (ReaderT, ask, runReaderT)
-import           Control.Monad.Trans.Resource     (ResourceT, release,
-                                                   resourceForkIO, runResourceT)
+import qualified Control.Exception                         as Exc
+import           Control.Monad                             (forM_, void)
+import           Control.Monad.IO.Class                    (MonadIO (..),
+                                                            liftIO)
+import           Control.Monad.Trans.Class                 (lift)
+import           Control.Monad.Trans.Reader                (ReaderT, ask,
+                                                            runReaderT)
+import           Control.Monad.Trans.Resource              (ResourceT, release,
+                                                            resourceForkIO,
+                                                            runResourceT)
 import           Control.Monad.Trans.StackTrace
-import           Data.Maybe                       (fromMaybe)
-import qualified Data.Text                        as T
-import qualified Graphics.UI.FLTK.LowLevel.FL as FLTK
-import qualified Graphics.UI.FLTK.LowLevel.FLTKHS as FL
-import           Graphics.UI.TinyFileDialogs      (openFileDialog)
+import           Data.Maybe                                (fromMaybe)
+import qualified Data.Text                                 as T
+import qualified Graphics.UI.FLTK.LowLevel.FL              as FLTK
+import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
+import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
+import           Graphics.UI.TinyFileDialogs               (openFileDialog)
 import           OpenProject
 
 data WindowState
@@ -98,9 +104,25 @@ launchGUI = do
       fillWindow :: FL.Ref FL.Window -> IO WindowState
       fillWindow window = do
         FL.begin window -- I think windowNew does this automatically
-        btn <- FL.buttonNew
+        btn <- FL.buttonCustom
           (FL.Rectangle (FL.Position (FL.X 10) (FL.Y 30)) (FL.Size (FL.Width 95) (FL.Height 30)))
           (Just "Load song")
+          Nothing
+          $ Just $ let
+            dnd ref = \case
+              FLE.DndEnter -> return $ Right () -- we want dnd events
+              FLE.DndDrag -> return $ Right ()
+              FLE.DndLeave -> return $ Right ()
+              FLE.DndRelease -> return $ Right () -- give us the text!
+              FLE.Paste -> do
+                str <- FLTK.eventText
+                print str -- TODO report this fltkhs bug.
+                -- we have to force the text here before we return,
+                -- otherwise it gets collected on the C side
+                sink $ EventLoad $ T.unpack str
+                return $ Right ()
+              e -> FL.handleSuper ref e
+            in FL.defaultCustomWidgetFuncs { FL.handleCustom = Just dnd }
         FL.setLabelsize btn (FL.FontSize 10)
         FL.setCallback btn $ \_ -> void $ forkIO $ do
           openFileDialog "Load song" "" [] "Songs" False >>= \case
