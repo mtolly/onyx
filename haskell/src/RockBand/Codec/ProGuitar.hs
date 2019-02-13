@@ -510,7 +510,7 @@ autoHandPosition pg = if RTB.null $ pgHandPosition pg
         f : ft -> foldr min f ft
     -- get rid of any zero positions except maybe the initial position
     posns' = case posns of
-      RNil -> RNil
+      RNil          -> RNil
       Wait t p rest -> Wait t p $ RTB.filter (/= 0) rest
     in pg { pgHandPosition = posns' }
   else pg
