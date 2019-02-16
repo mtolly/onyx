@@ -6,12 +6,13 @@ at least 2 parts done:
 > tank! (seatbelts) saxguitar + vox (lol) done
 > scapegoat 1 (louis de mieulle) drums and bass done
 > footloose & fancy free (earthworks) needs pro keys, can't release on c3
+> one for antonio (chick corea + antonio sanchez) LIK drums, PK just needs wraps, PB done
 at least 1 part done:
-> one for antonio (chick corea + antonio sanchez) LIK drums finished/edited
 > the taste of filth (louis de mieulle) drums done
 > soundfrieze (louis de mieulle) drums done
 > vertigo (gem) drums done
 > jambone (snarky puppy) drums done
+> grebfruit (benny greb / vfjams) drums done
 > in a trance (hiromi) drums done
 > time out (hiromi) drums done
 > i want a pine cone (uncle moe) drums done
@@ -51,15 +52,15 @@ A DRAMATIC TURN OF EVENTS
   > bridges in the sky - drums done
   > outcry - drums fixed from old chart
   > breaking all illusions - drums done
+SYSTEMATIC CHAOS
+  new release with numeric song IDs, lipsync, venue, fixes from band score book
+  > forsaken - fix basic gtr/bass to match pro
+  - TDEN: fixed end of gtr solo, added lots of LH notes on pro keys
 SELF-TITLED
   > behind the veil - just needs rest of gtr, basic keys, vox, OD, and audio exprs
 FALLING INTO INFINITY (have all stems now)
   > lines in the sand - needs: pro keys, basic keys, vox, OD
   > peruvian skies - drums done
-SYSTEMATIC CHAOS
-  new release with numeric song IDs, lipsync, venue, fixes from band score book
-  > forsaken - fix basic gtr/bass to match pro
-  - TDEN: fixed end of gtr solo, added lots of LH notes on pro keys
 SOLO STUFF
   > go wayne earl (rudess) needs polish + basic keys
   > time crunch (rudess) drums done, pkeys started
@@ -69,16 +70,16 @@ PRO GUITAR/BASS
 - summer goddess, scoop out, sabotage, widows (soil & pimp) ready after checks
 - spark (hiromi) ready after checks
 - a crimson rose (katamari) ready after checks
-> leyenda (williams)
-> train of thought; see DT
-> some of sys chaos; see DT
+- got a match (chick corea) ready after some fret cleanup
+- leyenda (williams) pretty much done
+- one for antonio (corea + sanchez)
+> sys chaos; see DT
 > foam born (btbam)
 > dark world (insaneintherain)
 > giant steps (coltrane)
 > kung fu world champion (hiromi)
 
 OTHER
-- 50 ways to say goodbye (train) adopted by kitty for c3 project
 - prelude/kiara (bonobo)
 - voodoo chile (hendrix) ready for jarod to polish + release (someday...)
 - oblivion (winery dogs)
@@ -89,6 +90,7 @@ OTHER
 > bikini sports ponchin (mth) just needs vox finished
 > waltz of the flowers (vadrum) drums done
 > summer (vadrum) drums done
+> life on mars? (david bowie) upgrade with venue, animations, orch on gtr, reductions
 
 COLLABS
 - hippy: chiharu no koi; PK + basic keys done, ready to send

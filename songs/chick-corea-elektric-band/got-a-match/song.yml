@@ -27,6 +27,8 @@ parts:
   bass:
     grybo:
       difficulty: 6
+    pro-guitar:
+      tuning: [-5, -5, -5, -5, -4, -4]
   keys:
     grybo:
       difficulty: 7
