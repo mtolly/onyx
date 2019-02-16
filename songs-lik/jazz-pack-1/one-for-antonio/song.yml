@@ -43,6 +43,12 @@ parts:
   drums:
     drums:
       difficulty: 7
+  bass:
+    pro-guitar:
+      difficulty: 7
+  keys:
+    pro-keys:
+      difficulty: 7
 targets:
   rb3:
     game: rb3
