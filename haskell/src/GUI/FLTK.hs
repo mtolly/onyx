@@ -26,6 +26,8 @@ import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
 import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           Graphics.UI.TinyFileDialogs               (openFileDialog)
 import           OpenProject
+import           System.FilePath                           (takeDirectory,
+                                                            (</>))
 
 data WindowState
   = LoadSong
@@ -34,7 +36,7 @@ data WindowState
     }
   | LoadedSong
     { wsWindow  :: FL.Ref FL.Window
-    , wsGroup   :: FL.Ref FL.Group
+    , wsTabs    :: FL.Ref FL.Tabs
     , wsProject :: Project
     }
 
@@ -95,6 +97,7 @@ launchGUI = do
           (FL.Size (FL.Width 115) (FL.Height 100))
           Nothing
           Nothing
+        FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
         fillWindow window
       resizeWindow :: FL.Ref FL.Window -> FL.Size -> IO ()
       resizeWindow window size = do
@@ -123,7 +126,7 @@ launchGUI = do
                 return $ Right ()
               e -> FL.handleSuper ref e
             in FL.defaultCustomWidgetFuncs { FL.handleCustom = Just dnd }
-        FL.setLabelsize btn (FL.FontSize 10)
+        FL.setLabelsize btn (FL.FontSize 13)
         FL.setCallback btn $ \_ -> void $ forkIO $ do
           openFileDialog "Load song" "" [] "Songs" False >>= \case
             Just [f] -> sink $ EventLoad $ T.unpack f
@@ -153,33 +156,90 @@ launchGUI = do
               process ws'
             EventLoaded proj -> case ws' of
               LoadSong window btn -> do
-                group <- liftIO $ do
+                tabs <- liftIO $ do
                   FL.destroy btn
-                  -- 10px padding, window 300px wide, text inputs 25px high, button 95x30
-                  let windowSize = FL.Size
-                        (FL.Width 300)
-                        (FL.Height $ 10 + 25 + 10 + 25 + 10 + 25 + 10 + 30 + 10)
+                  let windowWidth = 800
+                      windowHeight = 600
+                      windowSize = FL.Size (FL.Width windowWidth) (FL.Height windowHeight)
+                      tabHeight = 25
+                      innerHeight = windowHeight - tabHeight
+                      innerSize = FL.Size (FL.Width windowWidth) (FL.Height innerHeight)
                   resizeWindow window windowSize
                   FL.begin window
-                  group <- FL.groupNew
+                  tabs <- FL.tabsNew
                     (FL.Rectangle (FL.Position (FL.X 0) (FL.Y 0)) windowSize)
                     Nothing
-                  forM_ (zip [0..] [_title, _artist, _album]) $ \(i, fn) -> do
-                    input <- FL.inputNew
-                      (FL.Rectangle (FL.Position (FL.X 10) (FL.Y $ 10 + i * (25 + 10))) (FL.Size (FL.Width 280) (FL.Height 25)))
+                  let tab :: T.Text -> (FL.Ref FL.Group -> IO a) -> IO a
+                      tab name fn = do
+                        group <- FL.groupNew
+                          (FL.Rectangle (FL.Position (FL.X 0) (FL.Y tabHeight)) innerSize)
+                          (Just name)
+                        x <- fn group
+                        FL.end group
+                        return x
+                      padded t r b l size@(FL.Size (FL.Width w) (FL.Height h)) fn = do
+                        group <- FL.groupNew
+                          (FL.Rectangle
+                            (FL.Position (FL.X 0) (FL.Y 0))
+                            (FL.Size (FL.Width (w + l + r)) (FL.Height (h + t + b)))
+                          )
+                          Nothing
+                        x <- fn $ FL.Rectangle
+                          (FL.Position (FL.X l) (FL.Y t))
+                          size
+                        FL.end group
+                        FL.setResizable group $ Just x
+                  meta <- tab "Metadata" $ \meta -> do
+                    pack <- FL.packNew
+                      (FL.Rectangle
+                        (FL.Position (FL.X 0) (FL.Y tabHeight))
+                        (FL.Size (FL.Width $ windowWidth - 200) (FL.Height innerHeight))
+                      )
                       Nothing
+                    forM_ (zip (True : repeat False) [("Title", _title), ("Artist", _artist), ("Album", _album)]) $ \(top, (str, fn)) -> do
+                      padded (if top then 10 else 5) 10 5 100 (FL.Size (FL.Width 500) (FL.Height 25)) $ \rect -> do
+                        input <- FL.inputNew
+                          rect
+                          (Just str)
+                          (Just FL.FlNormalInput) -- this is required for labels to work. TODO report bug in binding's "inputNew"
+                        FL.setLabelsize input $ FL.FontSize 13
+                        FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+                        FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeftTop]
+                        void $ FL.setValue input $ fromMaybe "" $ fn $ _metadata $ projectSongYaml proj
+                        return input
+                    padded 5 10 5 10 (FL.Size (FL.Width 500) (FL.Height 35)) $ \rect -> do
+                      closeBtn <- FL.buttonNew rect (Just "Close song")
+                      FL.setLabelsize closeBtn (FL.FontSize 13)
+                      FL.setCallback closeBtn $ \_ -> sink EventClose
+                      return closeBtn
+                    FL.end pack
+                    packRight <- FL.packNew
+                      (FL.Rectangle
+                        (FL.Position (FL.X (windowWidth - 200)) (FL.Y tabHeight))
+                        (FL.Size (FL.Width 200) (FL.Height innerHeight))
+                      )
                       Nothing
-                    FL.setValue input $ fromMaybe "" $ fn $ _metadata $ projectSongYaml proj
-                  btn' <- FL.buttonNew
-                    (FL.Rectangle (FL.Position (FL.X 10) (FL.Y $ 10 + 3 * (25 + 10))) (FL.Size (FL.Width 95) (FL.Height 30)))
-                    (Just "Close song")
-                  FL.setLabelsize btn' (FL.FontSize 10)
-                  FL.setCallback btn' $ \_ -> sink EventClose
-                  FL.end group
+                    padded 10 10 0 0 (FL.Size (FL.Width 190) (FL.Height 190)) $ \rect -> do
+                      cover <- FL.buttonNew rect Nothing
+                      Right png <- FL.pngImageNew $ T.pack $ takeDirectory (projectLocation proj) </> "gen/cover.png"
+                      FL.scale png (FL.Size (FL.Width 180) (FL.Height 180)) (Just True) (Just False)
+                      FL.setImage cover $ Just png
+                      return cover
+                    FL.end packRight
+                    FL.setResizable meta $ Just pack
+                    return meta
+                  tab "Audio" $ \_ -> return ()
+                  tab "Instruments" $ \_ -> return ()
+                  tab "Rock Band 3" $ \_ -> return ()
+                  tab "Rock Band 2" $ \_ -> return ()
+                  tab "Clone Hero/Phase Shift" $ \_ -> return ()
+                  FL.end tabs
+                  FL.setResizable tabs $ Just meta
                   FL.end window
+                  FL.setResizable window $ Just tabs
                   FLTK.redraw
-                  return group
-                process $ LoadedSong window group proj
+                  return tabs
+                process $ LoadedSong window tabs proj
               _ -> process ws'
             EventLoad f -> do
               case ws' of
@@ -190,7 +250,9 @@ launchGUI = do
               void $ forkOnyx $ errorToEither (openProject f) >>= \case
                 Left (Messages msgs) -> liftIO $ forM_ msgs $ \msg -> do
                   liftIO $ sink $ EventFail msg
-                Right proj -> liftIO $ sink $ EventLoaded proj
+                Right proj -> do
+                  void $ shakeBuild1 proj [] "gen/cover.png"
+                  liftIO $ sink $ EventLoaded proj
               process ws'
             EventClose -> case ws' of
               LoadedSong window group proj -> do
