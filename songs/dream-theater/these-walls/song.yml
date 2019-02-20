@@ -111,16 +111,26 @@ plans:
       vocal:
         mix: [mixed-vocal, mixed-bvocals-unchanged, mixed-bvocals-faded]
       guitar:
-        fade:
+        pad:
         - start
-        - 2.4
-        - mix: [mixed-guitar1-unchanged, mixed-guitar1-missing, mixed-guitar2]
+        - 4.063
+        - drop:
+          - start
+          - 4.063 # drops guitar tune-up before first note
+          - mix: [mixed-guitar1-unchanged, mixed-guitar1-missing, mixed-guitar2]
       keys:
         mix: [mixed-keys1, mixed-keys2]
       drums:
         mixed-drums
     song:
-      mix: [mixed-guitar1-backing]
+      mix:
+      - mixed-guitar1-backing
+      - fade:
+        - start
+        - 2.4
+        - take:
+          - 4.063
+          - mixed-guitar1-unchanged # guitar tune-up before first notes
   album:
     countin: *countin
     song:
