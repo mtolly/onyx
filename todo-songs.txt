@@ -51,13 +51,14 @@ A DRAMATIC TURN OF EVENTS
   > this is the life - drums fixed from old chart
   > bridges in the sky - drums done
   > outcry - drums fixed from old chart
-  > breaking all illusions - drums done
+  > breaking all illusions - drums PB PG done
 SYSTEMATIC CHAOS
   new release with numeric song IDs, lipsync, venue, fixes from band score book
   > forsaken - fix basic gtr/bass to match pro
   - TDEN: fixed end of gtr solo, added lots of LH notes on pro keys
 SELF-TITLED
   > behind the veil - just needs rest of gtr, basic keys, vox, OD, and audio exprs
+  > enigma machine - started PG
 FALLING INTO INFINITY (have all stems now)
   > lines in the sand - needs: pro keys, basic keys, vox, OD
   > peruvian skies - drums done
