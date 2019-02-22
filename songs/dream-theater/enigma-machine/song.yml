@@ -37,16 +37,25 @@ parts:
     drums:
       difficulty: 7
   keys:
+    grybo:
+      difficulty: 7
     pro-keys:
       difficulty: 7
-    grybo:
-      difficulty: 6
   bass:
     grybo:
-      difficulty: 4
+      difficulty: 5
+    pro-guitar:
+      # from Breaking the Fourth Wall (https://www.youtube.com/watch?v=qRFcLHo58eQ)
+      # + https://www.youtube.com/watch?v=0DpDGlTmUM8
+      difficulty: 6
+      tuning: [-5, -5, -5, -5, -4, -4] # EADGBE -> BEADGC
   guitar:
     grybo:
       difficulty: 7
+    pro-guitar:
+      # from official sheet music
+      difficulty: 7
+      tuning: [-5, -5, -5, -5, -4, -5] # EADGBE -> BEADGB (7 string but this is for chords)
 targets:
   rb3:
     game: rb3
