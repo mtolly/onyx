@@ -117,15 +117,18 @@ parts:
       difficulty: 6
     pro-guitar:
       difficulty: 7
-      tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC
+      tuning:
+        base: bass-6
+        offsets: [1, 0, 0, 0, 0, 0] # CEADGC
   guitar:
     grybo:
       difficulty: 7
       sustain-gap: 120 # 16th note
     pro-guitar:
       difficulty: 7
-      tuning: [0, 0, 0, 0, 0, 0]
-      tuning-global: -4 # C standard
+      tuning:
+        base: guitar-6
+        global: -4 # C standard
   vocal:
     vocal:
       difficulty: 5

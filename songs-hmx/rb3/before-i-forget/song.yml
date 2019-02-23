@@ -8,8 +8,10 @@ parts:
   bass:
     pro-guitar:
       fix-freeform: false
-      tuning: [-2, 0, 0, 0] # drop D
-      tuning-global: -3 # drop B
+      tuning:
+        base: bass-4
+        offsets: [-2, 0, 0, 0] # drop D
+        global: -3 # drop B
       difficulty:
         rank: 466
     grybo:
@@ -19,8 +21,10 @@ parts:
   guitar:
     pro-guitar:
       fix-freeform: false
-      tuning: [-2, 0, 0, 0, 0, 0] # drop D
-      tuning-global: -3 # drop B
+      tuning:
+        base: guitar-6
+        offsets: [-2, 0, 0, 0, 0, 0] # drop D
+        global: -3 # drop B
       difficulty:
         rank: 352
     grybo:

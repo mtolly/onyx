@@ -70,6 +70,7 @@ drawProtar (Protar protar) badge startX stuff = do
       zoomAsc = Map.zoomAscDo minSecs maxSecs
       targetY = secsToPxVert stuff.time
       handedness n = if stuff.app.settings.leftyFlip then protar.strings - 1 - n else n
+      lowStrings = if protar.strings <= 6 then 0 else protar.strings - 6
       drawH = stuff.maxY - stuff.minY
       phantomOpacity = 0.5 -- TODO move this to customize
   -- Chord names
@@ -164,23 +165,29 @@ drawProtar (Protar protar) badge startX stuff = do
     fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   -- Lanes
   let colors' =
-        [ { c: _.s6, lane: _.s6, x: handedness 0 * widthFret + 1, strum: image_gem_red_pro   , hopo: image_gem_red_pro_hopo   , tap: image_gem_red_pro_tap
+        [ { c: _.s6, lane: _.s6, x: handedness (0    + lowStrings) * widthFret + 1, strum: image_gem_red_pro   , hopo: image_gem_red_pro_hopo   , tap: image_gem_red_pro_tap
           , shades: customize.sustainRed, target: image_highway_protar_target_red
           }
-        , { c: _.s5, lane: _.s5, x: handedness 1 * widthFret + 1, strum: image_gem_green_pro , hopo: image_gem_green_pro_hopo , tap: image_gem_green_pro_tap
+        , { c: _.s5, lane: _.s5, x: handedness (1    + lowStrings) * widthFret + 1, strum: image_gem_green_pro , hopo: image_gem_green_pro_hopo , tap: image_gem_green_pro_tap
           , shades: customize.sustainGreen, target: image_highway_protar_target_green
           }
-        , { c: _.s4, lane: _.s4, x: handedness 2 * widthFret + 1, strum: image_gem_orange_pro, hopo: image_gem_orange_pro_hopo, tap: image_gem_orange_pro_tap
+        , { c: _.s4, lane: _.s4, x: handedness (2    + lowStrings) * widthFret + 1, strum: image_gem_orange_pro, hopo: image_gem_orange_pro_hopo, tap: image_gem_orange_pro_tap
           , shades: customize.sustainOrange, target: image_highway_protar_target_orange
           }
-        , { c: _.s3, lane: _.s3, x: handedness 3 * widthFret + 1, strum: image_gem_blue_pro  , hopo: image_gem_blue_pro_hopo  , tap: image_gem_blue_pro_tap
+        , { c: _.s3, lane: _.s3, x: handedness (3    + lowStrings) * widthFret + 1, strum: image_gem_blue_pro  , hopo: image_gem_blue_pro_hopo  , tap: image_gem_blue_pro_tap
           , shades: customize.sustainBlue, target: image_highway_protar_target_blue
           }
-        , { c: _.s2, lane: _.s2, x: handedness 4 * widthFret + 1, strum: image_gem_yellow_pro, hopo: image_gem_yellow_pro_hopo, tap: image_gem_yellow_pro_tap
+        , { c: _.s2, lane: _.s2, x: handedness (4    + lowStrings) * widthFret + 1, strum: image_gem_yellow_pro, hopo: image_gem_yellow_pro_hopo, tap: image_gem_yellow_pro_tap
           , shades: customize.sustainYellow, target: image_highway_protar_target_yellow
           }
-        , { c: _.s1, lane: _.s1, x: handedness 5 * widthFret + 1, strum: image_gem_purple_pro, hopo: image_gem_purple_pro_hopo, tap: image_gem_purple_pro_tap
+        , { c: _.s1, lane: _.s1, x: handedness (5    + lowStrings) * widthFret + 1, strum: image_gem_purple_pro, hopo: image_gem_purple_pro_hopo, tap: image_gem_purple_pro_tap
           , shades: customize.sustainPurple, target: image_highway_protar_target_purple
+          }
+        , { c: _.s7, lane: _.s7, x: handedness ((-1) + lowStrings) * widthFret + 1, strum: image_gem_purple_pro, hopo: image_gem_purple_pro_hopo, tap: image_gem_purple_pro_tap
+          , shades: customize.sustainPurple, target: image_highway_protar_target_purple
+          }
+        , { c: _.s8, lane: _.s8, x: handedness ((-2) + lowStrings) * widthFret + 1, strum: image_gem_yellow_pro, hopo: image_gem_yellow_pro_hopo, tap: image_gem_yellow_pro_tap
+          , shades: customize.sustainYellow, target: image_highway_protar_target_yellow
           }
         ]
       colors = take protar.strings colors'

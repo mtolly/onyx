@@ -41,6 +41,7 @@ import           JSONData
 import qualified RockBand.Codec.Drums           as Drums
 import           RockBand.Codec.File            (FlexPartName (..), getPartName,
                                                  readPartName)
+import           RockBand.Codec.ProGuitar       (GtrBase (..), GtrTuning (..))
 import           RockBand.Common                (Key (..), SongKey (..),
                                                  Tonality (..), readpKey,
                                                  showKey, songKeyUsesFlats)
@@ -617,17 +618,44 @@ instance StackJSON PartProKeys where
 data PartProGuitar = PartProGuitar
   { pgDifficulty    :: Difficulty
   , pgHopoThreshold :: Int
-  , pgTuning        :: [Int]
-  , pgTuningGlobal  :: Int
+  , pgTuning        :: GtrTuning
   , pgFixFreeform   :: Bool
   } deriving (Eq, Ord, Show, Read)
+
+tuningBaseFormat :: (SendMessage m) => ValueCodec m A.Value GtrBase
+tuningBaseFormat = Codec
+  { codecIn = lift ask >>= \case
+    A.Null              -> return Guitar6
+    A.String "guitar-6" -> return Guitar6
+    A.String "guitar-7" -> return Guitar7
+    A.String "guitar-8" -> return Guitar8
+    A.String "bass-4"   -> return Bass4
+    A.String "bass-5"   -> return Bass5
+    A.String "bass-6"   -> return Bass6
+    A.Array _           -> GtrCustom <$> codecIn (listCodec stackJSON)
+    _                   -> expected "a guitar/bass tuning base"
+  , codecOut = makeOut $ \case
+    Guitar6 -> "guitar-6"
+    Guitar7 -> "guitar-7"
+    Guitar8 -> "guitar-8"
+    Bass4 -> "bass-4"
+    Bass5 -> "bass-5"
+    Bass6 -> "bass-6"
+    GtrCustom ps -> A.toJSON ps
+  }
+
+tuningFormat :: (SendMessage m) => ValueCodec m A.Value GtrTuning
+tuningFormat = asStrictObject "GtrTuning" $ do
+  gtrBase    <- gtrBase    =. opt Guitar6 "base"    tuningBaseFormat
+  gtrOffsets <- gtrOffsets =. opt []      "offsets" stackJSON
+  gtrGlobal  <- gtrGlobal  =. opt 0       "global"  stackJSON
+  return GtrTuning{..}
 
 instance StackJSON PartProGuitar where
   stackJSON = asStrictObject "PartProGuitar" $ do
     pgDifficulty    <- pgDifficulty    =. fill (Tier 1) "difficulty"     stackJSON
     pgHopoThreshold <- pgHopoThreshold =. opt  170      "hopo-threshold" stackJSON
-    pgTuning        <- pgTuning        =. opt  []       "tuning"         stackJSON
-    pgTuningGlobal  <- pgTuningGlobal  =. opt  0        "tuning-global"  stackJSON
+    pgTuning        <- pgTuning        =. opt  def      "tuning"         tuningFormat
     pgFixFreeform   <- pgFixFreeform   =. opt  True     "fix-freeform"   stackJSON
     return PartProGuitar{..}
 

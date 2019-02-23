@@ -30,9 +30,12 @@ parts:
     drums: {}
   bass:
     pro-guitar:
-      tuning: [-5, -5, -5, -5, -4, -4] # EADBGE -> BEADGC
+      tuning:
+        base: bass-6
   guitar:
-    pro-guitar: {} # WIP
+    pro-guitar:
+      tuning:
+        base: guitar-6
 targets:
   rb3:
     game: rb3

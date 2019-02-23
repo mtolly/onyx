@@ -32,7 +32,8 @@ parts:
   guitar:
     pro-guitar:
       difficulty: 7
-      tuning: [0, 0, 0, 0, 0, 0]
+      tuning:
+        base: guitar-6
     grybo: # by CyclopsDragon
       difficulty: 7
 targets:

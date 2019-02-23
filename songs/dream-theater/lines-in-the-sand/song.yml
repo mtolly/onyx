@@ -64,14 +64,19 @@ plans:
 parts:
   drums:
     drums:
-      auto-2x-bass: true
       difficulty: 6
   guitar:
     grybo: {}
   bass:
     grybo: {}
 targets:
-  rb3-2x:
+  rb3:
     game: rb3
     2x-bass-pedal: true
+    plan: jammit
+  rb3-2x:
+    game: rb3
+    plan: jammit
+  ps:
+    game: ps
     plan: jammit

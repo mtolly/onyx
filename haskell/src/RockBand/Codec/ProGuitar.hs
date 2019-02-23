@@ -10,6 +10,7 @@ import           Control.Arrow                    (first)
 import           Control.Monad                    (forM, guard, (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.Trans.StackTrace
+import           Data.Default.Class               (Default (..))
 import           Data.Either                      (lefts, rights)
 import qualified Data.EventList.Relative.TimeBody as RTB
 import           Data.Foldable                    (toList)
@@ -61,6 +62,50 @@ getStringIndex _ s = fromEnum s - 2
 
 indexTuning :: [Int] -> GtrString -> Int
 indexTuning tuning str = tuning !! getStringIndex (length tuning) str
+
+data GtrBase
+  = Guitar6
+  | Guitar7
+  | Guitar8
+  | Bass4
+  | Bass5
+  | Bass6
+  | GtrCustom [Int] -- List of MIDI pitches from low to high
+  deriving (Eq, Ord, Show, Read)
+
+data GtrTuning = GtrTuning
+  { gtrBase    :: GtrBase
+  , gtrOffsets :: [Int]
+  , gtrGlobal  :: Int
+  } deriving (Eq, Ord, Show, Read)
+
+instance Default GtrTuning where
+  def = GtrTuning Guitar6 [] 0
+
+tuningPitches :: GtrTuning -> [Int]
+tuningPitches t
+  = map (+ gtrGlobal t)
+  $ zipWith (+) (gtrOffsets t ++ repeat 0)
+  $ case gtrBase t of
+    Guitar6      -> [40, 45, 50, 55, 59, 64]
+    Guitar7      -> [35, 40, 45, 50, 55, 59, 64]
+    Guitar8      -> [30, 35, 40, 45, 50, 55, 59, 64]
+    Bass4        -> [28, 33, 38, 43]
+    Bass5        -> [23, 28, 33, 38, 43]
+    Bass6        -> [23, 28, 33, 38, 43, 48]
+    GtrCustom ps -> ps
+
+-- | Does not include 'gtrGlobal'.
+encodeTuningOffsets :: GtrTuning -> GuitarType -> [Int]
+encodeTuningOffsets tun typ = let
+  std  = tuningPitches $ case typ of
+    TypeGuitar -> GtrTuning Guitar6 [] 0
+    TypeBass   -> GtrTuning Bass4   [] 0
+  n = case typ of
+    TypeGuitar -> 6
+    TypeBass   -> 4
+  this = take n $ tuningPitches tun
+  in map fromIntegral $ zipWith (-) this std
 
 class (Enum a, Bounded a) => GtrChannel a where
   encodeChannel :: a -> Int
@@ -298,11 +343,6 @@ instance ParseTrack ProGuitarTrack where
 
 standardGuitar :: [Int]
 standardGuitar = [40, 45, 50, 55, 59, 64]
-
-standardBass :: [Int]
-standardBass = [28, 33, 38, 43, 47, 52]
--- last 2 are just gtr one octave down, as observed in game
--- (these aren't super useful, and can't be changed by .dta tuning)
 
 -- | Replicates the Pro Guitar chord name algorithm from RB3.
 -- This has been verified to match RB3 for each of the 1486 possible chords.

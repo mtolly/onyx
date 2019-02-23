@@ -123,8 +123,9 @@ parts:
       sustain-gap: 120 # 16th note
     pro-guitar:
       difficulty: 5
-      tuning: [0, 0, 0, 0, 0, 0]
-      tuning-global: -4 # C standard
+      tuning:
+        base: guitar-6
+        global: -4 # C standard
   keys:
     pro-keys:
       difficulty: 7
@@ -136,7 +137,9 @@ parts:
       sustain-gap: 120 # 16th note
     pro-guitar:
       difficulty: 5
-      tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC
+      tuning:
+        base: bass-6
+        offsets: [1, 0, 0, 0, 0, 0] # CEADGC
   vocal:
     vocal:
       difficulty: 5

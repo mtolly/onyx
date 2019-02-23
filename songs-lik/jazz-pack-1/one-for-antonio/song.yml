@@ -46,6 +46,8 @@ parts:
   bass:
     pro-guitar:
       difficulty: 7
+      tuning:
+        base: bass-4
   keys:
     pro-keys:
       difficulty: 7

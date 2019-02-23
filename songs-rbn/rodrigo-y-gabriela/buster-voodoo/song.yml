@@ -5,12 +5,16 @@ parts:
         rank: 401
     pro-guitar:
       difficulty: 7
+      tuning:
+        base: guitar-6
   guitar:
     grybo:
       difficulty:
         rank: 406
     pro-guitar:
       difficulty: 7
+      tuning:
+        base: guitar-6
 plans:
   mogg:
     parts:

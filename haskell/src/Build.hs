@@ -329,13 +329,9 @@ makeRB3DTA songYaml plan rb3 song filename = do
     , D.songKey = Nothing
     , D.tuningOffsetCents = Just $ fromIntegral $ _tuningCents plan
     , D.realGuitarTuning = flip fmap (getPart (rb3_Guitar rb3) songYaml >>= partProGuitar) $ \pg ->
-      case pgTuning pg of
-        []   -> [0, 0, 0, 0, 0, 0]
-        tune -> map fromIntegral tune
+      map fromIntegral $ encodeTuningOffsets (pgTuning pg) TypeGuitar
     , D.realBassTuning = flip fmap (getPart (rb3_Bass rb3) songYaml >>= partProGuitar) $ \pg ->
-      case pgTuning pg of
-        []   -> [0, 0, 0, 0]
-        tune -> map fromIntegral tune
+      map fromIntegral $ encodeTuningOffsets (pgTuning pg) TypeBass
     , D.guidePitchVolume = Just (-3)
     , D.encoding = Just "utf8"
     , D.extraAuthoring = Nothing
@@ -389,15 +385,17 @@ makeC3 songYaml plan rb3 midi pkg = do
     , C3.convert = _convert $ _metadata songYaml
     , C3.expertOnly = _expertOnly $ _metadata songYaml
     , C3.proBassDiff = case rb3ProBassRank of 0 -> Nothing; r -> Just $ fromIntegral r
-    , C3.proBassTuning4 = flip fmap (getPart (rb3_Bass rb3) songYaml >>= partProGuitar) $ \pg ->
-      case pgTuning pg of
-        []   -> "(real_bass_tuning (0 0 0 0 ))"
-        tune -> "(real_bass_tuning (" <> T.unwords (map (T.pack . show) tune) <> "))"
+    , C3.proBassTuning4 = flip fmap (getPart (rb3_Bass rb3) songYaml >>= partProGuitar) $ \pg -> T.concat
+      [ "(real_bass_tuning ("
+      , T.unwords $ map (T.pack . show) $ encodeTuningOffsets (pgTuning pg) TypeBass
+      , "))"
+      ]
     , C3.proGuitarDiff = case rb3ProGuitarRank of 0 -> Nothing; r -> Just $ fromIntegral r
-    , C3.proGuitarTuning = flip fmap (getPart (rb3_Guitar rb3) songYaml >>= partProGuitar) $ \pg ->
-      case pgTuning pg of
-        []   -> "(real_guitar_tuning (0 0 0 0 0 0))"
-        tune -> "(real_guitar_tuning (" <> T.unwords (map (T.pack . show) tune) <> "))"
+    , C3.proGuitarTuning = flip fmap (getPart (rb3_Guitar rb3) songYaml >>= partProGuitar) $ \pg -> T.concat
+      [ "(real_guitar_tuning ("
+      , T.unwords $ map (T.pack . show) $ encodeTuningOffsets (pgTuning pg) TypeGuitar
+      , "))"
+      ]
     , C3.disableProKeys = case getPart (rb3_Keys rb3) songYaml of
       Nothing   -> False
       Just part -> isJust (partGRYBO part) && isNothing (partProKeys part)
@@ -968,7 +966,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                       , (rb3_Bass   rb3, RBFile.FlexBass  )
                       ]
                     pg <- toList $ partProGuitar part
-                    return (fpart', map (+ pgTuningGlobal pg) $ pgTuning pg ++ repeat 0)
+                    return (fpart', pgTuning pg)
               makeReaper tunings pathMagmaMid pathMagmaMid auds' out
             phony pathMagmaSetup $ do
               -- Just make all the Magma prereqs, but don't actually run Magma
@@ -1746,7 +1744,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               tunings = do
                 (fpart, part) <- HM.toList $ getParts $ _parts songYaml
                 pg <- toList $ partProGuitar part
-                return (fpart, map (+ pgTuningGlobal pg) $ pgTuning pg ++ repeat 0)
+                return (fpart, pgTuning pg)
           makeReaper tunings "gen/notes.mid" tempo allPlanAudio out
 
         dir </> "web/song.js" %> \out -> do

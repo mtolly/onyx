@@ -37,6 +37,8 @@ parts:
       difficulty: 2
     pro-guitar:
       difficulty: 2
+      tuning:
+        base: bass-4
   guitar:
     grybo:
       difficulty: 4

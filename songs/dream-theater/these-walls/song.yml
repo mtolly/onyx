@@ -111,16 +111,26 @@ plans:
       vocal:
         mix: [mixed-vocal, mixed-bvocals-unchanged, mixed-bvocals-faded]
       guitar:
-        fade:
+        pad:
         - start
-        - 2.4
-        - mix: [mixed-guitar1-unchanged, mixed-guitar1-missing, mixed-guitar2]
+        - 4.063
+        - drop:
+          - start
+          - 4.063 # drops guitar tune-up before first note
+          - mix: [mixed-guitar1-unchanged, mixed-guitar1-missing, mixed-guitar2]
       keys:
         mix: [mixed-keys1, mixed-keys2]
       drums:
         mixed-drums
     song:
-      mix: [mixed-guitar1-backing]
+      mix:
+      - mixed-guitar1-backing
+      - fade:
+        - start
+        - 2.4
+        - take:
+          - 4.063
+          - mixed-guitar1-unchanged # guitar tune-up before first notes
   album:
     countin: *countin
     song:
@@ -137,14 +147,17 @@ parts:
       difficulty: 3
     pro-guitar:
       difficulty: 3
-      tuning: [-7, -5, -5, -5] # EADG to AEAD
+      tuning:
+        base: bass-5 # we don't actually use the highest string
+        offsets: [-2, 0, 0, 0] # BEAD to AEAD
   guitar:
     grybo:
       difficulty: 2
     pro-guitar:
       difficulty: 3
-      tuning: [0, 0, 0, 0, 0, 0]
-      tuning-global: -7 # A standard
+      tuning:
+        base: guitar-6
+        global: -7 # A standard
   keys:
     grybo:
       difficulty: 3

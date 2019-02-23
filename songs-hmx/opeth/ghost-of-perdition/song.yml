@@ -11,14 +11,18 @@ parts:
       difficulty:
         rank: 400
     pro-guitar:
-      tuning: [-2, 0, 0, 0] # drop D
+      tuning:
+        base: bass-4
+        offsets: [-2, 0, 0, 0] # drop D
   guitar:
     grybo:
       fix-freeform: false
       difficulty:
         rank: 406
     pro-guitar:
-      tuning: [-2, 0, 0, -2, -2, 0] # DADFAE
+      tuning:
+        base: guitar-6
+        offsets: [-2, 0, 0, -2, -2, 0] # DADFAE
   keys:
     pro-keys:
       fix-freeform: false

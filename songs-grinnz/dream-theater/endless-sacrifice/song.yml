@@ -155,7 +155,9 @@ parts:
       difficulty: 6
     pro-guitar:
       difficulty: 7
-      tuning: [-2, -5, -5, -5, -4, -4] # EADGBE -> DEADGC
+      tuning:
+        base: bass-6
+        offsets: [3, 0, 0, 0, 0, 0] # DEADGC
   vocal:
     vocal:
       difficulty: 5
@@ -166,8 +168,9 @@ parts:
       difficulty: 7
     pro-guitar:
       difficulty: 7
-      tuning: [0, 0, 0, 0, 0, 0]
-      tuning-global: -2 # D standard
+      tuning:
+        base: guitar-6
+        global: -2 # D standard
 targets:
   rb3:
     game: rb3

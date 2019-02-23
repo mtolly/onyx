@@ -27,7 +27,8 @@ plans:
 parts:
   bass:
     pro-guitar:
-      tuning: [0, 0, 0, 0]
+      tuning:
+        base: bass-4
 targets:
   rb3:
     game: rb3

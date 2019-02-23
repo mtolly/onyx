@@ -72,7 +72,8 @@ parts:
     drums: {}
   bass:
     pro-guitar: # WIP
-      tuning: [-5, -5, -5, -5, -4] # 5-string
+      tuning:
+        base: bass-5
   keys:
     pro-keys: {} # WIP
 targets:

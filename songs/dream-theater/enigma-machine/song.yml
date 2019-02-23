@@ -37,16 +37,28 @@ parts:
     drums:
       difficulty: 7
   keys:
+    grybo:
+      difficulty: 7
     pro-keys:
       difficulty: 7
-    grybo:
-      difficulty: 6
   bass:
     grybo:
-      difficulty: 4
+      difficulty: 5
+    pro-guitar:
+      # from Breaking the Fourth Wall (https://www.youtube.com/watch?v=qRFcLHo58eQ)
+      # + https://www.youtube.com/watch?v=0DpDGlTmUM8
+      difficulty: 6
+      tuning:
+        base: bass-6
   guitar:
     grybo:
       difficulty: 7
+    pro-guitar:
+      # from official sheet music
+      difficulty: 7
+      tuning:
+        base: guitar-7
+        # some arp chords use the high string so they'll need [chrd] events
 targets:
   rb3:
     game: rb3

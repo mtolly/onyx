@@ -10,6 +10,8 @@ parts:
       fix-freeform: false
       difficulty:
         rank: 480
+      tuning:
+        base: bass-4
     grybo:
       fix-freeform: false
       difficulty:
@@ -19,6 +21,8 @@ parts:
       fix-freeform: false
       difficulty:
         rank: 475
+      tuning:
+        base: guitar-6
     grybo:
       fix-freeform: false
       difficulty:
