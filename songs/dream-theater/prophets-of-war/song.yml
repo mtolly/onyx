@@ -89,13 +89,15 @@ parts:
       difficulty: 5
     pro-guitar:
       difficulty: 5
-      tuning: [0, 0, 0, 0, 0, 0]
+      tuning:
+        base: guitar-6
   bass:
     grybo:
       difficulty: 2
     pro-guitar:
       difficulty: 2
-      tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
+      tuning:
+        base: bass-5
   keys:
     grybo:
       difficulty: 2

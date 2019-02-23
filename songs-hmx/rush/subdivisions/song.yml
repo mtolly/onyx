@@ -14,7 +14,8 @@ parts:
       fix-freeform: false
       difficulty:
         rank: 297
-      tuning: [0, 0, 0, 0]
+      tuning:
+        base: bass-4
   guitar:
     grybo:
       fix-freeform: false
@@ -24,7 +25,8 @@ parts:
       fix-freeform: false
       difficulty:
         rank: 323
-      tuning: [0, 0, 0, 0, 0, 0]
+      tuning:
+        base: guitar-6
   keys:
     pro-keys:
       fix-freeform: false

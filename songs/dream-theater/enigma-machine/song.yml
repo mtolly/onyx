@@ -48,14 +48,17 @@ parts:
       # from Breaking the Fourth Wall (https://www.youtube.com/watch?v=qRFcLHo58eQ)
       # + https://www.youtube.com/watch?v=0DpDGlTmUM8
       difficulty: 6
-      tuning: [-5, -5, -5, -5, -4, -4] # EADGBE -> BEADGC
+      tuning:
+        base: bass-6
   guitar:
     grybo:
       difficulty: 7
     pro-guitar:
       # from official sheet music
       difficulty: 7
-      tuning: [-5, -5, -5, -5, -4, -5] # EADGBE -> BEADGB (7 string but this is for chords)
+      tuning:
+        base: guitar-7
+        # some arp chords use the high string so they'll need [chrd] events
 targets:
   rb3:
     game: rb3

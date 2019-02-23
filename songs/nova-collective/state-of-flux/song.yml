@@ -36,13 +36,15 @@ parts:
       difficulty: 7
     pro-guitar:
       difficulty: 7
-      tuning: [0, 0, 0, 0, 0, 0]
+      tuning:
+        base: guitar-6
   bass:
     grybo:
       difficulty: 5
     pro-guitar:
       difficulty: 6
-      tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
+      tuning:
+        base: bass-5
 targets:
   rb3:
     game: rb3

@@ -27,7 +27,9 @@ parts:
   drums:
     drums: {}
   bass:
-    pro-guitar: {}
+    pro-guitar:
+      tuning:
+        base: bass-4
 targets:
   rb3:
     game: rb3

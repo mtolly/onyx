@@ -115,8 +115,9 @@ parts:
   guitar:
     pro-guitar:
       difficulty: 7
-      tuning: [0, 0, 0, 0, 0, 0]
-      tuning-global: -4 # C standard
+      tuning:
+        base: guitar-6
+        global: -4 # C standard
       # solo from https://tabs.ultimate-guitar.com/tab/dream_theater/as_i_am_tabs_126038
     grybo:
       difficulty: 7
@@ -124,7 +125,9 @@ parts:
   bass:
     pro-guitar:
       difficulty: 5
-      tuning: [-4, -5, -5, -5, -4, -4] # EADGBE -> CEADGC
+      tuning:
+        base: bass-6
+        offsets: [1, 0, 0, 0, 0, 0] # CEADGC
     grybo:
       difficulty: 4
   vocal:

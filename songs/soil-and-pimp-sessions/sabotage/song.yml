@@ -38,7 +38,8 @@ parts:
     grybo: # TODO need to adjust from pro
       difficulty: 3
     pro-guitar:
-      tuning: [0, 0, 0, 0]
+      tuning:
+        base: bass-4
       difficulty: 3
   guitar:
     grybo:

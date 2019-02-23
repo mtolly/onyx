@@ -116,6 +116,8 @@ type ProtarEach a =
   , s4 :: a
   , s5 :: a
   , s6 :: a
+  , s7 :: a
+  , s8 :: a
   }
 
 data ChordLine = Baseline | Superscript
@@ -352,6 +354,8 @@ isForeignProtar f = do
         s4 <- g "s4"
         s5 <- g "s5"
         s6 <- g "s6"
+        s7 <- g "s7"
+        s8 <- g "s8"
         pure
           { s1: s1
           , s2: s2
@@ -359,6 +363,8 @@ isForeignProtar f = do
           , s4: s4
           , s5: s5
           , s6: s6
+          , s7: s7
+          , s8: s8
           }
   notes <- readEach \s -> readProp s notesF >>= readTimedMap isForeignProtarNote
   lanes <- readEach \s -> readProp s lanesF >>= readTimedMap readBoolean

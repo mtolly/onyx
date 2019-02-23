@@ -11,8 +11,10 @@ parts:
     {}
   bass: # right speaker: Ken'ichi
     pro-guitar:
-      tuning: [-2, 0, 0, 0] # pretend to be drop D (only first 3 strings used)
-      tuning-global: -1 # drop D to drop C#
+      tuning:
+        base: guitar-6 # only first 3 strings used
+        offsets: [-2, 0, 0] # pretend to be drop D
+        global: -1 # drop D to drop C#
 audio:
   album-track:
     # this is an mp3 convert. TODO get better audio source

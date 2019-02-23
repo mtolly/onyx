@@ -97,14 +97,16 @@ parts:
     grybo:
       difficulty: 2
     pro-guitar:
-      tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
+      tuning:
+        base: bass-5
       difficulty: 2
   guitar:
     grybo:
       difficulty: 4
     pro-guitar:
-      tuning: [0, 0, 0, 0, 0, 0]
-      tuning-global: -2 # D standard
+      tuning:
+        base: guitar-6
+        global: -2 # D standard
       difficulty: 5
   keys:
     grybo:

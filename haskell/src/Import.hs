@@ -67,7 +67,8 @@ import           RockBand.Codec.Drums             as RBDrums
 import           RockBand.Codec.File              (FlexPartName (..))
 import qualified RockBand.Codec.File              as RBFile
 import           RockBand.Codec.Five              (nullFive)
-import           RockBand.Codec.ProGuitar         (nullPG)
+import           RockBand.Codec.ProGuitar         (GtrBase (..), GtrTuning (..),
+                                                   nullPG)
 import           RockBand.Codec.ProKeys           (nullPK)
 import           RockBand.Codec.Six               (nullSix)
 import           RockBand.Codec.Vocal
@@ -412,8 +413,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           in guard b >> Just PartProGuitar
             { pgDifficulty = toTier $ FoF.diffGuitarReal song
             , pgHopoThreshold = hopoThreshold
-            , pgTuning = []
-            , pgTuningGlobal = 0
+            , pgTuning = def
             , pgFixFreeform = False
             }
         , partGHL = guard (isnt nullSix RBFile.fixedPartGuitarGHL && guardDifficulty FoF.diffGuitarGHL) >> Just PartGHL
@@ -435,8 +435,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
           in guard b >> Just PartProGuitar
             { pgDifficulty = toTier $ FoF.diffBassReal song
             , pgHopoThreshold = hopoThreshold
-            , pgTuning = []
-            , pgTuningGlobal = 0
+            , pgTuning = def
             , pgFixFreeform = False
             }
         , partGHL = guard (isnt nullSix RBFile.fixedPartBassGHL && guardDifficulty FoF.diffBassGHL) >> Just PartGHL
@@ -917,8 +916,11 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
         , partProGuitar = guard (hasRankStr "real_guitar") >> Just PartProGuitar
           { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_guitar" diffMap
           , pgHopoThreshold = hopoThresh
-          , pgTuning = fromMaybe [] $ map fromIntegral <$> D.realGuitarTuning pkg
-          , pgTuningGlobal = 0
+          , pgTuning = GtrTuning
+            { gtrBase = Guitar6
+            , gtrOffsets = fromMaybe [] $ map fromIntegral <$> D.realGuitarTuning pkg
+            , gtrGlobal = 0
+            }
           , pgFixFreeform = False
           }
         })
@@ -933,8 +935,11 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
         , partProGuitar = guard (hasRankStr "real_bass") >> Just PartProGuitar
           { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_bass" diffMap
           , pgHopoThreshold = hopoThresh
-          , pgTuning = fromMaybe [] $ map fromIntegral <$> D.realBassTuning pkg
-          , pgTuningGlobal = 0
+          , pgTuning = GtrTuning
+            { gtrBase = Bass4
+            , gtrOffsets = fromMaybe [] $ map fromIntegral <$> D.realBassTuning pkg
+            , gtrGlobal = 0
+            }
           , pgFixFreeform = False
           }
         })
@@ -1180,8 +1185,11 @@ importMagma fin dir = do
           Just PartProGuitar
             { pgDifficulty = Tier $ rankToTier proGuitarDiffMap $ fromIntegral diff
             , pgHopoThreshold = hopoThresh
-            , pgTuning = fromMaybe [] tuneGtr
-            , pgTuningGlobal = 0
+            , pgTuning = GtrTuning
+              { gtrBase = Guitar6
+              , gtrOffsets = fromMaybe [] tuneGtr
+              , gtrGlobal = 0
+              }
             , pgFixFreeform = False
             }
         })
@@ -1198,8 +1206,11 @@ importMagma fin dir = do
           Just PartProGuitar
             { pgDifficulty = Tier $ rankToTier proBassDiffMap $ fromIntegral diff
             , pgHopoThreshold = hopoThresh
-            , pgTuning = fromMaybe [] tuneBass
-            , pgTuningGlobal = 0
+            , pgTuning = GtrTuning
+              { gtrBase = Bass4
+              , gtrOffsets = fromMaybe [] tuneBass
+              , gtrGlobal = 0
+              }
             , pgFixFreeform = False
             }
         })

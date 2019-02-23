@@ -53,6 +53,8 @@ parts:
     pro-guitar: # TODO did 5-string bass chart, need to check and swap in
       difficulty:
         rank: 460
+      tuning:
+        base: bass-4
   guitar:
     grybo:
       difficulty:
@@ -60,6 +62,8 @@ parts:
     pro-guitar:
       difficulty:
         rank: 461
+      tuning:
+        base: guitar-6
   keys:
     grybo:
       difficulty:

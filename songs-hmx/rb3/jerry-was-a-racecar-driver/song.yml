@@ -8,6 +8,8 @@ parts:
     pro-guitar:
       difficulty:
         rank: 500
+      tuning:
+        base: bass-4
     grybo:
       difficulty:
         rank: 417
@@ -15,6 +17,8 @@ parts:
     pro-guitar:
       difficulty:
         rank: 411
+      tuning:
+        base: guitar-6
     grybo:
       difficulty:
         rank: 190

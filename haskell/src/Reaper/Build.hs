@@ -15,6 +15,7 @@ import qualified Data.ByteString.Base64                as B64
 import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (toLower)
+import           Data.Default.Class                    (def)
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.List                             (find, findIndex,
@@ -35,6 +36,9 @@ import           Resources                             (colorMapDrums,
                                                         colorMapGRYBO)
 import           RockBand.Codec.File                   (FlexPartName (..),
                                                         identifyFlexTrack)
+import           RockBand.Codec.ProGuitar              (GtrBase (..),
+                                                        GtrTuning (..),
+                                                        tuningPitches)
 import qualified RockBand.Codec.Vocal                  as Vox
 import           RockBand.Common                       (Key (..), showKey)
 import           Scripts                               (loadTemposIO)
@@ -138,11 +142,11 @@ event tks = \case
     in block "X" [show tks, "0"] $ forM_ (splitChunks bytes) $ \chunk -> do
       line (B8.unpack $ B64.encode chunk) []
 
-track :: (Monad m, NNC.C t, Integral t) => [(FlexPartName, [Int])] -> NN.Int -> U.Seconds -> NN.Int -> RTB.T t E.T -> WriterT [Element] m ()
+track :: (Monad m, NNC.C t, Integral t) => [(FlexPartName, GtrTuning)] -> NN.Int -> U.Seconds -> NN.Int -> RTB.T t E.T -> WriterT [Element] m ()
 track tunings lenTicks lenSecs resn trk = let
   name = fromMaybe "untitled track" $ U.trackName trk
   fpart = identifyFlexTrack name
-  tuning = fromMaybe [] $ fpart >>= (`lookup` tunings)
+  tuning = fromMaybe def $ fpart >>= (`lookup` tunings)
   in block "TRACK" [] $ do
     line "NAME" [name]
     let yellow = (255, 255, 0)
@@ -226,7 +230,12 @@ track tunings lenTicks lenSecs resn trk = let
           line "BYPASS" ["0", "0", "0"]
           block "JS" ["C3/progtr", ""] $ do
             let bool b = if b then "1" else "0"
-                tuning' = reverse $ take 6 $ tuning ++ repeat (0 :: Int)
+                tuning' = reverse $ take 6 $ let
+                  std   = (if isBass then map $ subtract 12 else id)
+                    $ tuningPitches $ GtrTuning Guitar6 [] 0
+                  this  = tuningPitches tuning
+                  this' = drop (length this - 6) this
+                  in map (+ gtrGlobal tuning) $ zipWith (-) this' std ++ repeat 0
                 expert = 3 :: Int
                 outChannel = 0 :: Int
                 passthroughNonNotes = True
@@ -1006,7 +1015,7 @@ sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`isSuffixOf` name)
   , "BEAT"
   ]
 
-makeReaperIO :: (MonadIO m) => [(FlexPartName, [Int])] -> FilePath -> FilePath -> [FilePath] -> FilePath -> m ()
+makeReaperIO :: (MonadIO m) => [(FlexPartName, GtrTuning)] -> FilePath -> FilePath -> [FilePath] -> FilePath -> m ()
 makeReaperIO tunings evts tempo audios out = liftIO $ do
   lenAudios <- flip mapMaybeM audios $ \aud -> do
     info <- Snd.getFileInfo aud
@@ -1067,7 +1076,7 @@ makeReaperIO tunings evts tempo audios out = liftIO $ do
     "colormap_ghl.png"   -> B.writeFile (takeDirectory out </> cmap) colorMapGHL
     _ -> return ()
 
-makeReaper :: [(FlexPartName, [Int])] -> FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()
+makeReaper :: [(FlexPartName, GtrTuning)] -> FilePath -> FilePath -> [FilePath] -> FilePath -> Staction ()
 makeReaper tunings evts tempo audios out = do
   lift $ lift $ need $ evts : tempo : audios
   lg $ "Generating a REAPER project at " ++ out

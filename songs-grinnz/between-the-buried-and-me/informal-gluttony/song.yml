@@ -41,7 +41,9 @@ parts:
   bass:
     grybo: {} # alextaylor
     # pro-guitar: # onyxite
-    #   tuning: [-8, -8, -8, -8, -7] # EADGB -> G# C# F# B E
+    #   tuning:
+    #     base: bass-5
+    #     global: -3 # G# C# F# B E
   keys:
     grybo: {} # alextaylor
     pro-keys: {} # alextaylor

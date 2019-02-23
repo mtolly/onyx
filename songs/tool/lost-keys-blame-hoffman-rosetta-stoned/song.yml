@@ -48,13 +48,17 @@ parts:
       difficulty: 6
     pro-guitar:
       difficulty: 5
-      tuning: [-2, 0, 0, 0]
+      tuning:
+        base: bass-4
+        offsets: [-2, 0, 0, 0] # drop D
   guitar:
     grybo:
       difficulty: 6
     pro-guitar:
       difficulty: 5
-      tuning: [-2, 0, 0, 0, 0, 0]
+      tuning:
+        base: guitar-6
+        offsets: [-2, 0, 0, 0, 0, 0] # drop D
   vocal:
     vocal:
       count: 3

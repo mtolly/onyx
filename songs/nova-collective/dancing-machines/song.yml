@@ -34,13 +34,15 @@ parts:
   bass:
     pro-guitar:
       difficulty: 6
-      tuning: [-5, -5, -5, -5, -4] # EADGB -> BEADG
+      tuning:
+        base: bass-5
     grybo:
       difficulty: 5
   guitar:
     pro-guitar:
       difficulty: 7
-      tuning: [0, 0, 0, 0, 0, 0]
+      tuning:
+        base: guitar-6 # TODO make 8-string version
     grybo: # XEntombmentX
       difficulty: 6
   keys:

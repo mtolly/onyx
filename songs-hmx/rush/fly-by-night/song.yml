@@ -10,7 +10,8 @@ parts:
       difficulty:
         rank: 303
     pro-guitar:
-      tuning: [0, 0, 0, 0]
+      tuning:
+        base: bass-4
       difficulty:
         rank: 360
   guitar:
@@ -19,7 +20,8 @@ parts:
       difficulty:
         rank: 262
     pro-guitar:
-      tuning: [0, 0, 0, 0, 0, 0]
+      tuning:
+        base: guitar-6
       difficulty:
         rank: 350
   drums:

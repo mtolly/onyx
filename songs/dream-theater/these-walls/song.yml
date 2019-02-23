@@ -147,14 +147,17 @@ parts:
       difficulty: 3
     pro-guitar:
       difficulty: 3
-      tuning: [-7, -5, -5, -5] # EADG to AEAD
+      tuning:
+        base: bass-5 # we don't actually use the highest string
+        offsets: [-2, 0, 0, 0] # BEAD to AEAD
   guitar:
     grybo:
       difficulty: 2
     pro-guitar:
       difficulty: 3
-      tuning: [0, 0, 0, 0, 0, 0]
-      tuning-global: -7 # A standard
+      tuning:
+        base: guitar-6
+        global: -7 # A standard
   keys:
     grybo:
       difficulty: 3

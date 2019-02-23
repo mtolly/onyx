@@ -434,8 +434,8 @@ processProKeys tmap trk = let
   bre    = realTrack tmap $ pkBRE trk
   in guard (not $ RTB.null $ pkNotes trk) >> Just (ProKeys notes ranges solo energy lanes gliss bre)
 
-processProtar :: U.Beats -> [Int] -> Bool -> U.TempoMap -> PG.ProGuitarTrack U.Beats -> Difficulties Protar U.Seconds
-processProtar hopoThreshold relTuning defaultFlat tmap pg = makeDifficulties $ \diff -> let
+processProtar :: U.Beats -> PG.GtrTuning -> Bool -> U.TempoMap -> PG.ProGuitarTrack U.Beats -> Difficulties Protar U.Seconds
+processProtar hopoThreshold tuning defaultFlat tmap pg = makeDifficulties $ \diff -> let
   thisDiff = fromMaybe mempty $ Map.lookup diff $ PG.pgDifficulties pg
   assigned = expandColors $ PG.guitarifyHOPO hopoThreshold thisDiff
   expandColors = splitEdges . RTB.flatten . fmap expandChord
@@ -463,13 +463,15 @@ processProtar hopoThreshold relTuning defaultFlat tmap pg = makeDifficulties $ \
       return b
   protarBRE = realTrack tmap $ fmap snd $ PG.pgBRE pg
   usedStrings = nubOrd $ toList (PG.pgDifficulties pg) >>= map fst . toList . PG.pgNotes
+  pitches = PG.tuningPitches tuning { PG.gtrGlobal = 0 }
   protarStrings
-    | not (null $ drop 5 relTuning) || elem PG.S1 usedStrings = 6
-    | not (null $ drop 4 relTuning) || elem PG.S2 usedStrings = 5
-    | not (null $ drop 3 relTuning) || elem PG.S3 usedStrings = 4
-    | otherwise                                               = 3
-  tuning = zipWith (+) PG.standardGuitar $ relTuning ++ repeat 0
-  protarChords = realTrack tmap $ PG.computeChordNames diff tuning defaultFlat pg
+    | not (null $ drop 7 pitches) || elem PG.S8 usedStrings = 8
+    | not (null $ drop 6 pitches) || elem PG.S7 usedStrings = 7
+    | not (null $ drop 5 pitches) || elem PG.S1 usedStrings = 6
+    | not (null $ drop 4 pitches) || elem PG.S2 usedStrings = 5
+    | not (null $ drop 3 pitches) || elem PG.S3 usedStrings = 4
+    | otherwise                                             = 3
+  protarChords = realTrack tmap $ PG.computeChordNames diff pitches defaultFlat pg
   protarArpeggio = realTrack tmap $ PG.pgArpeggio thisDiff
   in guard (not $ RTB.null $ PG.pgNotes thisDiff) >> Just Protar{..}
 
@@ -688,12 +690,7 @@ makeDisplay songYaml song = let
           Expert ->  RBFile.onyxPartRealKeysX tracks
     , flexProtar = flip fmap (C.partProGuitar fpart) $ \pg -> processProtar
       (ht $ C.pgHopoThreshold pg)
-      (case C.pgTuning pg of
-        [] -> case name of
-          RBFile.FlexBass -> replicate 4 0
-          _               -> replicate 6 0
-        offs -> offs
-      )
+      (C.pgTuning pg)
       defaultFlat
       (RBFile.s_tempos song)
       $ let mustang = RBFile.onyxPartRealGuitar tracks

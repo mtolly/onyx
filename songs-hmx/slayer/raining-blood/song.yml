@@ -50,7 +50,9 @@ parts:
     pro-guitar:
       difficulty:
         rank: 322
-      tuning-global: -1 # Eb standard
+      tuning:
+        base: bass-4
+        global: -1 # Eb standard
   guitar:
     grybo:
       fix-freeform: false
@@ -60,7 +62,9 @@ parts:
       fix-freeform: false
       difficulty:
         rank: 461
-      tuning-global: -1 # Eb standard
+      tuning:
+        base: guitar-6
+        global: -1 # Eb standard
   vocal:
     vocal:
       difficulty:
