@@ -6,10 +6,13 @@ module GUI.FLTK where
 
 import           Config
 import           Control.Concurrent                        (ThreadId, forkIO)
+import           Control.Concurrent.MVar                   (newMVar, putMVar,
+                                                            takeMVar)
 import           Control.Concurrent.STM                    (atomically)
 import           Control.Concurrent.STM.TChan
 import qualified Control.Exception                         as Exc
-import           Control.Monad                             (forM_, void)
+import           Control.Monad                             (forM, forM_, void,
+                                                            when)
 import           Control.Monad.IO.Class                    (MonadIO (..),
                                                             liftIO)
 import           Control.Monad.Trans.Class                 (lift)
@@ -19,7 +22,8 @@ import           Control.Monad.Trans.Resource              (ResourceT, release,
                                                             resourceForkIO,
                                                             runResourceT)
 import           Control.Monad.Trans.StackTrace
-import           Data.Maybe                                (fromMaybe)
+import           Data.Maybe                                (catMaybes,
+                                                            fromMaybe)
 import qualified Data.Text                                 as T
 import qualified Graphics.UI.FLTK.LowLevel.FL              as FLTK
 import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
@@ -30,14 +34,15 @@ import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
                                                             Width (..), X (..),
                                                             Y (..))
 import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
-import           Graphics.UI.TinyFileDialogs               (openFileDialog)
 import           OpenProject
 import           System.FilePath                           (takeDirectory,
                                                             (</>))
 import           System.Info                               (os)
 
 data Event
-  = EventLoad FilePath
+  = EventIO (IO ())
+  | EventOnyx (Onyx ())
+  | EventLoad FilePath
   | EventLoaded Project
   | EventFail Message
   | EventMsg (MessageLevel, Message)
@@ -209,8 +214,9 @@ launchWindow proj = do
     mapM_ release $ projectRelease proj
   FL.showWidget window
 
-launchBatch :: [FilePath] -> IO ()
-launchBatch fs = do
+launchBatch :: (Event -> IO ()) -> [FilePath] -> IO ()
+launchBatch sink startFiles = do
+  loadedFiles <- newMVar startFiles
   let windowSize = Size (Width 800) (Height 600)
       windowRect = Rectangle
         (Position (X 0) (Y 0))
@@ -223,8 +229,16 @@ launchBatch fs = do
     let rect' = trimClock 10 10 10 10 rect
     term <- FL.simpleTerminalNew rect' Nothing
     FL.setResizable songs $ Just term
+    let updateFiles f = do
+          fs <- f <$> takeMVar loadedFiles
+          FL.setText term $ T.pack $ unlines fs
+          putMVar loadedFiles fs
+    updateFiles id
     void $ FL.boxCustom rect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
-      { FL.handleCustom = Just $ dragAndDrop print . (\_ _ -> return $ Left FL.UnknownEvent) }
+      { FL.handleCustom = Just
+        $ dragAndDrop (\newFiles -> sink $ EventIO $ updateFiles (++ newFiles))
+        . (\_ _ -> return $ Left FL.UnknownEvent)
+      }
     return songs
   tab windowRect "Rock Band 3" $ \_ _ -> return ()
   tab windowRect "Rock Band 2" $ \_ _ -> return ()
@@ -264,6 +278,9 @@ dragAndDrop f fallback = \case
     return $ Right ()
   e -> fallback e
 
+macOS :: Bool
+macOS = os == "darwin"
+
 launchGUI :: IO ()
 launchGUI = do
   _ <- FLTK.setScheme "gtk+"
@@ -279,30 +296,55 @@ launchGUI = do
     (Size (Width 500) (Height 400))
     Nothing
     Nothing
+  let termMenuHeight = if macOS then 0 else 30
   term <- FL.simpleTerminalNew
-    (Rectangle (Position (X 10) (Y 10)) (Size (Width 480) (Height 340)))
+    (Rectangle
+      (Position (X 10) (Y $ 10 + termMenuHeight))
+      (Size (Width 480) (Height $ 340 - termMenuHeight))
+    )
     Nothing
   FL.setStayAtBottom term True
   let loadSongs = mapM_ $ sink . EventLoad
+      loadDialog = sink $ EventIO $ do
+        picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
+        FL.setTitle picker "Load song"
+        FL.showWidget picker >>= \case
+          FL.NativeFileChooserPicked -> do
+            n <- FL.getCount picker
+            fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
+            loadSongs $ map T.unpack $ catMaybes fs
+          _ -> return ()
   buttonLoad <- FL.buttonCustom
     (Rectangle (Position (X 10) (Y 360)) (Size (Width 235) (Height 30)))
     (Just "Load song")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs { FL.handleCustom = Just $ dragAndDrop loadSongs . FL.handleSuper }
   FL.setLabelsize buttonLoad (FL.FontSize 13)
-  FL.setCallback buttonLoad $ \_ -> void $ forkIO $ do
-    openFileDialog "Load song" "" [] "Songs" True >>= \case
-      Just fs -> loadSongs $ map T.unpack fs
-      _       -> return ()
+  FL.setCallback buttonLoad $ \_ -> void $ forkIO loadDialog
   buttonBatch <- FL.buttonCustom
     (Rectangle (Position (X 255) (Y 360)) (Size (Width 235) (Height 30)))
     (Just "Batch process")
     Nothing
-    $ Just $ FL.defaultCustomWidgetFuncs { FL.handleCustom = Just $ dragAndDrop launchBatch . FL.handleSuper }
+    $ Just $ FL.defaultCustomWidgetFuncs { FL.handleCustom = Just $ dragAndDrop (launchBatch sink) . FL.handleSuper }
   FL.setLabelsize buttonBatch (FL.FontSize 13)
-  FL.setCallback buttonBatch $ \_ -> launchBatch []
-
+  FL.setCallback buttonBatch $ \_ -> launchBatch sink []
+  menu <- FL.sysMenuBarNew
+    (Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height termMenuHeight)))
+    Nothing
+  let menuFn :: IO () -> FL.Ref FL.MenuItem -> IO ()
+      menuFn = const
+  void $ FL.add menu
+    "File/Open…"
+    (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'o')
+    (Just $ menuFn $ void $ forkIO loadDialog)
+    (FL.MenuItemFlags [FL.MenuItemNormal])
+  when macOS $ void $ FL.add menu
+    "View/Show Console"
+    (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.Kb_CtrlState] $ FL.NormalKeyType '`')
+    (Just $ menuFn $ FL.showWidget termWindow)
+    (FL.MenuItemFlags [FL.MenuItemNormal])
   FL.end termWindow
+  FL.setResizable termWindow $ Just term
   FL.showWidget termWindow
 
   let logChan = logIO $ sink . EventMsg
@@ -313,9 +355,9 @@ launchGUI = do
               (MessageLog    , msg) -> messageString msg
               (MessageWarning, msg) -> "Warning: " ++ Exc.displayException msg
         FL.setText term $ txt <> newtxt <> "\n"
-      wait = case os of
-        "darwin" -> FLTK.waitFor 1e20 >> return True
-        _        -> fmap (/= 0) FLTK.wait
+      wait = if macOS
+        then FLTK.waitFor 1e20 >> return True
+        else fmap (/= 0) FLTK.wait
   void $ runResourceT $ (`runReaderT` sink) $ logChan $ let
     process = liftIO (atomically $ tryReadTChan evts) >>= \case
       Nothing -> return ()
@@ -325,6 +367,8 @@ launchGUI = do
           EventFail   msg  -> liftIO $ addTerm (MessageWarning, msg)
           EventLoaded proj -> liftIO $ launchWindow proj
           EventLoad   f    -> startLoad f
+          EventIO     act  -> liftIO act
+          EventOnyx   act  -> act
         process
     loop = liftIO FLTK.getProgramShouldQuit >>= \case
       True  -> return ()
