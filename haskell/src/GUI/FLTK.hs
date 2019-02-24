@@ -34,6 +34,7 @@ import           Graphics.UI.TinyFileDialogs               (openFileDialog)
 import           OpenProject
 import           System.FilePath                           (takeDirectory,
                                                             (</>))
+import           System.Info                               (os)
 
 data Event
   = EventLoad FilePath
@@ -312,25 +313,23 @@ launchGUI = do
               (MessageLog    , msg) -> messageString msg
               (MessageWarning, msg) -> "Warning: " ++ Exc.displayException msg
         FL.setText term $ txt <> newtxt <> "\n"
+      wait = case os of
+        "darwin" -> FLTK.waitFor 1e20 >> return True
+        _        -> fmap (/= 0) FLTK.wait
   void $ runResourceT $ (`runReaderT` sink) $ logChan $ let
+    process = liftIO (atomically $ tryReadTChan evts) >>= \case
+      Nothing -> return ()
+      Just e -> do
+        case e of
+          EventMsg    pair -> liftIO $ addTerm pair
+          EventFail   msg  -> liftIO $ addTerm (MessageWarning, msg)
+          EventLoaded proj -> liftIO $ launchWindow proj
+          EventLoad   f    -> startLoad f
+        process
     loop = liftIO FLTK.getProgramShouldQuit >>= \case
       True  -> return ()
-      False -> let
-        process = liftIO (atomically $ tryReadTChan evts) >>= \case
-          Nothing -> return ()
-          Just e -> case e of
-            EventMsg pair -> do
-              liftIO $ addTerm pair
-              process
-            EventFail msg -> do
-              liftIO $ addTerm (MessageWarning, msg)
-              process
-            EventLoaded proj -> do
-              liftIO $ launchWindow proj
-              process
-            EventLoad f -> do
-              startLoad f
-              process
-        in liftIO (FLTK.waitFor 1e20) >> process >> loop
+      False -> liftIO wait >>= \case
+        False -> return ()
+        True  -> process >> loop
     in loop
   FLTK.flush -- dunno if required
