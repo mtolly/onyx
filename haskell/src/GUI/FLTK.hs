@@ -5,7 +5,7 @@
 module GUI.FLTK where
 
 import           Config
-import           Control.Concurrent                        (ThreadId, forkIO)
+import           Control.Concurrent                        (ThreadId)
 import           Control.Concurrent.MVar                   (newMVar, putMVar,
                                                             takeMVar)
 import           Control.Concurrent.STM                    (atomically)
@@ -110,6 +110,12 @@ chopBottom n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
   , Rectangle (Position (X x) (Y $ y + h - n)) (Size (Width w) (Height n))
   )
 
+halvesHoriz :: Rectangle -> (Rectangle, Rectangle)
+halvesHoriz rect@(Rectangle _ (Size (Width w) _)) = chopLeft (quot w 2) rect
+
+halvesVert :: Rectangle -> (Rectangle, Rectangle)
+halvesVert rect@(Rectangle _ (Size _ (Height h))) = chopTop (quot h 2) rect
+
 trimClock :: Int -> Int -> Int -> Int -> Rectangle -> Rectangle
 trimClock t r b l rect = let
   (_, rect1) = chopTop    t rect
@@ -186,7 +192,7 @@ launchWindow proj = do
           (Just FL.FlNormalInput) -- this is required for labels to work. TODO report bug in binding's "inputNew"
         FL.setLabelsize input $ FL.FontSize 13
         FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
-        FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeftTop]
+        FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
         void $ FL.setValue input $ fromMaybe "" $ fn $ _metadata $ projectSongYaml proj
         return input
     FL.end pack
@@ -209,44 +215,122 @@ launchWindow proj = do
   FL.setResizable tabs $ Just meta
   FL.end window
   FL.setResizable window $ Just tabs
-  FL.setCallback window $ \_ -> do
-    FL.hide window
-    mapM_ release $ projectRelease proj
+  FL.setCallback window $ windowCloser $ mapM_ release $ projectRelease proj
   FL.showWidget window
+
+-- | Ignores the Escape key, and runs a resource-release function after close.
+windowCloser :: IO () -> FL.Ref FL.Window -> IO ()
+windowCloser finalize window = do
+  evt <- FLTK.event
+  key <- FLTK.eventKey
+  case (evt, key) of
+    (FLE.Shortcut, FL.SpecialKeyType FLE.Kb_Escape) -> return ()
+    _ -> do
+      FL.hide window
+      finalize
 
 launchBatch :: (Event -> IO ()) -> [FilePath] -> IO ()
 launchBatch sink startFiles = do
   loadedFiles <- newMVar startFiles
-  let windowSize = Size (Width 800) (Height 600)
+  let windowSize = Size (Width 800) (Height 400)
       windowRect = Rectangle
         (Position (X 0) (Y 0))
         windowSize
-  window <- FL.windowNew windowSize Nothing Nothing
+  window <- FL.windowNew windowSize Nothing $ Just "Batch Process"
   FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
+  FL.sizeRangeWithArgs window (Size (Width 800) (Height 400)) FL.defaultOptionalSizeRangeArgs
+    { FL.maxw = Just 800
+    }
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
   songs <- tab windowRect "Songs" $ \rect songs -> do
-    let rect' = trimClock 10 10 10 10 rect
-    term <- FL.simpleTerminalNew rect' Nothing
+    let (labelRect, belowLabel) = chopTop 40 rect
+        (termRect, buttonsRect) = chopBottom 50 belowLabel
+        labelRect' = trimClock 10 10 5 10 labelRect
+        termRect' = trimClock 5 10 5 10 termRect
+        buttonsRect' = trimClock 5 10 10 10 buttonsRect
+        (btnRectA, btnRectB) = halvesHoriz buttonsRect'
+        (btnRectA', _) = chopRight 5 btnRectA
+        (_, btnRectB') = chopLeft 5 btnRectB
+    label <- FL.boxNew labelRect' $ Just "0 files loaded."
+    term <- FL.simpleTerminalNew termRect' Nothing
     FL.setResizable songs $ Just term
     let updateFiles f = do
           fs <- f <$> takeMVar loadedFiles
           FL.setText term $ T.pack $ unlines fs
+          FL.setLabel label $ T.pack $ case length fs of
+            1 -> "1 file loaded."
+            n -> show n ++ " files loaded."
           putMVar loadedFiles fs
     updateFiles id
-    void $ FL.boxCustom rect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
+    void $ FL.boxCustom termRect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
       { FL.handleCustom = Just
         $ dragAndDrop (\newFiles -> sink $ EventIO $ updateFiles (++ newFiles))
         . (\_ _ -> return $ Left FL.UnknownEvent)
       }
+    btnA <- FL.buttonNew btnRectA' $ Just "Add Song"
+    FL.setCallback btnA $ \_ -> sink $ EventIO $ do
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
+      FL.setTitle picker "Load song"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> do
+          n <- FL.getCount picker
+          fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
+          updateFiles (++ (map T.unpack $ catMaybes fs))
+        _ -> return ()
+    btnB <- FL.buttonNew btnRectB' $ Just "Clear Songs"
+    FL.setCallback btnB $ \_ -> sink $ EventIO $ updateFiles $ const []
     return songs
-  tab windowRect "Rock Band 3" $ \_ _ -> return ()
+  tab windowRect "Rock Band 3" $ \innerRect rb3 -> do
+    pack <- FL.packNew innerRect Nothing
+    padded 10 400 5 100 (Size (Width 300) (Height 35)) $ \rect -> do
+      speed <- FL.counterNew rect (Just "Speed (%)")
+      FL.setLabelsize speed $ FL.FontSize 13
+      FL.setLabeltype speed FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+      FL.setAlign speed $ FLE.Alignments [FLE.AlignTypeLeft]
+      FL.setStep speed 1
+      FL.setLstep speed 5
+      FL.setMinimum speed 1
+      void $ FL.setValue speed 100
+      FL.setTooltip speed "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
+      return speed
+    padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect -> do
+      box <- FL.checkButtonNew rect (Just "Tom Markers for non-Pro Drums")
+      FL.setTooltip box "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
+      return box
+    padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect -> do
+      box <- FL.checkButtonNew rect (Just "Drop HOPO/tap open notes")
+      FL.setTooltip box "When checked, open notes on guitar/bass which are also HOPO or tap notes will be removed, instead of becoming green notes."
+      return box
+    padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect -> do
+      let (rectAB, rectCD) = halvesHoriz rect
+          (rectA, rectB) = halvesHoriz rectAB
+          (rectC, rectD) = halvesHoriz rectCD
+      optA <- FL.roundButtonNew rectA (Just "G/B/K unchanged")
+      optB <- FL.roundButtonNew rectB (Just "Copy G to K")
+      optC <- FL.roundButtonNew rectC (Just "Swap G and K")
+      optD <- FL.roundButtonNew rectD (Just "Swap B and K")
+      void $ FL.setValue optA True
+      let opts = [optA, optB, optC, optD]
+      forM_ opts $ \opt -> FL.setCallback opt $ \_ -> do
+        forM_ opts $ \opt' -> FL.setValue opt' $ opt == opt'
+      FL.groupNew rect Nothing
+    padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect -> do
+      let (fullA, fullB) = halvesHoriz rect
+          (rectA, _) = chopRight 10 fullA
+          (_, rectB) = chopLeft 10 fullB
+      _con <- FL.buttonNew rectA $ Just "Create CON files"
+      _magma <- FL.buttonNew rectB $ Just "Create Magma projects"
+      FL.groupNew rect Nothing
+    FL.end pack
+    FL.setResizable rb3 $ Just pack
   tab windowRect "Rock Band 2" $ \_ _ -> return ()
   tab windowRect "Clone Hero/Phase Shift" $ \_ _ -> return ()
   FL.end tabs
   FL.setResizable tabs $ Just songs
   FL.end window
   FL.setResizable window $ Just tabs
+  FL.setCallback window $ windowCloser $ return ()
   FL.showWidget window
 
 {-
@@ -295,7 +379,7 @@ launchGUI = do
   termWindow <- FL.windowNew
     (Size (Width 500) (Height 400))
     Nothing
-    Nothing
+    (Just "Onyx Console")
   let termMenuHeight = if macOS then 0 else 30
   term <- FL.simpleTerminalNew
     (Rectangle
@@ -320,7 +404,7 @@ launchGUI = do
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs { FL.handleCustom = Just $ dragAndDrop loadSongs . FL.handleSuper }
   FL.setLabelsize buttonLoad (FL.FontSize 13)
-  FL.setCallback buttonLoad $ \_ -> void $ forkIO loadDialog
+  FL.setCallback buttonLoad $ \_ -> loadDialog
   buttonBatch <- FL.buttonCustom
     (Rectangle (Position (X 255) (Y 360)) (Size (Width 235) (Height 30)))
     (Just "Batch process")
@@ -336,7 +420,15 @@ launchGUI = do
   void $ FL.add menu
     "File/Open…"
     (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'o')
-    (Just $ menuFn $ void $ forkIO loadDialog)
+    (Just $ menuFn loadDialog)
+    (FL.MenuItemFlags [FL.MenuItemNormal])
+  void $ FL.add menu
+    "File/Close Window"
+    (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'w')
+    (Just $ menuFn $ sink $ EventIO $ FLTK.firstWindow >>= \case
+      Just window -> FL.doCallback window
+      Nothing     -> return ()
+    )
     (FL.MenuItemFlags [FL.MenuItemNormal])
   when macOS $ void $ FL.add menu
     "View/Show Console"
@@ -345,6 +437,7 @@ launchGUI = do
     (FL.MenuItemFlags [FL.MenuItemNormal])
   FL.end termWindow
   FL.setResizable termWindow $ Just term
+  FL.setCallback termWindow $ windowCloser $ return ()
   FL.showWidget termWindow
 
   let logChan = logIO $ sink . EventMsg
