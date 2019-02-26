@@ -9,7 +9,9 @@ import           Control.Concurrent                        (ThreadId)
 import           Control.Concurrent.MVar                   (newMVar, putMVar,
                                                             takeMVar)
 import           Control.Concurrent.STM                    (atomically)
-import           Control.Concurrent.STM.TChan
+import           Control.Concurrent.STM.TChan              (newTChanIO,
+                                                            tryReadTChan,
+                                                            writeTChan)
 import qualified Control.Exception                         as Exc
 import           Control.Monad                             (forM, forM_, void,
                                                             when)
@@ -22,9 +24,11 @@ import           Control.Monad.Trans.Resource              (ResourceT, release,
                                                             resourceForkIO,
                                                             runResourceT)
 import           Control.Monad.Trans.StackTrace
+import           Data.Default.Class                        (def)
 import           Data.Maybe                                (catMaybes,
-                                                            fromMaybe)
+                                                            fromMaybe, isJust)
 import qualified Data.Text                                 as T
+import qualified Data.Yaml                                 as Y
 import qualified Graphics.UI.FLTK.LowLevel.FL              as FLTK
 import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
 import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
@@ -34,7 +38,9 @@ import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
                                                             Width (..), X (..),
                                                             Y (..))
 import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
+import           JSONData                                  (toJSON)
 import           OpenProject
+import           RockBand.Codec.File                       (FlexPartName (..))
 import           System.FilePath                           (takeDirectory,
                                                             (</>))
 import           System.Info                               (os)
@@ -125,11 +131,10 @@ trimClock t r b l rect = let
   in rect4
 
 padded
-  :: (FL.Parent a FL.Widget)
-  => Int -> Int -> Int -> Int
+  :: Int -> Int -> Int -> Int
   -> Size
-  -> (Rectangle -> IO (FL.Ref a))
-  -> IO ()
+  -> (Rectangle -> IO a)
+  -> IO a
 padded t r b l size@(Size (Width w) (Height h)) fn = do
   group <- FL.groupNew
     (Rectangle
@@ -137,11 +142,12 @@ padded t r b l size@(Size (Width w) (Height h)) fn = do
       (Size (Width (w + l + r)) (Height (h + t + b)))
     )
     Nothing
-  x <- fn $ Rectangle
-    (Position (X l) (Y t))
-    size
+  let rect = Rectangle (Position (X l) (Y t)) size
+  x <- fn rect
+  box <- FL.boxNew rect Nothing
   FL.end group
-  FL.setResizable group $ Just x
+  FL.setResizable group $ Just box
+  return x
 
 tab :: Rectangle -> T.Text -> (Rectangle -> FL.Ref FL.Group -> IO a) -> IO a
 tab rect name fn = do
@@ -194,7 +200,7 @@ launchWindow proj = do
         FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
         FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
         void $ FL.setValue input $ fromMaybe "" $ fn $ _metadata $ projectSongYaml proj
-        return input
+        return ()
     FL.end pack
     packRight <- FL.packNew rectRight Nothing
     padded 10 10 0 0 (Size (Width 190) (Height 190)) $ \rect -> do
@@ -202,7 +208,7 @@ launchWindow proj = do
       Right png <- FL.pngImageNew $ T.pack $ takeDirectory (projectLocation proj) </> "gen/cover.png"
       FL.scale png (Size (Width 180) (Height 180)) (Just True) (Just False)
       FL.setImage cover $ Just png
-      return cover
+      return ()
     FL.end packRight
     FL.setResizable meta $ Just pack
     return meta
@@ -228,6 +234,54 @@ windowCloser finalize window = do
     _ -> do
       FL.hide window
       finalize
+
+forceProDrums :: SongYaml -> SongYaml
+forceProDrums song = song
+  { _parts = flip fmap (_parts song) $ \part -> case partDrums part of
+    Nothing    -> part
+    Just drums -> part
+      { partDrums = Just drums
+        { drumsMode = case drumsMode drums of
+          Drums4 -> DrumsPro
+          mode   -> mode
+        }
+      }
+  }
+
+dropOpenHOPOs :: Bool -> SongYaml -> SongYaml
+dropOpenHOPOs b song = song
+  { _parts = flip fmap (_parts song) $ \part -> case partGRYBO part of
+    Nothing    -> part
+    Just grybo -> part
+      { partGRYBO = Just grybo { gryboDropOpenHOPOs = b }
+      }
+  }
+
+saveProject :: Project -> SongYaml -> IO Project
+saveProject proj song = do
+  Y.encodeFile (projectLocation proj) $ toJSON song
+  return proj { projectSongYaml = song }
+
+data GBKOption
+  = GBKUnchanged
+  | CopyGuitarToKeys
+  | SwapGuitarKeys
+  | SwapBassKeys
+  deriving (Eq, Show)
+
+applyGBK :: GBKOption -> SongYaml -> TargetRB3 -> TargetRB3
+applyGBK gbk song tgt = case gbk of
+  GBKUnchanged -> tgt
+  CopyGuitarToKeys -> if hasFive FlexGuitar
+    then tgt { rb3_Keys = FlexGuitar }
+    else tgt
+  SwapGuitarKeys -> if hasFive FlexKeys
+    then tgt { rb3_Guitar = FlexKeys, rb3_Keys = FlexGuitar }
+    else tgt
+  SwapBassKeys -> if hasFive FlexKeys
+    then tgt { rb3_Bass = FlexKeys, rb3_Keys = FlexBass }
+    else tgt
+  where hasFive flex = isJust $ getPart flex song >>= partGRYBO
 
 launchBatch :: (Event -> IO ()) -> [FilePath] -> IO ()
 launchBatch sink startFiles = do
@@ -283,7 +337,7 @@ launchBatch sink startFiles = do
     return songs
   tab windowRect "Rock Band 3" $ \innerRect rb3 -> do
     pack <- FL.packNew innerRect Nothing
-    padded 10 400 5 100 (Size (Width 300) (Height 35)) $ \rect -> do
+    getSpeed <- padded 10 400 5 100 (Size (Width 300) (Height 35)) $ \rect -> do
       speed <- FL.counterNew rect (Just "Speed (%)")
       FL.setLabelsize speed $ FL.FontSize 13
       FL.setLabeltype speed FLE.NormalLabelType FL.ResolveImageLabelDoNothing
@@ -293,16 +347,16 @@ launchBatch sink startFiles = do
       FL.setMinimum speed 1
       void $ FL.setValue speed 100
       FL.setTooltip speed "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
-      return speed
-    padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect -> do
+      return $ (/ 100) <$> FL.getValue speed
+    getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect -> do
       box <- FL.checkButtonNew rect (Just "Tom Markers for non-Pro Drums")
       FL.setTooltip box "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
-      return box
-    padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect -> do
+      return $ FL.getValue box
+    getDropOpen <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect -> do
       box <- FL.checkButtonNew rect (Just "Drop HOPO/tap open notes")
       FL.setTooltip box "When checked, open notes on guitar/bass which are also HOPO or tap notes will be removed, instead of becoming green notes."
-      return box
-    padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect -> do
+      return $ FL.getValue box
+    getGBK <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect -> do
       let (rectAB, rectCD) = halvesHoriz rect
           (rectA, rectB) = halvesHoriz rectAB
           (rectC, rectD) = halvesHoriz rectCD
@@ -314,14 +368,36 @@ launchBatch sink startFiles = do
       let opts = [optA, optB, optC, optD]
       forM_ opts $ \opt -> FL.setCallback opt $ \_ -> do
         forM_ opts $ \opt' -> FL.setValue opt' $ opt == opt'
-      FL.groupNew rect Nothing
+      return $ FL.getValue optB >>= \case
+        True -> return CopyGuitarToKeys
+        False -> FL.getValue optC >>= \case
+          True -> return SwapGuitarKeys
+          False -> FL.getValue optD >>= \case
+            True -> return SwapBassKeys
+            False -> return GBKUnchanged
+    let getTargetSong = do
+          speed <- getSpeed
+          toms <- getToms
+          dropOpen <- getDropOpen
+          gbk <- getGBK
+          return $ \proj -> let
+            tgt = (applyGBK gbk yaml) def
+              { rb3_Common = (rb3_Common def)
+                { tgt_Speed = Just speed
+                }
+              }
+            yaml
+              = dropOpenHOPOs dropOpen
+              $ (if toms then id else forceProDrums)
+              $ projectSongYaml proj
+            in (tgt, yaml)
     padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect -> do
       let (fullA, fullB) = halvesHoriz rect
           (rectA, _) = chopRight 10 fullA
           (_, rectB) = chopLeft 10 fullB
       _con <- FL.buttonNew rectA $ Just "Create CON files"
       _magma <- FL.buttonNew rectB $ Just "Create Magma projects"
-      FL.groupNew rect Nothing
+      return ()
     FL.end pack
     FL.setResizable rb3 $ Just pack
   tab windowRect "Rock Band 2" $ \_ _ -> return ()
@@ -354,9 +430,6 @@ dragAndDrop f fallback = \case
   FLE.DndRelease -> return $ Right () -- give us the text!
   FLE.Paste -> do
     str <- FLTK.eventText
-    print str -- TODO report this fltkhs bug.
-    -- we have to force the text here before we return,
-    -- otherwise it gets collected on the C side
     () <- f $ lines $ T.unpack str
     -- lines is because multiple files are separated by \n
     return $ Right ()

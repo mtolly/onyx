@@ -26,7 +26,7 @@ extra-deps:
 - JuicyPixels-stbir-0.1.0.0
 - hsndfile-0.8.0
 - hsndfile-vector-0.5.2
-- fltkhs-0.6.0.0
+- fltkhs-0.7.0.2
 resolver: nightly-2018-06-21
 flags:
   fltkhs:
