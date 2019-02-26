@@ -31,6 +31,7 @@ parts:
   drums:
     drums:
       kit: VintageKit
+      difficulty: 6
 targets:
   rb3:
     game: rb3

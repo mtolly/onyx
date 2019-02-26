@@ -1,0 +1,38 @@
+metadata:
+  title: Pale Blue Dot
+  artist: Dream Theater
+  album: Distance over Time
+  genre: metal
+  subgenre: prog
+  file-album-art: cover.jpg
+  author: Onyxite
+  year: 2019
+parts:
+  drums:
+    drums:
+      difficulty: 7
+audio:
+  album-track:
+    md5: 4432ee8a9001b96b51c70adae2fd0ef1
+    frames: 22314012
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      38|0: hihat
+      38|2: hihat
+      39|0: hihat
+      39|1: hihat
+      39|2: hihat
+      39|3: hihat
+    song:
+      pad: [0.244, album-track]
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps
