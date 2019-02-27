@@ -22,11 +22,15 @@ plans:
       drums:
         pad:
         - 0.861
-        - only: [Drums, jammit-track]
+        - gain:
+          - 1.3
+          - only: [Drums, jammit-track]
     song:
       pad:
       - 0.861
-      - without: [drums, jammit-track]
+      - gain:
+        - 1.3
+        - without: [drums, jammit-track]
 parts:
   drums:
     drums:
