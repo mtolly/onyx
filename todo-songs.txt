@@ -56,7 +56,7 @@ A DRAMATIC TURN OF EVENTS
 SYSTEMATIC CHAOS
   new release with numeric song IDs, lipsync, venue, fixes from band score book
   > forsaken - fix basic gtr/bass to match pro
-  - TDEN: fixed end of gtr solo, added lots of LH notes on pro keys
+  > TDEN - fixed end of gtr solo, added lots of LH notes on pro keys, PG done
 SELF-TITLED
   > behind the veil - just needs rest of gtr, basic keys, vox, OD, and audio exprs
   > enigma machine (update) - PG and PB done
