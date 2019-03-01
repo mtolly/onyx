@@ -1,0 +1,38 @@
+metadata:
+  title: The Magician
+  artist: Return to Forever
+  album: Romantic Warrior
+  track-number: 5
+  author: Onyxite
+  rating: FamilyFriendly
+  key: E major
+  genre: fusion
+  subgenre: fusion
+  year: 1976
+  file-album-art: ../medieval-overture/cover.jpg
+  autogen-theme: PsychJamRock
+audio:
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+jammit:
+  jammit-track: {}
+plans:
+  jammit:
+    parts:
+      drums:
+        pad:
+        - 1.482
+        - only: [Drums, jammit-track]
+    song:
+      pad:
+      - 1.482
+      - without: [drums, jammit-track]
+parts:
+  drums:
+    drums:
+      kit: VintageKit
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps
