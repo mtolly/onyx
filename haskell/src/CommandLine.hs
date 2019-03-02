@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
-module CommandLine (commandLine, identifyFile', FileType(..)) where
+module CommandLine (commandLine, identifyFile', FileType(..), copyDirRecursive) where
 
 import           Audio                            (applyPansVols, fadeEnd,
                                                    fadeStart)

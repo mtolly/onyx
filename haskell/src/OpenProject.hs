@@ -5,6 +5,7 @@ module OpenProject where
 
 import           Build
 import           Config
+import           Control.Applicative            ((<|>))
 import qualified Control.Monad.Catch            as MC
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.Class      (lift)
@@ -17,6 +18,8 @@ import           Data.Default.Class             (def)
 import           Data.Functor                   (void)
 import           Data.Hashable
 import qualified Data.HashMap.Strict            as Map
+import           Data.List.Extra                (stripSuffix)
+import           Data.Maybe                     (fromMaybe)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import qualified Data.Yaml                      as Y
@@ -24,15 +27,18 @@ import           Import
 import           JSONData                       (toJSON)
 import qualified Sound.Jammit.Base              as J
 import qualified System.Directory               as Dir
-import           System.FilePath                (takeDirectory, takeExtension,
+import           System.FilePath                (dropExtension,
+                                                 dropTrailingPathSeparator,
+                                                 takeDirectory, takeExtension,
                                                  takeFileName, (</>))
 import qualified System.IO                      as IO
 import qualified System.IO.Temp                 as Temp
 
 data Project = Project
-  { projectLocation :: FilePath
+  { projectLocation :: FilePath -- path to song.yml
   , projectSongYaml :: SongYaml
-  , projectRelease  :: Maybe ReleaseKey
+  , projectRelease  :: Maybe ReleaseKey -- delete the temp import dir early if you want
+  , projectTemplate :: FilePath -- string you can append "_whatever" to for generated files
   }
 
 resourceTempDir :: (MonadResource m) => m (ReleaseKey, FilePath)
@@ -46,12 +52,21 @@ resourceTempDir = do
 openProject :: (SendMessage m, MonadResource m, MonadUnliftIO m) =>
   FilePath -> StackTraceT m Project
 openProject fp = do
-  let withYaml key fyml = loadYaml fyml >>= \yml -> return $ Project fyml yml key
+  isDir <- stackIO $ Dir.doesDirectoryExist fp
+  absolute <- stackIO $ Dir.makeAbsolute fp
+  let withYaml key fyml = loadYaml fyml >>= \yml -> return Project
+        { projectLocation = fyml
+        , projectSongYaml = yml
+        , projectRelease = key
+        , projectTemplate = dropExtension $ if isDir
+          then dropTrailingPathSeparator absolute
+          else fromMaybe absolute $
+            stripSuffix "_rb3con" absolute <|> stripSuffix "_rb2con" absolute
+        }
       importFrom fn = do
         (key, tmp) <- resourceTempDir
         () <- fn tmp
         withYaml (Just key) (tmp </> "song.yml")
-  isDir <- stackIO $ Dir.doesDirectoryExist fp
   if isDir
     then do
       ents <- stackIO $ Dir.listDirectory fp

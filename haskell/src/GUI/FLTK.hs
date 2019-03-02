@@ -1,12 +1,15 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecursiveDo       #-}
 {-# LANGUAGE TypeFamilies      #-}
 module GUI.FLTK where
 
+import           CommandLine                               (copyDirRecursive)
 import           Config
-import           Control.Concurrent                        (ThreadId)
-import           Control.Concurrent.MVar                   (newMVar, putMVar,
+import           Control.Concurrent                        (MVar, ThreadId,
+                                                            killThread, newMVar,
+                                                            putMVar, readMVar,
                                                             takeMVar)
 import           Control.Concurrent.STM                    (atomically)
 import           Control.Concurrent.STM.TChan              (newTChanIO,
@@ -18,7 +21,7 @@ import           Control.Monad                             (forM, forM_, void,
 import           Control.Monad.IO.Class                    (MonadIO (..),
                                                             liftIO)
 import           Control.Monad.Trans.Class                 (lift)
-import           Control.Monad.Trans.Reader                (ReaderT, ask,
+import           Control.Monad.Trans.Reader                (ReaderT, ask, local,
                                                             runReaderT)
 import           Control.Monad.Trans.Resource              (ResourceT, release,
                                                             resourceForkIO,
@@ -41,6 +44,7 @@ import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           JSONData                                  (toJSON)
 import           OpenProject
 import           RockBand.Codec.File                       (FlexPartName (..))
+import qualified System.Directory                          as Dir
 import           System.FilePath                           (takeDirectory,
                                                             (</>))
 import           System.Info                               (os)
@@ -149,8 +153,8 @@ padded t r b l size@(Size (Width w) (Height h)) fn = do
   FL.setResizable group $ Just box
   return x
 
-tab :: Rectangle -> T.Text -> (Rectangle -> FL.Ref FL.Group -> IO a) -> IO a
-tab rect name fn = do
+makeTab :: Rectangle -> T.Text -> (Rectangle -> FL.Ref FL.Group -> IO a) -> IO a
+makeTab rect name fn = do
   let tabHeight = 25
       (_, innerRect) = chopTop tabHeight rect
   group <- FL.groupNew innerRect (Just name)
@@ -187,13 +191,13 @@ launchWindow proj = do
   tabs <- FL.tabsNew
     (Rectangle (Position (X 0) (Y 0)) windowSize)
     Nothing
-  meta <- tabScroll windowRect "Metadata" $ \innerRect meta -> do
-    let (rectLeft, rectRight) = chopRight 200 innerRect
+  meta <- tabScroll windowRect "Metadata" $ \rect meta -> do
+    let (rectLeft, rectRight) = chopRight 200 rect
     pack <- FL.packNew rectLeft Nothing
     forM_ (zip (True : repeat False) [("Title", _title), ("Artist", _artist), ("Album", _album)]) $ \(top, (str, fn)) -> do
-      padded (if top then 10 else 5) 10 5 100 (Size (Width 500) (Height 25)) $ \rect -> do
+      padded (if top then 10 else 5) 10 5 100 (Size (Width 500) (Height 25)) $ \rect' -> do
         input <- FL.inputNew
-          rect
+          rect'
           (Just str)
           (Just FL.FlNormalInput) -- this is required for labels to work. TODO report bug in binding's "inputNew"
         FL.setLabelsize input $ FL.FontSize 13
@@ -203,8 +207,8 @@ launchWindow proj = do
         return ()
     FL.end pack
     packRight <- FL.packNew rectRight Nothing
-    padded 10 10 0 0 (Size (Width 190) (Height 190)) $ \rect -> do
-      cover <- FL.buttonNew rect Nothing
+    padded 10 10 0 0 (Size (Width 190) (Height 190)) $ \rect' -> do
+      cover <- FL.buttonNew rect' Nothing
       Right png <- FL.pngImageNew $ T.pack $ takeDirectory (projectLocation proj) </> "gen/cover.png"
       FL.scale png (Size (Width 180) (Height 180)) (Just True) (Just False)
       FL.setImage cover $ Just png
@@ -212,11 +216,11 @@ launchWindow proj = do
     FL.end packRight
     FL.setResizable meta $ Just pack
     return meta
-  tab windowRect "Audio" $ \_ _ -> return ()
-  tab windowRect "Instruments" $ \_ _ -> return ()
-  tab windowRect "Rock Band 3" $ \_ _ -> return ()
-  tab windowRect "Rock Band 2" $ \_ _ -> return ()
-  tab windowRect "Clone Hero/Phase Shift" $ \_ _ -> return ()
+  makeTab windowRect "Audio" $ \_ _ -> return ()
+  makeTab windowRect "Instruments" $ \_ _ -> return ()
+  makeTab windowRect "Rock Band 3" $ \_ _ -> return ()
+  makeTab windowRect "Rock Band 2" $ \_ _ -> return ()
+  makeTab windowRect "Clone Hero/Phase Shift" $ \_ _ -> return ()
   FL.end tabs
   FL.setResizable tabs $ Just meta
   FL.end window
@@ -284,7 +288,7 @@ applyGBK gbk song tgt = case gbk of
   where hasFive flex = isJust $ getPart flex song >>= partGRYBO
 
 launchBatch :: (Event -> IO ()) -> [FilePath] -> IO ()
-launchBatch sink startFiles = do
+launchBatch sink startFiles = mdo
   loadedFiles <- newMVar startFiles
   let windowSize = Size (Width 800) (Height 400)
       windowRect = Rectangle
@@ -297,7 +301,7 @@ launchBatch sink startFiles = do
     }
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
-  songs <- tab windowRect "Songs" $ \rect songs -> do
+  tabSongs <- makeTab windowRect "Songs" $ \rect tab -> do
     let (labelRect, belowLabel) = chopTop 40 rect
         (termRect, buttonsRect) = chopBottom 50 belowLabel
         labelRect' = trimClock 10 10 5 10 labelRect
@@ -308,7 +312,7 @@ launchBatch sink startFiles = do
         (_, btnRectB') = chopLeft 5 btnRectB
     label <- FL.boxNew labelRect' $ Just "0 files loaded."
     term <- FL.simpleTerminalNew termRect' Nothing
-    FL.setResizable songs $ Just term
+    FL.setResizable tab $ Just term
     let updateFiles f = do
           fs <- f <$> takeMVar loadedFiles
           FL.setText term $ T.pack $ unlines fs
@@ -334,11 +338,11 @@ launchBatch sink startFiles = do
         _ -> return ()
     btnB <- FL.buttonNew btnRectB' $ Just "Clear Songs"
     FL.setCallback btnB $ \_ -> sink $ EventIO $ updateFiles $ const []
-    return songs
-  tab windowRect "Rock Band 3" $ \innerRect rb3 -> do
-    pack <- FL.packNew innerRect Nothing
-    getSpeed <- padded 10 400 5 100 (Size (Width 300) (Height 35)) $ \rect -> do
-      speed <- FL.counterNew rect (Just "Speed (%)")
+    return tab
+  tabRB3 <- makeTab windowRect "Rock Band 3" $ \rect tab -> do
+    pack <- FL.packNew rect Nothing
+    getSpeed <- padded 10 400 5 100 (Size (Width 300) (Height 35)) $ \rect' -> do
+      speed <- FL.counterNew rect' (Just "Speed (%)")
       FL.setLabelsize speed $ FL.FontSize 13
       FL.setLabeltype speed FLE.NormalLabelType FL.ResolveImageLabelDoNothing
       FL.setAlign speed $ FLE.Alignments [FLE.AlignTypeLeft]
@@ -348,16 +352,16 @@ launchBatch sink startFiles = do
       void $ FL.setValue speed 100
       FL.setTooltip speed "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
       return $ (/ 100) <$> FL.getValue speed
-    getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect -> do
-      box <- FL.checkButtonNew rect (Just "Tom Markers for non-Pro Drums")
+    getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+      box <- FL.checkButtonNew rect' (Just "Tom Markers for non-Pro Drums")
       FL.setTooltip box "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
       return $ FL.getValue box
-    getDropOpen <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect -> do
-      box <- FL.checkButtonNew rect (Just "Drop HOPO/tap open notes")
+    getDropOpen <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+      box <- FL.checkButtonNew rect' (Just "Drop HOPO/tap open notes")
       FL.setTooltip box "When checked, open notes on guitar/bass which are also HOPO or tap notes will be removed, instead of becoming green notes."
       return $ FL.getValue box
-    getGBK <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect -> do
-      let (rectAB, rectCD) = halvesHoriz rect
+    getGBK <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+      let (rectAB, rectCD) = halvesHoriz rect'
           (rectA, rectB) = halvesHoriz rectAB
           (rectC, rectD) = halvesHoriz rectCD
       optA <- FL.roundButtonNew rectA (Just "G/B/K unchanged")
@@ -391,22 +395,103 @@ launchBatch sink startFiles = do
               $ (if toms then id else forceProDrums)
               $ projectSongYaml proj
             in (tgt, yaml)
-    padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect -> do
-      let (fullA, fullB) = halvesHoriz rect
+    padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+      let (fullA, fullB) = halvesHoriz rect'
           (rectA, _) = chopRight 10 fullA
           (_, rectB) = chopLeft 10 fullB
-      _con <- FL.buttonNew rectA $ Just "Create CON files"
-      _magma <- FL.buttonNew rectB $ Just "Create Magma projects"
-      return ()
+      btnCON <- FL.buttonNew rectA $ Just "Create CON files"
+      btnMagma <- FL.buttonNew rectB $ Just "Create Magma projects"
+      let start buildType useResult = do
+            files <- stackIO $ readMVar loadedFiles
+            settings <- stackIO getTargetSong
+            startTasks $ flip map files $ \f -> withProject f $ \proj -> do
+              let (target, yaml) = settings proj
+                  addSegments p = p
+                    { projectTemplate = concat
+                      [ projectTemplate p
+                      , case tgt_Speed $ rb3_Common target of
+                        Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
+                        _               -> ""
+                      ]
+                    }
+              proj' <- fmap addSegments $ stackIO $ saveProject proj yaml
+              buildType target proj' >>= useResult proj'
+      FL.setCallback btnCON $ \_ -> sink $ EventOnyx $ start buildRB3CON $ \proj result -> let
+        fout = projectTemplate proj <> "_rb3con" -- TODO add speed, etc.
+        in stackIO (Dir.copyFile result fout) >> return fout
+      FL.setCallback btnMagma $ \_ -> sink $ EventOnyx $ start buildMagmaV2 $ \proj result -> let
+        dout = projectTemplate proj <> "_project" -- TODO add speed, etc.
+        in copyDirRecursive result dout >> return dout
     FL.end pack
-    FL.setResizable rb3 $ Just pack
-  tab windowRect "Rock Band 2" $ \_ _ -> return ()
-  tab windowRect "Clone Hero/Phase Shift" $ \_ _ -> return ()
+    FL.setResizable tab $ Just pack
+    return tab
+  tabRB2 <- makeTab windowRect "Rock Band 2" $ \_ tab -> return tab
+  tabCH <- makeTab windowRect "Clone Hero/Phase Shift" $ \_ tab -> return tab
+  (tabTask, labelTask, termTask) <- makeTab windowRect "Task" $ \rect tab -> do
+    let (labelRect, belowLabel) = chopTop 40 rect
+        (termRect, buttonRect) = chopBottom 50 belowLabel
+        labelRect' = trimClock 10 10 5 10 labelRect
+        termRect' = trimClock 5 10 5 10 termRect
+        buttonRect' = trimClock 5 10 10 10 buttonRect
+    label <- FL.boxNew labelRect' $ Just "…"
+    term <- FL.simpleTerminalNew termRect' Nothing
+    FL.setResizable tab $ Just term
+    btnA <- FL.buttonNew buttonRect' $ Just "Cancel"
+    FL.setCallback btnA $ \_ -> sink $ EventIO cancelTasks
+    return (tab, label, term)
+  FL.deactivate tabTask
+  taskStatus <- newMVar Nothing :: IO (MVar (Maybe (Int, Int, [FilePath], Int, ThreadId)))
+  let taskMessage :: (MessageLevel, Message) -> IO ()
+      taskMessage = sink . EventIO . addTerm termTask
+      cancelTasks = do
+        takeMVar taskStatus >>= \case
+          Just (_, _, _, _, tid) -> killThread tid
+          Nothing                -> return ()
+        putMVar taskStatus Nothing
+        reenableTabs
+      reenableTabs = do
+        mapM_ FL.activate [tabSongs, tabRB3, tabRB2, tabCH]
+        FLTK.redraw
+      updateStatus fn = takeMVar taskStatus >>= \case
+        Nothing        -> putMVar taskStatus Nothing -- maybe task was cancelled
+        Just oldStatus -> do
+          let status@(done, total, success, failure, _) = fn oldStatus
+          FL.setLabel labelTask $ T.pack $ unwords
+            [ show done <> "/" <> show total
+            , "tasks complete:"
+            , show $ length success
+            , "succeeded,"
+            , show failure
+            , "failed"
+            ]
+          if done >= total
+            then do
+              reenableTabs
+              putMVar taskStatus Nothing
+            else putMVar taskStatus $ Just status
+      startTasks :: [Onyx FilePath] -> Onyx ()
+      startTasks tasks = liftIO (takeMVar taskStatus) >>= \case
+        Just status -> liftIO $ putMVar taskStatus $ Just status -- shouldn't happen
+        Nothing -> do
+          tid <- forkOnyx $ replaceQueueLog taskMessage $ forM_ tasks $ \task -> do
+            errorToWarning task >>= \case
+              Nothing -> liftIO $ sink $ EventIO $ updateStatus $ \case
+                (done, total, success, failure, tid) -> (done + 1, total, success, failure + 1, tid)
+              Just f  -> liftIO $ sink $ EventIO $ updateStatus $ \case
+                (done, total, success, failure, tid) -> (done + 1, total, success ++ [f], failure, tid)
+          liftIO $ do
+            putMVar taskStatus $ Just (0, length tasks, [], 0, tid)
+            FL.activate tabTask
+            mapM_ FL.deactivate [tabSongs, tabRB3, tabRB2, tabCH]
+            void $ FL.setValue tabs $ Just tabTask
+            updateStatus id
   FL.end tabs
-  FL.setResizable tabs $ Just songs
+  FL.setResizable tabs $ Just tabSongs
   FL.end window
   FL.setResizable window $ Just tabs
-  FL.setCallback window $ windowCloser $ return ()
+  FL.setCallback window $ windowCloser $ takeMVar taskStatus >>= \case
+    Just (_, _, _, _, tid) -> killThread tid
+    Nothing                -> return ()
   FL.showWidget window
 
 {-
@@ -434,6 +519,18 @@ dragAndDrop f fallback = \case
     -- lines is because multiple files are separated by \n
     return $ Right ()
   e -> fallback e
+
+replaceQueueLog :: ((MessageLevel, Message) -> IO ()) -> Onyx a -> Onyx a
+replaceQueueLog q = mapStackTraceT $ QueueLog . local (const q) . fromQueueLog
+
+addTerm :: FL.Ref FL.SimpleTerminal -> (MessageLevel, Message) -> IO ()
+addTerm term pair = do
+  -- TODO this should use `append` method but it's not bound for some reason
+  txt <- FL.getText term
+  let newtxt = T.pack $ case pair of
+        (MessageLog    , msg) -> messageString msg
+        (MessageWarning, msg) -> "Warning: " ++ Exc.displayException msg
+  FL.setText term $ txt <> newtxt <> "\n"
 
 macOS :: Bool
 macOS = os == "darwin"
@@ -514,13 +611,6 @@ launchGUI = do
   FL.showWidget termWindow
 
   let logChan = logIO $ sink . EventMsg
-      addTerm pair = do
-        -- TODO this should use `append` method but it's not bound for some reason
-        txt <- FL.getText term
-        let newtxt = T.pack $ case pair of
-              (MessageLog    , msg) -> messageString msg
-              (MessageWarning, msg) -> "Warning: " ++ Exc.displayException msg
-        FL.setText term $ txt <> newtxt <> "\n"
       wait = if macOS
         then FLTK.waitFor 1e20 >> return True
         else fmap (/= 0) FLTK.wait
@@ -529,8 +619,8 @@ launchGUI = do
       Nothing -> return ()
       Just e -> do
         case e of
-          EventMsg    pair -> liftIO $ addTerm pair
-          EventFail   msg  -> liftIO $ addTerm (MessageWarning, msg)
+          EventMsg    pair -> liftIO $ addTerm term pair
+          EventFail   msg  -> liftIO $ addTerm term (MessageWarning, msg)
           EventLoaded proj -> liftIO $ launchWindow proj
           EventLoad   f    -> startLoad f
           EventIO     act  -> liftIO act
