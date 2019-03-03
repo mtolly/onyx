@@ -92,10 +92,10 @@ parts:
   bass:
     grybo:
       difficulty: 7
-    # pro-guitar:
-    #   difficulty: 7
-    #   tuning:
-    #     base: bass-5
+    pro-guitar:
+      difficulty: 7
+      tuning:
+        base: bass-5
   guitar:
     grybo:
       difficulty: 7

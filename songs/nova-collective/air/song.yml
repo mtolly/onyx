@@ -33,9 +33,7 @@ parts:
     pro-guitar:
       difficulty: 5
       tuning:
-        base: guitar-6
-      # technically this song is 7-string.
-      # but it's only one section, so I just tweaked it to 6-string.
+        base: guitar-7
   bass:
     grybo:
       difficulty: 4

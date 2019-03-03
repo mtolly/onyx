@@ -33,7 +33,7 @@ parts:
     pro-guitar:
       difficulty: 7
       tuning:
-        base: guitar-6 # 7 string modified to 6 string
+        base: guitar-7
   bass:
     grybo:
       difficulty: 4
