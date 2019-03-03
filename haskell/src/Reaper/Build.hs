@@ -235,7 +235,7 @@ track tunings lenTicks lenSecs resn trk = let
                     $ tuningPitches $ GtrTuning Guitar6 [] 0
                   this  = tuningPitches tuning
                   this' = drop (length this - 6) this
-                  in map (+ gtrGlobal tuning) $ zipWith (-) this' std ++ repeat 0
+                  in zipWith (-) this' std ++ repeat 0
                 expert = 3 :: Int
                 outChannel = 0 :: Int
                 passthroughNonNotes = True

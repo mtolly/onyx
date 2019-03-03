@@ -15,6 +15,9 @@ audio:
     file-path: audio-band.wav
     commands:
     - ../../../scripts/youtube QfwwanEF3a0 140 audio-band.wav
+  no-drums: # download from vfjams site
+    md5: ad278a668ec8fbbe43643844949dbfce
+    frames: 16430976
   pad-band:
     expr:
       pad: [0.185, transcript-band]
@@ -37,9 +40,16 @@ parts:
 plans:
   youtube:
     song:
-      mix:
-      - gain: [-1, pad-band]
-      - clipped-drums
+      gain:
+      - 1.1
+      - fade:
+        - end
+        - 2.5
+        - take:
+          - '5:30'
+          - concatenate:
+            - take: [13.456, pad-band]
+            - drop: [3.983, no-drums]
     parts:
       drums: clipped-drums
 targets:

@@ -1,11 +1,11 @@
 metadata:
-  title: Sorceress
+  title: The Magician
   artist: Return to Forever
   album: Romantic Warrior
-  track-number: 2
+  track-number: 5
   author: Onyxite
   rating: FamilyFriendly
-  key: A# minor
+  key: E major
   genre: fusion
   subgenre: fusion
   year: 1976
@@ -21,21 +21,16 @@ plans:
     parts:
       drums:
         pad:
-        - 0.861
-        - gain:
-          - 1.3
-          - only: [Drums, jammit-track]
+        - 1.482
+        - only: [Drums, jammit-track]
     song:
       pad:
-      - 0.861
-      - gain:
-        - 1.3
-        - without: [drums, jammit-track]
+      - 1.482
+      - without: [drums, jammit-track]
 parts:
   drums:
     drums:
       kit: VintageKit
-      difficulty: 6
 targets:
   rb3:
     game: rb3
