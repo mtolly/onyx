@@ -32,6 +32,9 @@ import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust)
 import qualified Data.Text                                 as T
 import qualified Data.Yaml                                 as Y
+import           Foreign                                   (Ptr)
+import           Foreign.C                                 (CString,
+                                                            withCString)
 import qualified Graphics.UI.FLTK.LowLevel.FL              as FLTK
 import qualified Graphics.UI.FLTK.LowLevel.Fl_Enumerations as FLE
 import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
@@ -295,13 +298,19 @@ launchBatch sink startFiles = mdo
         (Position (X 0) (Y 0))
         windowSize
   window <- FL.windowNew windowSize Nothing $ Just "Batch Process"
+  FLE.rgbColorWithRgb (94,94,94) >>= FL.setColor window -- TODO report incorrect Char binding type for rgbColorWithGrayscale
   FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
   FL.sizeRangeWithArgs window (Size (Width 800) (Height 400)) FL.defaultOptionalSizeRangeArgs
     { FL.maxw = Just 800
     }
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
+  let setTabColor :: FL.Ref FL.Group -> FLE.Color -> IO ()
+      setTabColor tab color = do
+        FL.setColor tab color
+        FL.setSelectionColor tab color
   tabSongs <- makeTab windowRect "Songs" $ \rect tab -> do
+    FLE.rgbColorWithRgb (167,229,165) >>= setTabColor tab
     let (labelRect, belowLabel) = chopTop 40 rect
         (termRect, buttonsRect) = chopBottom 50 belowLabel
         labelRect' = trimClock 10 10 5 10 labelRect
@@ -340,6 +349,7 @@ launchBatch sink startFiles = mdo
     FL.setCallback btnB $ \_ -> sink $ EventIO $ updateFiles $ const []
     return tab
   tabRB3 <- makeTab windowRect "Rock Band 3" $ \rect tab -> do
+    FLE.rgbColorWithRgb (229,165,183) >>= setTabColor tab
     pack <- FL.packNew rect Nothing
     getSpeed <- padded 10 400 5 100 (Size (Width 300) (Height 35)) $ \rect' -> do
       speed <- FL.counterNew rect' (Just "Speed (%)")
@@ -404,7 +414,7 @@ launchBatch sink startFiles = mdo
       let start buildType useResult = do
             files <- stackIO $ readMVar loadedFiles
             settings <- stackIO getTargetSong
-            startTasks $ flip map files $ \f -> withProject f $ \proj -> do
+            startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
               let (target, yaml) = settings proj
                   addSegments p = p
                     { projectTemplate = concat
@@ -425,9 +435,14 @@ launchBatch sink startFiles = mdo
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
-  tabRB2 <- makeTab windowRect "Rock Band 2" $ \_ tab -> return tab
-  tabCH <- makeTab windowRect "Clone Hero/Phase Shift" $ \_ tab -> return tab
+  tabRB2 <- makeTab windowRect "Rock Band 2" $ \_ tab -> do
+    FLE.rgbColorWithRgb (237,223,137) >>= setTabColor tab
+    return tab
+  tabCH <- makeTab windowRect "Clone Hero/Phase Shift" $ \_ tab -> do
+    FLE.rgbColorWithRgb (164,166,242) >>= setTabColor tab
+    return tab
   (tabTask, labelTask, termTask) <- makeTab windowRect "Task" $ \rect tab -> do
+    FLE.rgbColorWithRgb (239,201,148) >>= setTabColor tab
     let (labelRect, belowLabel) = chopTop 40 rect
         (termRect, buttonRect) = chopBottom 50 belowLabel
         labelRect' = trimClock 10 10 5 10 labelRect
@@ -435,6 +450,8 @@ launchBatch sink startFiles = mdo
         buttonRect' = trimClock 5 10 10 10 buttonRect
     label <- FL.boxNew labelRect' $ Just "…"
     term <- FL.simpleTerminalNew termRect' Nothing
+    FL.setAnsi term True
+    FL.setStayAtBottom term True
     FL.setResizable tab $ Just term
     btnA <- FL.buttonNew buttonRect' $ Just "Cancel"
     FL.setCallback btnA $ \_ -> sink $ EventIO cancelTasks
@@ -442,10 +459,12 @@ launchBatch sink startFiles = mdo
   FL.deactivate tabTask
   taskStatus <- newMVar Nothing :: IO (MVar (Maybe (Int, Int, [FilePath], Int, ThreadId)))
   let taskMessage :: (MessageLevel, Message) -> IO ()
-      taskMessage = sink . EventIO . addTerm termTask
+      taskMessage = sink . EventIO . addTerm termTask . toTermMessage
       cancelTasks = do
         takeMVar taskStatus >>= \case
-          Just (_, _, _, _, tid) -> killThread tid
+          Just (_, _, _, _, tid) -> do
+            addTerm termTask $ TermLog "Cancelled tasks."
+            killThread tid
           Nothing                -> return ()
         putMVar taskStatus Nothing
         reenableTabs
@@ -469,23 +488,31 @@ launchBatch sink startFiles = mdo
               reenableTabs
               putMVar taskStatus Nothing
             else putMVar taskStatus $ Just status
-      startTasks :: [Onyx FilePath] -> Onyx ()
+      startTasks :: [(FilePath, Onyx FilePath)] -> Onyx ()
       startTasks tasks = liftIO (takeMVar taskStatus) >>= \case
         Just status -> liftIO $ putMVar taskStatus $ Just status -- shouldn't happen
         Nothing -> do
-          tid <- forkOnyx $ replaceQueueLog taskMessage $ forM_ tasks $ \task -> do
-            errorToWarning task >>= \case
-              Nothing -> liftIO $ sink $ EventIO $ updateStatus $ \case
-                (done, total, success, failure, tid) -> (done + 1, total, success, failure + 1, tid)
-              Just f  -> liftIO $ sink $ EventIO $ updateStatus $ \case
-                (done, total, success, failure, tid) -> (done + 1, total, success ++ [f], failure, tid)
+          tid <- forkOnyx $ replaceQueueLog taskMessage $ forM_ (zip [1..] tasks) $ \(i, (fin, task)) -> do
+            liftIO $ sink $ EventIO $ addTerm termTask $ TermStart ("Task " <> show (i :: Int)) fin
+            errorToEither task >>= \case
+              Left e -> liftIO $ sink $ EventIO $ do
+                forM_ (getMessages e) $ addTerm termTask . TermError
+                updateStatus $ \case
+                  (done, total, success, failure, tid) -> (done + 1, total, success, failure + 1, tid)
+              Right f -> liftIO $ sink $ EventIO $ do
+                addTerm termTask $ TermSuccess $ "Created file: " <> f
+                updateStatus $ \case
+                  (done, total, success, failure, tid) -> (done + 1, total, success ++ [f], failure, tid)
           liftIO $ do
             putMVar taskStatus $ Just (0, length tasks, [], 0, tid)
             FL.activate tabTask
             mapM_ FL.deactivate [tabSongs, tabRB3, tabRB2, tabCH]
             void $ FL.setValue tabs $ Just tabTask
+            updateTabsColor tabs
             updateStatus id
   FL.end tabs
+  updateTabsColor tabs
+  FL.setCallback tabs updateTabsColor
   FL.setResizable tabs $ Just tabSongs
   FL.end window
   FL.setResizable window $ Just tabs
@@ -493,6 +520,11 @@ launchBatch sink startFiles = mdo
     Just (_, _, _, _, tid) -> killThread tid
     Nothing                -> return ()
   FL.showWidget window
+
+updateTabsColor :: FL.Ref FL.Tabs -> IO ()
+updateTabsColor tabs = FL.getValue tabs >>= \case
+  Nothing  -> return ()
+  Just tab -> FL.getSelectionColor tab >>= FL.setSelectionColor tabs
 
 {-
 -- doesn't appear to be in the bundled code
@@ -523,14 +555,32 @@ dragAndDrop f fallback = \case
 replaceQueueLog :: ((MessageLevel, Message) -> IO ()) -> Onyx a -> Onyx a
 replaceQueueLog q = mapStackTraceT $ QueueLog . local (const q) . fromQueueLog
 
-addTerm :: FL.Ref FL.SimpleTerminal -> (MessageLevel, Message) -> IO ()
+data TermMessage
+  = TermStart String String -- "Task 4" "/path/to/file"
+  | TermLog String
+  | TermWarning Message
+  | TermError Message
+  | TermSuccess String
+
+toTermMessage :: (MessageLevel, Message) -> TermMessage
+toTermMessage (MessageLog    , msg) = TermLog $ messageString msg
+toTermMessage (MessageWarning, msg) = TermWarning msg
+
+addTerm :: FL.Ref FL.SimpleTerminal -> TermMessage -> IO ()
 addTerm term pair = do
-  -- TODO this should use `append` method but it's not bound for some reason
-  txt <- FL.getText term
-  let newtxt = T.pack $ case pair of
-        (MessageLog    , msg) -> messageString msg
-        (MessageWarning, msg) -> "Warning: " ++ Exc.displayException msg
-  FL.setText term $ txt <> newtxt <> "\n"
+  let newtxt = case pair of
+        TermStart x y   -> "\ESC[46m" <> x <> "\ESC[0m" <> ": " <> y
+        TermLog str     -> str
+        TermWarning msg -> "\ESC[33mWarning\ESC[0m: " <> Exc.displayException msg
+        TermError msg   -> "\ESC[41mERROR!\ESC[0m " <> Exc.displayException msg
+        TermSuccess str -> "\ESC[42mSuccess!\ESC[0m " <> str
+  FL.withRef term $ \ptr ->
+    withCString (newtxt <> "\n") $ \cs ->
+      c_append ptr cs
+
+-- present in C layer but missing from Haskell
+foreign import ccall unsafe "Fl_Simple_Terminal_append"
+  c_append :: Ptr () -> CString -> IO ()
 
 macOS :: Bool
 macOS = os == "darwin"
@@ -550,6 +600,7 @@ launchGUI = do
     (Size (Width 500) (Height 400))
     Nothing
     (Just "Onyx Console")
+  FLE.rgbColorWithRgb (114,74,124) >>= FL.setColor termWindow
   let termMenuHeight = if macOS then 0 else 30
   term <- FL.simpleTerminalNew
     (Rectangle
@@ -557,6 +608,7 @@ launchGUI = do
       (Size (Width 480) (Height $ 340 - termMenuHeight))
     )
     Nothing
+  FL.setAnsi term True
   FL.setStayAtBottom term True
   let loadSongs = mapM_ $ sink . EventLoad
       loadDialog = sink $ EventIO $ do
@@ -573,6 +625,7 @@ launchGUI = do
     (Just "Load song")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs { FL.handleCustom = Just $ dragAndDrop loadSongs . FL.handleSuper }
+  FLE.rgbColorWithRgb (216,125,154) >>= FL.setColor buttonLoad
   FL.setLabelsize buttonLoad (FL.FontSize 13)
   FL.setCallback buttonLoad $ \_ -> loadDialog
   buttonBatch <- FL.buttonCustom
@@ -580,6 +633,7 @@ launchGUI = do
     (Just "Batch process")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs { FL.handleCustom = Just $ dragAndDrop (launchBatch sink) . FL.handleSuper }
+  FLE.rgbColorWithRgb (141,136,224) >>= FL.setColor buttonBatch
   FL.setLabelsize buttonBatch (FL.FontSize 13)
   FL.setCallback buttonBatch $ \_ -> launchBatch sink []
   menu <- FL.sysMenuBarNew
@@ -593,9 +647,15 @@ launchGUI = do
     (Just $ menuFn loadDialog)
     (FL.MenuItemFlags [FL.MenuItemNormal])
   void $ FL.add menu
+    "File/Batch Process"
+    (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'b')
+    (Just $ menuFn $ launchBatch sink [])
+    (FL.MenuItemFlags [FL.MenuItemNormal])
+  void $ FL.add menu
     "File/Close Window"
     (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'w')
     (Just $ menuFn $ sink $ EventIO $ FLTK.firstWindow >>= \case
+      -- TODO firstWindow usually works, unless you open windows and don't do anything with them
       Just window -> FL.doCallback window
       Nothing     -> return ()
     )
@@ -619,8 +679,8 @@ launchGUI = do
       Nothing -> return ()
       Just e -> do
         case e of
-          EventMsg    pair -> liftIO $ addTerm term pair
-          EventFail   msg  -> liftIO $ addTerm term (MessageWarning, msg)
+          EventMsg    pair -> liftIO $ addTerm term $ toTermMessage pair
+          EventFail   msg  -> liftIO $ addTerm term $ TermError msg
           EventLoaded proj -> liftIO $ launchWindow proj
           EventLoad   f    -> startLoad f
           EventIO     act  -> liftIO act
