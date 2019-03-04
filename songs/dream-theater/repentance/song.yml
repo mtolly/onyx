@@ -116,6 +116,11 @@ parts:
   guitar:
     grybo:
       difficulty: 2
+    # pro-guitar:
+    #   difficulty: 5
+    #   tuning:
+    #     base: guitar-7
+    # TODO extend string command to be able to do "[onyx string 7 5 4 3 2 1]"
   keys:
     grybo:
       difficulty: 3

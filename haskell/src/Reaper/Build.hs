@@ -15,7 +15,6 @@ import qualified Data.ByteString.Base64                as B64
 import qualified Data.ByteString.Char8                 as B8
 import qualified Data.ByteString.Lazy                  as BL
 import           Data.Char                             (toLower)
-import           Data.Default.Class                    (def)
 import qualified Data.EventList.Absolute.TimeBody      as ATB
 import qualified Data.EventList.Relative.TimeBody      as RTB
 import           Data.List                             (find, findIndex,
@@ -146,7 +145,9 @@ track :: (Monad m, NNC.C t, Integral t) => [(FlexPartName, GtrTuning)] -> NN.Int
 track tunings lenTicks lenSecs resn trk = let
   name = fromMaybe "untitled track" $ U.trackName trk
   fpart = identifyFlexTrack name
-  tuning = fromMaybe def $ fpart >>= (`lookup` tunings)
+  tuning = flip fromMaybe (fpart >>= (`lookup` tunings)) $ case fpart of
+    Just FlexBass -> GtrTuning Bass4   [] 0
+    _             -> GtrTuning Guitar6 [] 0
   in block "TRACK" [] $ do
     line "NAME" [name]
     let yellow = (255, 255, 0)
