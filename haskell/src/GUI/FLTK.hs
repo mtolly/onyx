@@ -16,8 +16,9 @@ import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             tryReadTChan,
                                                             writeTChan)
 import qualified Control.Exception                         as Exc
-import           Control.Monad                             (forM, forM_, void,
-                                                            when)
+import           Control.Monad                             (ap, forM, forM_,
+                                                            liftM, void, when)
+import           Control.Monad.Codec
 import           Control.Monad.IO.Class                    (MonadIO (..),
                                                             liftIO)
 import           Control.Monad.Trans.Class                 (lift)
@@ -28,6 +29,7 @@ import           Control.Monad.Trans.Resource              (ResourceT, release,
                                                             runResourceT)
 import           Control.Monad.Trans.StackTrace
 import           Data.Default.Class                        (def)
+import           Data.Functor.Const                        (Const (..))
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust)
 import qualified Data.Text                                 as T
@@ -290,6 +292,83 @@ applyGBK gbk song tgt = case gbk of
     else tgt
   where hasFive flex = isJust $ getPart flex song >>= partGRYBO
 
+batchPageRB3
+  :: Rectangle
+  -> FL.Ref FL.Group
+  -> ((Project -> (TargetRB3, SongYaml)) -> Bool -> IO ())
+  -> IO ()
+batchPageRB3 rect tab build = do
+  pack <- FL.packNew rect Nothing
+  getSpeed <- padded 10 400 5 100 (Size (Width 300) (Height 35)) $ \rect' -> do
+    speed <- FL.counterNew rect' (Just "Speed (%)")
+    FL.setLabelsize speed $ FL.FontSize 13
+    FL.setLabeltype speed FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+    FL.setAlign speed $ FLE.Alignments [FLE.AlignTypeLeft]
+    FL.setStep speed 1
+    FL.setLstep speed 5
+    FL.setMinimum speed 1
+    void $ FL.setValue speed 100
+    FL.setTooltip speed "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
+    return $ (/ 100) <$> FL.getValue speed
+  getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    box <- FL.checkButtonNew rect' (Just "Tom Markers for non-Pro Drums")
+    FL.setTooltip box "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
+    return $ FL.getValue box
+  getDropOpen <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    box <- FL.checkButtonNew rect' (Just "Drop HOPO/tap open notes")
+    FL.setTooltip box "When checked, open notes on guitar/bass which are also HOPO or tap notes will be removed, instead of becoming green notes."
+    return $ FL.getValue box
+  getGBK <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    let (rectAB, rectCD) = halvesHoriz rect'
+        (rectA, rectB) = halvesHoriz rectAB
+        (rectC, rectD) = halvesHoriz rectCD
+    optA <- FL.roundButtonNew rectA (Just "G/B/K unchanged")
+    optB <- FL.roundButtonNew rectB (Just "Copy G to K")
+    optC <- FL.roundButtonNew rectC (Just "Swap G and K")
+    optD <- FL.roundButtonNew rectD (Just "Swap B and K")
+    void $ FL.setValue optA True
+    let opts = [optA, optB, optC, optD]
+    forM_ opts $ \opt -> FL.setCallback opt $ \_ -> do
+      forM_ opts $ \opt' -> FL.setValue opt' $ opt == opt'
+    return $ FL.getValue optB >>= \case
+      True -> return CopyGuitarToKeys
+      False -> FL.getValue optC >>= \case
+        True -> return SwapGuitarKeys
+        False -> FL.getValue optD >>= \case
+          True -> return SwapBassKeys
+          False -> return GBKUnchanged
+  let getTargetSong = do
+        speed <- getSpeed
+        toms <- getToms
+        dropOpen <- getDropOpen
+        gbk <- getGBK
+        return $ \proj -> let
+          tgt = (applyGBK gbk yaml) def
+            { rb3_Common = (rb3_Common def)
+              { tgt_Speed = Just speed
+              }
+            }
+          yaml
+            = dropOpenHOPOs dropOpen
+            $ (if toms then id else forceProDrums)
+            $ projectSongYaml proj
+          in (tgt, yaml)
+  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    let (fullA, fullB) = halvesHoriz rect'
+        (rectA, _) = chopRight 10 fullA
+        (_, rectB) = chopLeft 10 fullB
+    btnCON <- FL.buttonNew rectA $ Just "Create CON files"
+    btnMagma <- FL.buttonNew rectB $ Just "Create Magma projects"
+    FL.setCallback btnCON $ \_ -> do
+      settings <- getTargetSong
+      build settings True
+    FL.setCallback btnMagma $ \_ -> do
+      settings <- getTargetSong
+      build settings False
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
 launchBatch :: (Event -> IO ()) -> [FilePath] -> IO ()
 launchBatch sink startFiles = mdo
   loadedFiles <- newMVar startFiles
@@ -350,90 +429,28 @@ launchBatch sink startFiles = mdo
     return tab
   tabRB3 <- makeTab windowRect "Rock Band 3" $ \rect tab -> do
     FLE.rgbColorWithRgb (229,165,183) >>= setTabColor tab
-    pack <- FL.packNew rect Nothing
-    getSpeed <- padded 10 400 5 100 (Size (Width 300) (Height 35)) $ \rect' -> do
-      speed <- FL.counterNew rect' (Just "Speed (%)")
-      FL.setLabelsize speed $ FL.FontSize 13
-      FL.setLabeltype speed FLE.NormalLabelType FL.ResolveImageLabelDoNothing
-      FL.setAlign speed $ FLE.Alignments [FLE.AlignTypeLeft]
-      FL.setStep speed 1
-      FL.setLstep speed 5
-      FL.setMinimum speed 1
-      void $ FL.setValue speed 100
-      FL.setTooltip speed "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
-      return $ (/ 100) <$> FL.getValue speed
-    getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-      box <- FL.checkButtonNew rect' (Just "Tom Markers for non-Pro Drums")
-      FL.setTooltip box "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
-      return $ FL.getValue box
-    getDropOpen <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-      box <- FL.checkButtonNew rect' (Just "Drop HOPO/tap open notes")
-      FL.setTooltip box "When checked, open notes on guitar/bass which are also HOPO or tap notes will be removed, instead of becoming green notes."
-      return $ FL.getValue box
-    getGBK <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-      let (rectAB, rectCD) = halvesHoriz rect'
-          (rectA, rectB) = halvesHoriz rectAB
-          (rectC, rectD) = halvesHoriz rectCD
-      optA <- FL.roundButtonNew rectA (Just "G/B/K unchanged")
-      optB <- FL.roundButtonNew rectB (Just "Copy G to K")
-      optC <- FL.roundButtonNew rectC (Just "Swap G and K")
-      optD <- FL.roundButtonNew rectD (Just "Swap B and K")
-      void $ FL.setValue optA True
-      let opts = [optA, optB, optC, optD]
-      forM_ opts $ \opt -> FL.setCallback opt $ \_ -> do
-        forM_ opts $ \opt' -> FL.setValue opt' $ opt == opt'
-      return $ FL.getValue optB >>= \case
-        True -> return CopyGuitarToKeys
-        False -> FL.getValue optC >>= \case
-          True -> return SwapGuitarKeys
-          False -> FL.getValue optD >>= \case
-            True -> return SwapBassKeys
-            False -> return GBKUnchanged
-    let getTargetSong = do
-          speed <- getSpeed
-          toms <- getToms
-          dropOpen <- getDropOpen
-          gbk <- getGBK
-          return $ \proj -> let
-            tgt = (applyGBK gbk yaml) def
-              { rb3_Common = (rb3_Common def)
-                { tgt_Speed = Just speed
+    batchPageRB3 rect tab $ \settings buildCON -> sink $ EventOnyx $ let
+      start buildType useResult = do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
+          let (target, yaml) = settings proj
+              addSegments p = p
+                { projectTemplate = concat
+                  [ projectTemplate p
+                  , case tgt_Speed $ rb3_Common target of
+                    Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
+                    _               -> ""
+                  ]
                 }
-              }
-            yaml
-              = dropOpenHOPOs dropOpen
-              $ (if toms then id else forceProDrums)
-              $ projectSongYaml proj
-            in (tgt, yaml)
-    padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-      let (fullA, fullB) = halvesHoriz rect'
-          (rectA, _) = chopRight 10 fullA
-          (_, rectB) = chopLeft 10 fullB
-      btnCON <- FL.buttonNew rectA $ Just "Create CON files"
-      btnMagma <- FL.buttonNew rectB $ Just "Create Magma projects"
-      let start buildType useResult = do
-            files <- stackIO $ readMVar loadedFiles
-            settings <- stackIO getTargetSong
-            startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
-              let (target, yaml) = settings proj
-                  addSegments p = p
-                    { projectTemplate = concat
-                      [ projectTemplate p
-                      , case tgt_Speed $ rb3_Common target of
-                        Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
-                        _               -> ""
-                      ]
-                    }
-              proj' <- fmap addSegments $ stackIO $ saveProject proj yaml
-              buildType target proj' >>= useResult proj'
-      FL.setCallback btnCON $ \_ -> sink $ EventOnyx $ start buildRB3CON $ \proj result -> let
-        fout = projectTemplate proj <> "_rb3con" -- TODO add speed, etc.
-        in stackIO (Dir.copyFile result fout) >> return fout
-      FL.setCallback btnMagma $ \_ -> sink $ EventOnyx $ start buildMagmaV2 $ \proj result -> let
-        dout = projectTemplate proj <> "_project" -- TODO add speed, etc.
-        in copyDirRecursive result dout >> return dout
-    FL.end pack
-    FL.setResizable tab $ Just pack
+          proj' <- fmap addSegments $ stackIO $ saveProject proj yaml
+          buildType target proj' >>= useResult proj'
+      in if buildCON
+        then start buildRB3CON $ \proj result -> let
+          fout = projectTemplate proj <> "_rb3con" -- TODO add speed, etc.
+          in stackIO (Dir.copyFile result fout) >> return fout
+        else start buildMagmaV2 $ \proj result -> let
+          dout = projectTemplate proj <> "_project" -- TODO add speed, etc.
+          in copyDirRecursive result dout >> return dout
     return tab
   tabRB2 <- makeTab windowRect "Rock Band 2" $ \_ tab -> do
     FLE.rgbColorWithRgb (237,223,137) >>= setTabColor tab
@@ -693,3 +710,41 @@ launchGUI = do
         True  -> process >> loop
     in loop
   FLTK.flush -- dunno if required
+
+--
+-- WIP form-building stuff
+--
+
+-- this is a silly usage of codec but whatever
+type ControlFor = CodecFor (Const ()) IOIO
+type Control a = ControlFor a a
+newtype IOIO a = IOIO (IO (IO a))
+
+instance Functor IOIO where
+  fmap = liftM
+instance Applicative IOIO where
+  (<*>) = ap
+  pure = return
+instance Monad IOIO where
+  return = IOIO . return . return
+  IOIO f >>= g = IOIO $ do
+    getter1 <- f
+    x <- getter1
+    case g x of
+      IOIO getter2 -> getter2
+
+makeControl :: (c -> IO (IO a)) -> ControlFor c a
+makeControl f = Codec
+  { codecIn = Const ()
+  , codecOut = IOIO . f
+  }
+
+runControl :: c -> ControlFor c a -> IO (IO a)
+runControl c cdc = case codecOut cdc c of IOIO x -> x
+
+checkBox :: FL.Rectangle -> Maybe T.Text -> (FL.Ref FL.CheckButton -> IO ()) -> Control Bool
+checkBox rect label initfn = makeControl $ \b -> do
+  box <- FL.checkButtonNew rect label
+  void $ FL.setValue box b
+  initfn box
+  return $ FL.getValue box
