@@ -1,0 +1,21 @@
+metadata:
+  title: No Wishbones
+  artist: SikTh
+  author: Guyshenig, Onyxite
+audio:
+  youtube:
+    file-path: youtube.mp3
+plans:
+  youtube:
+    song:
+      pad: [1.055, youtube]
+parts:
+  vocal:
+    vocal:
+      count: 3
+  guitar:
+    grybo: {}
+  bass:
+    grybo: {}
+  drums:
+    drums: {}
