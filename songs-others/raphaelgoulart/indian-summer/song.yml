@@ -1,0 +1,27 @@
+metadata:
+  title: Indian Summer
+  artist: The Rippingtons
+  album: Weekend in Monaco
+  author: raphaelgoulart, Onyxite
+  genre: jazz
+  year: 1992
+audio:
+  album-track:
+    md5: 3163600dfc7ed1b992aea14871a3faf2
+    frames: 15226260
+plans:
+  album:
+    song:
+      pad: [3.057, album-track]
+parts:
+  drums:
+    drums: {}
+  bass:
+    grybo: {}
+  guitar:
+    grybo: {}
+  keys:
+    pro-keys: {}
+targets:
+  rb3:
+    game: rb3

@@ -42,7 +42,7 @@ parts:
     pro-guitar:
       difficulty: 7
       tuning:
-        base: guitar-6 # TODO make 8-string version
+        base: guitar-8
     grybo: # XEntombmentX
       difficulty: 6
   keys:

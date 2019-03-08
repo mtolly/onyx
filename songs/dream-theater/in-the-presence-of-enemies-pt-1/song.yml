@@ -118,9 +118,17 @@ parts:
   guitar:
     grybo:
       difficulty: 7
+    pro-guitar:
+      difficulty: 7
+      tuning:
+        base: guitar-6
   bass:
     grybo:
       difficulty: 4
+    pro-guitar:
+      difficulty: 5
+      tuning:
+        base: bass-5
   keys:
     grybo:
       difficulty: 7
