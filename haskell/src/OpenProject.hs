@@ -155,6 +155,12 @@ buildMagmaV2 rb3 = buildCommon (RB3 rb3) $ \targetHash -> "gen/target" </> targe
 buildPSZip :: (MonadIO m) => TargetPS -> Project -> StackTraceT (QueueLog m) FilePath
 buildPSZip ps = buildCommon (PS ps) $ \targetHash -> "gen/target" </> targetHash </> "ps.zip"
 
+buildPlayer :: (MonadIO m) => Project -> StackTraceT (QueueLog m) FilePath
+buildPlayer proj = case Map.toList $ _plans $ projectSongYaml proj of
+  [(planName, _)] -> shakeBuild1 proj [] $ "gen/plan" </> T.unpack planName </> "web"
+  []              -> fatal "Project has no audio plans"
+  _ : _ : _       -> fatal "Project has more than 1 audio plan"
+
 choosePlan :: (Monad m) => Maybe T.Text -> Project -> StackTraceT m T.Text
 choosePlan (Just plan) _    = return plan
 choosePlan Nothing     proj = case Map.keys $ _plans $ projectSongYaml proj of

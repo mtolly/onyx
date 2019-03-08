@@ -8,13 +8,25 @@ import qualified Data.DTA.Serialize.GH2           as D
 import           Data.DTA.Serialize.RB3           (AnimTempo (..))
 import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
+import qualified Data.Map                         as Map
+import           Data.Maybe                       (fromMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
+import           GuitarHeroII.BandBass
+import           GuitarHeroII.BandDrums
+import           GuitarHeroII.BandKeys
+import           GuitarHeroII.BandSinger
+import           GuitarHeroII.Events
 import           GuitarHeroII.File
+import           GuitarHeroII.PartGuitar
+import           GuitarHeroII.Triggers
 import           Guitars
+import qualified RockBand.Codec.Drums             as RB
+import qualified RockBand.Codec.Events            as RB
 import qualified RockBand.Codec.File              as F
-import           RockBand.Common                  (Difficulty (..), Mood (..),
-                                                   eachDifficulty)
+import qualified RockBand.Codec.Five              as RB
+import qualified RockBand.Codec.Vocal             as RB
+import           RockBand.Common                  (Difficulty (..), Mood (..))
 import qualified Sound.MIDI.Util                  as U
 
 midiRB3toGH2
@@ -22,104 +34,121 @@ midiRB3toGH2
   -> TargetGH2
   -> F.Song (F.OnyxFile U.Beats)
   -> F.Song (GH2File U.Beats)
-midiRB3toGH2 = undefined
-
-{-
-midiRB3toGH2
-  :: SongYaml
-  -> TargetGH2
-  -> F.Song (F.OnyxFile U.Beats)
-  -> F.Song (F.GH2File U.Beats)
 midiRB3toGH2 song target (F.Song tmap mmap onyx) = let
-  makeMood mood idle play = case mood of
-    Mood_idle_realtime -> idle
-    Mood_idle          -> idle
-    Mood_idle_intense  -> idle
-    Mood_play          -> play
-    Mood_mellow        -> play
-    Mood_intense       -> play
-    Mood_play_solo     -> play
-  makePartGuitar trk = RTB.flatten $ flip fmap trk $ \case
-    RB5.DiffEvent diff (RB5.Note lnote) -> [PG.DiffEvent diff $ PG.Note lnote]
-    RB5.Player1 b -> [ PG.DiffEvent diff $ PG.Player1 b | diff <- [Easy .. Expert] ]
-    RB5.Player2 b -> [ PG.DiffEvent diff $ PG.Player2 b | diff <- [Easy .. Expert] ]
-    RB5.Overdrive b -> [ PG.DiffEvent diff $ PG.StarPower b | diff <- [Easy .. Expert] ]
-    RB5.Mood mood -> [makeMood mood PG.Idle PG.Play]
-    RB5.HandMap hm -> case hm of
-      RB5.HandMap_Default   -> [PG.HandMapDefault]
-      RB5.HandMap_NoChords  -> [PG.HandMapNoChords]
-      RB5.HandMap_AllChords -> [PG.HandMapDefault]
-      RB5.HandMap_Solo      -> [PG.HandMapSolo]
-      RB5.HandMap_DropD     -> [PG.HandMapDropD2]
-      RB5.HandMap_DropD2    -> [PG.HandMapDropD2]
-      RB5.HandMap_AllBend   -> [PG.HandMapSolo]
-      RB5.HandMap_Chord_C   -> [PG.HandMapDefault]
-      RB5.HandMap_Chord_D   -> [PG.HandMapDefault]
-      RB5.HandMap_Chord_A   -> [PG.HandMapDefault]
-    _ -> []
-  makeBandBass trk = flip RTB.mapMaybe trk $ \case
-    RB5.Mood mood -> Just $ makeMood mood BB.Idle BB.Play
-    RB5.DiffEvent Expert RB5.Note{} -> Just BB.Strum
-    _ -> Nothing
-  makeBandDrums trk = flip RTB.mapMaybe trk $ \case
-    RBD.Animation anim -> case anim of
-      RBD.KickRF          -> Just BD.Kick
-      RBD.Crash1{}        -> Just BD.Crash
-      RBD.Crash2{}        -> Just BD.Crash
-      RBD.Crash1RHChokeLH -> Just BD.Crash
-      RBD.Crash2RHChokeLH -> Just BD.Crash
-      _                   -> Nothing
-    RBD.Mood mood -> Just $ makeMood mood BD.Idle BD.Play
-    _ -> Nothing
-  makeBandKeys trk = flip RTB.mapMaybe trk $ \case
-    RB5.Mood mood -> Just $ makeMood mood BK.Idle BK.Play
-    _ -> Nothing
-  makeBandSinger trk = flip RTB.mapMaybe trk $ \case
-    RBV.Mood mood -> Just $ makeMood mood BS.Idle BS.Play
-    _ -> Nothing
-  events = flip RTB.mapMaybe (F.onyxEvents onyx) $ \case
-    RBEv.MusicStart -> Just Ev.MusicStart
-    RBEv.End -> Just Ev.End
-    RBEv.SectionRB3 t -> Just $ Ev.PracticeSection t
-    RBEv.SectionRB2 t -> Just $ Ev.PracticeSection t
-    _ -> Nothing
-  triggers = flip RTB.mapMaybe (F.onyxEvents onyx) $ \case
-    RBEv.PracticeKick -> Just Tr.PracticeKick
-    RBEv.PracticeSnare -> Just Tr.PracticeSnare
-    RBEv.PracticeHihat -> Just Tr.PracticeHihat
-    _ -> Nothing
+  makeMoods moods = let
+    bools = flip fmap moods $ \case
+      Mood_idle_realtime -> False
+      Mood_idle          -> False
+      Mood_idle_intense  -> False
+      Mood_play          -> True
+      Mood_mellow        -> True
+      Mood_intense       -> True
+      Mood_play_solo     -> True
+    in (const () <$> RTB.filter not bools, const () <$> RTB.filter id bools) -- (idle, play)
+  makePartGuitar rbg = mempty
+    { partDifficulties = flip fmap (RB.fiveDifficulties rbg) $ \fdiff -> PartDifficulty
+      { partStarPower = RB.fiveOverdrive rbg
+      , partPlayer1   = RB.fivePlayer1 rbg
+      , partPlayer2   = RB.fivePlayer2 rbg
+      , partGems      = RB.fiveGems fdiff
+      }
+    , partFretPosition = RB.fiveFretPosition rbg
+    , partIdle         = idle
+    , partPlay         = play
+    , partHandMap      = flip fmap (RB.fiveHandMap rbg) $ \case
+      RB.HandMap_Default   -> HandMap_Default
+      RB.HandMap_NoChords  -> HandMap_NoChords
+      RB.HandMap_AllChords -> HandMap_Default
+      RB.HandMap_Solo      -> HandMap_Solo
+      RB.HandMap_DropD     -> HandMap_DropD2
+      RB.HandMap_DropD2    -> HandMap_DropD2
+      RB.HandMap_AllBend   -> HandMap_Solo
+      RB.HandMap_Chord_C   -> HandMap_Default
+      RB.HandMap_Chord_D   -> HandMap_Default
+      RB.HandMap_Chord_A   -> HandMap_Default
+    } where (idle, play) = makeMoods $ RB.fiveMood rbg
   makeGRYBO fpart = case getPart fpart song >>= partGRYBO of
-    Nothing -> RTB.empty
+    Nothing -> mempty
     Just grybo -> let
-      flex = F.getFlexPart fpart onyx
-      toGtr = eachDifficulty
-        $ emit5
-        . fromClosed
-        . noOpenNotes False
-        . noExtendedSustains standardBlipThreshold standardSustainGap
-        . strumHOPOTap
-          (if F.flexFiveIsKeys flex then HOPOsRBKeys else HOPOsRBGuitar)
-          (fromIntegral (gryboHopoThreshold grybo) / 480)
-        . closeNotes
-      in makePartGuitar $ toGtr $ F.flexFiveButton flex
-  gh2 = F.GH2File
-    { F.gh2PartGuitar     = makeGRYBO $ gh2_Guitar target
-    , F.gh2PartBass       = case gh2_Coop target of
-      GH2Rhythm -> RTB.empty
-      GH2Bass   -> makeGRYBO $ gh2_Bass target
-    , F.gh2PartRhythm     = case gh2_Coop target of
-      GH2Rhythm -> makeGRYBO $ gh2_Rhythm target
-      GH2Bass   -> RTB.empty
-    , F.gh2PartGuitarCoop = RTB.empty
-    , F.gh2BandBass       = makeBandBass $ F.flexFiveButton $ F.getFlexPart (gh2_Bass target) onyx
-    , F.gh2BandDrums      = makeBandDrums $ F.flexPartDrums $ F.getFlexPart (gh2_Drums target) onyx
-    , F.gh2BandKeys       = makeBandKeys $ F.flexFiveButton $ F.getFlexPart (gh2_Keys target) onyx
-    , F.gh2BandSinger     = makeBandSinger $ F.flexPartVocals $ F.getFlexPart (gh2_Vocal target) onyx
-    , F.gh2Events         = events
-    , F.gh2Triggers       = triggers
+      src = F.getFlexPart fpart onyx
+      (trackOrig, isKeys) = getFive src
+      gap = fromIntegral (gryboSustainGap grybo) / 480
+      ht = gryboHopoThreshold grybo
+      fiveEachDiff f ft = ft { RB.fiveDifficulties = fmap f $ RB.fiveDifficulties ft }
+      algo = if isKeys then HOPOsRBKeys else HOPOsRBGuitar
+      toGtr = fiveEachDiff $ \fd ->
+          emit5'
+        . fromClosed'
+        . no5NoteChords'
+        . noOpenNotes' (gryboDropOpenHOPOs grybo)
+        . noTaps'
+        . noExtendedSustains' standardBlipThreshold gap
+        . applyForces (getForces5 fd)
+        . strumHOPOTap' algo (fromIntegral ht / 480)
+        . fixSloppyNotes (10 / 480)
+        . closeNotes'
+        $ fd
+      in makePartGuitar $ toGtr trackOrig
+  makeBandBass trk = mempty
+    { bassIdle  = idle
+    , bassPlay  = play
+    , bassStrum
+      = fmap (const ())
+      . RTB.collectCoincident
+      . RB.fiveGems
+      . fromMaybe mempty
+      . Map.lookup Expert
+      $ RB.fiveDifficulties trk
+    } where (idle, play) = makeMoods $ RB.fiveMood trk
+  makeBandDrums trk = mempty
+    { drumsIdle = idle
+    , drumsPlay = play
+    , drumsKick  = fmap (const ()) $ flip RTB.filter (RB.drumAnimation trk) $ \case
+      RB.KickRF -> True
+      _         -> False
+    , drumsCrash = fmap (const ()) $ flip RTB.filter (RB.drumAnimation trk) $ \case
+      RB.Crash1{}        -> True
+      RB.Crash2{}        -> True
+      RB.Crash1RHChokeLH -> True
+      RB.Crash2RHChokeLH -> True
+      _                  -> False
+    } where (idle, play) = makeMoods $ RB.drumMood trk
+  makeBandKeys trk = let
+    (idle, play) = makeMoods $ RB.fiveMood trk
+    in mempty { keysIdle = idle, keysPlay = play }
+  makeBandSinger trk = let
+    (idle, play) = makeMoods $ RB.vocalMood trk
+    in mempty { singerIdle = idle, singerPlay = play }
+  events = mempty
+    { eventsSections      = fmap snd $ RB.eventsSections $ F.onyxEvents onyx
+    , eventsOther         = foldr RTB.merge RTB.empty
+      [ fmap (const MusicStart) $ RB.eventsMusicStart $ F.onyxEvents onyx
+      , fmap (const End) $ RB.eventsEnd $ F.onyxEvents onyx
+      ]
     }
+  triggers = mempty
+    { triggersBacking = RB.eventsBacking $ F.onyxEvents onyx
+    }
+  gh2 = GH2File
+    { gh2PartGuitar     = makeGRYBO $ gh2_Guitar target
+    , gh2PartBass       = case gh2_Coop target of
+      GH2Rhythm -> mempty
+      GH2Bass   -> makeGRYBO $ gh2_Bass target
+    , gh2PartRhythm     = case gh2_Coop target of
+      GH2Rhythm -> makeGRYBO $ gh2_Rhythm target
+      GH2Bass   -> mempty
+    , gh2PartGuitarCoop = mempty
+    , gh2BandBass       = makeBandBass $ fst $ getFive $ F.getFlexPart (gh2_Bass target) onyx
+    , gh2BandDrums      = makeBandDrums $ F.onyxPartDrums $ F.getFlexPart (gh2_Drums target) onyx
+    , gh2BandKeys       = makeBandKeys $ fst $ getFive $ F.getFlexPart (gh2_Keys target) onyx
+    , gh2BandSinger     = makeBandSinger $ F.onyxPartVocals $ F.getFlexPart (gh2_Vocal target) onyx
+    , gh2Events         = events
+    , gh2Triggers       = triggers
+    }
+  getFive src = if RB.nullFive $ F.onyxPartGuitar src
+    then (F.onyxPartKeys   src, True )
+    else (F.onyxPartGuitar src, False)
   in F.Song tmap mmap gh2
--}
 
 makeGH2DTA :: SongYaml -> (Int, Int) -> TargetGH2 -> D.SongPackage
 makeGH2DTA song preview target = D.SongPackage

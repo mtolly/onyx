@@ -295,7 +295,7 @@ applyGBK gbk song tgt = case gbk of
 batchPageRB3
   :: Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> (TargetRB3, SongYaml)) -> Bool -> IO ())
+  -> ((Project -> ([TargetRB3], SongYaml)) -> Bool -> IO ())
   -> IO ()
 batchPageRB3 rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -352,7 +352,7 @@ batchPageRB3 rect tab build = do
             = dropOpenHOPOs dropOpen
             $ (if toms then id else forceProDrums)
             $ projectSongYaml proj
-          in (tgt, yaml)
+          in ([tgt], yaml)
   padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     let (fullA, fullB) = halvesHoriz rect'
         (rectA, _) = chopRight 10 fullA
@@ -427,37 +427,48 @@ launchBatch sink startFiles = mdo
     btnB <- FL.buttonNew btnRectB' $ Just "Clear Songs"
     FL.setCallback btnB $ \_ -> sink $ EventIO $ updateFiles $ const []
     return tab
-  tabRB3 <- makeTab windowRect "Rock Band 3" $ \rect tab -> do
-    FLE.rgbColorWithRgb (229,165,183) >>= setTabColor tab
-    batchPageRB3 rect tab $ \settings buildCON -> sink $ EventOnyx $ let
-      start buildType useResult = do
-        files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
-          let (target, yaml) = settings proj
-              addSegments p = p
-                { projectTemplate = concat
-                  [ projectTemplate p
-                  , case tgt_Speed $ rb3_Common target of
-                    Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
-                    _               -> ""
-                  ]
-                }
-          proj' <- fmap addSegments $ stackIO $ saveProject proj yaml
-          buildType target proj' >>= useResult proj'
-      in if buildCON
-        then start buildRB3CON $ \proj result -> let
-          fout = projectTemplate proj <> "_rb3con" -- TODO add speed, etc.
-          in stackIO (Dir.copyFile result fout) >> return fout
-        else start buildMagmaV2 $ \proj result -> let
-          dout = projectTemplate proj <> "_project" -- TODO add speed, etc.
-          in copyDirRecursive result dout >> return dout
-    return tab
-  tabRB2 <- makeTab windowRect "Rock Band 2" $ \_ tab -> do
-    FLE.rgbColorWithRgb (237,223,137) >>= setTabColor tab
-    return tab
-  tabCH <- makeTab windowRect "Clone Hero/Phase Shift" $ \_ tab -> do
-    FLE.rgbColorWithRgb (164,166,242) >>= setTabColor tab
-    return tab
+  functionColor <- FLE.rgbColorWithRgb (229,165,183)
+  functionTabs <- sequence
+    [ makeTab windowRect "Rock Band 3 (360)" $ \rect tab -> do
+      setTabColor tab functionColor
+      batchPageRB3 rect tab $ \settings buildCON -> sink $ EventOnyx $ let
+        start buildType useResult = do
+          files <- stackIO $ readMVar loadedFiles
+          startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
+            let (targets, yaml) = settings proj
+                addSegments target p = p
+                  { projectTemplate = concat
+                    [ projectTemplate p
+                    , case tgt_Speed $ rb3_Common target of
+                      Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
+                      _               -> ""
+                    ]
+                  }
+            forM targets $ \target -> do
+              proj' <- stackIO $ addSegments target <$> saveProject proj yaml
+              buildType target proj' >>= useResult proj'
+        in if buildCON
+          then start buildRB3CON $ \proj result -> let
+            fout = projectTemplate proj <> "_rb3con" -- TODO add speed, etc.
+            in stackIO (Dir.copyFile result fout) >> return fout
+          else start buildMagmaV2 $ \proj result -> let
+            dout = projectTemplate proj <> "_project" -- TODO add speed, etc.
+            in copyDirRecursive result dout >> return dout
+      return tab
+    , makeTab windowRect "Rock Band 2 (360)" $ \_ tab -> do
+      setTabColor tab functionColor
+      return tab
+    , makeTab windowRect "Clone Hero/Phase Shift" $ \_ tab -> do
+      setTabColor tab functionColor
+      return tab
+    , makeTab windowRect "Rock Band 3 (Wii)" $ \_ tab -> do
+      setTabColor tab functionColor
+      return tab
+    , makeTab windowRect "Preview" $ \_ tab -> do
+      setTabColor tab functionColor
+      return tab
+    ]
+  let nonTermTabs = tabSongs : functionTabs
   (tabTask, labelTask, termTask) <- makeTab windowRect "Task" $ \rect tab -> do
     FLE.rgbColorWithRgb (239,201,148) >>= setTabColor tab
     let (labelRect, belowLabel) = chopTop 40 rect
@@ -486,7 +497,7 @@ launchBatch sink startFiles = mdo
         putMVar taskStatus Nothing
         reenableTabs
       reenableTabs = do
-        mapM_ FL.activate [tabSongs, tabRB3, tabRB2, tabCH]
+        mapM_ FL.activate nonTermTabs
         FLTK.redraw
       updateStatus fn = takeMVar taskStatus >>= \case
         Nothing        -> putMVar taskStatus Nothing -- maybe task was cancelled
@@ -505,7 +516,7 @@ launchBatch sink startFiles = mdo
               reenableTabs
               putMVar taskStatus Nothing
             else putMVar taskStatus $ Just status
-      startTasks :: [(FilePath, Onyx FilePath)] -> Onyx ()
+      startTasks :: [(FilePath, Onyx [FilePath])] -> Onyx ()
       startTasks tasks = liftIO (takeMVar taskStatus) >>= \case
         Just status -> liftIO $ putMVar taskStatus $ Just status -- shouldn't happen
         Nothing -> do
@@ -516,14 +527,14 @@ launchBatch sink startFiles = mdo
                 forM_ (getMessages e) $ addTerm termTask . TermError
                 updateStatus $ \case
                   (done, total, success, failure, tid) -> (done + 1, total, success, failure + 1, tid)
-              Right f -> liftIO $ sink $ EventIO $ do
-                addTerm termTask $ TermSuccess $ "Created file: " <> f
+              Right fs -> liftIO $ sink $ EventIO $ do
+                forM_ fs $ \f -> addTerm termTask $ TermSuccess $ "Created file: " <> f
                 updateStatus $ \case
-                  (done, total, success, failure, tid) -> (done + 1, total, success ++ [f], failure, tid)
+                  (done, total, success, failure, tid) -> (done + 1, total, success ++ fs, failure, tid)
           liftIO $ do
             putMVar taskStatus $ Just (0, length tasks, [], 0, tid)
             FL.activate tabTask
-            mapM_ FL.deactivate [tabSongs, tabRB3, tabRB2, tabCH]
+            mapM_ FL.deactivate nonTermTabs
             void $ FL.setValue tabs $ Just tabTask
             updateTabsColor tabs
             updateStatus id
