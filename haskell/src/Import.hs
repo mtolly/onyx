@@ -936,7 +936,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
           { pgDifficulty = fromMaybe (Tier 1) $ HM.lookup "real_bass" diffMap
           , pgHopoThreshold = hopoThresh
           , pgTuning = GtrTuning
-            { gtrBase = Bass4
+            { gtrBase = Bass4 -- TODO import 5/6-string pro bass correctly
             , gtrOffsets = fromMaybe [] $ map fromIntegral <$> D.realBassTuning pkg
             , gtrGlobal = 0
             }
@@ -1207,7 +1207,7 @@ importMagma fin dir = do
             { pgDifficulty = Tier $ rankToTier proBassDiffMap $ fromIntegral diff
             , pgHopoThreshold = hopoThresh
             , pgTuning = GtrTuning
-              { gtrBase = Bass4
+              { gtrBase = Bass4  -- TODO import 5/6-string pro bass correctly
               , gtrOffsets = fromMaybe [] tuneBass
               , gtrGlobal = 0
               }

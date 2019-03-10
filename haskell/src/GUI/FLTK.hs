@@ -1,8 +1,6 @@
-{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo       #-}
-{-# LANGUAGE TypeFamilies      #-}
 module GUI.FLTK where
 
 import           CommandLine                               (copyDirRecursive)
@@ -17,7 +15,8 @@ import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             writeTChan)
 import qualified Control.Exception                         as Exc
 import           Control.Monad                             (ap, forM, forM_,
-                                                            liftM, void, when)
+                                                            liftM, void, when,
+                                                            (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.IO.Class                    (MonadIO (..),
                                                             liftIO)
@@ -31,7 +30,8 @@ import           Control.Monad.Trans.StackTrace
 import           Data.Default.Class                        (def)
 import           Data.Functor.Const                        (Const (..))
 import           Data.Maybe                                (catMaybes,
-                                                            fromMaybe, isJust)
+                                                            fromMaybe, isJust,
+                                                            listToMaybe)
 import qualified Data.Text                                 as T
 import qualified Data.Yaml                                 as Y
 import           Foreign                                   (Ptr)
@@ -51,7 +51,7 @@ import           OpenProject
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified System.Directory                          as Dir
 import           System.FilePath                           (takeDirectory,
-                                                            (</>))
+                                                            takeFileName, (</>))
 import           System.Info                               (os)
 
 data Event
@@ -125,11 +125,17 @@ chopBottom n (Rectangle (Position (X x) (Y y)) (Size (Width w) (Height h))) =
   , Rectangle (Position (X x) (Y $ y + h - n)) (Size (Width w) (Height n))
   )
 
-halvesHoriz :: Rectangle -> (Rectangle, Rectangle)
-halvesHoriz rect@(Rectangle _ (Size (Width w) _)) = chopLeft (quot w 2) rect
+splitHorizN :: Int -> Rectangle -> [Rectangle]
+splitHorizN 1 rect = [rect]
+splitHorizN n rect@(Rectangle _ (Size (Width w) _)) = let
+  (rectFirst, rectRest) = chopLeft (quot w n) rect
+  in rectFirst : splitHorizN (n - 1) rectRest
 
-halvesVert :: Rectangle -> (Rectangle, Rectangle)
-halvesVert rect@(Rectangle _ (Size _ (Height h))) = chopTop (quot h 2) rect
+splitVertN :: Int -> Rectangle -> [Rectangle]
+splitVertN 1 rect = [rect]
+splitVertN n rect@(Rectangle _ (Size _ (Height h))) = let
+  (rectFirst, rectRest) = chopTop (quot h n) rect
+  in rectFirst : splitVertN (n - 1) rectRest
 
 trimClock :: Int -> Int -> Int -> Int -> Rectangle -> Rectangle
 trimClock t r b l rect = let
@@ -292,24 +298,45 @@ applyGBK gbk song tgt = case gbk of
     else tgt
   where hasFive flex = isJust $ getPart flex song >>= partGRYBO
 
+data RB3Create
+  = RB3CON FilePath
+  | RB3Magma FilePath
+
+horizRadio :: Rectangle -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
+horizRadio _    []   = error "horizRadio: empty option list"
+horizRadio rect opts = do
+  let rects = splitHorizN (length opts) rect
+  btns <- forM (zip opts rects) $ \((label, _, b), rectButton) -> do
+    btn <- FL.roundButtonNew rectButton $ Just label
+    void $ FL.setValue btn b
+    return btn
+  forM_ btns $ \opt -> FL.setCallback opt $ \_ -> do
+    forM_ btns $ \opt' -> FL.setValue opt' $ opt == opt'
+  return $ do
+    bools <- mapM FL.getValue btns
+    return $ fmap (\(_, (_, x, _)) -> x) $ listToMaybe $ filter fst $ zip bools opts
+
+speedPercent :: Rectangle -> IO (IO Double)
+speedPercent rect = do
+  speed <- FL.counterNew rect (Just "Speed (%)")
+  FL.setLabelsize speed $ FL.FontSize 13
+  FL.setLabeltype speed FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+  FL.setAlign speed $ FLE.Alignments [FLE.AlignTypeLeft]
+  FL.setStep speed 1
+  FL.setLstep speed 5
+  FL.setMinimum speed 1
+  void $ FL.setValue speed 100
+  FL.setTooltip speed "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
+  return $ (/ 100) <$> FL.getValue speed
+
 batchPageRB3
   :: Rectangle
   -> FL.Ref FL.Group
-  -> ((Project -> ([TargetRB3], SongYaml)) -> Bool -> IO ())
+  -> ((Project -> ([(TargetRB3, RB3Create)], SongYaml)) -> IO ())
   -> IO ()
 batchPageRB3 rect tab build = do
   pack <- FL.packNew rect Nothing
-  getSpeed <- padded 10 400 5 100 (Size (Width 300) (Height 35)) $ \rect' -> do
-    speed <- FL.counterNew rect' (Just "Speed (%)")
-    FL.setLabelsize speed $ FL.FontSize 13
-    FL.setLabeltype speed FLE.NormalLabelType FL.ResolveImageLabelDoNothing
-    FL.setAlign speed $ FLE.Alignments [FLE.AlignTypeLeft]
-    FL.setStep speed 1
-    FL.setLstep speed 5
-    FL.setMinimum speed 1
-    void $ FL.setValue speed 100
-    FL.setTooltip speed "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
-    return $ (/ 100) <$> FL.getValue speed
+  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
   getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     box <- FL.checkButtonNew rect' (Just "Tom Markers for non-Pro Drums")
     FL.setTooltip box "When importing from a FoF/PS/CH chart where no Pro Drums are detected, tom markers will be added over the whole drum chart if this box is checked."
@@ -319,25 +346,14 @@ batchPageRB3 rect tab build = do
     FL.setTooltip box "When checked, open notes on guitar/bass which are also HOPO or tap notes will be removed, instead of becoming green notes."
     return $ FL.getValue box
   getGBK <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    let (rectAB, rectCD) = halvesHoriz rect'
-        (rectA, rectB) = halvesHoriz rectAB
-        (rectC, rectD) = halvesHoriz rectCD
-    optA <- FL.roundButtonNew rectA (Just "G/B/K unchanged")
-    optB <- FL.roundButtonNew rectB (Just "Copy G to K")
-    optC <- FL.roundButtonNew rectC (Just "Swap G and K")
-    optD <- FL.roundButtonNew rectD (Just "Swap B and K")
-    void $ FL.setValue optA True
-    let opts = [optA, optB, optC, optD]
-    forM_ opts $ \opt -> FL.setCallback opt $ \_ -> do
-      forM_ opts $ \opt' -> FL.setValue opt' $ opt == opt'
-    return $ FL.getValue optB >>= \case
-      True -> return CopyGuitarToKeys
-      False -> FL.getValue optC >>= \case
-        True -> return SwapGuitarKeys
-        False -> FL.getValue optD >>= \case
-          True -> return SwapBassKeys
-          False -> return GBKUnchanged
-  let getTargetSong = do
+    fn <- horizRadio rect'
+      [ ("G/B/K unchanged", GBKUnchanged, True)
+      , ("Copy G to K", CopyGuitarToKeys, False)
+      , ("Swap G and K", SwapGuitarKeys, False)
+      , ("Swap B and K", SwapBassKeys, False)
+      ]
+    return $ fromMaybe GBKUnchanged <$> fn
+  let getTargetSong usePath template = do
         speed <- getSpeed
         toms <- getToms
         dropOpen <- getDropOpen
@@ -348,23 +364,70 @@ batchPageRB3 rect tab build = do
               { tgt_Speed = Just speed
               }
             }
+          fout = T.unpack $ foldr ($) template
+            [ templateApplyInput proj
+            , let
+              modifiers = T.pack $ case tgt_Speed $ rb3_Common tgt of
+                Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
+                _               -> ""
+              in T.intercalate modifiers . T.splitOn "%modifiers%"
+            ]
           yaml
             = dropOpenHOPOs dropOpen
             $ (if toms then id else forceProDrums)
             $ projectSongYaml proj
-          in ([tgt], yaml)
+          in ([(tgt, usePath fout)], yaml)
+  makeTemplateRunner
+    "Create CON files"
+    "%input_dir%/%input_base%%modifiers%_rb3con"
+    (getTargetSong RB3CON >=> build)
+  makeTemplateRunner
+    "Create Magma projects"
+    "%input_dir%/%input_base%%modifiers%_project"
+    (getTargetSong RB3Magma >=> build)
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
+templateApplyInput :: Project -> T.Text -> T.Text
+templateApplyInput proj txt = foldr ($) txt
+  [ T.intercalate (T.pack $ takeDirectory $ projectTemplate proj) . T.splitOn "%input_dir%"
+  , T.intercalate (T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"
+  ]
+
+makeTemplateRunner :: T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
+makeTemplateRunner buttonText defTemplate useTemplate = do
   padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
-    let (fullA, fullB) = halvesHoriz rect'
-        (rectA, _) = chopRight 10 fullA
-        (_, rectB) = chopLeft 10 fullB
-    btnCON <- FL.buttonNew rectA $ Just "Create CON files"
-    btnMagma <- FL.buttonNew rectB $ Just "Create Magma projects"
-    FL.setCallback btnCON $ \_ -> do
-      settings <- getTargetSong
-      build settings True
-    FL.setCallback btnMagma $ \_ -> do
-      settings <- getTargetSong
-      build settings False
+    let (buttonRect, notButton) = chopLeft 250 rect'
+        (_, inputRect) = chopLeft 150 notButton
+    button <- FL.buttonNew buttonRect $ Just buttonText
+    input <- FL.inputNew
+      inputRect
+      (Just "Output template")
+      (Just FL.FlNormalInput) -- required for labels to work
+    FL.setLabelsize input $ FL.FontSize 13
+    FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+    FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
+    void $ FL.setValue input defTemplate
+    FL.setTooltip input $ T.unlines
+      [ "Template for where to create new files."
+      , "  %input_dir% - folder containing the input"
+      , "  %input_base% - input filename by itself, extension removed"
+      , "  %modifiers% - added distinguishing features e.g. speed modifier"
+      ]
+    FL.setCallback button $ \_ -> FL.getValue input >>= useTemplate
+
+batchPagePreview
+  :: Rectangle
+  -> FL.Ref FL.Group
+  -> ((Project -> FilePath) -> IO ())
+  -> IO ()
+batchPagePreview rect tab build = do
+  pack <- FL.packNew rect Nothing
+  makeTemplateRunner
+    "Build web previews"
+    "%input_dir%/%input_base%_player"
+    (\template -> build $ \proj -> T.unpack $ templateApplyInput proj template)
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -395,7 +458,7 @@ launchBatch sink startFiles = mdo
         labelRect' = trimClock 10 10 5 10 labelRect
         termRect' = trimClock 5 10 5 10 termRect
         buttonsRect' = trimClock 5 10 10 10 buttonsRect
-        (btnRectA, btnRectB) = halvesHoriz buttonsRect'
+        [btnRectA, btnRectB] = splitHorizN 2 buttonsRect'
         (btnRectA', _) = chopRight 5 btnRectA
         (_, btnRectB') = chopLeft 5 btnRectB
     label <- FL.boxNew labelRect' $ Just "0 files loaded."
@@ -431,29 +494,21 @@ launchBatch sink startFiles = mdo
   functionTabs <- sequence
     [ makeTab windowRect "Rock Band 3 (360)" $ \rect tab -> do
       setTabColor tab functionColor
-      batchPageRB3 rect tab $ \settings buildCON -> sink $ EventOnyx $ let
-        start buildType useResult = do
-          files <- stackIO $ readMVar loadedFiles
-          startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
-            let (targets, yaml) = settings proj
-                addSegments target p = p
-                  { projectTemplate = concat
-                    [ projectTemplate p
-                    , case tgt_Speed $ rb3_Common target of
-                      Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
-                      _               -> ""
-                    ]
-                  }
-            forM targets $ \target -> do
-              proj' <- stackIO $ addSegments target <$> saveProject proj yaml
-              buildType target proj' >>= useResult proj'
-        in if buildCON
-          then start buildRB3CON $ \proj result -> let
-            fout = projectTemplate proj <> "_rb3con" -- TODO add speed, etc.
-            in stackIO (Dir.copyFile result fout) >> return fout
-          else start buildMagmaV2 $ \proj result -> let
-            dout = projectTemplate proj <> "_project" -- TODO add speed, etc.
-            in copyDirRecursive result dout >> return dout
+      batchPageRB3 rect tab $ \settings -> sink $ EventOnyx $ do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
+          let (targets, yaml) = settings proj
+          forM targets $ \(target, creator) -> do
+            proj' <- stackIO $ saveProject proj yaml
+            case creator of
+              RB3CON fout -> do
+                tmp <- buildRB3CON target proj'
+                stackIO $ Dir.copyFile tmp fout
+                return fout
+              RB3Magma dout -> do
+                tmp <- buildMagmaV2 target proj'
+                copyDirRecursive tmp dout
+                return dout
       return tab
     , makeTab windowRect "Rock Band 2 (360)" $ \_ tab -> do
       setTabColor tab functionColor
@@ -464,8 +519,15 @@ launchBatch sink startFiles = mdo
     , makeTab windowRect "Rock Band 3 (Wii)" $ \_ tab -> do
       setTabColor tab functionColor
       return tab
-    , makeTab windowRect "Preview" $ \_ tab -> do
+    , makeTab windowRect "Preview" $ \rect tab -> do
       setTabColor tab functionColor
+      batchPagePreview rect tab $ \settings -> sink $ EventOnyx $ do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
+          let dout = settings proj
+          tmp <- buildPlayer proj
+          copyDirRecursive tmp dout
+          return [dout]
       return tab
     ]
   let nonTermTabs = tabSongs : functionTabs
