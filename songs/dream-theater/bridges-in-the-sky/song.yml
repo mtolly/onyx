@@ -32,6 +32,14 @@ parts:
       difficulty: 7
       tuning:
         base: guitar-7
+  keys:
+    pro-keys:
+      difficulty: 7
+  bass:
+    pro-guitar:
+      # pitches checked, but there might be some string differences from guitar
+      tuning:
+        base: bass-5
 targets:
   rb3:
     game: rb3
