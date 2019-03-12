@@ -63,6 +63,7 @@ SYSTEMATIC CHAOS (new version)
   > fix PK and K
   > numeric song IDs
 SELF-TITLED
+  > the enemy inside - drums done
   > behind the veil - just needs rest of gtr, basic keys, vox, OD, and audio exprs
   > enigma machine (update) - PG and PB done
 FALLING INTO INFINITY (have all stems now)
