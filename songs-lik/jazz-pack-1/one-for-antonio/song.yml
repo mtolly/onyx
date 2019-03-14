@@ -44,6 +44,8 @@ parts:
     drums:
       difficulty: 7
   bass:
+    grybo:
+      difficulty: 6
     pro-guitar:
       difficulty: 7
       tuning:
