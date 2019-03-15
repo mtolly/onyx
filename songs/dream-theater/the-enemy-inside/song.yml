@@ -20,9 +20,15 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [3.074, hdtracks-track]
+      pad:
+      - 3.074
+      - channels:
+        - [1, 0]
+        # I'm 90% sure the channels are flipped around from what they should be,
+        # comparing to the Zildjian playthrough video
+        - hdtracks-track
 parts:
-  drums: # WIP kicks are fixed/done but need to go through and fix hands
+  drums:
     drums: {}
 targets:
   rb3:

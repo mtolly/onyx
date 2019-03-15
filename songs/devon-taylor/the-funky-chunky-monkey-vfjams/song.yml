@@ -5,6 +5,7 @@ metadata:
   year: 2018
   genre: fusion
   subgenre: fusion
+  file-album-art: cover.jpg
 audio:
   only-drums:
     md5: 49ff964d75d70c3961d7e40495e141a7
@@ -12,23 +13,40 @@ audio:
   no-drums:
     md5: 80854d3a04342cfd949c37803210e5dc
     frames: 20902511
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 parts:
   drums:
     drums: {}
 plans:
   isolated:
+    countin:
+      1|0: hihat
+      1|2: hihat
+      2|0: hihat
+      2|1: hihat
     song:
-      pad:
-      - 5.017
-      - fade:
-        - start
-        - 0.058
-        - drop:
-          - 3.330
-          - no-drums
+      fade:
+      - end
+      - 4.562
+      - take:
+        - '6:53.814'
+        - pad:
+          - 5.017
+          - fade:
+            - start
+            - 0.058
+            - drop:
+              - 3.330
+              - no-drums
     parts:
       drums:
-        pad: [4.221, only-drums]
+        fade:
+        - end
+        - 0.846
+        - take:
+          - '6:48.326'
+          - pad: [4.221, only-drums]
 targets:
   rb3:
     game: rb3

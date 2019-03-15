@@ -4,6 +4,7 @@ metadata:
   track-number: 3
   author: Onyxite
   key: B
+  preview-start: prc_prechorus_2a
 audio:
   hihat:
     file-path: ../../../sound/hihat-foot.wav
