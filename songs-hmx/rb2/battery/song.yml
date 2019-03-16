@@ -33,7 +33,7 @@ plans:
 parts:
   drums:
     drums:
-      auto-2x-bass: true
+      kicks: 2
       difficulty:
         rank: 510
   bass:

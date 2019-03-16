@@ -1,6 +1,7 @@
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: both
   keys:
     pro-keys: {}
 plans:

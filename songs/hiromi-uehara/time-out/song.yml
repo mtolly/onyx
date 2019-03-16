@@ -69,7 +69,8 @@ plans:
           - channels: [[5], surround]
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1
   bass:
     pro-guitar: # WIP
       tuning:

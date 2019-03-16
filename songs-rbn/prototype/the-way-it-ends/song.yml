@@ -15,6 +15,7 @@ parts:
         tier: 7
   drums:
     drums:
+      kicks: both
       difficulty:
         tier: 7
 plans:

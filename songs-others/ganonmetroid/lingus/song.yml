@@ -29,7 +29,8 @@ plans:
         - pad: [4.557, album-track]
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1
   bass:
     grybo: {}
   guitar: # guitar + horns
@@ -38,7 +39,8 @@ parts:
     grybo: {}
     pro-keys: {}
   onyxite:
-    drums: {}
+    drums:
+      kicks: 1
 targets:
   rb3:
     game: rb3

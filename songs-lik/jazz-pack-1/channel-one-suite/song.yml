@@ -11,4 +11,5 @@ metadata:
   artist: Buddy Rich Big Band
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

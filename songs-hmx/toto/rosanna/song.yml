@@ -26,6 +26,7 @@ parts:
         rank: 370
   drums:
     drums:
+      kicks: 1
       fix-freeform: false
       kit: Vintage Kit
       difficulty:

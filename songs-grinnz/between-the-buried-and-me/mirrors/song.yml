@@ -16,4 +16,5 @@ plans:
         - pad: [0.641, album-track]
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

@@ -1,6 +1,7 @@
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: both
 plans:
   album:
     song:

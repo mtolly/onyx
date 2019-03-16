@@ -29,7 +29,8 @@ plans:
         - hdtracks-track
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: both
 targets:
   rb3:
     game: rb3

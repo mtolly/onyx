@@ -29,6 +29,7 @@ audio:
 parts:
   drums:
     drums:
+      kicks: 1
       difficulty: 7
       kit: Vintage Kit
   bass:

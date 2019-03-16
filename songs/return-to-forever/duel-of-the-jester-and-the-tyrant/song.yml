@@ -30,6 +30,7 @@ plans:
 parts:
   drums:
     drums:
+      kicks: 1
       kit: VintageKit
 targets:
   rb3:

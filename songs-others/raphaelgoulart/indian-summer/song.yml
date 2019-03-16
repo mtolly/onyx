@@ -15,7 +15,8 @@ plans:
       pad: [3.057, album-track]
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1
   bass:
     grybo: {}
   guitar:

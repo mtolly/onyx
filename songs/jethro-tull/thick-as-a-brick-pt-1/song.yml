@@ -54,7 +54,8 @@ plans:
     song: stereo-wilson-aligned
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1
 targets:
   rb3:
     game: rb3

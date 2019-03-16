@@ -11,4 +11,5 @@ metadata:
   artist: McCoy Tyner
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

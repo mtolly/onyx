@@ -11,4 +11,5 @@ metadata:
   artist: John Coltrane
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

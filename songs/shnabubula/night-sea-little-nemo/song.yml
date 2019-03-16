@@ -25,7 +25,8 @@ parts:
   keys:
     pro-keys: {}
   drums:
-    drums: {} # might need some cleanup (be consistent with hihats, toms, etc.)
+    drums: # might need some cleanup (be consistent with hihats, toms, etc.)
+      kicks: both
   bass:
     grybo: {}
   guitar:

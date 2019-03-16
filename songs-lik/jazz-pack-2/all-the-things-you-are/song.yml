@@ -11,4 +11,5 @@ metadata:
   artist: Pat Metheny, Dave Holland, Roy Haynes
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

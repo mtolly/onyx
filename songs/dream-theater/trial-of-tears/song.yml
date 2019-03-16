@@ -264,6 +264,7 @@ parts:
   drums:
     drums: # onyxite
       difficulty: 6
+      kicks: both
   keys:
     grybo: # onyxite
       difficulty: 6

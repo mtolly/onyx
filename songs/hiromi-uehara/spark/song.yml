@@ -31,6 +31,7 @@ parts:
     drums:
       kit: HardRockKit
       difficulty: 7
+      kicks: both
   keys:
     grybo:
       difficulty: 7

@@ -21,4 +21,5 @@ metadata:
   artist: ! 'Reinbert de Leeuw: Asko Ensemble'
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

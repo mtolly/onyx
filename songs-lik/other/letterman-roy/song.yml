@@ -21,4 +21,5 @@ metadata:
   artist: Roy Haynes
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

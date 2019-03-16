@@ -16,7 +16,7 @@ metadata:
 parts:
   drums:
     drums:
-      auto-2x-bass: true
+      kicks: both
       kit: Hard Rock Kit
       difficulty:
         rank: 448

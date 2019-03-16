@@ -145,6 +145,7 @@ parts:
   drums:
     drums:
       difficulty: 6
+      kicks: both
   keys:
     pro-keys:
       difficulty: 7

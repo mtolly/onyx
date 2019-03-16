@@ -23,6 +23,7 @@ parts:
       difficulty: 7
       layout: flip-yb-toms # as demonstrated on ten degrees dvd
       kit: HardRockKit
+      kicks: both
   bass:
     grybo: # onyxite
       difficulty: 6

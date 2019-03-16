@@ -34,6 +34,7 @@ plans:
 parts:
   drums:
     drums:
+      kicks: 1
       kit: VintageKit
       difficulty: 6
 targets:

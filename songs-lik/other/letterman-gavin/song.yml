@@ -84,6 +84,7 @@ metadata:
 parts:
   drums:
     drums:
+      kicks: both
       difficulty: 7
   bass:
     grybo:

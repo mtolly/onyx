@@ -36,7 +36,8 @@ audio:
               - transcript-drums
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: both
 plans:
   youtube:
     song:

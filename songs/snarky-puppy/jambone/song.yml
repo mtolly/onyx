@@ -35,7 +35,8 @@ plans:
             - concatenate: [album-prev, album-track]
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1
 targets:
   rb3:
     game: rb3

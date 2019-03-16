@@ -14,6 +14,7 @@ parts:
   drums:
     drums:
       difficulty: 7
+      kicks: both
 audio:
   album-track:
     file-path: audio-.wav

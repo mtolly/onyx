@@ -11,4 +11,5 @@ metadata:
   artist: Jeff Beck
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

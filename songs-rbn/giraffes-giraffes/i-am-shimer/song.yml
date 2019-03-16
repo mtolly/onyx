@@ -21,6 +21,7 @@ parts:
       difficulty: 2
   drums:
     drums:
+      kicks: both
       fix-freeform: false
       difficulty: 7
 plans:

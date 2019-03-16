@@ -39,7 +39,8 @@ plans:
           - fade: [begin, 3.053, album-track]
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1
 targets:
   rb3:
     game: rb3

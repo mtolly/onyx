@@ -21,6 +21,7 @@ parts:
         tier: 7
   drums:
     drums:
+      kicks: 2
       fix-freeform: false
       difficulty:
         tier: 7

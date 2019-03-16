@@ -1686,7 +1686,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
               let d = dir </> "ps"
               shk $ need [d]
               files <- shk $ map (d </>) <$> getDirectoryContents d
-              let folderInZip = T.unpack $ toValidFileName $ targetTitle songYaml target <> " (" <> getArtist (_metadata songYaml) <> ")"
+              let folderInZip = T.unpack $ toValidFileName $ getArtist (_metadata songYaml) <> " - " <> targetTitle songYaml target
               z <- stackIO $ Zip.addFilesToArchive [Zip.OptLocation folderInZip False] Zip.emptyArchive files
               stackIO $ BL.writeFile out $ Zip.fromArchive z
 

@@ -140,6 +140,7 @@ parts:
   drums:
     drums:
       difficulty: 7
+      kicks: both
   vocal:
     vocal:
       difficulty: 5

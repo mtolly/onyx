@@ -65,7 +65,8 @@ plans:
             - drumcam-drums-expr
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: both
 targets:
   rb3:
     game: rb3

@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections     #-}
-module Import (importFoF, importRBA, importSTFSDir, importSTFS, importMagma, importAmplitude, simpleRBAtoCON, HasKicks(..)) where
+module Import (importFoF, importRBA, importSTFSDir, importSTFS, importMagma, importAmplitude, simpleRBAtoCON, Kicks(..)) where
 
 import qualified Amplitude.File                   as Amp
 import           Audio
@@ -111,7 +111,7 @@ fixDoubleSwells ps = let
     , RBFile.fixedPartRealDrumsPS = fixTrack $ RBFile.fixedPartRealDrumsPS ps
     }
 
-importFoF :: (SendMessage m, MonadIO m) => Bool -> Bool -> FilePath -> FilePath -> StackTraceT m HasKicks
+importFoF :: (SendMessage m, MonadIO m) => Bool -> Bool -> FilePath -> FilePath -> StackTraceT m Kicks
 importFoF detectBasicDrums dropOpenHOPOs src dest = do
   lg $ "Importing FoF/PS/CH song from folder: " <> src
   let pathMid = src </> "notes.mid"
@@ -251,8 +251,8 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
         Nothing   -> (Nothing, False)
         Just name -> first Just $ determine2xBass name
       hasKicks = if mid2x || not (RTB.null $ drumKick2x $ RBFile.fixedPartDrums $ RBFile.s_tracks parsed)
-        then HasBoth
-        else if is2x then Has2x else Has1x
+        then KicksBoth
+        else if is2x then Kicks2x else Kicks1x
 
   let fixGHVox trks = trks
         { RBFile.fixedPartVocals = RBVox.vocalFromLegacy $ RBVox.fixGHVocals $ RBVox.vocalToLegacy $ RBFile.fixedPartVocals trks
@@ -390,7 +390,7 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
               Just b  -> b
               Nothing -> not $ RTB.null $ drumToms $ RBFile.fixedPartDrums outputMIDI
             in if isFiveLane then Drums5 else if isPro then DrumsPro else Drums4
-          , drumsAuto2xBass = False
+          , drumsKicks = hasKicks
           , drumsFixFreeform = False
           , drumsKit = HardRockKit
           , drumsLayout = StandardLayout
@@ -483,9 +483,6 @@ determine2xBass s = case T.stripSuffix " (2x Bass Pedal)" s <|> T.stripSuffix " 
   Nothing -> (s , False)
   Just s' -> (s', True )
 
-data HasKicks = Has1x | Has2x | HasBoth
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
-
 dtaIsRB3 :: D.SongPackage -> Bool
 dtaIsRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc", "ugc_plus"]) $ D.gameOrigin pkg
   -- rbn1 songs have (game_origin rb2) (ugc 1)
@@ -493,7 +490,7 @@ dtaIsRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc", "ugc_plus"]) $ D.gameOrigi
 dtaIsHarmonixRB3 :: D.SongPackage -> Bool
 dtaIsHarmonixRB3 pkg = maybe False (`elem` ["rb3", "rb3_dlc"]) $ D.gameOrigin pkg
 
-importSTFSDir :: (SendMessage m, MonadUnliftIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
+importSTFSDir :: (SendMessage m, MonadUnliftIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m Kicks
 importSTFSDir temp mtemp2x dir = do
   DTASingle top pkg comments <- readDTASingle $ temp </> "songs/songs.dta"
   updateDir <- stackIO rb3Updates
@@ -521,7 +518,7 @@ importSTFSDir temp mtemp2x dir = do
       updateFile = do
         guard $ maybe False ("disc_update" `elem`) $ D.extraAuthoring pkg
         Just $ updateDir </> T.unpack top </> (T.unpack top ++ "_update.mid")
-      hasKicks = if isJust mtemp2x then HasBoth else if is2x then Has2x else Has1x
+      hasKicks = if isJust mtemp2x then KicksBoth else if is2x then Kicks2x else Kicks1x
       mmilo = do
         guard $ dtaIsRB3 pkg
         Just $ temp </> takeDirectory base </> "gen" </> takeFileName base <.> "milo_xbox"
@@ -543,7 +540,7 @@ importSTFSDir temp mtemp2x dir = do
       let base2x = T.unpack $ D.songName $ D.song pkg2x
       with2xPath $ Just (pkg2x, temp2x </> base2x <.> "mid")
 
-importSTFS :: (SendMessage m, MonadUnliftIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
+importSTFS :: (SendMessage m, MonadUnliftIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m Kicks
 importSTFS file file2x dir = tempDir "onyx_con" $ \temp -> do
   lg $ "Importing STFS file from: " ++ file
   forM_ file2x $ \f2x -> lg $ "Plus 2x Bass Pedal from: " ++ f2x
@@ -616,7 +613,7 @@ simpleRBAtoCON rba con = inside ("converting RBA " ++ show rba ++ " to CON " ++ 
     let label = D.name pkg <> " (" <> D.artist pkg <> ")"
     rb3pkg label label temp con
 
-importRBA :: (SendMessage m, MonadUnliftIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m HasKicks
+importRBA :: (SendMessage m, MonadUnliftIO m) => FilePath -> Maybe FilePath -> FilePath -> StackTraceT m Kicks
 importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
   lg $ "Importing RBA file from: " ++ file
   forM_ file2x $ \f2x -> lg $ "Plus 2x Bass Pedal from: " ++ f2x
@@ -654,14 +651,14 @@ importRBA file file2x dir = tempDir "onyx_rba" $ \temp -> do
     getRBAFile 1 f2x mid2x
     (_, pkg2x, _) <- readRB3DTA dta2x
     return (pkg2x, mid2x)
-  let hasKicks = if isJust file2x then HasBoth else if is2x then Has2x else Has1x
+  let hasKicks = if isJust file2x then KicksBoth else if is2x then Kicks2x else Kicks1x
   importRB3 pkg meta False True hasKicks
     (temp </> "notes.mid") Nothing files2x (temp </> "audio.mogg")
     (Just (temp </> "cover.bmp", "cover.bmp")) mmilo dir
   return hasKicks
 
 -- | Collects the contents of an RBA or CON file into an Onyx project.
-importRB3 :: (SendMessage m, MonadUnliftIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> HasKicks -> FilePath -> Maybe FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> Maybe (FilePath, FilePath) -> Maybe FilePath -> FilePath -> StackTraceT m ()
+importRB3 :: (SendMessage m, MonadUnliftIO m) => D.SongPackage -> Metadata -> Bool -> Bool -> Kicks -> FilePath -> Maybe FilePath -> Maybe (D.SongPackage, FilePath) -> FilePath -> Maybe (FilePath, FilePath) -> Maybe FilePath -> FilePath -> StackTraceT m ()
 importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover mmilo dir = do
   stackIO $ Dir.copyFile mogg $ dir </> "audio.mogg"
   localMilo <- do
@@ -873,7 +870,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
         Left  i -> guard (i /= 0) >> Just (Left i)
         Right k -> Just $ Right k
       songID1x = D.songId pkg >>= getSongID
-      songID2x = if hasKicks == Has2x
+      songID2x = if hasKicks == Kicks2x
         then songID1x
         else files2x >>= D.songId . fst >>= getSongID
       version1x = songID1x >> Just (D.version pkg)
@@ -892,13 +889,13 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
         , rb3_SongID = songID2x
         , rb3_Version = version2x
         })
-      in HM.fromList $ concat [[target1x | hasKicks /= Has2x], [target2x | hasKicks /= Has1x]]
+      in HM.fromList $ concat [[target1x | hasKicks /= Kicks2x], [target2x | hasKicks /= Kicks1x]]
     , _parts = Parts $ HM.fromList
       [ ( FlexDrums, def
         { partDrums = guard (hasRankStr "drum") >> Just PartDrums
           { drumsDifficulty = fromMaybe (Tier 1) $ HM.lookup "drum" diffMap
           , drumsMode = DrumsPro
-          , drumsAuto2xBass = False
+          , drumsKicks = hasKicks
           , drumsFixFreeform = False
           , drumsKit = drumkit
           , drumsLayout = StandardLayout -- TODO import this
@@ -967,7 +964,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
       ]
     }
 
-importMagma :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m HasKicks
+importMagma :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m Kicks
 importMagma fin dir = do
   lg $ "Importing Magma project from: " <> fin
 
@@ -1158,7 +1155,7 @@ importMagma fin dir = do
         { partDrums = guard (isJust drums) >> Just PartDrums
           { drumsDifficulty = Tier $ RBProj.rankDrum $ RBProj.gamedata rbproj
           , drumsMode = DrumsPro -- TODO set to Drums4 for magma v1?
-          , drumsAuto2xBass = False
+          , drumsKicks = if is2x then Kicks2x else Kicks1x
           , drumsFixFreeform = False
           , drumsKit = case fmap C3.drumKitSFX c3 of
             Nothing -> HardRockKit
@@ -1241,7 +1238,7 @@ importMagma fin dir = do
       ]
     }
 
-  return $ if is2x then Has2x else Has1x
+  return $ if is2x then Kicks2x else Kicks1x
 
 bothFirstSecond :: (NNC.C t, Ord a) => RTB.T t a -> RTB.T t a -> (RTB.T t a, RTB.T t a, RTB.T t a)
 bothFirstSecond t1 t2 = let

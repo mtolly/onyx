@@ -14,6 +14,7 @@ parts:
         rank: 375
   drums:
     drums:
+      kicks: 1
       difficulty:
         rank: 457
 plans:

@@ -32,7 +32,8 @@ parts:
   bass:
     grybo: {}
   drums:
-    drums: {}
+    drums:
+      kicks: 1
   vocal:
     vocal:
       count: 1

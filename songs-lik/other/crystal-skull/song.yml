@@ -21,4 +21,5 @@ metadata:
   artist: Mastodon
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

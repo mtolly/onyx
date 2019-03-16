@@ -12,7 +12,8 @@ metadata:
   key: G
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1
 audio:
   # https://jazzrobots.bandcamp.com/album/jazz-robots-learn-to-ride-a-bike-with-training-wheels
   album-track:

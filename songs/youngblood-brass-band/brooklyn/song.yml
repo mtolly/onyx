@@ -34,6 +34,7 @@ parts:
   drums:
     drums:
       difficulty: 5
+      kicks: 1
       kit: HardRockKit
   bass:
     grybo:

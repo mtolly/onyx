@@ -3,7 +3,7 @@
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
-module CommandLine (commandLine, identifyFile', FileType(..), copyDirRecursive) where
+module CommandLine (commandLine, identifyFile', FileType(..), copyDirRecursive, runDolphin) where
 
 import           Audio                            (applyPansVols, fadeEnd,
                                                    fadeStart)
@@ -590,11 +590,11 @@ commands =
         FileChart -> takeDirectory fpath
         _         -> fpath
       let out1x = flip fromMaybe specified1x $ case hasKicks of
-            Has1x -> prefix <> "_" <> suffix
-            _     -> prefix <> "_1x_" <> suffix
+            Kicks1x -> prefix <> "_" <> suffix
+            _       -> prefix <> "_1x_" <> suffix
           out2x = flip fromMaybe specified2x $ case hasKicks of
-            Has2x -> prefix <> "_" <> suffix
-            _     -> prefix <> "_2x_" <> suffix
+            Kicks2x -> prefix <> "_" <> suffix
+            _       -> prefix <> "_2x_" <> suffix
           suffix = intercalate "_" $ concat
             [ ["gk" | elem OptGuitarOnKeys opts]
             , case speedPercent of 100 -> []; _ -> [show speedPercent]
@@ -609,9 +609,9 @@ commands =
           goBoth = liftA2 (++) go1x go2x
       case (specified1x, specified2x) of
         (Nothing, Nothing) -> case hasKicks of
-          Has1x   -> go1x
-          Has2x   -> go2x
-          HasBoth -> goBoth
+          Kicks1x   -> go1x
+          Kicks2x   -> go2x
+          KicksBoth -> goBoth
         (Just _ , Nothing) -> go1x
         (Nothing, Just _ ) -> go2x
         (Just _ , Just _ ) -> goBoth
@@ -682,11 +682,11 @@ commands =
             FileChart -> takeDirectory fpath
             _         -> fpath
           let out1x = flip fromMaybe specified1x $ case hasKicks of
-                Has1x -> trimFileName prefix 42 "_rb3con" $ "_" <> suffix
-                _     -> trimFileName prefix 42 "_rb3con" $ "_1x_" <> suffix
+                Kicks1x -> trimFileName prefix 42 "_rb3con" $ "_" <> suffix
+                _       -> trimFileName prefix 42 "_rb3con" $ "_1x_" <> suffix
               out2x = flip fromMaybe specified2x $ case hasKicks of
-                Has2x -> trimFileName prefix 42 "_rb3con" $ "_" <> suffix
-                _     -> trimFileName prefix 42 "_rb3con" $ "_2x_" <> suffix
+                Kicks2x -> trimFileName prefix 42 "_rb3con" $ "_" <> suffix
+                _       -> trimFileName prefix 42 "_rb3con" $ "_2x_" <> suffix
               go buildCON out = do
                 con <- withProject (tmp </> "song.yml") buildCON
                 stackIO $ Dir.copyFile con out
@@ -696,9 +696,9 @@ commands =
               goBoth = liftA2 (++) go1x go2x
           case (specified1x, specified2x) of
             (Nothing, Nothing) -> case hasKicks of
-              Has1x   -> go1x
-              Has2x   -> go2x
-              HasBoth -> goBoth
+              Kicks1x   -> go1x
+              Kicks2x   -> go2x
+              KicksBoth -> goBoth
             (Just _ , Nothing) -> go1x
             (Nothing, Just _ ) -> go2x
             (Just _ , Just _ ) -> goBoth
@@ -956,7 +956,7 @@ commands =
     , commandRun = \files opts -> do
       fin <- getInputMIDI files
       fout <- outputFile opts $ return $ fin -<.> "dolphin.mid"
-      applyMidiDolphin opts fin fout
+      applyMidiFunction (getDolphinFunction opts) fin fout
       return [fout]
     }
 
@@ -966,88 +966,101 @@ commands =
     , commandUsage = "onyx dolphin 1_rb3con 2_rb3con --to dir/"
     , commandRun = \args opts -> do
       out <- outputFile opts $ fatal "need output folder for .app files"
-      stackIO $ Dir.createDirectoryIfMissing False out
-      let out_meta = out </> "00000001.app"
-          out_song = out </> "00000002.app"
-      tempDir "onyx_dolphin" $ \temp -> do
-        let extract  = temp </> "extract"
-            dir_meta = temp </> "meta"
-            dir_song = temp </> "song"
-        allSongs <- fmap concat $ forM args $ \stfs -> do
-          lg $ "STFS: " <> stfs
-          stackIO $ Dir.createDirectory extract
-          stackIO $ extractSTFS stfs extract
-          songs <- readFileSongsDTA $ extract </> "songs/songs.dta"
-          prevEnds <- forM songs $ \(song, _) -> do
-            let DTASingle _ pkg _ = song
-                songsXX = T.unpack $ D.songName $ D.song pkg
-                songsXgen = takeDirectory songsXX </> "gen"
-                songsXgenX = songsXgen </> takeFileName songsXX
-            lg $ "Song: " <> T.unpack (D.name pkg) <> " (" <> T.unpack (D.artist pkg) <> ")"
-            stackIO $ Dir.createDirectoryIfMissing True $ dir_meta </> "content" </> songsXgen
-            stackIO $ Dir.createDirectoryIfMissing True $ dir_song </> "content" </> songsXgen
-            -- .mid (use unchanged, or edit to remove fills and/or mustang PG)
-            let midin  = extract </> songsXX <.> "mid"
-                midout = dir_song </> "content" </> songsXX <.> "mid"
-            applyMidiDolphin opts midin midout
-            -- .mogg (use unchanged)
-            let mogg = dir_song </> "content" </> songsXX <.> "mogg"
-            stackIO $ Dir.renameFile (extract </> songsXX <.> "mogg") mogg
-            -- _prev.mogg (generate if possible)
-            let ogg = extract </> "temp.ogg"
-                prevOgg = extract </> "temp_prev.ogg"
-                (prevStart, prevEnd) = D.preview pkg
-                prevLength = min 15000 $ prevEnd - prevStart
-            errorToEither (moggToOgg mogg ogg) >>= \case
-              Right () -> do
-                lg "Creating preview file"
-                src <- stackIO $ sourceSndFrom (CA.Seconds $ realToFrac prevStart / 1000) ogg
-                stackIO
-                  $ runResourceT
-                  $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
-                  $ fadeStart (CA.Seconds 0.75)
-                  $ fadeEnd (CA.Seconds 0.75)
-                  $ CA.takeStart (CA.Seconds $ realToFrac prevLength / 1000)
-                  $ applyPansVols (D.pans $ D.song pkg) (D.vols $ D.song pkg)
-                  $ src
-              Left _msgs -> do
-                lg "Encrypted audio, skipping preview"
-                stackIO
-                  $ runResourceT
-                  $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
-                  $ (CA.silent (CA.Seconds $ realToFrac prevLength / 1000) 44100 2 :: CA.AudioSource (ResourceT IO) Int16)
-            oggToMogg prevOgg $ dir_meta </> "content" </> (songsXX ++ "_prev.mogg")
-            -- .png_wii (convert from .png_xbox)
-            img <- stackIO $ Image.readRBImage . BL.fromStrict <$> B.readFile (extract </> (songsXgenX ++ "_keep.png_xbox"))
-            stackIO $ BL.writeFile (dir_meta </> "content" </> (songsXgenX ++ "_keep.png_wii")) $ Image.toDXT1File Image.PNGWii img
-            -- .milo_wii (copy)
-            stackIO $ Dir.renameFile (extract </> songsXgenX <.> "milo_xbox") (dir_song </> "content" </> songsXgenX <.> "milo_wii")
-            -- return new preview end time to put in .dta
-            return $ prevStart + prevLength
-          stackIO $ Dir.removeDirectoryRecursive extract
-          return $ zip songs prevEnds
-        -- write new combined dta file
-        lg "Writing combined songs.dta"
-        let dta = dir_meta </> "content/songs/songs.dta"
-        stackIO $ Dir.createDirectoryIfMissing True $ takeDirectory dta
-        stackIO $ B.writeFile dta $ TE.encodeUtf8 $ T.unlines $ do
-          ((DTASingle key pkg c3, _), prevEnd) <- allSongs
-          let pkg' = pkg
-                { D.song = (D.song pkg)
-                  { D.songName = "dlc/sZAE/001/content/" <> D.songName (D.song pkg)
-                  }
-                , D.encoding = Just "utf8"
-                , D.preview = (fst $ D.preview pkg, prevEnd)
-                }
-          return $ writeDTASingle $ DTASingle key pkg' c3
-        -- pack it all up
-        lg "Packing into U8 files"
-        stackIO $ packU8 dir_meta out_meta
-        stackIO $ packU8 dir_song out_song
-      return [out_meta, out_song]
+      runDolphin args (getDolphinFunction opts) out
     }
 
   ]
+
+runDolphin
+  :: (MonadUnliftIO m, SendMessage m)
+  => [FilePath] -- ^ CONs
+  -> Maybe (RBFile.Song (RBFile.FixedFile U.Beats) -> RBFile.Song (RBFile.FixedFile U.Beats)) -- ^ MIDI transform
+  -> FilePath -- ^ output dir
+  -> StackTraceT m [FilePath] -- ^ 2 .app files
+runDolphin cons midfn out = do
+  stackIO $ Dir.createDirectoryIfMissing False out
+  let out_meta = out </> "00000001.app"
+      out_song = out </> "00000002.app"
+  tempDir "onyx_dolphin" $ \temp -> do
+    let extract  = temp </> "extract"
+        dir_meta = temp </> "meta"
+        dir_song = temp </> "song"
+    allSongs <- fmap concat $ forM cons $ \stfs -> do
+      lg $ "STFS: " <> stfs
+      stackIO $ Dir.createDirectory extract
+      stackIO $ extractSTFS stfs extract
+      songs <- readFileSongsDTA $ extract </> "songs/songs.dta"
+      prevEnds <- forM songs $ \(song, _) -> do
+        let DTASingle _ pkg _ = song
+            songsXX = T.unpack $ D.songName $ D.song pkg
+            songsXgen = takeDirectory songsXX </> "gen"
+            songsXgenX = songsXgen </> takeFileName songsXX
+        lg $ "Song: " <> T.unpack (D.name pkg) <> " (" <> T.unpack (D.artist pkg) <> ")"
+        stackIO $ Dir.createDirectoryIfMissing True $ dir_meta </> "content" </> songsXgen
+        stackIO $ Dir.createDirectoryIfMissing True $ dir_song </> "content" </> songsXgen
+        -- .mid (use unchanged, or edit to remove fills and/or mustang PG)
+        let midin  = extract </> songsXX <.> "mid"
+            midout = dir_song </> "content" </> songsXX <.> "mid"
+        case midfn of
+          Nothing -> stackIO $ Dir.copyFile midin midout
+          Just f  -> do
+            mid <- stackIO (Load.fromFile midin) >>= RBFile.readMIDIFile'
+            stackIO $ Save.toFile midout $ RBFile.showMIDIFile' $ f mid
+        -- .mogg (use unchanged)
+        let mogg = dir_song </> "content" </> songsXX <.> "mogg"
+        stackIO $ Dir.renameFile (extract </> songsXX <.> "mogg") mogg
+        -- _prev.mogg (generate if possible)
+        let ogg = extract </> "temp.ogg"
+            prevOgg = extract </> "temp_prev.ogg"
+            (prevStart, prevEnd) = D.preview pkg
+            prevLength = min 15000 $ prevEnd - prevStart
+        errorToEither (moggToOgg mogg ogg) >>= \case
+          Right () -> do
+            lg "Creating preview file"
+            src <- stackIO $ sourceSndFrom (CA.Seconds $ realToFrac prevStart / 1000) ogg
+            stackIO
+              $ runResourceT
+              $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
+              $ fadeStart (CA.Seconds 0.75)
+              $ fadeEnd (CA.Seconds 0.75)
+              $ CA.takeStart (CA.Seconds $ realToFrac prevLength / 1000)
+              $ applyPansVols (D.pans $ D.song pkg) (D.vols $ D.song pkg)
+              $ src
+          Left _msgs -> do
+            lg "Encrypted audio, skipping preview"
+            stackIO
+              $ runResourceT
+              $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
+              $ (CA.silent (CA.Seconds $ realToFrac prevLength / 1000) 44100 2 :: CA.AudioSource (ResourceT IO) Int16)
+        oggToMogg prevOgg $ dir_meta </> "content" </> (songsXX ++ "_prev.mogg")
+        -- .png_wii (convert from .png_xbox)
+        img <- stackIO $ Image.readRBImage . BL.fromStrict <$> B.readFile (extract </> (songsXgenX ++ "_keep.png_xbox"))
+        stackIO $ BL.writeFile (dir_meta </> "content" </> (songsXgenX ++ "_keep.png_wii")) $ Image.toDXT1File Image.PNGWii img
+        -- .milo_wii (copy)
+        stackIO $ Dir.renameFile (extract </> songsXgenX <.> "milo_xbox") (dir_song </> "content" </> songsXgenX <.> "milo_wii")
+        -- return new preview end time to put in .dta
+        return $ prevStart + prevLength
+      stackIO $ Dir.removeDirectoryRecursive extract
+      return $ zip songs prevEnds
+    -- write new combined dta file
+    lg "Writing combined songs.dta"
+    let dta = dir_meta </> "content/songs/songs.dta"
+    stackIO $ Dir.createDirectoryIfMissing True $ takeDirectory dta
+    stackIO $ B.writeFile dta $ TE.encodeUtf8 $ T.unlines $ do
+      ((DTASingle key pkg c3, _), prevEnd) <- allSongs
+      let pkg' = pkg
+            { D.song = (D.song pkg)
+              { D.songName = "dlc/sZAE/001/content/" <> D.songName (D.song pkg)
+              }
+            , D.encoding = Just "utf8"
+            , D.preview = (fst $ D.preview pkg, prevEnd)
+            }
+      return $ writeDTASingle $ DTASingle key pkg' c3
+    -- pack it all up
+    lg "Packing into U8 files"
+    stackIO $ packU8 dir_meta out_meta
+    stackIO $ packU8 dir_song out_song
+  return [out_meta, out_song]
 
 commandLine :: (MonadUnliftIO m) => [String] -> StackTraceT (QueueLog m) [FilePath]
 commandLine args = let
@@ -1139,20 +1152,30 @@ data OnyxOption
   | OptHelp
   deriving (Eq, Ord, Show, Read)
 
-applyMidiDolphin :: (MonadIO m, SendMessage m) =>
-  [OnyxOption] -> FilePath -> FilePath -> StackTraceT m ()
-applyMidiDolphin opts fin fout = let
+applyMidiFunction
+  :: (MonadIO m, SendMessage m)
+  => Maybe (RBFile.Song (RBFile.FixedFile U.Beats) -> RBFile.Song (RBFile.FixedFile U.Beats)) -- ^ MIDI transform
+  -> FilePath
+  -> FilePath
+  -> StackTraceT m ()
+applyMidiFunction Nothing fin fout = stackIO $ Dir.copyFile fin fout
+applyMidiFunction (Just fn) fin fout = do
+  mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+  stackIO $ Save.toFile fout $ RBFile.showMIDIFile' $ fn mid
+
+getDolphinFunction
+  :: [OnyxOption]
+  -> Maybe (RBFile.Song (RBFile.FixedFile U.Beats) -> RBFile.Song (RBFile.FixedFile U.Beats))
+getDolphinFunction opts = let
   nofills = elem OptWiiNoFills opts
   mustang22 = elem OptWiiMustang22 opts
   unmute22 = elem OptWiiUnmute22 opts
-  in if or [nofills, mustang22, unmute22]
-    then do
-      mid <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
-      let f = (if nofills   then RBFile.wiiNoFills   else id)
-            . (if mustang22 then RBFile.wiiMustang22 else id)
-            . (if unmute22  then RBFile.wiiUnmute22  else id)
-      stackIO $ Save.toFile fout $ RBFile.showMIDIFile' $ f mid
-    else stackIO $ Dir.copyFile fin fout
+  in do
+    guard $ or [nofills, mustang22, unmute22]
+    Just
+      $ (if nofills   then RBFile.wiiNoFills   else id)
+      . (if mustang22 then RBFile.wiiMustang22 else id)
+      . (if unmute22  then RBFile.wiiUnmute22  else id)
 
 data Game
   = GameRB3

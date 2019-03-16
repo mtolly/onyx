@@ -25,7 +25,8 @@ plans:
       pad: [6.419, album-track]
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: both
 targets:
   rb3:
     game: rb3

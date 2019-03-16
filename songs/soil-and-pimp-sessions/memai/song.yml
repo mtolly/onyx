@@ -25,7 +25,8 @@ plans:
       - pad: [0.908, album-track]
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1
   bass:
     pro-guitar:
       tuning:

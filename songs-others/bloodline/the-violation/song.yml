@@ -33,6 +33,7 @@ audio:
 parts:
   drums:
     drums:
+      kicks: both
       difficulty: 7
   keys:
     pro-keys: {}

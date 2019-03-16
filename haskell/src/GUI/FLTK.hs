@@ -3,7 +3,8 @@
 {-# LANGUAGE RecursiveDo       #-}
 module GUI.FLTK where
 
-import           CommandLine                               (copyDirRecursive)
+import           CommandLine                               (copyDirRecursive,
+                                                            runDolphin)
 import           Config
 import           Control.Concurrent                        (MVar, ThreadId,
                                                             killThread, newMVar,
@@ -15,8 +16,8 @@ import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             writeTChan)
 import qualified Control.Exception                         as Exc
 import           Control.Monad                             (ap, forM, forM_,
-                                                            liftM, void, when,
-                                                            (>=>))
+                                                            guard, liftM, void,
+                                                            when, (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.IO.Class                    (MonadIO (..),
                                                             liftIO)
@@ -49,6 +50,8 @@ import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           JSONData                                  (toJSON)
 import           OpenProject
 import           RockBand.Codec.File                       (FlexPartName (..))
+import qualified RockBand.Codec.File                       as RBFile
+import qualified Sound.MIDI.Util                           as U
 import qualified System.Directory                          as Dir
 import           System.FilePath                           (takeDirectory,
                                                             takeFileName, (</>))
@@ -298,9 +301,25 @@ applyGBK gbk song tgt = case gbk of
     else tgt
   where hasFive flex = isJust $ getPart flex song >>= partGRYBO
 
+applyGBK2 :: GBKOption -> SongYaml -> TargetRB2 -> TargetRB2
+applyGBK2 gbk song tgt = case gbk of
+  GBKUnchanged -> tgt
+  CopyGuitarToKeys -> tgt
+  SwapGuitarKeys -> if hasFive FlexKeys
+    then tgt { rb2_Guitar = FlexKeys }
+    else tgt
+  SwapBassKeys -> if hasFive FlexKeys
+    then tgt { rb2_Bass = FlexKeys }
+    else tgt
+  where hasFive flex = isJust $ getPart flex song >>= partGRYBO
+
 data RB3Create
   = RB3CON FilePath
   | RB3Magma FilePath
+
+data PSCreate
+  = PSDir FilePath
+  | PSZip FilePath
 
 horizRadio :: Rectangle -> [(T.Text, a, Bool)] -> IO (IO (Maybe a))
 horizRadio _    []   = error "horizRadio: empty option list"
@@ -329,6 +348,152 @@ speedPercent rect = do
   FL.setTooltip speed "Change the speed of the chart and its audio (without changing pitch). If importing from a CON, a non-100% value requires unencrypted audio."
   return $ (/ 100) <$> FL.getValue speed
 
+batchPageRB2
+  :: Rectangle
+  -> FL.Ref FL.Group
+  -> ((Project -> ([(TargetRB2, FilePath)], SongYaml)) -> IO ())
+  -> IO ()
+batchPageRB2 rect tab build = do
+  pack <- FL.packNew rect Nothing
+  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
+  getDropOpen <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    box <- FL.checkButtonNew rect' (Just "Drop HOPO/tap open notes")
+    FL.setTooltip box "When checked, open notes on guitar/bass which are also HOPO or tap notes will be removed, instead of becoming green notes."
+    return $ FL.getValue box
+  getGBK <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    fn <- horizRadio rect'
+      [ ("Guitar/Bass", GBKUnchanged, True)
+      , ("Keys on Guitar", SwapGuitarKeys, False)
+      , ("Keys on Bass", SwapBassKeys, False)
+      ]
+    return $ fromMaybe GBKUnchanged <$> fn
+  getKicks <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    fn <- horizRadio rect'
+      [ ("1x Bass Pedal", Kicks1x, False)
+      , ("2x Bass Pedal", Kicks2x, False)
+      , ("Both", KicksBoth, True)
+      ]
+    return $ fromMaybe KicksBoth <$> fn
+  let getTargetSong usePath template = do
+        speed <- getSpeed
+        dropOpen <- getDropOpen
+        gbk <- getGBK
+        kicks <- getKicks
+        return $ \proj -> let
+          tgt = (applyGBK2 gbk yaml) def
+            { rb2_Common = (rb2_Common def)
+              { tgt_Speed = Just speed
+              }
+            }
+          kicksConfigs = case (kicks, maybe Kicks1x drumsKicks $ getPart FlexDrums yaml >>= partDrums) of
+            (_        , Kicks1x) -> [(False, ""   )]
+            (Kicks1x  , _      ) -> [(False, "_1x")]
+            (Kicks2x  , _      ) -> [(True , "_2x")]
+            (KicksBoth, _      ) -> [(False, "_1x"), (True, "_2x")]
+          fout kicksLabel = T.unpack $ foldr ($) template
+            [ templateApplyInput proj
+            , let
+              modifiers = T.concat
+                [ T.pack $ case tgt_Speed $ rb2_Common tgt of
+                  Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
+                  _               -> ""
+                , kicksLabel
+                ]
+              in T.intercalate modifiers . T.splitOn "%modifiers%"
+            ]
+          yaml
+            = dropOpenHOPOs dropOpen
+            $ forceProDrums
+            $ projectSongYaml proj
+          in
+            ( [ (tgt { rb2_2xBassPedal = is2x }, usePath $ fout kicksLabel)
+              | (is2x, kicksLabel) <- kicksConfigs
+              ]
+            , yaml
+            )
+  makeTemplateRunner
+    "Create CON files"
+    "%input_dir%/%input_base%%modifiers%_rb2con"
+    (getTargetSong id >=> build)
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
+type MIDIFunction
+  =  RBFile.Song (RBFile.FixedFile U.Beats)
+  -> RBFile.Song (RBFile.FixedFile U.Beats)
+
+batchPageDolphin
+  :: Rectangle
+  -> FL.Ref FL.Group
+  -> (FilePath -> Maybe MIDIFunction -> IO ())
+  -> IO ()
+batchPageDolphin rect tab build = do
+  pack <- FL.packNew rect Nothing
+  getNoFills <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    box <- FL.checkButtonNew rect' (Just "Remove drum fills")
+    return $ FL.getValue box
+  getForce22 <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    box <- FL.checkButtonNew rect' (Just "Only show Squier (22-fret) Pro Guitar/Bass")
+    return $ FL.getValue box
+  getUnmute22 <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    box <- FL.checkButtonNew rect' (Just "Unmute muted Pro Guitar/Bass notes above fret 22")
+    return $ FL.getValue box
+  let getMIDIFunction = do
+        noFills <- getNoFills
+        force22 <- getForce22
+        unmute22 <- getUnmute22
+        return $ do
+          guard $ or [noFills, force22, unmute22]
+          Just
+            $ (if noFills then RBFile.wiiNoFills else id)
+            . (if force22 then RBFile.wiiMustang22 else id)
+            . (if unmute22 then RBFile.wiiUnmute22 else id)
+  makeTemplateRunner
+    "Create .app files"
+    ""
+    (\dirout -> getMIDIFunction >>= build (T.unpack dirout))
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
+batchPagePS
+  :: Rectangle
+  -> FL.Ref FL.Group
+  -> ((Project -> (TargetPS, PSCreate)) -> IO ())
+  -> IO ()
+batchPagePS rect tab build = do
+  pack <- FL.packNew rect Nothing
+  getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
+  let getTargetSong usePath template = do
+        speed <- getSpeed
+        return $ \proj -> let
+          tgt = def
+            { ps_Common = (ps_Common def)
+              { tgt_Speed = Just speed
+              }
+            }
+          fout = T.unpack $ foldr ($) template
+            [ templateApplyInput proj
+            , let
+              modifiers = T.pack $ case tgt_Speed $ ps_Common tgt of
+                Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
+                _               -> ""
+              in T.intercalate modifiers . T.splitOn "%modifiers%"
+            ]
+          in (tgt, usePath fout)
+  makeTemplateRunner
+    "Create PS folders"
+    "%input_dir%/%input_base%%modifiers%_ps"
+    (getTargetSong PSDir >=> build)
+  makeTemplateRunner
+    "Create PS zips"
+    "%input_dir%/%input_base%%modifiers%_ps.zip"
+    (getTargetSong PSZip >=> build)
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
 batchPageRB3
   :: Rectangle
   -> FL.Ref FL.Group
@@ -353,30 +518,51 @@ batchPageRB3 rect tab build = do
       , ("Swap B and K", SwapBassKeys, False)
       ]
     return $ fromMaybe GBKUnchanged <$> fn
+  getKicks <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    fn <- horizRadio rect'
+      [ ("1x Bass Pedal", Kicks1x, False)
+      , ("2x Bass Pedal", Kicks2x, False)
+      , ("Both", KicksBoth, True)
+      ]
+    return $ fromMaybe KicksBoth <$> fn
   let getTargetSong usePath template = do
         speed <- getSpeed
         toms <- getToms
         dropOpen <- getDropOpen
         gbk <- getGBK
+        kicks <- getKicks
         return $ \proj -> let
           tgt = (applyGBK gbk yaml) def
             { rb3_Common = (rb3_Common def)
               { tgt_Speed = Just speed
               }
             }
-          fout = T.unpack $ foldr ($) template
+          kicksConfigs = case (kicks, maybe Kicks1x drumsKicks $ getPart FlexDrums yaml >>= partDrums) of
+            (_        , Kicks1x) -> [(False, ""   )]
+            (Kicks1x  , _      ) -> [(False, "_1x")]
+            (Kicks2x  , _      ) -> [(True , "_2x")]
+            (KicksBoth, _      ) -> [(False, "_1x"), (True, "_2x")]
+          fout kicksLabel = T.unpack $ foldr ($) template
             [ templateApplyInput proj
             , let
-              modifiers = T.pack $ case tgt_Speed $ rb3_Common tgt of
-                Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
-                _               -> ""
+              modifiers = T.concat
+                [ T.pack $ case tgt_Speed $ rb3_Common tgt of
+                  Just n | n /= 1 -> "_" <> show (round $ n * 100 :: Int)
+                  _               -> ""
+                , kicksLabel
+                ]
               in T.intercalate modifiers . T.splitOn "%modifiers%"
             ]
           yaml
             = dropOpenHOPOs dropOpen
             $ (if toms then id else forceProDrums)
             $ projectSongYaml proj
-          in ([(tgt, usePath fout)], yaml)
+          in
+            ( [ (tgt { rb3_2xBassPedal = is2x }, usePath $ fout kicksLabel)
+              | (is2x, kicksLabel) <- kicksConfigs
+              ]
+            , yaml
+            )
   makeTemplateRunner
     "Create CON files"
     "%input_dir%/%input_base%%modifiers%_rb3con"
@@ -443,8 +629,6 @@ launchBatch sink startFiles = mdo
   FLE.rgbColorWithRgb (94,94,94) >>= FL.setColor window -- TODO report incorrect Char binding type for rgbColorWithGrayscale
   FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
   FL.sizeRangeWithArgs window (Size (Width 800) (Height 400)) FL.defaultOptionalSizeRangeArgs
-    { FL.maxw = Just 800
-    }
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
   let setTabColor :: FL.Ref FL.Group -> FLE.Color -> IO ()
@@ -510,14 +694,39 @@ launchBatch sink startFiles = mdo
                 copyDirRecursive tmp dout
                 return dout
       return tab
-    , makeTab windowRect "Rock Band 2 (360)" $ \_ tab -> do
+    , makeTab windowRect "Rock Band 2 (360)" $ \rect tab -> do
       setTabColor tab functionColor
+      batchPageRB2 rect tab $ \settings -> sink $ EventOnyx $ do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
+          let (targets, yaml) = settings proj
+          forM targets $ \(target, fout) -> do
+            proj' <- stackIO $ saveProject proj yaml
+            tmp <- buildRB2CON target proj'
+            stackIO $ Dir.copyFile tmp fout
+            return fout
       return tab
-    , makeTab windowRect "Clone Hero/Phase Shift" $ \_ tab -> do
+    , makeTab windowRect "Clone Hero/Phase Shift" $ \rect tab -> do
       setTabColor tab functionColor
+      batchPagePS rect tab $ \settings -> sink $ EventOnyx $ do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
+          let (target, creator) = settings proj
+          case creator of
+            PSDir dout -> do
+              tmp <- buildPSDir target proj
+              copyDirRecursive tmp dout
+              return [dout]
+            PSZip fout -> do
+              tmp <- buildPSZip target proj
+              stackIO $ Dir.copyFile tmp fout
+              return [fout]
       return tab
-    , makeTab windowRect "Rock Band 3 (Wii)" $ \_ tab -> do
+    , makeTab windowRect "Rock Band 3 (Wii)" $ \rect tab -> do
       setTabColor tab functionColor
+      batchPageDolphin rect tab $ \dirout midfn -> sink $ EventOnyx $ do
+        files <- stackIO $ readMVar loadedFiles
+        startTasks [(".app creation", runDolphin files midfn dirout)]
       return tab
     , makeTab windowRect "Preview" $ \rect tab -> do
       setTabColor tab functionColor
@@ -531,7 +740,7 @@ launchBatch sink startFiles = mdo
       return tab
     ]
   let nonTermTabs = tabSongs : functionTabs
-  (tabTask, labelTask, termTask) <- makeTab windowRect "Task" $ \rect tab -> do
+  (tabTask, labelTask, termTask, cancelButton) <- makeTab windowRect "Task" $ \rect tab -> do
     FLE.rgbColorWithRgb (239,201,148) >>= setTabColor tab
     let (labelRect, belowLabel) = chopTop 40 rect
         (termRect, buttonRect) = chopBottom 50 belowLabel
@@ -545,7 +754,7 @@ launchBatch sink startFiles = mdo
     FL.setResizable tab $ Just term
     btnA <- FL.buttonNew buttonRect' $ Just "Cancel"
     FL.setCallback btnA $ \_ -> sink $ EventIO cancelTasks
-    return (tab, label, term)
+    return (tab, label, term, btnA)
   FL.deactivate tabTask
   taskStatus <- newMVar Nothing :: IO (MVar (Maybe (Int, Int, [FilePath], Int, ThreadId)))
   let taskMessage :: (MessageLevel, Message) -> IO ()
@@ -560,6 +769,7 @@ launchBatch sink startFiles = mdo
         reenableTabs
       reenableTabs = do
         mapM_ FL.activate nonTermTabs
+        FL.deactivate cancelButton
         FLTK.redraw
       updateStatus fn = takeMVar taskStatus >>= \case
         Nothing        -> putMVar taskStatus Nothing -- maybe task was cancelled
@@ -596,6 +806,7 @@ launchBatch sink startFiles = mdo
           liftIO $ do
             putMVar taskStatus $ Just (0, length tasks, [], 0, tid)
             FL.activate tabTask
+            FL.activate cancelButton
             mapM_ FL.deactivate nonTermTabs
             void $ FL.setValue tabs $ Just tabTask
             updateTabsColor tabs

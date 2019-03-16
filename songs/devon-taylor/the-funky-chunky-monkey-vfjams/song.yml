@@ -17,7 +17,8 @@ audio:
     file-path: ../../../sound/hihat-foot.wav
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1
 plans:
   isolated:
     countin:

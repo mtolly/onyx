@@ -26,6 +26,7 @@ parts:
         rank: 236
   drums:
     drums:
+      kicks: both
       kit: Trashy Kit
       difficulty:
         rank: 345

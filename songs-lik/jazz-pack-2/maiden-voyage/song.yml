@@ -11,4 +11,5 @@ metadata:
   artist: Robert Glasper
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

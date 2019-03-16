@@ -20,4 +20,4 @@ parts:
     grybo: {}
   drums:
     drums:
-      auto-2x-bass: true
+      kicks: 2

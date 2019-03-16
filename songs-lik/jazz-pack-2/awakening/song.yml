@@ -32,5 +32,6 @@ metadata:
 parts:
   drums:
     drums:
+      kicks: 1
       difficulty: 7
       kit: Hard Rock Kit

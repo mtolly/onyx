@@ -11,4 +11,5 @@ metadata:
   artist: Mahavishnu Orchestra
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

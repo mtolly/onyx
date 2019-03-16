@@ -35,6 +35,7 @@ parts:
   drums:
     drums: # mazegeek999
       difficulty: 7
+      kicks: 1
       kit: Hard Rock Kit
   vocal:
     vocal: # onyxite

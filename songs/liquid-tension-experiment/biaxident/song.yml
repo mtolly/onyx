@@ -25,6 +25,7 @@ plans:
 parts:
   drums:
     drums:
+      kicks: 1
       difficulty: 3
   guitar:
     grybo: {} # from Jackeshan - quantized, just need to cleanup in parts

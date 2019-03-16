@@ -26,4 +26,5 @@ plans:
     song: album-track
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 2

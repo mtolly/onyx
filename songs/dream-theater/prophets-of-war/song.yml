@@ -79,6 +79,7 @@ parts:
   drums:
     drums:
       difficulty: 5
+      kicks: both
   vocal:
     vocal:
       difficulty: 5

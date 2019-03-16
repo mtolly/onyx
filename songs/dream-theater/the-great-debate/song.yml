@@ -24,6 +24,7 @@ parts:
   drums:
     drums: # onyxite
       difficulty: 7
+      kicks: both
   vocal:
     vocal: # onyxite
       count: 3

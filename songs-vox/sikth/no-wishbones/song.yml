@@ -18,7 +18,8 @@ parts:
   bass:
     grybo: {}
   drums:
-    drums: {}
+    drums:
+      kicks: 2
 targets:
   rb3-2x:
     game: rb3

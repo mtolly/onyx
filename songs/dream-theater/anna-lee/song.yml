@@ -44,7 +44,8 @@ plans:
           - only: [B Vocals, jammit-track]
 parts:
   drums:
-    drums: {} # seil
+    drums: # seil
+      kicks: 1
   keys:
     pro-keys: {} # seil
     grybo: {} # onyxite

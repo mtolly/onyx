@@ -21,12 +21,14 @@ parts:
       difficulty: 7
   drums:
     drums:
+      kicks: 1
       fix-freeform: false
       difficulty: 7
   onyxite-2x:
     # eventually we'll have a real way to author more than 1 chart for a part.
     # but this hack works for now
     drums:
+      kicks: both
       fix-freeform: false
       difficulty: 7
 plans:

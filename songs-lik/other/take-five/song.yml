@@ -40,4 +40,5 @@ plans:
         - gain: [1.2, youtube]
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

@@ -21,4 +21,5 @@ metadata:
   artist: The Human Abstract
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

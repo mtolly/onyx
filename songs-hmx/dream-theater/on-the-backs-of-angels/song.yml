@@ -46,6 +46,7 @@ parts:
     drums:
       difficulty:
         rank: 463
+      kicks: both
   bass:
     grybo:
       difficulty:

@@ -28,6 +28,7 @@ parts:
     drums:
       kit: HardRockKit
       difficulty: 7
+      kicks: both
 targets:
   rb3:
     game: rb3

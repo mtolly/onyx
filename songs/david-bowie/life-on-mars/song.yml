@@ -38,6 +38,7 @@ parts:
   drums:
     drums:
       kit: Vintage Kit
+      kicks: 1
       difficulty: 2
   guitar:
     grybo:

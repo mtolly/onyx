@@ -37,6 +37,7 @@ plans:
 parts:
   drums:
     drums:
+      kicks: 1
       kit: VintageKit
       difficulty: 4
   guitar:

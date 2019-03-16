@@ -136,6 +136,7 @@ parts:
     drums:
       difficulty: 7
       layout: flip-yb-toms
+      kicks: both
   keys:
     grybo:
       difficulty: 7

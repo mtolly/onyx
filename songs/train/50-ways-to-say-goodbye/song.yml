@@ -26,6 +26,7 @@ audio:
 parts:
   drums:
     drums:
+      kicks: 1
       difficulty: 2
   bass:
     grybo:

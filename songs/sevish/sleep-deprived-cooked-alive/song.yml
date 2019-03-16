@@ -136,7 +136,8 @@ plans:
           - stem-drums
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1
   keys:
     grybo: {}
   bass:

@@ -23,4 +23,5 @@ plans:
 parts:
   drums:
     drums:
+      kicks: 1
       difficulty: 5

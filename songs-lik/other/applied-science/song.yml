@@ -40,4 +40,5 @@ plans:
             - youtube
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

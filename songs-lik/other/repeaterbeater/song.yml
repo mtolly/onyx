@@ -21,4 +21,5 @@ metadata:
   artist: Mew
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

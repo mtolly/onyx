@@ -2,7 +2,8 @@ parts:
   keys:
     pro-keys: {}
   drums:
-    drums: {}
+    drums:
+      kicks: 1
 plans:
   album:
     song:

@@ -35,7 +35,7 @@ plans:
 parts:
   drums:
     drums: # grinnz
-      auto-2x-bass: true
+      kicks: 2
   guitar:
     grybo: {} # alextaylor
   bass:

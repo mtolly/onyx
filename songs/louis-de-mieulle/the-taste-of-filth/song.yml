@@ -13,6 +13,7 @@ parts:
   drums:
     drums:
       difficulty: 7
+      kicks: both
 audio:
   album-track:
     md5: c29cb13351c0d8cbbc0f2f29453af5e1

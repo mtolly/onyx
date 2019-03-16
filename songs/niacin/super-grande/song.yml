@@ -28,7 +28,8 @@ plans:
       pad: [3.372, youtube]
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1
 targets:
   rb3:
     game: rb3

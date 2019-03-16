@@ -744,10 +744,29 @@ instance StackJSON OrangeFallback where
       FallbackGreen -> "green"
     }
 
+data Kicks = Kicks1x | Kicks2x | KicksBoth
+  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+
+instance StackJSON Kicks where
+  stackJSON = Codec
+    { codecIn = lift ask >>= \case
+      A.Null          -> return Kicks1x
+      A.Number 1      -> return Kicks1x
+      A.Number 2      -> return Kicks1x
+      A.String "1"    -> return Kicks1x
+      A.String "2"    -> return Kicks2x
+      A.String "both" -> return KicksBoth
+      _               -> expected "number of bass pedals (1, 2, both)"
+    , codecOut = makeOut $ \case
+      Kicks1x   -> A.Number 1
+      Kicks2x   -> A.Number 2
+      KicksBoth -> A.String "both"
+    }
+
 data PartDrums = PartDrums
   { drumsDifficulty  :: Difficulty
   , drumsMode        :: DrumMode
-  , drumsAuto2xBass  :: Bool
+  , drumsKicks       :: Kicks
   , drumsFixFreeform :: Bool
   , drumsKit         :: DrumKit
   , drumsLayout      :: DrumLayout
@@ -756,13 +775,13 @@ data PartDrums = PartDrums
 
 instance StackJSON PartDrums where
   stackJSON = asStrictObject "PartDrums" $ do
-    drumsDifficulty  <- drumsDifficulty  =. fill (Tier 1)       "difficulty"   stackJSON
-    drumsMode        <- drumsMode        =. opt  DrumsPro       "mode"         stackJSON
-    drumsAuto2xBass  <- drumsAuto2xBass  =. opt  False          "auto-2x-bass" stackJSON
-    drumsFixFreeform <- drumsFixFreeform =. opt  True           "fix-freeform" stackJSON
-    drumsKit         <- drumsKit         =. opt  HardRockKit    "kit"          stackJSON
-    drumsLayout      <- drumsLayout      =. opt  StandardLayout "layout"       stackJSON
-    drumsFallback    <- drumsFallback    =. opt  FallbackGreen  "fallback"     stackJSON
+    drumsDifficulty  <- drumsDifficulty  =. fill    (Tier 1)       "difficulty"   stackJSON
+    drumsMode        <- drumsMode        =. opt     DrumsPro       "mode"         stackJSON
+    drumsKicks       <- drumsKicks       =. warning Kicks1x        "kicks"        stackJSON
+    drumsFixFreeform <- drumsFixFreeform =. opt     True           "fix-freeform" stackJSON
+    drumsKit         <- drumsKit         =. opt     HardRockKit    "kit"          stackJSON
+    drumsLayout      <- drumsLayout      =. opt     StandardLayout "layout"       stackJSON
+    drumsFallback    <- drumsFallback    =. opt     FallbackGreen  "fallback"     stackJSON
     return PartDrums{..}
 
 data VocalCount = Vocal1 | Vocal2 | Vocal3

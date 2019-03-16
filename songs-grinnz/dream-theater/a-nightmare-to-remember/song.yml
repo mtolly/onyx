@@ -71,7 +71,7 @@ plans:
 parts:
   drums:
     drums:
-      auto-2x-bass: true
+      kicks: 2
       difficulty: 7
   keys:
     pro-keys:

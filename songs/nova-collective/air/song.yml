@@ -27,6 +27,7 @@ parts:
   drums:
     drums:
       difficulty: 6
+      kicks: both
   guitar:
     grybo:
       difficulty: 4

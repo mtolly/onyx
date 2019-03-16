@@ -21,4 +21,5 @@ metadata:
   artist: Gorguts
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

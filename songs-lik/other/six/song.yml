@@ -21,4 +21,5 @@ metadata:
   artist: All That Remains
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

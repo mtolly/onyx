@@ -5,6 +5,7 @@ parts:
   keys: {}
   drums:
     drums:
+      kicks: 2
       fix-freeform: false
       difficulty:
         tier: 4

@@ -4,7 +4,8 @@ metadata:
   album: Giant Steps
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1
   bass:
     pro-guitar:
       tuning:

@@ -21,6 +21,7 @@ parts:
   drums:
     drums:
       difficulty: 7
+      kicks: 1
       kit: Vintage Kit # ???
 plans:
   mogg:

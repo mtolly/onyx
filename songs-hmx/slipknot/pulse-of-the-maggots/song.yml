@@ -26,6 +26,7 @@ parts:
         rank: 207
   drums:
     drums:
+      kicks: both
       fix-freeform: false
       kit: Trashy Kit
       difficulty:

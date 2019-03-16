@@ -42,6 +42,7 @@ plans:
 parts:
   drums:
     drums:
+      kicks: 1
       difficulty: 7
   bass:
     grybo:

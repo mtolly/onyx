@@ -42,6 +42,7 @@ parts:
         rank: 113
   drums:
     drums:
+      kicks: both
       fix-freeform: false
       difficulty:
         rank: 387

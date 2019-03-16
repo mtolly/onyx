@@ -33,6 +33,7 @@ parts:
   drums:
     drums:
       difficulty: 7
+      kicks: 1
       kit: VintageKit
   bass:
     grybo: # TODO need to adjust from pro

@@ -32,4 +32,5 @@ plans:
           - concatenate: [album-eyesdown, album-el-toro]
 parts:
   drums:
-    drums: {}
+    drums:
+      kicks: 1

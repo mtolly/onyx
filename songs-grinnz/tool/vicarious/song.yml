@@ -62,7 +62,7 @@ parts:
   drums:
     drums:
       difficulty: 6
-      auto-2x-bass: true
+      kicks: 2
   bass:
     grybo: {}
   guitar:

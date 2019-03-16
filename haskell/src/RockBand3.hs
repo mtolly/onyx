@@ -177,9 +177,9 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
       drumsTrack = case getPart drumsPart songYaml >>= partDrums of
         Nothing -> mempty
         Just pd -> let
-          psKicks = if drumsAuto2xBass pd
-            then mapTrack (U.unapplyTempoTrack tempos) . phaseShiftKicks 0.18 0.11 . mapTrack (U.applyTempoTrack tempos)
-            else id
+          psKicks = case drumsKicks pd of
+            Kicks2x -> mapTrack (U.unapplyTempoTrack tempos) . phaseShiftKicks 0.18 0.11 . mapTrack (U.applyTempoTrack tempos)
+            _       -> id
           sections = fmap snd $ eventsSections eventsInput
           finish = sloppyDrums . changeMode . psKicks . setDrumMix mixMode . drumsComplete mmap sections
           sloppyDrums = drumEachDiff $ \dd -> dd { drumGems = fixSloppyNotes (10 / 480) $ drumGems dd }

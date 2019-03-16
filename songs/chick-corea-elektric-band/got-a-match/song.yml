@@ -24,6 +24,7 @@ parts:
       # still not sure of kicks from m43 to m62
       # and kicks and snares from m115 to m130
       difficulty: 7
+      kicks: 1
   bass:
     grybo:
       difficulty: 6

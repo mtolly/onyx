@@ -119,6 +119,7 @@ parts:
   drums:
     drums:
       kit: VintageKit
+      kicks: 1
       difficulty: 7
   bass:
     grybo:

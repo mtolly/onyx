@@ -30,6 +30,7 @@ parts:
   drums:
     drums:
       difficulty: 4
+      kicks: 1
       # TODO: should this get 2x?
   guitar:
     grybo:

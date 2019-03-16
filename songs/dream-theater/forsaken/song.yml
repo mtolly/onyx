@@ -93,6 +93,7 @@ parts:
   drums:
     drums:
       difficulty: 3
+      kicks: both
   bass:
     grybo:
       difficulty: 2

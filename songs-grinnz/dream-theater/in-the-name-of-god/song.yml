@@ -112,6 +112,7 @@ parts:
     drums:
       difficulty: 6
       layout: flip-yb-toms
+      kicks: both
   bass:
     grybo:
       difficulty: 6

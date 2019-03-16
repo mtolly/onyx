@@ -30,6 +30,7 @@ parts:
   drums:
     drums:
       difficulty: 3
+      kicks: 1
       kit: Electronic Kit
   bass:
     grybo:

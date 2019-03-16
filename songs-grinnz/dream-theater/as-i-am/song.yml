@@ -112,6 +112,7 @@ parts:
     drums:
       difficulty: 7 # could be 6 but drum solo is pretty tough
       layout: flip-yb-toms
+      kicks: both
   guitar:
     pro-guitar:
       difficulty: 7

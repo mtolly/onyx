@@ -49,6 +49,7 @@ parts:
   drums:
     drums: # onyxite
       difficulty: 7
+      kicks: 1
   keys:
     pro-keys: # mazegeek999
       difficulty: 7

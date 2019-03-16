@@ -23,6 +23,7 @@ parts:
     drums:
       difficulty: 7
       kit: Hard Rock Kit
+      kicks: both
   guitar:
     grybo:
       difficulty: 5
