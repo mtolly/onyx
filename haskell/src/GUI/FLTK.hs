@@ -28,6 +28,7 @@ import           Control.Monad.Trans.Resource              (ResourceT, release,
                                                             resourceForkIO,
                                                             runResourceT)
 import           Control.Monad.Trans.StackTrace
+import           Data.Char                                 (toLower)
 import           Data.Default.Class                        (def)
 import           Data.Functor.Const                        (Const (..))
 import           Data.Maybe                                (catMaybes,
@@ -49,12 +50,15 @@ import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
 import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           JSONData                                  (toJSON)
 import           OpenProject
+import           Reductions                                (simpleReduce)
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
 import qualified Sound.MIDI.Util                           as U
 import qualified System.Directory                          as Dir
 import           System.FilePath                           (takeDirectory,
-                                                            takeFileName, (</>))
+                                                            takeExtension,
+                                                            takeFileName, (<.>),
+                                                            (</>))
 import           System.Info                               (os)
 
 data Event
@@ -190,8 +194,8 @@ tabScroll rect name fn = do
   FL.end scroll
   return res
 
-launchWindow :: Project -> IO ()
-launchWindow proj = do
+launchWindow :: (Event -> IO ()) -> Project -> IO ()
+launchWindow sink proj = mdo
   let windowSize = Size (Width 800) (Height 600)
       windowRect = Rectangle
         (Position (X 0) (Y 0))
@@ -205,7 +209,7 @@ launchWindow proj = do
   tabs <- FL.tabsNew
     (Rectangle (Position (X 0) (Y 0)) windowSize)
     Nothing
-  meta <- tabScroll windowRect "Metadata" $ \rect meta -> do
+  metaTab <- tabScroll windowRect "Metadata" $ \rect tab -> do
     let (rectLeft, rectRight) = chopRight 200 rect
     pack <- FL.packNew rectLeft Nothing
     forM_ (zip (True : repeat False) [("Title", _title), ("Artist", _artist), ("Album", _album)]) $ \(top, (str, fn)) -> do
@@ -228,18 +232,68 @@ launchWindow proj = do
       FL.setImage cover $ Just png
       return ()
     FL.end packRight
-    FL.setResizable meta $ Just pack
-    return meta
+    FL.setResizable tab $ Just pack
+    return tab
+  {-
   makeTab windowRect "Audio" $ \_ _ -> return ()
   makeTab windowRect "Instruments" $ \_ _ -> return ()
   makeTab windowRect "Rock Band 3" $ \_ _ -> return ()
   makeTab windowRect "Rock Band 2" $ \_ _ -> return ()
   makeTab windowRect "Clone Hero/Phase Shift" $ \_ _ -> return ()
+  -}
+  utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do
+    pack <- FL.packNew rect Nothing
+    padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+      btn <- FL.buttonNew rect' $ Just "Produce MIDI with automatic reductions"
+      FL.setCallback btn $ \_ -> sink $ EventIO $ do
+        picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+        FL.setTitle picker "Save MIDI file"
+        isDir <- Dir.doesDirectoryExist $ projectSource proj
+        FL.setDirectory picker $ T.pack $ if isDir
+          then projectSource proj
+          else takeDirectory $ projectSource proj
+        FL.setFilter picker "*.mid"
+        FL.setPresetFile picker "reduced.mid" -- .mid gets chopped off on mac
+        FL.showWidget picker >>= \case
+          FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+            Nothing -> return ()
+            Just f  -> let
+              ext = map toLower $ takeExtension f
+              f' = if elem ext [".mid", ".midi"]
+                then f
+                else f <.> "mid"
+              in sink $ EventOnyx $ let
+                task = do
+                  simpleReduce (takeDirectory (projectLocation proj) </> "notes.mid") f'
+                  return [f']
+                in startTasks [(f', task)]
+          _ -> return ()
+      return ()
+    padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+      btn <- FL.buttonNew rect' $ Just "Find hanging Pro Keys notes"
+      FL.setCallback btn $ \_ -> sink $ EventOnyx $ do
+        startTasks [("range check", proKeysHanging Nothing proj >> return [])]
+    FL.end pack
+    FL.setResizable tab $ Just pack
+    return tab
+  let nonTermTabs = [FL.safeCast metaTab, utilsTab]
+  (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
+    FL.deactivate tab
+    let cbStart = do
+          FL.activate tab
+          mapM_ FL.deactivate nonTermTabs
+          void $ FL.setValue tabs $ Just tab
+          updateTabsColor tabs
+        cbEnd = do
+          mapM_ FL.activate nonTermTabs
+    taskOutputPage rect tab sink cbStart cbEnd
   FL.end tabs
-  FL.setResizable tabs $ Just meta
+  FL.setResizable tabs $ Just metaTab
   FL.end window
   FL.setResizable window $ Just tabs
-  FL.setCallback window $ windowCloser $ mapM_ release $ projectRelease proj
+  FL.setCallback window $ windowCloser $ do
+    cancelTasks
+    mapM_ release $ projectRelease proj
   FL.showWidget window
 
 -- | Ignores the Escape key, and runs a resource-release function after close.
@@ -618,6 +672,88 @@ batchPagePreview rect tab build = do
   FL.setResizable tab $ Just pack
   return ()
 
+taskOutputPage
+  :: Rectangle
+  -> FL.Ref FL.Group
+  -> (Event -> IO ()) -- event sink
+  -> IO () -- callback when starting a task
+  -> IO () -- callback when ending a task
+  -> IO
+    ( [(FilePath, Onyx [FilePath])] -> Onyx () -- returns function to start a task
+    , IO () -- cancels a task if running
+    )
+taskOutputPage rect tab sink cbStart cbEnd = mdo
+  -- make the tab
+  let (labelRect, belowLabel) = chopTop 40 rect
+      (termRect, buttonRect) = chopBottom 50 belowLabel
+      labelRect' = trimClock 10 10 5 10 labelRect
+      termRect' = trimClock 5 10 5 10 termRect
+      buttonRect' = trimClock 5 10 10 10 buttonRect
+  labelTask <- FL.boxNew labelRect' $ Just "…"
+  termTask <- FL.simpleTerminalNew termRect' Nothing
+  FL.setAnsi termTask True
+  FL.setStayAtBottom termTask True
+  FL.setResizable tab $ Just termTask
+  cancelButton <- FL.buttonNew buttonRect' $ Just "Cancel"
+  FL.setCallback cancelButton $ \_ -> sink $ EventIO cancelTasks
+  -- functions
+  taskStatus <- newMVar Nothing :: IO (MVar (Maybe (Int, Int, [FilePath], Int, ThreadId)))
+  let taskMessage :: (MessageLevel, Message) -> IO ()
+      taskMessage = sink . EventIO . addTerm termTask . toTermMessage
+      cbStart' = do
+        cbStart
+        FL.activate cancelButton
+        FLTK.redraw
+      cbEnd' = do
+        cbEnd
+        FL.deactivate cancelButton
+        FLTK.redraw
+      cancelTasks = do
+        takeMVar taskStatus >>= \case
+          Just (_, _, _, _, tid) -> do
+            addTerm termTask $ TermLog "Cancelled tasks."
+            killThread tid
+          Nothing                -> return ()
+        putMVar taskStatus Nothing
+        cbEnd'
+      updateStatus fn = takeMVar taskStatus >>= \case
+        Nothing        -> putMVar taskStatus Nothing -- maybe task was cancelled
+        Just oldStatus -> do
+          let status@(done, total, success, failure, _) = fn oldStatus
+          FL.setLabel labelTask $ T.pack $ unwords
+            [ show done <> "/" <> show total
+            , "tasks complete:"
+            , show $ length success
+            , "succeeded,"
+            , show failure
+            , "failed"
+            ]
+          if done >= total
+            then do
+              cbEnd'
+              putMVar taskStatus Nothing
+            else putMVar taskStatus $ Just status
+      startTasks :: [(FilePath, Onyx [FilePath])] -> Onyx ()
+      startTasks tasks = liftIO (takeMVar taskStatus) >>= \case
+        Just status -> liftIO $ putMVar taskStatus $ Just status -- shouldn't happen
+        Nothing -> do
+          tid <- forkOnyx $ replaceQueueLog taskMessage $ forM_ (zip [1..] tasks) $ \(i, (fin, task)) -> do
+            liftIO $ sink $ EventIO $ addTerm termTask $ TermStart ("Task " <> show (i :: Int)) fin
+            errorToEither task >>= \case
+              Left e -> liftIO $ sink $ EventIO $ do
+                forM_ (getMessages e) $ addTerm termTask . TermError
+                updateStatus $ \case
+                  (done, total, success, failure, tid) -> (done + 1, total, success, failure + 1, tid)
+              Right fs -> liftIO $ sink $ EventIO $ do
+                forM_ fs $ \f -> addTerm termTask $ TermSuccess $ "Created file: " <> f
+                updateStatus $ \case
+                  (done, total, success, failure, tid) -> (done + 1, total, success ++ fs, failure, tid)
+          liftIO $ do
+            putMVar taskStatus $ Just (0, length tasks, [], 0, tid)
+            cbStart'
+            updateStatus id
+  return (startTasks, cancelTasks)
+
 launchBatch :: (Event -> IO ()) -> [FilePath] -> IO ()
 launchBatch sink startFiles = mdo
   loadedFiles <- newMVar startFiles
@@ -740,86 +876,24 @@ launchBatch sink startFiles = mdo
       return tab
     ]
   let nonTermTabs = tabSongs : functionTabs
-  (tabTask, labelTask, termTask, cancelButton) <- makeTab windowRect "Task" $ \rect tab -> do
+  (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
     FLE.rgbColorWithRgb (239,201,148) >>= setTabColor tab
-    let (labelRect, belowLabel) = chopTop 40 rect
-        (termRect, buttonRect) = chopBottom 50 belowLabel
-        labelRect' = trimClock 10 10 5 10 labelRect
-        termRect' = trimClock 5 10 5 10 termRect
-        buttonRect' = trimClock 5 10 10 10 buttonRect
-    label <- FL.boxNew labelRect' $ Just "…"
-    term <- FL.simpleTerminalNew termRect' Nothing
-    FL.setAnsi term True
-    FL.setStayAtBottom term True
-    FL.setResizable tab $ Just term
-    btnA <- FL.buttonNew buttonRect' $ Just "Cancel"
-    FL.setCallback btnA $ \_ -> sink $ EventIO cancelTasks
-    return (tab, label, term, btnA)
-  FL.deactivate tabTask
-  taskStatus <- newMVar Nothing :: IO (MVar (Maybe (Int, Int, [FilePath], Int, ThreadId)))
-  let taskMessage :: (MessageLevel, Message) -> IO ()
-      taskMessage = sink . EventIO . addTerm termTask . toTermMessage
-      cancelTasks = do
-        takeMVar taskStatus >>= \case
-          Just (_, _, _, _, tid) -> do
-            addTerm termTask $ TermLog "Cancelled tasks."
-            killThread tid
-          Nothing                -> return ()
-        putMVar taskStatus Nothing
-        reenableTabs
-      reenableTabs = do
-        mapM_ FL.activate nonTermTabs
-        FL.deactivate cancelButton
-        FLTK.redraw
-      updateStatus fn = takeMVar taskStatus >>= \case
-        Nothing        -> putMVar taskStatus Nothing -- maybe task was cancelled
-        Just oldStatus -> do
-          let status@(done, total, success, failure, _) = fn oldStatus
-          FL.setLabel labelTask $ T.pack $ unwords
-            [ show done <> "/" <> show total
-            , "tasks complete:"
-            , show $ length success
-            , "succeeded,"
-            , show failure
-            , "failed"
-            ]
-          if done >= total
-            then do
-              reenableTabs
-              putMVar taskStatus Nothing
-            else putMVar taskStatus $ Just status
-      startTasks :: [(FilePath, Onyx [FilePath])] -> Onyx ()
-      startTasks tasks = liftIO (takeMVar taskStatus) >>= \case
-        Just status -> liftIO $ putMVar taskStatus $ Just status -- shouldn't happen
-        Nothing -> do
-          tid <- forkOnyx $ replaceQueueLog taskMessage $ forM_ (zip [1..] tasks) $ \(i, (fin, task)) -> do
-            liftIO $ sink $ EventIO $ addTerm termTask $ TermStart ("Task " <> show (i :: Int)) fin
-            errorToEither task >>= \case
-              Left e -> liftIO $ sink $ EventIO $ do
-                forM_ (getMessages e) $ addTerm termTask . TermError
-                updateStatus $ \case
-                  (done, total, success, failure, tid) -> (done + 1, total, success, failure + 1, tid)
-              Right fs -> liftIO $ sink $ EventIO $ do
-                forM_ fs $ \f -> addTerm termTask $ TermSuccess $ "Created file: " <> f
-                updateStatus $ \case
-                  (done, total, success, failure, tid) -> (done + 1, total, success ++ fs, failure, tid)
-          liftIO $ do
-            putMVar taskStatus $ Just (0, length tasks, [], 0, tid)
-            FL.activate tabTask
-            FL.activate cancelButton
-            mapM_ FL.deactivate nonTermTabs
-            void $ FL.setValue tabs $ Just tabTask
-            updateTabsColor tabs
-            updateStatus id
+    FL.deactivate tab
+    let cbStart = do
+          FL.activate tab
+          mapM_ FL.deactivate nonTermTabs
+          void $ FL.setValue tabs $ Just tab
+          updateTabsColor tabs
+        cbEnd = do
+          mapM_ FL.activate nonTermTabs
+    taskOutputPage rect tab sink cbStart cbEnd
   FL.end tabs
   updateTabsColor tabs
   FL.setCallback tabs updateTabsColor
   FL.setResizable tabs $ Just tabSongs
   FL.end window
   FL.setResizable window $ Just tabs
-  FL.setCallback window $ windowCloser $ takeMVar taskStatus >>= \case
-    Just (_, _, _, _, tid) -> killThread tid
-    Nothing                -> return ()
+  FL.setCallback window $ windowCloser cancelTasks
   FL.showWidget window
 
 updateTabsColor :: FL.Ref FL.Tabs -> IO ()
@@ -982,7 +1056,7 @@ launchGUI = do
         case e of
           EventMsg    pair -> liftIO $ addTerm term $ toTermMessage pair
           EventFail   msg  -> liftIO $ addTerm term $ TermError msg
-          EventLoaded proj -> liftIO $ launchWindow proj
+          EventLoaded proj -> liftIO $ launchWindow sink proj
           EventLoad   f    -> startLoad f
           EventIO     act  -> liftIO act
           EventOnyx   act  -> act

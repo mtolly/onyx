@@ -38,6 +38,7 @@ data Project = Project
   { projectLocation :: FilePath -- path to song.yml
   , projectSongYaml :: SongYaml
   , projectRelease  :: Maybe ReleaseKey -- delete the temp import dir early if you want
+  , projectSource   :: FilePath -- absolute path to the source STFS file, PS dir, etc.
   , projectTemplate :: FilePath -- string you can append "_whatever" to for generated files
   }
 
@@ -58,6 +59,7 @@ openProject fp = do
         { projectLocation = fyml
         , projectSongYaml = yml
         , projectRelease = key
+        , projectSource = absolute
         , projectTemplate = dropExtension $ if isDir
           then dropTrailingPathSeparator absolute
           else fromMaybe absolute $
