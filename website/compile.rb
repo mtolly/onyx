@@ -86,14 +86,21 @@ def makeDifficulties(parts, song)
         mode_image = 'ghl'
       when 'pro-guitar'
         if [
+          'In the Presence of Enemies (Part 1)',
+          'Forsaken',
+          'The Dark Eternal Night',
+          'Repentance',
+          'Prophets of War',
+          'The Ministry of Lost Souls',
+          'In the Presence of Enemies (Part 2)',
+          'In the Presence of Enemies',
           'Summer Goddess',
           'Scoop Out',
-          'Prophets of War',
-          'Forsaken',
           'The Black Widow Blues/The White Widow',
           'Sabotage',
           'Spark',
           'A Crimson Rose and a Gin Tonic',
+          'Got a Match?',
         ].include?(song['project']['metadata']['title'])
           # hiding these pro guitar/bass charts since they haven't been released
           next
