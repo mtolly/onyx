@@ -31,6 +31,10 @@ parts:
   bass:
     grybo:
       difficulty: 7
+    pro-guitar:
+      difficulty: 7
+      tuning:
+        base: bass-6 # one octave up (with some shifts occasionally)
   guitar:
     grybo:
       difficulty: 6
