@@ -37,7 +37,8 @@ import           Control.Monad.IO.Class          (MonadIO (liftIO))
 import           Control.Monad.Trans.Class       (lift)
 import           Control.Monad.Trans.Resource    (MonadResource, ResourceT,
                                                   runResourceT)
-import           Control.Monad.Trans.StackTrace  (Staction, lg, stackIO)
+import           Control.Monad.Trans.StackTrace  (SendMessage, StackTraceT,
+                                                  Staction, lg, stackIO)
 import           Data.Binary.Get                 (getWord32le, runGetOrFail)
 import qualified Data.ByteString.Lazy            as BL
 import qualified Data.ByteString.Lazy.Char8      as BL8
@@ -342,10 +343,14 @@ remapChannels cs (AudioSource s r c f) = let
 
 buildSource :: (MonadResource m) =>
   Audio Duration FilePath -> Action (AudioSource m Float)
-buildSource aud = need (toList aud) >> case aud of
+buildSource aud = need (toList aud) >> buildSource' aud
+
+buildSource' :: (MonadResource m, MonadIO f) =>
+  Audio Duration FilePath -> f (AudioSource m Float)
+buildSource' aud = case aud of
   -- optimizations
   Drop Start t (Input fin) -> liftIO $ sourceSndFrom t fin
-  Drop Start (Seconds s) (Resample (Input fin)) -> buildSource $ Resample $ Drop Start (Seconds s) (Input fin)
+  Drop Start (Seconds s) (Resample (Input fin)) -> buildSource' $ Resample $ Drop Start (Seconds s) (Input fin)
   -- normal cases
   Silence c t -> return $ silent t 44100 c
   Input fin -> liftIO $ case takeExtension fin of
@@ -354,23 +359,23 @@ buildSource aud = need (toList aud) >> case aud of
   Mix         xs -> combine (\a b -> uncurry mix $ sameChannels (a, b)) xs
   Merge       xs -> combine merge xs
   Concatenate xs -> combine (\a b -> uncurry concatenate $ sameChannels (a, b)) xs
-  Gain d x -> gain (realToFrac d) <$> buildSource x
-  Take Start t x -> takeStart t <$> buildSource x
-  Take End t x -> takeEnd t <$> buildSource x
-  Drop Start t x -> dropStart t <$> buildSource x
-  Drop End t x -> dropEnd t <$> buildSource x
-  Pad Start t x -> padStart t <$> buildSource x
-  Pad End t x -> padEnd t <$> buildSource x
-  Fade Start t x -> fadeStart t <$> buildSource x
-  Fade End t x -> fadeEnd t <$> buildSource x
-  Resample x -> buildSource x >>= \src -> return $ if rate src == 44100
+  Gain d x -> gain (realToFrac d) <$> buildSource' x
+  Take Start t x -> takeStart t <$> buildSource' x
+  Take End t x -> takeEnd t <$> buildSource' x
+  Drop Start t x -> dropStart t <$> buildSource' x
+  Drop End t x -> dropEnd t <$> buildSource' x
+  Pad Start t x -> padStart t <$> buildSource' x
+  Pad End t x -> padEnd t <$> buildSource' x
+  Fade Start t x -> fadeStart t <$> buildSource' x
+  Fade End t x -> fadeEnd t <$> buildSource' x
+  Resample x -> buildSource' x >>= \src -> return $ if rate src == 44100
     then src
     else resampleTo 44100 SincMediumQuality src
-  Channels cs x -> remapChannels cs <$> buildSource x
-  StretchSimple d x -> stretchSimple d <$> buildSource x
-  StretchFull t p x -> stretchFull t p <$> buildSource x
-  Mask tags seams x -> renderMask tags seams <$> buildSource x
-  where combine meth xs = mapM buildSource xs >>= \srcs -> case srcs of
+  Channels cs x -> remapChannels cs <$> buildSource' x
+  StretchSimple d x -> stretchSimple d <$> buildSource' x
+  StretchFull t p x -> stretchFull t p <$> buildSource' x
+  Mask tags seams x -> renderMask tags seams <$> buildSource' x
+  where combine meth xs = mapM buildSource' xs >>= \srcs -> case srcs of
           []     -> error "buildSource: can't combine 0 files"
           s : ss -> return $ foldl meth s ss
           -- TODO just have this make an empty mono source,
@@ -382,7 +387,7 @@ buildAudio aud out = do
   src <- lift $ lift $ buildSource aud
   runAudio src out
 
-runAudio :: AudioSource (ResourceT IO) Float -> FilePath -> Staction ()
+runAudio :: (SendMessage m, MonadIO m) => AudioSource (ResourceT IO) Float -> FilePath -> StackTraceT m ()
 runAudio src out = let
   src' = clampFloat $ if takeExtension out == ".ogg" && channels src == 6
     then merge src $ silent (Frames 0) (rate src) 1

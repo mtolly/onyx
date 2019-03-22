@@ -1,11 +1,13 @@
 {-# LANGUAGE BangPatterns             #-}
 {-# LANGUAGE LambdaCase               #-}
 {-# LANGUAGE NondecreasingIndentation #-}
-module GuitarHeroII.Audio (writeVGS) where
+{-# LANGUAGE OverloadedStrings #-}
+module GuitarHeroII.Audio (writeVGS, readVGS) where
 
-import           Control.Monad                (liftM4, replicateM_)
+import           Control.Monad                (liftM4, replicateM_, forM)
 import           Control.Monad.IO.Class       (liftIO)
 import           Control.Monad.Trans.Resource
+import           Control.Monad.Trans.Class (lift)
 import           Data.Binary.Put
 import qualified Data.ByteString              as B
 import qualified Data.ByteString.Char8        as B8
@@ -18,6 +20,8 @@ import qualified Data.Vector.Storable         as V
 import           Foreign
 import qualified System.IO                    as IO
 import           System.IO.Unsafe             (unsafePerformIO)
+import Control.Monad.Trans.State (StateT, get, put, runStateT)
+import Data.Binary.Get (Get, getByteString, runGet, getWord32le)
 
 #include "encode_vag.h"
 
@@ -75,3 +79,67 @@ writeVGS fp src = let
     liftIO $ IO.hSeek h IO.AbsoluteSeek 0
     liftIO $ BL.hPut h $ header blocksPerChannel
   in C.runConduit $ s .| C.bracketP (IO.openBinaryFile fp IO.WriteMode) IO.hClose go
+
+decodeVAGBlock :: Word8 -> StateT (Double, Double) Get [Int16]
+decodeVAGBlock targetChannel = do
+  bytes <- lift $ getByteString 16
+  let predictor = B.index bytes 0 `shiftR` 4 -- high nibble, shouldn't be more than 4
+      shift'    = B.index bytes 0 .&. 0xF    -- low  nibble
+      channel   = B.index bytes 1
+      samples = do
+        byte <- B.unpack $ B.drop 2 bytes
+        let signExtend :: Word32 -> Int32
+            signExtend x = fromIntegral $ if (x .&. 0x8000) /= 0 then x .|. 0xFFFF0000 else x
+            ss0 = signExtend $ (fromIntegral byte .&. 0xF ) `shiftL` 12
+            ss1 = signExtend $ (fromIntegral byte .&. 0xF0) `shiftL` 8
+        [   realToFrac $ ss0 `shiftR` fromIntegral shift'
+          , realToFrac $ ss1 `shiftR` fromIntegral shift'
+          ]
+  if channel /= targetChannel
+    then return []
+    else forM samples $ \sample -> do
+      (s0, s1) <- get
+      let newSample = sample
+            + s0 * fst (vagFilter !! fromIntegral predictor)
+            + s1 * snd (vagFilter !! fromIntegral predictor)
+      put (newSample, s0)
+      -- TODO do we need to clamp this
+      return $ round newSample
+
+vagFilter :: [(Double, Double)]
+vagFilter =
+  [ (0.0, 0.0)
+  , (60.0 / 64.0,  0.0)
+  , (115.0 / 64.0, -52.0 / 64.0)
+  , (98.0 / 64.0, -55.0 / 64.0)
+  , (122.0 / 64.0, -60.0 / 64.0)
+  ]
+
+readVGS :: (MonadResource m) => FilePath -> IO [A.AudioSource m Int16]
+readVGS fp = do
+  header <- IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 0x80
+  let readHeader = do
+        "VgS!" <- getByteString 4
+        2 <- getWord32le
+        readChannels
+      readChannels = do
+        rate <- getWord32le
+        blocks <- fromIntegral <$> getWord32le
+        if blocks == 0
+          then return []
+          else ((rate, blocks) :) <$> readChannels
+  let chans = runGet readHeader header
+      totalBlocks = sum $ map snd chans
+  return $ flip map (zip [0..] chans) $ \(i, (rate, blocks)) -> let
+    src = C.bracketP (IO.openBinaryFile fp IO.ReadMode) IO.hClose $ \h -> do
+      _ <- liftIO $ BL.hGet h 0x80
+      let go _    0          = return ()
+          go dbls blocksLeft = do
+            chunk <- liftIO $ BL.hGet h 16
+            case runGet (runStateT (decodeVAGBlock i) dbls) chunk of
+              ([], _)    -> go dbls $ blocksLeft - 1
+              (samps, dbls') -> do
+                C.yield $ V.fromList samps
+                go dbls' $ blocksLeft - 1
+      go (0, 0) totalBlocks
+    in A.AudioSource src (realToFrac rate) 1 $ blocks * xaBlockSamples

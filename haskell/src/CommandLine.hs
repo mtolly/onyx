@@ -6,7 +6,7 @@
 module CommandLine (commandLine, identifyFile', FileType(..), copyDirRecursive, runDolphin) where
 
 import           Audio                            (applyPansVols, fadeEnd,
-                                                   fadeStart)
+                                                   fadeStart, runAudio)
 import           Build                            (loadYaml, shakeBuildFiles)
 import           Config
 import           Control.Applicative              (liftA2)
@@ -41,6 +41,7 @@ import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Data.Text.Encoding.Error         (lenientDecode)
 import           Data.Word                        (Word32)
+import           GuitarHeroII.Audio               (readVGS)
 import qualified Image
 import           Import
 import           Magma                            (getRBAFile, oggToMogg,
@@ -67,7 +68,8 @@ import qualified Sound.MIDI.Util                  as U
 import           STFS.Package                     (extractSTFS)
 import           System.Console.GetOpt
 import qualified System.Directory                 as Dir
-import           System.FilePath                  (dropTrailingPathSeparator,
+import           System.FilePath                  (dropExtension,
+                                                   dropTrailingPathSeparator,
                                                    splitFileName, takeDirectory,
                                                    takeExtension, takeFileName,
                                                    (-<.>), (<.>), (</>))
@@ -967,6 +969,20 @@ commands =
     , commandRun = \args opts -> do
       out <- outputFile opts $ fatal "need output folder for .app files"
       runDolphin args (getDolphinFunction opts) out
+    }
+
+  , Command
+    { commandWord = "vgs"
+    , commandDesc = "Convert VGS audio to a set of WAV files."
+    , commandUsage = "onyx vgs in.vgs"
+    , commandRun = \args _opts -> case args of
+      [fin] -> do
+        srcs <- liftIO $ readVGS fin
+        forM (zip [0..] srcs) $ \(i, src) -> do
+          let fout = dropExtension fin ++ "_" ++ show (i :: Int) ++ ".wav"
+          runAudio (CA.mapSamples CA.fractionalSample src) fout
+          return fout
+      _ -> fatal "Expected 1 argument (.vgs file)"
     }
 
   ]
