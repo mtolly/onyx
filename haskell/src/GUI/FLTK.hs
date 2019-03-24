@@ -7,17 +7,18 @@ import           CommandLine                               (copyDirRecursive,
                                                             runDolphin)
 import           Config
 import           Control.Concurrent                        (MVar, ThreadId,
-                                                            killThread, newMVar,
-                                                            putMVar, readMVar,
-                                                            takeMVar)
+                                                            forkIO, killThread,
+                                                            newMVar, putMVar,
+                                                            readMVar, takeMVar)
 import           Control.Concurrent.STM                    (atomically)
 import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             tryReadTChan,
                                                             writeTChan)
 import qualified Control.Exception                         as Exc
 import           Control.Monad                             (ap, forM, forM_,
-                                                            guard, liftM, void,
-                                                            when, (>=>))
+                                                            guard, liftM,
+                                                            unless, void, when,
+                                                            (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.IO.Class                    (MonadIO (..),
                                                             liftIO)
@@ -28,13 +29,16 @@ import           Control.Monad.Trans.Resource              (ResourceT, release,
                                                             resourceForkIO,
                                                             runResourceT)
 import           Control.Monad.Trans.StackTrace
+import qualified Data.Aeson                                as A
 import           Data.Char                                 (toLower)
 import           Data.Default.Class                        (def)
 import           Data.Functor.Const                        (Const (..))
+import qualified Data.HashMap.Strict                       as HM
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
                                                             listToMaybe)
 import qualified Data.Text                                 as T
+import           Data.Version                              (showVersion)
 import qualified Data.Yaml                                 as Y
 import           Foreign                                   (Ptr)
 import           Foreign.C                                 (CString,
@@ -49,7 +53,11 @@ import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
                                                             Y (..))
 import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           JSONData                                  (toJSON)
+import           Network.HTTP.Req                          ((/:))
+import qualified Network.HTTP.Req                          as Req
 import           OpenProject
+import           OSFiles                                   (osOpenFile)
+import           Paths_onyxite_customs_tool                (version)
 import           Reductions                                (simpleReduce)
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
@@ -165,10 +173,10 @@ padded t r b l size@(Size (Width w) (Height h)) fn = do
     )
     Nothing
   let rect = Rectangle (Position (X l) (Y t)) size
-  x <- fn rect
   box <- FL.boxNew rect Nothing
-  FL.end group
   FL.setResizable group $ Just box
+  x <- fn rect
+  FL.end group
   return x
 
 makeTab :: Rectangle -> T.Text -> (Rectangle -> FL.Ref FL.Group -> IO a) -> IO a
@@ -772,7 +780,7 @@ launchBatch sink startFiles = mdo
         FL.setColor tab color
         FL.setSelectionColor tab color
   tabSongs <- makeTab windowRect "Songs" $ \rect tab -> do
-    FLE.rgbColorWithRgb (167,229,165) >>= setTabColor tab
+    FLE.rgbColorWithRgb (209,177,224) >>= setTabColor tab
     let (labelRect, belowLabel) = chopTop 40 rect
         (termRect, buttonsRect) = chopBottom 50 belowLabel
         labelRect' = trimClock 10 10 5 10 labelRect
@@ -810,7 +818,7 @@ launchBatch sink startFiles = mdo
     btnB <- FL.buttonNew btnRectB' $ Just "Clear Songs"
     FL.setCallback btnB $ \_ -> sink $ EventIO $ updateFiles $ const []
     return tab
-  functionColor <- FLE.rgbColorWithRgb (229,165,183)
+  functionColor <- FLE.rgbColorWithRgb (224,210,177)
   functionTabs <- sequence
     [ makeTab windowRect "Rock Band 3 (360)" $ \rect tab -> do
       setTabColor tab functionColor
@@ -877,7 +885,7 @@ launchBatch sink startFiles = mdo
     ]
   let nonTermTabs = tabSongs : functionTabs
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
-    FLE.rgbColorWithRgb (239,201,148) >>= setTabColor tab
+    FLE.rgbColorWithRgb (179,221,187) >>= setTabColor tab
     FL.deactivate tab
     let cbStart = do
           FL.activate tab
@@ -960,6 +968,16 @@ foreign import ccall unsafe "Fl_Simple_Terminal_append"
 macOS :: Bool
 macOS = os == "darwin"
 
+isNewestRelease :: (Bool -> IO ()) -> IO ()
+isNewestRelease cb = do
+  let addr = Req.https "api.github.com" /: "repos" /: "mtolly" /: "onyxite-customs" /: "releases" /: "latest"
+  rsp <- Req.runReq def $ Req.req Req.GET addr Req.NoReqBody Req.jsonResponse $ Req.header "User-Agent" "mtolly/onyxite-customs"
+  case Req.responseBody rsp of
+    A.Object obj -> case HM.lookup "name" obj of
+      Just (A.String str) -> cb $ T.unpack str == showVersion version
+      _                   -> return ()
+    _            -> return ()
+
 launchGUI :: IO ()
 launchGUI = do
   _ <- FLTK.setScheme "gtk+"
@@ -977,10 +995,29 @@ launchGUI = do
     (Just "Onyx Console")
   FLE.rgbColorWithRgb (114,74,124) >>= FL.setColor termWindow
   let termMenuHeight = if macOS then 0 else 30
-  term <- FL.simpleTerminalNew
+  buttonGithub <- FL.buttonNew
     (Rectangle
       (Position (X 10) (Y $ 10 + termMenuHeight))
-      (Size (Width 480) (Height $ 340 - termMenuHeight))
+      (Size (Width 100) (Height 25))
+    )
+    (Just "Homepage")
+  FL.setCallback buttonGithub $ \_ ->
+    osOpenFile "https://github.com/mtolly/onyxite-customs/releases"
+  labelLatest <- FL.boxNew
+    (Rectangle
+      (Position (X 120) (Y $ 10 + termMenuHeight))
+      (Size (Width 370) (Height 25))
+    )
+    (Just "Checking for updates…")
+  _ <- forkIO $ isNewestRelease $ \b -> sink $ EventIO $ do
+    FL.setLabel labelLatest $ if b
+      then "No updates found."
+      else "New version available!"
+    unless b $ FL.setLabelcolor labelLatest FLE.whiteColor
+  term <- FL.simpleTerminalNew
+    (Rectangle
+      (Position (X 10) (Y $ 45 + termMenuHeight))
+      (Size (Width 480) (Height $ 305 - termMenuHeight))
     )
     Nothing
   FL.setAnsi term True
@@ -1000,7 +1037,7 @@ launchGUI = do
     (Just "Load song")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs { FL.handleCustom = Just $ dragAndDrop loadSongs . FL.handleSuper }
-  FLE.rgbColorWithRgb (216,125,154) >>= FL.setColor buttonLoad
+  FLE.rgbColorWithRgb (237,173,193) >>= FL.setColor buttonLoad
   FL.setLabelsize buttonLoad (FL.FontSize 13)
   FL.setCallback buttonLoad $ \_ -> loadDialog
   buttonBatch <- FL.buttonCustom
@@ -1008,7 +1045,7 @@ launchGUI = do
     (Just "Batch process")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs { FL.handleCustom = Just $ dragAndDrop (launchBatch sink) . FL.handleSuper }
-  FLE.rgbColorWithRgb (141,136,224) >>= FL.setColor buttonBatch
+  FLE.rgbColorWithRgb (177,173,244) >>= FL.setColor buttonBatch
   FL.setLabelsize buttonBatch (FL.FontSize 13)
   FL.setCallback buttonBatch $ \_ -> launchBatch sink []
   menu <- FL.sysMenuBarNew
