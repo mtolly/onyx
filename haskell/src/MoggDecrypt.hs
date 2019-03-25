@@ -1,8 +1,8 @@
 module MoggDecrypt (moggToOgg) where
 
+import           Control.Applicative            (liftA2)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
 import           Control.Monad.Trans.StackTrace
-import           Control.Applicative            (liftA2)
 import           Data.Binary.Get                (getWord32le, runGet)
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Char                      (toUpper)

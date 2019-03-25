@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo       #-}
-module GUI.FLTK where
+module GUI.FLTK (launchGUI) where
 
 import           CommandLine                               (copyDirRecursive,
                                                             runDolphin)
@@ -15,11 +15,9 @@ import           Control.Concurrent.STM.TChan              (newTChanIO,
                                                             tryReadTChan,
                                                             writeTChan)
 import qualified Control.Exception                         as Exc
-import           Control.Monad                             (ap, forM, forM_,
-                                                            guard, liftM,
+import           Control.Monad                             (forM, forM_, guard,
                                                             unless, void, when,
                                                             (>=>))
-import           Control.Monad.Codec
 import           Control.Monad.IO.Class                    (MonadIO (..),
                                                             liftIO)
 import           Control.Monad.Trans.Class                 (lift)
@@ -32,7 +30,6 @@ import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                                as A
 import           Data.Char                                 (toLower)
 import           Data.Default.Class                        (def)
-import           Data.Functor.Const                        (Const (..))
 import qualified Data.HashMap.Strict                       as HM
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
@@ -204,20 +201,23 @@ tabScroll rect name fn = do
 
 launchWindow :: (Event -> IO ()) -> Project -> IO ()
 launchWindow sink proj = mdo
-  let windowSize = Size (Width 800) (Height 600)
+  let windowSize = Size (Width 800) (Height 500)
       windowRect = Rectangle
         (Position (X 0) (Y 0))
         windowSize
-  window <- FL.windowNew windowSize Nothing Nothing
+  window <- FL.windowNew
+    windowSize
+    Nothing
+    (Just $ fromMaybe "Song" $ _title $ _metadata $ projectSongYaml proj)
+  behindTabsColor >>= FL.setColor window
   FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
-  FL.sizeRangeWithArgs window (Size (Width 800) (Height 100)) FL.defaultOptionalSizeRangeArgs
-    { FL.maxw = Just 800
-    }
+  FL.sizeRange window $ Size (Width 800) (Height 500)
   FL.begin window
   tabs <- FL.tabsNew
     (Rectangle (Position (X 0) (Y 0)) windowSize)
     Nothing
-  metaTab <- tabScroll windowRect "Metadata" $ \rect tab -> do
+  metaTab <- makeTab windowRect "Metadata" $ \rect tab -> do
+    homeTabColor >>= setTabColor tab
     let (rectLeft, rectRight) = chopRight 200 rect
     pack <- FL.packNew rectLeft Nothing
     forM_ (zip (True : repeat False) [("Title", _title), ("Artist", _artist), ("Album", _album)]) $ \(top, (str, fn)) -> do
@@ -250,6 +250,7 @@ launchWindow sink proj = mdo
   makeTab windowRect "Clone Hero/Phase Shift" $ \_ _ -> return ()
   -}
   utilsTab <- makeTab windowRect "Utilities" $ \rect tab -> do
+    functionTabColor >>= setTabColor tab
     pack <- FL.packNew rect Nothing
     padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
       btn <- FL.buttonNew rect' $ Just "Produce MIDI with automatic reductions"
@@ -284,8 +285,9 @@ launchWindow sink proj = mdo
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
-  let nonTermTabs = [FL.safeCast metaTab, utilsTab]
+  let nonTermTabs = [metaTab, utilsTab]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
+    taskTabColor >>= setTabColor tab
     FL.deactivate tab
     let cbStart = do
           FL.activate tab
@@ -296,6 +298,8 @@ launchWindow sink proj = mdo
           mapM_ FL.activate nonTermTabs
     taskOutputPage rect tab sink cbStart cbEnd
   FL.end tabs
+  updateTabsColor tabs
+  FL.setCallback tabs updateTabsColor
   FL.setResizable tabs $ Just metaTab
   FL.end window
   FL.setResizable window $ Just tabs
@@ -762,6 +766,20 @@ taskOutputPage rect tab sink cbStart cbEnd = mdo
             updateStatus id
   return (startTasks, cancelTasks)
 
+homeTabColor, functionTabColor, taskTabColor, globalLogColor, loadSongColor, batchProcessColor, behindTabsColor :: IO FLE.Color
+homeTabColor      = FLE.rgbColorWithRgb (209,177,224)
+functionTabColor  = FLE.rgbColorWithRgb (224,210,177)
+taskTabColor      = FLE.rgbColorWithRgb (179,221,187)
+globalLogColor    = FLE.rgbColorWithRgb (114,74,124)
+loadSongColor     = FLE.rgbColorWithRgb (237,173,193)
+batchProcessColor = FLE.rgbColorWithRgb (177,173,244)
+behindTabsColor   = FLE.rgbColorWithRgb (94,94,94) -- TODO report incorrect Char binding type for rgbColorWithGrayscale
+
+setTabColor :: FL.Ref FL.Group -> FLE.Color -> IO ()
+setTabColor tab color = do
+  FL.setColor tab color
+  FL.setSelectionColor tab color
+
 launchBatch :: (Event -> IO ()) -> [FilePath] -> IO ()
 launchBatch sink startFiles = mdo
   loadedFiles <- newMVar startFiles
@@ -770,17 +788,13 @@ launchBatch sink startFiles = mdo
         (Position (X 0) (Y 0))
         windowSize
   window <- FL.windowNew windowSize Nothing $ Just "Batch Process"
-  FLE.rgbColorWithRgb (94,94,94) >>= FL.setColor window -- TODO report incorrect Char binding type for rgbColorWithGrayscale
+  behindTabsColor >>= FL.setColor window
   FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
-  FL.sizeRangeWithArgs window (Size (Width 800) (Height 400)) FL.defaultOptionalSizeRangeArgs
+  FL.sizeRange window $ Size (Width 800) (Height 400)
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
-  let setTabColor :: FL.Ref FL.Group -> FLE.Color -> IO ()
-      setTabColor tab color = do
-        FL.setColor tab color
-        FL.setSelectionColor tab color
   tabSongs <- makeTab windowRect "Songs" $ \rect tab -> do
-    FLE.rgbColorWithRgb (209,177,224) >>= setTabColor tab
+    homeTabColor >>= setTabColor tab
     let (labelRect, belowLabel) = chopTop 40 rect
         (termRect, buttonsRect) = chopBottom 50 belowLabel
         labelRect' = trimClock 10 10 5 10 labelRect
@@ -818,10 +832,9 @@ launchBatch sink startFiles = mdo
     btnB <- FL.buttonNew btnRectB' $ Just "Clear Songs"
     FL.setCallback btnB $ \_ -> sink $ EventIO $ updateFiles $ const []
     return tab
-  functionColor <- FLE.rgbColorWithRgb (224,210,177)
   functionTabs <- sequence
     [ makeTab windowRect "Rock Band 3 (360)" $ \rect tab -> do
-      setTabColor tab functionColor
+      functionTabColor >>= setTabColor tab
       batchPageRB3 rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
@@ -839,7 +852,7 @@ launchBatch sink startFiles = mdo
                 return dout
       return tab
     , makeTab windowRect "Rock Band 2 (360)" $ \rect tab -> do
-      setTabColor tab functionColor
+      functionTabColor >>= setTabColor tab
       batchPageRB2 rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
@@ -851,7 +864,7 @@ launchBatch sink startFiles = mdo
             return fout
       return tab
     , makeTab windowRect "Clone Hero/Phase Shift" $ \rect tab -> do
-      setTabColor tab functionColor
+      functionTabColor >>= setTabColor tab
       batchPagePS rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
@@ -867,13 +880,13 @@ launchBatch sink startFiles = mdo
               return [fout]
       return tab
     , makeTab windowRect "Rock Band 3 (Wii)" $ \rect tab -> do
-      setTabColor tab functionColor
+      functionTabColor >>= setTabColor tab
       batchPageDolphin rect tab $ \dirout midfn -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         startTasks [(".app creation", runDolphin files midfn dirout)]
       return tab
     , makeTab windowRect "Preview" $ \rect tab -> do
-      setTabColor tab functionColor
+      functionTabColor >>= setTabColor tab
       batchPagePreview rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
@@ -885,7 +898,7 @@ launchBatch sink startFiles = mdo
     ]
   let nonTermTabs = tabSongs : functionTabs
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
-    FLE.rgbColorWithRgb (179,221,187) >>= setTabColor tab
+    taskTabColor >>= setTabColor tab
     FL.deactivate tab
     let cbStart = do
           FL.activate tab
@@ -993,7 +1006,8 @@ launchGUI = do
     (Size (Width 500) (Height 400))
     Nothing
     (Just "Onyx Console")
-  FLE.rgbColorWithRgb (114,74,124) >>= FL.setColor termWindow
+  FL.sizeRange termWindow $ Size (Width 500) (Height 400)
+  globalLogColor >>= FL.setColor termWindow
   let termMenuHeight = if macOS then 0 else 30
   buttonGithub <- FL.buttonNew
     (Rectangle
@@ -1037,7 +1051,7 @@ launchGUI = do
     (Just "Load song")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs { FL.handleCustom = Just $ dragAndDrop loadSongs . FL.handleSuper }
-  FLE.rgbColorWithRgb (237,173,193) >>= FL.setColor buttonLoad
+  loadSongColor >>= FL.setColor buttonLoad
   FL.setLabelsize buttonLoad (FL.FontSize 13)
   FL.setCallback buttonLoad $ \_ -> loadDialog
   buttonBatch <- FL.buttonCustom
@@ -1045,7 +1059,7 @@ launchGUI = do
     (Just "Batch process")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs { FL.handleCustom = Just $ dragAndDrop (launchBatch sink) . FL.handleSuper }
-  FLE.rgbColorWithRgb (177,173,244) >>= FL.setColor buttonBatch
+  batchProcessColor >>= FL.setColor buttonBatch
   FL.setLabelsize buttonBatch (FL.FontSize 13)
   FL.setCallback buttonBatch $ \_ -> launchBatch sink []
   menu <- FL.sysMenuBarNew
@@ -1105,41 +1119,3 @@ launchGUI = do
         True  -> process >> loop
     in loop
   FLTK.flush -- dunno if required
-
---
--- WIP form-building stuff
---
-
--- this is a silly usage of codec but whatever
-type ControlFor = CodecFor (Const ()) IOIO
-type Control a = ControlFor a a
-newtype IOIO a = IOIO (IO (IO a))
-
-instance Functor IOIO where
-  fmap = liftM
-instance Applicative IOIO where
-  (<*>) = ap
-  pure = return
-instance Monad IOIO where
-  return = IOIO . return . return
-  IOIO f >>= g = IOIO $ do
-    getter1 <- f
-    x <- getter1
-    case g x of
-      IOIO getter2 -> getter2
-
-makeControl :: (c -> IO (IO a)) -> ControlFor c a
-makeControl f = Codec
-  { codecIn = Const ()
-  , codecOut = IOIO . f
-  }
-
-runControl :: c -> ControlFor c a -> IO (IO a)
-runControl c cdc = case codecOut cdc c of IOIO x -> x
-
-checkBox :: FL.Rectangle -> Maybe T.Text -> (FL.Ref FL.CheckButton -> IO ()) -> Control Bool
-checkBox rect label initfn = makeControl $ \b -> do
-  box <- FL.checkButtonNew rect label
-  void $ FL.setValue box b
-  initfn box
-  return $ FL.getValue box
