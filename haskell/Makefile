@@ -41,7 +41,7 @@ mac:
 	stack exec -- onyx-package mac/Onyx.app/Contents/Info.plist mac/README.txt
 
 mac-deps:
-	brew install libsndfile libsamplerate lame sdl2 sdl2_ttf rubberband dylibbundler wine mono mono-libgdiplus mpg123
+	brew install libsndfile libsamplerate lame rubberband dylibbundler wine mono mono-libgdiplus mpg123
 
 win:
 	stack build
@@ -60,13 +60,16 @@ win:
 	"/c/Program Files (x86)/NSIS/Bin/makensis.exe" installer.nsi
 
 win-deps:
-	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate mingw-w64-x86_64-lame mingw-w64-x86_64-SDL2 mingw-w64-x86_64-SDL2_ttf mingw-w64-x86_64-rubberband mingw-w64-x86_64-mpg123
+	pacman -Sy mingw-w64-x86_64-pkg-config mingw-w64-x86_64-libsndfile mingw-w64-x86_64-libsamplerate mingw-w64-x86_64-lame mingw-w64-x86_64-rubberband mingw-w64-x86_64-mpg123
 
 icon/icon.o:
 	stack exec -- windres -i icon/icon.rc icon/icon.o
 
 ubuntu-deps:
-	apt install libsndfile-dev libsamplerate-dev libmp3lame-dev libsdl2-dev libsdl2-ttf-dev librubberband-dev libmpg123-dev
+	apt install libsndfile-dev libsamplerate-dev libmp3lame-dev librubberband-dev libmpg123-dev
 
 arch-deps:
-	pacman -S libsndfile libsamplerate lame sdl2 sdl2_ttf rubberband mpg123
+	pacman -S libsndfile libsamplerate lame rubberband mpg123
+
+ghci:
+	stack ghci onyxite-customs-tool:lib
