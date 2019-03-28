@@ -782,7 +782,7 @@ setTabColor tab color = do
 
 launchBatch :: (Event -> IO ()) -> [FilePath] -> IO ()
 launchBatch sink startFiles = mdo
-  loadedFiles <- newMVar startFiles
+  loadedFiles <- newMVar []
   let windowSize = Size (Width 800) (Height 400)
       windowRect = Rectangle
         (Position (X 0) (Y 0))
@@ -804,19 +804,34 @@ launchBatch sink startFiles = mdo
         (btnRectA', _) = chopRight 5 btnRectA
         (_, btnRectB') = chopLeft 5 btnRectB
     label <- FL.boxNew labelRect' $ Just "0 files loaded."
-    term <- FL.simpleTerminalNew termRect' Nothing
-    FL.setResizable tab $ Just term
-    let updateFiles f = do
-          fs <- f <$> takeMVar loadedFiles
-          FL.setText term $ T.pack $ unlines fs
-          FL.setLabel label $ T.pack $ case length fs of
-            1 -> "1 file loaded."
-            n -> show n ++ " files loaded."
-          putMVar loadedFiles fs
-    updateFiles id
+    tree <- FL.treeNew termRect' Nothing
+    FL.end tree
+    FL.setResizable tab $ Just tree
+    let updateLabel fs = FL.setLabel label $ T.pack $ case length fs of
+          1 -> "1 file loaded."
+          n -> show n ++ " files loaded."
+        clearFiles = do
+          _ <- takeMVar loadedFiles
+          FL.clear tree
+          _ <- FL.add tree ""
+          FL.rootLabel tree "Songs"
+          updateLabel []
+          putMVar loadedFiles []
+          FLTK.redraw
+        addFiles gs = do
+          fs <- takeMVar loadedFiles
+          Just root <- FL.root tree
+          forM_ (zip [length fs + 1 ..] gs) $ \(i, path) -> do
+            FL.insert tree root (T.pack path) $ FL.AtIndex i
+          let fs' = fs ++ gs
+          updateLabel fs'
+          putMVar loadedFiles fs'
+          FLTK.redraw
+    clearFiles
+    addFiles startFiles
     void $ FL.boxCustom termRect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
       { FL.handleCustom = Just
-        $ dragAndDrop (\newFiles -> sink $ EventIO $ updateFiles (++ newFiles))
+        $ dragAndDrop (sink . EventIO . addFiles)
         . (\_ _ -> return $ Left FL.UnknownEvent)
       }
     btnA <- FL.buttonNew btnRectA' $ Just "Add Song"
@@ -827,10 +842,10 @@ launchBatch sink startFiles = mdo
         FL.NativeFileChooserPicked -> do
           n <- FL.getCount picker
           fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
-          updateFiles (++ (map T.unpack $ catMaybes fs))
+          addFiles $ map T.unpack $ catMaybes fs
         _ -> return ()
     btnB <- FL.buttonNew btnRectB' $ Just "Clear Songs"
-    FL.setCallback btnB $ \_ -> sink $ EventIO $ updateFiles $ const []
+    FL.setCallback btnB $ \_ -> sink $ EventIO clearFiles
     return tab
   functionTabs <- sequence
     [ makeTab windowRect "Rock Band 3 (360)" $ \rect tab -> do
