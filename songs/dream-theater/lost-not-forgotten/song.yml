@@ -28,6 +28,12 @@ parts:
     drums:
       difficulty: 7
       kicks: both
+  guitar:
+    pro-guitar:
+      difficulty: 7
+      tuning:
+        base: guitar-6
+        global: -2 # D standard
 targets:
   rb3:
     game: rb3
