@@ -13,8 +13,11 @@ import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
 import           Data.Aeson                     ((.:))
 import qualified Data.Aeson.Types               as A
+import qualified Data.ByteString                as B
 import qualified Data.ByteString.Lazy           as BL
+import           Data.Char                      (toLower)
 import           Data.Default.Class             (def)
+import qualified Data.DTA.Serialize.RB3         as D
 import           Data.Functor                   (void)
 import           Data.Hashable
 import qualified Data.HashMap.Strict            as Map
@@ -23,9 +26,14 @@ import           Data.Maybe                     (fromMaybe)
 import           Data.Monoid                    ((<>))
 import qualified Data.Text                      as T
 import qualified Data.Yaml                      as Y
+import qualified FeedBack.Load                  as FB
+import qualified FretsOnFire                    as FoF
 import           Import
 import           JSONData                       (toJSON)
+import           Magma                          (getRBAFileBS)
+import           PrettyDTA                      (DTASingle (..), readDTASingles)
 import qualified Sound.Jammit.Base              as J
+import           STFS.Package                   (STFSContents (..), withSTFS)
 import qualified System.Directory               as Dir
 import           System.FilePath                (dropExtension,
                                                  dropTrailingPathSeparator,
@@ -49,6 +57,113 @@ resourceTempDir = do
   allocate
     (Temp.createTempDirectory tmp "onyx")
     (ignoringIOErrors . Dir.removeDirectoryRecursive)
+
+data Importable m = Importable
+  { impTitle   :: Maybe T.Text
+  , impArtist  :: Maybe T.Text
+  , impFormat  :: T.Text
+  , impPath    :: FilePath
+  , impProject :: StackTraceT m Project
+  }
+
+findSongs :: (SendMessage m, MonadResource m, MonadUnliftIO m)
+  => FilePath -> StackTraceT m ([FilePath], Maybe (Importable m))
+findSongs fp' = do
+  fp <- stackIO $ Dir.makeAbsolute fp'
+  let found imp = return ([], Just imp)
+      withYaml loc key fyml = loadYaml fyml >>= \yml -> return Project
+        { projectLocation = fyml
+        , projectSongYaml = yml
+        , projectRelease = key
+        , projectSource = loc
+        , projectTemplate
+          = dropExtension
+          $ dropTrailingPathSeparator
+          $ fromMaybe loc
+          $ stripSuffix "_rb3con" loc <|> stripSuffix "_rb2con" loc
+        }
+      importFrom loc fn = do
+        (key, tmp) <- resourceTempDir
+        () <- fn tmp
+        withYaml loc (Just key) (tmp </> "song.yml")
+      foundChart loc = do
+        let dir = takeDirectory loc
+        ini <- fmap FB.chartToIni $ FB.loadChartFile loc
+        found Importable
+          { impTitle = FoF.name ini
+          , impArtist = FoF.artist ini
+          , impFormat = "CH"
+          , impPath = dir
+          , impProject = importFrom dir $ void . importFoF True False dir
+          }
+      foundIni loc = do
+        let dir = takeDirectory loc
+        ini <- FoF.loadSong loc
+        found Importable
+          { impTitle = FoF.name ini
+          , impArtist = FoF.artist ini
+          , impFormat = "FoF/PS/CH"
+          , impPath = dir
+          , impProject = importFrom dir $ void . importFoF True False dir
+          }
+      foundYaml loc = do
+        let dir = takeDirectory loc
+        yml <- loadYaml loc
+        found Importable
+          { impTitle = _title $ _metadata yml
+          , impArtist = _artist $ _metadata yml
+          , impFormat = "Onyx"
+          , impPath = dir
+          , impProject = withYaml dir Nothing loc
+          }
+      foundDTA bs fmt loc imp = do
+        [(single, _)] <- readDTASingles bs
+        found Importable
+          { impTitle = Just $ D.name $ dtaSongPackage single
+          , impArtist = Just $ D.artist $ dtaSongPackage single
+          , impFormat = fmt
+          , impPath = loc
+          , impProject = importFrom loc imp
+          }
+      foundSTFS loc = do
+        Just bs <- stackIO $ withSTFS loc $ \stfs ->
+          sequence $ lookup ("songs" </> "songs.dta") $ stfsFiles stfs
+        foundDTA (BL.toStrict bs) "STFS" loc $ void . importSTFS loc Nothing
+  isDir <- stackIO $ Dir.doesDirectoryExist fp
+  if isDir
+    then do
+      ents <- stackIO $ Dir.listDirectory fp
+      if
+        | elem "song.yml" ents -> foundYaml $ fp </> "song.yml"
+        | elem "song.ini" ents -> foundIni $ fp </> "song.ini"
+        | elem "notes.chart" ents -> foundChart $ fp </> "notes.chart"
+        | [ent] <- filter (\ent -> takeExtension ent == ".rbproj") ents
+          -> undefined ent
+        | [ent] <- filter (\ent -> takeExtension ent == ".moggsong") ents
+          -> undefined ent
+        | otherwise -> stackIO (Dir.doesFileExist $ fp </> "songs/songs.dta") >>= \case
+          True  -> do
+            bs <- stackIO $ B.readFile $ fp </> "songs/songs.dta"
+            foundDTA bs "RB extract" fp $ void . importSTFSDir fp Nothing
+          False -> return (map (fp </>) ents, Nothing)
+    else do
+      case map toLower $ takeExtension fp of
+        ".yml" -> foundYaml fp
+        ".yaml" -> foundYaml fp
+        ".rbproj" -> undefined
+        ".moggsong" -> undefined
+        ".chart" -> foundChart fp
+        _ -> case map toLower $ takeFileName fp of
+          "song.ini" -> foundIni fp
+          _ -> do
+            magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 4
+            case magic of
+              "RBSF" -> do
+                bs <- getRBAFileBS 0 fp
+                foundDTA (BL.toStrict bs) "RBA" fp $ void . importRBA fp Nothing
+              "CON " -> foundSTFS fp
+              "LIVE" -> foundSTFS fp
+              _ -> return ([], Nothing)
 
 openProject :: (SendMessage m, MonadResource m, MonadUnliftIO m) =>
   FilePath -> StackTraceT m Project

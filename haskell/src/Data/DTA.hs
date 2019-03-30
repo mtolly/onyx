@@ -15,7 +15,6 @@ module Data.DTA
 , removeBOM
 ) where
 
-import           Control.Applicative            ((<|>))
 import           Control.Exception.Extra
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Trans.StackTrace (StackTraceT, fatal, inside)
@@ -27,10 +26,10 @@ import           Data.DTA.Base
 import           Data.DTA.Lex
 import           Data.DTA.Parse
 import           Data.DTA.PrettyPrint
-import           Data.Maybe                     (fromMaybe)
 import qualified Data.Text                      as T
 import           Data.Text.Encoding             (decodeLatin1, decodeUtf8,
                                                  decodeUtf8', encodeUtf8)
+import           DecodeText                     (removeBOM)
 import           System.IO.Error                (tryIOError)
 
 decodeDTB :: BL.ByteString -> DTA B.ByteString
@@ -47,11 +46,6 @@ writeFileDTB fp dta = BL.writeFile fp $ encodeDTB dta
 
 readDTA :: T.Text -> DTA T.Text
 readDTA = parse . scan . removeBOM
-
-removeBOM :: T.Text -> T.Text
-removeBOM s = fromMaybe s
-  $   T.stripPrefix "\xFEFF"       s -- normal unicode-decoded BOM
-  <|> T.stripPrefix "\xEF\xBB\xBF" s -- latin1 decoding of a utf8 BOM
 
 readFileDTA :: FilePath -> IO (DTA T.Text)
 readFileDTA f = readFileDTA_utf8 f `catch_` \_ -> readFileDTA_latin1 f

@@ -27,7 +27,7 @@ import           Data.Maybe                        (fromMaybe, listToMaybe,
 import           Data.Monoid                       ((<>))
 import qualified Data.Text                         as T
 import qualified Data.Text.Encoding                as TE
-import           Data.Text.Encoding.Error          (lenientDecode)
+import           DecodeText                        (decodeGeneral)
 import           JSONData                          (makeValue)
 import           Resources                         (missingSongData)
 
@@ -157,15 +157,14 @@ readDTASingles bs = do
               return (k, pkg)
             _ -> fatal "Not a valid song chunk in the format (topkey ...)"
       (latinKey, latinPkg) <- readTextChunk $ fmap TE.decodeLatin1 chunk
-      let decodeUtf8 = TE.decodeUtf8With lenientDecode
       (k, pkg, isUTF8) <- case D.encoding latinPkg of
         Nothing -> return (latinKey, latinPkg, False)
         Just "latin1" -> return (latinKey, latinPkg, False)
         Just "utf8" -> do
-          (k, pkg) <- readTextChunk $ fmap decodeUtf8 chunk
+          (k, pkg) <- readTextChunk $ fmap decodeGeneral chunk
           return (k, pkg, True)
         Just enc -> fatal $ "Unrecognized DTA character encoding: " ++ T.unpack enc
-      let comments = readC3Comments $ (if isUTF8 then decodeUtf8 else TE.decodeLatin1) bytes
+      let comments = readC3Comments $ (if isUTF8 then decodeGeneral else TE.decodeLatin1) bytes
       return (DTASingle k pkg comments, isUTF8)
 
 readFileSongsDTA :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m [(DTASingle, Bool)]

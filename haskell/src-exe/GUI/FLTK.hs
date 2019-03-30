@@ -30,6 +30,7 @@ import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                                as A
 import           Data.Char                                 (toLower)
 import           Data.Default.Class                        (def)
+import           Data.Foldable                             (toList)
 import qualified Data.HashMap.Strict                       as HM
 import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
@@ -818,20 +819,32 @@ launchBatch sink startFiles = mdo
           updateLabel []
           putMVar loadedFiles []
           FLTK.redraw
+        addFiles [] = return ()
         addFiles gs = do
           fs <- takeMVar loadedFiles
           Just root <- FL.root tree
-          forM_ (zip [length fs + 1 ..] gs) $ \(i, path) -> do
-            FL.insert tree root (T.pack path) $ FL.AtIndex i
-          let fs' = fs ++ gs
+          forM_ (zip [length fs + 1 ..] gs) $ \(i, imp) -> do
+            let entry = T.concat
+                  [ fromMaybe "Untitled" $ impTitle imp
+                  , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
+                  , " [" <> impFormat imp <> "]"
+                  ]
+            FL.insert tree root entry $ FL.AtIndex i
+          let fs' = fs ++ map impPath gs
           updateLabel fs'
           putMVar loadedFiles fs'
           FLTK.redraw
+        searchSongs [] = return ()
+        searchSongs (loc : locs) = do
+          (children, mimp) <- findSongs loc
+          stackIO $ sink $ EventIO $ addFiles $ toList mimp
+          searchSongs $ locs ++ children
+        forkSearch = void . forkOnyx . searchSongs
     clearFiles
-    addFiles startFiles
+    sink $ EventOnyx $ forkSearch startFiles
     void $ FL.boxCustom termRect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
       { FL.handleCustom = Just
-        $ dragAndDrop (sink . EventIO . addFiles)
+        $ dragAndDrop (sink . EventOnyx . forkSearch)
         . (\_ _ -> return $ Left FL.UnknownEvent)
       }
     btnA <- FL.buttonNew btnRectA' $ Just "Add Song"
@@ -842,7 +855,7 @@ launchBatch sink startFiles = mdo
         FL.NativeFileChooserPicked -> do
           n <- FL.getCount picker
           fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
-          addFiles $ map T.unpack $ catMaybes fs
+          sink $ EventOnyx $ forkSearch $ map T.unpack $ catMaybes fs
         _ -> return ()
     btnB <- FL.buttonNew btnRectB' $ Just "Clear Songs"
     FL.setCallback btnB $ \_ -> sink $ EventIO clearFiles

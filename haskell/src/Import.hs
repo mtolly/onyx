@@ -46,9 +46,9 @@ import           Data.Monoid                      ((<>))
 import qualified Data.Set                         as Set
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
-import           Data.Text.Encoding.Error         (lenientDecode)
 import           Data.Tuple.Extra                 (fst3, snd3, thd3)
 import qualified Data.Yaml                        as Y
+import           DecodeText                       (decodeGeneral)
 import           Difficulty
 import qualified FeedBack.Load                    as FB
 import qualified FretsOnFire                      as FoF
@@ -978,7 +978,7 @@ importMagma fin dir = do
     let pathC3 = fin -<.> "c3"
     hasC3 <- stackIO $ Dir.doesFileExist pathC3
     if hasC3
-      then fmap Just $ stackIO (TE.decodeUtf8With lenientDecode <$> B8.readFile pathC3) >>= C3.readC3
+      then fmap Just $ stackIO (decodeGeneral <$> B8.readFile pathC3) >>= C3.readC3
       else return Nothing
 
   let art = fromMaybe (T.unpack $ RBProj.albumArtFile $ RBProj.albumArt rbproj)

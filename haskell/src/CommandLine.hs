@@ -39,8 +39,8 @@ import           Data.Maybe                       (fromMaybe, listToMaybe)
 import           Data.Monoid                      ((<>))
 import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
-import           Data.Text.Encoding.Error         (lenientDecode)
 import           Data.Word                        (Word32)
+import           DecodeText                       (decodeGeneral)
 import           GuitarHeroII.Audio               (readVGS)
 import qualified Image
 import           Import
@@ -89,7 +89,7 @@ import           System.MountPoints
 
 loadRBProj :: (SendMessage m, MonadIO m) => FilePath -> StackTraceT m RBProj.RBProj
 loadRBProj f = inside f $ do
-  stackIO (TE.decodeUtf8With lenientDecode <$> B.readFile f)
+  stackIO (decodeGeneral <$> B.readFile f)
     >>= scanStack >>= parseStack >>= D.unserialize D.stackChunks
 
 getInfoForSTFS :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m (T.Text, T.Text)
