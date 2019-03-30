@@ -29,6 +29,7 @@ parts:
     grybo:
       difficulty: 6
     pro-guitar:
+      difficulty: 7
       tuning:
         base: bass-6
   keys:

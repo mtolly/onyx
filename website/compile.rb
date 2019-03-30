@@ -102,6 +102,7 @@ def makeDifficulties(parts, song)
           'A Crimson Rose and a Gin Tonic',
           'Got a Match?',
           'Temple (Zelda 2)',
+          'Another Dimension',
         ].include?(song['project']['metadata']['title'])
           # hiding these pro guitar/bass charts since they haven't been released
           next
