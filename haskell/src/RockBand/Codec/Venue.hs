@@ -210,7 +210,7 @@ data PostProcess2
   | V2_video_security
   | V2_video_bw
   | V2_video_a
-  | V2_BlueTint -- dunno what this does in rb3, does not correspond to rbn2 text event
+  | V2_BlueTint -- ^ dunno what this does in rb3, does not correspond to rbn2 text event
   | V2_ProFilm_mirror_a
   | V2_ProFilm_b
   | V2_ProFilm_a
@@ -220,7 +220,7 @@ data PostProcess2
   | V2_film_sepia_ink
   | V2_film_16mm
   | V2_contrast_a
-  | V2_Default -- rbn2 docs say ProFilm_a is "default". apparently in rb2 they were different?
+  | V2_Default -- ^ rbn2 docs say ProFilm_a is @"default"@. apparently in rb2 they were different?
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 data CutEvent2
@@ -237,10 +237,10 @@ data CutEvent2
 
 data Lighting game
   -- manual
-  = Lighting_ -- empty parens
-  | Lighting_verse game -- [verse] in RBN1
-  | Lighting_chorus game -- [chorus] in RBN1
-  | Lighting_intro -- new in rb3
+  = Lighting_ -- ^ empty parens
+  | Lighting_verse game -- ^ @[verse]@ in RBN1
+  | Lighting_chorus game -- ^ @[chorus]@ in RBN1
+  | Lighting_intro -- ^ new in rb3
   | Lighting_manual_cool
   | Lighting_manual_warm
   | Lighting_dischord
@@ -569,7 +569,7 @@ compileVenueRB3 vt = vt
       V2_film_16mm        -> V3_film_16mm
       V2_contrast_a       -> V3_contrast_a
       V2_Default          -> V3_ProFilm_a
-      -- ^ not in rbn2 list, but rbn2 docs say ProFilm_a is "default"
+      -- not in rbn2 list, but rbn2 docs say ProFilm_a is "default"
   , venuePostProcessRB2 = RTB.empty
   , venueLighting = fmap (const RBN2) <$> venueLighting vt
   , venueLightingCommands = (\(cmd, _) -> (cmd, RBN2)) <$> venueLightingCommands vt

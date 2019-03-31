@@ -226,16 +226,16 @@ instance ParseTrack CameraTrack where
       -- directed cuts
       V3_directed_all           -> 56
       V3_directed_all_cam       -> 55
-      V3_directed_all_lt        -> 54 -- *
+      V3_directed_all_lt        -> 54 -- free
       V3_directed_all_yeah      -> 53
       V3_directed_bre           -> 52
       V3_directed_brej          -> 51
-      V3_directed_crowd         -> 10 -- *
+      V3_directed_crowd         -> 10 -- free
       V3_directed_drums         -> 43
       V3_directed_drums_pnt     -> 21
       V3_directed_drums_np      -> 49
-      V3_directed_drums_lt      -> 42 -- *
-      V3_directed_drums_kd      -> 23 -- *
+      V3_directed_drums_lt      -> 42 -- free
+      V3_directed_drums_kd      -> 23 -- free
       V3_directed_vocals        -> 41
       V3_directed_vocals_np     -> 46
       V3_directed_vocals_cls    -> 26
@@ -247,11 +247,11 @@ instance ParseTrack CameraTrack where
       V3_directed_crowd_b       -> 19
       V3_directed_bass_np       -> 48
       V3_directed_bass_cam      -> 31
-      V3_directed_bass_cls      -> 25 -- *
+      V3_directed_bass_cls      -> 25 -- free
       V3_directed_guitar        -> 39
       V3_directed_crowd_g       -> 20
       V3_directed_guitar_np     -> 47
-      V3_directed_guitar_cls    -> 24 -- *
+      V3_directed_guitar_cls    -> 24 -- free
       V3_directed_guitar_cam_pr -> 34
       V3_directed_guitar_cam_pt -> 33
       V3_directed_keys          -> 38

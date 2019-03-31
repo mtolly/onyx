@@ -94,7 +94,7 @@ basicTiming
   -> StackTraceT m (U.Beats, U.Beats, U.Beats, BeatTrack U.Beats)
 basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
   let showPosition = RBFile.showPosition . U.applyMeasureMap mmap
-  -- | If there's no [end], put it after all MIDI events and audio files.
+  -- If there's no @[end]@, put it after all MIDI events and audio files.
   endPosn <- case RTB.viewL $ eventsEnd $ RBFile.onyxEvents trks of
     Just ((t, _), _) -> return t
     Nothing -> do

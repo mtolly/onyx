@@ -97,10 +97,12 @@ event tks = \case
   E.MIDIEvent e -> let
     noteOff chan p = C.Cons chan $ C.Voice $ V.NoteOff p $ V.toVelocity 96
     bs = Message.toByteString $ Message.Channel $ case e of
-      -- Normalize all note-offs.
-      -- * venuegen can't handle note-on-velocity-0 format
-      -- * some HMX midis like Visions have note-offs with velocity over 127,
-      --   which causes the `midi` package to error upon evaluating the velocity
+      {-
+      Normalize all note-offs.
+      - venuegen can't handle note-on-velocity-0 format
+      - some HMX midis like Visions have note-offs with velocity over 127,
+        which causes the `midi` package to error upon evaluating the velocity
+      -}
       C.Cons chan (C.Voice (V.NoteOn p v)) | V.fromVelocity v == 0 -> noteOff chan p
       C.Cons chan (C.Voice (V.NoteOff p _)) -> noteOff chan p
       _ -> e

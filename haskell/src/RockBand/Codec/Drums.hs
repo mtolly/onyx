@@ -233,7 +233,7 @@ instance ParseTrack DrumTrack where
         HHPedal  -> PS.HihatPedal
       return DrumDifficulty{..}
     drumKick2x <- drumKick2x =. fatBlips (1/8) (blip 95)
-    -- ^ TODO this should be blip-grouped with expert track
+    -- TODO 2x kicks should be blip-grouped with expert track
     drumAnimation <- (drumAnimation =.) $ fatBlips (1/8) $ condenseMap_ $ eachKey each $ \case
       KickRF -> blip 24
       HihatOpen b -> edge 25 b

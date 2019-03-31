@@ -21,6 +21,7 @@ import           Control.Monad                             (forM, forM_, guard,
 import           Control.Monad.IO.Class                    (MonadIO (..),
                                                             liftIO)
 import           Control.Monad.Trans.Class                 (lift)
+import           Control.Monad.Trans.Maybe                 (MaybeT (..))
 import           Control.Monad.Trans.Reader                (ReaderT, ask, local,
                                                             runReaderT)
 import           Control.Monad.Trans.Resource              (ResourceT, release,
@@ -28,7 +29,7 @@ import           Control.Monad.Trans.Resource              (ResourceT, release,
                                                             runResourceT)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                                as A
-import           Data.Char                                 (toLower)
+import           Data.Char                                 (isSpace, toLower)
 import           Data.Default.Class                        (def)
 import           Data.Foldable                             (toList)
 import qualified Data.HashMap.Strict                       as HM
@@ -746,12 +747,12 @@ taskOutputPage rect tab sink cbStart cbEnd = mdo
               cbEnd'
               putMVar taskStatus Nothing
             else putMVar taskStatus $ Just status
-      startTasks :: [(FilePath, Onyx [FilePath])] -> Onyx ()
+      startTasks :: [(String, Onyx [FilePath])] -> Onyx ()
       startTasks tasks = liftIO (takeMVar taskStatus) >>= \case
         Just status -> liftIO $ putMVar taskStatus $ Just status -- shouldn't happen
         Nothing -> do
-          tid <- forkOnyx $ replaceQueueLog taskMessage $ forM_ (zip [1..] tasks) $ \(i, (fin, task)) -> do
-            liftIO $ sink $ EventIO $ addTerm termTask $ TermStart ("Task " <> show (i :: Int)) fin
+          tid <- forkOnyx $ replaceQueueLog taskMessage $ forM_ (zip [1..] tasks) $ \(i, (taskName, task)) -> do
+            liftIO $ sink $ EventIO $ addTerm termTask $ TermStart ("Task " <> show (i :: Int)) taskName
             errorToEither task >>= \case
               Left e -> liftIO $ sink $ EventIO $ do
                 forM_ (getMessages e) $ addTerm termTask . TermError
@@ -794,7 +795,7 @@ launchBatch sink startFiles = mdo
   FL.sizeRange window $ Size (Width 800) (Height 400)
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
-  tabSongs <- makeTab windowRect "Songs" $ \rect tab -> do
+  tabSongs <- makeTab windowRect "Songs" $ \rect tab -> mdo
     homeTabColor >>= setTabColor tab
     let (labelRect, belowLabel) = chopTop 40 rect
         (termRect, buttonsRect) = chopBottom 50 belowLabel
@@ -805,7 +806,26 @@ launchBatch sink startFiles = mdo
         (btnRectA', _) = chopRight 5 btnRectA
         (_, btnRectB') = chopLeft 5 btnRectB
     label <- FL.boxNew labelRect' $ Just "0 files loaded."
-    tree <- FL.treeNew termRect' Nothing
+    tree <- FL.treeCustom termRect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
+      { FL.handleCustom = Just $ \_ evt -> case evt of
+        FLE.Keydown -> FLTK.eventKey >>= \case
+          FL.SpecialKeyType FLE.Kb_Delete -> do
+            void $ runMaybeT $ do
+              item <- MaybeT $ FL.getItemFocus tree
+              let upToSong :: FL.Ref FL.TreeItem -> MaybeT IO (FL.Ref FL.TreeItem)
+                  upToSong i = lift (FL.getDepth i) >>= \case
+                    0 -> MaybeT $ return Nothing
+                    1 -> return i
+                    _ -> MaybeT (FL.getParent i) >>= upToSong
+              songItem <- upToSong item
+              root <- MaybeT $ FL.root tree
+              FL.AtIndex ix <- MaybeT $ FL.findChild root
+                $ FL.TreeItemPointerLocator $ FL.TreeItemPointer songItem
+              lift $ removeFile songItem ix
+            return $ Right ()
+          _ -> FL.handleSuper tree evt
+        _ -> FL.handleSuper tree evt
+      }
     FL.end tree
     FL.setResizable tab $ Just tree
     let updateLabel fs = FL.setLabel label $ T.pack $ case length fs of
@@ -819,6 +839,13 @@ launchBatch sink startFiles = mdo
           updateLabel []
           putMVar loadedFiles []
           FLTK.redraw
+        removeFile songItem index = do
+          fs <- takeMVar loadedFiles
+          let fs' = take index fs ++ drop (index + 1) fs
+          void $ FL.remove tree songItem
+          updateLabel fs'
+          putMVar loadedFiles fs'
+          FLTK.redraw
         addFiles [] = return ()
         addFiles gs = do
           fs <- takeMVar loadedFiles
@@ -827,10 +854,16 @@ launchBatch sink startFiles = mdo
             let entry = T.concat
                   [ fromMaybe "Untitled" $ impTitle imp
                   , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
-                  , " [" <> impFormat imp <> "]"
                   ]
-            FL.insert tree root entry $ FL.AtIndex i
-          let fs' = fs ++ map impPath gs
+            Just item <- FL.insert tree root entry $ FL.AtIndex i
+            case impAuthor imp of
+              Just author | T.any (not . isSpace) author -> do
+                void $ FL.insert tree item ("Author: " <> author) $ FL.AtIndex 0
+              _ -> return ()
+            void $ FL.insert tree item ("Format: " <> impFormat imp) $ FL.AtIndex 0
+            void $ FL.insert tree item ("Path: " <> T.pack (impPath imp)) $ FL.AtIndex 0
+            FL.close item
+          let fs' = fs ++ gs
           updateLabel fs'
           putMVar loadedFiles fs'
           FLTK.redraw
@@ -860,12 +893,17 @@ launchBatch sink startFiles = mdo
     btnB <- FL.buttonNew btnRectB' $ Just "Clear Songs"
     FL.setCallback btnB $ \_ -> sink $ EventIO clearFiles
     return tab
+  let doImport imp fn = do
+        proj <- impProject imp
+        x <- fn proj
+        mapM_ release $ projectRelease proj
+        return x
   functionTabs <- sequence
     [ makeTab windowRect "Rock Band 3 (360)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPageRB3 rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
+        startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (targets, yaml) = settings proj
           forM targets $ \(target, creator) -> do
             proj' <- stackIO $ saveProject proj yaml
@@ -883,7 +921,7 @@ launchBatch sink startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageRB2 rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
+        startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (targets, yaml) = settings proj
           forM targets $ \(target, fout) -> do
             proj' <- stackIO $ saveProject proj yaml
@@ -895,7 +933,7 @@ launchBatch sink startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPagePS rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
+        startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (target, creator) = settings proj
           case creator of
             PSDir dout -> do
@@ -911,13 +949,13 @@ launchBatch sink startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageDolphin rect tab $ \dirout midfn -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
-        startTasks [(".app creation", runDolphin files midfn dirout)]
+        startTasks [(".app creation", runDolphin (map impPath files) midfn dirout)]
       return tab
     , makeTab windowRect "Preview" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       batchPagePreview rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
-        startTasks $ zip files $ flip map files $ \f -> withProject f $ \proj -> do
+        startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let dout = settings proj
           tmp <- buildPlayer proj
           copyDirRecursive tmp dout

@@ -1575,7 +1575,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 , FoF.genre            = Just $ fofGenre fullGenre
                 , FoF.proDrums         = guard (dmode == Just DrumsPro) >> Just True
                 , FoF.fiveLaneDrums    = Nothing
-                -- ^ for consistency we will just use the flipped midi layout,
+                -- for consistency we will just use the flipped midi layout,
                 -- where 100 is green and 101 is orange
                 , FoF.drumFallbackBlue = pd >>= \case
                   PartDrums{ drumsMode = Drums5, drumsFallback = FallbackBlue } -> Just True

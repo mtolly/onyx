@@ -31,7 +31,8 @@ import qualified FretsOnFire                    as FoF
 import           Import
 import           JSONData                       (toJSON)
 import           Magma                          (getRBAFileBS)
-import           PrettyDTA                      (DTASingle (..), readDTASingles)
+import           PrettyDTA                      (C3DTAComments (..),
+                                                 DTASingle (..), readDTASingles)
 import qualified Sound.Jammit.Base              as J
 import           STFS.Package                   (STFSContents (..), withSTFS)
 import qualified System.Directory               as Dir
@@ -61,6 +62,7 @@ resourceTempDir = do
 data Importable m = Importable
   { impTitle   :: Maybe T.Text
   , impArtist  :: Maybe T.Text
+  , impAuthor  :: Maybe T.Text
   , impFormat  :: T.Text
   , impPath    :: FilePath
   , impProject :: StackTraceT m Project
@@ -92,7 +94,8 @@ findSongs fp' = do
         found Importable
           { impTitle = FoF.name ini
           , impArtist = FoF.artist ini
-          , impFormat = "CH"
+          , impAuthor = FoF.charter ini
+          , impFormat = "Clone Hero"
           , impPath = dir
           , impProject = importFrom dir $ void . importFoF True False dir
           }
@@ -102,7 +105,8 @@ findSongs fp' = do
         found Importable
           { impTitle = FoF.name ini
           , impArtist = FoF.artist ini
-          , impFormat = "FoF/PS/CH"
+          , impAuthor = FoF.charter ini
+          , impFormat = "Frets on Fire/Phase Shift/Clone Hero"
           , impPath = dir
           , impProject = importFrom dir $ void . importFoF True False dir
           }
@@ -112,6 +116,7 @@ findSongs fp' = do
         found Importable
           { impTitle = _title $ _metadata yml
           , impArtist = _artist $ _metadata yml
+          , impAuthor = _author $ _metadata yml
           , impFormat = "Onyx"
           , impPath = dir
           , impProject = withYaml dir Nothing loc
@@ -121,6 +126,7 @@ findSongs fp' = do
         found Importable
           { impTitle = Just $ D.name $ dtaSongPackage single
           , impArtist = Just $ D.artist $ dtaSongPackage single
+          , impAuthor = c3dtaAuthoredBy $ dtaC3Comments single
           , impFormat = fmt
           , impPath = loc
           , impProject = importFrom loc imp
@@ -128,7 +134,7 @@ findSongs fp' = do
       foundSTFS loc = do
         Just bs <- stackIO $ withSTFS loc $ \stfs ->
           sequence $ lookup ("songs" </> "songs.dta") $ stfsFiles stfs
-        foundDTA (BL.toStrict bs) "STFS" loc $ void . importSTFS loc Nothing
+        foundDTA (BL.toStrict bs) "Xbox 360 STFS (CON/LIVE)" loc $ void . importSTFS loc Nothing
   isDir <- stackIO $ Dir.doesDirectoryExist fp
   if isDir
     then do
@@ -144,7 +150,7 @@ findSongs fp' = do
         | otherwise -> stackIO (Dir.doesFileExist $ fp </> "songs/songs.dta") >>= \case
           True  -> do
             bs <- stackIO $ B.readFile $ fp </> "songs/songs.dta"
-            foundDTA bs "RB extract" fp $ void . importSTFSDir fp Nothing
+            foundDTA bs "Rock Band Extracted" fp $ void . importSTFSDir fp Nothing
           False -> return (map (fp </>) ents, Nothing)
     else do
       case map toLower $ takeExtension fp of
@@ -160,7 +166,7 @@ findSongs fp' = do
             case magic of
               "RBSF" -> do
                 bs <- getRBAFileBS 0 fp
-                foundDTA (BL.toStrict bs) "RBA" fp $ void . importRBA fp Nothing
+                foundDTA (BL.toStrict bs) "Magma RBA" fp $ void . importRBA fp Nothing
               "CON " -> foundSTFS fp
               "LIVE" -> foundSTFS fp
               _ -> return ([], Nothing)
