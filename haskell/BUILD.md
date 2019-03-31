@@ -22,6 +22,7 @@
   * `libsndfile-1.dll` to `libsndfile.dll`
   * `libsamplerate-0.dll` to `libsamplerate.dll`
   * `librubberband-2.dll` to `librubberband.dll`
+  * `libmpg123-0.dll` to `libmpg123.dll`
 
 5. `stack build` (do this from outside `bash` so the lib+include paths are set up right)
 

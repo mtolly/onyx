@@ -25,6 +25,7 @@ extra-source-files:
 - ../player/www/VarelaRound-Regular.ttf
 - ../player/www/images/*.png
 - cbits/*.h
+- icon/icon.*
 
 ghc-options: -Wall
 

@@ -850,18 +850,18 @@ launchBatch sink startFiles = mdo
         addFiles gs = do
           fs <- takeMVar loadedFiles
           Just root <- FL.root tree
-          forM_ (zip [length fs + 1 ..] gs) $ \(i, imp) -> do
+          forM_ gs $ \imp -> do
             let entry = T.concat
                   [ fromMaybe "Untitled" $ impTitle imp
                   , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
                   ]
-            Just item <- FL.insert tree root entry $ FL.AtIndex i
+            Just item <- FL.addAt tree entry root
             case impAuthor imp of
               Just author | T.any (not . isSpace) author -> do
-                void $ FL.insert tree item ("Author: " <> author) $ FL.AtIndex 0
+                void $ FL.addAt tree ("Author: " <> author) item
               _ -> return ()
-            void $ FL.insert tree item ("Format: " <> impFormat imp) $ FL.AtIndex 0
-            void $ FL.insert tree item ("Path: " <> T.pack (impPath imp)) $ FL.AtIndex 0
+            void $ FL.addAt tree ("Format: " <> impFormat imp) item
+            void $ FL.addAt tree ("Path: " <> T.pack (impPath imp)) item
             FL.close item
           let fs' = fs ++ gs
           updateLabel fs'
@@ -1166,6 +1166,8 @@ launchGUI = do
       wait = if macOS
         then FLTK.waitFor 1e20 >> return True
         else fmap (/= 0) FLTK.wait
+  -- TODO: catch errors that reach top level,
+  -- and close the GUI with a nice error message
   void $ runResourceT $ (`runReaderT` sink) $ logChan $ let
     process = liftIO (atomically $ tryReadTChan evts) >>= \case
       Nothing -> return ()
