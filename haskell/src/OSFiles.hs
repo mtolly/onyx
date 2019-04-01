@@ -1,9 +1,8 @@
 {-# LANGUAGE CPP #-}
 -- | OS-specific functions to open and show files.
-module OSFiles (osOpenFile, osShowFiles, osShowFolder, useResultFiles) where
+module OSFiles (osOpenFile, osShowFolder, commonDir) where
 
 import           Control.Monad.IO.Class   (MonadIO (..))
-import           System.FilePath          (takeExtension)
 #ifdef WINDOWS
 import           Foreign                  (Ptr, nullPtr, ptrToIntPtr,
                                            withArrayLen, withMany)
@@ -26,18 +25,15 @@ import           System.IO.Silently       (hSilence)
 #endif
 #endif
 
--- | Does a sensible thing for the result files from a task or set of tasks.
-useResultFiles :: (MonadIO m) => [FilePath] -> m ()
-useResultFiles [] = return ()
-useResultFiles [f] = case takeExtension f of
-  ".html" -> osOpenFile f
-  ".RPP"  -> osOpenFile f
-  _       -> osShowFiles [f]
-useResultFiles fs = osShowFiles fs
-
 osOpenFile :: (MonadIO m) => FilePath -> m ()
-osShowFiles :: (MonadIO m) => [FilePath] -> m ()
-osShowFolder :: (MonadIO m) => FilePath -> m ()
+osShowFolder :: (MonadIO m) => FilePath -> [FilePath] -> m ()
+
+commonDir :: [FilePath] -> IO (Maybe (FilePath, [FilePath]))
+commonDir fs = do
+  fs' <- liftIO $ mapM makeAbsolute fs
+  return $ case map takeDirectory fs' of
+    dir : dirs | all (== dir) dirs -> Just (dir, fs')
+    _                              -> Nothing
 
 #ifdef WINDOWS
 
@@ -55,17 +51,12 @@ osOpenFile f = liftIO $ withCWString f $ \wstr -> do
     then return ()
     else error $ "osOpenFile: ShellExecuteW return code " ++ show n
 
-osShowFiles fs = do
-  fs' <- liftIO $ mapM makeAbsolute fs
-  case map takeDirectory fs' of
-    dir : dirs | all (== dir) dirs -> liftIO $
-      withCWString dir $ \cdir ->
-      withMany withCWString fs' $ \cfiles ->
-      withArrayLen cfiles $ \len pcfiles ->
-      c_ShowFiles cdir pcfiles $ fromIntegral len
-    _          -> return ()
-
-osShowFolder = osOpenFile
+osShowFolder dir [] = osOpenFile dir
+osShowFolder dir fs = liftIO $
+  withCWString dir $ \cdir ->
+  withMany withCWString fs $ \cfiles ->
+  withArrayLen cfiles $ \len pcfiles ->
+  c_ShowFiles cdir pcfiles $ fromIntegral len
 
 #else
 
@@ -76,31 +67,24 @@ osOpenFile f = liftIO $ callProcess "open" [f]
 foreign import ccall unsafe "onyx_ShowFiles"
   c_ShowFiles :: Ptr CString -> CInt -> IO ()
 
-osShowFiles _ = return () -- temporarily disabled until can look into possible Mojave crash
-{-
-osShowFiles fs = do
-  fs' <- liftIO $ mapM makeAbsolute fs
-  case map takeDirectory fs' of
-    dir : dirs | all (== dir) dirs ->
-      liftIO $ withMany withCString fs $ \cstrs -> do
-        withArrayLen cstrs $ \len pcstrs -> do
-          c_ShowFiles pcstrs $ fromIntegral len
-    _ -> return ()
--}
-
-osShowFolder dir = liftIO $ callProcess "open" [dir]
+osShowFolder dir [] = osOpenFile dir
+osShowFolder _   fs = do
+  liftIO $ withMany withCString fs $ \cstrs -> do
+    withArrayLen cstrs $ \len pcstrs -> do
+      c_ShowFiles pcstrs $ fromIntegral len
 
 #else
 
 osOpenFile f = liftIO $ case os of
-  "linux" -> hSilence [stdout, stderr] $ callProcess "exo-open" [f]
+  "linux" -> hSilence [stdout, stderr] $ callProcess "xdg-open" [f]
   _       -> return ()
 
-osShowFiles _ = return ()
-  -- case os of "linux" -> callProcess "nautilus" files
-
-osShowFolder _ = return ()
-  -- case os of "linux" -> callProcess "nautilus" [dir]
+osShowFolder _ _ = return ()
+{-
+  case os of "linux"
+    -> callProcess "nautilus" files
+    -> callProcess "nautilus" [dir]
+-}
 
 #endif
 

@@ -55,7 +55,9 @@ import           JSONData                                  (toJSON)
 import           Network.HTTP.Req                          ((/:))
 import qualified Network.HTTP.Req                          as Req
 import           OpenProject
-import           OSFiles                                   (osOpenFile)
+import           OSFiles                                   (commonDir,
+                                                            osOpenFile,
+                                                            osShowFolder)
 import           Paths_onyxite_customs_tool                (version)
 import           Reductions                                (simpleReduce)
 import           RockBand.Codec.File                       (FlexPartName (..))
@@ -283,7 +285,7 @@ launchWindow sink proj = mdo
     padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
       btn <- FL.buttonNew rect' $ Just "Find hanging Pro Keys notes"
       FL.setCallback btn $ \_ -> sink $ EventOnyx $ do
-        startTasks [("range check", proKeysHanging Nothing proj >> return [])]
+        startTasks [("Pro Keys range check", proKeysHanging Nothing proj >> return [])]
     FL.end pack
     FL.setResizable tab $ Just pack
     return tab
@@ -492,11 +494,12 @@ type MIDIFunction
   -> RBFile.Song (RBFile.FixedFile U.Beats)
 
 batchPageDolphin
-  :: Rectangle
+  :: (Event -> IO ())
+  -> Rectangle
   -> FL.Ref FL.Group
   -> (FilePath -> Maybe MIDIFunction -> Bool -> IO ())
   -> IO ()
-batchPageDolphin rect tab build = do
+batchPageDolphin sink rect tab build = do
   pack <- FL.packNew rect Nothing
   getNoFills <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     box <- FL.checkButtonNew rect' (Just "Remove drum fills")
@@ -520,10 +523,19 @@ batchPageDolphin rect tab build = do
             $ (if noFills then RBFile.wiiNoFills else id)
             . (if force22 then RBFile.wiiMustang22 else id)
             . (if unmute22 then RBFile.wiiUnmute22 else id)
-  makeTemplateRunner "Create .app files" "" $ \dirout -> do
-    midfn <- getMIDIFunction
-    preview <- getPreview
-    build (T.unpack dirout) midfn preview
+  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Create .app files"
+    FL.setCallback btn $ \_ -> sink $ EventIO $ do
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
+      FL.setTitle picker "Location for .app files"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> do
+            midfn <- getMIDIFunction
+            preview <- getPreview
+            build f midfn preview
+        _ -> return ()
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -713,29 +725,50 @@ taskOutputPage rect tab sink cbStart cbEnd = mdo
   FL.setResizable tab $ Just termTask
   cancelButton <- FL.buttonNew buttonRect' $ Just "Cancel"
   FL.setCallback cancelButton $ \_ -> sink $ EventIO cancelTasks
+  showButton <- FL.buttonNew buttonRect' $ Just "Show created files"
+  FL.setCallback showButton $ \_ -> sink $ EventIO $ do
+    res <- takeMVar taskStatus
+    case res of
+      Left (Just (dir, files)) -> osShowFolder dir files
+      _                        -> return () -- shouldn't happen
+    putMVar taskStatus res
+  FL.hide showButton
   -- functions
-  taskStatus <- newMVar Nothing :: IO (MVar (Maybe (Int, Int, [FilePath], Int, ThreadId)))
+  taskStatus <- newMVar (Left Nothing) :: IO (MVar (Either
+      (Maybe (FilePath, [FilePath])) -- finished, maybe have files to show the user
+      (Int, Int, [[FilePath]], Int, ThreadId) -- tasks in progress
+    ))
   let taskMessage :: (MessageLevel, Message) -> IO ()
       taskMessage = sink . EventIO . addTerm termTask . toTermMessage
       cbStart' = do
         cbStart
         FL.activate cancelButton
+        FL.showWidget cancelButton
+        FL.hide showButton
         FLTK.redraw
       cbEnd' = do
         cbEnd
         FL.deactivate cancelButton
         FLTK.redraw
+      putFinalResults success = do
+        common <- commonDir $ concat success
+        putMVar taskStatus $ Left common
+        case common of
+          Just _  -> do
+            FL.showWidget showButton
+            FL.hide cancelButton
+          Nothing -> return ()
       cancelTasks = do
         takeMVar taskStatus >>= \case
-          Just (_, _, _, _, tid) -> do
+          Right (_, _, success, _, tid) -> do
             addTerm termTask $ TermLog "Cancelled tasks."
             killThread tid
-          Nothing                -> return ()
-        putMVar taskStatus Nothing
+            putFinalResults success
+          Left res                -> putMVar taskStatus $ Left res
         cbEnd'
       updateStatus fn = takeMVar taskStatus >>= \case
-        Nothing        -> putMVar taskStatus Nothing -- maybe task was cancelled
-        Just oldStatus -> do
+        Left res       -> putMVar taskStatus $ Left res -- maybe task was cancelled
+        Right oldStatus -> do
           let status@(done, total, success, failure, _) = fn oldStatus
           FL.setLabel labelTask $ T.pack $ unwords
             [ show done <> "/" <> show total
@@ -748,12 +781,12 @@ taskOutputPage rect tab sink cbStart cbEnd = mdo
           if done >= total
             then do
               cbEnd'
-              putMVar taskStatus Nothing
-            else putMVar taskStatus $ Just status
+              putFinalResults success
+            else putMVar taskStatus $ Right status
       startTasks :: [(String, Onyx [FilePath])] -> Onyx ()
       startTasks tasks = liftIO (takeMVar taskStatus) >>= \case
-        Just status -> liftIO $ putMVar taskStatus $ Just status -- shouldn't happen
-        Nothing -> do
+        Right status -> liftIO $ putMVar taskStatus $ Right status -- shouldn't happen
+        Left _ -> do
           tid <- forkOnyx $ replaceQueueLog taskMessage $ forM_ (zip [1..] tasks) $ \(i, (taskName, task)) -> do
             liftIO $ sink $ EventIO $ addTerm termTask $ TermStart ("Task " <> show (i :: Int)) taskName
             errorToEither task >>= \case
@@ -762,11 +795,13 @@ taskOutputPage rect tab sink cbStart cbEnd = mdo
                 updateStatus $ \case
                   (done, total, success, failure, tid) -> (done + 1, total, success, failure + 1, tid)
               Right fs -> liftIO $ sink $ EventIO $ do
-                forM_ fs $ \f -> addTerm termTask $ TermSuccess $ "Created file: " <> f
+                addTerm termTask $ TermSuccess $ case fs of
+                  [] -> ""
+                  _  -> unlines $ "Created files:" : map ("  " <>) fs
                 updateStatus $ \case
-                  (done, total, success, failure, tid) -> (done + 1, total, success ++ fs, failure, tid)
+                  (done, total, success, failure, tid) -> (done + 1, total, fs : success, failure, tid)
           liftIO $ do
-            putMVar taskStatus $ Just (0, length tasks, [], 0, tid)
+            putMVar taskStatus $ Right (0, length tasks, [], 0, tid)
             cbStart'
             updateStatus id
   return (startTasks, cancelTasks)
@@ -950,7 +985,7 @@ launchBatch sink startFiles = mdo
       return tab
     , makeTab windowRect "Rock Band 3 (Wii)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
-      batchPageDolphin rect tab $ \dirout midfn preview -> sink $ EventOnyx $ do
+      batchPageDolphin sink rect tab $ \dirout midfn preview -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         startTasks [(".app creation", runDolphin (map impPath files) midfn preview dirout)]
       return tab
