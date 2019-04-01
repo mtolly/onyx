@@ -8,7 +8,6 @@ import           Config
 import           Control.Applicative            ((<|>))
 import qualified Control.Monad.Catch            as MC
 import           Control.Monad.IO.Class         (MonadIO (..))
-import           Control.Monad.Trans.Class      (lift)
 import           Control.Monad.Trans.Resource
 import           Control.Monad.Trans.StackTrace
 import           Data.Aeson                     ((.:))
@@ -68,7 +67,7 @@ data Importable m = Importable
   , impProject :: StackTraceT m Project
   }
 
-findSongs :: (SendMessage m, MonadResource m, MonadUnliftIO m)
+findSongs :: (SendMessage m, MonadResource m)
   => FilePath -> StackTraceT m ([FilePath], Maybe (Importable m))
 findSongs fp' = do
   fp <- stackIO $ Dir.makeAbsolute fp'
@@ -171,7 +170,7 @@ findSongs fp' = do
               "LIVE" -> foundSTFS fp
               _ -> return ([], Nothing)
 
-openProject :: (SendMessage m, MonadResource m, MonadUnliftIO m) =>
+openProject :: (SendMessage m, MonadResource m) =>
   FilePath -> StackTraceT m Project
 openProject fp = do
   isDir <- stackIO $ Dir.doesDirectoryExist fp
@@ -231,9 +230,13 @@ openProject fp = do
                 }
             _      -> fatal "Unrecognized song format"
 
-withProject :: (SendMessage m, MonadUnliftIO m) =>
+withProject :: (SendMessage m, MonadResource m) =>
   FilePath -> (Project -> StackTraceT m a) -> StackTraceT m a
-withProject fp fn = mapStackTraceT runResourceT $ openProject fp >>= mapStackTraceT lift . fn
+withProject fp fn = do
+  proj <- openProject fp
+  x <- fn proj
+  stackIO $ mapM_ release $ projectRelease proj
+  return x
 
 readConfig :: (MonadIO m) => StackTraceT m (Map.HashMap T.Text Y.Value)
 readConfig = do

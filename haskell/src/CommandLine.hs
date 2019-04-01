@@ -13,7 +13,7 @@ import           Control.Applicative              (liftA2)
 import           Control.Monad.Extra              (filterM, forM, forM_, guard,
                                                    when)
 import           Control.Monad.IO.Class
-import           Control.Monad.Trans.Resource     (MonadUnliftIO, ResourceT,
+import           Control.Monad.Trans.Resource     (MonadResource, ResourceT,
                                                    runResourceT)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.ByteString                  as B
@@ -150,7 +150,7 @@ copyDirRecursive src dst = do
 
 data Command = Command
   { commandWord  :: T.Text
-  , commandRun   :: forall m. (MonadUnliftIO m) => [FilePath] -> [OnyxOption] -> StackTraceT (QueueLog m) [FilePath]
+  , commandRun   :: forall m. (MonadResource m) => [FilePath] -> [OnyxOption] -> StackTraceT (QueueLog m) [FilePath]
   , commandDesc  :: T.Text
   , commandUsage :: T.Text
   }
@@ -238,7 +238,7 @@ outputFile opts dft = case [ to | OptTo to <- opts ] of
   []     -> dft
   to : _ -> return to
 
-buildTarget :: (MonadUnliftIO m) => FilePath -> [OnyxOption] -> StackTraceT (QueueLog m) (Target, FilePath)
+buildTarget :: (MonadResource m) => FilePath -> [OnyxOption] -> StackTraceT (QueueLog m) (Target, FilePath)
 buildTarget yamlPath opts = do
   songYaml <- loadYaml yamlPath
   targetName <- case [ t | OptTarget t <- opts ] of
@@ -968,7 +968,7 @@ commands =
     , commandUsage = "onyx dolphin 1_rb3con 2_rb3con --to dir/"
     , commandRun = \args opts -> do
       out <- outputFile opts $ fatal "need output folder for .app files"
-      runDolphin args (getDolphinFunction opts) out
+      runDolphin args (getDolphinFunction opts) False out
     }
 
   , Command
@@ -988,12 +988,13 @@ commands =
   ]
 
 runDolphin
-  :: (MonadUnliftIO m, SendMessage m)
+  :: (MonadResource m, SendMessage m)
   => [FilePath] -- ^ CONs
   -> Maybe (RBFile.Song (RBFile.FixedFile U.Beats) -> RBFile.Song (RBFile.FixedFile U.Beats)) -- ^ MIDI transform
+  -> Bool -- ^ Try to make preview audio?
   -> FilePath -- ^ output dir
   -> StackTraceT m [FilePath] -- ^ 2 .app files
-runDolphin cons midfn out = do
+runDolphin cons midfn makePreview out = do
   stackIO $ Dir.createDirectoryIfMissing False out
   let out_meta = out </> "00000001.app"
       out_song = out </> "00000002.app"
@@ -1030,24 +1031,27 @@ runDolphin cons midfn out = do
             prevOgg = extract </> "temp_prev.ogg"
             (prevStart, prevEnd) = D.preview pkg
             prevLength = min 15000 $ prevEnd - prevStart
-        errorToEither (moggToOgg mogg ogg) >>= \case
-          Right () -> do
-            lg "Creating preview file"
-            src <- stackIO $ sourceSndFrom (CA.Seconds $ realToFrac prevStart / 1000) ogg
-            stackIO
-              $ runResourceT
-              $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
-              $ fadeStart (CA.Seconds 0.75)
-              $ fadeEnd (CA.Seconds 0.75)
-              $ CA.takeStart (CA.Seconds $ realToFrac prevLength / 1000)
-              $ applyPansVols (D.pans $ D.song pkg) (D.vols $ D.song pkg)
-              $ src
-          Left _msgs -> do
-            lg "Encrypted audio, skipping preview"
-            stackIO
+            silentPreview = stackIO
               $ runResourceT
               $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
               $ (CA.silent (CA.Seconds $ realToFrac prevLength / 1000) 44100 2 :: CA.AudioSource (ResourceT IO) Int16)
+        if makePreview
+          then errorToEither (moggToOgg mogg ogg) >>= \case
+            Right () -> do
+              lg "Creating preview file"
+              src <- stackIO $ sourceSndFrom (CA.Seconds $ realToFrac prevStart / 1000) ogg
+              stackIO
+                $ runResourceT
+                $ sinkSnd prevOgg (Snd.Format Snd.HeaderFormatOgg Snd.SampleFormatVorbis Snd.EndianFile)
+                $ fadeStart (CA.Seconds 0.75)
+                $ fadeEnd (CA.Seconds 0.75)
+                $ CA.takeStart (CA.Seconds $ realToFrac prevLength / 1000)
+                $ applyPansVols (D.pans $ D.song pkg) (D.vols $ D.song pkg)
+                $ src
+            Left _msgs -> do
+              lg "Encrypted audio, skipping preview"
+              silentPreview
+          else silentPreview
         oggToMogg prevOgg $ dir_meta </> "content" </> (songsXX ++ "_prev.mogg")
         -- .png_wii (convert from .png_xbox)
         img <- stackIO $ Image.readRBImage . BL.fromStrict <$> B.readFile (extract </> (songsXgenX ++ "_keep.png_xbox"))
@@ -1078,7 +1082,7 @@ runDolphin cons midfn out = do
     stackIO $ packU8 dir_song out_song
   return [out_meta, out_song]
 
-commandLine :: (MonadUnliftIO m) => [String] -> StackTraceT (QueueLog m) [FilePath]
+commandLine :: (MonadResource m) => [String] -> StackTraceT (QueueLog m) [FilePath]
 commandLine args = let
   (opts, nonopts, errors) = getOpt Permute optDescrs args
   printIntro = lg $ T.unpack $ T.unlines

@@ -5,6 +5,7 @@ import           CommandLine                    (commandLine)
 import           Control.Exception              (displayException)
 import           Control.Monad                  (unless)
 import           Control.Monad.IO.Class         (MonadIO (liftIO))
+import           Control.Monad.Trans.Resource   (runResourceT)
 import           Control.Monad.Trans.StackTrace
 import           GUI.FLTK                       (launchGUI)
 import           System.Environment             (getArgs)
@@ -30,7 +31,7 @@ main = do
           _ -> do
             inside "checking if Wine is installed" $ checkShell "wine --version"
             inside "checking if Mono is installed" $ checkShell "mono --version"
-        files <- commandLine argv
+        files <- mapStackTraceT (mapQueueLog runResourceT) $ commandLine argv
         unless (null files) $ lg $ unlines $ "Done! Created files:" : files
       case res of
         Right () -> return ()

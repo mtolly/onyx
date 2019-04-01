@@ -975,12 +975,12 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
             pathMagmaRba %> \out -> do
               shk $ need [pathMagmaSetup]
               lg "# Running Magma v2 (C3)"
-              mapStackTraceT liftIO (Magma.runMagma pathMagmaProj out) >>= lg
+              mapStackTraceT (liftIO . runResourceT) (Magma.runMagma pathMagmaProj out) >>= lg
             pathMagmaExport %> \out -> do
               shk $ need [pathMagmaMid, pathMagmaProj]
               lg "# Running Magma v2 to export MIDI"
               -- TODO: bypass Magma if it fails due to over 1MB midi
-              mapStackTraceT liftIO (Magma.runMagmaMIDI pathMagmaProj out) >>= lg
+              mapStackTraceT (liftIO . runResourceT) (Magma.runMagmaMIDI pathMagmaProj out) >>= lg
             let getRealSections :: Staction (RTB.T U.Beats T.Text)
                 getRealSections = do
                   raw <- shakeMIDI $ planDir </> "raw.mid"
@@ -1127,10 +1127,10 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   (1, 0) -> shk $ copyFile' (planDir </> "audio.mogg") out
                   _      -> do
                     shk $ need [pathOgg]
-                    mapStackTraceT liftIO $ Magma.oggToMogg pathOgg out
+                    mapStackTraceT (liftIO . runResourceT) $ Magma.oggToMogg pathOgg out
               Plan{..}   -> do
                 shk $ need [pathOgg]
-                mapStackTraceT liftIO $ Magma.oggToMogg pathOgg out
+                mapStackTraceT (liftIO . runResourceT) $ Magma.oggToMogg pathOgg out
             pathPng  %> shk . copyFile' "gen/cover.png_xbox"
             pathMilo %> \out -> case rb3_FileMilo rb3 of
               Nothing   -> liftIO $ B.writeFile out emptyMilo
@@ -1142,7 +1142,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                     ++ [pathPng | isJust $ _fileAlbumArt $ _metadata songYaml]
               shk $ need files
               lg "# Producing RB3 CON file via X360"
-              mapStackTraceT (mapQueueLog liftIO) $ rb3pkg
+              mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ rb3pkg
                 (getArtist (_metadata songYaml) <> ": " <> title)
                 "Compiled by Onyx Music Game Toolkit"
                 (dir </> "stfs")
@@ -1245,7 +1245,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 pathMagmaRbaV1 %> \out -> do
                   shk $ need [pathMagmaDummyMono, pathMagmaDummyStereo, pathMagmaDryvoxSine, pathMagmaCoverV1, pathMagmaMidV1, pathMagmaProjV1]
                   lg "# Running Magma v1 (without 10 min limit)"
-                  errorToWarning (mapStackTraceT liftIO $ Magma.runMagmaV1 pathMagmaProjV1 out) >>= \case
+                  errorToWarning (mapStackTraceT (liftIO . runResourceT) $ Magma.runMagmaV1 pathMagmaProjV1 out) >>= \case
                     Just output -> lg output
                     Nothing     -> do
                       lg "Magma v1 failed; optimistically bypassing."
@@ -1448,7 +1448,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                   rb2CON %> \out -> do
                     shk $ need [rb2DTA, rb2Mogg, rb2Mid, rb2Art, rb2Weights, rb2Milo, rb2Pan]
                     lg "# Producing RB2 CON file via X360"
-                    mapStackTraceT (mapQueueLog liftIO) $ rb2pkg
+                    mapStackTraceT (mapQueueLog $ liftIO . runResourceT) $ rb2pkg
                       (getArtist (_metadata songYaml) <> ": " <> targetTitle songYaml (RB2 rb2))
                       "Compiled by Onyx Music Game Toolkit"
                       (dir </> "rb2")

@@ -494,7 +494,7 @@ type MIDIFunction
 batchPageDolphin
   :: Rectangle
   -> FL.Ref FL.Group
-  -> (FilePath -> Maybe MIDIFunction -> IO ())
+  -> (FilePath -> Maybe MIDIFunction -> Bool -> IO ())
   -> IO ()
 batchPageDolphin rect tab build = do
   pack <- FL.packNew rect Nothing
@@ -507,6 +507,9 @@ batchPageDolphin rect tab build = do
   getUnmute22 <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     box <- FL.checkButtonNew rect' (Just "Unmute muted Pro Guitar/Bass notes above fret 22")
     return $ FL.getValue box
+  getPreview <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    box <- FL.checkButtonNew rect' (Just "Generate preview audio")
+    return $ FL.getValue box
   let getMIDIFunction = do
         noFills <- getNoFills
         force22 <- getForce22
@@ -517,10 +520,10 @@ batchPageDolphin rect tab build = do
             $ (if noFills then RBFile.wiiNoFills else id)
             . (if force22 then RBFile.wiiMustang22 else id)
             . (if unmute22 then RBFile.wiiUnmute22 else id)
-  makeTemplateRunner
-    "Create .app files"
-    ""
-    (\dirout -> getMIDIFunction >>= build (T.unpack dirout))
+  makeTemplateRunner "Create .app files" "" $ \dirout -> do
+    midfn <- getMIDIFunction
+    preview <- getPreview
+    build (T.unpack dirout) midfn preview
   FL.end pack
   FL.setResizable tab $ Just pack
   return ()
@@ -947,9 +950,9 @@ launchBatch sink startFiles = mdo
       return tab
     , makeTab windowRect "Rock Band 3 (Wii)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
-      batchPageDolphin rect tab $ \dirout midfn -> sink $ EventOnyx $ do
+      batchPageDolphin rect tab $ \dirout midfn preview -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
-        startTasks [(".app creation", runDolphin (map impPath files) midfn dirout)]
+        startTasks [(".app creation", runDolphin (map impPath files) midfn preview dirout)]
       return tab
     , makeTab windowRect "Preview" $ \rect tab -> do
       functionTabColor >>= setTabColor tab

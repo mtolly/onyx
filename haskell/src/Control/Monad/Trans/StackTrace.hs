@@ -239,17 +239,14 @@ withDir d stk = do
     (\() -> Dir.setCurrentDirectory cwd)
     (\() -> stk)
 
-tempDir' :: (MonadResource m) => String -> (FilePath -> m a) -> m a
-tempDir' template fn = do
+tempDir :: (MonadResource m) => String -> (FilePath -> m a) -> m a
+tempDir template fn = do
   let ignoringIOErrors ioe = ioe `Exc.catch` (\e -> const (return ()) (e :: IOError))
   tmp <- liftIO $ Temp.getCanonicalTemporaryDirectory
   (key, dir) <- allocate
     (Temp.createTempDirectory tmp template)
     (ignoringIOErrors . Dir.removeDirectoryRecursive)
   fn dir <* release key
-
-tempDir :: (MonadUnliftIO m) => String -> (FilePath -> StackTraceT m a) -> StackTraceT m a
-tempDir template fn = mapStackTraceT runResourceT $ tempDir' template (mapStackTraceT lift . fn)
 
 stackProcess :: (MonadIO m) => CreateProcess -> StackTraceT m String
 stackProcess cp = mapStackTraceT liftIO $ do
