@@ -419,11 +419,12 @@ speedPercent rect = do
   return $ (/ 100) <$> FL.getValue speed
 
 batchPageRB2
-  :: Rectangle
+  :: (Event -> IO ())
+  -> Rectangle
   -> FL.Ref FL.Group
   -> ((Project -> ([(TargetRB2, FilePath)], SongYaml)) -> IO ())
   -> IO ()
-batchPageRB2 rect tab build = do
+batchPageRB2 sink rect tab build = do
   pack <- FL.packNew rect Nothing
   getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
   getDropOpen <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
@@ -482,6 +483,7 @@ batchPageRB2 rect tab build = do
             , yaml
             )
   makeTemplateRunner
+    sink
     "Create CON files"
     "%input_dir%/%input_base%%modifiers%_rb2con"
     (getTargetSong id >=> build)
@@ -541,11 +543,12 @@ batchPageDolphin sink rect tab build = do
   return ()
 
 batchPagePS
-  :: Rectangle
+  :: (Event -> IO ())
+  -> Rectangle
   -> FL.Ref FL.Group
   -> ((Project -> (TargetPS, PSCreate)) -> IO ())
   -> IO ()
-batchPagePS rect tab build = do
+batchPagePS sink rect tab build = do
   pack <- FL.packNew rect Nothing
   getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
   let getTargetSong usePath template = do
@@ -566,10 +569,12 @@ batchPagePS rect tab build = do
             ]
           in (tgt, usePath fout)
   makeTemplateRunner
+    sink
     "Create PS folders"
     "%input_dir%/%input_base%%modifiers%_ps"
     (getTargetSong PSDir >=> build)
   makeTemplateRunner
+    sink
     "Create PS zips"
     "%input_dir%/%input_base%%modifiers%_ps.zip"
     (getTargetSong PSZip >=> build)
@@ -578,11 +583,12 @@ batchPagePS rect tab build = do
   return ()
 
 batchPageRB3
-  :: Rectangle
+  :: (Event -> IO ())
+  -> Rectangle
   -> FL.Ref FL.Group
   -> ((Project -> ([(TargetRB3, RB3Create)], SongYaml)) -> IO ())
   -> IO ()
-batchPageRB3 rect tab build = do
+batchPageRB3 sink rect tab build = do
   pack <- FL.packNew rect Nothing
   getSpeed <- padded 10 250 5 250 (Size (Width 300) (Height 35)) speedPercent
   getToms <- padded 5 10 5 10 (Size (Width 800) (Height 35)) $ \rect' -> do
@@ -647,10 +653,12 @@ batchPageRB3 rect tab build = do
             , yaml
             )
   makeTemplateRunner
+    sink
     "Create CON files"
     "%input_dir%/%input_base%%modifiers%_rb3con"
     (getTargetSong RB3CON >=> build)
   makeTemplateRunner
+    sink
     "Create Magma projects"
     "%input_dir%/%input_base%%modifiers%_project"
     (getTargetSong RB3Magma >=> build)
@@ -664,15 +672,20 @@ templateApplyInput proj txt = foldr ($) txt
   , T.intercalate (T.pack $ takeFileName $ projectTemplate proj) . T.splitOn "%input_base%"
   ]
 
-makeTemplateRunner :: T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
-makeTemplateRunner buttonText defTemplate useTemplate = do
+makeTemplateRunner :: (Event -> IO ()) -> T.Text -> T.Text -> (T.Text -> IO ()) -> IO ()
+makeTemplateRunner sink buttonText defTemplate useTemplate = do
   padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
     let (buttonRect, notButton) = chopLeft 250 rect'
-        (_, inputRect) = chopLeft 150 notButton
+        (_, rectA) = chopLeft 80 notButton
+        (inputRect, rectB) = chopRight 100 rectA
+        (_, rectC) = chopRight 90 rectB
+        (browseRect, _) = chopLeft 40 rectC
+        (_, rectD) = chopRight 50 rectC
+        (_, resetRect) = chopRight 40 rectD
     button <- FL.buttonNew buttonRect $ Just buttonText
     input <- FL.inputNew
       inputRect
-      (Just "Output template")
+      (Just "Template")
       (Just FL.FlNormalInput) -- required for labels to work
     FL.setLabelsize input $ FL.FontSize 13
     FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
@@ -685,15 +698,32 @@ makeTemplateRunner buttonText defTemplate useTemplate = do
       , "  %modifiers% - added distinguishing features e.g. speed modifier"
       ]
     FL.setCallback button $ \_ -> FL.getValue input >>= useTemplate
+    browseButton <- FL.buttonNew browseRect $ Just "@fileopen"
+    FL.setCallback browseButton $ \_ -> sink $ EventIO $ do
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseDirectory
+      FL.setTitle picker "Location for output files"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing  -> return ()
+          Just dir -> do
+            val <- FL.getValue input
+            void $ FL.setValue input $ T.pack $ dir </> takeFileName (T.unpack val)
+        _ -> return ()
+    resetButton <- FL.buttonNew resetRect $ Just "@undo"
+    FL.setCallback resetButton $ \_ -> sink $ EventIO $ do
+      void $ FL.setValue input defTemplate
+    return ()
 
 batchPagePreview
-  :: Rectangle
+  :: (Event -> IO ())
+  -> Rectangle
   -> FL.Ref FL.Group
   -> ((Project -> FilePath) -> IO ())
   -> IO ()
-batchPagePreview rect tab build = do
+batchPagePreview sink rect tab build = do
   pack <- FL.packNew rect Nothing
   makeTemplateRunner
+    sink
     "Build web previews"
     "%input_dir%/%input_base%_player"
     (\template -> build $ \proj -> T.unpack $ templateApplyInput proj template)
@@ -939,7 +969,7 @@ launchBatch sink startFiles = mdo
   functionTabs <- sequence
     [ makeTab windowRect "Rock Band 3 (360)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
-      batchPageRB3 rect tab $ \settings -> sink $ EventOnyx $ do
+      batchPageRB3 sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (targets, yaml) = settings proj
@@ -957,7 +987,7 @@ launchBatch sink startFiles = mdo
       return tab
     , makeTab windowRect "Rock Band 2 (360)" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
-      batchPageRB2 rect tab $ \settings -> sink $ EventOnyx $ do
+      batchPageRB2 sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (targets, yaml) = settings proj
@@ -969,7 +999,7 @@ launchBatch sink startFiles = mdo
       return tab
     , makeTab windowRect "Clone Hero/Phase Shift" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
-      batchPagePS rect tab $ \settings -> sink $ EventOnyx $ do
+      batchPagePS sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let (target, creator) = settings proj
@@ -991,7 +1021,7 @@ launchBatch sink startFiles = mdo
       return tab
     , makeTab windowRect "Preview" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
-      batchPagePreview rect tab $ \settings -> sink $ EventOnyx $ do
+      batchPagePreview sink rect tab $ \settings -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
         startTasks $ zip (map impPath files) $ flip map files $ \f -> doImport f $ \proj -> do
           let dout = settings proj
@@ -1206,6 +1236,7 @@ launchGUI = do
         else fmap (/= 0) FLTK.wait
   -- TODO: catch errors that reach top level,
   -- and close the GUI with a nice error message
+  addTerm term $ TermLog $ "Welcome to \ESC[45mOnyx\ESC[0m!"
   void $ runResourceT $ (`runReaderT` sink) $ logChan $ let
     process = liftIO (atomically $ tryReadTChan evts) >>= \case
       Nothing -> return ()

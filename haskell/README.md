@@ -36,19 +36,38 @@ You can use the official Mac installers for Wine and Mono; Mono's will install
 
 ## Instructions
 
-On Windows, run the installer, then run `onyx.exe`.
+On Windows, run the installer, then run `onyx.exe` (or the installed shortcut).
 On Mac, move `Onyx.app` to your Applications folder, and then run it.
 
-  * Click on menu options to select them.
-  * Click on previous pages on the left to go back.
-  * Keyboard controls also work (arrow keys, enter, backspace).
+## Supported Formats
 
-## Functions
+Onyx can import the following song formats:
 
-  * Convert to RB3 (CON/RBA/FoF/PS/CH/dB -> `_rb3con` or Magma folder)
+  * Rock Band 1/2/3 STFS (CON or LIVE) files
 
-    Imports from a Rock Band, Frets on Fire, Phase Shift, or Clone Hero song,
-    and creates either a Rock Band 3 CON file or a Magma v2 project.
+    * Currently only single-song files (not packs) are supported.
+
+  * Magma (v1 or v2) RBA files
+
+  * Frets on Fire / Phase Shift / Clone Hero formats
+
+    * Both `notes.mid` and `notes.chart` are supported.
+    * Both OGG Vorbis and MP3 audio are supported.
+    * `song.ini` can be absent if using `notes.chart`.
+    * Audio files must be named according to PS/CH conventions.
+
+## Batch Mode
+
+This is currently where most of Onyx's functionality is.
+
+First, load files into the Songs tab.
+You can drag and drop files or folders onto the list, or browse with Add Song.
+Folders will be searched for any recognized songs inside.
+To remove a song, select its row in the tree, and press the Delete key.
+
+  * Rock Band 3 (360)
+
+    Creates either a Rock Band 3 CON file or a Magma v2 project.
 
     Here is a sample of the steps performed when importing from FoF/PS:
 
@@ -64,14 +83,6 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
       * Convert Phase Shift "Real Drums" to RB by removing hihat pedal notes
       * Convert tap notes to HOPO notes
       * Remove some overdrive phrases if they produce invalid unison phrases
-
-    FeedBack `.chart` format is also supported. It must be in the Clone Hero
-    format, meaning:
-
-      * Must be in its own folder, with `notes.chart` and optional `song.ini`
-      * Audio must be named according to Phase Shift conventions:
-        `song.ogg`, `guitar.ogg`, etc.
-      * Both OGG Vorbis and MP3 audio are supported
 
     If the "automatic tom markers" option is turned on, an FoF song that doesn't
     have any tom markers and that does not have "pro_drums = True" in the
@@ -109,16 +120,15 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
     the Phase Shift converter in C3 CON Tools which mixes the audio down to a
     single file, and then just supply the Phase Shift song to Onyx.
 
-  * Convert to RB2 (song -> `_rb2con`)
+  * Rock Band 2 (360)
 
-    Converts a Rock Band 3 CON file to Rock Band 2.
-    RB2-ification includes the following steps:
+    Creates a CON file for Rock Band 2, using the following conversions:
 
       * removes RB3 added features like pro instruments, harmonies, bass solos,
         trill/tremolo, new drum animations
       * any 2-instrument unisons are made into 1-instrument OD phrases
-      * converts your VENUE to RB2 format
-      * ensures your lower difficulties have all colors used on Expert
+      * converts VENUE to RB2 format
+      * ensures lower difficulties have all colors used on Expert
       * adds (RB2 version) to the title to disambiguate when in RB3
 
     Then it will attempt to validate the song through Magma v1.
@@ -130,31 +140,9 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
     In the latter two cases, the RB3 "keytar" algorithm is more-or-less applied,
     so fast chords become HOPOs, and overlapping sustains are shortened.
 
-  * Browser song preview (song -> web app folder)
+  * Clone Hero/Phase Shift
 
-    Generates a JavaScript (Canvas) chart preview app for web browsers,
-    which plays back the audio and displays all tracks in 2D "Beatmania" style.
-
-    Supports all Rock Band 3 instrument tracks, including Pro Guitar/Bass/Keys,
-    as well as the Clone Hero 6-fret (GHL) mode, and 5-lane drums.
-
-    A player folder will appear next to the CON; open `index.html` to run.
-    It can be run locally via `file://`, or hosted on a web server.
-
-    Colors used for drawing the display can be tweaked by editing the file
-    `customize.js`. In the future this will be improved to allow overriding
-    all pixel sizes as well.
-
-  * Auto reductions (MIDI file -> MIDI file)
-
-    Generates CAT-like automatic reductions for empty difficulties in a MIDI.
-    Quality is not guaranteed, but they should pass Magma.
-
-    To use, ensure that there are no notes or events authored
-    for a difficulty you want to be filled in.
-    (For Pro Keys, remove the `PART REAL_KEYS_?` track entirely.)
-
-  * Dolphin song conversion (song -> 00000001.app and 00000002.app)
+  * Rock Band 3 (Wii)
 
     Converts a collection of songs to a single RB3 pack in the format used by
     the Dolphin Wii emulator. This is primarily intended for people using
@@ -169,7 +157,30 @@ On Mac, move `Onyx.app` to your Applications folder, and then run it.
         to include such notes while compiling with Magma, and then unmute
         them for recording the video
 
-  * Dolphin MIDI conversion (MIDI file -> MIDI file)
+  * Preview
 
-    The MIDI transformations for video recording as used above,
-    but as a standalone function.
+    Generates a JavaScript (Canvas) chart preview app for web browsers,
+    which plays back the audio and displays all tracks in 2D "Beatmania" style.
+
+    Supports all Rock Band 3 instrument tracks, including Pro Guitar/Bass/Keys,
+    as well as the Clone Hero 6-fret (GHL) mode, and 5-lane drums.
+
+    A player folder will appear next to the CON; open `index.html` to run.
+    It can be run locally via `file://`, or hosted on a web server.
+
+    Colors used for drawing the display can be tweaked by editing the file
+    `customize.js`. In the future this will be improved to allow overriding
+    all pixel sizes as well.
+
+## Song View
+
+In future releases, this will be the primary method of interacting with Onyx.
+
+  * Auto reductions
+
+    Generates CAT-like automatic reductions for empty difficulties in a MIDI.
+    Quality is not guaranteed, but they should pass Magma.
+
+    To use, ensure that there are no notes or events authored
+    for a difficulty you want to be filled in.
+    (For Pro Keys, remove the `PART REAL_KEYS_?` track entirely.)
