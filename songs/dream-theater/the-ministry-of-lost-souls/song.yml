@@ -95,7 +95,8 @@ parts:
   bass:
     grybo:
       difficulty: 6
-    pro-guitar: # WIP
+    pro-guitar:
+      difficulty: 6
       tuning:
         base: bass-5
   guitar:
