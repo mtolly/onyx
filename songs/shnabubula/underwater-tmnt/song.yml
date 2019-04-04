@@ -1,0 +1,27 @@
+metadata:
+  title: Underwater (Teenage Mutant Ninja Turtles)
+  file-include: ../../../albums/nes-jams.yml
+  track-number: 1
+  author: Onyxite
+audio:
+  album:
+    md5: b07d1d0da8d6c62dc3f131918d3663d2
+    frames: 7546336
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|1.5: hihat
+      1|0: hihat
+      1|0.5: hihat
+      1|1: hihat
+      1|1.5: hihat
+      1|2: hihat
+      1|2.5: hihat
+    song:
+      pad: [3.186, album]
+parts:
+  keys:
+    pro-keys: {}

@@ -1,0 +1,24 @@
+metadata:
+  title: Gemini Man (Mega Man 3)
+  file-include: ../../../albums/nes-jams.yml
+  track-number: 8
+  author: Onyxite
+audio:
+  album:
+    md5: 295aff0559959968a22db279f9664af6
+    frames: 10492416
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
+plans:
+  album:
+    countin:
+      0|0: hihat
+      0|1: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+    song:
+      pad: [3.522, album]
+parts:
+  keys:
+    pro-keys: {}
