@@ -1,6 +1,6 @@
 JAZZ
 at least 2 parts done:
-> night sea (shnabubula) just needs basic keys
+> night sea (shnabubula) just needs basic keys (see album below)
 > one for antonio (chick corea + antonio sanchez) just needs basic keys + OD
 > thoughts (kaz rodriguez) drums and bass done
 > the chicken (gavin harrison) drums/bass/pk done; needs gtr, keys, OD, fix tempo map
@@ -78,6 +78,19 @@ OCTAVARIUM
   > these walls - minor audio and pg/pb fixes to release
 DISTANCE OVER TIME
   > pale blue dot - drums done
+
+NES JAMS (Shnabubula)
+1. Underwater (TMNT) - PK done
+2. Temple (Zelda 2) - Released in OJP2; to release: drum edits, PK edits, PB
+3. Alien Lair (Contra) - PK done but not wrapped
+4. Night Sea (Little Nemo) - Just needs basic keys
+5. Dwelling of Doom (Castlevania 2) - PK started
+6. Kung Fu Alley
+7. Title (Double Dragon)
+8. Gemini Man (Mega Man 3) - Tempo map
+9. Stage 1 (TMNT2)
+10. Area A (Shatterhand)
+11. Wood Man (Mega Man 2) - PK done
 
 PRO GUITAR/BASS
 - summer goddess, scoop out, sabotage, widows (soil & pimp) ready after checks
