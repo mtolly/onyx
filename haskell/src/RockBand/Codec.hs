@@ -111,7 +111,7 @@ edges p = single
 edgesLanes :: (Monad m, NNC.C t) => Int -> TrackEvent m t (Maybe LaneDifficulty)
 edgesLanes p = single
   (\x -> case isNoteEdgeCPV x of
-    Just (_, p', mv) | p == p' -> Just $ (\v -> if v <= 64 then LaneHard else LaneExpert) <$> mv
+    Just (_, p', mv) | p == p' -> Just $ (\v -> if v <= 50 then LaneHard else LaneExpert) <$> mv
     _                          -> Nothing
   ) (makeEdgeCPV 0 p . fmap (\case LaneHard -> 40; LaneExpert -> 96))
 
