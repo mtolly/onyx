@@ -1,29 +1,26 @@
 metadata:
-  title: Dwelling of Doom (Castlevania II)
+  title: Title (Double Dragon)
   file-include: ../../../albums/nes-jams.yml
-  track-number: 5
+  track-number: 7
   author: Onyxite
 audio:
   album:
-    md5: f5a4cff423ab418faa1e23a7ba5821d0
-    frames: 8673932
+    md5: 2e2ba68f994133460a11f3eb6d2cc205
+    frames: 9438213
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
     countin:
       1|0: hihat
-      1|2: hihat
+      1|1: hihat
       2|0: hihat
       2|1: hihat
-      2|2: hihat
-      2|3: hihat
     song:
-      pad: [3.887, album]
+      pad: [3.301, album]
 parts:
   keys:
-    pro-keys:
-      difficulty: 7
+    pro-keys: {}
 targets:
   rb3:
     game: rb3

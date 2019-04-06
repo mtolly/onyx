@@ -22,4 +22,13 @@ plans:
       pad: [3.694, album]
 parts:
   keys:
-    pro-keys: {}
+    pro-keys:
+      difficulty: 7
+targets:
+  rb3:
+    game: rb3
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+  ps:
+    game: ps

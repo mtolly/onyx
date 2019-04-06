@@ -1,29 +1,28 @@
 metadata:
-  title: Dwelling of Doom (Castlevania II)
+  title: Area A (Shatterhand)
   file-include: ../../../albums/nes-jams.yml
-  track-number: 5
+  track-number: 10
   author: Onyxite
 audio:
   album:
-    md5: f5a4cff423ab418faa1e23a7ba5821d0
-    frames: 8673932
+    md5: 734226695d1df0b53eb65915ad2afb43
+    frames: 9078166
   hihat:
     file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
     countin:
+      0|0: hihat
+      0|2: hihat
       1|0: hihat
+      1|1: hihat
       1|2: hihat
-      2|0: hihat
-      2|1: hihat
-      2|2: hihat
-      2|3: hihat
+      1|3: hihat
     song:
-      pad: [3.887, album]
+      pad: [2.907, album]
 parts:
   keys:
-    pro-keys:
-      difficulty: 7
+    pro-keys: {}
 targets:
   rb3:
     game: rb3
