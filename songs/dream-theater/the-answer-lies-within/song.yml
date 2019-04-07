@@ -26,8 +26,24 @@ plans:
     parts:
       drums:
         pad: [0.267, only: [Drums, jammit-track]]
+      guitar:
+        pad:
+        - 0.267
+        # TODO probably move some of this to backing
+        - mix:
+          - only: [Guitar 1, jammit-track]
+          - only: [Guitar 2, jammit-track]
     song:
-      pad: [0.267, without: [drums, jammit-track]]
+      pad:
+      - 0.267
+      - mix:
+        - without: [drums, jammit-track]
+        - gain:
+          - -1
+          - only: [Guitar 1, jammit-track]
+        - gain:
+          - -1
+          - only: [Guitar 2, jammit-track]
   album:
     countin: *countin
     song:

@@ -1,0 +1,31 @@
+metadata:
+  title: Beneath the Surface
+  file-include: ../../../albums/a-dramatic-turn-of-events.yml
+  track-number: 9
+  author: Onyxite
+audio:
+  album-prev: # Breaking All Illusions
+    md5: b0dd00714d8450dfd944a69259db3bb4
+    frames: 32878608
+  album-track:
+    md5: 86bc48a7b3304fc0b9fea931ba71cf5b
+    frames: 14395416
+plans:
+  album:
+    song:
+      fade:
+      - start
+      - 7.164
+      - drop:
+        - 12:24.794
+        - concatenate: [album-prev, album-track]
+parts:
+  guitar:
+    pro-guitar: # TODO arpeggios...
+      tuning:
+        base: guitar-6
+targets:
+  rb3:
+    game: rb3
+  ps:
+    game: ps

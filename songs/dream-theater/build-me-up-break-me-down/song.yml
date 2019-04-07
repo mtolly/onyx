@@ -27,6 +27,10 @@ parts:
   drums:
     drums:
       kicks: both
+  guitar:
+    pro-guitar:
+      tuning:
+        base: guitar-7
 targets:
   rb3:
     game: rb3
