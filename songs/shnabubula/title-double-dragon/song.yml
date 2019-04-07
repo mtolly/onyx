@@ -13,14 +13,15 @@ plans:
   album:
     countin:
       1|0: hihat
-      1|1: hihat
+      1|2: hihat
       2|0: hihat
       2|1: hihat
     song:
       pad: [3.301, album]
 parts:
   keys:
-    pro-keys: {}
+    pro-keys:
+      difficulty: 7
 targets:
   rb3:
     game: rb3

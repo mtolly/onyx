@@ -19,18 +19,21 @@ plans:
 targets:
   rb3:
     game: rb3
+    label: (O)
   rb3-2x:
     game: rb3
     2x-bass-pedal: true
+    label: (2x Bass Pedal) (O)
   ps:
     game: ps
+    label: (O)
 metadata:
   title: The Only Cure
   artist: Oni
   album: Ironshore
   file-album-art: album.png
   year: 2016
-  author: sodamlazy
+  author: Sodamlazy, Onyxite
   genre: metal
   subgenre: prog
 audio:
