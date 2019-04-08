@@ -22,7 +22,8 @@ plans:
       pad: [2.907, album]
 parts:
   keys:
-    pro-keys: {}
+    pro-keys:
+      difficulty: 7 # maybe 6?
 targets:
   rb3:
     game: rb3
