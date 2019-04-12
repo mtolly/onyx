@@ -303,9 +303,13 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
       hasBass = isnt nullFive RBFile.fixedPartBass && guardDifficulty FoF.diffBass
       hasRhythm = isnt nullFive RBFile.fixedPartRhythm && guardDifficulty FoF.diffRhythm
 
-  let hopoThreshold = case FoF.eighthNoteHOPO song of
-        Just True -> 250 -- don't know exactly
-        _         -> 170
+  let hopoThreshold = case FoF.hopoFrequency song of
+        Just ht -> ht
+        -- TODO does PS interpret this as out of 480? or the midi's actual resolution?
+        -- for C3 converts it should always be 480 though.
+        Nothing -> case FoF.eighthNoteHOPO song of
+          Just True -> 250 -- don't know exactly
+          _         -> 170
 
   stackIO $ Y.encodeFile (dest </> "song.yml") $ toJSON SongYaml
     { _metadata = Metadata

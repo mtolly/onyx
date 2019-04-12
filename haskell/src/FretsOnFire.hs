@@ -50,6 +50,7 @@ data Song = Song
   , delay            :: Maybe Int
   , starPowerNote    :: Maybe Int -- ^ can be @star_power_note@ or @multiplier_note@
   , eighthNoteHOPO   :: Maybe Bool
+  , hopoFrequency    :: Maybe Int
   , track            :: Maybe Int
   , sysexSlider      :: Maybe Bool
   , sysexOpenBass    :: Maybe Bool
@@ -89,7 +90,7 @@ instance Default Song where
     def def def def def def def def def def
     def def def def def def def def def def
     def def def def def def def def def def
-    def def def def def def def def
+    def def def def def def def def def
 
 loadSong :: (MonadIO m) => FilePath -> StackTraceT m Song
 loadSong fp = do
@@ -142,6 +143,7 @@ loadSong fp = do
       delay = int "delay"
       starPowerNote = int "star_power_note" <|> int "multiplier_note"
       eighthNoteHOPO = bool "eighthnote_hopo"
+      hopoFrequency = int "hopo_frequency"
       track = int "track"
       sysexSlider = bool "sysex_slider"
       sysexOpenBass = bool "sysex_open_bass"

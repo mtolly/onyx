@@ -1609,6 +1609,7 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 , FoF.delay            = Nothing
                 , FoF.starPowerNote    = Just 116
                 , FoF.eighthNoteHOPO   = Nothing
+                , FoF.hopoFrequency    = Nothing
                 , FoF.track            = _trackNumber $ _metadata songYaml
                 , FoF.sysexSlider      = Just $ or $ do
                   opart <- toList $ RBFile.onyxParts $ RBFile.s_tracks song

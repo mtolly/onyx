@@ -116,7 +116,7 @@ To remove a song, select its row in the tree, and press the Delete key.
     Because this must generate WAV audio files to give to Magma,
     encrypted MOGG files in input rb3cons are unsupported.
 
-    Tip: to process a song with C3-encrypted MOGG, one option is to use
+    Tip: to process a song with a C3-encrypted MOGG, one option is to use
     the Phase Shift converter in C3 CON Tools which mixes the audio down to a
     single file, and then just supply the Phase Shift song to Onyx.
 
@@ -142,11 +142,24 @@ To remove a song, select its row in the tree, and press the Delete key.
 
   * Clone Hero/Phase Shift
 
+    Generates a song folder (or zip file containing one) in Phase Shift format.
+    These should play correctly in the latest free version of Phase Shift,
+    the Steam version of Phase Shift, and the latest version of Clone Hero.
+    Songs may also work in Frets on Fire X, but this is not guaranteed.
+
+    Due to how the conversion is implemented, non-RB features such as Dance
+    mode, Real Drums, and Real Keys will generally not survive a PS-to-PS
+    conversion. However other 5-fret charts such as `PART RHYTHM`, as well as
+    Clone Hero 6-fret tracks, should remain.
+
   * Rock Band 3 (Wii)
 
     Converts a collection of songs to a single RB3 pack in the format used by
     the Dolphin Wii emulator. This is primarily intended for people using
     Dolphin to record videos of songs.
+
+    Only STFS (CON/LIVE) files should be selected. Convert any other formats to
+    RB3 CON first if needed.
 
     Options are available for certain MIDI transformations useful for videos:
 
@@ -170,7 +183,7 @@ To remove a song, select its row in the tree, and press the Delete key.
 
     Colors used for drawing the display can be tweaked by editing the file
     `customize.js`. In the future this will be improved to allow overriding
-    all pixel sizes as well.
+    all pixel sizes as well, so images will be further customizable.
 
 ## Song View
 
@@ -184,3 +197,8 @@ In future releases, this will be the primary method of interacting with Onyx.
     To use, ensure that there are no notes or events authored
     for a difficulty you want to be filled in.
     (For Pro Keys, remove the `PART REAL_KEYS_?` track entirely.)
+
+  * Hanging Pro Keys notes
+
+    Looks for cases in a Pro Keys track where a range shift occurs less than
+    1 second before a note that is not visible in the previous range.

@@ -841,14 +841,54 @@ homeTabColor      = FLE.rgbColorWithRgb (209,177,224)
 functionTabColor  = FLE.rgbColorWithRgb (224,210,177)
 taskTabColor      = FLE.rgbColorWithRgb (179,221,187)
 globalLogColor    = FLE.rgbColorWithRgb (114,74,124)
-loadSongColor     = FLE.rgbColorWithRgb (237,173,193)
-batchProcessColor = FLE.rgbColorWithRgb (177,173,244)
+loadSongColor     = FLE.rgbColorWithRgb (177,173,244)
+batchProcessColor = FLE.rgbColorWithRgb (237,173,193)
 behindTabsColor   = FLE.rgbColorWithRgb (94,94,94) -- TODO report incorrect Char binding type for rgbColorWithGrayscale
 
 setTabColor :: FL.Ref FL.Group -> FLE.Color -> IO ()
 setTabColor tab color = do
   FL.setColor tab color
   FL.setSelectionColor tab color
+
+launchMisc :: (Event -> IO ()) -> IO ()
+launchMisc sink = do
+  let windowSize = Size (Width 800) (Height 400)
+      windowRect = Rectangle
+        (Position (X 0) (Y 0))
+        windowSize
+  window <- FL.windowNew windowSize Nothing $ Just "Tools"
+  behindTabsColor >>= FL.setColor window
+  FL.setResizable window $ Just window -- this is needed after the window is constructed for some reason
+  FL.sizeRange window $ Size (Width 800) (Height 400)
+  FL.begin window
+  tabs <- FL.tabsNew windowRect Nothing
+  functionTabs <- sequence
+    [ makeTab windowRect "MIDI functions" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      return tab
+    , makeTab windowRect "OGG to MOGG" $ \rect tab -> do
+      functionTabColor >>= setTabColor tab
+      return tab
+    ]
+  (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
+    taskTabColor >>= setTabColor tab
+    FL.deactivate tab
+    let cbStart = do
+          FL.activate tab
+          mapM_ FL.deactivate functionTabs
+          void $ FL.setValue tabs $ Just tab
+          updateTabsColor tabs
+        cbEnd = do
+          mapM_ FL.activate functionTabs
+    taskOutputPage rect tab sink cbStart cbEnd
+  FL.end tabs
+  updateTabsColor tabs
+  FL.setCallback tabs updateTabsColor
+  FL.setResizable tabs $ Just $ head functionTabs
+  FL.end window
+  FL.setResizable window $ Just tabs
+  FL.setCallback window $ windowCloser cancelTasks
+  FL.showWidget window
 
 launchBatch :: (Event -> IO ()) -> [FilePath] -> IO ()
 launchBatch sink startFiles = mdo
@@ -1017,7 +1057,12 @@ launchBatch sink startFiles = mdo
       functionTabColor >>= setTabColor tab
       batchPageDolphin sink rect tab $ \dirout midfn preview -> sink $ EventOnyx $ do
         files <- stackIO $ readMVar loadedFiles
-        startTasks [(".app creation", runDolphin (map impPath files) midfn preview dirout)]
+        let task = case filter (not . ("STFS" `T.isInfixOf`) . impFormat) files of
+              []   -> runDolphin (map impPath files) midfn preview dirout
+              imps -> fatal $ unlines
+                $ "Dolphin conversion currently only supports STFS files. The following files should be converted first:"
+                : map impPath imps
+        startTasks [(".app creation", task)]
       return tab
     , makeTab windowRect "Preview" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
@@ -1180,42 +1225,46 @@ launchGUI = do
             fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
             loadSongs $ map T.unpack $ catMaybes fs
           _ -> return ()
-  buttonLoad <- FL.buttonCustom
-    (Rectangle (Position (X 10) (Y 360)) (Size (Width 235) (Height 30)))
-    (Just "Load song")
-    Nothing
-    $ Just $ FL.defaultCustomWidgetFuncs { FL.handleCustom = Just $ dragAndDrop loadSongs . FL.handleSuper }
-  loadSongColor >>= FL.setColor buttonLoad
-  FL.setLabelsize buttonLoad (FL.FontSize 13)
-  FL.setCallback buttonLoad $ \_ -> loadDialog
   buttonBatch <- FL.buttonCustom
-    (Rectangle (Position (X 255) (Y 360)) (Size (Width 235) (Height 30)))
+    (Rectangle (Position (X 10) (Y 360)) (Size (Width 235) (Height 30)))
     (Just "Batch process")
     Nothing
     $ Just $ FL.defaultCustomWidgetFuncs { FL.handleCustom = Just $ dragAndDrop (launchBatch sink) . FL.handleSuper }
   batchProcessColor >>= FL.setColor buttonBatch
   FL.setLabelsize buttonBatch (FL.FontSize 13)
   FL.setCallback buttonBatch $ \_ -> launchBatch sink []
+  buttonMisc <- FL.buttonNew
+    (Rectangle (Position (X 255) (Y 360)) (Size (Width 235) (Height 30)))
+    (Just "Other tools")
+  loadSongColor >>= FL.setColor buttonMisc
+  FL.setLabelsize buttonMisc (FL.FontSize 13)
+  FL.setCallback buttonMisc $ \_ -> launchMisc sink
   menu <- FL.sysMenuBarNew
     (Rectangle (Position (X 0) (Y 0)) (Size (Width 500) (Height termMenuHeight)))
     Nothing
   let menuFn :: IO () -> FL.Ref FL.MenuItem -> IO ()
       menuFn = const
+  {-
   void $ FL.add menu
     "File/Open…"
     (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'o')
     (Just $ menuFn loadDialog)
     (FL.MenuItemFlags [FL.MenuItemNormal])
+  -}
   void $ FL.add menu
     "File/Batch Process"
     (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'b')
     (Just $ menuFn $ launchBatch sink [])
     (FL.MenuItemFlags [FL.MenuItemNormal])
   void $ FL.add menu
+    "File/Tools"
+    (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 't')
+    (Just $ menuFn $ launchMisc sink)
+    (FL.MenuItemFlags [FL.MenuItemNormal])
+  void $ FL.add menu
     "File/Close Window"
     (Just $ FL.KeySequence $ FL.ShortcutKeySequence [FLE.kb_CommandState] $ FL.NormalKeyType 'w')
     (Just $ menuFn $ sink $ EventIO $ FLTK.firstWindow >>= \case
-      -- TODO firstWindow usually works, unless you open windows and don't do anything with them
       Just window -> FL.doCallback window
       Nothing     -> return ()
     )
