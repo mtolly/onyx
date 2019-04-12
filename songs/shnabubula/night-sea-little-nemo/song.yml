@@ -23,7 +23,8 @@ plans:
       pad: [3.702, album]
 parts:
   keys:
-    pro-keys: {}
+    pro-keys:
+      difficulty: 7
   drums:
     drums: # might need some cleanup (be consistent with hihats, toms, etc.)
       kicks: both
