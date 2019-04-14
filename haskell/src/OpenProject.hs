@@ -120,9 +120,8 @@ findSongs fp' = do
           , impPath = dir
           , impProject = withYaml dir Nothing loc
           }
-      foundDTA bs fmt loc imp = do
-        [(single, _)] <- readDTASingles bs
-        found Importable
+      foundDTA bs fmt loc imp = readDTASingles bs >>= \case
+        [(single, _)] -> found Importable
           { impTitle = Just $ D.name $ dtaSongPackage single
           , impArtist = Just $ D.artist $ dtaSongPackage single
           , impAuthor = c3dtaAuthoredBy $ dtaC3Comments single
@@ -130,10 +129,13 @@ findSongs fp' = do
           , impPath = loc
           , impProject = importFrom loc imp
           }
+        _ -> return ([], Nothing)
       foundSTFS loc = do
-        Just bs <- stackIO $ withSTFS loc $ \stfs ->
+        dta <- stackIO $ withSTFS loc $ \stfs ->
           sequence $ lookup ("songs" </> "songs.dta") $ stfsFiles stfs
-        foundDTA (BL.toStrict bs) "Xbox 360 STFS (CON/LIVE)" loc $ void . importSTFS loc Nothing
+        case dta of
+          Just bs -> foundDTA (BL.toStrict bs) "Xbox 360 STFS (CON/LIVE)" loc $ void . importSTFS loc Nothing
+          Nothing -> return ([], Nothing)
   isDir <- stackIO $ Dir.doesDirectoryExist fp
   if isDir
     then do

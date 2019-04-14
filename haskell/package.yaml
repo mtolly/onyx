@@ -34,7 +34,7 @@ library:
   source-dirs: src
   dependencies:
   - base
-  - shake >= 0.16 && < 0.17
+  - shake
   - hashable
   - directory
   - temporary
@@ -144,7 +144,7 @@ executables:
     # TODO a bunch of these can be trimmed down
     dependencies:
     - base
-    - shake >= 0.16 && < 0.17
+    - shake
     - hashable
     - directory
     - temporary

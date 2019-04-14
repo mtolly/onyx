@@ -10,7 +10,7 @@ module Audio
 , Seam(..)
 , mapTime
 , sameChannels
-, buildSource
+, buildSource, buildSource'
 , buildAudio
 , runAudio
 , clampFloat
@@ -38,7 +38,7 @@ import           Control.Monad.Trans.Class       (lift)
 import           Control.Monad.Trans.Resource    (MonadResource, ResourceT,
                                                   runResourceT)
 import           Control.Monad.Trans.StackTrace  (SendMessage, StackTraceT,
-                                                  Staction, lg, stackIO)
+                                                  Staction, fatal, lg, stackIO)
 import           Data.Binary.Get                 (getWord32le, runGetOrFail)
 import qualified Data.ByteString.Lazy            as BL
 import qualified Data.ByteString.Lazy.Char8      as BL8
@@ -406,7 +406,7 @@ runAudio src out = let
       lg $ "Writing an audio expression to " ++ out
       stackIO $ runResourceT $ sinkMP3 out src'
       lg $ "Finished writing an audio expression to " ++ out
-    ext -> error $ "runAudio: unknown audio output file extension " ++ ext
+    ext -> fatal $ "runAudio: unknown audio output file extension " ++ ext
 
 -- | Forces floating point samples to be in @[-1, 1]@.
 -- libsndfile should do this, after https://github.com/kaoskorobase/hsndfile/pull/12

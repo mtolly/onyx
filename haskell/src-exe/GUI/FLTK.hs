@@ -1,8 +1,12 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecursiveDo       #-}
+{-# LANGUAGE TupleSections     #-}
 module GUI.FLTK (launchGUI) where
 
+import           Audio                                     (Audio (..),
+                                                            buildSource',
+                                                            runAudio)
 import           CommandLine                               (copyDirRecursive,
                                                             runDolphin)
 import           Config
@@ -31,6 +35,7 @@ import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                                as A
 import           Data.Char                                 (isSpace, toLower)
 import           Data.Default.Class                        (def)
+import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
 import qualified Data.HashMap.Strict                       as HM
 import           Data.Maybe                                (catMaybes,
@@ -52,6 +57,7 @@ import           Graphics.UI.FLTK.LowLevel.FLTKHS          (Height (..),
                                                             Y (..))
 import qualified Graphics.UI.FLTK.LowLevel.FLTKHS          as FL
 import           JSONData                                  (toJSON)
+import           Magma                                     (oggToMogg)
 import           Network.HTTP.Req                          ((/:))
 import qualified Network.HTTP.Req                          as Req
 import           OpenProject
@@ -62,11 +68,13 @@ import           Paths_onyxite_customs_tool                (version)
 import           Reductions                                (simpleReduce)
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
+import qualified Sound.File.Sndfile                        as Snd
 import qualified Sound.MIDI.Util                           as U
 import qualified System.Directory                          as Dir
 import           System.FilePath                           (takeDirectory,
                                                             takeExtension,
-                                                            takeFileName, (<.>),
+                                                            takeFileName,
+                                                            (-<.>), (<.>),
                                                             (</>))
 import           System.Info                               (os)
 
@@ -850,8 +858,35 @@ setTabColor tab color = do
   FL.setColor tab color
   FL.setSelectionColor tab color
 
+data AudioSpec = AudioSpec
+  { audioPath     :: FilePath
+  , audioFormat   :: T.Text
+  , audioFrames   :: Int
+  , audioRate     :: Double
+  , audioChannels :: Int
+  }
+
+getAudioSpec :: FilePath -> IO (Maybe AudioSpec)
+getAudioSpec f = Exc.try (Snd.getFileInfo f) >>= \case
+  Left e -> let
+    _ = e :: Snd.Exception
+    in return Nothing -- TODO handle MP3
+  Right info -> let
+    withFormat fmt = return $ Just AudioSpec
+      { audioPath = f
+      , audioFormat = fmt
+      , audioFrames = Snd.frames info
+      , audioRate = realToFrac $ Snd.samplerate info
+      , audioChannels = Snd.channels info
+      }
+    in case Snd.headerFormat $ Snd.format info of
+      Snd.HeaderFormatWav  -> withFormat "WAVE"
+      Snd.HeaderFormatOgg  -> withFormat "Ogg Vorbis"
+      Snd.HeaderFormatFlac -> withFormat "FLAC"
+      _                    -> return Nothing
+
 launchMisc :: (Event -> IO ()) -> IO ()
-launchMisc sink = do
+launchMisc sink = mdo
   let windowSize = Size (Width 800) (Height 400)
       windowRect = Rectangle
         (Position (X 0) (Y 0))
@@ -866,8 +901,60 @@ launchMisc sink = do
     [ makeTab windowRect "MIDI functions" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       return tab
-    , makeTab windowRect "OGG to MOGG" $ \rect tab -> do
+    , makeTab windowRect "MOGG creator" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
+      loadedAudio <- newMVar []
+      let (filesRect, startRect) = chopBottom 50 rect
+          startRect' = trimClock 5 10 10 10 startRect
+      group <- fileLoadWindow filesRect sink "Audio" "Audio" loadedAudio []
+        (\f -> liftIO $ ([],) <$> getAudioSpec f)
+        $ \info -> let
+          entry = T.pack $ audioPath info
+          sublines =
+            [ audioFormat info <> ", " <> T.pack (show $ audioChannels info) <> " channels"
+            , let
+              time = realToFrac (audioFrames info) / audioRate info
+              mins = floor $ time / 60 :: Int
+              secs = realToFrac $ time - realToFrac mins * 60 :: Milli
+              zero = if secs < 10 then "0" else ""
+              stamp = T.pack $ show mins <> ":" <> zero <> show secs
+              -- `time` package can do this once 1.9 is used in GHC 8.8
+              in stamp <> " (" <> T.pack (show $ audioFrames info) <> " frames @ " <> T.pack (show $ audioRate info) <> "Hz)"
+            ]
+          in (entry, sublines)
+      btn <- FL.buttonNew startRect' $ Just "Combine into MOGG file"
+      FL.setResizable tab $ Just group
+      FL.setCallback btn $ \_ -> sink $ EventIO $ do
+        audio <- readMVar loadedAudio
+        picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+        FL.setTitle picker "Save MOGG file"
+        case audio of
+          [aud] -> FL.setDirectory picker $ T.pack $ takeDirectory $ audioPath aud
+          _     -> return ()
+        FL.setFilter picker "*.mogg"
+        FL.setPresetFile picker $ case audio of
+          [aud] -> T.pack $ takeFileName (audioPath aud) -<.> "mogg"
+          _     -> "out.mogg"
+        FL.showWidget picker >>= \case
+          FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+            Nothing -> return ()
+            Just f  -> let
+              ext = map toLower $ takeExtension f
+              f' = if ext == ".mogg"
+                then f
+                else f <.> "mogg"
+              in sink $ EventOnyx $ startTasks $ case audio of
+                [aud] | audioFormat aud == "Ogg Vorbis" ->
+                  [("OGG to MOGG", oggToMogg (audioPath aud) f' >> return [f'])]
+                _ -> let
+                  task = tempDir "makemogg" $ \tmp -> do
+                    let ogg = tmp </> "temp.ogg"
+                    src <- buildSource' $ Merge $ map (Input . audioPath) audio
+                    runAudio src ogg
+                    oggToMogg ogg f'
+                    return [f']
+                  in [("MOGG file creation", task)]
+          _ -> return ()
       return tab
     ]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do
@@ -890,6 +977,137 @@ launchMisc sink = do
   FL.setCallback window $ windowCloser cancelTasks
   FL.showWidget window
 
+fileLoadWindow
+  :: Rectangle
+  -> (Event -> IO ())
+  -> T.Text -- ^ singular
+  -> T.Text -- ^ plural
+  -> MVar [a]
+  -> [FilePath] -- ^ initial paths to start searching
+  -> (FilePath -> Onyx ([FilePath], Maybe a)) -- ^ one step of file search process
+  -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
+  -> IO (FL.Ref FL.Group)
+fileLoadWindow rect sink single plural loadedFiles startFiles step display = mdo
+  group <- FL.groupNew rect Nothing
+  let (labelRect, belowLabel) = chopTop 40 rect
+      (termRect, buttonsRect) = chopBottom 50 belowLabel
+      labelRect' = trimClock 10 10 5 10 labelRect
+      termRect' = trimClock 5 10 5 10 termRect
+      buttonsRect' = trimClock 5 10 10 10 buttonsRect
+      [btnRectA, btnRectB] = splitHorizN 2 buttonsRect'
+      (btnRectA', _) = chopRight 5 btnRectA
+      (_, btnRectB') = chopLeft 5 btnRectB
+  label <- FL.boxNew labelRect' Nothing
+  tree <- FL.treeCustom termRect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
+    { FL.handleCustom = Just $ \_ evt -> case evt of
+      FLE.Keydown -> do
+        cmd <- FLTK.eventCommand
+        let upToSong :: FL.Ref FL.TreeItem -> MaybeT IO (FL.Ref FL.TreeItem)
+            upToSong i = lift (FL.getDepth i) >>= \case
+              0 -> MaybeT $ return Nothing
+              1 -> return i
+              _ -> MaybeT (FL.getParent i) >>= upToSong
+            getSongFocus :: MaybeT IO (FL.Ref FL.TreeItem, Int, FL.Ref FL.TreeItem)
+            getSongFocus = do
+              item <- MaybeT $ FL.getItemFocus tree
+              songItem <- upToSong item
+              root <- MaybeT $ FL.root tree
+              FL.AtIndex ix <- MaybeT $ FL.findChild root
+                $ FL.TreeItemPointerLocator $ FL.TreeItemPointer songItem
+              return (root, ix, songItem)
+        FLTK.eventKey >>= \case
+          FL.SpecialKeyType FLE.Kb_Up | cmd -> do
+            void $ runMaybeT $ do
+              (root, ix, _songItem) <- getSongFocus
+              case ix of
+                0 -> return ()
+                _ -> lift $ swapFiles root (ix - 1) ix
+            return $ Right ()
+          FL.SpecialKeyType FLE.Kb_Down | cmd -> do
+            void $ runMaybeT $ do
+              (root, ix, _songItem) <- getSongFocus
+              len <- liftIO $ FL.children root
+              if ix == len - 1
+                then return ()
+                else lift $ swapFiles root ix (ix + 1)
+            return $ Right ()
+          FL.SpecialKeyType FLE.Kb_Delete -> do
+            void $ runMaybeT $ do
+              (_root, ix, songItem) <- getSongFocus
+              lift $ removeFile songItem ix
+            return $ Right ()
+          _ -> FL.handleSuper tree evt
+      _ -> FL.handleSuper tree evt
+    }
+  FL.end tree
+  FL.setResizable group $ Just tree
+  let updateLabel fs = FL.setLabel label $ T.pack $ case length fs of
+        1 -> "1 file loaded."
+        n -> show n ++ " files loaded."
+      clearFiles = do
+        _ <- takeMVar loadedFiles
+        FL.clear tree
+        _ <- FL.add tree ""
+        FL.rootLabel tree plural
+        updateLabel []
+        putMVar loadedFiles []
+        FLTK.redraw
+      swapFiles :: FL.Ref FL.TreeItem -> Int -> Int -> IO ()
+      swapFiles root index1 index2 = do
+        fs <- takeMVar loadedFiles
+        let fs' = zipWith (\i _ -> fs !! if i == index1 then index2 else if i == index2 then index1 else i) [0..] fs
+        void $ FL.swapChildren root (FL.AtIndex index1) (FL.AtIndex index2)
+        updateLabel fs'
+        putMVar loadedFiles fs'
+        FLTK.redraw
+      removeFile songItem index = do
+        fs <- takeMVar loadedFiles
+        let fs' = take index fs ++ drop (index + 1) fs
+        void $ FL.remove tree songItem
+        updateLabel fs'
+        putMVar loadedFiles fs'
+        FLTK.redraw
+      addFiles [] = return ()
+      addFiles gs = do
+        fs <- takeMVar loadedFiles
+        Just root <- FL.root tree
+        forM_ gs $ \imp -> do
+          let (entry, sublines) = display imp
+          Just item <- FL.addAt tree entry root
+          forM_ sublines $ \subline -> void $ FL.addAt tree subline item
+          FL.close item
+        let fs' = fs ++ gs
+        updateLabel fs'
+        putMVar loadedFiles fs'
+        FLTK.redraw
+      searchSongs [] = return ()
+      searchSongs (loc : locs) = do
+        (children, mimp) <- step loc
+        stackIO $ sink $ EventIO $ addFiles $ toList mimp
+        searchSongs $ locs ++ children
+      forkSearch = void . forkOnyx . searchSongs
+  clearFiles
+  sink $ EventOnyx $ forkSearch startFiles
+  void $ FL.boxCustom termRect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
+    { FL.handleCustom = Just
+      $ dragAndDrop (sink . EventOnyx . forkSearch)
+      . (\_ _ -> return $ Left FL.UnknownEvent)
+    }
+  btnA <- FL.buttonNew btnRectA' $ Just $ "Add " <> single
+  FL.setCallback btnA $ \_ -> sink $ EventIO $ do
+    picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
+    FL.setTitle picker $ "Load " <> single
+    FL.showWidget picker >>= \case
+      FL.NativeFileChooserPicked -> do
+        n <- FL.getCount picker
+        fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
+        sink $ EventOnyx $ forkSearch $ map T.unpack $ catMaybes fs
+      _ -> return ()
+  btnB <- FL.buttonNew btnRectB' $ Just $ "Clear " <> plural
+  FL.setCallback btnB $ \_ -> sink $ EventIO clearFiles
+  FL.end group
+  return group
+
 launchBatch :: (Event -> IO ()) -> [FilePath] -> IO ()
 launchBatch sink startFiles = mdo
   loadedFiles <- newMVar []
@@ -903,103 +1121,22 @@ launchBatch sink startFiles = mdo
   FL.sizeRange window $ Size (Width 800) (Height 400)
   FL.begin window
   tabs <- FL.tabsNew windowRect Nothing
-  tabSongs <- makeTab windowRect "Songs" $ \rect tab -> mdo
+  tabSongs <- makeTab windowRect "Songs" $ \rect tab -> do
     homeTabColor >>= setTabColor tab
-    let (labelRect, belowLabel) = chopTop 40 rect
-        (termRect, buttonsRect) = chopBottom 50 belowLabel
-        labelRect' = trimClock 10 10 5 10 labelRect
-        termRect' = trimClock 5 10 5 10 termRect
-        buttonsRect' = trimClock 5 10 10 10 buttonsRect
-        [btnRectA, btnRectB] = splitHorizN 2 buttonsRect'
-        (btnRectA', _) = chopRight 5 btnRectA
-        (_, btnRectB') = chopLeft 5 btnRectB
-    label <- FL.boxNew labelRect' $ Just "0 files loaded."
-    tree <- FL.treeCustom termRect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
-      { FL.handleCustom = Just $ \_ evt -> case evt of
-        FLE.Keydown -> FLTK.eventKey >>= \case
-          FL.SpecialKeyType FLE.Kb_Delete -> do
-            void $ runMaybeT $ do
-              item <- MaybeT $ FL.getItemFocus tree
-              let upToSong :: FL.Ref FL.TreeItem -> MaybeT IO (FL.Ref FL.TreeItem)
-                  upToSong i = lift (FL.getDepth i) >>= \case
-                    0 -> MaybeT $ return Nothing
-                    1 -> return i
-                    _ -> MaybeT (FL.getParent i) >>= upToSong
-              songItem <- upToSong item
-              root <- MaybeT $ FL.root tree
-              FL.AtIndex ix <- MaybeT $ FL.findChild root
-                $ FL.TreeItemPointerLocator $ FL.TreeItemPointer songItem
-              lift $ removeFile songItem ix
-            return $ Right ()
-          _ -> FL.handleSuper tree evt
-        _ -> FL.handleSuper tree evt
-      }
-    FL.end tree
-    FL.setResizable tab $ Just tree
-    let updateLabel fs = FL.setLabel label $ T.pack $ case length fs of
-          1 -> "1 file loaded."
-          n -> show n ++ " files loaded."
-        clearFiles = do
-          _ <- takeMVar loadedFiles
-          FL.clear tree
-          _ <- FL.add tree ""
-          FL.rootLabel tree "Songs"
-          updateLabel []
-          putMVar loadedFiles []
-          FLTK.redraw
-        removeFile songItem index = do
-          fs <- takeMVar loadedFiles
-          let fs' = take index fs ++ drop (index + 1) fs
-          void $ FL.remove tree songItem
-          updateLabel fs'
-          putMVar loadedFiles fs'
-          FLTK.redraw
-        addFiles [] = return ()
-        addFiles gs = do
-          fs <- takeMVar loadedFiles
-          Just root <- FL.root tree
-          forM_ gs $ \imp -> do
-            let entry = T.concat
-                  [ fromMaybe "Untitled" $ impTitle imp
-                  , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
-                  ]
-            Just item <- FL.addAt tree entry root
-            case impAuthor imp of
-              Just author | T.any (not . isSpace) author -> do
-                void $ FL.addAt tree ("Author: " <> author) item
-              _ -> return ()
-            void $ FL.addAt tree ("Format: " <> impFormat imp) item
-            void $ FL.addAt tree ("Path: " <> T.pack (impPath imp)) item
-            FL.close item
-          let fs' = fs ++ gs
-          updateLabel fs'
-          putMVar loadedFiles fs'
-          FLTK.redraw
-        searchSongs [] = return ()
-        searchSongs (loc : locs) = do
-          (children, mimp) <- findSongs loc
-          stackIO $ sink $ EventIO $ addFiles $ toList mimp
-          searchSongs $ locs ++ children
-        forkSearch = void . forkOnyx . searchSongs
-    clearFiles
-    sink $ EventOnyx $ forkSearch startFiles
-    void $ FL.boxCustom termRect' Nothing Nothing $ Just FL.defaultCustomWidgetFuncs
-      { FL.handleCustom = Just
-        $ dragAndDrop (sink . EventOnyx . forkSearch)
-        . (\_ _ -> return $ Left FL.UnknownEvent)
-      }
-    btnA <- FL.buttonNew btnRectA' $ Just "Add Song"
-    FL.setCallback btnA $ \_ -> sink $ EventIO $ do
-      picker <- FL.nativeFileChooserNew $ Just FL.BrowseMultiFile
-      FL.setTitle picker "Load song"
-      FL.showWidget picker >>= \case
-        FL.NativeFileChooserPicked -> do
-          n <- FL.getCount picker
-          fs <- forM [0 .. n - 1] $ FL.getFilenameAt picker . FL.AtIndex
-          sink $ EventOnyx $ forkSearch $ map T.unpack $ catMaybes fs
-        _ -> return ()
-    btnB <- FL.buttonNew btnRectB' $ Just "Clear Songs"
-    FL.setCallback btnB $ \_ -> sink $ EventIO clearFiles
+    group <- fileLoadWindow rect sink "Song" "Songs" loadedFiles startFiles findSongs $ \imp -> let
+      entry = T.concat
+        [ fromMaybe "Untitled" $ impTitle imp
+        , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp
+        ]
+      sublines = concat
+        [ case impAuthor imp of
+          Just author | T.any (not . isSpace) author -> ["Author: " <> author]
+          _                                          -> []
+        , ["Format: " <> impFormat imp]
+        , ["Path: " <> T.pack (impPath imp)]
+        ]
+      in (entry, sublines)
+    FL.setResizable tab $ Just group
     return tab
   let doImport imp fn = do
         proj <- impProject imp
@@ -1163,7 +1300,7 @@ macOS = os == "darwin"
 isNewestRelease :: (Bool -> IO ()) -> IO ()
 isNewestRelease cb = do
   let addr = Req.https "api.github.com" /: "repos" /: "mtolly" /: "onyxite-customs" /: "releases" /: "latest"
-  rsp <- Req.runReq def $ Req.req Req.GET addr Req.NoReqBody Req.jsonResponse $ Req.header "User-Agent" "mtolly/onyxite-customs"
+  rsp <- Req.runReq Req.defaultHttpConfig $ Req.req Req.GET addr Req.NoReqBody Req.jsonResponse $ Req.header "User-Agent" "mtolly/onyxite-customs"
   case Req.responseBody rsp of
     A.Object obj -> case HM.lookup "name" obj of
       Just (A.String str) -> cb $ T.unpack str == showVersion version

@@ -11,7 +11,6 @@ import qualified Data.ByteString                as B
 import           Data.Default.Class             (Default (..))
 import qualified Data.HashMap.Strict            as HM
 import           Data.Ini
-import           Data.List                      (sortOn)
 import qualified Data.Text                      as T
 import qualified Data.Text.Encoding             as TE
 import           DecodeText                     (decodeGeneral)
@@ -154,8 +153,8 @@ loadSong fp = do
   return Song{..}
 
 saveSong :: (MonadIO m) => FilePath -> Song -> m ()
-saveSong fp Song{..} = writePSIni fp $
-  Ini $ HM.singleton "song" $ HM.fromList $ execWriter $ do
+saveSong fp Song{..} = writePSIni fp $ flip Ini []
+  $ HM.singleton "song" $ execWriter $ do
     let str k = maybe (return ()) $ \v -> tell [(k, v)]
         shown k = str k . fmap (T.pack . show)
     str "name" name
@@ -200,9 +199,9 @@ saveSong fp Song{..} = writePSIni fp $
     shown "drum_fallback_blue" drumFallbackBlue
 
 writePSIni :: (MonadIO m) => FilePath -> Ini -> m ()
-writePSIni fp (Ini hmap) = let
-  txt = T.intercalate "\r\n" $ map section $ sortOn fst $ HM.toList hmap
+writePSIni fp (Ini hmap _) = let
+  txt = T.intercalate "\r\n" $ map section $ HM.toList hmap
   section (title, pairs) = T.intercalate "\r\n" $
-    T.concat ["[", title, "]"] : map line (sortOn fst $ HM.toList pairs)
+    T.concat ["[", title, "]"] : map line pairs
   line (k, v) = T.concat [k, " = ", v]
   in liftIO $ B.writeFile fp $ TE.encodeUtf8 $ T.append txt "\r\n"
