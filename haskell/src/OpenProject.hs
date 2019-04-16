@@ -15,7 +15,9 @@ import qualified Data.Aeson.Types               as A
 import qualified Data.ByteString                as B
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Char                      (toLower)
-import           Data.Default.Class             (def)
+import           Data.DTA                       (readFileDTA)
+import qualified Data.DTA.Serialize             as DTA
+import qualified Data.DTA.Serialize.Magma       as RBProj
 import qualified Data.DTA.Serialize.RB3         as D
 import           Data.Functor                   (void)
 import           Data.Hashable
@@ -28,7 +30,6 @@ import qualified Data.Yaml                      as Y
 import qualified FeedBack.Load                  as FB
 import qualified FretsOnFire                    as FoF
 import           Import
-import           JSONData                       (toJSON)
 import           Magma                          (getRBAFileBS)
 import           PrettyDTA                      (C3DTAComments (..),
                                                  DTASingle (..), readDTASingles)
@@ -120,6 +121,16 @@ findSongs fp' = do
           , impPath = dir
           , impProject = withYaml dir Nothing loc
           }
+      foundRBProj loc = do
+        RBProj.RBProj proj <- stackIO (readFileDTA loc) >>= DTA.unserialize DTA.stackChunks
+        found Importable
+          { impTitle = Just $ RBProj.songName $ RBProj.metadata proj
+          , impArtist = Just $ RBProj.artistName $ RBProj.metadata proj
+          , impAuthor = Just $ RBProj.author $ RBProj.metadata proj
+          , impFormat = "Magma Project"
+          , impPath = loc
+          , impProject = importFrom loc $ void . importMagma loc
+          }
       foundDTA bs fmt loc imp = readDTASingles bs >>= \case
         [(single, _)] -> found Importable
           { impTitle = Just $ D.name $ dtaSongPackage single
@@ -144,10 +155,6 @@ findSongs fp' = do
         | elem "song.yml" ents -> foundYaml $ fp </> "song.yml"
         | elem "song.ini" ents -> foundIni $ fp </> "song.ini"
         | elem "notes.chart" ents -> foundChart $ fp </> "notes.chart"
-        | [ent] <- filter (\ent -> takeExtension ent == ".rbproj") ents
-          -> undefined ent
-        | [ent] <- filter (\ent -> takeExtension ent == ".moggsong") ents
-          -> undefined ent
         | otherwise -> stackIO (Dir.doesFileExist $ fp </> "songs/songs.dta") >>= \case
           True  -> do
             bs <- stackIO $ B.readFile $ fp </> "songs/songs.dta"
@@ -157,8 +164,8 @@ findSongs fp' = do
       case map toLower $ takeExtension fp of
         ".yml" -> foundYaml fp
         ".yaml" -> foundYaml fp
-        ".rbproj" -> undefined
-        ".moggsong" -> undefined
+        ".rbproj" -> foundRBProj fp
+        -- TODO Amplitude .moggsong
         ".chart" -> foundChart fp
         _ -> case map toLower $ takeFileName fp of
           "song.ini" -> foundIni fp
@@ -174,63 +181,9 @@ findSongs fp' = do
 
 openProject :: (SendMessage m, MonadResource m) =>
   FilePath -> StackTraceT m Project
-openProject fp = do
-  isDir <- stackIO $ Dir.doesDirectoryExist fp
-  absolute <- stackIO $ Dir.makeAbsolute fp
-  let withYaml key fyml = loadYaml fyml >>= \yml -> return Project
-        { projectLocation = fyml
-        , projectSongYaml = yml
-        , projectRelease = key
-        , projectSource = absolute
-        , projectTemplate = dropExtension $ if isDir
-          then dropTrailingPathSeparator absolute
-          else fromMaybe absolute $
-            stripSuffix "_rb3con" absolute <|> stripSuffix "_rb2con" absolute
-        }
-      importFrom fn = do
-        (key, tmp) <- resourceTempDir
-        () <- fn tmp
-        withYaml (Just key) (tmp </> "song.yml")
-  if isDir
-    then do
-      ents <- stackIO $ Dir.listDirectory fp
-      if
-        | elem "song.yml" ents -> withYaml Nothing $ fp </> "song.yml"
-        | elem "song.ini" ents -> importFrom $ void . importFoF True False fp
-        | elem "notes.chart" ents -> importFrom $ void . importFoF True False fp
-        | [ent] <- filter (\ent -> takeExtension ent == ".rbproj") ents
-          -> importFrom $ void . importMagma (fp </> ent)
-        | [ent] <- filter (\ent -> takeExtension ent == ".moggsong") ents
-          -> importFrom $ importAmplitude (fp </> ent)
-        | otherwise -> stackIO (Dir.doesFileExist $ fp </> "songs/songs.dta") >>= \case
-          True  -> importFrom $ void . importSTFSDir fp Nothing
-          False -> fatal "Unrecognized folder format"
-    else case takeExtension fp of
-      ".yml"      -> withYaml Nothing fp
-      ".yaml"     -> withYaml Nothing fp
-      ".rbproj"   -> importFrom $ void . importMagma fp
-      ".moggsong" -> importFrom $ importAmplitude fp
-      ".chart"    -> importFrom $ void . importFoF True False (takeDirectory fp)
-      _           -> case takeFileName fp of
-        "song.ini" -> importFrom $ void . importFoF True False (takeDirectory fp)
-        _ -> do
-          magic <- stackIO $ IO.withBinaryFile fp IO.ReadMode $ \h -> BL.hGet h 4
-          case magic of
-            "RBSF" -> importFrom $ void . importRBA fp Nothing
-            "CON " -> importFrom $ void . importSTFS fp Nothing
-            "LIVE" -> importFrom $ void . importSTFS fp Nothing
-            "MThd" -> importFrom $ \dir -> do
-              -- raw midi file, import as a "song"
-              stackIO $ Dir.copyFile fp $ dir </> "notes.mid"
-              stackIO $ Y.encodeFile (dir </> "song.yml") $ toJSON SongYaml
-                { _metadata = def
-                , _audio    = Map.empty
-                , _jammit   = Map.empty
-                , _plans    = Map.empty -- TODO empty plan
-                , _targets  = Map.empty
-                , _parts    = Parts Map.empty -- TODO identify midi tracks
-                }
-            _      -> fatal "Unrecognized song format"
+openProject fp = findSongs fp >>= \case
+  (_, Just imp) -> impProject imp
+  (_, Nothing ) -> fatal $ "Couldn't find a song at location: " <> fp
 
 withProject :: (SendMessage m, MonadResource m) =>
   FilePath -> (Project -> StackTraceT m a) -> StackTraceT m a

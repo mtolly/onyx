@@ -12,6 +12,8 @@ import           CommandLine                               (copyDirRecursive,
 import           Config
 import           Control.Concurrent                        (MVar, ThreadId,
                                                             forkIO, killThread,
+                                                            modifyMVar,
+                                                            modifyMVar_,
                                                             newMVar, putMVar,
                                                             readMVar, takeMVar)
 import           Control.Concurrent.STM                    (atomically)
@@ -901,12 +903,28 @@ launchMisc sink = mdo
     [ makeTab windowRect "MIDI functions" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
       return tab
-    , makeTab windowRect "MOGG creator" $ \rect tab -> do
+    , makeTab windowRect "MOGG creator" $ \rect tab -> mdo
       functionTabColor >>= setTabColor tab
       loadedAudio <- newMVar []
       let (filesRect, startRect) = chopBottom 50 rect
           startRect' = trimClock 5 10 10 10 startRect
-      group <- fileLoadWindow filesRect sink "Audio" "Audio" loadedAudio []
+          isSingleOgg = \case
+            [aud] | audioFormat aud == "Ogg Vorbis" -> Just aud
+            _                                       -> Nothing
+          modifyAudio :: ([AudioSpec] -> IO [AudioSpec]) -> IO ()
+          modifyAudio f = do
+            newAudio <- modifyMVar loadedAudio $ \auds -> (\x -> (x, x)) <$> f auds
+            let chans = sum $ map audioChannels newAudio
+            sink $ EventIO $ do
+              FL.setLabel btn $ let
+                op = case isSingleOgg newAudio of
+                  Just _  -> "Ogg to MOGG, no re-encode"
+                  Nothing -> "Combine into MOGG"
+                in op <> " (" <> T.pack (show chans) <> " channels)"
+              if chans == 0
+                then FL.deactivate btn
+                else FL.activate   btn
+      group <- fileLoadWindow filesRect sink "Audio" "Audio" modifyAudio []
         (\f -> liftIO $ ([],) <$> getAudioSpec f)
         $ \info -> let
           entry = T.pack $ audioPath info
@@ -922,7 +940,7 @@ launchMisc sink = mdo
               in stamp <> " (" <> T.pack (show $ audioFrames info) <> " frames @ " <> T.pack (show $ audioRate info) <> "Hz)"
             ]
           in (entry, sublines)
-      btn <- FL.buttonNew startRect' $ Just "Combine into MOGG file"
+      btn <- FL.buttonNew startRect' Nothing
       FL.setResizable tab $ Just group
       FL.setCallback btn $ \_ -> sink $ EventIO $ do
         audio <- readMVar loadedAudio
@@ -943,10 +961,9 @@ launchMisc sink = mdo
               f' = if ext == ".mogg"
                 then f
                 else f <.> "mogg"
-              in sink $ EventOnyx $ startTasks $ case audio of
-                [aud] | audioFormat aud == "Ogg Vorbis" ->
-                  [("OGG to MOGG", oggToMogg (audioPath aud) f' >> return [f'])]
-                _ -> let
+              in sink $ EventOnyx $ startTasks $ case isSingleOgg audio of
+                Just aud -> [("Ogg to MOGG", oggToMogg (audioPath aud) f' >> return [f'])]
+                Nothing  -> let
                   task = tempDir "makemogg" $ \tmp -> do
                     let ogg = tmp </> "temp.ogg"
                     src <- buildSource' $ Merge $ map (Input . audioPath) audio
@@ -982,12 +999,12 @@ fileLoadWindow
   -> (Event -> IO ())
   -> T.Text -- ^ singular
   -> T.Text -- ^ plural
-  -> MVar [a]
+  -> (([a] -> IO [a]) -> IO ()) -- ^ read and/or modify the current list of files
   -> [FilePath] -- ^ initial paths to start searching
   -> (FilePath -> Onyx ([FilePath], Maybe a)) -- ^ one step of file search process
   -> (a -> (T.Text, [T.Text])) -- ^ display an entry in the tree
   -> IO (FL.Ref FL.Group)
-fileLoadWindow rect sink single plural loadedFiles startFiles step display = mdo
+fileLoadWindow rect sink single plural modifyFiles startFiles step display = mdo
   group <- FL.groupNew rect Nothing
   let (labelRect, belowLabel) = chopTop 40 rect
       (termRect, buttonsRect) = chopBottom 50 belowLabel
@@ -1044,32 +1061,28 @@ fileLoadWindow rect sink single plural loadedFiles startFiles step display = mdo
   let updateLabel fs = FL.setLabel label $ T.pack $ case length fs of
         1 -> "1 file loaded."
         n -> show n ++ " files loaded."
-      clearFiles = do
-        _ <- takeMVar loadedFiles
+      clearFiles = modifyFiles $ \_ -> do
         FL.clear tree
         _ <- FL.add tree ""
         FL.rootLabel tree plural
         updateLabel []
-        putMVar loadedFiles []
         FLTK.redraw
+        return []
       swapFiles :: FL.Ref FL.TreeItem -> Int -> Int -> IO ()
-      swapFiles root index1 index2 = do
-        fs <- takeMVar loadedFiles
+      swapFiles root index1 index2 = modifyFiles $ \fs -> do
         let fs' = zipWith (\i _ -> fs !! if i == index1 then index2 else if i == index2 then index1 else i) [0..] fs
         void $ FL.swapChildren root (FL.AtIndex index1) (FL.AtIndex index2)
         updateLabel fs'
-        putMVar loadedFiles fs'
         FLTK.redraw
-      removeFile songItem index = do
-        fs <- takeMVar loadedFiles
+        return fs'
+      removeFile songItem index = modifyFiles $ \fs -> do
         let fs' = take index fs ++ drop (index + 1) fs
         void $ FL.remove tree songItem
         updateLabel fs'
-        putMVar loadedFiles fs'
         FLTK.redraw
+        return fs'
       addFiles [] = return ()
-      addFiles gs = do
-        fs <- takeMVar loadedFiles
+      addFiles gs = modifyFiles $ \fs -> do
         Just root <- FL.root tree
         forM_ gs $ \imp -> do
           let (entry, sublines) = display imp
@@ -1078,8 +1091,8 @@ fileLoadWindow rect sink single plural loadedFiles startFiles step display = mdo
           FL.close item
         let fs' = fs ++ gs
         updateLabel fs'
-        putMVar loadedFiles fs'
         FLTK.redraw
+        return fs'
       searchSongs [] = return ()
       searchSongs (loc : locs) = do
         (children, mimp) <- step loc
@@ -1123,7 +1136,7 @@ launchBatch sink startFiles = mdo
   tabs <- FL.tabsNew windowRect Nothing
   tabSongs <- makeTab windowRect "Songs" $ \rect tab -> do
     homeTabColor >>= setTabColor tab
-    group <- fileLoadWindow rect sink "Song" "Songs" loadedFiles startFiles findSongs $ \imp -> let
+    group <- fileLoadWindow rect sink "Song" "Songs" (modifyMVar_ loadedFiles) startFiles findSongs $ \imp -> let
       entry = T.concat
         [ fromMaybe "Untitled" $ impTitle imp
         , maybe "" (\art -> " (" <> art <> ")") $ impArtist imp

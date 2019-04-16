@@ -1,4 +1,5 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Reaper.Build (makeReaper, makeReaperIO) where
 
 import           Reaper.Base
@@ -157,12 +158,14 @@ track tunings lenTicks lenSecs resn trk = let
         red = (255, 0, 0)
         blue = (0, 0, 255)
         orange = (255, 128, 0)
+        purple = (202, 2, 252)
         color = fpart >>= \case
           FlexDrums -> Just yellow
           FlexGuitar -> Just blue
           FlexBass -> Just red
           FlexVocal -> Just orange
           FlexKeys -> Just green
+          FlexExtra "rhythm" -> Just purple
           _ -> Nothing
     case color of
       Nothing -> return ()
@@ -1000,6 +1003,7 @@ sortTracks = sortOn $ U.trackName >=> \name -> findIndex (`isSuffixOf` name)
   , "PART GUITAR"
   , "PART REAL_GUITAR"
   , "PART REAL_GUITAR_22"
+  , "PART RHYTHM"
   , "PART VOCALS"
   , "HARM1"
   , "HARM2"

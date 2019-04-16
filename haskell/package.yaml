@@ -7,8 +7,6 @@ license: GPL-3
 license-file: LICENSE.txt
 
 extra-source-files:
-- vendors/Pentatonic.ttf
-- vendors/VeraMono.ttf
 - vendors/KV.bin
 - vendors/rb3.png
 - vendors/empty.milo_xbox
@@ -50,13 +48,13 @@ library:
   - hmidi
   - containers
   - bytestring
-  - process >= 1.2.0.0 && < 1.7
+  - process
   - resourcet
   - hsndfile
-  - JuicyPixels >= 3.2.3.1
+  - JuicyPixels
   - conduit
   - vector
-  - transformers >= 0.5
+  - transformers
   - mtl
   - extra
   - pureMD5
@@ -70,11 +68,11 @@ library:
   - executable-path
   - split
   - data-default-class
-  - utility-ht >= 0.0.1 && < 0.1
+  - utility-ht
   - scientific
   - template-haskell
   - MonadRandom
-  - data-binary-ieee754 >= 0.4.4 && < 0.5
+  - data-binary-ieee754
   - zip-archive
   - silently
   - codec
@@ -84,9 +82,7 @@ library:
   - path-io
   - exceptions
   - stm
-  - mmorph
   - async
-  - StateVar
   - req
   - profunctors
   - cryptonite
@@ -94,16 +90,15 @@ library:
   - unliftio-core
   - xml
   - zlib
-  # my libraries:
-  - jammittools >= 0.5.0.3 && < 0.6
-  - midi-util >= 0.2 && < 0.3
-  - conduit-audio >= 0.2 && < 0.3
+  # my libraries
+  - jammittools
+  - midi-util
+  - conduit-audio
   - conduit-audio-sndfile
   - conduit-audio-samplerate
   - conduit-audio-lame
   - conduit-audio-mpg123
-  - rubberband >= 0.1.0.2 && < 0.2
-  - tinyfiledialogs
+  - rubberband
   - JuicyPixels-stbir
   - ArkTool
 
@@ -141,82 +136,24 @@ executables:
     source-dirs: src-exe
     main: Main.hs
 
-    # TODO a bunch of these can be trimmed down
     dependencies:
     - base
-    - shake
-    - hashable
     - directory
-    - temporary
     - aeson
     - text
     - unordered-containers
     - filepath
     - yaml
-    - file-embed
-    - event-list
-    - non-negative
-    - midi
-    - hmidi
-    - containers
-    - bytestring
-    - process >= 1.2.0.0 && < 1.7
+    - process
     - resourcet
     - hsndfile
-    - JuicyPixels >= 3.2.3.1
-    - conduit
-    - vector
-    - transformers >= 0.5
-    - mtl
-    - extra
-    - pureMD5
-    - binary
-    - array
-    - base64-bytestring
-    - pretty
-    - monad-loops
-    - time
-    - ini
-    - executable-path
-    - split
+    - transformers
     - data-default-class
-    - utility-ht >= 0.0.1 && < 0.1
-    - scientific
-    - template-haskell
-    - MonadRandom
-    - data-binary-ieee754 >= 0.4.4 && < 0.5
-    - zip-archive
-    - silently
-    - codec
-    - deepseq
-    - process-extras
-    - path
-    - path-io
-    - exceptions
     - stm
-    - mmorph
-    - async
-    - StateVar
     - req
-    - profunctors
-    - cryptonite
-    - memory
-    - unliftio-core
-    - xml
-    - zlib
     - fltkhs
-    # my libraries:
-    - jammittools >= 0.5.0.3 && < 0.6
-    - midi-util >= 0.2 && < 0.3
-    - conduit-audio >= 0.2 && < 0.3
-    - conduit-audio-sndfile
-    - conduit-audio-samplerate
-    - conduit-audio-lame
-    - conduit-audio-mpg123
-    - rubberband >= 0.1.0.2 && < 0.2
-    - tinyfiledialogs
-    - JuicyPixels-stbir
-    - ArkTool
+    # my libraries
+    - midi-util
     # the lib in this package
     - onyxite-customs-tool
 

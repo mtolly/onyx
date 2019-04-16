@@ -56,6 +56,8 @@ Onyx can import the following song formats:
     * `song.ini` can be absent if using `notes.chart`.
     * Audio files must be named according to PS/CH conventions.
 
+  * Magma (v1 or v2) projects (.rbproj)
+
 ## Batch Mode
 
 This is currently where most of Onyx's functionality is.
