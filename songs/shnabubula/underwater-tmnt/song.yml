@@ -24,8 +24,17 @@ plans:
       pad: [3.186, album]
 parts:
   keys:
+    grybo:
+      difficulty: 6
     pro-keys:
       difficulty: 7 # maybe 6?
+  guitar: # left synth
+    grybo: {} # WIP
+  rhythm: # right synth
+    grybo: {} # WIP
+  bass:
+    grybo:
+      difficulty: 7
 targets:
   rb3:
     game: rb3
