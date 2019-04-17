@@ -3,7 +3,7 @@
 module Reductions (gryboComplete, pkReduce, drumsComplete, protarComplete, simpleReduce) where
 
 import           Control.Monad                    (guard)
-import           Control.Monad.IO.Class           (MonadIO (liftIO))
+import           Control.Monad.IO.Class           (MonadIO)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.EventList.Absolute.TimeBody as ATB
 import qualified Data.EventList.Relative.TimeBody as RTB
@@ -494,9 +494,9 @@ drumsReduce diff   mmap od sections trk = let
 
 simpleReduce :: (SendMessage m, MonadIO m) => FilePath -> FilePath -> StackTraceT m ()
 simpleReduce fin fout = do
-  RBFile.Song tempos mmap onyx <- liftIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
+  RBFile.Song tempos mmap onyx <- stackIO (Load.fromFile fin) >>= RBFile.readMIDIFile'
   let sections = fmap snd $ eventsSections $ RBFile.onyxEvents onyx
-  liftIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap onyx
+  stackIO $ Save.toFile fout $ RBFile.showMIDIFile' $ RBFile.Song tempos mmap onyx
     { RBFile.onyxParts = flip fmap (RBFile.onyxParts onyx) $ \trks -> let
       pkX = RBFile.onyxPartRealKeysX trks
       pkH = RBFile.onyxPartRealKeysH trks `pkOr` pkReduce Hard   mmap od pkX

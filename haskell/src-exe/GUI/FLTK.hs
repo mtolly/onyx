@@ -35,7 +35,8 @@ import           Control.Monad.Trans.Resource              (ResourceT, release,
                                                             runResourceT)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                                as A
-import           Data.Char                                 (isSpace, toLower)
+import           Data.Char                                 (isSpace, toLower,
+                                                            toUpper)
 import           Data.Default.Class                        (def)
 import           Data.Fixed                                (Milli)
 import           Data.Foldable                             (toList)
@@ -67,10 +68,13 @@ import           OSFiles                                   (commonDir,
                                                             osOpenFile,
                                                             osShowFolder)
 import           Paths_onyxite_customs_tool                (version)
+import           ProKeysRanges                             (closeShiftsFile)
+import           Reaper.Build                              (makeReaperIO)
 import           Reductions                                (simpleReduce)
 import           RockBand.Codec.File                       (FlexPartName (..))
 import qualified RockBand.Codec.File                       as RBFile
 import qualified Sound.File.Sndfile                        as Snd
+import qualified Sound.MIDI.File.Load                      as Load
 import qualified Sound.MIDI.Util                           as U
 import qualified System.Directory                          as Dir
 import           System.FilePath                           (takeDirectory,
@@ -887,6 +891,169 @@ getAudioSpec f = Exc.try (Snd.getFileInfo f) >>= \case
       Snd.HeaderFormatFlac -> withFormat "FLAC"
       _                    -> return Nothing
 
+miscPageMOGG
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPageMOGG sink rect tab startTasks = mdo
+  loadedAudio <- newMVar []
+  let (filesRect, startRect) = chopBottom 50 rect
+      startRect' = trimClock 5 10 10 10 startRect
+      isSingleOgg = \case
+        [aud] | audioFormat aud == "Ogg Vorbis" -> Just aud
+        _                                       -> Nothing
+      modifyAudio :: ([AudioSpec] -> IO [AudioSpec]) -> IO ()
+      modifyAudio f = do
+        newAudio <- modifyMVar loadedAudio $ \auds -> (\x -> (x, x)) <$> f auds
+        let chans = sum $ map audioChannels newAudio
+        sink $ EventIO $ do
+          FL.setLabel btn $ let
+            op = case isSingleOgg newAudio of
+              Just _  -> "Ogg to MOGG, no re-encode"
+              Nothing -> "Combine into MOGG"
+            in op <> " (" <> T.pack (show chans) <> " channels)"
+          if chans == 0
+            then FL.deactivate btn
+            else FL.activate   btn
+  group <- fileLoadWindow filesRect sink "Audio" "Audio" modifyAudio []
+    (\f -> liftIO $ ([],) <$> getAudioSpec f)
+    $ \info -> let
+      entry = T.pack $ audioPath info
+      sublines =
+        [ audioFormat info <> ", " <> T.pack (show $ audioChannels info) <> " channels"
+        , let
+          time = realToFrac (audioFrames info) / audioRate info
+          mins = floor $ time / 60 :: Int
+          secs = realToFrac $ time - realToFrac mins * 60 :: Milli
+          zero = if secs < 10 then "0" else ""
+          stamp = T.pack $ show mins <> ":" <> zero <> show secs
+          -- `time` package can do this once 1.9 is used in GHC 8.8
+          in stamp <> " (" <> T.pack (show $ audioFrames info) <> " frames @ " <> T.pack (show $ audioRate info) <> "Hz)"
+        ]
+      in (entry, sublines)
+  btn <- FL.buttonNew startRect' Nothing
+  FL.setResizable tab $ Just group
+  FL.setCallback btn $ \_ -> sink $ EventIO $ do
+    audio <- readMVar loadedAudio
+    picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+    FL.setTitle picker "Save MOGG file"
+    case audio of
+      [aud] -> FL.setDirectory picker $ T.pack $ takeDirectory $ audioPath aud
+      _     -> return ()
+    FL.setFilter picker "*.mogg"
+    FL.setPresetFile picker $ case audio of
+      [aud] -> T.pack $ takeFileName (audioPath aud) -<.> "mogg"
+      _     -> "out.mogg"
+    FL.showWidget picker >>= \case
+      FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+        Nothing -> return ()
+        Just f  -> let
+          ext = map toLower $ takeExtension f
+          f' = if ext == ".mogg"
+            then f
+            else f <.> "mogg"
+          in sink $ EventOnyx $ startTasks $ case isSingleOgg audio of
+            Just aud -> [("Ogg to MOGG", oggToMogg (audioPath aud) f' >> return [f'])]
+            Nothing  -> let
+              task = tempDir "makemogg" $ \tmp -> do
+                let ogg = tmp </> "temp.ogg"
+                src <- buildSource' $ Merge $ map (Input . audioPath) audio
+                runAudio src ogg
+                oggToMogg ogg f'
+                return [f']
+              in [("MOGG file creation", task)]
+      _ -> return ()
+
+miscPageMIDI
+  :: (Event -> IO ())
+  -> Rectangle
+  -> FL.Ref FL.Group
+  -> ([(String, Onyx [FilePath])] -> Onyx ())
+  -> IO ()
+miscPageMIDI sink rect tab startTasks = do
+  pack <- FL.packNew rect Nothing
+  pickedFile <- padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    let (_, rectA) = chopLeft 100 rect'
+        (inputRect, rectB) = chopRight 50 rectA
+        (_, pickRect) = chopRight 40 rectB
+    input <- FL.inputNew
+      inputRect
+      (Just "MIDI file")
+      (Just FL.FlNormalInput) -- required for labels to work
+    FL.setLabelsize input $ FL.FontSize 13
+    FL.setLabeltype input FLE.NormalLabelType FL.ResolveImageLabelDoNothing
+    FL.setAlign input $ FLE.Alignments [FLE.AlignTypeLeft]
+    pick <- FL.buttonNew pickRect $ Just "@fileopen"
+    FL.setCallback pick $ \_ -> sink $ EventIO $ do
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseFile
+      FL.setTitle picker "Load MIDI file"
+      FL.setFilter picker "*.{mid,midi}" -- TODO also handle .chart?
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> FL.getFilename picker >>= \case
+          Nothing -> return ()
+          Just f  -> void $ FL.setValue input f
+        _                          -> return ()
+    return $ fmap T.unpack $ FL.getValue input
+  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Fill in automatic lower difficulties"
+    FL.setCallback btn $ \_ -> sink $ EventIO $ do
+      input <- pickedFile
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save reduced MIDI file"
+      FL.setFilter picker "*.mid"
+      FL.setPresetFile picker $ T.pack $ input -<.> "reduced.mid"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> let
+            ext = map toLower $ takeExtension f
+            f' = if elem ext [".mid", ".midi"]
+              then f
+              else f <.> "mid"
+            in sink $ EventOnyx $ let
+              task = do
+                simpleReduce input f'
+                return [f']
+              in startTasks [("Reduce MIDI: " <> input, task)]
+        _ -> return ()
+  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Find hanging Pro Keys notes"
+    FL.setCallback btn $ \_ -> sink $ EventIO $ do
+      input <- pickedFile
+      sink $ EventOnyx $ let
+        task = do
+          mid <- stackIO (Load.fromFile input) >>= RBFile.readMIDIFile'
+          lg $ closeShiftsFile mid
+          return []
+        in startTasks [("Pro Keys range check: " <> input, task)]
+  padded 5 10 10 10 (Size (Width 800) (Height 35)) $ \rect' -> do
+    btn <- FL.buttonNew rect' $ Just "Make REAPER project with RB template"
+    FL.setCallback btn $ \_ -> sink $ EventIO $ do
+      input <- pickedFile
+      picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
+      FL.setTitle picker "Save REAPER project"
+      FL.setFilter picker "*.RPP"
+      FL.setPresetFile picker $ T.pack $ input -<.> "RPP"
+      FL.showWidget picker >>= \case
+        FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
+          Nothing -> return ()
+          Just f  -> let
+            ext = map toUpper $ takeExtension f
+            f' = if ext == ".RPP"
+              then f
+              else f <.> "RPP"
+            in sink $ EventOnyx $ let
+              task = do
+                stackIO $ makeReaperIO [] input input [] f'
+                return [f']
+              in startTasks [("Make REAPER project: " <> input, task)]
+        _ -> return ()
+  FL.end pack
+  FL.setResizable tab $ Just pack
+  return ()
+
 launchMisc :: (Event -> IO ()) -> IO ()
 launchMisc sink = mdo
   let windowSize = Size (Width 800) (Height 400)
@@ -902,76 +1069,11 @@ launchMisc sink = mdo
   functionTabs <- sequence
     [ makeTab windowRect "MIDI functions" $ \rect tab -> do
       functionTabColor >>= setTabColor tab
+      miscPageMIDI sink rect tab startTasks
       return tab
     , makeTab windowRect "MOGG creator" $ \rect tab -> mdo
       functionTabColor >>= setTabColor tab
-      loadedAudio <- newMVar []
-      let (filesRect, startRect) = chopBottom 50 rect
-          startRect' = trimClock 5 10 10 10 startRect
-          isSingleOgg = \case
-            [aud] | audioFormat aud == "Ogg Vorbis" -> Just aud
-            _                                       -> Nothing
-          modifyAudio :: ([AudioSpec] -> IO [AudioSpec]) -> IO ()
-          modifyAudio f = do
-            newAudio <- modifyMVar loadedAudio $ \auds -> (\x -> (x, x)) <$> f auds
-            let chans = sum $ map audioChannels newAudio
-            sink $ EventIO $ do
-              FL.setLabel btn $ let
-                op = case isSingleOgg newAudio of
-                  Just _  -> "Ogg to MOGG, no re-encode"
-                  Nothing -> "Combine into MOGG"
-                in op <> " (" <> T.pack (show chans) <> " channels)"
-              if chans == 0
-                then FL.deactivate btn
-                else FL.activate   btn
-      group <- fileLoadWindow filesRect sink "Audio" "Audio" modifyAudio []
-        (\f -> liftIO $ ([],) <$> getAudioSpec f)
-        $ \info -> let
-          entry = T.pack $ audioPath info
-          sublines =
-            [ audioFormat info <> ", " <> T.pack (show $ audioChannels info) <> " channels"
-            , let
-              time = realToFrac (audioFrames info) / audioRate info
-              mins = floor $ time / 60 :: Int
-              secs = realToFrac $ time - realToFrac mins * 60 :: Milli
-              zero = if secs < 10 then "0" else ""
-              stamp = T.pack $ show mins <> ":" <> zero <> show secs
-              -- `time` package can do this once 1.9 is used in GHC 8.8
-              in stamp <> " (" <> T.pack (show $ audioFrames info) <> " frames @ " <> T.pack (show $ audioRate info) <> "Hz)"
-            ]
-          in (entry, sublines)
-      btn <- FL.buttonNew startRect' Nothing
-      FL.setResizable tab $ Just group
-      FL.setCallback btn $ \_ -> sink $ EventIO $ do
-        audio <- readMVar loadedAudio
-        picker <- FL.nativeFileChooserNew $ Just FL.BrowseSaveFile
-        FL.setTitle picker "Save MOGG file"
-        case audio of
-          [aud] -> FL.setDirectory picker $ T.pack $ takeDirectory $ audioPath aud
-          _     -> return ()
-        FL.setFilter picker "*.mogg"
-        FL.setPresetFile picker $ case audio of
-          [aud] -> T.pack $ takeFileName (audioPath aud) -<.> "mogg"
-          _     -> "out.mogg"
-        FL.showWidget picker >>= \case
-          FL.NativeFileChooserPicked -> (fmap T.unpack <$> FL.getFilename picker) >>= \case
-            Nothing -> return ()
-            Just f  -> let
-              ext = map toLower $ takeExtension f
-              f' = if ext == ".mogg"
-                then f
-                else f <.> "mogg"
-              in sink $ EventOnyx $ startTasks $ case isSingleOgg audio of
-                Just aud -> [("Ogg to MOGG", oggToMogg (audioPath aud) f' >> return [f'])]
-                Nothing  -> let
-                  task = tempDir "makemogg" $ \tmp -> do
-                    let ogg = tmp </> "temp.ogg"
-                    src <- buildSource' $ Merge $ map (Input . audioPath) audio
-                    runAudio src ogg
-                    oggToMogg ogg f'
-                    return [f']
-                  in [("MOGG file creation", task)]
-          _ -> return ()
+      miscPageMOGG sink rect tab startTasks
       return tab
     ]
   (startTasks, cancelTasks) <- makeTab windowRect "Task" $ \rect tab -> do

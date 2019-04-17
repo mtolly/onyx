@@ -123,6 +123,16 @@ keyInPreRange RangeF p = RedYellow F  <= p && p <= BlueGreen As
 keyInPreRange RangeG p = RedYellow Fs <= p && p <= BlueGreen B
 keyInPreRange RangeA p = RedYellow Gs <= p && p <= OrangeC
 
+showPitch :: Pitch -> String
+showPitch = \case
+  RedYellow k -> if k < F
+    then "Red "    <> showKey False k
+    else "Yellow " <> showKey False k
+  BlueGreen k -> if k < F
+    then "Blue "  <> showKey False k
+    else "Green " <> showKey False k
+  OrangeC -> "Orange C"
+
 closeShiftsFile :: RBFile.Song (RBFile.OnyxFile U.Beats) -> String
 closeShiftsFile song = unlines $ do
   (partName, part) <- Map.toAscList $ RBFile.onyxParts $ RBFile.s_tracks song
@@ -137,12 +147,14 @@ closeShiftsFile song = unlines $ do
         , "is"
         , showSeconds dt
         , "before"
-        , show p ++ ","
+        , showPitch p ++ ","
         , "which is outside previous range"
         , show rng1
         ]
-      surround x = ["[" ++ T.unpack (RBFile.getPartName partName) ++ "]"] ++ x ++ []
-  surround $ map showClose $ ATB.toPairList $ RTB.toAbsoluteEventList 0 close
+      surround x = ["[" ++ T.unpack (RBFile.getPartName partName) ++ "]"] ++ x
+  surround $ case ATB.toPairList $ RTB.toAbsoluteEventList 0 close of
+    []    -> ["No close shifts found."]
+    pairs -> map showClose pairs
 
 closeShifts :: U.Seconds -> ProKeysTrack U.Seconds -> RTB.T U.Seconds (LaneRange, LaneRange, U.Seconds, Pitch)
 closeShifts threshold trk = let

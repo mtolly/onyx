@@ -152,6 +152,7 @@ executables:
     - stm
     - req
     - fltkhs
+    - midi
     # my libraries
     - midi-util
     # the lib in this package
