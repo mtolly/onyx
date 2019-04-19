@@ -52,7 +52,9 @@ plans:
       drums:
         pad:
         - '1:22.684'
-        - stem-drum
+        - channels:
+          - [1, 0] # flip channels
+          - stem-drum
       bass:
         pad:
         - '1:22.684'
@@ -74,7 +76,11 @@ plans:
   album:
     countin: *countin
     song:
-      gain: [1.2, hdtracks-track]
+      gain:
+      - 1.2
+      - channels:
+        - [1, 0] # flip channels
+        - hdtracks-track
 parts:
   drums:
     drums:

@@ -47,7 +47,7 @@ parts:
       fix-freeform: false
       difficulty:
         rank: 448
-      kicks: 2
+      kicks: both
 plans:
   mogg:
     parts:
@@ -77,8 +77,8 @@ plans:
     - 1
     - -1
     - 1
-    - -1
-    - 1
+    - 1 # backing track, originally L but swapping to R
+    - -1 # backing track, originally R but swapping to L
     karaoke: false
     mogg-md5: 538647b598c6428b734b60229c6e6844
     multitrack: false

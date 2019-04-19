@@ -2,7 +2,7 @@ metadata:
   title: The Looking Glass
   file-include: ../../../albums/dream-theater.yml
   track-number: 3
-  author: Onyxite
+  author: Onyxite, FSG, ErupTi0n
 audio:
   album-track:
     md5: 30e37fbc73a1e41eed3e2cad45b835c4
@@ -10,14 +10,46 @@ audio:
   hdtracks-track: # 96 kHz, 24-bit
     md5: c2cb08f5629e04117321d3db7ad54cbc
     frames: 28134056
+  hihat:
+    file-path: ../../../sound/hihat-foot.wav
 plans:
   album:
+    countin:
+      &countin
+      0|0: hihat
+      0|2: hihat
+      1|0: hihat
+      1|1: hihat
+      1|2: hihat
+      1|3: hihat
     song:
-      pad: [3.211, album-track]
+      pad:
+      - 3.211
+      - channels:
+        - [1, 0] # flip channels
+        - album-track
   hdtracks:
+    countin: *countin
     song:
-      pad: [3.211, hdtracks-track]
+      pad:
+      - 3.211
+      - channels:
+        - [1, 0] # flip channels
+        - hdtracks-track
 parts:
   drums:
     drums:
-      kicks: 2
+      kicks: both
+  guitar:
+    ghl: {} # by FreeStyleGames, transcribed/edited by ErupTi0n
+targets:
+  rb3:
+    game: rb3
+    plan: hdtracks
+  rb3-2x:
+    game: rb3
+    2x-bass-pedal: true
+    plan: hdtracks
+  ps:
+    game: ps
+    plan: hdtracks

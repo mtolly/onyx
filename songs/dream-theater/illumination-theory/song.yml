@@ -1,0 +1,31 @@
+metadata:
+  title: Illumination Theory
+  file-include: ../../../albums/dream-theater.yml
+  track-number: 9
+  author: Onyxite
+audio:
+  album-track:
+    md5: 345b1635a525ca45b6ef4f5843527cd0
+    frames: 59001684
+  hdtracks-track: # 96 kHz, 24-bit
+    md5: 62371c358e667db4fac3d072d3665584
+    frames: 128439782
+plans:
+  album:
+    song:
+      pad:
+      - 2.387
+      - channels:
+        - [1, 0] # flip channels
+        - album-track
+  hdtracks:
+    song:
+      pad:
+      - 2.387
+      - channels:
+        - [1, 0] # flip channels
+        - hdtracks-track
+parts:
+  drums:
+    drums:
+      kicks: both

@@ -27,7 +27,13 @@ plans:
       1|2: hihat
       1|3: hihat
     song:
-      pad: [2.483, hdtracks-track]
+      pad:
+      - 2.483
+      - channels:
+        - [1, 0]
+        # I think the channels are flipped just like The Enemy Inside,
+        # still not sure though
+        - hdtracks-track
   # album:
   #   countin: *countin
   #   song:
