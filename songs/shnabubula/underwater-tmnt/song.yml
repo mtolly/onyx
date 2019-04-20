@@ -29,12 +29,15 @@ parts:
     pro-keys:
       difficulty: 7 # maybe 6?
   guitar: # left synth
-    grybo: {} # WIP
+    grybo: {}
   rhythm: # right synth
-    grybo: {} # WIP
+    grybo: {}
   bass:
     grybo:
       difficulty: 7
+  drums:
+    drums:
+      kicks: both
 targets:
   rb3:
     game: rb3
