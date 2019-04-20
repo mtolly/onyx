@@ -206,20 +206,6 @@ makeTab rect name fn = do
   FL.end group
   return res
 
-tabScroll :: Rectangle -> T.Text -> (Rectangle -> FL.Ref FL.Scrolled -> IO a) -> IO a
-tabScroll rect name fn = do
-  let tabHeight = 25
-      (_, innerRect) = chopTop tabHeight rect
-      scrollSize = 15
-      (scrollArea, _) = chopRight scrollSize innerRect
-  scroll <- FL.scrolledNew innerRect (Just name)
-  FL.setBox scroll FLE.ThinUpFrame
-  FL.setType scroll FL.VerticalAlwaysScrollBar
-  FL.setScrollbarSize scroll scrollSize
-  res <- fn scrollArea scroll
-  FL.end scroll
-  return res
-
 launchWindow :: (Event -> IO ()) -> Project -> IO ()
 launchWindow sink proj = mdo
   let windowSize = Size (Width 800) (Height 500)
@@ -1159,8 +1145,8 @@ fileLoadWindow rect sink single plural modifyFiles startFiles step display = mdo
               (_root, ix, songItem) <- getSongFocus
               lift $ removeFile songItem ix
             return $ Right ()
-          _ -> FL.handleSuper tree evt
-      _ -> FL.handleSuper tree evt
+          _ -> FL.handleTreeBase (FL.safeCast tree) evt
+      _ -> FL.handleTreeBase (FL.safeCast tree) evt
     }
   FL.end tree
   FL.setResizable group $ Just tree
@@ -1497,7 +1483,9 @@ launchGUI = do
     (Rectangle (Position (X 10) (Y 360)) (Size (Width 235) (Height 30)))
     (Just "Batch process")
     Nothing
-    $ Just $ FL.defaultCustomWidgetFuncs { FL.handleCustom = Just $ dragAndDrop (launchBatch sink) . FL.handleSuper }
+    $ Just $ FL.defaultCustomWidgetFuncs
+      { FL.handleCustom = Just $ dragAndDrop (launchBatch sink) . FL.handleButtonBase . FL.safeCast
+      }
   batchProcessColor >>= FL.setColor buttonBatch
   FL.setLabelsize buttonBatch (FL.FontSize 13)
   FL.setCallback buttonBatch $ \_ -> launchBatch sink []

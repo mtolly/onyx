@@ -2,7 +2,7 @@
 
 ## Requirements
 
-  * `stack` (64-bit version)
+  * `stack` (latest version, 64-bit)
   * Visual C++ 2008 Runtime
   * .NET Framework
   * `make` (`stack exec -- pacman -Sy make`)
@@ -12,23 +12,11 @@
 
 1. `stack exec make win-deps`
 
-2. Find your Stack MSYS2 mingw64 directory, something like: `C:\Users\YourNameHere\AppData\Local\Programs\stack\x86_64-windows\msys2-20150512\mingw64`
+2. `stack build` (do this from outside `bash` so the lib+include paths are set up right)
 
-3. In there, remove (or move somewhere else) all `.a` files under `lib/`, except for `libSDL2main.a`.
+3. `stack exec make win`
 
-4. Also in there, copy all `.dll` files from `bin/` to `lib/` and make the following renames:
-
-  * `libmp3lame-0.dll` to `libmp3lame.dll`
-  * `libsndfile-1.dll` to `libsndfile.dll`
-  * `libsamplerate-0.dll` to `libsamplerate.dll`
-  * `librubberband-2.dll` to `librubberband.dll`
-  * `libmpg123-0.dll` to `libmpg123.dll`
-
-5. `stack build` (do this from outside `bash` so the lib+include paths are set up right)
-
-6. `stack exec make win`
-
-7. Setup program will be created.
+4. Setup program will be created.
 
 # Mac
 
