@@ -511,9 +511,16 @@ stripTrack = RTB.filter $ \e -> case e of
   E.MetaEvent (Meta.TrackName _        ) -> False
   _                                      -> True
 
--- | midiscript format, where both measure and beats start from zero
-showPosition :: U.MeasureBeats -> String
-showPosition (m, b) = show m ++ "|" ++ show (realToFrac b :: Double)
+-- | Magma format, assuming 480 ticks per quarter note
+showPosition :: U.MeasureMap -> U.Beats -> String
+showPosition mmap bts = let
+  (m, b) = U.applyMeasureMap mmap bts
+  U.TimeSig _len unit = U.timeSigAt bts mmap
+  whole = floor $ b / unit :: Int
+  frac = b - fromIntegral whole * unit
+  ticks = floor $ frac * 480 :: Int
+  padded = reverse $ take 3 $ reverse (show ticks) ++ repeat '0'
+  in "[" ++ show (m + 1) ++ ":" ++ show (whole + 1) ++ ":" ++ padded ++ "]"
 
 data TrackOffset = TrackPad U.Seconds | TrackDrop U.Seconds
   deriving (Eq, Ord, Show)
@@ -525,7 +532,7 @@ mergeCharts offset base new = let
     name = U.trackName trk
     applyOffset = case offset of
       TrackPad  t -> RTB.delay t
-      TrackDrop t -> U.trackDrop t
+      TrackDrop t -> U.trackDrop t -- TODO should this instead shove events forward?
     removeTrackName = RTB.filter $ \case E.MetaEvent (Meta.TrackName _) -> False; _ -> True
     -- TODO: need to ensure notes don't have 0 length
     in maybe id U.setTrackName name
@@ -585,11 +592,16 @@ padFixedFile seconds (Song temps sigs ff) = let
     $ RTB.cons 0 2 -- 120 bpm
     $ RTB.delay beats
     $ U.tempoMapToBPS temps
-  sigs'
-    = U.measureMapFromTimeSigs U.Error
-    $ RTB.cons 0 (U.TimeSig 1 1) -- 1/4
-    $ RTB.delay beats
-    $ U.measureMapToTimeSigs sigs
+  -- we only modify the first bar to have the extra time,
+  -- so printed positions after that bar are unchanged from the source midi
+  sigs' = U.measureMapFromTimeSigs U.Error $ case U.measureMapToTimeSigs sigs of
+    Wait 0 sig@(U.TimeSig len unit) rest -> Wait 0 (U.TimeSig (len + beats) unit) $ case rest of
+      Wait dt next rest'
+        | dt == len -> Wait (dt + beats) next rest'
+        | otherwise -> Wait (len + beats) sig $ Wait (dt - len) next rest'
+      RNil -> RNil
+    -- TODO: timesig numerator can only go up to 255 so this could fail for long delay values
+    _ -> error "RockBand.Codec.File.padFixedFile: internal error (no time signature at MIDI start)"
   padSimple = RTB.delay beats
   padBeat
     = RTB.cons  0 Bar

@@ -204,7 +204,7 @@ removeBrokenUnisons mmap = fmap renderUnisons . go 0 . calculateUnisons where
       readdUnison = case keep of
         []    -> RTB.delay dt -- shouldn't happen
         h : t -> RTB.cons dt $ h :| t
-      unisonLocation = showPosition $ U.applyMeasureMap mmap $ time + dt
+      unisonLocation = showPosition mmap $ time + dt
       in do
         unless (null remove) $ inside unisonLocation $ warn $ unwords
           [ "Removing overdrive phrases on the following instruments"
@@ -246,7 +246,7 @@ removePartialUnisons parts mmap = fmap renderUnisons . go 0 . calculateUnisons w
       h :| t@(_ : _) -> if sort [ inst | (_, inst, _) <- NE.toList uni ] == parts'
         then RTB.cons dt uni <$> go (time + dt) rest -- full unison
         else do
-          let unisonLocation = showPosition $ U.applyMeasureMap mmap $ time + dt
+          let unisonLocation = showPosition mmap $ time + dt
           inside unisonLocation $ warn $ unwords
             [ "Removing overdrive phrases on the following instruments"
             , "to fix a partial unison phrase:"

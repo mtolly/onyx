@@ -93,7 +93,7 @@ basicTiming
   -> StackTraceT m U.Seconds
   -> StackTraceT m (U.Beats, U.Beats, U.Beats, BeatTrack U.Beats)
 basicTiming input@(RBFile.Song tempos mmap trks) getAudioLength = do
-  let showPosition = RBFile.showPosition . U.applyMeasureMap mmap
+  let showPosition = RBFile.showPosition mmap
   -- If there's no @[end]@, put it after all MIDI events and audio files.
   endPosn <- case RTB.viewL $ eventsEnd $ RBFile.onyxEvents trks of
     Just ((t, _), _) -> return t
@@ -735,7 +735,7 @@ findProblems song = execWriter $ do
   -- Put it all together and show the error positions.
   let showPositions :: RTB.T U.Beats () -> [String]
       showPositions
-        = map (RBFile.showPosition . U.applyMeasureMap (RBFile.s_signatures song))
+        = map (RBFile.showPosition $ RBFile.s_signatures song)
         . ATB.getTimes
         . RTB.toAbsoluteEventList 0
       message rtb msg = forM_ (showPositions rtb) $ \pos ->

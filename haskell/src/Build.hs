@@ -349,7 +349,7 @@ printOverdrive mid = do
   let _ = song :: RBFile.Song (RBFile.OnyxFile U.Beats)
   od <- calculateUnisons <$> getOverdrive (RBFile.s_tracks song)
   forM_ (ATB.toPairList $ RTB.toAbsoluteEventList 0 od) $ \(posn, unison) -> do
-    let posn' = RBFile.showPosition $ U.applyMeasureMap (RBFile.s_signatures song) posn
+    let posn' = RBFile.showPosition (RBFile.s_signatures song) posn
     if all (== 0) [ t | (t, _, _) <- NE.toList unison ]
       then lg $ posn' <> ": " <> printFlexParts [ inst | (_, inst, _) <- NE.toList unison ]
       else lg $ intercalate "\n" $ (posn' <> ":") : do

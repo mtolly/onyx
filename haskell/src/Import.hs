@@ -694,7 +694,7 @@ importRB3 pkg meta karaoke multitrack hasKicks mid updateMid files2x mogg mcover
             , "Couldn't condense to PS format due to difference in"
             , thing
             , "at"
-            , RBFile.showPosition $ U.applyMeasureMap sigs pos
+            , RBFile.showPosition sigs pos
             ]
           let make2xTrack trk = case U.trackName trk of
                 Just "PART DRUMS" -> Just $ U.setTrackName "PART DRUMS_2X" trk
