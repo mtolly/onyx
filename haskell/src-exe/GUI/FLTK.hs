@@ -35,6 +35,7 @@ import           Control.Monad.Trans.Resource              (ResourceT, release,
                                                             runResourceT)
 import           Control.Monad.Trans.StackTrace
 import qualified Data.Aeson                                as A
+import qualified Data.ByteString                           as B
 import           Data.Char                                 (isSpace, toLower,
                                                             toUpper)
 import           Data.Default.Class                        (def)
@@ -45,6 +46,7 @@ import           Data.Maybe                                (catMaybes,
                                                             fromMaybe, isJust,
                                                             listToMaybe)
 import qualified Data.Text                                 as T
+import qualified Data.Text.Encoding                        as TE
 import           Data.Version                              (showVersion)
 import qualified Data.Yaml                                 as Y
 import           Foreign                                   (Ptr)
@@ -63,6 +65,7 @@ import           JSONData                                  (toJSON)
 import           Magma                                     (oggToMogg)
 import           Network.HTTP.Req                          ((/:))
 import qualified Network.HTTP.Req                          as Req
+import           Numeric                                   (readHex)
 import           OpenProject
 import           OSFiles                                   (commonDir,
                                                             osOpenFile,
@@ -922,7 +925,8 @@ miscPageMOGG sink rect tab startTasks = mdo
     $ \info -> let
       entry = T.pack $ audioPath info
       sublines =
-        [ audioFormat info <> ", " <> T.pack (show $ audioChannels info) <> " channels"
+        [ audioFormat info <> ", " <> T.pack (show $ audioChannels info)
+          <> case audioChannels info of 1 -> " channel"; _ -> " channels"
         , let
           time = realToFrac (audioFrames info) / audioRate info
           mins = floor $ time / 60 :: Int
@@ -1374,7 +1378,19 @@ dragAndDrop f fallback = \case
   FLE.DndRelease -> return $ Right () -- give us the text!
   FLE.Paste -> do
     str <- FLTK.eventText
-    () <- f $ lines $ T.unpack str
+    -- linux uses URL encoding starting with file://
+    -- and then using percent encoding for non-ascii chars
+    let removeProtocol s = case T.stripPrefix "file://" s of
+          Nothing -> s
+          Just s' -> TE.decodeUtf8 $ percentDecode s'
+        percentDecode :: T.Text -> B.ByteString
+        percentDecode s = case T.uncons s of
+          Just ('%', t) -> case readHex $ T.unpack $ T.take 2 t of
+            [(n, "")] -> B.cons n $ percentDecode $ T.drop 2 t
+            _         -> B.cons 37 {- % -} $ percentDecode t -- shouldn't happen but whatever
+          Just (h  , t) -> TE.encodeUtf8 (T.singleton h) <> percentDecode t
+          Nothing       -> ""
+    () <- f $ map (T.unpack . removeProtocol) $ T.lines str
     -- lines is because multiple files are separated by \n
     return $ Right ()
   e -> fallback e

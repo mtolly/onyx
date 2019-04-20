@@ -3,21 +3,19 @@
 module OSFiles (osOpenFile, osShowFolder, commonDir) where
 
 import           Control.Monad.IO.Class   (MonadIO (..))
+import           System.Directory         (makeAbsolute)
+import           System.FilePath          (takeDirectory)
 #ifdef WINDOWS
 import           Foreign                  (Ptr, nullPtr, ptrToIntPtr,
                                            withArrayLen, withMany)
 import           Foreign.C                (CInt (..), CWString, withCWString)
 import           Graphics.Win32.GDI.Types (HWND)
-import           System.Directory         (makeAbsolute)
-import           System.FilePath          (takeDirectory)
 import           System.Win32.Types       (HINSTANCE, INT, LPCWSTR)
 #else
 import           System.Process           (callProcess)
 #ifdef MACOSX
 import           Foreign                  (Ptr, withArrayLen, withMany)
 import           Foreign.C                (CInt (..), CString, withCString)
-import           System.Directory         (makeAbsolute)
-import           System.FilePath          (takeDirectory)
 #else
 import           System.Info              (os)
 import           System.IO                (stderr, stdout)
@@ -79,12 +77,7 @@ osOpenFile f = liftIO $ case os of
   "linux" -> hSilence [stdout, stderr] $ callProcess "xdg-open" [f]
   _       -> return ()
 
-osShowFolder _ _ = return ()
-{-
-  case os of "linux"
-    -> callProcess "nautilus" files
-    -> callProcess "nautilus" [dir]
--}
+osShowFolder dir _ = osOpenFile dir
 
 #endif
 

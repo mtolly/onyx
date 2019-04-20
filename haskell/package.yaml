@@ -141,6 +141,7 @@ executables:
     - directory
     - aeson
     - text
+    - bytestring
     - unordered-containers
     - filepath
     - yaml
