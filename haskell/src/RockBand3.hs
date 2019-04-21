@@ -323,20 +323,32 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
           ) $ RBFile.onyxPartSix $ RBFile.getFlexPart bassPart trks
 
       -- TODO: pgHopoThreshold
-      makeProGtrTracks fpart = case getPart fpart songYaml >>= partProGuitar of
+      makeProGtrTracks gtype fpart = case getPart fpart songYaml >>= partProGuitar of
         Nothing -> (mempty, mempty)
         Just pg -> let
           src = RBFile.getFlexPart fpart trks
           tuning = tuningPitches (pgTuning pg) { gtrGlobal = 0 }
-          f = (if pgFixFreeform pg then fixFreeformPG else id) . protarComplete
-            . autoHandPosition . moveStrings . autoChordRoot tuning
+          applyType x = x
+            { pgTrainer = (\(_, trainer) -> (gtype, trainer)) <$> pgTrainer x
+            , pgBRE     = (\(_, b      ) -> (gtype, b      )) <$> pgBRE     x
+            }
+          extendedTuning = length pitches > case gtype of
+            TypeGuitar -> 6
+            TypeBass   -> 4
+          pitches = tuningPitches (pgTuning pg) { gtrGlobal = 0 }
+          defaultFlat = maybe False songKeyUsesFlats $ _key $ _metadata songYaml
+          f = applyType
+            . (if pgFixFreeform pg then fixFreeformPG else id) . protarComplete
+            . autoHandPosition . moveStrings
+            . (if extendedTuning then freezeChordNames pitches defaultFlat else id)
+            . autoChordRoot tuning
           src17 = RBFile.onyxPartRealGuitar   src
           src22 = RBFile.onyxPartRealGuitar22 src
           mustang = f $ fretLimit 17 $ if nullPG src17 then src22 else src17
           squier  = f $ fretLimit 22 $ if nullPG src22 then src17 else src22
           in (mustang, if mustang == squier then mempty else squier)
-      (proGtr , proGtr22 ) = makeProGtrTracks guitarPart
-      (proBass, proBass22) = makeProGtrTracks bassPart
+      (proGtr , proGtr22 ) = makeProGtrTracks TypeGuitar guitarPart
+      (proBass, proBass22) = makeProGtrTracks TypeBass   bassPart
 
       keysPart = either rb3_Keys ps_Keys target
       (tk, tkRH, tkLH, tpkX, tpkH, tpkM, tpkE) = case getPart keysPart songYaml of

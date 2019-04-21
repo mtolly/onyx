@@ -1,9 +1,10 @@
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE MultiWayIf        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TupleSections     #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE MultiWayIf          #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 module RockBand.Codec.ProGuitar where
 
 import           Control.Arrow                    (first)
@@ -104,7 +105,7 @@ encodeTuningOffsets tun typ = let
   n = case typ of
     TypeGuitar -> 6
     TypeBass   -> 4
-  this = take n $ tuningPitches tun
+  this = take n $ tuningPitches tun { gtrGlobal = 0 }
   in map fromIntegral $ zipWith (-) this std
 
 class (Enum a, Bounded a) => GtrChannel a where
@@ -441,7 +442,7 @@ data ChordData t = ChordData
 data ChordModifier = ModSwapAcc | ModNoName | ModSlash
   deriving (Eq, Ord)
 
-computeChordNames :: Difficulty -> [Int] -> Bool -> ProGuitarTrack U.Beats -> RTB.T U.Beats (LongNote T.Text ())
+computeChordNames :: forall t. (NNC.C t) => Difficulty -> [Int] -> Bool -> ProGuitarTrack t -> RTB.T t (LongNote T.Text ())
 computeChordNames diff tuning flatDefault pg = let
 
   pgd = fromMaybe mempty $ Map.lookup diff $ pgDifficulties pg
@@ -453,7 +454,7 @@ computeChordNames diff tuning flatDefault pg = let
           ((ModSlash,) <$> pgSlashChords pg)))
     $ RTB.collectCoincident $ pgNotes pgd
 
-  chords :: RTB.T U.Beats (Maybe (ChordData U.Beats))
+  chords :: RTB.T t (Maybe (ChordData t))
   chords = flip fmap notes $ \(root, (mods, chord)) -> case sort chord of
     low : rest@(_ : _) -> Just ChordData
       { chordFrets = Map.fromList [ (str, fret) | (str, (_, fret, _)) <- chord ]
@@ -477,7 +478,7 @@ computeChordNames diff tuning flatDefault pg = let
 
   -- Slide sustains that are the last repetition of their chord don't stick the name.
   -- But it'll still stick if there's another repetition after.
-  slides :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (Maybe (ChordData U.Beats))
+  slides :: RTB.T t (Maybe (ChordData t)) -> RTB.T t (Maybe (ChordData t))
   slides = let
     go (isSlide, mcd) = if isSlide
       then (\cd -> cd { chordLength = Nothing }) <$> mcd
@@ -486,21 +487,21 @@ computeChordNames diff tuning flatDefault pg = let
 
   -- For an arpeggio, get the chord computed at the start,
   -- and stretch it for the length of the arpeggio section.
-  arps :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (Maybe (ChordData U.Beats))
+  arps :: RTB.T t (Maybe (ChordData t)) -> RTB.T t (Maybe (ChordData t))
   arps = let
     go rtb = case RTB.viewL rtb of
       Nothing -> RTB.empty
       Just ((dt, Right mcd), rtb') -> RTB.cons dt mcd $ go rtb'
       Just ((dt, Left arpLen), rtb') -> let
         fn = case catMaybes $ rights $ U.trackTakeZero rtb' of
-          []      -> RTB.delay $ dt + arpLen
+          []      -> RTB.delay $ dt <> arpLen
           cd  : _ -> RTB.cons dt (Just cd{ chordLength = Just arpLen }) . RTB.delay arpLen
         in fn $ go $ U.trackDrop arpLen rtb'
     in go . RTB.merge (Left <$> arpsList) . fmap Right
   arpsList = fmap (\((), (), t) -> t) $ joinEdgesSimple $ fmap (\b -> (guard b >> Just (), ())) $ pgArpeggio pgd
 
   -- chrdX events override a single chord computed at a certain point.
-  overrides :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (Maybe (ChordData U.Beats))
+  overrides :: RTB.T t (Maybe (ChordData t)) -> RTB.T t (Maybe (ChordData t))
   overrides = let
     go evs = case lefts evs of
       []           -> rights evs
@@ -511,7 +512,7 @@ computeChordNames diff tuning flatDefault pg = let
   -- the strikeline between them. Also, a muted strum can continue a chord name
   -- as long as it has the same chord on both sides of it, and also has the same
   -- frets as the others under the mute channel (even though not shown in game).
-  stick :: RTB.T U.Beats (Maybe (ChordData U.Beats)) -> RTB.T U.Beats (ChordData U.Beats)
+  stick :: RTB.T t (Maybe (ChordData t)) -> RTB.T t (ChordData t)
   stick rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
     Just ((dt, Nothing), rtb') -> RTB.delay dt $ stick rtb'
@@ -521,19 +522,33 @@ computeChordNames diff tuning flatDefault pg = let
         stickThis next = case RTB.viewL next of
           Just ((t, Just y), next') -> if chordFrets y == chordFrets x
             then if chordMuted y
-              then (first (t +)) <$> stickThis next'
+              then (first (t <>)) <$> stickThis next'
               else Just (t, (chordLength y, next'))
             else Nothing
           _ -> Nothing
         in case stickThis rtb' of
           Nothing -> RTB.cons dt x $ stick rtb'
           Just (t, (lastLen, next)) -> stick
-            $ RTB.cons dt (Just x { chordLength = Just $ fromMaybe 0 lastLen + t }) $ RTB.delay t next
+            $ RTB.cons dt (Just x { chordLength = Just $ fromMaybe NNC.zero lastLen <> t }) $ RTB.delay t next
 
   in splitEdges
     . RTB.mapMaybe (\cd -> guard (chordName cd /= "") >> Just (chordName cd, (), chordLength cd))
     . stick . overrides . arps . slides
     $ chords
+
+-- | Renders all the chord names as explicit override events.
+freezeChordNames :: (NNC.C t) => [Int] -> Bool -> ProGuitarTrack t -> ProGuitarTrack t
+freezeChordNames tuning flatDefault pg = pg
+  { pgDifficulties = flip Map.mapWithKey (pgDifficulties pg) $ \diff pgd -> let
+    chords = computeChordNames diff tuning flatDefault pg
+    in pgd
+      { pgChordName = flip RTB.mapMaybe chords $ \case
+        NoteOff  () -> Nothing
+        Blip   c () -> Just $ Just c
+        NoteOn c () -> Just $ Just c
+        -- TODO we might need to emit no-name events, often used on lower diffs
+      }
+  }
 
 -- | If there are no hand positions, adds one to every note.
 autoHandPosition :: (NNC.C t) => ProGuitarTrack t -> ProGuitarTrack t
