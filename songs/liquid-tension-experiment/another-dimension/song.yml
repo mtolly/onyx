@@ -37,6 +37,7 @@ parts:
   guitar:
     grybo:
       difficulty: 6
+      sustain-gap: 120 # 16th note
     pro-guitar:
       difficulty: 6
       tuning:
