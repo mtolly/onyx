@@ -187,9 +187,8 @@ buildAudioToSpec
   -> Maybe (PlanAudio Duration AudioInput)
   -> Staction (AudioSource m Float)
 buildAudioToSpec alib songYaml pvOut mpa = inside "conforming audio file to output spec" $ do
-  (expr, pans, vols) <- completePlanAudio songYaml $ case mpa of
-    Nothing -> PlanAudio (Silence 1 $ Frames 0) [] []
-    Just pa -> pa
+  (expr, pans, vols) <- completePlanAudio songYaml
+    $ fromMaybe (PlanAudio (Silence 1 $ Frames 0) [] []) mpa
   src <- mapM (manualLeaf alib songYaml) expr >>= lift . lift . buildSource . join
   fitToSpec (zip pans vols) pvOut src
 

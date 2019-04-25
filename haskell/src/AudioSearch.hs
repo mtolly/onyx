@@ -49,7 +49,7 @@ data AudioState = AudioState
   }
 
 newAudioLibrary :: (MonadIO m) => m AudioLibrary
-newAudioLibrary = fmap AudioLibrary $ liftIO $ newMVar $ AudioState
+newAudioLibrary = fmap AudioLibrary $ liftIO $ newMVar AudioState
   { audioFiles = HM.empty
   , audioMOGGs = HM.empty
   , audioJammit = HM.empty

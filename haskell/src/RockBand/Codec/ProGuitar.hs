@@ -522,7 +522,7 @@ computeChordNames diff tuning flatDefault pg = let
         stickThis next = case RTB.viewL next of
           Just ((t, Just y), next') -> if chordFrets y == chordFrets x
             then if chordMuted y
-              then (first (t <>)) <$> stickThis next'
+              then first (t <>) <$> stickThis next'
               else Just (t, (chordLength y, next'))
             else Nothing
           _ -> Nothing

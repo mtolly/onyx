@@ -245,7 +245,7 @@ realTrack :: (Ord a) => U.TempoMap -> RTB.T U.Beats a -> RTB.T U.Seconds a
 realTrack tmap = U.applyTempoTrack tmap . RTB.normalize
 
 filterKey :: (NNC.C t, Eq a) => a -> RTB.T t (LongNote s a) -> RTB.T t (LongNote s ())
-filterKey k = RTB.mapMaybe $ mapM $ \x -> guard (k == x) >> return ()
+filterKey k = RTB.mapMaybe $ mapM $ \x -> guard $ k == x
 
 findTremolos' :: (NNC.C t) => Map.Map t [a] -> Map.Map t ((), (), Maybe t) -> Map.Map t (Bool, [a])
 findTremolos' ons trems = Map.fromList $ flip concatMap (Map.toAscList trems) $ \(start, (_, _, mlen)) -> case mlen of

@@ -185,7 +185,7 @@ makeRB3DTA songYaml plan rb3 song filename = do
       -- all the following are only used for Plan, not MoggPlan.
       -- we don't need to handle more than 1 game part mapping to the same flex part,
       -- because no specs will change - we'll just zero out the game parts
-      channelIndices before inst = take (length inst) $ drop (length $ concat before) $ [0..]
+      channelIndices before inst = take (length inst) $ drop (length $ concat before) [0..]
       partChannels, drumChannels, bassChannels, guitarChannels, keysChannels, vocalChannels, crowdChannels, songChannels :: [(Double, Double)]
       partChannels = concat
         [ drumChannels

@@ -105,7 +105,7 @@ data LIVEHeader = LIVEHeader
 instance Bin LIVEHeader where
   bin = do
     lh_PackageSignature <- lh_PackageSignature =. byteString 0x100
-    _ <- (const $ B.replicate 0x128 0) =. byteString 0x128
+    _ <- const (B.replicate 0x128 0) =. byteString 0x128
     return LIVEHeader{..}
 
 instance Bin Header where

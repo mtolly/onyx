@@ -454,7 +454,7 @@ batchPageRB2 sink rect tab build = do
         gbk <- getGBK
         kicks <- getKicks
         return $ \proj -> let
-          tgt = (applyGBK2 gbk yaml) def
+          tgt = applyGBK2 gbk yaml def
             { rb2_Common = (rb2_Common def)
               { tgt_Speed = Just speed
               }
@@ -624,7 +624,7 @@ batchPageRB3 sink rect tab build = do
         gbk <- getGBK
         kicks <- getKicks
         return $ \proj -> let
-          tgt = (applyGBK gbk yaml) def
+          tgt = applyGBK gbk yaml def
             { rb3_Common = (rb3_Common def)
               { tgt_Speed = Just speed
               }
@@ -1128,17 +1128,13 @@ fileLoadWindow rect sink single plural modifyFiles startFiles step display = mdo
           FL.SpecialKeyType FLE.Kb_Up | cmd -> do
             void $ runMaybeT $ do
               (root, ix, _songItem) <- getSongFocus
-              case ix of
-                0 -> return ()
-                _ -> lift $ swapFiles root (ix - 1) ix
+              unless (ix == 0) $ lift $ swapFiles root (ix - 1) ix
             return $ Right ()
           FL.SpecialKeyType FLE.Kb_Down | cmd -> do
             void $ runMaybeT $ do
               (root, ix, _songItem) <- getSongFocus
               len <- liftIO $ FL.children root
-              if ix == len - 1
-                then return ()
-                else lift $ swapFiles root ix (ix + 1)
+              unless (ix == len - 1) $ lift $ swapFiles root ix (ix + 1)
             return $ Right ()
           FL.SpecialKeyType FLE.Kb_Delete -> do
             void $ runMaybeT $ do
@@ -1541,7 +1537,7 @@ launchGUI = do
         else fmap (/= 0) FLTK.wait
   -- TODO: catch errors that reach top level,
   -- and close the GUI with a nice error message
-  addTerm term $ TermLog $ "Welcome to \ESC[45mOnyx\ESC[0m!"
+  addTerm term $ TermLog "Welcome to \ESC[45mOnyx\ESC[0m!"
   void $ runResourceT $ (`runReaderT` sink) $ logChan $ let
     process = liftIO (atomically $ tryReadTChan evts) >>= \case
       Nothing -> return ()

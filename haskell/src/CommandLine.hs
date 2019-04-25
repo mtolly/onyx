@@ -289,9 +289,7 @@ undone = fatal "Feature not built yet..."
 -- by trimming \"original-file\".
 trimFileName :: FilePath -> Int -> String -> String -> FilePath
 trimFileName fp len sfxOld sfx = let
-  fp' = case stripSuffix sfxOld fp of
-    Nothing       -> fp
-    Just stripped -> stripped
+  fp' = fromMaybe fp $ stripSuffix sfxOld fp
   (dir, file) = splitFileName fp'
   in dir </> take (len - length sfx) file ++ sfx
 

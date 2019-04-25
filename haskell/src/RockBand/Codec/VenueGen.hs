@@ -329,7 +329,7 @@ buildCamera hasInsts ct = do
                     (cut, (level, insts)) <- cameraLevels
                     guard $ level < minLevel || (level == 0 && minLevel == 0)
                     guard $ all (`elem` hasInsts) insts
-                    guard $ not $ elem cut avoidCuts
+                    guard $ notElem cut avoidCuts
                     return cut
               cut <- fromMaybe V3_coop_all_near <$> fromListMay
                 [ (cut, 1) | cut <- possibleCuts ]
@@ -367,7 +367,7 @@ unbuildCamera lastLen vt = CameraTrack
     pairs = RTB.toPairList $ RTB.collectCoincident $ venueCameraRB3 vt
     lens = drop 1 (map fst pairs) ++ [lastLen]
     in U.trackJoin $ RTB.fromPairList $ flip map (zip pairs lens) $ \((dt, cuts), len) ->
-      (dt, RTB.flatten $ RTB.fromPairList [(NNC.zero, map (, True) cuts), (len, (map (, False) cuts))])
+      (dt, RTB.flatten $ RTB.fromPairList [(NNC.zero, map (, True) cuts), (len, map (, False) cuts)])
     -- TODO this makes repeated directed cuts look weird, should fix
   , cameraRandom = RTB.empty
   }

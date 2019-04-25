@@ -53,7 +53,7 @@ import qualified Text.Read.Lex                  as Lex
 
 parsePitch :: (SendMessage m) => ValueCodec m A.Value Key
 parsePitch = Codec
-  { codecOut = makeOut $ A.toJSON . (showKey False) -- no way of getting accidental
+  { codecOut = makeOut $ A.toJSON . showKey False -- no way of getting accidental
   , codecIn = do
     t <- codecIn stackJSON
     case ReadP.readP_to_S (readpKey <* ReadP.eof) $ T.unpack t of

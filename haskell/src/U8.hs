@@ -46,7 +46,7 @@ getRoot = getFolder Nothing where
     dirs' <- mapM (getFolder lvl') dirs
     files' <- mapM getFile files
     return Folder
-      { folderName = B8.pack $ name
+      { folderName = B8.pack name
       , folderLevel = fromMaybe 0 lvl
       , folderFiles = files'
       , folderFolders = dirs'

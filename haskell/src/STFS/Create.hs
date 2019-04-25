@@ -1790,7 +1790,7 @@ fatTimeDT xDateTime = let
   xDate = fromIntegral $ xDateTime `shiftR` 0x10 :: Word16
   xTime = fromIntegral $ xDateTime .&. 0xFFFF :: Word16
   in if xDate == 0 && xTime == 0
-    then liftIO $ fmap Time.zonedTimeToLocalTime $ Time.getZonedTime
+    then liftIO $ Time.zonedTimeToLocalTime <$> Time.getZonedTime
     else return $ let
       year   = fromIntegral $ ((xDate .&. 0xFE00) `shiftR` 9) + 0x7BC
       month  = fromIntegral $ (xDate .&. 0x1E0) `shiftR` 5

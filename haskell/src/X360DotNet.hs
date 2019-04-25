@@ -25,7 +25,7 @@ withDotNetExe f exe args = if os == "mingw32"
 
 rb3pkg :: (SendMessage m, MonadResource m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
 rb3pkg title desc dir fout = tempDir "onyx_x360" $ \tmp -> do
-  x360dir <- stackIO $ x360RB3pkgDir
+  x360dir <- stackIO x360RB3pkgDir
   forM_ ["KV.bin", "rb3.png", "rb3pkg.exe", "X360.dll"] $ \f ->
     stackIO $ copyFile (x360dir </> f) (tmp </> f)
   let createProc = withDotNetExe proc (tmp </> "rb3pkg.exe")
@@ -39,7 +39,7 @@ rb3pkg title desc dir fout = tempDir "onyx_x360" $ \tmp -> do
 
 rb2pkg :: (SendMessage m, MonadResource m) => T.Text -> T.Text -> FilePath -> FilePath -> StackTraceT m ()
 rb2pkg title desc dir fout = tempDir "onyx_x360" $ \tmp -> do
-  x360dir <- stackIO $ x360RB3pkgDir
+  x360dir <- stackIO x360RB3pkgDir
   forM_ ["KV.bin", "rb3.png", "rb3pkg.exe", "X360.dll"] $ \f ->
     stackIO $ copyFile (x360dir </> f) (tmp </> f)
   let createProc = withDotNetExe proc (tmp </> "rb3pkg.exe")

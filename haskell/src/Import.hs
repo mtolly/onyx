@@ -12,8 +12,7 @@ import           Codec.Picture                    (convertRGB8, readImage)
 import           Config                           hiding (Difficulty)
 import qualified Config
 import           Control.Applicative              ((<|>))
-import           Control.Arrow                    (second)
-import           Control.Arrow                    (first)
+import           Control.Arrow                    (first, second)
 import           Control.Exception                (evaluate)
 import           Control.Monad.Extra              (findM, forM, forM_, guard,
                                                    void)

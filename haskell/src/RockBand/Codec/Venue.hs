@@ -325,9 +325,6 @@ data VenueTrack t = VenueTrack
   , venueSingGuitar       :: RTB.T t Bool -- or keys if no guitar
   , venueSingDrums        :: RTB.T t Bool
   , venueSingBass         :: RTB.T t Bool -- or keys if no bass
-  -- actually if there's no guitar,
-  -- bass might take guitar spot and keys take bass spot.
-  -- should test
 
   , venueSpotKeys         :: RTB.T t Bool -- rb3 only of course
   , venueSpotVocal        :: RTB.T t Bool

@@ -7,7 +7,7 @@
 module RockBand.Codec.File where
 
 import           Amplitude.Track
-import           Control.Monad                     (forM, forM_, (>=>))
+import           Control.Monad                     (forM, forM_, unless, (>=>))
 import           Control.Monad.Codec
 import           Control.Monad.Trans.Class         (lift)
 import           Control.Monad.Trans.StackTrace
@@ -75,9 +75,7 @@ fileTrack name otherNames = Codec
       return parsedTrk
   , codecOut = fmapArg $ \trk -> let
     evs = (`execState` RTB.empty) $ codecOut (forcePure parseTrack) trk
-    in if RTB.null evs
-      then return ()
-      else tell [U.setTrackName (T.unpack name) evs]
+    in unless (RTB.null evs) $ tell [U.setTrackName (T.unpack name) evs]
   } where
     matchTrack trk = case U.trackName trk of
       Nothing -> False
