@@ -25,12 +25,13 @@ parts:
   keys:
     pro-keys:
       difficulty: 7
+    grybo: {}
   drums:
     drums: # might need some cleanup (be consistent with hihats, toms, etc.)
       kicks: both
   bass:
     grybo: {}
-  guitar:
+  guitar: # TODO split into rhythm
     grybo: {}
 targets:
   rb3:

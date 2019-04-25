@@ -24,6 +24,8 @@ parts:
   keys:
     pro-keys:
       difficulty: 7
+    grybo:
+      difficulty: 7
 targets:
   rb3:
     game: rb3
