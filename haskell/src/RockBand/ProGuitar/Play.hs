@@ -158,7 +158,7 @@ autoplay thres tmap = let
   go prevGems rtb = case RTB.viewL rtb of
     Nothing -> RTB.empty
     Just ((dt, (shopo, thisGemsTrips, _)), rtb') -> let
-      thisGems = [ (x, y) | (x, y, _) <- thisGemsTrips ]
+      thisGems = [ (str, fret) | (str, fret, ntype) <- thisGemsTrips, ntype /= ArpeggioForm ]
       isStrum = case shopo of
         RB.Strum -> True
         _        -> thisGems == prevGems -- strum only if this is a hopo/tap with same frets as prev note

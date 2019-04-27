@@ -509,12 +509,22 @@ isForeignDrums f = do
   mode5  <- readProp "mode-5" f >>= readBoolean
   pure $ Drums { notes: notes, lanes: lanes, solo: solo, energy: energy, bre: bre, mode5: mode5 }
 
-data Gem = Kick | Red | YCym | YTom | BCym | BTom | OCym | GCym | GTom
+data Gem
+  = Kick
+  | Red | Rimshot
+  | HHOpen | HHSizzle | HHPedal | YCym | YTom
+  | BCym | BTom
+  | OCym
+  | GCym | GTom
 
 allDrums :: Array (Tuple Char Gem)
 allDrums =
   [ Tuple 'k' Kick
   , Tuple 'r' Red
+  , Tuple 'R' Rimshot
+  , Tuple 'H' HHOpen
+  , Tuple 'h' HHSizzle
+  , Tuple 'p' HHPedal
   , Tuple 'Y' YCym
   , Tuple 'y' YTom
   , Tuple 'B' BCym

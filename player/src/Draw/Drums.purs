@@ -150,15 +150,19 @@ drawDrumsPerspective (Drums drums) rect horizonY stuff = do
     C.setLineWidth ctx $ secsToY (secs <> Seconds (-0.002)) - secsToY (secs <> Seconds 0.002)
     for_ evts \e -> let
       fracs = case e of
-        Kick -> {left: 0.0, right: 1.0, color: if drums.mode5 then "#af3abc" else "#e8ad19", height: 0.02}
-        Red  -> {left: 0.0 / numLanes, right: 1.0 / numLanes, color: "#e55050", height: 0.05}
-        YTom -> {left: 1.0 / numLanes, right: 2.0 / numLanes, color: "#e1ea2c", height: 0.05}
-        YCym -> {left: 1.0 / numLanes, right: 2.0 / numLanes, color: "#e1ea2c", height: 0.05}
-        BTom -> {left: 2.0 / numLanes, right: 3.0 / numLanes, color: "#2c8eea", height: 0.05}
-        BCym -> {left: 2.0 / numLanes, right: 3.0 / numLanes, color: "#2c8eea", height: 0.05}
-        GTom -> {left: (numLanes - 1.0) / numLanes, right: 1.0, color: "#51e84e", height: 0.05}
-        GCym -> {left: (numLanes - 1.0) / numLanes, right: 1.0, color: "#51e84e", height: 0.05}
-        OCym -> {left: 3.0 / numLanes, right: 4.0 / numLanes, color: "#e8ad19", height: 0.05}
+        Kick     -> {left: 0.0, right: 1.0, color: if drums.mode5 then "#af3abc" else "#e8ad19", height: 0.02}
+        Red      -> {left: 0.0 / numLanes, right: 1.0 / numLanes, color: "#e55050", height: 0.05}
+        Rimshot  -> {left: 0.0 / numLanes, right: 1.0 / numLanes, color: "#e55050", height: 0.05}
+        YTom     -> {left: 1.0 / numLanes, right: 2.0 / numLanes, color: "#e1ea2c", height: 0.05}
+        YCym     -> {left: 1.0 / numLanes, right: 2.0 / numLanes, color: "#e1ea2c", height: 0.05}
+        HHOpen   -> {left: 1.0 / numLanes, right: 2.0 / numLanes, color: "#e1ea2c", height: 0.05}
+        HHSizzle -> {left: 1.0 / numLanes, right: 2.0 / numLanes, color: "#e1ea2c", height: 0.05}
+        HHPedal  -> {left: 1.0 / numLanes, right: 2.0 / numLanes, color: "#e1ea2c", height: 0.05}
+        BTom     -> {left: 2.0 / numLanes, right: 3.0 / numLanes, color: "#2c8eea", height: 0.05}
+        BCym     -> {left: 2.0 / numLanes, right: 3.0 / numLanes, color: "#2c8eea", height: 0.05}
+        GTom     -> {left: (numLanes - 1.0) / numLanes, right: 1.0, color: "#51e84e", height: 0.05}
+        GCym     -> {left: (numLanes - 1.0) / numLanes, right: 1.0, color: "#51e84e", height: 0.05}
+        OCym     -> {left: 3.0 / numLanes, right: 4.0 / numLanes, color: "#e8ad19", height: 0.05}
       in do
         C.setFillStyle ctx fracs.color
         makeCube
@@ -236,14 +240,18 @@ drawDrums (Drums drums) badge targetX stuff = do
   -- Lanes
   let lanes =
         -- TODO kick
-        [ {x: handedness 0              * widthFret + 2, gem: Red }
-        , {x: handedness 1              * widthFret + 2, gem: YCym}
-        , {x: handedness 1              * widthFret + 2, gem: YTom}
-        , {x: handedness 2              * widthFret + 2, gem: BCym}
-        , {x: handedness 2              * widthFret + 2, gem: BTom}
-        , {x: handedness 3              * widthFret + 2, gem: OCym}
-        , {x: handedness (numLanes - 1) * widthFret + 2, gem: GCym}
-        , {x: handedness (numLanes - 1) * widthFret + 2, gem: GTom}
+        [ {x: handedness 0              * widthFret + 2, gem: Red     }
+        , {x: handedness 0              * widthFret + 2, gem: Rimshot }
+        , {x: handedness 1              * widthFret + 2, gem: HHOpen  }
+        , {x: handedness 1              * widthFret + 2, gem: HHSizzle}
+        , {x: handedness 1              * widthFret + 2, gem: HHPedal }
+        , {x: handedness 1              * widthFret + 2, gem: YCym    }
+        , {x: handedness 1              * widthFret + 2, gem: YTom    }
+        , {x: handedness 2              * widthFret + 2, gem: BCym    }
+        , {x: handedness 2              * widthFret + 2, gem: BTom    }
+        , {x: handedness 3              * widthFret + 2, gem: OCym    }
+        , {x: handedness (numLanes - 1) * widthFret + 2, gem: GCym    }
+        , {x: handedness (numLanes - 1) * widthFret + 2, gem: GTom    }
         ]
   for_ lanes \{x: offsetX, gem: gem} -> let
     thisLane = Map.union drums.bre
@@ -342,15 +350,19 @@ drawDrums (Drums drums) badge targetX stuff = do
                 orange' = if stuff.app.settings.leftyFlip then yellow else orange
                 green' = if stuff.app.settings.leftyFlip then red else green
             for_ evts \e -> case e of
-              Kick -> pure unit
-              Red  -> red'
-              YCym -> yellow'
-              YTom -> yellow'
-              BCym -> blue'
-              BTom -> blue'
-              OCym -> orange'
-              GCym -> green'
-              GTom -> green'
+              Kick     -> pure unit
+              Red      -> red'
+              Rimshot  -> red'
+              HHOpen   -> yellow'
+              HHSizzle -> yellow'
+              HHPedal  -> yellow'
+              YCym     -> yellow'
+              YTom     -> yellow'
+              BCym     -> blue'
+              BTom     -> blue'
+              OCym     -> orange'
+              GCym     -> green'
+              GTom     -> green'
           else pure unit
       else do
         -- note is in the future
@@ -360,8 +372,12 @@ drawDrums (Drums drums) badge targetX stuff = do
               Nothing            -> false
         for_ evts \e -> case e of
           Kick -> pure unit
-          Red  -> drawImage
+          Red -> drawImage
             (if isEnergy then image_gem_energy else if stuff.app.settings.leftyFlip then image_gem_green else image_gem_red)
+            (toNumber $ targetX + handedness 0 * widthFret + 1)
+            (toNumber $ y - 5) stuff
+          Rimshot -> drawImage
+            (if isEnergy then image_gem_energy_rimshot else if stuff.app.settings.leftyFlip then image_gem_green_rimshot else image_gem_red_rimshot)
             (toNumber $ targetX + handedness 0 * widthFret + 1)
             (toNumber $ y - 5) stuff
           YTom -> drawImage
@@ -374,6 +390,24 @@ drawDrums (Drums drums) badge targetX stuff = do
             (if isEnergy then image_gem_energy_cymbal else if stuff.app.settings.leftyFlip
               then (if drums.mode5 then image_gem_orange_cymbal else image_gem_blue_cymbal)
               else image_gem_yellow_cymbal)
+            (toNumber $ targetX + handedness 1 * widthFret + 1)
+            (toNumber $ y - 8) stuff
+          HHOpen -> drawImage
+            (if isEnergy then image_gem_energy_hhopen else if stuff.app.settings.leftyFlip
+              then image_gem_blue_hhopen
+              else image_gem_yellow_hhopen)
+            (toNumber $ targetX + handedness 1 * widthFret + 1)
+            (toNumber $ y - 8) stuff
+          HHSizzle -> drawImage
+            (if isEnergy then image_gem_energy_hhclosed else if stuff.app.settings.leftyFlip
+              then image_gem_blue_hhclosed
+              else image_gem_yellow_hhclosed)
+            (toNumber $ targetX + handedness 1 * widthFret + 1)
+            (toNumber $ y - 8) stuff
+          HHPedal -> drawImage
+            (if isEnergy then image_gem_energy_hhpedal else if stuff.app.settings.leftyFlip
+              then image_gem_blue_hhpedal
+              else image_gem_yellow_hhpedal)
             (toNumber $ targetX + handedness 1 * widthFret + 1)
             (toNumber $ y - 8) stuff
           BTom -> drawImage

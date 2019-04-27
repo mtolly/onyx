@@ -286,7 +286,9 @@ computePro diff trk = let
       Orange -> Orange -- probably shouldn't happen
       where isDisco = not $ null instantDisco
 
-computePSReal :: (NNC.C t) => Maybe Difficulty -> DrumTrack t -> RTB.T t (Either PSGem (Gem ProType))
+type RealDrum = Either PSGem (Gem ProType)
+
+computePSReal :: (NNC.C t) => Maybe Difficulty -> DrumTrack t -> RTB.T t RealDrum
 computePSReal diff trk = let
   pro = computePro diff trk
   this = fromMaybe mempty $ Map.lookup (fromMaybe Expert diff) $ drumDifficulties trk
