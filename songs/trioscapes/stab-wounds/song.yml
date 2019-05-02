@@ -1,0 +1,17 @@
+metadata:
+  title: Stab Wounds
+  track-number: 2
+  artist: Trioscapes
+  album: Digital Dream Sequence
+audio:
+  album-track:
+    md5: cb467dea25b279f6b59b68bf940085c7
+    frames: 10129476
+parts:
+  drums:
+    drums:
+      kicks: both
+plans:
+  album:
+    song:
+      pad: [3.854, album-track]
