@@ -1,6 +1,6 @@
 module Song where
 
-import Prelude (class Eq, class Ord, Unit, not, otherwise, bind, map, pure, show, unit, ($), (<$>), (<*>), (>>=), (+), (-), (*), (/), (<), (<<<), div)
+import Prelude (class Eq, class Ord, Unit, not, otherwise, bind, map, pure, show, unit, ($), (<$>), (<*>), (>>=), (+), (-), (*), (/), (<), (<<<), div, flip)
 
 import Data.Time.Duration (Seconds(..))
 import Foreign (F, Foreign, ForeignError(..), isNull, readArray, readBoolean, readInt, readNullOrUndefined, readNumber, readString)
@@ -18,6 +18,7 @@ import Data.Int (toNumber, fromString)
 import Data.List as List
 import Data.Set as Set
 import Data.Foldable (maximum)
+import Data.FunctorWithIndex (mapWithIndex)
 
 newtype Song = Song
   { end      :: Seconds
@@ -34,7 +35,7 @@ type Difficulties a = Array (Tuple String a)
 newtype Flex = Flex
   { five      :: Maybe (Difficulties Five)
   , six       :: Maybe (Difficulties Six)
-  , drums     :: Maybe (Difficulties Drums)
+  , drums     :: Array (Difficulties Drums)
   , prokeys   :: Maybe (Difficulties ProKeys)
   , protar    :: Maybe (Difficulties Protar)
   , amplitude :: Maybe (Difficulties Amplitude)
@@ -58,7 +59,23 @@ newtype Drums = Drums
   , solo   :: Map.Map Seconds Boolean
   , energy :: Map.Map Seconds Boolean
   , bre    :: Map.Map Seconds Boolean
-  , mode5  :: Boolean
+  , mode   :: DrumMode
+  , disco  :: Map.Map Seconds Boolean
+  }
+
+data DrumMode = Drums4 | Drums5 | DrumsPro | DrumsReal
+
+drumsProTo4 :: Drums -> Drums
+drumsProTo4 (Drums o) = Drums o
+  { notes = flip mapWithIndex o.notes \t gems -> let
+    disco = maybe false _.value $ Map.lookupLE t o.disco
+    in flip map gems \gem -> case gem of
+      Red -> if disco then YTom else Red
+      YCym -> if disco then Red else YTom
+      BCym -> BTom
+      GCym -> GTom
+      _ -> gem -- PS gems shouldn't happen
+  , mode = Drums4
   }
 
 data Sustainable a
@@ -441,7 +458,10 @@ isForeignFlex :: Foreign -> F Flex
 isForeignFlex f = do
   five <- readProp "five" f >>= readNullOrUndefined >>= traverse (difficulties isForeignFive)
   six <- readProp "six" f >>= readNullOrUndefined >>= traverse (difficulties isForeignSix)
-  drums <- readProp "drums" f >>= readNullOrUndefined >>= traverse (difficulties isForeignDrums)
+  drums' <- readProp "drums" f >>= readNullOrUndefined
+  drums <- case drums' of
+    Nothing -> pure []
+    Just ds -> readArray ds >>= traverse (difficulties isForeignDrums)
   prokeys <- readProp "prokeys" f >>= readNullOrUndefined >>= traverse (difficulties isForeignProKeys)
   protar <- readProp "protar" f >>= readNullOrUndefined >>= traverse (difficulties isForeignProtar)
   amplitude <- readProp "catch" f >>= readNullOrUndefined >>= traverse (difficulties isForeignAmplitude)
@@ -506,8 +526,14 @@ isForeignDrums f = do
   solo   <- readProp "solo"   f >>= readTimedMap readBoolean
   energy <- readProp "energy" f >>= readTimedMap readBoolean
   bre    <- readProp "bre"    f >>= readTimedMap readBoolean
-  mode5  <- readProp "mode-5" f >>= readBoolean
-  pure $ Drums { notes: notes, lanes: lanes, solo: solo, energy: energy, bre: bre, mode5: mode5 }
+  mode   <- readProp "mode" f >>= readString >>= \s -> case s of
+    "4"    -> pure Drums4
+    "5"    -> pure Drums5
+    "pro"  -> pure DrumsPro
+    "real" -> pure DrumsReal
+    _      -> throwError $ pure $ TypeMismatch "drums mode" $ show s
+  disco  <- readProp "disco" f >>= readTimedMap readBoolean
+  pure $ Drums { notes: notes, lanes: lanes, solo: solo, energy: energy, bre: bre, mode: mode, disco: disco }
 
 data Gem
   = Kick

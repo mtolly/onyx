@@ -100,7 +100,8 @@ data Drums t = Drums
   , drumEnergy :: RTB.T t Bool
   , drumLanes  :: Map.Map D.RealDrum (RTB.T t Bool)
   , drumBRE    :: RTB.T t Bool
-  , drumMode5  :: Bool
+  , drumMode   :: C.DrumMode
+  , drumDisco  :: RTB.T t Bool
   } deriving (Eq, Ord, Show)
 
 drumGemChar :: D.RealDrum -> Char
@@ -129,7 +130,12 @@ instance A.ToJSON (Drums U.Seconds) where
     , (,) "lanes" $ A.object $ flip map (Map.toList $ drumLanes x) $ \(gem, lanes) ->
       (,) (T.singleton $ drumGemChar gem) $ eventList lanes A.toJSON
     , (,) "bre" $ eventList (drumBRE x) A.toJSON
-    , (,) "mode-5" $ A.toJSON (drumMode5 x)
+    , (,) "mode" $ case drumMode x of
+      C.Drums4    -> "4"
+      C.Drums5    -> "5"
+      C.DrumsPro  -> "pro"
+      C.DrumsReal -> "real"
+    , (,) "disco" $ eventList (drumDisco x) A.toJSON
     ]
 
 data ProKeys t = ProKeys
@@ -377,8 +383,9 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
     (_    , True , _      ) -> trk1x
     (False, False, Nothing) -> trk2x
     (False, False, Just _ ) -> trk1x
+  drumDiff = Map.lookup (fromMaybe Expert diff) $ D.drumDifficulties trk
   nonPro is5 = (if diff == Nothing then RTB.merge $ const D.Kick <$> D.drumKick2x trk else id)
-    $ flip fmap (maybe RTB.empty D.drumGems $ Map.lookup (fromMaybe Expert diff) $ D.drumDifficulties trk) $ \case
+    $ flip fmap (maybe RTB.empty D.drumGems drumDiff) $ \case
       D.Kick            -> D.Kick
       D.Red             -> D.Red
       D.Pro D.Yellow () -> D.Pro D.Yellow $ if is5 then D.Cymbal else D.Tom
@@ -386,9 +393,10 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
       D.Orange          -> D.Orange
       D.Pro D.Green  () -> D.Pro D.Green D.Tom
   notes = fmap sort $ RTB.collectCoincident $ case mode of
-    C.Drums4   -> fmap Right $ nonPro False
-    C.Drums5   -> fmap Right $ nonPro True
-    C.DrumsPro -> D.computePSReal diff trk
+    C.Drums4    -> fmap Right $ nonPro False
+    C.Drums5    -> fmap Right $ nonPro True
+    C.DrumsPro  -> fmap Right $ D.computePro diff trk
+    C.DrumsReal -> D.computePSReal diff trk
   notesS = realTrack tmap notes
   notesB = RTB.normalize notes
   solo   = realTrack tmap $ D.drumSolo trk
@@ -412,10 +420,11 @@ processDrums mode tmap coda trk1x trk2x = makeDrumDifficulties $ \diff -> let
     return $ (,) gem $ flip RTB.mapMaybe lanesAll $ \(b, gems) -> do
       guard $ elem gem gems
       return b
+  disco = realTrack tmap $ maybe RTB.empty (fmap ((== D.Disco) . snd) . D.drumMix) drumDiff
   in do
     guard $ not $ RTB.null notes
     guard $ diff /= Nothing || has2x
-    Just $ Drums notesS solo energy lanes bre $ mode == C.Drums5
+    Just $ Drums notesS solo energy lanes bre mode disco
 
 processProKeys :: U.TempoMap -> ProKeysTrack U.Beats -> Maybe (ProKeys U.Seconds)
 processProKeys tmap trk = let
@@ -632,7 +641,7 @@ instance (A.ToJSON (a t)) => A.ToJSON (Difficulties a t) where
 data Flex t = Flex
   { flexFive    :: Maybe (Difficulties Five      t)
   , flexSix     :: Maybe (Difficulties Six       t)
-  , flexDrums   :: Maybe (Difficulties Drums     t)
+  , flexDrums   :: [Difficulties Drums t]
   , flexProKeys :: Maybe (Difficulties ProKeys   t)
   , flexProtar  :: Maybe (Difficulties Protar    t)
   , flexCatch   :: Maybe (Difficulties Amplitude t)
@@ -643,7 +652,7 @@ instance A.ToJSON (Flex U.Seconds) where
   toJSON flex = A.object $ concat
     [ case flexFive    flex of Nothing -> []; Just x -> [("five"   , A.toJSON x)]
     , case flexSix     flex of Nothing -> []; Just x -> [("six"    , A.toJSON x)]
-    , case flexDrums   flex of Nothing -> []; Just x -> [("drums"  , A.toJSON x)]
+    , case flexDrums   flex of []      -> []; xs     -> [("drums"  , A.toJSON xs)]
     , case flexProKeys flex of Nothing -> []; Just x -> [("prokeys", A.toJSON x)]
     , case flexProtar  flex of Nothing -> []; Just x -> [("protar" , A.toJSON x)]
     , case flexCatch   flex of Nothing -> []; Just x -> [("catch"  , A.toJSON x)]
@@ -685,7 +694,22 @@ makeDisplay songYaml song = let
         then processFive Nothing (RBFile.s_tempos song) keys
         else processFive (Just $ ht $ C.gryboHopoThreshold grybo) (RBFile.s_tempos song) gtr
     , flexSix = flip fmap (C.partGHL fpart) $ \ghl -> processSix (ht $ C.ghlHopoThreshold ghl) (RBFile.s_tempos song) (RBFile.onyxPartSix tracks)
-    , flexDrums = flip fmap (C.partDrums fpart) $ \pd -> processDrums (C.drumsMode pd) (RBFile.s_tempos song) coda drums1x drums2x
+    , flexDrums = case C.partDrums fpart of
+      Nothing -> []
+      Just pd -> case C.drumsMode pd of
+        C.DrumsReal -> let
+          realDrumTrack = if D.nullDrums $ RBFile.onyxPartRealDrumsPS tracks
+            then RBFile.onyxPartDrums tracks
+            else RBFile.onyxPartRealDrumsPS tracks
+          real = processDrums C.DrumsReal (RBFile.s_tempos song) coda realDrumTrack mempty
+          proDrumTrack = if D.nullDrums $ RBFile.onyxPartDrums tracks
+            then D.psRealToPro $ RBFile.onyxPartRealDrumsPS tracks
+            else RBFile.onyxPartDrums tracks
+          pro = processDrums C.DrumsPro (RBFile.s_tempos song) coda proDrumTrack mempty
+          in [real, pro]
+        mode -> (: []) $ processDrums mode (RBFile.s_tempos song) coda
+          (RBFile.onyxPartDrums tracks)
+          (RBFile.onyxPartDrums2x tracks)
     , flexProKeys = flip fmap (C.partProKeys fpart) $ \_ -> makeDifficulties $ \diff ->
       processProKeys (RBFile.s_tempos song) $ let
         solos = pkSolo $ RBFile.onyxPartRealKeysX tracks
@@ -731,9 +755,6 @@ makeDisplay songYaml song = let
           }
     } where
       tracks = RBFile.getFlexPart name $ RBFile.s_tracks song
-      (drums1x, drums2x) = if D.nullDrums $ RBFile.onyxPartRealDrumsPS tracks
-        then (RBFile.onyxPartDrums tracks, RBFile.onyxPartDrums2x tracks)
-        else (RBFile.onyxPartRealDrumsPS tracks, mempty)
   parts = do
     (name, fpart) <- sort $ HM.toList $ HM.filter (/= def) $ C.getParts $ C._parts songYaml
     return (RBFile.getPartName name, makePart name fpart)

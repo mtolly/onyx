@@ -389,10 +389,14 @@ importFoF detectBasicDrums dropOpenHOPOs src dest = do
             isFiveLane = FoF.fiveLaneDrums song == Just True || any
               (\(_, dd) -> RBDrums.Orange `elem` drumGems dd)
               (Map.toList $ drumDifficulties $ RBFile.fixedPartDrums outputMIDI)
-            isPro = isnt nullDrums RBFile.fixedPartRealDrumsPS || not detectBasicDrums || case FoF.proDrums song of
+            isReal = isnt nullDrums RBFile.fixedPartRealDrumsPS
+            isPro = not detectBasicDrums || case FoF.proDrums song of
               Just b  -> b
               Nothing -> not $ RTB.null $ drumToms $ RBFile.fixedPartDrums outputMIDI
-            in if isFiveLane then Drums5 else if isPro then DrumsPro else Drums4
+            in if isFiveLane then Drums5
+              else if isReal then DrumsReal
+                else if isPro then DrumsPro
+                  else Drums4
           , drumsKicks = hasKicks
           , drumsFixFreeform = False
           , drumsKit = HardRockKit

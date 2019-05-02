@@ -209,12 +209,13 @@ processMIDI target songYaml input@(RBFile.Song tempos mmap trks) mixMode getAudi
               ]
             }
           changeMode = case (drumsMode pd, target) of
-            (DrumsPro, _         ) -> id
+            (DrumsReal, _         ) -> id
+            (DrumsPro , _         ) -> id
             -- TODO convert 5 to pro, not just basic.
-            (Drums5  , Left  _rb3) -> allToms . fiveToFourTrack
-            (Drums5  , Right _ps ) -> noToms
-            (Drums4  , Right _ps ) -> noToms
-            (Drums4  , Left  _rb3) -> allToms
+            (Drums5   , Left  _rb3) -> allToms . fiveToFourTrack
+            (Drums5   , Right _ps ) -> noToms
+            (Drums4   , Right _ps ) -> noToms
+            (Drums4   , Left  _rb3) -> allToms
           flex = RBFile.getFlexPart drumsPart trks
           trk1x = RBFile.onyxPartDrums flex
           trk2x = RBFile.onyxPartDrums2x flex

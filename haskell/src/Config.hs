@@ -715,19 +715,22 @@ data DrumMode
   = Drums4
   | Drums5
   | DrumsPro
+  | DrumsReal
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 instance StackJSON DrumMode where
   stackJSON = Codec
     { codecIn = lift ask >>= \case
-      A.Number 4     -> return Drums4
-      A.Number 5     -> return Drums5
-      A.String "pro" -> return DrumsPro
-      _              -> expected "a drum mode (4, 5, pro)"
+      A.Number 4      -> return Drums4
+      A.Number 5      -> return Drums5
+      A.String "pro"  -> return DrumsPro
+      A.String "real" -> return DrumsReal
+      _               -> expected "a drum mode (4, 5, pro, real)"
     , codecOut = makeOut $ \case
-      Drums4   -> A.Number 4
-      Drums5   -> A.Number 5
-      DrumsPro -> A.String "pro"
+      Drums4    -> A.Number 4
+      Drums5    -> A.Number 5
+      DrumsPro  -> A.String "pro"
+      DrumsReal -> A.String "real"
     }
 
 data OrangeFallback = FallbackBlue | FallbackGreen

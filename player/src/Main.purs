@@ -3,7 +3,7 @@ module Main where
 import           Prelude
 
 import           Control.Monad.Except  (runExcept)
-import           Data.Array            (uncons, (:), concat, take, drop)
+import           Data.Array            (uncons, (:), concat, take, drop, concatMap)
 import           Data.DateTime.Instant (unInstant)
 import           Data.Either           (Either (..))
 import           Data.Int              (round, toNumber)
@@ -23,7 +23,7 @@ import           Audio                 (loadAudio, playFrom, stop)
 import           Draw                  (draw, getWindowDims, numMod, _B, _M)
 import           Draw.Common           (AppTime (..), Settings, Drawer (..))
 import           Images
-import           Song                  (Flex (..), Song (..), isForeignSong, vocalCount)
+import           Song                  (Flex (..), Song (..), isForeignSong, vocalCount, DrumMode (..), Drums (..), drumsProTo4)
 import           Style                 (customize)
 import           Draw.Drums         (drawDrums)
 import           Draw.Five          (drawFive)
@@ -147,15 +147,37 @@ main = catchException (\e -> displayError (show e) *> throwException e) do
                     , diffs: map (map drawSix) ds
                     , count: 1
                     }
-                , case flex.drums of
-                  Nothing -> []
-                  Just ds -> pure
-                    { typeName: "(Pro) Drums"
-                    , typeIcon: image_icon_drums
+                , flip concatMap flex.drums $ \ds -> let
+                  dtype = case uncons ds of
+                    Nothing -> Drums4 -- shouldn't happen
+                    Just {head: h} -> case snd h of
+                      Drums d -> d.mode
+                  normal =
+                    { typeName: case dtype of
+                      Drums4    -> "Drums (4)"
+                      Drums5    -> "Drums (5)"
+                      DrumsPro  -> "Pro Drums"
+                      DrumsReal -> "Real Drums"
+                    , typeIcon: case dtype of
+                      DrumsPro  -> image_icon_pro_drums
+                      DrumsReal -> image_icon_real_drums
+                      _         -> image_icon_drums
                     , typeVertical: true
                     , diffs: map (map drawDrums) ds
                     , count: 1
                     }
+                  in case dtype of
+                    DrumsPro -> let
+                      unpro = map (map drumsProTo4) ds
+                      basic =
+                        { typeName: "Drums (4)"
+                        , typeIcon: image_icon_drums
+                        , typeVertical: true
+                        , diffs: map (map drawDrums) unpro
+                        , count: 1
+                        }
+                      in [normal, basic]
+                    _ -> [normal]
                 , case flex.prokeys of
                   Nothing -> []
                   Just ds -> pure

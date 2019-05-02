@@ -16,13 +16,15 @@ import           Draw.Common        (Draw, drawImage, drawLane, fillRect,
                                      secToNum, setFillStyle, drawBeats, BadgeInfo, drawBadgeVertical)
 import           Images
 import           OnyxMap            as Map
-import           Song               (Drums (..), Gem (..))
+import           Song               (DrumMode (..), Drums (..), Gem (..))
 import           Style              (customize)
 
 drawDrumsPerspective :: Drums -> C.Rectangle -> Number -> Draw Int
 drawDrumsPerspective (Drums drums) rect horizonY stuff = do
   let ctx = stuff.context
-      numLanes = if drums.mode5 then 5.0 else 4.0
+      numLanes = case drums.mode of
+        Drums5 -> 5.0
+        _      -> 4.0
       horizonX = rect.x + rect.width * 0.5
       strikeY = rect.y + rect.height * 0.7
       strikeHeight = rect.height * 0.09
@@ -149,8 +151,11 @@ drawDrumsPerspective (Drums drums) rect horizonY stuff = do
     C.setStrokeStyle ctx "black"
     C.setLineWidth ctx $ secsToY (secs <> Seconds (-0.002)) - secsToY (secs <> Seconds 0.002)
     for_ evts \e -> let
+      kickColor = case drums.mode of
+        Drums5 -> "#af3abc"
+        _      -> "#e8ad19"
       fracs = case e of
-        Kick     -> {left: 0.0, right: 1.0, color: if drums.mode5 then "#af3abc" else "#e8ad19", height: 0.02}
+        Kick     -> {left: 0.0, right: 1.0, color: kickColor, height: 0.02}
         Red      -> {left: 0.0 / numLanes, right: 1.0 / numLanes, color: "#e55050", height: 0.05}
         Rimshot  -> {left: 0.0 / numLanes, right: 1.0 / numLanes, color: "#e55050", height: 0.05}
         YTom     -> {left: 1.0 / numLanes, right: 2.0 / numLanes, color: "#e1ea2c", height: 0.05}
@@ -182,7 +187,9 @@ drawDrums (Drums drums) badge targetX stuff = do
   let pxToSecsVert px = stuff.pxToSecsVert (windowH - px) <> stuff.time
       secsToPxVert secs = windowH - stuff.secsToPxVert (secs <> negateDuration stuff.time)
       widthFret = customize.widthStandardFret
-      numLanes = if drums.mode5 then 5 else 4
+      numLanes = case drums.mode of
+        Drums5 -> 5
+        _      -> 4
       widthHighway = numLanes * widthFret + 2
       maxSecs = pxToSecsVert $ stuff.minY - 50
       minSecs = pxToSecsVert $ stuff.maxY + 50
@@ -211,7 +218,9 @@ drawDrums (Drums drums) badge targetX stuff = do
       drawSolos (L.Cons (Tuple s1 b1) rest@(L.Cons (Tuple s2 _) _)) = do
         let y1 = secsToPxVert s1
             y2 = secsToPxVert s2
-            dividers2 = map (\i -> i * widthFret + 2) $ range 0 $ if drums.mode5 then 4 else 3
+            dividers2 = map (\i -> i * widthFret + 2) $ range 0 $ case drums.mode of
+              Drums5 -> 4
+              _      -> 3
         when b1 $ for_ dividers2 \offsetX -> do
           fillRect { x: toNumber $ targetX + offsetX, y: toNumber y2, width: toNumber $ widthFret - 2, height: toNumber $ y1 - y2 } stuff
         drawSolos rest
@@ -230,8 +239,8 @@ drawDrums (Drums drums) badge targetX stuff = do
     } stuff
   -- Railings
   setFillStyle customize.highwayRailing stuff
-  let dividers0 = map (\i -> i * widthFret    ) $ range 0 $ if drums.mode5 then 5 else 4
-      dividers1 = map (\i -> i * widthFret + 1) $ range 0 $ if drums.mode5 then 5 else 4
+  let dividers0 = map (\i -> i * widthFret    ) $ range 0 numLanes
+      dividers1 = map (\i -> i * widthFret + 1) $ range 0 numLanes
   for_ dividers0 \offsetX -> do
     fillRect { x: toNumber $ targetX + offsetX, y: toNumber stuff.minY, width: 1.0, height: toNumber drawH } stuff
   setFillStyle customize.highwayDivider stuff
@@ -281,15 +290,19 @@ drawDrums (Drums drums) badge targetX stuff = do
   drawImage image_highway_target_red    (toNumber $ targetX + 0 * widthFret + 1) (toNumber targetY - 5.0) stuff
   drawImage image_highway_target_yellow (toNumber $ targetX + 1 * widthFret + 1) (toNumber targetY - 5.0) stuff
   drawImage image_highway_target_blue   (toNumber $ targetX + 2 * widthFret + 1) (toNumber targetY - 5.0) stuff
-  if drums.mode5
-    then do
+  case drums.mode of
+    Drums5 -> do
       drawImage image_highway_target_orange (toNumber $ targetX + 3 * widthFret + 1) (toNumber targetY - 5.0) stuff
       drawImage image_highway_target_green  (toNumber $ targetX + 4 * widthFret + 1) (toNumber targetY - 5.0) stuff
-    else
+    _ -> do
       drawImage image_highway_target_green  (toNumber $ targetX + 3 * widthFret + 1) (toNumber targetY - 5.0) stuff
   -- Kick notes
-  let imgKick   = if drums.mode5 then image_gem_open        else image_gem_kick
-      imgKickOD = if drums.mode5 then image_gem_open_energy else image_gem_kick_energy
+  let imgKick   = case drums.mode of
+        Drums5 -> image_gem_open
+        _      -> image_gem_kick
+      imgKickOD = case drums.mode of
+        Drums5 -> image_gem_open_energy
+        _      -> image_gem_kick_energy
   zoomDesc drums.notes \secs evts -> do
     let futureSecs = secToNum $ secs <> negateDuration stuff.time
     if stuff.app.settings.autoplay && futureSecs <= 0.0
@@ -299,9 +312,9 @@ drawDrums (Drums drums) badge targetX stuff = do
           then do
             let opacity = (futureSecs + 0.1) / 0.05
                 kick = do
-                  if drums.mode5
-                    then setFillStyle (customize.sustainPurple.hit opacity) stuff
-                    else setFillStyle (customize.sustainOrange.hit opacity) stuff
+                  case drums.mode of
+                    Drums5 -> setFillStyle (customize.sustainPurple.hit opacity) stuff
+                    _      -> setFillStyle (customize.sustainOrange.hit opacity) stuff
                   fillRect { x: toNumber $ targetX + 0 * widthFret + 2, y: toNumber $ targetY - 5, width: toNumber $ numLanes * widthFret - 1, height: 1.0 } stuff
                   fillRect { x: toNumber $ targetX + 0 * widthFret + 2, y: toNumber $ targetY + 4, width: toNumber $ numLanes * widthFret - 1, height: 1.0 } stuff
             for_ evts \e -> case e of
@@ -345,8 +358,16 @@ drawDrums (Drums drums) badge targetX stuff = do
                   setFillStyle (customize.sustainGreen.hit opacity) stuff
                   fillRect { x: toNumber $ targetX + (numLanes - 1) * widthFret + 2, y: toNumber $ targetY - 4, width: toNumber $ widthFret - 1, height: 8.0 } stuff
                 red' = if stuff.app.settings.leftyFlip then green else red
-                yellow' = if stuff.app.settings.leftyFlip then (if drums.mode5 then orange else blue) else yellow
-                blue' = if stuff.app.settings.leftyFlip then (if drums.mode5 then blue else yellow) else blue
+                yellow' = if stuff.app.settings.leftyFlip
+                  then case drums.mode of
+                    Drums5 -> orange
+                    _      -> blue
+                  else yellow
+                blue' = if stuff.app.settings.leftyFlip
+                  then case drums.mode of
+                    Drums5 -> blue
+                    _      -> yellow
+                  else blue
                 orange' = if stuff.app.settings.leftyFlip then yellow else orange
                 green' = if stuff.app.settings.leftyFlip then red else green
             for_ evts \e -> case e of
@@ -382,13 +403,17 @@ drawDrums (Drums drums) badge targetX stuff = do
             (toNumber $ y - 5) stuff
           YTom -> drawImage
             (if isEnergy then image_gem_energy else if stuff.app.settings.leftyFlip
-              then (if drums.mode5 then image_gem_orange else image_gem_blue)
+              then case drums.mode of
+                Drums5 -> image_gem_orange
+                _      -> image_gem_blue
               else image_gem_yellow)
             (toNumber $ targetX + handedness 1 * widthFret + 1)
             (toNumber $ y - 5) stuff
           YCym -> drawImage
             (if isEnergy then image_gem_energy_cymbal else if stuff.app.settings.leftyFlip
-              then (if drums.mode5 then image_gem_orange_cymbal else image_gem_blue_cymbal)
+              then case drums.mode of
+                Drums5 -> image_gem_orange_cymbal
+                _      -> image_gem_blue_cymbal
               else image_gem_yellow_cymbal)
             (toNumber $ targetX + handedness 1 * widthFret + 1)
             (toNumber $ y - 8) stuff
@@ -412,13 +437,17 @@ drawDrums (Drums drums) badge targetX stuff = do
             (toNumber $ y - 8) stuff
           BTom -> drawImage
             (if isEnergy then image_gem_energy else if stuff.app.settings.leftyFlip
-              then (if drums.mode5 then image_gem_blue else image_gem_yellow)
+              then case drums.mode of
+                Drums5 -> image_gem_blue
+                _      -> image_gem_yellow
               else image_gem_blue)
             (toNumber $ targetX + handedness 2 * widthFret + 1)
             (toNumber $ y - 5) stuff
           BCym -> drawImage
             (if isEnergy then image_gem_energy_cymbal else if stuff.app.settings.leftyFlip
-              then (if drums.mode5 then image_gem_blue_cymbal else image_gem_yellow_cymbal)
+              then case drums.mode of
+                Drums5 -> image_gem_blue_cymbal
+                _      -> image_gem_yellow_cymbal
               else image_gem_blue_cymbal)
             (toNumber $ targetX + handedness 2 * widthFret + 1)
             (toNumber $ y - 8) stuff

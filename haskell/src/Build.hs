@@ -1573,7 +1573,11 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 , FoF.charter          = _author $ _metadata songYaml
                 , FoF.year             = _year $ _metadata songYaml
                 , FoF.genre            = Just $ fofGenre fullGenre
-                , FoF.proDrums         = guard (dmode == Just DrumsPro) >> Just True
+                , FoF.proDrums         = flip fmap dmode $ \case
+                  DrumsPro  -> True
+                  DrumsReal -> True
+                  Drums4    -> False
+                  Drums5    -> False
                 , FoF.fiveLaneDrums    = Nothing
                 -- for consistency we will just use the flipped midi layout,
                 -- where 100 is green and 101 is orange
@@ -1590,8 +1594,9 @@ shakeBuild audioDirs yamlPath extraTargets buildables = do
                 , FoF.diffBassGHL      = Just $ fromIntegral $ chBassGHLTier    - 1
                 , FoF.diffDrums        = Just $ fromIntegral $ rb3DrumsTier     - 1
                 , FoF.diffDrumsReal    = Just $ case dmode of
-                  Just DrumsPro -> fromIntegral $ rb3DrumsTier - 1
-                  _             -> -1
+                  Just DrumsPro  -> fromIntegral $ rb3DrumsTier - 1
+                  Just DrumsReal -> fromIntegral $ rb3DrumsTier - 1
+                  _              -> -1
                 , FoF.diffKeys         = Just $ fromIntegral $ rb3KeysTier      - 1
                 , FoF.diffKeysReal     = Just $ fromIntegral $ rb3ProKeysTier   - 1
                 , FoF.diffVocals       = Just $ fromIntegral $ rb3VocalTier     - 1

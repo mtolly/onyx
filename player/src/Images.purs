@@ -255,65 +255,67 @@ image_icon_pro_guitar :: ImageID
 image_icon_pro_guitar = { index: 118, name: "icon-pro-guitar" }
 image_icon_pro_keys :: ImageID
 image_icon_pro_keys = { index: 119, name: "icon-pro-keys" }
+image_icon_real_drums :: ImageID
+image_icon_real_drums = { index: 120, name: "icon-real-drums" }
 image_icon_vocal_1 :: ImageID
-image_icon_vocal_1 = { index: 120, name: "icon-vocal-1" }
+image_icon_vocal_1 = { index: 121, name: "icon-vocal-1" }
 image_icon_vocal_2 :: ImageID
-image_icon_vocal_2 = { index: 121, name: "icon-vocal-2" }
+image_icon_vocal_2 = { index: 122, name: "icon-vocal-2" }
 image_icon_vocal_3 :: ImageID
-image_icon_vocal_3 = { index: 122, name: "icon-vocal-3" }
+image_icon_vocal_3 = { index: 123, name: "icon-vocal-3" }
 image_pro_fret_00 :: ImageID
-image_pro_fret_00 = { index: 123, name: "pro-fret-00" }
+image_pro_fret_00 = { index: 124, name: "pro-fret-00" }
 image_pro_fret_01 :: ImageID
-image_pro_fret_01 = { index: 124, name: "pro-fret-01" }
+image_pro_fret_01 = { index: 125, name: "pro-fret-01" }
 image_pro_fret_02 :: ImageID
-image_pro_fret_02 = { index: 125, name: "pro-fret-02" }
+image_pro_fret_02 = { index: 126, name: "pro-fret-02" }
 image_pro_fret_03 :: ImageID
-image_pro_fret_03 = { index: 126, name: "pro-fret-03" }
+image_pro_fret_03 = { index: 127, name: "pro-fret-03" }
 image_pro_fret_04 :: ImageID
-image_pro_fret_04 = { index: 127, name: "pro-fret-04" }
+image_pro_fret_04 = { index: 128, name: "pro-fret-04" }
 image_pro_fret_05 :: ImageID
-image_pro_fret_05 = { index: 128, name: "pro-fret-05" }
+image_pro_fret_05 = { index: 129, name: "pro-fret-05" }
 image_pro_fret_06 :: ImageID
-image_pro_fret_06 = { index: 129, name: "pro-fret-06" }
+image_pro_fret_06 = { index: 130, name: "pro-fret-06" }
 image_pro_fret_07 :: ImageID
-image_pro_fret_07 = { index: 130, name: "pro-fret-07" }
+image_pro_fret_07 = { index: 131, name: "pro-fret-07" }
 image_pro_fret_08 :: ImageID
-image_pro_fret_08 = { index: 131, name: "pro-fret-08" }
+image_pro_fret_08 = { index: 132, name: "pro-fret-08" }
 image_pro_fret_09 :: ImageID
-image_pro_fret_09 = { index: 132, name: "pro-fret-09" }
+image_pro_fret_09 = { index: 133, name: "pro-fret-09" }
 image_pro_fret_10 :: ImageID
-image_pro_fret_10 = { index: 133, name: "pro-fret-10" }
+image_pro_fret_10 = { index: 134, name: "pro-fret-10" }
 image_pro_fret_11 :: ImageID
-image_pro_fret_11 = { index: 134, name: "pro-fret-11" }
+image_pro_fret_11 = { index: 135, name: "pro-fret-11" }
 image_pro_fret_12 :: ImageID
-image_pro_fret_12 = { index: 135, name: "pro-fret-12" }
+image_pro_fret_12 = { index: 136, name: "pro-fret-12" }
 image_pro_fret_13 :: ImageID
-image_pro_fret_13 = { index: 136, name: "pro-fret-13" }
+image_pro_fret_13 = { index: 137, name: "pro-fret-13" }
 image_pro_fret_14 :: ImageID
-image_pro_fret_14 = { index: 137, name: "pro-fret-14" }
+image_pro_fret_14 = { index: 138, name: "pro-fret-14" }
 image_pro_fret_15 :: ImageID
-image_pro_fret_15 = { index: 138, name: "pro-fret-15" }
+image_pro_fret_15 = { index: 139, name: "pro-fret-15" }
 image_pro_fret_16 :: ImageID
-image_pro_fret_16 = { index: 139, name: "pro-fret-16" }
+image_pro_fret_16 = { index: 140, name: "pro-fret-16" }
 image_pro_fret_17 :: ImageID
-image_pro_fret_17 = { index: 140, name: "pro-fret-17" }
+image_pro_fret_17 = { index: 141, name: "pro-fret-17" }
 image_pro_fret_18 :: ImageID
-image_pro_fret_18 = { index: 141, name: "pro-fret-18" }
+image_pro_fret_18 = { index: 142, name: "pro-fret-18" }
 image_pro_fret_19 :: ImageID
-image_pro_fret_19 = { index: 142, name: "pro-fret-19" }
+image_pro_fret_19 = { index: 143, name: "pro-fret-19" }
 image_pro_fret_20 :: ImageID
-image_pro_fret_20 = { index: 143, name: "pro-fret-20" }
+image_pro_fret_20 = { index: 144, name: "pro-fret-20" }
 image_pro_fret_21 :: ImageID
-image_pro_fret_21 = { index: 144, name: "pro-fret-21" }
+image_pro_fret_21 = { index: 145, name: "pro-fret-21" }
 image_pro_fret_22 :: ImageID
-image_pro_fret_22 = { index: 145, name: "pro-fret-22" }
+image_pro_fret_22 = { index: 146, name: "pro-fret-22" }
 image_pro_fret_23 :: ImageID
-image_pro_fret_23 = { index: 146, name: "pro-fret-23" }
+image_pro_fret_23 = { index: 147, name: "pro-fret-23" }
 image_pro_fret_24 :: ImageID
-image_pro_fret_24 = { index: 147, name: "pro-fret-24" }
+image_pro_fret_24 = { index: 148, name: "pro-fret-24" }
 
 allImageIDs :: Array ImageID
-allImageIDs = [image_button_gear, image_button_pause, image_button_play, image_gem_black, image_gem_black_hopo, image_gem_black_tap, image_gem_blackkey, image_gem_blackkey_energy, image_gem_blackwhite, image_gem_blackwhite_hopo, image_gem_blackwhite_tap, image_gem_blue, image_gem_blue_cymbal, image_gem_blue_hhclosed, image_gem_blue_hhopen, image_gem_blue_hhpedal, image_gem_blue_hopo, image_gem_blue_pro, image_gem_blue_pro_hopo, image_gem_blue_pro_tap, image_gem_blue_tap, image_gem_catch, image_gem_energy, image_gem_energy_cymbal, image_gem_energy_hhclosed, image_gem_energy_hhopen, image_gem_energy_hhpedal, image_gem_energy_hopo, image_gem_energy_mute, image_gem_energy_mute_hopo, image_gem_energy_mute_tap, image_gem_energy_pro, image_gem_energy_pro_hopo, image_gem_energy_pro_tap, image_gem_energy_rimshot, image_gem_energy_tap, image_gem_ghl_energy, image_gem_green, image_gem_green_cymbal, image_gem_green_hopo, image_gem_green_pro, image_gem_green_pro_hopo, image_gem_green_pro_tap, image_gem_green_rimshot, image_gem_green_tap, image_gem_kick, image_gem_kick_energy, image_gem_mute, image_gem_mute_hopo, image_gem_mute_tap, image_gem_open, image_gem_open_energy, image_gem_open_energy_hopo, image_gem_open_energy_tap, image_gem_open_hopo, image_gem_open_tap, image_gem_openghl, image_gem_openghl_energy, image_gem_openghl_hopo, image_gem_openghl_tap, image_gem_orange, image_gem_orange_cymbal, image_gem_orange_hopo, image_gem_orange_pro, image_gem_orange_pro_hopo, image_gem_orange_pro_tap, image_gem_orange_tap, image_gem_purple_pro, image_gem_purple_pro_hopo, image_gem_purple_pro_tap, image_gem_red, image_gem_red_cymbal, image_gem_red_hopo, image_gem_red_pro, image_gem_red_pro_hopo, image_gem_red_pro_tap, image_gem_red_rimshot, image_gem_red_tap, image_gem_white, image_gem_white_hopo, image_gem_white_tap, image_gem_whiteblack, image_gem_whiteblack_hopo, image_gem_whiteblack_tap, image_gem_whitekey, image_gem_whitekey_energy, image_gem_yellow, image_gem_yellow_cymbal, image_gem_yellow_hhclosed, image_gem_yellow_hhopen, image_gem_yellow_hhpedal, image_gem_yellow_hopo, image_gem_yellow_pro, image_gem_yellow_pro_hopo, image_gem_yellow_pro_tap, image_gem_yellow_tap, image_highway_catch_target, image_highway_ghl_target, image_highway_prokeys_target, image_highway_protar_target_blue, image_highway_protar_target_green, image_highway_protar_target_orange, image_highway_protar_target_purple, image_highway_protar_target_red, image_highway_protar_target_yellow, image_highway_target_blue, image_highway_target_green, image_highway_target_orange, image_highway_target_red, image_highway_target_yellow, image_icon_amplitude, image_icon_bass, image_icon_drums, image_icon_ghl, image_icon_guitar, image_icon_keys, image_icon_pro_bass, image_icon_pro_drums, image_icon_pro_guitar, image_icon_pro_keys, image_icon_vocal_1, image_icon_vocal_2, image_icon_vocal_3, image_pro_fret_00, image_pro_fret_01, image_pro_fret_02, image_pro_fret_03, image_pro_fret_04, image_pro_fret_05, image_pro_fret_06, image_pro_fret_07, image_pro_fret_08, image_pro_fret_09, image_pro_fret_10, image_pro_fret_11, image_pro_fret_12, image_pro_fret_13, image_pro_fret_14, image_pro_fret_15, image_pro_fret_16, image_pro_fret_17, image_pro_fret_18, image_pro_fret_19, image_pro_fret_20, image_pro_fret_21, image_pro_fret_22, image_pro_fret_23, image_pro_fret_24]
+allImageIDs = [image_button_gear, image_button_pause, image_button_play, image_gem_black, image_gem_black_hopo, image_gem_black_tap, image_gem_blackkey, image_gem_blackkey_energy, image_gem_blackwhite, image_gem_blackwhite_hopo, image_gem_blackwhite_tap, image_gem_blue, image_gem_blue_cymbal, image_gem_blue_hhclosed, image_gem_blue_hhopen, image_gem_blue_hhpedal, image_gem_blue_hopo, image_gem_blue_pro, image_gem_blue_pro_hopo, image_gem_blue_pro_tap, image_gem_blue_tap, image_gem_catch, image_gem_energy, image_gem_energy_cymbal, image_gem_energy_hhclosed, image_gem_energy_hhopen, image_gem_energy_hhpedal, image_gem_energy_hopo, image_gem_energy_mute, image_gem_energy_mute_hopo, image_gem_energy_mute_tap, image_gem_energy_pro, image_gem_energy_pro_hopo, image_gem_energy_pro_tap, image_gem_energy_rimshot, image_gem_energy_tap, image_gem_ghl_energy, image_gem_green, image_gem_green_cymbal, image_gem_green_hopo, image_gem_green_pro, image_gem_green_pro_hopo, image_gem_green_pro_tap, image_gem_green_rimshot, image_gem_green_tap, image_gem_kick, image_gem_kick_energy, image_gem_mute, image_gem_mute_hopo, image_gem_mute_tap, image_gem_open, image_gem_open_energy, image_gem_open_energy_hopo, image_gem_open_energy_tap, image_gem_open_hopo, image_gem_open_tap, image_gem_openghl, image_gem_openghl_energy, image_gem_openghl_hopo, image_gem_openghl_tap, image_gem_orange, image_gem_orange_cymbal, image_gem_orange_hopo, image_gem_orange_pro, image_gem_orange_pro_hopo, image_gem_orange_pro_tap, image_gem_orange_tap, image_gem_purple_pro, image_gem_purple_pro_hopo, image_gem_purple_pro_tap, image_gem_red, image_gem_red_cymbal, image_gem_red_hopo, image_gem_red_pro, image_gem_red_pro_hopo, image_gem_red_pro_tap, image_gem_red_rimshot, image_gem_red_tap, image_gem_white, image_gem_white_hopo, image_gem_white_tap, image_gem_whiteblack, image_gem_whiteblack_hopo, image_gem_whiteblack_tap, image_gem_whitekey, image_gem_whitekey_energy, image_gem_yellow, image_gem_yellow_cymbal, image_gem_yellow_hhclosed, image_gem_yellow_hhopen, image_gem_yellow_hhpedal, image_gem_yellow_hopo, image_gem_yellow_pro, image_gem_yellow_pro_hopo, image_gem_yellow_pro_tap, image_gem_yellow_tap, image_highway_catch_target, image_highway_ghl_target, image_highway_prokeys_target, image_highway_protar_target_blue, image_highway_protar_target_green, image_highway_protar_target_orange, image_highway_protar_target_purple, image_highway_protar_target_red, image_highway_protar_target_yellow, image_highway_target_blue, image_highway_target_green, image_highway_target_orange, image_highway_target_red, image_highway_target_yellow, image_icon_amplitude, image_icon_bass, image_icon_drums, image_icon_ghl, image_icon_guitar, image_icon_keys, image_icon_pro_bass, image_icon_pro_drums, image_icon_pro_guitar, image_icon_pro_keys, image_icon_real_drums, image_icon_vocal_1, image_icon_vocal_2, image_icon_vocal_3, image_pro_fret_00, image_pro_fret_01, image_pro_fret_02, image_pro_fret_03, image_pro_fret_04, image_pro_fret_05, image_pro_fret_06, image_pro_fret_07, image_pro_fret_08, image_pro_fret_09, image_pro_fret_10, image_pro_fret_11, image_pro_fret_12, image_pro_fret_13, image_pro_fret_14, image_pro_fret_15, image_pro_fret_16, image_pro_fret_17, image_pro_fret_18, image_pro_fret_19, image_pro_fret_20, image_pro_fret_21, image_pro_fret_22, image_pro_fret_23, image_pro_fret_24]
 
 -- end generated section
 
