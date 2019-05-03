@@ -183,25 +183,3 @@ executables:
   onyx-package:
     main: Installer.hs
     dependencies: [base, nsis, text]
-
-  onyx-game:
-    source-dirs: src-game
-    main: Main.hs
-    ghc-options: -threaded -O
-    dependencies:
-    - base
-    - onyxite-customs-tool
-    - sdl2
-    - containers
-    - conduit
-    - conduit-audio
-    - conduit-audio-sndfile
-    - vector
-    - async
-    - temporary
-    - filepath
-    - resourcet
-    - transformers
-    - unordered-containers
-    - event-list
-    - midi-util

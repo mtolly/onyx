@@ -1,5 +1,7 @@
 packages:
 - '.'
+- location: game/
+  extra-dep: true
 - location: ArkTool/
   extra-dep: true
 - location:

@@ -1,0 +1,33 @@
+name: onyx-game
+version: '20190209'
+github: mtolly/onyxite-customs
+author: Michael Tolly <miketolly@gmail.com>
+category: Distribution
+license: GPL-3
+license-file: LICENSE.txt
+
+ghc-options: -Wall
+
+executables:
+
+  onyx-game:
+    source-dirs: src
+    main: Main.hs
+    ghc-options: -threaded -O
+    dependencies:
+    - base
+    - onyxite-customs-tool
+    - sdl2
+    - containers
+    - conduit
+    - conduit-audio
+    - conduit-audio-sndfile
+    - vector
+    - async
+    - temporary
+    - filepath
+    - resourcet
+    - transformers
+    - unordered-containers
+    - event-list
+    - midi-util

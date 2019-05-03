@@ -22,7 +22,7 @@ install-magma:
 	cp -R vendors/rb3-updates $(HOME)/.local/bin/
 
 mac:
-	# stack build .
+	stack build .
 	cp $(shell stack exec which onyx) Onyx.app/Contents/MacOS/onyx
 	strip Onyx.app/Contents/MacOS/onyx
 	rm -rf Onyx.app/Contents/libs/*.dylib
@@ -44,7 +44,7 @@ mac-deps:
 	brew install libsndfile libsamplerate lame rubberband dylibbundler wine mono mono-libgdiplus mpg123
 
 win:
-	stack build
+	stack build .
 	rm -rf win/
 	mkdir win/
 	cp "$(shell stack exec which onyx)" win/
