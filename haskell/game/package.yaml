@@ -4,7 +4,7 @@ github: mtolly/onyxite-customs
 author: Michael Tolly <miketolly@gmail.com>
 category: Distribution
 license: GPL-3
-license-file: LICENSE.txt
+license-file: ../LICENSE.txt
 
 ghc-options: -Wall
 
