@@ -16,6 +16,7 @@ import qualified Data.EventList.Relative.TimeBody as RTB
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (fromMaybe)
+import           Graphics.GL.Core33
 import           Import                           (importSTFS)
 import qualified RhythmGame.Audio                 as RGAudio
 import qualified RhythmGame.Drums                 as RGDrums
@@ -58,13 +59,16 @@ main = getArgs >>= \case
               { SDL.windowResizable = True
               , SDL.windowHighDPI = False
               , SDL.windowInitialSize = SDL.V2 800 600
+              , SDL.windowOpenGL = Just SDL.defaultOpenGL
+                { SDL.glProfile = SDL.Core SDL.Normal 3 3
+                }
               }
         bracket (SDL.createWindow "Onyx" windowConf) SDL.destroyWindow $ \window -> do
           SDL.windowMinimumSize window $= SDL.V2 800 600
-          bracket (SDL.createRenderer window (-1) SDL.defaultRenderer) SDL.destroyRenderer $ \rend -> do
+          bracket (SDL.glCreateContext window) (\ctx -> glFinish >> SDL.glDeleteContext ctx) $ \_ctx -> do
             threadDelay 1000000 -- this prevents a weird crash, see https://github.com/haskell-game/sdl2/issues/176
             RGAudio.playMOGG pans vols (dir </> "audio.mogg") $ do
-              RGDrums.playDrums window rend trk
+              RGDrums.playDrums window trk
     case res of
       Left err -> throwIO err
       Right () -> return ()

@@ -31,3 +31,6 @@ executables:
     - unordered-containers
     - event-list
     - midi-util
+    - gl
+    - JuicyPixels
+    - matrix
