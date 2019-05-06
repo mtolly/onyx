@@ -1,11 +1,12 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TemplateHaskell #-}
 module RhythmGame.Drums where
 
 import           Codec.Picture
 import           Control.Concurrent        (threadDelay)
 import           Control.Exception         (bracket)
 import           Control.Monad             (forM_, when)
-import           Control.Monad.IO.Class    (liftIO)
+import           Control.Monad.IO.Class    (MonadIO(..))
 import           Control.Monad.Trans.State
 import           Data.List                 (partition)
 import qualified Data.Map.Strict           as Map
@@ -14,6 +15,7 @@ import qualified Data.Matrix               as M
 import           Data.Maybe                (fromMaybe)
 import qualified Data.Vector               as V
 import qualified Data.Vector.Storable      as VS
+import qualified Data.ByteString as B
 import           Foreign
 import           Foreign.C
 import           Graphics.GL.Core33
@@ -22,6 +24,7 @@ import           Resources                 (onyxAlbum)
 import qualified RockBand.Codec.Drums      as D
 import           SDL                       (($=))
 import qualified SDL
+import Data.FileEmbed (embedFile, makeRelativeToProject)
 
 data Note t a
   = Upcoming a
@@ -147,44 +150,68 @@ drawDrums rend rect@(SDL.Rectangle (SDL.P (SDL.V2 rectX rectY)) (SDL.V2 rectW re
   SDL.fillRect rend $ Just $ SDL.Rectangle (SDL.P $ SDL.V2 rectX nowLineY) $ SDL.V2 rectW 10
   traverseRange_ drawNotes False timeDisappear timeAppear $ trackNotes trk
 
-vertexShaderSource :: String
-vertexShaderSource = unlines
-  [ "#version 330 core"
-  , "layout (location = 0) in vec3 aPos;"
-  , "layout (location = 1) in vec2 aTexCoord;"
+drawDrums' :: GLint -> GLint -> Track Double (D.Gem ()) -> IO ()
+drawDrums' modelLoc colorLoc trk = do
+  let drawCube (x1, y1, z1) (x2, y2, z2) (r, g, b) = do
+        sendMatrix modelLoc
+          $ translate4 (V.fromList [(x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2])
+          * scale4 (V.fromList [x2 - x1, y2 - y1, z2 - z1])
+        glUniform3f colorLoc r g b
+        glDrawArrays GL_TRIANGLES 0 36
+      nearZ = 2 :: Float
+      nowZ = 0 :: Float
+      farZ = -12 :: Float
+      nowTime = trackTime trk :: Double
+      farTime = nowTime + 1 :: Double
+      timeToZ t = nowZ + farZ * realToFrac ((t - nowTime) / (farTime - nowTime))
+      zToTime z = nowTime + farTime * realToFrac ((z - nowZ) / (farZ - nowZ))
+      nearTime = zToTime nearZ
+      drawGem t gem colorFn = let
+        color = case gem of
+          D.Kick            -> (153, 106, 6)
+          D.Red             -> (202, 25, 7)
+          D.Pro D.Yellow () -> (207, 180, 57)
+          D.Pro D.Blue ()   -> (71, 110, 222)
+          D.Pro D.Green ()  -> (58, 207, 68)
+          D.Orange          -> (58, 207, 68) -- TODO
+        (x1, x2) = case gem of
+          D.Kick -> (-1, 1)
+          D.Red -> (-1, -0.5)
+          D.Pro D.Yellow () -> (-0.5, 0)
+          D.Pro D.Blue () -> (0, 0.5)
+          D.Pro D.Green () -> (0.5, 1)
+          D.Orange -> (0.5, 1) -- TODO
+        (y1, y2) = case gem of
+          D.Kick -> (-0.85, -1.1)
+          _      -> (-0.7, -1.1)
+        (z1, z2) = case gem of
+          D.Kick -> (z + 0.1, z - 0.1)
+          _      -> (z + 0.2, z - 0.2)
+        z = timeToZ t
+        in drawCube (x1, y1, z1) (x2, y2, z2) $ case color of
+          (r, g, b) ->
+            ( colorFn $ fromInteger r / 255
+            , colorFn $ fromInteger g / 255
+            , colorFn $ fromInteger b / 255
+            )
+      drawNotes t notes = forM_ notes $ \case
+        Upcoming gem -> drawGem t gem id
+        Hit t' gem -> if nowTime - t' < 0.1
+          then drawGem nowTime gem sqrt
+          else return ()
+        Missed gem -> drawGem t gem (** 3)
+      drawOverhits t notes = if nowTime - t < 0.1
+        then forM_ notes $ \gem -> drawGem nowTime gem (** 3)
+        else return ()
+  drawCube (-1, -1, nearZ) (1, -1.1, farZ) (0.2, 0.2, 0.2)
+  drawCube (-1, -0.98, 0.2) (1, -1.05, -0.2) (0.8, 0.8, 0.8)
+  traverseRange_ drawNotes False nearTime farTime $ trackNotes trk
+  traverseRange_ drawOverhits False nearTime farTime $ trackOverhits trk
 
-  , "out vec2 TexCoord;"
-
-  , "uniform mat4 model;"
-  , "uniform mat4 view;"
-  , "uniform mat4 projection;"
-
-  , "void main()"
-  , "{"
-  , "    gl_Position = projection * view * model * vec4(aPos, 1.0f);"
-  , "    TexCoord = vec2(aTexCoord.x, aTexCoord.y);"
-  , "}"
-  ]
-
-fragmentShaderSource :: String
-fragmentShaderSource = unlines
-  [ "#version 330 core"
-  , "out vec4 FragColor;"
-
-  , "in vec2 TexCoord;"
-
-  , "uniform sampler2D ourTexture;"
-
-  , "void main()"
-  , "{"
-  , "    FragColor = texture(ourTexture, TexCoord);"
-  , "}"
-  ]
-
-compileShader :: GLenum -> String -> IO GLuint
+compileShader :: GLenum -> B.ByteString -> IO GLuint
 compileShader shaderType source = do
   shader <- glCreateShader shaderType
-  withCString source $ \cs' -> with cs' $ \cs -> do
+  B.useAsCString source $ \cs' -> with cs' $ \cs -> do
     glShaderSource shader 1 cs nullPtr
     glCompileShader shader
     alloca $ \success -> do
@@ -215,70 +242,50 @@ withArrayBytes xs f = withArray xs $ \p -> let
   bytes = fromIntegral $ length xs * sizeOf (head xs)
   in f bytes p
 
-vertices :: [CFloat]
-vertices = [
-  -0.5, -0.5, -0.5,  0.0, 0.0,
-   0.5, -0.5, -0.5,  1.0, 0.0,
-   0.5,  0.5, -0.5,  1.0, 1.0,
-   0.5,  0.5, -0.5,  1.0, 1.0,
-  -0.5,  0.5, -0.5,  0.0, 1.0,
-  -0.5, -0.5, -0.5,  0.0, 0.0,
+cubeVertices :: [CFloat]
+cubeVertices = [
+  -0.5, -0.5, -0.5,
+   0.5, -0.5, -0.5,
+   0.5,  0.5, -0.5,
+   0.5,  0.5, -0.5,
+  -0.5,  0.5, -0.5,
+  -0.5, -0.5, -0.5,
 
-  -0.5, -0.5,  0.5,  0.0, 0.0,
-   0.5, -0.5,  0.5,  1.0, 0.0,
-   0.5,  0.5,  0.5,  1.0, 1.0,
-   0.5,  0.5,  0.5,  1.0, 1.0,
-  -0.5,  0.5,  0.5,  0.0, 1.0,
-  -0.5, -0.5,  0.5,  0.0, 0.0,
+  -0.5, -0.5,  0.5,
+   0.5, -0.5,  0.5,
+   0.5,  0.5,  0.5,
+   0.5,  0.5,  0.5,
+  -0.5,  0.5,  0.5,
+  -0.5, -0.5,  0.5,
 
-  -0.5,  0.5,  0.5,  1.0, 0.0,
-  -0.5,  0.5, -0.5,  1.0, 1.0,
-  -0.5, -0.5, -0.5,  0.0, 1.0,
-  -0.5, -0.5, -0.5,  0.0, 1.0,
-  -0.5, -0.5,  0.5,  0.0, 0.0,
-  -0.5,  0.5,  0.5,  1.0, 0.0,
+  -0.5,  0.5,  0.5,
+  -0.5,  0.5, -0.5,
+  -0.5, -0.5, -0.5,
+  -0.5, -0.5, -0.5,
+  -0.5, -0.5,  0.5,
+  -0.5,  0.5,  0.5,
 
-   0.5,  0.5,  0.5,  1.0, 0.0,
-   0.5,  0.5, -0.5,  1.0, 1.0,
-   0.5, -0.5, -0.5,  0.0, 1.0,
-   0.5, -0.5, -0.5,  0.0, 1.0,
-   0.5, -0.5,  0.5,  0.0, 0.0,
-   0.5,  0.5,  0.5,  1.0, 0.0,
+   0.5,  0.5,  0.5,
+   0.5,  0.5, -0.5,
+   0.5, -0.5, -0.5,
+   0.5, -0.5, -0.5,
+   0.5, -0.5,  0.5,
+   0.5,  0.5,  0.5,
 
-  -0.5, -0.5, -0.5,  0.0, 1.0,
-   0.5, -0.5, -0.5,  1.0, 1.0,
-   0.5, -0.5,  0.5,  1.0, 0.0,
-   0.5, -0.5,  0.5,  1.0, 0.0,
-  -0.5, -0.5,  0.5,  0.0, 0.0,
-  -0.5, -0.5, -0.5,  0.0, 1.0,
+  -0.5, -0.5, -0.5,
+   0.5, -0.5, -0.5,
+   0.5, -0.5,  0.5,
+   0.5, -0.5,  0.5,
+  -0.5, -0.5,  0.5,
+  -0.5, -0.5, -0.5,
 
-  -0.5,  0.5, -0.5,  0.0, 1.0,
-   0.5,  0.5, -0.5,  1.0, 1.0,
-   0.5,  0.5,  0.5,  1.0, 0.0,
-   0.5,  0.5,  0.5,  1.0, 0.0,
-  -0.5,  0.5,  0.5,  0.0, 0.0,
-  -0.5,  0.5, -0.5,  0.0, 1.0
+  -0.5,  0.5, -0.5,
+   0.5,  0.5, -0.5,
+   0.5,  0.5,  0.5,
+   0.5,  0.5,  0.5,
+  -0.5,  0.5,  0.5,
+  -0.5,  0.5, -0.5
   ]
-
-cubePositions :: [V.Vector Float]
-cubePositions =
-  [ V.fromList [ 0.0,  0.0,  0.0]
-  , V.fromList [ 2.0,  5.0, -15.0]
-  , V.fromList [-1.5, -2.2, -2.5]
-  , V.fromList [-3.8, -2.0, -12.3]
-  , V.fromList [ 2.4, -0.4, -3.5]
-  , V.fromList [-1.7,  3.0, -7.5]
-  , V.fromList [ 1.3, -2.0, -2.5]
-  , V.fromList [ 1.5,  2.0, -2.5]
-  , V.fromList [ 1.5,  0.2, -1.5]
-  , V.fromList [-1.3,  1.0, -1.5]
-  ]
-
--- indices :: [CInt]
--- indices =
---   [ 0, 1, 3 -- first triangle
---   , 1, 2, 3 -- second triangle
---   ]
 
 rotate4 :: (Floating a) => a -> V.Vector a -> M.Matrix a
 rotate4 theta r = let
@@ -313,7 +320,7 @@ rotate4 theta r = let
 scale4 :: (Num a) => V.Vector a -> M.Matrix a
 scale4 v = M.diagonalList 4 0 (V.toList v ++ [1])
 
-translate4 :: (Floating a) => V.Vector a -> M.Matrix a
+translate4 :: (Num a) => V.Vector a -> M.Matrix a
 translate4 v = M.fromList 4 4
   [ 1, 0, 0, v V.! 0
   , 0, 1, 0, v V.! 1
@@ -347,34 +354,32 @@ perspective fov aspect near far = let
 degrees :: (Floating a) => a -> a
 degrees d = (d / 180) * pi
 
+sendMatrix :: (MonadIO m) => GLint -> M.Matrix Float -> m ()
+sendMatrix loc m = liftIO $ withArray (M.toList m)
+  $ glUniformMatrix4fv loc 1 GL_TRUE {- <- this means row major order -}
+
+objectVS, objectFS :: B.ByteString
+objectVS = $(makeRelativeToProject "shaders/object.vs" >>= embedFile)
+objectFS = $(makeRelativeToProject "shaders/object.fs" >>= embedFile)
+
 playDrums :: SDL.Window -> Track Double (D.Gem ()) -> IO ()
 playDrums window trk = flip evalStateT trk $ do
   initTime <- SDL.ticks
   glEnable GL_DEPTH_TEST
   shaderProgram <- liftIO $ do
-    bracket (compileShader GL_VERTEX_SHADER vertexShaderSource) glDeleteShader $ \vertexShader -> do
-      bracket (compileShader GL_FRAGMENT_SHADER fragmentShaderSource) glDeleteShader $ \fragmentShader -> do
+    bracket (compileShader GL_VERTEX_SHADER objectVS) glDeleteShader $ \vertexShader -> do
+      bracket (compileShader GL_FRAGMENT_SHADER objectFS) glDeleteShader $ \fragmentShader -> do
         compileProgram [vertexShader, fragmentShader]
   vao <- liftIO $ alloca $ \p -> glGenVertexArrays 1 p >> peek p
   vbo <- liftIO $ alloca $ \p -> glGenBuffers 1 p >> peek p
-  ebo <- liftIO $ alloca $ \p -> glGenBuffers 1 p >> peek p
   glBindVertexArray vao
   glBindBuffer GL_ARRAY_BUFFER vbo
-  liftIO $ withArrayBytes vertices $ \size p -> do
+  liftIO $ withArrayBytes cubeVertices $ \size p -> do
     glBufferData GL_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
-  -- glBindBuffer GL_ELEMENT_ARRAY_BUFFER ebo
-  -- liftIO $ withArrayBytes indices $ \size p -> do
-  --   glBufferData GL_ELEMENT_ARRAY_BUFFER size (castPtr p) GL_STATIC_DRAW
-  -- position attribute
   glVertexAttribPointer 0 3 GL_FLOAT GL_FALSE
-    (fromIntegral $ 5 * sizeOf (undefined :: CFloat))
+    (fromIntegral $ 3 * sizeOf (undefined :: CFloat))
     nullPtr
   glEnableVertexAttribArray 0
-  -- texture coords attribute
-  glVertexAttribPointer 1 2 GL_FLOAT GL_FALSE
-    (fromIntegral $ 5 * sizeOf (undefined :: CFloat))
-    (intPtrToPtr $ fromIntegral $ 3 * sizeOf (undefined :: CFloat))
-  glEnableVertexAttribArray 1
   -- texture
   texture <- liftIO $ alloca $ \p -> glGenTextures 1 p >> peek p
   glBindTexture GL_TEXTURE_2D texture
@@ -399,6 +404,7 @@ playDrums window trk = flip evalStateT trk $ do
   modelLoc <- liftIO $ withCString "model" $ glGetUniformLocation shaderProgram
   viewLoc <- liftIO $ withCString "view" $ glGetUniformLocation shaderProgram
   projectionLoc <- liftIO $ withCString "projection" $ glGetUniformLocation shaderProgram
+  colorLoc <- liftIO $ withCString "objectColor" $ glGetUniformLocation shaderProgram
   let loop = SDL.pollEvents >>= processEvents >>= \b -> when b $ do
         timestamp <- SDL.ticks
         modify $ updateTime $ fromIntegral (timestamp - initTime) / 1000
@@ -425,26 +431,19 @@ playDrums window trk = flip evalStateT trk $ do
             processEvents es
         _ -> processEvents es
       draw = do
-        _trk' <- get
+        trk' <- get
         SDL.V2 w h <- SDL.glGetDrawableSize window
         glViewport 0 0 (fromIntegral w) (fromIntegral h)
         glClearColor 0.2 0.3 0.3 1.0
         glClear $ GL_COLOR_BUFFER_BIT .|. GL_DEPTH_BUFFER_BIT
-        glBindTexture GL_TEXTURE_2D texture
         glUseProgram shaderProgram
-        let view = translate4 (V.fromList [0, 0, -3])
+        let view
+              = rotate4 (degrees 20) (V.fromList [1, 0, 0])
+              * translate4 (V.fromList [0, -1, -3])
             projection = perspective (degrees 45) (fromIntegral w / fromIntegral h) 0.1 100
-            sendMatrix loc m = liftIO $ withArray (M.toList m)
-              $ glUniformMatrix4fv loc 1 GL_TRUE {- <- this means row major order -}
         sendMatrix viewLoc view
         sendMatrix projectionLoc projection
         glBindVertexArray vao
-        forM_ [0..9] $ \i -> do
-          let angle = degrees 20 * realToFrac i + case rem i 3 of
-                0 -> realToFrac $ trackTime _trk'
-                _ -> 1
-              model = translate4 (cubePositions !! i) * rotate4 angle (V.fromList [1, 0.3, 0.5])
-          sendMatrix modelLoc $ model
-          glDrawArrays GL_TRIANGLES 0 36
+        liftIO $ drawDrums' modelLoc colorLoc trk'
         SDL.glSwapWindow window
   loop
